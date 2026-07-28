@@ -422,5 +422,63 @@ return function(DebouncePrivate)
         expectRemoved(covers, "target");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 3. 잔여 상자 폭발 방지
+    ---------------------------------------------------------------------------
+
+    -- 조각을 앞쪽 교집합으로 누르지 않으면(= 겹치는 합집합으로 만들면) 같은 영역이
+    -- 중복 표현되면서 잔여 집합에 상한이 사라진다. 아래 입력에서 상자가 1,500개를
+    -- 넘겼었고, 조건이 더 겹치면 OOM까지 간다. BuildKeyMap은 바인딩을 편집할 때마다
+    -- 불리므로 게임이 멈춘다.
+    --
+    -- 서로소 분해에서는 잔여 상자가 축들이 만드는 격자의 칸 수를 못 넘는다.
+    local Stats = DebouncePrivate.SolverStats;
+
+    local function adversarialSet(count)
+        local UNITS = { "target", "focus", "mouseover", "tank", "healer" };
+        local OVERLAP = { true, "help", "harm" };
+        local bindings = {};
+        for i = 1, count do
+            local b = { name = "c" .. i, checkedUnits = {} };
+            for u = 1, #UNITS do
+                -- 값이 항상 서로 겹치게 해서 조기 종료가 안 걸리도록 한다
+                b.checkedUnits[UNITS[u]] = OVERLAP[(i + u) % 3 + 1];
+            end
+            for s = 1, 5 do
+                b["$state" .. s] = ((i + s) % 2 == 0);
+            end
+            bindings[i] = b;
+        end
+        bindings[count + 1] = { name = "subject" };
+        return bindings;
+    end
+
+    test("겹치는 조건이 많아도 잔여 상자가 상한 안에 머묾", function()
+        for _, count in ipairs({ 8, 16, 30 }) do
+            local bindings = adversarialSet(count);
+            survivors(bindings);
+            check(not Stats.gaveUp,
+                ("바인딩 %d개에서 상자 상한 초과로 판정을 포기함 (maxBoxes=%d)")
+                :format(count, Stats.maxBoxes));
+            check(Stats.maxBoxes < 512,
+                ("바인딩 %d개에서 잔여 상자가 %d개 -- 서로소 분해가 깨졌는지 확인")
+                :format(count, Stats.maxBoxes));
+        end
+    end);
+
+    -- 컬럼 쳐내기가 결과를 바꾸면 안 된다. 모든 바인딩이 같은 값을 갖는 컬럼은
+    -- 버려지는데, 그게 판정에 영향을 주면 여기서 드러난다.
+    test("아무도 안 건드리는 축이 있어도 결과가 같다", function()
+        expectRemoved({
+            { name = "a", combat = true, forms = 3, groups = 1 },
+            { name = "b", combat = true, forms = 3, groups = 1, stealth = true },
+        }, "b");
+
+        expectSurvives({
+            { name = "a", combat = true, forms = 3, groups = 1 },
+            { name = "b", combat = false, forms = 3, groups = 1 },
+        }, "b");
+    end);
+
     return T;
 end
