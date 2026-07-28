@@ -6,6 +6,7 @@ exclude_files = {
 	"BlizzardInterfaceCode/**",
 	"DebounceTest/**",
 	"tests/**",
+	"node_modules/**",
 }
 ignore = {
 	"112", -- mutating non-standard global (Mixin method assignments)
@@ -104,6 +105,7 @@ globals = {
 
 	-- Cursor / Input
 	"GetCursorInfo",
+	"GetCursorPosition",
 	"ClearCursor",
 	"GetMouseFoci",
 	"DoesAncestryInclude",
@@ -122,7 +124,6 @@ globals = {
 	-- UI utility
 	"CreateColor",
 	"GetClassColorObj",
-	"GetScaledCursorPosition",
 	"CopyTable",
 	"CreateTableEnumerator",
 	"CreateDataProvider",
