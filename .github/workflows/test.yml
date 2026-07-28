@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone project
+        uses: actions/checkout@v4
+
+      - name: Set up Lua
+        uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: "5.1.5"
+
+      - name: Luacheck
+        uses: BigWigsMods/actions/luacheck@master
+        with:
+          args: -q
+
+      - name: Solver tests
+        run: lua tests/run.lua

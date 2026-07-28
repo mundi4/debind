@@ -5,6 +5,7 @@ exclude_files = {
 	"**/Libs",
 	"BlizzardInterfaceCode/**",
 	"DebounceTest/**",
+	"tests/**",
 }
 ignore = {
 	"112", -- mutating non-standard global (Mixin method assignments)

@@ -6,6 +6,7 @@ externals:
 
 ignore:
   - DebounceTest
+  - tests
   - .luacheckrc
 
 move-folders:
