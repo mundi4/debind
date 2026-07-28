@@ -169,38 +169,7 @@ end
 local GetBindingInfoForAction = DebouncePrivate.GetBindingInfoForAction
 
 
-local MOUSE_BUTTONS = {};
-for i = 1, 5 do
-    MOUSE_BUTTONS["BUTTON" .. i] = i;
-end
-
-local _mousebuttonCache = {};
-function DebouncePrivate.GetMouseButtonAndPrefix(key)
-    local cached = _mousebuttonCache[key];
-    if (cached == nil) then
-        if (MOUSE_BUTTONS[key]) then
-            cached = { MOUSE_BUTTONS[key], nil };
-            _mousebuttonCache[key] = cached;
-        else
-            local idx = key:match(".*%-()");
-            if (idx) then
-                local button = MOUSE_BUTTONS[key:sub(idx)];
-                if (button) then
-                    local prefix = key:sub(1, idx - 1);
-                    cached = { button, prefix };
-                    _mousebuttonCache[key] = cached;
-                else
-                    _mousebuttonCache[key] = false;
-                end
-            end
-        end
-    end
-    if (cached) then
-        return cached[1], cached[2];
-    else
-        return nil, nil;
-    end
-end
+-- GetMouseButtonAndPrefix는 Solver.lua가 쓰는데 그쪽이 먼저 로드되므로 Constants.lua에 있음
 
 function DebouncePrivate.IsConditionalAction(action)
     local binding = GetBindingInfoForAction(action);

@@ -27,3 +27,7 @@ jobs:
 
       - name: Solver tests
         run: lua tests/run.lua
+
+      # 게임과 같은 Lua 5.1. 조용히 비싸지는 걸 잡으려고 로그에 남긴다.
+      - name: Solver benchmark
+        run: lua tests/run.lua --bench

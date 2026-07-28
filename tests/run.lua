@@ -15,6 +15,16 @@ local DebouncePrivate = shim.loadAddon(repoRoot .. "/Debounce", {
     "Solver.lua",
 });
 
+local bench = false;
+for i = 1, #(arg or {}) do
+    if (arg[i] == "--bench") then bench = true; end
+end
+
+if (bench) then
+    assert(loadfile(root .. "/bench.lua"))()(DebouncePrivate);
+    return;
+end
+
 local specs = {
     { name = "solver", path = root .. "/solver_spec.lua" },
 };

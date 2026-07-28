@@ -138,6 +138,42 @@ local SPECIAL_UNITS                                 = {
 Constants.BASIC_UNITS                               = BASIC_UNITS;
 Constants.SPECIAL_UNITS                             = SPECIAL_UNITS;
 
+
+-- 키 문자열 파싱. 순수 Lua라 와우 없이도 돌고, Solver.lua가 hover 컬럼에서 쓴다.
+-- Solver.lua는 Misc.lua보다 먼저 로드되므로 여기에 둔다.
+local MOUSE_BUTTONS = {};
+for i = 1, 5 do
+    MOUSE_BUTTONS["BUTTON" .. i] = i;
+end
+
+local _mousebuttonCache = {};
+function DebouncePrivate.GetMouseButtonAndPrefix(key)
+    local cached = _mousebuttonCache[key];
+    if (cached == nil) then
+        if (MOUSE_BUTTONS[key]) then
+            cached = { MOUSE_BUTTONS[key], nil };
+            _mousebuttonCache[key] = cached;
+        else
+            local idx = key:match(".*%-()");
+            if (idx) then
+                local button = MOUSE_BUTTONS[key:sub(idx)];
+                if (button) then
+                    local prefix = key:sub(1, idx - 1);
+                    cached = { button, prefix };
+                    _mousebuttonCache[key] = cached;
+                else
+                    _mousebuttonCache[key] = false;
+                end
+            end
+        end
+    end
+    if (cached) then
+        return cached[1], cached[2];
+    else
+        return nil, nil;
+    end
+end
+
 Constants.MAX_BOSSES                                = 8;
 
 Constants.CUSTOM_TARGET_VALID_UNIT_TOKENS           = {};

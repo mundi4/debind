@@ -185,6 +185,53 @@ return function(DebouncePrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- hover 컬럼 -- 1번 컬럼이고 모든 바인딩에 대해 돈다.
+    -- action.key가 마우스 버튼이면 hover가 명시되지 않아도 "마우스오버 아님"이 된다
+    -- (마우스 버튼 바인딩은 프레임 위에 올린 상태에서 눌리는 것이므로).
+    -- 여기서 쓰는 GetMouseButtonAndPrefix는 Constants.lua의 진짜 구현이다.
+    ---------------------------------------------------------------------------
+
+    check(DebouncePrivate.GetMouseButtonAndPrefix ~= nil,
+        "GetMouseButtonAndPrefix가 로드 안 됨 -- hover 컬럼을 검증할 수 없음");
+
+    test("마우스버튼 키는 hover 축이 좁아진다", function()
+        -- 키보드 키: hover 미지정 = 마우스오버 + 아님 전부
+        -- 마우스버튼 키: hover 미지정 = 마우스오버 아님, 뿐
+        -- 따라서 마우스버튼 쪽이 키보드 쪽을 못 덮는다
+        expectSurvives({
+            { name = "mouse",    key = "BUTTON4" },
+            { name = "keyboard", key = "SHIFT-Q" },
+        }, "keyboard");
+
+        -- 반대 방향은 덮인다
+        expectRemoved({
+            { name = "keyboard", key = "SHIFT-Q" },
+            { name = "mouse",    key = "BUTTON4" },
+        }, "mouse");
+    end);
+
+    test("수식어 붙은 마우스버튼도 마우스버튼으로 인식", function()
+        expectRemoved({
+            { name = "plain", key = "SHIFT-Q" },
+            { name = "mod",   key = "CTRL-SHIFT-BUTTON5" },
+        }, "mod");
+    end);
+
+    test("마우스버튼 키에 hover=true를 주면 다시 마우스오버 축", function()
+        expectSurvives({
+            { name = "nohover", key = "BUTTON4" },
+            { name = "hover",   key = "BUTTON4", hover = true },
+        }, "hover");
+    end);
+
+    test("마우스버튼처럼 생긴 키가 아니면 좁아지지 않는다", function()
+        expectSurvives({
+            { name = "mouse", key = "BUTTON4" },
+            { name = "fake",  key = "SHIFT-BUTTON9" },
+        }, "fake");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 2. 무차별 대조
     ---------------------------------------------------------------------------
 
@@ -343,7 +390,7 @@ return function(DebouncePrivate)
 
     test("무작위 바인딩 집합 2000개 - 무차별 대조와 일치", function()
         for case = 1, 2000 do
-            local count = math.floor(nextRandom() * 5) + 2;
+            local count = math.floor(nextRandom() * 11) + 2;
             local bindings = {};
             for i = 1, count do
                 bindings[i] = randomBinding("b" .. i);
@@ -453,16 +500,16 @@ return function(DebouncePrivate)
         return bindings;
     end
 
-    test("겹치는 조건이 많아도 잔여 상자가 상한 안에 머묾", function()
+    test("겹치는 조건이 많아도 탐색이 예산 안에서 끝난다", function()
         for _, count in ipairs({ 8, 16, 30 }) do
             local bindings = adversarialSet(count);
             survivors(bindings);
             check(not Stats.gaveUp,
-                ("바인딩 %d개에서 상자 상한 초과로 판정을 포기함 (maxBoxes=%d)")
-                :format(count, Stats.maxBoxes));
-            check(Stats.maxBoxes < 512,
-                ("바인딩 %d개에서 잔여 상자가 %d개 -- 서로소 분해가 깨졌는지 확인")
-                :format(count, Stats.maxBoxes));
+                ("바인딩 %d개에서 탐색 예산 초과로 판정을 포기함 (nodes=%d)")
+                :format(count, Stats.nodes));
+            check(Stats.nodes < count * 200,
+                ("바인딩 %d개에서 노드 %d개 -- 가지치기가 깨졌는지 확인")
+                :format(count, Stats.nodes));
         end
     end);
 

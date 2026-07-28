@@ -190,60 +190,29 @@ local _unitSeen = {};
 local _knownSeen = {};
 local _opaque = {};
 local _conditionsMap = {};
-local _tempFlags = {};
-local _prefixFlags = {};
 local _keepCols = {};
+local _covers = {};
 
--- 잔여 상자 개수 상한. 서로소 분해라 현실적인 조건 집합에서는 격자 칸 수로
--- 묶이지만, 축 하나에 서로 다른 마스크가 잔뜩 붙는 경우까지 막지는 못한다.
--- 넘으면 판정을 포기한다 -- 못 지우는 쪽이 안전한 실패다.
-local MAX_BOXES = 2048;
-
--- 상자가 한 번 크게 불어난 뒤 버퍼가 계속 물고 있지 않도록 되돌릴 지점.
-local KEEP_ROWS = 64;
+-- 탐색 노드 수 상한. 넘으면 그 바인딩의 판정을 포기한다 -- 못 지우는 쪽이 안전한 실패다.
+local MAX_NODES = 20000;
 
 -- 마지막 CheckUnreachableBindings 호출의 통계.
--- maxBoxes가 조용히 커지는 게 이 알고리즘의 유일한 실패 모드라서 밖에서 볼 수 있게 둔다.
-local Stats = { maxBoxes = 0, gaveUp = false };
+-- 조용히 비싸지는 게 이 알고리즘의 유일한 실패 모드라서 밖에서 볼 수 있게 둔다.
+local Stats = { nodes = 0, maxDepth = 0, gaveUp = false };
 DebouncePrivate.SolverStats = Stats;
 
--- removeConditions는 읽기 버퍼와 쓰기 버퍼를 번갈아 쓴다.
--- 한 상자가 여러 조각으로 쪼개질 수 있어서 제자리 압축이 불가능하기 때문.
-local _listA = { n = 0 };
-local _listB = { n = 0 };
-local _currentList = _listA;
+-- 깊이별 작업 공간. 재귀가 깊어질 때만 늘어나고 재사용된다.
+local _fragAt = {};      -- 만들고 있는 조각
+local _prefixAt = {};    -- region ∩ O
+local _liveAt = {};      -- 이 노드에서 아직 살아있는 커버들
 
-local function setConditions(tbl, pos, conditions)
-    local row = tbl[pos];
-    if (row == nil) then
-        row = {};
-        tbl[pos] = row;
+local function scratch(pool, depth)
+    local t = pool[depth];
+    if (t == nil) then
+        t = {};
+        pool[depth] = t;
     end
-    for col = 1, _numColumns do
-        row[col] = conditions[col];
-    end
-    row[_numColumns + 1] = nil;
-    return row;
-end
-
---- A \ O의 splitCol번째 조각:
----   (A_1 ∩ O_1, ..., A_{d-1} ∩ O_{d-1}, A_d \ O_d, A_{d+1}, ..., A_n)
---- 앞쪽을 교집합으로 눌러두면 조각들이 서로소가 된다.
-local function setFragment(tbl, pos, conditions, splitCol)
-    local row = tbl[pos];
-    if (row == nil) then
-        row = {};
-        tbl[pos] = row;
-    end
-    for col = 1, splitCol - 1 do
-        row[col] = _prefixFlags[col];
-    end
-    row[splitCol] = _tempFlags[splitCol];
-    for col = splitCol + 1, _numColumns do
-        row[col] = conditions[col];
-    end
-    row[_numColumns + 1] = nil;
-    return row;
+    return t;
 end
 
 ---
@@ -321,71 +290,101 @@ local function buildConditionSet(action, dest)
 end
 
 ---
---- 현재 남아있는 상자들에서 `other` 상자를 뺀다.
+--- `region`이 커버들의 합집합에 완전히 덮이는가?
 ---
---- 조각을 앞쪽 교집합으로 눌러서 만들면(setFragment) 조각들이 **서로소**가 되고,
---- 잔여 집합은 축들이 만드는 격자의 칸 수를 넘지 못한다.
---- 겹치는 합집합으로 만들면 같은 영역이 중복 표현되면서 상한이 사라진다 --
---- 바인딩 18개짜리 키에서 상자가 2,000개 가까이 불어나는 걸 확인함.
+--- 잔여 집합을 만들어놓고 비었는지 보는 대신, 덮이지 않은 점을 **하나 찾으면 즉시 끝낸다.**
+--- 대부분의 바인딩은 도달 가능하므로 흔한 경우가 곧 빨리 끝나는 경우가 된다.
+--- 잔여를 전부 만들면 정반대였다 -- 도달 가능한 바인딩이 제일 비쌌음.
 ---
---- 상한을 넘으면 false를 돌려주고 호출자가 판정을 포기한다.
+--- 각 노드에서:
+---   1. region과 만나지 않는 커버를 버린다. 남는 게 없으면 반례를 찾은 것.
+---   2. region을 통째로 덮는 커버가 있으면 이 가지는 끝.
+---   3. 커버 O 하나를 골라 region \ O를 서로소 조각들로 쪼개고 각각 재귀한다.
+---      조각들은 O와 만나지 않으므로 **O를 커버 목록에서 뺀 채로** 내려간다.
 ---
-local function removeConditions(other)
-    local src = _currentList;
-    if (src.n == 0) then
-        return true;
+--- 쪼개지는 개수가 가장 적은 커버를 고른다 -- 가지치기가 가장 센 선택.
+---
+local _nodeBudget = 0;
+local _gaveUp = false;
+
+local function isCovered(region, covers, coverCount, depth)
+    if (_nodeBudget <= 0) then
+        _gaveUp = true;
+        return false;   -- 포기 = "안 덮임" = 바인딩을 남긴다
+    end
+    _nodeBudget = _nodeBudget - 1;
+
+    if (depth > Stats.maxDepth) then
+        Stats.maxDepth = depth;
     end
 
-    local dest = (src == _listA) and _listB or _listA;
-    local destN = 0;
+    local live = scratch(_liveAt, depth);
+    local liveCount = 0;
+    local best, bestPieces;
 
-    for row = 1, src.n do
-        local conditions = src[row];
-        local overlaps = true;
-        local isSubset = true;
+    for i = 1, coverCount do
+        local other = covers[i];
+        local intersects = true;
+        local pieces = 0;
 
         for col = 1, _numColumns do
-            local common = band(conditions[col], other[col]);
-            if (common == 0) then
-                -- 이 축에서 두 상자가 만나지 않음 -> 곱공간 전체에서 분리. 뺄 것 없음.
-                overlaps = false;
+            local value = region[col];
+            if (band(value, other[col]) == 0) then
+                -- 이 축에서 분리 -> 곱공간 전체에서 분리
+                intersects = false;
                 break;
             end
-
-            _prefixFlags[col] = common;
-
-            local remaining = band(conditions[col], bnot(other[col]));
-            _tempFlags[col] = remaining;
-            if (remaining ~= 0) then
-                isSubset = false;
+            if (band(value, bnot(other[col])) ~= 0) then
+                pieces = pieces + 1;
             end
         end
 
-        if (not overlaps) then
-            destN = destN + 1;
-            if (destN > MAX_BOXES) then
+        if (intersects) then
+            if (pieces == 0) then
+                return true;    -- region ⊆ other
+            end
+            liveCount = liveCount + 1;
+            live[liveCount] = other;
+            if (best == nil or pieces < bestPieces) then
+                best = liveCount;
+                bestPieces = pieces;
+            end
+        end
+    end
+
+    if (liveCount == 0) then
+        return false;   -- 아무도 안 덮는 영역이 남음 = 반례
+    end
+
+    local other = live[best];
+    live[best] = live[liveCount];
+    liveCount = liveCount - 1;
+
+    local prefix = scratch(_prefixAt, depth);
+    for col = 1, _numColumns do
+        prefix[col] = band(region[col], other[col]);
+    end
+
+    local frag = scratch(_fragAt, depth);
+
+    for split = 1, _numColumns do
+        local remaining = band(region[split], bnot(other[split]));
+        if (remaining ~= 0) then
+            -- 앞쪽을 교집합으로 눌러서 조각들을 서로소로 만든다
+            for col = 1, split - 1 do
+                frag[col] = prefix[col];
+            end
+            frag[split] = remaining;
+            for col = split + 1, _numColumns do
+                frag[col] = region[col];
+            end
+
+            if (not isCovered(frag, live, liveCount, depth + 1)) then
                 return false;
             end
-            setConditions(dest, destN, conditions);
-        elseif (not isSubset) then
-            for col = 1, _numColumns do
-                if (_tempFlags[col] ~= 0) then
-                    destN = destN + 1;
-                    if (destN > MAX_BOXES) then
-                        return false;
-                    end
-                    setFragment(dest, destN, conditions, col);
-                end
-            end
         end
-        -- isSubset이면 A가 O에 통째로 덮임 -> 남는 조각 없음
     end
 
-    dest.n = destN;
-    _currentList = dest;
-    if (destN > Stats.maxBoxes) then
-        Stats.maxBoxes = destN;
-    end
     return true;
 end
 
@@ -435,18 +434,9 @@ local function pruneConstantColumns(bindings)
     _numColumns = kept;
 end
 
---- 한 번 크게 불어난 버퍼를 계속 물고 있지 않게 한다.
---- (BuildKeyMap은 키마다 이걸 부르므로 테이블을 새로 만들지 않는다)
-local function trimList(list)
-    local i = KEEP_ROWS + 1;
-    while (list[i] ~= nil) do
-        list[i] = nil;
-        i = i + 1;
-    end
-end
-
 function DebouncePrivate.CheckUnreachableBindings(bindings)
-    Stats.maxBoxes = 0;
+    Stats.nodes = 0;
+    Stats.maxDepth = 0;
     Stats.gaveUp = false;
 
     if (#bindings < 2) then
@@ -468,23 +458,25 @@ function DebouncePrivate.CheckUnreachableBindings(bindings)
         local unreachable = false;
 
         if (i > 1 and not _opaque[binding]) then
-            _currentList = _listA;
-            setConditions(_listA, 1, _conditionsMap[binding]);
-            _listA.n = 1;
-
+            local coverCount = 0;
             for j = 1, i - 1 do
                 local other = bindings[j];
                 if (not _opaque[other]) then
-                    if (not removeConditions(_conditionsMap[other])) then
-                        -- 상자가 상한을 넘음. 판정 포기 -- 안 지우는 쪽이 안전하다.
-                        Stats.gaveUp = true;
-                        unreachable = false;
-                        break;
-                    end
-                    if (_currentList.n == 0) then
-                        unreachable = true;
-                        break;
-                    end
+                    coverCount = coverCount + 1;
+                    _covers[coverCount] = _conditionsMap[other];
+                end
+            end
+
+            if (coverCount > 0) then
+                _nodeBudget = MAX_NODES;
+                _gaveUp = false;
+
+                unreachable = isCovered(_conditionsMap[binding], _covers, coverCount, 1);
+
+                Stats.nodes = Stats.nodes + (MAX_NODES - _nodeBudget);
+                if (_gaveUp) then
+                    Stats.gaveUp = true;
+                    unreachable = false;
                 end
             end
         end
@@ -498,8 +490,6 @@ function DebouncePrivate.CheckUnreachableBindings(bindings)
     end
 
     wipe(_conditionsMap);
-    trimList(_listA);
-    trimList(_listB);
 end
 
 function DebouncePrivate.IsUnreachableAction(action)
