@@ -62,6 +62,7 @@ function Events.PLAYER_LOGIN()
     EventFrame:RegisterEvent("PLAYER_LOGOUT");
     EventFrame:RegisterEvent("PLAYER_REGEN_ENABLED");
     EventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED");
+    EventFrame:RegisterEvent("PLAYER_PVP_TALENT_UPDATE");
     EventFrame:RegisterEvent("UPDATE_BINDINGS");
     EventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
     EventFrame:RegisterEvent("CVAR_UPDATE");
