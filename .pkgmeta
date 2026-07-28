@@ -8,6 +8,10 @@ ignore:
   - DebounceTest
   - tests
   - .luacheckrc
+  - package.json
+  - package-lock.json
+  - node_modules
+  - tools
 
 move-folders:
   Debounce/Debounce: Debounce

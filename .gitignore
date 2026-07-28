@@ -1,5 +1,7 @@
 .vscode
 .release
+node_modules
+tools/bin
 .editorconfig
 .claude
 BlizzardInterfaceCode

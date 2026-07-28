@@ -1,0 +1,13 @@
+{
+  "name": "debounce-tests",
+  "private": true,
+  "description": "Local test runner for the Debounce addon (no WoW / lua binary required)",
+  "scripts": {
+    "test": "node tests/run.js",
+    "lint": "node tools/luacheck.js",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "fengari": "^0.1.4"
+  }
+}
