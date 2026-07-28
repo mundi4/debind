@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120000, 120001, 120005, 120007, 120100
 
 ## Title: Debounce Test
 ## Notes: In-game test framework for Debounce addon

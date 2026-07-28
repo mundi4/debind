@@ -94,8 +94,9 @@
 		</Layers>
 		<Scripts>
 			<OnUpdate>
-				local cursorX, cursorY = GetScaledCursorPosition();
-				self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", cursorX + 10, cursorY + 0);
+				local scale = self:GetEffectiveScale();
+				local cursorX, cursorY = GetCursorPosition();
+				self:SetPoint("TOPLEFT", self:GetParent(), "BOTTOMLEFT", cursorX / scale + 10, cursorY / scale);
 			</OnUpdate>
 		</Scripts>
 	</Frame>

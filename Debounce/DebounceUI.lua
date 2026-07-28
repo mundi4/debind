@@ -1571,7 +1571,10 @@ do
 	local _lastCursorY = 0;
 
 	function DebounceFrameMixin:UpdatePlaceholderPosition(forceNow)
-		local _, cursorY = GetScaledCursorPosition();
+		-- GetScaledCursorPosition() was removed from the global environment in 12.1.0
+		local cursorScale = self.ScrollBox:GetEffectiveScale();
+		local _, cursorY = GetCursorPosition();
+		cursorY = cursorY / cursorScale;
 		if (forceNow or (GetTime() - _lastScrollTime) > SCROLL_DELAY or abs(cursorY - _lastCursorY) > ELEMENT_PADDING) then
 			_lastCursorY = cursorY;
 			local frames = self.ScrollBox:GetFrames();
@@ -1669,10 +1672,6 @@ function DebounceFrameMixin:OnUpdate(elapsed)
 
 	if (_placeholder and isMouseOverScrollBox) then
 		self:UpdatePlaceholderPosition(placeholderCreated);
-	end
-
-	if (_placeholder and isMouseOverScrollBox) then
-		self:UpdatePlaceholderPosition();
 	end
 end
 
