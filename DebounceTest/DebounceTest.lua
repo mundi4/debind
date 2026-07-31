@@ -387,8 +387,10 @@ RegisterTest("CheckedUnits condition", {
 RegisterTest("Priority ordering", {
     description = "우선순위가 높은 바인딩이 KeyMap에서 먼저 오는지",
     run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "INSERT", priority = 5 }) -- Very Low
-        InsertAction({ type = Constants.SPELL, value = 116, key = "INSERT", priority = 1 }) -- Very High
+        -- 조건이 겹치면 뒤쪽이 UNREACHABLE로 제거되므로 서로 배타적인 조건을 준다.
+        -- 삽입 순서(ordinal)는 priority 5가 먼저이므로 정렬이 실제로 동작해야만 통과한다.
+        InsertAction({ type = Constants.SPELL, value = 585, key = "INSERT", priority = 5, combat = false }) -- Very Low
+        InsertAction({ type = Constants.SPELL, value = 116, key = "INSERT", priority = 1, combat = true }) -- Very High
         ApplyBindings()
         local bindings = GetKeyBindings("INSERT")
         if not bindings or #bindings < 2 then
