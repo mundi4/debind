@@ -4,7 +4,7 @@
 	<Script file="DebounceUI.lua" />
 	<Script file="DropDownMenus.lua" />
 
-	<Frame name="GlowBorderTemplate" virtual="true">
+	<Frame name="DebounceGlowBorderTemplate" virtual="true">
 		<Size x="100" y="100"/>
 		<Layers>
 			<Layer level="BORDER">
@@ -370,7 +370,7 @@
 					</Layer>
 				</Layers>
 				<Frames>
-					<Frame parentKey="Highlight" inherits="GlowBorderTemplate" hidden="true" alpha="0.4">
+					<Frame parentKey="Highlight" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.4">
 						<Anchors>
 							<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="3" y ="-3"/>
 							<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-3" y ="3"/>
@@ -911,7 +911,7 @@
 					</Layer>
 				</Layers>
 				<Frames>
-					<Frame parentKey="Highlight" inherits="GlowBorderTemplate" hidden="true" alpha="0.4">
+					<Frame parentKey="Highlight" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.4">
 						<Anchors>
 							<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="3" y ="-3"/>
 							<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-3" y ="3"/>
