@@ -322,6 +322,43 @@ wipe(States)
         SecureStateDriverManager:UnregisterEvent("UNIT_FACTION");
     end
 
+    if (_states.specialbar) then
+        SecureStateDriverManager:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR");
+        SecureStateDriverManager:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR");
+    else
+        SecureStateDriverManager:UnregisterEvent("UPDATE_OVERRIDE_ACTIONBAR");
+        SecureStateDriverManager:UnregisterEvent("UPDATE_VEHICLE_ACTIONBAR");
+    end
+
+    if (_states.extrabar) then
+        SecureStateDriverManager:RegisterEvent("UPDATE_EXTRA_ACTIONBAR");
+    else
+        SecureStateDriverManager:UnregisterEvent("UPDATE_EXTRA_ACTIONBAR");
+    end
+
+    -- specialbar folds [petbattle] into its own value, so it needs these too
+    if (_states.petbattle or _states.specialbar) then
+        SecureStateDriverManager:RegisterEvent("PET_BATTLE_OPENING_START");
+        SecureStateDriverManager:RegisterEvent("PET_BATTLE_CLOSE");
+    else
+        SecureStateDriverManager:UnregisterEvent("PET_BATTLE_OPENING_START");
+        SecureStateDriverManager:UnregisterEvent("PET_BATTLE_CLOSE");
+    end
+
+    local hasKnownState = false;
+    for state in pairs(_states) do
+        if (strsub(state, 1, 6) == "known:") then
+            hasKnownState = true;
+            break;
+        end
+    end
+
+    if (hasKnownState) then
+        SecureStateDriverManager:RegisterEvent("SPELLS_CHANGED");
+    else
+        SecureStateDriverManager:UnregisterEvent("SPELLS_CHANGED");
+    end
+
     -- execute UpdateBindings with forceAll set
     SecureHandlerExecute(DebouncePrivate.BindingDriver, [[
         DirtyFlags.forceAll = true
