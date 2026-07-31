@@ -11,50 +11,6 @@ function Events.ADDON_LOADED(_, addonName)
     if (addonName == ADDON_NAME) then
         EventFrame:UnregisterEvent("ADDON_LOADED");
         DebouncePrivate.InitDB();
-        -- local function initDB(dbKey)
-        --     local dbTbl = _G[dbKey];
-        --     if (not dbTbl) then
-        --         dbTbl = {};
-        --         _G[dbKey] = dbTbl;
-        --     end
-        --     dbTbl.dbver = dbTbl.dbver or 1;
-        --     return dbTbl;
-        -- end
-
-        -- DebouncePrivate.db = {
-        --     global = initDB("DebounceVars"),
-        --     char = initDB("DebounceVarsPerChar"),
-        -- };
-
-        -- DebouncePrivate.db.global.options = DebouncePrivate.db.global.options or {};
-        -- DebouncePrivate.db.global.options.blizzframes = DebouncePrivate.db.global.options.blizzframes or {};
-        -- DebouncePrivate.Options = DebouncePrivate.db.global.options;
-        
-        -- DebouncePrivate.db.global.customStates = DebouncePrivate.db.global.customStates or {};
-        -- DebouncePrivate.CustomStates = {};
-
-        -- for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
-        --     local stateOptions = DebouncePrivate.db.global.customStates[i];
-        --     if (not stateOptions) then
-        --         stateOptions = {};
-        --         DebouncePrivate.db.global.customStates[i] = stateOptions;
-        --     end
-
-        --     stateOptions.mode = stateOptions.mode or Constants.CUSTOM_STATE_MODES.MANUAL;
-        --     if (stateOptions.mode == Constants.CUSTOM_STATE_MODES.MANUAL) then
-        --         if (stateOptions.initialValue ~= nil) then
-        --             stateOptions.value = stateOptions.initialValue;
-        --         else
-        --             stateOptions.value = stateOptions.savedValue and true or false;
-        --         end
-        --     else
-        --         stateOptions.value = stateOptions.value or false;
-        --     end
-
-        --     DebouncePrivate.CustomStates[i] = stateOptions;
-        -- end
-
-        -- DebouncePrivate.LoadProfile();
     end
 end
 

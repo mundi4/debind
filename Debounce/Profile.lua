@@ -221,7 +221,7 @@ function DebouncePrivate.InitDB()
         local dbTbl = _G[dbKey];
         if (not dbTbl) then
             dbTbl = {
-                dever = Constants.DB_VERSION
+                dbver = Constants.DB_VERSION
             };
             _G[dbKey] = dbTbl;
         end
@@ -379,6 +379,7 @@ function DebouncePrivate.EnumerateActionsInActiveLayers()
     return Enumerator, layerIdArray, 0;
 end
 
+-- TODO(§4): not implemented yet. No callers - do not call this until it is.
 function DebouncePrivate.FindLayerID(action)
-    
+
 end
