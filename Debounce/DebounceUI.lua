@@ -650,43 +650,16 @@ local function NotifyActionChanged(action)
 	DebounceFrame:Update();
 end
 
---- 조건 하나의 값과 (있다면) 그 이유를 GameTooltip에 적는다.
---- 행 툴팁과 조건 탭의 행 툴팁이 같은 규칙을 써야 하므로 여기 한 벌만 둔다.
-local AddConditionValueLines;
-do
-	local _lines = {};
-
-	function AddConditionValueLines(descriptor, action, issue, leftOffset, forceWrap)
-		leftOffset = leftOffset or 0;
-
-		local errorShown = false;
-		wipe(_lines);
-		descriptor:GetLines(action, _lines);
-
-		for i = 1, #_lines do
-			local line = _lines[i];
-			local lineError = line.error;
-			if (lineError == nil) then
-				lineError = issue ~= nil;
-			end
-			local addLine = lineError and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
-			addLine(GameTooltip, line.text, forceWrap or line.wrap or false, leftOffset);
-			errorShown = errorShown or line.isDescriptorError or false;
-		end
-
-		-- 이유는 값 아래 한 번만 적는다. 줄마다 붙이면 같은 말이 여러 번 나온다.
-		-- 값 줄 자체가 이미 그 이유인 경우(선택된 것이 하나도 없음)는 생략한다.
-		if (issue and not errorShown) then
-			GameTooltip_AddErrorLine(GameTooltip, LLL["BINDING_ERROR_" .. issue], forceWrap or false, leftOffset);
-		end
-	end
-end
-
 local ShowLineTooltip;
 do
+	local _lines = {};
 	local GameTooltip = GameTooltip;
 	local LEFT_OFFSET = 10;
 	local action;
+
+	local function addErrorLine(message, wrap, leftOffset)
+		GameTooltip_AddErrorLine(GameTooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
+	end
 
 	local function addLabelLine(label, hasError)
 		GameTooltip_AddBlankLineToTooltip(GameTooltip);
@@ -752,8 +725,27 @@ do
 		for _, descriptor in ipairs(DebouncePrivate.ConditionDescriptors) do
 			if (descriptor:IsSet(action)) then
 				addLabelLine(descriptor.label);
-				AddConditionValueLines(descriptor, action,
-					hasIssues and GetBindingIssue(action, descriptor.key) or nil, LEFT_OFFSET);
+
+				local error = hasIssues and GetBindingIssue(action, descriptor.key) or nil;
+				local errorShown = false;
+
+				wipe(_lines);
+				descriptor:GetLines(action, _lines);
+				for i = 1, #_lines do
+					local line = _lines[i];
+					local lineError = line.error;
+					if (lineError == nil) then
+						lineError = error ~= nil;
+					end
+					addValueLine(line.text, lineError, line.wrap);
+					errorShown = errorShown or line.isDescriptorError or false;
+				end
+
+				-- 이유는 값 아래 한 번만 적는다. 줄마다 붙이면 같은 말이 여러 번 나온다.
+				-- 값 줄 자체가 이미 그 이유인 경우(선택된 것이 하나도 없음)는 생략한다.
+				if (error and not errorShown) then
+					addErrorLine(LLL["BINDING_ERROR_" .. error]);
+				end
 			end
 		end
 
@@ -2044,13 +2036,11 @@ DebounceDetailPanelMixin = {};
 -- 탭 ID. 타입에 따라 탭을 감추지 않는다 - 자리가 흔들리면 위치를 다시 배워야 한다.
 DebounceDetailPanelMixin.TAB_KEYBIND = 1;
 DebounceDetailPanelMixin.TAB_CONTENT = 2;
-DebounceDetailPanelMixin.TAB_CONDITION = 3;
 
 function DebounceDetailPanelMixin:OnLoad()
 	-- XML 중첩이 깊어서 자주 쓰는 것만 지름길을 만들어 둔다.
 	self.ContentTab = self.ContentArea.ContentTab;
 	self.KeybindTab = self.ContentArea.KeybindTab;
-	self.ConditionTab = self.ContentArea.ConditionTab;
 	self.MacroEditor = self.ContentTab.MacroEditor;
 	self.TypeInfo = self.ContentTab.TypeInfo;
 	-- 확인/취소는 내용 탭 안에 있다. 저장할 게 생기는 곳이 거기뿐이다.
@@ -2076,7 +2066,6 @@ function DebounceDetailPanelMixin:OnLoad()
 
 	self:InitializeTabs();
 	self:InitializeOrderScrollBox();
-	self:InitializeConditionScrollBox();
 
 	self.initialized = true;
 	self:Refresh();
@@ -2086,7 +2075,6 @@ function DebounceDetailPanelMixin:InitializeTabs()
 	local tabSystem = self.TabSystem;
 	tabSystem:AddTab(LLL["DETAIL_TAB_KEYBIND"]);
 	tabSystem:AddTab(LLL["DETAIL_TAB_CONTENT"]);
-	tabSystem:AddTab(LLL["DETAIL_TAB_CONDITION"]);
 	-- true를 돌려주면 TabSystem이 시각 반영을 하지 않는다. 선택이 거부될 수 있으므로
 	-- (저장 안 된 변경) 시각 반영은 SelectTab이 직접 한다.
 	tabSystem:SetTabSelectedCallback(function(tabID)
@@ -2145,17 +2133,14 @@ function DebounceDetailPanelMixin:Refresh()
 
 	-- 어떤 액션인지는 왼쪽 목록에서 그 행이 강조된 것으로 말한다. 패널에 제목 줄을 또 두면
 	-- 인셋 시작선이 왼쪽 목록과 어긋난다.
-	local selectedTab = self.selectedTab;
-	self.KeybindTab:SetShown(selectedTab == self.TAB_KEYBIND);
-	self.ContentTab:SetShown(selectedTab == self.TAB_CONTENT);
-	self.ConditionTab:SetShown(selectedTab == self.TAB_CONDITION);
+	local onKeybindTab = self.selectedTab == self.TAB_KEYBIND;
+	self.KeybindTab:SetShown(onKeybindTab);
+	self.ContentTab:SetShown(not onKeybindTab);
 
-	if (selectedTab == self.TAB_KEYBIND) then
+	if (onKeybindTab) then
 		self:RefreshKeybindTab(action);
-	elseif (selectedTab == self.TAB_CONTENT) then
-		self:RefreshContent(action);
 	else
-		self:RefreshConditionTab(action);
+		self:RefreshContent(action);
 	end
 	self:UpdateButtons();
 end
@@ -2591,152 +2576,6 @@ function DebounceDetailPanelMixin:KeyCapture_ProcessInput(input)
 		self:Refresh();
 		DebounceFrame:Update();
 	end
-end
-
---------------------------------------------------------------------------------
--- 조건 탭
---------------------------------------------------------------------------------
-
-local function IsConditionAvailable(descriptor, action)
-	if (descriptor.IsAvailable) then
-		return descriptor:IsAvailable(action);
-	end
-	return true;
-end
-
---- 아직 안 쓴 조건이 남아 있는가. 없으면 추가 버튼이 열 메뉴가 비어 있다.
-local function HasUnusedCondition(action)
-	for _, descriptor in ipairs(DebouncePrivate.ConditionDescriptors) do
-		if (not descriptor:IsSet(action) and IsConditionAvailable(descriptor, action)) then
-			return true;
-		end
-	end
-	return false;
-end
-
-DebounceConditionLineMixin = {};
-
-function DebounceConditionLineMixin:Init()
-	self:Update();
-end
-
-function DebounceConditionLineMixin:Update()
-	local elementData = self:GetElementData();
-	local descriptor, action = elementData.descriptor, elementData.action;
-
-	self.Label:SetText(descriptor.label);
-	-- 문제 있는 조건은 빨갛게. 툴팁·왼쪽 목록과 같은 규칙이다.
-	local issue = GetBindingIssue(action, descriptor.key);
-	self.Label:SetTextColor((issue and ERROR_COLOR or NORMAL_FONT_COLOR):GetRGB());
-
-	self.ValueText:SetText(DebouncePrivate.GetConditionSummary(descriptor, action));
-end
-
-function DebounceConditionLineMixin:OnEnter()
-	local elementData = self:GetElementData();
-	local descriptor, action = elementData.descriptor, elementData.action;
-
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, descriptor.label);
-	-- 행은 한 줄로 줄여서 보여준다. 전문은 여기 있다.
-	AddConditionValueLines(descriptor, action, GetBindingIssue(action, descriptor.key), nil, true);
-	GameTooltip_AddBlankLineToTooltip(GameTooltip);
-	GameTooltip_AddInstructionLine(GameTooltip, LLL["CONDITION_EDIT_INSTRUCTION"]);
-	GameTooltip:Show();
-end
-
-function DebounceConditionLineMixin:OnLeave()
-	GameTooltip_Hide();
-end
-
-function DebounceConditionLineMixin:OnClick()
-	local elementData = self:GetElementData();
-	local descriptor, action = elementData.descriptor, elementData.action;
-	if (not descriptor.BuildMenu) then
-		return;
-	end
-	MenuUtil.CreateContextMenu(self, function(_, rootDescription)
-		descriptor:BuildMenu(rootDescription, action);
-	end);
-end
-
-function DebounceConditionLineMixin:ClearButton_OnEnter(button)
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, LLL["CONDITION_CLEAR"]);
-	GameTooltip_AddNormalLine(GameTooltip, LLL["CONDITION_CLEAR_DESC"]);
-	GameTooltip:Show();
-end
-
-function DebounceConditionLineMixin:ClearButton_OnClick()
-	local elementData = self:GetElementData();
-	local descriptor, action = elementData.descriptor, elementData.action;
-
-	descriptor:Clear(action);
-	NotifyActionChanged(action);
-	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
-end
-
-function DebounceDetailPanelMixin:InitializeConditionScrollBox()
-	local conditionTab = self.ConditionTab;
-
-	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 2);
-	view:SetElementInitializer("DebounceConditionLineTemplate", function(button, elementData)
-		button:Init(elementData);
-	end);
-	ScrollUtil.InitScrollBoxListWithScrollBar(conditionTab.ScrollBox, conditionTab.ScrollBar, view);
-
-	conditionTab.AddButton:SetText(LLL["CONDITION_ADD"]);
-	conditionTab.EmptyText:SetText(LLL["CONDITION_NONE"]);
-end
-
---- **설정된 조건만** 나열한다. 툴팁과 같은 규칙이다.
-function DebounceDetailPanelMixin:RefreshConditionTab(action)
-	local conditionTab = self.ConditionTab;
-
-	local dataProvider = CreateDataProvider();
-	for _, descriptor in ipairs(DebouncePrivate.ConditionDescriptors) do
-		if (descriptor:IsSet(action)) then
-			dataProvider:Insert({ descriptor = descriptor, action = action });
-		end
-	end
-
-	-- 조건을 지우면 그 행이 사라진다. 스크롤은 남은 것을 그대로 보여주는 게 맞다.
-	conditionTab.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
-
-	local isEmpty = dataProvider:GetSize() == 0;
-	conditionTab.ScrollBox:SetShown(not isEmpty);
-	conditionTab.ScrollBar:SetShown(not isEmpty);
-	conditionTab.EmptyText:SetShown(isEmpty);
-
-	conditionTab.AddButton:SetEnabled(HasUnusedCondition(action));
-end
-
---- 아직 설정 안 된 조건들. 항목마다 그 조건의 편집 메뉴가 그대로 딸려 있어서
---- "고르고 → 값을 정하고"가 한 번에 끝난다.
-function DebounceDetailPanelMixin:AddConditionButton_OnClick(button)
-	local action = _selectedAction;
-	if (not action) then
-		return;
-	end
-
-	MenuUtil.CreateContextMenu(button, function(_, rootDescription)
-		rootDescription:CreateTitle(LLL["CONDITION_ADD"]);
-		for _, descriptor in ipairs(DebouncePrivate.ConditionDescriptors) do
-			if (descriptor.BuildMenu and not descriptor:IsSet(action) and IsConditionAvailable(descriptor, action)) then
-				descriptor:BuildMenu(rootDescription:CreateButton(descriptor.label), action);
-			end
-		end
-	end);
-end
-
-function DebounceDetailPanelMixin:AddConditionButton_OnEnter(button)
-	if (button:IsEnabled()) then
-		return;
-	end
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, LLL["CONDITION_ADD"]);
-	GameTooltip_AddErrorLine(GameTooltip, LLL["CONDITION_ADD_ALL_IN_USE"]);
-	GameTooltip:Show();
 end
 
 --------------------------------------------------------------------------------
