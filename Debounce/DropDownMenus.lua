@@ -948,96 +948,6 @@ do
         end
     end
 
-    --
-    -- 우클릭 메뉴의 하위 메뉴들. 위의 채우기를 그대로 쓴다.
-    --
-
-    local function CreateHoverMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_HOVER", "hover", nil,
-            DebouncePrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
-        PopulateHoverMenu(description);
-    end
-
-    local function CreateUnitConditionMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "checkedUnits",
-            -- isActive
-            function()
-                if (_action.checkedUnits) then
-                    for k, _ in pairs(_action.checkedUnits) do
-                        if (k ~= "@") then
-                            return true;
-                        end
-                    end
-                end
-                return false;
-            end
-        );
-        PopulateUnitConditionMenu(description);
-    end
-
-    local function CreateGroupConditionMenu(rootDescription)
-        PopulateGroupConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_GROUP", "groups"));
-    end
-
-    local function CreateIsKnownConditionMenu(rootDescription)
-        if (_action.type ~= Constants.SPELL) then
-            return;
-        end
-        PopulateIsKnownConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_KNOWN", "known"));
-    end
-
-    local function CreateCombatConditionMenu(rootDescription)
-        PopulateCombatConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_COMBAT", "combat"));
-    end
-
-    local function CreateShapeshiftConditionMenu(rootDescription)
-        PopulateShapeshiftConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_SHAPESHIFT", "forms"));
-    end
-
-    local function CreateStealthConditionMenu(rootDescription)
-        PopulateStealthConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_STEALTH", "stealth"));
-    end
-
-    local function CreatePetConditionMenu(rootDescription)
-        PopulatePetConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_PET", "pet"));
-    end
-
-    local function CreatePetBattleConditionMenu(rootDescription)
-        PopulatePetBattleConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_PETBATTLE", "petbattle"));
-    end
-
-    local function CreateActionbarConditionMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_ACTIONBARS", nil,
-            -- isActive
-            function()
-                return _action.bonusbars ~= nil or _action.bars ~= nil or _action.specialbar ~= nil or _action.extrabar ~= nil;
-            end
-        );
-
-        PopulateBonusbarConditionMenu(CreateActionMenuItemGroup(description, "CONDITION_BONUSBAR", "bonusbars"));
-        PopulateSpecialbarConditionMenu(CreateActionMenuItemGroup(description, "CONDITION_SPECIALBAR", "specialbar"));
-        PopulateExtrabarConditionMenu(CreateActionMenuItemGroup(description, "CONDITION_EXTRABAR", "extrabar"));
-    end
-
-    local function CreateCustomStateConditionMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_CUSTOM_STATES", nil,
-            -- isActive
-            function()
-                for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
-                    if (_action["$state" .. i] ~= nil) then
-                        return true;
-                    end
-                end
-                return false;
-            end
-        );
-
-        for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
-            PopulateCustomStateConditionMenu(
-                CreateActionMenuItemGroup(description, format(LLL["CUSTOM_STATE_NUM"], i), "$state" .. i), i);
-        end
-    end
-
     local function CreatePriorityMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "PRIORITY", "priority",
             -- isActive
@@ -1139,36 +1049,10 @@ do
         CreateTargetUnitMenuItem(rootDescription);
 
         --
-        -- Special Conditions
-        --
-        rootDescription:CreateDivider();
-        rootDescription:CreateTitle(LLL["SPECIAL_CONDITIONS"]);
-
-        CreateHoverMenu(rootDescription);
-
-        CreateUnitConditionMenu(rootDescription);
-
-        CreateGroupConditionMenu(rootDescription);
-
-        CreateIsKnownConditionMenu(rootDescription);
-
-        CreateCombatConditionMenu(rootDescription);
-
-        CreateShapeshiftConditionMenu(rootDescription);
-
-        CreateStealthConditionMenu(rootDescription);
-
-        CreatePetConditionMenu(rootDescription);
-
-        CreatePetBattleConditionMenu(rootDescription);
-
-        CreateActionbarConditionMenu(rootDescription);
-
-        CreateCustomStateConditionMenu(rootDescription);
-
-        --
         -- Other Options
         --
+        -- 조건 편집은 상세 패널의 조건 탭으로 갔다. 여기 남은 것은 그 행 자체에 하는
+        -- 일들이다 - 어디로 옮길지, 지울지, 그리고 순서 UI가 손대지 않는 우선순위.
         rootDescription:CreateDivider();
         rootDescription:CreateTitle(LLL["OTHER_OPTIONS"]);
 
