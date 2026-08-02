@@ -2326,25 +2326,24 @@ function DebounceDetailPanelMixin:SelectTab(tabID)
 		return false;
 	end
 
+	-- 여기까지 왔다면 캡처에 아직 버릴 입력이 없다는 뜻이다. 탭을 떠나면 접는다 -
+	-- 안 그러면 돌아왔을 때 캡처 화면이 되살아난다.
+	ClearKeyCaptureState(self);
+
 	self.selectedTab = tabID;
 	self.TabSystem:SetTabVisuallySelected(tabID);
 	self:Refresh();
 	return true;
 end
 
---- 다음 선택이 열릴 탭을 지정한다. 매크로 편집으로 바로 가는 지름길이 쓴다.
-function DebounceDetailPanelMixin:SetPendingTab(tabID)
-	self.pendingTab = tabID;
-end
-
 --- 선택이 바뀌었다. 편집 상태를 버리고 새 액션을 그린다.
+--- 항상 단축키 탭으로 돌아온다 - 행을 고르는 것은 곧 그 액션의 키와 순서를 보겠다는 뜻이다.
 function DebounceDetailPanelMixin:OnSelectionChanged()
 	ClearKeyCaptureState(self);
 	self.revertFunc = nil;
 	self.originalText = nil;
 
-	self.selectedTab = self.pendingTab or self.TAB_KEYBIND;
-	self.pendingTab = nil;
+	self.selectedTab = self.TAB_KEYBIND;
 	self.TabSystem:SetTabVisuallySelected(self.selectedTab);
 
 	self:Refresh();
