@@ -191,14 +191,16 @@ return function(DebouncePrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 3. ComputeRaisePriority / ComputeLowerPriority
+    -- 3. ComputeIndexMove
     --
-    -- UI는 자동 검증이 안 되므로 "얼마나 올려야 위를 이기나"의 계산만 여기로 뺐다.
-    -- 각 케이스는 계산된 priority를 실제로 적용해 다시 정렬해보고 결과 자리를 확인한다.
+    -- 순서 UI의 ↑↓는 **index만** 만진다. priority/hover/조건부/레이어는 각자 뜻이 있는
+    -- 속성이고 각자의 자리에서 바뀌므로, 그 단계에서 갈렸으면 버튼은 손을 뗀다.
+    -- 여기서 고정하는 건 두 가지다: 어느 단계에서 막혔는지, 그리고 움직였을 때 정확히
+    -- 한 칸만 움직이고 ↑ 다음 ↓면 원래대로 돌아오는지.
     ---------------------------------------------------------------------------
 
-    local ComputeRaisePriority = DebouncePrivate.ComputeRaisePriority;
-    local ComputeLowerPriority = DebouncePrivate.ComputeLowerPriority;
+    local ComputeIndexMove = DebouncePrivate.ComputeIndexMove;
+    local UP, DOWN = -1, 1;
 
     --- rows를 실제 발동 순서로 정렬해 돌려준다. 레코드는 원본 그대로(같은 테이블).
     local function sorted(rows)
@@ -210,113 +212,152 @@ return function(DebouncePrivate)
         return arr;
     end
 
-    local function indexOf(rows, rec)
-        for i = 1, #rows do
-            if (rows[i] == rec) then
+    local function indexOf(arr, rec)
+        for i = 1, #arr do
+            if (arr[i] == rec) then
                 return i;
             end
         end
     end
 
-    --- priority를 적용한 뒤 target이 몇 번째가 되는지.
-    local function positionAfter(rows, target, priority)
-        target.priority = priority;
-        return indexOf(sorted(rows), target);
+    --- 레이어 배열을 흉내낸다. 레코드를 index 순으로 늘어놓은 것이 곧 배열이다.
+    local function makeLayer(...)
+        local layer = { ... };
+        for i, r in ipairs(layer) do
+            r.index = i;
+        end
+        return layer;
     end
 
-    test("올리기 - 같은 밴드에서 이길 수 있으면 밴드를 안 태운다", function()
-        -- 둘 다 기본 밴드. 위(index=1)가 비조건부, 아래(index=2)가 조건부라서
-        -- 조건부인 쪽이 밴드를 그대로 두고도 앞선다... 는 이미 정렬돼 있으므로
-        -- 여기서는 위가 조건부이고 아래가 아닌, 즉 밴드만으로는 못 이기는 경우를 뒤집는다.
-        local above = rec({ index = 1 });
-        local target = rec({ index = 2 });
-        local rows = sorted({ above, target });
-        check(rows[2] == target, "준비: target이 두 번째여야 함");
+    --- UI가 실제로 하는 일: 배열에서 빼서 insertIndex에 다시 넣고 index를 재부여한다.
+    local function applyMove(layer, target, insertIndex)
+        tremove(layer, indexOf(layer, target));
+        tinsert(layer, insertIndex, target);
+        for i, r in ipairs(layer) do
+            r.index = i;
+        end
+    end
 
-        -- 같은 레이어·같은 구체성이면 index로만 갈리므로 같은 밴드로는 못 이긴다.
-        local priority, reason = ComputeRaisePriority(rows, 2);
-        check(priority == 2, "한 밴드 위로 올려야 함, 받은 값: " .. tostring(priority));
-        check(reason == nil, "이유가 붙으면 안 됨");
-        check(positionAfter(rows, target, priority) == 1, "적용하면 첫 번째가 되어야 함");
+    --- 배열을 발동 순서로 정렬했을 때의 자리들. 비교용 문자열.
+    local function orderOf(layer)
+        local arr = sorted(layer);
+        local names = {};
+        for i = 1, #arr do
+            names[i] = arr[i].name;
+        end
+        return table.concat(names, ",");
+    end
+
+    test("index 이동 - 같은 조건이면 이웃과 한 칸 맞바꾼다", function()
+        local a = rec({ name = "a" });
+        local b = rec({ name = "b" });
+        local layer = makeLayer(a, b);
+        check(orderOf(layer) == "a,b", "준비: a,b");
+
+        local rows = sorted(layer);
+        local insertIndex, reason = ComputeIndexMove(rows, 2, UP);
+        check(reason == nil, "막히면 안 됨: " .. tostring(reason));
+        check(insertIndex == 1, "이웃의 배열 자리(1)여야 함, 받은 값: " .. tostring(insertIndex));
+
+        applyMove(layer, b, insertIndex);
+        check(orderOf(layer) == "b,a", "b가 앞으로 와야 함, 실제: " .. orderOf(layer));
     end);
 
-    test("올리기 - 구체성이 우리 편이면 같은 밴드로 충분하다", function()
-        -- 위는 밴드 2의 비조건부, 아래는 밴드 3의 조건부. 밴드 2로 올리기만 하면
-        -- 3단계(isConditional)에서 이긴다.
-        local above = rec({ priority = 2, index = 1 });
-        local target = rec({ priority = 3, isConditional = true, index = 2 });
-        local rows = sorted({ above, target });
-        check(rows[2] == target, "준비: target이 두 번째여야 함");
+    test("index 이동 - ↑ 다음 ↓면 원래대로 돌아온다", function()
+        -- 밴드를 태우던 옛 방식이 못 하던 것이 정확히 이거다. index는 뜻이 없으므로
+        -- 왕복이 완전히 대칭이어야 한다.
+        local a = rec({ name = "a" });
+        local b = rec({ name = "b" });
+        local c = rec({ name = "c" });
+        local layer = makeLayer(a, b, c);
+        check(orderOf(layer) == "a,b,c", "준비: a,b,c");
 
-        local priority = ComputeRaisePriority(rows, 2);
-        check(priority == 2, "같은 밴드(2)면 충분해야 함, 받은 값: " .. tostring(priority));
-        check(positionAfter(rows, target, priority) == 1, "적용하면 첫 번째가 되어야 함");
+        applyMove(layer, c, (ComputeIndexMove(sorted(layer), 3, UP)));
+        check(orderOf(layer) == "a,c,b", "↑ 후: a,c,b, 실제: " .. orderOf(layer));
+
+        local rows = sorted(layer);
+        applyMove(layer, c, (ComputeIndexMove(rows, indexOf(rows, c), DOWN)));
+        check(orderOf(layer) == "a,b,c", "↓ 후 원상복귀여야 함, 실제: " .. orderOf(layer));
     end);
 
-    test("올리기 - 이미 첫 번째면 불가", function()
-        local rows = sorted({ rec({ index = 1 }), rec({ index = 2 }) });
-        local priority, reason = ComputeRaisePriority(rows, 1);
-        check(priority == nil and reason == "ALREADY_FIRST", "ALREADY_FIRST여야 함");
+    test("index 이동 - 여러 번 왕복해도 priority가 하나도 안 생긴다", function()
+        local a = rec({ name = "a" });
+        local b = rec({ name = "b" });
+        local layer = makeLayer(a, b);
+
+        for _ = 1, 10 do
+            local rows = sorted(layer);
+            local target = rows[2];
+            applyMove(layer, target, (ComputeIndexMove(rows, 2, UP)));
+        end
+
+        check(a.priority == nil and b.priority == nil,
+            "밴드가 생기면 안 됨: a=" .. tostring(a.priority) .. " b=" .. tostring(b.priority));
     end);
 
-    test("올리기 - 최상단 밴드에서 구체성에 막히면 불가", function()
-        -- 위는 밴드 1의 hover, 아래는 밴드 1의 hover 없음. 밴드는 더 못 올라가고
-        -- 2단계(hover)에서 진다. 진짜 해법은 스코프나 조건을 고치는 것이다.
-        local above = rec({ priority = 1, hover = true, index = 1 });
-        local target = rec({ priority = 1, index = 2 });
-        local rows = sorted({ above, target });
+    test("index 이동 - 세 개짜리에서 딱 한 칸만 움직인다", function()
+        local a = rec({ name = "a" });
+        local b = rec({ name = "b" });
+        local c = rec({ name = "c" });
+        local layer = makeLayer(a, b, c);
 
-        local priority, reason = ComputeRaisePriority(rows, 2);
-        check(priority == nil and reason == "TOP_BAND", "TOP_BAND여야 함, 받은 값: " .. tostring(priority));
+        applyMove(layer, c, (ComputeIndexMove(sorted(layer), 3, UP)));
+        check(orderOf(layer) == "a,c,b", "a는 안 넘어야 함, 실제: " .. orderOf(layer));
     end);
 
-    test("내리기 - 한 밴드 아래로", function()
-        local target = rec({ index = 1 });
-        local below = rec({ index = 2 });
-        local rows = sorted({ target, below });
+    test("index 이동 - 끝에서는 움직일 데가 없다", function()
+        local rows = sorted(makeLayer(rec({ name = "a" }), rec({ name = "b" })));
 
-        local priority = ComputeLowerPriority(rows, 1);
-        check(priority == 4, "한 밴드 아래(4)여야 함, 받은 값: " .. tostring(priority));
-        check(positionAfter(rows, target, priority) == 2, "적용하면 두 번째가 되어야 함");
+        local moved, reason = ComputeIndexMove(rows, 1, UP);
+        check(moved == nil and reason == "ALREADY_FIRST", "ALREADY_FIRST여야 함");
+
+        moved, reason = ComputeIndexMove(rows, 2, DOWN);
+        check(moved == nil and reason == "ALREADY_LAST", "ALREADY_LAST여야 함");
     end);
 
-    test("내리기 - 구체성이 상대 편이면 같은 밴드로 충분하다", function()
-        -- target은 밴드 2의 hover, 아래는 밴드 3. 밴드 3으로 내리면 그 안에서
-        -- hover가 있는 쪽이 오히려 먼저이므로... 반대로 hover가 없는 쪽을 target으로 둔다.
-        local target = rec({ priority = 2, index = 1 });
-        local below = rec({ priority = 3, hover = true, index = 2 });
-        local rows = sorted({ target, below });
-        check(rows[1] == target, "준비: target이 첫 번째여야 함");
+    ---------------------------------------------------------------------------
+    -- 막히는 네 축. 각 축은 뜻이 있는 속성이므로 버튼이 아니라 그 속성의 편집기에서
+    -- 바뀌어야 한다. 여기서는 "어느 축에서 갈렸는지"를 정확히 집어내는지만 본다.
+    ---------------------------------------------------------------------------
 
-        local priority = ComputeLowerPriority(rows, 1);
-        check(priority == 3, "같은 밴드(3)면 충분해야 함, 받은 값: " .. tostring(priority));
-        check(positionAfter(rows, target, priority) == 2, "적용하면 두 번째가 되어야 함");
+    local function expectBlocked(target, neighbor, axis)
+        -- neighbor가 먼저, target이 나중이 되도록 놓고 target을 위로 올려본다.
+        local layer = makeLayer(neighbor, target);
+        local rows = sorted(layer);
+        check(rows[2] == target, axis .. ": 준비 - target이 두 번째여야 함");
+
+        local moved, reason = ComputeIndexMove(rows, 2, UP);
+        check(moved == nil, axis .. ": 움직이면 안 됨");
+        check(reason == axis, axis .. ": 이유가 " .. axis .. "여야 함, 받은 값: " .. tostring(reason));
+    end
+
+    test("막힘 - 밴드가 다르면 PRIORITY", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", priority = 2 }), "PRIORITY");
     end);
 
-    test("내리기 - 이미 마지막이면 불가", function()
-        local rows = sorted({ rec({ index = 1 }), rec({ index = 2 }) });
-        local priority, reason = ComputeLowerPriority(rows, 2);
-        check(priority == nil and reason == "ALREADY_LAST", "ALREADY_LAST여야 함");
+    test("막힘 - hover 여부가 다르면 HOVER", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", hover = true }), "HOVER");
     end);
 
-    test("내리기 - 최하단 밴드에서 구체성에 막히면 불가", function()
-        local target = rec({ priority = 5, hover = true, index = 1 });
-        local below = rec({ priority = 5, index = 2 });
-        local rows = sorted({ target, below });
-
-        local priority, reason = ComputeLowerPriority(rows, 1);
-        check(priority == nil and reason == "BOTTOM_BAND", "BOTTOM_BAND여야 함, 받은 값: " .. tostring(priority));
+    test("막힘 - hover=false도 '있는' 것이라 HOVER로 갈린다", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", hover = false }), "HOVER");
     end);
 
-    test("올리기 - 세 개짜리 그룹에서 딱 한 칸만 움직인다", function()
-        local first = rec({ priority = 1, index = 1 });
-        local second = rec({ index = 2 });
-        local third = rec({ index = 3 });
-        local rows = sorted({ first, second, third });
-        check(rows[3] == third, "준비: third가 세 번째여야 함");
+    test("막힘 - 조건부 여부가 다르면 CONDITIONAL", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", isConditional = true }), "CONDITIONAL");
+    end);
 
-        local priority = ComputeRaisePriority(rows, 3);
-        check(positionAfter(rows, third, priority) == 2, "두 번째가 되어야 함 (첫 번째를 넘지 않는다)");
+    test("막힘 - 레이어가 다르면 LAYER", function()
+        expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", layerRank = 1 }), "LAYER");
+    end);
+
+    test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 PRIORITY)", function()
+        expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", priority = 2, layerRank = 1 }), "PRIORITY");
+    end);
+
+    test("GetDecidingOrderAxis - 전부 같으면 nil", function()
+        local axis = DebouncePrivate.GetDecidingOrderAxis(rec({ index = 1 }), rec({ index = 2 }));
+        check(axis == nil, "nil이어야 함, 받은 값: " .. tostring(axis));
     end);
 
     test("PriorityToStored - 기본값은 저장하지 않는다", function()

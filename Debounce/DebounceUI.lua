@@ -2534,7 +2534,8 @@ function DebounceOrderLineMixin:OnClick()
 	ShowOrderPriorityMenu(self, self:GetElementData().row.action);
 end
 
---- 상대 이동 버튼. 비활성일 때는 왜 못 움직이는지가 툴팁에 뜬다.
+--- 상대 이동 버튼. 비활성일 때는 무엇이 순서를 정하고 있는지와 그걸 어디서 바꾸는지가
+--- 툴팁에 뜬다. 리스트 위 한 줄은 요약이고 여기가 전문이다.
 local function OrderMoveButton_OnEnter(button)
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
@@ -2542,6 +2543,11 @@ local function OrderMoveButton_OnEnter(button)
 		GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
 	elseif (button.reasonKey) then
 		GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
+		local fix = rawget(LLL, button.reasonKey .. "_FIX");
+		if (fix) then
+			GameTooltip_AddBlankLineToTooltip(GameTooltip);
+			GameTooltip_AddNormalLine(GameTooltip, fix);
+		end
 	end
 	GameTooltip:Show();
 end
@@ -2568,51 +2574,66 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	end
 
 	orderArea.MoveUpButton:SetScript("OnClick", function()
-		self:ApplyOrderMove(self.raisePriority);
+		self:ApplyOrderMove(self.moveUpInsertIndex);
 	end);
 	orderArea.MoveDownButton:SetScript("OnClick", function()
-		self:ApplyOrderMove(self.lowerPriority);
+		self:ApplyOrderMove(self.moveDownInsertIndex);
 	end);
 end
 
-function DebounceDetailPanelMixin:ApplyOrderMove(priority)
+--- 편집 중인 액션을 자기 레이어 배열 안에서 한 칸 옮긴다. 배열 자리는 순서 말고는
+--- 아무 데도 안 쓰이므로(목록은 정렬해서 그린다) 부작용이 없다.
+function DebounceDetailPanelMixin:ApplyOrderMove(insertIndex)
 	local action = _selectedAction;
-	if (not action or priority == nil) then
+	if (not action or insertIndex == nil) then
 		return;
 	end
-	if (SetActionPriority(action, priority)) then
-		PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+
+	local layer = self.moveLayer;
+	if (not layer or not layer:Remove(action)) then
+		return;
 	end
+	layer:Insert(action, insertIndex);
+
+	action._dirty = true;
+	DebouncePrivate.UpdateBindings();
+	DebounceFrame:Refresh(true);
+	DebounceFrame:Update();
+	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 end
 
 --- 상대 이동 버튼의 상태를 계산한다. rows는 이미 발동 순서로 정렬돼 있다.
+---
+--- 버튼이 만지는 건 레이어 배열의 자리(index)뿐이다. 그건 순서 말고는 아무 뜻도 없는
+--- 유일한 축이라, 눌러도 조건이나 스코프나 우선순위가 따라 바뀌지 않는다. 나머지 축에서
+--- 갈렸으면 비활성으로 두고 **어느 속성이 정하고 있는지**만 말한다 - 그 속성들은 각자
+--- 자기 편집기(우선순위 메뉴 / 조건 편집 / 레이어 이동)에서 바뀌어야 한다.
 function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 	local orderArea = self.KeybindTab.OrderArea;
-	local raise, raiseReason, lower, lowerReason;
+	local up, upReason, down, downReason;
 
-	-- 캡처 중에는 새 키의 가상 순서를 보고 있다. 확정 전에 우선순위를 만지면
-	-- 무엇을 기준으로 움직인 건지 알 수 없게 된다.
 	if (currentIndex and not self.capturing) then
-		raise, raiseReason = DebouncePrivate.ComputeRaisePriority(rows, currentIndex);
-		lower, lowerReason = DebouncePrivate.ComputeLowerPriority(rows, currentIndex);
+		up, upReason = DebouncePrivate.ComputeIndexMove(rows, currentIndex, -1);
+		down, downReason = DebouncePrivate.ComputeIndexMove(rows, currentIndex, 1);
 	end
 
-	self.raisePriority = raise;
-	self.lowerPriority = lower;
+	self.moveUpInsertIndex = up;
+	self.moveDownInsertIndex = down;
+	-- 이동은 이 액션이 실제로 사는 레이어의 배열 안에서 일어난다. 선택된 탭이 아니라
+	-- 수집된 행에서 가져온다(축 검사가 이웃과 같은 레이어임을 이미 보장한다).
+	self.moveLayer = currentIndex and rows[currentIndex].layer or nil;
 
-	orderArea.MoveUpButton.reasonKey = raiseReason and ("ORDER_CANNOT_RAISE_" .. raiseReason) or nil;
-	orderArea.MoveDownButton.reasonKey = lowerReason and ("ORDER_CANNOT_LOWER_" .. lowerReason) or nil;
-	orderArea.MoveUpButton:SetEnabled(raise ~= nil);
-	orderArea.MoveDownButton:SetEnabled(lower ~= nil);
+	orderArea.MoveUpButton.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
+	orderArea.MoveDownButton.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
+	orderArea.MoveUpButton:SetEnabled(up ~= nil);
+	orderArea.MoveDownButton:SetEnabled(down ~= nil);
 
-	-- 밴드에 막힌 경우는 툴팁에만 두면 놓친다. 진짜 해법(스코프·조건 수정)을 그 자리에 적는다.
-	local hint;
-	if (raiseReason == "TOP_BAND") then
-		hint = LLL["ORDER_CANNOT_RAISE_TOP_BAND"];
-	elseif (lowerReason == "BOTTOM_BAND") then
-		hint = LLL["ORDER_CANNOT_LOWER_BOTTOM_BAND"];
-	end
-	orderArea.HintText:SetText(hint or "");
+	-- 비활성 버튼은 마우스를 올려볼 이유를 안 만든다. 툴팁에 전문을 두되 한 줄은 밖에 낸다.
+	-- 끝이라 못 움직이는 건 상태 문장이 이미 말하고 있으므로 적지 않는다.
+	local reason = (upReason ~= "ALREADY_FIRST" and upReason)
+		or (downReason ~= "ALREADY_LAST" and downReason)
+		or nil;
+	orderArea.HintText:SetText(reason and LLL["ORDER_BLOCKED_" .. reason] or "");
 end
 
 --- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
@@ -2622,8 +2643,9 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	local key = action.key;
 
 	if (not key) then
-		self.raisePriority = nil;
-		self.lowerPriority = nil;
+		self.moveUpInsertIndex = nil;
+		self.moveDownInsertIndex = nil;
+		self.moveLayer = nil;
 		orderArea:Hide();
 		return;
 	end

@@ -2,8 +2,6 @@ local _, DebouncePrivate = ...;
 local Constants          = DebouncePrivate.Constants;
 
 local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
-local MIN_PRIORITY       = Constants.MIN_PRIORITY;
-local MAX_PRIORITY       = Constants.MAX_PRIORITY;
 
 -- 순서 규칙만 모아둔 파일. **WoW API를 부르지 말 것** - 헤드리스 테스트
 -- (tests/ordering_spec.lua)가 이 파일을 그대로 로드한다.
@@ -62,69 +60,62 @@ function DebouncePrivate.PriorityToStored(priority)
     return priority;
 end
 
-do
-    -- 비교자에 넘길 임시 레코드. 한 번에 하나만 쓰므로 하나로 돌려쓴다.
-    local _probe = {};
-
-    local function WithPriority(rec, priority)
-        _probe.priority = priority;
-        _probe.hover = rec.hover;
-        _probe.isConditional = rec.isConditional;
-        _probe.layerRank = rec.layerRank;
-        _probe.index = rec.index;
-        return _probe;
+--- 두 액션의 순서를 **가른 단계**를 돌려준다. index까지 내려왔으면(= 앞의 네 단계가 전부
+--- 동률이면) nil이다. CompareActionOrder와 판정이 한 글자도 어긋나면 안 된다.
+---
+--- 순서 UI가 이걸 쓰는 이유: 비교자의 각 단계는 그 자체로 뜻이 있는 속성이고, 각각 자기
+--- 뜻이 사는 자리에서 바뀐다(우선순위 메뉴 / 조건 편집 / 레이어 이동). 뜻이 없는 건
+--- index 하나뿐이라 정렬 버튼이 만질 수 있는 것도 그것뿐이다. 나머지에서 갈렸다면 버튼은
+--- 손을 떼고 **어느 속성이 정하고 있는지**만 말해야 한다.
+function DebouncePrivate.GetDecidingOrderAxis(lhs, rhs)
+    if ((lhs.priority or DEFAULT_PRIORITY) ~= (rhs.priority or DEFAULT_PRIORITY)) then
+        return "PRIORITY";
     end
 
-    --- rows(정렬된 상태)의 targetIndex번째를 **바로 위 행보다 먼저** 오게 하는 데 필요한
-    --- priority를 찾는다. 성공하면 priority를, 못 하면 nil과 이유를 돌려준다.
-    ---
-    --- 두 단계뿐이다. 같은 밴드로 올려서 이기면 그걸로 끝이고(구체성·레이어·index가 우리
-    --- 편인 경우), 아니면 한 밴드 위로 간다 - priority는 비교의 첫 단계라 그건 항상 이긴다.
-    --- 이미 최상단 밴드인데 같은 밴드에서 못 이기면 방법이 없다. 그때는 스코프나 조건을
-    --- 고쳐야 하고, 그건 우선순위가 할 수 있는 일이 아니다.
-    ---
-    --- 이유: "ALREADY_FIRST" | "TOP_BAND"
-    function DebouncePrivate.ComputeRaisePriority(rows, targetIndex)
-        if (targetIndex == nil or targetIndex <= 1) then
-            return nil, "ALREADY_FIRST";
-        end
-
-        local target = rows[targetIndex];
-        local above = rows[targetIndex - 1];
-        local abovePriority = above.priority or DEFAULT_PRIORITY;
-
-        if (DebouncePrivate.CompareActionOrder(WithPriority(target, abovePriority), above)) then
-            return abovePriority;
-        end
-
-        local candidate = abovePriority - 1;
-        if (candidate < MIN_PRIORITY) then
-            return nil, "TOP_BAND";
-        end
-        return candidate;
+    -- hover는 false와 nil이 다른 뜻이다. 비교자와 같은 기준으로 본다.
+    if ((lhs.hover ~= nil) ~= (rhs.hover ~= nil)) then
+        return "HOVER";
     end
 
-    --- 위와 대칭. targetIndex번째를 **바로 아래 행보다 뒤로** 보낸다.
-    --- 이유: "ALREADY_LAST" | "BOTTOM_BAND"
-    function DebouncePrivate.ComputeLowerPriority(rows, targetIndex)
-        if (targetIndex == nil or targetIndex >= #rows) then
-            return nil, "ALREADY_LAST";
-        end
-
-        local target = rows[targetIndex];
-        local below = rows[targetIndex + 1];
-        local belowPriority = below.priority or DEFAULT_PRIORITY;
-
-        if (DebouncePrivate.CompareActionOrder(below, WithPriority(target, belowPriority))) then
-            return belowPriority;
-        end
-
-        local candidate = belowPriority + 1;
-        if (candidate > MAX_PRIORITY) then
-            return nil, "BOTTOM_BAND";
-        end
-        return candidate;
+    if ((lhs.isConditional and true or false) ~= (rhs.isConditional and true or false)) then
+        return "CONDITIONAL";
     end
+
+    if (lhs.layerRank ~= rhs.layerRank) then
+        return "LAYER";
+    end
+
+    return nil;
+end
+
+--- rows(발동 순서로 정렬된 상태)의 targetIndex번째를 이웃과 한 칸 맞바꾸는 데 필요한
+--- **레이어 배열에서의 삽입 위치**를 돌려준다. direction은 -1(위로) / 1(아래로).
+---
+--- 순서를 가르는 게 index뿐일 때만 가능하다. 그때는 layerRank가 같으므로 둘이 같은 레이어에
+--- 있고, 이웃이 서 있던 배열 자리로 들어가면 정확히 한 칸만 움직인다. 밴드도 조건도 스코프도
+--- 건드리지 않고, 편집 중인 액션 하나만 만진다.
+---
+--- 못 하면 nil과 이유를 돌려준다:
+---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
+---   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" - 그 단계에서 갈려서 index까지 안 내려옴
+function DebouncePrivate.ComputeIndexMove(rows, targetIndex, direction)
+    if (targetIndex == nil) then
+        return nil, direction < 0 and "ALREADY_FIRST" or "ALREADY_LAST";
+    end
+
+    local neighborIndex = targetIndex + direction;
+    if (neighborIndex < 1) then
+        return nil, "ALREADY_FIRST";
+    elseif (neighborIndex > #rows) then
+        return nil, "ALREADY_LAST";
+    end
+
+    local axis = DebouncePrivate.GetDecidingOrderAxis(rows[targetIndex], rows[neighborIndex]);
+    if (axis) then
+        return nil, axis;
+    end
+
+    return rows[neighborIndex].index;
 end
 
 do
