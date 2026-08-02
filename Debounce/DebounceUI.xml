@@ -607,7 +607,7 @@
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate">
 						<Anchors>
 							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="-6" y="-34"/>
-							<Anchor point="BOTTOMRIGHT" x="-4" y="34"/>
+							<Anchor point="BOTTOMRIGHT" x="-4" y="6"/>
 						</Anchors>
 						<Frames>
 							<Frame parentKey="ContentTab" setAllPoints="true" hidden="true">
@@ -626,9 +626,10 @@
 														<Anchor point="TOPLEFT" x="0" y="-34"/>
 													</Anchors>
 												</FontString>
-												<FontString parentKey="CharLimitText" inherits="GameFontDisableSmall" justifyH="RIGHT">
+												<!-- 확인/취소와 같은 줄에 둔다. 그 줄은 어차피 비워둘 수 없다. -->
+												<FontString parentKey="CharLimitText" inherits="GameFontDisableSmall" justifyH="LEFT">
 													<Anchors>
-														<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+														<Anchor point="BOTTOMLEFT" x="0" y="7"/>
 													</Anchors>
 												</FontString>
 											</Layer>
@@ -648,7 +649,7 @@
 											<Frame parentKey="TextInset" useParentLevel="true" inherits="InsetFrameTemplate3">
 												<Anchors>
 													<Anchor point="TOPLEFT" relativeKey="$parent.Label" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
-													<Anchor point="BOTTOMRIGHT" x="0" y="16"/>
+													<Anchor point="BOTTOMRIGHT" x="0" y="28"/>
 												</Anchors>
 											</Frame>
 											<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
@@ -720,6 +721,24 @@
 											</Button>
 										</Frames>
 									</Frame>
+
+									<!--
+										편집을 커밋/폐기하는 버튼. 저장할 게 생기는 건 내용 탭뿐이라
+										(매크로 편집, 매크로텍스트 변환) 패널 바닥이 아니라 여기 산다.
+										패널 바닥에 두면 안 쓰는 동안 인셋이 그만큼 못 내려온다.
+									-->
+									<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+										<Size x="90" y="22"/>
+										<Anchors>
+											<Anchor point="BOTTOMRIGHT" x="-8" y="8"/>
+										</Anchors>
+									</Button>
+									<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
+										<Size x="90" y="22"/>
+										<Anchors>
+											<Anchor point="RIGHT" relativeKey="$parent.CancelButton" relativePoint="LEFT" x="-2" y="0"/>
+										</Anchors>
+									</Button>
 								</Frames>
 							</Frame>
 
@@ -922,18 +941,6 @@
 						</Anchors>
 					</Frame>
 
-					<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
-						<Size x="90" y="22"/>
-						<Anchors>
-							<Anchor point="BOTTOMRIGHT" x="-6" y="6"/>
-						</Anchors>
-					</Button>
-					<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
-						<Size x="90" y="22"/>
-						<Anchors>
-							<Anchor point="RIGHT" relativeKey="$parent.CancelButton" relativePoint="LEFT" x="-2" y="0"/>
-						</Anchors>
-					</Button>
 				</Frames>
 				<Scripts>
 					<OnLoad method="OnLoad"/>

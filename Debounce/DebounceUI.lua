@@ -2264,6 +2264,9 @@ function DebounceDetailPanelMixin:OnLoad()
 	self.KeybindTab = self.ContentArea.KeybindTab;
 	self.MacroEditor = self.ContentTab.MacroEditor;
 	self.TypeInfo = self.ContentTab.TypeInfo;
+	-- 확인/취소는 내용 탭 안에 있다. 저장할 게 생기는 곳이 거기뿐이다.
+	self.OkayButton = self.ContentTab.OkayButton;
+	self.CancelButton = self.ContentTab.CancelButton;
 
 	self.MacroEditor.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
 
