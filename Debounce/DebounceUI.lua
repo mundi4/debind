@@ -2449,8 +2449,44 @@ local function BuildOrderSubText(row, layerLabel)
 end
 
 -- 순서 리스트의 행은 좌측 목록의 선택을 옮기지 않는다. 순서만 만지려던 사용자가
--- 컨텍스트를 잃기 때문이다. 대신 클릭이 하는 일을 툴팁 맨 아래에 적는다(2c에서 채운다).
-local ORDER_LINE_TOOLTIP_INSTRUCTIONS = {};
+-- 컨텍스트를 잃기 때문이다. 클릭이 하는 일은 우선순위 지정이고, 툴팁이 그걸 말한다.
+local ORDER_LINE_TOOLTIP_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION" };
+
+--- 우선순위를 저장하고 되비춘다. 기본값이면 nil로 지운다(Profile.lua의 CleanUpDB 규칙).
+local function SetActionPriority(action, priority)
+	local stored = DebouncePrivate.PriorityToStored(priority);
+	if (action.priority == stored) then
+		return false;
+	end
+
+	action.priority = stored;
+	action._dirty = true;
+	DebouncePrivate.UpdateBindings();
+	-- 목록이 키 그룹 안 발동 순서로 정렬돼 있으므로 왼쪽 자리도 바뀐다.
+	DebounceFrame:Refresh(true);
+	DebounceFrame:Update();
+	return true;
+end
+
+--- 절대 지정. 우클릭 메뉴의 CreatePriorityMenu(DropDownMenus.lua)를 리스트 안으로 옮긴 것이다.
+--- 남의 액션을 건드리는 건 상대 이동보다 더 의도적이어야 하므로 값을 직접 고르게 한다.
+local function ShowOrderPriorityMenu(owner, action)
+	MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
+		rootDescription:CreateTitle(LLL["PRIORITY"]);
+		for i = Constants.MIN_PRIORITY, Constants.MAX_PRIORITY do
+			rootDescription:CreateRadio(LLL["PRIORITY" .. i],
+				function()
+					return (action.priority or Constants.DEFAULT_PRIORITY) == i;
+				end,
+				function()
+					SetActionPriority(action, i);
+					-- 순서가 바뀌면 이 행이 다른 자리로 간다. 열어둔 채로 두면 헷갈린다.
+					return MenuResponse.Close;
+				end
+			);
+		end
+	end);
+end
 
 DebounceOrderLineMixin = {};
 
@@ -2497,6 +2533,23 @@ function DebounceOrderLineMixin:OnLeave()
 end
 
 function DebounceOrderLineMixin:OnClick()
+	-- 캡처 중에는 리스트가 아직 가정일 뿐이다(새 키 미리보기). 만지게 두지 않는다.
+	if (DebounceDetailPanel:IsCapturingKey()) then
+		return;
+	end
+	ShowOrderPriorityMenu(self, self:GetElementData().row.action);
+end
+
+--- 상대 이동 버튼. 비활성일 때는 왜 못 움직이는지가 툴팁에 뜬다.
+local function OrderMoveButton_OnEnter(button)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
+	if (button:IsEnabled()) then
+		GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
+	elseif (button.reasonKey) then
+		GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
+	end
+	GameTooltip:Show();
 end
 
 function DebounceDetailPanelMixin:InitializeOrderScrollBox()
@@ -2506,6 +2559,63 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 		button:Init(elementData);
 	end);
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
+
+	orderArea.MoveUpButton.titleKey = "ORDER_MOVE_UP";
+	orderArea.MoveUpButton.descKey = "ORDER_MOVE_UP_DESC";
+	orderArea.MoveDownButton.titleKey = "ORDER_MOVE_DOWN";
+	orderArea.MoveDownButton.descKey = "ORDER_MOVE_DOWN_DESC";
+
+	for _, button in ipairs({ orderArea.MoveUpButton, orderArea.MoveDownButton }) do
+		button:SetScript("OnEnter", OrderMoveButton_OnEnter);
+		button:SetScript("OnLeave", GameTooltip_Hide);
+	end
+
+	orderArea.MoveUpButton:SetScript("OnClick", function()
+		self:ApplyOrderMove(self.raisePriority);
+	end);
+	orderArea.MoveDownButton:SetScript("OnClick", function()
+		self:ApplyOrderMove(self.lowerPriority);
+	end);
+end
+
+function DebounceDetailPanelMixin:ApplyOrderMove(priority)
+	local action = _selectedAction;
+	if (not action or priority == nil) then
+		return;
+	end
+	if (SetActionPriority(action, priority)) then
+		PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+	end
+end
+
+--- 상대 이동 버튼의 상태를 계산한다. rows는 이미 발동 순서로 정렬돼 있다.
+function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
+	local orderArea = self.KeybindTab.OrderArea;
+	local raise, raiseReason, lower, lowerReason;
+
+	-- 캡처 중에는 새 키의 가상 순서를 보고 있다. 확정 전에 우선순위를 만지면
+	-- 무엇을 기준으로 움직인 건지 알 수 없게 된다.
+	if (currentIndex and not self.capturing) then
+		raise, raiseReason = DebouncePrivate.ComputeRaisePriority(rows, currentIndex);
+		lower, lowerReason = DebouncePrivate.ComputeLowerPriority(rows, currentIndex);
+	end
+
+	self.raisePriority = raise;
+	self.lowerPriority = lower;
+
+	orderArea.MoveUpButton.reasonKey = raiseReason and ("ORDER_CANNOT_RAISE_" .. raiseReason) or nil;
+	orderArea.MoveDownButton.reasonKey = lowerReason and ("ORDER_CANNOT_LOWER_" .. lowerReason) or nil;
+	orderArea.MoveUpButton:SetEnabled(raise ~= nil);
+	orderArea.MoveDownButton:SetEnabled(lower ~= nil);
+
+	-- 밴드에 막힌 경우는 툴팁에만 두면 놓친다. 진짜 해법(스코프·조건 수정)을 그 자리에 적는다.
+	local hint;
+	if (raiseReason == "TOP_BAND") then
+		hint = LLL["ORDER_CANNOT_RAISE_TOP_BAND"];
+	elseif (lowerReason == "BOTTOM_BAND") then
+		hint = LLL["ORDER_CANNOT_LOWER_BOTTOM_BAND"];
+	end
+	orderArea.HintText:SetText(hint or "");
 end
 
 --- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
@@ -2514,6 +2624,8 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	local key = action.key;
 
 	if (not key) then
+		self.raisePriority = nil;
+		self.lowerPriority = nil;
 		orderArea:Hide();
 		return;
 	end
@@ -2544,6 +2656,7 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		statusText = format(LLL["ORDER_STATUS_POSITION"], currentIndex, #rows);
 	end
 	orderArea.StatusText:SetText(statusText);
+	self:UpdateOrderMoveButtons(rows, currentIndex);
 
 	orderArea.ListInset:SetShown(currentIndex ~= nil);
 	orderArea.ScrollBox:SetShown(currentIndex ~= nil);

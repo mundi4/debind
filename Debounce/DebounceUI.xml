@@ -819,12 +819,35 @@
 														<Anchor point="TOPRIGHT" x="-58" y="0"/>
 													</Anchors>
 												</FontString>
+												<!-- 더 올릴 수 없는 이유. 버튼 툴팁만으로는 못 보고 지나칠 수 있다. -->
+												<FontString parentKey="HintText" inherits="GameFontDisableSmall" justifyH="LEFT" wordwrap="true">
+													<Anchors>
+														<Anchor point="TOPLEFT" relativeKey="$parent.StatusText" relativePoint="BOTTOMLEFT" x="0" y="-3"/>
+														<Anchor point="TOPRIGHT" relativeKey="$parent.StatusText" relativePoint="BOTTOMRIGHT" x="0" y="-3"/>
+													</Anchors>
+												</FontString>
 											</Layer>
 										</Layers>
 										<Frames>
+											<!--
+												상대 이동 버튼. 리스트가 아니라 패널에 고정돼 있다 - 리스트에 붙어 있으면
+												연타할 때마다 버튼이 움직여서 다시 조준해야 한다.
+											-->
+											<Button parentKey="MoveDownButton" inherits="UIPanelScrollDownButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="24" y="22"/>
+												<Anchors>
+													<Anchor point="TOPRIGHT" x="-2" y="2"/>
+												</Anchors>
+											</Button>
+											<Button parentKey="MoveUpButton" inherits="UIPanelScrollUpButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="24" y="22"/>
+												<Anchors>
+													<Anchor point="TOPRIGHT" relativeKey="$parent.MoveDownButton" relativePoint="TOPLEFT" x="-2" y="0"/>
+												</Anchors>
+											</Button>
 											<Frame parentKey="ListInset" useParentLevel="true" inherits="InsetFrameTemplate3">
 												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.StatusText" relativePoint="BOTTOMLEFT" x="-4" y="-6"/>
+													<Anchor point="TOPLEFT" relativeKey="$parent.HintText" relativePoint="BOTTOMLEFT" x="-4" y="-6"/>
 													<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
 												</Anchors>
 											</Frame>

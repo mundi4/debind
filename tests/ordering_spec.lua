@@ -191,7 +191,143 @@ return function(DebouncePrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 3. CompareKeys
+    -- 3. ComputeRaisePriority / ComputeLowerPriority
+    --
+    -- UI는 자동 검증이 안 되므로 "얼마나 올려야 위를 이기나"의 계산만 여기로 뺐다.
+    -- 각 케이스는 계산된 priority를 실제로 적용해 다시 정렬해보고 결과 자리를 확인한다.
+    ---------------------------------------------------------------------------
+
+    local ComputeRaisePriority = DebouncePrivate.ComputeRaisePriority;
+    local ComputeLowerPriority = DebouncePrivate.ComputeLowerPriority;
+
+    --- rows를 실제 발동 순서로 정렬해 돌려준다. 레코드는 원본 그대로(같은 테이블).
+    local function sorted(rows)
+        local arr = {};
+        for i = 1, #rows do
+            arr[i] = rows[i];
+        end
+        sort(arr, CompareActionOrder);
+        return arr;
+    end
+
+    local function indexOf(rows, rec)
+        for i = 1, #rows do
+            if (rows[i] == rec) then
+                return i;
+            end
+        end
+    end
+
+    --- priority를 적용한 뒤 target이 몇 번째가 되는지.
+    local function positionAfter(rows, target, priority)
+        target.priority = priority;
+        return indexOf(sorted(rows), target);
+    end
+
+    test("올리기 - 같은 밴드에서 이길 수 있으면 밴드를 안 태운다", function()
+        -- 둘 다 기본 밴드. 위(index=1)가 비조건부, 아래(index=2)가 조건부라서
+        -- 조건부인 쪽이 밴드를 그대로 두고도 앞선다... 는 이미 정렬돼 있으므로
+        -- 여기서는 위가 조건부이고 아래가 아닌, 즉 밴드만으로는 못 이기는 경우를 뒤집는다.
+        local above = rec({ index = 1 });
+        local target = rec({ index = 2 });
+        local rows = sorted({ above, target });
+        check(rows[2] == target, "준비: target이 두 번째여야 함");
+
+        -- 같은 레이어·같은 구체성이면 index로만 갈리므로 같은 밴드로는 못 이긴다.
+        local priority, reason = ComputeRaisePriority(rows, 2);
+        check(priority == 2, "한 밴드 위로 올려야 함, 받은 값: " .. tostring(priority));
+        check(reason == nil, "이유가 붙으면 안 됨");
+        check(positionAfter(rows, target, priority) == 1, "적용하면 첫 번째가 되어야 함");
+    end);
+
+    test("올리기 - 구체성이 우리 편이면 같은 밴드로 충분하다", function()
+        -- 위는 밴드 2의 비조건부, 아래는 밴드 3의 조건부. 밴드 2로 올리기만 하면
+        -- 3단계(isConditional)에서 이긴다.
+        local above = rec({ priority = 2, index = 1 });
+        local target = rec({ priority = 3, isConditional = true, index = 2 });
+        local rows = sorted({ above, target });
+        check(rows[2] == target, "준비: target이 두 번째여야 함");
+
+        local priority = ComputeRaisePriority(rows, 2);
+        check(priority == 2, "같은 밴드(2)면 충분해야 함, 받은 값: " .. tostring(priority));
+        check(positionAfter(rows, target, priority) == 1, "적용하면 첫 번째가 되어야 함");
+    end);
+
+    test("올리기 - 이미 첫 번째면 불가", function()
+        local rows = sorted({ rec({ index = 1 }), rec({ index = 2 }) });
+        local priority, reason = ComputeRaisePriority(rows, 1);
+        check(priority == nil and reason == "ALREADY_FIRST", "ALREADY_FIRST여야 함");
+    end);
+
+    test("올리기 - 최상단 밴드에서 구체성에 막히면 불가", function()
+        -- 위는 밴드 1의 hover, 아래는 밴드 1의 hover 없음. 밴드는 더 못 올라가고
+        -- 2단계(hover)에서 진다. 진짜 해법은 스코프나 조건을 고치는 것이다.
+        local above = rec({ priority = 1, hover = true, index = 1 });
+        local target = rec({ priority = 1, index = 2 });
+        local rows = sorted({ above, target });
+
+        local priority, reason = ComputeRaisePriority(rows, 2);
+        check(priority == nil and reason == "TOP_BAND", "TOP_BAND여야 함, 받은 값: " .. tostring(priority));
+    end);
+
+    test("내리기 - 한 밴드 아래로", function()
+        local target = rec({ index = 1 });
+        local below = rec({ index = 2 });
+        local rows = sorted({ target, below });
+
+        local priority = ComputeLowerPriority(rows, 1);
+        check(priority == 4, "한 밴드 아래(4)여야 함, 받은 값: " .. tostring(priority));
+        check(positionAfter(rows, target, priority) == 2, "적용하면 두 번째가 되어야 함");
+    end);
+
+    test("내리기 - 구체성이 상대 편이면 같은 밴드로 충분하다", function()
+        -- target은 밴드 2의 hover, 아래는 밴드 3. 밴드 3으로 내리면 그 안에서
+        -- hover가 있는 쪽이 오히려 먼저이므로... 반대로 hover가 없는 쪽을 target으로 둔다.
+        local target = rec({ priority = 2, index = 1 });
+        local below = rec({ priority = 3, hover = true, index = 2 });
+        local rows = sorted({ target, below });
+        check(rows[1] == target, "준비: target이 첫 번째여야 함");
+
+        local priority = ComputeLowerPriority(rows, 1);
+        check(priority == 3, "같은 밴드(3)면 충분해야 함, 받은 값: " .. tostring(priority));
+        check(positionAfter(rows, target, priority) == 2, "적용하면 두 번째가 되어야 함");
+    end);
+
+    test("내리기 - 이미 마지막이면 불가", function()
+        local rows = sorted({ rec({ index = 1 }), rec({ index = 2 }) });
+        local priority, reason = ComputeLowerPriority(rows, 2);
+        check(priority == nil and reason == "ALREADY_LAST", "ALREADY_LAST여야 함");
+    end);
+
+    test("내리기 - 최하단 밴드에서 구체성에 막히면 불가", function()
+        local target = rec({ priority = 5, hover = true, index = 1 });
+        local below = rec({ priority = 5, index = 2 });
+        local rows = sorted({ target, below });
+
+        local priority, reason = ComputeLowerPriority(rows, 1);
+        check(priority == nil and reason == "BOTTOM_BAND", "BOTTOM_BAND여야 함, 받은 값: " .. tostring(priority));
+    end);
+
+    test("올리기 - 세 개짜리 그룹에서 딱 한 칸만 움직인다", function()
+        local first = rec({ priority = 1, index = 1 });
+        local second = rec({ index = 2 });
+        local third = rec({ index = 3 });
+        local rows = sorted({ first, second, third });
+        check(rows[3] == third, "준비: third가 세 번째여야 함");
+
+        local priority = ComputeRaisePriority(rows, 3);
+        check(positionAfter(rows, third, priority) == 2, "두 번째가 되어야 함 (첫 번째를 넘지 않는다)");
+    end);
+
+    test("PriorityToStored - 기본값은 저장하지 않는다", function()
+        check(DebouncePrivate.PriorityToStored(3) == nil, "3은 nil로");
+        check(DebouncePrivate.PriorityToStored(nil) == nil, "nil은 nil로");
+        check(DebouncePrivate.PriorityToStored(1) == 1, "1은 그대로");
+        check(DebouncePrivate.PriorityToStored(5) == 5, "5는 그대로");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 4. CompareKeys
     ---------------------------------------------------------------------------
 
     local function expectKeyBefore(a, b)

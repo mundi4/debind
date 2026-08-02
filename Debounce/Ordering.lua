@@ -2,6 +2,8 @@ local _, DebouncePrivate = ...;
 local Constants          = DebouncePrivate.Constants;
 
 local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
+local MIN_PRIORITY       = Constants.MIN_PRIORITY;
+local MAX_PRIORITY       = Constants.MAX_PRIORITY;
 
 -- 순서 규칙만 모아둔 파일. **WoW API를 부르지 말 것** - 헤드리스 테스트
 -- (tests/ordering_spec.lua)가 이 파일을 그대로 로드한다.
@@ -50,6 +52,80 @@ function DebouncePrivate.CompareActionOrder(lhs, rhs)
     return lhs.index < rhs.index;
 end
 
+
+--- 저장할 priority 값. 기본값이면 nil이다 - CleanUpDB가 어차피 지운다
+--- (Profile.lua:286-287). UI가 저장하기 전에 반드시 이걸 거친다.
+function DebouncePrivate.PriorityToStored(priority)
+    if (priority == nil or priority == DEFAULT_PRIORITY) then
+        return nil;
+    end
+    return priority;
+end
+
+do
+    -- 비교자에 넘길 임시 레코드. 한 번에 하나만 쓰므로 하나로 돌려쓴다.
+    local _probe = {};
+
+    local function WithPriority(rec, priority)
+        _probe.priority = priority;
+        _probe.hover = rec.hover;
+        _probe.isConditional = rec.isConditional;
+        _probe.layerRank = rec.layerRank;
+        _probe.index = rec.index;
+        return _probe;
+    end
+
+    --- rows(정렬된 상태)의 targetIndex번째를 **바로 위 행보다 먼저** 오게 하는 데 필요한
+    --- priority를 찾는다. 성공하면 priority를, 못 하면 nil과 이유를 돌려준다.
+    ---
+    --- 두 단계뿐이다. 같은 밴드로 올려서 이기면 그걸로 끝이고(구체성·레이어·index가 우리
+    --- 편인 경우), 아니면 한 밴드 위로 간다 - priority는 비교의 첫 단계라 그건 항상 이긴다.
+    --- 이미 최상단 밴드인데 같은 밴드에서 못 이기면 방법이 없다. 그때는 스코프나 조건을
+    --- 고쳐야 하고, 그건 우선순위가 할 수 있는 일이 아니다.
+    ---
+    --- 이유: "ALREADY_FIRST" | "TOP_BAND"
+    function DebouncePrivate.ComputeRaisePriority(rows, targetIndex)
+        if (targetIndex == nil or targetIndex <= 1) then
+            return nil, "ALREADY_FIRST";
+        end
+
+        local target = rows[targetIndex];
+        local above = rows[targetIndex - 1];
+        local abovePriority = above.priority or DEFAULT_PRIORITY;
+
+        if (DebouncePrivate.CompareActionOrder(WithPriority(target, abovePriority), above)) then
+            return abovePriority;
+        end
+
+        local candidate = abovePriority - 1;
+        if (candidate < MIN_PRIORITY) then
+            return nil, "TOP_BAND";
+        end
+        return candidate;
+    end
+
+    --- 위와 대칭. targetIndex번째를 **바로 아래 행보다 뒤로** 보낸다.
+    --- 이유: "ALREADY_LAST" | "BOTTOM_BAND"
+    function DebouncePrivate.ComputeLowerPriority(rows, targetIndex)
+        if (targetIndex == nil or targetIndex >= #rows) then
+            return nil, "ALREADY_LAST";
+        end
+
+        local target = rows[targetIndex];
+        local below = rows[targetIndex + 1];
+        local belowPriority = below.priority or DEFAULT_PRIORITY;
+
+        if (DebouncePrivate.CompareActionOrder(below, WithPriority(target, belowPriority))) then
+            return belowPriority;
+        end
+
+        local candidate = belowPriority + 1;
+        if (candidate > MAX_PRIORITY) then
+            return nil, "BOTTOM_BAND";
+        end
+        return candidate;
+    end
+end
 
 do
     local SORT_KEYS = {

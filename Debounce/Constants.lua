@@ -70,6 +70,8 @@ Constants.MAX_BONUS_ACTIONBAR_OFFSET = 5;
 
 -- Priority Values
 Constants.DEFAULT_PRIORITY           = 3;
+Constants.MIN_PRIORITY               = 1;
+Constants.MAX_PRIORITY               = 5;
 
 Constants.GROUP_NONE                 = 2 ^ 0;
 Constants.GROUP_PARTY                = 2 ^ 1;
