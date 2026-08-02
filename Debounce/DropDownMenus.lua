@@ -288,6 +288,26 @@ end
 --------------------------------------------------------------------------------
 function DebounceUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
     do
+        -- 목록의 배열 순서는 더 이상 사용자가 만지는 것이 아니라서(재배치 드래그를 없앴다)
+        -- 무엇으로 정렬해 보여줄지를 여기서 고른다.
+        local sortDescription = rootDescription:CreateButton(LLL["SORT_LIST_BY"]);
+
+        local function CreateSortRadio(mode, label, desc)
+            local radio = sortDescription:CreateRadio(label, function()
+                return (DebouncePrivate.Options.mainListSort or "key") == mode;
+            end, function()
+                DebouncePrivate.Options.mainListSort = (mode ~= "key") and mode or nil;
+                DebounceUI.NotifyMainListSortChanged(mode);
+                return MenuResponse.Refresh;
+            end);
+            SetInstrcutionTooltip(radio, desc);
+        end
+
+        CreateSortRadio("key", LLL["SORT_LIST_BY_KEY"], LLL["SORT_LIST_BY_KEY_DESC"]);
+        CreateSortRadio("name", LLL["SORT_LIST_BY_NAME"], LLL["SORT_LIST_BY_NAME_DESC"]);
+    end
+
+    do
         local unitframeDescription = rootDescription:CreateButton(LLL["UNITFRAME_OPTIONS"]);
         if (DebouncePrivate.CliqueDetected) then
             SetErrorTooltip(unitframeDescription, LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"]);

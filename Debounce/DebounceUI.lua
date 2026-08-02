@@ -30,7 +30,10 @@ local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
 
 local _selectedTab           = 1;
 local _selectedSideTab       = 1;
-local _placeholder;
+-- 목록 안에서의 재배치는 없앴다(Phase 3). 남은 드래그는 두 가지뿐이다:
+--   _draggingElement - 행을 집어 탭에 떨궈 레이어를 옮기는 것
+--   _pickedupInfo    - 주문/매크로를 커서에 집어와 목록에 떨구는 것(항상 맨 뒤에 추가)
+-- 그래서 고스트(플레이스홀더)도 그 위치 계산도 필요 없다.
 local _draggingElement;
 local _pickedupInfo;
 -- 상세 패널이 보여주는 액션. elementData가 아니라 action 테이블을 들고 있는 이유는
@@ -665,7 +668,6 @@ local function MoveAction(elementData, destLayerID, copying)
 		if (not copying) then
 			local fromLayer = DebouncePrivate.GetProfileLayer(fromLayerID);
 			fromLayer:Remove(action);
-			DebounceFrame.dataProvider:Remove(elementData);
 		end
 	end
 
@@ -678,16 +680,17 @@ local function MoveAction(elementData, destLayerID, copying)
 	local destLayer = DebouncePrivate.GetProfileLayer(destLayerID);
 	destLayer:Insert(action, insertIndex, not copying);
 
-	if (fromLayerID == destLayerID) then
-		elementData = { action = action, layer = destLayerID, index = insertIndex - 0.5 };
-		DebounceFrame.dataProvider:Insert(elementData);
-		for i, elemData in DebounceFrame.dataProvider:Enumerate() do
-			elemData.index = i;
-		end
-		DebounceFrame.ScrollBox:ScrollToElementData(elementData);
-	end
-
 	DebouncePrivate.UpdateBindings();
+
+	-- 목록은 레이어 배열을 그대로 그리므로(정렬 비교자 없음) 손으로 끼워넣지 않고 다시 만든다.
+	DebounceFrame:Refresh(true);
+
+	if (fromLayerID == destLayerID) then
+		local newElementData = DebounceFrame:FindElementDataByActionInfo(action);
+		if (newElementData) then
+			DebounceFrame.ScrollBox:ScrollToElementData(newElementData);
+		end
+	end
 end
 
 local ShowLineTooltip;
@@ -1162,12 +1165,13 @@ function DebounceLineMixin:Update()
 	end
 
 	self.Icon:SetDesaturated(false);
-	self.SelectedHighlight:SetShown(elementData == _placeholder
-		or _selectedAction == action
+	-- 끌고 있는 행은 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를
+	-- 새로 만들어도 강조가 유지된다.
+	self.SelectedHighlight:SetShown(_selectedAction == action
 		or IsEditingAction(action)
 		or IsEditDropdownShown(elementData)
 		or IsKeybindFrameShown(elementData)
-		or IsDraggingElement(elementData)
+		or (_draggingElement ~= nil and _draggingElement.action == action)
 		or (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action));
 
 	if (GameTooltip:GetOwner() == self) then
@@ -1198,8 +1202,10 @@ function DebounceLineMixin:OnClick(buttonName)
 	end
 
 	local elementData = self:GetElementData();
-	if (IsDraggingElement(elementData) and buttonName == "LeftButton") then
-		DebounceFrame:OnReceiveDrag();
+	-- 끌던 행을 목록 위에 다시 놓는 것은 아무 일도 아니다(같은 레이어 안에서는 재배치가 없다).
+	-- 드래그만 끝낸다. 레이어를 옮기려면 탭에 떨궈야 한다.
+	if (buttonName == "LeftButton" and IsDraggingElement(elementData)) then
+		DebounceFrame:ClearMouse();
 		return;
 	end
 
@@ -1430,13 +1436,6 @@ end
 
 DebounceFrameMixin = {};
 
-function DebounceFrameMixin:UpdateTabs()
-	for i = 1, #self.Tabs do
-		local tab = self.Tabs[i];
-		tab:SetEnabled(_placeholder == nil);
-	end
-end
-
 function DebounceFrameMixin:InitializeSideTabs()
 	self.SideTabs = self.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
@@ -1561,123 +1560,10 @@ function DebounceFrameMixin:UpdateActionCounts()
 	end
 end
 
-function DebounceFrameMixin:GetPlaceholder()
-	return _placeholder;
-end
-
-do
-	local SCROLL_DELAY = 0.1;
-	local ELEMENT_PADDING = 40;
-	local _lastScrollTime = 0;
-	local _lastCursorY = 0;
-
-	function DebounceFrameMixin:UpdatePlaceholderPosition(forceNow)
-		-- GetScaledCursorPosition() was removed from the global environment in 12.1.0
-		local cursorScale = self.ScrollBox:GetEffectiveScale();
-		local _, cursorY = GetCursorPosition();
-		cursorY = cursorY / cursorScale;
-		if (forceNow or (GetTime() - _lastScrollTime) > SCROLL_DELAY or abs(cursorY - _lastCursorY) > ELEMENT_PADDING) then
-			_lastCursorY = cursorY;
-			local frames = self.ScrollBox:GetFrames();
-			local pos = 1;
-			for i = 1, #frames do
-				local frame = frames[i];
-				if (frame:IsVisible()) then
-					local frameElementData = frame:GetElementData();
-					local _, b, _, h = frame:GetRect();
-					if (cursorY >= b) then
-						if (frameElementData == _placeholder) then
-							return;
-						end
-
-						if (frameElementData ~= _placeholder) then
-							if (_placeholder.sortIndex < frameElementData.index) then
-								pos = frameElementData.index + 0.5;
-							else
-								pos = frameElementData.index - 0.5;
-							end
-							break;
-						end
-					else
-						if (frameElementData ~= _placeholder) then
-							pos = frameElementData.index + 0.5;
-						end
-					end
-				end
-			end
-
-			if (not _placeholder.sortIndex or _placeholder.sortIndex ~= pos) then
-				_placeholder.sortIndex = pos;
-				self.dataProvider:Sort();
-
-				-- i dont remember what these are for, but they seem to be working fine, so i'll leave them for now
-				local dataIndex = self.dataProvider:FindIndex(_placeholder);
-				local elementExtent = self.ScrollBox:GetElementExtent(dataIndex);
-				local elementOffset = self.ScrollBox:GetExtentUntil(dataIndex);
-				local visibleExtent = self.ScrollBox:GetVisibleExtent();
-				local scrollOffset = self.ScrollBox:GetDerivedScrollOffset();
-
-				local offsetInView = elementOffset - scrollOffset;
-				if (offsetInView + elementExtent + ELEMENT_PADDING > visibleExtent) then
-					self.ScrollBox:ScrollToElementData(_placeholder, ScrollBoxConstants.AlignEnd, -ELEMENT_PADDING, true);
-					_lastScrollTime = GetTime();
-				elseif (offsetInView < ELEMENT_PADDING) then
-					self.ScrollBox:ScrollToElementData(_placeholder, ScrollBoxConstants.AlignBegin, ELEMENT_PADDING, true);
-					_lastScrollTime = GetTime();
-				end
-			end
-		end
-	end
-end
-
-function DebounceFrameMixin:OnUpdate(elapsed)
-	if (not (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo())) then
-		return;
-	end
-
-	local scrollBox = self.ScrollBox;
-	local isMouseOverScrollBox = scrollBox:IsMouseOver();
-	local draggingElement = GetDraggingElement();
-	local placeholderCreated;
-
-	if (isMouseOverScrollBox) then
-		if (not _placeholder) then
-			if (draggingElement) then
-				_placeholder = draggingElement;
-				_placeholder.sortIndex = _placeholder.sortIndex or _placeholder.index;
-			else
-				local type, value = GetActionTypeAndValueFromCursorInfo();
-				_placeholder = { action = { type = type, value = value }, sortIndex = scrollBox:GetDataIndexBegin() };
-			end
-			if (not self.dataProvider:FindIndex(_placeholder)) then
-				self.dataProvider:Insert(_placeholder);
-				self:Update();
-			end
-			placeholderCreated = true;
-		end
-	else
-		if (_placeholder) then
-			if (_placeholder.layer == GetLayerID()) then
-				if (not self.dataProvider:FindIndex(_placeholder)) then
-					self.dataProvider:Insert(_placeholder);
-					self:Update();
-				end
-			else
-				self.dataProvider:Remove(_placeholder);
-				_placeholder.sortIndex = nil;
-				_placeholder = nil;
-				self:Update();
-			end
-		end
-	end
-
-	if (_placeholder and isMouseOverScrollBox) then
-		self:UpdatePlaceholderPosition(placeholderCreated);
-	end
-end
-
+-- 커서에 집어온 주문/매크로를 놓는 동작은 드래그가 아니라 **클릭**이다. 그래서 클릭도
+-- OnReceiveDrag로 보낸다. 폴백이 아니라 pickup의 정규 경로다.
 local function ScrollBox_OnClick(self)
-	if (_placeholder) then
+	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:OnReceiveDrag();
 	end
 end
@@ -1828,18 +1714,14 @@ end
 
 function DebounceFrameMixin:OnEvent(event, arg1)
 	if (event == "GLOBAL_MOUSE_UP") then
+		-- 탭 위에 놓았다면 탭의 OnReceiveDrag가 먼저 처리한다. 여기까지 왔다는 건
+		-- 아무 데도 안 떨궜다는 뜻이라 그냥 드래그를 끝낸다.
 		if (arg1 == "LeftButton" and IsDraggingElement()) then
-			if (_placeholder and DoesAncestryIncludeMouseFocus(self.ScrollBox)) then
-				self:OnReceiveDrag();
-			else
-				self:ClearPlaceHolder();
-				self:ClearMouse();
-			end
+			self:ClearMouse();
 		end
 	elseif (event == "GLOBAL_MOUSE_DOWN") then
 		if (arg1 == "RightButton") then
 			if (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo()) then
-				self:ClearPlaceHolder();
 				self:ClearMouse();
 				return;
 			end
@@ -1851,7 +1733,6 @@ function DebounceFrameMixin:OnEvent(event, arg1)
 			self:OnPickup();
 		elseif (_pickedupInfo) then
 			_pickedupInfo = nil;
-			self:ClearPlaceHolder();
 			self:ClearMouse();
 		end
 	elseif (event == "PLAYER_REGEN_DISABLED") then
@@ -1873,7 +1754,6 @@ function DebounceFrameMixin:OnKeyDown(input)
 		end
 
 		if (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo()) then
-			self:ClearPlaceHolder();
 			self:ClearMouse();
 			return;
 		end
@@ -1922,37 +1802,83 @@ function DebounceFrameMixin:OnBindingsUpdated(_, skipped)
 	self:Update();
 end
 
-local function ElementSortComparator(lhs, rhs)
-	local lv = lhs.sortIndex or lhs.index;
-	local rv = rhs.sortIndex or rhs.index;
-	return lv < rv;
+--- 정렬 방식을 바꿨을 때 목록을 다시 그린다.
+--- 이름순은 **표시 순서일 뿐**이라 발동 순서와 무관하다. 그걸 모르면 목록 맨 위에 있는 게
+--- 먼저 나가는 줄 안다. 계정당 딱 한 번 알린다.
+function DebounceUI.NotifyMainListSortChanged(mode)
+	if (mode == "name" and not DebouncePrivate.Options.nameSortNoticeShown) then
+		DebouncePrivate.Options.nameSortNoticeShown = true;
+		StaticPopup_ShowCustomGenericConfirmation({
+			text = LLL["SORT_LIST_BY_NAME_NOTICE"],
+			acceptText = OKAY,
+			showAlert = true,
+			referenceKey = "DebounceNameSortNotice",
+		});
+	end
+	DebounceFrame:Refresh();
+end
+
+-- 배열 위치(index)는 이제 사용자가 만지는 것이 아니라 삽입 순서일 뿐이다. 그래서 목록을
+-- 배열 그대로 그리지 않고 정렬해서 보여준다.
+--   키순  - 키로 묶고, 한 키 안에서는 **실제 발동 순서**대로. 한 레이어만 보므로
+--           layerRank는 상수이고 (priority, hover, isConditional, index)만 남는다.
+--   이름순 - 표시 순서일 뿐이다. 발동 순서와 무관하다는 걸 사용자에게 한 번 알린다.
+local function BuildSortedElements(layer, layerID)
+	local elements = {};
+	for i, action in layer:Enumerate() do
+		elements[i] = {
+			action = action,
+			layer = layerID,
+			index = i,
+			order = {
+				priority = action.priority,
+				hover = action.hover,
+				isConditional = DebouncePrivate.IsConditionalAction(action),
+				layerRank = 0,
+				index = i,
+			},
+		};
+	end
+
+	if (DebouncePrivate.Options.mainListSort == "name") then
+		for _, elementData in ipairs(elements) do
+			elementData.sortName = strlower(NameAndIconFromElementData(elementData) or "");
+		end
+		sort(elements, function(lhs, rhs)
+			if (lhs.sortName ~= rhs.sortName) then
+				return lhs.sortName < rhs.sortName;
+			end
+			return lhs.index < rhs.index;
+		end);
+	else
+		sort(elements, function(lhs, rhs)
+			local lhsKey, rhsKey = lhs.action.key, rhs.action.key;
+			if (lhsKey ~= rhsKey) then
+				-- 키 없는 액션은 맨 위로. 고쳐야 할 것들이라 눈에 띄어야 한다.
+				if (not lhsKey) then
+					return true;
+				elseif (not rhsKey) then
+					return false;
+				end
+				return DebouncePrivate.CompareKeys(lhsKey, rhsKey);
+			end
+			return DebouncePrivate.CompareActionOrder(lhs.order, rhs.order);
+		end);
+	end
+
+	return elements;
 end
 
 function DebounceFrameMixin:Refresh(retainScrollPosition)
 	HideDeleteConfirmationPopup();
 
-	if (_placeholder) then
-		_placeholder.sortIndex = nil;
-		_placeholder = nil;
-	end
-
 	local dataProvider = CreateDataProvider();
 	local layerID = GetLayerID();
 	local layer = DebouncePrivate.GetProfileLayer(layerID);
 
-	for i, action in layer:Enumerate() do
-		local elementData;
-		local draggingElement = GetDraggingElement();
-		if (draggingElement and draggingElement.layer == layerID and draggingElement.action == action) then
-			elementData = draggingElement;
-			elementData.index = i;
-			elementData.sortIndex = i;
-		else
-			elementData = { action = action, layer = layerID, index = i, };
-		end
+	for _, elementData in ipairs(BuildSortedElements(layer, layerID)) do
 		dataProvider:Insert(elementData);
 	end
-	dataProvider:SetSortComparator(ElementSortComparator, false);
 
 	self.dataProvider = dataProvider;
 	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
@@ -2013,13 +1939,13 @@ function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 	end
 	layer:Insert(action);
 
-	local lastElem = self.dataProvider:Find(self.dataProvider:GetSize());
-	local elementData = { action = action, layer = GetLayerID(), index = lastElem and lastElem.index + 1 or 1 };
-	self.dataProvider:Insert(elementData);
-	for i, other in self.dataProvider:Enumerate() do
-		other.index = i;
+	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
+	self:Refresh(true);
+
+	local elementData = self:FindElementDataByActionInfo(action);
+	if (elementData) then
+		self.ScrollBox:ScrollToElementData(elementData);
 	end
-	self.ScrollBox:ScrollToEnd();
 	self:Update();
 
 	return elementData;
@@ -2087,7 +2013,6 @@ function DebounceFrameMixin:OnPickup()
 	self:ClearMouse(true);
 	self:RegisterEvent("GLOBAL_MOUSE_UP");
 	self:RegisterEvent("GLOBAL_MOUSE_DOWN");
-	self:SetScript("OnUpdate", self.OnUpdate);
 	self:Update();
 end
 
@@ -2103,16 +2028,12 @@ function DebounceFrameMixin:ClearMouse(pickingUp)
 
 	self:UnregisterEvent("GLOBAL_MOUSE_UP");
 	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
-	self:SetScript("OnUpdate", nil);
 	if (not pickingUp) then
 		self:Update();
 	end
 end
 
 function DebounceFrameMixin:StartDragging(elementData)
-	assert(_placeholder == nil);
-
-	elementData.sortIndex = elementData.index;
 	_draggingElement = elementData;
 
 	local name, icon = ColoredNameAndIconFromElementData(elementData);
@@ -2122,36 +2043,7 @@ function DebounceFrameMixin:StartDragging(elementData)
 
 	self:RegisterEvent("GLOBAL_MOUSE_UP");
 	self:RegisterEvent("GLOBAL_MOUSE_DOWN");
-	self:SetScript("OnUpdate", self.OnUpdate);
 	self:Update();
-end
-
-function DebounceFrameMixin:ClearPlaceHolder()
-	if (_placeholder) then
-		_placeholder.sortIndex = nil;
-		if (_placeholder.layer ~= GetLayerID()) then
-			self.dataProvider:Remove(_placeholder);
-		else
-			self.dataProvider:Sort();
-		end
-		_placeholder = nil;
-	end
-end
-
-function DebounceFrameMixin:CancelDragging(pickingUp)
-	self:ClearPlaceHolder();
-	if (_draggingElement) then
-		_draggingElement = nil;
-		DebounceActionPlacerFrame:Hide();
-	end
-
-	if (not pickingUp) then
-		ClearCursor();
-	end
-
-	self:UnregisterEvent("GLOBAL_MOUSE_UP");
-	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
-	self:SetScript("OnUpdate", nil);
 end
 
 function DebounceFrameMixin:CanReceiveDrag()
@@ -2173,34 +2065,38 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 		action = { type = type, value = value };
 	end
 
-	local placeholder = _placeholder;
-	_placeholder = nil;
-
-	local currentLayerID = GetLayerID();
 	destLayerID = destLayerID or GetLayerID();
+
+	-- 이미 있던 행을 같은 레이어에 다시 놓는 것은 아무 일도 아니다. 예전에는 여기서
+	-- 플레이스홀더 위치로 재배치했지만 목록 안 재배치는 없앴다.
+	if (prevLayerID == destLayerID) then
+		self:ClearMouse();
+		return;
+	end
+
 	local destLayer = DebouncePrivate.GetProfileLayer(destLayerID);
 
 	if (prevLayerID) then
 		DebouncePrivate.GetProfileLayer(prevLayerID):Remove(action);
 	end
 
-	-- Inserting into the current ScrollBox.
-	if (destLayerID == currentLayerID and placeholder) then
-		for i, elementData in self.dataProvider:Enumerate() do
-			elementData.index = i;
-			if (placeholder == elementData) then
-				destLayer:Insert(action, i);
-			end
-		end
-	else
-		destLayer:Insert(action, nil);
-		if (_newlyInsertedActions[destLayerID] == nil) then
-			_newlyInsertedActions[destLayerID] = action;
-		end
+	-- 항상 맨 뒤에 붙인다. 떨어진 위치는 의미가 없다.
+	destLayer:Insert(action, nil);
+	if (_newlyInsertedActions[destLayerID] == nil) then
+		_newlyInsertedActions[destLayerID] = action;
 	end
+
 	self:ClearMouse();
 	DebouncePrivate.UpdateBindings();
 	self:Refresh(true);
+
+	-- 목록이 정렬돼 있으므로 새 액션이 어디로 갈지 모른다. 찾아서 보여준다.
+	if (destLayerID == GetLayerID()) then
+		local elementData = self:FindElementDataByActionInfo(action);
+		if (elementData) then
+			self.ScrollBox:ScrollToElementData(elementData);
+		end
+	end
 end
 
 function DebounceFrameMixin:RefreshIconDataProvider()
