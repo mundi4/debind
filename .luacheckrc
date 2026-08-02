@@ -237,11 +237,11 @@ globals = {
 
 	-- Mixin globals (for XML templates)
 	"DebounceLineMixin",
+	"DebounceOrderLineMixin",
 	"DebounceTabMixin",
 	"DebounceSideTabMixin",
 	"DebouncePortraitMixin",
 	"DebounceFrameMixin",
-	"DebounceKeybindFrameMixin",
 	"DebounceDetailPanelMixin",
 	"DebounceIconSelectorFrameMixin",
 	"DebounceOverviewFrameMixin",
@@ -252,7 +252,6 @@ globals = {
 	-- Named frames
 	"DebounceFrame",
 	"DebounceOverviewFrame",
-	"DebounceKeybindFrame",
 	"DebounceDetailPanel",
 	"DebounceIconSelectorFrame",
 	"DebounceActionPlacerFrame",

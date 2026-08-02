@@ -723,7 +723,8 @@ do
 		end
 	end
 
-	function ShowLineTooltip(owner, anchor, elementData, isOverview)
+	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
+	function ShowLineTooltip(owner, anchor, elementData, isOverview, instructionKeys)
 		GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT");
 		---@diagnostic disable-next-line: redundant-parameter
 		GameTooltip:SetMinimumWidth(140, true);
@@ -974,7 +975,14 @@ do
 			addValueLine(LLL["PRIORITY" .. action.priority]);
 		end
 
-		if (not isOverview) then
+		if (instructionKeys) then
+			if (#instructionKeys > 0) then
+				GameTooltip_AddBlankLineToTooltip(GameTooltip);
+				for _, instructionKey in ipairs(instructionKeys) do
+					GameTooltip_AddInstructionLine(GameTooltip, LLL[instructionKey]);
+				end
+			end
+		elseif (not isOverview) then
 			GameTooltip_AddBlankLineToTooltip(GameTooltip);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"]);
@@ -2286,6 +2294,7 @@ function DebounceDetailPanelMixin:OnLoad()
 	end);
 
 	self:InitializeTabs();
+	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
 	self:Refresh();
@@ -2403,6 +2412,162 @@ end
 -- 단축키 탭
 --------------------------------------------------------------------------------
 
+--- layerID를 사람이 읽는 라벨로. 탭 라벨을 그대로 쓴다 - 직업명·특성명·캐릭터명이라
+--- 새로 배울 게 없다. GetLayerID(spec, isCharacterSpecific)의 역방향이다.
+local function GetLayerLabel(layerID)
+	local scope, sideTab;
+	if (layerID >= 7) then
+		local spec = layerID - 7;
+		scope = UnitName("player");
+		sideTab = spec > 0 and spec + 2 or 1;
+	else
+		scope = LLL["SHARED_BINDINGS"];
+		sideTab = layerID == 1 and 1 or layerID;
+	end
+	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
+end
+
+--- 행 아래줄에 붙일 조각들. 색만으로 구분하지 않도록 전부 낱말을 쓴다.
+local function BuildOrderSubText(row, layerLabel)
+	local parts = {};
+	if (layerLabel) then
+		parts[#parts + 1] = layerLabel;
+	end
+	if (row.unreachable) then
+		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
+	end
+	if (row.issue) then
+		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
+	end
+	if (row.hover ~= nil) then
+		parts[#parts + 1] = LLL["ORDER_FLAG_HOVER"];
+	end
+	if (row.isConditional) then
+		parts[#parts + 1] = LLL["ORDER_FLAG_CONDITIONAL"];
+	end
+	return table.concat(parts, " \194\183 ");
+end
+
+-- 순서 리스트의 행은 좌측 목록의 선택을 옮기지 않는다. 순서만 만지려던 사용자가
+-- 컨텍스트를 잃기 때문이다. 대신 클릭이 하는 일을 툴팁 맨 아래에 적는다(2c에서 채운다).
+local ORDER_LINE_TOOLTIP_INSTRUCTIONS = {};
+
+DebounceOrderLineMixin = {};
+
+function DebounceOrderLineMixin:Init()
+	self:Update();
+end
+
+function DebounceOrderLineMixin:Update()
+	local elementData = self:GetElementData();
+	local row = elementData.row;
+
+	local name, icon = NameAndIconFromElementData(row.action);
+	self.Name:SetText(name);
+	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
+		self.Icon:SetAtlas(icon:sub(3));
+	else
+		self.Icon:SetTexture(icon);
+	end
+
+	self.RankText:SetText(elementData.rank);
+	self.SubText:SetText(BuildOrderSubText(row, elementData.layerLabel));
+
+	-- 기본값은 안 쓴다. 손댄 것만 보이게 해야 무엇이 특별한지가 드러난다.
+	if (row.priority ~= Constants.DEFAULT_PRIORITY) then
+		self.PriorityText:SetText(LLL["PRIORITY" .. row.priority]);
+	else
+		self.PriorityText:SetText("");
+	end
+
+	-- 지금 보고 있는 액션을 확실히 띄운다: 배경 + 왼쪽 막대 + 나머지는 흐리게.
+	self.CurrentBackground:SetShown(elementData.isCurrent);
+	self.CurrentMarker:SetShown(elementData.isCurrent);
+	self:SetAlpha(elementData.isCurrent and 1 or 0.65);
+end
+
+function DebounceOrderLineMixin:OnEnter()
+	ShowLineTooltip(self, "ANCHOR_LEFT", self:GetElementData().row, true, ORDER_LINE_TOOLTIP_INSTRUCTIONS);
+end
+
+function DebounceOrderLineMixin:OnLeave()
+	---@diagnostic disable-next-line: redundant-parameter
+	GameTooltip:SetMinimumWidth(0, false);
+	GameTooltip:Hide();
+end
+
+function DebounceOrderLineMixin:OnClick()
+end
+
+function DebounceDetailPanelMixin:InitializeOrderScrollBox()
+	local orderArea = self.KeybindTab.OrderArea;
+	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 2);
+	view:SetElementInitializer("DebounceOrderLineTemplate", function(button, elementData)
+		button:Init(elementData);
+	end);
+	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
+end
+
+--- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
+function DebounceDetailPanelMixin:RefreshOrderList(action)
+	local orderArea = self.KeybindTab.OrderArea;
+	local key = action.key;
+
+	if (not key) then
+		orderArea:Hide();
+		return;
+	end
+	orderArea:Show();
+
+	local rows = DebouncePrivate.CollectActionsForKey(key);
+
+	local currentIndex, mixedLayers;
+	for i, row in ipairs(rows) do
+		if (row.action == action) then
+			currentIndex = i;
+		end
+		if (i > 1 and row.layerID ~= rows[i - 1].layerID) then
+			mixedLayers = true;
+		end
+	end
+
+	local statusText;
+	if (not currentIndex) then
+		-- 비활성 특성의 레이어에 있는 액션이다. 경쟁 상대가 지금 것이 아니라서 순위를
+		-- 계산할 수 없다. 거짓 순서를 보여주느니 못 한다고 말한다.
+		statusText = LLL["ORDER_SCOPE_INACTIVE"];
+	elseif (rows[currentIndex].unreachable) then
+		statusText = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_STATUS_UNREACHABLE"]);
+	elseif (#rows == 1) then
+		statusText = LLL["ORDER_STATUS_ONLY"];
+	else
+		statusText = format(LLL["ORDER_STATUS_POSITION"], currentIndex, #rows);
+	end
+	orderArea.StatusText:SetText(statusText);
+
+	orderArea.ListInset:SetShown(currentIndex ~= nil);
+	orderArea.ScrollBox:SetShown(currentIndex ~= nil);
+	orderArea.ScrollBar:SetShown(currentIndex ~= nil);
+	if (not currentIndex) then
+		return;
+	end
+
+	local dataProvider = CreateDataProvider();
+	for i, row in ipairs(rows) do
+		dataProvider:Insert({
+			row = row,
+			rank = i,
+			isCurrent = i == currentIndex,
+			-- 같은 레이어는 정렬상 항상 붙어 있다. 섞였을 때만, 바뀌는 첫 행에만 단다.
+			layerLabel = (mixedLayers and (i == 1 or rows[i - 1].layerID ~= row.layerID))
+				and GetLayerLabel(row.layerID) or nil,
+		});
+	end
+
+	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.DiscardScrollPosition);
+	orderArea.ScrollBox:ScrollToElementDataIndex(currentIndex, ScrollBoxConstants.AlignNearest);
+end
+
 function DebounceDetailPanelMixin:RefreshKeybindTab(action)
 	local keyArea = self.KeybindTab.KeyArea;
 	local overlay = self.KeybindTab.CaptureOverlay;
@@ -2428,6 +2593,8 @@ function DebounceDetailPanelMixin:RefreshKeybindTab(action)
 	keyArea.AssignButton:SetShown(key == nil);
 	keyArea.ChangeButton:SetShown(key ~= nil);
 	keyArea.UnbindButton:SetShown(key ~= nil);
+
+	self:RefreshOrderList(action);
 end
 
 function DebounceDetailPanelMixin:IsCapturingKey()

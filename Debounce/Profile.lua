@@ -386,9 +386,14 @@ end
 --- GetKeyMap()을 쓰지 않는 이유: 그쪽은 이슈가 있는 액션과 도달불가 액션이 빠져 있는데,
 --- 순서 UI에서는 **그것들이야말로** 보여줘야 할 대상이다.
 ---
+--- extraAction을 주면 그 액션의 키가 무엇이든 행을 하나 더 만든다. "이 키로 옮기면 몇 번째가
+--- 되는가"를 확정 전에 보여주기 위한 것이다(단축키 탭의 캡처 미리보기). 이미 그 키인 액션이면
+--- 중복되지 않는다. 활성 레이어에 없는 액션(다른 특성의 레이어)은 여전히 안 나온다 -
+--- 그 경우 순위를 계산할 근거가 없으므로 호출자가 "계산 불가"로 다뤄야 한다.
+---
 --- 돌려주는 레코드는 호출자 소유의 새 테이블이다. action 테이블에는 아무것도 쓰지 말 것이며,
 --- GetBindingInfoForAction이 준 테이블도 쓰지 않는다(그쪽 필드는 BuildKeyMap이 소유한다).
-function DebouncePrivate.CollectActionsForKey(key)
+function DebouncePrivate.CollectActionsForKey(key, extraAction)
     local rows = {};
     if (key == nil) then
         return rows;
@@ -396,7 +401,7 @@ function DebouncePrivate.CollectActionsForKey(key)
 
     for layerRank, layer in DebouncePrivate.EnumerateProfileLayers() do
         for index, action in layer:Enumerate() do
-            if (action.key == key) then
+            if (action.key == key or action == extraAction) then
                 rows[#rows + 1] = {
                     action        = action,
                     layer         = layer,

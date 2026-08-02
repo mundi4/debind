@@ -203,6 +203,71 @@
 		</Scripts>
 	</Button>
 
+	<!--
+		단축키 탭의 순서 리스트 한 줄. 패널이 좁아서(약 300px) 한 줄에 다 넣지 않고
+		두 줄로 쓴다: 위는 순위/아이콘/이름/우선순위, 아래는 레이어와 플래그.
+	-->
+	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" virtual="true">
+		<Size x="280" y="34"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="CurrentBackground" hidden="true" setAllPoints="true">
+					<Color r="1" g="0.82" b="0" a="0.13"/>
+				</Texture>
+				<Texture parentKey="CurrentMarker" hidden="true">
+					<Size x="3" y="0"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="0" y="-1"/>
+						<Anchor point="BOTTOMLEFT" x="0" y="1"/>
+					</Anchors>
+					<Color r="1" g="0.82" b="0" a="1"/>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<FontString parentKey="RankText" inherits="GameFontNormalSmall" justifyH="RIGHT" maxLines="1">
+					<Size x="16" y="0"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="5" y="-5"/>
+					</Anchors>
+				</FontString>
+				<Texture parentKey="Icon">
+					<Size x="16" y="16"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="26" y="-4"/>
+					</Anchors>
+				</Texture>
+				<FontString parentKey="Name" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="46" y="-5"/>
+						<Anchor point="TOPRIGHT" x="-72" y="-5"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="PriorityText" inherits="GameFontDisableSmall" justifyH="RIGHT" maxLines="1">
+					<Size x="68" y="0"/>
+					<Anchors>
+						<Anchor point="TOPRIGHT" x="-4" y="-5"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="SubText" inherits="GameFontDisableSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="26" y="-19"/>
+						<Anchor point="TOPRIGHT" x="-4" y="-19"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="1" a="0.10"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+			<OnClick method="OnClick"/>
+		</Scripts>
+	</Button>
+
 	<Button name="DebouncePortraitTemplate" mixin="DebouncePortraitMixin" parentArray="FramePortraits" virtual="true">
 		<Size x="31" y="31"/>
 		<Layers>
@@ -737,6 +802,47 @@
 										먼저 키를 받아야 해서 strata를 올린다(예전 팝업이 DIALOG였던 것과 같은 이유).
 										아래쪽 순서 리스트는 덮지 않는다 - 새 키의 순서를 보면서 확정하기 위해서다.
 									-->
+									<!--
+										순서 리스트. 이 키에 걸린 액션 전부를 실제 발동 순서로 보여준다.
+										캡처 중에도 덮이지 않는다 - 새 키의 순서를 보면서 확정하기 위해서다.
+									-->
+									<Frame parentKey="OrderArea" hidden="true">
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-8"/>
+											<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<FontString parentKey="StatusText" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
+													<Anchors>
+														<Anchor point="TOPLEFT" x="4" y="0"/>
+														<Anchor point="TOPRIGHT" x="-58" y="0"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+										<Frames>
+											<Frame parentKey="ListInset" useParentLevel="true" inherits="InsetFrameTemplate3">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.StatusText" relativePoint="BOTTOMLEFT" x="-4" y="-6"/>
+													<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+												</Anchors>
+											</Frame>
+											<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.ListInset" x="4" y="-4"/>
+													<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ListInset" x="-18" y="4"/>
+												</Anchors>
+											</Button>
+											<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="4" y="0"/>
+													<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="4" y="0"/>
+												</Anchors>
+											</EventFrame>
+										</Frames>
+									</Frame>
+
 									<Button parentKey="CaptureOverlay" frameStrata="HIGH" enableMouse="true" enableKeyboard="true" hidden="true">
 										<Anchors>
 											<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea"/>
