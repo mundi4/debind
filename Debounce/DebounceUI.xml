@@ -4,6 +4,22 @@
 	<Script file="DebounceUI.lua" />
 	<Script file="DropDownMenus.lua" />
 
+	<!--
+		비활성 버튼에 다는 (i) 배지. 비활성 버튼은 눌러도 반응이 없으니 마우스를 올려볼
+		이유가 없다 - 왜 못 누르는지는 툴팁에만 있는데 그 툴팁을 아무도 안 본다.
+		배지는 "여기 설명이 있다"만 말한다. 이유 자체는 툴팁이 말한다.
+
+		버튼 **안쪽** 모서리에 붙인다. 밖으로 빼면 이웃 버튼이나 아래 스크롤박스와 겹치는데,
+		그것들이 나중에 만들어져서 위로 그려진다 - 배지가 가려진다. 화살표(16px 중앙)의
+		모서리를 조금 먹지만 비활성일 땐 화살표가 흐려져 있어서 배지가 또렷하게 읽힌다.
+	-->
+	<Texture name="DebounceInfoBadgeTemplate" file="Interface\FriendsFrame\InformationIcon" virtual="true" hidden="true">
+		<Size x="12" y="12"/>
+		<Anchors>
+			<Anchor point="TOPRIGHT" x="-1" y="-1"/>
+		</Anchors>
+	</Texture>
+
 	<Frame name="DebounceGlowBorderTemplate" virtual="true">
 		<Size x="100" y="100"/>
 		<Layers>
@@ -611,12 +627,10 @@
 						<Frames>
 							<!--
 								단축키 줄. **바인딩 자체가 버튼이다** - 와우 기본 단축키 설정과 같은
-								형태이고, 그래서 [변경] 버튼이 따로 없다. 누르면 그 버튼이 곧 캡처
-								표면이 되므로 덮는 오버레이도 필요 없다.
+								형태라 [변경] 버튼이 따로 없다. 누르면 CaptureOverlay가 열린다.
 
-								평상시엔 키 이름, 캡처 중엔 안내 문구를 **같은 버튼 안에서** 바꾼다.
-								안내를 별도 줄로 두면 캡처에 들어갈 때마다 이 영역이 커지면서 아래
-								순서 목록이 밀린다. 크롬 때문에 내용이 움직이면 안 된다.
+								이 줄은 캡처 중에 모습이 바뀌지 않는다. 어차피 오버레이가 덮으므로
+								바꿔봐야 안 보이고, 안 바꾸면 캡처를 취소했을 때 아무것도 안 움직인다.
 							-->
 							<Frame parentKey="KeyArea">
 								<Size y="30"/>
@@ -635,54 +649,46 @@
 									</Layer>
 								</Layers>
 								<Frames>
+									<!--
+										상대 이동 버튼. 리스트가 아니라 패널에 고정돼 있다 - 리스트에
+										붙어 있으면 연타할 때마다 버튼이 움직여서 다시 조준해야 한다.
+									-->
+									<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+										<Anchors>
+											<Anchor point="TOPRIGHT" x="0" y="0"/>
+										</Anchors>
+										<Layers>
+											<Layer level="OVERLAY">
+												<Texture parentKey="InfoBadge" inherits="DebounceInfoBadgeTemplate"/>
+											</Layer>
+										</Layers>
+									</Button>
+									<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+										<Anchors>
+											<Anchor point="TOPRIGHT" relativeKey="$parent.MoveDownButton" relativePoint="TOPLEFT" x="-2" y="0"/>
+										</Anchors>
+										<Layers>
+											<Layer level="OVERLAY">
+												<Texture parentKey="InfoBadge" inherits="DebounceInfoBadgeTemplate"/>
+											</Layer>
+										</Layers>
+									</Button>
 									<Button parentKey="KeyButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
-										<Size x="196" y="26"/>
+										<Size y="26"/>
 										<Anchors>
 											<Anchor point="TOPLEFT" x="0" y="-1"/>
+											<Anchor point="TOPRIGHT" relativeKey="$parent.MoveUpButton" relativePoint="TOPLEFT" x="-8" y="-1"/>
 										</Anchors>
 										<Scripts>
-											<OnLoad>
-												self:RegisterForClicks("AnyUp");
-											</OnLoad>
 											<OnClick>
-												DebounceDetailPanel:KeyButton_OnClick(button);
+												DebounceDetailPanel:StartKeyCapture();
 											</OnClick>
-											<OnKeyDown>
-												DebounceDetailPanel:KeyCapture_OnKeyDown(self, key);
-											</OnKeyDown>
-											<OnMouseWheel>
-												DebounceDetailPanel:KeyCapture_ProcessInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
-											</OnMouseWheel>
-											<OnGamePadButtonDown>
-												DebounceDetailPanel:KeyCapture_ProcessInput(button);
-											</OnGamePadButtonDown>
 											<OnEnter>
 												DebounceDetailPanel:KeyButton_OnEnter(self);
 											</OnEnter>
 											<OnLeave function="GameTooltip_Hide"/>
 										</Scripts>
 									</Button>
-									<Button parentKey="UnbindButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
-										<Anchors>
-											<Anchor point="LEFT" relativeKey="$parent.KeyButton" relativePoint="RIGHT" x="6" y="0"/>
-										</Anchors>
-										<Scripts>
-											<OnClick>
-												DebounceDetailPanel:UnbindButton_OnClick();
-											</OnClick>
-											<OnEnter>
-												DebounceDetailPanel:UnbindButton_OnEnter(self);
-											</OnEnter>
-											<OnLeave function="GameTooltip_Hide"/>
-										</Scripts>
-									</Button>
-									<!-- 캡처 중이라는 표시. 이미 있는 글로우를 키 버튼에만 두른다. -->
-									<Frame parentKey="CaptureGlow" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.7">
-										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.KeyButton" x="2" y="-2"/>
-											<Anchor point="BOTTOMRIGHT" relativeKey="$parent.KeyButton" x="-2" y="2"/>
-										</Anchors>
-									</Frame>
 								</Frames>
 							</Frame>
 
@@ -695,41 +701,10 @@
 									<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
 									<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
 								</Anchors>
-								<Layers>
-									<Layer level="ARTWORK">
-										<FontString parentKey="StatusText" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
-											<Anchors>
-												<Anchor point="TOPLEFT" x="2" y="-4"/>
-												<Anchor point="TOPRIGHT" x="-62" y="-4"/>
-											</Anchors>
-										</FontString>
-										<!-- 더 올릴 수 없는 이유. 버튼 툴팁만으로는 놓치고 지나간다. -->
-										<FontString parentKey="HintText" inherits="GameFontDisableSmall" justifyH="LEFT" wordwrap="true">
-											<Anchors>
-												<Anchor point="TOPLEFT" relativeKey="$parent.StatusText" relativePoint="BOTTOMLEFT" x="0" y="-3"/>
-												<Anchor point="TOPRIGHT" relativeKey="$parent.StatusText" relativePoint="BOTTOMRIGHT" x="0" y="-3"/>
-											</Anchors>
-										</FontString>
-									</Layer>
-								</Layers>
 								<Frames>
-									<!--
-										상대 이동 버튼. 리스트가 아니라 패널에 고정돼 있다 - 리스트에
-										붙어 있으면 연타할 때마다 버튼이 움직여서 다시 조준해야 한다.
-									-->
-									<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
-										<Anchors>
-											<Anchor point="TOPRIGHT" x="0" y="-2"/>
-										</Anchors>
-									</Button>
-									<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
-										<Anchors>
-											<Anchor point="TOPRIGHT" relativeKey="$parent.MoveDownButton" relativePoint="TOPLEFT" x="-2" y="0"/>
-										</Anchors>
-									</Button>
 									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
 										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.HintText" relativePoint="BOTTOMLEFT" x="-2" y="-6"/>
+											<Anchor point="TOPLEFT" x="0" y="0"/>
 											<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
 										</Anchors>
 									</Button>
@@ -740,6 +715,87 @@
 										</Anchors>
 									</EventFrame>
 								</Frames>
+							</Frame>
+
+							<!--
+								단축키 캡처 오버레이. 패널을 통째로 덮는다 - 캡처 중에 이 패널에서 할 수 있는 일은
+								키를 누르는 것뿐이고, 덮어버리면 그 사실이 화면으로 보인다.
+
+								**마우스가 이 위에 있을 때만** 키를 가로챈다. 상설 패널이라 마우스가 딴 데 있는
+								동안 키보드까지 먹으면 검색창 입력이 사라진다. 안내 문구가 "마우스를 여기 두고"로
+								시작하는 건 그 제약을 숨기지 않기 위해서다.
+
+								ESC만 호버와 무관하게 항상 닫는다. 그래서 ESC는 단축키로 지정될 수 없다.
+							-->
+							<Frame parentKey="CaptureOverlay" enableMouse="true" enableKeyboard="true" setAllPoints="true" hidden="true">
+								<Layers>
+									<Layer level="BACKGROUND">
+										<Texture parentKey="Background" setAllPoints="true">
+											<Color r="0" g="0" b="0" a="0.85"/>
+										</Texture>
+									</Layer>
+									<Layer level="ARTWORK">
+																				<!--
+											이건 곁다리 설명이 아니라 **지금 무엇을 하라는 말**이다. 그래서 기본 노란색
+											(GameFontNormal)을 쓴다. 흰색·회색은 부연에 쓴다.
+
+											위에서 마진을 두고 시작한다. CENTER로 걸면 글의 **시작점**이 패널 한가운데가
+											되고 힌트와 버튼이 거기서부터 아래로 달려서 덩어리 전체가 쳐져 보인다.
+											-80은 빈 패널 안내문(EmptyText)이 쓰는 것과 같은 값이다.
+										-->
+										<FontString parentKey="Prompt" inherits="GameFontNormal" justifyH="CENTER" wordwrap="true">
+											<Size x="260" y="0"/>
+											<Anchors>
+												<Anchor point="TOP" x="0" y="-80"/>
+											</Anchors>
+										</FontString>
+										<FontString parentKey="Hint" inherits="GameFontDisableSmall" justifyH="CENTER" wordwrap="true">
+											<Size x="260" y="0"/>
+											<Anchors>
+												<Anchor point="TOP" relativeKey="$parent.Prompt" relativePoint="BOTTOM" x="0" y="-8"/>
+											</Anchors>
+										</FontString>
+									</Layer>
+								</Layers>
+								<Frames>
+									<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate">
+										<Size x="150" y="22"/>
+										<Anchors>
+											<Anchor point="TOP" relativeKey="$parent.Hint" relativePoint="BOTTOM" x="0" y="-20"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												DebounceDetailPanel:UnbindKey();
+											</OnClick>
+										</Scripts>
+									</Button>
+									<!-- 해제 버튼이 없는 액션에서는 Lua가 이 앵커를 안내문 바로 아래로 다시 잡는다. -->
+									<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
+										<Size x="150" y="22"/>
+										<Anchors>
+											<Anchor point="TOP" relativeKey="$parent.UnbindButton" relativePoint="BOTTOM" x="0" y="-6"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												DebounceDetailPanel:CancelKeyCapture();
+											</OnClick>
+										</Scripts>
+									</Button>
+								</Frames>
+								<Scripts>
+									<OnKeyDown>
+										DebounceDetailPanel:KeyCapture_OnKeyDown(self, key);
+									</OnKeyDown>
+									<OnMouseUp>
+										DebounceDetailPanel:KeyCapture_ProcessInput(button);
+									</OnMouseUp>
+									<OnMouseWheel>
+										DebounceDetailPanel:KeyCapture_ProcessInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
+									</OnMouseWheel>
+									<OnGamePadButtonDown>
+										DebounceDetailPanel:KeyCapture_ProcessInput(button);
+									</OnGamePadButtonDown>
+								</Scripts>
 							</Frame>
 						</Frames>
 					</Frame>
