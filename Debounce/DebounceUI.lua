@@ -29,6 +29,9 @@ local _selectedSideTab       = 1;
 local _placeholder;
 local _draggingElement;
 local _pickedupInfo;
+-- 상세 패널이 보여주는 액션. elementData가 아니라 action 테이블을 들고 있는 이유는
+-- elementData가 Refresh마다 새로 만들어지기 때문이다 (DebounceFrameMixin:Refresh).
+local _selectedAction;
 local _newlyInsertedActions  = {};
 
 DebounceUI.ActionMenuRootTag = "DEBOUNCE_ACTION_ROOT";
@@ -335,20 +338,22 @@ local function DoesAncestryIncludeMouseFocus(ancestry)
 end
 
 local function TryCloseAnyDialog()
-	if (DebounceIconSelectorFrame:Close() and DebounceMacroFrame:Close() and DebounceKeybindFrame:Close()) then
+	if (DebounceIconSelectorFrame:Close() and DebounceDetailPanel:Close() and DebounceKeybindFrame:Close()) then
 		return true;
 	end
 	return false;
 end
 
-local function IsEditingMacro(elementData)
-	if (DebounceMacroFrame:IsShown() and (elementData == nil or DebounceMacroFrame.elementData == elementData)) then
+--- 상세 패널은 상설이라 "떠 있는가"가 아니라 "저장 안 된 변경이 있는가"가 잠금 조건이다.
+--- 아이콘 선택기는 여전히 팝업이므로 떠 있는 것만으로 잠근다.
+local function IsEditingAction(action)
+	if (DebounceIconSelectorFrame:IsShown() and (action == nil or DebounceIconSelectorFrame.action == action)) then
 		return true;
-	elseif (DebounceIconSelectorFrame:IsShown() and (elementData == nil or DebounceIconSelectorFrame.elementData == elementData)) then
-		return true;
-	else
-		return false;
 	end
+	if (DebounceDetailPanel:HasUnsavedChanges() and (action == nil or _selectedAction == action)) then
+		return true;
+	end
+	return false;
 end
 
 local function IsEditDropdownShown(elementData)
@@ -518,8 +523,12 @@ end
 
 
 local function DeleteElementData(elementData)
-	if (IsEditingMacro(elementData)) then
-		DebounceMacroFrame:Hide();
+	if (DebounceIconSelectorFrame:IsShown() and DebounceIconSelectorFrame.action == elementData.action) then
+		DebounceIconSelectorFrame:Close(true);
+	end
+
+	if (_selectedAction == elementData.action) then
+		DebounceFrame:SetSelectedAction(nil, true);
 	end
 
 	if (IsKeybindFrameShown(elementData)) then
@@ -577,11 +586,11 @@ do
 		HideSaveOrDiscardPopup();
 
 		local function onAccept()
-			DebounceMacroFrame:OkayButton_OnClick();
+			DebounceDetailPanel:OkayButton_OnClick();
 		end
 
 		local function onCancel()
-			DebounceMacroFrame:CancelButton_OnClick();
+			DebounceDetailPanel:CancelButton_OnClick();
 		end
 
 		local name = NameAndIconFromElementData(elementData);
@@ -1148,20 +1157,14 @@ function DebounceLineMixin:Update()
 		self.ProfessionQualityOverlay:Hide();
 	end
 
-	if (elementData == _placeholder or IsEditingMacro(elementData) or IsEditDropdownShown(elementData) or IsKeybindFrameShown(elementData)) then
-		self.SelectedHighlight:Show();
-	elseif (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action) then
-		self.SelectedHighlight:Show();
-	elseif (IsEditingMacro() or IsEditDropdownShown() or IsKeybindFrameShown()) then
-		self.SelectedHighlight:Hide();
-	else
-		self.Icon:SetDesaturated(false);
-		if (IsDraggingElement(elementData)) then
-			self.SelectedHighlight:Show();
-		else
-			self.SelectedHighlight:Hide();
-		end
-	end
+	self.Icon:SetDesaturated(false);
+	self.SelectedHighlight:SetShown(elementData == _placeholder
+		or _selectedAction == action
+		or IsEditingAction(action)
+		or IsEditDropdownShown(elementData)
+		or IsKeybindFrameShown(elementData)
+		or IsDraggingElement(elementData)
+		or (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action));
 
 	if (GameTooltip:GetOwner() == self) then
 		self:OnEnter();
@@ -1198,7 +1201,7 @@ function DebounceLineMixin:OnClick(buttonName)
 
 	if (buttonName == "RightButton") then
 		if (false and DebouncePrivate.DEBUG and IsControlKeyDown()) then
-			if (IsEditingMacro(elementData)) then
+			if (IsEditingAction(elementData.action)) then
 				return;
 			end
 			if (IsKeybindFrameShown(elementData)) then
@@ -1213,17 +1216,10 @@ function DebounceLineMixin:OnClick(buttonName)
 				ShowDeleteConfirmationPopup(elementData);
 			end
 		else
-			if (IsControlKeyDown() and elementData.action.type == "macrotext") then
-				if (IsEditingMacro(elementData)) then
-					-- already editing this item
-					return;
-				end
-
-				if (not TryCloseAnyDialog()) then
-					return;
-				end
-
-				DebounceMacroFrame:ShowEdit(elementData);
+			-- CTRL-우클릭은 매크로 편집기로 가는 지름길이었다. 이제 선택만 하면
+			-- 상세 패널의 내용 탭이 그 편집기다.
+			if (IsControlKeyDown() and elementData.action.type == Constants.MACROTEXT) then
+				DebounceFrame:SetSelectedAction(elementData.action);
 				return;
 			end
 
@@ -1236,7 +1232,9 @@ function DebounceLineMixin:OnClick(buttonName)
 		return;
 	end
 
-	if (IsEditingMacro()) then
+	-- 좌클릭 = 선택. 상세 패널이 이 액션을 보여준다.
+	-- 저장 안 된 변경이 있으면 선택이 거부되므로 키 지정 팝업도 열지 않는다.
+	if (not DebounceFrame:SetSelectedAction(elementData.action)) then
 		return;
 	end
 
@@ -1281,7 +1279,6 @@ function DebounceTabMixin:OnClick()
 	if (_selectedTab ~= id) then
 		DebounceKeybindFrame:Hide();
 		DebounceIconSelectorFrame:Hide();
-		DebounceMacroFrame:Hide();
 
 		PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN);
 		self:GetParent():SetTab(id);
@@ -1853,6 +1850,12 @@ function DebounceFrameMixin:OnKeyDown(input)
 			return;
 		end
 
+		-- 상세 패널의 편집 중인 내용을 ESC로 조용히 잃지 않게 한다.
+		if (DebounceDetailPanel:HasUnsavedChanges()) then
+			ShowSaveOrDiscardPopup(_selectedAction);
+			return;
+		end
+
 		self:Hide();
 		return;
 	end
@@ -1869,9 +1872,8 @@ function DebounceFrameMixin:OnEnterCombat()
 		DebounceIconSelectorFrame:CancelButton_OnClick();
 	end
 
-	-- if (DebounceMacroFrame:IsShown()) then
-	-- 	DebounceMacroFrame:CancelButton_OnClick();
-	-- end
+	-- 상세 패널의 편집 중인 내용은 일부러 안 버린다. 전투가 끝나고 프레임이 다시 뜨면
+	-- 그대로 이어서 편집할 수 있다.
 
 	self:RegisterEvent("PLAYER_REGEN_ENABLED");
 	self:Hide();
@@ -1921,10 +1923,36 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 	self.dataProvider = dataProvider;
 	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
+	-- 선택은 "지금 보이는 목록의 한 줄"이다. 레이어 탭을 바꾸거나 액션이 사라지면 풀린다.
+	if (_selectedAction and not self:FindElementDataByActionInfo(_selectedAction)) then
+		self:SetSelectedAction(nil, true);
+	end
+
 	local title = format(LLL["DEBOUNCE_TITLE_FORMAT"], GetTabLabel(_selectedTab), GetSideTabaLabel(_selectedSideTab));
 	self:SetTitle(title);
 	self:UpdateActionCounts();
 	self:UpdateEmptyText();
+end
+
+--- 상세 패널이 보여줄 액션을 바꾼다.
+--- 패널에 저장 안 된 변경이 있으면 거부하고 false를 돌려준다(force면 버리고 진행).
+function DebounceFrameMixin:SetSelectedAction(action, force)
+	if (_selectedAction == action) then
+		return true;
+	end
+
+	if (not DebounceDetailPanel:Close(force)) then
+		return false;
+	end
+
+	_selectedAction = action;
+	DebounceDetailPanel:OnSelectionChanged();
+	self:Update();
+	return true;
+end
+
+function DebounceFrameMixin:GetSelectedAction()
+	return _selectedAction;
 end
 
 function DebounceFrameMixin:FindElementDataByActionInfo(action)
@@ -1964,6 +1992,7 @@ end
 
 function DebounceFrameMixin:Update()
 	self:UpdateButtons();
+	DebounceDetailPanel:Refresh();
 
 	self.ScrollBox:ForEachFrame(function(button)
 		button:Update();
@@ -1975,7 +2004,7 @@ function DebounceFrameMixin:Update()
 end
 
 function DebounceFrameMixin:UpdateButtons()
-	local enableButtons = not (IsEditingMacro() or IsKeybindFrameShown());
+	local enableButtons = not (IsEditingAction() or IsKeybindFrameShown());
 
 	for i = 1, #self.Tabs do
 		PanelTemplates_SetTabEnabled(self, i, enableButtons);
@@ -2349,14 +2378,8 @@ end
 
 function DebounceIconSelectorFrameMixin:OnShow()
 	if (self.mode == IconSelectorPopupFrameModes.Edit) then
-		if (not self.elementData) then
-			self:Hide();
-			return;
-		end
-
-		self.elementData = DebounceFrame:FindElementDataByActionInfo(self.elementData.action);
-		if (not self.elementData) then
-			self.elementData = nil;
+		if (not self.action or not DebounceFrame:FindElementDataByActionInfo(self.action)) then
+			self.action = nil;
 			self:Hide();
 			return;
 		end
@@ -2391,7 +2414,7 @@ end
 
 function DebounceIconSelectorFrameMixin:OnHide()
 	IconSelectorPopupFrameTemplateMixin.OnHide(self);
-	self.elementData = nil;
+	self.action = nil;
 	DebounceFrame:Update();
 end
 
@@ -2403,7 +2426,7 @@ function DebounceIconSelectorFrameMixin:Update()
 		self.IconSelector:SetSelectedIndex(initialIndex);
 		self.BorderBox.SelectedIconArea.SelectedIconButton:SetIconTexture(self:GetIconByIndex(initialIndex));
 	elseif (self.mode == IconSelectorPopupFrameModes.Edit) then
-		local action = self.elementData.action;
+		local action = self.action;
 		local name, icon = action.name, action.icon;
 		self.BorderBox.IconSelectorEditBox:SetText(name);
 		self.BorderBox.IconSelectorEditBox:HighlightText();
@@ -2420,9 +2443,7 @@ function DebounceIconSelectorFrameMixin:Update()
 end
 
 function DebounceIconSelectorFrameMixin:CancelButton_OnClick()
-	if (self.mode == IconSelectorPopupFrameModes.Edit) then
-		DebounceMacroFrame:ShowEdit(self.elementData);
-	end
+	-- 상세 패널은 닫힌 적이 없으므로 되돌려놓을 게 없다.
 	IconSelectorPopupFrameTemplateMixin.CancelButton_OnClick(self);
 end
 
@@ -2431,25 +2452,26 @@ function DebounceIconSelectorFrameMixin:OkayButton_OnClick()
 	local text = self.BorderBox.IconSelectorEditBox:GetText();
 	text = string.gsub(text, "\"", "");
 
-	local elementData;
+	local action;
 	if (self.mode == IconSelectorPopupFrameModes.New) then
-		elementData = DebounceFrame:AddNewAction(Constants.MACROTEXT, "", text, iconTexture);
+		local elementData = DebounceFrame:AddNewAction(Constants.MACROTEXT, "", text, iconTexture);
+		action = elementData.action;
 	else
-		elementData = self.elementData;
-		elementData.action.name = text;
-		elementData.action.icon = iconTexture;
+		action = self.action;
+		action.name = text;
+		action.icon = iconTexture;
 	end
 
-	DebounceFrame:Update();
-	DebounceMacroFrame:ShowEdit(elementData);
 	IconSelectorPopupFrameTemplateMixin.OkayButton_OnClick(self);
+	DebounceFrame:SetSelectedAction(action);
+	DebounceFrame:Update();
 end
 
 function DebounceIconSelectorFrameMixin:HasUnsavedChanges()
-	if (self:IsShown() and self.mode == IconSelectorPopupFrameModes.Edit) then
+	if (self:IsShown() and self.mode == IconSelectorPopupFrameModes.Edit and self.action) then
 		local newName = string.gsub(self.BorderBox.IconSelectorEditBox:GetText(), "\"", "");
 		local newIcon = self.BorderBox.SelectedIconArea.SelectedIconButton:GetIconTexture();
-		if (self.elementData.action.name ~= newName or self.elementData.action.icon ~= newIcon) then
+		if (self.action.name ~= newName or self.action.icon ~= newIcon) then
 			return true;
 		end
 	end
@@ -2467,10 +2489,28 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	return true;
 end
 
-DebounceMacroFrameMixin = {}
+DebounceDetailPanelMixin = {};
 
-function DebounceMacroFrameMixin:OnLoad()
-	self.BorderBox.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
+function DebounceDetailPanelMixin:OnLoad()
+	-- XML 계층이 깊어서 자주 쓰는 것만 끌어올린다.
+	self.Header = self.BorderBox.Header;
+	self.TabSystem = self.BorderBox.TabSystem;
+	self.Content = self.BorderBox.Content;
+	self.MacroEditor = self.BorderBox.Content.MacroEditor;
+	self.TypeInfo = self.BorderBox.Content.TypeInfo;
+	self.OkayButton = self.BorderBox.OkayButton;
+	self.CancelButton = self.BorderBox.CancelButton;
+	self.EmptyText = self.BorderBox.EmptyText;
+
+	self.MacroEditor.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
+
+	self.TabSystem:SetTabSelectedCallback(function(tabID)
+		-- true를 돌려주면 시각적 선택이 억제된다. 거부할 때 그게 필요하다.
+		return not self:TrySelectTab(tabID);
+	end);
+	self.contentTabID = self.TabSystem:AddTab(LLL["DETAIL_TAB_CONTENT"]);
+	self.selectedTabID = self.contentTabID;
+	self.TabSystem:SetTabVisuallySelected(self.contentTabID);
 
 	self.OkayButton:SetScript("OnClick", function()
 		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
@@ -2482,113 +2522,216 @@ function DebounceMacroFrameMixin:OnLoad()
 		self:CancelButton_OnClick();
 	end);
 
+	self.EmptyText:SetText(LLL["DETAIL_NO_SELECTION"]);
+
 	self.initialized = true;
+	self:Refresh();
 end
 
-function DebounceMacroFrameMixin:ShowEdit(elementData, cancelFunc)
-	self:Hide();
-
-	if (self.elementData ~= elementData) then
-		self.tempText = nil;
-	end
-	self.elementData = elementData;
-	self.cancelFunc = cancelFunc;
-	self.orginalText = elementData.action.value;
-
-	local action = elementData.action;
-	local name, icon = action.name, action.icon;
-	self.BorderBox.SelectedMacroName:SetText(name);
-	self.BorderBox.SelectedMacroButton.Icon:SetTexture(icon);
-
-	local text = self.tempText or action.value;
-	self.BorderBox.ScrollFrame.EditBox:SetText(text);
-
-	self:Show();
+--- 선택이 바뀌었다. 편집 상태를 버리고 새 액션을 그린다.
+function DebounceDetailPanelMixin:OnSelectionChanged()
+	self.revertFunc = nil;
+	self.originalText = nil;
+	self:Refresh();
 end
 
-function DebounceMacroFrameMixin:UpdateButtons()
-	self.OkayButton:SetEnabled(self.cancelFunc ~= nil or self:HasUnsavedChanges());
-end
-
-function DebounceMacroFrameMixin:OnShow()
-	if (not self.initialized) then
-		self:OnLoad();
+function DebounceDetailPanelMixin:TrySelectTab(tabID)
+	if (tabID == self.selectedTabID) then
+		return true;
 	end
 
-	self:UpdateButtons();
-	DebounceFrame:Update();
-end
-
-function DebounceMacroFrameMixin:OnHide()
-	DebounceFrame:Update();
-	HideSaveOrDiscardPopup();
-end
-
-function DebounceMacroFrameMixin:OnKeyDown(key)
-	if (key == "ESCAPE") then
-		self:SetPropagateKeyboardInput(false);
-		if (self:HasUnsavedChanges()) then
-			ShowSaveOrDiscardPopup(self.elementData);
-		else
-			self:CancelButton_OnClick();
-			return;
-		end
-	else
-		self:SetPropagateKeyboardInput(true);
-	end
-end
-
-function DebounceMacroFrameMixin:EditButton_OnClick()
-	local text = self.BorderBox.ScrollFrame.EditBox:GetText();
-	self.tempText = text;
-	DebounceIconSelectorFrame.mode = IconSelectorPopupFrameModes.Edit;
-	DebounceIconSelectorFrame.elementData = self.elementData;
-	DebounceIconSelectorFrame:Show();
-	self:Hide();
-end
-
-function DebounceMacroFrameMixin:OkayButton_OnClick()
 	if (self:HasUnsavedChanges()) then
-		local text = self.BorderBox.ScrollFrame.EditBox:GetText();
-		self.elementData.action.value = text;
-		self.orginalText = text;
+		DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
+		return false;
+	end
+
+	self.selectedTabID = tabID;
+	self:Refresh();
+	return true;
+end
+
+function DebounceDetailPanelMixin:Refresh()
+	if (not self.initialized) then
+		return;
+	end
+
+	local action = _selectedAction;
+	local hasSelection = action ~= nil;
+
+	self.Header:SetShown(hasSelection);
+	self.TabSystem:SetShown(hasSelection);
+	self.Content:SetShown(hasSelection);
+	self.OkayButton:SetShown(hasSelection);
+	self.CancelButton:SetShown(hasSelection);
+	self.EmptyText:SetShown(not hasSelection);
+
+	if (not hasSelection) then
+		return;
+	end
+
+	local name, icon = NameAndIconFromElementData(action);
+	self.Header.Name:SetText(name);
+	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
+		self.Header.IconButton.Icon:SetAtlas(icon:sub(3));
+	else
+		self.Header.IconButton.Icon:SetTexture(icon);
+	end
+	-- 이름·아이콘을 사람이 정하는 건 macrotext뿐이다. 나머지는 게임에서 온다.
+	self.Header.EditButton:SetShown(action.type == Constants.MACROTEXT);
+
+	self:RefreshContentTab(action);
+	self:UpdateButtons();
+end
+
+function DebounceDetailPanelMixin:RefreshContentTab(action)
+	local isMacroText = action.type == Constants.MACROTEXT;
+	self.MacroEditor:SetShown(isMacroText);
+	self.TypeInfo:SetShown(not isMacroText);
+
+	if (isMacroText) then
+		-- originalText가 있으면 편집 중이므로 EditBox를 건드리지 않는다.
+		if (self.originalText == nil) then
+			self.originalText = action.value or "";
+			self.MacroEditor.ScrollFrame.EditBox:SetText(self.originalText);
+		end
+		return;
+	end
+
+	local typeName = BINDING_TYPE_NAMES[action.type];
+	self.TypeInfo.Text:SetText(format(LLL["DETAIL_ACTION_IS_TYPE"], typeName or LLL["UNNAMED_ACTION"]));
+
+	local canConvert = DebouncePrivate.CanConvertToMacroText(action);
+	self.TypeInfo.ConvertButton:SetShown(canConvert);
+	if (canConvert) then
+		self.TypeInfo.ConvertButton:SetText(LLL["CONVERT_TO_MACRO_TEXT"]);
+	end
+end
+
+function DebounceDetailPanelMixin:UpdateButtons()
+	local hasChanges = self:HasUnsavedChanges();
+	self.OkayButton:SetEnabled(hasChanges);
+	self.CancelButton:SetEnabled(hasChanges);
+end
+
+function DebounceDetailPanelMixin:HasUnsavedChanges()
+	if (not self.initialized) then
+		return false;
+	end
+
+	-- 매크로텍스트로 변환은 액션을 이미 바꿔놓았다. 확인 전까지는 되돌릴 수 있는 변경이다.
+	if (self.revertFunc) then
+		return true;
+	end
+
+	if (_selectedAction and _selectedAction.type == Constants.MACROTEXT and self.originalText ~= nil) then
+		return self.MacroEditor.ScrollFrame.EditBox:GetText() ~= self.originalText;
+	end
+
+	return false;
+end
+
+function DebounceDetailPanelMixin:OnTextChanged(editBox)
+	if (not self.initialized) then
+		return;
+	end
+	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
+	self.MacroEditor.CharLimitText:SetFormattedText(LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
+	self:UpdateButtons();
+	DebounceFrame:UpdateButtons();
+end
+
+function DebounceDetailPanelMixin:EditButton_OnClick()
+	if (not _selectedAction) then
+		return;
+	end
+	-- 아이콘 선택기를 다녀와도 패널은 그대로 서 있다. 편집 중인 매크로 텍스트가 살아남는다.
+	DebounceIconSelectorFrame.mode = IconSelectorPopupFrameModes.Edit;
+	DebounceIconSelectorFrame.action = _selectedAction;
+	DebounceIconSelectorFrame:Show();
+end
+
+function DebounceDetailPanelMixin:ConvertButton_OnClick()
+	local action = _selectedAction;
+	if (not action or not DebouncePrivate.CanConvertToMacroText(action)) then
+		return;
+	end
+
+	local original = CopyTable(action);
+	if (not DebouncePrivate.ConvertToMacroText(action)) then
+		return;
+	end
+
+	self.revertFunc = function()
+		wipe(action);
+		MergeTable(action, original);
+	end;
+	self.originalText = nil;
+
+	action._dirty = true;
+	DebouncePrivate.UpdateBindings();
+	DebounceFrame:Update();
+end
+
+function DebounceDetailPanelMixin:OkayButton_OnClick()
+	local action = _selectedAction;
+	if (not action) then
+		return;
+	end
+
+	local changed = false;
+
+	if (action.type == Constants.MACROTEXT and self.originalText ~= nil) then
+		local text = self.MacroEditor.ScrollFrame.EditBox:GetText();
+		if (text ~= self.originalText) then
+			action.value = text;
+			self.originalText = text;
+			changed = true;
+		end
+	end
+
+	if (self.revertFunc) then
+		self.revertFunc = nil;
+		changed = true;
+	end
+
+	HideSaveOrDiscardPopup();
+
+	if (changed) then
+		action._dirty = true;
 		DebouncePrivate.UpdateBindings();
 	end
-	self:Hide();
-	self.elementData = nil;
-	self.tempText = nil;
-	self.cancelFunc = nil;
+	DebounceFrame:Update();
 end
 
-function DebounceMacroFrameMixin:CancelButton_OnClick()
-	if (self.cancelFunc) then
-		self.cancelFunc();
+function DebounceDetailPanelMixin:CancelButton_OnClick()
+	local revertFunc = self.revertFunc;
+	self.revertFunc = nil;
+	-- originalText를 비우면 다음 Refresh가 액션에서 다시 읽는다 = 편집 내용 폐기.
+	self.originalText = nil;
+
+	HideSaveOrDiscardPopup();
+
+	if (revertFunc) then
+		revertFunc();
+		DebouncePrivate.UpdateBindings();
 	end
-	self:Hide();
-	self.elementData = nil;
-	self.tempText = nil;
-	self.cancelFunc = nil;
+
+	DebounceFrame:Update();
 end
 
-function DebounceMacroFrameMixin:OnTextChanged(editBox)
-	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
-	self.BorderBox.CharLimitText:SetFormattedText(LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
-	self:UpdateButtons();
-end
-
-function DebounceMacroFrameMixin:HasUnsavedChanges()
-	local text = self.BorderBox.ScrollFrame.EditBox:GetText();
-	return text ~= self.orginalText;
-end
-
-function DebounceMacroFrameMixin:Close(force)
-	if (self:IsShown()) then
-		if (not force and self:HasUnsavedChanges()) then
-			DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
-			return false;
-		end
-		self:CancelButton_OnClick();
+--- 다른 것으로 넘어가기 전에 부르는 계약. 저장 안 된 변경이 있으면 막는다.
+--- 패널 자체는 상설이라 숨기지 않는다.
+function DebounceDetailPanelMixin:Close(force)
+	if (not self:HasUnsavedChanges()) then
+		return true;
 	end
+
+	if (not force) then
+		DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
+		return false;
+	end
+
+	self:CancelButton_OnClick();
 	return true;
 end
 

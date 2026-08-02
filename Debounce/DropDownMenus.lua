@@ -635,31 +635,8 @@ do
         return _action.hover and true or false;
     end
 
-    local function CreateConvertToMacroTextMenuItem(parentDescription)
-        if (DebouncePrivate.CanConvertToMacroText(_action)) then
-            parentDescription:CreateButton(LLL["CONVERT_TO_MACRO_TEXT"], function()
-                local original = CopyTable(_action);
-                if (DebouncePrivate.ConvertToMacroText(_action)) then
-                    onActionValueChanged();
-                    local cancelFunc = function()
-                        wipe(_elementData.action);
-                        MergeTable(_elementData.action, original);
-                        onActionValueChanged();
-                    end
-                    DebounceMacroFrame:ShowEdit(_elementData, cancelFunc);
-                end
-            end);
-        end
-    end
-
-    -- .." (CTRL-|A:NPE_RightClick:16:16|a)"
-    local function EditMacroTextMenuItem(parentDescription)
-        if (_action.type == Constants.MACROTEXT) then
-            parentDescription:CreateButton(LLL["EDIT_MACRO"], function()
-                DebounceMacroFrame:ShowEdit(_elementData);
-            end);
-        end
-    end
+    -- 매크로텍스트 변환과 매크로 편집은 상세 패널의 내용 탭으로 갔다.
+    -- 행을 고르면 그 탭이 바로 그 UI다.
 
     local function CreateUnbindMenuItem(parentDescription)
         local description = parentDescription:CreateButton(LLL["UNBIND"], function()
@@ -1101,10 +1078,6 @@ do
         local title = DebounceUI.NameAndIconFromElementData(elementData);
         rootDescription:CreateTitle(title);
         rootDescription:SetTag(DebounceUI.ActionMenuRootTag, 1);
-
-        CreateConvertToMacroTextMenuItem(rootDescription);
-
-        EditMacroTextMenuItem(rootDescription);
 
         CreateUnbindMenuItem(rootDescription);
 
