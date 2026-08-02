@@ -8,6 +8,10 @@ local DebounceUI             = DebouncePrivate.DebounceUI;
 
 local MACRO_NAME_CHAR_LIMIT  = 32;
 local MACRO_CHAR_LIMIT       = 1000;
+-- 상세 패널이 열리면 프레임이 그만큼 넓어진다. 좌측 목록은 폭이 고정이라 그대로 있는다.
+-- (맵 창의 minimizedWidth + questLogWidth와 같은 방식)
+local FRAME_WIDTH_COLLAPSED  = 440;
+local FRAME_WIDTH_EXPANDED   = 770;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
 local WARNING_FONT_COLOR     = CreateColor(1, 0.5, 0, 1);
@@ -1732,8 +1736,8 @@ function DebounceFrameMixin:OnLoad()
 	self:SetScript("OnDragStop", function()
 		self:StopMovingOrSizing();
 		self:SetUserPlaced(false);
-		local x, y = self:GetCenter();
-		DebouncePrivate.db.global.ui.pos = { x = x, y = y };
+		-- 좌상단을 저장한다. 상세 패널 때문에 폭이 바뀌므로 중심을 저장하면 창이 옆으로 흐른다.
+		DebouncePrivate.db.global.ui.anchorPos = { x = self:GetLeft(), y = self:GetTop() };
 	end);
 
 	self.keyFilter = "";
@@ -1742,12 +1746,36 @@ function DebounceFrameMixin:OnLoad()
 
 	DebouncePrivate.db.global.ui = DebouncePrivate.db.global.ui or {};
 	self:ClearAllPoints();
-	local pos = DebouncePrivate.db.global.ui.pos;
+	local pos = DebouncePrivate.db.global.ui.anchorPos;
 	if (pos) then
-		self:SetPoint("CENTER", "UIParent", "BOTTOMLEFT", pos.x, pos.y);
+		self:SetPoint("TOPLEFT", "UIParent", "BOTTOMLEFT", pos.x, pos.y);
 	else
 		self:SetPoint("CENTER", "UIParent", 0, 0);
 	end
+
+	self:SetWidth(FRAME_WIDTH_COLLAPSED);
+	self.DetailPanel:Hide();
+end
+
+--- 폭이 바뀌기 전에 좌상단 고정으로 바꾼다. CENTER로 앵커된 상태에서 폭을 늘리면
+--- 창이 양쪽으로 번져서 좌측 목록이 밀린다.
+function DebounceFrameMixin:AnchorToTopLeft()
+	local left, top = self:GetLeft(), self:GetTop();
+	if (not left or not top) then
+		return;
+	end
+	self:ClearAllPoints();
+	self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top);
+end
+
+--- 상세 패널을 열고 닫으면서 프레임 폭을 맞춘다.
+function DebounceFrameMixin:SetDetailShown(shown)
+	if (shown == self.DetailPanel:IsShown()) then
+		return;
+	end
+	self:AnchorToTopLeft();
+	self.DetailPanel:SetShown(shown);
+	self:SetWidth(shown and FRAME_WIDTH_EXPANDED or FRAME_WIDTH_COLLAPSED);
 end
 
 function DebounceFrameMixin:OnShow()
@@ -1856,6 +1884,12 @@ function DebounceFrameMixin:OnKeyDown(input)
 			return;
 		end
 
+		-- ESC는 한 단계씩 물러난다: 선택 해제(패널 접힘) -> 창 닫기.
+		if (_selectedAction) then
+			self:SetSelectedAction(nil);
+			return;
+		end
+
 		self:Hide();
 		return;
 	end
@@ -1947,6 +1981,7 @@ function DebounceFrameMixin:SetSelectedAction(action, force)
 
 	_selectedAction = action;
 	DebounceDetailPanel:OnSelectionChanged();
+	self:SetDetailShown(action ~= nil);
 	self:Update();
 	return true;
 end
@@ -2492,25 +2527,7 @@ end
 DebounceDetailPanelMixin = {};
 
 function DebounceDetailPanelMixin:OnLoad()
-	-- XML 계층이 깊어서 자주 쓰는 것만 끌어올린다.
-	self.Header = self.BorderBox.Header;
-	self.TabSystem = self.BorderBox.TabSystem;
-	self.Content = self.BorderBox.Content;
-	self.MacroEditor = self.BorderBox.Content.MacroEditor;
-	self.TypeInfo = self.BorderBox.Content.TypeInfo;
-	self.OkayButton = self.BorderBox.OkayButton;
-	self.CancelButton = self.BorderBox.CancelButton;
-	self.EmptyText = self.BorderBox.EmptyText;
-
 	self.MacroEditor.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
-
-	self.TabSystem:SetTabSelectedCallback(function(tabID)
-		-- true를 돌려주면 시각적 선택이 억제된다. 거부할 때 그게 필요하다.
-		return not self:TrySelectTab(tabID);
-	end);
-	self.contentTabID = self.TabSystem:AddTab(LLL["DETAIL_TAB_CONTENT"]);
-	self.selectedTabID = self.contentTabID;
-	self.TabSystem:SetTabVisuallySelected(self.contentTabID);
 
 	self.OkayButton:SetScript("OnClick", function()
 		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
@@ -2521,8 +2538,6 @@ function DebounceDetailPanelMixin:OnLoad()
 		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
 		self:CancelButton_OnClick();
 	end);
-
-	self.EmptyText:SetText(LLL["DETAIL_NO_SELECTION"]);
 
 	self.initialized = true;
 	self:Refresh();
@@ -2535,37 +2550,15 @@ function DebounceDetailPanelMixin:OnSelectionChanged()
 	self:Refresh();
 end
 
-function DebounceDetailPanelMixin:TrySelectTab(tabID)
-	if (tabID == self.selectedTabID) then
-		return true;
-	end
-
-	if (self:HasUnsavedChanges()) then
-		DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
-		return false;
-	end
-
-	self.selectedTabID = tabID;
-	self:Refresh();
-	return true;
-end
-
 function DebounceDetailPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
 	end
 
 	local action = _selectedAction;
-	local hasSelection = action ~= nil;
-
-	self.Header:SetShown(hasSelection);
-	self.TabSystem:SetShown(hasSelection);
-	self.Content:SetShown(hasSelection);
-	self.OkayButton:SetShown(hasSelection);
-	self.CancelButton:SetShown(hasSelection);
-	self.EmptyText:SetShown(not hasSelection);
-
-	if (not hasSelection) then
+	if (not action) then
+		-- 선택이 없으면 패널 자체가 안 보인다(프레임이 접힌다). 그릴 게 없다.
+		self:UpdateButtons();
 		return;
 	end
 
@@ -2579,11 +2572,11 @@ function DebounceDetailPanelMixin:Refresh()
 	-- 이름·아이콘을 사람이 정하는 건 macrotext뿐이다. 나머지는 게임에서 온다.
 	self.Header.EditButton:SetShown(action.type == Constants.MACROTEXT);
 
-	self:RefreshContentTab(action);
+	self:RefreshContent(action);
 	self:UpdateButtons();
 end
 
-function DebounceDetailPanelMixin:RefreshContentTab(action)
+function DebounceDetailPanelMixin:RefreshContent(action)
 	local isMacroText = action.type == Constants.MACROTEXT;
 	self.MacroEditor:SetShown(isMacroText);
 	self.TypeInfo:SetShown(not isMacroText);
@@ -2608,9 +2601,10 @@ function DebounceDetailPanelMixin:RefreshContentTab(action)
 end
 
 function DebounceDetailPanelMixin:UpdateButtons()
+	-- 매크로 편집을 커밋/폐기하는 버튼이다. 편집 중이 아니면 자리도 차지하지 않는다.
 	local hasChanges = self:HasUnsavedChanges();
-	self.OkayButton:SetEnabled(hasChanges);
-	self.CancelButton:SetEnabled(hasChanges);
+	self.OkayButton:SetShown(hasChanges);
+	self.CancelButton:SetShown(hasChanges);
 end
 
 function DebounceDetailPanelMixin:HasUnsavedChanges()
