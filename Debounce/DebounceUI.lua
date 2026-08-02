@@ -2619,9 +2619,12 @@ function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 end
 
 --- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
+--- 캡처 중에 키를 누르면 **그 새 키** 기준으로 그린다. 확인을 누르기 전에
+--- "이 키로 가면 3개 중 3등"을 알 수 있어야 한다.
 function DebounceDetailPanelMixin:RefreshOrderList(action)
 	local orderArea = self.KeybindTab.OrderArea;
-	local key = action.key;
+	local previewing = (self.capturing and self.gotInput) and true or false;
+	local key = previewing and self.newKey or action.key;
 
 	if (not key) then
 		self.raisePriority = nil;
@@ -2631,7 +2634,9 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	end
 	orderArea:Show();
 
-	local rows = DebouncePrivate.CollectActionsForKey(key);
+	-- action을 extraAction으로 같이 넘긴다. 미리보기면 아직 그 키가 아니므로 새 키 그룹에
+	-- 끼워 넣어야 하고, 미리보기가 아니면 이미 그 키라 중복되지 않는다.
+	local rows = DebouncePrivate.CollectActionsForKey(key, action);
 
 	local currentIndex, mixedLayers;
 	for i, row in ipairs(rows) do
@@ -2648,6 +2653,9 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		-- 비활성 특성의 레이어에 있는 액션이다. 경쟁 상대가 지금 것이 아니라서 순위를
 		-- 계산할 수 없다. 거짓 순서를 보여주느니 못 한다고 말한다.
 		statusText = LLL["ORDER_SCOPE_INACTIVE"];
+	elseif (previewing) then
+		statusText = #rows == 1 and LLL["ORDER_PREVIEW_ONLY"]
+			or format(LLL["ORDER_PREVIEW_POSITION"], currentIndex, #rows);
 	elseif (rows[currentIndex].unreachable) then
 		statusText = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_STATUS_UNREACHABLE"]);
 	elseif (#rows == 1) then
@@ -2667,6 +2675,12 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 
 	local dataProvider = CreateDataProvider();
 	for i, row in ipairs(rows) do
+		if (previewing and i == currentIndex) then
+			-- 이 액션은 아직 이 키가 아니다. unreachable/issue는 **지금** 키를 기준으로
+			-- 계산된 값이라 여기서는 거짓말이 된다. 새 키에 대한 경고는 캡처 화면이 따로 낸다.
+			row.unreachable = nil;
+			row.issue = nil;
+		end
 		dataProvider:Insert({
 			row = row,
 			rank = i,
