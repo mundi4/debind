@@ -204,60 +204,73 @@
 	</Button>
 
 	<!--
-		단축키 탭의 순서 리스트 한 줄. 패널이 좁아서(약 300px) 한 줄에 다 넣지 않고
-		두 줄로 쓴다: 위는 순위/아이콘/이름/우선순위, 아래는 레이어와 플래그.
+		순서 리스트 한 줄. 왼쪽 목록(DebounceLineTemplate)과 같은 아트를 쓴다 - 한 창 안의
+		두 목록이 다른 애드온처럼 보이면 안 된다. 다른 건 앞에 붙는 순위 번호뿐이다.
 	-->
 	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" virtual="true">
-		<Size x="280" y="34"/>
+		<Size x="300" y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<Texture parentKey="CurrentBackground" hidden="true" setAllPoints="true">
-					<Color r="1" g="0.82" b="0" a="0.13"/>
-				</Texture>
-				<Texture parentKey="CurrentMarker" hidden="true">
-					<Size x="3" y="0"/>
+				<!--
+					왼쪽 목록은 행이 450px이라 아틀라스 원본 크기를 그대로 쓰지만, 여기는
+					290px쯤이라 원본을 쓰면 좌우로 삐져나온다. 늘려서 채운다.
+				-->
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="0" y="-1"/>
-						<Anchor point="BOTTOMLEFT" x="0" y="1"/>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
 					</Anchors>
-					<Color r="1" g="0.82" b="0" a="1"/>
+				</Texture>
+				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled">
+					<Size x="39" y="39"/>
+					<Anchors>
+						<Anchor point="LEFT" x="16" y="0"/>
+					</Anchors>
+					<TexCoords left="0.140625" right="0.84375" top="0.140625" bottom="0.84375"/>
 				</Texture>
 			</Layer>
 			<Layer level="ARTWORK">
-				<FontString parentKey="RankText" inherits="GameFontNormalSmall" justifyH="RIGHT" maxLines="1">
+				<FontString parentKey="RankText" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
 					<Size x="16" y="0"/>
 					<Anchors>
-						<Anchor point="TOPLEFT" x="5" y="-5"/>
+						<Anchor point="LEFT" x="0" y="0"/>
 					</Anchors>
 				</FontString>
 				<Texture parentKey="Icon">
-					<Size x="16" y="16"/>
+					<Size x="35" y="35"/>
 					<Anchors>
-						<Anchor point="TOPLEFT" x="26" y="-4"/>
+						<Anchor point="LEFT" x="18" y="0"/>
 					</Anchors>
 				</Texture>
-				<FontString parentKey="Name" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+				<FontString parentKey="PriorityText" inherits="GameFontNormalSmall" justifyH="RIGHT" maxLines="1">
+					<Size x="86" y="0"/>
 					<Anchors>
-						<Anchor point="TOPLEFT" x="46" y="-5"/>
-						<Anchor point="TOPRIGHT" x="-72" y="-5"/>
+						<Anchor point="RIGHT" x="-6" y="-9"/>
 					</Anchors>
 				</FontString>
-				<FontString parentKey="PriorityText" inherits="GameFontDisableSmall" justifyH="RIGHT" maxLines="1">
-					<Size x="68" y="0"/>
+				<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
 					<Anchors>
-						<Anchor point="TOPRIGHT" x="-4" y="-5"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="8"/>
+						<Anchor point="RIGHT" x="-6" y="8"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="SubText" inherits="GameFontDisableSmall" justifyH="LEFT" maxLines="1">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="26" y="-19"/>
-						<Anchor point="TOPRIGHT" x="-4" y="-19"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="-9"/>
+						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+			</Layer>
 			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" setAllPoints="true" alphaMode="ADD">
-					<Color r="1" g="1" b="1" a="0.10"/>
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+					<Color r="1" g="1" b="0" a="1"/>
 				</Texture>
 			</Layer>
 		</Layers>
@@ -547,101 +560,70 @@
 			</Frame>
 
 			<!--
-				상세 패널. 별도 창이 아니라 오른쪽 인셋이다. 액션을 고르면 프레임이 그만큼 넓어지고,
-				선택을 풀면 다시 줄어든다.
+				상세 패널. 별도 창이 아니라 프레임 오른쪽에 붙는 영역이다. 액션을 고르면
+				프레임이 그만큼 넓어지고, 선택을 풀면 다시 줄어든다.
 				(맵 창의 QuestLogOwnerMixin:SetQuestLogPanelShown과 같은 방식 - minimizedWidth +
 				detailWidth. 캐릭터창의 InsetRight Show/Hide와 같은 구조다.)
+
+				패널 자체는 프레임 몸통이고 인셋이 아니다. 인셋은 **탭의 내용물**인
+				ContentArea가 갖고, 탭은 그 윗변에 바깥에서 걸린다 - 왼쪽 목록에서
+				ScrollBoxBackground가 인셋이고 탭이 몸통에 있는 것과 같은 구조다.
 			-->
-			<Frame parentKey="DetailPanel" name="DebounceDetailPanel" useParentLevel="true" inherits="InsetFrameTemplate" mixin="DebounceDetailPanelMixin" enableMouse="true" hidden="true">
+			<Frame parentKey="DetailPanel" name="DebounceDetailPanel" useParentLevel="true" mixin="DebounceDetailPanelMixin" enableMouse="true" hidden="true">
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="20" y="0"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="16" y="0"/>
 					<Anchor point="BOTTOMRIGHT" x="-6" y="10"/>
 				</Anchors>
 				<Frames>
+					<!--
+						제목 줄. 지금 무엇을 보고 있는지만 말한다. 이름·아이콘을 고치는 건
+						macrotext에서만 되는 일이라 내용 탭으로 내려갔다.
+					-->
 					<Frame parentKey="Header">
-						<Size x="1" y="64"/>
+						<Size y="26"/>
 						<Anchors>
-							<Anchor point="TOPLEFT" x="10" y="-10"/>
-							<Anchor point="TOPRIGHT" x="-10" y="-10"/>
+							<Anchor point="TOPLEFT" x="6" y="-6"/>
+							<Anchor point="TOPRIGHT" x="-6" y="-6"/>
 						</Anchors>
 						<Layers>
 							<Layer level="ARTWORK">
-								<Texture parentKey="IconBackground" file="Interface\Buttons\UI-EmptySlot">
-									<Size x="64" y="64"/>
+								<Texture parentKey="Icon">
+									<Size x="22" y="22"/>
 									<Anchors>
-										<Anchor point="TOPLEFT"/>
+										<Anchor point="LEFT"/>
 									</Anchors>
 								</Texture>
-								<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="2" wordwrap="true">
-									<Size x="235" y="0"/>
+								<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
 									<Anchors>
-										<Anchor point="TOPLEFT" relativeKey="$parent.IconBackground" relativePoint="TOPRIGHT" x="-4" y="-8"/>
+										<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="8" y="0"/>
+										<Anchor point="RIGHT"/>
 									</Anchors>
 								</FontString>
 							</Layer>
 						</Layers>
-						<Frames>
-							<CheckButton parentKey="IconButton" inherits="DebounceMacroButtonTemplate" id="0">
-								<Anchors>
-									<Anchor point="TOPLEFT" relativeKey="$parent.IconBackground" x="14" y="-14"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:SetChecked(false);
-									</OnClick>
-								</Scripts>
-							</CheckButton>
-							<Button parentKey="EditButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="CHANGE_MACRO_NAME_ICON">
-								<Size x="170" y="22"/>
-								<Anchors>
-									<Anchor point="TOPLEFT" relativeKey="$parent.IconBackground" relativePoint="TOPRIGHT" x="-2" y="-36"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										DebounceDetailPanel:EditButton_OnClick();
-									</OnClick>
-								</Scripts>
-							</Button>
-						</Frames>
 					</Frame>
 
-					<!--
-						콘텐츠 영역. 탭 바가 이 프레임의 윗변에 걸린다(TabSystemTopButtonTemplate).
-						탭은 액션 타입과 무관하게 항상 둘 다 자리를 지킨다 - 자리가 흔들리면
-						사용자가 위치를 다시 배워야 한다.
-					-->
-					<Frame parentKey="ContentArea">
+					<!-- 탭의 내용물. 탭 바가 이 인셋의 윗변에 걸린다. -->
+					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate">
 						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="-36"/>
-							<Anchor point="BOTTOMRIGHT" x="-10" y="36"/>
+							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="-6" y="-34"/>
+							<Anchor point="BOTTOMRIGHT" x="-4" y="34"/>
 						</Anchors>
-						<Layers>
-							<Layer level="ARTWORK">
-								<Texture parentKey="TopDivider">
-									<Size y="1"/>
-									<Anchors>
-										<Anchor point="TOPLEFT"/>
-										<Anchor point="TOPRIGHT"/>
-									</Anchors>
-									<Color r="0.6" g="0.6" b="0.6" a="0.6"/>
-								</Texture>
-							</Layer>
-						</Layers>
 						<Frames>
 							<Frame parentKey="ContentTab" setAllPoints="true" hidden="true">
 								<Frames>
-
-									<!-- macrotext 액션: 매크로 편집기 -->
+									<!-- macrotext 액션: 이름/아이콘 + 매크로 편집기 -->
 									<Frame parentKey="MacroEditor" hidden="true">
 										<Anchors>
-											<Anchor point="TOPLEFT" x="0" y="-8"/>
-											<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+											<Anchor point="TOPLEFT" x="8" y="-8"/>
+											<Anchor point="BOTTOMRIGHT" x="-8" y="8"/>
 										</Anchors>
 										<Layers>
 											<Layer level="ARTWORK">
+												<!-- EditButton(22px)이 위에 있다. Layers가 Frames보다 먼저 만들어져서 relativeKey로 못 건다. -->
 												<FontString parentKey="Label" inherits="GameFontNormalSmall" text="ENTER_MACRO_LABEL">
 													<Anchors>
-														<Anchor point="TOPLEFT"/>
+														<Anchor point="TOPLEFT" x="0" y="-34"/>
 													</Anchors>
 												</FontString>
 												<FontString parentKey="CharLimitText" inherits="GameFontDisableSmall" justifyH="RIGHT">
@@ -652,9 +634,20 @@
 											</Layer>
 										</Layers>
 										<Frames>
+											<Button parentKey="EditButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="CHANGE_MACRO_NAME_ICON">
+												<Size x="170" y="22"/>
+												<Anchors>
+													<Anchor point="TOPLEFT"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:EditButton_OnClick();
+													</OnClick>
+												</Scripts>
+											</Button>
 											<Frame parentKey="TextInset" useParentLevel="true" inherits="InsetFrameTemplate3">
 												<Anchors>
-													<Anchor point="TOPLEFT" x="0" y="-18"/>
+													<Anchor point="TOPLEFT" relativeKey="$parent.Label" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
 													<Anchor point="BOTTOMRIGHT" x="0" y="16"/>
 												</Anchors>
 											</Frame>
@@ -700,15 +693,15 @@
 									<!-- macrotext가 아닌 액션: 무슨 타입인지 + 변환 버튼 -->
 									<Frame parentKey="TypeInfo" hidden="true">
 										<Anchors>
-											<Anchor point="TOPLEFT" x="0" y="-8"/>
-											<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+											<Anchor point="TOPLEFT" x="8" y="-8"/>
+											<Anchor point="BOTTOMRIGHT" x="-8" y="8"/>
 										</Anchors>
 										<Layers>
 											<Layer level="ARTWORK">
 												<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="CENTER" wordwrap="true">
-													<Size x="280" y="0"/>
 													<Anchors>
-														<Anchor point="TOP" x="0" y="-10"/>
+														<Anchor point="TOPLEFT" x="0" y="-14"/>
+														<Anchor point="TOPRIGHT" x="0" y="-14"/>
 													</Anchors>
 												</FontString>
 											</Layer>
@@ -727,66 +720,50 @@
 											</Button>
 										</Frames>
 									</Frame>
-
 								</Frames>
 							</Frame>
 
 							<!--
-								단축키 탭. 예전 DebounceKeybindFrame 팝업이 여기로 들어왔다.
-								화면은 세 가지다: 미지정 / 지정됨 / 캡처 중.
-								앞의 둘은 KeyArea가, 캡처 중은 그 위를 덮는 CaptureOverlay가 그린다.
+								단축키 탭. 예전 팝업이 여기로 들어왔다. 화면은 세 가지다:
+								미지정 / 지정됨 / 캡처 중. 셋 다 같은 한 줄을 쓰고 버튼만 바뀐다 -
+								키 하나 보여주는 데 상자 하나를 통째로 비워둘 이유가 없다.
 							-->
 							<Frame parentKey="KeybindTab" setAllPoints="true" hidden="true">
 								<Frames>
 									<Frame parentKey="KeyArea">
-										<Size y="140"/>
+										<Size y="30"/>
 										<Anchors>
-											<Anchor point="TOPLEFT" x="0" y="-8"/>
-											<Anchor point="TOPRIGHT" x="0" y="-8"/>
+											<Anchor point="TOPLEFT" x="8" y="-8"/>
+											<Anchor point="TOPRIGHT" x="-8" y="-8"/>
 										</Anchors>
 										<Layers>
 											<Layer level="ARTWORK">
-												<FontString parentKey="KeyText" inherits="GameFontHighlightLarge" justifyH="CENTER" maxLines="1">
-													<Size x="300" y="0"/>
+												<FontString parentKey="KeyText" inherits="GameFontHighlightLarge" justifyH="LEFT" maxLines="1">
+													<Size x="120" y="0"/>
 													<Anchors>
-														<Anchor point="TOP" x="0" y="-10"/>
+														<Anchor point="TOPLEFT" x="2" y="-3"/>
 													</Anchors>
 												</FontString>
-												<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="CENTER" wordwrap="true">
-													<Size x="300" y="0"/>
+												<!-- 캡처 중 안내. 평상시엔 빈 문자열이라 자리를 안 먹는다. -->
+												<FontString parentKey="CaptureHint" inherits="GameFontNormalSmall" justifyH="LEFT" wordwrap="true">
 													<Anchors>
-														<Anchor point="TOP" relativeKey="$parent.KeyText" relativePoint="BOTTOM" x="0" y="-8"/>
+														<Anchor point="TOPLEFT" x="2" y="-28"/>
+														<Anchor point="TOPRIGHT" x="-2" y="-28"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="LEFT" wordwrap="true">
+													<Anchors>
+														<Anchor point="TOPLEFT" relativeKey="$parent.CaptureHint" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
+														<Anchor point="TOPRIGHT" relativeKey="$parent.CaptureHint" relativePoint="BOTTOMRIGHT" x="0" y="-2"/>
 													</Anchors>
 												</FontString>
 											</Layer>
 										</Layers>
 										<Frames>
-											<Button parentKey="AssignButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
-												<Size x="130" y="22"/>
+											<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="82" y="22"/>
 												<Anchors>
-													<Anchor point="BOTTOM" x="0" y="8"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														DebounceDetailPanel:StartKeyCapture();
-													</OnClick>
-												</Scripts>
-											</Button>
-											<Button parentKey="ChangeButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
-												<Size x="130" y="22"/>
-												<Anchors>
-													<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOM" x="-4" y="8"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														DebounceDetailPanel:StartKeyCapture();
-													</OnClick>
-												</Scripts>
-											</Button>
-											<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="UNBIND">
-												<Size x="130" y="22"/>
-												<Anchors>
-													<Anchor point="BOTTOMLEFT" relativePoint="BOTTOM" x="4" y="8"/>
+													<Anchor point="TOPRIGHT" x="0" y="0"/>
 												</Anchors>
 												<Scripts>
 													<OnClick>
@@ -794,132 +771,54 @@
 													</OnClick>
 												</Scripts>
 											</Button>
-										</Frames>
-									</Frame>
-
-									<!--
-										캡처 중 화면. 키를 먹으려면 enableKeyboard가 필요하고, DebounceFrame보다
-										먼저 키를 받아야 해서 strata를 올린다(예전 팝업이 DIALOG였던 것과 같은 이유).
-										아래쪽 순서 리스트는 덮지 않는다 - 새 키의 순서를 보면서 확정하기 위해서다.
-									-->
-									<!--
-										순서 리스트. 이 키에 걸린 액션 전부를 실제 발동 순서로 보여준다.
-										캡처 중에도 덮이지 않는다 - 새 키의 순서를 보면서 확정하기 위해서다.
-									-->
-									<Frame parentKey="OrderArea" hidden="true">
-										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-8"/>
-											<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
-										</Anchors>
-										<Layers>
-											<Layer level="ARTWORK">
-												<FontString parentKey="StatusText" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
-													<Anchors>
-														<Anchor point="TOPLEFT" x="4" y="0"/>
-														<Anchor point="TOPRIGHT" x="-58" y="0"/>
-													</Anchors>
-												</FontString>
-												<!-- 더 올릴 수 없는 이유. 버튼 툴팁만으로는 못 보고 지나칠 수 있다. -->
-												<FontString parentKey="HintText" inherits="GameFontDisableSmall" justifyH="LEFT" wordwrap="true">
-													<Anchors>
-														<Anchor point="TOPLEFT" relativeKey="$parent.StatusText" relativePoint="BOTTOMLEFT" x="0" y="-3"/>
-														<Anchor point="TOPRIGHT" relativeKey="$parent.StatusText" relativePoint="BOTTOMRIGHT" x="0" y="-3"/>
-													</Anchors>
-												</FontString>
-											</Layer>
-										</Layers>
-										<Frames>
-											<!--
-												상대 이동 버튼. 리스트가 아니라 패널에 고정돼 있다 - 리스트에 붙어 있으면
-												연타할 때마다 버튼이 움직여서 다시 조준해야 한다.
-											-->
-											<Button parentKey="MoveDownButton" inherits="UIPanelScrollDownButtonTemplate" motionScriptsWhileDisabled="true">
-												<Size x="24" y="22"/>
+											<Button parentKey="ChangeButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="82" y="22"/>
 												<Anchors>
-													<Anchor point="TOPRIGHT" x="-2" y="2"/>
+													<Anchor point="TOPRIGHT" relativeKey="$parent.UnbindButton" relativePoint="TOPLEFT" x="-4" y="0"/>
 												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:StartKeyCapture();
+													</OnClick>
+												</Scripts>
 											</Button>
-											<Button parentKey="MoveUpButton" inherits="UIPanelScrollUpButtonTemplate" motionScriptsWhileDisabled="true">
-												<Size x="24" y="22"/>
+											<Button parentKey="AssignButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="130" y="22"/>
 												<Anchors>
-													<Anchor point="TOPRIGHT" relativeKey="$parent.MoveDownButton" relativePoint="TOPLEFT" x="-2" y="0"/>
+													<Anchor point="TOPRIGHT" x="0" y="0"/>
 												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:StartKeyCapture();
+													</OnClick>
+												</Scripts>
 											</Button>
-											<Frame parentKey="ListInset" useParentLevel="true" inherits="InsetFrameTemplate3">
+											<!-- 캡처 중이라는 표시. 이미 있는 글로우를 그대로 쓴다. -->
+											<Frame parentKey="CaptureGlow" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.6">
 												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.HintText" relativePoint="BOTTOMLEFT" x="-4" y="-6"/>
-													<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+													<Anchor point="TOPLEFT" x="-2" y="2"/>
+													<Anchor point="BOTTOMRIGHT" x="2" y="-2"/>
 												</Anchors>
 											</Frame>
-											<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
-												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.ListInset" x="4" y="-4"/>
-													<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ListInset" x="-18" y="4"/>
-												</Anchors>
-											</Button>
-											<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
-												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="4" y="0"/>
-													<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="4" y="0"/>
-												</Anchors>
-											</EventFrame>
 										</Frames>
 									</Frame>
 
+									<!--
+										캡처 중 입력받이. 배경을 깔지 않는다 - 아래의 KeyText가 그대로
+										보여야 누른 키가 즉시 반영되는 게 눈에 들어온다. 마우스 버튼과
+										휠도 바인딩할 수 있어야 해서 영역을 덮는 Button이어야 한다.
+										DebounceFrame보다 먼저 키를 받아야 하므로 strata를 올린다.
+									-->
 									<Button parentKey="CaptureOverlay" frameStrata="HIGH" enableMouse="true" enableKeyboard="true" hidden="true">
 										<Anchors>
 											<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea"/>
 											<Anchor point="BOTTOMRIGHT" relativeKey="$parent.KeyArea"/>
 										</Anchors>
-										<Layers>
-											<Layer level="BACKGROUND">
-												<Texture parentKey="Background" setAllPoints="true">
-													<Color r="0" g="0" b="0" a="0.75"/>
-												</Texture>
-											</Layer>
-											<Layer level="ARTWORK">
-												<FontString parentKey="InstructionText" inherits="GameFontWhiteSmall" justifyH="CENTER" wordwrap="true">
-													<Size x="290" y="0"/>
-													<Anchors>
-														<Anchor point="TOP" x="0" y="-8"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="PreviousKeyText" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
-													<Size x="290" y="0"/>
-													<Anchors>
-														<Anchor point="TOP" relativeKey="$parent.InstructionText" relativePoint="BOTTOM" x="0" y="-6"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="NewKeyText" inherits="GameFontHighlightLarge" justifyH="CENTER" maxLines="1">
-													<Size x="290" y="0"/>
-													<Anchors>
-														<Anchor point="TOP" relativeKey="$parent.PreviousKeyText" relativePoint="BOTTOM" x="0" y="-4"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="CENTER" wordwrap="true">
-													<Size x="290" y="0"/>
-													<Anchors>
-														<Anchor point="TOP" relativeKey="$parent.NewKeyText" relativePoint="BOTTOM" x="0" y="-4"/>
-													</Anchors>
-												</FontString>
-											</Layer>
-										</Layers>
 										<Frames>
-											<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="OKAY">
-												<Size x="100" y="22"/>
-												<Anchors>
-													<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOM" x="-4" y="8"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														DebounceDetailPanel:CommitKeyCapture();
-													</OnClick>
-												</Scripts>
-											</Button>
 											<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
-												<Size x="100" y="22"/>
+												<Size x="82" y="22"/>
 												<Anchors>
-													<Anchor point="BOTTOMLEFT" relativePoint="BOTTOM" x="4" y="8"/>
+													<Anchor point="TOPRIGHT" x="0" y="0"/>
 												</Anchors>
 												<Scripts>
 													<OnClick>
@@ -939,20 +838,76 @@
 												DebounceDetailPanel:KeyCapture_ProcessInput(button);
 											</OnClick>
 											<OnMouseWheel>
-												DebounceDetailPanel:KeyCapture_OnKeyDown(self, delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
+												DebounceDetailPanel:KeyCapture_ProcessInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
 											</OnMouseWheel>
 											<OnGamePadButtonDown>
 												DebounceDetailPanel:KeyCapture_ProcessInput(button);
 											</OnGamePadButtonDown>
 										</Scripts>
 									</Button>
+
+									<!--
+										순서 리스트. 이 탭에서 새로 만든 건 이거 하나이므로 남는 자리는
+										전부 여기로 간다. 캡처 중에도 덮이지 않는다.
+									-->
+									<Frame parentKey="OrderArea" hidden="true">
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
+											<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<FontString parentKey="StatusText" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
+													<Anchors>
+														<Anchor point="TOPLEFT" x="2" y="-4"/>
+														<Anchor point="TOPRIGHT" x="-62" y="-4"/>
+													</Anchors>
+												</FontString>
+												<!-- 더 올릴 수 없는 이유. 버튼 툴팁만으로는 놓치고 지나간다. -->
+												<FontString parentKey="HintText" inherits="GameFontDisableSmall" justifyH="LEFT" wordwrap="true">
+													<Anchors>
+														<Anchor point="TOPLEFT" relativeKey="$parent.StatusText" relativePoint="BOTTOMLEFT" x="0" y="-3"/>
+														<Anchor point="TOPRIGHT" relativeKey="$parent.StatusText" relativePoint="BOTTOMRIGHT" x="0" y="-3"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+										<Frames>
+											<!--
+												상대 이동 버튼. 리스트가 아니라 패널에 고정돼 있다 - 리스트에
+												붙어 있으면 연타할 때마다 버튼이 움직여서 다시 조준해야 한다.
+											-->
+											<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+												<Anchors>
+													<Anchor point="TOPRIGHT" x="0" y="-2"/>
+												</Anchors>
+											</Button>
+											<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+												<Anchors>
+													<Anchor point="TOPRIGHT" relativeKey="$parent.MoveDownButton" relativePoint="TOPLEFT" x="-2" y="0"/>
+												</Anchors>
+											</Button>
+											<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.HintText" relativePoint="BOTTOMLEFT" x="-2" y="-6"/>
+													<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
+												</Anchors>
+											</Button>
+											<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="6" y="0"/>
+													<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="6" y="0"/>
+												</Anchors>
+											</EventFrame>
+										</Frames>
+									</Frame>
 								</Frames>
 							</Frame>
 						</Frames>
 					</Frame>
 
 					<!--
-						탭 바. ContentArea의 윗변에 걸쳐 놓는다(TabSystemTopButtonTemplate이라
+						탭 바. ContentArea의 윗변에 걸친다(TabSystemTopButtonTemplate이라
 						BOTTOMLEFT를 상대의 TOPLEFT에 붙인다). 앵커가 풀리려면 ContentArea보다
 						뒤에 선언되어야 한다.
 					-->
@@ -963,14 +918,14 @@
 							<KeyValue key="tabTemplate" value="TabSystemTopButtonTemplate" type="string"/>
 						</KeyValues>
 						<Anchors>
-							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT" x="6" y="-1"/>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT" x="8" y="-2"/>
 						</Anchors>
 					</Frame>
 
 					<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
 						<Size x="90" y="22"/>
 						<Anchors>
-							<Anchor point="BOTTOMRIGHT" x="-10" y="10"/>
+							<Anchor point="BOTTOMRIGHT" x="-6" y="6"/>
 						</Anchors>
 					</Button>
 					<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">

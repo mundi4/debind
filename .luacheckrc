@@ -140,6 +140,7 @@ globals = {
 	"GameTooltip_AddNormalLine",
 	"GameTooltip_AddHighlightLine",
 	"GameTooltip_AddInstructionLine",
+	"SquareButton_SetIcon",
 	"GameTooltip_AddBlankLineToTooltip",
 	"GameTooltip_Hide",
 	"StaticPopup_ShowCustomGenericConfirmation",

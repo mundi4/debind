@@ -2242,17 +2242,6 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	return true;
 end
 
---- 키 캡처는 세 값으로 표현된다. capturing이 켜져 있는 동안만 나머지가 의미를 갖는다.
----   prevKey  - 캡처를 시작할 때의 키
----   newKey   - 지금까지 누른 키 (아직 저장 전)
----   gotInput - 한 번이라도 입력이 있었는가. newKey == nil이 "해제"인지 "아직 안 누름"인지를 가른다
-local function ClearKeyCaptureState(self)
-	self.capturing = nil;
-	self.prevKey = nil;
-	self.newKey = nil;
-	self.gotInput = nil;
-end
-
 local function GetKeyWarningText(action, key)
 	if (not key) then
 		return nil;
@@ -2281,7 +2270,7 @@ function DebounceDetailPanelMixin:OnLoad()
 	local keyArea = self.KeybindTab.KeyArea;
 	keyArea.AssignButton:SetText(LLL["DETAIL_ASSIGN_KEY"]);
 	keyArea.ChangeButton:SetText(LLL["DETAIL_CHANGE_KEY"]);
-	self.KeybindTab.CaptureOverlay.InstructionText:SetText(LLL["KEYBIND_INSTRUCTION_TEXT"]);
+	keyArea.UnbindButton:SetText(LLL["DETAIL_UNBIND_KEY"]);
 
 	self.OkayButton:SetScript("OnClick", function()
 		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
@@ -2326,9 +2315,8 @@ function DebounceDetailPanelMixin:SelectTab(tabID)
 		return false;
 	end
 
-	-- 여기까지 왔다면 캡처에 아직 버릴 입력이 없다는 뜻이다. 탭을 떠나면 접는다 -
-	-- 안 그러면 돌아왔을 때 캡처 화면이 되살아난다.
-	ClearKeyCaptureState(self);
+	-- 탭을 떠나면 캡처는 접는다. 안 그러면 돌아왔을 때 되살아난다.
+	self.capturing = nil;
 
 	self.selectedTab = tabID;
 	self.TabSystem:SetTabVisuallySelected(tabID);
@@ -2339,7 +2327,7 @@ end
 --- 선택이 바뀌었다. 편집 상태를 버리고 새 액션을 그린다.
 --- 항상 단축키 탭으로 돌아온다 - 행을 고르는 것은 곧 그 액션의 키와 순서를 보겠다는 뜻이다.
 function DebounceDetailPanelMixin:OnSelectionChanged()
-	ClearKeyCaptureState(self);
+	self.capturing = nil;
 	self.revertFunc = nil;
 	self.originalText = nil;
 
@@ -2361,15 +2349,15 @@ function DebounceDetailPanelMixin:Refresh()
 		return;
 	end
 
+	-- ColoredNameAndIconFromElementData는 elementData(.action을 가진 테이블)를 받는다.
+	-- 여기는 액션 자체를 들고 있으므로 색 없는 쪽을 쓴다.
 	local name, icon = NameAndIconFromElementData(action);
 	self.Header.Name:SetText(name);
 	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.Header.IconButton.Icon:SetAtlas(icon:sub(3));
+		self.Header.Icon:SetAtlas(icon:sub(3));
 	else
-		self.Header.IconButton.Icon:SetTexture(icon);
+		self.Header.Icon:SetTexture(icon);
 	end
-	-- 이름·아이콘을 사람이 정하는 건 macrotext뿐이다. 나머지는 게임에서 온다.
-	self.Header.EditButton:SetShown(action.type == Constants.MACROTEXT);
 
 	local onKeybindTab = self.selectedTab == self.TAB_KEYBIND;
 	self.KeybindTab:SetShown(onKeybindTab);
@@ -2498,7 +2486,8 @@ function DebounceOrderLineMixin:Update()
 	local elementData = self:GetElementData();
 	local row = elementData.row;
 
-	local name, icon = NameAndIconFromElementData(row.action);
+	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
+	local name, icon = ColoredNameAndIconFromElementData(row);
 	self.Name:SetText(name);
 	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
 		self.Icon:SetAtlas(icon:sub(3));
@@ -2506,7 +2495,6 @@ function DebounceOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
-	self.RankText:SetText(elementData.rank);
 	self.SubText:SetText(BuildOrderSubText(row, elementData.layerLabel));
 
 	-- 기본값은 안 쓴다. 손댄 것만 보이게 해야 무엇이 특별한지가 드러난다.
@@ -2516,10 +2504,13 @@ function DebounceOrderLineMixin:Update()
 		self.PriorityText:SetText("");
 	end
 
-	-- 지금 보고 있는 액션을 확실히 띄운다: 배경 + 왼쪽 막대 + 나머지는 흐리게.
-	self.CurrentBackground:SetShown(elementData.isCurrent);
-	self.CurrentMarker:SetShown(elementData.isCurrent);
-	self:SetAlpha(elementData.isCurrent and 1 or 0.65);
+	-- 지금 보고 있는 액션은 왼쪽 목록의 선택과 같은 하이라이트로 띄운다. 순위 숫자도
+	-- 같이 밝아져서 강조가 배경 하나에만 걸려 있지 않다.
+	local isCurrent = elementData.isCurrent;
+	self.SelectedHighlight:SetShown(isCurrent);
+	self.RankText:SetText(isCurrent
+		and HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(elementData.rank)
+		or tostring(elementData.rank));
 end
 
 function DebounceOrderLineMixin:OnEnter()
@@ -2559,6 +2550,9 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 		button:Init(elementData);
 	end);
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
+
+	SquareButton_SetIcon(orderArea.MoveUpButton, "UP");
+	SquareButton_SetIcon(orderArea.MoveDownButton, "DOWN");
 
 	orderArea.MoveUpButton.titleKey = "ORDER_MOVE_UP";
 	orderArea.MoveUpButton.descKey = "ORDER_MOVE_UP_DESC";
@@ -2619,12 +2613,10 @@ function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 end
 
 --- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
---- 캡처 중에 키를 누르면 **그 새 키** 기준으로 그린다. 확인을 누르기 전에
---- "이 키로 가면 3개 중 3등"을 알 수 있어야 한다.
+--- 키는 누르는 즉시 반영되므로 여기 나오는 건 항상 실제 결과다.
 function DebounceDetailPanelMixin:RefreshOrderList(action)
 	local orderArea = self.KeybindTab.OrderArea;
-	local previewing = (self.capturing and self.gotInput) and true or false;
-	local key = previewing and self.newKey or action.key;
+	local key = action.key;
 
 	if (not key) then
 		self.raisePriority = nil;
@@ -2634,9 +2626,7 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	end
 	orderArea:Show();
 
-	-- action을 extraAction으로 같이 넘긴다. 미리보기면 아직 그 키가 아니므로 새 키 그룹에
-	-- 끼워 넣어야 하고, 미리보기가 아니면 이미 그 키라 중복되지 않는다.
-	local rows = DebouncePrivate.CollectActionsForKey(key, action);
+	local rows = DebouncePrivate.CollectActionsForKey(key);
 
 	local currentIndex, mixedLayers;
 	for i, row in ipairs(rows) do
@@ -2653,9 +2643,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		-- 비활성 특성의 레이어에 있는 액션이다. 경쟁 상대가 지금 것이 아니라서 순위를
 		-- 계산할 수 없다. 거짓 순서를 보여주느니 못 한다고 말한다.
 		statusText = LLL["ORDER_SCOPE_INACTIVE"];
-	elseif (previewing) then
-		statusText = #rows == 1 and LLL["ORDER_PREVIEW_ONLY"]
-			or format(LLL["ORDER_PREVIEW_POSITION"], currentIndex, #rows);
 	elseif (rows[currentIndex].unreachable) then
 		statusText = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_STATUS_UNREACHABLE"]);
 	elseif (#rows == 1) then
@@ -2666,7 +2653,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	orderArea.StatusText:SetText(statusText);
 	self:UpdateOrderMoveButtons(rows, currentIndex);
 
-	orderArea.ListInset:SetShown(currentIndex ~= nil);
 	orderArea.ScrollBox:SetShown(currentIndex ~= nil);
 	orderArea.ScrollBar:SetShown(currentIndex ~= nil);
 	if (not currentIndex) then
@@ -2675,12 +2661,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 
 	local dataProvider = CreateDataProvider();
 	for i, row in ipairs(rows) do
-		if (previewing and i == currentIndex) then
-			-- 이 액션은 아직 이 키가 아니다. unreachable/issue는 **지금** 키를 기준으로
-			-- 계산된 값이라 여기서는 거짓말이 된다. 새 키에 대한 경고는 캡처 화면이 따로 낸다.
-			row.unreachable = nil;
-			row.issue = nil;
-		end
 		dataProvider:Insert({
 			row = row,
 			rank = i,
@@ -2695,31 +2675,34 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	orderArea.ScrollBox:ScrollToElementDataIndex(currentIndex, ScrollBoxConstants.AlignNearest);
 end
 
+--- 단축키 탭은 한 줄이 전부다. 세 화면(미지정 / 지정됨 / 캡처 중)이 같은 줄을 쓰고
+--- 오른쪽 버튼만 바뀐다. 높이는 실제로 그린 만큼만 잡는다 - 남기면 그만큼 순서 리스트가 줄어든다.
 function DebounceDetailPanelMixin:RefreshKeybindTab(action)
 	local keyArea = self.KeybindTab.KeyArea;
-	local overlay = self.KeybindTab.CaptureOverlay;
-
-	overlay:SetShown(self.capturing and true or false);
-
-	if (self.capturing) then
-		overlay.PreviousKeyText:SetFormattedText(LLL["PREVIOUS_KEY_TEXT"],
-			self.prevKey and GetBindingText(self.prevKey) or LLL["NOT_BOUND"]);
-		if (self.gotInput) then
-			overlay.NewKeyText:SetFormattedText(LLL["NEW_KEY_TEXT"],
-				self.newKey and GetBindingText(self.newKey) or LLL["NOT_BOUND"]);
-		else
-			overlay.NewKeyText:SetText("");
-		end
-		overlay.WarningText:SetText(GetKeyWarningText(action, self.newKey or self.prevKey) or "");
-		overlay.OkayButton:SetEnabled(self.gotInput and self.newKey ~= self.prevKey);
-	end
-
+	local capturing = self.capturing;
 	local key = action.key;
+
 	keyArea.KeyText:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
-	keyArea.WarningText:SetText(GetKeyWarningText(action, key) or "");
-	keyArea.AssignButton:SetShown(key == nil);
-	keyArea.ChangeButton:SetShown(key ~= nil);
-	keyArea.UnbindButton:SetShown(key ~= nil);
+
+	local hint = capturing and LLL["DETAIL_KEY_CAPTURE_HINT"] or nil;
+	local warning = GetKeyWarningText(action, key);
+	keyArea.CaptureHint:SetText(hint or "");
+	keyArea.WarningText:SetText(warning or "");
+
+	keyArea.CaptureGlow:SetShown(capturing);
+	keyArea.AssignButton:SetShown(not capturing and key == nil);
+	keyArea.ChangeButton:SetShown(not capturing and key ~= nil);
+	keyArea.UnbindButton:SetShown(not capturing and key ~= nil);
+	self.KeybindTab.CaptureOverlay:SetShown(capturing);
+
+	local height = 30;
+	if (hint) then
+		height = height + keyArea.CaptureHint:GetStringHeight() + 4;
+	end
+	if (warning) then
+		height = height + keyArea.WarningText:GetStringHeight() + 4;
+	end
+	keyArea:SetHeight(height);
 
 	self:RefreshOrderList(action);
 end
@@ -2729,15 +2712,11 @@ function DebounceDetailPanelMixin:IsCapturingKey()
 end
 
 function DebounceDetailPanelMixin:StartKeyCapture()
-	local action = _selectedAction;
-	if (not action or self.capturing) then
+	if (not _selectedAction or self.capturing) then
 		return;
 	end
 
 	self.capturing = true;
-	self.prevKey = action.key;
-	self.newKey = nil;
-	self.gotInput = nil;
 	self:Refresh();
 	DebounceFrame:Update();
 end
@@ -2746,44 +2725,28 @@ function DebounceDetailPanelMixin:CancelKeyCapture()
 	if (not self.capturing) then
 		return;
 	end
-	ClearKeyCaptureState(self);
+	self.capturing = nil;
 	self:Refresh();
 	DebounceFrame:Update();
 end
 
-function DebounceDetailPanelMixin:CommitKeyCapture()
+--- 키를 저장하고 되비춘다. 목록이 키순으로 정렬돼 있으므로 왼쪽 자리도 바뀐다.
+function DebounceDetailPanelMixin:SetActionKey(key)
 	local action = _selectedAction;
-	if (not action or not self.capturing) then
-		return;
+	if (not action or action.key == key) then
+		return false;
 	end
 
-	local newKey = self.newKey;
-	local changed = self.gotInput and newKey ~= self.prevKey;
-	ClearKeyCaptureState(self);
-
-	if (changed) then
-		action.key = newKey;
-		action._dirty = true;
-		DebouncePrivate.UpdateBindings();
-		-- 목록이 키순으로 정렬돼 있으므로 키가 바뀌면 자리도 바뀐다.
-		DebounceFrame:Refresh(true);
-	end
-
-	self:Refresh();
-	DebounceFrame:Update();
-end
-
-function DebounceDetailPanelMixin:UnbindButton_OnClick()
-	local action = _selectedAction;
-	if (not action or action.key == nil) then
-		return;
-	end
-
-	action.key = nil;
+	action.key = key;
 	action._dirty = true;
 	DebouncePrivate.UpdateBindings();
 	DebounceFrame:Refresh(true);
 	DebounceFrame:Update();
+	return true;
+end
+
+function DebounceDetailPanelMixin:UnbindButton_OnClick()
+	self:SetActionKey(nil);
 end
 
 --- 상설 패널이라 마우스가 우연히 지나갈 수 있다. 그래서 **캡처 모드**와 **패널 위**를
@@ -2806,6 +2769,9 @@ function DebounceDetailPanelMixin:KeyCapture_OnKeyDown(overlay, key)
 	end
 end
 
+--- 누르는 즉시 반영한다. [변경]을 눌러 캡처에 들어온 것 자체가 이미 의도적이고,
+--- 되돌리려면 [변경]을 다시 누르면 된다. 그래서 확인 단계가 없다 - 아래 순서 리스트가
+--- 가정이 아니라 실제 결과를 보여준다.
 function DebounceDetailPanelMixin:KeyCapture_ProcessInput(input)
 	if (not self.capturing) then
 		return;
@@ -2816,18 +2782,21 @@ function DebounceDetailPanelMixin:KeyCapture_ProcessInput(input)
 
 	local key = GetConvertedKeyOrButton(input);
 	key = _CreateKeyChordStringUsingMetaKeyState(key);
-	self.gotInput = true;
-	self.newKey = key;
-	self:Refresh();
-	DebounceFrame:UpdateButtons();
+
+	self.capturing = nil;
+	if (not self:SetActionKey(key)) then
+		-- 같은 키를 다시 눌렀다. 바뀐 건 없지만 캡처는 끝났다.
+		self:Refresh();
+		DebounceFrame:Update();
+	end
 end
 
 --------------------------------------------------------------------------------
 
 function DebounceDetailPanelMixin:UpdateButtons()
-	-- 편집을 커밋/폐기하는 버튼이다. 편집 중이 아니면 자리도 차지하지 않는다.
-	-- 캡처 중에는 확인/취소가 캡처 화면 안에 따로 있으므로 두 벌을 보이지 않는다.
-	local hasChanges = self:HasUnsavedChanges() and not self.capturing;
+	-- 매크로 편집을 커밋/폐기하는 버튼이다. 편집 중이 아니면 자리도 차지하지 않는다.
+	-- 키는 즉시 반영되므로 여기 걸리지 않는다.
+	local hasChanges = self:HasUnsavedChanges();
 	self.OkayButton:SetShown(hasChanges);
 	self.CancelButton:SetShown(hasChanges);
 end
@@ -2839,10 +2808,6 @@ function DebounceDetailPanelMixin:HasUnsavedChanges()
 
 	-- 매크로텍스트로 변환은 액션을 이미 바꿔놓았다. 확인 전까지는 되돌릴 수 있는 변경이다.
 	if (self.revertFunc) then
-		return true;
-	end
-
-	if (self.capturing and self.gotInput and self.newKey ~= self.prevKey) then
 		return true;
 	end
 
@@ -2901,14 +2866,6 @@ function DebounceDetailPanelMixin:OkayButton_OnClick()
 		return;
 	end
 
-	-- 캡처 중에 여기로 오는 건 ESC의 저장/폐기 팝업뿐이다. 캡처와 매크로 편집은 서로 다른
-	-- 탭에 있고 탭 전환이 막혀 있으므로 둘이 동시에 걸려 있을 수 없다.
-	if (self.capturing) then
-		HideSaveOrDiscardPopup();
-		self:CommitKeyCapture();
-		return;
-	end
-
 	local changed = false;
 
 	if (action.type == Constants.MACROTEXT and self.originalText ~= nil) then
@@ -2935,12 +2892,6 @@ function DebounceDetailPanelMixin:OkayButton_OnClick()
 end
 
 function DebounceDetailPanelMixin:CancelButton_OnClick()
-	if (self.capturing) then
-		HideSaveOrDiscardPopup();
-		self:CancelKeyCapture();
-		return;
-	end
-
 	local revertFunc = self.revertFunc;
 	self.revertFunc = nil;
 	-- originalText를 비우면 다음 Refresh가 액션에서 다시 읽는다 = 편집 내용 폐기.
@@ -2960,7 +2911,7 @@ end
 --- 패널 자체는 상설이라 숨기지 않는다.
 function DebounceDetailPanelMixin:Close(force)
 	if (not self:HasUnsavedChanges()) then
-		-- 아직 아무 키도 안 누른 캡처는 버릴 게 없다. 조용히 접는다.
+		-- 캡처는 커밋할 게 없다(키는 누르는 즉시 반영된다). 그냥 접는다.
 		self:CancelKeyCapture();
 		return true;
 	end
