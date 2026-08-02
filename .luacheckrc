@@ -244,6 +244,7 @@ globals = {
 	"DebouncePortraitMixin",
 	"DebounceFrameMixin",
 	"DebounceDetailPanelMixin",
+	"DebounceMacroFrameMixin",
 	"DebounceIconSelectorFrameMixin",
 	"DebounceOverviewFrameMixin",
 	"DebounceOverviewHeaderMixin",
@@ -254,6 +255,7 @@ globals = {
 	"DebounceFrame",
 	"DebounceOverviewFrame",
 	"DebounceDetailPanel",
+	"DebounceMacroFrame",
 	"DebounceIconSelectorFrame",
 	"DebounceActionPlacerFrame",
 

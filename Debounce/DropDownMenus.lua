@@ -4,16 +4,31 @@ local LLL                   = DebouncePrivate.L;
 local DebounceUI            = DebouncePrivate.DebounceUI;
 
 local dump                  = DebouncePrivate.dump
+local GetSpellNameAndIconID = DebouncePrivate.GetSpellNameAndIconID;
 
 local BINDING_TYPE_NAMES    = DebounceUI.BINDING_TYPE_NAMES;
 local SEPARATOR             = { isSeparator = true, };
 local ARRAY_MARKER          = {};
--- 유닛 순서는 Conditions.lua가 갖는다 - 툴팁·조건 탭도 같은 순서를 써야 한다.
-local SORTED_UNIT_LIST      = DebouncePrivate.SORTED_UNIT_LIST;
+local SORTED_UNIT_LIST      = {
+    "player",
+    "pet",
+    "target",
+    "focus",
+    "mouseover",
+    "tank",
+    "healer",
+    "maintank",
+    "mainassist",
+    "custom1",
+    "custom2",
+    "hover",
+    "none"
+};
 local USE_CHECKED_VALUE     = {};
 
 
 local BINDING_CATEGORIES;
+local BONUSBAR_NAMES;
 local TAB_LIST;
 
 
@@ -391,10 +406,9 @@ end
 do
     local _dropdown, _elementData, _action;
 
-    -- 조건이나 대상이 바뀌면 isConditional/hover가 바뀌어 발동 순서가 움직인다. 목록은
-    -- 그 순서대로 그려지므로 다시 만들어야 왼쪽 자리와 상세 패널이 실제 결과를 보여준다.
     local function onActionValueChanged()
-        DebounceUI.NotifyActionChanged(_action);
+        _action._dirty = true;
+        DebouncePrivate.UpdateBindings();
         return MenuResponse.Refresh;
     end
 
@@ -411,7 +425,7 @@ do
         local key, value = args.key, args.value;
         if (value == USE_CHECKED_VALUE) then
             _action[key] = not _action[key];
-            onActionValueChanged();
+            DebouncePrivate.UpdateBindings();
             return MenuResponse.Refresh;
         elseif (_action[key] ~= value) then
             _action[key] = value;
@@ -641,8 +655,31 @@ do
         return _action.hover and true or false;
     end
 
-    -- 매크로텍스트 변환과 매크로 편집은 상세 패널의 내용 탭으로 갔다.
-    -- 행을 고르면 그 탭이 바로 그 UI다.
+    local function CreateConvertToMacroTextMenuItem(parentDescription)
+        if (DebouncePrivate.CanConvertToMacroText(_action)) then
+            parentDescription:CreateButton(LLL["CONVERT_TO_MACRO_TEXT"], function()
+                local original = CopyTable(_action);
+                if (DebouncePrivate.ConvertToMacroText(_action)) then
+                    onActionValueChanged();
+                    local cancelFunc = function()
+                        wipe(_elementData.action);
+                        MergeTable(_elementData.action, original);
+                        onActionValueChanged();
+                    end
+                    DebounceMacroFrame:ShowEdit(_elementData, cancelFunc);
+                end
+            end);
+        end
+    end
+
+    -- .." (CTRL-|A:NPE_RightClick:16:16|a)"
+    local function EditMacroTextMenuItem(parentDescription)
+        if (_action.type == Constants.MACROTEXT) then
+            parentDescription:CreateButton(LLL["EDIT_MACRO"], function()
+                DebounceMacroFrame:ShowEdit(_elementData);
+            end);
+        end
+    end
 
     local function CreateUnbindMenuItem(parentDescription)
         local description = parentDescription:CreateButton(LLL["UNBIND"], function()
@@ -763,13 +800,11 @@ do
         return description;
     end
 
-    --
-    -- 조건 메뉴는 "채우기"와 "어디에 매다는가"가 분리돼 있다. 상세 패널의 조건 탭은
-    -- 자기 컨텍스트 메뉴의 뿌리에 바로 채우고, 우클릭 메뉴는 하위 메뉴 버튼에 채운다.
-    -- 채우는 쪽은 예전부터 _action 업밸류에 기대고 있으므로 그대로 두고 껍데기만 열었다.
-    --
-
-    local function PopulateHoverMenu(description)
+    local function CreateHoverMenu(parentDescription)
+        local description = CreateActionMenuItemGroup(parentDescription, "CONDITION_HOVER", "hover", nil, DebouncePrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
+        -- description:SetEnabled(function()
+        --     return not DebouncePrivate.CliqueDetected;
+        -- end);
         local disable, yes, no = AppendDisableYesNo(description, "CONDITION_HOVER", "hover");
         if (DebouncePrivate.CliqueDetected) then
             yes:SetEnabled(false);
@@ -821,7 +856,21 @@ do
         ignoreHoverUnit:SetEnabled(hoverConditionIsOn);
     end
 
-    local function PopulateUnitConditionMenu(description)
+    local function CreateUnitConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "checkedUnits",
+            -- isActive
+            function()
+                if (_action.checkedUnits) then
+                    for k, _ in pairs(_action.checkedUnits) do
+                        if (k ~= "@") then
+                            return true;
+                        end
+                    end
+                end
+                return false;
+            end
+        );
+
         description:CreateRadio(LLL["DISABLE_ALL"],
             function()
                 return not _action.checkedUnits;
@@ -833,10 +882,9 @@ do
             end
         );
 
-        -- 지정한 대상("@")도 여기서 만진다. 대상 메뉴의 체크박스와 같은 값이고, 대상이
-        -- 없으면 스스로 비활성이 된다. 조건 탭에서 이 조건을 열었을 때 "@"만 손댈 수 없는
-        -- 구멍이 생기지 않도록 같이 낸다.
-        CreateUnitConditionSubmenu(description, "SELECTED_TARGET_UNIT_EMPTY", "@");
+        -- if (_action.type == Constants.SPELL or _action.type == Constants.ITEM or _action.type == Constants.TARGET or _action.type == Constants.FOCUS or _action.type == Constants.TOGGLEMENU) then
+        --     CreateUnitConditionSubmenu(description, "SELECTED_TARGET_UNIT_EMPTY", "@");
+        -- end
 
         for _, unit in ipairs(SORTED_UNIT_LIST) do
             if (not (unit == "player" or unit == "none")) then
@@ -848,7 +896,8 @@ do
         end
     end
 
-    local function PopulateGroupConditionMenu(description)
+    local function CreateGroupConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_GROUP", "groups");
         AppendDisable(description, "CONDITION_GROUP", "groups");
         AppendCheckboxes(description, "groups", {
             { text = LLL["GROUP_NONE"],  value = Constants.GROUP_NONE },
@@ -857,7 +906,11 @@ do
         });
     end
 
-    local function PopulateIsKnownConditionMenu(description)
+    local function CreateIsKnownConditionMenu(rootDescription)
+        if (_action.type ~= Constants.SPELL) then
+            return;
+        end
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_KNOWN", "known");
         description:CreateCheckbox(
             LLL["CONDITION_KNOWN_YES"],
             function ()
@@ -875,138 +928,60 @@ do
         )
     end
 
-    local function PopulateCombatConditionMenu(description)
+    local function CreateCombatConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_COMBAT", "combat");
         AppendDisableYesNo(description, "CONDITION_COMBAT", "combat");
     end
 
-    local function PopulateShapeshiftConditionMenu(description)
+    local function CreateShapeshiftConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_SHAPESHIFT", "forms");
         AppendDisable(description, "CONDITION_SHAPESHIFT", "forms");
         AppendCheckboxes(description, "forms", range(0, 10, function(formId)
-            return { text = DebouncePrivate.GetShapeshiftFormLabel(formId), value = 2 ^ formId };
-        end));
-    end
-
-    local function PopulateStealthConditionMenu(description)
-        AppendDisableYesNo(description, "CONDITION_STEALTH", "stealth");
-    end
-
-    local function PopulatePetConditionMenu(description)
-        AppendDisableYesNo(description, "CONDITION_PET", "pet");
-    end
-
-    local function PopulatePetBattleConditionMenu(description)
-        AppendDisableYesNo(description, "CONDITION_PETBATTLE", "petbattle");
-    end
-
-    local function PopulateBonusbarConditionMenu(description)
-        AppendDisable(description, "CONDITION_BONUSBAR", "bonusbars");
-        AppendCheckboxes(description, "bonusbars", range(0, Constants.MAX_BONUS_ACTIONBAR_OFFSET, function(offset)
-            return { text = DebouncePrivate.GetActionBarTypeLabel(offset), value = 2 ^ offset };
-        end));
-    end
-
-    local function PopulateSpecialbarConditionMenu(description)
-        AppendDisableYesNo(description, "CONDITION_SPECIALBAR", "specialbar");
-    end
-
-    local function PopulateExtrabarConditionMenu(description)
-        AppendDisableYesNo(description, "CONDITION_EXTRABAR", "extrabar");
-    end
-
-    local function PopulateCustomStateConditionMenu(description, stateIndex)
-        AppendDisableYesNo(description, "CONDITION_CUSTOM_STATE", "$state" .. stateIndex);
-    end
-
-    --
-    -- 조건 탭이 부를 수 있도록 서술자에 끼워 넣는다. 뿌리에 바로 채우므로 제목은 여기서 단다.
-    --
-    do
-        local function Register(key, populate, arg)
-            DebouncePrivate.SetConditionMenuBuilder(key, function(rootDescription, action, label)
-                _dropdown = nil;
-                _elementData = nil;
-                _action = action;
-                rootDescription:CreateTitle(label);
-                populate(rootDescription, arg);
-            end);
-        end
-
-        Register("hover", PopulateHoverMenu);
-        Register("checkedUnits", PopulateUnitConditionMenu);
-        Register("groups", PopulateGroupConditionMenu);
-        Register("combat", PopulateCombatConditionMenu);
-        Register("stealth", PopulateStealthConditionMenu);
-        Register("known", PopulateIsKnownConditionMenu);
-        Register("forms", PopulateShapeshiftConditionMenu);
-        Register("bonusbars", PopulateBonusbarConditionMenu);
-        Register("specialbar", PopulateSpecialbarConditionMenu);
-        Register("extrabar", PopulateExtrabarConditionMenu);
-        Register("pet", PopulatePetConditionMenu);
-        Register("petbattle", PopulatePetBattleConditionMenu);
-        for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
-            Register("$state" .. stateIndex, PopulateCustomStateConditionMenu, stateIndex);
-        end
-    end
-
-    --
-    -- 우클릭 메뉴의 하위 메뉴들. 위의 채우기를 그대로 쓴다.
-    --
-
-    local function CreateHoverMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_HOVER", "hover", nil,
-            DebouncePrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
-        PopulateHoverMenu(description);
-    end
-
-    local function CreateUnitConditionMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "checkedUnits",
-            -- isActive
-            function()
-                if (_action.checkedUnits) then
-                    for k, _ in pairs(_action.checkedUnits) do
-                        if (k ~= "@") then
-                            return true;
-                        end
-                    end
-                end
-                return false;
+            local shapeshiftName;
+            if (formId == 0) then
+                shapeshiftName = LLL["NO_SHAPESHIFT"];
+            else
+                local _, _, _, spellID = GetShapeshiftFormInfo(formId);
+                shapeshiftName = spellID and GetSpellNameAndIconID(spellID) or nil;
             end
-        );
-        PopulateUnitConditionMenu(description);
-    end
-
-    local function CreateGroupConditionMenu(rootDescription)
-        PopulateGroupConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_GROUP", "groups"));
-    end
-
-    local function CreateIsKnownConditionMenu(rootDescription)
-        if (_action.type ~= Constants.SPELL) then
-            return;
-        end
-        PopulateIsKnownConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_KNOWN", "known"));
-    end
-
-    local function CreateCombatConditionMenu(rootDescription)
-        PopulateCombatConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_COMBAT", "combat"));
-    end
-
-    local function CreateShapeshiftConditionMenu(rootDescription)
-        PopulateShapeshiftConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_SHAPESHIFT", "forms"));
+            local label = format("[form:%d]", formId);
+            if (shapeshiftName) then
+                label = format("%s (%s)", label, shapeshiftName);
+            end
+            return { text = label, value = 2 ^ formId };
+        end));
     end
 
     local function CreateStealthConditionMenu(rootDescription)
-        PopulateStealthConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_STEALTH", "stealth"));
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_STEALTH", "stealth");
+        AppendDisableYesNo(description, "CONDITION_STEALTH", "stealth");
     end
 
     local function CreatePetConditionMenu(rootDescription)
-        PopulatePetConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_PET", "pet"));
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_PET", "pet");
+        AppendDisableYesNo(description, "CONDITION_PET", "pet");
     end
 
     local function CreatePetBattleConditionMenu(rootDescription)
-        PopulatePetBattleConditionMenu(CreateActionMenuItemGroup(rootDescription, "CONDITION_PETBATTLE", "petbattle"));
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_PETBATTLE", "petbattle");
+        AppendDisableYesNo(description, "CONDITION_PETBATTLE", "petbattle");
     end
 
     local function CreateActionbarConditionMenu(rootDescription)
+        if (BONUSBAR_NAMES == nil) then
+            BONUSBAR_NAMES = {
+                [0] = LLL["DEFAULT"],
+                [5] = GetFlyoutInfo(229)
+            };
+            if (Constants.PLAYER_CLASS == "DRUID") then
+                BONUSBAR_NAMES[1] = GetSpellNameAndIconID(768);
+                BONUSBAR_NAMES[3] = GetSpellNameAndIconID(5487);
+                BONUSBAR_NAMES[4] = GetSpellNameAndIconID(24858);
+            elseif (Constants.PLAYER_CLASS == "ROGUE") then
+                BONUSBAR_NAMES[1] = GetSpellNameAndIconID(1784);
+            end
+        end
+
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_ACTIONBARS", nil,
             -- isActive
             function()
@@ -1014,9 +989,22 @@ do
             end
         );
 
-        PopulateBonusbarConditionMenu(CreateActionMenuItemGroup(description, "CONDITION_BONUSBAR", "bonusbars"));
-        PopulateSpecialbarConditionMenu(CreateActionMenuItemGroup(description, "CONDITION_SPECIALBAR", "specialbar"));
-        PopulateExtrabarConditionMenu(CreateActionMenuItemGroup(description, "CONDITION_EXTRABAR", "extrabar"));
+        local bonusbarDescription = CreateActionMenuItemGroup(description, "CONDITION_BONUSBAR", "bonusbars");
+        AppendDisable(bonusbarDescription, "CONDITION_BONUSBAR", "bonusbars");
+        AppendCheckboxes(bonusbarDescription, "bonusbars", range(0, Constants.MAX_BONUS_ACTIONBAR_OFFSET, function(offset)
+            local name = BONUSBAR_NAMES[offset];
+            local label = format("[bonusbar:%d]", offset);
+            if (name) then
+                label = format("%s (%s)", label, name);
+            end
+            return { text = label, value = 2 ^ offset };
+        end));
+
+        local specialbarDescription = CreateActionMenuItemGroup(description, "CONDITION_SPECIALBAR", "specialbar");
+        AppendDisableYesNo(specialbarDescription, "CONDITION_SPECIALBAR", "specialbar");
+
+        local extrabarDescription = CreateActionMenuItemGroup(description, "CONDITION_EXTRABAR", "extrabar");
+        AppendDisableYesNo(extrabarDescription, "CONDITION_EXTRABAR", "extrabar");
     end
 
     local function CreateCustomStateConditionMenu(rootDescription)
@@ -1033,8 +1021,8 @@ do
         );
 
         for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
-            PopulateCustomStateConditionMenu(
-                CreateActionMenuItemGroup(description, format(LLL["CUSTOM_STATE_NUM"], i), "$state" .. i), i);
+            local stateDescription = CreateActionMenuItemGroup(description, format(LLL["CUSTOM_STATE_NUM"], i), "$state" .. i);
+            AppendDisableYesNo(stateDescription, "CONDITION_CUSTOM_STATE", "$state" .. i);
         end
     end
 
@@ -1133,6 +1121,10 @@ do
         local title = DebounceUI.NameAndIconFromElementData(elementData);
         rootDescription:CreateTitle(title);
         rootDescription:SetTag(DebounceUI.ActionMenuRootTag, 1);
+
+        CreateConvertToMacroTextMenuItem(rootDescription);
+
+        EditMacroTextMenuItem(rootDescription);
 
         CreateUnbindMenuItem(rootDescription);
 
