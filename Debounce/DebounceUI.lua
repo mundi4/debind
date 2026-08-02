@@ -2432,10 +2432,11 @@ local function BuildOrderSubText(row, layerLabel)
 	if (layerLabel) then
 		parts[#parts + 1] = layerLabel;
 	end
+	-- GetBindingIssue는 도달불가도 이슈로 친다(Misc.lua:266). 둘 다 붙이면 같은 말이 두 번
+	-- 나오므로 더 구체적인 쪽만 쓴다. 자세한 이유는 행 툴팁의 단축키 줄에 있다.
 	if (row.unreachable) then
 		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
-	end
-	if (row.issue) then
+	elseif (row.issue) then
 		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
 	end
 	if (row.hover ~= nil) then
