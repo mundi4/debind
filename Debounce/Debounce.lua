@@ -113,25 +113,9 @@ do
 	dump("ActiveActions", ActiveActions);
 	dump("BindingInfoToActionMap", BindingInfoToActionMap);
 
-	local function BindingSortComparison(lhs, rhs)
-		if ((lhs.priority or 3) ~= (rhs.priority or 3)) then
-			return (lhs.priority or 3) < (rhs.priority or 3);
-		end
-
-		if (lhs.hover ~= nil and rhs.hover == nil) then
-			return true;
-		elseif (lhs.hover == nil and rhs.hover ~= nil) then
-			return false;
-		end
-
-		if (lhs.isConditional and not rhs.isConditional) then
-			return true;
-		elseif (not lhs.isConditional and rhs.isConditional) then
-			return false;
-		end
-
-		return lhs.ordinal < rhs.ordinal;
-	end
+	-- 순서 규칙 자체는 Ordering.lua에 있다. binding 테이블이 그대로 레코드 역할을 한다
+	-- (priority/hover는 GetBindingInfoForAction이, layerRank/index/isConditional은 아래 루프가 채운다).
+	local BindingSortComparison = DebouncePrivate.CompareActionOrder;
 
 	function DebouncePrivate.BuildKeyMap()
 		wipe(KeyMap);
@@ -139,28 +123,35 @@ do
 		wipe(BindingInfoToActionMap);
 		DebouncePrivate.ClearUnreachableBindingCache();
 
-		for ordinal, action in DebouncePrivate.EnumerateActionsInActiveLayers() do
-			if (action.key) then
-				local binding = DebouncePrivate.GetBindingInfoForAction(action, true);
-				BindingInfoToActionMap[binding] = action;
+		-- EnumerateActionsInActiveLayers와 같은 순서를 돌지만, 통짜 ordinal 대신
+		-- (layerRank, index)를 따로 알아야 해서 레이어를 직접 훑는다.
+		local ordinal = 0;
+		for layerRank, layer in DebouncePrivate.EnumerateProfileLayers() do
+			for index, action in layer:Enumerate() do
+				ordinal = ordinal + 1;
+				if (action.key) then
+					local binding = DebouncePrivate.GetBindingInfoForAction(action, true);
+					BindingInfoToActionMap[binding] = action;
 
-				binding.ordinal = ordinal;
-				binding.isConditional = IsConditionalAction(action);
+					binding.layerRank = layerRank;
+					binding.index = index;
+					binding.isConditional = IsConditionalAction(action);
 
-				local key = action.key;
-				local issue = DebouncePrivate.GetBindingIssue(action);
-				if (not issue) then
-					if (not KeyMap[key]) then
-						KeyMap[key] = {};
-						local button, buttonPrefix = DebouncePrivate.GetMouseButtonAndPrefix(key);
-						if (button) then
-							KeyMap[key].button, KeyMap[key].buttonPrefix = button, buttonPrefix;
+					local key = action.key;
+					local issue = DebouncePrivate.GetBindingIssue(action);
+					if (not issue) then
+						if (not KeyMap[key]) then
+							KeyMap[key] = {};
+							local button, buttonPrefix = DebouncePrivate.GetMouseButtonAndPrefix(key);
+							if (button) then
+								KeyMap[key].button, KeyMap[key].buttonPrefix = button, buttonPrefix;
+							end
 						end
+						tinsert(KeyMap[key], binding);
 					end
-					tinsert(KeyMap[key], binding);
-				end
 
-				ActiveActions[action] = ordinal;
+					ActiveActions[action] = ordinal;
+				end
 			end
 		end
 

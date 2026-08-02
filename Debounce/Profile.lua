@@ -339,6 +339,8 @@ function DebouncePrivate.EnumerateProfileLayers()
     return Enumerator, indexArray, 0;
 end
 
+-- 현재 호출자 없음. BuildKeyMap은 (layerRank, index)가 필요해서 EnumerateProfileLayers를
+-- 직접 훑는다. 여기 ordinal은 그 두 값을 평탄화한 것과 같은 순서다.
 function DebouncePrivate.EnumerateActionsInActiveLayers()
     local spec = C_SpecializationInfo.GetSpecialization();
     local layerIdArray = {};
@@ -377,6 +379,44 @@ function DebouncePrivate.EnumerateActionsInActiveLayers()
     end
 
     return Enumerator, layerIdArray, 0;
+end
+
+--- 주어진 키에 걸린 액션을 활성 레이어에서 직접 모아 실제 발동 순서로 정렬해 돌려준다.
+---
+--- GetKeyMap()을 쓰지 않는 이유: 그쪽은 이슈가 있는 액션과 도달불가 액션이 빠져 있는데,
+--- 순서 UI에서는 **그것들이야말로** 보여줘야 할 대상이다.
+---
+--- 돌려주는 레코드는 호출자 소유의 새 테이블이다. action 테이블에는 아무것도 쓰지 말 것이며,
+--- GetBindingInfoForAction이 준 테이블도 쓰지 않는다(그쪽 필드는 BuildKeyMap이 소유한다).
+function DebouncePrivate.CollectActionsForKey(key)
+    local rows = {};
+    if (key == nil) then
+        return rows;
+    end
+
+    for layerRank, layer in DebouncePrivate.EnumerateProfileLayers() do
+        for index, action in layer:Enumerate() do
+            if (action.key == key) then
+                rows[#rows + 1] = {
+                    action        = action,
+                    layer         = layer,
+                    layerID       = layer.layerID,
+                    layerRank     = layerRank,
+                    index         = index,
+                    priority      = action.priority or Constants.DEFAULT_PRIORITY,
+                    -- hover는 원본 그대로 넘긴다. false와 nil이 다른 뜻이라 불리언으로 접으면
+                    -- 정렬이 어긋난다 (Ordering.lua 주석 참고).
+                    hover         = action.hover,
+                    isConditional = DebouncePrivate.IsConditionalAction(action),
+                    issue         = DebouncePrivate.GetBindingIssue(action),
+                    unreachable   = DebouncePrivate.IsUnreachableAction(action),
+                };
+            end
+        end
+    end
+
+    sort(rows, DebouncePrivate.CompareActionOrder);
+    return rows;
 end
 
 -- TODO(§4): not implemented yet. No callers - do not call this until it is.

@@ -12,6 +12,7 @@ shim.install();
 
 local DebouncePrivate = shim.loadAddon(repoRoot .. "/Debounce", {
     "Constants.lua",
+    "Ordering.lua",
     "Solver.lua",
 });
 
@@ -27,6 +28,7 @@ end
 
 local specs = {
     { name = "solver", path = root .. "/solver_spec.lua" },
+    { name = "ordering", path = root .. "/ordering_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};

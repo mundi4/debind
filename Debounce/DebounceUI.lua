@@ -2769,129 +2769,22 @@ function DebounceOverviewLineMixin:Update()
 	end
 end
 
-local SORT_KEYS = {
-	LALT = 1,
-	RALT = 2,
-	LCTRL = 3,
-	RCTRL = 4,
-	LSHIFT = 5,
-	RSHIFT = 6,
-	LMETA = 7,
-	RMETA = 8,
-	ALT = 9,
-	CTRL = 10,
-	SHIFT = 11,
-	META = 12,
-
-	BUTTON1 = 21,
-	BUTTON2 = 22,
-	BUTTON3 = 23,
-	BUTTON4 = 24,
-	BUTTON5 = 25,
-	MOUSEWHEELUP = 26,
-	MOUSEWHEELDOWN = 27,
-
-	UP = 61,
-	DOWN = 62,
-	LEFT = 63,
-	RIGHT = 64,
-	PAGEUP = 65,
-	PAGEDOWN = 66,
-	BACKSPACE = 67,
-	TAB = 68,
-	SPACE = 69,
-	ENTER = 70,
-	ESCAPE = 71,
-	INSERT = 72,
-	DELETE = 73,
-	HOME = 74,
-	END = 75,
-	PRINTSCREEN = 76,
-	PAUSE = 77,
-	CAPSLOCK = 78,
-	SCROLLLOCK = 79,
-
-	NUMPAD1 = 91,
-	NUMPAD2 = 92,
-	NUMPAD3 = 93,
-	NUMPAD4 = 94,
-	NUMPAD5 = 95,
-	NUMPAD6 = 96,
-	NUMPAD7 = 97,
-	NUMPAD8 = 98,
-	NUMPAD9 = 99,
-	NUMPAD0 = 100,
-	NUMPADDECIMAL = 101,
-	NUMLOCK = 102,
-	NUMPADDIVIDE = 103,
-	NUMPADMULTIPLY = 104,
-	NUMPADMINUS = 105,
-	NUMPADPLUS = 106,
-
-	F1 = 121,
-	F2 = 122,
-	F3 = 123,
-	F4 = 124,
-	F5 = 125,
-	F6 = 126,
-	F7 = 127,
-	F8 = 128,
-	F9 = 129,
-	F10 = 130,
-	F11 = 131,
-	F12 = 132,
-};
-
-local function keyCompare(lhs, rhs)
-	if (lhs.lastKey ~= rhs.lastKey) then
-		local l = SORT_KEYS[lhs.lastKey];
-		local r = SORT_KEYS[rhs.lastKey];
-
-		if (l and r) then
-			return l < r;
-		elseif (l) then
-			return true;
-		elseif (r) then
-			return false;
-		else
-			return lhs.lastKey < rhs.lastKey;
-		end
-	end
-
-	if (#lhs.mods ~= #rhs.mods) then
-		return #lhs.mods < #rhs.mods;
-	end
-
-	for i = 1, #lhs.mods do
-		local a = SORT_KEYS[lhs.mods[i]];
-		local b = SORT_KEYS[rhs.mods[i]];
-		if (a ~= b) then
-			return a < b;
-		end
-	end
-end
-
 function DebounceOverviewFrameMixin:Refresh(retainScrollPosition)
 	local dataProvider = CreateDataProvider();
 	local keyMap = DebouncePrivate.GetKeyMap();
 
 	local keyArr = {};
 	for key, _ in pairs(keyMap) do
-		local sa = { strsplit("-", key) };
-		local keyInfo = {};
-		keyInfo.key = key;
-		keyInfo.lastKey = tremove(sa, #sa);
-		keyInfo.mods = sa;
-		keyArr[#keyArr + 1] = keyInfo;
+		keyArr[#keyArr + 1] = key;
 	end
 
-	sort(keyArr, keyCompare);
+	sort(keyArr, DebouncePrivate.CompareKeys);
 
-	for _, keyInfo in ipairs(keyArr) do
-		local actionArray = keyMap[keyInfo.key];
+	for _, key in ipairs(keyArr) do
+		local actionArray = keyMap[key];
 		for i = 1, #actionArray do
 			local action = actionArray[i];
-			local elementData = { action = action, keyInfo = keyInfo };
+			local elementData = { action = action };
 			dataProvider:Insert(elementData);
 		end
 	end
