@@ -125,22 +125,6 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.UNUSED] = LLL["TYPE_UNUSED"],
 };
 
-local UNIT_FRAME_REACTIONS = {
-	"HELP",
-	"HARM",
-	"OTHER",
-};
-
-local UNIT_FRAME_TYPES     = {
-	"PLAYER",
-	"PET",
-	"GROUP",
-	"TARGET",
-	"BOSS",
-	"ARENA",
-	"UNKNOWN",
-};
-
 local UNIT_INFO            = {
 	player = {
 		name = LLL["UNIT_PLAYER"],
@@ -277,34 +261,6 @@ local function _CreateKeyChordStringUsingMetaKeyState(key, useLeftRight)
 
 	local preventSort = true;
 	return CreateKeyChordStringFromTable(chord, preventSort);
-end
-
-local GetActionBarTypeLabel;
-do
-	local _bonusbarLabels;
-	function GetActionBarTypeLabel(index)
-		if (_bonusbarLabels == nil) then
-			_bonusbarLabels = {
-				[0] = LLL["DEFAULT"],
-				[5] = GetFlyoutInfo(229),
-			};
-			if (Constants.PLAYER_CLASS == "DRUID") then
-				_bonusbarLabels[1] = GetSpellNameAndIconID(768);
-				_bonusbarLabels[3] = GetSpellNameAndIconID(5487);
-				_bonusbarLabels[4] = GetSpellNameAndIconID(24858);
-			elseif (Constants.PLAYER_CLASS == "ROGUE") then
-				_bonusbarLabels[1] = GetSpellNameAndIconID(1784);
-			end
-			for i = 0, Constants.MAX_BONUS_ACTIONBAR_OFFSET do
-				local text = _bonusbarLabels[i];
-				_bonusbarLabels[i] = format("[bonusbar:%d]", i);
-				if (text) then
-					_bonusbarLabels[i] = format("%s (%s)", _bonusbarLabels[i], text);
-				end
-			end
-		end
-		return _bonusbarLabels[index];
-	end
 end
 
 local function GetLayerID(tab, sideTab)
@@ -682,6 +638,18 @@ local function MoveAction(elementData, destLayerID, copying)
 	end
 end
 
+--- 액션의 값이 바뀌었다(조건, 대상, 키, 우선순위).
+--- 조건은 `isConditional`/`hover`로 발동 순서에 들어가고 목록은 그 순서대로 그려지므로,
+--- 하나만 고쳐도 왼쪽 목록의 자리와 상세 패널이 같이 움직인다. 다시 만들어야 화면이
+--- 실제 결과를 보여준다. (비교자는 건드리지 않는다 - 데이터만 바뀐다)
+local function NotifyActionChanged(action)
+	action._dirty = true;
+	DebouncePrivate.UpdateBindings();
+	DebounceFrame:Refresh(true);
+	-- Update()가 상세 패널의 Refresh까지 부른다.
+	DebounceFrame:Update();
+end
+
 local ShowLineTooltip;
 do
 	local _lines = {};
@@ -707,16 +675,6 @@ do
 			GameTooltip_AddErrorLine(GameTooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		else
 			GameTooltip_AddNormalLine(GameTooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
-		end
-		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(GameTooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
-		end
-	end
-
-	local function addValueLines(lines, error, wrap, leftOffset)
-		local fn = error and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
-		for i = 1, #lines do
-			fn(GameTooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
 			GameTooltip_AddErrorLine(GameTooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
@@ -762,211 +720,32 @@ do
 			addValueLine(unitStr, error);
 		end
 
-		if (action.hover ~= nil) then
-			addLabelLine(LLL["CONDITION_HOVER"]);
-			local error = hasIssues and GetBindingIssue(action, "hover");
-			if (action.hover) then
+		-- 조건은 서술자 테이블이 그린다(Conditions.lua). 툴팁·드롭다운·조건 탭이 같은
+		-- "설정돼 있는가"와 같은 값 문자열을 쓴다.
+		for _, descriptor in ipairs(DebouncePrivate.ConditionDescriptors) do
+			if (descriptor:IsSet(action)) then
+				addLabelLine(descriptor.label);
+
+				local error = hasIssues and GetBindingIssue(action, descriptor.key) or nil;
+				local errorShown = false;
+
 				wipe(_lines);
-				local reactions = action.reactions or Constants.REACTION_ALL;
-				local frameTypes = action.frameTypes or Constants.FRAMETYPE_ALL;
-
-				local s;
-				if (reactions == Constants.REACTION_ALL) then
-					s = LLL["ALL"];
-				elseif (reactions == 0) then
-					s = LLL["NOT_SELECTED"];
-				else
-					s = "";
-					for i = 1, #UNIT_FRAME_REACTIONS do
-						local flag = Constants["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
-						if (bit.band(reactions, flag) == flag) then
-							if (s ~= "") then
-								s = s .. ", ";
-							end
-							s = s .. LLL["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
-						end
+				descriptor:GetLines(action, _lines);
+				for i = 1, #_lines do
+					local line = _lines[i];
+					local lineError = line.error;
+					if (lineError == nil) then
+						lineError = error ~= nil;
 					end
+					addValueLine(line.text, lineError, line.wrap);
+					errorShown = errorShown or line.isDescriptorError or false;
 				end
-				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_REACTIONS"], s);
-				addValueLine(s, hasIssues and GetBindingIssue(action, "reactions") and true or false, true);
 
-				s = nil;
-				if (frameTypes == Constants.FRAMETYPE_ALL) then
-					s = LLL["ALL"];
-				elseif (frameTypes == 0) then
-					s = LLL["NOT_SELECTED"];
-				else
-					s = "";
-					for i = 1, #UNIT_FRAME_TYPES do
-						local flag = Constants["FRAMETYPE_" .. UNIT_FRAME_TYPES[i]];
-						if (bit.band(frameTypes, flag) == flag) then
-							if (s ~= "") then
-								s = s .. ", ";
-							end
-							s = s .. LLL["FRAMETYPE_" .. UNIT_FRAME_TYPES[i]];
-						end
-					end
+				-- 이유는 값 아래 한 번만 적는다. 줄마다 붙이면 같은 말이 여러 번 나온다.
+				-- 값 줄 자체가 이미 그 이유인 경우(선택된 것이 하나도 없음)는 생략한다.
+				if (error and not errorShown) then
+					addErrorLine(LLL["BINDING_ERROR_" .. error]);
 				end
-				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_FRAMETYPES"], s);
-				addValueLine(s, hasIssues and GetBindingIssue(action, "frameTypes") and true or false, true);
-
-				if (action.ignoreHoverUnit) then
-					addValueLine(LLL["IGNORE_HOVER_UNIT"]);
-				end
-			else
-				addValueLine(LLL["CONDITION_HOVER_NO"], error);
-			end
-			if (error) then
-				addErrorLine(LLL["BINDING_ERROR_" .. error]);
-			end
-		end
-
-		if (action.checkedUnits) then
-			local first = true;
-			for checkedUnit, value in pairs(action.checkedUnits) do
-				if (checkedUnit ~= "@" or (action.unit and action.unit ~= "none")) then
-					if (first) then
-						addLabelLine(LLL["CONDITION_UNITS"]);
-						first = false;
-					end
-
-					local error = hasIssues and GetBindingIssue(action, "checkedUnits");
-					local unitStr;
-					if (checkedUnit == "@") then
-						unitStr = format(LLL["SELECTED_TARGET_UNIT"], UNIT_INFO[action.unit].name);
-					else
-						unitStr = UNIT_INFO[checkedUnit].name;
-					end
-					--addValueLine(unitStr);
-					if (value == true) then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
-					elseif (value == "help") then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_HELP"], error);
-					elseif (value == "harm") then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_HARM"], error);
-					else
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
-					end
-				end
-			end
-		end
-
-		if (action.groups ~= nil) then
-			addLabelLine(LLL["CONDITION_GROUP"]);
-
-			if (action.groups == 0) then
-				addValueLine(LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
-			else
-				wipe(_lines);
-				for _, groupType in ipairs({ "NONE", "PARTY", "RAID" }) do
-					local flag = Constants["GROUP_" .. groupType];
-					if (bit.band(action.groups, flag) == flag) then
-						tinsert(_lines, LLL["GROUP_" .. groupType]);
-					end
-				end
-				local error = hasIssues and GetBindingIssue(action, "groups");
-				addValueLines(_lines, error);
-			end
-		end
-
-		if (action.combat ~= nil) then
-			addLabelLine(LLL["CONDITION_COMBAT"]);
-			local error = hasIssues and GetBindingIssue(action, "combat");
-			addValueLine(action.combat == true and LLL["CONDITION_COMBAT_YES"] or LLL["CONDITION_COMBAT_NO"], error);
-		end
-
-		if (action.stealth ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "stealth");
-			addLabelLine(LLL["CONDITION_STEALTH"]);
-			addValueLine(action.stealth == true and LLL["CONDITION_STEALTH_YES"] or LLL["CONDITION_STEALTH_NO"], error);
-		end
-
-		if (action.known) then
-			local error = hasIssues and GetBindingIssue(action, "known");
-			addLabelLine(LLL["CONDITION_KNOWN"]);
-			addValueLine(LLL["CONDITION_KNOWN_YES"], error);
-			-- if (action.known == true) then
-			-- else
-			-- 	addValueLine(LLL["CONDITION_KNOWN_UNKNOWN"], error);
-			-- end
-		end
-
-		if (action.forms ~= nil) then
-			addLabelLine(LLL["CONDITION_SHAPESHIFT"]);
-			if (action.forms == 0) then
-				addValueLine(LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
-			else
-				wipe(_lines);
-				local error = hasIssues and GetBindingIssue(action, "forms");
-				for i = 0, 10 do
-					local flag = 2 ^ i;
-					if (bit.band(action.forms, flag) ~= 0) then
-						if (i == 0) then
-							tinsert(_lines, format("[form:%d] (%s)", i, LLL["NO_SHAPESHIFT"]));
-						else
-							local _, _, _, spellID = GetShapeshiftFormInfo(i);
-							local spellName = spellID and GetSpellNameAndIconID(spellID);
-							if (spellName) then
-								tinsert(_lines, format("[form:%d] (%s)", i, spellName));
-							else
-								tinsert(_lines, format("[form:%d]", i));
-							end
-						end
-					end
-				end
-				addValueLines(_lines, error);
-			end
-		end
-
-		if (action.bonusbars ~= nil) then
-			addLabelLine(LLL["CONDITION_BONUSBAR"]);
-			if (action.bonusbars == 0) then
-				addValueLine(LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
-			else
-				wipe(_lines);
-				local error = hasIssues and GetBindingIssue(action, "bonusbars");
-				for i = 0, Constants.MAX_BONUS_ACTIONBAR_OFFSET do
-					local flag = 2 ^ i;
-					if (bit.band(action.bonusbars, flag) ~= 0) then
-						local label = GetActionBarTypeLabel(i);
-						if (label) then
-							tinsert(_lines, label);
-						end
-					end
-				end
-				addValueLines(_lines, error);
-			end
-		end
-
-		if (action.specialbar ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "specialbar");
-			addLabelLine(LLL["CONDITION_SPECIALBAR"]);
-			addValueLine(action.specialbar == true and LLL["CONDITION_SPECIALBAR_YES"] or LLL["CONDITION_SPECIALBAR_NO"], error);
-		end
-
-		if (action.extrabar ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "extrabar");
-			addLabelLine(LLL["CONDITION_EXTRABAR"]);
-			addValueLine(action.extrabar == true and LLL["CONDITION_EXTRABAR_YES"] or LLL["CONDITION_EXTRABAR_NO"], error);
-		end
-
-		if (action.pet ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "pet");
-			addLabelLine(LLL["CONDITION_PET"]);
-			addValueLine(action.pet == true and LLL["CONDITION_PET_YES"] or LLL["CONDITION_PET_NO"], error);
-		end
-
-		if (action.petbattle ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "petbattle");
-			addLabelLine(LLL["CONDITION_PETBATTLE"]);
-			addValueLine(action.petbattle == true and LLL["CONDITION_PETBATTLE_YES"] or LLL["CONDITION_PETBATTLE_NO"], error);
-		end
-
-		for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
-			local state = "$state" .. stateIndex;
-			if (action[state] ~= nil) then
-				addLabelLine(format(LLL["CUSTOM_STATE_NUM"], stateIndex));
-				addValueLine(action[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
 			end
 		end
 
@@ -2451,11 +2230,8 @@ local function SetActionPriority(action, priority)
 	end
 
 	action.priority = stored;
-	action._dirty = true;
-	DebouncePrivate.UpdateBindings();
 	-- 목록이 키 그룹 안 발동 순서로 정렬돼 있으므로 왼쪽 자리도 바뀐다.
-	DebounceFrame:Refresh(true);
-	DebounceFrame:Update();
+	NotifyActionChanged(action);
 	return true;
 end
 
@@ -2595,10 +2371,7 @@ function DebounceDetailPanelMixin:ApplyOrderMove(insertIndex)
 	end
 	layer:Insert(action, insertIndex);
 
-	action._dirty = true;
-	DebouncePrivate.UpdateBindings();
-	DebounceFrame:Refresh(true);
-	DebounceFrame:Update();
+	NotifyActionChanged(action);
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 end
 
@@ -2763,10 +2536,7 @@ function DebounceDetailPanelMixin:SetActionKey(key)
 	end
 
 	action.key = key;
-	action._dirty = true;
-	DebouncePrivate.UpdateBindings();
-	DebounceFrame:Refresh(true);
-	DebounceFrame:Update();
+	NotifyActionChanged(action);
 	return true;
 end
 
@@ -3228,3 +2998,4 @@ DebounceUI.MoveAction = MoveAction;
 DebounceUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebounceUI.NameAndIconFromElementData = NameAndIconFromElementData;
 DebounceUI.ShowInputBox = ShowInputBox
+DebounceUI.NotifyActionChanged = NotifyActionChanged;
