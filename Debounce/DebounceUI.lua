@@ -2143,16 +2143,8 @@ function DebounceDetailPanelMixin:Refresh()
 		return;
 	end
 
-	-- ColoredNameAndIconFromElementData는 elementData(.action을 가진 테이블)를 받는다.
-	-- 여기는 액션 자체를 들고 있으므로 색 없는 쪽을 쓴다.
-	local name, icon = NameAndIconFromElementData(action);
-	self.Header.Name:SetText(name);
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.Header.Icon:SetAtlas(icon:sub(3));
-	else
-		self.Header.Icon:SetTexture(icon);
-	end
-
+	-- 어떤 액션인지는 왼쪽 목록에서 그 행이 강조된 것으로 말한다. 패널에 제목 줄을 또 두면
+	-- 인셋 시작선이 왼쪽 목록과 어긋난다.
 	local selectedTab = self.selectedTab;
 	self.KeybindTab:SetShown(selectedTab == self.TAB_KEYBIND);
 	self.ContentTab:SetShown(selectedTab == self.TAB_CONTENT);

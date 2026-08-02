@@ -481,7 +481,13 @@
 					<KeyValue key="MenuFunc" value="SetupOptionsDropdownMenu" type="string"/>
 				</KeyValues>
 				<Anchors>
-					<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" x="-40" y="-40"/>
+						<!--
+						왼쪽 열 위에 고정한다. 프레임 TOPRIGHT에 붙여두면 패널이 열릴 때
+						같이 오른쪽으로 끌려가서 "이 버튼들이 상세 패널 것인가"로 읽힌다.
+						창 전체에 대한 버튼이므로 자리가 움직이면 안 된다.
+						(409 = ScrollBoxBackground의 오른쪽 끝. 그쪽은 폭이 고정이다)
+					-->
+					<Anchor point="TOPRIGHT" relativePoint="TOPLEFT" x="409" y="-40"/>
 				</Anchors>
 			</DropdownButton>
 			<DropdownButton parentKey="CustomStatesPortrait" inherits="DebouncePortraitTemplate">
@@ -636,42 +642,23 @@
 			-->
 			<Frame parentKey="DetailPanel" name="DebounceDetailPanel" useParentLevel="true" mixin="DebounceDetailPanelMixin" enableMouse="true" hidden="true">
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="16" y="0"/>
+					<!--
+						y=34: 탭이 인셋 위로 뻗을 자리. 그래야 ContentArea의 윗변이 왼쪽 목록 인셋과
+						**같은 선**에서 시작한다. 나란한 두 상자가 서로 다른 높이에서 출발하면
+						눈이 기준선을 못 잡는다.
+					-->
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="16" y="34"/>
 					<Anchor point="BOTTOMRIGHT" x="-6" y="10"/>
 				</Anchors>
 				<Frames>
 					<!--
-						제목 줄. 지금 무엇을 보고 있는지만 말한다. 이름·아이콘을 고치는 건
-						macrotext에서만 되는 일이라 내용 탭으로 내려갔다.
+						탭의 내용물. 탭 바가 이 인셋의 윗변에 걸린다.
+						제목 줄(아이콘 + 이름)은 없앴다 - 왼쪽 목록에서 그 행이 이미 강조돼 있고,
+						한 줄을 더 두면 인셋 시작선이 왼쪽과 어긋난다.
 					-->
-					<Frame parentKey="Header">
-						<Size y="26"/>
-						<Anchors>
-							<Anchor point="TOPLEFT" x="6" y="-6"/>
-							<Anchor point="TOPRIGHT" x="-6" y="-6"/>
-						</Anchors>
-						<Layers>
-							<Layer level="ARTWORK">
-								<Texture parentKey="Icon">
-									<Size x="22" y="22"/>
-									<Anchors>
-										<Anchor point="LEFT"/>
-									</Anchors>
-								</Texture>
-								<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
-									<Anchors>
-										<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="8" y="0"/>
-										<Anchor point="RIGHT"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
-					</Frame>
-
-					<!-- 탭의 내용물. 탭 바가 이 인셋의 윗변에 걸린다. -->
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate">
 						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="-6" y="-34"/>
+							<Anchor point="TOPLEFT" x="0" y="-34"/>
 							<Anchor point="BOTTOMRIGHT" x="-4" y="6"/>
 						</Anchors>
 						<Frames>
