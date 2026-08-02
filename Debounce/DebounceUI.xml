@@ -282,6 +282,70 @@
 		</Scripts>
 	</Button>
 
+	<!--
+		조건 한 줄. 위의 두 목록과 같은 아트다. 아이콘 자리는 없다 - 조건에는 그림이 없고,
+		빈 칸을 남겨두면 값이 그만큼 좁아진다.
+	-->
+	<Button name="DebounceConditionLineTemplate" mixin="DebounceConditionLineMixin" virtual="true">
+		<Size x="300" y="40"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<!-- 지우기 버튼(26px)이 오른쪽에 있다. Layers가 Frames보다 먼저라 relativeKey로 못 건다. -->
+				<FontString parentKey="Label" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="10" y="-6"/>
+						<Anchor point="TOPRIGHT" x="-38" y="-6"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="ValueText" inherits="GameFontHighlightSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" x="10" y="7"/>
+						<Anchor point="BOTTOMRIGHT" x="-38" y="7"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Frames>
+			<!-- UIPanelSquareButton의 기본 아이콘이 X다. 순서 탭의 ↑↓와 같은 버튼이다. -->
+			<Button parentKey="ClearButton" inherits="UIPanelSquareButton">
+				<Anchors>
+					<Anchor point="RIGHT" x="-6" y="0"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						self:GetParent():ClearButton_OnClick();
+					</OnClick>
+					<OnEnter>
+						self:GetParent():ClearButton_OnEnter(self);
+					</OnEnter>
+					<OnLeave function="GameTooltip_Hide"/>
+				</Scripts>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+			<OnClick method="OnClick"/>
+		</Scripts>
+	</Button>
+
 	<Button name="DebouncePortraitTemplate" mixin="DebouncePortraitMixin" parentArray="FramePortraits" virtual="true">
 		<Size x="31" y="31"/>
 		<Layers>
@@ -921,6 +985,53 @@
 											</EventFrame>
 										</Frames>
 									</Frame>
+								</Frames>
+							</Frame>
+
+							<!--
+								조건 탭. **설정된 조건만** 나열한다 - 툴팁과 같은 규칙이다.
+								안 쓰는 조건 열댓 개를 늘 보여주면 손댄 것이 그 안에 묻힌다.
+								추가는 아래 버튼 하나로 모으고, 그 자리는 목록이 비어도 안 움직인다.
+							-->
+							<Frame parentKey="ConditionTab" setAllPoints="true" hidden="true">
+								<Layers>
+									<Layer level="ARTWORK">
+										<FontString parentKey="EmptyText" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true" hidden="true">
+											<Anchors>
+												<Anchor point="LEFT" x="24" y="-10"/>
+												<Anchor point="RIGHT" x="-24" y="-10"/>
+											</Anchors>
+										</FontString>
+									</Layer>
+								</Layers>
+								<Frames>
+									<Button parentKey="AddButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+										<Size x="180" y="22"/>
+										<Anchors>
+											<Anchor point="BOTTOM" x="0" y="8"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												DebounceDetailPanel:AddConditionButton_OnClick(self);
+											</OnClick>
+											<OnEnter>
+												DebounceDetailPanel:AddConditionButton_OnEnter(self);
+											</OnEnter>
+											<OnLeave function="GameTooltip_Hide"/>
+										</Scripts>
+									</Button>
+									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
+										<Anchors>
+											<Anchor point="TOPLEFT" x="6" y="-6"/>
+											<Anchor point="BOTTOMRIGHT" x="-20" y="38"/>
+										</Anchors>
+									</Button>
+									<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="6" y="0"/>
+											<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="6" y="0"/>
+										</Anchors>
+									</EventFrame>
 								</Frames>
 							</Frame>
 						</Frames>

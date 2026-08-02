@@ -239,6 +239,7 @@ globals = {
 	-- Mixin globals (for XML templates)
 	"DebounceLineMixin",
 	"DebounceOrderLineMixin",
+	"DebounceConditionLineMixin",
 	"DebounceTabMixin",
 	"DebounceSideTabMixin",
 	"DebouncePortraitMixin",

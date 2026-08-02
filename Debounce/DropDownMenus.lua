@@ -922,11 +922,11 @@ do
     --
     do
         local function Register(key, populate, arg)
-            DebouncePrivate.SetConditionMenuBuilder(key, function(rootDescription, action, label)
+            DebouncePrivate.SetConditionMenuBuilder(key, function(descriptor, rootDescription, action)
                 _dropdown = nil;
                 _elementData = nil;
                 _action = action;
-                rootDescription:CreateTitle(label);
+                rootDescription:CreateTitle(descriptor.label);
                 populate(rootDescription, arg);
             end);
         end
