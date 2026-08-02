@@ -345,19 +345,21 @@ local function DoesAncestryIncludeMouseFocus(ancestry)
 end
 
 local function TryCloseAnyDialog()
-	if (DebounceIconSelectorFrame:Close() and DebounceMacroFrame:Close() and DebounceDetailPanel:Close()) then
+	if (DebounceIconSelectorFrame:Close() and DebounceDetailPanel:Close()) then
 		return true;
 	end
 	return false;
 end
 
---- 상세 패널은 상설이고 저장을 미루는 상태가 없으므로(키도 순서도 즉시 반영) 잠금과
---- 무관하다. 잠그는 건 여전히 팝업인 둘뿐이다.
+--- 상세 패널에는 저장을 미루는 상태가 없다 - 키도 순서도 즉시 반영되고, 매크로 본문은
+--- 떠날 때 저장된다. 그래서 패널은 아무것도 잠그지 않는다. 여기서 알려주는 건 "지금 이
+--- 액션을 편집 중"이라는 사실뿐이고, 잠그는 건 팝업인 아이콘 선택기뿐이다.
 local function IsEditingAction(action)
 	if (DebounceIconSelectorFrame:IsShown() and (action == nil or (DebounceIconSelectorFrame.elementData and DebounceIconSelectorFrame.elementData.action == action))) then
 		return true;
 	end
-	if (DebounceMacroFrame:IsShown() and (action == nil or (DebounceMacroFrame.elementData and DebounceMacroFrame.elementData.action == action))) then
+	local macroAction = DebounceDetailPanel:GetEditingMacroAction();
+	if (macroAction and (action == nil or macroAction == action)) then
 		return true;
 	end
 	return false;
@@ -571,49 +573,6 @@ do
 			StaticPopup_Hide("GENERIC_CONFIRMATION", _deletePopupData);
 			_deletePopupData = nil;
 		end
-	end
-end
-
-local ShowSaveOrDiscardPopup, HideSaveOrDiscardPopup, IsHideOrDiscardPopupShown;
-do
-	local _saveOrDiscardData;
-
-	function ShowSaveOrDiscardPopup(elementData)
-		HideSaveOrDiscardPopup();
-
-		local function onAccept()
-			DebounceDetailPanel:OkayButton_OnClick();
-		end
-
-		local function onCancel()
-			DebounceDetailPanel:CancelButton_OnClick();
-		end
-
-		local name = NameAndIconFromElementData(elementData);
-		_saveOrDiscardData = {
-			text = LLL["SAVE_OR_DISCARD_MESSAGE"],
-			text_arg1 = name or LLL["UNNAMED_ACTION"],
-			callback = onAccept,
-			cancelCallback = onCancel,
-			acceptText = LLL["SAVE"],
-			cancelText = LLL["DISCARD"],
-			showAlert = true,
-			referenceKey = "DebounceSaveOrDiscard",
-		};
-
-		StaticPopup_ShowCustomGenericConfirmation(_saveOrDiscardData);
-	end
-
-	function HideSaveOrDiscardPopup()
-		if (_saveOrDiscardData) then
-			StaticPopup_Hide("GENERIC_CONFIRMATION", _saveOrDiscardData);
-			_saveOrDiscardData = nil;
-			DebounceFrame:UpdateButtons();
-		end
-	end
-
-	function IsHideOrDiscardPopupShown()
-		return StaticPopup_FindVisible("GENERIC_CONFIRMATION", _saveOrDiscardData) ~= nil;
 	end
 end
 
@@ -1227,7 +1186,7 @@ function DebounceLineMixin:OnClick(buttonName)
 				if (not TryCloseAnyDialog()) then
 					return;
 				end
-				DebounceMacroFrame:ShowEdit(elementData);
+				DebounceDetailPanel:EditMacroText(elementData.action);
 				return;
 			end
 
@@ -1672,8 +1631,11 @@ function DebounceFrameMixin:OnHide()
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
 	self.SearchBox:SetText("");
 
-	HideSaveOrDiscardPopup();
 	HideDeleteConfirmationPopup();
+
+	-- 창이 닫히는 것도 "떠나는" 것이다. 기본 매크로 창의 OnHide와 같이, 편집 중이던
+	-- 매크로 본문은 여기서 저장된다.
+	DebounceDetailPanel:Close();
 
 	if (self.iconDataProvider) ~= nil then
 		self.iconDataProvider:Release();
@@ -1742,6 +1704,13 @@ function DebounceFrameMixin:OnKeyDown(input)
 			return;
 		end
 
+		-- 매크로 편집 중이면 닫는다(저장된다 - 기본 매크로 창이 ESC로 닫힐 때와 같다).
+		-- 편집칸에 포커스가 있는 동안은 ESC가 포커스만 푸는 데 쓰이고 여기까지 안 온다.
+		if (DebounceDetailPanel:GetEditingMacroAction()) then
+			DebounceDetailPanel:CloseMacroEdit(false);
+			return;
+		end
+
 		-- 캡처 오버레이가 떠 있으면 그것부터 접는다. 오버레이도 자기 ESC를 처리하지만
 		-- 마우스가 패널 밖에 있으면 키가 여기로 먼저 오므로 양쪽에 둔다.
 		if (DebounceDetailPanel:IsCapturingKey()) then
@@ -1773,8 +1742,7 @@ function DebounceFrameMixin:OnEnterCombat()
 		DebounceIconSelectorFrame:CancelButton_OnClick();
 	end
 
-	-- 상세 패널의 편집 중인 내용은 일부러 안 버린다. 전투가 끝나고 프레임이 다시 뜨면
-	-- 그대로 이어서 편집할 수 있다.
+	-- 매크로 본문은 아래 Hide()가 OnHide를 태우면서 저장된다.
 
 	self:RegisterEvent("PLAYER_REGEN_ENABLED");
 	self:Hide();
@@ -2208,10 +2176,9 @@ function DebounceIconSelectorFrameMixin:Update()
 	self:SetSelectedIconText();
 end
 
+--- 편집 모드로 왔다면 매크로 오버레이가 이 팝업 아래에 그대로 열려 있다. 되돌릴 게 없다 -
+--- 이름·아이콘을 안 건드렸으니 패널도 그대로다.
 function DebounceIconSelectorFrameMixin:CancelButton_OnClick()
-	if (self.mode == IconSelectorPopupFrameModes.Edit) then
-		DebounceMacroFrame:ShowEdit(self.elementData);
-	end
 	IconSelectorPopupFrameTemplateMixin.CancelButton_OnClick(self);
 end
 
@@ -2220,8 +2187,9 @@ function DebounceIconSelectorFrameMixin:OkayButton_OnClick()
 	local text = self.BorderBox.IconSelectorEditBox:GetText();
 	text = string.gsub(text, "\"", "");
 
+	local isNew = self.mode == IconSelectorPopupFrameModes.New;
 	local elementData;
-	if (self.mode == IconSelectorPopupFrameModes.New) then
+	if (isNew) then
 		elementData = DebounceFrame:AddNewAction(Constants.MACROTEXT, "", text, iconTexture);
 	else
 		elementData = self.elementData;
@@ -2230,7 +2198,11 @@ function DebounceIconSelectorFrameMixin:OkayButton_OnClick()
 	end
 
 	DebounceFrame:Update();
-	DebounceMacroFrame:ShowEdit(elementData);
+	-- 새로 만든 것만 편집기를 연다. 편집 모드로 왔다면 오버레이가 아래에 그대로 열려
+	-- 있고, 방금 바꾼 이름·아이콘은 Update가 이미 반영했다.
+	if (isNew and elementData) then
+		DebounceDetailPanel:EditMacroText(elementData.action);
+	end
 	IconSelectorPopupFrameTemplateMixin.OkayButton_OnClick(self);
 end
 
@@ -2255,132 +2227,6 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	end
 	return true;
 end
-
-DebounceMacroFrameMixin = {}
-
-function DebounceMacroFrameMixin:OnLoad()
-	self.BorderBox.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
-
-	self.OkayButton:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
-		self:OkayButton_OnClick();
-	end);
-
-	self.CancelButton:SetScript("OnClick", function()
-		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
-		self:CancelButton_OnClick();
-	end);
-
-	self.initialized = true;
-end
-
-function DebounceMacroFrameMixin:ShowEdit(elementData, cancelFunc)
-	self:Hide();
-
-	if (self.elementData ~= elementData) then
-		self.tempText = nil;
-	end
-	self.elementData = elementData;
-	self.cancelFunc = cancelFunc;
-	self.orginalText = elementData.action.value;
-
-	local action = elementData.action;
-	local name, icon = action.name, action.icon;
-	self.BorderBox.SelectedMacroName:SetText(name);
-	self.BorderBox.SelectedMacroButton.Icon:SetTexture(icon);
-
-	local text = self.tempText or action.value;
-	self.BorderBox.ScrollFrame.EditBox:SetText(text);
-
-	self:Show();
-end
-
-function DebounceMacroFrameMixin:UpdateButtons()
-	self.OkayButton:SetEnabled(self.cancelFunc ~= nil or self:HasUnsavedChanges());
-end
-
-function DebounceMacroFrameMixin:OnShow()
-	if (not self.initialized) then
-		self:OnLoad();
-	end
-
-	self:UpdateButtons();
-	DebounceFrame:Update();
-end
-
-function DebounceMacroFrameMixin:OnHide()
-	DebounceFrame:Update();
-	HideSaveOrDiscardPopup();
-end
-
-function DebounceMacroFrameMixin:OnKeyDown(key)
-	if (key == "ESCAPE") then
-		self:SetPropagateKeyboardInput(false);
-		if (self:HasUnsavedChanges()) then
-			ShowSaveOrDiscardPopup(self.elementData);
-		else
-			self:CancelButton_OnClick();
-			return;
-		end
-	else
-		self:SetPropagateKeyboardInput(true);
-	end
-end
-
-function DebounceMacroFrameMixin:EditButton_OnClick()
-	local text = self.BorderBox.ScrollFrame.EditBox:GetText();
-	self.tempText = text;
-	DebounceIconSelectorFrame.mode = IconSelectorPopupFrameModes.Edit;
-	DebounceIconSelectorFrame.elementData = self.elementData;
-	DebounceIconSelectorFrame:Show();
-	self:Hide();
-end
-
-function DebounceMacroFrameMixin:OkayButton_OnClick()
-	if (self:HasUnsavedChanges()) then
-		local text = self.BorderBox.ScrollFrame.EditBox:GetText();
-		self.elementData.action.value = text;
-		self.orginalText = text;
-		DebouncePrivate.UpdateBindings();
-	end
-	self:Hide();
-	self.elementData = nil;
-	self.tempText = nil;
-	self.cancelFunc = nil;
-end
-
-function DebounceMacroFrameMixin:CancelButton_OnClick()
-	if (self.cancelFunc) then
-		self.cancelFunc();
-	end
-	self:Hide();
-	self.elementData = nil;
-	self.tempText = nil;
-	self.cancelFunc = nil;
-end
-
-function DebounceMacroFrameMixin:OnTextChanged(editBox)
-	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
-	self.BorderBox.CharLimitText:SetFormattedText(LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
-	self:UpdateButtons();
-end
-
-function DebounceMacroFrameMixin:HasUnsavedChanges()
-	local text = self.BorderBox.ScrollFrame.EditBox:GetText();
-	return text ~= self.orginalText;
-end
-
-function DebounceMacroFrameMixin:Close(force)
-	if (self:IsShown()) then
-		if (not force and self:HasUnsavedChanges()) then
-			DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
-			return false;
-		end
-		self:CancelButton_OnClick();
-	end
-	return true;
-end
-
 local function GetKeyWarningText(action, key)
 	if (not key) then
 		return nil;
@@ -2407,6 +2253,7 @@ function DebounceDetailPanelMixin:OnLoad()
 	keyText:SetWordWrap(false);
 
 	self:InitializeCaptureOverlay();
+	self.ContentArea.MacroOverlay.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
 	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
@@ -2440,19 +2287,29 @@ function DebounceDetailPanelMixin:Refresh()
 		return;
 	end
 
-	-- 선택이 없으면 패널 자체가 안 보인다(프레임이 접힌다). 그릴 게 없다.
 	local action = _selectedAction;
-	if (action) then
-		self:RefreshKeybind(action);
+	if (not action) then
+		-- 선택이 없으면 패널이 접힌다. 오버레이는 다음에 펴질 때를 위해 내려둔다.
+		self.ContentArea.CaptureOverlay:Hide();
+		self.ContentArea.MacroOverlay:Hide();
+		return;
 	end
+
+	self:RefreshKeybind(action);
+	self:RefreshMacroOverlay(action);
 end
 
 --- 다른 것으로 넘어가기 전에 부르는 계약. 이 패널은 저장을 미루는 상태가 없다 - 키도
---- 순서도 누르는 즉시 반영된다. 그래서 막을 일이 없고, 진행 중인 캡처만 접는다.
+--- 순서도 누르는 즉시 반영되고, 매크로 본문은 **떠날 때 저장된다**(기본 매크로 창과
+--- 같다). 그래서 아무것도 막지 않고 언제나 true다.
 ---
---- 선택은 건드리지 않는다(keepSelection). 부르는 쪽이 이미 선택을 바꾸는 중이다.
+--- 선택은 건드리지 않는다. 부르는 쪽이 이미 선택을 바꾸는 중이다.
 function DebounceDetailPanelMixin:Close()
 	self:CancelKeyCapture(true);
+	if (self.macroAction) then
+		self:SaveMacroText();
+		self:ClearMacroEdit();
+	end
 	return true;
 end
 
@@ -2820,7 +2677,8 @@ end
 --- captureRequested는 **키가 있는 액션에서 사용자가 일부러 연 경우**만 뜻한다.
 function DebounceDetailPanelMixin:IsCapturingKey()
 	local action = _selectedAction;
-	if (not action) then
+	-- 매크로 편집 중에는 그쪽이 패널을 쓴다. 두 오버레이가 같이 뜨는 일은 없다.
+	if (not action or self.macroAction) then
 		return false;
 	end
 	return action.key == nil or self.captureRequested == true;
@@ -2948,6 +2806,149 @@ function DebounceDetailPanelMixin:KeyCapture_ProcessInput(input)
 		self:Refresh();
 		DebounceFrame:Update();
 	end
+end
+
+--------------------------------------------------------------------------------
+-- 매크로 편집
+--
+-- 저장 규칙은 기본 매크로 창(Blizzard_MacroUI.lua)을 그대로 따른다: **떠날 때 저장.**
+-- 거기서는 다른 매크로를 고르거나, 창이 닫히거나, 이름/아이콘 편집기를 열면 SaveMacro()가
+-- 묻지 않고 불린다. 버리는 길은 [취소] 버튼 하나뿐이다.
+--
+-- 그래서 이 패널에는 저장을 미루는 상태가 없다. HasUnsavedChanges / 저장-버림 팝업 /
+-- Close(force) 계약이 전부 사라졌다 - 그것들이 존재하던 유일한 이유가 매크로 편집기였다.
+--------------------------------------------------------------------------------
+
+function DebounceDetailPanelMixin:GetEditingMacroAction()
+	return self.macroAction;
+end
+
+--- 매크로 편집을 연다.
+---
+--- 패널은 선택된 액션만 그리므로 **편집 대상을 선택으로 옮긴다.** 진입점(CTRL-우클릭,
+--- 우클릭 메뉴, 매크로텍스트 변환)이 선택과 무관한 행을 가리킬 수 있기 때문이다. 선택을
+--- 옮기면 Close가 걸려 앞선 편집이 저장되고 상태가 비워지므로, 그 다음에 채운다.
+---
+--- cancelFunc는 매크로텍스트 변환이 [취소]에서 원래 액션으로 되돌리는 데 쓴다.
+function DebounceDetailPanelMixin:EditMacroText(action, cancelFunc)
+	if (not action or action.type ~= Constants.MACROTEXT) then
+		return false;
+	end
+	if (not DebounceFrame:SetSelectedAction(action)) then
+		return false;
+	end
+
+	self.macroAction = action;
+	self.macroCancelFunc = cancelFunc;
+	self.macroOriginalText = action.value or "";
+
+	-- 본문은 **열 때만** 넣는다. Refresh는 자주 도는데 거기서 넣으면 타이핑이 지워진다.
+	self.ContentArea.MacroOverlay.ScrollFrame.EditBox:SetText(self.macroOriginalText);
+
+	self:Refresh();
+	DebounceFrame:Update();
+	return true;
+end
+
+--- 편집 상태만 비운다. 화면 갱신은 부르는 쪽이 한다.
+function DebounceDetailPanelMixin:ClearMacroEdit()
+	self.macroAction = nil;
+	self.macroCancelFunc = nil;
+	self.macroOriginalText = nil;
+end
+
+--- 실제로 바뀌었을 때만 쓴다. 기본 매크로 창의 textChanged 검사와 같은 뜻이다.
+function DebounceDetailPanelMixin:SaveMacroText()
+	local action = self.macroAction;
+	if (not action) then
+		return;
+	end
+
+	local text = self.ContentArea.MacroOverlay.ScrollFrame.EditBox:GetText();
+	if (text == self.macroOriginalText) then
+		return;
+	end
+
+	action.value = text;
+	action._dirty = true;
+	self.macroOriginalText = text;
+	DebouncePrivate.UpdateBindings();
+end
+
+--- 편집을 닫는다. discard가 아니면 묻지 않고 저장한다.
+function DebounceDetailPanelMixin:CloseMacroEdit(discard)
+	if (not self.macroAction) then
+		return;
+	end
+
+	local cancelFunc = self.macroCancelFunc;
+	if (discard) then
+		-- 변환 취소는 액션 자체를 되돌린다. 본문 저장을 대신한다.
+		if (cancelFunc) then
+			cancelFunc();
+		end
+	else
+		self:SaveMacroText();
+	end
+
+	self:ClearMacroEdit();
+	self:Refresh();
+	DebounceFrame:Refresh(true);
+	DebounceFrame:Update();
+end
+
+function DebounceDetailPanelMixin:MacroOkay_OnClick()
+	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
+	self:CloseMacroEdit(false);
+end
+
+function DebounceDetailPanelMixin:MacroCancel_OnClick()
+	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
+	self:CloseMacroEdit(true);
+end
+
+--- 이름/아이콘 편집기로 간다. 기본 매크로 창도 이 시점에 저장한다(MacroEditButton_OnClick).
+---
+--- 오버레이는 **열어둔 채로** 팝업이 그 위에 뜬다. 그래서 돌아왔을 때 본문이 그대로 있고,
+--- 예전에 본문을 들고 다니던 tempText 곡예가 통째로 필요 없어졌다.
+function DebounceDetailPanelMixin:MacroEditNameIcon_OnClick()
+	local action = self.macroAction;
+	if (not action) then
+		return;
+	end
+	self:SaveMacroText();
+
+	local elementData = DebounceFrame:FindElementDataByActionInfo(action);
+	if (not elementData) then
+		return;
+	end
+
+	DebounceIconSelectorFrame.mode = IconSelectorPopupFrameModes.Edit;
+	DebounceIconSelectorFrame.elementData = elementData;
+	DebounceIconSelectorFrame:Show();
+end
+
+function DebounceDetailPanelMixin:MacroText_OnTextChanged(editBox)
+	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
+	self.ContentArea.MacroOverlay.CharLimitText:SetFormattedText(
+		LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
+end
+
+--- 이름·아이콘만 되비춘다. 본문은 안 건드린다(EditMacroText가 열 때 한 번 넣는다).
+--- 아이콘 선택기를 다녀오면 여기서 새 이름·아이콘이 반영된다.
+function DebounceDetailPanelMixin:RefreshMacroOverlay(action)
+	local overlay = self.ContentArea.MacroOverlay;
+	local editing = self.macroAction ~= nil;
+	overlay:SetShown(editing);
+	if (not editing) then
+		return;
+	end
+
+	-- 캡처 오버레이와 같은 이유로 띄울 때마다 다시 잡는다(ContentArea가 useParentLevel).
+	overlay:SetFrameLevel(self.ContentArea:GetFrameLevel() + 6);
+
+	overlay.SelectedMacroName:SetText(action.name or "");
+	overlay.SelectedMacroButton.Icon:SetTexture(action.icon);
 end
 
 --------------------------------------------------------------------------------

@@ -797,6 +797,137 @@
 									</OnGamePadButtonDown>
 								</Scripts>
 							</Frame>
+
+							<!--
+								매크로 편집 오버레이. 캡처 오버레이와 같은 자리를 쓴다 - 이 패널은 한 번에 한 가지
+								일만 한다.
+
+								저장은 기본 매크로 창을 그대로 따른다: **떠날 때 자동 저장.** 다른 액션을 고르거나
+								창이 닫히면 묻지 않고 저장한다(Blizzard_MacroUI.lua의 SaveMacro 호출 지점들과 같다).
+								버리는 길은 [취소] 하나뿐이다.
+							-->
+							<Frame parentKey="MacroOverlay" enableMouse="true" setAllPoints="true" hidden="true">
+								<Layers>
+									<Layer level="BACKGROUND">
+										<Texture parentKey="Background" setAllPoints="true">
+											<Color r="0" g="0" b="0" a="0.9"/>
+										</Texture>
+									</Layer>
+									<Layer level="ARTWORK">
+										<Texture parentKey="SelectedMacroBackground" file="Interface\Buttons\UI-EmptySlot">
+											<Size x="64" y="64"/>
+											<Anchors>
+												<Anchor point="TOPLEFT" x="5" y="-3"/>
+											</Anchors>
+										</Texture>
+										<FontString parentKey="SelectedMacroName" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
+											<Size x="256" y="16"/>
+											<Anchors>
+												<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" relativePoint="TOPRIGHT" x="-4" y="-12"/>
+											</Anchors>
+										</FontString>
+										<FontString parentKey="EnterMacroText" inherits="GameFontHighlightSmall" text="ENTER_MACRO_LABEL">
+											<Anchors>
+												<Anchor point="TOPLEFT" x="15" y="-68"/>
+											</Anchors>
+										</FontString>
+										<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall">
+											<Size x="0" y="10"/>
+											<Anchors>
+												<Anchor point="BOTTOM" x="-15" y="42"/>
+											</Anchors>
+										</FontString>
+									</Layer>
+								</Layers>
+								<Frames>
+									<Frame parentKey="EditBackdrop" inherits="TooltipBackdropTemplate">
+										<Size x="318" y="388"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" x="11" y="-78"/>
+										</Anchors>
+									</Frame>
+									<CheckButton parentKey="SelectedMacroButton" inherits="DebounceMacroButtonTemplate" id="0">
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="14" y="-14"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												self:SetChecked(false);
+											</OnClick>
+										</Scripts>
+									</CheckButton>
+									<Button parentKey="EditButton" inherits="UIPanelButtonTemplate" text="CHANGE_MACRO_NAME_ICON">
+										<Size x="170" y="22"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="55" y="-30"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												DebounceDetailPanel:MacroEditNameIcon_OnClick();
+											</OnClick>
+										</Scripts>
+									</Button>
+									<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
+										<Size x="286" y="380"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" x="18" y="-83"/>
+										</Anchors>
+										<ScrollChild>
+											<EditBox parentKey="EditBox" multiLine="true" letters="1000" autoFocus="false" countInvisibleLetters="true">
+												<Size x="286" y="380"/>
+												<Scripts>
+													<OnLoad>
+														ScrollingEdit_OnCursorChanged(self, 0, 0, 0, 0);
+													</OnLoad>
+													<OnTextChanged>
+														DebounceDetailPanel:MacroText_OnTextChanged(self);
+													</OnTextChanged>
+													<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
+													<OnUpdate>
+														ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
+													</OnUpdate>
+													<OnEscapePressed function="EditBox_ClearFocus"/>
+												</Scripts>
+												<FontString inherits="GameFontHighlightSmall"/>
+											</EditBox>
+										</ScrollChild>
+									</ScrollFrame>
+									<!-- 편집 영역 아무 데나 눌러도 커서가 잡힌다. 기본 매크로 창의 MacroFrameTextButton과 같다. -->
+									<Button parentKey="FocusCatcher">
+										<Size x="286" y="380"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.ScrollFrame.EditBox"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												self:GetParent().ScrollFrame.EditBox:SetFocus();
+											</OnClick>
+										</Scripts>
+									</Button>
+									<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+										<Size x="90" y="23"/>
+										<Anchors>
+											<Anchor point="BOTTOMRIGHT" x="-14" y="14"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												DebounceDetailPanel:MacroCancel_OnClick();
+											</OnClick>
+										</Scripts>
+									</Button>
+									<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
+										<Size x="90" y="23"/>
+										<Anchors>
+											<Anchor point="RIGHT" relativeKey="$parent.CancelButton" relativePoint="LEFT" x="-2" y="0"/>
+										</Anchors>
+										<Scripts>
+											<OnClick>
+												DebounceDetailPanel:MacroOkay_OnClick();
+											</OnClick>
+										</Scripts>
+									</Button>
+								</Frames>
+							</Frame>
 						</Frames>
 					</Frame>
 				</Frames>
@@ -826,143 +957,6 @@
 			<OnShow method="OnShow"/>
 			<OnHide method="OnHide"/>
 			<OnEvent method="OnEvent"/>
-			<OnKeyDown method="OnKeyDown"/>
-		</Scripts>
-	</Frame>
-
-	<Frame name="DebounceMacroFrame" mixin="DebounceMacroFrameMixin" toplevel="true" movable="true" frameStrata="HIGH" parent="DebounceFrame" hidden="true" enableMouse="true">
-		<Size x="338" y="410"/>
-		<Anchors>
-			<Anchor point="TOPLEFT" relativePoint="TOPRIGHT" x="0" y="0"/>
-		</Anchors>
-		<Layers>
-			<Layer level="BACKGROUND">
-				<Texture parentKey="BG">
-					<Anchors>
-						<Anchor point="TOPLEFT" x="7" y="-7"/>
-						<Anchor point="BOTTOMRIGHT" x="-7" y="7"/>
-					</Anchors>
-					<Color r="0" g="0" b="0" a=".80"/>
-				</Texture>
-			</Layer>
-		</Layers>
-		<Frames>
-			<Frame parentKey="BorderBox" inherits="NineSlicePanelTemplate" frameLevel="50" setAllPoints="true">
-				<KeyValues>
-					<KeyValue key="layoutType" value="Dialog" type="string"/>
-				</KeyValues>
-				<Layers>
-					<Layer level="ARTWORK">
-						<Texture parentKey="SelectedMacroBackground" file="Interface\Buttons\UI-EmptySlot">
-							<Size x="64" y="64"/>
-							<Anchors>
-								<Anchor point="TOPLEFT" x="5" y="-3"/>
-							</Anchors>
-						</Texture>
-						<FontString parentKey="SelectedMacroName" inherits="GameFontNormal" justifyH="LEFT">
-							<Size x="256" y="16"/>
-							<Anchors>
-								<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" relativePoint="TOPRIGHT" x="-4" y="-12"/>
-							</Anchors>
-						</FontString>
-						<FontString name="DebounceMacroFrameEnterMacroText" inherits="GameFontHighlightSmall" text="ENTER_MACRO_LABEL">
-							<Anchors>
-								<Anchor point="TOPLEFT" x="15" y="-68"/>
-							</Anchors>
-						</FontString>
-						<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall">
-							<Size x="0" y="10"/>
-							<Anchors>
-								<Anchor point="BOTTOM" x="-15" y="42"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-				<Frames>
-					<CheckButton parentKey="SelectedMacroButton" frameStrata="HIGH" inherits="DebounceMacroButtonTemplate" id="0">
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="14" y="-14"/>
-						</Anchors>
-						<Scripts>
-							<OnClick>
-								self:SetChecked(false);
-							</OnClick>
-						</Scripts>
-					</CheckButton>
-					<Button name="DebounceMacroEditButton" frameStrata="HIGH" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="CHANGE_MACRO_NAME_ICON">
-						<Size x="170" y="22"/>
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="55" y="-30"/>
-						</Anchors>
-						<Scripts>
-							<OnClick>
-								DebounceMacroFrame:EditButton_OnClick();
-							</OnClick>
-						</Scripts>
-					</Button>
-					<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
-						<Size x="286" y="272"/>
-						<Anchors>
-							<Anchor point="TOPLEFT" x="18" y="-83"/>
-						</Anchors>
-						<ScrollChild>
-							<EditBox parentKey="EditBox" multiLine="true" letters="1000" autoFocus="false" countInvisibleLetters="true">
-								<Size x="286" y="272"/>
-								<Scripts>
-									<OnLoad>
-										ScrollingEdit_OnCursorChanged(self, 0, 0, 0, 0);
-									</OnLoad>
-									<OnTextChanged>
-										DebounceMacroFrame:OnTextChanged(self);
-										--ScrollingEdit_OnTextChanged(self, self:GetParent());
-										--self:GetParent():GetParent().CharLimitText:SetFormattedText(MACROFRAME_CHAR_LIMIT, self:GetNumLetters());
-									</OnTextChanged>
-									<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
-									<OnUpdate>
-										ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
-									</OnUpdate>
-									<OnEscapePressed function="EditBox_ClearFocus"/>
-								</Scripts>
-								<FontString inherits="GameFontHighlightSmall"/>
-							</EditBox>
-						</ScrollChild>
-					</ScrollFrame>
-					<Button>
-						<Size x="286" y="272"/>
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.ScrollFrame.EditBox"/>
-						</Anchors>
-						<Scripts>
-							<OnClick>
-								self:GetParent().ScrollFrame.EditBox:SetFocus();
-							</OnClick>
-						</Scripts>
-					</Button>
-					<Frame inherits="TooltipBackdropTemplate">
-						<Size x="318" y="280"/>
-						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.ScrollFrame" x="-7" y="5"/>
-						</Anchors>
-					</Frame>
-				</Frames>
-			</Frame>
-			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
-				<Size x="90" y="23"/>
-				<Anchors>
-					<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-14" y="14"/>
-				</Anchors>
-			</Button>
-			<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
-				<Size x="90" y="23"/>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.CancelButton" relativePoint="LEFT" x="-2" y="0"/>
-				</Anchors>
-			</Button>
-
-		</Frames>
-		<Scripts>
-			<OnShow method="OnShow"/>
-			<OnHide method="OnHide"/>
 			<OnKeyDown method="OnKeyDown"/>
 		</Scripts>
 	</Frame>
