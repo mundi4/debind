@@ -2392,6 +2392,8 @@ function DebounceDetailPanelMixin:OnLoad()
 	keyArea.KeyButton:SetHighlightFontObject(GameFontHighlightLarge);
 	SquareButton_SetIcon(keyArea.UnbindButton, "DELETE");
 
+	self.ContentArea.EmptyText:SetText(LLL["DETAIL_NO_KEY_EMPTY"]);
+
 	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
@@ -2741,6 +2743,8 @@ function DebounceDetailPanelMixin:RefreshKeybind(action)
 
 	keyArea.CaptureGlow:SetShown(capturing);
 	keyArea.UnbindButton:SetShown(not capturing and key ~= nil);
+	-- 키가 없으면 아래가 통째로 빈다. 왜 비었는지 말해준다.
+	self.ContentArea.EmptyText:SetShown(key == nil);
 
 	-- 경고가 붙을 때만 늘어난다. 그건 크롬이 아니라 내용이라 밀려도 된다.
 	local height = 30;

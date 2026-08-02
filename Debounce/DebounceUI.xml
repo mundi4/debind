@@ -593,6 +593,21 @@
 						강조된 것으로 말한다.
 					-->
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate" setAllPoints="true">
+						<Layers>
+							<Layer level="ARTWORK">
+								<!--
+									키가 없으면 순서 목록이 없다. 그 자리를 그냥 비워두면 덜 만든
+									화면처럼 보인다. 왼쪽 목록이 비었을 때와 같은 처리다.
+									(KeyArea는 Frames라 여기서 relativeKey로 못 건다 - 고정 오프셋)
+								-->
+								<FontString parentKey="EmptyText" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true" hidden="true">
+									<Size x="250" y="0"/>
+									<Anchors>
+										<Anchor point="TOP" x="0" y="-80"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
 						<Frames>
 							<!--
 								단축키 줄. **바인딩 자체가 버튼이다** - 와우 기본 단축키 설정과 같은
