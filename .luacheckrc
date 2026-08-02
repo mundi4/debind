@@ -134,6 +134,8 @@ globals = {
 
 	-- FrameXML: panels, tooltips, menus
 	"GameFontHighlightSmall",
+	"GameFontHighlightLarge",
+	"GameFontNormalLarge",
 	"GameTooltip",
 	"GameTooltip_SetTitle",
 	"GameTooltip_AddErrorLine",

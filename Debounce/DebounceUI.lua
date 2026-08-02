@@ -2386,10 +2386,11 @@ end
 DebounceDetailPanelMixin = {};
 
 function DebounceDetailPanelMixin:OnLoad()
+	-- 키가 이 패널의 머리글이다. 기본 버튼 글꼴보다 크게.
 	local keyArea = self.ContentArea.KeyArea;
-	keyArea.AssignButton:SetText(LLL["DETAIL_ASSIGN_KEY"]);
-	keyArea.ChangeButton:SetText(LLL["DETAIL_CHANGE_KEY"]);
-	keyArea.UnbindButton:SetText(LLL["DETAIL_UNBIND_KEY"]);
+	keyArea.KeyButton:SetNormalFontObject(GameFontNormalLarge);
+	keyArea.KeyButton:SetHighlightFontObject(GameFontHighlightLarge);
+	SquareButton_SetIcon(keyArea.UnbindButton, "DELETE");
 
 	self:InitializeOrderScrollBox();
 
@@ -2727,25 +2728,24 @@ function DebounceDetailPanelMixin:RefreshKeybind(action)
 	local capturing = self.capturing;
 	local key = action.key;
 
-	keyArea.KeyText:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
+	-- 버튼 하나가 세 화면을 다 쓴다. 안내를 별도 줄로 두면 캡처에 들어갈 때마다 이 영역이
+	-- 커지면서 아래 순서 목록이 밀린다.
+	if (capturing) then
+		keyArea.KeyButton:SetText(LLL["DETAIL_KEY_CAPTURE_PROMPT"]);
+	else
+		keyArea.KeyButton:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
+	end
 
-	local hint = capturing and LLL["DETAIL_KEY_CAPTURE_HINT"] or nil;
 	local warning = GetKeyWarningText(action, key);
-	keyArea.CaptureHint:SetText(hint or "");
 	keyArea.WarningText:SetText(warning or "");
 
 	keyArea.CaptureGlow:SetShown(capturing);
-	keyArea.AssignButton:SetShown(not capturing and key == nil);
-	keyArea.ChangeButton:SetShown(not capturing and key ~= nil);
 	keyArea.UnbindButton:SetShown(not capturing and key ~= nil);
-	self.ContentArea.CaptureOverlay:SetShown(capturing);
 
+	-- 경고가 붙을 때만 늘어난다. 그건 크롬이 아니라 내용이라 밀려도 된다.
 	local height = 30;
-	if (hint) then
-		height = height + keyArea.CaptureHint:GetStringHeight() + 4;
-	end
 	if (warning) then
-		height = height + keyArea.WarningText:GetStringHeight() + 4;
+		height = height + keyArea.WarningText:GetStringHeight() + 6;
 	end
 	keyArea:SetHeight(height);
 
@@ -2754,6 +2754,36 @@ end
 
 function DebounceDetailPanelMixin:IsCapturingKey()
 	return self.capturing and true or false;
+end
+
+--- 키 버튼은 표시이자 캡처 표면이다. 캡처 중이 아니면 클릭이 캡처를 열고, 캡처 중이면
+--- 클릭도 바인딩할 키로 친다(마우스 버튼 바인딩). 마우스 업에서 처리하므로 캡처를 여는
+--- 그 클릭이 곧바로 바인딩되지는 않는다.
+function DebounceDetailPanelMixin:KeyButton_OnClick(button)
+	if (self.capturing) then
+		self:KeyCapture_ProcessInput(button);
+	else
+		self:StartKeyCapture();
+	end
+end
+
+function DebounceDetailPanelMixin:KeyButton_OnEnter(button)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	if (self.capturing) then
+		GameTooltip_SetTitle(GameTooltip, LLL["DETAIL_KEY_CAPTURE_PROMPT"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_CAPTURE_HINT"]);
+	else
+		GameTooltip_SetTitle(GameTooltip, LLL["KEY"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_DESC"]);
+	end
+	GameTooltip:Show();
+end
+
+function DebounceDetailPanelMixin:UnbindButton_OnEnter(button)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, LLL["DETAIL_UNBIND_KEY"]);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_UNBIND_KEY_DESC"]);
+	GameTooltip:Show();
 end
 
 function DebounceDetailPanelMixin:StartKeyCapture()
@@ -2799,23 +2829,23 @@ end
 ---
 --- 전투 중 SetPropagateKeyboardInput은 taint지만, 전투에 들어가면 DebounceFrame이 숨고
 --- (OnEnterCombat) 캡처도 같이 취소되므로 여기까지 오지 않는다.
-function DebounceDetailPanelMixin:KeyCapture_OnKeyDown(overlay, key)
+function DebounceDetailPanelMixin:KeyCapture_OnKeyDown(keyButton, key)
 	if (key == "ESCAPE") then
-		overlay:SetPropagateKeyboardInput(false);
+		keyButton:SetPropagateKeyboardInput(false);
 		self:CancelKeyCapture();
 		return;
 	end
 
 	if (self.capturing and DoesAncestryIncludeMouseFocus(self)) then
-		overlay:SetPropagateKeyboardInput(false);
+		keyButton:SetPropagateKeyboardInput(false);
 		self:KeyCapture_ProcessInput(key);
 	else
-		overlay:SetPropagateKeyboardInput(true);
+		keyButton:SetPropagateKeyboardInput(true);
 	end
 end
 
---- 누르는 즉시 반영한다. [변경]을 눌러 캡처에 들어온 것 자체가 이미 의도적이고,
---- 되돌리려면 [변경]을 다시 누르면 된다. 그래서 확인 단계가 없다 - 아래 순서 리스트가
+--- 누르는 즉시 반영한다. 키 버튼을 눌러 캡처에 들어온 것 자체가 이미 의도적이고,
+--- 되돌리려면 다시 누르면 된다. 그래서 확인 단계가 없다 - 아래 순서 리스트가
 --- 가정이 아니라 실제 결과를 보여준다.
 function DebounceDetailPanelMixin:KeyCapture_ProcessInput(input)
 	if (not self.capturing) then
