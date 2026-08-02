@@ -372,9 +372,9 @@
 				</Anchors>
 			</Button>
 			<!--
-				醫뚯륫 紐⑸줉 ?몄뀑. ??씠 怨좎젙?닿퀬 ?쇱そ??遺숇뒗??- ?곸꽭 ?⑤꼸???대젮 ?꾨젅?꾩씠 ?볦뼱?몃룄
-				?댁そ? 洹몃?濡쒖뿬???쒕떎. 留덉슫??李쎌쓽 LeftInset怨?媛숈? 諛⑹떇?대떎
-				(Size濡??? TOPLEFT/BOTTOMLEFT ?듭빱濡??믪씠).
+				좌측 목록 인셋. 폭이 고정이고 왼쪽에 붙는다 - 상세 패널이 열려 프레임이 넓어져도
+				이쪽은 그대로여야 한다. 마운트 창의 LeftInset과 같은 방식이다
+				(Size로 폭, TOPLEFT/BOTTOMLEFT 앵커로 높이).
 			-->
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
 				<Size x="405" y="0"/>
@@ -482,10 +482,10 @@
 			</Frame>
 
 			<!--
-				?곸꽭 ?⑤꼸. 蹂꾨룄 李쎌씠 ?꾨땲???ㅻⅨ履??몄뀑?대떎. ?≪뀡??怨좊Ⅴ硫??꾨젅????씠 ?섎㈃??
-				?섑??섍퀬, ?좏깮???由щ㈃ ??씠 以꾨㈃???щ씪吏꾨떎.
-				(留?李쎌쓽 QuestLogOwnerMixin:SetQuestLogPanelShown怨?媛숈? 諛⑹떇 - minimizedWidth +
-				detailWidth. 罹먮┃?곗갹??InsetRight Show/Hide??媛숈? 援ъ“??)
+				상세 패널. 별도 창이 아니라 오른쪽 인셋이다. 액션을 고르면 프레임이 그만큼 넓어지고,
+				선택을 풀면 다시 줄어든다.
+				(맵 창의 QuestLogOwnerMixin:SetQuestLogPanelShown과 같은 방식 - minimizedWidth +
+				detailWidth. 캐릭터창의 InsetRight Show/Hide와 같은 구조다.)
 			-->
 			<Frame parentKey="DetailPanel" name="DebounceDetailPanel" useParentLevel="true" inherits="InsetFrameTemplate" mixin="DebounceDetailPanelMixin" enableMouse="true" hidden="true">
 				<Anchors>
@@ -540,101 +540,302 @@
 						</Frames>
 					</Frame>
 
-					<!-- macrotext ?≪뀡: 留ㅽ겕濡??몄쭛湲?-->
-					<Frame parentKey="MacroEditor" hidden="true">
+					<!--
+						콘텐츠 영역. 탭 바가 이 프레임의 윗변에 걸린다(TabSystemTopButtonTemplate).
+						탭은 액션 타입과 무관하게 항상 둘 다 자리를 지킨다 - 자리가 흔들리면
+						사용자가 위치를 다시 배워야 한다.
+					-->
+					<Frame parentKey="ContentArea">
 						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
-							<Anchor point="BOTTOMRIGHT" x="-10" y="40"/>
+							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="-36"/>
+							<Anchor point="BOTTOMRIGHT" x="-10" y="36"/>
 						</Anchors>
 						<Layers>
 							<Layer level="ARTWORK">
-								<FontString parentKey="Label" inherits="GameFontNormalSmall" text="ENTER_MACRO_LABEL">
+								<Texture parentKey="TopDivider">
+									<Size y="1"/>
 									<Anchors>
 										<Anchor point="TOPLEFT"/>
+										<Anchor point="TOPRIGHT"/>
 									</Anchors>
-								</FontString>
-								<FontString parentKey="CharLimitText" inherits="GameFontDisableSmall" justifyH="RIGHT">
-									<Anchors>
-										<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
-									</Anchors>
-								</FontString>
+									<Color r="0.6" g="0.6" b="0.6" a="0.6"/>
+								</Texture>
 							</Layer>
 						</Layers>
 						<Frames>
-							<Frame parentKey="TextInset" useParentLevel="true" inherits="InsetFrameTemplate3">
-								<Anchors>
-									<Anchor point="TOPLEFT" x="0" y="-18"/>
-									<Anchor point="BOTTOMRIGHT" x="0" y="16"/>
-								</Anchors>
+							<Frame parentKey="ContentTab" setAllPoints="true" hidden="true">
+								<Frames>
+
+									<!-- macrotext 액션: 매크로 편집기 -->
+									<Frame parentKey="MacroEditor" hidden="true">
+										<Anchors>
+											<Anchor point="TOPLEFT" x="0" y="-8"/>
+											<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<FontString parentKey="Label" inherits="GameFontNormalSmall" text="ENTER_MACRO_LABEL">
+													<Anchors>
+														<Anchor point="TOPLEFT"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="CharLimitText" inherits="GameFontDisableSmall" justifyH="RIGHT">
+													<Anchors>
+														<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+										<Frames>
+											<Frame parentKey="TextInset" useParentLevel="true" inherits="InsetFrameTemplate3">
+												<Anchors>
+													<Anchor point="TOPLEFT" x="0" y="-18"/>
+													<Anchor point="BOTTOMRIGHT" x="0" y="16"/>
+												</Anchors>
+											</Frame>
+											<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.TextInset" x="6" y="-6"/>
+													<Anchor point="BOTTOMRIGHT" relativeKey="$parent.TextInset" x="-20" y="6"/>
+												</Anchors>
+												<ScrollChild>
+													<EditBox parentKey="EditBox" multiLine="true" letters="1000" autoFocus="false" countInvisibleLetters="true">
+														<Size x="286" y="272"/>
+														<Scripts>
+															<OnLoad>
+																ScrollingEdit_OnCursorChanged(self, 0, 0, 0, 0);
+															</OnLoad>
+															<OnTextChanged>
+																DebounceDetailPanel:OnTextChanged(self);
+															</OnTextChanged>
+															<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
+															<OnUpdate>
+																ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
+															</OnUpdate>
+															<OnEscapePressed function="EditBox_ClearFocus"/>
+														</Scripts>
+														<FontString inherits="GameFontHighlightSmall"/>
+													</EditBox>
+												</ScrollChild>
+											</ScrollFrame>
+											<Button parentKey="FocusCatcher">
+												<Anchors>
+													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollFrame"/>
+													<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollFrame"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														self:GetParent().ScrollFrame.EditBox:SetFocus();
+													</OnClick>
+												</Scripts>
+											</Button>
+										</Frames>
+									</Frame>
+
+									<!-- macrotext가 아닌 액션: 무슨 타입인지 + 변환 버튼 -->
+									<Frame parentKey="TypeInfo" hidden="true">
+										<Anchors>
+											<Anchor point="TOPLEFT" x="0" y="-8"/>
+											<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="CENTER" wordwrap="true">
+													<Size x="280" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" x="0" y="-10"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+										<Frames>
+											<Button parentKey="ConvertButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="240" y="22"/>
+												<Anchors>
+													<Anchor point="TOP" relativeKey="$parent.Text" relativePoint="BOTTOM" x="0" y="-14"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:ConvertButton_OnClick();
+													</OnClick>
+												</Scripts>
+											</Button>
+										</Frames>
+									</Frame>
+
+								</Frames>
 							</Frame>
-							<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
-								<Anchors>
-									<Anchor point="TOPLEFT" relativeKey="$parent.TextInset" x="6" y="-6"/>
-									<Anchor point="BOTTOMRIGHT" relativeKey="$parent.TextInset" x="-20" y="6"/>
-								</Anchors>
-								<ScrollChild>
-									<EditBox parentKey="EditBox" multiLine="true" letters="1000" autoFocus="false" countInvisibleLetters="true">
-										<Size x="286" y="272"/>
+
+							<!--
+								단축키 탭. 예전 DebounceKeybindFrame 팝업이 여기로 들어왔다.
+								화면은 세 가지다: 미지정 / 지정됨 / 캡처 중.
+								앞의 둘은 KeyArea가, 캡처 중은 그 위를 덮는 CaptureOverlay가 그린다.
+							-->
+							<Frame parentKey="KeybindTab" setAllPoints="true" hidden="true">
+								<Frames>
+									<Frame parentKey="KeyArea">
+										<Size y="140"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" x="0" y="-8"/>
+											<Anchor point="TOPRIGHT" x="0" y="-8"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<FontString parentKey="KeyText" inherits="GameFontHighlightLarge" justifyH="CENTER" maxLines="1">
+													<Size x="300" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" x="0" y="-10"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="CENTER" wordwrap="true">
+													<Size x="300" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" relativeKey="$parent.KeyText" relativePoint="BOTTOM" x="0" y="-8"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+										<Frames>
+											<Button parentKey="AssignButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="130" y="22"/>
+												<Anchors>
+													<Anchor point="BOTTOM" x="0" y="8"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:StartKeyCapture();
+													</OnClick>
+												</Scripts>
+											</Button>
+											<Button parentKey="ChangeButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+												<Size x="130" y="22"/>
+												<Anchors>
+													<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOM" x="-4" y="8"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:StartKeyCapture();
+													</OnClick>
+												</Scripts>
+											</Button>
+											<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="UNBIND">
+												<Size x="130" y="22"/>
+												<Anchors>
+													<Anchor point="BOTTOMLEFT" relativePoint="BOTTOM" x="4" y="8"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:UnbindButton_OnClick();
+													</OnClick>
+												</Scripts>
+											</Button>
+										</Frames>
+									</Frame>
+
+									<!--
+										캡처 중 화면. 키를 먹으려면 enableKeyboard가 필요하고, DebounceFrame보다
+										먼저 키를 받아야 해서 strata를 올린다(예전 팝업이 DIALOG였던 것과 같은 이유).
+										아래쪽 순서 리스트는 덮지 않는다 - 새 키의 순서를 보면서 확정하기 위해서다.
+									-->
+									<Button parentKey="CaptureOverlay" frameStrata="HIGH" enableMouse="true" enableKeyboard="true" hidden="true">
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea"/>
+											<Anchor point="BOTTOMRIGHT" relativeKey="$parent.KeyArea"/>
+										</Anchors>
+										<Layers>
+											<Layer level="BACKGROUND">
+												<Texture parentKey="Background" setAllPoints="true">
+													<Color r="0" g="0" b="0" a="0.75"/>
+												</Texture>
+											</Layer>
+											<Layer level="ARTWORK">
+												<FontString parentKey="InstructionText" inherits="GameFontWhiteSmall" justifyH="CENTER" wordwrap="true">
+													<Size x="290" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" x="0" y="-8"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="PreviousKeyText" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
+													<Size x="290" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" relativeKey="$parent.InstructionText" relativePoint="BOTTOM" x="0" y="-6"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="NewKeyText" inherits="GameFontHighlightLarge" justifyH="CENTER" maxLines="1">
+													<Size x="290" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" relativeKey="$parent.PreviousKeyText" relativePoint="BOTTOM" x="0" y="-4"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="CENTER" wordwrap="true">
+													<Size x="290" y="0"/>
+													<Anchors>
+														<Anchor point="TOP" relativeKey="$parent.NewKeyText" relativePoint="BOTTOM" x="0" y="-4"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+										<Frames>
+											<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true" text="OKAY">
+												<Size x="100" y="22"/>
+												<Anchors>
+													<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOM" x="-4" y="8"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:CommitKeyCapture();
+													</OnClick>
+												</Scripts>
+											</Button>
+											<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+												<Size x="100" y="22"/>
+												<Anchors>
+													<Anchor point="BOTTOMLEFT" relativePoint="BOTTOM" x="4" y="8"/>
+												</Anchors>
+												<Scripts>
+													<OnClick>
+														DebounceDetailPanel:CancelKeyCapture();
+													</OnClick>
+												</Scripts>
+											</Button>
+										</Frames>
 										<Scripts>
 											<OnLoad>
-												ScrollingEdit_OnCursorChanged(self, 0, 0, 0, 0);
+												self:RegisterForClicks("AnyUp");
 											</OnLoad>
-											<OnTextChanged>
-												DebounceDetailPanel:OnTextChanged(self);
-											</OnTextChanged>
-											<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
-											<OnUpdate>
-												ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
-											</OnUpdate>
-											<OnEscapePressed function="EditBox_ClearFocus"/>
+											<OnKeyDown>
+												DebounceDetailPanel:KeyCapture_OnKeyDown(self, key);
+											</OnKeyDown>
+											<OnClick>
+												DebounceDetailPanel:KeyCapture_ProcessInput(button);
+											</OnClick>
+											<OnMouseWheel>
+												DebounceDetailPanel:KeyCapture_OnKeyDown(self, delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
+											</OnMouseWheel>
+											<OnGamePadButtonDown>
+												DebounceDetailPanel:KeyCapture_ProcessInput(button);
+											</OnGamePadButtonDown>
 										</Scripts>
-										<FontString inherits="GameFontHighlightSmall"/>
-									</EditBox>
-								</ScrollChild>
-							</ScrollFrame>
-							<Button parentKey="FocusCatcher">
-								<Anchors>
-									<Anchor point="TOPLEFT" relativeKey="$parent.ScrollFrame"/>
-									<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollFrame"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										self:GetParent().ScrollFrame.EditBox:SetFocus();
-									</OnClick>
-								</Scripts>
-							</Button>
+									</Button>
+								</Frames>
+							</Frame>
 						</Frames>
 					</Frame>
 
-					<!-- macrotext媛 ?꾨땶 ?≪뀡: 臾댁뒯 ??낆씤吏 + 蹂??踰꾪듉 -->
-					<Frame parentKey="TypeInfo" hidden="true">
+					<!--
+						탭 바. ContentArea의 윗변에 걸쳐 놓는다(TabSystemTopButtonTemplate이라
+						BOTTOMLEFT를 상대의 TOPLEFT에 붙인다). 앵커가 풀리려면 ContentArea보다
+						뒤에 선언되어야 한다.
+					-->
+					<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
+						<KeyValues>
+							<KeyValue key="minTabWidth" value="100" type="number"/>
+							<KeyValue key="maxTabWidth" value="150" type="number"/>
+							<KeyValue key="tabTemplate" value="TabSystemTopButtonTemplate" type="string"/>
+						</KeyValues>
 						<Anchors>
-							<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
-							<Anchor point="BOTTOMRIGHT" x="-10" y="40"/>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT" x="6" y="-1"/>
 						</Anchors>
-						<Layers>
-							<Layer level="ARTWORK">
-								<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="CENTER" wordwrap="true">
-									<Size x="280" y="0"/>
-									<Anchors>
-										<Anchor point="TOP" x="0" y="-10"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
-						<Frames>
-							<Button parentKey="ConvertButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
-								<Size x="240" y="22"/>
-								<Anchors>
-									<Anchor point="TOP" relativeKey="$parent.Text" relativePoint="BOTTOM" x="0" y="-14"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										DebounceDetailPanel:ConvertButton_OnClick();
-									</OnClick>
-								</Scripts>
-							</Button>
-						</Frames>
 					</Frame>
 
 					<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
@@ -679,95 +880,6 @@
 			<OnKeyDown method="OnKeyDown"/>
 		</Scripts>
 	</Frame>
-
-	<Button name="DebounceKeybindFrame" parent="DebounceFrame" mixin="DebounceKeybindFrameMixin" toplevel="true" frameStrata="DIALOG" enableMouse="true" enableKeyboard="true" hidden="true">
-		<Size x="400" y="250"/>
-		<Anchors>
-			<Anchor point="CENTER" relativeTo="UIParent" relativePoint="CENTER"/>
-		</Anchors>
-		<Layers>
-			<Layer level="BORDER">
-				<FontString parentKey="ActionNameText" inherits="GameFontHighlightLarge">
-					<Size x="350" y="0"/>
-					<Anchors>
-						<Anchor point="TOP" relativePoint="TOP" x="0" y="-35"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="InstructionText" inherits="GameFontWhite" wordwrap="true">
-					<Size x="350" y="50"/>
-					<Anchors>
-						<Anchor point="TOP" x="0" y="-50" />
-					</Anchors>
-				</FontString>
-				<FontString parentKey="PreviousKeyText" inherits="GameFontWhite">
-					<Anchors>
-						<Anchor point="CENTER" relativeKey="$parent.InstructionText" relativePoint="CENTER" x="0" y="-40"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="NewKeyText" inherits="GameFontWhite">
-					<Anchors>
-						<Anchor point="CENTER" relativeKey="$parent.PreviousKeyText" relativePoint="CENTER" x="0" y="-25"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="WarningText" inherits="GameFontRed" wordwrap="true">
-					<Size x="350" y="50"/>
-					<Anchors>
-						<Anchor point="CENTER" relativeKey="$parent.NewKeyText" relativePoint="CENTER" x="0" y="-40"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
-		<Frames>
-			<Frame parentKey="BG" inherits="DialogBorderTemplate"/>
-			<Frame parentKey="Header" inherits="DialogHeaderTemplate">
-				<KeyValues>
-					<KeyValue key="textString" value="KEY_BINDING" type="global"/>
-				</KeyValues>
-			</Frame>
-			<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate" text="UNBIND">
-				<Size x="128" y="22"/>
-				<Anchors>
-					<Anchor point="CENTER" x="0" y="-95"/>
-				</Anchors>
-				<Scripts>
-					<OnClick>
-						self:GetParent():UnbindButton_OnClick(self);
-					</OnClick>
-				</Scripts>
-			</Button>
-			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
-				<Size x="96" y="22"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.UnbindButton" relativePoint="BOTTOMRIGHT" x="25" y="0"/>
-				</Anchors>
-				<Scripts>
-					<OnClick>
-						self:GetParent():CancelButton_OnClick();
-					</OnClick>
-				</Scripts>
-			</Button>
-			<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
-				<Size x="96" y="22"/>
-				<Anchors>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.UnbindButton" relativePoint="BOTTOMLEFT" x="-25" y="0"/>
-				</Anchors>
-				<Scripts>
-					<OnClick>
-						self:GetParent():OkayButton_OnClick(self);
-					</OnClick>
-				</Scripts>
-			</Button>
-		</Frames>
-		<Scripts>
-			<OnLoad method="OnLoad"/>
-			<OnShow method="OnShow"/>
-			<OnHide method="OnHide"/>
-			<OnKeyDown method="OnKeyDown"/>
-			<OnClick method="OnClick"/>
-			<OnMouseWheel method="OnMouseWheel"/>
-			<OnGamePadButtonDown method="OnGamePadButtonDown"/>
-		</Scripts>
-	</Button>
 
 	<Frame name="DebounceIconSelectorFrame" mixin="DebounceIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="HIGH" parent="DebounceFrame" movable="true" enableMouse="true" hidden="true">
 		<Scripts>

@@ -345,7 +345,7 @@ local function DoesAncestryIncludeMouseFocus(ancestry)
 end
 
 local function TryCloseAnyDialog()
-	if (DebounceIconSelectorFrame:Close() and DebounceDetailPanel:Close() and DebounceKeybindFrame:Close()) then
+	if (DebounceIconSelectorFrame:Close() and DebounceDetailPanel:Close()) then
 		return true;
 	end
 	return false;
@@ -368,13 +368,6 @@ local function IsEditDropdownShown(elementData)
 		if (elementData == nil or DebounceFrame.contextMenuData == elementData) then
 			return true;
 		end
-	end
-	return false;
-end
-
-local function IsKeybindFrameShown(elementData)
-	if (DebounceKeybindFrame and DebounceKeybindFrame:IsShown() and (elementData == nil or DebounceKeybindFrame.elementData == elementData)) then
-		return true;
 	end
 	return false;
 end
@@ -536,10 +529,6 @@ local function DeleteElementData(elementData)
 
 	if (_selectedAction == elementData.action) then
 		DebounceFrame:SetSelectedAction(nil, true);
-	end
-
-	if (IsKeybindFrameShown(elementData)) then
-		DebounceKeybindFrame:Hide();
 	end
 
 	DebounceFrame.dataProvider:Remove(elementData);
@@ -1170,7 +1159,6 @@ function DebounceLineMixin:Update()
 	self.SelectedHighlight:SetShown(_selectedAction == action
 		or IsEditingAction(action)
 		or IsEditDropdownShown(elementData)
-		or IsKeybindFrameShown(elementData)
 		or (_draggingElement ~= nil and _draggingElement.action == action)
 		or (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action));
 
@@ -1214,9 +1202,6 @@ function DebounceLineMixin:OnClick(buttonName)
 			if (IsEditingAction(elementData.action)) then
 				return;
 			end
-			if (IsKeybindFrameShown(elementData)) then
-				return;
-			end
 			if (IsEditDropdownShown(elementData)) then
 				securecall("CloseMenus");
 			end
@@ -1229,7 +1214,9 @@ function DebounceLineMixin:OnClick(buttonName)
 			-- CTRL-우클릭은 매크로 편집기로 가는 지름길이었다. 이제 선택만 하면
 			-- 상세 패널의 내용 탭이 그 편집기다.
 			if (IsControlKeyDown() and elementData.action.type == Constants.MACROTEXT) then
-				DebounceFrame:SetSelectedAction(elementData.action);
+				if (DebounceFrame:SetSelectedAction(elementData.action)) then
+					DebounceDetailPanel:SelectTab(DebounceDetailPanel.TAB_CONTENT);
+				end
 				return;
 			end
 
@@ -1242,22 +1229,9 @@ function DebounceLineMixin:OnClick(buttonName)
 		return;
 	end
 
-	-- 좌클릭 = 선택. 상세 패널이 이 액션을 보여준다.
-	-- 저장 안 된 변경이 있으면 선택이 거부되므로 키 지정 팝업도 열지 않는다.
-	if (not DebounceFrame:SetSelectedAction(elementData.action)) then
-		return;
-	end
-
-	if (IsKeybindFrameShown(elementData)) then
-		return;
-	end
-
-	if (DebounceKeybindFrame:HasUnsavedChanges()) then
-		DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
-		return;
-	end
-
-	DebounceKeybindFrame:Open(elementData);
+	-- 좌클릭 = 선택. 상세 패널이 이 액션을 단축키 탭으로 열어 보여준다.
+	-- (예전에는 여기서 키 지정 팝업을 띄웠다. 이제 탭이 그 자리를 대신한다.)
+	DebounceFrame:SetSelectedAction(elementData.action);
 end
 
 function DebounceLineMixin:OnDragStart()
@@ -1287,7 +1261,6 @@ function DebounceTabMixin:OnClick()
 
 	local id = self:GetID();
 	if (_selectedTab ~= id) then
-		DebounceKeybindFrame:Hide();
 		DebounceIconSelectorFrame:Hide();
 
 		PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN);
@@ -1778,9 +1751,8 @@ function DebounceFrameMixin:OnKeyDown(input)
 end
 
 function DebounceFrameMixin:OnEnterCombat()
-	if (DebounceKeybindFrame:IsShown()) then
-		DebounceKeybindFrame:CancelButton_OnClick();
-	end
+	-- 캡처 중이면 접는다. 전투 중에는 SetPropagateKeyboardInput이 taint라 키를 받을 수 없다.
+	DebounceDetailPanel:CancelKeyCapture();
 
 	if (DebounceIconSelectorFrame:IsShown()) then
 		DebounceIconSelectorFrame:CancelButton_OnClick();
@@ -1965,7 +1937,7 @@ function DebounceFrameMixin:Update()
 end
 
 function DebounceFrameMixin:UpdateButtons()
-	local enableButtons = not (IsEditingAction() or IsKeybindFrameShown());
+	local enableButtons = not IsEditingAction();
 
 	for i = 1, #self.Tabs do
 		PanelTemplates_SetTabEnabled(self, i, enableButtons);
@@ -2144,164 +2116,6 @@ function DebounceFrameMixin:SearchBoxClearButton_OnClick()
 	SearchBoxTemplateClearButton_OnClick(self);
 end
 
-DebounceKeybindFrameMixin = {};
-
-function DebounceKeybindFrameMixin:OnLoad()
-end
-
-function DebounceKeybindFrameMixin:Open(elementData)
-	self.elementData = elementData;
-	if (self:IsShown()) then
-		self:OnShow();
-	else
-		self:Show();
-	end
-end
-
-function DebounceKeybindFrameMixin:OnShow()
-	if (not self.initialized) then
-		self.initialized = true;
-		self:RegisterForClicks("AnyUp");
-		self.InstructionText:SetText(LLL["KEYBIND_INSTRUCTION_TEXT"]);
-	end
-
-	local action = self.elementData.action;
-	self.prevKey = action.key;
-	self.newKey = nil;
-	self.gotInput = nil;
-	self:Update();
-	DebounceFrame:Update();
-end
-
-function DebounceKeybindFrameMixin:OnHide()
-	self.elementData = nil;
-	self.prevKey = nil;
-	self.newKey = nil;
-	self.gotInput = nil;
-	--DebounceFrame:Update();
-end
-
-function DebounceKeybindFrameMixin:OnKeyDown(key)
-	if (key == "ESCAPE") then
-		self:SetPropagateKeyboardInput(false);
-		self:CancelButton_OnClick();
-		return;
-	end
-
-	if (DoesAncestryIncludeMouseFocus(self)) then
-		self:SetPropagateKeyboardInput(false);
-		self:ProcessInput(key);
-	else
-		self:SetPropagateKeyboardInput(true);
-	end
-
-	-- if (self:IsMouseOver()) then
-	-- 	self:SetPropagateKeyboardInput(false);
-	-- 	self:ProcessInput(key);
-	-- else
-	-- 	self:SetPropagateKeyboardInput(true);
-	-- end
-end
-
-function DebounceKeybindFrameMixin:OnClick(button)
-	self:ProcessInput(button);
-end
-
-function DebounceKeybindFrameMixin:OnMouseWheel(delta)
-	self:OnKeyDown(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
-end
-
-function DebounceKeybindFrameMixin:OnGamePadButtonDown(key)
-	self:ProcessInput(key);
-end
-
-function DebounceKeybindFrameMixin:ProcessInput(input)
-	if (IsMetaKey(input) or input == "UNKNOWN") then
-		return;
-	end
-
-	local key = GetConvertedKeyOrButton(input);
-	key = _CreateKeyChordStringUsingMetaKeyState(key);
-	self.gotInput = true;
-	if (self.newKey ~= key) then
-		self.newKey = key;
-		self:Update();
-	end
-end
-
-function DebounceKeybindFrameMixin:OkayButton_OnClick()
-	self.elementData.action.key = self.newKey;
-	self:Hide();
-	DebouncePrivate.UpdateBindings();
-end
-
-function DebounceKeybindFrameMixin:CancelButton_OnClick()
-	self:Hide();
-	DebounceFrame:Update();
-end
-
-function DebounceKeybindFrameMixin:UnbindButton_OnClick()
-	self.newKey = nil;
-	self.gotInput = true;
-	self.NewKeyText:SetFormattedText(LLL["NEW_KEY_TEXT"], LLL["NOT_BOUND"]);
-	self.UnbindButton:SetEnabled(false);
-	DebounceFrame:Update();
-end
-
-function DebounceKeybindFrameMixin:Update()
-	local name, icon = NameAndIconFromElementData(self.elementData);
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.ActionNameText:SetText(format("|A:%2$s:16:16|a |cffffd200%1$s|r", name, icon:sub(3)));
-	else
-		self.ActionNameText:SetText(format("|T%2$s:16|t |cffffd200%1$s|r", name, icon));
-	end
-
-	self.PreviousKeyText:SetFormattedText(LLL["PREVIOUS_KEY_TEXT"], self.prevKey and GetBindingText(self.prevKey) or LLL["NOT_BOUND"]);
-	if (self.gotInput) then
-		if (self.newKey) then
-			self.NewKeyText:SetFormattedText(LLL["NEW_KEY_TEXT"], GetBindingText(self.newKey));
-			self.UnbindButton:SetEnabled(true);
-		else
-			self.NewKeyText:SetText(LLL["NOT_BOUND"]);
-			self.UnbindButton:SetEnabled(false);
-		end
-	else
-		self.NewKeyText:SetText("");
-		self.UnbindButton:SetEnabled(self.elementData.action.key ~= nil);
-	end
-
-	local warningText;
-	local key = self.newKey or self.prevKey;
-
-	if (key) then
-		local issue = IsKeyInvalidForAction(self.elementData.action, key);
-		if (issue) then
-			warningText = LLL["BINDING_ERROR_" .. issue];
-		elseif (issue) then
-			warningText = WARNING_FONT_COLOR:WrapTextInColorCode(LLL[issue]);
-		end
-	end
-
-	self.WarningText:SetText(warningText or "");
-end
-
-function DebounceKeybindFrameMixin:HasUnsavedChanges()
-	if (self:IsShown() and self.gotInput and self.newKey ~= self.prevKey) then
-		return true;
-	end
-end
-
-function DebounceKeybindFrameMixin:Close(force)
-	if (self:IsShown()) then
-		if (not force and self:HasUnsavedChanges()) then
-			DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
-			return false;
-		end
-		self:CancelButton_OnClick();
-	end
-	return true;
-end
-
 DebounceIconSelectorFrameMixin = {};
 
 function DebounceIconSelectorFrameMixin:OnLoad()
@@ -2420,10 +2234,46 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	return true;
 end
 
+--- 키 캡처는 세 값으로 표현된다. capturing이 켜져 있는 동안만 나머지가 의미를 갖는다.
+---   prevKey  - 캡처를 시작할 때의 키
+---   newKey   - 지금까지 누른 키 (아직 저장 전)
+---   gotInput - 한 번이라도 입력이 있었는가. newKey == nil이 "해제"인지 "아직 안 누름"인지를 가른다
+local function ClearKeyCaptureState(self)
+	self.capturing = nil;
+	self.prevKey = nil;
+	self.newKey = nil;
+	self.gotInput = nil;
+end
+
+local function GetKeyWarningText(action, key)
+	if (not key) then
+		return nil;
+	end
+	local issue = IsKeyInvalidForAction(action, key);
+	if (issue) then
+		return LLL["BINDING_ERROR_" .. issue];
+	end
+end
+
 DebounceDetailPanelMixin = {};
 
+-- 탭 ID. 타입에 따라 탭을 감추지 않는다 - 자리가 흔들리면 위치를 다시 배워야 한다.
+DebounceDetailPanelMixin.TAB_KEYBIND = 1;
+DebounceDetailPanelMixin.TAB_CONTENT = 2;
+
 function DebounceDetailPanelMixin:OnLoad()
+	-- XML 중첩이 깊어서 자주 쓰는 것만 지름길을 만들어 둔다.
+	self.ContentTab = self.ContentArea.ContentTab;
+	self.KeybindTab = self.ContentArea.KeybindTab;
+	self.MacroEditor = self.ContentTab.MacroEditor;
+	self.TypeInfo = self.ContentTab.TypeInfo;
+
 	self.MacroEditor.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
+
+	local keyArea = self.KeybindTab.KeyArea;
+	keyArea.AssignButton:SetText(LLL["DETAIL_ASSIGN_KEY"]);
+	keyArea.ChangeButton:SetText(LLL["DETAIL_CHANGE_KEY"]);
+	self.KeybindTab.CaptureOverlay.InstructionText:SetText(LLL["KEYBIND_INSTRUCTION_TEXT"]);
 
 	self.OkayButton:SetScript("OnClick", function()
 		PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
@@ -2435,14 +2285,59 @@ function DebounceDetailPanelMixin:OnLoad()
 		self:CancelButton_OnClick();
 	end);
 
+	self:InitializeTabs();
+
 	self.initialized = true;
 	self:Refresh();
 end
 
+function DebounceDetailPanelMixin:InitializeTabs()
+	local tabSystem = self.TabSystem;
+	tabSystem:AddTab(LLL["DETAIL_TAB_KEYBIND"]);
+	tabSystem:AddTab(LLL["DETAIL_TAB_CONTENT"]);
+	-- true를 돌려주면 TabSystem이 시각 반영을 하지 않는다. 선택이 거부될 수 있으므로
+	-- (저장 안 된 변경) 시각 반영은 SelectTab이 직접 한다.
+	tabSystem:SetTabSelectedCallback(function(tabID)
+		self:SelectTab(tabID);
+		return true;
+	end);
+
+	self.selectedTab = self.TAB_KEYBIND;
+	tabSystem:SetTabVisuallySelected(self.selectedTab);
+end
+
+--- 탭을 바꾼다. 저장 안 된 변경이 있으면 거부하고 false를 돌려준다.
+function DebounceDetailPanelMixin:SelectTab(tabID)
+	if (self.selectedTab == tabID) then
+		return true;
+	end
+
+	if (self:HasUnsavedChanges()) then
+		DebouncePrivate.DisplayMessage(LLL["CONFIRM_CURRENT_CHANGE_FIRST"]);
+		return false;
+	end
+
+	self.selectedTab = tabID;
+	self.TabSystem:SetTabVisuallySelected(tabID);
+	self:Refresh();
+	return true;
+end
+
+--- 다음 선택이 열릴 탭을 지정한다. 매크로 편집으로 바로 가는 지름길이 쓴다.
+function DebounceDetailPanelMixin:SetPendingTab(tabID)
+	self.pendingTab = tabID;
+end
+
 --- 선택이 바뀌었다. 편집 상태를 버리고 새 액션을 그린다.
 function DebounceDetailPanelMixin:OnSelectionChanged()
+	ClearKeyCaptureState(self);
 	self.revertFunc = nil;
 	self.originalText = nil;
+
+	self.selectedTab = self.pendingTab or self.TAB_KEYBIND;
+	self.pendingTab = nil;
+	self.TabSystem:SetTabVisuallySelected(self.selectedTab);
+
 	self:Refresh();
 end
 
@@ -2468,7 +2363,15 @@ function DebounceDetailPanelMixin:Refresh()
 	-- 이름·아이콘을 사람이 정하는 건 macrotext뿐이다. 나머지는 게임에서 온다.
 	self.Header.EditButton:SetShown(action.type == Constants.MACROTEXT);
 
-	self:RefreshContent(action);
+	local onKeybindTab = self.selectedTab == self.TAB_KEYBIND;
+	self.KeybindTab:SetShown(onKeybindTab);
+	self.ContentTab:SetShown(not onKeybindTab);
+
+	if (onKeybindTab) then
+		self:RefreshKeybindTab(action);
+	else
+		self:RefreshContent(action);
+	end
 	self:UpdateButtons();
 end
 
@@ -2496,9 +2399,141 @@ function DebounceDetailPanelMixin:RefreshContent(action)
 	end
 end
 
+--------------------------------------------------------------------------------
+-- 단축키 탭
+--------------------------------------------------------------------------------
+
+function DebounceDetailPanelMixin:RefreshKeybindTab(action)
+	local keyArea = self.KeybindTab.KeyArea;
+	local overlay = self.KeybindTab.CaptureOverlay;
+
+	overlay:SetShown(self.capturing and true or false);
+
+	if (self.capturing) then
+		overlay.PreviousKeyText:SetFormattedText(LLL["PREVIOUS_KEY_TEXT"],
+			self.prevKey and GetBindingText(self.prevKey) or LLL["NOT_BOUND"]);
+		if (self.gotInput) then
+			overlay.NewKeyText:SetFormattedText(LLL["NEW_KEY_TEXT"],
+				self.newKey and GetBindingText(self.newKey) or LLL["NOT_BOUND"]);
+		else
+			overlay.NewKeyText:SetText("");
+		end
+		overlay.WarningText:SetText(GetKeyWarningText(action, self.newKey or self.prevKey) or "");
+		overlay.OkayButton:SetEnabled(self.gotInput and self.newKey ~= self.prevKey);
+	end
+
+	local key = action.key;
+	keyArea.KeyText:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
+	keyArea.WarningText:SetText(GetKeyWarningText(action, key) or "");
+	keyArea.AssignButton:SetShown(key == nil);
+	keyArea.ChangeButton:SetShown(key ~= nil);
+	keyArea.UnbindButton:SetShown(key ~= nil);
+end
+
+function DebounceDetailPanelMixin:IsCapturingKey()
+	return self.capturing and true or false;
+end
+
+function DebounceDetailPanelMixin:StartKeyCapture()
+	local action = _selectedAction;
+	if (not action or self.capturing) then
+		return;
+	end
+
+	self.capturing = true;
+	self.prevKey = action.key;
+	self.newKey = nil;
+	self.gotInput = nil;
+	self:Refresh();
+	DebounceFrame:Update();
+end
+
+function DebounceDetailPanelMixin:CancelKeyCapture()
+	if (not self.capturing) then
+		return;
+	end
+	ClearKeyCaptureState(self);
+	self:Refresh();
+	DebounceFrame:Update();
+end
+
+function DebounceDetailPanelMixin:CommitKeyCapture()
+	local action = _selectedAction;
+	if (not action or not self.capturing) then
+		return;
+	end
+
+	local newKey = self.newKey;
+	local changed = self.gotInput and newKey ~= self.prevKey;
+	ClearKeyCaptureState(self);
+
+	if (changed) then
+		action.key = newKey;
+		action._dirty = true;
+		DebouncePrivate.UpdateBindings();
+		-- 목록이 키순으로 정렬돼 있으므로 키가 바뀌면 자리도 바뀐다.
+		DebounceFrame:Refresh(true);
+	end
+
+	self:Refresh();
+	DebounceFrame:Update();
+end
+
+function DebounceDetailPanelMixin:UnbindButton_OnClick()
+	local action = _selectedAction;
+	if (not action or action.key == nil) then
+		return;
+	end
+
+	action.key = nil;
+	action._dirty = true;
+	DebouncePrivate.UpdateBindings();
+	DebounceFrame:Refresh(true);
+	DebounceFrame:Update();
+end
+
+--- 상설 패널이라 마우스가 우연히 지나갈 수 있다. 그래서 **캡처 모드**와 **패널 위**를
+--- 동시에 만족할 때만 키를 가로챈다. 아니면 그대로 흘려보낸다(검색창 입력 등).
+---
+--- 전투 중 SetPropagateKeyboardInput은 taint지만, 전투에 들어가면 DebounceFrame이 숨고
+--- (OnEnterCombat) 캡처도 같이 취소되므로 여기까지 오지 않는다.
+function DebounceDetailPanelMixin:KeyCapture_OnKeyDown(overlay, key)
+	if (key == "ESCAPE") then
+		overlay:SetPropagateKeyboardInput(false);
+		self:CancelKeyCapture();
+		return;
+	end
+
+	if (self.capturing and DoesAncestryIncludeMouseFocus(self)) then
+		overlay:SetPropagateKeyboardInput(false);
+		self:KeyCapture_ProcessInput(key);
+	else
+		overlay:SetPropagateKeyboardInput(true);
+	end
+end
+
+function DebounceDetailPanelMixin:KeyCapture_ProcessInput(input)
+	if (not self.capturing) then
+		return;
+	end
+	if (IsMetaKey(input) or input == "UNKNOWN") then
+		return;
+	end
+
+	local key = GetConvertedKeyOrButton(input);
+	key = _CreateKeyChordStringUsingMetaKeyState(key);
+	self.gotInput = true;
+	self.newKey = key;
+	self:Refresh();
+	DebounceFrame:UpdateButtons();
+end
+
+--------------------------------------------------------------------------------
+
 function DebounceDetailPanelMixin:UpdateButtons()
-	-- 매크로 편집을 커밋/폐기하는 버튼이다. 편집 중이 아니면 자리도 차지하지 않는다.
-	local hasChanges = self:HasUnsavedChanges();
+	-- 편집을 커밋/폐기하는 버튼이다. 편집 중이 아니면 자리도 차지하지 않는다.
+	-- 캡처 중에는 확인/취소가 캡처 화면 안에 따로 있으므로 두 벌을 보이지 않는다.
+	local hasChanges = self:HasUnsavedChanges() and not self.capturing;
 	self.OkayButton:SetShown(hasChanges);
 	self.CancelButton:SetShown(hasChanges);
 end
@@ -2510,6 +2545,10 @@ function DebounceDetailPanelMixin:HasUnsavedChanges()
 
 	-- 매크로텍스트로 변환은 액션을 이미 바꿔놓았다. 확인 전까지는 되돌릴 수 있는 변경이다.
 	if (self.revertFunc) then
+		return true;
+	end
+
+	if (self.capturing and self.gotInput and self.newKey ~= self.prevKey) then
 		return true;
 	end
 
@@ -2568,6 +2607,14 @@ function DebounceDetailPanelMixin:OkayButton_OnClick()
 		return;
 	end
 
+	-- 캡처 중에 여기로 오는 건 ESC의 저장/폐기 팝업뿐이다. 캡처와 매크로 편집은 서로 다른
+	-- 탭에 있고 탭 전환이 막혀 있으므로 둘이 동시에 걸려 있을 수 없다.
+	if (self.capturing) then
+		HideSaveOrDiscardPopup();
+		self:CommitKeyCapture();
+		return;
+	end
+
 	local changed = false;
 
 	if (action.type == Constants.MACROTEXT and self.originalText ~= nil) then
@@ -2594,6 +2641,12 @@ function DebounceDetailPanelMixin:OkayButton_OnClick()
 end
 
 function DebounceDetailPanelMixin:CancelButton_OnClick()
+	if (self.capturing) then
+		HideSaveOrDiscardPopup();
+		self:CancelKeyCapture();
+		return;
+	end
+
 	local revertFunc = self.revertFunc;
 	self.revertFunc = nil;
 	-- originalText를 비우면 다음 Refresh가 액션에서 다시 읽는다 = 편집 내용 폐기.
@@ -2613,6 +2666,8 @@ end
 --- 패널 자체는 상설이라 숨기지 않는다.
 function DebounceDetailPanelMixin:Close(force)
 	if (not self:HasUnsavedChanges()) then
+		-- 아직 아무 키도 안 누른 캡처는 버릴 게 없다. 조용히 접는다.
+		self:CancelKeyCapture();
 		return true;
 	end
 
