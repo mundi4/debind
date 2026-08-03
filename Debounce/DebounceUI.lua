@@ -522,12 +522,15 @@ end
 
 
 local function DeleteElementData(elementData)
-	if (DebounceIconSelectorFrame:IsShown() and DebounceIconSelectorFrame.action == elementData.action) then
+	-- 선택기가 들고 있는 건 elementData다. .action이라는 필드는 아무도 넣어주지 않아서
+	-- 늘 nil이었고, 그래서 이 가드는 한 번도 걸린 적이 없다 - 지우는 액션을 편집기가
+	-- 열어둔 채였다면 그 위에 이름·아이콘을 써 넣는다. 지워진 테이블에.
+	if (IsEditingAction(elementData.action)) then
 		DebounceIconSelectorFrame:Close(true);
 	end
 
 	if (_selectedAction == elementData.action) then
-		DebounceFrame:SetSelectedAction(nil, true);
+		DebounceFrame:SetSelectedAction(nil);
 	end
 
 	local layer = DebouncePrivate.GetProfileLayer(elementData.layer);
@@ -1729,6 +1732,10 @@ function DebounceFrameMixin:OnHide()
 		DebounceActionPlacerFrame:Hide();
 	end
 	_pickedupInfo = nil;
+	-- 덮개는 위 두 상태를 보고 켜지는데, 그걸 지웠다고 저절로 내려가지는 않는다. 여기서
+	-- 안 내리면 다음에 창을 열 때 목록을 덮은 채 "탭으로 옮겨라"라고 말하고 있다 - 창을
+	-- 닫는 것도, 전투에 끌려들어가는 것도 드래그 도중에 일어난다.
+	self:UpdateDropOverlay();
 	ClearMacrotextIconCache();
 end
 
@@ -1788,9 +1795,17 @@ function DebounceFrameMixin:OnKeyDown(input)
 			return;
 		end
 
+		-- 아이콘 선택기가 떠 있으면 그것부터 물러난다. 팝업이니 자기 ESC를 자기가 처리할
+		-- 것 같지만 아니다 - IconSelectorPopupFrameTemplate은 키보드를 켜지도, ESC를
+		-- 받지도, UISpecialFrames에 들지도 않는다. 그래서 여기서 안 세우면 팝업을 띄워둔
+		-- 채로 선택이 풀리고, 한 번 더 누르면 팝업만 남기고 창이 닫힌다.
+		if (DebounceIconSelectorFrame:IsShown()) then
+			DebounceIconSelectorFrame:Close();
+			return;
+		end
+
 		-- ESC는 한 단계씩 물러난다: 선택 해제(패널 접힘) -> 창 닫기.
-		-- 패널에는 저장을 미루는 상태가 없으므로 잃을 게 없다(매크로 편집기는 팝업이고
-		-- 자기 ESC를 자기가 처리한다).
+		-- 패널에는 저장을 미루는 상태가 없으므로 잃을 게 없다.
 		if (_selectedAction) then
 			self:SetSelectedAction(nil);
 			return;
@@ -1806,7 +1821,7 @@ end
 function DebounceFrameMixin:OnEnterCombat()
 	-- 캡처 중이면 접는다. 전투 중에는 SetPropagateKeyboardInput이 taint라 키를 받을 수 없다.
 	-- 선택은 그대로 둔다 - 전투가 끝나고 창이 다시 뜨면 보던 액션이 그대로 있어야 한다.
-	DebounceDetailPanel:CancelKeyCapture(true);
+	DebounceDetailPanel:CancelKeyCapture();
 
 	if (DebounceIconSelectorFrame:IsShown()) then
 		DebounceIconSelectorFrame:CancelButton_OnClick();
@@ -1823,7 +1838,12 @@ function DebounceFrameMixin:OnLeaveCombat()
 	self:Show();
 end
 
+--- 목록은 키순으로 묶여 있으므로 키가 바뀌면 **다시 짜야** 한다. Update는 있는 줄을 그
+--- 자리에서 고쳐 그릴 뿐이라, 우클릭 메뉴로 단축키를 푼 액션이 여전히 옛 키 헤더 밑에
+--- 키 없이 앉아 있게 된다(오버뷰는 같은 이벤트에서 다시 짜므로 두 목록이 어긋난다).
+--- 스크롤 자리는 지킨다 - 방금 만진 줄이 눈앞에서 사라지면 안 된다.
 function DebounceFrameMixin:OnBindingsUpdated(_, skipped)
+	self:Refresh(true);
 	self:Update();
 end
 
@@ -1934,7 +1954,7 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 
 	-- 선택은 "지금 보이는 목록의 한 줄"이다. 레이어 탭을 바꾸거나 액션이 사라지면 풀린다.
 	if (_selectedAction and not self:FindElementDataByActionInfo(_selectedAction)) then
-		self:SetSelectedAction(nil, true);
+		self:SetSelectedAction(nil);
 	end
 
 	local title = format(LLL["DEBOUNCE_TITLE_FORMAT"], GetTabLabel(_selectedTab), GetSideTabaLabel(_selectedSideTab));
@@ -1943,16 +1963,17 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 	self:UpdateEmptyText();
 end
 
---- 상세 패널이 보여줄 액션을 바꾼다.
---- 패널에 저장 안 된 변경이 있으면 거부하고 false를 돌려준다(force면 버리고 진행).
-function DebounceFrameMixin:SetSelectedAction(action, force)
+--- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
+---
+--- 예전에는 패널이 저장 안 된 변경을 들고 거부할 수 있어서 false와 force가 있었다. 지금
+--- 패널에는 미루는 저장이 없으므로(Close 참고) 거부할 일이 없다. 돌려주는 true는 부르는
+--- 쪽의 옛 코드를 위해 남긴 것이다.
+function DebounceFrameMixin:SetSelectedAction(action)
 	if (_selectedAction == action) then
 		return true;
 	end
 
-	if (not DebounceDetailPanel:Close(force)) then
-		return false;
-	end
+	DebounceDetailPanel:Close();
 
 	_selectedAction = action;
 	DebounceDetailPanel:OnSelectionChanged();
@@ -2260,6 +2281,10 @@ function DebounceIconSelectorFrameMixin:OnShow()
 		self.BorderBox.EditBoxHeaderText:SetText(format(LLL["MACRO_POPUP_TEXT"], MACRO_NAME_CHAR_LIMIT));
 		self.BorderBox.IconSelectorEditBox:SetMaxLetters(MACRO_NAME_CHAR_LIMIT);
 	end
+	-- 블리자드의 OnShow/OnHide는 IconSelectorPopupFramesShown를 짝으로 올리고 내린다.
+	-- 위에서 조기 반환하며 Hide한 경우에는 이 줄에 닿지 못하므로, OnHide도 짝이 없다는
+	-- 것을 알아야 한다. 이 표시가 그 짝을 맞춘다.
+	self.popupCounted = true;
 	IconSelectorPopupFrameTemplateMixin.OnShow(self);
 	self.BorderBox.IconSelectorEditBox:SetFocus();
 
@@ -2282,7 +2307,14 @@ function DebounceIconSelectorFrameMixin:OnShow()
 end
 
 function DebounceIconSelectorFrameMixin:OnHide()
-	IconSelectorPopupFrameTemplateMixin.OnHide(self);
+	-- 짝이 있을 때만 내린다. OnShow가 조기 반환하며 Hide한 경로에서 그냥 부르면 올린 적
+	-- 없는 카운터를 내려서 음수로 만들고, 그때부터 **진짜 열려 있는 블리자드 선택기에도**
+	-- IsAnyIconSelectorPopupFrameShown()이 거짓을 답한다. 우리 창을 여닫을 때마다 더
+	-- 내려가므로 세션이 끝날 때까지 돌아오지 않는다.
+	if (self.popupCounted) then
+		self.popupCounted = nil;
+		IconSelectorPopupFrameTemplateMixin.OnHide(self);
+	end
 	self.elementData = nil;
 	DebounceFrame:Update();
 end
@@ -2332,9 +2364,11 @@ function DebounceIconSelectorFrameMixin:OkayButton_OnClick()
 		elementData.action.icon = iconTexture;
 	end
 
+	-- 이름이 바뀌면 이름순 정렬에서 자리가 바뀐다. Update는 있는 줄을 그 자리에서 고쳐
+	-- 그릴 뿐이라 방금 바꾼 이름이 옛 자리에 남는다.
+	DebounceFrame:Refresh(true);
 	DebounceFrame:Update();
-	-- 새로 만든 것만 편집기를 연다. 편집 모드로 왔다면 오버레이가 아래에 그대로 열려
-	-- 있고, 방금 바꾼 이름·아이콘은 Update가 이미 반영했다.
+	-- 새로 만든 것만 편집기를 연다. 편집 모드로 왔다면 오버레이가 아래에 그대로 열려 있다.
 	if (isNew and elementData) then
 		DebounceDetailPanel:EditMacroText(elementData.action);
 	end
@@ -2345,6 +2379,11 @@ function DebounceIconSelectorFrameMixin:HasUnsavedChanges()
 	if (self:IsShown() and self.mode == IconSelectorPopupFrameModes.Edit) then
 		local newName = string.gsub(self.BorderBox.IconSelectorEditBox:GetText(), "\"", "");
 		local newIcon = self.BorderBox.SelectedIconArea.SelectedIconButton:GetIconTexture();
+		-- elementData는 OnHide에서 비워지는데 mode는 남는다. 부모 창이 팝업을 띄운 채로
+		-- 숨으면 "보이는 상태 + Edit + elementData 없음"이 실제로 생긴다.
+		if (not self.elementData) then
+			return false;
+		end
 		if (self.elementData.action.name ~= newName or self.elementData.action.icon ~= newIcon) then
 			return true;
 		end
@@ -2486,10 +2525,17 @@ end
 --- 같다). 그래서 아무것도 막지 않고 언제나 true다.
 ---
 --- 선택은 건드리지 않는다. 부르는 쪽이 이미 선택을 바꾸는 중이다.
+---
+--- 마지막 Refresh를 빠뜨리면 안 된다. ClearMacroEdit는 편집 상태만 비우고 화면은 그대로
+--- 두므로, 그 사이에 편집기가 **본문을 띄운 채 macroAction만 nil인** 상태가 된다. 그
+--- 상태에서 친 글자는 SaveMacroText가 그냥 버리고, 다음 Update가 저장본으로 덮어쓴다.
+--- 부르는 쪽이 곧바로 다시 그릴 것 같지만 아닌 길이 있다 - TryCloseAnyDialog가 이걸
+--- "가도 되나?" 탐침으로 쓰는데, 이미 골라둔 탭을 다시 누르면 그 뒤로 아무 일도 안 한다.
 function DebounceDetailPanelMixin:Close()
-	self:CancelKeyCapture(true);
+	self:CancelKeyCapture();
 	self:SaveMacroText();
 	self:ClearMacroEdit();
+	self:Refresh();
 	return true;
 end
 
@@ -2600,6 +2646,11 @@ function DebounceOrderLineMixin:Update()
 
 	-- 지금 보고 있는 액션은 왼쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
+
+	-- 흑백은 여기서 정한다. 행 프레임은 풀에서 돌려쓰므로, 미리보기에서 회색이 된 프레임이
+	-- 그대로 살아 있는 목록에 다시 나올 수 있다. 밖에서 한 번 칠하고 마는 방식으로는
+	-- 그 프레임까지 되돌릴 수가 없다.
+	self.Icon:SetDesaturated(elementData.desaturated or false);
 end
 
 function DebounceOrderLineMixin:OnEnter()
@@ -2733,6 +2784,11 @@ function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 	-- 비활성 버튼은 그 자체로 "지금은 안 된다"를 말한다.
 	keyArea.MoveUpButton.InfoBadge:Hide();
 	keyArea.MoveDownButton.InfoBadge:Hide();
+
+	-- 방금 계산한 상태를 마우스가 올라가 있는 버튼의 툴팁에도 반영한다. 이걸 빠뜨리면
+	-- 연타할 때 툴팁이 처음 올렸던 순간의 말을 계속 한다(위 함수 주석 참고).
+	RefreshOrderMoveTooltip(keyArea.MoveUpButton);
+	RefreshOrderMoveTooltip(keyArea.MoveDownButton);
 end
 
 --- 인셋이 비었을 때 왜 비었는지 말한다. 리스트 위 상태 문장이 사라지면서 그 몫도 여기로
@@ -2742,15 +2798,6 @@ function DebounceDetailPanelMixin:SetEmptyText(textKey)
 	local emptyText = self.ContentArea.EmptyText;
 	emptyText:SetText(textKey and LLL[textKey] or "");
 	emptyText:SetShown(textKey ~= nil);
-end
-
---- 프레임은 재사용되므로 살아 있는 목록을 그릴 때 반드시 되돌려야 한다.
-local function SetOrderRowsDesaturated(scrollBox, desaturated)
-	scrollBox:ForEachFrame(function(line)
-		if (line.Icon) then
-			line.Icon:SetDesaturated(desaturated);
-		end
-	end);
 end
 
 --- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
@@ -2776,21 +2823,25 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 			-- 행은 CollectActionsForKey가 주는 레코드와 같은 모양이어야 한다(Profile.lua).
 			-- 빠진 필드는 "그 속성이 없다"로 읽히는데, 여기 액션은 키만 없을 뿐 나머지는
 			-- 이미 정해져 있다 - 키를 주는 순간 없던 표시가 튀어나오면 안 된다.
-			-- issue/unreachable은 키를 기준으로 정해지는 값이라 뺀다. 키가 없다는 말은
-			-- 버튼의 "Assign a Key"와 흑백 처리가 이미 하고 있다.
+			-- unreachable만 뺀다. 그건 정말로 키를 기준으로 정해지는 값이다.
+			-- issue는 아니다 - 그룹·변신·보너스바 미선택처럼 키와 아무 상관 없는 것들이
+			-- 같은 자리에서 나오므로, 통째로 빼면 키를 주는 순간 없던 표시가 튀어나온다.
+			-- 그래서 키 항목만 빼고 묻는다.
 			row = {
 				action = action,
 				layerID = GetLayerID(),
 				priority = action.priority or Constants.DEFAULT_PRIORITY,
 				hover = action.hover,
 				isConditional = DebouncePrivate.IsConditionalAction(action),
+				issue = DebouncePrivate.GetBindingIssue(action, nil, "key"),
 			},
 			rank = 1,
 			isCurrent = true,
+			-- 흑백으로 돌린다. 알파를 내리면 색이 남아 "그냥 흐린 목록"으로 읽힌다.
+			-- 행이 자기 데이터를 보고 칠하므로 프레임을 돌려써도 따라오지 않는다.
+			desaturated = true,
 		});
 		orderArea.ScrollBox:SetDataProvider(preview, ScrollBoxConstants.DiscardScrollPosition);
-		-- 흑백으로 돌린다. 알파를 내리면 색이 남아 "그냥 흐린 목록"으로 읽힌다.
-		SetOrderRowsDesaturated(orderArea.ScrollBox, true);
 		return;
 	end
 
@@ -2831,7 +2882,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	end
 
 	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.DiscardScrollPosition);
-	SetOrderRowsDesaturated(orderArea.ScrollBox, false);
 	orderArea.ScrollBox:ScrollToElementDataIndex(currentIndex, ScrollBoxConstants.AlignNearest);
 end
 
@@ -2905,10 +2955,18 @@ function DebounceDetailPanelMixin:SetBindingMode(active)
 		button:EnableGamePadButton(active);
 	end
 	if (active) then
-		-- 여기까지 온 클릭은 이미 up으로 끝났다. 이제부터는 **누르는 순간**을 받는다 -
-		-- 안 그러면 모드를 연 그 클릭이 곧바로 BUTTON1로 잡힌다.
-		button:RegisterForClicks("AnyDown");
-		self.ignoreClickUp = nil;
+		-- 듣는 중에도 **떼는 순간**을 받는다. 누르는 순간으로 바꾸면 안 된다 - 그러면 키를
+		-- 잡으면서 듣기가 꺼지고, 꺼지는 길에 등록이 up으로 되돌아가면서 아직 떼지도 않은
+		-- 그 클릭의 나머지 반쪽이 **새 클릭처럼** 다시 들어온다(우클릭은 지정 직후 스스로
+		-- 해제되고, 좌클릭은 지정하자마자 다시 듣기로 들어간다).
+		--
+		-- 들고 나는 자리를 양쪽 다 up으로 맞춰두면 그 반쪽이 아예 생기지 않는다. 한 번
+		-- 누르면 up은 한 번뿐이고, 그 하나를 처리하면서 바꾼 등록은 다음 클릭부터 듣는다.
+		-- 블리자드의 단축키 버튼도 상태 전환을 전부 뗄 때 한다(CustomBindingButtonMixin).
+		--
+		-- 여기서 AnyUp인 이유는 BUTTON3/4/5도 단축키가 되기 때문이다. 안 듣는 동안에는
+		-- 좌/우클릭만 받으므로 가운데 버튼이 엉뚱한 데서 먹히지 않는다.
+		button:RegisterForClicks("AnyUp");
 	else
 		button:RegisterForClicks("LeftButtonUp", "RightButtonUp");
 		-- 여기서 SetPropagateKeyboardInput(true)로 되돌리면 안 된다. ESC로 빠져나오는 그
@@ -2920,27 +2978,14 @@ function DebounceDetailPanelMixin:SetBindingMode(active)
 	DebounceFrame:Update();
 end
 
---- 좌클릭 = 지정 시작, 우클릭 = 해제. 듣는 중이면 누른 버튼이 곧 단축키다.
+--- 좌클릭 = 지정 시작, 우클릭 = 해제. 듣는 중이면 뗀 버튼이 곧 단축키다.
+---
+--- 들어오는 클릭도 나가는 클릭도 전부 up이다(SetBindingMode 참고). 그래서 "이 클릭은
+--- 방금 처리한 그 클릭의 나머지 반쪽인가"를 따로 기억할 필요가 없다.
 function DebounceDetailPanelMixin:KeyButton_OnClick(button, mouseButton)
 	if (self:IsCapturingKey()) then
 		self:KeyButton_OnInput(mouseButton);
-		-- 마우스로 잡았으면 **같은 물리 클릭의 up이 한 번 더 들어온다.** down으로 키를
-		-- 잡으면서 듣기가 꺼지고, 꺼지는 길에 up 등록으로 되돌아가기 때문이다. 그대로 두면
-		-- 우클릭은 BUTTON2로 지정된 직후 스스로 해제되고, 좌클릭은 지정하자마자 다시
-		-- 듣기로 들어간다. 그 up은 새 클릭이 아니므로 한 번 삼킨다.
-		if (not self:IsCapturingKey()) then
-			self.ignoreClickUp = mouseButton;
-		end
 		return;
-	end
-	if (self.ignoreClickUp) then
-		local ignored = self.ignoreClickUp;
-		self.ignoreClickUp = nil;
-		-- 누른 채로 버튼 밖에서 떼면 그 up은 영영 안 온다. 그때 남은 표시는 다음 클릭이
-		-- 가져가되, 같은 버튼일 때만 삼킨다.
-		if (ignored == mouseButton) then
-			return;
-		end
 	end
 	if (mouseButton == "RightButton") then
 		self:UnbindKey();
@@ -2954,8 +2999,12 @@ function DebounceDetailPanelMixin:KeyButton_OnKeyDown(button, key)
 		button:SetPropagateKeyboardInput(true);
 		return;
 	end
-	-- 전투 중 SetPropagateKeyboardInput은 taint지만, 전투에 들어가면 창이 숨고 OnHide가
-	-- 듣기를 끄므로 여기까지 오지 않는다.
+	-- 전투 중 SetPropagateKeyboardInput은 taint다. 전투에 들어가면 창이 숨고 OnHide가
+	-- 듣기를 끄므로 보통은 여기까지 오지 않지만, 전투가 시작된 바로 그 프레임에 눌린 키는
+	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다. 그 한 프레임을 여기서 막는다.
+	if (InCombatLockdown()) then
+		return;
+	end
 	button:SetPropagateKeyboardInput(false);
 	if (key == "ESCAPE") then
 		self:SetBindingMode(false);
@@ -2980,25 +3029,20 @@ function DebounceDetailPanelMixin:KeyButton_OnInput(input)
 	self:SetActionKey(key);
 end
 
---- 오버레이를 접는다.
+--- 듣기를 그만둔다. 선택은 건드리지 않는다.
 ---
---- 키가 없는 액션이면 접을 수가 없다(IsCapturingKey가 계속 참이다). 그건 버그가 아니라
---- 규칙이다 - 뒤에 보여줄 게 없으니 오버레이가 곧 그 액션의 화면이다. 그래서 나가는
---- 길은 **선택을 푸는 것**이고, 패널이 접히면서 목록으로 돌아간다.
----
---- keepSelection은 선택을 바꾸는 중인 쪽(Close)이 쓴다. 그때 선택을 또 건드리면
---- 접혔다 펴지는 왕복이 생긴다.
---- 듣기를 그만둔다. 예전에는 키 없는 액션에서 "접을 수가 없어서" 선택을 푸는 것이 유일한
---- 출구였는데, 듣는 상태가 사용자가 연 것이 되면서 그냥 나오면 된다.
+--- 예전에는 키 없는 액션에서 오버레이가 늘 걸려 있어서 "선택을 푸는 것"이 유일한 출구였고,
+--- 그래서 선택을 지킬지 말지를 인자로 받았다. 듣는 상태가 사용자가 연 것이 되면서 그냥
+--- 나오면 되므로 인자도 사라졌다.
 function DebounceDetailPanelMixin:CancelKeyCapture()
 	self:SetBindingMode(false);
 end
 
---- 단축키 해제. 패널에는 해제 버튼이 둘(단축키 줄 / 오버레이 안) 있고 **둘 다 여기로
---- 온다.** 같은 동작이 어디서 눌렸느냐에 따라 다른 결과를 내면 안 된다.
+--- 단축키 해제. 단축키 버튼 우클릭과 우클릭 메뉴가 **둘 다 여기로 온다.** 같은 동작이
+--- 어디서 눌렸느냐에 따라 다른 결과를 내면 안 된다.
 ---
---- 키를 지우면 이 액션은 "키 없는 액션"이 되어 오버레이가 다시 걸리므로, 해제와 동시에
---- 선택을 푼다. 취소·ESC가 나가는 자리와 같다.
+--- 선택은 그대로 둔다. 키가 없어도 패널은 그 액션을 계속 보여준다 - 키를 지우자마자
+--- 목록으로 튕겨나가면 방금 무엇을 한 건지 볼 자리가 없다.
 function DebounceDetailPanelMixin:UnbindKey()
 	if (not _selectedAction) then
 		return;
@@ -3052,9 +3096,7 @@ function DebounceDetailPanelMixin:EditMacroText(action, cancelFunc)
 	if (not action or action.type ~= Constants.MACROTEXT) then
 		return false;
 	end
-	if (not DebounceFrame:SetSelectedAction(action)) then
-		return false;
-	end
+	DebounceFrame:SetSelectedAction(action);
 
 	self:SetTab(DETAIL_TAB_MACRO);
 	self:Refresh();
@@ -3104,7 +3146,9 @@ end
 --- 때로 되돌리고 그 자리에 남는다.
 ---
 --- 매크로텍스트 변환으로 들어왔다면 되돌릴 것이 본문이 아니라 **액션 자체**다(cancelFunc).
---- 되돌린 액션은 더 이상 매크로텍스트가 아니므로 Refresh가 탭을 거두고 키 탭으로 돌린다.
+--- 되돌린 액션은 더 이상 매크로텍스트가 아니므로 편집기 자리에 "변환할까?" 안내가 대신
+--- 들어선다. 탭은 그대로 둔다 - 탭은 모드가 아니라 보기라서 사용자가 옮기기 전까지 있던
+--- 자리에 있는다.
 function DebounceDetailPanelMixin:MacroCancel_OnClick()
 	local action = self.macroAction;
 	if (not action) then
@@ -3353,7 +3397,9 @@ function DebounceOverviewLineMixin:Update()
 	local elementData = self:GetElementData();
 	local action = elementData.action;
 
-	local name, icon = ColoredNameAndIconForAction(action);
+	-- 이 줄도 단축키를 따로 보여주므로 메인 목록과 같은 규칙을 쓴다. 안 넘기면 키 문제로
+	-- 이름 전체가 빨개져서, 같은 액션을 두 화면이 서로 다른 범인으로 가리킨다.
+	local name, icon = ColoredNameAndIconForAction(action, "key");
 
 	self.Name:SetText(name);
 	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
@@ -3376,7 +3422,11 @@ function DebounceOverviewLineMixin:Update()
 		self.ProfessionQualityOverlay:Hide();
 	end
 
+	-- 이름에서 뺀 만큼 여기서 말한다. 키 문제는 키 옆에서.
 	local bindingText = GetBindingText(action.key);
+	if (bindingText and GetBindingIssue(action, "key")) then
+		bindingText = ERROR_COLOR:WrapTextInColorCode(bindingText);
+	end
 	self.BindingText:SetText(bindingText or "");
 
 	if (action.unit) then
