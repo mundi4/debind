@@ -352,14 +352,13 @@ local function TryCloseAnyDialog()
 end
 
 --- 상세 패널에는 저장을 미루는 상태가 없다 - 키도 순서도 즉시 반영되고, 매크로 본문은
---- 떠날 때 저장된다. 그래서 패널은 아무것도 잠그지 않는다. 여기서 알려주는 건 "지금 이
---- 액션을 편집 중"이라는 사실뿐이고, 잠그는 건 팝업인 아이콘 선택기뿐이다.
+--- 떠날 때 저장된다. 그래서 패널은 아무것도 잠그지 않는다. 잠그는 건 팝업인 아이콘
+--- 선택기뿐이다.
+---
+--- 매크로 편집은 여기 없다. 탭이 되면서 **모드가 아니라 보기**가 됐다 - 매크로 탭을 열어둔
+--- 채로 다른 액션을 고르거나 레이어를 옮겨도 되고, 그때마다 떠나는 쪽에서 저장된다.
 local function IsEditingAction(action)
 	if (DebounceIconSelectorFrame:IsShown() and (action == nil or (DebounceIconSelectorFrame.elementData and DebounceIconSelectorFrame.elementData.action == action))) then
-		return true;
-	end
-	local macroAction = DebounceDetailPanel:GetEditingMacroAction();
-	if (macroAction and (action == nil or macroAction == action)) then
 		return true;
 	end
 	return false;
@@ -1770,15 +1769,11 @@ function DebounceFrameMixin:OnKeyDown(input)
 			return;
 		end
 
-		-- 매크로 편집 중이면 닫는다(저장된다 - 기본 매크로 창이 ESC로 닫힐 때와 같다).
-		-- 편집칸에 포커스가 있는 동안은 ESC가 포커스만 푸는 데 쓰이고 여기까지 안 온다.
-		if (DebounceDetailPanel:GetEditingMacroAction()) then
-			DebounceDetailPanel:CloseMacroEdit(false);
-			return;
-		end
+		-- 매크로 탭에는 따로 처리할 게 없다. 편집칸에 포커스가 있으면 ESC가 포커스만 풀고
+		-- (여기까지 안 온다), 한 번 더 누르면 아래 선택 해제로 간다 - 그때 본문이 저장된다.
 
-		-- 캡처 오버레이가 떠 있으면 그것부터 접는다. 오버레이도 자기 ESC를 처리하지만
-		-- 마우스가 패널 밖에 있으면 키가 여기로 먼저 오므로 양쪽에 둔다.
+		-- 키를 듣는 중이면 그것부터 그만둔다. 버튼도 자기 ESC를 처리하지만 마우스가 패널
+		-- 밖에 있으면 키가 여기로 먼저 오므로 양쪽에 둔다.
 		if (DebounceDetailPanel:IsCapturingKey()) then
 			DebounceDetailPanel:CancelKeyCapture();
 			return;
@@ -2370,12 +2365,20 @@ end
 
 DebounceDetailPanelMixin = {};
 
+--- 탭은 **내용이 있는 것만** 단다. 조건 편집은 아직 패널로 오지 않았으므로 탭도 없다 -
+--- 눌러서 빈 화면이 나오는 탭은 없는 것만 못하다.
+---
+--- 매크로 탭은 액션 종류를 안 가리고 늘 있다. 매크로텍스트가 아닌 액션에도 할 말이 있기
+--- 때문이다("여기로 바꿀 수 있다" 또는 "바꿀 수 없다").
+local DETAIL_TAB_KEY = 1;
+local DETAIL_TAB_MACRO = 2;
+
 function DebounceDetailPanelMixin:OnLoad()
-	-- 스켈레톤. 모양만 본다 - 누르면 아무 일도 안 일어난다.
-	for _, text in ipairs({ "Key and Priority", "Macro", "Conditions" }) do
-		self.TabSystem:AddTab(text);
-	end
-	self.TabSystem:SetTabVisuallySelected(1);
+	self.TabSystem:AddTab(LLL["DETAIL_TAB_KEY"]);
+	self.TabSystem:AddTab(LLL["DETAIL_TAB_MACRO"]);
+	self.TabSystem:SetTabSelectedCallback(function(tabID) self:SetTab(tabID); end);
+	self.selectedTabID = DETAIL_TAB_KEY;
+	self.TabSystem:SetTabVisuallySelected(DETAIL_TAB_KEY);
 
 	local keyArea = self.ContentArea.KeyArea;
 
@@ -2400,7 +2403,20 @@ function DebounceDetailPanelMixin:OnLoad()
 	keyText:SetWordWrap(false);
 
 
-	self.ContentArea.MacroOverlay.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
+	-- 편집칸은 보이는 만큼만 크고, 넘치는 본문은 스크롤로 간다(기본 매크로 창도 편집칸과
+	-- 스크롤 영역이 같은 크기다). 팝업이었을 때는 둘 다 XML에 박혀 있었는데, 탭이 되면서
+	-- 패널 크기를 따라가야 한다.
+	local editor = self.ContentArea.MacroArea.Editor;
+	editor.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
+	editor.ScrollFrame:SetScript("OnSizeChanged", function(scrollFrame, width, height)
+		scrollFrame.EditBox:SetSize(width, height);
+		editor.FocusCatcher:SetSize(width, height);
+	end);
+
+	-- 버튼 글자는 우클릭 메뉴의 것과 같은 것을 쓴다. 같은 동작이 두 자리에 있으므로 이름도
+	-- 같아야 한다.
+	self.ContentArea.MacroArea.ConvertPrompt.ConvertButton:SetText(LLL["CONVERT_TO_MACRO_TEXT"]);
+
 	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
@@ -2413,6 +2429,24 @@ function DebounceDetailPanelMixin:OnSelectionChanged()
 	self:Refresh();
 end
 
+--- 탭을 고른다. 떠나는 탭은 자기 것을 정리한다 - 매크로 탭은 본문을 저장하고, 키 탭은
+--- 듣던 키를 그만둔다. 나가는 길이 어디로 가든 같아야 하므로 여기 한 군데에만 둔다.
+function DebounceDetailPanelMixin:SetTab(tabID)
+	if (self.selectedTabID == tabID) then
+		return;
+	end
+
+	if (self.selectedTabID == DETAIL_TAB_MACRO) then
+		self:SaveMacroText();
+	elseif (self.selectedTabID == DETAIL_TAB_KEY) then
+		self:SetBindingMode(false);
+	end
+
+	self.selectedTabID = tabID;
+	self.TabSystem:SetTabVisuallySelected(tabID);
+	self:Refresh();
+end
+
 function DebounceDetailPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
@@ -2420,13 +2454,22 @@ function DebounceDetailPanelMixin:Refresh()
 
 	local action = _selectedAction;
 	if (not action) then
-		-- 선택이 없으면 패널이 접힌다. 매크로 오버레이는 다음에 펴질 때를 위해 내려둔다.
-		self.ContentArea.MacroOverlay:Hide();
+		-- 선택이 없으면 패널이 접힌다. 다음에 펴질 때를 위해 내용은 내려둔다.
+		self.ContentArea.MacroArea:Hide();
 		return;
 	end
 
-	self:RefreshKeybind(action);
-	self:RefreshMacroOverlay(action);
+	local onMacroTab = self.selectedTabID == DETAIL_TAB_MACRO;
+	self.ContentArea.KeyArea:SetShown(not onMacroTab);
+	self.ContentArea.OrderArea:SetShown(not onMacroTab);
+	self.ContentArea.MacroArea:SetShown(onMacroTab);
+
+	if (onMacroTab) then
+		self:SetEmptyText(nil);
+		self:RefreshMacroTab(action);
+	else
+		self:RefreshKeybind(action);
+	end
 end
 
 --- 다른 것으로 넘어가기 전에 부르는 계약. 이 패널은 저장을 미루는 상태가 없다 - 키도
@@ -2436,10 +2479,8 @@ end
 --- 선택은 건드리지 않는다. 부르는 쪽이 이미 선택을 바꾸는 중이다.
 function DebounceDetailPanelMixin:Close()
 	self:CancelKeyCapture(true);
-	if (self.macroAction) then
-		self:SaveMacroText();
-		self:ClearMacroEdit();
-	end
+	self:SaveMacroText();
+	self:ClearMacroEdit();
 	return true;
 end
 
@@ -2941,27 +2982,30 @@ end
 
 
 --------------------------------------------------------------------------------
--- 매크로 편집
+-- 매크로 탭
 --
 -- 저장 규칙은 기본 매크로 창(Blizzard_MacroUI.lua)을 그대로 따른다: **떠날 때 저장.**
 -- 거기서는 다른 매크로를 고르거나, 창이 닫히거나, 이름/아이콘 편집기를 열면 SaveMacro()가
--- 묻지 않고 불린다. 버리는 길은 [취소] 버튼 하나뿐이다.
+-- 묻지 않고 불린다. 여기서는 그 목록에 **다른 탭으로 가는 것**이 하나 더 붙는다. 버리는
+-- 길은 [취소] 버튼 하나뿐이다.
 --
 -- 그래서 이 패널에는 저장을 미루는 상태가 없다. HasUnsavedChanges / 저장-버림 팝업 /
 -- Close(force) 계약이 전부 사라졌다 - 그것들이 존재하던 유일한 이유가 매크로 편집기였다.
+--
+-- 편집 대상(macroAction)은 **선택이 살아 있는 동안만** 산다. Close가 저장하고 비우므로,
+-- 다음에 매크로 탭을 그릴 때 Refresh가 그 액션의 본문을 새로 올린다.
 --------------------------------------------------------------------------------
 
-function DebounceDetailPanelMixin:GetEditingMacroAction()
-	return self.macroAction;
-end
-
---- 매크로 편집을 연다.
+--- 매크로 탭을 연다.
 ---
 --- 패널은 선택된 액션만 그리므로 **편집 대상을 선택으로 옮긴다.** 진입점(CTRL-우클릭,
---- 우클릭 메뉴, 매크로텍스트 변환)이 선택과 무관한 행을 가리킬 수 있기 때문이다. 선택을
---- 옮기면 Close가 걸려 앞선 편집이 저장되고 상태가 비워지므로, 그 다음에 채운다.
+--- 우클릭 메뉴, 매크로텍스트 변환)이 선택과 무관한 행을 가리킬 수 있기 때문이다.
 ---
---- cancelFunc는 매크로텍스트 변환이 [취소]에서 원래 액션으로 되돌리는 데 쓴다.
+--- 탭이 이미 매크로였으면 SetTab이 아무것도 하지 않으므로 Refresh를 직접 부른다. 본문을
+--- 올리는 건 언제나 Refresh 한 군데다 - 여는 길이 셋인데 채우는 자리가 여럿이면 어긋난다.
+---
+--- cancelFunc는 매크로텍스트 변환이 [취소]에서 원래 액션으로 되돌리는 데 쓴다. 본문을
+--- 올리면서 지워지므로(앞 편집의 것이다) 그 뒤에 건다.
 function DebounceDetailPanelMixin:EditMacroText(action, cancelFunc)
 	if (not action or action.type ~= Constants.MACROTEXT) then
 		return false;
@@ -2970,16 +3014,21 @@ function DebounceDetailPanelMixin:EditMacroText(action, cancelFunc)
 		return false;
 	end
 
-	self.macroAction = action;
-	self.macroCancelFunc = cancelFunc;
-	self.macroOriginalText = action.value or "";
-
-	-- 본문은 **열 때만** 넣는다. Refresh는 자주 도는데 거기서 넣으면 타이핑이 지워진다.
-	self.ContentArea.MacroOverlay.ScrollFrame.EditBox:SetText(self.macroOriginalText);
-
+	self:SetTab(DETAIL_TAB_MACRO);
 	self:Refresh();
+	self.macroCancelFunc = cancelFunc;
+
 	DebounceFrame:Update();
 	return true;
+end
+
+--- 본문을 편집칸에 올린다. **대상이 바뀔 때만** 부른다 - Refresh는 자주 도는데 거기서
+--- 매번 넣으면 타이핑이 지워진다.
+function DebounceDetailPanelMixin:LoadMacroText(action)
+	self.macroAction = action;
+	self.macroCancelFunc = nil;
+	self.macroOriginalText = action.value or "";
+	self.ContentArea.MacroArea.Editor.ScrollFrame.EditBox:SetText(self.macroOriginalText);
 end
 
 --- 편집 상태만 비운다. 화면 갱신은 부르는 쪽이 한다.
@@ -2996,7 +3045,7 @@ function DebounceDetailPanelMixin:SaveMacroText()
 		return;
 	end
 
-	local text = self.ContentArea.MacroOverlay.ScrollFrame.EditBox:GetText();
+	local text = self.ContentArea.MacroArea.Editor.ScrollFrame.EditBox:GetText();
 	if (text == self.macroOriginalText) then
 		return;
 	end
@@ -3007,41 +3056,37 @@ function DebounceDetailPanelMixin:SaveMacroText()
 	DebouncePrivate.UpdateBindings();
 end
 
---- 편집을 닫는다. discard가 아니면 묻지 않고 저장한다.
-function DebounceDetailPanelMixin:CloseMacroEdit(discard)
-	if (not self.macroAction) then
+--- [취소] = 이 탭에서 고친 것을 버린다.
+---
+--- 팝업이었을 때는 "닫으면서 버린다"였는데 탭에는 닫는다는 게 없다. 그래서 본문만 열었을
+--- 때로 되돌리고 그 자리에 남는다.
+---
+--- 매크로텍스트 변환으로 들어왔다면 되돌릴 것이 본문이 아니라 **액션 자체**다(cancelFunc).
+--- 되돌린 액션은 더 이상 매크로텍스트가 아니므로 Refresh가 탭을 거두고 키 탭으로 돌린다.
+function DebounceDetailPanelMixin:MacroCancel_OnClick()
+	local action = self.macroAction;
+	if (not action) then
 		return;
 	end
+	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
 
 	local cancelFunc = self.macroCancelFunc;
-	if (discard) then
-		-- 변환 취소는 액션 자체를 되돌린다. 본문 저장을 대신한다.
-		if (cancelFunc) then
-			cancelFunc();
-		end
+	if (cancelFunc) then
+		-- 먼저 비운다. 안 그러면 되돌린 액션 위에 방금 버린 본문이 다시 저장된다.
+		self:ClearMacroEdit();
+		cancelFunc();
 	else
-		self:SaveMacroText();
+		self.ContentArea.MacroArea.Editor.ScrollFrame.EditBox:SetText(self.macroOriginalText or "");
 	end
 
-	self:ClearMacroEdit();
 	self:Refresh();
 	DebounceFrame:Refresh(true);
 	DebounceFrame:Update();
 end
 
-function DebounceDetailPanelMixin:MacroOkay_OnClick()
-	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
-	self:CloseMacroEdit(false);
-end
-
-function DebounceDetailPanelMixin:MacroCancel_OnClick()
-	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
-	self:CloseMacroEdit(true);
-end
-
 --- 이름/아이콘 편집기로 간다. 기본 매크로 창도 이 시점에 저장한다(MacroEditButton_OnClick).
 ---
---- 오버레이는 **열어둔 채로** 팝업이 그 위에 뜬다. 그래서 돌아왔을 때 본문이 그대로 있고,
+--- 탭은 **열어둔 채로** 팝업이 그 위에 뜬다. 그래서 돌아왔을 때 본문이 그대로 있고,
 --- 예전에 본문을 들고 다니던 tempText 곡예가 통째로 필요 없어졌다.
 function DebounceDetailPanelMixin:MacroEditNameIcon_OnClick()
 	local action = self.macroAction;
@@ -3062,25 +3107,68 @@ end
 
 function DebounceDetailPanelMixin:MacroText_OnTextChanged(editBox)
 	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
-	self.ContentArea.MacroOverlay.CharLimitText:SetFormattedText(
+	self.ContentArea.MacroArea.Editor.CharLimitText:SetFormattedText(
 		LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
 end
 
---- 이름·아이콘만 되비춘다. 본문은 안 건드린다(EditMacroText가 열 때 한 번 넣는다).
---- 아이콘 선택기를 다녀오면 여기서 새 이름·아이콘이 반영된다.
-function DebounceDetailPanelMixin:RefreshMacroOverlay(action)
-	local overlay = self.ContentArea.MacroOverlay;
-	local editing = self.macroAction ~= nil;
-	overlay:SetShown(editing);
-	if (not editing) then
+--- 매크로텍스트로 바꾼다. 우클릭 메뉴의 [매크로 텍스트로 전환]과 **같은 동작**이다
+--- (DropDownMenus.lua의 CreateConvertToMacroTextMenuItem). 같은 일이 두 자리에 있으므로
+--- 되돌리는 방법도 같다 - 바꾸기 전 액션을 통째로 떠서 [취소]에 매단다.
+function DebounceDetailPanelMixin:MacroConvert_OnClick()
+	local action = _selectedAction;
+	if (not action or not DebouncePrivate.CanConvertToMacroText(action)) then
 		return;
 	end
 
-	-- 캡처 오버레이와 같은 이유로 띄울 때마다 다시 잡는다(ContentArea가 useParentLevel).
-	overlay:SetFrameLevel(self.ContentArea:GetFrameLevel() + 6);
+	local original = CopyTable(action);
+	if (not DebouncePrivate.ConvertToMacroText(action)) then
+		return;
+	end
 
-	overlay.SelectedMacroName:SetText(action.name or "");
-	overlay.SelectedMacroButton.Icon:SetTexture(action.icon);
+	action._dirty = true;
+	DebouncePrivate.UpdateBindings();
+
+	-- 액션 테이블은 그대로 두고 내용만 되돌린다. 목록의 elementData가 이 테이블을 들고 있다.
+	self:EditMacroText(action, function()
+		wipe(action);
+		MergeTable(action, original);
+		action._dirty = true;
+		DebouncePrivate.UpdateBindings();
+	end);
+
+	DebounceFrame:Refresh(true);
+	DebounceFrame:Update();
+end
+
+--- 매크로 탭을 되비춘다. 이름·아이콘은 매번, 본문은 대상이 바뀌었을 때만.
+--- 아이콘 선택기를 다녀오면 여기서 새 이름·아이콘이 반영된다.
+function DebounceDetailPanelMixin:RefreshMacroTab(action)
+	local macroArea = self.ContentArea.MacroArea;
+	local isMacroText = action.type == Constants.MACROTEXT;
+
+	macroArea.Editor:SetShown(isMacroText);
+	macroArea.ConvertPrompt:SetShown(not isMacroText);
+
+	if (not isMacroText) then
+		-- 편집기가 아니므로 들고 있을 본문도 없다. 앞의 것이 남아 있으면 떠나는 것이니
+		-- 저장부터(선택을 바꾸는 길은 Close를 지나므로 보통 이미 저장돼 있다).
+		self:SaveMacroText();
+		self:ClearMacroEdit();
+
+		local canConvert = DebouncePrivate.CanConvertToMacroText(action);
+		macroArea.ConvertPrompt.Message:SetText(
+			LLL[canConvert and "MACRO_TAB_CONVERT_DESC" or "MACRO_TAB_NOT_CONVERTIBLE"]);
+		macroArea.ConvertPrompt.ConvertButton:SetShown(canConvert);
+		return;
+	end
+
+	if (self.macroAction ~= action) then
+		self:SaveMacroText();
+		self:LoadMacroText(action);
+	end
+
+	macroArea.Editor.SelectedMacroName:SetText(action.name or "");
+	macroArea.Editor.SelectedMacroButton.Icon:SetTexture(action.icon);
 end
 
 --------------------------------------------------------------------------------
