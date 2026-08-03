@@ -115,9 +115,6 @@ L["DETAIL_KEY_BUTTON_UNBIND_DESC"] = "Right-click to unbind."
 -- 클라이언트가 이미 모든 언어로 갖고 있는 말이다. 여기서 한 번 받아두면 로케일 파일이
 -- 없는 언어도 제 나라 말로 나온다.
 L["DETAIL_NO_KEY"] = NOT_BOUND
-L["DETAIL_CAPTURE_PROMPT"] = "Keep the mouse over this panel and press the key you want."
-L["DETAIL_KEY_CAPTURE_HINT"] = "Mouse buttons and the wheel work too. Press Escape to cancel."
-L["DETAIL_UNBIND_KEY"] = "Unbind"
 L["DETAIL_TAB_KEY"] = "Key & Priority"
 L["DETAIL_TAB_MACRO"] = "Macro"
 L["MACRO_TAB_CONVERT_DESC"] = "This action is not a macro text. Convert it to edit its body here."

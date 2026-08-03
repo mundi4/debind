@@ -98,8 +98,11 @@ end
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
 ---   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" - 그 단계에서 갈려서 index까지 안 내려옴
+---
+--- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
+--- 일이 없지만, 이 함수는 "못 하면 이유를 돌려준다"고 약속해 놓고 대신 터지면 안 된다.
 function DebouncePrivate.ComputeIndexMove(rows, targetIndex, direction)
-    if (targetIndex == nil) then
+    if (targetIndex == nil or targetIndex < 1 or targetIndex > #rows) then
         return nil, direction < 0 and "ALREADY_FIRST" or "ALREADY_LAST";
     end
 
@@ -195,7 +198,8 @@ do
     local _parsedKeys = {};
 
     -- strsplit("-", key)와 같은 의미로 쪼갠다: 빈 조각을 보존하고 마지막 조각이 실제 키다.
-    -- ("SHIFT--"는 mods = {"SHIFT", ""}, lastKey = "-") strsplit을 안 쓰는 건 이 파일이
+    -- ("SHIFT--"는 mods = {"SHIFT", ""}, lastKey = "" - `-`도 구분자로 먹으므로 뒤가
+    -- 빈다. strsplit도 "SHIFT", "", ""로 같게 쪼갠다.) strsplit을 안 쓰는 건 이 파일이
     -- WoW 전역 없이 로드돼야 하기 때문이다.
     local function ParseKey(key)
         local parsed = _parsedKeys[key];
@@ -244,11 +248,27 @@ do
             return #lhs.mods < #rhs.mods;
         end
 
+        -- 모르는 수식키도 lastKey와 같은 규칙으로 다룬다. 여기만 가드가 없으면 SORT_KEYS에
+        -- 없는 조각이 하나라도 섞였을 때 nil과 숫자를 비교하다가 **table.sort 안에서**
+        -- 터진다 - 목록이 반쯤 섞인 채로 그리기가 멈춘다. 양쪽 다 모르면 nil ~= nil이
+        -- 거짓이라 그냥 지나가서, 서로 다른 키가 같은 것으로 판정돼 헤더가 겹쳐 나온다.
+        -- 애드온이 만드는 키로는 닿지 않지만 SavedVariables는 손으로 고칠 수 있다.
         for i = 1, #lhs.mods do
-            local a = SORT_KEYS[lhs.mods[i]];
-            local b = SORT_KEYS[rhs.mods[i]];
-            if (a ~= b) then
-                return a < b;
+            local lm, rm = lhs.mods[i], rhs.mods[i];
+            if (lm ~= rm) then
+                local a = SORT_KEYS[lm];
+                local b = SORT_KEYS[rm];
+                if (a and b) then
+                    if (a ~= b) then
+                        return a < b;
+                    end
+                elseif (a) then
+                    return true;
+                elseif (b) then
+                    return false;
+                else
+                    return lm < rm;
+                end
             end
         end
     end

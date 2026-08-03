@@ -149,6 +149,7 @@ globals = {
 	"SquareButton_SetIcon",
 	"GameTooltip_AddBlankLineToTooltip",
 	"GameTooltip_Hide",
+	"StaticPopup_Show",
 	"StaticPopup_ShowCustomGenericConfirmation",
 	"StaticPopup_ShowCustomGenericInputBox",
 	"StaticPopup_FindVisible",
@@ -255,7 +256,6 @@ globals = {
 	"DebouncePortraitMixin",
 	"DebounceFrameMixin",
 	"DebounceDetailPanelMixin",
-	"DebounceMacroFrameMixin",
 	"DebounceIconSelectorFrameMixin",
 	"DebounceOverviewFrameMixin",
 	"DebounceOverviewHeaderMixin",
@@ -266,7 +266,6 @@ globals = {
 	"DebounceFrame",
 	"DebounceOverviewFrame",
 	"DebounceDetailPanel",
-	"DebounceMacroFrame",
 	"DebounceIconSelectorFrame",
 	"DebounceActionPlacerFrame",
 
