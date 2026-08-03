@@ -75,6 +75,7 @@ do
 
         _prevUnitNameMap = unitNameMap;
         UnitWatch:SetAttribute("grouproster_uptodate", true);
+        SecureHandlerExecute(UnitWatch, [[self:RunAttribute("OnGroupRosterChanged", true)]]);
     end
 end
 
@@ -169,6 +170,31 @@ self:Show()
     end
 end
 
+-- 로스터가 바뀌었을 때(uptodate=false) / 다시 최신이 됐을 때(uptodate=true) 커스텀 타겟 정리.
+-- 이름 추적(헤더가 켜져 있음)은 사람을 따라가므로 건드리지 않고, 휘발성(원시 토큰)만 손본다.
+-- 속성 변경 이벤트에 얹지 않고 명시적으로 호출한다. 동일 값 SetAttribute도
+-- _onattributechanged를 발화시키는 건 확인했지만(인게임 측정) 문서화된 동작은 아니다.
+-- 무효화가 조용히 안 돌면 @custom1이 로스터가 밀린 뒤 남을 가리키므로 거기에 기대지 않는다.
+UnitWatch:SetAttribute("OnGroupRosterChanged", [==[
+    local uptodate = ...
+    for i = 1, 2 do
+        local alias = "custom"..i
+        local unit = unitMap[alias]
+        if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit] == "group") then
+            if (not UnitwatchHeaders[alias]:IsShown()) then
+                if (uptodate) then
+                    local unitName = unitNames[unit]
+                    if (unitName) then
+                        self:SetAttribute(alias, ":"..unitName)
+                    end
+                else
+                    self:SetAttribute(alias, false)
+                end
+            end
+        end
+    end
+]==]);
+
 do
     local header = CreateFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
     header:SetAttribute("showParty", true);
@@ -189,6 +215,7 @@ do
 
     SecureHandlerWrapScript(lastChildFrame, "OnHide", UnitWatch, [==[
         unitwatch:SetAttribute("grouproster_uptodate", false)
+        unitwatch:RunAttribute("OnGroupRosterChanged", false)
         unitwatch:CallMethod("UpdateGroupRoster")
 		self:Show()
     ]==]);
@@ -452,24 +479,7 @@ do
 end
 
 UnitWatch:SetAttribute("_onattributechanged", [==[
-    if (name == "grouproster_uptodate") then
-        for i = 1, 2 do
-            local alias = "custom"..i
-            local unit = unitMap[alias]
-            if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit] == "group") then
-                if (not UnitwatchHeaders[alias]:IsShown()) then
-                    if (value) then
-                        local unitName = unitNames[unit]
-                        if (unitName) then
-                            self:SetAttribute(alias, ":"..unitName)
-                        end
-                    else
-                        self:SetAttribute(alias, false)
-                    end
-                end
-            end
-        end
-    elseif (name == "custom1" or name == "custom2") then
+    if (name == "custom1" or name == "custom2") then
         local alias, unit, nameList, failed = name, value or nil
 		if (unit) then
 			unit = strtrim(unit)
