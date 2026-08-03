@@ -2843,8 +2843,11 @@ function DebounceDetailPanelMixin:RefreshKeybind(action)
 	local key = action.key;
 
 	keyArea.Label:SetText(LLL["KEY"]);
-	-- 덮개가 없어졌으므로 이 줄이 늘 보인다. 키가 없으면 빈 버튼이 아니라 무엇을 하라는지
-	-- 말해야 한다.
+	-- 덮개가 없어졌으므로 이 줄이 늘 보인다. 말은 블리자드 단축키 버튼의 것을 그대로 쓰되
+	-- (사용자가 단축키 창에서 이미 보고 있다) 흐리게는 하지 않는다. 거기서는 안 걸린 키가
+	-- 정상이지만 - 키마다 바인딩을 둘씩 넣는 사람은 없다 - 여기 액션은 사용자가 직접 만든
+	-- 것이라 키가 없으면 아무 일도 안 하는 물건이다. 흐리게 하면 그게 괜찮아 보인다.
+	-- 무엇을 하라는지는 툴팁이 말한다.
 	keyArea.KeyButton:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
 
 	local warning = GetKeyWarningText(action, key);
