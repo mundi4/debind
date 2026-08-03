@@ -1594,8 +1594,22 @@ function DebounceFrameMixin:InitializeButtons()
 	end)
 end
 
+--- 게임메뉴가 뜰 때는 언제나 열린 창을 먼저 다 닫는다(ESC는 CloseAllWindows가 먼저 먹고,
+--- 마이크로 버튼은 CloseAllWindows 후 ShowUIPanel을 부른다). 그 그물이 UISpecialFrames이므로
+--- 여기 등록하지 않으면 게임메뉴와 창이 공존하게 되고, 그 상태에서 ESC를 우리가 가로챈다.
+local function RegisterAsSpecialFrame(name)
+	for _, value in ipairs(UISpecialFrames) do
+		if (value == name) then
+			return;
+		end
+	end
+	tinsert(UISpecialFrames, name);
+end
+
 function DebounceFrameMixin:OnLoad()
 	self.initialized = true;
+
+	RegisterAsSpecialFrame("DebounceFrame");
 
 	self:SetPortraitToAsset(133015);
 	self:SetPropagateKeyboardInput(true);
@@ -3109,6 +3123,8 @@ DebounceOverviewFrameMixin = {}
 function DebounceOverviewFrameMixin:OnLoad()
 	self.initialized = true;
 
+	RegisterAsSpecialFrame("DebounceOverviewFrame");
+
 	local title = format(LLL["DEBOUNCE_OVERVIEW_TITLE"]);
 	self:SetTitle(title);
 	self:SetPortraitToAsset(133015);
@@ -3335,7 +3351,8 @@ end
 function DebounceOverviewFrameMixin:Toggle()
 	if (self:IsShown()) then
 		self:Hide();
-	else
+	elseif (not GameMenuFrame:IsShown()) then
+		-- 게임메뉴가 떠 있으면 열지 않는다. DebouncePublic:ToggleUI()와 같은 이유다.
 		self:Show();
 	end
 end

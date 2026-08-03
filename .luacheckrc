@@ -173,6 +173,8 @@ globals = {
 
 	-- FrameXML: frames
 	"UIParent",
+	"UISpecialFrames",
+	"GameMenuFrame",
 	"MacroFrame",
 	"PlayerFrame",
 	"PetFrame",

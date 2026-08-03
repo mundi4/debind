@@ -63,11 +63,19 @@ function DebouncePublic.UnregisterCallback(target, eventname)
 end
 
 function DebouncePublic:ToggleUI()
+	if (DebounceFrame:IsShown()) then
+		DebounceFrame:Hide();
+		return
+	end
 	if (InCombatLockdown()) then
 		DebouncePrivate.DisplayMessage(LLL["CANNOT_OPEN_IN_COMBAT"], 1, 0, 0)
 		return
 	end
-	DebounceFrame:SetShown(not DebounceFrame:IsShown());
+	-- 게임메뉴는 열릴 때 열린 창을 전부 닫고 나온다. 그 위에 얹히지 않는다.
+	if (GameMenuFrame:IsShown()) then
+		return
+	end
+	DebounceFrame:Show();
 end
 
 if (not DebouncePrivate.CliqueDetected) then
