@@ -109,16 +109,26 @@ local function ScheduleRefresh()
     end
 end
 
---- 트리거는 둘이다. 게임 이벤트는 모드 전환(컨텍스트가 바뀌는 지점)을 받고,
---- EventRegistry 쪽은 편집기 진입·이탈을 받는다. 어느 하나가 안 와도 나머지가 덮는다.
+--- 트리거는 둘이고 **서로 다른 전이를 맡는다.** 서로를 덮어주지 않는다:
+---
+---   HOUSE_EDITOR_MODE_CHANGED  - 모드 전환. 모드마다 다른 컨텍스트가 켜지고 꺼진다.
+---   HouseEditor.StateUpdated   - 편집기 열림/닫힘. HouseEditorFrameMixin의 OnShow/OnHide가
+---                                쏘는 것이 전부라 모드 전환에는 오지 않는다.
+---
+--- 컨텍스트 바인딩의 대부분이 모드 스코프라, 앞의 것이 빠지면 떠난 모드의 키를 계속
+--- 양보하고 들어간 모드의 키는 양보하지 않는다. 둘 중 하나만 붙은 채로 두면 기능이
+--- 반쯤 살아 있게 되므로, 어느 쪽이 붙었는지는 남겨서 나중에 물어볼 수 있게 한다.
 if (supported) then
     local EventFrame = CreateFrame("Frame");
     EventFrame:SetScript("OnEvent", ScheduleRefresh);
     -- 이 인터페이스 버전에 이벤트가 없을 수도 있다.
-    pcall(EventFrame.RegisterEvent, EventFrame, "HOUSE_EDITOR_MODE_CHANGED");
+    local modeTrigger = pcall(EventFrame.RegisterEvent, EventFrame, "HOUSE_EDITOR_MODE_CHANGED");
 
     -- Blizzard_HouseEditor가 아직 안 올라왔어도 등록은 된다(CallbackRegistry라서).
-    if (EventRegistry) then
+    local stateTrigger = EventRegistry ~= nil;
+    if (stateTrigger) then
         EventRegistry:RegisterCallback("HouseEditor.StateUpdated", ScheduleRefresh, EventFrame);
     end
+
+    DebouncePrivate.BindingContextTriggers = { mode = modeTrigger, state = stateTrigger };
 end

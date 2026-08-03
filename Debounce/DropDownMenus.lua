@@ -658,15 +658,19 @@ do
     local function CreateConvertToMacroTextMenuItem(parentDescription)
         if (DebouncePrivate.CanConvertToMacroText(_action)) then
             parentDescription:CreateButton(LLL["CONVERT_TO_MACRO_TEXT"], function()
-                local original = CopyTable(_action);
-                if (DebouncePrivate.ConvertToMacroText(_action)) then
+                -- 되돌릴 액션을 지금 붙잡아 둔다. _elementData는 다음 행의 메뉴가 열릴
+                -- 때마다 갈아끼워지는 파일 단위 값이라, [취소]를 누르는 시점에 읽으면
+                -- **엉뚱한 액션을 비우고 그 자리에 이 액션의 원본을 덮어쓴다.**
+                local action = _action;
+                local original = CopyTable(action);
+                if (DebouncePrivate.ConvertToMacroText(action)) then
                     onActionValueChanged();
                     local cancelFunc = function()
-                        wipe(_elementData.action);
-                        MergeTable(_elementData.action, original);
+                        wipe(action);
+                        MergeTable(action, original);
                         onActionValueChanged();
                     end
-                    DebounceDetailPanel:EditMacroText(_elementData.action, cancelFunc);
+                    DebounceDetailPanel:EditMacroText(action, cancelFunc);
                 end
             end);
         end

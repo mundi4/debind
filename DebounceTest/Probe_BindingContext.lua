@@ -64,6 +64,32 @@ local function SetAllContexts(active)
     return failed
 end
 
+--- 되돌리기는 "전부 끄기"가 **아니다.**
+---
+--- 이 프로브가 흥미로워지는 순간은 하우스 편집기가 열려 있을 때인데, 바로 그때 편집기가
+--- 자기 OnShow에서 컨텍스트를 켜둔 상태다. 전부 끄면 그걸 같이 꺼버리고, 블리자드는
+--- 다음 OnShow까지 다시 켜지 않는다 - 편집기 자기 단축키가 세션 내내 죽는다.
+--- 애드온 전체가 "블리자드 것은 건드리지 않는다"로 서 있는데 시험 도구가 그걸 깨면 안 된다.
+---
+--- 그래서 켜기 전에 뜬 상태를 그대로 되돌려 놓는다.
+local function RestoreContexts(activeByName)
+    local failed = {}
+    for _, ctx in ipairs(GetContexts()) do
+        if (ctx.value ~= Enum.BindingContext.None) then
+            local wasActive = activeByName and activeByName[ctx.name];
+            local fn = wasActive and C_KeyBindings.ActivateBindingContext or C_KeyBindings.DeactivateBindingContext
+            local ok, err = pcall(fn, ctx.value)
+            if (not ok) then
+                failed[ctx.name] = tostring(err)
+            end
+        end
+    end
+    return failed
+end
+
+--- /debprobe on이 켜기 직전에 떠둔 상태. off가 여기로 되돌린다.
+local savedContexts
+
 -----------------------------------------------------------
 -- 프로브 대상 키
 -----------------------------------------------------------
@@ -101,15 +127,27 @@ local function SampleContextedBindings()
     return out
 end
 
+--- 인자를 못 믿는 API는 이걸로 부른다. 실패해도 그 칸에만 남고 프로브는 계속 돈다.
+local function Try(fn, ...)
+    local ok, result = pcall(fn, ...)
+    if (ok) then
+        return result
+    end
+    return "ERR: " .. tostring(result)
+end
+
 local function SampleKeys()
     local out = {}
     for _, key in ipairs(probeKeys) do
-        -- GetBindingAction의 2번째 인자(checkOverride)는 레거시 API라
-        -- 생성된 문서에 없다. 두 형태를 다 찍어서 살아있는지부터 본다.
+        -- GetBindingAction의 2번째 인자는 레거시 시절 checkOverride였지만 지금은 아닌
+        -- 것으로 보인다 - 블리자드는 GetBindingAction(key, nil, bindingContext) 꼴로
+        -- 부른다(Blizzard_Keybindings.lua). 불리언을 넣으면 그냥 터질 수 있으므로
+        -- 반드시 감싸서 부른다. 이름도 "무엇을 물었는지"로 바꿨다 - 예전 이름은
+        -- 오버라이드를 물은 것처럼 읽혀서, 다른 걸 답해도 증거로 오해된다.
         local entry = {
-            action_default = GetBindingAction(key),
-            action_checkOverride = GetBindingAction(key, true),
-            action_noOverride = GetBindingAction(key, false),
+            action_default = Try(GetBindingAction, key),
+            action_arg2_true = Try(GetBindingAction, key, true),
+            action_arg2_false = Try(GetBindingAction, key, false),
             byContext = {},
         }
         -- GetBindingByKey는 인자 이름이 문서상 'action'이지만 실제로는 키를 받는다.
@@ -152,22 +190,35 @@ local function RunFullProbe()
         return
     end
 
-    local before = Sample("OFF (baseline)")
+    local before = Sample("baseline")
 
     local activateErrors = SetAllContexts(true)
     -- ON 샘플링이 터져도 컨텍스트는 반드시 되돌린다
     local ok, during = pcall(Sample, "ON (all contexts active)")
-    local deactivateErrors = SetAllContexts(false)
+    local restoreErrors = RestoreContexts(before.activeContexts)
 
-    local after = Sample("OFF (restored)")
+    local after = Sample("restored")
+
+    -- 정말로 켜졌는지 확인한다. 보호된 함수라 조용히 막히면 pcall도 성공으로 보이는데,
+    -- 그러면 during == before가 되고 읽는 사람은 "컨텍스트는 우리 오버라이드에 영향이
+    -- 없다"는 **거짓 결론**을 얻는다. 아무것도 안 켜졌으면 그렇다고 말해야 한다.
+    local turnedOn = 0
+    if (ok and during) then
+        for _, active in pairs(during.activeContexts) do
+            if (active) then turnedOn = turnedOn + 1 end
+        end
+    end
 
     local result = {
         before = before,
         during = ok and during or ("ERR: " .. tostring(during)),
         after = after,
         activateErrors = next(activateErrors) and activateErrors or "none",
-        deactivateErrors = next(deactivateErrors) and deactivateErrors or "none",
-        note = "before/after가 다르면 원복 실패. /reload 할 것.",
+        restoreErrors = next(restoreErrors) and restoreErrors or "none",
+        contextsActuallyActivated = turnedOn,
+        note = turnedOn == 0
+            and "켜진 컨텍스트가 하나도 없다. during은 증거가 못 된다."
+            or "before/after가 다르면 원복 실패. /reload 할 것.",
     }
 
     local sink = Dump(PROBE_NAME, result)
@@ -190,17 +241,26 @@ SlashCmdList["DEBPROBE"] = function(msg)
     cmd = strlower(cmd or "")
 
     if (cmd == "on") then
+        -- off로 되돌릴 자리를 여기서 떠둔다. 이게 없으면 off가 편집기 것까지 끈다.
+        savedContexts = SampleActiveContexts()
         local failed = SetAllContexts(true)
         -- 컨텍스트를 손으로 켜면 HOUSE_EDITOR_MODE_CHANGED가 안 오므로 재빌드를 직접 민다.
         local private = _G.DebouncePrivate
-        if (private and private.QueueUpdateBindings) then private.QueueUpdateBindings() end
-        Status("전 컨텍스트 ON + 재빌드 요청. 실패: %s", next(failed) and "있음(DevTool 확인)" or "없음")
+        local rebuilt = private and private.QueueUpdateBindings
+        if (rebuilt) then private.QueueUpdateBindings() end
+        Status("전 컨텍스트 ON%s. 실패: %s",
+            rebuilt and " + 재빌드 요청" or " (재빌드 못 미룸 - DEBUG 빌드가 아니다)",
+            next(failed) and "있음(DevTool 확인)" or "없음")
         if (next(failed)) then Dump(PROBE_NAME .. ":activateErrors", failed) end
     elseif (cmd == "off") then
-        SetAllContexts(false)
+        RestoreContexts(savedContexts)
         local private = _G.DebouncePrivate
-        if (private and private.QueueUpdateBindings) then private.QueueUpdateBindings() end
-        Status("전 컨텍스트 OFF + 재빌드 요청.")
+        local rebuilt = private and private.QueueUpdateBindings
+        if (rebuilt) then private.QueueUpdateBindings() end
+        Status("컨텍스트 원복%s.%s",
+            rebuilt and " + 재빌드 요청" or " (재빌드 못 미룸 - DEBUG 빌드가 아니다)",
+            savedContexts and "" or " |cffffff00켜기 전 상태를 못 떠뒀다 - 전부 껐다.|r")
+        savedContexts = nil
     elseif (cmd == "key" and arg and arg ~= "") then
         local key = strupper(strtrim(arg))
         tinsert(probeKeys, key)
