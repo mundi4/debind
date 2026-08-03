@@ -2773,7 +2773,18 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 
 		local preview = CreateDataProvider();
 		preview:Insert({
-			row = { action = action, layerID = GetLayerID(), layer = GetLayerID() },
+			-- 행은 CollectActionsForKey가 주는 레코드와 같은 모양이어야 한다(Profile.lua).
+			-- 빠진 필드는 "그 속성이 없다"로 읽히는데, 여기 액션은 키만 없을 뿐 나머지는
+			-- 이미 정해져 있다 - 키를 주는 순간 없던 표시가 튀어나오면 안 된다.
+			-- issue/unreachable은 키를 기준으로 정해지는 값이라 뺀다. 키가 없다는 말은
+			-- 버튼의 "Assign a Key"와 흑백 처리가 이미 하고 있다.
+			row = {
+				action = action,
+				layerID = GetLayerID(),
+				priority = action.priority or Constants.DEFAULT_PRIORITY,
+				hover = action.hover,
+				isConditional = DebouncePrivate.IsConditionalAction(action),
+			},
 			rank = 1,
 			isCurrent = true,
 		});
