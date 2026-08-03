@@ -51,15 +51,18 @@ globals = {
 	"GetLocale",
 
 	-- WoW core API
+	"Enum",
 	"C_AddOns",
 	"C_ClassTalents",
 	"C_CreatureInfo",
 	"C_Item",
+	"C_KeyBindings",
 	"C_MountJournal",
 	"C_Spell",
 	"C_SpellBook",
 	"C_SpecializationInfo",
 	"C_Timer",
+	"EventRegistry",
 	"C_TradeSkillUI",
 
 	-- Frame / Secure handler
@@ -96,6 +99,7 @@ globals = {
 	"DeleteMacro",
 	"GetNumBindings",
 	"GetBinding",
+	"GetBindingKey",
 	"GetBindingText",
 	"GetConvertedKeyOrButton",
 	"CreateKeyChordStringFromTable",

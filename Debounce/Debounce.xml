@@ -4,6 +4,7 @@
     <Script file="Ordering.lua"/>
     <Script file="Solver.lua"/>
     <Script file="Misc.lua"/>
+    <Script file="BindingContexts.lua"/>
     <Script file="Debounce.lua"/>
     <Script file="Profile.lua"/>
     <Script file="SecureBindings.lua"/>

@@ -228,6 +228,7 @@ function DebouncePrivate.UpdateBindings()
     end
 
     ACTION_BUTTON_USE_KEY_DOWN = GetCVarBool("ActionButtonUseKeyDown");
+    DebouncePrivate.RefreshYieldedKeys();
 
     SecureHandlerExecute(DebouncePrivate.BindingDriver, [[
 wipe(OldStates)
