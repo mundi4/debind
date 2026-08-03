@@ -409,6 +409,15 @@ local function GetActionTypeAndValueFromCursorInfo()
 	end
 end
 
+--- 커서에 **뭐라도** 들려 있는가.
+---
+--- _pickedupInfo는 우리가 받을 수 있는 것만 센다(주문·매크로·아이템·탈것). 그런데 "손이
+--- 찼다"는 그보다 넓다 - 전투애완동물이든 돈이든 들고 있는 동안 누른 키가 단축키를 정하려는
+--- 뜻일 리 없다. 그래서 키 캡처를 접을지는 이쪽으로 판단한다.
+local function IsCursorOccupied()
+	return GetCursorInfo() ~= nil;
+end
+
 local function NameAndIconFromElementData(elementData)
 	local action;
 	local type;
@@ -537,14 +546,15 @@ local function DeleteElementData(elementData)
 		DebounceFrame:SetSelectedAction(nil, true);
 	end
 
-	DebounceFrame.dataProvider:Remove(elementData);
-	for i, elem in DebounceFrame.dataProvider:Enumerate() do
-		elem.index = i;
-	end
-
 	local layer = DebouncePrivate.GetProfileLayer(elementData.layer);
 	layer:Remove(elementData.action);
 	DebouncePrivate.UpdateBindings();
+
+	-- 목록을 프로필에서 다시 만든다. 예전에는 provider에서 그 행만 빼고 index를 다시 매겼는데,
+	-- 그러면 한 키의 마지막 행을 지웠을 때 그룹 헤더가 홀로 남는다. 게다가 그 index는 배열
+	-- 위치가 아니라 **표시 순서**라서 정렬이 쓰는 order.index와 뜻이 달랐다. 다시 만드는 쪽이
+	-- 액션을 추가하거나 옮길 때 이미 하는 일이기도 하다.
+	DebounceFrame:Refresh(true);
 end
 
 local ShowDeleteConfirmationPopup, HideDeleteConfirmationPopup;
@@ -1233,6 +1243,26 @@ function DebounceLineMixin:OnReceiveDrag()
 	DebounceFrame:OnReceiveDrag();
 end
 
+--- 단축키 정렬에서 한 키의 묶음이 시작되는 자리에 놓이는 줄.
+---
+--- 행에서 단축키 글자를 빼지는 않는다. 헤더는 스크롤에 밀려 화면 밖으로 나가는데(이 목록은
+--- 고정 헤더가 아니다) 그러면 무슨 키인지 알 수 없는 행들만 남는다.
+DebounceKeyHeaderMixin = {};
+
+function DebounceKeyHeaderMixin:Init(elementData)
+	if (elementData.key) then
+		self.Label:SetText(GetBindingText(elementData.key));
+	else
+		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
+		self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["KEY_GROUP_UNBOUND"]));
+	end
+end
+
+--- DebounceFrameMixin:Update가 목록의 모든 프레임에 이걸 부른다. 헤더가 말하는 것은 키뿐이고
+--- 키가 바뀌면 목록이 통째로 다시 그려지므로 여기서 할 일이 없다.
+function DebounceKeyHeaderMixin:Update()
+end
+
 DebounceTabMixin = {};
 
 function DebounceTabMixin:OnLoad()
@@ -1535,8 +1565,17 @@ function DebounceFrameMixin:InitializeScrollBox()
 	local spacing = 4;
 	local view = CreateScrollBoxListLinearView(padding, bottomPadding, padding, padding, spacing);
 
-	view:SetElementInitializer("DebounceLineTemplate", function(button, elementData)
-		button:Init(elementData);
+	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 팩토리가 elementData를 보고 고른다.
+	view:SetElementFactory(function(factory, elementData)
+		if (elementData.isHeader) then
+			factory("DebounceKeyHeaderTemplate", function(frame)
+				frame:Init(elementData);
+			end);
+		else
+			factory("DebounceLineTemplate", function(button)
+				button:Init(elementData);
+			end);
+		end
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
@@ -1694,6 +1733,11 @@ function DebounceFrameMixin:OnEvent(event, arg1)
 		elseif (_pickedupInfo) then
 			_pickedupInfo = nil;
 			self:ClearMouse();
+		else
+			-- 우리가 받을 수 없는 것을 집었거나 내려놓았다. 목록은 반응할 게 없지만 키 캡처는
+			-- 손이 찼는지만 보므로(IsCursorOccupied) 다시 그려야 한다. 이게 없으면 판단은
+			-- 맞는데 화면이 안 따라온다.
+			self:Update();
 		end
 	elseif (event == "PLAYER_REGEN_DISABLED") then
 		self:OnEnterCombat();
@@ -1840,6 +1884,23 @@ local function BuildSortedElements(layer, layerID)
 			end
 			return DebouncePrivate.CompareActionOrder(lhs.order, rhs.order);
 		end);
+
+		-- 키가 바뀌는 자리마다 헤더를 끼운다. 이름순에는 안 넣는다 - 그쪽은 묶음이 아니라
+		-- 표시 순서일 뿐이라 그을 경계가 없다.
+		--
+		-- 헤더 elementData에는 action이 없다. 액션으로 찾는 쪽(FindElementDataByActionInfo)이
+		-- 자연히 비켜가므로 선택·스크롤 경로는 헤더를 몰라도 된다.
+		local grouped = {};
+		local lastKey, started;
+		for _, elementData in ipairs(elements) do
+			local key = elementData.action.key;
+			if (not started or key ~= lastKey) then
+				grouped[#grouped + 1] = { isHeader = true, key = key, layer = layerID };
+				lastKey, started = key, true;
+			end
+			grouped[#grouped + 1] = elementData;
+		end
+		elements = grouped;
 	end
 
 	return elements;
@@ -1937,7 +1998,41 @@ function DebounceFrameMixin:Update()
 
 	self:UpdateEmptyText();
 
-	self.ScrollBoxBackground.Highlight:SetShown(_pickedupInfo or _draggingElement)
+	self:UpdateDropOverlay();
+end
+
+--- 드래그 중에는 창 안쪽을 덮는다.
+---
+--- 목적은 "어느 줄에 떨궈야 하나"를 물을 수 없게 만드는 것이다 - 이 창은 떨어진 위치를
+--- 보지 않는다. 행이 보이면 행마다 툴팁이 뜨고 각각이 목적지처럼 보인다.
+---
+--- 글로우는 **받을 때만** 켠다. 우리 행을 끄는 중이면 목적지는 탭이고, 같은 레이어에 다시
+--- 놓는 것은 아무 일도 아니라서 OnReceiveDrag가 그냥 돌아선다. 그때 빛내면 "여기 떨궈라"
+--- 해놓고 안 받는 꼴이 된다. 대신 안내문이 어디로 가야 하는지 말한다.
+function DebounceFrameMixin:UpdateDropOverlay()
+	local overlay = self.DropOverlay;
+	local pickedUp = _pickedupInfo ~= nil;
+	local shown = pickedUp or IsDraggingElement();
+
+	overlay:SetShown(shown);
+	if (not shown) then
+		return;
+	end
+
+	-- 상세 패널이 useParentLevel이라 레벨이 부모를 따라 움직인다. 한 번 박아두지 않고
+	-- 띄울 때마다 다시 잡는다(캡처 오버레이가 같은 이유로 그렇게 한다).
+	overlay:SetFrameLevel(self:GetFrameLevel() + 100);
+
+	overlay.Glow:SetShown(pickedUp);
+	overlay.Prompt:SetText(pickedUp and LLL["LIST_DROP_PROMPT_ADD"] or LLL["LIST_DROP_PROMPT_MOVE"]);
+end
+
+--- 커서에 집어온 것을 놓는 동작은 드래그가 아니라 **클릭**이다. ScrollBox가 그랬던 것과
+--- 같은 이유로 덮개도 클릭을 드롭으로 보낸다.
+function DebounceFrameMixin:DropOverlay_OnMouseUp(button)
+	if (button == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
+		self:OnReceiveDrag();
+	end
 end
 
 function DebounceFrameMixin:UpdateButtons()
@@ -2690,7 +2785,14 @@ end
 --- 빈 자리를 남기면 버튼 하나가 떠 있는 꼴이 된다.
 function DebounceDetailPanelMixin:RefreshCaptureOverlay(key)
 	local overlay = self.ContentArea.CaptureOverlay;
-	local capturing = self:IsCapturingKey();
+	-- 손이 차 있으면 접는다. 목록 덮개가 이 위를 가리지만 완전히 불투명하지는 않아서
+	-- 펄스하는 글로우가 비쳐 나오고, 커서를 따라다니는 고스트와 움직임이 겹친다.
+	-- 접으면 Glow의 OnHide가 펄스를 멈추므로 따로 끌 것이 없다. IsCapturingKey는 액션에서
+	-- 계산되는 값이라 여기서 감춰도 상태가 흐트러지지 않는다 - 손을 비우면 되돌아온다.
+	--
+	-- 여기는 _pickedupInfo가 아니라 IsCursorOccupied로 판단한다. 우리가 받을 수 없는 것을
+	-- 들고 있어도 그때 누른 키는 단축키를 정하려는 뜻이 아니다.
+	local capturing = self:IsCapturingKey() and not (IsCursorOccupied() or IsDraggingElement());
 	overlay:SetShown(capturing);
 	if (not capturing) then
 		return;
@@ -2813,6 +2915,14 @@ end
 --- 전투 중 SetPropagateKeyboardInput은 taint지만, 전투에 들어가면 DebounceFrame이 숨고
 --- (OnEnterCombat) 캡처도 같이 취소되므로 여기까지 오지 않는다.
 function DebounceDetailPanelMixin:KeyCapture_OnKeyDown(overlay, key)
+	-- 손이 차 있으면 캡처가 물러난다. 뭔가 들고 있는 채로 누른 키는 단축키를 정하려는 뜻이
+	-- 아니다. ESC도 넘긴다 - 그때 ESC는 캡처 취소가 아니라 드래그 취소이고,
+	-- DebounceFrameMixin:OnKeyDown이 이미 그 순서로 처리한다.
+	if (IsCursorOccupied() or IsDraggingElement()) then
+		overlay:SetPropagateKeyboardInput(true);
+		return;
+	end
+
 	if (key == "ESCAPE") then
 		overlay:SetPropagateKeyboardInput(false);
 		self:CancelKeyCapture();

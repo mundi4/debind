@@ -117,6 +117,38 @@
 		</Scripts>
 	</Frame>
 
+	<!--
+		단축키 정렬에서 키가 바뀌는 자리마다 들어가는 줄.
+
+		**마우스를 켜지 않는다.** 이 창은 드래그를 어디에 떨궈도 받는다 - 위치가 뜻을
+		가지지 않기 때문이다. 헤더가 마우스를 먹으면 그 띠만 드롭이 죽는 사각지대가
+		되므로, 이벤트를 밑의 ScrollBox로 그냥 통과시킨다. 그래서 Button이 아니라 Frame이다.
+	-->
+	<Frame name="DebounceKeyHeaderTemplate" mixin="DebounceKeyHeaderMixin" virtual="true">
+		<Size x="450" y="20"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="LEFT" x="4" y="0"/>
+					</Anchors>
+				</FontString>
+				<!--
+					글자 뒤부터 오른쪽 끝까지 긋는다. 라벨이 세로 가운데에 걸려 있어야
+					두 앵커의 높이가 어긋나지 않는다.
+				-->
+				<Texture parentKey="Divider">
+					<Size y="1"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Label" relativePoint="RIGHT" x="6" y="0"/>
+						<Anchor point="RIGHT" x="-4" y="0"/>
+					</Anchors>
+					<Color r="1" g="1" b="1" a="0.15"/>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Frame>
+
 	<Button name="DebounceLineTemplate" mixin="DebounceLineMixin" virtual="true">
 		<Size x="450" y="46"/>
 		<Layers>
@@ -493,23 +525,6 @@
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
 					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
 				</Anchors>
-				<Layers>
-					<Layer level="OVERLAY">
-						<FontString parentKey="AddInstructionText" inherits="GameFontGreen" justifyH="CENTER" text="Drag to here!" hidden="true">
-							<Anchors>
-								<Anchor point="TOP" relativePoint="TOP" x="0" y="-40"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-				<Frames>
-					<Frame parentKey="Highlight" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.4">
-						<Anchors>
-							<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="3" y ="-3"/>
-							<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-3" y ="3"/>
-						</Anchors>
-					</Frame>
-				</Frames>
 			</Frame>
 
 			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
@@ -555,6 +570,59 @@
 					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPLEFT" x="4" y="2"/>
 				</Anchors>
 			</EditBox>
+
+			<!--
+				드래그 중에 창 안쪽을 통째로 덮는다.
+
+				이 창은 **어디에 떨궈도** 받는다 - 떨어진 위치가 뜻을 가지지 않기 때문이다.
+				그런데 행이 보이면 "어느 줄에 떨궈야 하나"라는 질문이 생기고, 행마다 툴팁이
+				뜨면 행이 각각의 목적지처럼 보인다. 잠시 덮어서 그 질문 자체를 없앤다.
+
+				상세 패널까지 덮는 이유는 캡처 오버레이와 나란히 빛나는 것을 막기 위해서다.
+				드래그 중에는 드래그가 이긴다 - ESC 처리 순서가 이미 그렇게 되어 있다.
+
+				아래 탭과 오른쪽 사이드탭은 프레임 **바깥**에 붙어 있어 덮이지 않는다.
+				레이어를 옮기는 목적지라 살아 있어야 한다.
+			-->
+			<Frame parentKey="DropOverlay" enableMouse="true" hidden="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="4" y="-85"/>
+					<Anchor point="BOTTOMRIGHT" x="-4" y="10"/>
+				</Anchors>
+				<Layers>
+					<Layer level="BACKGROUND">
+						<!-- 캡처 오버레이와 같은 푸른 기 도는 검정. 두 덮개가 같은 뜻으로 읽혀야 한다. -->
+						<Texture parentKey="Background" setAllPoints="true">
+							<Color r="0.03" g="0.06" b="0.15" a="0.88"/>
+						</Texture>
+					</Layer>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Prompt" inherits="GameFontNormalMed2" justifyH="CENTER" wordwrap="true">
+							<Size x="300" y="0"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+				<Frames>
+					<!-- 받을 때만 켠다. 우리 행을 끄는 중이면 목적지는 탭이고 여기는 받을 게 없다. -->
+					<Frame parentKey="Glow" inherits="DebounceGlowBorderTemplate" alpha="0.55">
+						<Anchors>
+							<Anchor point="TOPLEFT" x="6" y="-6"/>
+							<Anchor point="BOTTOMRIGHT" x="-6" y="6"/>
+						</Anchors>
+					</Frame>
+				</Frames>
+				<Scripts>
+					<OnReceiveDrag>
+						DebounceFrame:OnReceiveDrag();
+					</OnReceiveDrag>
+					<OnMouseUp>
+						DebounceFrame:DropOverlay_OnMouseUp(button);
+					</OnMouseUp>
+				</Scripts>
+			</Frame>
 
 			<Button parentKey="Tab1" inherits="DebounceFrameTabTemplate" text="GENERAL" id="1">
 				<Anchors>
@@ -1175,15 +1243,6 @@
 					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
 					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
 				</KeyValues>
-				<Layers>
-					<Layer level="OVERLAY">
-						<FontString parentKey="AddInstructionText" inherits="GameFontGreen" justifyH="CENTER" text="Drag to here!" hidden="true">
-							<Anchors>
-								<Anchor point="TOP" relativePoint="TOP" x="0" y="-40"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
 				<Frames>
 					<Frame parentKey="Highlight" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.4">
 						<Anchors>
