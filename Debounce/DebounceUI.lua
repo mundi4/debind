@@ -2878,6 +2878,8 @@ function DebounceDetailPanelMixin:KeyButton_OnEnter(button)
 		GameTooltip_AddHighlightLine(GameTooltip, GetBindingText(key));
 	end
 	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_DESC"]);
+	-- 키가 없을 때도 낸다. 툴팁은 처음 한 번 읽고 마는 것이라, 그때 안 보이면 영영 모른다.
+	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_UNBIND_DESC"]);
 	GameTooltip:Show();
 end
 
@@ -2903,6 +2905,7 @@ function DebounceDetailPanelMixin:SetBindingMode(active)
 		-- 여기까지 온 클릭은 이미 up으로 끝났다. 이제부터는 **누르는 순간**을 받는다 -
 		-- 안 그러면 모드를 연 그 클릭이 곧바로 BUTTON1로 잡힌다.
 		button:RegisterForClicks("AnyDown");
+		self.ignoreClickUp = nil;
 	else
 		button:RegisterForClicks("LeftButtonUp", "RightButtonUp");
 		-- 여기서 SetPropagateKeyboardInput(true)로 되돌리면 안 된다. ESC로 빠져나오는 그
@@ -2918,7 +2921,23 @@ end
 function DebounceDetailPanelMixin:KeyButton_OnClick(button, mouseButton)
 	if (self:IsCapturingKey()) then
 		self:KeyButton_OnInput(mouseButton);
+		-- 마우스로 잡았으면 **같은 물리 클릭의 up이 한 번 더 들어온다.** down으로 키를
+		-- 잡으면서 듣기가 꺼지고, 꺼지는 길에 up 등록으로 되돌아가기 때문이다. 그대로 두면
+		-- 우클릭은 BUTTON2로 지정된 직후 스스로 해제되고, 좌클릭은 지정하자마자 다시
+		-- 듣기로 들어간다. 그 up은 새 클릭이 아니므로 한 번 삼킨다.
+		if (not self:IsCapturingKey()) then
+			self.ignoreClickUp = mouseButton;
+		end
 		return;
+	end
+	if (self.ignoreClickUp) then
+		local ignored = self.ignoreClickUp;
+		self.ignoreClickUp = nil;
+		-- 누른 채로 버튼 밖에서 떼면 그 up은 영영 안 온다. 그때 남은 표시는 다음 클릭이
+		-- 가져가되, 같은 버튼일 때만 삼킨다.
+		if (ignored == mouseButton) then
+			return;
+		end
 	end
 	if (mouseButton == "RightButton") then
 		self:UnbindKey();
