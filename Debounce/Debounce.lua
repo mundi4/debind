@@ -141,7 +141,10 @@ do
 					local issue = DebouncePrivate.GetBindingIssue(action);
 					-- 게임이 바인딩 컨텍스트로 가져간 키는 KeyMap에 넣지 않는다. 즉 그 키에는
 					-- 오버라이드를 걸지 않고, 편집기가 닫히면 다시 들어온다.
-					if (not issue and not DebouncePrivate.IsKeyYielded(key)) then
+					-- keepInBindingContext를 켠 액션은 예외로 그대로 건다. 편집기가 자기 버튼에
+					-- 그 키를 표시한 채로 안 먹게 되므로, 유저가 알고 켜는 것이어야 한다.
+					local yielded = DebouncePrivate.IsKeyYielded(key) and not action.keepInBindingContext;
+					if (not issue and not yielded) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};
 							local button, buttonPrefix = DebouncePrivate.GetMouseButtonAndPrefix(key);
