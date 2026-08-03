@@ -176,6 +176,17 @@
 						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="LEFT" x="0" y="-15"/>
 					</Anchors>
 				</FontString>
+				<!--
+					단축키에 문제가 있다는 표시. "?"(QuestionMark)는 **조건이 붙어 있다**는
+					뜻이라 자리를 뺏으면 안 된다 - 조건부이면서 단축키가 문제인 액션이 흔하다.
+					가로 위치는 단축키 글자 길이에 따라 달라지므로 Lua에서 잡는다.
+				-->
+				<Texture parentKey="KeyWarning" atlas="transmog-icon-warning-small" hidden="true">
+					<Size x="14" y="14"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.BindingText" relativePoint="LEFT"/>
+					</Anchors>
+				</Texture>
 				<Texture parentKey="QuestionMark" atlas="questlog-questtypeicon-quest" hidden="false">
 					<Size x="14" y="14"/>
 					<Anchors>
@@ -748,13 +759,13 @@
 											되고 힌트와 버튼이 거기서부터 아래로 달려서 덩어리 전체가 쳐져 보인다.
 											-80은 빈 패널 안내문(EmptyText)이 쓰는 것과 같은 값이다.
 										-->
-										<FontString parentKey="Prompt" inherits="GameFontNormal" justifyH="CENTER" wordwrap="true">
+										<FontString parentKey="Prompt" inherits="GameFontNormalMed2" justifyH="CENTER" wordwrap="true">
 											<Size x="260" y="0"/>
 											<Anchors>
 												<Anchor point="TOP" x="0" y="-80"/>
 											</Anchors>
 										</FontString>
-										<FontString parentKey="Hint" inherits="GameFontDisableSmall" justifyH="CENTER" wordwrap="true">
+										<FontString parentKey="Hint" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
 											<Size x="260" y="0"/>
 											<Anchors>
 												<Anchor point="TOP" relativeKey="$parent.Prompt" relativePoint="BOTTOM" x="0" y="-8"/>

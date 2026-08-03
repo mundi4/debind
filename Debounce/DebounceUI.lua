@@ -511,12 +511,16 @@ local function NameAndIconFromElementData(elementData)
 	return actionName, actionIcon or QUESTION_MARK_ICON_NUM;
 end
 
-local function ColoredNameAndIconFromElementData(elementData)
+--- skipCategory는 **그 행이 스스로 보여주는** 이슈 계열이다. 이름은 다른 데서 안 보이는
+--- 문제만 물들인다 - 단축키 칸이 이미 빨간데 이름까지 빨개지면 행 전체가 잘못된 것으로
+--- 읽힌다. 도달불가는 이 행의 잘못이 아니라 다른 행 때문에 생기는 것이라 더 그렇다.
+--- 단축키를 따로 안 보여주는 쪽(오버뷰, 툴팁 제목)은 안 넘기면 예전 그대로다.
+local function ColoredNameAndIconFromElementData(elementData, skipCategory)
 	local name, icon = NameAndIconFromElementData(elementData);
 	local action = elementData.action;
 	if (action.key == nil or DebouncePrivate.IsInactiveAction(action)) then
 		name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
-	elseif (GetBindingIssue(action)) then
+	elseif (GetBindingIssue(action, nil, skipCategory)) then
 		name = ERROR_COLOR:WrapTextInColorCode(name);
 	end
 	return name, icon;
@@ -1036,7 +1040,7 @@ function DebounceLineMixin:Update()
 	local isInactive = DebouncePrivate.IsInactiveAction(action);
 	local issue = not isInactive and GetBindingIssue(action) or nil;
 
-	local name, icon = ColoredNameAndIconFromElementData(elementData);
+	local name, icon = ColoredNameAndIconFromElementData(elementData, "key");
 	if (DebouncePrivate.DEBUG) then
 		name = format("%s (%d)", name, elementData.index)
 	end
@@ -1048,12 +1052,13 @@ function DebounceLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
+	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
 	if (action.key) then
 		local s = GetBindingText(action.key);
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
-		elseif (issue and GetBindingIssue(action, "key")) then
+		elseif (keyIssue) then
 			color = ERROR_COLOR;
 		end
 		if (color) then
@@ -1062,6 +1067,15 @@ function DebounceLineMixin:Update()
 		self.BindingText:SetText(s);
 	else
 		self.BindingText:SetText("");
+	end
+
+	-- 단축키 문제는 단축키 옆에서 말한다. 색만으로는 색맹에 안 걸리고, 어느 칸이 문제인지도
+	-- 말해주지 못한다. BindingText는 폭이 고정된 칸이라 오른쪽 끝에 걸면 글자에서 한참
+	-- 떨어지므로 글자 길이를 재서 바로 뒤에 붙인다.
+	self.KeyWarning:SetShown(keyIssue ~= nil);
+	if (keyIssue) then
+		self.KeyWarning:ClearAllPoints();
+		self.KeyWarning:SetPoint("LEFT", self.BindingText, "LEFT", self.BindingText:GetStringWidth() + 4, 0);
 	end
 
 	if (action.unit) then
@@ -1757,18 +1771,25 @@ function DebounceFrameMixin:OnBindingsUpdated(_, skipped)
 	self:Update();
 end
 
+-- 물어보는 게 아니라 알리기만 하는 창이라 버튼이 하나뿐이다. GENERIC_CONFIRMATION은
+-- 취소 버튼이 늘 붙는 데다 OnAccept에서 data.callback을 무조건 호출해서 (콜백이 없으면
+-- 확인을 누르는 순간 에러) 이런 알림창에는 맞지 않는다.
+StaticPopupDialogs["DEBOUNCE_NAME_SORT_NOTICE"] = {
+	text = LLL["SORT_LIST_BY_NAME_NOTICE"],
+	button1 = OKAY,
+	showAlert = 1,
+	hideOnEscape = 1,
+	whileDead = 1,
+	timeout = 0,
+};
+
 --- 정렬 방식을 바꿨을 때 목록을 다시 그린다.
 --- 이름순은 **표시 순서일 뿐**이라 발동 순서와 무관하다. 그걸 모르면 목록 맨 위에 있는 게
 --- 먼저 나가는 줄 안다. 계정당 딱 한 번 알린다.
 function DebounceUI.NotifyMainListSortChanged(mode)
 	if (mode == "name" and not DebouncePrivate.Options.nameSortNoticeShown) then
 		DebouncePrivate.Options.nameSortNoticeShown = true;
-		StaticPopup_ShowCustomGenericConfirmation({
-			text = LLL["SORT_LIST_BY_NAME_NOTICE"],
-			acceptText = OKAY,
-			showAlert = true,
-			referenceKey = "DebounceNameSortNotice",
-		});
+		StaticPopup_Show("DEBOUNCE_NAME_SORT_NOTICE");
 	end
 	DebounceFrame:Refresh();
 end
@@ -2046,7 +2067,14 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 	self:Refresh(true);
 
 	-- 목록이 정렬돼 있으므로 새 액션이 어디로 갈지 모른다. 찾아서 보여준다.
+	--
+	-- 밖에서 끌어온 것은 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데,
+	-- 선택이 상세 패널을 열어 그 자리로 데려간다. 레이어를 옮긴 것은 이미 있던 액션이고
+	-- 목적지가 다른 탭이라 여기 오지 않는다(같은 레이어면 위에서 돌아섰다).
 	if (destLayerID == GetLayerID()) then
+		if (not prevLayerID) then
+			self:SetSelectedAction(action);
+		end
 		local elementData = self:FindElementDataByActionInfo(action);
 		if (elementData) then
 			self.ScrollBox:ScrollToElementData(elementData);
