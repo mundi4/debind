@@ -149,6 +149,12 @@
 		</Layers>
 	</Frame>
 
+	<!--
+		상세 패널의 탭. 블리자드 기본은 좌우 테두리 폭 + 20을 최소로 잡는데, 339px 패널에
+		세 개를 넣으면 글자가 잘린다. 안쪽 여백만 줄이고 글자는 자르지 않는다.
+	-->
+	<Button name="DebounceDetailTabTemplate" inherits="TabSystemTopButtonTemplate" mixin="DebounceDetailTabMixin" virtual="true"/>
+
 	<Button name="DebounceLineTemplate" mixin="DebounceLineMixin" virtual="true">
 		<Size x="450" y="46"/>
 		<Layers>
@@ -283,22 +289,16 @@
 				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled">
 					<Size x="39" y="39"/>
 					<Anchors>
-						<Anchor point="LEFT" x="16" y="0"/>
+						<Anchor point="LEFT" x="0" y="0"/>
 					</Anchors>
 					<TexCoords left="0.140625" right="0.84375" top="0.140625" bottom="0.84375"/>
 				</Texture>
 			</Layer>
 			<Layer level="ARTWORK">
-				<FontString parentKey="RankText" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
-					<Size x="16" y="0"/>
-					<Anchors>
-						<Anchor point="LEFT" x="0" y="0"/>
-					</Anchors>
-				</FontString>
 				<Texture parentKey="Icon">
 					<Size x="35" y="35"/>
 					<Anchors>
-						<Anchor point="LEFT" x="18" y="0"/>
+						<Anchor point="LEFT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<FontString parentKey="PriorityText" inherits="GameFontNormalSmall" justifyH="RIGHT" maxLines="1">
@@ -687,6 +687,21 @@
 						기준선을 못 잡는다. 제목 줄도 없다. 어떤 액션인지는 왼쪽에서 그 행이
 						강조된 것으로 말한다.
 					-->
+					<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
+						<KeyValues>
+							<!-- 기본값은 아래에 매다는 탭이다. 위에 얹고, 안쪽 여백을 줄인 것. -->
+							<KeyValue key="tabTemplate" value="DebounceDetailTabTemplate" type="string"/>
+						</KeyValues>
+						<!--
+							탭은 패널 **위쪽 바깥**에 매단다. 그래야 인셋이 왼쪽 목록 인셋과 같은
+							선에서 시작한다 - 나란한 두 상자가 다른 높이에서 출발하면 눈이 기준선을
+							못 잡는다.
+						-->
+						<Anchors>
+							<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="8" y="0"/>
+						</Anchors>
+					</Frame>
+
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate" setAllPoints="true">
 						<Layers>
 							<Layer level="ARTWORK">
@@ -706,7 +721,7 @@
 						<Frames>
 							<!--
 								단축키 줄. **바인딩 자체가 버튼이다** - 와우 기본 단축키 설정과 같은
-								형태라 [변경] 버튼이 따로 없다. 누르면 CaptureOverlay가 열린다.
+								형태라 [변경] 버튼이 따로 없다. 누르면 그 자리에서 키를 듣는다.
 
 								이 줄은 캡처 중에 모습이 바뀌지 않는다. 어차피 오버레이가 덮으므로
 								바꿔봐야 안 보이고, 안 바꾸면 캡처를 취소했을 때 아무것도 안 움직인다.
@@ -719,6 +734,12 @@
 								</Anchors>
 								<Layers>
 									<Layer level="ARTWORK">
+										<!-- 라벨 없이 컨트롤만 두면 인셋 위에 뭔가 떠 있는 꼴이 된다. -->
+										<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+											<Anchors>
+												<Anchor point="TOPLEFT" x="2" y="-7"/>
+											</Anchors>
+										</FontString>
 										<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="LEFT" wordwrap="true">
 											<Anchors>
 												<Anchor point="TOPLEFT" x="2" y="-32"/>
@@ -752,20 +773,33 @@
 											</Layer>
 										</Layers>
 									</Button>
-									<Button parentKey="KeyButton" inherits="UIPanelButtonTemplate" motionScriptsWhileDisabled="true">
+									<Button parentKey="KeyButton" inherits="UIMenuButtonStretchTemplate" motionScriptsWhileDisabled="true">
 										<Size y="26"/>
 										<Anchors>
-											<Anchor point="TOPLEFT" x="0" y="-1"/>
+											<Anchor point="TOPLEFT" x="34" y="-1"/>
 											<Anchor point="TOPRIGHT" relativeKey="$parent.MoveUpButton" relativePoint="TOPLEFT" x="-8" y="-1"/>
 										</Anchors>
 										<Scripts>
 											<OnClick>
-												DebounceDetailPanel:StartKeyCapture();
+												DebounceDetailPanel:KeyButton_OnClick(self, button);
 											</OnClick>
 											<OnEnter>
 												DebounceDetailPanel:KeyButton_OnEnter(self);
 											</OnEnter>
 											<OnLeave function="GameTooltip_Hide"/>
+												<!-- 듣는 중에는 이 버튼이 직접 키·마우스·휠·게임패드를 받는다. -->
+												<OnKeyDown>
+													DebounceDetailPanel:KeyButton_OnKeyDown(self, key);
+												</OnKeyDown>
+												<OnMouseWheel>
+													DebounceDetailPanel:KeyButton_OnInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
+												</OnMouseWheel>
+												<OnGamePadButtonDown>
+													DebounceDetailPanel:KeyButton_OnInput(button);
+												</OnGamePadButtonDown>
+												<OnHide>
+													DebounceDetailPanel:SetBindingMode(false);
+												</OnHide>
 										</Scripts>
 									</Button>
 								</Frames>
@@ -794,119 +828,6 @@
 										</Anchors>
 									</EventFrame>
 								</Frames>
-							</Frame>
-
-							<!--
-								단축키 캡처 오버레이. 패널을 통째로 덮는다 - 캡처 중에 이 패널에서 할 수 있는 일은
-								키를 누르는 것뿐이고, 덮어버리면 그 사실이 화면으로 보인다.
-
-								**마우스가 이 위에 있을 때만** 키를 가로챈다. 상설 패널이라 마우스가 딴 데 있는
-								동안 키보드까지 먹으면 검색창 입력이 사라진다. 안내 문구가 "마우스를 여기 두고"로
-								시작하는 건 그 제약을 숨기지 않기 위해서다.
-
-								ESC만 호버와 무관하게 항상 닫는다. 그래서 ESC는 단축키로 지정될 수 없다.
-							-->
-							<Frame parentKey="CaptureOverlay" enableMouse="true" enableKeyboard="true" setAllPoints="true" hidden="true">
-								<Layers>
-									<Layer level="BACKGROUND">
-										<!--
-											순수 검정으로 덮으면 패널이 "꺼진" 것처럼 보인다. 푸른 기를
-											넣으면 덮개가 씌워진 것으로 읽힌다 - 같은 어둡기인데 의도가
-											보인다.
-										-->
-										<Texture parentKey="Background" setAllPoints="true">
-											<Color r="0.03" g="0.06" b="0.15" a="0.88"/>
-										</Texture>
-									</Layer>
-									<Layer level="ARTWORK">
-																				<!--
-											이건 곁다리 설명이 아니라 **지금 무엇을 하라는 말**이다. 그래서 기본 노란색
-											(GameFontNormal)을 쓴다. 흰색·회색은 부연에 쓴다.
-
-											위에서 마진을 두고 시작한다. CENTER로 걸면 글의 **시작점**이 패널 한가운데가
-											되고 힌트와 버튼이 거기서부터 아래로 달려서 덩어리 전체가 쳐져 보인다.
-											-80은 빈 패널 안내문(EmptyText)이 쓰는 것과 같은 값이다.
-										-->
-										<FontString parentKey="Prompt" inherits="GameFontNormalMed2" justifyH="CENTER" wordwrap="true">
-											<Size x="260" y="0"/>
-											<Anchors>
-												<Anchor point="TOP" x="0" y="-80"/>
-											</Anchors>
-										</FontString>
-										<FontString parentKey="Hint" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
-											<Size x="260" y="0"/>
-											<Anchors>
-												<Anchor point="TOP" relativeKey="$parent.Prompt" relativePoint="BOTTOM" x="0" y="-8"/>
-											</Anchors>
-										</FontString>
-									</Layer>
-								</Layers>
-								<Frames>
-									<!--
-										테두리 글로우. 어둡게 덮는 것만으로는 눈길이 가지 않는다 -
-										**움직임**이 있어야 시선이 온다. 그래서 천천히 밝기가 오간다.
-										왼쪽 목록에서 행을 강조할 때 쓰는 것과 같은 글로우다.
-
-										템플릿의 텍스처가 프레임 밖으로 8px 나가므로 6만큼 안으로
-										들여서 걸면 글로우가 패널 테두리에 얹힌다.
-									-->
-									<Frame parentKey="Glow" inherits="DebounceGlowBorderTemplate" alpha="0.4">
-										<Anchors>
-											<Anchor point="TOPLEFT" x="6" y="-6"/>
-											<Anchor point="BOTTOMRIGHT" x="-6" y="6"/>
-										</Anchors>
-										<Animations>
-											<AnimationGroup parentKey="Pulse" looping="BOUNCE">
-												<Alpha duration="0.9" fromAlpha="0.35" toAlpha="0.9" order="1"/>
-											</AnimationGroup>
-										</Animations>
-										<Scripts>
-											<OnShow>
-												self.Pulse:Play();
-											</OnShow>
-											<OnHide>
-												self.Pulse:Stop();
-											</OnHide>
-										</Scripts>
-									</Frame>
-									<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate">
-										<Size x="150" y="22"/>
-										<Anchors>
-											<Anchor point="TOP" relativeKey="$parent.Hint" relativePoint="BOTTOM" x="0" y="-20"/>
-										</Anchors>
-										<Scripts>
-											<OnClick>
-												DebounceDetailPanel:UnbindKey();
-											</OnClick>
-										</Scripts>
-									</Button>
-									<!-- 해제 버튼이 없는 액션에서는 Lua가 이 앵커를 안내문 바로 아래로 다시 잡는다. -->
-									<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
-										<Size x="150" y="22"/>
-										<Anchors>
-											<Anchor point="TOP" relativeKey="$parent.UnbindButton" relativePoint="BOTTOM" x="0" y="-6"/>
-										</Anchors>
-										<Scripts>
-											<OnClick>
-												DebounceDetailPanel:CancelKeyCapture();
-											</OnClick>
-										</Scripts>
-									</Button>
-								</Frames>
-								<Scripts>
-									<OnKeyDown>
-										DebounceDetailPanel:KeyCapture_OnKeyDown(self, key);
-									</OnKeyDown>
-									<OnMouseUp>
-										DebounceDetailPanel:KeyCapture_ProcessInput(button);
-									</OnMouseUp>
-									<OnMouseWheel>
-										DebounceDetailPanel:KeyCapture_ProcessInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
-									</OnMouseWheel>
-									<OnGamePadButtonDown>
-										DebounceDetailPanel:KeyCapture_ProcessInput(button);
-									</OnGamePadButtonDown>
-								</Scripts>
 							</Frame>
 
 							<!--

@@ -166,6 +166,7 @@ globals = {
 	"IconDataProviderMixin",
 	"IconDataProviderExtraType",
 	"DropdownButtonMixin",
+	"HelpTip",
 	"InputBoxInstructions_OnTextChanged",
 	"SearchBoxTemplate_OnEditFocusLost",
 	"SearchBoxTemplateClearButton_OnClick",
@@ -243,6 +244,7 @@ globals = {
 	-- Mixin globals (for XML templates)
 	"DebounceLineMixin",
 	"DebounceKeyHeaderMixin",
+	"DebounceDetailTabMixin",
 	"DebounceOrderLineMixin",
 	"DebounceTabMixin",
 	"DebounceSideTabMixin",

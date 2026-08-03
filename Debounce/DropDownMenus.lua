@@ -1118,7 +1118,7 @@ do
         -- end
 
         local description;
-        local title = DebounceUI.NameAndIconFromElementData(elementData);
+        local title = DebounceUI.NameAndIconForAction(elementData.action);
         rootDescription:CreateTitle(title);
         rootDescription:SetTag(DebounceUI.ActionMenuRootTag, 1);
 
