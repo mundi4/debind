@@ -1514,12 +1514,29 @@ function DebounceFrameMixin:UpdateEmptyText()
 	end
 end
 
+-- 탭 라벨의 개수는 "그 탭이 가진 액션 수"이지 "지금 화면에 뭐가 보이는가"가 아니다.
+-- 그래서 셀 대상을 sideTab:IsShown()으로 고르면 안 된다. 사이드탭의 가시성은
+-- _selectedTab의 함수이고(UpdateSideTabs: 탭2가 선택되면 사이드탭2를 숨긴다), 그걸
+-- 빌려 쓰면 "지금 고른 탭"의 사정이 **모든 탭**의 개수에 새어 들어간다. 실제로
+-- 탭1을 보는 동안 탭2 라벨은 레이어 7을 두 번 셌고, 탭2를 보는 동안 탭1 라벨은
+-- 레이어 2(공용/직업)를 통째로 빠뜨렸다 - 탭을 클릭하기만 해도 남의 개수가 변했다.
+--
+-- 대신 레이어 집합에서 직접 센다. 존재하는 사이드탭(1..2+NUM_SPECS)을 layerID로
+-- 옮기고, 같은 layerID가 두 번 나오면 한 번만 센다. 중복은 실재한다: 캐릭터 전용
+-- 탭에서는 GetLayerID가 (nil, true)와 (0, true) 양쪽에 7을 준다. 사이드탭2가 탭2에서
+-- 숨는 것도 바로 그 중복 때문이니, 여기서 layerID로 거르는 건 숨김 규칙을 흉내내는
+-- 게 아니라 숨김의 원인을 그대로 다시 말하는 것이다 - 화면이 어떻든 답이 같다.
+--
+-- 없는 특성을 NUM_SPECS로 거르는 것도 프레임 상태(notUsed)를 안 믿기 때문이다.
+-- InitializeSideTabs는 첫 초과 사이드탭에서 break하므로 그 뒤 사이드탭에는 notUsed가
+-- 붙지 않는다. 그런 사이드탭을 GetLayerID에 넘기면 Profile의 assert에 걸린다.
 function DebounceFrameMixin:UpdateActionCounts()
 	for tabId, tab in ipairs(self.Tabs) do
 		local sum = 0;
+		local countedLayers = {};
 
 		for sideTabId, sideTab in ipairs(self.SideTabs) do
-			if (sideTab:IsShown()) then
+			if (sideTabId <= 2 + NUM_SPECS) then
 				local layerId = GetLayerID(tabId, sideTabId);
 				local layer = DebouncePrivate.GetProfileLayer(layerId);
 				local count;
@@ -1533,6 +1550,11 @@ function DebounceFrameMixin:UpdateActionCounts()
 				else
 					count = layer:GetNumActions();
 				end
+
+				-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
+				-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
+				-- 한다 - 어느 쪽을 숨길지는 UpdateSideTabs의 사정이고, 여기가 그걸
+				-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
 				if (tabId == _selectedTab) then
 					sideTab.Count:SetText(count);
 					if (count > 0 and self.SearchBox.filters) then
@@ -1541,7 +1563,11 @@ function DebounceFrameMixin:UpdateActionCounts()
 						sideTab.Count:SetTextColor(1, 1, 1);
 					end
 				end
-				sum = sum + count;
+
+				if (not countedLayers[layerId]) then
+					countedLayers[layerId] = true;
+					sum = sum + count;
+				end
 			end
 		end
 
