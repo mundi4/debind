@@ -2458,7 +2458,6 @@ function DebounceDetailPanelMixin:OnLoad()
 	editor.ScrollFrame.EditBox:SetMaxLetters(MACRO_CHAR_LIMIT);
 	editor.ScrollFrame:SetScript("OnSizeChanged", function(scrollFrame, width, height)
 		scrollFrame.EditBox:SetSize(width, height);
-		editor.FocusCatcher:SetSize(width, height);
 	end);
 
 	-- 버튼 글자는 우클릭 메뉴의 것과 같은 것을 쓴다. 같은 동작이 두 자리에 있으므로 이름도

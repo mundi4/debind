@@ -71,8 +71,17 @@ function DebouncePublic:ToggleUI()
 		DebouncePrivate.DisplayMessage(LLL["CANNOT_OPEN_IN_COMBAT"], 1, 0, 0)
 		return
 	end
-	-- 게임메뉴는 열릴 때 열린 창을 전부 닫고 나온다. 그 위에 얹히지 않는다.
+	-- 게임 메뉴 위에는 얹히지 않는다.
+	--
+	-- (예전 주석은 "게임메뉴가 열릴 때 열린 창을 전부 닫는다"고 했는데 반대다.
+	-- ToggleGameMenu는 ESC 핸들러를 먼저 돌리고 **아무도 ESC를 가져가지 않았을 때만**
+	-- 메뉴를 띄운다 - 우리 창이 떠 있으면 그 ESC가 우리 창을 닫고 메뉴는 안 뜬다.
+	-- 그래서 이 분기가 실제로 걸리는 건 컴파트먼트 버튼 같은 다른 입구뿐이다.)
+	--
+	-- 조용히 돌아서지 않는다. 위의 전투 분기와 같다 - 버튼을 눌렀는데 아무 일도 안
+	-- 일어나면 그건 고장으로 읽힌다.
 	if (GameMenuFrame:IsShown()) then
+		DebouncePrivate.DisplayMessage(LLL["CANNOT_OPEN_WITH_GAME_MENU"], 1, 0, 0)
 		return
 	end
 	DebounceFrame:Show();

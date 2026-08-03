@@ -937,18 +937,14 @@
 													</EditBox>
 												</ScrollChild>
 											</ScrollFrame>
-											<!-- 편집 영역 아무 데나 눌러도 커서가 잡힌다. 기본 매크로 창의 MacroFrameTextButton과 같다. -->
-											<Button parentKey="FocusCatcher">
-												<Size x="286" y="380"/>
-												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollFrame.EditBox"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														self:GetParent().ScrollFrame.EditBox:SetFocus();
-													</OnClick>
-												</Scripts>
-											</Button>
+											<!--
+												"편집 영역 아무 데나 눌러도 커서가 잡힌다"고 기본 매크로 창의
+												MacroFrameTextButton을 따라 버튼을 하나 뒀었는데, 한 번도 눌린 적이 없어서
+												지웠다. 거기서는 그 버튼이 EditBox보다 **일부러 짧고**(85px) 그 아래 남는
+												여백이 존재 이유인데, 우리 EditBox는 스크롤 뷰포트와 정확히 같은 크기라
+												빈 자리가 없다. 게다가 스크롤 자식이라 한 단 위에 있어서 클릭을 전부 가져간다.
+												이 기능이 정말 필요해지면 잡을 곳은 EditBox 높이지 덧대는 버튼이 아니다.
+											-->
 											<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
 												<Size x="90" y="22"/>
 												<Anchors>
