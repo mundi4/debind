@@ -1247,18 +1247,27 @@ end
 function DebounceKeyHeaderMixin:Update()
 end
 
---- 상세 패널의 탭. 블리자드 기본 계산은 좌우 테두리 폭에 20을 더한 것을 최소 폭으로 잡고,
---- 글자가 그보다 넓으면 maxTabWidth에서 잘라낸다. 이 패널은 폭이 339px라 그 여백으로는 탭
---- 셋이 안 들어가고 라벨이 "Conditio…"가 된다. 안쪽 여백만 줄이고 **글자는 자르지 않는다.**
-local DETAIL_TAB_PADDING = 12;
+--- 상세 패널의 탭. 블리자드 기본 UpdateTabWidth는 자동 폭이던 Text를 GetWidth()가 돌려준
+--- 값으로 못박는다. 그 값이 실제 문자열 폭보다 반올림 한 톨이라도 모자라면 그 자리에서
+--- 말줄임이 되고, 폭이 고정됐으니 영영 그대로다. 글자 수와 무관한 복불복이라 "Macro" 같은
+--- 짧은 라벨이 잘리고 긴 라벨은 멀쩡하기도 한다.
+---
+--- 폭 계산 자체는 블리자드와 같다. 못박는 줄만 빼고, 문자열 폭도 못박힌 값에 갇히지 않는
+--- GetStringWidth로 읽는다. 우리는 min/maxTabWidth를 걸지 않으므로 그 부분은 옮기지 않았다.
+local TAB_SIDE_EXTRA_SPACING = 20;
 
 DebounceDetailTabMixin = {};
 
 function DebounceDetailTabMixin:UpdateTabWidth()
-	-- 글자 폭을 딱 맞게 박으면 소수점 반올림에서 한 글자가 잘린다. 폭을 아예 풀어 스스로
-	-- 늘어나게 두고, 탭만 그만큼 넓힌다.
 	self.Text:SetWidth(0);
-	self:SetTabWidth(self.Text:GetStringWidth() + DETAIL_TAB_PADDING);
+
+	local width = self.Left:GetWidth() + self.Right:GetWidth() + TAB_SIDE_EXTRA_SPACING;
+	local textWidth = self.Text:GetStringWidth() + (self.textPadding or 0);
+	if (width < textWidth) then
+		width = textWidth + 10;
+	end
+
+	self:SetTabWidth(width);
 end
 
 DebounceTabMixin = {};
