@@ -2469,6 +2469,16 @@ local function OrderMoveButton_OnEnter(button)
 	GameTooltip:Show();
 end
 
+--- 마우스가 이미 버튼 위에 있으면 OnEnter가 다시 안 불린다. 그러면 연타할 때 툴팁이
+--- 방금 바뀐 상태가 아니라 **처음 올렸던 순간**의 상태를 계속 말한다 - 한 칸 올려서
+--- 맨 위가 됐는데도 "한 칸 더 올릴 수 있다"고 떠 있는 식이다. 상태를 다시 계산했으면
+--- 그 자리에서 툴팁도 다시 그린다.
+local function RefreshOrderMoveTooltip(button)
+	if (button:IsMouseMotionFocus()) then
+		OrderMoveButton_OnEnter(button);
+	end
+end
+
 function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
 	-- 이동 버튼은 단축키 줄 오른쪽 끝에 있다. 만지는 대상은 순서지만 자리는 KeyArea다.
@@ -2555,6 +2565,9 @@ function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 	-- 동안만 (i)를 달아 "여기 설명이 있다"고 말한다. 이유 자체는 툴팁이 말한다.
 	keyArea.MoveUpButton.InfoBadge:SetShown(up == nil and NeedsBlockExplanation(upReason));
 	keyArea.MoveDownButton.InfoBadge:SetShown(down == nil and NeedsBlockExplanation(downReason));
+
+	RefreshOrderMoveTooltip(keyArea.MoveUpButton);
+	RefreshOrderMoveTooltip(keyArea.MoveDownButton);
 end
 
 --- 인셋이 비었을 때 왜 비었는지 말한다. 리스트 위 상태 문장이 사라지면서 그 몫도 여기로

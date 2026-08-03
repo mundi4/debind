@@ -730,8 +730,13 @@
 							<Frame parentKey="CaptureOverlay" enableMouse="true" enableKeyboard="true" setAllPoints="true" hidden="true">
 								<Layers>
 									<Layer level="BACKGROUND">
+										<!--
+											순수 검정으로 덮으면 패널이 "꺼진" 것처럼 보인다. 푸른 기를
+											넣으면 덮개가 씌워진 것으로 읽힌다 - 같은 어둡기인데 의도가
+											보인다.
+										-->
 										<Texture parentKey="Background" setAllPoints="true">
-											<Color r="0" g="0" b="0" a="0.85"/>
+											<Color r="0.03" g="0.06" b="0.15" a="0.88"/>
 										</Texture>
 									</Layer>
 									<Layer level="ARTWORK">
@@ -758,6 +763,33 @@
 									</Layer>
 								</Layers>
 								<Frames>
+									<!--
+										테두리 글로우. 어둡게 덮는 것만으로는 눈길이 가지 않는다 -
+										**움직임**이 있어야 시선이 온다. 그래서 천천히 밝기가 오간다.
+										왼쪽 목록에서 행을 강조할 때 쓰는 것과 같은 글로우다.
+
+										템플릿의 텍스처가 프레임 밖으로 8px 나가므로 6만큼 안으로
+										들여서 걸면 글로우가 패널 테두리에 얹힌다.
+									-->
+									<Frame parentKey="Glow" inherits="DebounceGlowBorderTemplate" alpha="0.4">
+										<Anchors>
+											<Anchor point="TOPLEFT" x="6" y="-6"/>
+											<Anchor point="BOTTOMRIGHT" x="-6" y="6"/>
+										</Anchors>
+										<Animations>
+											<AnimationGroup parentKey="Pulse" looping="BOUNCE">
+												<Alpha duration="0.9" fromAlpha="0.35" toAlpha="0.9" order="1"/>
+											</AnimationGroup>
+										</Animations>
+										<Scripts>
+											<OnShow>
+												self.Pulse:Play();
+											</OnShow>
+											<OnHide>
+												self.Pulse:Stop();
+											</OnHide>
+										</Scripts>
+									</Frame>
 									<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate">
 										<Size x="150" y="22"/>
 										<Anchors>
