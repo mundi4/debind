@@ -27,6 +27,7 @@ local KEYS_TO_SAVE       = {
     pet = true,
     petbattle = true,
     priority = true,
+    keepInBindingContext = true,
     ignoreHoverUnit = true,
     checkedUnits = true,
     ["$state1"] = true,
