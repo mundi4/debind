@@ -2711,11 +2711,6 @@ function DebounceOrderLineMixin:Update()
 
 	-- 지금 보고 있는 액션은 왼쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
-
-	-- 흑백은 여기서 정한다. 행 프레임은 풀에서 돌려쓰므로, 미리보기에서 회색이 된 프레임이
-	-- 그대로 살아 있는 목록에 다시 나올 수 있다. 밖에서 한 번 칠하고 마는 방식으로는
-	-- 그 프레임까지 되돌릴 수가 없다.
-	self.Icon:SetDesaturated(elementData.desaturated or false);
 end
 
 function DebounceOrderLineMixin:OnEnter()
@@ -2980,40 +2975,26 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	-- 않으면 두 줄짜리 문장이 버튼 위로 겹친다.
 	orderArea.DescLine:SetHeight(orderArea.DescLine.Text:GetStringHeight());
 
+	-- 키가 없으면 **구역은 남기고 안쪽만 접는다.**
+	--
+	-- 통째로 숨기지 않는 이유는 키 지정이 바로 위 KeyArea에서 일어나기 때문이다. 없던 구역이
+	-- 통째로 튀어나오는 것보다, 접혀 있던 것이 펴지는 편이 덜 놀랍고 순서를 보는 자리가
+	-- 어디인지도 미리 알려준다. 남는 헤더와 설명 줄(ORDER_DESC_NO_KEY)이 왜 비었는지 말한다.
+	--
+	-- 예전에는 이 액션 하나를 흑백으로 그려 자리를 채웠다. 옮길 것도 누를 것도 없는 행이었고,
+	-- 그 행을 만들려면 CollectActionsForKey의 레코드 모양을 손으로 흉내내야 했다(Profile.lua) -
+	-- 어느 필드를 넣고 뺄지가 규칙이 되어 저쪽이 바뀌면 조용히 어긋나는 자리였다.
 	if (not key) then
-		-- 키가 없어도 화면 **모양은 그대로** 둔다. 이 액션 하나를 그려놓고 전체를 죽여둔다 -
-		-- 키를 주는 순간 자리가 새로 생기지 않고 색만 돌아온다. 지금 것은 실제 발동 순서가
-		-- 아니므로 흑백으로 둔다.
-		-- 안내문은 안 쓴다. 행을 그리는 자리와 겹친다 - 키가 없다는 건 버튼의 "Assign a Key"와
-		-- 흑백으로 죽은 행이 이미 말한다.
-		self:UpdateOrderMoveButtons(nil, nil);
-
-		local preview = CreateDataProvider();
-		preview:Insert({
-			-- 행은 CollectActionsForKey가 주는 레코드와 같은 모양이어야 한다(Profile.lua).
-			-- 빠진 필드는 "그 속성이 없다"로 읽히는데, 여기 액션은 키만 없을 뿐 나머지는
-			-- 이미 정해져 있다 - 키를 주는 순간 없던 표시가 튀어나오면 안 된다.
-			-- unreachable만 뺀다. 그건 정말로 키를 기준으로 정해지는 값이다.
-			-- issue는 아니다 - 그룹·변신·보너스바 미선택처럼 키와 아무 상관 없는 것들이
-			-- 같은 자리에서 나오므로, 통째로 빼면 키를 주는 순간 없던 표시가 튀어나온다.
-			-- 그래서 키 항목만 빼고 묻는다.
-			row = {
-				action = action,
-				layerID = GetLayerID(),
-				priority = action.priority or Constants.DEFAULT_PRIORITY,
-				hover = action.hover,
-				isConditional = DebouncePrivate.IsConditionalAction(action),
-				issue = DebouncePrivate.GetBindingIssue(action, nil, "key"),
-			},
-			rank = 1,
-			isCurrent = true,
-			-- 흑백으로 돌린다. 알파를 내리면 색이 남아 "그냥 흐린 목록"으로 읽힌다.
-			-- 행이 자기 데이터를 보고 칠하므로 프레임을 돌려써도 따라오지 않는다.
-			desaturated = true,
-		});
-		orderArea.ScrollBox:SetDataProvider(preview, ScrollBoxConstants.DiscardScrollPosition);
+		orderArea.Controls:Hide();
+		-- 목록을 비워서 프레임을 풀에 돌려준다. 숨기기만 하면 다음에 다시 펼 때 옛 내용이
+		-- 한 프레임 스쳐 보인다.
+		orderArea.ScrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
+		orderArea.ScrollBox:Hide();
 		return;
 	end
+
+	orderArea.Controls:Show();
+	orderArea.ScrollBox:Show();
 
 	local rows = DebouncePrivate.CollectActionsForKey(key, viewedSpec);
 
