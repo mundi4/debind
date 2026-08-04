@@ -5,20 +5,31 @@
 	<Script file="DropDownMenus.lua" />
 
 	<!--
-		비활성 버튼에 다는 (i) 배지. 비활성 버튼은 눌러도 반응이 없으니 마우스를 올려볼
-		이유가 없다 - 왜 못 누르는지는 툴팁에만 있는데 그 툴팁을 아무도 안 본다.
-		배지는 "여기 설명이 있다"만 말한다. 이유 자체는 툴팁이 말한다.
+		상세 패널 안의 구역 제목. 제목 하나에 인셋을 또 두르면 상자 안의 상자가 되므로
+		선 하나로 나눈다. 아틀라스는 블리자드 옵션 패널이 같은 용도로 쓰는 것이다.
 
-		버튼 **안쪽** 모서리에 붙인다. 밖으로 빼면 이웃 버튼이나 아래 스크롤박스와 겹치는데,
-		그것들이 나중에 만들어져서 위로 그려진다 - 배지가 가려진다. 화살표(16px 중앙)의
-		모서리를 조금 먹지만 비활성일 땐 화살표가 흐려져 있어서 배지가 또렷하게 읽힌다.
+		선이 **글자 뒤에서 시작한다.** 제목 위에 선을 얹거나 글자를 가운데 두면 구역이
+		둘로 보이는데, 여기서 나누려는 건 위아래지 좌우가 아니다.
 	-->
-	<Texture name="DebounceInfoBadgeTemplate" file="Interface\FriendsFrame\InformationIcon" virtual="true" hidden="true">
-		<Size x="12" y="12"/>
-		<Anchors>
-			<Anchor point="TOPRIGHT" x="-1" y="-1"/>
-		</Anchors>
-	</Texture>
+	<Frame name="DebounceSectionHeaderTemplate" virtual="true">
+		<Size y="16"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="LEFT" x="2" y="0"/>
+					</Anchors>
+				</FontString>
+				<Texture parentKey="Divider" atlas="Options_HorizontalDivider">
+					<Size y="1"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Label" relativePoint="RIGHT" x="8" y="0"/>
+						<Anchor point="RIGHT" x="-2" y="0"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Frame>
 
 	<Frame name="DebounceGlowBorderTemplate" virtual="true">
 		<Size x="100" y="100"/>
@@ -313,7 +324,7 @@
 						<Anchor point="RIGHT" x="-6" y="8"/>
 					</Anchors>
 				</FontString>
-				<FontString parentKey="SubText" inherits="GameFontDisableSmall" justifyH="LEFT" maxLines="1">
+				<FontString parentKey="SubText" inherits="GameFontHighlightSmall" justifyH="LEFT" maxLines="1">
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="-9"/>
 						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-6" y="0"/>
@@ -702,21 +713,6 @@
 					</Frame>
 
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate" setAllPoints="true">
-						<Layers>
-							<Layer level="ARTWORK">
-								<!--
-									키가 없으면 순서 목록이 없다. 그 자리를 그냥 비워두면 덜 만든
-									화면처럼 보인다. 왼쪽 목록이 비었을 때와 같은 처리다.
-									(KeyArea는 Frames라 여기서 relativeKey로 못 건다 - 고정 오프셋)
-								-->
-								<FontString parentKey="EmptyText" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true" hidden="true">
-									<Size x="250" y="0"/>
-									<Anchors>
-										<Anchor point="TOP" x="0" y="-80"/>
-									</Anchors>
-								</FontString>
-							</Layer>
-						</Layers>
 						<Frames>
 							<!--
 								단축키 줄. **바인딩 자체가 버튼이다** - 와우 기본 단축키 설정과 같은
@@ -726,57 +722,58 @@
 								바꿔봐야 안 보이고, 안 바꾸면 캡처를 취소했을 때 아무것도 안 움직인다.
 							-->
 							<Frame parentKey="KeyArea">
-								<Size y="30"/>
+								<Size y="64"/>
 								<Anchors>
 									<Anchor point="TOPLEFT" x="8" y="-8"/>
 									<Anchor point="TOPRIGHT" x="-8" y="-8"/>
 								</Anchors>
 								<Layers>
 									<Layer level="ARTWORK">
-										<!-- 라벨 없이 컨트롤만 두면 인셋 위에 뭔가 떠 있는 꼴이 된다. -->
-										<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+										<!--
+											단축키를 어떻게 바꾸는지. Order 쪽 설명은 헤더 바로 아래인데
+											여기는 버튼 **아래**다 - 저기서는 문장이 아래 목록이 무엇인지를
+											설명하므로 앞에 와야 하지만, 여기서는 값(Shift+E)이 보러 온
+											것이고 문장은 그걸 어떻게 바꾸는지라 뒤에 오는 게 맞다.
+
+											툴팁에도 같은 말이 있지만 툴팁은 버튼에 마우스를 올려야 나온다.
+											"눌러서 키를 받는다"를 모르면 올려볼 이유부터가 없다.
+										-->
+										<FontString parentKey="HintText" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
 											<Anchors>
-												<Anchor point="TOPLEFT" x="2" y="-7"/>
+												<Anchor point="TOPLEFT" x="2" y="-50"/>
+												<Anchor point="TOPRIGHT" x="-2" y="-50"/>
 											</Anchors>
 										</FontString>
+										<!--
+											경고는 안내 **아래**에 매단다. 고정 오프셋으로 두면 안내가 두 줄이
+											되는 순간 겹친다 - 폭은 패널 크기와 번역에 따라 달라지므로 몇 줄이
+											될지 여기서 알 수가 없다.
+										-->
 										<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="LEFT" wordwrap="true">
 											<Anchors>
-												<Anchor point="TOPLEFT" x="2" y="-32"/>
-												<Anchor point="TOPRIGHT" x="-2" y="-32"/>
+												<Anchor point="TOPLEFT" relativeKey="$parent.HintText" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
+												<Anchor point="TOPRIGHT" relativeKey="$parent.HintText" relativePoint="BOTTOMRIGHT" x="0" y="-4"/>
 											</Anchors>
 										</FontString>
 									</Layer>
 								</Layers>
 								<Frames>
-									<!--
-										상대 이동 버튼. 리스트가 아니라 패널에 고정돼 있다 - 리스트에
-										붙어 있으면 연타할 때마다 버튼이 움직여서 다시 조준해야 한다.
-									-->
-									<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+									<Frame parentKey="Header" inherits="DebounceSectionHeaderTemplate">
 										<Anchors>
-											<Anchor point="TOPRIGHT" x="0" y="0"/>
+											<Anchor point="TOPLEFT"/>
+											<Anchor point="TOPRIGHT"/>
 										</Anchors>
-										<Layers>
-											<Layer level="OVERLAY">
-												<Texture parentKey="InfoBadge" inherits="DebounceInfoBadgeTemplate"/>
-											</Layer>
-										</Layers>
-									</Button>
-									<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
-										<Anchors>
-											<Anchor point="TOPRIGHT" relativeKey="$parent.MoveDownButton" relativePoint="TOPLEFT" x="-2" y="0"/>
-										</Anchors>
-										<Layers>
-											<Layer level="OVERLAY">
-												<Texture parentKey="InfoBadge" inherits="DebounceInfoBadgeTemplate"/>
-											</Layer>
-										</Layers>
-									</Button>
+									</Frame>
 									<Button parentKey="KeyButton" inherits="UIMenuButtonStretchTemplate" motionScriptsWhileDisabled="true">
 										<Size y="26"/>
 										<Anchors>
-											<Anchor point="TOPLEFT" x="34" y="-1"/>
-											<Anchor point="TOPRIGHT" relativeKey="$parent.MoveUpButton" relativePoint="TOPLEFT" x="-8" y="-1"/>
+											<!--
+												오른쪽을 비워둔다. 폭을 꽉 채우면 "Shift+E" 일곱 글자짜리
+												값이 배너처럼 보인다. 남는 자리는 입력칸의 여백이지 빈 곳이
+												아니다 - 긴 조합키가 들어와도 여기까지만 쓰고 잘린다.
+											-->
+											<Anchor point="TOPLEFT" x="2" y="-20"/>
+											<Anchor point="TOPRIGHT" x="-90" y="-20"/>
 										</Anchors>
 										<Scripts>
 											<OnClick>
@@ -810,13 +807,116 @@
 							-->
 							<Frame parentKey="OrderArea" hidden="true">
 								<Anchors>
-									<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
+									<!-- 두 구역 사이는 구역 안 여백보다 확실히 넓어야 한 덩어리로 안 읽힌다. -->
+									<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-16"/>
 									<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
 								</Anchors>
 								<Frames>
+									<Frame parentKey="Header" inherits="DebounceSectionHeaderTemplate">
+										<Anchors>
+											<Anchor point="TOPLEFT"/>
+											<Anchor point="TOPRIGHT"/>
+										</Anchors>
+									</Frame>
+
+									<!--
+										이 목록이 무엇인지 말하는 한 줄. 제목 밑에 컨트롤만 놓으면 만들다 만
+										화면으로 읽힌다 - 구역에는 사람이 쓴 문장이 하나는 있어야 한다.
+
+										말하는 건 **안 자명한 쪽**이다. 화살표가 순서를 바꾼다는 건 모양으로
+										이미 읽히고 버튼마다 툴팁도 있다. 반면 "맞는 것 하나만 실행된다"는
+										목록을 아무리 봐도 알 수가 없다.
+
+										FontString 하나인데 프레임으로 감싼 건 Frames 안에 있어야 하기
+										때문이다 - Layers는 Frames보다 먼저 파싱되므로, Layer에 두면
+										아래 Controls가 relativeKey로 이 줄에 붙을 수가 없다.
+									-->
+									<Frame parentKey="DescLine">
+										<Size y="14"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
+											<Anchor point="TOPRIGHT" relativeKey="$parent.Header" relativePoint="BOTTOMRIGHT" x="0" y="-2"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
+													<Anchors>
+														<Anchor point="TOPLEFT" x="2" y="0"/>
+														<Anchor point="TOPRIGHT" x="-2" y="0"/>
+													</Anchors>
+												</FontString>
+											</Layer>
+										</Layers>
+									</Frame>
+
+									<!--
+										순서를 만지는 것들. 헤더 **바로 아래**, 리스트 **바로 위**에 둔다 -
+										만지는 대상이 아래 리스트라는 게 자리로 드러나야 한다. 예전에는
+										단축키 줄 오른쪽 끝에 있었는데, 거기서는 키를 바꾸는 버튼으로 읽혔다.
+
+										리스트 안(선택된 행 옆)이 아닌 이유는 그대로다 - 행에 붙어 있으면
+										연타할 때마다 버튼이 따라 움직여서 다시 조준해야 한다. 이 줄은
+										고정이다.
+									-->
+									<Frame parentKey="Controls">
+										<Size y="26"/>
+										<Anchors>
+											<Anchor point="TOPLEFT" relativeKey="$parent.DescLine" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
+											<Anchor point="TOPRIGHT" relativeKey="$parent.DescLine" relativePoint="BOTTOMRIGHT" x="0" y="-4"/>
+										</Anchors>
+										<Frames>
+											<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+												<Anchors>
+													<Anchor point="LEFT" x="2" y="0"/>
+												</Anchors>
+											</Button>
+											<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
+												<Anchors>
+													<Anchor point="LEFT" relativeKey="$parent.MoveUpButton" relativePoint="RIGHT" x="2" y="0"/>
+												</Anchors>
+											</Button>
+											<!--
+												버튼이 왜 죽어 있는지를 **묻는 문장**으로 띄운다. 이유 자체를
+												여기 늘어놓으면 위와 아래가 서로 다른 이유로 막혔을 때 두
+												문장이 되고, 늘 떠 있으면 잔소리가 된다. 답은 툴팁이 한다.
+
+												버튼과 같은 줄이라 나타났다 사라져도 리스트 높이가 안 흔들린다.
+											-->
+											<Button parentKey="BlockedHelp" hidden="true">
+												<Size y="26"/>
+												<Anchors>
+													<Anchor point="LEFT" relativeKey="$parent.MoveDownButton" relativePoint="RIGHT" x="8" y="0"/>
+													<Anchor point="RIGHT" x="-2" y="0"/>
+												</Anchors>
+												<Layers>
+													<Layer level="ARTWORK">
+														<!--
+														아이콘이 앞에 선다. 색만으로는 이게 뭔지 못 말한다 -
+														이 패널에서 금색은 제목이고 빨강은 경고라 남는 색이
+														없고, 초록은 "좋다"로 읽힌다. (i)는 색과 무관하게
+														"여기 설명이 있다"를 말한다.
+													-->
+													<Texture parentKey="Icon" file="Interface\FriendsFrame\InformationIcon">
+														<Size x="14" y="14"/>
+														<Anchors>
+															<Anchor point="LEFT" x="0" y="0"/>
+														</Anchors>
+													</Texture>
+													<FontString parentKey="Text" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+														<Anchors>
+															<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="4" y="0"/>
+															<Anchor point="RIGHT" x="-2" y="0"/>
+														</Anchors>
+													</FontString>
+													</Layer>
+												</Layers>
+											</Button>
+										</Frames>
+									</Frame>
+
 									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
 										<Anchors>
-											<Anchor point="TOPLEFT" x="0" y="0"/>
+											<Anchor point="TOPLEFT" relativeKey="$parent.Controls" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
 											<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
 										</Anchors>
 									</Button>

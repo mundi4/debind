@@ -32,9 +32,9 @@ This addon is meant to work alongside WoW’s default key binding UI, not replac
 2. **Items**
 3. **Macros**
 4. **Mounts**
-5. **Macro Texts** - Macros that only work within this addon. You can use target conditions with special units such as `@healer` or `@custom1` (e.g., `/cast [@healer] Innervate`).
-6. **Binding Commands** - Bindings from WoW's default key binding UI.
-7. **Unused** - If the conditions for this action are met, the key binding assigned to this action in the addon is not used. This is useful if you want to intentionally ignore this addon’s binding for a specific key and use the binding set in WoW’s default key binding UI for certain situations.
+5. **Macro Texts** - Macros that live in this addon and leave WoW's macro slots free. They can aim at special units such as `@healer` or `@custom1` (e.g., `/cast [@healer] Innervate`), which a macro in WoW's own list cannot.
+6. **Binding Commands** - One of WoW's own binding commands, run as a Debounce action so it can carry conditions.
+7. **Use WoW's Own Binding** - Hands the key back to WoW for certain situations. The key then does whatever your WoW key bindings say. If WoW has no binding on that key, nothing happens.
 8. **...**
 
 
@@ -89,20 +89,23 @@ In Macro Text actions, you can use these states as follows:
 
 
 
-## Priorities
-You can assign the same key to multiple actions that you add. When the key is pressed, the action that matches the current conditions and has the highest priority will be selected. The priority is determined by the following rules:
+## Which Action Runs
 
-1. **User-defined Priority Values**: Very High, High, Normal (default), Low, Very Low
-2. **Special Conditions**:
-    1. If the hover condition is specified, it has a higher priority than other conditions.
-    2. Any other special conditions specified have a higher priority than those that are not.
-3. **Priority of Tabs**:
-    1. Character-specific/Specialization-specific (Highest)
+The same key can be assigned to more than one action. When you press it, Debounce tries them in order and runs the first one whose conditions are met -- only one of them ever runs. The **Key & Order** tab shows that order for the action you have selected.
+
+**Importance** is the setting you control directly: Very High, High, Normal (default), Low, Very Low. It is compared first, so it beats everything below it.
+
+Between actions that are equally important, the order is decided by:
+
+1. **Hover**: An action that only runs while the mouse is over a unit frame is tried first. Otherwise the normal action would always win and the hover action would never run at all.
+2. **Conditions**: An action with special conditions is tried before one without. Otherwise the unconditional action would always win.
+3. **Tab**: The more specific tab is tried first.
+    1. Character-specific/Specialization-specific (tried first)
     2. Character-specific
     3. Shared/Specialization-specific
     4. Shared/Class-specific
-    5. Shared/General (Lowest)
-4. **Action Position**: The action higher in the list has a higher priority than those below it. You can adjust this by dragging the actions.
+    5. Shared/General (tried last)
+4. **List position**: The action higher in the list is tried first. You can adjust this by dragging the actions, or with the arrow buttons in the **Key & Order** tab.
 
 
 

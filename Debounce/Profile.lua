@@ -311,8 +311,16 @@ function DebouncePrivate.GetLayerID(spec, isCharacterSpecific)
     end
 end
 
-function DebouncePrivate.EnumerateProfileLayers()
-    local spec = C_SpecializationInfo.GetSpecialization();
+--- 어느 특성의 세계를 훑을지 고를 수 있다. spec을 주면 **그 특성일 때 활성인 레이어**를
+--- 돌려준다 - 발동 순서는 순수 계산이라 지금 그 특성이 아니어도 답이 나온다. 생략하면
+--- 현재 특성이다.
+---
+--- 실제 바인딩을 만드는 쪽(Debounce.lua의 BuildKeyMap)은 **반드시 생략해서** 부를 것.
+--- 거기에 다른 특성을 넣으면 지금 쓰지도 않는 바인딩이 실제로 걸린다.
+function DebouncePrivate.EnumerateProfileLayers(spec)
+    if (spec == nil) then
+        spec = C_SpecializationInfo.GetSpecialization();
+    end
     local indexArray = {};
 
     if (spec > 0 and spec <= NUM_SPECS) then
@@ -387,18 +395,25 @@ end
 --- GetKeyMap()을 쓰지 않는 이유: 그쪽은 이슈가 있는 액션과 도달불가 액션이 빠져 있는데,
 --- 순서 UI에서는 **그것들이야말로** 보여줘야 할 대상이다.
 ---
---- 활성 레이어에 없는 액션(다른 특성의 레이어)은 나오지 않는다 - 그 경우 순위를 계산할
---- 근거가 없으므로 호출자가 "계산 불가"로 다뤄야 한다.
+--- spec을 주면 **그 특성이었을 때의** 순서를 돌려준다. 다른 특성 탭을 보고 있어도 답을
+--- 낼 수 있는 이유는 순서를 정하는 다섯 가지(중요도/호버/조건/레이어/자리)가 전부 저장된
+--- 값이라 지금 무엇을 하고 있든 바뀌지 않기 때문이다.
 ---
 --- 돌려주는 레코드는 호출자 소유의 새 테이블이다. action 테이블에는 아무것도 쓰지 말 것이며,
 --- GetBindingInfoForAction이 준 테이블도 쓰지 않는다(그쪽 필드는 BuildKeyMap이 소유한다).
-function DebouncePrivate.CollectActionsForKey(key)
+function DebouncePrivate.CollectActionsForKey(key, spec)
     local rows = {};
     if (key == nil) then
         return rows;
     end
 
-    for layerRank, layer in DebouncePrivate.EnumerateProfileLayers() do
+    -- 다른 특성의 세계를 물어본 것이면 **살아 있는 상태는 붙이지 않는다.** 순서는 순수
+    -- 계산이라 참이지만, 도달 불가는 지금 이 특성으로 만들어진 키 맵에서 나온 값이라 그
+    -- 세계에서는 참이 아니다. 조용히 틀린 표시를 다느니 없는 편이 낫다.
+    -- (도달 불가 판정은 GetBindingIssue의 "key" 갈래 안에 있으므로 그 갈래째로 뺀다.)
+    local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
+
+    for layerRank, layer in DebouncePrivate.EnumerateProfileLayers(spec) do
         for index, action in layer:Enumerate() do
             if (action.key == key) then
                 rows[#rows + 1] = {
@@ -412,8 +427,8 @@ function DebouncePrivate.CollectActionsForKey(key)
                     -- 정렬이 어긋난다 (Ordering.lua 주석 참고).
                     hover         = action.hover,
                     isConditional = DebouncePrivate.IsConditionalAction(action),
-                    issue         = DebouncePrivate.GetBindingIssue(action),
-                    unreachable   = DebouncePrivate.IsUnreachableAction(action),
+                    issue         = DebouncePrivate.GetBindingIssue(action, nil, simulated and "key" or nil),
+                    unreachable   = (not simulated) and DebouncePrivate.IsUnreachableAction(action) or nil,
                 };
             end
         end

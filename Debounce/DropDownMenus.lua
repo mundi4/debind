@@ -155,8 +155,11 @@ function DebounceUI.SetupAddDropdownMenu(dropdown, rootDescription)
     local description;
 
     description = rootDescription:CreateButton(BINDING_TYPE_NAMES[Constants.MACROTEXT], function()
-        DebounceIconSelectorFrame.mode = IconSelectorPopupFrameModes.New;
-        DebounceIconSelectorFrame:Show();
+        -- 이름·아이콘을 먼저 받고, 만들어진 액션의 본문 편집기로 이어 간다. 이 이어붙임을
+        -- 아는 건 여기다 - 팝업은 "무엇을 열지"를 모른다.
+        DebounceIconSelectorFrame:OpenForNewMacro(function(elementData)
+            DebounceDetailPanel:EditMacroText(elementData.action);
+        end);
     end);
     SetInstrcutionTooltip(description, LLL["TYPE_MACROTEXT_DESC"]);
 
@@ -184,6 +187,7 @@ function DebounceUI.SetupAddDropdownMenu(dropdown, rootDescription)
     end
 
     description = rootDescription:CreateButton(BINDING_TYPE_NAMES[Constants.COMMAND]);
+    SetInstrcutionTooltip(description, LLL["TYPE_COMMAND_DESC"]);
     for i = 1, #BINDING_CATEGORIES do
         local bindingCategory = BINDING_CATEGORIES[i];
         local childDescription = description:CreateButton(bindingCategory.cat);
@@ -198,6 +202,7 @@ function DebounceUI.SetupAddDropdownMenu(dropdown, rootDescription)
     description = rootDescription:CreateButton(LLL["MISC"]);
     for _, type in ipairs({ Constants.TARGET, Constants.FOCUS, Constants.TOGGLEMENU }) do
         local childDescription = description:CreateButton(BINDING_TYPE_NAMES[type]);
+        SetInstrcutionTooltip(childDescription, LLL["TYPE_" .. strupper(type) .. "_DESC"]);
         for _, unit in ipairs(SORTED_UNIT_LIST) do
             local unitInfo = DebounceUI.UNIT_INFO[unit];
             if (unitInfo[type] ~= false) then
@@ -210,6 +215,7 @@ function DebounceUI.SetupAddDropdownMenu(dropdown, rootDescription)
 
     do
         local childDescription = description:CreateButton(BINDING_TYPE_NAMES[Constants.WORLDMARKER]);
+        SetInstrcutionTooltip(childDescription, LLL["TYPE_WORLDMARKER_DESC"]);
         for i = 1, NUM_WORLD_RAID_MARKERS do
             local index = WORLD_RAID_MARKER_ORDER[i];
             childDescription:CreateButton(_G["WORLD_MARKER" .. index], function()

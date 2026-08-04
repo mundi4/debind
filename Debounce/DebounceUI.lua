@@ -2286,6 +2286,26 @@ DebounceIconSelectorFrameMixin = {};
 function DebounceIconSelectorFrameMixin:OnLoad()
 end
 
+--- 팝업을 여는 입구. 예전엔 호출자가 `mode`/`elementData`를 직접 꽂고 `Show()`를 불렀고,
+--- 확인을 누르면 이 팝업이 매크로 편집기를 **직접** 열었다 - "나는 매크로에서 열렸다"가
+--- 코드에 박혀 있었다. 이제 확인 뒤에 할 일은 연 쪽이 준다(`EditMacroText`의 `cancelFunc`과
+--- 같은 모양). 콜백은 확인을 눌렀을 때만, 대상 elementData를 들고 불린다.
+function DebounceIconSelectorFrameMixin:OpenForNewMacro(onAccepted)
+	self.mode = IconSelectorPopupFrameModes.New;
+	self.elementData = nil;
+	self.onAccepted = onAccepted;
+	self:Show();
+end
+
+--- 이미 있는 액션의 이름·아이콘만 고친다. `onAccepted`는 없어도 된다 - 팝업 아래 화면이
+--- 그대로 살아 있으면 확인 뒤에 갈 데가 없다.
+function DebounceIconSelectorFrameMixin:OpenForAction(elementData, onAccepted)
+	self.mode = IconSelectorPopupFrameModes.Edit;
+	self.elementData = elementData;
+	self.onAccepted = onAccepted;
+	self:Show();
+end
+
 function DebounceIconSelectorFrameMixin:OnShow()
 	if (self.mode == IconSelectorPopupFrameModes.Edit) then
 		if (not self.elementData) then
@@ -2342,6 +2362,9 @@ function DebounceIconSelectorFrameMixin:OnHide()
 		IconSelectorPopupFrameTemplateMixin.OnHide(self);
 	end
 	self.elementData = nil;
+	-- 취소로 닫혔든, OnShow가 대상을 못 찾아 도로 숨겼든 콜백은 죽는다. 확인을 누른 경우엔
+	-- OkayButton_OnClick이 이미 꺼내 갔다.
+	self.onAccepted = nil;
 	DebounceFrame:Update();
 end
 
@@ -2394,9 +2417,13 @@ function DebounceIconSelectorFrameMixin:OkayButton_OnClick()
 	-- 그릴 뿐이라 방금 바꾼 이름이 옛 자리에 남는다.
 	DebounceFrame:Refresh(true);
 	DebounceFrame:Update();
-	-- 새로 만든 것만 편집기를 연다. 편집 모드로 왔다면 오버레이가 아래에 그대로 열려 있다.
-	if (isNew and elementData) then
-		DebounceDetailPanel:EditMacroText(elementData.action);
+
+	-- 다음에 무엇이 열릴지는 이 팝업이 정하지 않는다. 연 쪽이 안다. 먼저 꺼내 두는 건
+	-- 콜백이 이 창을 닫아도 OnHide가 같은 콜백을 두 번 부르지 않게 하려는 것이다.
+	local onAccepted = self.onAccepted;
+	self.onAccepted = nil;
+	if (onAccepted and elementData) then
+		onAccepted(elementData);
 	end
 	IconSelectorPopupFrameTemplateMixin.OkayButton_OnClick(self);
 end
@@ -2538,7 +2565,6 @@ function DebounceDetailPanelMixin:Refresh()
 	self.ContentArea.MacroArea:SetShown(onMacroTab);
 
 	if (onMacroTab) then
-		self:SetEmptyText(nil);
 		self:RefreshMacroTab(action);
 	else
 		self:RefreshKeybind(action);
@@ -2722,35 +2748,84 @@ local function RefreshOrderMoveTooltip(button)
 	end
 end
 
+--- 끝이라 못 움직이는 것과 규칙 때문에 못 움직이는 것은 다르다. 앞엣것은 설명할 게 없다 -
+--- 맨 위에 있는 걸 더 올릴 수 없다는 건 비활성 버튼 그 자체로 이미 말이 된다.
+local ORDER_END_REASONS = { ALREADY_FIRST = true, ALREADY_LAST = true };
+
+--- 막힌 이유 한 덩어리를 툴팁에 붙인다. 위아래가 같은 이유로 막혔으면 한 번만 쓴다.
+local function AddOrderBlockedReason(reasonKey, seen)
+	if (not reasonKey or seen[reasonKey]) then
+		return;
+	end
+	-- 앞에 이미 한 덩어리가 있으면 사이를 띄운다.
+	if (next(seen)) then
+		GameTooltip_AddBlankLineToTooltip(GameTooltip);
+	end
+	seen[reasonKey] = true;
+
+	GameTooltip_AddErrorLine(GameTooltip, LLL[reasonKey]);
+	local fix = rawget(LLL, reasonKey .. "_FIX");
+	if (fix) then
+		GameTooltip_AddBlankLineToTooltip(GameTooltip);
+		GameTooltip_AddNormalLine(GameTooltip, fix);
+	end
+end
+
+--- 화면에 있는 건 **질문**이고 답은 여기 있다. 이유를 화면에 늘어놓지 않는 이유는,
+--- 위와 아래가 서로 다른 이유로 막힐 수 있어서 한 줄에 안 들어가기 때문이다.
+local function OrderBlockedHelp_OnEnter(button)
+	-- 흐린 글씨로 두면 두 번 진다 - 안 읽히고, 누를 수 있는 것으로도 안 보인다.
+	-- 금색으로 두고 올라오면 밝힌다(와우에서 누를 수 있는 글자의 관례).
+	button.Text:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
+
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, button.Text:GetText());
+
+	local seen = {};
+	AddOrderBlockedReason(button.upReasonKey, seen);
+	AddOrderBlockedReason(button.downReasonKey, seen);
+
+	GameTooltip:Show();
+end
+
+local function OrderBlockedHelp_OnLeave(button)
+	button.Text:SetTextColor(NORMAL_FONT_COLOR:GetRGB());
+	GameTooltip_Hide();
+end
+
 function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
-	-- 이동 버튼은 단축키 줄 오른쪽 끝에 있다. 만지는 대상은 순서지만 자리는 KeyArea다.
-	local keyArea = self.ContentArea.KeyArea;
+	local controls = orderArea.Controls;
 	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 2);
 	view:SetElementInitializer("DebounceOrderLineTemplate", function(button, elementData)
 		button:Init(elementData);
 	end);
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
 
-	SquareButton_SetIcon(keyArea.MoveUpButton, "UP");
-	SquareButton_SetIcon(keyArea.MoveDownButton, "DOWN");
+	orderArea.Header.Label:SetText(LLL["ORDER"]);
 
-	keyArea.MoveUpButton.titleKey = "ORDER_MOVE_UP";
-	keyArea.MoveUpButton.descKey = "ORDER_MOVE_UP_DESC";
-	keyArea.MoveDownButton.titleKey = "ORDER_MOVE_DOWN";
-	keyArea.MoveDownButton.descKey = "ORDER_MOVE_DOWN_DESC";
+	SquareButton_SetIcon(controls.MoveUpButton, "UP");
+	SquareButton_SetIcon(controls.MoveDownButton, "DOWN");
 
-	for _, button in ipairs({ keyArea.MoveUpButton, keyArea.MoveDownButton }) do
+	controls.MoveUpButton.titleKey = "ORDER_MOVE_UP";
+	controls.MoveUpButton.descKey = "ORDER_MOVE_UP_DESC";
+	controls.MoveDownButton.titleKey = "ORDER_MOVE_DOWN";
+	controls.MoveDownButton.descKey = "ORDER_MOVE_DOWN_DESC";
+
+	for _, button in ipairs({ controls.MoveUpButton, controls.MoveDownButton }) do
 		button:SetScript("OnEnter", OrderMoveButton_OnEnter);
 		button:SetScript("OnLeave", GameTooltip_Hide);
 	end
 
-	keyArea.MoveUpButton:SetScript("OnClick", function()
+	controls.MoveUpButton:SetScript("OnClick", function()
 		self:ApplyOrderMove(self.moveUpInsertIndex);
 	end);
-	keyArea.MoveDownButton:SetScript("OnClick", function()
+	controls.MoveDownButton:SetScript("OnClick", function()
 		self:ApplyOrderMove(self.moveDownInsertIndex);
 	end);
+
+	controls.BlockedHelp:SetScript("OnEnter", OrderBlockedHelp_OnEnter);
+	controls.BlockedHelp:SetScript("OnLeave", OrderBlockedHelp_OnLeave);
 end
 
 --- 편집 중인 액션을 자기 레이어 배열 안에서 한 칸 옮긴다. 배열 자리는 순서 말고는
@@ -2781,7 +2856,7 @@ end
 --- 갈렸으면 비활성으로 두고 **어느 속성이 정하고 있는지**만 말한다 - 그 속성들은 각자
 --- 자기 편집기(우선순위 메뉴 / 조건 편집 / 레이어 이동)에서 바뀌어야 한다.
 function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
-	local keyArea = self.ContentArea.KeyArea;
+	local controls = self.ContentArea.OrderArea.Controls;
 	local up, upReason, down, downReason;
 
 	if (currentIndex and not self:IsCapturingKey()) then
@@ -2795,43 +2870,102 @@ function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 	-- 수집된 행에서 가져온다(축 검사가 이웃과 같은 레이어임을 이미 보장한다).
 	self.moveLayer = currentIndex and rows[currentIndex].layer or nil;
 
-	keyArea.MoveUpButton.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
-	keyArea.MoveDownButton.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
-	keyArea.MoveUpButton:SetEnabled(up ~= nil);
-	keyArea.MoveDownButton:SetEnabled(down ~= nil);
+	controls.MoveUpButton.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
+	controls.MoveDownButton.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
+	controls.MoveUpButton:SetEnabled(up ~= nil);
+	controls.MoveDownButton:SetEnabled(down ~= nil);
 
 	-- 버튼은 늘 서 있는다. 순서가 없으면(키 없음/비활성 특성) 비활성으로 남을 뿐이다 -
 	-- 나타났다 사라지면 키를 지정하는 순간 줄이 통째로 움직인다.
-	keyArea.MoveUpButton:Show();
-	keyArea.MoveDownButton:Show();
+	controls.MoveUpButton:Show();
+	controls.MoveDownButton:Show();
 
-	-- 맨 위/맨 아래라서 못 움직이는 건 설명할 것이 없다. (i) 배지도 툴팁도 달지 않는다 -
-	-- 비활성 버튼은 그 자체로 "지금은 안 된다"를 말한다.
-	keyArea.MoveUpButton.InfoBadge:Hide();
-	keyArea.MoveDownButton.InfoBadge:Hide();
+	-- 맨 위/맨 아래라서 못 움직이는 건 설명할 것이 없다 - 비활성 버튼이 그 자체로
+	-- "지금은 안 된다"를 말한다. 규칙 때문에 막힌 것만 아래 질문 줄이 받는다.
+	self:UpdateOrderBlockedHelp(upReason, downReason);
 
 	-- 방금 계산한 상태를 마우스가 올라가 있는 버튼의 툴팁에도 반영한다. 이걸 빠뜨리면
 	-- 연타할 때 툴팁이 처음 올렸던 순간의 말을 계속 한다(위 함수 주석 참고).
-	RefreshOrderMoveTooltip(keyArea.MoveUpButton);
-	RefreshOrderMoveTooltip(keyArea.MoveDownButton);
+	RefreshOrderMoveTooltip(controls.MoveUpButton);
+	RefreshOrderMoveTooltip(controls.MoveDownButton);
 end
 
---- 인셋이 비었을 때 왜 비었는지 말한다. 리스트 위 상태 문장이 사라지면서 그 몫도 여기로
---- 왔다 - 순위는 행의 번호와 하이라이트가 이미 말하고 있고, 문장이 필요한 건 **아무것도
---- 그릴 게 없을 때**뿐이다.
-function DebounceDetailPanelMixin:SetEmptyText(textKey)
-	local emptyText = self.ContentArea.EmptyText;
-	emptyText:SetText(textKey and LLL[textKey] or "");
-	emptyText:SetShown(textKey ~= nil);
+--- 버튼이 **규칙 때문에** 죽어 있을 때만 그 옆에 질문 한 줄을 띄운다.
+---
+--- 비활성 버튼의 툴팁에 이미 같은 설명이 있지만, 비활성 버튼에 마우스를 올려보는 사람은
+--- 거의 없다. 이 애드온에서 순서 규칙을 가르치는 문장이 거기 하나뿐이라, 화면으로 꺼낸다.
+---
+--- 화면에 내는 건 이유가 아니라 **질문**이다. 위와 아래가 서로 다른 이유로 막힐 수 있어서
+--- 이유를 그대로 쓰면 한 줄에 안 들어가고, 늘 떠 있으면 잔소리가 된다.
+function DebounceDetailPanelMixin:UpdateOrderBlockedHelp(upReason, downReason)
+	local help = self.ContentArea.OrderArea.Controls.BlockedHelp;
+
+	local blockedUp = upReason ~= nil and not ORDER_END_REASONS[upReason];
+	local blockedDown = downReason ~= nil and not ORDER_END_REASONS[downReason];
+
+	local questionKey;
+	if (blockedUp and blockedDown) then
+		questionKey = "ORDER_MOVE_BLOCKED";
+	elseif (blockedUp) then
+		questionKey = "ORDER_MOVE_BLOCKED_UP";
+	elseif (blockedDown) then
+		questionKey = "ORDER_MOVE_BLOCKED_DOWN";
+	end
+
+	help.upReasonKey = blockedUp and ("ORDER_BLOCKED_" .. upReason) or nil;
+	help.downReasonKey = blockedDown and ("ORDER_BLOCKED_" .. downReason) or nil;
+
+	-- 문장이 사라지는데 마우스가 그 위에 있었으면 툴팁이 남는다. 숨기기 **전에** 거둔다 -
+	-- 숨은 뒤에는 IsMouseMotionFocus가 거짓이라 물어볼 수가 없다.
+	if (questionKey == nil and help:IsMouseMotionFocus()) then
+		GameTooltip_Hide();
+	end
+
+	help.Text:SetText(questionKey and LLL[questionKey] or "");
+	-- 밝힌 채로 숨었다가 다시 나오면 마우스가 없는데도 밝은 채다. 그릴 때마다 되돌린다.
+	help.Text:SetTextColor(NORMAL_FONT_COLOR:GetRGB());
+	help:SetShown(questionKey ~= nil);
+
+	-- 이동 버튼과 같은 이유로, 이미 올라가 있는 마우스에는 OnEnter가 다시 안 온다.
+	if (questionKey and help:IsMouseMotionFocus()) then
+		OrderBlockedHelp_OnEnter(help);
+	end
 end
 
---- 이 키에 걸린 액션 전부를 실제 발동 순서로 그린다.
---- 키는 누르는 즉시 반영되므로 여기 나오는 건 항상 실제 결과다.
+--- 이 키에 걸린 액션 전부를 발동 순서로 그린다.
+---
+--- 다른 특성 탭을 보고 있으면 **그 특성이었을 때의** 순서를 그린다. 예전에는 그럴 때
+--- "계산할 수 없다"고 말하고 빈 상자를 보여줬는데, 그건 사실이 아니었다 - 순서를 정하는
+--- 값들은 전부 저장돼 있어서 지금 무슨 특성이든 계산이 된다. 못 했던 건 레이어를 훑는
+--- 함수가 현재 특성을 안에서 물어봤기 때문이다. 이제 물어볼 수 있으므로 막다른 골목이 없다.
+---
+--- 대신 그 세계에서는 살아 있는 표시(도달 불가)를 붙이지 않는다. CollectActionsForKey가
+--- 그 판단을 한다.
 function DebounceDetailPanelMixin:RefreshOrderList(action)
 	local orderArea = self.ContentArea.OrderArea;
 	local key = action.key;
 
 	orderArea:Show();
+
+	-- 어느 특성의 세계를 보고 있나. 사이드탭 1·2(일반/직업)는 어느 특성에서도 활성이라
+	-- 물어볼 게 없다 - 그 액션의 경쟁 상대는 지금 특성 기준이 맞다.
+	local viewedSpec = _selectedSideTab >= 3 and (_selectedSideTab - 2) or nil;
+	local simulated = viewedSpec ~= nil and viewedSpec ~= C_SpecializationInfo.GetSpecialization();
+
+	-- 설명 줄은 **지금 화면이 참인지**에 따라 갈린다. 키가 없으면 아무것도 안 돌아가므로
+	-- "위에서부터 시도한다"고 말하면 거짓말이고, 다른 특성의 순서라면 어느 특성인지 말해야
+	-- 한다 - 안 그러면 지금 눌러도 이렇게 된다고 읽힌다.
+	if (not key) then
+		orderArea.DescLine.Text:SetText(LLL["ORDER_DESC_NO_KEY"]);
+	elseif (simulated) then
+		orderArea.DescLine.Text:SetText(format(LLL["ORDER_DESC_OTHER_SPEC"], GetSideTabaLabel(_selectedSideTab)));
+	else
+		orderArea.DescLine.Text:SetText(LLL["ORDER_DESC"]);
+	end
+	-- 줄 수가 문장마다 다르다. 아래 컨트롤과 리스트가 이 줄에 매달려 있으므로, 재서 잡지
+	-- 않으면 두 줄짜리 문장이 버튼 위로 겹친다.
+	orderArea.DescLine:SetHeight(orderArea.DescLine.Text:GetStringHeight());
+
 	if (not key) then
 		-- 키가 없어도 화면 **모양은 그대로** 둔다. 이 액션 하나를 그려놓고 전체를 죽여둔다 -
 		-- 키를 주는 순간 자리가 새로 생기지 않고 색만 돌아온다. 지금 것은 실제 발동 순서가
@@ -2839,9 +2973,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		-- 안내문은 안 쓴다. 행을 그리는 자리와 겹친다 - 키가 없다는 건 버튼의 "Assign a Key"와
 		-- 흑백으로 죽은 행이 이미 말한다.
 		self:UpdateOrderMoveButtons(nil, nil);
-		self:SetEmptyText(nil);
-		orderArea.ScrollBox:SetShown(true);
-		orderArea.ScrollBar:SetShown(true);
 
 		local preview = CreateDataProvider();
 		preview:Insert({
@@ -2870,7 +3001,7 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		return;
 	end
 
-	local rows = DebouncePrivate.CollectActionsForKey(key);
+	local rows = DebouncePrivate.CollectActionsForKey(key, viewedSpec);
 
 	local currentIndex, mixedLayers;
 	for i, row in ipairs(rows) do
@@ -2883,16 +3014,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	end
 
 	self:UpdateOrderMoveButtons(rows, currentIndex);
-
-	orderArea.ScrollBox:SetShown(currentIndex ~= nil);
-	orderArea.ScrollBar:SetShown(currentIndex ~= nil);
-	if (not currentIndex) then
-		-- 비활성 특성의 레이어에 있는 액션이다. 경쟁 상대가 지금 것이 아니라서 순위를
-		-- 계산할 수 없다. 거짓 순서를 보여주느니 못 한다고 말한다.
-		self:SetEmptyText("ORDER_SCOPE_INACTIVE");
-		return;
-	end
-	self:SetEmptyText(nil);
 
 	local dataProvider = CreateDataProvider();
 	for i, row in ipairs(rows) do
@@ -2907,7 +3028,11 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	end
 
 	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.DiscardScrollPosition);
-	orderArea.ScrollBox:ScrollToElementDataIndex(currentIndex, ScrollBoxConstants.AlignNearest);
+	-- 편집 중인 액션은 이제 반드시 목록 안에 있다(그 액션이 사는 레이어를 훑었으므로).
+	-- 그래도 없으면 스크롤만 건드리지 않는다 - 목록 자체는 이 키의 사실이라 보여줄 값어치가 있다.
+	if (currentIndex) then
+		orderArea.ScrollBox:ScrollToElementDataIndex(currentIndex, ScrollBoxConstants.AlignNearest);
+	end
 end
 
 --- 단축키 줄은 캡처 여부와 무관하게 늘 같은 모습이다. 캡처 중에는 오버레이가 덮으므로
@@ -2917,7 +3042,7 @@ function DebounceDetailPanelMixin:RefreshKeybind(action)
 	local keyArea = self.ContentArea.KeyArea;
 	local key = action.key;
 
-	keyArea.Label:SetText(LLL["KEY"]);
+	keyArea.Header.Label:SetText(LLL["KEY"]);
 	-- 덮개가 없어졌으므로 이 줄이 늘 보인다. 말은 블리자드 단축키 버튼의 것을 그대로 쓰되
 	-- (사용자가 단축키 창에서 이미 보고 있다) 흐리게는 하지 않는다. 거기서는 안 걸린 키가
 	-- 정상이지만 - 키마다 바인딩을 둘씩 넣는 사람은 없다 - 여기 액션은 사용자가 직접 만든
@@ -2925,15 +3050,22 @@ function DebounceDetailPanelMixin:RefreshKeybind(action)
 	-- 무엇을 하라는지는 툴팁이 말한다.
 	keyArea.KeyButton:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
 
+	-- 안내는 지금 필요한 것만 말한다. 키가 없으면 "어떻게 거는가"가, 있으면 "어떻게
+	-- 바꾸고 푸는가"가 궁금한 것이다. 둘 다 적으면 한 줄에 안 들어간다.
+	keyArea.HintText:SetText(LLL[key and "DETAIL_KEY_HINT" or "DETAIL_KEY_HINT_NO_KEY"]);
+
 	local warning = GetKeyWarningText(action, key);
 	keyArea.WarningText:SetText(warning or "");
 
-	-- 경고가 붙을 때만 늘어난다. 그건 크롬이 아니라 내용이라 밀려도 된다.
-	local height = 30;
+	-- 높이는 **재서** 잡는다. 안내도 경고도 몇 줄이 될지 여기서 알 수가 없다 - 패널 폭과
+	-- 번역에 따라 달라진다. 숫자로 박아두면 긴 문장이 인셋 밖으로 나가거나(짧게 잡으면)
+	-- 순서 리스트를 그만큼 잡아먹는다(넉넉히 잡으면).
+	-- 50 = 헤더 16 + 4 + 단축키 버튼 26 + 4. 그 아래는 글자가 차지하는 만큼이다.
+	local height = 50 + keyArea.HintText:GetStringHeight();
 	if (warning) then
-		height = height + keyArea.WarningText:GetStringHeight() + 6;
+		height = height + keyArea.WarningText:GetStringHeight() + 4;
 	end
-	keyArea:SetHeight(height);
+	keyArea:SetHeight(height + 2);
 
 	self:RefreshOrderList(action);
 end
@@ -3211,9 +3343,9 @@ function DebounceDetailPanelMixin:MacroEditNameIcon_OnClick()
 		return;
 	end
 
-	DebounceIconSelectorFrame.mode = IconSelectorPopupFrameModes.Edit;
-	DebounceIconSelectorFrame.elementData = elementData;
-	DebounceIconSelectorFrame:Show();
+	-- 확인을 눌러도 갈 데가 없다. 매크로 탭이 이 팝업 아래에 그대로 열려 있고, 새 이름·아이콘은
+	-- 팝업이 닫히면서 도는 Update가 되비춘다.
+	DebounceIconSelectorFrame:OpenForAction(elementData);
 end
 
 function DebounceDetailPanelMixin:MacroText_OnTextChanged(editBox)
