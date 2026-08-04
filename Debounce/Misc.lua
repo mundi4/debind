@@ -326,7 +326,11 @@ function DebouncePrivate.GetBindingIssue(action, category, notCategory, arg)
             issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
         elseif (binding.hover and binding.checkedUnits["hover"] == false) then
             issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-        elseif (binding.checkedUnits["@"] ~= nil) then
+        -- 둘 다 있을 때만 비교한다. 개별 유닛 조건이 없으면 nil이 "다른 값"으로 읽혀서
+        -- "@"만 걸어둔 액션("대상이 존재할 때만")이 곧바로 모순으로 잡혔다.
+        -- 둘 다 있는 경우 남는 조합은 위 GetBindingInfoForAction의 정규화가 포섭 관계를
+        -- (true vs "help" 같은) 이미 걷어낸 뒤라 전부 진짜 모순이다.
+        elseif (binding.checkedUnits["@"] ~= nil and binding.checkedUnits[binding.unit] ~= nil) then
             if (arg == nil or arg == "@" or arg == binding.unit) then
                 if (binding.checkedUnits["@"] ~= binding.checkedUnits[binding.unit]) then
                     issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
