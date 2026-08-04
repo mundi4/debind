@@ -480,7 +480,7 @@ end
 
 UnitWatch:SetAttribute("_onattributechanged", [==[
     if (name == "custom1" or name == "custom2") then
-        local alias, unit, nameList, failed = name, value or nil
+        local alias, unit, nameList = name, value or nil
 		if (unit) then
 			unit = strtrim(unit)
             if (unit == "" or unit == "none" or unit == ":") then
@@ -509,7 +509,7 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
                         end
                     end
                 elseif (strsub(unit, 1, 1) == ":") then
-                    nameList = strsub(value, 2)
+                    nameList = strsub(unit, 2)
                 elseif (UnitExists(unit)) then
                     self:CallMethod("OnSetCustomTargetFailed", alias, unit, value)
                     return
