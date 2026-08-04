@@ -2218,6 +2218,16 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 		return;
 	end
 
+	-- 여기서부터 프로필이 바뀐다. 갈아엎기 전에 상세 패널을 떠나보낸다 - 이 패널은 잠그지
+	-- 않는 대신 **떠나는 쪽이 저장한다**로 돼 있고(Close 참고), 드롭도 떠나는 것이다.
+	--
+	-- 없어도 본문 자체는 살아남는다. 편집하던 액션이 목록에서 빠지면 Refresh가 선택을 풀면서
+	-- 저장하고, 남으면 RefreshMacroTab이 대상이 같아서 편집칸을 안 건드린다. 그런데 그건
+	-- 서로 무관한 가드 둘이 맞물린 결과라 규칙으로 삼을 수 없고, 실제로 두 가지가 샌다 -
+	-- UpdateBindings가 저장 전 본문으로 한 번 헛돌고(아래에서 부르고 저장이 또 부른다),
+	-- 키를 듣는 중이었다면 캡처가 안 끊긴 채 목록만 갈린다.
+	DebounceDetailPanel:Close();
+
 	local destLayer = DebouncePrivate.GetProfileLayer(destLayerID);
 
 	if (prevLayerID) then
