@@ -525,6 +525,30 @@ RegisterTest("Macrotext with $state", {
     end,
 })
 
+-- README가 광고하는 형태. 두 번째 이후 대괄호 그룹이 파서에 도달하지 못하면
+-- @healer가 글자 그대로 와우에 넘어가고, 모르는 유닛이라 조용히 실패한다.
+RegisterTest("Macrotext with multiple condition groups", {
+    description = "두 번째 이후 대괄호 그룹의 특수 유닛도 치환되는지",
+    run = function()
+        local text = "/cast [@custom2,exists][@healer,exists][] Innervate"
+        local _, args = DebouncePrivate.ParseMacroText(text)
+        if not args then return Fail("multi-group macrotext", "ParseMacroText returned nil args") end
+        local seen = {}
+        for _, arg in ipairs(args) do
+            if arg.type == Constants.MACROTEXT_ARG_UNIT then
+                seen[arg.name] = true
+            end
+        end
+        local missing = {}
+        if not seen.custom2 then tinsert(missing, "custom2") end
+        if not seen.healer then tinsert(missing, "healer") end
+        if #missing > 0 then
+            return Fail("multi-group macrotext", "치환 안 됨: " .. table.concat(missing, ", "))
+        end
+        return Pass("multi-group macrotext", "custom2 + healer 모두 인자로 잡힘")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Multi-condition combo
 -----------------------------------------------------------

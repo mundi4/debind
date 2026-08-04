@@ -87,7 +87,21 @@ function M.install()
     _G.strlower = string.lower;
     _G.strupper = string.upper;
     _G.strtrim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")); end
-    _G.strsplit = function() error("strsplit: not stubbed"); end
+    -- 와우의 strsplit: 첫 인자의 **각 문자**가 개별 구분자. 빈 필드도 그대로 남는다.
+    _G.strsplit = function(delims, s)
+        local out, cur = {}, {};
+        for i = 1, #s do
+            local c = s:sub(i, i);
+            if (delims:find(c, 1, true)) then
+                out[#out + 1] = table.concat(cur);
+                cur = {};
+            else
+                cur[#cur + 1] = c;
+            end
+        end
+        out[#out + 1] = table.concat(cur);
+        return (table.unpack or unpack)(out, 1, #out);
+    end
     _G.floor = math.floor;
     _G.abs = math.abs;
     _G.max = math.max;
@@ -102,6 +116,13 @@ function M.install()
     _G.GetLocale = function() return "enUS"; end
     _G.UnitClass = function() return "Druid", "DRUID", 11; end
     _G.UnitExists = function() return false; end
+
+    -- Misc.lua가 파일 스코프에서 건드리는 것들. 매크로텍스트 파서와는 무관하지만
+    -- 파일이 로드되려면 있어야 한다.
+    _G.C_MountJournal = { GetMountInfoByID = function() end };
+    _G.C_Spell = { GetSpellSubtext = function() end, GetSpellInfo = function() end };
+    _G.SLASH_SCRIPT1 = "/script";
+    _G.SLASH_CANCELFORM1 = "/cancelform";
 end
 
 --- 애드온 파일들을 순서대로 로드하고 애드온 private 테이블을 돌려준다.

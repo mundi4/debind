@@ -1,0 +1,546 @@
+-- 매크로텍스트 파서(`Misc.lua` `ParseMacroText`) 테스트. 와우 클라이언트 불필요.
+--
+-- 이 파서가 하는 일: 매크로 본문에서 애드온 전용 토큰(@tank 같은 특수 유닛,
+-- $state1 같은 커스텀 상태)을 찾아 **보안 환경이 런타임에 갈아끼울 자리**로
+-- 바꿔 놓는다. 놓치면 토큰이 글자 그대로 와우에 넘어가고, 와우는 모르는
+-- 유닛이라 조용히 실패한다 -- 오류 한 줄 없이.
+--
+-- 세 층:
+--   1. 이름 붙은 회귀 테스트 - 각 버그가 무엇이었는지 문서화
+--   2. 계약 테스트 - SecureBindings.lua가 의존하는 반환값 모양
+--   3. 무차별 대조 테스트 - 조건 그룹을 조합해서 정답을 직접 만들고 대조.
+--      "N번째 그룹만 안 된다" 부류는 이쪽이 잡는다.
+
+return function(DebouncePrivate)
+    local Constants = DebouncePrivate.Constants;
+    local ParseMacroText = DebouncePrivate.ParseMacroText;
+    local ClearMacroTextCache = DebouncePrivate.ClearMacroTextCache;
+    local SPECIAL_UNITS = Constants.SPECIAL_UNITS;
+    local ARG_UNIT = Constants.MACROTEXT_ARG_UNIT;
+    local ARG_STATE = Constants.MACROTEXT_ARG_CUSTOM_STATE;
+
+    local T = { passed = 0, failures = {} };
+
+    local function fail(name, msg)
+        T.failures[#T.failures + 1] = name .. ": " .. msg;
+    end
+
+    local function test(name, fn)
+        local ok, err = pcall(fn);
+        if (ok) then
+            T.passed = T.passed + 1;
+        else
+            fail(name, tostring(err));
+        end
+    end
+
+    local function check(cond, msg)
+        if (not cond) then
+            error(msg or "assertion failed", 2);
+        end
+    end
+
+    ---------------------------------------------------------------------------
+    -- 도우미
+    ---------------------------------------------------------------------------
+
+    --- 파싱 결과에서 인자 이름만 순서대로.
+    local function argNames(macrotext)
+        local _, args = ParseMacroText(macrotext);
+        if (not args) then
+            return {};
+        end
+        local names = {};
+        for i = 1, #args do
+            names[i] = args[i].name;
+        end
+        return names;
+    end
+
+    local function join(t)
+        return "{" .. table.concat(t, ", ") .. "}";
+    end
+
+    local function expectArgs(macrotext, expected)
+        local got = argNames(macrotext);
+        check(#got == #expected and table.concat(got, "\1") == table.concat(expected, "\1"),
+            format("%q\n     기대 %s\n     실제 %s", macrotext, join(expected), join(got)));
+    end
+
+    --- 대괄호/세미콜론/쉼표 주변 공백만 지운 형태. 파서는 이 공백을 정규화하므로
+    --- 그것만 무시하고 나머지가 온전히 보존됐는지 본다.
+    --- 줄바꿈은 일부러 안 건드린다 -- 줄 경계가 뭉개지면 아무것도 못 잡는다.
+    local function canon(s)
+        return (s:gsub("[ \t]*([%[%]%;,])[ \t]*", "%1"));
+    end
+
+    --- 조건 그룹에 공백을 잔뜩 끼워 넣는다. `[@tank,exists]` -> `[ @tank , exists ]`
+    local function padded(s)
+        return (s:gsub("%[", "[ "):gsub("%]", " ]"):gsub(",", " , "));
+    end
+
+    local function expectRoundTrip(macrotext)
+        local _, args, _, normalized = ParseMacroText(macrotext);
+        if (not args) then
+            return; -- 파싱 대상이 아님. normalized 없음
+        end
+        check(canon(normalized) == canon(macrotext),
+            format("정규화가 내용을 바꿈\n     원문 %q\n     결과 %q", macrotext, normalized));
+    end
+
+    --- 와우의 format은 `%N$s` 위치 지정자를 받지만 순수 Lua는 안 받는다.
+    local function applyPositional(fmt, values)
+        return (fmt:gsub("%%(%d+)%$s", function(n) return values[tonumber(n)]; end));
+    end
+
+    --- SecureBindings.lua:86-113의 치환을 그대로 흉내낸다.
+    --- 보안 환경이 실제로 와우에 넘기는 문자열을 만들어 준다.
+    local function resolve(macrotext, units, states)
+        units, states = units or {}, states or {};
+        local first, args, isComplex = ParseMacroText(macrotext);
+        if (not args) then
+            return first; -- 특수 토큰 없음. 원문 그대로
+        end
+
+        if (isComplex) then
+            local frags = {};
+            for i = 1, #first do
+                frags[i] = first[i];
+            end
+            for i = 1, #args do
+                local arg = args[i];
+                local value;
+                if (arg.type == ARG_UNIT) then
+                    value = units[arg.name] or "raid41";
+                else
+                    local on = states[arg.name] and true or false;
+                    if (arg.reverse) then
+                        on = not on;
+                    end
+                    value = on and "" or "known:0";
+                end
+                frags[i * 2] = value;
+            end
+            return table.concat(frags);
+        end
+
+        local ordered = {};
+        for name, index in pairs(SPECIAL_UNITS) do
+            ordered[index] = units[name] or "raid41";
+        end
+        return applyPositional(first, ordered);
+    end
+
+    local LEAKABLE = { "@tank", "@healer", "@maintank", "@mainassist", "@custom1", "@custom2", "@hover", "$state" };
+
+    --- 치환 후에도 애드온 전용 토큰이 남아 있으면 그건 와우로 새어나간 것.
+    local function expectNoLeak(macrotext, units, states)
+        local out = resolve(macrotext, units, states);
+        for i = 1, #LEAKABLE do
+            check(not out:find(LEAKABLE[i], 1, true),
+                format("%q 가 치환 후에도 남음\n     원문 %q\n     결과 %q", LEAKABLE[i], macrotext, out));
+        end
+    end
+
+    ---------------------------------------------------------------------------
+    -- 1. 이름 붙은 회귀 테스트
+    ---------------------------------------------------------------------------
+
+    -- §1-1: `([^%;]*)` 가 `]` 다음부터 `;` 까지를 통째로 삼켜서 두 번째 이후
+    --       대괄호 그룹이 파서에 도달하지 못했다. README가 광고하던 형태.
+    test("두 번째 그룹의 특수 유닛도 파싱된다", function()
+        expectArgs("/cast [@custom2,exists][@healer,exists][] Innervate", { "custom2", "healer" });
+        expectNoLeak("/cast [@custom2,exists][@healer,exists][] Innervate");
+    end);
+
+    test("첫 그룹에 특수 토큰이 없어도 나머지를 포기하지 않는다", function()
+        -- 이전엔 `_fragments`가 1개뿐이라 파싱 자체를 포기하고 원문을 돌려줬다
+        expectArgs("/cast [mod:shift][@healer,exists] Innervate", { "healer" });
+        expectNoLeak("/cast [mod:shift][@healer,exists] Innervate");
+    end);
+
+    test("그룹이 셋 이상이어도 전부 파싱된다", function()
+        expectArgs("/cast [@tank][@healer][@custom1] Foo", { "tank", "healer", "custom1" });
+        expectNoLeak("/cast [@tank][@healer][@custom1] Foo");
+    end);
+
+    test("그룹 사이 공백도 조건 이어짐으로 본다", function()
+        -- 와우는 `[a] [b] Foo`를 "a 또는 b"로 읽는다
+        expectArgs("/cast [@tank] [@healer] Foo", { "tank", "healer" });
+    end);
+
+    test("커스텀 상태가 두 번째 그룹에 있어도 파싱된다", function()
+        expectArgs("/cast [nocombat][$state1] Foo", { "$state1" });
+        expectNoLeak("/cast [nocombat][$state1] Foo", nil, { ["$state1"] = true });
+    end);
+
+    test("세미콜론과 다중 그룹이 섞여도 전부 파싱된다", function()
+        expectArgs("/cast [@tank][@healer] A; [@custom1][@custom2] B",
+            { "tank", "healer", "custom1", "custom2" });
+        expectNoLeak("/cast [@tank][@healer] A; [@custom1][@custom2] B");
+    end);
+
+    test("여러 줄에서도 줄마다 다중 그룹이 파싱된다", function()
+        expectArgs("/cast [@tank][@healer] A\n/use [@custom1][@custom2] B",
+            { "tank", "healer", "custom1", "custom2" });
+    end);
+
+    test("특수 토큰이 마지막 그룹에만 있어도 파싱된다", function()
+        expectArgs("/cast [combat][mod:alt][@hover] Foo", { "hover" });
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 2. 와우 문법 준수 -- "그냥 욕심내서 다 먹기"로 고치면 여기서 깨진다
+    ---------------------------------------------------------------------------
+
+    -- 와우의 SecureCmdOptionParse는 절 맨 앞의 `[...]` 들만 조건으로 읽고,
+    -- 조건이 아닌 글자가 한 번 나오면 그 뒤는 전부 액션 텍스트다.
+    test("본문 뒤의 대괄호는 조건이 아니라 글자다", function()
+        expectArgs("/cast [@tank] Foo [@healer] Bar", { "tank" });
+        expectRoundTrip("/cast [@tank] Foo [@healer] Bar");
+    end);
+
+    test("본문 뒤 대괄호를 건너뛰어도 다음 절은 계속 파싱한다", function()
+        expectArgs("/cast [@tank] Foo [@healer] Bar; [@custom1] Baz", { "tank", "custom1" });
+    end);
+
+    test("본문 안의 리터럴 토큰은 그대로 보존된다", function()
+        local out = resolve("/cast [@tank] @healer 라는 이름의 주문", { tank = "party1" });
+        check(out:find("@healer", 1, true), "액션 텍스트가 손상됨: " .. out);
+        check(not out:find("@tank", 1, true), "조건의 @tank가 치환되지 않음: " .. out);
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 3. 공백
+    ---------------------------------------------------------------------------
+
+    -- 와우는 조건절 안팎의 공백에 관대하다. 사람이 손으로 친 매크로는 여기가
+    -- 제각각이라, 공백 하나 때문에 토큰을 놓치면 곧바로 "가끔 안 되는" 애드온이 된다.
+
+    test("대괄호 안쪽 공백", function()
+        expectArgs("/cast [ @tank ] Foo", { "tank" });
+        expectArgs("/cast [\t@tank\t] Foo", { "tank" });
+        expectRoundTrip("/cast [ @tank ] Foo");
+    end);
+
+    test("쉼표 주변 공백", function()
+        expectArgs("/cast [@tank , exists] Foo", { "tank" });
+        expectArgs("/cast [ @tank , exists , nocombat ] Foo", { "tank" });
+        expectArgs("/cast [ $state1 , @tank ] Foo", { "$state1", "tank" });
+        expectRoundTrip("/cast [ @tank , exists , nocombat ] Foo");
+    end);
+
+    test("안쪽 공백 + 다중 그룹", function()
+        expectArgs("/cast [ @tank ][ @healer ] Foo", { "tank", "healer" });
+        expectArgs("/cast [ @tank ] [ @healer ] Foo", { "tank", "healer" });
+        expectArgs("/cast [ $state1 ][ @tank ] Foo", { "$state1", "tank" });
+        expectNoLeak("/cast [ @tank ][ @healer ] Foo");
+    end);
+
+    test("공백만 있는 그룹", function()
+        expectArgs("/cast [ ][ @healer ] Foo", { "healer" });
+        expectRoundTrip("/cast [ ][ @healer ] Foo");
+    end);
+
+    test("세미콜론 주변 공백", function()
+        expectArgs("/cast [ @tank ] Foo ; [ @healer ] Bar", { "tank", "healer" });
+        expectRoundTrip("/cast [ @tank ] Foo ; [ @healer ] Bar");
+    end);
+
+    test("안쪽 공백 + 부정/접미사", function()
+        expectArgs("/cast [ no$state1 ] Foo", { "$state1" });
+        expectArgs("/cast [ @tanktarget ] Foo", { "tank" });
+        local _, args = ParseMacroText("/cast [ no$state1 ] Foo");
+        check(args[1].reverse == true, "안쪽 공백 때문에 reverse를 놓침");
+        check(args[1].sourceString == "no$state1",
+            "sourceString에 공백이 남음: " .. tostring(args[1].sourceString));
+    end);
+
+    -- §3-1: 슬래시 명령 매칭이 `^(/[%S]+%s+)()`였다. `%S`가 `[`까지 먹어버리는데
+    --       뒤에 공백을 **하나 이상** 요구해서, 붙여 쓰면 줄 전체를 포기했다.
+    test("명령 뒤에 공백이 없어도 파싱한다", function()
+        expectArgs("/cast[@tank] Foo", { "tank" });
+        expectArgs("/cast[@tank][@healer]Foo", { "tank", "healer" });
+        expectNoLeak("/cast[@tank] Foo");
+    end);
+
+    -- §3-2: 같은 패턴이 `^/`로 시작할 것을 요구해서, 줄 앞 공백에도 포기했다.
+    test("줄 앞 공백이 있어도 파싱한다", function()
+        expectArgs("  /cast [@tank] Foo", { "tank" });
+        expectArgs("/cast [@tank] A\n  /use [@healer] B", { "tank", "healer" });
+    end);
+
+    test("명령 뒤 공백은 여러 개여도 보존된다", function()
+        local _, _, _, normalized = ParseMacroText("/cast  [@tank]  Foo");
+        check(normalized == "/cast  [@tank]Foo", "정규화 결과가 " .. tostring(normalized));
+    end);
+
+    test("슬래시 명령이 없는 줄", function()
+        expectArgs("[@tank] Foo", { "tank" });
+        expectArgs("  [@tank][@healer] Foo", { "tank", "healer" });
+    end);
+
+    test("조건이 없는 명령은 건드리지 않는다", function()
+        local a, args = ParseMacroText("/cast Regrowth");
+        check(args == nil, "조건이 없는데 args를 돌려줌");
+        check(a == "/cast Regrowth", "원문이 바뀜: " .. tostring(a));
+
+        -- 인자가 아예 없는 명령(뒤에 공백도 없음)에서 죽지 않아야 한다
+        local b, args2 = ParseMacroText("/dismount");
+        check(args2 == nil and b == "/dismount", "원문이 바뀜: " .. tostring(b));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 4. 기존 동작 회귀 방지
+    ---------------------------------------------------------------------------
+
+    test("단일 그룹", function()
+        expectArgs("/cast [@tank] Heal", { "tank" });
+        expectArgs("/cast [@custom1,exists] Heal", { "custom1" });
+    end);
+
+    test("세미콜론으로 나뉜 절", function()
+        expectArgs("/cast [@custom2,exists] Innervate; [@healer,exists] Innervate",
+            { "custom2", "healer" });
+        expectArgs("/cast [$state1] Heal; Smite", { "$state1" });
+    end);
+
+    test("특수 토큰이 없으면 파싱 대상이 아니다", function()
+        local a, args = ParseMacroText("/cast [mod:shift] Foo; Bar");
+        check(args == nil, "특수 토큰이 없는데 args를 돌려줌");
+        check(a == "/cast [mod:shift] Foo; Bar", "원문이 그대로 돌아오지 않음: " .. tostring(a));
+
+        local b, args2 = ParseMacroText("/cast Regrowth");
+        check(args2 == nil, "대괄호도 없는데 args를 돌려줌");
+        check(b == "/cast Regrowth", "원문이 그대로 돌아오지 않음: " .. tostring(b));
+    end);
+
+    test("유닛 접미사", function()
+        expectArgs("/cast [@tanktarget] Foo", { "tank" });
+        expectArgs("/cast [@custom2pettarget] Foo", { "custom2" });
+        local out = resolve("/cast [@tanktarget] Foo", { tank = "raid7" });
+        check(out:find("@raid7target", 1, true), "접미사가 붙어 나오지 않음: " .. out);
+    end);
+
+    test("알 수 없는 @유닛은 건드리지 않는다", function()
+        local a, args = ParseMacroText("/cast [@notaunit] Foo");
+        check(args == nil, "모르는 유닛을 인자로 잡음");
+        check(a == "/cast [@notaunit] Foo", "원문이 바뀜: " .. tostring(a));
+        -- 진짜 와우 유닛도 마찬가지로 그냥 통과해야 한다
+        local b, args2 = ParseMacroText("/cast [@focus] Foo");
+        check(args2 == nil, "와우 기본 유닛 @focus를 건드림");
+        check(b == "/cast [@focus] Foo", "원문이 바뀜: " .. tostring(b));
+    end);
+
+    test("커스텀 상태 부정(no$state)", function()
+        local _, args = ParseMacroText("/cast [no$state1] Foo");
+        check(args and #args == 1, "인자를 못 찾음");
+        check(args[1].name == "$state1", "이름이 " .. tostring(args[1].name));
+        check(args[1].reverse == true, "reverse가 안 붙음");
+        check(args[1].sourceString == "no$state1", "sourceString이 " .. tostring(args[1].sourceString));
+
+        -- reverse는 값의 의미를 뒤집는다: 상태가 켜져 있으면 조건은 거짓
+        check(resolve("/cast [no$state1] Foo", nil, { ["$state1"] = true }):find("known:0", 1, true),
+            "상태가 켜졌는데 no$state1이 참으로 나옴");
+        check(not resolve("/cast [no$state1] Foo", nil, { ["$state1"] = false }):find("known:0", 1, true),
+            "상태가 꺼졌는데 no$state1이 거짓으로 나옴");
+    end);
+
+    test("unitsOnly면 커스텀 상태를 무시한다", function()
+        local _, args = ParseMacroText("/cast [@tank,$state1] Foo", true);
+        check(args and #args == 1, "인자 수가 " .. tostring(args and #args));
+        check(args[1].name == "tank", "이름이 " .. tostring(args[1].name));
+    end);
+
+    test("한 그룹 안에 인자가 여럿", function()
+        expectArgs("/cast [@tank,exists,nocombat] Foo", { "tank" });
+        expectRoundTrip("/cast [@tank,exists,nocombat] Foo");
+        expectArgs("/cast [$state1,@tank] Foo", { "$state1", "tank" });
+        expectRoundTrip("/cast [$state1,@tank] Foo");
+    end);
+
+    test("빈 조건 그룹", function()
+        expectArgs("/cast [@tank][] Foo", { "tank" });
+        expectRoundTrip("/cast [@tank][] Foo");
+    end);
+
+    test("닫히지 않은 대괄호는 그대로 흘려보낸다", function()
+        local a, args = ParseMacroText("/cast [@tank][@healer Foo");
+        check(args and #args == 1, "첫 그룹은 파싱됐어야 함");
+        check(args[1].name == "tank", "이름이 " .. tostring(args[1].name));
+        check(a:find("[@healer Foo", 1, true), "망가진 꼬리가 보존되지 않음");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 5. SecureBindings.lua가 의존하는 반환값 계약
+    ---------------------------------------------------------------------------
+
+    test("계약: 특수 유닛만 있으면 formatString", function()
+        local fmt, args, isComplex = ParseMacroText("/cast [@tank][@healer] Foo");
+        check(type(fmt) == "string", "fragments가 아니라 문자열이어야 함");
+        check(not isComplex, "isComplex가 켜짐");
+        check(fmt == "/cast [@%1$s][@%2$s]Foo", "포맷 문자열이 " .. fmt);
+        check(#args == 2, "인자 수가 " .. #args);
+        check(args[1].type == ARG_UNIT and args[2].type == ARG_UNIT, "타입이 UNIT이 아님");
+    end);
+
+    test("계약: 커스텀 상태가 끼면 fragments", function()
+        local frags, args, isComplex = ParseMacroText("/cast [$state1][@tank] Foo");
+        check(type(frags) == "table", "fragments가 테이블이 아님");
+        check(isComplex == true, "isComplex가 안 켜짐");
+        -- 홀수 = 글자, 짝수 = 인자 자리 (SecureBindings가 `fragments[i*2]`를 덮어씀)
+        check(#frags == #args * 2 + 1, "fragments 길이가 " .. #frags);
+        for i = 1, #args do
+            check(frags[i * 2] == (args[i].sourceString or args[i].name),
+                format("fragments[%d]가 %q, 인자는 %q", i * 2, frags[i * 2], args[i].name));
+        end
+    end);
+
+    test("계약: 유닛 인덱스가 보안 환경 인자 순서와 맞는다", function()
+        -- SecureBindings.lua:106-113이 tank, healer, maintank, mainassist,
+        -- custom1, custom2, hover 순으로 넘긴다
+        local order = { "tank", "healer", "maintank", "mainassist", "custom1", "custom2", "hover" };
+        for i = 1, #order do
+            check(SPECIAL_UNITS[order[i]] == i, order[i] .. "의 인덱스가 " .. tostring(SPECIAL_UNITS[order[i]]));
+            local fmt = ParseMacroText("/cast [@" .. order[i] .. "] Foo");
+            check(fmt == format("/cast [@%%%d$s]Foo", i), "포맷 문자열이 " .. fmt);
+        end
+    end);
+
+    test("계약: 캐시가 같은 결과를 준다", function()
+        local text = "/cast [@tank][@healer] Foo";
+        local a1, args1 = ParseMacroText(text);
+        local a2, args2 = ParseMacroText(text);
+        check(a1 == a2 and args1 == args2, "캐시가 다른 값을 돌려줌");
+        ClearMacroTextCache();
+        local a3 = ParseMacroText(text);
+        check(a1 == a3, "캐시를 비우니 결과가 달라짐");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 6. 무차별 대조 -- 조건 그룹을 조합해서 정답을 직접 만든다
+    ---------------------------------------------------------------------------
+
+    -- 각 항목: { 그룹 문자열, 그 그룹이 내놓아야 할 인자 이름들 }
+    local GROUPS = {
+        { "[@tank]",             { "tank" } },
+        { "[@healer,exists]",    { "healer" } },
+        { "[mod:shift]",         {} },
+        { "[]",                  {} },
+        { "[$state1]",           { "$state1" } },
+        { "[@custom1,nocombat]", { "custom1" } },
+        { "[@custom2target]",    { "custom2" } },
+        { "[nocombat,@hover]",   { "hover" } },
+    };
+
+    --- 그룹 인덱스 목록으로 절 하나와 기대 인자 목록을 만든다.
+    local function buildClause(indices)
+        local parts, expected = {}, {};
+        for i = 1, #indices do
+            local g = GROUPS[indices[i]];
+            parts[#parts + 1] = g[1];
+            for j = 1, #g[2] do
+                expected[#expected + 1] = g[2][j];
+            end
+        end
+        return table.concat(parts), expected;
+    end
+
+    --- 길이 n인 모든 그룹 조합을 훑는다.
+    local function eachCombo(n, fn)
+        local idx = {};
+        local function rec(depth)
+            if (depth > n) then
+                fn(idx);
+                return;
+            end
+            for i = 1, #GROUPS do
+                idx[depth] = i;
+                rec(depth + 1);
+            end
+            idx[depth] = nil;
+        end
+        rec(1);
+    end
+
+    --- 같은 조합을 세 가지 표기로 돌린다. 공백 차이가 결과를 바꾸면 안 된다.
+    local SPELLINGS = {
+        { "보통", function(clause) return "/cast " .. clause .. " Foo"; end },
+        { "공백 낀 조건", function(clause) return "/cast " .. padded(clause) .. " Foo"; end },
+        { "명령에 붙임", function(clause) return "/cast" .. clause .. " Foo"; end },
+    };
+
+    local function checkMacrotext(macrotext, expected)
+        local got = argNames(macrotext);
+        check(table.concat(got, "\1") == table.concat(expected, "\1"),
+            format("%q\n     기대 %s\n     실제 %s", macrotext, join(expected), join(got)));
+
+        expectRoundTrip(macrotext);
+
+        if (#expected == 0) then
+            local a, args = ParseMacroText(macrotext);
+            check(args == nil, macrotext .. ": 인자가 없는데 args를 돌려줌");
+            check(a == macrotext, macrotext .. ": 원문이 바뀜 -> " .. tostring(a));
+        else
+            expectNoLeak(macrotext, nil, { ["$state1"] = true });
+            expectNoLeak(macrotext, nil, { ["$state1"] = false });
+        end
+    end
+
+    test("무차별: 그룹 1~3개 조합 × 표기 3종", function()
+        local count = 0;
+        for n = 1, 3 do
+            eachCombo(n, function(indices)
+                local clause, expected = buildClause(indices);
+                count = count + 1;
+                for s = 1, #SPELLINGS do
+                    checkMacrotext(SPELLINGS[s][2](clause), expected);
+                end
+            end);
+        end
+        check(count == 8 + 64 + 512, "조합 수가 " .. count);
+    end);
+
+    test("무차별: 세미콜론으로 이어붙인 두 절", function()
+        -- 조합 폭발을 막으려고 2개짜리 조합끼리만 곱한다
+        eachCombo(2, function(a)
+            local clauseA, expectedA = buildClause(a);
+            eachCombo(1, function(b)
+                local clauseB, expectedB = buildClause(b);
+                local macrotext = "/cast " .. clauseA .. " Foo; " .. clauseB .. " Bar";
+
+                local expected = {};
+                for i = 1, #expectedA do expected[#expected + 1] = expectedA[i]; end
+                for i = 1, #expectedB do expected[#expected + 1] = expectedB[i]; end
+
+                local got = argNames(macrotext);
+                check(table.concat(got, "\1") == table.concat(expected, "\1"),
+                    format("%q\n     기대 %s\n     실제 %s", macrotext, join(expected), join(got)));
+
+                expectRoundTrip(macrotext);
+            end);
+        end);
+    end);
+
+    test("무차별: 줄바꿈으로 이어붙인 두 줄", function()
+        eachCombo(2, function(a)
+            local clauseA, expectedA = buildClause(a);
+            eachCombo(1, function(b)
+                local clauseB, expectedB = buildClause(b);
+                local macrotext = "/cast " .. clauseA .. " Foo\n/use " .. clauseB .. " Bar";
+
+                local expected = {};
+                for i = 1, #expectedA do expected[#expected + 1] = expectedA[i]; end
+                for i = 1, #expectedB do expected[#expected + 1] = expectedB[i]; end
+
+                local got = argNames(macrotext);
+                check(table.concat(got, "\1") == table.concat(expected, "\1"),
+                    format("%q\n     기대 %s\n     실제 %s", macrotext, join(expected), join(got)));
+
+                expectRoundTrip(macrotext);
+            end);
+        end);
+    end);
+
+    return T;
+end

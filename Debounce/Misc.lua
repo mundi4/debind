@@ -611,7 +611,9 @@ do
                     appendStr("\n");
                 end
 
-                local slashcmd, idx = strmatch(line, "^(/[%S]+%s+)()");
+                -- 명령 이름에서 `[`를 빼야 `/cast[@tank]`처럼 공백 없이 붙은 형태가
+                -- 걸린다. 뒤 공백도 `%s*` -- 있어도 되고 없어도 된다.
+                local slashcmd, idx = strmatch(line, "^(%s*/[^%s%[]+%s*)()");
                 if (slashcmd) then
                     appendStr(slashcmd);
                 else
@@ -619,20 +621,28 @@ do
                 end
 
                 while (idx) do
-                    local s1, s2, nextIndex = strmatch(line, "^%s*%[([^%]]*)%]([^%;]*)()", idx);
+                    local s1, nextIndex = strmatch(line, "^%s*%[([^%]]*)%]()", idx);
                     if (s1) then
                         appendStr("[")
                         if (parseOptions(unitsOnly, strsplit("[,]", s1))) then
                             isComplex = true;
                         end
                         appendStr("]");
-                        appendStr(strtrim(s2));
+                        idx = nextIndex;
 
-                        if (strsub(line, nextIndex, nextIndex) == ";") then
-                            appendStr(";");
-                            idx = nextIndex + 1;
-                        else
-                            break;
+                        -- 대괄호 그룹이 곧바로 이어지면 같은 절의 조건이 계속되는 것(OR).
+                        -- 여기서 멈추면 두 번째 이후 그룹의 @특수유닛/$상태가 통째로
+                        -- 리터럴로 새어나간다.
+                        if (not strmatch(line, "^%s*%[", idx)) then
+                            local body, afterBody = strmatch(line, "^([^%;]*)()", idx);
+                            appendStr(strtrim(body));
+
+                            if (strsub(line, afterBody, afterBody) == ";") then
+                                appendStr(";");
+                                idx = afterBody + 1;
+                            else
+                                break;
+                            end
                         end
                     else
                         appendStr(strsub(line, idx))
