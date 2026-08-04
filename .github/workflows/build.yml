@@ -29,4 +29,3 @@ jobs:
 
       - name: Package and release
         uses: BigWigsMods/packager@master
-        if: always()
