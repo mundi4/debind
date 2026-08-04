@@ -1,7 +1,7 @@
 ## Interface: 120000, 120001, 120005, 120007, 120100
 
-## Title: Debounce Test
-## Notes: In-game test framework for Debounce addon
+## Title: Debind Test
+## Notes: In-game test framework for the Debind addon
 ## Author: mundi4
 ## Dependencies: Debounce
 

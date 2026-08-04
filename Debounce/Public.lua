@@ -137,8 +137,10 @@ function Debounce_CompartmentOnLeave()
 	GameTooltip:Hide();
 end
 
-SLASH_DEBOUNCE1 = "/debounce";
+SLASH_DEBOUNCE1 = "/debind";
 SLASH_DEBOUNCE2 = "/deb";
+--- 옛 이름. 손가락이 기억하는 것을 뺏지 않는다.
+SLASH_DEBOUNCE3 = "/debounce";
 
 _G.DebouncePublic = setmetatable(DebouncePublic, { __newindex = function() end });
 
