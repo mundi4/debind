@@ -1295,7 +1295,9 @@
 		</Scripts>
 	</Button>
 
-	<Frame name="DebounceOverviewFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" enableKeyboard="true" hidden="true" mixin="DebounceOverviewFrameMixin" movable="true" clampedToScreen="true" propagateKeyboardInput="true">
+	<!-- 키보드를 받지 않는다. 이 창은 전투 중에 열어놓고 보는 용도라 키를 가로채면 안 된다.
+	     ESC는 UISpecialFrames가 닫는다(DebounceOverviewFrameMixin:OnLoad 참고). -->
+	<Frame name="DebounceOverviewFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebounceOverviewFrameMixin" movable="true" clampedToScreen="true">
 		<Size x="640" y="620"/>
 		<Anchors>
 			<Anchor point="CENTER"/>
@@ -1350,8 +1352,6 @@
 		<Scripts>
 			<OnShow method="OnShow"/>
 			<OnHide method="OnHide"/>
-			<OnEvent method="OnEvent"/>
-			<OnKeyDown method="OnKeyDown"/>
 		</Scripts>
 	</Frame>
 

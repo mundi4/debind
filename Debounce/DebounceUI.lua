@@ -3416,6 +3416,12 @@ DebounceOverviewFrameMixin = {}
 function DebounceOverviewFrameMixin:OnLoad()
 	self.initialized = true;
 
+	--- 이 창은 키보드를 아예 받지 않는다(XML에 enableKeyboard 없음). 오버뷰의 쓸모가
+	--- "전투 중에 열어놓고 바인딩이 실제로 먹는지 본다"인데, 키를 받는 순간 그걸 스스로 막는다.
+	--- 전투 중에는 SetPropagateKeyboardInput이 taint를 만들어 못 부르므로 전파 여부가
+	--- 전투 밖에서 정해진 마지막 값에 묶이고, 그 값이 false면 창이 뜬 동안 모든 키를 먹었다.
+	--- ESC는 UISpecialFrames가 닫아준다 - CloseSpecialWindows를 거치는 블리자드의 secure 경로라
+	--- 우리가 전파를 손댈 일 자체가 없어진다.
 	RegisterAsSpecialFrame("DebounceOverviewFrame");
 
 	local title = format(LLL["DEBOUNCE_OVERVIEW_TITLE"]);
@@ -3443,8 +3449,6 @@ function DebounceOverviewFrameMixin:OnLoad()
 		DebouncePrivate.db.global.overviewui.pos = { x = x, y = y };
 	end);
 
-	self:RegisterEvent("PLAYER_REGEN_ENABLED");
-
 	self:InitializeScrollBox();
 end
 
@@ -3463,14 +3467,6 @@ end
 function DebounceOverviewFrameMixin:OnHide()
 	DebounceFrame.OverviewPortrait:SetSelectedState(false);
 	ClearMacrotextIconCache();
-end
-
-function DebounceOverviewFrameMixin:OnEvent(event)
-	-- if (event == "PLAYER_REGEN_ENABLED") then
-	-- end
-	if (not InCombatLockdown()) then
-		self:SetPropagateKeyboardInput(true);
-	end
 end
 
 function DebounceOverviewFrameMixin:OnBindingsUpdated(...)
@@ -3630,21 +3626,6 @@ function DebounceOverviewFrameMixin:InitializeScrollBox()
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
-end
-
--- Taint warning!
--- 전투 중에 SetPropagateKeyboardInput을 호출하면 taint 발생함. 적절한 방법을 찾을 수가 없다.
-function DebounceOverviewFrameMixin:OnKeyDown(input)
-	if (input == "ESCAPE") then
-		self:Hide();
-		if (not InCombatLockdown()) then
-			self:SetPropagateKeyboardInput(false);
-		end
-	else
-		if (not InCombatLockdown()) then
-			self:SetPropagateKeyboardInput(true);
-		end
-	end
 end
 
 function DebounceOverviewFrameMixin:Toggle()
