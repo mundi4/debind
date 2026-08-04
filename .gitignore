@@ -2,6 +2,7 @@
 .release
 node_modules
 tools/bin
+tools/cache
 .editorconfig
 .claude
 BlizzardInterfaceCode

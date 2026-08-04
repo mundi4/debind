@@ -28,6 +28,16 @@ jobs:
       - name: Solver tests
         run: lua tests/run.lua
 
+      # inherits가 가리키는 블리자드 템플릿이 아직 있는지. 게임에서만 터지는 종류라
+      # (이슈 #8) 여기 말고는 잡을 자리가 없다. 태그가 아니라 매 커밋에서 돈다.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check inherited templates
+        run: node tools/check-templates.js
+
       # 게임과 같은 Lua 5.1. 조용히 비싸지는 걸 잡으려고 로그에 남긴다.
       - name: Solver benchmark
         run: lua tests/run.lua --bench
