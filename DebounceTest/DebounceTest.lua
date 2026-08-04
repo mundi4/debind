@@ -557,6 +557,39 @@ RegisterTest("Multi-condition: combat + group + stealth", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: Secure Handler Health
+-----------------------------------------------------------
+
+-- 재빌드가 시큐어 환경까지 실제로 도달했는지. 이게 끊기면 아무것도 안 터지고, 바인딩이
+-- 마지막에 적용된 상태로 얼어붙는다 - 키는 계속 뭔가 나가고 상태 전환만 멈추므로
+-- 유저는 "가끔 안 먹혀요"라고밖에 말할 수 없다. 조용한 고장을 시끄럽게 만드는 것이 목적.
+RegisterTest("Secure update path", {
+    description = "UpdateBindings가 시큐어 핸들러까지 도달하는지 (state-unitexists를 핸들러가 소비했는가)",
+    run = function()
+        if InCombatLockdown() then
+            return Fail("Secure update path", "전투 중에는 UpdateBindings가 미뤄지므로 판정 불가")
+        end
+
+        local driver = DebouncePrivate.BindingDriver
+        if not driver then return Fail("Secure update path", "BindingDriver가 없다") end
+
+        ApplyBindings()
+
+        -- UpdateBindings의 마지막 동작이 state-unitexists=1이고, 시큐어 _onattributechanged가
+        -- 첫 동작으로 0으로 되돌린다. 핸들러는 동기적으로 도니까 여기까지 왔는데도 0이 아니면
+        -- 핸들러가 아예 안 돈 것이다. 대기 상태의 0과 헷갈릴 일이 없다 - 방금 1을 넣었으므로.
+        local value = driver:GetAttribute("state-unitexists")
+        if value ~= 0 then
+            return Fail("Secure update path", format(
+                "state-unitexists=%s, 0이어야 한다. 시큐어 핸들러가 돌지 않았다 - 바인딩이 갱신을 멈춘 상태다",
+                tostring(value)))
+        end
+
+        return Pass("Secure update path", "핸들러가 소비함")
+    end,
+})
+
+-----------------------------------------------------------
 -- Copyable Output Popup
 -----------------------------------------------------------
 
