@@ -364,9 +364,11 @@ local function IsEditingAction(action)
 	return false;
 end
 
+-- 열린 메뉴의 대상은 elementData가 아니라 action으로 기억한다. 메뉴가 떠 있는 동안 Refresh가
+-- 돌면 elementData는 새로 만들어지고, 그걸 붙들고 있으면 대상을 놓친다.
 local function IsEditDropdownShown(elementData)
 	if (DebounceFrame.contextMenu) then
-		if (elementData == nil or DebounceFrame.contextMenuData == elementData) then
+		if (elementData == nil or DebounceFrame.contextMenuAction == elementData.action) then
 			return true;
 		end
 	end
@@ -1136,9 +1138,12 @@ function DebounceLineMixin:Update()
 	-- 새로 만들어도 강조가 유지된다.
 	self.SelectedHighlight:SetShown(_selectedAction == action
 		or IsEditingAction(action)
-		or IsEditDropdownShown(elementData)
 		or (_draggingElement ~= nil and _draggingElement.action == action)
 		or (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action));
+
+	-- 메뉴 대상은 선택과 다른 텍스처를 쓴다(XML 참고). 한 행이 둘 다일 수 있으므로 서로를
+	-- 지우지 않는다.
+	self.MenuHighlight:SetShown(IsEditDropdownShown(elementData));
 
 	if (GameTooltip:GetOwner() == self) then
 		self:OnEnter();
@@ -2129,11 +2134,20 @@ function DebounceFrameMixin:ShowEditDropdown(button, atButton)
 	local elementData = button:GetElementData();
 	local menu = MenuUtil.CreateContextMenu(button, DebounceUI.SetupEditDropdownMenu, elementData);
 	self.contextMenu = menu;
+	self.contextMenuAction = menu and elementData.action or nil;
 	if (menu) then
-		self.contextMenuData = elementData;
+		-- 메뉴가 닫혔다는 것을 알려주는 것은 이 콜백뿐이다. 여기서 다시 그리지 않으면 강조가
+		-- 남은 채로 다음 Update를 기다리는데, 메뉴를 그냥 닫기만 한 경우 그 Update는 오지 않는다.
+		--
+		-- 앞서 열려 있던 메뉴는 새 메뉴가 열리면서 닫히므로, 늦게 도착한 콜백이 새 메뉴의
+		-- 상태를 지우지 않도록 자기 것인지 확인한다.
 		menu:SetClosedCallback(function()
+			if (self.contextMenu ~= menu) then
+				return;
+			end
 			self.contextMenu = nil;
-			self.contextMenuData = nil;
+			self.contextMenuAction = nil;
+			self:Update();
 		end);
 	end
 	self:Update();
