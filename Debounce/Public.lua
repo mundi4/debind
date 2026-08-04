@@ -115,11 +115,26 @@ SlashCmdList["DEBOUNCE"] = function(msg)
 end
 
 function Debounce_CompartmentFunc(name, mouseButton, btn)
-	if (false and mouseButton == "RightButton") then
+	if (mouseButton == "RightButton") then
 		DebounceOverviewFrame:Toggle();
 	else
 		DebouncePublic:ToggleUI();
 	end
+end
+
+--- 구획 항목에 마우스를 올렸을 때. 좌·우클릭이 서로 다른 창을 여는데, 그걸 말해줄 자리가
+--- 여기밖에 없다 - 메뉴 항목은 이름 한 줄이 전부라 우클릭은 우연히 눌러야만 발견된다.
+--- 인자는 블리자드가 준다 (Blizzard_Minimap/AddonCompartment.lua의 funcOnEnter).
+function Debounce_CompartmentOnEnter(name, btn)
+	GameTooltip:SetOwner(btn, "ANCHOR_LEFT");
+	GameTooltip_SetTitle(GameTooltip, C_AddOns.GetAddOnMetadata(name, "Title") or name);
+	GameTooltip_AddInstructionLine(GameTooltip, LLL["COMPARTMENT_TOOLTIP_LEFT_CLICK"]);
+	GameTooltip_AddInstructionLine(GameTooltip, LLL["COMPARTMENT_TOOLTIP_RIGHT_CLICK"]);
+	GameTooltip:Show();
+end
+
+function Debounce_CompartmentOnLeave()
+	GameTooltip:Hide();
 end
 
 SLASH_DEBOUNCE1 = "/debounce";

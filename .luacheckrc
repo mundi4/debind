@@ -244,6 +244,8 @@ globals = {
 	"DebounceVars",
 	"DebounceVarsPerChar",
 	"Debounce_CompartmentFunc",
+	"Debounce_CompartmentOnEnter",
+	"Debounce_CompartmentOnLeave",
 	"SlashCmdList",
 
 	-- Mixin globals (for XML templates)

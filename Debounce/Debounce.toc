@@ -10,6 +10,8 @@
 ## SavedVariablesPerCharacter: DebounceVarsPerChar
 ## OptionalDeps: Clique, Grid2, DevTool, ViragDevTool
 ## AddonCompartmentFunc: Debounce_CompartmentFunc
+## AddonCompartmentFuncOnEnter: Debounce_CompartmentOnEnter
+## AddonCompartmentFuncOnLeave: Debounce_CompartmentOnLeave
 ## Notes: Key Bindings and a Little More.|n|nSlash Command: |cffffff00/deb|r
 ## X-Curse-Project-ID: 970278
 
