@@ -297,7 +297,11 @@
 
 	<!--
 		순서 리스트 한 줄. 왼쪽 목록(DebounceLineTemplate)과 같은 아트를 쓴다 - 한 창 안의
-		두 목록이 다른 애드온처럼 보이면 안 된다. 다른 건 앞에 붙는 순위 번호뿐이다.
+		두 목록이 다른 애드온처럼 보이면 안 된다. 다른 건 폭(패널에 맞춰 좁다)과, 아래줄에
+		붙는 레이어·플래그 글자뿐이다.
+
+		순위 숫자는 안 붙인다. 이 목록은 위에서부터 시도되는 순서 그대로라 자리가 곧 순위이고,
+		지금 보고 있는 액션은 SelectedHighlight가 짚는다.
 	-->
 	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" virtual="true">
 		<Size x="300" y="46"/>
@@ -605,8 +609,9 @@
 				그런데 행이 보이면 "어느 줄에 떨궈야 하나"라는 질문이 생기고, 행마다 툴팁이
 				뜨면 행이 각각의 목적지처럼 보인다. 잠시 덮어서 그 질문 자체를 없앤다.
 
-				상세 패널까지 덮는 이유는 캡처 오버레이와 나란히 빛나는 것을 막기 위해서다.
-				드래그 중에는 드래그가 이긴다 - ESC 처리 순서가 이미 그렇게 되어 있다.
+				상세 패널까지 덮는 이유는 그쪽에도 떨굴 데가 없기 때문이다. 절반만 덮으면
+				안 덮인 쪽이 목적지처럼 보여서 없애려던 질문이 되살아난다. (단축키를 듣던
+				중이었다면 드래그가 시작될 때 이미 꺼진다 - OnDragStart가 패널을 Close한다.)
 
 				아래 탭과 오른쪽 사이드탭은 프레임 **바깥**에 붙어 있어 덮이지 않는다.
 				레이어를 옮기는 목적지라 살아 있어야 한다.
@@ -618,7 +623,7 @@
 				</Anchors>
 				<Layers>
 					<Layer level="BACKGROUND">
-						<!-- 캡처 오버레이와 같은 푸른 기 도는 검정. 두 덮개가 같은 뜻으로 읽혀야 한다. -->
+						<!-- 푸른 기가 도는 검정. 창을 끄는 것이 아니라 잠시 덮는 것으로 읽혀야 한다. -->
 						<Texture parentKey="Background" setAllPoints="true">
 							<Color r="0.03" g="0.06" b="0.15" a="0.88"/>
 						</Texture>
@@ -734,8 +739,8 @@
 								단축키 줄. **바인딩 자체가 버튼이다** - 와우 기본 단축키 설정과 같은
 								형태라 [변경] 버튼이 따로 없다. 누르면 그 자리에서 키를 듣는다.
 
-								이 줄은 캡처 중에 모습이 바뀌지 않는다. 어차피 오버레이가 덮으므로
-								바꿔봐야 안 보이고, 안 바꾸면 캡처를 취소했을 때 아무것도 안 움직인다.
+								이 줄은 캡처 중에도 같은 값을 보여준다. 듣고 있다는 표시는 버튼 위에
+								켜지는 하이라이트 하나뿐이라, 취소하면 아무것도 안 움직인다.
 							-->
 							<Frame parentKey="KeyArea">
 								<Size y="64"/>
@@ -1296,7 +1301,7 @@
 	</Button>
 
 	<!-- 키보드를 받지 않는다. 이 창은 전투 중에 열어놓고 보는 용도라 키를 가로채면 안 된다.
-	     ESC는 UISpecialFrames가 닫는다(DebounceOverviewFrameMixin:OnLoad 참고). -->
+	     ESC는 블리자드 쪽에서 닫아준다(DebounceOverviewFrameMixin:OnLoad 참고). -->
 	<Frame name="DebounceOverviewFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebounceOverviewFrameMixin" movable="true" clampedToScreen="true">
 		<Size x="640" y="620"/>
 		<Anchors>

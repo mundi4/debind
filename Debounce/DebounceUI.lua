@@ -334,16 +334,6 @@ local function GetSideTabaLabel(sideTabID)
 	end
 end
 
-local function DoesAncestryIncludeMouseFocus(ancestry)
-	local mouseFoci = GetMouseFoci();
-	for _, mouseFocus in ipairs(mouseFoci) do
-		if (DoesAncestryInclude(ancestry, mouseFocus)) then -- and (mouseFocus:GetObjectType() ~= "Button")
-			return true;
-		end
-	end
-	return false;
-end
-
 local function TryCloseAnyDialog()
 	if (DebounceIconSelectorFrame:Close() and DebounceDetailPanel:Close()) then
 		return true;
@@ -1635,10 +1625,36 @@ function DebounceFrameMixin:InitializeButtons()
 	end)
 end
 
---- 게임메뉴가 뜰 때는 언제나 열린 창을 먼저 다 닫는다(ESC는 CloseAllWindows가 먼저 먹고,
---- 마이크로 버튼은 CloseAllWindows 후 ShowUIPanel을 부른다). 그 그물이 UISpecialFrames이므로
---- 여기 등록하지 않으면 게임메뉴와 창이 공존하게 되고, 그 상태에서 ESC를 우리가 가로챈다.
-local function RegisterAsSpecialFrame(name)
+--- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
+---
+--- 12.0에서는 물어볼 일이 없었다 - area가 "center"/"full"인 패널이 열리는 순간 우리 창이
+--- 이미 닫혔으니까. 12.1부터는 UISpecialFrames에서 빠지므로 공존하고, 여기서 안 물러나면
+--- 마이크로 버튼으로 연 게임메뉴가 ESC로 안 닫힌다(우리 창이 키를 먼저 먹는다).
+local function BlizzardOwnsEscape()
+	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil;
+end
+
+--- 12.1이 ESC 전용 진입점을 열어줬다(RegisterGameMenuEscHandler). 여기 등록한 핸들러는
+--- ToggleGameMenu에서만 불리므로 우리 창은 ESC에만 닫힌다.
+---
+--- 12.0까지 쓰던 UISpecialFrames는 그물이 너무 넓다. CloseSpecialWindows를 태우는 게 ESC만이
+--- 아니라서 - area="center" 패널을 여는 것만으로도 ShowUIPanel -> CloseWindows ->
+--- CloseSpecialWindows를 지나간다 - P로 주문서를 열면 우리 창이 같이 닫혔다.
+--- 그래도 12.0에는 대안이 없다. 여기서 빼면 게임메뉴와 창이 공존하게 되고, 그 상태에서
+--- ESC를 우리가 가로챈다.
+local function RegisterEscapeToClose(frame)
+	if (RegisterGameMenuEscHandler) then
+		RegisterGameMenuEscHandler(GameMenuEscPriority.AddOn, function()
+			if (not frame:IsShown() or BlizzardOwnsEscape()) then
+				return false;
+			end
+			frame:Hide();
+			return true;
+		end);
+		return;
+	end
+
+	local name = frame:GetName();
 	for _, value in ipairs(UISpecialFrames) do
 		if (value == name) then
 			return;
@@ -1650,7 +1666,7 @@ end
 function DebounceFrameMixin:OnLoad()
 	self.initialized = true;
 
-	RegisterAsSpecialFrame("DebounceFrame");
+	RegisterEscapeToClose(self);
 
 	self:SetPortraitToAsset(133015);
 	self:SetPropagateKeyboardInput(true);
@@ -1680,6 +1696,7 @@ function DebounceFrameMixin:OnLoad()
 	self.keyFilter = "";
 	self.SearchBox:SetScript("OnTextChanged", self.SearchBox_OnTextChanged);
 	self.SearchBox:SetScript("OnEditFocusLost", self.SearchBox_OnFocusLost);
+	self.SearchBox:SetScript("OnEditFocusGained", self.SearchBox_OnFocusGained);
 
 	DebouncePrivate.db.global.ui = DebouncePrivate.db.global.ui or {};
 	self:ClearAllPoints();
@@ -1805,6 +1822,14 @@ end
 
 function DebounceFrameMixin:OnKeyDown(input)
 	if (input == "ESCAPE") then
+		-- 블리자드 패널이 떠 있으면 여기서 물러난다. 우리 창은 키보드를 켜둔 채라 ESC를
+		-- 언제나 먼저 받는데, 그걸 그대로 먹으면 마이크로 버튼으로 연 게임메뉴를 ESC로
+		-- 닫을 수 없다. 물러나면 블리자드가 자기 순서대로 처리한다.
+		if (BlizzardOwnsEscape()) then
+			self:SetPropagateKeyboardInput(true);
+			return;
+		end
+
 		self:SetPropagateKeyboardInput(false);
 
 		if (Menu.GetManager():HandleESC()) then
@@ -1819,8 +1844,12 @@ function DebounceFrameMixin:OnKeyDown(input)
 		-- 매크로 탭에는 따로 처리할 게 없다. 편집칸에 포커스가 있으면 ESC가 포커스만 풀고
 		-- (여기까지 안 온다), 한 번 더 누르면 아래 선택 해제로 간다 - 그때 본문이 저장된다.
 
-		-- 키를 듣는 중이면 그것부터 그만둔다. 버튼도 자기 ESC를 처리하지만 마우스가 패널
-		-- 밖에 있으면 키가 여기로 먼저 오므로 양쪽에 둔다.
+		-- 키를 듣는 중이면 그것부터 그만둔다.
+		--
+		-- 보통은 여기까지 안 온다 - 듣는 중에는 버튼이 마우스 위치와 무관하게 키를 먼저
+		-- 받고 전파를 끊는다. 그래도 남겨두는 건 **물러나는 순서** 때문이다. 이 갈래가
+		-- 없으면 어쩌다 여기로 온 ESC가 아래 선택 해제로 내려가서, 한 번 누른 것이
+		-- 캡처를 끝내고 패널까지 접는다.
 		if (DebounceDetailPanel:IsCapturingKey()) then
 			DebounceDetailPanel:CancelKeyCapture();
 			return;
@@ -2084,7 +2113,7 @@ function DebounceFrameMixin:UpdateDropOverlay()
 	end
 
 	-- 상세 패널이 useParentLevel이라 레벨이 부모를 따라 움직인다. 한 번 박아두지 않고
-	-- 띄울 때마다 다시 잡는다(캡처 오버레이가 같은 이유로 그렇게 한다).
+	-- 띄울 때마다 다시 잡는다.
 	overlay:SetFrameLevel(self:GetFrameLevel() + 100);
 
 	overlay.Glow:SetShown(pickedUp);
@@ -2289,6 +2318,19 @@ function DebounceFrameMixin:SearchBox_OnTextChanged(userInput)
 		end
 		DebounceFrame:Refresh();
 	end
+end
+
+--- 검색창이 키보드를 가져가면 듣기는 끝난다.
+---
+--- 안 끝내면 한 키가 두 군데로 들어간다(SetBindingMode 참고). 둘 중 검색창을 살리는 쪽을
+--- 고른 이유는 **포커스가 사용자의 의사표시**이기 때문이다 - 검색창을 눌렀다는 건 지금
+--- 하려는 일이 타이핑이라는 뜻이다. 반대로 고르면(캡처를 살리고 타이핑을 막으면) 글자가
+--- 안 들어가는 검색창이 남는데, 그건 고장으로 읽힌다.
+---
+--- self는 EditBox다(스크립트로 걸린다).
+function DebounceFrameMixin:SearchBox_OnFocusGained()
+	SearchBoxTemplate_OnEditFocusGained(self);
+	DebounceDetailPanel:CancelKeyCapture();
 end
 
 function DebounceFrameMixin:SearchBox_OnFocusLost()
@@ -3024,7 +3066,6 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	for i, row in ipairs(rows) do
 		dataProvider:Insert({
 			row = row,
-			rank = i,
 			isCurrent = i == currentIndex,
 			-- 같은 레이어는 정렬상 항상 붙어 있다. 섞였을 때만, 바뀌는 첫 행에만 단다.
 			layerLabel = (mixedLayers and (i == 1 or rows[i - 1].layerID ~= row.layerID))
@@ -3040,8 +3081,9 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 	end
 end
 
---- 단축키 줄은 캡처 여부와 무관하게 늘 같은 모습이다. 캡처 중에는 오버레이가 덮으므로
---- 바꿔봐야 안 보이고, 안 바꾸면 취소했을 때 아무것도 안 움직인다.
+--- 단축키 줄은 캡처 여부와 무관하게 늘 같은 값을 보여준다. 듣고 있다는 표시는
+--- SetBindingMode가 버튼 위에 켜는 하이라이트 하나가 맡는다 - 값까지 바꿔놓으면 취소했을 때
+--- 되돌릴 것이 생기고, 안 바꾸면 취소가 아무것도 안 움직인다.
 --- 높이는 실제로 그린 만큼만 잡는다 - 남기면 그만큼 순서 리스트가 줄어든다.
 function DebounceDetailPanelMixin:RefreshKeybind(action)
 	local keyArea = self.ContentArea.KeyArea;
@@ -3117,6 +3159,19 @@ function DebounceDetailPanelMixin:SetBindingMode(active)
 		button:EnableGamePadButton(active);
 	end
 	if (active) then
+		-- 편집칸이 키보드 포커스를 들고 있으면 **양쪽이 다 받는다.** 포커스 잡힌 EditBox와
+		-- 키보드를 켠 이 버튼에 같은 키가 각각 들어가서, 한 번 누른 것이 검색어에도 들어가고
+		-- 단축키도 바꾼다 - 한 번의 입력이 두 가지 일을 한다.
+		--
+		-- 마우스 위치는 상관이 없다. 키보드는 마우스가 패널 밖에 있어도 이 버튼에 들어온다
+		-- (잡히지 않는 건 클릭뿐이다). 그래서 "패널 위에서만 듣는다"로는 막을 수 없고,
+		-- 듣기 시작할 때 포커스를 거두는 수밖에 없다. 반대 방향(듣는 중에 검색창을 클릭)은
+		-- SearchBox_OnFocusGained이 캡처를 끝내는 것으로 막는다.
+		local focus = GetCurrentKeyBoardFocus();
+		if (focus) then
+			focus:ClearFocus();
+		end
+
 		-- 듣는 중에도 **떼는 순간**을 받는다. 누르는 순간으로 바꾸면 안 된다 - 그러면 키를
 		-- 잡으면서 듣기가 꺼지고, 꺼지는 길에 등록이 up으로 되돌아가면서 아직 떼지도 않은
 		-- 그 클릭의 나머지 반쪽이 **새 클릭처럼** 다시 들어온다(우클릭은 지정 직후 스스로
@@ -3430,9 +3485,9 @@ function DebounceOverviewFrameMixin:OnLoad()
 	--- "전투 중에 열어놓고 바인딩이 실제로 먹는지 본다"인데, 키를 받는 순간 그걸 스스로 막는다.
 	--- 전투 중에는 SetPropagateKeyboardInput이 taint를 만들어 못 부르므로 전파 여부가
 	--- 전투 밖에서 정해진 마지막 값에 묶이고, 그 값이 false면 창이 뜬 동안 모든 키를 먹었다.
-	--- ESC는 UISpecialFrames가 닫아준다 - CloseSpecialWindows를 거치는 블리자드의 secure 경로라
-	--- 우리가 전파를 손댈 일 자체가 없어진다.
-	RegisterAsSpecialFrame("DebounceOverviewFrame");
+	--- ESC는 블리자드가 닫아준다(RegisterEscapeToClose 참고) - 우리가 아닌 쪽에서 오는
+	--- secure 경로라 전파를 손댈 일 자체가 없어진다.
+	RegisterEscapeToClose(self);
 
 	local title = format(LLL["DEBOUNCE_OVERVIEW_TITLE"]);
 	self:SetTitle(title);

@@ -28,15 +28,10 @@ jobs:
       - name: Solver tests
         run: lua tests/run.lua
 
-      # inherits가 가리키는 블리자드 템플릿이 아직 있는지. 게임에서만 터지는 종류라
-      # (이슈 #8) 여기 말고는 잡을 자리가 없다. 태그가 아니라 매 커밋에서 돈다.
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Check inherited templates
-        run: node tools/check-templates.js
+      # 템플릿 존재 검사(tools/check-templates.js)는 여기서 안 돈다. 로컬 `npm run check`
+      # 전용이다 - 판정에 github.com을 쳐야 해서, 네트워크가 흔들리면 코드와 무관하게
+      # 빌드가 빨개진다. 우리 커밋이 깨뜨릴 수 있는 검사가 아니라 **블리자드가 패치를
+      # 내면 깨지는 검사**라서, 매 커밋에서 도는 것 자체가 자리를 잘못 잡은 것이었다.
 
       # 게임과 같은 Lua 5.1. 조용히 비싸지는 걸 잡으려고 로그에 남긴다.
       - name: Solver benchmark

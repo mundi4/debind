@@ -1,9 +1,13 @@
 // 우리 XML이 상속하는 블리자드 템플릿이 실제로 존재하는지 확인한다.
-//   npm run check:templates          캐시가 있으면 그걸 쓴다
-//   npm run check:templates -- --refresh   무조건 다시 받는다
+//   npm run check:templates                  캐시가 신선하면 그걸 쓴다
+//   npm run check:templates -- --refresh     무조건 다시 받는다
 //
 // 이슈 #8(GlowBorderTemplate이 사라진 걸 릴리스 후에 알았다)이 이걸 만든 이유다.
-// 없어진 템플릿을 inherits하면 게임에서만 터지므로, 게임 없이 잡을 수 있는 유일한 자리가 CI다.
+// 없어진 템플릿을 inherits하면 게임에서만 터진다.
+//
+// **로컬 전용이다.** CI에서 안 돈다 - 판정에 github.com을 쳐야 해서 네트워크가 흔들리면
+// 코드와 무관하게 빌드가 빨개진다. 우리 커밋이 깨뜨리는 검사가 아니라 블리자드가 패치를
+// 내면 깨지는 검사라, 매 커밋이 아니라 **릴리스 전에** 도는 게 맞다 (`npm run check`).
 //
 // 출처는 Gethe/wow-ui-source의 live 브랜치. 라이브에 나가는 물건이니 live로 본다
 // (로컬 BlizzardInterfaceCode/는 PTR 추출본이라 한 패치 앞서 있어서 이 판정엔 못 쓴다).
@@ -19,6 +23,12 @@ const REPO = "Gethe/wow-ui-source";
 const repoRoot = path.resolve(__dirname, "..");
 const cacheDir = path.join(__dirname, "cache");
 const cachePath = path.join(cacheDir, `blizzard-templates-${BRANCH}.json`);
+
+// 캐시 수명. **CI에서 빠지면서 생긴 요구사항이다** - 러너는 매번 깨끗해서 항상 새로 받았지만,
+// 로컬 캐시는 지우지 않으면 영원히 산다. 그러면 "블리자드가 이번 패치에 템플릿을 지웠나"를
+// 묻는 검사가 처음 받아둔 스냅샷으로 계속 통과한다. 검사가 조용히 거짓말하느니 느린 게 낫다.
+// 패치는 대개 화요일마다 오므로 이레면 최소 한 번은 새로 본다.
+const CACHE_MAX_AGE_DAYS = Number(process.env.WOW_UI_CACHE_DAYS || 7);
 
 // 우리 것이 아닌데 블리자드 XML에도 없는 이름들. 여기 있는 건 "없어도 정상"이라는 뜻이므로
 // 추가할 때는 왜 정상인지 한 줄 남길 것.
@@ -156,7 +166,7 @@ function get(url) {
 
 async function downloadBlizzardTemplates() {
     const url = `https://codeload.github.com/${REPO}/tar.gz/refs/heads/${BRANCH}`;
-    console.error(`${REPO}@${BRANCH} 받는 중...`);
+    console.log(`${REPO}@${BRANCH} 받는 중...`);
     const res = await get(url);
     const defined = new Set();
     let files = 0;
@@ -164,14 +174,30 @@ async function downloadBlizzardTemplates() {
         files++;
         collectDefined(xml, defined);
     });
-    console.error(`  XML ${files}개에서 템플릿 ${defined.size}개`);
+    console.log(`  XML ${files}개에서 템플릿 ${defined.size}개`);
     return [...defined].sort();
+}
+
+/** 캐시가 아직 쓸 만한 나이인가. 없거나 못 읽으면 낡은 것으로 친다. */
+function cacheAgeDays() {
+    try {
+        return (Date.now() - fs.statSync(cachePath).mtimeMs) / 86400000;
+    } catch {
+        return Infinity;
+    }
 }
 
 async function blizzardTemplates() {
     const refresh = process.argv.includes("--refresh");
-    if (!refresh && fs.existsSync(cachePath)) {
+    const age = cacheAgeDays();
+    // 진행 상황은 stdout으로. stderr에 쓰면 PowerShell이 native 명령의 stderr를
+    // ErrorRecord로 감싸서, 통과한 실행이 매번 빨간 블록으로 보인다.
+    if (!refresh && age <= CACHE_MAX_AGE_DAYS) {
+        console.log(`캐시 사용 (${age < 1 ? "오늘" : `${Math.floor(age)}일 전`}). 다시 받으려면 --refresh`);
         return new Set(JSON.parse(fs.readFileSync(cachePath, "utf8")).names);
+    }
+    if (age !== Infinity) {
+        console.log(`캐시가 ${Math.floor(age)}일 지남 (최대 ${CACHE_MAX_AGE_DAYS}일). 다시 받는다.`);
     }
     const names = await downloadBlizzardTemplates();
     fs.mkdirSync(cacheDir, { recursive: true });

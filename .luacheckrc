@@ -112,6 +112,7 @@ globals = {
 	"GetCursorPosition",
 	"ClearCursor",
 	"GetMouseFoci",
+	"GetCurrentKeyBoardFocus",
 	"DoesAncestryInclude",
 	"IsAltKeyDown",
 	"IsControlKeyDown",
@@ -174,12 +175,16 @@ globals = {
 	"HelpTip",
 	"InputBoxInstructions_OnTextChanged",
 	"SearchBoxTemplate_OnEditFocusLost",
+	"SearchBoxTemplate_OnEditFocusGained",
 	"SearchBoxTemplateClearButton_OnClick",
 	"HideAllInputBoxes",
 
 	-- FrameXML: frames
 	"UIParent",
 	"UISpecialFrames",
+	"RegisterGameMenuEscHandler", -- 12.1+
+	"GameMenuEscPriority",        -- 12.1+
+	"GetUIPanel",
 	"GameMenuFrame",
 	"MacroFrame",
 	"PlayerFrame",
