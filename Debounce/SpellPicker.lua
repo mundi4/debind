@@ -2,10 +2,12 @@ local _, DebouncePrivate = ...;
 
 local Constants          = DebouncePrivate.Constants;
 local LLL                = DebouncePrivate.L;
-local DebounceUI         = DebouncePrivate.DebounceUI;
 local ActionCatalog      = DebouncePrivate.ActionCatalog;
 
-local INACTIVE_ALPHA     = 0.45;
+--- 다른 특성 주문을 죽이는 정도. 아이콘 채도까지 같이 빠지므로 알파는 **글자를 읽을 수
+--- 있는 선**에서 멈춘다 - 이건 "지금은 안 나간다"는 말이지 "볼 것 없다"는 말이 아니다.
+--- (0.45로 뒀다가 너무 흐려서 올렸다.)
+local INACTIVE_ALPHA     = 0.75;
 
 --- 주문 선택 창.
 ---
@@ -18,30 +20,12 @@ local INACTIVE_ALPHA     = 0.45;
 --- 만들지 않는다. 그래서 이 창은 모달이 아니고, `IsEditingAction()` 잠금에도 들어가지
 --- 않는다(들어가면 메인 창 탭이 잠겨서 대상을 바꿀 수 없게 된다).
 
---- 대상 레이어에 이미 들어 있는 주문. `[base spellID] = 개수`.
+--- **"이미 들어 있음" 표시는 없다.** 한 번 넣었다가 뺐다.
 ---
---- 추가를 막지는 않는다 - 같은 주문에 조건만 다른 줄을 두는 것이 정상 사용이다. 표시만 한다.
-local _addedCounts = {};
-
-local function RebuildAddedCounts()
-	wipe(_addedCounts);
-
-	local layerID = DebounceUI.GetSelectedLayerID();
-	local layer = layerID and DebouncePrivate.GetProfileLayer(layerID);
-	if (not layer) then
-		return;
-	end
-
-	for _, action in layer:Enumerate() do
-		if (action.type == Constants.SPELL and action.value) then
-			-- 저장값이 언제나 base라는 보장은 없다. 커서에서 떨어진 주문은 오버라이드가
-			-- 적용된 ID로 들어온다(`GetActionTypeAndValueFromCursorInfo`). 양쪽을 base로
-			-- 접어놓고 비교한다.
-			local baseID = C_SpellBook.FindBaseSpellByID(action.value) or action.value;
-			_addedCounts[baseID] = (_addedCounts[baseID] or 0) + 1;
-		end
-	end
-end
+--- 이 애드온에서는 같은 액션이 한 레이어에 여러 줄 있는 것이 정상이다 - 조건이 다르거나
+--- 단축키가 다른 줄들이다. 그 자리에 체크 표시를 두면 "이미 있으니 그만"으로 읽혀서,
+--- 정상 사용을 실수처럼 보이게 만든다. 개수를 붙여도 마찬가지다 - 세어서 알려줄 만한
+--- 수가 아니다.
 
 --------------------------------------------------------------------------------
 -- 행
@@ -55,30 +39,16 @@ function DebounceSpellPickerRowMixin:Init(elementData)
 	self.Icon:SetTexture(elementData.icon);
 	self.Name:SetText(elementData.name);
 
-	-- 부제 자리는 하나다. 비활성 특성 이름이 있으면 그게 이긴다 - 랭크보다 "지금 못 쓴다"가
-	-- 먼저 알아야 할 것이다.
-	local subText = elementData.note or elementData.subName;
-	self.SubName:SetText(subText or "");
+	-- 부제는 랭크·계열이다. "다른 특성"이라는 사실은 여기 안 쓴다 - 머리글이 말하고 있고,
+	-- 행마다 반복하면 랭크가 들어갈 자리를 뺏는다.
+	self.SubName:SetText(elementData.subName or "");
 
 	-- 오프스펙은 흐리게. 목록에 **넣는** 것은 이 애드온에 특성별 레이어가 있기 때문이고
 	-- (지금 아닌 특성의 주문을 미리 걸어두는 게 정상 사용이다), 흐리게 하는 것은 지금
 	-- 누른다고 나가지는 않기 때문이다.
-	local inactive = elementData.isOffSpec or elementData.isPassive;
-	self.Icon:SetDesaturated(elementData.isOffSpec or false);
-	self:SetAlpha(inactive and INACTIVE_ALPHA or 1);
-
-	self:Update();
-end
-
-function DebounceSpellPickerRowMixin:Update()
-	local entry = self.entry;
-	if (not entry) then
-		return;
-	end
-
-	local count = _addedCounts[entry.value];
-	self.AddedMark:SetShown(count ~= nil);
-	self.AddedCount:SetText((count and count > 1) and tostring(count) or "");
+	local isOffSpec = elementData.isOffSpec or false;
+	self.Icon:SetDesaturated(isOffSpec);
+	self:SetAlpha(isOffSpec and INACTIVE_ALPHA or 1);
 end
 
 function DebounceSpellPickerRowMixin:OnEnter()
@@ -88,16 +58,26 @@ function DebounceSpellPickerRowMixin:OnEnter()
 	end
 
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	-- 툴팁은 **지금 나가는 주문**을 보여야 한다. 들고 있는 값은 base라 오버라이드를 다시
-	-- 씌운다 (행의 이름·아이콘이 이미 그쪽이다).
-	GameTooltip:SetSpellByID(C_SpellBook.FindSpellOverrideByID(entry.value) or entry.value);
 
-	if (entry.note) then
-		GameTooltip_AddNormalLine(GameTooltip, entry.note);
+	-- 툴팁을 주문에서 뽑을 수 있으면 그렇게 한다. 타입마다 갈리지 않는다:
+	--   주문   value가 곧 주문이다. 다만 **지금 나가는 것**을 보여야 하므로 base에
+	--          오버라이드를 다시 씌운다(행의 이름·아이콘이 이미 그쪽이다)
+	--   탈것   value는 mountID라 주문이 아니다. 카탈로그가 `spellID`를 같이 준다
+	--   그 밖  게임이 툴팁을 안 만들어 주는 것들(매크로). 이름과 본문을 우리가 쓴다
+	local tooltipSpellID = entry.spellID;
+	if (not tooltipSpellID and entry.type == Constants.SPELL) then
+		tooltipSpellID = C_SpellBook.FindSpellOverrideByID(entry.value) or entry.value;
 	end
-	if (_addedCounts[entry.value]) then
-		GameTooltip_AddHighlightLine(GameTooltip, LLL["SPELL_PICKER_ALREADY_ADDED"]);
+
+	if (tooltipSpellID) then
+		GameTooltip:SetSpellByID(tooltipSpellID);
+	else
+		GameTooltip_SetTitle(GameTooltip, entry.name);
+		if (entry.tooltipText and entry.tooltipText ~= "") then
+			GameTooltip_AddNormalLine(GameTooltip, entry.tooltipText);
+		end
 	end
+
 	GameTooltip_AddInstructionLine(GameTooltip, LLL["SPELL_PICKER_CLICK_TO_ADD"]);
 
 	GameTooltip:Show();
@@ -111,13 +91,43 @@ end
 ---
 --- 대상 레이어를 인자로 넘기지 않는 것에 주의. `AddNewAction`이 안에서 지금 열려 있는
 --- 탭을 읽으므로, 여기서 대상을 다시 말하면 두 곳이 같은 것을 알게 된다.
+---
+--- **타입에 대한 분기가 여기 없다.** 엔트리가 들고 온 것을 그대로 넘긴다 - 주문이든
+--- 탈것이든 매크로든, 나중에 붙을 무엇이든. 이름·아이콘 자리를 비워 두는 것도 뜻이 있다:
+--- 저장해둬야 하는 타입은 카탈로그가 `props`에 담아 오고, 나머지는 그릴 때 다시 푼다
+--- (`NameAndIconForAction`). 여기서 지금 보이는 값을 박으면 낡은 채로 남는다.
 function DebounceSpellPickerRowMixin:OnClick()
 	local entry = self.entry;
 	if (not entry or InCombatLockdown()) then
 		return;
 	end
 
-	DebounceFrame:AddNewAction(entry.type, entry.value);
+	DebounceFrame:AddNewAction(entry.type, entry.value, nil, nil, entry.props);
+end
+
+--------------------------------------------------------------------------------
+-- 머리글
+--------------------------------------------------------------------------------
+
+DebounceSpellPickerHeaderMixin = {};
+
+--- 머리글은 격자 때문에 행과 **같은 크기**의 칸을 쓴다(240×38). 글자는 그 칸의 **세로
+--- 가운데**에 둔다 - 위나 아래로 붙이면 남는 자리가 한쪽에 몰려서 그쪽만 구멍처럼 보인다.
+--- 위에 붙였다가 첫 머리글 아래가 비었고, 아래에 붙였다가 첫 머리글 위가 비었다.
+--- 칸 크기를 못 줄이는 이상 없앨 수 있는 여백이 아니라, 양쪽으로 나누는 게 제일 낫다.
+function DebounceSpellPickerHeaderMixin:Init(elementData)
+	self.Label:SetText(elementData.name);
+end
+
+--------------------------------------------------------------------------------
+-- 탭
+--------------------------------------------------------------------------------
+
+DebounceSpellPickerTabMixin = {};
+
+function DebounceSpellPickerTabMixin:OnClick()
+	PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN);
+	self:GetParent():SetTab(self:GetID());
 end
 
 --------------------------------------------------------------------------------
@@ -126,18 +136,19 @@ end
 
 DebounceSpellPickerFrameMixin = {};
 
+--- 필터 값은 카탈로그가 선언한 것만 쓴다(`ActionCatalog.Filters`). 기본값도 거기 있다 -
+--- 오프스펙을 기본으로 넣는 것은 이 애드온에 특성별 레이어가 있기 때문이다(Clique와 반대).
 local function GetOptions()
 	local db = DebouncePrivate.db.global;
 	db.spellPicker = db.spellPicker or {};
 	local options = db.spellPicker;
-	if (options.showPassive == nil) then
-		-- 패시브는 기본으로 뺀다 - 걸어봐야 안 나간다.
-		options.showPassive = false;
+
+	for _, filter in pairs(ActionCatalog.Filters) do
+		if (options[filter.option] == nil) then
+			options[filter.option] = filter.default;
+		end
 	end
-	if (options.showOffSpec == nil) then
-		-- 오프스펙은 기본으로 넣는다. Clique와 반대인데, 그쪽엔 특성별 레이어가 없다.
-		options.showOffSpec = true;
-	end
+
 	return options;
 end
 
@@ -164,29 +175,53 @@ function DebounceSpellPickerFrameMixin:OnLoad()
 	self:InitializeSearchBox();
 	self:InitializeFilterDropdown();
 
+	-- 프레임마다 새 테이블을 만들지 않으려고 둘 다 재사용한다.
+	--   filteredEntries  필터를 통과한 엔트리 (비었는지는 이쪽을 본다)
+	--   displayList      거기에 머리글·빈 칸을 끼운 것. ScrollBox가 받는 건 이쪽이다
 	self.filteredEntries = {};
+	self.displayList = {};
 end
 
+--- 탭은 카탈로그의 카테고리와 **1:1이고 인덱스가 곧 탭 ID**다. 카테고리 목록은 재구축에도
+--- 안 흔들리므로(ActionCatalog 참고) 여기서 한 번 다는 것으로 끝난다.
+---
+--- XML에 있는 탭보다 카테고리가 많으면 남는 카테고리는 탭 없이 남는다. 소스를 붙이는 날
+--- XML에 한 줄을 더하는 것이 그 대가다 - 메인 창도 같은 방식이다.
 function DebounceSpellPickerFrameMixin:InitializeTabs()
-	-- 탭은 카탈로그의 카테고리와 **1:1이고 인덱스가 곧 탭 ID**다. 카테고리 목록은
-	-- 재구축에도 안 흔들리므로(ActionCatalog 참고) 여기서 한 번 다는 것으로 끝난다.
-	for _, category in ipairs(ActionCatalog.GetCategories()) do
-		self.TabSystem:AddTab(category.name);
+	local categories = ActionCatalog.GetCategories();
+	for i, tab in ipairs(self.Tabs) do
+		local category = categories[i];
+		tab:SetText(category and category.name or "");
+		PanelTemplates_TabResize(tab, 0);
 	end
-	self.TabSystem:SetTabSelectedCallback(function(tabID)
-		self:SetTab(tabID);
-	end);
 
+	PanelTemplates_SetNumTabs(self, #self.Tabs);
 	self.selectedTab = 1;
-	self.TabSystem:SetTabVisuallySelected(self.selectedTab);
+	PanelTemplates_SetTab(self, self.selectedTab);
 end
 
 function DebounceSpellPickerFrameMixin:InitializeScrollBox()
 	-- 2컬럼. **페이징은 안 한다** - ScrollBox는 가상화되어 있어 수백 개여도 보이는 만큼만
 	-- 프레임을 잡는다. 페이징을 넣으면 검색 결과까지 페이지로 넘겨야 하는 손해만 남는다.
-	local view = CreateScrollBoxListGridView(2, 2, 2, 2, 2, 4, 2);
-	view:SetElementInitializer("DebounceSpellPickerRowTemplate", function(button, elementData)
-		button:Init(elementData);
+	--
+	-- 위 여백은 0이다. 목록 맨 위에 오는 것은 대개 머리글인데, 머리글 칸이 행과 같은 크기라
+	-- (격자가 셀 크기를 하나로 쓴다) 그 안에 이미 여백이 들어 있다. 여기서 더 주면 겹친다.
+	local view = CreateScrollBoxListGridView(2, 0, 2, 2, 2, 4, 2);
+
+	-- 머리글·빈 칸·행이 섞이므로 템플릿을 하나로 못 박지 못한다. 셋 다 **같은 크기**여야
+	-- 한다 - 격자가 첫 프레임에서 셀 크기를 한 번 가져다 전부에 쓴다.
+	view:SetElementFactory(function(factory, elementData)
+		if (elementData.isHeader) then
+			factory("DebounceSpellPickerHeaderTemplate", function(frame)
+				frame:Init(elementData);
+			end);
+		elseif (elementData.isSpacer) then
+			factory("DebounceSpellPickerSpacerTemplate");
+		else
+			factory("DebounceSpellPickerRowTemplate", function(button)
+				button:Init(elementData);
+			end);
+		end
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
@@ -218,24 +253,32 @@ function DebounceSpellPickerFrameMixin:InitializeSearchBox()
 	self.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
 end
 
+--- 필터 버튼은 **지금 탭이 쓰는 것만** 보여준다. 카테고리가 `filters`에 적어둔 키를 읽는다.
+---
+--- 패시브 체크박스는 어디에도 없다. 패시브는 **누를 수 있는 물건이 아니라서** 카탈로그가
+--- 아예 안 만든다(ActionCatalog). 켤 수 있게 두면 "켰는데 걸어도 안 나간다"가 된다.
 function DebounceSpellPickerFrameMixin:InitializeFilterDropdown()
 	self.FilterDropdown:SetupMenu(function(_, rootDescription)
 		local options = GetOptions();
 
-		rootDescription:CreateCheckbox(LLL["SPELL_PICKER_SHOW_PASSIVE"],
-			function() return options.showPassive; end,
-			function()
-				options.showPassive = not options.showPassive;
-				self:RefreshList();
-			end);
-
-		rootDescription:CreateCheckbox(LLL["SPELL_PICKER_SHOW_OFFSPEC"],
-			function() return options.showOffSpec; end,
-			function()
-				options.showOffSpec = not options.showOffSpec;
-				self:RefreshList();
-			end);
+		for _, key in ipairs(self:GetSelectedCategoryFilters()) do
+			local filter = ActionCatalog.Filters[key];
+			local optionKey = filter.option;
+			rootDescription:CreateCheckbox(LLL[filter.label],
+				function() return options[optionKey]; end,
+				function()
+					options[optionKey] = not options[optionKey];
+					self:RefreshList();
+				end);
+		end
 	end);
+end
+
+local NO_FILTERS = {};
+
+function DebounceSpellPickerFrameMixin:GetSelectedCategoryFilters()
+	local category = ActionCatalog.GetCategories()[self.selectedTab];
+	return category and category.filters or NO_FILTERS;
 end
 
 function DebounceSpellPickerFrameMixin:OnShow()
@@ -248,8 +291,7 @@ function DebounceSpellPickerFrameMixin:OnShow()
 	-- 동작 안에서 끝난다. 디바운스가 값을 하는 자리는 여기가 아니라 **열려 있는 동안**
 	-- 이벤트가 쏟아질 때다.
 	--
-	-- 초기화보다 **먼저** 세운다. 탭을 다는 쪽이 카탈로그를 한 번 짓기 때문에, 뒤에
-	-- 세우면 첫 열림에서만 두 번 짓는다.
+	-- "한 바퀴"는 **보고 있는 탭 하나**다. 탈것 수천 개는 탈것 탭을 눌러야 훑는다.
 	ActionCatalog.Invalidate();
 
 	if (not self.initialized) then
@@ -263,6 +305,9 @@ function DebounceSpellPickerFrameMixin:OnShow()
 	self:RegisterEvent("SPELLS_CHANGED");
 	self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED");
 	self:RegisterEvent("TRAIT_CONFIG_UPDATED");
+	self:RegisterEvent("UPDATE_MACROS");
+	self:RegisterEvent("NEW_MOUNT_ADDED");
+	self:RegisterEvent("NEW_TOY_ADDED");
 
 	self:RefreshList();
 end
@@ -273,6 +318,9 @@ function DebounceSpellPickerFrameMixin:OnHide()
 	self:UnregisterEvent("SPELLS_CHANGED");
 	self:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED");
 	self:UnregisterEvent("TRAIT_CONFIG_UPDATED");
+	self:UnregisterEvent("UPDATE_MACROS");
+	self:UnregisterEvent("NEW_MOUNT_ADDED");
+	self:UnregisterEvent("NEW_TOY_ADDED");
 
 	-- 걸려 있던 재구축을 무효로 만든다. 타이머 자체는 못 끄므로 토큰으로 버린다.
 	self.rebuildToken = (self.rebuildToken or 0) + 1;
@@ -297,7 +345,7 @@ function DebounceSpellPickerFrameMixin:ApplyPosition()
 end
 
 function DebounceSpellPickerFrameMixin:OnEvent(event)
-	if (event == "SPELLS_CHANGED") then
+	if (event == "SPELLS_CHANGED" or event == "UPDATE_MACROS" or event == "NEW_MOUNT_ADDED" or event == "NEW_TOY_ADDED") then
 		self:ScheduleRebuild(0.1);
 	else
 		-- 특성 변경은 주문서를 **비동기로** 갱신한다. 짧은 디바운스로는 아직 안 채워진
@@ -344,33 +392,70 @@ function DebounceSpellPickerFrameMixin:SetTab(tabID)
 	self:RefreshList();
 end
 
---- 목록을 다시 짓는다. 카탈로그가 dirty면 여기서 갚는다.
+--- 걸러진 엔트리에 머리글을 끼워 화면에 놓을 목록을 만든다.
+---
+--- **머리글은 언제나 줄 첫 칸이다.** 격자에는 "한 줄 차지"가 없어서(`AnchorUtil.GridLayout`은
+--- stride를 고정으로 두고 셀 크기를 하나로 쓴다) 자리를 실제로 먹는 빈 칸으로 민다:
+--- 줄 가운데면 앞을 채우고, 머리글 뒤에도 채운다. 그러면 다음 주문이 다시 1번 칸에서 시작한다.
+---
+--- 머리글은 `group`이 있는 엔트리에만 붙는다. 나눌 것이 없는 카테고리(소환수, 특수)는
+--- group이 nil이라 머리글 없이 평평하게 나온다.
+local function BuildDisplayList(entries, out, stride)
+	wipe(out);
+
+	local currentGroup;
+	for i = 1, #entries do
+		local entry = entries[i];
+		if (entry.group and entry.group ~= currentGroup) then
+			currentGroup = entry.group;
+			while (#out % stride ~= 0) do
+				out[#out + 1] = { isSpacer = true };
+			end
+			out[#out + 1] = { isHeader = true, name = entry.group };
+			for _ = 2, stride do
+				out[#out + 1] = { isSpacer = true };
+			end
+		end
+		out[#out + 1] = entry;
+	end
+
+	return out;
+end
+
+--- 목록을 다시 짓는다. 카탈로그가 dirty면 **보고 있는 카테고리만** 여기서 갚는다.
 function DebounceSpellPickerFrameMixin:RefreshList()
 	local categories = ActionCatalog.GetCategories();
 
-	-- 빈 카테고리는 탭을 숨긴다. 소환수 없는 직업에서 빈 탭이 하나 서 있으면 "여기 뭔가
+	-- 없는 카테고리는 탭을 숨긴다. 소환수 없는 직업에서 빈 탭이 하나 서 있으면 "여기 뭔가
 	-- 있는데 안 나온다"로 읽힌다.
-	for tabID, category in ipairs(categories) do
-		self.TabSystem:SetTabShown(tabID, #category.entries > 0);
+	--
+	-- 판정은 `IsAvailable()`이 한다. 여기서 목록 길이를 보면 **탭을 세우려고 탈것 수천 개를
+	-- 훑게 된다** - 주문 탭만 보고 닫는 사람이 그 값을 치를 이유가 없다.
+	--
+	-- `PanelTemplates_SetTabShown` 대신 탭을 직접 숨긴다. 저 헬퍼는 12.1 트리에서 확인한
+	-- 것이고 라이브(12.0)에 있다는 보장이 없다 - 여기서 얻는 것도 SetShown 한 줄뿐이다.
+	for tabID = 1, #self.Tabs do
+		local category = categories[tabID];
+		self.Tabs[tabID]:SetShown(category ~= nil and ActionCatalog.IsCategoryAvailable(category));
 	end
 
 	local category = categories[self.selectedTab];
-	if (not category or #category.entries == 0) then
+	if (not category or not ActionCatalog.IsCategoryAvailable(category)) then
 		self.selectedTab = 1;
 		category = categories[1];
 	end
-	self.TabSystem:SetTabVisuallySelected(self.selectedTab);
+	PanelTemplates_SetTab(self, self.selectedTab);
 
 	local options = GetOptions();
-	ActionCatalog.Filter(category and category.entries or {}, {
+	ActionCatalog.Filter(category and ActionCatalog.GetEntries(category) or {}, {
 		search = self.searchText,
-		includePassive = options.showPassive,
 		includeOffSpec = options.showOffSpec,
+		favoritesOnly = options.favoritesOnly,
 	}, self.filteredEntries);
 
-	RebuildAddedCounts();
+	BuildDisplayList(self.filteredEntries, self.displayList, 2);
 
-	local dataProvider = CreateDataProvider(self.filteredEntries);
+	local dataProvider = CreateDataProvider(self.displayList);
 	self.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.DiscardScrollPosition);
 
 	self:UpdateEmptyText();
@@ -384,20 +469,6 @@ function DebounceSpellPickerFrameMixin:UpdateEmptyText()
 
 	self.ScrollBox.EmptyText:SetText(self.searchText and LLL["SPELL_PICKER_NO_MATCH"] or LLL["SPELL_PICKER_EMPTY"]);
 	self.ScrollBox.EmptyText:Show();
-end
-
---- 메인 창에서 열려 있는 레이어가 바뀌었다. "이미 있음" 표시만 다시 그린다.
----
---- 목록 자체는 그대로다 - 대상이 바뀐다고 고를 수 있는 주문이 바뀌지는 않는다.
-function DebounceSpellPickerFrameMixin:OnTargetLayerChanged()
-	if (not self:IsShown()) then
-		return;
-	end
-
-	RebuildAddedCounts();
-	self.ScrollBox:ForEachFrame(function(button)
-		button:Update();
-	end);
 end
 
 function DebounceSpellPickerFrameMixin:Toggle()

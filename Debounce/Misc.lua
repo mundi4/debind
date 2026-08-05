@@ -33,6 +33,24 @@ end
 
 local GetSpellTabNameAndIcon = DebouncePrivate.GetSpellTabNameAndIcon;
 
+--- 계정 매크로 칸 수와 캐릭터 매크로 칸 수.
+---
+--- **`MAX_ACCOUNT_MACROS` / `MAX_CHARACTER_MACROS` 전역은 없다.** 블리자드 트리 전체에
+--- 그 이름의 정의가 0건이고, `Blizzard_MacroUI`조차 `Constants.MacroConsts`에서 읽는다.
+--- 없는 값을 더하거나 비교하면 그 자리에서 터진다 - `GetMacrotextIcon`이 실제로 그러고
+--- 있었고, 오류를 삼키는 애드온을 쓰면 조용히 그 함수만 죽는다.
+---
+--- 세 단계로 떨어진다. 전역이 살아 있던 클라이언트가 있을 수 있으니 그것도 보고,
+--- 마지막은 상수의 문서값(120 / 30)이다 - 못 찾았다고 기능을 통째로 접는 것보다 낫다.
+---
+--- **`_G.Constants`인 것에 주의.** 애드온 파일들의 `Constants`는 우리 것이라 이름이 겹친다.
+function DebouncePrivate.GetMacroSlotLimits()
+    local macroConsts = _G.Constants and _G.Constants.MacroConsts;
+    local account = (macroConsts and macroConsts.MAX_ACCOUNT_MACROS) or _G.MAX_ACCOUNT_MACROS or 120;
+    local character = (macroConsts and macroConsts.MAX_CHARACTER_MACROS) or _G.MAX_CHARACTER_MACROS or 30;
+    return account, character;
+end
+
 function DebouncePrivate.GetSetCustomStateModeAndIndex(value)
     local modeFlag = band(value, Constants.SETCUSTOM_MODE_MASK);
     local mode;

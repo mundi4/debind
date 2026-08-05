@@ -81,9 +81,13 @@ local function GetMacrotextIcon(macrotext)
 	local ret;
 	if (not GetMacroInfo(TEMP_MACRO_NAME)) then
 		local cnt1, cnt2 = GetNumMacros();
+		-- 예전엔 `MAX_ACCOUNT_MACROS` 전역을 그대로 썼는데 **그런 전역은 없다.** 여기서
+		-- 숫자와 nil을 비교하다 터지고 있었고, 오류를 삼키는 애드온을 쓰면 이 함수만
+		-- 조용히 죽어서 매크로텍스트 아이콘이 영영 물음표로 남는다.
+		local maxAccountMacros, maxCharacterMacros = DebouncePrivate.GetMacroSlotLimits();
 		local isCharacterSpecific;
-		if (cnt1 >= MAX_ACCOUNT_MACROS) then
-			if (cnt2 >= MAX_CHARACTER_MACROS) then
+		if (cnt1 >= maxAccountMacros) then
+			if (cnt2 >= maxCharacterMacros) then
 				return nil;
 			end
 			isCharacterSpecific = true;
@@ -2051,10 +2055,6 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 	self:SetTitle(title);
 	self:UpdateActionCounts();
 	self:UpdateEmptyText();
-
-	-- 주문 선택 창의 "이미 있음" 표시는 **여기가 가리키는 레이어**를 센다. 대상이 바뀌는
-	-- 길이 셋(탭, 사이드탭, 액션 추가)인데 전부 Refresh를 지나므로 한 곳에서 알린다.
-	DebounceSpellPickerFrame:OnTargetLayerChanged();
 end
 
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
@@ -3761,12 +3761,6 @@ end
 
 function DebounceUI.GetSelectedTab()
 	return _selectedTab;
-end
-
---- 지금 열려 있는 레이어. 주문 선택 창이 "이미 있음"을 세려고 쓴다 - 그쪽은 대상을 고르지
---- 않고 **여기가 가리키는 곳**에 넣는다.
-function DebounceUI.GetSelectedLayerID()
-	return GetLayerID();
 end
 
 function DebounceUI.GetSelectedSideTab()

@@ -36,7 +36,7 @@
 					</Anchors>
 				</Texture>
 				<FontString parentKey="Name" inherits="GameFontNormalSmall" maxLines="1" justifyH="LEFT">
-					<Size x="170" y="0"/>
+					<Size x="195" y="0"/>
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="6"/>
 					</Anchors>
@@ -46,27 +46,9 @@
 					둘을 나란히 두면 240px 안에서 둘 다 잘린다. 어느 쪽이 이기는지는 Init에 있다.
 				-->
 				<FontString parentKey="SubName" inherits="GameFontDisableSmall" maxLines="1" justifyH="LEFT">
-					<Size x="170" y="0"/>
+					<Size x="195" y="0"/>
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="LEFT" x="0" y="-13"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-			<Layer level="OVERLAY">
-				<!--
-					대상 레이어에 이미 있다는 표시. **막는 표시가 아니다** - 같은 주문에 조건만
-					다른 줄을 두는 것이 정상 사용이라 클릭은 그대로 받는다. 두 개 이상이면
-					개수를 옆에 붙인다.
-				-->
-				<Texture parentKey="AddedMark" file="Interface\RaidFrame\ReadyCheck-Ready" hidden="true">
-					<Size x="16" y="16"/>
-					<Anchors>
-						<Anchor point="RIGHT" x="-4" y="0"/>
-					</Anchors>
-				</Texture>
-				<FontString parentKey="AddedCount" inherits="NumberFontNormalSmall" justifyH="RIGHT">
-					<Anchors>
-						<Anchor point="RIGHT" relativeKey="$parent.AddedMark" relativePoint="LEFT" x="-1" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
@@ -79,6 +61,65 @@
 		<Scripts>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
+			<OnClick method="OnClick"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		목록의 머리글(일반 / 직업 / 특성 / 즐겨찾기 …).
+
+		**격자는 이 프레임을 반 칸으로 안다.** `AnchorUtil.GridLayout`은 stride를 고정으로
+		두고 `frames[1]`에서 셀 크기를 한 번 가져다 전부 같은 크기로 놓는다 - 한 줄을 통째로
+		차지하게 만드는 스위치가 없다. 그래서 크기는 행과 **똑같아야** 한다(240×38).
+		안 그러면 이 아래 전부가 어긋난다.
+
+		머리글이 오른쪽 칸에 서는 일은 없다. 데이터를 만들 때 앞뒤로 빈 칸을 채워
+		언제나 줄 첫 칸에 오게 한다(SpellPicker.lua의 BuildDisplayList).
+
+		글자와 구분선은 자기 칸 밖으로 나간다. 프레임 경계는 그리기를 자르지 않으므로
+		(스크롤 자식이 아니다) 오른쪽 칸까지 뻗어서 폭 484짜리 머리글처럼 보인다.
+		아트는 상세 패널의 구역 제목(DebounceSectionHeaderTemplate)과 같은 것을 쓴다.
+	-->
+	<Frame name="DebounceSpellPickerHeaderTemplate" mixin="DebounceSpellPickerHeaderMixin" virtual="true">
+		<Size x="240" y="38"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="LEFT" x="4" y="0"/>
+					</Anchors>
+				</FontString>
+				<!-- x="244"가 옆 칸을 건너뛰는 값이다: 행 240 + 가로 간격 4. -->
+				<Texture parentKey="Divider" atlas="Options_HorizontalDivider">
+					<Size y="1"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Label" relativePoint="RIGHT" x="8" y="0"/>
+						<Anchor point="RIGHT" x="244" y="0"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Frame>
+
+	<!--
+		머리글 옆(과 앞)을 메우는 빈 칸. 격자에 "건너뛰기"가 없어서 자리를 실제로 차지하는
+		프레임이 하나 있어야 한다. 아무것도 안 그리고 마우스도 안 받는다.
+	-->
+	<Frame name="DebounceSpellPickerSpacerTemplate" virtual="true">
+		<Size x="240" y="38"/>
+	</Frame>
+
+	<!--
+		카테고리 탭. 메인 창의 레이어 탭(DebounceFrameTabTemplate)과 같은 물건이다 -
+		`PanelTabButtonTemplate`을 창 **아래쪽 바깥**에 매단다.
+
+		처음에는 상세 패널이 쓰는 위쪽 탭(TabSystemTopButtonTemplate)으로 짰는데, 그 아트는
+		패널 제목을 겸하는 크기라 창에 얹으니 머리가 너무 컸고 가운데 정렬된 제목과도 자리를
+		다퉜다. 블리자드도 같은 성격의 창 - 수집품(탈것/애완동물/장난감) - 을 아래쪽 탭으로
+		단다. 우리 메인 창과 같은 선에 서는 것은 덤이다.
+	-->
+	<Button name="DebounceSpellPickerTabTemplate" mixin="DebounceSpellPickerTabMixin" virtual="true" inherits="PanelTabButtonTemplate">
+		<Scripts>
 			<OnClick method="OnClick"/>
 		</Scripts>
 	</Button>
@@ -105,21 +146,48 @@
 		</Anchors>
 		<Frames>
 			<!--
-				초상화 오른쪽에서 시작한다. 프레임 왼쪽 끝에 붙이면 초상화 원과 겹친다.
+				메인 창의 레이어 탭과 같은 자리·같은 간격이다(DebounceUI.xml의 Tab1/Tab2).
+				두 창을 나란히 놓고 쓰는 물건이라 탭이 다른 높이에 서면 눈에 바로 걸린다.
+
+				탭 개수는 카탈로그의 카테고리 수와 같다. 소스를 하나 더 붙이는 날 여기에도
+				한 줄이 는다 - `PanelTabButtonTemplate`이 parentArray="Tabs"를 들고 있어서
+				`self.Tabs`는 저절로 차고, Lua 쪽은 개수를 세기만 한다.
 			-->
-			<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
-				<KeyValues>
-					<KeyValue key="tabTemplate" value="DebounceDetailTabTemplate" type="string"/>
-				</KeyValues>
+			<Button parentKey="Tab1" inherits="DebounceSpellPickerTabTemplate" id="1">
 				<Anchors>
-					<Anchor point="TOPLEFT" x="70" y="-27"/>
+					<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="12" y="1"/>
 				</Anchors>
-			</Frame>
+			</Button>
+			<Button parentKey="Tab2" inherits="DebounceSpellPickerTabTemplate" id="2">
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.Tab1" relativePoint="RIGHT" x="-15" y="0"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="Tab3" inherits="DebounceSpellPickerTabTemplate" id="3">
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.Tab2" relativePoint="RIGHT" x="-15" y="0"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="Tab4" inherits="DebounceSpellPickerTabTemplate" id="4">
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.Tab3" relativePoint="RIGHT" x="-15" y="0"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="Tab5" inherits="DebounceSpellPickerTabTemplate" id="5">
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.Tab4" relativePoint="RIGHT" x="-15" y="0"/>
+				</Anchors>
+			</Button>
 
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
 				<Size x="500" y="0"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="4" y="-90"/>
+					<!--
+						-84는 메인 창의 좌측 인셋(-85)과 같은 선이다. 더 올릴 수는 없다 -
+						초상화가 62px짜리라 y=-55까지 내려오고, 검색창은 이 인셋 바로 위에
+						선다(그래서 -58에서 시작한다).
+					-->
+					<Anchor point="TOPLEFT" x="4" y="-84"/>
 					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
 				</Anchors>
 			</Frame>

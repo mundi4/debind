@@ -53,12 +53,14 @@ globals = {
 	-- WoW core API
 	"Enum",
 	"C_AddOns",
+	"C_AssistedCombat",
 	"C_ClassTalents",
 	"C_CreatureInfo",
 	"C_Item",
 	"C_KeyBindings",
 	"C_MountJournal",
 	"C_Spell",
+	"C_ToyBox",
 	"C_SpellBook",
 	"C_SpecializationInfo",
 	"C_Timer",
@@ -91,6 +93,7 @@ globals = {
 
 	-- Spell / macro / binding
 	"GetShapeshiftFormInfo",
+	"PlayerHasToy",
 	"GetFlyoutInfo",
 	"GetFlyoutSlotInfo",
 	"GetMacroInfo",
@@ -205,8 +208,9 @@ globals = {
 	"MAX_RAID_MEMBERS",
 	"MAX_ARENA_ENEMIES",
 	"MAX_BOSS_FRAMES",
-	"MAX_ACCOUNT_MACROS",
-	"MAX_CHARACTER_MACROS",
+	-- MAX_ACCOUNT_MACROS / MAX_CHARACTER_MACROS는 **전역이 아니다.** 블리자드 트리 전체에
+	-- 정의가 0건이고 지금은 Constants.MacroConsts 안에 있다. 여기 적혀 있던 동안 luacheck가
+	-- 통과시켜서, nil과 비교하는 코드가 게임에서만 터졌다. DebouncePrivate.GetMacroSlotLimits()를 쓸 것.
 	"NUM_WORLD_RAID_MARKERS",
 	"WORLD_RAID_MARKER_ORDER",
 	"SOUNDKIT",
@@ -271,7 +275,9 @@ globals = {
 	"DebounceOverviewLineMixin",
 	"DebounceStateDriverUpdateThrottleSliderMixin",
 	"DebounceSpellPickerFrameMixin",
+	"DebounceSpellPickerHeaderMixin",
 	"DebounceSpellPickerRowMixin",
+	"DebounceSpellPickerTabMixin",
 
 	-- Named frames
 	"DebounceFrame",

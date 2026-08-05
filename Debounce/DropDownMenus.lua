@@ -156,7 +156,10 @@ function DebounceUI.SetupAddDropdownMenu(dropdown, rootDescription)
 
     -- 맨 위다. 여기 있는 나머지가 전부 "직접 만드는 것"인 데 비해 이건 **이미 가진 것에서
     -- 고르는 것**이라 제일 자주 눌린다.
-    description = rootDescription:CreateButton(BINDING_TYPE_NAMES[Constants.SPELL], function()
+    --
+    -- 라벨이 `TYPE_SPELL`이 아닌 이유: 저 창에는 주문 말고 소환수 주문·탈것·특수까지 들어
+    -- 있다. 타입 이름을 쓰면 "주문만 나오는 줄" 알고 탈것을 다른 데서 찾게 된다.
+    description = rootDescription:CreateButton(LLL["SPELL_PICKER_MENU"], function()
         DebounceSpellPickerFrame:Toggle();
     end);
     SetInstrcutionTooltip(description, LLL["SPELL_PICKER_MENU_DESC"]);

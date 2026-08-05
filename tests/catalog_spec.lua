@@ -3,11 +3,15 @@
 -- `ActionCatalog.Filter`는 주문 선택 창에서 **유일하게 순수한** 조각이다. 나머지(주문서
 -- 열거, 프레임)는 게임 API 없이는 못 돈다. 그래서 여기 고정하는 것은 두 가지다:
 --
---   1. 기본값 - 패시브는 빼고, **다른 특성 주문은 넣는다**. 이 애드온에 특성별 레이어가
---      있어서 지금 아닌 특성의 주문을 미리 걸어두는 게 정상 사용이기 때문이다
---      (Clique와 반대다. 베끼면 안 되는 자리라 검사로 내린다)
+--   1. 기본값 - **다른 특성 주문은 넣는다.** 이 애드온에 특성별 레이어가 있어서 지금 아닌
+--      특성의 주문을 미리 걸어두는 게 정상 사용이기 때문이다 (Clique와 반대다. 베끼면
+--      안 되는 자리라 검사로 내린다)
 --   2. 검색이 **패턴이 아니라 평문**이라는 것. 주문 이름에는 `(`, `-`, `[`가 흔하다.
 --      패턴으로 해석하면 사용자가 그걸 치는 순간 오류거나 빈 목록이 된다
+--
+-- 패시브에 대한 항목은 없다. 필터가 아니라 **카탈로그가 아예 안 만들기** 때문이다 -
+-- 시전할 수 없는 것은 단축키에 걸 대상이 아니다. 그 판정은 주문서 API를 타므로 여기서
+-- 못 본다.
 
 return function(DebouncePrivate)
     local ActionCatalog = DebouncePrivate.ActionCatalog;
@@ -55,7 +59,6 @@ return function(DebouncePrivate)
     local ALL = {
         entry("Fireball"),
         entry("Frostbolt", { subName = "Rank 2" }),
-        entry("Mastery: Ignite", { isPassive = true }),
         entry("Ice Block", { isOffSpec = true }),
         entry("Arcane Blast (Instant)"),
     };
@@ -64,24 +67,19 @@ return function(DebouncePrivate)
     -- 기본값
     ---------------------------------------------------------------------------
 
-    test("기본값 - 패시브는 빠지고 오프스펙은 들어온다", function()
-        local out = ActionCatalog.Filter(ALL, { includePassive = false, includeOffSpec = true });
+    test("기본값 - 오프스펙은 들어온다", function()
+        local out = ActionCatalog.Filter(ALL, { includeOffSpec = true });
         check(names(out) == "Fireball,Frostbolt,Ice Block,Arcane Blast (Instant)", names(out));
     end);
 
-    test("패시브를 켜면 들어온다", function()
-        local out = ActionCatalog.Filter(ALL, { includePassive = true, includeOffSpec = true });
-        check(#out == 5, ("%d개"):format(#out));
-    end);
-
     test("오프스펙을 끄면 빠진다", function()
-        local out = ActionCatalog.Filter(ALL, { includePassive = false, includeOffSpec = false });
+        local out = ActionCatalog.Filter(ALL, { includeOffSpec = false });
         check(names(out) == "Fireball,Frostbolt,Arcane Blast (Instant)", names(out));
     end);
 
     test("원래 순서를 지킨다", function()
-        local out = ActionCatalog.Filter(ALL, { includePassive = true, includeOffSpec = true });
-        check(out[1].name == "Fireball" and out[5].name == "Arcane Blast (Instant)", names(out));
+        local out = ActionCatalog.Filter(ALL, { includeOffSpec = true });
+        check(out[1].name == "Fireball" and out[4].name == "Arcane Blast (Instant)", names(out));
     end);
 
     ---------------------------------------------------------------------------
@@ -126,8 +124,8 @@ return function(DebouncePrivate)
         -- 창이 프레임마다 새 테이블을 만들지 않도록 out을 재사용한다. 이전 결과가 남으면
         -- 검색어를 좁힐 때마다 목록이 길어진다.
         local out = {};
-        ActionCatalog.Filter(ALL, { includePassive = true, includeOffSpec = true }, out);
-        check(#out == 5, ("%d개"):format(#out));
+        ActionCatalog.Filter(ALL, { includeOffSpec = true }, out);
+        check(#out == 4, ("%d개"):format(#out));
 
         local same = ActionCatalog.Filter(ALL, { search = "bol", includeOffSpec = true }, out);
         check(same == out, "같은 테이블을 돌려줘야 한다");
