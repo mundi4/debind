@@ -154,6 +154,13 @@ function DebounceUI.SetupAddDropdownMenu(dropdown, rootDescription)
     --GenerateMenu(dropdown, rootDescription, rootMenu);
     local description;
 
+    -- 맨 위다. 여기 있는 나머지가 전부 "직접 만드는 것"인 데 비해 이건 **이미 가진 것에서
+    -- 고르는 것**이라 제일 자주 눌린다.
+    description = rootDescription:CreateButton(BINDING_TYPE_NAMES[Constants.SPELL], function()
+        DebounceSpellPickerFrame:Toggle();
+    end);
+    SetInstrcutionTooltip(description, LLL["SPELL_PICKER_MENU_DESC"]);
+
     description = rootDescription:CreateButton(BINDING_TYPE_NAMES[Constants.MACROTEXT], function()
         -- 이름·아이콘을 먼저 받고, 만들어진 액션의 본문 편집기로 이어 간다. 이 이어붙임을
         -- 아는 건 여기다 - 팝업은 "무엇을 열지"를 모른다.

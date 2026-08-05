@@ -92,6 +92,7 @@ globals = {
 	-- Spell / macro / binding
 	"GetShapeshiftFormInfo",
 	"GetFlyoutInfo",
+	"GetFlyoutSlotInfo",
 	"GetMacroInfo",
 	"GetNumMacros",
 	"CreateMacro",
@@ -133,6 +134,7 @@ globals = {
 	"CreateTableEnumerator",
 	"CreateDataProvider",
 	"CreateScrollBoxListLinearView",
+	"CreateScrollBoxListGridView",
 	"CreateAndInitFromMixin",
 	"CreateFromMixins",
 	"TextureKitConstants",
@@ -268,6 +270,8 @@ globals = {
 	"DebounceOverviewHeaderMixin",
 	"DebounceOverviewLineMixin",
 	"DebounceStateDriverUpdateThrottleSliderMixin",
+	"DebounceSpellPickerFrameMixin",
+	"DebounceSpellPickerRowMixin",
 
 	-- Named frames
 	"DebounceFrame",
@@ -275,6 +279,7 @@ globals = {
 	"DebounceDetailPanel",
 	"DebounceIconSelectorFrame",
 	"DebounceActionPlacerFrame",
+	"DebounceSpellPickerFrame",
 
 	-- Optional third-party addons
 	"Clique",

@@ -20,5 +20,6 @@ locales.xml
 
 Debounce.xml
 DebounceUI.xml
+SpellPicker.xml
 
 Public.lua

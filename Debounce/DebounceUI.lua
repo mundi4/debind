@@ -347,6 +347,9 @@ end
 ---
 --- 매크로 편집은 여기 없다. 탭이 되면서 **모드가 아니라 보기**가 됐다 - 매크로 탭을 열어둔
 --- 채로 다른 액션을 고르거나 레이어를 옮겨도 되고, 그때마다 떠나는 쪽에서 저장된다.
+---
+--- **주문 선택 창도 여기 없다.** 일부러다 - 그 창은 대상을 안 고르고 메인 창에서 열려 있는
+--- 레이어에 넣는다. 여기 넣으면 탭이 잠겨서 대상을 바꿀 방법이 사라진다.
 local function IsEditingAction(action)
 	if (DebounceIconSelectorFrame:IsShown() and (action == nil or (DebounceIconSelectorFrame.elementData and DebounceIconSelectorFrame.elementData.action == action))) then
 		return true;
@@ -1758,6 +1761,11 @@ function DebounceFrameMixin:OnHide()
 
 	HideDeleteConfirmationPopup();
 
+	-- 주문 선택 창의 수명은 여기 묶여 있다. X 버튼도, ESC도, 전투 진입(OnEnterCombat이
+	-- self:Hide()로 끝난다)도 전부 이 경로로 오므로 한 줄이 셋을 다 덮는다.
+	-- 반대 방향은 없다 - 그 창을 닫아도 이 창은 남는다.
+	DebounceSpellPickerFrame:Hide();
+
 	-- 창이 닫히는 것도 "떠나는" 것이다. 기본 매크로 창의 OnHide와 같이, 편집 중이던
 	-- 매크로 본문은 여기서 저장된다.
 	DebounceDetailPanel:Close();
@@ -1861,6 +1869,15 @@ function DebounceFrameMixin:OnKeyDown(input)
 		-- 채로 선택이 풀리고, 한 번 더 누르면 팝업만 남기고 창이 닫힌다.
 		if (DebounceIconSelectorFrame:IsShown()) then
 			DebounceIconSelectorFrame:Close();
+			return;
+		end
+
+		-- 주문 선택 창도 여기서 닫는다. 그 창이 스스로 ESC를 처리하지 **못한다** -
+		-- 이 창이 키보드를 켜둔 채라 ESC가 언제나 여기로 먼저 들어오고, 그 창이 열려 있는
+		-- 동안은 이 창도 반드시 열려 있다(수명이 묶여 있다). 저쪽에 RegisterEscapeToClose를
+		-- 걸어도 닿지 않는 자리라 계획서와 달리 사다리 한 칸으로 넣었다.
+		if (DebounceSpellPickerFrame:IsShown()) then
+			DebounceSpellPickerFrame:Hide();
 			return;
 		end
 
@@ -2021,6 +2038,10 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 	self:SetTitle(title);
 	self:UpdateActionCounts();
 	self:UpdateEmptyText();
+
+	-- 주문 선택 창의 "이미 있음" 표시는 **여기가 가리키는 레이어**를 센다. 대상이 바뀌는
+	-- 길이 셋(탭, 사이드탭, 액션 추가)인데 전부 Refresh를 지나므로 한 곳에서 알린다.
+	DebounceSpellPickerFrame:OnTargetLayerChanged();
 end
 
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
@@ -2128,6 +2149,10 @@ function DebounceFrameMixin:DropOverlay_OnMouseUp(button)
 	end
 end
 
+--- 아이콘 선택기가 떠 있는 동안 잠기는 것들.
+---
+--- 주문 선택 창은 **여기 없다.** 그 창의 쓸모가 "열어둔 채 탭을 옮겨 다니며 골라 넣는
+--- 것"이라, 잠그는 목록에 넣으면 스스로를 못 쓰게 만든다.
 function DebounceFrameMixin:UpdateButtons()
 	local enableButtons = not IsEditingAction();
 
@@ -3704,6 +3729,12 @@ end
 
 function DebounceUI.GetSelectedTab()
 	return _selectedTab;
+end
+
+--- 지금 열려 있는 레이어. 주문 선택 창이 "이미 있음"을 세려고 쓴다 - 그쪽은 대상을 고르지
+--- 않고 **여기가 가리키는 곳**에 넣는다.
+function DebounceUI.GetSelectedLayerID()
+	return GetLayerID();
 end
 
 function DebounceUI.GetSelectedSideTab()

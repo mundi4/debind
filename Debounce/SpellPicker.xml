@@ -1,0 +1,175 @@
+﻿<Ui xmlns="http://www.blizzard.com/wow/ui/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<Script file="SpellPicker.lua" />
+
+	<!--
+		주문 한 줄. 아이콘 + 이름 + 부제가 전부다.
+
+		블리자드의 `SpellBookItemTemplate`을 안 쓴 이유가 여기 있다 - 그 믹스인은 picker가
+		아니라 **caster**다(OnIconClick -> CastSpellBookItem). OnShow마다 이벤트를 다섯 개
+		걸고 EventRegistry 공용 콜백에 우리가 끼어들게 된다. 행 하나가 이만한 물건이면
+		자체 템플릿이 훨씬 싸다.
+
+		아트는 왼쪽 목록(DebounceLineTemplate)과 같은 아틀라스를 쓴다 - 같은 애드온의 두
+		목록이 다른 물건처럼 보이면 안 된다. `useAtlasSize`는 안 준다. 저 아틀라스는 450px
+		짜리라 크기를 따라가면 두 컬럼에 안 들어간다.
+	-->
+	<Button name="DebounceSpellPickerRowTemplate" mixin="DebounceSpellPickerRowMixin" virtual="true">
+		<Size x="240" y="38"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground" setAllPoints="true"/>
+				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled">
+					<Size x="32" y="32"/>
+					<Anchors>
+						<Anchor point="LEFT" x="1" y="0"/>
+					</Anchors>
+					<TexCoords left="0.140625" right="0.84375" top="0.140625" bottom="0.84375"/>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<Texture parentKey="Icon">
+					<Size x="28" y="28"/>
+					<Anchors>
+						<Anchor point="LEFT" x="3" y="0"/>
+					</Anchors>
+				</Texture>
+				<FontString parentKey="Name" inherits="GameFontNormalSmall" maxLines="1" justifyH="LEFT">
+					<Size x="170" y="0"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="6"/>
+					</Anchors>
+				</FontString>
+				<!--
+					부제 자리는 하나다. 랭크(subName)와 비활성 특성 이름이 같은 자리를 쓴다 -
+					둘을 나란히 두면 240px 안에서 둘 다 잘린다. 어느 쪽이 이기는지는 Init에 있다.
+				-->
+				<FontString parentKey="SubName" inherits="GameFontDisableSmall" maxLines="1" justifyH="LEFT">
+					<Size x="170" y="0"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="LEFT" x="0" y="-13"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="OVERLAY">
+				<!--
+					대상 레이어에 이미 있다는 표시. **막는 표시가 아니다** - 같은 주문에 조건만
+					다른 줄을 두는 것이 정상 사용이라 클릭은 그대로 받는다. 두 개 이상이면
+					개수를 옆에 붙인다.
+				-->
+				<Texture parentKey="AddedMark" file="Interface\RaidFrame\ReadyCheck-Ready" hidden="true">
+					<Size x="16" y="16"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-4" y="0"/>
+					</Anchors>
+				</Texture>
+				<FontString parentKey="AddedCount" inherits="NumberFontNormalSmall" justifyH="RIGHT">
+					<Anchors>
+						<Anchor point="RIGHT" relativeKey="$parent.AddedMark" relativePoint="LEFT" x="-1" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+			<OnClick method="OnClick"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		독립창이다. `parent="UIParent"` - 메인 창의 자식으로 두면 메인 창을 옮길 때 딸려간다
+		(`DebounceIconSelectorFrame`이 그렇다). 자리도 따로 저장한다.
+
+		그래도 **수명은 메인 창에 묶여 있다.** `DebounceFrameMixin:OnHide`가 같이 닫는다 -
+		X 버튼도, ESC도, 전투 진입도 전부 그 경로로 온다. 반대 방향은 없다: 이 창을 닫아도
+		메인 창은 남는다.
+
+		키보드를 켜지 않는다. 검색창(EditBox)만 포커스를 갖고 거기서 ESC는 포커스만 푼다.
+		그러면 이 창이 전파 상태(SetPropagateKeyboardInput)를 손댈 일 자체가 없어진다 -
+		전투 중에는 그게 taint라 부를 수도 없다. 창을 닫는 ESC는 메인 창의 ESC 사다리가
+		처리한다(`DebounceFrameMixin:OnKeyDown`).
+	-->
+	<Frame name="DebounceSpellPickerFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true"
+		frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebounceSpellPickerFrameMixin"
+		movable="true" clampedToScreen="true">
+		<Size x="524" y="540"/>
+		<Anchors>
+			<Anchor point="CENTER"/>
+		</Anchors>
+		<Frames>
+			<!--
+				초상화 오른쪽에서 시작한다. 프레임 왼쪽 끝에 붙이면 초상화 원과 겹친다.
+			-->
+			<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
+				<KeyValues>
+					<KeyValue key="tabTemplate" value="DebounceDetailTabTemplate" type="string"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="70" y="-27"/>
+				</Anchors>
+			</Frame>
+
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
+				<Size x="500" y="0"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="4" y="-90"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
+				</Anchors>
+			</Frame>
+
+			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y="-5"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y="5"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER">
+							<Size x="360" y="0"/>
+							<Anchors>
+								<Anchor point="TOP" x="0" y="-40"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Button>
+			<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
+				</Anchors>
+			</EventFrame>
+
+			<!--
+				검색은 **실제로 걸러낸다.** 메인 창처럼 "안 맞는 줄을 흐리게" 할 수가 없다 -
+				여기는 수백 개다.
+			-->
+			<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
+				<Size x="220" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="8" y="4"/>
+				</Anchors>
+			</EditBox>
+
+			<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate">
+				<Size x="110" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="-2" y="4"/>
+				</Anchors>
+			</DropdownButton>
+		</Frames>
+		<Scripts>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+			<OnEvent method="OnEvent"/>
+		</Scripts>
+	</Frame>
+
+</Ui>
