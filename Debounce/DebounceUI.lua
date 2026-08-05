@@ -315,6 +315,19 @@ local function GetLayerID(tab, sideTab)
 	return DebouncePrivate.GetLayerID(spec, isCharacterSpecific);
 end
 
+--- GetLayerID의 역방향. 레이어가 어느 탭 좌표에 사는지 돌려준다.
+---
+--- 레이어 7은 (nil, true)와 (0, true) 양쪽에서 나오지만 - 탭2에는 "직업 공용"에 해당하는
+--- 사이드탭이 없어서 UpdateSideTabs가 사이드탭2를 숨긴다 - 되돌릴 때는 사이드탭 1을 준다.
+--- 탭2에서 레이어 7이 실제로 서 있는 자리가 그것이다.
+local function GetLayerTabs(layerID)
+	if (layerID >= 7) then
+		local spec = layerID - 7;
+		return 2, spec > 0 and spec + 2 or 1;
+	end
+	return 1, layerID == 1 and 1 or layerID;
+end
+
 local function GetTabLabel(tabID)
 	if (tabID == 1) then
 		return LLL["SHARED_BINDINGS"];
@@ -2072,6 +2085,36 @@ function DebounceFrameMixin:FindElementDataByActionInfo(action)
 	return elementData, index;
 end
 
+--- 순서 목록이 가리키는 액션으로 화면을 옮긴다. 그 액션이 사는 탭을 열고, 왼쪽 목록에서
+--- 골라 상세 패널까지 그 액션의 것으로 바꾼다.
+---
+--- 순서 목록이 남의 액션을 여기서 고치지 않고 데려다 주는 이유는, 고치려면 그 액션의
+--- 맥락 - 자기 탭, 자기 이웃, 자기 순서 목록 - 이 필요하기 때문이다. 순서만 만지려던
+--- 사람이 보고 있지도 않은 레이어를 팝업 하나로 바꾸는 것이 이 화면에서 가장 나기 쉬운
+--- 사고고, 그 팝업에는 그게 어디 것인지 말해주는 게 아무것도 없다.
+---
+--- 돌아오는 길은 대개 열려 있다. 같은 키의 순서 목록이라 방금 떠나온 액션도 거기 들어
+--- 있다. (다른 특성의 레이어로 건너뛰면 그쪽 목록은 현재 특성 기준으로 계산되므로 안
+--- 보일 수 있다.)
+function DebounceFrameMixin:GoToAction(action, layerID)
+	if (not TryCloseAnyDialog()) then
+		return;
+	end
+
+	local tab, sideTab = GetLayerTabs(layerID);
+	-- 사이드탭을 **먼저** 넣는다. SetTab이 사이드탭 갱신과 Refresh까지 하는데, 그 안의
+	-- "안 보이는 사이드탭이면 1로" 가드가 새 좌표를 보고 판단해야 한다.
+	_selectedSideTab = sideTab;
+	self:SetTab(tab);
+
+	self:SetSelectedAction(action);
+
+	local elementData = self:FindElementDataByActionInfo(action);
+	if (elementData) then
+		self.ScrollBox:ScrollToElementData(elementData);
+	end
+end
+
 function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 
@@ -2184,8 +2227,11 @@ function DebounceFrameMixin:SetTab(id)
 	self:Refresh();
 end
 
-function DebounceFrameMixin:ShowEditDropdown(button, atButton)
-	local elementData = button:GetElementData();
+--- elementData를 주면 버튼 대신 그것으로 연다. 순서 목록이 자기 행 대신 **왼쪽 목록이
+--- 만든** elementData를 넘기기 위한 통로다 - 메뉴가 읽는 layer/index는 저쪽 소유의 값이라
+--- 모양을 흉내내면 저쪽이 바뀔 때 조용히 어긋난다.
+function DebounceFrameMixin:ShowEditDropdown(button, elementData)
+	elementData = elementData or button:GetElementData();
 	local menu = MenuUtil.CreateContextMenu(button, DebounceUI.SetupEditDropdownMenu, elementData);
 	self.contextMenu = menu;
 	self.contextMenuAction = menu and elementData.action or nil;
@@ -2682,17 +2728,10 @@ function DebounceDetailPanelMixin:Close()
 end
 
 --- layerID를 사람이 읽는 라벨로. 탭 라벨을 그대로 쓴다 - 직업명·특성명·캐릭터명이라
---- 새로 배울 게 없다. GetLayerID(spec, isCharacterSpecific)의 역방향이다.
+--- 새로 배울 게 없다. 좌표는 GetLayerTabs가 낸다.
 local function GetLayerLabel(layerID)
-	local scope, sideTab;
-	if (layerID >= 7) then
-		local spec = layerID - 7;
-		scope = UnitName("player");
-		sideTab = spec > 0 and spec + 2 or 1;
-	else
-		scope = LLL["SHARED_BINDINGS"];
-		sideTab = layerID == 1 and 1 or layerID;
-	end
+	local tab, sideTab = GetLayerTabs(layerID);
+	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
 	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
 end
 
@@ -2718,45 +2757,15 @@ local function BuildOrderSubText(row, layerLabel)
 	return table.concat(parts, " \194\183 ");
 end
 
--- 순서 리스트의 행은 좌측 목록의 선택을 옮기지 않는다. 순서만 만지려던 사용자가
--- 컨텍스트를 잃기 때문이다. 클릭이 하는 일은 우선순위 지정이고, 툴팁이 그걸 말한다.
+-- 행 클릭은 두 갈래다. **보고 있는 액션의 행**이면 왼쪽 목록의 편집 메뉴를 그대로 연다.
+-- 나머지 행은 아무것도 고치지 않고 그 액션으로 데려다 준다(GoToAction).
+--
+-- 예전에는 어느 행이든 우선순위 메뉴가 열렸다. 그건 이 화면에서 유일하게 **남의 레이어를
+-- 바꿀 수 있는 자리**였는데, 이 목록에 온 사람의 머릿속은 "이 키의 순서"에 가 있고
+-- 우선순위는 그 액션이 사는 레이어 전체에 걸리는 값이라 축이 어긋나 있었다. 이제 자기
+-- 액션이 아니면 편집으로 들어가는 문 자체가 없다.
 local ORDER_LINE_TOOLTIP_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION" };
-
---- 우선순위를 저장하고 되비춘다. 기본값이면 nil로 지운다(Profile.lua의 CleanUpDB 규칙).
-local function SetActionPriority(action, priority)
-	local stored = DebouncePrivate.PriorityToStored(priority);
-	if (action.priority == stored) then
-		return false;
-	end
-
-	action.priority = stored;
-	action._dirty = true;
-	DebouncePrivate.UpdateBindings();
-	-- 목록이 키 그룹 안 발동 순서로 정렬돼 있으므로 왼쪽 자리도 바뀐다.
-	DebounceFrame:Refresh(true);
-	DebounceFrame:Update();
-	return true;
-end
-
---- 절대 지정. 우클릭 메뉴의 CreatePriorityMenu(DropDownMenus.lua)를 리스트 안으로 옮긴 것이다.
---- 남의 액션을 건드리는 건 상대 이동보다 더 의도적이어야 하므로 값을 직접 고르게 한다.
-local function ShowOrderPriorityMenu(owner, action)
-	MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
-		rootDescription:CreateTitle(LLL["PRIORITY"]);
-		for i = Constants.MIN_PRIORITY, Constants.MAX_PRIORITY do
-			rootDescription:CreateRadio(LLL["PRIORITY" .. i],
-				function()
-					return (action.priority or Constants.DEFAULT_PRIORITY) == i;
-				end,
-				function()
-					SetActionPriority(action, i);
-					-- 순서가 바뀌면 이 행이 다른 자리로 간다. 열어둔 채로 두면 헷갈린다.
-					return MenuResponse.Close;
-				end
-			);
-		end
-	end);
-end
+local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
 
 DebounceOrderLineMixin = {};
 
@@ -2791,7 +2800,9 @@ function DebounceOrderLineMixin:Update()
 end
 
 function DebounceOrderLineMixin:OnEnter()
-	ShowLineTooltip(self, "ANCHOR_LEFT", self:GetElementData().row, true, ORDER_LINE_TOOLTIP_INSTRUCTIONS);
+	local elementData = self:GetElementData();
+	ShowLineTooltip(self, "ANCHOR_LEFT", elementData.row, true,
+		elementData.isCurrent and ORDER_LINE_TOOLTIP_INSTRUCTIONS or ORDER_LINE_GOTO_INSTRUCTIONS);
 end
 
 function DebounceOrderLineMixin:OnLeave()
@@ -2805,7 +2816,28 @@ function DebounceOrderLineMixin:OnClick()
 	if (DebounceDetailPanel:IsCapturingKey()) then
 		return;
 	end
-	ShowOrderPriorityMenu(self, self:GetElementData().row.action);
+
+	local elementData = self:GetElementData();
+	local row = elementData.row;
+
+	if (elementData.isCurrent) then
+		-- 왼쪽 목록이 이 액션의 elementData를 이미 갖고 있다. 메뉴가 원래 받도록 지어진
+		-- 그 테이블을 그대로 넘긴다.
+		local mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
+		if (mainElementData) then
+			DebounceFrame:ShowEditDropdown(self, mainElementData);
+		end
+		return;
+	end
+
+	-- 항목이 하나뿐이라는 것 자체가 "이 행은 네가 보고 있는 게 아니다"를 말한다. 항목의
+	-- 글자는 레이어 라벨이라, 어디로 가는지도 같은 줄이 말한다.
+	MenuUtil.CreateContextMenu(self, function(_, rootDescription)
+		rootDescription:CreateTitle(NameAndIconForAction(row.action));
+		rootDescription:CreateButton(format(LLL["ORDER_GOTO_ACTION"], GetLayerLabel(row.layerID)), function()
+			DebounceFrame:GoToAction(row.action, row.layerID);
+		end);
+	end);
 end
 
 local function OrderMoveButton_OnEnter(button)
