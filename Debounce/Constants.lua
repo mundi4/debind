@@ -31,6 +31,7 @@ Constants.ITEM                            = "item";
 Constants.MACRO                           = "macro";
 Constants.MACROTEXT                       = "macrotext";
 Constants.MOUNT                           = "mount";
+Constants.PETACTION                       = "petaction";
 Constants.TARGET                          = "target";
 Constants.FOCUS                           = "focus";
 Constants.TOGGLEMENU                      = "togglemenu";
@@ -40,6 +41,23 @@ Constants.SETCUSTOM                       = "setcustom";
 Constants.SETSTATE                        = "setstate";
 Constants.UNUSED                          = "unused";
 Constants.COMBINED                        = "_combined";
+
+--- 대상(unit)을 가질 수 있는 액션 타입.
+---
+--- **한 군데에서만 적는다.** 이 목록은 원래 두 곳에 손으로 복사돼 있었다 -
+--- `Misc.lua`의 `GetBindingInfoForAction`(목록에 없으면 `binding.unit`을 nil로 지운다)과
+--- `DropDownMenus.lua`의 `CreateTargetUnitMenuItem`(목록에 없으면 대상 메뉴를 안 연다).
+--- 소환수 명령을 붙이면서 메뉴 쪽에만 넣었더니, **대상은 고를 수 있는데 바인딩으로 가는
+--- 길에서 조용히 지워졌다.** 화면에는 "포커스"라고 적혀 있고 나가는 매크로에는 없었다.
+--- 한쪽만 고쳐도 티가 안 나는 종류의 중복이라 값을 하나로 만든다.
+Constants.TYPES_WITH_UNIT                 = {
+    [Constants.SPELL] = true,
+    [Constants.ITEM] = true,
+    [Constants.PETACTION] = true,
+    [Constants.TARGET] = true,
+    [Constants.FOCUS] = true,
+    [Constants.TOGGLEMENU] = true,
+};
 
 
 Constants.MAX_NUM_CUSTOM_STATES = 5;

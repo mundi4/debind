@@ -135,7 +135,7 @@
 		키보드를 켜지 않는다. 검색창(EditBox)만 포커스를 갖고 거기서 ESC는 포커스만 푼다.
 		그러면 이 창이 전파 상태(SetPropagateKeyboardInput)를 손댈 일 자체가 없어진다 -
 		전투 중에는 그게 taint라 부를 수도 없다. 창을 닫는 ESC는 메인 창의 ESC 사다리가
-		처리한다(`DebounceFrameMixin:OnKeyDown`).
+		처리한다(`DebounceFrameMixin:HandleEscape`).
 	-->
 	<Frame name="DebounceSpellPickerFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true"
 		frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebounceSpellPickerFrameMixin"

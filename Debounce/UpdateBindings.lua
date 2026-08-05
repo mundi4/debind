@@ -395,6 +395,32 @@ function SetBindingAttributes(type, value, unit, buttonname)
         return;
     end
 
+    -- 펫 명령은 **여기서 MACROTEXT가 된다.** 아래에 자기 갈래를 두면 세 가지를 각각 다시
+    -- 만들어야 하는데, 셋 다 이미 매크로텍스트 쪽에 있다:
+    --
+    --   1. 캐시 키. `BindingAttrsCache`(29줄)는 (type, value)로만 잡고 **한 번도 안 지운다.**
+    --      대상을 본문에 굽는 타입이 자기 갈래를 가지면 같은 명령 + 다른 대상 둘이 한 버튼을
+    --      나눠 쓰고, 뒤엣것이 앞엣것의 본문을 실행한다. 본문 자체를 value로 만들면 대상이
+    --      키에 들어가므로 그 일이 없다. (캐시 자체는 여전히 이 구조다 - refactor-candidates 18)
+    --   2. `@custom1`·`@hover`·`@tank`는 진짜 유닛 토큰이 아니다. 바꿔주는 것이
+    --      `addMacrotextBinding` -> `ParseMacroText`이고, 그건 MACROTEXT에만 걸려 있다.
+    --   3. unit을 여기서 떨군다. 본문이 대상을 들고 있으므로 delegate 프레임이 할 일이
+    --      없다(`SECURE_ACTIONS.macro`는 버튼의 unit을 안 본다).
+    --
+    -- `*type-="pet"`을 안 쓰는 이유는 따로다. 그쪽은 `CastPetAction(슬롯, unit)`이라 unit이
+    -- 공짜로 오지만 **슬롯이 펫마다 다르고 전투 중에는 못 고친다** - 전투 중에 펫이 바뀌면
+    -- 그 바인딩이 남은 전투 내내 엉뚱한 명령을 실행한다. 안 되는 것보다 나쁘다.
+    if (type == Constants.PETACTION) then
+        local macrotext = DebouncePrivate.GetPetActionMacroText(value, unit);
+        if (not macrotext) then
+            if (DEBUG) then
+                print("Unknown pet action:", value);
+            end
+            return;
+        end
+        type, value, unit = Constants.MACROTEXT, macrotext, nil;
+    end
+
     local clickframe, delegate, skipCache;
     if (type == Constants.COMBINED) then
         clickframe = DefaultClickFrame;
@@ -405,6 +431,14 @@ function SetBindingAttributes(type, value, unit, buttonname)
         buttonname = BindingAttrsCache[type] and BindingAttrsCache[type][value or NIL];
         clickframe = DefaultClickFrame;
         delegate = unit and unit ~= "" and DebouncePrivate.GetDelegateFrame(unit) or nil;
+
+        -- **캐시 적중은 "속성을 하나도 안 건드렸다"는 뜻이다.** 아래 블록을 통째로 건너뛴다.
+        -- 그게 맞을 때가 대부분이지만, 키에 안 들어간 무언가(unit 등)가 달라졌으면 그게 곧
+        -- 옛날 설정으로 도는 버그다. 로그가 없으면 이 분기는 화면에 흔적을 안 남긴다.
+        if (DEBUG and buttonname) then
+            print(format("|cffffcc66[Debounce/cache]|r HIT %s/%s -> %s (unit=%s) 속성 갱신 안 함",
+                tostring(type), tostring(value), tostring(buttonname), tostring(unit)));
+        end
     end
 
     if (not buttonname or skipCache) then
@@ -495,6 +529,19 @@ function SetBindingAttributes(type, value, unit, buttonname)
             if (DEBUG) then
                 print("No delegate frame for:", unit);
             end
+        end
+
+        -- 버튼에 방금 쓴 것. 속성은 열거가 안 되므로 **여기서 안 찍으면 다시 볼 수 없다.**
+        -- 보안 쪽 짝은 `SecureBindings.lua`의 `printMacroText`이고, 둘을 같이 봐야
+        -- "본문이 틀렸나"와 "본문이 아예 안 올라갔나"가 갈린다.
+        if (DEBUG) then
+            print(format("|cff88ff88[Debounce/attr]|r SET %s/%s -> %s : %s",
+                tostring(type), tostring(value), tostring(buttonname),
+                tostring(clickframe:GetAttribute("*macrotext-" .. buttonname)
+                    or clickframe:GetAttribute("*spell-" .. buttonname)
+                    or clickframe:GetAttribute("*macro-" .. buttonname)
+                    or clickframe:GetAttribute("*item-" .. buttonname)
+                    or clickframe:GetAttribute("*type-" .. buttonname))));
         end
 
         if (not skipCache) then

@@ -71,6 +71,10 @@ function DebounceSpellPickerRowMixin:OnEnter()
 
 	if (tooltipSpellID) then
 		GameTooltip:SetSpellByID(tooltipSpellID);
+	elseif (entry.type == Constants.ITEM) then
+		-- 장난감이 여기로 온다. 이름만 띄우면 비슷한 이름 둘을 구별할 수가 없다 -
+		-- 필요한 건 "사용 효과" 줄과 재사용 대기시간이고, 그건 아이템 툴팁에 있다.
+		GameTooltip:SetItemByID(entry.value);
 	else
 		GameTooltip_SetTitle(GameTooltip, entry.name);
 		if (entry.tooltipText and entry.tooltipText ~= "") then
@@ -308,6 +312,15 @@ function DebounceSpellPickerFrameMixin:OnShow()
 	self:RegisterEvent("UPDATE_MACROS");
 	self:RegisterEvent("NEW_MOUNT_ADDED");
 	self:RegisterEvent("NEW_TOY_ADDED");
+	-- 즐겨찾기는 머리글도 가르고 "즐겨찾기만" 필터도 가른다. 탈것 창을 옆에 열어둔 채
+	-- 별을 누르는 건 흔한 일이라, 그때 목록이 안 따라가면 잘못 든 것처럼 보인다.
+	self:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED");
+	self:RegisterEvent("TOYS_UPDATED");
+	-- 소환수 주문·명령은 **주문서 소환수 은행**에서 읽는다(`AddSpellBookItem`). 그쪽은
+	-- `SPELLS_CHANGED`가 이미 덮으므로 따로 들을 것이 없다. 한때 `PET_BAR_UPDATE`를 걸어뒀는데
+	-- 두 가지가 틀렸다: (1) 그때도 목록은 펫 바가 아니라 주문서에서 왔다 (2) 이 이벤트는 펫이
+	-- 나와 있는 동안 자주 온다 - 재구축 한 번에 스크롤이 맨 위로 튀고(`DiscardScrollPosition`)
+	-- `Invalidate()`가 모든 카테고리를 더럽혀서 다음 탈것 탭 클릭이 수천 번의 API 호출을 다시 한다.
 
 	self:RefreshList();
 end
@@ -321,6 +334,8 @@ function DebounceSpellPickerFrameMixin:OnHide()
 	self:UnregisterEvent("UPDATE_MACROS");
 	self:UnregisterEvent("NEW_MOUNT_ADDED");
 	self:UnregisterEvent("NEW_TOY_ADDED");
+	self:UnregisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED");
+	self:UnregisterEvent("TOYS_UPDATED");
 
 	-- 걸려 있던 재구축을 무효로 만든다. 타이머 자체는 못 끄므로 토큰으로 버린다.
 	self.rebuildToken = (self.rebuildToken or 0) + 1;
@@ -345,7 +360,7 @@ function DebounceSpellPickerFrameMixin:ApplyPosition()
 end
 
 function DebounceSpellPickerFrameMixin:OnEvent(event)
-	if (event == "SPELLS_CHANGED" or event == "UPDATE_MACROS" or event == "NEW_MOUNT_ADDED" or event == "NEW_TOY_ADDED") then
+	if (event == "SPELLS_CHANGED" or event == "UPDATE_MACROS" or event == "NEW_MOUNT_ADDED" or event == "NEW_TOY_ADDED" or event == "MOUNT_JOURNAL_USABILITY_CHANGED" or event == "TOYS_UPDATED") then
 		self:ScheduleRebuild(0.1);
 	else
 		-- 특성 변경은 주문서를 **비동기로** 갱신한다. 짧은 디바운스로는 아직 안 채워진
@@ -398,25 +413,50 @@ end
 --- stride를 고정으로 두고 셀 크기를 하나로 쓴다) 자리를 실제로 먹는 빈 칸으로 민다:
 --- 줄 가운데면 앞을 채우고, 머리글 뒤에도 채운다. 그러면 다음 주문이 다시 1번 칸에서 시작한다.
 ---
---- 머리글은 `group`이 있는 엔트리에만 붙는다. 나눌 것이 없는 카테고리(소환수, 특수)는
---- group이 nil이라 머리글 없이 평평하게 나온다.
+--- 머리글은 `group`이 있는 엔트리에만 붙는다. 나눌 것이 없는 카테고리(특수)는 group이
+--- nil이라 머리글 없이 평평하게 나온다.
+---
+--- **같은 머리글끼리 먼저 모은다.** 예전엔 "값이 바뀌는 자리"마다 머리글을 넣었는데, 그건
+--- 소스가 그룹별로 뭉쳐서 준다고 전제한 것이었다. 소환수 주문서가 명령과 주문을 번갈아 주는
+--- 바람에 같은 머리글이 여섯 번 뜬 적이 있다. 소스에 정렬 의무를 지우는 대신 여기서 모은다.
+---
+--- 그룹의 순서는 **처음 나온 순서**이고 그룹 안의 순서는 원본 그대로다. 그래서 이미 뭉쳐서
+--- 오는 소스(주문서의 일반 -> 직업 -> 특성)는 결과가 예전과 똑같다.
 local function BuildDisplayList(entries, out, stride)
 	wipe(out);
 
-	local currentGroup;
+	local order, buckets = {}, {};
 	for i = 1, #entries do
 		local entry = entries[i];
-		if (entry.group and entry.group ~= currentGroup) then
-			currentGroup = entry.group;
+		local key = entry.group or "";
+		local bucket = buckets[key];
+		if (not bucket) then
+			bucket = {};
+			buckets[key] = bucket;
+			order[#order + 1] = key;
+		end
+		bucket[#bucket + 1] = entry;
+	end
+
+	for _, key in ipairs(order) do
+		if (key ~= "") then
+			-- **머리글은 언제나 줄 첫 칸이다.** 격자에는 "한 줄 차지"가 없어서
+			-- (`AnchorUtil.GridLayout`은 stride를 고정으로 두고 셀 크기를 하나로 쓴다)
+			-- 자리를 실제로 먹는 빈 칸으로 민다: 줄 가운데면 앞을 채우고, 머리글 뒤에도
+			-- 채운다. 그러면 다음 주문이 다시 1번 칸에서 시작한다.
 			while (#out % stride ~= 0) do
 				out[#out + 1] = { isSpacer = true };
 			end
-			out[#out + 1] = { isHeader = true, name = entry.group };
+			out[#out + 1] = { isHeader = true, name = key };
 			for _ = 2, stride do
 				out[#out + 1] = { isSpacer = true };
 			end
 		end
-		out[#out + 1] = entry;
+
+		local bucket = buckets[key];
+		for i = 1, #bucket do
+			out[#out + 1] = bucket[i];
+		end
 	end
 
 	return out;
@@ -434,9 +474,25 @@ function DebounceSpellPickerFrameMixin:RefreshList()
 	--
 	-- `PanelTemplates_SetTabShown` 대신 탭을 직접 숨긴다. 저 헬퍼는 12.1 트리에서 확인한
 	-- 것이고 라이브(12.0)에 있다는 보장이 없다 - 여기서 얻는 것도 SetShown 한 줄뿐이다.
+	-- 숨긴 탭의 자리는 **다시 이어 붙인다.** XML은 탭을 앞 탭의 오른쪽에 매다는 사슬이라
+	-- (`PanelTemplates_AnchorTabs`도 같은 방식) 가운데 하나를 숨기면 그 자리가 빈 채로 남는다.
+	-- 매크로도 장난감도 없는 새 캐릭터에서 "주문 [구멍] 탈것 [구멍] 특수"가 된다.
+	-- 메인 창은 탭 둘이 언제나 보여서 이 문제를 만난 적이 없다.
+	local prevTab;
 	for tabID = 1, #self.Tabs do
+		local tab = self.Tabs[tabID];
 		local category = categories[tabID];
-		self.Tabs[tabID]:SetShown(category ~= nil and ActionCatalog.IsCategoryAvailable(category));
+		local shown = category ~= nil and ActionCatalog.IsCategoryAvailable(category);
+		tab:SetShown(shown);
+		if (shown) then
+			tab:ClearAllPoints();
+			if (prevTab) then
+				tab:SetPoint("LEFT", prevTab, "RIGHT", -15, 0);
+			else
+				tab:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 12, 1);
+			end
+			prevTab = tab;
+		end
 	end
 
 	local category = categories[self.selectedTab];

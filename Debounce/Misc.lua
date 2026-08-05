@@ -33,6 +33,88 @@ end
 
 local GetSpellTabNameAndIcon = DebouncePrivate.GetSpellTabNameAndIcon;
 
+--- 펫 명령(공격·따라가기·대기·태세…)을 보안 슬래시 명령으로 옮기는 표.
+---
+--- **키는 주문서의 `actionID`다.** 펫 바의 텍스처 이름으로 잡았다가 바꿨다 - 펫 바는 10칸뿐이라
+--- 거기 못 올라간 명령(흑마 서큐버스에서 Stay·Defensive가 그랬다)이 목록에서 통째로 사라졌다.
+--- 주문서에는 전부 있고, 주문서가 주는 손잡이는 이 값 하나다.
+---
+--- **값은 위치와 무관하고 클래스·펫이 달라도 같다.** 실측으로 확인했다 - 흑마와 사냥꾼에서
+--- 같은 값이 나왔고, 슬롯 1의 attack이 `…02`, 슬롯 8의 assist가 `…03`이라 슬롯 번호도 아니다.
+---
+--- `(계열 << 24) | 번호` 꼴이다. `0x07`이 명령, `0x06`이 태세인데 **번호가 띄엄띄엄하다**
+--- (명령에 3이 비고, 태세에 1·2가 빈다). 그래서 규칙으로 채우지 않고 확인한 것만 적는다.
+--- 여기 없는 것(`PET_AGGRESSIVE`, `PET_DISMISS`)은 값을 못 봤다는 뜻이지 없다는 뜻이 아니다.
+---
+--- 값은 `SlashCommands.lua`가 `CheckAddSecureSlashCommand`로 올린 것들이다.
+---
+--- **자동시전 셋(`PET_AUTOCASTON/OFF/TOGGLE`)은 보안이 아니라서가 아니라 - 그것들도 보안이다
+--- (`Mainline/SlashCommandsOverrides.lua:7-26`) - 주문 이름을 인자로 받기 때문에 여기 없다.**
+--- 펫 명령 하나에 대응하는 물건이 아니다.
+---
+--- 표에 없는 actionID는 목록에 안 올린다. 모르는 것을 대충 걸어두면 눌러도 아무 일이 없는
+--- 바인딩이 되는데, 그게 제일 알아채기 어려운 고장이다.
+local PET_ACTION_SLASH_BY_ID = {
+    [117440512] = "PET_STAY",     -- 0x07000000
+    [117440513] = "PET_FOLLOW",   -- 0x07000001
+    [117440514] = "PET_ATTACK",   -- 0x07000002
+    [117440516] = "PET_MOVE_TO",  -- 0x07000004
+    [100663296] = "PET_PASSIVE",  -- 0x06000000
+    -- 지원 태세는 **`PET_ASSIST`다.** `PET_DEFENSIVEASSIST`가 아니다 - 그쪽이 부르는
+    -- `PetDefensiveAssistMode()`는 Mainline 트리에서 그 호출 한 자리 말고는 정의도 사용처도
+    -- 없는 옛 모드다. 리테일 펫 바의 지원 버튼이 하는 일은 `C_PetInfo.PetAssistMode()`이고,
+    -- 그걸 부르는 보안 슬래시 명령이 `PET_ASSIST`다(`Mainline/SlashCommandsOverrides.lua:1-5`).
+    [100663299] = "PET_ASSIST",   -- 0x06000003
+    [100663300] = "PET_DEFENSIVE", -- 0x06000004
+};
+
+--- 대상을 **실제로 쓰는** 명령. 확인된 것은 공격 하나다(`SlashCommands.lua:659`,
+--- `PetAttack(target)`). 나머지 핸들러는 조건의 참·거짓만 보고 target을 버린다.
+---
+--- **여기 없는 명령에는 대상 메뉴가 아예 안 열린다**(`DropDownMenus.lua`) - 안 쓰는 값을
+--- 고르게 두면 그 설정이 무언가를 한다고 읽힌다. `GetBindingInfoForAction`도 같은 표를 보고
+--- `binding.unit`을 지운다.
+---
+--- **`PET_MOVE_TO`는 대상을 안 받는다.** 지면을 찍는 명령이라 유닛이 들어갈 자리가 아니다.
+--- 핸들러가 `PetMoveTo(target)`으로 넘기는 것은 소스에 그렇게 적혀 있지만
+--- (`SlashCommands.lua:676`), 그걸 근거로 넣으면 안 된다 - 고를 수는 있는데 아무 일도 안 하는
+--- 항목이 된다.
+local PET_ACTION_TAKES_UNIT = {
+    PET_ATTACK = true,
+};
+
+--- 주문서 `actionID` -> 우리가 저장할 값(슬래시 명령 키). 모르면 nil.
+function DebouncePrivate.GetPetActionCommandByActionID(actionID)
+    return actionID and PET_ACTION_SLASH_BY_ID[actionID] or nil;
+end
+
+function DebouncePrivate.PetActionTakesUnit(command)
+    return command ~= nil and PET_ACTION_TAKES_UNIT[command] == true;
+end
+
+--- 펫 명령 하나를 매크로 본문으로. 슬래시 명령이 없으면 nil - **부르는 쪽이 그걸로 거른다.**
+--- 카탈로그도 이 함수로 걸러서, 목록에 오르는 것은 실행되는 것만 남는다.
+---
+--- 슬래시 문자열은 전역에서 읽는다. `SLASH_CAST1`을 쓰는 것과 같은 이유 - 로케일마다 다르다.
+---
+--- 대상은 `[@유닛]` 조건절로 나간다. **이 형태는 게임에서 확인했다** - 손으로 만든
+--- `/petattack [@focus]` 매크로가 정상 동작한다. (한때 이 형태를 의심해 본문 형태로 바꾼 적이
+--- 있는데, 진짜 원인은 `SetBindingAttributes`의 캐시였다. `refactor-candidates.md` 참고.)
+---
+--- 조건절의 `@유닛`은 그대로 안 나간다. `SetBindingAttributes`가 이걸 MACROTEXT와 같은 길에
+--- 태우므로, `@custom1`·`@hover` 같은 우리 유닛은 `ParseMacroText`가 실행 시점에 진짜 토큰으로
+--- 바꾼다. 여기서 할 일은 문자열을 만드는 것까지다.
+function DebouncePrivate.GetPetActionMacroText(command, unit)
+    local slash = command and _G["SLASH_" .. command .. "1"];
+    if (not slash) then
+        return nil;
+    end
+    if (unit and unit ~= "" and DebouncePrivate.PetActionTakesUnit(command)) then
+        return format("%s [@%s]", slash, unit);
+    end
+    return slash;
+end
+
 --- 계정 매크로 칸 수와 캐릭터 매크로 칸 수.
 ---
 --- **`MAX_ACCOUNT_MACROS` / `MAX_CHARACTER_MACROS` 전역은 없다.** 블리자드 트리 전체에
@@ -159,11 +241,16 @@ do
                 binding.bonusbars = Constants.BONUSBAR_ALL;
             end
 
-            if (binding.type ~= Constants.SPELL and
-                    binding.type ~= Constants.ITEM and
-                    binding.type ~= Constants.TARGET and
-                    binding.type ~= Constants.FOCUS and
-                    binding.type ~= Constants.TOGGLEMENU) then
+            -- 대상을 못 갖는 타입이면 지운다. 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다 -
+            -- 대상 메뉴를 여는 쪽(`DropDownMenus.lua`)도 같은 값을 본다. 예전에는 여기와
+            -- 저기에 같은 목록이 손으로 하나씩 적혀 있었고, 한쪽에만 타입을 넣는 바람에
+            -- **화면에는 대상이 보이는데 나가는 매크로에는 없는** 상태가 나왔다.
+            if (not Constants.TYPES_WITH_UNIT[binding.type]) then
+                binding.unit = nil;
+            elseif (binding.type == Constants.PETACTION
+                    and not DebouncePrivate.PetActionTakesUnit(binding.value)) then
+                -- 펫 명령은 타입만으로 안 갈린다. 대상 메뉴도 같은 것을 보고 안 열린다
+                -- (`DropDownMenus.lua`). 여기서도 지워야 옛 프로필에 남은 값이 안 따라온다.
                 binding.unit = nil;
             end
 
@@ -405,6 +492,7 @@ function DebouncePrivate.CanConvertToMacroText(action)
         or action.type == Constants.ITEM
         or action.type == Constants.MACRO
         or action.type == Constants.MOUNT
+        or action.type == Constants.PETACTION
         or action.type == Constants.SETCUSTOM
         or action.type == Constants.SETSTATE
         or action.type == Constants.WORLDMARKER;
@@ -460,6 +548,12 @@ function DebouncePrivate.ConvertToMacroText(action)
             end
             macrotext = DebouncePrivate.GetMountMacroText(value);
         end
+    elseif (action.type == Constants.PETACTION) then
+        -- 이건 이미 매크로텍스트다 - 바인딩이 나갈 때와 **같은 함수로** 본문을 만든다.
+        -- 이름과 아이콘은 액션이 들고 있는 것을 그대로 옮긴다(펫이 없으면 다시 못 푼다).
+        macrotext = DebouncePrivate.GetPetActionMacroText(action.value, action.unit);
+        name = action.name;
+        icon = action.icon;
     elseif (action.type == Constants.SETCUSTOM) then
         macrotext = format("/click DebounceCustom%d hover", action.value);
         name = L["TYPE_SETCUSTOM" .. action.value];

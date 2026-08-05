@@ -303,7 +303,15 @@
 		순위 숫자는 안 붙인다. 이 목록은 위에서부터 시도되는 순서 그대로라 자리가 곧 순위이고,
 		지금 보고 있는 액션은 SelectedHighlight가 짚는다.
 	-->
-	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" virtual="true">
+	<!--
+		메뉴는 우클릭으로만 연다. 왼쪽 목록이 이미 그렇게 가르치고 있으므로(좌클릭은 고르고,
+		우클릭이 편집 메뉴다 - DebounceLineMixin:OnClick), 같은 창의 다른 목록이 같은 버튼에
+		다른 뜻을 주면 안 된다.
+
+		좌클릭은 아예 등록하지 않는다. 등록해두고 안에서 걸러내는 것보다 낫다 - 나중에
+		누가 AnyUp으로 바꿔도 조용히 새 길이 열리지 않는다.
+	-->
+	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="RightButtonUp" virtual="true">
 		<Size x="300" y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -332,22 +340,57 @@
 						<Anchor point="LEFT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
-				<FontString parentKey="PriorityText" inherits="GameFontNormalSmall" justifyH="RIGHT" maxLines="1">
-					<Size x="86" y="0"/>
+				<!--
+					이름 앞의 두 칸이 "이 액션이 어디 사는가"를 말한다. 이 목록은 레이어가
+					섞이는 유일한 자리라 그게 이름의 일부다.
+
+					**아이콘 하나 = 좁혀진 축 하나.** 캐릭터 전용이면 이 캐릭터의 초상화가,
+					일반이 아니면 직업·전문화 아이콘이 붙는다. 그래서 아무것도 없는 행이 가장
+					넓은 레이어(모든 캐릭터·모든 전문화)고, 둘 다 붙은 행이 가장 좁다.
+
+					**세는 것만으로 순위가 나오지는 않는다.** 양 끝만 그렇다. 가운데 한 칸짜리는
+					셋이 겹친다 - 공유/직업, 공유/전문화, 캐릭터/일반이 전부 아이콘 하나인데
+					발동 순위는 서로 다르다(Profile.lua의 EnumerateProfileLayers). 그 셋을 가르는
+					것은 개수가 아니라 **어느 그림이냐**다: 초상화면 캐릭터 쪽, 직업·전문화
+					아이콘이면 공유 쪽. 순위 자체를 알아야 하면 목록의 세로 순서가 그것이고,
+					낱말로 확인하려면 행 툴팁의 '범위' 줄을 본다.
+
+					**빈 칸은 남기지 않는다.** 아이콘이 하나면 한 칸만 쓰고 이름이 바로 뒤에
+					붙는다. 자리를 예약해 두면 아이콘이 적은 행마다 이름 앞이 휑하게 비는데,
+					그 구멍은 아무 뜻도 없으면서 눈에는 제일 먼저 들어온다. 어느 축인지는
+					자리가 아니라 그림이 말한다 - 초상화와 직업/전문화 아이콘은 헷갈릴 수가 없다.
+
+					그래서 이름의 왼쪽 앵커는 Update가 다시 잡는다(아래 앵커는 아이콘이 하나도
+					없을 때의 자리다). 왼쪽 목록 행의 KeyWarning이 같은 이유로 같은 일을 한다.
+
+					전문화 아이콘은 창 왼쪽 사이드탭 줄이 쓰는 것 그대로다. 이미 배운 그림이다.
+				-->
+				<Texture parentArray="LayerIcons" parentKey="LayerIcon1" hidden="true">
+					<Size x="14" y="14"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-6" y="-9"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="8"/>
 					</Anchors>
-				</FontString>
+				</Texture>
+				<Texture parentArray="LayerIcons" parentKey="LayerIcon2" hidden="true">
+					<Size x="14" y="14"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.LayerIcon1" relativePoint="RIGHT" x="3" y="0"/>
+					</Anchors>
+				</Texture>
 				<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="8"/>
 						<Anchor point="RIGHT" x="-6" y="8"/>
 					</Anchors>
 				</FontString>
+				<!--
+					순서를 정하는 값들이 여기 다 온다(index 제외). 오른쪽 끝까지 쓴다 - 예전에
+					여기 있던 중요도 칸이 이 줄로 들어왔고, 레이어는 위의 아이콘이 가져갔다.
+				-->
 				<FontString parentKey="SubText" inherits="GameFontHighlightSmall" justifyH="LEFT" maxLines="1">
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="-9"/>
-						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-6" y="0"/>
+						<Anchor point="RIGHT" x="-6" y="-9"/>
 					</Anchors>
 				</FontString>
 			</Layer>
@@ -492,6 +535,8 @@
 			<KeyValue key="scrollBarBottomY" value="5" type="number"/>
 		</KeyValues>
 	</ScrollFrame>
+	<!-- ESC는 이 창이 직접 받는다(enableKeyboard). 블리자드가 내주는 두 자리 - UISpecialFrames와
+	     RegisterGameMenuEscHandler - 를 둘 다 안 쓰는 이유가 DebounceFrameMixin:OnLoad에 있다. -->
 	<Frame name="DebounceFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebounceFrameMixin" movable="true" clampedToScreen="true" enableKeyboard="true">
 		<Size x="440" y="620"/>
 		<Anchors>

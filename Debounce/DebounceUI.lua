@@ -119,6 +119,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.MACRO] = LLL["TYPE_MACRO"],
 	[Constants.MACROTEXT] = LLL["TYPE_MACROTEXT"],
 	[Constants.MOUNT] = LLL["TYPE_MOUNT"],
+	[Constants.PETACTION] = LLL["TYPE_PETACTION"],
 	[Constants.TARGET] = LLL["TYPE_TARGET"],
 	[Constants.FOCUS] = LLL["TYPE_FOCUS"],
 	[Constants.TOGGLEMENU] = LLL["TYPE_TOGGLEMENU"],
@@ -210,6 +211,18 @@ local UNIT_INFO            = {
 		target = false,
 		focus = false,
 		togglemenu = false,
+		-- `none`은 "대상 없음"이 아니다. **실행할 때 타겟 입력을 받게 하는 것**이다 -
+		-- 지금 대상이 있든 없든 상관없이 대상 지정 모드로 들어가고, 사용자가 찍는다.
+		-- 자동 자기시전도 안 걸린다. 그게 와우 동작이고 이 항목의 설명(UNIT_NONE_DESC)이다.
+		--
+		-- 그래서 **시전에만 있는 개념**이다. 소환수 명령은 대상 지정 모드로 들어가는 시전이
+		-- 아니라 그냥 실행되는 명령이라, 받을 입력이 없다.
+		--
+		-- **게임에서 확인함(2026-08-05).** 같은 조건절을 두 명령에 넣어 비교했다:
+		--   `/cast [@none] 화염구`   → 된다 (타겟 입력을 받는다)
+		--   `/petattack [@none]`     → 안 된다
+		-- 조건절 자체는 멀쩡하고 **명령 쪽이 안 받는다.** 추론이 아니라 실측이다.
+		petaction = false,
 		unitexists = false,
 	},
 };
@@ -351,6 +364,42 @@ local function GetSideTabaLabel(sideTabID)
 	end
 end
 
+--- "이 캐릭터"를 말하는 그림. **텍스처에 직접 건다** - 없을 때 대신 무엇을 걸지가 이
+--- 함수의 절반이라, 경로만 돌려주면 부르는 쪽이 그 판단을 못 한다.
+---
+--- 진짜 초상화를 쓴다. `SetPortraitTexture`는 블리자드 트리 전역이 쓰는 살아 있는 API라
+--- 종족이 늘어도 따라온다.
+---
+--- **종족 흉상(`Interface\CharacterFrame\TemporaryPortrait-<성별>-<종족>`)을 쓰다 뺐다.**
+--- 그 이름은 블리자드 UI 트리 전체에서 참조가 **0건**이라 누가 최신 상태로 유지해 주는지
+--- 알 수 없고, 드락티르·토석민처럼 뒤에 나온 종족에 파일이 있는지 확인할 방법이 없다.
+--- 없으면 텍스처가 비는데 아이콘 칸은 **켜진 채로** 남아서 이름 앞이 이유 없이 밀린다 -
+--- XML 주석이 "빈 칸은 남기지 않는다"고 못 박은 바로 그 모양이 된다. 장비가 나오고 14px에서
+--- 뭉개지는 건 이 초상화의 단점이 맞지만, **반쯤의 종족에서 아무것도 안 보이는 것보다 낫다.**
+---
+--- 직업 아이콘(`GetClassAtlas`)도 후보였는데 **안 된다.** 사이드탭 2번(공유/직업)이 이미
+--- 주문서의 직업 스킬라인 아이콘을 쓰고 있어서, 같은 줄에 직업 그림이 두 개 서면 어느 쪽이
+--- "이 캐릭터"고 어느 쪽이 "직업 레이어"인지 구분이 안 된다. 이 아이콘이 하는 일이 정확히
+--- 그 구분이다.
+local function SetPlayerCharacterIcon(texture)
+	SetPortraitTexture(texture, "player");
+end
+
+--- 사이드탭 아이콘. 사이드탭 줄과 순서 목록의 행이 **같은 그림**을 써야 하므로 한 군데서
+--- 낸다 - 어긋나면 사용자가 왼쪽에서 배운 그림이 오른쪽에서 다른 뜻이 된다.
+--- **아이콘 하나만 돌려준다.** `GetSpecializationInfo`는 `select(4, …)`에서도 세 개를
+--- 뱉으므로(icon, role, primaryStat) 그대로 흘리면 `Texture:SetTexture(icon, role, primaryStat)`가
+--- 되어 뒤 둘이 wrapMode 인자로 먹힌다. 사이드탭은 `SetNormalTexture`라 인자를 하나만 받아
+--- 티가 안 났고, 순서 목록의 레이어 아이콘에서만 드러난다.
+local function GetSideTabIcon(sideTabID)
+	if (sideTabID <= 2) then
+		local _, icon = GetSpellTabNameAndIcon(sideTabID);
+		return icon;
+	end
+	local icon = select(4, C_SpecializationInfo.GetSpecializationInfo(sideTabID - 2));
+	return icon;
+end
+
 local function TryCloseAnyDialog()
 	if (DebounceIconSelectorFrame:Close() and DebounceDetailPanel:Close()) then
 		return true;
@@ -460,6 +509,12 @@ local function NameAndIconForAction(action)
 		end
 		actionName = name;
 		actionIcon = icon;
+	elseif (type == Constants.PETACTION) then
+		-- 이름·아이콘은 **저장돼 있다.** 다른 타입과 달리 여기서 다시 풀 수가 없다 - 펫
+		-- 명령의 이름과 아이콘은 소환수 주문서에 있고, 펫이 없으면 그 주문서가 통째로
+		-- 비어서 물어볼 데가 없다. 프로필 목록은 펫이 없을 때도 그려져야 한다.
+		actionName = action.name;
+		actionIcon = action.icon;
 	elseif (type == Constants.SETCUSTOM) then
 		actionName = LLL["TYPE_SETCUSTOM" .. value];
 		actionIcon = 1505950;
@@ -696,7 +751,12 @@ do
 	end
 
 	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
-	function ShowLineTooltip(owner, anchor, elementData, isOverview, instructionKeys)
+	---
+	--- layerLabel을 주면 범위 줄을 하나 더 넣는다. 순서 목록만 이걸 준다 - 거기서는 범위가
+	--- 아이콘 두 칸으로만 나오므로, **낱말로 확인할 길이 여기밖에 없다.** 왼쪽 목록과
+	--- 오버뷰는 안 준다: 왼쪽 목록은 한 레이어만 그리고 그 이름이 창 제목에 있으며,
+	--- 오버뷰는 애초에 레이어를 말하지 않는다.
+	function ShowLineTooltip(owner, anchor, elementData, isOverview, instructionKeys, layerLabel)
 		GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT");
 		---@diagnostic disable-next-line: redundant-parameter
 		GameTooltip:SetMinimumWidth(140, true);
@@ -945,6 +1005,12 @@ do
 		if (action.priority and action.priority ~= Constants.DEFAULT_PRIORITY) then
 			addLabelLine(LLL["PRIORITY"]);
 			addValueLine(LLL["PRIORITY" .. action.priority]);
+		end
+
+		-- 중요도 바로 밑에 둔다. 둘 다 순서를 정하는 값이고, 조건들과는 성질이 다르다.
+		if (layerLabel) then
+			addLabelLine(LLL["SCOPE"]);
+			addValueLine(layerLabel);
 		end
 
 		if (instructionKeys) then
@@ -1451,12 +1517,12 @@ DebounceFrameMixin = {};
 function DebounceFrameMixin:InitializeSideTabs()
 	self.SideTabs = self.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
-		local name, icon;
+		local name;
 		if (i == 1) then
-			name, icon = GetSpellTabNameAndIcon(1);
+			name = GetSpellTabNameAndIcon(1);
 			tab.spec = nil;
 		elseif (i == 2) then
-			name, icon = GetSpellTabNameAndIcon(2);
+			name = GetSpellTabNameAndIcon(2);
 			tab.spec = 0;
 		else
 			local spec = i - 2;
@@ -1466,9 +1532,9 @@ function DebounceFrameMixin:InitializeSideTabs()
 				tab:Hide();
 				break;
 			end
-			_, name, _, icon = C_SpecializationInfo.GetSpecializationInfo(spec);
+			name = select(2, C_SpecializationInfo.GetSpecializationInfo(spec));
 		end
-		tab:SetNormalTexture(icon);
+		tab:SetNormalTexture(GetSideTabIcon(i));
 		tab.tooltip = name;
 		tab:Show();
 	end
@@ -1647,33 +1713,22 @@ end
 
 --- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
 ---
---- 12.0에서는 물어볼 일이 없었다 - area가 "center"/"full"인 패널이 열리는 순간 우리 창이
---- 이미 닫혔으니까. 12.1부터는 UISpecialFrames에서 빠지므로 공존하고, 여기서 안 물러나면
---- 마이크로 버튼으로 연 게임메뉴가 ESC로 안 닫힌다(우리 창이 키를 먼저 먹는다).
+--- 예전에는 물어볼 일이 없었다 - 우리 창이 UISpecialFrames에 있어서 area가 "center"/"full"인
+--- 패널이 열리는 순간 이미 닫혔으니까. 이제는 거기서 빠졌으므로 공존하고, 여기서 안
+--- 물러나면 마이크로 버튼으로 연 게임메뉴가 ESC로 안 닫힌다(우리 창이 키를 먼저 먹는다).
+--- 게임메뉴는 `area="center"` 패널이다(UIPanelWindows.lua:4).
 local function BlizzardOwnsEscape()
 	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil;
 end
 
---- 12.1이 ESC 전용 진입점을 열어줬다(RegisterGameMenuEscHandler). 여기 등록한 핸들러는
---- ToggleGameMenu에서만 불리므로 우리 창은 ESC에만 닫힌다.
+--- ESC로 창을 닫는 길. **키보드를 못 켜는 창만 쓴다**(오버뷰). 메인 창은 자기가 ESC를
+--- 받으므로 여기 오지 않는다 - 이유는 `DebounceFrameMixin:OnLoad`에 있다.
 ---
---- 12.0까지 쓰던 UISpecialFrames는 그물이 너무 넓다. CloseSpecialWindows를 태우는 게 ESC만이
---- 아니라서 - area="center" 패널을 여는 것만으로도 ShowUIPanel -> CloseWindows ->
---- CloseSpecialWindows를 지나간다 - P로 주문서를 열면 우리 창이 같이 닫혔다.
---- 그래도 12.0에는 대안이 없다. 여기서 빼면 게임메뉴와 창이 공존하게 되고, 그 상태에서
---- ESC를 우리가 가로챈다.
+--- 이 그물은 ESC 전용이 아니다. CloseSpecialWindows를 태우는 게 ESC만이 아니라서 -
+--- area="center" 패널을 여는 것만으로도 ShowUIPanel -> CloseWindows -> CloseSpecialWindows를
+--- 지나간다 - P로 주문서를 열면 이 창이 같이 닫힌다. 오버뷰는 그걸 안고 간다. 키보드를
+--- 켤 수 없는 창이라(전투 중에 열어놓고 보는 것이 이 창의 쓸모다) 남은 길이 이것뿐이다.
 local function RegisterEscapeToClose(frame)
-	if (RegisterGameMenuEscHandler) then
-		RegisterGameMenuEscHandler(GameMenuEscPriority.AddOn, function()
-			if (not frame:IsShown() or BlizzardOwnsEscape()) then
-				return false;
-			end
-			frame:Hide();
-			return true;
-		end);
-		return;
-	end
-
 	local name = frame:GetName();
 	for _, value in ipairs(UISpecialFrames) do
 		if (value == name) then
@@ -1686,10 +1741,54 @@ end
 function DebounceFrameMixin:OnLoad()
 	self.initialized = true;
 
-	RegisterEscapeToClose(self);
+	--- ESC는 이 창이 직접 받는다(XML의 enableKeyboard). 블리자드가 내주는 두 자리를
+	--- **둘 다 안 쓴다.**
+	---
+	--- `UISpecialFrames`: 그물이 ESC 전용이 아니다(RegisterEscapeToClose 참고). P로 주문서를
+	--- 열면 우리 창이 같이 닫혔다 - 하필 주문을 끌어다 바인딩하려고 여는 창이다.
+	---
+	--- `RegisterGameMenuEscHandler`(12.1): ESC 전용이라 그 문제는 없는데, **등록하는 것만으로
+	--- 블리자드의 ESC 경로가 우리 taint를 뒤집어쓴다.** 그 함수가 하는 일이
+	--- `table.insert(handlers, …)` + `table.sort(handlers, …)`이고 둘 다 우리 실행 경로에서
+	--- 돈다(Blizzard_GameMenuEsc.lua:76-97). 그러면 `handlers`의 모든 칸이 더러워지고,
+	--- `TryHandleGameMenuEsc`가 그걸 `securecallfunction` **바깥에서** 읽는다(:100-101) -
+	--- 읽는 순간 ToggleGameMenu 자신의 경로가 더러워진다. 그 뒤 `Casting`(4) 우선순위의
+	--- 블리자드 핸들러가 부르는 `SpellStopCasting()`이 보호된 함수라 막힌다:
+	---
+	---     [ADDON_ACTION_FORBIDDEN] AddOn 'Debounce' tried to call 'SpellStopCasting()'
+	---     [C]: in function 'SpellStopCasting'
+	---     [Blizzard_Game/Shared/Game.lua]:7
+	---     [C]: in function 'securecallfunction'
+	---     [Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua]:101 -> :110 ToggleGameMenu
+	---
+	--- 스택에 우리 함수가 하나도 없고 터지는 것도 블리자드 자기 핸들러다. 우리가 한 일은
+	--- 목록에 줄 하나 넣은 것뿐인데 **그 세션 내내** ESC가 시전을 못 끊는다 - 창을 닫아도,
+	--- 전투 중이라 창이 스스로 숨은 뒤에도 그대로다. UISpecialFrames가 20년째 안전한 이유가
+	--- 여기서 갈린다: 저쪽은 더러워진 테이블을 `securecall("CloseSpecialWindows")`
+	--- **안에서** 읽는다(UIParentPanelManager.lua:1084).
+	---
+	--- 그래서 키보드다. 창이 떠 있는 동안만 ESC를 받고 블리자드 자료구조에는 아무것도 안
+	--- 쓴다. 딸린 이득: UISpecialFrames에 없으니 P로 주문서를 열어도 이 창은 그대로다.
+	--- 딸린 비용: 게임메뉴가 이 창과 공존하게 되므로 그때는 물러나야 한다(OnKeyDown, 그리고
+	--- 바로 아래 GameMenuFrame.Shown).
+	self:SetPropagateKeyboardInput(true);
+
+	--- 게임메뉴와는 **공존하지 않는다.** 반대 방향은 이미 막혀 있었다 - 메뉴가 떠 있으면
+	--- 이 창이 안 열리고, 왜 안 열리는지 말까지 해준다(`Public.lua:83`). 이쪽만 비어 있어서
+	--- 마이크로 버튼으로 메뉴를 열면 창이 남았다. 한쪽만 막은 규칙은 규칙이 아니다.
+	---
+	--- UISpecialFrames로 되돌리면 이것도 닫히지만 **그물이 너무 넓다** - P로 주문서를 여는
+	--- 것까지 같이 닫는다(E-5). 여기서 필요한 건 "게임메뉴 하나"이고, 반대 방향 가드도
+	--- `GameMenuFrame:IsShown()` 하나를 본다. 좁은 규칙에는 좁은 신호로 답한다.
+	---
+	--- **EventRegistry는 애드온이 써도 되게 지어져 있다** - `RegisterGameMenuEscHandler`와
+	--- 갈리는 지점이 여기다(위 문단). 콜백 테이블을 `secureexecuterange`로 돌고 콜백마다
+	--- `securecallfunction`을 씌운다(`CallbackRegistry.lua:198-214`). 등록으로 더러워진 칸을
+	--- 읽는 것도, 우리 콜백이 도는 것도 전부 secure 경계 **안**이라 부른 쪽 경로가 안 더러워진다.
+	--- 블리자드 자기 코드도 같은 이벤트를 같은 목적으로 쓴다(`Blizzard_HousingInspectModeUI.lua:26`).
+	EventRegistry:RegisterCallback("GameMenuFrame.Shown", self.Hide, self);
 
 	self:SetPortraitToAsset(133015);
-	self:SetPropagateKeyboardInput(true);
 
 	for i, tab in ipairs(self.Tabs) do
 		tab:SetText(GetTabLabel(i));
@@ -1783,6 +1882,16 @@ function DebounceFrameMixin:OnHide()
 	-- 반대 방향은 없다 - 그 창을 닫아도 이 창은 남는다.
 	DebounceSpellPickerFrame:Hide();
 
+	-- 아이콘 선택기도 같이 닫는다. **자식이라 저절로 닫히지 않는다** - 부모가 숨으면
+	-- 그리기만 멈추고 `IsShown()`은 참으로 남는다. 그 사이 팝업의 OnHide가 돌면서
+	-- `onAccepted`를 지우는데, 창을 다시 열면 팝업이 그대로 돌아온다(New 모드에는 OnShow
+	-- 가드가 없다). 그 상태로 확인을 누르면 이름도 본문도 없는 액션이 생기고 편집기는
+	-- 안 열린다 - 콜백이 이미 죽었기 때문이다.
+	--
+	-- 전투 진입은 `OnEnterCombat`이 따로 취소하고 있었지만, 게임 메뉴가 열려서 이 창이
+	-- 숨는 길(`GameMenuFrame.Shown`)은 그 자리를 지나지 않는다. 여기서 한 번에 덮는다.
+	DebounceIconSelectorFrame:Close(true);
+
 	-- 창이 닫히는 것도 "떠나는" 것이다. 기본 매크로 창의 OnHide와 같이, 편집 중이던
 	-- 매크로 본문은 여기서 저장된다.
 	DebounceDetailPanel:Close();
@@ -1845,6 +1954,62 @@ function DebounceFrameMixin:OnEvent(event, arg1)
 	end
 end
 
+--- ESC 한 번에 한 칸씩 물러난다. 소비했으면 true.
+---
+--- 부르는 곳은 아래 OnKeyDown 하나뿐인데 따로 빼둔 건 **이 순서가 이 창의 계약**이기
+--- 때문이다 - 전파 처리와 섞여 있으면 어느 줄이 순서고 어느 줄이 키 배관인지 안 보인다.
+function DebounceFrameMixin:HandleEscape()
+	if (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo()) then
+		self:ClearMouse();
+		return true;
+	end
+
+	-- 매크로 탭에는 따로 처리할 게 없다. 편집칸에 포커스가 있으면 ESC가 포커스만 풀고
+	-- (여기까지 안 온다), 한 번 더 누르면 아래 선택 해제로 간다 - 그때 본문이 저장된다.
+
+	-- 키를 듣는 중이면 그것부터 그만둔다.
+	--
+	-- 보통은 여기까지 안 온다 - 듣는 중에는 버튼이 마우스 위치와 무관하게 키를 먼저
+	-- 받고 전파를 끊는다. 그래도 남겨두는 건 **물러나는 순서** 때문이다. 이 갈래가
+	-- 없으면 어쩌다 여기로 온 ESC가 아래 선택 해제로 내려가서, 한 번 누른 것이
+	-- 캡처를 끝내고 패널까지 접는다.
+	if (DebounceDetailPanel:IsCapturingKey()) then
+		DebounceDetailPanel:CancelKeyCapture();
+		return true;
+	end
+
+	-- 아이콘 선택기가 떠 있으면 그것부터 물러난다. 팝업이니 자기 ESC를 자기가 처리할
+	-- 것 같지만 아니다 - IconSelectorPopupFrameTemplate은 키보드를 켜지도, ESC를
+	-- 받지도, UISpecialFrames에 들지도 않는다. 그래서 여기서 안 세우면 팝업을 띄워둔
+	-- 채로 선택이 풀리고, 한 번 더 누르면 팝업만 남기고 창이 닫힌다.
+	if (DebounceIconSelectorFrame:IsShown()) then
+		DebounceIconSelectorFrame:Close();
+		return true;
+	end
+
+	-- 주문 선택 창도 여기서 닫는다. 그 창이 스스로 ESC를 처리하지 **못한다** - 그 창이
+	-- 열려 있는 동안은 이 창도 반드시 열려 있고(수명이 묶여 있다), 이 사다리가 먼저 돈다.
+	-- 저쪽에 RegisterEscapeToClose를 걸어도 닿지 않는 자리라 계획서와 달리 사다리 한 칸으로
+	-- 넣었다.
+	if (DebounceSpellPickerFrame:IsShown()) then
+		DebounceSpellPickerFrame:Hide();
+		return true;
+	end
+
+	-- ESC는 한 단계씩 물러난다: 선택 해제(패널 접힘) -> 창 닫기.
+	-- 패널에는 저장을 미루는 상태가 없으므로 잃을 게 없다.
+	if (_selectedAction) then
+		self:SetSelectedAction(nil);
+		return true;
+	end
+
+	self:Hide();
+	return true;
+end
+
+--- ESC가 들어오는 유일한 자리. 블리자드 쪽에 아무것도 등록하지 않는 대가로 전파를 손수
+--- 여닫는다(OnLoad 참고). 전투 중에는 창이 숨어 있어 이 핸들러가 돌지 않으므로,
+--- SetPropagateKeyboardInput이 taint를 만드는 전투 중 호출도 여기서는 일어나지 않는다.
 function DebounceFrameMixin:OnKeyDown(input)
 	if (input == "ESCAPE") then
 		-- 블리자드 패널이 떠 있으면 여기서 물러난다. 우리 창은 키보드를 켜둔 채라 ESC를
@@ -1857,55 +2022,12 @@ function DebounceFrameMixin:OnKeyDown(input)
 
 		self:SetPropagateKeyboardInput(false);
 
+		-- 12.1에서는 블리자드가 Menu 우선순위에서 먼저 해준다. 12.0에는 그 자리가 없다.
 		if (Menu.GetManager():HandleESC()) then
 			return;
 		end
 
-		if (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo()) then
-			self:ClearMouse();
-			return;
-		end
-
-		-- 매크로 탭에는 따로 처리할 게 없다. 편집칸에 포커스가 있으면 ESC가 포커스만 풀고
-		-- (여기까지 안 온다), 한 번 더 누르면 아래 선택 해제로 간다 - 그때 본문이 저장된다.
-
-		-- 키를 듣는 중이면 그것부터 그만둔다.
-		--
-		-- 보통은 여기까지 안 온다 - 듣는 중에는 버튼이 마우스 위치와 무관하게 키를 먼저
-		-- 받고 전파를 끊는다. 그래도 남겨두는 건 **물러나는 순서** 때문이다. 이 갈래가
-		-- 없으면 어쩌다 여기로 온 ESC가 아래 선택 해제로 내려가서, 한 번 누른 것이
-		-- 캡처를 끝내고 패널까지 접는다.
-		if (DebounceDetailPanel:IsCapturingKey()) then
-			DebounceDetailPanel:CancelKeyCapture();
-			return;
-		end
-
-		-- 아이콘 선택기가 떠 있으면 그것부터 물러난다. 팝업이니 자기 ESC를 자기가 처리할
-		-- 것 같지만 아니다 - IconSelectorPopupFrameTemplate은 키보드를 켜지도, ESC를
-		-- 받지도, UISpecialFrames에 들지도 않는다. 그래서 여기서 안 세우면 팝업을 띄워둔
-		-- 채로 선택이 풀리고, 한 번 더 누르면 팝업만 남기고 창이 닫힌다.
-		if (DebounceIconSelectorFrame:IsShown()) then
-			DebounceIconSelectorFrame:Close();
-			return;
-		end
-
-		-- 주문 선택 창도 여기서 닫는다. 그 창이 스스로 ESC를 처리하지 **못한다** -
-		-- 이 창이 키보드를 켜둔 채라 ESC가 언제나 여기로 먼저 들어오고, 그 창이 열려 있는
-		-- 동안은 이 창도 반드시 열려 있다(수명이 묶여 있다). 저쪽에 RegisterEscapeToClose를
-		-- 걸어도 닿지 않는 자리라 계획서와 달리 사다리 한 칸으로 넣었다.
-		if (DebounceSpellPickerFrame:IsShown()) then
-			DebounceSpellPickerFrame:Hide();
-			return;
-		end
-
-		-- ESC는 한 단계씩 물러난다: 선택 해제(패널 접힘) -> 창 닫기.
-		-- 패널에는 저장을 미루는 상태가 없으므로 잃을 게 없다.
-		if (_selectedAction) then
-			self:SetSelectedAction(nil);
-			return;
-		end
-
-		self:Hide();
+		self:HandleEscape();
 		return;
 	end
 
@@ -2735,12 +2857,33 @@ local function GetLayerLabel(layerID)
 	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
 end
 
---- 행 아래줄에 붙일 조각들. 색만으로 구분하지 않도록 전부 낱말을 쓴다.
-local function BuildOrderSubText(row, layerLabel)
-	local parts = {};
-	if (layerLabel) then
-		parts[#parts + 1] = layerLabel;
+--- 행 아래줄. 순서를 정하는 값 중 **index를 뺀 나머지가 전부** 여기 아니면 이름 줄의
+--- 아이콘에 있다. 어느 것도 화면 밖에 두지 않는 게 규칙이다 - 이 목록의 일은 "왜 이
+--- 순서인가"를 보여주는 것인데, 값 하나가 안 보이면 그게 정확히 사람이 못 푸는 자리가 된다.
+---
+--- 조각의 순서는 비교자와 같다(Ordering.lua의 CompareActionOrder): 중요도 → 호버 → 조건.
+--- 왼쪽 정렬이라 모든 행이 같은 x에서 시작하므로, 두 행을 위아래로 놓으면 **처음 달라지는
+--- 낱말이 곧 갈린 축**이다. GetDecidingOrderAxis가 하는 계산을 눈이 그대로 따라간다.
+---
+--- 중요도는 기본값이어도 적는다(5단 값이라 "없음"이 값이 아니다). 호버와 조건은 참·거짓
+--- 하나뿐이라 켜졌을 때만 적는다 - 꺼진 것까지 낱말로 쓰면 대부분의 행이 "호버 아님 ·
+--- 조건 없음"으로 채워져서 정작 켜진 행이 안 튄다.
+---
+--- 색만으로 구분하지 않도록 전부 낱말을 쓴다.
+local function BuildOrderSubText(row)
+	local parts = { LLL["PRIORITY" .. row.priority] };
+
+	-- 정렬이 보는 건 hover가 nil이냐 아니냐 하나뿐이다. false는 "마우스오버가 **아닐 때만**"을
+	-- 명시한 조건이라 nil과 다르고 true와 같은 칸에 선다(Ordering.lua 주석). 그래서 낱말도
+	-- "호버 액션"이 아니라 "호버 조건이 걸려 있다"여야 한다 - 어느 쪽인지는 툴팁이 말한다.
+	if (row.hover ~= nil) then
+		parts[#parts + 1] = LLL["ORDER_FLAG_HOVER"];
 	end
+	if (row.isConditional) then
+		parts[#parts + 1] = LLL["ORDER_FLAG_CONDITIONAL"];
+	end
+
+	-- 오류는 순서 축이 아니다. 맨 뒤에 두어 위의 셋과 섞이지 않게 한다.
 	-- GetBindingIssue는 도달불가도 이슈로 친다(Misc.lua:266). 둘 다 붙이면 같은 말이 두 번
 	-- 나오므로 더 구체적인 쪽만 쓴다. 자세한 이유는 행 툴팁의 단축키 줄에 있다.
 	if (row.unreachable) then
@@ -2748,16 +2891,11 @@ local function BuildOrderSubText(row, layerLabel)
 	elseif (row.issue) then
 		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
 	end
-	if (row.hover ~= nil) then
-		parts[#parts + 1] = LLL["ORDER_FLAG_HOVER"];
-	end
-	if (row.isConditional) then
-		parts[#parts + 1] = LLL["ORDER_FLAG_CONDITIONAL"];
-	end
+
 	return table.concat(parts, " \194\183 ");
 end
 
--- 행 클릭은 두 갈래다. **보고 있는 액션의 행**이면 왼쪽 목록의 편집 메뉴를 그대로 연다.
+-- 행 우클릭은 두 갈래다. **보고 있는 액션의 행**이면 왼쪽 목록의 편집 메뉴를 그대로 연다.
 -- 나머지 행은 아무것도 고치지 않고 그 액션으로 데려다 준다(GoToAction).
 --
 -- 예전에는 어느 행이든 우선순위 메뉴가 열렸다. 그건 이 화면에서 유일하게 **남의 레이어를
@@ -2786,14 +2924,34 @@ function DebounceOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
-	self.SubText:SetText(BuildOrderSubText(row, elementData.layerLabel));
+	self.SubText:SetText(BuildOrderSubText(row));
 
-	-- 기본값은 안 쓴다. 손댄 것만 보이게 해야 무엇이 특별한지가 드러난다.
-	if (row.priority ~= Constants.DEFAULT_PRIORITY) then
-		self.PriorityText:SetText(LLL["PRIORITY" .. row.priority]);
-	else
-		self.PriorityText:SetText("");
+	-- 레이어는 이름 앞의 아이콘이 맡는다. **좁혀진 축마다 하나씩, 왼쪽부터** 채운다
+	-- (XML 주석에 이유가 있다). 둘 다 없으면 레이어 1, 즉 모든 캐릭터·모든 전문화다.
+	local tab, sideTab = GetLayerTabs(row.layerID);
+	local shown = 0;
+	if (tab == 2) then
+		shown = shown + 1;
+		SetPlayerCharacterIcon(self.LayerIcons[shown]);
 	end
+	if (sideTab >= 2) then
+		shown = shown + 1;
+		self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
+	end
+	for i = 1, #self.LayerIcons do
+		self.LayerIcons[i]:SetShown(i <= shown);
+	end
+
+	-- 이름은 **마지막으로 켜진 아이콘 바로 뒤**에 붙는다. 안 켜진 아이콘은 자리도 안
+	-- 차지한다 - 예약해두면 아이콘이 적은 행마다 이름 앞이 비고, 그 구멍은 아무 뜻도
+	-- 없으면서 제일 먼저 눈에 들어온다.
+	self.Name:ClearAllPoints();
+	if (shown > 0) then
+		self.Name:SetPoint("LEFT", self.LayerIcons[shown], "RIGHT", 5, 0);
+	else
+		self.Name:SetPoint("LEFT", self.Icon, "RIGHT", 6, 8);
+	end
+	self.Name:SetPoint("RIGHT", self, "RIGHT", -6, 8);
 
 	-- 지금 보고 있는 액션은 왼쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
@@ -2802,7 +2960,8 @@ end
 function DebounceOrderLineMixin:OnEnter()
 	local elementData = self:GetElementData();
 	ShowLineTooltip(self, "ANCHOR_LEFT", elementData.row, true,
-		elementData.isCurrent and ORDER_LINE_TOOLTIP_INSTRUCTIONS or ORDER_LINE_GOTO_INSTRUCTIONS);
+		elementData.isCurrent and ORDER_LINE_TOOLTIP_INSTRUCTIONS or ORDER_LINE_GOTO_INSTRUCTIONS,
+		GetLayerLabel(elementData.row.layerID));
 end
 
 function DebounceOrderLineMixin:OnLeave()
@@ -2833,7 +2992,11 @@ function DebounceOrderLineMixin:OnClick()
 	-- 항목이 하나뿐이라는 것 자체가 "이 행은 네가 보고 있는 게 아니다"를 말한다. 항목의
 	-- 글자는 레이어 라벨이라, 어디로 가는지도 같은 줄이 말한다.
 	MenuUtil.CreateContextMenu(self, function(_, rootDescription)
-		rootDescription:CreateTitle(NameAndIconForAction(row.action));
+		-- 로컬에 한 번 받아서 넘긴다. NameAndIconForAction은 (name, icon)을 돌려주는데,
+		-- 호출이 인자 목록 끝에 오면 둘 다 펼쳐져서 아이콘이 CreateTitle(text, color)의
+		-- **color 자리로** 들어간다. 편집 메뉴가 이미 이렇게 받아 쓰고 있다.
+		local title = NameAndIconForAction(row.action);
+		rootDescription:CreateTitle(title);
 		rootDescription:CreateButton(format(LLL["ORDER_GOTO_ACTION"], GetLayerLabel(row.layerID)), function()
 			DebounceFrame:GoToAction(row.action, row.layerID);
 		end);
@@ -3099,6 +3262,12 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		-- 한 프레임 스쳐 보인다.
 		orderArea.ScrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
 		orderArea.ScrollBox:Hide();
+		-- 이동 상태도 같이 지운다. 여기서 `UpdateOrderMoveButtons`를 안 지나므로 그냥 두면
+		-- **앞서 보던 액션의 레이어와 인덱스**가 남는다. 지금은 버튼이 숨겨져 있어 누를 수가
+		-- 없지만, 그 가정이 깨지는 날 엉뚱한 레이어에서 순서가 바뀐다.
+		self.moveUpInsertIndex = nil;
+		self.moveDownInsertIndex = nil;
+		self.moveLayer = nil;
 		return;
 	end
 
@@ -3107,26 +3276,24 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 
 	local rows = DebouncePrivate.CollectActionsForKey(key, viewedSpec);
 
-	local currentIndex, mixedLayers;
+	local currentIndex;
 	for i, row in ipairs(rows) do
 		if (row.action == action) then
 			currentIndex = i;
-		end
-		if (i > 1 and row.layerID ~= rows[i - 1].layerID) then
-			mixedLayers = true;
+			break;
 		end
 	end
 
 	self:UpdateOrderMoveButtons(rows, currentIndex);
 
+	-- 레이어를 어떻게 보여줄지는 행이 혼자 정한다. 예전에는 여기서 "섞였는가"를 재서
+	-- 바뀌는 첫 행에만 라벨을 달았는데, 아이콘이 늘 서 있는 지금은 그 계산도 그 분기도
+	-- 필요 없다 - 어떤 행엔 붙고 어떤 행엔 안 붙는 이유를 사용자가 알아낼 일도 없어졌다.
 	local dataProvider = CreateDataProvider();
 	for i, row in ipairs(rows) do
 		dataProvider:Insert({
 			row = row,
 			isCurrent = i == currentIndex,
-			-- 같은 레이어는 정렬상 항상 붙어 있다. 섞였을 때만, 바뀌는 첫 행에만 단다.
-			layerLabel = (mixedLayers and (i == 1 or rows[i - 1].layerID ~= row.layerID))
-				and GetLayerLabel(row.layerID) or nil,
 		});
 	end
 
@@ -3542,8 +3709,10 @@ function DebounceOverviewFrameMixin:OnLoad()
 	--- "전투 중에 열어놓고 바인딩이 실제로 먹는지 본다"인데, 키를 받는 순간 그걸 스스로 막는다.
 	--- 전투 중에는 SetPropagateKeyboardInput이 taint를 만들어 못 부르므로 전파 여부가
 	--- 전투 밖에서 정해진 마지막 값에 묶이고, 그 값이 false면 창이 뜬 동안 모든 키를 먹었다.
-	--- ESC는 블리자드가 닫아준다(RegisterEscapeToClose 참고) - 우리가 아닌 쪽에서 오는
-	--- secure 경로라 전파를 손댈 일 자체가 없어진다.
+	--- ESC는 UISpecialFrames가 닫아준다(RegisterEscapeToClose 참고) - CloseSpecialWindows를
+	--- 거치는 블리자드의 secure 경로라 전파를 손댈 일 자체가 없어진다. 메인 창은 이 그물을
+	--- 안 쓰지만(P로 주문서를 열면 같이 닫히므로) 이 창은 쓴다 - 키보드를 켤 수 없으니
+	--- 남은 길이 없고, 오버뷰가 P에 닫히는 건 참을 만하다.
 	RegisterEscapeToClose(self);
 
 	local title = format(LLL["DEBOUNCE_OVERVIEW_TITLE"]);
@@ -3588,6 +3757,9 @@ end
 
 function DebounceOverviewFrameMixin:OnHide()
 	DebounceFrame.OverviewPortrait:SetSelectedState(false);
+	-- OnShow가 건 것을 여기서 푼다. 안 풀면 처음 한 번 연 뒤로 이 창은 **영원히** 모든
+	-- 바인딩 갱신마다 전체 Refresh를 돈다 - 닫혀 있어도. 메인 창은 같은 짝을 맞추고 있다.
+	DebouncePrivate.UnregisterCallback(self, "OnBindingsUpdated");
 	ClearMacrotextIconCache();
 end
 

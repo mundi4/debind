@@ -30,6 +30,17 @@ function BindingDriver:dump(name, ...)
 	end
 end
 
+--- 보안 스니펫이 완성한 매크로 본문. `UpdateMacroTexts`가 부른다.
+---
+--- 속성은 한 번 쓰면 열거할 수가 없어서, **버튼에 무엇이 올라갔는지 확인할 길이 이 로그뿐이다.**
+--- 짝이 되는 정적 쪽 로그는 `UpdateBindings.lua`의 `SetBindingAttributes`에 있다 - 둘을 같이
+--- 봐야 "본문이 틀렸나"와 "본문이 아예 안 올라갔나"가 갈린다.
+function BindingDriver:printMacroText(attr, text)
+	if (DebouncePrivate.DEBUG) then
+		print(format("|cff66ccff[Debounce/secure]|r %s = %s", tostring(attr), tostring(text)));
+	end
+end
+
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebouncePrivate.DefaultClickFrame);
 SecureHandlerExecute(BindingDriver, [[
 	-- FALSE_VALUES = newtable()
@@ -67,6 +78,14 @@ SecureHandlerExecute(BindingDriver, [[
 	_customStatesUpdating = newtable()
 ]]);
 
+
+--- 본문 로그. **빌드 시점에 가른다** - 릴리스에서는 문자열 자체가 비어서 스니펫에 그 줄이
+--- 아예 없다. `printMacroText` 안쪽의 DEBUG 검사만으로는 늦다: 그건 이미 샌드박스를 넘어온
+--- 뒤라, 실사용자도 전투 중 상태가 바뀔 때마다 의존 바인딩 수만큼 `CallMethod`를 치른다.
+--- 아래 `UpdateBindings`가 같은 방식으로 갈린다.
+local PRINT_MACROTEXT_SNIPPET = DebouncePrivate.DEBUG and [[
+					self:CallMethod("printMacroText", t.attr or t.state or "?", s)
+]] or "";
 
 BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 	--self:CallMethod("print", "UpdateMacroTexts", ...)
@@ -112,6 +131,16 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 								UnitMap["custom2"] or "raid41",
 								UnitMap["hover"] or "raid41")
 					end
+
+					-- 실제로 버튼에 올라가는 문자열. 여기가 **보안 쪽에서 매크로 본문이
+					-- 완성되는 유일한 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를
+					-- 지나면 다시 읽을 방법이 없다(속성은 열거가 안 된다).
+					--
+					-- 이 갈래는 `@custom1`·`@hover`처럼 **실행 시점에 바뀌어야 하는 것이
+					-- 있는** 본문만 지난다. 조용하면 그것도 답이다 - 그 본문은 정적이라
+					-- `SetBindingAttributes`가 쓴 그대로라는 뜻이다(그쪽 로그를 볼 것).
+]=] .. PRINT_MACROTEXT_SNIPPET .. [=[
+
 					if (t.attr) then
 						DefaultClickFrame:SetAttribute(t.attr, s)
 					end

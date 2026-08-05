@@ -713,7 +713,18 @@ do
     end
 
     local function CreateTargetUnitMenuItem(parentDescription)
-        if not (_action.type == Constants.SPELL or _action.type == Constants.ITEM or _action.type == Constants.TARGET or _action.type == Constants.FOCUS or _action.type == Constants.TOGGLEMENU) then
+        -- 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다. `GetBindingInfoForAction`이
+        -- 바인딩을 만들 때 보는 것과 **같은 값**이라야 한다 - 갈리면 여기서 고를 수 있는
+        -- 대상이 저기서 조용히 지워진다(실제로 그랬다).
+        if (not Constants.TYPES_WITH_UNIT[_action.type]) then
+            return;
+        end
+
+        -- 펫 명령은 타입만으로 안 갈린다. 대상을 쓰는 건 **공격 하나뿐이고**
+        -- (`PetAttack(target)`), 나머지 핸들러는 조건의 참·거짓만 보고 target을 버린다.
+        -- 이동 지정은 지면을 찍는 명령이라 유닛이 들어갈 자리가 아니다(`Misc.lua` 참고).
+        -- 안 쓰는 것에 메뉴를 띄우면 그 설정이 무언가를 한다고 읽힌다.
+        if (_action.type == Constants.PETACTION and not DebouncePrivate.PetActionTakesUnit(_action.value)) then
             return;
         end
 

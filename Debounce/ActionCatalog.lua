@@ -180,8 +180,16 @@ end
 local function AddEntry(entries, seen, entry)
 	if (not entry.name) then
 		local _, icon, bareName = DebouncePrivate.DebounceUI.NameAndIconForAction(entry);
-		entry.name = bareName;
-		entry.icon = entry.icon or icon;
+		-- **`"?"`는 이름이 아니라 "못 풀었다"는 표시다**(`NameAndIconForAction`의
+		-- `actionName or "?"`). 그 함수는 **그리는** 쪽이라 물음표가 맞는 답이다 - 이미 걸어둔
+		-- 액션은 이름을 모르더라도 한 줄을 차지해야 하니까. 고르는 쪽은 반대다: 이름을
+		-- 못 푼 것을 목록에 올리면 `?`라고 적힌 줄을 눌러 진짜 액션을 만들게 된다.
+		--
+		-- 세 번째 반환값이 nil인 적이 없어서 아래 `not entry.name` 검사만으로는 안 걸린다.
+		if (bareName and bareName ~= "?") then
+			entry.name = bareName;
+			entry.icon = entry.icon or icon;
+		end
 	end
 
 	if (not entry.name) then
@@ -247,7 +255,10 @@ local function AddFlyoutEntries(entries, seen, flyoutID, isOffSpec, group)
 		if (spellID and (isKnown or isOffSpec)) then
 			local displayID = overrideSpellID or spellID;
 			local spellInfo = C_Spell.GetSpellInfo(displayID);
-			if (spellInfo) then
+			-- 패시브 검사가 여기에도 있어야 한다. `AddSpellBookItem`의 검사는 이 함수를
+			-- 부르기 **전에** 지나가고, 거기서 보는 `isPassive`는 플라이아웃 자신의 것이라
+			-- 언제나 false다 - 안쪽 주문은 그 검사를 통과한 적이 없다.
+			if (spellInfo and not C_Spell.IsSpellPassive(displayID)) then
 				AddEntry(entries, seen, {
 					type = Constants.SPELL,
 					value = spellID,
@@ -300,8 +311,35 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 
 	local value;
 	if (itemType == Enum.SpellBookItemType.PetAction) then
-		local spellID = info.spellID or info.actionID;
-		value = C_SpellBook.FindBaseSpellByID(spellID) or spellID;
+		-- 소환수 항목은 여기서 둘로 갈린다.
+		--
+		-- **주문이면 `spellID`로 간다.** `actionID`는 주문 ID가 아니라 비트로 채워진
+		-- petActionID이므로(실측 `0x06000003`) 그걸 주문으로 저장하면 목록엔 이름이 뜨는데
+		-- 눌러도 아무 일이 없다 - 조용히 죽는 바인딩이라 제일 나쁜 종류다.
+		--
+		-- **명령이면(`spellID`가 없다) 그 petActionID가 유일한 식별자다.** 실행은 주문이
+		-- 아니라 보안 슬래시 명령으로 나간다(`Constants.PETACTION`). 아는 값만 받는다.
+		if (not info.spellID) then
+			local command = DebouncePrivate.GetPetActionCommandByActionID(info.actionID);
+			-- **표에 있는 것만으로는 모자란다.** 표는 우리가 적은 것이고, 실행은 게임이 그
+			-- 슬래시 명령을 실제로 올려놨을 때만 된다(`SLASH_<키>1` 전역). 명령이 게임
+			-- 버전마다 갈리므로, 여기서 본문을 만들어보고 안 나오면 목록에도 안 올린다 -
+			-- 목록에 있는데 눌러도 아무 일이 없는 것이 제일 나쁘다.
+			if (command and DebouncePrivate.GetPetActionMacroText(command)) then
+				AddEntry(entries, seen, {
+					type = Constants.PETACTION,
+					value = command,
+					name = info.name,
+					icon = info.iconID,
+					group = LLL["PET"],
+					-- 이름·아이콘은 저장해둔다. 펫이 없으면 주문서가 통째로 비어서 그릴 때
+					-- 다시 풀 수가 없는데, 프로필 목록은 펫이 없을 때도 그려져야 한다.
+					props = { name = info.name, icon = info.iconID },
+				});
+			end
+			return;
+		end
+		value = C_SpellBook.FindBaseSpellByID(info.spellID) or info.spellID;
 	else
 		value = info.actionID;
 	end
@@ -586,7 +624,15 @@ ActionCatalog.RegisterSource({
 			key = "toy",
 			name = LLL["SPELL_PICKER_TAB_TOY"],
 			filters = { "favorites" },
-			IsAvailable = function() return (C_ToyBox.GetNumLearnedDisplayedToys() or 0) > 0; end,
+			-- **탭을 숨기지 않는다.** 쓸 수 있는 개수 API가 전부 블리자드 장난감 상자
+			-- 필터를 탄 값이라(`GetNumLearnedDisplayedToys`는 그쪽 "수집/표시" 진행도
+			-- 카운터다) 사용자가 거기서 "미수집만" 같은 필터를 걸어두면 0이 나온다.
+			-- 그걸로 탭을 숨기면 자기 장난감에 닿을 길이 아예 없어진다 - 우리 창에는 남의
+			-- 필터를 푸는 수단이 없고, 있어도 블리자드 상태는 안 건드린다.
+			--
+			-- 목록이 그 필터를 타는 것은 남는 비용이다(빈 목록이면 안내문이 뜬다).
+			-- 탭이 사라지는 것과 달리 되돌릴 길이 사용자에게 보인다.
+			IsAvailable = function() return true; end,
 			Build = BuildToys,
 		},
 	},
