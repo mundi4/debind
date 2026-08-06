@@ -229,6 +229,7 @@ function DebouncePrivate.UpdateBindings()
 
     ACTION_BUTTON_USE_KEY_DOWN = GetCVarBool("ActionButtonUseKeyDown");
     DebouncePrivate.RefreshYieldedKeys();
+    DebouncePrivate.RefreshGameMenuKeys();
 
     SecureHandlerExecute(DebouncePrivate.BindingDriver, [[
 wipe(OldStates)
@@ -421,6 +422,36 @@ function SetBindingAttributes(type, value, unit, buttonname)
         type, value, unit = Constants.MACROTEXT, macrotext, nil;
     end
 
+    -- **플라이아웃이 살아있는지는 캐시보다 먼저 본다.** 캐시 적중은 "속성을 다시 안 써도
+    -- 된다"는 뜻이지 "아직 쓸 수 있다"는 뜻이 아닌데, 플라이아웃은 그 둘이 갈라진다.
+    --
+    -- 갈라지는 자리: 마지막 야수를 놓아주면 `RebuildFlyout`이 `numSlots = 0`으로 만들고
+    -- `GetFlyoutOpener`가 nil을 준다. 그런데 `BindingAttrsCache`는 (type, value)로만 잡고
+    -- **한 번도 안 지운다**(29줄, refactor-candidates 18). 그래서 아래 갈래 안에 있던
+    -- opener 검사가 캐시 적중에 통째로 건너뛰어졌고, 바인딩이 그대로 남았다. 눌러도 아무
+    -- 일이 없는 데다 `keyBound`가 서므로 **그 키의 하위 Debounce 바인딩까지 전부 막힌다** -
+    -- 캐시를 안 지우니 `/reload` 전에는 안 풀렸다. 아래 604-617 주석이 고치겠다고 적은 바로
+    -- 그 실패인데, "처음부터 슬롯이 없던" 방향으로만 막히고 있었다.
+    local flyoutOpener;
+    if (type == Constants.FLYOUT) then
+        -- **`*type- = "flyout"`을 안 쓴다.** 블리자드의 그 갈래는 `SpellFlyout:Toggle(self, ...)`
+        -- 한 줄이고 그 `self`는 `FlyoutButtonMixin`이어야 한다(`GetPopupDirection`을 부른다).
+        -- 여기 `clickframe`은 맨몸 `SecureActionButtonTemplate`이라 nil 메서드 호출로 죽는다.
+        -- 자세한 사정은 `Flyout.lua` 머리주석에 있다.
+        --
+        -- 대신 우리 손잡이를 클릭한다. 손잡이의 보안 스니펫이 커서 위치에 우리 플라이아웃을
+        -- 열고, 그건 전투 중에도 돈다.
+        flyoutOpener = DebouncePrivate.GetFlyoutOpener(value);
+        if (not flyoutOpener) then
+            -- 안 배웠거나 슬롯이 전부 비었다(길들인 야수가 없는 야수 소환 등).
+            -- 키를 걸지 않는다 - 걸어두면 눌러도 아무 일이 없다.
+            if (DEBUG) then
+                print("No flyout opener:", value);
+            end
+            return;
+        end
+    end
+
     local clickframe, delegate, skipCache;
     if (type == Constants.COMBINED) then
         clickframe = DefaultClickFrame;
@@ -516,25 +547,9 @@ function SetBindingAttributes(type, value, unit, buttonname)
             clickframe:SetAttribute("*attribute-name-" .. buttonname, "$state" .. stateIndex);
             clickframe:SetAttribute("*attribute-value-" .. buttonname, mode);
         elseif (type == Constants.FLYOUT) then
-            -- **`*type- = "flyout"`을 안 쓴다.** 블리자드의 그 갈래는
-            -- `SpellFlyout:Toggle(self, ...)` 한 줄이고, 그 `self`는 `FlyoutButtonMixin`이어야
-            -- 한다(`GetPopupDirection`을 부른다). 여기 `clickframe`은 맨몸
-            -- `SecureActionButtonTemplate`이라 nil 메서드 호출로 죽는다. 자세한 사정은
-            -- `Flyout.lua` 머리주석에 있다.
-            --
-            -- 대신 우리 손잡이를 클릭한다. 손잡이의 보안 스니펫이 커서 위치에 우리 플라이아웃을
-            -- 열고, 그건 전투 중에도 돈다.
-            local opener = DebouncePrivate.GetFlyoutOpener(value);
-            if (not opener) then
-                -- 안 배웠거나 슬롯이 전부 비었다(길들인 야수가 없는 야수 소환 등).
-                -- 키를 걸지 않는다 - 걸어두면 눌러도 아무 일이 없다.
-                if (DEBUG) then
-                    print("No flyout opener:", value);
-                end
-                return;
-            end
+            -- 손잡이는 위에서 이미 받아왔다(캐시 앞에서 봐야 하는 이유가 거기 있다).
             clickframe:SetAttribute("*type-" .. buttonname, "click");
-            clickframe:SetAttribute("*clickbutton-" .. buttonname, opener);
+            clickframe:SetAttribute("*clickbutton-" .. buttonname, flyoutOpener);
         elseif (type == Constants.WORLDMARKER) then
             clickframe:SetAttribute("*type-" .. buttonname, "worldmarker");
             clickframe:SetAttribute("*marker-" .. buttonname, value);

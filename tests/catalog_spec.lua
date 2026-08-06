@@ -67,9 +67,21 @@ return function(DebouncePrivate)
     -- 기본값
     ---------------------------------------------------------------------------
 
+    -- **선언된 기본값을 읽어서 쓴다.** 예전에는 `includeOffSpec = true`를 손으로 박아 넣어서,
+    -- `ActionCatalog.Filters.offSpec.default`를 false로 뒤집어도 이 검사가 그대로 통과했다.
+    -- 머리말이 고정하겠다고 적은 바로 그 불변식을 안 보고 있었던 셈이다. 창이 필터 값을
+    -- 여기서 씨앗으로 삼으므로(`SpellPicker.lua:195-197`), 이 값이 곧 처음 보이는 목록이다.
     test("기본값 - 오프스펙은 들어온다", function()
-        local out = ActionCatalog.Filter(ALL, { includeOffSpec = true });
+        local default = ActionCatalog.Filters.offSpec.default;
+        check(default == true, "offSpec.default가 " .. tostring(default) .. "로 바뀌었다");
+
+        local out = ActionCatalog.Filter(ALL, { includeOffSpec = default });
         check(names(out) == "Fireball,Frostbolt,Ice Block,Arcane Blast (Instant)", names(out));
+    end);
+
+    test("기본값 - 즐겨찾기만 보기는 꺼져 있다", function()
+        local default = ActionCatalog.Filters.favorites.default;
+        check(default == false, "favorites.default가 " .. tostring(default) .. "로 바뀌었다");
     end);
 
     test("오프스펙을 끄면 빠진다", function()

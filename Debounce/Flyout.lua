@@ -271,6 +271,23 @@ local function CreateSlotButton(holder, index)
 	button:RegisterForClicks("AnyUp");
 	button:SetAttribute("type", "spell");
 
+	-- **이걸 안 걸면 `ActionButtonUseKeyDown` cvar를 켠 사람에게는 시전이 안 나간다.**
+	-- `SecureActionButton_OnClick`의 판정이
+	-- `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`인데
+	-- (`SecureTemplates.lua:814`), 위만 등록했으므로 `down`이 늘 false다. cvar가 켜져 있으면
+	-- 두 항이 모두 거짓이 되어 아무것도 안 하고 돌아선다. 그런데 아래 감싼 **뒷본문의
+	-- `owner:Hide()`는 그대로 돌아서 창은 닫힌다** - 눌린 것처럼 보이고 주문은 안 나간다.
+	-- cvar를 끈 사람에게는 멀쩡히 도니 "가끔 안 된다"로 보인다.
+	--
+	-- 아래·위를 다 등록하는 길로 고치면 안 된다. cvar가 꺼진 쪽이 그때 깨진다 - 마우스
+	-- 다운에서 시전 없이 뒷본문이 창을 닫아버리고, 마우스 업은 사라진 버튼에 못 닿는다.
+	--
+	-- 블리자드는 진짜 마우스 클릭에 `isSecureAction = true`를 넘겨 이 경로를 끈다
+	-- (`ActionButton.lua:1363`, 그쪽 주석이 "마우스 클릭은 키 누름처럼 다루지 않는다"고 적어둔
+	-- 그 자리다). 템플릿의 OnClick은 인자가 고정이라 우리가 그 값을 넘길 수 없으므로, 같은
+	-- 결론에 속성으로 간다. 이 버튼은 마우스로만 눌리는 팝업 칸이라 cvar를 따를 이유도 없다.
+	button:SetAttribute("useOnKeyDown", false);
+
 	local slotBackground = button:CreateTexture(nil, "BACKGROUND");
 	slotBackground:SetAtlas("UI-HUD-ActionBar-IconFrame-Background");
 	slotBackground:SetAllPoints();

@@ -439,6 +439,21 @@ function DebouncePrivate.IsInactiveAction(action)
     return not DebouncePrivate.ActiveActions[action];
 end
 
+--- 게임 메뉴(기본 ESC) 키를 다시 읽는다. `IsKeyInvalidForAction`이 이 두 값으로 막는다.
+---
+--- **이게 없어서 그 가드가 죽어 있었다.** `gmKey1`/`gmKey2`를 읽는 곳은 있는데 쓰는 곳이
+--- 없어서 비교가 늘 `key == nil`이었다. ESCAPE를 걸면 아무 경고 없이 `SetOverrideBinding`이
+--- 올라가서 게임 메뉴가 안 열렸고, `BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY`는 도달할 수
+--- 없는 문자열이었다.
+---
+--- 부르는 쪽에서 매번 `GetBindingKey`를 하지 않고 값으로 들고 있는 이유는 아래 함수가
+--- **목록을 그릴 때 행마다** 불리기 때문이다. 갱신은 `UpdateBindings`가 돌 때 한 번이고,
+--- 바인딩이 바뀌면 `UPDATE_BINDINGS`가 그걸 부른다(`Events.lua:75`). 사용자가 게임 메뉴
+--- 키를 안 걸어뒀으면 둘 다 nil이라 가드가 저절로 비켜간다.
+function DebouncePrivate.RefreshGameMenuKeys()
+    DebouncePrivate.gmKey1, DebouncePrivate.gmKey2 = GetBindingKey("TOGGLEGAMEMENU");
+end
+
 function DebouncePrivate.IsKeyInvalidForAction(action, key)
     if (key == DebouncePrivate.gmKey1 or key == DebouncePrivate.gmKey2) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
@@ -460,10 +475,16 @@ local GROUP_ROLE_UNITS = {
 function DebouncePrivate.GetBindingIssue(action, category, notCategory, arg)
     local issue;
 
+    -- `notCategory = "unreachable"`은 이 갈래 **안의 도달불가 검사만** 끈다.
+    --
+    -- 다른 특성의 세계를 물어본 쪽(`Profile.lua`의 `CollectActionsForKey`)이 필요로 하는 것이
+    -- 딱 그거다. 도달불가는 지금 이 특성으로 만든 키 맵에서 나오므로 그 세계에서는 참이 아닌데,
+    -- **키 유효성은 특성과 무관하다.** 예전처럼 `notCategory = "key"`로 갈래째 끄면 그것까지
+    -- 같이 꺼져서, 같은 저장 데이터가 보는 특성에 따라 ⚠를 달았다 뗐다 했다.
     if (not issue and (not category or category == "key") and notCategory ~= "key") then
         if (action.key) then
             issue = DebouncePrivate.IsKeyInvalidForAction(action, action.key);
-            if (not issue) then
+            if (not issue and notCategory ~= "unreachable") then
                 if (DebouncePrivate.IsUnreachableAction(action)) then
                     issue = Constants.BINDING_ISSUE_UNREACHABLE;
                 end

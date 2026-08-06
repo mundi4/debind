@@ -410,7 +410,10 @@ function DebouncePrivate.CollectActionsForKey(key, spec)
     -- 다른 특성의 세계를 물어본 것이면 **살아 있는 상태는 붙이지 않는다.** 순서는 순수
     -- 계산이라 참이지만, 도달 불가는 지금 이 특성으로 만들어진 키 맵에서 나온 값이라 그
     -- 세계에서는 참이 아니다. 조용히 틀린 표시를 다느니 없는 편이 낫다.
-    -- (도달 불가 판정은 GetBindingIssue의 "key" 갈래 안에 있으므로 그 갈래째로 뺀다.)
+    --
+    -- 빼는 것은 **도달 불가뿐이다.** 한때 `notCategory = "key"`로 갈래째 껐는데, 그 갈래에는
+    -- 특성과 무관한 키 유효성 검사도 같이 있어서 (`IsKeyInvalidForAction`) 다른 특성 탭에서
+    -- 보면 진짜 잘못된 키에도 ⚠가 안 떴다. 같은 데이터가 보는 특성에 따라 달라 보이면 안 된다.
     local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
 
     for layerRank, layer in DebouncePrivate.EnumerateProfileLayers(spec) do
@@ -427,7 +430,7 @@ function DebouncePrivate.CollectActionsForKey(key, spec)
                     -- 정렬이 어긋난다 (Ordering.lua 주석 참고).
                     hover         = action.hover,
                     isConditional = DebouncePrivate.IsConditionalAction(action),
-                    issue         = DebouncePrivate.GetBindingIssue(action, nil, simulated and "key" or nil),
+                    issue         = DebouncePrivate.GetBindingIssue(action, nil, simulated and "unreachable" or nil),
                     unreachable   = (not simulated) and DebouncePrivate.IsUnreachableAction(action) or nil,
                 };
             end
