@@ -474,10 +474,17 @@ function DebounceSpellPickerFrameMixin:RefreshList()
 	--
 	-- `PanelTemplates_SetTabShown` 대신 탭을 직접 숨긴다. 저 헬퍼는 12.1 트리에서 확인한
 	-- 것이고 라이브(12.0)에 있다는 보장이 없다 - 여기서 얻는 것도 SetShown 한 줄뿐이다.
-	-- 숨긴 탭의 자리는 **다시 이어 붙인다.** XML은 탭을 앞 탭의 오른쪽에 매다는 사슬이라
-	-- (`PanelTemplates_AnchorTabs`도 같은 방식) 가운데 하나를 숨기면 그 자리가 빈 채로 남는다.
-	-- 매크로도 장난감도 없는 새 캐릭터에서 "주문 [구멍] 탈것 [구멍] 특수"가 된다.
+	-- 숨긴 탭의 자리는 **다시 이어 붙인다.** 탭은 앞 탭의 오른쪽에 매다는 사슬이라 가운데
+	-- 하나를 숨기면 그 자리가 빈 채로 남는다. 매크로도 장난감도 없는 새 캐릭터에서
+	-- "주문 [구멍] 탈것 [구멍] 특수"가 된다.
 	-- 메인 창은 탭 둘이 언제나 보여서 이 문제를 만난 적이 없다.
+	--
+	-- **간격은 `PanelTemplates_AnchorTabs`와 같은 값을 쓴다(TOPLEFT→TOPRIGHT, +3).**
+	-- XML에 적힌 오프셋을 베끼면 안 된다 - `PanelTemplates_SetNumTabs`가 내부에서
+	-- `AnchorTabs`를 부르면서 2번 탭부터 앵커를 통째로 덮어쓰기 때문에, XML의 값은
+	-- `SetNumTabs`를 부르는 창에서는 한 번도 화면에 닿지 않는 죽은 값이다(블리자드
+	-- 창들에 남은 -15/-16도 전부 그렇다). 여기서만 그걸 베껴 와서 캡이 포개져 있었다.
+	-- 메인 창은 `SetNumTabs`가 마지막이라 +3으로 서 있고, 이제 두 창이 같은 자리다.
 	local prevTab;
 	for tabID = 1, #self.Tabs do
 		local tab = self.Tabs[tabID];
@@ -487,7 +494,7 @@ function DebounceSpellPickerFrameMixin:RefreshList()
 		if (shown) then
 			tab:ClearAllPoints();
 			if (prevTab) then
-				tab:SetPoint("LEFT", prevTab, "RIGHT", -15, 0);
+				tab:SetPoint("TOPLEFT", prevTab, "TOPRIGHT", 3, 0);
 			else
 				tab:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 12, 1);
 			end

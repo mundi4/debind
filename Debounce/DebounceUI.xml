@@ -706,9 +706,15 @@
 					<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="12" y="1"/>
 				</Anchors>
 			</Button>
+			<!--
+				오프셋은 `PanelTemplates_AnchorTabs`가 쓰는 값과 같다(TOPLEFT→TOPRIGHT, +3).
+				여기 뭘 적든 `PanelTemplates_SetNumTabs`가 2번 탭부터 앵커를 덮어쓰므로 이
+				값은 화면에 닿지 않지만, 실제와 다른 숫자를 적어두면 이 파일을 본보기로 삼는
+				쪽이 그걸 그대로 베낀다 - 스펠 피커가 한때 그렇게 캡이 포개져 있었다.
+			-->
 			<Button parentKey="Tab2" inherits="DebounceFrameTabTemplate" id="2">
 				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.Tab1" relativePoint="RIGHT" x="-15" y="0"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.Tab1" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
 

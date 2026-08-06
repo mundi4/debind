@@ -63,7 +63,7 @@ local _dirty      = true;
 ---     key        = "spellbook",
 ---     categories = {
 ---         {
----             key = "spell", name = "주문",
+---             key = "spell", name = "주문",          -- 탭에 그대로 걸리는 글자. **복수**다
 ---             filters = { "offSpec" },              -- 없으면 필터 버튼이 숨는다
 ---             IsAvailable = function() ... end,     -- 없으면 언제나 있다. **싸야 한다**
 ---             Build = function(entries) ... end,
@@ -402,7 +402,11 @@ ActionCatalog.RegisterSource({
 	categories = {
 		{
 			key = "spell",
-			name = LLL["TYPE_SPELL"],
+			-- 탭 이름은 `TYPE_SPELL`을 재사용하지 않는다. 저건 상세 패널이 "이 액션은
+			-- Spell이다"라고 말할 때 쓰는 **타입 이름**이라 단수여야 하고, 탭은 모아둔
+			-- 것을 가리키는 자리라 복수여야 한다. 한때 같은 키를 썼더니 탭 줄이
+			-- "Spell / Macro / Mounts / Toys"로 섞였다.
+			name = LLL["SPELL_PICKER_TAB_SPELL"],
 			filters = { "offSpec" },
 			Build = BuildPlayerSpells,
 		},
@@ -453,7 +457,7 @@ ActionCatalog.RegisterSource({
 	categories = {
 		{
 			key = "macro",
-			name = LLL["TYPE_MACRO"],
+			name = LLL["SPELL_PICKER_TAB_MACRO"],
 			IsAvailable = function()
 				local numAccount, numCharacter = GetNumMacros();
 				return ((numAccount or 0) + (numCharacter or 0)) > 0;
