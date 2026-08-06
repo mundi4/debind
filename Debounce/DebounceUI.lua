@@ -21,7 +21,6 @@ local FILTERED_ALPHA         = 0.3;
 local luatype                = type;
 local dump                   = DebouncePrivate.dump;
 local GetBindingIssue        = DebouncePrivate.GetBindingIssue;
-local IsKeyInvalidForAction  = DebouncePrivate.IsKeyInvalidForAction
 local GetSpellNameAndIconID  = DebouncePrivate.GetSpellNameAndIconID;
 local GetSpellTabNameAndIcon = DebouncePrivate.GetSpellTabNameAndIcon;
 local InCombatLockdown       = InCombatLockdown;
@@ -444,6 +443,34 @@ end
 
 local function GetDraggingElement()
 	return _draggingElement;
+end
+
+--- 대화상자를 닫고 이 행의 elementData를 **다시 집어** 준다. 목록에 없어졌으면 nil.
+---
+--- 닫는 길에는 매크로 본문 저장이 딸려 오고, 그게 `UpdateBindings` → `OnBindingsUpdated`
+--- → `Refresh(true)`로 이어져 목록이 통째로 새로 지어진다. 그 뒤로는 붙들 데가 없다:
+---
+--- - 프레임에서 다시 읽으면 - 블리자드가 프레임을 반납하면서 `frame.GetElementData`를
+---   지운다(`ScrollBoxListViewMixin:UnassignAccessors`). 다시 잡히더라도 그 프레임이 이제
+---   **다른 행**을 그리고 있을 수 있다 - 우클릭 메뉴가 엉뚱한 액션을 겨눈다.
+--- - 미리 잡아둔 것을 그냥 쓰면 - 액션은 맞지만 `layer`/`index`가 옛 목록의 값이다.
+---   그걸로 옮기거나 복사하면 자리가 어긋난다.
+---
+--- 그래서 **액션만** 들고 건넌다. 액션 테이블은 목록을 다시 지어도 그대로이므로 건너편에서
+--- 지금 목록의 elementData를 다시 찾을 수 있다. 이미 `IsEditDropdownShown`과 끌고 있는 행의
+--- 강조가 같은 이유로 action을 열쇠로 쓰고 있다.
+local function CloseDialogsAndRefetchElementData(button)
+	local elementData = button:GetElementData();
+	local action = elementData and elementData.action;
+	if (not action) then
+		return nil;
+	end
+
+	if (not TryCloseAnyDialog()) then
+		return nil;
+	end
+
+	return DebounceFrame:FindElementDataByActionInfo(action);
 end
 
 local function GetActionTypeAndValueFromCursorInfo()
@@ -1282,11 +1309,12 @@ function DebounceLineMixin:OnClick(buttonName)
 				return;
 			end
 
-			if (not TryCloseAnyDialog()) then
+			elementData = CloseDialogsAndRefetchElementData(self);
+			if (not elementData) then
 				return;
 			end
 
-			DebounceFrame:ShowEditDropdown(self);
+			DebounceFrame:ShowEditDropdown(self, elementData);
 		end
 		return;
 	end
@@ -1297,11 +1325,12 @@ function DebounceLineMixin:OnClick(buttonName)
 end
 
 function DebounceLineMixin:OnDragStart()
-	if (not TryCloseAnyDialog()) then
+	local elementData = CloseDialogsAndRefetchElementData(self);
+	if (not elementData) then
 		return;
 	end
 
-	DebounceFrame:StartDragging(self:GetElementData());
+	DebounceFrame:StartDragging(elementData);
 end
 
 function DebounceLineMixin:OnDragStop()
@@ -2207,6 +2236,32 @@ function DebounceFrameMixin:FindElementDataByActionInfo(action)
 	return elementData, index;
 end
 
+--- 액션이 사는 행을 화면 안으로 데려온다. **이미 다 보이면 아무것도 하지 않는다** -
+--- 화면을 옮기는 것은 사용자가 보던 자리를 빼앗는 일이라, 필요할 때만 해야 한다.
+---
+--- 목록은 키로 묶여 있으므로 단축키를 바꾸면 그 행이 다른 그룹으로 **건너뛴다.** 방금
+--- 무엇을 바꿨는지 확인할 수 있는 유일한 행이 스크롤 밖으로 사라지면 목록은 아무 일도
+--- 일어나지 않은 것처럼 보인다.
+---
+--- 위로 벗어났을 때는 바로 위 헤더까지 데려온다. 행만 맨 위에 붙이면 이 행이 어느 키에
+--- 속하는지 말해주는 줄이 화면 밖 한 칸 위에 남는데, 그게 방금 바꾼 바로 그 키다. 아래로
+--- 벗어난 경우는 AlignEnd(행을 아래 끝에 맞춤)라 헤더가 자연히 위쪽에 따라 들어온다.
+function DebounceFrameMixin:ScrollActionIntoView(action)
+	local elementData, index = self:FindElementDataByActionInfo(action);
+	if (not elementData) then
+		return;
+	end
+
+	local scrollBox = self.ScrollBox;
+	local previous = index > 1 and self.dataProvider:Find(index - 1) or nil;
+	if (previous and previous.isHeader and scrollBox:GetExtentUntil(index) < scrollBox:GetDerivedScrollOffset()) then
+		scrollBox:ScrollToElementDataIndex(index - 1, ScrollBoxConstants.AlignBegin);
+	else
+		-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
+		scrollBox:ScrollToNearest(index);
+	end
+end
+
 --- 순서 목록이 가리키는 액션으로 화면을 옮긴다. 그 액션이 사는 탭을 열고, 왼쪽 목록에서
 --- 골라 상세 패널까지 그 액션의 것으로 바꾼다.
 ---
@@ -2713,11 +2768,14 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	end
 	return true;
 end
-local function GetKeyWarningText(action, key)
-	if (not key) then
-		return nil;
-	end
-	local issue = IsKeyInvalidForAction(action, key);
+--- 왼쪽 목록(`DebounceLineMixin:Update`)과 **같은 판정기**를 쓴다. `IsKeyInvalidForAction`만
+--- 부르면 도달불가(`BINDING_ISSUE_UNREACHABLE`)가 통째로 빠진다 - 목록에서는 단축키가 빨갛고
+--- 경고 아이콘까지 붙은 행인데, 그 행을 클릭해서 연 상세 패널은 아무 말도 안 하게 된다.
+--- 단축키를 설명해야 할 화면이 목록보다 덜 아는 일은 없어야 한다.
+---
+--- 키가 없으면 `GetBindingIssue`의 "key" 갈래가 알아서 아무것도 안 짚는다.
+local function GetKeyWarningText(action)
+	local issue = GetBindingIssue(action, "key");
 	if (issue) then
 		return LLL["BINDING_ERROR_" .. issue];
 	end
@@ -3325,7 +3383,7 @@ function DebounceDetailPanelMixin:RefreshKeybind(action)
 	-- 바꾸고 푸는가"가 궁금한 것이다. 둘 다 적으면 한 줄에 안 들어간다.
 	keyArea.HintText:SetText(LLL[key and "DETAIL_KEY_HINT" or "DETAIL_KEY_HINT_NO_KEY"]);
 
-	local warning = GetKeyWarningText(action, key);
+	local warning = GetKeyWarningText(action);
 	keyArea.WarningText:SetText(warning or "");
 
 	-- 높이는 **재서** 잡는다. 안내도 경고도 몇 줄이 될지 여기서 알 수가 없다 - 패널 폭과
@@ -3492,7 +3550,9 @@ function DebounceDetailPanelMixin:UnbindKey()
 	self:SetActionKey(nil);
 end
 
---- 키를 저장하고 되비춘다. 목록이 키순으로 정렬돼 있으므로 왼쪽 자리도 바뀐다.
+--- 키를 저장하고 되비춘다. 목록이 키순으로 정렬돼 있으므로 왼쪽 자리도 바뀐다 - 그 자리가
+--- 화면 밖이면 따라간다. 목록이 움직이는 이유가 사용자가 방금 누른 키 하나뿐이라, 어디로
+--- 갔는지 보여주는 편이 놀래키는 것보다 낫다.
 function DebounceDetailPanelMixin:SetActionKey(key)
 	local action = _selectedAction;
 	if (not action or action.key == key) then
@@ -3503,6 +3563,7 @@ function DebounceDetailPanelMixin:SetActionKey(key)
 	action._dirty = true;
 	DebouncePrivate.UpdateBindings();
 	DebounceFrame:Refresh(true);
+	DebounceFrame:ScrollActionIntoView(action);
 	DebounceFrame:Update();
 	return true;
 end
@@ -3549,6 +3610,9 @@ end
 
 --- 본문을 편집칸에 올린다. **대상이 바뀔 때만** 부른다 - Refresh는 자주 도는데 거기서
 --- 매번 넣으면 타이핑이 지워진다.
+---
+--- `macroOriginalText`는 여기서만 정해진다. [취소]가 돌아갈 자리이므로 편집이 사는 동안
+--- (= 이 액션이 선택돼 있는 동안) 움직이지 않는다.
 function DebounceDetailPanelMixin:LoadMacroText(action)
 	self.macroAction = action;
 	self.macroCancelFunc = nil;
@@ -3564,6 +3628,11 @@ function DebounceDetailPanelMixin:ClearMacroEdit()
 end
 
 --- 실제로 바뀌었을 때만 쓴다. 기본 매크로 창의 textChanged 검사와 같은 뜻이다.
+---
+--- 견주는 것은 **액션에 들어 있는 값**이지 `macroOriginalText`가 아니다. 저 둘은 편집이
+--- 시작된 직후에만 같고, 그 뒤로는 뜻이 갈린다 - 하나는 "지금 저장된 것", 하나는
+--- "[취소]가 돌아갈 자리"다. 여기서 `macroOriginalText`를 덮으면 탭을 한 번 왕복하는
+--- 것만으로 돌아갈 자리가 사라진다(떠날 때마다 자동 저장이 돌기 때문이다).
 function DebounceDetailPanelMixin:SaveMacroText()
 	local action = self.macroAction;
 	if (not action) then
@@ -3571,20 +3640,23 @@ function DebounceDetailPanelMixin:SaveMacroText()
 	end
 
 	local text = self.ContentArea.MacroArea.Editor.ScrollFrame.EditBox:GetText();
-	if (text == self.macroOriginalText) then
+	if (text == (action.value or "")) then
 		return;
 	end
 
 	action.value = text;
 	action._dirty = true;
-	self.macroOriginalText = text;
 	DebouncePrivate.UpdateBindings();
 end
 
---- [취소] = 이 탭에서 고친 것을 버린다.
+--- [취소] = **이 액션을 연 뒤로** 고친 것을 버린다. 탭을 왕복했든 아니든 같다.
 ---
 --- 팝업이었을 때는 "닫으면서 버린다"였는데 탭에는 닫는다는 게 없다. 그래서 본문만 열었을
 --- 때로 되돌리고 그 자리에 남는다.
+---
+--- 되돌릴 곳은 **두 군데**다. 편집칸과 액션 - 탭을 떠날 때마다 자동 저장이 돌기 때문에
+--- 버려야 할 본문이 이미 `action.value`에 들어가 있을 수 있다. 편집칸만 되돌리면 [취소]가
+--- 아무 일도 안 한 것처럼 보이고, 원래 본문은 되찾을 길이 없어진다.
 ---
 --- 매크로텍스트 변환으로 들어왔다면 되돌릴 것이 본문이 아니라 **액션 자체**다(cancelFunc).
 --- 되돌린 액션은 더 이상 매크로텍스트가 아니므로 편집기 자리에 "변환할까?" 안내가 대신
@@ -3603,7 +3675,13 @@ function DebounceDetailPanelMixin:MacroCancel_OnClick()
 		self:ClearMacroEdit();
 		cancelFunc();
 	else
-		self.ContentArea.MacroArea.Editor.ScrollFrame.EditBox:SetText(self.macroOriginalText or "");
+		local original = self.macroOriginalText or "";
+		self.ContentArea.MacroArea.Editor.ScrollFrame.EditBox:SetText(original);
+		if ((action.value or "") ~= original) then
+			action.value = original;
+			action._dirty = true;
+			DebouncePrivate.UpdateBindings();
+		end
 	end
 
 	self:Refresh();

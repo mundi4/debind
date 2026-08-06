@@ -705,6 +705,10 @@ do
         local description = parentDescription:CreateButton(LLL["UNBIND"], function()
             _action.key = nil;
             onActionValueChanged();
+            -- 목록이 키로 묶여 있어서 이 행은 "키 없음" 묶음으로 건너뛴다. 메뉴는 열린
+            -- 채로 남는데 그 뒤에서 행만 화면 밖으로 사라지면, 무엇이 풀렸는지 볼 자리가
+            -- 없다. (메뉴는 열 때 커서 자리에 붙으므로 목록이 움직여도 따라가지 않는다.)
+            DebounceFrame:ScrollActionIntoView(_action);
             return MenuResponse.Refresh;
         end);
         description:SetEnabled(function()
