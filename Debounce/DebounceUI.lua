@@ -119,6 +119,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.MACROTEXT] = LLL["TYPE_MACROTEXT"],
 	[Constants.MOUNT] = LLL["TYPE_MOUNT"],
 	[Constants.PETACTION] = LLL["TYPE_PETACTION"],
+	[Constants.FLYOUT] = LLL["TYPE_FLYOUT"],
 	[Constants.TARGET] = LLL["TYPE_TARGET"],
 	[Constants.FOCUS] = LLL["TYPE_FOCUS"],
 	[Constants.TOGGLEMENU] = LLL["TYPE_TOGGLEMENU"],
@@ -491,6 +492,10 @@ local function GetActionTypeAndValueFromCursorInfo()
 				cursorInfo1 = 0;
 			end
 			type, value = Constants.MOUNT, cursorInfo1;
+		elseif (cursorType == "flyout") then
+			-- 액션바의 플라이아웃 칸을 끌어다 놓는 길. 주문서에서 끌면 `"spell"`로 오므로
+			-- 여기 걸리는 것은 이미 바에 올라가 있는 플라이아웃뿐이다.
+			type, value = Constants.FLYOUT, cursorInfo1;
 		end
 		return type, value;
 	end
@@ -577,6 +582,13 @@ local function NameAndIconForAction(action)
 		actionName = _G["WORLD_MARKER" .. value];
 		actionIcon = 4238933;
 		skipTypeName = true;
+	elseif (type == Constants.FLYOUT) then
+		-- 저장된 것은 flyoutID 하나뿐이다. 이름도 아이콘도 여기서 다시 푼다 - 아이콘은
+		-- 첫 슬롯에서 빌려오는 값이라 특성·야수에 따라 바뀐다(`Misc.lua` 참고).
+		--
+		-- 오프스펙을 허용하는 인자를 켜둔다. 여기는 **그리는** 쪽이라, 다른 특성에서 걸어둔
+		-- 플라이아웃도 이름과 그림이 나와야 목록에서 한 줄을 차지할 수 있다.
+		actionName, actionIcon = DebouncePrivate.GetFlyoutNameAndIcon(value, true);
 	elseif (type == Constants.UNUSED) then
 		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
 		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";

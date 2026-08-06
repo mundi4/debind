@@ -24,6 +24,102 @@ end
 
 local GetSpellNameAndIconID = DebouncePrivate.GetSpellNameAndIconID;
 
+--- 야수 소환 플라이아웃의 **빈 칸**인가.
+---
+--- 야수 소환은 슬롯 수가 마구간 칸 수로 고정돼 있어서, 그 자리에 야수가 없어도 슬롯은
+--- `isKnown`으로 남는다. 그래서 `isKnown` 검사만으로는 안 걸러지고, 아무것도 안 나가는
+--- 칸이 목록과 팝업에 그대로 선다. 블리자드 플라이아웃도 같은 검사를 한다
+--- (`SpellFlyout.lua`가 `GetCallPetSpellInfo`로 `visible`을 끈다).
+---
+--- **이 검사가 한 군데인 것이 요점이다.** 처음엔 시전 쪽(`GetFlyoutCastableSlots`)에만
+--- 있었고, 선택 창은 안 걸러서 **팝업에는 안 뜨는 칸이 목록에는 뜨는** 상태가 됐다.
+--- 지금은 `ActionCatalog.lua`의 `AddFlyoutEntries`도 이것을 부른다.
+function DebouncePrivate.IsEmptyCallPetSlot(spellID)
+    local petIndex, petName = GetCallPetSpellInfo(spellID);
+    return petIndex ~= nil and (not petName or petName == "");
+end
+
+local IsEmptyCallPetSlot = DebouncePrivate.IsEmptyCallPetSlot;
+
+--- 플라이아웃의 이름과 아이콘.
+---
+--- **아이콘은 게임이 안 준다.** `GetFlyoutInfo`가 내는 것은 이름·설명·슬롯 수·습득 여부뿐이라,
+--- 첫 번째 쓸 수 있는 슬롯의 주문에서 빌려온다 - 블리자드 액션바가 플라이아웃 칸에 그리는
+--- 그림도 같은 것이다.
+---
+--- 그래서 **아이콘은 저장하지 않는다.** 특성을 바꾸거나 야수를 새로 길들이면 첫 슬롯이
+--- 바뀌고, 박아둔 아이콘은 그때부터 거짓말이 된다. 이 애드온의 규약대로(`ActionCatalog.lua`
+--- 머리주석) 저장은 flyoutID 하나뿐이고 그림은 그릴 때마다 여기서 다시 푼다.
+---
+--- `isOffSpec`은 **오프스펙 플라이아웃을 통째로 안 배운 상태**를 위한 예외다. 그때는 슬롯의
+--- `isKnown`이 전부 거짓이라 그 검사만으로는 아이콘을 하나도 못 고른다.
+---
+--- **빈 야수 칸은 아이콘을 못 준다.** 그래야 야수가 하나도 없는 사냥꾼에게 아이콘이 안 나오고,
+--- 부르는 쪽(`AddFlyoutEntry`)이 그 줄을 아예 안 올린다 - 열어도 빈 상자만 뜨는 것을 목록에
+--- 세우지 않는 것이 요점이다.
+function DebouncePrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec)
+    local name, _, numSlots, isKnown = GetFlyoutInfo(flyoutID);
+    if (not name or not numSlots or numSlots == 0) then
+        return nil, nil, nil;
+    end
+
+    local icon;
+    for slot = 1, numSlots do
+        local spellID, overrideSpellID, isKnownSlot = GetFlyoutSlotInfo(flyoutID, slot);
+        if (spellID and (isKnownSlot or isOffSpec) and not IsEmptyCallPetSlot(spellID)) then
+            local _, slotIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
+            if (slotIcon) then
+                icon = slotIcon;
+                break;
+            end
+        end
+    end
+
+    return name, icon, isKnown;
+end
+
+
+--- 플라이아웃 안에서 **실제로 나갈 수 있는** 슬롯들. 시전에 쓸 값까지 같이 낸다.
+---
+--- 값이 주문 **이름**인 것은 `UpdateBindings.lua`의 `Constants.SPELL` 갈래와 같은 이유다 -
+--- id는 다른데 이름이 같은 주문이 있고(특성별 변신 등), id로 걸면 다른 특성에서 안 나간다.
+--- 이름을 못 풀 때만 id로 떨어진다.
+---
+--- **오프스펙은 여기서 안 받는다.** 목록에 그리는 것과 달리 이건 버튼에 올릴 값이고,
+--- 안 배운 주문을 올리면 눌러도 아무 일이 없다.
+function DebouncePrivate.GetFlyoutCastableSlots(flyoutID, out)
+    out = out or {};
+    wipe(out);
+
+    local _, _, numSlots = GetFlyoutInfo(flyoutID);
+    if (not numSlots) then
+        return out;
+    end
+
+    for slot = 1, numSlots do
+        local spellID, overrideSpellID, isKnown, spellName = GetFlyoutSlotInfo(flyoutID, slot);
+        if (spellID and isKnown and not IsEmptyCallPetSlot(spellID)) then
+            local castName, icon = GetSpellNameAndIconID(spellID);
+            if (castName) then
+                local subName = GetSpellSubtext(spellID);
+                if (subName and subName ~= "") then
+                    castName = castName .. "(" .. subName .. ")";
+                end
+            end
+
+            local _, displayIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
+            tinsert(out, {
+                spellID = spellID,
+                cast = castName or spellID,
+                name = spellName or castName,
+                icon = displayIcon or icon,
+            });
+        end
+    end
+
+    return out;
+end
+
 function DebouncePrivate.GetSpellTabNameAndIcon(index)
     local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(index);
     if skillLineInfo then

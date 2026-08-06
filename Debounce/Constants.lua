@@ -32,6 +32,7 @@ Constants.MACRO                           = "macro";
 Constants.MACROTEXT                       = "macrotext";
 Constants.MOUNT                           = "mount";
 Constants.PETACTION                       = "petaction";
+Constants.FLYOUT                          = "flyout";
 Constants.TARGET                          = "target";
 Constants.FOCUS                           = "focus";
 Constants.TOGGLEMENU                      = "togglemenu";

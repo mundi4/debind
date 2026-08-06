@@ -96,6 +96,11 @@ globals = {
 	"PlayerHasToy",
 	"GetFlyoutInfo",
 	"GetFlyoutSlotInfo",
+	-- 야수 소환 플라이아웃의 빈 칸을 거르는 데 쓴다. 블리자드도 같은 목적으로 부른다
+	-- (`Blizzard_ActionBar/Shared/SpellFlyout.lua`).
+	"GetCallPetSpellInfo",
+	-- 플라이아웃 배경 조각을 뒤집는 데 쓴다(`Blizzard_SharedXMLBase/TextureUtil.lua`).
+	"SetClampedTextureRotation",
 	"GetMacroInfo",
 	"GetNumMacros",
 	"CreateMacro",

@@ -515,6 +515,26 @@ function SetBindingAttributes(type, value, unit, buttonname)
             clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebouncePrivate.CustomStatesUpdaterFrame);
             clickframe:SetAttribute("*attribute-name-" .. buttonname, "$state" .. stateIndex);
             clickframe:SetAttribute("*attribute-value-" .. buttonname, mode);
+        elseif (type == Constants.FLYOUT) then
+            -- **`*type- = "flyout"`을 안 쓴다.** 블리자드의 그 갈래는
+            -- `SpellFlyout:Toggle(self, ...)` 한 줄이고, 그 `self`는 `FlyoutButtonMixin`이어야
+            -- 한다(`GetPopupDirection`을 부른다). 여기 `clickframe`은 맨몸
+            -- `SecureActionButtonTemplate`이라 nil 메서드 호출로 죽는다. 자세한 사정은
+            -- `Flyout.lua` 머리주석에 있다.
+            --
+            -- 대신 우리 손잡이를 클릭한다. 손잡이의 보안 스니펫이 커서 위치에 우리 플라이아웃을
+            -- 열고, 그건 전투 중에도 돈다.
+            local opener = DebouncePrivate.GetFlyoutOpener(value);
+            if (not opener) then
+                -- 안 배웠거나 슬롯이 전부 비었다(길들인 야수가 없는 야수 소환 등).
+                -- 키를 걸지 않는다 - 걸어두면 눌러도 아무 일이 없다.
+                if (DEBUG) then
+                    print("No flyout opener:", value);
+                end
+                return;
+            end
+            clickframe:SetAttribute("*type-" .. buttonname, "click");
+            clickframe:SetAttribute("*clickbutton-" .. buttonname, opener);
         elseif (type == Constants.WORLDMARKER) then
             clickframe:SetAttribute("*type-" .. buttonname, "worldmarker");
             clickframe:SetAttribute("*marker-" .. buttonname, value);
@@ -579,6 +599,30 @@ function UpdateBindingsMap()
             binding.isClick = button ~= nil and binding.type ~= Constants.COMMAND and (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover");
             binding.isNonClick = button == nil or not binding.hover;
             binding.clickframe, binding.clickbutton = SetBindingAttributes(binding.type, binding.value, binding.unit);
+
+            -- **나갈 수단이 없는 바인딩은 여기서 떨군다.**
+            --
+            -- `SetBindingAttributes`는 값이 못 쓰는 것이면 아무것도 안 걸고 되돌아간다
+            -- (알 수 없는 펫 명령, 칸이 전부 빈 플라이아웃 등). 그런데 그때도 레코드는
+            -- `BindingsMap`에 실려 나갔고, 보안 쪽(`SecureBindings.lua`)은 그것을 **성사된
+            -- 바인딩으로 센다** - `keyBound`가 서면서 `SetBindingClick`도 `ClearBinding`도
+            -- 안 부르고, 아래쪽 `not keyBound` 청소까지 건너뛴다.
+            --
+            -- 결과는 **키가 통째로 먹히는 것**이다. 그 액션이 안 나가는 데서 끝나지 않고
+            -- 같은 키의 낮은 우선순위 액션들이 전부 막힌다. 야수를 안 데리고 다니는
+            -- 사냥꾼의 "야수 소환"이 그 경우다.
+            --
+            -- 사용 안 함과 명령은 예외다. 둘은 clickbutton 없이 자기 방식으로 나간다
+            -- (`ClearBinding` / `SetBinding`).
+            if (binding.type ~= Constants.UNUSED and binding.type ~= Constants.COMMAND
+                    and not (binding.clickframe and binding.clickbutton)) then
+                if (DEBUG) then
+                    print(format("|cffff6666[Debounce/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
+                        tostring(binding.type), tostring(binding.value), key));
+                end
+                binding.isClick, binding.isNonClick = false, false;
+            end
+
             hasClick = hasClick or binding.isClick;
             hasNonClick = hasNonClick or binding.isNonClick;
         end

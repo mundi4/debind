@@ -71,6 +71,16 @@ function DebounceSpellPickerRowMixin:OnEnter()
 
 	if (tooltipSpellID) then
 		GameTooltip:SetSpellByID(tooltipSpellID);
+	elseif (entry.spellBookSlot) then
+		-- 플라이아웃. **주문이 아니라 주문서 항목이라** 주문 ID로는 툴팁이 안 나온다
+		-- (`GetFlyoutInfo`가 주는 것은 이름과 설명 문자열뿐이다). 게임이 주문책에서
+		-- 띄우는 바로 그 툴팁을 그대로 쓴다 - 블리자드도 같은 한 줄이다
+		-- (`Blizzard_SpellBookItem.lua`의 `tooltip:SetSpellBookItem(slotIndex, spellBank)`).
+		--
+		-- 슬롯 번호는 **엔트리에만** 있고 저장되지 않는다. 주문서가 바뀌면 번호가 밀리는데,
+		-- 카탈로그는 그때 통째로 다시 지어지므로(`ActionCatalog.Invalidate`) 엔트리가 든
+		-- 번호는 언제나 지금 것이다. 액션에 저장되는 값은 여전히 flyoutID 하나다.
+		GameTooltip:SetSpellBookItem(entry.spellBookSlot, entry.spellBookBank);
 	elseif (entry.type == Constants.ITEM) then
 		-- 장난감이 여기로 온다. 이름만 띄우면 비슷한 이름 둘을 구별할 수가 없다 -
 		-- 필요한 건 "사용 효과" 줄과 재사용 대기시간이고, 그건 아이템 툴팁에 있다.

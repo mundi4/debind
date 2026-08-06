@@ -260,6 +260,7 @@ L["TARGET_UNIT_DESC"] = "When selected, the action will be used on that unit wit
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND_DESC"] = "Use these actions to run one of WoW's own binding commands -- jump, open a bag, press an action bar button, and the rest of its key binding list. Held in a Debind action, a command can carry conditions, so the same key runs it only in the situations you pick."
 L["TYPE_COMMAND"] = "Binding Command"
+L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS_DESC"] = "Use these actions to set your focus to a unit you choose here. The list includes role-based units, so one key can focus whoever is tanking right now without you finding them on the frames first."
 L["TYPE_FOCUS"] = "Set Focus Target"
 L["TYPE_ITEM"] = "Item"

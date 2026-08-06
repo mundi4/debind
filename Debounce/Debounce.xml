@@ -7,6 +7,7 @@
     <Script file="ActionCatalog.lua"/>
     <Script file="BindingContexts.lua"/>
     <Script file="Debounce.lua"/>
+    <Script file="Flyout.lua"/>
     <Script file="Profile.lua"/>
     <Script file="SecureBindings.lua"/>
     <Script file="Events.lua"/>

@@ -239,11 +239,60 @@ end
 -- 소스: 주문서
 --------------------------------------------------------------------------------
 
+--- 플라이아웃 **자체**를 한 줄로. 펼친 주문들 바로 앞에 선다.
+---
+--- 안쪽 주문들과 **같이 올린다, 대신이 아니다.** 야수 소환 3번만 딱 걸고 싶은 사람과
+--- 야수 소환 묶음 전체를 한 키에 두고 싶은 사람은 다른 사람이고, 둘 다 있어야 한다.
+--- 키가 `type:value`라 `flyout:229`와 `spell:229`는 서로를 안 가린다(`AddEntry` 참고).
+---
+--- **이름은 게임 것을 그대로 쓴다.** `AddEntry`의 해석기 경유 갈래로 보내면
+--- `NameAndIconForAction`이 같은 값을 다시 푸는 일이 되고, 여기서는 이미 손에 있다.
+---
+--- 툴팁은 우리가 안 쓴다. `spellBookSlot`/`spellBookBank`를 얹어 두면 선택 창이
+--- `GameTooltip:SetSpellBookItem`으로 **게임이 주문책에서 띄우는 그 툴팁**을 그대로 띄운다
+--- (`SpellPicker.lua`). 그 두 값은 엔트리에만 있고 액션에는 안 들어간다 - 주문서가 바뀌면
+--- 슬롯 번호가 밀리지만, 그때 카탈로그가 통째로 다시 지어진다.
+local function AddFlyoutEntry(entries, seen, flyoutID, isOffSpec, group, slotIndex, bank)
+	local name, icon, isKnown = DebouncePrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec);
+	if (not name) then
+		return;
+	end
+
+	-- 안 배운 플라이아웃은 안 올린다. 오프스펙은 통째로 안 배운 상태가 정상이라 예외다 -
+	-- `AddFlyoutEntries`가 슬롯의 `isKnown`에 두는 예외와 같은 이유다.
+	if (not isKnown and not isOffSpec) then
+		return;
+	end
+
+	-- **아이콘이 하나도 안 나오면 안 올린다.** 슬롯이 전부 안 배운 상태(길들인 야수가 없는
+	-- 야수 소환 등)라는 뜻이고, 그 플라이아웃은 열어도 빈 칸만 뜬다.
+	if (not icon) then
+		return;
+	end
+
+	AddEntry(entries, seen, {
+		type = Constants.FLYOUT,
+		value = flyoutID,
+		name = name,
+		icon = icon,
+		group = group,
+		isOffSpec = isOffSpec or nil,
+		-- 선택 창이 게임 툴팁을 띄우는 데 쓴다. 저장되는 값이 아니다.
+		spellBookSlot = slotIndex,
+		spellBookBank = bank,
+	});
+end
+
 --- 플라이아웃은 **펼친다.** 통째로 버리면 그 안의 주문들에 아예 손이 닿지 않는다
 --- (야수 소환, 각인 등이 전부 그 안에 있다).
 ---
 --- 슬롯의 `isKnown`이 거짓이면 건너뛴다 - 다만 오프스펙 플라이아웃은 통째로 안 배운
 --- 상태라 그 검사를 통과할 수 없다. 그래서 오프스펙일 때만 예외로 둔다.
+---
+--- **`isKnown`만으로는 야수 소환의 빈 칸이 안 걸러진다.** 마구간 칸 수만큼 슬롯이 있고
+--- 비어 있어도 배운 것으로 나오기 때문이다. 검사는 `Misc.lua`의 `IsEmptyCallPetSlot` 하나이고
+--- 시전 쪽(`GetFlyoutCastableSlots`)도 같은 것을 부른다 - 갈리면 **팝업에는 안 뜨는 칸이
+--- 목록에는 뜨는** 상태가 된다(실제로 그랬다).
 local function AddFlyoutEntries(entries, seen, flyoutID, isOffSpec, group)
 	local _, _, numSlots = GetFlyoutInfo(flyoutID);
 	if (not numSlots) then
@@ -252,7 +301,7 @@ local function AddFlyoutEntries(entries, seen, flyoutID, isOffSpec, group)
 
 	for slot = 1, numSlots do
 		local spellID, overrideSpellID, isKnown = GetFlyoutSlotInfo(flyoutID, slot);
-		if (spellID and (isKnown or isOffSpec)) then
+		if (spellID and (isKnown or isOffSpec) and not DebouncePrivate.IsEmptyCallPetSlot(spellID)) then
 			local displayID = overrideSpellID or spellID;
 			local spellInfo = C_Spell.GetSpellInfo(displayID);
 			-- 패시브 검사가 여기에도 있어야 한다. `AddSpellBookItem`의 검사는 이 함수를
@@ -305,6 +354,9 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 	end
 
 	if (itemType == Enum.SpellBookItemType.Flyout) then
+		-- 묶음을 먼저, 그 안의 주문들을 뒤에. 둘 다 올린다 - 순서가 이래야 목록에서
+		-- "야수 소환" 다음에 야수 다섯 마리가 오고, 앞의 한 줄이 뒤의 묶음을 설명한다.
+		AddFlyoutEntry(entries, seen, info.actionID, isOffSpec, group, slotIndex, bank);
 		AddFlyoutEntries(entries, seen, info.actionID, isOffSpec, group);
 		return;
 	end
