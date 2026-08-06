@@ -582,7 +582,12 @@
 			<Button parentKey="AddPortrait" inherits="DebouncePortraitTemplate">
 				<KeyValues>
 					<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
-					<KeyValue key="TooltipTitle" value="ADD" type="string"/>
+					<!--
+						제목은 **열리는 창의 제목 그대로**다. "Add..."라는 이 버튼만의
+						낱말을 따로 갖고 있었는데, 눌러서 뜬 창이 "Add an Action"이라고
+						적혀 있으면 같은 것인지 알 수가 없다.
+					-->
+					<KeyValue key="TooltipTitle" value="SPELL_PICKER_TITLE" type="string"/>
 					<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
 				</KeyValues>
 				<Anchors>

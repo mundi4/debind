@@ -858,7 +858,9 @@ do
 				end
 				addValueLine(keyText, error);
 			else
-				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["NOT_BOUND"]));
+				-- 단축키 버튼과 같은 말을 쓴다(RefreshKeybind). 한때 여기만 따로 번역된 키를
+				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
+				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["DETAIL_NO_KEY"]));
 			end
 		end
 
@@ -1660,13 +1662,17 @@ function DebounceFrameMixin:UpdateSideTabs()
 	end
 end
 
+--- **검색을 보지 않는다.** 이 목록의 검색은 거르는 것이 아니라 흐리게 하는 것이라
+--- (`DebounceLineMixin:Update`의 `FILTERED_ALPHA`), 안 맞는 행도 dataProvider에는 그대로
+--- 있다. 그러니 크기가 0인 것은 **탭이 비었다는 뜻 하나뿐**이고, 검색어로 0건이 되는
+--- 일은 여기까지 오지도 않는다.
+---
+--- 여기에 `if (SearchBox.filters)` 분기를 달지 말 것. 그러면 빈 탭에서 검색창에 글자가
+--- 있다는 이유만으로 "검색어에 맞는 액션이 없다"고 말하는데, 그건 사실이 아니고 - 탭이
+--- 빈 것이다 - 하라는 일도 틀린다(지울 것은 검색어가 아니라 채울 액션이 없는 것이다).
+--- 한때 그 분기가 주석으로 남아 있어서 빠뜨린 것처럼 보였다. 목록을 거르던 시절의 것이다.
 function DebounceFrameMixin:UpdateEmptyText()
 	if (self.dataProvider:GetSize() == 0) then
-		-- if (self.SearchBox.filters) then
-		-- 	self.ScrollBox.EmptyText:SetText(LLL["NO_ACTIONS_MATCHING_FILTER"]);
-		-- else
-		-- 	self.ScrollBox.EmptyText:SetText(LLL["NO_ACTIONS_IN_THIS_TAB"]);
-		-- end
 		self.ScrollBox.EmptyText:SetText(LLL["NO_ACTIONS_IN_THIS_TAB"]);
 		self.ScrollBox.EmptyText:Show();
 	else

@@ -862,7 +862,13 @@ do
                     end
                 end
                 return false;
-            end
+            end,
+            nil, -- error
+            -- 설명은 **명시적으로** 넘긴다. 안 넘기면 `CONDITION_CUSTOM_STATES_DESC`를
+            -- 찾아가는데, 그건 사용자 지정 상태 버튼의 툴팁(CUSTOM_STATES_DESC)과 글자
+            -- 하나 다르지 않은 문단이었다 - 같은 말을 로케일마다 두 번 번역하게 만드는
+            -- 자리라 키를 없애고 이쪽으로 붙였다.
+            LLL["CUSTOM_STATES_DESC"]
         );
 
         for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
