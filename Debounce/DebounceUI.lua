@@ -752,10 +752,14 @@ local function MoveAction(elementData, destLayerID, copying)
 	action = CopyTable(elementData.action);
 	local destLayer = DebouncePrivate.GetProfileLayer(destLayerID);
 	destLayer:Insert(action, insertIndex, not copying);
+	-- 순서 번호는 새로 받는다. 복사본은 원본과 같은 번호를 들고 태어나므로 그대로 두면
+	-- 두 액션이 동률이 되고, 다른 레이어로 옮긴 것이면 번호 자체가 저쪽 레이어의 값이라
+	-- 뜻이 없다. 둘 다 "이 레이어의 맨 뒤"가 답이다.
+	destLayer:PlaceLast(action);
 
 	DebouncePrivate.UpdateBindings();
 
-	-- 목록은 레이어 배열을 그대로 그리므로(정렬 비교자 없음) 손으로 끼워넣지 않고 다시 만든다.
+	-- 목록은 정렬해서 그리므로 손으로 끼워넣지 않고 다시 만든다.
 	DebounceFrame:Refresh(true);
 
 	if (fromLayerID == destLayerID) then
@@ -2392,6 +2396,9 @@ function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 		end
 	end
 	layer:Insert(action);
+	-- 새 액션도 순서 규칙을 똑같이 지난다. 지금 오는 것들은 키 없이 태어나므로 번호를 안
+	-- 받고(SetActionKey가 걸 때 준다), props에 키가 실려 오면 여기서 맨 뒤 번호를 받는다.
+	layer:PlaceLast(action);
 
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
 	self:Refresh(true);
@@ -2612,6 +2619,8 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 
 	-- 항상 맨 뒤에 붙인다. 떨어진 위치는 의미가 없다.
 	destLayer:Insert(action, nil);
+	-- 순서 번호도 이 레이어 기준으로 새로 준다. 다른 레이어에서 온 번호는 여기서 뜻이 없다.
+	destLayer:PlaceLast(action);
 
 	self:ClearMouse();
 	DebouncePrivate.UpdateBindings();
@@ -3253,30 +3262,38 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	end
 
 	controls.MoveUpButton:SetScript("OnClick", function()
-		self:ApplyOrderMove(self.moveUpInsertIndex);
+		self:ApplyOrderMove(self.moveUpNeighbor);
 	end);
 	controls.MoveDownButton:SetScript("OnClick", function()
-		self:ApplyOrderMove(self.moveDownInsertIndex);
+		self:ApplyOrderMove(self.moveDownNeighbor);
 	end);
 
 	controls.BlockedHelp:SetScript("OnEnter", OrderBlockedHelp_OnEnter);
 	controls.BlockedHelp:SetScript("OnLeave", OrderBlockedHelp_OnLeave);
 end
 
---- 편집 중인 액션을 자기 레이어 배열 안에서 한 칸 옮긴다. 배열 자리는 순서 말고는
---- 아무 데도 안 쓰이므로(목록은 정렬해서 그린다) 부작용이 없다.
-function DebounceDetailPanelMixin:ApplyOrderMove(insertIndex)
+--- 편집 중인 액션을 한 칸 옮긴다. **이웃과 순서 번호를 맞바꾸는 것이 전부다.**
+---
+--- 배열은 안 건드린다. 배열 자리는 이제 순서에 아무 영향이 없고(목록은 정렬해서 그린다),
+--- 순서를 정하는 것은 액션이 들고 있는 seq다.
+---
+--- 번호가 없는 쪽이 있으면 물러난다. 키가 걸린 액션은 마이그레이션과 CleanUpDB가 번호를
+--- 보장하므로 정상 경로로는 못 오는 자리지만, 여기서 nil을 맞바꾸면 **둘 다 번호를 잃고**
+--- 순서가 조용히 무너진다.
+function DebounceDetailPanelMixin:ApplyOrderMove(neighborRow)
 	local action = _selectedAction;
-	if (not action or insertIndex == nil) then
+	if (not action or not neighborRow) then
 		return;
 	end
 
-	local layer = self.moveLayer;
-	if (not layer or not layer:Remove(action)) then
+	local neighbor = neighborRow.action;
+	if (not neighbor or action.seq == nil or neighbor.seq == nil) then
 		return;
 	end
-	layer:Insert(action, insertIndex);
 
+	action.seq, neighbor.seq = neighbor.seq, action.seq;
+
+	neighbor._dirty = true;
 	action._dirty = true;
 	DebouncePrivate.UpdateBindings();
 	DebounceFrame:Refresh(true);
@@ -3286,24 +3303,23 @@ end
 
 --- 상대 이동 버튼의 상태를 계산한다. rows는 이미 발동 순서로 정렬돼 있다.
 ---
---- 버튼이 만지는 건 레이어 배열의 자리(index)뿐이다. 그건 순서 말고는 아무 뜻도 없는
---- 유일한 축이라, 눌러도 조건이나 스코프나 우선순위가 따라 바뀌지 않는다. 나머지 축에서
---- 갈렸으면 비활성으로 두고 **어느 속성이 정하고 있는지**만 말한다 - 그 속성들은 각자
---- 자기 편집기(우선순위 메뉴 / 조건 편집 / 레이어 이동)에서 바뀌어야 한다.
+--- 버튼이 만지는 건 순서 번호(seq)뿐이다. 그건 순서 말고는 아무 뜻도 없는 유일한 축이라,
+--- 눌러도 조건이나 스코프나 우선순위가 따라 바뀌지 않는다. 나머지 축에서 갈렸으면
+--- 비활성으로 두고 **어느 속성이 정하고 있는지**만 말한다 - 그 속성들은 각자 자기
+--- 편집기(우선순위 메뉴 / 조건 편집 / 레이어 이동)에서 바뀌어야 한다.
 function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
 	local controls = self.ContentArea.OrderArea.Controls;
 	local up, upReason, down, downReason;
 
 	if (currentIndex and not self:IsCapturingKey()) then
-		up, upReason = DebouncePrivate.ComputeIndexMove(rows, currentIndex, -1);
-		down, downReason = DebouncePrivate.ComputeIndexMove(rows, currentIndex, 1);
+		up, upReason = DebouncePrivate.ComputeOrderSwap(rows, currentIndex, -1);
+		down, downReason = DebouncePrivate.ComputeOrderSwap(rows, currentIndex, 1);
 	end
 
-	self.moveUpInsertIndex = up;
-	self.moveDownInsertIndex = down;
-	-- 이동은 이 액션이 실제로 사는 레이어의 배열 안에서 일어난다. 선택된 탭이 아니라
-	-- 수집된 행에서 가져온다(축 검사가 이웃과 같은 레이어임을 이미 보장한다).
-	self.moveLayer = currentIndex and rows[currentIndex].layer or nil;
+	-- 맞바꿀 이웃 행을 그대로 들고 있는다. 레이어는 따로 안 들고 다닌다 - 축 검사가
+	-- 이웃과 같은 레이어임을 이미 보장했고, 맞바꾸기는 배열을 안 건드린다.
+	self.moveUpNeighbor = up;
+	self.moveDownNeighbor = down;
 
 	controls.MoveUpButton.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
 	controls.MoveDownButton.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
@@ -3417,11 +3433,10 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 		orderArea.ScrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
 		orderArea.ScrollBox:Hide();
 		-- 이동 상태도 같이 지운다. 여기서 `UpdateOrderMoveButtons`를 안 지나므로 그냥 두면
-		-- **앞서 보던 액션의 레이어와 인덱스**가 남는다. 지금은 버튼이 숨겨져 있어 누를 수가
-		-- 없지만, 그 가정이 깨지는 날 엉뚱한 레이어에서 순서가 바뀐다.
-		self.moveUpInsertIndex = nil;
-		self.moveDownInsertIndex = nil;
-		self.moveLayer = nil;
+		-- **앞서 보던 액션의 이웃**이 남는다. 지금은 버튼이 숨겨져 있어 누를 수가 없지만,
+		-- 그 가정이 깨지는 날 엉뚱한 액션과 순서를 맞바꾼다.
+		self.moveUpNeighbor = nil;
+		self.moveDownNeighbor = nil;
 		return;
 	end
 
@@ -3649,10 +3664,27 @@ end
 --- 키를 저장하고 되비춘다. 목록이 키순으로 정렬돼 있으므로 왼쪽 자리도 바뀐다 - 그 자리가
 --- 화면 밖이면 따라간다. 목록이 움직이는 이유가 사용자가 방금 누른 키 하나뿐이라, 어디로
 --- 갔는지 보여주는 편이 놀래키는 것보다 낫다.
+---
+--- 순서 번호는 **처음 키를 걸 때** 받는다. 그 시점의 맨 뒤라, 새로 건 바인딩은 언제나
+--- 기존 것들 뒤에서 시작한다.
+---
+--- 한때 이 자리에 번호가 없었고 순서의 마지막 단계가 레이어 배열의 자리를 읽었다. 그래서
+--- 방금 만든 액션은 배열 끝이라 뒤로 붙고, 예전부터 배열 앞에 있던 액션(키를 뗐다가 다시
+--- 거는 경우)은 기존 것들 위로 끼어들었다 - 같은 조작인데 결과가 달랐다.
+---
+--- 키를 떼도 번호는 남긴다. 그래야 잠깐 뗐다 다시 걸었을 때 사용자가 ↑↓로 정해둔 자리로
+--- 돌아온다. 번호가 남아 있으면 여기서 새로 주지 않는 이유가 그것이다.
 function DebounceDetailPanelMixin:SetActionKey(key)
 	local action = _selectedAction;
 	if (not action or action.key == key) then
 		return false;
+	end
+
+	if (key ~= nil and action.seq == nil) then
+		local _, layer = DebouncePrivate.FindLayerID(action);
+		if (layer) then
+			action.seq = layer:GetNextSeq();
+		end
 	end
 
 	action.key = key;

@@ -124,17 +124,17 @@ do
 		DebouncePrivate.ClearUnreachableBindingCache();
 
 		-- EnumerateActionsInActiveLayers와 같은 순서를 돌지만, 통짜 ordinal 대신
-		-- (layerRank, index)를 따로 알아야 해서 레이어를 직접 훑는다.
+		-- layerRank를 따로 알아야 해서 레이어를 직접 훑는다.
 		local ordinal = 0;
 		for layerRank, layer in DebouncePrivate.EnumerateProfileLayers() do
-			for index, action in layer:Enumerate() do
+			for _, action in layer:Enumerate() do
 				ordinal = ordinal + 1;
 				if (action.key) then
 					local binding = DebouncePrivate.GetBindingInfoForAction(action, true);
 					BindingInfoToActionMap[binding] = action;
 
 					binding.layerRank = layerRank;
-					binding.index = index;
+					binding.seq = action.seq;
 					binding.isConditional = IsConditionalAction(action);
 
 					local key = action.key;

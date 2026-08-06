@@ -27,6 +27,7 @@ local KEYS_TO_SAVE       = {
     pet = true,
     petbattle = true,
     priority = true,
+    seq = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
     checkedUnits = true,
@@ -101,12 +102,48 @@ function ProfileLayerProto:Enumerate(indexBegin, indexEnd)
     return CreateTableEnumerator(self.actions, indexBegin, indexEnd);
 end
 
+--- 이 레이어에서 다음에 줄 순서 번호.
+---
+--- 번호는 레이어 안에서만 뜻이 있다. 비교자가 layerRank로 먼저 가르므로 다른 레이어의
+--- 액션과는 절대 겹쳐 볼 일이 없다(Ordering.lua).
+---
+--- 번호에 구멍이 나는 것은 괜찮다 - 크기 비교만 하지 세는 데 쓰지 않는다.
+function ProfileLayerProto:GetNextSeq()
+    local maxSeq = 0;
+    for i = 1, #self.actions do
+        local seq = self.actions[i].seq;
+        if (seq and seq > maxSeq) then
+            maxSeq = seq;
+        end
+    end
+    return maxSeq + 1;
+end
+
+--- 액션을 이 레이어의 **순서 맨 뒤**에 세운다. 새로 만들었거나 다른 레이어에서 온
+--- 액션에 부른다.
+---
+--- 키가 없으면 번호를 주지 않는다. 번호의 뜻이 "이 키를 눌렀을 때 몇 번째로 나가는가"라
+--- 키가 없는 동안에는 가리킬 것이 없고, 나중에 키를 걸 때 그 시점의 맨 뒤 번호를 받는다
+--- (DebounceUI.lua의 SetActionKey).
+function ProfileLayerProto:PlaceLast(action)
+    -- 먼저 지운다. 다른 레이어에서 온 액션이 그 레이어의 번호를 들고 있으면
+    -- GetNextSeq가 자기 자신을 세어 쓸데없이 큰 번호가 나온다.
+    action.seq = nil;
+    if (action.key ~= nil) then
+        action.seq = self:GetNextSeq();
+    end
+end
+
+--- 레이어 배열 하나를 dbver에서 Constants.DB_VERSION까지 올린다.
+---
+--- 단계마다 `dbver <= N`으로 여는 것에 주의. `== N`이면 두 판 밀린 프로필이 첫 단계만
+--- 밟고 나온다. 각 단계는 자기가 이미 끝난 데이터 위에서 다시 돌아도 안전해야 한다.
 local function MigrateLayer(layerTbl, dbver)
     if (layerTbl == nil) then
         return;
     end
 
-    if (dbver == 1) then
+    if (dbver <= 1) then
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.checkUnitExists and (Constants.BASIC_UNITS[action.unit] or Constants.SPECIAL_UNITS[action.unit])) then
@@ -150,32 +187,62 @@ local function MigrateLayer(layerTbl, dbver)
                 end
             end
         end
-        dbver = 2;
+    end
+
+    if (dbver <= 2) then
+        -- 발동 순서의 마지막 단계를 **배열 자리에서 저장값으로** 옮긴다.
+        --
+        -- 예전에는 비교자가 레이어 배열의 자리(index)를 읽었다. 그 자리는 목록이 배열
+        -- 순서를 그대로 그리고 드래그로 그 자리를 바꾸던 시절에는 사용자가 보고 만지는
+        -- 값이었지만, 목록이 키순 정렬로 바뀌면서 **화면에도 안 나오고 만질 방법도 없는**
+        -- 값이 됐다. 뜻이 없는 값이 순서를 정하니 키를 새로 걸었을 때 어떤 액션은 위로
+        -- 어떤 액션은 아래로 들어갔다 - 규칙이 아니라 그 액션이 우연히 배열 어디에
+        -- 있었느냐였다.
+        --
+        -- 배열 순서 그대로 번호를 매기므로 **기존 사용자의 발동 순서는 한 칸도 안 바뀐다.**
+        -- 번호는 레이어 안에서만 뜻이 있어서(비교자가 layerRank로 먼저 가른다) 레이어마다
+        -- 1부터 다시 센다.
+        --
+        -- 받는 것은 키가 걸린 액션뿐이다. 키 없는 액션의 자리는 애초에 아무것도 안 정했고,
+        -- 나중에 키를 걸 때 그 시점의 맨 뒤 번호를 받는다.
+        local seq = 0;
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            if (action.key ~= nil) then
+                seq = seq + 1;
+                action.seq = seq;
+            else
+                action.seq = nil;
+            end
+        end
     end
 end
 
 local function MigrateDB(db, isCharacterSpecific)
-    if (db.dbver == 1) then
-        if (isCharacterSpecific) then
-            for spec = 0, 5 do
-                MigrateLayer(db[spec], db.dbver);
-            end
-        else
-            MigrateLayer(db["GENERAL"], db.dbver);
-            for classId = 1, 20 do
-                local classInfo = C_CreatureInfo.GetClassInfo(classId);
-                local class = classInfo and classInfo.classFile;
-                local classTbl = class and db[class];
-                if (classTbl) then
-                    for spec = 0, 5 do
-                        MigrateLayer(classTbl[spec], db.dbver);
-                    end
+    local dbver = db.dbver;
+    if (dbver >= Constants.DB_VERSION) then
+        return;
+    end
+
+    if (isCharacterSpecific) then
+        for spec = 0, 5 do
+            MigrateLayer(db[spec], dbver);
+        end
+    else
+        MigrateLayer(db["GENERAL"], dbver);
+        for classId = 1, 20 do
+            local classInfo = C_CreatureInfo.GetClassInfo(classId);
+            local class = classInfo and classInfo.classFile;
+            local classTbl = class and db[class];
+            if (classTbl) then
+                for spec = 0, 5 do
+                    MigrateLayer(classTbl[spec], dbver);
                 end
             end
         end
-
-        db.dbver = 2;
     end
+
+    db.dbver = Constants.DB_VERSION;
 end
 
 local function LoadLayer(layerID)
@@ -286,6 +353,17 @@ function DebouncePrivate.CleanUpDB()
             end
             if (action.priority == Constants.DEFAULT_PRIORITY) then
                 action.priority = nil;
+            end
+
+            -- 키가 있는데 순서 번호가 없는 액션에 번호를 준다. **마이그레이션이 도달하지
+            -- 못한 데이터를 위한 그물이다** - MigrateDB는 자기가 아는 모양의 표만 훑으므로
+            -- 손으로 고친 SavedVariables나 옛 클라이언트가 남긴 자리는 지나칠 수 있다.
+            -- 번호가 없으면 비교자가 그 액션을 맨 앞으로 보고(Ordering.lua) 순서가 조용히
+            -- 뒤집힌다.
+            --
+            -- 맨 뒤로 보낸다. 어디에 둘지 알 길이 없을 때 덜 놀라는 쪽이다.
+            if (action.key ~= nil and action.seq == nil) then
+                action.seq = layer:GetNextSeq();
             end
         end
     end
@@ -417,14 +495,13 @@ function DebouncePrivate.CollectActionsForKey(key, spec)
     local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
 
     for layerRank, layer in DebouncePrivate.EnumerateProfileLayers(spec) do
-        for index, action in layer:Enumerate() do
+        for _, action in layer:Enumerate() do
             if (action.key == key) then
                 rows[#rows + 1] = {
                     action        = action,
-                    layer         = layer,
                     layerID       = layer.layerID,
                     layerRank     = layerRank,
-                    index         = index,
+                    seq           = action.seq,
                     priority      = action.priority or Constants.DEFAULT_PRIORITY,
                     -- hover는 원본 그대로 넘긴다. false와 nil이 다른 뜻이라 불리언으로 접으면
                     -- 정렬이 어긋난다 (Ordering.lua 주석 참고).
@@ -441,7 +518,21 @@ function DebouncePrivate.CollectActionsForKey(key, spec)
     return rows;
 end
 
--- TODO(§4): not implemented yet. No callers - do not call this until it is.
+--- 액션이 사는 레이어를 찾는다. (layerID, layer)를 돌려주고, 없으면 nil.
+---
+--- 순서 번호를 주려면 **그 액션이 실제로 사는 레이어**를 알아야 한다. 화면에서 보고 있는
+--- 탭으로 대신하면 안 된다 - 지금은 선택이 언제나 현재 탭의 한 줄이지만, 그건 목록을 다시
+--- 그릴 때마다 확인해서 유지되는 성질이지 이 함수가 기댈 불변식이 아니다.
 function DebouncePrivate.FindLayerID(action)
+    if (action == nil) then
+        return nil;
+    end
 
+    for layerID, layer in pairs(LayerArray) do
+        for _, candidate in layer:Enumerate() do
+            if (candidate == action) then
+                return layerID, layer;
+            end
+        end
+    end
 end

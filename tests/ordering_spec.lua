@@ -2,8 +2,8 @@
 --
 -- 두 층으로 되어 있음:
 --   1. 단계별 테스트 - CompareActionOrder의 5단계(priority > hover > isConditional >
---      layerRank > index)와 CompareKeys의 규칙을 하나씩 고정한다
---   2. 무차별 대조 테스트 - (layerRank, index)로 쪼개기 전의 통짜 ordinal 비교자를
+--      layerRank > seq)와 CompareKeys의 규칙을 하나씩 고정한다
+--   2. 무차별 대조 테스트 - (layerRank, seq)로 쪼개기 전의 통짜 ordinal 비교자를
 --      그대로 옮겨와서, 작은 조건 공간의 모든 쌍에 대해 두 비교자가 같은 답을 내는지 본다.
 --      "정렬 결과가 리팩터 전과 완전히 동일하다"를 직접 확인하는 게 이쪽이다.
 
@@ -36,11 +36,11 @@ return function(DebouncePrivate)
     -- 1. CompareActionOrder - 단계별
     ---------------------------------------------------------------------------
 
-    --- layerRank/index 기본값을 채운 레코드. hover는 nil/false/true가 전부 다른 뜻이라
+    --- layerRank/seq 기본값을 채운 레코드. hover는 nil/false/true가 전부 다른 뜻이라
     --- 넘어온 값을 그대로 둔다.
     local function rec(t)
         t.layerRank = t.layerRank or 1;
-        t.index = t.index or 1;
+        t.seq = t.seq or 1;
         return t;
     end
 
@@ -92,37 +92,41 @@ return function(DebouncePrivate)
     end);
 
     test("4단계 layerRank - 작은 값(구체적인 레이어)이 먼저", function()
-        expectBefore(rec({ layerRank = 1, index = 99 }), rec({ layerRank = 2, index = 1 }), "layerRank");
+        expectBefore(rec({ layerRank = 1, seq = 99 }), rec({ layerRank = 2, seq = 1 }), "layerRank");
     end);
 
     test("4단계 layerRank - isConditional이 먼저 갈리면 안 본다", function()
         expectBefore(rec({ layerRank = 5, isConditional = true }), rec({ layerRank = 1 }), "isConditional 우선");
     end);
 
-    test("5단계 index - 같은 레이어 안에서는 배열 순서", function()
-        expectBefore(rec({ index = 1 }), rec({ index = 2 }), "index");
+    test("5단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
+        expectBefore(rec({ seq = 1 }), rec({ seq = 2 }), "seq");
+        -- 번호가 없는 쪽은 0으로 본다. 키가 걸린 액션에는 마이그레이션과 CleanUpDB가 번호를
+        -- 보장하므로 정상 데이터에는 없는 경우지만, 정렬 안에서 터지지는 않아야 한다.
+        -- rec()가 기본값 1을 채우므로 여기서만 레코드를 손으로 만든다.
+        expectBefore({ layerRank = 1 }, rec({ seq = 1 }), "seq 없음");
     end);
 
     test("전부 같으면 동률", function()
-        expectTie(rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, index = 4 }),
-            rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, index = 4 }), "동일 레코드");
+        expectTie(rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }),
+            rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
     end);
 
     test("sort 통합 - 5단계가 순서대로 적용된다", function()
         local arr = {
-            rec({ index = 2 }),
-            rec({ index = 1 }),
-            rec({ isConditional = true, index = 3 }),
-            rec({ hover = true, index = 4 }),
-            rec({ priority = 1, index = 5 }),
-            rec({ layerRank = 0, index = 6 }),
+            rec({ seq = 2 }),
+            rec({ seq = 1 }),
+            rec({ isConditional = true, seq = 3 }),
+            rec({ hover = true, seq = 4 }),
+            rec({ priority = 1, seq = 5 }),
+            rec({ layerRank = 0, seq = 6 }),
         };
         sort(arr, CompareActionOrder);
 
         local expected = { 5, 4, 3, 6, 1, 2 };
         for i = 1, #expected do
-            check(arr[i].index == expected[i],
-                ("%d번째가 index=%d, 기대값 %d"):format(i, arr[i].index, expected[i]));
+            check(arr[i].seq == expected[i],
+                ("%d번째가 seq=%d, 기대값 %d"):format(i, arr[i].seq, expected[i]));
         end
     end);
 
@@ -130,7 +134,7 @@ return function(DebouncePrivate)
     -- 2. CompareActionOrder - 리팩터 전 비교자와 무차별 대조
     ---------------------------------------------------------------------------
 
-    -- Debounce.lua의 BindingSortComparison을 (layerRank, index)로 쪼개기 전 모습 그대로.
+    -- Debounce.lua의 BindingSortComparison을 (layerRank, seq)로 쪼개기 전 모습 그대로.
     -- ordinal은 활성 레이어를 훑으며 매기던 통짜 일련번호였다.
     local function LegacyCompare(lhs, rhs)
         if ((lhs.priority or 3) ~= (rhs.priority or 3)) then
@@ -163,15 +167,15 @@ return function(DebouncePrivate)
             for _, h in ipairs(HOVERS) do
                 for _, c in ipairs(CONDITIONALS) do
                     for layerRank = 1, 2 do
-                        for index = 1, INDICES_PER_LAYER do
+                        for seq = 1, INDICES_PER_LAYER do
                             records[#records + 1] = {
                                 priority = p ~= "nil" and p or nil,
                                 hover = h ~= "nil" and h or nil,
                                 isConditional = c ~= "nil" and c or nil,
                                 layerRank = layerRank,
-                                index = index,
+                                seq = seq,
                                 -- 레이어를 순서대로 훑으면 나오는 통짜 일련번호.
-                                ordinal = (layerRank - 1) * INDICES_PER_LAYER + index,
+                                ordinal = (layerRank - 1) * INDICES_PER_LAYER + seq,
                             };
                         end
                     end
@@ -191,15 +195,15 @@ return function(DebouncePrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 3. ComputeIndexMove
+    -- 3. ComputeOrderSwap
     --
-    -- 순서 UI의 ↑↓는 **index만** 만진다. priority/hover/조건부/레이어는 각자 뜻이 있는
+    -- 순서 UI의 ↑↓는 **seq만** 만진다. priority/hover/조건부/레이어는 각자 뜻이 있는
     -- 속성이고 각자의 자리에서 바뀌므로, 그 단계에서 갈렸으면 버튼은 손을 뗀다.
     -- 여기서 고정하는 건 두 가지다: 어느 단계에서 막혔는지, 그리고 움직였을 때 정확히
     -- 한 칸만 움직이고 ↑ 다음 ↓면 원래대로 돌아오는지.
     ---------------------------------------------------------------------------
 
-    local ComputeIndexMove = DebouncePrivate.ComputeIndexMove;
+    local ComputeOrderSwap = DebouncePrivate.ComputeOrderSwap;
     local UP, DOWN = -1, 1;
 
     --- rows를 실제 발동 순서로 정렬해 돌려준다. 레코드는 원본 그대로(같은 테이블).
@@ -220,22 +224,18 @@ return function(DebouncePrivate)
         end
     end
 
-    --- 레이어 배열을 흉내낸다. 레코드를 index 순으로 늘어놓은 것이 곧 배열이다.
+    --- 한 레이어에 사는 액션들. 늘어놓은 순서대로 순서 번호를 받는다.
     local function makeLayer(...)
         local layer = { ... };
         for i, r in ipairs(layer) do
-            r.index = i;
+            r.seq = i;
         end
         return layer;
     end
 
-    --- UI가 실제로 하는 일: 배열에서 빼서 insertIndex에 다시 넣고 index를 재부여한다.
-    local function applyMove(layer, target, insertIndex)
-        tremove(layer, indexOf(layer, target));
-        tinsert(layer, insertIndex, target);
-        for i, r in ipairs(layer) do
-            r.index = i;
-        end
+    --- UI가 실제로 하는 일(ApplyOrderMove): 이웃과 seq를 맞바꾼다. 배열은 안 건드린다.
+    local function applyMove(target, neighbor)
+        target.seq, neighbor.seq = neighbor.seq, target.seq;
     end
 
     --- 배열을 발동 순서로 정렬했을 때의 자리들. 비교용 문자열.
@@ -248,39 +248,39 @@ return function(DebouncePrivate)
         return table.concat(names, ",");
     end
 
-    test("index 이동 - 같은 조건이면 이웃과 한 칸 맞바꾼다", function()
+    test("seq 이동 - 같은 조건이면 이웃과 한 칸 맞바꾼다", function()
         local a = rec({ name = "a" });
         local b = rec({ name = "b" });
         local layer = makeLayer(a, b);
         check(orderOf(layer) == "a,b", "준비: a,b");
 
         local rows = sorted(layer);
-        local insertIndex, reason = ComputeIndexMove(rows, 2, UP);
+        local neighbor, reason = ComputeOrderSwap(rows, 2, UP);
         check(reason == nil, "막히면 안 됨: " .. tostring(reason));
-        check(insertIndex == 1, "이웃의 배열 자리(1)여야 함, 받은 값: " .. tostring(insertIndex));
+        check(neighbor == a, "이웃이 a여야 함");
 
-        applyMove(layer, b, insertIndex);
+        applyMove(b, neighbor);
         check(orderOf(layer) == "b,a", "b가 앞으로 와야 함, 실제: " .. orderOf(layer));
     end);
 
-    test("index 이동 - ↑ 다음 ↓면 원래대로 돌아온다", function()
-        -- 밴드를 태우던 옛 방식이 못 하던 것이 정확히 이거다. index는 뜻이 없으므로
-        -- 왕복이 완전히 대칭이어야 한다.
+    test("seq 이동 - ↑ 다음 ↓면 원래대로 돌아온다", function()
+        -- 밴드를 태우던 옛 방식이 못 하던 것이 정확히 이거다. seq는 순서 말고 아무 뜻도
+        -- 없으므로 왕복이 완전히 대칭이어야 한다.
         local a = rec({ name = "a" });
         local b = rec({ name = "b" });
         local c = rec({ name = "c" });
         local layer = makeLayer(a, b, c);
         check(orderOf(layer) == "a,b,c", "준비: a,b,c");
 
-        applyMove(layer, c, (ComputeIndexMove(sorted(layer), 3, UP)));
+        applyMove(c, (ComputeOrderSwap(sorted(layer), 3, UP)));
         check(orderOf(layer) == "a,c,b", "↑ 후: a,c,b, 실제: " .. orderOf(layer));
 
         local rows = sorted(layer);
-        applyMove(layer, c, (ComputeIndexMove(rows, indexOf(rows, c), DOWN)));
+        applyMove(c, (ComputeOrderSwap(rows, indexOf(rows, c), DOWN)));
         check(orderOf(layer) == "a,b,c", "↓ 후 원상복귀여야 함, 실제: " .. orderOf(layer));
     end);
 
-    test("index 이동 - 여러 번 왕복해도 priority가 하나도 안 생긴다", function()
+    test("seq 이동 - 여러 번 왕복해도 priority가 하나도 안 생긴다", function()
         local a = rec({ name = "a" });
         local b = rec({ name = "b" });
         local layer = makeLayer(a, b);
@@ -288,30 +288,30 @@ return function(DebouncePrivate)
         for _ = 1, 10 do
             local rows = sorted(layer);
             local target = rows[2];
-            applyMove(layer, target, (ComputeIndexMove(rows, 2, UP)));
+            applyMove(target, (ComputeOrderSwap(rows, 2, UP)));
         end
 
         check(a.priority == nil and b.priority == nil,
             "밴드가 생기면 안 됨: a=" .. tostring(a.priority) .. " b=" .. tostring(b.priority));
     end);
 
-    test("index 이동 - 세 개짜리에서 딱 한 칸만 움직인다", function()
+    test("seq 이동 - 세 개짜리에서 딱 한 칸만 움직인다", function()
         local a = rec({ name = "a" });
         local b = rec({ name = "b" });
         local c = rec({ name = "c" });
         local layer = makeLayer(a, b, c);
 
-        applyMove(layer, c, (ComputeIndexMove(sorted(layer), 3, UP)));
+        applyMove(c, (ComputeOrderSwap(sorted(layer), 3, UP)));
         check(orderOf(layer) == "a,c,b", "a는 안 넘어야 함, 실제: " .. orderOf(layer));
     end);
 
-    test("index 이동 - 끝에서는 움직일 데가 없다", function()
+    test("seq 이동 - 끝에서는 움직일 데가 없다", function()
         local rows = sorted(makeLayer(rec({ name = "a" }), rec({ name = "b" })));
 
-        local moved, reason = ComputeIndexMove(rows, 1, UP);
+        local moved, reason = ComputeOrderSwap(rows, 1, UP);
         check(moved == nil and reason == "ALREADY_FIRST", "ALREADY_FIRST여야 함");
 
-        moved, reason = ComputeIndexMove(rows, 2, DOWN);
+        moved, reason = ComputeOrderSwap(rows, 2, DOWN);
         check(moved == nil and reason == "ALREADY_LAST", "ALREADY_LAST여야 함");
     end);
 
@@ -326,7 +326,7 @@ return function(DebouncePrivate)
         local rows = sorted(layer);
         check(rows[2] == target, axis .. ": 준비 - target이 두 번째여야 함");
 
-        local moved, reason = ComputeIndexMove(rows, 2, UP);
+        local moved, reason = ComputeOrderSwap(rows, 2, UP);
         check(moved == nil, axis .. ": 움직이면 안 됨");
         check(reason == axis, axis .. ": 이유가 " .. axis .. "여야 함, 받은 값: " .. tostring(reason));
     end

@@ -11,15 +11,15 @@ local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
 
 --- 같은 키에 걸린 두 액션의 발동 순서를 비교한다.
 ---
---- 레코드 필드: priority, hover, isConditional, layerRank, index
+--- 레코드 필드: priority, hover, isConditional, layerRank, seq
 ---   priority      - nil이면 Constants.DEFAULT_PRIORITY
 ---   hover         - **원본 값 그대로.** false와 nil이 다른 뜻이다(false = "hover 아님"을
 ---                   명시한 조건이라 조건이 걸린 것으로 친다). 불리언으로 접어 넘기지 말 것
 ---   isConditional - DebouncePrivate.IsConditionalAction(action)
 ---   layerRank     - EnumerateProfileLayers의 순회 순번 (작을수록 구체적인 레이어)
----   index         - 그 레이어 배열 안의 위치
+---   seq           - action.seq. 그 레이어 안에서만 뜻이 있는 저장된 순서 번호
 ---
---- (layerRank, index)는 예전 binding.ordinal(활성 레이어를 훑으며 매기던 통짜 일련번호)을
+--- (layerRank, seq)는 예전 binding.ordinal(활성 레이어를 훑으며 매기던 통짜 일련번호)을
 --- 두 자리로 편 것이다. 사전식 비교라 결과는 ordinal 비교와 동일하다.
 ---
 --- 이 순서를 바꾸면 저장 데이터는 그대로인데 전 사용자의 발동 순서가 조용히 바뀌고,
@@ -47,7 +47,16 @@ function DebouncePrivate.CompareActionOrder(lhs, rhs)
         return lhs.layerRank < rhs.layerRank;
     end
 
-    return lhs.index < rhs.index;
+    -- 마지막은 **저장된 순서 번호**다. 한때 여기서 레이어 배열의 자리(index)를 읽었는데,
+    -- 목록이 키순 정렬로 바뀌면서 그 자리는 화면에도 안 나오고 만질 방법도 없는 값이 됐다.
+    -- 뜻이 없는 값이 순서를 정하니 키를 새로 걸었을 때 어떤 액션은 기존 것들 위로, 어떤
+    -- 액션은 아래로 들어갔다 - 같은 조작인데 결과가 그 액션이 우연히 배열 어디에 있었느냐로
+    -- 갈렸다. 지금은 키를 걸 때 그 레이어의 맨 뒤 번호를 받는다(Profile.lua의 PlaceLast).
+    --
+    -- nil은 0으로 본다. 여기까지 왔다는 건 둘 다 키가 걸린 액션이라는 뜻이고, 그런 액션은
+    -- 마이그레이션과 CleanUpDB가 번호를 보장한다. 그물이 찢어져도 정렬 안에서 nil을 비교해
+    -- 터지는 것보다는 낫다.
+    return (lhs.seq or 0) < (rhs.seq or 0);
 end
 
 
@@ -60,13 +69,13 @@ function DebouncePrivate.PriorityToStored(priority)
     return priority;
 end
 
---- 두 액션의 순서를 **가른 단계**를 돌려준다. index까지 내려왔으면(= 앞의 네 단계가 전부
+--- 두 액션의 순서를 **가른 단계**를 돌려준다. seq까지 내려왔으면(= 앞의 네 단계가 전부
 --- 동률이면) nil이다. CompareActionOrder와 판정이 한 글자도 어긋나면 안 된다.
 ---
 --- 순서 UI가 이걸 쓰는 이유: 비교자의 각 단계는 그 자체로 뜻이 있는 속성이고, 각각 자기
---- 뜻이 사는 자리에서 바뀐다(우선순위 메뉴 / 조건 편집 / 레이어 이동). 뜻이 없는 건
---- index 하나뿐이라 정렬 버튼이 만질 수 있는 것도 그것뿐이다. 나머지에서 갈렸다면 버튼은
---- 손을 떼고 **어느 속성이 정하고 있는지**만 말해야 한다.
+--- 뜻이 사는 자리에서 바뀐다(우선순위 메뉴 / 조건 편집 / 레이어 이동). 그 넷 중 아무것도
+--- 안 갈렸을 때 남는 것이 seq이고, 정렬 버튼이 만지는 것도 그것뿐이다. 나머지에서 갈렸다면
+--- 버튼은 손을 떼고 **어느 속성이 정하고 있는지**만 말해야 한다.
 function DebouncePrivate.GetDecidingOrderAxis(lhs, rhs)
     if ((lhs.priority or DEFAULT_PRIORITY) ~= (rhs.priority or DEFAULT_PRIORITY)) then
         return "PRIORITY";
@@ -88,20 +97,23 @@ function DebouncePrivate.GetDecidingOrderAxis(lhs, rhs)
     return nil;
 end
 
---- rows(발동 순서로 정렬된 상태)의 targetIndex번째를 이웃과 한 칸 맞바꾸는 데 필요한
---- **레이어 배열에서의 삽입 위치**를 돌려준다. direction은 -1(위로) / 1(아래로).
+--- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을
+--- 돌려준다. direction은 -1(위로) / 1(아래로).
 ---
---- 순서를 가르는 게 index뿐일 때만 가능하다. 그때는 layerRank가 같으므로 둘이 같은 레이어에
---- 있고, 이웃이 서 있던 배열 자리로 들어가면 정확히 한 칸만 움직인다. 밴드도 조건도 스코프도
---- 건드리지 않고, 편집 중인 액션 하나만 만진다.
+--- 순서를 가르는 게 seq뿐일 때만 가능하다. 그때는 layerRank가 같으므로 둘이 같은 레이어에
+--- 있고, 번호를 맞바꾸면 정확히 한 칸만 움직인다. 밴드도 조건도 스코프도 건드리지 않는다.
+---
+--- **맞바꿔도 다른 액션은 안 흔들린다.** seq는 같은 키의 행끼리만 비교되는 값이라(비교자가
+--- 그 전에 키로 갈라 놓은 목록이다), 두 번호 사이에 다른 키의 액션이 몇 개 끼어 있든 그쪽
+--- 순서에는 영향이 없다. 이웃은 이 키의 행 중 바로 옆이므로 한 칸이 맞다.
 ---
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
----   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" - 그 단계에서 갈려서 index까지 안 내려옴
+---   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
 --- 일이 없지만, 이 함수는 "못 하면 이유를 돌려준다"고 약속해 놓고 대신 터지면 안 된다.
-function DebouncePrivate.ComputeIndexMove(rows, targetIndex, direction)
+function DebouncePrivate.ComputeOrderSwap(rows, targetIndex, direction)
     if (targetIndex == nil or targetIndex < 1 or targetIndex > #rows) then
         return nil, direction < 0 and "ALREADY_FIRST" or "ALREADY_LAST";
     end
@@ -118,7 +130,7 @@ function DebouncePrivate.ComputeIndexMove(rows, targetIndex, direction)
         return nil, axis;
     end
 
-    return rows[neighborIndex].index;
+    return rows[neighborIndex];
 end
 
 do
