@@ -776,6 +776,17 @@ do
 	local GameTooltip = GameTooltip;
 	local LEFT_OFFSET = 10;
 	local action;
+	local suppressedCategory;
+
+	--- 이 툴팁이 쓰는 유일한 이슈 조회.
+	---
+	--- 다른 특성의 순서를 보고 있으면 **도달 불가만 뺀다.** 그 판정은 지금 이 특성으로 만든
+	--- 키 맵에서 나오므로 저쪽 세계에서는 참이 아니다. 행은 이미 그렇게 계산돼 있는데
+	--- (`CollectActionsForKey`) 툴팁만 매번 새로 물어서, **행에는 ⚠가 없는데 툴팁은 빨간
+	--- 글씨로 도달 불가라고 적는** 상태였다. 같은 데이터가 같은 화면에서 두 말을 하면 안 된다.
+	local function GetIssue(category)
+		return GetBindingIssue(action, category, suppressedCategory);
+	end
 
 	local function addErrorLine(message, wrap, leftOffset)
 		GameTooltip_AddErrorLine(GameTooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
@@ -824,9 +835,12 @@ do
 
 		action = elementData.action;
 		action._dirty = true;
+		-- 순서 목록의 행만 이 표시를 달고 온다(다른 특성 탭). 나머지 호출자는 지금 이
+		-- 특성의 사실을 그리므로 뺄 것이 없다.
+		suppressedCategory = elementData.simulated and "unreachable" or nil;
 
 		local isInactive = not isOverview and DebouncePrivate.IsInactiveAction(action);
-		local hasIssues = GetBindingIssue(action) ~= nil;
+		local hasIssues = GetIssue() ~= nil;
 
 		local name = ColoredNameAndIconForAction(action);
 		GameTooltip_SetTitle(GameTooltip, name);
@@ -840,7 +854,7 @@ do
 				if (isInactive) then
 					keyText = INACTIVE_COLOR:WrapTextInColorCode(keyText);
 				else
-					error = hasIssues and GetBindingIssue(action, "key") or nil;
+					error = hasIssues and GetIssue("key") or nil;
 				end
 				addValueLine(keyText, error);
 			else
@@ -850,14 +864,14 @@ do
 
 		if (action.unit ~= nil) then
 			addLabelLine(LLL["TARGET_UNIT"]);
-			local error = hasIssues and GetBindingIssue(action, "unit");
+			local error = hasIssues and GetIssue("unit");
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
 			addValueLine(unitStr, error);
 		end
 
 		if (action.hover ~= nil) then
 			addLabelLine(LLL["CONDITION_HOVER"]);
-			local error = hasIssues and GetBindingIssue(action, "hover");
+			local error = hasIssues and GetIssue("hover");
 			if (action.hover) then
 				wipe(_lines);
 				local reactions = action.reactions or Constants.REACTION_ALL;
@@ -881,7 +895,7 @@ do
 					end
 				end
 				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_REACTIONS"], s);
-				addValueLine(s, hasIssues and GetBindingIssue(action, "reactions") and true or false, true);
+				addValueLine(s, hasIssues and GetIssue("reactions") and true or false, true);
 
 				s = nil;
 				if (frameTypes == Constants.FRAMETYPE_ALL) then
@@ -901,7 +915,7 @@ do
 					end
 				end
 				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_FRAMETYPES"], s);
-				addValueLine(s, hasIssues and GetBindingIssue(action, "frameTypes") and true or false, true);
+				addValueLine(s, hasIssues and GetIssue("frameTypes") and true or false, true);
 
 				if (action.ignoreHoverUnit) then
 					addValueLine(LLL["IGNORE_HOVER_UNIT"]);
@@ -923,7 +937,7 @@ do
 						first = false;
 					end
 
-					local error = hasIssues and GetBindingIssue(action, "checkedUnits");
+					local error = hasIssues and GetIssue("checkedUnits");
 					local unitStr;
 					if (checkedUnit == "@") then
 						unitStr = format(LLL["SELECTED_TARGET_UNIT"], UNIT_INFO[action.unit].name);
@@ -957,25 +971,25 @@ do
 						tinsert(_lines, LLL["GROUP_" .. groupType]);
 					end
 				end
-				local error = hasIssues and GetBindingIssue(action, "groups");
+				local error = hasIssues and GetIssue("groups");
 				addValueLines(_lines, error);
 			end
 		end
 
 		if (action.combat ~= nil) then
 			addLabelLine(LLL["CONDITION_COMBAT"]);
-			local error = hasIssues and GetBindingIssue(action, "combat");
+			local error = hasIssues and GetIssue("combat");
 			addValueLine(action.combat == true and LLL["CONDITION_COMBAT_YES"] or LLL["CONDITION_COMBAT_NO"], error);
 		end
 
 		if (action.stealth ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "stealth");
+			local error = hasIssues and GetIssue("stealth");
 			addLabelLine(LLL["CONDITION_STEALTH"]);
 			addValueLine(action.stealth == true and LLL["CONDITION_STEALTH_YES"] or LLL["CONDITION_STEALTH_NO"], error);
 		end
 
 		if (action.known) then
-			local error = hasIssues and GetBindingIssue(action, "known");
+			local error = hasIssues and GetIssue("known");
 			addLabelLine(LLL["CONDITION_KNOWN"]);
 			addValueLine(LLL["CONDITION_KNOWN_YES"], error);
 			-- if (action.known == true) then
@@ -990,7 +1004,7 @@ do
 				addValueLine(LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
-				local error = hasIssues and GetBindingIssue(action, "forms");
+				local error = hasIssues and GetIssue("forms");
 				for i = 0, 10 do
 					local flag = 2 ^ i;
 					if (bit.band(action.forms, flag) ~= 0) then
@@ -1017,7 +1031,7 @@ do
 				addValueLine(LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
-				local error = hasIssues and GetBindingIssue(action, "bonusbars");
+				local error = hasIssues and GetIssue("bonusbars");
 				for i = 0, Constants.MAX_BONUS_ACTIONBAR_OFFSET do
 					local flag = 2 ^ i;
 					if (bit.band(action.bonusbars, flag) ~= 0) then
@@ -1032,25 +1046,25 @@ do
 		end
 
 		if (action.specialbar ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "specialbar");
+			local error = hasIssues and GetIssue("specialbar");
 			addLabelLine(LLL["CONDITION_SPECIALBAR"]);
 			addValueLine(action.specialbar == true and LLL["CONDITION_SPECIALBAR_YES"] or LLL["CONDITION_SPECIALBAR_NO"], error);
 		end
 
 		if (action.extrabar ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "extrabar");
+			local error = hasIssues and GetIssue("extrabar");
 			addLabelLine(LLL["CONDITION_EXTRABAR"]);
 			addValueLine(action.extrabar == true and LLL["CONDITION_EXTRABAR_YES"] or LLL["CONDITION_EXTRABAR_NO"], error);
 		end
 
 		if (action.pet ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "pet");
+			local error = hasIssues and GetIssue("pet");
 			addLabelLine(LLL["CONDITION_PET"]);
 			addValueLine(action.pet == true and LLL["CONDITION_PET_YES"] or LLL["CONDITION_PET_NO"], error);
 		end
 
 		if (action.petbattle ~= nil) then
-			local error = hasIssues and GetBindingIssue(action, "petbattle");
+			local error = hasIssues and GetIssue("petbattle");
 			addLabelLine(LLL["CONDITION_PETBATTLE"]);
 			addValueLine(action.petbattle == true and LLL["CONDITION_PETBATTLE_YES"] or LLL["CONDITION_PETBATTLE_NO"], error);
 		end
@@ -2144,9 +2158,17 @@ function DebounceFrameMixin:HandleEscape()
 end
 
 --- ESC가 들어오는 유일한 자리. 블리자드 쪽에 아무것도 등록하지 않는 대가로 전파를 손수
---- 여닫는다(OnLoad 참고). 전투 중에는 창이 숨어 있어 이 핸들러가 돌지 않으므로,
---- SetPropagateKeyboardInput이 taint를 만드는 전투 중 호출도 여기서는 일어나지 않는다.
+--- 여닫는다(OnLoad 참고).
 function DebounceFrameMixin:OnKeyDown(input)
+	-- 전투 중 `SetPropagateKeyboardInput`은 taint다. 전투에 들어가면 `OnEnterCombat`이 창을
+	-- 숨기므로 보통은 여기까지 오지 않지만, **전투가 시작된 그 프레임에 눌린 키는
+	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다.** `KeyButton_OnKeyDown`이 막는 것과
+	-- 같은 한 프레임이고, 같은 방식으로 막는다 - 아무것도 안 하고 물러난다. 그 키를 먹게
+	-- 되지만 창은 바로 다음 프레임에 사라진다.
+	if (InCombatLockdown()) then
+		return;
+	end
+
 	if (input == "ESCAPE") then
 		-- 블리자드 패널이 떠 있으면 여기서 물러난다. 우리 창은 키보드를 켜둔 채라 ESC를
 		-- 언제나 먼저 받는데, 그걸 그대로 먹으면 마이크로 버튼으로 연 게임메뉴를 ESC로
@@ -2413,6 +2435,20 @@ function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 end
 
 function DebounceFrameMixin:Update()
+	-- **메인 창을 한 번도 안 연 세션이 있다.** 오버뷰는 이 창 없이 열리고(`/deb overview`,
+	-- 애드온 구획 버튼 우클릭), 그 창의 행에 마우스를 올리기만 해도 여기로 온다 - 왼쪽
+	-- 목록의 하이라이트를 맞추려고 부른다.
+	--
+	-- 그때 이 창은 XML만 있고 아무것도 안 세워져 있다. `OnLoad`가 사이드탭과 ScrollBox의
+	-- 뷰를 만들고 `Refresh`가 dataProvider를 만드는데, 이 창의 XML에는 OnLoad가 없어서
+	-- 둘 다 `OnShow`를 거쳐야 돈다. 아래 세 줄이 그 셋을 차례로 만진다.
+	--
+	-- 여기서 세우지 않는다 - 아무도 안 보고 있는 창을 그리는 일이다. 한 번이라도 열렸으면
+	-- 닫혀 있어도 계속 최신으로 둔다(다시 열 때 옛 화면이 스치면 안 된다).
+	if (not self.initialized) then
+		return;
+	end
+
 	self:UpdateButtons();
 	DebounceDetailPanel:Refresh();
 
@@ -2470,15 +2506,9 @@ function DebounceFrameMixin:UpdateButtons()
 		PanelTemplates_SetTabEnabled(self, i, enableButtons);
 	end
 
-	-- **사이드탭은 아직 없을 수 있다.** `SideTabs`를 채우는 것은 `InitializeSideTabs`이고
-	-- 그건 `OnLoad`에서만 도는데, 이 창의 XML에는 `OnLoad`가 없다 - `OnShow`의
-	-- `not self.initialized` 가드가 대신 부른다. 즉 **메인 창을 한 번도 안 연 세션**에서는
-	-- 이 필드가 nil이다.
-	--
-	-- 그런 세션이 실제로 있다: 오버뷰는 메인 창 없이 열리고(`/deb overview`, 애드온 구획
-	-- 버튼 우클릭), 그 창의 행에 마우스만 올려도 `DebounceFrame:Update()`를 지나 여기로 온다.
-	-- 그때 `ipairs(nil)`로 터졌다.
-	for _, tab in ipairs(self.SideTabs or {}) do
+	-- `SideTabs`는 `InitializeSideTabs`가 채우고 그건 `OnLoad`에서만 돈다. 창이 한 번도
+	-- 안 열린 세션에서는 nil인데, 그 경로(오버뷰가 부르는 `Update`)는 문 앞에서 막힌다.
+	for _, tab in ipairs(self.SideTabs) do
 		tab:SetEnabled(enableButtons);
 	end
 

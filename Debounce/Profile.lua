@@ -509,6 +509,9 @@ function DebouncePrivate.CollectActionsForKey(key, spec)
                     isConditional = DebouncePrivate.IsConditionalAction(action),
                     issue         = DebouncePrivate.GetBindingIssue(action, nil, simulated and "unreachable" or nil),
                     unreachable   = (not simulated) and DebouncePrivate.IsUnreachableAction(action) or nil,
+                    -- 이 행을 그리는 쪽도 같은 기준으로 물어야 한다. 툴팁이 이걸 보고
+                    -- 도달 불가를 뺀다(DebounceUI.lua의 ShowLineTooltip).
+                    simulated     = simulated or nil,
                 };
             end
         end

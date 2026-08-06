@@ -888,11 +888,10 @@ do
             end
         );
 
-        for i = 1, 5 do
-            local value = i;
-            if (value == Constants.DEFAULT_PRIORITY) then
-                value = nil;
-            end
+        for i = Constants.MIN_PRIORITY, Constants.MAX_PRIORITY do
+            -- 저장할 값으로 바꾸는 것은 Ordering.lua 한 군데다. 기본값을 nil로 접는 규칙이
+            -- 여기에도 손으로 적혀 있었는데, 같은 규칙이 두 군데 있으면 한쪽만 바뀐다.
+            local value = DebouncePrivate.PriorityToStored(i);
             description:CreateRadio(LLL["PRIORITY" .. i],
                 function()
                     return _action.priority == value or _action.priority == i;
