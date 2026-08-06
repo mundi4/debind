@@ -129,27 +129,10 @@ end
 --------------------------------------------------------------------------------
 -- OptionsDropDown
 --------------------------------------------------------------------------------
+-- 정렬 항목은 여기 없다. 목록 순서는 이름순으로 굳었고, 남은 하나(단축키로 묶을지)는
+-- 목록 바로 위의 체크박스다 - 목록의 생김새만 바꾸는 것이라 결과가 보이는 자리에 있어야
+-- 한다. 이유는 DebounceUI.lua의 `BuildSortedElements`에.
 function DebounceUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
-    do
-        -- 목록의 배열 순서는 더 이상 사용자가 만지는 것이 아니라서(재배치 드래그를 없앴다)
-        -- 무엇으로 정렬해 보여줄지를 여기서 고른다.
-        local sortDescription = rootDescription:CreateButton(LLL["SORT_LIST_BY"]);
-
-        local function CreateSortRadio(mode, label, desc)
-            local radio = sortDescription:CreateRadio(label, function()
-                return (DebouncePrivate.Options.mainListSort or "key") == mode;
-            end, function()
-                DebouncePrivate.Options.mainListSort = (mode ~= "key") and mode or nil;
-                DebounceUI.NotifyMainListSortChanged(mode);
-                return MenuResponse.Refresh;
-            end);
-            SetInstrcutionTooltip(radio, desc);
-        end
-
-        CreateSortRadio("key", LLL["SORT_LIST_BY_KEY"], LLL["SORT_LIST_BY_KEY_DESC"]);
-        CreateSortRadio("name", LLL["SORT_LIST_BY_NAME"], LLL["SORT_LIST_BY_NAME_DESC"]);
-    end
-
     do
         local unitframeDescription = rootDescription:CreateButton(LLL["UNITFRAME_OPTIONS"]);
         if (DebouncePrivate.CliqueDetected) then

@@ -140,6 +140,11 @@ L["FRAMETYPE_PLAYER"] = "Player Frame"
 L["FRAMETYPE_TARGET"] = "Target And Focus"
 L["FRAMETYPE_UNKNOWN"] = "Others"
 L["GENERAL"] = "General"
+-- 목록 위의 체크박스. 묶어도 줄 순서는 이름순이라는 것과, 진짜 발동 순서는 어디서
+-- 보는지를 툴팁이 대신 말한다 - 그걸 말할 자리가 여기밖에 없다(InitializeButtons 참고).
+L["GROUP_BY_KEY"] = "Group by Key"
+L["GROUP_BY_KEY_DESC"] = "Draws a line where the key changes. The list stays alphabetical either way, inside a key too."
+L["GROUP_BY_KEY_ORDER_HINT"] = "This is not the firing order. Which action wins a key is decided by importance, conditions, and scope -- select an action and open its Key Binding tab to see the real order."
 L["GROUP_NONE"] = "When Not In Group";
 L["GROUP_PARTY"] = "When In Party";
 L["GROUP_RAID"] = "When In Raid";
@@ -221,12 +226,6 @@ L["SCOPE"] = "Scope"
 L["SELECTED_TARGET_UNIT_EMPTY"] = "Assigned Target |cnDISABLED_FONT_COLOR:(None)|r"
 L["SELECTED_TARGET_UNIT"] = "Assigned Target |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
 L["SHARED_BINDINGS"] = "Shared Bindings"
-L["SORT_LIST_BY"] = "Sort list by"
-L["SORT_LIST_BY_KEY"] = "Key"
-L["SORT_LIST_BY_KEY_DESC"] = "Group by key. Within each key the order is the order the actions actually fire in."
-L["SORT_LIST_BY_NAME"] = "Name"
-L["SORT_LIST_BY_NAME_DESC"] = "Alphabetical. This is a display order only."
-L["SORT_LIST_BY_NAME_NOTICE"] = "Sorting by name only changes how the list is drawn. It does not change which action wins a key -- that is decided by importance, conditions, and scope. Sort by key to see the real firing order."
 L["SPECIAL_CONDITIONS"] = "Special Conditions"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - Set to %s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cff888888Cleared (More than one unit detected)|r"

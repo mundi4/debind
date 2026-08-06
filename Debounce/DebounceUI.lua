@@ -1727,6 +1727,12 @@ end
 
 -- 커서에 집어온 주문/매크로를 놓는 동작은 드래그가 아니라 **클릭**이다. 그래서 클릭도
 -- OnReceiveDrag로 보낸다. 폴백이 아니라 pickup의 정규 경로다.
+--- 목록을 단축키로 묶어 그릴지. 기본은 켬이다 - 저장값이 nil이면 켜진 것으로 읽고,
+--- 끈 사람만 false를 남긴다. 무엇이 묶이고 무엇이 안 묶이는지는 BuildSortedElements에 있다.
+local function IsGroupByKeyEnabled()
+	return DebouncePrivate.Options.mainListGroupByKey ~= false;
+end
+
 local function ScrollBox_OnClick(self)
 	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:OnReceiveDrag();
@@ -1777,6 +1783,64 @@ function DebounceFrameMixin:InitializeButtons()
 	self.AddPortrait:SetScript("OnClick", function()
 		DebounceSpellPickerFrame:Toggle();
 	end)
+
+	-- 옵션 메뉴가 아니라 목록 바로 위에 산다. 바꾸는 것이 목록의 생김새뿐이라 누른 결과가
+	-- 같은 화면에 보여야 하고, 메뉴 안에 넣으면 그 결과를 보려고 메뉴를 닫아야 한다.
+	local groupByKey = self.GroupByKeyCheckButton;
+	groupByKey.Text:SetText(LLL["GROUP_BY_KEY"]);
+
+	-- 라벨 앵커를 다시 잡는다. UICheckButtonTemplate은 라벨을 체크박스 오른쪽에 **x=-2**로
+	-- 당겨 붙이는데, 그 값은 32x32 기준이다 - 그 크기에서는 텍스처 안쪽 여백이 그만큼
+	-- 있어서 당겨야 간격이 맞는다. 우리는 24x24로 줄여 썼고(검색창이 30 높이라 32는 줄에서
+	-- 튄다) 여백도 같이 줄어서 -2가 라벨을 상자에 붙여버렸다.
+	local labelGap = 4;
+	groupByKey.Text:ClearAllPoints();
+	groupByKey.Text:SetPoint("LEFT", groupByKey, "RIGHT", labelGap, 0);
+
+	-- 라벨도 눌리게 한다. 템플릿은 상자만 받으므로 라벨 폭만큼 히트 영역을 오른쪽으로
+	-- 늘려야 한다 - 블리자드도 같은 자리에서 같은 한 줄을 쓴다(Blizzard_Calendar.lua:3798).
+	-- 폭은 로케일마다 다르니 재서 쓴다. SetText 뒤라 이미 잰 값이 나온다.
+	groupByKey:SetHitRectInsets(0, -(labelGap + groupByKey.Text:GetStringWidth()), 0, 0);
+	groupByKey:SetChecked(IsGroupByKeyEnabled());
+	groupByKey:SetScript("OnClick", function(button)
+		local checked = button:GetChecked();
+
+		-- 기본값(켬)일 때는 아무것도 안 남긴다. 끈 사람만 false를 저장한다.
+		--
+		-- **`a and false or nil` 꼴로 쓰지 말 것.** `false or nil`이 늘 nil이라 어느 가지로 가든
+		-- nil이 나온다 - 끈 것이 저장되지 않아 체크박스만 움직이고 목록은 그대로였다.
+		-- 관용구로 nil과 false를 갈라낼 수 없으므로 여기는 if로 쓴다.
+		if (checked) then
+			DebouncePrivate.Options.mainListGroupByKey = nil;
+		else
+			DebouncePrivate.Options.mainListGroupByKey = false;
+		end
+
+		PlaySound(checked and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF);
+		-- 스크롤 위치를 버리지 않는다. 버리면 목록이 맨 위로 튀는데, 묶는 선을 그었다 지웠다
+		-- 하는 것뿐인 조작치고는 대가가 크다.
+		self:Refresh(true);
+
+		-- 그래도 줄들은 새로 놓인다. 고른 게 있으면 따라간다 -
+		-- 아니면 "선택은 그대로인데 화면에는 없는" 상태가 되고, 그건 선택이 풀린 것처럼 보인다.
+		if (_selectedAction) then
+			self:ScrollActionIntoView(_selectedAction);
+		end
+	end);
+
+	-- 여기가 "묶는다는 게 무슨 뜻이냐"를 답할 유일한 자리다. 그룹 헤더는 툴팁을 띄우지
+	-- 않고(이벤트를 밑의 ScrollBox로 통과시킨다), 목록을 그릴 때마다 알림창을 띄울 수도
+	-- 없다 - 묶기가 기본값이라 그건 처음 창을 여는 모든 사람에게 뜬다.
+	groupByKey:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, LLL["GROUP_BY_KEY"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["GROUP_BY_KEY_DESC"]);
+		GameTooltip_AddInstructionLine(GameTooltip, LLL["GROUP_BY_KEY_ORDER_HINT"]);
+		GameTooltip:Show();
+	end);
+	groupByKey:SetScript("OnLeave", function()
+		GameTooltip:Hide();
+	end);
 end
 
 --- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
@@ -2131,34 +2195,39 @@ function DebounceFrameMixin:OnBindingsUpdated(_, skipped)
 	self:Update();
 end
 
--- 물어보는 게 아니라 알리기만 하는 창이라 버튼이 하나뿐이다. GENERIC_CONFIRMATION은
--- 취소 버튼이 늘 붙는 데다 OnAccept에서 data.callback을 무조건 호출해서 (콜백이 없으면
--- 확인을 누르는 순간 에러) 이런 알림창에는 맞지 않는다.
-StaticPopupDialogs["DEBOUNCE_NAME_SORT_NOTICE"] = {
-	text = LLL["SORT_LIST_BY_NAME_NOTICE"],
-	button1 = OKAY,
-	showAlert = 1,
-	hideOnEscape = 1,
-	whileDead = 1,
-	timeout = 0,
-};
-
---- 정렬 방식을 바꿨을 때 목록을 다시 그린다.
---- 이름순은 **표시 순서일 뿐**이라 발동 순서와 무관하다. 그걸 모르면 목록 맨 위에 있는 게
---- 먼저 나가는 줄 안다. 계정당 딱 한 번 알린다.
-function DebounceUI.NotifyMainListSortChanged(mode)
-	if (mode == "name" and not DebouncePrivate.Options.nameSortNoticeShown) then
-		DebouncePrivate.Options.nameSortNoticeShown = true;
-		StaticPopup_Show("DEBOUNCE_NAME_SORT_NOTICE");
+-- 목록의 줄 순서는 **언제나 이름순**이고, 남은 선택은 "키 경계에 선을 그을 것인가" 하나다.
+--
+-- 예전에는 키순/이름순 두 모드였고 키순은 한 키 안을 발동 순서로 그렸다. 그 순서는 말할
+-- 자격이 없는 순서였다: 이 목록은 **한 레이어만** 보여준다(그래서 layerRank가 상수였다).
+-- 더 구체적인 레이어의 액션이 같은 키를 전부 이기고 있어도 여기엔 안 나오므로, 화면에
+-- 보이는 위아래가 실제로 무엇이 먼저 나가는지와 어긋날 수 있었다. 진짜 순서는 레이어를
+-- 가로질러 모으는 상세 패널 단축키 탭에 있다(CollectActionsForKey).
+--
+-- 그래서 묶기는 정렬 모드가 아니라 토글이다. **그룹 안도 이름순이다** - 선을 긋는 일이지
+-- 순서를 바꾸는 일이 아니라서, 목록 어디에도 "위에 있는 게 먼저 나간다"가 없다.
+local function CompareByName(lhs, rhs)
+	if (lhs.sortName ~= rhs.sortName) then
+		return lhs.sortName < rhs.sortName;
 	end
-	DebounceFrame:Refresh();
+	-- 이름이 같은 줄은 실재한다(같은 주문을 조건만 달리해 두 번 넣는 것이 정상이다).
+	-- table.sort는 불안정하므로 여기서 받쳐주지 않으면 새로 그릴 때마다 자리가 바뀐다.
+	return lhs.index < rhs.index;
 end
 
--- 배열 위치(index)는 이제 사용자가 만지는 것이 아니라 삽입 순서일 뿐이다. 그래서 목록을
--- 배열 그대로 그리지 않고 정렬해서 보여준다.
---   키순  - 키로 묶고, 한 키 안에서는 **실제 발동 순서**대로. 한 레이어만 보므로
---           layerRank는 상수이고 (priority, hover, isConditional, index)만 남는다.
---   이름순 - 표시 순서일 뿐이다. 발동 순서와 무관하다는 걸 사용자에게 한 번 알린다.
+local function CompareByKeyThenName(lhs, rhs)
+	local lhsKey, rhsKey = lhs.action.key, rhs.action.key;
+	if (lhsKey ~= rhsKey) then
+		-- 키 없는 액션은 맨 위로. 고쳐야 할 것들이라 눈에 띄어야 한다.
+		if (not lhsKey) then
+			return true;
+		elseif (not rhsKey) then
+			return false;
+		end
+		return DebouncePrivate.CompareKeys(lhsKey, rhsKey);
+	end
+	return CompareByName(lhs, rhs);
+end
+
 local function BuildSortedElements(layer, layerID)
 	local elements = {};
 	for i, action in layer:Enumerate() do
@@ -2166,60 +2235,33 @@ local function BuildSortedElements(layer, layerID)
 			action = action,
 			layer = layerID,
 			index = i,
-			order = {
-				priority = action.priority,
-				hover = action.hover,
-				isConditional = DebouncePrivate.IsConditionalAction(action),
-				layerRank = 0,
-				index = i,
-			},
+			sortName = strlower(NameAndIconForAction(action) or ""),
 		};
 	end
 
-	if (DebouncePrivate.Options.mainListSort == "name") then
-		for _, elementData in ipairs(elements) do
-			elementData.sortName = strlower(NameAndIconForAction(elementData.action) or "");
-		end
-		sort(elements, function(lhs, rhs)
-			if (lhs.sortName ~= rhs.sortName) then
-				return lhs.sortName < rhs.sortName;
-			end
-			return lhs.index < rhs.index;
-		end);
-	else
-		sort(elements, function(lhs, rhs)
-			local lhsKey, rhsKey = lhs.action.key, rhs.action.key;
-			if (lhsKey ~= rhsKey) then
-				-- 키 없는 액션은 맨 위로. 고쳐야 할 것들이라 눈에 띄어야 한다.
-				if (not lhsKey) then
-					return true;
-				elseif (not rhsKey) then
-					return false;
-				end
-				return DebouncePrivate.CompareKeys(lhsKey, rhsKey);
-			end
-			return DebouncePrivate.CompareActionOrder(lhs.order, rhs.order);
-		end);
-
-		-- 키가 바뀌는 자리마다 헤더를 끼운다. 이름순에는 안 넣는다 - 그쪽은 묶음이 아니라
-		-- 표시 순서일 뿐이라 그을 경계가 없다.
-		--
-		-- 헤더 elementData에는 action이 없다. 액션으로 찾는 쪽(FindElementDataByActionInfo)이
-		-- 자연히 비켜가므로 선택·스크롤 경로는 헤더를 몰라도 된다.
-		local grouped = {};
-		local lastKey, started;
-		for _, elementData in ipairs(elements) do
-			local key = elementData.action.key;
-			if (not started or key ~= lastKey) then
-				grouped[#grouped + 1] = { isHeader = true, key = key, layer = layerID };
-				lastKey, started = key, true;
-			end
-			grouped[#grouped + 1] = elementData;
-		end
-		elements = grouped;
+	if (not IsGroupByKeyEnabled()) then
+		sort(elements, CompareByName);
+		return elements;
 	end
 
-	return elements;
+	sort(elements, CompareByKeyThenName);
+
+	-- 키가 바뀌는 자리마다 헤더를 끼운다.
+	--
+	-- 헤더 elementData에는 action이 없다. 액션으로 찾는 쪽(FindElementDataByActionInfo)이
+	-- 자연히 비켜가므로 선택·스크롤 경로는 헤더를 몰라도 된다.
+	local grouped = {};
+	local lastKey, started;
+	for _, elementData in ipairs(elements) do
+		local key = elementData.action.key;
+		if (not started or key ~= lastKey) then
+			grouped[#grouped + 1] = { isHeader = true, key = key, layer = layerID };
+			lastKey, started = key, true;
+		end
+		grouped[#grouped + 1] = elementData;
+	end
+
+	return grouped;
 end
 
 function DebounceFrameMixin:Refresh(retainScrollPosition)
@@ -2278,13 +2320,15 @@ end
 --- 액션이 사는 행을 화면 안으로 데려온다. **이미 다 보이면 아무것도 하지 않는다** -
 --- 화면을 옮기는 것은 사용자가 보던 자리를 빼앗는 일이라, 필요할 때만 해야 한다.
 ---
---- 목록은 키로 묶여 있으므로 단축키를 바꾸면 그 행이 다른 그룹으로 **건너뛴다.** 방금
---- 무엇을 바꿨는지 확인할 수 있는 유일한 행이 스크롤 밖으로 사라지면 목록은 아무 일도
---- 일어나지 않은 것처럼 보인다.
+--- 목록이 키로 묶여 있으면 단축키를 바꾼 행이 다른 그룹으로 **건너뛴다.** 방금 무엇을
+--- 바꿨는지 확인할 수 있는 유일한 행이 스크롤 밖으로 사라지면 목록은 아무 일도 일어나지
+--- 않은 것처럼 보인다. 묶기를 껐다 켜는 것도 같은 이유로 여기를 지난다 - 그때는 목록
+--- 전체가 새로 놓이므로 보던 행이 어디로든 갈 수 있다.
 ---
 --- 위로 벗어났을 때는 바로 위 헤더까지 데려온다. 행만 맨 위에 붙이면 이 행이 어느 키에
 --- 속하는지 말해주는 줄이 화면 밖 한 칸 위에 남는데, 그게 방금 바꾼 바로 그 키다. 아래로
 --- 벗어난 경우는 AlignEnd(행을 아래 끝에 맞춤)라 헤더가 자연히 위쪽에 따라 들어온다.
+--- 묶기를 껐으면 앞줄이 헤더가 아니므로 이 갈래는 저절로 안 탄다.
 function DebounceFrameMixin:ScrollActionIntoView(action)
 	local elementData, index = self:FindElementDataByActionInfo(action);
 	if (not elementData) then
@@ -2435,6 +2479,7 @@ function DebounceFrameMixin:UpdateButtons()
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
 	self.SearchBox:SetEnabled(enableButtons);
+	self.GroupByKeyCheckButton:SetEnabled(enableButtons);
 end
 
 function DebounceFrameMixin:SetTab(id)

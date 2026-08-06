@@ -656,6 +656,21 @@
 			</EditBox>
 
 			<!--
+				목록을 단축키로 묶을지. **정렬 모드가 아니다** - 줄 순서는 묶든 안 묶든 이름순이고
+				이 체크박스는 키가 바뀌는 자리에 선을 그을지만 정한다. 이유는
+				`BuildSortedElements`(DebounceUI.lua)에 있다.
+
+				옵션 메뉴가 아니라 목록 위에 두는 이유, 라벨/툴팁을 Lua에서 붙이는 이유는
+				`DebounceFrameMixin:InitializeButtons`에.
+			-->
+			<CheckButton parentKey="GroupByKeyCheckButton" inherits="UICheckButtonTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
+				</Anchors>
+			</CheckButton>
+
+			<!--
 				드래그 중에 창 안쪽을 통째로 덮는다.
 
 				이 창은 **어디에 떨궈도** 받는다 - 떨어진 위치가 뜻을 가지지 않기 때문이다.
