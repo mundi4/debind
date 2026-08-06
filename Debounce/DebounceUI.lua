@@ -38,7 +38,6 @@ local _pickedupInfo;
 -- 상세 패널이 보여주는 액션. elementData가 아니라 action 테이블을 들고 있는 이유는
 -- elementData가 Refresh마다 새로 만들어지기 때문이다 (DebounceFrameMixin:Refresh).
 local _selectedAction;
-local _newlyInsertedActions  = {};
 
 DebounceUI.ActionMenuRootTag = "DEBOUNCE_ACTION_ROOT";
 
@@ -225,6 +224,30 @@ local UNIT_INFO            = {
 		petaction = false,
 		unitexists = false,
 	},
+};
+
+--- 대상 목록을 **보여줄 순서.** `UNIT_INFO`는 해시라 순서가 없어서 이 배열이 필요하다.
+---
+--- 여기 있는 것이 곧 목록이다 - `UNIT_INFO`에만 있고 여기 없는 유닛은 어느 메뉴에도
+--- 안 나온다. 어느 타입이 어느 유닛을 받는지는 `UNIT_INFO[unit][type] ~= false`가 따로 답한다.
+---
+--- **`DebounceUI`에 둔 것은 두 곳이 쓰기 때문이다.** [추가] 드롭다운(`DropDownMenus.lua`)과
+--- 선택 창의 기타 탭(`ActionCatalog.lua`)이 같은 목록을 걸어야 한다 - 한때 `TYPES_WITH_UNIT`이
+--- 두 파일에 복사돼 있다가 한쪽만 고쳐져서 펫 명령의 대상이 조용히 지워진 적이 있다.
+local SORTED_UNIT_LIST     = {
+	"player",
+	"pet",
+	"target",
+	"focus",
+	"mouseover",
+	"tank",
+	"healer",
+	"maintank",
+	"mainassist",
+	"custom1",
+	"custom2",
+	"hover",
+	"none",
 };
 
 local _keyInfoCache        = {};
@@ -591,7 +614,11 @@ local function NameAndIconForAction(action)
 		actionName, actionIcon = DebouncePrivate.GetFlyoutNameAndIcon(value, true);
 	elseif (type == Constants.UNUSED) then
 		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
-		actionIcon = "INTERFACE\\RAIDFRAME\\ReadyCheck-NotReady";
+		-- **되돌리기지 금지가 아니다.** 빨간 X(`ReadyCheck-NotReady`)를 쓰던 자리인데, 그
+		-- 그림은 "막는다·아무 일도 안 한다"로 읽혀서 툴팁과 반대말을 했다 - 키는 그대로
+		-- 눌리고 WoW 바인딩이 시키는 일을 한다. 블리자드가 "기본값으로 되돌리기"에 쓰는
+		-- 화살표를 그대로 빌려온다(쿨다운 뷰어의 변경 취소, 커스터마이즈의 카메라 초기화).
+		actionIcon = "A:common-icon-undo";
 		skipTypeName = true;
 	else
 		actionName = action.name or LLL["UNNAMED_ACTION"];
@@ -683,31 +710,22 @@ do
 	end
 end
 
-local ShowInputBox, HideInputBox;
-do
-	local _shownInputBoxes = {};
-
-	function ShowInputBox(data)
-		_shownInputBoxes[data] = true;
-		StaticPopup_ShowCustomGenericInputBox(data);
-		if (data.currentValue) then
-			local popup = StaticPopup_FindVisible("GENERIC_INPUT_BOX", data);
-			if (popup) then
-				popup.editBox:SetText(data.currentValue);
-			end
+--- 이름 바꾸기 따위의 입력 팝업. **띄우기만 한다.**
+---
+--- 한때 여기 `_shownInputBoxes` 표와 `HideInputBox` · `HideAllInputBoxes`가 같이 있었는데
+--- 둘 다 **부르는 데가 없었다.** 그러면 표는 채워지기만 하고 절대 안 비워지는 자루가 된다 -
+--- 팝업을 열 때마다 한 칸씩 늘고 세션 내내 남았다. 게다가 `HideAllInputBoxes`는 `local`이
+--- 빠져 있어서 전역까지 하나 새고 있었다(윗줄의 선언에 그 이름이 없다).
+---
+--- 닫는 일은 팝업 자신이 한다(확인·취소·ESC). 우리가 강제로 닫아야 할 자리가 생기면 그때
+--- 표를 다시 만들면 되고, 그 전까지는 없는 편이 정확하다.
+local function ShowInputBox(data)
+	StaticPopup_ShowCustomGenericInputBox(data);
+	if (data.currentValue) then
+		local popup = StaticPopup_FindVisible("GENERIC_INPUT_BOX", data);
+		if (popup) then
+			popup.editBox:SetText(data.currentValue);
 		end
-	end
-
-	function HideInputBox(data)
-		_shownInputBoxes[data] = nil;
-		StaticPopup_Hide("GENERIC_INPUT_BOX", data);
-	end
-
-	function HideAllInputBoxes()
-		for data in pairs(_shownInputBoxes) do
-			StaticPopup_Hide("GENERIC_INPUT_BOX", data);
-		end
-		wipe(_shownInputBoxes);
 	end
 end
 
@@ -1519,7 +1537,9 @@ function DebouncePortraitMixin:OnMenuOpened(menu)
 end
 
 function DebouncePortraitMixin:OnMenuClosed(menu)
-	DropdownButtonMixin.OnMenuOpened(self, menu);
+	-- 위 함수를 복사해 오면서 `OnMenuOpened`가 그대로 남아 있었다. 화면은 아래 줄이 맞춰줘서
+	-- 멀쩡했지만, 기본 믹스인 쪽은 **메뉴가 영영 열려 있는 것으로 알고** 있었다.
+	DropdownButtonMixin.OnMenuClosed(self, menu);
 	self:SetSelectedState(false);
 end
 
@@ -1749,6 +1769,13 @@ end
 function DebounceFrameMixin:InitializeButtons()
 	self.OverviewPortrait:SetScript("OnClick", function()
 		DebounceOverviewFrame:Toggle();
+	end)
+
+	-- [+]는 이제 **창을 연다.** 예전에는 여기 드롭다운이 매달려 있었는데, 그 안에 있던
+	-- 항목이 전부 주문 선택 창으로 옮겨갔다(주문·매크로·탈것·장난감은 목록으로, 명령과
+	-- 애드온 고유 액션은 각자 탭으로, 매크로 텍스트는 그 창의 버튼으로).
+	self.AddPortrait:SetScript("OnClick", function()
+		DebounceSpellPickerFrame:Toggle();
 	end)
 end
 
@@ -2392,7 +2419,15 @@ function DebounceFrameMixin:UpdateButtons()
 		PanelTemplates_SetTabEnabled(self, i, enableButtons);
 	end
 
-	for _, tab in ipairs(self.SideTabs) do
+	-- **사이드탭은 아직 없을 수 있다.** `SideTabs`를 채우는 것은 `InitializeSideTabs`이고
+	-- 그건 `OnLoad`에서만 도는데, 이 창의 XML에는 `OnLoad`가 없다 - `OnShow`의
+	-- `not self.initialized` 가드가 대신 부른다. 즉 **메인 창을 한 번도 안 연 세션**에서는
+	-- 이 필드가 nil이다.
+	--
+	-- 그런 세션이 실제로 있다: 오버뷰는 메인 창 없이 열리고(`/deb overview`, 애드온 구획
+	-- 버튼 우클릭), 그 창의 행에 마우스만 올려도 `DebounceFrame:Update()`를 지나 여기로 온다.
+	-- 그때 `ipairs(nil)`로 터졌다.
+	for _, tab in ipairs(self.SideTabs or {}) do
 		tab:SetEnabled(enableButtons);
 	end
 
@@ -2471,7 +2506,14 @@ function DebounceFrameMixin:StartDragging(elementData)
 
 	local name, icon = ColoredNameAndIconForAction(elementData.action);
 	DebounceActionPlacerFrame.Name:SetText(name);
-	DebounceActionPlacerFrame.Icon:SetTexture(icon);
+	-- 끌고 다니는 그림도 아틀라스를 받아야 한다. 여기만 `SetTexture` 하나였는데, 명령·사용
+	-- 안 함처럼 아이콘 파일이 없는 타입은 `"A:"` 아틀라스라(`NameAndIconForAction`)
+	-- 경로로 넘기면 빈 칸을 끌게 된다.
+	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
+		DebounceActionPlacerFrame.Icon:SetAtlas(icon:sub(3));
+	else
+		DebounceActionPlacerFrame.Icon:SetTexture(icon);
+	end
 	DebounceActionPlacerFrame:Show();
 
 	self:RegisterEvent("GLOBAL_MOUSE_UP");
@@ -2525,9 +2567,6 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 
 	-- 항상 맨 뒤에 붙인다. 떨어진 위치는 의미가 없다.
 	destLayer:Insert(action, nil);
-	if (_newlyInsertedActions[destLayerID] == nil) then
-		_newlyInsertedActions[destLayerID] = action;
-	end
 
 	self:ClearMouse();
 	DebouncePrivate.UpdateBindings();
@@ -3906,22 +3945,31 @@ function DebounceOverviewLineMixin:OnClick()
 
 	if (matchedLayer) then
 		DebounceFrame:Show();
-		if (matchedLayer.isCharacterSpecific) then
-			DebounceFrame:SetTab(2);
-		else
-			DebounceFrame:SetTab(1);
-		end
-		if (matchedLayer.spec) then
-			DebounceFrame.SideTabs[matchedLayer.spec + 2]:Click();
-		else
-			DebounceFrame.SideTabs[1]:Click();
-		end
 
-		local index, elementDataFound = DebounceFrame.dataProvider:FindByPredicate(function(elementData2)
+		-- **탭 좌표는 `GetLayerTabs`가 안다.** 여기서 손으로 세다가 두 번 틀렸다:
+		-- `if (matchedLayer.spec)`이 **spec 0에서 참**이라(Lua에서 `0`은 truthy) 캐릭터 전용
+		-- 공용 레이어가 사이드탭 2로 갔는데, 탭2에서 그 사이드탭은 `UpdateSideTabs`가 숨기는
+		-- 자리다 - 숨은 버튼을 누르고 체크된 사이드탭이 하나도 없는 상태가 됐다. 보이는
+		-- 내용은 어차피 같은 레이어라 티가 안 나고, 창 제목만 엉뚱한 것을 말했다.
+		--
+		-- 그 규칙은 `GetLayerTabs`에 이미 들어 있다(레이어 7의 충돌 처리까지). 두 곳이
+		-- 같은 것을 알 이유가 없다.
+		local layerID = DebouncePrivate.GetLayerID(matchedLayer.spec, matchedLayer.isCharacterSpecific);
+		local tab, sideTab = GetLayerTabs(layerID);
+		DebounceFrame:SetTab(tab);
+		DebounceFrame.SideTabs[sideTab]:Click();
+
+		-- **못 찾을 수 있다.** 사이드탭 클릭은 저장 안 된 편집이 있으면 되돌아선다
+		-- (`DebounceSideTabMixin:OnClick`의 `TryCloseAnyDialog`). 그러면 목록은 아직 다른
+		-- 레이어를 보고 있고 이 액션은 거기 없다. `ScrollToNearest(nil)`은 블리자드
+		-- ScrollBox 안에서 터진다 - 스크롤을 못 하는 것과 오류를 내는 것은 다르다.
+		local index = DebounceFrame.dataProvider:FindByPredicate(function(elementData2)
 			return elementData2.action == elementData.action;
-		end)
+		end);
 
-		DebounceFrame.ScrollBox:ScrollToNearest(index);
+		if (index) then
+			DebounceFrame.ScrollBox:ScrollToNearest(index);
+		end
 	end
 end
 
@@ -4055,6 +4103,7 @@ end
 
 -- temp
 DebounceUI.UNIT_INFO = UNIT_INFO;
+DebounceUI.SORTED_UNIT_LIST = SORTED_UNIT_LIST;
 DebounceUI.BINDING_TYPE_NAMES = BINDING_TYPE_NAMES;
 DebounceUI.GetLayerID = GetLayerID;
 DebounceUI.GetTabLabel = GetTabLabel;

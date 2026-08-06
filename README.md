@@ -49,7 +49,7 @@ Drag a spell, item, macro or mount onto the list. **Add...** has the rest. Left-
 
 Spells, items, macros and mounts, dragged in from where they already are. Then:
 
-- **Macro Text** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`.
+- **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`.
 - **Binding Command** — one of WoW's own binding commands (jump, open a bag, press a bar button), wrapped so it can carry conditions.
 - **Use WoW's Own Binding** — gives the key back to WoW for the cases you pick, so one spec can go on using your normal binding.
 - **Set Custom Target** and **Set Custom State** — the two things below.
@@ -70,7 +70,7 @@ Take Innervate. Balance druid, keystones, and it wants to go out to the healer o
 
 Debind is the one working out who that is, so `@healer` only means anything in Debind's own places. Most of the time that place is the action's right-click menu — pick the unit and you're done.
 
-The other is a **Macro Text**, where one line can try the healer first and fall back to your normal target:
+The other is a **Custom Macro**, where one line can try the healer first and fall back to your normal target:
 
 ```
 /cast [@healer,exists][] Innervate
@@ -88,7 +88,7 @@ One gap, and it's a narrow one: the group changes mid-fight, and *after that* yo
 
 ## Custom states
 
-Five switches of your own. An action can require one to be on, or off, and a Macro Text can read it as `[$state1]` / `[no$state1]`.
+Five switches of your own. An action can require one to be on, or off, and a Custom Macro can read it as `[$state1]` / `[no$state1]`.
 
 They can be flipped **in combat**, which is the point of them — it's how you change what a key does in the middle of a fight. G Shift or Hypershift, without spending a real modifier key.
 

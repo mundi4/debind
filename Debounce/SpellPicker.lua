@@ -36,7 +36,16 @@ DebounceSpellPickerRowMixin = {};
 function DebounceSpellPickerRowMixin:Init(elementData)
 	self.entry = elementData;
 
-	self.Icon:SetTexture(elementData.icon);
+	-- 아이콘은 파일·ID **또는 아틀라스**다. `"A:"`로 시작하면 아틀라스라는 것이 이 애드온의
+	-- 규약이고(`NameAndIconForAction`), 명령처럼 아이콘 파일이 없는 타입이 그걸 쓴다.
+	-- 왼쪽 목록의 행도 같은 분기를 갖고 있다 - 여기만 빼먹으면 그 줄만 아이콘이 빈다.
+	local icon = elementData.icon;
+	if (type(icon) == "string" and icon:sub(1, 2) == "A:") then
+		self.Icon:SetAtlas(icon:sub(3));
+	else
+		self.Icon:SetTexture(icon);
+	end
+
 	self.Name:SetText(elementData.name);
 
 	-- 부제는 랭크·계열이다. "다른 특성"이라는 사실은 여기 안 쓴다 - 머리글이 말하고 있고,
@@ -86,12 +95,18 @@ function DebounceSpellPickerRowMixin:OnEnter()
 		-- 필요한 건 "사용 효과" 줄과 재사용 대기시간이고, 그건 아이템 툴팁에 있다.
 		GameTooltip:SetItemByID(entry.value);
 	else
-		GameTooltip_SetTitle(GameTooltip, entry.name);
+		-- 제목이 행의 글자와 다를 수 있다. 대상 지정 행이 그렇다 - 행에는 대상만 적고
+		-- (머리글이 타입을 말한다) 툴팁은 머리글에서 떨어져 뜨므로 제목에 타입을 다시 붙인다.
+		GameTooltip_SetTitle(GameTooltip, entry.tooltipTitle or entry.name);
 		if (entry.tooltipText and entry.tooltipText ~= "") then
 			GameTooltip_AddNormalLine(GameTooltip, entry.tooltipText);
 		end
 	end
 
+	-- 안내 줄은 **툴팁 내용이 아니라 우리가 덧붙인 것**이다. 빈 줄이 그 경계를 만든다 -
+	-- 안 두면 주문 툴팁의 마지막 줄(재사용 대기시간 따위)에 붙어서 그것도 주문 설명인 것처럼
+	-- 읽힌다. 애드온의 다른 툴팁들도 같은 자리에 빈 줄을 둔다.
+	GameTooltip_AddBlankLineToTooltip(GameTooltip);
 	GameTooltip_AddInstructionLine(GameTooltip, LLL["SPELL_PICKER_CLICK_TO_ADD"]);
 
 	GameTooltip:Show();
@@ -152,10 +167,30 @@ DebounceSpellPickerFrameMixin = {};
 
 --- 필터 값은 카탈로그가 선언한 것만 쓴다(`ActionCatalog.Filters`). 기본값도 거기 있다 -
 --- 오프스펙을 기본으로 넣는 것은 이 애드온에 특성별 레이어가 있기 때문이다(Clique와 반대).
-local function GetOptions()
+---
+--- **값은 탭마다 따로 산다.** 필터 버튼이 지금 탭의 것만 보여주므로 값도 그래야 한다 -
+--- 안 그러면 탈것 탭에서 켠 "즐겨찾기만"이 장난감 탭까지 걸러버리는데, 그건 **다른 탭에서
+--- 켠 적 없는 필터가 목록을 비우는** 것이라 원인을 찾을 데가 없다. 개수가 수백인 두 탭이라
+--- 같은 값을 쓰고 싶은 상황도 아니다. X 버튼이 지금 탭만 되돌리는 것도 같은 이유다.
+local function GetOptions(categoryKey)
 	local db = DebouncePrivate.db.global;
 	db.spellPicker = db.spellPicker or {};
-	local options = db.spellPicker;
+
+	-- 예전에는 값이 탭 구분 없이 평평하게 저장됐다. 남아 있으면 통째로 버린다 - 필터 몇 개의
+	-- 기본값으로 돌아가는 것뿐이라 옮겨줄 값어치가 없고, 섞여 있으면 아래 인덱싱이 불리언을
+	-- 테이블처럼 읽는다.
+	for _, value in pairs(db.spellPicker) do
+		if (type(value) ~= "table") then
+			wipe(db.spellPicker);
+			break;
+		end
+	end
+
+	local options = db.spellPicker[categoryKey];
+	if (not options) then
+		options = {};
+		db.spellPicker[categoryKey] = options;
+	end
 
 	for _, filter in pairs(ActionCatalog.Filters) do
 		if (options[filter.option] == nil) then
@@ -170,7 +205,15 @@ function DebounceSpellPickerFrameMixin:OnLoad()
 	self.initialized = true;
 
 	self:SetTitle(LLL["SPELL_PICKER_TITLE"]);
-	self:SetPortraitToAsset("Interface\\Icons\\INV_Misc_Book_09");
+
+	-- **메인 창과 같은 초상화다**(`DebounceFrameMixin:OnLoad`의 133015). 한때 주문서 아이콘을
+	-- 썼는데, 그건 이 창에 주문밖에 없던 시절의 것이다 - 지금은 매크로·탈것·장난감·명령·특수가
+	-- 같이 있어서 주문서가 목록을 대표하지 못한다.
+	--
+	-- 탭마다 아이콘을 바꾸는 길도 있지만 안 간다. 여섯 개를 고르는 일이 되고, 그때마다
+	-- 초상화가 바뀌면 **창이 바뀐 것처럼 보인다** - 탭은 같은 창 안의 이동이다.
+	-- 메인 창 것을 그대로 쓰면 "이건 저 창에 넣는 물건"이라는 말도 같이 된다.
+	self:SetPortraitToAsset(133015);
 
 	self:RegisterForDrag("LeftButton");
 	self:SetScript("OnDragStart", function()
@@ -188,6 +231,7 @@ function DebounceSpellPickerFrameMixin:OnLoad()
 	self:InitializeScrollBox();
 	self:InitializeSearchBox();
 	self:InitializeFilterDropdown();
+	self:InitializeNewMacroButton();
 
 	-- 프레임마다 새 테이블을 만들지 않으려고 둘 다 재사용한다.
 	--   filteredEntries  필터를 통과한 엔트리 (비었는지는 이쪽을 본다)
@@ -273,7 +317,7 @@ end
 --- 아예 안 만든다(ActionCatalog). 켤 수 있게 두면 "켰는데 걸어도 안 나간다"가 된다.
 function DebounceSpellPickerFrameMixin:InitializeFilterDropdown()
 	self.FilterDropdown:SetupMenu(function(_, rootDescription)
-		local options = GetOptions();
+		local options = GetOptions(self:GetSelectedCategoryKey());
 
 		for _, key in ipairs(self:GetSelectedCategoryFilters()) do
 			local filter = ActionCatalog.Filters[key];
@@ -286,6 +330,70 @@ function DebounceSpellPickerFrameMixin:InitializeFilterDropdown()
 				end);
 		end
 	end);
+
+	-- 기본값이 아니면 필터 버튼 오른쪽 위에 X가 뜬다. **템플릿이 이미 다 갖고 있다** -
+	-- `ResetButton`도, 메뉴가 닫힐 때·창이 열릴 때 다시 판정하는 것도
+	-- (`WowDropdownFilterBehaviorMixin`). 우리가 줄 것은 "지금 기본값인가"와
+	-- "기본값으로 되돌려라" 둘뿐이다. 탈것 창·애완동물 창의 그 X와 같은 물건이다.
+	--
+	-- **지금 탭의 필터만 본다.** 이 버튼이 그때 보여주는 것이 그것뿐이라, 탈것 탭에서 누른
+	-- X가 주문 탭의 "다른 특성"까지 되돌리면 보이지 않는 곳을 건드리는 것이 된다.
+	self.FilterDropdown:SetIsDefaultCallback(function()
+		local options = GetOptions(self:GetSelectedCategoryKey());
+		for _, key in ipairs(self:GetSelectedCategoryFilters()) do
+			local filter = ActionCatalog.Filters[key];
+			if (options[filter.option] ~= filter.default) then
+				return false;
+			end
+		end
+		return true;
+	end);
+
+	self.FilterDropdown:SetDefaultCallback(function()
+		local options = GetOptions(self:GetSelectedCategoryKey());
+		for _, key in ipairs(self:GetSelectedCategoryFilters()) do
+			local filter = ActionCatalog.Filters[key];
+			options[filter.option] = filter.default;
+		end
+		self:RefreshList();
+	end);
+end
+
+--- 매크로 텍스트만은 **고르는 것이 아니라 만드는 것**이라 목록에 자리가 없다. 주문서에도
+--- 없고 커서로 끌어올 수도 없어서(`GetActionTypeAndValueFromCursorInfo`가 받는 것은
+--- 주문·매크로·아이템·탈것 넷뿐이다) 이 버튼이 유일한 길이다.
+---
+--- 흐름은 [추가] 드롭다운이 하던 것과 **똑같다** - 이름·아이콘을 먼저 받고, 만들어진
+--- 액션의 본문 편집기로 이어 간다. 그 이어붙임을 아는 것은 부르는 쪽이다(아이콘 선택기는
+--- "무엇을 열지"를 모른다).
+function DebounceSpellPickerFrameMixin:InitializeNewMacroButton()
+	local button = self.NewMacroButton;
+
+	button:SetText(LLL["SPELL_PICKER_NEW_MACROTEXT"]);
+
+	-- 폭을 글자에 맞춘다. XML의 120은 번역이 짧은 경우의 하한이고, 길어지면 여기서 늘어난다 -
+	-- 잘린 라벨은 이 줄에서 유일하게 만드는 물건을 못 알아보게 만든다.
+	local fontString = button:GetFontString();
+	if (fontString) then
+		button:SetWidth(max(120, fontString:GetStringWidth() + 30));
+	end
+
+	button:SetScript("OnClick", function()
+		if (InCombatLockdown()) then
+			return;
+		end
+		DebounceIconSelectorFrame:OpenForNewMacro(function(elementData)
+			DebounceDetailPanel:EditMacroText(elementData.action);
+		end);
+	end);
+
+	button:SetScript("OnEnter", function()
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, LLL["SPELL_PICKER_NEW_MACROTEXT"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["TYPE_MACROTEXT_DESC"]);
+		GameTooltip:Show();
+	end);
+	button:SetScript("OnLeave", GameTooltip_Hide);
 end
 
 local NO_FILTERS = {};
@@ -293,6 +401,13 @@ local NO_FILTERS = {};
 function DebounceSpellPickerFrameMixin:GetSelectedCategoryFilters()
 	local category = ActionCatalog.GetCategories()[self.selectedTab];
 	return category and category.filters or NO_FILTERS;
+end
+
+--- 필터 값을 담아둘 칸의 이름. 카테고리가 아직 없는 순간(초기화 중)에도 뭔가는 돌려줘야
+--- `GetOptions`가 nil로 인덱싱하지 않는다.
+function DebounceSpellPickerFrameMixin:GetSelectedCategoryKey()
+	local category = ActionCatalog.GetCategories()[self.selectedTab];
+	return category and category.key or "?";
 end
 
 function DebounceSpellPickerFrameMixin:OnShow()
@@ -314,6 +429,11 @@ function DebounceSpellPickerFrameMixin:OnShow()
 
 	self:ApplyPosition();
 
+	-- 이 창을 연 버튼에 눌린 표시를 남긴다. 창이 메인 창을 덮지 않고 옆에 서므로 둘이 같이
+	-- 보이는데, 그때 [+]가 평범하게 서 있으면 이 창이 저 버튼에서 나온 것인지 알 수 없다.
+	-- 오버뷰 창이 자기 버튼에 하는 것과 같다.
+	DebounceFrame.AddPortrait:SetSelectedState(true);
+
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN);
 
 	self:RegisterEvent("SPELLS_CHANGED");
@@ -324,7 +444,16 @@ function DebounceSpellPickerFrameMixin:OnShow()
 	self:RegisterEvent("NEW_TOY_ADDED");
 	-- 즐겨찾기는 머리글도 가르고 "즐겨찾기만" 필터도 가른다. 탈것 창을 옆에 열어둔 채
 	-- 별을 누르는 건 흔한 일이라, 그때 목록이 안 따라가면 잘못 든 것처럼 보인다.
-	self:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED");
+	--
+	-- **탈것 쪽은 `MOUNT_JOURNAL_SEARCH_UPDATED`다.** 한때 `MOUNT_JOURNAL_USABILITY_CHANGED`를
+	-- 걸어뒀는데 그건 별과 아무 상관이 없다 - 블리자드 탈것 창에서 그 이벤트는
+	-- `COMPANION_*`·`PLAYER_REGEN_ENABLED`와 같은 분기에 묶여 있고(`Blizzard_MountCollection.lua`),
+	-- 별을 눌러 목록을 다시 세우는 것은 `SEARCH_UPDATED` 쪽이다. 우리는 사용 가능 여부로
+	-- 거르지도 않으므로 예전 이벤트는 듣고도 할 일이 없었다.
+	--
+	-- 이 이벤트는 저쪽 창의 검색어가 바뀔 때도 온다. 우리 목록은 그 검색과 무관하지만
+	-- 재구축이 한 번 더 도는 것뿐이고, 디바운스가 연타를 접는다.
+	self:RegisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED");
 	self:RegisterEvent("TOYS_UPDATED");
 	-- 소환수 주문·명령은 **주문서 소환수 은행**에서 읽는다(`AddSpellBookItem`). 그쪽은
 	-- `SPELLS_CHANGED`가 이미 덮으므로 따로 들을 것이 없다. 한때 `PET_BAR_UPDATE`를 걸어뒀는데
@@ -336,6 +465,8 @@ function DebounceSpellPickerFrameMixin:OnShow()
 end
 
 function DebounceSpellPickerFrameMixin:OnHide()
+	DebounceFrame.AddPortrait:SetSelectedState(false);
+
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
 
 	self:UnregisterEvent("SPELLS_CHANGED");
@@ -344,7 +475,7 @@ function DebounceSpellPickerFrameMixin:OnHide()
 	self:UnregisterEvent("UPDATE_MACROS");
 	self:UnregisterEvent("NEW_MOUNT_ADDED");
 	self:UnregisterEvent("NEW_TOY_ADDED");
-	self:UnregisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED");
+	self:UnregisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED");
 	self:UnregisterEvent("TOYS_UPDATED");
 
 	-- 걸려 있던 재구축을 무효로 만든다. 타이머 자체는 못 끄므로 토큰으로 버린다.
@@ -370,7 +501,7 @@ function DebounceSpellPickerFrameMixin:ApplyPosition()
 end
 
 function DebounceSpellPickerFrameMixin:OnEvent(event)
-	if (event == "SPELLS_CHANGED" or event == "UPDATE_MACROS" or event == "NEW_MOUNT_ADDED" or event == "NEW_TOY_ADDED" or event == "MOUNT_JOURNAL_USABILITY_CHANGED" or event == "TOYS_UPDATED") then
+	if (event == "SPELLS_CHANGED" or event == "UPDATE_MACROS" or event == "NEW_MOUNT_ADDED" or event == "NEW_TOY_ADDED" or event == "MOUNT_JOURNAL_SEARCH_UPDATED" or event == "TOYS_UPDATED") then
 		self:ScheduleRebuild(0.1);
 	else
 		-- 특성 변경은 주문서를 **비동기로** 갱신한다. 짧은 디바운스로는 아직 안 채워진
@@ -423,8 +554,11 @@ end
 --- stride를 고정으로 두고 셀 크기를 하나로 쓴다) 자리를 실제로 먹는 빈 칸으로 민다:
 --- 줄 가운데면 앞을 채우고, 머리글 뒤에도 채운다. 그러면 다음 주문이 다시 1번 칸에서 시작한다.
 ---
---- 머리글은 `group`이 있는 엔트리에만 붙는다. 나눌 것이 없는 카테고리(특수)는 group이
---- nil이라 머리글 없이 평평하게 나온다.
+--- 머리글은 `group`이 있는 엔트리에만 붙는다. group이 nil인 엔트리들은 머리글 없이 한
+--- 덩어리로 나오는데, **그건 카테고리 전체가 group을 안 쓸 때만 쓸 수 있는 길이다.**
+--- 머리글이 있는 카테고리에 group 없는 엔트리를 하나 섞으면 격자에는 그룹 경계를 그리는
+--- 것이 머리글뿐이라 **앞 그룹에 이어 붙은 것으로 읽힌다** - 한 번 그렇게 새서(특수 탭의
+--- "사용 안 함") 그쪽에 머리글을 줬다. 섞을 거면 전부 주는 쪽이 맞다.
 ---
 --- **같은 머리글끼리 먼저 모은다.** 예전엔 "값이 바뀌는 자리"마다 머리글을 넣었는데, 그건
 --- 소스가 그룹별로 뭉쳐서 준다고 전제한 것이었다. 소환수 주문서가 명령과 주문을 번갈아 주는
@@ -519,7 +653,26 @@ function DebounceSpellPickerFrameMixin:RefreshList()
 	end
 	PanelTemplates_SetTab(self, self.selectedTab);
 
-	local options = GetOptions();
+	-- 쓸 필터가 없는 탭에서는 버튼을 숨기고 **검색창이 그 자리까지 간다.** 두면 눌러도 빈
+	-- 메뉴가 뜨는데(빈 메뉴는 "필터가 없다"가 아니라 "고장났다"로 읽힌다), 숨기기만 하면
+	-- 검색창이 필터에 매달려 있어서 오른쪽에 110px짜리 구멍이 남는다 - 숨은 프레임도 자리는
+	-- 그대로다. 매크로·명령·특수 탭이 그 경우다.
+	local hasFilters = #self:GetSelectedCategoryFilters() > 0;
+	self.FilterDropdown:SetShown(hasFilters);
+
+	self.SearchBox:ClearAllPoints();
+	if (hasFilters) then
+		self.SearchBox:SetPoint("RIGHT", self.FilterDropdown, "LEFT", -6, 0);
+	else
+		self.SearchBox:SetPoint("BOTTOMRIGHT", self.ScrollBoxBackground, "TOPRIGHT", -2, 4);
+	end
+
+	-- X 표시를 다시 판정한다. 템플릿은 **메뉴가 응답할 때와 창이 열릴 때**만 스스로 판정하는데
+	-- (`WowDropdownFilterBehaviorMixin`), 탭을 옮기면 보는 필터 자체가 바뀐다 - 탈것 탭에서
+	-- 켜둔 "즐겨찾기만" 때문에 뜬 X가 주문 탭으로 가서도 남아 있으면 안 된다.
+	self.FilterDropdown:ValidateResetState();
+
+	local options = GetOptions(category and category.key or "?");
 	ActionCatalog.Filter(category and ActionCatalog.GetEntries(category) or {}, {
 		search = self.searchText,
 		includeOffSpec = options.showOffSpec,

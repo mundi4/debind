@@ -185,6 +185,11 @@
 					<Anchor point="TOPLEFT" relativeKey="$parent.Tab4" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
+			<Button parentKey="Tab6" inherits="DebounceSpellPickerTabTemplate" id="6">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.Tab5" relativePoint="TOPRIGHT" x="3" y="0"/>
+				</Anchors>
+			</Button>
 
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
 				<Size x="500" y="0"/>
@@ -223,22 +228,53 @@
 			</EventFrame>
 
 			<!--
-				검색은 **실제로 걸러낸다.** 메인 창처럼 "안 맞는 줄을 흐리게" 할 수가 없다 -
-				여기는 수백 개다.
-			-->
-			<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
-				<Size x="220" y="22"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="8" y="4"/>
-				</Anchors>
-			</EditBox>
+				머리 줄은 **[만들기] … [검색][필터]** 다.
 
+				검색과 필터가 오른쪽에 붙어 한 쌍이고 왼쪽은 그 창이 필요한 것을 놓는 자리 -
+				블리자드의 수집품 창들이 그렇게 서 있다(애완동물 창은 총 마릿수, 장난감
+				상자는 수집 진행 막대). 우리는 그 자리를 [새 매크로]에 쓴다.
+
+				**이 셋은 XML 순서가 앵커 순서다.** 필터가 검색보다 먼저 선언돼야 하고
+				(검색이 필터에 매달린다) 그래서 읽는 순서와 선언 순서가 뒤집혀 있다.
+			-->
 			<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate">
 				<Size x="110" y="22"/>
 				<Anchors>
 					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="-2" y="4"/>
 				</Anchors>
 			</DropdownButton>
+
+			<!--
+				검색은 **실제로 걸러낸다.** 메인 창처럼 "안 맞는 줄을 흐리게" 할 수가 없다 -
+				여기는 수백 개다.
+
+				폭 170은 블리자드 수집품 창들의 검색창과 같은 선이다. 한때 220이었는데,
+				그때는 이 줄에 검색과 필터 둘뿐이라 넓어도 남는 자리가 없었다.
+			-->
+			<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
+				<Size x="170" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.FilterDropdown" relativePoint="LEFT" x="-6" y="0"/>
+				</Anchors>
+			</EditBox>
+
+			<!--
+				이 줄에서 **유일하게 만드는 물건**이다. 목록은 이미 가진 것에서 고르는
+				자리이고 매크로 텍스트만은 여기서 새로 태어난다 - 주문서에도 없고 커서로
+				끌어올 수도 없어서(`GetActionTypeAndValueFromCursorInfo`가 받는 건
+				주문·매크로·아이템·탈것 넷뿐이다) 이 버튼이 유일한 길이다.
+
+				**목록 행이 아니라 크롬에 둔다.** 행으로 두면 "고르면 추가된다"는 목록의
+				계약에 예외가 하나 생긴다.
+
+				폭은 `OnLoad`에서 글자에 맞춘다 - 번역이 길어져도 잘리지 않게.
+			-->
+			<Button parentKey="NewMacroButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="6" y="4"/>
+				</Anchors>
+			</Button>
 		</Frames>
 		<Scripts>
 			<OnShow method="OnShow"/>

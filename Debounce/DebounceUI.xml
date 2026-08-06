@@ -571,16 +571,24 @@
 					<Anchor point="RIGHT" relativeKey="$parent.OptionsPortrait" relativePoint="LEFT" x="-5" y="0"/>
 				</Anchors>
 			</DropdownButton>
-			<DropdownButton parentKey="AddPortrait" inherits="DebouncePortraitTemplate">
+			<!--
+				**메뉴가 아니라 창을 연다.** 한때 여기 드롭다운이 매달려 있었고 그 안에
+				타입별 하위 메뉴가 아홉 겹까지 들어갔는데, 지금은 그 항목이 전부 주문 선택
+				창에 있다 - 검색까지 되는 자리라 메뉴로 남길 이유가 없어졌다.
+
+				그래서 `DropdownButton`이 아니라 평범한 `Button`이다. 클릭은
+				`DebounceFrameMixin:InitializeButtons`에서 붙인다(오버뷰 버튼과 같은 방식).
+			-->
+			<Button parentKey="AddPortrait" inherits="DebouncePortraitTemplate">
 				<KeyValues>
 					<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
 					<KeyValue key="TooltipTitle" value="ADD" type="string"/>
-					<KeyValue key="MenuFunc" value="SetupAddDropdownMenu" type="string"/>
+					<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
 				</KeyValues>
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.CustomStatesPortrait" relativePoint="LEFT" x="-5" y="0"/>
 				</Anchors>
-			</DropdownButton>
+			</Button>
 			<Button parentKey="OverviewPortrait" inherits="DebouncePortraitTemplate">
 				<KeyValues>
 					<KeyValue key="PortraitTexture" value="Interface\Icons\inv_misc_spyglass_03" type="string"/>
