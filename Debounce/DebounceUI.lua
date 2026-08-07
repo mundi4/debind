@@ -3596,22 +3596,28 @@ function DebounceOrderLineMixin:OnClick(buttonName)
 		return;
 	end
 
-	-- 메뉴가 읽는 것은 셋뿐이다: `action`(대부분), `layer`(삭제·이동), `index`(같은 레이어로
-	-- 복사할 때 끼워 넣을 자리). **셋 다 이 행이 이미 들고 있다** - `layerID`와 `index`는
-	-- 목록을 만들 때 프로필에서 직접 읽은 값이라(`CollectActionsForKey`) 왼쪽 목록의 행이
-	-- 들고 있는 것과 같은 자리에서 나왔다.
+	-- **우클릭도 그 행으로 간 다음에 연다.** 편집 메뉴가 만지는 액션은 왼쪽 목록에 있어야
+	-- 한다 - `MoveAction`의 assert도, 매크로 편집기의 이름/아이콘 버튼도, `Refresh`가 선택을
+	-- 유지하는 것도 전부 그 전제 위에 서 있다. 이 목록은 레이어를 가로지르므로 그 전제가
+	-- 저절로 참이 아니고, 어기면 메뉴는 열리는데 항목을 고르면 오류가 나거나 아무 일도
+	-- 안 일어난다.
 	--
-	-- 왼쪽 목록에서 찾아 쓰지 않는다. **없을 수 있다** - 오버뷰 탭의 "문제만" 필터는 문제
-	-- 없는 행을 왼쪽 목록에서 빼는데 순서 목록은 안 뺀다(거기서 빼면 순서가 거짓말이 된다).
-	-- 있을 때만 열면 필터 하나가 메뉴를 껐다 켰다 하게 된다.
-	--
-	-- 강조는 이래도 맞는다. `IsEditDropdownShown`이 테이블이 아니라 **action**을 열쇠로
-	-- 쓰므로(480행) 왼쪽 목록의 같은 액션 행에 테두리가 켜진다.
-	DebounceFrame:ShowEditDropdown(self, {
-		action = row.action,
-		layer = row.layerID,
-		index = row.index,
-	});
+	-- 데려다 놓는 것은 새 동작이 아니다. 예전에는 남의 행에서 열리는 메뉴에 **"가기"
+	-- 하나뿐**이었으므로, 가는 것이 원래 이 자리의 뜻이다. 클릭 한 번이 줄었을 뿐이다.
+	if (not elementData.isCurrent) then
+		DebounceFrame:GoToAction(row.action, row.layerID);
+		-- 대화상자가 막아섰으면(`TryCloseAnyDialog`) 화면은 아직 딴 데 있다.
+		if (DebounceFrame:GetSelectedAction() ~= row.action) then
+			return;
+		end
+	end
+
+	-- 왼쪽 목록이 이 액션의 elementData를 갖고 있다. 메뉴가 원래 받도록 지어진 그 테이블을
+	-- 그대로 넘긴다 - 모양을 흉내내면 저쪽이 바뀔 때 조용히 어긋난다.
+	local mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
+	if (mainElementData) then
+		DebounceFrame:ShowEditDropdown(self, mainElementData);
+	end
 end
 
 local function OrderMoveButton_OnEnter(button)
