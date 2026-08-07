@@ -567,7 +567,7 @@ end
 --- **주문 선택 창도 여기 없다.** 일부러다 - 그 창은 대상을 안 고르고 메인 창에서 열려 있는
 --- 레이어에 넣는다. 여기 넣으면 탭이 잠겨서 대상을 바꿀 방법이 사라진다.
 local function IsEditingAction(action)
-	if (DebounceIconSelectorFrame:IsShown() and (action == nil or (DebounceIconSelectorFrame.elementData and DebounceIconSelectorFrame.elementData.action == action))) then
+	if (DebounceIconSelectorFrame:IsShown() and (action == nil or DebounceIconSelectorFrame.editAction == action)) then
 		return true;
 	end
 	return false;
@@ -846,11 +846,11 @@ end
 
 local function MoveAction(elementData, destLayerID, copying)
 	local fromLayerID = elementData.layer;
-	-- 레이어 탭에서는 목록 전체가 한 레이어라 행의 레이어가 화면의 레이어와 같아야 한다 -
-	-- 어긋나면 elementData가 낡은 것이고, 그걸로 프로필을 만지면 엉뚱한 레이어가 바뀐다.
-	-- **오버뷰 탭에는 그 불변식이 없다**(행마다 레이어가 다르다). 거기서는 행이 들고 온
-	-- 값이 유일한 진실이고, 그 값은 목록을 만들 때 프로필에서 직접 읽은 것이다.
-	assert(IsOverviewTab() or fromLayerID == GetLayerID());
+	-- **행이 들고 온 레이어를 믿는다.** 한때 여기서 화면이 보고 있는 레이어와 같은지
+	-- 확인했는데, 그건 "메뉴는 왼쪽 목록에서만 열린다"가 참이던 시절의 검사다. 지금은
+	-- 순서 목록에서도 열리고 오버뷰 탭은 레이어를 섞어 담으므로, 화면의 레이어는 이
+	-- 액션과 아무 상관이 없다. 값 자체는 목록을 만들 때 프로필에서 직접 읽은 것이다.
+	assert(fromLayerID, "MoveAction: elementData has no layer");
 
 	local action = elementData.action;
 
@@ -1509,6 +1509,17 @@ function DebounceLineMixin:OnClick(buttonName)
 				DebounceDetailPanel:EditMacroText(elementData.action);
 				return;
 			end
+
+			-- **메뉴를 여는 행이 곧 고른 행이다.** 선택은 화면이 "지금 이 액션 이야기 중"이라고
+			-- 말하는 표시인데, 메뉴가 남의 행에서 열리면 그 말과 메뉴가 가리키는 것이 어긋난다.
+			-- 상세 패널은 A를 보여주는데 방금 연 메뉴는 B를 지우려는 상태가 실제로 생긴다.
+			--
+			-- 좌클릭과 같은 함수를 지난다 - 이미 고른 행이면 저쪽이 일찍 돌아선다.
+			--
+			-- **집어오는 것보다 먼저다.** 이 호출은 상세 패널을 닫고, 그 길에 매크로 본문
+			-- 저장이 딸려 오면 목록이 통째로 다시 지어진다 - 먼저 집으면 그 테이블이 낡는다.
+			-- 아래 함수가 존재하는 이유가 정확히 그 문제다(`CloseDialogsAndRefetchElementData`).
+			DebounceFrame:SetSelectedAction(elementData.action);
 
 			elementData = CloseDialogsAndRefetchElementData(self);
 			if (not elementData) then
@@ -2222,6 +2233,19 @@ function DebounceFrameMixin:OnLoad()
 	self.Tab3:SetPoint("TOP", self.Tab1, "TOP", 0, 0);
 	self.Tab3:SetPoint("RIGHT", self.ScrollBoxBackground, "RIGHT", 0, 0);
 
+	-- **오버뷰 탭은 지금 숨겨져 있다.** 코드는 전부 살아 있고 이 세 줄만 막고 있다.
+	--
+	-- 그 탭이 없다고 못 하게 되는 일이 없다 - 액션은 자기 레이어 탭에 다 있고, 한 키의
+	-- 발동 순서는 상세 패널의 순서 목록이 보여준다. 남는 값은 "키를 가로질러 한 화면에"
+	-- 하나인데, 그걸 얻는 대신 이 탭만 예외인 규칙이 계속 늘었다(사이드탭 없음, 레이어가
+	-- 없어서 add 불가, 탭 숫자의 뜻이 다름, 필터가 행을 지움, 두 목록이 같은 것을 그림).
+	-- 더 나은 모양이 나올 때까지 접어둔다.
+	--
+	-- `numTabs`를 줄이면 블리자드의 탭 기계가 이 탭을 아예 안 만진다. 그래도 XML이 만든
+	-- 프레임은 남으므로 직접 숨긴다.
+	self.Tab3:Hide();
+	PanelTemplates_SetNumTabs(self, OVERVIEW_TAB - 1);
+
 	PanelTemplates_SetTab(self, _selectedTab);
 
 	self:InitializeScrollBox();
@@ -2686,8 +2710,16 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 	self.dataProvider = dataProvider;
 	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
-	-- 선택은 "지금 보이는 목록의 한 줄"이다. 레이어 탭을 바꾸거나 액션이 사라지면 풀린다.
-	if (_selectedAction and not self:FindElementDataByActionInfo(_selectedAction)) then
+	-- 선택은 **액션이 없어졌을 때만** 풀린다.
+	--
+	-- 예전 규칙은 "지금 보이는 목록에 없으면 푼다"였다. 그때는 편집이 왼쪽 목록에서만
+	-- 시작됐으니 둘이 같은 말이었는데, 지금은 순서 목록에서 **다른 레이어의 액션**을
+	-- 편집할 수 있다. 그 규칙을 그대로 두면 매크로 편집기를 열자마자 다음 재구성이 선택을
+	-- 풀어 패널이 접힌다 - 화면에 안 보인다는 이유로 방금 열어준 편집을 뺏는 것이다.
+	--
+	-- 뷰가 바뀌어서 선택을 놓는 것은 `SetTab`이 따로 한다. 여기는 "그 액션이 아직
+	-- 프로필에 있나"만 본다.
+	if (_selectedAction and not DebouncePrivate.FindLayerID(_selectedAction)) then
 		self:SetSelectedAction(nil);
 	end
 
@@ -3152,30 +3184,23 @@ end
 --- 같은 모양). 콜백은 확인을 눌렀을 때만, 대상 elementData를 들고 불린다.
 function DebounceIconSelectorFrameMixin:OpenForNewMacro(onAccepted)
 	self.mode = IconSelectorPopupFrameModes.New;
-	self.elementData = nil;
+	self.editAction = nil;
 	self.onAccepted = onAccepted;
 	self:Show();
 end
 
 --- 이미 있는 액션의 이름·아이콘만 고친다. `onAccepted`는 없어도 된다 - 팝업 아래 화면이
 --- 그대로 살아 있으면 확인 뒤에 갈 데가 없다.
-function DebounceIconSelectorFrameMixin:OpenForAction(elementData, onAccepted)
+function DebounceIconSelectorFrameMixin:OpenForAction(action, onAccepted)
 	self.mode = IconSelectorPopupFrameModes.Edit;
-	self.elementData = elementData;
+	self.editAction = action;
 	self.onAccepted = onAccepted;
 	self:Show();
 end
 
 function DebounceIconSelectorFrameMixin:OnShow()
 	if (self.mode == IconSelectorPopupFrameModes.Edit) then
-		if (not self.elementData) then
-			self:Hide();
-			return;
-		end
-
-		self.elementData = DebounceFrame:FindElementDataByActionInfo(self.elementData.action);
-		if (not self.elementData) then
-			self.elementData = nil;
+		if (not self.editAction) then
 			self:Hide();
 			return;
 		end
@@ -3221,7 +3246,7 @@ function DebounceIconSelectorFrameMixin:OnHide()
 		self.popupCounted = nil;
 		IconSelectorPopupFrameTemplateMixin.OnHide(self);
 	end
-	self.elementData = nil;
+	self.editAction = nil;
 	-- 취소로 닫혔든, OnShow가 대상을 못 찾아 도로 숨겼든 콜백은 죽는다. 확인을 누른 경우엔
 	-- OkayButton_OnClick이 이미 꺼내 갔다.
 	self.onAccepted = nil;
@@ -3236,7 +3261,7 @@ function DebounceIconSelectorFrameMixin:Update()
 		self.IconSelector:SetSelectedIndex(initialIndex);
 		self.BorderBox.SelectedIconArea.SelectedIconButton:SetIconTexture(self:GetIconByIndex(initialIndex));
 	elseif (self.mode == IconSelectorPopupFrameModes.Edit) then
-		local action = self.elementData.action;
+		local action = self.editAction;
 		local name, icon = action.name, action.icon;
 		self.BorderBox.IconSelectorEditBox:SetText(name);
 		self.BorderBox.IconSelectorEditBox:HighlightText();
@@ -3268,9 +3293,8 @@ function DebounceIconSelectorFrameMixin:OkayButton_OnClick()
 	if (isNew) then
 		elementData = DebounceFrame:AddNewAction(Constants.MACROTEXT, "", text, iconTexture);
 	else
-		elementData = self.elementData;
-		elementData.action.name = text;
-		elementData.action.icon = iconTexture;
+		self.editAction.name = text;
+		self.editAction.icon = iconTexture;
 	end
 
 	-- 이름이 바뀌면 이름순 정렬에서 자리가 바뀐다. Update는 있는 줄을 그 자리에서 고쳐
@@ -3294,10 +3318,10 @@ function DebounceIconSelectorFrameMixin:HasUnsavedChanges()
 		local newIcon = self.BorderBox.SelectedIconArea.SelectedIconButton:GetIconTexture();
 		-- elementData는 OnHide에서 비워지는데 mode는 남는다. 부모 창이 팝업을 띄운 채로
 		-- 숨으면 "보이는 상태 + Edit + elementData 없음"이 실제로 생긴다.
-		if (not self.elementData) then
+		if (not self.editAction) then
 			return false;
 		end
-		if (self.elementData.action.name ~= newName or self.elementData.action.icon ~= newIcon) then
+		if (self.editAction.name ~= newName or self.editAction.icon ~= newIcon) then
 			return true;
 		end
 	end
@@ -3491,22 +3515,19 @@ local function BuildOrderSubText(row)
 	return table.concat(parts, " \194\183 ");
 end
 
--- 이 목록의 행은 **왼쪽 목록의 행과 같은 제스처를 받는다**: 좌클릭은 고르고, 우클릭은
--- 편집 메뉴다. 여기서 "고른다"는 그 액션으로 간다는 뜻이고(GoToAction), 그건 왼쪽 목록에서
--- 행을 고르는 것과 같은 일이다 - 상세 패널이 그 액션의 것으로 바뀐다.
+-- 행 우클릭이 갈리는 기준은 **지킬 "현재 스코프"가 있느냐**다(자세한 것은 OnClick).
+-- 레이어 탭에는 있고, 오버뷰 탭에는 없다.
 --
--- **어느 행이냐로 갈리지 않는다.** 한때 갈렸다: 보고 있는 액션의 행만 편집 메뉴를 주고
--- 나머지는 "가기" 하나만 줬다. 근거는 *"보고 있지도 않은 레이어를 팝업 하나로 바꾸는 사고"*
--- 였는데, 그 근거는 **레이어 탭에서만 우연히 성립했다** - 거기서는 "지금 보고 있는 액션"과
--- "지금 보고 있는 레이어의 액션"이 같은 값이었기 때문이다. 오버뷰 탭에서 그 우연이 깨졌다:
--- 모든 행이 남의 레이어이고, 그런데도 **같은 액션을 왼쪽 목록에서 우클릭하면 전체 메뉴가
--- 열린다.** 한 창의 두 목록이 같은 액션에 다른 메뉴를 주는 것은 규칙이 아니라 덜 만들어진
--- 것으로 읽힌다.
+-- 막으려는 행동이 하나 있다: *"이게 어디 붙어 있는 액션인지는 모르겠지만 중요도를 올려서
+-- 위로 보내자."* 공유 레이어의 액션에 그러면 **이 계정의 모든 캐릭터**가 따라 바뀌는데,
+-- 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의 레이어는 `DebounceVarsPerChar`에
+-- 있어서 이 세션에 존재하지 않는다. 정보를 더 붙이는 것으로는 안 막힌다. 정보는 읽어야
+-- 작동하고 여기는 안 읽는 것이 기본값인 자리다.
 --
--- 대신 어디를 만지는 것인지는 **말로 붙인다.** 행 툴팁의 '범위' 줄과 이름 앞 레이어
--- 아이콘이 그 액션이 어디 사는지 이미 말하고 있다.
+-- 좌클릭은 등록하지 않는다(XML 주석 참고). 멀리 가는 일은 **"가기"를 고르는 한 번의
+-- 명시적 선택**이어야 하고, 좌클릭은 습관적으로 눌러보는 버튼이다.
 local ORDER_LINE_TOOLTIP_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION" };
-local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO", "ORDER_LINE_TOOLTIP_INSTRUCTION" };
+local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
 
 DebounceOrderLineMixin = {};
 
@@ -3562,8 +3583,9 @@ end
 
 function DebounceOrderLineMixin:OnEnter()
 	local elementData = self:GetElementData();
+	local editable = elementData.isCurrent or IsOverviewTab();
 	ShowLineTooltip(self, "ANCHOR_LEFT", elementData.row, true,
-		elementData.isCurrent and ORDER_LINE_TOOLTIP_INSTRUCTIONS or ORDER_LINE_GOTO_INSTRUCTIONS,
+		editable and ORDER_LINE_TOOLTIP_INSTRUCTIONS or ORDER_LINE_GOTO_INSTRUCTIONS,
 		GetLayerLabel(elementData.row.layerID));
 end
 
@@ -3573,7 +3595,7 @@ function DebounceOrderLineMixin:OnLeave()
 	GameTooltip:Hide();
 end
 
-function DebounceOrderLineMixin:OnClick(buttonName)
+function DebounceOrderLineMixin:OnClick()
 	-- 캡처 중에는 리스트가 아직 가정일 뿐이다(새 키 미리보기). 만지게 두지 않는다.
 	if (DebounceDetailPanel:IsCapturingKey()) then
 		return;
@@ -3582,42 +3604,44 @@ function DebounceOrderLineMixin:OnClick(buttonName)
 	local elementData = self:GetElementData();
 	local row = elementData.row;
 
-	if (buttonName == "LeftButton") then
-		-- 이미 보고 있는 행이면 갈 데가 없다. 부르면 선택을 다시 넣느라 패널만 한 번
-		-- 깜빡인다.
-		if (not elementData.isCurrent) then
-			DebounceFrame:GoToAction(row.action, row.layerID);
+	-- **오버뷰 탭에서는 어느 행이든 편집 메뉴다.** 지킬 "현재 스코프"가 없기 때문이다 -
+	-- 그 목록은 활성 레이어 전부라 모든 행이 똑같이 남의 레이어고, 같은 액션의 행이 왼쪽
+	-- 목록에도 그대로 있어서 거기서 우클릭하면 어차피 전체 메뉴가 열린다. 여기서만 막으면
+	-- 지키는 것 없이 클릭만 하나 늘어난다.
+	--
+	-- 레이어 탭은 다르다. 거기서 형제 행은 **화면에 없는 레이어**의 것일 수 있고, 그러면
+	-- "어디 붙은 액션인지 모르는 채로 중요도를 올리는" 일이 실제로 가능해진다. 공유
+	-- 레이어면 그 한 번이 이 계정의 모든 캐릭터를 바꾸고, 그 결과는 화면이 보여줄 수조차
+	-- 없다(다른 캐릭터의 레이어는 이 세션에 없다). 그래서 거기서는 데려다 주기만 한다.
+	--
+	-- 왼쪽 목록의 elementData를 쓴다. 이유가 둘인데 섞으면 안 된다:
+	--
+	-- **모양** - 메뉴가 읽는 세 값(`action`/`layer`/`index`)은 이 행도 낼 수 있다. 그래도
+	-- 손으로 만들지 않는 것은 저쪽이 바뀔 때 조용히 어긋나기 때문이다.
+	--
+	-- **존재** - 세 곳이 그 액션이 **왼쪽 목록에 있을 것**을 전제한다: `MoveAction`의
+	-- assert, 매크로 편집기의 이름/아이콘 버튼, `Refresh`가 선택을 유지하는 것. 이쪽은
+	-- 테이블을 잘 만들어도 안 풀린다 - 출처가 아니라 목록의 내용을 보기 때문이다.
+	if (elementData.isCurrent or IsOverviewTab()) then
+		local mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
+
+		-- **문제 필터가 뺀 행일 수 있다.** 순서 목록은 안 거르므로(거르면 순서가 거짓말이
+		-- 된다) 여기 보이는데 왼쪽 목록엔 없는 상태가 생긴다.
+		--
+		-- 그렇다고 데려가면 **필터를 켠 대가로 탭 밖으로 튕겨나간다** - 좁혀 보려고 켠
+		-- 스위치가 화면을 통째로 바꾸는 셈이다. 대신 붙든다: 우클릭했다는 것은 그 행을
+		-- 손대고 있다는 뜻이고, 그게 `_overviewRemembered`의 뜻 그대로다. 다시 지으면
+		-- 그 행이 흐린 채로 목록에 들어오고, 편집 메뉴가 열 elementData도 같이 생긴다.
+		if (not mainElementData and IsOverviewTab()) then
+			RememberOverviewAction(row.action);
+			DebounceFrame:Refresh(true);
+			mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
 		end
-		return;
-	end
 
-	-- 가운데 버튼 따위는 아무것도 아니다. 등록이 `AnyUp`이라 여기까지 오므로 이름으로 막는다.
-	if (buttonName ~= "RightButton") then
-		return;
-	end
-
-	-- **왼쪽 목록에 있는 행만 편집 메뉴를 연다.** 없으면 데려다 주는 항목 하나뿐이다.
-	--
-	-- 이건 편의 문제가 아니라 **막으려는 행동이 있어서다**: *"이게 어디 붙어 있는 액션인지는
-	-- 모르겠지만 중요도를 올려서 위로 보내자."* 공유 레이어의 액션에 그걸 하면 **이 계정의
-	-- 모든 캐릭터**가 따라 바뀌고, 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의
-	-- 레이어는 `DebounceVarsPerChar`에 있어서 이 세션에 존재하지 않는다.
-	--
-	-- 그래서 먼저 그 액션의 자리로 가야 하고, **가는 것이 따로 한 번의 결정이어야 한다.**
-	-- 여기서 자동으로 데려가고 메뉴까지 같이 열면 도착한 화면을 볼 틈이 없다 - 메뉴가 그
-	-- 위에 이미 떠 있다. 친화력이 곧 기능인 자리다.
-	--
-	-- 한때 이 조건이 `isCurrent`(= 지금 상세 패널이 보고 있는 액션인가)였다. 레이어 탭에서는
-	-- 그게 "지금 보고 있는 레이어의 액션인가"와 **우연히 같은 값**이라 규칙처럼 보였지만,
-	-- 오버뷰 탭에서 그 우연이 깨졌다: 모든 행이 남의 레이어이고, 그런데도 같은 액션을 왼쪽
-	-- 목록에서 우클릭하면 전체 메뉴가 열린다. 물어야 할 것은 처음부터 **"저 목록에
-	-- 있느냐"**였다 - 있다면 그 액션이 사는 레이어를 이미 보고 있다는 뜻이다.
-	local mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
-	if (mainElementData) then
-		-- 메뉴가 원래 받도록 지어진 그 테이블을 그대로 넘긴다. 모양을 흉내내면 저쪽이 바뀔
-		-- 때 조용히 어긋나고, 실제로 `MoveAction`의 assert와 매크로 이름/아이콘이 거기 걸린다.
-		DebounceFrame:ShowEditDropdown(self, mainElementData);
-		return;
+		if (mainElementData) then
+			DebounceFrame:ShowEditDropdown(self, mainElementData);
+			return;
+		end
 	end
 
 	-- 항목이 하나뿐이라는 것 자체가 "이 행은 네가 보고 있는 자리의 것이 아니다"를 말한다.
@@ -4301,14 +4325,9 @@ function DebounceDetailPanelMixin:MacroEditNameIcon_OnClick()
 	end
 	self:SaveMacroText();
 
-	local elementData = DebounceFrame:FindElementDataByActionInfo(action);
-	if (not elementData) then
-		return;
-	end
-
 	-- 확인을 눌러도 갈 데가 없다. 매크로 탭이 이 팝업 아래에 그대로 열려 있고, 새 이름·아이콘은
 	-- 팝업이 닫히면서 도는 Update가 되비춘다.
-	DebounceIconSelectorFrame:OpenForAction(elementData);
+	DebounceIconSelectorFrame:OpenForAction(action);
 end
 
 function DebounceDetailPanelMixin:MacroText_OnTextChanged(editBox)

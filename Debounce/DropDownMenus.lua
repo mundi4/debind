@@ -1028,23 +1028,21 @@ do
         -- 언제나 한 레이어라 답이 창 제목에 있었다. 지금은 둘 다 아니다 - **오버뷰 탭은
         -- 다섯 레이어를 한 목록에 담는다.**
         --
-        -- **공유 레이어면 경고로 그린다.** 여기서 무엇을 바꾸든 이 계정의 **모든 캐릭터**가
-        -- 따라 바뀌는데, 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의 레이어는
-        -- `DebounceVarsPerChar`에 있어서 이 세션에 존재하지 않는다. "공유 / 일반"이라는
-        -- 좌표만 적어두면 순서를 만지려던 사람의 머릿속에서 그게 "내 모든 캐릭터"로
-        -- 번역되지 않는다. 그래서 좌표가 아니라 결과를 적고, 색과 아이콘으로 세운다.
+        -- **공유 레이어면 경고색으로 그린다.** 여기서 무엇을 바꾸든 이 계정의 **모든
+        -- 캐릭터**가 따라 바뀌는데, 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의
+        -- 레이어는 `DebounceVarsPerChar`에 있어서 이 세션에 존재하지 않는다.
+        --
+        -- 글자는 좌표 그대로 둔다. 한때 아이콘과 "모든 캐릭터"를 같이 붙였는데, 제목 줄
+        -- 하나에 그림·좌표·결과가 겹쳐서 어느 것도 안 읽혔다. 색이 "조심"을 말하고, 무엇을
+        -- 조심해야 하는지는 그걸 만질 수 있는 자리(중요도 툴팁)가 말한다.
         --
         -- 캐릭터 전용이면 노랑이다. 이름 줄(금색)과 달라야 두 줄짜리 제목으로 안 읽힌다 -
         -- 둘은 서로 다른 것을 말한다(무엇을 만지는가 / 어디를 만지는가).
         if (elementData.layer) then
             local layer = DebouncePrivate.GetProfileLayer(elementData.layer);
-            local label = DebounceUI.GetLayerLabel(elementData.layer);
-            if (layer and not layer.isCharacterSpecific) then
-                rootDescription:CreateTitle(
-                    format(LLL["MENU_SCOPE_SHARED"], label), DebounceUI.WARNING_FONT_COLOR);
-            else
-                rootDescription:CreateTitle(label, YELLOW_FONT_COLOR);
-            end
+            local shared = layer and not layer.isCharacterSpecific;
+            rootDescription:CreateTitle(DebounceUI.GetLayerLabel(elementData.layer),
+                shared and DebounceUI.WARNING_FONT_COLOR or YELLOW_FONT_COLOR);
         end
 
         rootDescription:SetTag(DebounceUI.ActionMenuRootTag, 1);

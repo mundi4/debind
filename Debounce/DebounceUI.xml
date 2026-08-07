@@ -298,16 +298,18 @@
 		지금 보고 있는 액션은 SelectedHighlight가 짚는다.
 	-->
 	<!--
-		제스처는 왼쪽 목록과 같다: **좌클릭은 고르고, 우클릭이 편집 메뉴다**
-		(DebounceLineMixin:OnClick). 같은 창의 두 목록이 같은 버튼에 다른 뜻을 주면 안 된다.
+		메뉴는 우클릭으로만 연다. 왼쪽 목록이 이미 그렇게 가르치고 있으므로(좌클릭은 고르고,
+		우클릭이 편집 메뉴다 - DebounceLineMixin:OnClick), 같은 창의 다른 목록이 같은 버튼에
+		다른 뜻을 주면 안 된다.
 
-		여기서 "고른다"는 그 액션으로 간다는 뜻이다(GoToAction) - 상세 패널이 그 액션의
-		것으로 바뀌므로 왼쪽 목록에서 행을 고르는 것과 같은 결과다.
+		좌클릭은 아예 등록하지 않는다. 등록해두고 안에서 걸러내는 것보다 낫다 - 나중에
+		누가 AnyUp으로 바꿔도 조용히 새 길이 열리지 않는다.
 
-		한때 우클릭만 등록했다. 그때는 좌클릭이 할 일이 없었다 - 다른 행으로 가는 길이
-		우클릭 메뉴 안에 있었기 때문이다. 그 메뉴가 없어졌으므로 등록한다.
+		실제로 한 번 열렸다. 좌클릭에 "그 액션으로 가기"를 달았는데, **좌클릭은 습관적으로
+		눌러보는 버튼**이라 그것만으로 탭이 바뀌었다 - 되돌리는 데 두세 번이 든다. 멀리 가는
+		일은 우클릭 메뉴에서 "가기"를 고르는 한 번의 명시적 선택이어야 한다.
 	-->
-	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="AnyUp" virtual="true">
+	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="RightButtonUp" virtual="true">
 		<Size x="300" y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
