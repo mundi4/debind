@@ -61,13 +61,18 @@ local format             = format;
 ---
 ---   `BUTTON_SIZE`  `SmallActionButtonTemplate`의 크기(`ActionButtonTemplate.xml`).
 ---                  주문책·액션바 플라이아웃이 쓰는 그 버튼이다
----   `CROSS_SIZE`   `FlyoutButtonTemplate`의 `popupCrossAxisSize`. 배경 조각의 폭이고,
----                  `FlyoutPopupMixin:UpdateBackground`가 셋 모두에 이 값을 준다
+---   `CROSS_SIZE`   배경 조각의 폭. `FlyoutPopupMixin:UpdateBackground`가 셋 모두에
+---                  `popupCrossAxisSize`를 주는데, 그 값은 **플라이아웃을 여는 버튼의
+---                  것**이다. 우리가 흉내내는 것은 액션바에서 열리는 플라이아웃이므로
+---                  `ActionButtonTemplate`의 47이다.
+---                  `FlyoutButtonTemplate` 자신의 38을 쓰면 좌우 여백이 4.5px씩 좁아진다 -
+---                  실제로 그렇게 시작했고, 액션바 것과 나란히 놓으니 우리 것만 끼어 보였다.
+---                  38을 쓰는 플라이아웃은 게임에 없다(주문책은 42, 액션바는 47).
 ---   `SPACING`      `SPELLFLYOUT_DEFAULT_SPACING`
 ---   `END_PADDING`  `SPELLFLYOUT_INITIAL_SPACING`/`_FINAL_SPACING`. 양끝이 같은 값이라
 ---                  방향이 뒤집혀도 버튼을 다시 배치할 필요가 없다
 local BUTTON_SIZE        = 30;
-local CROSS_SIZE         = 38;
+local CROSS_SIZE         = 47;
 local SPACING            = 4;
 local END_PADDING        = 9;
 local AUTOHIDE_SECONDS   = 0.75;
