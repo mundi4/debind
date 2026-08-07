@@ -29,11 +29,13 @@ local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
 
 local _selectedTab           = 1;
 local _selectedSideTab       = 1;
--- 목록 안에서의 재배치는 없앴다(Phase 3). 남은 드래그는 두 가지뿐이다:
---   _draggingElement - 행을 집어 탭에 떨궈 레이어를 옮기는 것
---   _pickedupInfo    - 주문/매크로를 커서에 집어와 목록에 떨구는 것(항상 맨 뒤에 추가)
--- 그래서 고스트(플레이스홀더)도 그 위치 계산도 필요 없다.
-local _draggingElement;
+-- 이 창의 행은 끌 수 없다. 목록 안 재배치도(Phase 3), 탭에 떨궈 레이어를 옮기는 것도
+-- 없앴다 - 후자는 우클릭 `Move to`가 더 잘 하고, 드래그는 행을 집게 해놓고 목록은 안
+-- 받으니 매번 창을 덮어 "여기 아니다"라고 말해야 했다.
+--
+-- 남은 것은 하나, **게임이 커서에 집어준 것**을 받는 길이다. 주문책·액션바·가방에서 끌어온
+-- 것을 목록이나 탭에 떨구면 그 레이어 맨 뒤에 붙는다. 아이템처럼 스펠 선택 창에 없는
+-- 타입은 이 길로만 들어온다.
 local _pickedupInfo;
 -- 상세 패널이 보여주는 액션. elementData가 아니라 action 테이블을 들고 있는 이유는
 -- elementData가 Refresh마다 새로 만들어지기 때문이다 (DebounceFrameMixin:Refresh).
@@ -457,18 +459,6 @@ local function IsEditDropdownShown(elementData)
 	return false;
 end
 
-local function IsDraggingElement(elementData)
-	if (elementData ~= nil) then
-		return _draggingElement == elementData;
-	else
-		return _draggingElement ~= nil;
-	end
-end
-
-local function GetDraggingElement()
-	return _draggingElement;
-end
-
 --- 대화상자를 닫고 이 행의 elementData를 **다시 집어** 준다. 목록에 없어졌으면 nil.
 ---
 --- 닫는 길에는 매크로 본문 저장이 딸려 오고, 그게 `UpdateBindings` → `OnBindingsUpdated`
@@ -607,7 +597,7 @@ local function NameAndIconForAction(action)
 		skipTypeName = true;
 	elseif (type == Constants.FLYOUT) then
 		-- 저장된 것은 flyoutID 하나뿐이다. 이름도 아이콘도 여기서 다시 푼다 - 아이콘은
-		-- 첫 슬롯에서 빌려오는 값이라 특성·야수에 따라 바뀐다(`Misc.lua` 참고).
+		-- 주문책이 그 플라이아웃 칸에 그리는 그림이고, 주문서를 훑어야 나온다(`Misc.lua` 참고).
 		--
 		-- 오프스펙을 허용하는 인자를 켜둔다. 여기는 **그리는** 쪽이라, 다른 특성에서 걸어둔
 		-- 플라이아웃도 이름과 그림이 나와야 목록에서 한 줄을 차지할 수 있다.
@@ -1179,7 +1169,6 @@ DebounceLineMixin = {};
 
 function DebounceLineMixin:Init(elementData)
 	self:RegisterForClicks("AnyUp");
-	self:RegisterForDrag("LeftButton");
 	--self:EnableMouseWheel(true);
 	self:Update();
 end
@@ -1287,11 +1276,10 @@ function DebounceLineMixin:Update()
 	end
 
 	self.Icon:SetDesaturated(false);
-	-- 끌고 있는 행은 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를
-	-- 새로 만들어도 강조가 유지된다.
+	-- 강조는 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를 새로 만들어도
+	-- 강조가 유지된다.
 	self.SelectedHighlight:SetShown(_selectedAction == action
 		or IsEditingAction(action)
-		or (_draggingElement ~= nil and _draggingElement.action == action)
 		or (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action));
 
 	-- 메뉴 대상은 선택과 다른 텍스처를 쓴다(XML 참고). 한 행이 둘 다일 수 있으므로 서로를
@@ -1326,12 +1314,6 @@ function DebounceLineMixin:OnClick(buttonName)
 	end
 
 	local elementData = self:GetElementData();
-	-- 끌던 행을 목록 위에 다시 놓는 것은 아무 일도 아니다(같은 레이어 안에서는 재배치가 없다).
-	-- 드래그만 끝낸다. 레이어를 옮기려면 탭에 떨궈야 한다.
-	if (buttonName == "LeftButton" and IsDraggingElement(elementData)) then
-		DebounceFrame:ClearMouse();
-		return;
-	end
 
 	if (buttonName == "RightButton") then
 		if (false and DebouncePrivate.DEBUG and IsControlKeyDown()) then
@@ -1374,18 +1356,8 @@ function DebounceLineMixin:OnClick(buttonName)
 	DebounceFrame:SetSelectedAction(elementData.action);
 end
 
-function DebounceLineMixin:OnDragStart()
-	local elementData = CloseDialogsAndRefetchElementData(self);
-	if (not elementData) then
-		return;
-	end
-
-	DebounceFrame:StartDragging(elementData);
-end
-
-function DebounceLineMixin:OnDragStop()
-end
-
+--- 행은 끌 수 없지만(`RegisterForDrag` 없음) **받기는** 한다. 커서에 든 것을 놓는 것은
+--- 어느 행에 놓든 같은 일이라 프레임으로 넘긴다.
 function DebounceLineMixin:OnReceiveDrag()
 	DebounceFrame:OnReceiveDrag();
 end
@@ -2060,33 +2032,22 @@ function DebounceFrameMixin:OnHide()
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED");
 	self:UnregisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 	self:UnregisterEvent("CURSOR_CHANGED");
-	self:UnregisterEvent("GLOBAL_MOUSE_UP");
 	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
 
 	DebouncePrivate.UnregisterCallback(self, "OnBindingsUpdated");
 
-	if (IsDraggingElement()) then
-		_draggingElement = nil;
-		DebounceActionPlacerFrame:Hide();
-	end
 	_pickedupInfo = nil;
-	-- 덮개는 위 두 상태를 보고 켜지는데, 그걸 지웠다고 저절로 내려가지는 않는다. 여기서
-	-- 안 내리면 다음에 창을 열 때 목록을 덮은 채 "탭으로 옮겨라"라고 말하고 있다 - 창을
-	-- 닫는 것도, 전투에 끌려들어가는 것도 드래그 도중에 일어난다.
+	-- 덮개는 위 상태를 보고 켜지는데, 그걸 지웠다고 저절로 내려가지는 않는다. 여기서
+	-- 안 내리면 다음에 창을 열 때 목록을 덮은 채 "여기 떨궈라"라고 말하고 있다 - 창을
+	-- 닫는 것도, 전투에 끌려들어가는 것도 커서에 뭘 든 채로 일어난다.
 	self:UpdateDropOverlay();
 	ClearMacrotextIconCache();
 end
 
 function DebounceFrameMixin:OnEvent(event, arg1)
-	if (event == "GLOBAL_MOUSE_UP") then
-		-- 탭 위에 놓았다면 탭의 OnReceiveDrag가 먼저 처리한다. 여기까지 왔다는 건
-		-- 아무 데도 안 떨궜다는 뜻이라 그냥 드래그를 끝낸다.
-		if (arg1 == "LeftButton" and IsDraggingElement()) then
-			self:ClearMouse();
-		end
-	elseif (event == "GLOBAL_MOUSE_DOWN") then
+	if (event == "GLOBAL_MOUSE_DOWN") then
 		if (arg1 == "RightButton") then
-			if (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo()) then
+			if (GetActionTypeAndValueFromCursorInfo()) then
 				self:ClearMouse();
 				return;
 			end
@@ -2115,7 +2076,7 @@ end
 --- 부르는 곳은 아래 OnKeyDown 하나뿐인데 따로 빼둔 건 **이 순서가 이 창의 계약**이기
 --- 때문이다 - 전파 처리와 섞여 있으면 어느 줄이 순서고 어느 줄이 키 배관인지 안 보인다.
 function DebounceFrameMixin:HandleEscape()
-	if (IsDraggingElement() or GetActionTypeAndValueFromCursorInfo()) then
+	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:ClearMouse();
 		return true;
 	end
@@ -2467,21 +2428,15 @@ function DebounceFrameMixin:Update()
 	self:UpdateDropOverlay();
 end
 
---- 드래그 중에는 창 안쪽을 덮는다.
+--- 커서에 뭔가 들려 있는 동안 창 안쪽을 덮는다.
 ---
 --- 목적은 "어느 줄에 떨궈야 하나"를 물을 수 없게 만드는 것이다 - 이 창은 떨어진 위치를
 --- 보지 않는다. 행이 보이면 행마다 툴팁이 뜨고 각각이 목적지처럼 보인다.
----
---- 글로우는 **받을 때만** 켠다. 우리 행을 끄는 중이면 목적지는 탭이고, 같은 레이어에 다시
---- 놓는 것은 아무 일도 아니라서 OnReceiveDrag가 그냥 돌아선다. 그때 빛내면 "여기 떨궈라"
---- 해놓고 안 받는 꼴이 된다. 대신 안내문이 어디로 가야 하는지 말한다.
 function DebounceFrameMixin:UpdateDropOverlay()
 	local overlay = self.DropOverlay;
-	local pickedUp = _pickedupInfo ~= nil;
-	local shown = pickedUp or IsDraggingElement();
 
-	overlay:SetShown(shown);
-	if (not shown) then
+	overlay:SetShown(_pickedupInfo ~= nil);
+	if (_pickedupInfo == nil) then
 		return;
 	end
 
@@ -2489,8 +2444,7 @@ function DebounceFrameMixin:UpdateDropOverlay()
 	-- 띄울 때마다 다시 잡는다.
 	overlay:SetFrameLevel(self:GetFrameLevel() + 100);
 
-	overlay.Glow:SetShown(pickedUp);
-	overlay.Prompt:SetText(pickedUp and LLL["LIST_DROP_PROMPT_ADD"] or LLL["LIST_DROP_PROMPT_MOVE"]);
+	overlay.Prompt:SetText(LLL["LIST_DROP_PROMPT_ADD"]);
 end
 
 --- 커서에 집어온 것을 놓는 동작은 드래그가 아니라 **클릭**이다. ScrollBox가 그랬던 것과
@@ -2567,75 +2521,34 @@ end
 
 function DebounceFrameMixin:OnPickup()
 	self:ClearMouse(true);
-	self:RegisterEvent("GLOBAL_MOUSE_UP");
 	self:RegisterEvent("GLOBAL_MOUSE_DOWN");
 	self:Update();
 end
 
 function DebounceFrameMixin:ClearMouse(pickingUp)
-	if (_draggingElement) then
-		_draggingElement = nil;
-		DebounceActionPlacerFrame:Hide();
-	end
 	if (not pickingUp and _pickedupInfo) then
 		_pickedupInfo = nil;
 		ClearCursor();
 	end
 
-	self:UnregisterEvent("GLOBAL_MOUSE_UP");
 	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
 	if (not pickingUp) then
 		self:Update();
 	end
 end
 
-function DebounceFrameMixin:StartDragging(elementData)
-	_draggingElement = elementData;
-
-	local name, icon = ColoredNameAndIconForAction(elementData.action);
-	DebounceActionPlacerFrame.Name:SetText(name);
-	-- 끌고 다니는 그림도 아틀라스를 받아야 한다. 여기만 `SetTexture` 하나였는데, 명령·사용
-	-- 안 함처럼 아이콘 파일이 없는 타입은 `"A:"` 아틀라스라(`NameAndIconForAction`)
-	-- 경로로 넘기면 빈 칸을 끌게 된다.
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		DebounceActionPlacerFrame.Icon:SetAtlas(icon:sub(3));
-	else
-		DebounceActionPlacerFrame.Icon:SetTexture(icon);
-	end
-	DebounceActionPlacerFrame:Show();
-
-	self:RegisterEvent("GLOBAL_MOUSE_UP");
-	self:RegisterEvent("GLOBAL_MOUSE_DOWN");
-	self:Update();
-end
-
-function DebounceFrameMixin:CanReceiveDrag()
-	return IsDraggingElement() or GetActionTypeAndValueFromCursorInfo();
-end
-
+--- 게임이 커서에 집어준 것을 받는다. **우리 행은 끌 수 없으므로** 여기 오는 것은 항상
+--- 밖에서 온 새 액션이다 - 주문책·액션바·가방에서 끌어왔거나 집어와서 클릭한 것.
+---
+--- `destLayerID`는 탭에 떨궜을 때 그 탭이 넘긴다. 없으면 지금 보고 있는 레이어다.
 function DebounceFrameMixin:OnReceiveDrag(destLayerID)
-	if (not self:CanReceiveDrag()) then
+	local type, value = GetActionTypeAndValueFromCursorInfo();
+	if (not type) then
 		return;
 	end
 
-	local action, prevLayerID;
-	local draggingElement = GetDraggingElement();
-	if (draggingElement) then
-		action = draggingElement.action;
-		prevLayerID = draggingElement.layer;
-	else
-		local type, value = GetActionTypeAndValueFromCursorInfo();
-		action = { type = type, value = value };
-	end
-
+	local action = { type = type, value = value };
 	destLayerID = destLayerID or GetLayerID();
-
-	-- 이미 있던 행을 같은 레이어에 다시 놓는 것은 아무 일도 아니다. 예전에는 여기서
-	-- 플레이스홀더 위치로 재배치했지만 목록 안 재배치는 없앴다.
-	if (prevLayerID == destLayerID) then
-		self:ClearMouse();
-		return;
-	end
 
 	-- 여기서부터 프로필이 바뀐다. 갈아엎기 전에 상세 패널을 떠나보낸다 - 이 패널은 잠그지
 	-- 않는 대신 **떠나는 쪽이 저장한다**로 돼 있고(Close 참고), 드롭도 떠나는 것이다.
@@ -2649,13 +2562,8 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 
 	local destLayer = DebouncePrivate.GetProfileLayer(destLayerID);
 
-	if (prevLayerID) then
-		DebouncePrivate.GetProfileLayer(prevLayerID):Remove(action);
-	end
-
 	-- 항상 맨 뒤에 붙인다. 떨어진 위치는 의미가 없다.
 	destLayer:Insert(action, nil);
-	-- 순서 번호도 이 레이어 기준으로 새로 준다. 다른 레이어에서 온 번호는 여기서 뜻이 없다.
 	destLayer:PlaceLast(action);
 
 	self:ClearMouse();

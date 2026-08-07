@@ -121,6 +121,15 @@ function M.install()
     -- 파일이 로드되려면 있어야 한다.
     _G.C_MountJournal = { GetMountInfoByID = function() end };
     _G.C_Spell = { GetSpellSubtext = function() end, GetSpellInfo = function() end };
+    -- 이벤트를 듣기만 하는 프레임(플라이아웃 아이콘 표 무효화 등). 아무것도 안 하는 껍데기면
+    -- 되지만, 없으면 파일이 로드되다 죽는다.
+    _G.CreateFrame = function()
+        return {
+            RegisterEvent = function() end,
+            UnregisterEvent = function() end,
+            SetScript = function() end,
+        };
+    end
     _G.SLASH_SCRIPT1 = "/script";
     _G.SLASH_CANCELFORM1 = "/cancelform";
 end

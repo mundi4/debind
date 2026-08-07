@@ -272,7 +272,7 @@ end
 --- (`SpellPicker.lua`). 그 두 값은 엔트리에만 있고 액션에는 안 들어간다 - 주문서가 바뀌면
 --- 슬롯 번호가 밀리지만, 그때 카탈로그가 통째로 다시 지어진다.
 local function AddFlyoutEntry(entries, seen, flyoutID, isOffSpec, group, slotIndex, bank)
-	local name, icon, isKnown = DebouncePrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec);
+	local name, icon, isKnown, hasUsableSlot = DebouncePrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec);
 	if (not name) then
 		return;
 	end
@@ -283,9 +283,10 @@ local function AddFlyoutEntry(entries, seen, flyoutID, isOffSpec, group, slotInd
 		return;
 	end
 
-	-- **아이콘이 하나도 안 나오면 안 올린다.** 슬롯이 전부 안 배운 상태(길들인 야수가 없는
-	-- 야수 소환 등)라는 뜻이고, 그 플라이아웃은 열어도 빈 칸만 뜬다.
-	if (not icon) then
+	-- **열어도 빈 칸만 뜨는 것은 안 올린다.** 슬롯이 전부 안 배운 상태(길들인 야수가 없는
+	-- 야수 소환 등)라는 뜻이다. 아이콘 유무로는 못 가린다 - 플라이아웃 자기 아이콘은 칸이
+	-- 비어 있어도 나온다(`Misc.lua`의 `GetFlyoutNameAndIcon`).
+	if (not hasUsableSlot) then
 		return;
 	end
 

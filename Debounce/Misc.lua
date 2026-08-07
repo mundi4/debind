@@ -41,41 +41,113 @@ end
 
 local IsEmptyCallPetSlot = DebouncePrivate.IsEmptyCallPetSlot;
 
+--- 플라이아웃 **자기 아이콘**. flyoutID -> iconID.
+---
+--- 게임에는 플라이아웃 자기 아이콘이 있다 - 주문책이 "야수 소환" 칸에 그리는 그 그림이고,
+--- 첫 슬롯의 것이 아니다. 문제는 그걸 내주는 API가 `C_SpellBook.GetSpellBookItemTexture`
+--- 하나뿐이고 **flyoutID로는 못 묻는다**는 것이다 - 주문서 슬롯 번호가 있어야 한다
+--- (`GetFlyoutInfo`가 내는 것은 이름·설명·슬롯 수·습득 여부뿐이다). 그래서 주문서를 한 번
+--- 훑어 표를 만들어 둔다.
+---
+--- **찾은 값은 안 지운다.** 아이콘은 플라이아웃 정의에 박힌 것이라 특성이나 야수에 따라
+--- 안 바뀐다. 다시 훑는 것은 **못 찾은 것** 때문이다 - 특성을 바꾸면 없던 플라이아웃이
+--- 주문서에 생기고, 그 전까지는 물어볼 슬롯 자체가 없었다.
+---
+--- `shouldHide` 스킬라인도 훑는다. 카탈로그와 달리 여기서 찾는 것은 목록에 세울 줄이 아니라
+--- 그림 한 장이고, 창에 안 보이는 줄에 있는 플라이아웃도 걸어둘 수는 있다.
+local FlyoutIcons = {};
+local flyoutIconsSwept = false;
+
+local function SweepFlyoutIconsInBank(first, last, bank)
+    for slotIndex = first, last do
+        local info = C_SpellBook.GetSpellBookItemInfo(slotIndex, bank);
+        if (info and info.itemType == Enum.SpellBookItemType.Flyout) then
+            local icon = C_SpellBook.GetSpellBookItemTexture(slotIndex, bank);
+            if (icon) then
+                FlyoutIcons[info.actionID] = icon;
+            end
+        end
+    end
+end
+
+local function SweepFlyoutIcons()
+    local playerBank = Enum.SpellBookSpellBank.Player;
+    local numSkillLines = C_SpellBook.GetNumSpellBookSkillLines() or 0;
+    for skillLineIndex = 1, numSkillLines do
+        local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(skillLineIndex);
+        if (skillLineInfo) then
+            SweepFlyoutIconsInBank(skillLineInfo.itemIndexOffset + 1,
+                skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems, playerBank);
+        end
+    end
+
+    local numPetSpells = C_SpellBook.HasPetSpells();
+    if (numPetSpells) then
+        SweepFlyoutIconsInBank(1, numPetSpells, Enum.SpellBookSpellBank.Pet);
+    end
+end
+
+local function GetFlyoutIcon(flyoutID)
+    local icon = FlyoutIcons[flyoutID];
+    if (icon) then
+        return icon;
+    end
+
+    -- 한 번 훑었으면 다시 안 훑는다. 없는 flyoutID를 그릴 때마다 주문서를 통째로 도는 일을
+    -- 막는 것이고, 표를 다시 열어주는 것은 아래 `SPELLS_CHANGED`뿐이다.
+    if (flyoutIconsSwept) then
+        return nil;
+    end
+
+    SweepFlyoutIcons();
+    flyoutIconsSwept = true;
+    return FlyoutIcons[flyoutID];
+end
+
+local FlyoutIconEventFrame = CreateFrame("Frame");
+FlyoutIconEventFrame:RegisterEvent("SPELLS_CHANGED");
+FlyoutIconEventFrame:SetScript("OnEvent", function()
+    flyoutIconsSwept = false;
+end);
+
 --- 플라이아웃의 이름과 아이콘.
 ---
---- **아이콘은 게임이 안 준다.** `GetFlyoutInfo`가 내는 것은 이름·설명·슬롯 수·습득 여부뿐이라,
---- 첫 번째 쓸 수 있는 슬롯의 주문에서 빌려온다 - 블리자드 액션바가 플라이아웃 칸에 그리는
---- 그림도 같은 것이다.
+--- 아이콘은 위의 표에서 온다 - 주문책이 그리는 **그 플라이아웃의 그림**이다. 표에 없을 때만
+--- 첫 번째 쓸 수 있는 슬롯의 주문에서 빌려온다. 그 자리는 주문서에 아직 안 뜬 플라이아웃
+--- (특성 변경 직후 등)을 위한 것이지 기본값이 아니다.
 ---
---- 그래서 **아이콘은 저장하지 않는다.** 특성을 바꾸거나 야수를 새로 길들이면 첫 슬롯이
---- 바뀌고, 박아둔 아이콘은 그때부터 거짓말이 된다. 이 애드온의 규약대로(`ActionCatalog.lua`
---- 머리주석) 저장은 flyoutID 하나뿐이고 그림은 그릴 때마다 여기서 다시 푼다.
+--- **아이콘은 저장하지 않는다.** 이 애드온의 규약대로(`ActionCatalog.lua` 머리주석) 저장은
+--- flyoutID 하나뿐이고 그림은 그릴 때마다 여기서 다시 푼다.
 ---
 --- `isOffSpec`은 **오프스펙 플라이아웃을 통째로 안 배운 상태**를 위한 예외다. 그때는 슬롯의
---- `isKnown`이 전부 거짓이라 그 검사만으로는 아이콘을 하나도 못 고른다.
+--- `isKnown`이 전부 거짓이라 그 검사만으로는 쓸 수 있는 슬롯을 하나도 못 고른다.
 ---
---- **빈 야수 칸은 아이콘을 못 준다.** 그래야 야수가 하나도 없는 사냥꾼에게 아이콘이 안 나오고,
---- 부르는 쪽(`AddFlyoutEntry`)이 그 줄을 아예 안 올린다 - 열어도 빈 상자만 뜨는 것을 목록에
---- 세우지 않는 것이 요점이다.
+--- 네 번째 값 `hasUsableSlot`은 **열면 뭐라도 나오는가**이다. 야수가 하나도 없는 사냥꾼의
+--- 야수 소환이 거짓이고, 부르는 쪽(`AddFlyoutEntry`)이 그 줄을 아예 안 올린다 - 열어도 빈
+--- 상자만 뜨는 것을 목록에 세우지 않는 것이 요점이다. 한때 이 신호가 "아이콘이 안 나온다"였다.
+--- 아이콘을 첫 슬롯에서 빌려오던 시절에는 같은 말이었지만, 지금은 플라이아웃 자기 아이콘이
+--- 빈 칸에도 나오므로 갈라놔야 한다.
 function DebouncePrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec)
     local name, _, numSlots, isKnown = GetFlyoutInfo(flyoutID);
     if (not name or not numSlots or numSlots == 0) then
-        return nil, nil, nil;
+        return nil, nil, nil, false;
     end
 
-    local icon;
+    local hasUsableSlot = false;
+    local fallbackIcon;
     for slot = 1, numSlots do
         local spellID, overrideSpellID, isKnownSlot = GetFlyoutSlotInfo(flyoutID, slot);
         if (spellID and (isKnownSlot or isOffSpec) and not IsEmptyCallPetSlot(spellID)) then
+            hasUsableSlot = true;
             local _, slotIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
             if (slotIcon) then
-                icon = slotIcon;
+                fallbackIcon = slotIcon;
                 break;
             end
         end
     end
 
-    return name, icon, isKnown;
+    return name, GetFlyoutIcon(flyoutID) or fallbackIcon, isKnown, hasUsableSlot;
 end
 
 
@@ -140,7 +212,11 @@ local GetSpellTabNameAndIcon = DebouncePrivate.GetSpellTabNameAndIcon;
 ---
 --- `(계열 << 24) | 번호` 꼴이다. `0x07`이 명령, `0x06`이 태세인데 **번호가 띄엄띄엄하다**
 --- (명령에 3이 비고, 태세에 1·2가 빈다). 그래서 규칙으로 채우지 않고 확인한 것만 적는다.
---- 여기 없는 것(`PET_AGGRESSIVE`, `PET_DISMISS`)은 값을 못 봤다는 뜻이지 없다는 뜻이 아니다.
+---
+--- **여기 없는 이유가 두 가지다. 섞으면 안 된다:**
+---
+---   값을 못 봤다      `PET_AGGRESSIVE`, `PET_DISMISS`. 없다는 뜻이 아니라 실측을 못 했다는 뜻이다
+---   명령이 죽었다     `PET_DEFENSIVE`(`0x06000004`). **값은 안다** - 아래 주석 참고
 ---
 --- 값은 `SlashCommands.lua`가 `CheckAddSecureSlashCommand`로 올린 것들이다.
 ---
@@ -156,12 +232,41 @@ local PET_ACTION_SLASH_BY_ID = {
     [117440514] = "PET_ATTACK",   -- 0x07000002
     [117440516] = "PET_MOVE_TO",  -- 0x07000004
     [100663296] = "PET_PASSIVE",  -- 0x06000000
-    -- 지원 태세는 **`PET_ASSIST`다.** `PET_DEFENSIVEASSIST`가 아니다 - 그쪽이 부르는
-    -- `PetDefensiveAssistMode()`는 Mainline 트리에서 그 호출 한 자리 말고는 정의도 사용처도
-    -- 없는 옛 모드다. 리테일 펫 바의 지원 버튼이 하는 일은 `C_PetInfo.PetAssistMode()`이고,
-    -- 그걸 부르는 보안 슬래시 명령이 `PET_ASSIST`다(`Mainline/SlashCommandsOverrides.lua:1-5`).
+    -- 지원 태세는 **`PET_ASSIST`다.** `PET_DEFENSIVEASSIST`가 아니다.
+    --
+    -- 리테일 펫 바의 지원 버튼이 하는 일은 `C_PetInfo.PetAssistMode()`이고, 그걸 부르는 보안
+    -- 슬래시 명령이 `PET_ASSIST`다(`Blizzard_ChatFrameBase/Mainline/SlashCommandsOverrides.lua:1-5`).
+    -- **`PetAssistMode`만 `C_PetInfo`로 옮겨졌고**(`PetInfoDocumentation.lua`) 폐기 shim이 옛
+    -- 전역을 그쪽으로 다시 이어준다(`Deprecated_PetInfo.lua`). `PetDefensiveAssistMode`에는
+    -- 그게 둘 다 없다.
+    --
+    -- ※ 한때 이 자리에 *"`PetDefensiveAssistMode`는 트리에 정의가 없으니 죽었다"*고 적었는데
+    --   **그 논증은 아무것도 못 가른다** - `PetPassiveMode`·`PetAttack`·`PetFollow` 따위가
+    --   전부 똑같이 트리에 정의가 없다(엔진 쪽 전역이다). 위의 "옮겨졌는가"가 진짜 근거다.
     [100663299] = "PET_ASSIST",   -- 0x06000003
-    [100663300] = "PET_DEFENSIVE", -- 0x06000004
+
+    -- **방어 태세(`0x06000004` = 100663300)는 값을 아는데도 뺐다.**
+    --
+    -- **우리 버그가 아니라 게임 버그다.** `/petdefensive`는 지금도 등록돼 있고
+    -- (`SlashCommands.lua`가 `PET_DEFENSIVE`를 올린다) 슬래시 문자열도 살아 있는데,
+    -- 그게 부르는 `PetDefensiveMode()`가 **최소 5년째 아무 일도 안 한다**(실측).
+    -- 채팅창에 손으로 쳐도 마찬가지다.
+    --
+    -- 그래서 `GetPetActionMacroText`의 가드를 그냥 통과한다 - 그 가드가 보는 것은 슬래시
+    -- **문자열의 존재**뿐이고 그게 부르는 함수가 실제로 무언가를 하는지는 알 수 없다.
+    -- 넣어두면 **목록에 뜨는데 눌러도 아무 일이 없는 항목**이 되고, 그게 이 파일이 막으려는
+    -- 바로 그 고장이다(아래 "표에 없는 actionID는 …").
+    --
+    -- 대신 이 애드온에는 **방어 태세를 거는 길이 없다.** 펫 바 버튼은 `CastPetAction(슬롯)`
+    -- 이라 되지만, 슬롯은 펫마다 다르고 전투 중에 못 고친다 - 이 타입을 슬래시로 만든 이유가
+    -- 그것이라 그쪽으로 돌아갈 수는 없다. 열린 항목으로 `.zzz/TODO.md`에 적어뒀다.
+    --
+    -- **블리자드가 고치면 이 한 줄을 되살리는 것으로 끝난다:**
+    --     `[100663300] = "PET_DEFENSIVE", -- 0x06000004`
+    --
+    -- 자동으로 살아나게 두지 않은 이유: 살았는지 물어볼 방법이 없다. 전역이 사라진 것이라면
+    -- `PetDefensiveMode == nil`로 가를 수 있지만, 그 이름이 남은 채 속이 빈 것이면 어떤 검사도
+    -- 통과한다. 게임에서 한 번 쳐보는 것이 유일한 판정이라 사람이 판단할 자리로 남겨둔다.
 };
 
 --- 대상을 **실제로 쓰는** 명령. 확인된 것은 공격 하나다(`SlashCommands.lua:659`,
