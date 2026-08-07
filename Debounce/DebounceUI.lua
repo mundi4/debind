@@ -2233,19 +2233,6 @@ function DebounceFrameMixin:OnLoad()
 	self.Tab3:SetPoint("TOP", self.Tab1, "TOP", 0, 0);
 	self.Tab3:SetPoint("RIGHT", self.ScrollBoxBackground, "RIGHT", 0, 0);
 
-	-- **오버뷰 탭은 지금 숨겨져 있다.** 코드는 전부 살아 있고 이 세 줄만 막고 있다.
-	--
-	-- 그 탭이 없다고 못 하게 되는 일이 없다 - 액션은 자기 레이어 탭에 다 있고, 한 키의
-	-- 발동 순서는 상세 패널의 순서 목록이 보여준다. 남는 값은 "키를 가로질러 한 화면에"
-	-- 하나인데, 그걸 얻는 대신 이 탭만 예외인 규칙이 계속 늘었다(사이드탭 없음, 레이어가
-	-- 없어서 add 불가, 탭 숫자의 뜻이 다름, 필터가 행을 지움, 두 목록이 같은 것을 그림).
-	-- 더 나은 모양이 나올 때까지 접어둔다.
-	--
-	-- `numTabs`를 줄이면 블리자드의 탭 기계가 이 탭을 아예 안 만진다. 그래도 XML이 만든
-	-- 프레임은 남으므로 직접 숨긴다.
-	self.Tab3:Hide();
-	PanelTemplates_SetNumTabs(self, OVERVIEW_TAB - 1);
-
 	PanelTemplates_SetTab(self, _selectedTab);
 
 	self:InitializeScrollBox();
