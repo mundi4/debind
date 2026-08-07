@@ -32,3 +32,11 @@ jobs:
 
       - name: Package and release
         uses: BigWigsMods/packager@master
+        with:
+          # zip 파일 이름만 Debind로 가른다. 기본 템플릿이 `{package-name}`이라 그냥 두면
+          # `Debounce-3.0.zip`이 나오는데, 그 값(.pkgmeta의 package-as)은 폴더 이름이 걸려
+          # 있어서 못 바꾼다 - 그래서 토큰 자리에 리터럴을 박았다.
+          #
+          # 콜론 뒤는 릴리즈 라벨(기본 `{project-version}{classic}{nolib}`)이다. 생략하면
+          # release.sh가 `${OPTARG##*:}`로 같은 문자열을 집어 라벨까지 파일 이름이 된다.
+          args: -n "Debind-{project-version}{nolib}{classic}:{project-version}{classic}{nolib}"
