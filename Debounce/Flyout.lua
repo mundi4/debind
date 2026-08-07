@@ -39,13 +39,12 @@ local format             = format;
 --- **텍스처를 만지는 방법이 없다**(`HANDLE`에 `SetTexture`도 `SetAtlas`도 없다). 홀더를 돌려
 --- 쓰면 전투 중에 아이콘을 갈아끼울 수가 없어서, 어느 플라이아웃을 열어도 남의 그림이 뜬다.
 ---
---- 같은 벽이 **배경 방향**에도 있다. 위로 펼칠지 아래로 펼칠지는 커서 위치에 달렸으니 전투
---- 중에 정해지는데, 블리자드 플라이아웃 배경은 방향마다 조각의 자리와 회전이 다르다
---- (`FlyoutPopupMixin:UpdateBackground`). 그래서 **배경을 두 벌 미리 만들어 두고** 스니펫은
---- 둘 중 하나를 `Show`하는 것으로 끝낸다 - 텍스처는 못 숨기지만 프레임은 숨길 수 있으니,
---- 조각 세 개를 각각 자기 프레임에 담는다.
+--- 같은 벽이 **배경 방향**에도 있을 뻔했다. 위로 펼칠지 아래로 펼칠지는 커서 위치에 달렸으니
+--- 전투 중에 정해지는데, 블리자드 플라이아웃 배경은 방향마다 조각의 자리와 회전이 다르다
+--- (`FlyoutPopupMixin:UpdateBackground`). 우리 배경은 **양끝이 같은 마감**이라 방향을 안 탄다
+--- (`CreateBackground` 참고) - 한 벌만 지어두고 스니펫은 배경을 아예 안 만진다.
 ---
---- 결과: 전투 중 스니펫이 하는 일은 **"어디에 놓고, 어느 배경으로 보여줄 것인가"** 둘뿐이다.
+--- 결과: 전투 중 스니펫이 하는 일은 **어디에 놓을 것인가** 하나뿐이다.
 ---
 --- 여는 손잡이(`opener`)를 홀더와 따로 두는 것은 `SECURE_ACTIONS.click`이 `delegate:Click()`을
 --- 부르기 때문이다. 숨어 있는 프레임을 Click하는 것이 되는지 아닌지에 기대지 않으려고,
@@ -128,19 +127,7 @@ local OPENER_ONCLICK     = format([[
 		growUp = (my ~= nil) and (my < %f)
 	end
 
-	-- 배경은 갈아끼우는 게 아니라 **골라 보여준다.** 제한 환경에서 텍스처를 못 만지므로
-	-- 방향마다 한 벌씩 미리 만들어 뒀다.
-	local bgUp, bgDown = holder:GetFrameRef("bgUp"), holder:GetFrameRef("bgDown")
-	if (bgUp and bgDown) then
-		if (growUp) then
-			bgDown:Hide()
-			bgUp:Show()
-		else
-			bgUp:Hide()
-			bgDown:Show()
-		end
-	end
-
+	-- 배경은 안 만진다. 양끝 마감이 같아서 어느 쪽으로 펼치든 같은 그림이다.
 	holder:ClearAllPoints()
 	if (growUp) then
 		holder:SetPoint("BOTTOM", "$cursor", 0, -%d)
@@ -159,58 +146,53 @@ local OPENER_ONCLICK     = format([[
 -- 아트
 --------------------------------------------------------------------------------
 
---- 그룹 전체를 감싸는 배경·테두리. **블리자드 플라이아웃과 같은 아틀라스 셋이다.**
+--- 그룹 전체를 감싸는 배경·테두리. **블리자드 플라이아웃과 같은 아틀라스다.**
 ---
---- 조각이 왜 셋인가: 플라이아웃은 칸 수에 따라 길이가 변하므로 통짜 그림을 못 쓴다. 양끝
---- 마감 둘과 그 사이를 세로로 타일링하는 가운데 하나로 나뉘어 있다. 조각 이름과 자리,
---- 회전각은 전부 `FlyoutPopupMixin:UpdateBackground`(`Blizzard_Flyout/Flyout.lua`)에서
---- 그대로 옮겼다 - 우리가 정할 값이 아니다.
+--- 조각이 왜 여럿인가: 플라이아웃은 칸 수에 따라 길이가 변하므로 통짜 그림을 못 쓴다. 양끝
+--- 마감 둘과 그 사이를 세로로 타일링하는 가운데 하나로 나뉘어 있다. 자리와 회전각은
+--- `FlyoutPopupMixin:UpdateBackground`(`Blizzard_Flyout/Flyout.lua`)에서 그대로 옮겼다.
 ---
---- **방향마다 한 벌씩 만든다.** 위로 펼칠지 아래로 펼칠지는 커서 위치에 달렸고 그건 전투
---- 중에 정해지는데, 제한 환경에는 회전도 앵커 재지정도 없다. 프레임 두 개를 미리 지어두고
---- 스니펫이 `Show`/`Hide`로 고르는 것이 유일한 길이다.
-local function CreateBackground(holder, direction)
+--- **다만 양끝을 같은 조각으로 마감한다.** 블리자드는 두 끝이 다른 조각이다 -
+--- `…-FlyoutBottom`은 마감이 아니라 **액션 버튼에 붙는 이음매**고, 그 끝은 액션 버튼이
+--- 덮어서 안 보인다. 우리 플라이아웃은 커서에 떠 있어서 덮을 것이 없다. 그대로 가져왔더니
+--- 한쪽 끝만 잘려 보였다 - 아래는 둥근 마감인데 위는 끊긴 이음매였다.
+---
+--- 그래서 **둘 다 `…-FlyoutButton`**(먼 쪽 마감)을 쓰고 아래쪽만 180도 돌린다. 덤으로 배경이
+--- 위아래 대칭이 되어 **방향을 안 탄다** - 위로 펼치든 아래로 펼치든 같은 그림이라 한 벌만
+--- 지으면 되고, 전투 중 스니펫이 배경을 고를 일이 없다(머리주석 참고).
+local END_CAP_ATLAS = "UI-HUD-ActionBar-IconFrame-FlyoutButton";
+
+local function CreateBackground(holder)
 	local bg = CreateFrame("Frame", nil, holder);
 	bg:SetAllPoints();
 	-- 홀더와 같은 층에 둔다. 버튼은 아래에서 더 위층으로 올리므로 아이콘이 배경에 안 묻힌다.
 	bg:SetFrameLevel(holder:GetFrameLevel());
-	bg:Hide();
 
-	local startPiece = bg:CreateTexture(nil, "BACKGROUND");
-	startPiece:SetAtlas("UI-HUD-ActionBar-IconFrame-FlyoutBottom", true);
+	-- 회전각 0이 블리자드의 "위로 펼침"에서 **위쪽** 마감이 서는 각이다. 아래쪽은 그것을
+	-- 뒤집은 것이고, 그 각도 블리자드의 "아래로 펼침"에서 그대로 온다.
+	local topCap = bg:CreateTexture(nil, "BACKGROUND");
+	topCap:SetAtlas(END_CAP_ATLAS, true);
+	topCap:SetPoint("TOP");
+	SetClampedTextureRotation(topCap, 0);
+
+	local bottomCap = bg:CreateTexture(nil, "BACKGROUND");
+	bottomCap:SetAtlas(END_CAP_ATLAS, true);
+	bottomCap:SetPoint("BOTTOM");
+	SetClampedTextureRotation(bottomCap, 180);
 
 	local middle = bg:CreateTexture(nil, "BACKGROUND");
 	middle:SetAtlas("!UI-HUD-ActionBar-IconFrame-FlyoutMid", true);
 	-- 아틀라스 이름 앞의 `!`가 "세로로 타일링되는 조각"이라는 표시다. XML의
 	-- `vertTile="true"`에 해당하고, `SetAtlas` **다음에** 켜야 안 지워진다.
 	middle:SetVertTile(true);
-
-	local endPiece = bg:CreateTexture(nil, "BACKGROUND");
-	endPiece:SetAtlas("UI-HUD-ActionBar-IconFrame-FlyoutButton", true);
-
-	if (direction == "UP") then
-		startPiece:SetPoint("BOTTOM");
-		middle:SetPoint("BOTTOM", startPiece, "TOP");
-		middle:SetPoint("TOP", endPiece, "BOTTOM");
-		endPiece:SetPoint("TOP");
-		SetClampedTextureRotation(startPiece, 0);
-		SetClampedTextureRotation(middle, 0);
-		SetClampedTextureRotation(endPiece, 0);
-	else
-		startPiece:SetPoint("TOP");
-		middle:SetPoint("BOTTOM", endPiece, "TOP");
-		middle:SetPoint("TOP", startPiece, "BOTTOM");
-		endPiece:SetPoint("BOTTOM");
-		SetClampedTextureRotation(startPiece, 180);
-		SetClampedTextureRotation(middle, 180);
-		SetClampedTextureRotation(endPiece, 180);
-	end
+	middle:SetPoint("TOP", topCap, "BOTTOM");
+	middle:SetPoint("BOTTOM", bottomCap, "TOP");
 
 	-- 폭만 준다. 높이는 아틀라스 것을 그대로 쓴다(가운데 조각은 위아래 앵커가 정한다) -
 	-- 블리자드도 가로 방향일 때만 높이를 건드린다.
-	startPiece:SetWidth(CROSS_SIZE);
+	topCap:SetWidth(CROSS_SIZE);
 	middle:SetWidth(CROSS_SIZE);
-	endPiece:SetWidth(CROSS_SIZE);
+	bottomCap:SetWidth(CROSS_SIZE);
 
 	return bg;
 end
@@ -415,9 +397,8 @@ local function CreateFlyout(flyoutID)
 	holder:EnableMouse(true);
 	holder:Hide();
 
-	-- 배경 두 벌. 어느 쪽도 아직 안 보인다 - 여는 스니펫이 방향을 정하면서 고른다.
-	SecureHandlerSetFrameRef(holder, "bgUp", CreateBackground(holder, "UP"));
-	SecureHandlerSetFrameRef(holder, "bgDown", CreateBackground(holder, "DOWN"));
+	-- 배경 한 벌. 방향을 안 타므로 스니펫에 넘길 것이 없다.
+	CreateBackground(holder);
 
 	-- 손잡이. **보인 채로 둔다** - 숨은 프레임에 `Click()`이 먹는지에 기대지 않으려는 것이다.
 	-- 크기가 1x1이고 텍스처가 없으므로 화면에는 아무것도 안 남고, 마우스를 끄므로 진짜 클릭을
