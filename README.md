@@ -43,18 +43,22 @@ Debind is for the keys where the answer isn't "all of them".
 
 `/deb` opens the window, and so does the addon compartment button by the minimap.
 
-Drag a spell, item, macro or mount onto the list. **Add...** has the rest. Left-click an action and press the key you want; mouse buttons and the wheel count. Right-click it for conditions, targets and the like. The tabs along the bottom and down the side decide which layer it lives in, and dragging an action onto another tab moves it there.
+The **+** at the top opens **Add an Action** — a tab each for spells, macros, mounts, toys, WoW's own binding commands, and the ones this addon makes up itself, with a search box over all of them. It stays open while you work, and every click adds to whichever layer tab you have open. Dragging a spell, item, macro or mount onto the list works too.
+
+Click an action to select it, and the panel beside the list opens on its **Key & Order** tab. Click the key button there and press the key you want; mouse buttons and the wheel count, and right-clicking that button unbinds. Right-click the action itself for conditions, targets and the like. The tabs along the bottom and down the side decide which layer it lives in, and dragging an action onto another tab moves it there.
 
 ## What a key can hold
 
-Spells, items, macros and mounts, dragged in from where they already are. Then:
+Spells, macros, mounts, toys, pet commands and your spell flyouts — the first few tabs of **Add an Action** are what you already own. Items come in by dragging. Then:
 
-- **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`.
+- **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`. **New Custom Macro**, above the picker's list, starts an empty one.
 - **Binding Command** — one of WoW's own binding commands (jump, open a bag, press a bar button), wrapped so it can carry conditions.
 - **Use WoW's Own Binding** — gives the key back to WoW for the cases you pick, so one spec can go on using your normal binding.
 - **Set Custom Target** and **Set Custom State** — the two things below.
 
-The **Add...** menu has a few more: world markers, targeting, focus, the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
+**Use WoW's Own Binding**, **Set Custom Target** and **Set Custom State** are on the picker's **Special** tab; **Binding Command** is on **Commands**.
+
+The **Commands** tab has a few more of ours, above WoW's own list: world markers, targeting, focus, the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
 
 ## Conditions
 
@@ -126,6 +130,6 @@ You can run Clique itself alongside this. Debind leaves unit frames to Clique an
 
 ## Links
 
-- [CurseForge](https://www.curseforge.com/wow/addons/debounce)
-- [GitHub issues](https://github.com/mundi4/Debounce/issues) — bugs and requests
+- [CurseForge](https://www.curseforge.com/wow/addons/debind)
+- [GitHub issues](https://github.com/mundi4/debind/issues) — bugs and requests
 - Oreo-Durotan (KR), Alliance · mundi4@gmail.com

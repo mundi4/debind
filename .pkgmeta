@@ -1,6 +1,24 @@
+# 게임이 보는 폴더 이름이 **아니다.** 이건 `.release/<이름>` 스테이징 디렉터리 이름이고,
+# 아래 move-folders 키의 첫 칸이 이 이름이다(packager가 키에서 떼어낸다). 게임이 보는
+# 폴더 이름은 move-folders의 **값**이다.
+#
+# 여기서는 그 둘이 일부러 겹쳐 있다. 스테이징 디렉터리와 이동 목적지가 같은
+# `.release/Debounce`라서, 저장소 루트의 README.md와 packager가 만드는 CHANGELOG.md가
+# 애드온 폴더 안에 그대로 남는다. 이름을 바꾸면 둘이 갈라지고, 남은 저장소 루트가
+# 통째로 세 번째 최상위 폴더가 되어 zip에 들어간다 - packager가 package-as를 무조건
+# zip_root_dirs에 넣기 때문이다. README는 애드온 밖으로 나가고.
 package-as: Debounce
 
 enable-nolib-creation: no
+
+# 안 적으면 packager가 태그 사이 커밋 제목을 긁어 릴리즈 노트를 만든다.
+#
+# `manual-changelog: CHANGELOG.md` 한 줄짜리 형식을 쓰면 안 된다. 그 형식에는
+# markup-type을 적을 자리가 없고, packager의 기본값이 "text"라서(release.sh:913)
+# 커스포지에 마크다운이 날것 그대로 올라간다. 자동 생성 쪽만 markdown으로 박혀 있다.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
 
 externals:
 
@@ -14,5 +32,8 @@ ignore:
   - tools
 
 move-folders:
+  # 값이 곧 게임이 보는 폴더 이름이고, SavedVariables 파일 이름이 여기서 나온다.
+  # 애드온이 Debind로 개명해도 이 두 값은 Debounce로 둔다 - 바꾸면 기존 사용자의
+  # 설정이 통째로 고아가 된다. 깃허브·커스포지 slug와는 무관하다(커밋 162ce57).
   Debounce/Debounce: Debounce
   Debounce/DebounceCliqueFake: DebounceCliqueFake
