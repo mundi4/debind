@@ -2391,6 +2391,13 @@ function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
 	self:Refresh(true);
 
+	-- 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 상세 패널을
+	-- 열어 그 자리로 데려간다. 커서에서 떨궈 만든 것과 **같은 대접**이어야 한다
+	-- (OnReceiveDrag) - 선택 창에서 고른 것만 아무 데도 안 데려가면 같은 일을 하는 두 길이
+	-- 다르게 끝난다. 찾기보다 먼저 하는 것도 같은 이유다: 패널이 열리면서 프레임이
+	-- 넓어지므로 스크롤은 그 뒤에 잡아야 맞는다.
+	self:SetSelectedAction(action);
+
 	local elementData = self:FindElementDataByActionInfo(action);
 	if (elementData) then
 		self.ScrollBox:ScrollToElementData(elementData);
