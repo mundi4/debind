@@ -898,12 +898,30 @@ do
         SetInstrcutionTooltip(description, LLL["KEEP_IN_BINDING_CONTEXT_DESC"]);
     end
 
+    --- 중요도는 이 메뉴에서 **파장이 가장 넓은 값**이다. 축이 둘 다 넓다: 이 액션이 걸린
+    --- **모든 키**의 순서를 바꾸고(이 키만이 아니다), 공유 레이어면 **이 계정의 모든
+    --- 캐릭터**에서 그렇게 된다.
+    ---
+    --- 제목 줄의 경고는 첫째 축까지밖에 못 말한다("여기서 바꾸면 모든 캐릭터"). 둘째 축은
+    --- 화면 어디에도 안 적혀 있고, 하필 이 목록에 온 사람의 머릿속은 "이 키의 순서"에 가
+    --- 있어서 정확히 어긋나는 자리다. 그래서 고르는 손이 라디오 위에 있는 순간 읽히도록
+    --- 항목 툴팁에 붙인다.
     local function CreatePriorityMenu(rootDescription)
+        -- `rawget`이라 없으면 nil이다(로케일 표의 __index를 건너뛴다). 이어붙이기 전에
+        -- 갈라서 둔다 - 번역본 한 줄이 빠졌다고 메뉴가 통째로 터지면 안 된다.
+        local instruction = rawget(LLL, "PRIORITY_DESC");
+        local layer = _elementData.layer and DebouncePrivate.GetProfileLayer(_elementData.layer);
+        if (layer and not layer.isCharacterSpecific) then
+            local warning = LLL["PRIORITY_SHARED_WARNING"];
+            instruction = instruction and (instruction .. "|n|n" .. warning) or warning;
+        end
+
         local description = CreateActionMenuItemGroup(rootDescription, "PRIORITY", "priority",
             -- isActive
             function()
                 return _action.priority ~= nil and _action.priority ~= Constants.DEFAULT_PRIORITY;
-            end
+            end,
+            nil, instruction
         );
 
         for i = Constants.MIN_PRIORITY, Constants.MAX_PRIORITY do
@@ -1008,15 +1026,25 @@ do
         --
         -- 예전에는 물어볼 필요가 없었다. 메뉴가 열리는 곳이 왼쪽 목록뿐이었고 그 목록은
         -- 언제나 한 레이어라 답이 창 제목에 있었다. 지금은 둘 다 아니다 - **오버뷰 탭은
-        -- 다섯 레이어를 한 목록에 담고**, 상세 패널의 순서 목록도 레이어를 가로지른다.
-        -- 그 두 자리에서 이 줄이 없으면 "지금 만지는 것이 어디 것인지 말해주는 게 아무것도
-        -- 없는 팝업"이 된다 - 순서 목록에서 남의 행을 못 고치게 막았던 이유가 그것이었다.
+        -- 다섯 레이어를 한 목록에 담는다.**
         --
-        -- 색은 이름 줄과 다르게 준다. 위는 `CreateTitle`의 기본값인 금색(NORMAL_FONT_COLOR)이고
-        -- 이건 노랑이다 - 같은 색으로 적으면 두 줄짜리 제목 하나로 읽히는데, 둘은 서로 다른
-        -- 것을 말한다(무엇을 만지는가 / 어디를 만지는가).
+        -- **공유 레이어면 경고로 그린다.** 여기서 무엇을 바꾸든 이 계정의 **모든 캐릭터**가
+        -- 따라 바뀌는데, 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의 레이어는
+        -- `DebounceVarsPerChar`에 있어서 이 세션에 존재하지 않는다. "공유 / 일반"이라는
+        -- 좌표만 적어두면 순서를 만지려던 사람의 머릿속에서 그게 "내 모든 캐릭터"로
+        -- 번역되지 않는다. 그래서 좌표가 아니라 결과를 적고, 색과 아이콘으로 세운다.
+        --
+        -- 캐릭터 전용이면 노랑이다. 이름 줄(금색)과 달라야 두 줄짜리 제목으로 안 읽힌다 -
+        -- 둘은 서로 다른 것을 말한다(무엇을 만지는가 / 어디를 만지는가).
         if (elementData.layer) then
-            rootDescription:CreateTitle(DebounceUI.GetLayerLabel(elementData.layer), YELLOW_FONT_COLOR);
+            local layer = DebouncePrivate.GetProfileLayer(elementData.layer);
+            local label = DebounceUI.GetLayerLabel(elementData.layer);
+            if (layer and not layer.isCharacterSpecific) then
+                rootDescription:CreateTitle(
+                    format(LLL["MENU_SCOPE_SHARED"], label), DebounceUI.WARNING_FONT_COLOR);
+            else
+                rootDescription:CreateTitle(label, YELLOW_FONT_COLOR);
+            end
         end
 
         rootDescription:SetTag(DebounceUI.ActionMenuRootTag, 1);

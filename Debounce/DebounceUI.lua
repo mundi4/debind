@@ -3596,28 +3596,42 @@ function DebounceOrderLineMixin:OnClick(buttonName)
 		return;
 	end
 
-	-- **우클릭도 그 행으로 간 다음에 연다.** 편집 메뉴가 만지는 액션은 왼쪽 목록에 있어야
-	-- 한다 - `MoveAction`의 assert도, 매크로 편집기의 이름/아이콘 버튼도, `Refresh`가 선택을
-	-- 유지하는 것도 전부 그 전제 위에 서 있다. 이 목록은 레이어를 가로지르므로 그 전제가
-	-- 저절로 참이 아니고, 어기면 메뉴는 열리는데 항목을 고르면 오류가 나거나 아무 일도
-	-- 안 일어난다.
+	-- **왼쪽 목록에 있는 행만 편집 메뉴를 연다.** 없으면 데려다 주는 항목 하나뿐이다.
 	--
-	-- 데려다 놓는 것은 새 동작이 아니다. 예전에는 남의 행에서 열리는 메뉴에 **"가기"
-	-- 하나뿐**이었으므로, 가는 것이 원래 이 자리의 뜻이다. 클릭 한 번이 줄었을 뿐이다.
-	if (not elementData.isCurrent) then
-		DebounceFrame:GoToAction(row.action, row.layerID);
-		-- 대화상자가 막아섰으면(`TryCloseAnyDialog`) 화면은 아직 딴 데 있다.
-		if (DebounceFrame:GetSelectedAction() ~= row.action) then
-			return;
-		end
-	end
-
-	-- 왼쪽 목록이 이 액션의 elementData를 갖고 있다. 메뉴가 원래 받도록 지어진 그 테이블을
-	-- 그대로 넘긴다 - 모양을 흉내내면 저쪽이 바뀔 때 조용히 어긋난다.
+	-- 이건 편의 문제가 아니라 **막으려는 행동이 있어서다**: *"이게 어디 붙어 있는 액션인지는
+	-- 모르겠지만 중요도를 올려서 위로 보내자."* 공유 레이어의 액션에 그걸 하면 **이 계정의
+	-- 모든 캐릭터**가 따라 바뀌고, 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의
+	-- 레이어는 `DebounceVarsPerChar`에 있어서 이 세션에 존재하지 않는다.
+	--
+	-- 그래서 먼저 그 액션의 자리로 가야 하고, **가는 것이 따로 한 번의 결정이어야 한다.**
+	-- 여기서 자동으로 데려가고 메뉴까지 같이 열면 도착한 화면을 볼 틈이 없다 - 메뉴가 그
+	-- 위에 이미 떠 있다. 친화력이 곧 기능인 자리다.
+	--
+	-- 한때 이 조건이 `isCurrent`(= 지금 상세 패널이 보고 있는 액션인가)였다. 레이어 탭에서는
+	-- 그게 "지금 보고 있는 레이어의 액션인가"와 **우연히 같은 값**이라 규칙처럼 보였지만,
+	-- 오버뷰 탭에서 그 우연이 깨졌다: 모든 행이 남의 레이어이고, 그런데도 같은 액션을 왼쪽
+	-- 목록에서 우클릭하면 전체 메뉴가 열린다. 물어야 할 것은 처음부터 **"저 목록에
+	-- 있느냐"**였다 - 있다면 그 액션이 사는 레이어를 이미 보고 있다는 뜻이다.
 	local mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
 	if (mainElementData) then
+		-- 메뉴가 원래 받도록 지어진 그 테이블을 그대로 넘긴다. 모양을 흉내내면 저쪽이 바뀔
+		-- 때 조용히 어긋나고, 실제로 `MoveAction`의 assert와 매크로 이름/아이콘이 거기 걸린다.
 		DebounceFrame:ShowEditDropdown(self, mainElementData);
+		return;
 	end
+
+	-- 항목이 하나뿐이라는 것 자체가 "이 행은 네가 보고 있는 자리의 것이 아니다"를 말한다.
+	-- 항목의 글자는 레이어 라벨이라, 어디로 가는지도 같은 줄이 말한다.
+	MenuUtil.CreateContextMenu(self, function(_, rootDescription)
+		-- 로컬에 한 번 받아서 넘긴다. NameAndIconForAction은 (name, icon)을 돌려주는데,
+		-- 호출이 인자 목록 끝에 오면 둘 다 펼쳐져서 아이콘이 CreateTitle(text, color)의
+		-- **color 자리로** 들어간다. 편집 메뉴가 이미 이렇게 받아 쓰고 있다.
+		local title = NameAndIconForAction(row.action);
+		rootDescription:CreateTitle(title);
+		rootDescription:CreateButton(format(LLL["ORDER_GOTO_ACTION"], GetLayerLabel(row.layerID)), function()
+			DebounceFrame:GoToAction(row.action, row.layerID);
+		end);
+	end);
 end
 
 local function OrderMoveButton_OnEnter(button)
@@ -4399,6 +4413,9 @@ end
 DebounceUI.UNIT_INFO = UNIT_INFO;
 DebounceUI.SORTED_UNIT_LIST = SORTED_UNIT_LIST;
 DebounceUI.BINDING_TYPE_NAMES = BINDING_TYPE_NAMES;
+-- 경고색은 한 군데서 낸다. 드롭다운 메뉴도 같은 주황을 써야 하는데, 사본을 하나 더 두면
+-- 한쪽만 바뀐다.
+DebounceUI.WARNING_FONT_COLOR = WARNING_FONT_COLOR;
 DebounceUI.GetLayerID = GetLayerID;
 DebounceUI.IsOverviewTab = IsOverviewTab;
 DebounceUI.GetTabLabel = GetTabLabel;
