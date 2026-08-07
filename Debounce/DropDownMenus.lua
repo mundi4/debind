@@ -647,9 +647,21 @@ do
 
     local function CreateHoverMenu(parentDescription)
         local description = CreateActionMenuItemGroup(parentDescription, "CONDITION_HOVER", "hover", nil, DebouncePrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
-        -- description:SetEnabled(function()
-        --     return not DebouncePrivate.CliqueDetected;
-        -- end);
+
+        -- Clique를 켜 두면 hover 조건은 어차피 동작하지 않는다. 그래도 메뉴를 잠그지는
+        -- 않는다 - 이미 켜 둔 값을 [사용 안 함]으로 지우러 들어갈 수 있어야 하기 때문이다.
+        -- 대신 값이 있느냐로 색을 가른다: **값이 남아 있으면 고쳐야 할 것**이라 빨강(위에서
+        -- 칠한 ERROR_COLOR 그대로)이고, 값이 없으면 지금 고를 수 없는 항목일 뿐이라
+        -- 회색이다 - 켠 적도 없는 조건을 오류로 붉히면 고칠 것이 있는 줄 알게 된다.
+        -- 그룹이 제 초기화에서 색을 칠하므로 그 뒤에 덧칠하는 초기화를 하나 더 건다.
+        if (DebouncePrivate.CliqueDetected) then
+            description:AddInitializer(function(button)
+                if (_action.hover == nil) then
+                    button.fontString:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
+                end
+            end);
+        end
+
         local disable, yes, no = AppendDisableYesNo(description, "CONDITION_HOVER", "hover");
         if (DebouncePrivate.CliqueDetected) then
             yes:SetEnabled(false);
