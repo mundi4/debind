@@ -15,6 +15,9 @@ jobs:
 
     env:
       GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      # 시크릿은 자동으로 env에 들어오지 않는다. 이 줄이 없으면 packager가
+      # X-Curse-Project-ID를 읽고도 "CurseForge ID: 970278"만 찍고 업로드는 건너뛴다.
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
 
     steps:
       - name: Clone project
