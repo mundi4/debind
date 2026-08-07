@@ -98,6 +98,11 @@ local function GetMacrotextIcon(macrotext)
 		return nil;
 	end
 
+	-- 매크로 슬롯에 들어가는 것은 **원문이 아니라 `$상태`를 걷어낸 사본이다.** 원문을 그대로
+	-- 넣으면 와우 파서가 자기가 모르는 옵션마다 대화창에 "Unknown macro option: $state1"을
+	-- 찍는다 - 아이콘 하나 뽑자고 사용자 채팅창을 더럽히는 셈이다. 캐시 키는 원문 그대로.
+	local text = DebouncePrivate.StripCustomStateConditions(macrotext);
+
 	local ret;
 	if (not GetMacroInfo(TEMP_MACRO_NAME)) then
 		local cnt1, cnt2 = GetNumMacros();
@@ -112,9 +117,9 @@ local function GetMacrotextIcon(macrotext)
 			end
 			isCharacterSpecific = true;
 		end
-		CreateMacro(TEMP_MACRO_NAME, QUESTION_MARK_ICON_NUM, macrotext, isCharacterSpecific);
+		CreateMacro(TEMP_MACRO_NAME, QUESTION_MARK_ICON_NUM, text, isCharacterSpecific);
 	else
-		EditMacro(TEMP_MACRO_NAME, nil, nil, macrotext);
+		EditMacro(TEMP_MACRO_NAME, nil, nil, text);
 	end
 
 	_, ret = GetMacroInfo(TEMP_MACRO_NAME);
@@ -1660,6 +1665,10 @@ function DebounceSideTabMixin:OnClick()
 	if (_selectedSideTab ~= id) then
 		PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN);
 
+		-- 사이드탭도 탭과 같은 이동이다 - 바뀌는 것은 레이어 하나뿐이지만 목록이 통째로
+		-- 갈리는 것은 같다. 고른 것을 놓는 이유도 같다(`DebounceFrameMixin:SetTab`).
+		DebounceFrame:SetSelectedAction(nil);
+
 		_selectedSideTab = id;
 
 		DebounceFrame:UpdateSideTabs();
@@ -2941,6 +2950,18 @@ end
 
 function DebounceFrameMixin:SetTab(id)
 	PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN);
+
+	-- **고른 것을 여기서 놓는다.** 탭을 옮기면 그 액션은 새 목록에 없고, 그러면 상세 패널만
+	-- 화면 어디에도 없는 액션을 붙들고 열려 있게 된다 - 왼쪽에는 짚어줄 행이 없으니 그 패널이
+	-- 무엇을 고치는 중인지 말해줄 것이 아무것도 없고, 거기서 키를 바꾸면 안 보이는 레이어가
+	-- 바뀐다. `Refresh`의 "액션이 없어졌을 때만 푼다"가 이 자리를 안 본다(그쪽 주석 참고).
+	--
+	-- 탭이 실제로 바뀔 때만이다. `GoToAction`은 같은 탭에도 이 함수를 부르고 곧바로 목표
+	-- 액션을 고르는데, 거기서 놓았다 다시 잡으면 패널이 한 번 접혔다 펴진다.
+	if (_selectedTab ~= id) then
+		self:SetSelectedAction(nil);
+	end
+
 	_selectedTab = id;
 	PanelTemplates_SetTab(self, _selectedTab);
 	self:UpdateSideTabs();
@@ -2961,7 +2982,8 @@ function DebounceFrameMixin:SetTab(id)
 	end
 
 	-- 탭 이동도 뷰를 바꾸는 것이다. 앞 탭에서 붙들고 있던 것을 들고 오지 않는다 - 그건
-	-- 발밑이 아니라 남의 기억이다. 지금 고른 액션은 `Refresh` 끝에서 다시 붙든다.
+	-- 발밑이 아니라 남의 기억이다. 선택이 살아남는 길(같은 탭으로 부른 `GoToAction`)에서는
+	-- `Refresh` 끝이 그 하나를 다시 붙든다.
 	ForgetOverviewActions();
 
 	self:UpdateListControls();
