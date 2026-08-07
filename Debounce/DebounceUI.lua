@@ -1091,7 +1091,6 @@ do
 			GameTooltip_AddBlankLineToTooltip(GameTooltip);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"]);
-			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE3"]);
 		else
 			GameTooltip_AddBlankLineToTooltip(GameTooltip);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["OVERVIEW_LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
@@ -2037,10 +2036,10 @@ function DebounceFrameMixin:OnHide()
 	DebouncePrivate.UnregisterCallback(self, "OnBindingsUpdated");
 
 	_pickedupInfo = nil;
-	-- 덮개는 위 상태를 보고 켜지는데, 그걸 지웠다고 저절로 내려가지는 않는다. 여기서
-	-- 안 내리면 다음에 창을 열 때 목록을 덮은 채 "여기 떨궈라"라고 말하고 있다 - 창을
-	-- 닫는 것도, 전투에 끌려들어가는 것도 커서에 뭘 든 채로 일어난다.
-	self:UpdateDropOverlay();
+	-- 글로우는 위 상태를 보고 켜지는데, 그걸 지웠다고 저절로 꺼지지는 않는다. 여기서
+	-- 안 끄면 다음에 창을 열 때 목록이 빛나고 있다 - 창을 닫는 것도, 전투에 끌려들어가는
+	-- 것도 커서에 뭘 든 채로 일어난다.
+	self:UpdateDropHighlight();
 	ClearMacrotextIconCache();
 end
 
@@ -2425,34 +2424,12 @@ function DebounceFrameMixin:Update()
 
 	self:UpdateEmptyText();
 
-	self:UpdateDropOverlay();
+	self:UpdateDropHighlight();
 end
 
---- 커서에 뭔가 들려 있는 동안 창 안쪽을 덮는다.
----
---- 목적은 "어느 줄에 떨궈야 하나"를 물을 수 없게 만드는 것이다 - 이 창은 떨어진 위치를
---- 보지 않는다. 행이 보이면 행마다 툴팁이 뜨고 각각이 목적지처럼 보인다.
-function DebounceFrameMixin:UpdateDropOverlay()
-	local overlay = self.DropOverlay;
-
-	overlay:SetShown(_pickedupInfo ~= nil);
-	if (_pickedupInfo == nil) then
-		return;
-	end
-
-	-- 상세 패널이 useParentLevel이라 레벨이 부모를 따라 움직인다. 한 번 박아두지 않고
-	-- 띄울 때마다 다시 잡는다.
-	overlay:SetFrameLevel(self:GetFrameLevel() + 100);
-
-	overlay.Prompt:SetText(LLL["LIST_DROP_PROMPT_ADD"]);
-end
-
---- 커서에 집어온 것을 놓는 동작은 드래그가 아니라 **클릭**이다. ScrollBox가 그랬던 것과
---- 같은 이유로 덮개도 클릭을 드롭으로 보낸다.
-function DebounceFrameMixin:DropOverlay_OnMouseUp(button)
-	if (button == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
-		self:OnReceiveDrag();
-	end
+--- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
+function DebounceFrameMixin:UpdateDropHighlight()
+	self.ScrollBoxBackground.Highlight:SetShown(_pickedupInfo ~= nil);
 end
 
 --- 아이콘 선택기가 떠 있는 동안 잠기는 것들.
@@ -2520,21 +2497,20 @@ function DebounceFrameMixin:ShowEditDropdown(button, elementData)
 end
 
 function DebounceFrameMixin:OnPickup()
-	self:ClearMouse(true);
+	-- 우클릭으로 커서를 비우는 것만 듣는다. 예전에는 여기서 `ClearMouse(true)`로 진행 중인
+	-- 행 드래그를 먼저 끊었는데, 이제 커서에 드는 길이 하나라 끊을 것이 없다.
 	self:RegisterEvent("GLOBAL_MOUSE_DOWN");
 	self:Update();
 end
 
-function DebounceFrameMixin:ClearMouse(pickingUp)
-	if (not pickingUp and _pickedupInfo) then
+function DebounceFrameMixin:ClearMouse()
+	if (_pickedupInfo) then
 		_pickedupInfo = nil;
 		ClearCursor();
 	end
 
 	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
-	if (not pickingUp) then
-		self:Update();
-	end
+	self:Update();
 end
 
 --- 게임이 커서에 집어준 것을 받는다. **우리 행은 끌 수 없으므로** 여기 오는 것은 항상
@@ -2572,13 +2548,11 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 
 	-- 목록이 정렬돼 있으므로 새 액션이 어디로 갈지 모른다. 찾아서 보여준다.
 	--
-	-- 밖에서 끌어온 것은 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데,
-	-- 선택이 상세 패널을 열어 그 자리로 데려간다. 레이어를 옮긴 것은 이미 있던 액션이고
-	-- 목적지가 다른 탭이라 여기 오지 않는다(같은 레이어면 위에서 돌아섰다).
+	-- 곧바로 선택도 한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 상세 패널을
+	-- 열어 그 자리로 데려간다. 다른 탭에 떨궜으면 여기 오지 않는다 - 보이지도 않는 행을
+	-- 선택할 수 없다.
 	if (destLayerID == GetLayerID()) then
-		if (not prevLayerID) then
-			self:SetSelectedAction(action);
-		end
+		self:SetSelectedAction(action);
 		local elementData = self:FindElementDataByActionInfo(action);
 		if (elementData) then
 			self.ScrollBox:ScrollToElementData(elementData);

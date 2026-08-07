@@ -165,9 +165,6 @@ L["KEY_GROUP_UNBOUND"] = "No key assigned"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to set the binding."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
-L["LINE_TOOLTIP_INSTRUCTION_MESSAGE3"] = "Drag onto a tab to move it into that scope."
-L["LIST_DROP_PROMPT_ADD"] = "Drop it here to add it to this tab."
-L["LIST_DROP_PROMPT_MOVE"] = "Drop it on a tab to move it into that scope."
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebounceUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
@@ -248,7 +245,7 @@ L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = "Character Macros"
 L["SPELL_PICKER_GROUP_FAVORITES"] = "Favorites"
 L["SPELL_PICKER_GROUP_OTHERS"] = "Everything Else"
 -- "layer"는 코드가 쓰는 말이고 화면에 나온 적이 없다. 사용자가 보는 것은 탭이므로
--- 탭이라고 쓴다(LIST_DROP_PROMPT_*, ORDER_BLOCKED_LAYER와 같은 낱말).
+-- 탭이라고 쓴다(ORDER_BLOCKED_LAYER와 같은 낱말).
 L["SPELL_PICKER_MENU_DESC"] = "Browse what you already have -- spells, macros, mounts, toys, and the game's own binding commands. The window stays open, and each click adds to whichever tab you have open."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "New Custom Macro"
 L["SPELL_PICKER_NO_MATCH"] = "Nothing matches your search."
