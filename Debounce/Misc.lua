@@ -1394,9 +1394,19 @@ end
 function DebouncePrivate.ApplyOptions(option)
     if (option == nil or option == "unitframeUseMouseDown") then
         if (not DebouncePrivate.CliqueDetected) then
-            local trigger = DebouncePrivate.Options.unitframeUseMouseDown and "AnyDown" or "AnyUp";
-            for frame in pairs(DebouncePrivate.ccframes) do
-                frame:RegisterForClicks(trigger);
+            -- `RegisterForClicks`를 여기서 직접 부르지 않는다. 대상은 **블리자드 유닛프레임
+            -- 버튼**이라(`RegisterFrame`이 `IsProtected()` 참인 것만 넣는다) 전투 중에는
+            -- 막힌다. 같은 일을 하는 `UpdateRegisteredClicks`에 전투 큐가 이미 있으므로
+            -- 그쪽으로 보낸다 - 전투 중이면 밀렸다가 `PLAYER_REGEN_ENABLED`에 다시 돈다.
+            -- (지금은 창이 전투 시작과 함께 숨어서 이 옵션에 손이 닿지 않을 뿐이다.)
+            --
+            -- `false`인 칸은 **등록을 거절당한 프레임**이다 - protected가 아니거나,
+            -- forbidden이거나, 앵커가 묶여 있거나, `RegisterForClicks` 자체가 없거나.
+            -- 걸러내지 않으면 마지막 경우에 nil을 부른다.
+            for frame, info in pairs(DebouncePrivate.ccframes) do
+                if (info) then
+                    DebouncePrivate.UpdateRegisteredClicks(frame);
+                end
             end
         end
     end
