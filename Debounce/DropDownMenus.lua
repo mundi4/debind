@@ -923,21 +923,35 @@ do
         end
     end
 
+    --- 목적지 목록은 **레이어**의 목록이지 탭 좌표의 목록이 아니다.
+    ---
+    --- 오버뷰 탭은 여기 안 들어온다. 레이어가 아니라서 넣을 자리가 없다
+    --- (`DebounceUI.lua`의 `GetLayerID`).
+    ---
+    --- 같은 레이어를 두 좌표가 가리키는 일이 실재한다: 캐릭터 전용 탭에서 (탭2, 사이드탭1)과
+    --- (탭2, 사이드탭2)가 **둘 다 레이어 7**이다. 그래서 layerID로 접는다 - 안 접으면 같은
+    --- 곳으로 가는 항목이 이름만 다르게 둘 나오고, "이동"으로 그 둘째를 고르면
+    --- `MoveAction`의 `assert(copying, "cannot move to same layer")`에 걸린다.
+    --- 남는 이름은 사이드탭1 쪽인데, 화면에서 레이어 7이 실제로 서 있는 자리가 거기다
+    --- (`UpdateSideTabs`가 탭2에서 사이드탭2를 숨긴다).
     local function CreateMoveCopyMenu(rootDescription, isCopy)
         if (TAB_LIST == nil) then
             TAB_LIST = {};
+            local seenLayers = {};
             for tabID = 1, #DebounceFrame.Tabs do
-                local tabLabel = DebounceUI.GetTabLabel(tabID);
+                local tabLabel = not DebounceUI.IsOverviewTab(tabID) and DebounceUI.GetTabLabel(tabID);
                 if (tabLabel) then
                     for sideTabID = 1, #DebounceFrame.SideTabs do
                         local sideTabLabel = DebounceUI.GetSideTabaLabel(sideTabID);
                         if (sideTabLabel) then
-                            tinsert(TAB_LIST, {
-                                tabID = tabID,
-                                sideTabID = sideTabID,
-                                label = format("%s - %s", tabLabel, sideTabLabel),
-                                isCurrentTab = tabID == DebounceUI.GetSelectedTab() and sideTabID == DebounceUI.GetSelectedSideTab(),
-                            });
+                            local layerID = DebounceUI.GetLayerID(tabID, sideTabID);
+                            if (not seenLayers[layerID]) then
+                                seenLayers[layerID] = true;
+                                tinsert(TAB_LIST, {
+                                    layerID = layerID,
+                                    label = format("%s - %s", tabLabel, sideTabLabel),
+                                });
+                            end
                         end
                     end
                 end
@@ -949,22 +963,19 @@ do
         optionsDescription:CreateTitle(MenuUtil.GetElementText(optionsDescription));
 
         local func = function(args)
-            local tabID = args[1];
-            local sideTabID = args[2];
-            local toLayerIndex = DebounceUI.GetLayerID(tabID, sideTabID);
-            DebounceUI.MoveAction(_elementData, toLayerIndex, isCopy);
+            DebounceUI.MoveAction(_elementData, args[1], isCopy);
         end
 
+        -- **"지금 이 액션이 사는 레이어"이지 "지금 보고 있는 탭"이 아니다.** 오버뷰 탭에서는
+        -- 행마다 레이어가 다르므로 화면으로는 답할 수 없고, 레이어 탭에서는 둘이 같은 값이라
+        -- 달라지는 것이 없다.
         for _, tabInfo in ipairs(TAB_LIST) do
-            if (isCopy or tabInfo.tabID ~= DebounceUI.GetSelectedTab() or tabInfo.sideTabID ~= DebounceUI.GetSelectedSideTab()) then
-                local label = tabInfo.label;
-                if (tabInfo.tabID == DebounceUI.GetSelectedTab() and tabInfo.sideTabID == DebounceUI.GetSelectedSideTab()) then
-                    label = LLL["CURRENT_TAB"];
-                end
+            local isSameLayer = tabInfo.layerID == _elementData.layer;
+            if (isCopy or not isSameLayer) then
                 optionsDescription:CreateButton(
-                    label,
+                    isSameLayer and LLL["CURRENT_TAB"] or tabInfo.label,
                     func,
-                    { tabInfo.tabID, tabInfo.sideTabID }
+                    { tabInfo.layerID }
                 );
             end
         end
@@ -991,6 +1002,23 @@ do
         local description;
         local title = DebounceUI.NameAndIconForAction(elementData.action);
         rootDescription:CreateTitle(title);
+
+        -- **어느 레이어의 액션을 만지는 중인가.** 이 메뉴는 액션을 지우고 조건을 바꾸는데,
+        -- 그 액션이 어디 사는지 말하는 것이 여기 말고는 없었다.
+        --
+        -- 예전에는 물어볼 필요가 없었다. 메뉴가 열리는 곳이 왼쪽 목록뿐이었고 그 목록은
+        -- 언제나 한 레이어라 답이 창 제목에 있었다. 지금은 둘 다 아니다 - **오버뷰 탭은
+        -- 다섯 레이어를 한 목록에 담고**, 상세 패널의 순서 목록도 레이어를 가로지른다.
+        -- 그 두 자리에서 이 줄이 없으면 "지금 만지는 것이 어디 것인지 말해주는 게 아무것도
+        -- 없는 팝업"이 된다 - 순서 목록에서 남의 행을 못 고치게 막았던 이유가 그것이었다.
+        --
+        -- 색은 이름 줄과 다르게 준다. 위는 `CreateTitle`의 기본값인 금색(NORMAL_FONT_COLOR)이고
+        -- 이건 노랑이다 - 같은 색으로 적으면 두 줄짜리 제목 하나로 읽히는데, 둘은 서로 다른
+        -- 것을 말한다(무엇을 만지는가 / 어디를 만지는가).
+        if (elementData.layer) then
+            rootDescription:CreateTitle(DebounceUI.GetLayerLabel(elementData.layer), YELLOW_FONT_COLOR);
+        end
+
         rootDescription:SetTag(DebounceUI.ActionMenuRootTag, 1);
 
         CreateConvertToMacroTextMenuItem(rootDescription);

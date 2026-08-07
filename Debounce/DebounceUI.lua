@@ -27,6 +27,11 @@ local InCombatLockdown       = InCombatLockdown;
 local QUESTION_MARK_ICON_NUM = 134400;
 local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
 
+--- 탭 1·2는 레이어 좌표의 절반이다(나머지 절반이 사이드탭). **탭 3은 그 축 밖이다** -
+--- 활성 레이어 전부를 키로 묶어 한 목록에 놓는 읽기 위주의 뷰라 대응하는 레이어가 없다.
+--- 그래서 `GetLayerID`에 이 번호를 넘기면 안 되고, 넘길 뻔한 자리마다 `IsOverviewTab`이 서 있다.
+local OVERVIEW_TAB           = 3;
+
 local _selectedTab           = 1;
 local _selectedSideTab       = 1;
 -- 이 창의 행은 끌 수 없다. 목록 안 재배치도(Phase 3), 탭에 떨궈 레이어를 옮기는 것도
@@ -40,6 +45,21 @@ local _pickedupInfo;
 -- 상세 패널이 보여주는 액션. elementData가 아니라 action 테이블을 들고 있는 이유는
 -- elementData가 Refresh마다 새로 만들어지기 때문이다 (DebounceFrameMixin:Refresh).
 local _selectedAction;
+
+--- 오버뷰 탭에서 **필터가 빼지 못하는 액션들.**
+---
+--- 문제 필터를 켠 채로 그 행의 문제를 고치면 조건에서 벗어난다. 거기서 빼버리면 `Refresh`가
+--- "선택이 목록에 없다"며 선택을 풀고 상세 패널이 접힌다 - **방금 한 일의 결과를 볼 자리가
+--- 사라진다.** 그래서 사용자가 손대고 있는 액션은 붙들어 둔다(흐리게 그린다).
+---
+--- **"고쳐진 것을 보여주는 표"가 아니다. "발밑"의 표다.** 남을 고쳐서 곁다리로 나아진 행은
+--- 그냥 사라져야 한다 - 사라지는 것 자체가 "이제 문제가 아니다"라는 신호고, 탭 라벨의
+--- 숫자가 같이 줄어든다. 둘을 한 표에 섞으면 흐린 행이 끝없이 쌓인다.
+---
+--- 채우는 곳: `SetSelectedAction`, `ShowEditDropdown`(낙관적으로 - 아래 그 함수 주석).
+--- 비우는 곳: **사용자가 뷰를 바꾼 순간뿐이다** - 필터 토글, 탭 이동, 창 열기.
+--- `OnBindingsUpdated`에서는 절대 비우지 않는다. 그게 이 표가 살려야 할 바로 그 순간이다.
+local _overviewRemembered    = {};
 
 DebounceUI.ActionMenuRootTag = "DEBOUNCE_ACTION_ROOT";
 
@@ -105,9 +125,6 @@ end
 
 local function ClearMacrotextIconCache()
 	if (DebounceFrame:IsShown()) then
-		return;
-	end
-	if (DebounceOverviewFrame:IsShown()) then
 		return;
 	end
 	wipe(_macrotextIconCache);
@@ -349,9 +366,18 @@ do
 	end
 end
 
+--- 지금 보고 있는(또는 물어본) 탭이 오버뷰인가. 이 탭에는 대응하는 레이어가 없다.
+local function IsOverviewTab(tab)
+	return (tab or _selectedTab) == OVERVIEW_TAB;
+end
+
+--- **오버뷰 탭을 넘기면 터진다.** 조용히 레이어 하나를 골라 주면 그게 더 나쁘다 -
+--- 액션이 엉뚱한 레이어에 생기거나 지워지고, 화면에는 아무 표시도 안 난다. 부르기 전에
+--- `IsOverviewTab`으로 갈라서는 것이 이 함수를 쓰는 쪽의 계약이다.
 local function GetLayerID(tab, sideTab)
 	tab = tab or _selectedTab;
 	sideTab = sideTab or _selectedSideTab;
+	assert(tab ~= OVERVIEW_TAB, "overview tab has no layer");
 	local isCharacterSpecific = tab == 2;
 	local spec = sideTab >= 2 and sideTab - 2 or nil;
 	return DebouncePrivate.GetLayerID(spec, isCharacterSpecific);
@@ -370,11 +396,16 @@ local function GetLayerTabs(layerID)
 	return 1, layerID == 1 and 1 or layerID;
 end
 
+--- 탭 라벨은 **낱말 하나**다. 예전에는 "공유 바인딩" / "%s 전용 바인딩"이었는데, 탭이
+--- 셋이 되면서 줄에 안 들어간다. "바인딩"은 어느 탭에서나 참이라 셋을 가르는 일을 안 하고,
+--- 창 제목이 같은 값을 한 번 더 말하므로 뜻도 안 잃는다.
 local function GetTabLabel(tabID)
 	if (tabID == 1) then
 		return LLL["SHARED_BINDINGS"];
+	elseif (tabID == OVERVIEW_TAB) then
+		return LLL["OVERVIEW"];
 	else
-		return format(LLL["CHARACTER_SPECIFIC_BINDINGS"], UnitName("player"));
+		return UnitName("player");
 	end
 end
 
@@ -387,6 +418,100 @@ local function GetSideTabaLabel(sideTabID)
 		local _, specName = C_SpecializationInfo.GetSpecializationInfo(sideTabID - 2);
 		return specName;
 	end
+end
+
+--- layerID를 사람이 읽는 라벨로. 탭 라벨을 그대로 쓴다 - 직업명·특성명·캐릭터명이라
+--- 새로 배울 게 없다. 좌표는 GetLayerTabs가 낸다.
+---
+--- 레이어가 섞이는 목록의 행 툴팁이 쓴다(순서 리스트, 오버뷰 탭). 거기서는 범위가 아이콘
+--- 두 칸으로만 나오므로 낱말로 확인할 길이 이것뿐이다.
+local function GetLayerLabel(layerID)
+	local tab, sideTab = GetLayerTabs(layerID);
+	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
+	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
+end
+
+--- 오버뷰 목록에 있고 없고를 정하는 **두 값.** 그 밖의 편집은 이 둘을 못 건드리므로 행을
+--- 사라지게 할 수 없다 - 매크로 본문도, 이름도, 아이콘도 여기 안 들어온다.
+---
+--- 조건이 새로 생겨도 안 썩는다. 필드를 나열하지 않고 `GetBindingIssue`에게 묻기 때문이다.
+local function GetOverviewMembership(action)
+	return action.key, GetBindingIssue(action);
+end
+
+local function RememberOverviewAction(action)
+	if (action) then
+		_overviewRemembered[action] = true;
+	end
+end
+
+local function ForgetOverviewAction(action)
+	_overviewRemembered[action] = nil;
+end
+
+--- 뷰가 바뀌었다. 붙들고 있던 것을 전부 놓는다.
+local function ForgetOverviewActions()
+	wipe(_overviewRemembered);
+end
+
+--- 오버뷰 탭의 필터 둘. 둘 다 **기본은 끔**이고, 켠 사람만 `true`가 저장된다.
+---
+--- **기본값이 가장 넓은 상태여야 한다.** 필터 버튼의 X는 "기본으로 되돌린다"인데, 기본이
+--- 좁은 쪽이면 그 버튼이 **결과를 좁히는** 물건이 된다. 필터를 지우는 자리에서 목록이
+--- 줄어드는 것은 어느 화면에서도 말이 안 된다.
+---
+--- 그래서 키 없는 액션도 기본으로 보인다(맨 위 "단축키 없음" 그룹). 레이어 탭이 이미
+--- 그 자리에 그것들을 모아 두고 있어서 새로 배울 것도 없다. 키 필터를 켜면 이 탭이
+--- 원래 답하던 질문 하나로 좁혀진다 - **"지금 내 키보드가 어떻게 생겼나."**
+local function IsBoundOnlyEnabled()
+	return DebouncePrivate.Options.overviewBoundOnly == true;
+end
+
+local function IsProblemsOnlyEnabled()
+	return DebouncePrivate.Options.overviewProblemsOnly == true;
+end
+
+local function AreOverviewFiltersDefault()
+	return not IsBoundOnlyEnabled() and not IsProblemsOnlyEnabled();
+end
+
+--- 활성 레이어를 한 번 훑어 (액션 -> 그 액션이 사는 레이어, 그 레이어에서의 자리)를 만든다.
+---
+--- `CollectActionsForKey`가 발동 순서는 주지만 **자리 번호는 안 준다.** 우클릭 메뉴의
+--- 복사(`MoveAction`의 `elementData.index + 1`)와 삭제가 그 번호로 프로필을 만지므로,
+--- 레이어 탭의 행이 들고 다니는 것과 같은 값이 오버뷰 탭의 행에도 있어야 한다.
+--- 손으로 세면 두 목록이 서로 다른 뜻의 index를 들게 된다.
+local function CollectActiveLayerPositions()
+	local layerOf, indexOf = {}, {};
+	for _, layer in DebouncePrivate.EnumerateProfileLayers() do
+		for i, action in layer:Enumerate() do
+			layerOf[action] = layer.layerID;
+			indexOf[action] = i;
+		end
+	end
+	return layerOf, indexOf;
+end
+
+--- 오버뷰 탭 라벨에 붙는 숫자. **개수가 아니라 문제의 수다.**
+---
+--- 앞의 두 탭은 "여기 몇 개 들었나"를 세는데, 이 탭에서 그 숫자는 새 정보가 아니다 -
+--- 활성 레이어를 전부 담으므로 대체로 앞의 둘을 합친 값이고, 그 값을 알아야 할 일이 없다.
+--- 그래서 자리를 바꿔 쓴다: **고쳐야 할 것이 있는가**. 없으면 숫자 자체가 안 붙는다.
+---
+--- 문제 필터와 무관하게 센다. 필터는 화면을 거르는 것이고 이 숫자는 경고라, 필터를 껐다고
+--- 경고가 사라지면 안 된다. 검색도 안 본다 - 같은 이유다.
+---
+--- 목록을 만들지 않고 센다. 이 값은 **어느 탭을 보고 있든** 필요한데 목록은 고른 탭의 것
+--- 하나만 만든다.
+local function CountOverviewProblems()
+	local layerOf = CollectActiveLayerPositions();
+	local count = 0;
+	for action in pairs(layerOf) do
+		if (action.key and GetBindingIssue(action)) then
+			count = count + 1;
+		end
+	end
+	return count;
 end
 
 --- "이 캐릭터"를 말하는 그림. **텍스처에 직접 건다** - 없을 때 대신 무엇을 걸지가 이
@@ -721,7 +846,11 @@ end
 
 local function MoveAction(elementData, destLayerID, copying)
 	local fromLayerID = elementData.layer;
-	assert(fromLayerID == GetLayerID());
+	-- 레이어 탭에서는 목록 전체가 한 레이어라 행의 레이어가 화면의 레이어와 같아야 한다 -
+	-- 어긋나면 elementData가 낡은 것이고, 그걸로 프로필을 만지면 엉뚱한 레이어가 바뀐다.
+	-- **오버뷰 탭에는 그 불변식이 없다**(행마다 레이어가 다르다). 거기서는 행이 들고 온
+	-- 값이 유일한 진실이고, 그 값은 목록을 만들 때 프로필에서 직접 읽은 것이다.
+	assert(IsOverviewTab() or fromLayerID == GetLayerID());
 
 	local action = elementData.action;
 
@@ -814,11 +943,14 @@ do
 
 	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
 	---
-	--- layerLabel을 주면 범위 줄을 하나 더 넣는다. 순서 목록만 이걸 준다 - 거기서는 범위가
-	--- 아이콘 두 칸으로만 나오므로, **낱말로 확인할 길이 여기밖에 없다.** 왼쪽 목록과
-	--- 오버뷰는 안 준다: 왼쪽 목록은 한 레이어만 그리고 그 이름이 창 제목에 있으며,
-	--- 오버뷰는 애초에 레이어를 말하지 않는다.
-	function ShowLineTooltip(owner, anchor, elementData, isOverview, instructionKeys, layerLabel)
+	--- layerLabel을 주면 범위 줄을 하나 더 넣는다. **레이어가 섞이는 목록만** 이걸 준다
+	--- (순서 목록, 오버뷰 탭) - 거기서는 범위가 아이콘 두 칸으로만 나오므로 낱말로 확인할
+	--- 길이 여기밖에 없다. 레이어 탭의 목록은 안 준다: 한 레이어만 그리고 그 이름이 창
+	--- 제목에 있다.
+	---
+	--- suppressInactive는 "이 목록에서는 비활성이라는 말이 뜻이 없다"는 표시다. 순서 목록의
+	--- 다른 특성 뷰가 그렇다 - 그 세계에서는 전부 활성이므로 회색으로 죽이면 거짓말이 된다.
+	function ShowLineTooltip(owner, anchor, elementData, suppressInactive, instructionKeys, layerLabel)
 		GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT");
 		---@diagnostic disable-next-line: redundant-parameter
 		GameTooltip:SetMinimumWidth(140, true);
@@ -829,7 +961,7 @@ do
 		-- 특성의 사실을 그리므로 뺄 것이 없다.
 		suppressedCategory = elementData.simulated and "unreachable" or nil;
 
-		local isInactive = not isOverview and DebouncePrivate.IsInactiveAction(action);
+		local isInactive = not suppressInactive and DebouncePrivate.IsInactiveAction(action);
 		local hasIssues = GetIssue() ~= nil;
 
 		local name = ColoredNameAndIconForAction(action);
@@ -1087,13 +1219,10 @@ do
 					GameTooltip_AddInstructionLine(GameTooltip, LLL[instructionKey]);
 				end
 			end
-		elseif (not isOverview) then
+		else
 			GameTooltip_AddBlankLineToTooltip(GameTooltip);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
 			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"]);
-		else
-			GameTooltip_AddBlankLineToTooltip(GameTooltip);
-			GameTooltip_AddInstructionLine(GameTooltip, LLL["OVERVIEW_LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
 		end
 
 		GameTooltip:Show();
@@ -1164,6 +1293,12 @@ local function DoesActionMatchFilter(action)
 end
 
 
+--- 이름 칸의 폭과, 레이어 아이콘이 켜졌을 때 그 시작점이 밀리는 거리. **XML의 값에서
+--- 나온다** - 폭은 Name의 Size, 밀리는 거리는 아이콘 크기(14)와 간격(5, 3)의 합이다.
+--- 저쪽을 고치면 여기도 고쳐야 하므로 계산을 한 자리에 모아둔다.
+local LINE_NAME_WIDTH = 430;
+local LAYER_ICON_NAME_OFFSET = { [1] = 19, [2] = 36 };
+
 DebounceLineMixin = {};
 
 function DebounceLineMixin:Init(elementData)
@@ -1191,6 +1326,37 @@ function DebounceLineMixin:Update()
 	else
 		self.Icon:SetTexture(icon);
 	end
+
+	-- 레이어 아이콘은 오버뷰 탭에서만 켜진다(XML 주석에 이유가 있다). 규칙은 순서 리스트와
+	-- 같고 - 좁혀진 축마다 하나씩, 빈 칸은 안 남김 - 그래서 이름의 왼쪽 앵커도 여기서 다시
+	-- 잡는다. 아이콘이 없으면 XML이 잡아둔 자리 그대로다.
+	local shown = 0;
+	if (elementData.showLayerIcons and elementData.layer) then
+		local tab, sideTab = GetLayerTabs(elementData.layer);
+		if (tab == 2) then
+			shown = shown + 1;
+			SetPlayerCharacterIcon(self.LayerIcons[shown]);
+		end
+		if (sideTab >= 2) then
+			shown = shown + 1;
+			self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
+		end
+	end
+	for i = 1, #self.LayerIcons do
+		self.LayerIcons[i]:SetShown(i <= shown);
+	end
+
+	-- 폭도 같이 줄인다. 이 칸은 오른쪽 앵커 없이 고정 폭으로 서 있어서(XML), 시작점만
+	-- 밀면 **끝점이 같이 밀려** 같은 줄 오른쪽의 InfoText(@대상) 아래로 들어간다.
+	-- 아이콘이 먹은 만큼을 빼면 오른쪽 끝은 아이콘이 없을 때와 같은 자리에 선다.
+	local nameOffset = LAYER_ICON_NAME_OFFSET[shown] or 0;
+	self.Name:ClearAllPoints();
+	if (shown > 0) then
+		self.Name:SetPoint("LEFT", self.LayerIcons[shown], "RIGHT", 5, 0);
+	else
+		self.Name:SetPoint("LEFT", self.Icon, "RIGHT", 5, 7);
+	end
+	self.Name:SetWidth(LINE_NAME_WIDTH - nameOffset);
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
 	if (action.key) then
@@ -1277,9 +1443,7 @@ function DebounceLineMixin:Update()
 	self.Icon:SetDesaturated(false);
 	-- 강조는 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를 새로 만들어도
 	-- 강조가 유지된다.
-	self.SelectedHighlight:SetShown(_selectedAction == action
-		or IsEditingAction(action)
-		or (DebounceOverviewFrame:IsShown() and DebounceOverviewFrame.hoveredAction == action));
+	self.SelectedHighlight:SetShown(_selectedAction == action or IsEditingAction(action));
 
 	-- 메뉴 대상은 선택과 다른 텍스처를 쓴다(XML 참고). 한 행이 둘 다일 수 있으므로 서로를
 	-- 지우지 않는다.
@@ -1289,15 +1453,21 @@ function DebounceLineMixin:Update()
 		self:OnEnter();
 	end
 
-	if (DoesActionMatchFilter(action)) then
-		self:SetAlpha(1);
-	else
+	-- 흐린 행은 두 가지다: 검색어에 안 맞거나, **조건 밖인데 고른 것이라 남아 있거나**
+	-- (오버뷰 탭의 문제 필터 - BuildOverviewElements 참고). 둘 다 "목록에는 있는데 지금
+	-- 보려던 것은 아니다"라 같은 표시를 쓴다.
+	if (elementData.filteredOut or not DoesActionMatchFilter(action)) then
 		self:SetAlpha(FILTERED_ALPHA);
+	else
+		self:SetAlpha(1);
 	end
 end
 
 function DebounceLineMixin:OnEnter()
-	ShowLineTooltip(self, "ANCHOR_RIGHT", self:GetElementData(), false);
+	-- 범위 줄은 레이어가 섞이는 목록에서만 붙인다. 레이어 탭에서는 창 제목이 이미 말했다.
+	local elementData = self:GetElementData();
+	local layerLabel = elementData.showLayerIcons and elementData.layer and GetLayerLabel(elementData.layer) or nil;
+	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, nil, layerLabel);
 end
 
 function DebounceLineMixin:OnLeave()
@@ -1429,6 +1599,21 @@ function DebounceTabMixin:OnEnter()
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	GameTooltip:SetText(text);
 
+	-- 오버뷰 탭만 설명을 단다. 앞의 둘은 라벨이 곧 뜻이지만("공유" / 캐릭터 이름) 이건
+	-- 낱말만으로는 무엇의 오버뷰인지 알 수 없고, 눌러보기 전에 알 자리가 여기밖에 없다.
+	if (IsOverviewTab(id)) then
+		GameTooltip_AddNormalLine(GameTooltip, LLL["OVERVIEW_DESC"]);
+
+		-- 라벨의 빨간 숫자가 무엇인지 말한다. 숫자만으로는 개수인지 문제인지 알 수 없고,
+		-- 앞의 두 탭이 같은 자리에 **개수**를 적고 있어서 더 그렇다. 한 줄 띄워서 붙인다 -
+		-- 위는 이 탭이 무엇인가고, 이건 지금 상태다.
+		local problems = CountOverviewProblems();
+		if (problems > 0) then
+			GameTooltip_AddBlankLineToTooltip(GameTooltip);
+			GameTooltip_AddErrorLine(GameTooltip, format(LLL["OVERVIEW_PROBLEM_COUNT"], problems));
+		end
+	end
+
 	-- TODO add instruction line. "you can drop here to add/move into this tab"
 
 	GameTooltip:Show();
@@ -1438,8 +1623,14 @@ function DebounceTabMixin:OnLeave()
 	GameTooltip:Hide();
 end
 
+--- 오버뷰 탭은 받지 않는다. 레이어가 아니라서 넣을 데가 없다(DebounceFrameMixin:OnReceiveDrag).
+--- 조용히 돌아서도 되는 이유는 커서가 그대로 남기 때문이다 - 옆 탭에 떨구면 된다.
 function DebounceTabMixin:OnReceiveDrag()
-	local layerID = GetLayerID(self:GetID(), _selectedSideTab);
+	local id = self:GetID();
+	if (IsOverviewTab(id)) then
+		return;
+	end
+	local layerID = GetLayerID(id, _selectedSideTab);
 	DebounceFrame:OnReceiveDrag(layerID);
 end
 
@@ -1541,12 +1732,20 @@ function DebouncePortraitMixin:OnShow()
 	end
 end
 
+--- 꺼져 있어도 뜬다(XML의 `motionScriptsWhileDisabled`). 이유가 붙어 있으면 맨 아래에
+--- 따로 적는다 - 위의 두 줄은 이 버튼이 **원래 무엇인가**를 말하고, 이건 **지금 왜 안
+--- 되는가**라 성질이 다르다. 이유가 없는 채로 꺼진 것도 있다(아이콘 선택기가 떠 있는 동안
+--- 전부 잠긴다). 그때는 원래 툴팁만 뜬다 - 그 상황은 화면에 팝업이 떠 있어서 스스로 설명된다.
 function DebouncePortraitMixin:OnEnter()
 	if (self.TooltipTitle) then
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 		GameTooltip_SetTitle(GameTooltip, self.TooltipTitle);
 		if (self.TooltipText) then
 			GameTooltip_AddNormalLine(GameTooltip, self.TooltipText);
+		end
+		if (self.disabledReason and not self:IsEnabled()) then
+			GameTooltip_AddBlankLineToTooltip(GameTooltip);
+			GameTooltip_AddErrorLine(GameTooltip, self.disabledReason);
 		end
 		GameTooltip:Show();
 	end
@@ -1592,9 +1791,21 @@ function DebounceFrameMixin:InitializeSideTabs()
 	end
 end
 
+--- 오버뷰 탭에는 사이드탭이 없다. 그 목록은 활성 레이어를 **전부** 담으므로 고를 것이
+--- 없고, 하나를 체크해 두면 그게 무엇을 거르는 것처럼 보인다.
+---
+--- `_selectedSideTab`은 **건드리지 않는다.** 오버뷰를 들렀다 레이어 탭으로 돌아온 사람은
+--- 떠날 때 보던 사이드탭으로 돌아와야 한다.
 function DebounceFrameMixin:UpdateSideTabs()
 	local currentSpec = C_SpecializationInfo.GetSpecialization();
 	self.currentSpec = currentSpec;
+
+	if (IsOverviewTab()) then
+		for _, tab in ipairs(self.SideTabs) do
+			tab:Hide();
+		end
+		return;
+	end
 
 	local tabOrders = { 1, 2 };
 	if (currentSpec and currentSpec <= NUM_SPECS) then
@@ -1642,9 +1853,26 @@ end
 --- 있다는 이유만으로 "검색어에 맞는 액션이 없다"고 말하는데, 그건 사실이 아니고 - 탭이
 --- 빈 것이다 - 하라는 일도 틀린다(지울 것은 검색어가 아니라 채울 액션이 없는 것이다).
 --- 한때 그 분기가 주석으로 남아 있어서 빠뜨린 것처럼 보였다. 목록을 거르던 시절의 것이다.
+---
+--- 오버뷰 탭은 예외가 하나 있다. **거기서는 필터가 목록을 실제로 비운다** - 흐리게 하는
+--- 검색과 달리 문제 없는 행을 아예 안 넣기 때문이다. 그래서 "빈 목록"이 두 가지 뜻을
+--- 갖고, 둘은 정반대다: 걸린 키가 하나도 없거나(할 일이 있다), 문제가 하나도 없거나(없다).
+--- 같은 문장으로 말하면 후자가 고장으로 읽힌다.
 function DebounceFrameMixin:UpdateEmptyText()
 	if (self.dataProvider:GetSize() == 0) then
-		self.ScrollBox.EmptyText:SetText(LLL["NO_ACTIONS_IN_THIS_TAB"]);
+		-- 켜진 필터 중 **더 좁은 쪽**을 말한다. 둘 다 켜져 있으면 "문제가 없다"가 맞다 -
+		-- 키까지 좁혀 봤는데 남은 것이 없다는 뜻이라 앞의 조건은 새 정보가 아니다.
+		local text;
+		if (not IsOverviewTab()) then
+			text = LLL["NO_ACTIONS_IN_THIS_TAB"];
+		elseif (IsProblemsOnlyEnabled()) then
+			text = LLL["OVERVIEW_NO_PROBLEMS"];
+		elseif (IsBoundOnlyEnabled()) then
+			text = LLL["OVERVIEW_NO_BOUND_ACTIONS"];
+		else
+			text = LLL["OVERVIEW_EMPTY"];
+		end
+		self.ScrollBox.EmptyText:SetText(text);
 		self.ScrollBox.EmptyText:Show();
 	else
 		self.ScrollBox.EmptyText:Hide();
@@ -1667,52 +1895,65 @@ end
 -- 없는 특성을 NUM_SPECS로 거르는 것도 프레임 상태(notUsed)를 안 믿기 때문이다.
 -- InitializeSideTabs는 첫 초과 사이드탭에서 break하므로 그 뒤 사이드탭에는 notUsed가
 -- 붙지 않는다. 그런 사이드탭을 GetLayerID에 넘기면 Profile의 assert에 걸린다.
+--
+-- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
+-- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
 function DebounceFrameMixin:UpdateActionCounts()
 	for tabId, tab in ipairs(self.Tabs) do
-		local sum = 0;
-		local countedLayers = {};
+		local label = GetTabLabel(tabId);
 
-		for sideTabId, sideTab in ipairs(self.SideTabs) do
-			if (sideTabId <= 2 + NUM_SPECS) then
-				local layerId = GetLayerID(tabId, sideTabId);
-				local layer = DebouncePrivate.GetProfileLayer(layerId);
-				local count;
-				if (self.SearchBox.filters) then
-					count = 0;
-					for i, action in layer:Enumerate() do
-						if (DoesActionMatchFilter(action)) then
-							count = count + 1;
+		if (IsOverviewTab(tabId)) then
+			-- 이 탭의 숫자는 개수가 아니라 **경고**다(CountOverviewProblems). 그래서 0이면
+			-- "(0)"이 아니라 아무것도 안 붙는다 - 앞의 두 탭과 같은 모양으로 0을 적으면
+			-- 같은 종류의 값으로 읽히고, 고칠 것이 없다는 사실이 숫자 한 칸을 차지할 이유도 없다.
+			local problems = CountOverviewProblems();
+			if (problems > 0) then
+				label = label .. " |cnRED_FONT_COLOR:(" .. problems .. ")|r";
+			end
+		else
+			local sum = 0;
+			local countedLayers = {};
+			for sideTabId, sideTab in ipairs(self.SideTabs) do
+				if (sideTabId <= 2 + NUM_SPECS) then
+					local layerId = GetLayerID(tabId, sideTabId);
+					local layer = DebouncePrivate.GetProfileLayer(layerId);
+					local count;
+					if (self.SearchBox.filters) then
+						count = 0;
+						for _, action in layer:Enumerate() do
+							if (DoesActionMatchFilter(action)) then
+								count = count + 1;
+							end
+						end
+					else
+						count = layer:GetNumActions();
+					end
+
+					-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
+					-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
+					-- 한다 - 어느 쪽을 숨길지는 UpdateSideTabs의 사정이고, 여기가 그걸
+					-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
+					if (tabId == _selectedTab) then
+						sideTab.Count:SetText(count);
+						if (count > 0 and self.SearchBox.filters) then
+							sideTab.Count:SetTextColor(GREEN_FONT_COLOR:GetRGB());
+						else
+							sideTab.Count:SetTextColor(1, 1, 1);
 						end
 					end
-				else
-					count = layer:GetNumActions();
-				end
 
-				-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
-				-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
-				-- 한다 - 어느 쪽을 숨길지는 UpdateSideTabs의 사정이고, 여기가 그걸
-				-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
-				if (tabId == _selectedTab) then
-					sideTab.Count:SetText(count);
-					if (count > 0 and self.SearchBox.filters) then
-						sideTab.Count:SetTextColor(GREEN_FONT_COLOR:GetRGB());
-					else
-						sideTab.Count:SetTextColor(1, 1, 1);
+					if (not countedLayers[layerId]) then
+						countedLayers[layerId] = true;
+						sum = sum + count;
 					end
 				end
-
-				if (not countedLayers[layerId]) then
-					countedLayers[layerId] = true;
-					sum = sum + count;
-				end
 			end
-		end
 
-		local label;
-		if (sum > 0 and self.SearchBox.filters) then
-			label = GetTabLabel(tabId) .. " |cnGREEN_FONT_COLOR:(" .. sum .. ")|r";
-		else
-			label = GetTabLabel(tabId) .. " (" .. sum .. ")";
+			if (sum > 0 and self.SearchBox.filters) then
+				label = label .. " |cnGREEN_FONT_COLOR:(" .. sum .. ")|r";
+			else
+				label = label .. " (" .. sum .. ")";
+			end
 		end
 
 		tab:SetText(label);
@@ -1768,10 +2009,6 @@ function DebounceFrameMixin:InitializeScrollBox()
 end
 
 function DebounceFrameMixin:InitializeButtons()
-	self.OverviewPortrait:SetScript("OnClick", function()
-		DebounceOverviewFrame:Toggle();
-	end)
-
 	-- [+]는 이제 **창을 연다.** 예전에는 여기 드롭다운이 매달려 있었는데, 그 안에 있던
 	-- 항목이 전부 주문 선택 창으로 옮겨갔다(주문·매크로·탈것·장난감은 목록으로, 명령과
 	-- 애드온 고유 액션은 각자 탭으로, 매크로 텍스트는 그 창의 버튼으로).
@@ -1836,6 +2073,64 @@ function DebounceFrameMixin:InitializeButtons()
 	groupByKey:SetScript("OnLeave", function()
 		GameTooltip:Hide();
 	end);
+
+	self:InitializeFilterDropdown();
+end
+
+--- 오버뷰 탭의 필터 둘. 값을 읽고 쓰는 규칙은 `IsBoundOnlyEnabled` 주변에 있다.
+---
+--- **필터를 만지는 것은 뷰를 바꾸는 것이다.** 그래서 값이 바뀔 때마다 붙들고 있던 것을
+--- 전부 놓는다 - 사용자가 "이것만 보여줘"라고 말한 참에 조건 밖의 행을 흐리게 남겨두면
+--- 화면이 방금 받은 지시를 어기는 것이 된다. 고른 액션이 새 조건에 안 맞으면 `Refresh`가
+--- 선택까지 푼다.
+function DebounceFrameMixin:InitializeFilterDropdown()
+	local function Apply()
+		ForgetOverviewActions();
+		-- 스크롤 위치는 버린다. 묶기 토글과 달리 이건 **목록의 내용을 바꾸므로** 지키던
+		-- 자리에 다른 것이 와 있다.
+		self:Refresh();
+		if (_selectedAction) then
+			self:ScrollActionIntoView(_selectedAction);
+		end
+	end
+
+	self.FilterDropdown:SetupMenu(function(_, rootDescription)
+		-- 저장하는 것은 **기본이 아닌 쪽뿐이다.** 둘 다 기본이 끔이라 켠 것만 남는다.
+		local function Toggle(option)
+			if (DebouncePrivate.Options[option]) then
+				DebouncePrivate.Options[option] = nil;
+			else
+				DebouncePrivate.Options[option] = true;
+			end
+			Apply();
+		end
+
+		rootDescription:CreateCheckbox(LLL["OVERVIEW_FILTER_BOUND_ONLY"],
+			IsBoundOnlyEnabled,
+			function() Toggle("overviewBoundOnly"); end);
+
+		rootDescription:CreateCheckbox(LLL["OVERVIEW_FILTER_PROBLEMS_ONLY"],
+			IsProblemsOnlyEnabled,
+			function() Toggle("overviewProblemsOnly"); end);
+	end);
+
+	-- 기본값이 아니면 버튼 오른쪽 위에 X가 뜬다. **템플릿이 이미 다 갖고 있다**
+	-- (`WowDropdownFilterBehaviorMixin`) - 우리가 줄 것은 "지금 기본값인가"와 "되돌려라"
+	-- 둘뿐이다. 주문 선택 창이 같은 자리에서 같은 짝을 쓴다.
+	self.FilterDropdown:SetIsDefaultCallback(AreOverviewFiltersDefault);
+	self.FilterDropdown:SetDefaultCallback(function()
+		DebouncePrivate.Options.overviewBoundOnly = nil;
+		DebouncePrivate.Options.overviewProblemsOnly = nil;
+		Apply();
+	end);
+end
+
+--- 목록 위의 컨트롤은 탭마다 다르다. 묶기 체크박스는 레이어 탭에만(오버뷰 목록은 언제나
+--- 키로 묶여 있다 - 거기서 묶기는 선택이 아니라 목록의 뜻이다), 필터 버튼은 오버뷰 탭에만.
+function DebounceFrameMixin:UpdateListControls()
+	local overview = IsOverviewTab();
+	self.GroupByKeyCheckButton:SetShown(not overview);
+	self.FilterDropdown:SetShown(overview);
 end
 
 --- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
@@ -1848,31 +2143,16 @@ local function BlizzardOwnsEscape()
 	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil;
 end
 
---- ESC로 창을 닫는 길. **키보드를 못 켜는 창만 쓴다**(오버뷰). 메인 창은 자기가 ESC를
---- 받으므로 여기 오지 않는다 - 이유는 `DebounceFrameMixin:OnLoad`에 있다.
----
---- 이 그물은 ESC 전용이 아니다. CloseSpecialWindows를 태우는 게 ESC만이 아니라서 -
---- area="center" 패널을 여는 것만으로도 ShowUIPanel -> CloseWindows -> CloseSpecialWindows를
---- 지나간다 - P로 주문서를 열면 이 창이 같이 닫힌다. 오버뷰는 그걸 안고 간다. 키보드를
---- 켤 수 없는 창이라(전투 중에 열어놓고 보는 것이 이 창의 쓸모다) 남은 길이 이것뿐이다.
-local function RegisterEscapeToClose(frame)
-	local name = frame:GetName();
-	for _, value in ipairs(UISpecialFrames) do
-		if (value == name) then
-			return;
-		end
-	end
-	tinsert(UISpecialFrames, name);
-end
-
 function DebounceFrameMixin:OnLoad()
 	self.initialized = true;
 
 	--- ESC는 이 창이 직접 받는다(XML의 enableKeyboard). 블리자드가 내주는 두 자리를
 	--- **둘 다 안 쓴다.**
 	---
-	--- `UISpecialFrames`: 그물이 ESC 전용이 아니다(RegisterEscapeToClose 참고). P로 주문서를
-	--- 열면 우리 창이 같이 닫혔다 - 하필 주문을 끌어다 바인딩하려고 여는 창이다.
+	--- `UISpecialFrames`: 그물이 ESC 전용이 아니다. `CloseSpecialWindows`를 태우는 게 ESC만이
+	--- 아니라서 - area="center" 패널을 여는 것만으로도 ShowUIPanel -> CloseWindows ->
+	--- CloseSpecialWindows를 지나간다 - P로 주문서를 열면 우리 창이 같이 닫혔다. 하필
+	--- 주문을 끌어다 바인딩하려고 여는 창이다.
 	---
 	--- `RegisterGameMenuEscHandler`(12.1): ESC 전용이라 그 문제는 없는데, **등록하는 것만으로
 	--- 블리자드의 ESC 경로가 우리 taint를 뒤집어쓴다.** 그 함수가 하는 일이
@@ -1922,11 +2202,32 @@ function DebounceFrameMixin:OnLoad()
 		PanelTemplates_TabResize(tab, 0)
 	end
 	PanelTemplates_SetNumTabs(self, #self.Tabs);
+
+	-- 오버뷰 탭은 **오른쪽 끝에 따로 선다.** 앞의 둘과 다른 종류라(레이어가 아니다) 사슬에
+	-- 붙여 놓으면 셋이 같은 축의 선택지로 읽힌다. 사이를 벌려 놓으면 그것만으로 다른
+	-- 종류임이 보인다.
+	--
+	-- **`PanelTemplates_SetNumTabs` 뒤여야 한다.** 그 안의 `PanelTemplates_AnchorTabs`가
+	-- 2번 탭부터 앞 탭의 오른쪽에 사슬로 붙이므로(`SharedUIPanelTemplates.lua:465-471`),
+	-- XML에 뭘 적어도 거기서 덮인다.
+	--
+	-- 기준은 **왼쪽 목록 인셋의 오른쪽 끝**이지 창의 오른쪽이 아니다. 상세 패널이 열리면
+	-- 창은 넓어지지만 인셋은 그대로다 - 창에 붙이면 이 탭이 상세 패널 밑으로 따라가는데,
+	-- 탭이 바꾸는 것은 왼쪽 목록이라 그 자리는 거짓말이다.
+	--
+	-- 점 둘로 잡는다: 세로는 1번 탭과 같은 줄, 가로는 인셋의 오른쪽 끝. 폭은
+	-- `PanelTemplates_TabResize`가 글자에 맞춰 잡고(개수가 붙었다 떨어졌다 한다) 오른쪽이
+	-- 고정이므로 왼쪽으로 자란다.
+	self.Tab3:ClearAllPoints();
+	self.Tab3:SetPoint("TOP", self.Tab1, "TOP", 0, 0);
+	self.Tab3:SetPoint("RIGHT", self.ScrollBoxBackground, "RIGHT", 0, 0);
+
 	PanelTemplates_SetTab(self, _selectedTab);
 
 	self:InitializeScrollBox();
 	self:InitializeSideTabs();
 	self:InitializeButtons();
+	self:UpdateListControls();
 
 	self:RegisterForDrag("LeftButton");
 	self:SetScript("OnDragStart", function()
@@ -1982,6 +2283,10 @@ function DebounceFrameMixin:OnShow()
 	if (not self.initialized) then
 		self:OnLoad();
 	end
+
+	-- 창을 새로 여는 것도 뷰를 바꾸는 것이다. 지난번에 붙들고 있던 것을 들고 오지 않는다.
+	-- (선택은 남아 있을 수 있고, 그건 `Refresh` 끝에서 다시 붙든다.)
+	ForgetOverviewActions();
 
 	self:Refresh();
 	self:UpdateSideTabs();
@@ -2105,8 +2410,7 @@ function DebounceFrameMixin:HandleEscape()
 
 	-- 주문 선택 창도 여기서 닫는다. 그 창이 스스로 ESC를 처리하지 **못한다** - 그 창이
 	-- 열려 있는 동안은 이 창도 반드시 열려 있고(수명이 묶여 있다), 이 사다리가 먼저 돈다.
-	-- 저쪽에 RegisterEscapeToClose를 걸어도 닿지 않는 자리라 계획서와 달리 사다리 한 칸으로
-	-- 넣었다.
+	-- 저쪽을 UISpecialFrames에 넣어도 닿지 않는 자리라 계획서와 달리 사다리 한 칸으로 넣었다.
 	if (DebounceSpellPickerFrame:IsShown()) then
 		DebounceSpellPickerFrame:Hide();
 		return true;
@@ -2180,7 +2484,7 @@ end
 
 --- 목록은 키순으로 묶여 있으므로 키가 바뀌면 **다시 짜야** 한다. Update는 있는 줄을 그
 --- 자리에서 고쳐 그릴 뿐이라, 우클릭 메뉴로 단축키를 푼 액션이 여전히 옛 키 헤더 밑에
---- 키 없이 앉아 있게 된다(오버뷰는 같은 이벤트에서 다시 짜므로 두 목록이 어긋난다).
+--- 키 없이 앉아 있게 된다. 오버뷰 탭에서는 그 액션이 목록에서 통째로 빠져야 하므로 더 그렇다.
 --- 스크롤 자리는 지킨다 - 방금 만진 줄이 눈앞에서 사라지면 안 된다.
 function DebounceFrameMixin:OnBindingsUpdated(_, skipped)
 	self:Refresh(true);
@@ -2256,14 +2560,126 @@ local function BuildSortedElements(layer, layerID)
 	return grouped;
 end
 
+--- 키 없는 액션 그룹. 있으면 목록 **맨 위**에 헤더 하나와 함께 얹는다 - 레이어 탭이 이미
+--- 그 자리에 놓고 있어서(`CompareByKeyThenName`) 새로 배울 것이 없다.
+---
+--- 두 가지 이유로 온다. **키 필터를 끈 것**(= "키를 아직 안 건 게 뭐가 남았지"를 묻는 중),
+--- 또는 **붙들고 있는 것**(= 방금 그 액션의 단축키를 해제했다 - 손댄 것은 발밑에서
+--- 사라지지 않는다). 후자는 필터가 켜져 있어도 오고, 흐리게 그려진다.
+---
+--- 이 그룹 안은 이름순이다. 시도 순서가 없는 액션들이라 정할 순서가 없다.
+local function AppendUnboundGroup(elements, layerOf, indexOf, boundOnly, problemsOnly)
+	local rows = {};
+	for action in pairs(layerOf) do
+		if (action.key == nil) then
+			local kept = not boundOnly and (not problemsOnly or GetBindingIssue(action));
+			if (kept or _overviewRemembered[action]) then
+				rows[#rows + 1] = {
+					action = action,
+					layer = layerOf[action],
+					index = indexOf[action],
+					showLayerIcons = true,
+					filteredOut = not kept or nil,
+					sortName = strlower(NameAndIconForAction(action) or ""),
+				};
+			end
+		end
+	end
+
+	if (#rows == 0) then
+		return elements;
+	end
+
+	sort(rows, function(lhs, rhs)
+		if (lhs.sortName ~= rhs.sortName) then
+			return lhs.sortName < rhs.sortName;
+		end
+		-- 이름이 같은 줄은 실재한다. table.sort가 불안정하므로 받쳐준다 - 안 그러면 다시
+		-- 그릴 때마다 자리가 바뀐다. 레이어 순서를 쓴다(`CompareByName`은 표시 순번을 쓴다).
+		return (lhs.layer or 0) < (rhs.layer or 0);
+	end);
+
+	elements[#elements + 1] = { isHeader = true };
+	for _, row in ipairs(rows) do
+		elements[#elements + 1] = row;
+	end
+	return elements;
+end
+
+--- 오버뷰 탭의 목록. **활성 레이어에서 키가 걸린 액션 전부**를 키로 묶고, 그룹 안은 실제
+--- 발동 순서로 놓는다.
+---
+--- 레이어 탭의 목록은 순서를 말할 자격이 없다(위 CompareByName의 주석). 한 레이어만
+--- 그리므로 더 구체적인 레이어가 같은 키를 이기고 있어도 화면에 안 나오기 때문이다.
+--- **이 탭은 그 조건이 없다** - 활성 레이어를 전부 담으므로 한 키에 걸린 것이 여기 다
+--- 있고, 그래서 세로 순서가 곧 시도 순서다. 순서를 내는 것은 `CollectActionsForKey`로,
+--- 상세 패널의 순서 리스트와 **같은 함수**다. 두 화면이 다른 답을 낼 길이 없다.
+---
+--- 키 없는 액션은 **자기 헤더 아래 따로, 맨 위에** 선다(`AppendUnboundGroup`). 키 그룹
+--- 안에 섞이지 않으므로 위의 "세로 순서 = 시도 순서"를 깨지 않는다 - 그 헤더가 이미
+--- "이건 키가 아니다"라고 말한다. 오프스펙 액션을 안 넣는 이유가 여기서 갈린다: 저쪽은
+--- 키 그룹 **안에** 들어가서 그 주장을 거짓으로 만든다.
+---
+--- 엔진의 `GetKeyMap()`은 안 쓴다. 그쪽은 이슈가 있는 액션과 도달 불가 액션을 빼고
+--- 넘겨주는데(`Debounce.lua`의 BuildKeyMap), **여기서는 그것들이야말로 보여줄 대상**이다.
+local function BuildOverviewElements(boundOnly, problemsOnly)
+	local layerOf, indexOf = CollectActiveLayerPositions();
+
+	local keySeen, keyArr = {}, {};
+	for action, _ in pairs(layerOf) do
+		local key = action.key;
+		if (key and not keySeen[key]) then
+			keySeen[key] = true;
+			keyArr[#keyArr + 1] = key;
+		end
+	end
+
+	sort(keyArr, DebouncePrivate.CompareKeys);
+
+	local elements = AppendUnboundGroup({}, layerOf, indexOf, boundOnly, problemsOnly);
+	for _, key in ipairs(keyArr) do
+		-- 헤더는 **뒤에 실제로 행이 붙을 때만** 남긴다. 필터가 그룹을 통째로 비울 수 있는데,
+		-- 행 없는 키 이름만 늘어선 목록은 "이 키들에 문제가 있다"로 읽힌다.
+		local headerIndex = #elements + 1;
+		elements[headerIndex] = { isHeader = true, key = key };
+
+		for _, row in ipairs(DebouncePrivate.CollectActionsForKey(key)) do
+			-- 붙들고 있는 행은 필터가 못 뺀다(`_overviewRemembered`). 흐리게 그린다
+			-- (아래 `filteredOut`) - 검색에 안 맞는 행과 같은 표시라, "지금 조건 밖인데
+			-- 네가 손대고 있어서 남아 있다"가 새로 배울 것 없이 읽힌다.
+			local kept = not problemsOnly or row.issue;
+			if (kept or _overviewRemembered[row.action]) then
+				elements[#elements + 1] = {
+					action = row.action,
+					layer = layerOf[row.action],
+					index = indexOf[row.action],
+					showLayerIcons = true,
+					filteredOut = not kept or nil,
+				};
+			end
+		end
+
+		if (#elements == headerIndex) then
+			elements[headerIndex] = nil;
+		end
+	end
+
+	return elements;
+end
+
 function DebounceFrameMixin:Refresh(retainScrollPosition)
 	HideDeleteConfirmationPopup();
 
 	local dataProvider = CreateDataProvider();
-	local layerID = GetLayerID();
-	local layer = DebouncePrivate.GetProfileLayer(layerID);
+	local elements;
+	if (IsOverviewTab()) then
+		elements = BuildOverviewElements(IsBoundOnlyEnabled(), IsProblemsOnlyEnabled());
+	else
+		local layerID = GetLayerID();
+		elements = BuildSortedElements(DebouncePrivate.GetProfileLayer(layerID), layerID);
+	end
 
-	for _, elementData in ipairs(BuildSortedElements(layer, layerID)) do
+	for _, elementData in ipairs(elements) do
 		dataProvider:Insert(elementData);
 	end
 
@@ -2275,7 +2691,19 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 		self:SetSelectedAction(nil);
 	end
 
-	local title = format(LLL["DEBOUNCE_TITLE_FORMAT"], GetTabLabel(_selectedTab), GetSideTabaLabel(_selectedSideTab));
+	-- 살아남은 선택은 언제나 붙들려 있다. **비운 직후를 위한 줄이다** - 뷰를 바꾸는 자리들이
+	-- 표를 비우고 여기로 오는데, 그때 들고 온 선택이 새 화면에도 있으면 그건 여전히 발밑이다.
+	-- (선택을 새로 고르는 길은 `SetSelectedAction`이 따로 붙든다 - 그쪽은 Refresh를 안 지난다.)
+	RememberOverviewAction(_selectedAction);
+
+	-- 제목은 탭 좌표를 낱말로 다시 말한다. 오버뷰 탭에는 좌표의 뒷칸이 없다 - 사이드탭이
+	-- 없으니 넣을 값이 없고, 억지로 "전체" 따위를 만들어 넣으면 그게 고를 수 있는 값처럼 보인다.
+	local title;
+	if (IsOverviewTab()) then
+		title = format(LLL["DEBOUNCE_TITLE_FORMAT_SINGLE"], GetTabLabel(_selectedTab));
+	else
+		title = format(LLL["DEBOUNCE_TITLE_FORMAT"], GetTabLabel(_selectedTab), GetSideTabaLabel(_selectedSideTab));
+	end
 	self:SetTitle(title);
 	self:UpdateActionCounts();
 	self:UpdateEmptyText();
@@ -2294,6 +2722,10 @@ function DebounceFrameMixin:SetSelectedAction(action)
 	DebounceDetailPanel:Close();
 
 	_selectedAction = action;
+	-- 고른 것은 곧 발밑이다. 상세 패널이 만지는 것은 언제나 이 액션이고(키 지정, 순서 이동)
+	-- 그 편집으로 필터를 벗어나도 행이 남아야 한다. **여기서 붙들어야 한다** - 이 함수는
+	-- `Refresh`를 안 지나므로 저쪽 끝의 같은 줄이 대신해 주지 않는다.
+	RememberOverviewAction(action);
 	DebounceDetailPanel:OnSelectionChanged();
 	self:SetDetailShown(action ~= nil);
 	self:Update();
@@ -2348,8 +2780,17 @@ end
 --- 돌아오는 길은 대개 열려 있다. 같은 키의 순서 목록이라 방금 떠나온 액션도 거기 들어
 --- 있다. (다른 특성의 레이어로 건너뛰면 그쪽 목록은 현재 특성 기준으로 계산되므로 안
 --- 보일 수 있다.)
+--- **오버뷰 탭에서는 탭을 안 옮긴다.** 그 목록에는 활성 레이어가 전부 있으므로 찾아갈
+--- 액션이 이미 화면에 있고, 그런데도 레이어 탭으로 보내면 데려다 준 것이 아니라 보던
+--- 것을 빼앗은 것이 된다. 목록에 없으면(문제 필터가 걸러낸 행) 평소대로 옮긴다.
 function DebounceFrameMixin:GoToAction(action, layerID)
 	if (not TryCloseAnyDialog()) then
+		return;
+	end
+
+	if (IsOverviewTab() and self:FindElementDataByActionInfo(action)) then
+		self:SetSelectedAction(action);
+		self:ScrollActionIntoView(action);
 		return;
 	end
 
@@ -2367,7 +2808,16 @@ function DebounceFrameMixin:GoToAction(action, layerID)
 	end
 end
 
+--- **오버뷰 탭에서는 못 만든다.** 새 액션이 어느 레이어에 태어날지 그 탭은 답이 없다
+--- (`GetLayerID` 참고). [+] 버튼은 거기서 꺼져 있지만 그것만으로는 안 막힌다 - 주문 선택
+--- 창은 열어둔 채 탭을 옮겨 다니는 창이라, 오버뷰로 옮긴 뒤에 저쪽에서 한 줄을 누르면
+--- 여기로 온다. 조용히 물러서지 않고 왜 안 되는지 말한다.
 function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
+	if (IsOverviewTab()) then
+		DebouncePrivate.DisplayMessage(LLL["OVERVIEW_CANNOT_ADD"], 1, 0, 0);
+		return nil;
+	end
+
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 
 	local layerID = GetLayerID();
@@ -2408,13 +2858,9 @@ function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 end
 
 function DebounceFrameMixin:Update()
-	-- **메인 창을 한 번도 안 연 세션이 있다.** 오버뷰는 이 창 없이 열리고(`/deb overview`,
-	-- 애드온 구획 버튼 우클릭), 그 창의 행에 마우스를 올리기만 해도 여기로 온다 - 왼쪽
-	-- 목록의 하이라이트를 맞추려고 부른다.
-	--
-	-- 그때 이 창은 XML만 있고 아무것도 안 세워져 있다. `OnLoad`가 사이드탭과 ScrollBox의
-	-- 뷰를 만들고 `Refresh`가 dataProvider를 만드는데, 이 창의 XML에는 OnLoad가 없어서
-	-- 둘 다 `OnShow`를 거쳐야 돈다. 아래 세 줄이 그 셋을 차례로 만진다.
+	-- **한 번도 안 연 창일 수 있다.** 이 창의 XML에는 OnLoad가 없어서 `OnShow`를 거쳐야
+	-- `OnLoad`가 돌고, 그전까지는 사이드탭도 ScrollBox의 뷰도 dataProvider도 없다 -
+	-- 아래 세 줄이 그 셋을 차례로 만진다.
 	--
 	-- 여기서 세우지 않는다 - 아무도 안 보고 있는 창을 그리는 일이다. 한 번이라도 열렸으면
 	-- 닫혀 있어도 계속 최신으로 둔다(다시 열 때 옛 화면이 스치면 안 된다).
@@ -2451,16 +2897,27 @@ function DebounceFrameMixin:UpdateButtons()
 	end
 
 	-- `SideTabs`는 `InitializeSideTabs`가 채우고 그건 `OnLoad`에서만 돈다. 창이 한 번도
-	-- 안 열린 세션에서는 nil인데, 그 경로(오버뷰가 부르는 `Update`)는 문 앞에서 막힌다.
+	-- 안 열린 세션에서는 nil인데, 그런 경로는 `Update`의 `initialized` 가드에서 막힌다.
 	for _, tab in ipairs(self.SideTabs) do
 		tab:SetEnabled(enableButtons);
 	end
 
-	self.AddPortrait:SetEnabled(enableButtons);
+	-- 오버뷰 탭에서는 [+]가 갈 데가 없다. 새 액션이 어느 레이어에 태어날지 이 탭은 답을
+	-- 못 하므로(GetLayerID 참고) 아예 못 누르게 한다 - 눌러서 아무 일도 안 나는 것보다 낫다.
+	--
+	-- **탭이 바뀌는 즉시 여기를 지나야 한다.** 이 값은 탭의 함수인데 나머지는 편집 상태의
+	-- 함수라, 다음 `Update`를 기다리면 버튼만 한 박자 늦게 따라온다(`SetTab` 참고).
+	--
+	-- 끄기만 하면 회색 버튼 하나가 이유 없이 죽어 있는 것으로 보인다. 이유는 툴팁이 말한다
+	-- (`DebouncePortraitMixin:OnEnter`) - 그래서 이 버튼은 꺼져 있어도 마우스를 받는다.
+	local overview = IsOverviewTab();
+	self.AddPortrait:SetEnabled(enableButtons and not overview);
+	self.AddPortrait.disabledReason = overview and LLL["OVERVIEW_CANNOT_ADD"] or nil;
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
 	self.SearchBox:SetEnabled(enableButtons);
 	self.GroupByKeyCheckButton:SetEnabled(enableButtons);
+	self.FilterDropdown:SetEnabled(enableButtons);
 end
 
 function DebounceFrameMixin:SetTab(id)
@@ -2469,12 +2926,37 @@ function DebounceFrameMixin:SetTab(id)
 	PanelTemplates_SetTab(self, _selectedTab);
 	self:UpdateSideTabs();
 
-	if (not self.SideTabs[_selectedSideTab]:IsShown()) then
+	-- 오버뷰 탭에서는 사이드탭이 전부 숨어 있으므로 이 가드를 지나면 안 된다. 지나면
+	-- 고른 것을 1로 되돌리는데, 그건 **레이어 탭으로 돌아왔을 때** 보던 자리를 잃는 것이다.
+	if (not IsOverviewTab() and not self.SideTabs[_selectedSideTab]:IsShown()) then
 		_selectedSideTab = 1;
 		self:UpdateSideTabs();
 	end
 
+	-- 주문 선택 창은 **여기서 닫는다.** 그 창의 쓸모가 "열어둔 채 탭을 옮겨 다니며 골라
+	-- 넣는 것"이라 탭 전환에 안 닫는 것이 규칙인데(`UpdateButtons`의 잠금 목록에도 없다),
+	-- 오버뷰 탭에는 넣을 데가 없어서 그 쓸모가 통째로 없어진다. 열어둔 채로 두면 고를 수는
+	-- 있는데 누르면 거절당하는 창이 남는다 - 거절은 마지막 그물이지 화면이 할 말이 아니다.
+	if (IsOverviewTab()) then
+		DebounceSpellPickerFrame:Hide();
+	end
+
+	-- 탭 이동도 뷰를 바꾸는 것이다. 앞 탭에서 붙들고 있던 것을 들고 오지 않는다 - 그건
+	-- 발밑이 아니라 남의 기억이다. 지금 고른 액션은 `Refresh` 끝에서 다시 붙든다.
+	ForgetOverviewActions();
+
+	self:UpdateListControls();
+	-- [+]의 상태는 **탭의 함수**라 다음 Update를 기다리면 안 된다. Refresh는 목록만 다시
+	-- 만들고 버튼은 안 건드린다.
+	self:UpdateButtons();
 	self:Refresh();
+end
+
+--- 구획 버튼 우클릭이 여기로 온다(Public.lua). 창을 여는 일은 저쪽이 하고, 여기는 탭만 옮긴다.
+function DebounceFrameMixin:ShowOverviewTab()
+	if (_selectedTab ~= OVERVIEW_TAB) then
+		self:SetTab(OVERVIEW_TAB);
+	end
 end
 
 --- elementData를 주면 버튼 대신 그것으로 연다. 순서 목록이 자기 행 대신 **왼쪽 목록이
@@ -2482,9 +2964,21 @@ end
 --- 모양을 흉내내면 저쪽이 바뀔 때 조용히 어긋난다.
 function DebounceFrameMixin:ShowEditDropdown(button, elementData)
 	elementData = elementData or button:GetElementData();
+	local action = elementData.action;
+
+	-- **낙관적으로 붙든다.** 이 메뉴는 닫힐 때가 아니라 **누르는 즉시** 적용되고
+	-- (`DropDownMenus.lua`의 `_setSelected`가 그 자리에서 `UpdateBindings`를 부른다) 그때
+	-- 목록이 다시 지어진다. 열 때 이미 붙들려 있지 않으면, 체크박스를 누른 그 순간 행이
+	-- 사라지고 사용자는 없어진 행의 메뉴를 계속 만지게 된다.
+	--
+	-- 대신 아무것도 안 바뀌었으면 닫을 때 놓는다(아래). 열었다 그냥 닫은 것까지 붙들고
+	-- 있을 이유는 없다.
+	local beforeKey, beforeIssue = GetOverviewMembership(action);
+	RememberOverviewAction(action);
+
 	local menu = MenuUtil.CreateContextMenu(button, DebounceUI.SetupEditDropdownMenu, elementData);
 	self.contextMenu = menu;
-	self.contextMenuAction = menu and elementData.action or nil;
+	self.contextMenuAction = menu and action or nil;
 	if (menu) then
 		-- 메뉴가 닫혔다는 것을 알려주는 것은 이 콜백뿐이다. 여기서 다시 그리지 않으면 강조가
 		-- 남은 채로 다음 Update를 기다리는데, 메뉴를 그냥 닫기만 한 경우 그 Update는 오지 않는다.
@@ -2497,6 +2991,17 @@ function DebounceFrameMixin:ShowEditDropdown(button, elementData)
 			end
 			self.contextMenu = nil;
 			self.contextMenuAction = nil;
+
+			-- 목록에 있고 없고를 정하는 두 값이 그대로면 붙들 이유가 없었다. 고른 액션은
+			-- 예외다 - 그건 메뉴와 무관하게 발밑이고, 여기서 놓으면 그 뒤 상세 패널의
+			-- 편집에서 행이 사라진다.
+			if (action ~= _selectedAction) then
+				local afterKey, afterIssue = GetOverviewMembership(action);
+				if (afterKey == beforeKey and afterIssue == beforeIssue) then
+					ForgetOverviewAction(action);
+				end
+			end
+
 			self:Update();
 		end);
 	end
@@ -2524,9 +3029,18 @@ end
 --- 밖에서 온 새 액션이다 - 주문책·액션바·가방에서 끌어왔거나 집어와서 클릭한 것.
 ---
 --- `destLayerID`는 탭에 떨궜을 때 그 탭이 넘긴다. 없으면 지금 보고 있는 레이어다.
+---
+--- **오버뷰 탭에서는 받지 않는다.** 목적지를 물으면 답이 없다 - 그 목록은 레이어 다섯을
+--- 한꺼번에 그린 것이라 "여기"라는 자리가 없다. 어느 하나를 골라 넣으면 액션은 사용자가
+--- 고르지 않은 레이어에 태어나고, 화면에는 그 사실이 아무 데도 안 적힌다.
 function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 	local type, value = GetActionTypeAndValueFromCursorInfo();
 	if (not type) then
+		return;
+	end
+
+	if (destLayerID == nil and IsOverviewTab()) then
+		DebouncePrivate.DisplayMessage(LLL["OVERVIEW_CANNOT_ADD"], 1, 0, 0);
 		return;
 	end
 
@@ -2558,7 +3072,9 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 	-- 곧바로 선택도 한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 상세 패널을
 	-- 열어 그 자리로 데려간다. 다른 탭에 떨궜으면 여기 오지 않는다 - 보이지도 않는 행을
 	-- 선택할 수 없다.
-	if (destLayerID == GetLayerID()) then
+	-- 오버뷰 탭을 보는 채로 **다른 탭에** 떨군 경우가 있다. 그때 `GetLayerID()`는 물어볼
+	-- 수 없는 값이라(터진다) 먼저 갈라선다 - 어차피 다른 탭에 넣은 것이라 여기 목록에 없다.
+	if (not IsOverviewTab() and destLayerID == GetLayerID()) then
 		self:SetSelectedAction(action);
 		local elementData = self:FindElementDataByActionInfo(action);
 		if (elementData) then
@@ -2937,14 +3453,6 @@ function DebounceDetailPanelMixin:Close()
 	return true;
 end
 
---- layerID를 사람이 읽는 라벨로. 탭 라벨을 그대로 쓴다 - 직업명·특성명·캐릭터명이라
---- 새로 배울 게 없다. 좌표는 GetLayerTabs가 낸다.
-local function GetLayerLabel(layerID)
-	local tab, sideTab = GetLayerTabs(layerID);
-	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
-	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
-end
-
 --- 행 아래줄. 순서를 정하는 값 중 **index를 뺀 나머지가 전부** 여기 아니면 이름 줄의
 --- 아이콘에 있다. 어느 것도 화면 밖에 두지 않는 게 규칙이다 - 이 목록의 일은 "왜 이
 --- 순서인가"를 보여주는 것인데, 값 하나가 안 보이면 그게 정확히 사람이 못 푸는 자리가 된다.
@@ -2983,15 +3491,22 @@ local function BuildOrderSubText(row)
 	return table.concat(parts, " \194\183 ");
 end
 
--- 행 우클릭은 두 갈래다. **보고 있는 액션의 행**이면 왼쪽 목록의 편집 메뉴를 그대로 연다.
--- 나머지 행은 아무것도 고치지 않고 그 액션으로 데려다 준다(GoToAction).
+-- 이 목록의 행은 **왼쪽 목록의 행과 같은 제스처를 받는다**: 좌클릭은 고르고, 우클릭은
+-- 편집 메뉴다. 여기서 "고른다"는 그 액션으로 간다는 뜻이고(GoToAction), 그건 왼쪽 목록에서
+-- 행을 고르는 것과 같은 일이다 - 상세 패널이 그 액션의 것으로 바뀐다.
 --
--- 예전에는 어느 행이든 우선순위 메뉴가 열렸다. 그건 이 화면에서 유일하게 **남의 레이어를
--- 바꿀 수 있는 자리**였는데, 이 목록에 온 사람의 머릿속은 "이 키의 순서"에 가 있고
--- 우선순위는 그 액션이 사는 레이어 전체에 걸리는 값이라 축이 어긋나 있었다. 이제 자기
--- 액션이 아니면 편집으로 들어가는 문 자체가 없다.
+-- **어느 행이냐로 갈리지 않는다.** 한때 갈렸다: 보고 있는 액션의 행만 편집 메뉴를 주고
+-- 나머지는 "가기" 하나만 줬다. 근거는 *"보고 있지도 않은 레이어를 팝업 하나로 바꾸는 사고"*
+-- 였는데, 그 근거는 **레이어 탭에서만 우연히 성립했다** - 거기서는 "지금 보고 있는 액션"과
+-- "지금 보고 있는 레이어의 액션"이 같은 값이었기 때문이다. 오버뷰 탭에서 그 우연이 깨졌다:
+-- 모든 행이 남의 레이어이고, 그런데도 **같은 액션을 왼쪽 목록에서 우클릭하면 전체 메뉴가
+-- 열린다.** 한 창의 두 목록이 같은 액션에 다른 메뉴를 주는 것은 규칙이 아니라 덜 만들어진
+-- 것으로 읽힌다.
+--
+-- 대신 어디를 만지는 것인지는 **말로 붙인다.** 행 툴팁의 '범위' 줄과 이름 앞 레이어
+-- 아이콘이 그 액션이 어디 사는지 이미 말하고 있다.
 local ORDER_LINE_TOOLTIP_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION" };
-local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
+local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO", "ORDER_LINE_TOOLTIP_INSTRUCTION" };
 
 DebounceOrderLineMixin = {};
 
@@ -3058,7 +3573,7 @@ function DebounceOrderLineMixin:OnLeave()
 	GameTooltip:Hide();
 end
 
-function DebounceOrderLineMixin:OnClick()
+function DebounceOrderLineMixin:OnClick(buttonName)
 	-- 캡처 중에는 리스트가 아직 가정일 뿐이다(새 키 미리보기). 만지게 두지 않는다.
 	if (DebounceDetailPanel:IsCapturingKey()) then
 		return;
@@ -3067,28 +3582,36 @@ function DebounceOrderLineMixin:OnClick()
 	local elementData = self:GetElementData();
 	local row = elementData.row;
 
-	if (elementData.isCurrent) then
-		-- 왼쪽 목록이 이 액션의 elementData를 이미 갖고 있다. 메뉴가 원래 받도록 지어진
-		-- 그 테이블을 그대로 넘긴다.
-		local mainElementData = DebounceFrame:FindElementDataByActionInfo(row.action);
-		if (mainElementData) then
-			DebounceFrame:ShowEditDropdown(self, mainElementData);
+	if (buttonName == "LeftButton") then
+		-- 이미 보고 있는 행이면 갈 데가 없다. 부르면 선택을 다시 넣느라 패널만 한 번
+		-- 깜빡인다.
+		if (not elementData.isCurrent) then
+			DebounceFrame:GoToAction(row.action, row.layerID);
 		end
 		return;
 	end
 
-	-- 항목이 하나뿐이라는 것 자체가 "이 행은 네가 보고 있는 게 아니다"를 말한다. 항목의
-	-- 글자는 레이어 라벨이라, 어디로 가는지도 같은 줄이 말한다.
-	MenuUtil.CreateContextMenu(self, function(_, rootDescription)
-		-- 로컬에 한 번 받아서 넘긴다. NameAndIconForAction은 (name, icon)을 돌려주는데,
-		-- 호출이 인자 목록 끝에 오면 둘 다 펼쳐져서 아이콘이 CreateTitle(text, color)의
-		-- **color 자리로** 들어간다. 편집 메뉴가 이미 이렇게 받아 쓰고 있다.
-		local title = NameAndIconForAction(row.action);
-		rootDescription:CreateTitle(title);
-		rootDescription:CreateButton(format(LLL["ORDER_GOTO_ACTION"], GetLayerLabel(row.layerID)), function()
-			DebounceFrame:GoToAction(row.action, row.layerID);
-		end);
-	end);
+	-- 가운데 버튼 따위는 아무것도 아니다. 등록이 `AnyUp`이라 여기까지 오므로 이름으로 막는다.
+	if (buttonName ~= "RightButton") then
+		return;
+	end
+
+	-- 메뉴가 읽는 것은 셋뿐이다: `action`(대부분), `layer`(삭제·이동), `index`(같은 레이어로
+	-- 복사할 때 끼워 넣을 자리). **셋 다 이 행이 이미 들고 있다** - `layerID`와 `index`는
+	-- 목록을 만들 때 프로필에서 직접 읽은 값이라(`CollectActionsForKey`) 왼쪽 목록의 행이
+	-- 들고 있는 것과 같은 자리에서 나왔다.
+	--
+	-- 왼쪽 목록에서 찾아 쓰지 않는다. **없을 수 있다** - 오버뷰 탭의 "문제만" 필터는 문제
+	-- 없는 행을 왼쪽 목록에서 빼는데 순서 목록은 안 뺀다(거기서 빼면 순서가 거짓말이 된다).
+	-- 있을 때만 열면 필터 하나가 메뉴를 껐다 켰다 하게 된다.
+	--
+	-- 강조는 이래도 맞는다. `IsEditDropdownShown`이 테이블이 아니라 **action**을 열쇠로
+	-- 쓰므로(480행) 왼쪽 목록의 같은 액션 행에 테두리가 켜진다.
+	DebounceFrame:ShowEditDropdown(self, {
+		action = row.action,
+		layer = row.layerID,
+		index = row.index,
+	});
 end
 
 local function OrderMoveButton_OnEnter(button)
@@ -3325,7 +3848,12 @@ function DebounceDetailPanelMixin:RefreshOrderList(action)
 
 	-- 어느 특성의 세계를 보고 있나. 사이드탭 1·2(일반/직업)는 어느 특성에서도 활성이라
 	-- 물어볼 게 없다 - 그 액션의 경쟁 상대는 지금 특성 기준이 맞다.
-	local viewedSpec = _selectedSideTab >= 3 and (_selectedSideTab - 2) or nil;
+	--
+	-- 오버뷰 탭에는 사이드탭이 없고, 그 목록의 모든 행이 **지금 이 특성의 활성 레이어**에서
+	-- 왔다. 그러니 물어볼 다른 세계가 없다 - nil이 곧 "지금"이다. 사이드탭 값은 레이어
+	-- 탭에서 떠날 때의 것이 그대로 남아 있으므로, 여기서 그걸 읽으면 화면에 있지도 않은
+	-- 특성의 순서를 보여준다.
+	local viewedSpec = not IsOverviewTab() and _selectedSideTab >= 3 and (_selectedSideTab - 2) or nil;
 	local simulated = viewedSpec ~= nil and viewedSpec ~= C_SpecializationInfo.GetSpecialization();
 
 	-- 설명 줄은 **지금 화면이 참인지**에 따라 갈린다. 키가 없으면 아무것도 안 돌아가므로
@@ -3829,248 +4357,6 @@ function DebounceDetailPanelMixin:RefreshMacroTab(action)
 	macroArea.Editor.SelectedMacroButton.Icon:SetTexture(action.icon);
 end
 
---------------------------------------------------------------------------------
-
-DebounceOverviewFrameMixin = {}
-
-function DebounceOverviewFrameMixin:OnLoad()
-	self.initialized = true;
-
-	--- 이 창은 키보드를 아예 받지 않는다(XML에 enableKeyboard 없음). 오버뷰의 쓸모가
-	--- "전투 중에 열어놓고 바인딩이 실제로 먹는지 본다"인데, 키를 받는 순간 그걸 스스로 막는다.
-	--- 전투 중에는 SetPropagateKeyboardInput이 taint를 만들어 못 부르므로 전파 여부가
-	--- 전투 밖에서 정해진 마지막 값에 묶이고, 그 값이 false면 창이 뜬 동안 모든 키를 먹었다.
-	--- ESC는 UISpecialFrames가 닫아준다(RegisterEscapeToClose 참고) - CloseSpecialWindows를
-	--- 거치는 블리자드의 secure 경로라 전파를 손댈 일 자체가 없어진다. 메인 창은 이 그물을
-	--- 안 쓰지만(P로 주문서를 열면 같이 닫히므로) 이 창은 쓴다 - 키보드를 켤 수 없으니
-	--- 남은 길이 없고, 오버뷰가 P에 닫히는 건 참을 만하다.
-	RegisterEscapeToClose(self);
-
-	local title = format(LLL["DEBOUNCE_OVERVIEW_TITLE"]);
-	self:SetTitle(title);
-	self:SetPortraitToAsset(133015);
-
-	DebouncePrivate.db.global.overviewui = DebouncePrivate.db.global.overviewui or {};
-	self:ClearAllPoints();
-	local pos = DebouncePrivate.db.global.overviewui.pos;
-	if (pos) then
-		self:SetPoint("CENTER", "UIParent", "BOTTOMLEFT", pos.x, pos.y);
-	else
-		self:SetPoint("CENTER", "UIParent", 0, 0);
-	end
-
-	self:RegisterForDrag("LeftButton");
-	self:SetScript("OnDragStart", function()
-		self:StartMoving();
-	end);
-
-	self:SetScript("OnDragStop", function()
-		self:StopMovingOrSizing();
-		self:SetUserPlaced(false);
-		local x, y = self:GetCenter();
-		DebouncePrivate.db.global.overviewui.pos = { x = x, y = y };
-	end);
-
-	self:InitializeScrollBox();
-end
-
-function DebounceOverviewFrameMixin:OnShow()
-	if (not self.initialized) then
-		self:OnLoad();
-	end
-
-	self:Refresh();
-
-	DebouncePrivate.RegisterCallback(self, "OnBindingsUpdated");
-
-	DebounceFrame.OverviewPortrait:SetSelectedState(true);
-end
-
-function DebounceOverviewFrameMixin:OnHide()
-	DebounceFrame.OverviewPortrait:SetSelectedState(false);
-	-- OnShow가 건 것을 여기서 푼다. 안 풀면 처음 한 번 연 뒤로 이 창은 **영원히** 모든
-	-- 바인딩 갱신마다 전체 Refresh를 돈다 - 닫혀 있어도. 메인 창은 같은 짝을 맞추고 있다.
-	DebouncePrivate.UnregisterCallback(self, "OnBindingsUpdated");
-	ClearMacrotextIconCache();
-end
-
-function DebounceOverviewFrameMixin:OnBindingsUpdated(...)
-	self:Refresh(true);
-end
-
-DebounceOverviewHeaderMixin = {};
-
-function DebounceOverviewHeaderMixin:Init()
-	local elementData = self:GetElementData();
-	self.Name:SetText(GetBindingText(elementData.key), false);
-end
-
-DebounceOverviewLineMixin = {};
-
-function DebounceOverviewLineMixin:Init()
-	self:Update();
-end
-
-function DebounceOverviewLineMixin:OnEnter()
-	ShowLineTooltip(self, "ANCHOR_CURSOR_RIGHT", self:GetElementData(), true);
-	if (DebounceOverviewFrame.hoveredAction ~= self:GetElementData().action) then
-		DebounceOverviewFrame.hoveredAction = self:GetElementData().action;
-		DebounceFrame:Update();
-	end
-end
-
-function DebounceOverviewLineMixin:OnLeave()
-	if (DebounceOverviewFrame.hoveredAction ~= nil) then
-		DebounceOverviewFrame.hoveredAction = nil;
-		DebounceFrame:Update();
-	end
-	---@diagnostic disable-next-line: redundant-parameter
-	GameTooltip:SetMinimumWidth(0, false);
-	GameTooltip:Hide();
-end
-
-function DebounceOverviewLineMixin:OnClick()
-	if (InCombatLockdown()) then
-		return;
-	end
-
-	local matchedLayer;
-	local elementData = self:GetElementData();
-	for _, layer in DebouncePrivate.EnumerateProfileLayers() do
-		for _, action in layer:Enumerate() do
-			if (action == elementData.action) then
-				matchedLayer = layer;
-				break;
-			end
-		end
-	end
-
-	if (matchedLayer) then
-		DebounceFrame:Show();
-
-		-- **탭 좌표는 `GetLayerTabs`가 안다.** 여기서 손으로 세다가 두 번 틀렸다:
-		-- `if (matchedLayer.spec)`이 **spec 0에서 참**이라(Lua에서 `0`은 truthy) 캐릭터 전용
-		-- 공용 레이어가 사이드탭 2로 갔는데, 탭2에서 그 사이드탭은 `UpdateSideTabs`가 숨기는
-		-- 자리다 - 숨은 버튼을 누르고 체크된 사이드탭이 하나도 없는 상태가 됐다. 보이는
-		-- 내용은 어차피 같은 레이어라 티가 안 나고, 창 제목만 엉뚱한 것을 말했다.
-		--
-		-- 그 규칙은 `GetLayerTabs`에 이미 들어 있다(레이어 7의 충돌 처리까지). 두 곳이
-		-- 같은 것을 알 이유가 없다.
-		local layerID = DebouncePrivate.GetLayerID(matchedLayer.spec, matchedLayer.isCharacterSpecific);
-		local tab, sideTab = GetLayerTabs(layerID);
-		DebounceFrame:SetTab(tab);
-		DebounceFrame.SideTabs[sideTab]:Click();
-
-		-- **못 찾을 수 있다.** 사이드탭 클릭은 저장 안 된 편집이 있으면 되돌아선다
-		-- (`DebounceSideTabMixin:OnClick`의 `TryCloseAnyDialog`). 그러면 목록은 아직 다른
-		-- 레이어를 보고 있고 이 액션은 거기 없다. `ScrollToNearest(nil)`은 블리자드
-		-- ScrollBox 안에서 터진다 - 스크롤을 못 하는 것과 오류를 내는 것은 다르다.
-		local index = DebounceFrame.dataProvider:FindByPredicate(function(elementData2)
-			return elementData2.action == elementData.action;
-		end);
-
-		if (index) then
-			DebounceFrame.ScrollBox:ScrollToNearest(index);
-		end
-	end
-end
-
-function DebounceOverviewLineMixin:Update()
-	local elementData = self:GetElementData();
-	local action = elementData.action;
-
-	-- 이 줄도 단축키를 따로 보여주므로 메인 목록과 같은 규칙을 쓴다. 안 넘기면 키 문제로
-	-- 이름 전체가 빨개져서, 같은 액션을 두 화면이 서로 다른 범인으로 가리킨다.
-	local name, icon = ColoredNameAndIconForAction(action, "key");
-
-	self.Name:SetText(name);
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.Icon:SetAtlas(icon:sub(3));
-	else
-		self.Icon:SetTexture(icon);
-	end
-
-	local professionQuality = action.type == Constants.ITEM and C_TradeSkillUI.GetItemReagentQualityByItemInfo(action.value);
-	if (professionQuality) then
-		if (not self.ProfessionQualityOverlay) then
-			self.ProfessionQualityOverlay = self:CreateTexture(nil, "Overlay");
-			self.ProfessionQualityOverlay:SetPoint("TOPLEFT", self.Icon, "TOPLEFT", -3, 2);
-			self.ProfessionQualityOverlay:SetDrawLayer("OVERLAY", 7);
-		end
-		local atlas = ("Professions-Icon-Quality-Tier%d-Inv"):format(professionQuality);
-		self.ProfessionQualityOverlay:SetAtlas(atlas, TextureKitConstants.UseAtlasSize);
-		self.ProfessionQualityOverlay:Show();
-	elseif (self.ProfessionQualityOverlay) then
-		self.ProfessionQualityOverlay:Hide();
-	end
-
-	-- 이름에서 뺀 만큼 여기서 말한다. 키 문제는 키 옆에서.
-	local bindingText = GetBindingText(action.key);
-	if (bindingText and GetBindingIssue(action, "key")) then
-		bindingText = ERROR_COLOR:WrapTextInColorCode(bindingText);
-	end
-	self.BindingText:SetText(bindingText or "");
-
-	if (action.unit) then
-		self.UnitText:SetText(UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit]);
-		self.UnitText:Show();
-	else
-		self.UnitText:Hide();
-	end
-
-
-	if (DebouncePrivate.IsConditionalAction(action)) then
-		self.QuestionMark:Show();
-	else
-		self.QuestionMark:Hide();
-	end
-end
-
-function DebounceOverviewFrameMixin:Refresh(retainScrollPosition)
-	local dataProvider = CreateDataProvider();
-	local keyMap = DebouncePrivate.GetKeyMap();
-
-	local keyArr = {};
-	for key, _ in pairs(keyMap) do
-		keyArr[#keyArr + 1] = key;
-	end
-
-	sort(keyArr, DebouncePrivate.CompareKeys);
-
-	for _, key in ipairs(keyArr) do
-		local actionArray = keyMap[key];
-		for i = 1, #actionArray do
-			local action = actionArray[i];
-			local elementData = { action = action };
-			dataProvider:Insert(elementData);
-		end
-	end
-
-	self.dataProvider = dataProvider;
-	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
-end
-
-function DebounceOverviewFrameMixin:InitializeScrollBox()
-	local padding = 7;
-	local spacing = 2;
-	local view = CreateScrollBoxListLinearView(padding, padding, padding, padding, spacing);
-
-	view:SetElementInitializer("DebounceOverviewLineTemplate", function(button, elementData)
-		button:Init(elementData);
-	end);
-
-	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
-end
-
-function DebounceOverviewFrameMixin:Toggle()
-	if (self:IsShown()) then
-		self:Hide();
-	elseif (not GameMenuFrame:IsShown()) then
-		-- 게임메뉴가 떠 있으면 열지 않는다. DebouncePublic:ToggleUI()와 같은 이유다.
-		self:Show();
-	end
-end
-
 function DebounceUI.GetSelectedTab()
 	return _selectedTab;
 end
@@ -4108,8 +4394,10 @@ DebounceUI.UNIT_INFO = UNIT_INFO;
 DebounceUI.SORTED_UNIT_LIST = SORTED_UNIT_LIST;
 DebounceUI.BINDING_TYPE_NAMES = BINDING_TYPE_NAMES;
 DebounceUI.GetLayerID = GetLayerID;
+DebounceUI.IsOverviewTab = IsOverviewTab;
 DebounceUI.GetTabLabel = GetTabLabel;
 DebounceUI.GetSideTabaLabel = GetSideTabaLabel;
+DebounceUI.GetLayerLabel = GetLayerLabel;
 DebounceUI.MoveAction = MoveAction;
 DebounceUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebounceUI.NameAndIconForAction = NameAndIconForAction;

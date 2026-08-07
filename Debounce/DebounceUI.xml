@@ -172,6 +172,29 @@
 						<Anchor point="LEFT" relativePoint="LEFT" x="0" y="0"/>
 					</Anchors>
 				</Texture>
+				<!--
+					이름 앞의 두 칸이 "이 액션이 어디 사는가"를 말한다. **오버뷰 탭에서만
+					켜진다** - 레이어 탭에서는 목록 전체가 한 레이어라 모든 행에 같은 그림이
+					붙고, 그러면 아무것도 구별하지 못하면서 이름만 밀어낸다. 그 답은 창
+					제목에 이미 있다.
+
+					규칙은 순서 리스트(DebounceOrderLineTemplate)와 **글자 그대로 같다** -
+					아이콘 하나 = 좁혀진 축 하나, 빈 칸은 남기지 않음, 이름 앵커는 Update가
+					다시 잡음. 한 창 안에서 레이어가 섞이는 목록이 둘인데 서로 다른 그림
+					규칙을 쓰면 배울 것이 두 벌이 된다. 왜 그 규칙인지는 저쪽 주석에 있다.
+				-->
+				<Texture parentArray="LayerIcons" parentKey="LayerIcon1" hidden="true">
+					<Size x="14" y="14"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="7"/>
+					</Anchors>
+				</Texture>
+				<Texture parentArray="LayerIcons" parentKey="LayerIcon2" hidden="true">
+					<Size x="14" y="14"/>
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.LayerIcon1" relativePoint="RIGHT" x="3" y="0"/>
+					</Anchors>
+				</Texture>
 				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
 					<Size x="430" y="0"/>
 					<Anchors>
@@ -185,10 +208,16 @@
 					</Anchors>
 					<Color color="NORMAL_FONT_COLOR"/>
 				</FontString>
+				<!--
+					**이름이 아니라 아이콘에 매달린다.** 값은 예전과 같다(이름의 왼쪽 앵커를
+					그대로 따라간 자리다). 이름은 레이어 아이콘 때문에 행마다 다른 x에서
+					시작할 수 있는데, 단축키까지 같이 밀리면 이 목록의 조직 축인 키 칸이
+					행마다 들쭉날쭉해진다.
+				-->
 				<FontString parentKey="BindingText" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
 					<Size x="430" y="0"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="LEFT" x="0" y="-15"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="-8"/>
 					</Anchors>
 				</FontString>
 				<!--
@@ -269,14 +298,16 @@
 		지금 보고 있는 액션은 SelectedHighlight가 짚는다.
 	-->
 	<!--
-		메뉴는 우클릭으로만 연다. 왼쪽 목록이 이미 그렇게 가르치고 있으므로(좌클릭은 고르고,
-		우클릭이 편집 메뉴다 - DebounceLineMixin:OnClick), 같은 창의 다른 목록이 같은 버튼에
-		다른 뜻을 주면 안 된다.
+		제스처는 왼쪽 목록과 같다: **좌클릭은 고르고, 우클릭이 편집 메뉴다**
+		(DebounceLineMixin:OnClick). 같은 창의 두 목록이 같은 버튼에 다른 뜻을 주면 안 된다.
 
-		좌클릭은 아예 등록하지 않는다. 등록해두고 안에서 걸러내는 것보다 낫다 - 나중에
-		누가 AnyUp으로 바꿔도 조용히 새 길이 열리지 않는다.
+		여기서 "고른다"는 그 액션으로 간다는 뜻이다(GoToAction) - 상세 패널이 그 액션의
+		것으로 바뀌므로 왼쪽 목록에서 행을 고르는 것과 같은 결과다.
+
+		한때 우클릭만 등록했다. 그때는 좌클릭이 할 일이 없었다 - 다른 행으로 가는 길이
+		우클릭 메뉴 안에 있었기 때문이다. 그 메뉴가 없어졌으므로 등록한다.
 	-->
-	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="RightButtonUp" virtual="true">
+	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="AnyUp" virtual="true">
 		<Size x="300" y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -379,7 +410,13 @@
 		</Scripts>
 	</Button>
 
-	<Button name="DebouncePortraitTemplate" mixin="DebouncePortraitMixin" parentArray="FramePortraits" virtual="true">
+	<!--
+		`motionScriptsWhileDisabled` — 꺼져 있을 때도 툴팁이 뜬다. **못 누르는 버튼이야말로
+		이유를 물어볼 데가 필요하다.** 회색으로 죽어 있기만 하면 고장인지 지금 안 되는
+		것인지 알 길이 없다. 블리자드도 같은 자리에서 같은 속성을 쓴다
+		(`PanelTabButtonTemplate`).
+	-->
+	<Button name="DebouncePortraitTemplate" mixin="DebouncePortraitMixin" parentArray="FramePortraits" motionScriptsWhileDisabled="true" virtual="true">
 		<Size x="31" y="31"/>
 		<Layers>
 			<Layer level="ARTWORK">
@@ -559,15 +596,6 @@
 					<Anchor point="RIGHT" relativeKey="$parent.CustomStatesPortrait" relativePoint="LEFT" x="-5" y="0"/>
 				</Anchors>
 			</Button>
-			<Button parentKey="OverviewPortrait" inherits="DebouncePortraitTemplate">
-				<KeyValues>
-					<KeyValue key="PortraitTexture" value="Interface\Icons\inv_misc_spyglass_03" type="string"/>
-					<KeyValue key="TooltipTitle" value="DEBOUNCE_OVERVIEW_TITLE" type="string"/>
-				</KeyValues>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.AddPortrait" relativePoint="LEFT" x="-15" y="0"/>
-				</Anchors>
-			</Button>
 			<!--
 				좌측 목록 인셋. 폭이 고정이고 왼쪽에 붙는다 - 상세 패널이 열려 프레임이 넓어져도
 				이쪽은 그대로여야 한다. 마운트 창의 LeftInset과 같은 방식이다
@@ -656,6 +684,44 @@
 					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
 				</Anchors>
 			</CheckButton>
+			<!--
+				오버뷰 탭의 필터. **오버뷰 탭에서만 보인다** - 레이어 탭에는 거를 것이 없고,
+				그 탭에서 보이는 묶기 체크박스는 여기 없다(오버뷰 목록은 언제나 키로 묶여
+				있다 - 거기서 묶기는 선택이 아니라 목록의 뜻이다).
+
+				주문 선택 창이 쓰는 것과 **같은 물건**이다(`WowStyle1FilterDropdownTemplate`).
+				기본값이 아니면 오른쪽 위에 X가 뜨는 것도 그 템플릿이 갖고 온다
+				(`WowDropdownFilterBehaviorMixin`) - **행을 실제로 없애는 필터는 켜져 있다는
+				걸 소리쳐야 한다.** 안 그러면 "내 액션이 왜 안 보이지"가 된다.
+
+				**자리는 검색창 오른쪽이다.** 저쪽 창처럼 줄 오른쪽 끝에 붙이면 여기서는
+				위쪽 둥근 버튼들과 겹친다 - 그 창에는 그 자리에 아무것도 없다. 묶기
+				체크박스가 서던 자리와 같고, 둘은 절대 같이 보이지 않는다.
+			-->
+			<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate" hidden="true">
+				<!--
+					높이는 **템플릿의 값 그대로**(18)여야 한다. X(ResetButton)가 프레임의 위쪽
+					모서리 중심에 매달려 있어서(`CENTER` → `TOPRIGHT`), 여기서 높이를 키우면
+					그만큼 X가 버튼 위로 떠오른다. 한때 22였고 그래서 블리자드 것과 달라 보였다.
+					폭만 우리 것으로 좁힌다.
+				-->
+				<Size x="110" y="18"/>
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
+				</Anchors>
+				<Frames>
+					<!--
+						템플릿의 앵커에서 y만 내린다(원래 0). 프레임의 모서리는 배경 텍스처가
+						그리는 **눈에 보이는 테두리보다 4px 안쪽**이라(템플릿의 Background가
+						위로 4 넘겨 그린다), 값이 0이면 X가 테두리 위에 떠 있는 것처럼 보인다.
+					-->
+					<Button parentKey="ResetButton" inherits="UIResetButtonTemplate" hidden="true">
+						<Anchors>
+							<Anchor point="CENTER" relativePoint="TOPRIGHT" x="-3" y="-3"/>
+						</Anchors>
+					</Button>
+				</Frames>
+			</DropdownButton>
 
 			<Button parentKey="Tab1" inherits="DebounceFrameTabTemplate" text="GENERAL" id="1">
 				<Anchors>
@@ -673,6 +739,18 @@
 					<Anchor point="TOPLEFT" relativeKey="$parent.Tab1" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
+			<!--
+				오버뷰 탭. 앞의 둘과 달리 **레이어가 아니다** - 활성 레이어 전부를 키로 묶어
+				한 목록에 놓는다. 그래서 사이드탭도 없고 여기에 액션을 새로 넣을 수도 없다
+				(어느 레이어에 넣을지 이 탭은 답이 없다). 자세한 건 DebounceUI.lua의
+				IsOverviewTab 주변에.
+
+				**자리는 여기서 안 정한다.** 왼쪽 둘은 "어디에 저장되는가"로 갈리는 한 쌍이고
+				이건 그 축 밖이라 사슬에서 떼어 오른쪽 끝에 세우는데, 그 앵커는
+				`PanelTemplates_SetNumTabs`가 덮으므로 `OnLoad`에서 그 뒤에 다시 잡는다.
+				여기 뭘 적어도 화면에 닿지 않는다(위 Tab2 주석과 같은 이야기).
+			-->
+			<Button parentKey="Tab3" inherits="DebounceFrameTabTemplate" id="3"/>
 
 			<Frame parentKey="SideTabsFrame">
 				<Anchors>
@@ -1158,214 +1236,6 @@
 		</Scripts>
 	</Frame>
 
-
-	<Frame name="DebounceOverviewHeaderTemplate" mixin="DebounceOverviewHeaderMixin" virtual="true">
-		<Size x="450" y="18"/>
-		<Layers>
-			<Layer level="BACKGROUND">
-				<Texture parentKey="TopBorder" parentArray="Textures" hidden="true">
-					<Size y="1.0" />
-					<Anchors>
-						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-2" y="0"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT" x="2" y="0"/>
-					</Anchors>
-					<Color r="0.2" g="0.2" b="0.2" a="1"/>
-				</Texture>
-				<Texture parentKey="BottomBorder" parentArray="Textures" hidden="false">
-					<Size y="1.0" />
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="-2" y="0"/>
-						<Anchor point="TOPRIGHT" relativePoint="BOTTOMRIGHT" x="2" y="0"/>
-					</Anchors>
-					<Color r="0.4" g="0.4" b="0.4" a="1"/>
-				</Texture>
-
-			</Layer>
-			<Layer level="ARTWORK">
-				<FontString parentKey="Name" inherits="GameFontHighlight" maxLines="1" justifyH="LEFT">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="LEFT" relativePoint="LEFT" x="0" y="-2"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
-	</Frame>
-
-	<Button name="DebounceOverviewLineTemplate" mixin="DebounceOverviewLineMixin" virtual="true">
-		<Size x="450" y="30"/>
-		<Layers>
-			<Layer level="BACKGROUND">
-				<Texture parentKey="TopBorder" parentArray="Textures" hidden="true">
-					<Size y="2.0" />
-					<Anchors>
-						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-2" y="2"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT" x="2" y="2"/>
-					</Anchors>
-					<Color r="0.2" g="0.2" b="0.2" a="1"/>
-				</Texture>
-				<Texture parentKey="BottomBorder" parentArray="Textures" hidden="true">
-					<Size y="2.0" />
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
-						<Anchor point="TOPRIGHT" relativePoint="BOTTOMRIGHT" x="4" y="-2"/>
-					</Anchors>
-					<Color r="0.2" g="0.2" b="0.2" a="1"/>
-				</Texture>
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground" useAtlasSize="true" hidden="false">
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="0" y="0"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="0" y="0"/>
-					</Anchors>
-				</Texture>
-				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled" hidden="true">
-					<Size x="30" y="30"/>
-					<Anchors>
-						<Anchor point="LEFT" relativePoint="LEFT" x="-2" y="0"/>
-					</Anchors>
-					<TexCoords left="0.140625" right="0.84375" top="0.140625" bottom="0.84375"/>
-				</Texture>
-			</Layer>
-			<Layer level="ARTWORK">
-				<Texture parentKey="Icon">
-					<Size x="18" y="18"/>
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="6" y="-6"/>
-					</Anchors>
-				</Texture>
-				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
-					<Size x="240" y="0"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="0"/>
-					</Anchors>
-				</FontString>
-
-
-				<Texture parentKey="QuestionMark" atlas="questlog-questtypeicon-quest" hidden="false">
-					<Size x="18" y="18"/>
-					<Anchors>
-						<Anchor point="RIGHT" relativePoint="RIGHT" x="-10" y="0"/>
-					</Anchors>
-				</Texture>
-				<FontString parentKey="UnitText" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT" hidden="false" text="@Target">
-					<Size x="100" y="0"/>
-					<Anchors>
-						<!-- <Anchor point="RIGHT" relativePoint="RIGHT" x="-6" y="0"/> -->
-						<!-- <Anchor point="LEFT" relativePoint="LEFT" x="250" y="0"/> -->
-						<!-- <Anchor point="LEFT" relativeKey="$parent.BindingText" relativePoint="RIGHT" x="10" y="0"/> -->
-						<Anchor point="RIGHT" relativeKey="$parent.QuestionMark" relativePoint="LEFT" x="-10" y="0"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="BindingText" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT" hidden="false">
-					<!-- <Size x="200" y="0"/> -->
-					<Anchors>
-						<!-- <Anchor point="RIGHT" relativePoint="RIGHT" x="-6" y="0"/> -->
-						<!-- <Anchor point="LEFT" relativePoint="LEFT" x="250" y="0"/> -->
-						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="RIGHT" x="10" y="0"/>
-						<Anchor point="RIGHT" relativeKey="$parent.UnitText" relativePoint="LEFT" x="-10" y="0"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="InfoText" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.BindingText" relativePoint="RIGHT" x="10" y="0"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</FontString>
-				<FontString parentKey="InfoText2" inherits="GameFontNormalSmall" justifyH="RIGHT" hidden="true">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-5" y="9"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</FontString>
-				<FontString parentKey="SpecialConditionsText" inherits="GameFontNormalSmall" maxLines="1" justifyH="RIGHT" text="" hidden="true">
-					<Size x="430" y="0"/>
-					<Anchors>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-5" y="9"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</FontString>
-			</Layer>
-			<Layer level="OVERLAY">
-				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-			</Layer>
-			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" useAtlasSize="true" alphaMode="ADD">
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="0" y="0"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="0" y="0"/>
-					</Anchors>
-					<Color r="1" g="1" b="0" a="1"/>
-				</Texture>
-			</Layer>
-		</Layers>
-		<Scripts>
-			<OnEnter method="OnEnter"/>
-			<OnLeave method="OnLeave"/>
-			<OnClick method="OnClick"/>
-		</Scripts>
-	</Button>
-
-	<!-- 키보드를 받지 않는다. 이 창은 전투 중에 열어놓고 보는 용도라 키를 가로채면 안 된다.
-	     ESC는 블리자드 쪽에서 닫아준다(DebounceOverviewFrameMixin:OnLoad 참고). -->
-	<Frame name="DebounceOverviewFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebounceOverviewFrameMixin" movable="true" clampedToScreen="true">
-		<Size x="640" y="620"/>
-		<Anchors>
-			<Anchor point="CENTER"/>
-		</Anchors>
-		<Frames>
-			<Frame parentKey="ScrollBoxBackground" inherits="TooltipBackdropTemplate" frameLevel="2">
-				<Anchors>
-					<!-- <Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="4" y ="535"/> -->
-					<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="4" y ="-60"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
-				</Anchors>
-				<KeyValues>
-					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
-					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
-				</KeyValues>
-				<Frames>
-					<Frame parentKey="Highlight" inherits="DebounceGlowBorderTemplate" hidden="true" alpha="0.4">
-						<Anchors>
-							<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="3" y ="-3"/>
-							<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-3" y ="3"/>
-						</Anchors>
-					</Frame>
-				</Frames>
-			</Frame>
-
-			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y ="-5"/>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y ="5"/>
-				</Anchors>
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable">
-							<Size x="320" y="0"/>
-							<Anchors>
-								<Anchor point="TOP" x="0" y="-40"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-
-			</Button>
-			<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
-				</Anchors>
-			</EventFrame>
-		</Frames>
-		<Layers>
-		</Layers>
-		<Scripts>
-			<OnShow method="OnShow"/>
-			<OnHide method="OnHide"/>
-		</Scripts>
-	</Frame>
 
 	<Frame name="DebounceStateDriverUpdateThrottleSliderTemplate" mixin="DebounceStateDriverUpdateThrottleSliderMixin" virtual="true">
 		<Size x="200" y="16"/>

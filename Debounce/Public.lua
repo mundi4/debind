@@ -94,10 +94,26 @@ if (not DebouncePrivate.CliqueDetected) then
 	_G.DebouncePrivate = prev;
 end
 
+--- 창을 열고 오버뷰 탭으로 간다.
+---
+--- **이미 열려 있으면 닫지 않는다.** 오버뷰를 보려고 부른 것이라 토글로 받으면 원하는
+--- 것의 반대가 나온다. `ToggleUI`가 물러설 수도 있으므로(전투·게임메뉴 - 그쪽이 이유까지
+--- 말한다) 열렸는지 다시 묻고 나서 탭을 옮긴다.
+local function ShowOverview()
+	if (not DebounceFrame:IsShown()) then
+		DebouncePublic:ToggleUI();
+	end
+	if (DebounceFrame:IsShown()) then
+		DebounceFrame:ShowOverviewTab();
+	end
+end
+
 SlashCmdList["DEBOUNCE"] = function(msg)
 	msg = strlower(msg);
+	-- 오버뷰가 별도 창이던 시절의 명령어. 창은 없어졌지만 손가락이 기억하는 것을 뺏지
+	-- 않는다 - 같은 것을 보여주는 자리가 여전히 있다.
 	if (msg == "overview") then
-		DebounceOverviewFrame:Toggle();
+		ShowOverview();
 		return;
 	end
 
@@ -114,15 +130,17 @@ SlashCmdList["DEBOUNCE"] = function(msg)
 	DebouncePublic:ToggleUI();
 end
 
+--- 우클릭은 오버뷰 탭으로 간다. 이 버튼의 오른쪽은 원래 바인딩 오버뷰를 여는 자리였고
+--- (별도 창이던 시절), 그 창이 메인 창의 탭이 된 뒤에도 뜻은 그대로다.
 function Debounce_CompartmentFunc(name, mouseButton, btn)
 	if (mouseButton == "RightButton") then
-		DebounceOverviewFrame:Toggle();
+		ShowOverview();
 	else
 		DebouncePublic:ToggleUI();
 	end
 end
 
---- 구획 항목에 마우스를 올렸을 때. 좌·우클릭이 서로 다른 창을 여는데, 그걸 말해줄 자리가
+--- 구획 항목에 마우스를 올렸을 때. 좌·우클릭이 서로 다른 데로 가는데, 그걸 말해줄 자리가
 --- 여기밖에 없다 - 메뉴 항목은 이름 한 줄이 전부라 우클릭은 우연히 눌러야만 발견된다.
 --- 인자는 블리자드가 준다 (Blizzard_Minimap/AddonCompartment.lua의 funcOnEnter).
 function Debounce_CompartmentOnEnter(name, btn)

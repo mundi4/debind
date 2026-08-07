@@ -276,9 +276,6 @@ globals = {
 	"DebounceFrameMixin",
 	"DebounceDetailPanelMixin",
 	"DebounceIconSelectorFrameMixin",
-	"DebounceOverviewFrameMixin",
-	"DebounceOverviewHeaderMixin",
-	"DebounceOverviewLineMixin",
 	"DebounceStateDriverUpdateThrottleSliderMixin",
 	"DebounceSpellPickerFrameMixin",
 	"DebounceSpellPickerHeaderMixin",
@@ -287,7 +284,6 @@ globals = {
 
 	-- Named frames
 	"DebounceFrame",
-	"DebounceOverviewFrame",
 	"DebounceDetailPanel",
 	"DebounceIconSelectorFrame",
 	"DebounceActionPlacerFrame",

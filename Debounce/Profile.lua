@@ -495,12 +495,18 @@ function DebouncePrivate.CollectActionsForKey(key, spec)
     local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
 
     for layerRank, layer in DebouncePrivate.EnumerateProfileLayers(spec) do
-        for _, action in layer:Enumerate() do
+        for index, action in layer:Enumerate() do
             if (action.key == key) then
                 rows[#rows + 1] = {
                     action        = action,
                     layerID       = layer.layerID,
                     layerRank     = layerRank,
+                    -- 레이어 배열에서의 자리. 순서에는 안 쓰인다(비교자는 seq를 본다).
+                    -- 이걸 들고 다니는 이유는 **편집 메뉴가 이 값으로 프로필을 만지기**
+                    -- 때문이다 - 같은 레이어로 복사할 때 끼워 넣을 자리가 이 번호다
+                    -- (DebounceUI.lua의 MoveAction). 여기서 주지 않으면 그리는 쪽이 손으로
+                    -- 세야 하고, 그러면 같은 뜻의 번호가 두 군데서 따로 만들어진다.
+                    index         = index,
                     seq           = action.seq,
                     priority      = action.priority or Constants.DEFAULT_PRIORITY,
                     -- hover는 원본 그대로 넘긴다. false와 nil이 다른 뜻이라 불리언으로 접으면
