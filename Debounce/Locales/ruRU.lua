@@ -153,10 +153,6 @@ L["NOT_SELECTED"] = "Не выбрано"
 L["ONLY_IF_UNIT_EXISTS"] = "Только если юнит существует"
 L["OPTIONS"] = "Настройки"
 -- %s는 특성 이름이다(사이드탭 3 이상에서만 이 문장이 뜬다).
-L["ORDER_COL_PRIORITY"] = "Важн."
-L["ORDER_COL_HOVER"] = "Навед."
-L["ORDER_COL_CONDITIONAL"] = "Усл."
-L["ORDER_COL_LAYER"] = "Область"
 L["ORDER_FLAG_CONDITIONAL"] = "С условиями"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 L["ORDER_FLAG_HOVER"] = "Условие наведения"

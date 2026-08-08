@@ -826,53 +826,9 @@
 									<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
 								</Anchors>
 								<Frames>
-									<!--
-										표의 머리줄. 스크롤 밖에 서므로 목록을 굴려도 칸 이름이 남는다.
-
-										오른쪽 여백 16은 **행의 오른쪽 끝**에 맞춘 값이다(ScrollBox가 -14,
-										그 안에서 뷰 여백이 2). 여기가 어긋나면 칸 이름이 칸 위에 안 선다.
-
-										칸 폭은 행의 것과 같아야 한다 - 34 / 34 / 34 / 54, 오른쪽부터.
-									-->
-									<Frame parentKey="ColumnHeader">
-										<Size y="14"/>
-										<Anchors>
-											<Anchor point="TOPLEFT"/>
-											<Anchor point="TOPRIGHT" x="-16" y="0"/>
-										</Anchors>
-										<Layers>
-											<Layer level="ARTWORK">
-												<FontString parentKey="LayerLabel" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
-													<Size x="34" y="0"/>
-													<Anchors>
-														<Anchor point="RIGHT" x="0" y="0"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="CondLabel" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
-													<Size x="34" y="0"/>
-													<Anchors>
-														<Anchor point="RIGHT" x="-34" y="0"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="HoverLabel" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
-													<Size x="34" y="0"/>
-													<Anchors>
-														<Anchor point="RIGHT" x="-68" y="0"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="PriorityLabel" inherits="GameFontDisableSmall" justifyH="RIGHT" maxLines="1">
-													<Size x="54" y="0"/>
-													<Anchors>
-														<Anchor point="RIGHT" x="-102" y="0"/>
-													</Anchors>
-												</FontString>
-											</Layer>
-										</Layers>
-									</Frame>
-
 									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
 										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.ColumnHeader" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
+											<Anchor point="TOPLEFT"/>
 											<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
 										</Anchors>
 									</Button>

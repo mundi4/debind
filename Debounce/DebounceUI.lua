@@ -2929,12 +2929,6 @@ DebounceDetailPanelMixin = {};
 function DebounceDetailPanelMixin:OnLoad()
 	self.ContentArea.EmptyText:SetText(LLL["DETAIL_EMPTY"]);
 
-	local header = self.ContentArea.OrderArea.ColumnHeader;
-	header.PriorityLabel:SetText(LLL["ORDER_COL_PRIORITY"]);
-	header.HoverLabel:SetText(LLL["ORDER_COL_HOVER"]);
-	header.CondLabel:SetText(LLL["ORDER_COL_CONDITIONAL"]);
-	header.LayerLabel:SetText(LLL["ORDER_COL_LAYER"]);
-
 	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
@@ -3114,8 +3108,7 @@ function DebounceDetailPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 	local elements = BuildKeyboardElements();
 
-	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 머리줄만 남기면 칸 이름 넷이 아무것도
-	-- 안 이고 서 있는 표가 되는데, 그건 비었다는 사실보다 눈에 먼저 들어온다.
+	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 빈 상자만 남기지 않는다.
 	if (#elements == 0) then
 		orderArea:Hide();
 		self.ContentArea.EmptyText:Show();
