@@ -829,13 +829,22 @@
 									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
 										<Anchors>
 											<Anchor point="TOPLEFT"/>
-											<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
+											<Anchor point="BOTTOMRIGHT"/>
 										</Anchors>
 									</Button>
+									<!--
+										**스크롤바는 인셋 밖에 선다.** 오른쪽 목록이 그렇게 서 있고
+										(ScrollBoxBackground의 TOPRIGHT에서 +5), 두 열 사이 홈통이 바로
+										그 자리다. 안쪽에 두면 목록이 그만큼 좁아지는데 홈통은 빈 채로
+										남는다 - 자리를 두 번 내주는 셈이다.
+
+										+13은 인셋 안쪽 여백 8을 건너뛴 뒤의 +5다. 오른쪽과 같은 값이라
+										두 스크롤바가 각자 인셋에서 같은 거리에 선다.
+									-->
 									<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
 										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="6" y="0"/>
-											<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="6" y="0"/>
+											<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="13" y="0"/>
+											<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="13" y="0"/>
 										</Anchors>
 									</EventFrame>
 								</Frames>
