@@ -3005,6 +3005,19 @@ function DebounceDetailPanelMixin:Close()
 	return true;
 end
 
+--- 문제 코드(`Constants.BINDING_ISSUE_*`)를 **이 칸에 들어갈 짧은 형태**로 바꾼다.
+---
+--- 긴 문장(`BINDING_ERROR_*`)은 툴팁의 것이다 - 170px 칸에서는 잘린다. 그래서 코드마다
+--- 짧은 짝(`ORDER_FLAG_*`)을 따로 둔다. 한때 여기가 전부 `Has a Problem`이었는데, 그러면
+--- **무엇을 고칠지를 안 말한다** - 툴팁을 열어야만 알 수 있는 것을 칸이 이미 차지하고 있었다.
+---
+--- `rawget`인 이유: `L`의 메타테이블이 없는 키에 키 이름을 그대로 돌려주므로, 짝을 안 만든
+--- 코드가 하나라도 있으면 화면에 `ORDER_FLAG_CONDITIONS_NEVER`가 뜬다. Constants에 코드가
+--- 늘고 문자열이 안 따라온 경우에는 총칭으로 물러나는 편이 낫다.
+local function GetShortIssueText(issue)
+	return rawget(LLL, "ORDER_FLAG_" .. issue) or LLL["ORDER_FLAG_ISSUE"];
+end
+
 DebounceOrderLineMixin = {};
 
 function DebounceOrderLineMixin:Init()
@@ -3034,7 +3047,7 @@ function DebounceOrderLineMixin:Update()
 		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]));
 		return self.SelectedHighlight:SetShown(elementData.isCurrent);
 	elseif (row.issue) then
-		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]));
+		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(GetShortIssueText(row.issue)));
 		return self.SelectedHighlight:SetShown(elementData.isCurrent);
 	end
 

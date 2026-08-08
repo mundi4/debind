@@ -158,8 +158,17 @@ L["NOT_SELECTED"] = "Не выбрано"
 L["ONLY_IF_UNIT_EXISTS"] = "Только если юнит существует"
 L["OPTIONS"] = "Настройки"
 -- %s는 특성 이름이다(사이드탭 3 이상에서만 이 문장이 뜬다).
--- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
+-- 문제가 있는 행이 순서 대신 다는 빨간 한 줄. 근거는 enUS 쪽 주석에 있다.
+L["ORDER_FLAG_BONUSBARS_NONE_SELECTED"] = "Не выбрана панель"
+L["ORDER_FLAG_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Конфликт с Clique"
+L["ORDER_FLAG_CONDITIONS_NEVER"] = "Условия невыполнимы"
+L["ORDER_FLAG_FORMS_NONE_SELECTED"] = "Не выбрана форма"
+L["ORDER_FLAG_GROUPS_NONE_SELECTED"] = "Не выбрана группа"
+L["ORDER_FLAG_HOVER_NONE_SELECTED"] = "Не выбран тип фрейма"
 L["ORDER_FLAG_ISSUE"] = "Есть проблема"
+L["ORDER_FLAG_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша открывает меню"
+L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Кнопка мыши недопустима"
+L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Нужно наведение"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%s / %s"
@@ -171,6 +180,7 @@ L["PRIORITY_DESC"] = "Одну и ту же клавишу можно назна
 L["PRIORITY_SHARED_WARNING"] = "Это действие в общей области, поэтому и важность общая: она меняет порядок перебора этого действия на ВСЕХ клавишах, к которым оно привязано, у ВСЕХ персонажей этой учётной записи. Что произойдёт у других персонажей, здесь показать нельзя -- их привязки в этой сессии не загружены."
 L["OVERVIEW"] = "Обзор"
 L["ORDER_WHY_PRIORITY"] = "Важность: %s"
+-- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 L["ORDER_WHY_HOVER"] = "Правило фрейма юнита"
 L["ORDER_WHY_CONDITIONAL"] = "Есть условия"
 L["ORDER_WHY_LAYER"] = "%s важнее, чем %s"
