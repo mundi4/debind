@@ -110,7 +110,15 @@
 		<Size x="450" y="28"/>
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+				<!--
+					**금색이 아니라 흰색이다**(GameFontHighlightSmall). 블리자드의
+					ClickBindingHeaderTemplate가 같은 자리에 같은 글꼴을 쓴다.
+
+					금색은 이 창에서 "누를 수 있는 것"과 "값"이 쓰는 색이라, 머리글이 그 색이면
+					키 이름이 행보다 세게 읽혀서 목록이 아니라 머리글이 눈에 먼저 들어온다.
+					여기서 세야 할 것은 키가 아니라 그 밑에 몇 줄이 달렸는가다.
+				-->
+				<FontString parentKey="Label" inherits="GameFontHighlightSmall" justifyH="LEFT" maxLines="1">
 					<Anchors>
 						<Anchor point="BOTTOMLEFT" x="4" y="3"/>
 					</Anchors>
@@ -151,9 +159,26 @@
 					</Anchors>
 					<Color r="1" g="1" b="1" a="1"/>
 				</Texture>
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground" useAtlasSize="true">
+				<!--
+					**ScrollBox 폭까지 늘린다.** 행보다 7씩 넓다 - 뷰의 좌우 패딩이 정확히
+					7이라(InitializeScrollBox) 그만큼을 도로 물어내면 배경이 목록 폭을 꽉 채우고,
+					글자만 패딩 안쪽에 선다.
+
+					블리자드의 `ClickBindingLineTemplate`에서 그대로 가져온 자리라 한때
+					`useAtlasSize` + CENTER였다. 저쪽에서 그게 되는 이유는 **아틀라스 폭이
+					저쪽 ScrollBox 폭**이기 때문이다 - 인셋 405, ScrollBox 395, 행 381이라
+					가운데 놓으면 행보다 7씩 넓게 앉는다. 지금 이 앵커가 그 관계 그대로다.
+					(450이 아니다. 450이면 저쪽에서도 인셋 테두리를 22씩 넘는다. 템플릿의
+					`Size x="450"`은 뷰가 덮어쓰는 기본값일 뿐이다.)
+
+					우리 통은 351이라(인셋 375 - ScrollBox 여백 10 - 뷰 패딩 14) 크기를 따라가면
+					양옆으로 22씩, 인셋 테두리 밖까지 삐져나왔다. 그렇다고 행에 딱 맞추면
+					이번엔 12씩 안으로 들어가 목록이 실제보다 좁아 보인다.
+				-->
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
-						<Anchor point="CENTER"/>
+						<Anchor point="TOPLEFT" x="-7" y="0"/>
+						<Anchor point="BOTTOMRIGHT" x="7" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled">
@@ -262,18 +287,23 @@
 
 					FrameHighlight와 같은 아트지만 그건 HIGHLIGHT 레이어라 마우스가 올라가
 					있을 때만 나온다. 메뉴가 떠 있는 동안 마우스는 행 위에 없다.
+
+					아래 둘은 Background와 **같은 사각형**이어야 한다(±7). 두르는 그림이라
+					한 픽셀만 어긋나도 배경 테두리와 두 겹으로 보인다.
 				-->
-				<Texture parentKey="MenuHighlight" atlas="ClickCastList-ButtonHighlight" useAtlasSize="true" hidden="true" alphaMode="ADD">
+				<Texture parentKey="MenuHighlight" atlas="ClickCastList-ButtonHighlight" hidden="true" alphaMode="ADD">
 					<Anchors>
-						<Anchor point="CENTER"/>
+						<Anchor point="TOPLEFT" x="-7" y="0"/>
+						<Anchor point="BOTTOMRIGHT" x="7" y="0"/>
 					</Anchors>
 					<Color r="1" g="1" b="0" a="1"/>
 				</Texture>
 			</Layer>
 			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" useAtlasSize="true" alphaMode="ADD">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">
 					<Anchors>
-						<Anchor point="CENTER"/>
+						<Anchor point="TOPLEFT" x="-7" y="0"/>
+						<Anchor point="BOTTOMRIGHT" x="7" y="0"/>
 					</Anchors>
 					<Color r="1" g="1" b="0" a="1"/>
 				</Texture>
@@ -647,14 +677,17 @@
 				인과가 한 화면에 있어야 레이어가 무엇을 하는지가 화면으로 설명된다.
 				드롭도 여기만 받는다(왼쪽은 사영이라 어느 레이어인지 답이 없다).
 
-				폭이 고정이고 오른쪽에 붙는다. 오른쪽 여백 20은 스크롤바 자리다 - 그건
+				폭이 고정이고 오른쪽에 붙는다. 오른쪽 여백 31은 스크롤바 자리다 - 그건
 				인셋 바깥에 서고, 사이드탭은 그보다 더 바깥(창 밖)이라 겹치지 않는다.
+				31은 블리자드 ClickBindingUI의 값 그대로다(프레임 440에 인셋 -31). 20이었을
+				때는 8px짜리 바 뒤에 7px밖에 안 남아 바가 창틀에 기대 섰다 - 계산은
+				FRAME_WIDTH 주석에 있다.
 			-->
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
 				<Size x="375" y="0"/>
 				<Anchors>
-					<Anchor point="TOPRIGHT" x="-20" y="-85"/>
-					<Anchor point="BOTTOMRIGHT" x="-20" y="10"/>
+					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
 				</Anchors>
 				<Frames>
 					<!--
@@ -821,7 +854,7 @@
 						다른 높이에서 출발하면 눈이 기준선을 못 잡는다.
 					-->
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMLEFT" x="-16" y="0"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMLEFT" x="-22" y="0"/>
 				</Anchors>
 				<Frames>
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate" setAllPoints="true">

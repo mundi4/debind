@@ -10,10 +10,18 @@ local MACRO_NAME_CHAR_LIMIT  = 32;
 local MACRO_CHAR_LIMIT       = 1000;
 -- 폭은 하나다. 두 열(결과 | 통)이 늘 같이 서 있고 접히지 않는다 - 이유는 XML의
 -- DetailPanel 주석에.
--- 4 + 380(결과) + 16 + 375(통) + 20(스크롤바) = 795.
+-- 4 + 380(결과) + 22(왼쪽 스크롤바) + 375(통) + 31(오른쪽 스크롤바) = 812.
+--
+-- 스크롤바 자리 둘은 **바 굵기(MinimalScrollBar = 8)가 아니라 그 뒤에 남는 여백**으로
+-- 정한다. 16/20이었을 때 바의 오른쪽 끝이 각각 3px, 7px 남기고 벽에 닿아서, 바가 벽에
+-- 기대 선 것처럼 보였다. 블리자드의 ClickBindingUI는 같은 바 뒤에 18을 남긴다
+-- (프레임 440, 인셋 -31, 바 +5) - 오른쪽은 그 값을 그대로 쓴다. 왼쪽은 벽이 창틀이 아니라
+-- 인셋 모서리라 9로 족하다.
+--
+-- 두 바가 각자 인셋에서 +5에 서는 규칙은 안 건드렸다(XML의 ScrollBar 주석).
 -- 결과 열이 더 넓다. 저기는 이름이 한 줄에 서는 표라 폭이 곧 읽히는 글자 수인데, 통 쪽은
 -- 두 줄짜리 카드라 같은 폭에서 훨씬 여유가 있다.
-local FRAME_WIDTH            = 795;
+local FRAME_WIDTH            = 812;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
 local WARNING_FONT_COLOR     = CreateColor(1, 0.5, 0, 1);
