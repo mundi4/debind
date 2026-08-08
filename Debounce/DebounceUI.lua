@@ -2989,34 +2989,6 @@ function DebounceDetailPanelMixin:Close()
 	return true;
 end
 
---- 켜짐/꺼짐 두 칸이 쓰는 표시. 자리를 안 옮기므로 세로로 읽힌다. 꺼진 칸도 비워두지
---- 않는다 - 빈 칸은 "값이 없다"로 읽히는데 여기서는 "아니다"가 값이다.
----
---- 켜짐은 **글자가 아니라 아틀라스**다. 처음에 U+25CF(●)를 썼는데 게임 폰트에 그 글리프가
---- 없어서 두부 네모가 나왔다 - 어느 글자가 있는지는 폰트와 로케일에 달렸으므로 눈에 보이는
---- 것을 폰트에 맡기지 않는다. 꺼짐의 가운뎃점(U+00B7)은 라틴-1이라 어느 폰트에나 있다.
-local COLUMN_ON  = "|A:common-icon-checkmark:16:16|a";
-local COLUMN_OFF = "|cnDISABLED_FONT_COLOR:" .. string.char(194,183) .. "|r";
-
---- 중요도 칸. 기본값은 **다른 두 칸의 꺼짐과 같은 점**이다 - 세 칸이 같은 어휘를 쓰면
---- "여기는 아무 일도 없다"가 한 눈에 가로로 읽힌다. 비워두면 그 칸만 어휘가 없는 칸이 된다.
----
---- 숫자를 안 쓰는 이유는 방향이다. 저장값은 1이 가장 높은데(PRIORITY1 = Very High) 칸에
---- 1이 찍혀 있으면 대부분 "제일 낮다"로 읽는다. 부호는 배울 것이 없다.
----
---- 글자는 ASCII다. 화살표(U+2191)가 더 예쁘지만 그 글리프가 폰트에 있는지는 로케일에
---- 달렸다 - 체크 표시를 아틀라스로 바꾼 것과 같은 이유다.
-local PRIORITY_MARKS = {
-	[1] = "|cnGREEN_FONT_COLOR:++|r",
-	[2] = "|cnGREEN_FONT_COLOR:+|r",
-	[3] = COLUMN_OFF,
-	[4] = "|cnORANGE_FONT_COLOR:-|r",
-	[5] = "|cnORANGE_FONT_COLOR:--|r",
-};
-
--- 명시적 선택**이어야 하고, 좌클릭은 습관적으로 눌러보는 버튼이다.
-local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
-
 DebounceOrderLineMixin = {};
 
 function DebounceOrderLineMixin:Init()
@@ -3036,43 +3008,8 @@ function DebounceOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
-	self.PriorityText:SetText(PRIORITY_MARKS[row.priority] or "");
-
-	-- 정렬이 보는 건 hover가 nil이냐 아니냐 하나뿐이다. false는 "마우스오버가 **아닐 때만**"을
-	-- 명시한 조건이라 nil과 다르고 true와 같은 칸에 선다(Ordering.lua 주석).
-	self.HoverText:SetText(row.hover ~= nil and COLUMN_ON or COLUMN_OFF);
-	self.CondText:SetText(row.isConditional and COLUMN_ON or COLUMN_OFF);
-
-	-- 층 칸. **좁혀진 축마다 아이콘 하나씩**이고, 둘 다 없으면 레이어 1(모든 캐릭터·모든
-	-- 전문화)이다. 캐릭터 초상화와 직업·전문화 아이콘은 헷갈릴 수가 없으므로 어느 칸에
-	-- 섰는지로 축을 말할 필요가 없다 - 그래서 자리를 예약하지 않고 **있는 것만 가운데로**
-	-- 모은다. 빈 칸을 남기면 아이콘 하나짜리 행이 죄다 한쪽으로 쏠려 보인다.
-	local tab, sideTab = GetLayerTabs(row.layerID);
-	local shown = 0;
-	if (tab == 2) then
-		shown = shown + 1;
-		SetPlayerCharacterIcon(self.LayerIcons[shown]);
-	end
-	if (sideTab >= 2) then
-		shown = shown + 1;
-		self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
-	end
-	for i = 1, #self.LayerIcons do
-		self.LayerIcons[i]:SetShown(i <= shown);
-	end
-
-	-- 칸 가운데(행 오른쪽 끝에서 -16)에 맞춘다. 하나면 그 하나가, 둘이면 둘을 묶은 것이
-	-- 가운데 온다. 오른쪽 앵커로 잡으므로 값은 "가운데 + 폭의 절반"이다.
-	if (shown == 1) then
-		self.LayerIcons[1]:ClearAllPoints();
-		self.LayerIcons[1]:SetPoint("RIGHT", self, "RIGHT", -9, 0);
-	elseif (shown == 2) then
-		self.LayerIcons[1]:ClearAllPoints();
-		self.LayerIcons[1]:SetPoint("RIGHT", self, "RIGHT", -18, 0);
-		self.LayerIcons[2]:ClearAllPoints();
-		self.LayerIcons[2]:SetPoint("RIGHT", self, "RIGHT", -1, 0);
-	end
-
+	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
+	self.ReasonText:SetText(elementData.reason and LLL["ORDER_WHY_" .. elementData.reason] or "");
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
@@ -3158,10 +3095,19 @@ local function BuildKeyboardElements()
 	local elements = {};
 	for _, key in ipairs(keyArr) do
 		elements[#elements + 1] = { isHeader = true, key = key, isFirst = #elements == 0 or nil };
-		for _, row in ipairs(DebouncePrivate.CollectActionsForKey(key)) do
+
+		-- 각 행에 **바로 아래 행을 이긴 이유**를 붙인다. 마지막 행에는 안 붙는다 - 이길
+		-- 상대가 없다. 넷 다 같았으면(nil) 남은 것은 순서 번호뿐이라 SEQ로 부른다.
+		local rows = DebouncePrivate.CollectActionsForKey(key);
+		for i, row in ipairs(rows) do
+			local reason;
+			if (rows[i + 1]) then
+				reason = DebouncePrivate.GetDecidingOrderAxis(row, rows[i + 1]) or "SEQ";
+			end
 			elements[#elements + 1] = {
 				row = row,
 				isCurrent = row.action == _selectedAction,
+				reason = reason,
 			};
 		end
 	end

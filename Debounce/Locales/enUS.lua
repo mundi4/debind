@@ -191,6 +191,14 @@ L["PET"] = "Pet"
 L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first."
 L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- their own bindings are not loaded this session."
 L["OVERVIEW"] = "Overview"
+-- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
+-- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
+-- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
+L["ORDER_WHY_PRIORITY"] = "more important"
+L["ORDER_WHY_HOVER"] = "has a hover rule"
+L["ORDER_WHY_CONDITIONAL"] = "has conditions"
+L["ORDER_WHY_LAYER"] = "narrower scope"
+L["ORDER_WHY_SEQ"] = "bound first"
 L["PRIORITY"] = "Importance"
 L["PRIORITY1"] = "Very High"
 L["PRIORITY2"] = "High"

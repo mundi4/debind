@@ -412,40 +412,26 @@
 					여기서는 **자리를 예약한다.** 목록일 때는 빈 칸을 남기지 않는 것이 맞았지만
 					(이름이 바로 뒤에 붙어야 하니까) 표에서는 칸이 어긋나는 쪽이 더 나쁘다.
 				-->
-				<Texture parentArray="LayerIcons" parentKey="LayerIcon1" hidden="true">
-					<Size x="14" y="14"/>
+				<!--
+					**이 행이 바로 아래 행을 이긴 이유.** 순서를 가르는 축은 넷(중요도·호버·조건·
+					레이어)인데 비교자가 위에서부터 훑으므로 **처음 갈린 하나**가 곧 답이다
+					(Ordering.lua의 GetDecidingOrderAxis). 그래서 한 줄이면 족하다.
+
+					한때 여기에 축마다 칸을 세우고 점과 체크를 찍었다. 네 칸을 눈으로 비교해서
+					사람이 알아내야 하는 답을 문장이 그냥 말해주는 편이 낫고, 칸 넷이 먹던 폭이
+					전부 이름으로 간다. 같은 키에 액션이 하나뿐이면(대부분이 그렇다) 여기는 빈다 -
+					이길 상대가 없으니 할 말도 없다.
+				-->
+				<FontString parentKey="ReasonText" inherits="GameFontDisableSmall" justifyH="RIGHT" maxLines="1">
+					<Size x="170" y="0"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-18" y="0"/>
-					</Anchors>
-				</Texture>
-				<Texture parentArray="LayerIcons" parentKey="LayerIcon2" hidden="true">
-					<Size x="14" y="14"/>
-					<Anchors>
-						<Anchor point="RIGHT" x="-2" y="0"/>
-					</Anchors>
-				</Texture>
-				<FontString parentKey="CondText" inherits="GameFontHighlightSmall" justifyH="CENTER">
-					<Size x="22" y="0"/>
-					<Anchors>
-						<Anchor point="RIGHT" x="-32" y="0"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="HoverText" inherits="GameFontHighlightSmall" justifyH="CENTER">
-					<Size x="22" y="0"/>
-					<Anchors>
-						<Anchor point="RIGHT" x="-54" y="0"/>
-					</Anchors>
-				</FontString>
-				<FontString parentKey="PriorityText" inherits="GameFontHighlightSmall" justifyH="CENTER" maxLines="1">
-					<Size x="24" y="0"/>
-					<Anchors>
-						<Anchor point="RIGHT" x="-76" y="0"/>
+						<Anchor point="RIGHT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="7" y="0"/>
-						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-6" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.ReasonText" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
