@@ -1488,9 +1488,24 @@ end
 ---
 --- 행에서 단축키 글자를 빼지는 않는다. 헤더는 스크롤에 밀려 화면 밖으로 나가는데(이 목록은
 --- 고정 헤더가 아니다) 그러면 무슨 키인지 알 수 없는 행들만 남는다.
+--- 키 헤더의 높이. 위쪽 절반이 여백이라 그룹이 갈리는 자리에 숨 쉴 틈이 생기는데,
+--- **목록의 첫 줄에는 가를 것이 없다** - 거기서는 그 여백이 인셋 위쪽에 뚫린 구멍이 된다.
+--- 그래서 첫 헤더만 여백을 뺀 높이로 선다.
+local KEY_HEADER_HEIGHT = 28;
+local KEY_HEADER_HEIGHT_FIRST = 16;
+-- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
+-- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
+local LINE_HEIGHT = 46;
+local ORDER_LINE_HEIGHT = 28;
+
+local function KeyHeaderExtent(elementData)
+	return elementData.isFirst and KEY_HEADER_HEIGHT_FIRST or KEY_HEADER_HEIGHT;
+end
+
 DebounceKeyHeaderMixin = {};
 
 function DebounceKeyHeaderMixin:Init(elementData)
+	self:SetHeight(KeyHeaderExtent(elementData));
 	if (elementData.key) then
 		self.Label:SetText(GetBindingText(elementData.key));
 	else
@@ -1883,6 +1898,12 @@ function DebounceFrameMixin:InitializeScrollBox()
 				button:Init(elementData);
 			end);
 		end
+	end);
+
+	-- 헤더 높이가 자리마다 다르므로(첫 줄만 낮다) 뷰에게 직접 알려준다. 이걸 안 주면
+	-- 템플릿의 Size를 그대로 믿고 자리를 잡아서, Init이 SetHeight로 줄인 만큼 겹친다.
+	view:SetElementExtentCalculator(function(_, elementData)
+		return elementData.isHeader and KeyHeaderExtent(elementData) or LINE_HEIGHT;
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
@@ -2338,7 +2359,7 @@ local function BuildSortedElements(layer, layerID)
 	for _, elementData in ipairs(elements) do
 		local key = elementData.action.key;
 		if (not started or key ~= lastKey) then
-			grouped[#grouped + 1] = { isHeader = true, key = key, layer = layerID };
+			grouped[#grouped + 1] = { isHeader = true, key = key, layer = layerID, isFirst = #grouped == 0 or nil };
 			lastKey, started = key, true;
 		end
 		grouped[#grouped + 1] = elementData;
@@ -3086,6 +3107,10 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 			end);
 		end
 	end);
+	view:SetElementExtentCalculator(function(_, elementData)
+		return elementData.isHeader and KeyHeaderExtent(elementData) or ORDER_LINE_HEIGHT;
+	end);
+
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
 end
 
@@ -3116,7 +3141,7 @@ local function BuildKeyboardElements()
 	-- 어긋나서, 규칙이 있는 그림이 아니라 얼룩으로 보인다.
 	local rowCount = 0;
 	for _, key in ipairs(keyArr) do
-		elements[#elements + 1] = { isHeader = true, key = key };
+		elements[#elements + 1] = { isHeader = true, key = key, isFirst = #elements == 0 or nil };
 		for _, row in ipairs(DebouncePrivate.CollectActionsForKey(key)) do
 			rowCount = rowCount + 1;
 			elements[#elements + 1] = {
