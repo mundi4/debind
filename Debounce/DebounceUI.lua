@@ -984,7 +984,7 @@ do
 				end
 				addValueLine(keyText, error);
 			else
-				-- 단축키 버튼과 같은 말을 쓴다(RefreshKeybind). 한때 여기만 따로 번역된 키를
+				-- 행의 단축키 칸과 같은 말을 쓴다(DebounceLineMixin:UpdateKeyButton). 한때 여기만 따로 번역된 키를
 				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
 				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["DETAIL_NO_KEY"]));
 			end
@@ -3340,47 +3340,20 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	end
 	return true;
 end
---- 왼쪽 목록(`DebounceLineMixin:Update`)과 **같은 판정기**를 쓴다. `IsKeyInvalidForAction`만
---- 부르면 도달불가(`BINDING_ISSUE_UNREACHABLE`)가 통째로 빠진다 - 목록에서는 단축키가 빨갛고
---- 경고 아이콘까지 붙은 행인데, 그 행을 클릭해서 연 상세 패널은 아무 말도 안 하게 된다.
---- 단축키를 설명해야 할 화면이 목록보다 덜 아는 일은 없어야 한다.
----
---- 키가 없으면 `GetBindingIssue`의 "key" 갈래가 알아서 아무것도 안 짚는다.
-local function GetKeyWarningText(action)
-	local issue = GetBindingIssue(action, "key");
-	if (issue) then
-		return LLL["BINDING_ERROR_" .. issue];
-	end
-end
 
 DebounceDetailPanelMixin = {};
 
---- 패널이 보여주는 것은 하나다 - **선택된 액션의 단축키와 순서.** 탭은 없다.
+--- 왼쪽 열. 보여주는 것은 하나다 - **지금 이 키보드가 어떻게 생겼나.**
+---
+--- 활성 레이어에서 키가 걸린 액션 전부를 키로 묶고, 그룹 안은 발동 순서로 놓는다. 통(오른쪽)이
+--- 한 번에 한 레이어만 보여주므로 "이 키에 뭐가 다 걸렸나"에 답할 자리가 따로 필요하고,
+--- 그 자리가 여기다. 넣으면 여기 나타나는 것이 레이어가 무엇을 하는지에 대한 설명이다.
+---
+--- **키 없는 액션은 안 담는다.** 이 열의 문장이 "지금 키보드"라서 아직 키가 아닌 것은
+--- 그 문장 밖이고, 오른쪽 통이 이미 전부를 들고 있어서 잃는 것도 없다.
 ---
 --- 한때 매크로 편집기가 두 번째 탭이었다. 되돌린 이유는 `DebounceMacroFrame` 주석에 있다.
 function DebounceDetailPanelMixin:OnLoad()
-	local keyArea = self.ContentArea.KeyArea;
-
-	-- 단축키 버튼이 곧 입력받이다. 듣는 중 표시는 블리자드 단축키 버튼이 쓰는 것과 같은
-	-- 텍스처다(CustomBindingButtonTemplate).
-	local selected = keyArea.KeyButton:CreateTexture(nil, "OVERLAY");
-	selected:SetTexture("Interface\\Buttons\\UI-Silver-Button-Select");
-	selected:SetBlendMode("ADD");
-	selected:SetAllPoints(keyArea.KeyButton);
-	selected:Hide();
-	keyArea.KeyButton.SelectedHighlight = selected;
-	keyArea.KeyButton:RegisterForClicks("LeftButtonUp", "RightButtonUp");
-
-	-- 단축키 문자열은 "Ctrl+Shift+Alt+마우스 버튼 3"까지 간다. 어떤 폭을 잡아도 넘칠 수
-	-- 있고, UIPanelButtonTemplate의 ButtonText는 CENTER 앵커 하나뿐이라 폭이 없다 -
-	-- 폭이 없는 FontString은 말줄임 없이 버튼 밖으로 그대로 삐져나온다. 양쪽을 물려
-	-- 폭을 주면 한 줄로 잘리고 …가 붙는다. 잘린 전문은 툴팁이 말한다.
-	local keyText = keyArea.KeyButton:GetFontString();
-	keyText:ClearAllPoints();
-	keyText:SetPoint("LEFT", 6, -1);
-	keyText:SetPoint("RIGHT", -6, -1);
-	keyText:SetWordWrap(false);
-
 	self.ContentArea.EmptyText:SetText(LLL["DETAIL_EMPTY"]);
 
 	self:InitializeOrderScrollBox();
@@ -3399,19 +3372,7 @@ function DebounceDetailPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
 	end
-
-	local action = _selectedAction;
-	if (not action) then
-		-- 패널은 접히지 않으므로 빈 자리가 그대로 보인다. 무엇을 하면 채워지는지만 말한다.
-		self.ContentArea.KeyArea:Hide();
-		self.ContentArea.OrderArea:Hide();
-		self.ContentArea.EmptyText:Show();
-		return;
-	end
-
-	self.ContentArea.EmptyText:Hide();
-	self.ContentArea.KeyArea:Show();
-	self:RefreshKeybind(action);
+	self:RefreshKeyboard();
 end
 
 --- 다른 것으로 넘어가기 전에 부르는 계약. 이 패널은 저장을 미루는 상태가 **없다** - 키도
@@ -3682,8 +3643,18 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
 	local controls = orderArea.Controls;
 	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 2);
-	view:SetElementInitializer("DebounceOrderLineTemplate", function(button, elementData)
-		button:Init(elementData);
+	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 오른쪽 목록과 같은 방식이고,
+	-- 키 헤더도 **같은 템플릿**이다 - 한 창의 두 목록이 키를 다른 그림으로 가르면 안 된다.
+	view:SetElementFactory(function(factory, elementData)
+		if (elementData.isHeader) then
+			factory("DebounceKeyHeaderTemplate", function(frame)
+				frame:Init(elementData);
+			end);
+		else
+			factory("DebounceOrderLineTemplate", function(button)
+				button:Init(elementData);
+			end);
+		end
 	end);
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
 
@@ -3824,136 +3795,97 @@ function DebounceDetailPanelMixin:UpdateOrderBlockedHelp(upReason, downReason)
 	end
 end
 
---- 이 키에 걸린 액션 전부를 발동 순서로 그린다.
+--- 활성 레이어에서 키가 걸린 액션 전부. 키로 묶고, 그룹 안은 발동 순서다.
 ---
---- 다른 특성 탭을 보고 있으면 **그 특성이었을 때의** 순서를 그린다. 예전에는 그럴 때
---- "계산할 수 없다"고 말하고 빈 상자를 보여줬는데, 그건 사실이 아니었다 - 순서를 정하는
---- 값들은 전부 저장돼 있어서 지금 무슨 특성이든 계산이 된다. 못 했던 건 레이어를 훑는
---- 함수가 현재 특성을 안에서 물어봤기 때문이다. 이제 물어볼 수 있으므로 막다른 골목이 없다.
+--- 순서를 내는 것은 `CollectActionsForKey`로, 이 애드온에서 순서를 말하는 자리가 그 함수
+--- 하나뿐이다 - 두 화면이 다른 답을 낼 길이 없다.
 ---
---- 대신 그 세계에서는 살아 있는 표시(도달 불가)를 붙이지 않는다. CollectActionsForKey가
---- 그 판단을 한다.
-function DebounceDetailPanelMixin:RefreshOrderList(action)
-	local orderArea = self.ContentArea.OrderArea;
-	local key = action.key;
-
-	orderArea:Show();
-
-	-- 어느 특성의 세계를 보고 있나. 사이드탭 1·2(일반/직업)는 어느 특성에서도 활성이라
-	-- 물어볼 게 없다 - 그 액션의 경쟁 상대는 지금 특성 기준이 맞다.
-	--
-	-- 오버뷰 탭에는 사이드탭이 없고, 그 목록의 모든 행이 **지금 이 특성의 활성 레이어**에서
-	-- 왔다. 그러니 물어볼 다른 세계가 없다 - nil이 곧 "지금"이다. 사이드탭 값은 레이어
-	-- 탭에서 떠날 때의 것이 그대로 남아 있으므로, 여기서 그걸 읽으면 화면에 있지도 않은
-	-- 특성의 순서를 보여준다.
-	local viewedSpec = not IsOverviewTab() and _selectedSideTab >= 3 and (_selectedSideTab - 2) or nil;
-	local simulated = viewedSpec ~= nil and viewedSpec ~= C_SpecializationInfo.GetSpecialization();
-
-	-- 설명 줄은 **지금 화면이 참인지**에 따라 갈린다. 키가 없으면 아무것도 안 돌아가므로
-	-- "위에서부터 시도한다"고 말하면 거짓말이고, 다른 특성의 순서라면 어느 특성인지 말해야
-	-- 한다 - 안 그러면 지금 눌러도 이렇게 된다고 읽힌다.
-	if (not key) then
-		orderArea.DescLine.Text:SetText(LLL["ORDER_DESC_NO_KEY"]);
-	elseif (simulated) then
-		orderArea.DescLine.Text:SetText(format(LLL["ORDER_DESC_OTHER_SPEC"], GetSideTabaLabel(_selectedSideTab)));
-	else
-		orderArea.DescLine.Text:SetText(LLL["ORDER_DESC"]);
+--- 특성은 **지금 것**으로 고정이다. 오른쪽에서 오프스펙 레이어를 열어도 여기는 안 따라간다.
+--- 이 열의 문장이 "지금 이 키보드"라서, 따라가면 그 문장이 화면마다 달라진다. 대신
+--- 오프스펙 액션을 만졌을 때 여기가 조용한 것 자체가 "이건 지금 안 돈다"를 말한다.
+local function BuildKeyboardElements()
+	local keySeen, keyArr = {}, {};
+	for _, layer in DebouncePrivate.EnumerateProfileLayers() do
+		for _, action in layer:Enumerate() do
+			local key = action.key;
+			if (key and not keySeen[key]) then
+				keySeen[key] = true;
+				keyArr[#keyArr + 1] = key;
+			end
+		end
 	end
-	-- 줄 수가 문장마다 다르다. 아래 컨트롤과 리스트가 이 줄에 매달려 있으므로, 재서 잡지
-	-- 않으면 두 줄짜리 문장이 버튼 위로 겹친다.
-	orderArea.DescLine:SetHeight(orderArea.DescLine.Text:GetStringHeight());
 
-	-- 키가 없으면 **구역은 남기고 안쪽만 접는다.**
-	--
-	-- 통째로 숨기지 않는 이유는 키 지정이 바로 위 KeyArea에서 일어나기 때문이다. 없던 구역이
-	-- 통째로 튀어나오는 것보다, 접혀 있던 것이 펴지는 편이 덜 놀랍고 순서를 보는 자리가
-	-- 어디인지도 미리 알려준다. 남는 헤더와 설명 줄(ORDER_DESC_NO_KEY)이 왜 비었는지 말한다.
-	--
-	-- 예전에는 이 액션 하나를 흑백으로 그려 자리를 채웠다. 옮길 것도 누를 것도 없는 행이었고,
-	-- 그 행을 만들려면 CollectActionsForKey의 레코드 모양을 손으로 흉내내야 했다(Profile.lua) -
-	-- 어느 필드를 넣고 뺄지가 규칙이 되어 저쪽이 바뀌면 조용히 어긋나는 자리였다.
-	if (not key) then
-		orderArea.Controls:Hide();
-		-- 목록을 비워서 프레임을 풀에 돌려준다. 숨기기만 하면 다음에 다시 펼 때 옛 내용이
-		-- 한 프레임 스쳐 보인다.
-		orderArea.ScrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
-		orderArea.ScrollBox:Hide();
-		-- 이동 상태도 같이 지운다. 여기서 `UpdateOrderMoveButtons`를 안 지나므로 그냥 두면
-		-- **앞서 보던 액션의 이웃**이 남는다. 지금은 버튼이 숨겨져 있어 누를 수가 없지만,
-		-- 그 가정이 깨지는 날 엉뚱한 액션과 순서를 맞바꾼다.
+	sort(keyArr, DebouncePrivate.CompareKeys);
+
+	local elements = {};
+	for _, key in ipairs(keyArr) do
+		elements[#elements + 1] = { isHeader = true, key = key };
+		for _, row in ipairs(DebouncePrivate.CollectActionsForKey(key)) do
+			elements[#elements + 1] = {
+				row = row,
+				isCurrent = row.action == _selectedAction,
+			};
+		end
+	end
+	return elements;
+end
+
+--- 왼쪽 열을 다시 그린다.
+---
+--- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 두
+--- 가지뿐이다: 그 행을 짚는 것(`isCurrent`)과, ↑↓가 무엇을 옮길지 정하는 것.
+function DebounceDetailPanelMixin:RefreshKeyboard()
+	local orderArea = self.ContentArea.OrderArea;
+	local elements = BuildKeyboardElements();
+
+	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 헤더도 설명 줄도 없는 화면에 안내
+	-- 한 문장만 남는 편이, 빈 상자에 "위에서부터 시도한다"가 붙어 있는 것보다 정직하다.
+	if (#elements == 0) then
+		orderArea:Hide();
+		self.ContentArea.EmptyText:Show();
 		self.moveUpNeighbor = nil;
 		self.moveDownNeighbor = nil;
 		return;
 	end
 
-	orderArea.Controls:Show();
-	orderArea.ScrollBox:Show();
+	self.ContentArea.EmptyText:Hide();
+	orderArea:Show();
+	orderArea.Header.Label:SetText(LLL["ORDER"]);
+	orderArea.DescLine.Text:SetText(LLL["ORDER_DESC"]);
+	-- 줄 수가 번역마다 다르다. 아래 컨트롤과 리스트가 이 줄에 매달려 있으므로, 재서 잡지
+	-- 않으면 두 줄짜리 문장이 버튼 위로 겹친다.
+	orderArea.DescLine:SetHeight(orderArea.DescLine.Text:GetStringHeight());
 
-	local rows = DebouncePrivate.CollectActionsForKey(key, viewedSpec);
-
-	local currentIndex;
-	for i, row in ipairs(rows) do
-		if (row.action == action) then
-			currentIndex = i;
-			break;
-		end
-	end
-
-	self:UpdateOrderMoveButtons(rows, currentIndex);
-
-	-- 레이어를 어떻게 보여줄지는 행이 혼자 정한다. 예전에는 여기서 "섞였는가"를 재서
-	-- 바뀌는 첫 행에만 라벨을 달았는데, 아이콘이 늘 서 있는 지금은 그 계산도 그 분기도
-	-- 필요 없다 - 어떤 행엔 붙고 어떤 행엔 안 붙는 이유를 사용자가 알아낼 일도 없어졌다.
 	local dataProvider = CreateDataProvider();
-	for i, row in ipairs(rows) do
-		dataProvider:Insert({
-			row = row,
-			isCurrent = i == currentIndex,
-		});
+	local selectedIndex;
+	for i, elementData in ipairs(elements) do
+		if (elementData.isCurrent) then
+			selectedIndex = i;
+		end
+		dataProvider:Insert(elementData);
+	end
+	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
+
+	-- ↑↓는 고른 행의 것이다. 고른 것이 없거나 키가 없으면 옮길 것도 없다.
+	local action = _selectedAction;
+	local key = action and action.key;
+	if (key) then
+		local rows = DebouncePrivate.CollectActionsForKey(key);
+		local currentIndex;
+		for i, row in ipairs(rows) do
+			if (row.action == action) then
+				currentIndex = i;
+				break;
+			end
+		end
+		self:UpdateOrderMoveButtons(rows, currentIndex);
+	else
+		self:UpdateOrderMoveButtons(nil, nil);
 	end
 
-	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.DiscardScrollPosition);
-	-- 편집 중인 액션은 이제 반드시 목록 안에 있다(그 액션이 사는 레이어를 훑었으므로).
-	-- 그래도 없으면 스크롤만 건드리지 않는다 - 목록 자체는 이 키의 사실이라 보여줄 값어치가 있다.
-	if (currentIndex) then
-		orderArea.ScrollBox:ScrollToElementDataIndex(currentIndex, ScrollBoxConstants.AlignNearest);
+	if (selectedIndex) then
+		orderArea.ScrollBox:ScrollToElementDataIndex(selectedIndex, ScrollBoxConstants.AlignNearest);
 	end
-end
-
---- 단축키 줄은 캡처 여부와 무관하게 늘 같은 값을 보여준다. 듣고 있다는 표시는
---- SetBindingMode가 버튼 위에 켜는 하이라이트 하나가 맡는다 - 값까지 바꿔놓으면 취소했을 때
---- 되돌릴 것이 생기고, 안 바꾸면 취소가 아무것도 안 움직인다.
---- 높이는 실제로 그린 만큼만 잡는다 - 남기면 그만큼 순서 리스트가 줄어든다.
-function DebounceDetailPanelMixin:RefreshKeybind(action)
-	local keyArea = self.ContentArea.KeyArea;
-	local key = action.key;
-
-	keyArea.Header.Label:SetText(LLL["KEY"]);
-	-- 덮개가 없어졌으므로 이 줄이 늘 보인다. 말은 블리자드 단축키 버튼의 것을 그대로 쓰되
-	-- (사용자가 단축키 창에서 이미 보고 있다) 흐리게는 하지 않는다. 거기서는 안 걸린 키가
-	-- 정상이지만 - 키마다 바인딩을 둘씩 넣는 사람은 없다 - 여기 액션은 사용자가 직접 만든
-	-- 것이라 키가 없으면 아무 일도 안 하는 물건이다. 흐리게 하면 그게 괜찮아 보인다.
-	-- 무엇을 하라는지는 툴팁이 말한다.
-	keyArea.KeyButton:SetText(key and GetBindingText(key) or LLL["DETAIL_NO_KEY"]);
-
-	-- 안내는 지금 필요한 것만 말한다. 키가 없으면 "어떻게 거는가"가, 있으면 "어떻게
-	-- 바꾸고 푸는가"가 궁금한 것이다. 둘 다 적으면 한 줄에 안 들어간다.
-	keyArea.HintText:SetText(LLL[key and "DETAIL_KEY_HINT" or "DETAIL_KEY_HINT_NO_KEY"]);
-
-	local warning = GetKeyWarningText(action);
-	keyArea.WarningText:SetText(warning or "");
-
-	-- 높이는 **재서** 잡는다. 안내도 경고도 몇 줄이 될지 여기서 알 수가 없다 - 패널 폭과
-	-- 번역에 따라 달라진다. 숫자로 박아두면 긴 문장이 인셋 밖으로 나가거나(짧게 잡으면)
-	-- 순서 리스트를 그만큼 잡아먹는다(넉넉히 잡으면).
-	-- 50 = 헤더 16 + 4 + 단축키 버튼 26 + 4. 그 아래는 글자가 차지하는 만큼이다.
-	local height = 50 + keyArea.HintText:GetStringHeight();
-	if (warning) then
-		height = height + keyArea.WarningText:GetStringHeight() + 4;
-	end
-	keyArea:SetHeight(height + 2);
-
-	self:RefreshOrderList(action);
 end
 
 --- 지금 단축키를 듣고 있는가.
@@ -3965,24 +3897,7 @@ function DebounceDetailPanelMixin:IsCapturingKey()
 	return self.bindingMode == true;
 end
 
-function DebounceDetailPanelMixin:KeyButton_OnEnter(button)
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, LLL["KEY"]);
-	-- 버튼에서 잘렸을 수 있으므로 전문을 여기 낸다.
-	local key = _selectedAction and _selectedAction.key;
-	if (key) then
-		GameTooltip_AddHighlightLine(GameTooltip, GetBindingText(key));
-	end
-	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_DESC"]);
-	-- 키가 없을 때도 낸다. 툴팁은 처음 한 번 읽고 마는 것이라, 그때 안 보이면 영영 모른다.
-	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_UNBIND_DESC"]);
-	GameTooltip:Show();
-end
 
---- 버튼을 듣는 상태로 넣고 뺀다.
----
---- 듣는 동안에만 키보드·휠·게임패드를 켠다. 평소에는 좌/우클릭만 받으므로 이 패널이 상설로
---- 떠 있어도 키보드를 먹지 않는다.
 --- 듣는 표시. 블리자드 단축키 버튼이 쓰는 것과 같은 텍스처다(CustomBindingButtonTemplate).
 --- 행 버튼은 풀에서 나오므로 XML에 못 박지 못하고, 처음 듣는 순간 한 번 만든다.
 local function EnsureCaptureHighlight(button)
@@ -3997,6 +3912,10 @@ local function EnsureCaptureHighlight(button)
 	return button.SelectedHighlight;
 end
 
+--- 과녁을 듣는 상태로 넣고 뺀다.
+---
+--- 듣는 동안에만 키보드·휠·게임패드를 켠다. 평소에는 좌/우클릭만 받으므로 목록에 버튼이
+--- 몇 개 떠 있어도 키보드를 먹지 않는다.
 function DebounceDetailPanelMixin:SetBindingMode(active, button)
 	active = (active and _selectedAction ~= nil) or false;
 	if (self:IsCapturingKey() == active) then
@@ -4061,21 +3980,6 @@ function DebounceDetailPanelMixin:SetBindingMode(active, button)
 	DebounceFrame:Update();
 end
 
---- 좌클릭 = 지정 시작, 우클릭 = 해제. 듣는 중이면 뗀 버튼이 곧 단축키다.
----
---- 들어오는 클릭도 나가는 클릭도 전부 up이다(SetBindingMode 참고). 그래서 "이 클릭은
---- 방금 처리한 그 클릭의 나머지 반쪽인가"를 따로 기억할 필요가 없다.
-function DebounceDetailPanelMixin:KeyButton_OnClick(button, mouseButton)
-	if (self:IsCapturingKey()) then
-		self:KeyButton_OnInput(mouseButton);
-		return;
-	end
-	if (mouseButton == "RightButton") then
-		self:UnbindKey();
-		return;
-	end
-	self:SetBindingMode(true, button);
-end
 
 --- 목록 행의 단축키 칸. 패널 버튼과 **같은 기계**로 들어간다 - 같은 일이 두 자리에 있으므로
 --- 결과가 갈릴 길이 없어야 한다.

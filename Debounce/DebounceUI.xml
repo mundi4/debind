@@ -879,100 +879,17 @@
 						</Layers>
 						<Frames>
 							<!--
-								단축키 줄. **바인딩 자체가 버튼이다** - 와우 기본 단축키 설정과 같은
-								형태라 [변경] 버튼이 따로 없다. 누르면 그 자리에서 키를 듣는다.
+								**결과 목록.** 활성 레이어에서 키가 걸린 액션 전부를 키로 묶고, 그룹
+								안은 실제 발동 순서로 놓는다. 이 열에 담긴 것은 이것 하나뿐이라
+								자리를 전부 쓴다.
 
-								이 줄은 캡처 중에도 같은 값을 보여준다. 듣고 있다는 표시는 버튼 위에
-								켜지는 하이라이트 하나뿐이라, 취소하면 아무것도 안 움직인다.
-							-->
-							<Frame parentKey="KeyArea">
-								<Size y="64"/>
-								<Anchors>
-									<Anchor point="TOPLEFT" x="8" y="-8"/>
-									<Anchor point="TOPRIGHT" x="-8" y="-8"/>
-								</Anchors>
-								<Layers>
-									<Layer level="ARTWORK">
-										<!--
-											단축키를 어떻게 바꾸는지. Order 쪽 설명은 헤더 바로 아래인데
-											여기는 버튼 **아래**다 - 저기서는 문장이 아래 목록이 무엇인지를
-											설명하므로 앞에 와야 하지만, 여기서는 값(Shift+E)이 보러 온
-											것이고 문장은 그걸 어떻게 바꾸는지라 뒤에 오는 게 맞다.
-
-											툴팁에도 같은 말이 있지만 툴팁은 버튼에 마우스를 올려야 나온다.
-											"눌러서 키를 받는다"를 모르면 올려볼 이유부터가 없다.
-										-->
-										<FontString parentKey="HintText" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
-											<Anchors>
-												<Anchor point="TOPLEFT" x="2" y="-50"/>
-												<Anchor point="TOPRIGHT" x="-2" y="-50"/>
-											</Anchors>
-										</FontString>
-										<!--
-											경고는 안내 **아래**에 매단다. 고정 오프셋으로 두면 안내가 두 줄이
-											되는 순간 겹친다 - 폭은 패널 크기와 번역에 따라 달라지므로 몇 줄이
-											될지 여기서 알 수가 없다.
-										-->
-										<FontString parentKey="WarningText" inherits="GameFontRed" justifyH="LEFT" wordwrap="true">
-											<Anchors>
-												<Anchor point="TOPLEFT" relativeKey="$parent.HintText" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
-												<Anchor point="TOPRIGHT" relativeKey="$parent.HintText" relativePoint="BOTTOMRIGHT" x="0" y="-4"/>
-											</Anchors>
-										</FontString>
-									</Layer>
-								</Layers>
-								<Frames>
-									<Frame parentKey="Header" inherits="DebounceSectionHeaderTemplate">
-										<Anchors>
-											<Anchor point="TOPLEFT"/>
-											<Anchor point="TOPRIGHT"/>
-										</Anchors>
-									</Frame>
-									<Button parentKey="KeyButton" inherits="UIMenuButtonStretchTemplate" motionScriptsWhileDisabled="true">
-										<Size y="26"/>
-										<Anchors>
-											<!--
-												오른쪽을 비워둔다. 폭을 꽉 채우면 "Shift+E" 일곱 글자짜리
-												값이 배너처럼 보인다. 남는 자리는 입력칸의 여백이지 빈 곳이
-												아니다 - 긴 조합키가 들어와도 여기까지만 쓰고 잘린다.
-											-->
-											<Anchor point="TOPLEFT" x="2" y="-20"/>
-											<Anchor point="TOPRIGHT" x="-90" y="-20"/>
-										</Anchors>
-										<Scripts>
-											<OnClick>
-												DebounceDetailPanel:KeyButton_OnClick(self, button);
-											</OnClick>
-											<OnEnter>
-												DebounceDetailPanel:KeyButton_OnEnter(self);
-											</OnEnter>
-											<OnLeave function="GameTooltip_Hide"/>
-												<!-- 듣는 중에는 이 버튼이 직접 키·마우스·휠·게임패드를 받는다. -->
-												<OnKeyDown>
-													DebounceDetailPanel:KeyButton_OnKeyDown(self, key);
-												</OnKeyDown>
-												<OnMouseWheel>
-													DebounceDetailPanel:KeyButton_OnInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
-												</OnMouseWheel>
-												<OnGamePadButtonDown>
-													DebounceDetailPanel:KeyButton_OnInput(button);
-												</OnGamePadButtonDown>
-												<OnHide>
-													DebounceDetailPanel:SetBindingMode(false);
-												</OnHide>
-										</Scripts>
-									</Button>
-								</Frames>
-							</Frame>
-
-							<!--
-								순서 리스트. 이 탭에서 새로 만든 건 이거 하나이므로 남는 자리는
-								전부 여기로 간다. 캡처 중에도 덮이지 않는다.
+								단축키를 **보여주기만** 한다. 거는 자리는 오른쪽 행의 키 칸이다 -
+								여기 행은 남의 레이어 것일 수 있고, 이 목록은 사영이라 "어느 통에
+								넣을까"에 답이 없다.
 							-->
 							<Frame parentKey="OrderArea" hidden="true">
 								<Anchors>
-									<!-- 두 구역 사이는 구역 안 여백보다 확실히 넓어야 한 덩어리로 안 읽힌다. -->
-									<Anchor point="TOPLEFT" relativeKey="$parent.KeyArea" relativePoint="BOTTOMLEFT" x="0" y="-16"/>
+									<Anchor point="TOPLEFT" x="8" y="-8"/>
 									<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
 								</Anchors>
 								<Frames>

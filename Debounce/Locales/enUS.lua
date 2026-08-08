@@ -117,8 +117,6 @@ L["DELETE_CONFIRM_MESSAGE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT
 L["DELETE"] = "Delete"
 L["DETAIL_KEY_BUTTON_DESC"] = "Click, then press the key you want. Mouse buttons and the wheel work too."
 L["DETAIL_KEY_BUTTON_UNBIND_DESC"] = "Right-click to unbind."
-L["DETAIL_KEY_HINT"] = "Click to change it. Right-click to unbind."
-L["DETAIL_KEY_HINT_NO_KEY"] = "Click, then press any key. Mouse buttons and the wheel work too."
 -- 클라이언트가 이미 모든 언어로 갖고 있는 말이다. 여기서 한 번 받아두면 로케일 파일이
 -- 없는 언어도 제 나라 말로 나온다.
 --
@@ -128,7 +126,7 @@ L["DETAIL_KEY_HINT_NO_KEY"] = "Click, then press any key. Mouse buttons and the 
 L["DETAIL_NO_KEY"] = NOT_BOUND
 -- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
 -- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
-L["DETAIL_EMPTY"] = "Pick an action on the right to see its key and where it stands in the firing order."
+L["DETAIL_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
 L["DISABLE"] = "Disable"
 L["DISABLE_ALL"] = "Disable All"
 L["EDIT_MACRO"] = "Edit Macro"
@@ -191,8 +189,6 @@ L["ORDER_BLOCKED_LAYER_FIX"] = "The narrower scope runs first. Drag either actio
 L["ORDER_BLOCKED_PRIORITY"] = "They have different importance."
 L["ORDER_BLOCKED_PRIORITY_FIX"] = "Importance is compared before anything else. To change it, edit the action itself. Changing a character-specific action only affects this character; changing a shared one affects every character, and this window cannot show you what happens on them."
 L["ORDER_DESC"] = "Tried from the top. The first one that matches runs."
-L["ORDER_DESC_NO_KEY"] = "Not bound yet. Assign a key above to see the real order."
-L["ORDER_DESC_OTHER_SPEC"] = "Order while you are %s. The first one that matches runs."
 L["ORDER_FLAG_CONDITIONAL"] = "Conditional"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
