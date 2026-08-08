@@ -126,12 +126,6 @@
 		</Layers>
 	</Frame>
 
-	<!--
-		상세 패널의 탭. 블리자드 기본 UpdateTabWidth가 글자 폭을 못박아 말줄임을 만든다.
-		DebounceDetailTabMixin에 그 이유를 적어뒀다.
-	-->
-	<Button name="DebounceDetailTabTemplate" inherits="TabSystemTopButtonTemplate" mixin="DebounceDetailTabMixin" virtual="true"/>
-
 	<Button name="DebounceLineTemplate" mixin="DebounceLineMixin" virtual="true">
 		<Size x="450" y="46"/>
 		<Layers>
@@ -800,26 +794,6 @@
 					<Anchor point="BOTTOMRIGHT" x="-4" y="10"/>
 				</Anchors>
 				<Frames>
-					<!--
-						탭이 패널의 제목 줄을 겸한다. 따로 제목은 두지 않는다 - 어떤 액션인지는
-						왼쪽 목록에서 그 행이 강조된 것으로 말하고, 여기서는 그 액션의 **무엇을**
-						보고 있는지만 말하면 된다.
-					-->
-					<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
-						<KeyValues>
-							<!-- 기본값은 아래에 매다는 탭이다. 위에 얹고, 폭 계산을 고쳐 쓴다. -->
-							<KeyValue key="tabTemplate" value="DebounceDetailTabTemplate" type="string"/>
-						</KeyValues>
-						<!--
-							탭은 패널 **위쪽 바깥**에 매단다. 그래야 인셋이 왼쪽 목록 인셋과 같은
-							선에서 시작한다 - 나란한 두 상자가 다른 높이에서 출발하면 눈이 기준선을
-							못 잡는다.
-						-->
-						<Anchors>
-							<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="8" y="0"/>
-						</Anchors>
-					</Frame>
-
 					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate" setAllPoints="true">
 						<Frames>
 							<!--
@@ -1036,193 +1010,6 @@
 									</EventFrame>
 								</Frames>
 							</Frame>
-
-							<!--
-								매크로 탭. 키 탭과 같은 자리를 쓴다 - 패널은 한 번에 한 가지만 보여준다.
-
-								탭은 **액션 종류와 상관없이 늘 있다.** 매크로텍스트면 편집기(Editor)가,
-								아니면 "여기로 바꿀 수 있다"를 말하는 자리(ConvertPrompt)가 온다 - 탭이
-								나타났다 사라지면 액션을 고를 때마다 탭 줄이 흔들리고, 매크로로 바꾸는
-								길이 우클릭 메뉴 안에만 숨는다.
-
-								저장은 기본 매크로 창을 그대로 따른다: **떠날 때 자동 저장.** 다른 탭으로
-								가거나, 다른 액션을 고르거나, 창이 닫히면 묻지 않고 저장한다
-								(Blizzard_MacroUI.lua의 SaveMacro 호출 지점들과 같다).
-
-								[확인]은 없다. 확인할 게 없기 때문이다 - 여기는 팝업이 아니라 탭이고,
-								떠나는 것이 곧 저장이다. 버리는 길만 [취소]로 남긴다.
-							-->
-							<Frame parentKey="MacroArea" hidden="true">
-								<Anchors>
-									<!-- 키 탭과 같은 여백. 탭을 오갈 때 안쪽이 움직이면 안 된다. -->
-									<Anchor point="TOPLEFT" x="8" y="-8"/>
-									<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
-								</Anchors>
-								<Frames>
-									<Frame parentKey="Editor" setAllPoints="true" hidden="true">
-										<Layers>
-											<Layer level="ARTWORK">
-												<Texture parentKey="SelectedMacroBackground" file="Interface\Buttons\UI-EmptySlot">
-													<Size x="64" y="64"/>
-													<Anchors>
-														<Anchor point="TOPLEFT" x="0" y="0"/>
-													</Anchors>
-												</Texture>
-												<FontString parentKey="SelectedMacroName" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
-													<Size x="200" y="16"/>
-													<Anchors>
-														<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" relativePoint="TOPRIGHT" x="-4" y="-12"/>
-													</Anchors>
-												</FontString>
-												<FontString parentKey="EnterMacroText" inherits="GameFontHighlightSmall" text="ENTER_MACRO_LABEL">
-													<Anchors>
-														<Anchor point="TOPLEFT" x="4" y="-70"/>
-													</Anchors>
-												</FontString>
-												<!-- 글자 수는 편집칸 아래 왼쪽. 오른쪽 자리는 [취소]가 쓴다. -->
-												<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall" justifyH="LEFT">
-													<Anchors>
-														<Anchor point="BOTTOMLEFT" x="4" y="6"/>
-													</Anchors>
-												</FontString>
-											</Layer>
-										</Layers>
-										<Frames>
-											<CheckButton parentKey="SelectedMacroButton" inherits="DebounceMacroButtonTemplate" id="0">
-												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="14" y="-14"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														self:SetChecked(false);
-													</OnClick>
-												</Scripts>
-											</CheckButton>
-											<Button parentKey="EditButton" inherits="UIPanelButtonTemplate" text="CHANGE_MACRO_NAME_ICON">
-												<Size x="170" y="22"/>
-												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="55" y="-30"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														DebounceDetailPanel:MacroEditNameIcon_OnClick();
-													</OnClick>
-												</Scripts>
-											</Button>
-											<!--
-												편집칸은 남는 자리를 전부 쓴다. 팝업이었을 때는 388px에 박혀
-												있었는데, 탭이 되면서 패널 높이만큼 늘어난다.
-
-												안쪽 여백(둘레 10px, 오른쪽은 스크롤바 자리 24px)도 눈에는 편집칸이다.
-												거기서 클릭이 죽으면 "눌리는 데가 따로 있다"가 되므로 여기서 받아
-												넘긴다. 스크롤 영역보다 아래 단이라 편집칸 자체의 클릭은 가져가지 않는다.
-											-->
-											<Frame parentKey="EditBackdrop" inherits="TooltipBackdropTemplate" enableMouse="true">
-												<Anchors>
-													<Anchor point="TOPLEFT" x="0" y="-86"/>
-													<Anchor point="BOTTOMRIGHT" x="0" y="32"/>
-												</Anchors>
-												<Scripts>
-													<OnMouseDown>
-														self:GetParent().ScrollFrame.EditBox:SetFocus();
-													</OnMouseDown>
-												</Scripts>
-											</Frame>
-											<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
-												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.EditBackdrop" x="10" y="-10"/>
-													<Anchor point="BOTTOMRIGHT" relativeKey="$parent.EditBackdrop" x="-24" y="10"/>
-												</Anchors>
-												<ScrollChild>
-													<!-- 크기는 OnLoad가 스크롤 영역에 맞춘다(기본 매크로 창도 둘이 같은 크기다). -->
-													<EditBox parentKey="EditBox" multiLine="true" letters="1000" autoFocus="false" countInvisibleLetters="true">
-														<Size x="286" y="380"/>
-														<Scripts>
-															<OnLoad>
-																ScrollingEdit_OnCursorChanged(self, 0, 0, 0, 0);
-															</OnLoad>
-															<OnTextChanged>
-																DebounceDetailPanel:MacroText_OnTextChanged(self);
-															</OnTextChanged>
-															<!--
-																마지막 줄 **아래 빈 자리**를 눌러도 포커스가 와야 한다. 여러 줄
-																EditBox는 글자가 있는 자리를 눌렀을 때만 스스로 포커스를 잡고,
-																빈 자리는 클릭을 먹고 아무것도 하지 않는다. 매크로 두 줄짜리면
-																상자의 대부분이 그 빈 자리다.
-
-																블리자드도 EventEditBox에서 같은 자리를 같은 한 줄로 메운다
-																(OnMouseDown_Intrinsic → SetFocus). 이미 포커스가 있으면 무시된다.
-															-->
-															<OnMouseDown>
-																self:SetFocus();
-															</OnMouseDown>
-															<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
-															<OnUpdate>
-																ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
-															</OnUpdate>
-															<OnEscapePressed function="EditBox_ClearFocus"/>
-														</Scripts>
-														<FontString inherits="GameFontHighlightSmall"/>
-													</EditBox>
-												</ScrollChild>
-											</ScrollFrame>
-											<!--
-												"편집 영역 아무 데나 눌러도 커서가 잡힌다"고 기본 매크로 창의
-												MacroFrameTextButton을 따라 버튼을 하나 뒀었는데, 한 번도 눌린 적이 없어서
-												지웠다. 그 버튼은 EditBox와 정확히 같은 자리를 덮는데, EditBox가 스크롤
-												자식이라 한 단 위에 있어서 클릭을 전부 가져가기 때문이다 - 기본 매크로
-												창에서도 저 버튼은 죽어 있다.
-
-												**안 눌린 게 곧 안 되던 이유였다.** 클릭은 EditBox까지 오는데, 여러 줄
-												EditBox는 빈 자리에서는 포커스를 잡지 않고 그냥 먹어버린다. 그래서 덮는
-												버튼이 아니라 EditBox의 OnMouseDown에서 직접 잡는다(위 참조).
-											-->
-											<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
-												<Size x="90" y="22"/>
-												<Anchors>
-													<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														DebounceDetailPanel:MacroCancel_OnClick();
-													</OnClick>
-												</Scripts>
-											</Button>
-										</Frames>
-									</Frame>
-
-									<!--
-										매크로텍스트가 아닌 액션의 매크로 탭. 바꿀 수 있으면 그 버튼이,
-										없으면 왜 안 되는지가 온다. 자리는 왼쪽 목록이 비었을 때와 같은
-										모양이다(가운데 회색 한 문장).
-									-->
-									<Frame parentKey="ConvertPrompt" setAllPoints="true" hidden="true">
-										<Layers>
-											<Layer level="ARTWORK">
-												<FontString parentKey="Message" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
-													<Size x="260" y="0"/>
-													<Anchors>
-														<Anchor point="TOP" x="0" y="-72"/>
-													</Anchors>
-												</FontString>
-											</Layer>
-										</Layers>
-										<Frames>
-											<Button parentKey="ConvertButton" inherits="UIPanelButtonTemplate">
-												<Size x="280" y="22"/>
-												<Anchors>
-													<Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" x="0" y="-14"/>
-												</Anchors>
-												<Scripts>
-													<OnClick>
-														DebounceDetailPanel:MacroConvert_OnClick();
-													</OnClick>
-												</Scripts>
-											</Button>
-										</Frames>
-									</Frame>
-								</Frames>
-							</Frame>
 						</Frames>
 					</Frame>
 				</Frames>
@@ -1253,6 +1040,221 @@
 			<OnHide method="OnHide"/>
 			<OnEvent method="OnEvent"/>
 			<OnKeyDown method="OnKeyDown"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		매크로 편집 창. 한때 상세 패널의 두 번째 탭이었다가 다시 창으로 나왔다.
+
+		탭이었을 때의 값은 "패널이 늘 떠 있으니 팝업이 필요 없다"였는데, 매크로가 아닌 액션
+		에서는 그 탭이 **"이건 매크로가 아닙니다"만 말하는 자리**였다. 액션 대부분이 주문인
+		사람에게는 탭 하나가 늘 헛돌고, 그 탭 바가 먹는 자리는 순서 목록이 쓸 자리였다.
+
+		저장 규칙은 탭이었을 때와 같다 - **떠날 때 저장**(기본 매크로 창과 같다). 창에서는
+		닫는 것이 곧 떠나는 것이고, 버리는 길은 [취소] 하나뿐이다.
+
+		매크로텍스트가 아닌 액션으로도 열린다(ConvertPrompt). 우클릭 메뉴의 [매크로 텍스트로
+		전환]과 같은 자리라, 바꿀 수 있는지와 왜 안 되는지를 여기서 말한다.
+	-->
+	<Frame name="DebounceMacroFrame" mixin="DebounceMacroFrameMixin" toplevel="true" movable="true" frameStrata="HIGH" parent="DebounceFrame" hidden="true" enableMouse="true">
+		<Size x="338" y="410"/>
+		<Anchors>
+			<Anchor point="TOPLEFT" relativePoint="TOPRIGHT" x="0" y="0"/>
+		</Anchors>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="BG">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="7" y="-7"/>
+						<Anchor point="BOTTOMRIGHT" x="-7" y="7"/>
+					</Anchors>
+					<Color r="0" g="0" b="0" a=".80"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="BorderBox" inherits="NineSlicePanelTemplate" frameLevel="50" setAllPoints="true">
+				<KeyValues>
+					<KeyValue key="layoutType" value="Dialog" type="string"/>
+				</KeyValues>
+			</Frame>
+
+			<Button parentKey="CloseButton" inherits="UIPanelCloseButton" frameLevel="60">
+				<Anchors>
+					<Anchor point="TOPRIGHT" x="-2" y="-2"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						DebounceMacroFrame:Close();
+					</OnClick>
+				</Scripts>
+			</Button>
+
+			<Frame parentKey="Editor" hidden="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="14" y="-14"/>
+					<Anchor point="BOTTOMRIGHT" x="-14" y="14"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<Texture parentKey="SelectedMacroBackground" file="Interface\Buttons\UI-EmptySlot">
+							<Size x="64" y="64"/>
+							<Anchors>
+								<Anchor point="TOPLEFT" x="0" y="0"/>
+							</Anchors>
+						</Texture>
+						<FontString parentKey="SelectedMacroName" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
+							<Size x="200" y="16"/>
+							<Anchors>
+								<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" relativePoint="TOPRIGHT" x="-4" y="-12"/>
+							</Anchors>
+						</FontString>
+						<FontString parentKey="EnterMacroText" inherits="GameFontHighlightSmall" text="ENTER_MACRO_LABEL">
+							<Anchors>
+								<Anchor point="TOPLEFT" x="4" y="-70"/>
+							</Anchors>
+						</FontString>
+						<!-- 글자 수는 편집칸 아래 왼쪽. 오른쪽 자리는 [취소]가 쓴다. -->
+						<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="BOTTOMLEFT" x="4" y="6"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+				<Frames>
+					<CheckButton parentKey="SelectedMacroButton" inherits="DebounceMacroButtonTemplate" id="0">
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="14" y="-14"/>
+						</Anchors>
+						<Scripts>
+							<OnClick>
+								self:SetChecked(false);
+							</OnClick>
+						</Scripts>
+					</CheckButton>
+					<Button parentKey="EditButton" inherits="UIPanelButtonTemplate" text="CHANGE_MACRO_NAME_ICON">
+						<Size x="170" y="22"/>
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.SelectedMacroBackground" x="55" y="-30"/>
+						</Anchors>
+						<Scripts>
+							<OnClick>
+								DebounceMacroFrame:EditNameIcon_OnClick();
+							</OnClick>
+						</Scripts>
+					</Button>
+					<!--
+						안쪽 여백(둘레 10px, 오른쪽은 스크롤바 자리 24px)도 눈에는 편집칸이다.
+						거기서 클릭이 죽으면 "눌리는 데가 따로 있다"가 되므로 여기서 받아 넘긴다.
+						스크롤 영역보다 아래 단이라 편집칸 자체의 클릭은 가져가지 않는다.
+					-->
+					<Frame parentKey="EditBackdrop" inherits="TooltipBackdropTemplate" enableMouse="true">
+						<Anchors>
+							<Anchor point="TOPLEFT" x="0" y="-86"/>
+							<Anchor point="BOTTOMRIGHT" x="0" y="32"/>
+						</Anchors>
+						<Scripts>
+							<OnMouseDown>
+								self:GetParent().ScrollFrame.EditBox:SetFocus();
+							</OnMouseDown>
+						</Scripts>
+					</Frame>
+					<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.EditBackdrop" x="10" y="-10"/>
+							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.EditBackdrop" x="-24" y="10"/>
+						</Anchors>
+						<ScrollChild>
+							<!-- 크기는 OnLoad가 스크롤 영역에 맞춘다(기본 매크로 창도 둘이 같은 크기다). -->
+							<EditBox parentKey="EditBox" multiLine="true" letters="1000" autoFocus="false" countInvisibleLetters="true">
+								<Size x="286" y="380"/>
+								<Scripts>
+									<OnLoad>
+										ScrollingEdit_OnCursorChanged(self, 0, 0, 0, 0);
+									</OnLoad>
+									<OnTextChanged>
+										DebounceMacroFrame:Text_OnTextChanged(self);
+									</OnTextChanged>
+									<!--
+										마지막 줄 **아래 빈 자리**를 눌러도 포커스가 와야 한다. 여러 줄
+										EditBox는 글자가 있는 자리를 눌렀을 때만 스스로 포커스를 잡고,
+										빈 자리는 클릭을 먹고 아무것도 하지 않는다. 매크로 두 줄짜리면
+										상자의 대부분이 그 빈 자리다.
+
+										블리자드도 EventEditBox에서 같은 자리를 같은 한 줄로 메운다
+										(OnMouseDown_Intrinsic → SetFocus). 이미 포커스가 있으면 무시된다.
+									-->
+									<OnMouseDown>
+										self:SetFocus();
+									</OnMouseDown>
+									<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
+									<OnUpdate>
+										ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
+									</OnUpdate>
+									<OnEscapePressed function="EditBox_ClearFocus"/>
+								</Scripts>
+								<FontString inherits="GameFontHighlightSmall"/>
+							</EditBox>
+						</ScrollChild>
+					</ScrollFrame>
+					<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+						<Size x="90" y="22"/>
+						<Anchors>
+							<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
+						</Anchors>
+						<Scripts>
+							<OnClick>
+								DebounceMacroFrame:Cancel_OnClick();
+							</OnClick>
+						</Scripts>
+					</Button>
+				</Frames>
+			</Frame>
+
+			<!--
+				매크로텍스트가 아닌 액션으로 열렸을 때. 바꿀 수 있으면 그 버튼이, 없으면 왜
+				안 되는지가 온다. 자리는 왼쪽 목록이 비었을 때와 같은 모양이다(가운데 회색 한 문장).
+			-->
+			<Frame parentKey="ConvertPrompt" hidden="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="14" y="-14"/>
+					<Anchor point="BOTTOMRIGHT" x="-14" y="14"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Message" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+							<Size x="260" y="0"/>
+							<Anchors>
+								<Anchor point="TOP" x="0" y="-72"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+				<Frames>
+					<Button parentKey="ConvertButton" inherits="UIPanelButtonTemplate">
+						<Size x="280" y="22"/>
+						<Anchors>
+							<Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" x="0" y="-14"/>
+						</Anchors>
+						<Scripts>
+							<OnClick>
+								DebounceMacroFrame:Convert_OnClick();
+							</OnClick>
+						</Scripts>
+					</Button>
+				</Frames>
+			</Frame>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnHide method="OnHide"/>
+			<OnMouseDown>
+				self:StartMoving();
+			</OnMouseDown>
+			<OnMouseUp>
+				self:StopMovingOrSizing();
+			</OnMouseUp>
 		</Scripts>
 	</Frame>
 

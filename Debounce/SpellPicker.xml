@@ -113,7 +113,7 @@
 		카테고리 탭. 메인 창의 레이어 탭(DebounceFrameTabTemplate)과 같은 물건이다 -
 		`PanelTabButtonTemplate`을 창 **아래쪽 바깥**에 매단다.
 
-		처음에는 상세 패널이 쓰는 위쪽 탭(TabSystemTopButtonTemplate)으로 짰는데, 그 아트는
+		처음에는 위쪽 탭(TabSystemTopButtonTemplate)으로 짰는데, 그 아트는
 		패널 제목을 겸하는 크기라 창에 얹으니 머리가 너무 컸고 가운데 정렬된 제목과도 자리를
 		다퉜다. 블리자드도 같은 성격의 창 - 수집품(탈것/애완동물/장난감) - 을 아래쪽 탭으로
 		단다. 우리 메인 창과 같은 선에 서는 것은 덤이다.

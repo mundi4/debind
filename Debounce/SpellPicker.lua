@@ -383,7 +383,7 @@ function DebounceSpellPickerFrameMixin:InitializeNewMacroButton()
 			return;
 		end
 		DebounceIconSelectorFrame:OpenForNewMacro(function(elementData)
-			DebounceDetailPanel:EditMacroText(elementData.action);
+			DebounceMacroFrame:Open(elementData.action);
 		end);
 	end);
 

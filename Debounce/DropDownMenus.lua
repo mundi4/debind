@@ -496,7 +496,7 @@ do
                         MergeTable(action, original);
                         onActionValueChanged();
                     end
-                    DebounceDetailPanel:EditMacroText(action, cancelFunc);
+                    DebounceMacroFrame:Open(action, cancelFunc);
                 end
             end);
         end
@@ -506,7 +506,7 @@ do
     local function EditMacroTextMenuItem(parentDescription)
         if (_action.type == Constants.MACROTEXT) then
             parentDescription:CreateButton(LLL["EDIT_MACRO"], function()
-                DebounceDetailPanel:EditMacroText(_elementData.action);
+                DebounceMacroFrame:Open(_elementData.action);
             end);
         end
     end

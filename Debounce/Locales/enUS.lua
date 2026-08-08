@@ -126,8 +126,6 @@ L["DETAIL_KEY_HINT_NO_KEY"] = "Click, then press any key. Mouse buttons and the 
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
 L["DETAIL_NO_KEY"] = NOT_BOUND
-L["DETAIL_TAB_KEY"] = "Key & Order"
-L["DETAIL_TAB_MACRO"] = "Macro"
 L["DISABLE"] = "Disable"
 L["DISABLE_ALL"] = "Disable All"
 L["EDIT_MACRO"] = "Edit Macro"
@@ -148,9 +146,9 @@ L["GROUP_BY_KEY"] = "Group by Key"
 L["GROUP_BY_KEY_DESC"] = "Draws a line where the key changes. The list stays alphabetical either way, inside a key too."
 -- 축은 비교자와 **같은 수, 같은 차례**로 적는다(Ordering.lua의 CompareActionOrder).
 -- 한때 hover가 빠져 있었는데, 그건 중요도 바로 다음에 오는 축이고 이 애드온에서 제일
--- 자주 순서를 가르는 것이기도 하다. 탭 이름도 화면에 있는 그대로 적는다("Key & Order",
--- DETAIL_TAB_KEY) - 없는 탭 이름을 부르면 찾다가 못 찾는다.
-L["GROUP_BY_KEY_ORDER_HINT"] = "This is not the firing order. Which action wins a key is decided by importance, hover rules, conditions, and scope -- select an action and open its Key & Order tab to see the real order."
+-- 자주 순서를 가르는 것이기도 하다. 어디서 보는지는 **화면에 있는 그대로** 적는다 -
+-- 한때 "Key & Order 탭"이었고 그 탭이 없어졌다. 없는 것을 부르면 찾다가 못 찾는다.
+L["GROUP_BY_KEY_ORDER_HINT"] = "This is not the firing order. Which action wins a key is decided by importance, hover rules, conditions, and scope -- select an action to see its real order."
 L["GROUP_NONE"] = "When Not In Group";
 L["GROUP_PARTY"] = "When In Party";
 L["GROUP_RAID"] = "When In Raid";
