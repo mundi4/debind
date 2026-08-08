@@ -351,86 +351,73 @@
 		눌러보는 버튼**이라 그것만으로 탭이 바뀌었다 - 되돌리는 데 두세 번이 든다. 멀리 가는
 		일은 우클릭 메뉴에서 "가기"를 고르는 한 번의 명시적 선택이어야 한다.
 	-->
+	<!--
+		결과 목록의 한 줄. **표의 한 행이다** - 오른쪽 통 목록과 겉이 닮으면 안 되기 때문이다.
+		둘은 규칙이 다르다(이쪽은 레이어를 넘나들고 클릭이 이동이다). 겉만 같고 속이 다른
+		것이 제일 나쁘므로, 저쪽은 아이콘+이름 두 줄짜리 카드로 두고 이쪽은 칸을 세운다.
+
+		칸의 순서는 **비교자와 같다**(Ordering.lua의 CompareActionOrder): 중요도 - 호버 -
+		조건 - 층. 오른쪽 정렬이라 모든 행에서 같은 칸이 같은 x에 서고, 두 행을 위아래로
+		놓으면 **처음 달라지는 칸이 곧 갈린 축**이다. GetDecidingOrderAxis가 하는 계산을
+		눈이 그대로 따라간다.
+
+		호버와 조건은 켜짐/꺼짐 하나뿐이라 글자 대신 점을 찍는다. 낱말로 쓰면 칸이 넉 자씩
+		차지하면서 정작 다른 칸을 밀어낸다.
+
+		오류는 칸이 없다. 순서 축이 아니고, 이름이 이미 빨갛다
+		(ColoredNameAndIconForAction). 무엇이 문제인지는 행 툴팁이 말한다.
+	-->
 	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
-		<Size x="300" y="46"/>
+		<Size x="300" y="22"/>
 		<Layers>
-			<Layer level="BACKGROUND">
-				<!--
-					왼쪽 목록은 행이 450px이라 아틀라스 원본 크기를 그대로 쓰지만, 여기는
-					290px쯤이라 원본을 쓰면 좌우로 삐져나온다. 늘려서 채운다.
-				-->
-				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
-					<Anchors>
-						<Anchor point="TOPLEFT"/>
-						<Anchor point="BOTTOMRIGHT"/>
-					</Anchors>
-				</Texture>
-				<Texture file="Interface\Buttons\UI-EmptySlot-Disabled">
-					<Size x="39" y="39"/>
-					<Anchors>
-						<Anchor point="LEFT" x="0" y="0"/>
-					</Anchors>
-					<TexCoords left="0.140625" right="0.84375" top="0.140625" bottom="0.84375"/>
-				</Texture>
-			</Layer>
 			<Layer level="ARTWORK">
 				<Texture parentKey="Icon">
-					<Size x="35" y="35"/>
+					<Size x="18" y="18"/>
 					<Anchors>
 						<Anchor point="LEFT" x="2" y="0"/>
 					</Anchors>
 				</Texture>
 				<!--
-					이름 앞의 두 칸이 "이 액션이 어디 사는가"를 말한다. 이 목록은 레이어가
-					섞이는 유일한 자리라 그게 이름의 일부다.
+					층 칸. 아이콘 하나 = 좁혀진 축 하나 - 캐릭터 전용이면 초상화가, 일반이
+					아니면 직업·전문화 아이콘이 붙는다. 아무것도 없는 행이 가장 넓은 층이다.
 
-					**아이콘 하나 = 좁혀진 축 하나.** 캐릭터 전용이면 이 캐릭터의 초상화가,
-					일반이 아니면 직업·전문화 아이콘이 붙는다. 그래서 아무것도 없는 행이 가장
-					넓은 레이어(모든 캐릭터·모든 전문화)고, 둘 다 붙은 행이 가장 좁다.
-
-					**세는 것만으로 순위가 나오지는 않는다.** 양 끝만 그렇다. 가운데 한 칸짜리는
-					셋이 겹친다 - 공유/직업, 공유/전문화, 캐릭터/일반이 전부 아이콘 하나인데
-					발동 순위는 서로 다르다(Profile.lua의 EnumerateProfileLayers). 그 셋을 가르는
-					것은 개수가 아니라 **어느 그림이냐**다: 초상화면 캐릭터 쪽, 직업·전문화
-					아이콘이면 공유 쪽. 순위 자체를 알아야 하면 목록의 세로 순서가 그것이고,
-					낱말로 확인하려면 행 툴팁의 '범위' 줄을 본다.
-
-					**빈 칸은 남기지 않는다.** 아이콘이 하나면 한 칸만 쓰고 이름이 바로 뒤에
-					붙는다. 자리를 예약해 두면 아이콘이 적은 행마다 이름 앞이 휑하게 비는데,
-					그 구멍은 아무 뜻도 없으면서 눈에는 제일 먼저 들어온다. 어느 축인지는
-					자리가 아니라 그림이 말한다 - 초상화와 직업/전문화 아이콘은 헷갈릴 수가 없다.
-
-					그래서 이름의 왼쪽 앵커는 Update가 다시 잡는다(아래 앵커는 아이콘이 하나도
-					없을 때의 자리다). 왼쪽 목록 행의 KeyWarning이 같은 이유로 같은 일을 한다.
-
-					전문화 아이콘은 창 왼쪽 사이드탭 줄이 쓰는 것 그대로다. 이미 배운 그림이다.
+					여기서는 **자리를 예약한다.** 목록일 때는 빈 칸을 남기지 않는 것이 맞았지만
+					(이름이 바로 뒤에 붙어야 하니까) 표에서는 칸이 어긋나는 쪽이 더 나쁘다.
 				-->
 				<Texture parentArray="LayerIcons" parentKey="LayerIcon1" hidden="true">
 					<Size x="14" y="14"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="8"/>
+						<Anchor point="RIGHT" x="-20" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture parentArray="LayerIcons" parentKey="LayerIcon2" hidden="true">
 					<Size x="14" y="14"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.LayerIcon1" relativePoint="RIGHT" x="3" y="0"/>
+						<Anchor point="RIGHT" x="-4" y="0"/>
 					</Anchors>
 				</Texture>
-				<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
+				<FontString parentKey="CondText" inherits="GameFontHighlightSmall" justifyH="CENTER">
+					<Size x="34" y="0"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="8"/>
-						<Anchor point="RIGHT" x="-6" y="8"/>
+						<Anchor point="RIGHT" x="-34" y="0"/>
 					</Anchors>
 				</FontString>
-				<!--
-					순서를 정하는 값들이 여기 다 온다(index 제외). 오른쪽 끝까지 쓴다 - 예전에
-					여기 있던 중요도 칸이 이 줄로 들어왔고, 레이어는 위의 아이콘이 가져갔다.
-				-->
-				<FontString parentKey="SubText" inherits="GameFontHighlightSmall" justifyH="LEFT" maxLines="1">
+				<FontString parentKey="HoverText" inherits="GameFontHighlightSmall" justifyH="CENTER">
+					<Size x="34" y="0"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="-9"/>
-						<Anchor point="RIGHT" x="-6" y="-9"/>
+						<Anchor point="RIGHT" x="-68" y="0"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="PriorityText" inherits="GameFontHighlightSmall" justifyH="RIGHT" maxLines="1">
+					<Size x="54" y="0"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-102" y="0"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="Name" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-4" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
@@ -732,7 +719,6 @@
 					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
 				</Anchors>
 			</CheckButton>
-			</DropdownButton>
 
 			<!--
 				레이어 탭은 **통 아래**에 선다. 고르는 것이 "어느 통을 보고 있나"라서 그
@@ -755,6 +741,8 @@
 			<Button parentKey="Tab2" inherits="DebounceFrameTabTemplate" id="2">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.Tab1" relativePoint="TOPRIGHT" x="3" y="0"/>
+				</Anchors>
+			</Button>
 
 			<Frame parentKey="SideTabsFrame">
 				<Anchors>
@@ -839,28 +827,43 @@
 								</Anchors>
 								<Frames>
 									<!--
-										이 목록이 무엇인지 말하는 한 줄.
+										표의 머리줄. 스크롤 밖에 서므로 목록을 굴려도 칸 이름이 남는다.
 
-										말하는 건 **안 자명한 쪽**이다. 키로 묶여 있다는 건 헤더가 이미
-										말하고, 위아래가 순서라는 것도 자리로 읽힌다. 반면 "맞는 것 하나만
-										실행된다"는 목록을 아무리 봐도 알 수가 없다.
+										오른쪽 여백 16은 **행의 오른쪽 끝**에 맞춘 값이다(ScrollBox가 -14,
+										그 안에서 뷰 여백이 2). 여기가 어긋나면 칸 이름이 칸 위에 안 선다.
 
-										FontString 하나인데 프레임으로 감싼 건 Frames 안에 있어야 하기
-										때문이다 - Layers는 Frames보다 먼저 파싱되므로, Layer에 두면
-										아래 ScrollBox가 relativeKey로 이 줄에 붙을 수가 없다.
+										칸 폭은 행의 것과 같아야 한다 - 34 / 34 / 34 / 54, 오른쪽부터.
 									-->
-									<Frame parentKey="DescLine">
+									<Frame parentKey="ColumnHeader">
 										<Size y="14"/>
 										<Anchors>
 											<Anchor point="TOPLEFT"/>
-											<Anchor point="TOPRIGHT"/>
+											<Anchor point="TOPRIGHT" x="-16" y="0"/>
 										</Anchors>
 										<Layers>
 											<Layer level="ARTWORK">
-												<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true">
+												<FontString parentKey="LayerLabel" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
+													<Size x="34" y="0"/>
 													<Anchors>
-														<Anchor point="TOPLEFT" x="2" y="0"/>
-														<Anchor point="TOPRIGHT" x="-2" y="0"/>
+														<Anchor point="RIGHT" x="0" y="0"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="CondLabel" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
+													<Size x="34" y="0"/>
+													<Anchors>
+														<Anchor point="RIGHT" x="-34" y="0"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="HoverLabel" inherits="GameFontDisableSmall" justifyH="CENTER" maxLines="1">
+													<Size x="34" y="0"/>
+													<Anchors>
+														<Anchor point="RIGHT" x="-68" y="0"/>
+													</Anchors>
+												</FontString>
+												<FontString parentKey="PriorityLabel" inherits="GameFontDisableSmall" justifyH="RIGHT" maxLines="1">
+													<Size x="54" y="0"/>
+													<Anchors>
+														<Anchor point="RIGHT" x="-102" y="0"/>
 													</Anchors>
 												</FontString>
 											</Layer>
@@ -869,7 +872,7 @@
 
 									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
 										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.DescLine" relativePoint="BOTTOMLEFT" x="0" y="-6"/>
+											<Anchor point="TOPLEFT" relativeKey="$parent.ColumnHeader" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
 											<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
 										</Anchors>
 									</Button>

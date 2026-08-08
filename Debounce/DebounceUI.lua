@@ -2929,6 +2929,12 @@ DebounceDetailPanelMixin = {};
 function DebounceDetailPanelMixin:OnLoad()
 	self.ContentArea.EmptyText:SetText(LLL["DETAIL_EMPTY"]);
 
+	local header = self.ContentArea.OrderArea.ColumnHeader;
+	header.PriorityLabel:SetText(LLL["ORDER_COL_PRIORITY"]);
+	header.HoverLabel:SetText(LLL["ORDER_COL_HOVER"]);
+	header.CondLabel:SetText(LLL["ORDER_COL_CONDITIONAL"]);
+	header.LayerLabel:SetText(LLL["ORDER_COL_LAYER"]);
+
 	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
@@ -2960,54 +2966,11 @@ function DebounceDetailPanelMixin:Close()
 	return true;
 end
 
---- 행 아래줄. 순서를 정하는 값 중 **index를 뺀 나머지가 전부** 여기 아니면 이름 줄의
---- 아이콘에 있다. 어느 것도 화면 밖에 두지 않는 게 규칙이다 - 이 목록의 일은 "왜 이
---- 순서인가"를 보여주는 것인데, 값 하나가 안 보이면 그게 정확히 사람이 못 푸는 자리가 된다.
----
---- 조각의 순서는 비교자와 같다(Ordering.lua의 CompareActionOrder): 중요도 → 호버 → 조건.
---- 왼쪽 정렬이라 모든 행이 같은 x에서 시작하므로, 두 행을 위아래로 놓으면 **처음 달라지는
---- 낱말이 곧 갈린 축**이다. GetDecidingOrderAxis가 하는 계산을 눈이 그대로 따라간다.
----
---- 중요도는 기본값이어도 적는다(5단 값이라 "없음"이 값이 아니다). 호버와 조건은 참·거짓
---- 하나뿐이라 켜졌을 때만 적는다 - 꺼진 것까지 낱말로 쓰면 대부분의 행이 "호버 아님 ·
---- 조건 없음"으로 채워져서 정작 켜진 행이 안 튄다.
----
---- 색만으로 구분하지 않도록 전부 낱말을 쓴다.
-local function BuildOrderSubText(row)
-	local parts = { LLL["PRIORITY" .. row.priority] };
+--- 켜짐/꺼짐 두 칸이 쓰는 표시. 점 하나가 자리를 안 옮기므로 세로로 읽힌다.
+--- 꺼진 칸도 비워두지 않는다 - 빈 칸은 "값이 없다"로 읽히는데 여기서는 "아니다"가 값이다.
+local COLUMN_ON  = "|cnGREEN_FONT_COLOR:" .. string.char(226,151,143) .. "|r";
+local COLUMN_OFF = "|cnDISABLED_FONT_COLOR:" .. string.char(194,183) .. "|r";
 
-	-- 정렬이 보는 건 hover가 nil이냐 아니냐 하나뿐이다. false는 "마우스오버가 **아닐 때만**"을
-	-- 명시한 조건이라 nil과 다르고 true와 같은 칸에 선다(Ordering.lua 주석). 그래서 낱말도
-	-- "호버 액션"이 아니라 "호버 조건이 걸려 있다"여야 한다 - 어느 쪽인지는 툴팁이 말한다.
-	if (row.hover ~= nil) then
-		parts[#parts + 1] = LLL["ORDER_FLAG_HOVER"];
-	end
-	if (row.isConditional) then
-		parts[#parts + 1] = LLL["ORDER_FLAG_CONDITIONAL"];
-	end
-
-	-- 오류는 순서 축이 아니다. 맨 뒤에 두어 위의 셋과 섞이지 않게 한다.
-	-- GetBindingIssue는 도달불가도 이슈로 친다(Misc.lua:266). 둘 다 붙이면 같은 말이 두 번
-	-- 나오므로 더 구체적인 쪽만 쓴다. 자세한 이유는 행 툴팁의 단축키 줄에 있다.
-	if (row.unreachable) then
-		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
-	elseif (row.issue) then
-		parts[#parts + 1] = ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
-	end
-
-	return table.concat(parts, " \194\183 ");
-end
-
--- 행 우클릭이 갈리는 기준은 **지킬 "현재 스코프"가 있느냐**다(자세한 것은 OnClick).
--- 레이어 탭에는 있고, 오버뷰 탭에는 없다.
---
--- 막으려는 행동이 하나 있다: *"이게 어디 붙어 있는 액션인지는 모르겠지만 중요도를 올려서
--- 위로 보내자."* 공유 레이어의 액션에 그러면 **이 계정의 모든 캐릭터**가 따라 바뀌는데,
--- 그 결과는 화면이 보여줄 수조차 없다 - 다른 캐릭터의 레이어는 `DebounceVarsPerChar`에
--- 있어서 이 세션에 존재하지 않는다. 정보를 더 붙이는 것으로는 안 막힌다. 정보는 읽어야
--- 작동하고 여기는 안 읽는 것이 기본값인 자리다.
---
--- 좌클릭은 등록하지 않는다(XML 주석 참고). 멀리 가는 일은 **"가기"를 고르는 한 번의
 -- 명시적 선택**이어야 하고, 좌클릭은 습관적으로 눌러보는 버튼이다.
 local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
 
@@ -3030,34 +2993,30 @@ function DebounceOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
-	self.SubText:SetText(BuildOrderSubText(row));
+	-- 중요도는 기본값이어도 적는다. 5단 값이라 "없음"이 값이 아니고, 이 칸이 비면 표의
+	-- 첫 칸이 행마다 있다 없다 한다.
+	self.PriorityText:SetText(LLL["PRIORITY" .. row.priority]);
 
-	-- 레이어는 이름 앞의 아이콘이 맡는다. **좁혀진 축마다 하나씩, 왼쪽부터** 채운다
-	-- (XML 주석에 이유가 있다). 둘 다 없으면 레이어 1, 즉 모든 캐릭터·모든 전문화다.
+	-- 정렬이 보는 건 hover가 nil이냐 아니냐 하나뿐이다. false는 "마우스오버가 **아닐 때만**"을
+	-- 명시한 조건이라 nil과 다르고 true와 같은 칸에 선다(Ordering.lua 주석).
+	self.HoverText:SetText(row.hover ~= nil and COLUMN_ON or COLUMN_OFF);
+	self.CondText:SetText(row.isConditional and COLUMN_ON or COLUMN_OFF);
+
+	-- 층 칸. **좁혀진 축마다 아이콘 하나씩**이고, 둘 다 없으면 레이어 1(모든 캐릭터·모든
+	-- 전문화)이다. 표라서 자리는 예약해 둔다 - 안 켜진 칸이 비어 있는 것이 곧 답이다.
+	-- **칸마다 축이 정해져 있다.** 왼쪽 칸은 캐릭터 전용인가, 오른쪽 칸은 직업·전문화로
+	-- 좁혔는가. 목록이던 시절에는 켜진 것만 왼쪽부터 채웠는데, 표에서는 그러면 같은 그림이
+	-- 행마다 다른 칸에 서서 세로로 읽을 수가 없다.
 	local tab, sideTab = GetLayerTabs(row.layerID);
-	local shown = 0;
 	if (tab == 2) then
-		shown = shown + 1;
-		SetPlayerCharacterIcon(self.LayerIcons[shown]);
+		SetPlayerCharacterIcon(self.LayerIcons[1]);
 	end
-	if (sideTab >= 2) then
-		shown = shown + 1;
-		self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
-	end
-	for i = 1, #self.LayerIcons do
-		self.LayerIcons[i]:SetShown(i <= shown);
-	end
+	self.LayerIcons[1]:SetShown(tab == 2);
 
-	-- 이름은 **마지막으로 켜진 아이콘 바로 뒤**에 붙는다. 안 켜진 아이콘은 자리도 안
-	-- 차지한다 - 예약해두면 아이콘이 적은 행마다 이름 앞이 비고, 그 구멍은 아무 뜻도
-	-- 없으면서 제일 먼저 눈에 들어온다.
-	self.Name:ClearAllPoints();
-	if (shown > 0) then
-		self.Name:SetPoint("LEFT", self.LayerIcons[shown], "RIGHT", 5, 0);
-	else
-		self.Name:SetPoint("LEFT", self.Icon, "RIGHT", 6, 8);
+	if (sideTab >= 2) then
+		self.LayerIcons[2]:SetTexture(GetSideTabIcon(sideTab));
 	end
-	self.Name:SetPoint("RIGHT", self, "RIGHT", -6, 8);
+	self.LayerIcons[2]:SetShown(sideTab >= 2);
 
 	-- 지금 보고 있는 액션은 왼쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
@@ -3155,8 +3114,8 @@ function DebounceDetailPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 	local elements = BuildKeyboardElements();
 
-	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 설명 줄도 없는 화면에 안내 한 문장만
-	-- 남는 편이, 빈 상자에 "위에서부터 시도한다"가 붙어 있는 것보다 정직하다.
+	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 머리줄만 남기면 칸 이름 넷이 아무것도
+	-- 안 이고 서 있는 표가 되는데, 그건 비었다는 사실보다 눈에 먼저 들어온다.
 	if (#elements == 0) then
 		orderArea:Hide();
 		self.ContentArea.EmptyText:Show();
@@ -3165,10 +3124,6 @@ function DebounceDetailPanelMixin:RefreshKeyboard()
 
 	self.ContentArea.EmptyText:Hide();
 	orderArea:Show();
-	orderArea.DescLine.Text:SetText(LLL["ORDER_DESC"]);
-	-- 줄 수가 번역마다 다르다. 아래 리스트가 이 줄에 매달려 있으므로, 재서 잡지 않으면
-	-- 두 줄짜리 문장이 목록 위로 겹친다.
-	orderArea.DescLine:SetHeight(orderArea.DescLine.Text:GetStringHeight());
 
 	local dataProvider = CreateDataProvider();
 	local selectedIndex;
