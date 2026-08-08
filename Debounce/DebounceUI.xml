@@ -17,7 +17,7 @@
 			<Layer level="ARTWORK">
 				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
 					<Anchors>
-						<Anchor point="LEFT" x="2" y="0"/>
+						<Anchor point="LEFT" x="5" y="0"/>
 					</Anchors>
 				</FontString>
 				<Texture parentKey="Divider" atlas="Options_HorizontalDivider">
@@ -102,12 +102,17 @@
 		되므로, 이벤트를 밑의 ScrollBox로 그냥 통과시킨다. 그래서 Button이 아니라 Frame이다.
 	-->
 	<Frame name="DebounceKeyHeaderTemplate" mixin="DebounceKeyHeaderMixin" virtual="true">
-		<Size x="450" y="20"/>
+		<!--
+			높이의 절반은 **위쪽 여백**이다. 행 사이가 붙어 있는 목록에서 그룹이 갈리려면
+			갈리는 자리에만 숨 쉴 틈이 있어야 하는데, 글자를 아래로 내리는 것만으로 그게
+			된다 - 선을 하나 더 긋는 것보다 조용하다.
+		-->
+		<Size x="450" y="28"/>
 		<Layers>
 			<Layer level="ARTWORK">
 				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
 					<Anchors>
-						<Anchor point="LEFT" x="4" y="0"/>
+						<Anchor point="BOTTOMLEFT" x="4" y="3"/>
 					</Anchors>
 				</FontString>
 				<!--
@@ -368,13 +373,27 @@
 		(ColoredNameAndIconForAction). 무엇이 문제인지는 행 툴팁이 말한다.
 	-->
 	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
-		<Size x="300" y="24"/>
+		<Size x="300" y="28"/>
 		<Layers>
+			<Layer level="BACKGROUND">
+				<!--
+					줄무늬. 경매장 목록이 쓰는 것과 같은 아트다(Blizzard_AuctionHouseItemList).
+					한 줄짜리 행이 여럿 늘어서면 배경 없이는 어디까지가 한 줄인지 눈이 못 세는데,
+					글자만으로 그걸 하려면 행 간격을 크게 벌려야 하고 그러면 표가 아니라 목록이 된다.
+					줄무늬가 그 일을 대신하므로 간격은 좁게 둘 수 있다.
+				-->
+				<Texture parentKey="Stripe" atlas="auctionhouse-rowstripe-1">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
 			<Layer level="ARTWORK">
 				<Texture parentKey="Icon">
-					<Size x="18" y="18"/>
+					<Size x="20" y="20"/>
 					<Anchors>
-						<Anchor point="LEFT" x="2" y="0"/>
+						<Anchor point="LEFT" x="5" y="0"/>
 					</Anchors>
 				</Texture>
 				<!--
@@ -416,8 +435,8 @@
 				</FontString>
 				<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="0"/>
-						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-4" y="0"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="7" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>

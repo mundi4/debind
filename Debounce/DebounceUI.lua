@@ -3032,7 +3032,9 @@ function DebounceOrderLineMixin:Update()
 	end
 	self.LayerIcons[2]:SetShown(sideTab >= 2);
 
-	-- 지금 보고 있는 액션은 왼쪽 목록의 선택과 같은 하이라이트로 띄운다.
+	self.Stripe:SetAtlas(elementData.alternate and "auctionhouse-rowstripe-2" or "auctionhouse-rowstripe-1");
+
+	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
 end
 
@@ -3068,7 +3070,9 @@ end
 
 function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
-	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 2);
+	-- 행 사이는 띄우지 않는다(마지막 인자 0). 줄무늬가 경계를 그리므로 틈이 필요 없고,
+	-- 틈이 있으면 무늬가 끊겨서 오히려 줄이 안 세어진다. 경매장 목록도 붙여 놓는다.
+	local view = CreateScrollBoxListLinearView(4, 4, 0, 0, 0);
 	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 오른쪽 목록과 같은 방식이고,
 	-- 키 헤더도 **같은 템플릿**이다 - 한 창의 두 목록이 키를 다른 그림으로 가르면 안 된다.
 	view:SetElementFactory(function(factory, elementData)
@@ -3108,12 +3112,17 @@ local function BuildKeyboardElements()
 	sort(keyArr, DebouncePrivate.CompareKeys);
 
 	local elements = {};
+	-- 줄무늬는 **행만 세어** 번갈아 넣는다. 헤더까지 세면 키 그룹의 크기에 따라 무늬가
+	-- 어긋나서, 규칙이 있는 그림이 아니라 얼룩으로 보인다.
+	local rowCount = 0;
 	for _, key in ipairs(keyArr) do
 		elements[#elements + 1] = { isHeader = true, key = key };
 		for _, row in ipairs(DebouncePrivate.CollectActionsForKey(key)) do
+			rowCount = rowCount + 1;
 			elements[#elements + 1] = {
 				row = row,
 				isCurrent = row.action == _selectedAction,
+				alternate = rowCount % 2 == 0,
 			};
 		end
 	end
