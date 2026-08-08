@@ -126,6 +126,9 @@ L["DETAIL_KEY_HINT_NO_KEY"] = "Click, then press any key. Mouse buttons and the 
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
 L["DETAIL_NO_KEY"] = NOT_BOUND
+-- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
+-- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
+L["DETAIL_EMPTY"] = "Pick an action on the right to see its key and where it stands in the firing order."
 L["DISABLE"] = "Disable"
 L["DISABLE_ALL"] = "Disable All"
 L["EDIT_MACRO"] = "Edit Macro"

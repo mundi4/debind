@@ -8,10 +8,10 @@ local DebounceUI             = DebouncePrivate.DebounceUI;
 
 local MACRO_NAME_CHAR_LIMIT  = 32;
 local MACRO_CHAR_LIMIT       = 1000;
--- 상세 패널이 열리면 프레임이 그만큼 넓어진다. 좌측 목록은 폭이 고정이라 그대로 있는다.
--- (맵 창의 minimizedWidth + questLogWidth와 같은 방식)
-local FRAME_WIDTH_COLLAPSED  = 440;
-local FRAME_WIDTH_EXPANDED   = 770;
+-- 폭은 하나다. 두 열(결과 | 통)이 늘 같이 서 있고 접히지 않는다 - 이유는 XML의
+-- DetailPanel 주석에.
+-- 4 + 350(결과) + 16 + 405(통) + 20(스크롤바) = 795.
+local FRAME_WIDTH            = 795;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
 local WARNING_FONT_COLOR     = CreateColor(1, 0.5, 0, 1);
@@ -2207,9 +2207,8 @@ function DebounceFrameMixin:OnLoad()
 	-- 2번 탭부터 앞 탭의 오른쪽에 사슬로 붙이므로(`SharedUIPanelTemplates.lua:465-471`),
 	-- XML에 뭘 적어도 거기서 덮인다.
 	--
-	-- 기준은 **왼쪽 목록 인셋의 오른쪽 끝**이지 창의 오른쪽이 아니다. 상세 패널이 열리면
-	-- 창은 넓어지지만 인셋은 그대로다 - 창에 붙이면 이 탭이 상세 패널 밑으로 따라가는데,
-	-- 탭이 바꾸는 것은 왼쪽 목록이라 그 자리는 거짓말이다.
+	-- 기준은 **통 인셋의 오른쪽 끝**이지 창의 오른쪽이 아니다. 그 바깥은 스크롤바와
+	-- 사이드탭 자리이고, 탭이 바꾸는 것은 인셋 안의 목록이다.
 	--
 	-- 점 둘로 잡는다: 세로는 1번 탭과 같은 줄, 가로는 인셋의 오른쪽 끝. 폭은
 	-- `PanelTemplates_TabResize`가 글자에 맞춰 잡고(개수가 붙었다 떨어졌다 한다) 오른쪽이
@@ -2250,29 +2249,7 @@ function DebounceFrameMixin:OnLoad()
 		self:SetPoint("CENTER", "UIParent", 0, 0);
 	end
 
-	self:SetWidth(FRAME_WIDTH_COLLAPSED);
-	self.DetailPanel:Hide();
-end
-
---- 폭이 바뀌기 전에 좌상단 고정으로 바꾼다. CENTER로 앵커된 상태에서 폭을 늘리면
---- 창이 양쪽으로 번져서 좌측 목록이 밀린다.
-function DebounceFrameMixin:AnchorToTopLeft()
-	local left, top = self:GetLeft(), self:GetTop();
-	if (not left or not top) then
-		return;
-	end
-	self:ClearAllPoints();
-	self:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top);
-end
-
---- 상세 패널을 열고 닫으면서 프레임 폭을 맞춘다.
-function DebounceFrameMixin:SetDetailShown(shown)
-	if (shown == self.DetailPanel:IsShown()) then
-		return;
-	end
-	self:AnchorToTopLeft();
-	self.DetailPanel:SetShown(shown);
-	self:SetWidth(shown and FRAME_WIDTH_EXPANDED or FRAME_WIDTH_COLLAPSED);
+	self:SetWidth(FRAME_WIDTH);
 end
 
 function DebounceFrameMixin:OnShow()
@@ -2736,7 +2713,6 @@ function DebounceFrameMixin:SetSelectedAction(action)
 	-- 매크로 창이 열려 있으면 대상도 같이 옮긴다. 떠나는 액션의 본문은 그 안에서 저장된다
 	-- (`Refresh` → `macroAction ~= action` → `Save`). 창이 닫혀 있으면 아무 일도 안 한다.
 	DebounceMacroFrame:Refresh();
-	self:SetDetailShown(action ~= nil);
 	self:Update();
 	return true;
 end
@@ -2850,11 +2826,10 @@ function DebounceFrameMixin:AddNewAction(type, value, name, icon, props)
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
 	self:Refresh(true);
 
-	-- 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 상세 패널을
-	-- 열어 그 자리로 데려간다. 커서에서 떨궈 만든 것과 **같은 대접**이어야 한다
+	-- 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 왼쪽 열을
+	-- 그 액션으로 채운다. 커서에서 떨궈 만든 것과 **같은 대접**이어야 한다
 	-- (OnReceiveDrag) - 선택 창에서 고른 것만 아무 데도 안 데려가면 같은 일을 하는 두 길이
-	-- 다르게 끝난다. 찾기보다 먼저 하는 것도 같은 이유다: 패널이 열리면서 프레임이
-	-- 넓어지므로 스크롤은 그 뒤에 잡아야 맞는다.
+	-- 다르게 끝난다.
 	self:SetSelectedAction(action);
 
 	local elementData = self:FindElementDataByActionInfo(action);
@@ -3371,6 +3346,8 @@ function DebounceDetailPanelMixin:OnLoad()
 	keyText:SetPoint("RIGHT", -6, -1);
 	keyText:SetWordWrap(false);
 
+	self.ContentArea.EmptyText:SetText(LLL["DETAIL_EMPTY"]);
+
 	self:InitializeOrderScrollBox();
 
 	self.initialized = true;
@@ -3390,12 +3367,14 @@ function DebounceDetailPanelMixin:Refresh()
 
 	local action = _selectedAction;
 	if (not action) then
-		-- 선택이 없으면 패널이 접힌다. 다음에 펴질 때를 위해 내용은 내려둔다.
+		-- 패널은 접히지 않으므로 빈 자리가 그대로 보인다. 무엇을 하면 채워지는지만 말한다.
 		self.ContentArea.KeyArea:Hide();
 		self.ContentArea.OrderArea:Hide();
+		self.ContentArea.EmptyText:Show();
 		return;
 	end
 
+	self.ContentArea.EmptyText:Hide();
 	self.ContentArea.KeyArea:Show();
 	self:RefreshKeybind(action);
 end
