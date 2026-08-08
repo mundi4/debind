@@ -1112,12 +1112,21 @@
 											<!--
 												편집칸은 남는 자리를 전부 쓴다. 팝업이었을 때는 388px에 박혀
 												있었는데, 탭이 되면서 패널 높이만큼 늘어난다.
+
+												안쪽 여백(둘레 10px, 오른쪽은 스크롤바 자리 24px)도 눈에는 편집칸이다.
+												거기서 클릭이 죽으면 "눌리는 데가 따로 있다"가 되므로 여기서 받아
+												넘긴다. 스크롤 영역보다 아래 단이라 편집칸 자체의 클릭은 가져가지 않는다.
 											-->
-											<Frame parentKey="EditBackdrop" inherits="TooltipBackdropTemplate">
+											<Frame parentKey="EditBackdrop" inherits="TooltipBackdropTemplate" enableMouse="true">
 												<Anchors>
 													<Anchor point="TOPLEFT" x="0" y="-86"/>
 													<Anchor point="BOTTOMRIGHT" x="0" y="32"/>
 												</Anchors>
+												<Scripts>
+													<OnMouseDown>
+														self:GetParent().ScrollFrame.EditBox:SetFocus();
+													</OnMouseDown>
+												</Scripts>
 											</Frame>
 											<ScrollFrame parentKey="ScrollFrame" inherits="DebounceScrollFrameTemplate">
 												<Anchors>
@@ -1135,6 +1144,18 @@
 															<OnTextChanged>
 																DebounceDetailPanel:MacroText_OnTextChanged(self);
 															</OnTextChanged>
+															<!--
+																마지막 줄 **아래 빈 자리**를 눌러도 포커스가 와야 한다. 여러 줄
+																EditBox는 글자가 있는 자리를 눌렀을 때만 스스로 포커스를 잡고,
+																빈 자리는 클릭을 먹고 아무것도 하지 않는다. 매크로 두 줄짜리면
+																상자의 대부분이 그 빈 자리다.
+
+																블리자드도 EventEditBox에서 같은 자리를 같은 한 줄로 메운다
+																(OnMouseDown_Intrinsic → SetFocus). 이미 포커스가 있으면 무시된다.
+															-->
+															<OnMouseDown>
+																self:SetFocus();
+															</OnMouseDown>
 															<OnCursorChanged function="ScrollingEdit_OnCursorChanged"/>
 															<OnUpdate>
 																ScrollingEdit_OnUpdate(self, elapsed, self:GetParent());
@@ -1148,10 +1169,13 @@
 											<!--
 												"편집 영역 아무 데나 눌러도 커서가 잡힌다"고 기본 매크로 창의
 												MacroFrameTextButton을 따라 버튼을 하나 뒀었는데, 한 번도 눌린 적이 없어서
-												지웠다. 거기서는 그 버튼이 EditBox보다 **일부러 짧고**(85px) 그 아래 남는
-												여백이 존재 이유인데, 우리 EditBox는 스크롤 뷰포트와 정확히 같은 크기라
-												빈 자리가 없다. 게다가 스크롤 자식이라 한 단 위에 있어서 클릭을 전부 가져간다.
-												이 기능이 정말 필요해지면 잡을 곳은 EditBox 높이지 덧대는 버튼이 아니다.
+												지웠다. 그 버튼은 EditBox와 정확히 같은 자리를 덮는데, EditBox가 스크롤
+												자식이라 한 단 위에 있어서 클릭을 전부 가져가기 때문이다 - 기본 매크로
+												창에서도 저 버튼은 죽어 있다.
+
+												**안 눌린 게 곧 안 되던 이유였다.** 클릭은 EditBox까지 오는데, 여러 줄
+												EditBox는 빈 자리에서는 포커스를 잡지 않고 그냥 먹어버린다. 그래서 덮는
+												버튼이 아니라 EditBox의 OnMouseDown에서 직접 잡는다(위 참조).
 											-->
 											<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
 												<Size x="90" y="22"/>
