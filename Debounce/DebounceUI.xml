@@ -893,30 +893,22 @@
 									<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
 								</Anchors>
 								<Frames>
-									<Frame parentKey="Header" inherits="DebounceSectionHeaderTemplate">
-										<Anchors>
-											<Anchor point="TOPLEFT"/>
-											<Anchor point="TOPRIGHT"/>
-										</Anchors>
-									</Frame>
-
 									<!--
-										이 목록이 무엇인지 말하는 한 줄. 제목 밑에 컨트롤만 놓으면 만들다 만
-										화면으로 읽힌다 - 구역에는 사람이 쓴 문장이 하나는 있어야 한다.
+										이 목록이 무엇인지 말하는 한 줄.
 
-										말하는 건 **안 자명한 쪽**이다. 화살표가 순서를 바꾼다는 건 모양으로
-										이미 읽히고 버튼마다 툴팁도 있다. 반면 "맞는 것 하나만 실행된다"는
-										목록을 아무리 봐도 알 수가 없다.
+										말하는 건 **안 자명한 쪽**이다. 키로 묶여 있다는 건 헤더가 이미
+										말하고, 위아래가 순서라는 것도 자리로 읽힌다. 반면 "맞는 것 하나만
+										실행된다"는 목록을 아무리 봐도 알 수가 없다.
 
 										FontString 하나인데 프레임으로 감싼 건 Frames 안에 있어야 하기
 										때문이다 - Layers는 Frames보다 먼저 파싱되므로, Layer에 두면
-										아래 Controls가 relativeKey로 이 줄에 붙을 수가 없다.
+										아래 ScrollBox가 relativeKey로 이 줄에 붙을 수가 없다.
 									-->
 									<Frame parentKey="DescLine">
 										<Size y="14"/>
 										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.Header" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
-											<Anchor point="TOPRIGHT" relativeKey="$parent.Header" relativePoint="BOTTOMRIGHT" x="0" y="-2"/>
+											<Anchor point="TOPLEFT"/>
+											<Anchor point="TOPRIGHT"/>
 										</Anchors>
 										<Layers>
 											<Layer level="ARTWORK">
@@ -930,74 +922,9 @@
 										</Layers>
 									</Frame>
 
-									<!--
-										순서를 만지는 것들. 헤더 **바로 아래**, 리스트 **바로 위**에 둔다 -
-										만지는 대상이 아래 리스트라는 게 자리로 드러나야 한다. 예전에는
-										단축키 줄 오른쪽 끝에 있었는데, 거기서는 키를 바꾸는 버튼으로 읽혔다.
-
-										리스트 안(선택된 행 옆)이 아닌 이유는 그대로다 - 행에 붙어 있으면
-										연타할 때마다 버튼이 따라 움직여서 다시 조준해야 한다. 이 줄은
-										고정이다.
-									-->
-									<Frame parentKey="Controls">
-										<Size y="26"/>
-										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.DescLine" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
-											<Anchor point="TOPRIGHT" relativeKey="$parent.DescLine" relativePoint="BOTTOMRIGHT" x="0" y="-4"/>
-										</Anchors>
-										<Frames>
-											<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
-												<Anchors>
-													<Anchor point="LEFT" x="2" y="0"/>
-												</Anchors>
-											</Button>
-											<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true">
-												<Anchors>
-													<Anchor point="LEFT" relativeKey="$parent.MoveUpButton" relativePoint="RIGHT" x="2" y="0"/>
-												</Anchors>
-											</Button>
-											<!--
-												버튼이 왜 죽어 있는지를 **묻는 문장**으로 띄운다. 이유 자체를
-												여기 늘어놓으면 위와 아래가 서로 다른 이유로 막혔을 때 두
-												문장이 되고, 늘 떠 있으면 잔소리가 된다. 답은 툴팁이 한다.
-
-												버튼과 같은 줄이라 나타났다 사라져도 리스트 높이가 안 흔들린다.
-											-->
-											<Button parentKey="BlockedHelp" hidden="true">
-												<Size y="26"/>
-												<Anchors>
-													<Anchor point="LEFT" relativeKey="$parent.MoveDownButton" relativePoint="RIGHT" x="8" y="0"/>
-													<Anchor point="RIGHT" x="-2" y="0"/>
-												</Anchors>
-												<Layers>
-													<Layer level="ARTWORK">
-														<!--
-														아이콘이 앞에 선다. 색만으로는 이게 뭔지 못 말한다 -
-														이 패널에서 금색은 제목이고 빨강은 경고라 남는 색이
-														없고, 초록은 "좋다"로 읽힌다. (i)는 색과 무관하게
-														"여기 설명이 있다"를 말한다.
-													-->
-													<Texture parentKey="Icon" file="Interface\FriendsFrame\InformationIcon">
-														<Size x="14" y="14"/>
-														<Anchors>
-															<Anchor point="LEFT" x="0" y="0"/>
-														</Anchors>
-													</Texture>
-													<FontString parentKey="Text" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
-														<Anchors>
-															<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="4" y="0"/>
-															<Anchor point="RIGHT" x="-2" y="0"/>
-														</Anchors>
-													</FontString>
-													</Layer>
-												</Layers>
-											</Button>
-										</Frames>
-									</Frame>
-
 									<Button parentKey="ScrollBox" inherits="WowScrollBoxList">
 										<Anchors>
-											<Anchor point="TOPLEFT" relativeKey="$parent.Controls" relativePoint="BOTTOMLEFT" x="0" y="-4"/>
+											<Anchor point="TOPLEFT" relativeKey="$parent.DescLine" relativePoint="BOTTOMLEFT" x="0" y="-6"/>
 											<Anchor point="BOTTOMRIGHT" x="-14" y="0"/>
 										</Anchors>
 									</Button>

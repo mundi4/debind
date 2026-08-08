@@ -3572,80 +3572,9 @@ function DebounceOrderLineMixin:OnClick()
 	end);
 end
 
-local function OrderMoveButton_OnEnter(button)
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
-	if (button:IsEnabled()) then
-		GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
-	elseif (button.reasonKey) then
-		GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
-		local fix = rawget(LLL, button.reasonKey .. "_FIX");
-		if (fix) then
-			GameTooltip_AddBlankLineToTooltip(GameTooltip);
-			GameTooltip_AddNormalLine(GameTooltip, fix);
-		end
-	end
-	GameTooltip:Show();
-end
-
---- 마우스가 이미 버튼 위에 있으면 OnEnter가 다시 안 불린다. 그러면 연타할 때 툴팁이
---- 방금 바뀐 상태가 아니라 **처음 올렸던 순간**의 상태를 계속 말한다 - 한 칸 올려서
---- 맨 위가 됐는데도 "한 칸 더 올릴 수 있다"고 떠 있는 식이다. 상태를 다시 계산했으면
---- 그 자리에서 툴팁도 다시 그린다.
-local function RefreshOrderMoveTooltip(button)
-	if (button:IsMouseMotionFocus()) then
-		OrderMoveButton_OnEnter(button);
-	end
-end
-
---- 끝이라 못 움직이는 것과 규칙 때문에 못 움직이는 것은 다르다. 앞엣것은 설명할 게 없다 -
---- 맨 위에 있는 걸 더 올릴 수 없다는 건 비활성 버튼 그 자체로 이미 말이 된다.
-local ORDER_END_REASONS = { ALREADY_FIRST = true, ALREADY_LAST = true };
-
---- 막힌 이유 한 덩어리를 툴팁에 붙인다. 위아래가 같은 이유로 막혔으면 한 번만 쓴다.
-local function AddOrderBlockedReason(reasonKey, seen)
-	if (not reasonKey or seen[reasonKey]) then
-		return;
-	end
-	-- 앞에 이미 한 덩어리가 있으면 사이를 띄운다.
-	if (next(seen)) then
-		GameTooltip_AddBlankLineToTooltip(GameTooltip);
-	end
-	seen[reasonKey] = true;
-
-	GameTooltip_AddErrorLine(GameTooltip, LLL[reasonKey]);
-	local fix = rawget(LLL, reasonKey .. "_FIX");
-	if (fix) then
-		GameTooltip_AddBlankLineToTooltip(GameTooltip);
-		GameTooltip_AddNormalLine(GameTooltip, fix);
-	end
-end
-
---- 화면에 있는 건 **질문**이고 답은 여기 있다. 이유를 화면에 늘어놓지 않는 이유는,
---- 위와 아래가 서로 다른 이유로 막힐 수 있어서 한 줄에 안 들어가기 때문이다.
-local function OrderBlockedHelp_OnEnter(button)
-	-- 흐린 글씨로 두면 두 번 진다 - 안 읽히고, 누를 수 있는 것으로도 안 보인다.
-	-- 금색으로 두고 올라오면 밝힌다(와우에서 누를 수 있는 글자의 관례).
-	button.Text:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
-
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, button.Text:GetText());
-
-	local seen = {};
-	AddOrderBlockedReason(button.upReasonKey, seen);
-	AddOrderBlockedReason(button.downReasonKey, seen);
-
-	GameTooltip:Show();
-end
-
-local function OrderBlockedHelp_OnLeave(button)
-	button.Text:SetTextColor(NORMAL_FONT_COLOR:GetRGB());
-	GameTooltip_Hide();
-end
 
 function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
-	local controls = orderArea.Controls;
 	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 2);
 	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 오른쪽 목록과 같은 방식이고,
 	-- 키 헤더도 **같은 템플릿**이다 - 한 창의 두 목록이 키를 다른 그림으로 가르면 안 된다.
@@ -3661,142 +3590,6 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 		end
 	end);
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
-
-	orderArea.Header.Label:SetText(LLL["ORDER"]);
-
-	SquareButton_SetIcon(controls.MoveUpButton, "UP");
-	SquareButton_SetIcon(controls.MoveDownButton, "DOWN");
-
-	controls.MoveUpButton.titleKey = "ORDER_MOVE_UP";
-	controls.MoveUpButton.descKey = "ORDER_MOVE_UP_DESC";
-	controls.MoveDownButton.titleKey = "ORDER_MOVE_DOWN";
-	controls.MoveDownButton.descKey = "ORDER_MOVE_DOWN_DESC";
-
-	for _, button in ipairs({ controls.MoveUpButton, controls.MoveDownButton }) do
-		button:SetScript("OnEnter", OrderMoveButton_OnEnter);
-		button:SetScript("OnLeave", GameTooltip_Hide);
-	end
-
-	controls.MoveUpButton:SetScript("OnClick", function()
-		self:ApplyOrderMove(self.moveUpNeighbor);
-	end);
-	controls.MoveDownButton:SetScript("OnClick", function()
-		self:ApplyOrderMove(self.moveDownNeighbor);
-	end);
-
-	controls.BlockedHelp:SetScript("OnEnter", OrderBlockedHelp_OnEnter);
-	controls.BlockedHelp:SetScript("OnLeave", OrderBlockedHelp_OnLeave);
-end
-
---- 편집 중인 액션을 한 칸 옮긴다. **이웃과 순서 번호를 맞바꾸는 것이 전부다.**
----
---- 배열은 안 건드린다. 배열 자리는 이제 순서에 아무 영향이 없고(목록은 정렬해서 그린다),
---- 순서를 정하는 것은 액션이 들고 있는 seq다.
----
---- 번호가 없는 쪽이 있으면 물러난다. 키가 걸린 액션은 마이그레이션과 CleanUpDB가 번호를
---- 보장하므로 정상 경로로는 못 오는 자리지만, 여기서 nil을 맞바꾸면 **둘 다 번호를 잃고**
---- 순서가 조용히 무너진다.
-function DebounceDetailPanelMixin:ApplyOrderMove(neighborRow)
-	local action = _selectedAction;
-	if (not action or not neighborRow) then
-		return;
-	end
-
-	local neighbor = neighborRow.action;
-	if (not neighbor or action.seq == nil or neighbor.seq == nil) then
-		return;
-	end
-
-	action.seq, neighbor.seq = neighbor.seq, action.seq;
-
-	neighbor._dirty = true;
-	action._dirty = true;
-	DebouncePrivate.UpdateBindings();
-	DebounceFrame:Refresh(true);
-	DebounceFrame:Update();
-	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
-end
-
---- 상대 이동 버튼의 상태를 계산한다. rows는 이미 발동 순서로 정렬돼 있다.
----
---- 버튼이 만지는 건 순서 번호(seq)뿐이다. 그건 순서 말고는 아무 뜻도 없는 유일한 축이라,
---- 눌러도 조건이나 스코프나 우선순위가 따라 바뀌지 않는다. 나머지 축에서 갈렸으면
---- 비활성으로 두고 **어느 속성이 정하고 있는지**만 말한다 - 그 속성들은 각자 자기
---- 편집기(우선순위 메뉴 / 조건 편집 / 레이어 이동)에서 바뀌어야 한다.
-function DebounceDetailPanelMixin:UpdateOrderMoveButtons(rows, currentIndex)
-	local controls = self.ContentArea.OrderArea.Controls;
-	local up, upReason, down, downReason;
-
-	if (currentIndex and not self:IsCapturingKey()) then
-		up, upReason = DebouncePrivate.ComputeOrderSwap(rows, currentIndex, -1);
-		down, downReason = DebouncePrivate.ComputeOrderSwap(rows, currentIndex, 1);
-	end
-
-	-- 맞바꿀 이웃 행을 그대로 들고 있는다. 레이어는 따로 안 들고 다닌다 - 축 검사가
-	-- 이웃과 같은 레이어임을 이미 보장했고, 맞바꾸기는 배열을 안 건드린다.
-	self.moveUpNeighbor = up;
-	self.moveDownNeighbor = down;
-
-	controls.MoveUpButton.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
-	controls.MoveDownButton.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
-	controls.MoveUpButton:SetEnabled(up ~= nil);
-	controls.MoveDownButton:SetEnabled(down ~= nil);
-
-	-- 버튼은 늘 서 있는다. 순서가 없으면(키 없음/비활성 특성) 비활성으로 남을 뿐이다 -
-	-- 나타났다 사라지면 키를 지정하는 순간 줄이 통째로 움직인다.
-	controls.MoveUpButton:Show();
-	controls.MoveDownButton:Show();
-
-	-- 맨 위/맨 아래라서 못 움직이는 건 설명할 것이 없다 - 비활성 버튼이 그 자체로
-	-- "지금은 안 된다"를 말한다. 규칙 때문에 막힌 것만 아래 질문 줄이 받는다.
-	self:UpdateOrderBlockedHelp(upReason, downReason);
-
-	-- 방금 계산한 상태를 마우스가 올라가 있는 버튼의 툴팁에도 반영한다. 이걸 빠뜨리면
-	-- 연타할 때 툴팁이 처음 올렸던 순간의 말을 계속 한다(위 함수 주석 참고).
-	RefreshOrderMoveTooltip(controls.MoveUpButton);
-	RefreshOrderMoveTooltip(controls.MoveDownButton);
-end
-
---- 버튼이 **규칙 때문에** 죽어 있을 때만 그 옆에 질문 한 줄을 띄운다.
----
---- 비활성 버튼의 툴팁에 이미 같은 설명이 있지만, 비활성 버튼에 마우스를 올려보는 사람은
---- 거의 없다. 이 애드온에서 순서 규칙을 가르치는 문장이 거기 하나뿐이라, 화면으로 꺼낸다.
----
---- 화면에 내는 건 이유가 아니라 **질문**이다. 위와 아래가 서로 다른 이유로 막힐 수 있어서
---- 이유를 그대로 쓰면 한 줄에 안 들어가고, 늘 떠 있으면 잔소리가 된다.
-function DebounceDetailPanelMixin:UpdateOrderBlockedHelp(upReason, downReason)
-	local help = self.ContentArea.OrderArea.Controls.BlockedHelp;
-
-	local blockedUp = upReason ~= nil and not ORDER_END_REASONS[upReason];
-	local blockedDown = downReason ~= nil and not ORDER_END_REASONS[downReason];
-
-	local questionKey;
-	if (blockedUp and blockedDown) then
-		questionKey = "ORDER_MOVE_BLOCKED";
-	elseif (blockedUp) then
-		questionKey = "ORDER_MOVE_BLOCKED_UP";
-	elseif (blockedDown) then
-		questionKey = "ORDER_MOVE_BLOCKED_DOWN";
-	end
-
-	help.upReasonKey = blockedUp and ("ORDER_BLOCKED_" .. upReason) or nil;
-	help.downReasonKey = blockedDown and ("ORDER_BLOCKED_" .. downReason) or nil;
-
-	-- 문장이 사라지는데 마우스가 그 위에 있었으면 툴팁이 남는다. 숨기기 **전에** 거둔다 -
-	-- 숨은 뒤에는 IsMouseMotionFocus가 거짓이라 물어볼 수가 없다.
-	if (questionKey == nil and help:IsMouseMotionFocus()) then
-		GameTooltip_Hide();
-	end
-
-	help.Text:SetText(questionKey and LLL[questionKey] or "");
-	-- 밝힌 채로 숨었다가 다시 나오면 마우스가 없는데도 밝은 채다. 그릴 때마다 되돌린다.
-	help.Text:SetTextColor(NORMAL_FONT_COLOR:GetRGB());
-	help:SetShown(questionKey ~= nil);
-
-	-- 이동 버튼과 같은 이유로, 이미 올라가 있는 마우스에는 OnEnter가 다시 안 온다.
-	if (questionKey and help:IsMouseMotionFocus()) then
-		OrderBlockedHelp_OnEnter(help);
-	end
 end
 
 --- 활성 레이어에서 키가 걸린 액션 전부. 키로 묶고, 그룹 안은 발동 순서다.
@@ -3836,28 +3629,25 @@ end
 
 --- 왼쪽 열을 다시 그린다.
 ---
---- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 두
---- 가지뿐이다: 그 행을 짚는 것(`isCurrent`)과, ↑↓가 무엇을 옮길지 정하는 것.
+--- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 그 행을
+--- 짚는 것 하나뿐이다(`isCurrent`).
 function DebounceDetailPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 	local elements = BuildKeyboardElements();
 
-	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 헤더도 설명 줄도 없는 화면에 안내
-	-- 한 문장만 남는 편이, 빈 상자에 "위에서부터 시도한다"가 붙어 있는 것보다 정직하다.
+	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 설명 줄도 없는 화면에 안내 한 문장만
+	-- 남는 편이, 빈 상자에 "위에서부터 시도한다"가 붙어 있는 것보다 정직하다.
 	if (#elements == 0) then
 		orderArea:Hide();
 		self.ContentArea.EmptyText:Show();
-		self.moveUpNeighbor = nil;
-		self.moveDownNeighbor = nil;
 		return;
 	end
 
 	self.ContentArea.EmptyText:Hide();
 	orderArea:Show();
-	orderArea.Header.Label:SetText(LLL["ORDER"]);
 	orderArea.DescLine.Text:SetText(LLL["ORDER_DESC"]);
-	-- 줄 수가 번역마다 다르다. 아래 컨트롤과 리스트가 이 줄에 매달려 있으므로, 재서 잡지
-	-- 않으면 두 줄짜리 문장이 버튼 위로 겹친다.
+	-- 줄 수가 번역마다 다르다. 아래 리스트가 이 줄에 매달려 있으므로, 재서 잡지 않으면
+	-- 두 줄짜리 문장이 목록 위로 겹친다.
 	orderArea.DescLine:SetHeight(orderArea.DescLine.Text:GetStringHeight());
 
 	local dataProvider = CreateDataProvider();
@@ -3869,23 +3659,6 @@ function DebounceDetailPanelMixin:RefreshKeyboard()
 		dataProvider:Insert(elementData);
 	end
 	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
-
-	-- ↑↓는 고른 행의 것이다. 고른 것이 없거나 키가 없으면 옮길 것도 없다.
-	local action = _selectedAction;
-	local key = action and action.key;
-	if (key) then
-		local rows = DebouncePrivate.CollectActionsForKey(key);
-		local currentIndex;
-		for i, row in ipairs(rows) do
-			if (row.action == action) then
-				currentIndex = i;
-				break;
-			end
-		end
-		self:UpdateOrderMoveButtons(rows, currentIndex);
-	else
-		self:UpdateOrderMoveButtons(nil, nil);
-	end
 
 	if (selectedIndex) then
 		orderArea.ScrollBox:ScrollToElementDataIndex(selectedIndex, ScrollBoxConstants.AlignNearest);
