@@ -382,7 +382,16 @@
 					글자만으로 그걸 하려면 행 간격을 크게 벌려야 하고 그러면 표가 아니라 목록이 된다.
 					줄무늬가 그 일을 대신하므로 간격은 좁게 둘 수 있다.
 				-->
-				<Texture parentKey="Stripe" atlas="auctionhouse-rowstripe-1">
+				<!--
+					행 배경. 오른쪽 통 목록과 **같은 아트**를 쓴다 - 한 창에서 "이것은 액션 한 줄"을
+					말하는 그림이 둘이면 안 된다. 저쪽은 46px 두 줄짜리 카드, 여기는 28px 한 줄이라
+					같은 그림이어도 두 목록이 헷갈릴 일은 없다.
+
+					경매장 줄무늬(auctionhouse-rowstripe-1/2)를 먼저 써봤는데 이 어두운 인셋 위에서는
+					거의 안 보였다 - 그 아트는 더 밝은 바탕을 전제한다. 행이 낱개로 읽히려면 테두리가
+					있어야 하고, 그건 이 아트가 갖고 있다.
+				-->
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
 						<Anchor point="TOPLEFT"/>
 						<Anchor point="BOTTOMRIGHT"/>

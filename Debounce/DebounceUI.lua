@@ -3038,22 +3038,35 @@ function DebounceOrderLineMixin:Update()
 	self.CondText:SetText(row.isConditional and COLUMN_ON or COLUMN_OFF);
 
 	-- 층 칸. **좁혀진 축마다 아이콘 하나씩**이고, 둘 다 없으면 레이어 1(모든 캐릭터·모든
-	-- 전문화)이다. 표라서 자리는 예약해 둔다 - 안 켜진 칸이 비어 있는 것이 곧 답이다.
-	-- **칸마다 축이 정해져 있다.** 왼쪽 칸은 캐릭터 전용인가, 오른쪽 칸은 직업·전문화로
-	-- 좁혔는가. 목록이던 시절에는 켜진 것만 왼쪽부터 채웠는데, 표에서는 그러면 같은 그림이
-	-- 행마다 다른 칸에 서서 세로로 읽을 수가 없다.
+	-- 전문화)이다. 캐릭터 초상화와 직업·전문화 아이콘은 헷갈릴 수가 없으므로 어느 칸에
+	-- 섰는지로 축을 말할 필요가 없다 - 그래서 자리를 예약하지 않고 **있는 것만 가운데로**
+	-- 모은다. 빈 칸을 남기면 아이콘 하나짜리 행이 죄다 한쪽으로 쏠려 보인다.
 	local tab, sideTab = GetLayerTabs(row.layerID);
+	local shown = 0;
 	if (tab == 2) then
-		SetPlayerCharacterIcon(self.LayerIcons[1]);
+		shown = shown + 1;
+		SetPlayerCharacterIcon(self.LayerIcons[shown]);
 	end
-	self.LayerIcons[1]:SetShown(tab == 2);
-
 	if (sideTab >= 2) then
-		self.LayerIcons[2]:SetTexture(GetSideTabIcon(sideTab));
+		shown = shown + 1;
+		self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
 	end
-	self.LayerIcons[2]:SetShown(sideTab >= 2);
+	for i = 1, #self.LayerIcons do
+		self.LayerIcons[i]:SetShown(i <= shown);
+	end
 
-	self.Stripe:SetAtlas(elementData.alternate and "auctionhouse-rowstripe-2" or "auctionhouse-rowstripe-1");
+	-- 칸 가운데(행 오른쪽 끝에서 -16)에 맞춘다. 하나면 그 하나가, 둘이면 둘을 묶은 것이
+	-- 가운데 온다. 오른쪽 앵커로 잡으므로 값은 "가운데 + 폭의 절반"이다.
+	if (shown == 1) then
+		self.LayerIcons[1]:ClearAllPoints();
+		self.LayerIcons[1]:SetPoint("RIGHT", self, "RIGHT", -9, 0);
+	elseif (shown == 2) then
+		self.LayerIcons[1]:ClearAllPoints();
+		self.LayerIcons[1]:SetPoint("RIGHT", self, "RIGHT", -18, 0);
+		self.LayerIcons[2]:ClearAllPoints();
+		self.LayerIcons[2]:SetPoint("RIGHT", self, "RIGHT", -1, 0);
+	end
+
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
@@ -3093,7 +3106,7 @@ function DebounceDetailPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
 	-- 행 사이는 띄우지 않는다(마지막 인자 0). 줄무늬가 경계를 그리므로 틈이 필요 없고,
 	-- 틈이 있으면 무늬가 끊겨서 오히려 줄이 안 세어진다. 경매장 목록도 붙여 놓는다.
-	local view = CreateScrollBoxListLinearView(4, 4, 0, 0, 0);
+	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 오른쪽 목록과 같은 방식이고,
 	-- 키 헤더도 **같은 템플릿**이다 - 한 창의 두 목록이 키를 다른 그림으로 가르면 안 된다.
 	view:SetElementFactory(function(factory, elementData)
@@ -3137,17 +3150,12 @@ local function BuildKeyboardElements()
 	sort(keyArr, DebouncePrivate.CompareKeys);
 
 	local elements = {};
-	-- 줄무늬는 **행만 세어** 번갈아 넣는다. 헤더까지 세면 키 그룹의 크기에 따라 무늬가
-	-- 어긋나서, 규칙이 있는 그림이 아니라 얼룩으로 보인다.
-	local rowCount = 0;
 	for _, key in ipairs(keyArr) do
 		elements[#elements + 1] = { isHeader = true, key = key, isFirst = #elements == 0 or nil };
 		for _, row in ipairs(DebouncePrivate.CollectActionsForKey(key)) do
-			rowCount = rowCount + 1;
 			elements[#elements + 1] = {
 				row = row,
 				isCurrent = row.action == _selectedAction,
-				alternate = rowCount % 2 == 0,
 			};
 		end
 	end
