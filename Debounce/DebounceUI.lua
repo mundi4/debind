@@ -9,7 +9,7 @@ local DebounceUI             = DebouncePrivate.DebounceUI;
 local MACRO_NAME_CHAR_LIMIT  = 32;
 local MACRO_CHAR_LIMIT       = 1000;
 -- 폭은 하나다. 두 열(결과 | 통)이 늘 같이 서 있고 접히지 않는다 - 이유는 XML의
--- DetailPanel 주석에.
+-- OverviewPanel 주석에.
 -- 4 + 380(결과) + 22(왼쪽 스크롤바) + 375(통) + 31(오른쪽 스크롤바) = 812.
 --
 -- 스크롤바 자리 둘은 **바 굵기(MinimalScrollBar = 8)가 아니라 그 뒤에 남는 여백**으로
@@ -483,7 +483,7 @@ local function GetSideTabIcon(sideTabID)
 end
 
 local function TryCloseAnyDialog()
-	if (DebounceIconSelectorFrame:Close() and DebounceMacroFrame:Close() and DebounceDetailPanel:Close()) then
+	if (DebounceIconSelectorFrame:Close() and DebounceMacroFrame:Close() and DebounceOverviewPanel:Close()) then
 		return true;
 	end
 	return false;
@@ -911,9 +911,9 @@ do
 				end
 				addValueLine(keyText, error);
 			else
-				-- 행의 단축키 칸과 같은 말을 쓴다(DebounceLineMixin:UpdateKeyButton). 한때 여기만 따로 번역된 키를
+				-- 행의 단축키 칸과 같은 말을 쓴다. 한때 여기만 따로 번역된 키를
 				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
-				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["DETAIL_NO_KEY"]));
+				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
 			end
 		end
 
@@ -1160,69 +1160,6 @@ do
 	end
 end
 
-local function DoesActionMatchFilter(action)
-	if (not DebounceFrame.SearchBox.filterText) then
-		return true;
-	end
-
-	local filters = DebounceFrame.SearchBox.filters;
-	if (not filters or #filters == 0) then
-		return true;
-	end
-
-	local name, icon = NameAndIconForAction(action);
-	for _, filterText in ipairs(filters) do
-		local match;
-		if (name and strfind(name:lower(), filterText, 1, true)) then
-			match = true;
-		end
-
-		if (not match) then
-			if (strfind(action.type:lower(), filterText, 1, true)) then
-				match = true;
-			end
-		end
-
-		if (not match) then
-			if (action.type == Constants.MACROTEXT) then
-				if (action.value and strfind(action.value:lower(), filterText, 1, true)) then
-					match = true;
-				end
-			end
-		end
-
-		if (not match) then
-			if (filterText:sub(1, 1) == "@") then
-				local unit = filterText:sub(2);
-				if (action.unit and strfind(action.unit, unit, 1, true)) then
-					match = true;
-				elseif (action.checkedUnits) then
-					for checkedUnit, _ in pairs(action.checkedUnits) do
-						if (strfind(checkedUnit, unit, 1, true)) then
-							match = true;
-						end
-					end
-				end
-			end
-		end
-
-		if (not match) then
-			if (action.key) then
-				local keyText = GetBindingText(action.key);
-				if (strfind(keyText:lower(), filterText, 1, true)) then
-					match = true;
-				end
-			end
-		end
-
-		if (not match) then
-			return false;
-		end
-	end
-
-	return true;
-end
-
 
 --- 이름 칸의 폭과, 레이어 아이콘이 켜졌을 때 그 시작점이 밀리는 거리. **XML의 값에서
 --- 나온다** - 폭은 Name의 Size, 밀리는 거리는 아이콘 크기(14)와 간격(5, 3)의 합이다.
@@ -1384,14 +1321,14 @@ function DebounceLineMixin:Update()
 		self:OnEnter();
 	end
 
-	-- 행은 풀에서 나오므로 앞서 그리던 행의 상태를 들고 온다. 커서가 지금 이 행 위에
-	-- 있는지를 다시 물어서 맞춘다 - 이미 올라가 있는 프레임에는 OnEnter가 다시 안 온다.
-	self:UpdateKeyButton(self:IsMouseMotionFocus());
+	-- **휠은 지정 모드가 켜진 동안에만 이 행의 것이다.** 평소에 켜두면 목록을 굴릴 수가
+	-- 없다 - 행이 화면을 덮고 있으니 휠이 전부 행으로 들어간다. 행은 풀에서 나오므로
+	-- 여기서 매번 맞춘다. 모드를 켜고 끌 때 목록 전체가 Update를 받는다(SetBindingMode).
+	self:EnableMouseWheel(DebounceFrame:IsCapturingKey());
 
-	-- 흐린 행은 두 가지다: 검색어에 안 맞거나, **조건 밖인데 고른 것이라 남아 있거나**
-	-- (오버뷰 탭의 문제 필터 - BuildOverviewElements 참고). 둘 다 "목록에는 있는데 지금
-	-- 보려던 것은 아니다"라 같은 표시를 쓴다.
-	if (elementData.filteredOut or not DoesActionMatchFilter(action)) then
+	-- 흐린 행은 **조건 밖인데 고른 것이라 남아 있는** 행이다(오버뷰 탭의 문제 필터 -
+	-- BuildOverviewElements 참고). "목록에는 있는데 지금 보려던 것은 아니다"라는 표시다.
+	if (elementData.filteredOut) then
 		self:SetAlpha(FILTERED_ALPHA);
 	else
 		self:SetAlpha(1);
@@ -1403,46 +1340,31 @@ function DebounceLineMixin:OnEnter()
 	local elementData = self:GetElementData();
 	local layerLabel = elementData.showLayerIcons and elementData.layer and GetLayerLabel(elementData.layer) or nil;
 	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, nil, layerLabel);
-	self:UpdateKeyButton(true);
+end
+
+--- 휠. 모드가 켜진 동안에만 이 스크립트가 살아 있다(Update의 EnableMouseWheel).
+---
+--- 행 위에서만 키가 된다 - 목록의 빈 자리나 스크롤바 위에서는 평소대로 굴러간다. 모드를
+--- 켠 채로도 목록을 볼 수 있어야 하고, 그 통로를 남기는 값이 이것뿐이다.
+function DebounceLineMixin:OnMouseWheel(delta)
+	DebounceFrame:BindMode_OnInput(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN", self);
 end
 
 function DebounceLineMixin:OnLeave()
 	---@diagnostic disable-next-line: redundant-parameter
 	GameTooltip:SetMinimumWidth(0, false);
 	GameTooltip:Hide();
-	self:UpdateKeyButton(false);
-end
-
---- 단축키 칸의 버튼을 띄우고 내린다.
----
---- **듣는 중에는 안 내린다.** 마우스는 캡처와 상관없이 움직이고(키보드는 커서가 어디 있든
---- 이 버튼에 들어온다), 여기서 숨기면 OnHide가 자기 캡처를 끝내버린다 - 커서를 옆으로
---- 치우기만 해도 듣기가 끊긴다.
-function DebounceLineMixin:UpdateKeyButton(hovered)
-	local button = self.KeyButton;
-	if (DebounceDetailPanel.captureButton == button) then
-		return;
-	end
-
-	local elementData = self:GetElementData();
-	local action = elementData and elementData.action;
-	if (not hovered or not action) then
-		button:Hide();
-		self.BindingText:Show();
-		return;
-	end
-
-	-- 우클릭 해제를 첫 호버부터 받는다. `SetBindingMode`도 같은 값으로 되돌리지만 그건
-	-- 한 번이라도 들은 뒤의 이야기고, UIPanelButtonTemplate의 기본은 좌클릭뿐이다.
-	button:RegisterForClicks("LeftButtonUp", "RightButtonUp");
-
-	-- 글자와 버튼은 같은 자리다. 둘이 겹쳐 보이지 않게 글자를 내린다.
-	button:SetText(action.key and GetBindingText(action.key) or LLL["DETAIL_NO_KEY"]);
-	self.BindingText:Hide();
-	button:Show();
 end
 
 function DebounceLineMixin:OnClick(buttonName)
+	-- **모드가 켜져 있으면 이 행 위의 모든 입력이 키다.** 좌/우클릭도 정당한 바인딩이라
+	-- (호버 조건과 함께 쓴다) 예외를 두지 않는다. 그동안 선택도 메뉴도 멈춘다 - 그게
+	-- 모드를 명시적으로 켜고 끄게 만든 이유고, 켜져 있다는 것은 목록 위 토글이 말한다.
+	if (DebounceFrame:IsCapturingKey()) then
+		DebounceFrame:BindMode_OnInput(buttonName, self);
+		return;
+	end
+
 	if (buttonName == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
 		DebounceFrame.ScrollBox:OnClick();
 		return;
@@ -1790,15 +1712,7 @@ function DebounceFrameMixin:UpdateSideTabs()
 	end
 end
 
---- **검색을 보지 않는다.** 이 목록의 검색은 거르는 것이 아니라 흐리게 하는 것이라
---- (`DebounceLineMixin:Update`의 `FILTERED_ALPHA`), 안 맞는 행도 dataProvider에는 그대로
---- 있다. 그러니 크기가 0인 것은 **탭이 비었다는 뜻 하나뿐**이고, 검색어로 0건이 되는
---- 일은 여기까지 오지도 않는다.
----
---- 여기에 `if (SearchBox.filters)` 분기를 달지 말 것. 그러면 빈 탭에서 검색창에 글자가
---- 있다는 이유만으로 "검색어에 맞는 액션이 없다"고 말하는데, 그건 사실이 아니고 - 탭이
---- 빈 것이다 - 하라는 일도 틀린다(지울 것은 검색어가 아니라 채울 액션이 없는 것이다).
---- 한때 그 분기가 주석으로 남아 있어서 빠뜨린 것처럼 보였다. 목록을 거르던 시절의 것이다.
+--- 크기가 0인 것은 **탭이 비었다는 뜻 하나뿐**이다. 검색은 없앴다.
 ---
 --- 오버뷰 탭은 예외가 하나 있다. **거기서는 필터가 목록을 실제로 비운다** - 흐리게 하는
 --- 검색과 달리 문제 없는 행을 아예 안 넣기 때문이다. 그래서 "빈 목록"이 두 가지 뜻을
@@ -1843,17 +1757,7 @@ function DebounceFrameMixin:UpdateActionCounts()
 				if (sideTabId <= 2 + NUM_SPECS) then
 					local layerId = GetLayerID(tabId, sideTabId);
 					local layer = DebouncePrivate.GetProfileLayer(layerId);
-					local count;
-					if (self.SearchBox.filters) then
-						count = 0;
-						for _, action in layer:Enumerate() do
-							if (DoesActionMatchFilter(action)) then
-								count = count + 1;
-							end
-						end
-					else
-						count = layer:GetNumActions();
-					end
+					local count = layer:GetNumActions();
 
 					-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
 					-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
@@ -1861,11 +1765,7 @@ function DebounceFrameMixin:UpdateActionCounts()
 					-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
 					if (tabId == _selectedTab) then
 						sideTab.Count:SetText(count);
-						if (count > 0 and self.SearchBox.filters) then
-							sideTab.Count:SetTextColor(GREEN_FONT_COLOR:GetRGB());
-						else
-							sideTab.Count:SetTextColor(1, 1, 1);
-						end
+						sideTab.Count:SetTextColor(1, 1, 1);
 					end
 
 					if (not countedLayers[layerId]) then
@@ -1875,11 +1775,7 @@ function DebounceFrameMixin:UpdateActionCounts()
 				end
 			end
 
-			if (sum > 0 and self.SearchBox.filters) then
-				label = label .. " |cnGREEN_FONT_COLOR:(" .. sum .. ")|r";
-			else
-				label = label .. " (" .. sum .. ")";
-			end
+			label = label .. " (" .. sum .. ")";
 		end
 
 		tab:SetText(label);
@@ -1891,10 +1787,6 @@ end
 -- OnReceiveDrag로 보낸다. 폴백이 아니라 pickup의 정규 경로다.
 --- 목록을 단축키로 묶어 그릴지. 기본은 켬이다 - 저장값이 nil이면 켜진 것으로 읽고,
 --- 끈 사람만 false를 남긴다. 무엇이 묶이고 무엇이 안 묶이는지는 BuildSortedElements에 있다.
-local function IsGroupByKeyEnabled()
-	return DebouncePrivate.Options.mainListGroupByKey ~= false;
-end
-
 local function ScrollBox_OnClick(self)
 	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:OnReceiveDrag();
@@ -1911,24 +1803,12 @@ function DebounceFrameMixin:InitializeScrollBox()
 	local spacing = 4;
 	local view = CreateScrollBoxListLinearView(padding, bottomPadding, padding, padding, spacing);
 
-	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 팩토리가 elementData를 보고 고른다.
-	view:SetElementFactory(function(factory, elementData)
-		if (elementData.isHeader) then
-			factory("DebounceKeyHeaderTemplate", function(frame)
-				frame:Init(elementData);
-			end);
-		else
-			factory("DebounceLineTemplate", function(button)
-				button:Init(elementData);
-			end);
-		end
+	-- 이 목록에는 행 한 종류뿐이다. 키 헤더는 왼쪽 열에만 있다 - 여기서 키로 묶는 것은
+	-- 없앴고, 발동 순서를 말하는 자리는 처음부터 저쪽 하나였다.
+	view:SetElementInitializer("DebounceLineTemplate", function(button, elementData)
+		button:Init(elementData);
 	end);
-
-	-- 헤더 높이가 자리마다 다르므로(첫 줄만 낮다) 뷰에게 직접 알려준다. 이걸 안 주면
-	-- 템플릿의 Size를 그대로 믿고 자리를 잡아서, Init이 SetHeight로 줄인 만큼 겹친다.
-	view:SetElementExtentCalculator(function(_, elementData)
-		return elementData.isHeader and KeyHeaderExtent(elementData) or LINE_HEIGHT;
-	end);
+	view:SetElementExtent(LINE_HEIGHT);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
 
@@ -1948,63 +1828,24 @@ function DebounceFrameMixin:InitializeButtons()
 		DebounceSpellPickerFrame:Toggle();
 	end)
 
-	-- 옵션 메뉴가 아니라 목록 바로 위에 산다. 바꾸는 것이 목록의 생김새뿐이라 누른 결과가
-	-- 같은 화면에 보여야 하고, 메뉴 안에 넣으면 그 결과를 보려고 메뉴를 닫아야 한다.
-	local groupByKey = self.GroupByKeyCheckButton;
-	groupByKey.Text:SetText(LLL["GROUP_BY_KEY"]);
-
-	-- 라벨 앵커를 다시 잡는다. UICheckButtonTemplate은 라벨을 체크박스 오른쪽에 **x=-2**로
-	-- 당겨 붙이는데, 그 값은 32x32 기준이다 - 그 크기에서는 텍스처 안쪽 여백이 그만큼
-	-- 있어서 당겨야 간격이 맞는다. 우리는 24x24로 줄여 썼고(검색창이 30 높이라 32는 줄에서
-	-- 튄다) 여백도 같이 줄어서 -2가 라벨을 상자에 붙여버렸다.
-	local labelGap = 4;
-	groupByKey.Text:ClearAllPoints();
-	groupByKey.Text:SetPoint("LEFT", groupByKey, "RIGHT", labelGap, 0);
-
-	-- 라벨도 눌리게 한다. 템플릿은 상자만 받으므로 라벨 폭만큼 히트 영역을 오른쪽으로
-	-- 늘려야 한다 - 블리자드도 같은 자리에서 같은 한 줄을 쓴다(Blizzard_Calendar.lua:3798).
-	-- 폭은 로케일마다 다르니 재서 쓴다. SetText 뒤라 이미 잰 값이 나온다.
-	groupByKey:SetHitRectInsets(0, -(labelGap + groupByKey.Text:GetStringWidth()), 0, 0);
-	groupByKey:SetChecked(IsGroupByKeyEnabled());
-	groupByKey:SetScript("OnClick", function(button)
-		local checked = button:GetChecked();
-
-		-- 기본값(켬)일 때는 아무것도 안 남긴다. 끈 사람만 false를 저장한다.
-		--
-		-- **`a and false or nil` 꼴로 쓰지 말 것.** `false or nil`이 늘 nil이라 어느 가지로 가든
-		-- nil이 나온다 - 끈 것이 저장되지 않아 체크박스만 움직이고 목록은 그대로였다.
-		-- 관용구로 nil과 false를 갈라낼 수 없으므로 여기는 if로 쓴다.
-		if (checked) then
-			DebouncePrivate.Options.mainListGroupByKey = nil;
-		else
-			DebouncePrivate.Options.mainListGroupByKey = false;
-		end
-
-		PlaySound(checked and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF);
-		-- 스크롤 위치를 버리지 않는다. 버리면 목록이 맨 위로 튀는데, 묶는 선을 그었다 지웠다
-		-- 하는 것뿐인 조작치고는 대가가 크다.
-		self:Refresh(true);
-
-		-- 그래도 줄들은 새로 놓인다. 고른 게 있으면 따라간다 -
-		-- 아니면 "선택은 그대로인데 화면에는 없는" 상태가 되고, 그건 선택이 풀린 것처럼 보인다.
-		if (_selectedAction) then
-			self:ScrollActionIntoView(_selectedAction);
-		end
-	end);
-
-	-- 여기가 "묶는다는 게 무슨 뜻이냐"를 답할 유일한 자리다. 그룹 헤더는 툴팁을 띄우지
-	-- 않고(이벤트를 밑의 ScrollBox로 통과시킨다), 목록을 그릴 때마다 알림창을 띄울 수도
-	-- 없다 - 묶기가 기본값이라 그건 처음 창을 여는 모든 사람에게 뜬다.
-	groupByKey:SetScript("OnEnter", function(button)
+	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 말과 툴팁이다.
+	--
+	-- **이 버튼이 답할 질문은 하나다: 누르면 무슨 일이 벌어지나.**
+	--
+	-- 한때 여기에 모드 **안의** 규칙까지 다 붙어 있었다 - 어떻게 거는지, ESC가 무엇인지,
+	-- 어떻게 끝내는지. 셋 다 들어간 뒤에 필요한 말이고 그건 오버레이가 한다. 게다가 끝내는
+	-- 방법을 적은 줄은 ESC를 나가는 문으로 쓰던 시절 것이라 지금은 **거짓**이었다.
+	self.BindModeButton:SetScript("OnEnter", function(button)
 		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-		GameTooltip_SetTitle(GameTooltip, LLL["GROUP_BY_KEY"]);
-		GameTooltip_AddNormalLine(GameTooltip, LLL["GROUP_BY_KEY_DESC"]);
-		GameTooltip_AddInstructionLine(GameTooltip, LLL["GROUP_BY_KEY_ORDER_HINT"]);
+		GameTooltip_SetTitle(GameTooltip, LLL["BIND_MODE"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["BIND_MODE_DESC"]);
 		GameTooltip:Show();
 	end);
-	groupByKey:SetScript("OnLeave", function()
+	self.BindModeButton:SetScript("OnLeave", function()
 		GameTooltip:Hide();
 	end);
+	self:UpdateBindModeButton();
+
 end
 
 --- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
@@ -2071,11 +1912,35 @@ function DebounceFrameMixin:OnLoad()
 
 	self:SetPortraitToAsset(133015);
 
+	-- **탭 배열을 우리가 다시 쓴다.** `PanelTabButtonTemplate`이 자기 정의에
+	-- `parentArray="Tabs"`를 달고 있어서(SharedUIPanelTemplates.xml), 그걸 물려받은 프레임은
+	-- 뭘 하든 이 배열에 들어간다. 왼쪽 이름표(OverviewTab)도 같은 템플릿이라 XML에 배열을
+	-- 안 적었는데도 세 번째 칸에 앉아 있었다 - XML 주석이 "안 넣는다"고 말하는 그 일이
+	-- 실제로는 일어나고 있었다.
+	--
+	-- 그래서 `SetNumTabs`가 3을 보고 `AnchorTabs`로 3번 탭을 2번 오른쪽에 다시 매달았다.
+	-- 왼쪽 열 밑에 서 있어야 할 이름표가 **오른쪽 통의 탭 줄로 끌려가** 탭이 셋으로 보였다.
+	-- 선택 상태도 같이 망가진다 - 아래에서 켜둔 것을 `SetTab`이 매번 3번을 끄면서 되돌린다.
+	--
+	-- 고치는 자리가 여기인 이유: 물려받은 `parentArray`는 XML에서 뗄 수가 없다. 배열을
+	-- 쓰는 첫 줄보다 먼저, 진짜 탭 둘로 못 박는다.
+	self.Tabs = { self.Tab1, self.Tab2 };
+
 	for i, tab in ipairs(self.Tabs) do
 		tab:SetText(GetTabLabel(i));
 		PanelTemplates_TabResize(tab, 0)
 	end
 	PanelTemplates_SetNumTabs(self, #self.Tabs);
+
+	-- **여기서 한 번 고르지 않으면 탭이 안 칠해진다.** `PanelTabButtonTemplate`은 켜진 아트
+	-- (LeftActive/Middle/Right)와 꺼진 아트(Left/Middle/Right)를 **둘 다 보이는 채로** 싣고
+	-- 나온다 - 숨긴 것이 하나도 없다. 어느 쪽을 숨길지는 `PanelTemplates_UpdateTabs`가 정하는데,
+	-- 그건 `frame.selectedTab`이 nil이면 통째로 돌아선다.
+	--
+	-- `SetTab`을 부르는 자리가 탭 클릭과 `GoToAction`뿐이라, 창을 열고 탭을 한 번도 안 누르면
+	-- selectedTab이 nil인 채였다. 그래서 두 탭 다 아트 여섯 장이 겹쳐 깔린 금색 상자로 떴고,
+	-- 켜진 탭이 어느 쪽인지도 화면에 없었다.
+	PanelTemplates_SetTab(self, _selectedTab);
 
 	-- 왼쪽 열의 이름표. 고를 것이 없으므로 켜진 모양으로 한 번 세워두고 그만이다
 	-- (`PanelTemplates_SelectTab`은 자기 탭 하나만 만진다 - 형제를 안 본다).
@@ -2097,11 +1962,6 @@ function DebounceFrameMixin:OnLoad()
 		-- 좌상단을 저장한다. 상세 패널 때문에 폭이 바뀌므로 중심을 저장하면 창이 옆으로 흐른다.
 		DebouncePrivate.db.global.ui.anchorPos = { x = self:GetLeft(), y = self:GetTop() };
 	end);
-
-	self.keyFilter = "";
-	self.SearchBox:SetScript("OnTextChanged", self.SearchBox_OnTextChanged);
-	self.SearchBox:SetScript("OnEditFocusLost", self.SearchBox_OnFocusLost);
-	self.SearchBox:SetScript("OnEditFocusGained", self.SearchBox_OnFocusGained);
 
 	DebouncePrivate.db.global.ui = DebouncePrivate.db.global.ui or {};
 	self:ClearAllPoints();
@@ -2141,7 +2001,6 @@ end
 
 function DebounceFrameMixin:OnHide()
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
-	self.SearchBox:SetText("");
 
 	HideDeleteConfirmationPopup();
 
@@ -2164,7 +2023,7 @@ function DebounceFrameMixin:OnHide()
 	-- 매크로 본문은 여기서 저장된다. 매크로 창은 이 창의 자식이라 부모가 숨으면 같이
 	-- 숨지만, 그 저장을 부모-자식 관계에 맡기지 않는다 - 여기서 명시적으로 닫는다.
 	DebounceMacroFrame:Close();
-	DebounceDetailPanel:Close();
+	DebounceOverviewPanel:Close();
 
 	if (self.iconDataProvider) ~= nil then
 		self.iconDataProvider:Release();
@@ -2232,8 +2091,8 @@ function DebounceFrameMixin:HandleEscape()
 	-- 받고 전파를 끊는다. 그래도 남겨두는 건 **물러나는 순서** 때문이다. 이 갈래가
 	-- 없으면 어쩌다 여기로 온 ESC가 아래 선택 해제로 내려가서, 한 번 누른 것이
 	-- 캡처를 끝내고 패널까지 접는다.
-	if (DebounceDetailPanel:IsCapturingKey()) then
-		DebounceDetailPanel:CancelKeyCapture();
+	if (DebounceFrame:IsCapturingKey()) then
+		DebounceFrame:CancelKeyCapture();
 		return true;
 	end
 
@@ -2270,7 +2129,7 @@ end
 function DebounceFrameMixin:OnKeyDown(input)
 	-- 전투 중 `SetPropagateKeyboardInput`은 taint다. 전투에 들어가면 `OnEnterCombat`이 창을
 	-- 숨기므로 보통은 여기까지 오지 않지만, **전투가 시작된 그 프레임에 눌린 키는
-	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다.** `KeyButton_OnKeyDown`이 막는 것과
+	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다.** `BindMode_OnKeyDown`이 막는 것과
 	-- 같은 한 프레임이고, 같은 방식으로 막는다 - 아무것도 안 하고 물러난다. 그 키를 먹게
 	-- 되지만 창은 바로 다음 프레임에 사라진다.
 	if (InCombatLockdown()) then
@@ -2303,7 +2162,7 @@ end
 function DebounceFrameMixin:OnEnterCombat()
 	-- 캡처 중이면 접는다. 전투 중에는 SetPropagateKeyboardInput이 taint라 키를 받을 수 없다.
 	-- 선택은 그대로 둔다 - 전투가 끝나고 창이 다시 뜨면 보던 액션이 그대로 있어야 한다.
-	DebounceDetailPanel:CancelKeyCapture();
+	DebounceFrame:CancelKeyCapture();
 
 	if (DebounceIconSelectorFrame:IsShown()) then
 		DebounceIconSelectorFrame:CancelButton_OnClick();
@@ -2337,8 +2196,8 @@ end
 -- 보이는 위아래가 실제로 무엇이 먼저 나가는지와 어긋날 수 있었다. 진짜 순서는 레이어를
 -- 가로질러 모으는 상세 패널 단축키 탭에 있다(CollectActionsForKey).
 --
--- 그래서 묶기는 정렬 모드가 아니라 토글이다. **그룹 안도 이름순이다** - 선을 긋는 일이지
--- 순서를 바꾸는 일이 아니라서, 목록 어디에도 "위에 있는 게 먼저 나간다"가 없다.
+-- 그래서 이 목록은 **언제나 이름순**이다. 목록 어디에도 "위에 있는 게 먼저 나간다"가 없다.
+-- 발동 순서를 말하는 자리는 왼쪽 열 하나뿐이고, 거기는 키로 묶여 있다.
 local function CompareByName(lhs, rhs)
 	if (lhs.sortName ~= rhs.sortName) then
 		return lhs.sortName < rhs.sortName;
@@ -2346,20 +2205,6 @@ local function CompareByName(lhs, rhs)
 	-- 이름이 같은 줄은 실재한다(같은 주문을 조건만 달리해 두 번 넣는 것이 정상이다).
 	-- table.sort는 불안정하므로 여기서 받쳐주지 않으면 새로 그릴 때마다 자리가 바뀐다.
 	return lhs.index < rhs.index;
-end
-
-local function CompareByKeyThenName(lhs, rhs)
-	local lhsKey, rhsKey = lhs.action.key, rhs.action.key;
-	if (lhsKey ~= rhsKey) then
-		-- 키 없는 액션은 맨 위로. 고쳐야 할 것들이라 눈에 띄어야 한다.
-		if (not lhsKey) then
-			return true;
-		elseif (not rhsKey) then
-			return false;
-		end
-		return DebouncePrivate.CompareKeys(lhsKey, rhsKey);
-	end
-	return CompareByName(lhs, rhs);
 end
 
 local function BuildSortedElements(layer, layerID)
@@ -2373,29 +2218,8 @@ local function BuildSortedElements(layer, layerID)
 		};
 	end
 
-	if (not IsGroupByKeyEnabled()) then
-		sort(elements, CompareByName);
-		return elements;
-	end
-
-	sort(elements, CompareByKeyThenName);
-
-	-- 키가 바뀌는 자리마다 헤더를 끼운다.
-	--
-	-- 헤더 elementData에는 action이 없다. 액션으로 찾는 쪽(FindElementDataByActionInfo)이
-	-- 자연히 비켜가므로 선택·스크롤 경로는 헤더를 몰라도 된다.
-	local grouped = {};
-	local lastKey, started;
-	for _, elementData in ipairs(elements) do
-		local key = elementData.action.key;
-		if (not started or key ~= lastKey) then
-			grouped[#grouped + 1] = { isHeader = true, key = key, layer = layerID, isFirst = #grouped == 0 or nil };
-			lastKey, started = key, true;
-		end
-		grouped[#grouped + 1] = elementData;
-	end
-
-	return grouped;
+	sort(elements, CompareByName);
+	return elements;
 end
 
 function DebounceFrameMixin:Refresh(retainScrollPosition)
@@ -2425,8 +2249,13 @@ function DebounceFrameMixin:Refresh(retainScrollPosition)
 		self:SetSelectedAction(nil);
 	end
 
-	-- 제목은 탭 좌표를 낱말로 다시 말한다.
-	self:SetTitle(format(LLL["DEBOUNCE_TITLE_FORMAT"], GetTabLabel(_selectedTab), GetSideTabaLabel(_selectedSideTab)));
+	-- **제목은 창의 이름이다. 탭 좌표가 아니다.**
+	--
+	-- 한때 "Debind [공유 - 일반]"처럼 지금 보는 탭을 낱말로 다시 말했다. 그 좌표는 이미
+	-- 화면에 두 번 있다 - 통 아래의 탭과 오른쪽의 사이드탭이 각자 켜진 채로 서 있다.
+	-- 세 번째로 적으면서 얻는 것은 없고, 탭을 누를 때마다 창 이름이 바뀌어서 **같은 창이
+	-- 아닌 것처럼** 보이는 값은 치른다.
+	self:SetTitle(LLL["ADDON_NAME"]);
 	self:UpdateActionCounts();
 	self:UpdateEmptyText();
 end
@@ -2441,10 +2270,10 @@ function DebounceFrameMixin:SetSelectedAction(action)
 		return true;
 	end
 
-	DebounceDetailPanel:Close();
+	DebounceOverviewPanel:Close();
 
 	_selectedAction = action;
-	DebounceDetailPanel:OnSelectionChanged();
+	DebounceOverviewPanel:OnSelectionChanged();
 	-- 매크로 창이 열려 있으면 대상도 같이 옮긴다. 떠나는 액션의 본문은 그 안에서 저장된다
 	-- (`Refresh` → `macroAction ~= action` → `Save`). 창이 닫혀 있으면 아무 일도 안 한다.
 	DebounceMacroFrame:Refresh();
@@ -2472,21 +2301,14 @@ end
 --- 위로 벗어났을 때는 바로 위 헤더까지 데려온다. 행만 맨 위에 붙이면 이 행이 어느 키에
 --- 속하는지 말해주는 줄이 화면 밖 한 칸 위에 남는데, 그게 방금 바꾼 바로 그 키다. 아래로
 --- 벗어난 경우는 AlignEnd(행을 아래 끝에 맞춤)라 헤더가 자연히 위쪽에 따라 들어온다.
---- 묶기를 껐으면 앞줄이 헤더가 아니므로 이 갈래는 저절로 안 탄다.
 function DebounceFrameMixin:ScrollActionIntoView(action)
 	local elementData, index = self:FindElementDataByActionInfo(action);
 	if (not elementData) then
 		return;
 	end
 
-	local scrollBox = self.ScrollBox;
-	local previous = index > 1 and self.dataProvider:Find(index - 1) or nil;
-	if (previous and previous.isHeader and scrollBox:GetExtentUntil(index) < scrollBox:GetDerivedScrollOffset()) then
-		scrollBox:ScrollToElementDataIndex(index - 1, ScrollBoxConstants.AlignBegin);
-	else
-		-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
-		scrollBox:ScrollToNearest(index);
-	end
+	-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
+	self.ScrollBox:ScrollToNearest(index);
 end
 
 --- 순서 목록이 가리키는 액션으로 화면을 옮긴다. 그 액션이 사는 탭을 열고, 왼쪽 목록에서
@@ -2514,7 +2336,17 @@ function DebounceFrameMixin:GoToAction(action, layerID)
 	_selectedSideTab = sideTab;
 	self:SetTab(tab);
 
-	self:SetSelectedAction(action);
+	-- **지정 모드 중에는 안 고른다.** 그 모드에서 선택은 비어 있어야 한다 - 대상은 커서 밑의
+	-- 행이라, 강조가 남아 있으면 그것이 가리키는 것과 실제로 키가 걸릴 곳이 어긋난다
+	-- (SetBindingMode가 켤 때 선택을 비우는 것과 같은 이유다).
+	--
+	-- 여기서 막는 이유는 이 함수가 **유일한 통로**이기 때문이다. 탭에 떨구든 지금 탭에
+	-- 떨구든 전부 여기를 지나므로, 두 경우를 따로 적을 필요가 없다.
+	--
+	-- 옮기고 보여주는 것은 그대로 한다. 넣은 것이 어디로 갔는지는 모드와 상관없이 보여야 한다.
+	if (not self:IsCapturingKey()) then
+		self:SetSelectedAction(action);
+	end
 
 	local elementData = self:FindElementDataByActionInfo(action);
 	if (elementData) then
@@ -2573,7 +2405,7 @@ function DebounceFrameMixin:Update()
 	end
 
 	self:UpdateButtons();
-	DebounceDetailPanel:Refresh();
+	DebounceOverviewPanel:Refresh();
 	DebounceMacroFrame:Refresh();
 
 	self.ScrollBox:ForEachFrame(function(button)
@@ -2607,11 +2439,10 @@ function DebounceFrameMixin:UpdateButtons()
 		tab:SetEnabled(enableButtons);
 	end
 
+	self.BindModeButton:SetEnabled(enableButtons);
 	self.AddPortrait:SetEnabled(enableButtons);
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
-	self.SearchBox:SetEnabled(enableButtons);
-	self.GroupByKeyCheckButton:SetEnabled(enableButtons);
 end
 
 function DebounceFrameMixin:SetTab(id)
@@ -2717,7 +2548,7 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 	-- UpdateBindings가 저장 전 본문으로 한 번 헛돌고(아래에서 부르고 저장이 또 부른다),
 	-- 키를 듣는 중이었다면 캡처가 안 끊긴 채 목록만 갈린다.
 	DebounceMacroFrame:Close();
-	DebounceDetailPanel:Close();
+	DebounceOverviewPanel:Close();
 
 	local destLayer = DebouncePrivate.GetProfileLayer(destLayerID);
 
@@ -2729,18 +2560,16 @@ function DebounceFrameMixin:OnReceiveDrag(destLayerID)
 	DebouncePrivate.UpdateBindings();
 	self:Refresh(true);
 
-	-- 목록이 정렬돼 있으므로 새 액션이 어디로 갈지 모른다. 찾아서 보여준다.
+	-- **떨군 곳으로 따라간다.** 탭 버튼에 떨구면 그 탭을 켜고, 방금 생긴 액션을 고르고,
+	-- 화면 안으로 스크롤한다 - `GoToAction`이 그 셋을 이미 한 덩어리로 한다.
 	--
-	-- 곧바로 선택도 한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 상세 패널을
-	-- 열어 그 자리로 데려간다. 다른 탭에 떨궜으면 여기 오지 않는다 - 보이지도 않는 행을
-	-- 선택할 수 없다.
-	if (destLayerID == GetLayerID()) then
-		self:SetSelectedAction(action);
-		local elementData = self:FindElementDataByActionInfo(action);
-		if (elementData) then
-			self.ScrollBox:ScrollToElementData(elementData);
-		end
-	end
+	-- 한때 **같은 레이어에 떨궜을 때만** 골랐다("보이지도 않는 행을 선택할 수 없다"). 그
+	-- 판단이 틀렸다 - 안 보이면 보이게 하면 된다. 다른 탭에 떨구는 것은 "저기에 넣겠다"는
+	-- 분명한 의사표시인데, 그 결과가 화면 어디에도 안 나타나면 넣긴 넣었는지조차 알 수 없었다.
+	--
+	-- 목록이 정렬돼 있어서 새 액션이 어느 줄로 갈지는 넣어보기 전에는 모른다. 그래서
+	-- 스크롤이 필요하고, 그것도 저 함수 안에 있다.
+	self:GoToAction(action, destLayerID);
 end
 
 function DebounceFrameMixin:RefreshIconDataProvider()
@@ -2748,57 +2577,6 @@ function DebounceFrameMixin:RefreshIconDataProvider()
 		self.iconDataProvider = CreateAndInitFromMixin(IconDataProviderMixin, IconDataProviderExtraType.Spellbook);
 	end
 	return self.iconDataProvider;
-end
-
-function DebounceFrameMixin:SearchBox_OnTextChanged(userInput)
-	InputBoxInstructions_OnTextChanged(self);
-
-	local filterText = string.match(self:GetText(), "^%s*(.-)%s*$"):lower();
-	if (filterText == "") then
-		filterText = nil;
-	end
-
-	if (self.filterText ~= filterText) then
-		self.filterText = filterText;
-
-		if (filterText) then
-			local words = {}
-			for word in string.gmatch(filterText, "%S+") do
-				table.insert(words, word)
-			end
-			self.filters = words;
-		else
-			self.filters = nil;
-		end
-		DebounceFrame:Refresh();
-	end
-end
-
---- 검색창이 키보드를 가져가면 듣기는 끝난다.
----
---- 안 끝내면 한 키가 두 군데로 들어간다(SetBindingMode 참고). 둘 중 검색창을 살리는 쪽을
---- 고른 이유는 **포커스가 사용자의 의사표시**이기 때문이다 - 검색창을 눌렀다는 건 지금
---- 하려는 일이 타이핑이라는 뜻이다. 반대로 고르면(캡처를 살리고 타이핑을 막으면) 글자가
---- 안 들어가는 검색창이 남는데, 그건 고장으로 읽힌다.
----
---- self는 EditBox다(스크립트로 걸린다).
-function DebounceFrameMixin:SearchBox_OnFocusGained()
-	SearchBoxTemplate_OnEditFocusGained(self);
-	DebounceDetailPanel:CancelKeyCapture();
-end
-
-function DebounceFrameMixin:SearchBox_OnFocusLost()
-	SearchBoxTemplate_OnEditFocusLost(self);
-	local rawText = self:GetText();
-	local trimmedText = string.match(rawText, "^%s*(.-)%s*$"):lower();
-	if (rawText ~= trimmedText) then
-		self:SetText(trimmedText);
-	end
-end
-
-function DebounceFrameMixin:SearchBoxClearButton_OnClick()
-	DebounceFrame.keyFilter = "";
-	SearchBoxTemplateClearButton_OnClick(self);
 end
 
 DebounceIconSelectorFrameMixin = {};
@@ -2967,7 +2745,7 @@ function DebounceIconSelectorFrameMixin:Close(force)
 	return true;
 end
 
-DebounceDetailPanelMixin = {};
+DebounceOverviewPanelMixin = {};
 
 --- 왼쪽 열. 보여주는 것은 하나다 - **지금 이 키보드가 어떻게 생겼나.**
 ---
@@ -2979,22 +2757,33 @@ DebounceDetailPanelMixin = {};
 --- 그 문장 밖이고, 오른쪽 통이 이미 전부를 들고 있어서 잃는 것도 없다.
 ---
 --- 한때 매크로 편집기가 두 번째 탭이었다. 되돌린 이유는 `DebounceMacroFrame` 주석에 있다.
-function DebounceDetailPanelMixin:OnLoad()
-	self.ContentArea.EmptyText:SetText(LLL["DETAIL_EMPTY"]);
+function DebounceOverviewPanelMixin:OnLoad()
+	self.ContentArea.EmptyText:SetText(LLL["OVERVIEW_EMPTY"]);
 
 	self:InitializeOrderScrollBox();
+
+	-- 오버레이는 이 열의 **모든 것 위**에 서야 한다. XML에 절대 레벨을 박으면 ScrollBox가
+	-- 만드는 행들과 어느 쪽이 위인지가 우연에 걸리므로(행 키 버튼이 그렇게 강조에 덮였다),
+	-- 목록보다 위라는 사실을 여기서 관계로 적는다.
+	local overlay = self.BindOverlay;
+	overlay:SetFrameLevel(self.ContentArea.OrderArea.ScrollBox:GetFrameLevel() + 10);
+	overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
+	overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
+	overlay.DoneButton:SetText(LLL["BIND_MODE_STOP"]);
+	overlay.CancelButton:SetText(LLL["BIND_MODE_CANCEL"]);
 
 	self.initialized = true;
 	self:Refresh();
 end
 
---- 선택이 바뀌었다. 듣던 중이었다면 그 액션의 것이었으므로 여기서 끝낸다.
-function DebounceDetailPanelMixin:OnSelectionChanged()
-	self:SetBindingMode(false);
+--- 선택이 바뀌었다. **지정 모드는 안 건드린다** - 예전에는 듣기가 "고른 액션 하나"의
+--- 상태였으므로 선택이 바뀌면 끝내는 것이 맞았지만, 지금 모드의 대상은 커서 밑의 행이라
+--- 선택과 아무 상관이 없다(모드에 들어갈 때 선택은 오히려 비운다).
+function DebounceOverviewPanelMixin:OnSelectionChanged()
 	self:Refresh();
 end
 
-function DebounceDetailPanelMixin:Refresh()
+function DebounceOverviewPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
 	end
@@ -3008,8 +2797,12 @@ end
 --- `TryCloseAnyDialog`가 둘 다 부른다.
 ---
 --- 선택은 건드리지 않는다. 부르는 쪽이 이미 선택을 바꾸는 중이다.
-function DebounceDetailPanelMixin:Close()
-	self:CancelKeyCapture();
+---
+--- **지정 모드도 안 끈다.** 이 함수는 `TryCloseAnyDialog`를 거쳐 탭 클릭에서도 불리는데,
+--- 모드 중에 탭을 넘나드는 것은 허용해야 한다 - 트랜잭션은 탭에 걸쳐 살고, 되돌릴 목록은
+--- 액션으로 잡으므로 탭 A에서 셋, 탭 B에서 둘을 걸어도 취소는 다섯을 전부 되돌린다.
+--- 모드에서 나가는 길은 오버레이의 두 버튼과 ESC뿐이다.
+function DebounceOverviewPanelMixin:Close()
 	return true;
 end
 
@@ -3029,12 +2822,110 @@ end
 DebounceOrderLineMixin = {};
 
 function DebounceOrderLineMixin:Init()
+	-- 아이콘은 프레임당 한 번이면 된다. 이 함수는 행이 풀에서 나와 다른 액션에 붙을 때마다
+	-- 불리는데, 그때마다 텍스처 좌표를 다시 잡을 이유가 없다.
+	if (not self.moveIconsSet) then
+		SquareButton_SetIcon(self.MoveUpButton, "UP");
+		SquareButton_SetIcon(self.MoveDownButton, "DOWN");
+		self.moveIconsSet = true;
+	end
 	self:Update();
+end
+
+--- 이유 줄의 기본 폭(XML의 Size). 이동 버튼이 서면 그만큼 줄여서 겹치지 않게 한다.
+local ORDER_REASON_WIDTH = 170;
+local ORDER_MOVE_STRIP_WIDTH = 22 + 2 + 22 + 6;
+
+--- 고른 행에만 이동 버튼을 세우고, 갈 수 있는 방향만 켠다.
+---
+--- 켜고 끄는 판단은 전부 `ComputeOrderSwap`이 한다. 그것은 위 네 축(중요도·호버·조건·레이어)이
+--- 하나라도 갈리면 이웃 대신 **사유**를 돌려준다 - seq는 마지막 축이라, 위에서 이미 갈렸으면
+--- 번호를 바꿔봐야 순서가 안 변하기 때문이다. 그 사유가 그대로 툴팁 문장이 된다.
+---
+--- 버튼은 없앴다 만들지 않고 **늘 두 개**다. 비활성이 곧 "지금은 안 된다"이고, 나타났다
+--- 사라지면 연타할 때 과녁이 흔들린다.
+function DebounceOrderLineMixin:UpdateMoveButtons(elementData)
+	local up, down = self.MoveUpButton, self.MoveDownButton;
+
+	-- **혼자인 키에는 안 세운다.** 맞바꿀 상대가 없어서 양쪽 다 죽은 채로만 서 있게 되고,
+	-- 그 상태는 설명할 것도 없다("맨 위이자 맨 아래다"는 배울 것이 없는 말이다). 대부분의
+	-- 키가 여기 해당하므로, 안 세우는 것만으로 목록에서 버튼이 드물어진다.
+	--
+	-- **규칙 때문에 막힌 것은 다르다.** 그건 둘 이상이 같은 키를 두고 겨루는데 중요도나
+	-- 조건이 순서를 정하고 있다는 뜻이라, 죽은 버튼과 그 툴팁이 이 애드온에서 순서 규칙을
+	-- 가르치는 몇 안 되는 자리다. 그쪽은 그대로 세워 둔다.
+	local rows = elementData.rows;
+	if (not elementData.isCurrent or not rows or #rows < 2) then
+		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
+		up:Hide();
+		down:Hide();
+		self.ReasonText:ClearAllPoints();
+		self.ReasonText:SetPoint("RIGHT", -6, 0);
+		self.ReasonText:SetWidth(ORDER_REASON_WIDTH);
+		return;
+	end
+
+	local upNeighbor, upReason = DebouncePrivate.ComputeOrderSwap(rows, elementData.index, -1);
+	local downNeighbor, downReason = DebouncePrivate.ComputeOrderSwap(rows, elementData.index, 1);
+
+	self.moveUpNeighbor, self.moveDownNeighbor = upNeighbor, downNeighbor;
+	up.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
+	down.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
+	up.titleKey, up.descKey = "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC";
+	down.titleKey, down.descKey = "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC";
+	up:SetEnabled(upNeighbor ~= nil);
+	down:SetEnabled(downNeighbor ~= nil);
+	up:Show();
+	down:Show();
+
+	-- 이유 줄을 버튼 왼쪽으로 물린다. **폭만 줄이면 안 된다** - 오른쪽 변이 행 끝에 고정된
+	-- 앵커라(XML: RIGHT, -6) 폭을 줄여도 그 변은 그대로고, 오른쪽 정렬이라 글자가 버튼
+	-- 밑으로 들어간다. 이름 칸은 이유 줄에 매달려 있어서 따라 움직인다(XML).
+	self.ReasonText:ClearAllPoints();
+	self.ReasonText:SetPoint("RIGHT", up, "LEFT", -6, 0);
+	self.ReasonText:SetWidth(ORDER_REASON_WIDTH - ORDER_MOVE_STRIP_WIDTH);
+end
+
+--- 이웃과 **순서 번호를 맞바꾸는 것이 전부다.** 배열 자리는 순서에 아무 영향이 없다
+--- (목록은 정렬해서 그린다) - 순서를 정하는 것은 액션이 들고 있는 seq다.
+---
+--- 번호가 없는 쪽이 있으면 물러난다. 키가 걸린 액션은 마이그레이션과 CleanUpDB가 번호를
+--- 보장하므로 정상 경로로는 못 오는 자리지만, 여기서 nil을 맞바꾸면 **둘 다 번호를 잃고**
+--- 순서가 조용히 무너진다.
+function DebounceOrderLineMixin:OnMoveClick(button)
+	local neighborRow = (button == self.MoveUpButton) and self.moveUpNeighbor or self.moveDownNeighbor;
+	local action = self:GetElementData().row.action;
+	local neighbor = neighborRow and neighborRow.action;
+	if (not action or not neighbor or action.seq == nil or neighbor.seq == nil) then
+		return;
+	end
+
+	action.seq, neighbor.seq = neighbor.seq, action.seq;
+	action._dirty = true;
+	neighbor._dirty = true;
+	DebouncePrivate.UpdateBindings();
+	DebounceFrame:Refresh(true);
+	DebounceFrame:Update();
+	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+end
+
+--- 막힌 버튼은 **왜 막혔는지**를 말한다. 그 사유는 순서 규칙 자체라, 이 애드온에서 규칙을
+--- 가르치는 몇 안 되는 자리다.
+function DebounceOrderLineMixin:OnMoveEnter(button)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
+	GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
+	if (not button:IsEnabled() and button.reasonKey) then
+		GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
+	end
+	GameTooltip:Show();
 end
 
 function DebounceOrderLineMixin:Update()
 	local elementData = self:GetElementData();
 	local row = elementData.row;
+
+	self:UpdateMoveButtons(elementData);
 
 	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
 	local name, icon = ColoredNameAndIconForAction(row.action);
@@ -3097,7 +2988,7 @@ end
 --- 열면 되고, 우클릭만 데려가게 두면 좌클릭이 아무 반응도 없는 목록이 된다.
 function DebounceOrderLineMixin:OnClick()
 	-- 캡처 중에는 이 목록이 아직 옛 키의 것이다. 곧 갈아치워질 화면에서 떠나지 않는다.
-	if (DebounceDetailPanel:IsCapturingKey()) then
+	if (DebounceFrame:IsCapturingKey()) then
 		return;
 	end
 
@@ -3105,7 +2996,7 @@ function DebounceOrderLineMixin:OnClick()
 	DebounceFrame:GoToAction(row.action, row.layerID);
 end
 
-function DebounceDetailPanelMixin:InitializeOrderScrollBox()
+function DebounceOverviewPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
 	-- 행 사이는 띄우지 않는다(마지막 인자 0). 줄무늬가 경계를 그리므로 틈이 필요 없고,
 	-- 틈이 있으면 무늬가 끊겨서 오히려 줄이 안 세어진다. 경매장 목록도 붙여 놓는다.
@@ -3179,6 +3070,10 @@ local function BuildKeyboardElements()
 				reason = reason,
 				reasonA = argA,
 				reasonB = argB,
+				-- 이동 버튼이 `ComputeOrderSwap(rows, index, ±1)`을 물으려면 **그룹 전체와
+				-- 자기 자리**가 있어야 한다. 그릴 때는 이웃 행이 손에 없으므로 여기서 실어둔다.
+				rows = rows,
+				index = i,
 			};
 		end
 	end
@@ -3189,7 +3084,7 @@ end
 ---
 --- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 그 행을
 --- 짚는 것 하나뿐이다(`isCurrent`).
-function DebounceDetailPanelMixin:RefreshKeyboard()
+function DebounceOverviewPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 	local elements = BuildKeyboardElements();
 
@@ -3223,13 +3118,14 @@ end
 --- **사용자가 버튼을 눌러서 들어온 상태만** 참이다. 예전에는 키가 없는 액션이면 무조건
 --- 참이었는데, 그러면 사용자가 연 적 없는 모드가 열려서 다른 모든 동작이 "지금 캡처하면
 --- 안 된다"를 따로 판단해야 했다. 지금은 버튼 하나의 상태라 그럴 일이 없다.
-function DebounceDetailPanelMixin:IsCapturingKey()
+function DebounceFrameMixin:IsCapturingKey()
 	return self.bindingMode == true;
 end
 
 
---- 듣는 표시. 블리자드 단축키 버튼이 쓰는 것과 같은 텍스처다(CustomBindingButtonTemplate).
---- 행 버튼은 풀에서 나오므로 XML에 못 박지 못하고, 처음 듣는 순간 한 번 만든다.
+--- 모드가 켜져 있다는 표시. 블리자드 단축키 버튼이 쓰는 것과 같은 텍스처다
+--- (CustomBindingButtonTemplate). 과녁이 행마다 바뀌던 시절에 XML로는 못 박을 수가 없어서
+--- 코드로 만들게 됐고, 과녁이 토글 하나로 고정된 지금도 만드는 자리는 여기 하나면 된다.
 local function EnsureCaptureHighlight(button)
 	if (not button.SelectedHighlight) then
 		local selected = button:CreateTexture(nil, "OVERLAY");
@@ -3244,14 +3140,33 @@ end
 
 --- 과녁을 듣는 상태로 넣고 뺀다.
 ---
---- 듣는 동안에만 키보드·휠·게임패드를 켠다. 평소에는 좌/우클릭만 받으므로 목록에 버튼이
---- 몇 개 떠 있어도 키보드를 먹지 않는다.
-function DebounceDetailPanelMixin:SetBindingMode(active, button)
-	active = (active and _selectedAction ~= nil) or false;
+--- 듣는 동안에만 키보드·게임패드를 켠다. 과녁은 목록 위의 토글 하나이고 풀에서 돌지 않으므로,
+--- 예전처럼 "듣던 행이 스크롤로 사라지면" 같은 경우를 여기서 볼 일이 없다.
+function DebounceFrameMixin:SetBindingMode(active, button)
+	-- **고른 액션이 없어도 켠다.** 예전에는 행의 키 버튼이 자기 액션을 먼저 고르고 들어와서
+	-- 여기서 그걸 요구할 수 있었다. 지금은 모드가 먼저 켜지고 대상은 **그때그때 커서 밑의
+	-- 행**이라, 켜는 시점에 고른 것이 없는 게 정상이다.
+	active = active or false;
 	if (self:IsCapturingKey() == active) then
 		return;
 	end
 	self.bindingMode = active or nil;
+	self:UpdateBindModeButton();
+	DebounceOverviewPanel.BindOverlay:SetShown(active);
+
+	if (active) then
+		-- 되돌릴 목록을 연다. 액션을 키로 잡으므로 **탭에 걸쳐 산다** - 탭 A에서 셋, 탭 B에서
+		-- 둘을 걸어도 취소는 다섯을 전부 되돌린다.
+		self.bindEdits = {};
+
+		-- **선택을 비운다.** 선택은 "지금 이 액션 이야기 중"이라는 뜻인데 모드의 대상은 커서
+		-- 밑의 행이라, 남겨두면 강조가 가리키는 것과 실제로 키가 걸릴 곳이 어긋난다.
+		self:SetSelectedAction(nil);
+	else
+		-- 여기로 오는 것은 전부 **커밋**이다(오버레이의 [종료], 창이 숨는 경우, 토글 다시 누르기).
+		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
+		self.bindEdits = nil;
+	end
 
 	-- 켤 때는 부르는 쪽이 준 과녁을, 끌 때는 **켰던 그 과녁**을 되돌린다. 행 버튼은 풀에서
 	-- 나오므로 그 사이에 다른 행을 그리고 있을 수 있는데, 여기서 다시 찾으면 엉뚱한 행의
@@ -3275,13 +3190,13 @@ function DebounceDetailPanelMixin:SetBindingMode(active, button)
 	end
 	if (active) then
 		-- 편집칸이 키보드 포커스를 들고 있으면 **양쪽이 다 받는다.** 포커스 잡힌 EditBox와
-		-- 키보드를 켠 이 버튼에 같은 키가 각각 들어가서, 한 번 누른 것이 검색어에도 들어가고
-		-- 단축키도 바꾼다 - 한 번의 입력이 두 가지 일을 한다.
+		-- 키보드를 켠 이 과녁에 같은 키가 각각 들어가서, 한 번 누른 것이 글자로도 들어가고
+		-- 단축키도 바꾼다 - 한 번의 입력이 두 가지 일을 한다. 이 창의 검색창은 없앴지만
+		-- 주문 선택 창과 매크로 편집기가 아직 EditBox를 들고 있다.
 		--
-		-- 마우스 위치는 상관이 없다. 키보드는 마우스가 패널 밖에 있어도 이 버튼에 들어온다
-		-- (잡히지 않는 건 클릭뿐이다). 그래서 "패널 위에서만 듣는다"로는 막을 수 없고,
-		-- 듣기 시작할 때 포커스를 거두는 수밖에 없다. 반대 방향(듣는 중에 검색창을 클릭)은
-		-- SearchBox_OnFocusGained이 캡처를 끝내는 것으로 막는다.
+		-- 마우스 위치는 상관이 없다. 키보드는 마우스가 패널 밖에 있어도 들어온다(잡히지 않는
+		-- 건 클릭뿐이다). 그래서 "패널 위에서만 듣는다"로는 막을 수 없고, 듣기 시작할 때
+		-- 포커스를 거두는 수밖에 없다.
 		local focus = GetCurrentKeyBoardFocus();
 		if (focus) then
 			focus:ClearFocus();
@@ -3306,80 +3221,46 @@ function DebounceDetailPanelMixin:SetBindingMode(active, button)
 		-- 끄므로 이 값은 어차피 다음에 들을 때까지 아무 일도 하지 않는다.
 	end
 
-	self:Refresh();
-	DebounceFrame:Update();
+	-- **왼쪽 열의 Refresh다.** 창의 Refresh(오른쪽 목록 재구성)와 이름이 같으므로 여기서
+	-- self:Refresh()라고 쓰면 엉뚱한 목록이 다시 그려진다.
+	DebounceOverviewPanel:Refresh();
+	self:Update();
 end
 
+--- 토글의 말은 **지금 무엇을 하는 버튼인가**다. 켜져 있으면 "끝내기" - 켜진 상태에서
+--- "키 지정"이라고 적혀 있으면 눌러야 시작되는 것처럼 읽힌다.
+function DebounceFrameMixin:UpdateBindModeButton()
+	self.BindModeButton:SetText(self:IsCapturingKey() and LLL["BIND_MODE_STOP"] or LLL["BIND_MODE"]);
+end
 
---- 목록 행의 단축키 칸. 패널 버튼과 **같은 기계**로 들어간다 - 같은 일이 두 자리에 있으므로
---- 결과가 갈릴 길이 없어야 한다.
+--- 켜고 끈다. 목록 위 토글이 부른다.
+function DebounceFrameMixin:ToggleBindMode()
+	self:SetBindingMode(not self:IsCapturingKey(), self.BindModeButton);
+end
+
+--- 커서 밑의 행. **들고 있지 않고 그때그때 찾는다.**
 ---
---- 먼저 그 행을 고른다. 캡처는 `_selectedAction`에 쓰므로, 고르지 않으면 커서가 얹힌 행과
---- 키가 걸리는 액션이 어긋난다.
-function DebounceDetailPanelMixin:RowKeyButton_OnClick(button, mouseButton)
-	if (self:IsCapturingKey()) then
-		self:KeyButton_OnInput(mouseButton);
-		return;
-	end
-
-	local elementData = button:GetParent():GetElementData();
-	local action = elementData and elementData.action;
-	if (not action) then
-		return;
-	end
-	DebounceFrame:SetSelectedAction(action);
-
-	if (mouseButton == "RightButton") then
-		self:UnbindKey();
-		return;
-	end
-	self:SetBindingMode(true, button);
-end
-
-function DebounceDetailPanelMixin:RowKeyButton_OnEnter(button)
-	local elementData = button:GetParent():GetElementData();
-	local action = elementData and elementData.action;
-
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, LLL["KEY"]);
-	local key = action and action.key;
-	if (key) then
-		GameTooltip_AddHighlightLine(GameTooltip, GetBindingText(key));
-	end
-	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_DESC"]);
-	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_UNBIND_DESC"]);
-	GameTooltip:Show();
-end
-
---- **이 과녁이 듣고 있을 때만** 끝낸다. 행은 풀에서 돌아가므로, 조건 없이 끄면 스크롤로
---- 사라진 남의 행이 지금 듣고 있는 행의 캡처를 뺏는다.
-function DebounceDetailPanelMixin:CancelKeyCaptureFor(button)
-	if (self.captureButton == button) then
-		self:SetBindingMode(false);
-	end
-end
-
-function DebounceDetailPanelMixin:KeyButton_OnKeyDown(button, key)
-	if (not self:IsCapturingKey()) then
-		button:SetPropagateKeyboardInput(true);
-		return;
-	end
-	-- 전투 중 SetPropagateKeyboardInput은 taint다. 전투에 들어가면 창이 숨고 OnHide가
-	-- 듣기를 끄므로 보통은 여기까지 오지 않지만, 전투가 시작된 바로 그 프레임에 눌린 키는
-	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다. 그 한 프레임을 여기서 막는다.
-	if (InCombatLockdown()) then
-		return;
-	end
-	button:SetPropagateKeyboardInput(false);
-	if (key == "ESCAPE") then
-		self:SetBindingMode(false);
-		return;
-	end
-	self:KeyButton_OnInput(key);
+--- 행은 풀에서 돌아가므로 "지금 호버된 행"을 변수로 들고 있으면 스크롤 한 번에 그 포인터가
+--- 남의 행을 가리킨다. 보이는 행은 많아야 열 몇이고 묻는 것은 키를 누를 때뿐이라, 그때
+--- 훑는 편이 상태를 맞춰 두는 것보다 싸고 틀릴 데가 없다.
+local function GetHoveredLine()
+	local hovered;
+	DebounceFrame.ScrollBox:ForEachFrame(function(frame)
+		if (not hovered and frame.GetElementData and frame:IsMouseOver()) then
+			hovered = frame;
+		end
+	end);
+	return hovered;
 end
 
 --- 키보드·마우스·휠·게임패드가 모두 지나는 길목.
-function DebounceDetailPanelMixin:KeyButton_OnInput(input)
+---
+--- **대상은 커서 밑의 행이다.** 클릭과 휠은 그 행이 직접 불러서 자기를 넘기고(누가
+--- 받았는지 이미 알고 있다), 키보드는 프레임 하나로 들어오므로 여기서 찾는다.
+---
+--- **넣고 나서도 모드는 켜진 채다.** 그게 모드인 이유다 - 열 개를 걸 사람이 열 번 들어갔다
+--- 나오지 않아도 된다. 나가는 길은 토글과 ESC 둘뿐이고, 둘 다 목록 밖의 동작이다.
+function DebounceFrameMixin:BindMode_OnInput(input, line)
 	if (not self:IsCapturingKey()) then
 		return;
 	end
@@ -3387,11 +3268,88 @@ function DebounceDetailPanelMixin:KeyButton_OnInput(input)
 		return;
 	end
 
+	line = line or GetHoveredLine();
+	local elementData = line and line.GetElementData and line:GetElementData();
+	local action = elementData and elementData.action;
+	if (not action) then
+		return;
+	end
+
 	local key = GetConvertedKeyOrButton(input);
 	key = _CreateKeyChordStringUsingMetaKeyState(key);
+	self:SetActionKey(action, key);
+end
 
+--- 모드가 켜진 동안 키보드는 **토글 버튼 하나로** 들어온다. 커서가 어디에 있든 그렇다.
+function DebounceFrameMixin:BindMode_OnKeyDown(button, key)
+	if (not self:IsCapturingKey()) then
+		button:SetPropagateKeyboardInput(true);
+		return;
+	end
+	-- 전투 중 SetPropagateKeyboardInput은 taint다. 전투에 들어가면 창이 숨고 OnHide가
+	-- 모드를 끄므로 보통은 여기까지 오지 않지만, 전투가 시작된 바로 그 프레임에 눌린 키는
+	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다. 그 한 프레임을 여기서 막는다.
+	if (InCombatLockdown()) then
+		return;
+	end
+	button:SetPropagateKeyboardInput(false);
+
+	-- **ESC는 가리킨 것이 있으면 지우개, 없으면 취소다.** 둘 다 와우가 하는 그대로다:
+	-- 빠른 키 지정 모드에서 과녁을 가리키는 중이면 ESC가 그 바인딩을 지우고
+	-- (QuickKeybind.lua:201, 툴팁 문구는 클라이언트 전역 ESCAPE_TO_UNBIND), 가리키는 것이
+	-- 없으면 `CancelBinding`으로 간다 - 그건 `LoadBindings(GetCurrentBindingSet())`으로
+	-- **그 세션에 바꾼 것을 통째로 되돌리고** 닫는다(QuickKeybind.lua:178).
+	--
+	-- 지우개 쪽은 우리에게 필연이기도 하다. 좌·우·가운데·4·5·휠·DELETE까지 전부 걸 수 있는
+	-- 키라, 모드 안에서 "이건 지우기"로 쓸 수 있는 입력이 ESC 말고는 남지 않는다.
+	--
+	-- 값이 큰 쪽이 빗나가기 쉬운 자리에 있다는 것은 안다 - 행을 겨냥하다 몇 픽셀 빗나가면
+	-- 지우기가 아니라 전체 취소가 된다. 그래도 게임의 같은 모드와 같은 손버릇이 되는 편이
+	-- 우리만의 규칙을 하나 더 만드는 것보다 낫다. 되돌린 것을 되살릴 길은 없다.
+	if (key == "ESCAPE") then
+		local line = GetHoveredLine();
+		local elementData = line and line:GetElementData();
+		local action = elementData and elementData.action;
+		if (action) then
+			self:SetActionKey(action, nil);
+		else
+			self:CancelBindMode();
+		end
+		return;
+	end
+	self:BindMode_OnInput(key);
+end
+
+--- **모드에 들어온 뒤 바뀐 키를 전부 되돌리고 나간다.** 직전 하나가 아니다.
+---
+--- 목록을 먼저 챙기는 이유는 `SetBindingMode(false)`가 그걸 비우기 때문이다(거기로 가는 다른
+--- 길은 전부 커밋이라 비우는 것이 맞다).
+---
+--- 되돌린 뒤 바인딩을 **한 번만** 다시 올린다. 액션마다 UpdateBindings를 부르면 스무 개를
+--- 되돌릴 때 스무 번 올라간다.
+function DebounceFrameMixin:CancelBindMode()
+	local edits = self.bindEdits;
 	self:SetBindingMode(false);
-	self:SetActionKey(key);
+	if (not edits) then
+		return;
+	end
+
+	local changed;
+	for action, original in pairs(edits) do
+		if (action.key ~= original.key or action.seq ~= original.seq) then
+			action.key = original.key;
+			action.seq = original.seq;
+			action._dirty = true;
+			changed = true;
+		end
+	end
+
+	if (changed) then
+		DebouncePrivate.UpdateBindings();
+		self:Refresh(true);
+		self:Update();
+		DebounceOverviewPanel:Refresh();
+	end
 end
 
 --- 듣기를 그만둔다. 선택은 건드리지 않는다.
@@ -3399,21 +3357,8 @@ end
 --- 예전에는 키 없는 액션에서 오버레이가 늘 걸려 있어서 "선택을 푸는 것"이 유일한 출구였고,
 --- 그래서 선택을 지킬지 말지를 인자로 받았다. 듣는 상태가 사용자가 연 것이 되면서 그냥
 --- 나오면 되므로 인자도 사라졌다.
-function DebounceDetailPanelMixin:CancelKeyCapture()
+function DebounceFrameMixin:CancelKeyCapture()
 	self:SetBindingMode(false);
-end
-
---- 단축키 해제. 단축키 버튼 우클릭과 우클릭 메뉴가 **둘 다 여기로 온다.** 같은 동작이
---- 어디서 눌렸느냐에 따라 다른 결과를 내면 안 된다.
----
---- 선택은 그대로 둔다. 키가 없어도 패널은 그 액션을 계속 보여준다 - 키를 지우자마자
---- 목록으로 튕겨나가면 방금 무엇을 한 건지 볼 자리가 없다.
-function DebounceDetailPanelMixin:UnbindKey()
-	if (not _selectedAction) then
-		return;
-	end
-	self:SetBindingMode(false);
-	self:SetActionKey(nil);
 end
 
 --- 키를 저장하고 되비춘다. 목록이 키순으로 정렬돼 있으므로 왼쪽 자리도 바뀐다 - 그 자리가
@@ -3429,10 +3374,22 @@ end
 ---
 --- 키를 떼도 번호는 남긴다. 그래야 잠깐 뗐다 다시 걸었을 때 사용자가 ↑↓로 정해둔 자리로
 --- 돌아온다. 번호가 남아 있으면 여기서 새로 주지 않는 이유가 그것이다.
-function DebounceDetailPanelMixin:SetActionKey(key)
-	local action = _selectedAction;
+--- **대상을 받는다.** 예전에는 고른 액션에만 걸 수 있어서 인자가 없었는데, 지정 모드에서는
+--- 커서 밑의 행이 대상이고 그건 고른 행과 다를 수 있다.
+function DebounceFrameMixin:SetActionKey(action, key)
 	if (not action or action.key == key) then
 		return false;
+	end
+
+	-- 지정 모드의 트랜잭션. **액션마다 한 번만** 적는다 - 모드 중에 같은 액션을 세 번 고쳐도
+	-- 되돌릴 값은 모드에 들어오기 전의 것이라야 한다.
+	--
+	-- seq도 같이 적는다. 아래에서 키가 처음 걸리면 순서 번호를 발급하는데, 키만 되돌리면 그
+	-- 액션은 **취소된 세션에서 받은 번호**를 계속 들고 있게 된다. 평소에 키를 떼도 번호를
+	-- 남기는 것은 뗐다 다시 걸 때 자리를 지키려는 것이고, 취소는 없던 일로 만드는 것이라 다르다.
+	local edits = self.bindEdits;
+	if (edits and edits[action] == nil) then
+		edits[action] = { key = action.key, seq = action.seq };
 	end
 
 	if (key ~= nil and action.seq == nil) then
@@ -3445,9 +3402,9 @@ function DebounceDetailPanelMixin:SetActionKey(key)
 	action.key = key;
 	action._dirty = true;
 	DebouncePrivate.UpdateBindings();
-	DebounceFrame:Refresh(true);
-	DebounceFrame:ScrollActionIntoView(action);
-	DebounceFrame:Update();
+	self:Refresh(true);
+	self:ScrollActionIntoView(action);
+	self:Update();
 	return true;
 end
 

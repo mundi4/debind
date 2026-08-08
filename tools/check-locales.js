@@ -20,7 +20,9 @@ const BASE = "enUS";
 const ALLOWED_MISSING = {
     // enUS는 클라이언트 전역 NOT_BOUND를 담는다. 다른 로케일에서는 그 전역이 이미
     // 제 나라 말이라 따로 번역할 것이 없다.
-    DETAIL_NO_KEY: ["ruRU"],
+    OVERVIEW_NO_KEY: ["ruRU"],
+    // 같은 이유. 클라이언트 전역 ESCAPE_TO_UNBIND를 그대로 받는다.
+    BIND_MODE_UNBIND_HINT: ["ruRU"],
 };
 
 // `L["KEY"] = ...` 형태만 센다. 주석(`-- L["X"]`)은 안 잡히도록 줄 앞을 고정한다.

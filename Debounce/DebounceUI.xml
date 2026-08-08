@@ -123,18 +123,6 @@
 						<Anchor point="BOTTOMLEFT" x="4" y="3"/>
 					</Anchors>
 				</FontString>
-				<!--
-					글자 뒤부터 오른쪽 끝까지 긋는다. 라벨이 세로 가운데에 걸려 있어야
-					두 앵커의 높이가 어긋나지 않는다.
-				-->
-				<Texture parentKey="Divider">
-					<Size y="1"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Label" relativePoint="RIGHT" x="6" y="0"/>
-						<Anchor point="RIGHT" x="-2" y="0"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="0.15"/>
-				</Texture>
 			</Layer>
 		</Layers>
 	</Frame>
@@ -309,62 +297,12 @@
 				</Texture>
 			</Layer>
 		</Layers>
-		<Frames>
-			<!--
-				단축키 칸. 평소에는 `BindingText`가 글자로만 서 있고, 마우스가 이 행에 올라오면
-				그 자리에 이 버튼이 뜬다.
-
-				**행마다 버튼을 늘 세워두지 않는 이유**는 그림이다 - 목록 전체에 테두리가
-				줄줄이 서면 무엇이 눌리는 것인지가 오히려 안 보인다.
-
-				**과녁에 테두리가 있어야 하는 이유**는 안전이다. 캡처에 들어가면 그 다음
-				입력이 무엇이든 단축키가 되는데(마우스 버튼도, 휠도), 들어가는 문이 안 보이면
-				실수로 들어가고 들어간 줄도 모른다. 그래서 글자만 반응하게 두는 안은 버렸다.
-
-				자리는 `BindingText`와 같은 줄, 같은 x다 - 버튼이 뜨면서 글자가 밀리면 그
-				자체가 과녁을 흔든다.
-
-				휠은 **듣는 동안 이 버튼에만** 켜진다(SetBindingMode). 목록 위에서 굴리면
-				그냥 스크롤이고, 커서가 이 버튼 위에 있을 때만 휠이 단축키가 된다.
-			-->
-			<Button parentKey="KeyButton" inherits="UIPanelButtonTemplate" hidden="true" frameLevel="4">
-				<Size x="150" y="20"/>
-				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="2" y="-8"/>
-				</Anchors>
-				<Scripts>
-					<OnClick>
-						DebounceDetailPanel:RowKeyButton_OnClick(self, button);
-					</OnClick>
-					<OnEnter>
-						DebounceDetailPanel:RowKeyButton_OnEnter(self);
-					</OnEnter>
-					<OnLeave>
-						GameTooltip:Hide();
-					</OnLeave>
-					<OnKeyDown>
-						DebounceDetailPanel:KeyButton_OnKeyDown(self, key);
-					</OnKeyDown>
-					<OnMouseWheel>
-						DebounceDetailPanel:KeyButton_OnInput(delta &gt; 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN");
-					</OnMouseWheel>
-					<OnGamePadButtonUp>
-						DebounceDetailPanel:KeyButton_OnInput(button);
-					</OnGamePadButtonUp>
-					<!--
-						행은 스크롤로 재사용된다. 듣던 행이 화면 밖으로 나가면 여기서 끝낸다 -
-						안 그러면 보이지도 않는 버튼이 키보드를 들고 있다.
-					-->
-					<OnHide>
-						DebounceDetailPanel:CancelKeyCaptureFor(self);
-					</OnHide>
-				</Scripts>
-			</Button>
-		</Frames>
 		<Scripts>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 			<OnClick method="OnClick"/>
+			<!-- 지정 모드가 켜진 동안에만 산다(DebounceLineMixin:Update의 EnableMouseWheel). -->
+			<OnMouseWheel method="OnMouseWheel"/>
 			<!-- OnDragStart은 없다. 행은 끌 수 없고 받기만 한다(DebounceLineMixin 참고). -->
 			<OnReceiveDrag method="OnReceiveDrag"/>
 		</Scripts>
@@ -478,6 +416,59 @@
 				</Texture>
 			</Layer>
 		</Layers>
+		<Frames>
+			<!--
+				**순서를 한 칸 옮기는 버튼. 고른 행에만 뜬다.**
+
+				호버로 띄우지 않는 이유는 두 번째 누를 때다. ↓를 누르면 이 행이 한 칸 내려가고
+				커서 밑에는 다른 행이 올라오는데, 호버가 대상을 정하면 한 번 더 누를 때 **엉뚱한
+				행이** 움직인다(방금 옮긴 것이 도로 제자리로 오는 것처럼 보인다). 선택은 액션을
+				따라가므로 두 번째 ↓도 같은 액션을 또 내린다. 캐릭터 선택 화면이 호버로 되어
+				있고 바로 그 결함을 갖고 있다.
+
+				아트는 `UIPanelSquareButton`이다. 캐릭터 선택의 그 버튼은 전부 `glues-*`
+				아틀라스라 인게임에서는 안 나온다.
+
+				**둘 다 그리고 못 가는 쪽을 비활성으로 둔다.** 없앴다 만들면 같은 행에서 버튼이
+				한 칸씩 튀어서, 연타할 때 과녁이 흔들린다.
+			-->
+			<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true" hidden="true">
+				<Size x="22" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" x="-4" y="0"/>
+				</Anchors>
+				<Scripts>
+					<!-- 이 버튼들에는 믹스인이 없다. 상태는 행(부모)이 들고 있으므로 그리로 넘긴다. -->
+					<OnClick>
+						self:GetParent():OnMoveClick(self);
+					</OnClick>
+					<OnEnter>
+						self:GetParent():OnMoveEnter(self);
+					</OnEnter>
+					<OnLeave>
+						GameTooltip:Hide();
+					</OnLeave>
+				</Scripts>
+			</Button>
+			<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true" hidden="true">
+				<Size x="22" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.MoveDownButton" relativePoint="LEFT" x="-2" y="0"/>
+				</Anchors>
+				<Scripts>
+					<!-- 이 버튼들에는 믹스인이 없다. 상태는 행(부모)이 들고 있으므로 그리로 넘긴다. -->
+					<OnClick>
+						self:GetParent():OnMoveClick(self);
+					</OnClick>
+					<OnEnter>
+						self:GetParent():OnMoveEnter(self);
+					</OnEnter>
+					<OnLeave>
+						GameTooltip:Hide();
+					</OnLeave>
+				</Scripts>
+			</Button>
+		</Frames>
 		<Scripts>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
@@ -629,11 +620,13 @@
 				</KeyValues>
 				<Anchors>
 					<!--
-						통 위에 선다. 셋 중 [+ 추가]가 통에 넣는 버튼이라 그 열 위여야 하고,
-						나머지 둘도 같은 줄에 있는 편이 한 덩어리로 읽힌다.
-						(오른쪽 끝은 ScrollBoxBackground의 오른쪽 끝에 맞춘다)
+						**프레임 오른쪽 위에 붙는다.** 자리는 클릭 바인딩 창의 포트레잇 버튼과
+						같다(Blizzard_ClickBindingUI.xml: 프레임 TOPRIGHT에서 -40/-40, 다음 것이
+						왼쪽으로 -5). 그 창의 것과 우리 것은 템플릿부터 같은 31x31인데, 간격 -5만
+						베끼고 기준은 인셋으로 잡아 놓아서 창이 넓어지거나 인셋이 움직일 때마다
+						같이 흘렀다.
 					-->
-					<Anchor point="TOPRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="0" y="45"/>
+					<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" x="-40" y="-40"/>
 				</Anchors>
 			</DropdownButton>
 			<DropdownButton parentKey="CustomStatesPortrait" inherits="DebouncePortraitTemplate">
@@ -683,7 +676,18 @@
 				때는 8px짜리 바 뒤에 7px밖에 안 남아 바가 창틀에 기대 섰다 - 계산은
 				FRAME_WIDTH 주석에 있다.
 			-->
-			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
+				<!--
+					블리자드의 클릭 바인딩 창이 목록 인셋에 쓰는 것과 같은 조합이다
+					(Blizzard_ClickBindingUI.xml: TooltipBackdropTemplate + DARKGRAY/BLACK).
+					`InsetFrameTemplate`의 고전 베벨 대신 얇은 테두리에 검은 바탕이라, 그 위에 얹히는
+					행 아트(ClickCastList-ButtonBackground)와 같은 시대의 그림이 된다 - 그 아트를
+					저쪽에서 그대로 가져다 쓰면서 담는 상자만 옛 것이었다.
+				-->
+				<KeyValues>
+					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+				</KeyValues>
 				<Size x="375" y="0"/>
 				<Anchors>
 					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
@@ -745,28 +749,6 @@
 				</Anchors>
 			</EventFrame>
 
-			<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40" hidden="false">
-				<Size x="120" y="30"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPLEFT" x="4" y="2"/>
-				</Anchors>
-			</EditBox>
-
-			<!--
-				목록을 단축키로 묶을지. **정렬 모드가 아니다** - 줄 순서는 묶든 안 묶든 이름순이고
-				이 체크박스는 키가 바뀌는 자리에 선을 그을지만 정한다. 이유는
-				`BuildSortedElements`(DebounceUI.lua)에 있다.
-
-				옵션 메뉴가 아니라 목록 위에 두는 이유, 라벨/툴팁을 Lua에서 붙이는 이유는
-				`DebounceFrameMixin:InitializeButtons`에.
-			-->
-			<CheckButton parentKey="GroupByKeyCheckButton" inherits="UICheckButtonTemplate">
-				<Size x="24" y="24"/>
-				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
-				</Anchors>
-			</CheckButton>
-
 			<!--
 				레이어 탭은 **통 아래**에 선다. 고르는 것이 "어느 통을 보고 있나"라서 그
 				열에 붙어 있어야 하고, 왼쪽(결과)에는 고를 통이 없다.
@@ -797,9 +779,22 @@
 					<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT"/>
 				</Anchors>
 				<Frames>
+					<!--
+						**첫 탭의 윗선은 통(ScrollBoxBackground)의 윗선이다.** 프레임 위에서 -36으로 잡혀
+						있었는데 통은 -85에서 시작하므로, 탭 줄이 제가 여는 목록보다 49px 위에 떠 있었다.
+						그러면 이 탭들이 통의 탭이 아니라 **창 전체의 탭**으로 읽힌다 - 실제로 고르는 것은
+						통에 담길 레이어 하나뿐이다.
+
+						-11은 **아트가 프레임 밖으로 나온 만큼**이다. 탭 그림(64x64 SkillLineTab)이
+						버튼의 TOPLEFT에서 y=+11로 걸려 있어서 위로 11px 삐져나온다. 그만큼 내려야
+						보이는 탭의 윗변이 통의 윗변에 온다 - 프레임끼리 맞추면 눈에는 안 맞는다.
+
+						가로는 그대로 SideTabsFrame(=창 전체)의 오른쪽 밖이다. 통의 오른쪽에 붙이면 창
+						안으로 들어와 스크롤바와 겹친다.
+					-->
 					<CheckButton parentArray="Tabs" parentKey="Tab1" inherits="DebounceSideTabTemplate" id="1">
 						<Anchors>
-							<Anchor point="TOP" relativePoint="TOP" x="0" y="-36"/>
+							<Anchor point="TOP" relativeKey="$parent.$parent.ScrollBoxBackground" relativePoint="TOP" x="0" y="-11"/>
 							<Anchor point="LEFT" relativePoint="RIGHT" x="2" y="0"/>
 						</Anchors>
 					</CheckButton>
@@ -830,23 +825,7 @@
 				패널 자체는 프레임 몸통이고 인셋이 아니다. 인셋은 안에 담긴 ContentArea가
 				갖는다 - 오른쪽에서 ScrollBoxBackground가 인셋인 것과 같은 구조다.
 			-->
-			<!--
-				왼쪽 열의 이름표. **탭이 하나뿐이라 고를 것이 없다** - 누르는 물건이 아니라
-				이 열이 무엇인지 말하는 자리다.
-
-				그래도 탭 모양인 이유는 대칭이다. 오른쪽 열은 탭이 아래 붙어 있어서 자기가
-				무엇인지 말하는데, 왼쪽만 그게 없으면 두 열이 같은 급으로 안 읽힌다.
-
-				`Tabs` 배열에는 안 넣는다. 거기 들어가면 PanelTemplates가 이걸 세 번째 탭으로
-				세어서 오른쪽 탭들의 선택 상태를 같이 관리하려 든다.
-			-->
-			<Button parentKey="OverviewTab" inherits="PanelTabButtonTemplate">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.DetailPanel" relativePoint="BOTTOMLEFT" x="8" y="-9"/>
-				</Anchors>
-			</Button>
-
-			<Frame parentKey="DetailPanel" name="DebounceDetailPanel" useParentLevel="true" mixin="DebounceDetailPanelMixin" enableMouse="true">
+			<Frame parentKey="OverviewPanel" name="DebounceOverviewPanel" useParentLevel="true" mixin="DebounceOverviewPanelMixin" enableMouse="true">
 				<Anchors>
 					<!--
 						위아래 끝이 오른쪽 목록 인셋과 정확히 같은 선에 온다
@@ -857,7 +836,18 @@
 					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMLEFT" x="-22" y="0"/>
 				</Anchors>
 				<Frames>
-					<Frame parentKey="ContentArea" useParentLevel="true" inherits="InsetFrameTemplate" setAllPoints="true">
+					<Frame parentKey="ContentArea" useParentLevel="true" inherits="TooltipBackdropTemplate" setAllPoints="true">
+						<!--
+							블리자드의 클릭 바인딩 창이 목록 인셋에 쓰는 것과 같은 조합이다
+							(Blizzard_ClickBindingUI.xml: TooltipBackdropTemplate + DARKGRAY/BLACK).
+							`InsetFrameTemplate`의 고전 베벨 대신 얇은 테두리에 검은 바탕이라, 그 위에 얹히는
+							행 아트(ClickCastList-ButtonBackground)와 같은 시대의 그림이 된다 - 그 아트를
+							저쪽에서 그대로 가져다 쓰면서 담는 상자만 옛 것이었다.
+						-->
+						<KeyValues>
+							<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+							<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+						</KeyValues>
 						<Layers>
 							<Layer level="ARTWORK">
 								<!--
@@ -879,7 +869,7 @@
 								안은 실제 발동 순서로 놓는다. 이 열에 담긴 것은 이것 하나뿐이라
 								자리를 전부 쓴다.
 
-								단축키를 **보여주기만** 한다. 거는 자리는 오른쪽 행의 키 칸이다 -
+								단축키를 **보여주기만** 한다. 거는 자리는 오른쪽 목록 위의 지정 모드다 -
 								여기 행은 남의 레이어 것일 수 있고, 이 목록은 사영이라 "어느 통에
 								넣을까"에 답이 없다.
 							-->
@@ -914,11 +904,190 @@
 							</Frame>
 						</Frames>
 					</Frame>
+					<!--
+						**지정 모드 동안 이 열을 덮는다.** 모드의 대상은 오른쪽 목록뿐이라, 왼쪽은 그동안
+						판 밖이다. 그걸 사람이 알고 있으라고 두지 않고 화면이 말하게 한다.
+
+						마우스를 먹는 것이 절반의 이유다. 안 덮으면 지정하다 왼쪽을 잘못 눌러 GoToAction이
+						탭을 옮기고 오른쪽 목록을 통째로 스크롤시킨다 - 걸던 손이 화면을 잃는다.
+
+						**알파 0.93은 블리자드 값이다**(LFGCooldownCoverTemplate - 같은 일을 하는 템플릿이다:
+						패널을 덮고, 마우스를 먹고, 왜 판 밖인지를 글자로 말한다). 처음엔 0.55로 넣었는데
+						이 인셋이 이미 어두워서 덮은 티가 거의 안 났다 - 덮였다는 것이 안 보이면 오버레이가
+						할 일의 절반을 못 한다.
+
+						대가는 안다: 이 값에서는 아래 목록이 안 읽힌다. 키를 거는 동안 "SHIFT-Q 지금 뭐
+						걸려 있지?"를 여기서 확인할 수는 없다는 뜻이다.
+
+						프레임 레벨은 코드에서 잡는다(OverviewPanelMixin:OnLoad). XML에 절대값을 박으면
+						ScrollBox가 만드는 행들과 어느 쪽이 위인지가 우연에 걸린다.
+					-->
+					<!--
+						**제 테두리를 갖는다.** 처음엔 인셋에 딱 맞춘 검정 사각형이었는데, 그러면 인셋의
+						테두리까지 같이 칠해져서 덮개가 아니라 **구멍**으로 보였다 - 목록이 가려진 것이
+						아니라 없어진 것처럼 읽힌다. 3px 안쪽으로 물려서 인셋 테두리를 살리고, 덮개 자신은
+						금색 테두리를 두른다: 이 창에서 금색은 "지금 켜져 있다"는 뜻이고, 모드가 켜졌다는
+						사실이야말로 이 화면에서 제일 크게 말해야 하는 것이다.
+					-->
+					<Frame parentKey="BindOverlay" hidden="true" enableMouse="true" inherits="TooltipBackdropTemplate">
+						<KeyValues>
+							<KeyValue key="backdropBorderColor" value="NORMAL_FONT_COLOR" type="global"/>
+							<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="TOPLEFT" x="3" y="-3"/>
+							<Anchor point="BOTTOMRIGHT" x="-3" y="3"/>
+						</Anchors>
+						<Layers>
+							<Layer level="BACKGROUND">
+								<!-- 백드롭만으로는 아래가 비쳐서, 같은 검정을 한 겹 더 깔아 확실히 가린다. -->
+								<Texture parentKey="Shade" setAllPoints="true">
+									<Color r="0" g="0" b="0" a="0.93"/>
+								</Texture>
+							</Layer>
+							<Layer level="ARTWORK">
+								<!--
+									**위쪽 1/3 선에 놓는다.** 패널이 세로로 길어서(약 525) 가운데에 두면
+									덩어리가 아래로 처져 보인다. 블리자드의 덮개도 같은 이유로 문구를 위에
+									붙인다(LFGCooldownCoverTemplate: TOP에서 -30).
+									나머지(힌트 한 줄, 버튼 둘)가 이 글자에 매달리므로 덩어리가 같이 움직인다.
+								-->
+								<FontString parentKey="Instruction" inherits="GameFontHighlightLarge" justifyH="CENTER" wordwrap="true">
+									<Size x="300" y="0"/>
+									<Anchors>
+										<Anchor point="CENTER" x="0" y="90"/>
+									</Anchors>
+								</FontString>
+								<!--
+									ESC가 지우개라는 것은 **모드 안에서** 알아야 하는 규칙인데, 토글 툴팁은 모드에
+									들어가기 전에만 읽힌다. 그래서 같은 말을 이 자리에도 둔다. 작은 글씨인 것은
+									위의 한 줄보다 작은 것은 그게 먼저 읽혀야 하기 때문이다 - 이건 그 다음에
+									필요한 규칙이다.
+								-->
+								<FontString parentKey="UnbindHint" inherits="GameFontHighlight" justifyH="CENTER" wordwrap="true">
+									<Size x="300" y="0"/>
+									<Anchors>
+										<Anchor point="TOP" relativeKey="$parent.Instruction" relativePoint="BOTTOM" x="0" y="-10"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
+						<Frames>
+							<!--
+								**여기는 UIPanelButtonTemplate이다.** 목록 위의 토글은 은색인데 이 둘은 아니다 -
+								저 덮개는 사실상 다이얼로그이고, 다이얼로그의 확인/취소가 쓰는 버튼이 이것이다
+								(블리자드의 QuickKeybind와 LFG 덮개도 같다). 목록 행 안에서 이 버튼이 문제였던
+								것은 거기가 다이얼로그가 아니라서였다.
+
+								커밋. 건 것을 그대로 두고 나간다.
+							-->
+							<Button parentKey="DoneButton" inherits="UIPanelButtonTemplate">
+								<Size x="130" y="22"/>
+								<Anchors>
+									<Anchor point="TOP" relativeKey="$parent.UnbindHint" relativePoint="BOTTOM" x="-68" y="-20"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										DebounceFrame:SetBindingMode(false);
+									</OnClick>
+								</Scripts>
+							</Button>
+							<!-- 롤백. **직전 하나가 아니라 모드에 들어온 뒤 바뀐 전부**를 되돌린다. -->
+							<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
+								<Size x="130" y="22"/>
+								<Anchors>
+									<Anchor point="TOP" relativeKey="$parent.UnbindHint" relativePoint="BOTTOM" x="68" y="-20"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										DebounceFrame:CancelBindMode();
+									</OnClick>
+								</Scripts>
+							</Button>
+						</Frames>
+					</Frame>
 				</Frames>
 				<Scripts>
 					<OnLoad method="OnLoad"/>
 				</Scripts>
 			</Frame>
+
+			<!--
+				**단축키 지정 모드 토글.** **왼쪽 열 위**에 서고, 목록 안에는 아무 컨트롤도 없다.
+
+				한때 행마다 호버하면 뜨는 버튼이었다. 그러면 진입점이 **커서를 따라다닌다** - 마우스가
+				목록을 지나가기만 해도 행마다 컨트롤이 떴다 사라지고, 커서가 그 버튼에 닿는 순간 행은
+				포커스를 잃어 버튼을 도로 내렸다(누르려는 과녁이 깜빡였다). 자리를 목록 밖으로 옮기면
+				그 성질이 통째로 없어진다.
+
+				게임에 같은 물건이 있다 - 액션바의 빠른 키 지정 모드(Blizzard_QuickKeybind). 거기도
+				모드를 켜고, 과녁에 마우스를 얹고, 키를 누른다.
+
+				켜진 동안 **행 위의 모든 입력이 키가 된다** - 좌/우클릭도 정당한 바인딩이라(호버 조건과
+				같이 쓴다) 예외를 두지 않는다. 그래서 그동안 선택과 우클릭 메뉴는 멈춘다. 멈춘다는
+				사실이 화면에 있어야 하므로 이 버튼은 켜져 있는 동안 켜진 표시를 달고 있는다
+				(SetBindingMode의 SelectedHighlight).
+
+				키보드는 커서 위치와 무관하게 **이 버튼으로** 들어온다. 대상은 그때 커서 밑에 있는
+				행이고, 그 행은 누를 때마다 새로 찾는다(GetHoveredLine).
+
+				만지는 것은 오른쪽 목록인데 자리는 왼쪽인 이유는 **나가는 문과 같은 자리**이기
+				때문이다 - 켜지면 바로 아래 왼쪽 열이 덮이고 그 위에 [종료]/[취소]가 뜬다.
+				들어간 자리와 나오는 자리가 한눈에 같은 곳이면 모드의 시작과 끝이 한 덩어리로 읽힌다.
+
+				**OverviewPanel보다 뒤에 선언한다.** 앵커가 그 키를 가리키므로 앞에 두면 만들 때
+				nil이라 앵커가 아예 안 걸린다.
+			-->
+			<Button parentKey="BindModeButton" inherits="UIPanelButtonTemplate">
+				<Size x="150" y="22"/>
+				<Anchors>
+					<!--
+						자리는 클릭 바인딩 창의 [Mouseover Cast] 체크박스와 같다
+						(Blizzard_ClickBindingUI.xml: 프레임 TOPLEFT에서 +60/-30). x가 60인 것은
+						포트레잇을 비켜나기 위해서고, 그 창도 같은 이유로 같은 값을 쓴다.
+					-->
+					<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="60" y="-30"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						DebounceFrame:ToggleBindMode();
+					</OnClick>
+					<OnKeyDown>
+						DebounceFrame:BindMode_OnKeyDown(self, key);
+					</OnKeyDown>
+					<OnGamePadButtonUp>
+						DebounceFrame:BindMode_OnInput(button);
+					</OnGamePadButtonUp>
+					<!-- 창이 닫히면(전투 진입 포함) 모드도 닫힌다. 안 그러면 다음에 열 때 켜진 채다. -->
+					<OnHide>
+						DebounceFrame:SetBindingMode(false);
+					</OnHide>
+				</Scripts>
+			</Button>
+
+			<!--
+				**OverviewPanel 뒤에 선언한다.** 앵커가 `$parent.OverviewPanel`을 가리키는데, XML은
+				위에서부터 만들므로 앞에 두면 그 키가 아직 nil이라 앵커가 아예 안 걸린다 - 탭이
+				창 어디에도 안 붙고 떠 있었다.
+
+				왼쪽 열의 이름표. **탭이 하나뿐이라 고를 것이 없다** - 누르는 물건이 아니라
+				이 열이 무엇인지 말하는 자리다.
+
+				그래도 탭 모양인 이유는 대칭이다. 오른쪽 열은 탭이 아래 붙어 있어서 자기가
+				무엇인지 말하는데, 왼쪽만 그게 없으면 두 열이 같은 급으로 안 읽힌다.
+
+				**여기서 배열을 뗄 수가 없다.** `PanelTabButtonTemplate`이 자기 정의에
+				`parentArray="Tabs"`를 들고 있어서, 물려받는 순간 `DebounceFrame.Tabs`에
+				들어간다 - 이 파일에 안 적어도 그렇다. 그래서 `DebounceFrameMixin:OnLoad`가
+				배열을 진짜 탭 둘로 다시 쓴다. 안 그러면 `SetNumTabs`가 셋을 세고
+				`AnchorTabs`가 이걸 오른쪽 탭 줄로 끌어간다(거기 근거가 있다).
+			-->
+			<Button parentKey="OverviewTab" inherits="PanelTabButtonTemplate">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.OverviewPanel" relativePoint="BOTTOMLEFT" x="8" y="-9"/>
+				</Anchors>
+			</Button>
+
 		</Frames>
 		<Layers>
 			<Layer level="ARTWORK">

@@ -14,6 +14,16 @@ L["ALL"] = "All"
 -- 조건 툴팁에서 조건 이름(CONDITION_BONUSBAR / CONDITION_GROUP) **바로 아래** 붙는 줄이다.
 -- 둘 다 "No option is selected."였는데, 그러면 같은 툴팁에 두 번 떠도 어느 쪽 이야기인지
 -- 줄만 봐서는 모른다. FORMS/HOVER처럼 무엇이 안 골렸는지를 말한다.
+-- 목록 위 토글. 켜면 행을 가리키고 키를 누르는 것만으로 지정된다 - 자세한 근거는
+-- DebounceUI.xml의 BindModeButton 주석에.
+L["BIND_MODE"] = "Set Keys"
+L["BIND_MODE_STOP"] = "Done"
+-- 클라이언트 전역을 그대로 받는다(OVERVIEW_NO_KEY와 같은 자리). 게임이 이미 제 나라 말로
+-- 들고 있는 규칙이라 우리가 다시 번역할 것이 없고, 게임이 문구를 바꾸면 같이 바뀌어야 맞다.
+L["BIND_MODE_UNBIND_HINT"] = ESCAPE_TO_UNBIND
+L["BIND_MODE_CANCEL"] = "Cancel"
+L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
+L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Cannot be used with Clique!"
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
@@ -110,22 +120,19 @@ L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COL
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - Set to %s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
 L["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cannot be set from '%s' in combat|r"
 L["CUSTOM_TARGET_UNSUPPORTED_UNIT"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Not supported unit: %s|r"
-L["DEBOUNCE_TITLE_FORMAT"] = "Debind [%s - %s]"
 L["DEFAULT"] = "Default"
 L["DELETE_CONFIRM_MESSAGE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%s|r?"
 L["DELETE"] = "Delete"
-L["DETAIL_KEY_BUTTON_DESC"] = "Click, then press the key you want. Mouse buttons and the wheel work too."
-L["DETAIL_KEY_BUTTON_UNBIND_DESC"] = "Right-click to unbind."
 -- 클라이언트가 이미 모든 언어로 갖고 있는 말이다. 여기서 한 번 받아두면 로케일 파일이
 -- 없는 언어도 제 나라 말로 나온다.
 --
 -- 단축키 버튼과 행 툴팁이 **같이** 쓴다. 한때 행 툴팁만 따로 L["NOT_BOUND"]를 들고
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
-L["DETAIL_NO_KEY"] = NOT_BOUND
+L["OVERVIEW_NO_KEY"] = NOT_BOUND
 -- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
 -- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
-L["DETAIL_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
+L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
 L["DISABLE"] = "Disable"
 L["DISABLE_ALL"] = "Disable All"
 L["EDIT_MACRO"] = "Edit Macro"
@@ -142,13 +149,10 @@ L["FRAMETYPE_UNKNOWN"] = "Others"
 L["GENERAL"] = "General"
 -- 목록 위의 체크박스. 묶어도 줄 순서는 이름순이라는 것과, 진짜 발동 순서는 어디서
 -- 보는지를 툴팁이 대신 말한다 - 그걸 말할 자리가 여기밖에 없다(InitializeButtons 참고).
-L["GROUP_BY_KEY"] = "Group by Key"
-L["GROUP_BY_KEY_DESC"] = "Draws a line where the key changes. The list stays alphabetical either way, inside a key too."
 -- 축은 비교자와 **같은 수, 같은 차례**로 적는다(Ordering.lua의 CompareActionOrder).
 -- 한때 hover가 빠져 있었는데, 그건 중요도 바로 다음에 오는 축이고 이 애드온에서 제일
 -- 자주 순서를 가르는 것이기도 하다. 어디서 보는지는 **화면에 있는 그대로** 적는다 -
 -- 한때 "Key & Order 탭"이었고 그 탭이 없어졌다. 없는 것을 부르면 찾다가 못 찾는다.
-L["GROUP_BY_KEY_ORDER_HINT"] = "This is not the firing order. Which action wins a key is decided by importance, hover rules, conditions, and scope -- select an action to see its real order."
 L["GROUP_NONE"] = "When Not In Group";
 L["GROUP_PARTY"] = "When In Party";
 L["GROUP_RAID"] = "When In Raid";
@@ -214,6 +218,18 @@ L["OVERVIEW"] = "Overview"
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
+-- 순서 이동 버튼. 3.0에서 그대로 돌아온 문자열이다 - 규칙이 안 바뀌었으므로 말도 안 바꾼다.
+-- ORDER_BLOCKED_*는 `ComputeOrderSwap`이 돌려주는 사유 코드와 이름이 맞물려 있다.
+L["ORDER_MOVE_UP"] = "Run Sooner"
+L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key. Nothing else about it changes."
+L["ORDER_MOVE_DOWN"] = "Run Later"
+L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key. Nothing else about it changes."
+L["ORDER_BLOCKED_ALREADY_FIRST"] = "This action already runs first on this key."
+L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
+L["ORDER_BLOCKED_CONDITIONAL"] = "One of them only runs in specific situations."
+L["ORDER_BLOCKED_HOVER"] = "One of them only runs while hovering a unit frame."
+L["ORDER_BLOCKED_LAYER"] = "They are in different scopes."
+L["ORDER_BLOCKED_PRIORITY"] = "They have different importance."
 L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.

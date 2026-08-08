@@ -306,7 +306,7 @@ function DebounceSpellPickerFrameMixin:InitializeSearchBox()
 		SearchBoxTemplate_OnEditFocusGained(editBox);
 		-- 메인 창이 단축키를 듣는 중이면 여기 친 글자가 단축키로도 들어간다. 검색창의
 		-- 포커스가 그걸 끝낸다 (메인 창 검색창과 같은 처리).
-		DebounceDetailPanel:CancelKeyCapture();
+		DebounceFrame:CancelKeyCapture();
 	end);
 	self.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
 end
