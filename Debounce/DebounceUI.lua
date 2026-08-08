@@ -2969,8 +2969,8 @@ end
 local COLUMN_ON  = "|A:common-icon-checkmark:16:16|a";
 local COLUMN_OFF = "|cnDISABLED_FONT_COLOR:" .. string.char(194,183) .. "|r";
 
---- 중요도 칸. **기본값은 비운다** - 5단 중 넷이 표시를 갖고 하나가 안 갖는 편이, 모든 행이
---- 낱말 한 칸씩 이고 있는 것보다 훨씬 조용하고 튀는 행이 실제로 튄다.
+--- 중요도 칸. 기본값은 **다른 두 칸의 꺼짐과 같은 점**이다 - 세 칸이 같은 어휘를 쓰면
+--- "여기는 아무 일도 없다"가 한 눈에 가로로 읽힌다. 비워두면 그 칸만 어휘가 없는 칸이 된다.
 ---
 --- 숫자를 안 쓰는 이유는 방향이다. 저장값은 1이 가장 높은데(PRIORITY1 = Very High) 칸에
 --- 1이 찍혀 있으면 대부분 "제일 낮다"로 읽는다. 부호는 배울 것이 없다.
@@ -2980,7 +2980,7 @@ local COLUMN_OFF = "|cnDISABLED_FONT_COLOR:" .. string.char(194,183) .. "|r";
 local PRIORITY_MARKS = {
 	[1] = "|cnGREEN_FONT_COLOR:++|r",
 	[2] = "|cnGREEN_FONT_COLOR:+|r",
-	[3] = "",
+	[3] = COLUMN_OFF,
 	[4] = "|cnORANGE_FONT_COLOR:-|r",
 	[5] = "|cnORANGE_FONT_COLOR:--|r",
 };
