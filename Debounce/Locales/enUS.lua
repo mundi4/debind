@@ -183,10 +183,8 @@ L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NOT_SELECTED"] = "Not Selected"
 L["ONLY_IF_UNIT_EXISTS"] = "Only if unit exists"
 L["OPTIONS"] = "Options"
-L["ORDER_FLAG_CONDITIONAL"] = "Conditional"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
-L["ORDER_FLAG_HOVER"] = "Hover Rule"
 L["ORDER_FLAG_ISSUE"] = "Has a Problem"
 L["ORDER_FLAG_UNREACHABLE"] = "Never Runs"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.

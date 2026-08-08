@@ -158,9 +158,7 @@ L["NOT_SELECTED"] = "Не выбрано"
 L["ONLY_IF_UNIT_EXISTS"] = "Только если юнит существует"
 L["OPTIONS"] = "Настройки"
 -- %s는 특성 이름이다(사이드탭 3 이상에서만 이 문장이 뜬다).
-L["ORDER_FLAG_CONDITIONAL"] = "С условиями"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
-L["ORDER_FLAG_HOVER"] = "Условие наведения"
 L["ORDER_FLAG_ISSUE"] = "Есть проблема"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.

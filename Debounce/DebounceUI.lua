@@ -3024,6 +3024,20 @@ function DebounceOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
+	-- **문제가 순서를 이긴다.** 이 칸이 답하는 것은 "왜 이 자리인가"인데, 아예 안 나가는
+	-- 바인딩에게는 그게 물어볼 값어치가 없는 질문이다. 고칠 것이 있으면 그것부터 말하고
+	-- 순서 이야기는 접는다 - 둘 다 적으면 한 줄에 안 들어가고, 빨강이 회색 옆에서 힘을 잃는다.
+	--
+	-- 도달불가와 이슈를 함께 적지 않는 이유는 `GetBindingIssue`가 도달불가도 이슈로 치기
+	-- 때문이다(Misc.lua). 더 구체적인 쪽만 쓴다.
+	if (row.unreachable) then
+		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]));
+		return self.SelectedHighlight:SetShown(elementData.isCurrent);
+	elseif (row.issue) then
+		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]));
+		return self.SelectedHighlight:SetShown(elementData.isCurrent);
+	end
+
 	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
 	local reason = elementData.reason;
 	if (not reason) then
