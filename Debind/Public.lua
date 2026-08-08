@@ -126,14 +126,17 @@ SlashCmdList["DEBIND"] = function(msg)
 	DebindPublic:ToggleUI();
 end
 
---- 우클릭도 창을 연다. 이 버튼의 오른쪽은 원래 바인딩 오버뷰를 여는 자리였고, 그 오버뷰가
---- 이제 창의 왼쪽 열이라 왼쪽 클릭과 하는 일이 같아졌다 - 토글이 아닌 것만 다르다.
+--- **좌·우클릭이 같은 일을 한다.** 오른쪽은 원래 바인딩 오버뷰를 여는 자리였는데, 그 오버뷰가
+--- 창의 왼쪽 열이 되면서 갈 데가 없어졌다.
+---
+--- 한때 여기서 우클릭만 `ShowOverview`(열려 있으면 아무것도 안 함)로 갈랐다. 그러면 창이 열린
+--- 상태에서 우클릭이 **아무 반응도 없는 클릭**이 된다 - `ToggleUI`가 거절하는 두 자리에서
+--- 굳이 메시지를 찍는 이유가 "눌렀는데 아무 일도 안 일어나면 고장으로 읽힌다"인데, 그 규칙을
+--- 정작 이 버튼이 어겼다. 구분이 사라졌으면 구분하는 척을 그만두는 게 맞다.
+---
+--- `ShowOverview`는 남는다. `/deb overview`는 **보여달라고 친 것**이라 닫으면 안 된다.
 function Debind_CompartmentFunc(name, mouseButton, btn)
-	if (mouseButton == "RightButton") then
-		ShowOverview();
-	else
-		DebindPublic:ToggleUI();
-	end
+	DebindPublic:ToggleUI();
 end
 
 --- 구획 항목에 마우스를 올렸을 때. 좌·우클릭이 서로 다른 데로 가는데, 그걸 말해줄 자리가
@@ -143,7 +146,6 @@ function Debind_CompartmentOnEnter(name, btn)
 	GameTooltip:SetOwner(btn, "ANCHOR_LEFT");
 	GameTooltip_SetTitle(GameTooltip, C_AddOns.GetAddOnMetadata(name, "Title") or name);
 	GameTooltip_AddInstructionLine(GameTooltip, LLL["COMPARTMENT_TOOLTIP_LEFT_CLICK"]);
-	GameTooltip_AddInstructionLine(GameTooltip, LLL["COMPARTMENT_TOOLTIP_RIGHT_CLICK"]);
 	GameTooltip:Show();
 end
 
