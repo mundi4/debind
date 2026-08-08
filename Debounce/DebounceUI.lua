@@ -10,7 +10,9 @@ local MACRO_NAME_CHAR_LIMIT  = 32;
 local MACRO_CHAR_LIMIT       = 1000;
 -- 폭은 하나다. 두 열(결과 | 통)이 늘 같이 서 있고 접히지 않는다 - 이유는 XML의
 -- DetailPanel 주석에.
--- 4 + 350(결과) + 16 + 405(통) + 20(스크롤바) = 795.
+-- 4 + 380(결과) + 16 + 375(통) + 20(스크롤바) = 795.
+-- 결과 열이 더 넓다. 저기는 이름이 한 줄에 서는 표라 폭이 곧 읽히는 글자 수인데, 통 쪽은
+-- 두 줄짜리 카드라 같은 폭에서 훨씬 여유가 있다.
 local FRAME_WIDTH            = 795;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;

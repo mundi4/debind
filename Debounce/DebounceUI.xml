@@ -118,7 +118,7 @@
 					<Size y="1"/>
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Label" relativePoint="RIGHT" x="6" y="0"/>
-						<Anchor point="RIGHT" x="-4" y="0"/>
+						<Anchor point="RIGHT" x="-2" y="0"/>
 					</Anchors>
 					<Color r="1" g="1" b="1" a="0.15"/>
 				</Texture>
@@ -368,7 +368,7 @@
 		(ColoredNameAndIconForAction). 무엇이 문제인지는 행 툴팁이 말한다.
 	-->
 	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
-		<Size x="300" y="22"/>
+		<Size x="300" y="24"/>
 		<Layers>
 			<Layer level="ARTWORK">
 				<Texture parentKey="Icon">
@@ -387,34 +387,34 @@
 				<Texture parentArray="LayerIcons" parentKey="LayerIcon1" hidden="true">
 					<Size x="14" y="14"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-20" y="0"/>
+						<Anchor point="RIGHT" x="-18" y="0"/>
 					</Anchors>
 				</Texture>
 				<Texture parentArray="LayerIcons" parentKey="LayerIcon2" hidden="true">
 					<Size x="14" y="14"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-4" y="0"/>
+						<Anchor point="RIGHT" x="-2" y="0"/>
 					</Anchors>
 				</Texture>
 				<FontString parentKey="CondText" inherits="GameFontHighlightSmall" justifyH="CENTER">
-					<Size x="34" y="0"/>
+					<Size x="22" y="0"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-34" y="0"/>
+						<Anchor point="RIGHT" x="-32" y="0"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="HoverText" inherits="GameFontHighlightSmall" justifyH="CENTER">
-					<Size x="34" y="0"/>
+					<Size x="22" y="0"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-68" y="0"/>
+						<Anchor point="RIGHT" x="-54" y="0"/>
 					</Anchors>
 				</FontString>
 				<FontString parentKey="PriorityText" inherits="GameFontHighlightSmall" justifyH="CENTER" maxLines="1">
 					<Size x="24" y="0"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-102" y="0"/>
+						<Anchor point="RIGHT" x="-76" y="0"/>
 					</Anchors>
 				</FontString>
-				<FontString parentKey="Name" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
+				<FontString parentKey="Name" inherits="GameFontNormal" justifyH="LEFT" maxLines="1">
 					<Anchors>
 						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="0"/>
 						<Anchor point="RIGHT" relativeKey="$parent.PriorityText" relativePoint="LEFT" x="-4" y="0"/>
@@ -637,7 +637,7 @@
 				인셋 바깥에 서고, 사이드탭은 그보다 더 바깥(창 밖)이라 겹치지 않는다.
 			-->
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
-				<Size x="405" y="0"/>
+				<Size x="375" y="0"/>
 				<Anchors>
 					<Anchor point="TOPRIGHT" x="-20" y="-85"/>
 					<Anchor point="BOTTOMRIGHT" x="-20" y="10"/>
