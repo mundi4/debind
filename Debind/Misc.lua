@@ -1068,7 +1068,12 @@ do
         if (not str or not strfind(str, "$", 1, true)) then
             return str;
         end
-        return (str:gsub("%[([^%]]*)%]", stripGroup));
+        -- 본문에서 `[`도 뺀다. `[^%]]*`만 쓰면 **닫히지 않은 대괄호**가 다음 그룹을 삼킨다 -
+        -- `[combat [$state1]`이 본문 `combat [$state1` 하나로 잡히고, 콤마로 가르면 토큰이
+        -- `combat [$state1` 한 덩어리라 `$`로 시작하지 않는다. 그대로 통과해서 `$state1`이
+        -- 게임까지 가고, 이 함수가 막으려던 바로 그 오류가 채팅에 찍힌다.
+        -- `[`를 빼면 안쪽 그룹부터 잡히므로 사용자가 친 대괄호가 어긋나 있어도 토큰은 걸러진다.
+        return (str:gsub("%[([^%[%]]*)%]", stripGroup));
     end
 end
 

@@ -588,6 +588,29 @@ return function(DebindPrivate)
         expectStrip("/cast [$] Foo", "/cast [] Foo");
     end);
 
+    -- 무작위 조합 검사는 **닫힌 그룹만** 만들어내므로 이 자리를 못 본다.
+    --
+    -- 한때 본문 패턴이 `[^%]]*`였다. 대괄호가 하나 빠지면 그게 **다음 그룹까지 통째로 삼켜서**
+    -- `[combat [$state1]`이 본문 하나가 되고, 콤마로 가르면 `combat [$state1`이 한 덩어리라
+    -- `$`로 시작하지 않는다. 멀쩡한 안쪽 그룹의 토큰이 그냥 통과해서, 이 함수가 막으려던
+    -- 오류가 그대로 찍혔다.
+    --
+    -- **보장하는 것은 여기까지다.** `$`가 닫히지 않은 그룹 **안에** 있으면(`[$state1 [combat]`)
+    -- 여전히 남는다. 그건 우리 패턴이 만든 문제가 아니라 매크로 자체가 깨진 경우고, 닫히지
+    -- 않은 그룹까지 손대려면 "조건이 아닌 대괄호(`/say [안녕]`)는 글자 하나 안 건드린다"는
+    -- 규칙을 포기해야 한다. 깨진 매크로는 어차피 와우가 따로 나무란다.
+    test("닫히지 않은 그룹이 뒤 그룹의 $토큰을 숨기지 않는다", function()
+        local leaky = {
+            "/cast [combat [$state1] Foo",
+            "/cast [[$state1] Foo",
+        };
+        for _, input in ipairs(leaky) do
+            local got = Strip(input);
+            check(not strfind(got, "$", 1, true),
+                format("%q -> %q : $토큰이 남았다", input, tostring(got)));
+        end
+    end);
+
     test("여러 그룹·세미콜론·여러 줄을 전부 훑는다", function()
         expectStrip("/cast [$state1][@tank] A; [no$state2] B\n/use [$state3] C",
             "/cast [][@tank] A; [] B\n/use [] C");
