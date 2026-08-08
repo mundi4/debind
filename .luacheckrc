@@ -166,6 +166,7 @@ globals = {
 	"StaticPopup_ShowCustomGenericInputBox",
 	"StaticPopup_FindVisible",
 	"StaticPopup_Hide",
+	"PanelTemplates_SelectTab",
 	"PanelTemplates_TabResize",
 	"PanelTemplates_SetNumTabs",
 	"PanelTemplates_SetTab",

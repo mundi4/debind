@@ -2053,6 +2053,12 @@ function DebounceFrameMixin:OnLoad()
 	end
 	PanelTemplates_SetNumTabs(self, #self.Tabs);
 
+	-- 왼쪽 열의 이름표. 고를 것이 없으므로 켜진 모양으로 한 번 세워두고 그만이다
+	-- (`PanelTemplates_SelectTab`은 자기 탭 하나만 만진다 - 형제를 안 본다).
+	self.OverviewTab:SetText(LLL["OVERVIEW"]);
+	PanelTemplates_TabResize(self.OverviewTab, 0);
+	PanelTemplates_SelectTab(self.OverviewTab);
+
 	self:InitializeScrollBox();
 	self:InitializeSideTabs();
 	self:InitializeButtons();
