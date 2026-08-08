@@ -395,9 +395,17 @@ end
 ---
 --- 실제 바인딩을 만드는 쪽(Debounce.lua의 BuildKeyMap)은 **반드시 생략해서** 부를 것.
 --- 거기에 다른 특성을 넣으면 지금 쓰지도 않는 바인딩이 실제로 걸린다.
+--- **특성이 없는 것은 정상이고, 그 답은 nil이 아니다.** `GetSpecialization()`은 아직 특성을
+--- 못 고른 캐릭터에게 **범위 밖 인덱스**를 준다(4특성 직업이면 5). 아래 `spec <= NUM_SPECS`가
+--- 그걸 거르는 자리다 - 특성 레이어 둘이 빠지고 나머지는 그대로 나오는 것이 맞는 세계다.
+---
+--- `or 0`은 nil 쪽 보험이다. API 문서는 이 함수를 non-nilable로 적어두었지만 `Events.lua`가
+--- 로그인 직후 nil을 보고 재시도하고 있으므로(ACTIVE_PLAYER_SPECIALIZATION_CHANGED) 실제로
+--- nil이 오는 창이 있다고 보는 편이 맞다. 여기는 **XML을 읽는 길**에서도 불리므로
+--- (`DebounceOverviewPanelMixin:OnLoad`) 그 창에 걸리면 창을 열기도 전에 터진다.
 function DebouncePrivate.EnumerateProfileLayers(spec)
     if (spec == nil) then
-        spec = C_SpecializationInfo.GetSpecialization();
+        spec = C_SpecializationInfo.GetSpecialization() or 0;
     end
     local indexArray = {};
 

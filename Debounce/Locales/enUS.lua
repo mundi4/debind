@@ -307,6 +307,12 @@ L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's s
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
 L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it -- even when the hover condition is in play."
 L["TARGET_UNIT"] = "Target"
+--- 통에 줄이 둘 이상 보이는 순간 뜨는 도움말 풍선. 왜 툴팁이 아니라 풍선인지, 언제
+--- 사라지는지는 DebounceUI.lua의 `UpdateHelpTips` 주석에.
+---
+--- 세 낱말(move, copy, delete)이 벌크 메뉴의 항목 이름과 같아야 한다 - 풍선을 읽고 우클릭한
+--- 사람이 찾을 것이 그 셋이다.
+L["TIP_MULTI_SELECT"] = "Hold CTRL or SHIFT while clicking to pick more than one action, then move, copy, or delete them together."
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS_DESC"] = "Sets your focus to this unit. With a role-based unit, one key focuses whoever is tanking right now, without you finding them on the frames first."

@@ -1877,6 +1877,76 @@ function DebounceFrameMixin:UpdateEmptyText()
 	end
 end
 
+--- 한 번 알린 도움말은 다시 안 알린다. **계정 단위다**(`Options`) - 조작 하나를 캐릭터마다
+--- 다시 배우지는 않는다. 블리자드의 cvarBitfield 자리는 저쪽 튜토리얼의 것이라 남의 비트를
+--- 쓰지 않는다(`checkCVars`도 그래서 안 켠다).
+---
+--- `Options`가 아직 없을 수 있다 - 이 파일은 InitDB보다 먼저 읽힌다. 없으면 "아직 안 봤다"로
+--- 답하고 기록도 그냥 흘린다. 창은 저 뒤에 열리므로 실제로 그 상태에서 뜨는 풍선은 없다.
+local function IsTipAcknowledged(key)
+	local seen = DebouncePrivate.Options and DebouncePrivate.Options.tipsSeen;
+	return seen ~= nil and seen[key] == true;
+end
+
+local function AcknowledgeTip(key)
+	local options = DebouncePrivate.Options;
+	if (not options) then
+		return;
+	end
+	options.tipsSeen = options.tipsSeen or {};
+	options.tipsSeen[key] = true;
+end
+
+local TIP_MULTI_SELECT = "multiSelect";
+
+--- **통에 줄이 둘 이상 보이는 순간** 뜬다. 하나뿐인 목록에서 "여럿을 고르라"는 할 수 없는
+--- 말이고, 창을 처음 여는 사람의 통은 대개 비어 있다. 세는 것은 dataProvider라 검색으로
+--- 걸러진 뒤의 수다 - 화면에 보이는 줄이 곧 고를 수 있는 줄이다.
+local MULTI_SELECT_TIP_MIN_ROWS = 2;
+
+local MULTI_SELECT_TIP = {
+	text = LLL["TIP_MULTI_SELECT"],
+	buttonStyle = HelpTip.ButtonStyle.GotIt,
+	-- **통의 아래 변에서 아래로 뜬다.** 위는 검색창과 탭·포트레잇 버튼의 줄이고 왼쪽은 오버뷰
+	-- 열이라, 창 안쪽으로 띄우면 무엇이든 가린다. 아래는 창 밖이라 가릴 것이 없다. 창을 화면
+	-- 밑까지 끌어다 놓은 경우는 `autoEdgeFlipping`이 위로 넘긴다.
+	targetPoint = HelpTip.Point.BottomEdgeCenter,
+	alignment = HelpTip.Alignment.Center,
+	autoEdgeFlipping = true,
+	autoHorizontalSlide = true,
+	onAcknowledgeCallback = function()
+		AcknowledgeTip(TIP_MULTI_SELECT);
+	end,
+};
+
+--- 도움말 풍선. **화면에 흔적이 없는 조작**만 여기 온다.
+---
+--- 다중 선택이 그렇다: CTRL/SHIFT-클릭은 행에도 스트립에도 아무 표시가 없어서, 모르는 사람이
+--- 열 개를 옮기는 길은 우클릭 열 번이다. 행 툴팁으로는 말할 수 없다 - 저것은 그 액션 하나의
+--- 이야기이고 이건 목록을 다루는 법이다.
+---
+--- **사라지는 길이 둘이다: [알겠습니다]와 실제로 둘을 고르는 순간**(`CommitSelection`).
+--- 뒤쪽이 없으면 이미 쓰고 있는 사람에게도 창을 열 때마다 뜬다 - 이 풍선의 할 일은 그 조작을
+--- 알리는 것뿐이고, 쓰는 것을 봤으면 끝난 것이다.
+---
+--- **지정 모드 중에는 안 뜬다.** 거기서는 행 위의 모든 입력이 키라(`DebounceLineMixin:OnClick`)
+--- CTRL-클릭이 선택이 아니고, 그 동안에는 이 문장이 거짓이다.
+---
+--- 도움말을 끈 사람에게는 `HelpTip:Show`가 스스로 물러난다(`hideHelptips`). 그 판단을 여기서
+--- 다시 하지 않는다.
+function DebounceFrameMixin:UpdateHelpTips()
+	local show = self:IsShown()
+		and not IsTipAcknowledged(TIP_MULTI_SELECT)
+		and not self:IsCapturingKey()
+		and self.dataProvider:GetSize() >= MULTI_SELECT_TIP_MIN_ROWS;
+
+	if (show) then
+		HelpTip:Show(self, MULTI_SELECT_TIP, self.ScrollBoxBackground);
+	else
+		HelpTip:Hide(self, MULTI_SELECT_TIP.text);
+	end
+end
+
 -- 탭 라벨의 개수는 "그 탭이 가진 액션 수"이지 "지금 화면에 뭐가 보이는가"가 아니다.
 -- 그래서 셀 대상을 sideTab:IsShown()으로 고르면 안 된다. 사이드탭의 가시성은
 -- _selectedTab의 함수이고(UpdateSideTabs: 탭2가 선택되면 사이드탭2를 숨긴다), 그걸
@@ -2260,6 +2330,11 @@ function DebounceFrameMixin:OnHide()
 	-- 안 끄면 다음에 창을 열 때 목록이 빛나고 있다 - 창을 닫는 것도, 전투에 끌려들어가는
 	-- 것도 커서에 뭘 든 채로 일어난다.
 	self:UpdateDropHighlight();
+	-- 풍선도 같이 접는다. 우리 창의 자식이라 부모가 숨으면 안 보이지만 풀에서는 살아 있는
+	-- 상태로 남는다 - 창이 닫혀 있는 동안 활성으로 둘 이유가 없고, 다시 열 때 조건을 다시
+	-- 재서(`UpdateHelpTips`) 그때 띄우면 된다. 이 시점의 `IsShown()`은 이미 거짓이므로
+	-- 저 함수가 그대로 닫는 쪽으로 간다.
+	self:UpdateHelpTips();
 	ClearMacrotextIconCache();
 end
 
@@ -2504,8 +2579,16 @@ end
 ---
 --- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
 local function CommitSelection(self)
+	-- **둘이 고른 것을 봤으면 그 풍선은 할 일이 끝났다**(`UpdateHelpTips`). 여기가 선택이
+	-- 달라지는 모든 길이 지나는 자리라, 어느 수식어로 어떻게 골랐는지는 물을 필요가 없다.
+	if (_selectionCount > 1) then
+		AcknowledgeTip(TIP_MULTI_SELECT);
+	end
+
+	-- 왼쪽 열을 여기서 따로 다시 그리지 않는다. **맨 아래 `Update`가 이미 그 일을 한다**
+	-- (`DebounceOverviewPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
+	-- 전체를 두 번 짓는다 - 그 함수는 프로필의 모든 레이어를 훑어 키로 묶는 자리다.
 	DebounceOverviewPanel:Close();
-	DebounceOverviewPanel:OnSelectionChanged();
 
 	if (_selectionCount > 1) then
 		DebounceMacroFrame:Close();
@@ -2792,6 +2875,7 @@ function DebounceFrameMixin:Update()
 	self:UpdateEmptyText();
 
 	self:UpdateDropHighlight();
+	self:UpdateHelpTips();
 end
 
 --- 목록 위 한 줄. **검색창과 개수가 같은 자리를 번갈아 쓴다**(이유는 XML의 SearchBox 주석).
@@ -2806,13 +2890,19 @@ function DebounceFrameMixin:UpdateListStrip()
 	self.SelectionCount:SetShown(multi);
 	self.SearchBox:SetShown(not multi);
 
-	-- **지정 모드 중에는 글자가 전부 단축키다.** 포커스를 잡을 수 있게 두면 친 글자가 검색창으로
-	-- 새고, 모드는 켜진 채로 아무 반응도 안 하는 것처럼 보인다. 끄지는 않는다 - 이 함수는
-	-- 모드에서 나가는 문이 아니고(그건 오버레이의 두 버튼과 ESC다), 여기서 끄면 검색창을
-	-- 눌렀다는 이유로 걸어둔 키가 커밋된다.
+	-- 검색창이 죽는 자리는 둘이고, **판정은 여기 하나에 모은다.** `UpdateButtons`에도 같은
+	-- 잠금이 있는데 이 함수가 그 뒤에 도므로, 저기서 같이 끄면 여기가 도로 켠다.
+	--
+	-- 1. **지정 모드.** 그동안 글자는 전부 단축키다. 포커스를 잡을 수 있게 두면 친 글자가
+	--    검색창으로 새고, 모드는 켜진 채로 아무 반응도 안 하는 것처럼 보인다. 모드를 끄지는
+	--    않는다 - 이 함수는 모드에서 나가는 문이 아니고(그건 오버레이의 두 버튼과 ESC다),
+	--    여기서 끄면 검색창을 눌렀다는 이유로 걸어둔 키가 커밋된다.
+	-- 2. **아이콘 선택기가 액션을 잡고 있을 때.** 창의 나머지가 전부 잠기는 자리라
+	--    (`UpdateButtons`의 `enableButtons`) 검색만 살아 있으면 목록이 그 밑에서 바뀐다.
 	local capturing = self:IsCapturingKey();
-	self.SearchBox:SetEnabled(not capturing);
-	if (capturing) then
+	local locked = capturing or IsEditingAction();
+	self.SearchBox:SetEnabled(not locked);
+	if (locked) then
 		self.SearchBox:ClearFocus();
 	end
 end
@@ -3204,13 +3294,6 @@ function DebounceOverviewPanelMixin:OnLoad()
 	self:Refresh();
 end
 
---- 선택이 바뀌었다. **지정 모드는 안 건드린다** - 예전에는 듣기가 "고른 액션 하나"의
---- 상태였으므로 선택이 바뀌면 끝내는 것이 맞았지만, 지금 모드의 대상은 커서 밑의 행이라
---- 선택과 아무 상관이 없다(모드에 들어갈 때 선택은 오히려 비운다).
-function DebounceOverviewPanelMixin:OnSelectionChanged()
-	self:Refresh();
-end
-
 function DebounceOverviewPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
@@ -3335,6 +3418,14 @@ function DebounceOrderLineMixin:OnMoveClick(button)
 	DebounceFrame:Refresh(true);
 	DebounceFrame:Update();
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+
+	-- **툴팁을 다시 그린다.** 커서가 버튼 위에 그대로 있으면 OnEnter가 다시 오지 않으므로,
+	-- 방금 맨 끝으로 간 행에도 "한 칸 더 갈 수 있다"가 떠 있는 채로 남는다. 위 `Update`가
+	-- `UpdateMoveButtons`를 지나면서 버튼의 상태와 사유(`reasonKey`)를 이미 새로 잡아뒀으니
+	-- 여기서는 그 값으로 한 번 더 그리기만 하면 된다.
+	if (GameTooltip:GetOwner() == button) then
+		self:OnMoveEnter(button);
+	end
 end
 
 --- 막힌 버튼은 **왜 막혔는지**를 말한다. 그 사유는 순서 규칙 자체라, 이 애드온에서 규칙을
@@ -3393,6 +3484,10 @@ function DebounceOrderLineMixin:Update()
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
 end
+
+--- 이 행의 툴팁 맨 아래 안내 줄. **안 주면 오른쪽 목록의 안내가 대신 나온다** - 좌클릭은
+--- 선택, 우클릭은 메뉴라는 말인데 여기서는 둘 다 거짓이다(좌우 다 그 액션으로 데려간다).
+local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
 
 function DebounceOrderLineMixin:OnEnter()
 	local elementData = self:GetElementData();
@@ -3643,7 +3738,11 @@ function DebounceFrameMixin:SetBindingMode(active, button)
 		-- 좌/우클릭만 받으므로 가운데 버튼이 엉뚱한 데서 먹히지 않는다.
 		button:RegisterForClicks("AnyUp");
 	else
-		button:RegisterForClicks("LeftButtonUp", "RightButtonUp");
+		-- **좌클릭만이다.** 과녁이 행 버튼이던 시절에는 그 행이 좌우를 다 받았으므로 여기서
+		-- 둘을 되돌리는 것이 맞았는데, 지금 과녁은 토글 하나다. 둘로 되돌리면 XML이 준 적
+		-- 없는 우클릭 입구가 **첫 번째 모드를 끝낸 뒤부터** 생긴다 - 그 뒤로는 토글을
+		-- 우클릭해도 모드가 켜진다.
+		button:RegisterForClicks("LeftButtonUp");
 		-- 여기서 SetPropagateKeyboardInput(true)로 되돌리면 안 된다. ESC로 빠져나오는 그
 		-- 순간에 다시 켜지면서 **같은 ESC가 프레임까지 흘러가 창을 닫는다.** 키보드 자체를
 		-- 끄므로 이 값은 어차피 다음에 들을 때까지 아무 일도 하지 않는다.
