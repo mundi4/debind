@@ -3055,7 +3055,15 @@ function DebounceOrderLineMixin:Update()
 	end
 	if (sideTab >= 2) then
 		shown = shown + 1;
-		self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
+		-- 직업만 **아틀라스**를 쓴다. 사이드탭이 쓰는 주문서 탭 아이콘은 이 칸에서 혼자
+		-- 질감이 달라 보인다 - 전문화 아이콘과 나란히 서는 자리라 더 그렇다.
+		-- (사이드탭 줄은 그대로 뒀다. 여기서만 바꿔보는 중이다.)
+		if (sideTab == 2) then
+			self.LayerIcons[shown]:SetAtlas(GetClassAtlas(select(2, UnitClass("player"))));
+		else
+			self.LayerIcons[shown]:SetAtlas(nil);
+			self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
+		end
 	end
 	for i = 1, #self.LayerIcons do
 		self.LayerIcons[i]:SetShown(i <= shown);
