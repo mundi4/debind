@@ -26,7 +26,6 @@ local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
 local WARNING_FONT_COLOR     = CreateColor(1, 0.5, 0, 1);
 local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
-local FILTERED_ALPHA         = 0.3;
 
 local luatype                = type;
 local dump                   = DebindPrivate.dump;
@@ -80,21 +79,6 @@ local _selectionCount        = 0;
 --- 몇 줄을 걷어내면 남은 문장이 화면에 없는 행을 가리킨다. 왼쪽은 이미 선택으로 답한다 -
 --- 오른쪽에서 찾은 행을 누르면 저쪽이 그 행을 짚고 그리로 스크롤한다.
 local _searchText;
-
---- 오버뷰 탭에서 **필터가 빼지 못하는 액션들.**
----
---- 문제 필터를 켠 채로 그 행의 문제를 고치면 조건에서 벗어난다. 거기서 빼버리면 `Refresh`가
---- "선택이 목록에 없다"며 선택을 풀고 상세 패널이 접힌다 - **방금 한 일의 결과를 볼 자리가
---- 사라진다.** 그래서 사용자가 손대고 있는 액션은 붙들어 둔다(흐리게 그린다).
----
---- **"고쳐진 것을 보여주는 표"가 아니다. "발밑"의 표다.** 남을 고쳐서 곁다리로 나아진 행은
---- 그냥 사라져야 한다 - 사라지는 것 자체가 "이제 문제가 아니다"라는 신호고, 탭 라벨의
---- 숫자가 같이 줄어든다. 둘을 한 표에 섞으면 흐린 행이 끝없이 쌓인다.
----
---- 채우는 곳: `SetSelectedAction`, `ShowEditDropdown`(낙관적으로 - 아래 그 함수 주석).
---- 비우는 곳: **사용자가 뷰를 바꾼 순간뿐이다** - 필터 토글, 탭 이동, 창 열기.
---- `OnBindingsUpdated`에서는 절대 비우지 않는다. 그게 이 표가 살려야 할 바로 그 순간이다.
-local _overviewRemembered    = {};
 
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
 
@@ -1460,13 +1444,7 @@ function DebindLineMixin:Update()
 	-- 여기서 매번 맞춘다. 모드를 켜고 끌 때 목록 전체가 Update를 받는다(SetBindingMode).
 	self:EnableMouseWheel(DebindFrame:IsCapturingKey());
 
-	-- 흐린 행은 **조건 밖인데 고른 것이라 남아 있는** 행이다(오버뷰 탭의 문제 필터 -
-	-- BuildOverviewElements 참고). "목록에는 있는데 지금 보려던 것은 아니다"라는 표시다.
-	if (elementData.filteredOut) then
-		self:SetAlpha(FILTERED_ALPHA);
-	else
-		self:SetAlpha(1);
-	end
+	self:SetAlpha(1);
 end
 
 function DebindLineMixin:OnEnter()
@@ -1676,6 +1654,10 @@ function DebindSideTabMixin:OnClick()
 
 		DebindFrame:UpdateSideTabs();
 		DebindFrame:Refresh();
+		-- `Refresh` rebuilds the list; `Update` is what re-reads it. Without this the strip and
+		-- the multi-select tip keep describing the tab we just left - a tip anchored under a list
+		-- that is now empty, or no tip at all on a list that just filled up.
+		DebindFrame:Update();
 	else
 		self:SetChecked(true);
 	end
@@ -2384,8 +2366,13 @@ function DebindFrameMixin:HandleEscape()
 	-- 받고 전파를 끊는다. 그래도 남겨두는 건 **물러나는 순서** 때문이다. 이 갈래가
 	-- 없으면 어쩌다 여기로 온 ESC가 아래 선택 해제로 내려가서, 한 번 누른 것이
 	-- 캡처를 끝내고 패널까지 접는다.
+	--
+	-- **되돌리는 쪽으로 나간다.** 한때 여기서 `CancelKeyCapture`를 불렀는데, 그 길은
+	-- `SetBindingMode(false)`로 곧장 가는 **커밋**이다(그쪽 주석 참고). 지정 모드에서 ESC의
+	-- 뜻은 `BindMode_OnKeyDown`이 정해놨고 그건 취소다 - 폴백이 본래 경로와 반대로 동작하면
+	-- 그건 폴백이 아니다. 되돌리기는 되돌릴 수 없으므로 틀린 쪽이 더 비싸다.
 	if (DebindFrame:IsCapturingKey()) then
-		DebindFrame:CancelKeyCapture();
+		DebindFrame:CancelBindMode();
 		return true;
 	end
 
@@ -2961,12 +2948,15 @@ function DebindFrameMixin:SetTab(id)
 		self:UpdateSideTabs();
 	end
 
-	-- 주문 선택 창은 **여기서 닫는다.** 그 창의 쓸모가 "열어둔 채 탭을 옮겨 다니며 골라
-	-- 넣는 것"이라 탭 전환에 안 닫는 것이 규칙인데(`UpdateButtons`의 잠금 목록에도 없다),
-	-- [+]의 상태는 **탭의 함수**라 다음 Update를 기다리면 안 된다. Refresh는 목록만 다시
-	-- 만들고 버튼은 안 건드린다.
-	self:UpdateButtons();
+	-- `Refresh` rebuilds the list, `Update` re-reads it. Both are needed and neither can wait for
+	-- the other's usual trigger: [+] is a function of the tab, and so are the selection strip and
+	-- the multi-select tip. Leave `Update` out and the tip stays anchored under the list we just
+	-- left - pointing at an empty one, or missing from one that just filled up.
+	--
+	-- (The spell picker deliberately stays open across a tab switch - its whole use is picking
+	-- into one tab after another - which is why it is absent from `UpdateButtons`'s lock list.)
 	self:Refresh();
+	self:Update();
 end
 
 --- elementData를 주면 버튼 대신 그것으로 연다. 순서 목록이 자기 행 대신 **왼쪽 목록이
@@ -3612,7 +3602,13 @@ function DebindOverviewPanelMixin:RefreshKeyboard()
 	local elements = BuildKeyboardElements();
 
 	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 빈 상자만 남기지 않는다.
+	--
+	-- **숨기기 전에 데이터를 비운다.** 안 비우면 마지막으로 그린 행들이 프레임 풀에 그대로
+	-- 잡혀 있고, 그 elementData가 방금 지워진 액션을 가리킨 채로 남는다 -
+	-- `DebindOrderLineMixin:OnMoveClick`은 `self:GetElementData().row.action`을 확인 없이 읽는다.
+	-- 다른 갈래는 전부 provider를 갈아끼우므로 이 자리만 예외였다.
 	if (#elements == 0) then
+		orderArea.ScrollBox:SetDataProvider(CreateDataProvider(), ScrollBoxConstants.DiscardScrollPosition);
 		orderArea:Hide();
 		self.ContentArea.EmptyText:Show();
 		return;
