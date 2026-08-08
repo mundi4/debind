@@ -1457,6 +1457,10 @@ function DebounceLineMixin:Update()
 		self:OnEnter();
 	end
 
+	-- 행은 풀에서 나오므로 앞서 그리던 행의 상태를 들고 온다. 커서가 지금 이 행 위에
+	-- 있는지를 다시 물어서 맞춘다 - 이미 올라가 있는 프레임에는 OnEnter가 다시 안 온다.
+	self:UpdateKeyButton(self:IsMouseMotionFocus());
+
 	-- 흐린 행은 두 가지다: 검색어에 안 맞거나, **조건 밖인데 고른 것이라 남아 있거나**
 	-- (오버뷰 탭의 문제 필터 - BuildOverviewElements 참고). 둘 다 "목록에는 있는데 지금
 	-- 보려던 것은 아니다"라 같은 표시를 쓴다.
@@ -1472,12 +1476,43 @@ function DebounceLineMixin:OnEnter()
 	local elementData = self:GetElementData();
 	local layerLabel = elementData.showLayerIcons and elementData.layer and GetLayerLabel(elementData.layer) or nil;
 	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, nil, layerLabel);
+	self:UpdateKeyButton(true);
 end
 
 function DebounceLineMixin:OnLeave()
 	---@diagnostic disable-next-line: redundant-parameter
 	GameTooltip:SetMinimumWidth(0, false);
 	GameTooltip:Hide();
+	self:UpdateKeyButton(false);
+end
+
+--- 단축키 칸의 버튼을 띄우고 내린다.
+---
+--- **듣는 중에는 안 내린다.** 마우스는 캡처와 상관없이 움직이고(키보드는 커서가 어디 있든
+--- 이 버튼에 들어온다), 여기서 숨기면 OnHide가 자기 캡처를 끝내버린다 - 커서를 옆으로
+--- 치우기만 해도 듣기가 끊긴다.
+function DebounceLineMixin:UpdateKeyButton(hovered)
+	local button = self.KeyButton;
+	if (DebounceDetailPanel.captureButton == button) then
+		return;
+	end
+
+	local elementData = self:GetElementData();
+	local action = elementData and elementData.action;
+	if (not hovered or not action) then
+		button:Hide();
+		self.BindingText:Show();
+		return;
+	end
+
+	-- 우클릭 해제를 첫 호버부터 받는다. `SetBindingMode`도 같은 값으로 되돌리지만 그건
+	-- 한 번이라도 들은 뒤의 이야기고, UIPanelButtonTemplate의 기본은 좌클릭뿐이다.
+	button:RegisterForClicks("LeftButtonUp", "RightButtonUp");
+
+	-- 글자와 버튼은 같은 자리다. 둘이 겹쳐 보이지 않게 글자를 내린다.
+	button:SetText(action.key and GetBindingText(action.key) or LLL["DETAIL_NO_KEY"]);
+	self.BindingText:Hide();
+	button:Show();
 end
 
 function DebounceLineMixin:OnClick(buttonName)
@@ -3948,14 +3983,41 @@ end
 ---
 --- 듣는 동안에만 키보드·휠·게임패드를 켠다. 평소에는 좌/우클릭만 받으므로 이 패널이 상설로
 --- 떠 있어도 키보드를 먹지 않는다.
-function DebounceDetailPanelMixin:SetBindingMode(active)
+--- 듣는 표시. 블리자드 단축키 버튼이 쓰는 것과 같은 텍스처다(CustomBindingButtonTemplate).
+--- 행 버튼은 풀에서 나오므로 XML에 못 박지 못하고, 처음 듣는 순간 한 번 만든다.
+local function EnsureCaptureHighlight(button)
+	if (not button.SelectedHighlight) then
+		local selected = button:CreateTexture(nil, "OVERLAY");
+		selected:SetTexture("Interface\\Buttons\\UI-Silver-Button-Select");
+		selected:SetBlendMode("ADD");
+		selected:SetAllPoints(button);
+		selected:Hide();
+		button.SelectedHighlight = selected;
+	end
+	return button.SelectedHighlight;
+end
+
+function DebounceDetailPanelMixin:SetBindingMode(active, button)
 	active = (active and _selectedAction ~= nil) or false;
 	if (self:IsCapturingKey() == active) then
 		return;
 	end
 	self.bindingMode = active or nil;
 
-	local button = self.ContentArea.KeyArea.KeyButton;
+	-- 켤 때는 부르는 쪽이 준 과녁을, 끌 때는 **켰던 그 과녁**을 되돌린다. 행 버튼은 풀에서
+	-- 나오므로 그 사이에 다른 행을 그리고 있을 수 있는데, 여기서 다시 찾으면 엉뚱한 행의
+	-- 키보드를 끄고 원래 행은 켠 채로 남는다.
+	if (active) then
+		self.captureButton = button;
+	end
+	button = self.captureButton;
+	if (not active) then
+		self.captureButton = nil;
+	end
+	if (not button) then
+		return;
+	end
+	EnsureCaptureHighlight(button);
 	button.SelectedHighlight:SetShown(active);
 	button:EnableKeyboard(active);
 	button:EnableMouseWheel(active);
@@ -4012,7 +4074,55 @@ function DebounceDetailPanelMixin:KeyButton_OnClick(button, mouseButton)
 		self:UnbindKey();
 		return;
 	end
-	self:SetBindingMode(true);
+	self:SetBindingMode(true, button);
+end
+
+--- 목록 행의 단축키 칸. 패널 버튼과 **같은 기계**로 들어간다 - 같은 일이 두 자리에 있으므로
+--- 결과가 갈릴 길이 없어야 한다.
+---
+--- 먼저 그 행을 고른다. 캡처는 `_selectedAction`에 쓰므로, 고르지 않으면 커서가 얹힌 행과
+--- 키가 걸리는 액션이 어긋난다.
+function DebounceDetailPanelMixin:RowKeyButton_OnClick(button, mouseButton)
+	if (self:IsCapturingKey()) then
+		self:KeyButton_OnInput(mouseButton);
+		return;
+	end
+
+	local elementData = button:GetParent():GetElementData();
+	local action = elementData and elementData.action;
+	if (not action) then
+		return;
+	end
+	DebounceFrame:SetSelectedAction(action);
+
+	if (mouseButton == "RightButton") then
+		self:UnbindKey();
+		return;
+	end
+	self:SetBindingMode(true, button);
+end
+
+function DebounceDetailPanelMixin:RowKeyButton_OnEnter(button)
+	local elementData = button:GetParent():GetElementData();
+	local action = elementData and elementData.action;
+
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, LLL["KEY"]);
+	local key = action and action.key;
+	if (key) then
+		GameTooltip_AddHighlightLine(GameTooltip, GetBindingText(key));
+	end
+	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_DESC"]);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["DETAIL_KEY_BUTTON_UNBIND_DESC"]);
+	GameTooltip:Show();
+end
+
+--- **이 과녁이 듣고 있을 때만** 끝낸다. 행은 풀에서 돌아가므로, 조건 없이 끄면 스크롤로
+--- 사라진 남의 행이 지금 듣고 있는 행의 캡처를 뺏는다.
+function DebounceDetailPanelMixin:CancelKeyCaptureFor(button)
+	if (self.captureButton == button) then
+		self:SetBindingMode(false);
+	end
 end
 
 function DebounceDetailPanelMixin:KeyButton_OnKeyDown(button, key)
