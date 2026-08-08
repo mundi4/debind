@@ -416,6 +416,22 @@ end
 ---
 --- 레이어가 섞이는 목록의 행 툴팁이 쓴다(순서 리스트, 오버뷰 탭). 거기서는 범위가 아이콘
 --- 두 칸으로만 나오므로 낱말로 확인할 길이 이것뿐이다.
+--- 레이어의 **짧은 이름.** "X over Y"에 들어가는 값이라 한두 낱말이어야 한다 -
+--- `GetLayerLabel`은 "공유 / 일반" 꼴이라 문장에 못 넣는다.
+---
+--- 공유/일반을 Account라 부른다. "Shared"는 무엇과 공유하는지를 안 말하는데 여기서 답은
+--- 계정이고, 짧기까지 하다.
+local function GetLayerShortName(layerID)
+	local tab, sideTab = GetLayerTabs(layerID);
+	if (tab == 2) then
+		return LLL[sideTab == 1 and "LAYER_SHORT_CHARACTER" or "LAYER_SHORT_CHARACTER_SPEC"];
+	end
+	if (sideTab == 1) then
+		return LLL["LAYER_SHORT_ACCOUNT"];
+	end
+	return LLL[sideTab == 2 and "LAYER_SHORT_CLASS" or "LAYER_SHORT_SPEC"];
+end
+
 local function GetLayerLabel(layerID)
 	local tab, sideTab = GetLayerTabs(layerID);
 	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
@@ -3009,7 +3025,16 @@ function DebounceOrderLineMixin:Update()
 	end
 
 	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
-	self.ReasonText:SetText(elementData.reason and LLL["ORDER_WHY_" .. elementData.reason] or "");
+	local reason = elementData.reason;
+	if (not reason) then
+		self.ReasonText:SetText("");
+	elseif (elementData.reasonB) then
+		self.ReasonText:SetFormattedText(LLL["ORDER_WHY_" .. reason], elementData.reasonA, elementData.reasonB);
+	elseif (elementData.reasonA) then
+		self.ReasonText:SetFormattedText(LLL["ORDER_WHY_" .. reason], elementData.reasonA);
+	else
+		self.ReasonText:SetText(LLL["ORDER_WHY_" .. reason]);
+	end
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
@@ -3100,14 +3125,25 @@ local function BuildKeyboardElements()
 		-- 상대가 없다. 넷 다 같았으면(nil) 남은 것은 순서 번호뿐이라 SEQ로 부른다.
 		local rows = DebouncePrivate.CollectActionsForKey(key);
 		for i, row in ipairs(rows) do
-			local reason;
-			if (rows[i + 1]) then
-				reason = DebouncePrivate.GetDecidingOrderAxis(row, rows[i + 1]) or "SEQ";
+			-- 이유마다 딸리는 값이 다르다. 중요도는 **어느 쪽이 높았는지**를 말해야 하고
+			-- (이름만 쓰면 방향을 모른다), 레이어는 규칙 이름보다 **실제 두 레이어**를 대는
+			-- 편이 읽힌다. 값은 여기서 뽑아둔다 - 그릴 때는 이웃 행이 손에 없다.
+			local reason, argA, argB;
+			local next = rows[i + 1];
+			if (next) then
+				reason = DebouncePrivate.GetDecidingOrderAxis(row, next) or "SEQ";
+				if (reason == "PRIORITY") then
+					argA = LLL["PRIORITY" .. row.priority];
+				elseif (reason == "LAYER") then
+					argA, argB = GetLayerShortName(row.layerID), GetLayerShortName(next.layerID);
+				end
 			end
 			elements[#elements + 1] = {
 				row = row,
 				isCurrent = row.action == _selectedAction,
 				reason = reason,
+				reasonA = argA,
+				reasonB = argB,
 			};
 		end
 	end

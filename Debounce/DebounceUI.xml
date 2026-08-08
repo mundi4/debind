@@ -422,7 +422,7 @@
 					전부 이름으로 간다. 같은 키에 액션이 하나뿐이면(대부분이 그렇다) 여기는 빈다 -
 					이길 상대가 없으니 할 말도 없다.
 				-->
-				<FontString parentKey="ReasonText" inherits="GameFontDisableSmall" justifyH="RIGHT" maxLines="1">
+				<FontString parentKey="ReasonText" inherits="GameFontHighlightSmall" justifyH="RIGHT" maxLines="1">
 					<Size x="170" y="0"/>
 					<Anchors>
 						<Anchor point="RIGHT" x="-6" y="0"/>

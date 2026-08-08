@@ -165,6 +165,13 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebounceUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
+-- 레이어의 짧은 이름. "X over Y" 한 줄에 들어가는 값이라 한두 낱말이어야 한다.
+-- Shared/General을 Account라 부르는 이유는 GetLayerShortName 주석에.
+L["LAYER_SHORT_ACCOUNT"] = "Account"
+L["LAYER_SHORT_CLASS"] = "Class"
+L["LAYER_SHORT_SPEC"] = "Spec"
+L["LAYER_SHORT_CHARACTER"] = "Character"
+L["LAYER_SHORT_CHARACTER_SPEC"] = "Character spec"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 L["MACRO_TAB_CONVERT_DESC"] = "This action is not a custom macro. Convert it to edit its body here."
 L["MACRO_TAB_NOT_CONVERTIBLE"] = "This action cannot be converted to a custom macro."
@@ -194,11 +201,11 @@ L["OVERVIEW"] = "Overview"
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
-L["ORDER_WHY_PRIORITY"] = "more important"
-L["ORDER_WHY_HOVER"] = "has a hover rule"
-L["ORDER_WHY_CONDITIONAL"] = "has conditions"
-L["ORDER_WHY_LAYER"] = "narrower scope"
-L["ORDER_WHY_SEQ"] = "bound first"
+L["ORDER_WHY_PRIORITY"] = "Importance: %s"
+L["ORDER_WHY_HOVER"] = "Unit frame rule"
+L["ORDER_WHY_CONDITIONAL"] = "Has conditions"
+L["ORDER_WHY_LAYER"] = "%s over %s"
+L["ORDER_WHY_SEQ"] = "Your order"
 L["PRIORITY"] = "Importance"
 L["PRIORITY1"] = "Very High"
 L["PRIORITY2"] = "High"
