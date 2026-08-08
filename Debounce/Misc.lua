@@ -1024,6 +1024,56 @@ end
 
 
 do
+    --- 조건절에서 `$상태` 토큰만 걷어낸 사본.
+    ---
+    --- 아이콘을 뽑을 때 쓴다. `GetMacrotextIcon`(DebounceUI.lua)은 매크로텍스트를 **진짜 매크로
+    --- 슬롯에 써넣어서** 와우가 동적 아이콘을 계산하게 만드는데, 와우 파서는 조건을 훑다가 모르는
+    --- 옵션을 만나면 대화창에 "Unknown macro option: $state1"을 찍는다. 우리 상태 토큰이 전부
+    --- 여기 걸린다. 특수 유닛(`@custom1`)은 모르는 유닛이면 조건이 조용히 실패할 뿐이라 남겨둔다.
+    ---
+    --- 뺀 자리는 **채우지 않는다** = 그 조건을 참으로 치는 셈이고, 남은 토큰이 없으면 `[]`가
+    --- 되는데 빈 조건은 와우에서 항상 참이다. 보안 스니펫이 상태가 켜졌을 때 하는 일과 같다
+    --- (`SecureBindings.lua`; 꺼지면 `known:0`). 진짜 상태값은 보안 환경 안이라 못 읽으므로,
+    --- 아이콘은 "그 상태가 켜졌을 때 나갈 것"을 보여준다.
+    ---
+    --- `ParseMacroText`를 태우지 않는 이유: 그쪽은 `$[a-zA-Z0-9_]+`만 인자로 인정해서
+    --- `$foo-bar` 같은 어긋난 토큰을 리터럴로 흘려보내는데, 와우는 **그것도** 똑같이 오류를
+    --- 찍는다. 여기서는 `$`로 시작하는 토큰이면 전부 버린다.
+    local function isCustomStateToken(token)
+        token = strtrim(token);
+        if (strsub(token, 1, 2) == "no") then
+            token = strsub(token, 3);
+        end
+        return strsub(token, 1, 1) == "$";
+    end
+
+    --- `$`가 없는 그룹은 nil을 돌려준다 = gsub이 원문을 그대로 둔다. 조건이 아닌 대괄호
+    --- (`/say [안녕]`)를 건드리지 않으려면 이 "손 안 댐"이 글자 단위로 지켜져야 한다.
+    local function stripGroup(body)
+        if (not strfind(body, "$", 1, true)) then
+            return nil;
+        end
+
+        local kept = {};
+        local tokens = { strsplit(",", body) };
+        for i = 1, #tokens do
+            if (not isCustomStateToken(tokens[i])) then
+                kept[#kept + 1] = tokens[i];
+            end
+        end
+        return "[" .. table.concat(kept, ",") .. "]";
+    end
+
+    function DebouncePrivate.StripCustomStateConditions(str)
+        if (not str or not strfind(str, "$", 1, true)) then
+            return str;
+        end
+        return (str:gsub("%[([^%]]*)%]", stripGroup));
+    end
+end
+
+
+do
     local _arr = {};
     local _tmp = {};
 

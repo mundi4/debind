@@ -542,5 +542,89 @@ return function(DebouncePrivate)
         end);
     end);
 
+    ---------------------------------------------------------------------------
+    -- 7. 아이콘 뽑기용 `$상태` 제거 (StripCustomStateConditions)
+    --
+    -- 아이콘은 매크로텍스트를 **진짜 매크로 슬롯에 써넣어** 와우에게 계산시킨다
+    -- (DebounceUI.lua `GetMacrotextIcon`). `$state1`이 그대로 넘어가면 와우가 대화창에
+    -- "Unknown macro option: $state1"을 찍는다 -- 아이콘 하나에 채팅창이 더러워진다.
+    --
+    -- 계약은 둘:
+    --   (a) `$`로 시작하는 조건 토큰은 하나도 안 남는다
+    --   (b) `$`가 없는 매크로텍스트는 **글자 하나 안 바뀐다** (본문 속 대괄호 포함)
+    ---------------------------------------------------------------------------
+
+    local Strip = DebouncePrivate.StripCustomStateConditions;
+
+    local function expectStrip(input, expected)
+        local got = Strip(input);
+        check(got == expected,
+            format("%q\n     기대 %q\n     실제 %q", input, expected, tostring(got)));
+    end
+
+    test("상태만 있던 그룹은 빈 그룹이 된다", function()
+        -- 빈 조건은 와우에서 항상 참 = 커스텀 상태를 켜진 것으로 친다
+        expectStrip("/cast [$state1] Foo", "/cast [] Foo");
+        expectStrip("/cast [ $state1 ] Foo", "/cast [] Foo");
+    end);
+
+    test("같은 그룹의 다른 조건은 자리를 지킨다", function()
+        -- 쉼표까지 같이 빠진다. 남은 조건만으로 이루어진 멀쩡한 그룹이어야 한다
+        expectStrip("/cast [$state1,combat] Foo", "/cast [combat] Foo");
+        expectStrip("/cast [combat,$state1] Foo", "/cast [combat] Foo");
+        expectStrip("/cast [@custom1,$state1] Foo", "/cast [@custom1] Foo");
+        expectStrip("/cast [combat,$state1,@tank] Foo", "/cast [combat,@tank] Foo");
+    end);
+
+    test("부정형도 제거된다", function()
+        expectStrip("/cast [no$state1] Foo", "/cast [] Foo");
+        expectStrip("/cast [ no$state1 , combat ] Foo", "/cast [ combat ] Foo");
+    end);
+
+    test("파서가 인자로 안 잡는 $토큰도 제거된다", function()
+        -- `ParseMacroText`는 `$[a-zA-Z0-9_]+`만 인자로 인정하고 나머지는 리터럴로
+        -- 흘려보낸다. 와우는 **그것도** 똑같이 "Unknown macro option"을 찍는다.
+        expectStrip("/cast [$foo-bar] Foo", "/cast [] Foo");
+        expectStrip("/cast [$] Foo", "/cast [] Foo");
+    end);
+
+    test("여러 그룹·세미콜론·여러 줄을 전부 훑는다", function()
+        expectStrip("/cast [$state1][@tank] A; [no$state2] B\n/use [$state3] C",
+            "/cast [][@tank] A; [] B\n/use [] C");
+    end);
+
+    test("$가 없으면 글자 하나 안 바뀐다", function()
+        local untouched = {
+            "/cast [@tank,exists][@healer] Regrowth",
+            "/cast [ @custom1 , nocombat ] Foo",
+            "#showtooltip\n/cast [mod:shift] A; B",
+            "/say [안녕]",            -- 조건이 아닌 대괄호
+            "/cast Regrowth",
+            "",
+        };
+        for i = 1, #untouched do
+            expectStrip(untouched[i], untouched[i]);
+        end
+        check(Strip(nil) == nil, "nil에서 죽거나 값을 만들어냄");
+    end);
+
+    test("무차별: 어떤 조합에서도 $가 살아남지 않는다", function()
+        for n = 1, 3 do
+            eachCombo(n, function(indices)
+                local clause = buildClause(indices);
+                for s = 1, #SPELLINGS do
+                    local macrotext = SPELLINGS[s][2](clause);
+                    local got = Strip(macrotext);
+                    check(not got:find("$", 1, true),
+                        format("$가 남음\n     원문 %q\n     결과 %q", macrotext, got));
+                    if (not macrotext:find("$", 1, true)) then
+                        check(got == macrotext,
+                            format("$도 없는데 바뀜\n     원문 %q\n     결과 %q", macrotext, got));
+                    end
+                end
+            end);
+        end
+    end);
+
     return T;
 end
