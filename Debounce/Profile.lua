@@ -414,12 +414,20 @@ function DebouncePrivate.EnumerateProfileLayers(spec)
     tinsert(indexArray, DebouncePrivate.GetLayerID(0, false));
     tinsert(indexArray, DebouncePrivate.GetLayerID(nil, false));
 
+    --- **없는 레이어는 건너뛴다.** `LoadProfile`이 열한 개를 한꺼번에 만들므로 평소에는
+    --- 하나도 안 빠지지만, 그 전에 물어보는 길이 있다 - UI 프레임의 `OnLoad`는 XML을
+    --- 읽을 때 도는데 그건 `InitDB`보다 앞이다. 그때 `GetProfileLayer`는 그냥 테이블
+    --- 조회라 nil을 주고, 부르는 쪽은 전부 `layer:Enumerate()`부터 한다.
+    ---
+    --- 세는 자리를 여기 하나로 둔다. 부르는 쪽마다 nil을 걸러내게 하면 새로 부르는 곳이
+    --- 생길 때마다 같은 줄을 다시 써야 하고, 빠뜨려도 그 화면을 열기 전까지 조용하다.
     local function Enumerator(tbl, index)
-        index = index + 1;
-        if (index <= #tbl) then
-            local layerIndex = tbl[index];
-            local layer = DebouncePrivate.GetProfileLayer(layerIndex);
-            return index, layer;
+        while (index < #tbl) do
+            index = index + 1;
+            local layer = DebouncePrivate.GetProfileLayer(tbl[index]);
+            if (layer) then
+                return index, layer;
+            end
         end
     end
 
