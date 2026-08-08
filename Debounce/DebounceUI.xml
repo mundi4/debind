@@ -344,18 +344,14 @@
 		지금 보고 있는 액션은 SelectedHighlight가 짚는다.
 	-->
 	<!--
-		메뉴는 우클릭으로만 연다. 왼쪽 목록이 이미 그렇게 가르치고 있으므로(좌클릭은 고르고,
-		우클릭이 편집 메뉴다 - DebounceLineMixin:OnClick), 같은 창의 다른 목록이 같은 버튼에
-		다른 뜻을 주면 안 된다.
-
-		좌클릭은 아예 등록하지 않는다. 등록해두고 안에서 걸러내는 것보다 낫다 - 나중에
-		누가 AnyUp으로 바꿔도 조용히 새 길이 열리지 않는다.
+		좌우 클릭이 같은 일을 한다 - 둘 다 그 액션이 사는 통으로 데려간다
+		(DebounceOrderLineMixin:OnClick). 여기서 버튼을 나눌 뜻이 없다.
 
 		실제로 한 번 열렸다. 좌클릭에 "그 액션으로 가기"를 달았는데, **좌클릭은 습관적으로
 		눌러보는 버튼**이라 그것만으로 탭이 바뀌었다 - 되돌리는 데 두세 번이 든다. 멀리 가는
 		일은 우클릭 메뉴에서 "가기"를 고르는 한 번의 명시적 선택이어야 한다.
 	-->
-	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="RightButtonUp" virtual="true">
+	<Button name="DebounceOrderLineTemplate" mixin="DebounceOrderLineMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
 		<Size x="300" y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -736,43 +732,6 @@
 					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
 				</Anchors>
 			</CheckButton>
-			<!--
-				오버뷰 탭의 필터. **오버뷰 탭에서만 보인다** - 레이어 탭에는 거를 것이 없고,
-				그 탭에서 보이는 묶기 체크박스는 여기 없다(오버뷰 목록은 언제나 키로 묶여
-				있다 - 거기서 묶기는 선택이 아니라 목록의 뜻이다).
-
-				주문 선택 창이 쓰는 것과 **같은 물건**이다(`WowStyle1FilterDropdownTemplate`).
-				기본값이 아니면 오른쪽 위에 X가 뜨는 것도 그 템플릿이 갖고 온다
-				(`WowDropdownFilterBehaviorMixin`) - **행을 실제로 없애는 필터는 켜져 있다는
-				걸 소리쳐야 한다.** 안 그러면 "내 액션이 왜 안 보이지"가 된다.
-
-				**자리는 검색창 오른쪽이다.** 저쪽 창처럼 줄 오른쪽 끝에 붙이면 여기서는
-				위쪽 둥근 버튼들과 겹친다 - 그 창에는 그 자리에 아무것도 없다. 묶기
-				체크박스가 서던 자리와 같고, 둘은 절대 같이 보이지 않는다.
-			-->
-			<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate" hidden="true">
-				<!--
-					높이는 **템플릿의 값 그대로**(18)여야 한다. X(ResetButton)가 프레임의 위쪽
-					모서리 중심에 매달려 있어서(`CENTER` → `TOPRIGHT`), 여기서 높이를 키우면
-					그만큼 X가 버튼 위로 떠오른다. 한때 22였고 그래서 블리자드 것과 달라 보였다.
-					폭만 우리 것으로 좁힌다.
-				-->
-				<Size x="110" y="18"/>
-				<Anchors>
-					<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
-				</Anchors>
-				<Frames>
-					<!--
-						템플릿의 앵커에서 y만 내린다(원래 0). 프레임의 모서리는 배경 텍스처가
-						그리는 **눈에 보이는 테두리보다 4px 안쪽**이라(템플릿의 Background가
-						위로 4 넘겨 그린다), 값이 0이면 X가 테두리 위에 떠 있는 것처럼 보인다.
-					-->
-					<Button parentKey="ResetButton" inherits="UIResetButtonTemplate" hidden="true">
-						<Anchors>
-							<Anchor point="CENTER" relativePoint="TOPRIGHT" x="-3" y="-3"/>
-						</Anchors>
-					</Button>
-				</Frames>
 			</DropdownButton>
 
 			<!--
@@ -796,20 +755,6 @@
 			<Button parentKey="Tab2" inherits="DebounceFrameTabTemplate" id="2">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.Tab1" relativePoint="TOPRIGHT" x="3" y="0"/>
-				</Anchors>
-			</Button>
-			<!--
-				오버뷰 탭. 앞의 둘과 달리 **레이어가 아니다** - 활성 레이어 전부를 키로 묶어
-				한 목록에 놓는다. 그래서 사이드탭도 없고 여기에 액션을 새로 넣을 수도 없다
-				(어느 레이어에 넣을지 이 탭은 답이 없다). 자세한 건 DebounceUI.lua의
-				IsOverviewTab 주변에.
-
-				**자리는 여기서 안 정한다.** 왼쪽 둘은 "어디에 저장되는가"로 갈리는 한 쌍이고
-				이건 그 축 밖이라 사슬에서 떼어 오른쪽 끝에 세우는데, 그 앵커는
-				`PanelTemplates_SetNumTabs`가 덮으므로 `OnLoad`에서 그 뒤에 다시 잡는다.
-				여기 뭘 적어도 화면에 닿지 않는다(위 Tab2 주석과 같은 이야기).
-			-->
-			<Button parentKey="Tab3" inherits="DebounceFrameTabTemplate" id="3"/>
 
 			<Frame parentKey="SideTabsFrame">
 				<Anchors>

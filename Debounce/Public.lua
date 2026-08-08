@@ -94,24 +94,20 @@ if (not DebouncePrivate.CliqueDetected) then
 	_G.DebouncePrivate = prev;
 end
 
---- 창을 열고 오버뷰 탭으로 간다.
+--- 창을 연다. **이미 열려 있으면 닫지 않는다** - 오버뷰를 보려고 부른 것이라 토글로
+--- 받으면 원하는 것의 반대가 나온다.
 ---
---- **이미 열려 있으면 닫지 않는다.** 오버뷰를 보려고 부른 것이라 토글로 받으면 원하는
---- 것의 반대가 나온다. `ToggleUI`가 물러설 수도 있으므로(전투·게임메뉴 - 그쪽이 이유까지
---- 말한다) 열렸는지 다시 묻고 나서 탭을 옮긴다.
+--- 옮길 탭은 이제 없다. 창의 왼쪽 열이 늘 그 오버뷰라 여는 것으로 끝난다.
 local function ShowOverview()
 	if (not DebounceFrame:IsShown()) then
 		DebouncePublic:ToggleUI();
-	end
-	if (DebounceFrame:IsShown()) then
-		DebounceFrame:ShowOverviewTab();
 	end
 end
 
 SlashCmdList["DEBOUNCE"] = function(msg)
 	msg = strlower(msg);
-	-- 오버뷰가 별도 창이던 시절의 명령어. 창은 없어졌지만 손가락이 기억하는 것을 뺏지
-	-- 않는다 - 같은 것을 보여주는 자리가 여전히 있다.
+	-- 오버뷰가 별도 창이던 시절의 명령어. 창도 탭도 없어졌지만 손가락이 기억하는 것을
+	-- 뺏지 않는다 - 창을 열면 그 오버뷰가 왼쪽 열에 있다.
 	if (msg == "overview") then
 		ShowOverview();
 		return;
@@ -130,8 +126,8 @@ SlashCmdList["DEBOUNCE"] = function(msg)
 	DebouncePublic:ToggleUI();
 end
 
---- 우클릭은 오버뷰 탭으로 간다. 이 버튼의 오른쪽은 원래 바인딩 오버뷰를 여는 자리였고
---- (별도 창이던 시절), 그 창이 메인 창의 탭이 된 뒤에도 뜻은 그대로다.
+--- 우클릭도 창을 연다. 이 버튼의 오른쪽은 원래 바인딩 오버뷰를 여는 자리였고, 그 오버뷰가
+--- 이제 창의 왼쪽 열이라 왼쪽 클릭과 하는 일이 같아졌다 - 토글이 아닌 것만 다르다.
 function Debounce_CompartmentFunc(name, mouseButton, btn)
 	if (mouseButton == "RightButton") then
 		ShowOverview();

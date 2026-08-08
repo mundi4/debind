@@ -943,9 +943,6 @@ do
 
     --- 목적지 목록은 **레이어**의 목록이지 탭 좌표의 목록이 아니다.
     ---
-    --- 오버뷰 탭은 여기 안 들어온다. 레이어가 아니라서 넣을 자리가 없다
-    --- (`DebounceUI.lua`의 `GetLayerID`).
-    ---
     --- 같은 레이어를 두 좌표가 가리키는 일이 실재한다: 캐릭터 전용 탭에서 (탭2, 사이드탭1)과
     --- (탭2, 사이드탭2)가 **둘 다 레이어 7**이다. 그래서 layerID로 접는다 - 안 접으면 같은
     --- 곳으로 가는 항목이 이름만 다르게 둘 나오고, "이동"으로 그 둘째를 고르면
@@ -957,7 +954,7 @@ do
             TAB_LIST = {};
             local seenLayers = {};
             for tabID = 1, #DebounceFrame.Tabs do
-                local tabLabel = not DebounceUI.IsOverviewTab(tabID) and DebounceUI.GetTabLabel(tabID);
+                local tabLabel = DebounceUI.GetTabLabel(tabID);
                 if (tabLabel) then
                     for sideTabID = 1, #DebounceFrame.SideTabs do
                         local sideTabLabel = DebounceUI.GetSideTabaLabel(sideTabID);
