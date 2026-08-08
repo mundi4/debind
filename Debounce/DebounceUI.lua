@@ -47,9 +47,39 @@ local _selectedSideTab       = 1;
 -- 것을 목록이나 탭에 떨구면 그 레이어 맨 뒤에 붙는다. 아이템처럼 스펠 선택 창에 없는
 -- 타입은 이 길로만 들어온다.
 local _pickedupInfo;
--- 상세 패널이 보여주는 액션. elementData가 아니라 action 테이블을 들고 있는 이유는
--- elementData가 Refresh마다 새로 만들어지기 때문이다 (DebounceFrameMixin:Refresh).
+-- **앵커.** SHIFT가 범위를 재는 기준점이고, 동시에 왼쪽 열이 짚는 행(`isCurrent`)이자 순서
+-- ↑↓가 붙는 행이자 매크로 창이 여는 액션이다.
+--
+-- **둘을 한 변수로 둔 이유는 앵커가 화면에 보여야 하기 때문이다.** 기준점이 아무 데도 안
+-- 그려져 있으면 SHIFT-클릭 결과를 눌러보기 전에는 알 수 없다. 합쳐두면 왼쪽 열이 짚고 있는
+-- 그 행이 곧 기준점이라, 따로 그릴 것이 없다.
+--
+-- 옮기는 것은 **SHIFT 없는 좌클릭**이다(CTRL은 옮긴다 - 집합에서 빼는 경우까지). SHIFT가
+-- 안 옮기는 덕에 범위를 다시 잴 수 있다: 2를 누르고 SHIFT로 8을 찍은 뒤 5를 찍으면 2-5가
+-- 된다. SHIFT도 옮기게 두면 저 마지막 클릭이 5-8이 되어 범위를 줄일 길이 없어진다.
+--
+-- elementData가 아니라 action 테이블을 들고 있는 이유는 elementData가 Refresh마다 새로
+-- 만들어지기 때문이다 (DebounceFrameMixin:Refresh).
 local _selectedAction;
+
+--- **벌크 대상 집합.** 앵커와는 다른 것이다 - 앵커는 "지금 이야기 중인 행" 하나이고, 이쪽은
+--- "이동·복사·삭제가 손댈 것들"이다. 오른쪽 목록의 강조와 멀티 메뉴만 이걸 본다.
+---
+--- 앵커가 이 집합 밖에 있을 수 있다: CTRL-클릭으로 앵커 행 자신을 집합에서 빼면 그렇게 된다.
+--- 고치지 않는다 - "선택은 아닌데 지금 보고 있는 것"이 맞는 말이고, 왼쪽 열의 `isCurrent`는
+--- 원래 선택이 아니라 이야기 중인 행이라는 뜻이었다.
+---
+--- 액션 테이블을 키로 든다. elementData를 들면 Refresh 한 번에 집합 전체가 낡는다.
+local _selection             = {};
+local _selectionCount        = 0;
+
+--- 오른쪽 목록의 검색어. 소문자로, 빈 문자열이면 nil이다(`ClearSearch` / OnTextChanged).
+---
+--- **왼쪽 열은 안 거른다.** 저기서 행을 빼면 순서 설명이 거짓말이 된다 - 각 행의 글자는
+--- "이 행이 **바로 아래 행을** 이긴 이유"이고 그 계산은 키 그룹 전체로 하므로(`BuildKeyboardElements`),
+--- 몇 줄을 걷어내면 남은 문장이 화면에 없는 행을 가리킨다. 왼쪽은 이미 선택으로 답한다 -
+--- 오른쪽에서 찾은 행을 누르면 저쪽이 그 행을 짚고 그리로 스크롤한다.
+local _searchText;
 
 --- 오버뷰 탭에서 **필터가 빼지 못하는 액션들.**
 ---
@@ -684,6 +714,34 @@ local function NameAndIconForAction(action)
 	return actionName, actionIcon or QUESTION_MARK_ICON_NUM, bareName;
 end
 
+--- 이 액션이 지금 검색어에 걸리나. 검색어가 없으면 전부 참이다.
+---
+--- 오른쪽 목록(`BuildSortedElements`)과 탭 숫자(`UpdateActionCounts`)가 **같은 이 함수**를
+--- 쓴다. 두 벌로 두면 한쪽만 바뀌어서 "(3)"이라고 적힌 탭을 눌렀더니 두 줄만 나오는 일이 난다.
+local function ActionMatchesSearch(action)
+	if (_searchText == nil) then
+		return true;
+	end
+	return strfind(strlower(NameAndIconForAction(action) or ""), _searchText, 1, true) ~= nil;
+end
+
+--- 이 레이어에서 **지금 세어야 할** 액션 수. 검색 중이면 걸리는 것만 센다.
+---
+--- 검색어가 없으면 레이어에게 묻는다 - 훑을 이유가 없다.
+local function CountActionsInLayer(layer)
+	if (_searchText == nil) then
+		return layer:GetNumActions();
+	end
+
+	local count = 0;
+	for _, action in layer:Enumerate() do
+		if (ActionMatchesSearch(action)) then
+			count = count + 1;
+		end
+	end
+	return count;
+end
+
 --- skipCategory는 **그 행이 스스로 보여주는** 이슈 계열이다. 이름은 다른 데서 안 보이는
 --- 문제만 물들인다 - 단축키 칸이 이미 빨간데 이름까지 빨개지면 행 전체가 잘못된 것으로
 --- 읽힌다. 도달불가는 이 행의 잘못이 아니라 다른 행 때문에 생기는 것이라 더 그렇다.
@@ -723,9 +781,52 @@ local function DeleteElementData(elementData)
 	DebounceFrame:Refresh(true);
 end
 
-local ShowDeleteConfirmationPopup, HideDeleteConfirmationPopup;
+--- 고른 것 전부를 지운다.
+---
+--- **액션마다 elementData를 그때그때 다시 찾는다.** `DeleteElementData`가 한 번 돌 때마다
+--- `Refresh`가 목록을 새로 지어서, 미리 모아둔 elementData는 둘째부터 낡은 layer를 들고 있다.
+--- 집합이 액션 테이블을 열쇠로 드는 이유가 이것이다.
+local function DeleteActions(actions)
+	for _, action in ipairs(actions) do
+		local elementData = DebounceFrame:FindElementDataByActionInfo(action);
+		if (elementData) then
+			DeleteElementData(elementData);
+		end
+	end
+
+	-- 앵커가 지워진 것 중에 있었으면 `DeleteElementData`가 이미 선택을 풀었다. 밖에 있었으면
+	-- 집합에 죽은 테이블이 남으므로 여기서 접는다.
+	DebounceFrame:SetSelectedAction(DebounceFrame:GetSelectedAction());
+end
+
+local ShowDeleteConfirmationPopup, ShowBulkDeleteConfirmationPopup, HideDeleteConfirmationPopup;
 do
 	local _deletePopupData;
+
+	--- 벌크 삭제의 확인. **이름 대신 개수로 묻는다** - 열몇 개를 나열하면 팝업이 화면을 덮고,
+	--- 그렇다고 몇 개만 적으면 나머지를 숨긴 채로 묻는 꼴이 된다.
+	---
+	--- 확인을 건너뛰지 않는 이유는 되돌리기가 없기 때문이다. 이동·복사는 확인 없이 즉시인데
+	--- (되돌릴 수 있거나 파괴적이지 않다) 이것만 다르다.
+	function ShowBulkDeleteConfirmationPopup(actions)
+		HideDeleteConfirmationPopup();
+
+		_deletePopupData = {
+			text = LLL["DELETE_CONFIRM_MESSAGE_MULTIPLE"],
+			text_arg1 = #actions,
+			callback = function()
+				DeleteActions(actions);
+			end,
+			acceptText = YES,
+			cancelText = NO,
+			showAlert = true,
+			referenceKey = "DebounceDeleteConfirmation",
+		};
+
+		StaticPopup_ShowCustomGenericConfirmation(_deletePopupData);
+		DebounceFrame:UpdateButtons();
+	end
+
 	function ShowDeleteConfirmationPopup(elementData)
 		HideDeleteConfirmationPopup();
 
@@ -817,6 +918,34 @@ local function MoveAction(elementData, destLayerID, copying)
 		if (newElementData) then
 			DebounceFrame.ScrollBox:ScrollToElementData(newElementData);
 		end
+	end
+end
+
+--- 고른 것 전부를 옮기거나 복사한다.
+---
+--- 하나씩 `MoveAction`을 지난다. 그 함수가 레이어에서 빼고 넣고 순서 번호를 다시 주는 규칙을
+--- 전부 들고 있어서, 벌크가 자기 몫으로 다시 적으면 같은 규칙이 두 군데 살게 된다.
+---
+--- **elementData는 액션마다 그때그때 다시 찾는다.** `MoveAction`이 한 번 돌 때마다 `Refresh`가
+--- 목록을 새로 지어서, 미리 모아둔 elementData는 둘째부터 낡은 layer/index를 들고 있다.
+---
+--- 목적지에 이미 사는 것은 건너뛴다(이동일 때). 오른쪽 목록은 한 레이어뿐이라 메뉴에 그
+--- 항목이 아예 안 나오지만(`CreateMoveCopyMenu`), 막지 않으면 그런 한 줄이 `MoveAction`의
+--- `assert(copying, ...)`에 걸려 **벌크 전체가 중간에 멈춘다** - 앞의 절반만 옮겨진 채로.
+---
+--- 옮긴 뒤에는 선택을 접는다. `MoveAction`이 액션 테이블을 복사해서 넣으므로(`CopyTable`)
+--- 집합이 들고 있던 테이블은 어느 레이어에도 없는 것이 된다. 복사는 원본이 그대로 남으므로
+--- 접지 않는다 - 사용자가 고른 것은 원본이고, 사본으로 옮겨주면 방금 무엇을 골랐는지가 틀어진다.
+local function MoveActions(actions, destLayerID, copying)
+	for _, action in ipairs(actions) do
+		local elementData = DebounceFrame:FindElementDataByActionInfo(action);
+		if (elementData and (copying or elementData.layer ~= destLayerID)) then
+			MoveAction(elementData, destLayerID, copying);
+		end
+	end
+
+	if (not copying) then
+		DebounceFrame:SetSelectedAction(nil);
 	end
 end
 
@@ -1311,7 +1440,12 @@ function DebounceLineMixin:Update()
 	self.Icon:SetDesaturated(false);
 	-- 강조는 elementData가 아니라 action으로 맞춘다. Refresh가 elementData를 새로 만들어도
 	-- 강조가 유지된다.
-	self.SelectedHighlight:SetShown(_selectedAction == action or IsEditingAction(action));
+	--
+	-- **앵커가 아니라 집합을 본다.** 벌크로 고른 것이 전부 같은 표시를 받아야 하고, 반대로
+	-- CTRL-클릭으로 앵커 행을 집합에서 뺐으면 여기서는 강조가 사라지는 것이 맞다 - 그 행은
+	-- 이동·복사·삭제가 손대지 않는다. 왼쪽 열은 계속 그 행을 짚는데, 저쪽이 말하는 것은
+	-- "고른 것"이 아니라 "지금 이야기 중인 행"이라 어긋나지 않는다.
+	self.SelectedHighlight:SetShown(DebounceFrame:IsActionSelected(action) or IsEditingAction(action));
 
 	-- 메뉴 대상은 선택과 다른 텍스처를 쓴다(XML 참고). 한 행이 둘 다일 수 있으므로 서로를
 	-- 지우지 않는다.
@@ -1385,19 +1519,21 @@ function DebounceLineMixin:OnClick(buttonName)
 			else
 				ShowDeleteConfirmationPopup(elementData);
 			end
-		else
-			-- CTRL-우클릭 = 매크로 편집기 지름길
-			if (IsControlKeyDown() and elementData.action.type == Constants.MACROTEXT) then
-				if (IsEditingAction(elementData.action)) then
-					return;
-				end
-				if (not TryCloseAnyDialog()) then
-					return;
-				end
-				DebounceMacroFrame:Open(elementData.action);
+		elseif (DebounceFrame:GetSelectionCount() > 1 and DebounceFrame:IsActionSelected(elementData.action)) then
+			-- **고른 것 위에서 연 메뉴는 고른 것 전부를 겨눈다.** 탐색기와 같은 규칙이고,
+			-- 아래 단일 경로의 계약("메뉴를 여는 행이 곧 고른 행이다")을 깨지 않는다 - 이 행도
+			-- 고른 것 중 하나라, 메뉴가 가리키는 것과 강조된 것이 여전히 같다.
+			--
+			-- 고른 것 **밖에서** 우클릭하면 아래로 내려가 선택이 그 행 하나로 접힌다. 남의 행에서
+			-- 열린 메뉴가 안 보이는 다른 행들을 지우는 일이 없어야 한다.
+			--
+			-- 여기서 elementData를 다시 집지 않는 이유: 대상은 이 행이 아니라 집합이고, 집합은
+			-- 액션 테이블을 열쇠로 들고 있어서 목록이 다시 지어져도 살아남는다.
+			if (not TryCloseAnyDialog()) then
 				return;
 			end
-
+			DebounceFrame:ShowBulkDropdown(self);
+		else
 			-- **메뉴를 여는 행이 곧 고른 행이다.** 선택은 화면이 "지금 이 액션 이야기 중"이라고
 			-- 말하는 표시인데, 메뉴가 남의 행에서 열리면 그 말과 메뉴가 가리키는 것이 어긋난다.
 			-- 상세 패널은 A를 보여주는데 방금 연 메뉴는 B를 지우려는 상태가 실제로 생긴다.
@@ -1419,9 +1555,21 @@ function DebounceLineMixin:OnClick(buttonName)
 		return;
 	end
 
-	-- 좌클릭 = 선택. 상세 패널이 이 액션을 단축키 탭으로 열어 보여준다.
-	-- (예전에는 여기서 키 지정 팝업을 띄웠다. 이제 탭이 그 자리를 대신한다.)
-	DebounceFrame:SetSelectedAction(elementData.action);
+	-- 좌클릭 = 선택. 수식어가 붙으면 **집합**을 손보고, 붙지 않으면 이 행 하나로 접는다.
+	--
+	-- **앵커는 SHIFT가 없는 갈래에서만 옮긴다.** CTRL로 집합에서 빼는 경우까지 옮기는데,
+	-- 앵커는 "고른 행"이 아니라 "다음 범위를 잴 자리"이기 때문이다. SHIFT는 그 자리를 읽기만
+	-- 하므로 옮기지 않는다 - 그래야 같은 기준점에서 범위를 다시 잴 수 있다.
+	--
+	-- **SHIFT를 먼저 본다.** CTRL+SHIFT는 범위를 더하는 것이라 SHIFT 갈래에 속하는데, CTRL을
+	-- 먼저 보면 그 조합이 토글로 새어 들어간다.
+	if (IsShiftKeyDown()) then
+		DebounceFrame:SelectRangeTo(elementData.action, IsControlKeyDown());
+	elseif (IsControlKeyDown()) then
+		DebounceFrame:ToggleActionSelected(elementData.action);
+	else
+		DebounceFrame:SetSelectedAction(elementData.action);
+	end
 end
 
 --- 행은 끌 수 없지만(`RegisterForDrag` 없음) **받기는** 한다. 커서에 든 것을 놓는 것은
@@ -1720,7 +1868,9 @@ end
 --- 같은 문장으로 말하면 후자가 고장으로 읽힌다.
 function DebounceFrameMixin:UpdateEmptyText()
 	if (self.dataProvider:GetSize() == 0) then
-		self.ScrollBox.EmptyText:SetText(LLL["NO_ACTIONS_IN_THIS_TAB"]);
+		-- **검색 중이면 다른 말을 한다.** 원래 문구는 "여기 액션이 없으니 끌어다 놓으세요"인데,
+		-- 검색에 안 맞아서 빈 것뿐이면 그건 거짓말이고 하필 할 일까지 틀리게 시킨다.
+		self.ScrollBox.EmptyText:SetText(LLL[_searchText and "NO_SEARCH_RESULTS" or "NO_ACTIONS_IN_THIS_TAB"]);
 		self.ScrollBox.EmptyText:Show();
 	else
 		self.ScrollBox.EmptyText:Hide();
@@ -1747,6 +1897,18 @@ end
 -- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
 -- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
 function DebounceFrameMixin:UpdateActionCounts()
+	-- **검색 중이면 숫자가 "걸리는 것"의 수로 바뀌고 초록이 된다.**
+	--
+	-- 숫자를 안 바꾸면 탭이 거짓말을 한다 - "(12)"를 보고 눌렀는데 목록에 두 줄만 있는 일이
+	-- 생기고, 정작 찾는 이름이 어느 탭에 있는지는 여전히 탭을 하나씩 눌러봐야 안다. 그게 이
+	-- 숫자가 검색 중에 답할 수 있는 유일하게 쓸모 있는 질문이다.
+	--
+	-- 색을 바꾸는 것은 **지금 숫자의 뜻이 다르다**는 표시다. 같은 자리에 같은 모양으로 다른
+	-- 것을 세어 놓으면, 검색어를 지운 뒤 숫자가 늘어난 것을 액션이 생긴 것으로 읽는다.
+	-- **0은 회색이다.** 초록은 "여기 찾는 게 있다"는 표시라, 없는 곳까지 초록이면 그 뜻이
+	-- 사라진다 - 탭 줄을 훑는 눈이 걸러내야 할 것이 색으로 걸러져야 한다.
+	local searching = _searchText ~= nil;
+
 	for tabId, tab in ipairs(self.Tabs) do
 		local label = GetTabLabel(tabId);
 
@@ -1757,7 +1919,7 @@ function DebounceFrameMixin:UpdateActionCounts()
 				if (sideTabId <= 2 + NUM_SPECS) then
 					local layerId = GetLayerID(tabId, sideTabId);
 					local layer = DebouncePrivate.GetProfileLayer(layerId);
-					local count = layer:GetNumActions();
+					local count = CountActionsInLayer(layer);
 
 					-- 사이드탭 숫자는 그 사이드탭이 여는 레이어를 그대로 보여준다. 중복이라
 					-- 합계에서 빠지는 쪽(탭2의 사이드탭2)도 자기 숫자는 맞게 들고 있어야
@@ -1765,7 +1927,13 @@ function DebounceFrameMixin:UpdateActionCounts()
 					-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
 					if (tabId == _selectedTab) then
 						sideTab.Count:SetText(count);
-						sideTab.Count:SetTextColor(1, 1, 1);
+						if (not searching) then
+							sideTab.Count:SetTextColor(1, 1, 1);
+						elseif (count > 0) then
+							sideTab.Count:SetTextColor(GREEN_FONT_COLOR:GetRGB());
+						else
+							sideTab.Count:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
+						end
 					end
 
 					if (not countedLayers[layerId]) then
@@ -1775,7 +1943,14 @@ function DebounceFrameMixin:UpdateActionCounts()
 				end
 			end
 
-			label = label .. " (" .. sum .. ")";
+			-- 탭 글자는 한 덩어리라 숫자만 물들이려면 색 코드를 끼워 넣어야 한다. 사이드탭은
+			-- 숫자가 제 FontString이라 위에서 색을 직접 준다.
+			local text = "(" .. sum .. ")";
+			if (searching) then
+				local color = (sum > 0) and GREEN_FONT_COLOR or DISABLED_FONT_COLOR;
+				text = color:WrapTextInColorCode(text);
+			end
+			label = label .. " " .. text;
 		end
 
 		tab:SetText(label);
@@ -1846,7 +2021,33 @@ function DebounceFrameMixin:InitializeButtons()
 	end);
 	self:UpdateBindModeButton();
 
+	-- 값이 실제로 달라졌을 때만 목록을 짓는다. `SetText`는 같은 글자로도 이 스크립트를 부른다.
+	self.SearchBox:SetScript("OnTextChanged", function(editBox)
+		InputBoxInstructions_OnTextChanged(editBox);
+
+		local text = strtrim(editBox:GetText()):lower();
+		if (text == "") then
+			text = nil;
+		end
+		if (_searchText ~= text) then
+			_searchText = text;
+			-- **걸러져 나간 것은 벌크 대상에서 뺀다.** 안 빼면 "2 selected"라고 적혀 있는데
+			-- 이동·삭제는 보이는 하나만 손대는 상태가 된다 - `GetSelectedActions`가 목록을
+			-- 훑으므로 안 보이는 것은 어차피 안 넘어간다. 개수가 늘 사실이어야 한다.
+			--
+			-- **앵커는 안 건드린다.** 그건 "벌크 대상"이 아니라 "지금 이야기 중인 행"이고,
+			-- 왼쪽 열과 매크로 창이 그것을 보고 있다. 검색어를 쳤다고 보던 것을 뺏지 않는다.
+			self:PruneSelectionToSearch();
+			-- 스크롤 자리는 안 지킨다. 목록의 길이 자체가 달라지므로 지켜봐야 엉뚱한 데를
+			-- 보게 되고, 검색은 맨 위부터 읽는 동작이다.
+			self:Refresh();
+			self:Update();
+		end
+	end);
+	self.SearchBox:SetScript("OnEditFocusGained", SearchBoxTemplate_OnEditFocusGained);
+	self.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
 end
+
 
 --- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
 ---
@@ -1947,6 +2148,23 @@ function DebounceFrameMixin:OnLoad()
 	self.OverviewTab:SetText(LLL["OVERVIEW"]);
 	PanelTemplates_TabResize(self.OverviewTab, 0);
 	PanelTemplates_SelectTab(self.OverviewTab);
+
+	-- **이 열이 무엇인지는 여기서만 말할 수 있다.** 이름표가 "Overview" 한 낱말인데, 그 열의
+	-- 규칙은 세 가지다 - 키가 걸린 것만 있고, 키로 묶여 있고, 지금 놀고 있는 캐릭터·특성에
+	-- 붙박이다. 셋 다 화면에 안 적혀 있고 셋 다 안 알면 오해가 된다(오른쪽에서 오프스펙을
+	-- 열었는데 왼쪽이 안 따라오는 것이 특히 그렇다).
+	--
+	-- 템플릿이 이미 `OnEnter`를 갖고 있지만(글자가 잘렸을 때만 이름을 띄운다) 여기서 덮는다 -
+	-- 우리 툴팁은 그 이름을 언제나 제목으로 달고 있어서 덮어도 잃는 말이 없다.
+	self.OverviewTab:SetScript("OnEnter", function(tab)
+		GameTooltip:SetOwner(tab, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, LLL["OVERVIEW"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["OVERVIEW_DESC"]);
+		GameTooltip:Show();
+	end);
+	self.OverviewTab:SetScript("OnLeave", function()
+		GameTooltip:Hide();
+	end);
 
 	self:InitializeScrollBox();
 	self:InitializeSideTabs();
@@ -2113,13 +2331,9 @@ function DebounceFrameMixin:HandleEscape()
 		return true;
 	end
 
-	-- ESC는 한 단계씩 물러난다: 선택 해제(패널 접힘) -> 창 닫기.
-	-- 패널에는 저장을 미루는 상태가 없으므로 잃을 게 없다.
-	if (_selectedAction) then
-		self:SetSelectedAction(nil);
-		return true;
-	end
-
+	-- **선택 해제 칸은 없다.** 한때 여기서 ESC 한 번이 선택을 풀었는데, 그건 선택이 상세
+	-- 패널을 펴고 접던 시절의 칸이다 - 물러날 화면이 실제로 있었다. 지금 선택이 하는 일은
+	-- 행 강조와 왼쪽 열이 짚는 자리뿐이라, 그 칸은 **창을 닫으려는 ESC를 한 번 먹기만 한다.**
 	self:Hide();
 	return true;
 end
@@ -2207,15 +2421,32 @@ local function CompareByName(lhs, rhs)
 	return lhs.index < rhs.index;
 end
 
+--- 이 레이어의 액션을 이름순으로 놓는다. 검색어가 있으면 거른다.
+---
+--- **`index`는 거르기 전의 자리다.** `MoveAction`이 같은 레이어 안에서 복사할 때 넣을 자리로
+--- 쓰는 값이라(`elementData.index + 1`) 화면에 몇 번째로 보이는지와는 상관이 없다.
+---
+--- **여기는 선택을 안 본다. 목록은 (레이어, 검색어)만의 함수다.**
+---
+--- 한때 검색어에 안 맞는 앵커를 흐리게 남겼다 - 왼쪽이 짚는 행은 오른쪽에 반드시 있어야
+--- 한다고 봤기 때문이다. 그러면 **목록의 내용이 선택 상태에 묶인다.** 앵커는 목록이 지어진
+--- **뒤에** 옮겨가는 경로가 있어서(`GoToAction`: `SetTab`→`Refresh`→`SetSelectedAction`)
+--- 화면이 한 클릭씩 밀렸고, 앵커가 딴 데로 가도 옛 흐린 줄이 남았다.
+---
+--- 대신 검색어를 자동으로 비우는 것도 안 한다. 걸러진 행은 **그냥 안 보인다.** 사용자가 친
+--- 검색어가 사용자 몰래 지워지는 것보다, 지금 거르고 있는 중이라 안 보이는 편이 설명이 쉽다 -
+--- 검색창이 화면에 그대로 있으므로 왜 없는지가 이미 적혀 있다.
 local function BuildSortedElements(layer, layerID)
 	local elements = {};
 	for i, action in layer:Enumerate() do
-		elements[i] = {
-			action = action,
-			layer = layerID,
-			index = i,
-			sortName = strlower(NameAndIconForAction(action) or ""),
-		};
+		if (ActionMatchesSearch(action)) then
+			elements[#elements + 1] = {
+				action = action,
+				layer = layerID,
+				index = i,
+				sortName = strlower(NameAndIconForAction(action) or ""),
+			};
+		end
 	end
 
 	sort(elements, CompareByName);
@@ -2265,24 +2496,169 @@ end
 --- 예전에는 패널이 저장 안 된 변경을 들고 거부할 수 있어서 false와 force가 있었다. 지금
 --- 패널에는 미루는 저장이 없으므로(Close 참고) 거부할 일이 없다. 돌려주는 true는 부르는
 --- 쪽의 옛 코드를 위해 남긴 것이다.
+--- 집합이나 앵커를 손본 뒤 **반드시** 지나는 자리.
+---
+--- **다중이 되면 매크로 창을 닫는다.** 그 창은 본문 하나를 여는 편집기라 대상이 여럿이면
+--- 열려 있을 자리가 없다. 앵커를 따라 갈아타게 두면 CTRL-클릭 한 번에 편집기가 다른 액션으로
+--- 옮겨가는데, 벌크 선택은 편집이 아니므로 그럴 일이 아니다. 본문은 `Close`가 저장한다.
+---
+--- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
+local function CommitSelection(self)
+	DebounceOverviewPanel:Close();
+	DebounceOverviewPanel:OnSelectionChanged();
+
+	if (_selectionCount > 1) then
+		DebounceMacroFrame:Close();
+	else
+		-- 매크로 창이 열려 있으면 대상도 같이 옮긴다. 떠나는 액션의 본문은 그 안에서 저장된다
+		-- (`Refresh` → `macroAction ~= action` → `Save`). 창이 닫혀 있으면 아무 일도 안 한다.
+		DebounceMacroFrame:Refresh();
+	end
+
+	self:Update();
+end
+
+--- **선택을 이 액션 하나로 접고 앵커를 거기 둔다.** nil이면 아무것도 안 고른 상태다.
+---
+--- 벌크가 생기기 전부터 있던 입구라 부르는 데가 많다(탭 전환, 지정 모드, `GoToAction`,
+--- 액션이 사라졌을 때). 전부 "이제 이것 하나다"라는 뜻이므로 집합도 여기서 같이 접는다 -
+--- 저쪽들이 집합을 따로 챙기게 만들면 한 군데는 반드시 빠진다.
 function DebounceFrameMixin:SetSelectedAction(action)
-	if (_selectedAction == action) then
+	-- **앵커가 같아도 집합이 여럿이면 접어야 한다.** 벌크로 셋을 고른 뒤 그중 앵커 행을 다시
+	-- 좌클릭하는 것이 정확히 그 경우다. 앵커만 보고 돌아서면 나머지 둘이 고른 채로 남는다.
+	--
+	-- 집합에 앵커가 들어 있는지도 같이 본다 - CTRL-클릭으로 앵커 행을 집합에서 빼면 개수가
+	-- 1인데 그 하나가 앵커가 아닌 상태가 된다.
+	if (action) then
+		if (_selectedAction == action and _selectionCount == 1 and _selection[action]) then
+			return true;
+		end
+	elseif (_selectedAction == nil and _selectionCount == 0) then
 		return true;
 	end
 
-	DebounceOverviewPanel:Close();
-
+	wipe(_selection);
+	_selectionCount = 0;
+	if (action) then
+		_selection[action] = true;
+		_selectionCount = 1;
+	end
 	_selectedAction = action;
-	DebounceOverviewPanel:OnSelectionChanged();
-	-- 매크로 창이 열려 있으면 대상도 같이 옮긴다. 떠나는 액션의 본문은 그 안에서 저장된다
-	-- (`Refresh` → `macroAction ~= action` → `Save`). 창이 닫혀 있으면 아무 일도 안 한다.
-	DebounceMacroFrame:Refresh();
-	self:Update();
+
+	CommitSelection(self);
 	return true;
 end
 
 function DebounceFrameMixin:GetSelectedAction()
 	return _selectedAction;
+end
+
+--- 이 액션이 벌크 대상인가. 오른쪽 목록의 강조가 이걸 본다(앵커가 아니다).
+function DebounceFrameMixin:IsActionSelected(action)
+	return _selection[action] == true;
+end
+
+function DebounceFrameMixin:GetSelectionCount()
+	return _selectionCount;
+end
+
+--- 벌크 대상을 **목록에 보이는 순서대로** 돌려준다.
+---
+--- 집합은 해시라 순서가 없는데, 이동·복사가 목적지 맨 뒤에 차례로 붙이므로(`MoveAction`)
+--- 넘기는 순서가 그대로 결과가 된다. 해시 순서로 넘기면 방금 화면에서 고른 차례와 다르게
+--- 쌓이고, 그건 매번 다르기까지 하다.
+function DebounceFrameMixin:GetSelectedActions()
+	local actions = {};
+	if (_selectionCount == 0 or not self.dataProvider) then
+		return actions;
+	end
+
+	for _, elementData in self.dataProvider:EnumerateEntireRange() do
+		if (_selection[elementData.action]) then
+			actions[#actions + 1] = elementData.action;
+		end
+	end
+	return actions;
+end
+
+--- 검색어에 안 맞게 된 것을 벌크 대상에서 뺀다. 검색어가 바뀔 때만 부른다.
+---
+--- 벌크는 **보이는 것만** 손댈 수 있다. 그게 우클릭 계약("남의 행에서 연 메뉴가 안 보이는
+--- 것들을 지우면 안 된다")과 같은 규칙이고, 개수 표시가 거짓말을 안 하게 만드는 것이기도 하다.
+function DebounceFrameMixin:PruneSelectionToSearch()
+	if (_selectionCount == 0) then
+		return;
+	end
+
+	for action in pairs(_selection) do
+		if (not ActionMatchesSearch(action)) then
+			_selection[action] = nil;
+			_selectionCount = _selectionCount - 1;
+		end
+	end
+end
+
+--- CTRL-좌클릭. 그 행 하나를 집합에 넣거나 뺀다.
+---
+--- **뺐을 때도 앵커는 그 행으로 간다.** 앵커는 "마지막으로 누른 행"이지 "고른 행"이 아니고,
+--- 그래야 SHIFT가 재는 기준점이 방금 누른 자리에 있다.
+function DebounceFrameMixin:ToggleActionSelected(action)
+	if (not action) then
+		return;
+	end
+
+	if (_selection[action]) then
+		_selection[action] = nil;
+		_selectionCount = _selectionCount - 1;
+	else
+		_selection[action] = true;
+		_selectionCount = _selectionCount + 1;
+	end
+	_selectedAction = action;
+
+	CommitSelection(self);
+end
+
+--- SHIFT-좌클릭. 앵커부터 이 행까지를 집합으로 삼는다.
+---
+--- **앵커는 안 옮긴다.** 그래야 범위를 다시 잴 수 있다 - SHIFT를 한 번 더 찍으면 같은
+--- 기준점에서 새로 재므로 늘리는 것만이 아니라 줄이는 것도 된다(위 `_selectedAction` 주석).
+---
+--- `additive`(CTRL+SHIFT)면 앞서 고른 것을 그대로 두고 이 범위를 **더한다.** CTRL로 새 묶음의
+--- 첫 행을 찍으면 앵커가 거기로 가므로, 이어서 CTRL+SHIFT로 그 묶음만 늘릴 수 있다 - 떨어져
+--- 있는 덩어리 여럿을 한 집합에 담는 길이다. 없으면 행마다 CTRL을 눌러야 한다.
+---
+--- 앵커가 없거나 지금 목록에 없으면 그냥 하나만 고른다. 후자는 실재한다 - 앵커는 액션으로
+--- 들고 있어서 탭이 바뀌어도 살아 있는데, 그 액션은 다른 레이어에 있으므로 여기서는 범위를
+--- 잴 자리가 없다.
+function DebounceFrameMixin:SelectRangeTo(action, additive)
+	if (not action or not self.dataProvider) then
+		return;
+	end
+
+	local _, anchorIndex = self:FindElementDataByActionInfo(_selectedAction);
+	local _, targetIndex = self:FindElementDataByActionInfo(action);
+	if (not anchorIndex or not targetIndex) then
+		return self:SetSelectedAction(action);
+	end
+
+	if (anchorIndex > targetIndex) then
+		anchorIndex, targetIndex = targetIndex, anchorIndex;
+	end
+
+	if (not additive) then
+		wipe(_selection);
+		_selectionCount = 0;
+	end
+	for i = anchorIndex, targetIndex do
+		local elementData = self.dataProvider:Find(i);
+		if (elementData and elementData.action and not _selection[elementData.action]) then
+			_selection[elementData.action] = true;
+			_selectionCount = _selectionCount + 1;
+		end
+	end
+
+	CommitSelection(self);
 end
 
 function DebounceFrameMixin:FindElementDataByActionInfo(action)
@@ -2405,6 +2781,7 @@ function DebounceFrameMixin:Update()
 	end
 
 	self:UpdateButtons();
+	self:UpdateListStrip();
 	DebounceOverviewPanel:Refresh();
 	DebounceMacroFrame:Refresh();
 
@@ -2415,6 +2792,29 @@ function DebounceFrameMixin:Update()
 	self:UpdateEmptyText();
 
 	self:UpdateDropHighlight();
+end
+
+--- 목록 위 한 줄. **검색창과 개수가 같은 자리를 번갈아 쓴다**(이유는 XML의 SearchBox 주석).
+---
+--- 개수는 둘 이상일 때만 뜬다. 하나일 때는 행 강조가 이미 말했고, 늘 떠 있으면 "1 selected"가
+--- 화면의 기본 상태가 되어 아무 말도 안 하게 된다.
+function DebounceFrameMixin:UpdateListStrip()
+	local multi = _selectionCount > 1;
+	if (multi) then
+		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
+	end
+	self.SelectionCount:SetShown(multi);
+	self.SearchBox:SetShown(not multi);
+
+	-- **지정 모드 중에는 글자가 전부 단축키다.** 포커스를 잡을 수 있게 두면 친 글자가 검색창으로
+	-- 새고, 모드는 켜진 채로 아무 반응도 안 하는 것처럼 보인다. 끄지는 않는다 - 이 함수는
+	-- 모드에서 나가는 문이 아니고(그건 오버레이의 두 버튼과 ESC다), 여기서 끄면 검색창을
+	-- 눌렀다는 이유로 걸어둔 키가 커밋된다.
+	local capturing = self:IsCapturingKey();
+	self.SearchBox:SetEnabled(not capturing);
+	if (capturing) then
+		self.SearchBox:ClearFocus();
+	end
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
@@ -2455,6 +2855,9 @@ function DebounceFrameMixin:SetTab(id)
 	--
 	-- 탭이 실제로 바뀔 때만이다. `GoToAction`은 같은 탭에도 이 함수를 부르고 곧바로 목표
 	-- 액션을 고르는데, 거기서 놓았다 다시 잡으면 패널이 한 번 접혔다 펴진다.
+	-- **검색어는 탭을 건너 산다.** 찾는 이름이 어느 탭에 있는지 모르는 채로 뒤지는 것이 흔한
+	-- 일이라, 탭을 옮길 때마다 다시 치게 만들면 검색이 탭 하나짜리 도구가 된다. 새 탭이
+	-- 걸러진 채로 열리는 것은 빈 목록 문구가 갈라준다(`NO_SEARCH_RESULTS`).
 	if (_selectedTab ~= id) then
 		self:SetSelectedAction(nil);
 	end
@@ -2499,6 +2902,31 @@ function DebounceFrameMixin:ShowEditDropdown(button, elementData)
 			self.contextMenu = nil;
 			self.contextMenuAction = nil;
 
+			self:Update();
+		end);
+	end
+	self:Update();
+end
+
+--- 고른 것이 여럿일 때 여는 메뉴. 대상은 이 행이 아니라 **집합 전체**다.
+---
+--- `ShowEditDropdown`과 갈라 둔 이유는 겨누는 것이 다르기 때문이다. 저쪽은 elementData
+--- 하나를 들고 그 액션의 조건·중요도·키까지 만지는데, 그 값들은 여럿에 한꺼번에 걸 수 있는
+--- 것이 아니다(중요도는 이 계정의 모든 캐릭터에 걸친다 - `PRIORITY_SHARED_WARNING`).
+--- 여기는 이동·복사·삭제 셋뿐이라 액션 목록만 있으면 된다.
+---
+--- `contextMenuAction`은 안 세운다. 그건 "이 행의 메뉴가 떠 있다"는 표시로 행 강조에
+--- 쓰이는데(`IsEditDropdownShown`), 여기서는 겨눈 행들이 이미 선택 강조를 받고 있다.
+function DebounceFrameMixin:ShowBulkDropdown(button)
+	local menu = MenuUtil.CreateContextMenu(button, DebounceUI.SetupBulkDropdownMenu, self:GetSelectedActions());
+	self.contextMenu = menu;
+	self.contextMenuAction = nil;
+	if (menu) then
+		menu:SetClosedCallback(function()
+			if (self.contextMenu ~= menu) then
+				return;
+			end
+			self.contextMenu = nil;
 			self:Update();
 		end);
 	end
@@ -3438,18 +3866,15 @@ function DebounceMacroFrameMixin:OnLoad()
 		scrollFrame.EditBox:SetSize(width, height);
 	end);
 
-	-- 버튼 글자는 우클릭 메뉴의 것과 같은 것을 쓴다. 같은 동작이 두 자리에 있으므로 이름도
-	-- 같아야 한다.
-	self.ConvertPrompt.ConvertButton:SetText(LLL["CONVERT_TO_MACRO_TEXT"]);
 end
 
 --- 이 액션으로 창을 연다.
 ---
---- 창은 선택된 액션만 그리므로 **편집 대상을 선택으로 옮긴다.** 진입점(CTRL-우클릭,
---- 우클릭 메뉴, 매크로텍스트 변환)이 선택과 무관한 행을 가리킬 수 있기 때문이다.
+--- 창은 선택된 액션만 그리므로 **편집 대상을 선택으로 옮긴다.** 진입점(우클릭 메뉴,
+--- 매크로텍스트 변환)이 선택과 무관한 행을 가리킬 수 있기 때문이다.
 ---
---- 매크로텍스트가 아닌 액션으로도 열린다 - 그때는 편집기 자리에 "여기로 바꿀 수 있다"가
---- 대신 들어선다. 열리는 길이 셋인데 그중 하나(변환)가 바로 그 상태에서 시작한다.
+--- 매크로텍스트가 아닌 액션으로 부르면 곧바로 닫힌다(`Refresh`). 변환 경로는 액션을 먼저
+--- 바꾸고 부르므로 그 갈래를 안 지난다.
 ---
 --- cancelFunc는 매크로텍스트 변환이 [취소]에서 원래 액션으로 되돌리는 데 쓴다. 본문을
 --- 올리면서 지워지므로(앞 편집의 것이다) 그 뒤에 건다.
@@ -3583,35 +4008,6 @@ function DebounceMacroFrameMixin:Text_OnTextChanged(editBox)
 		LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
 end
 
---- 매크로텍스트로 바꾼다. 우클릭 메뉴의 [매크로 텍스트로 전환]과 **같은 동작**이다
---- (DropDownMenus.lua의 CreateConvertToMacroTextMenuItem). 같은 일이 두 자리에 있으므로
---- 되돌리는 방법도 같다 - 바꾸기 전 액션을 통째로 떠서 [취소]에 매단다.
-function DebounceMacroFrameMixin:Convert_OnClick()
-	local action = _selectedAction;
-	if (not action or not DebouncePrivate.CanConvertToMacroText(action)) then
-		return;
-	end
-
-	local original = CopyTable(action);
-	if (not DebouncePrivate.ConvertToMacroText(action)) then
-		return;
-	end
-
-	action._dirty = true;
-	DebouncePrivate.UpdateBindings();
-
-	-- 액션 테이블은 그대로 두고 내용만 되돌린다. 목록의 elementData가 이 테이블을 들고 있다.
-	self:Open(action, function()
-		wipe(action);
-		MergeTable(action, original);
-		action._dirty = true;
-		DebouncePrivate.UpdateBindings();
-	end);
-
-	DebounceFrame:Refresh(true);
-	DebounceFrame:Update();
-end
-
 --- 창을 되비춘다. 이름·아이콘은 매번, 본문은 대상이 바뀌었을 때만.
 --- 아이콘 선택기를 다녀오면 여기서 새 이름·아이콘이 반영된다.
 ---
@@ -3627,20 +4023,15 @@ function DebounceMacroFrameMixin:Refresh()
 		return;
 	end
 
-	local isMacroText = action.type == Constants.MACROTEXT;
-	self.Editor:SetShown(isMacroText);
-	self.ConvertPrompt:SetShown(not isMacroText);
-
-	if (not isMacroText) then
-		-- 편집기가 아니므로 들고 있을 본문도 없다. 앞의 것이 남아 있으면 떠나는 것이니
-		-- 저장부터.
-		self:Save();
-		self:ClearEdit();
-
-		local canConvert = DebouncePrivate.CanConvertToMacroText(action);
-		self.ConvertPrompt.Message:SetText(
-			LLL[canConvert and "MACRO_TAB_CONVERT_DESC" or "MACRO_TAB_NOT_CONVERTIBLE"]);
-		self.ConvertPrompt.ConvertButton:SetShown(canConvert);
+	-- **매크로텍스트가 아니면 닫는다.** 이 창은 본문 하나를 여는 편집기이고, 편집하던 중에
+	-- 다른 액션이 선택됐다는 것은 여기서 할 일이 끝났다는 뜻이다.
+	--
+	-- 한때 이 자리에 "이 액션은 매크로가 아닙니다 / 전환하시겠습니까" 화면이 있었다. 창을
+	-- 띄워둔 채 아무것도 편집할 수 없는 상태를 하나 만드는 값에 비해 얻는 것이 없었다 -
+	-- 전환은 우클릭 메뉴에 이미 있고(`CreateConvertToMacroTextMenuItem`), 그 길로 들어오면
+	-- 액션이 이미 매크로텍스트라 이 화면을 지나지 않는다.
+	if (action.type ~= Constants.MACROTEXT) then
+		self:Close();
 		return;
 	end
 
@@ -3697,6 +4088,8 @@ DebounceUI.GetTabLabel = GetTabLabel;
 DebounceUI.GetSideTabaLabel = GetSideTabaLabel;
 DebounceUI.GetLayerLabel = GetLayerLabel;
 DebounceUI.MoveAction = MoveAction;
+DebounceUI.MoveActions = MoveActions;
 DebounceUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
+DebounceUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
 DebounceUI.NameAndIconForAction = NameAndIconForAction;
 DebounceUI.ShowInputBox = ShowInputBox

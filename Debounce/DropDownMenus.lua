@@ -949,7 +949,10 @@ do
     --- `MoveAction`의 `assert(copying, "cannot move to same layer")`에 걸린다.
     --- 남는 이름은 사이드탭1 쪽인데, 화면에서 레이어 7이 실제로 서 있는 자리가 거기다
     --- (`UpdateSideTabs`가 탭2에서 사이드탭2를 숨긴다).
-    local function CreateMoveCopyMenu(rootDescription, isCopy)
+    --- 겨누는 것이 하나든 여럿이든 목적지 목록은 **같은 하나**다. 그래서 대상을 밖에서 받는다:
+    --- `fromLayerID`는 "이미 여기 산다"를 판정하는 데만 쓰이고, `applyFunc`가 실제로 옮긴다.
+    --- 목록을 두 벌 두면 탭이 하나 늘 때 한쪽만 따라온다.
+    local function CreateMoveCopyMenu(rootDescription, isCopy, fromLayerID, applyFunc)
         if (TAB_LIST == nil) then
             TAB_LIST = {};
             local seenLayers = {};
@@ -978,14 +981,14 @@ do
         optionsDescription:CreateTitle(MenuUtil.GetElementText(optionsDescription));
 
         local func = function(args)
-            DebounceUI.MoveAction(_elementData, args[1], isCopy);
+            applyFunc(args[1], isCopy);
         end
 
         -- **"지금 이 액션이 사는 레이어"이지 "지금 보고 있는 탭"이 아니다.** 오버뷰 탭에서는
         -- 행마다 레이어가 다르므로 화면으로는 답할 수 없고, 레이어 탭에서는 둘이 같은 값이라
         -- 달라지는 것이 없다.
         for _, tabInfo in ipairs(TAB_LIST) do
-            local isSameLayer = tabInfo.layerID == _elementData.layer;
+            local isSameLayer = tabInfo.layerID == fromLayerID;
             if (isCopy or not isSameLayer) then
                 optionsDescription:CreateButton(
                     isSameLayer and LLL["CURRENT_TAB"] or tabInfo.label,
@@ -1090,10 +1093,47 @@ do
 
         CreatePriorityMenu(rootDescription);
 
-        CreateMoveCopyMenu(rootDescription, false);
+        CreateMoveCopyMenu(rootDescription, false, _elementData.layer, function(destLayerID, isCopy)
+            DebounceUI.MoveAction(_elementData, destLayerID, isCopy);
+        end);
 
-        CreateMoveCopyMenu(rootDescription, true);
+        CreateMoveCopyMenu(rootDescription, true, _elementData.layer, function(destLayerID, isCopy)
+            DebounceUI.MoveAction(_elementData, destLayerID, isCopy);
+        end);
 
         CreateDeleteMenu(rootDescription);
+    end
+
+    --- 여럿을 고른 채로 연 메뉴. **이동·복사·삭제 셋뿐이다.**
+    ---
+    --- 단일 메뉴의 나머지(키·조건·중요도)는 여기 안 넣는다. 그 값들은 한꺼번에 걸 수 있는
+    --- 것이 아니다 - 조건은 액션마다 뜻이 다르고, 중요도는 이 액션이 걸린 **모든 키**와 공유
+    --- 레이어면 이 계정의 **모든 캐릭터**까지 건드린다(`PRIORITY_SHARED_WARNING`). 그런 것을
+    --- 열 줄에 한 번에 거는 통로는 되돌릴 수도 없다.
+    ---
+    --- 고른 것은 전부 **같은 레이어**에 있다. 오른쪽 목록이 한 레이어만 담기 때문이고
+    --- (`DebounceFrameMixin:Refresh`), 그래서 "이미 여기 산다"를 화면의 레이어로 답할 수 있다.
+    function DebounceUI.SetupBulkDropdownMenu(dropdown, rootDescription, actions)
+        _dropdown = dropdown;
+        -- 단일 메뉴가 쓰는 것들이다. 벌크에서는 겨눈 것이 하나가 아니므로 비워둔다 - 남아
+        -- 있으면 이 메뉴가 안 쓰는 값을 다음 단일 메뉴가 물려받는다.
+        _elementData = nil;
+        _action = nil;
+
+        rootDescription:CreateTitle(format(LLL["BULK_MENU_TITLE"], #actions));
+
+        local fromLayerID = DebounceUI.GetLayerID();
+
+        CreateMoveCopyMenu(rootDescription, false, fromLayerID, function(destLayerID, isCopy)
+            DebounceUI.MoveActions(actions, destLayerID, isCopy);
+        end);
+
+        CreateMoveCopyMenu(rootDescription, true, fromLayerID, function(destLayerID, isCopy)
+            DebounceUI.MoveActions(actions, destLayerID, isCopy);
+        end);
+
+        rootDescription:CreateButton(LLL["DELETE"], function()
+            DebounceUI.ShowBulkDeleteConfirmationPopup(actions);
+        end);
     end
 end

@@ -11,6 +11,11 @@ L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP"] = "Add custom target menus on the uni
 L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"] = "Add 'Set Custom Target' menu items to the unit popup menu if possible. These menus will only work when you are out of combat."
 L["ADDON_NAME"] = "Debind"
 L["ALL"] = "All"
+-- 여럿을 고른 채로 연 우클릭 메뉴의 제목. 이름을 나열하지 않는 이유는 DELETE_CONFIRM_MESSAGE_MULTIPLE
+-- 쪽 주석에 있다. 아래 카운트와 낱말을 맞춘다 - 한 화면에서 같은 것을 두 가지로 부르지 않는다.
+L["BULK_MENU_TITLE"] = "%d selected"
+-- 목록 위 스트립. 고른 것이 둘 이상일 때만 뜬다 - 하나일 때는 행 강조가 이미 말했다.
+L["BULK_SELECTED_COUNT"] = "%d selected"
 -- 조건 툴팁에서 조건 이름(CONDITION_BONUSBAR / CONDITION_GROUP) **바로 아래** 붙는 줄이다.
 -- 둘 다 "No option is selected."였는데, 그러면 같은 툴팁에 두 번 떠도 어느 쪽 이야기인지
 -- 줄만 봐서는 모른다. FORMS/HOVER처럼 무엇이 안 골렸는지를 말한다.
@@ -122,6 +127,9 @@ L["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - 
 L["CUSTOM_TARGET_UNSUPPORTED_UNIT"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Not supported unit: %s|r"
 L["DEFAULT"] = "Default"
 L["DELETE_CONFIRM_MESSAGE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%s|r?"
+-- 여럿을 한꺼번에 지울 때. **이름 대신 개수로 묻는다** - 열몇 개를 나열하면 팝업이 화면을
+-- 덮고, 몇 개만 적으면 나머지를 숨긴 채로 묻는 꼴이 된다.
+L["DELETE_CONFIRM_MESSAGE_MULTIPLE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%d|r actions?"
 L["DELETE"] = "Delete"
 -- 클라이언트가 이미 모든 언어로 갖고 있는 말이다. 여기서 한 번 받아두면 로케일 파일이
 -- 없는 언어도 제 나라 말로 나온다.
@@ -177,12 +185,13 @@ L["LAYER_SHORT_SPEC"] = "Spec"
 L["LAYER_SHORT_CHARACTER"] = "Character"
 L["LAYER_SHORT_CHARACTER_SPEC"] = "Character spec"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
-L["MACRO_TAB_CONVERT_DESC"] = "This action is not a custom macro. Convert it to edit its body here."
-L["MACRO_TAB_NOT_CONVERTIBLE"] = "This action cannot be converted to a custom macro."
 -- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
 L["MACROFRAME_CHAR_LIMIT"] = "%d/%d Characters Used"
 L["MOVE_TO"] = "Move to..."
 L["NO_ACTIONS_IN_THIS_TAB"] = "There are no actions in this tab. You can add a new action by dragging a spell, a macro, an item, or a mount here."
+-- 검색 결과가 없을 때. 위와 갈라 쓴다 - 저쪽은 "끌어다 놓으세요"라고 시키는데, 검색에 안
+-- 맞아서 빈 것뿐이면 할 일이 그게 아니다.
+L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NOT_SELECTED"] = "Not Selected"
 L["ONLY_IF_UNIT_EXISTS"] = "Only if unit exists"
@@ -215,6 +224,13 @@ L["PET"] = "Pet"
 L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first."
 L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- their own bindings are not loaded this session."
 L["OVERVIEW"] = "Overview"
+-- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 규칙 셋(키 걸린 것만 / 키로 묶임 / 지금
+-- 캐릭터·특성 붙박이)을 말할 자리가 여기밖에 없다. 셋째 문장이 있는 이유는 오른쪽에서
+-- 오프스펙을 열어도 왼쪽이 안 따라오기 때문이다 - 모르면 고장으로 읽힌다.
+--
+-- **"the keyboard you are playing with"라고 쓰지 말 것.** 설계 메모의 말버릇이지 플레이어의
+-- 말이 아니다 - 저쪽에게 keyboard는 책상 위의 물건이라, 이 창이 그걸 보여준다는 소리가 된다.
+L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nWhat is listed is what your current character and specialization would actually do if you pressed the key now. Opening another tab or specialization on the right does not change it, and an action with no key is not listed here at all."
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
