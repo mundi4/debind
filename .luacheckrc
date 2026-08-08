@@ -4,7 +4,7 @@ codes = true
 exclude_files = {
 	"**/Libs",
 	"BlizzardInterfaceCode/**",
-	"DebounceTest/**",
+	"DebindTest/**",
 	"tests/**",
 	"node_modules/**",
 }
@@ -81,6 +81,11 @@ globals = {
 	"UnitClass",
 	"UnitName",
 	"UnitGUID",
+	"UnitLevel",
+	"UnitRace",
+	"UnitSex",
+	"UnitFactionGroup",
+	"GetNormalizedRealmName",
 	"UnitExists",
 	"UnitIsUnit",
 	"UnitIsPlayer",
@@ -115,6 +120,7 @@ globals = {
 	"IsMetaKey",
 	"GetCVarBool",
 	"GetTime",
+	"time",
 
 	-- Cursor / Input
 	"GetCursorInfo",
@@ -217,7 +223,7 @@ globals = {
 	"MAX_BOSS_FRAMES",
 	-- MAX_ACCOUNT_MACROS / MAX_CHARACTER_MACROS는 **전역이 아니다.** 블리자드 트리 전체에
 	-- 정의가 0건이고 지금은 Constants.MacroConsts 안에 있다. 여기 적혀 있던 동안 luacheck가
-	-- 통과시켜서, nil과 비교하는 코드가 게임에서만 터졌다. DebouncePrivate.GetMacroSlotLimits()를 쓸 것.
+	-- 통과시켜서, nil과 비교하는 코드가 게임에서만 터졌다. DebindPrivate.GetMacroSlotLimits()를 쓸 것.
 	"NUM_WORLD_RAID_MARKERS",
 	"WORLD_RAID_MARKER_ORDER",
 	"SOUNDKIT",
@@ -257,39 +263,47 @@ globals = {
 	"LibStub",
 
 	-- Addon globals (set by this addon)
+	"DebindPublic",
+	"DebindPrivate",
+	"DebindVars",
+	"Debind_CompartmentFunc",
+	"Debind_CompartmentOnEnter",
+	"Debind_CompartmentOnLeave",
+	-- Pre-rename globals. Being listed here does not mean we write them.
+	--   DebouncePublic       - compatibility alias we still publish (Public.lua)
+	--   DebounceVars(PerChar) - old saved variables, read through the dummy addon (Legacy.lua)
+	--   Debounce_CompartmentFunc - only ever read, as the signal that the old real addon
+	--                              is still installed alongside us (Legacy.lua)
 	"DebouncePublic",
-	"DebouncePrivate",
 	"DebounceVars",
 	"DebounceVarsPerChar",
 	"Debounce_CompartmentFunc",
-	"Debounce_CompartmentOnEnter",
-	"Debounce_CompartmentOnLeave",
 	"SlashCmdList",
 
 	-- Mixin globals (for XML templates)
-	"DebounceLineMixin",
-	"DebounceKeyHeaderMixin",
-	"DebounceOrderLineMixin",
-	"DebounceTabMixin",
-	"DebounceSideTabMixin",
-	"DebouncePortraitMixin",
-	"DebounceFrameMixin",
-	"DebounceOverviewPanelMixin",
-	"DebounceMacroFrameMixin",
-	"DebounceIconSelectorFrameMixin",
-	"DebounceStateDriverUpdateThrottleSliderMixin",
-	"DebounceSpellPickerFrameMixin",
-	"DebounceSpellPickerHeaderMixin",
-	"DebounceSpellPickerRowMixin",
-	"DebounceSpellPickerTabMixin",
+	"DebindLineMixin",
+	"DebindKeyHeaderMixin",
+	"DebindOrderLineMixin",
+	"DebindTabMixin",
+	"DebindSideTabMixin",
+	"DebindPortraitMixin",
+	"DebindFrameMixin",
+	"DebindOverviewPanelMixin",
+	"DebindMacroFrameMixin",
+	"DebindIconSelectorFrameMixin",
+	"DebindStateDriverUpdateThrottleSliderMixin",
+	"DebindSpellPickerFrameMixin",
+	"DebindSpellPickerHeaderMixin",
+	"DebindSpellPickerRowMixin",
+	"DebindSpellPickerTabMixin",
 
 	-- Named frames
-	"DebounceFrame",
-	"DebounceOverviewPanel",
-	"DebounceMacroFrame",
-	"DebounceIconSelectorFrame",
-	"DebounceActionPlacerFrame",
-	"DebounceSpellPickerFrame",
+	"DebindFrame",
+	"DebindOverviewPanel",
+	"DebindMacroFrame",
+	"DebindIconSelectorFrame",
+	"DebindActionPlacerFrame",
+	"DebindSpellPickerFrame",
 
 	-- Optional third-party addons
 	"Clique",

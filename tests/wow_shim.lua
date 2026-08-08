@@ -80,6 +80,26 @@ function M.install()
     end
     _G.CopyTable = copyTable;
 
+    -- Copied verbatim from `Blizzard_SharedXMLBase/TableUtil.lua`. **Returns the stateless
+    -- iterator triple, and stops at the first nil rather than at the upper bound** - a stand-in
+    -- that differs from the real thing makes the tests lie.
+    _G.CreateTableEnumerator = function(tbl, minIndex, maxIndex)
+        minIndex = minIndex and (minIndex - 1) or 0;
+        maxIndex = maxIndex or math.huge;
+
+        local function Enumerator(t, index)
+            index = index + 1;
+            if (index <= maxIndex) then
+                local value = t[index];
+                if (value ~= nil) then
+                    return index, value;
+                end
+            end
+        end
+
+        return Enumerator, tbl, minIndex;
+    end
+
     _G.format = string.format;
     _G.strmatch = string.match;
     _G.strsub = string.sub;
@@ -117,6 +137,38 @@ function M.install()
     _G.UnitClass = function() return "Druid", "DRUID", 11; end
     _G.UnitExists = function() return false; end
 
+    -- What Profile.lua and Legacy.lua (the pre-rename SavedVariables import) need in order to
+    -- load and run. The values are not arbitrary, they are **what the tests expect**: migration_spec
+    -- uses `UnitGUID` as a key, and `GetClassInfo` mirrors how the import builds class names.
+    _G.UnitGUID = function() return "Player-1-TESTGUID"; end
+    _G.UnitLevel = function() return 80; end
+    _G.UnitName = function() return "Tester"; end
+    _G.UnitRace = function() return "Human", "Human", 1; end
+    _G.UnitSex = function() return 2; end
+    _G.UnitFactionGroup = function() return "Alliance"; end
+    _G.GetNormalizedRealmName = function() return "TestRealm"; end
+    _G.time = function() return 1770000000; end
+
+    _G.C_SpecializationInfo = {
+        GetNumSpecializationsForClassID = function() return 4; end,
+        GetSpecialization = function() return 1; end,
+    };
+
+    local CLASS_FILES = { [1] = "WARRIOR", [2] = "PALADIN", [11] = "DRUID" };
+    _G.C_CreatureInfo = {
+        GetClassInfo = function(classId)
+            local classFile = CLASS_FILES[classId];
+            return classFile and { classFile = classFile } or nil;
+        end,
+    };
+
+    -- Loading the dummy addon. Succeeds by default; `migration_spec` swaps this out when it
+    -- exercises the disabled path.
+    _G.C_AddOns = {
+        LoadAddOn = function() return true; end,
+        IsAddOnLoaded = function() return false; end,
+    };
+
     -- Misc.lua가 파일 스코프에서 건드리는 것들. 매크로텍스트 파서와는 무관하지만
     -- 파일이 로드되려면 있어야 한다.
     _G.C_MountJournal = { GetMountInfoByID = function() end };
@@ -143,7 +195,7 @@ function M.loadAddon(root, files)
         if (not chunk) then
             error("failed to load " .. path .. ": " .. tostring(err), 0);
         end
-        chunk("Debounce", addon);
+        chunk("Debind", addon);
     end
     return addon;
 end

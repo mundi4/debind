@@ -3,11 +3,11 @@
 # 폴더 이름은 move-folders의 **값**이다.
 #
 # 여기서는 그 둘이 일부러 겹쳐 있다. 스테이징 디렉터리와 이동 목적지가 같은
-# `.release/Debounce`라서, 저장소 루트의 README.md와 packager가 만드는 CHANGELOG.md가
+# `.release/Debind`라서, 저장소 루트의 README.md와 packager가 만드는 CHANGELOG.md가
 # 애드온 폴더 안에 그대로 남는다. 이름을 바꾸면 둘이 갈라지고, 남은 저장소 루트가
 # 통째로 세 번째 최상위 폴더가 되어 zip에 들어간다 - packager가 package-as를 무조건
 # zip_root_dirs에 넣기 때문이다. README는 애드온 밖으로 나가고.
-package-as: Debounce
+package-as: Debind
 
 enable-nolib-creation: no
 
@@ -23,7 +23,7 @@ manual-changelog:
 externals:
 
 ignore:
-  - DebounceTest
+  - DebindTest
   - tests
   - .luacheckrc
   - package.json
@@ -32,8 +32,15 @@ ignore:
   - tools
 
 move-folders:
-  # 값이 곧 게임이 보는 폴더 이름이고, SavedVariables 파일 이름이 여기서 나온다.
-  # 애드온이 Debind로 개명해도 이 두 값은 Debounce로 둔다 - 바꾸면 기존 사용자의
-  # 설정이 통째로 고아가 된다. 깃허브·커스포지 slug와는 무관하다(커밋 162ce57).
-  Debounce/Debounce: Debounce
-  Debounce/DebounceCliqueFake: DebounceCliqueFake
+  # 값이 곧 게임이 보는 폴더 이름이고, **SavedVariables 파일 이름이 여기서 나온다.**
+  #
+  # 한때 여기 *"애드온이 Debind로 개명해도 이 값은 Debounce로 둔다 - 바꾸면 기존 사용자의
+  # 설정이 통째로 고아가 된다"* 고 적혀 있었다(커밋 162ce57). **그건 옛 데이터를 읽을 수단이
+  # 없었을 때의 결정이다.** 지금은 아래 `Debounce` 더미가 그 수단이라 개명해도 고아가 안 된다.
+  Debind/Debind: Debind
+  Debind/DebindCliqueFake: DebindCliqueFake
+
+  # 코드 없는 더미. 개명 전 SavedVariables(`Debounce.lua`)를 읽는 유일한 경로다.
+  # **빼면 안 된다** - 이게 없으면 기존 사용자 전원의 설정이 그 자리에서 고아가 된다.
+  # 자세한 건 `Debind/Legacy.lua`.
+  Debind/Debounce: Debounce

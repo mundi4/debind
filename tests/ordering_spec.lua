@@ -7,9 +7,9 @@
 --      그대로 옮겨와서, 작은 조건 공간의 모든 쌍에 대해 두 비교자가 같은 답을 내는지 본다.
 --      "정렬 결과가 리팩터 전과 완전히 동일하다"를 직접 확인하는 게 이쪽이다.
 
-return function(DebouncePrivate)
-    local CompareActionOrder = DebouncePrivate.CompareActionOrder;
-    local CompareKeys = DebouncePrivate.CompareKeys;
+return function(DebindPrivate)
+    local CompareActionOrder = DebindPrivate.CompareActionOrder;
+    local CompareKeys = DebindPrivate.CompareKeys;
 
     local T = { passed = 0, failures = {} };
 
@@ -134,7 +134,7 @@ return function(DebouncePrivate)
     -- 2. CompareActionOrder - 리팩터 전 비교자와 무차별 대조
     ---------------------------------------------------------------------------
 
-    -- Debounce.lua의 BindingSortComparison을 (layerRank, seq)로 쪼개기 전 모습 그대로.
+    -- Debind.lua의 BindingSortComparison을 (layerRank, seq)로 쪼개기 전 모습 그대로.
     -- ordinal은 활성 레이어를 훑으며 매기던 통짜 일련번호였다.
     local function LegacyCompare(lhs, rhs)
         if ((lhs.priority or 3) ~= (rhs.priority or 3)) then
@@ -203,7 +203,7 @@ return function(DebouncePrivate)
     -- 한 칸만 움직이고 ↑ 다음 ↓면 원래대로 돌아오는지.
     ---------------------------------------------------------------------------
 
-    local ComputeOrderSwap = DebouncePrivate.ComputeOrderSwap;
+    local ComputeOrderSwap = DebindPrivate.ComputeOrderSwap;
     local UP, DOWN = -1, 1;
 
     --- rows를 실제 발동 순서로 정렬해 돌려준다. 레코드는 원본 그대로(같은 테이블).
@@ -356,15 +356,15 @@ return function(DebouncePrivate)
     end);
 
     test("GetDecidingOrderAxis - 전부 같으면 nil", function()
-        local axis = DebouncePrivate.GetDecidingOrderAxis(rec({ index = 1 }), rec({ index = 2 }));
+        local axis = DebindPrivate.GetDecidingOrderAxis(rec({ index = 1 }), rec({ index = 2 }));
         check(axis == nil, "nil이어야 함, 받은 값: " .. tostring(axis));
     end);
 
     test("PriorityToStored - 기본값은 저장하지 않는다", function()
-        check(DebouncePrivate.PriorityToStored(3) == nil, "3은 nil로");
-        check(DebouncePrivate.PriorityToStored(nil) == nil, "nil은 nil로");
-        check(DebouncePrivate.PriorityToStored(1) == 1, "1은 그대로");
-        check(DebouncePrivate.PriorityToStored(5) == 5, "5는 그대로");
+        check(DebindPrivate.PriorityToStored(3) == nil, "3은 nil로");
+        check(DebindPrivate.PriorityToStored(nil) == nil, "nil은 nil로");
+        check(DebindPrivate.PriorityToStored(1) == 1, "1은 그대로");
+        check(DebindPrivate.PriorityToStored(5) == 5, "5는 그대로");
     end);
 
     ---------------------------------------------------------------------------

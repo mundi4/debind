@@ -1,6 +1,6 @@
 # 3.0
 
-**Debounce is now Debind.** Only the name shown in-game changed — the folder, your saved bindings and `/deb` are all where they were.
+**Debounce is now Debind.** The addon folder was renamed too, so this update ships a small extra addon called **Debind (legacy data)** that holds the settings you saved under the old name. Debind reads it once per character and moves everything across — bindings, options, window positions. Keep it installed and enabled: characters you have not logged into since the update still need it. `/deb` and `/debounce` both still work.
 
 - Editing moved out of popups and onto the window itself, in a panel with **Key & Order** and **Macro** as its tabs.
 - **Key & Order** shows the order a key's actions will actually be tried in, and lets you drag them into a different one. When an action can't move, it names the rule holding it and what you'd change.

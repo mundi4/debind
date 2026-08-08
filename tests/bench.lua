@@ -7,10 +7,10 @@
 -- CI는 진짜 Lua 5.1로 돌린다. 와우 애드온이 도는 것과 같은 버전이므로
 -- 여기 나오는 숫자가 인게임 비용의 현실적인 근사치다.
 
-return function(DebouncePrivate)
-    local CheckUnreachableBindings = DebouncePrivate.CheckUnreachableBindings;
-    local ClearUnreachableBindingCache = DebouncePrivate.ClearUnreachableBindingCache;
-    local Stats = DebouncePrivate.SolverStats;
+return function(DebindPrivate)
+    local CheckUnreachableBindings = DebindPrivate.CheckUnreachableBindings;
+    local ClearUnreachableBindingCache = DebindPrivate.ClearUnreachableBindingCache;
+    local Stats = DebindPrivate.SolverStats;
 
     local rng = 991;
     local function rnd()

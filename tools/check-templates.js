@@ -84,7 +84,7 @@ function ourXmlFiles() {
             }
         }
     };
-    for (const dir of ["Debounce", "DebounceCliqueFake"]) {
+    for (const dir of ["Debind", "DebindCliqueFake"]) {
         const full = path.join(repoRoot, dir);
         if (fs.existsSync(full)) walk(full);
     }
@@ -150,7 +150,7 @@ function readTarXml(stream, onFile) {
 
 function get(url) {
     return new Promise((resolve, reject) => {
-        https.get(url, { headers: { "User-Agent": "debounce-check-templates" } }, (res) => {
+        https.get(url, { headers: { "User-Agent": "debind-check-templates" } }, (res) => {
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                 res.resume();
                 resolve(get(res.headers.location));

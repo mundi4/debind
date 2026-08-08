@@ -10,12 +10,14 @@ package.path = root .. "/?.lua;" .. package.path;
 local shim = require("wow_shim");
 shim.install();
 
-local DebouncePrivate = shim.loadAddon(repoRoot .. "/Debounce", {
+local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
     "Ordering.lua",
     "Solver.lua",
     "Misc.lua",
     "ActionCatalog.lua",
+    "Profile.lua",
+    "Legacy.lua",
 });
 
 local bench = false;
@@ -24,7 +26,7 @@ for i = 1, #(arg or {}) do
 end
 
 if (bench) then
-    assert(loadfile(root .. "/bench.lua"))()(DebouncePrivate);
+    assert(loadfile(root .. "/bench.lua"))()(DebindPrivate);
     return;
 end
 
@@ -33,13 +35,14 @@ local specs = {
     { name = "ordering", path = root .. "/ordering_spec.lua" },
     { name = "macrotext", path = root .. "/macrotext_spec.lua" },
     { name = "catalog", path = root .. "/catalog_spec.lua" },
+    { name = "migration", path = root .. "/migration_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
-    local result = chunk()(DebouncePrivate);
+    local result = chunk()(DebindPrivate);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do
         totalFailures[#totalFailures + 1] = spec.name .. " / " .. f;

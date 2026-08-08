@@ -11,10 +11,10 @@
 --   3. 무차별 대조 테스트 - 조건 그룹을 조합해서 정답을 직접 만들고 대조.
 --      "N번째 그룹만 안 된다" 부류는 이쪽이 잡는다.
 
-return function(DebouncePrivate)
-    local Constants = DebouncePrivate.Constants;
-    local ParseMacroText = DebouncePrivate.ParseMacroText;
-    local ClearMacroTextCache = DebouncePrivate.ClearMacroTextCache;
+return function(DebindPrivate)
+    local Constants = DebindPrivate.Constants;
+    local ParseMacroText = DebindPrivate.ParseMacroText;
+    local ClearMacroTextCache = DebindPrivate.ClearMacroTextCache;
     local SPECIAL_UNITS = Constants.SPECIAL_UNITS;
     local ARG_UNIT = Constants.MACROTEXT_ARG_UNIT;
     local ARG_STATE = Constants.MACROTEXT_ARG_CUSTOM_STATE;
@@ -546,7 +546,7 @@ return function(DebouncePrivate)
     -- 7. 아이콘 뽑기용 `$상태` 제거 (StripCustomStateConditions)
     --
     -- 아이콘은 매크로텍스트를 **진짜 매크로 슬롯에 써넣어** 와우에게 계산시킨다
-    -- (DebounceUI.lua `GetMacrotextIcon`). `$state1`이 그대로 넘어가면 와우가 대화창에
+    -- (DebindUI.lua `GetMacrotextIcon`). `$state1`이 그대로 넘어가면 와우가 대화창에
     -- "Unknown macro option: $state1"을 찍는다 -- 아이콘 하나에 채팅창이 더러워진다.
     --
     -- 계약은 둘:
@@ -554,7 +554,7 @@ return function(DebouncePrivate)
     --   (b) `$`가 없는 매크로텍스트는 **글자 하나 안 바뀐다** (본문 속 대괄호 포함)
     ---------------------------------------------------------------------------
 
-    local Strip = DebouncePrivate.StripCustomStateConditions;
+    local Strip = DebindPrivate.StripCustomStateConditions;
 
     local function expectStrip(input, expected)
         local got = Strip(input);

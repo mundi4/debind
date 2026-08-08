@@ -1,25 +1,13 @@
 ## Interface: 120000, 120001, 120005, 120007, 120100
 
-## Title: Debind
+## Title: Debind |cff808080(legacy data)|r
 ## Version: @project-version@
 ## Author: mundi4
-## Contributors:
-##   ZamestoTV – Russian localization (ruRU)
 ## IconTexture: 133015
+## LoadOnDemand: 1
+## Dependencies: Debind
 ## SavedVariables: DebounceVars
 ## SavedVariablesPerCharacter: DebounceVarsPerChar
-## OptionalDeps: Clique, Grid2, DevTool, ViragDevTool
-## AddonCompartmentFunc: Debounce_CompartmentFunc
-## AddonCompartmentFuncOnEnter: Debounce_CompartmentOnEnter
-## AddonCompartmentFuncOnLeave: Debounce_CompartmentOnLeave
-## Notes: Set a keybind once for every character, then override it on one class, one specialization, or one character.|n|nSlash Command: |cffffff00/deb|r
-## X-Curse-Project-ID: 970278
+## Notes: Holds settings saved before the addon was renamed to Debind.|n|n|cffff2020Do not delete or disable.|r Debind loads this once per character to move the old data across, and characters you have not logged into since the rename still need it.
 
-libs.xml
-locales.xml
-
-Debounce.xml
-DebounceUI.xml
-SpellPicker.xml
-
-Public.lua
+# No code. The two SavedVariables lines above are the whole addon. Why it exists: Debind/Legacy.lua

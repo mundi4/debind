@@ -13,7 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const localesDir = path.join(__dirname, "..", "Debounce", "Locales");
+const localesDir = path.join(__dirname, "..", "Debind", "Locales");
 const BASE = "enUS";
 
 // enUS에는 있는데 다른 로케일에는 **없는 게 맞는** 키. 넣을 때는 왜 정상인지 한 줄 남길 것.

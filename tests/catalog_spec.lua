@@ -13,8 +13,8 @@
 -- 시전할 수 없는 것은 단축키에 걸 대상이 아니다. 그 판정은 주문서 API를 타므로 여기서
 -- 못 본다.
 
-return function(DebouncePrivate)
-    local ActionCatalog = DebouncePrivate.ActionCatalog;
+return function(DebindPrivate)
+    local ActionCatalog = DebindPrivate.ActionCatalog;
 
     local T = { passed = 0, failures = {} };
 

@@ -6,10 +6,10 @@
 --      계산하고 solver 결과와 비교. §1-3(축 접기), §1-4(배열 압축) 같은
 --      부류의 버그는 이쪽이 잡는다.
 
-return function(DebouncePrivate)
-    local Constants = DebouncePrivate.Constants;
-    local CheckUnreachableBindings = DebouncePrivate.CheckUnreachableBindings;
-    local ClearUnreachableBindingCache = DebouncePrivate.ClearUnreachableBindingCache;
+return function(DebindPrivate)
+    local Constants = DebindPrivate.Constants;
+    local CheckUnreachableBindings = DebindPrivate.CheckUnreachableBindings;
+    local ClearUnreachableBindingCache = DebindPrivate.ClearUnreachableBindingCache;
 
     local T = { passed = 0, failures = {} };
 
@@ -191,7 +191,7 @@ return function(DebouncePrivate)
     -- 여기서 쓰는 GetMouseButtonAndPrefix는 Constants.lua의 진짜 구현이다.
     ---------------------------------------------------------------------------
 
-    check(DebouncePrivate.GetMouseButtonAndPrefix ~= nil,
+    check(DebindPrivate.GetMouseButtonAndPrefix ~= nil,
         "GetMouseButtonAndPrefix가 로드 안 됨 -- hover 컬럼을 검증할 수 없음");
 
     test("마우스버튼 키는 hover 축이 좁아진다", function()
@@ -479,7 +479,7 @@ return function(DebouncePrivate)
     -- 불리므로 게임이 멈춘다.
     --
     -- 서로소 분해에서는 잔여 상자가 축들이 만드는 격자의 칸 수를 못 넘는다.
-    local Stats = DebouncePrivate.SolverStats;
+    local Stats = DebindPrivate.SolverStats;
 
     local function adversarialSet(count)
         local UNITS = { "target", "focus", "mouseover", "tank", "healer" };

@@ -1,0 +1,24 @@
+## Interface: 120000, 120001, 120005, 120007, 120100
+
+## Title: Debind
+## Version: @project-version@
+## Author: mundi4
+## Contributors:
+##   ZamestoTV – Russian localization (ruRU)
+## IconTexture: 133015
+## SavedVariables: DebindVars
+## OptionalDeps: Clique, Grid2, DevTool, ViragDevTool
+## AddonCompartmentFunc: Debind_CompartmentFunc
+## AddonCompartmentFuncOnEnter: Debind_CompartmentOnEnter
+## AddonCompartmentFuncOnLeave: Debind_CompartmentOnLeave
+## Notes: Set a keybind once for every character, then override it on one class, one specialization, or one character.|n|nSlash Command: |cffffff00/deb|r
+## X-Curse-Project-ID: 970278
+
+libs.xml
+locales.xml
+
+Debind.xml
+DebindUI.xml
+SpellPicker.xml
+
+Public.lua
