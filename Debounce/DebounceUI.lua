@@ -2966,8 +2966,24 @@ end
 --- 켜짐은 **글자가 아니라 아틀라스**다. 처음에 U+25CF(●)를 썼는데 게임 폰트에 그 글리프가
 --- 없어서 두부 네모가 나왔다 - 어느 글자가 있는지는 폰트와 로케일에 달렸으므로 눈에 보이는
 --- 것을 폰트에 맡기지 않는다. 꺼짐의 가운뎃점(U+00B7)은 라틴-1이라 어느 폰트에나 있다.
-local COLUMN_ON  = "|A:common-icon-checkmark:10:10|a";
+local COLUMN_ON  = "|A:common-icon-checkmark:16:16|a";
 local COLUMN_OFF = "|cnDISABLED_FONT_COLOR:" .. string.char(194,183) .. "|r";
+
+--- 중요도 칸. **기본값은 비운다** - 5단 중 넷이 표시를 갖고 하나가 안 갖는 편이, 모든 행이
+--- 낱말 한 칸씩 이고 있는 것보다 훨씬 조용하고 튀는 행이 실제로 튄다.
+---
+--- 숫자를 안 쓰는 이유는 방향이다. 저장값은 1이 가장 높은데(PRIORITY1 = Very High) 칸에
+--- 1이 찍혀 있으면 대부분 "제일 낮다"로 읽는다. 부호는 배울 것이 없다.
+---
+--- 글자는 ASCII다. 화살표(U+2191)가 더 예쁘지만 그 글리프가 폰트에 있는지는 로케일에
+--- 달렸다 - 체크 표시를 아틀라스로 바꾼 것과 같은 이유다.
+local PRIORITY_MARKS = {
+	[1] = "|cnGREEN_FONT_COLOR:++|r",
+	[2] = "|cnGREEN_FONT_COLOR:+|r",
+	[3] = "",
+	[4] = "|cnORANGE_FONT_COLOR:-|r",
+	[5] = "|cnORANGE_FONT_COLOR:--|r",
+};
 
 -- 명시적 선택**이어야 하고, 좌클릭은 습관적으로 눌러보는 버튼이다.
 local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
@@ -2991,9 +3007,7 @@ function DebounceOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
-	-- 중요도는 기본값이어도 적는다. 5단 값이라 "없음"이 값이 아니고, 이 칸이 비면 표의
-	-- 첫 칸이 행마다 있다 없다 한다.
-	self.PriorityText:SetText(LLL["PRIORITY" .. row.priority]);
+	self.PriorityText:SetText(PRIORITY_MARKS[row.priority] or "");
 
 	-- 정렬이 보는 건 hover가 nil이냐 아니냐 하나뿐이다. false는 "마우스오버가 **아닐 때만**"을
 	-- 명시한 조건이라 nil과 다르고 true와 같은 칸에 선다(Ordering.lua 주석).

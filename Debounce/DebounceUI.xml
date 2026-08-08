@@ -408,8 +408,8 @@
 						<Anchor point="RIGHT" x="-68" y="0"/>
 					</Anchors>
 				</FontString>
-				<FontString parentKey="PriorityText" inherits="GameFontHighlightSmall" justifyH="RIGHT" maxLines="1">
-					<Size x="54" y="0"/>
+				<FontString parentKey="PriorityText" inherits="GameFontHighlightSmall" justifyH="CENTER" maxLines="1">
+					<Size x="24" y="0"/>
 					<Anchors>
 						<Anchor point="RIGHT" x="-102" y="0"/>
 					</Anchors>
