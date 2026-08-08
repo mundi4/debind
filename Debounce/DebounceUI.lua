@@ -2297,6 +2297,10 @@ function DebounceFrameMixin:OnShow()
 	ForgetOverviewActions();
 
 	self:Refresh();
+	-- **`Update`까지 와야 왼쪽 열이 그려진다.** `Refresh`는 오른쪽 목록만 다시 짓고, 왼쪽은
+	-- 선택이 아니라 프로필 전체를 보므로 여기서 같이 깨워야 한다. 예전에는 선택이 없으면
+	-- 왼쪽이 접혀 있어서 이 줄이 없어도 티가 안 났다.
+	self:Update();
 	self:UpdateSideTabs();
 	self:RegisterEvent("PLAYER_REGEN_DISABLED");
 	self:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
