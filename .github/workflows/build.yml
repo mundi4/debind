@@ -18,6 +18,10 @@ jobs:
       # 시크릿은 자동으로 env에 들어오지 않는다. 이 줄이 없으면 packager가
       # X-Curse-Project-ID를 읽고도 "CurseForge ID: 970278"만 찍고 업로드는 건너뛴다.
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      # Wago도 같은 이유로 이 줄이 필요하다. 다만 이것만으로는 아무 일도
+      # 일어나지 않는다 - 올릴 대상은 TOC의 X-Wago-ID가 정하고, 그 줄이
+      # 없으면 packager는 Wago를 통째로 건너뛴다.
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
 
     steps:
       - name: Clone project
