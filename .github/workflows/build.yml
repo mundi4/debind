@@ -38,11 +38,14 @@ jobs:
         with:
           args: -q
 
+      # **`-n` 오버라이드가 여기 있었는데 이제 필요 없다.** 기본 템플릿의 `{package-name}`이
+      # `.pkgmeta`의 package-as인데, 그게 폴더 이름에 묶여 `Debounce`로 고정돼 있던 시절에는
+      # zip 이름만 Debind로 가르려고 리터럴을 박아야 했다. 폴더가 개명되면서 package-as가
+      # `Debind`가 됐으므로 기본값이 그대로 `Debind-<버전>.zip`을 만든다.
+      #
+      # **`-q`도 있었는데 release.sh가 그 옵션을 없앴다.** 3.1 태그가 인자 파싱에서
+      # 죽었다: `Unknown option "-q"`. 8월 7일 3.0은 같은 줄로 통과했으므로 상류가
+      # 그 사이에 지운 것이다 - @master로 물려 있으면 이런 것이 우리 커밋과 무관하게
+      # 다음 태그에서 터진다. 지금은 조용한 옵션이 아예 없어서 그냥 뗀다.
       - name: Package and release
         uses: BigWigsMods/packager@master
-        with:
-          # **`-n` 오버라이드가 여기 있었는데 이제 필요 없다.** 기본 템플릿의 `{package-name}`이
-          # `.pkgmeta`의 package-as인데, 그게 폴더 이름에 묶여 `Debounce`로 고정돼 있던 시절에는
-          # zip 이름만 Debind로 가르려고 리터럴을 박아야 했다. 폴더가 개명되면서 package-as가
-          # `Debind`가 됐으므로 기본값이 그대로 `Debind-<버전>.zip`을 만든다.
-          args: -q
