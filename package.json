@@ -7,8 +7,9 @@
     "lint": "node tools/luacheck.js",
     "check:templates": "node tools/check-templates.js",
     "check:locales": "node tools/check-locales.js",
-    "check": "npm run lint && npm test && npm run check:locales && npm run check:templates && npm run check:xml",
-    "check:xml": "node tools/check-xml.js"
+    "check": "npm run lint && npm test && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:snippets",
+    "check:xml": "node tools/check-xml.js",
+    "check:snippets": "node tools/check-snippets.js"
   },
   "devDependencies": {
     "fengari": "^0.1.4"
