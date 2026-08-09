@@ -84,6 +84,15 @@ function DebindPublic:ToggleUI()
 		DebindPrivate.DisplayMessage(LLL["CANNOT_OPEN_WITH_GAME_MENU"], 1, 0, 0)
 		return
 	end
+	-- **마이그레이션 질문이 남아 있으면 그것부터.** 창을 열어주면 그 안에서 바인딩을 만들 수
+	-- 있고, 그러면 옛 설정을 가져오기 전에 새 설정이 생긴다 - 인수 쪽이 무엇을 덮을지 판정할
+	-- 일이 없어지는 근거가 이 한 줄이다(`Legacy.lua`).
+	--
+	-- **조용히 돌아서지 않는다.** 위 두 분기와 같은 이유로, 안내창을 대신 띄운다. 로그인에
+	-- 이미 한 번 떴다가 닫힌 것이라 사용자는 이게 무엇인지 안다.
+	if (DebindPrivate.ShowMigrationDialogIfPending()) then
+		return
+	end
 	DebindFrame:Show();
 end
 
@@ -172,8 +181,6 @@ _G.DebouncePublic = _G.DebindPublic;
 if (_G.Grid2) then
 	local Grid2 = _G.Grid2;
 	local UnitIsUnit = UnitIsUnit;
-	local UnitGUID = UnitGUID;
-	local roster_units = Grid2.roster_units;
 
 	local aliases = { "custom1", "custom2", "hover", "tank", "healer", "maintank", "mainassist" };
 	for i = 1, #aliases do
@@ -185,16 +192,40 @@ if (_G.Grid2) then
 		local statusKey = "debounce_" .. theAlias;
 		local Status = Grid2.statusPrototype:new(statusKey);
 
-		local guiTarget, curTarget, oldTarget
-		local function UpdateTarget()
-			local unit = DebindPublic.Units[theAlias];
-			if (unit) then
-				guiTarget = UnitGUID(unit);
-			else
-				guiTarget = nil;
+		-- Grid2 keys its frames by unit token, so refreshing an indicator needs the *roster*
+		-- token for our target - not whatever token Debind happens to hold, which may be
+		-- "mouseover" or a custom unit that Grid2 never draws.
+		--
+		-- Resolving that through `UnitGUID` is not an option under Midnight. The GUID can come
+		-- back as a secret value, and Grid2 refuses to file those in `roster_units` at all
+		-- (`GridRoster.lua`), so the lookup would quietly miss and the status would simply never
+		-- light up - no error, no clue. Walking the roster and comparing tokens costs one pass
+		-- per target change and never touches a GUID.
+		--
+		-- The roster also holds "target"/"focus" alongside the group tokens, and those point at
+		-- the same player. Prefer the group token, or the indicator update lands on a frame
+		-- Grid2 is not drawing.
+		local function FindRosterUnit(unit)
+			if (not unit) then
+				return nil;
 			end
+			local fallback;
+			for rosterUnit in Grid2:IterateRosterUnits() do
+				if (UnitIsUnit(rosterUnit, unit)) then
+					if (Grid2:IsPlayerInRaid(rosterUnit) or Grid2:UnitIsPet(rosterUnit)) then
+						return rosterUnit;
+					end
+					fallback = fallback or rosterUnit;
+				end
+			end
+			return fallback;
+		end
+
+		local curUnit, curTarget, oldTarget
+		local function UpdateTarget()
+			curUnit = DebindPublic.Units[theAlias];
 			oldTarget = curTarget;
-			curTarget = guiTarget and roster_units[guiTarget];
+			curTarget = FindRosterUnit(curUnit);
 		end
 
 		function Status:OnEnable()
@@ -206,7 +237,7 @@ if (_G.Grid2) then
 		function Status:OnDisable()
 			DebindPublic.UnregisterCallback(self, "UNIT_CHANGED");
 			self:UnregisterMessage("Grid_UnitUpdated");
-			guiTarget, curTarget, oldTarget = nil, nil, nil;
+			curUnit, curTarget, oldTarget = nil, nil, nil;
 		end
 
 		function Status:UNIT_CHANGED(_, alias)
@@ -217,9 +248,24 @@ if (_G.Grid2) then
 			end
 		end
 
+		-- The roster reshuffled. Our target may have moved to a different token, or picked up a
+		-- frame it did not have a moment ago, so re-resolve and repaint both ends - the old code
+		-- recomputed the token but never asked for a redraw, leaving the mark on the old frame
+		-- until the next target change.
+		--
+		-- Only bother when the update concerns us. This fires per unit, and the roster walk is
+		-- not free.
 		function Status:Grid_UnitUpdated(_, unit)
-			if guiTarget then
-				curTarget = roster_units[guiTarget];
+			if (not curUnit) then
+				return;
+			end
+			if (unit == curTarget or UnitIsUnit(unit, curUnit)) then
+				local prev = curTarget;
+				curTarget = FindRosterUnit(curUnit);
+				if (prev ~= curTarget) then
+					if prev then self:UpdateIndicators(prev) end
+					if curTarget then self:UpdateIndicators(curTarget) end
+				end
 			end
 		end
 
@@ -240,5 +286,55 @@ if (_G.Grid2) then
 
 		Grid2.setupFunc[statusKey] = Create
 		Grid2:DbSetStatusDefaultValue(statusKey, { type = statusKey, color1 = { r = .8, g = .8, b = .8, a = .75 } })
+	end
+
+	-- Two cosmetic fixes for Grid2's config list, both of which have to wait for Grid2Options.
+	--
+	-- The icon: without it our statuses wear the generic "Miscellaneous" category icon,
+	-- indistinguishable from anything else that landed there. Same portrait the main window uses
+	-- (`DebindFrameMixin:OnLoad`). `optionParams` is keyed by `dbx.type`, which for us is the
+	-- status key. Passing no category leaves them under Miscellaneous - only the icon changes.
+	--
+	-- The label: Grid2 shows `L[statusName]` for a status it has no translation for, which means
+	-- the raw key - a user reading the list sees `debounce_hover`. **This is the reason the key
+	-- itself does not need renaming.** What was wrong was the word on screen, not the key in the
+	-- database, and the two are separate here.
+	--
+	-- Writing into another addon's locale table is allowed where writing its SavedVariables is
+	-- not: `Grid2Options.L` is AceLocale's in-memory table, it persists nothing, and a mistake
+	-- costs one wrong label until the next reload. AceLocale puts no `__newindex` on what
+	-- `GetLocale` hands back, and it already fills the table itself the same way - a missing key
+	-- gets `rawset(self, key, key)` on first lookup. Our keys carry our own prefix, so nothing
+	-- else can collide with them.
+	--
+	-- The names come from the same strings the rest of our UI uses for these units, so somebody
+	-- who set up "Custom Target 1" in Debind finds that same wording here.
+	local function DecorateStatusOptions()
+		local Grid2Options = _G.Grid2Options;
+		if (not Grid2Options) then
+			return false;
+		end
+		for i = 1, #aliases do
+			local theAlias = aliases[i];
+			local statusKey = "debounce_" .. theAlias;
+			Grid2Options:RegisterStatusOptions(statusKey, nil, nil, { titleIcon = 133015 });
+			Grid2Options.L[statusKey] = format("%s: %s", LLL["ADDON_NAME"], LLL["UNIT_" .. strupper(theAlias)]);
+		end
+		return true;
+	end
+
+	-- Grid2Options is load-on-demand, so it usually does not exist yet - it arrives when the user
+	-- first opens the config window. Register now if something already pulled it in, otherwise
+	-- wait for it and then stop listening.
+	if (not DecorateStatusOptions()) then
+		local watcher = CreateFrame("Frame");
+		watcher:RegisterEvent("ADDON_LOADED");
+		watcher:SetScript("OnEvent", function(self, _, addonName)
+			if (addonName == "Grid2Options") then
+				DecorateStatusOptions();
+				self:UnregisterEvent("ADDON_LOADED");
+				self:SetScript("OnEvent", nil);
+			end
+		end);
 	end
 end

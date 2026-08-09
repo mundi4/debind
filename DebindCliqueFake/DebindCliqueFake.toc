@@ -6,5 +6,6 @@
 ## IconTexture: 133015
 ## LoadOnDemand: 1
 ## Dependencies: Debind
+## Group: Debind
 
 DebindCliqueFake.xml

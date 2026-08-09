@@ -6,6 +6,7 @@
 ## Contributors:
 ##   ZamestoTV – Russian localization (ruRU)
 ## IconTexture: 133015
+## Group: Debind
 ## SavedVariables: DebindVars
 ## OptionalDeps: Clique, Grid2, DevTool, ViragDevTool
 ## AddonCompartmentFunc: Debind_CompartmentFunc

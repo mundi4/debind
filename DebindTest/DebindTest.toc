@@ -4,6 +4,7 @@
 ## Notes: In-game test framework for the Debind addon
 ## Author: mundi4
 ## Dependencies: Debind
+## Group: Debind
 
 DebindTest.lua
 Probe_BindingContext.lua

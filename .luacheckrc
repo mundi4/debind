@@ -121,6 +121,9 @@ globals = {
 	"GetCVarBool",
 	"GetTime",
 	"time",
+	-- `C_AddOns.EnableAddOn`은 다음 리로드까지 효력이 없다. 그래서 마이그레이션 오버레이의
+	-- [켜고 다시 불러오기]가 둘을 같이 한다(Legacy.lua).
+	"ReloadUI",
 
 	-- Cursor / Input
 	"GetCursorInfo",
@@ -255,6 +258,7 @@ globals = {
 	"HIGHLIGHT_FONT_COLOR",
 	"BLUE_FONT_COLOR",
 	"WARNING_FONT_COLOR",
+	"GREEN_FONT_COLOR",
 	"FULL_PLAYER_NAME",
 	"YES",
 	"NO",
@@ -288,6 +292,7 @@ globals = {
 	"DebindSideTabMixin",
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
+	"DebindMigrationDialogMixin",
 	"DebindOverviewPanelMixin",
 	"DebindMacroFrameMixin",
 	"DebindIconSelectorFrameMixin",
@@ -299,6 +304,7 @@ globals = {
 
 	-- Named frames
 	"DebindFrame",
+	"DebindMigrationDialog",
 	"DebindOverviewPanel",
 	"DebindMacroFrame",
 	"DebindIconSelectorFrame",

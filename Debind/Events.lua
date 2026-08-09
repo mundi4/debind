@@ -50,7 +50,7 @@ function Events.PLAYER_LOGIN()
     -- the same tick as PLAYER_LOGIN for the addon to survive a reconnect into a boss encounter
     -- (see the comment on ACTIVE_PLAYER_SPECIALIZATION_CHANGED). If importing the old
     -- SavedVariables fails it simply falls through - it has no right to delay bindings.
-    if (DebindPrivate.ImportLegacySavedVars()) then
+    if (DebindPrivate.RunLegacyMigration()) then
         -- Order matters. The import swaps out the `options`/`customStates` tables wholesale, so
         -- rebind the references **first**, then re-read the layers.
         DebindPrivate.BindDerivedTables();
@@ -74,25 +74,19 @@ function Events.PLAYER_LOGIN()
         DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_CLIQUE_DETECTED"], WARNING_FONT_COLOR:GetRGBA());
     end
 
-    -- **Rename-related warnings belong here, after the bindings are up.** Moving them earlier
-    -- would let the migration path start talking before the bindings exist, and that is spending
-    -- the combat deadline on a chat message.
-    if (DebindPrivate.legacyLoadFailure) then
-        DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_LEGACY_ADDON_UNAVAILABLE"],
-            WARNING_FONT_COLOR:GetRGBA());
-    end
+    -- **The rename says nothing here.** Warnings used to be printed for a disabled companion addon
+    -- and for the old one still being installed, and both were the wrong surface: a line that
+    -- scrolls past while the user is reading loot and quest text is not where you put something
+    -- that needs answering. The window puts an overlay up instead, and it cannot be scrolled away.
     if (DebindPrivate.CheckLegacyAddonConflict()) then
         DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"],
             WARNING_FONT_COLOR:GetRGBA());
     end
-    -- Only reachable when the dummy came back late and the user had already built something in
-    -- the same place. The import refuses to overwrite in that case, so say so - a partial import
-    -- that stays silent is indistinguishable from a broken one.
-    if (DebindPrivate.legacySkipped) then
-        DebindPrivate.legacySkipped = nil;
-        DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_LEGACY_PARTIALLY_IMPORTED"],
-            WARNING_FONT_COLOR:GetRGBA());
-    end
+
+    -- **여기서 먼저 말을 건다.** 업데이트한 사람이 겪는 것은 "잘 되던 단축키가 전부 안 먹는다"
+    -- 이고, 그 상태에서 애드온 창을 열어볼 이유가 없다. 창에 붙여두면 원인을 스스로 찾아낸
+    -- 사람에게만 보이는 안내가 된다.
+    DebindPrivate.ShowMigrationDialogIfPending();
 end
 
 function Events.PLAYER_LOGOUT()

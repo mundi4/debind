@@ -1,24 +1,49 @@
---- Pulls in settings that were saved before the addon was renamed from Debounce to Debind.
+--- Brings across settings that were saved before the addon was renamed from Debounce to Debind.
 ---
---- A SavedVariables file is named after the addon **folder**. Renaming the folder to `Debind`
---- made the game start reading and writing `Debind.lua`, which leaves the old `Debounce.lua`
---- unreachable in principle - nothing in this addon can open it. So we ship a code-less dummy
---- addon still called `Debounce`; the whole of it is two TOC lines declaring the old globals,
---- and we turn it on with `LoadAddOn` only when we need it.
+--- A SavedVariables file is named after the addon **folder**. Renaming the folder to `Debind` made
+--- the game start reading and writing `Debind.lua`, which leaves the old `Debounce.lua` unreachable
+--- in principle. So we ship a code-less dummy addon still called `Debounce`; the whole of it is two
+--- TOC lines declaring the old globals, and we load it on demand.
 ---
---- ## This file is permanent
+--- ## Three states, and only one of them is a question
 ---
---- There is no way to prove every character has logged in since the rename, and an alt that has
---- not come back yet still has its data over there. So neither the dummy addon nor this path
---- ever gets deleted. The cost per login is one `migrated[guid]` lookup.
+--- `legacyNeeded` is the account's answer to "is there anything to bring across at all":
+---
+---   nil    - we have never managed to look. The dummy has not loaded once.
+---   false  - there is nothing, and there never will be. Nothing below ever runs again.
+---   true   - there is. Each character brings its own share the first time it logs in.
+---
+--- `false` is the resting state, and a fresh install reaches it on its first login: the dummy loads,
+--- `DebounceVars` is absent, and that settles it for every character including ones not yet created.
+--- The other way to reach it is the user saying they do not want the old settings - **the same
+--- value, so from then on the code cannot tell the two apart, and does not need to.**
+---
+--- Note what `true` does *not* become: there is no "finished". We cannot prove every character has
+--- logged in since the update, so a migrated account keeps checking one character at a time, for as
+--- long as it exists. That is one `LoadAddOn` per character, ever.
+---
+--- ## Nothing here decides anything on the user's behalf
+---
+--- When the companion is unavailable this file does nothing at all - it does not guess, does not
+--- import half of something, and does not warn. A dialog asks instead, and the main window stays
+--- shut until the user answers (`DebindUI.lua`, `DebindPublic:ToggleUI`).
+---
+--- That is what lets the import below be unconditional: bindings can only be made through the main
+--- window, so if it never opens with the question open, "the user already built something here"
+--- cannot arise.
+---
+--- **The question that has to be settled is the account one**, not this character's. A per-character
+--- "no" leaves `legacyNeeded` at nil, and the account share is account-wide - answer only for
+--- yourself, build a shared config, and the next character to resolve the account would import
+--- straight over it. So the dialog offers the per-character answer only once the account share has
+--- already come across (`IsLegacyAccountResolved`).
 ---
 --- ## The old globals are read-only
 ---
 --- In a session where the dummy is loaded, WoW **rewrites** `Debounce.lua` on logout. Anything we
 --- change in those tables lands on disk, and a user who rolls back to the old addon then finds
---- their data altered. Leave them alone and rolling back works with **no loss at all** - which is
---- why everything below is copied out with `CopyTable`. Plugging in a reference instead would let
---- later edits made in Debind leak back into the old file.
+--- their data altered. Leave them alone and rolling back works with no loss at all - which is why
+--- everything below is copied out with `CopyTable`.
 
 local _, DebindPrivate = ...;
 
@@ -66,54 +91,15 @@ local RESHAPED_KEYS = {
     overviewui    = true,
 };
 
---- Does this layer array hold anything?
-local function LayerHasContent(tbl)
-    return tbl ~= nil and #tbl > 0;
-end
-
---- Does any spec layer in this per-spec table hold anything?
-local function SpecTableHasContent(tbl)
-    if (tbl == nil) then
-        return false;
-    end
-    for spec = 0, 5 do
-        if (LayerHasContent(tbl[spec])) then
-            return true;
-        end
-    end
-    return false;
-end
-
 --- The account's share: `DebounceVars` -> `DebindVars.shared` plus the housekeeping tables.
 ---
 --- **Runs exactly once**, guarded by `legacyAccountPulled` - otherwise a second character loading
 --- the dummy for its own per-character data would resurrect shared bindings deleted in between.
----
---- ## Nothing here ever replaces something the user already has
----
---- The one-shot guard is not enough on its own, because it only starts counting once the import
---- actually runs. If the dummy is disabled or missing, the import keeps failing (by design - see
---- `ImportLegacySavedVars`), and in the meantime the user can build a complete configuration in
---- Debind. Re-enable the dummy weeks later and an unconditional import would replace all of it
---- with pre-rename data, silently, on a login the user had no reason to treat as special.
----
---- So every destination is checked first and **only empty ones are filled**. That keeps the normal
---- case identical (a fresh `DebindVars` is empty everywhere, so everything comes across) while
---- making the delayed case incapable of destroying anything. Whatever was skipped is reported, so
---- the user is told rather than left to notice.
----
---- This is deliberately not a merge. Merging two populated layers would need a human to say which
---- side wins, and that answer cannot be guessed.
-local function ImportAccount(db, old, storedKeys)
+local function ImportAccount(db, old)
     local dbver = old.dbver or 1;
-    local skipped = false;
 
-    if (LayerHasContent(old.GENERAL)) then
-        if (LayerHasContent(db.shared.GENERAL)) then
-            skipped = true;
-        else
-            db.shared.GENERAL = ImportLayer(old.GENERAL, dbver);
-        end
+    if (old.GENERAL) then
+        db.shared.GENERAL = ImportLayer(old.GENERAL, dbver);
     end
 
     local isClassKey = {};
@@ -122,118 +108,125 @@ local function ImportAccount(db, old, storedKeys)
         local class = classInfo and classInfo.classFile;
         if (class) then
             isClassKey[class] = true;
-            if (SpecTableHasContent(old[class])) then
-                if (SpecTableHasContent(db.shared.classes[class])) then
-                    skipped = true;
-                else
-                    db.shared.classes[class] = ImportSpecTable(old[class], dbver);
-                end
+            if (old[class]) then
+                db.shared.classes[class] = ImportSpecTable(old[class], dbver);
             end
         end
     end
 
-    -- Window positions were folded into one table. Not worth reporting when skipped - losing a
-    -- remembered window position costs the user one drag.
-    if (db.ui == nil) then
-        local ui = {};
-        if (old.ui and old.ui.anchorPos) then
-            ui.main = CopyTable(old.ui.anchorPos);
-        end
-        if (old.spellPickerUI and old.spellPickerUI.pos) then
-            ui.spellPicker = CopyTable(old.spellPickerUI.pos);
-        end
-        if (next(ui) ~= nil) then
-            db.ui = ui;
-        end
+    -- Window positions were folded into one table.
+    local ui = {};
+    if (old.ui and old.ui.anchorPos) then
+        ui.main = CopyTable(old.ui.anchorPos);
+    end
+    if (old.spellPickerUI and old.spellPickerUI.pos) then
+        ui.spellPicker = CopyTable(old.spellPickerUI.pos);
+    end
+    if (next(ui) ~= nil) then
+        db.ui = ui;
     end
 
     -- Everything else verbatim: `options`, `customStates`, `spellPicker`, and whatever anyone adds
     -- after this was written.
-    --
-    -- The test is `storedKeys` rather than `db[key] == nil` because `InitDB` synthesizes defaults
-    -- for `options` and `customStates` before this ever runs, so they are never nil. What we need
-    -- to know is whether the **saved file** had them.
     for key, value in pairs(old) do
         if (not RESHAPED_KEYS[key] and not isClassKey[key]) then
-            if (storedKeys[key]) then
-                skipped = true;
-            else
-                db[key] = (type(value) == "table") and CopyTable(value) or value;
-            end
+            db[key] = (type(value) == "table") and CopyTable(value) or value;
         end
     end
-
-    return skipped;
 end
 
 --- This character's share: `DebounceVarsPerChar` -> `DebindVars.characters[guid]`.
 ---
---- Note that nothing is written into `characters[guid]` here. Whether the entry gets attached at
---- all is decided by `CleanUpDB` from its contents (lazy creation), so an alt that never used a
---- character-specific binding - and therefore has only empty tables in the old file - still ends
---- up with no entry.
---- Same rule as `ImportAccount`: fill only what is empty, per layer. A character that has been
---- played in Debind while the dummy was unavailable keeps everything it has.
+--- Nothing is written into `characters[guid]` here. Whether the entry gets attached at all is
+--- decided by `CleanUpDB` from its contents (lazy creation), so an alt that never used a
+--- character-specific binding - and therefore has only empty tables in the old file - still ends up
+--- with no entry.
 local function ImportCharacter(charEntry, old)
     local dbver = old.dbver or 1;
-    local skipped = false;
 
     local layers = ImportSpecTable(old, dbver);
     if (layers) then
         for spec = 0, 5 do
-            if (LayerHasContent(layers[spec])) then
-                if (LayerHasContent(charEntry.layers[spec])) then
-                    skipped = true;
-                else
-                    charEntry.layers[spec] = layers[spec];
-                end
+            if (layers[spec]) then
+                charEntry.layers[spec] = layers[spec];
             end
         end
     end
 
-    if (old.CustomTargets and next(old.CustomTargets) ~= nil) then
-        if (charEntry.CustomTargets and next(charEntry.CustomTargets) ~= nil) then
-            skipped = true;
-        else
-            charEntry.CustomTargets = CopyTable(old.CustomTargets);
-        end
+    if (old.CustomTargets) then
+        charEntry.CustomTargets = CopyTable(old.CustomTargets);
     end
-
-    return skipped;
 end
 
---- Called **synchronously** at the very top of PLAYER_LOGIN.
+--- Is there still something for **this character** to answer or bring across?
 ---
---- Why it must not be late is spelled out on `ACTIVE_PLAYER_SPECIALIZATION_CHANGED` in
---- `Events.lua`: bindings have to be up in the same tick as PLAYER_LOGIN for the addon to survive
---- a reconnect into a boss encounter. So this path has **no `C_Timer`, no waiting on an event, and
---- no retry**.
+--- `false` is the resting state and short-circuits everything. Otherwise the character is done only
+--- once its own flag is set - which, in the `nil` case, has not happened and cannot happen yet.
+function DebindPrivate.IsLegacyPending()
+    local db = DebindPrivate.db and DebindPrivate.db.global;
+    local guid = DebindPrivate.playerGUID;
+    if (not db or not guid or db.legacyNeeded == false) then
+        return false;
+    end
+    return not db.migrated[guid];
+end
+
+--- 계정 몫이 이미 넘어온 상태인가.
 ---
---- And **failure has no right to delay bindings.** If the dummy is disabled, `LoadAddOn` answers
---- `DISABLED`; we record nothing and fall straight through. Going one session without the old data
---- beats going a whole encounter without bindings, and since no flag was set it is retried on the
---- next login.
-function DebindPrivate.ImportLegacySavedVars()
+--- `legacyNeeded`가 `true`라는 것은 **`DebounceVars`를 실제로 봤다**는 뜻이고, 그 판정과 계정
+--- 몫 인수는 같은 호출 안에서 일어난다. 그래서 이 둘이 같이 참이면 공유 레이어는 이미 여기 있다.
+---
+--- 다이얼로그가 무슨 말을 할지, 그리고 **"이 캐릭터만"이라는 답이 성립하는지**가 여기서 갈린다.
+function DebindPrivate.IsLegacyAccountResolved()
+    local db = DebindPrivate.db.global;
+    return db.legacyNeeded == true and db.legacyAccountPulled == true;
+end
+
+--- Runs at login. Does the whole job when it can, and **nothing at all when it cannot**.
+---
+--- Returns true when something was brought across, so the caller knows to rebuild.
+function DebindPrivate.RunLegacyMigration()
     local db = DebindPrivate.db.global;
     local guid = DebindPrivate.playerGUID;
 
-    if (not guid or db.migrated[guid]) then
+    if (not guid or not DebindPrivate.IsLegacyPending()) then
         return false;
     end
 
     local loaded, reason = C_AddOns.LoadAddOn(LEGACY_ADDON);
     if (not loaded) then
-        DebindPrivate.legacyLoadFailure = reason or "UNKNOWN";
+        -- Leave every flag exactly as it is. `nil` stays `nil`, an unmigrated character stays
+        -- unmigrated, and the dialog asks the user.
+        --
+        -- **The reason matters to the dialog.** "DISABLED" can be fixed by a button; a folder that
+        -- is not there at all cannot, and offering to switch it on would reload straight back into
+        -- the same window.
+        DebindPrivate.legacyLoadFailure = reason;
+        DebindPrivate.log("[legacy] companion unavailable:", tostring(reason));
         return false;
+    end
+    DebindPrivate.legacyLoadFailure = nil;
+
+    if (db.legacyNeeded == nil) then
+        -- **`DebounceVars` only.** Every version that could have written a per-character file
+        -- created this one too, on its first run, unconditionally - so its absence means this
+        -- account never ran an older version at all. Keying off both would let `legacyNeeded`
+        -- become true with no account share to pull, and then `legacyAccountPulled` would latch
+        -- anyway and the dialog would tell people their shared bindings had already moved when
+        -- nothing shared ever existed.
+        db.legacyNeeded = _G.DebounceVars ~= nil;
+        DebindPrivate.log("[legacy] determined legacyNeeded =", db.legacyNeeded);
+        if (not db.legacyNeeded) then
+            return false;
+        end
     end
 
     local changed = false;
-    local skipped = false;
 
     if (not db.legacyAccountPulled) then
         local old = _G.DebounceVars;
         if (old) then
-            skipped = ImportAccount(db, old, DebindPrivate.storedTopLevelKeys or {}) or skipped;
+            ImportAccount(db, old);
             changed = true;
         end
         db.legacyAccountPulled = true;
@@ -241,13 +234,58 @@ function DebindPrivate.ImportLegacySavedVars()
 
     local oldChar = _G.DebounceVarsPerChar;
     if (oldChar) then
-        skipped = ImportCharacter(DebindPrivate.db.char, oldChar) or skipped;
+        ImportCharacter(DebindPrivate.db.char, oldChar);
         changed = true;
     end
 
     db.migrated[guid] = true;
-    DebindPrivate.legacySkipped = skipped;
+    DebindPrivate.log("[legacy] imported for", guid, "changed:", changed);
     return changed;
+end
+
+--- The user answered "I don't need them" in the window's overlay.
+---
+--- Recorded as `false`, the **same value a fresh install reaches on its first login**. There is no
+--- separate "declined" state: from here on this account is simply not a migration target, and every
+--- character - including ones created later - takes the same path a new installation does.
+---
+--- It is account-wide on purpose. The shared layers are account-wide, so a per-character "no" would
+--- leave the next character free to import over what this one built. Nothing is lost either way:
+--- the old file is never written to, so it stays on disk exactly as it was.
+function DebindPrivate.DeclineLegacyMigration()
+    DebindPrivate.db.global.legacyNeeded = false;
+    DebindPrivate.log("[legacy] declined for the account");
+end
+
+--- The user answered "not on this character".
+---
+--- A separate answer exists because **an addon is enabled per character.** Turning the companion
+--- back on covers the whole account, but it can be switched off again for one character, or ahead
+--- of time for one that has not logged in yet - so "I deliberately do not want the old settings
+--- here" is a real position, and without a way to say it that character is asked every login.
+---
+--- Only this character's own share is refused. The shared layers are account-wide and stay that
+--- way: if another character brings them across later, they apply here too. That is what shared
+--- means, and no per-character answer can change it.
+--- **계정 질문이 이미 끝난 뒤에만 뜻이 있다.** 아직 `nil`이면 이 답은 계정 몫을 미결로 둔 채
+--- 창만 열어주고, 그러면 사용자가 만든 공유 바인딩을 나중에 다른 캐릭터의 인수가 덮는다.
+--- 그래서 다이얼로그는 그 상태에서 이 버튼을 아예 안 보여준다(`UpdateText`).
+function DebindPrivate.DeclineLegacyMigrationForCharacter()
+    local guid = DebindPrivate.playerGUID;
+    if (not guid) then
+        return;
+    end
+    DebindPrivate.db.global.migrated[guid] = true;
+    DebindPrivate.log("[legacy] declined for", guid);
+end
+
+--- Turn the dummy addon back on for the user, then reload so it is there on the next pass.
+---
+--- `EnableAddOn` is what Blizzard's own addon list calls, and it does not take effect until the UI
+--- reloads - which is why this does both rather than asking the user to go and find it.
+function DebindPrivate.EnableLegacyAddonAndReload()
+    C_AddOns.EnableAddOn(LEGACY_ADDON);
+    ReloadUI();
 end
 
 --- Is the old real addon still installed?
@@ -256,10 +294,9 @@ end
 --- client may not. Then **two real addons run at once and fight over the same keys.** Only the old
 --- one puts `Debounce_CompartmentFunc` in the global namespace - we renamed ours to `Debind_` - so
 --- that single global tells them apart.
----
---- Call this after the first `UpdateBindings`. The warning must never come before the bindings.
 function DebindPrivate.CheckLegacyAddonConflict()
     return _G.Debounce_CompartmentFunc ~= nil;
 end
+
 
 DebindPrivate.LEGACY_ADDON_NAME = LEGACY_ADDON;

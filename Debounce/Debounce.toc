@@ -1,13 +1,14 @@
 ## Interface: 120000, 120001, 120005, 120007, 120100
 
-## Title: Debind |cff808080(legacy data)|r
+## Title: Debind Migration
 ## Version: @project-version@
 ## Author: mundi4
 ## IconTexture: 133015
 ## LoadOnDemand: 1
 ## Dependencies: Debind
+## Group: Debind
 ## SavedVariables: DebounceVars
 ## SavedVariablesPerCharacter: DebounceVarsPerChar
-## Notes: Holds settings saved before the addon was renamed to Debind.|n|n|cffff2020Do not delete or disable.|r Debind loads this once per character to move the old data across, and characters you have not logged into since the rename still need it.
+## Notes: Part of Debind. It holds the settings saved by Debind 3.0 and earlier, which were kept in a different file.|n|nLeaving it enabled costs nothing. It contains no code and does nothing on its own - Debind opens it |cff40ff40once per character|r, moves that character's settings across, and does not open it again. If Debind 3.1 was your first install, it is opened once on your first login, finds nothing to move, and is never opened again.|n|n|cffff2020Do not delete it.|r Characters you have not logged in on since updating still have their settings in here.
 
 # No code. The two SavedVariables lines above are the whole addon. Why it exists: Debind/Legacy.lua

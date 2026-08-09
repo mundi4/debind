@@ -2245,6 +2245,135 @@ function DebindFrameMixin:OnLoad()
 	self:SetWidth(FRAME_WIDTH);
 end
 
+--------------------------------------------------------------------------------
+-- 마이그레이션 안내창
+--------------------------------------------------------------------------------
+
+--- 3.0 이전에 저장된 설정을 아직 못 가져왔을 때 **로그인에서** 뜨는 창.
+---
+--- 메인 창과 별개인 이유는 XML에. 요약하면 업데이트한 사람은 애드온 창을 열 이유가 없고,
+--- 그가 겪는 것은 "잘 되던 단축키가 안 먹는다"라서 창을 의심하지 않는다.
+DebindMigrationDialogMixin = {};
+
+function DebindMigrationDialogMixin:OnLoad()
+	-- `BasicFrameTemplate`이라 초상화가 없다. 제목도 `SetTitle`이 아니라 `TitleText`다 -
+	-- 그건 `TitledPanelMixin`이 붙는 초상화 계열 템플릿의 것이다.
+	self.TitleText:SetText(LLL["MIGRATION_DIALOG_HEADER"]);
+	self:RegisterForDrag("LeftButton");
+	self:SetScript("OnDragStart", function() self:StartMoving(); end);
+	self:SetScript("OnDragStop", function() self:StopMovingOrSizing(); end);
+
+	self.AcceptButton:SetText(LLL["MIGRATION_DIALOG_ENABLE"]);
+	-- **권장이 하나뿐이라는 것을 색으로 말한다.** 버튼 셋이 모양이 같으면 셋 다 동등한
+	-- 선택지로 읽히는데, 여기서는 아니다 - 나머지 둘은 되돌릴 수 없고 이건 잃는 게 없다.
+	-- 본문에도 같은 색으로 "이게 맞는 답"이라고 적어뒀으므로 둘이 같이 읽힌다.
+	self.AcceptButton:GetFontString():SetTextColor(GREEN_FONT_COLOR:GetRGB());
+	self.DeclineCharButton:SetText(LLL["MIGRATION_DIALOG_DECLINE_CHARACTER"]);
+	self.DeclineAccountButton:SetText(LLL["MIGRATION_DIALOG_DECLINE_ACCOUNT"]);
+
+	self.AcceptButton:SetScript("OnClick", function()
+		DebindPrivate.EnableLegacyAddonAndReload();
+	end);
+	self.DeclineCharButton:SetScript("OnClick", function()
+		DebindPrivate.DeclineLegacyMigrationForCharacter();
+		self:Hide();
+	end);
+	self.DeclineAccountButton:SetScript("OnClick", function()
+		DebindPrivate.DeclineLegacyMigration();
+		self:Hide();
+	end);
+
+	-- 툴팁은 **버튼 글자에 못 담는 것만** 말한다 - 되돌릴 수 없다는 사실, 옛 파일은 남는다는
+	-- 사실, 어느 캐릭터까지 걸리는지. 글자를 풀어 쓰기만 하는 툴팁은 안 다느니만 못하다.
+	local function attachTooltip(button, titleKey, bodyKey)
+		button:SetScript("OnEnter", function()
+			GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+			GameTooltip_SetTitle(GameTooltip, LLL[titleKey]);
+			GameTooltip_AddNormalLine(GameTooltip, LLL[bodyKey]);
+			GameTooltip:Show();
+		end);
+		button:SetScript("OnLeave", GameTooltip_Hide);
+	end
+
+	attachTooltip(self.AcceptButton, "MIGRATION_DIALOG_ENABLE", "MIGRATION_DIALOG_ENABLE_TOOLTIP");
+	attachTooltip(self.DeclineCharButton, "MIGRATION_DIALOG_DECLINE_CHARACTER",
+		"MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP");
+	attachTooltip(self.DeclineAccountButton, "MIGRATION_DIALOG_DECLINE_ACCOUNT",
+		"MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP");
+end
+
+--- 두 상태를 가른다.
+---
+--- **계정 몫이 이미 넘어온 뒤라면 공유 바인딩은 지금 동작 중이다.** 그 사람은 대부분의 키가
+--- 멀쩡한 것을 보면서 이 창을 읽으므로, "설정을 못 읽는다"고 뭉뚱그리면 눈앞의 사실과
+--- 어긋난다 - 그러면 창이 무엇을 말하는지가 아니라 창을 믿을지가 문제가 된다.
+--- 그때 실제로 없는 것은 이 캐릭터 전용 레이어와 `CustomTargets`뿐이다.
+---
+--- `legacyNeeded`가 아직 nil이면 우리도 아는 게 없으므로 일반 문구로 간다.
+function DebindMigrationDialogMixin:UpdateText()
+    local accountResolved = DebindPrivate.IsLegacyAccountResolved();
+    local missing = DebindPrivate.legacyLoadFailure == "MISSING";
+
+    if (missing) then
+        -- 폴더가 아예 없다. **켜기 버튼이 할 수 있는 게 없다** - `EnableAddOn`은 없는 애드온에
+        -- 아무 일도 안 하고, 리로드하면 같은 창으로 돌아온다. 그래서 숨기고 다시 받으라고 한다.
+        self.Title:SetText(LLL["MIGRATION_DIALOG_TITLE_MISSING"]);
+        self.Body:SetText(LLL["MIGRATION_DIALOG_BODY_MISSING"]);
+    elseif (accountResolved) then
+        self.Title:SetText(LLL["MIGRATION_DIALOG_TITLE_CHARACTER_ONLY"]);
+        self.Body:SetText(LLL["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"]);
+    else
+        self.Title:SetText(LLL["MIGRATION_DIALOG_TITLE"]);
+        self.Body:SetText(LLL["MIGRATION_DIALOG_BODY"]);
+    end
+
+    self.AcceptButton:SetShown(not missing);
+
+    -- **"이 캐릭터만"은 계정 질문이 끝난 뒤에만 답이 된다.** 아직 `nil`이면 그 답이 계정 몫을
+    -- 미결로 둔 채 창을 열어주고, 그러면 사용자가 만든 공유 바인딩을 나중에 다른 캐릭터의
+    -- 인수가 덮는다. 미결일 때 고를 수 있는 것은 "켠다"와 "전부 안 가져온다" 둘뿐이다.
+    self.DeclineCharButton:SetShown(accountResolved);
+
+    -- **버튼을 바닥에서부터 쌓는다.** XML의 앵커는 셋이 다 있을 때의 사슬이라, 하나를 숨기면
+    -- 그 자리가 빈 채로 남는다(숨은 프레임도 위치는 그대로다). 보이는 것만 다시 건다.
+    local BOTTOM_PAD, BUTTON_GAP = 16, 8;
+    local y = BOTTOM_PAD;
+    local stack = { self.DeclineAccountButton, self.DeclineCharButton, self.AcceptButton };
+    for _, button in ipairs(stack) do
+        if (button:IsShown()) then
+            button:ClearAllPoints();
+            button:SetPoint("BOTTOM", 0, y);
+            y = y + button:GetHeight() + BUTTON_GAP;
+        end
+    end
+
+    -- **높이를 글에 맞춘다.** 본문 셋의 길이가 다르고, 로케일마다 또 다르고, 폭이 같아도 줄
+    -- 수가 달라진다. 고정 높이로 두면 긴 쪽이 버튼 위로 겹치거나 창 밖으로 나간다 - 스크롤은
+    -- 없다(한 번 읽고 답하는 창이라 스크롤이 생기면 그게 더 나쁘다).
+    --
+    -- `GetStringHeight`는 텍스트를 넣은 **뒤에** 물어야 값이 나온다. TOP_PAD와 GAP은 XML에서
+    -- Title이 TOP -38, Body가 Title 아래 -14인 것과 같은 값이다.
+    local TOP_PAD, GAP = 38, 14;
+    self:SetHeight(TOP_PAD + self.Title:GetStringHeight() + GAP + self.Body:GetStringHeight()
+        + GAP + (y - BUTTON_GAP));
+end
+
+--- 미결일 때만 띄운다. 로그인과 `ToggleUI` 양쪽에서 부른다.
+---
+--- **닫기는 답이 아니다.** 세 버튼만 상태를 남기고, 그냥 닫으면 다음 로그인에 다시 온다 -
+--- 지금 답하고 싶지 않은 사람에게 유일하게 영구가 아닌 선택지다.
+function DebindPrivate.ShowMigrationDialogIfPending()
+	if (not DebindPrivate.IsLegacyPending()) then
+		return false;
+	end
+	-- 띄울 때마다 다시 고른다. 다른 캐릭터가 그 사이 계정 몫을 가져왔을 수 있고, 그러면
+	-- 이 창이 할 말이 달라진다.
+	DebindMigrationDialog:UpdateText();
+	DebindMigrationDialog:Show();
+	return true;
+end
+
+
 function DebindFrameMixin:OnShow()
 	if (not self.initialized) then
 		self:OnLoad();

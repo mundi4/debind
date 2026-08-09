@@ -1125,6 +1125,7 @@
 				</Anchors>
 			</Button>
 
+
 		</Frames>
 		<Layers>
 			<Layer level="ARTWORK">
@@ -1386,6 +1387,78 @@
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad" />
+		</Scripts>
+	</Frame>
+
+	<!--
+		3.0 이전에 저장된 설정을 아직 못 가져왔을 때 뜨는 창.
+
+		**메인 창의 자식이 아니다.** 한때 그 창을 덮는 판이었는데, 그러면 **사용자가 창을
+		열어야만** 보인다. 업데이트한 사람은 창을 열 이유가 없고, 그가 실제로 겪는 것은
+		"잘 되던 단축키가 전부 안 먹는다"이다 - 그 상태에서 애드온 창을 의심할 까닭이 없다.
+		그래서 로그인에서 이쪽이 먼저 말을 건다.
+
+		그리고 답하기 전에는 메인 창이 안 열린다(`DebindPublic:ToggleUI`). 바인딩을 만드는
+		유일한 길이 그 창이므로, 막아두면 "옛 설정을 가져오기 전에 새 설정을 만들어버린"
+		상태가 생길 수 없다 - 인수 쪽이 무엇을 덮을지 판정할 일이 없어지는 근거가 이것이다.
+
+		닫을 수 있다. 전투 중이거나 지금 답하기 싫을 수 있고, **닫기는 유일하게 영구가 아닌
+		답**이다(다음 로그인에 다시 뜬다). 그 뒤에 `/deb`를 치면 메인 창 대신 이게 다시 온다.
+	-->
+	<Frame name="DebindMigrationDialog" inherits="BasicFrameTemplate" parent="UIParent" toplevel="true"
+		frameStrata="DIALOG" enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
+		mixin="DebindMigrationDialogMixin">
+		<Size x="420" y="330"/>
+		<Anchors>
+			<Anchor point="CENTER" x="0" y="120"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Title" inherits="GameFontHighlightLarge" justifyH="CENTER" wordwrap="true">
+					<Size x="360" y="0"/>
+					<Anchors>
+						<Anchor point="TOP" x="0" y="-38"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="Body" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true">
+					<Size x="360" y="0"/>
+					<Anchors>
+						<Anchor point="TOP" relativeKey="$parent.Title" relativePoint="BOTTOM" x="0" y="-14"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+				<Size x="260" y="24"/>
+				<Anchors>
+					<Anchor point="BOTTOM" x="0" y="74"/>
+				</Anchors>
+			</Button>
+			<!--
+				거절이 둘인 이유는 **애드온 활성 상태가 캐릭터별이기 때문이다.** 계정 전체로
+				켜준 뒤에도 특정 캐릭터만 다시 끌 수 있고, 아직 로그인하지 않은 캐릭터에 미리
+				꺼둘 수도 있다. 그러면 "이 캐릭터에는 일부러 안 가져온다"가 실재하는 의도가
+				되고, 그걸 말할 수단이 없으면 그 캐릭터는 매 로그인 같은 질문을 받는다.
+
+				둘 다 **되돌릴 수 없다.** 옛 파일은 디스크에 남지만 사용자용으로 꺼낼 버튼이
+				없다. 그래서 위 버튼에서 떼어놓고, 어디까지 걸리는지는 버튼 글자가 진다.
+			-->
+			<Button parentKey="DeclineCharButton" inherits="UIPanelButtonTemplate">
+				<Size x="260" y="22"/>
+				<Anchors>
+					<Anchor point="TOP" relativeKey="$parent.AcceptButton" relativePoint="BOTTOM" x="0" y="-10"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="DeclineAccountButton" inherits="UIPanelButtonTemplate">
+				<Size x="260" y="22"/>
+				<Anchors>
+					<Anchor point="TOP" relativeKey="$parent.DeclineCharButton" relativePoint="BOTTOM" x="0" y="-4"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
 		</Scripts>
 	</Frame>
 

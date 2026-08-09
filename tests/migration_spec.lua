@@ -18,6 +18,10 @@ return function(DebindPrivate)
     -- drags in a pile of frames, so here it just gets an ear that does not listen.
     DebindPrivate.callbacks = DebindPrivate.callbacks or { Fire = function() end };
 
+    -- The import narrates what it did. That is for a person watching in-game; here it would just
+    -- interleave with the test output. (Without DevTool present `log` falls back to `print`.)
+    DebindPrivate.log = function() end;
+
     local T = { passed = 0, failures = {} };
 
     local function fail(name, msg)
@@ -76,8 +80,7 @@ return function(DebindPrivate)
         _G.DebindVars = nil;
         _G.DebounceVars = nil;
         _G.DebounceVarsPerChar = nil;
-        DebindPrivate.legacyLoadFailure = nil;
-        DebindPrivate.InitDB();
+                DebindPrivate.InitDB();
     end
 
     test("a fresh install comes up with no old file present", function()
@@ -98,7 +101,7 @@ return function(DebindPrivate)
     test("the account's share moves into shared", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         local shared = _G.DebindVars.shared;
         check(shared.GENERAL and #shared.GENERAL == 1, "GENERAL did not arrive");
@@ -114,7 +117,7 @@ return function(DebindPrivate)
     test("keys whose shape does not change come across without being named", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         local db = _G.DebindVars;
         check(db.spellPicker and db.spellPicker.spell.showOffSpec == true,
@@ -131,7 +134,7 @@ return function(DebindPrivate)
     test("class keys go only to shared.classes and do not leak to the top level", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         check(_G.DebindVars.DRUID == nil, "a class key leaked to the top level");
         check(_G.DebindVars.dbver == 4, "dbver was overwritten with the old value");
@@ -141,7 +144,7 @@ return function(DebindPrivate)
     test("window positions fold into one table and overviewui is dropped", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         local ui = _G.DebindVars.ui;
         check(ui and ui.main and ui.main.x == 100, "ui.main did not arrive");
@@ -152,7 +155,7 @@ return function(DebindPrivate)
     test("the options reference survives the import", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
         DebindPrivate.BindDerivedTables();
 
         check(DebindPrivate.Options == _G.DebindVars.options,
@@ -162,8 +165,12 @@ return function(DebindPrivate)
 
     test("the character's share moves into the char entry", function()
         FreshInit();
+        -- The account file has to be there too. Every version that could write a per-character
+        -- file created this one on its first run, so its absence is what tells us the account
+        -- never ran an older version at all - `legacyNeeded` keys off it alone.
+        _G.DebounceVars = LegacyAccount();
         _G.DebounceVarsPerChar = LegacyChar();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         local charEntry = DebindPrivate.db.char;
         check(#charEntry.layers[0] == 1, "character layer did not arrive");
@@ -179,7 +186,7 @@ return function(DebindPrivate)
         FreshInit();
         _G.DebounceVars = LegacyAccount();
         _G.DebounceVarsPerChar = LegacyChar();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         -- Edit the imported side. If references were plugged in, the old tables change with it.
         _G.DebindVars.shared.GENERAL[1].key = "CHANGED";
@@ -198,104 +205,111 @@ return function(DebindPrivate)
     test("the account's share is not pulled twice", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         -- The user deletes a shared binding.
         _G.DebindVars.shared.GENERAL = {};
 
         -- An alt logs in. Same account file, different character.
         _G.DebindVars.migrated = {};
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         check(#_G.DebindVars.shared.GENERAL == 0,
             "a deleted shared binding came back through re-import (legacyAccountPulled failed)");
     end);
 
-    -- **The one-shot guard is not enough on its own.** It only starts counting once the import has
-    -- run, so if the dummy addon is unavailable for a while the user can build a full config in
-    -- Debind first. When the dummy comes back, an unconditional import would replace all of it -
-    -- silently, on a login with nothing special about it. So only empty destinations are filled.
-    test("an import never replaces content the user already has", function()
+
+    -- Even a fresh install has to open the dummy once - `legacyNeeded` starts as nil, and the only
+    -- way to learn there is nothing to move is to look. What matters is that it settles to `false`,
+    -- because that is what stops it happening again for this character or any future one.
+    test("a fresh install settles at false after looking once", function()
+        FreshInit();
+        -- No DebounceVars: this account never ran an older version.
+        check(DebindPrivate.IsLegacyPending() == true, "a fresh install should still have a question");
+
+        DebindPrivate.RunLegacyMigration();
+
+        check(_G.DebindVars.legacyNeeded == false, "legacyNeeded did not settle to false");
+        check(DebindPrivate.IsLegacyPending() == false, "the question is still open after answering it");
+    end);
+
+    test("once false, nothing is ever loaded again", function()
+        FreshInit();
+        DebindPrivate.RunLegacyMigration();
+
+        -- Old data appears afterwards (a restored WTF folder, say). `false` is final: this account
+        -- said its piece, and the dummy is not opened to re-litigate it.
+        _G.DebounceVars = LegacyAccount();
+        local loads = 0;
+        local realLoadAddOn = _G.C_AddOns.LoadAddOn;
+        _G.C_AddOns.LoadAddOn = function(...) loads = loads + 1; return realLoadAddOn(...); end
+        DebindPrivate.RunLegacyMigration();
+        _G.C_AddOns.LoadAddOn = realLoadAddOn;
+
+        check(loads == 0, "the dummy was loaded even though the account is not a migration target");
+        check(#(_G.DebindVars.shared.GENERAL or {}) == 0, "something was imported after false");
+    end);
+
+    -- The user pressed "start fresh without them". That is recorded as the **same value a fresh
+    -- install reaches**, so from here the account simply is not a migration target - including for
+    -- characters that have never logged in, and ones not yet created.
+    test("declining lands on the same value as a fresh install", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
         _G.DebounceVarsPerChar = LegacyChar();
 
-        -- The user has been playing with the dummy disabled and built their own bindings.
-        _G.DebindVars.shared.GENERAL = { { type = "spell", value = 99, key = "MINE", seq = 1 } };
-        _G.DebindVars.shared.classes.DRUID = {
-            [0] = { { type = "spell", value = 98, key = "ALSO_MINE", seq = 1 } },
-        };
-        DebindPrivate.db.char.layers[0] = { { type = "spell", value = 97, key = "CHAR_MINE", seq = 1 } };
-        DebindPrivate.db.char.CustomTargets = { custom1 = "target" };
+        DebindPrivate.DeclineLegacyMigration();
 
-        DebindPrivate.ImportLegacySavedVars();
+        check(_G.DebindVars.legacyNeeded == false, "declining did not settle the account");
+        check(DebindPrivate.IsLegacyPending() == false, "the overlay would still be shown");
 
-        check(_G.DebindVars.shared.GENERAL[1].key == "MINE",
-            "the import replaced a shared layer the user had already filled");
-        check(_G.DebindVars.shared.classes.DRUID[0][1].key == "ALSO_MINE",
-            "the import replaced a class layer the user had already filled");
-        check(DebindPrivate.db.char.layers[0][1].key == "CHAR_MINE",
-            "the import replaced a character layer the user had already filled");
-        check(DebindPrivate.db.char.CustomTargets.custom1 == "target",
-            "the import replaced CustomTargets the user had already set");
-        check(DebindPrivate.legacySkipped == true,
-            "content was skipped but the user is never told");
+        DebindPrivate.RunLegacyMigration();
+        check(#(_G.DebindVars.shared.GENERAL or {}) == 0, "the import ran after being declined");
     end);
 
-    test("an empty destination is still filled when others are occupied", function()
+    test("the account's settings arrive along with its bindings", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
+        DebindPrivate.RunLegacyMigration();
 
-        -- Only GENERAL is taken. The class layer is untouched and must still come across.
-        _G.DebindVars.shared.GENERAL = { { type = "spell", value = 99, key = "MINE", seq = 1 } };
-
-        DebindPrivate.ImportLegacySavedVars();
-
-        check(_G.DebindVars.shared.GENERAL[1].key == "MINE", "the occupied layer was replaced");
-        check(_G.DebindVars.shared.classes.DRUID[0][1].key == "F2",
-            "an empty layer was skipped just because another one was occupied");
-    end);
-
-    test("options are imported even though InitDB creates them first", function()
-        FreshInit();
-        _G.DebounceVars = LegacyAccount();
-        DebindPrivate.ImportLegacySavedVars();
-
-        -- `InitDB` synthesizes `options`/`customStates` before the import runs, so a naive
-        -- "is it nil" test would treat them as occupied and never import the old ones.
-        check(_G.DebindVars.options.unitframeUseMouseDown == true,
-            "the pre-rename options were skipped as if the user had set them");
+        check(_G.DebindVars.options.unitframeUseMouseDown == true, "the old options did not arrive");
+        check(_G.DebindVars.shared.GENERAL[1].key == "F1", "the bindings did not arrive");
     end);
 
     test("a character already migrated is not read again", function()
         FreshInit();
+        _G.DebounceVars = LegacyAccount();
         _G.DebounceVarsPerChar = LegacyChar();
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         -- The user deletes a character-specific binding.
         DebindPrivate.db.char.layers[0] = {};
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
 
         check(#DebindPrivate.db.char.layers[0] == 0, "a deleted character binding came back");
     end);
 
-    test("no flag is set when the dummy addon is disabled", function()
+    -- With the dummy unavailable there is nothing to decide from, so **nothing at all happens** -
+    -- no state moves, and the question stays open for the window to put to the user.
+    test("a disabled dummy leaves every flag exactly as it was", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();
 
         local realLoadAddOn = _G.C_AddOns.LoadAddOn;
         _G.C_AddOns.LoadAddOn = function() return false, "DISABLED"; end
-        local changed = DebindPrivate.ImportLegacySavedVars();
+        local changed = DebindPrivate.RunLegacyMigration();
         _G.C_AddOns.LoadAddOn = realLoadAddOn;
 
         check(changed == false, "the load failed but it reported an import");
-        check(_G.DebindVars.migrated[GUID] == nil,
-            "the load failed but a flag was set - the next login will not retry");
-        check(DebindPrivate.legacyLoadFailure == "DISABLED", "the failure reason was not recorded");
+        check(_G.DebindVars.legacyNeeded == nil,
+            "an unanswerable question was answered anyway - nil means 'never looked'");
+        check(_G.DebindVars.migrated[GUID] == nil, "the character was marked done without doing it");
+        check(DebindPrivate.IsLegacyPending() == true, "the overlay would not be shown");
 
-        -- Once the dummy is enabled again, the next login must bring it in.
-        DebindPrivate.ImportLegacySavedVars();
-        check(#_G.DebindVars.shared.GENERAL == 1, "the retry did not happen");
+        -- Once the dummy is back, the next login does the whole job.
+        DebindPrivate.RunLegacyMigration();
+        check(_G.DebindVars.legacyNeeded == true, "the retry did not settle the account");
+        check(#_G.DebindVars.shared.GENERAL == 1, "the retry did not import");
     end);
 
     test("actions from an older version (dbver=1) are raised to the current one", function()
@@ -306,7 +320,7 @@ return function(DebindPrivate)
         old.GENERAL[1].seq = nil;
         _G.DebounceVars = old;
 
-        DebindPrivate.ImportLegacySavedVars();
+        DebindPrivate.RunLegacyMigration();
         check(_G.DebindVars.shared.GENERAL[1].seq == 1,
             "the import was not raised to the current version - MigrateLayer did not run");
     end);

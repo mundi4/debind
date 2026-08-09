@@ -2,7 +2,7 @@
 
 A World of Warcraft keybinding addon. Set a key once for every character, then override it on one class, one spec, or one character.
 
-*Debind was called Debounce until this release. Same addon, same author, same settings — `/deb` and `/debounce` both still work. The folder was renamed as well, so a small companion addon named **Debind (legacy data)** ships alongside it and carries your old settings over; leave it installed and enabled.*
+*Debind was called Debounce until 3.0. Same addon, same author, same settings — `/deb` and `/debounce` both still work. In 3.1 the addon folder was renamed to match, which is where WoW keeps your settings file, so a small companion addon named **Debind Migration** ships alongside and carries them over. Leave it enabled.*
 
 ## The problem
 

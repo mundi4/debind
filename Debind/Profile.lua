@@ -386,17 +386,6 @@ function DebindPrivate.InitDB()
     end
     db.dbver = db.dbver or Constants.DB_VERSION;
 
-    -- Which top-level keys the **stored file** actually had, captured before we synthesize any
-    -- defaults below. `Legacy.lua` needs this to tell "the user has nothing here" apart from "we
-    -- put an empty table here a moment ago" - without it, `options` and `customStates` would look
-    -- occupied on every login and the pre-rename versions could never be imported. Runtime only;
-    -- it is deliberately not written back to the saved variables.
-    local storedKeys = {};
-    for key in pairs(db) do
-        storedKeys[key] = true;
-    end
-    DebindPrivate.storedTopLevelKeys = storedKeys;
-
     db.shared = db.shared or {};
     db.shared.classes = db.shared.classes or {};
     db.characters = db.characters or {};

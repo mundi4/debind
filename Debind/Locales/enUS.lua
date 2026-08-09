@@ -366,6 +366,32 @@ L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"] = "Trigger the action on mouse down in
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "Use mouse down for click casting"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Because you are using Clique, some features of this addon will not work."
-L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "The full pre-rename addon is still installed and is setting keybinds alongside Debind, so the two are fighting over your keys. Reinstall or update Debind: its download replaces that folder with the small \"Debind (legacy data)\" placeholder. Do not simply delete the folder - characters you have not logged into since the rename still need what is in it."
-L["WARNING_MESSAGE_LEGACY_ADDON_UNAVAILABLE"] = "Settings saved before the rename could not be read, because the \"Debind (legacy data)\" addon is disabled or missing. Enable it and reload - your old settings are still on disk."
-L["WARNING_MESSAGE_LEGACY_PARTIALLY_IMPORTED"] = "Some settings saved before the rename were left out, because this character or this account already had bindings in those places. Nothing was overwritten, and nothing was lost - the old data is still on disk."
+-- 창을 덮는 판. **"왜 이 화면을 보고 있나"를 먼저 답한다** - 사용자는 자기가 무언가를
+-- 껐다는 사실과 이 화면을 연결하지 못한다. 그다음이 "그게 뭔데"이고, 마지막이 부탁이다.
+-- 순서를 뒤집으면(부탁부터) 이유는 안 읽히고 [필요 없음]만 눌린다.
+L["MIGRATION_DIALOG_HEADER"] = "Debind"
+L["MIGRATION_DIALOG_TITLE"] = "Your settings are still here - Debind just cannot reach them."
+L["MIGRATION_DIALOG_BODY"] = "In case you missed it: this addon was called |cnHIGHLIGHT_FONT_COLOR:Debounce|r until version 3.0. Same addon, same settings. Version 3.1 renames the folder as well, and that is where WoW keeps your settings file - so the companion addon |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r is now the only thing that can read the old one. Right now it is switched off.|n|n|cnGREEN_FONT_COLOR:Turning it on is the right answer in every case.|r It is barely an addon - no code, nothing that runs, nothing to slow down. Debind opens it once per character to read the old file, and once every character has been through it is never loaded again. All it costs you is one line in your addon list.|n|nUntil you answer, Debind will not open. Closing this window asks again next time you log in."
+L["MIGRATION_DIALOG_ENABLE"] = "Turn it on and reload"
+-- 거절 둘의 **범위를 글자가 진다.** 되돌릴 버튼이 없으므로 어디까지 걸리는지 읽고 누르게 한다.
+-- 캐릭터 단위가 따로 있는 이유는 애드온 활성 상태가 캐릭터별이기 때문이다(XML의 근거).
+L["MIGRATION_DIALOG_DECLINE_CHARACTER"] = "Start fresh on this character"
+L["MIGRATION_DIALOG_DECLINE_ACCOUNT"] = "Start fresh on every character"
+-- 툴팁이 버는 것은 **버튼 글자에 못 넣는 것**이다 - 되돌릴 수 없다는 사실, 옛 파일이 남는다는
+-- 사실, 아직 로그인하지 않은 캐릭터까지 걸린다는 사실. 글자를 다시 풀어 쓰는 툴팁은 없느니만
+-- 못하다. 셋 다 다는 이유는 하나만 비면 그 버튼에 마우스를 올린 사람이 "툴팁 없는 창"으로
+-- 판단하고 나머지도 안 보기 때문이다.
+-- 계정 몫이 이미 넘어온 뒤에 이 캐릭터만 남은 경우. **공유 바인딩은 지금 멀쩡히 동작 중이고**
+-- 그 사람은 그걸 보면서 이 창을 읽는다. "네 설정을 못 읽는다"고 뭉뚱그리면 눈앞의 사실과
+-- 어긋나서, 창이 무엇을 말하는지가 아니라 창을 믿을지가 문제가 된다.
+-- 폴더가 아예 없는 경우. **켜기 버튼이 할 수 있는 게 없어서 숨긴다** - `EnableAddOn`은 없는
+-- 애드온에 아무 일도 안 하고, 리로드하면 같은 창으로 돌아온다. 그러면 남는 선택지가 되돌릴 수
+-- 없는 둘뿐이므로, 다시 받는 길을 먼저 알려주고 창을 닫아도 된다고 말해준다.
+L["MIGRATION_DIALOG_TITLE_MISSING"] = "The addon that holds your old settings is not installed."
+L["MIGRATION_DIALOG_BODY_MISSING"] = "|cnHIGHLIGHT_FONT_COLOR:Debind Migration|r ships with Debind and holds the settings saved by 3.0 and earlier. It is not in your AddOns folder, so it was either removed or the install did not finish.|n|nDownloading Debind again puts it back, and your old settings are still on disk in the meantime - nothing has been lost.|n|nYou can close this window and reinstall. It will ask again next time you log in.|n|nOnly answer below if you would rather start over without those settings."
+L["MIGRATION_DIALOG_TITLE_CHARACTER_ONLY"] ="This character's own bindings have not come across yet."
+L["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"] = "Your shared bindings are already here - they moved when you logged in on another character, which is why most of your keys work.|n|nWhat is still missing is anything you set up for |cnHIGHLIGHT_FONT_COLOR:this character alone|r: its own layers and its custom targets. Those live in a separate file, and the companion addon |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r is the only thing that can read it. Right now it is switched off.|n|n|cnGREEN_FONT_COLOR:Turning it on is still the right answer.|r If it turns out you never made character-specific bindings here, nothing happens and you are done. If you did, you get them back. Either way it stops asking.|n|nUntil you answer, Debind will not open. Closing this window asks again next time you log in."
+L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r for every character and reloads your interface.|n|nThis character's settings are back as soon as the reload finishes. Your other characters keep theirs until you next log in on them - each one brings its own across on its own first login, whenever that is. Nothing else to do."
+L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "This character starts with no bindings, and is never asked again.|n|nOther characters are unaffected - they will still be offered their settings.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
+L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "Debind stops offering old settings to |cnHIGHLIGHT_FONT_COLOR:every character on this account|r, including ones you have not logged in on and ones you make later.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
+L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this addon is still installed and is setting keybinds alongside Debind, so the two are fighting over your keys. Reinstalling or updating Debind replaces that folder with the small |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r companion. Do not just delete the folder - characters you have not logged in on since updating still have their settings in it."
