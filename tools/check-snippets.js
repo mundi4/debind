@@ -122,32 +122,45 @@ function fillPlaceholders(body) {
         .replace(/%(?:\d+\$)?([dioxXqs])/g, (_, conv) => FORMAT_FILL[conv]);
 }
 
-// 문자열과 주석을 지운다. 아래 토큰 검사가 본문 안의 색 코드("|cffff6666")를 비트 연산으로
-// 오해하지 않게 하려는 것이다.
-function stripStringsAndComments(src) {
-    let out = "";
+/**
+ * 문자열과 주석을 같은 길이의 공백으로 덮는다. **길이와 줄바꿈을 보존하므로** 이 결과에서
+ * 찾은 위치를 원본에 그대로 쓸 수 있다.
+ *
+ * 쓰이는 데가 둘이다. 호출을 찾을 때 - 주석에 적힌 `SecureHandlerWrapScript(...)`를 진짜
+ * 호출로 오해하면 안 된다. 그리고 5.1 토큰 검사에서 - 메시지 안의 색 코드("|cffff6666")를
+ * 비트 or로 읽으면 안 된다.
+ */
+function blankNonCode(src) {
+    const out = Array.from(src);
+    const blank = (from, to) => {
+        for (let k = from; k < to && k < out.length; k++) {
+            if (out[k] !== "\n" && out[k] !== "\r") out[k] = " ";
+        }
+    };
+
     let i = 0;
     while (i < src.length) {
         if (src.substr(i, 2) === "--") {
             const long = readLongString(src, i + 2);
-            if (long) { i = long.next; continue; }
-            const nl = src.indexOf("\n", i);
-            i = nl < 0 ? src.length : nl;
+            const end = long ? long.next : (src.indexOf("\n", i) < 0 ? src.length : src.indexOf("\n", i));
+            blank(i, end);
+            i = end;
             continue;
         }
         const long = readLongString(src, i);
-        if (long) { i = long.next; continue; }
+        if (long) { blank(i, long.next); i = long.next; continue; }
         const c = src[i];
         if (c === '"' || c === "'") {
+            const start = i;
             i++;
             while (i < src.length && src[i] !== c) i += src[i] === "\\" ? 2 : 1;
             i++;
+            blank(start, i);
             continue;
         }
-        out += c;
         i++;
     }
-    return out;
+    return out.join("");
 }
 
 // **와우는 Lua 5.1이고 이 도구의 파서(fengari)는 5.3이다.** 5.2/5.3에서 들어온 문법은
@@ -165,7 +178,7 @@ const LUA51_FORBIDDEN = [
 ];
 
 function lua51Violation(source) {
-    const code = stripStringsAndComments(source);
+    const code = blankNonCode(source);
     for (const [re, why] of LUA51_FORBIDDEN) {
         if (re.test(code)) return why;
     }
@@ -193,12 +206,14 @@ let failed = 0;
 
 for (const file of files) {
     const src = fs.readFileSync(path.join(srcDir, file), "utf8");
+    // 위치를 보존하는 마스크. 여기서 찾은 인덱스를 원본에 그대로 쓴다.
+    const code = blankNonCode(src);
 
     // 1. 조각으로 쓰이는 스니펫 지역변수를 먼저 모은다.
     const snippetLocals = new Map();
     SNIPPET_LOCAL.lastIndex = 0;
     let m;
-    while ((m = SNIPPET_LOCAL.exec(src))) {
+    while ((m = SNIPPET_LOCAL.exec(code))) {
         const long = (() => {
             for (let i = m.index + m[0].length; i < src.length; i++) {
                 const s = readLongString(src, i);
@@ -212,7 +227,7 @@ for (const file of files) {
 
     // 2. 호출마다 본문을 모아 파싱한다.
     CALLS.lastIndex = 0;
-    while ((m = CALLS.exec(src))) {
+    while ((m = CALLS.exec(code))) {
         const openParen = m.index + m[0].length - 1;
         const line = src.slice(0, m.index).split("\n").length;
 
