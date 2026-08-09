@@ -15,10 +15,12 @@ jobs:
       - name: Clone project
         uses: actions/checkout@v4
 
+      # 러너 이미지 저장소에서 받는다. leafo/gh-actions-lua를 쓰던 시절에는 매번
+      # lua.org에서 소스를 받아 빌드했는데, 그 호스트가 죽으면(2026-08-07: ETIMEDOUT)
+      # 코드와 무관하게 7분을 기다렸다가 빨개졌다. 필요한 건 게임과 같은 5.1이지
+      # 특정 패치 버전이 아니므로, 배포판이 이미 갖고 있는 걸 쓰는 편이 낫다.
       - name: Set up Lua
-        uses: leafo/gh-actions-lua@v11
-        with:
-          luaVersion: "5.1.5"
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
 
       - name: Luacheck
         uses: BigWigsMods/actions/luacheck@master
@@ -26,7 +28,7 @@ jobs:
           args: -q
 
       - name: Solver tests
-        run: lua tests/run.lua
+        run: lua5.1 tests/run.lua
 
       # 템플릿 존재 검사(tools/check-templates.js)는 여기서 안 돈다. 로컬 `npm run check`
       # 전용이다 - 판정에 github.com을 쳐야 해서, 네트워크가 흔들리면 코드와 무관하게
@@ -35,4 +37,4 @@ jobs:
 
       # 게임과 같은 Lua 5.1. 조용히 비싸지는 걸 잡으려고 로그에 남긴다.
       - name: Solver benchmark
-        run: lua tests/run.lua --bench
+        run: lua5.1 tests/run.lua --bench
