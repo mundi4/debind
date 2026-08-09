@@ -73,6 +73,11 @@ SecureHandlerExecute(BindingDriver, [[
 	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
 	ClickTimeKeys = newtable()
 
+	-- 실행 엣지가 down일 때 down의 선택을 up이 재사용하기 위한 자리. 버튼 이름 -> 이긴 레코드,
+	-- 그리고 그때 확정한 대상. down이 항상 먼저 오므로 덮어쓰기로 자가 치유된다.
+	HeldButtons = newtable()
+	HeldUnits = newtable()
+
 	-- 래퍼가 클릭 안에서 쓰는 메모. **클릭 경로에서는 newtable()을 부르지 않는다** -
 	-- GC 스파이크는 평균 비용보다 아프게 나타난다. 그래서 미리 만들어 두고 재사용한다.
 	-- 같은 유닛을 여러 레코드가 물을 때 C 호출이 반복되는 것을 막는다.
@@ -816,8 +821,9 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	-- 적용한다 - 앞 클릭이 남긴 unit 하나가 자가시전·주시시전·마우스오버시전을 통째로
 	-- 죽인다(`checkselfcast`류는 unit이 없을 때만 동작한다). 오류도 로그도 안 난다.
 	--
-	-- pressAndHoldAction과 useOnKeyDown은 **항상 nil로만 쓴다.** 켜는 것은 B-11 수선이고
-	-- 이번 범위가 아니다. 여기서 지우는 것은 앞 클릭의 잔류를 막기 위해서다.
+	-- `pressAndHoldAction`은 아래에서 이긴 액션의 값으로 다시 쓴다. 여기서 지우는 것은
+	-- 앞 클릭의 잔류를 막기 위해서다. `useOnKeyDown`은 건드리지 않는다(항상 nil) -
+	-- 사용자 CVar가 정하게 둔다.
 	self:SetAttribute("unit", nil)
 	self:SetAttribute("pressAndHoldAction", nil)
 	self:SetAttribute("useOnKeyDown", nil)
@@ -827,6 +833,24 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	if (not bindings) then
 		-- 우리 키가 아니다. 버튼 이름을 바꾸지 않고 그대로 흘려보낸다.
 		return
+	end
+
+	-- **놓는 엣지.** down에서 press-and-hold를 시작했으면 여기서 다시 고르지 않는다 -
+	-- 시전한 것과 다른 것을 놓으면 시전한 쪽이 눌린 채로 남는다. 대상도 그때 확정한 값을
+	-- 그대로 쓴다. 조건을 다시 보는 자리가 아니라 **같은 것을 놓는** 자리다.
+	--
+	-- `pressAndHoldAction`을 여기서도 켜야 게이트의 `releasePressAndHoldAction`이 참이 되어
+	-- `typerelease`가 나간다(SecureTemplates.lua:815). 안 켜면 `ActionButtonUseKeyHeldSpell`
+	-- CVar에 운을 맡기게 된다.
+	if (not down) then
+		local held = HeldButtons[button]
+		if (held) then
+			HeldButtons[button] = nil
+			self:SetAttribute("unit", HeldUnits[button])
+			HeldUnits[button] = nil
+			self:SetAttribute("pressAndHoldAction", true)
+			return held.clickbutton
+		end
 	end
 
 	-- hover는 루프 밖에서 클릭당 한 번만 푼다. 레코드마다 다시 물으면 같은 C 호출이 반복된다.
@@ -1006,12 +1030,36 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	--
 	-- 우호/적대로 효과가 갈리는 주문(참회 같은)에서는 이게 "액션이 안 나감"이 아니라
 	-- **"다른 액션이 나감"**이고 되돌릴 수 없다. 반드시 같은 유닛이어야 한다.
+	local unit
 	if (winner.unit) then
-		self:SetAttribute("unit", winner.unit)
-	elseif (winner.unitAlias == "hover" and hoverUnit) then
-		self:SetAttribute("unit", hoverUnit)
+		unit = winner.unit
+	elseif (winner.unitAlias == "hover") then
+		unit = hoverUnit
 	elseif (winner.unitAlias) then
-		self:SetAttribute("unit", UnitMap[winner.unitAlias])
+		unit = UnitMap[winner.unitAlias]
+	end
+	self:SetAttribute("unit", unit)
+
+	-- **B-11.** 게이트는 이 값을 맨이름으로만 읽는다(SecureTemplates.lua:812). 버튼별로
+	-- 구운 `*pressAndHoldAction-<버튼>`은 거기 안 닿아서 유지·시전 주문이 눌러도 시작을 안
+	-- 하고 뗄 때 평범하게 시전됐다. 클릭 순간에 맨이름으로 쓰면 닿는다.
+	--
+	-- 이게 켜지면 게이트가 `useOnKeyDown`을 CVar와 무관하게 강제로 참으로 만든다(813) -
+	-- **누를 때 시작하고 뗄 때 놓는다.** 액션바가 하는 것과 같아진다.
+	self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+
+	-- 위 "놓는 엣지"가 재사용할 자리. **down에서 반드시 확정한다. 조건부로 기록만 하면
+	-- 안 된다.** up 엣지가 온다는 보장이 없어서다 - 창 포커스를 잃거나, 누른 채로 리빌드가
+	-- 돌거나, 바인딩이 바뀌면 안 온다. 그러면 앞의 기록이 남고, 다음에 press-hold가 아닌
+	-- 액션을 눌렀다 뗄 때 그 낡은 것이 재사용된다. 맨이름 속성과 같은 규칙이다.
+	if (down) then
+		if (winner.pressAndHold) then
+			HeldButtons[button] = winner
+			HeldUnits[button] = unit
+		else
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
 	end
 
 	return winner.clickbutton
