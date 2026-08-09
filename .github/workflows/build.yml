@@ -4,7 +4,11 @@ on:
   push:
     tags:
       - '**'
-  workflow_dispatch:
+  # workflow_dispatch는 일부러 없다. 태그 없이 이걸 돌리면 packager가 알파를
+  # 만들어 CurseForge와 Wago에 그대로 올린다 - 설정이 맞는지 보려고 누른 순간
+  # 양쪽에서 지워야 할 것이 생긴다. 그리고 업로드를 건너뛰는 드라이런은
+  # 정작 토큰이 먹는지를 검증하지 못하므로, 시험할 방법이 애초에 없다.
+  # 실패한 실행은 Actions 화면에서 재실행하면 된다.
 
 concurrency:
   group: packager
