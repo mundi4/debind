@@ -162,6 +162,21 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "왼쪽 클릭하면 이 행동을 선�
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "아무 키나 마우스 버튼을 누르면 이 행동에 지정됩니다."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "오른쪽 클릭하면 다른 항목이 나옵니다."
 L["LOGIN_MESSAGE"] = "/deb 명령어를 입력하면 창이 열립니다."
+-- 세로 탭 툴팁의 설명 줄. 근거는 enUS 쪽 주석에.
+--
+-- 우선 대상은 **화면에 적힌 낱말로 부른다.** 아래 탭은 SHARED_BINDINGS = "공유"라서 여기서도
+-- "공유"다 - 툴팁만 "공용"이라 부르면 같은 것을 두 이름으로 부르게 된다.
+--
+-- 단서는 영어가 뒤에 붙이는 절("unless …")을 한국어에서는 **앞에 세운다.** 뒤에 달면
+-- "우선합니다"를 읽은 뒤에 뒤집는 꼴이라 문장을 두 번 읽게 된다.
+L["LAYER_DESC_SHARED_GENERAL"] = "계정 내 모든 캐릭터용."
+L["LAYER_DESC_SHARED_CLASS"] = "계정 내 모든 %s용. 조건과 중요도가 같다면 %s보다 우선합니다."
+-- 조사가 직업명 받침을 타므로 "(가)"를 붙인다(사냥꾼이 / 드루이드가). DELETE_CONFIRM_MESSAGE의
+-- "을(를)"과 같은 방식이다.
+L["LAYER_DESC_SHARED_SPEC"] = "계정 내 모든 %s이(가) %s일 때. 조건과 중요도가 같다면 %s보다 우선합니다."
+L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도가 같다면 공유 전체보다 우선합니다."
+-- 인자 차례가 영어와 반대다(1번이 지는 레이어, 2번이 전문화명). 근거는 enUS 쪽 주석에.
+L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %2$s일 때. 조건과 중요도가 같다면 %1$s보다 우선합니다."
 -- 레이어의 짧은 이름. 근거는 enUS 쪽 주석에.
 L["LAYER_SHORT_ACCOUNT"] = "계정"
 L["LAYER_SHORT_CLASS"] = "직업"
@@ -271,6 +286,9 @@ L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%s|r 상태가 %s(으)로 
 L["STATE_DRIVER_UPDATE_THROTTLE"] = "상태 드라이버 갱신 주기"
 L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "블리자드 상태 드라이버가 갱신되는 시간 간격입니다. 마우스오버와 관련된 것처럼 일부 상태는 곧바로 갱신되지 않을 수 있습니다. 이 값을 바꾸면 그런 상태의 갱신 빈도를 조절할 수 있습니다. 값이 낮을수록 자주 갱신됩니다 (|cnHIGHLIGHT_FONT_COLOR:0|r은 간격 없음).|n|n걱정하지 않아도 됩니다. 이 값은 영구히 저장되지 않고, 애드온을 비활성화하면 기본값으로 돌아갑니다.|n|n블리자드 기본값은 |cnHIGHLIGHT_FONT_COLOR:0.2|r초입니다."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "이 값을 바꾸면 성능 문제가 생길 수 있습니다."
+-- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
+L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
+L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 공유보다 우선합니다."
 L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에게 행동을 사용합니다 -- 마우스 올림 조건이 걸려 있어도 마찬가지입니다."
 L["TARGET_UNIT"] = "대상"
 L["TYPE_COMMAND"] = "단축키 명령"

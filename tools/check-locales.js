@@ -25,6 +25,42 @@ const ALLOWED_MISSING = {
     BIND_MODE_UNBIND_HINT: ["koKR", "ruRU"],
 };
 
+// **번역을 기다리는 중인 키.** 위와 갈라 둔다 - 저쪽은 영영 없는 게 맞는 키이고, 이쪽은
+// 번역자가 손대면 지워져야 하는 빚이다. 한 통에 담으면 둘을 구별할 방법이 없어서, 아무도
+// 이 목록을 줄이지 않게 된다.
+//
+// 없는 동안 화면에 나오는 것은 키 이름이 아니라 **영어**다. locales.xml이 enUS를 먼저
+// 읽고 각 로케일이 같은 테이블을 덮어쓰는 구조라, 안 덮은 자리에는 enUS가 남는다.
+const PENDING_TRANSLATION = {
+    // 레이어 툴팁(3.1). 러시아어는 ZamestoTV 담당이다.
+    TAB_DESC_SHARED: ["ruRU"],
+    TAB_DESC_CHARACTER: ["ruRU"],
+    LAYER_DESC_SHARED_GENERAL: ["ruRU"],
+    LAYER_DESC_SHARED_CLASS: ["ruRU"],
+    LAYER_DESC_SHARED_SPEC: ["ruRU"],
+    LAYER_DESC_CHARACTER_GENERAL: ["ruRU"],
+    LAYER_DESC_CHARACTER_SPEC: ["ruRU"],
+};
+
+// **base보다 자리표시자를 더 쓰는 게 맞는 키.** 부르는 쪽이 이미 그 인자를 넘기고 있고
+// base 쪽이 안 받고 있을 뿐인 경우다 - Lua의 `format()`은 남는 인자를 그냥 버리므로 터지지
+// 않는다. 터지는 것은 반대 방향(인자가 모자란 쪽)뿐이라 그건 계속 잡는다.
+//
+// 언어마다 갈리는 자리라 실재한다: 영어는 툴팁 제목이 이미 말한 것을 "this spec"으로 가리킬
+// 수 있는데, 한국어는 그 자리에 이름을 넣어야 문장이 선다.
+//
+// 값은 그 로케일이 **써도 되는 자리표시자 전부**다. "봐준다"가 아니라 base 대신 이걸로
+// 맞춰 본다 - base가 자리표시자를 하나도 안 쓰면 견줄 앞부분이 없어서, 그냥 봐주면 `%d`로
+// 잘못 적은 것까지 통과한다(그건 문자열을 넣는 순간 진짜로 터진다).
+//
+// 넣을 때는 **어느 호출부가 그 인자를 넘기는지** 한 줄 남길 것.
+const EXTRA_SPECS_OK = {
+    // DebindUI.lua의 GetSideTabDescription이 (지는 레이어, 전문화명) 둘을 언제나 넘긴다.
+    // enUS는 전문화명을 안 쓰고 "in this spec"으로 대신하므로 1번 하나로 끝나는데(`%s`),
+    // 한국어는 둘 다 쓰면서 차례가 반대라 번호를 붙인다.
+    LAYER_DESC_CHARACTER_SPEC: { koKR: "%2$s%1$s" },
+};
+
 // `L["KEY"] = ...` 형태만 센다. 주석(`-- L["X"]`)은 안 잡히도록 줄 앞을 고정한다.
 const ASSIGN = /^L\["([^"]+)"\]\s*=\s*(.*)$/gm;
 
@@ -73,13 +109,16 @@ for (const file of files) {
     // enUS부터 그렇게 쓸 것 - 한쪽만 번호를 붙이면 그것도 어긋남으로 잡힌다.
     const badSpecs = [...base.specs]
         .filter(([k]) => keys.has(k))
-        .map(([k, want]) => [k, want.join(""), specs.get(k).join("")])
+        .map(([k, want]) => [k, (EXTRA_SPECS_OK[k] || {})[locale] ?? want.join(""), specs.get(k).join("")])
         .filter(([, want, got]) => want !== got);
 
-    const missing = [...base.keys]
-        .filter((k) => !keys.has(k))
+    const absent = [...base.keys].filter((k) => !keys.has(k));
+    const missing = absent
         .filter((k) => !(ALLOWED_MISSING[k] || []).includes(locale))
+        .filter((k) => !(PENDING_TRANSLATION[k] || []).includes(locale))
         .sort();
+    // 봐준 것은 **세어서 말한다.** 조용히 넘기면 목록이 늘기만 한다.
+    const pending = absent.filter((k) => (PENDING_TRANSLATION[k] || []).includes(locale)).sort();
     // enUS에 없는 키는 **지워진 문자열의 잔재**다. 화면에 안 나오므로 무해해 보이지만,
     // 다음 사람이 그게 아직 쓰이는 줄 알고 손본다.
     const stale = [...keys].filter((k) => !base.keys.has(k)).sort();
@@ -104,10 +143,14 @@ for (const file of files) {
     }
     if (badSpecs.length > 0) {
         failed = true;
-        console.log(`${locale}: 서식 지정자가 ${BASE}와 다른 키 ${badSpecs.length}개`);
+        console.log(`${locale}: 서식 지정자가 어긋나는 키 ${badSpecs.length}개`);
+        // 기대값이 늘 `${BASE}`인 것은 아니다 - EXTRA_SPECS_OK가 걸린 키는 거기 적힌 값이다.
         for (const [k, want, got] of badSpecs) {
-            console.log(`  - ${k}: ${BASE}는 [${want || "없음"}], 여기는 [${got || "없음"}]`);
+            console.log(`  - ${k}: 기대값 [${want || "없음"}], 여기는 [${got || "없음"}]`);
         }
+    }
+    if (pending.length > 0) {
+        console.log(`${locale}: 번역 대기 ${pending.length}개 (그동안 ${BASE}로 나간다) - ${pending.join(", ")}`);
     }
     if (missing.length === 0 && stale.length === 0 && dupes.length === 0 && badSpecs.length === 0) {
         console.log(`${locale}: 키 ${keys.size}개, 서식까지 ${BASE}와 일치.`);

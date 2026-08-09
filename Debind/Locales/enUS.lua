@@ -197,6 +197,36 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebindUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
+-- 세로 탭(사이드탭) 툴팁의 설명 줄. 다섯 레이어에 하나씩이고, 세 마디로 고정한다:
+-- **누가 쓰는가**, **무엇보다 우선하는가**, 그리고 **언제 그 말이 안 맞는가.**
+--
+-- 셋째 마디를 빼면 **거짓말이 된다.** 레이어는 실행 순서의 네 번째 축이라(PRIORITY_DESC:
+-- 중요도 → 마우스 올림 → 조건 → 탭 → 순서), 조건이 붙은 공유/일반 액션은 조건 없는
+-- 공유/야성 액션보다 먼저 실행된다. 중요도를 건드렸으면 더 그렇다. 툴팁은 일부러 불러서
+-- 읽는 글이라 이 길이가 부담이 아니고, 탭마다 반복돼도 한 번에 하나만 보인다.
+--
+-- **마우스 올림은 절에 안 적는다.** 그것도 탭을 이기는 축이 맞지만, 그 액션을 만든 사람은
+-- 자기가 만든 줄 알고 있다 - 조건과 중요도처럼 나중에 잊고 부딪히는 것이 아니다. 넷을 다
+-- 적으면 절이 문장보다 길어진다. 전부 알고 싶은 사람은 PRIORITY_DESC가 다섯 축을 순서대로
+-- 적어 둔다.
+--
+-- 지는 쪽은 **레이어 이름 전체**로 부른다("Shared / Druid"). 툴팁 제목이 그 형식이라 참조도
+-- 같아야 화면에서 찾을 수 있다 - 근거는 GetSideTabDescription 주석에.
+--
+-- 영어는 README의 Layers 표 오른쪽 열과 **같은 말**로 적는다. 표를 읽고 온 사람과 툴팁만
+-- 보는 사람이 같은 문장을 읽어야 둘이 같은 것이라는 걸 안다.
+L["LAYER_DESC_SHARED_GENERAL"] = "Every character on the account."
+-- %s 둘은 차례로 직업명(UnitClass), 지는 레이어의 이름.
+L["LAYER_DESC_SHARED_CLASS"] = "Every %s you own. Beats %s unless conditions or Importance say otherwise."
+-- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
+L["LAYER_DESC_SHARED_SPEC"] = "Every %s you own, while %s. Beats %s unless conditions or Importance say otherwise."
+-- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
+L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. Beats everything Shared unless conditions or Importance say otherwise."
+-- 인자는 차례로 지는 레이어의 이름, 전문화명. **위 둘과 차례가 다르다** - 영어는 전문화명을
+-- 안 쓰기 때문이다(툴팁 제목이 이미 "Oreo / Balance"라 "this spec"으로 가리킬 것이 있다).
+-- 지는 쪽을 1번으로 두면 영어가 자리 번호 없이 끝나고, 한국어만 번호로 차례를 되돌린다.
+-- 근거는 GetSideTabDescription 주석에. 서식이 갈리는 것은 check-locales의 EXTRA_SPECS_OK가 안다.
+L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. Beats %s unless conditions or Importance say otherwise."
 -- 레이어의 짧은 이름. "X over Y" 한 줄에 들어가는 값이라 한두 낱말이어야 한다.
 -- Shared/General을 Account라 부르는 이유는 GetLayerShortName 주석에.
 L["LAYER_SHORT_ACCOUNT"] = "Account"
@@ -365,6 +395,11 @@ L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%s|r is now %s."
 L["STATE_DRIVER_UPDATE_THROTTLE"] = "State driver update throttle"
 L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Some states, such as those related to mouseover, may not be updated immediately. By changing this value, you can adjust the update frequency for these states. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
+-- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
+-- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 우선순위에 붙는 단서도
+-- 같다 - 같은 주장이면 같은 데서 틀린다.
+L["TAB_DESC_SHARED"] = "Every character on the account."
+L["TAB_DESC_CHARACTER"] = "This character only. Beats Shared unless conditions or Importance say otherwise."
 L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it -- even when the hover condition is in play."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"
