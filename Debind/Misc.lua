@@ -414,7 +414,10 @@ do
             end
 
             if (binding.checkedUnits) then
-                if (binding.checkedUnits["@"] and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
+                -- truthy가 아니라 nil 검사다. "@"에 "없을 때"가 들어와 있으면(UI로는 못 만들지만
+                -- 공유 프로필로는 들어온다) truthy 검사는 그걸 못 지우고, 걸 축이 없는 조건이
+                -- 그대로 UpdateBindings까지 간다.
+                if (binding.checkedUnits["@"] ~= nil and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
                     binding.checkedUnits["@"] = nil;
                 end
 
@@ -657,6 +660,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         -- "@"만 걸어둔 액션("대상이 존재할 때만")이 곧바로 모순으로 잡혔다.
         -- 둘 다 있는 경우 남는 조합은 위 GetBindingInfoForAction의 정규화가 포섭 관계를
         -- (true vs "help" 같은) 이미 걷어낸 뒤라 전부 진짜 모순이다.
+        -- 우호x적대도 모순이다 -- 유닛 하나는 한 값이다(`Solver.lua`의 유닛 축).
         elseif (binding.checkedUnits["@"] ~= nil and binding.checkedUnits[binding.unit] ~= nil) then
             if (arg == nil or arg == "@" or arg == binding.unit) then
                 if (binding.checkedUnits["@"] ~= binding.checkedUnits[binding.unit]) then

@@ -32,6 +32,11 @@ local KNOWN_YES, KNOWN_NO = 1, 2;
 local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 
 -- 유닛 축: 존재하지만 우호/적대 아님 / 우호 / 적대 / 존재하지 않음
+--
+-- 네 값은 배타적이다 -- 런타임도 유닛 하나를 한 값으로 푼다
+-- (`UpdateBindings.lua`의 unitStateExpression). 블리자드도 같은 자리를 if/elseif로 푼다
+-- (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환). 우호와 적대가 동시에 참인
+-- 상황이 확인되면 그때 이 축부터 다시 봐야 한다.
 local UNIT_OTHER, UNIT_HELP, UNIT_HARM, UNIT_NONE = 1, 2, 4, 8;
 local UNIT_EXISTS = UNIT_OTHER + UNIT_HELP + UNIT_HARM;
 local UNIT_ANY = UNIT_EXISTS + UNIT_NONE;

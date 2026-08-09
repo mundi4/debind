@@ -118,6 +118,7 @@ local _states            = {};
 local _unitStates        = {};
 local _unitsSeen         = {};
 local _updateFlags       = {};
+local _mergedUnits       = {};
 
 local function ResetContext()
     wipe(_macrotexts);
@@ -613,7 +614,34 @@ local UnitStateFlags = {
     [false] = 1,
     ["help"] = 2,
     ["harm"] = 4,
+    ["never"] = 1,
 };
+
+---
+--- 같은 유닛에 조건이 두 번 걸렸을 때 하나로 합친다.
+---
+--- `"@"`는 이 액션 자신의 대상 유닛을 가리키므로, 그 유닛에 명시 조건도 걸려 있으면
+--- **`t.checkedUnits`의 같은 키에 두 번 쓰게 된다.** 합치지 않으면 `pairs` 순서에 따라
+--- 한쪽이 조용히 사라진다 - 걸어둔 조건이 무작위로 없어지는 것이다.
+---
+--- 포섭 관계(`true` vs `"help"`)는 `GetBindingInfoForAction`의 정규화가 앞에서
+--- 걷어내지만 여기서도 받아준다. 나머지 조합은 전부 모순이고, 그건 `GetBindingIssue`가
+--- 걸러서 `KeyMap`에 안 들어온다.
+---
+--- 그래도 `"never"`를 돌려주는 이유는, 앞단이 새면 **조건이 넓어지는** 쪽으로
+--- 틀리기 때문이다. `"never"`는 어떤 `UnitStates` 값과도 안 같아서 항상 불일치다.
+local function mergeUnitConditions(a, b)
+    if (a == nil or a == b) then
+        return b;
+    elseif (b == nil) then
+        return a;
+    elseif (a == true and b ~= false) then
+        return b;           -- b는 우호/적대 -- 둘 다 존재를 함의한다
+    elseif (b == true and a ~= false) then
+        return a;
+    end
+    return "never";
+end
 
 function UpdateBindingsMap()
     appendLine("local bindings,t");
@@ -809,13 +837,24 @@ t.clickAttrs["%1$smacrotext%2$d"]="/click %3$s %4$s %5$s"
 
                         if (binding.checkedUnits) then
                             appendLine("t.checkedUnits=newtable()");
+                            -- "@"를 실제 유닛으로 편 다음 **합쳐서** 내보낸다. 바로 쓰면
+                            -- "@"와 그 유닛의 명시 조건이 같은 키를 두고 다투다 pairs 순서에
+                            -- 따라 한쪽이 사라진다.
+                            wipe(_mergedUnits);
                             for k, v in pairs(binding.checkedUnits) do
                                 if (k == "@") then
                                     k = binding.unit;
                                 end
+                                -- unit이 없는데 "@"가 남아 있으면 걸 축이 없다. 정규화가
+                                -- 지웠어야 하는 값이므로 조용히 버린다.
+                                if (k ~= nil) then
+                                    _mergedUnits[k] = mergeUnitConditions(_mergedUnits[k], v);
+                                end
+                            end
+                            for k, v in pairs(_mergedUnits) do
                                 appendLine("t.checkedUnits[%q]=%s", k, formatValue(v));
                                 _unitsSeen[k] = true;
-                                _unitStates[k] = bor(_unitStates[k] or 0, UnitStateFlags[v]);    
+                                _unitStates[k] = bor(_unitStates[k] or 0, UnitStateFlags[v]);
                                 _updateFlags[k .. "-exists"] = true;
                             end
                         end
@@ -1010,6 +1049,30 @@ local function compareStates(lhs, rhs)
     return lhs < rhs;
 end
 
+---
+--- 유닛 하나의 상태를 계산하는 표현식. 값은 false / true / "help" / "harm".
+---
+--- **한 유닛은 한 값이다.** 블리자드도 같은 자리를 if/elseif로 푼다
+--- (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환). 다만 그쪽은 적대를 먼저
+--- 본다 -- 여기는 우호가 먼저다. 둘이 동시에 참일 수 있는 상황이 확인되면 그때 갈린다.
+---
+--- 등록된 비트만 항으로 나간다. 우호를 아무도 안 쓰면 그 항 자체가 없고,
+--- 그러면 우호 대상도 `true`로 온다. **소비하는 쪽이 이걸 알아야 한다** --
+--- `SecureBindings.lua`의 checkedUnits 루프에서 "존재"가 값 비교가 아닌 이유다.
+---
+local function unitStateExpression(flags, unitExpr)
+    local tmp = {};
+    if (band(flags, UnitStateFlags.help) == UnitStateFlags.help) then
+        tinsert(tmp, format([[(PlayerCanAssist(%1$s) and "help")]], unitExpr));
+    end
+    if (band(flags, UnitStateFlags.harm) == UnitStateFlags.harm) then
+        tinsert(tmp, format([[(PlayerCanAttack(%1$s) and "harm")]], unitExpr));
+    end
+    tinsert(tmp, "true");
+
+    return table.concat(tmp, " or ");
+end
+
 -- 'state-unitexists' attribute 값이 변경될 때 상태 업데이트 후 UpdateBindings 실행함.
 -- 블리자드 StateDriverManager는 기존 값과 새로운 값(true or false)이 다른 경우에만 _onattributechanged를 호출하므로
 -- 'state-unitexists'은 true/false가 아닌 값을 넣어둔다.
@@ -1082,38 +1145,14 @@ end
     -- Update Unit States
     for unit, flags in pairs(_unitStates) do
         if (unit == "custom1" or unit == "custom2") then
-            appendLine("stateValue=UnitMap[%1$q] and UnitExists(UnitMap[%1$q]) and (", unit);
-            local tmp = {};
-            if (band(flags, UnitStateFlags.help) == UnitStateFlags.help) then
-                tinsert(tmp, format([[(PlayerCanAssist(UnitMap[%1$q]) and "help")]], unit));
-            end
-            if (band(flags, UnitStateFlags.harm) == UnitStateFlags.harm) then
-                tinsert(tmp, format([[(PlayerCanAttack(UnitMap[%1$q]) and "harm")]], unit));
-            end
-            tinsert(tmp, format([[true]], unit));
-            appendLine(table.concat(tmp, " or ") .. ") or false");
+            appendLine("stateValue=UnitMap[%1$q] and UnitExists(UnitMap[%1$q]) and (%2$s) or false",
+                unit, unitStateExpression(flags, format("UnitMap[%q]", unit)));
         elseif (SPECIAL_UNITS[unit]) then
-            appendLine("stateValue=UnitMap[%1$q] and (", unit);
-            local tmp = {};
-            if (band(flags, UnitStateFlags.help) == UnitStateFlags.help) then
-                tinsert(tmp, format([[(PlayerCanAssist(UnitMap[%1$q]) and "help")]], unit));
-            end
-            if (band(flags, UnitStateFlags.harm) == UnitStateFlags.harm) then
-                tinsert(tmp, format([[(PlayerCanAttack(UnitMap[%1$q]) and "harm")]], unit));
-            end
-            tinsert(tmp, format([[true]], unit));
-            appendLine(table.concat(tmp, " or ") .. ") or false");
+            appendLine("stateValue=UnitMap[%1$q] and (%2$s) or false",
+                unit, unitStateExpression(flags, format("UnitMap[%q]", unit)));
         else
-            appendLine("stateValue=UnitExists(%q) and (", unit);
-            local tmp = {};
-            if (band(flags, UnitStateFlags.help) == UnitStateFlags.help) then
-                tinsert(tmp, format([[(PlayerCanAssist(%1$q) and "help")]], unit));
-            end
-            if (band(flags, UnitStateFlags.harm) == UnitStateFlags.harm) then
-                tinsert(tmp, format([[(PlayerCanAttack(%1$q) and "harm")]], unit));
-            end
-            tinsert(tmp, format([[true]], unit));
-            appendLine(table.concat(tmp, " or ") .. ") or false");
+            appendLine("stateValue=UnitExists(%1$q) and (%2$s) or false",
+                unit, unitStateExpression(flags, format("%q", unit)));
         end
         --appendLine([[print(%1$q, stateValue, UnitMap[%1$q])]], unit)
         appendLine([[if (UnitStates[%1$q] ~= stateValue) then UnitStates[%1$q]=stateValue;DirtyFlags["%1$s-exists"]=true; end]], unit);

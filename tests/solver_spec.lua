@@ -127,6 +127,13 @@ return function(DebindPrivate)
         }, "exists");
     end);
 
+    test("우호 조건은 적대 조건을 못 덮음", function()
+        expectSurvives({
+            { name = "help", checkedUnits = { target = "help" } },
+            { name = "harm", checkedUnits = { target = "harm" } },
+        }, "harm");
+    end);
+
     test("유닛 조건 두 개를 합치면 하나를 덮음", function()
         expectRemoved({
             { name = "t",   checkedUnits = { target = true } },
@@ -238,6 +245,8 @@ return function(DebindPrivate)
     -- 열거 가능한 작은 조건 공간. 아래 축들만 쓰는 바인딩을 만든다.
     local POINTS = {};
     do
+        -- 유닛이 실제로 놓일 수 있는 상태. true는 "존재하지만 우호도 적대도 아님".
+        -- 유닛 하나는 한 값이다 -- 런타임도 블리자드도 if/elseif로 푼다.
         local TARGET_VALUES = { false, "help", "harm", true };
         for _, combat in ipairs({ true, false }) do
             for _, stealth in ipairs({ true, false }) do

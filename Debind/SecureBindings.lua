@@ -344,11 +344,20 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 
 				if (match and t.checkedUnits) then
 					for checkedUnit, cond in pairs(t.checkedUnits) do
+						-- val은 nil(아직 계산 전) / false / true / "help" / "harm".
+						-- **"존재"만 값 비교가 아니다.** 어떤 값이 오는지는 다른 바인딩들이 그
+						-- 유닛에 무엇을 걸었는지에 달려서, 누군가 우호/적대를 걸어두면 true 대신
+						-- "help"/"harm"이 온다. cond ~= val로 뭉뚱그리면 true ~= "help"가 되어
+						-- 남의 조건 때문에 내 바인딩이 조용히 죽는다.
+						--
+						-- 나머지는 전부 정확히 그 값이어야 한다. false("없을 때")도 마찬가지라
+						-- 아래 비교가 그대로 맡는다 - nil은 false와 다르고, 상태를 모르는 동안
+						-- "없다"로 읽어서 발동시키면 안 된다.
 						local val = UnitStates[checkedUnit]
-						if (cond == true and not val) then
-							match = false
-						elseif (cond == false and val) then
-							match = false
+						if (cond == true) then
+							if (not val) then
+								match = false
+							end
 						elseif (cond ~= val) then
 							match = false
 						end
