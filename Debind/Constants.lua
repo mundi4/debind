@@ -230,3 +230,50 @@ end
 
 DebindPrivate.dump = DebindPrivate.dump or function() end
 DebindPrivate.dump("DebindPrivate", DebindPrivate);
+
+--- DEBUG 진단 한 줄.
+---
+--- **채팅으로 안 보낸다.** 이 줄들은 바인딩 하나마다 하나씩 나오므로 재바인딩 한 번에 수십 줄이
+--- 되고, 그러면 정작 읽어야 할 것(로그인 메시지, 경고, 게임이 하는 말)이 밀려 올라간다.
+---
+--- DevTool에도 줄마다 항목을 만들면 같은 일이 거기서 벌어진다. 그래서 **표 하나를 한 번만
+--- 등록하고 거기에 쌓는다** - DevTool은 참조를 들고 있으므로 펼칠 때마다 지금까지 쌓인 것이
+--- 보인다. 항목 하나가 곧 로그 전체다.
+---
+--- DevTool이 없으면 채팅으로 떨어진다. 그때는 도배가 곧 "DevTool을 깔아라"는 신호다.
+do
+    local MAX_LINES = 500;
+    local lines = {};
+    local registered = false;
+
+    DebindPrivate.logLines = lines;
+
+    local hasDevTool = (_G.DevTool and _G.DevTool.AddData) or _G.ViragDevTool_AddData;
+
+    if (not Constants.DEBUG) then
+        DebindPrivate.log = function() end;
+    else
+        function DebindPrivate.log(...)
+            local parts = {};
+            for i = 1, select("#", ...) do
+                parts[i] = tostring((select(i, ...)));
+            end
+            local line = format("[%.3f] %s", GetTime(), table.concat(parts, " "));
+
+            if (not hasDevTool) then
+                print(line);
+            else
+                -- 오래된 줄부터 버린다. 개발 세션이 길어지면 이 표가 유일하게 상한 없이 자란다.
+                lines[#lines + 1] = line;
+                if (#lines > MAX_LINES) then
+                    tremove(lines, 1);
+                end
+
+                if (not registered) then
+                    registered = true;
+                    DebindPrivate.dump("Debind log", lines);
+                end
+            end
+        end
+    end
+end

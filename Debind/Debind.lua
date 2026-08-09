@@ -89,8 +89,8 @@ DelegateFrameNames[frame] = frame:GetName()
 				if (DEBUG) then
 					hooksecurefunc(delegateFrame, "SetAttribute", setAttributeHook);
 				end
-			elseif (DEBUG) then
-				print("No delegate frame:", key);
+			else
+				DebindPrivate.log("No delegate frame:", key);
 			end
 		end
 		return delegateFrame;

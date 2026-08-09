@@ -386,9 +386,7 @@ local function RebuildFlyout(entry, flyoutID)
 		entry.opener:SetAttribute("frameref-holder", nil);
 	end
 
-	if (DEBUG) then
-		print(format("|cff66ccff[Debind/flyout]|r %d -> %d slots", flyoutID, numSlots));
-	end
+	DebindPrivate.log(format("[flyout] %d -> %d slots", flyoutID, numSlots));
 
 	return wasUsable ~= (numSlots > 0);
 end

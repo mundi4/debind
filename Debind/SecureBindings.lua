@@ -19,9 +19,7 @@ local function applyConstants(str)
 end
 
 function BindingDriver:print(...)
-	if (DebindPrivate.DEBUG) then
-		print(GetTime(), ...);
-	end
+	DebindPrivate.log(...);
 end
 
 function BindingDriver:dump(name, ...)
@@ -36,9 +34,7 @@ end
 --- 짝이 되는 정적 쪽 로그는 `UpdateBindings.lua`의 `SetBindingAttributes`에 있다 - 둘을 같이
 --- 봐야 "본문이 틀렸나"와 "본문이 아예 안 올라갔나"가 갈린다.
 function BindingDriver:printMacroText(attr, text)
-	if (DebindPrivate.DEBUG) then
-		print(format("|cff66ccff[Debind/secure]|r %s = %s", tostring(attr), tostring(text)));
-	end
+	DebindPrivate.log(format("[secure] %s = %s", tostring(attr), tostring(text)));
 end
 
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);

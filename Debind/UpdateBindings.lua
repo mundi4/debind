@@ -431,7 +431,7 @@ function SetBindingAttributes(type, value, unit, buttonname)
         local macrotext = DebindPrivate.GetPetActionMacroText(value, unit);
         if (not macrotext) then
             if (DEBUG) then
-                print("Unknown pet action:", value);
+                DebindPrivate.log("Unknown pet action:", value);
             end
             return;
         end
@@ -462,7 +462,7 @@ function SetBindingAttributes(type, value, unit, buttonname)
             -- 안 배웠거나 슬롯이 전부 비었다(길들인 야수가 없는 야수 소환 등).
             -- 키를 걸지 않는다 - 걸어두면 눌러도 아무 일이 없다.
             if (DEBUG) then
-                print("No flyout opener:", value);
+                DebindPrivate.log("No flyout opener:", value);
             end
             return;
         end
@@ -483,7 +483,7 @@ function SetBindingAttributes(type, value, unit, buttonname)
         -- 그게 맞을 때가 대부분이지만, 키에 안 들어간 무언가(unit 등)가 달라졌으면 그게 곧
         -- 옛날 설정으로 도는 버그다. 로그가 없으면 이 분기는 화면에 흔적을 안 남긴다.
         if (DEBUG and buttonname) then
-            print(format("|cffffcc66[Debind/cache]|r HIT %s/%s -> %s (unit=%s) 속성 갱신 안 함",
+            DebindPrivate.log(format("|cffffcc66[Debind/cache]|r HIT %s/%s -> %s (unit=%s) 속성 갱신 안 함",
                 tostring(type), tostring(value), tostring(buttonname), tostring(unit)));
         end
     end
@@ -554,7 +554,7 @@ function SetBindingAttributes(type, value, unit, buttonname)
             local mode, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(value);
             if (not mode) then
                 if (DEBUG) then
-                    print("Invalid value:", type, value);
+                    DebindPrivate.log("Invalid value:", type, value);
                 end
                 return;
             end
@@ -571,14 +571,14 @@ function SetBindingAttributes(type, value, unit, buttonname)
             clickframe:SetAttribute("*marker-" .. buttonname, value);
         else
             if (DEBUG) then
-                print("Unhandled type:", type);
+                DebindPrivate.log("Unhandled type:", type);
             end
             return;
         end
 
         if (unit and unit ~= "" and not delegate) then
             if (DEBUG) then
-                print("No delegate frame for:", unit);
+                DebindPrivate.log("No delegate frame for:", unit);
             end
         end
 
@@ -586,7 +586,7 @@ function SetBindingAttributes(type, value, unit, buttonname)
         -- 보안 쪽 짝은 `SecureBindings.lua`의 `printMacroText`이고, 둘을 같이 봐야
         -- "본문이 틀렸나"와 "본문이 아예 안 올라갔나"가 갈린다.
         if (DEBUG) then
-            print(format("|cff88ff88[Debind/attr]|r SET %s/%s -> %s : %s",
+            DebindPrivate.log(format("|cff88ff88[Debind/attr]|r SET %s/%s -> %s : %s",
                 tostring(type), tostring(value), tostring(buttonname),
                 tostring(clickframe:GetAttribute("*macrotext-" .. buttonname)
                     or clickframe:GetAttribute("*spell-" .. buttonname)
@@ -648,7 +648,7 @@ function UpdateBindingsMap()
             if (binding.type ~= Constants.UNUSED and binding.type ~= Constants.COMMAND
                     and not (binding.clickframe and binding.clickbutton)) then
                 if (DEBUG) then
-                    print(format("|cffff6666[Debind/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
+                    DebindPrivate.log(format("|cffff6666[Debind/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
                         tostring(binding.type), tostring(binding.value), key));
                 end
                 binding.isClick, binding.isNonClick = false, false;
@@ -1075,7 +1075,7 @@ end
         elseif (_customStates[state]) then
             -- handle later
         elseif (DEBUG) then
-            print("Unhandled State: " .. state);
+            DebindPrivate.log("Unhandled State: " .. state);
         end
     end
 
