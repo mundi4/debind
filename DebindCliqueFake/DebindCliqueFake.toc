@@ -7,5 +7,10 @@
 ## LoadOnDemand: 1
 ## Dependencies: Debind
 ## Group: Debind
+## Notes: Part of Debind. It is how unit frame addons reach Debind: Grid2, ElvUI and the like hand their frames over for click-casting by talking to Clique, so this addon answers under Clique's name and passes those frames on. Blizzard's own frames do not need it - Debind finds those itself.|n|nLeaving it enabled costs nothing. It is loaded on demand, and Debind opens it |cff40ff40only when Clique is not there|r - if you do run Clique, the name belongs to Clique and Debind stays out of it.|n|n|cffff2020Do not delete it.|r Without it Debind never hears about those frames, so a binding that runs while hovering one does nothing.
+
+# 남의 이름으로 전역을 세우는 코드라 LoadOnDemand로 갈라 뒀다. 열지 말지는 Debind가 정하고
+# (`Public.lua`의 `CliqueDetected` 분기), 안 열면 이 코드는 아예 없는 것이 된다.
+# 무엇을 세우는지는 DebindCliqueFake.lua에.
 
 DebindCliqueFake.xml
