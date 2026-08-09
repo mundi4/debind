@@ -3458,9 +3458,9 @@ function DebindOrderLineMixin:Init()
 	self:Update();
 end
 
---- 이유 줄의 기본 폭(XML의 Size). 이동 버튼이 서면 그만큼 줄여서 겹치지 않게 한다.
+--- 이유 줄이 차지할 수 있는 **최대** 폭. 실제 폭은 글자 길이에 맞춰 행마다 정한다
+--- (`SetReasonText`) - 이 값은 긴 사유가 이름을 다 밀어내지 못하게 막는 상한일 뿐이다.
 local ORDER_REASON_WIDTH = 170;
-local ORDER_MOVE_STRIP_WIDTH = 22 + 2 + 22 + 6;
 
 --- 고른 행에만 이동 버튼을 세우고, 갈 수 있는 방향만 켠다.
 ---
@@ -3487,7 +3487,6 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 		down:Hide();
 		self.ReasonText:ClearAllPoints();
 		self.ReasonText:SetPoint("RIGHT", -6, 0);
-		self.ReasonText:SetWidth(ORDER_REASON_WIDTH);
 		return;
 	end
 
@@ -3504,12 +3503,15 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	up:Show();
 	down:Show();
 
-	-- 이유 줄을 버튼 왼쪽으로 물린다. **폭만 줄이면 안 된다** - 오른쪽 변이 행 끝에 고정된
-	-- 앵커라(XML: RIGHT, -6) 폭을 줄여도 그 변은 그대로고, 오른쪽 정렬이라 글자가 버튼
-	-- 밑으로 들어간다. 이름 칸은 이유 줄에 매달려 있어서 따라 움직인다(XML).
+	-- 이유 줄을 버튼 왼쪽으로 물린다. **오른쪽 변만 옮기면 끝이다** - 폭은 글자에서 나오므로
+	-- (`SetReasonText`) 버튼 띠가 몇 픽셀인지 여기서 셀 일이 없다. 한때 그 폭을 손으로 적어
+	-- 두고 빼다가 2px이 어긋났고, 그 2px에 걸린 이름이 **고른 행에서만 안 잘렸다.**
+	--
+	-- 버튼 자리를 다른 행에서도 비워두지는 않는다. 그러면 이름 칸의 한계가 행마다 같아져서
+	-- 목록이 덜 출렁이지만, 대부분의 행에 **아무것도 안 서는 50px**을 깔게 된다 - 자리가
+	-- 남는데 이름이 잘리는 것이 이 칸에서 제일 나쁜 일이다.
 	self.ReasonText:ClearAllPoints();
 	self.ReasonText:SetPoint("RIGHT", up, "LEFT", -6, 0);
-	self.ReasonText:SetWidth(ORDER_REASON_WIDTH - ORDER_MOVE_STRIP_WIDTH);
 end
 
 --- 이웃과 **순서 번호를 맞바꾸는 것이 전부다.** 배열 자리는 순서에 아무 영향이 없다
@@ -3555,6 +3557,56 @@ function DebindOrderLineMixin:OnMoveEnter(button)
 	GameTooltip:Show();
 end
 
+--- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.
+---
+--- **문제가 순서를 이긴다.** 이 칸이 답하는 것은 "왜 이 자리인가"인데, 아예 안 나가는
+--- 바인딩에게는 그게 물어볼 값어치가 없는 질문이다. 고칠 것이 있으면 그것부터 말하고
+--- 순서 이야기는 접는다 - 둘 다 적으면 한 줄에 안 들어가고, 빨강이 회색 옆에서 힘을 잃는다.
+---
+--- 도달불가와 이슈를 함께 적지 않는 이유는 `GetBindingIssue`가 도달불가도 이슈로 치기
+--- 때문이다(Misc.lua). 더 구체적인 쪽만 쓴다.
+local function GetOrderReasonText(elementData)
+	local row = elementData.row;
+	if (row.unreachable) then
+		return ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
+	elseif (row.issue) then
+		return ERROR_COLOR:WrapTextInColorCode(GetShortIssueText(row.issue));
+	end
+
+	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
+	local reason = elementData.reason;
+	if (not reason) then
+		return "";
+	elseif (elementData.reasonB) then
+		return format(LLL["ORDER_WHY_" .. reason], elementData.reasonA, elementData.reasonB);
+	elseif (elementData.reasonA) then
+		return format(LLL["ORDER_WHY_" .. reason], elementData.reasonA);
+	end
+	return LLL["ORDER_WHY_" .. reason];
+end
+
+--- 이유 줄은 **글자만큼만** 차지한다. 남는 폭은 이름이 가져간다 - 이름 칸의 오른쪽 변이
+--- 이 줄의 왼쪽 변에 매달려 있어서(XML) 여기서 좁힌 만큼 저쪽이 넓어진다.
+---
+--- 폭이 붙박이(170)였을 때 `Never runs` 같은 짧은 사유가 100px 넘는 빈칸을 깔고 앉았고,
+--- 그 옆에서 이름이 잘렸다. **자리가 남는데 잘리는 것**은 사용자가 손쓸 길이 없는 결함이다.
+--- 이길 상대가 없어 아예 빈 행(대부분이 그렇다)은 이제 그 폭을 통째로 이름에 준다.
+---
+--- 상한(`ORDER_REASON_WIDTH`)은 남는다. 사유가 길면 이번엔 이름이 밀리는데, 이 목록에서
+--- 먼저 읽혀야 하는 것은 무엇이 걸려 있는가라 이름 쪽을 지킨다.
+---
+--- 재기 전에 폭을 푸는 것은 블리자드가 쓰는 방식 그대로다(FriendsListTemplates). 폭이
+--- 걸린 채로는 잘린 길이가 나오고, 그러면 한 번 좁아진 칸이 다시는 안 넓어진다 - 이
+--- 프레임은 풀에서 나와 다음 행에 재활용되므로 지난 행의 폭을 물려받는다.
+function DebindOrderLineMixin:SetReasonText(text)
+	local reasonText = self.ReasonText;
+	reasonText:SetText(text);
+	reasonText:SetWidth(0);
+	if (reasonText:GetWidth() > ORDER_REASON_WIDTH) then
+		reasonText:SetWidth(ORDER_REASON_WIDTH);
+	end
+end
+
 function DebindOrderLineMixin:Update()
 	local elementData = self:GetElementData();
 	local row = elementData.row;
@@ -3570,39 +3622,20 @@ function DebindOrderLineMixin:Update()
 		self.Icon:SetTexture(icon);
 	end
 
-	-- **문제가 순서를 이긴다.** 이 칸이 답하는 것은 "왜 이 자리인가"인데, 아예 안 나가는
-	-- 바인딩에게는 그게 물어볼 값어치가 없는 질문이다. 고칠 것이 있으면 그것부터 말하고
-	-- 순서 이야기는 접는다 - 둘 다 적으면 한 줄에 안 들어가고, 빨강이 회색 옆에서 힘을 잃는다.
-	--
-	-- 도달불가와 이슈를 함께 적지 않는 이유는 `GetBindingIssue`가 도달불가도 이슈로 치기
-	-- 때문이다(Misc.lua). 더 구체적인 쪽만 쓴다.
-	if (row.unreachable) then
-		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]));
-		return self.SelectedHighlight:SetShown(elementData.isCurrent);
-	elseif (row.issue) then
-		self.ReasonText:SetText(ERROR_COLOR:WrapTextInColorCode(GetShortIssueText(row.issue)));
-		return self.SelectedHighlight:SetShown(elementData.isCurrent);
-	end
-
-	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
-	local reason = elementData.reason;
-	if (not reason) then
-		self.ReasonText:SetText("");
-	elseif (elementData.reasonB) then
-		self.ReasonText:SetFormattedText(LLL["ORDER_WHY_" .. reason], elementData.reasonA, elementData.reasonB);
-	elseif (elementData.reasonA) then
-		self.ReasonText:SetFormattedText(LLL["ORDER_WHY_" .. reason], elementData.reasonA);
-	else
-		self.ReasonText:SetText(LLL["ORDER_WHY_" .. reason]);
-	end
+	self:SetReasonText(GetOrderReasonText(elementData));
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
 end
 
---- 이 행의 툴팁 맨 아래 안내 줄. **안 주면 오른쪽 목록의 안내가 대신 나온다** - 좌클릭은
---- 선택, 우클릭은 메뉴라는 말인데 여기서는 둘 다 거짓이다(좌우 다 그 액션으로 데려간다).
-local ORDER_LINE_GOTO_INSTRUCTIONS = { "ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO" };
+--- 이 행의 툴팁 맨 아래 안내 줄. 좌클릭 줄만 이 목록의 것으로 갈아 끼운다 - 오른쪽 목록에서
+--- 좌클릭은 고르는 것이지만 여기서는 **데려가는 것**이라 같은 말을 쓸 수 없다. 우클릭 줄은
+--- 저쪽 것을 그대로 쓴다. 두 목록 다 그 액션의 메뉴가 열리고, 담긴 항목이 다르다는 것은
+--- 열어보면 아는 일이지 안내가 미리 갈라 말할 것이 아니다.
+local ORDER_LINE_GOTO_INSTRUCTIONS = {
+	"ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO",
+	"LINE_TOOLTIP_INSTRUCTION_MESSAGE2",
+};
 
 function DebindOrderLineMixin:OnEnter()
 	local elementData = self:GetElementData();
