@@ -2,7 +2,7 @@
 
 A World of Warcraft keybinding addon. Set a key once for every character, then override it on one class, one spec, or one character.
 
-*Debind was called Debounce until 3.0. Same addon, same author, same settings — `/deb` and `/debounce` both still work. In 3.1 the addon folder was renamed to match, which is where WoW keeps your settings file, so a small companion addon named **Debind Migration** ships alongside and carries them over. Leave it enabled.*
+*Debind was called Debounce until 3.0. Same addon, same author, same settings — `/deb` and `/debounce` both still work. In 3.1 the addon folder was renamed to match, which is where WoW keeps your settings file, so a small companion addon named **Debind Migration** ships alongside and carries them over. Leave it enabled — if it isn't, Debind says so when you log in rather than starting you off empty.*
 
 ## The problem
 
@@ -43,9 +43,11 @@ Debind is for the keys where the answer isn't "all of them".
 
 `/deb` opens the window, and so does the addon compartment button by the minimap.
 
+The window is two columns. The **right** one is the layer you're editing — the tabs along the bottom and down the side pick which layer that is, and dragging an action onto another tab moves it there. The **left** one is the overview: every key you have bound, grouped by key, in the order Debind tries them, for the character and spec you're on. That's the one to read when you want to know what a key does, because it answers for the whole set rather than for the tab you happen to have open. Click a row there and you land on that action on the right, whichever tab it lives in.
+
 The **+** at the top opens **Add an Action** — a tab each for spells, macros, mounts, toys, WoW's own binding commands, and the ones this addon makes up itself, with a search box over all of them. It stays open while you work, and every click adds to whichever layer tab you have open. Dragging a spell, item, macro or mount onto the list works too.
 
-Click an action to select it, and the panel beside the list opens on its **Key & Order** tab. Click the key button there and press the key you want; mouse buttons and the wheel count, and right-clicking that button unbinds. Right-click the action itself for conditions, targets and the like. The tabs along the bottom and down the side decide which layer it lives in, and dragging an action onto another tab moves it there.
+To give something a key, turn on **Set Keys** at the top of the window, point at the action and press it. Mouse buttons and the wheel count. Escape while pointing at an action clears its key; Escape while pointing at nothing puts back every key you changed since you turned the mode on, and **Done** keeps them. Everything else about an action — conditions, targets, importance, moving and copying — is on its right-click menu.
 
 ## What a key can hold
 
@@ -108,7 +110,7 @@ Three things decide that order, and they're all the same idea — the narrower c
 - **Then having conditions at all.** An action with conditions is checked before one without, for the same reason: an action with no conditions always fits.
 - **Then the layer.** The narrower one goes first.
 
-If that ordering isn't what you want, set the action's **Importance** — what you set yourself wins over anything the addon worked out on its own. The **Key & Order** tab shows the order you'll actually get, and when an action can't be moved it says which rule is holding it and what you'd change.
+If that ordering isn't what you want, set the action's **Importance** — what you set yourself wins over anything the addon worked out on its own. The overview column shows the order you'll actually get, each row saying why it beats the one under it, and the row you select gets **Run Sooner** and **Run Later**. When an action can't move, the button says which of those rules is holding it rather than doing nothing.
 
 ## Unit frames
 
@@ -125,6 +127,8 @@ You can run Clique itself alongside this. Debind leaves unit frames to Clique an
 **A few keys stop working in the house editor.** While it's open the editor claims some keys for its own shortcuts, and Debind leaves those alone — so an action bound to one of them does nothing until you close the editor. If you'd rather keep one of yours, there's a setting on the action for that.
 
 **Macros are still good.** If one macro solves your problem, write the macro — it's less machinery and it doesn't depend on me. This is for when the list stops being one macro.
+
+**English, 한국어, Русский.** The Russian translation is ZamestoTV's.
 
 **Not for Classic.** One client is enough to keep up with.
 

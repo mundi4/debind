@@ -6,10 +6,18 @@ Then I kept opening my AddOns folder and finding `Debounce` still sitting in it.
 
 So this update ships a small companion addon, **Debind Migration**, holding what 3.0 and earlier saved. Debind opens it once per character, moves that character's settings across — bindings, options, window positions — and leaves it alone after that. Keep it enabled: characters you have not logged in on since updating still have their settings in there. If 3.1 is your first install, it never runs at all.
 
+**The window has a left half now.** The panel 3.0 put beside the list did not last the week. What stands in its place is an overview of every key you have bound — grouped by key, in the order Debind tries them, for the character and specialization you are on. It is what pressing the key would actually do, rather than what happens to be in the tab you have open, and it is drawn the moment the window opens instead of waiting for you to pick something.
+
+- **Setting a key is a mode.** Turn on *Set Keys*, point at an action, press. Each press lands as you make it — mouse buttons and the wheel count. Escape while pointing at an action clears its key, and Escape while pointing at nothing puts back every key you changed since you turned the mode on.
+- Where several actions share a key, each row says why it beats the one under it, and the row you select gets **Run Sooner** and **Run Later**.
+- Everything else about an action — conditions, targets, importance, moving and copying — is on its right-click menu, where it already was. The macro editor is a window of its own again.
+
 Also in this one:
 
 - **Korean (koKR)** is now translated, in full.
 - A move button that cannot move now says what is holding the action in place, rather than only that something is.
+- The companion addon above is normally silent, but if it has been switched off or has gone missing, Debind says so on login and waits for an answer instead of quietly starting you off empty.
+- Fixes: a `$state` token no longer rides out of an unclosed bracket group in a custom macro, and Debind waits for the game to report your specialization rather than building a half-finished set of bindings from what it knows at that moment.
 
 # 3.0
 
