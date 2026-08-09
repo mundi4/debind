@@ -1041,11 +1041,22 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	self:SetAttribute("unit", unit)
 
 	-- 실행 엣지가 down이면 up이 이 선택을 그대로 재사용한다(위 캐리).
+	--
 	-- `typerelease`가 구워진 액션에만 건다 - 그 밖의 액션은 up에서 조회가 nil이라 아무 일도
 	-- 안 나므로 붙들 이유가 없고, 붙들면 낡은 판단을 재사용하는 쪽이 손해다.
-	if (UseOnKeyDown and down and winner.pressAndHold) then
-		HeldButtons[button] = winner
-		HeldUnits[button] = unit
+	--
+	-- **down에서 반드시 확정한다. 조건부로 기록만 하면 안 된다.** up 엣지가 온다는 보장이
+	-- 없어서다 - 창 포커스를 잃거나, 누른 채로 리빌드가 돌거나, 바인딩이 바뀌면 안 온다.
+	-- 그러면 앞의 기록이 남고, 다음에 press-hold가 아닌 액션을 눌렀다 뗄 때 그 낡은 것이
+	-- 재사용된다. 맨이름 속성과 같은 규칙이다.
+	if (UseOnKeyDown and down) then
+		if (winner.pressAndHold) then
+			HeldButtons[button] = winner
+			HeldUnits[button] = unit
+		else
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
 	end
 
 	return winner.clickbutton
