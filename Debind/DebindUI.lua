@@ -898,10 +898,7 @@ local function MoveAction(elementData, destLayerID, copying)
 	DebindFrame:Refresh(true);
 
 	if (fromLayerID == destLayerID) then
-		local newElementData = DebindFrame:FindElementDataByActionInfo(action);
-		if (newElementData) then
-			DebindFrame.ScrollBox:ScrollToElementData(newElementData);
-		end
+		DebindFrame:ScrollActionIntoView(action);
 	end
 end
 
@@ -2873,6 +2870,13 @@ end
 --- 위로 벗어났을 때는 바로 위 헤더까지 데려온다. 행만 맨 위에 붙이면 이 행이 어느 키에
 --- 속하는지 말해주는 줄이 화면 밖 한 칸 위에 남는데, 그게 방금 바꾼 바로 그 키다. 아래로
 --- 벗어난 경우는 AlignEnd(행을 아래 끝에 맞춤)라 헤더가 자연히 위쪽에 따라 들어온다.
+---
+--- **액션을 화면에 보이게 하는 자리는 여기 하나뿐이다.** ScrollBox의 기본 정렬은
+--- AlignCenter라, 스크롤 함수를 직접 부르면 정렬을 안 넘긴 것만으로 이미 보이는 행까지
+--- 화면 한가운데로 끌어온다. 보이는 행을 옮기는 것은 사용자가 보던 자리를 빼앗는 일이고,
+--- 어느 행인지는 강조가 이미 말한다.
+---
+--- 찾은 elementData를 돌려준다 - 부르는 쪽이 그 행을 또 찾지 않아도 되게.
 function DebindFrameMixin:ScrollActionIntoView(action)
 	local elementData, index = self:FindElementDataByActionInfo(action);
 	if (not elementData) then
@@ -2881,6 +2885,7 @@ function DebindFrameMixin:ScrollActionIntoView(action)
 
 	-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
 	self.ScrollBox:ScrollToNearest(index);
+	return elementData;
 end
 
 --- 순서 목록이 가리키는 액션으로 화면을 옮긴다. 그 액션이 사는 탭을 열고, 왼쪽 목록에서
@@ -2920,10 +2925,7 @@ function DebindFrameMixin:GoToAction(action, layerID)
 		self:SetSelectedAction(action);
 	end
 
-	local elementData = self:FindElementDataByActionInfo(action);
-	if (elementData) then
-		self.ScrollBox:ScrollToElementData(elementData);
-	end
+	self:ScrollActionIntoView(action);
 end
 
 function DebindFrameMixin:AddNewAction(type, value, name, icon, props)
@@ -2956,10 +2958,7 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props)
 	-- 다르게 끝난다.
 	self:SetSelectedAction(action);
 
-	local elementData = self:FindElementDataByActionInfo(action);
-	if (elementData) then
-		self.ScrollBox:ScrollToElementData(elementData);
-	end
+	local elementData = self:ScrollActionIntoView(action);
 	self:Update();
 
 	return elementData;
