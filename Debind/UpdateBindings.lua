@@ -256,6 +256,8 @@ self:RunAttribute("ClearClickBindings")
 self:RunAttribute("ClearUnitAttributes")
 wipe(BindingsMap)
 wipe(ClickTimeKeys)
+wipe(HeldButtons)
+wipe(HeldUnits)
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)
@@ -316,6 +318,12 @@ wipe(States)
     end
 
     SecureHandlerExecute(DebindPrivate.BindingDriver, format("HoverBindings=%s", tostring(_states.unitframe and true or false)));
+
+    -- 래퍼가 **어느 엣지가 실행 엣지인지** 알아야 하는데 제한 환경에서는 CVar를 못 읽는다.
+    -- 값이 바뀌면 `Events.CVAR_UPDATE`가 재빌드를 걸므로(ActionButtonUseKeyDown 감시) 여기서
+    -- 실어 보내는 것으로 최신이 유지된다.
+    SecureHandlerExecute(DebindPrivate.BindingDriver,
+        format("UseOnKeyDown=%s", ACTION_BUTTON_USE_KEY_DOWN and "true" or "false"));
 
     if (_states.unitframe or _states.reaction or _unitStates.mouseover) then
         SecureStateDriverManager:RegisterEvent("UPDATE_MOUSEOVER_UNIT");
@@ -634,7 +642,6 @@ function UpdateBindingsMap()
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClick;
         local hasNonClick;
-        local hasPressAndHold;
 
         for i = 1, #bindingArray do
             local binding = bindingArray[i];
@@ -665,28 +672,6 @@ function UpdateBindingsMap()
                 binding.isClick, binding.isNonClick = false, false;
             end
 
-            -- 유지·시전 주문은 클릭 시점 라우팅에서 뺀다. **지금 라우팅해도 안전하다** -
-            -- B-11(게이트가 `pressAndHoldAction`을 맨이름으로만 읽어서 버튼별로 구운 것이
-            -- 안 닿는 것) 때문에 `useOnKeyDown`이 CVar 값 그대로고, 결국 한쪽 엣지에서만
-            -- 액션이 나가 평범한 액션과 다를 게 없기 때문이다.
-            --
-            -- 빼는 이유는 **B-11 수선과 두 군데를 동시에 건드리지 않으려는 것**이다.
-            -- 어느 수선안을 택하든 라우팅과 얽힌다:
-            --   전용 프레임      - press-hold 액션의 clickframe이 DefaultClickFrame이 아니게
-            --                      되는데, 라우팅된 키는 거기에만 걸린다
-            --   클릭 시점 스니펫 - 양쪽 엣지가 다 실행되므로 down의 선택을 up이 재사용하는
-            --                      캐리가 필요해진다
-            -- 수선이 끝나면 이 제외도 같이 푼다. 대가는 그때까지 이 키들이 클릭 시점 액션
-            -- 선택을 못 받는 것이다.
-            --
-            -- `SetBindingAttributes`도 SPELL 갈래에서 같은 것을 묻지만 **캐시 적중이면 그
-            -- 블록을 통째로 건너뛴다.** 그쪽 값에 기대면 두 번째 바인딩부터 조용히 새므로
-            -- 여기서 따로 센다.
-            if (binding.isNonClick and binding.type == Constants.SPELL
-                    and IsPressHoldReleaseSpell(binding.value)) then
-                hasPressAndHold = true;
-            end
-
             hasClick = hasClick or binding.isClick;
             hasNonClick = hasNonClick or binding.isNonClick;
         end
@@ -699,7 +684,7 @@ function UpdateBindingsMap()
         --
         -- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
         -- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
-        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick and not hasPressAndHold
+        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick
                 and DebindPrivate.IsKeyAlwaysClickBound(bindingArray);
 
         local first = true;
