@@ -92,7 +92,9 @@ L["CONDITION_UNITS"] = "Units"
 L["CONFIRM_CURRENT_CHANGE_FIRST"] = "Confirm current change first."
 L["CONVERT_TO_MACRO_TEXT"] = "Convert to a |cnLIGHTBLUE_FONT_COLOR:Custom Macro|r"
 L["COPY_TO"] = "Copy to..."
-L["CURRENT_TAB"] = "Current Tab"
+-- 이동·복사 목록에서 지금 그 액션이 사는 탭. %s는 다른 줄과 **똑같은** 탭 이름이고, 뒤에
+-- 붙는 표시만 그 줄을 가른다 - 이름을 갈아치우면 목록에서 그 탭의 자리를 잃는다.
+L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
 L["CUSTOM_STATE_DISPLAY_MESSAGE"] = "Show message on change."
 L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "Enter macro conditional expression.\n(Example: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)"
 L["CUSTOM_STATE_EDIT_VALUE"] = "Enter macro conditional expression."
@@ -187,6 +189,8 @@ L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 -- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
 L["MACROFRAME_CHAR_LIMIT"] = "%d/%d Characters Used"
 L["MOVE_TO"] = "Move to..."
+-- 회색으로 선 현재 탭 줄의 툴팁. 하나를 옮기든 여럿을 옮기든 같은 문장이라 주어를 안 세운다.
+L["MOVE_TO_CURRENT_TAB_BLOCKED"] = "Already on this tab."
 L["NO_ACTIONS_IN_THIS_TAB"] = "There are no actions in this tab. You can add a new action by dragging a spell, a macro, an item, or a mount here."
 -- 검색 결과가 없을 때. 위와 갈라 쓴다 - 저쪽은 "끌어다 놓으세요"라고 시키는데, 검색에 안
 -- 맞아서 빈 것뿐이면 할 일이 그게 아니다.

@@ -987,14 +987,24 @@ do
         -- **"지금 이 액션이 사는 레이어"이지 "지금 보고 있는 탭"이 아니다.** 오버뷰 탭에서는
         -- 행마다 레이어가 다르므로 화면으로는 답할 수 없고, 레이어 탭에서는 둘이 같은 값이라
         -- 달라지는 것이 없다.
+        --
+        -- 지금 사는 탭도 **이름 그대로** 세우고 뒤에만 표시를 붙인다. "현재 탭"이라고만 적으면
+        -- 그 줄만 다른 종류의 이름이 돼서 목록에서 어디에 끼어 있는지가 안 읽히는데, 오버뷰
+        -- 탭에서 여는 메뉴는 그 답이 화면에 없다 - 행마다 레이어가 다르다.
         for _, tabInfo in ipairs(TAB_LIST) do
             local isSameLayer = tabInfo.layerID == fromLayerID;
-            if (isCopy or not isSameLayer) then
-                optionsDescription:CreateButton(
-                    isSameLayer and LLL["CURRENT_TAB"] or tabInfo.label,
-                    func,
-                    { tabInfo.layerID }
-                );
+            local description = optionsDescription:CreateButton(
+                isSameLayer and format(LLL["CURRENT_TAB_SUFFIX"], tabInfo.label) or tabInfo.label,
+                func,
+                { tabInfo.layerID }
+            );
+
+            -- 제자리로는 못 옮긴다(`MoveAction`의 `assert(copying, ...)`). 빼지 않고 회색으로
+            -- 세워 두는 이유는 목록이 두 메뉴에서 **같은 모양**이어야 해서다 - 한 줄이 빠지면
+            -- 나머지가 한 칸씩 올라와, 같은 탭이 이동과 복사에서 다른 높이에 선다.
+            if (isSameLayer and not isCopy) then
+                description:SetEnabled(false);
+                SetErrorTooltip(description, LLL["MOVE_TO_CURRENT_TAB_BLOCKED"]);
             end
         end
     end

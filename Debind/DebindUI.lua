@@ -910,8 +910,8 @@ end
 --- **elementData는 액션마다 그때그때 다시 찾는다.** `MoveAction`이 한 번 돌 때마다 `Refresh`가
 --- 목록을 새로 지어서, 미리 모아둔 elementData는 둘째부터 낡은 layer/index를 들고 있다.
 ---
---- 목적지에 이미 사는 것은 건너뛴다(이동일 때). 오른쪽 목록은 한 레이어뿐이라 메뉴에 그
---- 항목이 아예 안 나오지만(`CreateMoveCopyMenu`), 막지 않으면 그런 한 줄이 `MoveAction`의
+--- 목적지에 이미 사는 것은 건너뛴다(이동일 때). 그 항목은 메뉴에서 회색으로 세워만 두므로
+--- (`CreateMoveCopyMenu`) 눌러서 여기 오지는 않지만, 막지 않으면 그런 한 줄이 `MoveAction`의
 --- `assert(copying, ...)`에 걸려 **벌크 전체가 중간에 멈춘다** - 앞의 절반만 옮겨진 채로.
 ---
 --- 옮긴 뒤에는 선택을 접는다. `MoveAction`이 액션 테이블을 복사해서 넣으므로(`CopyTable`)
