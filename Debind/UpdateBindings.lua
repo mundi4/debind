@@ -665,10 +665,19 @@ function UpdateBindingsMap()
                 binding.isClick, binding.isNonClick = false, false;
             end
 
-            -- 유지·시전 주문은 클릭 시점 라우팅에서 뺀다. 게이트가 `pressAndHoldAction`을
-            -- **맨이름으로만** 읽어서(SecureTemplates.lua의 SecureButton_GetAttribute) 버튼
-            -- 이름 교체로는 못 나르기 때문이다. B-11 수선이 그 액션들을 전용 프레임으로
-            -- 옮길 예정이라 지금은 옛 경로에 남겨 둔다.
+            -- 유지·시전 주문은 클릭 시점 라우팅에서 뺀다. **지금 라우팅해도 안전하다** -
+            -- B-11(게이트가 `pressAndHoldAction`을 맨이름으로만 읽어서 버튼별로 구운 것이
+            -- 안 닿는 것) 때문에 `useOnKeyDown`이 CVar 값 그대로고, 결국 한쪽 엣지에서만
+            -- 액션이 나가 평범한 액션과 다를 게 없기 때문이다.
+            --
+            -- 빼는 이유는 **B-11 수선과 두 군데를 동시에 건드리지 않으려는 것**이다.
+            -- 어느 수선안을 택하든 라우팅과 얽힌다:
+            --   전용 프레임      - press-hold 액션의 clickframe이 DefaultClickFrame이 아니게
+            --                      되는데, 라우팅된 키는 거기에만 걸린다
+            --   클릭 시점 스니펫 - 양쪽 엣지가 다 실행되므로 down의 선택을 up이 재사용하는
+            --                      캐리가 필요해진다
+            -- 수선이 끝나면 이 제외도 같이 푼다. 대가는 그때까지 이 키들이 클릭 시점 액션
+            -- 선택을 못 받는 것이다.
             --
             -- `SetBindingAttributes`도 SPELL 갈래에서 같은 것을 묻지만 **캐시 적중이면 그
             -- 블록을 통째로 건너뛴다.** 그쪽 값에 기대면 두 번째 바인딩부터 조용히 새므로
