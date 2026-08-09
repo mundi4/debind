@@ -61,6 +61,18 @@ SecureHandlerExecute(BindingDriver, [[
 	
 	CustomStateExpressions = newtable()
 	BindingsMap = newtable()
+
+	-- 클릭 시점 평가로 넘긴 키들. 버튼 이름("@" + 키) -> 그 키의 BindingsMap 배열.
+	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
+	ClickTimeKeys = newtable()
+
+	-- 래퍼가 클릭 안에서 쓰는 메모. **클릭 경로에서는 newtable()을 부르지 않는다** -
+	-- GC 스파이크는 평균 비용보다 아프게 나타난다. 그래서 미리 만들어 두고 재사용한다.
+	-- 같은 유닛을 여러 레코드가 물을 때 C 호출이 반복되는 것을 막는다.
+	ClickUnitExists = newtable()
+	ClickUnitAssist = newtable()
+	ClickUnitAttack = newtable()
+
 	MacroTextsMap = newtable()
 	UnitMap = newtable()
 	UnitStates = newtable()
@@ -72,7 +84,27 @@ SecureHandlerExecute(BindingDriver, [[
 	_macrotextsSeen = newtable()
 	_isUpdatingMacrotests = false
 	_customStatesUpdating = newtable()
+
+	-- 유닛 조건을 클릭 시점에 풀 때 필요한 분류. 화이트리스트 밖이라 스니펫이 스스로
+	-- 알 수 없으므로 아래에서 실어 보낸다.
+	--   SpecialUnits - UnitMap으로 풀어야 하는 별칭
+	--   CustomUnits  - 그 중 실제 존재까지 확인해야 하는 것 (custom1/custom2)
+	SpecialUnits = newtable()
+	CustomUnits = newtable()
 ]]);
+
+do
+	local lines = {};
+	for alias in pairs(Constants.SPECIAL_UNITS) do
+		lines[#lines + 1] = format("SpecialUnits[%q]=true", alias);
+	end
+	-- custom1/custom2만 두 겹이다. tank/healer/maintank/mainassist/hover는 UnitWatch가
+	-- UnitMap에 넣어준 것 자체가 존재 증거라는 규약이고, 옛 경로(UpdateBindings.lua의
+	-- 유닛 상태 표현식)가 이미 그렇게 갈라져 있다. 여기서 통일하면 조건이 조용히 빡빡해진다.
+	lines[#lines + 1] = [[CustomUnits["custom1"]=true]];
+	lines[#lines + 1] = [[CustomUnits["custom2"]=true]];
+	SecureHandlerExecute(BindingDriver, table.concat(lines, "\n"));
+end
 
 
 --- 본문 로그. **빌드 시점에 가른다** - 릴리스에서는 문자열 자체가 비어서 스니펫에 그 줄이
@@ -300,8 +332,20 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 			end
 		end
 
+		-- 클릭 시점 키이면서 클릭캐스팅 절반도 없으면 여기서 볼 것이 없다.
+		-- 키는 UpdateBindingsMap이 이미 한 번 걸어놨고 다시 걸 일이 없다.
+		if (check and bindings.clickTime and not bindings.hasClick) then
+			check = false
+		end
+
 		if (check) then
 			local keyBound, clickBound = not bindings.hasNonClick, not bindings.hasClick
+
+			-- 키 절반은 클릭 시점이 맡는다. keyBound를 세워두면 아래 isNonClick 분기도,
+			-- 끝의 `not keyBound` 해제도 안 돈다. 클릭캐스팅 절반은 그대로 돈다.
+			if (bindings.clickTime) then
+				keyBound = true
+			end
 			for i = 1, #bindings do
 				local t = bindings[i]
 				local match = true
@@ -431,6 +475,303 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	end
 
 	wipe(DirtyFlags)
+]==]));
+
+--- 클릭 시점 평가가 옛 경로와 같은 답을 내는지 대조한다. **빌드 시점에 가른다** - 릴리스에서는
+--- 문자열이 비어서 스니펫에 이 줄들이 아예 없다.
+---
+--- 통과 기준이 "동작이 안 바뀌는 것"이라 관찰이 필요하다. 캐시로 남긴 상태들(combat, forms,
+--- known …)은 양쪽이 **같은 값을 읽으므로 불일치가 곧 버그**다. 반대로 hover와 유닛 조건은
+--- 어긋나는 것이 정상이고 - 그게 이 공사가 노린 개선분이다 - 그 빈도가 성과 지표가 된다.
+--- 그래서 둘을 갈라서 보고한다.
+local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
+
+	do
+		-- 옛 경로의 판정을 캐시 값으로 그대로 재현한다(UpdateBindings 스니펫의 루프와 같다).
+		local cachedIndex
+		local uf = States.unitframe
+		for i = 1, #bindings do
+			local t = bindings[i]
+			if (t.isNonClick) then
+				local m = true
+
+				if (t.hover ~= nil) then
+					if (t.hover == false) then
+						if (uf) then m = false end
+					elseif (not uf) then
+						m = false
+					else
+						if (t.reactions and ((t.reactions % (uf.reaction + uf.reaction)) < uf.reaction)) then
+							m = false
+						elseif (t.frameTypes and ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType)) then
+							m = false
+						end
+					end
+				end
+
+				if (m and (
+					(t.groups ~= nil and (t.groups % (group + group)) < group) or
+					(t.combat ~= nil and t.combat ~= States.combat) or
+					(t.forms and (t.forms % (form + form)) < form) or
+					(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+					(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+					(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+					(t.stealth ~= nil and t.stealth ~= States.stealth) or
+					(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+					(t.pet ~= nil and t.pet ~= States.pet)
+				)) then
+					m = false
+				end
+
+				if (m and t.known ~= nil and States[t.known] ~= true) then
+					m = false
+				end
+
+				if (m and t.checkedUnits) then
+					for u, cond in pairs(t.checkedUnits) do
+						-- 옛 규약: "존재"는 값 비교가 아니라 진리값 검사다.
+						local val = UnitStates[u]
+						if (cond == true) then
+							if (not val) then m = false end
+						elseif (cond ~= val) then
+							m = false
+						end
+						if (not m) then break end
+					end
+				end
+
+				if (m and t.customStates) then
+					for state, v in pairs(t.customStates) do
+						if (States[state] ~= v) then
+							m = false
+							break
+						end
+					end
+				end
+
+				if (m) then
+					cachedIndex = i
+					break
+				end
+			end
+		end
+
+		if (cachedIndex ~= winnerIndex) then
+			-- hover나 유닛 조건이 걸린 레코드가 관련돼 있으면 "갈리는 게 정상"인 쪽이다.
+			local expected = false
+			local a = winnerIndex and bindings[winnerIndex]
+			local b = cachedIndex and bindings[cachedIndex]
+			if (a and (a.hover ~= nil or a.checkedUnits)) then expected = true end
+			if (b and (b.hover ~= nil or b.checkedUnits)) then expected = true end
+			debind_driver:CallMethod("OnClickTimeMismatch", button,
+				winnerIndex or 0, cachedIndex or 0, expected)
+		end
+	end
+]==] or "";
+
+--- 클릭 시점 평가. `DefaultClickFrame`의 OnClick을 감싼다.
+---
+--- **`PreClick`이 아니라 `OnClick`이다.** 래퍼는 자기가 감싼 스크립트만 붙들고 있어서
+--- (`SecureHandlers.lua`의 `SaveWrapHandler`), PreClick에 걸면 바꾼 버튼 이름이 실제로
+--- 액션을 실행하는 `SecureActionButton_OnClick`까지 전달되지 않는다. 스니펫은 돌고 로그도
+--- 나오는데 액션만 아무것도 안 나가서 증상이 조용하다.
+---
+--- 반환값이 버튼 이름을 대신하고, 게임은 그 이름으로 `*type-<이름>` 등을 조회한다.
+--- 액션 속성은 `SetBindingAttributes`가 이미 버튼 이름별로 구워둔 그대로 쓴다.
+---
+--- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
+--- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.
+SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, applyConstants([==[
+	local bindings = ClickTimeKeys[button]
+
+	-- **맨이름 속성은 프레임에 남는다.** "안 쓰면 없다"가 아니라 "안 쓰면 앞의 것이 남는다"라
+	-- 매 클릭 전부 확정해야 한다. 옛 경로로 들어온 클릭(deb1xx, /click 위임)에도 반드시
+	-- 적용한다 - 앞 클릭이 남긴 unit 하나가 자가시전·주시시전·마우스오버시전을 통째로
+	-- 죽인다(`checkselfcast`류는 unit이 없을 때만 동작한다). 오류도 로그도 안 난다.
+	--
+	-- pressAndHoldAction과 useOnKeyDown은 **항상 nil로만 쓴다.** 켜는 것은 B-11 수선이고
+	-- 이번 범위가 아니다. 여기서 지우는 것은 앞 클릭의 잔류를 막기 위해서다.
+	self:SetAttribute("unit", nil)
+	self:SetAttribute("pressAndHoldAction", nil)
+	self:SetAttribute("useOnKeyDown", nil)
+	self:SetAttribute("type", nil)
+	self:SetAttribute("macrotext", nil)
+
+	if (not bindings) then
+		-- 우리 키가 아니다. 버튼 이름을 바꾸지 않고 그대로 흘려보낸다.
+		return
+	end
+
+	-- hover는 루프 밖에서 클릭당 한 번만 푼다. 레코드마다 다시 물으면 같은 C 호출이 반복된다.
+	-- 어느 프레임을 hover 중인지는 enter/leave 이벤트로만 알 수 있어 캐시지만, 그 프레임의
+	-- unit과 반응은 지금 다시 읽는다 - 폴링이 놓치는 창이 여기서 닫힌다.
+	local unitframe = States.unitframe
+	local hoverReaction, hoverFrameType
+	if (unitframe) then
+		local hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			if (PlayerCanAssist(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HELP
+			elseif (PlayerCanAttack(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HARM
+			else
+				hoverReaction = CONSTANTS.REACTION_OTHER
+			end
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+		end
+	end
+
+	-- 이벤트가 정확히 덮는 상태는 States에서 읽는다. 클릭 시점으로 옮겨도 정확도가 안 변하고
+	-- C 호출만 는다. live로 읽는 것은 hover와 유닛 조건뿐이다.
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+	local memoReady = false
+	local winner, winnerIndex
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t.isNonClick) then
+			local match = true
+
+			if (t.hover ~= nil) then
+				if (t.hover == false) then
+					if (unitframe) then
+						match = false
+					end
+				elseif (not unitframe) then
+					match = false
+				else
+					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
+						match = false
+					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
+						match = false
+					end
+				end
+			end
+
+			-- 싼 것부터 본다. 여기까지는 전부 테이블 조회라 대부분의 불일치가 C 호출 없이
+			-- 걸러진다. 첫 일치에서 멈추는 구조라 순서가 곧 비용이다.
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= States.combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+				(t.stealth ~= nil and t.stealth ~= States.stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+				(t.pet ~= nil and t.pet ~= States.pet)
+			)) then
+				match = false
+			end
+
+			if (match and t.customStates) then
+				for state, v in pairs(t.customStates) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+			-- known은 States에 남겨둔다. SecureCmdOptionParse는 이 판에서 제일 비싼 호출인데
+			-- 답이 바뀌는 계기가 SPELLS_CHANGED 하나뿐이라 누를 때마다 파싱할 이유가 없다.
+			if (match and t.known ~= nil and States[t.known] ~= true) then
+				match = false
+			end
+
+			if (match and t.checkedUnits) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitAssist)
+					wipe(ClickUnitAttack)
+				end
+
+				-- **조건마다 따로 묻는다.** 옛 경로는 유닛당 값 하나로 모든 질문자를
+				-- 만족시켜야 해서 우호/적대에 우선순위를 두어야 했고, 그래서 남이 등록한
+				-- 항 때문에 내 조건이 조용히 안 맞는 일이 있었다. 여기서는 그럴 이유가 없다.
+				--
+				-- 존재하지 않는 유닛에 대해 PlayerCanAssist/Attack이 둘 다 거짓이므로
+				-- "help"/"harm"은 호출 한 번이 존재 검사까지 겸한다. 앞에 존재 게이트를
+				-- 두면 흔한 쪽에서 C 호출이 하나 늘 뿐이다.
+				for u, cond in pairs(t.checkedUnits) do
+					local ok
+					if (cond == "never") then
+						ok = false
+					else
+						local unit, needsExists
+						if (SpecialUnits[u]) then
+							unit = UnitMap[u]
+							needsExists = CustomUnits[u]
+						else
+							unit = u
+							needsExists = true
+						end
+
+						if (not unit) then
+							ok = (cond == false)
+						elseif (cond == "help") then
+							ok = ClickUnitAssist[unit]
+							if (ok == nil) then
+								ok = PlayerCanAssist(unit) and true or false
+								ClickUnitAssist[unit] = ok
+							end
+						elseif (cond == "harm") then
+							ok = ClickUnitAttack[unit]
+							if (ok == nil) then
+								ok = PlayerCanAttack(unit) and true or false
+								ClickUnitAttack[unit] = ok
+							end
+						else
+							local exists = true
+							if (needsExists) then
+								exists = ClickUnitExists[unit]
+								if (exists == nil) then
+									exists = UnitExists(unit) and true or false
+									ClickUnitExists[unit] = exists
+								end
+							end
+							ok = (cond == exists)
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				winnerIndex = i
+				break
+			end
+		end
+	end
+]==] .. CLICKTIME_VERIFY_SNIPPET .. [==[
+
+	if (not winner) then
+		-- 여기 오면 안 된다. IsKeyAlwaysClickBound가 "끝까지 무조건 액션이 없는" 키를
+		-- 걸러내므로 반드시 하나는 맞아야 한다. 도달했다면 클릭을 취소하는 것이 옳다 -
+		-- 이름을 그대로 두면 게임이 "@<키>"로 속성을 찾고, 그런 것은 없으니 오류도 로그도
+		-- 없이 아무 일도 안 일어난다.
+		return false
+	end
+
+	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
+	if (winner.unit) then
+		self:SetAttribute("unit", winner.unit)
+	elseif (winner.unitAlias) then
+		self:SetAttribute("unit", UnitMap[winner.unitAlias])
+	end
+
+	return winner.clickbutton
 ]==]));
 
 BindingDriver:SetAttribute("ClearClickBindings", [==[
@@ -631,6 +972,18 @@ else
 			end
 		end
 	end
+end
+
+--- 클릭 시점 평가와 옛 경로의 판정이 갈렸다. DEBUG 빌드에서만 불린다.
+---
+--- `expected`가 참이면 hover나 유닛 조건이 얽힌 것이라 **갈리는 게 정상**이다 - 옛 경로는
+--- 최대 0.2초 묵은 값을 보고, 이쪽은 지금 값을 본다. 그 빈도가 이 공사의 성과 지표다.
+--- 거짓이면 양쪽이 같은 캐시 값을 읽었는데도 답이 달랐다는 뜻이고, **그건 버그다.**
+function BindingDriver:OnClickTimeMismatch(button, liveIndex, cachedIndex, expected)
+	DebindPrivate.log(format("%s[Debind/clicktime]|r %s  live=%s cached=%s%s",
+		expected and "|cff888888" or "|cffff4444",
+		tostring(button), tostring(liveIndex), tostring(cachedIndex),
+		expected and "  (hover/유닛 - 정상)" or "  <- 같은 값을 읽고 답이 갈렸다"));
 end
 
 function BindingDriver:OnSpecialUnitChanged(alias, value)

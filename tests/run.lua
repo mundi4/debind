@@ -37,6 +37,7 @@ local specs = {
     { name = "catalog", path = root .. "/catalog_spec.lua" },
     { name = "migration", path = root .. "/migration_spec.lua" },
     { name = "issue", path = root .. "/issue_spec.lua" },
+    { name = "clicktime", path = root .. "/clicktime_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};

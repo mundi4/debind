@@ -13,6 +13,16 @@ Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
 Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 
+-- 키를 누른 순간 보안 스니펫이 조건을 평가해 액션을 고르는 경로. 끄면 라우팅이 전부 멈추고
+-- 모든 키가 상태 구동(옛 경로)으로 돌아간다 - 회귀가 보이면 여기부터 뒤집어 볼 것.
+-- 어느 키가 이 경로로 가는지는 `IsKeyAlwaysClickBound`가 정한다.
+Constants.CLICK_TIME_EVAL                 = true;
+
+-- 클릭 시점 키를 클릭 프레임에 걸 때 쓰는 버튼 이름의 접두사. 래퍼가 이 이름을 보고
+-- 자기 키인지 가른 다음 이긴 액션의 이름으로 바꿔 반환한다.
+-- `NextButtonName`의 "deb<n>"과 겹치지 않기만 하면 된다.
+Constants.CLICKTIME_BUTTON_PREFIX         = "@";
+
 
 -- Action Types
 Constants.SPELL                           = "spell";

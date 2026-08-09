@@ -254,6 +254,7 @@ end
 self:RunAttribute("ClearClickBindings")
 self:RunAttribute("ClearUnitAttributes")
 wipe(BindingsMap)
+wipe(ClickTimeKeys)
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)
@@ -632,6 +633,7 @@ function UpdateBindingsMap()
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClick;
         local hasNonClick;
+        local hasPressAndHold;
 
         for i = 1, #bindingArray do
             local binding = bindingArray[i];
@@ -662,9 +664,33 @@ function UpdateBindingsMap()
                 binding.isClick, binding.isNonClick = false, false;
             end
 
+            -- 유지·시전 주문은 클릭 시점 라우팅에서 뺀다. 게이트가 `pressAndHoldAction`을
+            -- **맨이름으로만** 읽어서(SecureTemplates.lua의 SecureButton_GetAttribute) 버튼
+            -- 이름 교체로는 못 나르기 때문이다. B-11 수선이 그 액션들을 전용 프레임으로
+            -- 옮길 예정이라 지금은 옛 경로에 남겨 둔다.
+            --
+            -- `SetBindingAttributes`도 SPELL 갈래에서 같은 것을 묻지만 **캐시 적중이면 그
+            -- 블록을 통째로 건너뛴다.** 그쪽 값에 기대면 두 번째 바인딩부터 조용히 새므로
+            -- 여기서 따로 센다.
+            if (binding.isNonClick and binding.type == Constants.SPELL
+                    and IsPressHoldReleaseSpell(binding.value)) then
+                hasPressAndHold = true;
+            end
+
             hasClick = hasClick or binding.isClick;
             hasNonClick = hasNonClick or binding.isNonClick;
         end
+
+        -- **이 키의 "어느 액션인가"를 클릭 시점으로 내릴 수 있는가.**
+        --
+        -- 판정은 반드시 위 전처리 루프가 끝난 뒤다. `isNonClick`이 거기서 정해지고, 걸 수단이
+        -- 없어 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지
+        -- 않는데 회귀는 안 나므로 알아채기 어렵다.
+        --
+        -- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
+        -- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
+        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick and not hasPressAndHold
+                and DebindPrivate.IsKeyAlwaysClickBound(bindingArray);
 
         local first = true;
 
@@ -698,6 +724,24 @@ function UpdateBindingsMap()
                             end
                             if (clickbutton) then
                                 appendKeyValue("clickbutton", clickbutton);
+                            end
+                        end
+
+                        -- **대상은 여기서만 BindingsMap에 실린다.**
+                        --
+                        -- 옛 경로는 대상을 delegate 프레임의 맨이름 `unit`으로 나르므로
+                        -- 실어 보낼 필요가 없었다. 클릭 시점 경로는 `DefaultClickFrame`
+                        -- 하나에 걸고 래퍼가 클릭 순간에 맨이름으로 넣기 때문에 어느 대상인지를
+                        -- 스니펫이 알아야 한다.
+                        --
+                        -- 범위를 `GetDelegateFrame`(Debind.lua:61)과 정확히 맞춘다. 그 밖의
+                        -- 값은 옛 경로에서도 delegate가 없어 대상이 조용히 사라지므로, 여기서
+                        -- 안 내보내는 것이 곧 현행 유지다. `""`(hover인데 재타겟 금지)도 같다.
+                        if (clickTime and isNonClick and binding.unit and binding.unit ~= "") then
+                            if (SPECIAL_UNITS[binding.unit]) then
+                                appendKeyValue("unitAlias", binding.unit);
+                            elseif (BASIC_UNITS[binding.unit]) then
+                                appendKeyValue("unit", binding.unit);
                             end
                         end
 
@@ -883,6 +927,23 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
         end
         if (hasNonClick) then
             appendLine("bindings.hasNonClick=true");
+        end
+
+        -- 클릭 시점 키를 배선한다. **여기서 한 번 걸고 끝이다.**
+        --
+        -- 어느 액션인지가 상태에 안 달렸으므로 다시 걸 일이 없다. 그래서 보안 쪽
+        -- `UpdateBindings` 루프가 아니라 이 스니펫에서 직접 건다 - 그쪽은 상태가 바뀔 때마다
+        -- 도는 자리라 한 번이면 되는 일을 둘 이유가 없다.
+        --
+        -- 순서는 맞다: 이 스니펫은 `ClearOverrideBindings` 뒤에 실행된다.
+        --
+        -- 버튼 이름에 키를 그대로 실어 보내는 이유는 래퍼가 `self`와 `button`만 받기
+        -- 때문이다. 이름으로 `ClickTimeKeys`를 찾아 그 키의 바인딩 목록을 얻는다.
+        if (clickTime and not first) then
+            local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
+            appendLine("bindings.clickTime=true");
+            appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
+            appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key, clickTimeButton);
         end
     end
 
