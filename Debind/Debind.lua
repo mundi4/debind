@@ -98,6 +98,15 @@ DebindPrivate.KeyMap                 = {};
 DebindPrivate.ActiveActions          = {};
 DebindPrivate.BindingInfoToActionMap = {};
 
+--- 클릭 시점 평가로 보낸 키. `키 -> 클릭 프레임에 건 버튼 이름`.
+--- 보안 쪽 `ClickTimeKeys`는 같은 것을 버튼 이름으로 색인한 것이다(래퍼가 그 방향으로 찾는다).
+--- 여기 없는 키는 옛 경로에 있다.
+---
+--- **재할당하지 말 것.** DevTool이 이 참조를 들고 있으므로 갈아치우면 그쪽이 옛 표를 계속
+--- 본다. 갱신은 `wipe` 후 채우기다.
+DebindPrivate.ClickTimeKeys          = {};
+dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
+
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;

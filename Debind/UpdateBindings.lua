@@ -119,6 +119,7 @@ local _updateFlags       = {};
 local _mergedUnits       = {};
 
 local function ResetContext()
+    wipe(DebindPrivate.ClickTimeKeys);
     wipe(_macrotexts);
     wipe(_macrotextBindings);
     wipe(_customStates);
@@ -941,6 +942,7 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
         -- 때문이다. 이름으로 `ClickTimeKeys`를 찾아 그 키의 바인딩 목록을 얻는다.
         if (clickTime and not first) then
             local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
+            DebindPrivate.ClickTimeKeys[key] = clickTimeButton;
             appendLine("bindings.clickTime=true");
             appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
             appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key, clickTimeButton);
