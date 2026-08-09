@@ -833,9 +833,9 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	-- 어느 프레임을 hover 중인지는 enter/leave 이벤트로만 알 수 있어 캐시지만, 그 프레임의
 	-- unit과 반응은 지금 다시 읽는다 - 폴링이 놓치는 창이 여기서 닫힌다.
 	local unitframe = States.unitframe
-	local hoverReaction, hoverFrameType
+	local hoverUnit, hoverReaction, hoverFrameType
 	if (unitframe) then
-		local hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
 			if (PlayerCanAssist(hoverUnit)) then
 				hoverReaction = CONSTANTS.REACTION_HELP
@@ -847,6 +847,7 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 			hoverFrameType = unitframe.frameType
 		else
 			unitframe = nil
+			hoverUnit = nil
 		end
 	end
 
@@ -932,7 +933,12 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 						ok = false
 					else
 						local unit, needsExists
-						if (SpecialUnits[u]) then
+						if (u == "hover") then
+							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitMap["hover"]는
+							-- 캐시라 여기서만 그걸 보면 hover 조건과 다른 유닛을 판정하게
+							-- 된다. 대상도 같은 값을 쓴다(아래 SetAttribute).
+							unit = hoverUnit
+						elseif (SpecialUnits[u]) then
 							unit = UnitMap[u]
 							needsExists = CustomUnits[u]
 						else
@@ -992,8 +998,18 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	end
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
+	--
+	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitMap["hover"]는 enter와 폴링이
+	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
+	-- 캐시에서 가져오면 **판정한 유닛과 시전 대상이 갈린다** - 우호로 판정해 놓고 옛 유닛에
+	-- 쏘는 것이다. 옛 경로는 둘 다 캐시라 적어도 일관됐으니 그보다 나빠진다.
+	--
+	-- 우호/적대로 효과가 갈리는 주문(참회 같은)에서는 이게 "액션이 안 나감"이 아니라
+	-- **"다른 액션이 나감"**이고 되돌릴 수 없다. 반드시 같은 유닛이어야 한다.
 	if (winner.unit) then
 		self:SetAttribute("unit", winner.unit)
+	elseif (winner.unitAlias == "hover" and hoverUnit) then
+		self:SetAttribute("unit", hoverUnit)
 	elseif (winner.unitAlias) then
 		self:SetAttribute("unit", UnitMap[winner.unitAlias])
 	end
