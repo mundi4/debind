@@ -26,6 +26,14 @@ local GetMountInfoByID                   = C_MountJournal.GetMountInfoByID;
 
 local BindingAttrsCache                  = {};
 
+--- 버튼 이름 -> 그 이름으로 `*typerelease-`를 구웠는가.
+---
+--- **구운 사실과 같은 출처에서 읽어야 한다.** 래퍼는 맨이름 `pressAndHoldAction`을 이 값으로
+--- 쓰는데, 그걸 `IsPressHoldReleaseSpell`로 매번 다시 물으면 캐시 적중으로 속성을 안 건드린
+--- 경우와 어긋난다. 그러면 눌러서 시작은 되는데 `*typerelease-`가 없어서 **안 놓인다.**
+--- (500행 주석의 그 질문 - 특성으로 값이 바뀌는 경우)
+local BindingPressHoldCache              = {};
+
 local STATE_EVAL_STRING_FORMAT           = [[SecureCmdOptionParse(%q) and true or false]];
 
 local STATE_EVAL_EXPRESSIONS             = {
@@ -498,10 +506,16 @@ function SetBindingAttributes(type, value, unit)
             end
 
             -- what if 'IsPressHoldReleaseSpell' value is changed by a talent or something? is there a such situation?
+            --
+            -- 그렇다면 이 블록이 캐시 적중으로 통째로 건너뛰어지는 것이 문제가 된다. 답이
+            -- 바뀌어도 `*typerelease-`는 옛날 그대로다. 그래서 **구웠다는 사실 자체를 남긴다** -
+            -- 래퍼가 맨이름 `pressAndHoldAction`을 쓸 때 이 값을 보므로, 다시 물어서 답이
+            -- 달라지면 "시작은 되는데 안 놓이는" 상태가 된다.
             local isPressAndHold = IsPressHoldReleaseSpell(value);
             if (isPressAndHold) then
                 clickframe:SetAttribute("*typerelease-" .. buttonname, "spell");
                 clickframe:SetAttribute("*pressAndHoldAction-" .. buttonname, true);
+                BindingPressHoldCache[buttonname] = true;
             end
         elseif (type == Constants.ITEM) then
             value = format("item:%d", value);
@@ -591,7 +605,7 @@ function SetBindingAttributes(type, value, unit)
         addMacrotextBinding(buttonname, value);
     end
 
-    return delegate or clickframe, buttonname;
+    return delegate or clickframe, buttonname, BindingPressHoldCache[buttonname];
 end
 
 local UnitStateFlags = {
@@ -641,7 +655,8 @@ function UpdateBindingsMap()
             local binding = bindingArray[i];
             binding.isClick = button ~= nil and binding.type ~= Constants.COMMAND and (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover");
             binding.isNonClick = button == nil or not binding.hover;
-            binding.clickframe, binding.clickbutton = SetBindingAttributes(binding.type, binding.value, binding.unit);
+            binding.clickframe, binding.clickbutton, binding.pressAndHold =
+                    SetBindingAttributes(binding.type, binding.value, binding.unit);
 
             -- **나갈 수단이 없는 바인딩은 여기서 떨군다.**
             --
@@ -730,8 +745,7 @@ function UpdateBindingsMap()
                         -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
                         -- `typerelease` 조회가 nil이라 아무 일도 안 나므로 붙들 이유가 없고,
                         -- 괜히 붙들면 낡은 판단을 재사용하게 된다.
-                        if (clickTime and isNonClick and binding.type == Constants.SPELL
-                                and IsPressHoldReleaseSpell(binding.value)) then
+                        if (clickTime and isNonClick and binding.pressAndHold) then
                             appendKeyValue("pressAndHold", true);
                         end
 
