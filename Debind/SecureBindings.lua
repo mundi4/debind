@@ -1045,10 +1045,21 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	local unit
 	if (winner.unit) then
 		unit = winner.unit
-	elseif (winner.unitAlias == "hover") then
-		unit = hoverUnit
 	elseif (winner.unitAlias) then
-		unit = UnitMap[winner.unitAlias]
+		if (winner.unitAlias == "hover") then
+			unit = hoverUnit
+		else
+			unit = UnitMap[winner.unitAlias]
+		end
+
+		-- **안 풀리면 존재하지 않는 유닛을 넣는다.** nil로 두면 대상이 없는 것이 되어
+		-- `checkselfcast`류가 끼어들거나 현재 대상에 그냥 나간다 - `@tank`를 걸어둔 채
+		-- 혼자 있을 때 엉뚱한 데 시전된다.
+		--
+		-- 옛 경로는 delegate가 `unit or "raid41"`을 들고 있어서(`SetUnit`) 게임이
+		-- `GetConvertedButtonUnitAndActionType`의 `UnitExists` 검사에서 중단했다.
+		-- 아무 일도 안 일어나는 것이 맞는 동작이고, 같은 자리를 지킨다.
+		unit = unit or "raid41"
 	end
 	self:SetAttribute("unit", unit)
 
@@ -1058,7 +1069,13 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	--
 	-- 이게 켜지면 게이트가 `useOnKeyDown`을 CVar와 무관하게 강제로 참으로 만든다(813) -
 	-- **누를 때 시작하고 뗄 때 놓는다.** 액션바가 하는 것과 같아진다.
-	self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+	--
+	-- **down에서만 켠다.** up에서 다시 골라 나온 승자가 press-hold라고 여기서 켜면,
+	-- 게이트가 `clickAction`을 거짓으로 만들고 `releasePressAndHoldAction`으로 넘어가
+	-- **누른 적 없는 주문의 `typerelease`가 나간다.** 놓기는 위의 캐리 자리에서만 켠다.
+	if (down) then
+		self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+	end
 
 	-- 위 "놓는 엣지"가 재사용할 자리. **down에서 반드시 확정한다. 조건부로 기록만 하면
 	-- 안 된다.** up 엣지가 온다는 보장이 없어서다 - 창 포커스를 잃거나, 누른 채로 리빌드가
@@ -1075,5 +1092,16 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	end
 
 	return winner.clickbutton
-]==]));
+]==]), [==[
+	-- 클릭이 끝난 뒤. **맨이름 `pressAndHoldAction`을 반드시 지운다.**
+	--
+	-- delegate 프레임들은 이 프레임의 자식이고 `useparent*`가 켜져 있다. `unit`은
+	-- `useparent-unit=false`로 막아뒀지만 이건 안 막혀 있어서, 켜둔 채로 두면 **delegate로
+	-- 걸린 옛 경로 키들이 그 값을 물려받는다.** 그 키들은 이 래퍼를 안 거치므로 스스로 지울
+	-- 방법이 없고, 결과는 CVar와 무관하게 down에서 발동하고 `typerelease`까지 한 번 더 나가는
+	-- 것이다 - 위의 `PlayerIsChanneling` 가드도 없이.
+	--
+	-- preBody에서 지울 수는 없다. 게이트가 그 뒤에 읽는다.
+	self:SetAttribute("pressAndHoldAction", nil)
+]==]);
 
