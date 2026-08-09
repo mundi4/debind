@@ -845,9 +845,21 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	if (not down) then
 		local held = HeldButtons[button]
 		if (held) then
+			local heldUnit = HeldUnits[button]
 			HeldButtons[button] = nil
-			self:SetAttribute("unit", HeldUnits[button])
 			HeldUnits[button] = nil
+
+			-- **놓을 것이 남아 있을 때만 놓는다.** `typerelease`는 "놓기"라는 동작이 아니라
+			-- 그냥 그 주문을 다시 시전하는 것이다(`SECURE_ACTIONS.spell` -> `CastSpellByID`).
+			-- 시전 중이면 그게 놓기가 되지만, 이미 끝난 뒤라면 **새 시전**이 된다.
+			--
+			-- 실제로 밟았다: 누른 채로 시전이 끝나고 재사용 대기시간까지 지난 뒤에 떼면
+			-- 주문이 한 번 더 나갔다.
+			if (not PlayerIsChanneling()) then
+				return false
+			end
+
+			self:SetAttribute("unit", heldUnit)
 			self:SetAttribute("pressAndHoldAction", true)
 			return held.clickbutton
 		end
