@@ -256,8 +256,6 @@ self:RunAttribute("ClearClickBindings")
 self:RunAttribute("ClearUnitAttributes")
 wipe(BindingsMap)
 wipe(ClickTimeKeys)
-wipe(HeldButtons)
-wipe(HeldUnits)
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)
@@ -318,12 +316,6 @@ wipe(States)
     end
 
     SecureHandlerExecute(DebindPrivate.BindingDriver, format("HoverBindings=%s", tostring(_states.unitframe and true or false)));
-
-    -- 래퍼가 **어느 엣지가 실행 엣지인지** 알아야 하는데 제한 환경에서는 CVar를 못 읽는다.
-    -- 값이 바뀌면 `Events.CVAR_UPDATE`가 재빌드를 걸므로(ActionButtonUseKeyDown 감시) 여기서
-    -- 실어 보내는 것으로 최신이 유지된다.
-    SecureHandlerExecute(DebindPrivate.BindingDriver,
-        format("UseOnKeyDown=%s", ACTION_BUTTON_USE_KEY_DOWN and "true" or "false"));
 
     if (_states.unitframe or _states.reaction or _unitStates.mouseover) then
         SecureStateDriverManager:RegisterEvent("UPDATE_MOUSEOVER_UNIT");
@@ -642,6 +634,7 @@ function UpdateBindingsMap()
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClick;
         local hasNonClick;
+        local hasPressAndHold;
 
         for i = 1, #bindingArray do
             local binding = bindingArray[i];
@@ -672,6 +665,31 @@ function UpdateBindingsMap()
                 binding.isClick, binding.isNonClick = false, false;
             end
 
+            -- 유지·시전 주문은 클릭 시점 라우팅에서 뺀다. **지금 라우팅해도 안전하다** -
+            -- B-11(게이트가 `pressAndHoldAction`을 맨이름으로만 읽어서 버튼별로 구운 것이
+            -- 안 닿는 것) 때문에 `useOnKeyDown`이 CVar 값 그대로고, 결국 한쪽 엣지에서만
+            -- 액션이 나가 평범한 액션과 다를 게 없기 때문이다.
+            --
+            -- 빼는 이유는 **press-and-hold가 어떻게 끝나는지를 아직 확인 못 했기 때문**이다.
+            --
+            -- 한 번 넣었다가 되돌렸다. 라우팅하면 CVar에 따라 양쪽 엣지가 다 실행될 수 있어
+            -- down의 선택을 up이 재사용하는 캐리를 붙였는데, 그 캐리가 **"키를 떼는 것이 곧
+            -- release"** 라는 전제 위에 있었다. 그건 사실이 아니다 - 주문은 저절로 끝나기도
+            -- 하고 끊기기도 하고 강화 창이 만료되기도 한다. 시전이 이미 끝났는지 알 방법도,
+            -- 기록해둔 선택을 무를 방법도 없이 클릭 경로에 들어가 있었다.
+            --
+            -- 확인되지 않은 전제 위에 세운 것을 클릭 경로에 두지 않는다. 게임에서 강화 주문을
+            -- 실제로 눌러 어느 엣지에서 무엇이 나가는지 보고, B-11 수선과 한 덩어리로 다시
+            -- 한다. 그때까지 이 키들은 옛 경로에 남는다.
+            --
+            -- `SetBindingAttributes`도 SPELL 갈래에서 같은 것을 묻지만 **캐시 적중이면 그
+            -- 블록을 통째로 건너뛴다.** 그쪽 값에 기대면 두 번째 바인딩부터 조용히 새므로
+            -- 여기서 따로 센다.
+            if (binding.isNonClick and binding.type == Constants.SPELL
+                    and IsPressHoldReleaseSpell(binding.value)) then
+                hasPressAndHold = true;
+            end
+
             hasClick = hasClick or binding.isClick;
             hasNonClick = hasNonClick or binding.isNonClick;
         end
@@ -684,7 +702,7 @@ function UpdateBindingsMap()
         --
         -- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
         -- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
-        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick
+        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick and not hasPressAndHold
                 and DebindPrivate.IsKeyAlwaysClickBound(bindingArray);
 
         local first = true;
@@ -732,15 +750,6 @@ function UpdateBindingsMap()
                         -- 범위를 `GetDelegateFrame`(Debind.lua:61)과 정확히 맞춘다. 그 밖의
                         -- 값은 옛 경로에서도 delegate가 없어 대상이 조용히 사라지므로, 여기서
                         -- 안 내보내는 것이 곧 현행 유지다. `""`(hover인데 재타겟 금지)도 같다.
-                        -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의
-                        -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
-                        -- `typerelease` 조회가 nil이라 아무 일도 안 나므로 붙들 이유가 없고,
-                        -- 괜히 붙들면 낡은 판단을 재사용하게 된다.
-                        if (clickTime and isNonClick and binding.type == Constants.SPELL
-                                and IsPressHoldReleaseSpell(binding.value)) then
-                            appendKeyValue("pressAndHold", true);
-                        end
-
                         if (clickTime and isNonClick and binding.unit and binding.unit ~= "") then
                             if (SPECIAL_UNITS[binding.unit]) then
                                 appendKeyValue("unitAlias", binding.unit);

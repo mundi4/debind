@@ -73,14 +73,6 @@ SecureHandlerExecute(BindingDriver, [[
 	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
 	ClickTimeKeys = newtable()
 
-	-- 실행 엣지가 down일 때 down의 선택을 up이 재사용하기 위한 자리. 버튼 이름 -> 이긴 레코드,
-	-- 그리고 그때 확정한 대상. down이 항상 먼저 오므로 덮어쓰기로 자가 치유된다.
-	HeldButtons = newtable()
-	HeldUnits = newtable()
-
-	-- 어느 엣지가 실행 엣지인가. 제한 환경에서는 CVar를 못 읽으므로 리빌드가 실어 보낸다.
-	UseOnKeyDown = false
-
 	-- 래퍼가 클릭 안에서 쓰는 메모. **클릭 경로에서는 newtable()을 부르지 않는다** -
 	-- GC 스파이크는 평균 비용보다 아프게 나타난다. 그래서 미리 만들어 두고 재사용한다.
 	-- 같은 유닛을 여러 레코드가 물을 때 C 호출이 반복되는 것을 막는다.
@@ -837,22 +829,6 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 		return
 	end
 
-	-- 실행 엣지가 down이면 up에서 `typerelease`가 한 번 더 나간다. **그때는 다시 고르면 안 된다** -
-	-- down에서 A를 시전하고 up에서 B를 놓으면 A가 눌린 채로 남는다. 대상도 그때 확정한 값을
-	-- 그대로 쓴다. 조건을 다시 보는 것이 아니라 **같은 액션을 놓는 것**이 이 자리의 일이다.
-	--
-	-- 실행 엣지가 up이면 캐리하지 않는다. 그때는 up이 유일한 실행 엣지라, 키를 오래 누르고
-	-- 있었으면 down의 판단이 오히려 낡은 것이다.
-	if (UseOnKeyDown and not down) then
-		local held = HeldButtons[button]
-		if (held) then
-			HeldButtons[button] = nil
-			self:SetAttribute("unit", HeldUnits[button])
-			HeldUnits[button] = nil
-			return held.clickbutton
-		end
-	end
-
 	-- hover는 루프 밖에서 클릭당 한 번만 푼다. 레코드마다 다시 물으면 같은 C 호출이 반복된다.
 	-- 어느 프레임을 hover 중인지는 enter/leave 이벤트로만 알 수 있어 캐시지만, 그 프레임의
 	-- unit과 반응은 지금 다시 읽는다 - 폴링이 놓치는 창이 여기서 닫힌다.
@@ -1030,33 +1006,12 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	--
 	-- 우호/적대로 효과가 갈리는 주문(참회 같은)에서는 이게 "액션이 안 나감"이 아니라
 	-- **"다른 액션이 나감"**이고 되돌릴 수 없다. 반드시 같은 유닛이어야 한다.
-	local unit
 	if (winner.unit) then
-		unit = winner.unit
-	elseif (winner.unitAlias == "hover") then
-		unit = hoverUnit
+		self:SetAttribute("unit", winner.unit)
+	elseif (winner.unitAlias == "hover" and hoverUnit) then
+		self:SetAttribute("unit", hoverUnit)
 	elseif (winner.unitAlias) then
-		unit = UnitMap[winner.unitAlias]
-	end
-	self:SetAttribute("unit", unit)
-
-	-- 실행 엣지가 down이면 up이 이 선택을 그대로 재사용한다(위 캐리).
-	--
-	-- `typerelease`가 구워진 액션에만 건다 - 그 밖의 액션은 up에서 조회가 nil이라 아무 일도
-	-- 안 나므로 붙들 이유가 없고, 붙들면 낡은 판단을 재사용하는 쪽이 손해다.
-	--
-	-- **down에서 반드시 확정한다. 조건부로 기록만 하면 안 된다.** up 엣지가 온다는 보장이
-	-- 없어서다 - 창 포커스를 잃거나, 누른 채로 리빌드가 돌거나, 바인딩이 바뀌면 안 온다.
-	-- 그러면 앞의 기록이 남고, 다음에 press-hold가 아닌 액션을 눌렀다 뗄 때 그 낡은 것이
-	-- 재사용된다. 맨이름 속성과 같은 규칙이다.
-	if (UseOnKeyDown and down) then
-		if (winner.pressAndHold) then
-			HeldButtons[button] = winner
-			HeldUnits[button] = unit
-		else
-			HeldButtons[button] = nil
-			HeldUnits[button] = nil
-		end
+		self:SetAttribute("unit", UnitMap[winner.unitAlias])
 	end
 
 	return winner.clickbutton
