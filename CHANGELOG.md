@@ -1,3 +1,13 @@
+# 3.1.1
+
+**A key could stop working because of a condition on a different key.**
+
+Under an action's **Units** menu, if one action was set to *When the unit exists* for, say, your focus, and any other action anywhere used that same unit with *When the unit is friendly* or *When the unit is an enemy* instead, the first one quietly stopped matching whenever the focus actually was friendly or an enemy. One such action on its own worked fine, so the fault never looked like it belonged to the condition you had set.
+
+It went further than that one action. Debind marks an action unreachable when a higher-priority one already covers every case it could run in, and it was right that *exists* covers *friendly* — so it removed the lower action as redundant, while the higher one was the one failing to fire. Nothing ran, and nothing said why.
+
+**If you built around this, look at that key again.** An action you put under an *exists* one to catch the friendly case is now genuinely redundant, and the *exists* action will run in its place.
+
 # 3.1
 
 **The addon folder is now named Debind too.** If you missed it, this addon was called Debounce until 3.0 renamed it — and since `/deb` still worked, there was not much to notice. I stopped at the display name on purpose: the folder is where WoW keeps your settings file, so renaming it means putting everyone through a migration, and that seemed like a lot to ask over a name.
