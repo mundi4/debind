@@ -6,6 +6,11 @@ Then I kept opening my AddOns folder and finding `Debounce` still sitting in it.
 
 So this update ships a small companion addon, **Debind Migration**, holding what 3.0 and earlier saved. Debind opens it once per character, moves that character's settings across — bindings, options, window positions — and leaves it alone after that. Keep it enabled: characters you have not logged in on since updating still have their settings in there. If 3.1 is your first install, it never runs at all.
 
+Also in this one:
+
+- **Korean (koKR)** is now translated, in full.
+- A move button that cannot move now says what is holding the action in place, rather than only that something is.
+
 # 3.0
 
 **Debounce is now Debind.** Only the name shown in-game changed — the folder, your saved bindings and `/deb` are all where they were.

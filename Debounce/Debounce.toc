@@ -10,5 +10,10 @@
 ## SavedVariables: DebounceVars
 ## SavedVariablesPerCharacter: DebounceVarsPerChar
 ## Notes: Part of Debind. It holds the settings saved by Debind 3.0 and earlier, which were kept in a different file.|n|nLeaving it enabled costs nothing. It contains no code and does nothing on its own - Debind opens it |cff40ff40once per character|r, moves that character's settings across, and does not open it again. If Debind 3.1 was your first install, it is opened once on your first login, finds nothing to move, and is never opened again.|n|n|cffff2020Do not delete it.|r Characters you have not logged in on since updating still have their settings in here.
+## Notes-koKR: Debind의 일부입니다. Debind 3.0과 그 이전이 저장한 설정을 들고 있습니다. 그때는 설정이 다른 파일에 저장됐습니다.|n|n켜 둔다고 드는 값은 없습니다. 코드가 없어서 혼자서는 아무것도 하지 않습니다 - Debind가 |cff40ff40캐릭터마다 한 번씩|r 열어서 그 캐릭터의 설정을 옮기고, 그 뒤로는 다시 열지 않습니다. Debind 3.1이 첫 설치라면 처음 접속할 때 한 번 열려 옮길 것이 없음을 확인하고 다시는 열리지 않습니다.|n|n|cffff2020지우지 마십시오.|r 업데이트 후 아직 접속하지 않은 캐릭터의 설정이 여기 남아 있습니다.
 
 # No code. The two SavedVariables lines above are the whole addon. Why it exists: Debind/Legacy.lua
+#
+# Notes-koKR만 번역돼 있다. koKR은 애드온 문자열이 전부 번역돼 있는데(3.1) 여기만 영어로
+# 남으면, **"지우지 마십시오"가 이 릴리스에서 제일 값비싼 한 문장**이라 하필 그것이 안 읽힌다.
+# ruRU는 문자열만 번역돼 있고 TOC Notes는 번역자에게 받은 적이 없어 영어를 그대로 쓴다.

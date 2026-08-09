@@ -13,6 +13,7 @@
 ## AddonCompartmentFuncOnEnter: Debind_CompartmentOnEnter
 ## AddonCompartmentFuncOnLeave: Debind_CompartmentOnLeave
 ## Notes: Set a keybind once for every character, then override it on one class, one specialization, or one character.|n|nSlash Command: |cffffff00/deb|r
+## Notes-koKR: 단축키를 한 번만 지정해 모든 캐릭터에서 쓰고, 특정 직업·전문화·캐릭터에서만 다르게 덮어씁니다.|n|n명령어: |cffffff00/deb|r
 ## X-Curse-Project-ID: 970278
 
 libs.xml

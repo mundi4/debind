@@ -3,6 +3,7 @@
 ..\FrameXML\UI.xsd">
 
     <Script file="Locales/enUS.lua"/>
+    <Script file="Locales/koKR.lua"/>
     <Script file="Locales/ruRU.lua"/>
     
 </Ui>

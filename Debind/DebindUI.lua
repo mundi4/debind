@@ -1297,9 +1297,6 @@ function DebindLineMixin:Update()
 	local issue = not isInactive and GetBindingIssue(action) or nil;
 
 	local name, icon = ColoredNameAndIconForAction(action, "key");
-	if (DebindPrivate.DEBUG) then
-		name = format("%s (%d)", name, elementData.index)
-	end
 	self.Name:SetText(name);
 
 	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then

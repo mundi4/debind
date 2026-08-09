@@ -20,25 +20,34 @@ const BASE = "enUS";
 const ALLOWED_MISSING = {
     // enUS는 클라이언트 전역 NOT_BOUND를 담는다. 다른 로케일에서는 그 전역이 이미
     // 제 나라 말이라 따로 번역할 것이 없다.
-    OVERVIEW_NO_KEY: ["ruRU"],
+    OVERVIEW_NO_KEY: ["koKR", "ruRU"],
     // 같은 이유. 클라이언트 전역 ESCAPE_TO_UNBIND를 그대로 받는다.
-    BIND_MODE_UNBIND_HINT: ["ruRU"],
+    BIND_MODE_UNBIND_HINT: ["koKR", "ruRU"],
 };
 
 // `L["KEY"] = ...` 형태만 센다. 주석(`-- L["X"]`)은 안 잡히도록 줄 앞을 고정한다.
-const ASSIGN = /^L\["([^"]+)"\]\s*=/gm;
+const ASSIGN = /^L\["([^"]+)"\]\s*=\s*(.*)$/gm;
+
+// **키가 맞아도 서식이 어긋나면 그 줄은 터진다.** 빠진 키와 달리 조용하지도 않다 -
+// `format()`이 인자를 못 찾으면 그 자리에서 Lua 오류가 나고, 번역한 사람은 자기 클라이언트로
+// 그 화면을 열어본 적이 없다. koKR을 통째로 넣으면서(3.1) 손으로 대조하던 것을 검사로 내린다.
+//
+// `%%`는 리터럴 퍼센트라 인자를 안 먹으므로 센 다음 뺀다.
+const SPEC = /%(\d+\$)?[-+ #0]*\d*(\.\d+)?[sdfxXqcieg%]/g;
 
 function readKeys(file) {
     const src = fs.readFileSync(file, "utf8");
     const keys = new Set();
     const dupes = [];
+    const specs = new Map();
     for (const m of src.matchAll(ASSIGN)) {
         if (keys.has(m[1])) {
             dupes.push(m[1]);
         }
         keys.add(m[1]);
+        specs.set(m[1], (m[2].match(SPEC) || []).filter((s) => s !== "%%"));
     }
-    return { keys, dupes };
+    return { keys, dupes, specs };
 }
 
 const files = fs.readdirSync(localesDir).filter((f) => f.endsWith(".lua"));
@@ -57,7 +66,15 @@ for (const file of files) {
         continue;
     }
 
-    const { keys, dupes } = readKeys(path.join(localesDir, file));
+    const { keys, dupes, specs } = readKeys(path.join(localesDir, file));
+
+    // 순서까지 본다. 자리표시자 둘이 뒤집힌 번역은 오류 없이 **틀린 값을 두 자리에 꽂는다**
+    // (`ORDER_WHY_LAYER`의 "%s over %s"가 그런 모양이다). `%1$s`를 쓸 생각이면 여기가 아니라
+    // enUS부터 그렇게 쓸 것 - 한쪽만 번호를 붙이면 그것도 어긋남으로 잡힌다.
+    const badSpecs = [...base.specs]
+        .filter(([k]) => keys.has(k))
+        .map(([k, want]) => [k, want.join(""), specs.get(k).join("")])
+        .filter(([, want, got]) => want !== got);
 
     const missing = [...base.keys]
         .filter((k) => !keys.has(k))
@@ -85,8 +102,15 @@ for (const file of files) {
             console.log(`  - ${k}`);
         }
     }
-    if (missing.length === 0 && stale.length === 0 && dupes.length === 0) {
-        console.log(`${locale}: 키 ${keys.size}개, ${BASE}와 일치.`);
+    if (badSpecs.length > 0) {
+        failed = true;
+        console.log(`${locale}: 서식 지정자가 ${BASE}와 다른 키 ${badSpecs.length}개`);
+        for (const [k, want, got] of badSpecs) {
+            console.log(`  - ${k}: ${BASE}는 [${want || "없음"}], 여기는 [${got || "없음"}]`);
+        }
+    }
+    if (missing.length === 0 && stale.length === 0 && dupes.length === 0 && badSpecs.length === 0) {
+        console.log(`${locale}: 키 ${keys.size}개, 서식까지 ${BASE}와 일치.`);
     }
 }
 

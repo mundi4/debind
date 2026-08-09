@@ -220,8 +220,13 @@ L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Click to go to this action and edit it there."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
-L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first."
-L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- their own bindings are not loaded this session."
+L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
+-- 끝의 이유절은 **3.1에서 거짓이 됐다.** 3.0까지는 캐릭터 전용 지정이 진짜 캐릭터별
+-- SavedVariables(`DebounceVarsPerChar`)에 있어서 "이번 세션에 안 불러와졌다"가 사실이었다.
+-- 지금은 전부 계정 파일 하나(`DebindVars.characters[guid]`)에 있어서 디스크에서는 다 올라온다 -
+-- 창이 레이어로 짓는 것이 이 캐릭터 몫뿐일 뿐이다(`Profile.lua`의 `InitDB`).
+-- 결과("여기서 보여줄 수 없다")는 그대로 참이라 이유만 바꾼다.
+L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- this window only ever builds the bindings of the character you are on."
 L["OVERVIEW"] = "Overview"
 -- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 규칙 셋(키 걸린 것만 / 키로 묶임 / 지금
 -- 캐릭터·특성 붙박이)을 말할 자리가 여기밖에 없다. 셋째 문장이 있는 이유는 오른쪽에서
@@ -241,17 +246,38 @@ L["ORDER_MOVE_DOWN"] = "Run Later"
 L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key. Nothing else about it changes."
 L["ORDER_BLOCKED_ALREADY_FIRST"] = "This action already runs first on this key."
 L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
-L["ORDER_BLOCKED_CONDITIONAL"] = "One of them only runs in specific situations."
-L["ORDER_BLOCKED_HOVER"] = "One of them only runs while hovering a unit frame."
-L["ORDER_BLOCKED_LAYER"] = "They are in different scopes."
-L["ORDER_BLOCKED_PRIORITY"] = "They have different importance."
+-- 아래 넷은 위의 ALREADY_* 둘과 **틀이 다르다.** 저 둘은 그 자체로 막는 이유이고 주어도
+-- 제 안에 있다("This action already runs first"). 이 넷은 **두 액션 사이의 관계**라, 한때
+-- "They have different importance."처럼 관계만 적어놨었다 - 그런데 이 툴팁은 죽은 버튼 하나에
+-- 딸려 뜨고 두 번째 액션을 꺼낸 적이 없다. they가 누구인지 화면 어디에도 없었다.
+--
+-- 그래서 셋을 한 문장에 담는다: **막혔다는 것**(제목과 설명은 일어날 일을 말하는데 그 일은
+-- 안 일어난다), **누구와 누구인지**, 그리고 **무엇이 순서를 정하고 있는지**. 마지막이 이
+-- 자리의 값어치다 - UpdateMoveButtons 주석대로 규칙을 가르치는 몇 안 되는 자리다.
+--
+-- "the action next to it"이라고 부르는 이유는 위/아래 버튼이 이 문자열을 같이 쓰기 때문이다.
+-- 위아래를 짚으면 방향마다 문자열을 따로 둬야 하고, 늘어난 만큼 로케일이 갈라진다.
+L["ORDER_BLOCKED_CONDITIONAL"] = "It cannot pass the action next to it -- only one of the two has conditions, and that is compared before the order on this key."
+L["ORDER_BLOCKED_HOVER"] = "It cannot pass the action next to it -- only one of the two runs while hovering a unit frame, and that is compared before the order on this key."
+L["ORDER_BLOCKED_LAYER"] = "It cannot pass the action next to it -- they are in different scopes, and scope is compared before the order on this key."
+L["ORDER_BLOCKED_PRIORITY"] = "It cannot pass the action next to it -- they have different importance, and importance is compared first."
 L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
 L["ORDER_WHY_HOVER"] = "Unit frame rule"
 L["ORDER_WHY_CONDITIONAL"] = "Has conditions"
 L["ORDER_WHY_LAYER"] = "%s over %s"
-L["ORDER_WHY_SEQ"] = "Your order"
+-- 넷이 다 동률일 때 남는 축. **"your order"라고 쓰면 안 된다** - 자리는 키를 걸 때 그 레이어의
+-- 맨 뒤 번호로 자동으로 받는 것이고(Profile.lua의 PlaceLast), 사용자가 고른 적이 없다.
+-- placement/put/set 계열이 전부 같은 이유로 거짓이 된다 - 위아래 버튼을 한 번도 안 누른
+-- 사람에게는 자기가 놓은 자리가 아니다.
+--
+-- 지시문("화살표로 옮기세요")도 못 쓴다. 이 줄은 **버튼이 없는 행에도 뜬다** - 버튼은
+-- isCurrent인 행에만 서는데(UpdateMoveButtons) 이유 줄은 그룹의 마지막 행만 빼고 다 붙는다.
+--
+-- 남는 참말은 "넷이 갈리지 않아 순서 그 자체가 정한다"뿐이다. 축의 이름은 PRIORITY_DESC
+-- 4번이 부르는 그대로 쓴다 - 툴팁이 가르친 사다리와 칸이 같은 낱말로 맞물려야 한다.
+L["ORDER_WHY_SEQ"] = "Order on this key"
 L["PRIORITY"] = "Importance"
 L["PRIORITY1"] = "Very High"
 L["PRIORITY2"] = "High"
@@ -265,7 +291,7 @@ L["REACTION_HARM"] = "Enemy"
 L["REACTION_HELP"] = "Friendly"
 L["REACTION_OTHER"] = "Others"
 -- 순서 목록의 행 툴팁에서 쓰는 이름표. 값은 ORDER_LAYER_LABEL이다.
--- ORDER_BLOCKED_LAYER("They are in different scopes.")와 같은 낱말을 쓴다.
+-- ORDER_BLOCKED_LAYER("...they are in different scopes...")와 같은 낱말을 쓴다.
 L["SCOPE"] = "Scope"
 L["SELECTED_TARGET_UNIT_EMPTY"] = "Assigned Target |cnDISABLED_FONT_COLOR:(None)|r"
 L["SELECTED_TARGET_UNIT"] = "Assigned Target |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
