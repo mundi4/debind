@@ -316,6 +316,71 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 3-1. ComputeOrderSwapForAction
+    --
+    -- 그룹과 자리를 손에 안 들고 액션 하나만 주는 쪽(우클릭 메뉴)의 입구다. 여기서 고정할
+    -- 것은 "그룹을 다시 세워서 같은 답을 내는가"와, **자리를 못 찾았을 때 터지는 대신
+    -- 사유를 내는가** 둘이다 - 저 함수는 "못 하면 이유를 돌려준다"고 약속해 놓은 자리라,
+    -- 없는 액션을 물었을 때 nil 인덱스가 그대로 새면 그 약속이 깨진다.
+    ---------------------------------------------------------------------------
+
+    local ComputeOrderSwapForAction = DebindPrivate.ComputeOrderSwapForAction;
+
+    --- 프로필 없이 이 함수만 본다. `CollectActionsForKey`는 프로필 전체를 훑는 함수라
+    --- (Profile.lua) 여기서는 그 자리에 답을 놓고, 감싼 쪽이 그 답에서 자리를 제대로
+    --- 찾는지만 본다.
+    local function withKeyGroup(groups, fn)
+        local saved = DebindPrivate.CollectActionsForKey;
+        DebindPrivate.CollectActionsForKey = function(key)
+            return groups[key] or {};
+        end;
+        local ok, err = pcall(fn);
+        DebindPrivate.CollectActionsForKey = saved;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    test("액션으로 묻기 - 그 키의 그룹에서 자기 자리를 찾아 이웃을 낸다", function()
+        local a = rec({ name = "a", key = "F1" });
+        local b = rec({ name = "b", key = "F1" });
+        makeLayer(a, b);
+        local rowA, rowB = { action = a }, { action = b };
+
+        withKeyGroup({ F1 = { rowA, rowB } }, function()
+            local neighbor, reason = ComputeOrderSwapForAction(b, UP);
+            check(reason == nil, "막히면 안 됨: " .. tostring(reason));
+            check(neighbor == rowA, "이웃이 a의 행이어야 함");
+
+            neighbor, reason = ComputeOrderSwapForAction(a, UP);
+            check(neighbor == nil and reason == "ALREADY_FIRST", "맨 위는 ALREADY_FIRST여야 함");
+        end);
+    end);
+
+    test("액션으로 묻기 - 키가 없으면 사유를 낸다", function()
+        local a = rec({ name = "a" });
+
+        withKeyGroup({}, function()
+            local neighbor, reason = ComputeOrderSwapForAction(a, UP);
+            check(neighbor == nil and reason == "ALREADY_FIRST", "위로: ALREADY_FIRST여야 함, 받은 값: " .. tostring(reason));
+
+            neighbor, reason = ComputeOrderSwapForAction(a, DOWN);
+            check(neighbor == nil and reason == "ALREADY_LAST", "아래로: ALREADY_LAST여야 함, 받은 값: " .. tostring(reason));
+        end);
+    end);
+
+    test("액션으로 묻기 - 그룹에 없는 액션이어도 터지지 않는다", function()
+        -- 메뉴가 떠 있는 동안 그 액션이 지워지면 실제로 오는 자리다.
+        local ghost = rec({ name = "ghost", key = "F1" });
+        local other = rec({ name = "other", key = "F1" });
+
+        withKeyGroup({ F1 = { { action = other } } }, function()
+            local neighbor, reason = ComputeOrderSwapForAction(ghost, DOWN);
+            check(neighbor == nil and reason == "ALREADY_LAST", "사유를 내야 함, 받은 값: " .. tostring(reason));
+        end);
+    end);
+
+    ---------------------------------------------------------------------------
     -- 막히는 네 축. 각 축은 뜻이 있는 속성이므로 버튼이 아니라 그 속성의 편집기에서
     -- 바뀌어야 한다. 여기서는 "어느 축에서 갈렸는지"를 정확히 집어내는지만 본다.
     ---------------------------------------------------------------------------

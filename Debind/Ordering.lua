@@ -133,6 +133,30 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
     return rows[neighborIndex];
 end
 
+--- 같은 물음을, **그룹과 자리를 손에 들고 있지 않은 쪽**을 위해 감싼 것. 액션만 주면 그 키의
+--- 그룹을 다시 세우고 그 안에서 자기 자리를 찾아서 묻는다.
+---
+--- 우클릭 메뉴가 이 길로 온다. 메뉴는 뜬 채로 목록이 다시 지어질 수 있는 자리라 - 열 때
+--- 붙잡아 둔 그룹은 `UpdateBindings` 한 번이면 순서가 갈린다 - 누를 때 다시 물어야 한다.
+--- 목록 행은 반대다: 그릴 때 이미 그룹과 자리가 손에 있고(`elementData.rows/index`) 그것이
+--- 곧 화면에 그려진 순서라, 저쪽은 `ComputeOrderSwap`을 그대로 부른다.
+---
+--- 키가 없거나 그룹에서 못 찾으면 사유를 낸다. `ComputeOrderSwap`이 범위 밖 인덱스에 대해
+--- 이미 그렇게 답하므로 여기서 따로 갈래를 만들지 않는다.
+function DebindPrivate.ComputeOrderSwapForAction(action, direction)
+    local rows = action.key and DebindPrivate.CollectActionsForKey(action.key) or {};
+
+    local targetIndex;
+    for i, row in ipairs(rows) do
+        if (row.action == action) then
+            targetIndex = i;
+            break;
+        end
+    end
+
+    return DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction);
+end
+
 do
     local SORT_KEYS = {
         LALT = 1,

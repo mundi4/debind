@@ -202,6 +202,146 @@ return function(DebindPrivate)
             "the old CustomTargets changed along with it");
     end);
 
+    -- **The rename reached inside the saved data, not just around it.** "Convert to a Custom Macro"
+    -- wrote the addon's own frame name into the macro body, so a pre-rename conversion holds
+    -- `/click DebounceCustom1 hover` - a frame that no longer exists. It fails the way this whole
+    -- file guards against: no error, the key simply stops doing anything.
+    --
+    -- Covers both import paths (a flat layer and a per-spec table) because they are separate
+    -- functions, and the character path is the one that runs on every alt for as long as the account
+    -- lives. The hand-written case is here too - the rewrite is on the frame name, not on the
+    -- generated body, so a `/click` the user typed themselves is repaired the same way.
+    test("old click targets inside converted macros are rewritten", function()
+        FreshInit();
+        _G.DebounceVars = {
+            dbver = 3,
+            GENERAL = {
+                { type = "macrotext", value = "/click DebounceCustom1 hover", key = "F1", seq = 1 },
+            },
+            DRUID = {
+                [0] = {
+                    { type = "macrotext", value = "/click DebounceStates $state1-on", key = "F2", seq = 1 },
+                },
+            },
+        };
+        _G.DebounceVarsPerChar = {
+            dbver = 3,
+            [0] = {
+                -- Two on one action, and a line the user wrote around them.
+                {
+                    type = "macrotext",
+                    value = "/cast Rejuvenation\n/click DebounceCustom2 hover\n/click DebounceStates $state2-toggle",
+                    key = "F3",
+                    seq = 1,
+                },
+            },
+        };
+        DebindPrivate.RunLegacyMigration();
+
+        check(_G.DebindVars.shared.GENERAL[1].value == "/click DebindCustom1 hover",
+            "a shared layer kept the old frame name: " .. tostring(_G.DebindVars.shared.GENERAL[1].value));
+        check(_G.DebindVars.shared.classes.DRUID[0][1].value == "/click DebindStates $state1-on",
+            "a class layer kept the old frame name: " .. tostring(_G.DebindVars.shared.classes.DRUID[0][1].value));
+
+        local charBody = DebindPrivate.db.char.layers[0][1].value;
+        check(not charBody:find("Debounce"), "the character layer kept an old frame name: " .. charBody);
+        check(charBody:find("/cast Rejuvenation", 1, true), "the rewrite ate the rest of the body");
+        check(charBody:find("DebindCustom2", 1, true) and charBody:find("DebindStates", 1, true),
+            "only one of the two targets was rewritten: " .. charBody);
+
+        -- The old file is read-only. Repairing on the way in must not repair in place.
+        check(_G.DebounceVars.GENERAL[1].value == "/click DebounceCustom1 hover",
+            "the rewrite reached back into the old file");
+    end);
+
+    -- Only macro bodies are touched. Other action types keep a number in `value`, and a rewrite that
+    -- was not type-checked would run `gsub` on whatever it found.
+    test("the click-target rewrite leaves other action types alone", function()
+        FreshInit();
+        _G.DebounceVars = {
+            dbver = 3,
+            GENERAL = { { type = "spell", value = 774, key = "F1", seq = 1 } },
+        };
+        DebindPrivate.RunLegacyMigration();
+
+        check(_G.DebindVars.shared.GENERAL[1].value == 774,
+            "a spell action's value was altered by the click-target rewrite");
+    end);
+
+    -- **순서 번호의 그물.** 여기 있는 이유는 마이그레이션과 같은 종류의 실패라서다 - 틀려도
+    -- 아무 소리가 안 나고, 눈으로 봐서는 알 수 없다.
+    --
+    -- 겹치는 번호를 놓치면 비교자가 두 액션을 동률로 보고(Ordering.lua) `sort`가 임의로
+    -- 놓는다. 같은 키에 걸린 두 지정의 발동 순서가 정렬할 때마다 달라질 수 있다는 뜻이고,
+    -- 사용자는 그걸 못 고친다 - 순서 이동은 두 번호를 맞바꾸는 것이라 같은 값끼리는 바꿔도
+    -- 그대로다. 실제로 그 상태로 배포될 뻔했다.
+    local function LoadLayerAndClean(actions)
+        FreshInit();
+        _G.DebindVars.shared.GENERAL = actions;
+        DebindPrivate.LoadProfile();
+        DebindPrivate.CleanUpDB();
+        return _G.DebindVars.shared.GENERAL;
+    end
+
+    local function checkDistinctSeq(actions, msg)
+        local seen = {};
+        for i, action in ipairs(actions) do
+            local seq = action.seq;
+            check(seq ~= nil, msg .. ": [" .. i .. "]에 번호가 없다");
+            check(not seen[seq], msg .. ": 번호 " .. tostring(seq) .. "이(가) 겹친다");
+            seen[seq] = true;
+        end
+    end
+
+    test("겹치는 순서 번호에 새 번호를 준다", function()
+        local actions = LoadLayerAndClean({
+            { type = "spell", value = 1, key = "F1", seq = 1 },
+            { type = "spell", value = 2, key = "F1", seq = 2 },
+            -- 1번과 똑같은 액션. 같은 번호를 들고 들어온다.
+            { type = "spell", value = 1, key = "F1", seq = 1 },
+        });
+
+        checkDistinctSeq(actions, "겹침 정리 후");
+        -- 나중에 만난 쪽이 밀린다. 앞의 둘은 건드릴 이유가 없다.
+        check(actions[1].seq == 1 and actions[2].seq == 2,
+            "겹치지 않은 번호까지 바뀌었다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+    end);
+
+    test("번호가 없는 액션과 겹치는 액션이 섞여 있어도 전부 갈린다", function()
+        -- nil은 비교자가 0으로 접으므로(Ordering.lua) 둘 다 동률이다. 한 번의 청소로
+        -- 두 갈래가 같이 나아야 한다 - nil을 먼저 채우고 나서 겹침을 보기 때문이다.
+        local actions = LoadLayerAndClean({
+            { type = "spell", value = 1, key = "F1" },
+            { type = "spell", value = 2, key = "F1" },
+            { type = "spell", value = 3, key = "F1", seq = 1 },
+            { type = "spell", value = 4, key = "F1", seq = 1 },
+        });
+
+        checkDistinctSeq(actions, "섞인 상태 정리 후");
+    end);
+
+    test("키를 뗀 채로 번호만 들고 있는 액션도 겹치면 갈린다", function()
+        -- 키를 떼도 번호는 남긴다(PlaceLast). 그 번호가 남의 것과 겹쳐 있으면 다시 걸었을 때
+        -- 지킬 자리가 애초에 없으므로, 키가 없다고 넘어가지 않는다.
+        local actions = LoadLayerAndClean({
+            { type = "spell", value = 1, key = "F1", seq = 1 },
+            { type = "spell", value = 2, seq = 1 },
+        });
+
+        check(actions[1].seq ~= actions[2].seq,
+            "키 없는 액션의 겹친 번호를 지나쳤다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+    end);
+
+    test("성한 번호는 청소를 거쳐도 그대로다", function()
+        local actions = LoadLayerAndClean({
+            { type = "spell", value = 1, key = "F1", seq = 3 },
+            { type = "spell", value = 2, key = "F2", seq = 7 },
+        });
+
+        check(actions[1].seq == 3 and actions[2].seq == 7,
+            "멀쩡한 번호를 다시 매겼다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+    end);
+
     test("the account's share is not pulled twice", function()
         FreshInit();
         _G.DebounceVars = LegacyAccount();

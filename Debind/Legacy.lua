@@ -47,7 +47,42 @@
 
 local _, DebindPrivate = ...;
 
+local Constants        = DebindPrivate.Constants;
+
 local LEGACY_ADDON     = "Debounce";
+
+--- The addon's own click targets were renamed along with the addon, and **the old names are sitting
+--- inside users' saved macros.** "Convert to a Custom Macro" writes the frame name into the macro
+--- body (`Misc.lua`: `/click DebindCustom1 hover`, `/click DebindStates $state1-on`), so an action
+--- converted before the rename now clicks a frame that does not exist. Nothing errors - the key just
+--- stops doing anything, which is the one outcome this whole file exists to prevent.
+---
+--- Rewritten on the way in rather than papered over with alias frames: the old names have no reason
+--- to exist in a running client, and 3.1 is the first release carrying the new ones, so every macro
+--- body that could hold an old name passes through here exactly once.
+---
+--- **A substring rewrite, not a whole-body match.** The generated bodies are only the common case -
+--- the same `/click` line can be typed by hand into a Custom Macro, or pasted next to other lines,
+--- and those deserve the same repair.
+local LEGACY_CLICK_TARGETS = {
+    { "DebounceCustom", "DebindCustom" },
+    { "DebounceStates", "DebindStates" },
+};
+
+local function RepairLegacyClickTargets(layerTbl)
+    if (layerTbl == nil) then
+        return;
+    end
+    for i = 1, #layerTbl do
+        local action = layerTbl[i];
+        if (action and action.type == Constants.MACROTEXT and type(action.value) == "string") then
+            for j = 1, #LEGACY_CLICK_TARGETS do
+                local old, new = LEGACY_CLICK_TARGETS[j][1], LEGACY_CLICK_TARGETS[j][2];
+                action.value = action.value:gsub(old, new);
+            end
+        end
+    end
+end
 
 --- Copies an old per-spec table (`{[0]=…, [1]=…}`) and brings it up to the current version.
 ---
@@ -60,6 +95,9 @@ local function ImportSpecTable(source, dbver)
     end
     local copy = CopyTable(source);
     DebindPrivate.MigrateSpecTable(copy, dbver);
+    for spec = 0, 5 do
+        RepairLegacyClickTargets(copy[spec]);
+    end
     return copy;
 end
 
@@ -70,6 +108,7 @@ local function ImportLayer(source, dbver)
     end
     local copy = CopyTable(source);
     DebindPrivate.MigrateLayer(copy, dbver);
+    RepairLegacyClickTargets(copy);
     return copy;
 end
 
@@ -153,7 +192,15 @@ local function ImportCharacter(charEntry, old)
         end
     end
 
-    if (old.CustomTargets) then
+    -- **Layers can be attached unconditionally; custom targets cannot.** The file header's argument
+    -- for an unconditional import is that bindings can only be made through the main window, and the
+    -- window stays shut until the question is answered. Custom targets are the one thing that does
+    -- not go through it - `DebindPublic:SetCustomTarget` and the unit popup both write without it.
+    --
+    -- The gap is narrow: the import runs at login, so it only opens when the companion failed to
+    -- load and the user played on anyway. Narrow is not none, and an overwrite here is silent and
+    -- unrecoverable, so the newer value wins.
+    if (old.CustomTargets and charEntry.CustomTargets == nil) then
         charEntry.CustomTargets = CopyTable(old.CustomTargets);
     end
 end

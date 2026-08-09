@@ -1115,6 +1115,58 @@ do
         CreateDeleteMenu(rootDescription);
     end
 
+    --- 오버뷰 목록(`DebindOrderLineMixin`)의 행에서 우클릭으로 여는 메뉴. **순서 두 항목뿐이다.**
+    ---
+    --- 화살표 버튼과 **같은 판정·같은 문자열**을 쓴다. 순서 규칙을 말하는 문장이 이 애드온에
+    --- 두 벌 생기면 하나가 낡는데, 낡은 쪽이 거짓말을 해도 잡아줄 검사가 없다.
+    ---
+    --- 못 누르는 항목도 **세워 둔다.** 회색으로 서 있는 두 줄이 "여기서 순서를 만질 수 있다"를
+    --- 말하고, 지금 안 되는 이유는 그 툴팁이 댄다 - 빼버리면 메뉴가 통째로 비어서 우클릭이
+    --- 고장 난 것처럼 보인다.
+    ---
+    --- 대상은 액션 하나다. 행이 아니라 액션으로 받는 이유는 `ComputeOrderSwapForAction`
+    --- 주석에 - 요약하면 메뉴가 떠 있는 동안 목록이 낡을 수 있어서다.
+    function DebindUI.SetupOrderDropdownMenu(dropdown, rootDescription, action)
+        _dropdown = dropdown;
+        -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
+        -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupBulkDropdownMenu`와 같은 이유).
+        _elementData = nil;
+        _action = nil;
+
+        -- 어느 행에서 열었는지. 28px 한 줄짜리 목록이라 커서가 한 칸 어긋난 채로 여는 일이
+        -- 실제로 있고, 그때 이 제목이 아니면 잘못 옮긴 것을 옮기고 나서야 안다.
+        --
+        -- **로컬에 한 번 받는다.** `NameAndIconForAction`은 셋을 돌려주는데(이름·아이콘·본디
+        -- 이름), 그대로 넘기면 아이콘 파일 ID가 `CreateTitle`의 두 번째 인자인 **색** 자리로
+        -- 들어가서 메뉴가 열리는 순간 터진다(`MenuUtil.lua`의 `useColor`).
+        local title = DebindUI.NameAndIconForAction(action);
+        rootDescription:CreateTitle(title);
+
+        local function CreateMoveMenuItem(direction, titleKey, descKey)
+            local description = rootDescription:CreateButton(LLL[titleKey], function()
+                -- **행이 아니라 그 안의 액션을 넘긴다.** `CollectActionsForKey`가 짓는 행에는
+                -- `seq` **사본**이 실려 있어서(Profile.lua), 행째로 주면 맞바꾸는 것이 사본
+                -- 둘이 된다 - 터지지도 않고 프로필도 그대로인 채 소리만 난다.
+                local neighborRow = DebindPrivate.ComputeOrderSwapForAction(action, direction);
+                DebindUI.ApplyOrderSwap(action, neighborRow and neighborRow.action);
+            end);
+
+            -- 여는 시점의 답으로 켜고 끈다. 누를 때 다시 묻는 값과 어긋날 수 있는 자리지만,
+            -- 그때는 맞바꿀 이웃이 nil이라 `ApplyOrderSwap`이 물러난다.
+            local neighbor, reason = DebindPrivate.ComputeOrderSwapForAction(action, direction);
+            description:SetEnabled(neighbor ~= nil);
+
+            if (neighbor) then
+                SetInstrcutionTooltip(description, LLL[descKey]);
+            else
+                SetErrorTooltip(description, LLL["ORDER_BLOCKED_" .. reason]);
+            end
+        end
+
+        CreateMoveMenuItem(-1, "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC");
+        CreateMoveMenuItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
+    end
+
     --- 여럿을 고른 채로 연 메뉴. **이동·복사·삭제 셋뿐이다.**
     ---
     --- 단일 메뉴의 나머지(키·조건·중요도)는 여기 안 넣는다. 그 값들은 한꺼번에 걸 수 있는

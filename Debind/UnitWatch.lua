@@ -541,6 +541,15 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
 	end
 ]==]);
 
+--- **이 PLAYER_LOGIN은 Events.lua의 것보다 뒤에 와야 한다.** `LoadCustomTargets`가 읽는
+--- `db.char.CustomTargets`는 마이그레이션이 넣어주는 값이고(`Events.PLAYER_LOGIN` ->
+--- `RunLegacyMigration`), 넘어온 사용자에게 그 값이 채워지는 것은 그 호출 뒤다. 먼저 오면
+--- 빈 테이블을 읽고 조용히 아무것도 안 붙인다 - 마이그레이션한 캐릭터의 사용자 지정 대상이
+--- 그 접속에서만 비어 보인다.
+---
+--- 지금 순서를 만드는 것은 **`Debind.xml`의 파일 차례**뿐이다(Events.lua가 UnitWatch.lua보다
+--- 위). 같은 이벤트에 건 핸들러는 등록한 차례로 불리므로, 그 두 줄을 맞바꾸면 여기가 조용히
+--- 깨진다. 옮길 일이 있으면 이 의존을 먼저 없앨 것.
 UnitWatch:SetScript("OnEvent", function(_, event, arg1)
     if (event == "PLAYER_LOGIN") then
         UnitWatch:UpdateGroupRoster();

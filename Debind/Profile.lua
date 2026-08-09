@@ -420,6 +420,9 @@ end
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
+        -- 이 레이어에서 이미 쓰인 순서 번호. 아래 그물이 **겹치는 번호**를 찾는 데 쓴다.
+        local seenSeq = {};
+
         for _, action in layer:Enumerate() do
             for k in pairs(action) do
                 if (KEYS_TO_SAVE[k] == nil) then
@@ -441,6 +444,29 @@ function DebindPrivate.CleanUpDB()
             -- 맨 뒤로 보낸다. 어디에 둘지 알 길이 없을 때 덜 놀라는 쪽이다.
             if (action.key ~= nil and action.seq == nil) then
                 action.seq = layer:GetNextSeq();
+            end
+
+            -- **겹치는 번호도 건진다.** 없는 번호만 건지던 시절에는 같은 번호 둘이 그대로
+            -- 남았는데, 그러면 비교자가 양쪽 다 false를 내서(Ordering.lua) 두 액션이 동률이
+            -- 되고 `sort`가 임의로 놓는다 - 같은 키에 걸린 두 지정의 발동 순서가 정렬할
+            -- 때마다 달라질 수 있다는 뜻이다. 더 나쁜 것은 **사용자가 그것을 못 고친다**는
+            -- 점이다: 순서 이동은 두 번호를 맞바꾸는 것이라 같은 값끼리는 바꿔도 그대로다
+            -- (DebindUI.lua의 `ApplyOrderSwap`이 누를 때마다 그 그룹을 고쳐주지만, 그건
+            -- 눌러본 그룹만이다).
+            --
+            -- 번호를 들고 있으면 키가 없어도 본다. 키를 떼도 번호를 남기는 것은 뗐다 다시
+            -- 걸었을 때 자리를 지키려는 것인데(PlaceLast 주석), 그 번호가 남의 것과 겹쳐
+            -- 있으면 지킬 자리가 애초에 없다.
+            --
+            -- 나중에 만난 쪽이 새 번호를 받아 맨 뒤로 간다. 둘 중 어느 쪽이 앞이었는지는
+            -- 동률이라 **원래도 정해진 바가 없었으므로**, 여기서 잃는 것이 없다.
+            local seq = action.seq;
+            if (seq ~= nil) then
+                if (seenSeq[seq]) then
+                    seq = layer:GetNextSeq();
+                    action.seq = seq;
+                end
+                seenSeq[seq] = true;
             end
         end
     end

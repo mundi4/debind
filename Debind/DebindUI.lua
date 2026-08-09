@@ -1441,11 +1441,25 @@ function DebindLineMixin:Update()
 	self:SetAlpha(1);
 end
 
+--- **지정 모드 중에는 안내 줄을 갈아 끼운다.** 평소의 세 줄이 그 모드에서는 전부 거짓이다 -
+--- 좌클릭도 우클릭도 이 행의 것이 아니라 눌린 키 그 자체가 되고(`DebindLineMixin:OnClick`이
+--- `BindMode_OnInput`으로 넘긴다), 선택은 아예 멈춘다. CTRL/SHIFT는 그냥 수식어 키다.
+---
+--- 비우지 않고 그 모드의 말을 넣는 이유는, **가리키고 있는 이 행이 곧 대상**이기 때문이다.
+--- 오버레이(`BIND_MODE_OVERLAY`)는 "오른쪽에서 행동을 가리키라"고 말하는데 그건 아직 안
+--- 가리킨 사람에게 하는 말이고, 이미 가리키는 중이면 남은 물음은 "그래서 지금 뭘 누르나"
+--- 하나다. 그 답이 나올 자리는 커서가 있는 여기다.
+---
+--- ESC(지우개)는 여기 안 넣는다. 오버레이가 그 말을 계속 띄우고 있고, 이 줄은 커서를 옮길
+--- 때마다 다시 읽히는 자리라 규칙을 둘씩 얹으면 정작 누르라는 말이 묻힌다.
+local BIND_MODE_INSTRUCTIONS = { "LINE_TOOLTIP_INSTRUCTION_BIND" };
+
 function DebindLineMixin:OnEnter()
 	-- 범위 줄은 레이어가 섞이는 목록에서만 붙인다. 레이어 탭에서는 창 제목이 이미 말했다.
 	local elementData = self:GetElementData();
 	local layerLabel = elementData.showLayerIcons and elementData.layer and GetLayerLabel(elementData.layer) or nil;
-	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, nil, layerLabel);
+	local instructionKeys = DebindFrame:IsCapturingKey() and BIND_MODE_INSTRUCTIONS or nil;
+	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, instructionKeys, layerLabel);
 end
 
 --- 휠. 모드가 켜진 동안에만 이 스크립트가 살아 있다(Update의 EnableMouseWheel).
@@ -1898,8 +1912,15 @@ local MULTI_SELECT_TIP = {
 --- 도움말 풍선. **화면에 흔적이 없는 조작**만 여기 온다.
 ---
 --- 다중 선택이 그렇다: CTRL/SHIFT-클릭은 행에도 스트립에도 아무 표시가 없어서, 모르는 사람이
---- 열 개를 옮기는 길은 우클릭 열 번이다. 행 툴팁으로는 말할 수 없다 - 저것은 그 액션 하나의
---- 이야기이고 이건 목록을 다루는 법이다.
+--- 열 개를 옮기는 길은 우클릭 열 번이다.
+---
+--- **행 툴팁도 같은 말을 한다**(`LINE_TOOLTIP_INSTRUCTION_MESSAGE1`의 뒷문장). 한때 여기 주석은
+--- 툴팁으로는 말할 수 없다고 - 저것은 그 액션 하나의 이야기이고 이건 목록을 다루는 법이라 -
+--- 적혀 있었는데, 그 구분은 안내 줄에는 안 맞았다. 좌클릭 줄이 이미 "고른다"는 목록의
+--- 이야기를 하고 있고, 수식어는 그 줄의 뒷말이다.
+---
+--- 그래서 둘이 남는다. 하는 일이 다르다: 풍선은 묻지도 않은 사람에게 한 번 알리고
+--- [알겠습니다]로 영영 사라지고, 툴팁 줄은 그 뒤로도 언제든 다시 읽을 수 있는 자리다.
 ---
 --- **사라지는 길이 둘이다: [알겠습니다]와 실제로 둘을 고르는 순간**(`CommitSelection`).
 --- 뒤쪽이 없으면 이미 쓰고 있는 사람에게도 창을 열 때마다 뜬다 - 이 풍선의 할 일은 그 조작을
@@ -3514,18 +3535,61 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	self.ReasonText:SetPoint("RIGHT", up, "LEFT", -6, 0);
 end
 
+--- 이 키·이 레이어의 액션들에 **지금 보이는 순서 그대로** 번호를 새로 매긴다.
+---
+--- 맞바꾸기 전에 번호를 성하게 만드는 것이 전부라 화면은 안 움직인다. 걸러 담는 것이
+--- 한 레이어뿐인 이유는 seq가 레이어 안에서만 뜻이 있어서다(비교자가 layerRank로 먼저
+--- 가른다). 다른 키의 액션과 번호가 겹치는 것은 상관없다 - 비교자는 같은 키끼리만 만난다.
+---
+--- 맨 뒤 번호부터 나눠 준다. 쓰이지 않은 구간이라 이 레이어의 다른 무엇과도 안 겹치고,
+--- 겹치지 않는 것이 이 함수의 존재 이유다.
+local function RenumberKeyGroup(action)
+	local layerID, layer = DebindPrivate.FindLayerID(action);
+	if (not layer) then
+		return;
+	end
+
+	local seq = layer:GetNextSeq();
+	for _, row in ipairs(DebindPrivate.CollectActionsForKey(action.key)) do
+		if (row.layerID == layerID) then
+			row.action.seq = seq;
+			row.action._dirty = true;
+			seq = seq + 1;
+		end
+	end
+end
+
 --- 이웃과 **순서 번호를 맞바꾸는 것이 전부다.** 배열 자리는 순서에 아무 영향이 없다
 --- (목록은 정렬해서 그린다) - 순서를 정하는 것은 액션이 들고 있는 seq다.
 ---
---- 번호가 없는 쪽이 있으면 물러난다. 키가 걸린 액션은 마이그레이션과 CleanUpDB가 번호를
---- 보장하므로 정상 경로로는 못 오는 자리지만, 여기서 nil을 맞바꾸면 **둘 다 번호를 잃고**
---- 순서가 조용히 무너진다.
-function DebindOrderLineMixin:OnMoveClick(button)
-	local neighborRow = (button == self.MoveUpButton) and self.moveUpNeighbor or self.moveDownNeighbor;
-	local action = self:GetElementData().row.action;
-	local neighbor = neighborRow and neighborRow.action;
-	if (not action or not neighbor or action.seq == nil or neighbor.seq == nil) then
-		return;
+--- **번호가 성치 않으면 먼저 고친다.** 맞바꾸기는 두 번호가 서로 다른 값일 때만 뜻이 있는데,
+--- 켜고 끄는 판단(`ComputeOrderSwap`)은 번호를 아예 안 본다 - 네 축(중요도·호버·조건·레이어)만
+--- 본다. 그래서 번호가 없거나 둘이 같으면 **켜져 있는 버튼이 아무 일도 안 하는** 상태가 됐다.
+--- 소리는 나고 목록은 그대로다.
+---
+--- 그런 번호가 실재한다. 비교자가 `(seq or 0)`으로 nil을 0에 접으므로(Ordering.lua) 번호가
+--- 없는 액션들은 **동률이 되어 나란히 붙어 보이고**, 그게 사용자 눈에는 그냥 이웃한 두 줄이다.
+--- CleanUpDB의 그물은 nil만 건지고 로그아웃 때 한 번 돈다 - 같은 번호 둘은 그대로 남는다.
+---
+--- 고치는 쪽을 골랐다. 여기서 물러나면 사용자에게는 고장과 구별되지 않는데, 저 번호는
+--- 사용자가 만든 값이 아니라 우리가 매기는 값이라 **말없이 고쳐도 잃는 것이 없다.**
+---
+--- 화살표 버튼과 우클릭 메뉴가 **같은 함수를 지난다.** 저장은 세 가지가 한 벌이라
+--- (`seq` 교환 · `_dirty` 둘 · `UpdateBindings`) 두 길로 갈라 적으면 한쪽이 하나를 빠뜨리는
+--- 날이 온다 - 그 빠짐은 다음 로그인까지 안 보인다.
+function DebindUI.ApplyOrderSwap(action, neighbor)
+	if (not action or not neighbor) then
+		return false;
+	end
+
+	if (action.seq == nil or neighbor.seq == nil or action.seq == neighbor.seq) then
+		RenumberKeyGroup(action);
+	end
+
+	-- 그래도 못 고쳤으면(레이어를 못 찾음) 손을 뗀다. 여기서 nil을 맞바꾸면 **둘 다 번호를
+	-- 잃고** 순서가 조용히 무너진다 - 아무 일도 안 일어나는 편이 낫다.
+	if (action.seq == nil or neighbor.seq == nil or action.seq == neighbor.seq) then
+		return false;
 	end
 
 	action.seq, neighbor.seq = neighbor.seq, action.seq;
@@ -3535,6 +3599,15 @@ function DebindOrderLineMixin:OnMoveClick(button)
 	DebindFrame:Refresh(true);
 	DebindFrame:Update();
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+	return true;
+end
+
+function DebindOrderLineMixin:OnMoveClick(button)
+	local neighborRow = (button == self.MoveUpButton) and self.moveUpNeighbor or self.moveDownNeighbor;
+	local action = self:GetElementData().row.action;
+	if (not DebindUI.ApplyOrderSwap(action, neighborRow and neighborRow.action)) then
+		return;
+	end
 
 	-- **툴팁을 다시 그린다.** 커서가 버튼 위에 그대로 있으면 OnEnter가 다시 오지 않으므로,
 	-- 방금 맨 끝으로 간 행에도 "한 칸 더 갈 수 있다"가 떠 있는 채로 남는다. 위 `Update`가
@@ -3655,15 +3728,31 @@ end
 --- 액션인지 모르는 채로" 만지는 일이 된다. 대신 통을 그 레이어로 옮기고 행을 짚어주면,
 --- 그 다음 손질은 전부 통 쪽의 규칙대로 일어난다.
 ---
---- 좌우 클릭이 같은 일을 한다. 여기서 나뉠 뜻이 없기 때문이다 - 편집 메뉴는 도착한 뒤에
---- 열면 되고, 우클릭만 데려가게 두면 좌클릭이 아무 반응도 없는 목록이 된다.
-function DebindOrderLineMixin:OnClick()
-	-- 캡처 중에는 이 목록이 아직 옛 키의 것이다. 곧 갈아치워질 화면에서 떠나지 않는다.
+--- **우클릭은 순서 메뉴다.** 편집 메뉴(`SetupEditDropdownMenu`)는 여기서 안 연다 - 그것은
+--- 액션이 사는 곳의 것이고, 그 액션을 그리로 데려가는 것이 이 목록의 좌클릭이다. 순서만은
+--- 예외로 두는데, **순서는 이 목록이 답하는 물음 자체**라서 답을 보는 자리와 고치는 자리가
+--- 갈리면 한 칸 옮길 때마다 통을 다녀와야 한다.
+---
+--- 화살표 버튼은 고른 행에만 선다. 그 판단은 늘 켜져 있는 버튼이 목록을 어지럽히는 문제라
+--- (`UpdateMoveButtons`) 사용자가 직접 연 메뉴에는 걸리지 않는다 - 여기서는 혼자인 키도
+--- 두 항목을 죽은 채로 보여주고, 왜 안 되는지를 그 툴팁이 말한다.
+function DebindOrderLineMixin:OnClick(button)
+	-- 캡처 중에는 이 목록이 아직 옛 키의 것이다. 곧 갈아치워질 화면에서 떠나지 않고, 그
+	-- 화면의 순서를 고치지도 않는다.
 	if (DebindFrame:IsCapturingKey()) then
 		return;
 	end
 
 	local row = self:GetElementData().row;
+
+	if (button == "RightButton") then
+		-- **액션만 넘긴다.** 메뉴는 뜬 채로 목록이 다시 지어질 수 있는 자리라, 지금 손에 든
+		-- 그룹과 자리(`elementData.rows/index`)를 딸려 보내면 그것이 낡는다. 저쪽은 누를 때
+		-- `ComputeOrderSwapForAction`으로 다시 묻는다.
+		MenuUtil.CreateContextMenu(self, DebindUI.SetupOrderDropdownMenu, row.action);
+		return;
+	end
+
 	DebindFrame:GoToAction(row.action, row.layerID);
 end
 
@@ -3924,10 +4013,18 @@ end
 --- 행은 풀에서 돌아가므로 "지금 호버된 행"을 변수로 들고 있으면 스크롤 한 번에 그 포인터가
 --- 남의 행을 가리킨다. 보이는 행은 많아야 열 몇이고 묻는 것은 키를 누를 때뿐이라, 그때
 --- 훑는 편이 상태를 맞춰 두는 것보다 싸고 틀릴 데가 없다.
+---
+--- **`IsMouseOver`가 아니라 `IsMouseMotionFocus`다.** 앞의 것은 프레임 사각형만 보는 기하
+--- 판정이라 ScrollBox가 잘라낸 행에도 참이 된다 - 목록 위쪽 바깥에서 ESC를 누르면 취소가
+--- 아니라 **화면에 없는 행의 키를 지우는** 갈래로 들어갔다(아래 ESCAPE 처리).
+---
+--- 뒤의 것은 `OnEnter`/`OnLeave`가 걸리는 바로 그 조건이라, 판정이 강조 표시와 언제나 같다.
+--- 행 템플릿에 마우스를 먹는 자식이 없어서(XML의 DebindLineTemplate) 자식에게 포커스를
+--- 빼앗길 일도 없다.
 local function GetHoveredLine()
 	local hovered;
 	DebindFrame.ScrollBox:ForEachFrame(function(frame)
-		if (not hovered and frame.GetElementData and frame:IsMouseOver()) then
+		if (not hovered and frame.GetElementData and frame:IsMouseMotionFocus()) then
 			hovered = frame;
 		end
 	end);

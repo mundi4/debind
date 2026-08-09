@@ -148,8 +148,13 @@ function Debind_CompartmentFunc(name, mouseButton, btn)
 	DebindPublic:ToggleUI();
 end
 
---- 구획 항목에 마우스를 올렸을 때. 좌·우클릭이 서로 다른 데로 가는데, 그걸 말해줄 자리가
---- 여기밖에 없다 - 메뉴 항목은 이름 한 줄이 전부라 우클릭은 우연히 눌러야만 발견된다.
+--- 구획 항목에 마우스를 올렸을 때. **좌·우클릭이 갈리던 시절의 흔적을 남기지 말 것** - 위
+--- `Debind_CompartmentFunc` 주석대로 지금은 둘이 같은 일을 하고, 툴팁도 왼쪽 클릭 한 줄만 문다.
+---
+--- 그래도 툴팁이 필요한 이유는 따로 있다. 구획 항목은 이름 한 줄이 전부라 **눌러서 무엇이
+--- 열리는지**를 말할 자리가 여기밖에 없고, 오버뷰가 창의 왼쪽 열로 들어간 뒤로는 그것을
+--- 찾아가는 길도 여기서만 알려준다(COMPARTMENT_TOOLTIP_LEFT_CLICK).
+---
 --- 인자는 블리자드가 준다 (Blizzard_Minimap/AddonCompartment.lua의 funcOnEnter).
 function Debind_CompartmentOnEnter(name, btn)
 	GameTooltip:SetOwner(btn, "ANCHOR_LEFT");

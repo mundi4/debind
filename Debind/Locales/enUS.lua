@@ -173,7 +173,25 @@ L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
 L["KEY"] = "Key"
 L["KEY_GROUP_UNBOUND"] = "No key assigned"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
-L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action and set its key."
+-- 한때 "and set its key"가 붙어 있었다. 그 시절에는 행을 고르면 왼쪽 열이 그 액션의 상세
+-- 패널이 되고 거기서 키를 걸었다. 지금 왼쪽 열은 키보드 사영이라 보여주기만 하고, 키는
+-- 목록 위의 [키 지정] 모드에서 건다 - 좌클릭은 고르는 것이 전부다.
+--
+-- 그 모드를 여기서 가리키지 않는 이유는, 가리키려면 버튼 글자(BIND_MODE)를 이 문장에
+-- 복사해 넣어야 하고 그러면 버튼 이름을 바꾸는 날 이 줄이 없는 버튼을 가리키게 되기
+-- 때문이다. 방금 죽은 문장이 정확히 그렇게 죽었다.
+--
+-- 수식어는 **한 줄로 붙여 둔다.** 따로 세우면 안내 줄이 셋이 되는데, 저것은 이 줄이 말한
+-- 좌클릭의 뒷말이지 다른 조작이 아니다. 좌클릭 줄이 짧아져서 자리도 났다.
+--
+-- **같은 말을 TIP_MULTI_SELECT도 한다.** 겹치는 것이 아니라 하는 일이 다르다: 풍선은 묻지도
+-- 않은 사람에게 한 번 알리고 [알겠습니다]로 영영 사라지고, 이 줄은 그 뒤로도 언제든 다시
+-- 읽을 수 있는 자리다. 풍선 쪽이 한 문장 더 긴 것도 그래서다(고른 뒤에 뭘 할 수 있는지까지).
+L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold CTRL or SHIFT while clicking to select more than one."
+-- 지정 모드 중에 이 행을 가리키면 위아래 두 줄 대신 이것만 뜬다(`DebindLineMixin:OnEnter`).
+-- **BIND_MODE_OVERLAY와 다른 말이어야 한다.** 저쪽은 "오른쪽에서 행동을 가리키라"고 하는데,
+-- 이 줄을 읽는 사람은 이미 가리키는 중이라 그 문장이 할 일이 없다. 남은 물음은 하나다.
+L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key or mouse button to give it to this action."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
@@ -221,7 +239,9 @@ L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%s / %s"
 L["ORDER_GOTO_ACTION"] = "Go to it in %s"
-L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Click to go to this action and edit it there."
+-- 우클릭 줄은 오른쪽 목록의 것을 그대로 쓴다(LINE_TOOLTIP_INSTRUCTION_MESSAGE2). 두 목록 다
+-- 그 액션의 메뉴가 열리므로 여기만 다른 말을 쓸 이유가 없다.
+L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action and edit it there."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
 L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."

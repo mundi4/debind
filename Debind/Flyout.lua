@@ -386,7 +386,12 @@ local function RebuildFlyout(entry, flyoutID)
 		entry.opener:SetAttribute("frameref-holder", nil);
 	end
 
-	DebindPrivate.log(format("[flyout] %d -> %d slots", flyoutID, numSlots));
+	-- 릴리스에서 `log`는 빈 함수지만 **인자는 그 전에 만들어진다.** 감싸지 않으면 실사용자도
+	-- 플라이아웃을 훑을 때마다 버릴 문자열을 짓는다. 이 파일의 다른 로그와 `UpdateBindings`가
+	-- 전부 이 모양이다.
+	if (DEBUG) then
+		DebindPrivate.log(format("[flyout] %d -> %d slots", flyoutID, numSlots));
+	end
 
 	return wasUsable ~= (numSlots > 0);
 end
