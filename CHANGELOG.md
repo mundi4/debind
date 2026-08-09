@@ -12,9 +12,12 @@ So this update ships a small companion addon, **Debind Migration**, holding what
 - Where several actions share a key, each row says why it beats the one under it, and the row you select gets **Run Sooner** and **Run Later**.
 - Everything else about an action — conditions, targets, importance, moving and copying — is on its right-click menu, where it already was. The macro editor is a window of its own again.
 
+**Actions can be picked several at a time.** Ctrl-click adds one to what you have selected, shift-click takes everything between, and the right-click menu then works on the whole selection — move it, copy it, delete it. Clearing a tab out and copying a tab's worth somewhere else were each asked for as their own command; they are the same command, and it was already in the menu waiting for something to point it at.
+
 Also in this one:
 
 - **Korean (koKR)** is now translated, in full.
+- **The layer tabs say which layer they are.** The ones down the side were an icon and a number, and their tooltip carried the specialization name on its own, which does not tell you whether you are looking at the shared branch or this character's — the same icon stands in both. Each tab now titles itself with the whole layer name and adds a line under it: who uses that layer, what it beats, and when that is not true.
 - A move button that cannot move now says what is holding the action in place, rather than only that something is.
 - The companion addon above is normally silent, but if it has been switched off or has gone missing, Debind says so on login and waits for an answer instead of quietly starting you off empty.
 - Fixes: a `$state` token no longer rides out of an unclosed bracket group in a custom macro, and Debind waits for the game to report your specialization rather than building a half-finished set of bindings from what it knows at that moment.
