@@ -58,18 +58,14 @@ do
 	function DebindPrivate.GetDelegateFrame(key)
 		local delegateFrame = DebindPrivate.ClickDelegateFrames[key];
 		if (delegateFrame == nil) then
-			if (key == Constants.COMBINED or SPECIAL_UNITS[key] or BASIC_UNITS[key]) then
-				local delegateName = key == Constants.COMBINED and "DebindKey" or "DebindClickButton_" .. key;
-				delegateFrame = CreateFrame("Button", delegateName, DefaultClickFrame, "SecureActionButtonTemplate");
-				if (key == Constants.COMBINED) then
+			if (SPECIAL_UNITS[key] or BASIC_UNITS[key]) then
+				delegateFrame = CreateFrame("Button", "DebindClickButton_" .. key, DefaultClickFrame, "SecureActionButtonTemplate");
+				delegateFrame.unit = key;
+				if (SPECIAL_UNITS[key]) then
+					delegateFrame:SetAttribute("alias", key);
+					delegateFrame:SetAttribute("unit", "raid41");
 				else
-					delegateFrame.unit = key;
-					if (SPECIAL_UNITS[key]) then
-						delegateFrame:SetAttribute("alias", key);
-						delegateFrame:SetAttribute("unit", "raid41");
-					else
-						delegateFrame:SetAttribute("unit", key);
-					end
+					delegateFrame:SetAttribute("unit", key);
 				end
 				delegateFrame:SetAttribute("useparent*", true);
 				delegateFrame:SetAttribute("useparent-unit", false);
@@ -96,13 +92,11 @@ DelegateFrameNames[frame] = frame:GetName()
 		return delegateFrame;
 	end
 end
-DebindPrivate.GetDelegateFrame(Constants.COMBINED);
 
 
 DebindPrivate.KeyMap                 = {};
 DebindPrivate.ActiveActions          = {};
 DebindPrivate.BindingInfoToActionMap = {};
-DebindPrivate.CombinedKeys           = {};
 
 do
 	local KeyMap = DebindPrivate.KeyMap;

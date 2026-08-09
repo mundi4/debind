@@ -13,17 +13,6 @@ Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
 Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 
--- 같은 키로 지정된 여러개의 action들을 하나의 매크로로 조합. 이 경우 상태 변경을 감지하지 않아도 된다.
--- 일부 조건(mouseover 등)은 상태 변경을 즉각적으로 감지할 수 없기 때문에 상태 변경 감지에 의존하는 건 딜레이가 생길 수 있다.(기본 wow 코드 상으로는 최대 0.2초)
--- 하나의 매크로로 조합하게 되면 조건 체크가 단축키를 누르는 순간 이루어지기때문에 위의 문제가 사라진다.
--- 애드온이 하는 일이 줄어들기 때문에 성능 상의 이점도 있을 것?
--- 매크로로 조합할 수 없는 경우
---      UNUSED, COMMAND 등 SetOverrideBindingClick으로 바인딩할 수 없는 경우: 매크로로 이 행동을 실행할 수 있는 방법이 없다.
--- 		하나 이상의 유닛을 체크하는 경우: 두 개 이상의 유닛을 동시에 체크할 수 없다. (예외: pet은 항상 체크 가능)
---      frameTypes 조건을 사용하는 경우. 억지로 가능하게 만들 수는 있지만 조합하는 이점이 사라진다.
---      모든 바인딩이 conditional인 경우. 조건이 맞지 않을 경우 단축키를 해제해야하므로 매크로만으로는 불가능.
-Constants.ALLOW_COMBINE_CLICK             = false;
-Constants.ALLOW_COMBINE_NON_CLICK         = false;
 
 -- Action Types
 Constants.SPELL                           = "spell";
@@ -41,7 +30,6 @@ Constants.WORLDMARKER                     = "worldmarker";
 Constants.SETCUSTOM                       = "setcustom";
 Constants.SETSTATE                        = "setstate";
 Constants.UNUSED                          = "unused";
-Constants.COMBINED                        = "_combined";
 
 --- 대상(unit)을 가질 수 있는 액션 타입.
 ---

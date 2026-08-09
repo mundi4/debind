@@ -8,8 +8,6 @@ local DEBUG                   = DebindPrivate.DEBUG;
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
 local BASIC_UNITS             = Constants.BASIC_UNITS;
 local NIL                     = Constants.NIL;
-local ALLOW_COMBINE_CLICK     = Constants.ALLOW_COMBINE_CLICK;
-local ALLOW_COMBINE_NON_CLICK = Constants.ALLOW_COMBINE_NON_CLICK;
 local CUSTOM_STATE_MODES      = Constants.CUSTOM_STATE_MODES;
 
 
@@ -265,12 +263,6 @@ wipe(States)
     ClearOverrideBindings(BindingDriver);
     DebindPrivate.BindingDriver:SetAttribute("_onattributechanged", nil);
 
-    for key, _ in pairs(DebindPrivate.CombinedKeys) do
-        DefaultClickFrame:SetAttribute("*type-" .. key, nil);
-        DefaultClickFrame:SetAttribute("*macrotext-" .. key, nil);
-    end
-    wipe(DebindPrivate.CombinedKeys);
-
     ResetContext();
 
     DebindPrivate.BuildKeyMap();
@@ -400,7 +392,6 @@ wipe(States)
             bindingAttrsCache = BindingAttrsCache,
             macrotexts = _macrotexts,
             macrotextBindings = _macrotextBindings,
-            combinedKeys = DebindPrivate.CombinedKeys,
             customStates = _customStates,
         });
     end
@@ -408,7 +399,7 @@ wipe(States)
     return true
 end
 
-function SetBindingAttributes(type, value, unit, buttonname)
+function SetBindingAttributes(type, value, unit)
     if (type == Constants.UNUSED or type == Constants.COMMAND) then
         return;
     end
@@ -469,28 +460,20 @@ function SetBindingAttributes(type, value, unit, buttonname)
         end
     end
 
-    local clickframe, delegate, skipCache;
-    if (type == Constants.COMBINED) then
-        clickframe = DefaultClickFrame;
-        delegate = DebindPrivate.GetDelegateFrame(Constants.COMBINED);
-        skipCache = true;
-    else
-        assert(buttonname == nil);
-        buttonname = BindingAttrsCache[type] and BindingAttrsCache[type][value or NIL];
-        clickframe = DefaultClickFrame;
-        delegate = unit and unit ~= "" and DebindPrivate.GetDelegateFrame(unit) or nil;
+    local buttonname = BindingAttrsCache[type] and BindingAttrsCache[type][value or NIL];
+    local clickframe = DefaultClickFrame;
+    local delegate = unit and unit ~= "" and DebindPrivate.GetDelegateFrame(unit) or nil;
 
-        -- **캐시 적중은 "속성을 하나도 안 건드렸다"는 뜻이다.** 아래 블록을 통째로 건너뛴다.
-        -- 그게 맞을 때가 대부분이지만, 키에 안 들어간 무언가(unit 등)가 달라졌으면 그게 곧
-        -- 옛날 설정으로 도는 버그다. 로그가 없으면 이 분기는 화면에 흔적을 안 남긴다.
-        if (DEBUG and buttonname) then
-            DebindPrivate.log(format("|cffffcc66[Debind/cache]|r HIT %s/%s -> %s (unit=%s) 속성 갱신 안 함",
-                tostring(type), tostring(value), tostring(buttonname), tostring(unit)));
-        end
+    -- **캐시 적중은 "속성을 하나도 안 건드렸다"는 뜻이다.** 아래 블록을 통째로 건너뛴다.
+    -- 그게 맞을 때가 대부분이지만, 키에 안 들어간 무언가(unit 등)가 달라졌으면 그게 곧
+    -- 옛날 설정으로 도는 버그다. 로그가 없으면 이 분기는 화면에 흔적을 안 남긴다.
+    if (DEBUG and buttonname) then
+        DebindPrivate.log(format("|cffffcc66[Debind/cache]|r HIT %s/%s -> %s (unit=%s) 속성 갱신 안 함",
+            tostring(type), tostring(value), tostring(buttonname), tostring(unit)));
     end
 
-    if (not buttonname or skipCache) then
-        buttonname = buttonname or NextButtonName();
+    if (not buttonname) then
+        buttonname = NextButtonName();
         if (type == Constants.SPELL) then
             -- id는 다르지만 이름은 같은 주문들이 있다.
             -- 예: 조화 전문화의 달빛야수 변신과 회복 전문화의 달빛야수 변신
@@ -524,7 +507,7 @@ function SetBindingAttributes(type, value, unit, buttonname)
             clickframe:SetAttribute("*type-" .. buttonname, "macro");
             clickframe:SetAttribute("*macro-" .. buttonname, value);
             clickframe:SetAttribute("*macrotext-" .. buttonname, nil);
-        elseif (type == Constants.MACROTEXT or type == Constants.COMBINED) then
+        elseif (type == Constants.MACROTEXT) then
             clickframe:SetAttribute("*type-" .. buttonname, "macro");
             clickframe:SetAttribute("*macro-" .. buttonname, nil);
             clickframe:SetAttribute("*macrotext-" .. buttonname, value);
@@ -596,13 +579,11 @@ function SetBindingAttributes(type, value, unit, buttonname)
                     or clickframe:GetAttribute("*type-" .. buttonname))));
         end
 
-        if (not skipCache) then
-            BindingAttrsCache[type] = BindingAttrsCache[type] or {};
-            BindingAttrsCache[type][value or NIL] = buttonname;
-        end
+        BindingAttrsCache[type] = BindingAttrsCache[type] or {};
+        BindingAttrsCache[type][value or NIL] = buttonname;
     end
 
-    if (type == Constants.MACROTEXT or type == Constants.COMBINED) then
+    if (type == Constants.MACROTEXT) then
         addMacrotextBinding(buttonname, value);
     end
 
@@ -651,7 +632,6 @@ function UpdateBindingsMap()
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClick;
         local hasNonClick;
-        local combinedClickData;
 
         for i = 1, #bindingArray do
             local binding = bindingArray[i];
@@ -686,49 +666,7 @@ function UpdateBindingsMap()
             hasNonClick = hasNonClick or binding.isNonClick;
         end
 
-        if (ALLOW_COMBINE_CLICK) then
-            local macrotext = DebindPrivate.CombineIfPossible(bindingArray, true);
-            if (macrotext) then
-                local clickframe, clickbutton = SetBindingAttributes(Constants.COMBINED, macrotext, nil, "^" .. key);
-                combinedClickData = { clickframe, clickbutton };
-                hasClick = false;
-                DebindPrivate.CombinedKeys["^" .. key] = true;
-            end
-        end
-
-        if (ALLOW_COMBINE_NON_CLICK) then
-            local macrotext = DebindPrivate.CombineIfPossible(bindingArray);
-            if (macrotext) then
-                local clickframe, clickbutton = SetBindingAttributes(Constants.COMBINED, macrotext, nil, key);
-                SetOverrideBindingClick(BindingDriver, true, key, clickframe:GetName(), clickbutton);
-                hasNonClick = false;
-                DebindPrivate.CombinedKeys[key] = true;
-            end
-        end
-
         local first = true;
-        if (combinedClickData) then
-            if (first) then
-                first = false;
-                if (DEBUG) then
-                    appendLine("-- %s", key);
-                end
-                appendLine("bindings=newtable();BindingsMap[%q]=bindings", key);
-            end
-            appendLine("t=newtable();tinsert(bindings,t)");
-            appendLine("t.isClick,t.clickAttrs=true,newtable()");
-            appendLine([[
-t.clickAttrs["%1$stype%2$d"]="macro"
-t.clickAttrs["%1$smacro%2$d"]=""
-t.clickAttrs["%1$smacrotext%2$d"]="/click %3$s %4$s %5$s"
-]],
-                buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
-                button,
-                combinedClickData[1]:GetName(),
-                combinedClickData[2],
-                ACTION_BUTTON_USE_KEY_DOWN and "true" or "");
-            _updateFlags.unitframe = true;
-        end
 
         if (hasClick or hasNonClick) then
             for i = 1, #bindingArray do
@@ -940,7 +878,7 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
             end
         end
 
-        if (hasClick or combinedClickData) then
+        if (hasClick) then
             appendLine("bindings.hasClick=true");
         end
         if (hasNonClick) then
