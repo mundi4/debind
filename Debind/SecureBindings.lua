@@ -1041,7 +1041,9 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	self:SetAttribute("unit", unit)
 
 	-- 실행 엣지가 down이면 up이 이 선택을 그대로 재사용한다(위 캐리).
-	if (UseOnKeyDown and down) then
+	-- `typerelease`가 구워진 액션에만 건다 - 그 밖의 액션은 up에서 조회가 nil이라 아무 일도
+	-- 안 나므로 붙들 이유가 없고, 붙들면 낡은 판단을 재사용하는 쪽이 손해다.
+	if (UseOnKeyDown and down and winner.pressAndHold) then
 		HeldButtons[button] = winner
 		HeldUnits[button] = unit
 	end
