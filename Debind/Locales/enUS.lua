@@ -221,12 +221,22 @@ L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Click to go to this action and edit 
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
 L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
--- 끝의 이유절은 **3.1에서 거짓이 됐다.** 3.0까지는 캐릭터 전용 지정이 진짜 캐릭터별
--- SavedVariables(`DebounceVarsPerChar`)에 있어서 "이번 세션에 안 불러와졌다"가 사실이었다.
--- 지금은 전부 계정 파일 하나(`DebindVars.characters[guid]`)에 있어서 디스크에서는 다 올라온다 -
--- 창이 레이어로 짓는 것이 이 캐릭터 몫뿐일 뿐이다(`Profile.lua`의 `InitDB`).
--- 결과("여기서 보여줄 수 없다")는 그대로 참이라 이유만 바꾼다.
-L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- this window only ever builds the bindings of the character you are on."
+-- 끝의 이유절에 **주어를 세웠다.** 원래는 "their own bindings are not loaded this session"이라
+-- 누가 안 불러왔는지가 없었는데, 3.1 전까지는 읽을 갈래가 하나뿐이라 그래도 됐다 - 캐릭터
+-- 전용 지정이 진짜 캐릭터별 SavedVariables(`DebounceVarsPerChar`)에 있어서, 그 캐릭터로
+-- 접속하지 않은 세션에는 **디스크에서 올라오지도 않았다.**
+--
+-- 3.1이 그걸 계정 파일 하나로 접었다(`DebindVars.characters[guid]`). 이제 부캐 지정도 로그인
+-- 때 통째로 메모리에 올라오고 세션 내내 거기 있다 - `CleanUpDB`도 지금 guid 한 칸만 만진다.
+-- 안 하는 것은 그걸 `LayerArray`로 짓는 일뿐이다(`Profile.lua`의 `InitDB`).
+--
+-- 그래서 주어 없는 원문이 **"우리가 안 읽었다"로 읽으면 참, "파일에서 안 올라왔다"로 읽으면
+-- 거짓**이 됐다. 문장이 스스로 어느 쪽인지 못 정한다. 하필 이 줄은 계정 전체를 바꾼다는
+-- 경고에 붙어서 "숨기는 게 아니라 여기 없는 것"이라는 안심을 맡고 있는데, 계정 파일 하나에
+-- 부캐 지정이 다 들어 있는 것을 나중에 본 사람에게 그 안심은 얼버무린 것이 된다.
+--
+-- 낱말은 그대로 "load"를 쓴다. 갈라진 것은 낱말이 아니라 빠진 주어였다.
+L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
 L["OVERVIEW"] = "Overview"
 -- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 규칙 셋(키 걸린 것만 / 키로 묶임 / 지금
 -- 캐릭터·특성 붙박이)을 말할 자리가 여기밖에 없다. 셋째 문장이 있는 이유는 오른쪽에서
