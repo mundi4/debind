@@ -184,9 +184,10 @@ L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- 수식어는 **한 줄로 붙여 둔다.** 따로 세우면 안내 줄이 셋이 되는데, 저것은 이 줄이 말한
 -- 좌클릭의 뒷말이지 다른 조작이 아니다. 좌클릭 줄이 짧아져서 자리도 났다.
 --
--- **같은 말을 TIP_MULTI_SELECT도 한다.** 겹치는 것이 아니라 하는 일이 다르다: 풍선은 묻지도
--- 않은 사람에게 한 번 알리고 [알겠습니다]로 영영 사라지고, 이 줄은 그 뒤로도 언제든 다시
--- 읽을 수 있는 자리다. 풍선 쪽이 한 문장 더 긴 것도 그래서다(고른 뒤에 뭘 할 수 있는지까지).
+-- **이 줄이 다중 선택을 알리는 유일한 자리다.** 한때 같은 말을 하는 도움말 풍선
+-- (TIP_MULTI_SELECT)이 통 아래에 떴는데, 이 줄이 그 말을 하게 된 뒤로는 묻지도 않은 사람을
+-- 한 번 붙잡는 값이 남지 않아 풍선 쪽을 지웠다. 그러니 이 문장에서 수식어를 덜어내면
+-- CTRL/SHIFT-클릭을 알리는 곳이 UI에 하나도 없어진다.
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold CTRL or SHIFT while clicking to select more than one."
 -- 지정 모드 중에 이 행을 가리키면 위아래 두 줄 대신 이것만 뜬다(`DebindLineMixin:OnEnter`).
 -- **BIND_MODE_OVERLAY와 다른 말이어야 한다.** 저쪽은 "오른쪽에서 행동을 가리키라"고 하는데,
@@ -366,12 +367,6 @@ L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's s
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
 L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it -- even when the hover condition is in play."
 L["TARGET_UNIT"] = "Target"
---- 통에 줄이 둘 이상 보이는 순간 뜨는 도움말 풍선. 왜 툴팁이 아니라 풍선인지, 언제
---- 사라지는지는 DebindUI.lua의 `UpdateHelpTips` 주석에.
----
---- 세 낱말(move, copy, delete)이 벌크 메뉴의 항목 이름과 같아야 한다 - 풍선을 읽고 우클릭한
---- 사람이 찾을 것이 그 셋이다.
-L["TIP_MULTI_SELECT"] = "Hold CTRL or SHIFT while clicking to pick more than one action, then move, copy, or delete them together."
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
 L["TYPE_FOCUS_DESC"] = "Sets your focus to this unit. With a role-based unit, one key focuses whoever is tanking right now, without you finding them on the frames first."

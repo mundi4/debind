@@ -1867,83 +1867,6 @@ function DebindFrameMixin:UpdateEmptyText()
 	end
 end
 
---- 한 번 알린 도움말은 다시 안 알린다. **계정 단위다**(`Options`) - 조작 하나를 캐릭터마다
---- 다시 배우지는 않는다. 블리자드의 cvarBitfield 자리는 저쪽 튜토리얼의 것이라 남의 비트를
---- 쓰지 않는다(`checkCVars`도 그래서 안 켠다).
----
---- `Options`가 아직 없을 수 있다 - 이 파일은 InitDB보다 먼저 읽힌다. 없으면 "아직 안 봤다"로
---- 답하고 기록도 그냥 흘린다. 창은 저 뒤에 열리므로 실제로 그 상태에서 뜨는 풍선은 없다.
-local function IsTipAcknowledged(key)
-	local seen = DebindPrivate.Options and DebindPrivate.Options.tipsSeen;
-	return seen ~= nil and seen[key] == true;
-end
-
-local function AcknowledgeTip(key)
-	local options = DebindPrivate.Options;
-	if (not options) then
-		return;
-	end
-	options.tipsSeen = options.tipsSeen or {};
-	options.tipsSeen[key] = true;
-end
-
-local TIP_MULTI_SELECT = "multiSelect";
-
---- **통에 줄이 둘 이상 보이는 순간** 뜬다. 하나뿐인 목록에서 "여럿을 고르라"는 할 수 없는
---- 말이고, 창을 처음 여는 사람의 통은 대개 비어 있다. 세는 것은 dataProvider라 검색으로
---- 걸러진 뒤의 수다 - 화면에 보이는 줄이 곧 고를 수 있는 줄이다.
-local MULTI_SELECT_TIP_MIN_ROWS = 2;
-
-local MULTI_SELECT_TIP = {
-	text = LLL["TIP_MULTI_SELECT"],
-	buttonStyle = HelpTip.ButtonStyle.GotIt,
-	-- **통의 아래 변에서 아래로 뜬다.** 위는 검색창과 탭·포트레잇 버튼의 줄이고 왼쪽은 오버뷰
-	-- 열이라, 창 안쪽으로 띄우면 무엇이든 가린다. 아래는 창 밖이라 가릴 것이 없다. 창을 화면
-	-- 밑까지 끌어다 놓은 경우는 `autoEdgeFlipping`이 위로 넘긴다.
-	targetPoint = HelpTip.Point.BottomEdgeCenter,
-	alignment = HelpTip.Alignment.Center,
-	autoEdgeFlipping = true,
-	autoHorizontalSlide = true,
-	onAcknowledgeCallback = function()
-		AcknowledgeTip(TIP_MULTI_SELECT);
-	end,
-};
-
---- 도움말 풍선. **화면에 흔적이 없는 조작**만 여기 온다.
----
---- 다중 선택이 그렇다: CTRL/SHIFT-클릭은 행에도 스트립에도 아무 표시가 없어서, 모르는 사람이
---- 열 개를 옮기는 길은 우클릭 열 번이다.
----
---- **행 툴팁도 같은 말을 한다**(`LINE_TOOLTIP_INSTRUCTION_MESSAGE1`의 뒷문장). 한때 여기 주석은
---- 툴팁으로는 말할 수 없다고 - 저것은 그 액션 하나의 이야기이고 이건 목록을 다루는 법이라 -
---- 적혀 있었는데, 그 구분은 안내 줄에는 안 맞았다. 좌클릭 줄이 이미 "고른다"는 목록의
---- 이야기를 하고 있고, 수식어는 그 줄의 뒷말이다.
----
---- 그래서 둘이 남는다. 하는 일이 다르다: 풍선은 묻지도 않은 사람에게 한 번 알리고
---- [알겠습니다]로 영영 사라지고, 툴팁 줄은 그 뒤로도 언제든 다시 읽을 수 있는 자리다.
----
---- **사라지는 길이 둘이다: [알겠습니다]와 실제로 둘을 고르는 순간**(`CommitSelection`).
---- 뒤쪽이 없으면 이미 쓰고 있는 사람에게도 창을 열 때마다 뜬다 - 이 풍선의 할 일은 그 조작을
---- 알리는 것뿐이고, 쓰는 것을 봤으면 끝난 것이다.
----
---- **지정 모드 중에는 안 뜬다.** 거기서는 행 위의 모든 입력이 키라(`DebindLineMixin:OnClick`)
---- CTRL-클릭이 선택이 아니고, 그 동안에는 이 문장이 거짓이다.
----
---- 도움말을 끈 사람에게는 `HelpTip:Show`가 스스로 물러난다(`hideHelptips`). 그 판단을 여기서
---- 다시 하지 않는다.
-function DebindFrameMixin:UpdateHelpTips()
-	local show = self:IsShown()
-		and not IsTipAcknowledged(TIP_MULTI_SELECT)
-		and not self:IsCapturingKey()
-		and self.dataProvider:GetSize() >= MULTI_SELECT_TIP_MIN_ROWS;
-
-	if (show) then
-		HelpTip:Show(self, MULTI_SELECT_TIP, self.ScrollBoxBackground);
-	else
-		HelpTip:Hide(self, MULTI_SELECT_TIP.text);
-	end
-end
-
 -- 탭 라벨의 개수는 "그 탭이 가진 액션 수"이지 "지금 화면에 뭐가 보이는가"가 아니다.
 -- 그래서 셀 대상을 sideTab:IsShown()으로 고르면 안 된다. 사이드탭의 가시성은
 -- _selectedTab의 함수이고(UpdateSideTabs: 탭2가 선택되면 사이드탭2를 숨긴다), 그걸
@@ -2456,11 +2379,6 @@ function DebindFrameMixin:OnHide()
 	-- 안 끄면 다음에 창을 열 때 목록이 빛나고 있다 - 창을 닫는 것도, 전투에 끌려들어가는
 	-- 것도 커서에 뭘 든 채로 일어난다.
 	self:UpdateDropHighlight();
-	-- 풍선도 같이 접는다. 우리 창의 자식이라 부모가 숨으면 안 보이지만 풀에서는 살아 있는
-	-- 상태로 남는다 - 창이 닫혀 있는 동안 활성으로 둘 이유가 없고, 다시 열 때 조건을 다시
-	-- 재서(`UpdateHelpTips`) 그때 띄우면 된다. 이 시점의 `IsShown()`은 이미 거짓이므로
-	-- 저 함수가 그대로 닫는 쪽으로 간다.
-	self:UpdateHelpTips();
 	ClearMacrotextIconCache();
 end
 
@@ -2710,12 +2628,6 @@ end
 ---
 --- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
 local function CommitSelection(self)
-	-- **둘이 고른 것을 봤으면 그 풍선은 할 일이 끝났다**(`UpdateHelpTips`). 여기가 선택이
-	-- 달라지는 모든 길이 지나는 자리라, 어느 수식어로 어떻게 골랐는지는 물을 필요가 없다.
-	if (_selectionCount > 1) then
-		AcknowledgeTip(TIP_MULTI_SELECT);
-	end
-
 	-- 왼쪽 열을 여기서 따로 다시 그리지 않는다. **맨 아래 `Update`가 이미 그 일을 한다**
 	-- (`DebindOverviewPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
 	-- 전체를 두 번 짓는다 - 그 함수는 프로필의 모든 레이어를 훑어 키로 묶는 자리다.
@@ -3008,7 +2920,6 @@ function DebindFrameMixin:Update()
 	self:UpdateEmptyText();
 
 	self:UpdateDropHighlight();
-	self:UpdateHelpTips();
 end
 
 --- 목록 위 한 줄. **검색창과 개수가 같은 자리를 번갈아 쓴다**(이유는 XML의 SearchBox 주석).

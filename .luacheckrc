@@ -193,7 +193,6 @@ globals = {
 	"IconDataProviderMixin",
 	"IconDataProviderExtraType",
 	"DropdownButtonMixin",
-	"HelpTip",
 	"InputBoxInstructions_OnTextChanged",
 	"SearchBoxTemplate_OnEditFocusLost",
 	"SearchBoxTemplate_OnEditFocusGained",
