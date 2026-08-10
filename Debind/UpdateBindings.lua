@@ -105,8 +105,6 @@ do
     end
 end
 
-local ACTION_BUTTON_USE_KEY_DOWN; -- GetCVarBool("ActionButtonUseKeyDown")
-
 local SetBindingAttributes;
 local UpdateBindingsMap;
 local UpdateMacroTextsMap;
@@ -115,6 +113,8 @@ local UpdateAttrChangedHandler;
 local addCustomState;
 local addMacrotext;
 local addMacrotextBinding;
+
+local GetModifierIndex   = DebindPrivate.GetModifierIndex;
 
 local _strArr            = {};
 local _macrotexts        = {};
@@ -251,7 +251,6 @@ function DebindPrivate.UpdateBindings()
         return;
     end
 
-    ACTION_BUTTON_USE_KEY_DOWN = GetCVarBool("ActionButtonUseKeyDown");
     DebindPrivate.RefreshYieldedKeys();
     DebindPrivate.RefreshGameMenuKeys();
 
@@ -264,6 +263,9 @@ self:RunAttribute("ClearClickBindings")
 self:RunAttribute("ClearUnitAttributes")
 wipe(BindingsMap)
 wipe(ClickTimeKeys)
+for _, byMod in pairs(ClickCastKeys) do
+    wipe(byMod)
+end
 wipe(HeldButtons)
 wipe(HeldUnits)
 wipe(MacroTextsMap)
@@ -381,6 +383,11 @@ wipe(States)
     else
         SecureStateDriverManager:UnregisterEvent("SPELLS_CHANGED");
     end
+
+    -- 클릭캐스팅 라우팅을 프레임들에 반영한다. **아래 상태 루프보다 먼저다** - 그쪽이
+    -- `<접두사>type<번호>`를 걸므로, 짝인 `clickbutton`이 아직 없으면 그 사이의 클릭이
+    -- 조용히 사라진다(`SECURE_ACTIONS.click`이 delegate가 없으면 아무것도 안 한다).
+    DebindPrivate.RefreshClickCastRouting();
 
     -- execute UpdateBindings with forceAll set
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
@@ -644,6 +651,9 @@ end
 
 function UpdateBindingsMap()
     appendLine("local bindings,t");
+    -- 이번 리빌드가 쓸 클릭캐스팅 라우팅 자리. 아래 `isClick` 갈래가 채우고, 리빌드가
+    -- 끝난 뒤 `RefreshClickCastRouting`이 등록된 프레임들에 반영한다.
+    wipe(DebindPrivate.ClickCastRouting);
     for key, bindingArray in pairs(DebindPrivate.KeyMap) do
         wipe(_updateFlags);
 
@@ -758,11 +768,41 @@ function UpdateBindingsMap()
                         -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
                         -- `typerelease` 조회가 nil이라 아무 일도 안 나므로 붙들 이유가 없고,
                         -- 괜히 붙들면 낡은 판단을 재사용하게 된다.
-                        if (clickTime and isNonClick and binding.pressAndHold) then
+                        --
+                        -- **클릭캐스팅 레코드도 같은 것을 실어야 한다.** 그쪽도 이제 래퍼가
+                        -- 대상을 맨이름으로 넣는다 - 유닛 프레임에서 delegate 프레임으로 가던
+                        -- `/click` 한 단계가 없어졌으므로 delegate가 들고 있던 `unit`이
+                        -- 안 실리면 대상이 조용히 사라진다.
+                        --
+                        -- `isClick` 쪽은 `CLICK_TIME_EVAL`을 안 본다. 그 플래그는 **키 역할을
+                        -- 클릭 시점으로 내릴지**를 가르는 것이고, 클릭캐스팅은 그 선택지가 없다 -
+                        -- 매크로를 안 거치려면 래퍼를 지날 수밖에 없어서 언제나 클릭 시점이다.
+                        local carriesTarget = isClick
+                                or (Constants.CLICK_TIME_EVAL and clickTime and isNonClick);
+
+                        -- **press-and-hold는 키 갈래에만 싣는다.**
+                        --
+                        -- 클릭캐스팅은 `delegate:Click(button)`으로 오는데 그 호출이 엣지를
+                        -- 안 싣는다. 그래서 언제나 `down=false`로 도착하고, 래퍼의
+                        -- `if (down)` 갈래가 영영 안 돌아 이 값을 읽을 자리가 없다.
+                        --
+                        -- **읽을 자리를 만들어서도 안 된다.** 여기서 `pressAndHoldAction`을
+                        -- 켜면 게이트가 `useOnKeyDown`을 강제로 참으로 만드는데
+                        -- (SecureTemplates.lua:813), 도착이 `down=false`라
+                        -- `clickAction = (down and useOnKeyDown)`이 거짓이 되고
+                        -- `releasePressAndHoldAction`으로 넘어가 **누른 적 없는 주문의
+                        -- `typerelease`만 나간다.** 지금처럼 안 싣는 쪽이 평범한 시전으로
+                        -- 떨어져서 낫다.
+                        --
+                        -- 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서
+                        -- 놓는 동작이 안 된다. 고치려면 엣지를 실어 올 길이 필요한데
+                        -- `SECURE_ACTIONS.click`에는 없다.
+                        if (Constants.CLICK_TIME_EVAL and clickTime and isNonClick
+                                and binding.pressAndHold) then
                             appendKeyValue("pressAndHold", true);
                         end
 
-                        if (clickTime and isNonClick and binding.unit and binding.unit ~= "") then
+                        if (carriesTarget and binding.unit and binding.unit ~= "") then
                             if (SPECIAL_UNITS[binding.unit]) then
                                 appendKeyValue("unitAlias", binding.unit);
                             elseif (BASIC_UNITS[binding.unit]) then
@@ -901,19 +941,49 @@ function UpdateBindingsMap()
                             _unitsSeen[binding.unit] = true;
                         end
 
+                        -- **유닛 프레임은 매크로를 거치지 않는다.**
+                        --
+                        -- 옛 경로는 `type="macro"` + `macrotext="/click <프레임> <버튼>"`이었다.
+                        -- 그러면 **바깥이 매크로**가 되고, 도착한 버튼의 액션이 또 매크로면
+                        -- 실행되지 않는다(게임 제약, `click-time-poc-results.md` §2-5).
+                        -- 매크로텍스트·매크로·펫 명령·spellID 없는 탈것이 통째로 안 나갔다.
+                        --
+                        -- `type="click"`은 `SECURE_ACTIONS.click` 한 줄이라 매크로를 안 거친다.
+                        -- 대신 **버튼 이름을 못 싣는다** - `delegate:Click(button)`이 원래 마우스
+                        -- 버튼을 그대로 넘긴다. 그래서 어느 액션인지는 래퍼가 도착한 뒤에
+                        -- `ClickCastKeys`에서 되찾는다(아래 등록).
+                        --
+                        -- 그 덕에 여기서 거는 `clickbutton`은 **언제나 같은 프레임**이다.
+                        -- 승자가 바뀌어도 안 바뀌므로 옛 경로처럼 액션마다 다시 쓸 일이 없다.
                         if (isClick) then
                             appendLine("t.isClick,t.clickAttrs=true,newtable()");
                             if (clickframe and clickbutton) then
                                 appendLine([[
-t.clickAttrs["%1$stype%2$d"]="macro"
-t.clickAttrs["%1$smacro%2$d"]=""
-t.clickAttrs["%1$smacrotext%2$d"]="/click %3$s %4$s %5$s"
+t.clickAttrs["%1$stype%2$d"]="click"
+t.clickAttrs["%1$smacro%2$d"]=false
+t.clickAttrs["%1$smacrotext%2$d"]=false
 ]],
                                     buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
-                                    button,
-                                    clickframe:GetName(),
-                                    clickbutton,
-                                    ACTION_BUTTON_USE_KEY_DOWN and "true" or "");
+                                    button);
+
+                                -- **짝이 되는 `clickbutton`은 여기서 안 나간다.** 보안
+                                -- 스니펫에서 프레임 핸들로 속성을 쓰면 비보안 쪽이 진짜
+                                -- 프레임이 아니라 **핸들 그대로** 읽는다. 그러면
+                                -- `SECURE_ACTIONS.click`의 `delegate:HasAccessConstraints()`가
+                                -- nil 호출로 죽는다(SecureTemplates.lua:564).
+                                --
+                                -- 값이 언제나 같은 프레임이라 상태에 안 달렸다. 그래서
+                                -- 전투 밖에 비보안 쪽에서 프레임마다 한 번 쓴다
+                                -- (`FrameRegistry.lua`의 `ApplyClickCastRouting`).
+                                local clickCastAttr = format("%sclickbutton%d",
+                                    buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
+                                    button);
+                                DebindPrivate.ClickCastRouting[clickCastAttr] = true;
+
+                                -- 이름을 스니펫에도 실어 보낸다. 보안 쪽이 `type`을 쓰기 전에
+                                -- **짝이 실제로 걸려 있는지** 확인하는 데 쓴다 - 전투 중
+                                -- 헤더 등록처럼 비보안 쪽이 아직 못 건 창이 있다.
+                                appendKeyValue("clickCastAttr", clickCastAttr);
                             else --if (_type == Constants.UNUSED) then
                                 appendLine([[
 t.clickAttrs["%1$stype%2$d"]=false
@@ -949,6 +1019,16 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
 
         if (hasClick) then
             appendLine("bindings.hasClick=true");
+
+            -- 클릭캐스팅으로 도착할 자리를 등록한다. 유닛 프레임이 `type="click"`으로 넘기면
+            -- 래퍼는 마우스 버튼 이름밖에 못 받으므로(`/click`과 달리 이름을 못 싣는다),
+            -- **버튼 번호와 수식어로 이 키를 되찾는다.**
+            --
+            -- `ClickTimeKeys`와 나란한 등록이지 그것의 일부가 아니다. 저쪽은 키 역할을
+            -- 클릭 시점에 정하는 키들이고 이쪽은 클릭캐스팅이라, 한 키가 양쪽에 다 있을 수도
+            -- 어느 한쪽에만 있을 수도 있다.
+            appendLine("ClickCastKeys[%d]=ClickCastKeys[%d] or newtable()", button, button);
+            appendLine("ClickCastKeys[%d][%d]=bindings", button, GetModifierIndex(buttonPrefix));
         end
         if (hasNonClick) then
             appendLine("bindings.hasNonClick=true");

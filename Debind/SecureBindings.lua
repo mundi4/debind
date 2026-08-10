@@ -73,6 +73,25 @@ SecureHandlerExecute(BindingDriver, [[
 	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
 	ClickTimeKeys = newtable()
 
+	-- 클릭캐스팅으로 도착한 클릭. `[버튼번호][수식어] -> 그 키의 BindingsMap 배열`.
+	--
+	-- **이쪽은 이름을 못 받는다.** 유닛 프레임은 `type="click"`으로 우리에게 넘기는데
+	-- `SECURE_ACTIONS.click`은 `delegate:Click(button)`이라 원래 마우스 버튼 이름만 온다
+	-- (`/click`과 달리 버튼 이름을 못 싣는다 - 그게 매크로 안의 매크로를 부르던 옛 경로를
+	-- 버린 이유다). 그래서 도착한 마우스 버튼과 지금 눌린 수식어로 키를 되찾는다.
+	--
+	-- 두 단계 표인 이유는 **클릭 순간에 문자열을 안 만들기 위해서다.** 키 문자열로 색인하면
+	-- 매 클릭 결합이 생긴다.
+	ClickCastKeys = newtable()
+
+	-- 도착한 마우스 버튼 이름 -> 번호. 클릭 경로에서 쓰는 조회라 미리 만들어 둔다.
+	MouseButtonNumbers = newtable()
+	MouseButtonNumbers["LeftButton"] = 1
+	MouseButtonNumbers["RightButton"] = 2
+	MouseButtonNumbers["MiddleButton"] = 3
+	MouseButtonNumbers["Button4"] = 4
+	MouseButtonNumbers["Button5"] = 5
+
 	-- 실행 엣지가 down일 때 down의 선택을 up이 재사용하기 위한 자리. 버튼 이름 -> 이긴 레코드,
 	-- 그리고 그때 확정한 대상. down이 항상 먼저 오므로 덮어쓰기로 자가 치유된다.
 	HeldButtons = newtable()
@@ -437,7 +456,23 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				end
 
 				if (match) then
-					if (not clickBound and unitframe and t.isClick) then
+					-- **짝인 `clickbutton`이 실제로 걸려 있을 때만 `type`을 쓴다.**
+					--
+					-- 두 속성의 쓰는 쪽이 갈려 있다 - `type`은 여기(보안), `clickbutton`은
+					-- 비보안(`ApplyClickCastRouting`). 그런데 헤더 등록(`clickcast_register`)은
+					-- 제한 환경이라 **전투 중에도 도는데** 비보안 쪽은 전투에서 큐로 빠진다.
+					-- 그러면 `type="click"`만 걸리고 delegate가 없어 `SECURE_ACTIONS.click`이
+					-- 아무것도 안 한다 - 그 전투 내내 그 프레임 클릭이 조용히 사라진다.
+					--
+					-- 옛 매크로텍스트 방식은 셋 다 보안 쪽이라 이 구멍이 없었다.
+					-- `clickbutton`을 비보안으로 뺀 대가이므로 여기서 갚는다.
+					--
+					-- 값이 아니라 **존재만** 본다. 프레임 값은 여기서 핸들로 오므로 우리 것인지
+					-- 남의 것인지는 못 가른다.
+					local routed = (t.clickCastAttr == nil)
+							or (unitframe and unitframe.frame:GetAttribute(t.clickCastAttr) ~= nil)
+
+					if (not clickBound and unitframe and t.isClick and routed) then
 						if (unitframe.clicks[key] ~= t) then
 							if (t.type == CONSTANTS.UNUSED) then
 								for k, v in pairs(t.clickAttrs) do
@@ -524,8 +559,30 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 --- known …)은 양쪽이 **같은 값을 읽으므로 불일치가 곧 버그**다. 반대로 hover와 유닛 조건은
 --- 어긋나는 것이 정상이고 - 그게 이 공사가 노린 개선분이다 - 그 빈도가 성과 지표가 된다.
 --- 그래서 둘을 갈라서 보고한다.
+--- 클릭캐스팅 클릭이 우리 프레임까지 왔는지 보고한다. **빌드 시점에 가른다** - 릴리스에서는
+--- 문자열이 비어서 스니펫에 이 줄이 아예 없다.
+---
+--- 이 갈래의 실패는 전부 조용하다. 라우팅이 안 걸리면 클릭이 아예 안 오고, 색인이 어긋나면
+--- 와서 아무것도 못 찾는다. 둘 다 오류도 로그도 없어서 **로그가 안 나오는 것 자체가 답이
+--- 되도록** 도착 즉시 찍는다.
+---
+--- 맨이름 마우스 버튼으로 이 프레임에 도착하는 길은 클릭캐스팅 라우팅뿐이다. 키 바인딩은
+--- `"@" + 키` 이름으로 오고 옛 위임은 `deb1xx`로 오므로 여기 안 걸린다.
+local CLICKCAST_ARRIVAL_SNIPPET = DebindPrivate.DEBUG and [==[
+
+			debind_driver:CallMethod("OnClickCastArrival", button, mod,
+				bindings and #bindings or 0)
+]==] or "";
+
 local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 
+	-- **클릭캐스팅으로 온 것은 대조하지 않는다.** 아래 재현은 `isNonClick` 레코드를 도는데
+	-- 그쪽은 `isClick` 레코드로 이겼다. 서로 다른 집합을 비교하는 것이라 불일치가 늘 나고,
+	-- 그건 버그가 아니라 질문이 틀린 것이다.
+	--
+	-- 클릭캐스팅에는 대조할 "옛 경로의 답"이 아예 없다 - 옛 경로는 승자를 상태 루프가 미리
+	-- 정해 유닛 프레임에 구워뒀고, 그 값은 여기서 읽을 수 없다.
+	if (not clickCast) then
 	do
 		-- 옛 경로의 판정을 캐시 값으로 그대로 재현한다(UpdateBindings 스니펫의 루프와 같다).
 		local cachedIndex
@@ -607,6 +664,7 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 				winnerIndex or 0, cachedIndex or 0, expected)
 		end
 	end
+	end
 ]==] or "";
 
 BindingDriver:SetAttribute("ClearClickBindings", [==[
@@ -641,6 +699,9 @@ BindingDriver:SetAttribute("InitFrame", [==[
 	ccframes[button].clicks = ccframes[button].clicks or newtable()
 	ccframes[button].frameType = 0
 	ccframes[button].reaction = 0
+	-- `clickbutton`은 여기 없다. 그쪽은 보안 스니펫이 못 쓴다(프레임 핸들이 그대로 저장되어
+	-- 비보안 쪽이 프레임으로 못 읽는다). 비보안 쪽에서 쓰고 되돌리는 것도 거기서 한다 -
+	-- `FrameRegistry.lua`의 `ApplyClickCastRouting`.
 	if (not ClickAttrDefaultValues[button]) then
 		ClickAttrDefaultValues[button] = newtable()
 		for i = 1, 5 do
@@ -803,6 +864,13 @@ else
 		if (buttonName) then
 			local button = _G[buttonName];
 			if (button and DebindPrivate.ccframes[button] and DebindPrivate.ccframes[button].hd) then
+				-- **여기서 되돌리지 않으면 영영 못 되돌린다.** `UnregisterFrame`은 `hd`
+				-- 프레임을 건너뛰므로(FrameRegistry.lua) 헤더로 들어온 프레임이 되돌아가는
+				-- 자리는 이 한 곳뿐이다. 안 부르면 그 프레임의 클릭이 계속 우리에게 온다.
+				--
+				-- 전투 중이면 안에서 큐로 미룬다 - 이 갈래는 보안 쪽에서 오므로 전투 중에도
+				-- 도달한다.
+				DebindPrivate.RestoreClickCastRouting(button);
 				DebindPrivate.ccframes[button] = nil;
 			end
 		end
@@ -819,6 +887,17 @@ function BindingDriver:OnClickTimeMismatch(button, liveIndex, cachedIndex, expec
 		expected and "|cff888888" or "|cffff4444",
 		tostring(button), tostring(liveIndex), tostring(cachedIndex),
 		expected and "  (hover/유닛 - 정상)" or "  <- 같은 값을 읽고 답이 갈렸다"));
+end
+
+--- 클릭캐스팅 클릭이 우리 프레임에 도착했다. DEBUG 빌드에서만 불린다.
+---
+--- **안 나오는 것도 답이다.** 유닛 프레임 클릭에 이게 안 찍히면 라우팅이 안 걸린 것이다
+--- (`<접두사>type<N>`/`<접두사>clickbutton<N>`을 못 썼거나, 프레임이 자기 것으로 덮었거나).
+--- 찍히는데 `n=0`이면 도착은 했고 그 버튼·수식어에 등록된 키가 없다는 뜻이다.
+function BindingDriver:OnClickCastArrival(button, mod, n)
+	DebindPrivate.log(format("|cff88ccff[Debind/clickcast]|r %s mod=%s -> %s",
+		tostring(button), tostring(mod),
+		(tonumber(n) or 0) > 0 and (tostring(n) .. "개") or "|cffff4444등록 없음|r"));
 end
 
 function BindingDriver:OnSpecialUnitChanged(alias, value)
@@ -844,19 +923,64 @@ end
 SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, applyConstants([==[
 	local bindings = ClickTimeKeys[button]
 
+	-- **클릭캐스팅으로 온 클릭.** 유닛 프레임이 `type="click"`으로 넘긴 것이라 버튼 이름이
+	-- 아니라 원래 마우스 버튼("LeftButton" 등)으로 도착한다. 어느 키인지는 도착한 버튼과
+	-- 지금 눌린 수식어로 되찾는다.
+	--
+	-- 자릿값은 `UpdateBindings.lua`의 `GetModifierIndex`와 같아야 한다. 여기만 바꾸면
+	-- 수식어가 걸린 클릭캐스팅만 조용히 다른 목록을 찾는다.
+	--
+	-- 이 갈래로 들어온 클릭은 아래 판정에서 **`isClick` 레코드**를 본다. 같은 키의 키보드
+	-- 쪽(`isNonClick`)과 조건이 다를 수 있으므로 섞으면 안 된다.
+	local clickCast
+	if (not bindings) then
+		local n = MouseButtonNumbers[button]
+		if (n) then
+			local mod = 0
+			if (IsAltKeyDown()) then
+				mod = mod + CONSTANTS.MOD_ALT
+			end
+			if (IsControlKeyDown()) then
+				mod = mod + CONSTANTS.MOD_CTRL
+			end
+			if (IsShiftKeyDown()) then
+				mod = mod + CONSTANTS.MOD_SHIFT
+			end
+			local byMod = ClickCastKeys[n]
+			bindings = byMod and byMod[mod]
+			clickCast = bindings and true or false
+]==] .. CLICKCAST_ARRIVAL_SNIPPET .. [==[
+		end
+	end
+
 	-- **맨이름 속성은 프레임에 남는다.** "안 쓰면 없다"가 아니라 "안 쓰면 앞의 것이 남는다"라
 	-- 매 클릭 전부 확정해야 한다. 옛 경로로 들어온 클릭(deb1xx, /click 위임)에도 반드시
 	-- 적용한다 - 앞 클릭이 남긴 unit 하나가 자가시전·주시시전·마우스오버시전을 통째로
 	-- 죽인다(`checkselfcast`류는 unit이 없을 때만 동작한다). 오류도 로그도 안 난다.
 	--
 	-- `pressAndHoldAction`은 아래에서 이긴 액션의 값으로 다시 쓴다. 여기서 지우는 것은
-	-- 앞 클릭의 잔류를 막기 위해서다. `useOnKeyDown`은 건드리지 않는다(항상 nil) -
-	-- 사용자 CVar가 정하게 둔다.
+	-- 앞 클릭의 잔류를 막기 위해서다. `useOnKeyDown`은 키 갈래에서는 건드리지 않는다(nil) -
+	-- 사용자 CVar가 정하게 둔다. 클릭캐스팅 갈래는 바로 아래에서 다시 쓴다.
 	self:SetAttribute("unit", nil)
 	self:SetAttribute("pressAndHoldAction", nil)
 	self:SetAttribute("useOnKeyDown", nil)
 	self:SetAttribute("type", nil)
 	self:SetAttribute("macrotext", nil)
+
+	-- **클릭캐스팅은 언제나 `down=false`로 도착한다.** `SECURE_ACTIONS.click`이
+	-- `delegate:Click(button)`이라 엣지를 못 싣는다(`/click`은 세 번째 인자로 실었다).
+	--
+	-- 그런데 게이트는 `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`
+	-- 이고 `useOnKeyDown`이 nil이면 `ActionButtonUseKeyDown` CVar로 떨어진다
+	-- (SecureTemplates.lua:795-814). **그 CVar가 켜져 있으면 둘 다 거짓이 되어 아무것도
+	-- 안 나간다.** 오류도 로그도 없다.
+	--
+	-- 그래서 이 갈래에서만 거짓으로 못박는다. 도착 엣지가 고정이므로 CVar에 물어볼 것이 없다.
+	-- 어느 엣지에 클릭이 오느냐는 유닛 프레임의 `RegisterForClicks`가 정하고, 그건 그 프레임
+	-- 주인의 몫이다.
+	if (clickCast) then
+		self:SetAttribute("useOnKeyDown", false)
+	end
 
 	if (not bindings) then
 		-- 우리 키가 아니다. 버튼 이름을 바꾸지 않고 그대로 흘려보낸다.
@@ -924,9 +1048,13 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	local memoReady = false
 	local winner, winnerIndex
 
+	-- 어느 갈래로 들어왔느냐가 곧 어느 레코드를 보느냐다. 한 키가 양쪽 레코드를 다 가질 수
+	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
+	local subset = clickCast and "isClick" or "isNonClick"
+
 	for i = 1, #bindings do
 		local t = bindings[i]
-		if (t.isNonClick) then
+		if (t[subset]) then
 			local match = true
 
 			if (t.hover ~= nil) then
@@ -1144,6 +1272,11 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	-- 것이다 - 위의 `PlayerIsChanneling` 가드도 없이.
 	--
 	-- preBody에서 지울 수는 없다. 게이트가 그 뒤에 읽는다.
+	--
+	-- **`useOnKeyDown`도 같다.** 클릭캐스팅 갈래가 이걸 false로 못박는데(도착 엣지가 고정이라
+	-- CVar에 물어볼 것이 없다), 남겨두면 같은 경로로 delegate에 새어나간다 - `ActionButtonUseKeyDown`
+	-- 을 켜둔 사용자의 대상 있는 옛 경로 키가 클릭캐스팅 한 번 뒤부터 up에서 발동하게 된다.
 	self:SetAttribute("pressAndHoldAction", nil)
+	self:SetAttribute("useOnKeyDown", nil)
 ]==]);
 

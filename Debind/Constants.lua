@@ -16,7 +16,7 @@ Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 -- 키를 누른 순간 보안 스니펫이 조건을 평가해 액션을 고르는 경로. 끄면 라우팅이 전부 멈추고
 -- 모든 키가 상태 구동(옛 경로)으로 돌아간다 - 회귀가 보이면 여기부터 뒤집어 볼 것.
 -- 어느 키가 이 경로로 가는지는 `IsKeyAlwaysClickBound`가 정한다.
-Constants.CLICK_TIME_EVAL                 = true;
+Constants.CLICK_TIME_EVAL                 = false;
 
 -- 클릭 시점 키를 클릭 프레임에 걸 때 쓰는 버튼 이름의 접두사. 래퍼가 이 이름을 보고
 -- 자기 키인지 가른 다음 이긴 액션의 이름으로 바꿔 반환한다.
@@ -165,6 +165,36 @@ for i = 1, 5 do
     MOUSE_BUTTONS["BUTTON" .. i] = i;
 end
 
+--- 수식어 접두사를 **와우의 정규 순서**(`ALT-CTRL-SHIFT-`)로 다시 쓴다.
+---
+--- 저장된 키에서 떼어낸 접두사는 순서가 뒤집혀 있을 수 있다(손으로 고친 프로필, 가져온
+--- 프로필). 그러면 두 가지가 어긋난다:
+---
+---   속성 이름   게임은 정규 순서로만 조회하므로 `SHIFT-ALT-type2`는 **아무도 안 본다.**
+---               그 바인딩은 원래부터 안 나갔다
+---   색인        `GetModifierIndex`는 순서를 안 보므로 `ALT-SHIFT-`와 같은 칸을 쓴다.
+---               그래서 **안 나가던 키가 멀쩡한 키의 칸을 덮어쓴다**
+---
+--- 둘을 같은 접두사에서 뽑으면 둘 다 닫힌다. 덤으로 비정규 접두사로 저장된 키도 살아난다.
+local function CanonicalModifierPrefix(prefix)
+    if (not prefix or prefix == "") then
+        return nil;
+    end
+    local canonical = "";
+    if (prefix:find("ALT-", 1, true)) then
+        canonical = canonical .. "ALT-";
+    end
+    if (prefix:find("CTRL-", 1, true)) then
+        canonical = canonical .. "CTRL-";
+    end
+    if (prefix:find("SHIFT-", 1, true)) then
+        canonical = canonical .. "SHIFT-";
+    end
+    -- 아는 수식어가 하나도 없으면 우리가 모르는 접두사다. 건드리지 않고 그대로 돌려준다 -
+    -- 지어내면 엉뚱한 자리에 걸린다.
+    return canonical ~= "" and canonical or prefix;
+end
+
 local _mousebuttonCache = {};
 function DebindPrivate.GetMouseButtonAndPrefix(key)
     local cached = _mousebuttonCache[key];
@@ -177,7 +207,7 @@ function DebindPrivate.GetMouseButtonAndPrefix(key)
             if (idx) then
                 local button = MOUSE_BUTTONS[key:sub(idx)];
                 if (button) then
-                    local prefix = key:sub(1, idx - 1);
+                    local prefix = CanonicalModifierPrefix(key:sub(1, idx - 1));
                     cached = { button, prefix };
                     _mousebuttonCache[key] = cached;
                 else
@@ -191,6 +221,45 @@ function DebindPrivate.GetMouseButtonAndPrefix(key)
     else
         return nil, nil;
     end
+end
+
+--- `GetMouseButtonAndPrefix`가 떼어낸 접두사("SHIFT-", "ALT-CTRL-", nil)를 수식어 번호
+--- 0~7로 접는다.
+---
+--- 클릭캐스팅은 `type="click"`으로 넘어오는데 그 길은 **버튼 이름을 못 싣는다**
+--- (`SECURE_ACTIONS.click`이 `delegate:Click(button)`이라 원래 마우스 버튼만 온다).
+--- 그래서 도착한 버튼과 지금 눌린 수식어로 어느 키였는지를 되찾는데, 이 함수가 그 색인의
+--- 굽는 쪽이다.
+---
+--- **푸는 쪽이 `SecureBindings.lua`의 OnClick 래퍼에 따로 있다.** 그쪽은 제한 환경이라 이
+--- 함수를 못 부르므로 손계산이 한 벌 더 있는데, 자릿값만은 아래 상수를 양쪽이 같이 쓴다 -
+--- 래퍼는 `CONSTANTS.MOD_ALT` 꼴로 적고 `applyConstants`가 빌드 시점에 치환한다. 이름이
+--- 틀리면 거기 `assert`에서 터지므로, 어긋난 채로 나가는 길이 없다.
+---
+--- 자릿값이 갈리면 **수식어가 걸린 클릭캐스팅만** 조용히 다른 목록을 찾는다. 오류도 로그도
+--- 안 나므로 값을 한 군데 두는 것이 유일한 방어다.
+---
+--- 순서를 안 보고 부분 문자열로 찾는 이유는 와우의 정규 순서(`ALT-CTRL-SHIFT-`)에 기대지
+--- 않기 위해서다. 접두사는 우리가 만든 것이 아니라 저장된 키 문자열에서 떼어낸 것이다.
+Constants.MOD_ALT   = 1;
+Constants.MOD_CTRL  = 2;
+Constants.MOD_SHIFT = 4;
+
+function DebindPrivate.GetModifierIndex(buttonPrefix)
+    if (not buttonPrefix or buttonPrefix == "") then
+        return 0;
+    end
+    local mod = 0;
+    if (buttonPrefix:find("ALT-", 1, true)) then
+        mod = mod + Constants.MOD_ALT;
+    end
+    if (buttonPrefix:find("CTRL-", 1, true)) then
+        mod = mod + Constants.MOD_CTRL;
+    end
+    if (buttonPrefix:find("SHIFT-", 1, true)) then
+        mod = mod + Constants.MOD_SHIFT;
+    end
+    return mod;
 end
 
 Constants.MAX_BOSSES                                = 8;
