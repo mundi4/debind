@@ -1,3 +1,13 @@
+# 3.1.3
+
+**3.1.2 could freeze the game with raid frames from another addon.**
+
+Changing groups — anyone joining or leaving, or switching raid layouts — could send the game into an endless loop and stop it dead. It needed a unit frame addon that builds its frames with WoW's own group header, which is most of them, so if 3.1.2 gave you trouble this was almost certainly it.
+
+Debind was writing a setting onto that header, and a header rebuilds all of its frames whenever any of its settings change — including while it is already in the middle of building them, which is exactly when Debind was writing. Each frame it built asked Debind to set up click-casting, which wrote again, which started another rebuild. The write is now made the same way Blizzard makes its own, which the header knows to ignore.
+
+**Sorry.** 3.1.2 was out for a short time and this was in it.
+
 # 3.1.2
 
 **Click-casting a custom macro, a macro, or a pet command did nothing at all.**

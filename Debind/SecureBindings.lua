@@ -854,9 +854,10 @@ else
 				-- 자리는 이 한 곳뿐이다. 안 부르면 그 프레임의 클릭이 계속 우리에게 온다.
 				--
 				-- 전투 중이면 안에서 큐로 미룬다 - 이 갈래는 보안 쪽에서 오므로 전투 중에도
-				-- 도달한다.
-				DebindPrivate.RestoreClickCastRouting(button);
+				-- 도달한다. **엔트리를 먼저 지운다** - 그쪽이 "아직 등록돼 있나"로 미뤄둔
+				-- 되돌리기와 살아 있는 등록을 가른다.
 				DebindPrivate.ccframes[button] = nil;
+				DebindPrivate.RestoreClickCastRouting(button);
 			end
 		end
 	end
