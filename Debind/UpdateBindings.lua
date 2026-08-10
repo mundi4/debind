@@ -975,15 +975,9 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
                                 -- 값이 언제나 같은 프레임이라 상태에 안 달렸다. 그래서
                                 -- 전투 밖에 비보안 쪽에서 프레임마다 한 번 쓴다
                                 -- (`FrameRegistry.lua`의 `ApplyClickCastRouting`).
-                                local clickCastAttr = format("%sclickbutton%d",
+                                DebindPrivate.ClickCastRouting[format("%sclickbutton%d",
                                     buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
-                                    button);
-                                DebindPrivate.ClickCastRouting[clickCastAttr] = true;
-
-                                -- 이름을 스니펫에도 실어 보낸다. 보안 쪽이 `type`을 쓰기 전에
-                                -- **짝이 실제로 걸려 있는지** 확인하는 데 쓴다 - 전투 중
-                                -- 헤더 등록처럼 비보안 쪽이 아직 못 건 창이 있다.
-                                appendKeyValue("clickCastAttr", clickCastAttr);
+                                    button)] = true;
                             else --if (_type == Constants.UNUSED) then
                                 appendLine([[
 t.clickAttrs["%1$stype%2$d"]=false

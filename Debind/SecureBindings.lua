@@ -456,23 +456,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				end
 
 				if (match) then
-					-- **짝인 `clickbutton`이 실제로 걸려 있을 때만 `type`을 쓴다.**
-					--
-					-- 두 속성의 쓰는 쪽이 갈려 있다 - `type`은 여기(보안), `clickbutton`은
-					-- 비보안(`ApplyClickCastRouting`). 그런데 헤더 등록(`clickcast_register`)은
-					-- 제한 환경이라 **전투 중에도 도는데** 비보안 쪽은 전투에서 큐로 빠진다.
-					-- 그러면 `type="click"`만 걸리고 delegate가 없어 `SECURE_ACTIONS.click`이
-					-- 아무것도 안 한다 - 그 전투 내내 그 프레임 클릭이 조용히 사라진다.
-					--
-					-- 옛 매크로텍스트 방식은 셋 다 보안 쪽이라 이 구멍이 없었다.
-					-- `clickbutton`을 비보안으로 뺀 대가이므로 여기서 갚는다.
-					--
-					-- 값이 아니라 **존재만** 본다. 프레임 값은 여기서 핸들로 오므로 우리 것인지
-					-- 남의 것인지는 못 가른다.
-					local routed = (t.clickCastAttr == nil)
-							or (unitframe and unitframe.frame:GetAttribute(t.clickCastAttr) ~= nil)
-
-					if (not clickBound and unitframe and t.isClick and routed) then
+					if (not clickBound and unitframe and unitframe.routed and t.isClick) then
 						if (unitframe.clicks[key] ~= t) then
 							if (t.type == CONSTANTS.UNUSED) then
 								for k, v in pairs(t.clickAttrs) do
@@ -827,6 +811,7 @@ else
 		self:RunFor(button, self:GetAttribute("InitFrame"))
 		ccframes[button].hd = true
 		ccframes[button].frameType = CONSTANTS.FRAMETYPE_GROUP
+		button:SetAttribute("useparent-clickbutton", true)
 		
 		button:Run([[debind_driver = self:GetParent():GetFrameRef("clickcast_header")]])
 		if (not clique_header) then

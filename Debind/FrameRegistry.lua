@@ -176,14 +176,6 @@ local function SetPropagate(...)
     end
 end
 
---- 유닛 프레임의 클릭을 우리 클릭 프레임으로 보내는 `clickbutton`을 맞춘다.
----
---- **맨이름 `clickbutton` 하나로는 안 된다.** 우리가 거는 `type`이 `<접두사>type<번호>`라
---- 조회도 그 구체성에서 시작하는데, 프레임이 자기 `*clickbutton2` 같은 것을 들고 있으면
---- 맨이름보다 그게 이긴다. 그래서 `type`을 쓴 자리마다 짝을 맞춰 쓴다.
----
---- 되돌릴 값은 프레임별로 들고 있는다. 보안 쪽 `ClickAttrDefaultValues`는 `t.clickAttrs`의
---- 키만 도는데 `clickbutton`은 거기 없다 - 여기가 그 짝이다.
 --- 되돌릴 값. **`ccframes` 엔트리 안에 두면 안 된다.**
 ---
 --- 헤더로 등록된 프레임은 `OnClickCastUnregister`가 그 엔트리를 통째로 지운다. 백업이 거기
@@ -210,17 +202,22 @@ function ApplyClickCastRouting(button)
         return;
     end
 
-    local backup = _routingBackup[button];
+    local target = button;
+    if (DebindPrivate.ccframes[button].hd) then
+        target = button.bar or button:GetParent() or button;
+    end
+
+    local backup = _routingBackup[target];
     local wanted = DebindPrivate.ClickCastRouting;
 
     for attr in pairs(wanted) do
         if (not (backup and backup[attr] ~= nil)) then
             backup = backup or {};
             -- 원래 값이 없으면 `false`로 표시한다. `nil`은 "백업한 적 없다"와 구별이 안 된다.
-            backup[attr] = button:GetAttribute(attr) or false;
-            _routingBackup[button] = backup;
+            backup[attr] = target:GetAttribute(attr) or false;
+            _routingBackup[target] = backup;
         end
-        button:SetAttribute(attr, DebindPrivate.DefaultClickFrame);
+        target:SetAttribute(attr, DebindPrivate.DefaultClickFrame);
     end
 
     -- 더 이상 안 쓰는 자리는 돌려준다. 안 그러면 바인딩을 지운 뒤에도 그 프레임의 원래
@@ -228,12 +225,12 @@ function ApplyClickCastRouting(button)
     if (backup) then
         for attr, original in pairs(backup) do
             if (not wanted[attr]) then
-                button:SetAttribute(attr, original or nil);
+                target:SetAttribute(attr, original or nil);
                 backup[attr] = nil;
             end
         end
         if (not next(backup)) then
-            _routingBackup[button] = nil;
+            _routingBackup[target] = nil;
         end
     end
 end
@@ -294,6 +291,14 @@ function DebindPrivate.UpdateRegisteredClicks(button)
     end
 
     ApplyClickCastRouting(button);
+
+    SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clickcast_button", button);
+    SecureHandlerExecute(DebindPrivate.BindingDriver, [=[
+		local b = self:GetFrameRef("clickcast_button")
+		if (ccframes[b]) then
+			ccframes[b].routed = true
+		end
+	]=]);
 
     -- 애드온이 다 로드되지 않은 상태에서 호출이 된다?
     -- 일단 급하게 픽스

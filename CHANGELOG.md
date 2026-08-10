@@ -1,3 +1,17 @@
+# 3.1.2
+
+**Click-casting a custom macro, a macro, or a pet command did nothing at all.**
+
+Put one of those on a unit frame click and it never fired. The same action on a keyboard key worked, and everything else on unit frames — spells, items, targeting, focus — worked too, so the key you had set looked fine everywhere you could check it. There was no error and nothing in the chat.
+
+Mounts were caught by it as well, but only the ones Debind has to summon through a macro rather than a spell.
+
+The cause was one hop too many. A click on a unit frame went through a macro to reach the action, and WoW will not run a macro that a macro started — so anything macro-shaped at the end of that chain was dropped on the floor, and only those. Debind no longer routes the click through a macro, so the action is now the first and only one in the chain.
+
+**Hover bindings limited to the *Other* reaction went dead a moment after you hovered.**
+
+If you restricted an action to *Other* under **Reactions** — the setting that covers everything you can neither help nor harm, like merchants, guards, corpses and friendly totems — it worked the instant your cursor arrived and then stopped. Two parts of Debind disagreed on what *Other* meant, and the one that ran a fraction of a second later won.
+
 # 3.1.1
 
 **A key could stop working because of a condition on a different key.**
