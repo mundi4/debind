@@ -344,18 +344,22 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 			end
 		end
 
-		-- 클릭 시점 키이면서 클릭캐스팅 절반도 없으면 여기서 볼 것이 없다.
+		-- 배선이 고정된 키이면서 클릭캐스팅 역할도 없으면 여기서 볼 것이 없다.
 		-- 키는 UpdateBindingsMap이 이미 한 번 걸어놨고 다시 걸 일이 없다.
-		if (check and bindings.clickTime and not bindings.hasClick) then
+		--
+		-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기서
+		-- "잡느냐 놓느냐"를 계속 정해야 한다 - 건너뛰면 놓아줘야 할 때 못 놓는다.
+		if (check and bindings.alwaysOurs and not bindings.hasClick) then
 			check = false
 		end
 
 		if (check) then
 			local keyBound, clickBound = not bindings.hasNonClick, not bindings.hasClick
 
-			-- 키 절반은 클릭 시점이 맡는다. keyBound를 세워두면 아래 isNonClick 분기도,
-			-- 끝의 `not keyBound` 해제도 안 돈다. 클릭캐스팅 절반은 그대로 돈다.
-			if (bindings.clickTime) then
+			-- 배선이 고정된 키만 키 역할을 통째로 건너뛴다. keyBound를 세워두면 아래
+			-- isNonClick 분기도, 끝의 `not keyBound` 해제도 안 돈다.
+			-- 클릭캐스팅 역할은 어느 쪽이든 그대로 돈다.
+			if (bindings.alwaysOurs) then
 				keyBound = true
 			end
 			for i = 1, #bindings do
@@ -450,14 +454,38 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					end
 
 					if (not keyBound and t.isNonClick) then
-						if (bindings.bound ~= t) then
-							bindings.bound = t
+						-- **무엇을 걸 것인가는 이긴 액션이 아니라 세 갈래 중 하나다.**
+						--
+						-- clickTime 키는 어느 클릭 액션이 이기든 거는 것이 `"@"..key` 하나다.
+						-- 그래서 이긴 것으로 비교하면 승자가 뒤집힐 때마다 같은 값을 다시 거는
+						-- SetOverrideBinding이 나간다 - hover가 걸린 키에서 이게 제일 잦다.
+						-- 결과로 비교하면 그 재바인딩이 통째로 없어진다.
+						--
+						-- 셋은 서로 겹치지 않는다: false(놓아줌) / 명령 문자열 / 버튼 이름.
+						-- clickTime이 아니면 옛 규약대로 t 자체를 쓴다.
+						local outcome
+						if (t.type == CONSTANTS.UNUSED) then
+							outcome = false
+						elseif (t.command) then
+							outcome = t.command
+						elseif (t.clickbutton) then
+							outcome = bindings.clickTimeButton or t
+						end
+
+						if (bindings.bound ~= outcome) then
+							bindings.bound = outcome
 							if (t.type == CONSTANTS.UNUSED) then
 								self:ClearBinding(key)
 							elseif (t.command) then
 								self:SetBinding(true, key, t.command)
 							elseif (t.clickbutton) then
-								self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
+								if (bindings.clickTimeButton) then
+									-- 어느 액션인지는 래퍼가 클릭 순간에 정한다. 여기서는
+									-- "클릭이 이겼다"까지만 정한다.
+									self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
+								else
+									self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
+								end
 							end
 						end
 						keyBound = i
@@ -1025,11 +1053,25 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	end
 ]==] .. CLICKTIME_VERIFY_SNIPPET .. [==[
 
-	if (not winner) then
-		-- 여기 오면 안 된다. IsKeyAlwaysClickBound가 "끝까지 무조건 액션이 없는" 키를
-		-- 걸러내므로 반드시 하나는 맞아야 한다. 도달했다면 클릭을 취소하는 것이 옳다 -
-		-- 이름을 그대로 두면 게임이 "@<키>"로 속성을 찾고, 그런 것은 없으니 오류도 로그도
-		-- 없이 아무 일도 안 일어난다.
+	-- **낼 것이 없으면 클릭을 취소한다.** 두 갈래로 도달한다:
+	--
+	--   winner 없음        live로 아무 조건도 안 맞았다
+	--   clickbutton 없음   이긴 것이 UNUSED나 COMMAND다. 둘 다 클릭이 아니다
+	--
+	-- 배선이 고정된 키(alwaysOurs)에서는 둘 다 도달 불가다 - `IsKeyAlwaysClickBound`가
+	-- 무조건 클릭 액션의 존재를 보장한다. 나머지 clickTime 키에서는 **정상적으로 도달한다.**
+	-- 상태 루프가 묵은 값으로 "클릭이 이긴다"고 보고 걸어둔 뒤, 누르는 순간 live로는 놓아줬어야
+	-- 하는 경우다.
+	--
+	-- 그때 옳은 동작은 "와우에 돌려주기"인데 **여기서는 불가능하다.** `RunBinding`이 제한
+	-- 환경에 없고(`click-time-eval.md` §2-5), 유일한 우회로인 `CallMethod`는 forceinsecure다.
+	-- 입력은 이미 소비됐다. 그러니 아무것도 안 내는 것이 도달 가능한 것 중 옳음에 가장 가깝다 -
+	-- 그 키를 우리에게 준 사용자는 대개 와우 쪽을 비워뒀으므로 흔한 경우에는 정확히 맞고,
+	-- 틀리는 경우에도 **틀린 주문이 나가는 것보다 낫다.** 다음 폴링 틱에 상태 루프가 놓아준다.
+	--
+	-- `false` 대신 이름을 그대로 두어도 결과는 같지만(`*type-@<키>`가 없으니 조용히 끝난다),
+	-- 우연에 기대지 않고 명시한다.
+	if (not winner or not winner.clickbutton) then
 		return false
 	end
 

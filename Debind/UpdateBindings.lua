@@ -685,7 +685,15 @@ function UpdateBindingsMap()
             hasNonClick = hasNonClick or binding.isNonClick;
         end
 
-        -- **이 키의 "어느 액션인가"를 클릭 시점으로 내릴 수 있는가.**
+        -- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
+        --
+        --   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
+        --   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
+        --
+        -- `IsKeyAlwaysClickBound`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이
+        -- 거짓이면 두 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가
+        -- 이미 적어둔 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히
+        -- 클릭 시점에 정한다."
         --
         -- 판정은 반드시 위 전처리 루프가 끝난 뒤다. `isNonClick`이 거기서 정해지고, 걸 수단이
         -- 없어 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지
@@ -693,8 +701,13 @@ function UpdateBindingsMap()
         --
         -- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
         -- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
-        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick
-                and DebindPrivate.IsKeyAlwaysClickBound(bindingArray);
+
+        -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
+        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick and true or false;
+
+        -- 키 배선까지 고정이다. 한 번 `SetBindingClick` 걸고 상태 루프는 이 키의 키 역할을
+        -- 아예 안 본다.
+        local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysClickBound(bindingArray);
 
         local first = true;
 
@@ -941,22 +954,31 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
             appendLine("bindings.hasNonClick=true");
         end
 
-        -- 클릭 시점 키를 배선한다. **여기서 한 번 걸고 끝이다.**
+        -- 클릭 시점 키를 배선한다.
         --
-        -- 어느 액션인지가 상태에 안 달렸으므로 다시 걸 일이 없다. 그래서 보안 쪽
-        -- `UpdateBindings` 루프가 아니라 이 스니펫에서 직접 건다 - 그쪽은 상태가 바뀔 때마다
-        -- 도는 자리라 한 번이면 되는 일을 둘 이유가 없다.
+        -- **이름 등록은 언제나 여기서 한 번이다.** 래퍼는 `self`와 `button`만 받으므로 버튼
+        -- 이름에 키를 실어 보내고, 그 이름으로 `ClickTimeKeys`를 찾아 바인딩 목록을 얻는다.
+        -- 목록은 리빌드마다 새로 만들어지니 등록도 리빌드마다 한 번이면 된다.
+        --
+        -- **거는 것은 갈린다:**
+        --
+        --   alwaysOurs   여기서 한 번 걸고 끝. 상태가 뭐가 되든 우리 클릭 프레임이라 다시 걸
+        --                일이 없다. 상태 루프에 둘 이유가 없다
+        --   그 밖         상태 루프가 건다. "잡느냐 놓느냐"가 상태에 달렸으므로 여기서 한 번
+        --                걸어버리면 놓아줘야 할 때 못 놓는다
         --
         -- 순서는 맞다: 이 스니펫은 `ClearOverrideBindings` 뒤에 실행된다.
-        --
-        -- 버튼 이름에 키를 그대로 실어 보내는 이유는 래퍼가 `self`와 `button`만 받기
-        -- 때문이다. 이름으로 `ClickTimeKeys`를 찾아 그 키의 바인딩 목록을 얻는다.
         if (clickTime and not first) then
             local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
             DebindPrivate.ClickTimeKeys[key] = clickTimeButton;
-            appendLine("bindings.clickTime=true");
+            -- 상태 루프가 걸 때 쓸 이름. 문자열 결합을 클릭 경로 밖으로 빼둔다.
+            -- **이 값이 곧 "clickTime 키인가" 표시다** - 따로 불리언을 두면 둘이 갈라진다.
+            appendLine("bindings.clickTimeButton=%q", clickTimeButton);
             appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
-            appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key, clickTimeButton);
+            if (alwaysOurs) then
+                appendLine("bindings.alwaysOurs=true");
+                appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key, clickTimeButton);
+            end
         end
     end
 
