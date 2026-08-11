@@ -1096,6 +1096,11 @@ local EVAL_SNIPPET = [==[
 --- button through the restricted environment both share.
 DebindPrivate.InstallSnippet(function(pre)
 	DebindPrivate.UnitFrameClickPre = pre;
+	-- 처음 구울 때는 아직 아무것도 안 감쌌고 `FrameRegistry`도 안 올라왔다. 재베이크에서만
+	-- 할 일이 있다.
+	if (DebindPrivate.RewrapUnitFrames) then
+		DebindPrivate.RewrapUnitFrames();
+	end
 end, [==[
 	local info = ccframes[self]
 	if (not info) then

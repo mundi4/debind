@@ -200,6 +200,49 @@ local _routingRefs   = setmetatable({}, { __mode = "k" });
 --- 전투 중에 해제돼 되돌리지 못한 프레임. `PLAYER_REGEN_ENABLED`가 처리한다.
 DebindPrivate.RestoreRoutingQueue = {};
 
+--- 이미 `OnClick`을 감싼 프레임. **`ccframes` 엔트리로는 못 센다** - 우리는 래퍼를 떼지 않는데
+--- 해제 때 그 엔트리는 사라지므로, 다시 등록되면 두 번 감싸게 된다.
+---
+--- 떼지 않는 이유는 `SecureHandlerUnwrapScript`이 **맨 위 것**을 뗀다는 데 있다. 우리가 감싼 뒤
+--- 남이 또 감쌌으면 우리가 부르는 그 호출이 **남의 것을 떼고 우리 것은 남긴다.**
+--- (`click-time-phase3.md` §4-3)
+local _wrapped = setmetatable({}, { __mode = "k" });
+
+--- 우리 자리를 프레임에 얹는다.
+---
+--- **남의 자리를 안 건드리는 것이 요점이다.** 접미사가 `-debind1`이라 블리자드의 `type1`/`type2`와
+--- 겹치지 않는다. 값이 상태에 안 달려서(언제나 같은 프레임) 등록 때 한 번 쓰면 끝이고, 승자가
+--- 바뀌어도 다시 쓸 일이 없다 - 어느 액션인가는 래퍼가 클릭 순간에 정한다.
+---
+--- 그 래퍼가 `nil`을 반환하면 버튼 이름이 그대로 남아 프레임의 원래 동작으로 떨어진다. 우리가
+--- 아무 자리도 안 뺏었으므로 되돌릴 것이 없다.
+local function ApplyDebindRouting(button)
+    button:SetAttribute("*type-debind1", "click");
+    button:SetAttribute("*clickbutton-debind1", DebindPrivate.DefaultClickFrame);
+
+    if (not _wrapped[button] and DebindPrivate.UnitFrameClickPre) then
+        _wrapped[button] = true;
+        SecureHandlerWrapScript(button, "OnClick", BindingDriver, DebindPrivate.UnitFrameClickPre);
+    end
+end
+
+--- 본문이 다시 구워졌을 때(테스트 키트의 프로브 스위치) 감싼 것을 새 본문으로 갈아준다.
+---
+--- 여기서는 떼도 된다. **재베이크는 테스트 세션에서만 도는 길이고** 전투 밖이다. 실제 플레이에
+--- 이 함수가 도달하는 경로는 없다.
+function DebindPrivate.RewrapUnitFrames()
+    for button in pairs(_wrapped) do
+        _wrapped[button] = nil;
+        SecureHandlerUnwrapScript(button, "OnClick");
+    end
+
+    for button, entry in pairs(DebindPrivate.ccframes) do
+        if (entry) then
+            ApplyDebindRouting(button);
+        end
+    end
+end
+
 --- 헤더에 속성을 쓸 때 씌운다. **없으면 무한 재귀다.**
 ---
 --- `SecureGroupHeader_OnAttributeChanged`는 속성이 하나 바뀔 때마다 `SecureGroupHeader_Update`를
@@ -397,6 +440,7 @@ function DebindPrivate.UpdateRegisteredClicks(button)
     end
 
     ApplyClickCastRouting(button);
+    ApplyDebindRouting(button);
 
     SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clickcast_button", button);
     SecureHandlerExecute(DebindPrivate.BindingDriver, [=[
