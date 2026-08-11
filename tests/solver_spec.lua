@@ -305,14 +305,14 @@ return function(DebindPrivate)
     end
 
     --- 정답: i번 바인딩이 발동할 수 있는 점이 하나라도 있는가.
-    local function referenceSurvivors(bindings)
+    local function referenceSurvivors(bindings, points, matcher)
         local names = {};
         for i = 1, #bindings do
-            for _, p in ipairs(POINTS) do
-                if (matchesPoint(bindings[i], p)) then
+            for _, p in ipairs(points) do
+                if (matcher(bindings[i], p)) then
                     local covered = false;
                     for j = 1, i - 1 do
-                        if (matchesPoint(bindings[j], p)) then
+                        if (matcher(bindings[j], p)) then
                             covered = true;
                             break;
                         end
@@ -348,11 +348,15 @@ return function(DebindPrivate)
         return b.name .. "{" .. table.concat(parts, ",") .. "}";
     end
 
-    local function compareAgainstReference(bindings, label)
-        local expected = referenceSurvivors(bindings);
+    local function compareAgainstReference(bindings, label, points, matcher, describer)
+        points = points or POINTS;
+        matcher = matcher or matchesPoint;
+        describer = describer or describe;
+
+        local expected = referenceSurvivors(bindings, points, matcher);
         local snapshot = {};
         for i = 1, #bindings do
-            snapshot[i] = describe(bindings[i]);
+            snapshot[i] = describer(bindings[i]);
         end
 
         local actual = survivors(bindings);
@@ -476,6 +480,133 @@ return function(DebindPrivate)
         end
         covers[#covers + 1] = { name = "target" };
         expectRemoved(covers, "target");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 2-b. hover axis brute force
+    --
+    -- Folding hover into §2's space multiplies the point count by 22 and the
+    -- reference stops being runnable, so the hover axis gets its own small space.
+    --
+    -- Bindings here skip normalization -- survivors() hands raw tables straight to
+    -- CheckUnreachableBindings. Misc.lua strips reactions/frameTypes off non-hover
+    -- bindings, and the generator deliberately leaves them on: the Solver has to
+    -- reach the same verdict without that help.
+    ---------------------------------------------------------------------------
+
+    local band = bit.band;
+
+    local REACTION_VALUES = {
+        Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_OTHER,
+    };
+    local FRAMETYPE_VALUES = {
+        Constants.FRAMETYPE_UNKNOWN, Constants.FRAMETYPE_PLAYER, Constants.FRAMETYPE_PET,
+        Constants.FRAMETYPE_GROUP, Constants.FRAMETYPE_TARGET, Constants.FRAMETYPE_BOSS,
+        Constants.FRAMETYPE_ARENA,
+    };
+
+    -- One point per state the hover slot can hold, times combat so covers have a
+    -- second axis to split on. Nothing hovered means no frame at all, so that is a
+    -- single point rather than one per frame type.
+    local HOVER_POINTS = {};
+    do
+        for _, combat in ipairs({ true, false }) do
+            HOVER_POINTS[#HOVER_POINTS + 1] = { hovering = false, combat = combat };
+            for _, reaction in ipairs(REACTION_VALUES) do
+                for _, frameType in ipairs(FRAMETYPE_VALUES) do
+                    HOVER_POINTS[#HOVER_POINTS + 1] = {
+                        hovering = true, reaction = reaction, frameType = frameType,
+                        combat = combat,
+                    };
+                end
+            end
+        end
+    end
+
+    local function matchesHoverPoint(b, p)
+        if (b.hover == false) then
+            if (p.hovering) then return false; end
+        elseif (b.hover) then
+            if (not p.hovering) then return false; end
+            if (b.reactions and band(b.reactions, p.reaction) == 0) then return false; end
+            if (b.frameTypes and band(b.frameTypes, p.frameType) == 0) then return false; end
+        elseif (b.key and DebindPrivate.GetMouseButtonAndPrefix(b.key)) then
+            -- a mouse button fires wherever the cursor already is, so it can only
+            -- answer for the not-hovering point
+            if (p.hovering) then return false; end
+        end
+        -- off the hover path reactions/frameTypes have no axis to sit on, so they are
+        -- ignored no matter what the binding still carries
+        if (b.combat ~= nil and b.combat ~= p.combat) then return false; end
+        return true;
+    end
+
+    local function describeHover(b)
+        local parts = {};
+        if (b.hover ~= nil) then parts[#parts + 1] = "hover=" .. tostring(b.hover); end
+        if (b.reactions) then parts[#parts + 1] = ("reactions=%d"):format(b.reactions); end
+        if (b.frameTypes) then parts[#parts + 1] = ("frameTypes=%d"):format(b.frameTypes); end
+        if (b.combat ~= nil) then parts[#parts + 1] = "combat=" .. tostring(b.combat); end
+        parts[#parts + 1] = "key=" .. b.key;
+        return b.name .. "{" .. table.concat(parts, ",") .. "}";
+    end
+
+    local function randomMask(values)
+        local mask = 0;
+        for _, v in ipairs(values) do
+            if (nextRandom() < 0.5) then mask = mask + v; end
+        end
+        return mask;
+    end
+
+    local function randomHoverBinding(name)
+        local b = { name = name, key = pick({ "SHIFT-Q", "BUTTON4" }) };
+
+        local hover = pick({ "nil", true, false });
+        if (hover ~= "nil") then b.hover = hover; end
+
+        -- rolled independently of hover on purpose: a mask still sitting on a
+        -- non-hover binding is exactly the input this section exists to pin
+        local reactions = randomMask(REACTION_VALUES);
+        if (reactions ~= 0) then b.reactions = reactions; end
+        local frameTypes = randomMask(FRAMETYPE_VALUES);
+        if (frameTypes ~= 0) then b.frameTypes = frameTypes; end
+
+        local combat = pick({ "nil", true, false });
+        if (combat ~= "nil") then b.combat = combat; end
+
+        return b;
+    end
+
+    test("hover 축 무작위 바인딩 집합 2000개 - 무차별 대조와 일치", function()
+        for case = 1, 2000 do
+            local count = math.floor(nextRandom() * 6) + 2;
+            local bindings = {};
+            for i = 1, count do
+                bindings[i] = randomHoverBinding("b" .. i);
+            end
+            compareAgainstReference(bindings, "hover case " .. case,
+                HOVER_POINTS, matchesHoverPoint, describeHover);
+        end
+    end);
+
+    -- Reading frameTypes off a binding that is not hovering narrows its box, and a
+    -- narrowed cover stops covering what it really covers. Both bindings below fire
+    -- on exactly "not hovering", so the second one is unreachable and has to go.
+    test("hover가 아니면 frameTypes를 안 읽는다", function()
+        expectRemoved({
+            { name = "cover",   hover = false, frameTypes = Constants.FRAMETYPE_GROUP },
+            { name = "subject", hover = false },
+        }, "subject");
+    end);
+
+    -- Same for reactions. The hover column has always ignored it off the hover path;
+    -- this pins that so the two fields stay symmetric.
+    test("hover가 아니면 reactions를 안 읽는다", function()
+        expectRemoved({
+            { name = "cover",   hover = false, reactions = Constants.REACTION_HELP },
+            { name = "subject", hover = false },
+        }, "subject");
     end);
 
     ---------------------------------------------------------------------------

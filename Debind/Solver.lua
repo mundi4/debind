@@ -59,6 +59,17 @@ end
 --- 축이 하나뿐인 컬럼들. 순서는 상관없음.
 local FIXED_COLUMNS = {
     {
+        -- REACTION_NONE (16) sits outside REACTION_ALL (7), so it is the "not hovering" point
+        -- of this axis and a hover-conditioned action can never reach it.
+        --
+        -- The mouse button branch is what makes that split mean something. A mouse button
+        -- binding fires whatever the cursor is over, so hover cannot be a condition on it --
+        -- over a unit frame the frame eats the click, and only the frame path can act there.
+        -- So on a mouse button a hover-less action reaches the not-hovering point and nothing
+        -- else, while on a keyboard key it reaches the whole axis.
+        --
+        -- Coverage rests on this: what a mouse button key binding can answer for is exactly
+        -- the REACTION_NONE point.
         name = "hover",
         make = function(action)
             if (action.hover) then
@@ -73,8 +84,18 @@ local FIXED_COLUMNS = {
         end
     },
     {
+        -- Hover-dependent axes carry no condition off the hover path: with nothing hovered
+        -- there is no frame to have a type. Returning the full mask there is what keeps this
+        -- column free -- every cover that reaches the not-hovering point reaches it for all
+        -- seven frame types at once, so the point never splits across covers.
+        --
+        -- `Misc.lua` already nils the field for non-hover bindings; reading `hover` here is
+        -- what stops that from being a cross-file assumption.
         name = "frameTypes",
         make = function(action)
+            if (not action.hover) then
+                return flagsToConditionFlags(nil, 6);
+            end
             return flagsToConditionFlags(action.frameTypes, 6);
         end
     },
