@@ -127,32 +127,75 @@ end
 -- Test Helpers: Setup & Teardown
 -----------------------------------------------------------
 
--- GENERAL layer (layerID=1)에 테스트 액션을 삽입하고 UpdateBindings 실행
-local GENERAL_LAYER_ID = 1
+--- Tests live in a layer of their own, and while a run is on it is the only layer there is.
+---
+--- They used to go into the user's GENERAL layer. Then a test key carried the user's own actions
+--- too: the record a test looked up by position could be someone else's, the winner a click-time
+--- test read back could be someone else's, and asking the tester to click a frame fired whatever
+--- **they** had bound there. None of that is a flaky test - a test that cannot tell its own
+--- record from the user's is not testing anything.
+---
+--- The layer is built here rather than by the addon, and it is never saved. It borrows a real
+--- layer's metatable because the prototype is private to `Profile.lua` - the methods are what is
+--- wanted, not the storage.
+local testLayer
 
-local function GetGeneralLayer()
-    return DebindPrivate.GetProfileLayer(GENERAL_LAYER_ID)
+local function GetTestLayer()
+    if not testLayer then
+        local real = assert(DebindPrivate.GetProfileLayer(1), "프로필이 아직 안 올라왔다")
+        testLayer = setmetatable({
+            -- Past every real layer id, so ordering can never mistake it for a saved one.
+            layerID = 100,
+            actions = {},
+        }, getmetatable(real))
+    end
+    return testLayer
 end
 
-local insertedActions = {}
+--- Swaps the addon's layer enumeration for one that yields only the test layer.
+---
+--- **Everything that decides what is bound goes through that one function** -- `BuildKeyMap`, the
+--- ordering, the UI -- and it is looked up on `DebindPrivate` at each call, so replacing the
+--- field is enough and the addon needs no seam of its own. Test scaffolding does not belong in a
+--- shipped build.
+local realEnumerate
+
+local function SetIsolated(isolated)
+    if isolated then
+        if not realEnumerate then
+            realEnumerate = DebindPrivate.EnumerateProfileLayers
+            local only = { GetTestLayer() }
+            DebindPrivate.EnumerateProfileLayers = function()
+                return function(tbl, index)
+                    index = index + 1
+                    if tbl[index] then
+                        return index, tbl[index]
+                    end
+                end, only, 0
+            end
+        end
+    elseif realEnumerate then
+        DebindPrivate.EnumerateProfileLayers = realEnumerate
+        realEnumerate = nil
+    end
+
+    if not InCombatLockdown() then
+        DebindPrivate.UpdateBindings()
+    end
+end
 
 local function InsertAction(action)
-    local layer = GetGeneralLayer()
+    local layer = GetTestLayer()
     layer:Insert(action)
     -- 순서 번호는 레이어가 준다. 안 주면 같은 조건끼리 seq가 전부 nil이라 발동 순서가
     -- 정해지지 않고, 삽입 순서를 기대하는 테스트가 정렬 구현에 따라 흔들린다.
     layer:PlaceLast(action)
-    tinsert(insertedActions, action)
     return action
 end
 
+--- Empties the layer wholesale. Nothing else is in it, so there is nothing to be careful about.
 local function CleanupActions()
-    local layer = GetGeneralLayer()
-    for _, action in ipairs(insertedActions) do
-        layer:Remove(action)
-    end
-    wipe(insertedActions)
-    -- rebuild to clean state
+    wipe(GetTestLayer().actions)
     if not InCombatLockdown() then
         DebindPrivate.UpdateBindings()
     end
@@ -1476,6 +1519,7 @@ end
 local function FinishRun()
     pcall(CleanupActions)
     RunTeardowns()
+    SetIsolated(false)
     UI.SetActive(nil)
     UI.HideClickTarget()
     UI.SetRunning(false)
@@ -1535,6 +1579,10 @@ StaticPopupDialogs["DEBINDTEST_RELOAD"] = {
     OnAccept = function() ReloadUI() end,
     OnCancel = function()
         DB().pending = nil
+        -- Declining ends the run here, and the session carries on -- so the user's own bindings
+        -- have to come back. The reload path does not need this: the swap is only in memory.
+        SetIsolated(false)
+        UI.SetRunning(false)
         print("|cffff8800[DebindTest]|r 리로드를 취소해서 런을 중단했다.")
     end,
     timeout = 0,
@@ -1686,6 +1734,9 @@ local function RunAllTests(onDone, crossReloads)
         lines = {}, onDone = onDone, crossReloads = crossReloads,
     }
     Persist()
+    -- **The user's bindings go away for the length of the run.** Switching back is the runner's,
+    -- not a test's: one that fails early would otherwise leave them switched off.
+    SetIsolated(true)
     UI.SetRunning(true)
     runner:Show()
 end
@@ -1725,6 +1776,7 @@ local function ResumeStoredRun()
     print(format("|cff00ccff[DebindTest]|r 리로드 뒤 이어서 실행: %s (%s)",
         testOrder[run.index] or "?", tostring(run.phase)))
     UI.Open()
+    SetIsolated(true)
     UI.SetRunning(true)
     runner:Show()
 end
