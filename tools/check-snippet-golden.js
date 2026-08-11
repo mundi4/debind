@@ -102,6 +102,19 @@ function build() {
     return out.join("\n");
 }
 
+// 줄끝은 비교에서 뺀다.
+//
+// `core.autocrlf=true`인 머신에서 `.gitattributes`가 없으면, 이 도구가 LF로 써둔 골든을 git이
+// 체크아웃할 때 CRLF로 바꿔놓는다. 그러면 LF로 만든 문자열과 CRLF 파일을 견주게 되어 **첫 줄부터
+// 전부 다르다고 나온다** - 본문은 한 글자도 안 변했는데.
+//
+// 실제로 그렇게 났다. 도구가 방금 쓴 파일에서는 통과하다가, `git reset` 한 번에 깨졌다.
+//
+// 잠그려는 것은 본문이지 줄끝이 아니므로, 양쪽 다 LF로 접고 본다.
+function normalize(text) {
+    return text.replace(/\r\n/g, "\n");
+}
+
 /** 처음 갈라지는 줄만 짚어 준다. 전체 diff는 git이 더 잘 보여준다. */
 function firstDifference(a, b) {
     const la = a.split("\n");
@@ -118,7 +131,7 @@ function firstDifference(a, b) {
     return null;
 }
 
-const built = build();
+const built = normalize(build());
 const update = process.argv.includes("--update");
 
 if (update || !fs.existsSync(goldenPath)) {
@@ -128,7 +141,7 @@ if (update || !fs.existsSync(goldenPath)) {
     process.exit(0);
 }
 
-const golden = fs.readFileSync(goldenPath, "utf8");
+const golden = normalize(fs.readFileSync(goldenPath, "utf8"));
 
 if (golden === built) {
     const count = (built.match(/^### /gm) || []).length;
