@@ -120,6 +120,58 @@ Constants.FRAMETYPE_ARENA   = 2 ^ 6;
 Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 
 
+-- Unit States
+--
+-- What one unit can be, as a single axis: absent, or present in one of six ways. Exactly one
+-- of these is true of a unit at any moment, which is what lets `Solver.lua` treat a unit
+-- condition as a set on this axis and reason about coverage with plain bit ops.
+--
+-- Reaction and life share one column rather than getting one each, and the reason is the
+-- absent point, not the pair. Two columns would express "friendly and alive" perfectly well;
+-- separate columns already are a product. What they cannot express is
+--
+--     absent, or present and alive
+--
+-- which is what the menu produces when both existence boxes are ticked and only "alive" is.
+-- That is not a rectangle in (reaction, life): the absent point has no life value to
+-- constrain, so a life column of {alive} drops half of it. The box comes out narrower than
+-- the condition it stands for, and a narrow box gets deleted for reasons it never asked for.
+--
+-- **Every axis that is defined only while the unit exists joins this product, for that same
+-- reason.** Party/raid membership is the one queued next, and it fits:
+--
+--     now              3 x 2         + absent =  7
+--     with membership  3 x 2 x 3     + absent = 19
+--     one binary more  3 x 2 x 3 x 2 + absent = 37   -- over budget
+--
+-- The budget is 31 bits, not 32: `bit.bnot` returns a signed 32-bit value, so bit 31 turns
+-- the mask negative. Membership is the last axis this encoding can take. Growing past it is
+-- a redesign, not a migration.
+--
+-- Adding an axis is otherwise lossless -- an old value expands to the full slice of new ones,
+-- meaning "no constraint on the new axis" -- so it costs one mechanical migration step and
+-- nothing more. What does break is hardcoded width. Go through UNITSTATE_ALL and
+-- UNITSTATE_EXISTS; never spell out 2 ^ 7 - 1.
+--
+-- The hovered frame's unit rides this same axis under the name "hover", so a hover condition
+-- and a unit condition on the same unit cannot drift apart.
+Constants.UNITSTATE_NONE        = 2 ^ 0;
+Constants.UNITSTATE_HELP_ALIVE  = 2 ^ 1;
+Constants.UNITSTATE_HELP_DEAD   = 2 ^ 2;
+Constants.UNITSTATE_HARM_ALIVE  = 2 ^ 3;
+Constants.UNITSTATE_HARM_DEAD   = 2 ^ 4;
+Constants.UNITSTATE_OTHER_ALIVE = 2 ^ 5;
+Constants.UNITSTATE_OTHER_DEAD  = 2 ^ 6;
+
+Constants.UNITSTATE_HELP   = Constants.UNITSTATE_HELP_ALIVE + Constants.UNITSTATE_HELP_DEAD;
+Constants.UNITSTATE_HARM   = Constants.UNITSTATE_HARM_ALIVE + Constants.UNITSTATE_HARM_DEAD;
+Constants.UNITSTATE_OTHER  = Constants.UNITSTATE_OTHER_ALIVE + Constants.UNITSTATE_OTHER_DEAD;
+Constants.UNITSTATE_ALIVE  = Constants.UNITSTATE_HELP_ALIVE + Constants.UNITSTATE_HARM_ALIVE + Constants.UNITSTATE_OTHER_ALIVE;
+Constants.UNITSTATE_DEAD   = Constants.UNITSTATE_HELP_DEAD + Constants.UNITSTATE_HARM_DEAD + Constants.UNITSTATE_OTHER_DEAD;
+Constants.UNITSTATE_EXISTS = 2 ^ 7 - 2;
+Constants.UNITSTATE_ALL    = 2 ^ 7 - 1;
+
+
 -- Binding Issues
 Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
 Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";
