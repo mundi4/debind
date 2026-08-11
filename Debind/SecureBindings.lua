@@ -342,6 +342,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 ]] or "") .. applyConstants([==[
 	local forceAll = DirtyFlags.forceAll
 	local unitframe = States.unitframe
+	if (unitframe and not unitframe.reaction) then unitframe = nil end
 	local group = States.group
 	local form = 2 ^ (States.form or 0)
 	local bonusbar = 2 ^ (States.bonusbar or 0)
@@ -571,6 +572,7 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 		-- 옛 경로의 판정을 캐시 값으로 그대로 재현한다(UpdateBindings 스니펫의 루프와 같다).
 		local cachedIndex
 		local uf = States.unitframe
+		if (uf and not uf.reaction) then uf = nil end
 		for i = 1, #bindings do
 			local t = bindings[i]
 			if (t.isNonClick) then
@@ -731,18 +733,28 @@ BindingDriver:SetAttribute("update_hit_bounds", [==[
 	end
 ]==])
 
+-- A frame whose unit does not exist counts as **not hovering**, and the frame is still recorded
+-- so the poll can pick it back up when the unit returns. Recording it is what makes recovery
+-- possible: neither enter nor leave fires while the cursor sits still, so dropping the frame
+-- here would strand the hover slot until the user moved the mouse.
+--
+-- `reaction == nil` is the marker. Every reader gates on it rather than on the frame being
+-- present, which is what the click path was already doing on its own.
 BindingDriver:SetAttribute("setup_onenter", applyConstants([==[
 	local unit = self:GetEffectiveAttribute("unit")
-    if (not unit) then return end
-	
+
 	local unitframe = ccframes[self]
     local reaction
-    if (PlayerCanAssist(unit)) then
-        reaction = CONSTANTS.REACTION_HELP
-    elseif (PlayerCanAttack(unit)) then
-        reaction = CONSTANTS.REACTION_HARM
+    if (unit and UnitExists(unit)) then
+        if (PlayerCanAssist(unit)) then
+            reaction = CONSTANTS.REACTION_HELP
+        elseif (PlayerCanAttack(unit)) then
+            reaction = CONSTANTS.REACTION_HARM
+        else
+            reaction = CONSTANTS.REACTION_OTHER
+        end
     else
-        reaction = CONSTANTS.REACTION_OTHER
+        unit = nil
     end
 
     local unitChanged = unitframe.unit ~= unit or unitframe.reaction ~= reaction

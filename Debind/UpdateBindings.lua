@@ -1191,6 +1191,11 @@ if (name == "state-unitexists") then
     self:SetAttribute("state-unitexists", 0)
 ]]);
 
+    -- The `elseif` below is the half that was missing. A unit can go away under a cursor that
+    -- never moves -- neither enter nor leave fires -- and without it the reaction the frame had
+    -- when the cursor arrived stayed true forever. The frame itself is kept so this same poll
+    -- can pick the unit back up; only the reaction is cleared, and `reaction == nil` is what
+    -- every reader now treats as "not hovering".
     appendLine([[
 if (States.unitframe) then
     local unitframe = States.unitframe
@@ -1211,6 +1216,11 @@ if (States.unitframe) then
             self:RunAttribute("SetUnit", "hover", unit)
             DirtyFlags.unitframe = true
         end
+    elseif (unitframe.reaction) then
+        unitframe.unit = nil
+        unitframe.reaction = nil
+        self:RunAttribute("SetUnit", "hover", nil)
+        DirtyFlags.unitframe = true
     end
 end
 -- 마지막 인자가 REACTION_OTHER인 것이 중요하다. 여기는 **hover 중이고 UnitExists도 참인**
