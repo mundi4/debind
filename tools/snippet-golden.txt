@@ -799,7 +799,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	
 
-### SecureBindings.lua #24 SecureHandlerWrapScript (DEBUG=on)
+### SecureBindings.lua #24 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1235,7 +1235,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
-### SecureBindings.lua #25 SecureHandlerWrapScript (DEBUG=off)
+### SecureBindings.lua #25 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1577,7 +1577,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
-### SecureBindings.lua #26 SecureHandlerWrapScript
+### SecureBindings.lua #26 InstallSnippet
 
 
 

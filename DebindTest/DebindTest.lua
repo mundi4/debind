@@ -225,9 +225,8 @@ end
 local function SetMockState(state, value)
     PlantMockTable()
 
-    if not DebindPrivate.SnippetProbes then
-        DebindPrivate.SnippetProbes = { stateValue = MOCK_STATE_LINE }
-    end
+    DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
+    DebindPrivate.SnippetProbes.stateValue = MOCK_STATE_LINE
 
     mockStates[state] = value
 
@@ -244,8 +243,11 @@ local function SetMockState(state, value)
         -- With nothing held any more, the line stops being emitted at all -- the generated
         -- snippet goes back to being exactly the one a real user gets, rather than the one that
         -- merely reads an empty table.
-        if next(mockStates) == nil then
-            DebindPrivate.SnippetProbes = nil
+        --
+        -- Only this key is cleared. `SnippetProbes` also carries the bake-time table, and the two
+        -- are switched on and off independently.
+        if next(mockStates) == nil and DebindPrivate.SnippetProbes then
+            DebindPrivate.SnippetProbes.stateValue = nil
         end
 
         if not InCombatLockdown() then
@@ -256,11 +258,70 @@ local function SetMockState(state, value)
     ApplyBindings()
 end
 
---- What the secure side currently holds for `state`, read back out through the click frame.
---- Debind already exposes this: `SetBindingAttributes` writes the resolved binding per key, so a
---- key bound only under a condition tells us whether that condition is currently true.
+--- What this addon currently holds `state` at, or nil if it is not holding it.
 local function GetMockState(state)
     return mockStates[state]
+end
+
+-----------------------------------------------------------
+-- Test Helpers: Snippet Probes
+-----------------------------------------------------------
+
+-- Turning a probe on means **baking the bodies again**, not flipping a flag the snippet reads.
+-- Bodies are baked while Debind loads, which is necessarily before this addon exists, so the
+-- decision cannot have been made then. `RebakeSnippets` rebuilds them from the raw text.
+--
+-- That is also what makes switching honest in the other direction: probes off is not a snippet
+-- reading an empty table, it is the snippet a real user runs, rebuilt from the same source.
+local probeReports = {}
+local probesOn = false
+
+--- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
+--- wrapper runs with the click frame as `self` and the method lives on the driver.
+local PROBE_DEV = {
+    Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
+}
+
+local function BuildExpandTable()
+    local expand = {}
+    for name, form in pairs(DebindPrivate.SNIPPET_PROBES_LIVE) do
+        expand[name] = form
+    end
+    for name, form in pairs(PROBE_DEV) do
+        expand[name] = form
+    end
+    return expand
+end
+
+--- Starts reporting from inside the snippets. Returns nil plus a reason if it could not.
+local function EnableProbes()
+    if probesOn then return true end
+
+    DebindPrivate.BindingDriver.DebindTestWinner = function(_, index)
+        probeReports[#probeReports + 1] = index
+    end
+
+    DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
+    DebindPrivate.SnippetProbes.expand = BuildExpandTable()
+
+    local ok, err = DebindPrivate.RebakeSnippets()
+    if not ok then
+        DebindPrivate.SnippetProbes.expand = nil
+        return nil, tostring(err)
+    end
+
+    probesOn = true
+
+    AddTeardown(function()
+        probesOn = false
+        wipe(probeReports)
+        if DebindPrivate.SnippetProbes then
+            DebindPrivate.SnippetProbes.expand = nil
+        end
+        DebindPrivate.RebakeSnippets()
+    end)
+
+    return true
 end
 
 -----------------------------------------------------------
@@ -994,6 +1055,52 @@ RegisterTest("State injection: combat-only binding", {
         end
 
         return Pass(NAME, format("전투 밖에서 전투 경로를 구동함 (%s)", inCombat))
+    end,
+})
+
+-- Turning probes on rebuilds every registered snippet from its raw text, including the click
+-- wrapper -- the hottest path here and the one that decides which record wins. A rebuild that
+-- produced a body the restricted environment refuses would leave the addon looking loaded and
+-- doing nothing, so what is checked is not that the rebake returned, but that the same judgement
+-- still runs afterwards.
+RegisterTest("Snippet probes: rebaked snippets still decide", {
+    description = "프로브를 켜고 스니펫을 다시 구워도 조건 판정이 그대로 도는가",
+    run = function()
+        local NAME = "Probe rebake"
+        local KEY = "CTRL-SHIFT-F8"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+        end
+
+        local ok, err = EnableProbes()
+        if not ok then
+            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            combat = true,
+        })
+        ApplyBindings()
+
+        SetMockState("combat", false)
+        Wait(0.4)
+        local atPeace = GetBindingAction(KEY, true) or ""
+
+        SetMockState("combat", true)
+        Wait(0.4)
+        local inCombat = GetBindingAction(KEY, true) or ""
+
+        if inCombat == atPeace then
+            return Fail(NAME, format("다시 구운 뒤 조건이 안 먹는다 (%q 그대로)", inCombat))
+        end
+
+        if inCombat:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("다시 구운 뒤 %q, CLICK 이어야 한다", inCombat))
+        end
+
+        return Pass(NAME, "프로브 켠 채로도 판정이 그대로")
     end,
 })
 

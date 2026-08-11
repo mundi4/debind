@@ -900,7 +900,16 @@ end
 ---
 --- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
 --- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.
-SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, BakeSnippet([==[
+DebindPrivate.InstallSnippet(function(pre, post)
+	-- Re-wrapping stacks another wrapper on top rather than replacing, so the previous one is
+	-- unwrapped first. Left in place both would run and both would return a button name, and the
+	-- one that answered would be the stale one.
+	if (DebindPrivate.clickWrapped) then
+		SecureHandlerUnwrapScript(DebindPrivate.DefaultClickFrame, "OnClick");
+	end
+	SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, pre, post);
+	DebindPrivate.clickWrapped = true;
+end, [==[
 	local bindings = ClickTimeKeys[button]
 
 	-- **클릭캐스팅으로 온 클릭.** 유닛 프레임이 `type="click"`으로 넘긴 것이라 버튼 이름이
@@ -1243,7 +1252,7 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 	end
 
 	return winner.clickbutton
-]==]), [==[
+]==], [==[
 	-- 클릭이 끝난 뒤. **맨이름 `pressAndHoldAction`을 반드시 지운다.**
 	--
 	-- delegate 프레임들은 이 프레임의 자식이고 `useparent*`가 켜져 있다. `unit`은

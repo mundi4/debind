@@ -8,7 +8,11 @@ const fs = require("fs");
 const path = require("path");
 
 // 인자에 스니펫 본문이 오는 호출들.
-const CALLS = /\b(SecureHandlerExecute|SecureHandlerWrapScript|SetAttribute)\s*\(/g;
+//
+// **여기에 안 적힌 이름으로 본문을 넘기면 그 스니펫은 조용히 검사 밖이 된다.** `InstallSnippet`을
+// 도입하면서 실제로 46개가 43개로 줄었고, 줄어든 셋이 클릭 래퍼였다 - 이 저장소에서 제일 뜨거운
+// 경로다. 개수가 줄면 그것부터 의심할 것.
+const CALLS = /\b(SecureHandlerExecute|SecureHandlerWrapScript|SetAttribute|InstallSnippet)\s*\(/g;
 
 // `local X_SNIPPET = ... [[본문]] ... or ""` 꼴. 스니펫이 조각으로 나뉠 때 쓰는 관용구라
 // (DEBUG 빌드에서만 들어가는 부분) 참조를 풀어서 결합된 형태도 같이 본다.

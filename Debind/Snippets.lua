@@ -185,6 +185,56 @@ end
 -- drifted one would be guarding something other than what gets baked.
 DebindPrivate.applyProbesForTools = applyProbes;
 
+-- Raw bodies kept alongside the thing that installs them, so a body can be baked again later.
+--
+-- Bodies are baked while this addon loads, which is before anything that might want a probe
+-- turned on has loaded at all -- a dependency loads after what it depends on, and there is no
+-- ordering that puts it first. So the choice cannot be made once at bake time; the bodies have to
+-- remain re-bakeable.
+--
+-- That is also the strongest form of the switch. Turning probes off is not "read an empty table"
+-- but a rebuild with the live table, which produces the bytes a real user runs -- the same test
+-- can be run against code that has no probes in it at all.
+local rebakeable = {};
+
+--- Bakes each body and hands them all to `install`, keeping them so it can be done again.
+---
+--- Takes several because `SecureHandlerWrapScript` has two -- a pre and a post -- and both are
+--- snippets. `install` receives the baked texts in order. Everything a rebake needs is captured
+--- in that closure, so the registry does not need to know what kind of destination it is: an
+--- attribute, a wrapped script, or something that does not exist yet.
+function DebindPrivate.InstallSnippet(install, ...)
+	local bodies = { ... };
+	rebakeable[#rebakeable + 1] = { install = install, bodies = bodies };
+
+	local baked = {};
+	for i = 1, #bodies do
+		baked[i] = DebindPrivate.BakeSnippet(bodies[i]);
+	end
+	install(unpack(baked));
+end
+
+--- Bakes every registered body again with whatever table is current.
+---
+--- Out of combat only, which costs nothing: the environment this exists to drive is one where the
+--- client is never actually in combat.
+function DebindPrivate.RebakeSnippets()
+	if (InCombatLockdown()) then
+		return false, "in combat";
+	end
+
+	for i = 1, #rebakeable do
+		local entry = rebakeable[i];
+		local baked = {};
+		for j = 1, #entry.bodies do
+			baked[j] = DebindPrivate.BakeSnippet(entry.bodies[j]);
+		end
+		entry.install(unpack(baked));
+	end
+
+	return true;
+end
+
 function DebindPrivate.BakeSnippet(str)
 	local probes = (DebindPrivate.SnippetProbes and DebindPrivate.SnippetProbes.expand)
 		or DebindPrivate.SNIPPET_PROBES_LIVE;
