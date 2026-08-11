@@ -350,6 +350,89 @@ function DebindPrivate.GetSetCustomStateModeAndIndex(value)
     return mode, stateIndex;
 end
 
+local UNIT_SCALAR_TO_STATE = {
+    [true]    = Constants.UNITSTATE_EXISTS,
+    [false]   = Constants.UNITSTATE_NONE,
+    ["help"]  = Constants.UNITSTATE_HELP,
+    ["harm"]  = Constants.UNITSTATE_HARM,
+    ["never"] = 0,
+};
+
+local REACTION_TO_UNIT_STATE = {
+    [Constants.REACTION_HELP]  = Constants.UNITSTATE_HELP,
+    [Constants.REACTION_HARM]  = Constants.UNITSTATE_HARM,
+    [Constants.REACTION_OTHER] = Constants.UNITSTATE_OTHER,
+};
+
+--- Fold everything that says something about a unit onto one mask per unit.
+---
+--- `binding.unitStates` is the only thing the solver reads about units. `checkedUnits` and
+--- `hover`/`reactions` are left untouched because the runtime still speaks that shape; when the
+--- menus move to masks, storage becomes these values and this collapses into a copy.
+---
+--- The point of doing it here is that **the hovered frame's unit is just a unit, named "hover"**.
+--- Kept apart, the hover condition and a unit condition on the same unit are two columns
+--- describing one thing, and the solver cannot see that `hover=friendly` with `@=hostile` never
+--- holds -- it keeps a binding that can never fire and warns about nothing.
+---
+--- A mouse button reaches the not-hovering point and nothing else: the click fires wherever the
+--- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
+--- there. The same absent condition on a keyboard key spans the whole axis.
+local function BuildUnitStates(binding)
+    local states, opaque;
+
+    local function narrow(unit, mask)
+        states = states or {};
+        local prev = states[unit];
+        if (prev == nil) then
+            states[unit] = mask;
+        else
+            states[unit] = band(prev, mask);
+        end
+    end
+
+    if (binding.hover) then
+        local mask = Constants.UNITSTATE_EXISTS;
+        if (binding.reactions) then
+            mask = 0;
+            for reaction, state in pairs(REACTION_TO_UNIT_STATE) do
+                if (band(binding.reactions, reaction) ~= 0) then
+                    mask = mask + state;
+                end
+            end
+        end
+        narrow("hover", mask);
+    elseif (binding.hover == false
+            or (binding.key and DebindPrivate.GetMouseButtonAndPrefix(binding.key))) then
+        narrow("hover", Constants.UNITSTATE_NONE);
+    end
+
+    local checkedUnits = binding.checkedUnits;
+    if (checkedUnits) then
+        for key, value in pairs(checkedUnits) do
+            local unit = key;
+            if (key == "@") then
+                unit = binding.unit;
+                if (type(unit) ~= "string" or unit == "") then
+                    -- Nowhere to put it. Dropping the condition instead would make the binding
+                    -- look wider than it is, and a cover wider than it should be deletes
+                    -- bindings that can still fire -- so it leaves both roles, not one.
+                    opaque = true;
+                    unit = nil;
+                end
+            end
+            if (unit) then
+                narrow(unit, UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE);
+            end
+        end
+    end
+
+    binding.unitStates = states;
+    binding.unitStatesOpaque = opaque;
+end
+
+DebindPrivate.BuildUnitStates = BuildUnitStates;
+
 do
     local _ActionToBindingCache = setmetatable({}, { __mode = "kv" });
 
@@ -469,6 +552,8 @@ do
                     binding.unit = "hover";
                 end
             end
+
+            BuildUnitStates(binding);
         end
 
         return binding;

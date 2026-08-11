@@ -33,7 +33,16 @@ return function(DebindPrivate)
     end
 
     --- 바인딩 목록을 solver에 넣고 살아남은 것들의 name 집합을 돌려준다.
+    -- The solver reads binding.unitStates, which Misc.lua derives while building a binding.
+    -- These bindings are hand-written tables that never went through it, so the derivation runs
+    -- here -- which also puts it under test, since it is the half that turns hover and
+    -- checkedUnits into one mask per unit.
+    local BuildUnitStates = DebindPrivate.BuildUnitStates;
+
     local function survivors(bindings)
+        for i = 1, #bindings do
+            BuildUnitStates(bindings[i]);
+        end
         ClearUnreachableBindingCache();
         CheckUnreachableBindings(bindings);
         local names = {};
@@ -607,6 +616,27 @@ return function(DebindPrivate)
             { name = "cover",   hover = false, reactions = Constants.REACTION_HELP },
             { name = "subject", hover = false },
         }, "subject");
+    end);
+
+    -- What folding the hover condition onto the unit axis buys. Both of these say the same
+    -- thing -- hovering a friendly unit -- through two different menus, and the second is
+    -- therefore unreachable.
+    --
+    -- While they were two columns the solver could not see it. The cover's reaction mask did
+    -- not contain the subject's, and the subject's unit mask did not contain the cover's, so
+    -- points like (hover=hostile, @=friendly) stayed uncovered -- points that cannot happen,
+    -- because they are two readings of one unit.
+    test("hover 반응과 @ 유닛 조건이 같은 축에 얹힌다", function()
+        expectRemoved({
+            { name = "byReaction", hover = true, reactions = Constants.REACTION_HELP },
+            { name = "byUnit",     hover = true, unit = "hover", checkedUnits = { ["@"] = "help" } },
+        }, "byUnit");
+
+        -- and the other way round, so this is an identity rather than one side widening
+        expectRemoved({
+            { name = "byUnit",     hover = true, unit = "hover", checkedUnits = { ["@"] = "help" } },
+            { name = "byReaction", hover = true, reactions = Constants.REACTION_HELP },
+        }, "byReaction");
     end);
 
     ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ local MAX_NUM_CUSTOM_STATES = Constants.MAX_NUM_CUSTOM_STATES;
 
 local band, bnot = bit.band, bit.bnot;
 local tremove, wipe = tremove, wipe;
-local pairs, type = pairs, type;
+local pairs = pairs;
 
 --[[
     도달불가 바인딩 검출.
@@ -57,15 +57,13 @@ local STATE_ANY = STATE_ON + STATE_OFF;
 local KNOWN_YES, KNOWN_NO = 1, 2;
 local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 
--- 유닛 축: 존재하지만 우호/적대 아님 / 우호 / 적대 / 존재하지 않음
+-- 유닛 축은 `Constants.UNITSTATE_*`. 값들이 배타적이라는 것이 이 컬럼의 전제고, 런타임도
+-- 유닛 하나를 한 값으로 푼다 (`UpdateBindings.lua`의 unitStateExpression). 블리자드도 같은
+-- 자리를 if/elseif로 푼다 (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환).
 --
--- 네 값은 배타적이다 -- 런타임도 유닛 하나를 한 값으로 푼다
--- (`UpdateBindings.lua`의 unitStateExpression). 블리자드도 같은 자리를 if/elseif로 푼다
--- (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환). 우호와 적대가 동시에 참인
--- 상황이 확인되면 그때 이 축부터 다시 봐야 한다.
-local UNIT_OTHER, UNIT_HELP, UNIT_HARM, UNIT_NONE = 1, 2, 4, 8;
-local UNIT_EXISTS = UNIT_OTHER + UNIT_HELP + UNIT_HARM;
-local UNIT_ANY = UNIT_EXISTS + UNIT_NONE;
+-- The mask itself is built in `Misc.lua` (BuildUnitStates), which is also where the hover
+-- condition is folded in -- the hovered frame's unit is a unit named "hover", so it belongs on
+-- this axis rather than in a column of its own.
 
 -- `max` is the exhaustive half of the column invariant: it has to name every value the game
 -- can produce on this axis. One index past it and "no condition" stops standing for the whole
@@ -88,31 +86,6 @@ end
 
 --- 축이 하나뿐인 컬럼들. 순서는 상관없음.
 local FIXED_COLUMNS = {
-    {
-        -- REACTION_NONE (16) sits outside REACTION_ALL (7), so it is the "not hovering" point
-        -- of this axis and a hover-conditioned action can never reach it.
-        --
-        -- The mouse button branch is what makes that split mean something. A mouse button
-        -- binding fires whatever the cursor is over, so hover cannot be a condition on it --
-        -- over a unit frame the frame eats the click, and only the frame path can act there.
-        -- So on a mouse button a hover-less action reaches the not-hovering point and nothing
-        -- else, while on a keyboard key it reaches the whole axis.
-        --
-        -- Coverage rests on this: what a mouse button key binding can answer for is exactly
-        -- the REACTION_NONE point.
-        name = "hover",
-        make = function(action)
-            if (action.hover) then
-                return band(action.reactions or Constants.REACTION_ALL, Constants.REACTION_ALL);
-            elseif (action.hover == false) then
-                return Constants.REACTION_NONE;
-            elseif (action.key and DebindPrivate.GetMouseButtonAndPrefix(action.key)) then
-                return Constants.REACTION_NONE;
-            else
-                return Constants.REACTION_ALL + Constants.REACTION_NONE;
-            end
-        end
-    },
     {
         -- Hover-dependent axes carry no condition off the hover path: with nothing hovered
         -- there is no frame to have a type. Returning the full mask there is what keeps this
@@ -193,40 +166,13 @@ local function makeCustomStateFlags(action, index)
     return value and STATE_ON or STATE_OFF;
 end
 
-local function unitConditionToFlags(value)
-    if (value == true) then
-        return UNIT_EXISTS;
-    elseif (value == "help") then
-        return UNIT_HELP;
-    elseif (value == "harm") then
-        return UNIT_HARM;
-    else
-        return UNIT_NONE;
-    end
-end
-
 local function makeUnitFlags(action, unit)
-    local checkedUnits = action.checkedUnits;
-    if (not checkedUnits) then
-        return UNIT_ANY;
+    local states = action.unitStates;
+    local mask = states and states[unit];
+    if (mask == nil) then
+        return Constants.UNITSTATE_ALL;
     end
-
-    local flags = UNIT_ANY;
-
-    local value = checkedUnits[unit];
-    if (value ~= nil) then
-        flags = band(flags, unitConditionToFlags(value));
-    end
-
-    -- "@"는 이 액션 자신의 대상 유닛을 가리킴. 같은 축에 걸리므로 교집합.
-    if (action.unit == unit) then
-        local atValue = checkedUnits["@"];
-        if (atValue ~= nil) then
-            flags = band(flags, unitConditionToFlags(atValue));
-        end
-    end
-
-    return flags;
+    return mask;
 end
 
 local function makeKnownFlags(action, spellValue)
@@ -301,21 +247,16 @@ local function buildLayout(bindings)
     for i = 1, #bindings do
         local binding = bindings[i];
 
-        local checkedUnits = binding.checkedUnits;
-        if (checkedUnits) then
-            for key in pairs(checkedUnits) do
-                local unit = key;
-                if (key == "@") then
-                    unit = binding.unit;
-                    if (type(unit) ~= "string" or unit == "") then
-                        -- "@"를 어느 축에 걸어야 할지 모름. 조건을 통째로 무시하면
-                        -- 이 바인딩이 실제보다 넓어 보여서 남을 잘못 덮는다.
-                        _opaque[binding] = true;
-                        unit = nil;
-                    end
-                end
+        -- `"@"`가 어느 축에 걸리는지 못 정한 바인딩. 조건을 통째로 무시하면 실제보다 넓어
+        -- 보여서 남을 잘못 덮는다.
+        if (binding.unitStatesOpaque) then
+            _opaque[binding] = true;
+        end
 
-                if (unit and not _unitSeen[unit]) then
+        local states = binding.unitStates;
+        if (states) then
+            for unit in pairs(states) do
+                if (not _unitSeen[unit]) then
                     _unitSeen[unit] = true;
                     _numColumns = _numColumns + 1;
                     _colMake[_numColumns] = makeUnitFlags;
