@@ -1026,9 +1026,93 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
 --- Clicks a registered unit frame the way the game would. This reaches the wrapper on the
 --- frame's own `OnClick`, which is where a click-cast decision is made -- `PressKey` cannot get
 --- there, since it clicks our button directly and so starts past the frame.
+--- The one thing in this kit that a test cannot do for itself.
+---
+--- A wrapped `OnClick` runs under the signature `self,button,down`, and the restricted
+--- environment builds a closure factory per signature on first use --
+--- `RestrictedExecution.lua:366-380` -- refusing to declare one when `issecure()` is false. Addon
+--- code is never secure, so **no amount of `:Click()` from here can declare it**; only real
+--- hardware input on a wrapped frame can. Once declared it is cached for the session, and every
+--- click test works until the next `/reload`.
+---
+--- So the kit puts up a button and asks. It is a registered unit frame like any other, which is
+--- what makes clicking it declare the thing.
+local warmupButton
+
+local function ShowWarmupButton()
+    if not warmupButton then
+        warmupButton = CreateFrame("Button", "DebindTestWarmup", UIParent, "SecureUnitButtonTemplate")
+        warmupButton:SetSize(260, 44)
+        warmupButton:SetPoint("CENTER", UIParent, "CENTER", 0, 160)
+        warmupButton:SetAttribute("unit", "player")
+
+        local bg = warmupButton:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.6, 0.1, 0.1, 0.9)
+
+        local text = warmupButton:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        text:SetPoint("CENTER")
+        text:SetText("여기를 한 번 클릭 → /debtest")
+    end
+
+    DebindPrivate.RegisterFrame(warmupButton, "group")
+    warmupButton:Show()
+    return warmupButton
+end
+
+--- Clicks a registered unit frame from a secure path, which is the only way this reaches the
+--- wrapper on its `OnClick`.
+---
+--- **A plain `frame:Click()` from here cannot work.** The wrapper's body is compiled the first
+--- time it runs, and the restricted environment refuses to declare a closure factory when the
+--- code asking is insecure -- which a test driving a click always is. The error is thrown before
+--- the wrapped handler is reached, so the frame's own action does not run either, and the whole
+--- thing reads as "the click did nothing".
+---
+--- Real play never meets this: the first click on a unit frame is real mouse input, and that is
+--- a secure path. Going through a snippet is the same trick `HoverEnter` uses for the same
+--- reason -- the game cannot be asked to fire the script on demand.
+---
+--- Both edges are sent because the game acts on one of them and which one is the
+--- `ActionButtonUseKeyDown` CVar's call, not ours.
+--- Returns `false, reason` when the click could not be delivered at all, which is a different
+--- thing from a click that ran and chose nothing -- the caller has to tell those apart or it
+--- reports the missing warm-up as a routing fault, which is what happened the first time.
 local function ClickFrame(frame, button)
     wipe(probeReports)
-    frame:Click(button)
+    -- Both edges: the game acts on one of them and which one is the `ActionButtonUseKeyDown`
+    -- CVar's call, not ours.
+    local ok, err = pcall(frame.Click, frame, button, true)
+    if ok then
+        ok, err = pcall(frame.Click, frame, button, false)
+    end
+    if not ok then
+        return false, tostring(err)
+    end
+    return true
+end
+
+--- The click never reached the wrapped handler, so nothing downstream of it ran either.
+local function IsColdClickPath(err)
+    return err and err:find("closure factories", 1, true) ~= nil
+end
+
+--- Puts an action of the frame's own in the slot our routing avoids, and returns a reader for
+--- whether it ran. That answers the question a nil winner cannot: a click that never executed
+--- anything and a click our wrapper declined look identical from the winner alone.
+---
+--- **Our frames only.** Stamping this onto one of Blizzard's would be the addon doing the thing
+--- this whole change exists to stop doing.
+local function ArmOwnAction(frame)
+    _G.DEBIND_TEST_FELL_THROUGH = nil
+    frame:SetAttribute("*type3", "macro")
+    frame:SetAttribute("*macrotext3", "/run DEBIND_TEST_FELL_THROUGH = true")
+    AddTeardown(function()
+        frame:SetAttribute("*type3", nil)
+        frame:SetAttribute("*macrotext3", nil)
+        _G.DEBIND_TEST_FELL_THROUGH = nil
+    end)
+    return function() return _G.DEBIND_TEST_FELL_THROUGH and true or false end
 end
 
 --- The frames a click-cast test has to cover: one we made, and one of Blizzard's.
@@ -1083,13 +1167,28 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 
         local seen = {}
         for _, target in ipairs(targets) do
-            ClickFrame(target.frame, "MiddleButton")
+            -- Only to tell the two failures apart if this fails. When we do pick a winner the
+            -- button is renamed and this never runs.
+            local ranOwn = not target.blizzard and ArmOwnAction(target.frame) or nil
+            if ranOwn then Wait(0.4) end
+
+            local delivered, derr = ClickFrame(target.frame, "MiddleButton")
+            if not delivered then
+                if IsColdClickPath(derr) then
+                    ShowWarmupButton()
+                    return Fail(NAME,
+                        "이 세션에서 아직 진짜 클릭이 없었다. 화면 가운데 빨간 버튼을 한 번 누르고 다시 실행할 것 "
+                        .. "(제한 환경이 `self,button,down` 클로저를 하드웨어 입력에서만 만들어준다)")
+                end
+                return Fail(NAME, format("%s: 클릭 전달 실패 - %s", target.label, derr))
+            end
             Wait(0.4)
 
             if LastWinner() == nil then
-                return Fail(NAME, format(
-                    "%s: 클릭이 래퍼까지 안 갔거나 아무것도 안 골랐다. 라우팅이나 래핑이 안 붙은 것부터 의심할 것",
-                    target.label))
+                return Fail(NAME, format("%s: 아무것도 안 골랐다 (%s)", target.label,
+                    ranOwn == nil and "블리자드 프레임"
+                    or ranOwn() and "클릭은 실행됐다 -> 래퍼가 안 붙었거나 조건이 안 맞았다"
+                    or "클릭이 액션까지 못 갔다 -> 래핑 이전에 클릭 경로부터 볼 것"))
             end
             seen[#seen + 1] = format("%s=%d", target.label, LastWinner())
         end
@@ -1128,23 +1227,19 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         if not targets then return Fail(NAME, terr) end
 
         for _, target in ipairs(targets) do
-            -- The frame's own action goes in the slot our routing deliberately does not occupy.
-            -- **Only on the frame we own.** Writing it onto Blizzard's would be the addon doing
-            -- the exact thing this change exists to stop doing, and a test that has to do it to
-            -- prove the point has stopped testing the point.
-            if not target.blizzard then
-                _G.DEBIND_TEST_FELL_THROUGH = nil
-                target.frame:SetAttribute("*type3", "macro")
-                target.frame:SetAttribute("*macrotext3", "/run DEBIND_TEST_FELL_THROUGH = true")
-                AddTeardown(function()
-                    target.frame:SetAttribute("*type3", nil)
-                    target.frame:SetAttribute("*macrotext3", nil)
-                    _G.DEBIND_TEST_FELL_THROUGH = nil
-                end)
-                Wait(0.4)
-            end
+            local ranOwn = not target.blizzard and ArmOwnAction(target.frame) or nil
+            if ranOwn then Wait(0.4) end
 
-            ClickFrame(target.frame, "MiddleButton")
+            local delivered, derr = ClickFrame(target.frame, "MiddleButton")
+            if not delivered then
+                if IsColdClickPath(derr) then
+                    ShowWarmupButton()
+                    return Fail(NAME,
+                        "이 세션에서 아직 진짜 클릭이 없었다. 화면 가운데 빨간 버튼을 한 번 누르고 다시 실행할 것 "
+                        .. "(제한 환경이 `self,button,down` 클로저를 하드웨어 입력에서만 만들어준다)")
+                end
+                return Fail(NAME, format("%s: 클릭 전달 실패 - %s", target.label, derr))
+            end
             Wait(0.4)
 
             if LastWinner() ~= nil then
@@ -1153,7 +1248,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
                     target.label, LastWinner()))
             end
 
-            if not target.blizzard and not _G.DEBIND_TEST_FELL_THROUGH then
+            if ranOwn and not ranOwn() then
                 return Fail(NAME, format(
                     "%s: 프레임 자신의 동작이 안 나갔다. 래퍼가 nil이 아닌 것을 반환했거나 우리가 그 자리를 덮었다",
                     target.label))
