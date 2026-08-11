@@ -122,54 +122,35 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 
 -- Unit States
 --
--- What one unit can be, as a single axis: absent, or present in one of six ways. Exactly one
--- of these is true of a unit at any moment, which is what lets `Solver.lua` treat a unit
--- condition as a set on this axis and reason about coverage with plain bit ops.
+-- What one unit can be, as a single axis: absent, or present in one of three ways. Exactly
+-- one is true of a unit at any moment, which is what lets `Solver.lua` treat a unit condition
+-- as a set on this axis and reason about coverage with plain bit ops.
 --
--- Reaction and life share one column rather than getting one each, and the reason is the
--- absent point, not the pair. Two columns would express "friendly and alive" perfectly well;
--- separate columns already are a product. What they cannot express is
+-- The hovered frame's unit rides this axis under the name "hover" (`Misc.BuildUnitStates`),
+-- so a hover condition and a unit condition aimed at the same unit cannot describe it two
+-- different ways.
 --
---     absent, or present and alive
+-- Two notes for whoever adds the next per-unit condition -- dead/alive and party/raid are the
+-- ones asked for:
 --
--- which is what the menu produces when both existence boxes are ticked and only "alive" is.
--- That is not a rectangle in (reaction, life): the absent point has no life value to
--- constrain, so a life column of {alive} drops half of it. The box comes out narrower than
--- the condition it stands for, and a narrow box gets deleted for reasons it never asked for.
+-- It does not get a column of its own. "Absent, or present and alive" is not a rectangle in
+-- (reaction, life), because absent has no life value to constrain; a life column of {alive}
+-- would drop half of that condition and the box would come out narrower than the condition it
+-- stands for. Narrow boxes get deleted for reasons they never asked for.
 --
--- **Every axis that is defined only while the unit exists joins this product, for that same
--- reason.** Party/raid membership is the one queued next, and it fits:
---
---     now              3 x 2         + absent =  7
---     with membership  3 x 2 x 3     + absent = 19
---     one binary more  3 x 2 x 3 x 2 + absent = 37   -- over budget
---
--- The budget is 31 bits, not 32: `bit.bnot` returns a signed 32-bit value, so bit 31 turns
--- the mask negative. Membership is the last axis this encoding can take. Growing past it is
--- a redesign, not a migration.
---
--- Adding an axis is otherwise lossless -- an old value expands to the full slice of new ones,
--- meaning "no constraint on the new axis" -- so it costs one mechanical migration step and
--- nothing more. What does break is hardcoded width. Go through UNITSTATE_ALL and
--- UNITSTATE_EXISTS; never spell out 2 ^ 7 - 1.
---
--- The hovered frame's unit rides this same axis under the name "hover", so a hover condition
--- and a unit condition on the same unit cannot drift apart.
-Constants.UNITSTATE_NONE        = 2 ^ 0;
-Constants.UNITSTATE_HELP_ALIVE  = 2 ^ 1;
-Constants.UNITSTATE_HELP_DEAD   = 2 ^ 2;
-Constants.UNITSTATE_HARM_ALIVE  = 2 ^ 3;
-Constants.UNITSTATE_HARM_DEAD   = 2 ^ 4;
-Constants.UNITSTATE_OTHER_ALIVE = 2 ^ 5;
-Constants.UNITSTATE_OTHER_DEAD  = 2 ^ 6;
+-- But it should not just widen this enumeration either. A product taken over every axis the
+-- addon has runs out of room quickly -- the ceiling is 31 bits, since `bit.bnot` returns a
+-- signed 32-bit value and bit 31 turns a mask negative. The product belongs to a key, not to
+-- the codebase: `Solver.lua` builds its columns per key already, so it only has to span the
+-- axes that key's bindings actually constrain, and storage keeps one mask per axis instead of
+-- one packed value. A key that never asks about life then pays nothing for life existing.
+Constants.UNITSTATE_NONE   = 2 ^ 0;
+Constants.UNITSTATE_HELP   = 2 ^ 1;
+Constants.UNITSTATE_HARM   = 2 ^ 2;
+Constants.UNITSTATE_OTHER  = 2 ^ 3;
 
-Constants.UNITSTATE_HELP   = Constants.UNITSTATE_HELP_ALIVE + Constants.UNITSTATE_HELP_DEAD;
-Constants.UNITSTATE_HARM   = Constants.UNITSTATE_HARM_ALIVE + Constants.UNITSTATE_HARM_DEAD;
-Constants.UNITSTATE_OTHER  = Constants.UNITSTATE_OTHER_ALIVE + Constants.UNITSTATE_OTHER_DEAD;
-Constants.UNITSTATE_ALIVE  = Constants.UNITSTATE_HELP_ALIVE + Constants.UNITSTATE_HARM_ALIVE + Constants.UNITSTATE_OTHER_ALIVE;
-Constants.UNITSTATE_DEAD   = Constants.UNITSTATE_HELP_DEAD + Constants.UNITSTATE_HARM_DEAD + Constants.UNITSTATE_OTHER_DEAD;
-Constants.UNITSTATE_EXISTS = 2 ^ 7 - 2;
-Constants.UNITSTATE_ALL    = 2 ^ 7 - 1;
+Constants.UNITSTATE_EXISTS = Constants.UNITSTATE_HELP + Constants.UNITSTATE_HARM + Constants.UNITSTATE_OTHER;
+Constants.UNITSTATE_ALL    = Constants.UNITSTATE_EXISTS + Constants.UNITSTATE_NONE;
 
 
 -- Binding Issues
@@ -285,7 +266,7 @@ end
 ---
 --- **푸는 쪽이 `SecureBindings.lua`의 OnClick 래퍼에 따로 있다.** 그쪽은 제한 환경이라 이
 --- 함수를 못 부르므로 손계산이 한 벌 더 있는데, 자릿값만은 아래 상수를 양쪽이 같이 쓴다 -
---- 래퍼는 `CONSTANTS.MOD_ALT` 꼴로 적고 `applyConstants`가 빌드 시점에 치환한다. 이름이
+--- 래퍼는 `CONSTANTS.MOD_ALT` 꼴로 적고 `BakeSnippet`이 빌드 시점에 치환한다. 이름이
 --- 틀리면 거기 `assert`에서 터지므로, 어긋난 채로 나가는 길이 없다.
 ---
 --- 자릿값이 갈리면 **수식어가 걸린 클릭캐스팅만** 조용히 다른 목록을 찾는다. 오류도 로그도
