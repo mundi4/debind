@@ -292,7 +292,19 @@ wipe(HeldUnits)
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)
+
+-- **`unitframe`은 살려서 넘긴다.** `States`에 든 나머지는 리빌드가 끝나면서 전부 다시
+-- 채워지지만, 이건 enter/leave 이벤트로만 서는 값이라 **다시 채워줄 사람이 없다.** 지우면
+-- 다음에 커서가 들어올 때까지 빈 채로 남는다.
+--
+-- 커서는 그대로 프레임 위에 있는데 조건 하나만 바뀌면(전투 진입, 자세 변경, 특성) 리빌드가
+-- 돌고, 그 순간 hover 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
+--
+-- 짝이 되는 `UnitMap["hover"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
+-- 한다 - hover 유닛은 남아 있는데 hover 프레임은 없는 상태가 된다.
+local hovered = States.unitframe
 wipe(States)
+States.unitframe = hovered
 ]]);
 
     ClearOverrideBindings(BindingDriver);

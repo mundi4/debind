@@ -193,6 +193,14 @@ local function UpdateBindingsTimerCallback()
 	DebindPrivate.UpdateBindings();
 end
 
+--- 다음 프레임에 돌기로 예약된 리빌드가 있나.
+---
+--- 리빌드는 `States`를 통째로 새로 채우므로, 그 사이에 상태를 읽으면 곧 뒤집힐 값을 읽는다.
+--- 밖에서 "지금 물어봐도 되는 때인가"를 알 수 있게 노출한다.
+function DebindPrivate.IsUpdateBindingsQueued()
+	return DebindPrivate.updateBindingsQueued and true or false;
+end
+
 function DebindPrivate.QueueUpdateBindings()
 	if (not DebindPrivate.updateBindingsQueued) then
 		DebindPrivate.updateBindingsQueued = true;

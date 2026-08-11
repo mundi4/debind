@@ -1,5 +1,6 @@
 -- DebindTest: Integration test framework for Debind addon
--- Usage: /debtest to run all tests, /debtest ui to open UI
+-- Usage: /debtest opens the list. Both runs are buttons in it -- plain, and the one that includes
+-- the tests which end the session.
 -- Requires DEBUG mode (DebindPrivate must be exposed as global)
 
 local DebindPrivate = _G.DebindPrivate
@@ -55,6 +56,15 @@ end
 local function Wait(seconds)
     coroutine.yield(seconds or 0)
 end
+
+--- True while a test is stopped waiting for a person to click something.
+---
+--- The runner's timeout is a guard against a coroutine that hangs, **not a budget for how fast
+--- the tester is** -- and the two were the same clock. A test that asks for two clicks allows 25
+--- seconds each, which is already past the 30-second ceiling, so a tester who took their time on
+--- the first one had the test killed while the second prompt was still on screen. The clock stops
+--- here instead.
+local awaitingHuman = false
 
 -- Saved variables are not in place while this file runs -- they arrive between then and
 -- ADDON_LOADED -- so the table is never assumed, only ensured.
@@ -152,7 +162,104 @@ local function GetTestLayer()
     return testLayer
 end
 
---- Swaps the addon's layer enumeration for one that yields only the test layer.
+-----------------------------------------------------------
+-- Test Helpers: The game's own bindings
+-----------------------------------------------------------
+
+-- Isolating the profile layer was only half of it. **The game's own binding table is still under
+-- everything**, and it belongs to whoever is running the test.
+--
+-- What that costs: `GetBindingAction(KEY)` on a key the test did not bind answers with the
+-- tester's action rather than nothing, so every "and now it goes away again" assertion is really
+-- "and now it says something else" -- true on a machine where that key is free and quietly
+-- meaningless on one where it is not. A test key that fires the tester's spell is the same fault
+-- wearing a louder coat. The suite is supposed to give the same answer on every machine.
+--
+-- **Only the in-memory set is touched.** `SetBinding` writes there; nothing is written to disk
+-- until someone calls `SaveBindings`, and this addon never does. `LoadBindings` reads the saved
+-- set back over it, which is exactly how Blizzard's own quick-keybind cancels
+-- (`QuickKeybind.lua:180`). So restoring is one call and it restores the truth, not a copy we
+-- remembered.
+--
+-- The danger is the session ending while they are off, so every exit is covered: the runner
+-- restores when the run finishes, when a reload is asked for, when the reload popup is declined,
+-- and on `PLAYER_LOGOUT`. A crash writes no config at all, so it needs no cover.
+
+--- Left bound, so a run that wedges is still recoverable.
+---
+--- **Not a softening of "turn them all off" -- an escape hatch.** Without a menu key and a way to
+--- open chat, a tester whose run hangs cannot type `/reload`, and the way out of a test kit is
+--- Alt+F4. Two commands is the smallest list that keeps that from being true.
+local KEEP_BOUND = {
+    TOGGLEGAMEMENU = true,
+    OPENCHAT = true,
+    OPENCHATSLASH = true,
+}
+
+--- The window's one checkbox, off by default. A probe rather than a setting: it exists so "is
+--- this failure the blackout's doing" is answered by one run instead of by argument.
+local skipBlackout = false
+
+local blackedOut = false
+local restoreWatcher
+
+--- Puts the tester's bindings back. Safe to call when they were never taken away.
+local function RestoreGameBindings()
+    if not blackedOut then return end
+
+    -- `LoadBindings` is refused in combat. Rather than dropping the restore, the watcher is left
+    -- armed and does it when the fight ends -- `blackedOut` stays true so nothing thinks it ran.
+    if InCombatLockdown() then
+        if restoreWatcher then restoreWatcher:RegisterEvent("PLAYER_REGEN_ENABLED") end
+        return
+    end
+
+    blackedOut = false
+    if restoreWatcher then restoreWatcher:UnregisterAllEvents() end
+    LoadBindings(GetCurrentBindingSet())
+end
+
+--- Unbinds everything the game currently has bound. Returns how many keys went, or nil plus a
+--- reason if it could not.
+local function BlackoutGameBindings()
+    if blackedOut then return 0 end
+    if InCombatLockdown() then
+        return nil, "전투 중에는 바인딩을 건드릴 수 없다"
+    end
+
+    if not restoreWatcher then
+        restoreWatcher = CreateFrame("Frame")
+        restoreWatcher:SetScript("OnEvent", function() RestoreGameBindings() end)
+    end
+    restoreWatcher:RegisterEvent("PLAYER_LOGOUT")
+
+    -- Collected before anything is cleared. `GetBindingKey` answers from the table being
+    -- rewritten, so reading and clearing in the same pass drops keys.
+    local doomed = {}
+    for i = 1, GetNumBindings() do
+        local command = GetBinding(i)
+        -- Header rows have no command, and a command may have no key at all.
+        if command and not KEEP_BOUND[command] then
+            for j = 1, select("#", GetBindingKey(command)) do
+                local key = select(j, GetBindingKey(command))
+                if key then
+                    doomed[#doomed + 1] = key
+                end
+            end
+        end
+    end
+
+    -- Set before the first `SetBinding`, so a restore is owed even if the loop throws partway.
+    blackedOut = true
+    for i = 1, #doomed do
+        SetBinding(doomed[i])
+    end
+
+    return #doomed
+end
+
+--- Swaps the addon's layer enumeration for one that yields only the test layer, and takes the
+--- game's own bindings out from under it.
 ---
 --- **Everything that decides what is bound goes through that one function** -- `BuildKeyMap`, the
 --- ordering, the UI -- and it is looked up on `DebindPrivate` at each call, so replacing the
@@ -162,6 +269,21 @@ local realEnumerate
 
 local function SetIsolated(isolated)
     if isolated then
+        -- **Wrapped, because this is a convenience and the run is not.** Blacking the tester's
+        -- keys out makes the suite reproducible; a run that cannot start because that failed
+        -- would be the tail wagging the dog. Say so and carry on.
+        if not skipBlackout then
+            local ok, cleared, err = pcall(BlackoutGameBindings)
+            if not ok then
+                print(format("|cffff8800[DebindTest]|r 기존 바인딩 끄기가 터졌다: %s. 그대로 진행한다.",
+                    tostring(cleared)))
+            elseif not cleared then
+                print(format("|cffff8800[DebindTest]|r 기존 바인딩을 못 껐다: %s. 테스터의 키가 깔려 있는 채로 돈다.", err))
+            elseif cleared > 0 then
+                print(format("|cff00ccff[DebindTest]|r 기존 바인딩 %d개를 껐다. 런이 끝나면 되돌린다.", cleared))
+            end
+        end
+
         if not realEnumerate then
             realEnumerate = DebindPrivate.EnumerateProfileLayers
             local only = { GetTestLayer() }
@@ -174,9 +296,12 @@ local function SetIsolated(isolated)
                 end, only, 0
             end
         end
-    elseif realEnumerate then
-        DebindPrivate.EnumerateProfileLayers = realEnumerate
-        realEnumerate = nil
+    else
+        pcall(RestoreGameBindings)
+        if realEnumerate then
+            DebindPrivate.EnumerateProfileLayers = realEnumerate
+            realEnumerate = nil
+        end
     end
 
     if not InCombatLockdown() then
@@ -201,8 +326,27 @@ local function CleanupActions()
     end
 end
 
+--- 예약된 리빌드가 없어질 때까지 기다린다.
+---
+--- **리빌드는 `States`를 통째로 새로 채운다.** 셋업 도중에 걸린 큐가 테스트 중간에 터지면
+--- 테스트가 세워둔 상태가 그 자리에서 지워지고, 증상은 "아무 이유 없이 값이 사라졌다"로
+--- 나타난다 - hover 슬롯이 그렇게 죽었다.
+---
+--- `Wait`이 아니라 `coroutine.yield`을 직접 쓴다. 여기는 프레임을 넘기려는 것뿐이라 진단
+--- 로그를 남길 자리가 아니다.
+local function WaitForIdle(limit)
+    local start = GetTime()
+    limit = limit or 2
+    while DebindPrivate.IsUpdateBindingsQueued() and (GetTime() - start) < limit do
+        coroutine.yield(0)
+    end
+    -- 큐가 비었어도 그 리빌드는 방금 끝났을 수 있다. 뒤따르는 것까지 한 프레임 더 준다.
+    coroutine.yield(0)
+end
+
 local function ApplyBindings()
     DebindPrivate.UpdateBindings()
+    WaitForIdle()
 end
 
 -- KeyMap에서 특정 키에 바인딩된 정보 찾기
@@ -1023,6 +1167,64 @@ RegisterTest("Secure update path", {
 --
 -- No mocks are involved. The test picks the unit token, so reality supplies both answers --
 -- `player` exists, an unrecognised token does not.
+-- 리빌드는 `States`를 통째로 새로 채우는데, `unitframe`만은 enter/leave 이벤트로만 서는 값이라
+-- 다시 채워줄 사람이 없다. 지우면 커서가 프레임 위에 그대로 있는데도 hover가 죽고, 마우스를
+-- 뺐다 다시 올려야 살아난다. 조건 하나만 바뀌어도 리빌드는 돌므로 - 전투 진입, 자세 변경 -
+-- 실사용에서 밟힌다.
+--
+-- **`GetHoverUnit()`만 봐서는 못 잡는다.** 짝이 되는 `UnitMap["hover"]`는 리빌드가 안 지우니
+-- 버그가 있어도 "player"로 남는다. 그래서 leave로 본다: 슬롯이 날아갔으면 leave가 지울 것을
+-- 못 찾고 그냥 나가므로, hover가 안 지워진 채로 남는다.
+RegisterTest("Hover slot: survives a rebuild under a still cursor", {
+    description = "hover 중에 리빌드가 돌아도 hover 슬롯이 살아남는가",
+    run = function()
+        local NAME = "Hover survives rebuild"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 리빌드가 막힌다")
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            hover = true,
+            reactions = Constants.REACTION_ALL,
+            frameTypes = Constants.FRAMETYPE_GROUP,
+        })
+        ApplyBindings()
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        Wait(0.3)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+        end
+
+        -- 커서는 그대로다. 리빌드만 돈다.
+        DebindPrivate.UpdateBindings()
+        Wait(0.3)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("리빌드 뒤 hover=%s, 아직 player여야 한다", tostring(GetHoverUnit())))
+        end
+
+        -- 슬롯이 살아 있는지는 여기서 갈린다. 날아갔으면 leave가 지울 것을 못 찾는다.
+        HoverLeave(frame)
+        Wait(0.3)
+
+        if GetHoverUnit() ~= nil then
+            return Fail(NAME, format(
+                "leave 뒤에도 hover=%s. 리빌드가 hover 슬롯을 지웠다는 뜻이다",
+                tostring(GetHoverUnit())))
+        end
+
+        return Pass(NAME, "리빌드를 건너 살아남고, leave가 제대로 지운다")
+    end,
+})
+
 RegisterTest("Hover slot: unit disappears under a still cursor", {
     description = "커서가 멈춘 채 유닛만 사라졌을 때 hover 슬롯이 비는가, 돌아오면 다시 차는가",
     run = function()
@@ -1048,11 +1250,11 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         HoverEnter(frame)
         AddTeardown(function() HoverLeave(frame) end)
         Wait(0.3)
-
+        
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
         end
-
+        
         -- The cursor has not moved. Only the attribute changed, which is exactly the shape of a
         -- unit despawning under it.
         SetFrameUnit(frame, UNIT_TOKEN_ABSENT)
@@ -1105,11 +1307,17 @@ local function WaitForRealClick(frame, button, text, timeout)
     wipe(probeReports)
     UI.ShowClickTarget(frame, text)
 
+    -- Cleared on the way out of every path below, and reset again when the runner starts the next
+    -- test -- a flag that switches the timeout off is not one to leave to a single assignment.
+    awaitingHuman = true
+
     local waited, limit = 0, timeout or 25
     while frame.debindTestClicked ~= button and waited < limit do
         Wait(0.25)
         waited = waited + 0.25
     end
+
+    awaitingHuman = false
 
     -- Hiding is the runner's, registered the moment it is shown, so a test that fails or throws
     -- before this point cannot leave the window covered by the thing it was asked to click.
@@ -1564,6 +1772,10 @@ local function Persist()
         skip = run.skip,
         lines = run.lines,
         crossReloads = run.crossReloads,
+        -- Carried so the resumed list still shows what already passed. `lines` is the report and
+        -- is not indexed by test, so without this the window comes back with every row before the
+        -- reload point greyed out -- a run that looks like it is starting over.
+        results = results,
         -- Set only while a reload is deliberately in flight. Its absence in a stored run is what
         -- separates "the session went away on purpose" from "the session died here".
         expectReload = run.expectReload,
@@ -1657,7 +1869,18 @@ local function DoReload(phase)
     -- after the reload nothing here gets another chance.
     RunTeardowns()
     pcall(CleanupActions)
+
+    -- **Progress is written before anything else is undone.** Whatever follows can throw, and if
+    -- it does before this line the stored run is the one from the previous test -- no
+    -- `expectReload` on it, so the session that comes back reports the run as having died rather
+    -- than continuing it. Persisting first costs nothing and removes the whole class.
     Persist()
+
+    -- **The layer swap is not restored here and the bindings are** -- the two are not the same
+    -- kind of thing. The swap lives only in memory and dies with the session; the tester's
+    -- bindings are the game's own table, and the session is about to end while they are missing.
+    -- The resumed run blacks them out again on the other side.
+    pcall(RestoreGameBindings)
 
     -- The runner stops here either way. Everything it would need is stored, so the run continues
     -- from saved variables if the reload happens and is dropped by OnCancel if it does not.
@@ -1677,8 +1900,26 @@ local function Step()
             return false
         end
 
+        -- **예약된 리빌드가 없을 때까지 시작하지 않는다.**
+        --
+        -- 셋업이 유발한 리빌드는 다음 프레임에 터지고, 리빌드는 `States`를 통째로 새로
+        -- 채운다. 테스트가 그 전에 시작하면 자기가 세워둔 상태가 도중에 지워지고, 증상은
+        -- "아무 이유 없이 값이 사라졌다"로 나온다 - hover 슬롯이 그렇게 죽었다.
+        --
+        -- 큐가 빈 뒤에도 한 프레임을 더 준다. `updateBindingsQueued`는 타이머 콜백이 **리빌드를
+        -- 부르기 전에** 지우므로, 비었다는 것이 그 리빌드가 끝났다는 뜻은 아니다.
+        if (DebindPrivate.IsUpdateBindingsQueued()) then
+            run.settle = true
+            return false
+        end
+        if (run.settle) then
+            run.settle = nil
+            return false
+        end
+
         run.name = testOrder[run.index]
         run.spent = 0
+        awaitingHuman = false
         UI.SetActive(run.name)
 
         local test = tests[run.name]
@@ -1749,7 +1990,7 @@ runner:SetScript("OnUpdate", function(self, elapsed)
         return
     end
 
-    if run.co then
+    if run.co and not awaitingHuman then
         run.spent = run.spent + elapsed
         if run.spent > TEST_TIMEOUT then
             -- Abandon it. The coroutine is simply dropped -- there is no way to unwind one from
@@ -1782,6 +2023,7 @@ local function RunAllTests(onDone, crossReloads)
 
     wipe(results)
     wipe(teardowns)
+    UI.Reset()
 
     run = {
         index = 1, pass = 0, fail = 0, err = 0, skip = 0, reloads = 0,
@@ -1800,13 +2042,17 @@ end
 --- A stored run that was not expecting a reload means the session ended under it -- crash,
 --- disconnect, or a `/reload` typed by hand. That is reported rather than continued: carrying on
 --- would erase the one fact worth keeping, which is that it died at that test.
+--- **The stored run is not cleared until the resumed one is standing.** It used to go first, so
+--- anything that threw between there and `runner:Show()` took the record with it -- the run did
+--- not continue and the results of every test before the reload were gone, with nothing left to
+--- say why. Now the failure is reported, the report survives, and it is not retried on the next
+--- login either.
 local function ResumeStoredRun()
     local pending = DB().pending
     if not pending then return end
 
-    DB().pending = nil
-
     if not pending.expectReload then
+        DB().pending = nil
         local name = testOrder[pending.index] or "?"
         print(format("|cffff8800[DebindTest]|r 이전 실행이 %s 에서 끊겼다 (리로드 요청 없음). 이어가지 않는다.",
             name))
@@ -1817,6 +2063,9 @@ local function ResumeStoredRun()
     end
 
     wipe(results)
+    for testName, result in pairs(pending.results or {}) do
+        results[testName] = result
+    end
     wipe(teardowns)
 
     run = {
@@ -1824,15 +2073,29 @@ local function ResumeStoredRun()
         skip = pending.skip or 0,
         reloads = pending.reloads, lines = pending.lines, phase = pending.phase,
         crossReloads = pending.crossReloads,
-        onDone = function() ShowCopyableText(lastResultText) end,
     }
 
     print(format("|cff00ccff[DebindTest]|r 리로드 뒤 이어서 실행: %s (%s)",
         testOrder[run.index] or "?", tostring(run.phase)))
-    UI.Open()
-    SetIsolated(true)
-    UI.SetRunning(true)
-    runner:Show()
+
+    local ok, err = pcall(function()
+        UI.Open()
+        UI.Reset()
+        SetIsolated(true)
+        UI.SetRunning(true)
+        runner:Show()
+    end)
+
+    DB().pending = nil
+
+    if not ok then
+        run = nil
+        runner:Hide()
+        print(format("|cffff0000[DebindTest]|r 이어받기가 터졌다: %s", tostring(err)))
+        tinsert(pending.lines, format("RESUME FAILED %s: %s", testOrder[pending.index] or "?", tostring(err)))
+        lastResultText = table.concat(pending.lines, "\n")
+        DB().last = lastResultText
+    end
 end
 
 local loader = CreateFrame("Frame")
@@ -1855,12 +2118,78 @@ local TestFrame
 local rows = {}
 local activeTest
 
-local STATUS_MARK = {
-    pass = "|cff00ff00v|r",
-    fail = "|cffff4444X|r",
-    error = "|cffff8800!|r",
-    skip = "|cff888888~|r",
+-- Real icons, not letters -- the pass mark was a lowercase `v`.
+--
+-- **A texture object, not `|T...|t` in the label.** The first attempt put the old
+-- `Interface\RaidFrame\ReadyCheck-*` paths in font markup; retail moved those to atlases
+-- (`ReadyCheck.lua:1-4`), so the file was gone and markup that resolves to nothing draws
+-- nothing -- silently, which is how it shipped looking like no icon at all. A texture asked for
+-- an atlas by name either shows or is visibly wrong.
+local STATUS_ATLAS = {
+    pass = "UI-LFG-ReadyMark",
+    fail = "UI-LFG-DeclineMark",
+    error = "UI-LFG-PendingMark",
 }
+
+-- The quiet states are drawn rather than named, so they cannot depend on an art asset at all.
+local STATUS_DOT = {
+    skip = { 0.45, 0.45, 0.45 },
+    pending = { 0.30, 0.30, 0.30 },
+    active = { 1.00, 0.82, 0.20 },
+}
+
+--- Paints one row's marker. `status` is a key of either table above.
+local function SetRowMark(row, status)
+    local atlas = STATUS_ATLAS[status]
+    if atlas then
+        row.icon:SetSize(16, 16)
+        row.icon:SetAtlas(atlas)
+        return
+    end
+
+    local dot = STATUS_DOT[status] or STATUS_DOT.pending
+    row.icon:SetSize(status == "active" and 10 or 7, status == "active" and 10 or 7)
+    row.icon:SetColorTexture(dot[1], dot[2], dot[3], 1)
+end
+
+--- The tally above the list.
+---
+--- **Counted from `results`, not from the runner's own totals.** They are the same number while a
+--- run is on and only one of them exists at any other time -- before a run, after one, and in the
+--- session that resumes one. Counting the rows means the line is right in all four.
+---
+--- Zero counts are left out rather than shown as zero. A row of red zeroes reads as a report; the
+--- absence of the word 실패 is the report.
+local function UpdateSummary()
+    if not TestFrame then return end
+
+    local pass, fail, err, skip = 0, 0, 0, 0
+    for _, testName in ipairs(testOrder) do
+        local result = results[testName]
+        if result then
+            if result.status == "pass" then
+                pass = pass + 1
+            elseif result.status == "fail" then
+                fail = fail + 1
+            elseif result.status == "skip" then
+                skip = skip + 1
+            else
+                err = err + 1
+            end
+        end
+    end
+
+    local total = #testOrder
+    local parts = { format("|cffcccccc전체 %d|r", total), format("|cff00ff00통과 %d|r", pass) }
+    if fail > 0 then parts[#parts + 1] = format("|cffff4444실패 %d|r", fail) end
+    if err > 0 then parts[#parts + 1] = format("|cffff8800오류 %d|r", err) end
+    if skip > 0 then parts[#parts + 1] = format("|cff888888건너뜀 %d|r", skip) end
+
+    local left = total - (pass + fail + err + skip)
+    if left > 0 then parts[#parts + 1] = format("|cff666666남음 %d|r", left) end
+
+    TestFrame.summary:SetText(table.concat(parts, "   "))
+end
 
 --- Repaints one row from whatever is known about that test right now.
 ---
@@ -1874,21 +2203,36 @@ local function PaintRow(testName)
     end
 
     local result = results[testName]
-    if result then
-        row.icon:SetText(STATUS_MARK[result.status] or STATUS_MARK.error)
-    elseif activeTest == testName then
-        row.icon:SetText("|cffffff00>|r")
-    else
-        row.icon:SetText("|cff555555-|r")
-    end
+    SetRowMark(row, result and result.status or (activeTest == testName and "active" or "pending"))
 
     local text = testName
     if result and result.msg then
         local clean = result.msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
         text = text .. "  " .. (result.status == "pass" and "|cff888888" or "|cffff8888") .. clean .. "|r"
+    else
+        -- Nothing has been asked of this test yet. The description says what it is for, so the
+        -- list reads as a plan before it reads as a report.
+        local test = tests[testName]
+        if test and test.description then
+            text = text .. "  |cff666666" .. test.description .. "|r"
+        end
+        if test and test.crossesReload then
+            text = text .. " |cff7788aa[reload]|r"
+        end
     end
     row.text:SetText(text)
     row.highlight:SetShown(activeTest == testName)
+
+    UpdateSummary()
+end
+
+--- Paints every row from scratch. Called when the list is first built and whenever the results
+--- table is emptied -- clearing `results` alone leaves the previous run's verdicts on screen
+--- until each test happens to run again, which reads as a run that is already half done.
+local function PaintAllRows()
+    for _, testName in ipairs(testOrder) do
+        PaintRow(testName)
+    end
 end
 
 local function BuildRows(content)
@@ -1905,12 +2249,13 @@ local function BuildRows(content)
         row.highlight:SetColorTexture(0.2, 0.4, 0.1, 0.6)
         row.highlight:Hide()
 
-        row.icon = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        row.icon:SetPoint("LEFT", 4, 0)
-        row.icon:SetWidth(14)
+        -- Centred in a fixed slot, because the marker changes size with the status and the label
+        -- must not move with it.
+        row.icon = row:CreateTexture(nil, "OVERLAY")
+        row.icon:SetPoint("CENTER", row, "LEFT", 13, 0)
 
         row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+        row.text:SetPoint("LEFT", row, "LEFT", 26, 0)
         row.text:SetWidth(560)
         row.text:SetJustifyH("LEFT")
         row.text:SetWordWrap(false)
@@ -1941,6 +2286,12 @@ local function BuildRows(content)
         y = y + 28
     end
     content:SetHeight(y)
+
+    -- **Built is not painted.** The row frames existed from the first open, but nothing filled
+    -- them in until the runner reached that test -- so the window came up as a stack of blank
+    -- lines and the suite only became visible by running it. The list is meant to be readable
+    -- before anyone presses 실행.
+    PaintAllRows()
 end
 
 local function CreateTestUI()
@@ -1968,9 +2319,31 @@ local function CreateTestUI()
         RunAllTests()
     end)
 
+    -- **The reload run is a button, not a slash command.** Ending the session is the one thing in
+    -- here that costs the tester something, and the place they decide it should be the place they
+    -- are already looking -- next to the run they were going to press anyway.
+    f.reloadBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.reloadBtn:SetSize(120, 24)
+    f.reloadBtn:SetPoint("RIGHT", f.runBtn, "LEFT", -6, 0)
+    f.reloadBtn:SetText("리로드 포함")
+    -- No `onDone`. **Finishing does not open the copy window** -- the results are in this list and
+    -- the 복사 button is right here. A popup that covers the list the moment it becomes worth
+    -- reading is the opposite of the one-window shape.
+    f.reloadBtn:SetScript("OnClick", function()
+        RunAllTests(nil, true)
+    end)
+    f.reloadBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("리로드 포함 실행", 1, 1, 1)
+        GameTooltip:AddLine("/reload을 건너야 하는 테스트까지 돈다. 그 자리에서 세션이 한 번 끊긴다.",
+            nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    f.reloadBtn:SetScript("OnLeave", GameTooltip_Hide)
+
     f.copyBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.copyBtn:SetSize(100, 24)
-    f.copyBtn:SetPoint("RIGHT", f.runBtn, "LEFT", -6, 0)
+    f.copyBtn:SetPoint("RIGHT", f.reloadBtn, "LEFT", -6, 0)
     f.copyBtn:SetText("복사")
     f.copyBtn:SetScript("OnClick", function()
         if lastResultText ~= "" then
@@ -1981,8 +2354,35 @@ local function CreateTestUI()
         end
     end)
 
+    -- The tally, on the button row -- the first thing to read, level with the thing that changes
+    -- it.
+    f.summary = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    f.summary:SetPoint("LEFT", f, "TOPLEFT", 16, -42)
+    f.summary:SetJustifyH("LEFT")
+
+    -- Second row, out of the tally's way. It changes what pressing the buttons does, so it stays
+    -- with them rather than going somewhere quieter.
+    f.keepBindings = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+    f.keepBindings:SetSize(24, 24)
+    f.keepBindings:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -58)
+    f.keepBindings.text:SetText("기존 바인딩 남겨두기")
+    f.keepBindings:SetChecked(skipBlackout)
+    f.keepBindings:SetScript("OnClick", function(self)
+        skipBlackout = self:GetChecked() and true or false
+    end)
+    f.keepBindings:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("기존 바인딩 남겨두기", 1, 1, 1)
+        GameTooltip:AddLine(
+            "평소에는 런 동안 게임의 기존 바인딩을 전부 끈다 - 그래야 어느 기계에서 돌려도 같은 답이 나온다. "
+            .. "체크하면 그대로 두고 돈다. 어떤 실패가 그 조치 탓인지 가리려고 있는 것이지 설정이 아니다.",
+            nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    f.keepBindings:SetScript("OnLeave", GameTooltip_Hide)
+
     local scrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -60)
+    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -86)
     scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 12)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
@@ -2012,6 +2412,8 @@ local function CreateTestUI()
     f.clickSlot.target:SetSize(380, 90)
 
     TestFrame = f
+    -- `BuildRows` ran before this assignment, so the tally it tried to write had nowhere to go.
+    UpdateSummary()
     return f
 end
 
@@ -2023,12 +2425,18 @@ function UI.Update(testName)
     PaintRow(testName)
 end
 
+--- Puts the list back to "nothing has run yet". The runner calls this when it empties `results`.
+function UI.Reset()
+    PaintAllRows()
+end
+
 --- A second run cannot start while one is going -- `RunAllTests` refuses it -- so the button
 --- says so rather than letting it be pressed and answering in the chat frame.
 function UI.SetRunning(running)
     if TestFrame then
         TestFrame.runBtn:SetEnabled(not running)
         TestFrame.runBtn:SetText(running and "실행 중" or "실행")
+        TestFrame.reloadBtn:SetEnabled(not running)
     end
 end
 
@@ -2101,7 +2509,7 @@ SlashCmdList["DEBINDTEST"] = function(msg)
         if lastResultText ~= "" then
             ShowCopyableText(lastResultText)
         else
-            print("|cff00ccff[DebindTest]|r No results yet. Run |cffffff00/debtest|r first.")
+            print("|cff00ccff[DebindTest]|r 아직 결과가 없다. |cffffff00/debtest|r 창의 |cffffff00실행|r 부터.")
         end
     elseif msg == "last" then
         local stored = DB().last
@@ -2110,11 +2518,6 @@ SlashCmdList["DEBINDTEST"] = function(msg)
         else
             print("|cff00ccff[DebindTest]|r 저장된 결과가 없다.")
         end
-    elseif msg == "reload" then
-        UI.Open()
-        RunAllTests(function()
-            ShowCopyableText(lastResultText)
-        end, true)
     else
         -- **Opening does not run.** These tests cast, and one of them stops to ask for a click;
         -- a window opened to read the last results should not start any of that. The run is a
@@ -2123,4 +2526,4 @@ SlashCmdList["DEBINDTEST"] = function(msg)
     end
 end
 
-print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = run & show copyable results, |cffffff00/debtest ui|r = results window.")
+print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = 목록 창. 실행은 창 안의 |cffffff00실행|r / |cffffff00리로드 포함|r 버튼. |cffffff00/debtest last|r = 지난 결과.")

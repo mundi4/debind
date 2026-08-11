@@ -1916,7 +1916,19 @@ wipe(HeldUnits)
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)
+
+
+
+
+
+
+
+
+
+
+local hovered = States.unitframe
 wipe(States)
+States.unitframe = hovered
 
 ### UpdateBindings.lua #2 SecureHandlerExecute
 self:RunAttribute("SetUnit", %q, nil)
