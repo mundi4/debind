@@ -306,6 +306,17 @@ end
 ---
 --- 쪼개지는 개수가 가장 적은 커버를 고른다 -- 가지치기가 가장 센 선택.
 ---
+--- A degenerate box -- some column at 0, meaning the condition can never hold -- falls out of
+--- both roles on the disjointness test, which is the right answer either way: as a region it
+--- meets no cover and survives, as a cover it meets no region and deletes nothing. Strictly
+--- such a binding *is* unreachable and could be dropped, but a silent deletion and a warning
+--- are different products, and the warning is `GetBindingIssue`'s.
+---
+--- That filter runs before this one (`Debind.lua` builds KeyMap from issue-free actions only),
+--- so a degenerate box should not arrive here at all. The behaviour above is a backstop, and
+--- it is one on purpose: assuming an upstream filter held is the shape of coupling this file
+--- has been bitten by before.
+---
 local _nodeBudget = 0;
 local _gaveUp = false;
 
