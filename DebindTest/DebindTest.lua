@@ -176,6 +176,94 @@ local function GetClickAttribute(attrPrefix, buttonName)
 end
 
 -----------------------------------------------------------
+-- Test Helpers: State Injection
+-----------------------------------------------------------
+
+-- **Telling the secure side it is in combat while the client is not.**
+--
+-- Debind decides from `States.combat`, so an override there drives every combat path. The client
+-- is not actually in combat, so no lockdown applies and the insecure side can still click, bind
+-- and write attributes -- which is the whole trick. In a real fight the code is reachable but
+-- nothing outside can drive it; here it is drivable but nothing stops it.
+--
+-- The same applies to every axis Debind watches, not only combat. A condition is a combination --
+-- `[combat, harm, form:2]` -- and checking one means standing all three up at once. An axis that
+-- still has to come from the world puts the test back on a raid schedule.
+--
+-- Nothing is written into `States` directly: the poll would put the real value back within 0.2s.
+-- The override sits at the one point where the freshly computed value is about to be stored, so
+-- the update loop runs exactly as it always does.
+--
+-- Debind carries none of this. It emits a line supplied from here, and for anyone without this
+-- addon there is no line and the snippet is what it always was.
+-- `%1$q` twice, not `%q` twice. `appendLine` is `format(str, ...)` and it gets one argument, so a
+-- second plain `%q` has nothing to consume -- which came out as a snippet missing an `end`, not
+-- as a format error. The generated line right below this one uses the positional form for the
+-- same reason.
+local MOCK_STATE_LINE =
+    [[if (MockStatesMap[%1$q] ~= nil) then stateValue = MockStatesMap[%1$q] end]]
+
+local mockStates = {}
+local mockPlanted = false
+
+--- Puts the table the injected line reads inside Debind's secure environment.
+---
+--- It lives there rather than in Debind because the line that reads it is ours: the table and the
+--- line that needs it arrive together, and neither exists for a real user.
+local function PlantMockTable()
+    if mockPlanted then return end
+    SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+        if (not MockStatesMap) then MockStatesMap = newtable() end
+    ]])
+    mockPlanted = true
+end
+
+--- Forces `state` to `value` from the next update on. `nil` releases it.
+---
+--- The bindings are rebuilt because the override rides in the generated snippet -- a state that
+--- has never been mocked has no line to read the table.
+local function SetMockState(state, value)
+    PlantMockTable()
+
+    if not DebindPrivate.SnippetProbes then
+        DebindPrivate.SnippetProbes = { stateValue = MOCK_STATE_LINE }
+    end
+
+    mockStates[state] = value
+
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format(
+        value == nil and [[MockStatesMap[%q] = nil]] or [[MockStatesMap[%q] = %s]],
+        state, tostring(value)))
+
+    -- Releasing is registered the moment something is held, so a test that fails in the middle
+    -- does not leave the game believing it is in combat.
+    AddTeardown(function()
+        mockStates[state] = nil
+        SecureHandlerExecute(DebindPrivate.BindingDriver, format([[MockStatesMap[%q] = nil]], state))
+
+        -- With nothing held any more, the line stops being emitted at all -- the generated
+        -- snippet goes back to being exactly the one a real user gets, rather than the one that
+        -- merely reads an empty table.
+        if next(mockStates) == nil then
+            DebindPrivate.SnippetProbes = nil
+        end
+
+        if not InCombatLockdown() then
+            DebindPrivate.UpdateBindings()
+        end
+    end)
+
+    ApplyBindings()
+end
+
+--- What the secure side currently holds for `state`, read back out through the click frame.
+--- Debind already exposes this: `SetBindingAttributes` writes the resolved binding per key, so a
+--- key bound only under a condition tells us whether that condition is currently true.
+local function GetMockState(state)
+    return mockStates[state]
+end
+
+-----------------------------------------------------------
 -- Test Helpers: Unit Frames
 -----------------------------------------------------------
 
@@ -847,6 +935,65 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         end
 
         return Pass(NAME, "사라짐 -> 비고, 돌아옴 -> 다시 참")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: State Injection (live)
+-----------------------------------------------------------
+
+-- The reason the kit exists. A combat-only binding is reachable only in combat, and in combat
+-- nothing outside can drive it -- lockdown stops the clicking, the binding and the attribute
+-- writes. So the one state where this code matters is the one state where it cannot be checked.
+--
+-- Overriding `States.combat` while the client is at peace breaks that. The decision runs its real
+-- path; the client, not actually fighting, never locks anything down.
+--
+-- What is checked is the game's own answer: `SetBindingClick` inside the snippet registers an
+-- override binding, and `GetBindingAction` reads back what the key is bound to. Nothing about the
+-- verdict is inferred from the injection.
+RegisterTest("State injection: combat-only binding", {
+    description = "전투 중이라고 주입하면 전투 전용 바인딩이 실제로 걸리는가",
+    run = function()
+        local NAME = "Combat injection"
+        local KEY = "CTRL-SHIFT-F9"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "진짜 전투 중에는 주입 결과와 실제가 구분되지 않는다")
+        end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        ApplyBindings()
+
+        SetMockState("combat", false)
+        Wait(0.4)
+        local atPeace = GetBindingAction(KEY, true) or ""
+
+        SetMockState("combat", true)
+        Wait(0.4)
+        local inCombat = GetBindingAction(KEY, true) or ""
+
+        if inCombat == atPeace then
+            return Fail(NAME, format(
+                "combat을 뒤집었는데 바인딩이 그대로다 (%q). 주입이 스니펫까지 안 닿았다",
+                inCombat))
+        end
+
+        if inCombat:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("combat=true 인데 %q, CLICK 이어야 한다", inCombat))
+        end
+
+        -- Back to peace: the binding has to go away again. Without this the test would pass on a
+        -- key that was simply bound the whole time.
+        SetMockState("combat", false)
+        Wait(0.4)
+        local again = GetBindingAction(KEY, true) or ""
+
+        if again ~= atPeace then
+            return Fail(NAME, format("combat을 되돌렸는데 %q, %q 여야 한다", again, atPeace))
+        end
+
+        return Pass(NAME, format("전투 밖에서 전투 경로를 구동함 (%s)", inCombat))
     end,
 })
 

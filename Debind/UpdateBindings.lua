@@ -214,6 +214,28 @@ local function appendLine(str, ...)
     end
 end
 
+--- Compiles a generated snippet before it is handed over, in DEBUG builds only.
+---
+--- The literal snippets are covered by `tools/check-snippets.js`, but these are assembled at
+--- runtime and nothing sees them until the restricted environment refuses them -- and what it
+--- reports is a stack inside `RestrictedExecution.lua` with a line number into a chunk nobody can
+--- look at. `loadstring` is not that environment, so this does not prove a snippet will run; it
+--- only says the text is Lua, which is precisely the class of fault that is otherwise so
+--- expensive to place.
+---
+--- Worth having because these strings are assembled from format specifiers: a `%q` too many turns
+--- into a missing `end` several hundred lines away from the line that wrote it.
+local function AssertSnippetCompiles(snippet, what)
+    if (not DEBUG) then
+        return;
+    end
+
+    local chunk, err = loadstring(snippet, what);
+    if (not chunk) then
+        DebindPrivate.log(format("|cffff0000[Debind]|r 생성된 스니펫 %s 가 컴파일 안 된다: %s", what, tostring(err)));
+    end
+end
+
 local function appendKeyValue(key, value)
     if (value == nil) then
         return;
@@ -305,6 +327,7 @@ wipe(States)
 
     if (#_strArr > 0) then
         local snippet = table.concat(_strArr, "\n");
+        AssertSnippetCompiles(snippet, "CustomStateExpressions");
         SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
         if (DEBUG) then
             dump("CustomStateExpressions snippet", { CopyTable(_strArr), snippet:len() });
@@ -1057,6 +1080,7 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
     end
 
     local snippet = table.concat(_strArr, "\n");
+    AssertSnippetCompiles(snippet, "UpdateBindingsMap");
     SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
     if (DEBUG) then
         dump("UpdateBindingsMap", {
@@ -1136,6 +1160,7 @@ function UpdateMacroTextsMap()
     appendLine("tempArray = nil")
 
     local snippet = table.concat(_strArr, "\n");
+    AssertSnippetCompiles(snippet, "UpdateMacroTextsMap");
     SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
     if (DEBUG) then
         dump("UpdateMacroTextsMap", {
@@ -1241,6 +1266,27 @@ end
     end
     sort(stateArray, compareStates);
 
+    -- An optional line, supplied from outside, that gets a say in `stateValue` between the
+    -- expression that computed it and the comparison that stores it.
+    --
+    -- **Overriding has to happen here and nowhere else.** Writing into `States` from outside does
+    -- not hold: the poll comes round every 0.2s, or any of the events fires, and the real value
+    -- goes back. Stopping the loop to keep it would be switching off the code the override exists
+    -- to exercise. So the loop runs exactly as it always does, and only the value it lands on is
+    -- allowed to differ.
+    --
+    -- Debind does not know what the line says. It is a format string handed over by whoever wants
+    -- it -- in practice the test addon, which is absent for every real user, so nothing is
+    -- generated and the emitted snippet is unchanged.
+    local stateOverride = DebindPrivate.SnippetProbes and DebindPrivate.SnippetProbes.stateValue;
+
+    local function appendStateStore(state)
+        if (stateOverride) then
+            appendLine(stateOverride, state);
+        end
+        appendLine("if (States[%1$q] ~= stateValue) then States[%1$q]=stateValue;DirtyFlags[%1$q]=true; end", state);
+    end
+
     for _, state in ipairs(stateArray) do
         if (STATE_EVAL_EXPRESSIONS[state]) then
             if (state == "specialbar") then
@@ -1252,10 +1298,10 @@ end
             else
                 appendLine("stateValue=%s", STATE_EVAL_EXPRESSIONS[state]);
             end
-            appendLine("if (States[%1$q] ~= stateValue) then States[%1$q]=stateValue;DirtyFlags[%1$q]=true; end", state);
+            appendStateStore(state);
         elseif (state:sub(1, 6) == "known:") then
             appendLine([[stateValue=SecureCmdOptionParse("[%s]") and true or false]], state);
-            appendLine("if (States[%1$q] ~= stateValue) then States[%1$q]=stateValue;DirtyFlags[%1$q]=true; end", state);
+            appendStateStore(state);
 
         elseif (state == "unitframe" or state == "reaction" or state == "frameType") then
             -- ignore these states
@@ -1279,6 +1325,9 @@ end
                 unit, unitStateExpression(flags, format("%q", unit)));
         end
         --appendLine([[print(%1$q, stateValue, UnitMap[%1$q])]], unit)
+        if (stateOverride) then
+            appendLine(stateOverride, unit .. "-exists");
+        end
         appendLine([[if (UnitStates[%1$q] ~= stateValue) then UnitStates[%1$q]=stateValue;DirtyFlags["%1$s-exists"]=true; end]], unit);
     end
 
@@ -1311,6 +1360,7 @@ end
     appendLine([[end]]);
 
     local snippet = table.concat(_strArr, "\n");
+    AssertSnippetCompiles(snippet, "_onattributechanged");
     DebindPrivate.BindingDriver:SetAttribute("_onattributechanged", snippet);
 
     if (DEBUG) then
