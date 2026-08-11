@@ -324,6 +324,30 @@ local function EnableProbes()
     return true
 end
 
+--- Presses the key, the way the game would. A click-time key does not decide anything until it
+--- is pressed -- the whole point of that path is that the winner is chosen at the press -- so
+--- this is the only way to reach the decision at all.
+---
+--- The action attached to the winner really does run. In a session set aside for testing that is
+--- not a cost worth designing around; the tests use macro bodies that do nothing so the output
+--- stays readable, not to avoid consequences.
+local function PressKey(key)
+    local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
+    if not button then
+        return nil, format("%s 는 클릭 시점 키가 아니다 (ClickTimeKeys에 없음)", key)
+    end
+
+    wipe(probeReports)
+    DebindPrivate.DefaultClickFrame:Click(button)
+    return true
+end
+
+--- The record index the snippet last reported as the winner, or nil if it reported none.
+--- `CallMethod` is queued rather than called, so this needs a `Wait` after the press.
+local function LastWinner()
+    return probeReports[#probeReports]
+end
+
 -----------------------------------------------------------
 -- Test Helpers: Unit Frames
 -----------------------------------------------------------
