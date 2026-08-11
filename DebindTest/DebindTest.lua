@@ -1023,6 +1023,147 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
     end,
 })
 
+--- Clicks a registered unit frame the way the game would. This reaches the wrapper on the
+--- frame's own `OnClick`, which is where a click-cast decision is made -- `PressKey` cannot get
+--- there, since it clicks our button directly and so starts past the frame.
+local function ClickFrame(frame, button)
+    wipe(probeReports)
+    frame:Click(button)
+end
+
+--- The frames a click-cast test has to cover: one we made, and one of Blizzard's.
+---
+--- **Driving only our own frame would miss the thing that changed.** Blizzard's frames are the
+--- ones whose `type1` the old routing took over, and they arrive through a different door --
+--- `UpdateBlizzardFrames` rather than the Clique API -- so "it works on a frame the test built"
+--- says nothing about them.
+---
+--- Blizzard's is skipped rather than failed when it is not registered: that is a user option
+--- (`Options.blizzframes`), not a fault.
+local function ClickCastTargets()
+    local targets = {}
+
+    local frame, err = CreateTestUnitFrame("player", "group")
+    if not frame then return nil, err end
+    targets[#targets + 1] = { label = "우리 프레임", frame = frame }
+
+    if PlayerFrame and type(DebindPrivate.ccframes[PlayerFrame]) == "table" then
+        targets[#targets + 1] = { label = "PlayerFrame", frame = PlayerFrame, blizzard = true }
+    end
+
+    return targets
+end
+
+-- Click-casting decides at the click now, in a wrapper on the frame rather than in attributes
+-- stamped on it ahead of time. Clicking is the only way to reach that decision.
+RegisterTest("Click-cast: the frame's wrapper picks a winner", {
+    description = "유닛 프레임 클릭이 래퍼까지 닿아 조건에 맞는 레코드를 고르는가 (우리 프레임 + 블리자드 프레임)",
+    run = function()
+        local NAME = "Click-cast winner"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
+        end
+
+        local ok, err = EnableProbes()
+        if not ok then
+            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            hover = true,
+            reactions = Constants.REACTION_ALL,
+            frameTypes = Constants.FRAMETYPE_ALL,
+        })
+        ApplyBindings()
+
+        local targets, terr = ClickCastTargets()
+        if not targets then return Fail(NAME, terr) end
+
+        local seen = {}
+        for _, target in ipairs(targets) do
+            ClickFrame(target.frame, "MiddleButton")
+            Wait(0.4)
+
+            if LastWinner() == nil then
+                return Fail(NAME, format(
+                    "%s: 클릭이 래퍼까지 안 갔거나 아무것도 안 골랐다. 라우팅이나 래핑이 안 붙은 것부터 의심할 것",
+                    target.label))
+            end
+            seen[#seen + 1] = format("%s=%d", target.label, LastWinner())
+        end
+
+        return Pass(NAME, table.concat(seen, ", "))
+    end,
+})
+
+-- The point of judging on the frame instead of ahead of it: when nothing matches we return nil,
+-- the button name is left alone, and the click carries on into whatever the frame itself does.
+-- On the old path the frame's own `type` had been overwritten, so a click that matched nothing
+-- did nothing at all -- silently, which is the shape of fault this addon keeps running into.
+RegisterTest("Click-cast: a click that matches nothing falls through", {
+    description = "조건이 안 맞으면 프레임 자신의 동작이 그대로 나가는가 (동적 폴백)",
+    run = function()
+        local NAME = "Click-cast fallback"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
+        end
+
+        -- Cannot match: the record wants combat and the state says otherwise. The binding still
+        -- exists, so the frame is still routed and the wrapper still runs -- which is the point.
+        -- A test with no binding at all would pass without the wrapper ever deciding anything.
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            hover = true,
+            reactions = Constants.REACTION_ALL,
+            frameTypes = Constants.FRAMETYPE_GROUP,
+            combat = true,
+        })
+        ApplyBindings()
+        SetMockState("combat", false)
+
+        local targets, terr = ClickCastTargets()
+        if not targets then return Fail(NAME, terr) end
+
+        for _, target in ipairs(targets) do
+            -- The frame's own action goes in the slot our routing deliberately does not occupy.
+            -- **Only on the frame we own.** Writing it onto Blizzard's would be the addon doing
+            -- the exact thing this change exists to stop doing, and a test that has to do it to
+            -- prove the point has stopped testing the point.
+            if not target.blizzard then
+                _G.DEBIND_TEST_FELL_THROUGH = nil
+                target.frame:SetAttribute("*type3", "macro")
+                target.frame:SetAttribute("*macrotext3", "/run DEBIND_TEST_FELL_THROUGH = true")
+                AddTeardown(function()
+                    target.frame:SetAttribute("*type3", nil)
+                    target.frame:SetAttribute("*macrotext3", nil)
+                    _G.DEBIND_TEST_FELL_THROUGH = nil
+                end)
+                Wait(0.4)
+            end
+
+            ClickFrame(target.frame, "MiddleButton")
+            Wait(0.4)
+
+            if LastWinner() ~= nil then
+                return Fail(NAME, format(
+                    "%s: 조건이 안 맞는데 %d번을 골랐다. combat 목이 안 걸렸을 수 있다",
+                    target.label, LastWinner()))
+            end
+
+            if not target.blizzard and not _G.DEBIND_TEST_FELL_THROUGH then
+                return Fail(NAME, format(
+                    "%s: 프레임 자신의 동작이 안 나갔다. 래퍼가 nil이 아닌 것을 반환했거나 우리가 그 자리를 덮었다",
+                    target.label))
+            end
+        end
+
+        return Pass(NAME, "안 맞음 -> 고르지 않음, 프레임 원래 동작이 나감")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: State Injection (live)
 -----------------------------------------------------------
