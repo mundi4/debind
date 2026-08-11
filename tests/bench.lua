@@ -48,7 +48,16 @@ return function(DebindPrivate)
             b.value = 100 + math.floor(rnd() * 4);
             b.known = true;
         end
-        if (rnd() < density * 0.4) then b.hover = rnd() < 0.5; end
+        if (rnd() < density * 0.4) then
+            b.hover = rnd() < 0.5;
+            if (b.hover) then
+                -- masks ride on hover bindings only -- Misc.lua strips them off the
+                -- rest, so putting them anywhere else would price a shape the solver
+                -- never sees. ALL is excluded for the same reason: it normalizes to nil.
+                if (rnd() < 0.6) then b.reactions = math.floor(rnd() * 6) + 1; end
+                if (rnd() < 0.6) then b.frameTypes = math.floor(rnd() * 126) + 1; end
+            end
+        end
         if (rnd() < density * 0.3) then b.forms = math.floor(rnd() * 2048); end
         if (rnd() < density * 0.3) then b.groups = math.floor(rnd() * 8); end
         return b;
