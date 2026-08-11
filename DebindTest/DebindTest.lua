@@ -33,6 +33,48 @@ local function Fail(name, reason)
 end
 
 -----------------------------------------------------------
+-- Waiting & Teardown
+-----------------------------------------------------------
+
+-- Tests run as coroutines so they can wait. Waiting is not a convenience here: nothing this
+-- addon does lands in the frame it was asked for. The state driver polls on its own 0.2s beat,
+-- `_onattributechanged` propagates afterwards, `CallMethod` is queued rather than called, and
+-- `DirtyFlags` only reaches `UpdateBindings` on the next pass. A test that sets something up and
+-- reads it back in the same breath reads the old value and calls it a result.
+--
+-- **Tests that never yield are unaffected.** A coroutine that runs straight through finishes on
+-- its first resume, and the runner steps to the next one without giving up the frame, so a suite
+-- of them still completes in a single frame exactly as it did before.
+
+--- Hands the frame back for `seconds` (or until the next one, if omitted or 0).
+local function Wait(seconds)
+    coroutine.yield(seconds or 0)
+end
+
+-- Undo registered by whatever needs undoing. **The runner calls these, not the test.** A test
+-- that owns its own cleanup only has to be wrong once -- fail early, error, or simply forget --
+-- and everything after it runs against a state nobody chose. So the tail is not the test's to
+-- run; it belongs to the loop that knows the test ended, however it ended.
+local teardowns = {}
+
+local function AddTeardown(fn)
+    tinsert(teardowns, fn)
+end
+
+--- Runs every registered undo, newest first, and clears the list. Each one is isolated: an undo
+--- that throws must not keep the ones after it from running, which is the whole point of having
+--- them here.
+local function RunTeardowns()
+    for i = #teardowns, 1, -1 do
+        local ok, err = pcall(teardowns[i])
+        if not ok then
+            print(format("|cffff8800[DebindTest]|r teardown failed: %s", tostring(err)))
+        end
+    end
+    wipe(teardowns)
+end
+
+-----------------------------------------------------------
 -- Test Helpers: Setup & Teardown
 -----------------------------------------------------------
 
@@ -87,6 +129,83 @@ end
 local function GetClickAttribute(attrPrefix, buttonName)
     local frame = DebindPrivate.DefaultClickFrame
     return frame:GetAttribute(attrPrefix .. buttonName)
+end
+
+-----------------------------------------------------------
+-- Test Helpers: Unit Frames
+-----------------------------------------------------------
+
+-- A unit frame the test owns, registered through the same path a real one takes. Owning it is
+-- what makes the hover slot reachable at all: the frame is where `unit` is read from, both when
+-- the cursor arrives and on every poll after, so a frame we can write to is a hover state we can
+-- set. Nothing is faked -- the attribute read, the registration, and the reaction lookup are the
+-- shipped ones.
+--
+-- **Frames are never destroyed in WoW**, so they are reused by name across runs. Teardown
+-- unregisters rather than disposing.
+local UNIT_TOKEN_ABSENT = "debindtest_absent"
+
+local testFrameCount = 0
+
+local function CreateTestUnitFrame(unit, frameType)
+    testFrameCount = testFrameCount + 1
+
+    local name = "DebindTestUnitFrame" .. testFrameCount
+    local frame = _G[name] or CreateFrame("Button", name, UIParent, "SecureUnitButtonTemplate")
+
+    frame:SetSize(1, 1)
+    frame:ClearAllPoints()
+    frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+    frame:SetAttribute("unit", unit)
+    frame:Show()
+
+    DebindPrivate.RegisterFrame(frame, frameType or "group")
+
+    AddTeardown(function()
+        DebindPrivate.UnregisterFrame(frame)
+        frame:Hide()
+    end)
+
+    -- `RegisterFrame` refuses quietly, and it records that refusal as `false` so the next attempt
+    -- refuses too. Left unchecked the test would drive a frame the addon is not watching and
+    -- report whatever the empty hover slot happened to say.
+    local registered = DebindPrivate.ccframes[frame]
+    if type(registered) ~= "table" then
+        return nil, format("RegisterFrame이 %s를 안 받았다 (ccframes=%s)", name, tostring(registered))
+    end
+
+    return frame
+end
+
+--- Points the frame at another unit. This is the whole simulation of "the unit under the cursor
+--- changed": neither enter nor leave fires while the cursor sits still, and what the poll reads
+--- is this attribute.
+local function SetFrameUnit(frame, unit)
+    frame:SetAttribute("unit", unit)
+end
+
+--- Drives the real `setup_onenter` / `setup_onleave` for a frame. The wrapped scripts run the
+--- same snippets; there is no way to make the game fire OnEnter on demand, so the snippet is run
+--- directly with the frame as `self`, which is exactly what the wrapper does.
+local function HoverEnter(frame)
+    SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
+    SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+        self:RunFor(self:GetFrameRef("debindtest_hover"), self:GetAttribute("setup_onenter"))
+    ]])
+end
+
+local function HoverLeave(frame)
+    SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
+    SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+        self:RunFor(self:GetFrameRef("debindtest_hover"), self:GetAttribute("setup_onleave"))
+    ]])
+end
+
+--- What the secure side currently calls the hovered unit, as seen from outside. The secure
+--- `SetUnit` mirrors it out through `CallMethod`, which is queued rather than immediate -- so
+--- this is only true after a `Wait`, never in the same breath as the change that caused it.
+local function GetHoverUnit()
+    return DebindPrivate.Units.hover
 end
 
 -----------------------------------------------------------
@@ -617,6 +736,77 @@ RegisterTest("Secure update path", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: Hover Slot (live)
+-----------------------------------------------------------
+
+-- The one state that could not be checked by hand: **the cursor sits still on a unit frame and
+-- the unit goes away.** No enter fires, no leave fires, and only the poll sees it. Reproducing
+-- that in the world means waiting for a boss to despawn or an arena to swap -- a raid schedule,
+-- not a check.
+--
+-- Owning the frame turns it into three attribute writes. Pointing it at a unit that does not
+-- exist is, from the poll's side, indistinguishable from a unit that stopped existing: it reads
+-- the attribute, asks `UnitExists`, and takes the same branch either way.
+--
+-- No mocks are involved. The test picks the unit token, so reality supplies both answers --
+-- `player` exists, an unrecognised token does not.
+RegisterTest("Hover slot: unit disappears under a still cursor", {
+    description = "커서가 멈춘 채 유닛만 사라졌을 때 hover 슬롯이 비는가, 돌아오면 다시 차는가",
+    run = function()
+        local NAME = "Hover slot"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 속성 쓰기가 막힌다")
+        end
+
+        -- A hover binding has to exist, or `HoverBindings` stays false and the hover axis is
+        -- never wired up. The test builds its own precondition rather than hoping for one.
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            hover = true,
+            reactions = Constants.REACTION_ALL,
+            frameTypes = Constants.FRAMETYPE_GROUP,
+        })
+        ApplyBindings()
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        Wait(0.3)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+        end
+
+        -- The cursor has not moved. Only the attribute changed, which is exactly the shape of a
+        -- unit despawning under it.
+        SetFrameUnit(frame, UNIT_TOKEN_ABSENT)
+        Wait(0.5)
+
+        if GetHoverUnit() ~= nil then
+            return Fail(NAME, format(
+                "유닛이 사라졌는데 hover=%s. 고치기 전에는 반응이 계속 남아 있었다",
+                tostring(GetHoverUnit())))
+        end
+
+        -- The frame is deliberately not dropped when its unit goes away, so that this same poll
+        -- can pick it back up. Without that, the slot would stay empty until the mouse moved.
+        SetFrameUnit(frame, "player")
+        Wait(0.5)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format(
+                "유닛이 돌아왔는데 hover=%s. 폴링이 프레임을 버렸다는 뜻이다",
+                tostring(GetHoverUnit())))
+        end
+
+        return Pass(NAME, "사라짐 -> 비고, 돌아옴 -> 다시 참")
+    end,
+})
+
+-----------------------------------------------------------
 -- Copyable Output Popup
 -----------------------------------------------------------
 
@@ -665,47 +855,128 @@ end
 
 local lastResultText = ""
 
-local function RunAllTests()
-    wipe(results)
-    local passCount, failCount, errorCount = 0, 0, 0
-    local outputLines = {}
+local runner = CreateFrame("Frame")
+runner:Hide()
 
-    for _, testName in ipairs(testOrder) do
-        -- Clean state before each test
-        CleanupActions()
+local run
 
-        local test = tests[testName]
-        local ok, passed, msg = pcall(test.run)
+local function FinishRun()
+    pcall(CleanupActions)
+    RunTeardowns()
 
-        if not ok then
-            errorCount = errorCount + 1
-            results[testName] = { status = "error", msg = passed }
-            local line = format("ERROR %s: %s", testName, passed)
-            tinsert(outputLines, line)
-            print(format("|cffff8800%s|r", line))
-        elseif passed then
-            passCount = passCount + 1
-            results[testName] = { status = "pass", msg = msg }
-            tinsert(outputLines, msg)
-            print(msg)
+    local summary = format("[DebindTest] Complete: %d passed, %d failed, %d errors / %d total",
+        run.pass, run.fail, run.err, #testOrder)
+    tinsert(run.lines, "")
+    tinsert(run.lines, summary)
+    print(format("\n|cff00ccff%s|r", summary))
+
+    lastResultText = table.concat(run.lines, "\n")
+
+    local onDone = run.onDone
+    run = nil
+    runner:Hide()
+
+    if onDone then onDone() end
+end
+
+-- A test that yields and never comes back would otherwise hold the runner forever, and `run`
+-- staying set means no further run can start either -- one stuck test costs a `/reload`. Long
+-- is fine here (waiting is the point), so this is only a ceiling on hanging, not on slowness.
+local TEST_TIMEOUT = 30
+
+local function Record(testName, status, msg, color)
+    -- A test is meant to return a message with its verdict. One that does not still has to be
+    -- recorded as something, and this runs inside OnUpdate where throwing helps nobody.
+    msg = msg or format("%s (no message)", testName)
+    results[testName] = { status = status, msg = msg }
+    tinsert(run.lines, msg)
+    print(color and format("|c%s%s|r", color, msg) or msg)
+end
+
+--- One resume of the current test. Returns true when the runner may keep going this frame.
+local function Step()
+    if not run.co then
+        if run.index > #testOrder then
+            FinishRun()
+            return false
+        end
+
+        run.name = testOrder[run.index]
+        run.spent = 0
+        pcall(CleanupActions)
+        run.co = coroutine.create(tests[run.name].run)
+    end
+
+    local ok, a, b = coroutine.resume(run.co)
+
+    if not ok then
+        run.err = run.err + 1
+        Record(run.name, "error", format("ERROR %s: %s", run.name, tostring(a)), "ffff8800")
+    elseif coroutine.status(run.co) == "dead" then
+        if a then
+            run.pass = run.pass + 1
+            Record(run.name, "pass", b)
         else
-            failCount = failCount + 1
-            results[testName] = { status = "fail", msg = msg }
-            tinsert(outputLines, msg)
-            print(msg)
+            run.fail = run.fail + 1
+            Record(run.name, "fail", b)
+        end
+    else
+        -- Yielded. The test is mid-flight, so nothing is torn down yet.
+        run.wait = tonumber(a) or 0
+        return false
+    end
+
+    RunTeardowns()
+    run.co = nil
+    run.index = run.index + 1
+    return true
+end
+
+runner:SetScript("OnUpdate", function(self, elapsed)
+    -- The frame is hidden while idle, so this should not fire without a run. A teardown or an
+    -- `onDone` that starts something of its own could still land here between the two, and an
+    -- error thrown from OnUpdate is not worth the risk of finding out.
+    if not run then
+        self:Hide()
+        return
+    end
+
+    if run.co then
+        run.spent = run.spent + elapsed
+        if run.spent > TEST_TIMEOUT then
+            -- Abandon it. The coroutine is simply dropped -- there is no way to unwind one from
+            -- outside - so whatever it was holding is left to the teardowns, which is why they
+            -- belong to the runner and not to the test.
+            run.err = run.err + 1
+            Record(run.name, "error",
+                format("ERROR %s: timed out after %ds", run.name, TEST_TIMEOUT), "ffff8800")
+            RunTeardowns()
+            run.co, run.wait = nil, nil
+            run.index = run.index + 1
         end
     end
 
-    -- Final cleanup
-    CleanupActions()
+    if run.wait and run.wait > 0 then
+        run.wait = run.wait - elapsed
+        if run.wait > 0 then return end
+    end
+    run.wait = nil
 
-    local summary = format("[DebindTest] Complete: %d passed, %d failed, %d errors / %d total",
-        passCount, failCount, errorCount, #testOrder)
-    tinsert(outputLines, "")
-    tinsert(outputLines, summary)
-    print(format("\n|cff00ccff%s|r", summary))
+    while run and Step() do end
+end)
 
-    lastResultText = table.concat(outputLines, "\n")
+--- Runs the suite. Returns immediately -- `onDone` fires when the last test has finished.
+local function RunAllTests(onDone)
+    if run then
+        print("|cffff8800[DebindTest]|r already running.")
+        return
+    end
+
+    wipe(results)
+    wipe(teardowns)
+
+    run = { index = 1, pass = 0, fail = 0, err = 0, lines = {}, onDone = onDone }
+    runner:Show()
 end
 
 -----------------------------------------------------------
@@ -736,10 +1007,11 @@ local function CreateTestUI()
     runBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -30)
     runBtn:SetText("Run All")
     runBtn:SetScript("OnClick", function()
-        RunAllTests()
-        -- refresh display
-        TestFrame:Hide()
-        CreateTestUI()
+        RunAllTests(function()
+            -- refresh display
+            TestFrame:Hide()
+            CreateTestUI()
+        end)
     end)
 
     local scrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
@@ -833,8 +1105,9 @@ SlashCmdList["DEBINDTEST"] = function(msg)
             print("|cff00ccff[DebindTest]|r No results yet. Run |cffffff00/debtest|r first.")
         end
     else
-        RunAllTests()
-        ShowCopyableText(lastResultText)
+        RunAllTests(function()
+            ShowCopyableText(lastResultText)
+        end)
     end
 end
 
