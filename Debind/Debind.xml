@@ -1,6 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
 
     <Script file="Constants.lua"/>
+    <Script file="Snippets.lua"/>
     <Script file="Ordering.lua"/>
     <Script file="Solver.lua"/>
     <Script file="Misc.lua"/>

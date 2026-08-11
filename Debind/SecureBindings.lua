@@ -5,25 +5,7 @@ FIXME 유닛 popup메뉴에 들어갔다가 나오면 hover값이 nil로 변경�
 local _, DebindPrivate = ...;
 local BindingDriver      = DebindPrivate.BindingDriver;
 local Constants          = DebindPrivate.Constants;
-
---- **반드시 값 하나만 돌려준다.** `gsub`은 (문자열, 치환횟수)를 주는데, 그걸 그대로 흘리면
---- 마지막 인자 자리에서 남는 값이 다음 매개변수로 들어간다. `SetAttribute(name, body)`는
---- 남는 인자를 무시해서 표가 안 났지만, `SecureHandlerWrapScript(f, script, header, preBody,
---- postBody)`에서는 치환 횟수가 postBody가 되어 "Invalid post-handler body"로 터진다.
---- 그리고 그 오류는 **이 파일의 나머지를 통째로 중단시킨다** - 아래 속성들이 전부 정의되지
---- 않은 채로 게임이 계속 돌아서, 증상이 엉뚱한 곳(FrameRegistry의 OnEnter 래핑)에서 난다.
-local function applyConstants(str)
-	local result = str:gsub("CONSTANTS%.([_A-Za-z0-9]+)", function(m)
-		local value = Constants[m];
-		assert(value ~= nil, m);
-		if (type(value) == "string") then
-			return format("%q", value);
-		else
-			return tostring(value);
-		end
-	end);
-	return result;
-end
+local BakeSnippet        = DebindPrivate.BakeSnippet;
 
 function BindingDriver:print(...)
 	DebindPrivate.log(...);
@@ -339,7 +321,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 		vargs[14],
 		vargs[15]
 	)
-]] or "") .. applyConstants([==[
+]] or "") .. BakeSnippet([==[
 	local forceAll = DirtyFlags.forceAll
 	local unitframe = States.unitframe
 	if (unitframe and not unitframe.reaction) then unitframe = nil end
@@ -740,7 +722,7 @@ BindingDriver:SetAttribute("update_hit_bounds", [==[
 --
 -- `reaction == nil` is the marker. Every reader gates on it rather than on the frame being
 -- present, which is what the click path was already doing on its own.
-BindingDriver:SetAttribute("setup_onenter", applyConstants([==[
+BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
 	local unit = self:GetEffectiveAttribute("unit")
 
 	local unitframe = ccframes[self]
@@ -814,7 +796,7 @@ else
 		return States.unitframe and States.unitframe.unit or nil
 	]==]);
 
-	BindingDriver:SetAttribute("clickcast_register", applyConstants([==[
+	BindingDriver:SetAttribute("clickcast_register", BakeSnippet([==[
 		local button = self:GetAttribute("clickcast_button")
 		if (ccframes[button]) then
 			return
@@ -918,7 +900,7 @@ end
 ---
 --- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
 --- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.
-SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, applyConstants([==[
+SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, BakeSnippet([==[
 	local bindings = ClickTimeKeys[button]
 
 	-- **클릭캐스팅으로 온 클릭.** 유닛 프레임이 `type="click"`으로 넘긴 것이라 버튼 이름이

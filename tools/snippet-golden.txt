@@ -1,0 +1,1741 @@
+### CustomStates.lua #1 SecureHandlerExecute
+    debind_driver = self:GetFrameRef("debind_driver")
+
+### CustomStates.lua #2 SetAttribute
+    local num = tonumber(name)
+    if (num) then
+        name = "$state"..num
+    end
+
+    if (value == nil or value == "" or value == "toggle" or value == "TOGGLE") then
+        debind_driver:RunAttribute("ToggleCustomState", name)
+        return
+    end
+
+    if (
+        value == "false" or
+        value == "FALSE" or
+        value == "f" or
+        value == "F" or
+        value == "off" or
+        value == "OFF" or
+        value == "0" or
+        value == 0
+    ) then
+        value = false
+    end
+
+    debind_driver:RunAttribute("SetCustomState", name, value and true or false)
+
+### CustomStates.lua #3 SetAttribute
+    local MAX_NUM_CUSTOM_STATES = %d
+    
+    local state, type = strsplit("-", button, 2)
+    if (not type or type == "") then
+        type = "toggle"
+    end
+
+    local num = tonumber(state)
+    if (num) then
+        state = "$state"..num
+    end
+
+    if (type and state and strsub(state, 1, 1) == "$") then
+        if (type == "on") then
+            self:SetAttribute(state, true)
+        elseif (type == "off") then
+            self:SetAttribute(state, false)
+        elseif (type == "toggle") then
+            self:SetAttribute(state, "toggle")
+        end
+    end
+
+### Debind.lua #1 SecureHandlerExecute
+	DelegateFrames = newtable()
+	DelegateFrameNames = newtable()
+
+### Debind.lua #2 SecureHandlerExecute
+local frame = self:GetFrameRef("clickFrame")
+local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+if (unit) then
+	DelegateFrames[unit] = frame
+end
+DelegateFrames[frame:GetName()] = frame
+DelegateFrameNames[frame] = frame:GetName()
+
+### Flyout.lua #1 SecureHandlerWrapScript
+ return nil, "close" 
+
+### Flyout.lua #2 SecureHandlerWrapScript
+ owner:Hide() 
+
+### FrameRegistry.lua #1 SecureHandlerExecute
+		local button = self:GetFrameRef("clickcast_button")
+		self:RunFor(button, self:GetAttribute("InitFrame"))
+		ccframes[button].frameType = button:GetAttribute("debind_frametype")
+
+
+
+
+
+	
+
+### FrameRegistry.lua #2 SecureHandlerExecute
+			local button = self:GetFrameRef("clickcast_button")
+			self:RunFor(button, self:GetAttribute("DeinitFrame"))
+		
+
+### FrameRegistry.lua #3 SecureHandlerExecute
+		local b = self:GetFrameRef("clickcast_button")
+		if (ccframes[b]) then
+			ccframes[b].routed = true
+		end
+	
+
+### SecureBindings.lua #1 SecureHandlerExecute
+
+
+
+
+
+
+
+
+
+
+
+	debind_driver = self
+	ccframes = newtable()
+
+	MacroMap = newtable()
+	ClickAttrDefaultValues = newtable()
+	
+	DefaultClickFrame = self:GetFrameRef("clickFrame")
+	DefaultClickFrameName = DefaultClickFrame:GetName()
+	
+	CustomStateExpressions = newtable()
+	BindingsMap = newtable()
+
+
+
+	ClickTimeKeys = newtable()
+
+
+
+
+
+
+
+
+
+
+	ClickCastKeys = newtable()
+
+
+	MouseButtonNumbers = newtable()
+	MouseButtonNumbers["LeftButton"] = 1
+	MouseButtonNumbers["RightButton"] = 2
+	MouseButtonNumbers["MiddleButton"] = 3
+	MouseButtonNumbers["Button4"] = 4
+	MouseButtonNumbers["Button5"] = 5
+
+
+
+	HeldButtons = newtable()
+	HeldUnits = newtable()
+
+
+
+
+	ClickUnitExists = newtable()
+	ClickUnitAssist = newtable()
+	ClickUnitAttack = newtable()
+
+	MacroTextsMap = newtable()
+	UnitMap = newtable()
+	UnitStates = newtable()
+	States = newtable()
+	DirtyFlags = newtable()
+	HoverBindings = false
+	OldStates = newtable()
+
+	_macrotextsSeen = newtable()
+	_isUpdatingMacrotests = false
+	_customStatesUpdating = newtable()
+
+
+
+
+
+	SpecialUnits = newtable()
+	CustomUnits = newtable()
+
+### SecureBindings.lua #2 SetAttribute (DEBUG=on)
+
+
+
+
+
+
+
+	local key = ...
+	for state, dependents in pairs(MacroTextsMap) do
+		if (key == true or key == state or DirtyFlags[state]) then
+			for i = 1, #dependents do
+				local t = dependents[i]
+
+
+					local s
+					if (t.fragments) then
+						for i = 1, #t.args do
+							local arg = t.args[i]
+							local value
+							if (arg.unit) then
+								value = UnitMap[arg.unit] or "raid41"
+							elseif (arg.state) then
+								value = States[arg.state] and true or false
+								if (arg.reverse) then
+									value = not value
+								end
+								value = value and "" or "known:0"
+							elseif (arg.fixed) then
+								value = arg.fixed
+							end
+							t.fragments[i * 2] = value
+						end
+						s = table.concat(t.fragments)
+					else
+						s = format(t.formatString,
+								UnitMap["tank"] or "raid41",
+								UnitMap["healer"] or "raid41",
+								UnitMap["maintank"] or "raid41",
+								UnitMap["mainassist"] or "raid41",
+								UnitMap["custom1"] or "raid41",
+								UnitMap["custom2"] or "raid41",
+								UnitMap["hover"] or "raid41")
+					end
+
+
+
+
+
+
+
+
+	self:CallMethod("printMacroText", t.attr or t.state or "?", s)
+
+					if (t.attr) then
+						DefaultClickFrame:SetAttribute(t.attr, s)
+					end
+					if (t.state) then
+						if (true or CustomStateExpressions[t.state] ~= s) then
+							CustomStateExpressions[t.state] = s
+							local newValue = SecureCmdOptionParse(s) and true or false
+							if (States[t.state] ~= newValue) then
+								self:RunAttribute("SetCustomState", t.state, newValue, true)
+							end
+						end
+					end
+
+			end
+		end
+	end
+
+
+
+
+
+
+### SecureBindings.lua #3 SetAttribute (DEBUG=off)
+
+
+
+
+
+
+
+	local key = ...
+	for state, dependents in pairs(MacroTextsMap) do
+		if (key == true or key == state or DirtyFlags[state]) then
+			for i = 1, #dependents do
+				local t = dependents[i]
+
+
+					local s
+					if (t.fragments) then
+						for i = 1, #t.args do
+							local arg = t.args[i]
+							local value
+							if (arg.unit) then
+								value = UnitMap[arg.unit] or "raid41"
+							elseif (arg.state) then
+								value = States[arg.state] and true or false
+								if (arg.reverse) then
+									value = not value
+								end
+								value = value and "" or "known:0"
+							elseif (arg.fixed) then
+								value = arg.fixed
+							end
+							t.fragments[i * 2] = value
+						end
+						s = table.concat(t.fragments)
+					else
+						s = format(t.formatString,
+								UnitMap["tank"] or "raid41",
+								UnitMap["healer"] or "raid41",
+								UnitMap["maintank"] or "raid41",
+								UnitMap["mainassist"] or "raid41",
+								UnitMap["custom1"] or "raid41",
+								UnitMap["custom2"] or "raid41",
+								UnitMap["hover"] or "raid41")
+					end
+
+
+
+
+
+
+
+
+
+					if (t.attr) then
+						DefaultClickFrame:SetAttribute(t.attr, s)
+					end
+					if (t.state) then
+						if (true or CustomStateExpressions[t.state] ~= s) then
+							CustomStateExpressions[t.state] = s
+							local newValue = SecureCmdOptionParse(s) and true or false
+							if (States[t.state] ~= newValue) then
+								self:RunAttribute("SetCustomState", t.state, newValue, true)
+							end
+						end
+					end
+
+			end
+		end
+	end
+
+
+
+
+
+
+### SecureBindings.lua #4 SetAttribute
+	local name, value, skipUpdate = ...
+
+	if (States[name] ~= value) then
+		if (not _customStatesUpdating[name]) then
+			_customStatesUpdating[name] = true
+			
+			States[name] = value
+			DirtyFlags[name] = true
+			
+			if (not skipUpdate) then
+				if (MacroTextsMap[name]) then
+					self:RunAttribute("UpdateMacroTexts", name)
+				end
+
+				debind_driver:SetAttribute("state-unitexists", name)
+			end
+
+			self:CallMethod("OnCustomStateChanged", name, value)
+			_customStatesUpdating[name] = false
+		end
+	end
+
+### SecureBindings.lua #5 SetAttribute
+	local name = ...
+	local value = not States[name]
+	return self:RunAttribute("SetCustomState", name, not States[name])
+
+### SecureBindings.lua #6 SetAttribute
+	local alias, unit, force = ...
+	local changed = UnitMap[alias] ~= unit
+	local dirty = false
+	if (changed or force) then
+		UnitMap[alias] = unit
+
+		local delegateFrame = DelegateFrames[alias]
+		if (delegateFrame) then
+			delegateFrame:SetAttribute("unit", unit or "raid41")
+		end
+
+		if (UnitStates[alias] ~= nil) then
+			dirty = true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		end
+
+		if (MacroTextsMap[alias]) then
+			self:RunAttribute("UpdateMacroTexts", alias)
+		end
+
+		if (not force) then
+			self:CallMethod("OnSpecialUnitChanged", alias, unit)
+		end
+	end
+
+	return dirty;
+
+### SecureBindings.lua #7 SetAttribute
+	self:RunAttribute("SetUnit", "tank", UnitMap["tank"], true)
+	self:RunAttribute("SetUnit", "healer", UnitMap["healer"], true)
+	self:RunAttribute("SetUnit", "maintank", UnitMap["maintank"], true)
+	self:RunAttribute("SetUnit", "mainassist", UnitMap["mainassist"], true)
+	self:RunAttribute("SetUnit", "custom1", UnitMap["custom1"], true)
+	self:RunAttribute("SetUnit", "custom2", UnitMap["custom2"], true)
+	self:RunAttribute("SetUnit", "hover", UnitMap["hover"], true)
+
+### SecureBindings.lua #8 SetAttribute
+
+
+### SecureBindings.lua #9 SetAttribute
+	local vargs = newtable()
+	if (DirtyFlags.forceAll) then
+		tinsert(vargs, "forceAll")
+	end
+	for k in pairs(DirtyFlags) do
+		if (k ~= "forceAll") then
+			tinsert(vargs, k)
+		end
+	end
+	self:CallMethod("dump", "[SECURE] UpdateBindings",
+		vargs[1],
+		vargs[2],
+		vargs[3],
+		vargs[4],
+		vargs[5],
+		vargs[6],
+		vargs[7],
+		vargs[9],
+		vargs[10],
+		vargs[11],
+		vargs[12],
+		vargs[13],
+		vargs[14],
+		vargs[15]
+	)
+	local forceAll = DirtyFlags.forceAll
+	local unitframe = States.unitframe
+	if (unitframe and not unitframe.reaction) then unitframe = nil end
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+	local combat = States.combat
+	local stealth = States.stealth
+	local specialbar = States.specialbar
+	local extrabar = States.extrabar
+	local pet = States.pet
+	local petbattle = States.petbattle
+
+	for key, bindings in pairs(BindingsMap) do
+		local check = forceAll
+		if (not check and bindings.updateFlags) then
+			for flag in pairs(DirtyFlags) do
+				if (bindings.updateFlags[flag]) then
+					check = true
+					break
+				end
+			end
+		end
+
+
+
+
+
+
+		if (check and bindings.alwaysOurs and not bindings.hasClick) then
+			check = false
+		end
+
+		if (check) then
+			local keyBound, clickBound = not bindings.hasNonClick, not bindings.hasClick
+
+
+
+
+			if (bindings.alwaysOurs) then
+				keyBound = true
+			end
+			for i = 1, #bindings do
+				local t = bindings[i]
+				local match = true
+
+				if (t.hover ~= nil) then
+					if (t.hover == false) then
+						if (unitframe) then
+							match = false
+						end
+					elseif (not unitframe) then
+						match = false
+					else
+						if (t.reactions and ((t.reactions % (unitframe.reaction + unitframe.reaction)) < unitframe.reaction)) then
+							match = false
+						elseif (t.frameTypes and ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType)) then
+							match = false
+						end
+					end
+				end
+
+				if (match and
+					(t.groups ~= nil and (t.groups % (group + group)) < group) or
+					(t.combat ~= nil and t.combat ~= combat) or
+					(t.forms and (t.forms % (form + form)) < form) or
+					(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+					(t.specialbar ~= nil and t.specialbar ~= specialbar) or
+					(t.extrabar ~= nil and t.extrabar ~= extrabar) or
+					(t.stealth ~= nil and t.stealth ~= stealth) or
+					(t.petbattle ~= nil and t.petbattle ~= petbattle) or
+					(t.pet ~= nil and t.pet ~= pet)
+				) then
+					match = false
+				end
+				
+				if (match and t.known ~= nil) then
+					if (States[t.known] ~= true) then
+						match = false
+					end
+				end
+
+				if (match and t.checkedUnits) then
+					for checkedUnit, cond in pairs(t.checkedUnits) do
+
+
+
+
+
+
+
+
+
+						local val = UnitStates[checkedUnit]
+						if (cond == true) then
+							if (not val) then
+								match = false
+							end
+						elseif (cond ~= val) then
+							match = false
+						end
+						if (not match) then
+							break
+						end
+					end
+				end
+
+				if (match and t.customStates) then
+					for state, v in pairs(t.customStates) do
+						if (States[state] ~= v) then
+							match = false
+							break
+						end
+					end
+				end
+
+				if (match) then
+					if (not clickBound and unitframe and unitframe.routed and t.isClick) then
+						if (unitframe.clicks[key] ~= t) then
+							if (t.type == CONSTANTS.UNUSED) then
+								for k, v in pairs(t.clickAttrs) do
+									unitframe.frame:SetAttribute(k, ClickAttrDefaultValues[unitframe.frame][k])
+								end
+							else
+								for k, v in pairs(t.clickAttrs) do
+									unitframe.frame:SetAttribute(k, v or nil)
+								end
+							end
+							unitframe.clicks[key] = t
+						end
+						clickBound = t
+					end
+
+					if (not keyBound and t.isNonClick) then
+
+
+
+
+
+
+
+
+
+						local outcome
+						if (t.type == CONSTANTS.UNUSED) then
+							outcome = false
+						elseif (t.command) then
+							outcome = t.command
+						elseif (t.clickbutton) then
+							outcome = bindings.clickTimeButton or t
+						end
+
+						if (bindings.bound ~= outcome) then
+							bindings.bound = outcome
+							if (t.type == CONSTANTS.UNUSED) then
+								self:ClearBinding(key)
+							elseif (t.command) then
+								self:SetBinding(true, key, t.command)
+							elseif (t.clickbutton) then
+								if (bindings.clickTimeButton) then
+
+
+									self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
+								else
+									self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
+								end
+							end
+						end
+						keyBound = i
+					end
+
+					if (keyBound and clickBound) then
+						break
+					end
+				end
+			end
+
+			if (not keyBound and bindings.hasNonClick) then
+				bindings.bound = nil
+				self:ClearBinding(key)
+			end
+
+			if (unitframe and bindings.hasClick and not clickBound) then
+				local current = unitframe.clicks[key]
+				if (unitframe.clicks[key]) then
+					for k, v in pairs(current.clickAttrs) do
+						unitframe.frame:SetAttribute(k, ClickAttrDefaultValues[unitframe.frame][k])
+					end
+					unitframe.clicks[key] = nil
+				end
+			end
+		end
+	end
+
+	wipe(DirtyFlags)
+
+### SecureBindings.lua #10 SetAttribute
+	for frame, info in pairs(ccframes) do
+		if (info.clicks) then
+			for _, t in pairs(info.clicks) do
+				for attr, _ in pairs(t.clickAttrs) do
+					info.frame:SetAttribute(attr, ClickAttrDefaultValues[info.frame][attr])
+				end
+			end
+			wipe(info.clicks)
+		end
+	end
+
+### SecureBindings.lua #11 SetAttribute
+	local info = ccframes[self]
+	if (info and info.clicks) then
+		for _, t in pairs(info.clicks) do
+			for attr, _ in pairs(t.clickAttrs) do
+				info.frame:SetAttribute(attr, ClickAttrDefaultValues[info.frame][attr])
+			end
+		end
+		wipe(info.clicks)
+	end
+
+### SecureBindings.lua #12 SetAttribute
+	local button = self
+	ccframes[button] = ccframes[button] or newtable()
+	ccframes[button].frame = button
+	ccframes[button].clicks = ccframes[button].clicks or newtable()
+	ccframes[button].frameType = 0
+	ccframes[button].reaction = 0
+
+
+
+	if (not ClickAttrDefaultValues[button]) then
+		ClickAttrDefaultValues[button] = newtable()
+		for i = 1, 5 do
+			ClickAttrDefaultValues[button]["*type"..i] = button:GetAttribute("*type"..i)
+			ClickAttrDefaultValues[button]["*macro"..i] = button:GetAttribute("*macro"..i)
+			ClickAttrDefaultValues[button]["*macrotext"..i] = button:GetAttribute("*macrotext"..i)
+			ClickAttrDefaultValues[button]["type"..i] = button:GetAttribute("type"..i)
+			ClickAttrDefaultValues[button]["macro"..i] = button:GetAttribute("macro"..i)
+			ClickAttrDefaultValues[button]["macrotext"..i] = button:GetAttribute("macrotext"..i)
+		end
+	end
+
+### SecureBindings.lua #13 SetAttribute
+	local button = self
+	debind_driver:RunFor(button, debind_driver:GetAttribute("ClearClickBindingsForButton"))
+	local info = ccframes[button]
+	if (info) then
+		if (info == States.unitframe) then
+			States.unitframe = nil
+			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or HoverBindings) then
+				DirtyFlags.unitframe = true
+				debind_driver:SetAttribute("state-unitexists", "unitframe")
+
+			end
+		end
+		info.frame = nil
+	end
+	ccframes[button] = nil
+	ClickAttrDefaultValues[button] = nil
+
+### SecureBindings.lua #14 SetAttribute
+	local info = ccframes[self]
+	local _, _, w, h = self:GetRect()
+	if (w and h and w > 0 and h > 0) then
+		w = floor(w + 0.5)
+		h = floor(h + 0.5)
+		info.l = info.insetL / w
+		info.r = 1 - info.insetR / w
+		info.t = 1 - info.insetT / h
+		info.b = info.insetB / h
+	end
+
+### SecureBindings.lua #15 SetAttribute
+	local unit = self:GetEffectiveAttribute("unit")
+
+	local unitframe = ccframes[self]
+    local reaction
+    if (unit and UnitExists(unit)) then
+        if (PlayerCanAssist(unit)) then
+            reaction = CONSTANTS.REACTION_HELP
+        elseif (PlayerCanAttack(unit)) then
+            reaction = CONSTANTS.REACTION_HARM
+        else
+            reaction = CONSTANTS.REACTION_OTHER
+        end
+    else
+        unit = nil
+    end
+
+    local unitChanged = unitframe.unit ~= unit or unitframe.reaction ~= reaction
+	if (States.unitframe ~= unitframe or unitChanged) then
+        unitframe.unit = unit
+        unitframe.reaction = reaction
+		States.unitframe = unitframe
+
+
+
+		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or HoverBindings) then
+			DirtyFlags.unitframe = true
+			debind_driver:SetAttribute("state-unitexists", "unitframe")
+
+		end
+	end
+
+### SecureBindings.lua #16 SetAttribute
+	local unitframe = States.unitframe
+	if (not unitframe) then return end
+	States.unitframe = nil
+	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or HoverBindings) then
+		DirtyFlags.unitframe = true
+		debind_driver:SetAttribute("state-unitexists", "unitframe")
+
+	end
+
+### SecureBindings.lua #17 SetAttribute
+	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
+
+### SecureBindings.lua #18 SetAttribute
+	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onleave"))
+
+### SecureBindings.lua #19 SetAttribute
+		return danglingButton and danglingButton:GetAttribute("unit") or nil
+	
+
+### SecureBindings.lua #20 SetAttribute
+		local clique_header = self:GetFrameRef("clique_header")
+		local unit = clique_header:RunAttribute("debind_gethoverunit")
+		return unit
+	
+
+### SecureBindings.lua #21 SetAttribute
+		return States.unitframe and States.unitframe.unit or nil
+	
+
+### SecureBindings.lua #22 SetAttribute
+		local button = self:GetAttribute("clickcast_button")
+		if (ccframes[button]) then
+			return
+		end
+
+		self:RunFor(button, self:GetAttribute("InitFrame"))
+		ccframes[button].hd = true
+		ccframes[button].frameType = CONSTANTS.FRAMETYPE_GROUP
+		button:SetAttribute("useparent-clickbutton", true)
+		
+		button:Run([[debind_driver = self:GetParent():GetFrameRef("clickcast_header")]])
+		if (not clique_header) then
+			button:SetAttribute("clickcast_onenter", self:GetAttribute("clickcast_onenter"))
+			button:SetAttribute("clickcast_onleave", self:GetAttribute("clickcast_onleave"))
+		end
+
+		self:CallMethod("OnClickCastRegister", button:GetName())
+	
+
+### SecureBindings.lua #23 SetAttribute
+		local button = self:GetAttribute("clickcast_button")
+		if (ccframes[button]) then
+			self:RunFor(button, self:GetAttribute("DeinitFrame"))
+			if (not clique_header) then
+				button:SetAttribute("clickcast_onenter", nil)
+				button:SetAttribute("clickcast_onleave", nil)
+			end
+			button:Run([[debind_driver = nil]])
+			self:CallMethod("OnClickCastUnregister", button:GetName())
+		end
+	
+
+### SecureBindings.lua #24 SecureHandlerWrapScript (DEBUG=on)
+	local bindings = ClickTimeKeys[button]
+
+
+
+
+
+
+
+
+
+
+	local clickCast
+	if (not bindings) then
+		local n = MouseButtonNumbers[button]
+		if (n) then
+			local mod = 0
+			if (IsAltKeyDown()) then
+				mod = mod + CONSTANTS.MOD_ALT
+			end
+			if (IsControlKeyDown()) then
+				mod = mod + CONSTANTS.MOD_CTRL
+			end
+			if (IsShiftKeyDown()) then
+				mod = mod + CONSTANTS.MOD_SHIFT
+			end
+			local byMod = ClickCastKeys[n]
+			bindings = byMod and byMod[mod]
+			clickCast = bindings and true or false
+
+			debind_driver:CallMethod("OnClickCastArrival", button, mod,
+				bindings and #bindings or 0)
+		end
+	end
+
+
+
+
+
+
+
+
+
+	self:SetAttribute("unit", nil)
+	self:SetAttribute("pressAndHoldAction", nil)
+	self:SetAttribute("useOnKeyDown", nil)
+	self:SetAttribute("type", nil)
+	self:SetAttribute("macrotext", nil)
+
+
+
+
+
+
+
+
+
+
+
+
+	if (clickCast) then
+		self:SetAttribute("useOnKeyDown", false)
+	end
+
+	if (not bindings) then
+
+		return
+	end
+
+
+
+
+
+
+
+
+	if (not down) then
+		local held = HeldButtons[button]
+		if (held) then
+			local heldUnit = HeldUnits[button]
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+
+
+
+
+
+
+
+			if (not PlayerIsChanneling()) then
+				return false
+			end
+
+			self:SetAttribute("unit", heldUnit)
+			self:SetAttribute("pressAndHoldAction", true)
+			return held.clickbutton
+		end
+	end
+
+
+
+
+	local unitframe = States.unitframe
+	local hoverUnit, hoverReaction, hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			if (PlayerCanAssist(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HELP
+			elseif (PlayerCanAttack(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HARM
+			else
+				hoverReaction = CONSTANTS.REACTION_OTHER
+			end
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+	local memoReady = false
+	local winner, winnerIndex
+
+
+
+	local subset = clickCast and "isClick" or "isNonClick"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+			if (t.hover ~= nil) then
+				if (t.hover == false) then
+					if (unitframe) then
+						match = false
+					end
+				elseif (not unitframe) then
+					match = false
+				else
+					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
+						match = false
+					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
+						match = false
+					end
+				end
+			end
+
+
+
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= States.combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+				(t.stealth ~= nil and t.stealth ~= States.stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+				(t.pet ~= nil and t.pet ~= States.pet)
+			)) then
+				match = false
+			end
+
+			if (match and t.customStates) then
+				for state, v in pairs(t.customStates) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+			if (match and t.known ~= nil and States[t.known] ~= true) then
+				match = false
+			end
+
+			if (match and t.checkedUnits) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitAssist)
+					wipe(ClickUnitAttack)
+				end
+
+
+
+
+
+
+
+
+				for u, cond in pairs(t.checkedUnits) do
+					local ok
+					if (cond == "never") then
+						ok = false
+					else
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						elseif (SpecialUnits[u]) then
+							unit = UnitMap[u]
+							needsExists = CustomUnits[u]
+						else
+							unit = u
+							needsExists = true
+						end
+
+						if (not unit) then
+							ok = (cond == false)
+						elseif (cond == "help") then
+							ok = ClickUnitAssist[unit]
+							if (ok == nil) then
+								ok = PlayerCanAssist(unit) and true or false
+								ClickUnitAssist[unit] = ok
+							end
+						elseif (cond == "harm") then
+							ok = ClickUnitAttack[unit]
+							if (ok == nil) then
+								ok = PlayerCanAttack(unit) and true or false
+								ClickUnitAttack[unit] = ok
+							end
+						else
+							local exists = true
+							if (needsExists) then
+								exists = ClickUnitExists[unit]
+								if (exists == nil) then
+									exists = UnitExists(unit) and true or false
+									ClickUnitExists[unit] = exists
+								end
+							end
+							ok = (cond == exists)
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				winnerIndex = i
+				break
+			end
+		end
+	end
+
+
+
+
+
+
+
+	if (not clickCast) then
+	do
+
+		local cachedIndex
+		local uf = States.unitframe
+		if (uf and not uf.reaction) then uf = nil end
+		for i = 1, #bindings do
+			local t = bindings[i]
+			if (t.isNonClick) then
+				local m = true
+
+				if (t.hover ~= nil) then
+					if (t.hover == false) then
+						if (uf) then m = false end
+					elseif (not uf) then
+						m = false
+					else
+						if (t.reactions and ((t.reactions % (uf.reaction + uf.reaction)) < uf.reaction)) then
+							m = false
+						elseif (t.frameTypes and ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType)) then
+							m = false
+						end
+					end
+				end
+
+				if (m and (
+					(t.groups ~= nil and (t.groups % (group + group)) < group) or
+					(t.combat ~= nil and t.combat ~= States.combat) or
+					(t.forms and (t.forms % (form + form)) < form) or
+					(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+					(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+					(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+					(t.stealth ~= nil and t.stealth ~= States.stealth) or
+					(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+					(t.pet ~= nil and t.pet ~= States.pet)
+				)) then
+					m = false
+				end
+
+				if (m and t.known ~= nil and States[t.known] ~= true) then
+					m = false
+				end
+
+				if (m and t.checkedUnits) then
+					for u, cond in pairs(t.checkedUnits) do
+
+						local val = UnitStates[u]
+						if (cond == true) then
+							if (not val) then m = false end
+						elseif (cond ~= val) then
+							m = false
+						end
+						if (not m) then break end
+					end
+				end
+
+				if (m and t.customStates) then
+					for state, v in pairs(t.customStates) do
+						if (States[state] ~= v) then
+							m = false
+							break
+						end
+					end
+				end
+
+				if (m) then
+					cachedIndex = i
+					break
+				end
+			end
+		end
+
+		if (cachedIndex ~= winnerIndex) then
+
+			local expected = false
+			local a = winnerIndex and bindings[winnerIndex]
+			local b = cachedIndex and bindings[cachedIndex]
+			if (a and (a.hover ~= nil or a.checkedUnits)) then expected = true end
+			if (b and (b.hover ~= nil or b.checkedUnits)) then expected = true end
+			debind_driver:CallMethod("OnClickTimeMismatch", button,
+				winnerIndex or 0, cachedIndex or 0, expected)
+		end
+	end
+	end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	if (not winner or not winner.clickbutton) then
+		return false
+	end
+
+
+
+
+
+
+
+
+
+
+	local unit
+	if (winner.unit) then
+		unit = winner.unit
+	elseif (winner.unitAlias) then
+		if (winner.unitAlias == "hover") then
+			unit = hoverUnit
+		else
+			unit = UnitMap[winner.unitAlias]
+		end
+
+
+
+
+
+
+
+
+		unit = unit or "raid41"
+	end
+	self:SetAttribute("unit", unit)
+
+
+
+
+
+
+
+
+
+
+
+	if (down) then
+		self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+	end
+
+
+
+
+
+	if (down) then
+		if (winner.pressAndHold) then
+			HeldButtons[button] = winner
+			HeldUnits[button] = unit
+		else
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
+	end
+
+	return winner.clickbutton
+
+### SecureBindings.lua #25 SecureHandlerWrapScript (DEBUG=off)
+	local bindings = ClickTimeKeys[button]
+
+
+
+
+
+
+
+
+
+
+	local clickCast
+	if (not bindings) then
+		local n = MouseButtonNumbers[button]
+		if (n) then
+			local mod = 0
+			if (IsAltKeyDown()) then
+				mod = mod + CONSTANTS.MOD_ALT
+			end
+			if (IsControlKeyDown()) then
+				mod = mod + CONSTANTS.MOD_CTRL
+			end
+			if (IsShiftKeyDown()) then
+				mod = mod + CONSTANTS.MOD_SHIFT
+			end
+			local byMod = ClickCastKeys[n]
+			bindings = byMod and byMod[mod]
+			clickCast = bindings and true or false
+		end
+	end
+
+
+
+
+
+
+
+
+
+	self:SetAttribute("unit", nil)
+	self:SetAttribute("pressAndHoldAction", nil)
+	self:SetAttribute("useOnKeyDown", nil)
+	self:SetAttribute("type", nil)
+	self:SetAttribute("macrotext", nil)
+
+
+
+
+
+
+
+
+
+
+
+
+	if (clickCast) then
+		self:SetAttribute("useOnKeyDown", false)
+	end
+
+	if (not bindings) then
+
+		return
+	end
+
+
+
+
+
+
+
+
+	if (not down) then
+		local held = HeldButtons[button]
+		if (held) then
+			local heldUnit = HeldUnits[button]
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+
+
+
+
+
+
+
+			if (not PlayerIsChanneling()) then
+				return false
+			end
+
+			self:SetAttribute("unit", heldUnit)
+			self:SetAttribute("pressAndHoldAction", true)
+			return held.clickbutton
+		end
+	end
+
+
+
+
+	local unitframe = States.unitframe
+	local hoverUnit, hoverReaction, hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			if (PlayerCanAssist(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HELP
+			elseif (PlayerCanAttack(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HARM
+			else
+				hoverReaction = CONSTANTS.REACTION_OTHER
+			end
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+	local memoReady = false
+	local winner, winnerIndex
+
+
+
+	local subset = clickCast and "isClick" or "isNonClick"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+			if (t.hover ~= nil) then
+				if (t.hover == false) then
+					if (unitframe) then
+						match = false
+					end
+				elseif (not unitframe) then
+					match = false
+				else
+					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
+						match = false
+					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
+						match = false
+					end
+				end
+			end
+
+
+
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= States.combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+				(t.stealth ~= nil and t.stealth ~= States.stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+				(t.pet ~= nil and t.pet ~= States.pet)
+			)) then
+				match = false
+			end
+
+			if (match and t.customStates) then
+				for state, v in pairs(t.customStates) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+			if (match and t.known ~= nil and States[t.known] ~= true) then
+				match = false
+			end
+
+			if (match and t.checkedUnits) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitAssist)
+					wipe(ClickUnitAttack)
+				end
+
+
+
+
+
+
+
+
+				for u, cond in pairs(t.checkedUnits) do
+					local ok
+					if (cond == "never") then
+						ok = false
+					else
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						elseif (SpecialUnits[u]) then
+							unit = UnitMap[u]
+							needsExists = CustomUnits[u]
+						else
+							unit = u
+							needsExists = true
+						end
+
+						if (not unit) then
+							ok = (cond == false)
+						elseif (cond == "help") then
+							ok = ClickUnitAssist[unit]
+							if (ok == nil) then
+								ok = PlayerCanAssist(unit) and true or false
+								ClickUnitAssist[unit] = ok
+							end
+						elseif (cond == "harm") then
+							ok = ClickUnitAttack[unit]
+							if (ok == nil) then
+								ok = PlayerCanAttack(unit) and true or false
+								ClickUnitAttack[unit] = ok
+							end
+						else
+							local exists = true
+							if (needsExists) then
+								exists = ClickUnitExists[unit]
+								if (exists == nil) then
+									exists = UnitExists(unit) and true or false
+									ClickUnitExists[unit] = exists
+								end
+							end
+							ok = (cond == exists)
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				winnerIndex = i
+				break
+			end
+		end
+	end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	if (not winner or not winner.clickbutton) then
+		return false
+	end
+
+
+
+
+
+
+
+
+
+
+	local unit
+	if (winner.unit) then
+		unit = winner.unit
+	elseif (winner.unitAlias) then
+		if (winner.unitAlias == "hover") then
+			unit = hoverUnit
+		else
+			unit = UnitMap[winner.unitAlias]
+		end
+
+
+
+
+
+
+
+
+		unit = unit or "raid41"
+	end
+	self:SetAttribute("unit", unit)
+
+
+
+
+
+
+
+
+
+
+
+	if (down) then
+		self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+	end
+
+
+
+
+
+	if (down) then
+		if (winner.pressAndHold) then
+			HeldButtons[button] = winner
+			HeldUnits[button] = unit
+		else
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+		end
+	end
+
+	return winner.clickbutton
+
+### SecureBindings.lua #26 SecureHandlerWrapScript
+
+
+
+
+
+
+
+
+
+
+
+
+
+	self:SetAttribute("pressAndHoldAction", nil)
+	self:SetAttribute("useOnKeyDown", nil)
+
+### UnitWatch.lua #1 SecureHandlerExecute
+    unitwatch = self
+    debind_driver = self:GetFrameRef("debind_driver")
+    UnitwatchHeaders = newtable()
+    ChildFrames = newtable()
+    unitNames = newtable()
+    unitMap = newtable()
+    CUSTOM_TARGET_VALID_UNIT_TOKENS = newtable()
+
+### UnitWatch.lua #2 SecureHandlerExecute
+self:RunAttribute("OnGroupRosterChanged", true)
+
+### UnitWatch.lua #3 SecureHandlerExecute
+            local alias, numFrames = %q, %d
+            local header = self:GetFrameRef("unitwatch_header")
+            UnitwatchHeaders[alias] = header
+            ChildFrames[alias] = newtable()
+            for i = 1, numFrames do
+                ChildFrames[alias][i] = header:GetFrameRef("child"..i)
+            end
+        
+
+### UnitWatch.lua #4 SetAttribute
+    local uptodate = ...
+    for i = 1, 2 do
+        local alias = "custom"..i
+        local unit = unitMap[alias]
+        if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit] == "group") then
+            if (not UnitwatchHeaders[alias]:IsShown()) then
+                if (uptodate) then
+                    local unitName = unitNames[unit]
+                    if (unitName) then
+                        self:SetAttribute(alias, ":"..unitName)
+                    end
+                else
+                    self:SetAttribute(alias, false)
+                end
+            end
+        end
+    end
+
+### UnitWatch.lua #5 SecureHandlerWrapScript
+        unitwatch:SetAttribute("grouproster_uptodate", false)
+        unitwatch:RunAttribute("OnGroupRosterChanged", false)
+        unitwatch:CallMethod("UpdateGroupRoster")
+		self:Show()
+    
+
+### UnitWatch.lua #6 SetAttribute
+    if (name == "custom1" or name == "custom2") then
+        local alias, unit, nameList = name, value or nil
+		if (unit) then
+			unit = strtrim(unit)
+            if (unit == "" or unit == "none" or unit == ":") then
+                unit = nil
+			elseif (unit == "hover") then
+                unit = debind_driver:RunAttribute("GetHoveredUnit")
+            end
+		end
+
+		if (unit) then
+			self:SetAttribute("resolvedUnit", unit)
+			self:CallMethod("ResolveUnitToken", unit)
+            unit = self:GetAttribute("resolvedUnit") or unit
+		end
+
+        if (unit ~= unitMap[alias]) then
+            if (unit) then
+                if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit]) then
+                    if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit] == "group") then
+                        if (UnitExists(unit)) then
+                            if (self:GetAttribute("grouproster_uptodate")) then
+                                nameList = unitNames[unit]
+                            end
+                        else
+                            unit = nil
+                        end
+                    end
+                elseif (strsub(unit, 1, 1) == ":") then
+                    nameList = strsub(unit, 2)
+                elseif (UnitExists(unit)) then
+                    self:CallMethod("OnSetCustomTargetFailed", alias, unit, value)
+                    return
+                else
+                    unit = nil
+                end
+            end
+
+            local header = UnitwatchHeaders[alias]
+            if (nameList) then
+                header:SetAttribute("nameList", nameList)
+                header:Show()
+            else
+                header:Hide()
+                if (unitMap[alias] ~= unit) then
+                    unitMap[alias] = unit
+                    if (debind_driver:RunAttribute("SetUnit", alias, unit or nil)) then
+                        debind_driver:RunAttribute("UpdateBindings")
+                    end
+                end
+            end
+        end
+
+        if (value == false) then
+            self:CallMethod("OnSpecialUnitChanging", alias, false)
+        else
+            self:CallMethod("OnSpecialUnitChanging", alias, unit, true)
+        end
+	end
+
+### UnitWatch.lua #7 SecureHandlerWrapScript
+        local alias = self:GetAttribute("alias")
+        local value = button
+        if (not value or value == "LeftButton") then
+            value = nil
+        end
+        unitwatch:SetAttribute(alias, value)
+    
+
+### UpdateBindings.lua #1 SecureHandlerExecute
+wipe(OldStates)
+for k, v in pairs(States) do
+    OldStates[k] = v
+end
+self:RunAttribute("ClearClickBindings")
+self:RunAttribute("ClearUnitAttributes")
+wipe(BindingsMap)
+wipe(ClickTimeKeys)
+for _, byMod in pairs(ClickCastKeys) do
+    wipe(byMod)
+end
+wipe(HeldButtons)
+wipe(HeldUnits)
+wipe(MacroTextsMap)
+wipe(UnitStates)
+wipe(CustomStateExpressions)
+wipe(States)
+
+### UpdateBindings.lua #2 SecureHandlerExecute
+self:RunAttribute("SetUnit", %q, nil)
+
+### UpdateBindings.lua #3 SecureHandlerExecute
+        DirtyFlags.forceAll = true
+        self:RunAttribute("UpdateAllUnits")
+        self:RunAttribute("UpdateMacroTexts", true)
+        self:SetAttribute("state-unitexists", 1)
+    
