@@ -774,6 +774,11 @@ return function(DebindPrivate)
             check(Stats.nodes < count * 200,
                 ("바인딩 %d개에서 노드 %d개 -- 가지치기가 깨졌는지 확인")
                 :format(count, Stats.nodes));
+            -- 예산이 걸린 단위로도 본다. 노드 수는 컬럼이 넓어지는 것을 못 보므로, 노드가
+            -- 그대로인데 비용만 뛰는 회귀는 위 검사를 통과한다.
+            check(Stats.maxWork < count * 500,
+                ("바인딩 %d개에서 한 바인딩이 비용 %d -- 상한(30000)에 얼마나 가까운지 확인")
+                :format(count, Stats.maxWork));
         end
     end);
 

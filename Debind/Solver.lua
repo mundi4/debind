@@ -208,17 +208,33 @@ local _conditionsMap = {};
 local _keepCols = {};
 local _covers = {};
 
--- 탐색 노드 수 상한. 넘으면 그 바인딩의 판정을 포기한다 -- 못 지우는 쪽이 안전한 실패다.
-local MAX_NODES = 20000;
+-- 탐색 비용 상한. 넘으면 그 바인딩의 판정을 포기한다 -- 못 지우는 쪽이 안전한 실패다.
+--
+-- **단위는 노드가 아니라 `노드 x 커버 수 x 컬럼 수`다.** 노드 하나가 살아있는 커버를 전부,
+-- 그 안에서 컬럼을 전부 훑기 때문이다. 노드로 재면 컬럼이 넓거나 커버가 많은 키에서 같은
+-- 예산이 훨씬 오래 걸리고, 그러면 이 상한이 막으라고 있는 바로 그것을 못 막는다.
+--
+-- 상한이 둘인 이유: 바인딩당 예산만 두면 **호출 전체가 안 묶인다.** 프레임을 멈추는 단위는
+-- 한 바인딩의 판정이 아니라 `CheckUnreachableBindings` 한 번이고, 그건 그 키의 바인딩 수만큼
+-- 곱해진다. 호출 예산이 그 곱을 자른다.
+--
+-- 값은 벤치에서 잡았다(`tests/bench.lua`, Lua 5.4 로컬):
+--   바인딩 하나가 쓰는 최악    3,104   (40개 / 밀도 0.4)
+--   호출 하나가 쓰는 최악     30,078   (같은 칸)
+--   대략 4,600 비용 = 1ms
+-- 한 자릿수 여유를 두되, 넘으면 잃는 것이 "덜 지운다"뿐이라 넉넉하게 잡을 이유도 없다.
+-- CI는 5.1이라 같은 비용이 더 걸린다 -- 비례하므로 상한은 그대로 두고 시간만 다르게 읽는다.
+local MAX_WORK      = 30000;
+local MAX_CALL_WORK = 150000;
 
 -- 마지막 CheckUnreachableBindings 호출의 통계.
 -- 조용히 비싸지는 게 이 알고리즘의 유일한 실패 모드라서 밖에서 볼 수 있게 둔다.
 --
--- `nodes` is one term of the cost, not the cost. A node walks every live cover across every
--- column, so time tracks nodes x covers x columns -- measured runs put 342 nodes at 21ms,
--- which the node count alone does not come close to explaining. Read it as a budget gauge
--- against MAX_NODES, not as a profile.
-local Stats = { nodes = 0, maxDepth = 0, gaveUp = false };
+-- `nodes` counts search nodes; `work` counts what they cost. A node walks every live cover
+-- across every column, so on a wide layout the two diverge by two orders of magnitude -- 342
+-- nodes taking 21ms was what made that obvious. The budget is spent in `work`. `nodes` stays
+-- because "deep" and "wide" are different diagnoses and the fix differs.
+local Stats = { nodes = 0, work = 0, maxWork = 0, maxDepth = 0, gaveUp = false };
 DebindPrivate.SolverStats = Stats;
 
 -- 깊이별 작업 공간. 재귀가 깊어질 때만 늘어나고 재사용된다.
@@ -330,15 +346,20 @@ end
 --- it is one on purpose: assuming an upstream filter held is the shape of coupling this file
 --- has been bitten by before.
 ---
-local _nodeBudget = 0;
+local _workBudget = 0;
+local _nodeCount = 0;
 local _gaveUp = false;
 
 local function isCovered(region, covers, coverCount, depth)
-    if (_nodeBudget <= 0) then
+    if (_workBudget <= 0) then
         _gaveUp = true;
         return false;   -- 포기 = "안 덮임" = 바인딩을 남긴다
     end
-    _nodeBudget = _nodeBudget - 1;
+    -- 이 노드가 치를 값. 살아있는 커버를 전부, 그 안에서 컬럼을 전부 훑으므로 곱이다.
+    -- 노드 수만 세면 커버가 늘거나 컬럼이 넓어지는 것을 예산이 못 본다 -- 실제로 342노드가
+    -- 21ms인 것을 노드 수로는 설명할 수 없었다.
+    _workBudget = _workBudget - coverCount * _numColumns;
+    _nodeCount = _nodeCount + 1;
 
     if (depth > Stats.maxDepth) then
         Stats.maxDepth = depth;
@@ -462,6 +483,8 @@ end
 
 function DebindPrivate.CheckUnreachableBindings(bindings)
     Stats.nodes = 0;
+    Stats.work = 0;
+    Stats.maxWork = 0;
     Stats.maxDepth = 0;
     Stats.gaveUp = false;
 
@@ -478,6 +501,8 @@ function DebindPrivate.CheckUnreachableBindings(bindings)
 
     pruneConstantColumns(bindings);
 
+    local callBudget = MAX_CALL_WORK;
+
     local i = 1;
     while (i <= #bindings) do
         local binding = bindings[i];
@@ -493,13 +518,24 @@ function DebindPrivate.CheckUnreachableBindings(bindings)
                 end
             end
 
-            if (coverCount > 0) then
-                _nodeBudget = MAX_NODES;
+            if (coverCount > 0 and callBudget > 0) then
+                -- 남은 호출 예산보다 크게 주지 않는다. 그래야 바인딩 하나가 아니라 이 호출이
+                -- 묶인다 -- 프레임을 멈추는 단위가 호출이다.
+                local granted = MAX_WORK;
+                if (granted > callBudget) then
+                    granted = callBudget;
+                end
+                _workBudget = granted;
+                _nodeCount = 0;
                 _gaveUp = false;
 
                 unreachable = isCovered(_conditionsMap[binding], _covers, coverCount, 1);
 
-                Stats.nodes = Stats.nodes + (MAX_NODES - _nodeBudget);
+                local spent = granted - _workBudget;
+                callBudget = callBudget - spent;
+                Stats.nodes = Stats.nodes + _nodeCount;
+                Stats.work = Stats.work + spent;
+                if (spent > Stats.maxWork) then Stats.maxWork = spent; end
                 if (_gaveUp) then
                     Stats.gaveUp = true;
                     unreachable = false;
