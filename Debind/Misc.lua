@@ -777,21 +777,27 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         end
     end
 
-    if (not issue and binding.checkedUnits and (not category or category == "checkedUnits") and notCategory ~= "checkedUnits") then
-        if (binding.hover == false and binding.checkedUnits["hover"]) then
-            issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-        elseif (binding.hover and binding.checkedUnits["hover"] == false) then
-            issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-        -- 둘 다 있을 때만 비교한다. 개별 유닛 조건이 없으면 nil이 "다른 값"으로 읽혀서
-        -- "@"만 걸어둔 액션("대상이 존재할 때만")이 곧바로 모순으로 잡혔다.
-        -- 둘 다 있는 경우 남는 조합은 위 GetBindingInfoForAction의 정규화가 포섭 관계를
-        -- (true vs "help" 같은) 이미 걷어낸 뒤라 전부 진짜 모순이다.
-        -- 우호x적대도 모순이다 -- 유닛 하나는 한 값이다(`Solver.lua`의 유닛 축).
-        elseif (binding.checkedUnits["@"] ~= nil and binding.checkedUnits[binding.unit] ~= nil) then
-            if (arg == nil or arg == "@" or arg == binding.unit) then
-                if (binding.checkedUnits["@"] ~= binding.checkedUnits[binding.unit]) then
-                    issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-                end
+    -- 한 유닛에 걸린 조건들의 **교집합이 비면** 그 유닛이 놓일 수 있는 상태가 없다는 뜻이다.
+    -- hover 조건과 `"@"`와 명시 유닛 조건이 전부 같은 축에 접혀 있으므로(`BuildUnitStates`),
+    -- 조합을 손으로 나열하지 않고 마스크가 0인지만 보면 된다.
+    --
+    -- 나열하던 시절에는 hover의 반응 제한과 `"@"` 조건이 어긋나는 경우가 빠져 있었다.
+    -- 대상이 `@hover`인 액션에 hover 반응을 `우호`로, `"@"`를 `적대`로 걸면 영원히 안 걸리는데
+    -- 두 값이 서로 다른 필드에 있어서 비교 대상이 아니었다. 접힌 지금은 그 경우가 따로가 아니다.
+    --
+    -- `binding.checkedUnits` 게이트는 남긴다. 마스크는 hover 조건만으로도 0이 될 수 있는데
+    -- (`reactions == 0`), 그건 위의 reactions 갈래가 제 이름으로 이미 잡는다. 여기서 또 잡으면
+    -- 메뉴가 엉뚱한 항목을 빨갛게 칠한다.
+    if (not issue and binding.checkedUnits and binding.unitStates
+            and (not category or category == "checkedUnits") and notCategory ~= "checkedUnits") then
+        local target = arg;
+        if (target == "@") then
+            target = binding.unit;
+        end
+        for unit, mask in pairs(binding.unitStates) do
+            if (mask == 0 and (target == nil or target == unit)) then
+                issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+                break;
             end
         end
     end

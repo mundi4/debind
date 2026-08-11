@@ -95,5 +95,42 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "checkedUnits") == nil, "오탐 - 비교 상대가 없다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- hover 조건 x 유닛 조건
+    --
+    -- 대상이 `@hover`면 hover 조건과 `"@"` 조건이 같은 유닛을 두고 말한다. 값이 서로
+    -- 다른 필드에 앉아 있어서(`reactions` 대 `checkedUnits`) 조합을 손으로 나열하던
+    -- 시절에는 비교 대상조차 아니었다. 두 조건이 한 축에 접히면서 따로가 아니게 됐다.
+    ---------------------------------------------------------------------------
+
+    local function hoverAction(reactions, atValue)
+        return {
+            type = Constants.SPELL, value = 100, unit = "hover",
+            hover = true, reactions = reactions,
+            checkedUnits = { ["@"] = atValue },
+        };
+    end
+
+    test("hover 반응 x @ 조건이 어긋나면 모순", function()
+        check(GetBindingIssue(hoverAction(Constants.REACTION_HELP, "harm")) == NEVER,
+            "우호만 걸린 hover에 @=적대인데 이슈가 안 남");
+        check(GetBindingIssue(hoverAction(Constants.REACTION_HARM, "help")) == NEVER,
+            "적대만 걸린 hover에 @=우호인데 이슈가 안 남");
+    end);
+
+    test("hover 반응 x @ 조건이 맞으면 모순이 아님", function()
+        check(GetBindingIssue(hoverAction(Constants.REACTION_HELP, "help")) == nil, "오탐");
+        check(GetBindingIssue(hoverAction(Constants.REACTION_HELP, true)) == nil,
+            "오탐 - 존재는 우호를 포섭한다");
+        check(GetBindingIssue(hoverAction(Constants.REACTION_HELP + Constants.REACTION_HARM, "harm")) == nil,
+            "오탐 - 적대도 허용된 마스크다");
+    end);
+
+    -- hover가 걸린 액션은 마우스오버 중일 때만 발동한다. 그 유닛이 "없을 때"를 같이
+    -- 요구하면 남는 상태가 없다.
+    test("hover x @=부재는 모순", function()
+        check(GetBindingIssue(hoverAction(nil, false)) == NEVER, "이슈가 안 남");
+    end);
+
     return T;
 end
