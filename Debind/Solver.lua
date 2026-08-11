@@ -21,6 +21,32 @@ local pairs, type = pairs, type;
     독립적인 축(커스텀 상태 5개, 유닛 각각, known 주문 각각)을 한 워드에 접으면
     "어느 한 축에서 분리 -> 전체 분리"가 "모든 축에서 분리"로 바뀌어 무너진다.
     그래서 유닛/known 컬럼은 키마다 동적으로 생성한다.
+
+    Stated exactly, because two halves of that invariant keep getting mistaken for one
+    another:
+
+      - **Inside a column**, the bits must partition the runtime state space. Exclusive, so
+        that `band(a, b) == 0` really means disjoint; and exhaustive, so that `bnot` really
+        means complement and the split really covers all of `region \ O`. A runtime state
+        lights exactly one bit of every column.
+
+      - **Across columns**, independence is not required. Correlated columns -- target and
+        targettarget, combat and form -- leave points in the product space that cannot
+        happen, and a point that cannot happen simply goes uncovered and keeps a binding.
+        That is the safe direction. Do not "fix" a correlation.
+
+    Merging two axes into one column is sound as a **product** (one bit per combination,
+    still a partition) and fatal as a **union** (bits laid side by side), which is the
+    collapse above. A product costs bits multiplicatively and buys nothing that separate
+    columns do not already give -- except the one thing separate columns cannot express: a
+    set that is not a rectangle. "The unit is absent, or present and alive" is that set,
+    which is why a unit's existence and its other properties share one column.
+
+    A box is used as **both** region and cover, so its mask has to be exact in both
+    directions. Too narrow and the binding is deleted as a region; too wide and it deletes
+    others as a cover. There is no safe direction to round toward -- which is why a
+    condition that cannot be placed on an axis makes the binding `_opaque`, out of both
+    roles, rather than being ignored.
 ]]
 
 -- 커스텀 상태 축: on / off
@@ -41,6 +67,10 @@ local UNIT_OTHER, UNIT_HELP, UNIT_HARM, UNIT_NONE = 1, 2, 4, 8;
 local UNIT_EXISTS = UNIT_OTHER + UNIT_HELP + UNIT_HARM;
 local UNIT_ANY = UNIT_EXISTS + UNIT_NONE;
 
+-- `max` is the exhaustive half of the column invariant: it has to name every value the game
+-- can produce on this axis. One index past it and "no condition" stops standing for the whole
+-- space, boxes come out narrower than the conditions they represent, and bindings that can
+-- still fire get deleted. Widening it is free; leaving it behind the game is not.
 local function flagsToConditionFlags(value, max)
     if (value) then
         return value;
@@ -224,6 +254,11 @@ local MAX_NODES = 20000;
 
 -- 마지막 CheckUnreachableBindings 호출의 통계.
 -- 조용히 비싸지는 게 이 알고리즘의 유일한 실패 모드라서 밖에서 볼 수 있게 둔다.
+--
+-- `nodes` is one term of the cost, not the cost. A node walks every live cover across every
+-- column, so time tracks nodes x covers x columns -- measured runs put 342 nodes at 21ms,
+-- which the node count alone does not come close to explaining. Read it as a budget gauge
+-- against MAX_NODES, not as a profile.
 local Stats = { nodes = 0, maxDepth = 0, gaveUp = false };
 DebindPrivate.SolverStats = Stats;
 
