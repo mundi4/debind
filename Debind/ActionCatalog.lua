@@ -34,6 +34,8 @@ local LLL                = DebindPrivate.L;
 ---                행은 대상만 적고 타입은 머리글이 말하는데, 툴팁은 머리글에서 떨어져 뜬다
 ---   group      머리글. **같은 값이 이어지는 동안 한 덩어리다.** nil이면 머리글을 안 단다
 ---   isOffSpec  지금 특성이 아닌 주문. 기본 필터에서는 **들어온다**
+---   isUnlearned Not learned yet (`FutureSpell`). Dimmed like isOffSpec, but no filter hides it -
+---              "다른 특성" would be a lie about a spell of the spec you are standing in
 ---   isFavorite 즐겨찾기 여부. **이 개념이 없는 엔트리는 nil로 둔다** - "즐겨찾기만"
 ---              필터가 nil을 안 건드리므로, 탈것 탭의 설정이 주문 탭을 비우지 않는다
 ---   searchName / searchSubName  소문자로 미리 접어둔 검색용 사본
@@ -356,10 +358,15 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 
 	local itemType = info.itemType;
 
-	if (itemType == Enum.SpellBookItemType.FutureSpell) then
-		-- 아직 못 배운 주문. 걸어둬도 안 나가므로 목록에 없는 게 맞다.
-		return;
-	end
+	-- Not-yet-learned spells stay in. They are the same kind of thing as an off-spec spell - in the
+	-- spellbook, not castable right now - and this addon is built around setting a key once and
+	-- leaving it. Binding at level 20 the spell that arrives at level 40 costs nothing and starts
+	-- working the moment it is learned. Blizzard's spellbook draws both through one flag
+	-- (`isUnlearned = isOffSpec or FutureSpell`, `Blizzard_SpellBookItem.lua`).
+	--
+	-- The passive check below still applies: `isPassive` is meaningful here, a FutureSpell is a
+	-- spell. A passive you have not learned is no more bindable than one you have.
+	local isUnlearned = itemType == Enum.SpellBookItemType.FutureSpell;
 
 	-- 패시브는 **시전할 수 있는 물건이 아니다.** 단축키에 걸 대상이 아니므로 필터로
 	-- 켤 수 있게 두지도 않았다 - 켜지는 옵션은 "켜면 쓸 수 있다"는 뜻이 된다.
@@ -416,14 +423,31 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 		value = info.actionID;
 	end
 
+	-- Grey alone cannot say **why** a row is grey. An off-spec row has its header to explain it; a
+	-- future spell sits inside the class group with nothing to set it apart. The level requirement
+	-- is the one answer that is always true, so it takes the subtitle line (the rank that would
+	-- otherwise sit there is empty on an unlearned spell anyway).
+	--
+	-- The spellbook's other two cases get no text rather than a guess: "learn it from a trainer"
+	-- is dead in retail, and the newly-boosted lock string is a sentence that will not fit 195px.
+	-- Off-spec is excluded here for the same reason Blizzard leaves it blank - the header said it.
+	local subName = info.subName;
+	if (isUnlearned and not isOffSpec) then
+		local levelLearned = C_SpellBook.GetSpellBookItemLevelLearned(slotIndex, bank);
+		if (levelLearned and levelLearned > UnitLevel("player")) then
+			subName = format(SPELLBOOK_AVAILABLE_AT, levelLearned);
+		end
+	end
+
 	AddEntry(entries, seen, {
 		type = Constants.SPELL,
 		value = value,
 		name = info.name,
 		icon = info.iconID,
-		subName = info.subName,
+		subName = subName,
 		group = group,
 		isOffSpec = isOffSpec or nil,
+		isUnlearned = isUnlearned or nil,
 	});
 end
 

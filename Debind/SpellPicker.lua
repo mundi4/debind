@@ -50,14 +50,20 @@ function DebindSpellPickerRowMixin:Init(elementData)
 
 	-- 부제는 랭크·계열이다. "다른 특성"이라는 사실은 여기 안 쓴다 - 머리글이 말하고 있고,
 	-- 행마다 반복하면 랭크가 들어갈 자리를 뺏는다.
+	-- One exception, decided in the catalog rather than here: a spell you have not learned yet has
+	-- no rank to show, so its level requirement takes the line instead (`AddSpellBookItem`).
 	self.SubName:SetText(elementData.subName or "");
 
 	-- 오프스펙은 흐리게. 목록에 **넣는** 것은 이 애드온에 특성별 레이어가 있기 때문이고
 	-- (지금 아닌 특성의 주문을 미리 걸어두는 게 정상 사용이다), 흐리게 하는 것은 지금
 	-- 누른다고 나가지는 않기 때문이다.
-	local isOffSpec = elementData.isOffSpec or false;
-	self.Icon:SetDesaturated(isOffSpec);
-	self:SetAlpha(isOffSpec and INACTIVE_ALPHA or 1);
+	--
+	-- Not-yet-learned spells get the same grey. Both mean "listed, not castable now", and two
+	-- shades would ask the reader to tell them apart when something else already does: the header
+	-- for another spec, the subtitle's level requirement for a spell that has not arrived yet.
+	local isInactive = elementData.isOffSpec or elementData.isUnlearned or false;
+	self.Icon:SetDesaturated(isInactive);
+	self:SetAlpha(isInactive and INACTIVE_ALPHA or 1);
 end
 
 function DebindSpellPickerRowMixin:OnEnter()
