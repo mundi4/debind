@@ -16,6 +16,11 @@ local band, bor = bit.band, bit.bor
 -----------------------------------------------------------
 
 local tests = {}
+
+--- The window, filled in further down. Declared up here because the tests and the runner both
+--- drive it and both are defined before it -- the runner ticks rows as it goes, and a test that
+--- needs a click asks it to show one.
+local UI = {}
 local testOrder = {}
 local results = {}
 
@@ -369,6 +374,14 @@ local function CreateTestUnitFrame(unit, frameType)
 
     local name = "DebindTestUnitFrame" .. testFrameCount
     local frame = _G[name] or CreateFrame("Button", name, UIParent, "SecureUnitButtonTemplate")
+
+    -- **Frames are reused by name, so everything a previous run did to one has to be undone
+    -- here.** A test that showed this frame to be clicked left it parented into the window and
+    -- sized to fill it; the next run's hover test would then drive a frame that is not where it
+    -- thinks it is. That is not hypothetical -- it broke the hover test exactly once.
+    frame:SetParent(UIParent)
+    frame:SetFrameStrata("MEDIUM")
+    frame:Hide()
 
     frame:SetSize(1, 1)
     frame:ClearAllPoints()
@@ -1023,78 +1036,50 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
     end,
 })
 
---- Clicks a registered unit frame the way the game would. This reaches the wrapper on the
---- frame's own `OnClick`, which is where a click-cast decision is made -- `PressKey` cannot get
---- there, since it clicks our button directly and so starts past the frame.
---- The one thing in this kit that a test cannot do for itself.
+--- Waits for a real mouse click on a frame, shown in the middle of the results window.
 ---
---- A wrapped `OnClick` runs under the signature `self,button,down`, and the restricted
---- environment builds a closure factory per signature on first use --
---- `RestrictedExecution.lua:366-380` -- refusing to declare one when `issecure()` is false. Addon
---- code is never secure, so **no amount of `:Click()` from here can declare it**; only real
---- hardware input on a wrapped frame can. Once declared it is cached for the session, and every
---- click test works until the next `/reload`.
+--- **A test cannot click this itself, and no warm-up changes that.** The wrapper body is a
+--- restricted closure; `RestrictedExecution.lua:470` refuses to call one from insecure code, and
+--- addon code always is. Declaring the signature was only the first wall. Hardware input on a
+--- wrapped frame is the only way into a click-time decision, so the kit asks for one.
 ---
---- So the kit puts up a button and asks. It is a registered unit frame like any other, which is
---- what makes clicking it declare the thing.
-local warmupButton
+--- The hook is insecure and rides alongside the secure wrapper without disturbing it; it is only
+--- how the test learns the click happened.
+local function WaitForRealClick(frame, button, text, timeout)
+    frame.debindTestClicked = nil
 
-local function ShowWarmupButton()
-    if not warmupButton then
-        warmupButton = CreateFrame("Button", "DebindTestWarmup", UIParent, "SecureUnitButtonTemplate")
-        warmupButton:SetSize(260, 44)
-        warmupButton:SetPoint("CENTER", UIParent, "CENTER", 0, 160)
-        warmupButton:SetAttribute("unit", "player")
+    -- **Hooked every time, not once.** Turning probes on rebakes the bodies, and the addon
+    -- rewraps every registered frame to pick them up -- `SecureHandlerUnwrapScript` puts back the
+    -- script from before the wrap, which is from before this hook, so the hook goes with it.
+    --
+    -- Frames the kit builds are new each run and got a fresh hook by accident. PlayerFrame is the
+    -- same object every time, so a "hook once" guard left it with no hook from the second run on
+    -- and the click never registered. Stacking a hook per wait costs a field assignment.
+    frame:HookScript("OnClick", function(self, clicked)
+        self.debindTestClicked = clicked or true
+    end)
 
-        local bg = warmupButton:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints()
-        bg:SetColorTexture(0.6, 0.1, 0.1, 0.9)
-
-        local text = warmupButton:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        text:SetPoint("CENTER")
-        text:SetText("여기를 한 번 클릭 → /debtest")
-    end
-
-    DebindPrivate.RegisterFrame(warmupButton, "group")
-    warmupButton:Show()
-    return warmupButton
-end
-
---- Clicks a registered unit frame from a secure path, which is the only way this reaches the
---- wrapper on its `OnClick`.
----
---- **A plain `frame:Click()` from here cannot work.** The wrapper's body is compiled the first
---- time it runs, and the restricted environment refuses to declare a closure factory when the
---- code asking is insecure -- which a test driving a click always is. The error is thrown before
---- the wrapped handler is reached, so the frame's own action does not run either, and the whole
---- thing reads as "the click did nothing".
----
---- Real play never meets this: the first click on a unit frame is real mouse input, and that is
---- a secure path. Going through a snippet is the same trick `HoverEnter` uses for the same
---- reason -- the game cannot be asked to fire the script on demand.
----
---- Both edges are sent because the game acts on one of them and which one is the
---- `ActionButtonUseKeyDown` CVar's call, not ours.
---- Returns `false, reason` when the click could not be delivered at all, which is a different
---- thing from a click that ran and chose nothing -- the caller has to tell those apart or it
---- reports the missing warm-up as a routing fault, which is what happened the first time.
-local function ClickFrame(frame, button)
     wipe(probeReports)
-    -- Both edges: the game acts on one of them and which one is the `ActionButtonUseKeyDown`
-    -- CVar's call, not ours.
-    local ok, err = pcall(frame.Click, frame, button, true)
-    if ok then
-        ok, err = pcall(frame.Click, frame, button, false)
-    end
-    if not ok then
-        return false, tostring(err)
-    end
-    return true
-end
+    UI.ShowClickTarget(frame, text)
 
---- The click never reached the wrapped handler, so nothing downstream of it ran either.
-local function IsColdClickPath(err)
-    return err and err:find("closure factories", 1, true) ~= nil
+    local waited, limit = 0, timeout or 25
+    while frame.debindTestClicked ~= button and waited < limit do
+        Wait(0.25)
+        waited = waited + 0.25
+    end
+
+    -- Hiding is the runner's, registered the moment it is shown, so a test that fails or throws
+    -- before this point cannot leave the window covered by the thing it was asked to click.
+    UI.HideClickTarget()
+
+    if frame.debindTestClicked ~= button then
+        return false, format("%s초 안에 %s 클릭이 없었다 (받은 것: %s)",
+            limit, button, tostring(frame.debindTestClicked))
+    end
+
+    -- The probe reports through CallMethod, which is queued rather than called.
+    Wait(0.4)
+    return true
 end
 
 --- Puts an action of the frame's own in the slot our routing avoids, and returns a reader for
@@ -1103,13 +1088,14 @@ end
 ---
 --- **Our frames only.** Stamping this onto one of Blizzard's would be the addon doing the thing
 --- this whole change exists to stop doing.
-local function ArmOwnAction(frame)
+local function ArmOwnAction(frame, suffix)
+    local typeAttr, textAttr = "*type" .. suffix, "*macrotext" .. suffix
     _G.DEBIND_TEST_FELL_THROUGH = nil
-    frame:SetAttribute("*type3", "macro")
-    frame:SetAttribute("*macrotext3", "/run DEBIND_TEST_FELL_THROUGH = true")
+    frame:SetAttribute(typeAttr, "macro")
+    frame:SetAttribute(textAttr, "/run DEBIND_TEST_FELL_THROUGH = true")
     AddTeardown(function()
-        frame:SetAttribute("*type3", nil)
-        frame:SetAttribute("*macrotext3", nil)
+        frame:SetAttribute(typeAttr, nil)
+        frame:SetAttribute(textAttr, nil)
         _G.DEBIND_TEST_FELL_THROUGH = nil
     end)
     return function() return _G.DEBIND_TEST_FELL_THROUGH and true or false end
@@ -1132,6 +1118,9 @@ local function ClickCastTargets()
     targets[#targets + 1] = { label = "우리 프레임", frame = frame }
 
     if PlayerFrame and type(DebindPrivate.ccframes[PlayerFrame]) == "table" then
+        -- Asked for where it already is. Moving or resizing one of Blizzard's frames to make it
+        -- convenient would be the addon reaching into it, which is the thing being tested away.
+        PlayerFrame.debindTestLeaveAlone = true
         targets[#targets + 1] = { label = "PlayerFrame", frame = PlayerFrame, blizzard = true }
     end
 
@@ -1169,20 +1158,15 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
         for _, target in ipairs(targets) do
             -- Only to tell the two failures apart if this fails. When we do pick a winner the
             -- button is renamed and this never runs.
-            local ranOwn = not target.blizzard and ArmOwnAction(target.frame) or nil
+            local ranOwn = not target.blizzard and ArmOwnAction(target.frame, 3) or nil
             if ranOwn then Wait(0.4) end
 
-            local delivered, derr = ClickFrame(target.frame, "MiddleButton")
-            if not delivered then
-                if IsColdClickPath(derr) then
-                    ShowWarmupButton()
-                    return Fail(NAME,
-                        "이 세션에서 아직 진짜 클릭이 없었다. 화면 가운데 빨간 버튼을 한 번 누르고 다시 실행할 것 "
-                        .. "(제한 환경이 `self,button,down` 클로저를 하드웨어 입력에서만 만들어준다)")
-                end
-                return Fail(NAME, format("%s: 클릭 전달 실패 - %s", target.label, derr))
+            local clicked, cerr = WaitForRealClick(target.frame, "MiddleButton", target.blizzard
+                and format("화면의 %s 를 가운데 버튼으로 클릭", target.label)
+                or "아래 칸을 가운데 버튼으로 클릭")
+            if not clicked then
+                return Fail(NAME, format("%s: %s", target.label, cerr))
             end
-            Wait(0.4)
 
             if LastWinner() == nil then
                 return Fail(NAME, format("%s: 아무것도 안 골랐다 (%s)", target.label,
@@ -1210,11 +1194,16 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
             return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
         end
 
+        -- **The left button, because that is where falling through means something.** A unit
+        -- frame's left click is targeting; what this checks is that declining hands the click
+        -- back to it. (A hover binding may take BUTTON1 -- the button is only refused without
+        -- one.)
+        --
         -- Cannot match: the record wants combat and the state says otherwise. The binding still
         -- exists, so the frame is still routed and the wrapper still runs -- which is the point.
         -- A test with no binding at all would pass without the wrapper ever deciding anything.
         InsertAction({
-            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            type = Constants.SPELL, value = 585, key = "BUTTON1",
             hover = true,
             reactions = Constants.REACTION_ALL,
             frameTypes = Constants.FRAMETYPE_GROUP,
@@ -1226,32 +1215,31 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         local targets, terr = ClickCastTargets()
         if not targets then return Fail(NAME, terr) end
 
+        -- **Our own frame only, so this costs one click rather than two.** The Blizzard target
+        -- would only be able to assert "nothing was chosen", and a wrapper that was never
+        -- installed gives that same answer -- a click's worth of nothing.
         for _, target in ipairs(targets) do
-            local ranOwn = not target.blizzard and ArmOwnAction(target.frame) or nil
-            if ranOwn then Wait(0.4) end
+            if not target.blizzard then
+                local ranOwn = ArmOwnAction(target.frame, 1)
+                Wait(0.4)
 
-            local delivered, derr = ClickFrame(target.frame, "MiddleButton")
-            if not delivered then
-                if IsColdClickPath(derr) then
-                    ShowWarmupButton()
-                    return Fail(NAME,
-                        "이 세션에서 아직 진짜 클릭이 없었다. 화면 가운데 빨간 버튼을 한 번 누르고 다시 실행할 것 "
-                        .. "(제한 환경이 `self,button,down` 클로저를 하드웨어 입력에서만 만들어준다)")
+                local clicked, cerr = WaitForRealClick(target.frame, "LeftButton",
+                    "아래 칸을 왼쪽 버튼으로 클릭")
+                if not clicked then
+                    return Fail(NAME, format("%s: %s", target.label, cerr))
                 end
-                return Fail(NAME, format("%s: 클릭 전달 실패 - %s", target.label, derr))
-            end
-            Wait(0.4)
 
-            if LastWinner() ~= nil then
-                return Fail(NAME, format(
-                    "%s: 조건이 안 맞는데 %d번을 골랐다. combat 목이 안 걸렸을 수 있다",
-                    target.label, LastWinner()))
-            end
+                if LastWinner() ~= nil then
+                    return Fail(NAME, format(
+                        "%s: 조건이 안 맞는데 %d번을 골랐다. combat 목이 안 걸렸을 수 있다",
+                        target.label, LastWinner()))
+                end
 
-            if ranOwn and not ranOwn() then
-                return Fail(NAME, format(
-                    "%s: 프레임 자신의 동작이 안 나갔다. 래퍼가 nil이 아닌 것을 반환했거나 우리가 그 자리를 덮었다",
-                    target.label))
+                if not ranOwn() then
+                    return Fail(NAME, format(
+                        "%s: 프레임 자신의 동작이 안 나갔다. 래퍼가 nil이 아닌 것을 반환했거나 우리가 그 자리를 덮었다",
+                        target.label))
+                end
             end
         end
 
@@ -1488,6 +1476,9 @@ end
 local function FinishRun()
     pcall(CleanupActions)
     RunTeardowns()
+    UI.SetActive(nil)
+    UI.HideClickTarget()
+    UI.SetRunning(false)
 
     -- Skipped tests are named rather than left to be inferred from the total not adding up.
     local summary = format("[DebindTest] Complete: %d passed, %d failed, %d errors%s / %d total",
@@ -1522,6 +1513,7 @@ local function Record(testName, status, msg, color)
     results[testName] = { status = status, msg = msg }
     tinsert(run.lines, msg)
     print(color and format("|c%s%s|r", color, msg) or msg)
+    UI.Update(testName)
 end
 
 -- A reload-crossing test that keeps asking for another one would reload the session forever, and
@@ -1585,6 +1577,7 @@ local function Step()
 
         run.name = testOrder[run.index]
         run.spent = 0
+        UI.SetActive(run.name)
 
         local test = tests[run.name]
 
@@ -1693,6 +1686,7 @@ local function RunAllTests(onDone, crossReloads)
         lines = {}, onDone = onDone, crossReloads = crossReloads,
     }
     Persist()
+    UI.SetRunning(true)
     runner:Show()
 end
 
@@ -1730,6 +1724,8 @@ local function ResumeStoredRun()
 
     print(format("|cff00ccff[DebindTest]|r 리로드 뒤 이어서 실행: %s (%s)",
         testOrder[run.index] or "?", tostring(run.phase)))
+    UI.Open()
+    UI.SetRunning(true)
     runner:Show()
 end
 
@@ -1750,85 +1746,69 @@ end)
 -----------------------------------------------------------
 
 local TestFrame
+local rows = {}
+local activeTest
 
-local function CreateTestUI()
-    if TestFrame then
-        TestFrame:Show()
+local STATUS_MARK = {
+    pass = "|cff00ff00v|r",
+    fail = "|cffff4444X|r",
+    error = "|cffff8800!|r",
+    skip = "|cff888888~|r",
+}
+
+--- Repaints one row from whatever is known about that test right now.
+---
+--- **Rows are built once and repainted**, where the old window rebuilt them on open and returned
+--- early if it already existed -- so a run's results never reached it and it always showed the
+--- state it was first opened in.
+local function PaintRow(testName)
+    local row = rows[testName]
+    if not row then
         return
     end
 
-    local f = CreateFrame("Frame", "DebindTestFrame", UIParent, "BasicFrameTemplateWithInset")
-    f:SetSize(650, 500)
-    f:SetPoint("CENTER")
-    f:SetMovable(true)
-    f:EnableMouse(true)
-    f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", f.StartMoving)
-    f:SetScript("OnDragStop", f.StopMovingOrSizing)
-    f:SetFrameStrata("DIALOG")
-    f.TitleText:SetText("Debind Test Results")
+    local result = results[testName]
+    if result then
+        row.icon:SetText(STATUS_MARK[result.status] or STATUS_MARK.error)
+    elseif activeTest == testName then
+        row.icon:SetText("|cffffff00>|r")
+    else
+        row.icon:SetText("|cff555555-|r")
+    end
 
-    local runBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    runBtn:SetSize(100, 24)
-    runBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -30)
-    runBtn:SetText("Run All")
-    runBtn:SetScript("OnClick", function()
-        RunAllTests(function()
-            -- refresh display
-            TestFrame:Hide()
-            CreateTestUI()
-        end)
-    end)
+    local text = testName
+    if result and result.msg then
+        local clean = result.msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+        text = text .. "  " .. (result.status == "pass" and "|cff888888" or "|cffff8888") .. clean .. "|r"
+    end
+    row.text:SetText(text)
+    row.highlight:SetShown(activeTest == testName)
+end
 
-    local scrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -60)
-    scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 12)
-
-    local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetSize(590, 1)
-    scrollFrame:SetScrollChild(content)
-
-    local yOffset = 0
+local function BuildRows(content)
+    local y = 0
     for _, testName in ipairs(testOrder) do
         local test = tests[testName]
-        local result = results[testName]
 
         local row = CreateFrame("Frame", nil, content)
         row:SetSize(590, 28)
-        row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -yOffset)
+        row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
 
-        local statusIcon = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        statusIcon:SetPoint("LEFT", 4, 0)
-        statusIcon:SetWidth(14)
-        if result then
-            if result.status == "pass" then
-                statusIcon:SetText("|cff00ff00O|r")
-            elseif result.status == "fail" then
-                statusIcon:SetText("|cffff0000X|r")
-            elseif result.status == "skip" then
-                statusIcon:SetText("|cff888888~|r")
-            else
-                statusIcon:SetText("|cffff8800!|r")
-            end
-        else
-            statusIcon:SetText("|cffffff00-|r")
-        end
+        row.highlight = row:CreateTexture(nil, "BACKGROUND")
+        row.highlight:SetAllPoints()
+        row.highlight:SetColorTexture(0.2, 0.4, 0.1, 0.6)
+        row.highlight:Hide()
 
-        local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        nameText:SetPoint("LEFT", statusIcon, "RIGHT", 6, 0)
-        nameText:SetWidth(560)
-        nameText:SetJustifyH("LEFT")
-        nameText:SetWordWrap(false)
+        row.icon = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        row.icon:SetPoint("LEFT", 4, 0)
+        row.icon:SetWidth(14)
 
-        local displayText = testName
-        if result and result.msg then
-            -- strip color codes for compact display
-            local clean = result.msg:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-            displayText = displayText .. "  " .. (result.status == "pass" and "|cff888888" or "|cffff8888") .. clean .. "|r"
-        end
-        nameText:SetText(displayText)
+        row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+        row.text:SetWidth(560)
+        row.text:SetJustifyH("LEFT")
+        row.text:SetWordWrap(false)
 
-        -- Tooltip with description
         row:EnableMouse(true)
         row:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -1836,6 +1816,7 @@ local function CreateTestUI()
             if test.description then
                 GameTooltip:AddLine(test.description, nil, nil, nil, true)
             end
+            local result = results[testName]
             if result and result.msg then
                 GameTooltip:AddLine(" ")
                 GameTooltip:AddLine(result.msg, nil, nil, nil, true)
@@ -1850,11 +1831,155 @@ local function CreateTestUI()
         sep:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
         sep:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
 
-        yOffset = yOffset + 28
+        rows[testName] = row
+        y = y + 28
+    end
+    content:SetHeight(y)
+end
+
+local function CreateTestUI()
+    if TestFrame then
+        TestFrame:Show()
+        return TestFrame
     end
 
-    content:SetHeight(yOffset)
+    local f = CreateFrame("Frame", "DebindTestFrame", UIParent, "BasicFrameTemplateWithInset")
+    f:SetSize(650, 500)
+    f:SetPoint("CENTER")
+    f:SetMovable(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f:SetFrameStrata("DIALOG")
+    f.TitleText:SetText("Debind Test")
+
+    f.runBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.runBtn:SetSize(100, 24)
+    f.runBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -30)
+    f.runBtn:SetText("실행")
+    f.runBtn:SetScript("OnClick", function()
+        RunAllTests()
+    end)
+
+    f.copyBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.copyBtn:SetSize(100, 24)
+    f.copyBtn:SetPoint("RIGHT", f.runBtn, "LEFT", -6, 0)
+    f.copyBtn:SetText("복사")
+    f.copyBtn:SetScript("OnClick", function()
+        if lastResultText ~= "" then
+            ShowCopyableText(lastResultText)
+        else
+            local stored = DB().last
+            ShowCopyableText(stored or "아직 실행한 적이 없다.")
+        end
+    end)
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -60)
+    scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 12)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(590, 1)
+    scrollFrame:SetScrollChild(content)
+    BuildRows(content)
+
+    -- Where a test parks the frame it wants clicked. Sits over the middle of the list, which is
+    -- the one place it cannot be missed, and is hidden the moment the click lands.
+    f.clickSlot = CreateFrame("Frame", nil, f)
+    f.clickSlot:SetPoint("CENTER", f, "CENTER", 0, 0)
+    f.clickSlot:SetSize(420, 160)
+    f.clickSlot:SetFrameStrata("FULLSCREEN_DIALOG")
+    f.clickSlot:Hide()
+
+    local slotBg = f.clickSlot:CreateTexture(nil, "BACKGROUND")
+    slotBg:SetAllPoints()
+    slotBg:SetColorTexture(0, 0, 0, 0.92)
+
+    f.clickSlot.label = f.clickSlot:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    f.clickSlot.label:SetPoint("TOP", f.clickSlot, "TOP", 0, -14)
+    f.clickSlot.label:SetWidth(390)
+    f.clickSlot.label:SetJustifyH("CENTER")
+
+    f.clickSlot.target = CreateFrame("Frame", nil, f.clickSlot)
+    f.clickSlot.target:SetPoint("BOTTOM", f.clickSlot, "BOTTOM", 0, 16)
+    f.clickSlot.target:SetSize(380, 90)
+
     TestFrame = f
+    return f
+end
+
+function UI.Open()
+    return CreateTestUI()
+end
+
+function UI.Update(testName)
+    PaintRow(testName)
+end
+
+--- A second run cannot start while one is going -- `RunAllTests` refuses it -- so the button
+--- says so rather than letting it be pressed and answering in the chat frame.
+function UI.SetRunning(running)
+    if TestFrame then
+        TestFrame.runBtn:SetEnabled(not running)
+        TestFrame.runBtn:SetText(running and "실행 중" or "실행")
+    end
+end
+
+--- Marks the test the runner is on, and scrolls nothing -- the list is short enough to see.
+function UI.SetActive(testName)
+    local previous = activeTest
+    activeTest = testName
+    if previous then PaintRow(previous) end
+    if testName then PaintRow(testName) end
+end
+
+--- Puts a frame in the middle of the window and says what to do with it.
+---
+--- Blizzard's frames are asked for where they already are: moving or resizing one to make it
+--- convenient would be the addon reaching into it, which is the thing these tests exist to
+--- confirm it stopped doing.
+function UI.ShowClickTarget(frame, text)
+    local f = CreateTestUI()
+    f.clickSlot.label:SetText(text)
+    f.clickSlot:Show()
+
+    -- **A frame we leave alone is not in here**, so the box that says "여기" would be pointing at
+    -- itself. The overlay shrinks to the line of text and the text is what says where to go.
+    f.clickSlot.target:SetShown(not frame.debindTestLeaveAlone)
+    if frame.debindTestLeaveAlone then
+        f.clickSlot:SetSize(420, 60)
+    else
+        f.clickSlot:SetSize(420, 160)
+    end
+
+    if not frame.debindTestLeaveAlone then
+        frame:SetParent(f.clickSlot.target)
+        frame:ClearAllPoints()
+        frame:SetAllPoints(f.clickSlot.target)
+        frame:SetFrameStrata("FULLSCREEN_DIALOG")
+
+        if not frame.debindTestSkin then
+            frame.debindTestSkin = frame:CreateTexture(nil, "BACKGROUND")
+            frame.debindTestSkin:SetAllPoints()
+            frame.debindTestSkin:SetColorTexture(0.15, 0.35, 0.55, 1)
+            frame.debindTestSkinText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+            frame.debindTestSkinText:SetPoint("CENTER")
+            frame.debindTestSkinText:SetText("여기")
+        end
+        frame:Show()
+    end
+
+    -- **Registered here, not at the call site.** Whatever happens to the test after this, the
+    -- runner takes the overlay down -- otherwise a test that fails early leaves the window
+    -- covered by the very thing that was meant to help read it.
+    AddTeardown(function() UI.HideClickTarget() end)
+end
+
+function UI.HideClickTarget()
+    if TestFrame then
+        TestFrame.clickSlot:Hide()
+    end
 end
 
 -----------------------------------------------------------
@@ -1880,13 +2005,15 @@ SlashCmdList["DEBINDTEST"] = function(msg)
             print("|cff00ccff[DebindTest]|r 저장된 결과가 없다.")
         end
     elseif msg == "reload" then
+        UI.Open()
         RunAllTests(function()
             ShowCopyableText(lastResultText)
         end, true)
     else
-        RunAllTests(function()
-            ShowCopyableText(lastResultText)
-        end)
+        -- **Opening does not run.** These tests cast, and one of them stops to ask for a click;
+        -- a window opened to read the last results should not start any of that. The run is a
+        -- button because pressing it is the point at which someone meant it.
+        UI.Open()
     end
 end
 
