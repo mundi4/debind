@@ -5,6 +5,7 @@
 ## Author: mundi4
 ## Dependencies: Debind
 ## Group: Debind
+## SavedVariables: DebindTestDB
 
 DebindTest.lua
 Probe_BindingContext.lua

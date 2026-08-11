@@ -51,6 +51,50 @@ local function Wait(seconds)
     coroutine.yield(seconds or 0)
 end
 
+-- Saved variables are not in place while this file runs -- they arrive between then and
+-- ADDON_LOADED -- so the table is never assumed, only ensured.
+local function DB()
+    DebindTestDB = DebindTestDB or {}
+    return DebindTestDB
+end
+
+--- Somewhere a test may leave things for a later phase of itself.
+---
+--- It has to be here rather than in the profile: the runner tears down and cleans up **before**
+--- reloading, so anything a test put in a layer is gone by the time the session comes back. That
+--- is deliberate -- a run that ends the session must not leave the profile carrying its litter --
+--- and it means "survives a reload" has to be stored somewhere the runner does not clean.
+local function Scratch()
+    local db = DB()
+    db.scratch = db.scratch or {}
+    return db.scratch
+end
+
+-- Asking for a `/reload` is not a longer wait, so it does not travel as one. This marker is what
+-- the runner recognises, and it cannot collide with a duration.
+local RELOAD_REQUEST = {}
+
+--- Ends the game session and picks this same test back up afterwards, with `phase` telling it
+--- where it left off.
+---
+--- **This call does not return.** A coroutine does not survive a reload, so the test is not
+--- resumed -- it is *run again from the top*, and reads `phase` to find its place. Which makes a
+--- reload-crossing test a small state machine rather than one straight line:
+---
+---     run = function(phase)
+---         if not phase then ... ; return RequestReload("after") end
+---         ...
+---     end
+---
+--- The runner writes its progress out before reloading, so what a later phase compares against
+--- is what actually survived the round trip.
+local function RequestReload(phase)
+    coroutine.yield(RELOAD_REQUEST, phase or "after-reload")
+    -- Unreachable: the runner reloads instead of resuming. Erroring here beats returning to a
+    -- test that believes a reload happened when none did.
+    error("RequestReload: 리로드가 일어나지 않았다")
+end
+
 -- Undo registered by whatever needs undoing. **The runner calls these, not the test.** A test
 -- that owns its own cleanup only has to be wrong once -- fail early, error, or simply forget --
 -- and everything after it runs against a state nobody chose. So the tail is not the test's to
@@ -807,6 +851,47 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: Across a /reload
+-----------------------------------------------------------
+
+-- The reload machinery checking itself. That is not as circular as it sounds: everything a
+-- migration or a save-format test would assert rests on this one claim -- that a run can end the
+-- session, come back, and know where it was -- and nothing else in the suite touches it.
+--
+-- Opt-in (`/debtest reload`), because a plain run should not end someone's session.
+RegisterTest("Run survives /reload", {
+    description = "런이 /reload를 건너 이어지는가, 단계와 스크래치가 그대로 오는가",
+    crossesReload = true,
+    run = function(phase)
+        local NAME = "Reload round trip"
+        local scratch = Scratch()
+
+        if not phase then
+            scratch.token = "before-" .. tostring(GetTime())
+            scratch.index = 1
+            return RequestReload("second-half")
+        end
+
+        -- Anything wrong here means the runner picked the wrong test, the wrong phase, or a run
+        -- that was not the one it stored.
+        if phase ~= "second-half" then
+            return Fail(NAME, format("phase=%s, second-half여야 한다", tostring(phase)))
+        end
+
+        if not scratch.token or scratch.token:sub(1, 7) ~= "before-" then
+            return Fail(NAME, format("스크래치가 안 넘어왔다 (token=%s)", tostring(scratch.token)))
+        end
+
+        -- The run's own tally has to come back too. It is what the report is built from, and a
+        -- resumed run that forgot it would report only the tests after the reload.
+        local kept = scratch.token
+        scratch.token, scratch.index = nil, nil
+
+        return Pass(NAME, format("리로드 뒤 %s 로 이어짐 (%s)", phase, kept))
+    end,
+})
+
+-----------------------------------------------------------
 -- Copyable Output Popup
 -----------------------------------------------------------
 
@@ -860,12 +945,41 @@ runner:Hide()
 
 local run
 
+-- Progress is written to saved variables **after every test**, not at the end. A run that spans
+-- a `/reload` is the point of storing it at all, and a reload can arrive at any test; whatever
+-- was only in memory when it does is gone. Storing it also means a session that crashes leaves a
+-- record of how far it got, which is otherwise the one outcome that reports nothing.
+local function Persist()
+    if not run then
+        DB().pending = nil
+        return
+    end
+
+    DB().pending = {
+        index = run.index,
+        phase = run.phase,
+        reloads = run.reloads,
+        pass = run.pass,
+        fail = run.fail,
+        err = run.err,
+        skip = run.skip,
+        lines = run.lines,
+        crossReloads = run.crossReloads,
+        -- Set only while a reload is deliberately in flight. Its absence in a stored run is what
+        -- separates "the session went away on purpose" from "the session died here".
+        expectReload = run.expectReload,
+    }
+end
+
 local function FinishRun()
     pcall(CleanupActions)
     RunTeardowns()
 
-    local summary = format("[DebindTest] Complete: %d passed, %d failed, %d errors / %d total",
-        run.pass, run.fail, run.err, #testOrder)
+    -- Skipped tests are named rather than left to be inferred from the total not adding up.
+    local summary = format("[DebindTest] Complete: %d passed, %d failed, %d errors%s / %d total",
+        run.pass, run.fail, run.err,
+        run.skip > 0 and format(", %d skipped", run.skip) or "",
+        #testOrder)
     tinsert(run.lines, "")
     tinsert(run.lines, summary)
     print(format("\n|cff00ccff%s|r", summary))
@@ -875,6 +989,9 @@ local function FinishRun()
     local onDone = run.onDone
     run = nil
     runner:Hide()
+    Persist()
+
+    DB().last = lastResultText
 
     if onDone then onDone() end
 end
@@ -893,6 +1010,57 @@ local function Record(testName, status, msg, color)
     print(color and format("|c%s%s|r", color, msg) or msg)
 end
 
+-- A reload-crossing test that keeps asking for another one would reload the session forever, and
+-- a reload loop cannot be interrupted from inside the game. This is the stop.
+local MAX_RELOADS = 4
+
+-- **`ReloadUI` is protected.** An addon may only reach it from a hardware event, and an OnUpdate
+-- is not one -- calling it there gets ADDON_ACTION_BLOCKED and nothing else. So the reload is
+-- asked for rather than performed, and the click on this popup is the hardware event that
+-- carries it.
+--
+-- Having to ask turns out to suit it. Ending someone's session is not something to do silently
+-- on the way past, and declining has to mean something, so it stops the run rather than leaving
+-- a stored one to surprise the next login.
+StaticPopupDialogs["DEBINDTEST_RELOAD"] = {
+    text = "DebindTest: %s\n\n이 테스트는 /reload를 건너야 한다. 리로드하면 이어서 계속한다.",
+    button1 = RELOAD_UI or "Reload UI",
+    button2 = CANCEL or "Cancel",
+    OnAccept = function() ReloadUI() end,
+    OnCancel = function()
+        DB().pending = nil
+        print("|cffff8800[DebindTest]|r 리로드를 취소해서 런을 중단했다.")
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+--- Saves progress and asks for the reload. The test is picked up again from the top afterwards,
+--- with `phase` telling it where it was.
+local function DoReload(phase)
+    run.phase = phase
+    run.reloads = run.reloads + 1
+    run.expectReload = true
+    run.co, run.wait = nil, nil
+
+    -- Teardowns run first: whatever they undo is state that must not outlive this session, and
+    -- after the reload nothing here gets another chance.
+    RunTeardowns()
+    pcall(CleanupActions)
+    Persist()
+
+    -- The runner stops here either way. Everything it would need is stored, so the run continues
+    -- from saved variables if the reload happens and is dropped by OnCancel if it does not.
+    local name = run.name
+    run = nil
+    runner:Hide()
+
+    print(format("|cff00ccff[DebindTest]|r %s -> /reload 대기 (%s)", name, phase))
+    StaticPopup_Show("DEBINDTEST_RELOAD", name)
+end
+
 --- One resume of the current test. Returns true when the runner may keep going this frame.
 local function Step()
     if not run.co then
@@ -903,11 +1071,26 @@ local function Step()
 
         run.name = testOrder[run.index]
         run.spent = 0
+
+        local test = tests[run.name]
+
+        -- Reload-crossing tests are opt-in. Ending the session is not something a plain
+        -- `/debtest` should do to someone who only wanted to see the list go green.
+        if test.crossesReload and not run.crossReloads then
+            run.skip = run.skip + 1
+            Record(run.name, "skip", format("SKIP %s: /debtest reload 로 실행", run.name), "ff888888")
+            run.index = run.index + 1
+            Persist()
+            return true
+        end
+
         pcall(CleanupActions)
-        run.co = coroutine.create(tests[run.name].run)
+        run.co = coroutine.create(test.run)
     end
 
-    local ok, a, b = coroutine.resume(run.co)
+    -- The phase is handed in rather than remembered by the test, because the test is being run
+    -- from the top again -- there is nothing of its own left to remember with.
+    local ok, a, b = coroutine.resume(run.co, run.phase)
 
     if not ok then
         run.err = run.err + 1
@@ -920,6 +1103,20 @@ local function Step()
             run.fail = run.fail + 1
             Record(run.name, "fail", b)
         end
+    elseif a == RELOAD_REQUEST then
+        if run.reloads >= MAX_RELOADS then
+            run.err = run.err + 1
+            Record(run.name, "error",
+                format("ERROR %s: 리로드를 %d번 넘게 요청했다", run.name, MAX_RELOADS), "ffff8800")
+            RunTeardowns()
+            run.co, run.wait = nil, nil
+            run.index = run.index + 1
+            Persist()
+            return true
+        end
+
+        DoReload(b)
+        return false
     else
         -- Yielded. The test is mid-flight, so nothing is torn down yet.
         run.wait = tonumber(a) or 0
@@ -929,6 +1126,8 @@ local function Step()
     RunTeardowns()
     run.co = nil
     run.index = run.index + 1
+    run.phase = nil
+    Persist()
     return true
 end
 
@@ -966,7 +1165,7 @@ runner:SetScript("OnUpdate", function(self, elapsed)
 end)
 
 --- Runs the suite. Returns immediately -- `onDone` fires when the last test has finished.
-local function RunAllTests(onDone)
+local function RunAllTests(onDone, crossReloads)
     if run then
         print("|cffff8800[DebindTest]|r already running.")
         return
@@ -975,9 +1174,62 @@ local function RunAllTests(onDone)
     wipe(results)
     wipe(teardowns)
 
-    run = { index = 1, pass = 0, fail = 0, err = 0, lines = {}, onDone = onDone }
+    run = {
+        index = 1, pass = 0, fail = 0, err = 0, skip = 0, reloads = 0,
+        lines = {}, onDone = onDone, crossReloads = crossReloads,
+    }
+    Persist()
     runner:Show()
 end
+
+--- Picks a stored run back up. Called once, after saved variables are available.
+---
+--- A stored run that was not expecting a reload means the session ended under it -- crash,
+--- disconnect, or a `/reload` typed by hand. That is reported rather than continued: carrying on
+--- would erase the one fact worth keeping, which is that it died at that test.
+local function ResumeStoredRun()
+    local pending = DB().pending
+    if not pending then return end
+
+    DB().pending = nil
+
+    if not pending.expectReload then
+        local name = testOrder[pending.index] or "?"
+        print(format("|cffff8800[DebindTest]|r 이전 실행이 %s 에서 끊겼다 (리로드 요청 없음). 이어가지 않는다.",
+            name))
+        tinsert(pending.lines, format("DIED %s: 세션이 이 테스트 도중에 끝났다", name))
+        lastResultText = table.concat(pending.lines, "\n")
+        DB().last = lastResultText
+        return
+    end
+
+    wipe(results)
+    wipe(teardowns)
+
+    run = {
+        index = pending.index, pass = pending.pass, fail = pending.fail, err = pending.err,
+        skip = pending.skip or 0,
+        reloads = pending.reloads, lines = pending.lines, phase = pending.phase,
+        crossReloads = pending.crossReloads,
+        onDone = function() ShowCopyableText(lastResultText) end,
+    }
+
+    print(format("|cff00ccff[DebindTest]|r 리로드 뒤 이어서 실행: %s (%s)",
+        testOrder[run.index] or "?", tostring(run.phase)))
+    runner:Show()
+end
+
+local loader = CreateFrame("Frame")
+loader:RegisterEvent("PLAYER_LOGIN")
+loader:SetScript("OnEvent", function(self)
+    self:UnregisterAllEvents()
+
+    DB()
+
+    -- Waiting for login rather than ADDON_LOADED: a resumed run drives bindings and unit frames
+    -- immediately, and neither is meaningfully in place before the player is.
+    ResumeStoredRun()
+end)
 
 -----------------------------------------------------------
 -- UI (optional, simple scrollable results viewer)
@@ -1039,6 +1291,8 @@ local function CreateTestUI()
                 statusIcon:SetText("|cff00ff00O|r")
             elseif result.status == "fail" then
                 statusIcon:SetText("|cffff0000X|r")
+            elseif result.status == "skip" then
+                statusIcon:SetText("|cff888888~|r")
             else
                 statusIcon:SetText("|cffff8800!|r")
             end
@@ -1104,6 +1358,17 @@ SlashCmdList["DEBINDTEST"] = function(msg)
         else
             print("|cff00ccff[DebindTest]|r No results yet. Run |cffffff00/debtest|r first.")
         end
+    elseif msg == "last" then
+        local stored = DB().last
+        if stored then
+            ShowCopyableText(stored)
+        else
+            print("|cff00ccff[DebindTest]|r 저장된 결과가 없다.")
+        end
+    elseif msg == "reload" then
+        RunAllTests(function()
+            ShowCopyableText(lastResultText)
+        end, true)
     else
         RunAllTests(function()
             ShowCopyableText(lastResultText)
