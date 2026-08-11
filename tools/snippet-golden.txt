@@ -898,11 +898,18 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
+	local winner, winnerIndex, hoverUnit
+
+
+	local evalFrame = States.unitframe
 
 
 
-	local unitframe = States.unitframe
-	local hoverUnit, hoverReaction, hoverFrameType
+
+
+
+	local unitframe = evalFrame
+	local hoverReaction, hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
@@ -927,7 +934,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local bonusbar = 2 ^ (States.bonusbar or 0)
 
 	local memoReady = false
-	local winner, winnerIndex
 
 
 
@@ -1331,11 +1337,18 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
+	local winner, winnerIndex, hoverUnit
+
+
+	local evalFrame = States.unitframe
 
 
 
-	local unitframe = States.unitframe
-	local hoverUnit, hoverReaction, hoverFrameType
+
+
+
+	local unitframe = evalFrame
+	local hoverReaction, hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
@@ -1360,7 +1373,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local bonusbar = 2 ^ (States.bonusbar or 0)
 
 	local memoReady = false
-	local winner, winnerIndex
 
 
 

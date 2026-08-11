@@ -888,129 +888,28 @@ function BindingDriver:OnCustomStateChanged(name, value)
 	DebindPrivate.OnCustomStateChanged(name, value);
 end
 
---- 클릭 시점 평가. `DefaultClickFrame`의 OnClick을 감싼다.
+--- The condition evaluation, kept as its own string so more than one wrapper can carry it.
 ---
---- **`PreClick`이 아니라 `OnClick`이다.** 래퍼는 자기가 감싼 스크립트만 붙들고 있어서
---- (`SecureHandlers.lua`의 `SaveWrapHandler`), PreClick에 걸면 바꾼 버튼 이름이 실제로
---- 액션을 실행하는 `SecureActionButton_OnClick`까지 전달되지 않는다. 스니펫은 돌고 로그도
---- 나오는데 액션만 아무것도 안 나가서 증상이 조용하다.
+--- It is spliced in textually rather than called, which is what lets the locals it declares
+--- (`unitframe`, `hoverUnit`, `winner`, `winnerIndex`) stay visible to whatever follows -- a
+--- `RunAttribute` could not hand those back without turning each one into a shared global.
 ---
---- 반환값이 버튼 이름을 대신하고, 게임은 그 이름으로 `*type-<이름>` 등을 조회한다.
---- 액션 속성은 `SetBindingAttributes`가 이미 버튼 이름별로 구워둔 그대로 쓴다.
+--- The caller owes it `bindings` (the records to walk) and `evalFrame` (which unit frame hover
+--- means for this click, or nil), and must have declared `winner`, `winnerIndex` and `hoverUnit`
+--- itself -- they are what it answers with, and a caller that only reaches this on one branch
+--- still has to read them on the other.
 ---
---- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
---- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.
-DebindPrivate.InstallSnippet(function(pre, post)
-	-- Re-wrapping stacks another wrapper on top rather than replacing, so the previous one is
-	-- unwrapped first. Left in place both would run and both would return a button name, and the
-	-- one that answered would be the stale one.
-	if (DebindPrivate.clickWrapped) then
-		SecureHandlerUnwrapScript(DebindPrivate.DefaultClickFrame, "OnClick");
-	end
-	SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, pre, post);
-	DebindPrivate.clickWrapped = true;
-end, [==[
-	local bindings = ClickTimeKeys[button]
-
-	-- **클릭캐스팅으로 온 클릭.** 유닛 프레임이 `type="click"`으로 넘긴 것이라 버튼 이름이
-	-- 아니라 원래 마우스 버튼("LeftButton" 등)으로 도착한다. 어느 키인지는 도착한 버튼과
-	-- 지금 눌린 수식어로 되찾는다.
-	--
-	-- 자릿값은 `UpdateBindings.lua`의 `GetModifierIndex`와 같아야 한다. 여기만 바꾸면
-	-- 수식어가 걸린 클릭캐스팅만 조용히 다른 목록을 찾는다.
-	--
-	-- 이 갈래로 들어온 클릭은 아래 판정에서 **`isClick` 레코드**를 본다. 같은 키의 키보드
-	-- 쪽(`isNonClick`)과 조건이 다를 수 있으므로 섞으면 안 된다.
-	local clickCast
-	if (not bindings) then
-		local n = MouseButtonNumbers[button]
-		if (n) then
-			local mod = 0
-			if (IsAltKeyDown()) then
-				mod = mod + CONSTANTS.MOD_ALT
-			end
-			if (IsControlKeyDown()) then
-				mod = mod + CONSTANTS.MOD_CTRL
-			end
-			if (IsShiftKeyDown()) then
-				mod = mod + CONSTANTS.MOD_SHIFT
-			end
-			local byMod = ClickCastKeys[n]
-			bindings = byMod and byMod[mod]
-			clickCast = bindings and true or false
-]==] .. CLICKCAST_ARRIVAL_SNIPPET .. [==[
-		end
-	end
-
-	-- **맨이름 속성은 프레임에 남는다.** "안 쓰면 없다"가 아니라 "안 쓰면 앞의 것이 남는다"라
-	-- 매 클릭 전부 확정해야 한다. 옛 경로로 들어온 클릭(deb1xx, /click 위임)에도 반드시
-	-- 적용한다 - 앞 클릭이 남긴 unit 하나가 자가시전·주시시전·마우스오버시전을 통째로
-	-- 죽인다(`checkselfcast`류는 unit이 없을 때만 동작한다). 오류도 로그도 안 난다.
-	--
-	-- `pressAndHoldAction`은 아래에서 이긴 액션의 값으로 다시 쓴다. 여기서 지우는 것은
-	-- 앞 클릭의 잔류를 막기 위해서다. `useOnKeyDown`은 키 갈래에서는 건드리지 않는다(nil) -
-	-- 사용자 CVar가 정하게 둔다. 클릭캐스팅 갈래는 바로 아래에서 다시 쓴다.
-	self:SetAttribute("unit", nil)
-	self:SetAttribute("pressAndHoldAction", nil)
-	self:SetAttribute("useOnKeyDown", nil)
-	self:SetAttribute("type", nil)
-	self:SetAttribute("macrotext", nil)
-
-	-- **클릭캐스팅은 언제나 `down=false`로 도착한다.** `SECURE_ACTIONS.click`이
-	-- `delegate:Click(button)`이라 엣지를 못 싣는다(`/click`은 세 번째 인자로 실었다).
-	--
-	-- 그런데 게이트는 `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`
-	-- 이고 `useOnKeyDown`이 nil이면 `ActionButtonUseKeyDown` CVar로 떨어진다
-	-- (SecureTemplates.lua:795-814). **그 CVar가 켜져 있으면 둘 다 거짓이 되어 아무것도
-	-- 안 나간다.** 오류도 로그도 없다.
-	--
-	-- 그래서 이 갈래에서만 거짓으로 못박는다. 도착 엣지가 고정이므로 CVar에 물어볼 것이 없다.
-	-- 어느 엣지에 클릭이 오느냐는 유닛 프레임의 `RegisterForClicks`가 정하고, 그건 그 프레임
-	-- 주인의 몫이다.
-	if (clickCast) then
-		self:SetAttribute("useOnKeyDown", false)
-	end
-
-	if (not bindings) then
-		-- 우리 키가 아니다. 버튼 이름을 바꾸지 않고 그대로 흘려보낸다.
-		return
-	end
-
-	-- **놓는 엣지.** down에서 press-and-hold를 시작했으면 여기서 다시 고르지 않는다 -
-	-- 시전한 것과 다른 것을 놓으면 시전한 쪽이 눌린 채로 남는다. 대상도 그때 확정한 값을
-	-- 그대로 쓴다. 조건을 다시 보는 자리가 아니라 **같은 것을 놓는** 자리다.
-	--
-	-- `pressAndHoldAction`을 여기서도 켜야 게이트의 `releasePressAndHoldAction`이 참이 되어
-	-- `typerelease`가 나간다(SecureTemplates.lua:815). 안 켜면 `ActionButtonUseKeyHeldSpell`
-	-- CVar에 운을 맡기게 된다.
-	if (not down) then
-		local held = HeldButtons[button]
-		if (held) then
-			local heldUnit = HeldUnits[button]
-			HeldButtons[button] = nil
-			HeldUnits[button] = nil
-
-			-- **놓을 것이 남아 있을 때만 놓는다.** `typerelease`는 "놓기"라는 동작이 아니라
-			-- 그냥 그 주문을 다시 시전하는 것이다(`SECURE_ACTIONS.spell` -> `CastSpellByID`).
-			-- 시전 중이면 그게 놓기가 되지만, 이미 끝난 뒤라면 **새 시전**이 된다.
-			--
-			-- 실제로 밟았다: 누른 채로 시전이 끝나고 재사용 대기시간까지 지난 뒤에 떼면
-			-- 주문이 한 번 더 나갔다.
-			if (not PlayerIsChanneling()) then
-				return false
-			end
-
-			self:SetAttribute("unit", heldUnit)
-			self:SetAttribute("pressAndHoldAction", true)
-			return held.clickbutton
-		end
-	end
-
+--- The name has to end in `_SNIPPET`: that is what `tools/lib/snippets.js` resolves back into
+--- the body it belongs to, and a body it cannot resolve leaves every static check silently.
+local EVAL_SNIPPET = [==[
 	-- hover는 루프 밖에서 클릭당 한 번만 푼다. 레코드마다 다시 물으면 같은 C 호출이 반복된다.
-	-- 어느 프레임을 hover 중인지는 enter/leave 이벤트로만 알 수 있어 캐시지만, 그 프레임의
-	-- unit과 반응은 지금 다시 읽는다 - 폴링이 놓치는 창이 여기서 닫힌다.
-	local unitframe = States.unitframe
-	local hoverUnit, hoverReaction, hoverFrameType
+	-- 그 프레임의 unit과 반응은 지금 다시 읽는다 - 폴링이 놓치는 창이 여기서 닫힌다.
+	--
+	-- **어느 프레임이냐는 호출부가 정한다**(`evalFrame`). 키로 들어오면 enter/leave가 남긴
+	-- 캐시를 볼 수밖에 없지만, 유닛 프레임 클릭으로 들어오면 그 프레임이 곧 자기 자신이라
+	-- 캐시를 볼 이유가 없다.
+	local unitframe = evalFrame
+	local hoverReaction, hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
@@ -1035,7 +934,6 @@ end, [==[
 	local bonusbar = 2 ^ (States.bonusbar or 0)
 
 	local memoReady = false
-	local winner, winnerIndex
 
 	-- 어느 갈래로 들어왔느냐가 곧 어느 레코드를 보느냐다. 한 키가 양쪽 레코드를 다 가질 수
 	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
@@ -1169,6 +1067,131 @@ end, [==[
 			end
 		end
 	end
+]==];
+
+--- 클릭 시점 평가. `DefaultClickFrame`의 OnClick을 감싼다.
+---
+--- **`PreClick`이 아니라 `OnClick`이다.** 래퍼는 자기가 감싼 스크립트만 붙들고 있어서
+--- (`SecureHandlers.lua`의 `SaveWrapHandler`), PreClick에 걸면 바꾼 버튼 이름이 실제로
+--- 액션을 실행하는 `SecureActionButton_OnClick`까지 전달되지 않는다. 스니펫은 돌고 로그도
+--- 나오는데 액션만 아무것도 안 나가서 증상이 조용하다.
+---
+--- 반환값이 버튼 이름을 대신하고, 게임은 그 이름으로 `*type-<이름>` 등을 조회한다.
+--- 액션 속성은 `SetBindingAttributes`가 이미 버튼 이름별로 구워둔 그대로 쓴다.
+---
+--- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
+--- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.
+DebindPrivate.InstallSnippet(function(pre, post)
+	-- Re-wrapping stacks another wrapper on top rather than replacing, so the previous one is
+	-- unwrapped first. Left in place both would run and both would return a button name, and the
+	-- one that answered would be the stale one.
+	if (DebindPrivate.clickWrapped) then
+		SecureHandlerUnwrapScript(DebindPrivate.DefaultClickFrame, "OnClick");
+	end
+	SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDriver, pre, post);
+	DebindPrivate.clickWrapped = true;
+end, [==[
+	local bindings = ClickTimeKeys[button]
+
+	-- **클릭캐스팅으로 온 클릭.** 유닛 프레임이 `type="click"`으로 넘긴 것이라 버튼 이름이
+	-- 아니라 원래 마우스 버튼("LeftButton" 등)으로 도착한다. 어느 키인지는 도착한 버튼과
+	-- 지금 눌린 수식어로 되찾는다.
+	--
+	-- 자릿값은 `UpdateBindings.lua`의 `GetModifierIndex`와 같아야 한다. 여기만 바꾸면
+	-- 수식어가 걸린 클릭캐스팅만 조용히 다른 목록을 찾는다.
+	--
+	-- 이 갈래로 들어온 클릭은 아래 판정에서 **`isClick` 레코드**를 본다. 같은 키의 키보드
+	-- 쪽(`isNonClick`)과 조건이 다를 수 있으므로 섞으면 안 된다.
+	local clickCast
+	if (not bindings) then
+		local n = MouseButtonNumbers[button]
+		if (n) then
+			local mod = 0
+			if (IsAltKeyDown()) then
+				mod = mod + CONSTANTS.MOD_ALT
+			end
+			if (IsControlKeyDown()) then
+				mod = mod + CONSTANTS.MOD_CTRL
+			end
+			if (IsShiftKeyDown()) then
+				mod = mod + CONSTANTS.MOD_SHIFT
+			end
+			local byMod = ClickCastKeys[n]
+			bindings = byMod and byMod[mod]
+			clickCast = bindings and true or false
+]==] .. CLICKCAST_ARRIVAL_SNIPPET .. [==[
+		end
+	end
+
+	-- **맨이름 속성은 프레임에 남는다.** "안 쓰면 없다"가 아니라 "안 쓰면 앞의 것이 남는다"라
+	-- 매 클릭 전부 확정해야 한다. 옛 경로로 들어온 클릭(deb1xx, /click 위임)에도 반드시
+	-- 적용한다 - 앞 클릭이 남긴 unit 하나가 자가시전·주시시전·마우스오버시전을 통째로
+	-- 죽인다(`checkselfcast`류는 unit이 없을 때만 동작한다). 오류도 로그도 안 난다.
+	--
+	-- `pressAndHoldAction`은 아래에서 이긴 액션의 값으로 다시 쓴다. 여기서 지우는 것은
+	-- 앞 클릭의 잔류를 막기 위해서다. `useOnKeyDown`은 키 갈래에서는 건드리지 않는다(nil) -
+	-- 사용자 CVar가 정하게 둔다. 클릭캐스팅 갈래는 바로 아래에서 다시 쓴다.
+	self:SetAttribute("unit", nil)
+	self:SetAttribute("pressAndHoldAction", nil)
+	self:SetAttribute("useOnKeyDown", nil)
+	self:SetAttribute("type", nil)
+	self:SetAttribute("macrotext", nil)
+
+	-- **클릭캐스팅은 언제나 `down=false`로 도착한다.** `SECURE_ACTIONS.click`이
+	-- `delegate:Click(button)`이라 엣지를 못 싣는다(`/click`은 세 번째 인자로 실었다).
+	--
+	-- 그런데 게이트는 `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`
+	-- 이고 `useOnKeyDown`이 nil이면 `ActionButtonUseKeyDown` CVar로 떨어진다
+	-- (SecureTemplates.lua:795-814). **그 CVar가 켜져 있으면 둘 다 거짓이 되어 아무것도
+	-- 안 나간다.** 오류도 로그도 없다.
+	--
+	-- 그래서 이 갈래에서만 거짓으로 못박는다. 도착 엣지가 고정이므로 CVar에 물어볼 것이 없다.
+	-- 어느 엣지에 클릭이 오느냐는 유닛 프레임의 `RegisterForClicks`가 정하고, 그건 그 프레임
+	-- 주인의 몫이다.
+	if (clickCast) then
+		self:SetAttribute("useOnKeyDown", false)
+	end
+
+	if (not bindings) then
+		-- 우리 키가 아니다. 버튼 이름을 바꾸지 않고 그대로 흘려보낸다.
+		return
+	end
+
+	-- **놓는 엣지.** down에서 press-and-hold를 시작했으면 여기서 다시 고르지 않는다 -
+	-- 시전한 것과 다른 것을 놓으면 시전한 쪽이 눌린 채로 남는다. 대상도 그때 확정한 값을
+	-- 그대로 쓴다. 조건을 다시 보는 자리가 아니라 **같은 것을 놓는** 자리다.
+	--
+	-- `pressAndHoldAction`을 여기서도 켜야 게이트의 `releasePressAndHoldAction`이 참이 되어
+	-- `typerelease`가 나간다(SecureTemplates.lua:815). 안 켜면 `ActionButtonUseKeyHeldSpell`
+	-- CVar에 운을 맡기게 된다.
+	if (not down) then
+		local held = HeldButtons[button]
+		if (held) then
+			local heldUnit = HeldUnits[button]
+			HeldButtons[button] = nil
+			HeldUnits[button] = nil
+
+			-- **놓을 것이 남아 있을 때만 놓는다.** `typerelease`는 "놓기"라는 동작이 아니라
+			-- 그냥 그 주문을 다시 시전하는 것이다(`SECURE_ACTIONS.spell` -> `CastSpellByID`).
+			-- 시전 중이면 그게 놓기가 되지만, 이미 끝난 뒤라면 **새 시전**이 된다.
+			--
+			-- 실제로 밟았다: 누른 채로 시전이 끝나고 재사용 대기시간까지 지난 뒤에 떼면
+			-- 주문이 한 번 더 나갔다.
+			if (not PlayerIsChanneling()) then
+				return false
+			end
+
+			self:SetAttribute("unit", heldUnit)
+			self:SetAttribute("pressAndHoldAction", true)
+			return held.clickbutton
+		end
+	end
+
+	local winner, winnerIndex, hoverUnit
+
+	-- 키로 들어온 클릭이라 hover는 캐시에서 온다.
+	local evalFrame = States.unitframe
+]==] .. EVAL_SNIPPET .. [==[
 ]==] .. CLICKTIME_VERIFY_SNIPPET .. [==[
 
 	-- **낼 것이 없으면 클릭을 취소한다.** 두 갈래로 도달한다:

@@ -18,6 +18,15 @@ const CALLS = /\b(SecureHandlerExecute|SecureHandlerWrapScript|SetAttribute|Inst
 // (DEBUG 빌드에서만 들어가는 부분) 참조를 풀어서 결합된 형태도 같이 본다.
 const SNIPPET_LOCAL = /\blocal\s+([A-Za-z_][\w]*_SNIPPET)\s*=/g;
 
+// **조각이 전부 DEBUG 전용인 것은 아니다.** 한 본문을 둘 이상이 나눠 쓰려고 뽑아둔 조각은
+// 언제나 들어간다. 그런 것까지 "빠진 빌드"로 세면 골든이 존재하지 않는 형상을 기록하고, 그
+// 형상에서 뽑아낸 줄들은 검사를 벗어난다 - 조각으로 뽑는 행위 자체가 검사에서 빠지는 길이 된다.
+//
+// 가르는 표시는 **선언이 DEBUG에 걸려 있는가**다. 뒤의 `or ""`가 아니라 앞의 조건을 보는
+// 이유는 그게 실제 게이트라서다 - 빠지는 빌드가 있다는 것을 정하는 것은 그 조건이지, 안 걸렸을
+// 때 무엇으로 떨어지느냐가 아니다.
+const DEBUG_GATED = /\bDEBUG\b/;
+
 /** 위치 i에서 시작하는 긴 문자열을 뗀다. 아니면 null. */
 function readLongString(src, i) {
     if (src[i] !== "[") return null;
@@ -166,12 +175,16 @@ function forEachSnippet(srcDir, cb) {
             const long = (() => {
                 for (let i = m.index + m[0].length; i < src.length; i++) {
                     const s = readLongString(src, i);
-                    if (s) return s;
+                    if (s) return { ...s, start: i };
                     if (src[i] === "\n" && src.slice(m.index, i).includes(";")) return null;
                 }
                 return null;
             })();
-            if (long) snippetLocals.set(m[1], long.body);
+            if (long) {
+                // 본문 앞, 즉 `local X_SNIPPET =`와 여는 괄호 사이가 게이트가 적히는 자리다.
+                const head = src.slice(m.index, long.start);
+                snippetLocals.set(m[1], { body: long.body, gated: DEBUG_GATED.test(head) });
+            }
         }
 
         // 2. 호출마다 본문을 모아 넘긴다.
@@ -183,11 +196,14 @@ function forEachSnippet(srcDir, cb) {
             for (const parts of collectBodies(src, openParen, snippetLocals)) {
                 if (!parts.some((p) => p.literal !== undefined)) continue;
 
-                const hasRef = parts.some((p) => p.ref !== undefined);
-                const variants = hasRef
-                    ? [["DEBUG=on", (p) => (p.ref ? snippetLocals.get(p.ref) : p.literal)],
-                       ["DEBUG=off", (p) => (p.ref ? "" : p.literal)]]
-                    : [["", (p) => p.literal]];
+                // 게이트가 붙은 참조가 하나라도 있을 때만 두 형상이 존재한다. 무조건 들어가는
+                // 조각은 어느 쪽에서도 본문 그대로다.
+                const resolve = (p) => (p.ref ? snippetLocals.get(p.ref).body : p.literal);
+                const hasGated = parts.some((p) => p.ref !== undefined && snippetLocals.get(p.ref).gated);
+                const variants = hasGated
+                    ? [["DEBUG=on", resolve],
+                       ["DEBUG=off", (p) => (p.ref && snippetLocals.get(p.ref).gated ? "" : resolve(p))]]
+                    : [["", resolve]];
 
                 for (const [label, pick] of variants) {
                     cb({ file, line, call: m[1], label, body: parts.map(pick).join("") });
