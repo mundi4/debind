@@ -143,7 +143,7 @@ end
 --- 뒤라, 실사용자도 전투 중 상태가 바뀔 때마다 의존 바인딩 수만큼 `CallMethod`를 치른다.
 --- 아래 `UpdateBindings`가 같은 방식으로 갈린다.
 local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
-					self:CallMethod("printMacroText", t.attr or t.state or "?", s)
+	self:CallMethod("printMacroText", t.attr or t.state or "?", s)
 ]] or "";
 
 BindingDriver:SetAttribute("UpdateMacroTexts", [=[
