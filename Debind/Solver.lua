@@ -68,7 +68,20 @@ local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 -- `max` is the exhaustive half of the column invariant: it has to name every value the game
 -- can produce on this axis. One index past it and "no condition" stops standing for the whole
 -- space, boxes come out narrower than the conditions they represent, and bindings that can
--- still fire get deleted. Widening it is free; leaving it behind the game is not.
+-- still fire get deleted.
+--
+-- **Padding it is not the safe move.** A value the game cannot produce is a point no cover
+-- ever reaches, so it sits there uncovered: put one binding per form on a key plus one with no
+-- form condition, and the last one stops being deleted because it alone spans the phantoms.
+-- The number has to be right, not generous.
+--
+-- Right today, with the margins written down so this does not get re-derived:
+--   forms 10      -- `GetNumShapeshiftForms()`. Druid has the most and is nowhere near it;
+--                    Blizzard's own edit-mode placeholder is 10 (`StanceBar.lua:32`).
+--   bonusbars 5   -- vehicle/possess/override bars, a fixed set.
+--   groups 2      -- none/party/raid. Cannot grow.
+--   frameTypes 6  -- ours, not the game's (`FrameRegistry.lua`). Grows only if we grow it,
+--                    and `FRAMETYPE_ALL` is checked against the spec's point space.
 local function flagsToConditionFlags(value, max)
     if (value) then
         return value;
