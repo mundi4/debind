@@ -799,7 +799,214 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	
 
-### SecureBindings.lua #24 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #24 InstallSnippet
+	local info = ccframes[self]
+	if (not info) then
+		return
+	end
+
+	local n = MouseButtonNumbers[button]
+	if (not n) then
+		return
+	end
+
+	local mod = 0
+	if (IsAltKeyDown()) then
+		mod = mod + CONSTANTS.MOD_ALT
+	end
+	if (IsControlKeyDown()) then
+		mod = mod + CONSTANTS.MOD_CTRL
+	end
+	if (IsShiftKeyDown()) then
+		mod = mod + CONSTANTS.MOD_SHIFT
+	end
+
+	local byMod = ClickCastKeys[n]
+	local bindings = byMod and byMod[mod]
+	if (not bindings) then
+		return
+	end
+
+	local clickCast = true
+	local winner, winnerIndex, hoverUnit
+	local evalFrame = info
+
+
+
+
+
+
+	local unitframe = evalFrame
+	local hoverReaction, hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			if (PlayerCanAssist(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HELP
+			elseif (PlayerCanAttack(hoverUnit)) then
+				hoverReaction = CONSTANTS.REACTION_HARM
+			else
+				hoverReaction = CONSTANTS.REACTION_OTHER
+			end
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+	local memoReady = false
+
+
+
+	local subset = clickCast and "isClick" or "isNonClick"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+			if (t.hover ~= nil) then
+				if (t.hover == false) then
+					if (unitframe) then
+						match = false
+					end
+				elseif (not unitframe) then
+					match = false
+				else
+					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
+						match = false
+					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
+						match = false
+					end
+				end
+			end
+
+
+
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= States.combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+				(t.stealth ~= nil and t.stealth ~= States.stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+				(t.pet ~= nil and t.pet ~= States.pet)
+			)) then
+				match = false
+			end
+
+			if (match and t.customStates) then
+				for state, v in pairs(t.customStates) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+			if (match and t.known ~= nil and States[t.known] ~= true) then
+				match = false
+			end
+
+			if (match and t.checkedUnits) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitAssist)
+					wipe(ClickUnitAttack)
+				end
+
+
+
+
+
+
+
+
+				for u, cond in pairs(t.checkedUnits) do
+					local ok
+					if (cond == "never") then
+						ok = false
+					else
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						elseif (SpecialUnits[u]) then
+							unit = UnitMap[u]
+							needsExists = CustomUnits[u]
+						else
+							unit = u
+							needsExists = true
+						end
+
+						if (not unit) then
+							ok = (cond == false)
+						elseif (cond == "help") then
+							ok = ClickUnitAssist[unit]
+							if (ok == nil) then
+								ok = PlayerCanAssist(unit) and true or false
+								ClickUnitAssist[unit] = ok
+							end
+						elseif (cond == "harm") then
+							ok = ClickUnitAttack[unit]
+							if (ok == nil) then
+								ok = PlayerCanAttack(unit) and true or false
+								ClickUnitAttack[unit] = ok
+							end
+						else
+							local exists = true
+							if (needsExists) then
+								exists = ClickUnitExists[unit]
+								if (exists == nil) then
+									exists = UnitExists(unit) and true or false
+									ClickUnitExists[unit] = exists
+								end
+							end
+							ok = (cond == exists)
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				winnerIndex = i
+				
+				break
+			end
+		end
+	end
+
+	if (not winner or not winner.clickbutton) then
+		return
+	end
+
+	HandoffBindings = bindings
+	HandoffWinner = winner
+	HandoffIndex = winnerIndex
+	HandoffHoverUnit = hoverUnit
+	return "debind1"
+
+### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -811,8 +1018,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local clickCast
-	if (not bindings) then
+
+
+
+
+	local clickCast, handoff
+	if (button == "debind1") then
+		bindings = HandoffBindings
+		clickCast = true
+		handoff = true
+	elseif (not bindings) then
 		local n = MouseButtonNumbers[button]
 		if (n) then
 			local mod = 0
@@ -900,6 +1115,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local winner, winnerIndex, hoverUnit
 
+	if (handoff) then
+
+
+		winner = HandoffWinner
+		winnerIndex = HandoffIndex
+		hoverUnit = HandoffHoverUnit
+		HandoffBindings = nil
+		HandoffWinner = nil
+		HandoffHoverUnit = nil
+	else
 
 	local evalFrame = States.unitframe
 
@@ -1066,6 +1291,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				break
 			end
 		end
+	end
 	end
 
 
@@ -1241,7 +1467,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
-### SecureBindings.lua #25 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1253,8 +1479,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local clickCast
-	if (not bindings) then
+
+
+
+
+	local clickCast, handoff
+	if (button == "debind1") then
+		bindings = HandoffBindings
+		clickCast = true
+		handoff = true
+	elseif (not bindings) then
 		local n = MouseButtonNumbers[button]
 		if (n) then
 			local mod = 0
@@ -1339,6 +1573,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local winner, winnerIndex, hoverUnit
 
+	if (handoff) then
+
+
+		winner = HandoffWinner
+		winnerIndex = HandoffIndex
+		hoverUnit = HandoffHoverUnit
+		HandoffBindings = nil
+		HandoffWinner = nil
+		HandoffHoverUnit = nil
+	else
 
 	local evalFrame = States.unitframe
 
@@ -1506,6 +1750,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 		end
 	end
+	end
 
 
 
@@ -1589,7 +1834,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
-### SecureBindings.lua #26 InstallSnippet
+### SecureBindings.lua #27 InstallSnippet
 
 
 

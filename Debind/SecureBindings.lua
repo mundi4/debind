@@ -1079,6 +1079,67 @@ local EVAL_SNIPPET = [==[
 --- 반환값이 버튼 이름을 대신하고, 게임은 그 이름으로 `*type-<이름>` 등을 조회한다.
 --- 액션 속성은 `SetBindingAttributes`가 이미 버튼 이름별로 구워둔 그대로 쓴다.
 ---
+--- What a registered unit frame runs on its own OnClick, so a click-cast decision is made while
+--- the frame is still underneath us.
+---
+--- **Returning nil here is the whole point.** It leaves the button name alone, so the click
+--- carries on into Blizzard's click bindings and then the frame's own handler. That fallback is
+--- only reachable from this side: once the click has been sent on to our button the frame is
+--- behind us and there is nothing left to fall back to. So the conditions are judged here, and
+--- our button is only named when one of them actually matched.
+---
+--- The name it answers with is `debind1`, which pairs with the fixed `*type-debind1` /
+--- `*clickbutton-debind1` put on the frame at registration. It is a suffix nobody else uses, so
+--- unlike the old routing this leaves the frame's own `type1`/`type2` untouched.
+---
+--- Nothing is stored anywhere the frame can see; the winner is handed to the wrapper on our own
+--- button through the restricted environment both share.
+DebindPrivate.InstallSnippet(function(pre)
+	DebindPrivate.UnitFrameClickPre = pre;
+end, [==[
+	local info = ccframes[self]
+	if (not info) then
+		return
+	end
+
+	local n = MouseButtonNumbers[button]
+	if (not n) then
+		return
+	end
+
+	local mod = 0
+	if (IsAltKeyDown()) then
+		mod = mod + CONSTANTS.MOD_ALT
+	end
+	if (IsControlKeyDown()) then
+		mod = mod + CONSTANTS.MOD_CTRL
+	end
+	if (IsShiftKeyDown()) then
+		mod = mod + CONSTANTS.MOD_SHIFT
+	end
+
+	local byMod = ClickCastKeys[n]
+	local bindings = byMod and byMod[mod]
+	if (not bindings) then
+		return
+	end
+
+	local clickCast = true
+	local winner, winnerIndex, hoverUnit
+	local evalFrame = info
+]==] .. EVAL_SNIPPET .. [==[
+
+	if (not winner or not winner.clickbutton) then
+		return
+	end
+
+	HandoffBindings = bindings
+	HandoffWinner = winner
+	HandoffIndex = winnerIndex
+	HandoffHoverUnit = hoverUnit
+	return "debind1"
+]==]);
+
 --- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
 --- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.
 DebindPrivate.InstallSnippet(function(pre, post)
@@ -1102,8 +1163,16 @@ end, [==[
 	--
 	-- 이 갈래로 들어온 클릭은 아래 판정에서 **`isClick` 레코드**를 본다. 같은 키의 키보드
 	-- 쪽(`isNonClick`)과 조건이 다를 수 있으므로 섞으면 안 된다.
-	local clickCast
-	if (not bindings) then
+	-- **유닛 프레임 래퍼가 보낸 클릭.** 그쪽은 조건까지 다 보고 왔으므로 여기서는 고르지 않는다
+	-- (§4-2 - 안 맞으면 그쪽이 `nil`을 반환해 프레임의 원래 동작으로 떨어지고, 여기까지 오지도
+	-- 않는다). `clickCast`와 따로 두는 이유는 아직 옛 경로가 살아 있어서다 - 그쪽은 마우스 버튼
+	-- 이름으로 도착해 아래에서 스스로 고른다.
+	local clickCast, handoff
+	if (button == "debind1") then
+		bindings = HandoffBindings
+		clickCast = true
+		handoff = true
+	elseif (not bindings) then
 		local n = MouseButtonNumbers[button]
 		if (n) then
 			local mod = 0
@@ -1189,9 +1258,20 @@ end, [==[
 
 	local winner, winnerIndex, hoverUnit
 
+	if (handoff) then
+		-- 유닛 프레임 래퍼가 이미 골랐다. 여기서 다시 도는 것은 같은 답을 두 번 내는 것이고,
+		-- hover는 그쪽이 자기 자신을 보고 읽은 값이라 여기서 캐시로 다시 읽으면 오히려 나빠진다.
+		winner = HandoffWinner
+		winnerIndex = HandoffIndex
+		hoverUnit = HandoffHoverUnit
+		HandoffBindings = nil
+		HandoffWinner = nil
+		HandoffHoverUnit = nil
+	else
 	-- 키로 들어온 클릭이라 hover는 캐시에서 온다.
 	local evalFrame = States.unitframe
 ]==] .. EVAL_SNIPPET .. [==[
+	end
 ]==] .. CLICKTIME_VERIFY_SNIPPET .. [==[
 
 	-- **낼 것이 없으면 클릭을 취소한다.** 두 갈래로 도달한다:
