@@ -1,8 +1,19 @@
 -- solver 성능/한계 측정. `lua tests/run.lua --bench`
 --
--- 이 알고리즘의 유일한 실패 모드는 탐색 노드 수가 조용히 커지는 것이다.
--- 커지면 느려지고, MAX_NODES를 넘으면 그 바인딩의 판정을 포기한다
--- (= 조건을 복잡하게 쓰는 유저에게만 기능이 꺼진다). 그래서 시간과 노드 수를 같이 잰다.
+-- 이 알고리즘의 유일한 실패 모드는 탐색 비용이 조용히 커지는 것이다.
+-- 커지면 느려지고, MAX_NODES를 넘으면 그 바인딩의 판정을 포기한다. 그래서 시간과 노드 수를
+-- 같이 잰다.
+--
+-- Which user that lands on is the opposite of what this file used to claim. Cost falls as
+-- conditions pile on -- 40 bindings at density 0.2 take 21ms, the same 40 at 0.7 take 2.3ms.
+-- Tight conditions make small boxes that fall out on the disjointness test; sparse ones make
+-- large boxes that overlap and drive the recursion deep. The expensive key is a pile of
+-- barely-conditioned bindings, not a carefully conditioned one.
+--
+-- And the two columns do not agree with each other. 342 nodes taking 21ms is not something
+-- the node count explains; a node walks every live cover across every column, so the cost is
+-- nodes x covers x columns and `nodes` prices one term of it. Read the node column against
+-- MAX_NODES, and read time as time.
 --
 -- CI는 진짜 Lua 5.1로 돌린다. 와우 애드온이 도는 것과 같은 버전이므로
 -- 여기 나오는 숫자가 인게임 비용의 현실적인 근사치다.
