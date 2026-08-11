@@ -43,7 +43,6 @@ SecureHandlerExecute(BindingDriver, [[
 	ccframes = newtable()
 
 	MacroMap = newtable()
-	ClickAttrDefaultValues = newtable()
 	
 	DefaultClickFrame = self:GetFrameRef("clickFrame")
 	DefaultClickFrameName = DefaultClickFrame:GetName()
@@ -351,12 +350,12 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 		--
 		-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기서
 		-- "잡느냐 놓느냐"를 계속 정해야 한다 - 건너뛰면 놓아줘야 할 때 못 놓는다.
-		if (check and bindings.alwaysOurs and not bindings.hasClick) then
+		if (check and bindings.alwaysOurs) then
 			check = false
 		end
 
 		if (check) then
-			local keyBound, clickBound = not bindings.hasNonClick, not bindings.hasClick
+			local keyBound = not bindings.hasNonClick
 
 			-- 배선이 고정된 키만 키 역할을 통째로 건너뛴다. keyBound를 세워두면 아래
 			-- isNonClick 분기도, 끝의 `not keyBound` 해제도 안 돈다.
@@ -439,22 +438,6 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				end
 
 				if (match) then
-					if (not clickBound and unitframe and unitframe.routed and t.isClick) then
-						if (unitframe.clicks[key] ~= t) then
-							if (t.type == CONSTANTS.UNUSED) then
-								for k, v in pairs(t.clickAttrs) do
-									unitframe.frame:SetAttribute(k, ClickAttrDefaultValues[unitframe.frame][k])
-								end
-							else
-								for k, v in pairs(t.clickAttrs) do
-									unitframe.frame:SetAttribute(k, v or nil)
-								end
-							end
-							unitframe.clicks[key] = t
-						end
-						clickBound = t
-					end
-
 					if (not keyBound and t.isNonClick) then
 						-- **무엇을 걸 것인가는 이긴 액션이 아니라 세 갈래 중 하나다.**
 						--
@@ -493,7 +476,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 						keyBound = i
 					end
 
-					if (keyBound and clickBound) then
+					if (keyBound) then
 						break
 					end
 				end
@@ -504,15 +487,6 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				self:ClearBinding(key)
 			end
 
-			if (unitframe and bindings.hasClick and not clickBound) then
-				local current = unitframe.clicks[key]
-				if (unitframe.clicks[key]) then
-					for k, v in pairs(current.clickAttrs) do
-						unitframe.frame:SetAttribute(k, ClickAttrDefaultValues[unitframe.frame][k])
-					end
-					unitframe.clicks[key] = nil
-				end
-			end
 		end
 	end
 
@@ -635,57 +609,19 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 	end
 ]==] or "";
 
-BindingDriver:SetAttribute("ClearClickBindings", [==[
-	for frame, info in pairs(ccframes) do
-		if (info.clicks) then
-			for _, t in pairs(info.clicks) do
-				for attr, _ in pairs(t.clickAttrs) do
-					info.frame:SetAttribute(attr, ClickAttrDefaultValues[info.frame][attr])
-				end
-			end
-			wipe(info.clicks)
-		end
-	end
-]==]);
-
-BindingDriver:SetAttribute("ClearClickBindingsForButton", [==[
-	local info = ccframes[self]
-	if (info and info.clicks) then
-		for _, t in pairs(info.clicks) do
-			for attr, _ in pairs(t.clickAttrs) do
-				info.frame:SetAttribute(attr, ClickAttrDefaultValues[info.frame][attr])
-			end
-		end
-		wipe(info.clicks)
-	end
-]==]);
-
 BindingDriver:SetAttribute("InitFrame", [==[
 	local button = self
 	ccframes[button] = ccframes[button] or newtable()
 	ccframes[button].frame = button
-	ccframes[button].clicks = ccframes[button].clicks or newtable()
 	ccframes[button].frameType = 0
 	ccframes[button].reaction = 0
-	-- `clickbutton`은 여기 없다. 그쪽은 보안 스니펫이 못 쓴다(프레임 핸들이 그대로 저장되어
-	-- 비보안 쪽이 프레임으로 못 읽는다). 비보안 쪽에서 쓰고 되돌리는 것도 거기서 한다 -
-	-- `FrameRegistry.lua`의 `ApplyClickCastRouting`.
-	if (not ClickAttrDefaultValues[button]) then
-		ClickAttrDefaultValues[button] = newtable()
-		for i = 1, 5 do
-			ClickAttrDefaultValues[button]["*type"..i] = button:GetAttribute("*type"..i)
-			ClickAttrDefaultValues[button]["*macro"..i] = button:GetAttribute("*macro"..i)
-			ClickAttrDefaultValues[button]["*macrotext"..i] = button:GetAttribute("*macrotext"..i)
-			ClickAttrDefaultValues[button]["type"..i] = button:GetAttribute("type"..i)
-			ClickAttrDefaultValues[button]["macro"..i] = button:GetAttribute("macro"..i)
-			ClickAttrDefaultValues[button]["macrotext"..i] = button:GetAttribute("macrotext"..i)
-		end
-	end
+	-- `*clickbutton-debind1`은 여기 없다. 값이 프레임이라 보안 스니펫이 쓰면 핸들이 그대로
+	-- 저장되고 비보안 쪽이 진짜 프레임을 못 얻는다. 등록 때 비보안 쪽에서 한 번 쓴다
+	-- (`FrameRegistry.lua`의 `ApplyDebindRouting`).
 ]==]);
 
 BindingDriver:SetAttribute("DeinitFrame", [==[
 	local button = self
-	debind_driver:RunFor(button, debind_driver:GetAttribute("ClearClickBindingsForButton"))
 	local info = ccframes[button]
 	if (info) then
 		if (info == States.unitframe) then
@@ -699,7 +635,6 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 		info.frame = nil
 	end
 	ccframes[button] = nil
-	ClickAttrDefaultValues[button] = nil
 ]==]);
 
 BindingDriver:SetAttribute("update_hit_bounds", [==[
@@ -847,11 +782,7 @@ else
 				-- 프레임을 건너뛰므로(FrameRegistry.lua) 헤더로 들어온 프레임이 되돌아가는
 				-- 자리는 이 한 곳뿐이다. 안 부르면 그 프레임의 클릭이 계속 우리에게 온다.
 				--
-				-- 전투 중이면 안에서 큐로 미룬다 - 이 갈래는 보안 쪽에서 오므로 전투 중에도
-				-- 도달한다. **엔트리를 먼저 지운다** - 그쪽이 "아직 등록돼 있나"로 미뤄둔
-				-- 되돌리기와 살아 있는 등록을 가른다.
 				DebindPrivate.ccframes[button] = nil;
-				DebindPrivate.RestoreClickCastRouting(button);
 			end
 		end
 	end

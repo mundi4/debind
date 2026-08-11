@@ -281,7 +281,6 @@ wipe(OldStates)
 for k, v in pairs(States) do
     OldStates[k] = v
 end
-self:RunAttribute("ClearClickBindings")
 self:RunAttribute("ClearUnitAttributes")
 wipe(BindingsMap)
 wipe(ClickTimeKeys)
@@ -410,7 +409,6 @@ wipe(States)
     -- 클릭캐스팅 라우팅을 프레임들에 반영한다. **아래 상태 루프보다 먼저다** - 그쪽이
     -- `<접두사>type<번호>`를 걸므로, 짝인 `clickbutton`이 아직 없으면 그 사이의 클릭이
     -- 조용히 사라진다(`SECURE_ACTIONS.click`이 delegate가 없으면 아무것도 안 한다).
-    DebindPrivate.RefreshClickCastRouting();
 
     -- execute UpdateBindings with forceAll set
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
@@ -674,9 +672,6 @@ end
 
 function UpdateBindingsMap()
     appendLine("local bindings,t");
-    -- 이번 리빌드가 쓸 클릭캐스팅 라우팅 자리. 아래 `isClick` 갈래가 채우고, 리빌드가
-    -- 끝난 뒤 `RefreshClickCastRouting`이 등록된 프레임들에 반영한다.
-    wipe(DebindPrivate.ClickCastRouting);
     for key, bindingArray in pairs(DebindPrivate.KeyMap) do
         wipe(_updateFlags);
 
@@ -978,38 +973,15 @@ function UpdateBindingsMap()
                         --
                         -- 그 덕에 여기서 거는 `clickbutton`은 **언제나 같은 프레임**이다.
                         -- 승자가 바뀌어도 안 바뀌므로 옛 경로처럼 액션마다 다시 쓸 일이 없다.
+                        -- **아무것도 안 굽는다.** 유닛 프레임에 미리 찍어둘 것이 없어서다 -
+                        -- 프레임이 들고 있는 것은 등록 때 한 번 쓴 고정값
+                        -- (`*type-debind1` / `*clickbutton-debind1`)뿐이고, 어느 액션인지는
+                        -- 래퍼가 클릭 순간에 정한다.
+                        --
+                        -- 그래서 이 레코드가 클릭 갈래에 속한다는 표시 하나면 된다. 래퍼가
+                        -- 그것으로 볼 레코드를 고른다(`EVAL_SNIPPET`의 `subset`).
                         if (isClick) then
-                            appendLine("t.isClick,t.clickAttrs=true,newtable()");
-                            if (clickframe and clickbutton) then
-                                appendLine([[
-t.clickAttrs["%1$stype%2$d"]="click"
-t.clickAttrs["%1$smacro%2$d"]=false
-t.clickAttrs["%1$smacrotext%2$d"]=false
-]],
-                                    buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
-                                    button);
-
-                                -- **짝이 되는 `clickbutton`은 여기서 안 나간다.** 보안
-                                -- 스니펫에서 프레임 핸들로 속성을 쓰면 비보안 쪽이 진짜
-                                -- 프레임이 아니라 **핸들 그대로** 읽는다. 그러면
-                                -- `SECURE_ACTIONS.click`의 `delegate:HasAccessConstraints()`가
-                                -- nil 호출로 죽는다(SecureTemplates.lua:564).
-                                --
-                                -- 값이 언제나 같은 프레임이라 상태에 안 달렸다. 그래서
-                                -- 전투 밖에 비보안 쪽에서 프레임마다 한 번 쓴다
-                                -- (`FrameRegistry.lua`의 `ApplyClickCastRouting`).
-                                DebindPrivate.ClickCastRouting[format("%sclickbutton%d",
-                                    buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
-                                    button)] = true;
-                            else --if (_type == Constants.UNUSED) then
-                                appendLine([[
-t.clickAttrs["%1$stype%2$d"]=false
-t.clickAttrs["%1$smacro%2$d"]=false
-t.clickAttrs["%1$smacrotext%2$d"]=false
-]],
-                                    buttonPrefix or Constants.CLICKBINDING_NON_MOD_PREFIX,
-                                    button);
-                            end
+                            appendLine("t.isClick=true");
                             _updateFlags.unitframe = true;
                         end
 
@@ -1035,8 +1007,6 @@ t.clickAttrs["%1$smacrotext%2$d"]=false
         end
 
         if (hasClick) then
-            appendLine("bindings.hasClick=true");
-
             -- 클릭캐스팅으로 도착할 자리를 등록한다. 유닛 프레임이 `type="click"`으로 넘기면
             -- 래퍼는 마우스 버튼 이름밖에 못 받으므로(`/click`과 달리 이름을 못 싣는다),
             -- **버튼 번호와 수식어로 이 키를 되찾는다.**

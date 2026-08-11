@@ -122,15 +122,6 @@ function Events.PLAYER_REGEN_ENABLED()
         end
         wipe(DebindPrivate.RegisterClickQueue);
     end
-    -- 전투 중에 헤더에서 해제된 프레임. 그때는 보호된 프레임에 비보안으로 못 써서 미뤄둔
-    -- `clickbutton` 되돌리기다.
-    if (#DebindPrivate.RestoreRoutingQueue > 0) then
-        for i = 1, #DebindPrivate.RestoreRoutingQueue do
-            DebindPrivate.RestoreClickCastRouting(DebindPrivate.RestoreRoutingQueue[i]);
-        end
-        wipe(DebindPrivate.RestoreRoutingQueue);
-    end
-
     if (DebindPrivate.updateBindingsSuspended) then
         DebindPrivate.updateBindingsSuspended = nil;
         DebindPrivate.UpdateBindings();

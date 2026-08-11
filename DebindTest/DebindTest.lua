@@ -1172,6 +1172,60 @@ end
 
 -- Click-casting decides at the click now, in a wrapper on the frame rather than in attributes
 -- stamped on it ahead of time. Clicking is the only way to reach that decision.
+-- The claim the routing change was made for: a registered frame's own action slots are not
+-- somewhere this addon writes. They used to be -- click-casting worked by overwriting `type1`
+-- and remembering what had been there -- so this could not have been asserted before now.
+--
+-- No click needed; it only reads.
+RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
+    description = "등록된 프레임의 type1/2/3에 우리가 쓴 것이 없는가 (블리자드 프레임 포함)",
+    run = function()
+        local NAME = "Click-cast non-invasion"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            hover = true,
+            reactions = Constants.REACTION_ALL,
+            frameTypes = Constants.FRAMETYPE_ALL,
+        })
+        ApplyBindings()
+
+        local targets, terr = ClickCastTargets()
+        if not targets then return Fail(NAME, terr) end
+        Wait(0.4)
+
+        local checked = {}
+        for _, target in ipairs(targets) do
+            local frame = target.frame
+
+            -- Ours is a suffix nobody else uses, and it is what carries the click to us.
+            if frame:GetAttribute("*type-debind1") ~= "click" then
+                return Fail(NAME, format("%s: *type-debind1=%s, click 이어야 한다",
+                    target.label, tostring(frame:GetAttribute("*type-debind1"))))
+            end
+
+            -- And nothing of ours in the slots that belong to the frame. "click" is the value the
+            -- old routing wrote; a frame of its own may legitimately hold other types.
+            for i = 1, 5 do
+                for _, attr in ipairs({ "*type" .. i, "type" .. i }) do
+                    if frame:GetAttribute(attr) == "click" then
+                        return Fail(NAME, format(
+                            "%s: %s 에 click 이 남아 있다. 옛 라우팅이 아직 그 자리를 쓴다",
+                            target.label, attr))
+                    end
+                end
+            end
+            checked[#checked + 1] = target.label
+        end
+
+        return Pass(NAME, table.concat(checked, ", ") .. " — 남의 자리 비어 있음")
+    end,
+})
+
 RegisterTest("Click-cast: the frame's wrapper picks a winner", {
     description = "유닛 프레임 클릭이 래퍼까지 닿아 조건에 맞는 레코드를 고르는가 (우리 프레임 + 블리자드 프레임)",
     run = function()

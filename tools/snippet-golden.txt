@@ -85,13 +85,6 @@ DelegateFrameNames[frame] = frame:GetName()
 			self:RunFor(button, self:GetAttribute("DeinitFrame"))
 		
 
-### FrameRegistry.lua #3 SecureHandlerExecute
-		local b = self:GetFrameRef("clickcast_button")
-		if (ccframes[b]) then
-			ccframes[b].routed = true
-		end
-	
-
 ### SecureBindings.lua #1 SecureHandlerExecute
 
 
@@ -108,7 +101,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	ccframes = newtable()
 
 	MacroMap = newtable()
-	ClickAttrDefaultValues = newtable()
 	
 	DefaultClickFrame = self:GetFrameRef("clickFrame")
 	DefaultClickFrameName = DefaultClickFrame:GetName()
@@ -462,12 +454,12 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-		if (check and bindings.alwaysOurs and not bindings.hasClick) then
+		if (check and bindings.alwaysOurs) then
 			check = false
 		end
 
 		if (check) then
-			local keyBound, clickBound = not bindings.hasNonClick, not bindings.hasClick
+			local keyBound = not bindings.hasNonClick
 
 
 
@@ -550,22 +542,6 @@ DelegateFrameNames[frame] = frame:GetName()
 				end
 
 				if (match) then
-					if (not clickBound and unitframe and unitframe.routed and t.isClick) then
-						if (unitframe.clicks[key] ~= t) then
-							if (t.type == CONSTANTS.UNUSED) then
-								for k, v in pairs(t.clickAttrs) do
-									unitframe.frame:SetAttribute(k, ClickAttrDefaultValues[unitframe.frame][k])
-								end
-							else
-								for k, v in pairs(t.clickAttrs) do
-									unitframe.frame:SetAttribute(k, v or nil)
-								end
-							end
-							unitframe.clicks[key] = t
-						end
-						clickBound = t
-					end
-
 					if (not keyBound and t.isNonClick) then
 
 
@@ -604,7 +580,7 @@ DelegateFrameNames[frame] = frame:GetName()
 						keyBound = i
 					end
 
-					if (keyBound and clickBound) then
+					if (keyBound) then
 						break
 					end
 				end
@@ -615,68 +591,23 @@ DelegateFrameNames[frame] = frame:GetName()
 				self:ClearBinding(key)
 			end
 
-			if (unitframe and bindings.hasClick and not clickBound) then
-				local current = unitframe.clicks[key]
-				if (unitframe.clicks[key]) then
-					for k, v in pairs(current.clickAttrs) do
-						unitframe.frame:SetAttribute(k, ClickAttrDefaultValues[unitframe.frame][k])
-					end
-					unitframe.clicks[key] = nil
-				end
-			end
 		end
 	end
 
 	wipe(DirtyFlags)
 
 ### SecureBindings.lua #10 SetAttribute
-	for frame, info in pairs(ccframes) do
-		if (info.clicks) then
-			for _, t in pairs(info.clicks) do
-				for attr, _ in pairs(t.clickAttrs) do
-					info.frame:SetAttribute(attr, ClickAttrDefaultValues[info.frame][attr])
-				end
-			end
-			wipe(info.clicks)
-		end
-	end
-
-### SecureBindings.lua #11 SetAttribute
-	local info = ccframes[self]
-	if (info and info.clicks) then
-		for _, t in pairs(info.clicks) do
-			for attr, _ in pairs(t.clickAttrs) do
-				info.frame:SetAttribute(attr, ClickAttrDefaultValues[info.frame][attr])
-			end
-		end
-		wipe(info.clicks)
-	end
-
-### SecureBindings.lua #12 SetAttribute
 	local button = self
 	ccframes[button] = ccframes[button] or newtable()
 	ccframes[button].frame = button
-	ccframes[button].clicks = ccframes[button].clicks or newtable()
 	ccframes[button].frameType = 0
 	ccframes[button].reaction = 0
 
 
 
-	if (not ClickAttrDefaultValues[button]) then
-		ClickAttrDefaultValues[button] = newtable()
-		for i = 1, 5 do
-			ClickAttrDefaultValues[button]["*type"..i] = button:GetAttribute("*type"..i)
-			ClickAttrDefaultValues[button]["*macro"..i] = button:GetAttribute("*macro"..i)
-			ClickAttrDefaultValues[button]["*macrotext"..i] = button:GetAttribute("*macrotext"..i)
-			ClickAttrDefaultValues[button]["type"..i] = button:GetAttribute("type"..i)
-			ClickAttrDefaultValues[button]["macro"..i] = button:GetAttribute("macro"..i)
-			ClickAttrDefaultValues[button]["macrotext"..i] = button:GetAttribute("macrotext"..i)
-		end
-	end
 
-### SecureBindings.lua #13 SetAttribute
+### SecureBindings.lua #11 SetAttribute
 	local button = self
-	debind_driver:RunFor(button, debind_driver:GetAttribute("ClearClickBindingsForButton"))
 	local info = ccframes[button]
 	if (info) then
 		if (info == States.unitframe) then
@@ -690,9 +621,8 @@ DelegateFrameNames[frame] = frame:GetName()
 		info.frame = nil
 	end
 	ccframes[button] = nil
-	ClickAttrDefaultValues[button] = nil
 
-### SecureBindings.lua #14 SetAttribute
+### SecureBindings.lua #12 SetAttribute
 	local info = ccframes[self]
 	local _, _, w, h = self:GetRect()
 	if (w and h and w > 0 and h > 0) then
@@ -704,7 +634,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		info.b = info.insetB / h
 	end
 
-### SecureBindings.lua #15 SetAttribute
+### SecureBindings.lua #13 SetAttribute
 	local unit = self:GetEffectiveAttribute("unit")
 
 	local unitframe = ccframes[self]
@@ -736,7 +666,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-### SecureBindings.lua #16 SetAttribute
+### SecureBindings.lua #14 SetAttribute
 	local unitframe = States.unitframe
 	if (not unitframe) then return end
 	States.unitframe = nil
@@ -746,27 +676,27 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	end
 
-### SecureBindings.lua #17 SetAttribute
+### SecureBindings.lua #15 SetAttribute
 	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
 
-### SecureBindings.lua #18 SetAttribute
+### SecureBindings.lua #16 SetAttribute
 	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onleave"))
 
-### SecureBindings.lua #19 SetAttribute
+### SecureBindings.lua #17 SetAttribute
 		return danglingButton and danglingButton:GetAttribute("unit") or nil
 	
 
-### SecureBindings.lua #20 SetAttribute
+### SecureBindings.lua #18 SetAttribute
 		local clique_header = self:GetFrameRef("clique_header")
 		local unit = clique_header:RunAttribute("debind_gethoverunit")
 		return unit
 	
 
-### SecureBindings.lua #21 SetAttribute
+### SecureBindings.lua #19 SetAttribute
 		return States.unitframe and States.unitframe.unit or nil
 	
 
-### SecureBindings.lua #22 SetAttribute
+### SecureBindings.lua #20 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
 		if (ccframes[button]) then
 			return
@@ -786,7 +716,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		self:CallMethod("OnClickCastRegister", button:GetName())
 	
 
-### SecureBindings.lua #23 SetAttribute
+### SecureBindings.lua #21 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
 		if (ccframes[button]) then
 			self:RunFor(button, self:GetAttribute("DeinitFrame"))
@@ -799,7 +729,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	
 
-### SecureBindings.lua #24 InstallSnippet
+### SecureBindings.lua #22 InstallSnippet
 	local info = ccframes[self]
 	if (not info) then
 		return
@@ -1006,7 +936,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	HandoffHoverUnit = hoverUnit
 	return "debind1"
 
-### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #23 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1467,7 +1397,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
-### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #24 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1834,7 +1764,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
-### SecureBindings.lua #27 InstallSnippet
+### SecureBindings.lua #25 InstallSnippet
 
 
 
@@ -1975,7 +1905,6 @@ wipe(OldStates)
 for k, v in pairs(States) do
     OldStates[k] = v
 end
-self:RunAttribute("ClearClickBindings")
 self:RunAttribute("ClearUnitAttributes")
 wipe(BindingsMap)
 wipe(ClickTimeKeys)
