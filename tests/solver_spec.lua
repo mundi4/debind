@@ -640,6 +640,100 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 2-c. mask column brute force
+    --
+    -- Section 2 generates booleans and single-valued axes only. A `flagsToConditionFlags`
+    -- column is neither: the condition is a **subset** of the axis, so a cover can overlap a
+    -- region without containing it and the split has real work to do. Not one of those columns
+    -- had brute-force coverage -- the same hole that was hiding the frameTypes guard.
+    --
+    -- groups (3 values) and forms (11) are the small and large end of that shape, and
+    -- specialbar rides along so a boolean is in the mix. 66 points, enumerated whole.
+    ---------------------------------------------------------------------------
+
+    -- The point space states the axis widths on its own instead of deriving them, so that the
+    -- three places that have to agree are pinned pairwise: Constants against this literal here,
+    -- and `Solver.lua`'s `max` argument against the fuzzer below. Derive it and Constants could
+    -- move without the fuzzer noticing.
+    check(Constants.GROUP_ALL == 2 ^ 3 - 1, "GROUP_ALL이 3비트가 아님 -- 아래 점 공간을 고칠 것");
+    check(Constants.FORM_ALL == 2 ^ 11 - 1, "FORM_ALL이 11비트가 아님 -- 아래 점 공간을 고칠 것");
+
+    local MASK_POINTS = {};
+    do
+        local GROUPS = { Constants.GROUP_NONE, Constants.GROUP_PARTY, Constants.GROUP_RAID };
+        for _, group in ipairs(GROUPS) do
+            for formIndex = 0, 10 do
+                for _, specialbar in ipairs({ true, false }) do
+                    MASK_POINTS[#MASK_POINTS + 1] = {
+                        group = group, form = 2 ^ formIndex, specialbar = specialbar,
+                    };
+                end
+            end
+        end
+    end
+
+    local function matchesMaskPoint(b, p)
+        if (b.groups and band(b.groups, p.group) == 0) then return false; end
+        if (b.forms and band(b.forms, p.form) == 0) then return false; end
+        if (b.specialbar ~= nil and b.specialbar ~= p.specialbar) then return false; end
+        return true;
+    end
+
+    local function describeMask(b)
+        local parts = {};
+        if (b.groups) then parts[#parts + 1] = ("groups=%d"):format(b.groups); end
+        if (b.forms) then parts[#parts + 1] = ("forms=%d"):format(b.forms); end
+        if (b.specialbar ~= nil) then parts[#parts + 1] = "specialbar=" .. tostring(b.specialbar); end
+        if (#parts == 0) then
+            return b.name .. "{}";
+        end
+        return b.name .. "{" .. table.concat(parts, ",") .. "}";
+    end
+
+    -- Masks are never rolled as 0. An empty mask means the condition can never hold, and the
+    -- solver keeps such a binding rather than deleting it (see isCovered) -- which is the right
+    -- answer but not the one the reference computes, since the reference asks "is there a point
+    -- where this fires" and there is none. That case gets its own test below.
+    local function randomMaskBinding(name)
+        local b = { name = name };
+
+        if (nextRandom() < 0.7) then
+            b.groups = math.floor(nextRandom() * Constants.GROUP_ALL) + 1;
+        end
+        if (nextRandom() < 0.7) then
+            b.forms = math.floor(nextRandom() * Constants.FORM_ALL) + 1;
+        end
+
+        local specialbar = pick({ "nil", true, false });
+        if (specialbar ~= "nil") then b.specialbar = specialbar; end
+
+        return b;
+    end
+
+    test("마스크 컬럼 무작위 바인딩 집합 2000개 - 무차별 대조와 일치", function()
+        for case = 1, 2000 do
+            local count = math.floor(nextRandom() * 6) + 2;
+            local bindings = {};
+            for i = 1, count do
+                bindings[i] = randomMaskBinding("b" .. i);
+            end
+            compareAgainstReference(bindings, "mask case " .. case,
+                MASK_POINTS, matchesMaskPoint, describeMask);
+        end
+    end);
+
+    -- 0 is a condition no state satisfies. `flagsToConditionFlags` passes it through rather
+    -- than reading it as "unset" -- 0 is truthy in Lua -- and the solver then finds the box
+    -- disjoint from every cover, so it survives instead of being deleted. Deleting it would be
+    -- defensible; warning about it is `GetBindingIssue`'s job and that is the split we chose.
+    test("마스크가 0이면 지워지지 않는다", function()
+        expectSurvives({
+            { name = "cover",   groups = Constants.GROUP_ALL },
+            { name = "subject", groups = 0 },
+        }, "subject");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 3. 잔여 상자 폭발 방지
     ---------------------------------------------------------------------------
 
