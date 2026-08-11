@@ -1,4 +1,4 @@
--- IsKeyAlwaysClickBound 테스트. 와우 클라이언트 불필요.
+-- IsKeyAlwaysOurs 테스트. 와우 클라이언트 불필요.
 --
 -- 이 술어가 답하는 것은 **"이 키의 배선이 고정인가"** 하나다 - 즉 SetBindingClick 한 번으로
 -- 끝나고 상태에 따라 ClearBinding/SetBinding으로 갈아탈 일이 없는가.
@@ -16,7 +16,7 @@
 -- isConditional이 이미 채워져 있다.
 
 return function(DebindPrivate)
-    local IsKeyAlwaysClickBound = DebindPrivate.IsKeyAlwaysClickBound;
+    local IsKeyAlwaysOurs = DebindPrivate.IsKeyAlwaysOurs;
     local Constants = DebindPrivate.Constants;
 
     local T = { passed = 0, failures = {} };
@@ -41,20 +41,25 @@ return function(DebindPrivate)
     end
 
     --- 기본은 "키를 잡는 무조건 주문 액션". 각 테스트가 필요한 것만 덮어쓴다.
+    --- `isConditional`은 프로덕션에서 `IsConditionalAction(action)`으로 파생된다 - **조건이 하나도
+    --- 없는데 참일 수 없다.** 플래그만 세워두면 판정이 진짜 조건을 읽는 순간(도달 가능성) 그
+    --- 레코드는 무조건짜리로 보이고, 표현할 수 없는 모양을 시험하게 된다. 그래서 조건을 하나
+    --- 같이 세운다. 어느 축이든 상관없고 "덮이지 않은 데가 있다"는 것만 있으면 된다.
     local function b(t)
         t = t or {};
         if (t.isNonClick == nil) then t.isNonClick = true; end
         if (t.isConditional == nil) then t.isConditional = false; end
+        if (t.isConditional and t.combat == nil) then t.combat = true; end
         t.type = t.type or Constants.SPELL;
         return t;
     end
 
     local function expectTrue(bindings, msg)
-        check(IsKeyAlwaysClickBound(bindings) == true, msg);
+        check(IsKeyAlwaysOurs(bindings) == true, msg);
     end
 
     local function expectFalse(bindings, msg)
-        check(IsKeyAlwaysClickBound(bindings) == false, msg);
+        check(IsKeyAlwaysOurs(bindings) == false, msg);
     end
 
     ---------------------------------------------------------------------------

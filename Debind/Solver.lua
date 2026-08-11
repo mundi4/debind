@@ -554,6 +554,127 @@ function DebindPrivate.CheckUnreachableBindings(bindings)
     wipe(_conditionsMap);
 end
 
+--- A record with no conditions at all: every column comes out full, so its box is the whole
+--- space. Appending it to a sorted key and asking whether it is reachable asks exactly "do the
+--- records before it cover everything?".
+local _sentinel = {};
+local _sentinelArray = {};
+
+--- Is this key ours no matter what the state does?
+---
+--- The answer is yes when nothing that would hand the key back is reachable. Two kinds do that:
+--- a reachable `UNUSED` (we release the key) or a reachable `COMMAND` (we bind it with
+--- `SetBinding`, not a click). And the sentinel stands for the case nobody wrote down -- the
+--- state where no record matches at all, which also hands the key back.
+---
+--- **This subsumes the syntactic test it replaces.** `IsKeyAlwaysClickBound` walked for an
+--- unconditional non-click record and gave up at the first `UNUSED`/`COMMAND`; if such a record
+--- exists at position k, the sentinel is covered by it, every `UNUSED`/`COMMAND` after k is
+--- covered too, and any before k is not -- the same three answers. What is new is the key whose
+--- author covered an axis instead: `[전투] A / [비전투] B` is always ours and no unconditional
+--- record appears in it.
+---
+--- **It only ever errs one way.** Opaque records (conditions with no axis) and running out of
+--- work budget both count as "not covered", so the answer can be a false no and never a false
+--- yes. A false yes would leave a key bound that should have been released.
+function DebindPrivate.IsKeyAlwaysOurs(bindings)
+    local count = #bindings;
+    if (count == 0) then
+        return false;
+    end
+
+    -- **키를 잡는 레코드만 본다.**
+    --
+    -- `click-time-phase3.md` §3은 축 인코딩이 이 일을 대신하므로 거를 필요가 없다고 적었는데,
+    -- **틀렸다.** hover 컬럼이 클릭 전용 레코드를 `NONE` 밖으로 밀어내는 것은 그 레코드가
+    -- `hover`를 들고 있을 때뿐이고, `isClick`은 `SETCUSTOM`이나 `unit == "hover"`로도 선다.
+    -- 그런 레코드는 hover 컬럼이 센티넬과 같은 상자라 **센티넬을 덮어버린다** - 키를 잡는
+    -- 레코드가 하나도 없는 키가 "언제나 우리 것"으로 나온다.
+    --
+    -- 묻는 것이 키의 배선이므로 키를 안 잡는 레코드는 덮개로도 세지 않고 돌려주는 쪽으로도
+    -- 안 센다. 그냥 없는 것이다.
+    local arr = _sentinelArray;
+    local n = 0;
+    for i = 1, count do
+        local binding = bindings[i];
+        if (binding.isNonClick) then
+            n = n + 1;
+            arr[n] = binding;
+        end
+    end
+
+    if (n == 0) then
+        return false;
+    end
+
+    count = n;
+    arr[count + 1] = _sentinel;
+    for i = count + 2, #arr do
+        arr[i] = nil;
+    end
+
+    buildLayout(arr);
+    for i = 1, count + 1 do
+        _conditionsMap[arr[i]] = buildConditionSet(arr[i], {});
+    end
+
+    -- The sentinel is in the array for this too, and that is what makes pruning safe here. A
+    -- column every real record shares would otherwise be dropped as constant, and dropping it
+    -- would hide the hole the sentinel exists to find - every record having `combat=true` says
+    -- nothing about `combat=false`. With the sentinel present that column is not constant.
+    pruneConstantColumns(arr);
+
+    local answer = true;
+    local callBudget = MAX_CALL_WORK;
+
+    for i = 1, count + 1 do
+        local binding = arr[i];
+        local handsBack = binding == _sentinel
+            or binding.type == Constants.UNUSED
+            or binding.type == Constants.COMMAND;
+
+        if (handsBack) then
+            if (i == 1 or _opaque[binding]) then
+                answer = false;
+                break;
+            end
+
+            local coverCount = 0;
+            for j = 1, i - 1 do
+                local other = arr[j];
+                if (not _opaque[other]) then
+                    coverCount = coverCount + 1;
+                    _covers[coverCount] = _conditionsMap[other];
+                end
+            end
+
+            if (coverCount == 0 or callBudget <= 0) then
+                answer = false;
+                break;
+            end
+
+            local granted = MAX_WORK;
+            if (granted > callBudget) then
+                granted = callBudget;
+            end
+            _workBudget = granted;
+            _nodeCount = 0;
+            _gaveUp = false;
+
+            local covered = isCovered(_conditionsMap[binding], _covers, coverCount, 1);
+            callBudget = callBudget - (granted - _workBudget);
+
+            if (_gaveUp or not covered) then
+                answer = false;
+                break;
+            end
+        end
+    end
+
+    wipe(_conditionsMap);
+    return answer;
+end
+
 function DebindPrivate.IsUnreachableAction(action)
     local binding = DebindPrivate.GetBindingInfoForAction(action);
     return UnreachableBindingCache[binding];

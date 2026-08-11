@@ -39,6 +39,7 @@ local specs = {
     { name = "issue", path = root .. "/issue_spec.lua" },
     { name = "clicktime", path = root .. "/clicktime_spec.lua" },
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
+    { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};

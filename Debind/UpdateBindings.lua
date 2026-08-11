@@ -718,7 +718,7 @@ function UpdateBindingsMap()
         --   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
         --   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
         --
-        -- `IsKeyAlwaysClickBound`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이
+        -- `IsKeyAlwaysOurs`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이
         -- 거짓이면 두 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가
         -- 이미 적어둔 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히
         -- 클릭 시점에 정한다."
@@ -735,7 +735,7 @@ function UpdateBindingsMap()
 
         -- 키 배선까지 고정이다. 한 번 `SetBindingClick` 걸고 상태 루프는 이 키의 키 역할을
         -- 아예 안 본다.
-        local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysClickBound(bindingArray);
+        local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysOurs(bindingArray);
 
         local first = true;
 

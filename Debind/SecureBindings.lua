@@ -1215,8 +1215,8 @@ end, [==[
 	--   winner 없음        live로 아무 조건도 안 맞았다
 	--   clickbutton 없음   이긴 것이 UNUSED나 COMMAND다. 둘 다 클릭이 아니다
 	--
-	-- 배선이 고정된 키(alwaysOurs)에서는 둘 다 도달 불가다 - `IsKeyAlwaysClickBound`가
-	-- 무조건 클릭 액션의 존재를 보장한다. 나머지 clickTime 키에서는 **정상적으로 도달한다.**
+	-- 배선이 고정된 키(alwaysOurs)에서는 둘 다 도달 불가다 - `IsKeyAlwaysOurs`가
+	-- 조건 공간이 전부 덮였음을 보장한다. 나머지 clickTime 키에서는 **정상적으로 도달한다.**
 	-- 상태 루프가 묵은 값으로 "클릭이 이긴다"고 보고 걸어둔 뒤, 누르는 순간 live로는 놓아줬어야
 	-- 하는 경우다.
 	--

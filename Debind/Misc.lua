@@ -647,47 +647,6 @@ function DebindPrivate.RefreshGameMenuKeys()
     DebindPrivate.gmKey1, DebindPrivate.gmKey2 = GetBindingKey("TOGGLEGAMEMENU");
 end
 
---- 이 키가 **항상 클릭으로 걸려 있는가** - `SetBindingClick` 한 번으로 끝나고, 상태에 따라
---- `ClearBinding`이나 `SetBinding`으로 갈아탈 일이 없는가.
----
---- 이름의 두 축이 그대로 거짓 조건이다:
----   "always"      실행 순서 끝까지 무조건 액션이 없으면 아무것도 안 맞는 때가 생기고,
----                 그러면 키를 놓아줘야 한다.
----   "click bound" UNUSED는 `ClearBinding`, COMMAND는 `SetBinding`으로 나간다. 둘 다 클릭이
----                 아니라서 클릭 프레임으로 해결할 방법이 없다.
----
---- **"우리 것인가"를 묻는 게 아니다.** COMMAND 바인딩은 우리가 `SetBinding`으로 직접 건
---- 것이라 누구보다 우리 것인데 여기서는 거짓이다. 가르는 축은 소유가 아니라 클릭 해결
---- 가능성이다.
----
---- 참이면 그 키의 "어느 액션인가"를 클릭 시점으로 내릴 수 있다. 거짓이면 "이 키를 어떻게
---- 걸 것인가"가 상태에 의존하므로 지금 방식(상태 구동)으로 남는다.
----
---- `isNonClick`인 항목만 센다. 클릭캐스팅 전용 레코드는 키를 잡는 일과 무관하고, 걸 수단이
---- 없어 떨궈진 레코드는 `UpdateBindingsMap`이 이미 `isNonClick`을 false로 만들어 둔다.
---- **그래서 전처리 루프보다 먼저 부르면 안 된다** - 전부 nil이라 조용히 거짓만 나온다.
----
---- press-and-hold 제외는 여기 없다. 그런 키도 "항상 클릭으로 걸려 있다"는 참이고, 못 옮기는
---- 이유는 전혀 다른 것(맨이름 프레임 플래그)이라 호출부의 정책으로 둔다.
-function DebindPrivate.IsKeyAlwaysClickBound(bindings)
-    for i = 1, #bindings do
-        local binding = bindings[i];
-        if (binding.isNonClick) then
-            if (binding.type == Constants.UNUSED or binding.type == Constants.COMMAND) then
-                -- 비클릭 액션이 A보다 앞에 있거나 A 자신이다.
-                return false;
-            end
-            if (not binding.isConditional) then
-                -- A를 찾았다. 이 아래는 도달하지 않으므로 볼 필요가 없다.
-                return true;
-            end
-        end
-    end
-
-    -- 끝까지 무조건 액션이 없다. 아무것도 안 맞는 때가 생긴다.
-    return false;
-end
-
 function DebindPrivate.IsKeyInvalidForAction(action, key)
     if (key == DebindPrivate.gmKey1 or key == DebindPrivate.gmKey2) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
