@@ -139,8 +139,58 @@ end
 --- postBody)`에서는 치환 횟수가 postBody가 되어 "Invalid post-handler body"로 터진다.
 --- 그리고 그 오류는 **파일의 나머지를 통째로 중단시킨다** - 뒤따르는 속성들이 전부 정의되지
 --- 않은 채로 게임이 계속 돌아서, 증상이 엉뚱한 곳(FrameRegistry의 OnEnter 래핑)에서 난다.
+--- What each `PROBE.<name>(...)` becomes in a shipped build.
+---
+--- The point of writing them as probes at all is that they are **the plain call and nothing
+--- else** once baked. A body carrying `PROBE.UnitExists(unit)` produces the same bytes as one
+--- that always said `UnitExists(unit)`; `tools/snippet-golden.txt` is what holds that to it.
+---
+--- A name mapping to `false` disappears entirely, which is how a probe that only exists to report
+--- something outward costs a real user nothing at all -- not a check that fails, not a table
+--- lookup that misses, no line.
+DebindPrivate.SNIPPET_PROBES_LIVE = {
+	UnitExists = "UnitExists(%s)",
+	PlayerCanAssist = "PlayerCanAssist(%s)",
+	PlayerCanAttack = "PlayerCanAttack(%s)",
+	PlayerIsChanneling = "PlayerIsChanneling(%s)",
+	SecureCmdOptionParse = "SecureCmdOptionParse(%s)",
+
+	-- Reporting only. Nothing is computed from it, so there is nothing to keep.
+	Winner = false,
+};
+
+--- Replaces the `PROBE.<name>(args)` tokens.
+---
+--- Arguments are taken as far as the first `)`, which is all these ever need and keeps the
+--- substitution a regular one. A nested call would simply not match, and the leftover token is
+--- caught below rather than compiled into a snippet that fails somewhere else.
+local function applyProbes(str, table_)
+	local result = str:gsub("PROBE%.([_A-Za-z0-9]+)%(([^()]*)%)", function(name, args)
+		local form = table_[name];
+		assert(form ~= nil, "unknown probe: " .. name);
+		if (form == false) then
+			return "";
+		end
+		return format(form, args);
+	end);
+
+	assert(not result:find("PROBE%.", 1, false),
+		"a PROBE token survived substitution - nested parentheses in its arguments?");
+
+	return result;
+end
+
+-- Exposed for `tools/check-snippet-golden.js`, which bakes every body with the live table to see
+-- that a probe changes nothing. A second copy of this rule in JavaScript could drift, and a
+-- drifted one would be guarding something other than what gets baked.
+DebindPrivate.applyProbesForTools = applyProbes;
+
 function DebindPrivate.BakeSnippet(str)
-	local result = DebindPrivate.StripSnippetComments(str):gsub("CONSTANTS%.([_A-Za-z0-9]+)", function(m)
+	local probes = (DebindPrivate.SnippetProbes and DebindPrivate.SnippetProbes.expand)
+		or DebindPrivate.SNIPPET_PROBES_LIVE;
+
+	local result = applyProbes(DebindPrivate.StripSnippetComments(str), probes)
+		:gsub("CONSTANTS%.([_A-Za-z0-9]+)", function(m)
 		local value = Constants[m];
 		assert(value ~= nil, m);
 		if (type(value) == "string") then

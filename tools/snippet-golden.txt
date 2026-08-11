@@ -1056,6 +1056,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match) then
 				winner = t
 				winnerIndex = i
+				
 				break
 			end
 		end
@@ -1488,6 +1489,7 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (match) then
 				winner = t
 				winnerIndex = i
+				
 				break
 			end
 		end

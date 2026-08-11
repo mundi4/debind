@@ -1155,6 +1155,7 @@ SecureHandlerWrapScript(DebindPrivate.DefaultClickFrame, "OnClick", BindingDrive
 			if (match) then
 				winner = t
 				winnerIndex = i
+				PROBE.Winner(i)
 				break
 			end
 		end

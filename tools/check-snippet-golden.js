@@ -22,19 +22,17 @@ const root = path.join(__dirname, "..");
 const srcDir = path.join(root, "Debind");
 const goldenPath = path.join(__dirname, "snippet-golden.txt");
 
-// live 표의 `PROBE.*` 치환. dev 표는 이 저장소에 없다(테스트 애드온이 런타임에 들고 온다).
-// live에서는 감싼 것이 벗겨져 원래 호출만 남는다 - 그래서 토큰을 넣기 전과 결과가 같다.
-const PROBE_LIVE = /\bPROBE\.([_A-Za-z0-9]+)\(/g;
+// `PROBE.*` 치환도 `Snippets.lua`의 것을 그대로 부른다. 여기에 JS로 규칙을 다시 적으면 그건
+// 갈릴 수 있는 사본이고, 갈리는 순간 이 도구는 실제로 굽는 것이 아닌 다른 것을 지킨다.
 
 /**
- * 주석 제거는 **`Snippets.lua`의 것을 그대로 부른다.** 여기에 JS로 한 벌 더 적으면 그건
- * 갈릴 수 있는 사본이고, 갈리는 순간 이 도구는 실제로 굽는 것이 아닌 다른 것을 지키게 된다.
+ * `Snippets.lua`를 fengari에 올리고 그 안의 함수를 그대로 쓴다.
  *
- * `Constants`는 빈 테이블로 충분하다 - `StripSnippetComments`는 값을 안 본다. `BakeSnippet`
+ * `Constants`는 빈 테이블로 충분하다 - 여기서 부르는 것들은 상수 값을 안 본다. `BakeSnippet`
  * 전체를 부르지 않는 이유이기도 하다(그쪽은 진짜 상수가 필요하고, 이 도구가 잠그려는 것도
  * 아니다).
  */
-function loadStripComments() {
+function loadSnippetsLua() {
     const L = lauxlib.luaL_newstate();
     lualib.luaL_openlibs(L);
 
@@ -54,35 +52,35 @@ function loadStripComments() {
         throw new Error(`Snippets.lua 실행 실패: ${lua.lua_tojsstring(L, -1)}`);
     }
 
+    // `BakeSnippet`에서 상수 치환만 빼낸 것. 그 자리는 이 작업이 건드리는 곳이 아니고, 이름이
+    // 틀리면 게임에서 `assert`가 죽인다.
+    lauxlib.luaL_dostring(L, to_luastring(`
+        local P = __private
+        function __bakeLive(body)
+            return P.applyProbesForTools(P.StripSnippetComments(body), P.SNIPPET_PROBES_LIVE)
+        end
+    `));
+
     return (body) => {
-        lua.lua_getglobal(L, to_luastring("__private"));
-        lua.lua_getfield(L, -1, to_luastring("StripSnippetComments"));
+        lua.lua_getglobal(L, to_luastring("__bakeLive"));
         lua.lua_pushstring(L, to_luastring(body));
         if (lua.lua_pcall(L, 1, 1, 0) !== lua.LUA_OK) {
-            throw new Error(`StripSnippetComments 실패: ${lua.lua_tojsstring(L, -1)}`);
+            throw new Error(`굽기 실패: ${lua.lua_tojsstring(L, -1)}`);
         }
         const out = to_jsstring(lua.lua_tostring(L, -1));
-        lua.lua_pop(L, 2);
+        lua.lua_pop(L, 1);
         return out;
     };
 }
 
-const stripComments = loadStripComments();
-
 /**
- * 게임에 들어가는 형태로 만든다. `BakeSnippet`의 live 갈래와 같은 결과여야 한다.
- * 순서도 같다 - 주석을 먼저 걷고 치환한다.
- *
- * `CONSTANTS.*`는 일부러 안 푼다. 값을 읽으려면 `Constants.lua`를 실행해야 하고, 그 자리는
- * 이 작업이 건드리는 곳이 아니다 - 이름이 틀리면 `BakeSnippet`의 `assert`가 게임에서 죽인다.
- * 여기서 잠그려는 것은 **PROBE 도입이 본문을 바꾸지 않는다**는 것 하나다.
+ * 게임에 들어가는 형태로 만든다. 주석 제거도 `PROBE` 치환도 `Snippets.lua`의 것을 그대로
+ * 부르므로, 이 도구가 지키는 것과 실제로 굽는 것이 갈릴 수가 없다.
  *
  * 본문 끝의 공백은 아래에서 한 번 더 턴다. 그래서 골든은 굽힌 결과와 바이트로 같지는 않다 -
  * 이 파일이 잡으려는 것은 절대적인 형태가 아니라 **변화**다.
  */
-function bakeLive(body) {
-    return stripComments(body).replace(PROBE_LIVE, "$1(");
-}
+const bakeLive = loadSnippetsLua();
 
 // 줄번호는 키에 안 넣는다. 위쪽 코드가 한 줄만 늘어도 전부 흔들려서, 진짜 변경이 잡음에
 // 묻힌다. 파일 안 순서로 센다.
