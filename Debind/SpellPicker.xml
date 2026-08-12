@@ -125,8 +125,12 @@
 	</Button>
 
 	<!--
-		독립창이다. `parent="UIParent"` - 메인 창의 자식으로 두면 메인 창을 옮길 때 딸려간다
-		(`DebindIconSelectorFrame`이 그렇다). 자리도 따로 저장한다.
+		독립창이다. `parent="UIParent"` - 자리도 따로 저장한다.
+
+		Draw order is why it stays top-level: this window and the main window both sit at MEDIUM
+		with toplevel, so whichever was clicked last comes forward, and the HIGH popups hanging
+		off neither of them stay above both. Whether it follows the main window when that moves
+		is the anchor's business, not the parent's - see `ApplyPosition`.
 
 		그래도 **수명은 메인 창에 묶여 있다.** `DebindFrameMixin:OnHide`가 같이 닫는다 -
 		X 버튼도, ESC도, 전투 진입도 전부 그 경로로 온다. 반대 방향은 없다: 이 창을 닫아도

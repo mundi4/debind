@@ -2400,19 +2400,23 @@ function DebindFrameMixin:OnHide()
 	-- 반대 방향은 없다 - 그 창을 닫아도 이 창은 남는다.
 	DebindSpellPickerFrame:Hide();
 
-	-- 아이콘 선택기도 같이 닫는다. **자식이라 저절로 닫히지 않는다** - 부모가 숨으면
-	-- 그리기만 멈추고 `IsShown()`은 참으로 남는다. 그 사이 팝업의 OnHide가 돌면서
-	-- `onAccepted`를 지우는데, 창을 다시 열면 팝업이 그대로 돌아온다(New 모드에는 OnShow
-	-- 가드가 없다). 그 상태로 확인을 누르면 이름도 본문도 없는 액션이 생기고 편집기는
-	-- 안 열린다 - 콜백이 이미 죽었기 때문이다.
+	-- The icon selector is not a child of this window (see its frame comment in DebindUI.xml for
+	-- why), so this line is the only thing that takes it down with us. Without it the main window
+	-- vanishes and the popup stays on screen.
+	--
+	-- This line predates that, and back when it was a child it earned its place differently: a
+	-- hidden parent only stopped the drawing while IsShown() stayed true. The popup's OnHide
+	-- cleared onAccepted in that window, reopening brought the popup straight back (New mode has
+	-- no OnShow guard), and confirming there produced a nameless, bodyless action with no editor.
 	--
 	-- 전투 진입은 `OnEnterCombat`이 따로 취소하고 있었지만, 게임 메뉴가 열려서 이 창이
 	-- 숨는 길(`GameMenuFrame.Shown`)은 그 자리를 지나지 않는다. 여기서 한 번에 덮는다.
 	DebindIconSelectorFrame:Close(true);
 
 	-- 창이 닫히는 것도 "떠나는" 것이다. 기본 매크로 창의 OnHide와 같이, 편집 중이던
-	-- 매크로 본문은 여기서 저장된다. 매크로 창은 이 창의 자식이라 부모가 숨으면 같이
-	-- 숨지만, 그 저장을 부모-자식 관계에 맡기지 않는다 - 여기서 명시적으로 닫는다.
+	-- 매크로 본문은 여기서 저장된다.
+	-- The macro editor is not our child either, so this line is the only thing that closes it -
+	-- and closing it is what saves.
 	DebindMacroFrame:Close();
 	DebindOverviewPanel:Close();
 

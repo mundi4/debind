@@ -1191,10 +1191,15 @@
 		전환하시겠습니까" 화면이 있었는데, 창을 띄워둔 채 아무것도 편집할 수 없는 상태를 하나
 		만드는 값에 비해 얻는 것이 없었다 - 전환은 우클릭 메뉴에 이미 있다.
 	-->
-	<Frame name="DebindMacroFrame" mixin="DebindMacroFrameMixin" toplevel="true" movable="true" frameStrata="HIGH" parent="DebindFrame" hidden="true" enableMouse="true">
+	<Frame name="DebindMacroFrame" mixin="DebindMacroFrameMixin" toplevel="true" frameStrata="HIGH" parent="UIParent" hidden="true" enableMouse="true">
 		<Size x="338" y="410"/>
+		<!--
+			Why parent="UIParent": see the comment on DebindIconSelectorFrame. This window was
+			caught in the same trap. The anchor still names the main window, so it follows it
+			exactly as before.
+		-->
 		<Anchors>
-			<Anchor point="TOPLEFT" relativePoint="TOPRIGHT" x="0" y="0"/>
+			<Anchor point="TOPLEFT" relativeTo="DebindFrame" relativePoint="TOPRIGHT" x="0" y="0"/>
 		</Anchors>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -1349,19 +1354,55 @@
 			</Frame>
 
 		</Frames>
+		<!--
+			No drag scripts, which is what actually keeps this window pinned to the main one.
+			StartMoving() breaks the anchor and re-pins the frame to screen coordinates, and it
+			fires on mouse *down* - so a single click anywhere on the background, with no drag at
+			all, was enough to leave it stranded while the main window moved on without it. The
+			icon selector never had them, which is the only reason it behaved.
+		-->
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnHide method="OnHide"/>
-			<OnMouseDown>
-				self:StartMoving();
-			</OnMouseDown>
-			<OnMouseUp>
-				self:StopMovingOrSizing();
-			</OnMouseUp>
 		</Scripts>
 	</Frame>
 
-	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="HIGH" parent="DebindFrame" movable="true" enableMouse="true" hidden="true">
+	<!--
+		**Not a child of the main window**, even though it always sits next to it. Following the
+		main window around is the anchor's doing, not the parent's, so nothing about its position
+		changed when the parent did.
+
+		Draw order is the whole reason. Front-to-back is settled between top-level windows, and a
+		child only competes inside its own window's group. As a child of the main window this
+		frame was stuck in that group despite its HIGH strata, so clicking the spell picker - an
+		independent MEDIUM window - pulled the picker's group in front of the whole main-window
+		group, this frame included. [New Custom Macro] then opened its popup *behind* the picker
+		that opened it. GetFrameStrata() answers HIGH throughout; that is the value we set, not
+		the order the game draws in.
+
+		Blizzard's MacroPopupFrame is the same shape (HIGH, parent="MacroFrame") and is fine
+		because it only ever has to beat its own parent - nothing else competes with MacroFrame.
+		The picker is exactly that missing third window, so their arrangement does not carry over.
+
+		With all of them top-level, strata alone decides: main window and picker settle MEDIUM
+		between themselves via toplevel, this frame and the macro editor sit above at HIGH. No
+		frame level is set by hand anywhere, which is what keeps a fourth window from turning
+		this into arithmetic.
+
+		Lifetime still belongs to the main window (DebindFrameMixin:OnHide). That path already
+		closed this frame explicitly back when it was a child, so dropping the parent leaks
+		nothing.
+	-->
+	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="HIGH" parent="UIParent" movable="true" enableMouse="true" hidden="true">
+		<!--
+			The template anchors TOPLEFT to TOPRIGHT with no relativeTo, which means the parent.
+			That resolved to the main window for free while we were its child; with UIParent as
+			the parent it would put the frame off the right edge of the screen, so name the
+			main window here.
+		-->
+		<Anchors>
+			<Anchor point="TOPLEFT" relativeTo="DebindFrame" relativePoint="TOPRIGHT" x="0" y="0"/>
+		</Anchors>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 		</Scripts>
