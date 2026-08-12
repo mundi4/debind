@@ -3,6 +3,7 @@ local _, DebindPrivate = ...;
 local Constants          = DebindPrivate.Constants;
 local LLL                = DebindPrivate.L;
 local ActionCatalog      = DebindPrivate.ActionCatalog;
+local DebindUI           = DebindPrivate.DebindUI;
 
 --- 다른 특성 주문을 죽이는 정도. 아이콘 채도까지 같이 빠지므로 알파는 **글자를 읽을 수
 --- 있는 선**에서 멈춘다 - 이건 "지금은 안 나간다"는 말이지 "볼 것 없다"는 말이 아니다.
@@ -15,10 +16,15 @@ local INACTIVE_ALPHA     = 0.75;
 --- 채우기 때문에, 거기서 주문을 끌어오려면 우리 창을 구석까지 밀어놔야 했다. 여기서는
 --- 목록을 우리가 갖고 있고 클릭 한 번이 곧 추가다.
 ---
---- 이 창이 **대상을 안 고른다**는 점이 설계의 중심이다. 추가되는 곳은 언제나 메인 창에서
---- 열려 있는 레이어이고, 대상을 바꾸는 것은 메인 창의 탭으로 한다 - 같은 선택기를 두 번
---- 만들지 않는다. 그래서 이 창은 모달이 아니고, `IsEditingAction()` 잠금에도 들어가지
---- 않는다(들어가면 메인 창 탭이 잠겨서 대상을 바꿀 수 없게 된다).
+--- **왼쪽 클릭은 대상을 안 고른다.** 추가되는 곳은 메인 창에서 열려 있는 레이어이고, 대상을
+--- 바꾸는 것은 메인 창의 탭으로 한다 - 같은 선택기를 두 번 만들지 않는다. 그래서 이 창은
+--- 모달이 아니고, `IsEditingAction()` 잠금에도 들어가지 않는다(들어가면 메인 창 탭이 잠겨서
+--- 대상을 바꿀 수 없게 된다).
+---
+--- Right click names a tab instead (`SetupSpellPickerDropdownMenu`). It is the same destination
+--- list the move and copy menus show, not a second selector: the list lives in one place and this
+--- window only hands it the entry. Left click stays the fast path, so a tab you are filling costs
+--- a click each and only the odd one out costs a menu.
 
 --- **"이미 들어 있음" 표시는 없다.** 한 번 넣었다가 뺐다.
 ---
@@ -113,7 +119,15 @@ function DebindSpellPickerRowMixin:OnEnter()
 	-- 안 두면 주문 툴팁의 마지막 줄(재사용 대기시간 따위)에 붙어서 그것도 주문 설명인 것처럼
 	-- 읽힌다. 애드온의 다른 툴팁들도 같은 자리에 빈 줄을 둔다.
 	GameTooltip_AddBlankLineToTooltip(GameTooltip);
-	GameTooltip_AddInstructionLine(GameTooltip, LLL["SPELL_PICKER_CLICK_TO_ADD"]);
+	-- **The line names the tab, it does not just say "the current one".** Two windows stand side
+	-- by side here and only one of them has tabs, so "current" is a word this window cannot answer;
+	-- the name can be read where the cursor already is. `GetLayerLabel` is the same name the side
+	-- tab tooltips and the order list use - a tab called two things is two tabs to the reader.
+	GameTooltip_AddInstructionLine(GameTooltip,
+		format(LLL["SPELL_PICKER_LEFT_CLICK_TO_ADD"], DebindUI.GetLayerLabel(DebindUI.GetLayerID())));
+	-- The right-click menu leaves no mark on the row, so this line is the only place it is
+	-- announced. It sits under the left-click line because that is still the ordinary way in.
+	GameTooltip_AddInstructionLine(GameTooltip, LLL["SPELL_PICKER_RIGHT_CLICK_TO_ADD"]);
 
 	GameTooltip:Show();
 end
@@ -124,16 +138,26 @@ end
 
 --- 클릭 한 번에 즉시 추가하고 **창은 유지한다.** 계속 골라 넣을 수 있어야 한다.
 ---
---- 대상 레이어를 인자로 넘기지 않는 것에 주의. `AddNewAction`이 안에서 지금 열려 있는
---- 탭을 읽으므로, 여기서 대상을 다시 말하면 두 곳이 같은 것을 알게 된다.
+--- 왼쪽 클릭은 대상 레이어를 인자로 넘기지 않는 것에 주의. `AddNewAction`이 안에서 지금
+--- 열려 있는 탭을 읽으므로, 여기서 대상을 다시 말하면 두 곳이 같은 것을 알게 된다. 오른쪽
+--- 클릭은 그 인자를 채우는 유일한 자리다 - 메뉴가 고른 탭이 거기로 간다.
 ---
 --- **타입에 대한 분기가 여기 없다.** 엔트리가 들고 온 것을 그대로 넘긴다 - 주문이든
 --- 탈것이든 매크로든, 나중에 붙을 무엇이든. 이름·아이콘 자리를 비워 두는 것도 뜻이 있다:
 --- 저장해둬야 하는 타입은 카탈로그가 `props`에 담아 오고, 나머지는 그릴 때 다시 푼다
 --- (`NameAndIconForAction`). 여기서 지금 보이는 값을 박으면 낡은 채로 남는다.
-function DebindSpellPickerRowMixin:OnClick()
+function DebindSpellPickerRowMixin:OnClick(button)
 	local entry = self.entry;
 	if (not entry or InCombatLockdown()) then
+		return;
+	end
+
+	if (button == "RightButton") then
+		-- The row owns the menu but does not anchor it - a context menu opens at the cursor
+		-- either way (`MenuManagerMixin:OpenContextMenu`); the owner is what closes it when the
+		-- frame hides. The entry is read now and kept, so a rebuild that hands this frame a
+		-- different spell cannot change what the menu adds.
+		MenuUtil.CreateContextMenu(self, DebindUI.SetupSpellPickerDropdownMenu, entry);
 		return;
 	end
 

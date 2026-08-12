@@ -366,18 +366,36 @@ L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - Set to %s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared (More than one unit detected)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared|r"
 L["SPECIAL_UNITS"] = "Special units"
-L["SPELL_PICKER_CLICK_TO_ADD"] = "Click to add."
+-- Title over the right-click menu's list. The list itself is tab names, so this line is what
+-- says which question they answer. Shaped like the move and copy menus' "Move to... / Copy to..."
+-- on purpose: three menus showing the same list should not each name it differently.
+L["SPELL_PICKER_ADD_TO"] = "Add to..."
 L["SPELL_PICKER_EMPTY"] = "Nothing here."
 L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = "Account Macros"
 L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = "Character Macros"
 L["SPELL_PICKER_GROUP_FAVORITES"] = "Favorites"
 L["SPELL_PICKER_GROUP_OTHERS"] = "Everything Else"
+-- 행 툴팁의 안내 줄 둘(이 줄과 SPELL_PICKER_RIGHT_CLICK_TO_ADD). **왼쪽/오른쪽을 부르는 말은
+-- 왼쪽 목록 행 툴팁의 것을 그대로 쓴다**("Left click to ..." / "Right click ..." -
+-- LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2). 같은 애드온의 두 목록이 같은 조작을 다르게 부르면
+-- 다른 조작으로 읽힌다.
+--
+-- **하이픈은 안 쓴다.** 클라이언트 표기가 두 낱말이다 - GlobalStrings에 "Right Click to Open"
+-- 꼴은 있어도 "Left-Click"/"Right-Click"은 한 줄도 없다(wago.tools GlobalStrings 조회).
+--
+-- %s는 지금 열려 있는 탭의 이름(GetLayerLabel)이다. "현재 탭"이라고만 적지 않는 이유: 창 둘이
+-- 나란히 서 있고 탭은 저쪽 창에만 있어서, 이 창의 툴팁이 "현재"라고 말하면 어느 창의 현재인지를
+-- 읽는 사람이 눈으로 찾아야 한다. 이름을 적으면 커서가 있는 자리에서 답이 끝난다.
+L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "Left click to add it to |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- "layer"는 코드가 쓰는 말이고 화면에 나온 적이 없다. 사용자가 보는 것은 탭이므로
 -- 탭이라고 쓴다(ORDER_BLOCKED_LAYER와 같은 낱말).
 L["SPELL_PICKER_MENU_DESC"] = "Browse what you already have -- spells, macros, mounts, toys, and the game's own binding commands. The window stays open, and each click adds to whichever tab you have open."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "New Custom Macro"
 L["SPELL_PICKER_NO_MATCH"] = "Nothing matches your search."
 L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"
+-- SPELL_PICKER_LEFT_CLICK_TO_ADD의 짝. 오른쪽 클릭이 있다는 것을 말하는 자리가 화면에
+-- 여기뿐이다 - 행은 있으나 없으나 같은 모양이다.
+L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another tab."
 L["SPELL_PICKER_SHOW_OFFSPEC"] = "Other specializations"
 L["SPELL_PICKER_TAB_COMMAND"] = "Commands"
 L["SPELL_PICKER_TAB_MACRO"] = "Macros"

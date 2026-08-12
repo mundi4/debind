@@ -553,8 +553,9 @@ end
 --- **매크로 창도 여기 없다.** 창으로 돌아왔지만 모드가 아니라 보기인 것은 그대로다 - 열어둔
 --- 채로 다른 액션을 고르거나 레이어를 옮겨도 되고, 그때마다 떠나는 쪽에서 저장된다.
 ---
---- **주문 선택 창도 여기 없다.** 일부러다 - 그 창은 대상을 안 고르고 메인 창에서 열려 있는
---- 레이어에 넣는다. 여기 넣으면 탭이 잠겨서 대상을 바꿀 방법이 사라진다.
+--- **주문 선택 창도 여기 없다.** 일부러다 - 그 창의 클릭은 메인 창에서 열려 있는 레이어에
+--- 넣는다. 여기 넣으면 탭이 잠겨서 대상을 바꿀 방법이 사라진다. (우클릭 메뉴가 탭을 지목하는
+--- 길을 하나 더 냈지만, 그건 클릭 한 번에 넣는 길을 대신하지 못한다.)
 local function IsEditingAction(action)
 	if (DebindIconSelectorFrame:IsShown() and (action == nil or DebindIconSelectorFrame.editAction == action)) then
 		return true;
@@ -2914,10 +2915,12 @@ function DebindFrameMixin:GoToAction(action, layerID)
 	self:ScrollActionIntoView(action);
 end
 
-function DebindFrameMixin:AddNewAction(type, value, name, icon, props)
+--- `destLayerID` is the picker's right-click menu naming a tab. Without it the action is born in
+--- the tab that is open, which is what every other way in here does.
+function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayerID)
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 
-	local layerID = GetLayerID();
+	local layerID = destLayerID or GetLayerID();
 	local layer = DebindPrivate.GetProfileLayer(layerID);
 	local action = {
 		type = type,
@@ -2942,7 +2945,16 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props)
 	-- 그 액션으로 채운다. 커서에서 떨궈 만든 것과 **같은 대접**이어야 한다
 	-- (OnReceiveDrag) - 선택 창에서 고른 것만 아무 데도 안 데려가면 같은 일을 하는 두 길이
 	-- 다르게 끝난다.
-	self:SetSelectedAction(action);
+	--
+	-- **Naming another tab moves the window there**, the same way dropping on a tab button does
+	-- (`OnReceiveDrag`, and its comment for why): picking a destination is saying "put it there",
+	-- and the action would otherwise land where nothing on screen can show it. `GoToAction` is
+	-- that trip - it opens the tab, then selects and scrolls like the line above.
+	if (layerID ~= GetLayerID()) then
+		self:GoToAction(action, layerID);
+	else
+		self:SetSelectedAction(action);
+	end
 
 	local elementData = self:ScrollActionIntoView(action);
 	self:Update();

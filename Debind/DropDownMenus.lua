@@ -226,6 +226,43 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
     -- end
 end
 
+--- The destination list every "where does this go" menu reads. Move, copy, and the picker's
+--- "add to" all take the same one - two copies drift the day a tab is added.
+---
+--- 목록은 **레이어**의 목록이지 탭 좌표의 목록이 아니다.
+---
+--- 같은 레이어를 두 좌표가 가리키는 일이 실재한다: 캐릭터 전용 탭에서 (탭2, 사이드탭1)과
+--- (탭2, 사이드탭2)가 **둘 다 레이어 7**이다. 그래서 layerID로 접는다 - 안 접으면 같은
+--- 곳으로 가는 항목이 이름만 다르게 둘 나오고, "이동"으로 그 둘째를 고르면
+--- `MoveAction`의 `assert(copying, "cannot move to same layer")`에 걸린다.
+--- 남는 이름은 사이드탭1 쪽인데, 화면에서 레이어 7이 실제로 서 있는 자리가 거기다
+--- (`UpdateSideTabs`가 탭2에서 사이드탭2를 숨긴다).
+local function GetTabList()
+    if (TAB_LIST == nil) then
+        TAB_LIST = {};
+        local seenLayers = {};
+        for tabID = 1, #DebindFrame.Tabs do
+            local tabLabel = DebindUI.GetTabLabel(tabID);
+            if (tabLabel) then
+                for sideTabID = 1, #DebindFrame.SideTabs do
+                    local sideTabLabel = DebindUI.GetSideTabaLabel(sideTabID);
+                    if (sideTabLabel) then
+                        local layerID = DebindUI.GetLayerID(tabID, sideTabID);
+                        if (not seenLayers[layerID]) then
+                            seenLayers[layerID] = true;
+                            tinsert(TAB_LIST, {
+                                layerID = layerID,
+                                label = format("%s - %s", tabLabel, sideTabLabel),
+                            });
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return TAB_LIST;
+end
+
 --------------------------------------------------------------------------------
 -- EditDropDown_Initialize
 --------------------------------------------------------------------------------
@@ -948,42 +985,10 @@ do
         end
     end
 
-    --- 목적지 목록은 **레이어**의 목록이지 탭 좌표의 목록이 아니다.
-    ---
-    --- 같은 레이어를 두 좌표가 가리키는 일이 실재한다: 캐릭터 전용 탭에서 (탭2, 사이드탭1)과
-    --- (탭2, 사이드탭2)가 **둘 다 레이어 7**이다. 그래서 layerID로 접는다 - 안 접으면 같은
-    --- 곳으로 가는 항목이 이름만 다르게 둘 나오고, "이동"으로 그 둘째를 고르면
-    --- `MoveAction`의 `assert(copying, "cannot move to same layer")`에 걸린다.
-    --- 남는 이름은 사이드탭1 쪽인데, 화면에서 레이어 7이 실제로 서 있는 자리가 거기다
-    --- (`UpdateSideTabs`가 탭2에서 사이드탭2를 숨긴다).
-    --- 겨누는 것이 하나든 여럿이든 목적지 목록은 **같은 하나**다. 그래서 대상을 밖에서 받는다:
-    --- `fromLayerID`는 "이미 여기 산다"를 판정하는 데만 쓰이고, `applyFunc`가 실제로 옮긴다.
-    --- 목록을 두 벌 두면 탭이 하나 늘 때 한쪽만 따라온다.
+    --- 겨누는 것이 하나든 여럿이든 목적지 목록은 **같은 하나**다(`GetTabList`). 그래서 대상을
+    --- 밖에서 받는다: `fromLayerID`는 "이미 여기 산다"를 판정하는 데만 쓰이고, `applyFunc`가
+    --- 실제로 옮긴다.
     local function CreateMoveCopyMenu(rootDescription, isCopy, fromLayerID, applyFunc)
-        if (TAB_LIST == nil) then
-            TAB_LIST = {};
-            local seenLayers = {};
-            for tabID = 1, #DebindFrame.Tabs do
-                local tabLabel = DebindUI.GetTabLabel(tabID);
-                if (tabLabel) then
-                    for sideTabID = 1, #DebindFrame.SideTabs do
-                        local sideTabLabel = DebindUI.GetSideTabaLabel(sideTabID);
-                        if (sideTabLabel) then
-                            local layerID = DebindUI.GetLayerID(tabID, sideTabID);
-                            if (not seenLayers[layerID]) then
-                                seenLayers[layerID] = true;
-                                tinsert(TAB_LIST, {
-                                    layerID = layerID,
-                                    label = format("%s - %s", tabLabel, sideTabLabel),
-                                });
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-
         local optionsDescription = rootDescription:CreateButton(isCopy and LLL["COPY_TO"] or LLL["MOVE_TO"]);
         optionsDescription:CreateTitle(MenuUtil.GetElementText(optionsDescription));
 
@@ -998,7 +1003,7 @@ do
         -- 지금 사는 탭도 **이름 그대로** 세우고 뒤에만 표시를 붙인다. "현재 탭"이라고만 적으면
         -- 그 줄만 다른 종류의 이름이 돼서 목록에서 어디에 끼어 있는지가 안 읽히는데, 오버뷰
         -- 탭에서 여는 메뉴는 그 답이 화면에 없다 - 행마다 레이어가 다르다.
-        for _, tabInfo in ipairs(TAB_LIST) do
+        for _, tabInfo in ipairs(GetTabList()) do
             local isSameLayer = tabInfo.layerID == fromLayerID;
             local description = optionsDescription:CreateButton(
                 isSameLayer and format(LLL["CURRENT_TAB_SUFFIX"], tabInfo.label) or tabInfo.label,
@@ -1205,5 +1210,44 @@ do
         rootDescription:CreateButton(LLL["DELETE"], function()
             DebindUI.ShowBulkDeleteConfirmationPopup(actions);
         end);
+    end
+
+    --- Right-clicking a row of the spell picker. **The whole menu is the destination list** -
+    --- there is nothing else to ask about an entry that is not an action yet.
+    ---
+    --- Left click still adds to the open tab, so this menu is the shortcut, not the only way:
+    --- filling one tab is a click each, and the one action that belongs somewhere else no longer
+    --- costs a trip to the main window and back.
+    ---
+    --- The destination list is `GetTabList`'s - the same one move and copy show. The tab you are
+    --- looking at stays in it and stays enabled; adding there is exactly what left click does, and
+    --- dropping the row would make the list a different shape in this menu than in the other two.
+    function DebindUI.SetupSpellPickerDropdownMenu(dropdown, rootDescription, entry)
+        _dropdown = dropdown;
+        -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
+        -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupBulkDropdownMenu`와 같은 이유).
+        _elementData = nil;
+        _action = nil;
+
+        rootDescription:CreateTitle(entry.name);
+        rootDescription:CreateTitle(LLL["SPELL_PICKER_ADD_TO"]);
+
+        local currentLayerID = DebindUI.GetLayerID();
+
+        local func = function(args)
+            -- The row's own click carries this guard too: combat can start while the menu stands.
+            if (InCombatLockdown()) then
+                return;
+            end
+            DebindFrame:AddNewAction(entry.type, entry.value, nil, nil, entry.props, args[1]);
+        end
+
+        for _, tabInfo in ipairs(GetTabList()) do
+            rootDescription:CreateButton(
+                tabInfo.layerID == currentLayerID and format(LLL["CURRENT_TAB_SUFFIX"], tabInfo.label) or tabInfo.label,
+                func,
+                { tabInfo.layerID }
+            );
+        end
     end
 end

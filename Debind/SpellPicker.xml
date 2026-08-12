@@ -15,7 +15,7 @@
 		목록이 다른 물건처럼 보이면 안 된다. `useAtlasSize`는 안 준다. 저 아틀라스는 450px
 		짜리라 크기를 따라가면 두 컬럼에 안 들어간다.
 	-->
-	<Button name="DebindSpellPickerRowTemplate" mixin="DebindSpellPickerRowMixin" virtual="true">
+	<Button name="DebindSpellPickerRowTemplate" mixin="DebindSpellPickerRowMixin" registerForClicks="LeftButtonUp,RightButtonUp" virtual="true">
 		<Size x="240" y="38"/>
 		<Layers>
 			<Layer level="BACKGROUND">

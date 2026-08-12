@@ -260,7 +260,10 @@ L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - %s(으)로 지�
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:해제됨 (개체가 둘 이상 감지됨)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:해제됨|r"
 L["SPECIAL_UNITS"] = "특수 개체"
-L["SPELL_PICKER_CLICK_TO_ADD"] = "클릭하면 추가됩니다."
+-- 근거는 enUS 쪽 주석에.
+L["SPELL_PICKER_ADD_TO"] = "추가할 곳..."
+-- "왼쪽 클릭하면 / 오른쪽 클릭하면"은 LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2의 말이다.
+L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "왼쪽 클릭하면 |cnHIGHLIGHT_FONT_COLOR:%s|r에 추가됩니다."
 L["SPELL_PICKER_EMPTY"] = "여기에는 아무것도 없습니다."
 L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = "계정 매크로"
 L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = "캐릭터 매크로"
@@ -271,6 +274,7 @@ L["SPELL_PICKER_MENU_DESC"] = "이미 가지고 있는 것을 둘러봅니다 --
 L["SPELL_PICKER_NEW_MACROTEXT"] = "새 사용자 지정 매크로"
 L["SPELL_PICKER_NO_MATCH"] = "검색과 맞는 것이 없습니다."
 L["SPELL_PICKER_ONLY_FAVORITES"] = "즐겨찾기만"
+L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "오른쪽 클릭하면 다른 탭에 추가할 수 있습니다."
 L["SPELL_PICKER_SHOW_OFFSPEC"] = "다른 전문화"
 L["SPELL_PICKER_TAB_COMMAND"] = "명령"
 L["SPELL_PICKER_TAB_MACRO"] = "매크로"
