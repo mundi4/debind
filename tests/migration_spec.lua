@@ -137,7 +137,10 @@ return function(DebindPrivate)
         DebindPrivate.RunLegacyMigration();
 
         check(_G.DebindVars.DRUID == nil, "a class key leaked to the top level");
-        check(_G.DebindVars.dbver == 4, "dbver was overwritten with the old value");
+        -- 상수로 묻는다. 숫자를 박아두면 `DB_VERSION`을 올릴 때마다 이 줄이 같이 깨지는데,
+        -- 그건 마이그레이션이 틀렸다는 신호가 아니라 이 테스트가 낡았다는 신호일 뿐이다.
+        check(_G.DebindVars.dbver == DebindPrivate.Constants.DB_VERSION,
+            "dbver was overwritten with the old value");
         check(_G.DebindVars.GENERAL == nil, "GENERAL stayed at the top level");
     end);
 
@@ -463,6 +466,250 @@ return function(DebindPrivate)
         DebindPrivate.RunLegacyMigration();
         check(_G.DebindVars.shared.GENERAL[1].seq == 1,
             "the import was not raised to the current version - MigrateLayer did not run");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 5: 유닛 조건이 축별 마스크로
+    --
+    -- 스칼라 네 값으로는 "우호 또는 기타"도 "우호이면서 살아있음"도 못 쓴다. 값 하나에
+    -- 존재와 반응이 뭉쳐 있어서 축을 얹을 자리가 없기 때문이다.
+    --
+    -- **뭉친 열거가 아니라 축마다 필드**인 것이 요점이다. 열거였다면 생사·소속이 올 때 같은
+    -- 숫자의 뜻이 바뀌어 마이그레이션이 한 번 더 붙는다.
+    ---------------------------------------------------------------------------
+
+    local Constants = DebindPrivate.Constants;
+    local MigrateLayer = DebindPrivate.MigrateLayer;
+
+    test("dbver 5 raises unit conditions to per-axis masks", function()
+        local layer = { {
+            key = "A", type = 1, value = 1,
+            checkedUnits = {
+                target    = true,
+                focus     = "help",
+                mouseover = "harm",
+                tank      = false,
+            },
+        } };
+        MigrateLayer(layer, 4);
+
+        local c = layer[1].checkedUnits;
+        check(type(c.target) == "table" and c.target.reaction == nil,
+            "\"존재\"가 빈 테이블이 아님 - 제약하는 축이 없다는 뜻이어야 한다");
+        check(type(c.focus) == "table" and c.focus.reaction == Constants.REACTION_HELP,
+            "우호가 안 옮겨짐");
+        check(type(c.mouseover) == "table" and c.mouseover.reaction == Constants.REACTION_HARM,
+            "적대가 안 옮겨짐");
+        check(c.tank == false, "\"없을 때\"는 그대로여야 한다 - 없음 점은 어느 축에도 없다");
+    end);
+
+    -- `"@"`도 같은 표에 산다. 유닛 이름이 아니라 포인터일 뿐 값의 모양은 같다.
+    test("dbver 5 raises the \"@\" entry too", function()
+        local layer = { { key = "A", type = 1, value = 1, unit = "focus",
+            checkedUnits = { ["@"] = "help" } } };
+        MigrateLayer(layer, 4);
+        check(layer[1].checkedUnits["@"].reaction == Constants.REACTION_HELP, "\"@\"가 안 옮겨짐");
+    end);
+
+    -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
+    -- 두 판 밀린 프로필이 여기를 두 번 지난다.
+    test("dbver 5 is safe to run twice", function()
+        local layer = { { key = "A", type = 1, value = 1,
+            checkedUnits = { focus = "help", tank = false } } };
+        MigrateLayer(layer, 4);
+        MigrateLayer(layer, 4);
+        check(layer[1].checkedUnits.focus.reaction == Constants.REACTION_HELP, "두 번째에 뭉개짐");
+        check(layer[1].checkedUnits.tank == false, "두 번째에 뭉개짐");
+    end);
+
+    test("dbver 5 leaves actions without unit conditions alone", function()
+        local layer = { { key = "A", type = 1, value = 1 } };
+        MigrateLayer(layer, 4);
+        check(layer[1].checkedUnits == nil, "없던 표가 생김");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 5의 핵심 불변식: **표현만 바꾸고 뜻은 안 바꾼다**
+    --
+    -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다. 그래서 값이
+    -- 어떻게 생겼는지가 아니라 **소비자가 보는 것이 그대로인지**를 못 박는다. 소비자는 둘뿐이다:
+    --
+    --   solver  `BuildUnitStates`가 만드는 유닛 축 마스크
+    --   런타임  스니펫에 내려가는 스칼라
+    --
+    -- 둘 다 옛 값과 새 값에서 같은 답이 나오면, 이 마이그레이션은 사용자가 걸어둔 조건을
+    -- 한 개도 안 바꾼 것이다.
+    ---------------------------------------------------------------------------
+
+    local UnitConditionToRuntimeScalar = DebindPrivate.UnitConditionToRuntimeScalar;
+
+    --- 옛 형식이 실제로 가질 수 있던 값 전부. `Profile.lua`의 `dbver <= 1` 단계가
+    --- `checkedUnitValue`를 그대로 옮겨 넣으므로, 그 시절 값도 이 넷 안에 있어야 한다.
+    local OLD_VALUES = { true, false, "help", "harm" };
+
+    local function stateFor(action)
+        return DebindPrivate.GetBindingInfoForAction(action, true).unitStates;
+    end
+
+    test("dbver 5 keeps every old value meaning the same thing to the solver", function()
+        for _, old in ipairs(OLD_VALUES) do
+            local before = stateFor({
+                type = Constants.SPELL, value = 100,
+                checkedUnits = { target = old },
+            });
+
+            local layer = { { key = "A", type = Constants.SPELL, value = 100,
+                checkedUnits = { target = old } } };
+            MigrateLayer(layer, 4);
+            local after = stateFor(layer[1]);
+
+            check(before.target == after.target,
+                ("%s의 뜻이 바뀜: %s -> %s"):format(tostring(old),
+                    tostring(before.target), tostring(after.target)));
+        end
+    end);
+
+    test("dbver 5 keeps every old value emitting the same thing to the snippet", function()
+        for _, old in ipairs(OLD_VALUES) do
+            local layer = { { key = "A", type = Constants.SPELL, value = 100,
+                checkedUnits = { target = old } } };
+            MigrateLayer(layer, 4);
+
+            local emitted = UnitConditionToRuntimeScalar(layer[1].checkedUnits.target);
+            check(emitted == old,
+                ("%s가 스니펫에 %s로 내려감"):format(tostring(old), tostring(emitted)));
+        end
+    end);
+
+    -- 모르는 값이 섞여 있어도 **뜻이 뒤집히면 안 된다.** 옛 버전이 쓴 값을 우리가 모를 수
+    -- 있고, 그때 조용히 "없을 때"로 읽히면 걸려 있던 바인딩이 정반대로 동작한다.
+    test("dbver 5 does not change what an unknown value means", function()
+        local before = stateFor({
+            type = Constants.SPELL, value = 100,
+            checkedUnits = { target = "somethingWeNeverWrote" },
+        });
+
+        local layer = { { key = "A", type = Constants.SPELL, value = 100,
+            checkedUnits = { target = "somethingWeNeverWrote" } } };
+        MigrateLayer(layer, 4);
+        local after = stateFor(layer[1]);
+
+        check(before.target == after.target, "모르는 값의 뜻이 마이그레이션으로 바뀜");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 한 판도 빠지지 않는가
+    --
+    -- 액션이 사는 곳은 셋이다(공유 GENERAL, 공유 클래스/특성, 캐릭터별). 한 곳이라도
+    -- 빠지면 그 프로필은 옛 형식으로 남는데, `dbver`는 이미 올라가 있어서 **다시는 안 돈다.**
+    ---------------------------------------------------------------------------
+
+    test("raising the db reaches every place actions live", function()
+        _G.DebindVars = {
+            dbver = 4,
+            migrated = {},
+            shared = {
+                GENERAL = { { key = "A", type = 1, value = 1, checkedUnits = { target = "help" } } },
+                classes = {
+                    DRUID = {
+                        [0] = { { key = "B", type = 1, value = 1, checkedUnits = { focus = "harm" } } },
+                        [2] = { { key = "C", type = 1, value = 1, checkedUnits = { tank = true } } },
+                    },
+                },
+            },
+            characters = {
+                [GUID] = {
+                    layers = {
+                        [0] = { { key = "D", type = 1, value = 1, checkedUnits = { mouseover = "help" } } },
+                    },
+                },
+            },
+        };
+        _G.DebounceVars = nil;
+        _G.DebounceVarsPerChar = nil;
+        DebindPrivate.InitDB();
+
+        local db = _G.DebindVars;
+        check(type(db.shared.GENERAL[1].checkedUnits.target) == "table",
+            "공유 GENERAL이 안 올라감");
+        check(type(db.shared.classes.DRUID[0][1].checkedUnits.focus) == "table",
+            "공유 클래스 레이어가 안 올라감");
+        check(type(db.shared.classes.DRUID[2][1].checkedUnits.tank) == "table",
+            "특성이 0이 아닌 레이어가 안 올라감");
+        check(type(db.characters[GUID].layers[0][1].checkedUnits.mouseover) == "table",
+            "캐릭터별 레이어가 안 올라감");
+        check(db.dbver == Constants.DB_VERSION, "dbver가 안 올라감");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 두 판 밀린 프로필
+    --
+    -- 단계는 `<= N`으로 열리므로 한 번의 호출이 여러 단계를 연달아 밟는다. dbver 1의
+    -- 결과물(`checkedUnits`)을 dbver 5 단계가 받아야 한다 - 이 연결이 끊기면 옛 프로필만
+    -- 조용히 옛 형식으로 남는다.
+    ---------------------------------------------------------------------------
+
+    test("a dbver 1 profile lands in the new shape in one pass", function()
+        local layer = { {
+            key = "A", type = 1, value = 1,
+            unit = "focus",
+            checkedUnit = true,
+            checkedUnitValue = "help",
+        } };
+        MigrateLayer(layer, 1);
+
+        local action = layer[1];
+        check(action.checkedUnit == nil and action.checkedUnitValue == nil,
+            "dbver 1 단계가 안 돎 - 전제가 깨졌다");
+        check(type(action.checkedUnits.focus) == "table"
+            and action.checkedUnits.focus.reaction == Constants.REACTION_HELP,
+            "dbver 1이 만든 값을 dbver 5 단계가 못 받음");
+        check(action.seq == 1, "dbver 2 단계가 건너뛰어짐");
+    end);
+
+    test("raising from any version twice changes nothing the second time", function()
+        for _, from in ipairs({ 1, 2, 3, 4 }) do
+            local layer = { {
+                key = "A", type = 1, value = 1, unit = "focus",
+                checkedUnits = { target = "help", tank = false, ["@"] = true },
+            } };
+            MigrateLayer(layer, from);
+            local once = {
+                target = layer[1].checkedUnits.target.reaction,
+                tank = layer[1].checkedUnits.tank,
+                at = layer[1].checkedUnits["@"].reaction,
+                seq = layer[1].seq,
+            };
+
+            MigrateLayer(layer, from);
+            check(layer[1].checkedUnits.target.reaction == once.target
+                and layer[1].checkedUnits.tank == once.tank
+                and layer[1].checkedUnits["@"].reaction == once.at
+                and layer[1].seq == once.seq,
+                ("dbver %d에서 두 번째 실행이 값을 바꿈"):format(from));
+        end
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 옛 파일을 건드리지 않는가
+    --
+    -- 가져오기는 옛 SavedVariables 위에서 도는 것이 아니라 복사본 위에서 돌아야 한다.
+    -- `dbver 5` 단계는 **`checkedUnits` 테이블을 제자리에서 고치므로**, 복사가 얕았다면
+    -- 옛 파일의 조건까지 같이 바뀐다 - 롤백하면 그 조건이 이미 새 형식이라 안 읽힌다.
+    ---------------------------------------------------------------------------
+
+    test("raising an import does not rewrite the old file's unit conditions", function()
+        FreshInit();
+        local old = LegacyAccount();
+        old.GENERAL[1].checkedUnits = { target = "help" };
+        _G.DebounceVars = old;
+
+        DebindPrivate.RunLegacyMigration();
+
+        check(_G.DebindVars.shared.GENERAL[1].checkedUnits.target.reaction
+            == Constants.REACTION_HELP, "가져온 쪽이 안 올라감 - 전제가 깨졌다");
+        check(old.GENERAL[1].checkedUnits.target == "help",
+            "옛 파일의 조건이 새 형식으로 덮어써짐 - 롤백이 깨진다");
     end);
 
     return T;

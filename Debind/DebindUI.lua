@@ -1154,14 +1154,17 @@ do
 						unitStr = UNIT_INFO[checkedUnit].name;
 					end
 					--addValueLine(unitStr);
-					if (value == true) then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
-					elseif (value == "help") then
+					-- 저장은 축별 마스크다(`Profile.lua`의 `dbver <= 4`). 축이 늘면 여기도
+					-- 줄이 늘어야 하는데, 지금은 반응 하나뿐이라 스칼라 시절과 같은 네 줄이다.
+					local reaction = type(value) == "table" and value.reaction or nil;
+					if (value == false) then
+						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
+					elseif (reaction == Constants.REACTION_HELP) then
 						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_HELP"], error);
-					elseif (value == "harm") then
+					elseif (reaction == Constants.REACTION_HARM) then
 						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_HARM"], error);
 					else
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
+						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
 					end
 				end
 			end

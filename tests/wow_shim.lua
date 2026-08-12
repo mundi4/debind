@@ -53,10 +53,14 @@ local function rshift(a, n)
     return v - v % 1;
 end
 
-local function copyTable(src)
+--- `Blizzard_SharedXMLBase/TableUtil.lua`의 `CopyTable(settings, shallow)`와 같은 서명이다.
+--- **두 번째 인자를 무시하면 안 된다** - 게임에서는 얕은 복사가 되는 자리가 여기서는 깊은
+--- 복사가 되어, "원본을 안 건드린다"를 검사하는 테스트가 통과해버린다. 그 테스트는 옛
+--- SavedVariables를 지키는 것이 전부라 통과하면 안 될 때 통과하는 것이 제일 나쁘다.
+local function copyTable(src, shallow)
     local dest = {};
     for k, v in pairs(src) do
-        if (type(v) == "table") then
+        if (type(v) == "table" and not shallow) then
             dest[k] = copyTable(v);
         else
             dest[k] = v;

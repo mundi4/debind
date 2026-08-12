@@ -919,6 +919,11 @@ function UpdateBindingsMap()
                             -- 따라 한쪽이 사라진다.
                             wipe(_mergedUnits);
                             for k, v in pairs(binding.checkedUnits) do
+                                -- 저장은 축별 마스크고 스니펫은 스칼라 넷만 안다. 여기서
+                                -- 내려놓고 합친다 - 합치기(`mergeUnitConditions`)가 값을
+                                -- `==`로 비교해서, 테이블인 채로 넣으면 같은 조건 둘이
+                                -- 서로 다른 것으로 보여 `"never"`가 된다.
+                                v = DebindPrivate.UnitConditionToRuntimeScalar(v);
                                 if (k == "@") then
                                     k = binding.unit;
                                 end

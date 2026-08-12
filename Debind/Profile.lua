@@ -216,6 +216,36 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
     end
+
+    if (dbver <= 4) then
+        -- 유닛 조건을 **축별 마스크**로. 스칼라 네 값(`true`/`false`/`"help"`/`"harm"`)으로는
+        -- "우호 또는 기타"도 "우호이면서 살아있음"도 못 쓴다 - 값 하나에 존재와 반응이
+        -- 뭉쳐 있어서 축을 하나 더 얹을 자리가 없다.
+        --
+        -- **뭉친 열거 대신 축마다 필드를 둔다.** 생사·소속이 올 때 열거였다면 같은 숫자의
+        -- 뜻이 바뀌어 마이그레이션을 또 해야 하는데, 필드면 하나 늘 뿐이고 **옛 데이터에
+        -- 그 필드가 없다는 것 자체가 "이 축은 제약 안 함"이라 이미 맞는 답**이다.
+        --
+        --   없음        false      (그대로. "유닛이 없을 때"라는 조건이다)
+        --   존재        {}         제약하는 축이 없음
+        --   우호/적대   { reaction = ... }
+        --
+        -- 다시 돌아도 안전하다 - 이미 테이블이면 건드리지 않는다.
+        for i = 1, #layerTbl do
+            local checkedUnits = layerTbl[i].checkedUnits;
+            if (checkedUnits) then
+                for unit, value in pairs(checkedUnits) do
+                    if (value == true) then
+                        checkedUnits[unit] = {};
+                    elseif (value == "help") then
+                        checkedUnits[unit] = { reaction = Constants.REACTION_HELP };
+                    elseif (value == "harm") then
+                        checkedUnits[unit] = { reaction = Constants.REACTION_HARM };
+                    end
+                end
+            end
+        end
+    end
 end
 
 --- Raises one whole per-spec table (`{[0]=…, [1]=…}`). Class entries and character entries have

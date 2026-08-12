@@ -132,5 +132,8 @@ return function(DebindPrivate)
         check(GetBindingIssue(hoverAction(nil, false)) == NEVER, "이슈가 안 남");
     end);
 
+    -- 정규화 자체(`"@"`가 언제 지워지는가, 대상이 언제 채워지는가)는 `normalize_spec.lua`가
+    -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
+
     return T;
 end

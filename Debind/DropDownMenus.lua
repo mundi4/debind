@@ -374,6 +374,48 @@ do
         return description;
     end
 
+    --- 유닛 조건 하나를 **축별 마스크**로 읽고 쓴다(`Profile.lua`의 `dbver <= 4`).
+    ---
+    --- 라디오 다섯 줄이 겨누는 것이 저장의 세 상태와 그대로 맞는다: 키 없음(제약 없음),
+    --- 테이블(존재 + 축별 제약), `false`(없음). 반응은 그 테이블 안의 한 필드라, 생사·소속이
+    --- 올 때 줄이 늘 뿐 이 함수들의 모양은 안 바뀐다.
+    local function GetUnitConditionReaction(unit)
+        local value = _action.checkedUnits and _action.checkedUnits[unit];
+        if (type(value) ~= "table") then
+            return nil;
+        end
+        return value.reaction;
+    end
+
+    local function UnitConditionIsExists(unit)
+        return type(_action.checkedUnits and _action.checkedUnits[unit]) == "table";
+    end
+
+    --- `reaction`이 nil이면 "존재하기만 하면"이다. 빈 테이블을 쓰는 이유 - 제약하는 축이
+    --- 없다는 것을 필드의 부재로 말한다.
+    local function SetUnitConditionExists(unit, reaction)
+        _action.checkedUnits = _action.checkedUnits or {};
+        _action.checkedUnits[unit] = { reaction = reaction };
+        onActionValueChanged();
+        return MenuResponse.Refresh;
+    end
+
+    local function SetUnitCondition(unit, value)
+        if (value == nil) then
+            if (_action.checkedUnits) then
+                _action.checkedUnits[unit] = nil;
+                if (not next(_action.checkedUnits)) then
+                    _action.checkedUnits = nil;
+                end
+            end
+        else
+            _action.checkedUnits = _action.checkedUnits or {};
+            _action.checkedUnits[unit] = value;
+        end
+        onActionValueChanged();
+        return MenuResponse.Refresh;
+    end
+
     local function CreateUnitConditionSubmenu(parentDescription, label, unit)
         local optionsDescription = CreateActionMenuItemGroup(parentDescription, label, nil,
             function()
@@ -412,50 +454,34 @@ do
                 return not _action.checkedUnits or _action.checkedUnits[unit] == nil;
             end,
             function()
-                if (_action.checkedUnits) then
-                    _action.checkedUnits[unit] = nil;
-                    if (not next(_action.checkedUnits)) then
-                        _action.checkedUnits = nil;
-                    end
-                end
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitCondition(unit, nil);
             end
         );
 
         optionsDescription:CreateRadio(LLL["CONDITION_UNIT_EXISTS"],
             function()
-                return _action.checkedUnits and _action.checkedUnits[unit] == true;
+                return UnitConditionIsExists(unit) and GetUnitConditionReaction(unit) == nil;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits[unit] = true;
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists(unit, nil);
             end
         );
 
         optionsDescription:CreateRadio(LLL["CONDITION_UNIT_HELP"],
             function()
-                return _action.checkedUnits and _action.checkedUnits[unit] == "help";
+                return GetUnitConditionReaction(unit) == Constants.REACTION_HELP;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits[unit] = "help";
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists(unit, Constants.REACTION_HELP);
             end
         );
 
         optionsDescription:CreateRadio(LLL["CONDITION_UNIT_HARM"],
             function()
-                return _action.checkedUnits and _action.checkedUnits[unit] == "harm";
+                return GetUnitConditionReaction(unit) == Constants.REACTION_HARM;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits[unit] = "harm";
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists(unit, Constants.REACTION_HARM);
             end
         );
 
@@ -464,10 +490,7 @@ do
                 return _action.checkedUnits and _action.checkedUnits[unit] == false;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits[unit] = false;
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitCondition(unit, false);
             end
         );
 
@@ -570,21 +593,13 @@ do
 
         childDescription = description:CreateCheckbox(LLL["ONLY_IF_UNIT_EXISTS"],
             function()
-                return _action.checkedUnits and _action.checkedUnits["@"];
+                return UnitConditionIsExists("@");
             end,
             function()
-                local value = not _action.checkedUnits;
-                if (_action.checkedUnits and _action.checkedUnits["@"]) then
-                    _action.checkedUnits["@"] = nil;
-                    if (not next(_action.checkedUnits)) then
-                        _action.checkedUnits = nil;
-                    end
-                else
-                    _action.checkedUnits = _action.checkedUnits or {};
-                    _action.checkedUnits["@"] = true;
+                if (UnitConditionIsExists("@")) then
+                    return SetUnitCondition("@", nil);
                 end
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists("@", nil);
             end
         );
         childDescription:SetEnabled(function()
@@ -596,19 +611,17 @@ do
         end
 
         local function isEnabled()
-            return _action.unit and _action.unit ~= "none" and _action.unit ~= "player" and _action.checkedUnits and _action.checkedUnits["@"] and true or false;
+            return _action.unit and _action.unit ~= "none" and _action.unit ~= "player"
+                and UnitConditionIsExists("@") and true or false;
         end
 
 
         childDescription = description:CreateRadio(LLL["REACTION_ALL"],
             function()
-                return _action.checkedUnits and _action.checkedUnits["@"] == true;
+                return UnitConditionIsExists("@") and GetUnitConditionReaction("@") == nil;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits["@"] = true;
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists("@", nil);
             end
         );
         childDescription:AddInitializer(initializer);
@@ -616,13 +629,10 @@ do
 
         childDescription = description:CreateRadio(LLL["REACTION_HELP"],
             function()
-                return _action.checkedUnits and _action.checkedUnits["@"] == "help";
+                return GetUnitConditionReaction("@") == Constants.REACTION_HELP;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits["@"] = "help";
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists("@", Constants.REACTION_HELP);
             end
         );
         childDescription:AddInitializer(initializer);
@@ -630,13 +640,10 @@ do
 
         childDescription = description:CreateRadio(LLL["REACTION_HARM"],
             function()
-                return _action.checkedUnits and _action.checkedUnits["@"] == "harm";
+                return GetUnitConditionReaction("@") == Constants.REACTION_HARM;
             end,
             function()
-                _action.checkedUnits = _action.checkedUnits or {};
-                _action.checkedUnits["@"] = "harm";
-                onActionValueChanged();
-                return MenuResponse.Refresh;
+                return SetUnitConditionExists("@", Constants.REACTION_HARM);
             end
         );
         childDescription:AddInitializer(initializer);

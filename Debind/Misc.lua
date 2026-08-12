@@ -364,6 +364,71 @@ local REACTION_TO_UNIT_STATE = {
     [Constants.REACTION_OTHER] = Constants.UNITSTATE_OTHER,
 };
 
+--- One stored unit condition -> a mask on the unit axis.
+---
+--- Storage keeps **one field per axis** (`{ reaction = ... }`), not one packed enum, so that a
+--- new axis is a new field and old data stays valid: a field that is absent constrains nothing,
+--- which is already the right answer. See `Profile.lua`'s `dbver <= 4` step.
+---
+--- An axis that is absent contributes its whole range, which is why an empty table means
+--- "exists, nothing else asked". `false` is the one non-table value -- the absent point is not
+--- on any axis, which is the whole reason this column is a product and not separate columns.
+local function UnitConditionToState(value)
+    if (value == false) then
+        return Constants.UNITSTATE_NONE;
+    end
+    if (type(value) ~= "table") then
+        -- 아직 안 옮겨진 값. `MigrateLayer`가 올려주지만, 가져오기 도중이거나 손으로 고친
+        -- 프로필이면 여기로 온다.
+        return UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE;
+    end
+
+    local reactions = value.reaction;
+    if (reactions == nil) then
+        return Constants.UNITSTATE_EXISTS;
+    end
+
+    local mask = 0;
+    for reaction, state in pairs(REACTION_TO_UNIT_STATE) do
+        if (band(reactions, reaction) ~= 0) then
+            mask = mask + state;
+        end
+    end
+    return mask;
+end
+
+--- One stored unit condition -> the vocabulary the click-time snippet speaks.
+---
+--- The snippet compares against `true` / `false` / `"help"` / `"harm"` and has **no `bit`
+--- library** (`RestrictedEnvironment.lua`), so it cannot be handed a mask and asked to intersect.
+--- Until it learns to resolve a unit onto the axis itself, storage that says more than those four
+--- values has nowhere to land.
+---
+--- Unrepresentable conditions come back as `"never"`. There is no safe rounding, but the two
+--- directions are not equally bad **here**: a binding that stops firing is visible to whoever set
+--- it, while one that fires wider than asked silently takes a key from another binding. The solver
+--- is unaffected either way -- it reads `unitStates`, which stays exact.
+---
+--- Nothing produces such a condition yet: the menus write the same four values they always did,
+--- just in the new shape.
+local function UnitConditionToRuntimeScalar(value)
+    if (value == false or type(value) ~= "table") then
+        return value;
+    end
+
+    local reactions = value.reaction;
+    if (reactions == nil or reactions == Constants.REACTION_ALL) then
+        return true;
+    elseif (reactions == Constants.REACTION_HELP) then
+        return "help";
+    elseif (reactions == Constants.REACTION_HARM) then
+        return "harm";
+    end
+    return "never";
+end
+
+DebindPrivate.UnitConditionToRuntimeScalar = UnitConditionToRuntimeScalar;
+
 --- Fold everything that says something about a unit onto one mask per unit.
 ---
 --- `binding.unitStates` is the only thing the solver reads about units. `checkedUnits` and
@@ -422,7 +487,7 @@ local function BuildUnitStates(binding)
                 end
             end
             if (unit) then
-                narrow(unit, UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE);
+                narrow(unit, UnitConditionToState(value));
             end
         end
     end
@@ -436,6 +501,61 @@ DebindPrivate.BuildUnitStates = BuildUnitStates;
 do
     local _ActionToBindingCache = setmetatable({}, { __mode = "kv" });
 
+    --- The two shapes this function converts between.
+    ---
+    --- An **action** is what a profile stores and what the menus edit. `Profile.lua`'s
+    --- `KEYS_TO_SAVE` is the authoritative field list -- a field missing from there is not
+    --- persisted no matter who writes it. A **binding** is derived per action and is what the
+    --- solver and `UpdateBindings` read. The flow is one-way: a binding is rebuilt from its
+    --- action, never written back, so normalizing a binding never edits what the user typed.
+    ---
+    --- ### `unit` and `checkedUnits` sound like one family and are opposites
+    ---
+    --- `unit` is **what the action aims at** -- the `[@unit]` of the macro, so it changes what the
+    --- action *does*. Only the `Target` menu's radio list writes it. That menu passes `"unit"` as
+    --- its issue category, which is why `GetBindingIssue(action, "unit")` asks about the target
+    --- and not about any unit condition.
+    ---
+    --- `checkedUnits` is a **condition set** -- when the action fires, never what it acts on.
+    --- The `Units` menu writes it, and so does the lower half of the `Target` menu (under `"@"`).
+    ---
+    --- And `binding.unit` is not `action.unit`. It is the unit the macro will actually aim at:
+    --- cleared for types that cannot carry one, and **filled in with the hovered unit** when a
+    --- hover action has no target of its own. Only `action.unit` answers "did the user point at
+    --- something", which is why the `"@"` cleanup below runs before that fill-in.
+    ---
+    --- ### action fields
+    ---
+    ---   type, value      required. `Constants.SPELL` and friends; `value` is a spell/item id,
+    ---                    macro body, pet command, ... depending on `type`
+    ---   key              the key it is bound to. Without one the action is never bound.
+    ---   name, icon       display only -- neither the solver nor the runtime reads them
+    ---   seq              creation order, stable across rebuilds
+    ---   priority         number; `Constants.DEFAULT_PRIORITY` when absent
+    ---   unit             a `UNIT_INFO` key. See above -- this is the target, not a condition.
+    ---   checkedUnits     `{ [unit or "@"] = true | false | "help" | "harm" }`. `"@"` is a
+    ---                    pointer to whatever `unit` names, so it dies when `unit` does.
+    ---   hover            true | false | nil. `reactions` / `frameTypes` / `ignoreHoverUnit`
+    ---                    only mean anything while this is true.
+    ---   reactions        `REACTION_*` mask        frameTypes  `FRAMETYPE_*` mask
+    ---   groups           `GROUP_*` mask           forms       `FORM_*` mask
+    ---   bonusbars        `BONUSBAR_*` mask
+    ---   known, combat, stealth, pet, petbattle, specialbar, extrabar, ignoreHoverUnit,
+    ---   keepInBindingContext, $state1..$state5
+    ---                    true | false | nil. `known` only means something on a spell;
+    ---                    `keepInBindingContext` is read straight off the action and is one of
+    ---                    the few fields no binding carries.
+    ---
+    --- ### what a binding has on top of those
+    ---
+    ---   spellName        resolved name, for display and macro text
+    ---   unitStates       `{ [unit] = UNITSTATE_* mask }` from `BuildUnitStates` -- **the only
+    ---                    thing the solver reads about units.** The hovered frame's unit rides
+    ---                    this under the name `"hover"`.
+    ---   unitStatesOpaque a `"@"` that could not be placed on any axis; puts the binding out of
+    ---                    both solver roles rather than letting it look wider than it is
+    ---   layerRank, isConditional
+    ---                    filled in by `Debind.lua` after this returns, not here
     function DebindPrivate.GetBindingInfoForAction(action, update)
         local binding = _ActionToBindingCache[action];
 
@@ -539,6 +659,21 @@ do
                 -- 펫 명령은 타입만으로 안 갈린다. 대상 메뉴도 같은 것을 보고 안 열린다
                 -- (`DropDownMenus.lua`). 여기서도 지워야 옛 프로필에 남은 값이 안 따라온다.
                 binding.unit = nil;
+            end
+
+            -- **대상을 뺏었으면 `"@"`도 뺏는다.** `"@"`는 대상 유닛을 가리키는 포인터라
+            -- 가리킬 것이 없으면 뜻이 없는데, 그걸 지우는 위쪽 검사는 대상 메뉴가 쓴 값을
+            -- 보고 이미 지나갔다. 바로 위 두 갈래가 그 뒤에서 대상을 지운다.
+            --
+            -- **아래 hover 채워넣기보다 앞이어야 한다.** 저기서 `"hover"`가 들어가고 나면
+            -- 남은 `"@"`가 그걸 가리켜서, focus를 겨누고 켠 조건이 **호버한 유닛** 조건으로
+            -- 조용히 바뀐다. 갈 축이 없어 판정에서 빠지는 것보다 나쁘다 - 이쪽은 멀쩡히
+            -- 동작하는 얼굴로 다른 일을 한다.
+            --
+            -- `""`도 같이 본다. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는 들어오고,
+            -- 위쪽 검사의 목록에는 없다.
+            if (binding.checkedUnits and (binding.unit == nil or binding.unit == "")) then
+                binding.checkedUnits["@"] = nil;
             end
 
             if (binding.petbattle and binding.specialbar) then
