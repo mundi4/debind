@@ -500,7 +500,8 @@ return function(DebindPrivate)
             "우호가 안 옮겨짐");
         check(type(c.mouseover) == "table" and c.mouseover.reaction == Constants.REACTION_HARM,
             "적대가 안 옮겨짐");
-        check(c.tank == false, "\"없을 때\"는 그대로여야 한다 - 없음 점은 어느 축에도 없다");
+        check(type(c.tank) == "table" and c.tank.exists == false,
+            "\"없을 때\"가 표가 아님 - 끈 축을 기억할 자리가 있어야 한다");
     end);
 
     -- `"@"`도 같은 표에 산다. 유닛 이름이 아니라 포인터일 뿐 값의 모양은 같다.
@@ -519,7 +520,7 @@ return function(DebindPrivate)
         MigrateLayer(layer, 4);
         MigrateLayer(layer, 4);
         check(layer[1].checkedUnits.focus.reaction == Constants.REACTION_HELP, "두 번째에 뭉개짐");
-        check(layer[1].checkedUnits.tank == false, "두 번째에 뭉개짐");
+        check(layer[1].checkedUnits.tank.exists == false, "두 번째에 뭉개짐");
     end);
 
     test("dbver 5 leaves actions without unit conditions alone", function()

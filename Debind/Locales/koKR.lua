@@ -155,7 +155,6 @@ L["KEEP_IN_BINDING_CONTEXT_DESC"] = "주택 편집기는 열려 있는 동안 �
 L["KEEP_IN_BINDING_CONTEXT"] = "주택 편집기보다 우선"
 L["KEY"] = "키"
 L["KEY_GROUP_UNBOUND"] = "지정된 키 없음"
-L["LIFE_ALL"] = "전체"
 L["LIFE_ALIVE"] = "살아있음"
 L["LIFE_DEAD"] = "죽음"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
@@ -194,7 +193,7 @@ L["NO_ACTIONS_IN_THIS_TAB"] = "이 탭에는 행동이 없습니다. 주문, 매
 L["NO_SEARCH_RESULTS"] = "검색과 맞는 것이 없습니다."
 L["NO_SHAPESHIFT"] = "변신하지 않음"
 L["NOT_SELECTED"] = "선택 안 됨"
-L["ONLY_IF_UNIT_EXISTS"] = "개체가 있을 때만"
+L["ONLY_IF"] = "다음일 때만..."
 L["OPTIONS"] = "설정"
 -- 짧은 쪽은 **무엇을 고치면 되는지**를 말한다. 근거는 enUS 쪽 주석에.
 L["ORDER_FLAG_BONUSBARS_NONE_SELECTED"] = "단축바 선택 안 됨"

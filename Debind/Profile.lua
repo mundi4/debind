@@ -228,9 +228,14 @@ local function MigrateLayer(layerTbl, dbver)
         -- 뜻이 바뀌어 마이그레이션을 또 해야 하는데, 필드면 하나 늘 뿐이고 **옛 데이터에
         -- 그 필드가 없다는 것 자체가 "이 축은 제약 안 함"이라 이미 맞는 답**이다.
         --
-        --   없음        false      (그대로. "유닛이 없을 때"라는 조건이다)
-        --   존재        {}         제약하는 축이 없음
+        --   없음        { exists = false }   축을 기억할 자리가 있어야 해서 표가 된다
+        --   존재        {}                   제약하는 축이 없음
         --   우호/적대   { reaction = ... }
+        --
+        -- `false`가 표가 되는 이유는 **끈 값을 기억하기 위해서다.** 라디오를 [없을 때]로
+        -- 옮겼다고 골라둔 반응·생사를 지우면 되돌렸을 때 처음부터 다시 골라야 한다. 끄는 것과
+        -- 지우는 것은 다르다 - `frameTypes`가 hover를 껐다 켜도 남아 있는 것과 같다.
+        -- 무시하는 것은 `Misc.UnitConditionForBinding`이 한다.
         --
         -- 다시 돌아도 안전하다 - 이미 테이블이면 건드리지 않는다.
         for i = 1, #layerTbl do
@@ -239,6 +244,8 @@ local function MigrateLayer(layerTbl, dbver)
                 for unit, value in pairs(checkedUnits) do
                     if (value == true) then
                         checkedUnits[unit] = {};
+                    elseif (value == false) then
+                        checkedUnits[unit] = { exists = false };
                     elseif (value == "help") then
                         checkedUnits[unit] = { reaction = Constants.REACTION_HELP };
                     elseif (value == "harm") then
@@ -259,8 +266,15 @@ local function MigrateLayer(layerTbl, dbver)
             local action = layerTbl[i];
             if (action.hover ~= nil) then
                 action.checkedUnits = action.checkedUnits or {};
-                action.checkedUnits.hover = DebindPrivate.HoverConditionFromLegacy(
-                    action.hover, action.reactions, action.checkedUnits.hover);
+                -- 접기는 바인딩 모양 위에서 돈다. 넣기 전에 한 번 통과시키고, 나온 것을 다시
+                -- 저장 모양으로 돌린다 - `false`(없을 때)만 표가 되면 되고, 나머지는 그대로다.
+                local folded = DebindPrivate.HoverConditionFromLegacy(
+                    action.hover, action.reactions,
+                    DebindPrivate.UnitConditionForBinding(action.checkedUnits.hover));
+                if (folded == false) then
+                    folded = { exists = false };
+                end
+                action.checkedUnits.hover = folded;
                 action.hover = nil;
                 action.reactions = nil;
             end

@@ -133,6 +133,92 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 모순은 **고칠 수 있는 모든 묶음**이 빨개져야 한다
+    --
+    -- 한 유닛의 마스크가 0이 되는 데는 여러 메뉴가 같이 관여한다. 대상이 `hover`인 액션에
+    -- hover 조건을 [안 올렸을 때]로 걸면 겨눌 유닛이 놓일 자리가 없는데, hover 메뉴에서
+    -- 풀 수도 있고 대상 메뉴에서 다른 유닛을 골라 풀 수도 있다.
+    --
+    -- 한쪽만 칠하면 나머지를 연 사람은 멀쩡한 화면을 본다. 더 나쁜 것은 그 묶음이 **하늘색
+    -- (활성)으로 뜬다**는 것이다 - "조건이 걸려 있음"과 "조건이 깨져 있음"이 같은 화면에서
+    -- 반대로 읽힌다.
+    ---------------------------------------------------------------------------
+
+    --- 대상이 hover인데 hover 조건이 "안 올렸을 때"다. 겹치는 상태가 없다.
+    local function hoverTargetConflict()
+        return {
+            type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
+            checkedUnits = { ["@"] = {}, hover = { exists = false } },
+        };
+    end
+
+    test("hover x 대상 모순은 액션 전체에서 잡힌다", function()
+        check(GetBindingIssue(hoverTargetConflict()) == NEVER, "이슈가 안 남");
+    end);
+
+    test("hover x 대상 모순은 hover 묶음을 칠한다", function()
+        check(GetBindingIssue(hoverTargetConflict(), "hover") == NEVER,
+            "hover 메뉴가 안 빨개진다 - 거기서 고칠 수 있는 문제다");
+    end);
+
+    test("hover x 대상 모순은 대상 묶음도 칠한다", function()
+        check(GetBindingIssue(hoverTargetConflict(), "unit") == NEVER,
+            "대상 메뉴가 안 빨개진다 - 하늘색으로 떠서 정상으로 읽힌다");
+    end);
+
+    test("hover x 대상 모순은 그 대상의 서브메뉴도 칠한다", function()
+        check(GetBindingIssue(hoverTargetConflict(), "checkedUnits", nil, "@") == NEVER,
+            "\"@\" 서브메뉴가 안 빨개진다");
+    end);
+
+    -- `Units` 묶음은 `"hover"`를 줄로 안 갖는다. 안 보여주는 조건으로 칠하면 어디를 고쳐야
+    -- 하는지가 오히려 안 보인다.
+    test("hover x 대상 모순으로 Units 묶음은 안 칠한다", function()
+        check(GetBindingIssue(hoverTargetConflict(), "checkedUnits") == nil, "오탐");
+    end);
+
+    --- `"@"`와 같은 유닛의 명시 조건이 어긋난다. 대상 메뉴와 Units 메뉴 둘 다 고칠 수 있다.
+    local function targetUnitConflict()
+        return {
+            type = Constants.SPELL, value = 100, key = "F1", unit = "focus",
+            checkedUnits = {
+                ["@"] = { reaction = Constants.REACTION_HELP },
+                focus = { reaction = Constants.REACTION_HARM },
+            },
+        };
+    end
+
+    -- **안 거든 묶음은 안 칠한다.** hover에서 반응을 하나도 안 고른 것은 hover 메뉴의 문제이고
+    -- 제 이름(`HOVER_NONE_SELECTED`)이 있다. 대상 메뉴는 아무것도 안 골랐는데 빨개지면
+    -- 어디를 봐야 하는지가 오히려 안 보인다.
+    test("hover의 빈 반응만으로 대상 묶음이 빨개지지 않는다", function()
+        local action = { type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
+            checkedUnits = { hover = { reaction = 0 } } };
+        check(GetBindingIssue(action, "unit") == nil, "안 거든 묶음을 칠했다");
+        check(GetBindingIssue(action, "hover") ~= nil, "hover 묶음은 잡아야 한다");
+    end);
+
+    -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 그때 이 서브메뉴는 **아무것도 안 묻는
+    -- 것**이지 "전부 묻는 것"이 아니다.
+    test("대상이 없으면 \"@\" 서브메뉴가 남의 모순을 안 보여준다", function()
+        local action = { type = Constants.SPELL, value = 100, key = "F1",
+            checkedUnits = {
+                focus = { reaction = 0 },
+            } };
+        check(GetBindingIssue(action, "checkedUnits", nil, "@") == nil,
+            "\"@\"가 가리킬 유닛이 없는데 남의 유닛 모순이 떴다");
+    end);
+
+    test("\"@\" x 유닛 조건 모순은 양쪽 묶음을 다 칠한다", function()
+        check(GetBindingIssue(targetUnitConflict(), "unit") == NEVER,
+            "대상 메뉴가 안 빨개진다");
+        check(GetBindingIssue(targetUnitConflict(), "checkedUnits") == NEVER,
+            "Units 묶음이 안 빨개진다");
+        check(GetBindingIssue(targetUnitConflict(), "checkedUnits", nil, "focus") == NEVER,
+            "그 유닛의 서브메뉴가 안 빨개진다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 마우스 왼/오른 버튼은 호버 조건이 있어야 쓸 수 있다
     --
     -- 이 판정이 오탐이면 **클릭캐스팅이 통째로 죽는다.** 이슈가 붙은 액션은 `KeyMap`에
@@ -168,6 +254,37 @@ return function(DebindPrivate)
     -- 자리에서 발동하므로 그 조건으로는 유닛 프레임 클릭을 못 받는다.
     test("호버가 false면 왼쪽 버튼을 못 쓴다", function()
         check(mouseKeyIssue({ checkedUnits = { hover = false } }) == MOUSE_ISSUE, "이슈가 안 남");
+    end);
+
+    -- 저장에는 끈 조건이 표로 남는다. 표라는 이유만으로 "켜짐"이라고 읽으면 이 판정이
+    -- 뒤집혀서, 걸리지 말아야 할 왼쪽 버튼이 통과하고 걸릴 것이 안 걸린다.
+    test("끈 호버 조건은 왼쪽 버튼을 못 쓰게 한다", function()
+        check(mouseKeyIssue({ checkedUnits = { hover = { exists = false } } }) == MOUSE_ISSUE,
+            "\"없을 때\"를 켜진 것으로 읽었다");
+        check(mouseKeyIssue({ checkedUnits = { hover = { off = true,
+            reaction = Constants.REACTION_HELP } } }) == MOUSE_ISSUE,
+            "기억만 하는 값을 켜진 것으로 읽었다");
+    end);
+
+    -- 같은 값이 반대 방향으로도 샌다: 꺼진 조건을 켜진 것으로 읽으면 hover + COMMAND 검사가
+    -- 걸려서 멀쩡한 액션이 `KeyMap`에서 빠진다.
+    test("끈 호버 조건은 명령 액션을 막지 않는다", function()
+        local HOVER_COMMAND = Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND;
+        local function commandIssue(hoverCondition)
+            return DebindPrivate.IsKeyInvalidForAction({
+                type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "BUTTON3",
+                checkedUnits = { hover = hoverCondition },
+            }, "BUTTON3");
+        end
+
+        -- 켜져 있으면 걸리는 것이 맞다. 이 줄이 없으면 아래가 "아무것도 안 걸리는" 것과
+        -- 구분되지 않는다.
+        check(commandIssue({}) == HOVER_COMMAND, "전제가 깨졌다 - 켜진 호버는 걸려야 한다");
+
+        check(commandIssue({ off = true, reaction = Constants.REACTION_HELP }) ~= HOVER_COMMAND,
+            "기억만 하는 값으로 호버-명령 검사가 걸렸다");
+        check(commandIssue({ exists = false }) ~= HOVER_COMMAND,
+            "\"없을 때\"로 호버-명령 검사가 걸렸다");
     end);
 
     test("마이그레이션이 안 닿은 옛 hover도 같은 답을 낸다", function()

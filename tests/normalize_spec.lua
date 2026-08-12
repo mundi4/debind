@@ -75,6 +75,44 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 끈 조건은 **기억하되 판정에서 뺀다**
+    --
+    -- 라디오를 [사용 안 함]이나 [없을 때]로 옮겼다고 골라둔 반응·생사를 지우면, 되돌렸을 때
+    -- 처음부터 다시 골라야 한다. 옵션을 끄는 것이지 지우는 것이 아니다 - `frameTypes`가
+    -- hover를 껐다 켜도 남아 있는 것과 같은 규칙이고, 무시하는 것은 코드가 한다.
+    ---------------------------------------------------------------------------
+
+    test("꺼진 조건은 바인딩에 안 나온다", function()
+        local b = spell({ checkedUnits = {
+            target = { off = true, reaction = Constants.REACTION_HELP, dead = true },
+        } });
+        check(b.checkedUnits == nil, "꺼진 조건이 바인딩까지 갔다");
+        check(b.unitStates == nil or b.unitStates.target == nil, "축을 좁혔다");
+    end);
+
+    test("\"없을 때\"는 기억한 축을 안 읽는다", function()
+        local b = spell({ checkedUnits = {
+            target = { exists = false, reaction = Constants.REACTION_HELP, dead = true },
+        } });
+        check(b.unitStates.target == Constants.UNITSTATE_NONE,
+            "기억만 해야 할 축이 판정에 실렸다");
+    end);
+
+    test("표시가 없는 표는 \"있을 때\"다", function()
+        -- 손으로 쓴 값과 아직 안 옮겨진 프로필이 이 모양으로 온다. 조건 없음으로 읽으면
+        -- 걸어둔 것보다 넓어져 남의 키를 가져간다.
+        check(spell({ checkedUnits = { target = {} } }).unitStates.target
+            == Constants.UNITSTATE_EXISTS, "빈 표가 조건 없음으로 읽힘");
+    end);
+
+    test("꺼진 조건만 있으면 조건부 액션이 아니다", function()
+        local action = { type = Constants.SPELL, value = 100,
+            checkedUnits = { target = { off = true, reaction = Constants.REACTION_HELP } } };
+        check(not DebindPrivate.IsConditionalAction(action),
+            "기억만 하는 값이 액션을 조건부로 만들었다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 옛 `hover`/`reactions`를 들어올린다
     --
     -- 마이그레이션이 아직 안 닿은 프로필(가져오기 도중, 손으로 고친 것)이 여기로 온다.
@@ -221,30 +259,30 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("대상을 안 골랐으면 \"@\"가 사라진다", function()
-        check(spell({ checkedUnits = { ["@"] = true } }).checkedUnits["@"] == nil, "\"@\"가 남음");
+        check(spell({ checkedUnits = { ["@"] = true } }).checkedUnits == nil, "\"@\"가 남음");
     end);
 
     test("대상이 \"none\"이면 \"@\"가 사라진다", function()
-        check(spell({ unit = "none", checkedUnits = { ["@"] = true } }).checkedUnits["@"] == nil,
+        check(spell({ unit = "none", checkedUnits = { ["@"] = true } }).checkedUnits == nil,
             "\"@\"가 남음");
     end);
 
     test("대상이 \"player\"면 \"@\"가 사라진다", function()
-        check(spell({ unit = "player", checkedUnits = { ["@"] = true } }).checkedUnits["@"] == nil,
+        check(spell({ unit = "player", checkedUnits = { ["@"] = true } }).checkedUnits == nil,
             "\"@\"가 남음");
     end);
 
     -- 저장된 대상이 빈 문자열인 프로필. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는
     -- 들어온다.
     test("대상이 빈 문자열이면 \"@\"가 사라진다", function()
-        check(spell({ unit = "", checkedUnits = { ["@"] = true } }).checkedUnits["@"] == nil,
+        check(spell({ unit = "", checkedUnits = { ["@"] = true } }).checkedUnits == nil,
             "\"@\"가 남음");
     end);
 
     -- truthy 검사였다면 `false`("없을 때")를 못 잡고 걸 축이 없는 조건이 `UpdateBindings`
     -- 까지 갔다. UI로는 못 만들지만 공유 프로필로는 들어오는 값이다.
     test("\"@\"가 false여도 사라진다", function()
-        check(spell({ unit = "player", checkedUnits = { ["@"] = false } }).checkedUnits["@"] == nil,
+        check(spell({ unit = "player", checkedUnits = { ["@"] = false } }).checkedUnits == nil,
             "falsy라 검사에서 빠짐");
     end);
 
@@ -271,7 +309,7 @@ return function(DebindPrivate)
             checkedUnits = { ["@"] = true },
         }, true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.checkedUnits["@"] == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
@@ -282,7 +320,7 @@ return function(DebindPrivate)
             checkedUnits = { ["@"] = true },
         }, true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.checkedUnits["@"] == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 

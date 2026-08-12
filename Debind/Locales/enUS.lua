@@ -171,7 +171,6 @@ L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its 
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
 L["KEY"] = "Key"
 L["KEY_GROUP_UNBOUND"] = "No key assigned"
-L["LIFE_ALL"] = "All"
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
@@ -248,7 +247,7 @@ L["NO_ACTIONS_IN_THIS_TAB"] = "There are no actions in this tab. You can add a n
 L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NOT_SELECTED"] = "Not Selected"
-L["ONLY_IF_UNIT_EXISTS"] = "Only if unit exists"
+L["ONLY_IF"] = "Only if..."
 L["OPTIONS"] = "Options"
 -- 결과 목록에서 **문제가 있는 행**이 순서 대신 다는 빨간 한 줄. `BINDING_ISSUE_*` 코드마다
 -- 하나씩 있고, 없는 코드는 ORDER_FLAG_ISSUE로 물러난다(DebindUI.lua의 GetShortIssueText).

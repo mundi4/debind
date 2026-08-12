@@ -42,7 +42,7 @@ const PENDING_TRANSLATION = {
     LAYER_DESC_CHARACTER_SPEC: ["ruRU"],
     // The life axis on unit conditions. Same owner as the rows above.
     CONDITION_LIFE: ["ruRU"],
-    LIFE_ALL: ["ruRU"],
+    ONLY_IF: ["ruRU"],
     LIFE_ALIVE: ["ruRU"],
     LIFE_DEAD: ["ruRU"],
 };

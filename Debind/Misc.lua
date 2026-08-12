@@ -364,21 +364,53 @@ local REACTION_TO_UNIT_STATE = {
     [Constants.REACTION_OTHER] = Constants.UNITSTATE_OTHER,
 };
 
---- Legacy scalar -> the per-axis shape, or nil when it already is one.
+--- 저장된 유닛 조건 -> 바인딩이 읽는 모양. 조건이 꺼져 있으면 `nil`.
 ---
---- Storage moved to one field per axis in `Profile.lua`'s `dbver <= 4` step, but a scalar can
---- still arrive: a profile mid-import, one edited by hand, one built by a test. `binding` is where
---- that ends -- **everything downstream sees the new shape only.** Leaving the old form to travel
---- means every consumer needs a type check, and the one that forgets indexes a boolean.
-local function UnitConditionFromLegacy(value)
-    if (value == true) then
+--- **저장과 바인딩은 다른 모양이고, 이 함수가 그 이음매다.**
+---
+--- 저장은 사용자가 편집하는 것이라 **끈 값을 기억한다.** 라디오를 [사용 안 함]이나
+--- [없을 때]로 옮겼다고 골라둔 반응·생사를 지우면, 되돌렸을 때 처음부터 다시 골라야 한다.
+--- **옵션을 끄는 것이지 지우는 것이 아니다** - `frameTypes`가 hover를 껐다 켜도 남아 있는 것과
+--- 같은 규칙이고, 이 메뉴만 예외일 이유가 없다.
+---
+---     { }                          있을 때 (표시가 없으면 이것)
+---     { reaction = m, dead = b }   있을 때 + 축
+---     { exists = false, ... }      없을 때. 축은 기억만 한다
+---     { off = true, ... }          이 유닛에 조건 없음. 축은 기억만 한다
+---
+--- 두 표시가 다 **없는 것이 "있을 때"인 것**이 중요하다. 손으로 쓴 값이나 아직 안 옮겨진
+--- 프로필이 그 모양으로 오는데, 그것을 "조건 없음"으로 읽으면 걸어둔 조건이 조용히 사라져
+--- 바인딩이 제 것 아닌 키까지 가져간다. 좁아지는 쪽이 안전하다.
+---
+--- 바인딩은 판정에 쓰는 것이라 기억을 안 들고 간다. 그래야 `IsConditionalBinding`도, 이슈
+--- 검사도, 런타임 방출도 "꺼진 축"이라는 경우를 몰라도 된다.
+---
+--- 옛 스칼라도 여기서 받는다. 가져오기 도중이거나 손으로 고친 프로필, 테스트가 만든 액션이
+--- 그 모양으로 온다 - **여기서 끝나야** 하류가 타입 검사를 안 한다.
+local function UnitConditionForBinding(value)
+    if (value == nil) then
+        return nil;
+    elseif (value == true) then
         return {};
+    elseif (value == false) then
+        return false;
     elseif (value == "help") then
         return { reaction = Constants.REACTION_HELP };
     elseif (value == "harm") then
         return { reaction = Constants.REACTION_HARM };
+    elseif (type(value) ~= "table") then
+        -- 모르는 스칼라. **떨어뜨리지 않는다** - 옛 버전이 쓴 값을 우리가 모를 수 있고, 조건이
+        -- 조용히 사라지면 그 바인딩이 걸어둔 것보다 넓어져 남의 키를 가져간다. 없음 점으로
+        -- 읽는 것이 좁은 쪽이고, 스칼라 시절에도 같은 답이었다.
+        return false;
     end
-    return nil;
+
+    if (value.off) then
+        return nil;
+    elseif (value.exists == false) then
+        return false;
+    end
+    return { reaction = value.reaction, dead = value.dead };
 end
 
 --- The old `hover` / `reactions` pair -> the unit condition they became.
@@ -393,6 +425,9 @@ end
 --- was set. Where the two do not overlap the answer is `reaction = 0` -- exists, and in none of
 --- the three reactions, which no unit satisfies. That is not a new marker: `GetBindingIssue`
 --- already reads a zero mask that way, and the pair was already an issue before it was folded.
+--- **`existing`도 돌려주는 값도 바인딩 모양이다**(`UnitConditionForBinding`이 내는 것). 저장
+--- 모양을 넣지 말 것 - 부르는 쪽이 먼저 통과시킨다. 접기는 "꺼진 축을 기억한다"는 편집 쪽
+--- 사정과 아무 상관이 없고, 두 모양을 다 받게 만들면 어느 쪽인지 매번 물어야 한다.
 local function HoverConditionFromLegacy(hover, reactions, existing)
     if (hover == false) then
         -- "Not hovering" against any condition that needs the unit there. Nothing is both.
@@ -422,6 +457,7 @@ local function HoverConditionFromLegacy(hover, reactions, existing)
 end
 
 DebindPrivate.HoverConditionFromLegacy = HoverConditionFromLegacy;
+DebindPrivate.UnitConditionForBinding = UnitConditionForBinding;
 
 --- One stored unit condition -> a mask on the unit axis.
 ---
@@ -480,6 +516,9 @@ end
 --- Nothing produces such a condition yet: the menus write the same four values they always did,
 --- just in the new shape.
 local function UnitConditionToRuntimeScalar(value)
+    -- 저장 모양이 들어올 수도 있어서 먼저 접는다. 이 함수를 부르는 것은 스펙뿐이고, 스펙은
+    -- 마이그레이션이 방금 쓴 값을 그대로 넘긴다.
+    value = UnitConditionForBinding(value);
     if (value == false or type(value) ~= "table") then
         return value;
     end
@@ -682,15 +721,17 @@ do
             binding.unit = action.unit;
             binding.key = action.key;
             binding.priority = action.priority or Constants.DEFAULT_PRIORITY;
-            binding.checkedUnits = action.checkedUnits and CopyTable(action.checkedUnits) or nil;
-            if (binding.checkedUnits) then
-                -- Legacy scalars are raised here and nowhere else, so the rest of the pipeline --
-                -- the solver fold, the runtime emitter, the menus reading back -- only ever meets
-                -- one shape.
-                for unit, value in pairs(binding.checkedUnits) do
-                    local raised = UnitConditionFromLegacy(value);
-                    if (raised) then
-                        binding.checkedUnits[unit] = raised;
+            -- 저장 모양 -> 바인딩 모양. 꺼진 조건은 여기서 빠지므로 하류는 기억을 안 만난다.
+            -- 남는 것이 없으면 표 자체를 안 만든다 - `binding.checkedUnits`가 있느냐를 게이트로
+            -- 쓰는 자리가 여럿이라(이슈 검사, `IsConditionalBinding`), 빈 표는 조건이 하나도
+            -- 없는 액션을 조건부로 만든다.
+            binding.checkedUnits = nil;
+            if (action.checkedUnits) then
+                for unit, value in pairs(action.checkedUnits) do
+                    local condition = UnitConditionForBinding(value);
+                    if (condition ~= nil) then
+                        binding.checkedUnits = binding.checkedUnits or {};
+                        binding.checkedUnits[unit] = condition;
                     end
                 end
             end
@@ -787,6 +828,13 @@ do
             -- 위쪽 검사의 목록에는 없다.
             if (binding.checkedUnits and (binding.unit == nil or binding.unit == "")) then
                 binding.checkedUnits["@"] = nil;
+            end
+
+            -- **빈 표는 남기지 않는다.** `"@"`가 유일한 키였으면 위 두 자리가 그것을 지우고
+            -- `{}`가 남는데, `binding.checkedUnits`가 있느냐를 게이트로 쓰는 자리가 여럿이라
+            -- (`IsConditionalBinding`, 이슈 검사) 조건이 하나도 없는 액션이 조건부가 된다.
+            if (binding.checkedUnits and not next(binding.checkedUnits)) then
+                binding.checkedUnits = nil;
             end
 
             if (binding.petbattle and binding.specialbar) then
@@ -908,7 +956,11 @@ local function ActionHoverIsOn(action)
     if (condition == nil) then
         return action.hover == true;
     end
-    return condition ~= false;
+    -- **접어서 본다.** 저장 원문에는 끈 조건도 남아 있어서 `{ exists = false }`도 `{ off = true }`도
+    -- 표라는 이유만으로 "켜짐"이 된다. `DeriveHoverFields`와 정반대 답을 내면 왼/우클릭
+    -- 유효성이 뒤집힌다.
+    local folded = UnitConditionForBinding(condition);
+    return folded ~= nil and folded ~= false;
 end
 
 function DebindPrivate.IsKeyInvalidForAction(action, key)
@@ -1009,15 +1061,14 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- 대상이 `@hover`인 액션에 hover 반응을 `우호`로, `"@"`를 `적대`로 걸면 영원히 안 걸리는데
     -- 두 값이 서로 다른 필드에 있어서 비교 대상이 아니었다. 접힌 지금은 그 경우가 따로가 아니다.
     --
-    -- `binding.checkedUnits` 게이트는 남긴다. 마스크는 hover 조건만으로도 0이 될 수 있는데
-    -- (`reactions == 0`), 그건 위의 reactions 갈래가 제 이름으로 이미 잡는다. 여기서 또 잡으면
-    -- 메뉴가 엉뚱한 항목을 빨갛게 칠한다.
+    -- **한 유닛의 0은 여러 메뉴가 같이 만든다. 그래서 그 조건을 고칠 수 있는 묶음은 전부
+    -- 빨갛게 칠한다.** 대상이 `hover`인 액션에 hover 조건을 [안 올렸을 때]로 걸면 겨눌 유닛이
+    -- 놓일 자리가 없는데, 이건 hover 메뉴에서 풀 수도 있고 대상 메뉴에서 다른 유닛을 골라
+    -- 풀 수도 있다. 한쪽만 칠하면 나머지 한쪽을 연 사람은 멀쩡한 화면을 본다 - 메뉴를 열었을
+    -- 때 어디를 봐야 하는지가 이 색으로만 보이므로, 관련된 자리는 다 칠해야 한다.
     --
-    -- 접힌 뒤로 hover도 `checkedUnits`의 한 키라, `Units` 묶음이 제 이름으로 물을 때
-    -- (`category == "checkedUnits"`, `arg == nil`)는 그 키를 건너뛴다. 그 조건을 고치는 자리는
-    -- hover 메뉴이고 그쪽 갈래들이 이미 잡는데, 여기서 또 잡으면 **보여주지도 않는 조건 때문에
-    -- `Units`가 빨개진다.** 액션 전체를 물을 때(`category == nil`)는 안 건너뛴다 - 그때는
-    -- 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는 것이다.
+    -- 대신 **자기가 보여주지 않는 조건으로는 안 칠한다.** `Units` 묶음은 `"hover"`를 줄로
+    -- 갖고 있지 않으므로 그 키의 0에는 반응하지 않는다.
     --
     -- **This zero is what keeps contradictory conditions out of the secure environment.** An
     -- action reported here never enters `KeyMap` (`Debind.lua`), so it reaches neither the solver
@@ -1025,18 +1076,52 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- "impossible" answer as unreachable and skips the binding instead of representing it. That
     -- function's header spells out the reasoning; the two are one rule written twice, so **weaken
     -- this check and the runtime starts carrying conditions nothing can satisfy.**
-    if (not issue and binding.checkedUnits and binding.unitStates
-            and (not category or category == "checkedUnits") and notCategory ~= "checkedUnits") then
+    if (not issue and binding.unitStates and notCategory ~= "checkedUnits"
+            and (not category or category == "checkedUnits" or category == "hover"
+                or category == "unit")) then
         local target = arg;
+        local askedAboutNothing;
         if (target == "@") then
+            -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 여기서 `target`을 nil로 두면
+            -- "짚어 물었다"가 "전부 물었다"로 바뀌어 **남의 유닛 모순이 이 서브메뉴에 뜬다.**
             target = binding.unit;
+            askedAboutNothing = target == nil;
         end
-        local skipHover = category == "checkedUnits" and arg == nil;
+
+        --- 이 묶음이 그 0에 **거들었는가.** 안 거든 묶음을 칠하면 아무것도 안 고른 메뉴가
+        --- 빨개진다 - hover에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
+        local function contributed(unit)
+            if (not binding.checkedUnits) then
+                return false;
+            end
+            if (category == "unit") then
+                return binding.checkedUnits["@"] ~= nil and unit == binding.unit;
+            end
+            return binding.checkedUnits[unit] ~= nil;
+        end
+
         for unit, mask in pairs(binding.unitStates) do
-            if (mask == 0 and (target == nil or target == unit)
-                    and not (skipHover and unit == "hover")) then
-                issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-                break;
+            if (mask == 0 and not askedAboutNothing) then
+                local mine;
+                if (target ~= nil) then
+                    -- 유닛 하나를 짚어 물었다(서브메뉴).
+                    mine = target == unit;
+                elseif (category == "hover") then
+                    mine = unit == "hover" and contributed(unit);
+                elseif (category == "unit") then
+                    -- 대상 메뉴. `"@"`가 가리키는 유닛의 0이 곧 이 메뉴의 문제다.
+                    mine = contributed(unit);
+                elseif (category == "checkedUnits") then
+                    mine = unit ~= "hover";
+                else
+                    -- 액션 전체. 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는다.
+                    mine = true;
+                end
+
+                if (mine) then
+                    issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+                    break;
+                end
             end
         end
     end

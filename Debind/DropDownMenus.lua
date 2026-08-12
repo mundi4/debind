@@ -22,8 +22,12 @@ local REACTION_ITEMS        = {
 
 --- The life radios. **`value` is what gets stored, verbatim** -- the first row clears the `dead`
 --- field, so it carries no `value` at all (a table cannot hold a `nil` one).
+---
+--- It says `Disable`, the same word every other three-way radio here opens with. The row is not a
+--- third value to pick from; it is this axis constraining nothing, which is what every other
+--- first row means too.
 local LIFE_ITEMS            = {
-    { text = LLL["LIFE_ALL"] },
+    { text = LLL["DISABLE"] },
     { text = LLL["LIFE_ALIVE"], value = false },
     { text = LLL["LIFE_DEAD"],  value = true },
 };
@@ -445,8 +449,37 @@ do
         return value.reaction;
     end
 
+    --- 위쪽 라디오 셋 중 어느 것이 켜져 있는가. 조건을 만든 적이 없으면 `nil`.
+    --- 표시가 없는 표는 "있을 때"다 - `Misc.UnitConditionForBinding`의 기본값과 같아야 한다.
+    local function UnitConditionMode(unit)
+        local value = _action.checkedUnits and _action.checkedUnits[unit];
+        if (value == nil) then
+            return nil;
+        end
+        if (type(value) ~= "table") then
+            -- 아직 안 옮겨진 스칼라. 메뉴에서 무엇이든 고르면 표로 올라간다.
+            -- **`UnitConditionForBinding`과 같은 답을 내야 한다** - 모르는 값까지 포함해서.
+            -- 한쪽이 "있을 때", 다른 쪽이 "없을 때"로 읽으면 화면과 판정이 갈린다.
+            if (value == true or value == "help" or value == "harm") then
+                return "exists";
+            end
+            return "absent";
+        end
+        if (value.off) then
+            return "off";
+        end
+        return value.exists == false and "absent" or "exists";
+    end
+
     local function UnitConditionIsExists(unit)
-        return type(_action.checkedUnits and _action.checkedUnits[unit]) == "table";
+        return UnitConditionMode(unit) == "exists";
+    end
+
+    --- 조건이 실제로 걸려 있는가. 꺼진 채로 축만 기억하는 것은 조건이 아니다 - 묶음을 파랗게
+    --- 칠하는 자리들이 이걸 물어야 **끈 조건 때문에 "걸려 있음"으로 보이지** 않는다.
+    local function UnitConditionIsOn(unit)
+        local mode = UnitConditionMode(unit);
+        return mode == "exists" or mode == "absent";
     end
 
     local function GetUnitConditionDead(unit)
@@ -457,18 +490,47 @@ do
         return value.dead;
     end
 
-    --- An empty table says "constrains no axis" the same way every axis says it -- by the field
-    --- being absent. So this clears the axes too: it is the way back to plain "if it exists".
-    local function SetUnitConditionExists(unit)
-        _action.checkedUnits = _action.checkedUnits or {};
-        _action.checkedUnits[unit] = {};
+    --- 위쪽 라디오 셋이 쓰는 것. **`exists`만 바꾸고 축은 건드리지 않는다** - [사용 안 함]으로
+    --- 옮겼다가 되돌리면 골라둔 반응·생사가 그대로 있어야 한다. 무시하는 것은
+    --- `Misc.UnitConditionForBinding`이 한다.
+    ---
+    --- 끈 자리에 기억할 축이 하나도 없으면 키를 지운다. 안 그러면 아무것도 안 고른 유닛의
+    --- 빈 표가 프로필에 쌓인다.
+    local function SetUnitConditionMode(unit, mode)
+        local checkedUnits = _action.checkedUnits;
+        local cond = checkedUnits and checkedUnits[unit];
+        if (type(cond) ~= "table") then
+            cond = {};
+        end
+        -- **`and false or`로 쓰지 말 것.** 그 관용구는 `false`를 못 돌려준다 - 참일 때
+        -- `true and false`가 `false`가 되고 그게 다시 `or`의 왼쪽이라 오른쪽이 나온다.
+        -- 그렇게 쓴 동안 [없을 때]가 아무것도 안 적어서 [있을 때]와 같은 값이 됐다.
+        cond.off = (mode == "off") or nil;
+        if (mode == "absent") then
+            cond.exists = false;
+        else
+            cond.exists = nil;
+        end
+
+        if (mode == "off" and cond.reaction == nil and cond.dead == nil) then
+            -- 기억할 축이 하나도 없다. 빈 표를 남기면 아무것도 안 고른 유닛이 프로필에 쌓인다.
+            if (checkedUnits) then
+                checkedUnits[unit] = nil;
+                if (not next(checkedUnits)) then
+                    _action.checkedUnits = nil;
+                end
+            end
+        else
+            checkedUnits = checkedUnits or {};
+            checkedUnits[unit] = cond;
+            _action.checkedUnits = checkedUnits;
+        end
+
         onActionValueChanged();
         return MenuResponse.Refresh;
     end
 
-    --- Write one axis of a condition that is already on. Every caller is gated on the `exists`
-    --- radio, so there is no table to create here -- and creating one would turn the condition on
-    --- from a widget that reads as though it only narrows it.
+    --- Write one axis. Every caller is gated on the `exists` radio, so the table is already there.
     local function SetUnitConditionAxis(unit, axis, value)
         local cond = _action.checkedUnits and _action.checkedUnits[unit];
         if (type(cond) ~= "table") then
@@ -501,26 +563,10 @@ do
         return SetUnitConditionAxis(unit, "reaction", mask);
     end
 
-    local function SetUnitCondition(unit, value)
-        if (value == nil) then
-            if (_action.checkedUnits) then
-                _action.checkedUnits[unit] = nil;
-                if (not next(_action.checkedUnits)) then
-                    _action.checkedUnits = nil;
-                end
-            end
-        else
-            _action.checkedUnits = _action.checkedUnits or {};
-            _action.checkedUnits[unit] = value;
-        end
-        onActionValueChanged();
-        return MenuResponse.Refresh;
-    end
-
     local function CreateUnitConditionSubmenu(parentDescription, label, unit)
         local optionsDescription = CreateActionMenuItemGroup(parentDescription, label, nil,
             function()
-                return _action.checkedUnits and _action.checkedUnits[unit] ~= nil;
+                return UnitConditionIsOn(unit);
             end,
             -- error
             function()
@@ -530,15 +576,14 @@ do
 
         local titleDescription = optionsDescription:CreateTitle(MenuUtil.GetElementText(optionsDescription));
         if (unit == "@") then
-            optionsDescription:AddInitializer(function(button, elementDescription, menu)
-                if (_action.unit and _action.unit ~= "none") then
-                    button.fontString:SetText(format(LLL["SELECTED_TARGET_UNIT"], DebindUI.UNIT_INFO[_action.unit].name));
-                else
-                    button.fontString:SetText(LLL["SELECTED_TARGET_UNIT_EMPTY"]);
-                end
-            end);
+            -- 여는 줄은 `Only if...`로 두고, **어느 유닛에 거는 조건인지는 안쪽 제목이 말한다.**
+            -- 바깥 줄까지 대상 이름으로 바꾸면 바로 위 라디오 목록이 방금 고른 그 이름을 한 번
+            -- 더 되뇌게 된다.
+            --
+            -- `player`가 빠지는 이유는 다른 것과 같다: 자기 자신은 늘 있으므로 걸 조건이 없다.
             optionsDescription:SetEnabled(function()
-                return _action.unit and _action.unit ~= "none" and true or false;
+                return _action.unit and _action.unit ~= "none" and _action.unit ~= "player"
+                    and true or false;
             end);
 
             titleDescription:AddInitializer(function(button, elementDescription, menu)
@@ -552,10 +597,11 @@ do
 
         optionsDescription:CreateRadio(LLL["DISABLE"],
             function()
-                return not _action.checkedUnits or _action.checkedUnits[unit] == nil;
+                local mode = UnitConditionMode(unit);
+                return mode == nil or mode == "off";
             end,
             function()
-                return SetUnitCondition(unit, nil);
+                return SetUnitConditionMode(unit, "off");
             end
         );
 
@@ -566,18 +612,25 @@ do
                 return UnitConditionIsExists(unit);
             end,
             function()
-                return SetUnitConditionExists(unit);
+                return SetUnitConditionMode(unit, "exists");
             end
         );
 
-        optionsDescription:CreateRadio(LLL["CONDITION_UNIT_DOES_NOT_EXIST"],
+        local absentDescription = optionsDescription:CreateRadio(LLL["CONDITION_UNIT_DOES_NOT_EXIST"],
             function()
-                return _action.checkedUnits and _action.checkedUnits[unit] == false;
+                return UnitConditionMode(unit) == "absent";
             end,
             function()
-                return SetUnitCondition(unit, false);
+                return SetUnitConditionMode(unit, "absent");
             end
         );
+
+        -- `"@"`는 이 액션이 **겨누는** 대상이다. 없는 유닛은 겨눌 수 없으니 "없을 때"라는 말이
+        -- 설 자리가 없다. 줄을 빼지 않고 잠그는 이유는, 다른 유닛과 같은 메뉴라는 것이 보여야
+        -- 여기만 다른 문법이라고 읽지 않기 때문이다.
+        if (unit == "@") then
+            absentDescription:SetEnabled(false);
+        end
 
         local function axisIsEnabled()
             return UnitConditionIsExists(unit);
@@ -609,7 +662,7 @@ do
         for _, item in ipairs(LIFE_ITEMS) do
             local lifeDescription = optionsDescription:CreateRadio(item.text,
                 function()
-                    return UnitConditionIsExists(unit) and GetUnitConditionDead(unit) == item.value;
+                    return GetUnitConditionDead(unit) == item.value;
                 end,
                 function()
                     return SetUnitConditionAxis(unit, "dead", item.value);
@@ -712,87 +765,11 @@ do
             end
         end
 
+        -- 겨누는 대상에 거는 조건은 **다른 유닛과 같은 메뉴**를 쓴다. 여기만 체크박스 + 좁은
+        -- 프리셋이던 시절에는 같은 것을 두 문법으로 말했고, 축이 하나 늘 때마다 이 목록이
+        -- 네 줄씩 길어졌다. 서브메뉴로 접으면 대상 목록은 대상만 남는다.
         description:CreateDivider();
-        local childDescription;
-
-        childDescription = description:CreateCheckbox(LLL["ONLY_IF_UNIT_EXISTS"],
-            function()
-                return UnitConditionIsExists("@");
-            end,
-            function()
-                if (UnitConditionIsExists("@")) then
-                    return SetUnitCondition("@", nil);
-                end
-                return SetUnitConditionExists("@");
-            end
-        );
-        childDescription:SetEnabled(function()
-            return _action.unit and _action.unit ~= "none" and _action.unit ~= "player" and true or false;
-        end);
-
-        local function initializer(frame, elementDescription, menu)
-            frame.leftTexture1:SetPoint("LEFT", 15, 0);
-        end
-
-        local function isEnabled()
-            return _action.unit and _action.unit ~= "none" and _action.unit ~= "player"
-                and UnitConditionIsExists("@") and true or false;
-        end
-
-
-        -- Reactions are three radios here rather than a checkbox group: this half of the menu is
-        -- a **narrow preset** on the one unit the action aims at, and the unit submenu
-        -- (`CreateUnitConditionSubmenu`) already gives that same unit a place to say a subset.
-        childDescription = description:CreateRadio(LLL["REACTION_ALL"],
-            function()
-                return UnitConditionIsExists("@") and GetUnitConditionReaction("@") == nil;
-            end,
-            function()
-                return SetUnitConditionAxis("@", "reaction", nil);
-            end
-        );
-        childDescription:AddInitializer(initializer);
-        childDescription:SetEnabled(isEnabled);
-
-        childDescription = description:CreateRadio(LLL["REACTION_HELP"],
-            function()
-                return GetUnitConditionReaction("@") == Constants.REACTION_HELP;
-            end,
-            function()
-                return SetUnitConditionAxis("@", "reaction", Constants.REACTION_HELP);
-            end
-        );
-        childDescription:AddInitializer(initializer);
-        childDescription:SetEnabled(isEnabled);
-
-        childDescription = description:CreateRadio(LLL["REACTION_HARM"],
-            function()
-                return GetUnitConditionReaction("@") == Constants.REACTION_HARM;
-            end,
-            function()
-                return SetUnitConditionAxis("@", "reaction", Constants.REACTION_HARM);
-            end
-        );
-        childDescription:AddInitializer(initializer);
-        childDescription:SetEnabled(isEnabled);
-
-        -- Life gets a block here and "doesn't exist" does not, for the same reason: an action
-        -- cannot aim at a unit that is not there, so absence says nothing here -- but life does.
-        description:CreateDivider();
-        description:CreateTitle(LLL["CONDITION_LIFE"]);
-
-        for _, item in ipairs(LIFE_ITEMS) do
-            childDescription = description:CreateRadio(item.text,
-                function()
-                    return UnitConditionIsExists("@") and GetUnitConditionDead("@") == item.value;
-                end,
-                function()
-                    return SetUnitConditionAxis("@", "dead", item.value);
-                end
-            );
-            childDescription:AddInitializer(initializer);
-            childDescription:SetEnabled(isEnabled);
-        end
+        CreateUnitConditionSubmenu(description, "ONLY_IF", "@");
 
         return description;
     end
@@ -806,7 +783,7 @@ do
     local function CreateHoverMenu(parentDescription)
         local description = CreateActionMenuItemGroup(parentDescription, "CONDITION_HOVER", "hover",
             function()
-                return _action.checkedUnits and _action.checkedUnits.hover ~= nil;
+                return UnitConditionIsOn("hover");
             end,
             DebindPrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
 
@@ -818,7 +795,7 @@ do
         -- 그룹이 제 초기화에서 색을 칠하므로 그 뒤에 덧칠하는 초기화를 하나 더 건다.
         if (DebindPrivate.CliqueDetected) then
             description:AddInitializer(function(button)
-                if (not (_action.checkedUnits and _action.checkedUnits.hover ~= nil)) then
+                if (not UnitConditionIsOn("hover")) then
                     button.fontString:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
                 end
             end);
@@ -828,10 +805,11 @@ do
         -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
         description:CreateRadio(rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
             function()
-                return not (_action.checkedUnits and _action.checkedUnits.hover ~= nil);
+                local mode = UnitConditionMode("hover");
+                return mode == nil or mode == "off";
             end,
             function()
-                return SetUnitCondition("hover", nil);
+                return SetUnitConditionMode("hover", "off");
             end
         );
 
@@ -840,16 +818,16 @@ do
                 return UnitConditionIsExists("hover");
             end,
             function()
-                return SetUnitConditionExists("hover");
+                return SetUnitConditionMode("hover", "exists");
             end
         );
 
         local no = description:CreateRadio(LLL["CONDITION_HOVER_NO"],
             function()
-                return _action.checkedUnits and _action.checkedUnits.hover == false;
+                return UnitConditionMode("hover") == "absent";
             end,
             function()
-                return SetUnitCondition("hover", false);
+                return SetUnitConditionMode("hover", "absent");
             end
         );
 
@@ -880,7 +858,7 @@ do
         for _, item in ipairs(LIFE_ITEMS) do
             local lifeDescription = description:CreateRadio(item.text,
                 function()
-                    return UnitConditionIsExists("hover") and GetUnitConditionDead("hover") == item.value;
+                    return GetUnitConditionDead("hover") == item.value;
                 end,
                 function()
                     return SetUnitConditionAxis("hover", "dead", item.value);
@@ -924,8 +902,8 @@ do
             -- 안 보여주는 조건 때문에 파랗게 뜨면 어디를 고쳐야 하는지가 안 보인다.
             function()
                 if (_action.checkedUnits) then
-                    for k, _ in pairs(_action.checkedUnits) do
-                        if (k ~= "@" and k ~= "hover") then
+                    for unit, value in pairs(_action.checkedUnits) do
+                        if (unit ~= "@" and unit ~= "hover" and UnitConditionIsOn(unit)) then
                             return true;
                         end
                     end
@@ -934,30 +912,40 @@ do
             end
         );
 
-        local function unitConditionsAreEmpty()
+        --- 이 메뉴가 답할 수 있는 유닛인가. `"@"`는 대상 메뉴가, `"hover"`는 hover 메뉴가
+        --- 편집한다 - 여기서 건드리면 **안 보여주는 조건이 여기서 바뀐다.**
+        local function isListedUnit(unit)
+            return unit ~= "@" and unit ~= "hover";
+        end
+
+        local function listedUnitsWithCondition()
+            local units;
             if (_action.checkedUnits) then
-                for k, _ in pairs(_action.checkedUnits) do
-                    if (k ~= "hover") then
-                        return false;
+                for unit in pairs(_action.checkedUnits) do
+                    if (isListedUnit(unit) and UnitConditionIsOn(unit)) then
+                        units = units or {};
+                        tinsert(units, unit);
                     end
                 end
             end
-            return true;
+            return units;
         end
 
         description:CreateRadio(LLL["DISABLE_ALL"],
-            unitConditionsAreEmpty,
             function()
-                -- `"hover"`만 남긴다. 그 조건은 이 메뉴에 줄이 없고 hover 메뉴에 제
-                -- [사용 안 함]이 있으므로, 여기서 지우면 **보이지도 않는 곳에서 지워진다.**
-                -- `"@"`는 그대로 지운다 - 예전부터 그랬고, 대상 메뉴에서 다시 걸 수 있다.
-                if (_action.checkedUnits) then
-                    local hoverCondition = _action.checkedUnits.hover;
-                    if (hoverCondition == nil) then
-                        _action.checkedUnits = nil;
-                    else
-                        wipe(_action.checkedUnits);
-                        _action.checkedUnits.hover = hoverCondition;
+                return listedUnitsWithCondition() == nil;
+            end,
+            function()
+                -- **끄기만 한다.** 골라둔 반응·생사는 그 자리에 남는다 - 되돌렸을 때 처음부터
+                -- 다시 고르게 만들 이유가 없다.
+                --
+                -- 이름을 먼저 모으는 이유: 끄는 쪽이 기억할 축이 없는 항목을 지우고, 마지막
+                -- 하나가 지워지면 `checkedUnits` 자체가 nil이 된다. 그 표를 돌면서 하면
+                -- 순회하던 표가 사라진다.
+                local units = listedUnitsWithCondition();
+                if (units) then
+                    for i = 1, #units do
+                        SetUnitConditionMode(units[i], "off");
                     end
                 end
                 onActionValueChanged();
