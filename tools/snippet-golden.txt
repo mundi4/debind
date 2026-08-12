@@ -472,19 +472,13 @@ DelegateFrameNames[frame] = frame:GetName()
 				local t = bindings[i]
 				local match = true
 
-				if (t.hover ~= nil) then
-					if (t.hover == false) then
-						if (unitframe) then
-							match = false
-						end
-					elseif (not unitframe) then
+
+
+				if (t.frameTypes) then
+					if (not unitframe) then
 						match = false
-					else
-						if (t.reactions and ((t.reactions % (unitframe.reaction + unitframe.reaction)) < unitframe.reaction)) then
-							match = false
-						elseif (t.frameTypes and ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType)) then
-							match = false
-						end
+					elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
+						match = false
 					end
 				end
 
@@ -755,17 +749,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local unitframe = evalFrame
-	local hoverReaction, hoverFrameType
+	local hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
-			if (PlayerCanAssist(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HELP
-			elseif (PlayerCanAttack(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HARM
-			else
-				hoverReaction = CONSTANTS.REACTION_OTHER
-			end
 			hoverFrameType = unitframe.frameType
 		else
 			unitframe = nil
@@ -790,19 +777,13 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (t[subset]) then
 			local match = true
 
-			if (t.hover ~= nil) then
-				if (t.hover == false) then
-					if (unitframe) then
-						match = false
-					end
-				elseif (not unitframe) then
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
 					match = false
-				else
-					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
-						match = false
-					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
-						match = false
-					end
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
 				end
 			end
 
@@ -1071,17 +1052,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local unitframe = evalFrame
-	local hoverReaction, hoverFrameType
+	local hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
-			if (PlayerCanAssist(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HELP
-			elseif (PlayerCanAttack(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HARM
-			else
-				hoverReaction = CONSTANTS.REACTION_OTHER
-			end
 			hoverFrameType = unitframe.frameType
 		else
 			unitframe = nil
@@ -1106,19 +1080,13 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (t[subset]) then
 			local match = true
 
-			if (t.hover ~= nil) then
-				if (t.hover == false) then
-					if (unitframe) then
-						match = false
-					end
-				elseif (not unitframe) then
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
 					match = false
-				else
-					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
-						match = false
-					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
-						match = false
-					end
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
 				end
 			end
 
@@ -1267,17 +1235,11 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (t.isNonClick) then
 				local m = true
 
-				if (t.hover ~= nil) then
-					if (t.hover == false) then
-						if (uf) then m = false end
-					elseif (not uf) then
+				if (t.frameTypes) then
+					if (not uf) then
 						m = false
-					else
-						if (t.reactions and ((t.reactions % (uf.reaction + uf.reaction)) < uf.reaction)) then
-							m = false
-						elseif (t.frameTypes and ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType)) then
-							m = false
-						end
+					elseif ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType) then
+						m = false
 					end
 				end
 
@@ -1332,8 +1294,8 @@ DelegateFrameNames[frame] = frame:GetName()
 			local expected = false
 			local a = winnerIndex and bindings[winnerIndex]
 			local b = cachedIndex and bindings[cachedIndex]
-			if (a and (a.hover ~= nil or a.units)) then expected = true end
-			if (b and (b.hover ~= nil or b.units)) then expected = true end
+			if (a and (a.frameTypes or a.units)) then expected = true end
+			if (b and (b.frameTypes or b.units)) then expected = true end
 			debind_driver:CallMethod("OnClickTimeMismatch", button,
 				winnerIndex or 0, cachedIndex or 0, expected)
 		end
@@ -1547,17 +1509,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local unitframe = evalFrame
-	local hoverReaction, hoverFrameType
+	local hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
-			if (PlayerCanAssist(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HELP
-			elseif (PlayerCanAttack(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HARM
-			else
-				hoverReaction = CONSTANTS.REACTION_OTHER
-			end
 			hoverFrameType = unitframe.frameType
 		else
 			unitframe = nil
@@ -1582,19 +1537,13 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (t[subset]) then
 			local match = true
 
-			if (t.hover ~= nil) then
-				if (t.hover == false) then
-					if (unitframe) then
-						match = false
-					end
-				elseif (not unitframe) then
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
 					match = false
-				else
-					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
-						match = false
-					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
-						match = false
-					end
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
 				end
 			end
 

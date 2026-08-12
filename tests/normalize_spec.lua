@@ -43,6 +43,70 @@ return function(DebindPrivate)
     end
 
     ---------------------------------------------------------------------------
+    -- 호버 조건은 `checkedUnits["hover"]`에 산다
+    --
+    -- 저장에는 그 키 하나뿐이고, `hover`/`reactions`는 거기서 파생된 값이다
+    -- (`Misc.DeriveHoverFields`). 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이
+    -- 들어올림 경로를 지나기 때문**이고, 여기가 그 두 모양이 같은 답을 낸다는 것을 잠근다.
+    ---------------------------------------------------------------------------
+
+    test("저장된 호버 조건이 hover/reactions로 파생된다", function()
+        local b = spell({ checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } });
+        check(b.hover == true, "hover가 안 파생됨");
+        check(b.reactions == Constants.REACTION_HELP, "reactions가 안 파생됨");
+        check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "축에 안 실림");
+    end);
+
+    test("저장된 호버 조건이 false면 부재로 파생된다", function()
+        local b = spell({ checkedUnits = { hover = false } });
+        check(b.hover == false, "false가 안 파생됨 - nil과 다른 답이다");
+        check(b.unitStates["hover"] == Constants.UNITSTATE_NONE, "부재로 안 좁혀짐");
+    end);
+
+    test("반응을 전부 고른 저장값은 제약이 없는 것과 같다", function()
+        local b = spell({ checkedUnits = { hover = { reaction = Constants.REACTION_ALL } } });
+        check(b.reactions == nil, "전체 비트가 안 접힘");
+        check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS, "축이 좁아짐");
+    end);
+
+    test("호버 유닛에도 생사가 걸린다", function()
+        local b = spell({ checkedUnits = { hover = { dead = true } } });
+        check(b.unitStates["hover"] == Constants.UNITSTATE_DEAD, "생사가 축에 안 실림");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 옛 `hover`/`reactions`를 들어올린다
+    --
+    -- 마이그레이션이 아직 안 닿은 프로필(가져오기 도중, 손으로 고친 것)이 여기로 온다.
+    -- 들어올림은 **바인딩 사본에만** 일어나고 액션은 안 건드린다 - 저장을 고치는 것은
+    -- `Profile.lua`의 마이그레이션 몫이다.
+    ---------------------------------------------------------------------------
+
+    test("옛 hover/reactions가 같은 답을 낸다", function()
+        local action = { type = Constants.SPELL, value = 100,
+            hover = true, reactions = Constants.REACTION_HELP };
+        local b = normalize(action, true);
+        check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "새 모양과 답이 다름");
+        check(action.hover == true, "액션이 고쳐졌다 - 들어올림은 사본에만 일어나야 한다");
+        check(action.checkedUnits == nil, "액션에 checkedUnits가 생겼다");
+    end);
+
+    -- 두 메뉴가 다 살아 있던 시절의 프로필이면 같은 유닛에 조건이 둘 있을 수 있다. 덮으면
+    -- 걸어둔 것보다 넓어지므로 교집합하고, 안 겹치면 어떤 유닛도 못 드는 조건이 된다.
+    test("옛 hover가 같은 유닛의 조건과 교집합된다", function()
+        local b = normalize({ type = Constants.SPELL, value = 100,
+            hover = true, reactions = Constants.REACTION_HELP,
+            checkedUnits = { hover = { reaction = Constants.REACTION_HARM } } }, true);
+        check(b.unitStates["hover"] == 0, "안 겹치는 두 조건이 0이 안 됨");
+    end);
+
+    test("옛 hover=false가 존재 조건과 만나면 0이 된다", function()
+        local b = normalize({ type = Constants.SPELL, value = 100,
+            hover = false, checkedUnits = { hover = {} } }, true);
+        check(b.unitStates["hover"] == 0, "부재와 존재가 0이 안 됨");
+    end);
+
+    ---------------------------------------------------------------------------
     -- hover가 꺼져 있으면 hover에 딸린 것들은 뜻이 없다
     --
     -- 이 셋은 "마우스를 올린 프레임"에 대한 이야기라, 그 조건 자체가 없으면 말할 대상이

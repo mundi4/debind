@@ -132,6 +132,49 @@ return function(DebindPrivate)
         check(GetBindingIssue(hoverAction(nil, false)) == NEVER, "이슈가 안 남");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 마우스 왼/오른 버튼은 호버 조건이 있어야 쓸 수 있다
+    --
+    -- 이 판정이 오탐이면 **클릭캐스팅이 통째로 죽는다.** 이슈가 붙은 액션은 `KeyMap`에
+    -- 안 들어가고(`Debind.lua`), BUTTON1/BUTTON2에 걸린 것은 거의 전부 클릭캐스팅이다.
+    --
+    -- 호버 조건이 `checkedUnits["hover"]`로 옮겨간 뒤 이 검사가 `action.hover`를 계속 읽고
+    -- 있었다. 그 필드는 이제 저장에 없으므로 **모든** 왼/오른 버튼 바인딩이 지워졌다.
+    -- 어느 층도 못 봤다 - 헤드리스에 이 검사의 스펙이 없었고, 화면에는 키가 안 먹는 것으로만
+    -- 나타난다.
+    ---------------------------------------------------------------------------
+
+    local MOUSE_ISSUE = Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON;
+
+    local function mouseKeyIssue(fields)
+        local action = { type = Constants.SPELL, value = 100, key = "BUTTON1" };
+        for k, v in pairs(fields or {}) do
+            action[k] = v;
+        end
+        return DebindPrivate.IsKeyInvalidForAction(action, "BUTTON1");
+    end
+
+    test("호버 조건이 없는 왼쪽 버튼은 못 쓴다", function()
+        check(mouseKeyIssue() == MOUSE_ISSUE, "이슈가 안 남");
+    end);
+
+    test("저장된 호버 조건이 있으면 왼쪽 버튼을 쓸 수 있다", function()
+        check(mouseKeyIssue({ checkedUnits = { hover = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
+        check(mouseKeyIssue({ checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } }) == nil,
+            "오탐 - 반응이 걸려도 호버 조건이다");
+    end);
+
+    -- "호버 중이 **아닐** 때"는 호버 조건이 켜진 것이 아니다. 마우스 버튼은 커서가 있는
+    -- 자리에서 발동하므로 그 조건으로는 유닛 프레임 클릭을 못 받는다.
+    test("호버가 false면 왼쪽 버튼을 못 쓴다", function()
+        check(mouseKeyIssue({ checkedUnits = { hover = false } }) == MOUSE_ISSUE, "이슈가 안 남");
+    end);
+
+    test("마이그레이션이 안 닿은 옛 hover도 같은 답을 낸다", function()
+        check(mouseKeyIssue({ hover = true }) == nil, "옛 모양이 안 읽힘");
+        check(mouseKeyIssue({ hover = false }) == MOUSE_ISSUE, "옛 false가 안 읽힘");
+    end);
+
     -- 정규화 자체(`"@"`가 언제 지워지는가, 대상이 언제 채워지는가)는 `normalize_spec.lua`가
     -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
 

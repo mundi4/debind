@@ -134,11 +134,22 @@ function firstDifference(a, b) {
 const built = normalize(build());
 const update = process.argv.includes("--update");
 
-if (update || !fs.existsSync(goldenPath)) {
+if (update) {
+    const existed = fs.existsSync(goldenPath);
     fs.writeFileSync(goldenPath, built, "utf8");
     const count = (built.match(/^### /gm) || []).length;
-    console.log(`스니펫 골든 ${count}개를 ${fs.existsSync(goldenPath) ? "새로 떴다" : "만들었다"}. diff를 확인할 것.`);
+    console.log(`스니펫 골든 ${count}개를 ${existed ? "새로 떴다" : "만들었다"}. diff를 확인할 것.`);
     process.exit(0);
+}
+
+// **없으면 실패다.** 예전에는 없을 때 그냥 떠 놓고 통과했는데, 그러면 파일이 커밋에서 빠졌거나
+// `git clean`에 날아갔거나 경로가 어긋난 순간 검사가 조용히 초록이 되고, 다음 실행은 **이미
+// 어긋난 바이트**를 기준으로 삼는다. 이 도구가 지키려는 단 하나(개발용 주입이 배포 바이트를
+// 한 글자도 안 바꾼다)가 그때부터 영영 안 지켜지는데 아무 데서도 안 터진다.
+if (!fs.existsSync(goldenPath)) {
+    console.error(`골든 파일이 없다: ${goldenPath}`);
+    console.error("처음 만드는 것이면 `node tools/check-snippet-golden.js --update` 후 커밋할 것.");
+    process.exit(1);
 }
 
 const golden = normalize(fs.readFileSync(goldenPath, "utf8"));

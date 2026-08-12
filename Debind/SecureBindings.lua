@@ -394,19 +394,13 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				local t = bindings[i]
 				local match = true
 
-				if (t.hover ~= nil) then
-					if (t.hover == false) then
-						if (unitframe) then
-							match = false
-						end
-					elseif (not unitframe) then
+				-- 호버 중이냐, 그 유닛이 어떠냐는 아래 t.units["hover"]가 답한다. 여기 남은
+				-- 것은 프레임의 종류뿐이라 제 존재 검사를 직접 들고 있다.
+				if (t.frameTypes) then
+					if (not unitframe) then
 						match = false
-					else
-						if (t.reactions and ((t.reactions % (unitframe.reaction + unitframe.reaction)) < unitframe.reaction)) then
-							match = false
-						elseif (t.frameTypes and ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType)) then
-							match = false
-						end
+					elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
+						match = false
 					end
 				end
 
@@ -548,17 +542,11 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 			if (t.isNonClick) then
 				local m = true
 
-				if (t.hover ~= nil) then
-					if (t.hover == false) then
-						if (uf) then m = false end
-					elseif (not uf) then
+				if (t.frameTypes) then
+					if (not uf) then
 						m = false
-					else
-						if (t.reactions and ((t.reactions % (uf.reaction + uf.reaction)) < uf.reaction)) then
-							m = false
-						elseif (t.frameTypes and ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType)) then
-							m = false
-						end
+					elseif ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType) then
+						m = false
 					end
 				end
 
@@ -613,8 +601,8 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 			local expected = false
 			local a = winnerIndex and bindings[winnerIndex]
 			local b = cachedIndex and bindings[cachedIndex]
-			if (a and (a.hover ~= nil or a.units)) then expected = true end
-			if (b and (b.hover ~= nil or b.units)) then expected = true end
+			if (a and (a.frameTypes or a.units)) then expected = true end
+			if (b and (b.frameTypes or b.units)) then expected = true end
 			debind_driver:CallMethod("OnClickTimeMismatch", button,
 				winnerIndex or 0, cachedIndex or 0, expected)
 		end
@@ -853,17 +841,10 @@ local EVAL_SNIPPET = [==[
 	-- 캐시를 볼 수밖에 없지만, 유닛 프레임 클릭으로 들어오면 그 프레임이 곧 자기 자신이라
 	-- 캐시를 볼 이유가 없다.
 	local unitframe = evalFrame
-	local hoverReaction, hoverFrameType
+	local hoverFrameType
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
-			if (PlayerCanAssist(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HELP
-			elseif (PlayerCanAttack(hoverUnit)) then
-				hoverReaction = CONSTANTS.REACTION_HARM
-			else
-				hoverReaction = CONSTANTS.REACTION_OTHER
-			end
 			hoverFrameType = unitframe.frameType
 		else
 			unitframe = nil
@@ -888,19 +869,13 @@ local EVAL_SNIPPET = [==[
 		if (t[subset]) then
 			local match = true
 
-			if (t.hover ~= nil) then
-				if (t.hover == false) then
-					if (unitframe) then
-						match = false
-					end
-				elseif (not unitframe) then
+			-- 호버 유닛의 존재와 반응은 아래 t.units["hover"]가 답한다. 그쪽도 여기서 잰
+			-- hoverUnit을 쓰므로 값이 갈릴 자리가 없다. 남은 것은 프레임의 종류뿐이다.
+			if (t.frameTypes) then
+				if (not unitframe) then
 					match = false
-				else
-					if (t.reactions and ((t.reactions % (hoverReaction + hoverReaction)) < hoverReaction)) then
-						match = false
-					elseif (t.frameTypes and ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType)) then
-						match = false
-					end
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
 				end
 			end
 

@@ -381,6 +381,48 @@ local function UnitConditionFromLegacy(value)
     return nil;
 end
 
+--- The old `hover` / `reactions` pair -> the unit condition they became.
+---
+--- The hovered frame's unit is a unit, so it is stored as one: `checkedUnits["hover"]`
+--- (`Profile.lua`'s `dbver <= 4` step). Kept in its own pair of fields it was one unit described
+--- by two columns, meeting only in `BuildUnitStates` -- which meant two runtime paths measuring
+--- the same thing about the same unit.
+---
+--- `existing` is whatever that key already holds, from the days both menus were live. This
+--- **intersects** rather than overwrites: dropping either side would widen a binding past what
+--- was set. Where the two do not overlap the answer is `reaction = 0` -- exists, and in none of
+--- the three reactions, which no unit satisfies. That is not a new marker: `GetBindingIssue`
+--- already reads a zero mask that way, and the pair was already an issue before it was folded.
+local function HoverConditionFromLegacy(hover, reactions, existing)
+    if (hover == false) then
+        -- "Not hovering" against any condition that needs the unit there. Nothing is both.
+        -- Spelled out rather than `and false or` -- that idiom cannot return `false`.
+        if (existing == nil or existing == false) then
+            return false;
+        end
+        return { reaction = 0 };
+    end
+    if (existing == false) then
+        return { reaction = 0 };
+    end
+
+    local reaction = reactions;
+    if (reaction == Constants.REACTION_ALL) then
+        reaction = nil;
+    end
+
+    local folded = type(existing) == "table" and existing or {};
+    if (reaction == nil) then
+        reaction = folded.reaction;
+    elseif (folded.reaction ~= nil) then
+        reaction = band(reaction, folded.reaction);
+    end
+    folded.reaction = reaction;
+    return folded;
+end
+
+DebindPrivate.HoverConditionFromLegacy = HoverConditionFromLegacy;
+
 --- One stored unit condition -> a mask on the unit axis.
 ---
 --- Storage keeps **one field per axis** (`{ reaction = ... }`), not one packed enum, so that a
@@ -469,7 +511,40 @@ DebindPrivate.UnitConditionToRuntimeScalar = UnitConditionToRuntimeScalar;
 --- A mouse button reaches the not-hovering point and nothing else: the click fires wherever the
 --- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
 --- there. The same absent condition on a keyboard key spans the whole axis.
+--- `binding.hover` / `binding.reactions` from the stored condition.
+---
+--- **Derived, not stored** (`Profile.lua`'s `dbver <= 4` step). Storage keeps one column for the
+--- hovered frame's unit; these two are the view of it the rest of the addon already speaks --
+--- ordering ranks a hover binding by `hover ~= nil` (`Ordering.lua`), the runtime routes a key to
+--- the click path by it (`UpdateBindings.lua`'s `isClick`), the frame-type column gates on it
+--- (`Solver.lua`), and key validity asks about it (`IsKeyInvalidForAction`).
+---
+--- `false` and `nil` are **different answers** and both are load-bearing -- "only when not
+--- hovering" versus "does not care" -- so this cannot collapse to a boolean.
+---
+--- Idempotent, and called from both seams: `GetBindingInfoForAction` needs it before the checks
+--- below it read `hover`, and `BuildUnitStates` needs it for bindings that never went through
+--- there (the solver specs hand-write theirs).
+local function DeriveHoverFields(binding)
+    local condition = binding.checkedUnits and binding.checkedUnits.hover;
+    if (condition == nil) then
+        binding.hover = nil;
+        binding.reactions = nil;
+    elseif (condition == false) then
+        binding.hover = false;
+        binding.reactions = nil;
+    else
+        binding.hover = true;
+        binding.reactions = condition.reaction ~= Constants.REACTION_ALL and condition.reaction
+            or nil;
+    end
+end
+
+DebindPrivate.DeriveHoverFields = DeriveHoverFields;
+
 local function BuildUnitStates(binding)
+    DeriveHoverFields(binding);
+
     local states, opaque;
 
     local function narrow(unit, mask)
@@ -482,19 +557,16 @@ local function BuildUnitStates(binding)
         end
     end
 
-    if (binding.hover) then
-        local mask = Constants.UNITSTATE_EXISTS;
-        if (binding.reactions) then
-            mask = 0;
-            for reaction, state in pairs(REACTION_TO_UNIT_STATE) do
-                if (band(binding.reactions, reaction) ~= 0) then
-                    mask = mask + state;
-                end
-            end
-        end
-        narrow("hover", mask);
-    elseif (binding.hover == false
-            or (binding.key and DebindPrivate.GetMouseButtonAndPrefix(binding.key))) then
+    -- The hover condition itself is not read here any more -- it lives in `checkedUnits["hover"]`
+    -- and the loop below folds it like any other unit. What is left is the one thing the **key**
+    -- says: a mouse button reaches the not-hovering point and nothing else, because the click
+    -- fires wherever the cursor already is and over a unit frame the frame eats it.
+    --
+    -- **Only when nothing was said about hovering.** An explicit hover condition on a mouse
+    -- button key is the user overriding that reading, and it has always won here -- narrowing it
+    -- to absent as well would leave an empty box and delete the binding for a reason nobody set.
+    if (binding.key and (binding.checkedUnits == nil or binding.checkedUnits.hover == nil)
+            and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
         narrow("hover", Constants.UNITSTATE_NONE);
     end
 
@@ -596,7 +668,7 @@ do
             action._dirty = nil;
 
             binding.type, binding.value = action.type, action.value;
-            binding.hover, binding.reactions, binding.frameTypes, binding.ignoreHoverUnit = action.hover, action.reactions, action.frameTypes, action.ignoreHoverUnit;
+            binding.frameTypes, binding.ignoreHoverUnit = action.frameTypes, action.ignoreHoverUnit;
             binding.groups = action.groups;
             binding.combat = action.combat;
             binding.stealth = action.stealth;
@@ -623,6 +695,19 @@ do
                 end
             end
 
+            -- Same idea for the old hover pair. It is raised **onto the copy**, never onto the
+            -- action: `Profile.lua`'s migration owns rewriting what is stored, and an action this
+            -- reached first would otherwise be rewritten by whoever read it.
+            if (action.hover ~= nil) then
+                binding.checkedUnits = binding.checkedUnits or {};
+                binding.checkedUnits.hover = HoverConditionFromLegacy(
+                    action.hover, action.reactions, binding.checkedUnits.hover);
+            end
+
+            -- Everything below this line reads `binding.hover`, so it has to be derived here and
+            -- not only in `BuildUnitStates` at the end.
+            DeriveHoverFields(binding);
+
             if action.type == Constants.SPELL and action.value then
                 local spellInfo = C_Spell.GetSpellInfo(action.value)
                 if spellInfo and spellInfo.name then
@@ -635,16 +720,12 @@ do
                 binding[state] = action[state];
             end
 
-            -- 의미 없는 조건들을 nil로 만듬
+            -- 의미 없는 조건들을 nil로 만듬. `reactions`는 위에서 파생될 때 이미 접혔다.
             if (binding.hover) then
-                if (binding.reactions and band(binding.reactions, Constants.REACTION_ALL) == Constants.REACTION_ALL) then
-                    binding.reactions = nil;
-                end
                 if (binding.frameTypes and band(binding.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
                     binding.frameTypes = nil;
                 end
             else
-                binding.reactions = nil;
                 binding.frameTypes = nil;
                 binding.ignoreHoverUnit = nil;
             end
@@ -814,13 +895,30 @@ function DebindPrivate.RefreshGameMenuKeys()
     DebindPrivate.gmKey1, DebindPrivate.gmKey2 = GetBindingKey("TOGGLEGAMEMENU");
 end
 
+--- "이 액션에 호버 조건이 켜져 있는가"를 **액션에서 바로** 답한다.
+---
+--- `binding.hover`를 쓰면 될 것 같지만, 아래 함수는 목록을 그릴 때 **행마다** 불린다 -
+--- `GetBindingInfoForAction`을 거치면 그때마다 바인딩을 통째로 다시 만든다. 필요한 것은
+--- 한 축뿐이라 여기서 읽는다.
+---
+--- 마이그레이션이 안 닿은 프로필(`action.hover`)도 `HoverConditionFromLegacy`와 같은 답을
+--- 내야 한다. 저장된 조건이 있으면 그쪽이 이긴다 - 접기가 교집합하는 것과 같은 순서다.
+local function ActionHoverIsOn(action)
+    local condition = action.checkedUnits and action.checkedUnits.hover;
+    if (condition == nil) then
+        return action.hover == true;
+    end
+    return condition ~= false;
+end
+
 function DebindPrivate.IsKeyInvalidForAction(action, key)
+    local hoverIsOn = ActionHoverIsOn(action);
     if (key == DebindPrivate.gmKey1 or key == DebindPrivate.gmKey2) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY;
-    elseif ((key == "BUTTON1" or key == "BUTTON2") and not action.hover) then
+    elseif ((key == "BUTTON1" or key == "BUTTON2") and not hoverIsOn) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON;
     end
-    if (action.hover and action.type == Constants.COMMAND and DebindPrivate.GetMouseButtonAndPrefix(key)) then
+    if (hoverIsOn and action.type == Constants.COMMAND and DebindPrivate.GetMouseButtonAndPrefix(key)) then
         return Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND;
     end
 end
@@ -915,6 +1013,12 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- (`reactions == 0`), 그건 위의 reactions 갈래가 제 이름으로 이미 잡는다. 여기서 또 잡으면
     -- 메뉴가 엉뚱한 항목을 빨갛게 칠한다.
     --
+    -- 접힌 뒤로 hover도 `checkedUnits`의 한 키라, `Units` 묶음이 제 이름으로 물을 때
+    -- (`category == "checkedUnits"`, `arg == nil`)는 그 키를 건너뛴다. 그 조건을 고치는 자리는
+    -- hover 메뉴이고 그쪽 갈래들이 이미 잡는데, 여기서 또 잡으면 **보여주지도 않는 조건 때문에
+    -- `Units`가 빨개진다.** 액션 전체를 물을 때(`category == nil`)는 안 건너뛴다 - 그때는
+    -- 어느 묶음을 칠할지가 아니라 이 액션이 성립하느냐를 묻는 것이다.
+    --
     -- **This zero is what keeps contradictory conditions out of the secure environment.** An
     -- action reported here never enters `KeyMap` (`Debind.lua`), so it reaches neither the solver
     -- nor `UpdateBindings` -- which is why `mergeUnitConditions` over there treats its own
@@ -927,8 +1031,10 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         if (target == "@") then
             target = binding.unit;
         end
+        local skipHover = category == "checkedUnits" and arg == nil;
         for unit, mask in pairs(binding.unitStates) do
-            if (mask == 0 and (target == nil or target == unit)) then
+            if (mask == 0 and (target == nil or target == unit)
+                    and not (skipHover and unit == "hover")) then
                 issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
                 break;
             end

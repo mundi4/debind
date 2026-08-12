@@ -625,7 +625,7 @@ do
         if (DebindPrivate.CliqueDetected) then
             return false;
         end
-        return _action.hover and true or false;
+        return UnitConditionIsExists("hover");
     end
 
     local function CreateConvertToMacroTextMenuItem(parentDescription)
@@ -797,8 +797,18 @@ do
         return description;
     end
 
+    --- 이 메뉴가 만지는 것은 `checkedUnits["hover"]`다 - **호버한 프레임의 유닛도 유닛이다**
+    --- (`Profile.lua`의 `dbver <= 4`). 옛 `hover`/`reactions` 두 필드는 없어졌고, 그 이름들은
+    --- 이제 파생값이라(`Misc.DeriveHoverFields`) 이슈 category로는 그대로 쓴다.
+    ---
+    --- `frameTypes`와 `ignoreHoverUnit`은 여전히 액션 루트에 있다. 그건 유닛이 아니라
+    --- **프레임**을 말하는 값이라 접을 축이 아니었다.
     local function CreateHoverMenu(parentDescription)
-        local description = CreateActionMenuItemGroup(parentDescription, "CONDITION_HOVER", "hover", nil, DebindPrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
+        local description = CreateActionMenuItemGroup(parentDescription, "CONDITION_HOVER", "hover",
+            function()
+                return _action.checkedUnits and _action.checkedUnits.hover ~= nil;
+            end,
+            DebindPrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
 
         -- Clique를 켜 두면 hover 조건은 어차피 동작하지 않는다. 그래도 메뉴를 잠그지는
         -- 않는다 - 이미 켜 둔 값을 [사용 안 함]으로 지우러 들어갈 수 있어야 하기 때문이다.
@@ -808,13 +818,41 @@ do
         -- 그룹이 제 초기화에서 색을 칠하므로 그 뒤에 덧칠하는 초기화를 하나 더 건다.
         if (DebindPrivate.CliqueDetected) then
             description:AddInitializer(function(button)
-                if (_action.hover == nil) then
+                if (not (_action.checkedUnits and _action.checkedUnits.hover ~= nil)) then
                     button.fontString:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
                 end
             end);
         end
 
-        local disable, yes, no = AppendDisableYesNo(description, "CONDITION_HOVER", "hover");
+        -- 유닛 서브메뉴의 라디오 셋과 같은 세 상태다. 글자만 이 자리의 말로 쓴다 -
+        -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
+        description:CreateRadio(rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
+            function()
+                return not (_action.checkedUnits and _action.checkedUnits.hover ~= nil);
+            end,
+            function()
+                return SetUnitCondition("hover", nil);
+            end
+        );
+
+        local yes = description:CreateRadio(LLL["CONDITION_HOVER_YES"],
+            function()
+                return UnitConditionIsExists("hover");
+            end,
+            function()
+                return SetUnitConditionExists("hover");
+            end
+        );
+
+        local no = description:CreateRadio(LLL["CONDITION_HOVER_NO"],
+            function()
+                return _action.checkedUnits and _action.checkedUnits.hover == false;
+            end,
+            function()
+                return SetUnitCondition("hover", false);
+            end
+        );
+
         if (DebindPrivate.CliqueDetected) then
             yes:SetEnabled(false);
             no:SetEnabled(false);
@@ -824,12 +862,32 @@ do
         description:CreateDivider();
         description:CreateTitle(LLL["CONDITION_REACTIONS"]);
 
-        AppendCheckboxes(description, "reactions", REACTION_ITEMS,
-            function(elementDescription)
-                elementDescription:SetEnabled(hoverConditionIsOn);
-            end,
-            Constants.REACTION_ALL
-        );
+        for _, item in ipairs(REACTION_ITEMS) do
+            local reactionDescription = description:CreateCheckbox(item.text,
+                function()
+                    return UnitConditionReactionChecked("hover", item.value);
+                end,
+                function()
+                    return ToggleUnitConditionReaction("hover", item.value);
+                end
+            );
+            reactionDescription:SetEnabled(hoverConditionIsOn);
+        end
+
+        description:CreateDivider();
+        description:CreateTitle(LLL["CONDITION_LIFE"]);
+
+        for _, item in ipairs(LIFE_ITEMS) do
+            local lifeDescription = description:CreateRadio(item.text,
+                function()
+                    return UnitConditionIsExists("hover") and GetUnitConditionDead("hover") == item.value;
+                end,
+                function()
+                    return SetUnitConditionAxis("hover", "dead", item.value);
+                end
+            );
+            lifeDescription:SetEnabled(hoverConditionIsOn);
+        end
 
         description:CreateDivider();
         description:CreateTitle(LLL["CONDITION_FRAMETYPES"]);
@@ -862,11 +920,12 @@ do
 
     local function CreateUnitConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "checkedUnits",
-            -- isActive
+            -- isActive. `"@"`와 `"hover"`는 제 메뉴가 따로 있어서 여기서 안 센다 - 이 묶음이
+            -- 안 보여주는 조건 때문에 파랗게 뜨면 어디를 고쳐야 하는지가 안 보인다.
             function()
                 if (_action.checkedUnits) then
                     for k, _ in pairs(_action.checkedUnits) do
-                        if (k ~= "@") then
+                        if (k ~= "@" and k ~= "hover") then
                             return true;
                         end
                     end
@@ -875,12 +934,32 @@ do
             end
         );
 
+        local function unitConditionsAreEmpty()
+            if (_action.checkedUnits) then
+                for k, _ in pairs(_action.checkedUnits) do
+                    if (k ~= "hover") then
+                        return false;
+                    end
+                end
+            end
+            return true;
+        end
+
         description:CreateRadio(LLL["DISABLE_ALL"],
+            unitConditionsAreEmpty,
             function()
-                return not _action.checkedUnits;
-            end,
-            function()
-                _action.checkedUnits = nil;
+                -- `"hover"`만 남긴다. 그 조건은 이 메뉴에 줄이 없고 hover 메뉴에 제
+                -- [사용 안 함]이 있으므로, 여기서 지우면 **보이지도 않는 곳에서 지워진다.**
+                -- `"@"`는 그대로 지운다 - 예전부터 그랬고, 대상 메뉴에서 다시 걸 수 있다.
+                if (_action.checkedUnits) then
+                    local hoverCondition = _action.checkedUnits.hover;
+                    if (hoverCondition == nil) then
+                        _action.checkedUnits = nil;
+                    else
+                        wipe(_action.checkedUnits);
+                        _action.checkedUnits.hover = hoverCondition;
+                    end
+                end
                 onActionValueChanged();
                 return MenuResponse.Refresh;
             end
@@ -891,15 +970,10 @@ do
         -- end
 
         for _, unit in ipairs(SORTED_UNIT_LIST) do
-            -- `"hover"` is out. It names the same unit as the `Hovering Over Unit Frame` menu, and
-            -- that menu is the one keeping `frameTypes` and `ignoreHoverUnit`, so it is the one
-            -- that stays. Listing it here as well left two rows editing one unit through two
-            -- storage fields that only met in `Misc.BuildUnitStates`.
-            --
-            -- **This is a hole until the two fields are folded into `checkedUnits["hover"]`**:
-            -- until then the hover menu writes `hover`/`reactions`, so a condition already stored
-            -- under `checkedUnits.hover` still applies but nothing edits it. See the redesign
-            -- notes -- that fold is the next piece of work, not a leftover.
+            -- `"hover"` is out. `Hovering Over Unit Frame` edits the very same key now, and it is
+            -- the one that stays because `frameTypes` and `ignoreHoverUnit` only fit there --
+            -- those describe the frame, not the unit on it. Two rows onto one key would be two
+            -- ways to say one thing again, which is what the fold just removed.
             if (not (unit == "player" or unit == "none" or unit == "hover")) then
                 local unitInfo = DebindUI.UNIT_INFO[unit];
                 if (unitInfo.checkedUnit ~= false) then

@@ -13,8 +13,10 @@ local KEYS_TO_SAVE       = {
     name = true,
     icon = true,
     unit = true,
-    hover = true,
-    reactions = true,
+    -- `hover` and `reactions` used to live here. They are `checkedUnits["hover"]` now -- the
+    -- hovered frame's unit is a unit, and keeping it in its own pair of fields meant one unit
+    -- described by two columns that only met in `Misc.BuildUnitStates`. `frameTypes` and
+    -- `ignoreHoverUnit` stay: those describe the **frame**, not the unit on it.
     frameTypes = true,
     groups = true,
     known = true,
@@ -243,6 +245,24 @@ local function MigrateLayer(layerTbl, dbver)
                         checkedUnits[unit] = { reaction = Constants.REACTION_HARM };
                     end
                 end
+            end
+        end
+
+        -- 그리고 hover 조건을 그 유닛들 옆으로 옮긴다. 접는 규칙은 `Misc.lua`에 있다 -
+        -- 바인딩을 만들 때도 같은 규칙으로 들어올려야 해서(마이그레이션이 아직 안 닿은
+        -- 프로필), 두 벌로 적으면 갈라지는 종류의 규칙이다.
+        --
+        -- `frameTypes`/`ignoreHoverUnit`은 안 옮긴다: 그건 유닛이 아니라 **프레임**을 말한다.
+        --
+        -- 다시 돌아도 안전하다 - `hover`가 없으면 아무것도 안 한다.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            if (action.hover ~= nil) then
+                action.checkedUnits = action.checkedUnits or {};
+                action.checkedUnits.hover = DebindPrivate.HoverConditionFromLegacy(
+                    action.hover, action.reactions, action.checkedUnits.hover);
+                action.hover = nil;
+                action.reactions = nil;
             end
         end
     end
@@ -675,9 +695,13 @@ function DebindPrivate.CollectActionsForKey(key, spec)
                     index         = index,
                     seq           = action.seq,
                     priority      = action.priority or Constants.DEFAULT_PRIORITY,
-                    -- hover는 원본 그대로 넘긴다. false와 nil이 다른 뜻이라 불리언으로 접으면
-                    -- 정렬이 어긋난다 (Ordering.lua 주석 참고).
-                    hover         = action.hover,
+                    -- hover는 파생값이라 **바인딩에서** 읽는다(`Misc.DeriveHoverFields`).
+                    -- 액션에는 이제 그 필드가 없고, nil로 읽으면 `CompareActionOrder`의
+                    -- HOVER 층이 통째로 죽어서 **목록이 실제 발동 순서와 다르게 그려진다.**
+                    --
+                    -- 불리언으로 접지 않는 이유는 그대로다: false와 nil이 다른 뜻이다
+                    -- (Ordering.lua 주석 참고).
+                    hover         = DebindPrivate.GetBindingInfoForAction(action).hover,
                     isConditional = DebindPrivate.IsConditionalAction(action),
                     issue         = DebindPrivate.GetBindingIssue(action, nil, simulated and "unreachable" or nil),
                     unreachable   = (not simulated) and DebindPrivate.IsUnreachableAction(action) or nil,

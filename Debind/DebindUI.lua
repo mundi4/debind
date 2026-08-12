@@ -1079,12 +1079,15 @@ do
 			addValueLine(unitStr, error);
 		end
 
-		if (action.hover ~= nil) then
+		-- 호버 조건은 `checkedUnits["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
+		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
+		local hoverCondition = action.checkedUnits and action.checkedUnits.hover;
+		if (hoverCondition ~= nil) then
 			addLabelLine(LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
-			if (action.hover) then
+			if (hoverCondition) then
 				wipe(_lines);
-				local reactions = action.reactions or Constants.REACTION_ALL;
+				local reactions = hoverCondition.reaction or Constants.REACTION_ALL;
 				local frameTypes = action.frameTypes or Constants.FRAMETYPE_ALL;
 
 				local s;
@@ -1127,6 +1130,12 @@ do
 				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_FRAMETYPES"], s);
 				addValueLine(s, hasIssues and GetIssue("frameTypes") and true or false, true);
 
+				if (hoverCondition.dead ~= nil) then
+					addValueLine(format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_LIFE"],
+						hoverCondition.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]),
+						error and true or false, true);
+				end
+
 				if (action.ignoreHoverUnit) then
 					addValueLine(LLL["IGNORE_HOVER_UNIT"]);
 				end
@@ -1141,7 +1150,9 @@ do
 		if (action.checkedUnits) then
 			local first = true;
 			for checkedUnit, value in pairs(action.checkedUnits) do
-				if (checkedUnit ~= "@" or (action.unit and action.unit ~= "none")) then
+				-- `"hover"`는 위 호버 묶음이 이미 그렸다.
+				if (checkedUnit ~= "hover"
+						and (checkedUnit ~= "@" or (action.unit and action.unit ~= "none"))) then
 					if (first) then
 						addLabelLine(LLL["CONDITION_UNITS"]);
 						first = false;

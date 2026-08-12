@@ -410,6 +410,20 @@ local function PlantMockTable()
     mockPlanted = true
 end
 
+--- Writes `value` as source text the restricted environment can read back as the same value.
+---
+--- `%q` is not it: this is Lua 5.1, where `%q` takes strings only and errors on the booleans most
+--- axes actually carry. `%s` on `tostring` is not it either -- a reaction comes back as
+--- `"help"`/`"harm"`/`"other"` and unquoted that is an undefined global, which reads back as `nil`
+--- and lets the injected line's `~= nil` guard decline to override. The test would then measure
+--- the real world while believing it had forced the axis. So: quote strings, spell the rest out.
+local function ToLiteral(value)
+    if type(value) == "string" then
+        return format("%q", value)
+    end
+    return tostring(value)
+end
+
 --- Forces `state` to `value` from the next update on. `nil` releases it.
 ---
 --- The bindings are rebuilt because the override rides in the generated snippet -- a state that
@@ -423,8 +437,7 @@ local function SetMockState(state, value)
     mockStates[state] = value
 
     SecureHandlerExecute(DebindPrivate.BindingDriver, format(
-        value == nil and [[MockStatesMap[%q] = nil]] or [[MockStatesMap[%q] = %s]],
-        state, tostring(value)))
+        [[MockStatesMap[%q] = %s]], state, ToLiteral(value)))
 
     -- Releasing is registered the moment something is held, so a test that fails in the middle
     -- does not leave the game believing it is in combat.
@@ -879,8 +892,7 @@ RegisterTest("Hover condition with reactions", {
     run = function()
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            hover = true,
-            reactions = bor(Constants.REACTION_HELP, Constants.REACTION_HARM),
+            checkedUnits = { hover = { reaction = bor(Constants.REACTION_HELP, Constants.REACTION_HARM) } },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -1186,8 +1198,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            hover = true,
-            reactions = Constants.REACTION_ALL,
+            checkedUnits = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -1238,8 +1249,7 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         -- never wired up. The test builds its own precondition rather than hoping for one.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            hover = true,
-            reactions = Constants.REACTION_ALL,
+            checkedUnits = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -1396,8 +1406,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            hover = true,
-            reactions = Constants.REACTION_ALL,
+            checkedUnits = { hover = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -1450,8 +1459,7 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            hover = true,
-            reactions = Constants.REACTION_ALL,
+            checkedUnits = { hover = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -1499,6 +1507,14 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
             return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
         end
 
+        -- **프로브를 켜야 `LastWinner()`가 답을 한다.** 배포 갈래에서 `PROBE.Winner`는 통째로
+        -- 지워지므로, 안 켜면 이 테스트의 "아무것도 안 골랐나" 검사가 언제나 nil을 보고 통과한다
+        -- - 조건 목이 빠져서 엉뚱한 레코드를 골라도 조용하다.
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "프로브 켜기 실패: " .. tostring(probesErr))
+        end
+
         -- **The left button, because that is where falling through means something.** A unit
         -- frame's left click is targeting; what this checks is that declining hands the click
         -- back to it. (A hover binding may take BUTTON1 -- the button is only refused without
@@ -1509,8 +1525,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         -- A test with no binding at all would pass without the wrapper ever deciding anything.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON1",
-            hover = true,
-            reactions = Constants.REACTION_ALL,
+            checkedUnits = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
             combat = true,
         })
@@ -1654,6 +1669,208 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
         end
 
         return Pass(NAME, "프로브 켠 채로도 판정이 그대로")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: The unit axes, measured for real
+-----------------------------------------------------------
+
+-- Headless cannot reach any of this. `UpdateBindings.lua` and `SecureBindings.lua` are not loaded
+-- there, so the whole emit-and-match half -- registering an axis, measuring it every tick,
+-- comparing it in the snippet -- has no coverage until the game runs it.
+
+-- The live half of the life axis: a unit that is really there and really alive.
+--
+-- **Both directions, and neither of them mocked.** `dead = false` has to bind and `dead = true`
+-- has to not, on the same key with the same unit, which is what tells a measured axis apart from
+-- an axis nobody emitted. A condition that is never registered leaves `u.dead` nil, and nil
+-- matches neither -- so a broken registration fails the first half, while a broken comparison
+-- fails the second.
+RegisterTest("Dead axis: measured against a living unit", {
+    description = "살아 있는 플레이어에 대해 생사 조건이 양쪽으로 갈리는가",
+    run = function()
+        local NAME = "Dead axis"
+        local ALIVE_KEY = "CTRL-SHIFT-F10"
+        local DEAD_KEY = "CTRL-SHIFT-F11"
+
+        if UnitIsDeadOrGhost("player") then
+            return Fail(NAME, "플레이어가 죽어 있다. 이 테스트는 살아 있는 것을 전제로 한다")
+        end
+
+        -- 키를 둘로 나눈다. 하나에 두 조건을 차례로 걸면 뒤엣것이 앞엣것의 결과를 지우고,
+        -- 무엇이 무엇을 뒤집었는지 구분이 안 된다.
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = ALIVE_KEY,
+            checkedUnits = { player = { dead = false } },
+        })
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = DEAD_KEY,
+            checkedUnits = { player = { dead = true } },
+        })
+        ApplyBindings()
+        Wait(0.4)
+
+        local whenAlive = GetBindingAction(ALIVE_KEY, true) or ""
+        if whenAlive:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "살아있음 조건인데 %q. 생사 축이 등록되지 않아 u.dead가 nil일 수 있다", whenAlive))
+        end
+
+        local whenDead = GetBindingAction(DEAD_KEY, true) or ""
+        if whenDead:sub(1, 6) == "CLICK " then
+            return Fail(NAME, format(
+                "죽음 조건인데 살아 있는 플레이어에게 %q가 걸렸다. 비교가 안 도는 것이다", whenDead))
+        end
+
+        return Pass(NAME, format("alive -> %s, dead -> %q", whenAlive, whenDead))
+    end,
+})
+
+-- The other half, which no living session can produce. `player-dead` is injected at the same
+-- point `combat` is -- right after the snippet measures it, before it stores it -- so the update
+-- loop runs its real path and only the value it lands on differs.
+RegisterTest("State injection: dead flips a binding", {
+    description = "죽었다고 주입하면 죽음 조건 바인딩이 실제로 걸리는가",
+    run = function()
+        local NAME = "Dead injection"
+        local KEY = "CTRL-SHIFT-F10"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 주입 결과와 실제가 구분되지 않는다")
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            checkedUnits = { player = { dead = true } },
+        })
+        ApplyBindings()
+
+        SetMockState("player-dead", false)
+        Wait(0.4)
+        local whenAlive = GetBindingAction(KEY, true) or ""
+
+        SetMockState("player-dead", true)
+        Wait(0.4)
+        local whenDead = GetBindingAction(KEY, true) or ""
+
+        if whenDead == whenAlive then
+            return Fail(NAME, format(
+                "생사를 뒤집었는데 바인딩이 그대로다 (%q). 주입이 스니펫까지 안 닿았다", whenDead))
+        end
+
+        if whenDead:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("dead=true 인데 %q, CLICK 이어야 한다", whenDead))
+        end
+
+        -- 되돌려서 사라지는 것까지 본다. 없으면 내내 걸려 있던 키에도 통과한다.
+        SetMockState("player-dead", false)
+        Wait(0.4)
+        local again = GetBindingAction(KEY, true) or ""
+
+        if again ~= whenAlive then
+            return Fail(NAME, format("되돌렸는데 %q, %q 여야 한다", again, whenAlive))
+        end
+
+        return Pass(NAME, format("죽음 주입으로 키를 잡음 (%s)", whenDead))
+    end,
+})
+
+-- The hover condition now rides the unit column (`t.units["hover"]`) instead of its own pair of
+-- record fields. What that has to keep doing is decide **key ownership**: a hover-conditioned
+-- keyboard key is ours only while the cursor is on a matching frame, and that judgement is made
+-- by the update loop before the key is ever pressed.
+RegisterTest("Hover condition owns the key through the unit column", {
+    description = "호버 조건이 유닛 컬럼으로 옮겨간 뒤에도 키를 잡았다 놓는가",
+    run = function()
+        local NAME = "Hover ownership"
+        local KEY = "CTRL-SHIFT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            checkedUnits = { hover = { reaction = Constants.REACTION_HELP } },
+        })
+        ApplyBindings()
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        Wait(0.4)
+        local before = GetBindingAction(KEY, true) or ""
+        if before:sub(1, 6) == "CLICK " then
+            return Fail(NAME, format(
+                "호버 전인데 %q가 걸려 있다. 호버 조건이 방출에서 빠졌을 수 있다", before))
+        end
+
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        Wait(0.4)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+        end
+
+        local hovering = GetBindingAction(KEY, true) or ""
+        if hovering:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "아군 프레임에 올렸는데 %q. t.units[\"hover\"]가 안 맞은 것이다", hovering))
+        end
+
+        HoverLeave(frame)
+        Wait(0.4)
+
+        local after = GetBindingAction(KEY, true) or ""
+        if after ~= before then
+            return Fail(NAME, format("leave 뒤에도 %q, %q 여야 한다", after, before))
+        end
+
+        return Pass(NAME, format("호버 -> %s, 벗어남 -> 놓음", hovering))
+    end,
+})
+
+-- `frameTypes` kept its own field, and with the hover pair gone it lost the `t.hover` wrapper
+-- that used to stand in front of it -- it carries its own "is there a frame at all" guard now.
+-- What this pins is that the guard narrows: a frame of the wrong kind must not hand the key over.
+RegisterTest("Hover frame types still narrow on their own", {
+    description = "프레임 종류 제한이 제 존재 검사를 들고도 좁히는가",
+    run = function()
+        local NAME = "Hover frame types"
+        local KEY = "CTRL-SHIFT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            checkedUnits = { hover = {} },
+            frameTypes = Constants.FRAMETYPE_BOSS,
+        })
+        ApplyBindings()
+
+        -- 조건은 boss인데 올리는 것은 group이다. 유닛은 있고 종류만 어긋난다.
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        Wait(0.4)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+        end
+
+        local wrongType = GetBindingAction(KEY, true) or ""
+        if wrongType:sub(1, 6) == "CLICK " then
+            return Fail(NAME, format(
+                "boss 제한인데 group 프레임에서 %q가 걸렸다. frameTypes가 안 걸린 것이다", wrongType))
+        end
+
+        return Pass(NAME, format("종류가 어긋나면 안 잡음 (%q)", wrongType))
     end,
 })
 
@@ -1961,6 +2178,10 @@ local function Step()
             RunTeardowns()
             run.co, run.wait = nil, nil
             run.index = run.index + 1
+            -- 다음 테스트가 남의 phase로 시작하지 않게. 이 값을 지우는 것이 정상 종료
+            -- 갈래에만 있어서, 리로드를 건넌 테스트가 중간에 죽으면 그 phase가 다음
+            -- 테스트로 넘어갔다 - 받는 쪽은 준비 단계를 통째로 건너뛴다.
+            run.phase = nil
             Persist()
             return true
         end
@@ -2002,6 +2223,7 @@ runner:SetScript("OnUpdate", function(self, elapsed)
             RunTeardowns()
             run.co, run.wait = nil, nil
             run.index = run.index + 1
+            run.phase = nil
         end
     end
 

@@ -581,6 +581,70 @@ return function(DebindPrivate)
         end
     end);
 
+    ---------------------------------------------------------------------------
+    -- 같은 단계가 hover 조건도 옮긴다
+    --
+    -- `hover`/`reactions`는 **릴리스된 프로필에 실제로 들어 있는** 값이라, 여기가 틀리면
+    -- 사용자가 걸어둔 호버 조건이 조용히 사라지거나 넓어진다. 위와 같은 불변식으로 본다:
+    -- 소비자(solver의 유닛 축)가 옛 값과 새 값에서 같은 답을 내는가.
+    ---------------------------------------------------------------------------
+
+    local HOVER_VALUES = {
+        { hover = true },
+        { hover = true, reactions = Constants.REACTION_HELP },
+        { hover = true, reactions = Constants.REACTION_ALL },
+        { hover = false },
+    };
+
+    test("dbver 5 keeps every hover condition meaning the same thing", function()
+        for _, old in ipairs(HOVER_VALUES) do
+            local before = stateFor({ type = Constants.SPELL, value = 100,
+                hover = old.hover, reactions = old.reactions });
+
+            local layer = { { key = "A", type = Constants.SPELL, value = 100,
+                hover = old.hover, reactions = old.reactions } };
+            MigrateLayer(layer, 4);
+            local after = stateFor(layer[1]);
+
+            check(before.hover == after.hover,
+                ("hover=%s reactions=%s의 뜻이 바뀜: %s -> %s"):format(
+                    tostring(old.hover), tostring(old.reactions),
+                    tostring(before.hover), tostring(after.hover)));
+        end
+    end);
+
+    test("dbver 5 moves the hover condition onto the unit it names", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 100,
+            hover = true, reactions = Constants.REACTION_HELP } };
+        MigrateLayer(layer, 4);
+
+        check(layer[1].hover == nil, "옛 hover 필드가 남음");
+        check(layer[1].reactions == nil, "옛 reactions 필드가 남음");
+        check(layer[1].checkedUnits.hover.reaction == Constants.REACTION_HELP,
+            "반응이 유닛 조건으로 안 옮겨감");
+    end);
+
+    -- 두 메뉴가 다 살아 있던 시절의 프로필. 덮으면 걸어둔 것보다 넓어지므로 교집합하고,
+    -- 안 겹치면 어떤 유닛도 못 드는 조건(마스크 0)이 되어 이슈로 잡힌다.
+    test("dbver 5 intersects a hover condition with one already on that unit", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 100,
+            hover = true, reactions = Constants.REACTION_HELP,
+            checkedUnits = { hover = { reaction = Constants.REACTION_HARM } } } };
+        MigrateLayer(layer, 4);
+
+        check(stateFor(layer[1]).hover == 0, "안 겹치는 두 조건이 0이 안 됨");
+    end);
+
+    test("dbver 5 is safe to run twice over a folded hover condition", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 100,
+            hover = true, reactions = Constants.REACTION_HELP } };
+        MigrateLayer(layer, 4);
+        local once = stateFor(layer[1]).hover;
+        MigrateLayer(layer, 4);
+
+        check(stateFor(layer[1]).hover == once, "다시 돌렸더니 뜻이 바뀜");
+    end);
+
     -- 모르는 값이 섞여 있어도 **뜻이 뒤집히면 안 된다.** 옛 버전이 쓴 값을 우리가 모를 수
     -- 있고, 그때 조용히 "없을 때"로 읽히면 걸려 있던 바인딩이 정반대로 동작한다.
     test("dbver 5 does not change what an unknown value means", function()

@@ -236,7 +236,7 @@ return function(DebindPrivate)
     test("마우스버튼 키에 hover=true를 주면 다시 마우스오버 축", function()
         expectSurvives({
             { name = "nohover", key = "BUTTON4" },
-            { name = "hover",   key = "BUTTON4", hover = true },
+            { name = "hover",   key = "BUTTON4", checkedUnits = { hover = {} } },
         }, "hover");
     end);
 
@@ -532,28 +532,42 @@ return function(DebindPrivate)
         end
     end
 
+    -- The hover condition is `checkedUnits["hover"]` now -- the hovered frame's unit is a unit.
+    -- `frameTypes` stays its own field because it describes the **frame**, not the unit on it,
+    -- which is why it is still rolled independently below and still has to be ignored when the
+    -- binding is not on the hover path.
+    local function hoverConditionOf(b)
+        return b.checkedUnits and b.checkedUnits.hover;
+    end
+
     local function matchesHoverPoint(b, p)
-        if (b.hover == false) then
+        local cond = hoverConditionOf(b);
+        if (cond == false) then
             if (p.hovering) then return false; end
-        elseif (b.hover) then
+        elseif (cond) then
             if (not p.hovering) then return false; end
-            if (b.reactions and band(b.reactions, p.reaction) == 0) then return false; end
+            if (cond.reaction and band(cond.reaction, p.reaction) == 0) then return false; end
             if (b.frameTypes and band(b.frameTypes, p.frameType) == 0) then return false; end
         elseif (b.key and DebindPrivate.GetMouseButtonAndPrefix(b.key)) then
             -- a mouse button fires wherever the cursor already is, so it can only
             -- answer for the not-hovering point
             if (p.hovering) then return false; end
         end
-        -- off the hover path reactions/frameTypes have no axis to sit on, so they are
-        -- ignored no matter what the binding still carries
+        -- off the hover path frameTypes has no axis to sit on, so it is ignored no matter what
+        -- the binding still carries
         if (b.combat ~= nil and b.combat ~= p.combat) then return false; end
         return true;
     end
 
     local function describeHover(b)
         local parts = {};
-        if (b.hover ~= nil) then parts[#parts + 1] = "hover=" .. tostring(b.hover); end
-        if (b.reactions) then parts[#parts + 1] = ("reactions=%d"):format(b.reactions); end
+        local cond = hoverConditionOf(b);
+        if (cond ~= nil) then
+            parts[#parts + 1] = "hover=" .. (cond == false and "false" or "exists");
+            if (cond and cond.reaction) then
+                parts[#parts + 1] = ("reaction=%d"):format(cond.reaction);
+            end
+        end
         if (b.frameTypes) then parts[#parts + 1] = ("frameTypes=%d"):format(b.frameTypes); end
         if (b.combat ~= nil) then parts[#parts + 1] = "combat=" .. tostring(b.combat); end
         parts[#parts + 1] = "key=" .. b.key;
@@ -571,13 +585,18 @@ return function(DebindPrivate)
     local function randomHoverBinding(name)
         local b = { name = name, key = pick({ "SHIFT-Q", "BUTTON4" }) };
 
-        local hover = pick({ "nil", true, false });
-        if (hover ~= "nil") then b.hover = hover; end
+        -- Reactions are rolled **inside** the condition, because that is the only place they can
+        -- be stored now. A mask on a binding that is not hovering is no longer a reachable input.
+        local hover = pick({ "nil", "exists", false });
+        if (hover == false) then
+            b.checkedUnits = { hover = false };
+        elseif (hover == "exists") then
+            local reaction = randomMask(REACTION_VALUES);
+            b.checkedUnits = { hover = { reaction = reaction ~= 0 and reaction or nil } };
+        end
 
-        -- rolled independently of hover on purpose: a mask still sitting on a
-        -- non-hover binding is exactly the input this section exists to pin
-        local reactions = randomMask(REACTION_VALUES);
-        if (reactions ~= 0) then b.reactions = reactions; end
+        -- still rolled independently of hover on purpose: `frameTypes` is a field of its own, so
+        -- a mask sitting on a non-hover binding is exactly the input this section exists to pin
         local frameTypes = randomMask(FRAMETYPE_VALUES);
         if (frameTypes ~= 0) then b.frameTypes = frameTypes; end
 
@@ -604,17 +623,18 @@ return function(DebindPrivate)
     -- on exactly "not hovering", so the second one is unreachable and has to go.
     test("hover가 아니면 frameTypes를 안 읽는다", function()
         expectRemoved({
-            { name = "cover",   hover = false, frameTypes = Constants.FRAMETYPE_GROUP },
-            { name = "subject", hover = false },
+            { name = "cover",   checkedUnits = { hover = false }, frameTypes = Constants.FRAMETYPE_GROUP },
+            { name = "subject", checkedUnits = { hover = false } },
         }, "subject");
     end);
 
-    -- Same for reactions. The hover column has always ignored it off the hover path;
-    -- this pins that so the two fields stay symmetric.
-    test("hover가 아니면 reactions를 안 읽는다", function()
+    -- Reactions cannot sit off the hover path any more -- they live **inside** the hover
+    -- condition, so "not hovering" has no field to carry one. What is left to pin is that the
+    -- two shapes still order the same way: "not hovering" covers itself.
+    test("hover가 아니면 반응을 말할 자리가 없다", function()
         expectRemoved({
-            { name = "cover",   hover = false, reactions = Constants.REACTION_HELP },
-            { name = "subject", hover = false },
+            { name = "cover",   checkedUnits = { hover = false } },
+            { name = "subject", checkedUnits = { hover = false } },
         }, "subject");
     end);
 
@@ -628,14 +648,14 @@ return function(DebindPrivate)
     -- because they are two readings of one unit.
     test("hover 반응과 @ 유닛 조건이 같은 축에 얹힌다", function()
         expectRemoved({
-            { name = "byReaction", hover = true, reactions = Constants.REACTION_HELP },
-            { name = "byUnit",     hover = true, unit = "hover", checkedUnits = { ["@"] = "help" } },
+            { name = "byReaction", checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } },
+            { name = "byUnit",     unit = "hover", checkedUnits = { hover = {}, ["@"] = "help" } },
         }, "byUnit");
 
         -- and the other way round, so this is an identity rather than one side widening
         expectRemoved({
-            { name = "byUnit",     hover = true, unit = "hover", checkedUnits = { ["@"] = "help" } },
-            { name = "byReaction", hover = true, reactions = Constants.REACTION_HELP },
+            { name = "byUnit",     unit = "hover", checkedUnits = { hover = {}, ["@"] = "help" } },
+            { name = "byReaction", checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } },
         }, "byReaction");
     end);
 

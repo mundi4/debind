@@ -722,9 +722,15 @@ local function mergeUnitConditions(a, b)
     if (a == NEVER or b == NEVER) then return NEVER; end
 
     -- `false` is "absent". The absent point sits on no axis, so it cannot overlap with a condition
-    -- that constrains one.
+    -- that constrains one -- but two conditions that both say "absent" agree, and that has to come
+    -- back as `false`. Spelled out rather than `and false or`: that idiom cannot return `false`,
+    -- so it answered `NEVER` for the one case it was written to let through and the binding was
+    -- dropped without any issue being reported.
     if (a == false or b == false) then
-        return (a == b) and false or NEVER;
+        if (a == b) then
+            return false;
+        end
+        return NEVER;
     end
 
     local reaction = a.reaction;
@@ -939,16 +945,20 @@ function UpdateBindingsMap()
                         end
 
 
-                        if (binding.hover ~= nil) then
-                            appendKeyValue("hover", binding.hover);
-                            if (binding.reactions and binding.reactions ~= Constants.REACTION_ALL) then
-                                appendKeyValue("reactions", binding.reactions);
-                                _updateFlags.reaction = true;
-                            end
-                            if (binding.frameTypes and binding.frameTypes ~= Constants.FRAMETYPE_ALL) then
-                                appendKeyValue("frameTypes", binding.frameTypes);
-                                _updateFlags.frameType = true;
-                            end
+                        -- **`hover` and `reactions` are not emitted.** They are the derived view
+                        -- of `checkedUnits["hover"]`, which goes out below with every other unit
+                        -- as `t.units["hover"]` -- emitting both would have the match loop ask the
+                        -- same question about the same unit twice, once against the frame record
+                        -- and once against `UnitStates`.
+                        --
+                        -- `frameTypes` stays, because it describes the **frame** and only the
+                        -- frame record can answer it. It carries its own "is there a frame" guard
+                        -- in the snippet for that reason -- there is no `t.hover` in front of it
+                        -- any more.
+                        if (binding.hover and binding.frameTypes
+                                and binding.frameTypes ~= Constants.FRAMETYPE_ALL) then
+                            appendKeyValue("frameTypes", binding.frameTypes);
+                            _updateFlags.frameType = true;
                             _updateFlags.unitframe = true;
                         end
 
@@ -1030,6 +1040,10 @@ function UpdateBindingsMap()
                                     appendLine("u.exists=true");
                                     if (v.reaction) then
                                         axes = bor(axes, UNITAXIS_REACTION);
+                                        -- `UNIT_FACTION`을 등록시키는 자리다. 예전에는 hover
+                                        -- 방출이 켰는데 그 갈래가 없어졌다 - 안 켜면 반응
+                                        -- 변화가 0.2초 폴링으로만 들어온다.
+                                        _updateFlags.reaction = true;
                                         -- A set, not a mask: membership is one lookup, while the
                                         -- `%` idiom the restricted environment forces on masks
                                         -- needs the same two lookups **plus** arithmetic.
@@ -1119,6 +1133,19 @@ function UpdateBindingsMap()
                     end
                 end
             end
+        end
+
+        -- **아무 레코드도 안 나갔으면 빈 목록이라도 세운다.** 아래로 이어지는 것들은
+        -- (`bindings.updateFlags`, `ClickCastKeys`, `bindings.hasNonClick`, `alwaysOurs`)
+        -- `hasClick`/`hasNonClick`을 보고 도는데, 그 둘은 위 루프가 레코드를 하나도 안
+        -- 내보낼 수 있다는 것을 모른 채 앞에서 정해졌다. 그러면 `bindings`는 **직전 키의
+        -- 목록**을 가리킨 채로 남고, 이 키의 표시가 남의 목록에 붙는다.
+        --
+        -- 빈 목록은 뜻이 맞다: 쓸 수 있는 레코드가 없는 키이므로 매치 루프가 아무것도 못
+        -- 고르고 키는 안 걸린다.
+        if (first and (hasClick or hasNonClick)) then
+            first = false;
+            appendLine("bindings=newtable();BindingsMap[%q]=bindings", key);
         end
 
         for k, _ in pairs(_updateFlags) do
@@ -1293,11 +1320,20 @@ end
 --- A unit that does not exist is not asked anything else. Absence is not a point on the other
 --- axes -- it is the case where those axes have no value at all -- and the condition side splits
 --- at the same place.
-local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr)
+---
+--- `stateOverride` is the same optional line the basic states get, and it lands in the same place
+--- -- after the value is computed, before it is compared. Life is the axis that needs it: a test
+--- can stand up a friendly unit or an absent one on demand, but not a dead one.
+local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOverride)
     local dirty = format([[DirtyFlags["%s-exists"]=true]], unit);
 
     appendLine("u=UnitStates[%1$q];if (not u) then u=newtable();UnitStates[%1$q]=u end", unit);
     appendLine("stateValue=%s and true or false", existsExpr);
+    -- **계산 뒤, 비교 앞.** 이 줄이 계산보다 위에 있던 동안 `stateValue`가 바로 덮어써져서
+    -- 존재 축 주입이 조용히 아무것도 안 했다.
+    if (stateOverride) then
+        appendLine(stateOverride, unit .. "-exists");
+    end
     appendLine("if (u.exists ~= stateValue) then u.exists=stateValue;%s end", dirty);
 
     local wantsReaction = band(axes, UNITAXIS_REACTION) ~= 0;
@@ -1321,6 +1357,9 @@ local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr)
             -- `UnitIsDead` alone is not `[dead]`: a ghost answers false to it. The pair is what the
             -- macro conditional means, and the restricted environment has no `UnitIsDeadOrGhost`.
             appendLine("stateValue=(UnitIsDead(%1$s) or UnitIsGhost(%1$s)) and true or false", unitExpr);
+            if (stateOverride) then
+                appendLine(stateOverride, unit .. "-dead");
+            end
             appendLine("if (u.dead ~= stateValue) then u.dead=stateValue;%s end", dirty);
         end
 
@@ -1453,10 +1492,7 @@ end
             existsExpr = format("UnitExists(%q)", unit);
         end
 
-        if (stateOverride) then
-            appendLine(stateOverride, unit .. "-exists");
-        end
-        appendUnitStateUpdate(unit, axes, unitExpr, existsExpr);
+        appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOverride);
     end
 
     -- Update Custom States
