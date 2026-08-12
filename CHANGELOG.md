@@ -1,3 +1,15 @@
+# 3.1.4
+
+**Debind could throw an error at login and leave some unit frames without click-casting.**
+
+This one comes from a single report, and I could not reproduce it or pin down which frame caused it. What follows is a fix for the cause the error points at, not for something anyone has watched happen — so if you were seeing this, I would like to know whether it stops.
+
+When Debind takes on a unit frame it walks the pieces inside it — bars, icons, borders — and asks each one to pass mouse movement through to the frame, so that moving the cursor onto an icon still counts as hovering the frame rather than leaving it. WoW seals some of its own pieces off from addons completely, and asking a sealed piece anything at all is an error rather than a refusal.
+
+Debind already stepped around a sealed unit frame, but it only looked at the frame itself and not at the pieces hanging underneath it. The error stopped that walk partway, and with it the rest of the login setup: whichever frames had not been taken on yet were skipped, so click-casting and hover conditions were simply missing on them until the next reload — with nothing on screen to say so.
+
+Sealed pieces are now recognised wherever they turn up, and left alone along with anything inside them.
+
 # 3.1.3
 
 **3.1.2 could freeze the game with raid frames from another addon.**
