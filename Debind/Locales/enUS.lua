@@ -115,16 +115,16 @@ L["CUSTOM_STATE_REMEMBER"] = "Restore last state value when logging in."
 L["CUSTOM_STATES_DESC"] = "These are ON/OFF states that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these states on or off at any time, or you can set them as macro conditionals themselves."
 L["CUSTOM_STATES"] = "Custom States"
 L["CUSTOM_TARGET_CLEAR"] = "Clear"
-L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Failed to set from '%s'|r"
+L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
 L["CUSTOM_TARGET_HELP_MESSAGE_ARENA"] = "Try while hovering over arena frames."
 L["CUSTOM_TARGET_HELP_MESSAGE_BOSS"] = "Try while hovering over boss frames."
 L["CUSTOM_TARGET_HELP_MESSAGE_GROUP"] = "Try while hovering over party/raid frames."
 L["CUSTOM_TARGET_HELP_MESSAGE_PET"] = "Try while hovering over the pet frame."
 L["CUSTOM_TARGET_HELP_MESSAGE_PLAYER"] = "Try while hovering over the player frame or party/raid frames."
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cleared|r - it was held by group slot, not by name, and the group changed. Set it again."
-L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - Set to %s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
-L["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cannot be set from '%s' in combat|r"
-L["CUSTOM_TARGET_UNSUPPORTED_UNIT"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Not supported unit: %s|r"
+L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
+L["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Cannot be set from '%2$s' in combat|r"
+L["CUSTOM_TARGET_UNSUPPORTED_UNIT"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Not supported unit: %2$s|r"
 L["DEFAULT"] = "Default"
 L["DELETE_CONFIRM_MESSAGE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%s|r?"
 -- 여럿을 한꺼번에 지울 때. **이름 대신 개수로 묻는다** - 열몇 개를 나열하면 팝업이 화면을
@@ -219,9 +219,9 @@ L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- 보는 사람이 같은 문장을 읽어야 둘이 같은 것이라는 걸 안다.
 L["LAYER_DESC_SHARED_GENERAL"] = "Every character on the account."
 -- %s 둘은 차례로 직업명(UnitClass), 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_CLASS"] = "Every %s you own. Beats %s unless conditions or Importance say otherwise."
+L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. Beats %2$s unless conditions or Importance say otherwise."
 -- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_SPEC"] = "Every %s you own, while %s. Beats %s unless conditions or Importance say otherwise."
+L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. Beats %3$s unless conditions or Importance say otherwise."
 -- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
 L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. Beats everything Shared unless conditions or Importance say otherwise."
 -- 인자는 차례로 지는 레이어의 이름, 전문화명. **위 둘과 차례가 다르다** - 영어는 전문화명을
@@ -238,7 +238,7 @@ L["LAYER_SHORT_CHARACTER"] = "Character"
 L["LAYER_SHORT_CHARACTER_SPEC"] = "Character spec"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 -- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
-L["MACROFRAME_CHAR_LIMIT"] = "%d/%d Characters Used"
+L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d Characters Used"
 L["MOVE_TO"] = "Move to..."
 -- 회색으로 선 현재 탭 줄의 툴팁. 하나를 옮기든 여럿을 옮기든 같은 문장이라 주어를 안 세운다.
 L["MOVE_TO_CURRENT_TAB_BLOCKED"] = "Already on this tab."
@@ -270,7 +270,7 @@ L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse button not allowed"
 L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Mouse button needs hover"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
-L["ORDER_LAYER_LABEL"] = "%s / %s"
+L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 -- 우클릭 줄은 오른쪽 목록의 것을 그대로 쓴다(LINE_TOOLTIP_INSTRUCTION_MESSAGE2). 두 목록 다
 -- 그 액션의 메뉴가 열리므로 여기만 다른 말을 쓸 이유가 없다.
@@ -333,7 +333,7 @@ L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
 L["ORDER_WHY_HOVER"] = "Unit frame rule"
 L["ORDER_WHY_CONDITIONAL"] = "Has conditions"
-L["ORDER_WHY_LAYER"] = "%s over %s"
+L["ORDER_WHY_LAYER"] = "%1$s over %2$s"
 -- 넷이 다 동률일 때 남는 축. **"your order"라고 쓰면 안 된다** - 자리는 키를 걸 때 그 레이어의
 -- 맨 뒤 번호로 자동으로 받는 것이고(Profile.lua의 PlaceLast), 사용자가 고른 적이 없다.
 -- placement/put/set 계열이 전부 같은 이유로 거짓이 된다 - 위아래 버튼을 한 번도 안 누른
@@ -364,7 +364,7 @@ L["SELECTED_TARGET_UNIT_EMPTY"] = "Assigned Target |cnDISABLED_FONT_COLOR:(None)
 L["SELECTED_TARGET_UNIT"] = "Assigned Target |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
 L["SHARED_BINDINGS"] = "Shared"
 L["SPECIAL_CONDITIONS"] = "Special Conditions"
-L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - Set to %s"
+L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared (More than one unit detected)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared|r"
 L["SPECIAL_UNITS"] = "Special units"
@@ -411,7 +411,7 @@ L["SPELL_PICKER_TAB_TOY"] = "Toys"
 L["SPELL_PICKER_TITLE"] = "Add an Action"
 L["STATE_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
 L["STATE_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
-L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%s|r is now %s."
+L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
 L["STATE_DRIVER_UPDATE_THROTTLE"] = "State driver update throttle"
 L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Some states, such as those related to mouseover, may not be updated immediately. By changing this value, you can adjust the update frequency for these states. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
