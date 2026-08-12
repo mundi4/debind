@@ -2681,8 +2681,8 @@ end
 --- 집합이나 앵커를 손본 뒤 **반드시** 지나는 자리.
 ---
 --- **다중이 되면 매크로 창을 닫는다.** 그 창은 본문 하나를 여는 편집기라 대상이 여럿이면
---- 열려 있을 자리가 없다. 앵커를 따라 갈아타게 두면 CTRL-클릭 한 번에 편집기가 다른 액션으로
---- 옮겨가는데, 벌크 선택은 편집이 아니므로 그럴 일이 아니다. 본문은 `Close`가 저장한다.
+--- 열려 있을 자리가 없다. 본문은 `Close`가 저장한다. 앵커가 그대로면 `Refresh`는 창을
+--- 안 건드리므로, CTRL-클릭으로 벌크를 시작하는 자리는 이 줄이 따로 챙겨야 한다.
 ---
 --- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
 local function CommitSelection(self)
@@ -2694,8 +2694,9 @@ local function CommitSelection(self)
 	if (_selectionCount > 1) then
 		DebindMacroFrame:Close();
 	else
-		-- 매크로 창이 열려 있으면 대상도 같이 옮긴다. 떠나는 액션의 본문은 그 안에서 저장된다
-		-- (`Refresh` → `macroAction ~= action` → `Save`). 창이 닫혀 있으면 아무 일도 안 한다.
+		-- If the macro editor is open on some other action, this is what closes it - Refresh
+		-- does not carry the window over to a new target any more, it leaves. Same action, or
+		-- window already closed, and nothing happens.
 		DebindMacroFrame:Refresh();
 	end
 
@@ -4262,8 +4263,11 @@ end
 ---
 --- 견주는 것은 **액션에 들어 있는 값**이지 `macroOriginalText`가 아니다. 저 둘은 편집이
 --- 시작된 직후에만 같고, 그 뒤로는 뜻이 갈린다 - 하나는 "지금 저장된 것", 하나는
---- "[취소]가 돌아갈 자리"다. 여기서 `macroOriginalText`를 덮으면 대상을 한 번 바꿔 갔다
---- 오는 것만으로 돌아갈 자리가 사라진다(떠날 때마다 자동 저장이 돌기 때문이다).
+--- "[취소]가 돌아갈 자리"다.
+---
+--- The two still come apart while the window is up: EditNameIcon_OnClick saves on the way to
+--- the icon selector and leaves this window open behind it. Overwrite macroOriginalText here
+--- and that trip alone would cost you the way back.
 function DebindMacroFrameMixin:Save()
 	local action = self.macroAction;
 	if (not action) then
@@ -4280,15 +4284,20 @@ function DebindMacroFrameMixin:Save()
 	DebindPrivate.UpdateBindings();
 end
 
---- [취소] = **이 액션을 연 뒤로** 고친 것을 버린다. 창은 닫지 않는다.
+--- [취소] = **이 액션을 연 뒤로** 고친 것을 버린다.
 ---
 --- 되돌릴 곳은 **두 군데**다. 편집칸과 액션 - 대상을 바꿀 때마다 자동 저장이 돌기 때문에
 --- 버려야 할 본문이 이미 `action.value`에 들어가 있을 수 있다. 편집칸만 되돌리면 [취소]가
 --- 아무 일도 안 한 것처럼 보이고, 원래 본문은 되찾을 길이 없어진다.
 ---
 --- 매크로텍스트 변환으로 들어왔다면 되돌릴 것이 본문이 아니라 **액션 자체**다(cancelFunc).
---- 되돌린 액션은 더 이상 매크로텍스트가 아니므로 편집기 자리에 "변환할까?" 안내가 대신
---- 들어선다. 창은 그대로 둔다 - 되돌린 결과를 볼 자리가 여기이기 때문이다.
+--- 그 액션은 더 이상 매크로텍스트가 아니므로 `Refresh`가 창을 닫는다.
+---
+--- **창은 안 닫는다, [Okay]와 달리.** Two buttons that both leave would be tidier, but they are
+--- not the same risk: [Okay] keeps what you see and [취소] throws it away. Leaving the window up
+--- puts the reverted body in front of you before anything is final - and if the revert was not
+--- what you wanted, it is still there to edit. Costing one more click to leave is the cheaper
+--- side of that trade.
 function DebindMacroFrameMixin:Cancel_OnClick()
 	local action = self.macroAction;
 	if (not action) then
@@ -4316,6 +4325,15 @@ function DebindMacroFrameMixin:Cancel_OnClick()
 	DebindFrame:Update();
 end
 
+--- [Okay]. Closing is the whole job: OnHide is where the text is written, and it stays the only
+--- place that writes it. Calling Save here too would give the body two commit paths to keep in
+--- step for no gain - the point of the button is that the user has something to press, not that
+--- it saves by a different road.
+function DebindMacroFrameMixin:Okay_OnClick()
+	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
+	self:Close();
+end
+
 --- 이름/아이콘 편집기로 간다. 기본 매크로 창도 이 시점에 저장한다(MacroEditButton_OnClick).
 ---
 --- 이 창은 **열어둔 채로** 팝업이 그 위에 뜬다. 그래서 돌아왔을 때 본문이 그대로 있고,
@@ -4338,10 +4356,11 @@ function DebindMacroFrameMixin:Text_OnTextChanged(editBox)
 		LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
 end
 
---- 창을 되비춘다. 이름·아이콘은 매번, 본문은 대상이 바뀌었을 때만.
+--- 창을 되비춘다. 이름·아이콘은 매번, 본문은 창을 열 때 한 번.
 --- 아이콘 선택기를 다녀오면 여기서 새 이름·아이콘이 반영된다.
 ---
 --- 선택이 없어지면 닫는다. 대상이 없는 편집기는 보여줄 것도 저장할 것도 없다.
+--- 대상이 **달라져도** 닫는다 - 그 이유는 아래 갈래에 적어뒀다.
 function DebindMacroFrameMixin:Refresh()
 	if (not self:IsShown()) then
 		return;
@@ -4365,9 +4384,26 @@ function DebindMacroFrameMixin:Refresh()
 		return;
 	end
 
-	if (self.macroAction ~= action) then
-		self:Save();
+	-- **A different action means we are done here.** The window used to follow the selection,
+	-- saving the old body on the way past - which read as nothing at all: the text you were
+	-- typing went into the profile and the editor was suddenly showing someone else's macro,
+	-- with no moment that looked like leaving. Closing makes the leaving visible, and it is the
+	-- same answer this function already gives when the selection is empty or not a macro.
+	--
+	-- It also fixes what the revert point is worth. macroOriginalText is set by LoadText and is
+	-- where [취소] goes back to; while the window followed the selection, stepping to another
+	-- macro and back replaced it with the text you had just typed, so [취소] could no longer
+	-- reach what you started from. With the window closing instead, that value is set once per
+	-- opening and never moves.
+	--
+	-- nil is not "a different action" - it is nothing loaded yet, which is how Open arrives here
+	-- one line after Show(). Treating it as different would make the window close itself the
+	-- instant it opens.
+	if (self.macroAction == nil) then
 		self:LoadText(action);
+	elseif (self.macroAction ~= action) then
+		self:Close();
+		return;
 	end
 
 	self.Editor.SelectedMacroName:SetText(action.name or "");

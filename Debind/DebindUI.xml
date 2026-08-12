@@ -1183,8 +1183,14 @@
 		에서는 그 탭이 **"이건 매크로가 아닙니다"만 말하는 자리**였다. 액션 대부분이 주문인
 		사람에게는 탭 하나가 늘 헛돌고, 그 탭 바가 먹는 자리는 순서 목록이 쓸 자리였다.
 
-		저장 규칙은 탭이었을 때와 같다 - **떠날 때 저장**(기본 매크로 창과 같다). 창에서는
-		닫는 것이 곧 떠나는 것이고, 버리는 길은 [취소] 하나뿐이다.
+		저장 규칙은 탭이었을 때와 같다 - **떠날 때 저장**. 창에서는 닫는 것이 곧 떠나는 것이고,
+		버리는 길은 [취소]다.
+
+		The buttons do not straddle that rule, they just make it visible. Blizzard's macro window
+		has SAVE next to CANCEL, and for a while this one had only CANCEL - the text committed
+		when you closed the window and nothing on screen said so, which reads as "there is no way
+		to keep this". [Okay] closes the window, so the commit still happens in exactly one place
+		(OnHide); what changed is that the user can now perform it deliberately.
 
 		**매크로텍스트 액션에만 열려 있는다.** 편집 중에 다른 액션이 선택되면 닫힌다
 		(DebindMacroFrameMixin:Refresh). 한때 그 자리에 "이 액션은 매크로가 아닙니다 /
@@ -1255,10 +1261,16 @@
 								<Anchor point="TOPLEFT" x="4" y="-70"/>
 							</Anchors>
 						</FontString>
-						<!-- 글자 수는 편집칸 아래 왼쪽. 오른쪽 자리는 [취소]가 쓴다. -->
-						<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall" justifyH="LEFT">
+						<!--
+							On the ENTER_MACRO_LABEL line, not under the edit box where it used to
+							be. Two buttons leave about 120px of that bottom row, and the longer
+							translations of MACROFRAME_CHAR_LIMIT run past it - ruRU spells out
+							"символов использовано". Up here it also sits directly above the box
+							it counts.
+						-->
+						<FontString parentKey="CharLimitText" inherits="GameFontHighlightSmall" justifyH="RIGHT">
 							<Anchors>
-								<Anchor point="BOTTOMLEFT" x="4" y="6"/>
+								<Anchor point="TOPRIGHT" x="-4" y="-70"/>
 							</Anchors>
 						</FontString>
 					</Layer>
@@ -1350,6 +1362,25 @@
 							</OnClick>
 						</Scripts>
 					</Button>
+					<!--
+						The window commits on close and always did, but with [Cancel] as the only
+						button there was nothing to press that meant "yes, keep this" - you had to
+						close the window and trust it. This is that press.
+
+						It is not the mirror of [Cancel]. That one reverts and stays open so you
+						can see what came back; this one is the way out.
+					-->
+					<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
+						<Size x="90" y="22"/>
+						<Anchors>
+							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.CancelButton" relativePoint="BOTTOMLEFT" x="-2" y="0"/>
+						</Anchors>
+						<Scripts>
+							<OnClick>
+								DebindMacroFrame:Okay_OnClick();
+							</OnClick>
+						</Scripts>
+					</Button>
 				</Frames>
 			</Frame>
 
@@ -1393,7 +1424,7 @@
 		closed this frame explicitly back when it was a child, so dropping the parent leaks
 		nothing.
 	-->
-	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="HIGH" parent="UIParent" movable="true" enableMouse="true" hidden="true">
+	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="HIGH" parent="UIParent" enableMouse="true" hidden="true">
 		<!--
 			The template anchors TOPLEFT to TOPRIGHT with no relativeTo, which means the parent.
 			That resolved to the main window for free while we were its child; with UIParent as
