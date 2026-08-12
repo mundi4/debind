@@ -159,15 +159,23 @@ function DebindPrivate.UnregisterFrame(button)
     end
 end
 
+--- A forbidden object errors on **any** method call from addon-tainted code, so the whole branch
+--- is skipped rather than just the call - descending into its children would raise the same error
+--- one level down. `IsForbidden` is the one method that stays answerable there.
+---
+--- The check at the registration gate (`IsForbidden` above) is not enough: it sees the button we
+--- were handed, and what turns up forbidden here is a **child** of a Blizzard frame that passed it.
 local function SetPropagate(...)
     local n = select("#", ...);
     for i = 1, n do
         local frame = select(i, ...);
-        if (frame and frame.SetPropagateMouseMotion) then
-            frame:SetPropagateMouseMotion(true);
-        end
-        if (frame.GetChildren) then
-            SetPropagate(frame:GetChildren());
+        if (frame and not (frame.IsForbidden and frame:IsForbidden())) then
+            if (frame.SetPropagateMouseMotion) then
+                frame:SetPropagateMouseMotion(true);
+            end
+            if (frame.GetChildren) then
+                SetPropagate(frame:GetChildren());
+            end
         end
     end
 end
