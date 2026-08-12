@@ -165,18 +165,49 @@ end
 ---
 --- The check at the registration gate (`IsForbidden` above) is not enough: it sees the button we
 --- were handed, and what turns up forbidden here is a **child** of a Blizzard frame that passed it.
-local function SetPropagate(...)
+---
+--- **`IsForbidden` answering false no longer means the call is safe.** On 12.1, private-aura
+--- frames attached to unit frames answer false and still raise the forbidden-object error from
+--- `SetPropagateMouseMotion` (access constraints without the explicit mark - observed in an
+--- arena, where such a frame sat under every Grid2 button). And a 12.1 `GetChildren` can hand
+--- back secret values, which blow up on the `not frame` test itself. There is no pre-check that
+--- covers those, so each frame is handled under `pcall`: everything that touches the frame is
+--- inside, and a frame that cannot be touched forfeits its subtree - same policy as the
+--- forbidden skip, which stays as the cheap first gate.
+local function SetPropagateOne(frame)
+    if (not frame or (frame.IsForbidden and frame:IsForbidden())) then
+        return;
+    end
+    if (frame.SetPropagateMouseMotion) then
+        frame:SetPropagateMouseMotion(true);
+    end
+    if (frame.GetChildren) then
+        return frame:GetChildren();
+    end
+end
+
+local SetPropagate;
+
+--- Counted across the whole recursion, reported per registered frame at the call site.
+--- DEBUG-only surfacing: a release user can do nothing with it, and the cost of a refused
+--- frame is only that hover may release over that subtree - which was already true of every
+--- frame the walk could not see.
+local _walkRefused = 0;
+
+--- Only a frame whose own handling succeeded gets its children walked; the varargs pass
+--- `GetChildren`'s returns through without a table in between.
+local function Descend(ok, ...)
+    if (ok) then
+        SetPropagate(...);
+    else
+        _walkRefused = _walkRefused + 1;
+    end
+end
+
+function SetPropagate(...)
     local n = select("#", ...);
     for i = 1, n do
-        local frame = select(i, ...);
-        if (frame and not (frame.IsForbidden and frame:IsForbidden())) then
-            if (frame.SetPropagateMouseMotion) then
-                frame:SetPropagateMouseMotion(true);
-            end
-            if (frame.GetChildren) then
-                SetPropagate(frame:GetChildren());
-            end
-        end
+        Descend(pcall(SetPropagateOne, (select(i, ...))));
     end
 end
 
@@ -243,7 +274,12 @@ function DebindPrivate.UpdateRegisteredClicks(button)
 
     -- 프레임 내에 마우스에 반응하는 자식 프레임이 있는 경우 그 자식 프레임으로 마우스를 올렸을 때
     -- 부모 프레임에서 onleave 스크립트가 호출되지 않게 함.
+    _walkRefused = 0;
     SetPropagate(button:GetChildren());
+    if (Constants.DEBUG and _walkRefused > 0) then
+        print(format("[Debind] SetPropagate: %d refused frame(s) under %s",
+            _walkRefused, button:GetName() or tostring(button)));
+    end
 end
 
 local function registerBlizzardFrame(frame, category)
