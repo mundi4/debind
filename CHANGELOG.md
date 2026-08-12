@@ -1,3 +1,13 @@
+# 3.1.5
+
+**A follow-up to the 3.1.4 fix — the question it relied on turned out to have wrong answers.**
+
+3.1.4 taught Debind to leave sealed pieces of a unit frame alone by asking each piece "are you sealed?" before touching it. Testing on the 12.1 PTR showed that question can come back *no* for a piece that refuses to be touched anyway: the private-aura icons WoW hangs under unit frames deny being sealed and still error on contact. It reproduced in an arena, where those icons sit under every frame — which lines up with the original report saying "specifically in arena".
+
+So Debind no longer trusts the answer alone. It still asks — a piece that admits to being sealed is skipped cheaply — but any piece that errors when touched is now treated exactly like a sealed one: that piece and everything inside it are left alone, and the walk carries on with the rest of the frame. One untouchable piece no longer takes the login setup down with it. Whatever else Midnight decides to seal should land in the same net, since this shape of fix does not need to know the list in advance.
+
+Hopefully this is the last of this error. If 3.1.4 did not stop it for you, this one should — and I would still like to hear either way.
+
 # 3.1.4
 
 **Debind could throw an error at login and leave some unit frames without click-casting.**
