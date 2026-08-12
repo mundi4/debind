@@ -1155,17 +1155,39 @@ do
 						unitStr = UNIT_INFO[checkedUnit].name;
 					end
 					--addValueLine(unitStr);
-					-- 저장은 축별 마스크다(`Profile.lua`의 `dbver <= 4`). 축이 늘면 여기도
-					-- 줄이 늘어야 하는데, 지금은 반응 하나뿐이라 스칼라 시절과 같은 네 줄이다.
-					local reaction = type(value) == "table" and value.reaction or nil;
+					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
+					-- line says whether the unit has to be there, and each constrained axis adds
+					-- a line below it in the shape the hover block already uses. A new axis is
+					-- one more branch here.
 					if (value == false) then
 						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
-					elseif (reaction == Constants.REACTION_HELP) then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_HELP"], error);
-					elseif (reaction == Constants.REACTION_HARM) then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_HARM"], error);
 					else
 						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
+
+						local reaction = type(value) == "table" and value.reaction or nil;
+						if (reaction ~= nil and reaction ~= Constants.REACTION_ALL) then
+							local s;
+							if (reaction == 0) then
+								s = LLL["NOT_SELECTED"];
+							else
+								s = "";
+								for i = 1, #UNIT_FRAME_REACTIONS do
+									local flag = Constants["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
+									if (bit.band(reaction, flag) == flag) then
+										if (s ~= "") then
+											s = s .. ", ";
+										end
+										s = s .. LLL["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
+									end
+								end
+							end
+							addValueLine(format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_REACTIONS"], s), error, true);
+						end
+
+						if (type(value) == "table" and value.dead ~= nil) then
+							addValueLine(format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_LIFE"],
+								value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]), error, true);
+						end
 					end
 				end
 			end

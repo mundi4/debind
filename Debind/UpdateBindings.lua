@@ -648,12 +648,30 @@ function SetBindingAttributes(type, value, unit)
     return delegate or clickframe, buttonname, BindingPressHoldCache[buttonname];
 end
 
-local UnitStateFlags = {
-    [true] = 1,
-    [false] = 1,
-    ["help"] = 2,
-    ["harm"] = 4,
-    ["never"] = 1,
+--- Which axes have to be **measured** for a unit. Accumulated per unit across every binding that
+--- names it, so an axis nobody asks about is never measured and simply has no field in
+--- `UnitStates[unit]`. Nothing can ask about an unmeasured axis -- asking is what turns the bit on
+--- -- so its absence never reaches a comparison.
+---
+--- This is what retires the old encoding's defect. Registration used to change the **meaning** of
+--- the value (with nobody asking about reaction, a friendly unit came back as `true`), so every
+--- consumer had to know who else had registered what. Now registration changes only precision.
+local UNITAXIS_EXISTS   = 1;
+--- Reaction is measured as **one axis, all the way**. Emitting a term per registered value saved a
+--- call when only `help` was asked for, and paid for it by putting `true` in the place of the
+--- values nobody asked about. Resolving to exactly one of help/harm/other costs one more C call in
+--- the worst case and buys back a value that means the same thing to everyone.
+local UNITAXIS_REACTION = 2;
+--- Life is two C calls, not one: `UnitIsDeadOrGhost` is not in the restricted environment
+--- (`RestrictedEnvironment.lua`'s `DIRECT_MACRO_CONDITIONAL_NAMES` lists only `UnitIsDead` and
+--- `UnitIsGhost`). Both have to be asked, because a ghost is not dead by `UnitIsDead` and the
+--- macro `[dead]` this mirrors counts it as dead. Reading a ghost as alive sends heals at a corpse.
+local UNITAXIS_DEAD     = 4;
+
+local REACTION_NAMES = {
+    [Constants.REACTION_HELP]  = "help",
+    [Constants.REACTION_HARM]  = "harm",
+    [Constants.REACTION_OTHER] = "other",
 };
 
 ---
@@ -667,23 +685,70 @@ local UnitStateFlags = {
 --- 걷어내지만 여기서도 받아준다. 나머지 조합은 전부 모순이고, 그건 `GetBindingIssue`가
 --- 걸러서 `KeyMap`에 안 들어온다.
 ---
---- 그래도 `"never"`를 돌려주는 이유는, 앞단이 새면 **조건이 넓어지는** 쪽으로
---- 틀리기 때문이다. `"never"`는 어떤 `UnitStates` 값과도 안 같아서 항상 불일치다.
+--- Values carry one field per axis (`Profile.lua`'s `dbver <= 4` step), so merging is an
+--- intersection **per axis**. One empty axis leaves no state at all, which is `NEVER` for the
+--- whole condition.
+---
+--- ============================================================================================
+--- `NEVER` IS UNREACHABLE. DO NOT BUILD A RUNTIME REPRESENTATION FOR IT.
+--- ============================================================================================
+---
+--- Every way this function can return `NEVER` is a zero mask in `binding.unitStates`, and a zero
+--- mask is an issue, and an action with an issue never enters `KeyMap`:
+---
+---   absent vs a constrained axis   `band(UNITSTATE_NONE, ...)`  == 0
+---   reactions do not overlap       `band(reaction, reaction)`   == 0
+---   life asked both ways           `band(ALIVE, DEAD)`          == 0
+---
+--- `Misc.BuildUnitStates` folds the same conditions with the same intersection, `GetBindingIssue`
+--- reports the zero, and `Debind.lua` leaves that binding out of `KeyMap`. So a contradictory
+--- binding reaches **neither the solver nor this file**.
+---
+--- That makes `NEVER` a backstop for one thing only: **the two intersections disagreeing.** Two
+--- implementations of one rule -- this one and `BuildUnitStates` -- which is why the redesign
+--- notes want this function gone once the runtime speaks masks.
+---
+--- The caller answers a `NEVER` by **not emitting the binding at all**. Do not reach for a marker
+--- value or a `never` field instead. Anything carried into the secure environment is paid for
+--- three times: the match loop walks and rejects the record on every re-selection, its units get
+--- registered so the update loop measures them every tick forever, and a marker field costs every
+--- *ordinary* condition a lookup on a path that runs thousands of times in a fight. All of that
+--- to carry a case that cannot happen.
+local NEVER = {};
+
 local function mergeUnitConditions(a, b)
-    if (a == nil or a == b) then
-        return b;
-    elseif (b == nil) then
-        return a;
-    elseif (a == true and b ~= false) then
-        return b;           -- b는 우호/적대 -- 둘 다 존재를 함의한다
-    elseif (b == true and a ~= false) then
-        return a;
+    if (a == nil) then return b; end
+    if (b == nil) then return a; end
+    if (a == NEVER or b == NEVER) then return NEVER; end
+
+    -- `false` is "absent". The absent point sits on no axis, so it cannot overlap with a condition
+    -- that constrains one.
+    if (a == false or b == false) then
+        return (a == b) and false or NEVER;
     end
-    return "never";
+
+    local reaction = a.reaction;
+    if (reaction == nil) then
+        reaction = b.reaction;
+    elseif (b.reaction ~= nil) then
+        reaction = band(reaction, b.reaction);
+        if (reaction == 0) then
+            return NEVER;
+        end
+    end
+
+    local dead = a.dead;
+    if (dead == nil) then
+        dead = b.dead;
+    elseif (b.dead ~= nil and b.dead ~= dead) then
+        return NEVER;
+    end
+
+    return { reaction = reaction, dead = dead };
 end
 
 function UpdateBindingsMap()
-    appendLine("local bindings,t");
+    appendLine("local bindings,t,u");
     for key, bindingArray in pairs(DebindPrivate.KeyMap) do
         wipe(_updateFlags);
 
@@ -758,7 +823,40 @@ function UpdateBindingsMap()
                 local isNonClick = hasNonClick and binding.isNonClick;
                 local clickframe, clickbutton = binding.clickframe, binding.clickbutton;
 
-                if (isClick or isNonClick) then
+                -- Unit conditions are merged **before the record exists**, so a binding that can
+                -- never fire is skipped instead of emitted with a marker that says so.
+                --
+                -- Emitting it would cost three times over: the match loop walks and rejects it on
+                -- every re-selection, its units get registered for measurement so the update loop
+                -- prices them every tick, and every ordinary condition pays whatever lookup the
+                -- marker needs.
+                --
+                -- **Nothing should reach here anyway.** All three ways `mergeUnitConditions` can
+                -- come back `NEVER` leave a zero mask in `binding.unitStates`, which
+                -- `GetBindingIssue` reports and `Debind.lua` acts on by keeping the binding out
+                -- of `KeyMap` -- so it reaches neither the solver nor this file. This is the
+                -- backstop for the two intersections disagreeing, and now it costs nothing.
+                local unreachable;
+                if (binding.checkedUnits) then
+                    wipe(_mergedUnits);
+                    for k, v in pairs(binding.checkedUnits) do
+                        if (k == "@") then
+                            k = binding.unit;
+                        end
+                        -- A "@" with no unit to point at has no axis to land on. Normalization
+                        -- should have dropped it, so drop it quietly.
+                        if (k ~= nil) then
+                            v = mergeUnitConditions(_mergedUnits[k], v);
+                            if (v == NEVER) then
+                                unreachable = true;
+                                break;
+                            end
+                            _mergedUnits[k] = v;
+                        end
+                    end
+                end
+
+                if ((isClick or isNonClick) and not unreachable) then
                     if (first) then
                         first = false;
                         if (DEBUG) then
@@ -913,30 +1011,43 @@ function UpdateBindingsMap()
                         -- end
 
                         if (binding.checkedUnits) then
-                            appendLine("t.checkedUnits=newtable()");
-                            -- "@"를 실제 유닛으로 편 다음 **합쳐서** 내보낸다. 바로 쓰면
-                            -- "@"와 그 유닛의 명시 조건이 같은 키를 두고 다투다 pairs 순서에
-                            -- 따라 한쪽이 사라진다.
-                            wipe(_mergedUnits);
-                            for k, v in pairs(binding.checkedUnits) do
-                                -- 저장은 축별 마스크고 스니펫은 스칼라 넷만 안다. 여기서
-                                -- 내려놓고 합친다 - 합치기(`mergeUnitConditions`)가 값을
-                                -- `==`로 비교해서, 테이블인 채로 넣으면 같은 조건 둘이
-                                -- 서로 다른 것으로 보여 `"never"`가 된다.
-                                v = DebindPrivate.UnitConditionToRuntimeScalar(v);
-                                if (k == "@") then
-                                    k = binding.unit;
-                                end
-                                -- unit이 없는데 "@"가 남아 있으면 걸 축이 없다. 정규화가
-                                -- 지웠어야 하는 값이므로 조용히 버린다.
-                                if (k ~= nil) then
-                                    _mergedUnits[k] = mergeUnitConditions(_mergedUnits[k], v);
-                                end
-                            end
+                            -- `_mergedUnits` was filled above, before the record was created --
+                            -- "@" already resolved onto the unit it names and merged with any
+                            -- explicit condition on that same unit, so that the two cannot write
+                            -- the same key twice and let `pairs` order decide which survives.
+                            local unitsTblCreated;
                             for k, v in pairs(_mergedUnits) do
-                                appendLine("t.checkedUnits[%q]=%s", k, formatValue(v));
+                                if (not unitsTblCreated) then
+                                    unitsTblCreated = true;
+                                    appendLine("t.units=newtable()");
+                                end
+                                appendLine("u=newtable();t.units[%q]=u", k);
+
+                                local axes = UNITAXIS_EXISTS;
+                                if (v == false) then
+                                    appendLine("u.exists=false");
+                                else
+                                    appendLine("u.exists=true");
+                                    if (v.reaction) then
+                                        axes = bor(axes, UNITAXIS_REACTION);
+                                        -- A set, not a mask: membership is one lookup, while the
+                                        -- `%` idiom the restricted environment forces on masks
+                                        -- needs the same two lookups **plus** arithmetic.
+                                        appendLine("u.reaction=newtable()");
+                                        for bit, name in pairs(REACTION_NAMES) do
+                                            if (band(v.reaction, bit) ~= 0) then
+                                                appendLine("u.reaction.%s=true", name);
+                                            end
+                                        end
+                                    end
+                                    if (v.dead ~= nil) then
+                                        axes = bor(axes, UNITAXIS_DEAD);
+                                        appendLine("u.dead=%s", tostring(v.dead));
+                                    end
+                                end
+
                                 _unitsSeen[k] = true;
-                                _unitStates[k] = bor(_unitStates[k] or 0, UnitStateFlags[v]);
+                                _unitStates[k] = bor(_unitStates[k] or 0, axes);
                                 _updateFlags[k .. "-exists"] = true;
                             end
                         end
@@ -1169,28 +1280,52 @@ local function compareStates(lhs, rhs)
     return lhs < rhs;
 end
 
+--- Emits the code that refreshes one unit's row in `UnitStates`. One field per axis, not one
+--- value.
 ---
---- 유닛 하나의 상태를 계산하는 표현식. 값은 false / true / "help" / "harm".
+--- The row table is created once per unit and **reused**. Building a fresh one each tick would
+--- destroy change detection: a new table never equals the old one, so every tick would look like
+--- a change and rebind.
 ---
---- **한 유닛은 한 값이다.** 블리자드도 같은 자리를 if/elseif로 푼다
---- (`SecureTemplates.lua`의 `helpbutton`/`harmbutton` 치환). 다만 그쪽은 적대를 먼저
---- 본다 -- 여기는 우호가 먼저다. 둘이 동시에 참일 수 있는 상황이 확인되면 그때 갈린다.
+--- Axes that were not registered emit nothing and leave no field behind. Nothing can ask about
+--- them, so the absence is never compared against.
 ---
---- 등록된 비트만 항으로 나간다. 우호를 아무도 안 쓰면 그 항 자체가 없고,
---- 그러면 우호 대상도 `true`로 온다. **소비하는 쪽이 이걸 알아야 한다** --
---- `SecureBindings.lua`의 checkedUnits 루프에서 "존재"가 값 비교가 아닌 이유다.
----
-local function unitStateExpression(flags, unitExpr)
-    local tmp = {};
-    if (band(flags, UnitStateFlags.help) == UnitStateFlags.help) then
-        tinsert(tmp, format([[(PlayerCanAssist(%1$s) and "help")]], unitExpr));
-    end
-    if (band(flags, UnitStateFlags.harm) == UnitStateFlags.harm) then
-        tinsert(tmp, format([[(PlayerCanAttack(%1$s) and "harm")]], unitExpr));
-    end
-    tinsert(tmp, "true");
+--- A unit that does not exist is not asked anything else. Absence is not a point on the other
+--- axes -- it is the case where those axes have no value at all -- and the condition side splits
+--- at the same place.
+local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr)
+    local dirty = format([[DirtyFlags["%s-exists"]=true]], unit);
 
-    return table.concat(tmp, " or ");
+    appendLine("u=UnitStates[%1$q];if (not u) then u=newtable();UnitStates[%1$q]=u end", unit);
+    appendLine("stateValue=%s and true or false", existsExpr);
+    appendLine("if (u.exists ~= stateValue) then u.exists=stateValue;%s end", dirty);
+
+    local wantsReaction = band(axes, UNITAXIS_REACTION) ~= 0;
+    local wantsDead = band(axes, UNITAXIS_DEAD) ~= 0;
+
+    -- Both axes share one existence test. They are asked the same question -- "does this unit have
+    -- a value on the axis at all" -- and the answer was just computed above.
+    if (wantsReaction or wantsDead) then
+        appendLine("if (u.exists) then");
+
+        if (wantsReaction) then
+            -- Blizzard resolves the same fork with if/elseif (`SecureTemplates.lua`, the
+            -- `helpbutton`/`harmbutton` substitution). It asks about hostile first; this asks about
+            -- friendly first. If a state where both are true ever turns up, that is where they part.
+            appendLine([[stateValue=(PlayerCanAssist(%1$s) and "help") or (PlayerCanAttack(%1$s) and "harm") or "other"]],
+                unitExpr);
+            appendLine("if (u.reaction ~= stateValue) then u.reaction=stateValue;%s end", dirty);
+        end
+
+        if (wantsDead) then
+            -- `UnitIsDead` alone is not `[dead]`: a ghost answers false to it. The pair is what the
+            -- macro conditional means, and the restricted environment has no `UnitIsDeadOrGhost`.
+            appendLine("stateValue=(UnitIsDead(%1$s) or UnitIsGhost(%1$s)) and true or false", unitExpr);
+            appendLine("if (u.dead ~= stateValue) then u.dead=stateValue;%s end", dirty);
+        end
+
+        appendLine("end");
+    end
 end
 
 -- 'state-unitexists' attribute 값이 변경될 때 상태 업데이트 후 UpdateBindings 실행함.
@@ -1244,7 +1379,9 @@ end
 ]], Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_OTHER);
 
     -- Update States
-    appendLine("local stateValue")
+    -- `u` holds the `UnitStates` row being refreshed. Declared here rather than assigned as a
+    -- global: every snippet shares one environment, so a stray global would collide across them.
+    appendLine("local stateValue,u")
 
     -- Update Basic States
     local stateArray = {};
@@ -1300,22 +1437,26 @@ end
     end
 
     -- Update Unit States
-    for unit, flags in pairs(_unitStates) do
+    for unit, axes in pairs(_unitStates) do
+        local unitExpr, existsExpr;
         if (unit == "custom1" or unit == "custom2") then
-            appendLine("stateValue=UnitMap[%1$q] and UnitExists(UnitMap[%1$q]) and (%2$s) or false",
-                unit, unitStateExpression(flags, format("UnitMap[%q]", unit)));
+            unitExpr = format("UnitMap[%q]", unit);
+            existsExpr = format("UnitMap[%1$q] and UnitExists(UnitMap[%1$q])", unit);
         elseif (SPECIAL_UNITS[unit]) then
-            appendLine("stateValue=UnitMap[%1$q] and (%2$s) or false",
-                unit, unitStateExpression(flags, format("UnitMap[%q]", unit)));
+            -- For the other aliases, being in `UnitMap` **is** the proof of existence -- `SetUnit`
+            -- does not put one there otherwise. Asking `UnitExists` again would tighten the
+            -- condition without anyone saying so.
+            unitExpr = format("UnitMap[%q]", unit);
+            existsExpr = format("UnitMap[%q]", unit);
         else
-            appendLine("stateValue=UnitExists(%1$q) and (%2$s) or false",
-                unit, unitStateExpression(flags, format("%q", unit)));
+            unitExpr = format("%q", unit);
+            existsExpr = format("UnitExists(%q)", unit);
         end
-        --appendLine([[print(%1$q, stateValue, UnitMap[%1$q])]], unit)
+
         if (stateOverride) then
             appendLine(stateOverride, unit .. "-exists");
         end
-        appendLine([[if (UnitStates[%1$q] ~= stateValue) then UnitStates[%1$q]=stateValue;DirtyFlags["%1$s-exists"]=true; end]], unit);
+        appendUnitStateUpdate(unit, axes, unitExpr, existsExpr);
     end
 
     -- Update Custom States

@@ -26,6 +26,32 @@ function BindingDriver:printMacroText(attr, text)
 	DebindPrivate.log(format("[secure] %s = %s", tostring(attr), tostring(text)));
 end
 
+--- **The unit-condition test is written out at every site rather than shared.**
+---
+--- A snippet cannot declare a callable of its own. `BuildRestrictedClosure`
+--- (`Blizzard_RestrictedAddOnEnvironment/RestrictedExecution.lua:58`) rejects the body on a plain
+--- substring match -- its own comment calls that "overzealous but it keeps it simple" -- and the
+--- whole snippet dies with it. When the one below dies, `ccframes` / `DirtyFlags` / `UnitStates`
+--- are never created, and the first write to any of them fails somewhere else entirely. The error
+--- you see then has nothing to do with the line that caused it.
+---
+--- The same check bans braces, and both look at the **raw text**. Which is the other half of why
+--- snippet bodies carry no comments at all: an explanation inside one is shipped to that parser.
+--- `tools/check-snippets.js` enforces both.
+---
+--- The shape each site writes out:
+---
+---     local s = UnitStates[u]
+---     if (not s or c.exists ~= s.exists
+---             or (c.reaction and not c.reaction[s.reaction])
+---             or (c.dead ~= nil and c.dead ~= s.dead)) then  -- no match
+---
+--- One comparison per axis, never a mask intersection: there is no `bit` in there, and the
+--- arithmetic idiom that replaces it costs the same two lookups **plus** three operations.
+--- `c.exists` needs no nil guard (the emitter always writes it), and a condition that asked for
+--- absence carries no other axis, so neither needs a wrapper. A nil row means the state has not
+--- been computed yet and nothing matches -- reading it as "absent" would fire a binding on the
+--- strength of a state nobody looked at.
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);
 SecureHandlerExecute(BindingDriver, [[
 	-- FALSE_VALUES = newtable()
@@ -82,8 +108,8 @@ SecureHandlerExecute(BindingDriver, [[
 	-- GC 스파이크는 평균 비용보다 아프게 나타난다. 그래서 미리 만들어 두고 재사용한다.
 	-- 같은 유닛을 여러 레코드가 물을 때 C 호출이 반복되는 것을 막는다.
 	ClickUnitExists = newtable()
-	ClickUnitAssist = newtable()
-	ClickUnitAttack = newtable()
+	ClickUnitReaction = newtable()
+	ClickUnitDead = newtable()
 
 	MacroTextsMap = newtable()
 	UnitMap = newtable()
@@ -103,6 +129,7 @@ SecureHandlerExecute(BindingDriver, [[
 	--   CustomUnits  - 그 중 실제 존재까지 확인해야 하는 것 (custom1/custom2)
 	SpecialUnits = newtable()
 	CustomUnits = newtable()
+
 ]]);
 
 do
@@ -403,26 +430,13 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					end
 				end
 
-				if (match and t.checkedUnits) then
-					for checkedUnit, cond in pairs(t.checkedUnits) do
-						-- val은 nil(아직 계산 전) / false / true / "help" / "harm".
-						-- **"존재"만 값 비교가 아니다.** 어떤 값이 오는지는 다른 바인딩들이 그
-						-- 유닛에 무엇을 걸었는지에 달려서, 누군가 우호/적대를 걸어두면 true 대신
-						-- "help"/"harm"이 온다. cond ~= val로 뭉뚱그리면 true ~= "help"가 되어
-						-- 남의 조건 때문에 내 바인딩이 조용히 죽는다.
-						--
-						-- 나머지는 전부 정확히 그 값이어야 한다. false("없을 때")도 마찬가지라
-						-- 아래 비교가 그대로 맡는다 - nil은 false와 다르고, 상태를 모르는 동안
-						-- "없다"로 읽어서 발동시키면 안 된다.
-						local val = UnitStates[checkedUnit]
-						if (cond == true) then
-							if (not val) then
-								match = false
-							end
-						elseif (cond ~= val) then
+				if (match and t.units) then
+					for checkedUnit, cond in pairs(t.units) do
+						local s = UnitStates[checkedUnit]
+						if (not s or cond.exists ~= s.exists
+								or (cond.reaction and not cond.reaction[s.reaction])
+								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
 							match = false
-						end
-						if (not match) then
 							break
 						end
 					end
@@ -566,16 +580,15 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 					m = false
 				end
 
-				if (m and t.checkedUnits) then
-					for u, cond in pairs(t.checkedUnits) do
-						-- 옛 규약: "존재"는 값 비교가 아니라 진리값 검사다.
-						local val = UnitStates[u]
-						if (cond == true) then
-							if (not val) then m = false end
-						elseif (cond ~= val) then
+				if (m and t.units) then
+					for u, cond in pairs(t.units) do
+						local s = UnitStates[u]
+						if (not s or cond.exists ~= s.exists
+								or (cond.reaction and not cond.reaction[s.reaction])
+								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
 							m = false
+							break
 						end
-						if (not m) then break end
 					end
 				end
 
@@ -600,8 +613,8 @@ local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
 			local expected = false
 			local a = winnerIndex and bindings[winnerIndex]
 			local b = cachedIndex and bindings[cachedIndex]
-			if (a and (a.hover ~= nil or a.checkedUnits)) then expected = true end
-			if (b and (b.hover ~= nil or b.checkedUnits)) then expected = true end
+			if (a and (a.hover ~= nil or a.units)) then expected = true end
+			if (b and (b.hover ~= nil or b.units)) then expected = true end
 			debind_driver:CallMethod("OnClickTimeMismatch", button,
 				winnerIndex or 0, cachedIndex or 0, expected)
 		end
@@ -922,26 +935,21 @@ local EVAL_SNIPPET = [==[
 				match = false
 			end
 
-			if (match and t.checkedUnits) then
+			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
 					wipe(ClickUnitExists)
-					wipe(ClickUnitAssist)
-					wipe(ClickUnitAttack)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
 				end
 
-				-- **조건마다 따로 묻는다.** 옛 경로는 유닛당 값 하나로 모든 질문자를
-				-- 만족시켜야 해서 우호/적대에 우선순위를 두어야 했고, 그래서 남이 등록한
-				-- 항 때문에 내 조건이 조용히 안 맞는 일이 있었다. 여기서는 그럴 이유가 없다.
-				--
-				-- 존재하지 않는 유닛에 대해 PlayerCanAssist/Attack이 둘 다 거짓이므로
-				-- "help"/"harm"은 호출 한 번이 존재 검사까지 겸한다. 앞에 존재 게이트를
-				-- 두면 흔한 쪽에서 C 호출이 하나 늘 뿐이다.
-				for u, cond in pairs(t.checkedUnits) do
-					local ok
-					if (cond == "never") then
-						ok = false
-					else
+				-- **The cache is not trusted here; every value is measured again.** `UnitStates`
+				-- is filled by the update loop and so can be a tick old, and a click is rare
+				-- enough that measuring again is both cheap and correct. The memo lives for the
+				-- length of this one click.
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
 						local unit, needsExists
 						if (u == "hover") then
 							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitMap["hover"]는
@@ -956,30 +964,54 @@ local EVAL_SNIPPET = [==[
 							needsExists = true
 						end
 
+						-- Existence is resolved first now. The old shape could let
+						-- `PlayerCanAssist` stand in for it -- false for an absent unit -- and
+						-- save a call, but reaction has to come back as one of three names and
+						-- an absent unit would resolve to "other". One more call on a path that
+						-- runs once per keypress.
+						local exists
 						if (not unit) then
-							ok = (cond == false)
-						elseif (cond == "help") then
-							ok = ClickUnitAssist[unit]
-							if (ok == nil) then
-								ok = PlayerCanAssist(unit) and true or false
-								ClickUnitAssist[unit] = ok
-							end
-						elseif (cond == "harm") then
-							ok = ClickUnitAttack[unit]
-							if (ok == nil) then
-								ok = PlayerCanAttack(unit) and true or false
-								ClickUnitAttack[unit] = ok
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
 							end
 						else
-							local exists = true
-							if (needsExists) then
-								exists = ClickUnitExists[unit]
-								if (exists == nil) then
-									exists = UnitExists(unit) and true or false
-									ClickUnitExists[unit] = exists
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
 								end
 							end
-							ok = (cond == exists)
+
+							-- `ok` first: two C calls are worth a local read to skip when the
+							-- reaction above already decided. `UnitIsDead` alone is not `[dead]` --
+							-- a ghost answers false to it -- and the restricted environment has no
+							-- `UnitIsDeadOrGhost`.
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
 						end
 					end
 

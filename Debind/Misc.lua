@@ -364,6 +364,23 @@ local REACTION_TO_UNIT_STATE = {
     [Constants.REACTION_OTHER] = Constants.UNITSTATE_OTHER,
 };
 
+--- Legacy scalar -> the per-axis shape, or nil when it already is one.
+---
+--- Storage moved to one field per axis in `Profile.lua`'s `dbver <= 4` step, but a scalar can
+--- still arrive: a profile mid-import, one edited by hand, one built by a test. `binding` is where
+--- that ends -- **everything downstream sees the new shape only.** Leaving the old form to travel
+--- means every consumer needs a type check, and the one that forgets indexes a boolean.
+local function UnitConditionFromLegacy(value)
+    if (value == true) then
+        return {};
+    elseif (value == "help") then
+        return { reaction = Constants.REACTION_HELP };
+    elseif (value == "harm") then
+        return { reaction = Constants.REACTION_HARM };
+    end
+    return nil;
+end
+
 --- One stored unit condition -> a mask on the unit axis.
 ---
 --- Storage keeps **one field per axis** (`{ reaction = ... }`), not one packed enum, so that a
@@ -383,17 +400,26 @@ local function UnitConditionToState(value)
         return UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE;
     end
 
+    local mask;
     local reactions = value.reaction;
     if (reactions == nil) then
-        return Constants.UNITSTATE_EXISTS;
-    end
-
-    local mask = 0;
-    for reaction, state in pairs(REACTION_TO_UNIT_STATE) do
-        if (band(reactions, reaction) ~= 0) then
-            mask = mask + state;
+        mask = Constants.UNITSTATE_EXISTS;
+    else
+        mask = 0;
+        for reaction, state in pairs(REACTION_TO_UNIT_STATE) do
+            if (band(reactions, reaction) ~= 0) then
+                mask = mask + state;
+            end
         end
     end
+
+    -- Life **takes half of the product away**; it is not a column of its own. `nil` leaves both
+    -- halves, which is what "constrains nothing" means -- and is already the right answer for old
+    -- data that has no such field.
+    if (value.dead ~= nil) then
+        mask = band(mask, value.dead and Constants.UNITSTATE_DEAD or Constants.UNITSTATE_ALIVE);
+    end
+
     return mask;
 end
 
@@ -585,6 +611,17 @@ do
             binding.key = action.key;
             binding.priority = action.priority or Constants.DEFAULT_PRIORITY;
             binding.checkedUnits = action.checkedUnits and CopyTable(action.checkedUnits) or nil;
+            if (binding.checkedUnits) then
+                -- Legacy scalars are raised here and nowhere else, so the rest of the pipeline --
+                -- the solver fold, the runtime emitter, the menus reading back -- only ever meets
+                -- one shape.
+                for unit, value in pairs(binding.checkedUnits) do
+                    local raised = UnitConditionFromLegacy(value);
+                    if (raised) then
+                        binding.checkedUnits[unit] = raised;
+                    end
+                end
+            end
 
             if action.type == Constants.SPELL and action.value then
                 local spellInfo = C_Spell.GetSpellInfo(action.value)
@@ -624,16 +661,11 @@ do
                     binding.checkedUnits["@"] = nil;
                 end
 
-                if (binding.checkedUnits["@"] ~= nil and binding.checkedUnits[binding.unit] ~= nil) then
-                    if (binding.checkedUnits["@"] == binding.checkedUnits[binding.unit]) then
-                        binding.checkedUnits["@"] = nil;
-                    elseif (binding.checkedUnits["@"] == true and binding.checkedUnits[binding.unit]) then
-                        binding.checkedUnits["@"] = nil;
-                    elseif (binding.checkedUnits["@"] and binding.checkedUnits[binding.unit] == true) then
-                        binding.checkedUnits[binding.unit] = binding.checkedUnits["@"];
-                        binding.checkedUnits["@"] = nil;
-                    end
-                end
+                -- `"@"` and an explicit condition on the same unit used to be folded into one key
+                -- here, by hand, for the scalar shape. **Both consumers intersect them
+                -- themselves now**: `BuildUnitStates` with `band` for the solver, and
+                -- `mergeUnitConditions` per axis on the way to the snippet. Folding again would
+                -- be a third copy of one rule, and the one that drifts is the one nothing checks.
             end
 
             if (binding.groups and band(binding.groups, Constants.GROUP_ALL) == Constants.GROUP_ALL) then
@@ -882,6 +914,13 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- `binding.checkedUnits` 게이트는 남긴다. 마스크는 hover 조건만으로도 0이 될 수 있는데
     -- (`reactions == 0`), 그건 위의 reactions 갈래가 제 이름으로 이미 잡는다. 여기서 또 잡으면
     -- 메뉴가 엉뚱한 항목을 빨갛게 칠한다.
+    --
+    -- **This zero is what keeps contradictory conditions out of the secure environment.** An
+    -- action reported here never enters `KeyMap` (`Debind.lua`), so it reaches neither the solver
+    -- nor `UpdateBindings` -- which is why `mergeUnitConditions` over there treats its own
+    -- "impossible" answer as unreachable and skips the binding instead of representing it. That
+    -- function's header spells out the reasoning; the two are one rule written twice, so **weaken
+    -- this check and the runtime starts carrying conditions nothing can satisfy.**
     if (not issue and binding.checkedUnits and binding.unitStates
             and (not category or category == "checkedUnits") and notCategory ~= "checkedUnits") then
         local target = arg;

@@ -12,6 +12,22 @@ local ARRAY_MARKER          = {};
 local SORTED_UNIT_LIST      = DebindUI.SORTED_UNIT_LIST;
 local USE_CHECKED_VALUE     = {};
 
+-- The hover condition and the unit conditions draw their reaction boxes from this one list. Two
+-- copies drift the day a reaction is added.
+local REACTION_ITEMS        = {
+    { text = LLL["REACTION_HELP"],  value = Constants.REACTION_HELP },
+    { text = LLL["REACTION_HARM"],  value = Constants.REACTION_HARM },
+    { text = LLL["REACTION_OTHER"], value = Constants.REACTION_OTHER },
+};
+
+--- The life radios. **`value` is what gets stored, verbatim** -- the first row clears the `dead`
+--- field, so it carries no `value` at all (a table cannot hold a `nil` one).
+local LIFE_ITEMS            = {
+    { text = LLL["LIFE_ALL"] },
+    { text = LLL["LIFE_ALIVE"], value = false },
+    { text = LLL["LIFE_DEAD"],  value = true },
+};
+
 
 local BONUSBAR_NAMES;
 local TAB_LIST;
@@ -411,11 +427,16 @@ do
         return description;
     end
 
-    --- 유닛 조건 하나를 **축별 마스크**로 읽고 쓴다(`Profile.lua`의 `dbver <= 4`).
+    --- Read and write one unit condition, one field per axis (`Profile.lua`'s `dbver <= 4` step).
     ---
-    --- 라디오 다섯 줄이 겨누는 것이 저장의 세 상태와 그대로 맞는다: 키 없음(제약 없음),
-    --- 테이블(존재 + 축별 제약), `false`(없음). 반응은 그 테이블 안의 한 필드라, 생사·소속이
-    --- 올 때 줄이 늘 뿐 이 함수들의 모양은 안 바뀐다.
+    --- Three radios at the top of the submenu line up with the three shapes storage has: no key
+    --- (unconstrained), a table (exists, plus whatever axes it names), `false` (absent). Every
+    --- axis is one field inside that table, so a new axis adds a block to the menu and leaves
+    --- these accessors alone.
+    ---
+    --- The axis widgets all read the table off `_action` at click time rather than capturing it.
+    --- `checkedUnits` is nil until the first condition is set, so a reference grabbed while the
+    --- menu was being built goes stale the moment the user turns one on.
     local function GetUnitConditionReaction(unit)
         local value = _action.checkedUnits and _action.checkedUnits[unit];
         if (type(value) ~= "table") then
@@ -428,13 +449,56 @@ do
         return type(_action.checkedUnits and _action.checkedUnits[unit]) == "table";
     end
 
-    --- `reaction`이 nil이면 "존재하기만 하면"이다. 빈 테이블을 쓰는 이유 - 제약하는 축이
-    --- 없다는 것을 필드의 부재로 말한다.
-    local function SetUnitConditionExists(unit, reaction)
+    local function GetUnitConditionDead(unit)
+        local value = _action.checkedUnits and _action.checkedUnits[unit];
+        if (type(value) ~= "table") then
+            return nil;
+        end
+        return value.dead;
+    end
+
+    --- An empty table says "constrains no axis" the same way every axis says it -- by the field
+    --- being absent. So this clears the axes too: it is the way back to plain "if it exists".
+    local function SetUnitConditionExists(unit)
         _action.checkedUnits = _action.checkedUnits or {};
-        _action.checkedUnits[unit] = { reaction = reaction };
+        _action.checkedUnits[unit] = {};
         onActionValueChanged();
         return MenuResponse.Refresh;
+    end
+
+    --- Write one axis of a condition that is already on. Every caller is gated on the `exists`
+    --- radio, so there is no table to create here -- and creating one would turn the condition on
+    --- from a widget that reads as though it only narrows it.
+    local function SetUnitConditionAxis(unit, axis, value)
+        local cond = _action.checkedUnits and _action.checkedUnits[unit];
+        if (type(cond) ~= "table") then
+            return;
+        end
+        cond[axis] = value;
+        onActionValueChanged();
+        return MenuResponse.Refresh;
+    end
+
+    --- The reaction boxes. Storage is a mask, but **all-on is never written** -- that says the
+    --- same thing as constraining nothing, and one condition stored two ways is two different
+    --- boxes to the solver (`Misc.lua` normalizes `reactions`/`frameTypes` for the same reason).
+    ---
+    --- 0 **is** written. Choosing nothing is not something to normalize away; it is an issue, and
+    --- `GetBindingIssue`'s zero-mask branch reports it where the user set it.
+    local function UnitConditionReactionChecked(unit, value)
+        local reaction = GetUnitConditionReaction(unit);
+        if (reaction == nil) then
+            return true;
+        end
+        return bit.band(reaction, value) == value;
+    end
+
+    local function ToggleUnitConditionReaction(unit, value)
+        local mask = bit.bxor(GetUnitConditionReaction(unit) or Constants.REACTION_ALL, value);
+        if (mask == Constants.REACTION_ALL) then
+            mask = nil;
+        end
+        return SetUnitConditionAxis(unit, "reaction", mask);
     end
 
     local function SetUnitCondition(unit, value)
@@ -495,30 +559,14 @@ do
             end
         );
 
+        -- The three above are exclusive; the axis blocks below are alive only while `exists` is
+        -- picked. Same arrangement the hover menu gets from `hoverConditionIsOn`.
         optionsDescription:CreateRadio(LLL["CONDITION_UNIT_EXISTS"],
             function()
-                return UnitConditionIsExists(unit) and GetUnitConditionReaction(unit) == nil;
+                return UnitConditionIsExists(unit);
             end,
             function()
-                return SetUnitConditionExists(unit, nil);
-            end
-        );
-
-        optionsDescription:CreateRadio(LLL["CONDITION_UNIT_HELP"],
-            function()
-                return GetUnitConditionReaction(unit) == Constants.REACTION_HELP;
-            end,
-            function()
-                return SetUnitConditionExists(unit, Constants.REACTION_HELP);
-            end
-        );
-
-        optionsDescription:CreateRadio(LLL["CONDITION_UNIT_HARM"],
-            function()
-                return GetUnitConditionReaction(unit) == Constants.REACTION_HARM;
-            end,
-            function()
-                return SetUnitConditionExists(unit, Constants.REACTION_HARM);
+                return SetUnitConditionExists(unit);
             end
         );
 
@@ -530,6 +578,45 @@ do
                 return SetUnitCondition(unit, false);
             end
         );
+
+        local function axisIsEnabled()
+            return UnitConditionIsExists(unit);
+        end
+
+        optionsDescription:CreateDivider();
+        optionsDescription:CreateTitle(LLL["CONDITION_REACTIONS"]);
+
+        for _, item in ipairs(REACTION_ITEMS) do
+            local reactionDescription = optionsDescription:CreateCheckbox(item.text,
+                function()
+                    return UnitConditionReactionChecked(unit, item.value);
+                end,
+                function()
+                    return ToggleUnitConditionReaction(unit, item.value);
+                end
+            );
+            reactionDescription:SetEnabled(axisIsEnabled);
+        end
+
+        optionsDescription:CreateDivider();
+        optionsDescription:CreateTitle(LLL["CONDITION_LIFE"]);
+
+        -- A two-valued axis gets radios. **What the UI can produce is exactly what storage can
+        -- hold**, so the "neither box ticked" a checkbox pair would open up -- a condition no unit
+        -- can satisfy -- never comes into existence. Reactions have three values and so need
+        -- somewhere to pick a subset; that group stores its 0 and lets `GetBindingIssue` catch it.
+        -- This is where the two axes part.
+        for _, item in ipairs(LIFE_ITEMS) do
+            local lifeDescription = optionsDescription:CreateRadio(item.text,
+                function()
+                    return UnitConditionIsExists(unit) and GetUnitConditionDead(unit) == item.value;
+                end,
+                function()
+                    return SetUnitConditionAxis(unit, "dead", item.value);
+                end
+            );
+            lifeDescription:SetEnabled(axisIsEnabled);
+        end
 
         return optionsDescription;
     end
@@ -636,7 +723,7 @@ do
                 if (UnitConditionIsExists("@")) then
                     return SetUnitCondition("@", nil);
                 end
-                return SetUnitConditionExists("@", nil);
+                return SetUnitConditionExists("@");
             end
         );
         childDescription:SetEnabled(function()
@@ -653,12 +740,15 @@ do
         end
 
 
+        -- Reactions are three radios here rather than a checkbox group: this half of the menu is
+        -- a **narrow preset** on the one unit the action aims at, and the unit submenu
+        -- (`CreateUnitConditionSubmenu`) already gives that same unit a place to say a subset.
         childDescription = description:CreateRadio(LLL["REACTION_ALL"],
             function()
                 return UnitConditionIsExists("@") and GetUnitConditionReaction("@") == nil;
             end,
             function()
-                return SetUnitConditionExists("@", nil);
+                return SetUnitConditionAxis("@", "reaction", nil);
             end
         );
         childDescription:AddInitializer(initializer);
@@ -669,7 +759,7 @@ do
                 return GetUnitConditionReaction("@") == Constants.REACTION_HELP;
             end,
             function()
-                return SetUnitConditionExists("@", Constants.REACTION_HELP);
+                return SetUnitConditionAxis("@", "reaction", Constants.REACTION_HELP);
             end
         );
         childDescription:AddInitializer(initializer);
@@ -680,11 +770,29 @@ do
                 return GetUnitConditionReaction("@") == Constants.REACTION_HARM;
             end,
             function()
-                return SetUnitConditionExists("@", Constants.REACTION_HARM);
+                return SetUnitConditionAxis("@", "reaction", Constants.REACTION_HARM);
             end
         );
         childDescription:AddInitializer(initializer);
         childDescription:SetEnabled(isEnabled);
+
+        -- Life gets a block here and "doesn't exist" does not, for the same reason: an action
+        -- cannot aim at a unit that is not there, so absence says nothing here -- but life does.
+        description:CreateDivider();
+        description:CreateTitle(LLL["CONDITION_LIFE"]);
+
+        for _, item in ipairs(LIFE_ITEMS) do
+            childDescription = description:CreateRadio(item.text,
+                function()
+                    return UnitConditionIsExists("@") and GetUnitConditionDead("@") == item.value;
+                end,
+                function()
+                    return SetUnitConditionAxis("@", "dead", item.value);
+                end
+            );
+            childDescription:AddInitializer(initializer);
+            childDescription:SetEnabled(isEnabled);
+        end
 
         return description;
     end
@@ -716,16 +824,11 @@ do
         description:CreateDivider();
         description:CreateTitle(LLL["CONDITION_REACTIONS"]);
 
-        AppendCheckboxes(description, "reactions", {
-                { text = LLL["REACTION_HELP"],  value = Constants["REACTION_HELP"] },
-                { text = LLL["REACTION_HARM"],  value = Constants["REACTION_HARM"] },
-                { text = LLL["REACTION_OTHER"], value = Constants["REACTION_OTHER"] },
-            }, function(elementDescription)
+        AppendCheckboxes(description, "reactions", REACTION_ITEMS,
+            function(elementDescription)
                 elementDescription:SetEnabled(hoverConditionIsOn);
             end,
-            (Constants["REACTION_HELP"]
-                + Constants["REACTION_HARM"]
-                + Constants["REACTION_OTHER"])
+            Constants.REACTION_ALL
         );
 
         description:CreateDivider();
@@ -788,7 +891,16 @@ do
         -- end
 
         for _, unit in ipairs(SORTED_UNIT_LIST) do
-            if (not (unit == "player" or unit == "none")) then
+            -- `"hover"` is out. It names the same unit as the `Hovering Over Unit Frame` menu, and
+            -- that menu is the one keeping `frameTypes` and `ignoreHoverUnit`, so it is the one
+            -- that stays. Listing it here as well left two rows editing one unit through two
+            -- storage fields that only met in `Misc.BuildUnitStates`.
+            --
+            -- **This is a hole until the two fields are folded into `checkedUnits["hover"]`**:
+            -- until then the hover menu writes `hover`/`reactions`, so a condition already stored
+            -- under `checkedUnits.hover` still applies but nothing edits it. See the redesign
+            -- notes -- that fold is the next piece of work, not a leftover.
+            if (not (unit == "player" or unit == "none" or unit == "hover")) then
                 local unitInfo = DebindUI.UNIT_INFO[unit];
                 if (unitInfo.checkedUnit ~= false) then
                     CreateUnitConditionSubmenu(description, unitInfo.name, unit);

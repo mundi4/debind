@@ -140,8 +140,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	ClickUnitExists = newtable()
-	ClickUnitAssist = newtable()
-	ClickUnitAttack = newtable()
+	ClickUnitReaction = newtable()
+	ClickUnitDead = newtable()
 
 	MacroTextsMap = newtable()
 	UnitMap = newtable()
@@ -161,6 +161,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	SpecialUnits = newtable()
 	CustomUnits = newtable()
+
 
 ### SecureBindings.lua #2 SetAttribute (DEBUG=on)
 
@@ -507,26 +508,13 @@ DelegateFrameNames[frame] = frame:GetName()
 					end
 				end
 
-				if (match and t.checkedUnits) then
-					for checkedUnit, cond in pairs(t.checkedUnits) do
-
-
-
-
-
-
-
-
-
-						local val = UnitStates[checkedUnit]
-						if (cond == true) then
-							if (not val) then
-								match = false
-							end
-						elseif (cond ~= val) then
+				if (match and t.units) then
+					for checkedUnit, cond in pairs(t.units) do
+						local s = UnitStates[checkedUnit]
+						if (not s or cond.exists ~= s.exists
+								or (cond.reaction and not cond.reaction[s.reaction])
+								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
 							match = false
-						end
-						if (not match) then
 							break
 						end
 					end
@@ -849,26 +837,21 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
-			if (match and t.checkedUnits) then
+			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
 					wipe(ClickUnitExists)
-					wipe(ClickUnitAssist)
-					wipe(ClickUnitAttack)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
 				end
 
 
 
 
 
-
-
-
-				for u, cond in pairs(t.checkedUnits) do
-					local ok
-					if (cond == "never") then
-						ok = false
-					else
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
 						local unit, needsExists
 						if (u == "hover") then
 
@@ -883,30 +866,54 @@ DelegateFrameNames[frame] = frame:GetName()
 							needsExists = true
 						end
 
+
+
+
+
+
+						local exists
 						if (not unit) then
-							ok = (cond == false)
-						elseif (cond == "help") then
-							ok = ClickUnitAssist[unit]
-							if (ok == nil) then
-								ok = PlayerCanAssist(unit) and true or false
-								ClickUnitAssist[unit] = ok
-							end
-						elseif (cond == "harm") then
-							ok = ClickUnitAttack[unit]
-							if (ok == nil) then
-								ok = PlayerCanAttack(unit) and true or false
-								ClickUnitAttack[unit] = ok
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
 							end
 						else
-							local exists = true
-							if (needsExists) then
-								exists = ClickUnitExists[unit]
-								if (exists == nil) then
-									exists = UnitExists(unit) and true or false
-									ClickUnitExists[unit] = exists
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
 								end
 							end
-							ok = (cond == exists)
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
 						end
 					end
 
@@ -1146,26 +1153,21 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
-			if (match and t.checkedUnits) then
+			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
 					wipe(ClickUnitExists)
-					wipe(ClickUnitAssist)
-					wipe(ClickUnitAttack)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
 				end
 
 
 
 
 
-
-
-
-				for u, cond in pairs(t.checkedUnits) do
-					local ok
-					if (cond == "never") then
-						ok = false
-					else
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
 						local unit, needsExists
 						if (u == "hover") then
 
@@ -1180,30 +1182,54 @@ DelegateFrameNames[frame] = frame:GetName()
 							needsExists = true
 						end
 
+
+
+
+
+
+						local exists
 						if (not unit) then
-							ok = (cond == false)
-						elseif (cond == "help") then
-							ok = ClickUnitAssist[unit]
-							if (ok == nil) then
-								ok = PlayerCanAssist(unit) and true or false
-								ClickUnitAssist[unit] = ok
-							end
-						elseif (cond == "harm") then
-							ok = ClickUnitAttack[unit]
-							if (ok == nil) then
-								ok = PlayerCanAttack(unit) and true or false
-								ClickUnitAttack[unit] = ok
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
 							end
 						else
-							local exists = true
-							if (needsExists) then
-								exists = ClickUnitExists[unit]
-								if (exists == nil) then
-									exists = UnitExists(unit) and true or false
-									ClickUnitExists[unit] = exists
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
 								end
 							end
-							ok = (cond == exists)
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
 						end
 					end
 
@@ -1273,16 +1299,15 @@ DelegateFrameNames[frame] = frame:GetName()
 					m = false
 				end
 
-				if (m and t.checkedUnits) then
-					for u, cond in pairs(t.checkedUnits) do
-
-						local val = UnitStates[u]
-						if (cond == true) then
-							if (not val) then m = false end
-						elseif (cond ~= val) then
+				if (m and t.units) then
+					for u, cond in pairs(t.units) do
+						local s = UnitStates[u]
+						if (not s or cond.exists ~= s.exists
+								or (cond.reaction and not cond.reaction[s.reaction])
+								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
 							m = false
+							break
 						end
-						if (not m) then break end
 					end
 				end
 
@@ -1307,8 +1332,8 @@ DelegateFrameNames[frame] = frame:GetName()
 			local expected = false
 			local a = winnerIndex and bindings[winnerIndex]
 			local b = cachedIndex and bindings[cachedIndex]
-			if (a and (a.hover ~= nil or a.checkedUnits)) then expected = true end
-			if (b and (b.hover ~= nil or b.checkedUnits)) then expected = true end
+			if (a and (a.hover ~= nil or a.units)) then expected = true end
+			if (b and (b.hover ~= nil or b.units)) then expected = true end
 			debind_driver:CallMethod("OnClickTimeMismatch", button,
 				winnerIndex or 0, cachedIndex or 0, expected)
 		end
@@ -1604,26 +1629,21 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
-			if (match and t.checkedUnits) then
+			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
 					wipe(ClickUnitExists)
-					wipe(ClickUnitAssist)
-					wipe(ClickUnitAttack)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
 				end
 
 
 
 
 
-
-
-
-				for u, cond in pairs(t.checkedUnits) do
-					local ok
-					if (cond == "never") then
-						ok = false
-					else
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
 						local unit, needsExists
 						if (u == "hover") then
 
@@ -1638,30 +1658,54 @@ DelegateFrameNames[frame] = frame:GetName()
 							needsExists = true
 						end
 
+
+
+
+
+
+						local exists
 						if (not unit) then
-							ok = (cond == false)
-						elseif (cond == "help") then
-							ok = ClickUnitAssist[unit]
-							if (ok == nil) then
-								ok = PlayerCanAssist(unit) and true or false
-								ClickUnitAssist[unit] = ok
-							end
-						elseif (cond == "harm") then
-							ok = ClickUnitAttack[unit]
-							if (ok == nil) then
-								ok = PlayerCanAttack(unit) and true or false
-								ClickUnitAttack[unit] = ok
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
 							end
 						else
-							local exists = true
-							if (needsExists) then
-								exists = ClickUnitExists[unit]
-								if (exists == nil) then
-									exists = UnitExists(unit) and true or false
-									ClickUnitExists[unit] = exists
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
 								end
 							end
-							ok = (cond == exists)
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
 						end
 					end
 

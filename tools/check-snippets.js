@@ -45,10 +45,34 @@ const LUA51_FORBIDDEN = [
     [/~[^=]/, "비트 not/xor ~ (5.3+). ~= 는 5.1에도 있다"],
 ];
 
+// **What the restricted environment checks against the raw body.** `BuildRestrictedClosure`
+// (`Blizzard_RestrictedAddOnEnvironment/RestrictedExecution.lua:58`) runs a plain `body:match`
+// substring test -- the one Blizzard's own comment calls "overzealous but it keeps it simple".
+// **A hit inside a comment, or inside a longer word, counts.**
+//
+// So the checks below read the **raw** body, not the one `blankNonCode` has been through.
+// Stripping comments first would pass things the game rejects.
+//
+// A hit means that whole snippet never attaches, and if it is the bootstrap then globals like
+// `ccframes` and `DirtyFlags` are never created -- which surfaces **much later, at an unrelated
+// line**, as "attempt to index a nil value".
+//
+// This actually happened (2026-08-12). Wrapping the unit condition checks in a function tripped
+// it, and after the function was gone **one word left in a comment** kept tripping it.
+const RESTRICTED_FORBIDDEN = [
+    [/function/, "`function`은 주석 안에서도 금지다. 제한 환경이 본문 원문을 부분일치로 본다 - "
+        + "부르는 자리마다 펴 넣고, 주석에서도 그 낱말을 피할 것"],
+    [/[{}]/, "중괄호는 주석 안에서도 금지다. 테이블은 `newtable()`로 만들 것"],
+];
+
 function lua51Violation(source) {
     const code = blankNonCode(source);
     for (const [re, why] of LUA51_FORBIDDEN) {
         if (re.test(code)) return why;
+    }
+    // Raw source, deliberately. See the note above.
+    for (const [re, why] of RESTRICTED_FORBIDDEN) {
+        if (re.test(source)) return why;
     }
     return null;
 }

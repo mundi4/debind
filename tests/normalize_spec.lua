@@ -185,8 +185,9 @@ return function(DebindPrivate)
     end);
 
     test("대상이 멀쩡하면 \"@\"는 남는다", function()
-        check(spell({ unit = "focus", checkedUnits = { ["@"] = true } }).checkedUnits["@"] == true,
-            "멀쩡한 조건이 지워짐");
+        local b = spell({ unit = "focus", checkedUnits = { ["@"] = true } });
+        check(type(b.checkedUnits["@"]) == "table", "멀쩡한 조건이 지워짐");
+        check(b.unitStates.focus == Constants.UNITSTATE_EXISTS, "대상 유닛 축에 안 얹힘");
     end);
 
     ---------------------------------------------------------------------------
@@ -247,23 +248,19 @@ return function(DebindPrivate)
         return spell({ unit = "focus", checkedUnits = { ["@"] = atValue, focus = unitValue } });
     end
 
-    test("같은 값이면 한쪽으로 접힌다", function()
-        local b = atAnd("help", "help");
-        check(b.checkedUnits["@"] == nil, "\"@\"가 남음");
-        check(b.checkedUnits.focus == "help", "명시 조건이 바뀜");
+    -- **어느 키에 남았는지는 계약이 아니다.** 예전에는 여기서 손으로 한쪽으로 접었는데, 지금은
+    -- 두 소비자가 각자 교집합을 낸다(`BuildUnitStates`의 band, 방출의 `mergeUnitConditions`).
+    -- 그래서 검사할 것은 키의 생김새가 아니라 **겨눈 유닛의 축이 어디로 좁혀졌는가**다.
+    test("같은 말이면 축이 그 값으로 좁혀진다", function()
+        check(atAnd("help", "help").unitStates.focus == Constants.UNITSTATE_HELP, "우호");
     end);
 
     -- "존재"는 "우호"를 포섭한다. 좁은 쪽이 남아야 조건이 안 넓어진다.
-    test("\"@\"가 존재고 명시가 더 구체적이면 명시가 남는다", function()
-        local b = atAnd(true, "help");
-        check(b.checkedUnits["@"] == nil, "\"@\"가 남음");
-        check(b.checkedUnits.focus == "help", "구체적인 쪽이 사라짐");
-    end);
-
-    test("명시가 존재고 \"@\"가 더 구체적이면 그 값이 명시 자리로 옮겨온다", function()
-        local b = atAnd("harm", true);
-        check(b.checkedUnits["@"] == nil, "\"@\"가 남음");
-        check(b.checkedUnits.focus == "harm", "구체적인 값이 안 옮겨옴");
+    test("포섭 관계면 좁은 쪽으로 좁혀진다", function()
+        check(atAnd(true, "help").unitStates.focus == Constants.UNITSTATE_HELP,
+            "\"@\"가 존재, 명시가 우호");
+        check(atAnd("harm", true).unitStates.focus == Constants.UNITSTATE_HARM,
+            "\"@\"가 적대, 명시가 존재");
     end);
 
     test("어긋나면 둘 다 남아서 마스크가 0이 된다", function()
@@ -339,6 +336,68 @@ return function(DebindPrivate)
             target = { reaction = Constants.REACTION_HELP, somethingLater = 3 },
         } });
         check(b.unitStates.target == Constants.UNITSTATE_HELP, "모르는 필드에 흔들림");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 생사 축
+    --
+    -- 생사는 **제 컬럼이 아니라 곱의 절반을 덜어내는 것**이다. "없거나, 있으면서 살아있거나"가
+    -- (반응, 생사) 평면에서 직사각형이 아니라서 - 없음 점에는 제약할 생사 값이 없다.
+    -- 생사를 따로 컬럼으로 두면 그 조건의 절반이 상자에서 빠지고, 좁아진 상자는 지워진다.
+    ---------------------------------------------------------------------------
+
+    test("생사를 안 걸면 축이 안 좁아진다", function()
+        check(spell({ checkedUnits = { target = {} } }).unitStates.target
+            == Constants.UNITSTATE_EXISTS, "존재 6점 전부여야 한다");
+    end);
+
+    test("살아있음이 죽은 절반을 덜어낸다", function()
+        check(spell({ checkedUnits = { target = { dead = false } } }).unitStates.target
+            == Constants.UNITSTATE_ALIVE, "살아있는 3점이어야 한다");
+    end);
+
+    test("죽음이 살아있는 절반을 덜어낸다", function()
+        check(spell({ checkedUnits = { target = { dead = true } } }).unitStates.target
+            == Constants.UNITSTATE_DEAD, "죽은 3점이어야 한다");
+    end);
+
+    -- 축 둘이 함께 걸리면 교집합이다. 스칼라 시절에는 이 조합 자체를 저장할 수 없었다.
+    test("반응과 생사가 같이 걸리면 한 점이 된다", function()
+        local b = spell({ checkedUnits = {
+            target = { reaction = Constants.REACTION_HELP, dead = false },
+        } });
+        check(b.unitStates.target == Constants.UNITSTATE_HELP_ALIVE, "우호 x 살아있음 한 점");
+    end);
+
+    test("반응 여럿과 생사가 같이 걸려도 맞는다", function()
+        local b = spell({ checkedUnits = {
+            target = { reaction = Constants.REACTION_HELP + Constants.REACTION_OTHER, dead = true },
+        } });
+        check(b.unitStates.target
+            == Constants.UNITSTATE_HELP_DEAD + Constants.UNITSTATE_OTHER_DEAD,
+            "우호·기타 x 죽음 두 점");
+    end);
+
+    -- "없을 때"에는 제약할 생사가 없다. 없음 점은 축 위의 점이 아니다.
+    test("없을 때는 생사가 축을 안 건드린다", function()
+        check(spell({ checkedUnits = { target = false } }).unitStates.target
+            == Constants.UNITSTATE_NONE, "없음 한 점");
+    end);
+
+    -- **옛 스칼라는 여기서 끝난다.** 아래를 지나간 뒤로는 축별 표 하나만 존재해야 한다.
+    -- 방출·메뉴·이슈 검사가 저마다 타입 검사를 하게 두면, 잊은 한 곳이 불리언을 색인한다 -
+    -- 실제로 그렇게 터졌다(`/debtest`의 CheckedUnits, 2026-08-12). 헤드리스는 못 봤다:
+    -- 하네스가 `UpdateBindings.lua`를 안 읽는다(`refactor-candidates.md` 31번).
+    test("옛 스칼라는 바인딩에서 축별 표로 올라온다", function()
+        local b = spell({ unit = "focus", checkedUnits = {
+            target = true, mouseover = "help", tank = "harm", healer = false, ["@"] = true,
+        } });
+        check(type(b.checkedUnits.target) == "table" and b.checkedUnits.target.reaction == nil,
+            "존재");
+        check(b.checkedUnits.mouseover.reaction == Constants.REACTION_HELP, "우호");
+        check(b.checkedUnits.tank.reaction == Constants.REACTION_HARM, "적대");
+        check(b.checkedUnits.healer == false, "부재는 그대로여야 한다");
+        check(type(b.checkedUnits["@"]) == "table", "\"@\"도 같이 올라와야 한다");
     end);
 
     -- 마이그레이션이 아직 안 돈 데이터(가져오기 도중, 손으로 고친 프로필)도 지나간다.

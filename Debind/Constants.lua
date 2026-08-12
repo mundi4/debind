@@ -144,12 +144,34 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 -- the codebase: `Solver.lua` builds its columns per key already, so it only has to span the
 -- axes that key's bindings actually constrain, and storage keeps one mask per axis instead of
 -- one packed value. A key that never asks about life then pays nothing for life existing.
-Constants.UNITSTATE_NONE   = 2 ^ 0;
-Constants.UNITSTATE_HELP   = 2 ^ 1;
-Constants.UNITSTATE_HARM   = 2 ^ 2;
-Constants.UNITSTATE_OTHER  = 2 ^ 3;
+-- The axis is a **product**: absent, or (one of three reactions) x (alive or dead). Life does not
+-- get a column of its own for the reason above -- "absent, or present and alive" is not a
+-- rectangle in (reaction, life), so a life column would have to drop half of that condition.
+--
+-- Only the solver sees the product. The runtime keeps one field per axis and compares them
+-- separately, because it never has to reason about coverage -- it only asks whether the unit's
+-- current value is in the condition. `Misc.BuildUnitStates` is the seam between the two.
+Constants.UNITSTATE_NONE        = 2 ^ 0;
+Constants.UNITSTATE_HELP_ALIVE  = 2 ^ 1;
+Constants.UNITSTATE_HELP_DEAD   = 2 ^ 2;
+Constants.UNITSTATE_HARM_ALIVE  = 2 ^ 3;
+Constants.UNITSTATE_HARM_DEAD   = 2 ^ 4;
+Constants.UNITSTATE_OTHER_ALIVE = 2 ^ 5;
+Constants.UNITSTATE_OTHER_DEAD  = 2 ^ 6;
 
-Constants.UNITSTATE_EXISTS = Constants.UNITSTATE_HELP + Constants.UNITSTATE_HARM + Constants.UNITSTATE_OTHER;
+-- Named sets over that product. **`UNITSTATE_HELP` still means "friendly, either way"**, which is
+-- what it meant when life was not on the axis -- so anything already written against it keeps its
+-- meaning as the axis widens. That is the property to preserve when the next axis arrives.
+Constants.UNITSTATE_HELP   = Constants.UNITSTATE_HELP_ALIVE + Constants.UNITSTATE_HELP_DEAD;
+Constants.UNITSTATE_HARM   = Constants.UNITSTATE_HARM_ALIVE + Constants.UNITSTATE_HARM_DEAD;
+Constants.UNITSTATE_OTHER  = Constants.UNITSTATE_OTHER_ALIVE + Constants.UNITSTATE_OTHER_DEAD;
+
+Constants.UNITSTATE_ALIVE  = Constants.UNITSTATE_HELP_ALIVE + Constants.UNITSTATE_HARM_ALIVE
+                           + Constants.UNITSTATE_OTHER_ALIVE;
+Constants.UNITSTATE_DEAD   = Constants.UNITSTATE_HELP_DEAD + Constants.UNITSTATE_HARM_DEAD
+                           + Constants.UNITSTATE_OTHER_DEAD;
+
+Constants.UNITSTATE_EXISTS = Constants.UNITSTATE_ALIVE + Constants.UNITSTATE_DEAD;
 Constants.UNITSTATE_ALL    = Constants.UNITSTATE_EXISTS + Constants.UNITSTATE_NONE;
 
 

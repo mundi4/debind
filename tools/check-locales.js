@@ -40,6 +40,11 @@ const PENDING_TRANSLATION = {
     LAYER_DESC_SHARED_SPEC: ["ruRU"],
     LAYER_DESC_CHARACTER_GENERAL: ["ruRU"],
     LAYER_DESC_CHARACTER_SPEC: ["ruRU"],
+    // The life axis on unit conditions. Same owner as the rows above.
+    CONDITION_LIFE: ["ruRU"],
+    LIFE_ALL: ["ruRU"],
+    LIFE_ALIVE: ["ruRU"],
+    LIFE_DEAD: ["ruRU"],
 };
 
 // **base보다 자리표시자를 더 쓰는 게 맞는 키.** 부르는 쪽이 이미 그 인자를 넘기고 있고
