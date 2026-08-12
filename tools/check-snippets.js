@@ -5,11 +5,12 @@
 // 컴파일하지 못하면 그 스니펫이 아예 안 걸리고, 증상은 "그 키만 안 먹는다"로 나타난다.
 // 게임을 켜야만 알 수 있는 종류라 여기서 미리 잡는다.
 //
-// 본문을 떼어내는 부분은 `lib/snippets.js`에 있다 - 구워진 결과를 잠그는
-// `check-snippet-golden.js`와 같은 것을 봐야 한다.
+// 본문을 떼어내는 부분은 `lib/snippets.js`에, 굽는 부분은 `lib/bake.js`에 있다 - 구워진
+// 결과를 잠그는 `check-snippet-golden.js`와 같은 것을 봐야 한다.
 const path = require("path");
 const { lua, lauxlib, lualib, to_luastring } = require("fengari");
 const { blankNonCode, forEachSnippet } = require("./lib/snippets");
+const { bakeLive } = require("./lib/bake");
 
 const root = path.join(__dirname, "..");
 const srcDir = path.join(root, "Debind");
@@ -65,12 +66,16 @@ const RESTRICTED_FORBIDDEN = [
     [/[{}]/, "중괄호는 주석 안에서도 금지다. 테이블은 `newtable()`로 만들 것"],
 ];
 
+// `source` is whatever the stage handed over, and the raw stage is the one that makes
+// RESTRICTED_FORBIDDEN mean what it says -- see the STAGES note below. Running it over the baked
+// text as well costs nothing and covers the other direction: a substitution that *introduces* a
+// forbidden token.
 function lua51Violation(source) {
     const code = blankNonCode(source);
     for (const [re, why] of LUA51_FORBIDDEN) {
         if (re.test(code)) return why;
     }
-    // Raw source, deliberately. See the note above.
+    // Not through `blankNonCode`, deliberately. See the note above.
     for (const [re, why] of RESTRICTED_FORBIDDEN) {
         if (re.test(source)) return why;
     }
@@ -92,6 +97,20 @@ function syntaxError(source, name) {
     return err;
 }
 
+// **원문과 구운 본문을 둘 다 본다.** 어느 한쪽만으로는 부족하다.
+//
+// 게임에 붙는 것은 구운 쪽이다. 배포 갈래에서 값이 `false`인 프로브는 호출이 통째로 지워지므로
+// (`Snippets.lua`의 `SNIPPET_PROBES_LIVE`), `local x = PROBE.Winner(i)`는 원문으로는 멀쩡히
+// 파싱되고 구우면 `local x = `가 된다. 원문만 보면 그걸 못 본다.
+//
+// 그렇다고 구운 쪽으로 **바꾸면** RESTRICTED_FORBIDDEN이 헐거워진다. 제한 환경은 본문 원문을
+// 부분일치로 보므로 주석 안의 `function` 한 낱말에도 걸리는데, 굽는 첫 단계가 바로 주석
+// 제거다 - 구운 본문에는 그 낱말이 없다.
+const STAGES = [
+    ["원문", (body) => body],
+    ["구운 뒤", bakeLive],
+];
+
 let checked = 0;
 let failed = 0;
 
@@ -99,19 +118,32 @@ forEachSnippet(srcDir, ({ file, line, call, label, body }) => {
     checked++;
     const name = `${file}:${line} ${call}`;
     const where = `${name}${label ? ` (${label})` : ""}`;
-    const source = fillPlaceholders(body);
 
-    const err = syntaxError(source, name);
-    if (err) {
-        console.log(`${where}\n    ${err}`);
-        failed++;
-        return;
-    }
+    for (const [stage, prepare] of STAGES) {
+        let source;
+        try {
+            source = fillPlaceholders(prepare(body));
+        } catch (e) {
+            // `applyProbes`/`StripSnippetComments`의 `assert`가 여기로 온다. 게임에서는 이게
+            // 애드온 로드를 끊는다.
+            console.log(`${where}\n    굽지 못했다: ${e.message}`);
+            failed++;
+            return;
+        }
 
-    const violation = lua51Violation(source);
-    if (violation) {
-        console.log(`${where}\n    5.1에 없는 문법: ${violation}`);
-        failed++;
+        const err = syntaxError(source, name);
+        if (err) {
+            console.log(`${where}\n    [${stage}] ${err}`);
+            failed++;
+            return;
+        }
+
+        const violation = lua51Violation(source);
+        if (violation) {
+            console.log(`${where}\n    [${stage}] 5.1에 없는 문법: ${violation}`);
+            failed++;
+            return;
+        }
     }
 });
 

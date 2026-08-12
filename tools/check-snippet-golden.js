@@ -15,72 +15,15 @@
 // 막는 것은 **모르고 움직이는 것**이다. 의도한 변경이면 `--update`로 다시 뜨고 diff를 본다.
 const fs = require("fs");
 const path = require("path");
-const { lua, lauxlib, lualib, to_luastring, to_jsstring } = require("fengari");
 const { forEachSnippet } = require("./lib/snippets");
+// 굽는 부분은 `lib/bake.js`에 있다 - 구운 본문을 파싱하는 `check-snippets.js`와 같은 것을
+// 봐야 한다. 그쪽은 `Snippets.lua`의 함수를 그대로 부르므로, 이 도구가 지키는 것과 실제로
+// 굽는 것이 갈릴 수가 없다.
+const { bakeLive } = require("./lib/bake");
 
 const root = path.join(__dirname, "..");
 const srcDir = path.join(root, "Debind");
 const goldenPath = path.join(__dirname, "snippet-golden.txt");
-
-// `PROBE.*` 치환도 `Snippets.lua`의 것을 그대로 부른다. 여기에 JS로 규칙을 다시 적으면 그건
-// 갈릴 수 있는 사본이고, 갈리는 순간 이 도구는 실제로 굽는 것이 아닌 다른 것을 지킨다.
-
-/**
- * `Snippets.lua`를 fengari에 올리고 그 안의 함수를 그대로 쓴다.
- *
- * `Constants`는 빈 테이블로 충분하다 - 여기서 부르는 것들은 상수 값을 안 본다. `BakeSnippet`
- * 전체를 부르지 않는 이유이기도 하다(그쪽은 진짜 상수가 필요하고, 이 도구가 잠그려는 것도
- * 아니다).
- */
-function loadSnippetsLua() {
-    const L = lauxlib.luaL_newstate();
-    lualib.luaL_openlibs(L);
-
-    if (lauxlib.luaL_loadfile(L, to_luastring(path.join(srcDir, "Snippets.lua"))) !== lua.LUA_OK) {
-        throw new Error(`Snippets.lua 로드 실패: ${lua.lua_tojsstring(L, -1)}`);
-    }
-
-    // `local _, DebindPrivate = ...` 규약대로 두 인자를 넘긴다.
-    lua.lua_pushstring(L, to_luastring("Debind"));
-    lua.lua_newtable(L);
-    lua.lua_newtable(L);
-    lua.lua_setfield(L, -2, to_luastring("Constants"));
-    lua.lua_pushvalue(L, -1);
-    lua.lua_setglobal(L, to_luastring("__private"));
-
-    if (lua.lua_pcall(L, 2, 0, 0) !== lua.LUA_OK) {
-        throw new Error(`Snippets.lua 실행 실패: ${lua.lua_tojsstring(L, -1)}`);
-    }
-
-    // `BakeSnippet`에서 상수 치환만 빼낸 것. 그 자리는 이 작업이 건드리는 곳이 아니고, 이름이
-    // 틀리면 게임에서 `assert`가 죽인다.
-    lauxlib.luaL_dostring(L, to_luastring(`
-        local P = __private
-        function __bakeLive(body)
-            return P.applyProbesForTools(P.StripSnippetComments(body), P.SNIPPET_PROBES_LIVE)
-        end
-    `));
-
-    return (body) => {
-        lua.lua_getglobal(L, to_luastring("__bakeLive"));
-        lua.lua_pushstring(L, to_luastring(body));
-        if (lua.lua_pcall(L, 1, 1, 0) !== lua.LUA_OK) {
-            throw new Error(`굽기 실패: ${lua.lua_tojsstring(L, -1)}`);
-        }
-        const out = to_jsstring(lua.lua_tostring(L, -1));
-        lua.lua_pop(L, 1);
-        return out;
-    };
-}
-
-/**
- * 게임에 들어가는 형태로 만든다. 주석 제거도 `PROBE` 치환도 `Snippets.lua`의 것을 그대로
- * 부르므로, 이 도구가 지키는 것과 실제로 굽는 것이 갈릴 수가 없다.
- *
- * 본문 끝의 공백은 아래에서 한 번 더 턴다. 그래서 골든은 굽힌 결과와 바이트로 같지는 않다 -
- * 이 파일이 잡으려는 것은 절대적인 형태가 아니라 **변화**다.
- */
-const bakeLive = loadSnippetsLua();
 
 // 줄번호는 키에 안 넣는다. 위쪽 코드가 한 줄만 늘어도 전부 흔들려서, 진짜 변경이 잡음에
 // 묻힌다. 파일 안 순서로 센다.
