@@ -95,6 +95,8 @@ globals = {
 	"InCombatLockdown",
 	"IsInRaid",
 	"IsInGroup",
+	-- 12.1 secret-value probe; nil on older clients, callers must guard
+	"issecretvalue",
 
 	-- Spell / macro / binding
 	"GetShapeshiftFormInfo",
