@@ -34,22 +34,7 @@ local BindingAttrsCache                  = {};
 --- (500행 주석의 그 질문 - 특성으로 값이 바뀌는 경우)
 local BindingPressHoldCache              = {};
 
-local STATE_EVAL_STRING_FORMAT           = [[SecureCmdOptionParse(%q) and true or false]];
-
-local STATE_EVAL_EXPRESSIONS             = {
-    group = format([[(UnitPlayerOrPetInRaid("player") and %d) or (UnitPlayerOrPetInParty("player") and %d) or %d]],
-        Constants.GROUP_RAID,
-        Constants.GROUP_PARTY,
-        Constants.GROUP_NONE),
-    combat = "PlayerInCombat()",
-    stealth = "IsStealthed()",
-    form = "GetShapeshiftForm()",
-    bonusbar = "GetBonusBarOffset()",
-    specialbar = "HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false",
-    extrabar = "HasExtraActionBar()",
-    pet = "PlayerPetSummary() and true or false",
-    petbattle = format(STATE_EVAL_STRING_FORMAT, "[petbattle]"),
-};
+local STATE_EVAL_EXPRESSIONS             = Constants.STATE_EVAL_EXPRESSIONS;
 
 -- not used
 -- local HOVER_CHECK_SNIPPET = format([[
@@ -434,7 +419,7 @@ States.unitframe = hovered
 
     local hasKnownState = false;
     for state in pairs(_measuredStates) do
-        if (strsub(state, 1, 6) == "known:") then
+        if (strsub(state, 1, 7) == "[known:") then
             hasKnownState = true;
             break;
         end
@@ -1035,8 +1020,12 @@ function UpdateBindingsMap()
                             _updateFlags.stealth = true;
                         end
 
+                        -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
+                        -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을
+                        -- `States`의 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이
+                        -- 두 군데 적힌다.
                         if (binding.known ~= nil) then
-                            local stateValue = "known:"..binding.value;
+                            local stateValue = "[known:"..binding.value.."]";
                             appendKeyValue("known", stateValue);
                             _updateFlags[stateValue] = true;
                         end
@@ -1236,10 +1225,17 @@ function UpdateBindingsMap()
 
         -- **`_measuredStates`는 "잴 상태"다.** 여기로 넘어오는 것 중 잴 수 없는 둘은 걸러낸다:
         -- `<유닛>-exists`는 유닛 축이라 `_measuredUnitAxes`가 따로 재고, `unitframe`은 재는 것이
-        -- 아니라 enter/leave가 밀어 넣는 것이다. 걸러도 잃는 것이 없다 - 뒤쪽 측정 루프가
-        -- 어차피 둘 다 건너뛰었고, 이제 그 건너뛰기 자체가 필요 없어진다.
+        -- 아니라 enter/leave가 밀어 넣는 것이다.
+        --
+        -- **그리고 배선이 고정된 키는 축을 등록시키지 않는다.** 클릭 경로가 그 축들을 클릭
+        -- 시점에 직접 재므로 폴링이 재둘 이유가 없고, 상태 루프는 그 키를 안 본다. 흔한
+        -- 프로필에서는 `known:`이 여기서 0이 되어 `SPELLS_CHANGED` 등록까지 같이 내려간다.
+        --
+        -- **예외는 커스텀 상태 하나뿐이다.** 클릭 경로가 유일하게 `States`를 그대로 읽는 축이라
+        -- (잴 것이 없다 - 저장값이 원본이다) 등록이 끊기면 값이 통째로 사라진다.
         for k, _ in pairs(_updateFlags) do
-            if (k ~= "unitframe" and strsub(k, -7) ~= "-exists") then
+            if (k ~= "unitframe" and strsub(k, -7) ~= "-exists"
+                    and (not alwaysOurs or _customStates[k])) then
                 _measuredStates[k] = true;
             end
         end
@@ -1570,8 +1566,9 @@ end
                 appendLine("stateValue=%s", STATE_EVAL_EXPRESSIONS[state]);
             end
             appendStateStore(state);
-        elseif (state:sub(1, 6) == "known:") then
-            appendLine([[stateValue=SecureCmdOptionParse("[%s]") and true or false]], state);
+        elseif (state:sub(1, 7) == "[known:") then
+            -- 이름이 곧 조건문이다(대괄호 포함). 클릭 경로가 같은 문자열을 그대로 파싱한다.
+            appendLine([[stateValue=SecureCmdOptionParse(%q) and true or false]], state);
             appendStateStore(state);
 
         elseif (_customStates[state]) then

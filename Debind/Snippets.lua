@@ -1,6 +1,11 @@
 local _, DebindPrivate = ...;
 local Constants = DebindPrivate.Constants;
 
+-- `string.format`, not the `format` global. The same one in the game, but this file is also run
+-- by `tools/` under a shim that has no WoW globals -- and until a probe with a live form appeared
+-- in a baked body, no call site here was ever reached from the tools to say so.
+local format = string.format;
+
 --- Marks which lines *begin* in code, as opposed to beginning inside something that started on
 --- an earlier line -- a long string or a long comment.
 ---
@@ -157,6 +162,12 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 
 	-- Reporting only. Nothing is computed from it, so there is nothing to keep.
 	Winner = false,
+
+	-- Injection only. The click path measures its own axes now, and a test that wants to say
+	-- "you are in combat" has to reach the value between the measurement and the comparison --
+	-- writing into `States` does not hold, because the click measures again rather than reading
+	-- it. Absent here, so a real user's snippet has no table to miss and no branch to fail.
+	MockState = false,
 };
 
 --- Replaces the `PROBE.<name>(args)` tokens.

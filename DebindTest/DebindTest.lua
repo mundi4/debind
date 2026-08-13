@@ -428,6 +428,12 @@ end
 ---
 --- The bindings are rebuilt because the override rides in the generated snippet -- a state that
 --- has never been mocked has no line to read the table.
+---
+--- **Two paths read the table, and they are switched on separately.** The update loop's line
+--- comes from the rebuild this does; the click path's comes from `PROBE.MockState`, which is only
+--- in the body while probes are on. So a test that mocks a state and then asks what a *press*
+--- decided has to call `EnableProbes()` as well -- without it the press measures the real state
+--- and the mock is not wrong so much as absent.
 local function SetMockState(state, value)
     PlantMockTable()
 
@@ -483,8 +489,15 @@ local probesOn = false
 
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
+--- What `PROBE.MockState(x)` becomes while probing: the same override the update loop's generated
+--- snippet gets, moved to the click path. The argument is the local **and** the state name, which
+--- is why they are spelled the same in `EVAL_SNIPPET`.
+---
+--- `~= nil` and an `if`, not `and`/`or`: most of these axes are booleans, and a false held value
+--- would fall straight through an `and`/`or` to the measured one.
 local PROBE_DEV = {
     Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
+    MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
 }
 
 local function BuildExpandTable()
@@ -501,6 +514,12 @@ end
 --- Starts reporting from inside the snippets. Returns nil plus a reason if it could not.
 local function EnableProbes()
     if probesOn then return true end
+
+    -- **The table has to exist before the bodies that read it do.** `PROBE.MockState` bakes into
+    -- the click path unconditionally once probes are on, so a run that turns them on and never
+    -- mocks anything would index a nil table on the next keypress. `SetMockState` also plants it,
+    -- but that is too late and only on the paths that mock.
+    PlantMockTable()
 
     DebindPrivate.BindingDriver.DebindTestWinner = function(_, index)
         probeReports[#probeReports + 1] = index

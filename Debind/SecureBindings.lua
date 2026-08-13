@@ -753,11 +753,17 @@ local EVAL_SNIPPET = [==[
 		end
 	end
 
-	-- 이벤트가 정확히 덮는 상태는 States에서 읽는다. 클릭 시점으로 옮겨도 정확도가 안 변하고
-	-- C 호출만 는다. live로 읽는 것은 hover와 유닛 조건뿐이다.
-	local group = States.group
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
+	-- **클릭 시점에 잴 수 있는 것은 잰다. 캐시는 안 읽는다.**
+	--
+	-- 상태 루프의 값은 구조적으로 낡아 있다 - 폴링이 최대 0.2초에, 계기가 이벤트인 축은
+	-- 이벤트→매니저→틱 지연까지 얹힌다. 클릭은 진실을 잴 수 있는 시점이므로 잰다. 기준은
+	-- 성능이 아니라 정확성이다.
+	--
+	-- **이 로컬들이 클릭 1회 메모다.** `nil`이면 아직 안 쟀다는 뜻이고, 한 번 재면 이 클릭이
+	-- 끝날 때까지 그 값을 쓴다. 아무 레코드도 안 묻는 축은 C 호출이 아예 안 나간다.
+	-- 측정된 값은 절대 nil이 아니므로(불리언·숫자) 이 표시가 값과 겹치지 않는다.
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
 
 	local memoReady = false
 
@@ -780,22 +786,12 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- 싼 것부터 본다. 여기까지는 전부 테이블 조회라 대부분의 불일치가 C 호출 없이
-			-- 걸러진다. 첫 일치에서 멈추는 구조라 순서가 곧 비용이다.
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= States.combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-				(t.stealth ~= nil and t.stealth ~= States.stealth) or
-				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-				(t.pet ~= nil and t.pet ~= States.pet)
-			)) then
-				match = false
-			end
-
+			-- **커스텀 상태가 먼저다. 유일하게 잴 것이 없는 축이라서다.**
+			--
+			-- 값 모드는 사용자가 넣어둔 저장값이 곧 원본이고, 조건문 모드도 매크로텍스트가
+			-- 클릭 밖에서 같은 값을 읽는 동안은 캐시가 아니라 공유값이다. 그래서 여기만
+			-- `States`를 그대로 읽고, 테이블 조회 하나뿐이라 제일 앞에 둔다 - 여기서 걸러진
+			-- 레코드는 아래의 C 호출을 하나도 안 치른다.
 			if (match and t.customStates) then
 				for state, v in pairs(t.customStates) do
 					if (States[state] ~= v) then
@@ -805,9 +801,130 @@ local EVAL_SNIPPET = [==[
 				end
 			end
 
-			-- known은 States에 남겨둔다. SecureCmdOptionParse는 이 판에서 제일 비싼 호출인데
-			-- 답이 바뀌는 계기가 SPELLS_CHANGED 하나뿐이라 누를 때마다 파싱할 이유가 없다.
-			if (match and t.known ~= nil and States[t.known] ~= true) then
+			-- 아래는 **묻는 축만, 클릭당 한 번** 잰다. `match`가 이미 거짓이면 그 레코드의
+			-- 남은 축은 아예 안 잰다 - 순서가 곧 비용인 것은 그대로고, 이제 그 비용이 테이블
+			-- 조회가 아니라 C 호출이라 더 그렇다. 싼 것부터 놓는다.
+			--
+			-- 측정식은 `Constants.STATE_EVAL_EXPRESSIONS`와 **같아야 한다.** 문자열로 끼워
+			-- 넣으면 정적 검사가 본문을 못 찾으므로 리터럴로 쓰고, 어긋나면 로드 시점에
+			-- 터지게 해뒀다(이 파일 아래 `AssertMeasurementsAgree`).
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					PROBE.MockState(combat)
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					PROBE.MockState(stealth)
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					PROBE.MockState(pet)
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					PROBE.MockState(extrabar)
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					PROBE.MockState(group)
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+			-- **목은 잰 값에 걸리고 자리옮김은 그 뒤다.** 상태 루프가 `States.form`에 담는 것은
+			-- 자세 번호이지 비트가 아니므로, 주입도 번호에 걸려야 양쪽이 같은 것을 뜻한다.
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					PROBE.MockState(form)
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					PROBE.MockState(bonusbar)
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+			-- **`petbattle`도 잰다.** 캐시로 둘 이유가 없었다 - 그 캐시를 채우는 것이 클릭이
+			-- 없어도 영원히 도는 5Hz 파싱이라, "클릭당 파싱 대 캐시 읽기"라는 비교 자체가
+			-- 채우는 값을 비용에서 빼놓고 있었다.
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = PROBE.SecureCmdOptionParse("[petbattle]") and true or false
+					PROBE.MockState(petbattle)
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+			-- **`specialbar`는 `petbattle`을 접어 쓴다** - 상태 루프의 측정식과 같은 모양이라야
+			-- 답이 안 갈린다. 앞이 참이면 파싱까지 안 간다.
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = PROBE.SecureCmdOptionParse("[petbattle]") and true or false
+							PROBE.MockState(petbattle)
+						end
+						specialbar = petbattle
+					end
+					PROBE.MockState(specialbar)
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+			-- **`known`도 잰다.** 예전 주석은 *"답이 바뀌는 계기가 SPELLS_CHANGED 하나뿐이라
+			-- 누를 때마다 파싱할 이유가 없다"*였는데, 이벤트로 무효화하는 길이 **없다** -
+			-- 핸들러로 들어오는 값이 넷뿐이라 어느 틱이 SPELLS_CHANGED 때문인지 못 고른다.
+			-- 그래서 그 캐시는 캐시가 아니라 클릭이 없어도 도는 재파싱이었다.
+			--
+			-- 메모를 안 둔다. 한 키의 `known` 레코드 수만큼이고 첫 일치에서 끊기므로, 프로필
+			-- 전체의 서로 다른 주문 수를 5Hz로 파싱하던 것과 자릿수가 다르다.
+			--
+			-- `t.known`은 대괄호까지 포함해 구워둔다. 여기서 결합하면 클릭마다 문자열이
+			-- 하나씩 나고, 이 판은 할당을 안 하는 판이다.
+			if (match and t.known ~= nil and not PROBE.SecureCmdOptionParse(t.known)) then
 				match = false
 			end
 
@@ -910,6 +1027,24 @@ local EVAL_SNIPPET = [==[
 		end
 	end
 ]==];
+
+--- The two paths measure the same axes and must measure them **the same way**. The update loop
+--- generates its lines from `Constants.STATE_EVAL_EXPRESSIONS`; the body above spells them out,
+--- because a body assembled from interpolated strings is one `tools/lib/snippets.js` cannot
+--- resolve, and an unresolvable body leaves every static check without a sound.
+---
+--- So the agreement is checked here instead, against the **baked** text -- `CONSTANTS.GROUP_RAID`
+--- above is a number by then, which is the form the shared table holds.
+---
+--- Drift here is the worst kind of quiet: the poll and the press would answer differently for the
+--- same state, and nothing downstream could tell which one was wrong.
+if (DebindPrivate.DEBUG) then
+	local baked = DebindPrivate.BakeSnippet(EVAL_SNIPPET);
+	for state, expr in pairs(Constants.STATE_EVAL_EXPRESSIONS) do
+		assert(baked:find(expr, 1, true),
+			format("EVAL_SNIPPET이 %s를 STATE_EVAL_EXPRESSIONS와 다르게 잰다: %s", state, expr));
+	end
+end
 
 --- 클릭 시점 평가. `DefaultClickFrame`의 OnClick을 감싼다.
 ---

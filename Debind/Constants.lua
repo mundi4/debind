@@ -399,3 +399,34 @@ do
         end
     end
 end
+
+
+--- How each measurable state is worked out, as snippet source.
+---
+--- **Both paths read this, and that is the point.** The update loop measures on its 0.2s beat and
+--- the click path measures at the press; a second copy of "how do I read combat" would be free to
+--- drift, and the two answers disagreeing is exactly the class of fault neither layer can see.
+---
+--- These are the states a value can be *derived* for. What cannot be derived at a press -- which
+--- unit the cursor is over, what a user's custom conditional evaluates to -- is not in here.
+Constants.STATE_EVAL_EXPRESSIONS = {
+    group = format(
+        [[(UnitPlayerOrPetInRaid("player") and %d) or (UnitPlayerOrPetInParty("player") and %d) or %d]],
+        Constants.GROUP_RAID,
+        Constants.GROUP_PARTY,
+        Constants.GROUP_NONE),
+    combat = "PlayerInCombat()",
+    stealth = "IsStealthed()",
+    form = "GetShapeshiftForm()",
+    bonusbar = "GetBonusBarOffset()",
+    specialbar = "HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false",
+    extrabar = "HasExtraActionBar()",
+    pet = "PlayerPetSummary() and true or false",
+    -- **The one parse in here.** `specialbar` folds it in, so a profile asking about special bars
+    -- pays for this whether or not anything asks about pet battles.
+    --
+    -- No `PROBE.` token in any of these: the update loop's snippet is built at runtime and handed
+    -- straight to `SecureHandlerExecute`, so it never passes through `BakeSnippet` and a token
+    -- would survive into it verbatim.
+    petbattle = [[SecureCmdOptionParse("[petbattle]") and true or false]],
+};

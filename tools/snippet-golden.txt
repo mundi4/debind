@@ -769,9 +769,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local group = States.group
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
 
 	local memoReady = false
 
@@ -796,19 +802,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= States.combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-				(t.stealth ~= nil and t.stealth ~= States.stealth) or
-				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-				(t.pet ~= nil and t.pet ~= States.pet)
-			)) then
-				match = false
-			end
+
+
+
 
 			if (match and t.customStates) then
 				for state, v in pairs(t.customStates) do
@@ -821,7 +817,128 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and t.known ~= nil and States[t.known] ~= true) then
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
 				match = false
 			end
 
@@ -1073,9 +1190,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local group = States.group
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
 
 	local memoReady = false
 
@@ -1100,19 +1223,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= States.combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-				(t.stealth ~= nil and t.stealth ~= States.stealth) or
-				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-				(t.pet ~= nil and t.pet ~= States.pet)
-			)) then
-				match = false
-			end
+
+
+
 
 			if (match and t.customStates) then
 				for state, v in pairs(t.customStates) do
@@ -1125,7 +1238,128 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and t.known ~= nil and States[t.known] ~= true) then
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
 				match = false
 			end
 
@@ -1448,9 +1682,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local group = States.group
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
 
 	local memoReady = false
 
@@ -1475,19 +1715,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= States.combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-				(t.stealth ~= nil and t.stealth ~= States.stealth) or
-				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-				(t.pet ~= nil and t.pet ~= States.pet)
-			)) then
-				match = false
-			end
+
+
+
 
 			if (match and t.customStates) then
 				for state, v in pairs(t.customStates) do
@@ -1500,7 +1730,128 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and t.known ~= nil and States[t.known] ~= true) then
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
 				match = false
 			end
 
@@ -1735,9 +2086,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local group = States.group
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
 
 	local memoReady = false
 
@@ -1762,19 +2119,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= States.combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-				(t.stealth ~= nil and t.stealth ~= States.stealth) or
-				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-				(t.pet ~= nil and t.pet ~= States.pet)
-			)) then
-				match = false
-			end
+
+
+
 
 			if (match and t.customStates) then
 				for state, v in pairs(t.customStates) do
@@ -1787,7 +2134,128 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and t.known ~= nil and States[t.known] ~= true) then
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
 				match = false
 			end
 
@@ -1928,9 +2396,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local group = States.group
-	local form = 2 ^ (States.form or 0)
-	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
 
 	local memoReady = false
 
@@ -1955,19 +2429,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and (
-				(t.groups ~= nil and (t.groups % (group + group)) < group) or
-				(t.combat ~= nil and t.combat ~= States.combat) or
-				(t.forms and (t.forms % (form + form)) < form) or
-				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-				(t.stealth ~= nil and t.stealth ~= States.stealth) or
-				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-				(t.pet ~= nil and t.pet ~= States.pet)
-			)) then
-				match = false
-			end
+
+
+
 
 			if (match and t.customStates) then
 				for state, v in pairs(t.customStates) do
@@ -1980,7 +2444,128 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-			if (match and t.known ~= nil and States[t.known] ~= true) then
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
 				match = false
 			end
 
