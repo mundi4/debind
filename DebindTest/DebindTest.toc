@@ -9,3 +9,4 @@
 
 DebindTest.lua
 Probe_BindingContext.lua
+Probe_ForbiddenFrames.lua
