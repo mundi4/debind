@@ -4,6 +4,7 @@ node_modules
 tools/bin
 tools/cache
 .editorconfig
-.claude
+.claude/settings.local.json
+.claude/worktrees
 BlizzardInterfaceCode
 .zzz
