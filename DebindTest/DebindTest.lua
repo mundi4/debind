@@ -613,6 +613,24 @@ local function LastWinner()
     return probeReports[#probeReports]
 end
 
+--- Waits for the winner report to arrive and answers with it.
+---
+--- Same fact as `LastWinner` after a `Wait`, spent differently. A fixed `Wait(0.4)` costs the
+--- whole 0.4s on **every** evaluation, and a test that sweeps a few dozen states pays that many
+--- times over for an answer that is usually there in the next frame. This gives the frame back
+--- until the report lands.
+---
+--- **A report that never comes is indistinguishable from a slow one**, so "nothing matched" costs
+--- the full limit and only that case does. That is the right way round: a sweep is mostly hits.
+local function WaitForWinner(limit)
+    local start = GetTime()
+    limit = limit or 0.5
+    while #probeReports == 0 and (GetTime() - start) < limit do
+        coroutine.yield(0)
+    end
+    return probeReports[#probeReports]
+end
+
 --- Which of the two tables a key's record list ended up in.
 ---
 --- **The split is the one thing nothing else here can see.** `IsKeyAlwaysOurs` is covered
@@ -2179,6 +2197,499 @@ RegisterTest("Click-time key: fixed wiring is never handed back", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: Many records on one key, many axes at once
+-----------------------------------------------------------
+
+-- One condition on one key answers "does it look at the condition at all". Everything above this
+-- line stops there. What a real profile looks like is the next question and nothing was asking
+-- it: **a key carrying half a dozen records, each naming several axes, and exactly one of them
+-- has to win.**
+--
+-- Three tests below, because there are three separate deciders and each can be wrong on its own:
+--
+--   the press        which record the click-time snippet picks, on a key whose wiring is fixed
+--   the poll         what the state loop binds the key to, when the winner decides the outcome
+--   the two together on a key with a gap, where the poll decides *whether* and the press decides
+--                    *which* -- the one place the two can contradict each other
+--
+-- **The axes are chosen for the shapes they compare, not for their number.** `combat` and
+-- `stealth` are equality; `groups` is a bitmask whose measured value is already the bit;
+-- `forms` is a bitmask whose measured value is a *form number* that both paths raise to a power
+-- of two after measuring -- so a mock lands on the number and the comparison happens on the bit,
+-- and getting that boundary wrong is a fault no single-axis test can produce.
+
+--- The states swept, in the order the cross product is taken. Every value here has to be one both
+--- paths can be forced to: the click path takes it through `PROBE.MockState` and the update loop
+--- through the generated `stateValue` line, and the two only agree on the axes that are measured
+--- rather than read (so no unit axis, no `known`, no custom state -- see `SetMockState`).
+local SWEEP_ORDER = { "combat", "stealth", "form", "group" }
+
+local SWEEP_VALUES = {
+    combat  = { false, true },
+    stealth = { false, true },
+    -- 0 is "no form". The masks below name form numbers, not bits, and only `ToSweepAction`
+    -- turns them into bits -- so the whole test speaks the same language the mock does.
+    form    = { 0, 1, 2 },
+    group   = { Constants.GROUP_NONE, Constants.GROUP_PARTY, Constants.GROUP_RAID },
+}
+
+local GROUP_LABEL = {
+    [Constants.GROUP_NONE]  = "solo",
+    [Constants.GROUP_PARTY] = "party",
+    [Constants.GROUP_RAID]  = "raid",
+}
+
+--- Every combination of every swept axis, as a list of plain state tables.
+local function BuildCombos()
+    local combos = { {} }
+    for _, axis in ipairs(SWEEP_ORDER) do
+        local grown = {}
+        for _, base in ipairs(combos) do
+            for _, value in ipairs(SWEEP_VALUES[axis]) do
+                local state = {}
+                for k, v in pairs(base) do state[k] = v end
+                state[axis] = value
+                grown[#grown + 1] = state
+            end
+        end
+        combos = grown
+    end
+    return combos
+end
+
+local function ComboLabel(state)
+    return format("combat=%s stealth=%s form=%d %s",
+        tostring(state.combat), tostring(state.stealth), state.form,
+        GROUP_LABEL[state.group] or tostring(state.group))
+end
+
+--- Does this record's condition hold in this state?
+---
+--- **This is a second implementation and it is meant to be.** Writing the expected winner of
+--- thirty-six combinations out by hand is the one part of this that would be wrong, and it would
+--- be wrong quietly -- a mistranscribed row reads exactly like a bug in the addon. So the
+--- expectation is derived from the same record definition the actions are built from.
+---
+--- It shares no code with the snippet and, more to the point, no *shape*: the snippet compares
+--- bitmasks with the `%` idiom the restricted environment forces on it and decides each axis
+--- inside a chain of short-circuits, while this is a set lookup and a plain comparison. The
+--- faults the snippet can have are not available here.
+local function SweepMatches(cond, state)
+    if cond.combat ~= nil and cond.combat ~= state.combat then return false end
+    if cond.stealth ~= nil and cond.stealth ~= state.stealth then return false end
+    if cond.forms and not cond.forms[state.form] then return false end
+    if cond.groups and not cond.groups[state.group] then return false end
+    return true
+end
+
+--- Which record ought to win: the first one in emitted order whose condition holds.
+local function SweepWinner(records, state)
+    for i = 1, #records do
+        if SweepMatches(records[i].cond, state) then return i end
+    end
+    return nil
+end
+
+--- Turns a record definition into the action the addon is given. The form and group sets become
+--- bitmasks **here and nowhere else**, so `SweepMatches` above never has to agree with the
+--- addon about what a bit means.
+local function ToSweepAction(record, key)
+    local action = { key = key }
+    for k, v in pairs(record.action) do action[k] = v end
+
+    local cond = record.cond
+    if cond.combat ~= nil then action.combat = cond.combat end
+    if cond.stealth ~= nil then action.stealth = cond.stealth end
+    if cond.forms then
+        local mask = 0
+        for form in pairs(cond.forms) do mask = bor(mask, 2 ^ form) end
+        action.forms = mask
+    end
+    if cond.groups then
+        local mask = 0
+        for group in pairs(cond.groups) do mask = bor(mask, group) end
+        action.groups = mask
+    end
+    return action
+end
+
+--- Stands the swept state up for real.
+---
+--- **Only what changed.** `SetMockState` ends in a rebuild, and a sweep that re-forces every axis
+--- on every combination pays for four rebuilds where it needs one. Sweeping in `SWEEP_ORDER`
+--- means the slowest-moving axis is re-forced least.
+local function ApplySweepState(state)
+    for _, axis in ipairs(SWEEP_ORDER) do
+        if GetMockState(axis) ~= state[axis] then
+            SetMockState(axis, state[axis])
+        end
+    end
+end
+
+--- Inserts the records in order and checks that all of them came out the other side.
+---
+--- **The count is the load-bearing part.** Every assertion below is on a record *index*, and an
+--- index only means what the test thinks it means while the emitted list is the list that went
+--- in. A record the solver judged unreachable, or one dropped for having no way to be bound,
+--- shifts every index after it -- and the sweep would then report a confident, precise, wrong
+--- answer about which condition won.
+local function SetUpSweepKey(records, key)
+    for i = 1, #records do
+        InsertAction(ToSweepAction(records[i], key))
+    end
+    ApplyBindings()
+
+    local emitted = GetKeyBindings(key)
+    if not emitted or #emitted ~= #records then
+        return nil, format("레코드가 %d개여야 한다, 지금 %d개 - 솔버가 떨궜거나 걸 수단이 없어 빠졌다",
+            #records, emitted and #emitted or 0)
+    end
+    return true
+end
+
+--- Names every record that never won, once the sweep is over.
+---
+--- A record no combination can reach is not a passing test, it is a test with a hole in it: the
+--- sweep would go green while that condition was never asked about. It also catches the addon
+--- changing under the test -- an emitter that quietly stopped producing one record leaves the
+--- count intact only if something else took its place, and this is the second net.
+local function UnreachedRecords(records, wins)
+    local missing
+    for i = 1, #records do
+        if not wins[i] then
+            missing = missing or {}
+            missing[#missing + 1] = format("%d번(%s)", i, records[i].label)
+        end
+    end
+    return missing
+end
+
+-- Seven records, and the last is unconditional -- which is what makes this key `alwaysOurs`: the
+-- condition space has no gap, the key is bound once at build time, and the only thing left to
+-- decide is *which* record, at the press. Exactly the path being measured.
+--
+-- Every record is a macrotext so that all seven are clickable and none can be dropped for having
+-- no way to be bound.
+local CLICKTIME_SWEEP = {
+    { label = "combat+form1|2", cond = { combat = true, forms = { [1] = true, [2] = true } } },
+    { label = "combat+raid",    cond = { combat = true, groups = { [Constants.GROUP_RAID] = true } } },
+    { label = "stealth+form0",  cond = { stealth = true, forms = { [0] = true } } },
+    { label = "peace+grouped",  cond = { combat = false, stealth = false,
+                                         groups = { [Constants.GROUP_PARTY] = true,
+                                                    [Constants.GROUP_RAID] = true } } },
+    { label = "form2",          cond = { forms = { [2] = true } } },
+    { label = "combat",         cond = { combat = true } },
+    { label = "fallback",       cond = {} },
+}
+
+for i = 1, #CLICKTIME_SWEEP do
+    local record = CLICKTIME_SWEEP[i]
+    record.action = {
+        type = Constants.MACROTEXT,
+        value = format('/run local _ = "%s"', record.label),
+        name = record.label,
+    }
+end
+
+RegisterTest("Multi-axis: the press picks the exact record out of seven", {
+    description = "네 축의 조합을 전부 훑어, 일곱 레코드가 물린 키에서 매번 정확히 그 레코드가 이기는지",
+    -- The runner's ceiling is a guard against a hung coroutine, not a budget. This one waits on a
+    -- rebuild per state change, thirty-six times over, and none of that is the test being slow in
+    -- the sense the ceiling is watching for.
+    timeout = 120,
+    run = function()
+        local NAME = "Multi-axis click-time"
+        local KEY = "CTRL-SHIFT-F1"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "다시 굽기 실패: " .. tostring(probesErr))
+        end
+
+        local ok, err = SetUpSweepKey(CLICKTIME_SWEEP, KEY)
+        if not ok then return Fail(NAME, err) end
+
+        local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
+        if not button then
+            return Fail(NAME, "클릭 시점 키가 아니다 - 이 테스트가 재려는 경로를 안 탄다")
+        end
+
+        local combos = BuildCombos()
+        local wins = {}
+
+        for _, state in ipairs(combos) do
+            ApplySweepState(state)
+
+            local want = SweepWinner(CLICKTIME_SWEEP, state)
+            if not want then
+                return Fail(NAME, format("%s: 기대 승자가 없다 - 마지막이 무조건인데 그럴 수 없다",
+                    ComboLabel(state)))
+            end
+
+            -- **매번 다시 읽는다.** 상태를 세울 때마다 리빌드가 돌아 표가 갈린다. 개수가
+            -- 어긋나면 색인이 가리키는 자리가 달라지므로, 승자를 묻기 전에 여기서 끊는다.
+            local emitted = GetKeyBindings(KEY)
+            if not emitted or #emitted ~= #CLICKTIME_SWEEP then
+                return Fail(NAME, format("%s: 리빌드 뒤 레코드가 %d개 - 색인이 뜻을 잃었다",
+                    ComboLabel(state), emitted and #emitted or 0))
+            end
+
+            -- 걸려 있는지부터 본다. 평가는 클릭 없이도 도니까, 이 대조가 없으면 판정만 맞고
+            -- 실제로는 어느 키에도 안 걸린 상태가 통과한다.
+            local bound = GetBindingAction(KEY, true) or ""
+            local wantBound = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":" .. button
+            if bound ~= wantBound then
+                return Fail(NAME, format("%s: 키가 %q, %q여야 한다",
+                    ComboLabel(state), bound, wantBound))
+            end
+
+            local ran, rerr = EvalClickTimeKey(KEY)
+            if not ran then return Fail(NAME, rerr) end
+
+            local got = WaitForWinner()
+            if got ~= want then
+                return Fail(NAME, format("%s: %d번(%s)이 이겨야 하는데 %s",
+                    ComboLabel(state), want, CLICKTIME_SWEEP[want].label,
+                    got and format("%d번(%s)", got, CLICKTIME_SWEEP[got] and CLICKTIME_SWEEP[got].label or "?")
+                        or "아무도 안 이겼다"))
+            end
+
+            wins[got] = (wins[got] or 0) + 1
+        end
+
+        local missing = UnreachedRecords(CLICKTIME_SWEEP, wins)
+        if missing then
+            return Fail(NAME, format("%d개 조합 어디서도 안 이긴 레코드: %s - 훑는 축이 그 자리를 못 만든다",
+                #combos, table.concat(missing, ", ")))
+        end
+
+        return Pass(NAME, format("%d개 조합 전부 정확히 맞음, 레코드 %d개가 모두 한 번 이상 이김",
+            #combos, #CLICKTIME_SWEEP))
+    end,
+})
+
+-- The same question asked of the **poll**, which needs a different key to be asked at all.
+--
+-- A key whose records are all clickable tells the state loop almost nothing apart: whichever
+-- record wins, what gets bound is the one click-time button, so `GetBindingAction` answers the
+-- same string for every winner. Commands do not share: the loop calls `SetBinding(true, key,
+-- t.command)` with the winning record's own string, and `ClearBinding` for an unused one -- so
+-- the key's own reported action names the record exactly, and it is the *game* naming it.
+--
+-- Those records also make the key state-driven rather than fixed: a reachable command or unused
+-- record is precisely what `IsKeyAlwaysOurs` refuses, so this key stays in the loop's table.
+local STATELOOP_SWEEP = {
+    { label = "combat+form1|2", value = "TOGGLEWORLDMAP",
+      cond = { combat = true, forms = { [1] = true, [2] = true } } },
+    { label = "combat+raid",    value = "OPENALLBAGS",
+      cond = { combat = true, groups = { [Constants.GROUP_RAID] = true } } },
+    { label = "stealth+form0",  value = "TOGGLEBACKPACK",
+      cond = { stealth = true, forms = { [0] = true } } },
+    { label = "peace+grouped",  value = "TOGGLECHARACTER0",
+      cond = { combat = false, stealth = false,
+               groups = { [Constants.GROUP_PARTY] = true, [Constants.GROUP_RAID] = true } } },
+    { label = "form2",          value = "TOGGLEACHIEVEMENT",
+      cond = { forms = { [2] = true } } },
+    { label = "combat",         value = "JUMP",
+      cond = { combat = true } },
+    -- Unconditional and unused: the key is released rather than bound, which is its own outcome
+    -- and the only one that is an empty string.
+    { label = "fallback-unused", cond = {} },
+}
+
+for i = 1, #STATELOOP_SWEEP do
+    local record = STATELOOP_SWEEP[i]
+    if record.value then
+        record.action = { type = Constants.COMMAND, value = record.value }
+        record.expect = record.value
+    else
+        record.action = { type = Constants.UNUSED }
+        record.expect = ""
+    end
+end
+
+RegisterTest("Multi-axis: the state loop binds the exact record out of seven", {
+    description = "네 축의 조합을 전부 훑어, 상태 루프가 매번 정확히 그 레코드를 키에 거는지",
+    timeout = 120,
+    run = function()
+        local NAME = "Multi-axis state loop"
+        local KEY = "CTRL-SHIFT-F2"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "진짜 전투 중에는 주입 결과와 실제가 구분되지 않는다")
+        end
+
+        local ok, err = SetUpSweepKey(STATELOOP_SWEEP, KEY)
+        if not ok then return Fail(NAME, err) end
+
+        -- 이 키가 상태 루프의 표에 있어야 여기서 재는 것이 그 루프다. 배선이 고정된 키였다면
+        -- 아래 대조는 전부 통과하면서 아무것도 안 재게 된다.
+        ReadKeyMembership(KEY)
+        Wait(0.4)
+        local membership = LastMembership()
+        if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+        if not membership.stateDriven then
+            return Fail(NAME, "상태 구동 키가 아니다 - 이 테스트가 재려는 루프가 이 키를 안 본다")
+        end
+
+        local combos = BuildCombos()
+        local wins = {}
+
+        for _, state in ipairs(combos) do
+            ApplySweepState(state)
+            -- 상태 루프는 자기 0.2초 박자로 잰다. 주입한 값이 `States`에 앉고 그 뒤에
+            -- `_onattributechanged`가 전파될 때까지 기다린다.
+            Wait(0.4)
+
+            local want = SweepWinner(STATELOOP_SWEEP, state)
+            if not want then
+                return Fail(NAME, format("%s: 기대 승자가 없다 - 마지막이 무조건인데 그럴 수 없다",
+                    ComboLabel(state)))
+            end
+
+            local record = STATELOOP_SWEEP[want]
+            local bound = GetBindingAction(KEY, true) or ""
+            if bound ~= record.expect then
+                return Fail(NAME, format("%s: %d번(%s)이 이겨야 하니 %q여야 하는데 %q",
+                    ComboLabel(state), want, record.label, record.expect, bound))
+            end
+
+            wins[want] = (wins[want] or 0) + 1
+        end
+
+        local missing = UnreachedRecords(STATELOOP_SWEEP, wins)
+        if missing then
+            return Fail(NAME, format("%d개 조합 어디서도 안 이긴 레코드: %s - 훑는 축이 그 자리를 못 만든다",
+                #combos, table.concat(missing, ", ")))
+        end
+
+        -- **음성 대조는 표가 이미 들고 있다.** 마지막 레코드가 이기는 조합에서 키는 풀려
+        -- 있어야 하고(`""`), 그것이 위 루프에서 다른 칸과 똑같이 검사된다 - 조건이 맞을 때
+        -- 걸리는 것만 보고 안 맞을 때 놓는지는 안 보는 반쪽짜리가 될 수 없다.
+        return Pass(NAME, format("%d개 조합 전부 정확히 맞음, 레코드 %d개가 모두 한 번 이상 이김",
+            #combos, #STATELOOP_SWEEP))
+    end,
+})
+
+-- The one place the two deciders meet, and the only place they can contradict each other.
+--
+-- Drop the unconditional record and the condition space has a hole in it. Now both halves are
+-- live on the same key: the **poll** decides whether the key is ours at all -- it has to grab it
+-- when something matches and hand it back when nothing does -- and the **press** decides which of
+-- the survivors runs. The comments in `SecureBindings.lua` call drift between them the worst kind
+-- of quiet, because neither side can tell which of the two is the one that is wrong.
+--
+-- So both are asked in every combination, against one expectation:
+--
+--   something matches   the key is bound to the click-time button *and* the press picks that record
+--   nothing matches     the key is released *and* the press picks nobody
+--
+-- Half of this would pass on a key that was simply bound the whole time; the other half would
+-- pass on a snippet that always answered the first record. Together they do not.
+local GAPPED_SWEEP = {}
+for i = 1, #CLICKTIME_SWEEP - 1 do
+    GAPPED_SWEEP[i] = CLICKTIME_SWEEP[i]
+end
+
+RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
+    description = "조건에 구멍이 있는 키에서, 잡고 놓는 판정과 누가 이기는지가 서로 어긋나지 않는지",
+    timeout = 120,
+    run = function()
+        local NAME = "Multi-axis poll vs press"
+        local KEY = "CTRL-SHIFT-F5"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+        end
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "다시 굽기 실패: " .. tostring(probesErr))
+        end
+
+        local ok, err = SetUpSweepKey(GAPPED_SWEEP, KEY)
+        if not ok then return Fail(NAME, err) end
+
+        local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
+        if not button then
+            return Fail(NAME, "클릭 시점 키가 아니다 - 누가 이겼는지를 물을 데가 없다")
+        end
+
+        -- 구멍이 남아 있어야 상태 루프가 이 키를 계속 정한다. 무조건 레코드를 뺀 것이
+        -- 실제로 그 효과를 냈는지 여기서 확인한다 - 안 그러면 아래 "놓아야 한다" 쪽이
+        -- 한 번도 안 돈 채로 통과한다.
+        ReadKeyMembership(KEY)
+        Wait(0.4)
+        local membership = LastMembership()
+        if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+        if not membership.stateDriven then
+            return Fail(NAME, "상태 구동 키가 아니다 - 조건 공간에 구멍이 없다는 뜻이다")
+        end
+        if not membership.clickTime then
+            return Fail(NAME, "클릭 시점 표에도 없다 - 누가 이겼는지를 물을 데가 없다")
+        end
+
+        local combos = BuildCombos()
+        local wantBound = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":" .. button
+        local wins, released = {}, 0
+
+        for _, state in ipairs(combos) do
+            ApplySweepState(state)
+            Wait(0.4)
+
+            local want = SweepWinner(GAPPED_SWEEP, state)
+            local bound = GetBindingAction(KEY, true) or ""
+
+            if want then
+                if bound ~= wantBound then
+                    return Fail(NAME, format("%s: %d번(%s)이 맞는데 키가 %q - 잡았어야 한다",
+                        ComboLabel(state), want, GAPPED_SWEEP[want].label, bound))
+                end
+            elseif bound ~= "" then
+                return Fail(NAME, format("%s: 맞는 레코드가 없는데 키가 %q - 놓았어야 한다",
+                    ComboLabel(state), bound))
+            end
+
+            local ran, evalErr = EvalClickTimeKey(KEY)
+            if not ran then return Fail(NAME, evalErr) end
+
+            local got = WaitForWinner()
+            if got ~= want then
+                return Fail(NAME, format("%s: 누름이 %s를 골랐다, %s여야 한다",
+                    ComboLabel(state),
+                    got and format("%d번(%s)", got, GAPPED_SWEEP[got] and GAPPED_SWEEP[got].label or "?")
+                        or "아무도 안",
+                    want and format("%d번(%s)", want, GAPPED_SWEEP[want].label) or "아무도 안"))
+            end
+
+            if want then
+                wins[want] = (wins[want] or 0) + 1
+            else
+                released = released + 1
+            end
+        end
+
+        -- 구멍이 실제로 밟혔는가. 안 밟혔으면 "놓아야 한다" 쪽은 한 줄도 안 돈 것이고,
+        -- 이 테스트는 앞의 것과 같은 것을 두 번 잰 셈이 된다.
+        if released == 0 then
+            return Fail(NAME, format("%d개 조합 중 아무 데서도 안 놓았다 - 구멍을 못 밟았다", #combos))
+        end
+
+        local missing = UnreachedRecords(GAPPED_SWEEP, wins)
+        if missing then
+            return Fail(NAME, format("%d개 조합 어디서도 안 이긴 레코드: %s", #combos, table.concat(missing, ", ")))
+        end
+
+        return Pass(NAME, format("%d개 조합에서 폴과 누름이 일치, 그중 %d개는 키를 놓음",
+            #combos, released))
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Across a /reload
 -----------------------------------------------------------
 
@@ -2335,6 +2846,11 @@ end
 -- A test that yields and never comes back would otherwise hold the runner forever, and `run`
 -- staying set means no further run can start either -- one stuck test costs a `/reload`. Long
 -- is fine here (waiting is the point), so this is only a ceiling on hanging, not on slowness.
+--
+-- A test that sweeps a cross product spends most of a minute waiting on rebuilds and polls it
+-- genuinely has to wait for, which is not the thing this guards against. Those raise the ceiling
+-- with `timeout` in their registration rather than raising it for everyone -- a hung test should
+-- still be caught in thirty seconds unless someone said otherwise about that one test.
 local TEST_TIMEOUT = 30
 
 local function Record(testName, status, msg, color)
@@ -2458,6 +2974,7 @@ local function Step()
 
         pcall(CleanupActions)
         run.co = coroutine.create(test.run)
+        run.timeout = test.timeout or TEST_TIMEOUT
     end
 
     -- The phase is handed in rather than remembered by the test, because the test is being run
@@ -2518,13 +3035,13 @@ runner:SetScript("OnUpdate", function(self, elapsed)
 
     if run.co and not awaitingHuman then
         run.spent = run.spent + elapsed
-        if run.spent > TEST_TIMEOUT then
+        if run.spent > (run.timeout or TEST_TIMEOUT) then
             -- Abandon it. The coroutine is simply dropped -- there is no way to unwind one from
             -- outside - so whatever it was holding is left to the teardowns, which is why they
             -- belong to the runner and not to the test.
             run.err = run.err + 1
             Record(run.name, "error",
-                format("ERROR %s: timed out after %ds", run.name, TEST_TIMEOUT), "ffff8800")
+                format("ERROR %s: timed out after %ds", run.name, run.timeout or TEST_TIMEOUT), "ffff8800")
             RunTeardowns()
             run.co, run.wait = nil, nil
             run.index = run.index + 1
