@@ -1137,6 +1137,65 @@ RegisterTest("Issue: undefined $state in macrotext", {
     end,
 })
 
+-- **코드젠의 fail-safe가 혼자 서는 유일한 자리다.** 위 마커는 액션만 보는데 상태의 계산식은
+-- 액션이 아니라 옵션이라 그 검사에 아예 안 걸린다. 그러니 여기서 미정의 이름이 참으로 굽히면
+-- 막는 것이 하나도 없고, 그 상태를 참조하는 바인딩이 **전부** 조건 없이 켜진 것으로 돈다.
+--
+-- 경로: `expr` -> `addMacrotext` -> 코드젠의 `arg.fixed` -> `UpdateMacroTexts`가 완성한 문자열
+-- -> `SecureCmdOptionParse`. `""`로 구우면 `[$typo]`가 `[]`가 되어 **참**이고, `known:0`이면
+-- 거짓이다. 그 갈림이 보안 환경 안에서만 일어나서 헤드리스로는 못 본다.
+RegisterTest("Undefined $state inside a state's own expression", {
+    description = "상태 계산식의 정의되지 않은 [$이름]이 그 상태를 켜버리지 않는지",
+    run = function()
+        local NAME = "Undefined $state in expr"
+        local KEY = "CTRL-SHIFT-F8"
+        local MODES = Constants.CUSTOM_STATE_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        -- **`DebindPrivate.CustomStates`의 슬롯만 갈아끼운다.** 그 표의 항목은
+        -- `db.customStates`의 표와 **같은 테이블**이라(`BindDerivedTables`), 필드를 고치면
+        -- 사용자의 저장된 설정을 고치는 것이 된다. 슬롯을 바꾸면 되돌릴 것이 참조 둘뿐이다.
+        local saved1, saved2 = DebindPrivate.CustomStates[1], DebindPrivate.CustomStates[2]
+        AddTeardown(function()
+            DebindPrivate.CustomStates[1] = saved1
+            DebindPrivate.CustomStates[2] = saved2
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+
+        DebindPrivate.CustomStates[2] = { mode = MODES.MANUAL, value = true }
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$state1"] = true })
+
+        -- 켜지는 쪽을 먼저 세운다. 이게 없으면 아래의 "안 걸림"이 계산식 상태로는 원래
+        -- 아무것도 안 걸리는 것과 구분되지 않는다.
+        DebindPrivate.CustomStates[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$state2]" }
+        ApplyBindings()
+        Wait(0.4)
+        local whenTrue = GetBindingAction(KEY, true) or ""
+        if whenTrue:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "전제가 깨졌다 - 참인 계산식($state2=켜짐)인데 %q. 계산식 상태가 바인딩까지 안 닿는다",
+                whenTrue))
+        end
+
+        DebindPrivate.CustomStates[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$typo]" }
+        ApplyBindings()
+        Wait(0.4)
+        local whenUndefined = GetBindingAction(KEY, true) or ""
+        if whenUndefined ~= "" then
+            return Fail(NAME, format(
+                "미정의 이름이 계산식을 참으로 만들었다 (%q) - 그 상태를 쓰는 바인딩이 전부 켜진다",
+                whenUndefined))
+        end
+
+        return Pass(NAME, format("[$state2] -> %s / [$typo] -> 안 걸림", whenTrue))
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Special Units (macrotext with @tank etc.)
 -----------------------------------------------------------
