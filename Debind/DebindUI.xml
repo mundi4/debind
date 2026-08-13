@@ -303,11 +303,14 @@
 					which is what this is. On top of the art it also stopped being separable - a
 					spell icon is already made of bright shapes.
 
-					**In the run before the name, not on the icon.** That run is where this window
-					already puts marks about a row (the layer icons), and it is the one place with
-					room: the name and key columns are full, and the icon's own corners are the
-					art's. `Update` anchors it and shortens the name to match, exactly as it already
-					does for the layer icons.
+					**Centred on the icon's top edge**, so half of it hangs clear. Inside the icon
+					it is one more bright shape among the ones a spell icon is made of and stops
+					being separable; straddling the edge it is unmistakably something added.
+					Blizzard hangs its own notification the same way - top centre, poking out past
+					the button (`MainMenuBarMicroButtonNotificationTemplate`).
+
+					It costs no room in the row, which is why it can be this size: the name and key
+					columns are both full, and this overlaps nothing but the gap above the icon.
 
 					`-lg` rather than `-sm`: the small one is used at its atlas size and nowhere
 					with a number, while `-lg` is the one Blizzard sizes explicitly at 25 and 30
@@ -316,9 +319,8 @@
 				-->
 				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
 					<Size x="25" y="25"/>
-					<!-- A standing place only. `Update` moves it to the end of the icon run. -->
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="7"/>
+						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP"/>
 					</Anchors>
 				</Texture>
 			</Layer>
@@ -449,14 +451,13 @@
 					Reasoning is over there.
 
 					Smaller, because this row is 28px where that one is 46 - a dot the same size
-					would be most of the row's height. **The name moves for it** (`Update`), the
-					same way it does over there; here the name has a right anchor too, so only its
-					left edge shifts and nothing runs under the reason column.
+					would be taller than the row. It costs no room here either: the gap above a
+					20px icon in a 28px row is exactly where it goes.
 				-->
 				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
 					<Size x="18" y="18"/>
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="4" y="0"/>
+						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP"/>
 					</Anchors>
 				</Texture>
 			</Layer>
