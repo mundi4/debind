@@ -1422,6 +1422,9 @@ end
 --- 저쪽을 고치면 여기도 고쳐야 하므로 계산을 한 자리에 모아둔다.
 local LINE_NAME_WIDTH = 430;
 local LAYER_ICON_NAME_OFFSET = { [1] = 19, [2] = 36 };
+--- 같은 계산의 배지 몫: 배지 크기(25) + 그 뒤 간격(3). 배지는 늘 줄의 마지막이라 앞에
+--- 무엇이 몇 개 섰든 이 값 하나가 더해진다.
+local NEW_DOT_NAME_OFFSET = 28;
 
 DebindLineMixin = {};
 
@@ -1443,11 +1446,6 @@ function DebindLineMixin:Update()
 	self.Name:SetText(name);
 
 	SetActionIcon(self.Icon, icon);
-
-	-- **Not dealt with yet** - today that means imported and not yet approved (the XML comment
-	-- has the reasoning). `BuildKeyMap` skips such an action, so its name is already grey; but
-	-- grey also means "no key", and telling those two apart is what this mark is for.
-	self.NewDot:SetShown(action.imported ~= nil);
 
 	-- 레이어 아이콘은 오버뷰 탭에서만 켜진다(XML 주석에 이유가 있다). 규칙은 순서 리스트와
 	-- 같고 - 좁혀진 축마다 하나씩, 빈 칸은 안 남김 - 그래서 이름의 왼쪽 앵커도 여기서 다시
@@ -1472,12 +1470,32 @@ function DebindLineMixin:Update()
 	-- 밀면 **끝점이 같이 밀려** 같은 줄 오른쪽의 InfoText(@대상) 아래로 들어간다.
 	-- 아이콘이 먹은 만큼을 빼면 오른쪽 끝은 아이콘이 없을 때와 같은 자리에 선다.
 	local nameOffset = LAYER_ICON_NAME_OFFSET[shown] or 0;
-	self.Name:ClearAllPoints();
+
+	-- 아이콘 → [레이어 아이콘…] → [배지] → 이름. 한 줄에 늘어서고, 뒤엣것이 앞엣것 오른쪽에
+	-- 붙으므로 "지금까지의 끝"을 들고 내려간다. 아이콘 뒤에 바로 붙을 때만 y가 +7인데,
+	-- 레이어 아이콘이 이미 그 높이에 서 있어서 그 뒤로는 0이다.
+	local tail, gap, dy = self.Icon, 5, 7;
 	if (shown > 0) then
-		self.Name:SetPoint("LEFT", self.LayerIcons[shown], "RIGHT", 5, 0);
-	else
-		self.Name:SetPoint("LEFT", self.Icon, "RIGHT", 5, 7);
+		tail, gap, dy = self.LayerIcons[shown], 5, 0;
 	end
+
+	-- **아직 안 만진 것.** 지금 그 뜻을 갖는 것은 가져왔지만 승인 전인 액션 하나뿐이다
+	-- (XML 주석 참고). 그 액션은 `BuildKeyMap`이 건너뛰므로 이름이 이미 회색인데, 회색은
+	-- "키 없음"도 뜻하므로 둘을 가르는 것이 이 표시다.
+	local showNewDot = action.imported ~= nil;
+	self.NewDot:SetShown(showNewDot);
+	if (showNewDot) then
+		self.NewDot:ClearAllPoints();
+		self.NewDot:SetPoint("LEFT", tail, "RIGHT", gap, dy);
+		tail, gap, dy = self.NewDot, 3, 0;
+		nameOffset = nameOffset + NEW_DOT_NAME_OFFSET;
+	end
+
+	-- 폭도 같이 줄인다. 이 칸은 오른쪽 앵커 없이 고정 폭으로 서 있어서(XML), 시작점만
+	-- 밀면 **끝점이 같이 밀려** 같은 줄 오른쪽의 InfoText(@대상) 아래로 들어간다.
+	-- 앞에 선 것들이 먹은 만큼을 빼면 오른쪽 끝은 아무것도 없을 때와 같은 자리에 선다.
+	self.Name:ClearAllPoints();
+	self.Name:SetPoint("LEFT", tail, "RIGHT", gap, dy);
 	self.Name:SetWidth(LINE_NAME_WIDTH - nameOffset);
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
@@ -3952,7 +3970,12 @@ function DebindOrderLineMixin:Update()
 
 	self:SetReasonText(GetOrderReasonText(elementData));
 
-	self.NewDot:SetShown(row.action.imported ~= nil);
+	-- 배지가 서면 이름이 그 오른쪽에서 시작한다. 왼쪽 앵커만 다시 잡는다 - 이 칸은 오른쪽에도
+	-- 앵커가 있어서(XML) 오른쪽 끝은 사유 칸이 잡고 있고, 폭은 저절로 줄어든다.
+	local showNewDot = row.action.imported ~= nil;
+	self.NewDot:SetShown(showNewDot);
+	self.Name:SetPoint("LEFT", showNewDot and self.NewDot or self.Icon, "RIGHT",
+		showNewDot and 4 or 7, 0);
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);

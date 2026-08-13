@@ -298,26 +298,27 @@
 					The atlas is the dot Blizzard marks a new thing with, and it calls its own copies
 					`TutorialBadge` and `BadgeTexture` - the same word for the same job.
 
-					**A dot rather than a glow around the icon.** A glow reads as "this one is lit
-					up", which is a thing about the action; a dot reads as a mark somebody put
-					there, which is what this is.
+					**A dot rather than a glow on the icon.** A glow reads as "this one is lit up",
+					which is a thing about the action; a dot reads as a mark somebody put there,
+					which is what this is. On top of the art it also stopped being separable - a
+					spell icon is already made of bright shapes.
 
-					**Outside the icon, above it, and that is not a detail.** Sat on top of the art
-					it is one more bright shape among the bright shapes spell icons are made of, and
-					stops being separable from them. Clear of the edge it is unmistakably something
-					added. Blizzard hangs its own notification dot the same way - top centre, poking
-					out past the button (`MainMenuBarMicroButtonNotificationTemplate`).
+					**In the run before the name, not on the icon.** That run is where this window
+					already puts marks about a row (the layer icons), and it is the one place with
+					room: the name and key columns are full, and the icon's own corners are the
+					art's. `Update` anchors it and shortens the name to match, exactly as it already
+					does for the layer icons.
 
-					**It hangs off the icon and nowhere else.** The name column and the key column
-					are both full already, and every row template that draws an action has an
-					`Icon`, so the same block moves across unchanged. The name greys out but the
-					icon keeps its colours (`ColoredNameAndIconForAction` only touches text), which
-					is what makes this readable in a run of grey rows.
+					`-lg` rather than `-sm`: the small one is used at its atlas size and nowhere
+					with a number, while `-lg` is the one Blizzard sizes explicitly at 25 and 30
+					(`NotificationIconFrameTemplate`). Blowing the small one up is how it ends up
+					mushy.
 				-->
-				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-sm" hidden="true">
-					<Size x="18" y="18"/>
+				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
+					<Size x="25" y="25"/>
+					<!-- A standing place only. `Update` moves it to the end of the icon run. -->
 					<Anchors>
-						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP" x="0" y="2"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="7"/>
 					</Anchors>
 				</Texture>
 			</Layer>
@@ -443,13 +444,19 @@
 			</Layer>
 			<Layer level="OVERLAY">
 				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-				<!-- The same mark the bin list carries, meaning the same thing, hung the same way.
-				     Reasoning is over there. Smaller: this row is 28px where that one is 46, so a
-				     dot the same size would be most of the row's height. -->
-				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-sm" hidden="true">
-					<Size x="12" y="12"/>
+				<!--
+					The same mark the bin list carries, in the same place: before the name.
+					Reasoning is over there.
+
+					Smaller, because this row is 28px where that one is 46 - a dot the same size
+					would be most of the row's height. **The name moves for it** (`Update`), the
+					same way it does over there; here the name has a right anchor too, so only its
+					left edge shifts and nothing runs under the reason column.
+				-->
+				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
+					<Size x="18" y="18"/>
 					<Anchors>
-						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP" x="0" y="1"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="4" y="0"/>
 					</Anchors>
 				</Texture>
 			</Layer>
