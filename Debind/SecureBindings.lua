@@ -1211,3 +1211,66 @@ end, [==[
 	self:SetAttribute("useOnKeyDown", nil)
 ]==]);
 
+--- A way to reach the click-time decision without a click. **DEBUG only** - in a shipped build
+--- the attribute is never set, so there is no second caller of `EVAL_SNIPPET` to keep in step.
+---
+--- **Hardware input is the only thing that can drive the real wrapper.** `Click()` on a protected
+--- button does not fire `OnClick` from insecure code (`SecureHandlers.lua`'s `Wrapped_Click` never
+--- runs), and the restricted environment is no way round it -- frame handles carry
+--- `SetBindingClick` but nothing that presses one. That left the suite with a choice between
+--- stopping to ask a person to press a key on every run and reaching the decision another way.
+--- **A test addon exists to spend less of someone's time, so it reaches it another way.**
+---
+--- What this covers is what actually changes: the same `EVAL_SNIPPET` text the wrappers splice,
+--- with the wrapper's prologue replaced by an argument. What it cannot see is that a real press
+--- arrives and arrives under this button name -- and `GetBindingAction` answers both of those
+--- without anyone clicking anything.
+if (DebindPrivate.DEBUG) then
+	DebindPrivate.InstallSnippet(function(body)
+		BindingDriver:SetAttribute("EvalClickTimeKey", body);
+	end, [==[
+		local button = ...
+		local bindings = ClickTimeKeys[button]
+		if (not bindings) then
+			return
+		end
+
+		-- 키로 들어온 클릭과 같은 자리에 선다: 클릭캐스팅이 아니므로 `isNonClick` 레코드를 보고,
+		-- hover는 enter/leave가 남긴 캐시에서 온다.
+		local clickCast = false
+		local winner, hoverUnit
+		local evalFrame = States.unitframe
+]==] .. EVAL_SNIPPET .. [==[
+		return winner and winner.clickbutton or nil
+	]==]);
+
+	--- The same door for the click-cast side. Run it **for the unit frame** (`RunFor`), which is
+	--- what the real wrapper does -- `evalFrame` being the frame itself is the whole reason that
+	--- path does not read the hover cache.
+	---
+	--- Answering `nil` is the fall-through: the wrapper leaves the button name alone and the click
+	--- carries on into the frame's own handler. A test can read that answer, but only a real click
+	--- can show the carrying-on, so that half stays uncovered.
+	DebindPrivate.InstallSnippet(function(body)
+		BindingDriver:SetAttribute("EvalClickCastFrame", body);
+	end, [==[
+		local n, mod = ...
+		local info = ccframes[self]
+		if (not info) then
+			return
+		end
+
+		local byMod = ClickCastKeys[n]
+		local bindings = byMod and byMod[mod]
+		if (not bindings) then
+			return
+		end
+
+		local clickCast = true
+		local winner, hoverUnit
+		local evalFrame = info
+]==] .. EVAL_SNIPPET .. [==[
+		return winner and winner.clickbutton or nil
+	]==]);
+end
+

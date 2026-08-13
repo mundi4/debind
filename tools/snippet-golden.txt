@@ -1697,6 +1697,388 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("pressAndHoldAction", nil)
 	self:SetAttribute("useOnKeyDown", nil)
 
+### SecureBindings.lua #26 InstallSnippet
+		local button = ...
+		local bindings = ClickTimeKeys[button]
+		if (not bindings) then
+			return
+		end
+
+
+
+		local clickCast = false
+		local winner, hoverUnit
+		local evalFrame = States.unitframe
+
+
+
+
+
+
+	local unitframe = evalFrame
+	local hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+	local memoReady = false
+
+
+
+	local subset = clickCast and "isClick" or "isNonClick"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
+					match = false
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
+				end
+			end
+
+
+
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= States.combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+				(t.stealth ~= nil and t.stealth ~= States.stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+				(t.pet ~= nil and t.pet ~= States.pet)
+			)) then
+				match = false
+			end
+
+			if (match and t.customStates) then
+				for state, v in pairs(t.customStates) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+			if (match and t.known ~= nil and States[t.known] ~= true) then
+				match = false
+			end
+
+			if (match and t.units) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
+				end
+
+
+
+
+
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						else
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
+						end
+
+
+
+
+
+
+						local exists
+						if (not unit) then
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
+							end
+						else
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
+								end
+							end
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				
+				break
+			end
+		end
+	end
+		return winner and winner.clickbutton or nil
+	
+
+### SecureBindings.lua #27 InstallSnippet
+		local n, mod = ...
+		local info = ccframes[self]
+		if (not info) then
+			return
+		end
+
+		local byMod = ClickCastKeys[n]
+		local bindings = byMod and byMod[mod]
+		if (not bindings) then
+			return
+		end
+
+		local clickCast = true
+		local winner, hoverUnit
+		local evalFrame = info
+
+
+
+
+
+
+	local unitframe = evalFrame
+	local hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+	local group = States.group
+	local form = 2 ^ (States.form or 0)
+	local bonusbar = 2 ^ (States.bonusbar or 0)
+
+	local memoReady = false
+
+
+
+	local subset = clickCast and "isClick" or "isNonClick"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
+					match = false
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
+				end
+			end
+
+
+
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= States.combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
+				(t.stealth ~= nil and t.stealth ~= States.stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
+				(t.pet ~= nil and t.pet ~= States.pet)
+			)) then
+				match = false
+			end
+
+			if (match and t.customStates) then
+				for state, v in pairs(t.customStates) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+			if (match and t.known ~= nil and States[t.known] ~= true) then
+				match = false
+			end
+
+			if (match and t.units) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
+				end
+
+
+
+
+
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						else
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
+						end
+
+
+
+
+
+
+						local exists
+						if (not unit) then
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
+							end
+						else
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
+								end
+							end
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				
+				break
+			end
+		end
+	end
+		return winner and winner.clickbutton or nil
+	
+
 ### UnitWatch.lua #1 SecureHandlerExecute
     unitwatch = self
     debind_driver = self:GetFrameRef("debind_driver")

@@ -529,22 +529,63 @@ local function EnableProbes()
     return true
 end
 
---- Presses the key, the way the game would. A click-time key does not decide anything until it
---- is pressed -- the whole point of that path is that the winner is chosen at the press -- so
---- this is the only way to reach the decision at all.
+--- Runs the click-time decision for `key` and leaves the answer in `LastWinner()`.
 ---
---- The action attached to the winner really does run. In a session set aside for testing that is
---- not a cost worth designing around; the tests use macro bodies that do nothing so the output
---- stays readable, not to avoid consequences.
-local function PressKey(key)
+--- **Nobody presses anything.** A real press cannot be made from Lua -- `Click()` on a protected
+--- button does not fire `OnClick` from insecure code, and the restricted environment has no click
+--- of its own -- so the addon carries a DEBUG-only `EvalClickTimeKey` that runs the same
+--- `EVAL_SNIPPET` the wrapper splices. Asking a person to press a key on every run was the other
+--- option, and this kit exists to spend less of their time, not more.
+---
+--- What this does not prove: that a real press arrives, and that it arrives under this button
+--- name. Assert those with `GetBindingAction`, which needs no press either.
+---
+--- Needs `EnableProbes()`: the index comes back through `PROBE.Winner`.
+local function EvalClickTimeKey(key)
     local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
     if not button then
-        return nil, format("%s 는 클릭 시점 키가 아니다 (ClickTimeKeys에 없음)", key)
+        return false, format("%s 는 클릭 시점 키가 아니다 (ClickTimeKeys에 없음)", key)
     end
 
     wipe(probeReports)
-    DebindPrivate.DefaultClickFrame:Click(button)
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format(
+        [[self:RunAttribute("EvalClickTimeKey", %q)]], button))
     return true
+end
+
+--- What the click-cast side answered: the button name it chose, or nil for "not ours, carry on".
+local lastEvalAnswer
+
+--- Runs the click-cast decision for `frame` as if it were clicked with mouse button `n` under
+--- modifier mask `mod`. Same shape as `EvalClickTimeKey` and the same limits -- see there.
+---
+--- Run **for the frame**, because that is what the real wrapper does: the click-cast path reads
+--- hover off the frame under the cursor rather than off the cache, and running it for anything
+--- else would quietly test the other branch.
+local function EvalClickCast(frame, n, mod)
+    if type(DebindPrivate.ccframes[frame]) ~= "table" then
+        return false, "등록된 프레임이 아니다 (ccframes에 없음)"
+    end
+
+    wipe(probeReports)
+    lastEvalAnswer = nil
+    DebindPrivate.BindingDriver.DebindTestEvalAnswer = function(_, answer)
+        lastEvalAnswer = answer
+    end
+
+    SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_eval", frame)
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
+        local f = self:GetFrameRef("debindtest_eval")
+        local answer = self:RunFor(f, self:GetAttribute("EvalClickCastFrame"), %d, %d)
+        self:CallMethod("DebindTestEvalAnswer", answer)
+    ]], n, mod))
+    return true
+end
+
+--- The button name the last `EvalClickCast` chose, or nil if it declined. `CallMethod` is queued,
+--- so this needs a `Wait` after the call.
+local function LastEvalAnswer()
+    return lastEvalAnswer
 end
 
 --- The record index the snippet last reported as the winner, or nil if it reported none.
@@ -1291,77 +1332,6 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
     end,
 })
 
---- Waits for a real mouse click on a frame, shown in the middle of the results window.
----
---- **A test cannot click this itself, and no warm-up changes that.** The wrapper body is a
---- restricted closure; `RestrictedExecution.lua:470` refuses to call one from insecure code, and
---- addon code always is. Declaring the signature was only the first wall. Hardware input on a
---- wrapped frame is the only way into a click-time decision, so the kit asks for one.
----
---- The hook is insecure and rides alongside the secure wrapper without disturbing it; it is only
---- how the test learns the click happened.
-local function WaitForRealClick(frame, button, text, timeout)
-    frame.debindTestClicked = nil
-
-    -- **Hooked every time, not once.** Turning probes on rebakes the bodies, and the addon
-    -- rewraps every registered frame to pick them up -- `SecureHandlerUnwrapScript` puts back the
-    -- script from before the wrap, which is from before this hook, so the hook goes with it.
-    --
-    -- Frames the kit builds are new each run and got a fresh hook by accident. PlayerFrame is the
-    -- same object every time, so a "hook once" guard left it with no hook from the second run on
-    -- and the click never registered. Stacking a hook per wait costs a field assignment.
-    frame:HookScript("OnClick", function(self, clicked)
-        self.debindTestClicked = clicked or true
-    end)
-
-    wipe(probeReports)
-    UI.ShowClickTarget(frame, text)
-
-    -- Cleared on the way out of every path below, and reset again when the runner starts the next
-    -- test -- a flag that switches the timeout off is not one to leave to a single assignment.
-    awaitingHuman = true
-
-    local waited, limit = 0, timeout or 25
-    while frame.debindTestClicked ~= button and waited < limit do
-        Wait(0.25)
-        waited = waited + 0.25
-    end
-
-    awaitingHuman = false
-
-    -- Hiding is the runner's, registered the moment it is shown, so a test that fails or throws
-    -- before this point cannot leave the window covered by the thing it was asked to click.
-    UI.HideClickTarget()
-
-    if frame.debindTestClicked ~= button then
-        return false, format("%s초 안에 %s 클릭이 없었다 (받은 것: %s)",
-            limit, button, tostring(frame.debindTestClicked))
-    end
-
-    -- The probe reports through CallMethod, which is queued rather than called.
-    Wait(0.4)
-    return true
-end
-
---- Puts an action of the frame's own in the slot our routing avoids, and returns a reader for
---- whether it ran. That answers the question a nil winner cannot: a click that never executed
---- anything and a click our wrapper declined look identical from the winner alone.
----
---- **Our frames only.** Stamping this onto one of Blizzard's would be the addon doing the thing
---- this whole change exists to stop doing.
-local function ArmOwnAction(frame, suffix)
-    local typeAttr, textAttr = "*type" .. suffix, "*macrotext" .. suffix
-    _G.DEBIND_TEST_FELL_THROUGH = nil
-    frame:SetAttribute(typeAttr, "macro")
-    frame:SetAttribute(textAttr, "/run DEBIND_TEST_FELL_THROUGH = true")
-    AddTeardown(function()
-        frame:SetAttribute(typeAttr, nil)
-        frame:SetAttribute(textAttr, nil)
-        _G.DEBIND_TEST_FELL_THROUGH = nil
-    end)
-    return function() return _G.DEBIND_TEST_FELL_THROUGH and true or false end
-end
-
 --- The frames a click-cast test has to cover: one we made, and one of Blizzard's.
 ---
 --- **Driving only our own frame would miss the thing that changed.** Blizzard's frames are the
@@ -1469,25 +1439,24 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 
         local seen = {}
         for _, target in ipairs(targets) do
-            -- Only to tell the two failures apart if this fails. When we do pick a winner the
-            -- button is renamed and this never runs.
-            local ranOwn = not target.blizzard and ArmOwnAction(target.frame, 3) or nil
-            if ranOwn then Wait(0.4) end
+            -- Hover is what the record is conditioned on, and the click-cast path reads it off the
+            -- frame rather than the cache -- so it has to be under the cursor for real.
+            HoverEnter(target.frame)
+            AddTeardown(function() HoverLeave(target.frame) end)
+            Wait(0.4)
 
-            local clicked, cerr = WaitForRealClick(target.frame, "MiddleButton", target.blizzard
-                and format("화면의 %s 를 가운데 버튼으로 클릭", target.label)
-                or "아래 칸을 가운데 버튼으로 클릭")
-            if not clicked then
-                return Fail(NAME, format("%s: %s", target.label, cerr))
-            end
+            local ran, rerr = EvalClickCast(target.frame, 3, 0)
+            if not ran then return Fail(NAME, format("%s: %s", target.label, rerr)) end
+            Wait(0.4)
 
             if LastWinner() == nil then
-                return Fail(NAME, format("%s: 아무것도 안 골랐다 (%s)", target.label,
-                    ranOwn == nil and "블리자드 프레임"
-                    or ranOwn() and "클릭은 실행됐다 -> 래퍼가 안 붙었거나 조건이 안 맞았다"
-                    or "클릭이 액션까지 못 갔다 -> 래핑 이전에 클릭 경로부터 볼 것"))
+                return Fail(NAME, format("%s: 아무것도 안 골랐다 - 조건이 안 맞았거나 "
+                    .. "그 버튼·수식어로 등록된 키가 없다", target.label))
             end
             seen[#seen + 1] = format("%s=%d", target.label, LastWinner())
+
+            HoverLeave(target.frame)
+            Wait(0.2)
         end
 
         return Pass(NAME, table.concat(seen, ", "))
@@ -1535,19 +1504,22 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         local targets, terr = ClickCastTargets()
         if not targets then return Fail(NAME, terr) end
 
-        -- **Our own frame only, so this costs one click rather than two.** The Blizzard target
-        -- would only be able to assert "nothing was chosen", and a wrapper that was never
-        -- installed gives that same answer -- a click's worth of nothing.
+        -- **Our own frame only.** The Blizzard target could only assert "nothing was chosen", and
+        -- a wrapper that was never installed gives that same answer.
+        --
+        -- **What is asserted is the decline, not the carrying-on.** Declining is answering nil,
+        -- which leaves the button name alone so the click continues into the frame's own handler
+        -- -- and only a real click can show that continuing. Answering nil is the half this addon
+        -- decides; the rest is the game's.
         for _, target in ipairs(targets) do
             if not target.blizzard then
-                local ranOwn = ArmOwnAction(target.frame, 1)
+                HoverEnter(target.frame)
+                AddTeardown(function() HoverLeave(target.frame) end)
                 Wait(0.4)
 
-                local clicked, cerr = WaitForRealClick(target.frame, "LeftButton",
-                    "아래 칸을 왼쪽 버튼으로 클릭")
-                if not clicked then
-                    return Fail(NAME, format("%s: %s", target.label, cerr))
-                end
+                local ran, rerr = EvalClickCast(target.frame, 1, 0)
+                if not ran then return Fail(NAME, format("%s: %s", target.label, rerr)) end
+                Wait(0.4)
 
                 if LastWinner() ~= nil then
                     return Fail(NAME, format(
@@ -1555,15 +1527,19 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
                         target.label, LastWinner()))
                 end
 
-                if not ranOwn() then
+                if LastEvalAnswer() ~= nil then
                     return Fail(NAME, format(
-                        "%s: 프레임 자신의 동작이 안 나갔다. 래퍼가 nil이 아닌 것을 반환했거나 우리가 그 자리를 덮었다",
-                        target.label))
+                        "%s: 고른 것이 없는데 %q를 반환했다. 그러면 버튼 이름이 바뀌어 프레임 "
+                        .. "자신의 동작이 안 나간다",
+                        target.label, tostring(LastEvalAnswer())))
                 end
+
+                HoverLeave(target.frame)
+                Wait(0.2)
             end
         end
 
-        return Pass(NAME, "안 맞음 -> 고르지 않음, 프레임 원래 동작이 나감")
+        return Pass(NAME, "안 맞음 -> 고르지 않고 이름도 안 바꿈 (프레임 쪽으로 넘어간다)")
     end,
 })
 
@@ -1875,6 +1851,134 @@ RegisterTest("Hover frame types still narrow on their own", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: Click-time keys (what the press decides)
+-----------------------------------------------------------
+
+-- A key whose conditions cover the whole space is wired once, at build time, and the update loop
+-- never looks at it again -- so **everything about it that can be wrong is wrong at the press**,
+-- and nothing outside these two tests looks there. `GetBindingAction` answers the same `CLICK`
+-- for a key that picks the right action and for one that picks nothing at all.
+--
+-- Both use a key carrying `[combat]` and `[nocombat]`, which is the smallest binding whose
+-- conditions leave no gap: there is no state in which we would hand the key back.
+
+RegisterTest("Click-time key: the press picks the record the state matches", {
+    description = "배선이 고정된 키에서 누르는 순간의 상태가 승자를 가르는가",
+    run = function()
+        local NAME = "Click-time winner"
+        local KEY = "CTRL-SHIFT-F6"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+        end
+
+        local ok, err = EnableProbes()
+        if not ok then
+            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+        end
+
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
+            key = KEY, name = "combat", combat = true })
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "peace"',
+            key = KEY, name = "peace", combat = false })
+        ApplyBindings()
+
+        -- 양쪽을 다 본다. 한쪽만 보면 조건을 아예 안 보고 늘 같은 것을 고르는 구현도 통과한다.
+        local picked = {}
+        for _, want in ipairs({ true, false }) do
+            SetMockState("combat", want)
+            Wait(0.4)
+
+            -- **매번 다시 읽는다.** `SetMockState`가 끝에 리빌드를 돌리므로 KeyMap 배열이
+            -- 갈린다. 루프 밖에서 한 번 잡아두면 두 번째 바퀴가 죽은 표를 본다.
+            local records = GetKeyBindings(KEY)
+            if not records or #records ~= 2 then
+                return Fail(NAME, format("레코드가 2개여야 한다, 지금 %d개",
+                    records and #records or 0))
+            end
+
+            -- 걸려 있는지부터 본다. 이 대조가 없으면 평가만 맞고 실제로는 아무 키에도 안 걸린
+            -- 상태가 통과한다 - 평가를 클릭 없이 부르는 대가로 생기는 구멍이고, 여기서 막는다.
+            local bound = GetBindingAction(KEY, true) or ""
+            local want1 = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
+                .. ":" .. tostring(DebindPrivate.ClickTimeKeys[KEY])
+            if bound ~= want1 then
+                return Fail(NAME, format("combat=%s: %q, %q여야 한다",
+                    tostring(want), bound, want1))
+            end
+
+            local ran, rerr = EvalClickTimeKey(KEY)
+            if not ran then return Fail(NAME, rerr) end
+            Wait(0.4)
+
+            local idx = LastWinner()
+            if idx == nil then
+                return Fail(NAME, format(
+                    "combat=%s: 평가는 돌았는데 맞는 레코드가 없다", tostring(want)))
+            end
+
+            -- 승자 색인은 **방출된** 레코드 안에서의 자리다. 걸 수단이 없거나 도달 불가라
+            -- 떨어져 나간 것이 있으면 KeyMap 배열과 어긋나는데, 위에서 2개를 확인했고 둘 다
+            -- 매크로텍스트라 떨어질 이유가 없다.
+            local got = records[idx]
+            if not got then
+                return Fail(NAME, format("combat=%s 에서 색인 %d, 그 자리에 레코드가 없다",
+                    tostring(want), idx))
+            end
+            if got.combat ~= want then
+                return Fail(NAME, format("combat=%s 인데 combat=%s 레코드(%d번)를 골랐다",
+                    tostring(want), tostring(got.combat), idx))
+            end
+            picked[#picked + 1] = idx
+        end
+
+        -- **음성 대조.** 위 두 검사는 `records[idx].combat`을 보는데, 방출부가 `combat=false`를
+        -- 안 실어 보내면 그 레코드가 무조건 매치가 되고 색인은 양쪽 바퀴에서 같아진다 - 그때도
+        -- 두 검사가 다 통과할 수 있다(첫 바퀴에서 combat 레코드가 먼저 맞고, 둘째 바퀴에서도
+        -- 같은 것이 맞는데 KeyMap 쪽 `.combat`은 여전히 false로 남아 있는 경우). 색인이 실제로
+        -- 갈렸는지가 "조건을 보고 골랐다"의 유일한 직접 증거다.
+        if picked[1] == picked[2] then
+            return Fail(NAME, format(
+                "양쪽 다 %d번을 골랐다 - 조건을 안 보고 늘 같은 것을 고르고 있다", picked[1]))
+        end
+
+        return Pass(NAME, format("전투=%d번, 비전투=%d번", picked[1], picked[2]))
+    end,
+})
+
+-- The other half: the key stays ours. A binding that never gets handed back is the premise the
+-- build-time `SetBindingClick` rests on, and if the update loop ever decided to release this key
+-- the press above would have nothing to arrive at.
+--
+-- Three flips rather than two, so that "it happens to be right on the way out" fails.
+RegisterTest("Click-time key: fixed wiring is never handed back", {
+    description = "조건 공간이 다 덮인 키는 상태가 뒤집혀도 배선이 그대로인가",
+    run = function()
+        local NAME = "Click-time wiring"
+        local KEY = "CTRL-SHIFT-F12"
+
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
+            key = KEY, name = "combat", combat = true })
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "peace"',
+            key = KEY, name = "peace", combat = false })
+        ApplyBindings()
+
+        for _, want in ipairs({ true, false, true }) do
+            SetMockState("combat", want)
+            Wait(0.4)
+
+            local bound = GetBindingAction(KEY, true) or ""
+            if bound:sub(1, 6) ~= "CLICK " then
+                return Fail(NAME, format("combat=%s 에서 %q, CLICK 이어야 한다",
+                    tostring(want), bound))
+            end
+        end
+
+        return Pass(NAME, "상태를 뒤집어도 CLICK 그대로")
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Across a /reload
 -----------------------------------------------------------
 
@@ -2150,6 +2254,7 @@ local function Step()
             Persist()
             return true
         end
+
 
         pcall(CleanupActions)
         run.co = coroutine.create(test.run)
