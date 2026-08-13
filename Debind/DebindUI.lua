@@ -25,6 +25,9 @@ local FRAME_WIDTH            = 812;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
 local WARNING_FONT_COLOR     = CreateColor(1, 0.5, 0, 1);
+--- 가져왔지만 아직 승인 안 된 액션의 이름. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
+--- **뜻이 하나다** - 이 창은 이름 색으로 이미 셋을 말한다(회색·빨강·이 파랑). 넷째를 얹지 말 것.
+local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
 local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
 local luatype                = type;
@@ -798,7 +801,12 @@ end
 --- 단축키를 따로 안 보여주는 쪽(오버뷰, 툴팁 제목)은 안 넘기면 예전 그대로다.
 local function ColoredNameAndIconForAction(action, skipCategory)
 	local name, icon = NameAndIconForAction(action);
-	if (action.key == nil or DebindPrivate.IsInactiveAction(action)) then
+	if (action.imported) then
+		-- **회색 자리를 가져간다.** 가져온 액션은 빌드에 안 들어가므로 어차피 회색이 될
+		-- 것인데, 그러면 "키가 없다"와 구별이 안 된다. 파랑이 그 자리에 서면 "안 나간다"와
+		-- "왜"를 한 색이 같이 말한다. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
+		name = IMPORTED_FONT_COLOR:WrapTextInColorCode(name);
+	elseif (action.key == nil or DebindPrivate.IsInactiveAction(action)) then
 		name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
 	elseif (GetBindingIssue(action, nil, skipCategory)) then
 		name = ERROR_COLOR:WrapTextInColorCode(name);

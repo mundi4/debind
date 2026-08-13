@@ -292,30 +292,14 @@
 
 					**It carries one meaning. Do not recolour it into a second one** - this window
 					already says three things with colour (grey = not firing, red = has a problem,
-					yellow = the menu is open on it). A fourth and none of them read. If something
-					new needs saying, it needs a new mark.
+					yellow = the menu is open on it). A fourth and none of them read.
 
-					The atlas is the dot Blizzard marks a new thing with, and it calls its own copies
-					`TutorialBadge` and `BadgeTexture` - the same word for the same job.
+					**It has to break the icon's edge.** Wholly inside it is one more bright shape
+					among the ones a spell icon is made of, and stops being separable from the art.
 
-					**A dot rather than a glow on the icon.** A glow reads as "this one is lit up",
-					which is a thing about the action; a dot reads as a mark somebody put there,
-					which is what this is. On top of the art it also stopped being separable - a
-					spell icon is already made of bright shapes.
-
-					**Centred on the icon's top edge**, so half of it hangs clear. Inside the icon
-					it is one more bright shape among the ones a spell icon is made of and stops
-					being separable; straddling the edge it is unmistakably something added.
-					Blizzard hangs its own notification the same way - top centre, poking out past
-					the button (`MainMenuBarMicroButtonNotificationTemplate`).
-
-					It costs no room in the row, which is why it can be this size: the name and key
-					columns are both full, and this overlaps nothing but the gap above the icon.
-
-					`-lg` rather than `-sm`: the small one is used at its atlas size and nowhere
-					with a number, while `-lg` is the one Blizzard sizes explicitly at 25 and 30
-					(`NotificationIconFrameTemplate`). Blowing the small one up is how it ends up
-					mushy.
+					`-lg` and not `-sm`: the small one is only ever used at its atlas size, while
+					`-lg` is the one Blizzard gives explicit sizes to. Scaling the small one up is
+					how it goes mushy.
 				-->
 				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
 					<Size x="25" y="25"/>
@@ -446,14 +430,7 @@
 			</Layer>
 			<Layer level="OVERLAY">
 				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-				<!--
-					The same mark the bin list carries, in the same place: before the name.
-					Reasoning is over there.
-
-					Smaller, because this row is 28px where that one is 46 - a dot the same size
-					would be taller than the row. It costs no room here either: the gap above a
-					20px icon in a 28px row is exactly where it goes.
-				-->
+				<!-- The mark the bin list carries. Reasoning is over there. -->
 				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-lg" hidden="true">
 					<Size x="18" y="18"/>
 					<Anchors>
