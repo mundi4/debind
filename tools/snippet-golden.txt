@@ -2802,6 +2802,10 @@ for _, byMod in pairs(ClickCastKeys) do
 end
 wipe(HeldButtons)
 wipe(HeldUnits)
+
+HandoffBindings = nil
+HandoffWinner = nil
+HandoffHoverUnit = nil
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)

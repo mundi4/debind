@@ -292,6 +292,10 @@ for _, byMod in pairs(ClickCastKeys) do
 end
 wipe(HeldButtons)
 wipe(HeldUnits)
+-- Drop any unconsumed handoff -- it points into the old records.
+HandoffBindings = nil
+HandoffWinner = nil
+HandoffHoverUnit = nil
 wipe(MacroTextsMap)
 wipe(UnitStates)
 wipe(CustomStateExpressions)
