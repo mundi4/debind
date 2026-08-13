@@ -40,6 +40,9 @@ ignore:
   - node_modules
   - tools
   - CLAUDE.md
+  # Gitignored, so it is not in the checkout the packager sees to begin with. Listed anyway, so
+  # that "this one never goes to a user" is stated where the shipping list is decided.
+  - Debind/DevStamp.lua
 
 move-folders:
   # 값이 곧 게임이 보는 폴더 이름이고, **SavedVariables 파일 이름이 여기서 나온다.**

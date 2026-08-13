@@ -12,7 +12,9 @@
     "check:xml-methods": "node tools/check-xml-methods.js",
     "check:xml": "node tools/check-xml.js",
     "check:snippets": "node tools/check-snippets.js",
-    "check:snippet-golden": "node tools/check-snippet-golden.js"
+    "check:snippet-golden": "node tools/check-snippet-golden.js",
+    "stamp": "node tools/stamp-dev.js",
+    "stamp:install": "node tools/stamp-install.js"
   },
   "devDependencies": {
     "fengari": "^0.1.4"

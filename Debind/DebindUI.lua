@@ -2847,7 +2847,9 @@ function DebindFrameMixin:Refresh(retainScrollPosition)
 	-- 화면에 두 번 있다 - 통 아래의 탭과 오른쪽의 사이드탭이 각자 켜진 채로 서 있다.
 	-- 세 번째로 적으면서 얻는 것은 없고, 탭을 누를 때마다 창 이름이 바뀌어서 **같은 창이
 	-- 아닌 것처럼** 보이는 값은 치른다.
-	self:SetTitle(LLL["ADDON_NAME"]);
+	-- The version hangs off the name for the same reason it is on the login line: so a bug report
+	-- can carry it. Dimmed, because it is there to be found rather than read every time.
+	self:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
 	self:UpdateActionCounts();
 	self:UpdateEmptyText();
 end

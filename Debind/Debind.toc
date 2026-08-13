@@ -20,6 +20,19 @@
 libs.xml
 locales.xml
 
+#@debug@
+# The packager deletes this block, contents and all, from a released build. What it holds is one
+# generated line naming the checkout the game is loading, which the window title and the login
+# message show in place of a version -- a working copy has no version to show. The file is
+# gitignored; `npm run stamp:install` puts in the hook that writes it. Without the hook there is
+# no file, and `GetVersionLabel` in `Misc.lua` answers "dev".
+#
+# **Do not write this block's own opening or closing marker inside a comment here.** The filter is
+# a line range, so a comment quoting the closing marker ends the range early and the file name
+# below survives into the TOC every user gets. That is not hypothetical -- it happened once.
+DevStamp.lua
+#@end-debug@
+
 Debind.xml
 DebindUI.xml
 SpellPicker.xml

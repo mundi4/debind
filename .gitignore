@@ -6,5 +6,6 @@ tools/cache
 .editorconfig
 .claude/settings.local.json
 .claude/worktrees
+Debind/DevStamp.lua
 BlizzardInterfaceCode
 .zzz

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Refresh Debind/DevStamp.lua so the game shows which checkout is loaded.
+#
+# Fires on `git checkout`/`git switch` and on `git worktree add`. Worktrees share this hooks
+# directory, and the hook runs with the worktree as its working directory, so each one stamps
+# itself. See devdocs/dev-setup.md.
+#
+# Not tracked by git -- reinstall with: npm run stamp:install
+
+# $3 is 1 for a branch checkout, 0 for a file checkout (`git checkout -- path`), which changes
+# nothing this cares about.
+[ "$3" = "1" ] || exit 0
+
+command -v node >/dev/null 2>&1 || exit 0
+node "$(git rev-parse --show-toplevel)/tools/stamp-dev.js" >/dev/null 2>&1 || true

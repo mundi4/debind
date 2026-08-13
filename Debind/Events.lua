@@ -69,7 +69,19 @@ function Events.PLAYER_LOGIN()
     DebindPrivate.UpdateBlizzardFrames(true);
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
 
-    DebindPrivate.DisplayMessage(L["LOGIN_MESSAGE"]);
+    -- The version rides on the front of a line that was already printed, rather than taking a line
+    -- of its own. It is here so that a bug report can carry it without anyone having to ask.
+    --
+    -- Composed here rather than written into `LOGIN_MESSAGE`, so that the three locales keep the
+    -- one sentence they already have and no translator is handed work for a change that did not
+    -- alter what the sentence says. The separator is what keeps the version from reading as the
+    -- first word of it.
+    --
+    -- **ASCII, deliberately.** Each locale loads its own font file and players replace those, so a
+    -- dash or a middle dot is a glyph that may or may not be there -- and when it is not, the
+    -- separator that was meant to make the version legible renders as a box instead.
+    DebindPrivate.DisplayMessage(format("%s |cffa0a0a0-|r %s",
+        DebindPrivate.GetVersionLabel(), L["LOGIN_MESSAGE"]));
     if (DebindPrivate.CliqueDetected) then
         DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_CLIQUE_DETECTED"], WARNING_FONT_COLOR:GetRGBA());
     end
