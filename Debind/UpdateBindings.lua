@@ -282,7 +282,7 @@ for k, v in pairs(States) do
     OldStates[k] = v
 end
 self:RunAttribute("ClearUnitAttributes")
-wipe(BindingsMap)
+wipe(StateDrivenBindings)
 wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
@@ -753,10 +753,10 @@ local function mergeUnitConditions(a, b)
     return { reaction = reaction, dead = dead };
 end
 
---- Emits the line that creates a key's record list, and puts it in `BindingsMap` unless the key's
+--- Emits the line that creates a key's record list, and puts it in `StateDrivenBindings` unless the key's
 --- wiring is fixed.
 ---
---- **`BindingsMap` is read by the update loop and by nothing else.** A key whose wiring is fixed
+--- **`StateDrivenBindings` is read by the update loop and by nothing else.** A key whose wiring is fixed
 --- has nothing for that loop to decide -- it is bound once, below, and which action goes out is
 --- the wrapper's call at the click -- so being in the table only buys a walk over its records on
 --- every dirty flag, ending in "nothing to do". Out of the table, that walk does not happen.
@@ -768,7 +768,7 @@ local function AppendBindingsList(key, alwaysOurs)
     if (alwaysOurs) then
         appendLine("bindings=newtable()");
     else
-        appendLine("bindings=newtable();BindingsMap[%q]=bindings", key);
+        appendLine("bindings=newtable();StateDrivenBindings[%q]=bindings", key);
     end
 end
 
@@ -792,9 +792,9 @@ function UpdateBindingsMap()
             --
             -- `SetBindingAttributes`는 값이 못 쓰는 것이면 아무것도 안 걸고 되돌아간다
             -- (알 수 없는 펫 명령, 칸이 전부 빈 플라이아웃 등). 그런데 그때도 레코드는
-            -- `BindingsMap`에 실려 나갔고, 보안 쪽(`SecureBindings.lua`)은 그것을 **성사된
-            -- 바인딩으로 센다** - `keyBound`가 서면서 `SetBindingClick`도 `ClearBinding`도
-            -- 안 부르고, 아래쪽 `not keyBound` 청소까지 건너뛴다.
+            -- 실려 나갔고, 보안 쪽(`SecureBindings.lua`)은 그것을 **성사된 바인딩으로 센다** -
+            -- `keyBound`가 서면서 `SetBindingClick`도 `ClearBinding`도 안 부르고, 아래쪽
+            -- `not keyBound` 청소까지 건너뛴다.
             --
             -- 결과는 **키가 통째로 먹히는 것**이다. 그 액션이 안 나가는 데서 끝나지 않고
             -- 같은 키의 낮은 우선순위 액션들이 전부 막힌다. 야수를 안 데리고 다니는
@@ -908,7 +908,7 @@ function UpdateBindingsMap()
                             appendKeyValue("clickbutton", clickbutton);
                         end
 
-                        -- **대상은 여기서만 BindingsMap에 실린다.**
+                        -- **대상은 여기서만 레코드에 실린다.**
                         --
                         -- 옛 경로는 대상을 delegate 프레임의 맨이름 `unit`으로 나르므로
                         -- 실어 보낼 필요가 없었다. 클릭 시점 경로는 `DefaultClickFrame`

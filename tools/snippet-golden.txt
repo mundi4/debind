@@ -106,7 +106,15 @@ DelegateFrameNames[frame] = frame:GetName()
 	DefaultClickFrameName = DefaultClickFrame:GetName()
 	
 	CustomStateExpressions = newtable()
-	BindingsMap = newtable()
+
+
+
+
+
+
+	StateDrivenBindings = newtable()
+
+
 
 
 
@@ -446,7 +454,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	for key, bindings in pairs(BindingsMap) do
+	for key, bindings in pairs(StateDrivenBindings) do
 		local check = forceAll
 		if (not check and bindings.updateFlags) then
 			for flag in pairs(DirtyFlags) do
@@ -2195,7 +2203,7 @@ for k, v in pairs(States) do
     OldStates[k] = v
 end
 self:RunAttribute("ClearUnitAttributes")
-wipe(BindingsMap)
+wipe(StateDrivenBindings)
 wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)

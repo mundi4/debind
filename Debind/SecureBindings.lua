@@ -74,13 +74,21 @@ SecureHandlerExecute(BindingDriver, [[
 	DefaultClickFrameName = DefaultClickFrame:GetName()
 	
 	CustomStateExpressions = newtable()
-	BindingsMap = newtable()
 
-	-- 클릭 시점 평가로 넘긴 키들. 버튼 이름("@" + 키) -> 그 키의 BindingsMap 배열.
+	-- 배선이 상태에 달린 키들. 키 -> 그 키의 레코드 배열.
+	--
+	-- **모든 키가 아니다.** 배선이 고정된 키(`IsKeyAlwaysOurs`)는 빌드 시점에 한 번 걸고 끝이라
+	-- 여기 안 들어온다 - 이름이 말하는 그대로다. 모양(키 -> 배열)만 보고 "전부 있겠지"로 읽으면
+	-- 안 된다. 아래 상태 루프가 이 표의 유일한 독자다.
+	StateDrivenBindings = newtable()
+
+	-- 클릭 시점 평가로 넘긴 키들. 버튼 이름("@" + 키) -> 그 키의 레코드 배열.
 	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
+	--
+	-- **배선이 고정된 키는 이 표에만 있다.** 그런 키의 배열을 붙드는 것이 여기 하나뿐이다.
 	ClickTimeKeys = newtable()
 
-	-- 클릭캐스팅으로 도착한 클릭. `[버튼번호][수식어] -> 그 키의 BindingsMap 배열`.
+	-- 클릭캐스팅으로 도착한 클릭. `[버튼번호][수식어] -> 그 키의 레코드 배열`.
 	--
 	-- **이쪽은 이름을 못 받는다.** 유닛 프레임은 `type="click"`으로 우리에게 넘기는데
 	-- `SECURE_ACTIONS.click`은 `delegate:Click(button)`이라 원래 마우스 버튼 이름만 온다
@@ -368,7 +376,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	--
 	-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기 있고,
 	-- "잡느냐 놓느냐"를 계속 정해야 한다 - 빼면 놓아줘야 할 때 못 놓는다.
-	for key, bindings in pairs(BindingsMap) do
+	for key, bindings in pairs(StateDrivenBindings) do
 		local check = forceAll
 		if (not check and bindings.updateFlags) then
 			for flag in pairs(DirtyFlags) do
