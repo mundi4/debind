@@ -1,13 +1,16 @@
 # Debind
 
-**Your mounts are warband-wide. Your keybinds are still all-or-nothing.**
+**Set a key once, for every character you have. Override it on one class, one spec, or a single alt — and only that key changes.**
 
-Debind puts the layers in between. Set a key once for every character, then override it on one class, one spec, or one character. Whatever you already bound in WoW's own keybinding window stays exactly where it is.
+A key in Debind goes straight to a spell, an item, or a macro — no action bar slot involved — and the layers decide which characters it covers. Whatever you already bound in WoW's own keybinding window stays exactly where it is.
 
 - **Layers, not profiles.** account → class → spec → this character → that character's spec. The narrowest layer holding that key wins; the rest keep every other key. Nothing to switch by hand — the layers follow your character and spec.
-- **`@healer` and `@tank` that actually work.** WoW's macro conditionals have no idea what a healer is. Debind does, so `/cast [@healer,exists][] Innervate` is one line.
-- **Conditions on any key.** In combat, in a form, hovering a unit frame, party or raid — re-checked as they change.
+- **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
+- **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
+- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it.
 - **Flip what a key does mid-fight.** Five switches of your own, usable in combat, without spending a real modifier.
+
+![The Debind window. The overview column on the left shows every key in the order it fires; the right side is the layer being edited.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/main-window.png)
 
 ## The problem
 
@@ -17,7 +20,7 @@ Addons have been putting spells on keys without a bar slot for years. None of th
 
 **Which characters is this key for?**
 
-Most of your binds are the same on every character. Some belong to one class. A few to one spec, one or two to a single character. All-or-nothing has no way to say that. Go character-specific and every key that was the same everywhere now has to be set everywhere — the chore you were trying to avoid, times your alt count.
+Most of your binds are the same on every character. Some belong to one class. A few to one spec, one or two to a single character. WoW's own switch is all-or-nothing — the whole set shared, or the whole set per-character — and all-or-nothing has no way to say that. Go character-specific and every key that was the same everywhere now has to be set everywhere — the chore you were trying to avoid, times your alt count.
 
 So the binds have to be layered.
 
@@ -38,6 +41,8 @@ Say `R` is Rebirth, in Shared / Class. Every druid you have presses `R` for a ba
 
 No profiles to pick. The layers follow your character and spec, and change when they do.
 
+![Two layer tabs and their tooltips: Shared / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
+
 **That last row stays out of it.** Debind doesn't copy your keybindings in, doesn't change them, and doesn't run them for WoW. When nothing you put on a key applies, Debind's binding comes off and the game handles the press itself. A key you never gave to Debind was never involved at all.
 
 WoW's keybinding window has an *account-wide* / *character-specific* switch. It makes no difference to Debind either way — leave yours where it is.
@@ -53,6 +58,8 @@ The list you land on is the layer you're editing. The tabs along the bottom pick
 **Overview**, the tab at the bottom left, opens a second column beside it: every key you have bound, grouped by key, in the order Debind tries them, for the character and spec you're on. Read this one when you want to know what a key actually does — it covers every tab at once, not just the one you have open. Click a row and you land on that action in whichever layer it lives in.
 
 The **+** at the top opens **Add an Action**, with a search box over everything in it. It stays open while you work, and every click adds to whichever layer tab you have open. Dragging a spell, item, macro or mount onto the list works too.
+
+![The Add an Action window on its Spells tab, listing the character's spells with tabs for Macros, Mounts, Toys, Commands and Special.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/add-an-action.png)
 
 To give something a key, turn on **Set Keys** at the top of the window, point at the action and press the key. Mouse buttons and the wheel count. While that mode is on:
 
@@ -71,6 +78,8 @@ Everything else about an action — conditions, targets, importance, moving and 
 - **Use WoW's Own Binding**, on **Special** — gives the key back to WoW for the cases you pick, so one spec can go on using your normal binding.
 - **Set Custom Target** and **Set Custom State**, on **Special** — the next two sections.
 
+![A Custom Macro named "Innervate the healer" open in the editor — kept in the addon, costing none of WoW's macro slots.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/custom-macro.png)
+
 The **Commands** tab has a few more of ours, above WoW's own list: world markers, targeting, focus, the unit popup menu. Nobody installs an addon for those. They're there for when a key needs one.
 
 ## Conditions
@@ -79,13 +88,17 @@ Right-click an action to attach conditions. It only runs when all of them apply.
 
 These get re-checked as things change around you, in combat as much as out of it.
 
+![An action's right-click menu: target, special conditions, importance, moving and copying — with the Target submenu open on No Target.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/action-menu.png)
+
 ## Role targets
 
 Beyond WoW's units, you get `tank`, `healer`, `maintank`, `mainassist`, `custom1`, `custom2`, and `hover` — the frame under your pointer.
 
 Take Innervate. Balance druid, keystones, and it wants to go out to the healer over and over. Without `@healer` the choices are: retype the healer's name into a macro before every key, hunt for their frame with the mouse mid-pull, or park your focus on them — the focus you wanted for something else. WoW's macro conditionals have no idea what a healer is, so there is no fourth option.
 
-Debind is the one working out who that is, so `@healer` only means something inside Debind. Most of the time that means the action's right-click menu — pick the unit and you're done.
+Debind is the one working out who that is, so `@healer` only means something inside Debind. Most of the time that means the action's right-click menu — pick the unit and you're done:
+
+![An action's tooltip: Innervate on F, target Healer, held back unless a healer exists — all of it picked from the menu, no macro involved.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/role-target.png)
 
 The other place is a **Custom Macro**, where one line can try the healer first and fall back to your normal target:
 
@@ -121,6 +134,8 @@ Three things decide that order, and they're all the same idea — the narrower c
 - **Then having conditions at all.** An action with conditions is checked before one without, for the same reason: an action with no conditions always fits.
 - **Then the layer.** The narrower one goes first.
 
+![Four actions on the F key in the overview, each row saying why it beats the one below: unit frame rule, has conditions, spec over class — and one marked Never runs.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/run-order.png)
+
 If that ordering isn't what you want, set the action's **Importance** — what you set yourself wins over anything the addon worked out on its own. The overview column shows the order you'll actually get, and each row says why it beats the one under it. Select a row and you get **Run Sooner** and **Run Later**. When an action can't move, the button says which rule is holding it instead of doing nothing.
 
 When an action can't be reached at all, the overview marks it **Never runs**. Sometimes that's a mistake worth catching. Sometimes it's the layer above doing exactly what you told it to — give Balance Starfall on `R` and Rebirth is dead on `R` for Balance, which was the whole point.
@@ -130,6 +145,8 @@ When an action can't be reached at all, the overview marks it **Never runs**. So
 Hovering a unit frame is a condition like any other, so click casting is just a binding with that condition on it.
 
 It's not one switch, either. You pick which frames count — player, pet, party and raid, target and focus, boss, arena — and which reactions, friendly, enemy or neither. So one key can heal off raid frames, do something else on the boss frames, and go back to being a normal key everywhere else.
+
+![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which frame types count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
 
 Unit frame addons that support Clique register with Debind the same way they register with Clique. And you can run Clique itself alongside this. Debind leaves unit frames to Clique and everything else works as usual — what stops is the hover condition and any action aimed at `@hover`. Both are marked in the list, and Debind says so when you log in.
 

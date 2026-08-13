@@ -24,6 +24,7 @@ externals:
 
 ignore:
   - DebindTest
+  - docs
   - tests
   - .luacheckrc
   - package.json
