@@ -753,6 +753,25 @@ local function mergeUnitConditions(a, b)
     return { reaction = reaction, dead = dead };
 end
 
+--- Emits the line that creates a key's record list, and puts it in `BindingsMap` unless the key's
+--- wiring is fixed.
+---
+--- **`BindingsMap` is read by the update loop and by nothing else.** A key whose wiring is fixed
+--- has nothing for that loop to decide -- it is bound once, below, and which action goes out is
+--- the wrapper's call at the click -- so being in the table only buys a walk over its records on
+--- every dirty flag, ending in "nothing to do". Out of the table, that walk does not happen.
+---
+--- The list still has an owner: the `ClickTimeKeys` registration below holds it, and that is the
+--- table the wrapper reaches it through. Both lines are driven by the same `first` flag, so a key
+--- that emitted no records gets neither.
+local function AppendBindingsList(key, alwaysOurs)
+    if (alwaysOurs) then
+        appendLine("bindings=newtable()");
+    else
+        appendLine("bindings=newtable();BindingsMap[%q]=bindings", key);
+    end
+end
+
 function UpdateBindingsMap()
     appendLine("local bindings,t,u");
     for key, bindingArray in pairs(DebindPrivate.KeyMap) do
@@ -868,7 +887,7 @@ function UpdateBindingsMap()
                         if (DEBUG) then
                             appendLine("-- %s", key);
                         end
-                        appendLine("bindings=newtable();BindingsMap[%q]=bindings", key);
+                        AppendBindingsList(key, alwaysOurs);
                     end
                     appendLine("t=newtable();tinsert(bindings,t)");
 
@@ -1145,7 +1164,7 @@ function UpdateBindingsMap()
         -- 고르고 키는 안 걸린다.
         if (first and (hasClick or hasNonClick)) then
             first = false;
-            appendLine("bindings=newtable();BindingsMap[%q]=bindings", key);
+            AppendBindingsList(key, alwaysOurs);
         end
 
         for k, _ in pairs(_updateFlags) do
