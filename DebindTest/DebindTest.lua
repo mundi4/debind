@@ -613,6 +613,36 @@ local function LastWinner()
     return probeReports[#probeReports]
 end
 
+--- Which of the two tables a key's record list ended up in.
+---
+--- **The split is the one thing nothing else here can see.** `IsKeyAlwaysOurs` is covered
+--- headlessly, and the click tests cover what a press decides -- but both pass whichever table
+--- the key landed in, so an emitter that ignored the verdict entirely would not show up in either.
+---
+--- Asked of the restricted environment rather than of the source that built it. Reading the
+--- generated snippet back would only confirm that the generator wrote what the generator meant to
+--- write; `StateDrivenBindings` is what the update loop actually walks.
+---
+--- Needs a `Wait` after: `CallMethod` is queued.
+local lastMembership
+local function ReadKeyMembership(key)
+    local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
+    lastMembership = nil
+    DebindPrivate.BindingDriver.DebindTestMembership = function(_, stateDriven, clickTime)
+        lastMembership = { stateDriven = stateDriven, clickTime = clickTime }
+    end
+
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
+        self:CallMethod("DebindTestMembership", StateDrivenBindings[%q] ~= nil, %s)
+    ]], key, button and format([[ClickTimeKeys[%q] ~= nil]], button) or "false"))
+    return true
+end
+
+--- `{ stateDriven = bool, clickTime = bool }` from the last `ReadKeyMembership`.
+local function LastMembership()
+    return lastMembership
+end
+
 -----------------------------------------------------------
 -- Test Helpers: Unit Frames
 -----------------------------------------------------------
@@ -1880,6 +1910,69 @@ RegisterTest("Hover frame types still narrow on their own", {
 --
 -- Both use a key carrying `[combat]` and `[nocombat]`, which is the smallest binding whose
 -- conditions leave no gap: there is no state in which we would hand the key back.
+
+-- **The split itself, which nothing else asserts.** `IsKeyAlwaysOurs` says whether a key's wiring
+-- is fixed and headless tests cover that verdict; what is not covered anywhere else is the emitter
+-- acting on it. The two are asserted as a pair, because either half alone passes for the wrong
+-- reason: "not state-driven" also describes a key that failed to emit at all, and "state-driven"
+-- also describes an emitter that ignores the verdict and puts everything in.
+RegisterTest("Split: a key whose conditions leave no gap is not state-driven", {
+    description = "전투/비전투가 다 덮인 키가 상태 루프의 표에서 빠지는가",
+    run = function()
+        local NAME = "Split covered"
+        local KEY = "CTRL-SHIFT-F4"
+
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
+            key = KEY, name = "combat", combat = true })
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "peace"',
+            key = KEY, name = "peace", combat = false })
+        ApplyBindings()
+
+        ReadKeyMembership(KEY)
+        Wait(0.4)
+
+        local m = LastMembership()
+        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+
+        -- 클릭 시점 표에 있어야 "안 넣은 것"과 "아예 안 나간 것"이 갈린다.
+        if not m.clickTime then
+            return Fail(NAME, "ClickTimeKeys에도 없다 - 갈린 게 아니라 레코드가 안 나갔다")
+        end
+        if m.stateDriven then
+            return Fail(NAME,
+                "StateDrivenBindings에 들어 있다 - 조건 공간이 다 덮였는데 상태 루프가 매 틱 훑는다")
+        end
+
+        return Pass(NAME, "clickTime만, stateDriven 아님")
+    end,
+})
+
+RegisterTest("Split: a key that can be released stays state-driven", {
+    description = "전투 조건만 있는 키는 상태 루프가 계속 정해야 하므로 표에 남는가",
+    run = function()
+        local NAME = "Split gapped"
+        local KEY = "CTRL-SHIFT-F3"
+
+        -- 비전투에서 맞는 레코드가 없다 = 그때는 키를 와우에 돌려줘야 한다. 그 판단을 하는
+        -- 것이 상태 루프이므로 이 키는 반드시 그 표에 있어야 한다.
+        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
+            key = KEY, name = "combat", combat = true })
+        ApplyBindings()
+
+        ReadKeyMembership(KEY)
+        Wait(0.4)
+
+        local m = LastMembership()
+        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+
+        if not m.stateDriven then
+            return Fail(NAME,
+                "StateDrivenBindings에 없다 - 비전투에서 놓아줄 사람이 없어 키가 물린 채로 남는다")
+        end
+
+        return Pass(NAME, format("stateDriven, clickTime=%s", tostring(m.clickTime)))
+    end,
+})
 
 RegisterTest("Click-time key: the press picks the record the state matches", {
     description = "배선이 고정된 키에서 누르는 순간의 상태가 승자를 가르는가",
