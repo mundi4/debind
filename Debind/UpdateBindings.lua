@@ -120,11 +120,17 @@ local _strArr            = {};
 local _macrotexts        = {};
 local _macrotextBindings = {};
 local _customStates      = {};
-local _states            = {};
-local _unitStates        = {};
 local _unitsSeen         = {};
 local _updateFlags       = {};
 local _mergedUnits       = {};
+
+--- **Build time, not runtime.** These two pick what gets measured; the secure globals `States` and
+--- `UnitStates` hold what was measured. The underscore only says "local to this file" and left the
+--- two kinds looking alike, which is a real source of confusion: being registered here decides
+--- whether polling re-measures a value, and nothing else. Whether a record's condition is compared
+--- is decided by the record carrying that field, not by anything in here.
+local _measuredStates    = {};
+local _measuredUnitAxes  = {};
 
 --- Does any state-driven key have to be re-decided when the hover **frame** changes while the
 --- unit under it does not? Only a `frameTypes` record can, and only the update loop acts on it,
@@ -132,7 +138,7 @@ local _mergedUnits       = {};
 local _rebindOnHoverFrame = false;
 
 --- Does any measured unit carry the reaction axis? That is what `UNIT_FACTION` is registered for.
---- Accumulated where the axes are worked out rather than derived by walking `_unitStates` later,
+--- Accumulated where the axes are worked out rather than derived by walking `_measuredUnitAxes` later,
 --- because the axis constants are declared further down this file than the registration runs.
 local _measuresReaction = false;
 
@@ -141,8 +147,8 @@ local function ResetContext()
     wipe(_macrotexts);
     wipe(_macrotextBindings);
     wipe(_customStates);
-    wipe(_states);
-    wipe(_unitStates);
+    wipe(_measuredStates);
+    wipe(_measuredUnitAxes);
     wipe(_unitsSeen);
     _rebindOnHoverFrame = false;
     _measuresReaction = false;
@@ -379,9 +385,9 @@ States.unitframe = hovered
         format("RebindOnHoverFrame=%s", tostring(_rebindOnHoverFrame and true or false)));
 
     -- **묻는 것은 "hover를 재나"다.** 이 등록의 목적이 호버 dangling 감지이므로, 답은 hover
-    -- 축을 측정하는 유닛이 있느냐에 있다. 예전 술어의 `_states.reaction` 항은 잉여였다 -
-    -- 반응 조건은 유닛 조건의 일부라 `_unitStates`가 이미 덮는다.
-    if (_unitStates.hover or _unitStates.mouseover) then
+    -- 축을 측정하는 유닛이 있느냐에 있다. 예전 술어의 `_measuredStates.reaction` 항은 잉여였다 -
+    -- 반응 조건은 유닛 조건의 일부라 `_measuredUnitAxes`가 이미 덮는다.
+    if (_measuredUnitAxes.hover or _measuredUnitAxes.mouseover) then
         SecureStateDriverManager:RegisterEvent("UPDATE_MOUSEOVER_UNIT");
         local updatetime = DebindPrivate.Options.updatetime;
         if (not updatetime or updatetime < 0 or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
@@ -393,7 +399,7 @@ States.unitframe = hovered
         SecureStateDriverManager:SetAttribute("updatetime", Constants.STATE_DRIVER_UPDATETIME_DEFAULT);
     end
 
-    -- 반응 축을 재는 유닛이 하나라도 있으면 등록한다. 예전 술어(`_states.reaction`)는 어느
+    -- 반응 축을 재는 유닛이 하나라도 있으면 등록한다. 예전 술어(`_measuredStates.reaction`)는 어느
     -- 유닛인지를 안 봐서, `target`에만 반응 조건을 걸어도 위의 mouseover 등록까지 딸려 왔다.
     -- 측정에서 파생시키면 앞 단계의 좁히기도 그대로 따라온다 - 배선이 고정된 키만 반응을 묻는
     -- 프로필에서는 재는 유닛이 없고 이 이벤트도 안 걸린다.
@@ -403,7 +409,7 @@ States.unitframe = hovered
         SecureStateDriverManager:UnregisterEvent("UNIT_FACTION");
     end
 
-    if (_states.specialbar) then
+    if (_measuredStates.specialbar) then
         SecureStateDriverManager:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR");
         SecureStateDriverManager:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR");
     else
@@ -411,14 +417,14 @@ States.unitframe = hovered
         SecureStateDriverManager:UnregisterEvent("UPDATE_VEHICLE_ACTIONBAR");
     end
 
-    if (_states.extrabar) then
+    if (_measuredStates.extrabar) then
         SecureStateDriverManager:RegisterEvent("UPDATE_EXTRA_ACTIONBAR");
     else
         SecureStateDriverManager:UnregisterEvent("UPDATE_EXTRA_ACTIONBAR");
     end
 
     -- specialbar folds [petbattle] into its own value, so it needs these too
-    if (_states.petbattle or _states.specialbar) then
+    if (_measuredStates.petbattle or _measuredStates.specialbar) then
         SecureStateDriverManager:RegisterEvent("PET_BATTLE_OPENING_START");
         SecureStateDriverManager:RegisterEvent("PET_BATTLE_CLOSE");
     else
@@ -427,7 +433,7 @@ States.unitframe = hovered
     end
 
     local hasKnownState = false;
-    for state in pairs(_states) do
+    for state in pairs(_measuredStates) do
         if (strsub(state, 1, 6) == "known:") then
             hasKnownState = true;
             break;
@@ -460,8 +466,8 @@ States.unitframe = hovered
 
     if (DEBUG) then
         dump("UpdateBindings", {
-            states = _states,
-            unitStates = _unitStates,
+            states = _measuredStates,
+            unitStates = _measuredUnitAxes,
             unitsSeen = _unitsSeen,
             bindingAttrsCache = BindingAttrsCache,
             macrotexts = _macrotexts,
@@ -1069,7 +1075,7 @@ function UpdateBindingsMap()
                         --     appendKeyValue("checkUnitExists", binding.checkUnitExists);
                         --     local existsKey = binding.checkUnitExists .. "-exists";
                         --     _updateFlags[existsKey] = true;
-                        --     _unitStates[binding.checkUnitExists] = true;
+                        --     _measuredUnitAxes[binding.checkUnitExists] = true;
                         -- end
 
                         if (binding.checkedUnits) then
@@ -1095,10 +1101,10 @@ function UpdateBindingsMap()
                                         -- `_updateFlags.reaction`을 세워 그 일을 시켰는데, 그건
                                         -- **깨우는 플래그가 아니었다** - `DirtyFlags.reaction`을
                                         -- 세우는 곳이 없어서 어떤 키도 못 깨웠고, 하는 일이라고는
-                                        -- `_states.reaction`을 통해 등록을 켜는 것뿐이었다.
+                                        -- `_measuredStates.reaction`을 통해 등록을 켜는 것뿐이었다.
                                         -- 게다가 어느 유닛인지를 안 보므로 `target`에만 반응
                                         -- 조건을 걸어도 mouseover 이벤트까지 딸려 왔다.
-                                        -- 이제 등록은 `_unitStates`에서 파생시킨다(위 `UpdateBindings`).
+                                        -- 이제 등록은 `_measuredUnitAxes`에서 파생시킨다(위 `UpdateBindings`).
                                         axes = bor(axes, UNITAXIS_REACTION);
                                         -- A set, not a mask: membership is one lookup, while the
                                         -- `%` idiom the restricted environment forces on masks
@@ -1130,12 +1136,12 @@ function UpdateBindingsMap()
                                 -- 같이 없어진다. 클릭 경로는 잃는 것이 없다: 유닛만은 캐시를
                                 -- 안 믿고 클릭 순간에 다시 잰다.
                                 --
-                                -- **한 벌짜리 누적이라 단위가 중요하다.** `_unitStates`는 리빌드
+                                -- **한 벌짜리 누적이라 단위가 중요하다.** `_measuredUnitAxes`는 리빌드
                                 -- 하나에 하나이고 `bor`로 쌓이므로, 같은 유닛을 상태 구동 키가
                                 -- 하나라도 물면 그 유닛은 그대로 측정된다. 여기서 빼는 것은
                                 -- **이 레코드의 몫**이지 그 유닛이 아니다.
                                 if (not alwaysOurs) then
-                                    _unitStates[k] = bor(_unitStates[k] or 0, axes);
+                                    _measuredUnitAxes[k] = bor(_measuredUnitAxes[k] or 0, axes);
                                     _updateFlags[k .. "-exists"] = true;
                                     if (band(axes, UNITAXIS_REACTION) ~= 0) then
                                         _measuresReaction = true;
@@ -1228,18 +1234,18 @@ function UpdateBindingsMap()
             AppendBindingsList(key, alwaysOurs);
         end
 
-        -- **`_states`는 "잴 상태"다.** 여기로 넘어오는 것 중 잴 수 없는 둘은 걸러낸다:
-        -- `<유닛>-exists`는 유닛 축이라 `_unitStates`가 따로 재고, `unitframe`은 재는 것이
+        -- **`_measuredStates`는 "잴 상태"다.** 여기로 넘어오는 것 중 잴 수 없는 둘은 걸러낸다:
+        -- `<유닛>-exists`는 유닛 축이라 `_measuredUnitAxes`가 따로 재고, `unitframe`은 재는 것이
         -- 아니라 enter/leave가 밀어 넣는 것이다. 걸러도 잃는 것이 없다 - 뒤쪽 측정 루프가
         -- 어차피 둘 다 건너뛰었고, 이제 그 건너뛰기 자체가 필요 없어진다.
         for k, _ in pairs(_updateFlags) do
             if (k ~= "unitframe" and strsub(k, -7) ~= "-exists") then
-                _states[k] = true;
+                _measuredStates[k] = true;
             end
         end
 
         -- **상태 루프 전용이라 상태 구동 키에만 굽는다.** `alwaysOurs` 키는 그 루프가 안 보므로
-        -- (그 표에 없다) 여기 실린 플래그를 읽는 코드가 없다. `_states` 등록은 위에서 이미
+        -- (그 표에 없다) 여기 실린 플래그를 읽는 코드가 없다. `_measuredStates` 등록은 위에서 이미
         -- 끝났고 그건 별개다 - 클릭 경로가 아직 `States`를 읽는다.
         if (not alwaysOurs) then
             -- `RebindOnHoverFrame`은 정확히 이 플래그의 리빌드 전체 합이다. 같은 게이트 안에서
@@ -1526,7 +1532,7 @@ end
 
     -- Update Basic States
     local stateArray = {};
-    for state in pairs(_states) do
+    for state in pairs(_measuredStates) do
         tinsert(stateArray, state);
     end
     sort(stateArray, compareStates);
@@ -1555,7 +1561,7 @@ end
     for _, state in ipairs(stateArray) do
         if (STATE_EVAL_EXPRESSIONS[state]) then
             if (state == "specialbar") then
-                if (_states.petbattle) then
+                if (_measuredStates.petbattle) then
                     appendLine("stateValue=(%s) or States.petbattle", STATE_EVAL_EXPRESSIONS.specialbar);
                 else
                     appendLine([[stateValue=(%s) or (SecureCmdOptionParse("[petbattle]") and true or false)]], STATE_EVAL_EXPRESSIONS.specialbar);
@@ -1576,7 +1582,7 @@ end
     end
 
     -- Update Unit States
-    for unit, axes in pairs(_unitStates) do
+    for unit, axes in pairs(_measuredUnitAxes) do
         local unitExpr, existsExpr;
         if (unit == "custom1" or unit == "custom2") then
             unitExpr = format("UnitAliasMap[%q]", unit);
