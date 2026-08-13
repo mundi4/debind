@@ -14,7 +14,8 @@
     "check:snippets": "node tools/check-snippets.js",
     "check:snippet-golden": "node tools/check-snippet-golden.js",
     "stamp": "node tools/stamp-dev.js",
-    "stamp:install": "node tools/stamp-install.js"
+    "stamp:install": "node tools/stamp-install.js",
+    "link": "node tools/wow-link.js"
   },
   "devDependencies": {
     "fengari": "^0.1.4"
