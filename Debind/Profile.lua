@@ -30,6 +30,16 @@ local KEYS_TO_SAVE       = {
     petbattle = true,
     priority = true,
     seq = true,
+    -- **Where this action came from, and what it arrived with.** `imported` is the batch it came
+    -- in on and is what quarantines it: while it is set the action is in the profile but reaches
+    -- no key (`BuildKeyMap`), and removing it is the reader saying yes.
+    --
+    -- `importGroup` is its group inside that batch, and it cannot be recomputed. A group is one
+    -- layer and one key, but a string sent with keys stripped has none at all, so layer plus key
+    -- cannot tell two of them apart -- which is exactly why the transfer format carries an `id`
+    -- per group (`.zzz/export-import.md`).
+    imported = true,
+    importGroup = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
     checkedUnits = true,

@@ -63,6 +63,7 @@ const PENDING_TRANSLATION = {
     EXPORT_COPY_TITLE: ["ruRU"],
     // The window's own tabs, and what stands in when the panel behind one could not be had. Same
     // owner as the rows above - these arrived with the tab row, and those panels live here too.
+    APPROVE_IMPORT: ["ruRU"],
     IMPORT_TITLE: ["ruRU"],
     IMPORT_MENU_DESC: ["ruRU"],
     // The workbench: the drawer of received strings and the paste dialog. Same owner.

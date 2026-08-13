@@ -777,5 +777,45 @@ return function(DebindPrivate)
             "옛 파일의 조건이 새 형식으로 덮어써짐 - 롤백이 깨진다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- The import badge has to survive `CleanUpDB`
+    --
+    -- `CleanUpDB` strips every field that is not in `KEYS_TO_SAVE`, and it runs on the way out.
+    -- The badge is what keeps an imported action out of the binding build, so **if it were not on
+    -- that list, quarantine would lift itself on the next login** - someone else's keys would
+    -- quietly start firing, which is the worst direction this addon can fail in and the one thing
+    -- the reader was promised would not happen.
+    --
+    -- Nothing else catches it. Registration is one word in a list of twenty-five, the action still
+    -- saves, and the symptom only shows up a relog later on a machine that imported something.
+    ---------------------------------------------------------------------------
+
+    test("가져오기 배지는 정리를 견딘다", function()
+        FreshInit();
+        local layer = DebindPrivate.GetProfileLayer(1);
+        local action = { type = Constants.SPELL, value = 774, key = "F", seq = 1,
+            imported = 7, importGroup = 3 };
+        layer:Insert(action);
+
+        DebindPrivate.CleanUpDB();
+
+        check(action.imported == 7, "배치 번호가 지워졌다 - 다음 접속에 격리가 저절로 풀린다");
+        check(action.importGroup == 3, "그룹 번호가 지워졌다 - 온 묶음을 다시 못 찾는다");
+    end);
+
+    -- The other half: the whitelist really does strip, so the test above is not passing because
+    -- `CleanUpDB` leaves everything alone.
+    test("등록 안 된 필드는 정리가 걷어낸다", function()
+        FreshInit();
+        local layer = DebindPrivate.GetProfileLayer(1);
+        local action = { type = Constants.SPELL, value = 774, key = "F", seq = 1,
+            importedTypo = true };
+        layer:Insert(action);
+
+        DebindPrivate.CleanUpDB();
+
+        check(action.importedTypo == nil, "정리가 아무것도 안 걷어낸다 - 위 검사가 무의미해진다");
+    end);
+
     return T;
 end

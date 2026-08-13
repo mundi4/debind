@@ -537,6 +537,10 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- is our filing, not the reader's problem; what they can act on is the switch in the AddOns list
 -- and, failing that, installing again. No `%s` either, unlike the chat line further down - the
 -- reason string the client hands back is for the log, not the middle of a window.
+-- Taking the badge off imported actions. **The verb is about the reader, not the action** -
+-- nothing is being changed or repaired, they are saying they will have it, and that is the moment
+-- the keys start working.
+L["APPROVE_IMPORT"] = "Accept as mine"
 L["IMPORT_TITLE"] = "Import"
 L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and shows what is in it before anything changes.|n|nYou pick which layer each part lands in, and nothing touches your bindings until you say so."
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state has to say

@@ -286,6 +286,32 @@
 					</Anchors>
 					<Color r="1" g="1" b="0" a="1"/>
 				</Texture>
+				<!--
+					**This row has not been dealt with yet.** One thing means that today: an action
+					that arrived by import and has not been approved.
+
+					**It carries one meaning. Do not recolour it into a second one** - this window
+					already says three things with colour (grey = not firing, red = has a problem,
+					yellow = the menu is open on it). A fourth and none of them read. If something
+					new needs saying, it needs a new mark.
+
+					The atlas is the one the micro menu points at a new feature with (`FlashBorder`),
+					and Blizzard uses it both ways: flashing, or simply shown. Shown is right here.
+					Flashing means "look now", and this can be on forty rows at once - a list that
+					blinks as a whole shows nothing at all.
+
+					**It sits on the icon and nowhere else.** The name column and the key column are
+					both full already, and every row template that draws an action has an `Icon`, so
+					the same block moves across unchanged. The name greys out but the icon keeps its
+					colours (`ColoredNameAndIconForAction` only touches text), which is what makes
+					this readable in a run of grey rows.
+				-->
+				<Texture parentKey="NewGlow" atlas="UI-HUD-MicroMenu-Highlightalert" hidden="true" alphaMode="BLEND">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Icon" x="-2" y="2"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Icon" x="2" y="-2"/>
+					</Anchors>
+				</Texture>
 			</Layer>
 			<Layer level="HIGHLIGHT">
 				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">
@@ -409,6 +435,13 @@
 			</Layer>
 			<Layer level="OVERLAY">
 				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+				<!-- The same mark the bin list carries, meaning the same thing. Reasoning is over there. -->
+				<Texture parentKey="NewGlow" atlas="UI-HUD-MicroMenu-Highlightalert" hidden="true" alphaMode="BLEND">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Icon" x="-2" y="2"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Icon" x="2" y="-2"/>
+					</Anchors>
+				</Texture>
 			</Layer>
 			<Layer level="HIGHLIGHT">
 				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" alphaMode="ADD">

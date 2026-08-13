@@ -1159,6 +1159,31 @@ do
         end
     end
 
+    --- Taking the badge off imported actions, which is what makes them fire.
+    ---
+    --- **This is the only way out of quarantine, so it cannot be hidden when it does not apply.**
+    --- It is left out entirely when nothing in the selection carries a badge - a greyed-out row
+    --- would be a permanent fixture in a menu that is already long, saying nothing about anything
+    --- the reader owns. Every other entry here is about a property they can set; this one is about
+    --- where the action came from, and most actions came from nowhere.
+    ---
+    --- Takes a list either way, so the single and the bulk menu hand it the same shape.
+    local function CreateApproveImportMenuItem(rootDescription, actions)
+        local badged = {};
+        for _, action in ipairs(actions) do
+            if (action and action.imported) then
+                badged[#badged + 1] = action;
+            end
+        end
+        if (#badged == 0) then
+            return;
+        end
+
+        rootDescription:CreateButton(LLL["APPROVE_IMPORT"], function()
+            DebindUI.ApproveImportedActions(badged);
+        end);
+    end
+
     --- 겨누는 것이 하나든 여럿이든 목적지 목록은 **같은 하나**다(`GetTabList`). 그래서 대상을
     --- 밖에서 받는다: `fromLayerID`는 "이미 여기 산다"를 판정하는 데만 쓰이고, `applyFunc`가
     --- 실제로 옮긴다.
@@ -1298,6 +1323,8 @@ do
             DebindUI.MoveAction(_elementData, destLayerID, isCopy);
         end);
 
+        CreateApproveImportMenuItem(rootDescription, { _action });
+
         CreateDeleteMenu(rootDescription);
     end
 
@@ -1380,6 +1407,8 @@ do
         CreateMoveCopyMenu(rootDescription, true, fromLayerID, function(destLayerID, isCopy)
             DebindUI.MoveActions(actions, destLayerID, isCopy);
         end);
+
+        CreateApproveImportMenuItem(rootDescription, actions);
 
         rootDescription:CreateButton(LLL["DELETE"], function()
             DebindUI.ShowBulkDeleteConfirmationPopup(actions);

@@ -25,6 +25,11 @@ const repoRoot = path.resolve(__dirname, "..");
 const EXPECTED_ONLY_IN_PROFILE = {
     key: "moves up to the group field - one group is one key",
     seq: "an ordering number scoped to one layer - array order says the same thing",
+    // Same reason as those two: they say where the action sits *here*. Sending them would tell the
+    // far side that something they just received had already been received, and quarantine it
+    // against a batch number that means nothing on their machine.
+    imported: "which batch it arrived on - meaningless in someone else's drawer",
+    importGroup: "its group inside that batch - the wire already has group ids",
 };
 
 /** Collects the keys inside the braces of `local NAME = { ... };`. */

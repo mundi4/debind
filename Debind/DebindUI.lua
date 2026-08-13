@@ -983,6 +983,26 @@ end
 --- 옮긴 뒤에는 선택을 접는다. `MoveAction`이 액션 테이블을 복사해서 넣으므로(`CopyTable`)
 --- 집합이 들고 있던 테이블은 어느 레이어에도 없는 것이 된다. 복사는 원본이 그대로 남으므로
 --- 접지 않는다 - 사용자가 고른 것은 원본이고, 사본으로 옮겨주면 방금 무엇을 골랐는지가 틀어진다.
+--- Takes the badge off, which is what lets these actions reach a key.
+---
+--- **This is the whole of "approve".** Importing put them in the profile and `BuildKeyMap` has been
+--- skipping them ever since; clearing the two fields is the reader saying yes, and the rebuild
+--- below is the moment their keys actually change. That is on purpose: it is one visible event the
+--- reader asked for, rather than something that happened while they were reading a list.
+---
+--- `importGroup` goes with `imported`. It only ever meant "which set did this arrive in", and once
+--- the set is approved it is no longer a set - it is bindings, grouped by key like everything else.
+local function ApproveImportedActions(actions)
+    for _, action in ipairs(actions) do
+        action.imported = nil;
+        action.importGroup = nil;
+    end
+
+    DebindPrivate.UpdateBindings();
+    DebindFrame:Refresh(true);
+    DebindFrame:Update();
+end
+
 local function MoveActions(actions, destLayerID, copying)
 	for _, action in ipairs(actions) do
 		local elementData = DebindFrame:FindElementDataByActionInfo(action);
@@ -1423,6 +1443,11 @@ function DebindLineMixin:Update()
 	self.Name:SetText(name);
 
 	SetActionIcon(self.Icon, icon);
+
+	-- **Not dealt with yet** - today that means imported and not yet approved (the XML comment
+	-- has the reasoning). `BuildKeyMap` skips such an action, so its name is already grey; but
+	-- grey also means "no key", and telling those two apart is what this mark is for.
+	self.NewGlow:SetShown(action.imported ~= nil);
 
 	-- 레이어 아이콘은 오버뷰 탭에서만 켜진다(XML 주석에 이유가 있다). 규칙은 순서 리스트와
 	-- 같고 - 좁혀진 축마다 하나씩, 빈 칸은 안 남김 - 그래서 이름의 왼쪽 앵커도 여기서 다시
@@ -3927,6 +3952,8 @@ function DebindOrderLineMixin:Update()
 
 	self:SetReasonText(GetOrderReasonText(elementData));
 
+	self.NewGlow:SetShown(row.action.imported ~= nil);
+
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
 end
@@ -4704,6 +4731,7 @@ DebindUI.GetSideTabaLabel = GetSideTabaLabel;
 DebindUI.GetLayerLabel = GetLayerLabel;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;
+DebindUI.ApproveImportedActions = ApproveImportedActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebindUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
 DebindUI.NameAndIconForAction = NameAndIconForAction;

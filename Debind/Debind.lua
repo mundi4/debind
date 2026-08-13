@@ -146,7 +146,17 @@ do
 		for layerRank, layer in DebindPrivate.EnumerateProfileLayers() do
 			for _, action in layer:Enumerate() do
 				ordinal = ordinal + 1;
-				if (action.key) then
+				-- **An imported action is quarantined until the badge comes off.** It is in the
+				-- profile, it is drawn, and it does nothing: importing someone else's string must
+				-- not change a single key until the reader says so, because there is no undo for
+				-- "my F does something else now" and no way to see what changed.
+				--
+				-- **The test is here, outside, and not down at `KeyMap`.** Skipping further in
+				-- would leave `ActiveActions[action]` set, and that field is what
+				-- `IsInactiveAction` reads to grey a row out. Up here a quarantined action gets
+				-- exactly the treatment a keyless one already gets - drawn, greyed, reaching
+				-- nothing - and that costs no new drawing code.
+				if (action.key and not action.imported) then
 					local binding = DebindPrivate.GetBindingInfoForAction(action, true);
 					BindingInfoToActionMap[binding] = action;
 
