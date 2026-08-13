@@ -759,3 +759,30 @@ function DebindPrivate.FindLayerID(action)
         end
     end
 end
+
+--- Puts imported actions into their layers.
+---
+--- **The profile is written from here and not from the sharing addon.** That one owns the wire
+--- format and decides what each action becomes; where an action goes and what happens to the
+--- layer after is this file's, the same as every other way an action is placed.
+---
+--- Each entry is `{ layerID, action }`. The pairing is the caller's answer to "where does this
+--- go", so a later "send just this group over there" hands the same shape with a different layer
+--- and needs nothing new here.
+---
+--- **Every action arriving here is expected to carry `imported`**, which keeps it out of the
+--- binding build (`BuildKeyMap`). Nothing is asserted about that: this stays a placement function,
+--- and a caller that placed something live would be answered by the bindings, not by a guard.
+function DebindPrivate.PlaceImportedActions(placements)
+    for _, placement in ipairs(placements) do
+        local layer = LayerArray[placement.layerID];
+        if (layer) then
+            layer:Insert(placement.action);
+            -- Ordering numbers are the receiving layer's to hand out. The wire deliberately leaves
+            -- `seq` at home, because the sender's numbers would collide with the ones this layer
+            -- has already given (`Export.lua`). Arriving at the back is the honest place for
+            -- something that just arrived.
+            layer:PlaceLast(placement.action);
+        end
+    end
+end

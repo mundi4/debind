@@ -1,0 +1,175 @@
+local _, DebindShare = ...;
+
+local DebindPrivate = DebindShare.DebindPrivate;
+local Constants     = DebindPrivate.Constants;
+local luatype       = type;
+
+--- Turning a received payload into actions in the profile.
+---
+--- **Everything that lands here is quarantined.** Each action carries `imported`, and while that is
+--- set `BuildKeyMap` skips it: the string is in the profile, drawn and editable, and reaches no key
+--- until the reader takes the badge off. So this function never changes what any key does, which is
+--- what lets it run without asking anything first.
+---
+--- The reverse of `Export.lua`, and only that. Deciding *which* batch to commit, and what to do
+--- with the result afterwards, belongs to the window and to the main window's Overview.
+
+--- The wire says `{mode = "toggle", state = "$state3"}`; the profile stores one number with the
+--- mode in the high bits and the state index in the low nibble. Names travel because an index is a
+--- reference that always resolves and resolves to the wrong state (`Export.lua`).
+local SETSTATE_MODE_FLAGS = {
+    on = Constants.SETCUSTOM_MODE_ON,
+    off = Constants.SETCUSTOM_MODE_OFF,
+    toggle = Constants.SETCUSTOM_MODE_TOGGLE,
+};
+
+
+-- ---------------------------------------------------------------------------------------------
+-- One action
+-- ---------------------------------------------------------------------------------------------
+
+--- Does this account or character have the very macro this action was pointing at?
+---
+--- **All three have to match: name, scope and body.** Name alone is what makes a macro reference
+--- the one kind of breakage red text cannot see - a reader with a different macro of the same name
+--- gets theirs, silently, and nothing anywhere says so. Comparing the body is what turns that from
+--- a silent wrong answer into a fallback.
+---
+--- Matching means the reference comes back alive, which is what makes re-importing your own backup
+--- give you back a `MACRO` rather than a flattened copy of its text.
+local function MacroMatches(snapshot)
+    if (luatype(snapshot) ~= "table" or not snapshot.name) then
+        return false;
+    end
+
+    local name, _, body = GetMacroInfo(snapshot.name);
+    if (not name or body ~= snapshot.body) then
+        return false;
+    end
+
+    -- Scope is read the way the export read it: account macros hold the first block of slots.
+    local index = GetMacroIndexByName(snapshot.name);
+    if (not index or index <= 0) then
+        return false;
+    end
+    local accountLimit = DebindPrivate.GetMacroSlotLimits();
+    local scope = index > accountLimit and "character" or "account";
+    return scope == snapshot.scope;
+end
+
+--- A wire action turned into a profile action.
+---
+--- Fields arrive already filtered by the export's whitelist, so they are copied as they come. What
+--- needs undoing is the two things the format deliberately said differently, plus the macro
+--- decision above.
+local function BuildAction(source)
+    local action = {};
+    for k, v in pairs(source) do
+        -- `macro` and `setstate` are the format's, not the profile's. They are read below and do
+        -- not travel any further; `CleanUpDB` would drop them anyway, but leaving them for it to
+        -- find would mean the action is briefly a shape nothing else expects.
+        if (k ~= "macro" and k ~= "setstate") then
+            if (luatype(v) == "table") then
+                action[k] = CopyTable(v);
+            else
+                action[k] = v;
+            end
+        end
+    end
+
+    if (source.setstate) then
+        local flag = SETSTATE_MODE_FLAGS[source.setstate.mode];
+        local index = Constants.CUSTOM_STATE_INDICES[source.setstate.state];
+        if (flag and index) then
+            action.value = flag + index;
+        else
+            -- A mode or a state name this version does not know. The action keeps its type and
+            -- loses its value, which is the shape red text already has something to say about -
+            -- better than guessing at a number that would set some other state.
+            action.value = nil;
+        end
+    end
+
+    -- **The macro decision, made once, here.** After this the action is a `MACRO` pointing at a
+    -- macro that exists, or a `MACROTEXT` carrying the body it was sent with. It is not remade
+    -- later: a reader who creates the macro afterwards keeps the `MACROTEXT`, which is not wrong,
+    -- only flatter.
+    if (action.type == Constants.MACRO and source.macro) then
+        if (not MacroMatches(source.macro)) then
+            action.type = Constants.MACROTEXT;
+            action.value = source.macro.body;
+            action.name = source.macro.name;
+            action.icon = source.macro.icon;
+        end
+    end
+
+    return action;
+end
+
+
+-- ---------------------------------------------------------------------------------------------
+-- The whole batch
+-- ---------------------------------------------------------------------------------------------
+
+--- Where each group of `payload` lands, and what it becomes.
+---
+--- Returns a flat list of `{ layerID, action }`. **Nothing is written here** - building the list
+--- and putting it in the profile are separate so the caller can find out that a payload has
+--- nowhere to go before any of it has gone there.
+---
+--- Groups whose layer this version cannot place are left out, and the count comes back so the
+--- caller can say so. That happens for a scope a newer schema invented; every scope v1 knows has
+--- a destination (`DefaultDestinationLayerID`).
+function DebindShare.PlanImport(payload, batchID)
+    local placements, skipped = {}, 0;
+
+    for _, group in ipairs(payload.groups or {}) do
+        local layerID = DebindShare.DefaultDestinationLayerID(group.layer);
+        if (not layerID) then
+            skipped = skipped + 1;
+        else
+            for _, source in ipairs(group.actions or {}) do
+                local action = BuildAction(source);
+                -- **The key comes from the group**, which is where the format keeps it: one group
+                -- is one key, and that is what has to stay together.
+                action.key = group.key;
+                action.imported = batchID;
+                action.importGroup = group.id;
+                placements[#placements + 1] = { layerID = layerID, action = action };
+            end
+        end
+    end
+
+    return placements, skipped;
+end
+
+--- Commits a batch into the profile, badged.
+---
+--- **Custom state definitions are not touched.** A state is shared by everything in the profile, so
+--- writing one would change what the reader's *existing* actions do - before they approved
+--- anything, and past the one thing quarantine is for. So an imported action that names `$state3`
+--- uses the reader's `$state3`, which is the "keep mine" answer, and a name nothing defines is
+--- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_STATE`).
+---
+--- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
+--- put to the reader, and it is not built yet (`.zzz/export-import.md`). Until it is, the answer is
+--- the one that cannot change anything they already had.
+function DebindShare.CommitBatch(batch)
+    local payload, reason = DebindShare.GetBatchPayload(batch);
+    if (not payload) then
+        return nil, reason;
+    end
+
+    local placements, skipped = DebindShare.PlanImport(payload, batch.id);
+    if (#placements == 0) then
+        return nil, "NOTHING_TO_PLACE";
+    end
+
+    DebindPrivate.PlaceImportedActions(placements);
+
+    -- The row says so from now on. Re-committing is allowed and makes a second copy, which is the
+    -- same thing importing the same string twice has always done.
+    batch.committed = time();
+
+    return #placements, skipped;
+end

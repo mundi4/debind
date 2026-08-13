@@ -541,6 +541,16 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- nothing is being changed or repaired, they are saying they will have it, and that is the moment
 -- the keys start working.
 L["APPROVE_IMPORT"] = "Accept as mine"
+-- The one thing a drawer row is for. **The second press is not a repeat of the first** - it puts
+-- another copy in - so the label has to change, or "did that work" and "do it again" become the
+-- same gesture.
+L["IMPORT_COMMIT"] = "Bring it in"
+L["IMPORT_COMMIT_AGAIN"] = "Bring in again"
+L["IMPORT_COMMIT_DESC"] = "Adds these to your bindings, switched off. Nothing you press changes until you accept them."
+-- **Said out loud because the screen barely moves.** What just arrived is greyed out and bound to
+-- nothing, so a press that did a lot looks like a press that did nothing.
+L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you accept them - look for the glowing icons."
+L["IMPORT_COMMITTED_SKIPPED"] = "%d of them came from a layer this version does not know, and were left out."
 L["IMPORT_TITLE"] = "Import"
 L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and shows what is in it before anything changes.|n|nYou pick which layer each part lands in, and nothing touches your bindings until you say so."
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state has to say

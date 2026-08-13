@@ -26,6 +26,7 @@ local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
 local DebindShare = shim.loadAddon(repoRoot .. "/DebindShare", {
     "Export.lua",
     "Workbench.lua",
+    "Import.lua",
 }, { DebindPrivate = DebindPrivate });
 
 local bench = false;
@@ -52,6 +53,7 @@ local specs = {
     { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },
     { name = "export", path = root .. "/export_spec.lua" },
     { name = "workbench", path = root .. "/workbench_spec.lua" },
+    { name = "import", path = root .. "/import_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};

@@ -295,21 +295,29 @@
 					yellow = the menu is open on it). A fourth and none of them read. If something
 					new needs saying, it needs a new mark.
 
-					The atlas is the one the micro menu points at a new feature with (`FlashBorder`),
-					and Blizzard uses it both ways: flashing, or simply shown. Shown is right here.
-					Flashing means "look now", and this can be on forty rows at once - a list that
-					blinks as a whole shows nothing at all.
+					The atlas is the dot Blizzard marks a new thing with, and it calls its own copies
+					`TutorialBadge` and `BadgeTexture` - the same word for the same job.
 
-					**It sits on the icon and nowhere else.** The name column and the key column are
-					both full already, and every row template that draws an action has an `Icon`, so
-					the same block moves across unchanged. The name greys out but the icon keeps its
-					colours (`ColoredNameAndIconForAction` only touches text), which is what makes
-					this readable in a run of grey rows.
+					**A dot rather than a glow around the icon.** A glow reads as "this one is lit
+					up", which is a thing about the action; a dot reads as a mark somebody put
+					there, which is what this is.
+
+					**Outside the icon, above it, and that is not a detail.** Sat on top of the art
+					it is one more bright shape among the bright shapes spell icons are made of, and
+					stops being separable from them. Clear of the edge it is unmistakably something
+					added. Blizzard hangs its own notification dot the same way - top centre, poking
+					out past the button (`MainMenuBarMicroButtonNotificationTemplate`).
+
+					**It hangs off the icon and nowhere else.** The name column and the key column
+					are both full already, and every row template that draws an action has an
+					`Icon`, so the same block moves across unchanged. The name greys out but the
+					icon keeps its colours (`ColoredNameAndIconForAction` only touches text), which
+					is what makes this readable in a run of grey rows.
 				-->
-				<Texture parentKey="NewGlow" atlas="UI-HUD-MicroMenu-Highlightalert" hidden="true" alphaMode="BLEND">
+				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-sm" hidden="true">
+					<Size x="18" y="18"/>
 					<Anchors>
-						<Anchor point="TOPLEFT" relativeKey="$parent.Icon" x="-2" y="2"/>
-						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Icon" x="2" y="-2"/>
+						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP" x="0" y="2"/>
 					</Anchors>
 				</Texture>
 			</Layer>
@@ -435,11 +443,13 @@
 			</Layer>
 			<Layer level="OVERLAY">
 				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
-				<!-- The same mark the bin list carries, meaning the same thing. Reasoning is over there. -->
-				<Texture parentKey="NewGlow" atlas="UI-HUD-MicroMenu-Highlightalert" hidden="true" alphaMode="BLEND">
+				<!-- The same mark the bin list carries, meaning the same thing, hung the same way.
+				     Reasoning is over there. Smaller: this row is 28px where that one is 46, so a
+				     dot the same size would be most of the row's height. -->
+				<Texture parentKey="NewDot" atlas="plunderstorm-new-dot-sm" hidden="true">
+					<Size x="12" y="12"/>
 					<Anchors>
-						<Anchor point="TOPLEFT" relativeKey="$parent.Icon" x="-2" y="2"/>
-						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Icon" x="2" y="-2"/>
+						<Anchor point="CENTER" relativeKey="$parent.Icon" relativePoint="TOP" x="0" y="1"/>
 					</Anchors>
 				</Texture>
 			</Layer>

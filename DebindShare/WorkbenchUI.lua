@@ -59,6 +59,19 @@ function DebindShareBatchRowMixin:Init(elementData)
 
     self:UpdateAge();
 
+    -- **The label says which of the two this press is**, because the second one is not a repeat of
+    -- the first: it puts a second copy in. Leaving the button reading the same both times would
+    -- make "did that work?" and "do it again" the same gesture.
+    self.CommitButton:SetText(batch.committed and LLL["IMPORT_COMMIT_AGAIN"] or LLL["IMPORT_COMMIT"]);
+    self.CommitButton:SetScript("OnClick", function() self:Commit(); end);
+    self.CommitButton:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+        GameTooltip_SetTitle(GameTooltip, button:GetText());
+        GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_COMMIT_DESC"]);
+        GameTooltip:Show();
+    end);
+    self.CommitButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+
     self.PinButton:SetChecked(batch.pinned == true);
     self.PinButton:SetScript("OnClick", function(button)
         batch.pinned = button:GetChecked() or nil;
@@ -124,6 +137,30 @@ function DebindShareBatchRowMixin:UpdateAge()
         self.Age:SetText(format(LLL["IMPORT_BATCH_AGE"], age));
         self.Age:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
     end
+end
+
+--- Puts this batch into the profile, badged.
+---
+--- **The message afterwards is not decoration.** Everything that just landed is quarantined and
+--- greyed out, so from the reader's side the screen barely moves: without a line saying what
+--- happened and where to go next, a press that did a lot looks like a press that did nothing.
+function DebindShareBatchRowMixin:Commit()
+    local batch = self.elementData.batch;
+    local placed, skipped = DebindShare.CommitBatch(batch);
+
+    if (not placed) then
+        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[skipped] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
+        return;
+    end
+
+    DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED"], placed));
+    -- Layers a newer schema invented and this one cannot place. Said separately because it is the
+    -- one case where the count above is not the whole string.
+    if (skipped and skipped > 0) then
+        DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"], skipped), 1, 0.5, 0);
+    end
+
+    DebindShareImportPanel:Refresh();
 end
 
 function DebindShareBatchRowMixin:OnEnter()

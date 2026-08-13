@@ -24,5 +24,6 @@ libs.xml
 DebindShare.lua
 Export.lua
 Workbench.lua
+Import.lua
 ShareUI.xml
 WorkbenchUI.xml

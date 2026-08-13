@@ -377,6 +377,12 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "이 애드온의 예전 전
 -- The window's own tabs. The reasoning is in enUS.
 -- 근거는 enUS 쪽 주석에.
 L["APPROVE_IMPORT"] = "내 것으로 받기"
+-- 근거는 enUS 쪽 주석에.
+L["IMPORT_COMMIT"] = "가져오기"
+L["IMPORT_COMMIT_AGAIN"] = "또 가져오기"
+L["IMPORT_COMMIT_DESC"] = "지정에 넣되 꺼둔 채로 넣습니다. 받아들이기 전까지는 어떤 키도 달라지지 않습니다."
+L["IMPORT_COMMITTED"] = "행동 %d개를 가져왔습니다. 받아들이기 전까지는 꺼져 있습니다 - 빛나는 아이콘을 찾으십시오."
+L["IMPORT_COMMITTED_SKIPPED"] = "그중 %d개는 이 버전이 모르는 레이어에서 와서 빠졌습니다."
 L["IMPORT_TITLE"] = "가져오기"
 L["IMPORT_MENU_DESC"] = "남이 건넨 문자열을 받아, 무엇이 들어 있는지 먼저 보여줍니다.|n|n어느 레이어로 넣을지는 직접 고르고, 넣겠다고 하기 전까지는 지정에 아무것도 손대지 않습니다."
 -- 근거는 enUS 쪽 주석에.

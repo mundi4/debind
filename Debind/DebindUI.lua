@@ -1447,7 +1447,7 @@ function DebindLineMixin:Update()
 	-- **Not dealt with yet** - today that means imported and not yet approved (the XML comment
 	-- has the reasoning). `BuildKeyMap` skips such an action, so its name is already grey; but
 	-- grey also means "no key", and telling those two apart is what this mark is for.
-	self.NewGlow:SetShown(action.imported ~= nil);
+	self.NewDot:SetShown(action.imported ~= nil);
 
 	-- 레이어 아이콘은 오버뷰 탭에서만 켜진다(XML 주석에 이유가 있다). 규칙은 순서 리스트와
 	-- 같고 - 좁혀진 축마다 하나씩, 빈 칸은 안 남김 - 그래서 이름의 왼쪽 앵커도 여기서 다시
@@ -3952,7 +3952,7 @@ function DebindOrderLineMixin:Update()
 
 	self:SetReasonText(GetOrderReasonText(elementData));
 
-	self.NewGlow:SetShown(row.action.imported ~= nil);
+	self.NewDot:SetShown(row.action.imported ~= nil);
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);

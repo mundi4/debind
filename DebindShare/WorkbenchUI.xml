@@ -59,14 +59,14 @@
 				`relativeKey` is resolved when the frame is built, so a key declared later is nil and
 				the anchor is dropped without a word. The pin simply never appeared.
 
-				Right to left, so each one is declared before whatever leans on it: the remove button
-				pins to the row, the pin button to the remove button, and the count (down in the
-				`<Layers>` block below this one, for the same reason) to the pin button.
+				Right to left and top to bottom, each declared before whatever leans on it. **The two
+				lines do different jobs**: keeping the batch is up top next to removing it, and the
+				one thing this row is for is along the bottom with the size of what it would do.
 			-->
 			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
 				<Size x="24" y="24"/>
 				<Anchors>
-					<Anchor point="RIGHT" x="-4" y="0"/>
+					<Anchor point="TOPRIGHT" x="-2" y="-2"/>
 				</Anchors>
 			</Button>
 			<!--
@@ -76,21 +76,36 @@
 			<CheckButton parentKey="PinButton" inherits="MinimalCheckboxArtTemplate">
 				<Size x="22" y="22"/>
 				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-4" y="0"/>
+					<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-2" y="0"/>
 				</Anchors>
 			</CheckButton>
+			<!--
+				What the drawer is for. Everything it puts in the profile arrives badged and reaches
+				no key, so this changes nothing about what any key does - which is why it is one
+				press with no question in front of it.
+
+				It stays enabled after a batch has been committed. Committing twice makes a second
+				copy, which is what pasting the same string twice has always done, and the row says
+				it has been used rather than refusing to be used again.
+			-->
+			<Button parentKey="CommitButton" inherits="UIPanelButtonTemplate">
+				<Size x="110" y="20"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-4" y="4"/>
+				</Anchors>
+			</Button>
 		</Frames>
 		<!--
-			**After `<Frames>`, not with the other text.** This one leans on `PinButton`, which is
+			**After `<Frames>`, not with the other text.** This leans on `CommitButton`, which is
 			built in the block above. Up with `Name` and `Age` it was pointing at nothing.
 		-->
 		<Layers>
 			<Layer level="ARTWORK">
-				<!-- How much is in it. Right aligned so the numbers line up down the list. -->
+				<!-- How much is in it, next to the button that would place it. -->
 				<FontString parentKey="Counts" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
-					<Size x="120" y="0"/>
+					<Size x="140" y="0"/>
 					<Anchors>
-						<Anchor point="TOPRIGHT" relativeKey="$parent.PinButton" relativePoint="TOPLEFT" x="-6" y="-4"/>
+						<Anchor point="RIGHT" relativeKey="$parent.CommitButton" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
