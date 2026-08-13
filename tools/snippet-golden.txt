@@ -144,7 +144,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	ClickUnitDead = newtable()
 
 	MacroTextsMap = newtable()
-	UnitMap = newtable()
+	UnitAliasMap = newtable()
 	UnitStates = newtable()
 	States = newtable()
 	DirtyFlags = newtable()
@@ -159,8 +159,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	SpecialUnits = newtable()
-	CustomUnits = newtable()
+
+
+	UnitAliasNeedsExists = newtable()
 
 
 ### SecureBindings.lua #2 SetAttribute (DEBUG=on)
@@ -184,7 +185,7 @@ DelegateFrameNames[frame] = frame:GetName()
 							local arg = t.args[i]
 							local value
 							if (arg.unit) then
-								value = UnitMap[arg.unit] or "raid41"
+								value = UnitAliasMap[arg.unit] or "raid41"
 							elseif (arg.state) then
 								value = States[arg.state] and true or false
 								if (arg.reverse) then
@@ -199,13 +200,13 @@ DelegateFrameNames[frame] = frame:GetName()
 						s = table.concat(t.fragments)
 					else
 						s = format(t.formatString,
-								UnitMap["tank"] or "raid41",
-								UnitMap["healer"] or "raid41",
-								UnitMap["maintank"] or "raid41",
-								UnitMap["mainassist"] or "raid41",
-								UnitMap["custom1"] or "raid41",
-								UnitMap["custom2"] or "raid41",
-								UnitMap["hover"] or "raid41")
+								UnitAliasMap["tank"] or "raid41",
+								UnitAliasMap["healer"] or "raid41",
+								UnitAliasMap["maintank"] or "raid41",
+								UnitAliasMap["mainassist"] or "raid41",
+								UnitAliasMap["custom1"] or "raid41",
+								UnitAliasMap["custom2"] or "raid41",
+								UnitAliasMap["hover"] or "raid41")
 					end
 
 
@@ -260,7 +261,7 @@ DelegateFrameNames[frame] = frame:GetName()
 							local arg = t.args[i]
 							local value
 							if (arg.unit) then
-								value = UnitMap[arg.unit] or "raid41"
+								value = UnitAliasMap[arg.unit] or "raid41"
 							elseif (arg.state) then
 								value = States[arg.state] and true or false
 								if (arg.reverse) then
@@ -275,13 +276,13 @@ DelegateFrameNames[frame] = frame:GetName()
 						s = table.concat(t.fragments)
 					else
 						s = format(t.formatString,
-								UnitMap["tank"] or "raid41",
-								UnitMap["healer"] or "raid41",
-								UnitMap["maintank"] or "raid41",
-								UnitMap["mainassist"] or "raid41",
-								UnitMap["custom1"] or "raid41",
-								UnitMap["custom2"] or "raid41",
-								UnitMap["hover"] or "raid41")
+								UnitAliasMap["tank"] or "raid41",
+								UnitAliasMap["healer"] or "raid41",
+								UnitAliasMap["maintank"] or "raid41",
+								UnitAliasMap["mainassist"] or "raid41",
+								UnitAliasMap["custom1"] or "raid41",
+								UnitAliasMap["custom2"] or "raid41",
+								UnitAliasMap["hover"] or "raid41")
 					end
 
 
@@ -344,10 +345,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 ### SecureBindings.lua #6 SetAttribute
 	local alias, unit, force = ...
-	local changed = UnitMap[alias] ~= unit
+	local changed = UnitAliasMap[alias] ~= unit
 	local dirty = false
 	if (changed or force) then
-		UnitMap[alias] = unit
+		UnitAliasMap[alias] = unit
 
 		local delegateFrame = DelegateFrames[alias]
 		if (delegateFrame) then
@@ -389,13 +390,13 @@ DelegateFrameNames[frame] = frame:GetName()
 	return dirty;
 
 ### SecureBindings.lua #7 SetAttribute
-	self:RunAttribute("SetUnit", "tank", UnitMap["tank"], true)
-	self:RunAttribute("SetUnit", "healer", UnitMap["healer"], true)
-	self:RunAttribute("SetUnit", "maintank", UnitMap["maintank"], true)
-	self:RunAttribute("SetUnit", "mainassist", UnitMap["mainassist"], true)
-	self:RunAttribute("SetUnit", "custom1", UnitMap["custom1"], true)
-	self:RunAttribute("SetUnit", "custom2", UnitMap["custom2"], true)
-	self:RunAttribute("SetUnit", "hover", UnitMap["hover"], true)
+	self:RunAttribute("SetUnit", "tank", UnitAliasMap["tank"], true)
+	self:RunAttribute("SetUnit", "healer", UnitAliasMap["healer"], true)
+	self:RunAttribute("SetUnit", "maintank", UnitAliasMap["maintank"], true)
+	self:RunAttribute("SetUnit", "mainassist", UnitAliasMap["mainassist"], true)
+	self:RunAttribute("SetUnit", "custom1", UnitAliasMap["custom1"], true)
+	self:RunAttribute("SetUnit", "custom2", UnitAliasMap["custom2"], true)
+	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
 
 ### SecureBindings.lua #8 SetAttribute
 
@@ -839,12 +840,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 							unit = hoverUnit
-						elseif (SpecialUnits[u]) then
-							unit = UnitMap[u]
-							needsExists = CustomUnits[u]
 						else
-							unit = u
-							needsExists = true
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
 						end
 
 
@@ -1139,12 +1144,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 							unit = hoverUnit
-						elseif (SpecialUnits[u]) then
-							unit = UnitMap[u]
-							needsExists = CustomUnits[u]
 						else
-							unit = u
-							needsExists = true
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
 						end
 
 
@@ -1252,7 +1261,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (winner.unitAlias == "hover") then
 			unit = hoverUnit
 		else
-			unit = UnitMap[winner.unitAlias]
+			unit = UnitAliasMap[winner.unitAlias]
 		end
 
 
@@ -1510,12 +1519,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 							unit = hoverUnit
-						elseif (SpecialUnits[u]) then
-							unit = UnitMap[u]
-							needsExists = CustomUnits[u]
 						else
-							unit = u
-							needsExists = true
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
 						end
 
 
@@ -1623,7 +1636,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		if (winner.unitAlias == "hover") then
 			unit = hoverUnit
 		else
-			unit = UnitMap[winner.unitAlias]
+			unit = UnitAliasMap[winner.unitAlias]
 		end
 
 

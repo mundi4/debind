@@ -1184,7 +1184,7 @@ RegisterTest("Secure update path", {
 -- 뺐다 다시 올려야 살아난다. 조건 하나만 바뀌어도 리빌드는 돌므로 - 전투 진입, 자세 변경 -
 -- 실사용에서 밟힌다.
 --
--- **`GetHoverUnit()`만 봐서는 못 잡는다.** 짝이 되는 `UnitMap["hover"]`는 리빌드가 안 지우니
+-- **`GetHoverUnit()`만 봐서는 못 잡는다.** 짝이 되는 `UnitAliasMap["hover"]`는 리빌드가 안 지우니
 -- 버그가 있어도 "player"로 남는다. 그래서 leave로 본다: 슬롯이 날아갔으면 leave가 지울 것을
 -- 못 찾고 그냥 나가므로, hover가 안 지워진 채로 남는다.
 RegisterTest("Hover slot: survives a rebuild under a still cursor", {

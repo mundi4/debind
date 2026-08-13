@@ -300,7 +300,7 @@ wipe(CustomStateExpressions)
 -- 커서는 그대로 프레임 위에 있는데 조건 하나만 바뀌면(전투 진입, 자세 변경, 특성) 리빌드가
 -- 돌고, 그 순간 hover 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
 --
--- 짝이 되는 `UnitMap["hover"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
+-- 짝이 되는 `UnitAliasMap["hover"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
 -- 한다 - hover 유닛은 남아 있는데 hover 프레임은 없는 상태가 된다.
 local hovered = States.unitframe
 wipe(States)
@@ -1479,14 +1479,14 @@ end
     for unit, axes in pairs(_unitStates) do
         local unitExpr, existsExpr;
         if (unit == "custom1" or unit == "custom2") then
-            unitExpr = format("UnitMap[%q]", unit);
-            existsExpr = format("UnitMap[%1$q] and UnitExists(UnitMap[%1$q])", unit);
+            unitExpr = format("UnitAliasMap[%q]", unit);
+            existsExpr = format("UnitAliasMap[%1$q] and UnitExists(UnitAliasMap[%1$q])", unit);
         elseif (SPECIAL_UNITS[unit]) then
-            -- For the other aliases, being in `UnitMap` **is** the proof of existence -- `SetUnit`
+            -- For the other aliases, being in `UnitAliasMap` **is** the proof of existence -- `SetUnit`
             -- does not put one there otherwise. Asking `UnitExists` again would tighten the
             -- condition without anyone saying so.
-            unitExpr = format("UnitMap[%q]", unit);
-            existsExpr = format("UnitMap[%q]", unit);
+            unitExpr = format("UnitAliasMap[%q]", unit);
+            existsExpr = format("UnitAliasMap[%q]", unit);
         else
             unitExpr = format("%q", unit);
             existsExpr = format("UnitExists(%q)", unit);

@@ -112,7 +112,7 @@ SecureHandlerExecute(BindingDriver, [[
 	ClickUnitDead = newtable()
 
 	MacroTextsMap = newtable()
-	UnitMap = newtable()
+	UnitAliasMap = newtable()
 	UnitStates = newtable()
 	States = newtable()
 	DirtyFlags = newtable()
@@ -125,23 +125,24 @@ SecureHandlerExecute(BindingDriver, [[
 
 	-- 유닛 조건을 클릭 시점에 풀 때 필요한 분류. 화이트리스트 밖이라 스니펫이 스스로
 	-- 알 수 없으므로 아래에서 실어 보낸다.
-	--   SpecialUnits - UnitMap으로 풀어야 하는 별칭
-	--   CustomUnits  - 그 중 실제 존재까지 확인해야 하는 것 (custom1/custom2)
-	SpecialUnits = newtable()
-	CustomUnits = newtable()
+	--
+	-- **값이 곧 `needsExists`이고, 멤버십 검사는 `~= nil`이다.** 별칭이 아니면 nil, 별칭이면
+	-- false/true 중 하나 - 즉 `if (UnitAliasNeedsExists[u])`로 물으면 custom1/custom2 밖의
+	-- 별칭이 통째로 빠지고 조용히 맨 유닛 토큰으로 떨어진다. 반드시 `~= nil`로 물을 것.
+	UnitAliasNeedsExists = newtable()
 
 ]]);
 
 do
+	-- custom1/custom2만 두 겹이다. tank/healer/maintank/mainassist/hover는 UnitWatch가
+	-- UnitAliasMap에 넣어준 것 자체가 존재 증거라는 규약이고, 옛 경로(UpdateBindings.lua의
+	-- 유닛 상태 표현식)가 이미 그렇게 갈라져 있다. 여기서 통일하면 조건이 조용히 빡빡해진다.
+	local needsExists = { custom1 = true, custom2 = true };
 	local lines = {};
 	for alias in pairs(Constants.SPECIAL_UNITS) do
-		lines[#lines + 1] = format("SpecialUnits[%q]=true", alias);
+		lines[#lines + 1] = format("UnitAliasNeedsExists[%q]=%s", alias,
+			needsExists[alias] and "true" or "false");
 	end
-	-- custom1/custom2만 두 겹이다. tank/healer/maintank/mainassist/hover는 UnitWatch가
-	-- UnitMap에 넣어준 것 자체가 존재 증거라는 규약이고, 옛 경로(UpdateBindings.lua의
-	-- 유닛 상태 표현식)가 이미 그렇게 갈라져 있다. 여기서 통일하면 조건이 조용히 빡빡해진다.
-	lines[#lines + 1] = [[CustomUnits["custom1"]=true]];
-	lines[#lines + 1] = [[CustomUnits["custom2"]=true]];
 	SecureHandlerExecute(BindingDriver, table.concat(lines, "\n"));
 end
 
@@ -175,7 +176,7 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 							local arg = t.args[i]
 							local value
 							if (arg.unit) then
-								value = UnitMap[arg.unit] or "raid41"
+								value = UnitAliasMap[arg.unit] or "raid41"
 							elseif (arg.state) then
 								value = States[arg.state] and true or false
 								if (arg.reverse) then
@@ -190,13 +191,13 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 						s = table.concat(t.fragments)
 					else
 						s = format(t.formatString,
-								UnitMap["tank"] or "raid41",
-								UnitMap["healer"] or "raid41",
-								UnitMap["maintank"] or "raid41",
-								UnitMap["mainassist"] or "raid41",
-								UnitMap["custom1"] or "raid41",
-								UnitMap["custom2"] or "raid41",
-								UnitMap["hover"] or "raid41")
+								UnitAliasMap["tank"] or "raid41",
+								UnitAliasMap["healer"] or "raid41",
+								UnitAliasMap["maintank"] or "raid41",
+								UnitAliasMap["mainassist"] or "raid41",
+								UnitAliasMap["custom1"] or "raid41",
+								UnitAliasMap["custom2"] or "raid41",
+								UnitAliasMap["hover"] or "raid41")
 					end
 
 					-- 실제로 버튼에 올라가는 문자열. 여기가 **보안 쪽에서 매크로 본문이
@@ -263,10 +264,10 @@ BindingDriver:SetAttribute("ToggleCustomState", [[
 
 BindingDriver:SetAttribute("SetUnit", [[
 	local alias, unit, force = ...
-	local changed = UnitMap[alias] ~= unit
+	local changed = UnitAliasMap[alias] ~= unit
 	local dirty = false
 	if (changed or force) then
-		UnitMap[alias] = unit
+		UnitAliasMap[alias] = unit
 
 		local delegateFrame = DelegateFrames[alias]
 		if (delegateFrame) then
@@ -309,13 +310,13 @@ BindingDriver:SetAttribute("SetUnit", [[
 ]]);
 
 BindingDriver:SetAttribute("UpdateAllUnits", [[
-	self:RunAttribute("SetUnit", "tank", UnitMap["tank"], true)
-	self:RunAttribute("SetUnit", "healer", UnitMap["healer"], true)
-	self:RunAttribute("SetUnit", "maintank", UnitMap["maintank"], true)
-	self:RunAttribute("SetUnit", "mainassist", UnitMap["mainassist"], true)
-	self:RunAttribute("SetUnit", "custom1", UnitMap["custom1"], true)
-	self:RunAttribute("SetUnit", "custom2", UnitMap["custom2"], true)
-	self:RunAttribute("SetUnit", "hover", UnitMap["hover"], true)
+	self:RunAttribute("SetUnit", "tank", UnitAliasMap["tank"], true)
+	self:RunAttribute("SetUnit", "healer", UnitAliasMap["healer"], true)
+	self:RunAttribute("SetUnit", "maintank", UnitAliasMap["maintank"], true)
+	self:RunAttribute("SetUnit", "mainassist", UnitAliasMap["mainassist"], true)
+	self:RunAttribute("SetUnit", "custom1", UnitAliasMap["custom1"], true)
+	self:RunAttribute("SetUnit", "custom2", UnitAliasMap["custom2"], true)
+	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
 ]]);
 
 BindingDriver:SetAttribute("ClearUnitAttributes", [==[
@@ -821,16 +822,20 @@ local EVAL_SNIPPET = [==[
 					do
 						local unit, needsExists
 						if (u == "hover") then
-							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitMap["hover"]는
+							-- 위에서 프레임에서 직접 읽은 값을 쓴다. UnitAliasMap["hover"]는
 							-- 캐시라 여기서만 그걸 보면 hover 조건과 다른 유닛을 판정하게
 							-- 된다. 대상도 같은 값을 쓴다(아래 SetAttribute).
 							unit = hoverUnit
-						elseif (SpecialUnits[u]) then
-							unit = UnitMap[u]
-							needsExists = CustomUnits[u]
 						else
-							unit = u
-							needsExists = true
+							-- **한 번만 조회한다.** nil이면 별칭이 아니고, 아니면 그 값이
+							-- 곧 답이다. false가 답인 별칭이 있으므로 `~= nil`로 가른다.
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
 						end
 
 						-- Existence is resolved first now. The old shape could let
@@ -1131,7 +1136,7 @@ end, [==[
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
 	--
-	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitMap["hover"]는 enter와 폴링이
+	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["hover"]는 enter와 폴링이
 	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
 	-- 캐시에서 가져오면 **판정한 유닛과 시전 대상이 갈린다** - 우호로 판정해 놓고 옛 유닛에
 	-- 쏘는 것이다. 옛 경로는 둘 다 캐시라 적어도 일관됐으니 그보다 나빠진다.
@@ -1145,7 +1150,7 @@ end, [==[
 		if (winner.unitAlias == "hover") then
 			unit = hoverUnit
 		else
-			unit = UnitMap[winner.unitAlias]
+			unit = UnitAliasMap[winner.unitAlias]
 		end
 
 		-- **안 풀리면 존재하지 않는 유닛을 넣는다.** nil로 두면 대상이 없는 것이 되어
