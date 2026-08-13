@@ -68,21 +68,20 @@ function parse(src) {
 }
 
 /**
- * 앵커를 소유한 **프레임**. `<Anchor>`의 `$parent`는 `<Anchors>`가 아니라 그것을 담은
- * 프레임을 기준으로 읽는다.
+ * **프레임이 아니라 묶음일 뿐인 태그.** `$parent`는 이것들을 세지 않는다 - 텍스처의 부모는
+ * `<Layer>`가 아니라 그 `<Layer>`를 담은 프레임이다.
+ *
+ * 처음에 이걸 빼먹어서 검사에 구멍이 났다. `<Layers>` 안에서 `<Frames>`의 키를 가리키는
+ * 앵커가 정확히 실제로 났던 사고인데(작업대 행의 개수 칸), 그때 이 검사는 통과했다 -
+ * 컨테이너를 `<Layer>`로 잡는 바람에 형제가 하나도 없어서 견줄 것이 없었기 때문이다.
  */
-function ownerOf(anchor) {
-    let node = anchor.parent;
-    while (node && node.name === "Anchors") {
-        node = node.parent;
-    }
-    return node;
-}
+const WRAPPERS = new Set(["Anchors", "Layers", "Layer", "Frames", "Animations", "Scripts",
+    "KeyValues", "Attributes", "ButtonText", "Frame.Attributes"]);
 
-/** `node`의 조상 중 `container`의 직속 자식인 것. 형제 차례를 재려면 이것이 필요하다. */
-function childOfContainer(node, container) {
-    let cur = node;
-    while (cur && cur.parent !== container) {
+/** 위로 올라가며 묶음 태그를 건너뛴다. */
+function frameAbove(node) {
+    let cur = node && node.parent;
+    while (cur && WRAPPERS.has(cur.name)) {
         cur = cur.parent;
     }
     return cur;
@@ -99,6 +98,15 @@ function checkFile(file, rel) {
     const src = fs.readFileSync(file, "utf8");
     const root = parse(src);
     const problems = [];
+
+    // **차례는 문서 순서다.** 프레임은 위에서부터 만들어지므로, "먼저 선언됐나"는 트리에서
+    // 형제 번호를 세는 것보다 문서에서 먼저 나오는지를 보는 것이 곧바르다 - 그래야 묶음
+    // 태그가 몇 겹이든 답이 같다.
+    let ordinal = 0;
+    walk(root, (node) => {
+        node.ordinal = ordinal;
+        ordinal += 1;
+    });
 
     walk(root, (node) => {
         if (node.name !== "Anchor") {
@@ -119,7 +127,8 @@ function checkFile(file, rel) {
             return;
         }
 
-        const owner = ownerOf(node);
+        // 이 앵커를 소유한 프레임. `<Anchors>`뿐 아니라 `<Layer>`·`<Layers>`도 건너뛴다.
+        const owner = frameAbove(node);
         if (!owner) {
             return;
         }
@@ -127,37 +136,39 @@ function checkFile(file, rel) {
         // `$parent`를 hops번 거슬러 올라간 것이 그 키를 들고 있어야 할 컨테이너다.
         let container = owner;
         for (let i = 0; i < hops; i += 1) {
-            container = container && container.parent;
+            container = frameAbove(container);
         }
         // 문서 밖으로 나갔다 = 이 파일이 모르는 부모다(가상 템플릿의 뿌리, 최상위 프레임).
         // 판단하지 않는다.
-        if (!container || container.name === "#doc" || !container.parent) {
+        if (!container || container.name === "#doc" || !frameAbove(container)) {
             return;
         }
 
-        const mine = childOfContainer(owner, container);
-        const siblings = container.children;
-        const myIndex = siblings.indexOf(mine);
-
-        let declaredAt = -1;
-        for (let i = 0; i < siblings.length; i += 1) {
-            if (siblings[i].attrs.parentKey === wanted) {
-                declaredAt = i;
-                break;
+        // 그 컨테이너에 딸린 키들. **중첩된 프레임 안으로는 안 들어간다** - 거기 있는
+        // `parentKey`는 그 프레임의 것이지 이 컨테이너의 것이 아니다.
+        let declared = null;
+        (function collect(node) {
+            for (const child of node.children) {
+                if (child.attrs.parentKey === wanted && !declared) {
+                    declared = child;
+                }
+                if (WRAPPERS.has(child.name)) {
+                    collect(child);
+                }
             }
-        }
+        })(container);
 
         // **여기 없으면 넘어간다.** 물려받은 템플릿이 준 키일 수 있고, 그건 이 파일이 답할 수
         // 있는 질문이 아니다. 잡는 것은 "여기 있는데 뒤에 있다" 하나뿐이다.
-        if (declaredAt === -1 || declaredAt < myIndex) {
+        if (!declared || declared.ordinal < owner.ordinal) {
             return;
         }
 
         problems.push({
             line: node.line,
             wanted,
-            ownerKey: mine.attrs.parentKey || mine.attrs.name || mine.name,
-            declaredLine: siblings[declaredAt].line,
+            ownerKey: owner.attrs.parentKey || owner.attrs.name || owner.name,
+            declaredLine: declared.line,
         });
     });
 
