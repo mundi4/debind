@@ -112,6 +112,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
 	StateDrivenBindings = newtable()
 
 
@@ -473,7 +477,11 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 
 		if (check) then
-			local keyBound = not bindings.hasNonClick
+
+
+
+
+			local keyBound
 
 			for i = 1, #bindings do
 				local t = bindings[i]
@@ -575,7 +583,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				end
 			end
 
-			if (not keyBound and bindings.hasNonClick) then
+			if (not keyBound) then
 				bindings.bound = nil
 				self:ClearBinding(key)
 			end

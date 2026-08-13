@@ -77,9 +77,13 @@ SecureHandlerExecute(BindingDriver, [[
 
 	-- 배선이 상태에 달린 키들. 키 -> 그 키의 레코드 배열.
 	--
-	-- **모든 키가 아니다.** 배선이 고정된 키(`IsKeyAlwaysOurs`)는 빌드 시점에 한 번 걸고 끝이라
-	-- 여기 안 들어온다 - 이름이 말하는 그대로다. 모양(키 -> 배열)만 보고 "전부 있겠지"로 읽으면
-	-- 안 된다. 아래 상태 루프가 이 표의 유일한 독자다.
+	-- **모든 키가 아니다.** 모양(키 -> 배열)만 보고 "전부 있겠지"로 읽으면 안 된다 - 이름이
+	-- 말하는 그대로 배선이 상태에 달린 키만이고, 두 갈래가 빠져 있다:
+	--
+	--   배선이 고정된 키       `IsKeyAlwaysOurs`. 빌드 시점에 한 번 걸고 끝이다
+	--   클릭캐스팅 전용 키      키를 잡는 레코드가 없다. 걸었다 놓았다 할 키 역할이 아예 없다
+	--
+	-- 아래 상태 루프가 이 표의 유일한 독자다.
 	StateDrivenBindings = newtable()
 
 	-- 클릭 시점 평가로 넘긴 키들. 버튼 이름("@" + 키) -> 그 키의 레코드 배열.
@@ -395,7 +399,11 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 		end
 
 		if (check) then
-			local keyBound = not bindings.hasNonClick
+			-- **이 표에 있는 키는 전부 키를 잡는 레코드를 갖고 있다.** 없는 키는 클릭캐스팅
+			-- 전용이라 `UpdateBindingsMap`이 아예 안 넣는다. 그래서 여기서 `hasNonClick`을
+			-- 다시 묻지 않는다 - 물어봤자 답이 하나뿐이고, 옛 코드는 그 키들을 훑고 나서
+			-- 레코드 하나 안 읽고 끝냈다.
+			local keyBound
 
 			for i = 1, #bindings do
 				local t = bindings[i]
@@ -497,7 +505,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				end
 			end
 
-			if (not keyBound and bindings.hasNonClick) then
+			if (not keyBound) then
 				bindings.bound = nil
 				self:ClearBinding(key)
 			end

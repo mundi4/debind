@@ -631,11 +631,15 @@ local function WaitForWinner(limit)
     return probeReports[#probeReports]
 end
 
---- Which of the two tables a key's record list ended up in.
+--- Which of the three tables a key's record list ended up in.
 ---
 --- **The split is the one thing nothing else here can see.** `IsKeyAlwaysOurs` is covered
 --- headlessly, and the click tests cover what a press decides -- but both pass whichever table
 --- the key landed in, so an emitter that ignored the verdict entirely would not show up in either.
+---
+--- `clickCast` is here for the same reason the other two are asked as a pair: for a key that holds
+--- no keyboard role, "not state-driven" and "never emitted" look identical from the outside, and
+--- only its `ClickCastKeys` slot tells them apart.
 ---
 --- Asked of the restricted environment rather than of the source that built it. Reading the
 --- generated snippet back would only confirm that the generator wrote what the generator meant to
@@ -645,18 +649,22 @@ end
 local lastMembership
 local function ReadKeyMembership(key)
     local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
+    local mouseButton, mousePrefix = DebindPrivate.GetMouseButtonAndPrefix(key)
     lastMembership = nil
-    DebindPrivate.BindingDriver.DebindTestMembership = function(_, stateDriven, clickTime)
-        lastMembership = { stateDriven = stateDriven, clickTime = clickTime }
+    DebindPrivate.BindingDriver.DebindTestMembership = function(_, stateDriven, clickTime, clickCast)
+        lastMembership = { stateDriven = stateDriven, clickTime = clickTime, clickCast = clickCast }
     end
 
     SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
-        self:CallMethod("DebindTestMembership", StateDrivenBindings[%q] ~= nil, %s)
-    ]], key, button and format([[ClickTimeKeys[%q] ~= nil]], button) or "false"))
+        self:CallMethod("DebindTestMembership", StateDrivenBindings[%q] ~= nil, %s, %s)
+    ]], key,
+        button and format([[ClickTimeKeys[%q] ~= nil]], button) or "false",
+        mouseButton and format([[ClickCastKeys[%d] ~= nil and ClickCastKeys[%d][%d] ~= nil]],
+            mouseButton, mouseButton, DebindPrivate.GetModifierIndex(mousePrefix)) or "false"))
     return true
 end
 
---- `{ stateDriven = bool, clickTime = bool }` from the last `ReadKeyMembership`.
+--- `{ stateDriven = bool, clickTime = bool, clickCast = bool }` from the last `ReadKeyMembership`.
 local function LastMembership()
     return lastMembership
 end
@@ -2077,6 +2085,43 @@ RegisterTest("Split: a key that can be released stays state-driven", {
         end
 
         return Pass(NAME, format("stateDriven, clickTime=%s", tostring(m.clickTime)))
+    end,
+})
+
+-- 클릭캐스팅 전용 키 - 마우스 버튼에 hover 조건만 걸린 키다. 키를 잡는 레코드가 하나도 없으니
+-- 걸었다 놓았다 할 키 역할이 없고, 상태 루프가 이 키에서 정할 것도 없다.
+--
+-- **전에는 표에 들어 있었고 루프가 레코드 하나 안 읽고 끝냈다.** 그 no-op을 없앤 것이 이
+-- 케이스가 지키는 것이다. `clickCast`를 같이 묻는 이유는 위 둘과 같다 - 이 키는 `ClickTimeKeys`에
+-- 없으므로, `clickCast`가 없으면 "안 넣었다"와 "아예 안 나갔다"가 밖에서 똑같이 보인다.
+RegisterTest("Split: a click-casting-only key is not state-driven", {
+    description = "키를 잡는 레코드가 없는 키가 상태 루프의 표에서 빠지는가",
+    run = function()
+        local NAME = "Split clickcast-only"
+        local KEY = "BUTTON3"
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            checkedUnits = { hover = {} },
+            frameTypes = Constants.FRAMETYPE_GROUP,
+        })
+        ApplyBindings()
+
+        ReadKeyMembership(KEY)
+        Wait(0.4)
+
+        local m = LastMembership()
+        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+
+        if not m.clickCast then
+            return Fail(NAME, "ClickCastKeys에도 없다 - 갈린 게 아니라 레코드가 안 나갔다")
+        end
+        if m.stateDriven then
+            return Fail(NAME,
+                "StateDrivenBindings에 들어 있다 - 정할 것이 없는데 상태 루프가 매 틱 훑는다")
+        end
+
+        return Pass(NAME, format("clickCast만, stateDriven 아님 (clickTime=%s)", tostring(m.clickTime)))
     end,
 })
 

@@ -770,25 +770,30 @@ local function mergeUnitConditions(a, b)
     return { reaction = reaction, dead = dead };
 end
 
---- Emits the line that creates a key's record list, and puts it in `StateDrivenBindings` unless the key's
---- wiring is fixed.
+--- Emits the line that creates a key's record list, and puts it in `StateDrivenBindings` only when
+--- the update loop has a wiring decision to make for that key.
 ---
---- **`StateDrivenBindings` is read by the update loop and by nothing else.** A key whose wiring is fixed
---- has nothing for that loop to decide -- it is bound once, below, and which action goes out is
---- the wrapper's call at the click -- so being in the table only buys a walk over its records on
---- every dirty flag, ending in "nothing to do". Out of the table, that walk does not happen.
+--- **`StateDrivenBindings` is read by the update loop and by nothing else.** Two kinds of key leave
+--- it with nothing to decide, and both stay out:
 ---
---- The list still has an owner: the `ClickTimeKeys` registration below holds it, and that is the
---- table the wrapper reaches it through. Both lines are driven by the same `first` flag, so a key
---- that emitted no records gets neither.
-local function AppendBindingsList(key, alwaysOurs)
-    if (alwaysOurs) then
-        appendLine("bindings=newtable()");
-    else
+---   배선이 고정된 키      bound once, below. Which action goes out is the wrapper's call at the click
+---   클릭캐스팅 전용 키     no record holds the key at all, so there is no key role to bind or release
+---
+--- Being in the table would only buy a walk over its records on every dirty flag, ending in
+--- "nothing to do" -- and the second kind ended there without reading a single record. That is why
+--- the loop can now open with `keyBound` unset instead of asking whether the key is held at all.
+---
+--- The list still has an owner either way: the `ClickTimeKeys` or `ClickCastKeys` registration
+--- below holds it, and that is the table the wrapper reaches it through. Every one of those lines
+--- is driven by the same `first` flag, so a key that emitted no records gets none of them.
+local function AppendBindingsList(key, stateDriven)
+    if (stateDriven) then
         appendLine("bindings=newtable();StateDrivenBindings[%q]=bindings", key);
         if (DEBUG) then
             DebindPrivate.StateDrivenKeys[key] = true;
         end
+    else
+        appendLine("bindings=newtable()");
     end
 end
 
@@ -862,6 +867,11 @@ function UpdateBindingsMap()
         -- 아예 안 본다.
         local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysOurs(bindingArray);
 
+        -- 상태 루프가 이 키에서 정할 것이 있나. 둘 다여야 한다: 키를 잡는 레코드가 있어야 하고
+        -- (없으면 클릭캐스팅 전용이라 걸었다 놓았다 할 키 역할 자체가 없다), 그 배선이 고정이
+        -- 아니어야 한다.
+        local stateDriven = hasNonClick and not alwaysOurs;
+
         local first = true;
 
         if (hasClick or hasNonClick) then
@@ -910,7 +920,7 @@ function UpdateBindingsMap()
                         if (DEBUG) then
                             appendLine("-- %s", key);
                         end
-                        AppendBindingsList(key, alwaysOurs);
+                        AppendBindingsList(key, stateDriven);
                     end
                     appendLine("t=newtable();tinsert(bindings,t)");
 
@@ -1230,7 +1240,7 @@ function UpdateBindingsMap()
         -- 고르고 키는 안 걸린다.
         if (first and (hasClick or hasNonClick)) then
             first = false;
-            AppendBindingsList(key, alwaysOurs);
+            AppendBindingsList(key, stateDriven);
         end
 
         -- **`_measuredStates`는 "잴 상태"다.** 여기로 넘어오는 것 중 잴 수 없는 둘은 걸러낸다:
@@ -1279,6 +1289,10 @@ function UpdateBindingsMap()
             appendLine("ClickCastKeys[%d]=ClickCastKeys[%d] or newtable()", button, button);
             appendLine("ClickCastKeys[%d][%d]=bindings", button, GetModifierIndex(buttonPrefix));
         end
+        -- **진단으로만 남는다.** 상태 루프가 마지막 독자였는데, 그 루프가 도는 키는 이제 전부
+        -- 이 값이 참이라 물어볼 것이 없어졌다. `alwaysOurs`와 같은 자리다(§2-2): 진짜는 어느
+        -- 표에 들어 있느냐이고 이 필드는 그 사본이라, 이걸로 판정하는 코드를 새로 쓰면 안 된다.
+        -- 남기는 이유도 같다 - `bindings` 하나만 보고 갈래를 알 수 있어야 인게임에서 확인이 된다.
         if (hasNonClick) then
             appendLine("bindings.hasNonClick=true");
         end
