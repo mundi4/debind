@@ -48,19 +48,27 @@
 						<Anchor point="TOPLEFT" relativeKey="$parent.Name" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
 					</Anchors>
 				</FontString>
-				<!-- How much is in it. Right aligned so the numbers line up down the list. -->
-				<FontString parentKey="Counts" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
-					<Size x="120" y="0"/>
-					<Anchors>
-						<Anchor point="TOPRIGHT" relativeKey="$parent.PinButton" relativePoint="TOPLEFT" x="-6" y="-4"/>
-					</Anchors>
-				</FontString>
 			</Layer>
 			<Layer level="HIGHLIGHT">
 				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD"/>
 			</Layer>
 		</Layers>
 		<Frames>
+			<!--
+				**Declaration order is anchor order, and both of these were on the wrong side of it.**
+				`relativeKey` is resolved when the frame is built, so a key declared later is nil and
+				the anchor is dropped without a word. The pin simply never appeared.
+
+				Right to left, so each one is declared before whatever leans on it: the remove button
+				pins to the row, the pin button to the remove button, and the count (down in the
+				`<Layers>` block below this one, for the same reason) to the pin button.
+			-->
+			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="RIGHT" x="-4" y="0"/>
+				</Anchors>
+			</Button>
 			<!--
 				Keeps the batch out of the expiry sweep entirely. Not a later date: there is no date
 				far enough away to mean "leave this alone".
@@ -71,13 +79,22 @@
 					<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-4" y="0"/>
 				</Anchors>
 			</CheckButton>
-			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
-				<Size x="24" y="24"/>
-				<Anchors>
-					<Anchor point="RIGHT" x="-4" y="0"/>
-				</Anchors>
-			</Button>
 		</Frames>
+		<!--
+			**After `<Frames>`, not with the other text.** This one leans on `PinButton`, which is
+			built in the block above. Up with `Name` and `Age` it was pointing at nothing.
+		-->
+		<Layers>
+			<Layer level="ARTWORK">
+				<!-- How much is in it. Right aligned so the numbers line up down the list. -->
+				<FontString parentKey="Counts" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="120" y="0"/>
+					<Anchors>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.PinButton" relativePoint="TOPLEFT" x="-6" y="-4"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<Scripts>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
@@ -232,10 +249,22 @@
 				</Layers>
 			</EditBox>
 
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-16" y="14"/>
+				</Anchors>
+			</Button>
+
 			<!--
 				Why the string was turned down, when it is. It sits above the button that turned it
 				down, so the answer is next to the question, and the text stays in the box behind
 				it: a refusal the reader cannot act on is a refusal in the wrong place.
+
+				**Declared after that button**, because it anchors to it. The other way round the
+				anchor is dropped silently and the refusal never appears - which is the worst place
+				for this particular failure, since the whole point of the line is that a rejected
+				paste says why.
 			-->
 			<Frame parentKey="ErrorHolder" useParentLevel="true">
 				<Size x="240" y="20"/>
@@ -248,13 +277,6 @@
 					</Layer>
 				</Layers>
 			</Frame>
-
-			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
-				<Size x="120" y="22"/>
-				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-16" y="14"/>
-				</Anchors>
-			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
