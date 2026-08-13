@@ -1969,17 +1969,14 @@ function DebindPortraitMixin:OnDisable()
 	self.Portrait:SetDesaturated(true);
 end
 
---- The window's contents live in containers, exactly one of which is shown at a time. These two
---- are the first (`.zzz/main-frame-containers.md`); the export and import panels follow.
+--- `OverviewPanel` and `LayerPanel` have no mixin, and that is the finding rather than an
+--- oversight. A container here earns its keep by existing - hiding it hides everything inside it,
+--- whatever the `Update*` passes decide to switch back on - and nothing about that needs a method.
 ---
---- **They are empty on purpose.** A container earns its keep by existing: hiding it hides
---- everything inside it, no matter how many `Update*` passes decide to switch their own widgets
---- back on. Nothing about that needs a method, and the code that drives these panels still lives
---- in `DebindFrameMixin` - moving it here would be a second change hiding inside the first, and
---- the only way to check this one is that the window looks untouched.
-DebindOverviewMixin = {};
-DebindLayerPanelMixin = {};
-
+--- Moving the `LayerPanel`-only methods onto one was measured and dropped: the state they read
+--- (`dataProvider`, the selection, the search text, binding mode) lives on the frame, so the
+--- `self.LayerPanel.` prefix would move from the bodies to the call sites rather than disappear.
+--- The count is in `.zzz/resolved.md`.
 DebindFrameMixin = {};
 
 function DebindFrameMixin:InitializeSideTabs()

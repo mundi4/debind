@@ -296,8 +296,6 @@ globals = {
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
 	"DebindMigrationDialogMixin",
-	"DebindOverviewMixin",
-	"DebindLayerPanelMixin",
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
 	"DebindIconSelectorFrameMixin",
