@@ -156,7 +156,14 @@ DelegateFrameNames[frame] = frame:GetName()
 	UnitStates = newtable()
 	States = newtable()
 	DirtyFlags = newtable()
-	HoverBindings = false
+
+
+
+
+
+
+
+	RebindOnHoverFrame = false
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
@@ -594,7 +601,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or HoverBindings) then
+			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
 
@@ -641,7 +648,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or HoverBindings) then
+		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 
@@ -652,7 +659,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local unitframe = States.unitframe
 	if (not unitframe) then return end
 	States.unitframe = nil
-	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or HoverBindings) then
+	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 		DirtyFlags.unitframe = true
 		debind_driver:SetAttribute("state-unitexists", "unitframe")
 

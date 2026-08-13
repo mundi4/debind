@@ -126,6 +126,16 @@ local _unitsSeen         = {};
 local _updateFlags       = {};
 local _mergedUnits       = {};
 
+--- Does any state-driven key have to be re-decided when the hover **frame** changes while the
+--- unit under it does not? Only a `frameTypes` record can, and only the update loop acts on it,
+--- so this is aggregated from the same per-key flags rather than kept as its own condition.
+local _rebindOnHoverFrame = false;
+
+--- Does any measured unit carry the reaction axis? That is what `UNIT_FACTION` is registered for.
+--- Accumulated where the axes are worked out rather than derived by walking `_unitStates` later,
+--- because the axis constants are declared further down this file than the registration runs.
+local _measuresReaction = false;
+
 local function ResetContext()
     wipe(DebindPrivate.ClickTimeKeys);
     wipe(_macrotexts);
@@ -134,6 +144,8 @@ local function ResetContext()
     wipe(_states);
     wipe(_unitStates);
     wipe(_unitsSeen);
+    _rebindOnHoverFrame = false;
+    _measuresReaction = false;
 end
 
 function addCustomState(stateName)
@@ -346,10 +358,6 @@ States.unitframe = hovered
         wipe(_strArr);
     end
 
-    if (_unitsSeen.hover) then
-        _states.unitframe = true;
-    end
-
     for unit in pairs(SPECIAL_UNITS) do
         if (unit ~= "custom1" and unit ~= "custom2") then
             if (_unitsSeen[unit]) then
@@ -361,9 +369,19 @@ States.unitframe = hovered
         end
     end
 
-    SecureHandlerExecute(DebindPrivate.BindingDriver, format("HoverBindings=%s", tostring(_states.unitframe and true or false)));
+    -- **호버 프레임이 바뀌었을 때 다시 걸 것이 있나.** 이름 그대로다: 유닛은 그대로인데
+    -- 프레임만 바뀌는 사건에 반응해야 하는 상태 구동 키가 하나라도 있는가.
+    --
+    -- 예전 이름은 `HoverBindings`였고 값은 *"hover를 쓰는 바인딩이 있나"*였는데, 그건 훨씬
+    -- 넓다 - 호버 유닛이 바뀌는 쪽은 `SetUnit`의 반환값이 이미 답한다. 둘을 `or`로 묶어 쓰는
+    -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
+    SecureHandlerExecute(DebindPrivate.BindingDriver,
+        format("RebindOnHoverFrame=%s", tostring(_rebindOnHoverFrame and true or false)));
 
-    if (_states.unitframe or _states.reaction or _unitStates.mouseover) then
+    -- **묻는 것은 "hover를 재나"다.** 이 등록의 목적이 호버 dangling 감지이므로, 답은 hover
+    -- 축을 측정하는 유닛이 있느냐에 있다. 예전 술어의 `_states.reaction` 항은 잉여였다 -
+    -- 반응 조건은 유닛 조건의 일부라 `_unitStates`가 이미 덮는다.
+    if (_unitStates.hover or _unitStates.mouseover) then
         SecureStateDriverManager:RegisterEvent("UPDATE_MOUSEOVER_UNIT");
         local updatetime = DebindPrivate.Options.updatetime;
         if (not updatetime or updatetime < 0 or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
@@ -375,7 +393,11 @@ States.unitframe = hovered
         SecureStateDriverManager:SetAttribute("updatetime", Constants.STATE_DRIVER_UPDATETIME_DEFAULT);
     end
 
-    if (_states.reaction) then
+    -- 반응 축을 재는 유닛이 하나라도 있으면 등록한다. 예전 술어(`_states.reaction`)는 어느
+    -- 유닛인지를 안 봐서, `target`에만 반응 조건을 걸어도 위의 mouseover 등록까지 딸려 왔다.
+    -- 측정에서 파생시키면 앞 단계의 좁히기도 그대로 따라온다 - 배선이 고정된 키만 반응을 묻는
+    -- 프로필에서는 재는 유닛이 없고 이 이벤트도 안 걸린다.
+    if (_measuresReaction) then
         SecureStateDriverManager:RegisterEvent("UNIT_FACTION");
     else
         SecureStateDriverManager:UnregisterEvent("UNIT_FACTION");
@@ -978,8 +1000,18 @@ function UpdateBindingsMap()
                         if (binding.hover and binding.frameTypes
                                 and binding.frameTypes ~= Constants.FRAMETYPE_ALL) then
                             appendKeyValue("frameTypes", binding.frameTypes);
-                            _updateFlags.frameType = true;
-                            _updateFlags.unitframe = true;
+
+                            -- **레코드 단위로, 키 잡는 레코드에만.** `DirtyFlags.unitframe`은
+                            -- *유닛은 그대로인데 프레임이 바뀜*을 뜻하고, 상태 루프에서 그것에
+                            -- 걸리는 것은 `t.frameTypes`를 가진 **`isNonClick`** 레코드뿐이다
+                            -- (거는 갈래가 `not keyBound and t.isNonClick` 뒤에 있다). 키 단위로
+                            -- 잡으면 hover 조건이 `isClick` 레코드에만 있는 키까지 깨운다.
+                            --
+                            -- `frameType` 플래그는 안 세운다. `DirtyFlags.frameType`을 세우는
+                            -- 곳이 없어서 어떤 키도 못 깨웠다 - 세우는 쪽이 죽어 있었다.
+                            if (isNonClick) then
+                                _updateFlags.unitframe = true;
+                            end
                         end
 
                         if (binding.groups ~= nil and binding.groups ~= Constants.GROUP_ALL) then
@@ -1059,11 +1091,15 @@ function UpdateBindingsMap()
                                 else
                                     appendLine("u.exists=true");
                                     if (v.reaction) then
+                                        -- 이 축이 `UNIT_FACTION` 등록을 몬다. 예전에는 여기서
+                                        -- `_updateFlags.reaction`을 세워 그 일을 시켰는데, 그건
+                                        -- **깨우는 플래그가 아니었다** - `DirtyFlags.reaction`을
+                                        -- 세우는 곳이 없어서 어떤 키도 못 깨웠고, 하는 일이라고는
+                                        -- `_states.reaction`을 통해 등록을 켜는 것뿐이었다.
+                                        -- 게다가 어느 유닛인지를 안 보므로 `target`에만 반응
+                                        -- 조건을 걸어도 mouseover 이벤트까지 딸려 왔다.
+                                        -- 이제 등록은 `_unitStates`에서 파생시킨다(위 `UpdateBindings`).
                                         axes = bor(axes, UNITAXIS_REACTION);
-                                        -- `UNIT_FACTION`을 등록시키는 자리다. 예전에는 hover
-                                        -- 방출이 켰는데 그 갈래가 없어졌다 - 안 켜면 반응
-                                        -- 변화가 0.2초 폴링으로만 들어온다.
-                                        _updateFlags.reaction = true;
                                         -- A set, not a mask: membership is one lookup, while the
                                         -- `%` idiom the restricted environment forces on masks
                                         -- needs the same two lookups **plus** arithmetic.
@@ -1101,6 +1137,9 @@ function UpdateBindingsMap()
                                 if (not alwaysOurs) then
                                     _unitStates[k] = bor(_unitStates[k] or 0, axes);
                                     _updateFlags[k .. "-exists"] = true;
+                                    if (band(axes, UNITAXIS_REACTION) ~= 0) then
+                                        _measuresReaction = true;
+                                    end
                                 end
                             end
                         end
@@ -1161,9 +1200,11 @@ function UpdateBindingsMap()
                         --
                         -- 그래서 이 레코드가 클릭 갈래에 속한다는 표시 하나면 된다. 래퍼가
                         -- 그것으로 볼 레코드를 고른다(`EVAL_SNIPPET`의 `subset`).
+                        -- **`unitframe` 플래그를 안 세운다.** 옛 경로에서는 상태 루프가 승자를
+                        -- 유닛 프레임에 미리 찍어뒀으니 호버가 바뀌면 다시 골라야 했다. 지금은
+                        -- 래퍼가 클릭 순간에 고르므로 다시 걸 것이 없다.
                         if (isClick) then
                             appendLine("t.isClick=true");
-                            _updateFlags.unitframe = true;
                         end
 
                         if (isNonClick) then
@@ -1187,8 +1228,12 @@ function UpdateBindingsMap()
             AppendBindingsList(key, alwaysOurs);
         end
 
+        -- **`_states`는 "잴 상태"다.** 여기로 넘어오는 것 중 잴 수 없는 둘은 걸러낸다:
+        -- `<유닛>-exists`는 유닛 축이라 `_unitStates`가 따로 재고, `unitframe`은 재는 것이
+        -- 아니라 enter/leave가 밀어 넣는 것이다. 걸러도 잃는 것이 없다 - 뒤쪽 측정 루프가
+        -- 어차피 둘 다 건너뛰었고, 이제 그 건너뛰기 자체가 필요 없어진다.
         for k, _ in pairs(_updateFlags) do
-            if (strsub(k, -7) ~= "-exists") then
+            if (k ~= "unitframe" and strsub(k, -7) ~= "-exists") then
                 _states[k] = true;
             end
         end
@@ -1196,10 +1241,18 @@ function UpdateBindingsMap()
         -- **상태 루프 전용이라 상태 구동 키에만 굽는다.** `alwaysOurs` 키는 그 루프가 안 보므로
         -- (그 표에 없다) 여기 실린 플래그를 읽는 코드가 없다. `_states` 등록은 위에서 이미
         -- 끝났고 그건 별개다 - 클릭 경로가 아직 `States`를 읽는다.
-        if (not alwaysOurs and next(_updateFlags)) then
-            appendLine("bindings.updateFlags=newtable()");
-            for flag in pairs(_updateFlags) do
-                appendLine("bindings.updateFlags[%q]=true", flag);
+        if (not alwaysOurs) then
+            -- `RebindOnHoverFrame`은 정확히 이 플래그의 리빌드 전체 합이다. 같은 게이트 안에서
+            -- 모아야 뜻이 어긋나지 않는다 - 굽지 않은 키는 깨어날 수도 없다.
+            if (_updateFlags.unitframe) then
+                _rebindOnHoverFrame = true;
+            end
+
+            if (next(_updateFlags)) then
+                appendLine("bindings.updateFlags=newtable()");
+                for flag in pairs(_updateFlags) do
+                    appendLine("bindings.updateFlags[%q]=true", flag);
+                end
             end
         end
 
@@ -1515,8 +1568,6 @@ end
             appendLine([[stateValue=SecureCmdOptionParse("[%s]") and true or false]], state);
             appendStateStore(state);
 
-        elseif (state == "unitframe" or state == "reaction" or state == "frameType") then
-            -- ignore these states
         elseif (_customStates[state]) then
             -- handle later
         elseif (DEBUG) then

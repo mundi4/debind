@@ -124,7 +124,14 @@ SecureHandlerExecute(BindingDriver, [[
 	UnitStates = newtable()
 	States = newtable()
 	DirtyFlags = newtable()
-	HoverBindings = false
+
+	-- 호버 **프레임**이 바뀌었을 때 다시 걸 것이 있나. `UpdateBindings`가 리빌드마다 굽는다.
+	--
+	-- 아래 세 자리에서 `SetUnit`의 반환값과 `or`로 묶인다. 둘은 **서로 다른 사건**이다:
+	-- 반환값은 *호버 유닛이 바뀜*, 이쪽은 *유닛은 그대로인데 프레임이 바뀜*. 뒤엣것을
+	-- 신경 쓰는 것은 `frameTypes` 레코드뿐이라 대개 거짓이고, 그러면 커서가 공대 프레임을
+	-- 쓸고 지나가도 유닛이 안 바뀌는 한 리빌드가 안 나간다.
+	RebindOnHoverFrame = false
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
@@ -533,7 +540,7 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 	if (info) then
 		if (info == States.unitframe) then
 			States.unitframe = nil
-			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or HoverBindings) then
+			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
 				--debind_driver:RunAttribute("UpdateBindings")
@@ -589,7 +596,7 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
         -- if (unitframe.insetL and not unitframe.l) then
         --     debind_driver:RunFor(self, debind_driver:GetAttribute("update_hit_bounds"))
         -- end
-		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or HoverBindings) then
+		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 			--debind_driver:RunAttribute("UpdateBindings")
@@ -602,7 +609,7 @@ BindingDriver:SetAttribute("setup_onleave", [==[
 	local unitframe = States.unitframe
 	if (not unitframe) then return end
 	States.unitframe = nil
-	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or HoverBindings) then
+	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 		DirtyFlags.unitframe = true
 		debind_driver:SetAttribute("state-unitexists", "unitframe")
 		--debind_driver:RunAttribute("UpdateBindings")

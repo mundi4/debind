@@ -1,6 +1,6 @@
 -- DebindTest: Integration test framework for Debind addon
--- Usage: /debtest opens the list. Both runs are buttons in it -- plain, and the one that includes
--- the tests which end the session.
+-- Usage: /debtest opens the list. Every run is a button in it -- plain, the one that includes the
+-- tests which end the session, and the one that reloads first and runs on the other side.
 -- Requires DEBUG mode (DebindPrivate must be exposed as global)
 
 local DebindPrivate = _G.DebindPrivate
@@ -1286,8 +1286,8 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
             return Fail(NAME, "전투 중에는 프레임 등록과 속성 쓰기가 막힌다")
         end
 
-        -- A hover binding has to exist, or `HoverBindings` stays false and the hover axis is
-        -- never wired up. The test builds its own precondition rather than hoping for one.
+        -- A hover binding has to exist, or the hover axis is never measured at all and the slot
+        -- this reads stays empty. The test builds its own precondition rather than hoping for one.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
             checkedUnits = { hover = {} },
@@ -2425,6 +2425,52 @@ local function ResumeStoredRun()
     end
 end
 
+--- Ends the session and starts the suite from the top when it comes back.
+---
+--- **A run is not the same thing twice.** The session a tester has been playing in has cast,
+--- moved, entered combat and rebuilt bindings a hundred times before the first test starts; a
+--- freshly logged-in one has not. A suite that reads secure state and the game's own binding
+--- table is exactly where those two come apart, and this is the button that says which of them
+--- was measured.
+---
+--- `ReloadUI` is protected, so the reload has to ride a hardware event -- which is why this is
+--- reached from a click and not decided by the runner (see `DEBINDTEST_RELOAD`).
+local function RequestFreshRun()
+    if run then
+        print("|cffff8800[DebindTest]|r already running.")
+        return
+    end
+
+    -- A stored run is picked back up on the other side and would hold the runner before this
+    -- request could reach it. The button says *from the top*, so the stored one is dropped rather
+    -- than continued.
+    DB().pending = nil
+
+    -- The checkbox lives in memory and the session is about to end. Carried across, because the
+    -- run on the other side is the one the tester set it for.
+    DB().autorun = { skipBlackout = skipBlackout }
+
+    ReloadUI()
+end
+
+--- Starts the run asked for before the reload. Called once, after saved variables are available.
+---
+--- The request is cleared before the run rather than after: whatever the run does to the session,
+--- it must not be able to ask for another login that starts it again.
+local function StartRequestedRun()
+    local request = DB().autorun
+    if not request then return end
+    DB().autorun = nil
+
+    -- Set before the window is built -- the checkbox reads this when it is created, so writing it
+    -- afterwards would leave the box unticked while the run behind it honoured the tick.
+    skipBlackout = request.skipBlackout and true or false
+
+    print("|cff00ccff[DebindTest]|r 리로드 뒤 처음부터 실행한다.")
+    UI.Open()
+    RunAllTests()
+end
+
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("PLAYER_LOGIN")
 loader:SetScript("OnEvent", function(self)
@@ -2435,6 +2481,7 @@ loader:SetScript("OnEvent", function(self)
     -- Waiting for login rather than ADDON_LOADED: a resumed run drives bindings and unit frames
     -- immediately, and neither is meaningfully in place before the player is.
     ResumeStoredRun()
+    StartRequestedRun()
 end)
 
 -----------------------------------------------------------
@@ -2668,6 +2715,28 @@ local function CreateTestUI()
     end)
     f.reloadBtn:SetScript("OnLeave", GameTooltip_Hide)
 
+    -- Second row rather than beside the other two: the button row is also where the tally is
+    -- written, and a fourth button there pushes it off the left edge on a run that has something
+    -- to report.
+    f.freshBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.freshBtn:SetSize(130, 24)
+    f.freshBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -58)
+    f.freshBtn:SetText("리로드 후 실행")
+    f.freshBtn:SetScript("OnClick", function()
+        RequestFreshRun()
+    end)
+    f.freshBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("리로드 후 실행", 1, 1, 1)
+        GameTooltip:AddLine(
+            "지금 /reload 하고, 돌아오면 창을 열어 처음부터 돈다. 지금 세션이 굴러온 상태 위에서가 아니라 "
+            .. "갓 로그인한 세션에서 재는 것이 목적이다. |cffffff00실행|r 과 같은 범위라 "
+            .. "/reload을 건너야 하는 테스트는 건너뛴다.",
+            nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    f.freshBtn:SetScript("OnLeave", GameTooltip_Hide)
+
     f.copyBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.copyBtn:SetSize(100, 24)
     f.copyBtn:SetPoint("RIGHT", f.reloadBtn, "LEFT", -6, 0)
@@ -2764,6 +2833,7 @@ function UI.SetRunning(running)
         TestFrame.runBtn:SetEnabled(not running)
         TestFrame.runBtn:SetText(running and "실행 중" or "실행")
         TestFrame.reloadBtn:SetEnabled(not running)
+        TestFrame.freshBtn:SetEnabled(not running)
     end
 end
 
@@ -2853,4 +2923,4 @@ SlashCmdList["DEBINDTEST"] = function(msg)
     end
 end
 
-print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = 목록 창. 실행은 창 안의 |cffffff00실행|r / |cffffff00리로드 포함|r 버튼. |cffffff00/debtest last|r = 지난 결과.")
+print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = 목록 창. 실행은 창 안의 |cffffff00실행|r / |cffffff00리로드 포함|r / |cffffff00리로드 후 실행|r 버튼. |cffffff00/debtest last|r = 지난 결과.")
