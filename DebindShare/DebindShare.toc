@@ -1,0 +1,26 @@
+## Interface: 120000, 120001, 120005, 120007, 120100
+
+## Title: Debind Share
+## Version: @project-version@
+## Author: mundi4
+## IconTexture: 133015
+## LoadOnDemand: 1
+## Dependencies: Debind
+## Group: Debind
+## SavedVariables: DebindShareVars
+## Notes: Part of Debind. It builds the strings you send to someone else, and holds the ones you receive until you decide what to do with them.|n|nLeaving it enabled costs nothing, and it is the reason the rest of Debind stays small. It is loaded on demand - until you open the sharing window it is |cff40ff40never loaded at all|r, so neither its compression libraries nor the drawer of strings you have received are read on login. Someone who never shares pays nothing for this.|n|nDeleting it loses whatever is still sitting in that drawer. Anything you already accepted into your bindings stays where it is.
+## Notes-koKR: Debind의 일부입니다. 남에게 보낼 문자열을 만들고, 받은 문자열은 어떻게 할지 정할 때까지 들고 있습니다.|n|n켜 둔다고 드는 값은 없고, 나머지 Debind가 가벼운 이유가 이것입니다. 필요할 때만 불러오므로 공유 창을 열기 전까지는 |cff40ff40아예 로드되지 않습니다|r - 압축 라이브러리도, 받아둔 문자열 서랍도 접속할 때 읽지 않습니다. 공유를 안 하는 사람은 이 애드온에 아무 값도 치르지 않습니다.|n|n지우면 그 서랍에 남아 있던 것이 사라집니다. 이미 지정으로 받아들인 것은 그대로 남습니다.
+
+# **Being LoadOnDemand is the reason this addon exists.**
+#
+# The workbench is a drawer that received strings pile up in, not a place used once and forgotten
+# (`.zzz/export-import.md`), so its SavedVariables grows over time. SavedVariables are read whole
+# when an addon loads, so keeping this in the main addon would read that file on every login of
+# every user, including everyone who never shares anything. Here it is not read until the window
+# is actually opened. The same goes for 5,500 lines of compression library.
+
+libs.xml
+
+DebindShare.lua
+Export.lua
+ShareUI.xml

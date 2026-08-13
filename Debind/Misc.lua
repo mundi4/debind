@@ -1010,6 +1010,48 @@ function DebindPrivate.GetUndefinedCustomState(action)
     end
 end
 
+--- The macro name this action points at, when nothing answers to it. nil when the action is fine
+--- or is not a `MACRO` at all.
+---
+--- **This is the only check in the addon that asks whether an action's target exists**, and macros
+--- are the only type that needs one. Every other type stores something the game resolves the same
+--- way on every install -- a spell ID, an item ID, a mount ID -- so an action that names one either
+--- resolves or names a thing that never existed anywhere. A macro name resolves against **this
+--- computer's** macro store, which makes it the one reference that can be perfectly valid where it
+--- was written and mean nothing here.
+---
+--- Which is why it could not be left out once strings started travelling between installs
+--- (`.zzz/export-import.md`, open question 7). Until now a `MACRO` naming nothing simply bound and
+--- did nothing on press: `UpdateBindings` stamps `*macro-<button>` with the name and the secure
+--- handler finds no macro, with no error and no mark anywhere on screen. The imported-actions rule
+--- is "send broken things too, the reader sees red and deletes them" -- and this was the hole in
+--- it, the fallback for a macro that was already dangling when it was sent.
+---
+--- **Deliberately not extended to the other types**, each for its own reason: item names arrive
+--- from an async cache, so a nil there means "not loaded yet" as often as it means "no such item",
+--- and a check that reds out a working binding for the first few seconds of a session is worse than
+--- no check; spell and mount IDs the reader has not learned still resolve to a name, so there is
+--- nothing to detect; `PETACTION` carries its own name and icon. Adding any of those would have to
+--- start from evidence that the resolve failing means the target is gone.
+function DebindPrivate.GetMissingMacroName(action)
+    if (action.type ~= Constants.MACRO) then
+        return nil;
+    end
+
+    -- Stored as the name (`ActionCatalog.lua`), but `GetMacroInfo` also takes a slot index and old
+    -- data may hold one. Anything else is not a reference we can ask about.
+    local value = action.value;
+    local valueType = type(value);
+    if (valueType ~= "string" and valueType ~= "number") then
+        return nil;
+    end
+
+    if (GetMacroInfo(value)) then
+        return nil;
+    end
+    return tostring(value);
+end
+
 local GROUP_ROLE_UNITS = {
     tank = Constants.GROUP_PARTY + Constants.GROUP_RAID,
     healer = Constants.GROUP_PARTY + Constants.GROUP_RAID,
@@ -1062,6 +1104,20 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     if (not issue and (not category or category == "states") and notCategory ~= "states") then
         if (DebindPrivate.GetUndefinedCustomState(action)) then
             issue = Constants.BINDING_ISSUE_UNDEFINED_STATE;
+        end
+    end
+
+    -- Same shape as the branch above: not a condition, but **a name that points at nothing**. So
+    -- there is no caller that asks about it by name -- what needs fixing is the action itself, not
+    -- a condition menu -- and `"target"` here is a name for switching the branch off, not for
+    -- choosing which control to paint.
+    --
+    -- An action reported here drops out of `KeyMap` entirely (`Debind.lua`). **Nothing is lost by
+    -- that**: it is a binding that already pressed and did nothing, so the only thing that changes
+    -- is that it becomes visible.
+    if (not issue and (not category or category == "target") and notCategory ~= "target") then
+        if (DebindPrivate.GetMissingMacroName(action)) then
+            issue = Constants.BINDING_ISSUE_MISSING_MACRO;
         end
     end
 

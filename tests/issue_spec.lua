@@ -359,5 +359,89 @@ return function(DebindPrivate)
     -- 정규화 자체(`"@"`가 언제 지워지는가, 대상이 언제 채워지는가)는 `normalize_spec.lua`가
     -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
 
+    ---------------------------------------------------------------------------
+    -- A `MACRO` naming a macro that is not here
+    --
+    -- The one issue branch about what an action **points at**. Before it existed such an action
+    -- bound normally and did nothing on press -- no error, no mark -- which is the failure the
+    -- sharing format's "send broken things too, the reader sees red" rule leans on
+    -- (`.zzz/export-import.md`, open question 7).
+    --
+    -- Both halves matter as much as they do above: a false positive here does not grey a row, it
+    -- takes a working macro binding out of `KeyMap` entirely.
+    ---------------------------------------------------------------------------
+
+    local MISSING_MACRO = Constants.BINDING_ISSUE_MISSING_MACRO;
+
+    -- `export_spec` installs its own `GetMacroInfo` on the same global, so this spec stands up the
+    -- store it wants rather than borrowing whatever ran last.
+    local MACROS = {};
+    _G.GetMacroInfo = function(nameOrIndex)
+        local macro = MACROS[nameOrIndex];
+        if (not macro) then
+            return nil;
+        end
+        return macro.name, macro.icon, macro.body;
+    end
+
+    MACROS = {
+        ["Kick+Pet"] = { name = "Kick+Pet", icon = 1, body = "/cast Kick" },
+        [3] = { name = "By index", icon = 1, body = "/cast Kick" },
+    };
+
+    local function macroValueAction(value)
+        return { type = Constants.MACRO, value = value, key = "F1" };
+    end
+
+    test("있는 매크로는 이슈가 아니다", function()
+        check(GetBindingIssue(macroValueAction("Kick+Pet")) == nil, "오탐 - 멀쩡한 키가 죽는다");
+    end);
+
+    test("없는 매크로는 이슈가 난다", function()
+        check(GetBindingIssue(macroValueAction("Kick+Pet2")) == MISSING_MACRO, "이슈가 안 남");
+    end);
+
+    -- The store is keyed by exactly what the game answers to. A name that only differs in case is
+    -- a different macro to `GetMacroInfo`, and the row shows the two spelled the same way.
+    test("대소문자가 다르면 없는 매크로다", function()
+        check(GetBindingIssue(macroValueAction("kick+pet")) == MISSING_MACRO, "이슈가 안 남");
+    end);
+
+    -- Old data can hold a slot index instead of a name; `GetMacroInfo` takes either.
+    test("슬롯 번호로 저장된 것도 물어본다", function()
+        check(GetBindingIssue(macroValueAction(3)) == nil, "오탐 - 번호로도 물어봐야 한다");
+        check(GetBindingIssue(macroValueAction(4)) == MISSING_MACRO, "없는 번호가 안 걸림");
+    end);
+
+    -- Neither a name nor an index. There is nothing to ask the game about, so this branch has no
+    -- answer -- whatever else is wrong with the action is not this check's to report.
+    test("이름도 번호도 아니면 이 갈래는 답하지 않는다", function()
+        check(GetBindingIssue(macroValueAction(nil)) ~= MISSING_MACRO, "물어볼 것이 없는데 걸림");
+        check(GetBindingIssue(macroValueAction({})) ~= MISSING_MACRO, "물어볼 것이 없는데 걸림");
+    end);
+
+    -- Every other type stores something that resolves the same way on every install, so nothing
+    -- else may be reported here. `MACROTEXT` matters most: its body travels whole, and a body that
+    -- happens to hold a macro's name is not a reference to it.
+    test("다른 타입은 안 본다", function()
+        check(GetBindingIssue({ type = Constants.MACROTEXT, value = "/cast Kick+Pet2", key = "F1" })
+            ~= MISSING_MACRO, "오탐 - 본문을 이름으로 읽었다");
+        check(GetBindingIssue({ type = Constants.COMMAND, value = "Kick+Pet2", key = "F1" })
+            ~= MISSING_MACRO, "오탐 - 명령 이름을 매크로로 읽었다");
+    end);
+
+    test("틀린 이름을 그대로 돌려준다", function()
+        check(DebindPrivate.GetMissingMacroName(macroValueAction("Kick+Pet2")) == "Kick+Pet2",
+            "이름을 못 돌려주면 툴팁이 무엇을 고칠지 말할 수 없다");
+        check(DebindPrivate.GetMissingMacroName(macroValueAction("Kick+Pet")) == nil, "오탐");
+    end);
+
+    test("다른 갈래를 물으면 안 나온다", function()
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "key") == nil, "단축키 칸이 빨개진다");
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴가 빨개진다");
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), nil, "target") == nil,
+            "갈래를 껐는데도 나온다");
+    end);
+
     return T;
 end

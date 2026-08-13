@@ -1,0 +1,263 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<Script file="ShareUI.lua" />
+
+	<!--
+		One action. Checkbox, icon, name, key.
+
+		The row is the **unit of choice** - layers are groups and keys are boundaries, but what
+		the user actually ticks is an action (`.zzz/export-import.md`). So the whole row is a
+		button and clicking anywhere on it toggles; the checkbox is there to be read, not aimed at.
+
+		Art matches the main list and the spell picker (`ClickCastList-ButtonBackground`). Three
+		lists in one addon that look like three different things is three things to learn.
+	-->
+	<Button name="DebindShareRowTemplate" mixin="DebindShareRowMixin" virtual="true">
+		<Size x="400" y="28"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="-7" y="0"/>
+						<Anchor point="BOTTOMRIGHT" x="7" y="0"/>
+					</Anchors>
+				</Texture>
+				<!--
+					The key boundary. Groups are drawn as a **line**, not a header row - the same
+					choice the main list made, and for the same reason: a header would promise
+					that what follows fires in the order shown, and this window shows one layer
+					at a time so it has no standing to say that.
+				-->
+				<Texture parentKey="GroupBorder" atlas="Options_HorizontalDivider" hidden="true">
+					<Size y="1"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-4" y="0"/>
+						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT" x="4" y="0"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<!-- Level with the header's checkbox, which starts at the same inset. -->
+				<Texture parentKey="Icon">
+					<Size x="22" y="22"/>
+					<Anchors>
+						<Anchor point="LEFT" x="5" y="0"/>
+					</Anchors>
+				</Texture>
+				<!--
+					The key sits on every row even though a group shares one. Reading down a
+					column is how you find the key you meant to send; making only the first row
+					of a group carry it means the answer moves when the sort changes.
+
+					**Declared before the name, because the name hangs off it.** A `relativeKey`
+					pointing at a sibling that does not exist yet does not take, and a FontString
+					that ends up with one of its two horizontal points missing has no width and
+					draws nothing at all.
+				-->
+				<FontString parentKey="Key" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="120" y="0"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="Name" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.Key" relativePoint="LEFT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<!--
+				**A picked row is lit, not ticked.** Same art and same layer the main window uses on
+				its selected rows, so "this one is picked" looks one way across the addon.
+
+				It also settles which rung is which. A checkbox on every row put three columns of
+				boxes down the list and the eye could not tell the layer's box from an action's; a
+				lit row cannot be mistaken for the header above it.
+			-->
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD"/>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		A layer. The window's outer axis, because it is the only grouping actually stored: a key
+		group crosses layers and so has nowhere to live (`.zzz/export-import.md`).
+
+		Its checkbox is the middle rung of the three: all -> layer -> action.
+	-->
+	<Button name="DebindShareLayerTemplate" inherits="ListHeaderVisualTemplate" mixin="DebindShareLayerMixin" virtual="true">
+		<Size x="400" y="26"/>
+		<Frames>
+			<!--
+				**This checkbox takes its own clicks**, unlike the one on a row. Here the two
+				gestures mean different things - the bar collapses, the box selects - so the box has
+				to be able to say "not me" by swallowing the click itself.
+
+				The header text is pushed clear of it in `OnLoad` rather than re-anchored here.
+				`ListHeaderVisualMixin` owns that anchor and offers `AdjustTextOffset` for exactly
+				this, and writing a second anchor would leave two rules for one position.
+			-->
+			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="LEFT" x="5" y="0"/>
+				</Anchors>
+			</CheckButton>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		**A standalone window, and unlike the spell picker its lifetime is its own.** It is opened
+		from the main window and never needs it again: closing the thing you exported from should
+		not take the string you were about to copy with it. Its ESC is registered with
+		`UISpecialFrames` in `OnLoad`, which is where a window that stands alone puts it.
+
+		No keyboard on the frame. The output box takes focus when there is something to copy and
+		ESC there only drops focus, so this window never touches `SetPropagateKeyboardInput`,
+		which cannot be called in combat anyway.
+	-->
+	<Frame name="DebindShareFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true"
+		frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebindShareFrameMixin"
+		movable="true" clampedToScreen="true">
+		<Size x="470" y="600"/>
+		<Anchors>
+			<Anchor point="CENTER"/>
+		</Anchors>
+		<Frames>
+			<!--
+				The top rung: everything.
+
+				Its click is attached in `OnLoad`, not with `method=` here. `method=` resolves
+				against the **element's own** mixin, and a plain Blizzard checkbox template has none,
+				so naming the frame's method reaches nothing. The three chrome widgets below are
+				wired the same way for the same reason.
+			-->
+			<CheckButton parentKey="SelectAllCheck" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="12" y="-56"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="LEFT" relativePoint="RIGHT" x="2" y="0"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</CheckButton>
+
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="8" y="-84"/>
+					<Anchor point="TOPRIGHT" x="-30" y="-84"/>
+					<Anchor point="BOTTOMLEFT" x="8" y="46"/>
+					<Anchor point="BOTTOMRIGHT" x="-30" y="46"/>
+				</Anchors>
+			</Frame>
+
+			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y="-5"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y="5"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER">
+							<Size x="340" y="0"/>
+							<Anchors>
+								<Anchor point="TOP" x="0" y="-40"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Button>
+			<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
+				</Anchors>
+			</EventFrame>
+
+			<CheckButton parentKey="StripKeysCheck" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMLEFT" x="4" y="-4"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="LEFT" relativePoint="RIGHT" x="2" y="0"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</CheckButton>
+
+			<Button parentKey="GenerateButton" inherits="UIPanelButtonTemplate">
+				<Size x="140" y="22"/>
+				<Anchors>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="0" y="-5"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		Where the finished string is handed over.
+
+		**A dialog rather than a box in the window.** The string is read once, selected, copied and
+		never looked at again, so a permanent panel spends height on something that is empty almost
+		all of the time - and that height is exactly what the list was short of.
+
+		Same shape as the copy window in `DebindTest`. Small on purpose: nobody reads this text.
+	-->
+	<Frame name="DebindShareCopyFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
+		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
+		clampedToScreen="true" mixin="DebindShareCopyFrameMixin">
+		<Size x="460" y="170"/>
+		<Anchors>
+			<Anchor point="CENTER"/>
+		</Anchors>
+		<Frames>
+			<ScrollFrame parentKey="Output" inherits="InputScrollFrameTemplate">
+				<KeyValues>
+					<!-- Nobody types here; a character counter over a generated string is noise. -->
+					<KeyValue key="hideCharCount" value="true" type="boolean"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="16" y="-34"/>
+					<Anchor point="BOTTOMRIGHT" x="-30" y="14"/>
+				</Anchors>
+			</ScrollFrame>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+		</Scripts>
+	</Frame>
+
+</Ui>

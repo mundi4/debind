@@ -50,6 +50,22 @@ for (const file of files) {
             stack.push({ name: m[2], line: line() });
         }
     }
+    // **`--` inside a comment is illegal in XML.** Every tag can match and the parser still
+    // rejects the whole file as "not well-formed", and it says so only in the game's log. Writing
+    // ` -- ` mid-sentence out of Lua habit walks straight into it, which is how it first got here.
+    if (!bad) {
+        const COMMENT = /<!--([\s\S]*?)-->/g;
+        let c;
+        while ((c = COMMENT.exec(text))) {
+            if (c[1].includes("--")) {
+                const line = text.slice(0, c.index).split("\n").length;
+                bad = `${rel}:${line}: 주석 안에 \`--\`가 있다. XML은 이걸 못 읽는다`
+                    + ` (파일 전체가 로드 안 됨). 다른 글자로 바꿀 것`;
+                break;
+            }
+        }
+    }
+
     if (!bad && stack.length) {
         const where = stack.map((t) => `${t.name}(${t.line}행)`).join(", ");
         bad = `${rel}: 안 닫힌 태그 ${stack.length}개 - ${where}`;

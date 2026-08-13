@@ -7,7 +7,9 @@
     "lint": "node tools/luacheck.js",
     "check:templates": "node tools/check-templates.js",
     "check:locales": "node tools/check-locales.js",
-    "check": "npm run lint && npm test && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:snippets && npm run check:snippet-golden",
+    "check": "npm run lint && npm test && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:snippets && npm run check:snippet-golden && npm run check:export-fields && npm run check:xml-methods",
+    "check:export-fields": "node tools/check-export-fields.js",
+    "check:xml-methods": "node tools/check-xml-methods.js",
     "check:xml": "node tools/check-xml.js",
     "check:snippets": "node tools/check-snippets.js",
     "check:snippet-golden": "node tools/check-snippet-golden.js"

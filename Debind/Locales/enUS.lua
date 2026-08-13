@@ -42,6 +42,13 @@ L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button wit
 -- 어느 조건이 문제인지가 이미 그 칸에 보이는데, 이건 본문 안이라 이름을 적어주지 않으면
 -- 무엇을 고쳐야 하는지가 안 보인다.
 L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no custom state named |cnHIGHLIGHT_FONT_COLOR:%s|r. Until the name is fixed this binding does not fire at all."
+-- The second line that takes an argument, for the reason above: a macro name also lives inside the
+-- action rather than in a condition control.
+--
+-- It goes on to name the two ways this happens. A macro name is something the user chose
+-- themselves, so "there is no such macro" on its own reads as a typo -- while the common case, now
+-- that bindings travel, is a binding that came from a machine where that macro did exist.
+L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character. It may have been renamed or deleted, or it may have come from someone else's setup."
 L["BINDING_ERROR_UNREACHABLE"] = "This binding is always preceded by others."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
@@ -266,6 +273,7 @@ L["ORDER_FLAG_FORMS_NONE_SELECTED"] = "No form selected"
 L["ORDER_FLAG_GROUPS_NONE_SELECTED"] = "No group selected"
 L["ORDER_FLAG_HOVER_NONE_SELECTED"] = "No frame type selected"
 L["ORDER_FLAG_ISSUE"] = "Has a problem"
+L["ORDER_FLAG_MISSING_MACRO"] = "No such macro"
 L["ORDER_FLAG_NOT_SUPPORTED_GAMEMENU_KEY"] = "Key opens game menu"
 -- 마우스 버튼 두 코드는 서로 다른 규칙이라 문구도 갈라야 한다. 하나는 "호버를 켜면 된다",
 -- 다른 하나는 "이 명령에는 어떤 마우스 버튼도 못 쓴다"라서 고칠 방법이 다르다.
@@ -509,3 +517,23 @@ L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Mi
 L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "This character starts with no bindings, and is never asked again.|n|nOther characters are unaffected - they will still be offered their settings.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "Debind stops offering old settings to |cnHIGHLIGHT_FONT_COLOR:every character on this account|r, including ones you have not logged in on and ones you make later.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this addon is still installed and is setting keybinds alongside Debind, so the two are fighting over your keys. Reinstalling or updating Debind replaces that folder with the small |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r companion. Do not just delete the folder - characters you have not logged in on since updating still have their settings in it."
+
+-- The sharing window. The tooltips are long because both choices it offers - what to send, and
+-- whether the keys ride along - leave for somewhere you cannot reach: a string handed to someone
+-- else is not recallable. A tooltip is read on purpose, so length is not the cost it looks like.
+--
+-- These live here rather than in `DebindShare` because they are eleven strings against that
+-- addon's reason for existing, and a second locale tree would need its own parity check.
+L["EXPORT_TITLE"] = "Export"
+L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to send them."
+L["EXPORT_SELECT_ALL"] = "Select all"
+L["EXPORT_SELECT_ALL_COUNT"] = "Select all (%d)"
+L["EXPORT_STRIP_KEYS"] = "Leave the keys out"
+L["EXPORT_STRIP_KEYS_DESC"] = "Sends the actions without the keys they are on, so whoever receives them picks their own.|n|nWhat has to stay together still does. A key split across several conditional actions arrives as one group, and the far side binds the group rather than the loose pieces."
+L["EXPORT_GENERATE"] = "Create string"
+L["EXPORT_EMPTY"] = "There is nothing here to export yet."
+L["EXPORT_ROW_NO_KEY"] = "No key"
+L["EXPORT_LAYER_COUNT"] = "%d actions"
+L["EXPORT_FAILED_LIBS_MISSING"] = "The libraries that build the string are missing, which means the install did not finish. Downloading Debind again brings them back."
+L["EXPORT_ADDON_MISSING"] = "The sharing window lives in |cnHIGHLIGHT_FONT_COLOR:Debind Share|r, which ships with Debind and could not be loaded (%s). Switching it back on in the AddOns list, or downloading Debind again, puts it back. Your bindings are not affected."
+L["EXPORT_COPY_TITLE"] = "Copy this string (Ctrl-C)"

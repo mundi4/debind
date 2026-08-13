@@ -20,6 +20,13 @@ local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Legacy.lua",
 });
 
+--- `DebindShare` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
+--- table and Debind hands its private table across for the length of `LoadAddOn`, so the spec
+--- stands that same shape up here rather than loading its files into Debind's table.
+local DebindShare = shim.loadAddon(repoRoot .. "/DebindShare", {
+    "Export.lua",
+}, { DebindPrivate = DebindPrivate });
+
 local bench = false;
 for i = 1, #(arg or {}) do
     if (arg[i] == "--bench") then bench = true; end
@@ -42,13 +49,14 @@ local specs = {
     { name = "clicktime", path = root .. "/clicktime_spec.lua" },
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
     { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },
+    { name = "export", path = root .. "/export_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
-    local result = chunk()(DebindPrivate);
+    local result = chunk()(DebindPrivate, DebindShare);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do
         totalFailures[#totalFailures + 1] = spec.name .. " / " .. f;

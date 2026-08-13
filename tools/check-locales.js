@@ -45,6 +45,23 @@ const PENDING_TRANSLATION = {
     ONLY_IF: ["ruRU"],
     LIFE_ALIVE: ["ruRU"],
     LIFE_DEAD: ["ruRU"],
+    // The "this macro does not exist here" marker, which arrived with sharing. Same owner.
+    BINDING_ERROR_MISSING_MACRO: ["ruRU"],
+    ORDER_FLAG_MISSING_MACRO: ["ruRU"],
+    // The sharing window. Same owner as the rows above.
+    EXPORT_TITLE: ["ruRU"],
+    EXPORT_MENU_DESC: ["ruRU"],
+    EXPORT_SELECT_ALL: ["ruRU"],
+    EXPORT_SELECT_ALL_COUNT: ["ruRU"],
+    EXPORT_STRIP_KEYS: ["ruRU"],
+    EXPORT_STRIP_KEYS_DESC: ["ruRU"],
+    EXPORT_GENERATE: ["ruRU"],
+    EXPORT_EMPTY: ["ruRU"],
+    EXPORT_ROW_NO_KEY: ["ruRU"],
+    EXPORT_LAYER_COUNT: ["ruRU"],
+    EXPORT_FAILED_LIBS_MISSING: ["ruRU"],
+    EXPORT_ADDON_MISSING: ["ruRU"],
+    EXPORT_COPY_TITLE: ["ruRU"],
 };
 
 // **base보다 자리표시자를 더 쓰는 게 맞는 키.** 부르는 쪽이 이미 그 인자를 넘기고 있고

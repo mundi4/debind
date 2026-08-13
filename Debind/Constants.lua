@@ -188,6 +188,9 @@ Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELE
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
+-- The action names a macro that is in neither this account's nor this character's macro store. The
+-- only issue code about **what the action points at** rather than the conditions around it.
+Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 
 
 local BASIC_UNITS                                   = {

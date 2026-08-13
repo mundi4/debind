@@ -743,6 +743,22 @@ local function NameAndIconForAction(action)
 	return actionName, actionIcon or QUESTION_MARK_ICON_NUM, bareName;
 end
 
+--- Puts an icon from `NameAndIconForAction` on a texture.
+---
+--- The second return value is **not always a texture.** Binding commands and `UNUSED` hand back an
+--- atlas name behind an `A:` prefix, and `SetTexture` on one of those draws nothing and raises
+--- nothing - the icon is simply blank, which is only ever noticed by someone looking at that row.
+---
+--- One function because three lists now draw actions: the layer list, the order list, and the
+--- sharing window in `DebindShare`. It is exported for that last one.
+local function SetActionIcon(texture, icon)
+	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
+		texture:SetAtlas(icon:sub(3));
+	else
+		texture:SetTexture(icon);
+	end
+end
+
 --- 이 액션이 지금 검색어에 걸리나. 검색어가 없으면 전부 참이다.
 ---
 --- 오른쪽 목록(`BuildSortedElements`)과 탭 숫자(`UpdateActionCounts`)가 **같은 이 함수**를
@@ -1335,6 +1351,16 @@ do
 				GameTooltip_AddBlankLineToTooltip(GameTooltip);
 				addErrorLine(format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
 			end
+
+			-- Named here for the same reason. The macro name is the action's `value`, so no
+			-- condition row above draws it, and the name on the row is the one
+			-- `NameAndIconForAction` hands back **unchanged** next to a question-mark icon -- it
+			-- cannot say on its own why the row went red.
+			local missingMacro = DebindPrivate.GetMissingMacroName(action);
+			if (missingMacro) then
+				GameTooltip_AddBlankLineToTooltip(GameTooltip);
+				addErrorLine(format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro), true);
+			end
 		end
 
 		if (action.priority and action.priority ~= Constants.DEFAULT_PRIORITY) then
@@ -1391,11 +1417,7 @@ function DebindLineMixin:Update()
 	local name, icon = ColoredNameAndIconForAction(action, "key");
 	self.Name:SetText(name);
 
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.Icon:SetAtlas(icon:sub(3));
-	else
-		self.Icon:SetTexture(icon);
-	end
+	SetActionIcon(self.Icon, icon);
 
 	-- 레이어 아이콘은 오버뷰 탭에서만 켜진다(XML 주석에 이유가 있다). 규칙은 순서 리스트와
 	-- 같고 - 좁혀진 축마다 하나씩, 빈 칸은 안 남김 - 그래서 이름의 왼쪽 앵커도 여기서 다시
@@ -2094,6 +2116,33 @@ function DebindFrameMixin:InitializeButtons()
 		DebindSpellPickerFrame:Toggle();
 	end)
 
+	-- The sharing window is its own addon (`DebindShare`), loaded on demand. Two things it carries
+	-- are expensive: the compression libraries, and the SavedVariables of the drawer that received
+	-- strings pile up in. SavedVariables are read whole when an addon loads, so keeping that here
+	-- would charge every login of every user who never shares anything.
+	--
+	-- **The private table is handed over only for the length of `LoadAddOn`.** The first file over
+	-- there grabs it while it is up (`DebindShare/DebindShare.lua`), the same way `DebindCliqueFake`
+	-- is opened (`Public.lua`).
+	self.ExportPortrait:SetScript("OnClick", function()
+		if (not DebindShareFrame) then
+			local prev = _G.DebindPrivate;
+			_G.DebindPrivate = DebindPrivate;
+			local loaded, reason = C_AddOns.LoadAddOn("DebindShare");
+			_G.DebindPrivate = prev;
+
+			-- The folder was deleted or the addon switched off. Do not turn away quietly: a button
+			-- that does nothing reads as broken, which is the same rule the other entry points
+			-- follow (`DebindPublic:ToggleUI`).
+			if (not loaded or not DebindShareFrame) then
+				DebindPrivate.DisplayMessage(
+					format(LLL["EXPORT_ADDON_MISSING"], tostring(reason)), 1, 0, 0);
+				return;
+			end
+		end
+		DebindShareFrame:Toggle();
+	end)
+
 	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 말과 툴팁이다.
 	--
 	-- **이 버튼이 답할 질문은 하나다: 누르면 무슨 일이 벌어지나.**
@@ -2447,6 +2496,11 @@ function DebindFrameMixin:OnHide()
 	-- 반대 방향은 없다 - 그 창을 닫아도 이 창은 남는다.
 	DebindSpellPickerFrame:Hide();
 
+	-- **The sharing window is not on this line.** It is opened from here but it is a window of its
+	-- own: nothing it does needs this one to be up, and closing the thing you exported from should
+	-- not take the string you were about to copy with it. It handles its own ESC through
+	-- `UISpecialFrames` and closes on its own X.
+
 	-- The icon selector is not a child of this window (see its frame comment in DebindUI.xml for
 	-- why), so this line is the only thing that takes it down with us. Without it the main window
 	-- vanishes and the popup stays on screen.
@@ -2559,6 +2613,10 @@ function DebindFrameMixin:HandleEscape()
 		DebindSpellPickerFrame:Hide();
 		return true;
 	end
+
+	-- **The sharing window has no rung here.** It is a window of its own rather than a panel of
+	-- this one, so its ESC is registered with `UISpecialFrames` where every standalone window's is.
+	-- Putting it on this ladder would mean this window had to be open for that one's ESC to work.
 
 	-- **선택 해제 칸은 없다.** 한때 여기서 ESC 한 번이 선택을 풀었는데, 그건 선택이 상세
 	-- 패널을 펴고 접던 시절의 칸이다 - 물러날 화면이 실제로 있었다. 지금 선택이 하는 일은
@@ -3092,6 +3150,7 @@ function DebindFrameMixin:UpdateButtons()
 
 	self.BindModeButton:SetEnabled(enableButtons);
 	self.AddPortrait:SetEnabled(enableButtons);
+	self.ExportPortrait:SetEnabled(enableButtons);
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
 end
@@ -3717,11 +3776,7 @@ function DebindOrderLineMixin:Update()
 	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
 	local name, icon = ColoredNameAndIconForAction(row.action);
 	self.Name:SetText(name);
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.Icon:SetAtlas(icon:sub(3));
-	else
-		self.Icon:SetTexture(icon);
-	end
+	SetActionIcon(self.Icon, icon);
 
 	self:SetReasonText(GetOrderReasonText(elementData));
 
@@ -4505,4 +4560,5 @@ DebindUI.MoveActions = MoveActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebindUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
 DebindUI.NameAndIconForAction = NameAndIconForAction;
+DebindUI.SetActionIcon = SetActionIcon;
 DebindUI.ShowInputBox = ShowInputBox

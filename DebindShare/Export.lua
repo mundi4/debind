@@ -1,0 +1,476 @@
+local _, DebindShare = ...;
+
+local DebindPrivate      = DebindShare.DebindPrivate;
+local Constants          = DebindPrivate.Constants;
+local luatype            = type;
+
+--- Turning a selection of profile actions into one shareable string.
+---
+--- Nothing in here reads or writes the profile. `BuildExportPayload` walks layers and copies
+--- fields out; `EncodeExportPayload` turns the copy into text. Import is a separate slice and
+--- lives nowhere yet -- `DecodeExportString` exists only so the round trip is testable, and it
+--- hands back a plain table, never an action.
+---
+--- Design notes and the open questions this file does **not** answer: `.zzz/export-import.md`.
+
+
+--- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
+--- that skips fields it does not know survives additions on its own.
+local SCHEMA_VERSION     = 1;
+
+--- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
+--- the compressor later has to invalidate old strings; adding a payload field must not. One
+--- number for both would force every reader to treat those two as the same event.
+local ENVELOPE_VERSION   = 1;
+local ENVELOPE_PREFIX    = "DEB";
+local ENVELOPE_SEPARATOR = ":";
+
+--- Layer IDs run 1..11 -- `LAYER_INFOS` in `Profile.lua`, one general plus two blocks of five.
+--- Holes are normal and not an error: `GetProfileLayer` answers nil for a spec this class does
+--- not have, and for every layer at all before `InitDB` has run.
+---
+--- **The export window opens inactive specs too**, so this walks all of them rather than
+--- `EnumerateProfileLayers`, which answers the narrower question of what is live right now.
+local MAX_LAYER_ID       = 11;
+
+--- Action fields that go out on the wire.
+---
+--- This is `KEYS_TO_SAVE` (`Profile.lua`) minus two, and the two are dropped for the same
+--- reason: they describe **where the action sits in this profile**, not what it does.
+---
+---   `key` -- moves up to the group, which is the whole point of the group (see below)
+---   `seq` -- an ordering number scoped to one layer. Sending it would collide with the numbers
+---            the receiving layer already handed out. Array order carries the same information
+---            and needs no reconciliation, so groups and actions are emitted in `seq` order and
+---            the number itself is left behind.
+---
+--- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
+--- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
+--- the two drift** -- a field added to one and not the other is otherwise silent: the action
+--- saves fine and simply never exports.
+local ACTION_FIELDS      = {
+    type = true,
+    value = true,
+    name = true,
+    icon = true,
+    unit = true,
+    frameTypes = true,
+    groups = true,
+    known = true,
+    combat = true,
+    stealth = true,
+    forms = true,
+    bonusbars = true,
+    specialbar = true,
+    extrabar = true,
+    pet = true,
+    petbattle = true,
+    priority = true,
+    keepInBindingContext = true,
+    ignoreHoverUnit = true,
+    checkedUnits = true,
+    ["$state1"] = true,
+    ["$state2"] = true,
+    ["$state3"] = true,
+    ["$state4"] = true,
+    ["$state5"] = true,
+};
+
+--- Which fields of a custom state definition describe the state, as opposed to what it happens
+--- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it from
+--- `initialValue`/`savedValue` on every login, so sending it would ship a runtime reading as if
+--- it were a setting.
+local STATE_FIELDS       = {
+    mode = true,
+    initialValue = true,
+    savedValue = true,
+    displayMessage = true,
+    expr = true,
+};
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Copying out
+-- ---------------------------------------------------------------------------------------------
+
+--- A field-by-field copy, tables included. Copying by reference here would put live profile
+--- tables inside the payload, and `LibSerialize` would happily write them out -- but anything
+--- that edited the payload afterwards (stripping keys, renaming a state) would be editing the
+--- user's profile.
+local function CopyFields(source, allowed)
+    local copy = {};
+    for k, v in pairs(source) do
+        -- `$`-prefixed keys pass whether or not they are listed. That is the same escape hatch
+        -- `CleanUpDB` uses (`Profile.lua`) -- custom state conditions are stored under their own
+        -- name, and the redesign turns `$state1..5` into arbitrary names (`.zzz/custom-states-redesign.md`).
+        -- Listing five and stopping there would silently drop every named state the day it lands.
+        if (allowed[k] or strsub(k, 1, 1) == "$") then
+            if (luatype(v) == "table") then
+                copy[k] = CopyTable(v);
+            else
+                copy[k] = v;
+            end
+        end
+    end
+    return copy;
+end
+
+--- Where a layer sits, said in terms the receiving side can resolve. Layer **IDs** are not
+--- portable: 2..6 are "my class", and the sender's class is not the reader's.
+local function DescribeLayer(layer)
+    if (layer.isCharacterSpecific) then
+        return { scope = "character", spec = layer.spec };
+    elseif (layer.layerID == 1) then
+        return { scope = "general" };
+    end
+    return { scope = "class", class = Constants.PLAYER_CLASS, spec = layer.spec };
+end
+
+--- The macro body, so the reference does not have to survive the trip.
+---
+--- `MACRO` actions store a **name** and read the body out of the sender's macro store at build
+--- time (`ConvertToMacroText` in `Misc.lua`). A name is the one kind of broken reference the
+--- red-text safety net cannot catch, because it does not break: a reader who happens to have a
+--- macro by that name gets **their** macro, silently. So the body travels alongside, and the
+--- decision of whether to restore a live reference or fall back to `MACROTEXT` is the reader's.
+---
+--- Returns nil when the sender's own reference is already dangling. That case ships as-is under
+--- the "send broken things too" rule -- but note that rule is currently unbacked for macros:
+--- `GetBindingIssue` has no branch that checks whether an action's target exists, so a `MACRO`
+--- naming nothing does **not** go red on the far side. `.zzz/export-import.md`, open question 7.
+local function SnapshotMacro(macroName)
+    local name, icon, body = GetMacroInfo(macroName);
+    if (not name) then
+        return nil;
+    end
+
+    -- Account macros occupy the first block of slots and character macros follow, so the index
+    -- is what separates them -- `GetMacroInfo` itself does not say which store answered.
+    local scope;
+    local index = GetMacroIndexByName(macroName);
+    if (index and index > 0) then
+        local accountLimit = DebindPrivate.GetMacroSlotLimits();
+        if (index > accountLimit) then
+            scope = "character";
+        else
+            scope = "account";
+        end
+    end
+
+    return { name = name, body = body, icon = icon, scope = scope };
+end
+
+--- Rewrites the parts of an action whose stored form is an **index into the sender's setup**.
+---
+--- `SETSTATE` packs mode and state index into one number (`SETCUSTOM_MODE_*` over the low
+--- nibble). An index always resolves on the far side, and resolves to the wrong state, which
+--- puts it outside what red text can see for the same reason a macro name is.
+---
+--- So it goes out on the **name** axis instead: `$state3` rather than 3. `$state1..5` stay valid
+--- names after the custom-state rename (`.zzz/custom-states-redesign.md` step 1), so this shape
+--- survives that change without a schema bump, and it commits nothing about how the profile
+--- stores the value -- that decision is still §9-1's to make.
+---
+--- **`SETCUSTOM` is not this.** Despite the name it sets a custom *target* -- a unit slot, like
+--- focus -- and its index is structural, meaning the same thing in every install. It travels
+--- as-is.
+local function NormalizeAction(action, out)
+    if (action.type == Constants.SETSTATE) then
+        local mode, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(action.value);
+        if (mode) then
+            out.value = nil;
+            out.setstate = { mode = mode, state = "$state" .. stateIndex };
+        end
+    elseif (action.type == Constants.MACRO and luatype(action.value) == "string") then
+        out.macro = SnapshotMacro(action.value);
+    end
+end
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Custom states referenced by what is being sent
+-- ---------------------------------------------------------------------------------------------
+
+--- Every custom state the exported actions name, by name.
+---
+--- Four places hold a reference (`.zzz/custom-states-redesign.md` §3-4) and three of them are
+--- reachable from an action: the condition fields on the action itself, a `SETSTATE` value, and
+--- names typed into macro text. The fourth is a state's own `expr` naming another state, which
+--- is why this closes transitively rather than doing one pass.
+local function CollectStateNames(actions, found)
+    for i = 1, #actions do
+        local action = actions[i];
+
+        for k in pairs(action) do
+            if (strsub(k, 1, 1) == "$") then
+                found[k] = true;
+            end
+        end
+
+        if (action.setstate) then
+            found[action.setstate.state] = true;
+        end
+
+        if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+            local _, args = DebindPrivate.ParseMacroText(action.value);
+            if (args) then
+                for j = 1, #args do
+                    local arg = args[j];
+                    if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE) then
+                        found[arg.name] = true;
+                    end
+                end
+            end
+        end
+    end
+end
+
+--- The manifest: every referenced state, definition included, keyed by name.
+---
+--- Names, not indices, because the receiving side has to be able to *ask* about a collision, and
+--- `$state3` on two machines is two different states that an index can never tell apart. A name
+--- nothing defines is also the one broken state reference red text already catches
+--- (`BINDING_ISSUE_UNDEFINED_STATE`), so the reader is not left guessing.
+---
+--- A referenced state with no definition is left out rather than sent empty. The sender has
+--- nothing to say about it, and an empty definition would read as "defined, and blank".
+local function BuildStateManifest(actions)
+    local referenced = {};
+    CollectStateNames(actions, referenced);
+
+    local manifest, any = {}, false;
+    local pending = referenced;
+
+    while (pending) do
+        local nextPending;
+
+        for name in pairs(pending) do
+            if (manifest[name] == nil) then
+                local index = Constants.CUSTOM_STATE_INDICES[name];
+                local definition = index and DebindPrivate.CustomStates[index];
+                if (definition) then
+                    manifest[name] = CopyFields(definition, STATE_FIELDS);
+                    any = true;
+
+                    -- A conditional state's expression can name other states, and those have to
+                    -- travel too or the definition arrives referring to nothing.
+                    if (definition.mode == Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL
+                            and luatype(definition.expr) == "string") then
+                        local _, args = DebindPrivate.ParseMacroText(definition.expr);
+                        for j = 1, (args and #args or 0) do
+                            local arg = args[j];
+                            if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE
+                                    and manifest[arg.name] == nil) then
+                                nextPending = nextPending or {};
+                                nextPending[arg.name] = true;
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        pending = nextPending;
+    end
+
+    if (not any) then
+        return nil;
+    end
+    return manifest;
+end
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Grouping
+-- ---------------------------------------------------------------------------------------------
+
+--- Actions of one layer, in the order the profile fires them, split into groups.
+---
+--- A **group** is one layer and one key. It is the unit that has to stay together when the key
+--- is dropped: a conditional binding is several actions that only mean something as a set, and
+--- "export without keys" turns that set into loose actions unless something else holds it. The
+--- `id` is what holds it -- identity lives there and not on `key`, which may be nil, may repeat,
+--- and is exactly the field the option removes.
+---
+--- **Layer is a group field, and a group never spans layers** (the export half of open question 1
+--- in `.zzz/export-import.md`). A key whose actions live in two layers therefore leaves as two
+--- groups. That is not a loss of fidelity so much as the honest shape of what this window
+--- promises: it sends *the contents of these layers*, not *this key's behaviour*, and behaviour
+--- is a computed thing that no layer holds.
+---
+--- Keyless actions are singletons. In a profile nothing binds two keyless actions to each other
+--- -- whatever group they arrived in was dissolved when they were placed.
+local function GroupLayerActions(layer, isSelected)
+    local byKey, keyOrder, keyless = {}, {}, {};
+
+    for _, action in layer:Enumerate() do
+        if (isSelected == nil or isSelected[action]) then
+            if (action.key == nil) then
+                keyless[#keyless + 1] = action;
+            else
+                local bucket = byKey[action.key];
+                if (not bucket) then
+                    bucket = {};
+                    byKey[action.key] = bucket;
+                    keyOrder[#keyOrder + 1] = action.key;
+                end
+                bucket[#bucket + 1] = action;
+            end
+        end
+    end
+
+    -- Sorted so the same profile always produces the same string. Re-exporting after touching
+    -- nothing has to be a no-op the user can see is a no-op, and storage order is not stable
+    -- across an edit. `CompareKeys` is the order the UI already shows keys in.
+    sort(keyOrder, DebindPrivate.CompareKeys);
+
+    local groups = {};
+    for i = 1, #keyOrder do
+        local bucket = byKey[keyOrder[i]];
+        sort(bucket, function(lhs, rhs) return (lhs.seq or 0) < (rhs.seq or 0); end);
+        groups[#groups + 1] = { key = keyOrder[i], actions = bucket };
+    end
+    for i = 1, #keyless do
+        groups[#groups + 1] = { key = nil, actions = { keyless[i] } };
+    end
+
+    return groups;
+end
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Public
+-- ---------------------------------------------------------------------------------------------
+
+DebindShare.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
+
+--- The table that becomes the string.
+---
+--- `selection` is a set of the action tables to send, or nil for everything stored. The export
+--- window checks actions, so a set of actions is what it has; layers are walked here rather than
+--- asked for, which is what makes the output ordered and the window's job a filter.
+---
+--- `options.stripKeys` drops every group's `key` and keeps every group's `id` -- the "send the
+--- actions, not my keybinds" option, without the loose-pile failure it usually comes with.
+---
+--- **Nothing is validated.** A broken action exports exactly as it sits. The receiving side shows
+--- it in red and the user deletes it, and that one rule is what removes a whole class of
+--- questions about spells the reader does not have. Where the red text cannot in fact see the
+--- breakage, the format carries the answer instead -- see `SnapshotMacro` and `NormalizeAction`.
+function DebindShare.BuildExportPayload(selection, options)
+    local stripKeys = options and options.stripKeys;
+
+    local groups, exported = {}, {};
+
+    for layerID = 1, MAX_LAYER_ID do
+        local layer = DebindPrivate.GetProfileLayer(layerID);
+        if (layer) then
+            local descriptor;
+            local layerGroups = GroupLayerActions(layer, selection);
+
+            for i = 1, #layerGroups do
+                local source = layerGroups[i];
+                local actions = {};
+
+                for j = 1, #source.actions do
+                    local action = source.actions[j];
+                    local copy = CopyFields(action, ACTION_FIELDS);
+                    NormalizeAction(action, copy);
+                    actions[#actions + 1] = copy;
+                    exported[#exported + 1] = copy;
+                end
+
+                descriptor = descriptor or DescribeLayer(layer);
+                groups[#groups + 1] = {
+                    id = #groups + 1,
+                    key = (not stripKeys) and source.key or nil,
+                    layer = descriptor,
+                    actions = actions,
+                };
+            end
+        end
+    end
+
+    return {
+        v = SCHEMA_VERSION,
+        -- The sender's class, because `scope = "class"` layers cannot be read without it. Nothing
+        -- else about the sender travels: a string meant to be pasted into a public channel should
+        -- not carry a character name the user did not choose to type.
+        class = Constants.PLAYER_CLASS,
+        states = BuildStateManifest(exported),
+        groups = groups,
+    };
+end
+
+--- LibStub is asked at call time, not at load. This file is loaded by the headless specs, which
+--- test the payload without standing the libraries up.
+local function GetLibs()
+    if (not LibStub) then
+        return nil, nil;
+    end
+    return LibStub("LibSerialize", true), LibStub("LibDeflate", true);
+end
+
+--- `DEB<envelope>:<printable>`. The version is outside the compressed blob so a reader can turn
+--- down a string it cannot decode without first trying to decompress it.
+function DebindShare.EncodeExportPayload(payload)
+    local LibSerialize, LibDeflate = GetLibs();
+    if (not LibSerialize or not LibDeflate) then
+        return nil, "LIBS_MISSING";
+    end
+
+    local compressed = LibDeflate:CompressDeflate(LibSerialize:Serialize(payload), { level = 9 });
+    return ENVELOPE_PREFIX .. ENVELOPE_VERSION .. ENVELOPE_SEPARATOR
+        .. LibDeflate:EncodeForPrint(compressed);
+end
+
+--- The inverse, and **only** the inverse. It answers "what was in the string"; it does not touch
+--- the profile and does not produce actions. Deciding what to do with the result is import's job
+--- and import does not exist yet.
+---
+--- Returns nil plus a reason for anything malformed. A pasted string is user input from an
+--- untrusted place, so every step here is allowed to fail and none of them may error.
+function DebindShare.DecodeExportString(str)
+    if (luatype(str) ~= "string") then
+        return nil, "NOT_A_STRING";
+    end
+
+    local version, encoded = strmatch(strtrim(str), "^" .. ENVELOPE_PREFIX .. "(%d+)"
+        .. ENVELOPE_SEPARATOR .. "(.+)$");
+    if (not version) then
+        return nil, "NOT_A_DEBIND_STRING";
+    end
+    if (tonumber(version) ~= ENVELOPE_VERSION) then
+        return nil, "UNSUPPORTED_ENVELOPE";
+    end
+
+    local LibSerialize, LibDeflate = GetLibs();
+    if (not LibSerialize or not LibDeflate) then
+        return nil, "LIBS_MISSING";
+    end
+
+    local compressed = LibDeflate:DecodeForPrint(encoded);
+    if (not compressed) then
+        return nil, "BAD_ENCODING";
+    end
+
+    local serialized = LibDeflate:DecompressDeflate(compressed);
+    if (not serialized) then
+        return nil, "BAD_COMPRESSION";
+    end
+
+    local ok, payload = LibSerialize:Deserialize(serialized);
+    if (not ok or luatype(payload) ~= "table") then
+        return nil, "BAD_PAYLOAD";
+    end
+    if (payload.v ~= SCHEMA_VERSION) then
+        return nil, "UNSUPPORTED_SCHEMA";
+    end
+
+    return payload;
+end
+
+--- What the window calls: selection in, string out.
+function DebindShare.ExportSelection(selection, options)
+    return DebindShare.EncodeExportPayload(DebindShare.BuildExportPayload(selection, options));
+end

@@ -109,6 +109,7 @@ globals = {
 	-- 플라이아웃 배경 조각을 뒤집는 데 쓴다(`Blizzard_SharedXMLBase/TextureUtil.lua`).
 	"SetClampedTextureRotation",
 	"GetMacroInfo",
+	"GetMacroIndexByName",
 	"GetNumMacros",
 	"CreateMacro",
 	"EditMacro",
@@ -299,6 +300,10 @@ globals = {
 	"DebindIconSelectorFrameMixin",
 	"DebindStateDriverUpdateThrottleSliderMixin",
 	"DebindSpellPickerFrameMixin",
+	"DebindShareFrameMixin",
+	"DebindShareRowMixin",
+	"DebindShareLayerMixin",
+	"DebindShareCopyFrameMixin",
 	"DebindSpellPickerHeaderMixin",
 	"DebindSpellPickerRowMixin",
 	"DebindSpellPickerTabMixin",
@@ -311,6 +316,12 @@ globals = {
 	"DebindIconSelectorFrame",
 	"DebindActionPlacerFrame",
 	"DebindSpellPickerFrame",
+	"DebindShareFrame",
+	"DebindShareCopyFrame",
+
+	-- The font of the output box. A generated string is long and has no line breaks, so it needs
+	-- a narrow font to fold into a readable number of lines inside the box.
+	"ChatFontNormal",
 
 	-- Optional third-party addons
 	"Clique",
