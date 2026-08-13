@@ -60,7 +60,6 @@ const PENDING_TRANSLATION = {
     EXPORT_ROW_NO_KEY: ["ruRU"],
     EXPORT_LAYER_COUNT: ["ruRU"],
     EXPORT_FAILED_LIBS_MISSING: ["ruRU"],
-    EXPORT_ADDON_MISSING: ["ruRU"],
     EXPORT_COPY_TITLE: ["ruRU"],
     // The window's own tabs, and what stands in when the panel behind one could not be had. Same
     // owner as the rows above - these arrived with the tab row, and those panels live here too.

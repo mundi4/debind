@@ -1210,35 +1210,6 @@
 			</Frame>
 
 			<!--
-				Opens the sharing window, which lives in a separate load-on-demand addon. A plain
-				`Button` like `AddPortrait`, wired in the same place (`InitializeButtons`).
-
-				**It stands next to [+].** That one brings things in from outside and this one sends
-				them out, so they are a pair. That is also why it is not an entry in the options
-				dropdown: it is a window, not a setting, and the things that open windows live on
-				this row.
-
-				**Declaration order is anchor order.** It hangs off a key inside `OverviewPanel`, so
-				it has to come after that container; declared earlier the key does not exist yet and
-				the anchor silently fails to take.
-
-				It stays on the window rather than moving into the container with [+], because step 3
-				of `.zzz/main-frame-containers.md` deletes it outright - the export panel becomes a
-				tab, and a tab needs no button.
-			-->
-			<Button parentKey="ExportPortrait" inherits="DebindPortraitTemplate">
-				<KeyValues>
-					<KeyValue key="PortraitTexture" value="Interface\Icons\INV_Letter_15" type="string"/>
-					<!-- 제목은 **열리는 창의 제목 그대로**다(`AddPortrait`와 같은 규칙). -->
-					<KeyValue key="TooltipTitle" value="EXPORT_TITLE" type="string"/>
-					<KeyValue key="TooltipText" value="EXPORT_MENU_DESC" type="string"/>
-				</KeyValues>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.OverviewPanel.AddPortrait" relativePoint="LEFT" x="-5" y="0"/>
-				</Anchors>
-			</Button>
-
-			<!--
 				**The window's tab row.** It picks what you are looking at, which is a different
 				rank from the shared/character tabs down on the right: those only mean anything
 				inside Overview ("which layer is the bin showing"), which is why they are

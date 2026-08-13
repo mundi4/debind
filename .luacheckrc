@@ -301,7 +301,7 @@ globals = {
 	"DebindIconSelectorFrameMixin",
 	"DebindStateDriverUpdateThrottleSliderMixin",
 	"DebindSpellPickerFrameMixin",
-	"DebindShareFrameMixin",
+	"DebindShareExportPanelMixin",
 	"DebindShareRowMixin",
 	"DebindShareLayerMixin",
 	"DebindShareCopyFrameMixin",
@@ -317,7 +317,7 @@ globals = {
 	"DebindIconSelectorFrame",
 	"DebindActionPlacerFrame",
 	"DebindSpellPickerFrame",
-	"DebindShareFrame",
+	"DebindShareExportPanel",
 	"DebindShareCopyFrame",
 
 	-- The font of the output box. A generated string is long and has no line breaks, so it needs

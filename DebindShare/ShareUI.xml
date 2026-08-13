@@ -124,22 +124,40 @@
 	</Button>
 
 	<!--
-		**A standalone window, and unlike the spell picker its lifetime is its own.** It is opened
-		from the main window and never needs it again: closing the thing you exported from should
-		not take the string you were about to copy with it. Its ESC is registered with
-		`UISpecialFrames` in `OnLoad`, which is where a window that stands alone puts it.
+		**A panel, not a window.** It is one of the three the main frame swaps between, reached by
+		the Export tab (`PANELS` in `DebindUI.lua`). So it carries no chrome of its own: no portrait,
+		no title, no drag, no `UISpecialFrames` registration. Those belong to the frame that hosts it.
 
-		No keyboard on the frame. The output box takes focus when there is something to copy and
-		ESC there only drops focus, so this window never touches `SetPropagateKeyboardInput`,
-		which cannot be called in combat anyway.
+		**It cannot be an XML child of that frame.** This addon is load on demand, so at the moment
+		`DebindUI.xml` is read none of this exists. It is built here, parented to `UIParent` and
+		hidden, and the main frame takes delivery when the tab is first pressed - `ResolvePanel`
+		reparents it and pins it to the frame's four corners.
+
+		Which is why the offsets below still start at -56 and -84 as they did when this was its own
+		window: the frame it lands in is a `PortraitFrameTemplate` too, so the title bar it is
+		clearing is the same height.
+
+		No keyboard on the frame. The output dialog takes focus when there is something to copy and
+		ESC there only drops focus, so nothing here touches `SetPropagateKeyboardInput`, which
+		cannot be called in combat anyway.
+
+		**No `enableMouse`, and that is a change from being a window.** A window wants to swallow
+		clicks that land on it; a panel covering the whole frame that swallows them takes the title
+		bar with it, and the window stops being draggable from any tab but Overview. The interactive
+		children catch their own clicks and the rest belong to the frame underneath, which is how
+		`OverviewPanel` and `MissingPanel` already sit.
+
+		**`useParentLevel` for the same kind of reason.** The list inside pins itself to level 3, a
+		number chosen when this was its own frame at the bottom of its own stack. Letting the panel
+		take a level of its own would put that 3 underneath it and the list would draw behind its
+		own inset.
+
+		The `<Size>` is the one number the frame asks for (`OnLoad` reads it into `preferredWidth`);
+		the height is the host's.
 	-->
-	<Frame name="DebindShareFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true"
-		frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebindShareFrameMixin"
-		movable="true" clampedToScreen="true">
+	<Frame name="DebindShareExportPanel" parent="UIParent" hidden="true" useParentLevel="true"
+		mixin="DebindShareExportPanelMixin">
 		<Size x="470" y="600"/>
-		<Anchors>
-			<Anchor point="CENTER"/>
-		</Anchors>
 		<Frames>
 			<!--
 				The top rung: everything.

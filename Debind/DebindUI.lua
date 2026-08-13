@@ -1742,9 +1742,10 @@ local PANELS = {
 --- over there grabs it inside that window (`DebindShare/DebindShare.lua`); `DebindCliqueFake`
 --- reaches across the same way.
 ---
---- It asks `IsAddOnLoaded`. This once looked for `DebindShareFrame` instead, which answers "was
---- that window built", not "is the addon in" - and step 3 turns that window into a panel, at
---- which point the stand-in would quietly start answering no.
+--- It asks `IsAddOnLoaded`. It once named a frame over there instead, which answers "was that one
+--- frame built", not "is the addon in" - and the frame it named was the export window, which has
+--- since become `DebindShareExportPanel`. Standing in a renamed frame would have started quietly
+--- answering no.
 local function LoadShareAddon(name)
 	if (C_AddOns.IsAddOnLoaded(name)) then
 		return true;
@@ -2194,27 +2195,6 @@ function DebindFrameMixin:InitializeButtons()
 		DebindSpellPickerFrame:Toggle();
 	end)
 
-	-- The sharing window is its own addon (`DebindShare`), loaded on demand. Two things it carries
-	-- are expensive: the compression libraries, and the SavedVariables of the drawer that received
-	-- strings pile up in. SavedVariables are read whole when an addon loads, so keeping that here
-	-- would charge every login of every user who never shares anything.
-	--
-	-- Bringing it in is `LoadShareAddon`, shared with the Export tab (which is what replaces this
-	-- button in step 3 of `.zzz/main-frame-containers.md`).
-	self.ExportPortrait:SetScript("OnClick", function()
-		local loaded, reason = LoadShareAddon("DebindShare");
-
-		-- The folder was deleted or the addon switched off. Do not turn away quietly: a button
-		-- that does nothing reads as broken, which is the same rule the other entry points
-		-- follow (`DebindPublic:ToggleUI`).
-		if (not loaded or not DebindShareFrame) then
-			DebindPrivate.DisplayMessage(
-				format(LLL["EXPORT_ADDON_MISSING"], tostring(reason)), 1, 0, 0);
-			return;
-		end
-		DebindShareFrame:Toggle();
-	end)
-
 	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 말과 툴팁이다.
 	--
 	-- **이 버튼이 답할 질문은 하나다: 누르면 무슨 일이 벌어지나.**
@@ -2371,9 +2351,14 @@ function DebindFrameMixin:OnLoad()
 	-- `ResolvePanel`), so it does not need the reason carried to it at the moment of failure.
 	self.MissingPanel.Message:SetText(LLL["PANEL_ADDON_MISSING"]);
 
+	-- **Overview names its width the same way the other panels do**, rather than the frame knowing
+	-- one number. It is set here and not in the XML because the number is already a named constant
+	-- with a paragraph of arithmetic behind it, and two copies of it is one too many.
+	self.OverviewPanel.preferredWidth = FRAME_WIDTH;
+
 	-- Start on Overview. `SelectPanel` turns back when the tab is already current, so this first
 	-- one has to be forced through for `PanelTemplates_SetTab` to run and paint the tabs (the
-	-- paragraph just above is why that matters).
+	-- paragraph just above is why that matters). It is also what gives the frame its width.
 	self.shownPanel = self.OverviewPanel;
 	self:SelectPanel(1, true);
 
@@ -2400,8 +2385,6 @@ function DebindFrameMixin:OnLoad()
 	else
 		self:SetPoint("CENTER", "UIParent", 0, 0);
 	end
-
-	self:SetWidth(FRAME_WIDTH);
 end
 
 --------------------------------------------------------------------------------
@@ -3223,7 +3206,6 @@ function DebindFrameMixin:UpdateButtons()
 
 	self.OverviewPanel.BindModeButton:SetEnabled(enableButtons);
 	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
-	self.ExportPortrait:SetEnabled(enableButtons);
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
 end
@@ -3236,9 +3218,22 @@ end
 --- broken, and what the reader has to do is the same either way. A second sentence for a branch
 --- that cannot happen is a sentence that never reaches the screen.
 ---
---- That side does not hand over a panel yet (steps 3-4 of `.zzz/main-frame-containers.md`). Once
---- it does, **taking delivery** costs one more line here - `SetParent` plus two anchors. It is not
---- written ahead of time because it would sit there having never once run.
+--- **Taking delivery is done once, the first time.** A panel from the other addon is built parented
+--- to `UIParent`, because at its load time it has nowhere else to go and no idea who will host it.
+--- Reparenting and pinning it to our four corners is what makes it one of ours, and after that it
+--- behaves exactly like the `panelKey` road: hidden with the frame, laid out by the frame.
+---
+--- The guard is `GetParent()`, not a flag. A flag would be a second copy of a fact the frame
+--- already stores, and the two would be free to disagree.
+local function TakeDelivery(frame, panel)
+	if (panel:GetParent() ~= frame) then
+		panel:SetParent(frame);
+		panel:ClearAllPoints();
+		panel:SetAllPoints(frame);
+	end
+	return panel;
+end
+
 function DebindFrameMixin:ResolvePanel(id)
 	local entry = PANELS[id];
 
@@ -3247,7 +3242,8 @@ function DebindFrameMixin:ResolvePanel(id)
 	end
 
 	if (LoadShareAddon(entry.addon)) then
-		return _G[entry.panelGlobal];
+		local panel = _G[entry.panelGlobal];
+		return panel and TakeDelivery(self, panel);
 	end
 end
 
@@ -3266,6 +3262,18 @@ function DebindFrameMixin:SelectPanel(id, force)
 	PanelTemplates_SetTab(self, id);
 
 	local panel = self:ResolvePanel(id) or self.MissingPanel;
+
+	-- **The width is the panel's to name.** Overview is two columns and the export list is one, so
+	-- a single width would either crush one or leave the other half empty. A panel that says
+	-- nothing keeps whatever is up, which is what `MissingPanel` wants - it is standing in for a
+	-- panel whose width nobody can ask for.
+	--
+	-- Width only. The height is the same list-shaped rectangle in every tab, and the frame saves
+	-- its **top left** (`OnDragStop`), so growing sideways leaves the corner the user put it at
+	-- where they put it.
+	if (panel.preferredWidth) then
+		self:SetWidth(panel.preferredWidth);
+	end
 
 	if (self.shownPanel ~= panel) then
 		if (self.shownPanel) then

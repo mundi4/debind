@@ -4,7 +4,7 @@ local DebindPrivate    = DebindShare.DebindPrivate;
 local LLL              = DebindPrivate.L;
 local DebindUI         = DebindPrivate.DebindUI;
 
---- The export window.
+--- The export panel: the main window's Export tab.
 ---
 --- One list, three rungs: everything -> layer -> action. Everything starts selected, because the
 --- common case is "send all of it" and that should cost a glance and a button.
@@ -13,8 +13,8 @@ local DebindUI         = DebindPrivate.DebindUI;
 --- way the main window shows a selected row. Boxes all the way down made three columns of them and
 --- left no way to tell a layer's box from an action's at a glance.
 ---
---- **The axis is the layer, and the window has to say so.** A key's behaviour is computed across
---- layers, so what this window can honestly promise is *the contents of these layers* -- if the
+--- **The axis is the layer, and the panel has to say so.** A key's behaviour is computed across
+--- layers, so what this panel can honestly promise is *the contents of these layers* -- if the
 --- receiving side arranges its layers one notch differently, the same actions on the same keys
 --- behave differently with nothing missing and nothing overwritten. `.zzz/export-import.md`.
 ---
@@ -22,9 +22,11 @@ local DebindUI         = DebindPrivate.DebindUI;
 --- the user deletes it. That single rule is what removes every question about spells, macros and
 --- specs the reader might not have. Where red text cannot in fact see the breakage, `Export.lua`
 --- carries the answer in the format instead.
+---
+--- The one thing that is still a window is the copy dialog at the bottom of this file. A generated
+--- string outlives the tab it came from: switching to Overview to check something should not take
+--- away the text you were about to paste.
 
---- Draw order: `MEDIUM` + toplevel, the same as the main window and the spell picker, so whichever
---- was clicked last comes forward and the HIGH popups stay above all three.
 local ROW_HEIGHT       = 28;
 local LAYER_HEIGHT     = 26;
 
@@ -153,11 +155,11 @@ function DebindShareRowMixin:Init(elementData)
 end
 
 function DebindShareRowMixin:UpdateSelectionDisplay()
-    self.SelectedHighlight:SetShown(DebindShareFrame.selected[self.elementData.action] == true);
+    self.SelectedHighlight:SetShown(DebindShareExportPanel.selected[self.elementData.action] == true);
 end
 
 function DebindShareRowMixin:OnClick()
-    DebindShareFrame:ToggleAction(self.elementData.action);
+    DebindShareExportPanel:ToggleAction(self.elementData.action);
     self:UpdateSelectionDisplay();
 end
 
@@ -199,7 +201,7 @@ function DebindShareLayerMixin:OnLoad()
     NormalizeCheckMark(self.Check);
 
     self.Check:SetScript("OnClick", function()
-        DebindShareFrame:ToggleLayer(self.elementData.actions);
+        DebindShareExportPanel:ToggleLayer(self.elementData.actions);
         self:UpdateSelectionDisplay();
     end);
 end
@@ -207,19 +209,19 @@ end
 function DebindShareLayerMixin:Init(elementData)
     self.elementData = elementData;
     self:SetHeaderText(DebindUI.GetLayerLabel(elementData.layerID));
-    self:GetCollapseButton():UpdateCollapsedState(DebindShareFrame:IsLayerCollapsed(elementData.layerID));
+    self:GetCollapseButton():UpdateCollapsedState(DebindShareExportPanel:IsLayerCollapsed(elementData.layerID));
     self:UpdateSelectionDisplay();
 end
 
 function DebindShareLayerMixin:UpdateSelectionDisplay()
-    SetTriState(self.Check, CombineState(self.elementData.actions, DebindShareFrame.selected)
+    SetTriState(self.Check, CombineState(self.elementData.actions, DebindShareExportPanel.selected)
         or STATE_NONE);
 end
 
 --- The bar collapses. Selecting is the checkbox's job and it swallows its own clicks, so a click
 --- arriving here is always about showing and hiding.
 function DebindShareLayerMixin:OnClick()
-    DebindShareFrame:ToggleLayerCollapsed(self.elementData.layerID);
+    DebindShareExportPanel:ToggleLayerCollapsed(self.elementData.layerID);
 end
 
 function DebindShareLayerMixin:OnEnter()
@@ -242,11 +244,18 @@ end
 -- The window
 --------------------------------------------------------------------------------
 
-DebindShareFrameMixin = {};
+DebindShareExportPanelMixin = {};
 
-function DebindShareFrameMixin:OnLoad()
-    self:SetTitle(LLL["EXPORT_TITLE"]);
-    self:SetPortraitToAsset(133015);
+function DebindShareExportPanelMixin:OnLoad()
+    -- **What this panel asks the frame to be**, read by `SelectPanel` when this tab is chosen. The
+    -- frame is free to be a different width per tab, and the panel that knows what it needs is the
+    -- one that should say: Overview wants two columns, this is one list.
+    --
+    -- **Taken from the XML, and only now.** The number belongs with the rest of the geometry, and a
+    -- second copy here would let someone widen the panel in the XML and watch nothing happen. It
+    -- has to be read before the frame takes delivery, though - after that `GetWidth` answers with
+    -- the host's width, which is this value fed back.
+    self.preferredWidth = self:GetWidth();
 
     self.SelectAllCheck.Text:SetText(LLL["EXPORT_SELECT_ALL"]);
     self.StripKeysCheck.Text:SetText(LLL["EXPORT_STRIP_KEYS"]);
@@ -262,10 +271,10 @@ function DebindShareFrameMixin:OnLoad()
 
     self:InitializeScrollBox();
 
-    -- **This window does not hang off the main one.** It is opened from there but outlives it, so
-    -- ESC has to be its own business. `UISpecialFrames` is how a standalone window says that, and
-    -- it costs nothing: registration only, no keyboard capture, nothing of Blizzard's changed.
-    tinsert(UISpecialFrames, self:GetName());
+    -- **No ESC, no drag, no title here.** This is a panel inside the main frame, and all three of
+    -- those are that frame's. It used to register with `UISpecialFrames` as a standalone window;
+    -- doing so now would mean ESC closes the whole window from one of its three tabs and not the
+    -- other two.
 
     -- **The chrome widgets get their scripts here.** XML's `method=` looks the name up on the
     -- element's *own* mixin, so naming the frame's method on a plain Blizzard template finds
@@ -279,16 +288,9 @@ function DebindShareFrameMixin:OnLoad()
     NormalizeCheckMark(self.SelectAllCheck);
     NormalizeCheckMark(self.StripKeysCheck);
     ExtendHitRectOverLabel(self.StripKeysCheck);
-
-    self:RegisterForDrag("LeftButton");
-    self:SetScript("OnDragStart", function() self:StartMoving(); end);
-    self:SetScript("OnDragStop", function()
-        self:StopMovingOrSizing();
-        self:SetUserPlaced(false);
-    end);
 end
 
-function DebindShareFrameMixin:InitializeScrollBox()
+function DebindShareExportPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
@@ -370,7 +372,7 @@ end
 --- **Inactive specs are opened too.** The data is already there - class layers sit under
 --- `classes[class]` per spec, so a Balance druid can read their Feral layer without switching.
 --- A window that only showed the live spec would make the user relog to share half their setup.
-function DebindShareFrameMixin:BuildLayers()
+function DebindShareExportPanelMixin:BuildLayers()
     local layers = {};
 
     for layerID = 1, 11 do
@@ -405,7 +407,7 @@ end
 --- actions still export, and still count toward the header and the total. That is why the two
 --- lists are separate: everything that asks "what is selected" reads `self.layers`, and only
 --- drawing reads this one.
-function DebindShareFrameMixin:BuildDisplayList()
+function DebindShareExportPanelMixin:BuildDisplayList()
     local list = {};
 
     for _, layer in ipairs(self.layers) do
@@ -421,7 +423,7 @@ function DebindShareFrameMixin:BuildDisplayList()
 end
 
 --- Redraws from the layers already built. Collapsing does not re-read the profile.
-function DebindShareFrameMixin:RefreshRows()
+function DebindShareExportPanelMixin:RefreshRows()
     local list = self:BuildDisplayList();
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
     self.ScrollBox.EmptyText:SetText(LLL["EXPORT_EMPTY"]);
@@ -429,17 +431,17 @@ function DebindShareFrameMixin:RefreshRows()
     self:UpdateSelectionState();
 end
 
-function DebindShareFrameMixin:IsLayerCollapsed(layerID)
+function DebindShareExportPanelMixin:IsLayerCollapsed(layerID)
     return self.collapsed[layerID] == true;
 end
 
-function DebindShareFrameMixin:ToggleLayerCollapsed(layerID)
+function DebindShareExportPanelMixin:ToggleLayerCollapsed(layerID)
     self.collapsed[layerID] = not self.collapsed[layerID] or nil;
     self:RefreshRows();
 end
 
 --- Every action in the window, collapsed layers included.
-function DebindShareFrameMixin:EnumerateListedActions()
+function DebindShareExportPanelMixin:EnumerateListedActions()
     local actions = {};
     for _, layer in ipairs(self.layers or {}) do
         for _, action in ipairs(layer.actions) do
@@ -456,7 +458,7 @@ end
 
 --- Redraws the checkboxes without rebuilding the list. Rebuilding would drop the scroll position,
 --- and ticking a box is the one gesture where the row you just touched must stay under the cursor.
-function DebindShareFrameMixin:UpdateSelectionState()
+function DebindShareExportPanelMixin:UpdateSelectionState()
     self.ScrollBox:ForEachFrame(function(frame)
         if (frame.UpdateSelectionDisplay) then
             frame:UpdateSelectionDisplay();
@@ -490,7 +492,7 @@ local function DropStaleString()
     DebindShareCopyFrame:Hide();
 end
 
-function DebindShareFrameMixin:SelectAll(selected)
+function DebindShareExportPanelMixin:SelectAll(selected)
     DropStaleString();
     local listed = self:EnumerateListedActions();
     for i = 1, #listed do
@@ -499,7 +501,7 @@ function DebindShareFrameMixin:SelectAll(selected)
     self:UpdateSelectionState();
 end
 
-function DebindShareFrameMixin:ToggleAction(action)
+function DebindShareExportPanelMixin:ToggleAction(action)
     DropStaleString();
     self.selected[action] = not self.selected[action] or nil;
     self:UpdateSelectionState();
@@ -507,7 +509,7 @@ end
 
 --- A layer toggles as a whole, and "some" counts as off -- one more click gets all of it, which
 --- is what the middle state is asking for.
-function DebindShareFrameMixin:ToggleLayer(actions)
+function DebindShareExportPanelMixin:ToggleLayer(actions)
     DropStaleString();
     local turnOn = CombineState(actions, self.selected) ~= STATE_ALL;
     for i = 1, #actions do
@@ -516,7 +518,7 @@ function DebindShareFrameMixin:ToggleLayer(actions)
     self:UpdateSelectionState();
 end
 
-function DebindShareFrameMixin:OnSelectAllClicked()
+function DebindShareExportPanelMixin:OnSelectAllClicked()
     -- Read the state we drew, not the checkbox's own `GetChecked` -- the middle state is drawn as
     -- checked, so the button's idea of its value says "on" for a partial selection and the click
     -- would clear everything when the user meant to complete it.
@@ -525,18 +527,18 @@ end
 
 --- Toggling this changes what the string would contain, so a string already on screen stops being
 --- the one this window would produce.
-function DebindShareFrameMixin:OnStripKeysClicked()
+function DebindShareExportPanelMixin:OnStripKeysClicked()
     DropStaleString();
 end
 
-function DebindShareFrameMixin:OnStripKeysEnter()
+function DebindShareExportPanelMixin:OnStripKeysEnter()
     GameTooltip:SetOwner(self.StripKeysCheck, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
     GameTooltip_AddNormalLine(GameTooltip, LLL["EXPORT_STRIP_KEYS_DESC"]);
     GameTooltip:Show();
 end
 
-function DebindShareFrameMixin:OnStripKeysLeave()
+function DebindShareExportPanelMixin:OnStripKeysLeave()
     GameTooltip:Hide();
 end
 
@@ -545,7 +547,7 @@ end
 -- The string
 --------------------------------------------------------------------------------
 
-function DebindShareFrameMixin:OnGenerateClicked()
+function DebindShareExportPanelMixin:OnGenerateClicked()
     local str, reason = DebindShare.ExportSelection(self.selected, {
         stripKeys = self.StripKeysCheck:GetChecked(),
     });
@@ -567,7 +569,7 @@ end
 -- Showing
 --------------------------------------------------------------------------------
 
-function DebindShareFrameMixin:OnShow()
+function DebindShareExportPanelMixin:OnShow()
     -- **Selected before drawn, not after.** Default is everything ticked - sending the lot should
     -- cost opening the window and reading it - and if the list goes up first, every row that gets
     -- built in the gap draws itself against an empty selection. Redrawing afterwards only reaches
@@ -577,28 +579,30 @@ function DebindShareFrameMixin:OnShow()
     self:SelectAll(true);
 
     -- **Everything starts shut.** Open, the list is one long run of actions and the layers - the
-    -- axis this window is actually built on - are lost in it. Shut, the first screen is the whole
+    -- axis this panel is actually built on - are lost in it. Shut, the first screen is the whole
     -- shape of what is about to be sent, and opening one is how you go look at it.
     for _, layer in ipairs(self.layers) do
         self.collapsed[layer.layerID] = true;
     end
     self:RefreshRows();
 
-    PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB);
+    -- **No sound.** There was one here when this was a window that got opened. Switching tabs is
+    -- the frame's gesture now, and one tab of three announcing itself is worse than none.
 end
 
-function DebindShareFrameMixin:OnHide()
-    -- The selection is not kept. It describes actions that can be edited or deleted while this is
-    -- closed, and a stale set of table references would quietly export something else.
+function DebindShareExportPanelMixin:OnHide()
+    -- The selection is not kept. It names action tables that can be edited or deleted from the
+    -- Overview tab while this one is away, and a stale set of references would quietly export
+    -- something else. Rebuilding it costs a walk over the layers, which is what `OnShow` does.
     wipe(self.selected);
     wipe(self.collapsed);
     self.layers = nil;
-    DebindShareCopyFrame:Hide();
     GameTooltip:Hide();
-end
 
-function DebindShareFrameMixin:Toggle()
-    self:SetShown(not self:IsShown());
+    -- **The copy dialog is deliberately left up.** A finished string outlives the tab it came from:
+    -- going to Overview to check something should not take away the text you were about to paste.
+    -- Coming back drops it, but by the existing rule rather than this one -- `OnShow` rebuilds the
+    -- selection, and a string that no longer describes the selection is stale (`DropStaleString`).
 end
 
 
