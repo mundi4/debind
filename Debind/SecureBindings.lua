@@ -501,13 +501,6 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	wipe(DirtyFlags)
 ]==]));
 
---- 클릭 시점 평가가 옛 경로와 같은 답을 내는지 대조한다. **빌드 시점에 가른다** - 릴리스에서는
---- 문자열이 비어서 스니펫에 이 줄들이 아예 없다.
----
---- 통과 기준이 "동작이 안 바뀌는 것"이라 관찰이 필요하다. 캐시로 남긴 상태들(combat, forms,
---- known …)은 양쪽이 **같은 값을 읽으므로 불일치가 곧 버그**다. 반대로 hover와 유닛 조건은
---- 어긋나는 것이 정상이고 - 그게 이 공사가 노린 개선분이다 - 그 빈도가 성과 지표가 된다.
---- 그래서 둘을 갈라서 보고한다.
 --- 클릭캐스팅 클릭이 우리 프레임까지 왔는지 보고한다. **빌드 시점에 가른다** - 릴리스에서는
 --- 문자열이 비어서 스니펫에 이 줄이 아예 없다.
 ---
@@ -521,93 +514,6 @@ local CLICKCAST_ARRIVAL_SNIPPET = DebindPrivate.DEBUG and [==[
 
 			debind_driver:CallMethod("OnClickCastArrival", button, mod,
 				bindings and #bindings or 0)
-]==] or "";
-
-local CLICKTIME_VERIFY_SNIPPET = DebindPrivate.DEBUG and [==[
-
-	-- **클릭캐스팅으로 온 것은 대조하지 않는다.** 아래 재현은 `isNonClick` 레코드를 도는데
-	-- 그쪽은 `isClick` 레코드로 이겼다. 서로 다른 집합을 비교하는 것이라 불일치가 늘 나고,
-	-- 그건 버그가 아니라 질문이 틀린 것이다.
-	--
-	-- 클릭캐스팅에는 대조할 "옛 경로의 답"이 아예 없다 - 옛 경로는 승자를 상태 루프가 미리
-	-- 정해 유닛 프레임에 구워뒀고, 그 값은 여기서 읽을 수 없다.
-	if (not clickCast) then
-	do
-		-- 옛 경로의 판정을 캐시 값으로 그대로 재현한다(UpdateBindings 스니펫의 루프와 같다).
-		local cachedIndex
-		local uf = States.unitframe
-		if (uf and not uf.reaction) then uf = nil end
-		for i = 1, #bindings do
-			local t = bindings[i]
-			if (t.isNonClick) then
-				local m = true
-
-				if (t.frameTypes) then
-					if (not uf) then
-						m = false
-					elseif ((t.frameTypes % (uf.frameType + uf.frameType)) < uf.frameType) then
-						m = false
-					end
-				end
-
-				if (m and (
-					(t.groups ~= nil and (t.groups % (group + group)) < group) or
-					(t.combat ~= nil and t.combat ~= States.combat) or
-					(t.forms and (t.forms % (form + form)) < form) or
-					(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-					(t.specialbar ~= nil and t.specialbar ~= States.specialbar) or
-					(t.extrabar ~= nil and t.extrabar ~= States.extrabar) or
-					(t.stealth ~= nil and t.stealth ~= States.stealth) or
-					(t.petbattle ~= nil and t.petbattle ~= States.petbattle) or
-					(t.pet ~= nil and t.pet ~= States.pet)
-				)) then
-					m = false
-				end
-
-				if (m and t.known ~= nil and States[t.known] ~= true) then
-					m = false
-				end
-
-				if (m and t.units) then
-					for u, cond in pairs(t.units) do
-						local s = UnitStates[u]
-						if (not s or cond.exists ~= s.exists
-								or (cond.reaction and not cond.reaction[s.reaction])
-								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
-							m = false
-							break
-						end
-					end
-				end
-
-				if (m and t.customStates) then
-					for state, v in pairs(t.customStates) do
-						if (States[state] ~= v) then
-							m = false
-							break
-						end
-					end
-				end
-
-				if (m) then
-					cachedIndex = i
-					break
-				end
-			end
-		end
-
-		if (cachedIndex ~= winnerIndex) then
-			-- hover나 유닛 조건이 걸린 레코드가 관련돼 있으면 "갈리는 게 정상"인 쪽이다.
-			local expected = false
-			local a = winnerIndex and bindings[winnerIndex]
-			local b = cachedIndex and bindings[cachedIndex]
-			if (a and (a.frameTypes or a.units)) then expected = true end
-			if (b and (b.frameTypes or b.units)) then expected = true end
-			debind_driver:CallMethod("OnClickTimeMismatch", button,
-				winnerIndex or 0, cachedIndex or 0, expected)
-		end
-	end
-	end
 ]==] or "";
 
 BindingDriver:SetAttribute("InitFrame", [==[
@@ -789,18 +695,6 @@ else
 	end
 end
 
---- 클릭 시점 평가와 옛 경로의 판정이 갈렸다. DEBUG 빌드에서만 불린다.
----
---- `expected`가 참이면 hover나 유닛 조건이 얽힌 것이라 **갈리는 게 정상**이다 - 옛 경로는
---- 최대 0.2초 묵은 값을 보고, 이쪽은 지금 값을 본다. 그 빈도가 이 공사의 성과 지표다.
---- 거짓이면 양쪽이 같은 캐시 값을 읽었는데도 답이 달랐다는 뜻이고, **그건 버그다.**
-function BindingDriver:OnClickTimeMismatch(button, liveIndex, cachedIndex, expected)
-	DebindPrivate.log(format("%s[Debind/clicktime]|r %s  live=%s cached=%s%s",
-		expected and "|cff888888" or "|cffff4444",
-		tostring(button), tostring(liveIndex), tostring(cachedIndex),
-		expected and "  (hover/유닛 - 정상)" or "  <- 같은 값을 읽고 답이 갈렸다"));
-end
-
 --- 클릭캐스팅 클릭이 우리 프레임에 도착했다. DEBUG 빌드에서만 불린다.
 ---
 --- **안 나오는 것도 답이다.** 유닛 프레임 클릭에 이게 안 찍히면 라우팅이 안 걸린 것이다
@@ -823,13 +717,13 @@ end
 --- The condition evaluation, kept as its own string so more than one wrapper can carry it.
 ---
 --- It is spliced in textually rather than called, which is what lets the locals it declares
---- (`unitframe`, `hoverUnit`, `winner`, `winnerIndex`) stay visible to whatever follows -- a
---- `RunAttribute` could not hand those back without turning each one into a shared global.
+--- (`unitframe`, `hoverUnit`, `winner`) stay visible to whatever follows -- a `RunAttribute`
+--- could not hand those back without turning each one into a shared global.
 ---
 --- The caller owes it `bindings` (the records to walk) and `evalFrame` (which unit frame hover
---- means for this click, or nil), and must have declared `winner`, `winnerIndex` and `hoverUnit`
---- itself -- they are what it answers with, and a caller that only reaches this on one branch
---- still has to read them on the other.
+--- means for this click, or nil), and must have declared `winner` and `hoverUnit` itself -- they
+--- are what it answers with, and a caller that only reaches this on one branch still has to read
+--- them on the other.
 ---
 --- The name has to end in `_SNIPPET`: that is what `tools/lib/snippets.js` resolves back into
 --- the body it belongs to, and a body it cannot resolve leaves every static check silently.
@@ -999,7 +893,6 @@ local EVAL_SNIPPET = [==[
 
 			if (match) then
 				winner = t
-				winnerIndex = i
 				PROBE.Winner(i)
 				break
 			end
@@ -1068,7 +961,7 @@ end, [==[
 	end
 
 	local clickCast = true
-	local winner, winnerIndex, hoverUnit
+	local winner, hoverUnit
 	local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[
 
@@ -1078,7 +971,6 @@ end, [==[
 
 	HandoffBindings = bindings
 	HandoffWinner = winner
-	HandoffIndex = winnerIndex
 	HandoffHoverUnit = hoverUnit
 	return "debind1"
 ]==]);
@@ -1199,13 +1091,12 @@ end, [==[
 		end
 	end
 
-	local winner, winnerIndex, hoverUnit
+	local winner, hoverUnit
 
 	if (handoff) then
 		-- 유닛 프레임 래퍼가 이미 골랐다. 여기서 다시 도는 것은 같은 답을 두 번 내는 것이고,
 		-- hover는 그쪽이 자기 자신을 보고 읽은 값이라 여기서 캐시로 다시 읽으면 오히려 나빠진다.
 		winner = HandoffWinner
-		winnerIndex = HandoffIndex
 		hoverUnit = HandoffHoverUnit
 		HandoffBindings = nil
 		HandoffWinner = nil
@@ -1215,7 +1106,6 @@ end, [==[
 	local evalFrame = States.unitframe
 ]==] .. EVAL_SNIPPET .. [==[
 	end
-]==] .. CLICKTIME_VERIFY_SNIPPET .. [==[
 
 	-- **낼 것이 없으면 클릭을 취소한다.** 두 갈래로 도달한다:
 	--
