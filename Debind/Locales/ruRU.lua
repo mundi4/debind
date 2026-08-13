@@ -26,6 +26,8 @@ L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "Не выбрана реакция и�
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша, назначенная для |cnHIGHLIGHT_FONT_COLOR:Переключения игрового меню|r, не может быть использована."
 L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Кнопки мыши не могут использоваться для команды привязки, использующей условие наведения - наведение."
 L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "Левая/правая кнопка мыши без модификаторов может использоваться только с условием наведения."
+-- %s는 매크로 본문에 적힌 그 이름이다. 근거는 enUS 쪽 주석에.
+L["BINDING_ERROR_UNDEFINED_STATE"] = "Пользовательского состояния с именем |cnHIGHLIGHT_FONT_COLOR:%s|r не существует. Пока имя не исправлено, эта привязка вообще не срабатывает."
 L["BINDING_ERROR_UNREACHABLE"] = "Эта привязка всегда перекрывается другими."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Фреймы арены"
@@ -174,6 +176,7 @@ L["ORDER_FLAG_ISSUE"] = "Есть проблема"
 L["ORDER_FLAG_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша открывает меню"
 L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Кнопка мыши недопустима"
 L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Нужно наведение"
+L["ORDER_FLAG_UNDEFINED_STATE"] = "Неизвестное состояние"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"

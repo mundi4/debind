@@ -38,6 +38,10 @@ L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected.
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
 L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse buttons cannot be used for Binding Command that uses the hover condition."
 L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used with the hover condition."
+-- %s는 매크로 본문에 적힌 그 이름이다. **이 줄만 인자를 받는다** - 다른 BINDING_ERROR_*는
+-- 어느 조건이 문제인지가 이미 그 칸에 보이는데, 이건 본문 안이라 이름을 적어주지 않으면
+-- 무엇을 고쳐야 하는지가 안 보인다.
+L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no custom state named |cnHIGHLIGHT_FONT_COLOR:%s|r. Until the name is fixed this binding does not fire at all."
 L["BINDING_ERROR_UNREACHABLE"] = "This binding is always preceded by others."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
@@ -267,6 +271,7 @@ L["ORDER_FLAG_NOT_SUPPORTED_GAMEMENU_KEY"] = "Key opens game menu"
 -- 다른 하나는 "이 명령에는 어떤 마우스 버튼도 못 쓴다"라서 고칠 방법이 다르다.
 L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse button not allowed"
 L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Mouse button needs hover"
+L["ORDER_FLAG_UNDEFINED_STATE"] = "Unknown state name"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"

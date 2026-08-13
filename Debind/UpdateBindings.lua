@@ -1360,12 +1360,27 @@ function UpdateMacroTextsMap()
                     if (arg.type == Constants.MACROTEXT_ARG_UNIT) then
                         appendLine([[t.args[%d].unit=%q]], i, arg.name);
                     elseif (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE) then
-                        if ((isState and arg.name == buttonOrStateName) or not addCustomState(arg.name)) then
-                            if (arg.reverse) then
-                                appendLine([[t.args[%d].fixed=%q]], i, "known:0");
-                            else
-                                appendLine([[t.args[%d].fixed=%q]], i, "");
+                        local selfReference = isState and arg.name == buttonOrStateName;
+                        if (selfReference or not addCustomState(arg.name)) then
+                            -- 두 경우가 한 분기에 있지만 **구워지는 값이 다르다.**
+                            --
+                            -- 자기 참조(`$a`의 식 안의 `[$a]`)를 `""`로 지우는 것은 의도한
+                            -- 것이다 - 그 자리에서 자기 값을 읽으면 값이 자기를 먹는다.
+                            --
+                            -- 미정의는 정반대다. `""`는 `[$typo]`를 `[]`로 만들어 **항상 참**이
+                            -- 되고, 그러면 오타 하나가 바인딩을 덜 나가게 하는 게 아니라 더
+                            -- 나가게 한다. 거짓으로 떨어뜨린다.
+                            --
+                            -- `GetBindingIssue`의 `UNDEFINED_STATE`가 그 액션을 KeyMap에서
+                            -- 빼주지만 **그것을 근거로 여기를 비워둘 수는 없다.** 저쪽은
+                            -- 파서가 본 이름으로, 이쪽은 컴파일이 실제로 찾은 정의로 판정한다 -
+                            -- 판정 주체가 갈리는 자리를 하나로 퉁치면 조용한 사고가 된다.
+                            -- (상태의 `expr`은 액션이 아니라서 저쪽 검사에 아예 안 걸린다.)
+                            local fixed = "known:0";
+                            if (selfReference and not arg.reverse) then
+                                fixed = "";
                             end
+                            appendLine([[t.args[%d].fixed=%q]], i, fixed);
                         else
                             appendLine([[t.args[%d].state=%q]], i, arg.name);
                             if (arg.reverse) then

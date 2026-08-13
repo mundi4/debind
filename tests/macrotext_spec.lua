@@ -346,6 +346,53 @@ return function(DebindPrivate)
             "상태가 꺼졌는데 no$state1이 거짓으로 나옴");
     end);
 
+    --- `UpdateBindings.lua`의 `UpdateMacroTextsMap`이 상태 인자마다 내리는 결정의 **거울**이다.
+    --- 컴파일 시점에 정의를 못 찾은 이름은 런타임 참조가 아니라 리터럴로 굽힌다.
+    ---
+    --- ⚠ 거울이지 그 파일의 검사가 아니다. `UpdateBindings.lua`는 로드에 프레임을 만들어서
+    --- 헤드리스 러너가 안 싣는다(`tests/run.lua`). 저쪽 규칙이 바뀌면 여기는 조용히 통과한다 -
+    --- 그래서 이 함수가 지키는 것은 "정의되지 않은 이름은 거짓" 하나뿐이고, 결정에 필요한
+    --- 것(`arg.name` / `arg.reverse`)을 파서가 실제로 넘겨준다는 것까지다.
+    local function bakeFixed(arg, defined)
+        if (defined[arg.name]) then
+            return nil;
+        end
+        return "known:0";
+    end
+
+    --- 정의된 상태가 하나도 없을 때 실제로 와우에 넘어가는 문자열.
+    local function resolveWithDefinitions(macrotext, defined)
+        local frags, args = ParseMacroText(macrotext);
+        check(args ~= nil, "상태 인자를 못 찾음");
+        local out = {};
+        for i = 1, #frags do
+            out[i] = frags[i];
+        end
+        for i = 1, #args do
+            out[i * 2] = bakeFixed(args[i], defined) or "";
+        end
+        return table.concat(out);
+    end
+
+    -- ⚑2. 정의되지 않은 이름을 `""`로 구우면 `[$typo]`가 `[]`가 되고, 빈 조건 그룹은
+    -- **항상 참**이다(위 "빈 조건 그룹" 테스트가 그 형태를 그대로 보여준다). 오타 하나로
+    -- 바인딩이 조건 없이 상시 발동하게 되는 자리라, 굽는 값은 거짓이어야 한다.
+    test("정의되지 않은 상태는 거짓으로 굽는다", function()
+        local out = resolveWithDefinitions("/cast [$typo] Foo", {});
+        check(out:find("known:0", 1, true), "거짓으로 안 굽힘: " .. out);
+        check(not out:find("[]", 1, true), "빈 조건 그룹이 됐다 - 항상 참이다: " .. out);
+
+        -- 부정형은 원래도 거짓이었다. 같은 답이 나오는지만 확인한다.
+        local rev = resolveWithDefinitions("/cast [no$typo] Foo", {});
+        check(rev:find("known:0", 1, true), "부정형이 거짓으로 안 굽힘: " .. rev);
+    end);
+
+    test("정의된 상태는 굽지 않고 런타임에 남긴다", function()
+        local _, args = ParseMacroText("/cast [$state1] Foo");
+        check(bakeFixed(args[1], { ["$state1"] = true }) == nil,
+            "정의된 이름까지 리터럴로 굳으면 상태가 켜져도 안 바뀐다");
+    end);
+
     test("unitsOnly면 커스텀 상태를 무시한다", function()
         local _, args = ParseMacroText("/cast [@tank,$state1] Foo", true);
         check(args and #args == 1, "인자 수가 " .. tostring(args and #args));

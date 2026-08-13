@@ -292,6 +292,70 @@ return function(DebindPrivate)
         check(mouseKeyIssue({ hover = false }) == MOUSE_ISSUE, "옛 false가 안 읽힘");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 매크로 본문의 정의되지 않은 `[$상태]`
+    --
+    -- 파서는 `[a-zA-Z0-9_]+`면 무엇이든 상태 인자로 통과시킨다. 정의를 못 찾으면 코드젠이
+    -- 그 자리를 `""`로 구웠고, `[$typo]`가 `[]`가 되어 **항상 참**이 됐다 - 오타 하나가
+    -- 바인딩을 덜 나가게 하는 게 아니라 **더** 나가게 만든다. 키바인딩 애드온에서 가장
+    -- 나쁜 실패 방향이라 마커로 앞을 막고 코드젠에서 뒤를 막는다.
+    --
+    -- 이 마커가 오탐이면 멀쩡한 매크로 바인딩이 `KeyMap`에서 통째로 빠진다. 그래서 아래
+    -- "이슈가 나면 안 되는" 절반이 나는 쪽만큼 중요하다.
+    ---------------------------------------------------------------------------
+
+    local UNDEFINED = Constants.BINDING_ISSUE_UNDEFINED_STATE;
+
+    local function macroAction(body)
+        return { type = Constants.MACROTEXT, value = body, key = "F1" };
+    end
+
+    test("정의된 상태 이름은 이슈가 아니다", function()
+        check(GetBindingIssue(macroAction("/cast [$state1] Foo")) == nil, "오탐 - 키가 죽는다");
+        check(GetBindingIssue(macroAction("/cast [no$state5] Foo")) == nil, "오탐 - 키가 죽는다");
+        check(GetBindingIssue(macroAction("/cast [@focus,harm] Foo")) == nil,
+            "오탐 - 상태를 안 쓰는 매크로다");
+    end);
+
+    test("정의되지 않은 이름은 이슈가 난다", function()
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo")) == UNDEFINED, "이슈가 안 남");
+    end);
+
+    -- 부정형은 지금도 `known:0`으로 구워져 거짓으로 떨어진다 - 위험하지는 않다. 그래도
+    -- 오타인 것은 똑같고, 한쪽만 말해주면 사용자는 고친 뒤에도 왜 안 되는지 모른다.
+    test("부정형 오타도 이슈가 난다", function()
+        check(GetBindingIssue(macroAction("/cast [no$typo] Foo")) == UNDEFINED, "이슈가 안 남");
+    end);
+
+    -- `States[]`도 `CUSTOM_STATE_INDICES`도 정확히 일치한다. 대소문자가 다르면 런타임에
+    -- 그냥 미정의고, 눈으로는 맞아 보이는 것이 이 검사가 있어야 하는 이유다.
+    test("대소문자가 다르면 미정의다", function()
+        check(GetBindingIssue(macroAction("/cast [$State1] Foo")) == UNDEFINED, "이슈가 안 남");
+    end);
+
+    -- 여러 개면 첫 번째를 말한다. 툴팁이 이름을 적는 자리라 "무엇을" 고칠지가 하나여야 한다.
+    test("틀린 이름을 그대로 돌려준다", function()
+        check(DebindPrivate.GetUndefinedCustomState(macroAction("/cast [$state1,no$typo] Foo")) == "$typo",
+            "이름을 못 돌려주면 툴팁이 무엇을 고칠지 말할 수 없다");
+        check(DebindPrivate.GetUndefinedCustomState(macroAction("/cast [$state1] Foo")) == nil, "오탐");
+    end);
+
+    -- 본문을 파싱하는 타입만 본다. 다른 타입의 `value`는 매크로 본문이 아니라서 같은
+    -- 글자가 들어 있어도 조건이 아니다.
+    test("매크로 본문이 아닌 타입은 안 본다", function()
+        local action = { type = Constants.COMMAND, value = "/cast [$typo] Foo", key = "F1" };
+        check(GetBindingIssue(action) == nil, "오탐 - 본문으로 읽었다");
+    end);
+
+    -- 조건 메뉴가 없는 갈래라 짚어 묻는 호출자는 없지만, 갈래 이름은 있어야 다른 갈래를
+    -- 짚어 묻는 자리(단축키 칸, 서브메뉴)가 이 이슈를 자기 것으로 착각하지 않는다.
+    test("다른 갈래를 물으면 안 나온다", function()
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "key") == nil, "단축키 칸이 빨개진다");
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), "unit") == nil, "대상 메뉴가 빨개진다");
+        check(GetBindingIssue(macroAction("/cast [$typo] Foo"), nil, "states") == nil,
+            "갈래를 껐는데도 나온다");
+    end);
+
     -- 정규화 자체(`"@"`가 언제 지워지는가, 대상이 언제 채워지는가)는 `normalize_spec.lua`가
     -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
 

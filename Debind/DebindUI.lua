@@ -1326,6 +1326,17 @@ do
 			end
 		end
 
+		-- 매크로 본문의 `[$이름]`은 위 조건 칸들과 달리 그릴 자리가 없다 - 저장에는 본문
+		-- 문자열 하나로만 있다. 그래서 이슈 코드만으로는 **어느 이름이 틀렸는지**를 못 말하고,
+		-- 그걸 말하는 것이 이 마커의 존재 이유라 여기서만 이름을 붙여 적는다.
+		if (hasIssues) then
+			local undefinedState = DebindPrivate.GetUndefinedCustomState(action);
+			if (undefinedState) then
+				GameTooltip_AddBlankLineToTooltip(GameTooltip);
+				addErrorLine(format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
+			end
+		end
+
 		if (action.priority and action.priority ~= Constants.DEFAULT_PRIORITY) then
 			addLabelLine(LLL["PRIORITY"]);
 			addValueLine(LLL["PRIORITY" .. action.priority]);

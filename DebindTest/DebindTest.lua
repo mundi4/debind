@@ -1108,6 +1108,35 @@ RegisterTest("Issue: forms=0", {
     end,
 })
 
+-- 이 이슈만 **끝까지** 본다. 나머지 이슈 테스트는 `GetBindingIssue`의 답만 묻는데, 그건
+-- 헤드리스가 더 싸게 본다(`tests/issue_spec.lua`). 여기서 물을 값이 있는 것은 그 답이
+-- `KeyMap`까지 도달하느냐다 - 마커가 막지 못하면 오타 난 조건이 `[]`로 구워져 **조건 없이
+-- 상시 발동**한다. 안 나가는 게 아니라 더 나가는 쪽이라, 이슈가 났다는 것만으로는 부족하다.
+RegisterTest("Issue: undefined $state in macrotext", {
+    description = "정의되지 않은 [$이름]이 든 매크로텍스트가 KeyMap에서 빠지는지",
+    run = function()
+        -- 통과하는 쪽을 먼저 세운다. 이게 없으면 아래 nil이 "마커가 막았다"인지
+        -- "매크로텍스트가 원래 안 걸린다"인지 구분되지 않는다.
+        InsertAction({ type = Constants.MACROTEXT, value = "/say [$state1] ok", key = "F5" })
+        InsertAction({ type = Constants.MACROTEXT, value = "/say [$typo] bad", key = "F6" })
+        ApplyBindings()
+
+        if not GetNthBinding("F5", 1) then
+            return Fail("Undefined $state", "전제가 깨졌다 - 정의된 $state1도 KeyMap에 없다")
+        end
+        if GetNthBinding("F6", 1) then
+            return Fail("Undefined $state", "오타 난 조건이 그대로 바인딩됐다 - 항상 참으로 굽힌다")
+        end
+
+        local issue = DebindPrivate.GetBindingIssue({
+            type = Constants.MACROTEXT, value = "/say [$typo] bad", key = "F6" })
+        if issue ~= Constants.BINDING_ISSUE_UNDEFINED_STATE then
+            return Fail("Undefined $state", format("issue=%s", tostring(issue)))
+        end
+        return Pass("Undefined $state", "F5 걸림 / F6 빠짐")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Special Units (macrotext with @tank etc.)
 -----------------------------------------------------------

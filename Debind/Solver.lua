@@ -18,9 +18,9 @@ local pairs = pairs;
 
     핵심 불변식: **한 컬럼은 정확히 한 축이어야 한다.**
     band/bnot 기반 집합 연산은 컬럼 안의 비트들이 서로 배타적일 때만 성립한다.
-    독립적인 축(커스텀 상태 5개, 유닛 각각, known 주문 각각)을 한 워드에 접으면
+    독립적인 축(커스텀 상태 각각, 유닛 각각, known 주문 각각)을 한 워드에 접으면
     "어느 한 축에서 분리 -> 전체 분리"가 "모든 축에서 분리"로 바뀌어 무너진다.
-    그래서 유닛/known 컬럼은 키마다 동적으로 생성한다.
+    그래서 유닛/known/커스텀 상태 컬럼은 키마다 동적으로 생성한다.
 
     Stated exactly, because two halves of that invariant keep getting mistaken for one
     another:
@@ -178,8 +178,16 @@ local FIXED_COLUMNS = {
     },
 };
 
+-- The condition key for each state index. Built once: `buildConditionSet` reaches for one of
+-- these per action per column, and `buildLayout` per binding, so concatenating there would put
+-- a string allocation in both loops.
+local STATE_KEYS = {};
+for i = 1, MAX_NUM_CUSTOM_STATES do
+    STATE_KEYS[i] = "$state" .. i;
+end
+
 local function makeCustomStateFlags(action, index)
-    local value = action["$state" .. index];
+    local value = action[STATE_KEYS[index]];
     if (value == nil) then
         return STATE_ANY;
     end
@@ -210,6 +218,7 @@ local _numColumns = 0;
 
 local _unitSeen = {};
 local _knownSeen = {};
+local _stateSeen = {};
 local _opaque = {};
 local _conditionsMap = {};
 local _keepCols = {};
@@ -266,18 +275,13 @@ local function buildLayout(bindings)
     _numColumns = 0;
     wipe(_unitSeen);
     wipe(_knownSeen);
+    wipe(_stateSeen);
     wipe(_opaque);
 
     for i = 1, #FIXED_COLUMNS do
         _numColumns = _numColumns + 1;
         _colMake[_numColumns] = FIXED_COLUMNS[i].make;
         _colArg[_numColumns] = nil;
-    end
-
-    for i = 1, MAX_NUM_CUSTOM_STATES do
-        _numColumns = _numColumns + 1;
-        _colMake[_numColumns] = makeCustomStateFlags;
-        _colArg[_numColumns] = i;
     end
 
     for i = 1, #bindings do
@@ -298,6 +302,15 @@ local function buildLayout(bindings)
                     _colMake[_numColumns] = makeUnitFlags;
                     _colArg[_numColumns] = unit;
                 end
+            end
+        end
+
+        for s = 1, MAX_NUM_CUSTOM_STATES do
+            if (not _stateSeen[s] and binding[STATE_KEYS[s]] ~= nil) then
+                _stateSeen[s] = true;
+                _numColumns = _numColumns + 1;
+                _colMake[_numColumns] = makeCustomStateFlags;
+                _colArg[_numColumns] = s;
             end
         end
 

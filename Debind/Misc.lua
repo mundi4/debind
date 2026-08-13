@@ -975,6 +975,41 @@ function DebindPrivate.IsKeyInvalidForAction(action, key)
     end
 end
 
+--- The first custom state this action's macro text names that nothing defines, or nil.
+---
+--- Hand-written macro text is the one place a state name is typed rather than picked, and
+--- `ParseMacroText` lets any `[a-zA-Z0-9_]+` through. A name nothing defines used to reach
+--- codegen and bake to `""` -- `[$typo]` became `[]`, which is **always true**. In a keybinding
+--- addon that is the worst direction to fail in: the binding does not stop firing, it starts
+--- firing everywhere. So the name is checked here and the action is marked, which keeps it out
+--- of `KeyMap` entirely (`Debind.lua`'s `not issue` gate).
+---
+--- **Ask `CUSTOM_STATE_INDICES`, not `GetCustomStateOptions`** -- that one indexes the table by
+--- name and errors on a name it does not know (`CustomStates.lua`).
+---
+--- Not memoized on purpose: `ParseMacroText` caches its own result per string, so a repeated
+--- call here is a table lookup plus a walk over a handful of args.
+function DebindPrivate.GetUndefinedCustomState(action)
+    if (action.type ~= Constants.MACROTEXT or type(action.value) ~= "string") then
+        return nil;
+    end
+
+    local _, args = DebindPrivate.ParseMacroText(action.value);
+    if (not args) then
+        return nil;
+    end
+
+    for i = 1, #args do
+        local arg = args[i];
+        -- 부정형(`no$typo`)도 같이 잡는다. 그쪽은 지금도 거짓으로 떨어져 위험하지는 않지만
+        -- 오타인 것은 똑같고, 한쪽만 말해주면 고쳐도 왜 아직 안 되는지 알 수 없다.
+        if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE
+                and not Constants.CUSTOM_STATE_INDICES[arg.name]) then
+            return arg.name;
+        end
+    end
+end
+
 local GROUP_ROLE_UNITS = {
     tank = Constants.GROUP_PARTY + Constants.GROUP_RAID,
     healer = Constants.GROUP_PARTY + Constants.GROUP_RAID,
@@ -1017,6 +1052,16 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     if (not issue and (not category or category == "bonusbars") and notCategory ~= "bonusbars") then
         if (action.bonusbars == 0) then
             issue = Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED;
+        end
+    end
+
+    -- 이 갈래에는 **조건 메뉴가 없다.** 이름은 매크로 본문에 손으로 적히고, 그래서 짚어 묻는
+    -- 호출자도 없다 - `"states"`는 갈래를 끄기 위한 이름이지 어느 칸을 칠할지 고르는 이름이
+    -- 아니다. 총괄 호출(`GetBindingIssue(action)`)로 걸리고, 행에서는 이름이 빨개진다
+    -- (`ColoredNameAndIconForAction`), 툴팁이 어느 이름이 틀렸는지 말한다.
+    if (not issue and (not category or category == "states") and notCategory ~= "states") then
+        if (DebindPrivate.GetUndefinedCustomState(action)) then
+            issue = Constants.BINDING_ISSUE_UNDEFINED_STATE;
         end
     end
 
