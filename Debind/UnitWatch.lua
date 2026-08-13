@@ -5,6 +5,25 @@ local LLL                             = DebindPrivate.L;
 local BindingDriver                   = DebindPrivate.BindingDriver;
 local UnitWatch                       = CreateFrame("Frame", nil, nil, "SecureFrameTemplate,SecureHandlerAttributeTemplate");
 local dump                            = DebindPrivate.dump;
+local issecretvalue                   = issecretvalue;
+
+--- 12.1 answers some unit APIs with secrets for units outside our access (arena enemies,
+--- mostly). A secret survives being stored, but a boolean test, a compare, a concat or a
+--- format on one raises - so any insecure-side read that feeds those goes through here:
+--- a secret becomes nil, and the caller treats it as "no answer", which is what it is.
+--- (`issecretvalue` does not exist before 12.1; the guard short-circuits away there.)
+local function PlainOrNil(value)
+    if (issecretvalue and issecretvalue(value)) then
+        return nil;
+    end
+    return value;
+end
+
+--- `UnitIsUnit` is marked ConditionalSecret: an identity we cannot confirm is treated as
+--- "not the same unit" rather than an error.
+local function SameUnit(a, b)
+    return PlainOrNil(UnitIsUnit(a, b)) == true;
+end
 
 DebindPrivate.UnitWatch             = UnitWatch;
 DebindPrivate.UnitWatchHeaders      = {};
@@ -291,9 +310,9 @@ local function DoResolveUnitToken(value)
     end
 
     if (UnitExists(value)) then
-        if (UnitIsUnit(value, "player")) then
+        if (SameUnit(value, "player")) then
             return "player", "player";
-        elseif (UnitIsUnit(value, "pet")) then
+        elseif (SameUnit(value, "pet")) then
             return "pet", "pet";
         end
 
@@ -303,20 +322,20 @@ local function DoResolveUnitToken(value)
             return "raid" .. raidID, "group";
         elseif (UnitInParty(value)) then
             for i = 1, MAX_PARTY_MEMBERS do
-                if (UnitIsUnit("party" .. i, value)) then
+                if (SameUnit("party" .. i, value)) then
                     return "party" .. i, "group";
                 end
             end
         end
 
         for i = 1, Constants.MAX_BOSSES do
-            if (UnitIsUnit("boss" .. i, value)) then
+            if (SameUnit("boss" .. i, value)) then
                 return "boss" .. i, "boss";
             end
         end
 
         for i = 1, MAX_ARENA_ENEMIES do
-            if (UnitIsUnit("arena" .. i, value)) then
+            if (SameUnit("arena" .. i, value)) then
                 return "arena" .. i, "arena";
             end
         end
@@ -352,6 +371,22 @@ do
     local _changedAliases = {};
     local _sortedUnits = { "custom1", "custom2", "tank", "healer" };
 
+    --- 12.1 arenas answer UnitClass (and friends) with secrets for enemy players, and
+    --- neither the class-color table nor CreateColor can digest a secret - the lookup
+    --- raised and took the rest of this update pass with it. The color is cosmetic, so
+    --- anything unreadable falls back to gray. (GetClassColorObj can also return nil
+    --- for a token it does not know; the same fallback covers that.)
+    local function UnitDisplayColor(unit)
+        local ok, color = pcall(function()
+            if (UnitIsPlayer(unit)) then
+                local _, classFilename = UnitClass(unit);
+                return GetClassColorObj(classFilename);
+            end
+            return CreateColor(UnitSelectionColor(unit));
+        end);
+        return (ok and color) or GRAY_FONT_COLOR;
+    end
+
     local function CustomTargetsChangedCallback()
         for _, alias in ipairs(_sortedUnits) do
             local info = _changedAliases[alias];
@@ -365,7 +400,7 @@ do
                     if (value) then
                         local unitType = CUSTOM_TARGET_VALID_UNIT_TOKENS[value];
                         unitName = DebindPrivate.GetUnitFullName(value);
-                        guid = UnitGUID(value);
+                        guid = PlainOrNil(UnitGUID(value));
                         if (unitType == "group") then
                             isVolatile = not DebindPrivate.UnitWatchHeaders[alias]:IsShown();
                             if (unitName) then
@@ -389,12 +424,7 @@ do
                         if (value or unitName) then
                             local color;
                             if (value and UnitExists(value)) then
-                                if (UnitIsPlayer(value)) then
-                                    local _, classFilename = UnitClass(value);
-                                    color = GetClassColorObj(classFilename);
-                                else
-                                    color = CreateColor(UnitSelectionColor(value));
-                                end
+                                color = UnitDisplayColor(value);
                             else
                                 color = GRAY_FONT_COLOR;
                             end
@@ -417,7 +447,7 @@ do
 
                     if (value) then
                         unitName = DebindPrivate.GetUnitFullName(value);
-                        guid = UnitGUID(value);
+                        guid = PlainOrNil(UnitGUID(value));
                     end
 
                     if (_lastSeen[alias] ~= guid) then
@@ -425,12 +455,7 @@ do
                         if (value or unitName) then
                             local color;
                             if (value and UnitExists(value)) then
-                                if (UnitIsPlayer(value)) then
-                                    local _, classFilename = UnitClass(value);
-                                    color = GetClassColorObj(classFilename);
-                                else
-                                    color = CreateColor(UnitSelectionColor(value));
-                                end
+                                color = UnitDisplayColor(value);
                             else
                                 color = GRAY_FONT_COLOR;
                             end
@@ -462,7 +487,7 @@ do
     function UnitWatch:OnSetCustomTargetFailed(alias, value, originalValue)
         local resolvedUnit, unitType = DoResolveUnitToken(value);
         if (resolvedUnit == false) then
-            DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT"], LLL["UNIT_" .. strupper(alias)], DebindPrivate.GetUnitFullName(value)));
+            DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT"], LLL["UNIT_" .. strupper(alias)], DebindPrivate.GetUnitFullName(value) or value));
         else
             if (InCombatLockdown()) then
                 local helpMessage;

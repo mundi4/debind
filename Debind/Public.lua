@@ -207,6 +207,18 @@ if (_G.Grid2) then
 		-- light up - no error, no clue. Walking the roster and comparing tokens costs one pass
 		-- per target change and never touches a GUID.
 		--
+		-- `UnitIsUnit` can come back secret under Midnight for the same reason. An identity
+		-- we cannot confirm counts as "not the same unit" - and `IsActive` below must hand
+		-- Grid2 a plain boolean, because Grid2 boolean-tests the result and a secret there
+		-- raises inside Grid2's own code.
+		local function SameUnit(a, b)
+			local same = UnitIsUnit(a, b);
+			if (issecretvalue and issecretvalue(same)) then
+				return false;
+			end
+			return same == true;
+		end
+
 		-- The roster also holds "target"/"focus" alongside the group tokens, and those point at
 		-- the same player. Prefer the group token, or the indicator update lands on a frame
 		-- Grid2 is not drawing.
@@ -216,7 +228,7 @@ if (_G.Grid2) then
 			end
 			local fallback;
 			for rosterUnit in Grid2:IterateRosterUnits() do
-				if (UnitIsUnit(rosterUnit, unit)) then
+				if (SameUnit(rosterUnit, unit)) then
 					if (Grid2:IsPlayerInRaid(rosterUnit) or Grid2:UnitIsPet(rosterUnit)) then
 						return rosterUnit;
 					end
@@ -264,7 +276,7 @@ if (_G.Grid2) then
 			if (not curUnit) then
 				return;
 			end
-			if (unit == curTarget or UnitIsUnit(unit, curUnit)) then
+			if (unit == curTarget or SameUnit(unit, curUnit)) then
 				local prev = curTarget;
 				curTarget = FindRosterUnit(curUnit);
 				if (prev ~= curTarget) then
@@ -275,7 +287,7 @@ if (_G.Grid2) then
 		end
 
 		function Status:IsActive(unit)
-			return curTarget and UnitIsUnit(unit, curTarget)
+			return curTarget ~= nil and SameUnit(unit, curTarget)
 		end
 
 		function Status:GetText()

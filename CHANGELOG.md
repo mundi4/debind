@@ -1,3 +1,13 @@
+# 3.1.6
+
+**12.1 readiness: sealed answers about arena enemies no longer break custom targets.**
+
+Patch 12.1 answers some questions about arena enemies with sealed values — asking for a class, a name or an identity gives back something that exists but cannot be read. Debind asked those questions in a few places: to color the name in the "custom target set" message, to resolve which unit a custom target points at, and to tell Grid2 which frame carries the target indicator. Reading a sealed answer errored, and the error also cut short whatever update pass it happened in. Seen live on the 12.1 PTR by setting a custom target on an arena enemy.
+
+Sealed answers now degrade instead of erroring: a name that cannot be read shows the unit token instead, a class color falls back to gray, and an identity that cannot be confirmed counts as "not the same unit" — including what the Grid2 indicator is told, since a sealed value passed onward would error inside Grid2 instead.
+
+If your region is already on 12.1, this one is for you. Nothing changes on 12.0 servers.
+
 # 3.1.5
 
 **A follow-up to the 3.1.4 fix — the question it relied on turned out to have wrong answers.**

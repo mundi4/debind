@@ -1614,6 +1614,12 @@ end
 local FULL_PLAYER_NAME = FULL_PLAYER_NAME;
 function DebindPrivate.GetUnitFullName(unit)
     local name, realm = UnitName(unit);
+    -- 12.1 can answer with secrets for units outside our access (arena enemies). A
+    -- secret name cannot be formatted or concatenated, and every caller already treats
+    -- nil as "nothing to show", so that is what a secret becomes.
+    if (issecretvalue and (issecretvalue(name) or issecretvalue(realm))) then
+        return nil;
+    end
     if (realm and realm ~= "") then
         name = FULL_PLAYER_NAME:format(name, realm);
     end
