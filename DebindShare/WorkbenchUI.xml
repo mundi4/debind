@@ -1,0 +1,265 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\FrameXML\UI.xsd">
+
+	<Script file="WorkbenchUI.lua"/>
+
+	<!--
+		One received batch: where it came from, how much is in it, and how long it has left.
+
+		Same row art as everywhere else this addon draws a list, so the drawer reads as part of the
+		same window rather than a settings screen that wandered in.
+	-->
+	<!--
+		**The row itself does not take a click yet.** Opening a batch is the next slice; until then
+		what it carries is the pin, the remove button and a tooltip. `registerForClicks` is left off
+		rather than pointed at nothing - a row that answers the mouse and then does nothing is worse
+		than one that plainly does not.
+	-->
+	<Button name="DebindShareBatchRowTemplate" mixin="DebindShareBatchRowMixin" virtual="true">
+		<Size x="400" y="44"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<!--
+					Where it came from, or a stand-in when the paste carried no name. The name is
+					free text the user typed, so it is drawn and never read back.
+				-->
+				<FontString parentKey="Name" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+					<Size x="230" y="0"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="10" y="-6"/>
+					</Anchors>
+				</FontString>
+				<!--
+					How old it is, and the expiry warning when there is one. Two facts on one line
+					because they are the same fact from either end.
+				-->
+				<FontString parentKey="Age" inherits="GameFontDisableSmall" maxLines="1" justifyH="LEFT">
+					<Size x="230" y="0"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.Name" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
+					</Anchors>
+				</FontString>
+				<!-- How much is in it. Right aligned so the numbers line up down the list. -->
+				<FontString parentKey="Counts" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="120" y="0"/>
+					<Anchors>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.PinButton" relativePoint="TOPLEFT" x="-6" y="-4"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD"/>
+			</Layer>
+		</Layers>
+		<Frames>
+			<!--
+				Keeps the batch out of the expiry sweep entirely. Not a later date: there is no date
+				far enough away to mean "leave this alone".
+			-->
+			<CheckButton parentKey="PinButton" inherits="MinimalCheckboxArtTemplate">
+				<Size x="22" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-4" y="0"/>
+				</Anchors>
+			</CheckButton>
+			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="RIGHT" x="-4" y="0"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		**The workbench: the main window's Import tab.**
+
+		What is here is the drawer received strings pile up in. Opening a batch and deciding where it
+		goes is the next slice, so a row does not lead anywhere yet.
+
+		It is a panel and the frame hosts it, which means three things this file has to get right
+		(the same three the export panel needed - `.zzz/main-frame-containers.md`):
+
+		  it stands parented to `UIParent` and hidden until `ResolvePanel` takes delivery, because
+		  this addon is load on demand and does not exist when `DebindUI.xml` is read
+
+		  `useParentLevel`, or the list's own `frameLevel` would land underneath this panel and
+		  draw behind its inset
+
+		  **no `enableMouse`**. A panel covering the whole frame that swallows clicks takes the
+		  title bar with it, and the window stops being draggable from this one tab
+
+		The `<Size>` is the width the frame is asked for; the height is the host's.
+	-->
+	<Frame name="DebindShareImportPanel" parent="UIParent" hidden="true" useParentLevel="true"
+		mixin="DebindShareImportPanelMixin">
+		<Size x="470" y="600"/>
+		<Frames>
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
+				<!--
+					The same rectangle the export list uses, to the pixel. The two are different
+					tabs of one window and a reader moving between them should not have the list
+					jump; that is the same rule the two columns of Overview follow.
+				-->
+				<Anchors>
+					<Anchor point="TOPLEFT" x="8" y="-84"/>
+					<Anchor point="TOPRIGHT" x="-30" y="-84"/>
+					<Anchor point="BOTTOMLEFT" x="8" y="46"/>
+					<Anchor point="BOTTOMRIGHT" x="-30" y="46"/>
+				</Anchors>
+			</Frame>
+
+			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y="-5"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y="5"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<!--
+							The drawer is empty far more often than the export list is, and an empty
+							drawer has to say what fills it. This is the only instruction the panel
+							carries.
+						-->
+						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+							<Size x="320" y="0"/>
+							<Anchors>
+								<Anchor point="TOP" x="0" y="-60"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Button>
+			<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
+				</Anchors>
+			</EventFrame>
+
+			<!--
+				How many are in the drawer, in the row the export tab spends on its select-all box.
+				A count rather than a label: the drawer is a place things accumulate, and how much
+				has accumulated is the one thing worth saying before you look.
+			-->
+			<Frame parentKey="HeaderHolder" useParentLevel="true">
+				<Size x="300" y="20"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="6"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT" setAllPoints="true"/>
+					</Layer>
+				</Layers>
+			</Frame>
+
+			<!--
+				Sits where the export tab's [Generate] does, at the same end of the same rectangle.
+				The two are the same gesture pointing opposite ways.
+			-->
+			<Button parentKey="PasteButton" inherits="UIPanelButtonTemplate">
+				<Size x="160" y="22"/>
+				<Anchors>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="0" y="-5"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		Where a string is pasted in.
+
+		A dialog rather than a box in the panel, for the reason the copy dialog is one: a box used
+		when a string arrives and empty the rest of the time spends the list's height on nothing.
+		The drawer is what the panel is for; pasting is how a row gets into it.
+	-->
+	<Frame name="DebindSharePasteFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
+		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
+		clampedToScreen="true" mixin="DebindSharePasteFrameMixin">
+		<Size x="460" y="230"/>
+		<Anchors>
+			<Anchor point="CENTER"/>
+		</Anchors>
+		<Frames>
+			<ScrollFrame parentKey="Input" inherits="InputScrollFrameTemplate">
+				<KeyValues>
+					<KeyValue key="hideCharCount" value="true" type="boolean"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="16" y="-34"/>
+					<Anchor point="TOPRIGHT" x="-30" y="-34"/>
+					<Anchor point="BOTTOM" x="0" y="76"/>
+				</Anchors>
+			</ScrollFrame>
+
+			<!--
+				Why the row will say it came from. Optional, and it is the only thing about the
+				sender that ever gets stored: the string itself deliberately carries no character
+				name, so a name here is one the user chose to type.
+			-->
+			<EditBox parentKey="SourceBox" inherits="InputBoxTemplate" autoFocus="false" letters="40">
+				<Size x="220" y="20"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.Input" relativePoint="BOTTOMLEFT" x="6" y="-24"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-6" y="2"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</EditBox>
+
+			<!--
+				Why the string was turned down, when it is. It sits above the button that turned it
+				down, so the answer is next to the question, and the text stays in the box behind
+				it: a refusal the reader cannot act on is a refusal in the wrong place.
+			-->
+			<Frame parentKey="ErrorHolder" useParentLevel="true">
+				<Size x="240" y="20"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.AcceptButton" relativePoint="TOPRIGHT" x="0" y="4"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Text" inherits="GameFontRedSmall" justifyH="RIGHT" wordwrap="true" setAllPoints="true"/>
+					</Layer>
+				</Layers>
+			</Frame>
+
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-16" y="14"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
+
+</Ui>

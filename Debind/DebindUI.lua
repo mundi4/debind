@@ -1730,6 +1730,10 @@ end
 ---
 --- That side hands over nothing yet (steps 3-4 of `.zzz/main-frame-containers.md`), so both of
 --- those tabs land on `MissingPanel` for now.
+--- Overview's seat. Named because two places outside the tab row have to name it: the first
+--- selection at load, and anything that has to put the reader back somewhere its work is visible.
+local OVERVIEW_PANEL = 1;
+
 local PANELS = {
 	{ title = "OVERVIEW",     desc = "OVERVIEW_DESC",      panelKey = "OverviewPanel" },
 	{ title = "IMPORT_TITLE", desc = "IMPORT_MENU_DESC",   addon = "DebindShare", panelGlobal = "DebindShareImportPanel" },
@@ -2360,7 +2364,7 @@ function DebindFrameMixin:OnLoad()
 	-- one has to be forced through for `PanelTemplates_SetTab` to run and paint the tabs (the
 	-- paragraph just above is why that matters). It is also what gives the frame its width.
 	self.shownPanel = self.OverviewPanel;
-	self:SelectPanel(1, true);
+	self:SelectPanel(OVERVIEW_PANEL, true);
 
 	self:InitializeScrollBox();
 	self:InitializeSideTabs();
@@ -3085,6 +3089,20 @@ end
 --- the tab that is open, which is what every other way in here does.
 function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayerID)
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
+
+	-- **Back to Overview first, if we are not there.** Everything below lands in the Overview
+	-- panel - the list, the selection, the scroll - so from Import or Export the action would go
+	-- in and nothing on screen would move. That is the same failure the `GoToAction` call further
+	-- down exists to prevent, one rank up: there it is the wrong layer tab, here the wrong window
+	-- tab, and in both cases picking a destination is saying "put it there".
+	--
+	-- It is reachable because the picker outlives the tab that opened it. `[+]` lives inside
+	-- `OverviewPanel` and hides with it, so there is no way to *open* the picker from another tab -
+	-- but one already up keeps working, and that is on purpose (it is the one dialog deliberately
+	-- left out of the lock list, because its whole use is staying open while you move around).
+	if (_selectedPanel ~= OVERVIEW_PANEL) then
+		self:SelectPanel(OVERVIEW_PANEL);
+	end
 
 	local layerID = destLayerID or GetLayerID();
 	local layer = DebindPrivate.GetProfileLayer(layerID);

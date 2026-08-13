@@ -539,6 +539,39 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- reason string the client hands back is for the log, not the middle of a window.
 L["IMPORT_TITLE"] = "Import"
 L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and shows what is in it before anything changes.|n|nYou pick which layer each part lands in, and nothing touches your bindings until you say so."
+-- The drawer. **It is a place things pile up in, not a wizard**, so the empty state has to say
+-- what fills it rather than what to do next - there is no next step until something is in there.
+L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nPaste a string somebody sent you and it will sit here until you decide what to do with it. Received strings are kept, so you can come back and finish later."
+L["IMPORT_DRAWER_COUNT"] = "%d received"
+L["IMPORT_PASTE"] = "Paste a string"
+L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
+-- The one thing about the sender that is ever stored, and only because the reader typed it. The
+-- string itself carries no character name on purpose.
+L["IMPORT_PASTE_SOURCE"] = "Who it came from (optional)"
+L["IMPORT_PASTE_ACCEPT"] = "Add to drawer"
+-- What a batch is called when no source was typed. Used as the row title and in the delete prompt,
+-- so it has to read as a thing rather than as a blank.
+L["IMPORT_BATCH_UNNAMED"] = "Received string"
+L["IMPORT_BATCH_COUNTS"] = "%1$d keys, %2$d actions"
+L["IMPORT_BATCH_AGE"] = "%s ago"
+L["IMPORT_BATCH_AGE_PINNED"] = "%s ago - kept"
+L["IMPORT_BATCH_AGE_EXPIRING"] = "%1$s ago - goes in %2$s"
+L["IMPORT_BATCH_EXPIRED"] = "Past its keep-by date"
+L["IMPORT_BATCH_FROM_CLASS"] = "From a %s"
+L["IMPORT_BATCH_PIN"] = "Keep this one"
+-- **"Not a later date."** Saying "keeps it longer" would invite the reader to look for how much
+-- longer, and there is no such number - this takes the batch out of the sweep altogether.
+L["IMPORT_BATCH_PIN_DESC"] = "Received strings are cleared out after about a month. This one will not be."
+L["IMPORT_BATCH_DELETE"] = "Remove from drawer"
+L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r from the drawer?|n|nThis is the only copy. Anything you already added to your bindings stays where it is."
+-- **Four, where the decoder reports eight.** Each of its reasons is a different step, but a reader
+-- has three things they might do about one - look again at what they pasted, update, ask for it
+-- again - and a sentence per step would spread those three over eight that all end the same way.
+-- The mapping is `REASON_TEXT` in `WorkbenchUI.lua`.
+L["IMPORT_FAILED_NOT_OURS"] = "That is not a Debind string."
+L["IMPORT_FAILED_TOO_NEW"] = "That string was made by a newer version of Debind. Update and try again."
+L["IMPORT_FAILED_DAMAGED"] = "That string is a Debind string but could not be read. It was most likely copied only part of the way - ask for it again and copy the whole thing."
+L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Share could not load the libraries it reads strings with. Downloading Debind again puts them back."
 L["PANEL_ADDON_MISSING"] = "This needs |cnHIGHLIGHT_FONT_COLOR:Debind Share|r, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Share comes with it."
 L["EXPORT_TITLE"] = "Export"
 L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to send them."

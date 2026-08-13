@@ -264,6 +264,10 @@ globals = {
 	"FULL_PLAYER_NAME",
 	"YES",
 	"NO",
+	-- Per-class localized names, for saying which class a received string came from.
+	"LOCALIZED_CLASS_NAMES_MALE",
+	-- "3 days", "12 hours". The drawer says how old a batch is with it.
+	"SecondsToTime",
 
 	-- Libraries
 	"LibStub",
@@ -305,6 +309,9 @@ globals = {
 	"DebindShareRowMixin",
 	"DebindShareLayerMixin",
 	"DebindShareCopyFrameMixin",
+	"DebindShareImportPanelMixin",
+	"DebindShareBatchRowMixin",
+	"DebindSharePasteFrameMixin",
 	"DebindSpellPickerHeaderMixin",
 	"DebindSpellPickerRowMixin",
 	"DebindSpellPickerTabMixin",
@@ -319,6 +326,8 @@ globals = {
 	"DebindSpellPickerFrame",
 	"DebindShareExportPanel",
 	"DebindShareCopyFrame",
+	"DebindShareImportPanel",
+	"DebindSharePasteFrame",
 
 	-- The font of the output box. A generated string is long and has no line breaks, so it needs
 	-- a narrow font to fold into a readable number of lines inside the box.

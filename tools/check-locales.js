@@ -65,6 +65,28 @@ const PENDING_TRANSLATION = {
     // owner as the rows above - these arrived with the tab row, and those panels live here too.
     IMPORT_TITLE: ["ruRU"],
     IMPORT_MENU_DESC: ["ruRU"],
+    // The workbench: the drawer of received strings and the paste dialog. Same owner.
+    IMPORT_DRAWER_EMPTY: ["ruRU"],
+    IMPORT_DRAWER_COUNT: ["ruRU"],
+    IMPORT_PASTE: ["ruRU"],
+    IMPORT_PASTE_TITLE: ["ruRU"],
+    IMPORT_PASTE_SOURCE: ["ruRU"],
+    IMPORT_PASTE_ACCEPT: ["ruRU"],
+    IMPORT_BATCH_UNNAMED: ["ruRU"],
+    IMPORT_BATCH_COUNTS: ["ruRU"],
+    IMPORT_BATCH_AGE: ["ruRU"],
+    IMPORT_BATCH_AGE_PINNED: ["ruRU"],
+    IMPORT_BATCH_AGE_EXPIRING: ["ruRU"],
+    IMPORT_BATCH_EXPIRED: ["ruRU"],
+    IMPORT_BATCH_FROM_CLASS: ["ruRU"],
+    IMPORT_BATCH_PIN: ["ruRU"],
+    IMPORT_BATCH_PIN_DESC: ["ruRU"],
+    IMPORT_BATCH_DELETE: ["ruRU"],
+    IMPORT_DELETE_CONFIRM: ["ruRU"],
+    IMPORT_FAILED_NOT_OURS: ["ruRU"],
+    IMPORT_FAILED_TOO_NEW: ["ruRU"],
+    IMPORT_FAILED_DAMAGED: ["ruRU"],
+    IMPORT_FAILED_LIBS_MISSING: ["ruRU"],
     PANEL_ADDON_MISSING: ["ruRU"],
 };
 
