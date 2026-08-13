@@ -253,6 +253,22 @@ return function(DebindPrivate, DebindShare)
         check(DebindShare.GetBatch(batch.id) == batch, "id로 못 찾음");
     end);
 
+    -- Counted at paste time, because the list has to say how much is in each row and decoding
+    -- every stored string to draw the list would undo storing strings at all.
+    test("개수는 넣을 때 한 번 세어 둔다", function()
+        ResetDrawer();
+        local text = "DEB1:여럿";
+        STORED[text] = Payload({
+            Group({ scope = "general" }, "F", 2),
+            Group({ scope = "class", class = CLASS, spec = 1 }, "G", 3),
+        });
+
+        local batch = DebindShare.AddBatch(text);
+        check(batch.groupCount == 2, "그룹 수 " .. tostring(batch.groupCount));
+        check(batch.actionCount == 5, "액션 수 " .. tostring(batch.actionCount));
+        check(batch.class == CLASS, "보낸 쪽 클래스");
+    end);
+
     -- Refused where the user is looking at it, rather than becoming a row that fails every time it
     -- is opened.
     test("못 읽는 문자열은 서랍에 안 들어간다", function()

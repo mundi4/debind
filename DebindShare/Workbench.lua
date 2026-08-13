@@ -235,6 +235,14 @@ function DebindShare.AddBatch(text, source)
         return nil, reason;
     end
 
+    -- **Counted once, here.** Drawing the drawer needs to say how much is in each row, and
+    -- decoding every stored string to answer that would undo storing strings in the first place.
+    -- They are known at this moment for free, and a batch's contents never change afterwards.
+    local groupCount, actionCount = #(payload.groups or {}), 0;
+    for _, group in ipairs(payload.groups or {}) do
+        actionCount = actionCount + #(group.actions or {});
+    end
+
     local vars = Vars();
     local batch = {
         id = vars.nextID,
@@ -245,6 +253,10 @@ function DebindShare.AddBatch(text, source)
         -- Whoever it came from, when the paste knows. Free text and purely for the list -- nothing
         -- reads it back.
         source = source,
+        -- The sender's class, which is the only thing about them the string itself carries.
+        class = payload.class,
+        groupCount = groupCount,
+        actionCount = actionCount,
 
         -- The work. Empty means "nothing decided yet", which is not the same as "decided to leave
         -- it alone" only for keys -- see `Import.lua` when it exists.
