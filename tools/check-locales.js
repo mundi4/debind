@@ -62,6 +62,11 @@ const PENDING_TRANSLATION = {
     EXPORT_FAILED_LIBS_MISSING: ["ruRU"],
     EXPORT_ADDON_MISSING: ["ruRU"],
     EXPORT_COPY_TITLE: ["ruRU"],
+    // The window's own tabs, and what stands in when the panel behind one could not be had. Same
+    // owner as the rows above - these arrived with the tab row, and those panels live here too.
+    IMPORT_TITLE: ["ruRU"],
+    IMPORT_MENU_DESC: ["ruRU"],
+    PANEL_ADDON_MISSING: ["ruRU"],
 };
 
 // **base보다 자리표시자를 더 쓰는 게 맞는 키.** 부르는 쪽이 이미 그 인자를 넘기고 있고

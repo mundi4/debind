@@ -524,6 +524,22 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 --
 -- These live here rather than in `DebindShare` because they are eleven strings against that
 -- addon's reason for existing, and a second locale tree would need its own parity check.
+-- The window's own tabs (`PANELS` in `DebindUI.lua`). The label is one word, so the tooltip is
+-- where the tab says what it opens - and Import and Export both open something that leaves for
+-- somewhere you cannot reach, so the same "read it on purpose" rule as above applies.
+--
+-- The two panels themselves live in `DebindShare`, which is load-on-demand and may not be there.
+-- **One failure, so one message.** That addon cannot load and then not have built its panel, so
+-- "loaded but empty" is not a second case to describe - if it ever happened the install would be
+-- broken, and the second line below is already the fix for that.
+--
+-- **It says what failed and what to do, not where our code lives.** Which addon holds which panel
+-- is our filing, not the reader's problem; what they can act on is the switch in the AddOns list
+-- and, failing that, installing again. No `%s` either, unlike the chat line further down - the
+-- reason string the client hands back is for the log, not the middle of a window.
+L["IMPORT_TITLE"] = "Import"
+L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and shows what is in it before anything changes.|n|nYou pick which layer each part lands in, and nothing touches your bindings until you say so."
+L["PANEL_ADDON_MISSING"] = "This needs |cnHIGHLIGHT_FONT_COLOR:Debind Share|r, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Share comes with it."
 L["EXPORT_TITLE"] = "Export"
 L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to send them."
 L["EXPORT_SELECT_ALL"] = "Select all"

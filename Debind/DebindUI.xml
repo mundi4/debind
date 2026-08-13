@@ -553,6 +553,22 @@
 		</Scripts>
 	</Button>
 
+	<!--
+		**Same art, a different question.** `DebindFrameTabTemplate` above asks "which layer is the
+		bin showing", this one asks "what is this window showing at all". They look alike because
+		they are both tabs; they are separate templates because one of them takes a drop (a layer
+		can receive an action - a panel cannot) and because their arrays must not merge.
+
+		Everything these say and do comes from one table, `PANELS` in the Lua, keyed by `id`.
+	-->
+	<Button name="DebindPanelTabTemplate" mixin="DebindPanelTabMixin" virtual="true" inherits="PanelTabButtonTemplate">
+		<Scripts>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
 	<CheckButton name="DebindSideTabTemplate" mixin="DebindSideTabMixin" virtual="true" hidden="true" frameStrata="HIGH">
 		<Size x="32" y="32"/>
 		<Layers>
@@ -1165,6 +1181,35 @@
 			</Frame>
 
 			<!--
+				**The panel a tab falls back to when its own could not be had.** Import and Export
+				live in `DebindShare`, which is load-on-demand, so at the moment the tab is pressed
+				the panel may not exist - the addon is switched off, or (for now) simply has no
+				panel to hand over yet. `SelectPanel` puts the reason in `Message` and shows this.
+
+				**It is not a bounce back to Overview.** Sending the reader somewhere they did not
+				ask for reads as "the tab is broken"; standing here with a sentence says what
+				actually happened.
+
+				**The sentence never changes**, so it is set once at load rather than carried in
+				at the moment of failure - there is only one way to end up here (`ResolvePanel`).
+
+				Same shape as the two empty states already in this window (`ScrollBox.EmptyText`,
+				`ContentArea.EmptyText`): one grey sentence, centred, nothing else.
+			-->
+			<Frame parentKey="MissingPanel" useParentLevel="true" setAllPoints="true" hidden="true">
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Message" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+							<Size x="380" y="0"/>
+							<Anchors>
+								<Anchor point="CENTER" x="0" y="20"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+
+			<!--
 				Opens the sharing window, which lives in a separate load-on-demand addon. A plain
 				`Button` like `AddPortrait`, wired in the same place (`InitializeButtons`).
 
@@ -1194,29 +1239,41 @@
 			</Button>
 
 			<!--
-				**OverviewPanel 뒤에 선언한다.** 앵커가 그 안의 키를 가리키는데, XML은 위에서부터
-				만들므로 앞에 두면 그 키가 아직 nil이라 앵커가 아예 안 걸린다 - 탭이 창 어디에도
-				안 붙고 떠 있었다.
+				**The window's tab row.** It picks what you are looking at, which is a different
+				rank from the shared/character tabs down on the right: those only mean anything
+				inside Overview ("which layer is the bin showing"), which is why they are
+				`LayerPanel`'s children. This row swaps the whole window.
 
-				왼쪽 열의 이름표. **탭이 하나뿐이라 고를 것이 없다** - 누르는 물건이 아니라
-				이 열이 무엇인지 말하는 자리다.
+				**This is where the arrays split themselves.** `PanelTabButtonTemplate` carries
+				`parentArray="Tabs"` in its own definition, so anything inheriting it lands in its
+				parent's `Tabs`. These three have the window for a parent and the shared/character
+				tabs have `LayerPanel`, so the two never mix - hand `PanelTemplates_*` the window
+				and this row moves, hand it `LayerPanel` and the other one does.
 
-				그래도 탭 모양인 이유는 대칭이다. 오른쪽 열은 탭이 아래 붙어 있어서 자기가
-				무엇인지 말하는데, 왼쪽만 그게 없으면 두 열이 같은 급으로 안 읽힌다.
+				**Only the first tab has an anchor of its own.** `PanelTemplates_SetNumTabs`
+				overwrites the anchors from the second on (TOPLEFT->TOPRIGHT, +3). What is written
+				on the other two never reaches the screen, but it says the real numbers anyway -
+				anything else and whoever copies this file copies a lie.
 
-				**기준은 컨테이너가 아니라 그 안의 `ResultPanel`이다.** 컨테이너는 창 전체를
-				덮으므로 그 BOTTOMLEFT는 창 바닥이다 - 그걸 짚으면 탭이 왼쪽 열 밑이 아니라
-				창 밖으로 내려간다. 짚어야 하는 것은 이 탭이 이름을 붙여주는 그 열이다.
-
-				**배열은 이제 저절로 갈린다.** `PanelTabButtonTemplate`이 자기 정의에
-				`parentArray="Tabs"`를 들고 있어서 물려받는 순간 부모의 `Tabs`에 들어가는데,
-				이 버튼의 부모는 창이고 공용/캐릭터 탭의 부모는 `LayerPanel`이라 둘이 섞이지
-				않는다. 그래서 `DebindFrameMixin:OnLoad`가 배열을 손으로 되쓸 일도 없어졌다
-				(`PanelTemplates_*`가 `LayerPanel`을 받는 이유가 이것이다).
+				**The first one hangs off `ResultPanel`, not the container.** The container covers
+				the whole window, so its BOTTOMLEFT is the bottom of the window - anchor there and
+				the row drops out of the frame instead of sitting under the left column. What it
+				has to point at is the column it names. Hence declared after `OverviewPanel`;
+				earlier and that key is still nil.
 			-->
-			<Button parentKey="OverviewTab" inherits="PanelTabButtonTemplate">
+			<Button parentKey="OverviewTab" inherits="DebindPanelTabTemplate" id="1">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.OverviewPanel.ResultPanel" relativePoint="BOTTOMLEFT" x="8" y="-9"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="ImportTab" inherits="DebindPanelTabTemplate" id="2">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.OverviewTab" relativePoint="TOPRIGHT" x="3" y="0"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="ExportTab" inherits="DebindPanelTabTemplate" id="3">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ImportTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
 

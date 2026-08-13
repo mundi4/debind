@@ -374,6 +374,10 @@ L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "이 캐릭터는 지정 없�
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "|cnHIGHLIGHT_FONT_COLOR:이 계정의 모든 캐릭터|r에게 Debind가 예전 설정을 더 이상 권하지 않습니다. 아직 접속하지 않은 캐릭터와 앞으로 만들 캐릭터까지 해당됩니다.|n|n|cnRED_FONT_COLOR:애드온 안에서는 되돌릴 수 없습니다.|r 어느 쪽을 고르든 예전 파일은 디스크에 그대로 둡니다."
 L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "이 애드온의 예전 전체 사본이 아직 설치되어 있어서 Debind와 나란히 단축키를 지정하고 있습니다. 둘이 키를 두고 다투는 중입니다. Debind를 다시 설치하거나 업데이트하면 그 폴더가 작은 |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r으로 바뀝니다. 폴더를 그냥 지우지는 마십시오 - 업데이트 뒤 아직 접속하지 않은 캐릭터의 설정이 그 안에 남아 있습니다."
 
+-- The window's own tabs. The reasoning is in enUS.
+L["IMPORT_TITLE"] = "가져오기"
+L["IMPORT_MENU_DESC"] = "남이 건넨 문자열을 받아, 무엇이 들어 있는지 먼저 보여줍니다.|n|n어느 레이어로 넣을지는 직접 고르고, 넣겠다고 하기 전까지는 지정에 아무것도 손대지 않습니다."
+L["PANEL_ADDON_MISSING"] = "이 기능에는 |cnHIGHLIGHT_FONT_COLOR:Debind Share|r가 필요한데 불러오지 못했습니다.|n|n꺼 두셨다면 애드온 목록에서 다시 켜 주세요. 목록에 아예 없다면 Debind를 다시 설치하면 함께 들어옵니다."
 L["EXPORT_TITLE"] = "내보내기"
 L["EXPORT_MENU_DESC"] = "설정의 일부든 전부든 문자열로 만들어 남에게 건네거나 백업으로 둘 수 있습니다.|n|n창을 열면 전부 선택되어 있고, 지금 하고 있지 않은 전문화도 목록에 들어 있습니다 - 보내려고 전문화를 바꿀 필요는 없습니다."
 L["EXPORT_SELECT_ALL"] = "전체 선택"

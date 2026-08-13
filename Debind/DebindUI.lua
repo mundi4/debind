@@ -38,6 +38,11 @@ local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
 
 local _selectedTab           = 1;
 local _selectedSideTab       = 1;
+-- The window's tab (Overview/Import/Export). A different rank from the two above: those are
+-- "which layer is Overview looking at, inside itself", this is "what is the window showing at
+-- all". Like them it lives for the session only and is not saved - close and reopen and you are
+-- on the tab you left.
+local _selectedPanel         = 1;
 -- 이 창의 행은 끌 수 없다. 목록 안 재배치도(Phase 3), 탭에 떨궈 레이어를 옮기는 것도
 -- 없앴다 - 후자는 우클릭 `Move to`가 더 잘 하고, 드래그는 행을 집게 해놓고 목록은 안
 -- 받으니 매번 창을 덮어 "여기 아니다"라고 말해야 했다.
@@ -1716,6 +1721,68 @@ end
 function DebindKeyHeaderMixin:Update()
 end
 
+--- The window's tab row. One row per tab, and `id` is the seat - the XML's `id=` and the order
+--- here have to agree, because `parentArray="Tabs"` fills the array by declaration order.
+---
+--- **A panel arrives by one of two roads.** `panelKey` is one this addon's XML already built.
+--- `addon`+`panelGlobal` is one a load-on-demand addon builds, and that one **does not exist**
+--- until the tab is pressed - which is why it cannot be an XML child and this table exists.
+---
+--- That side hands over nothing yet (steps 3-4 of `.zzz/main-frame-containers.md`), so both of
+--- those tabs land on `MissingPanel` for now.
+local PANELS = {
+	{ title = "OVERVIEW",     desc = "OVERVIEW_DESC",      panelKey = "OverviewPanel" },
+	{ title = "IMPORT_TITLE", desc = "IMPORT_MENU_DESC",   addon = "DebindShare", panelGlobal = "DebindShareImportPanel" },
+	{ title = "EXPORT_TITLE", desc = "EXPORT_MENU_DESC",   addon = "DebindShare", panelGlobal = "DebindShareExportPanel" },
+};
+
+--- Brings the sharing addon in. Does nothing if it is already here.
+---
+--- **The private table is parked on `_G` only for the length of `LoadAddOn`.** The first file
+--- over there grabs it inside that window (`DebindShare/DebindShare.lua`); `DebindCliqueFake`
+--- reaches across the same way.
+---
+--- It asks `IsAddOnLoaded`. This once looked for `DebindShareFrame` instead, which answers "was
+--- that window built", not "is the addon in" - and step 3 turns that window into a panel, at
+--- which point the stand-in would quietly start answering no.
+local function LoadShareAddon(name)
+	if (C_AddOns.IsAddOnLoaded(name)) then
+		return true;
+	end
+
+	local prev = _G.DebindPrivate;
+	_G.DebindPrivate = DebindPrivate;
+	local loaded, reason = C_AddOns.LoadAddOn(name);
+	_G.DebindPrivate = prev;
+
+	return loaded, reason;
+end
+
+DebindPanelTabMixin = {};
+
+function DebindPanelTabMixin:OnClick()
+	if (not TryCloseAnyDialog()) then
+		return;
+	end
+	DebindFrame:SelectPanel(self:GetID());
+end
+
+--- The label is one word, so **this is the only place the tab can say what it opens.**
+---
+--- The template already has an `OnEnter` (it shows the name when the text is truncated) and this
+--- replaces it - our tooltip carries that name as its title anyway, so nothing is lost.
+function DebindPanelTabMixin:OnEnter()
+	local entry = PANELS[self:GetID()];
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, LLL[entry.title]);
+	GameTooltip_AddNormalLine(GameTooltip, LLL[entry.desc]);
+	GameTooltip:Show();
+end
+
+function DebindPanelTabMixin:OnLeave()
+	GameTooltip:Hide();
+end
+
 DebindTabMixin = {};
 
 function DebindTabMixin:OnLoad()
@@ -2135,24 +2202,18 @@ function DebindFrameMixin:InitializeButtons()
 	-- strings pile up in. SavedVariables are read whole when an addon loads, so keeping that here
 	-- would charge every login of every user who never shares anything.
 	--
-	-- **The private table is handed over only for the length of `LoadAddOn`.** The first file over
-	-- there grabs it while it is up (`DebindShare/DebindShare.lua`), the same way `DebindCliqueFake`
-	-- is opened (`Public.lua`).
+	-- Bringing it in is `LoadShareAddon`, shared with the Export tab (which is what replaces this
+	-- button in step 3 of `.zzz/main-frame-containers.md`).
 	self.ExportPortrait:SetScript("OnClick", function()
-		if (not DebindShareFrame) then
-			local prev = _G.DebindPrivate;
-			_G.DebindPrivate = DebindPrivate;
-			local loaded, reason = C_AddOns.LoadAddOn("DebindShare");
-			_G.DebindPrivate = prev;
+		local loaded, reason = LoadShareAddon("DebindShare");
 
-			-- The folder was deleted or the addon switched off. Do not turn away quietly: a button
-			-- that does nothing reads as broken, which is the same rule the other entry points
-			-- follow (`DebindPublic:ToggleUI`).
-			if (not loaded or not DebindShareFrame) then
-				DebindPrivate.DisplayMessage(
-					format(LLL["EXPORT_ADDON_MISSING"], tostring(reason)), 1, 0, 0);
-				return;
-			end
+		-- The folder was deleted or the addon switched off. Do not turn away quietly: a button
+		-- that does nothing reads as broken, which is the same rule the other entry points
+		-- follow (`DebindPublic:ToggleUI`).
+		if (not loaded or not DebindShareFrame) then
+			DebindPrivate.DisplayMessage(
+				format(LLL["EXPORT_ADDON_MISSING"], tostring(reason)), 1, 0, 0);
+			return;
 		end
 		DebindShareFrame:Toggle();
 	end)
@@ -2267,23 +2328,23 @@ function DebindFrameMixin:OnLoad()
 
 	self:SetPortraitToAsset(133015);
 
-	-- 창의 내용물은 컨테이너 안에 있다(`.zzz/main-frame-containers.md`). 위젯마다 별칭을
-	-- 만들지 않고 이 둘만 잡아둔 뒤 나머지는 여기를 거친다.
+	-- The window's contents live in containers (`.zzz/main-frame-containers.md`). Two convenience
+	-- references rather than an alias per widget; everything else goes through these.
 	self.LayerPanel = self.OverviewPanel.LayerPanel;
 	self.ResultPanel = self.OverviewPanel.ResultPanel;
 
-	-- **탭 배열은 이제 저절로 갈린다.** `PanelTabButtonTemplate`이 자기 정의에
-	-- `parentArray="Tabs"`를 달고 있어서(SharedUIPanelTemplates.xml), 그걸 물려받은 프레임은
-	-- 뭘 하든 **부모의** 이 배열에 들어간다 - XML에 안 적어도 그렇다. 공용/캐릭터 탭은
-	-- `LayerPanel`의 자식이고 왼쪽 이름표(OverviewTab)는 창의 자식이라, 둘이 다른 배열에
-	-- 앉는다.
+	-- **The tab arrays split themselves now.** `PanelTabButtonTemplate` carries
+	-- `parentArray="Tabs"` in its own definition (SharedUIPanelTemplates.xml), so anything
+	-- inheriting it lands in **its parent's** array whatever the XML here says. The shared and
+	-- character tabs are `LayerPanel`'s children and the window's own tab row is the window's, so
+	-- the two sit in different arrays.
 	--
-	-- 한때 여기서 `self.Tabs = { self.Tab1, self.Tab2 }`로 손으로 되썼다. 셋이 한 배열에
-	-- 섞여 있어서 `SetNumTabs`가 3을 보고 `AnchorTabs`로 이름표를 오른쪽 탭 줄에 끌어다
-	-- 매달았기 때문이다(탭이 셋으로 보였다). 부모가 갈렸으므로 그 줄은 없어졌다.
+	-- This used to be rewritten by hand as `self.Tabs = { self.Tab1, self.Tab2 }`. All of them
+	-- were in one array, so `SetNumTabs` counted three and `AnchorTabs` dragged the odd one into
+	-- the right-hand tab row. Splitting the parents made that line unnecessary.
 	--
-	-- 대신 `PanelTemplates_*`의 인자가 창이 아니라 `LayerPanel`이다 - 그 함수들이 읽는
-	-- `.Tabs`와 `.selectedTab`을 이제 그쪽이 들고 있다.
+	-- What it costs instead: `PanelTemplates_*` takes `self.LayerPanel`, not the window - `.Tabs`
+	-- and `.selectedTab` are over there now.
 	for i, tab in ipairs(self.LayerPanel.Tabs) do
 		tab:SetText(GetTabLabel(i));
 		PanelTemplates_TabResize(tab, 0)
@@ -2300,28 +2361,24 @@ function DebindFrameMixin:OnLoad()
 	-- 켜진 탭이 어느 쪽인지도 화면에 없었다.
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 
-	-- 왼쪽 열의 이름표. 고를 것이 없으므로 켜진 모양으로 한 번 세워두고 그만이다
-	-- (`PanelTemplates_SelectTab`은 자기 탭 하나만 만진다 - 형제를 안 본다).
-	self.OverviewTab:SetText(LLL["OVERVIEW"]);
-	PanelTemplates_TabResize(self.OverviewTab, 0);
-	PanelTemplates_SelectTab(self.OverviewTab);
+	-- The window's own tab row. **A different array from the one above** (window vs `LayerPanel`) -
+	-- the reasoning is in the XML. Labels and tooltips both come from `PANELS`, so all that is
+	-- left here is standing them up.
+	for i, tab in ipairs(self.Tabs) do
+		tab:SetText(LLL[PANELS[i].title]);
+		PanelTemplates_TabResize(tab, 0);
+	end
+	PanelTemplates_SetNumTabs(self, #self.Tabs);
 
-	-- **이 열이 무엇인지는 여기서만 말할 수 있다.** 이름표가 "Overview" 한 낱말인데, 그 열의
-	-- 규칙은 세 가지다 - 키가 걸린 것만 있고, 키로 묶여 있고, 지금 놀고 있는 캐릭터·특성에
-	-- 붙박이다. 셋 다 화면에 안 적혀 있고 셋 다 안 알면 오해가 된다(오른쪽에서 오프스펙을
-	-- 열었는데 왼쪽이 안 따라오는 것이 특히 그렇다).
-	--
-	-- 템플릿이 이미 `OnEnter`를 갖고 있지만(글자가 잘렸을 때만 이름을 띄운다) 여기서 덮는다 -
-	-- 우리 툴팁은 그 이름을 언제나 제목으로 달고 있어서 덮어도 잃는 말이 없다.
-	self.OverviewTab:SetScript("OnEnter", function(tab)
-		GameTooltip:SetOwner(tab, "ANCHOR_RIGHT");
-		GameTooltip_SetTitle(GameTooltip, LLL["OVERVIEW"]);
-		GameTooltip_AddNormalLine(GameTooltip, LLL["OVERVIEW_DESC"]);
-		GameTooltip:Show();
-	end);
-	self.OverviewTab:SetScript("OnLeave", function()
-		GameTooltip:Hide();
-	end);
+	-- **Set once, never rewritten.** There is exactly one thing this panel ever says (see
+	-- `ResolvePanel`), so it does not need the reason carried to it at the moment of failure.
+	self.MissingPanel.Message:SetText(LLL["PANEL_ADDON_MISSING"]);
+
+	-- Start on Overview. `SelectPanel` turns back when the tab is already current, so this first
+	-- one has to be forced through for `PanelTemplates_SetTab` to run and paint the tabs (the
+	-- paragraph just above is why that matters).
+	self.shownPanel = self.OverviewPanel;
+	self:SelectPanel(1, true);
 
 	self:InitializeScrollBox();
 	self:InitializeSideTabs();
@@ -3170,6 +3227,54 @@ function DebindFrameMixin:UpdateButtons()
 	self.ExportPortrait:SetEnabled(enableButtons);
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
+end
+
+--- The panel this tab shows, or nil - in which case `MissingPanel` stands in its place.
+---
+--- **It does not say why, because there is only one why: the other addon did not come in.**
+--- "It loaded but has no panel" is not counted separately, because there is no path where that
+--- addon loads successfully without building its panel. If it somehow happens the install is
+--- broken, and what the reader has to do is the same either way. A second sentence for a branch
+--- that cannot happen is a sentence that never reaches the screen.
+---
+--- That side does not hand over a panel yet (steps 3-4 of `.zzz/main-frame-containers.md`). Once
+--- it does, **taking delivery** costs one more line here - `SetParent` plus two anchors. It is not
+--- written ahead of time because it would sit there having never once run.
+function DebindFrameMixin:ResolvePanel(id)
+	local entry = PANELS[id];
+
+	if (entry.panelKey) then
+		return self[entry.panelKey];
+	end
+
+	if (LoadShareAddon(entry.addon)) then
+		return _G[entry.panelGlobal];
+	end
+end
+
+--- Picks what the window shows. This is the only job the frame has left - how many columns a
+--- panel has, and what it draws, each panel settles inside itself.
+---
+--- **The tab lights up either way.** Failing to get a panel does not send the reader back to
+--- Overview: landing somewhere they did not click reads as "this tab does not work", which is not
+--- what happened. The tab stays where they put it and `MissingPanel` says what did.
+function DebindFrameMixin:SelectPanel(id, force)
+	if (_selectedPanel == id and not force) then
+		return;
+	end
+
+	_selectedPanel = id;
+	PanelTemplates_SetTab(self, id);
+
+	local panel = self:ResolvePanel(id) or self.MissingPanel;
+
+	if (self.shownPanel ~= panel) then
+		if (self.shownPanel) then
+			self.shownPanel:Hide();
+		end
+		self.shownPanel = panel;
+		panel:Show();
+	end
 end
 
 function DebindFrameMixin:SetTab(id)
