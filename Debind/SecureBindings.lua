@@ -362,6 +362,12 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local pet = States.pet
 	local petbattle = States.petbattle
 
+	-- **배선이 고정된 키는 이 표에 없다.** `UpdateBindingsMap`이 안 넣는다 - 그 키는 빌드
+	-- 시점에 한 번 걸고 끝이고, 어느 액션인지는 래퍼가 클릭 순간에 정한다. 여기서 걸러내던
+	-- 시절에는 훑기는 훑고 매번 "볼 것 없음"으로 끝났다.
+	--
+	-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기 있고,
+	-- "잡느냐 놓느냐"를 계속 정해야 한다 - 빼면 놓아줘야 할 때 못 놓는다.
 	for key, bindings in pairs(BindingsMap) do
 		local check = forceAll
 		if (not check and bindings.updateFlags) then
@@ -373,24 +379,9 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 			end
 		end
 
-		-- 배선이 고정된 키이면서 클릭캐스팅 역할도 없으면 여기서 볼 것이 없다.
-		-- 키는 UpdateBindingsMap이 이미 한 번 걸어놨고 다시 걸 일이 없다.
-		--
-		-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기서
-		-- "잡느냐 놓느냐"를 계속 정해야 한다 - 건너뛰면 놓아줘야 할 때 못 놓는다.
-		if (check and bindings.alwaysOurs) then
-			check = false
-		end
-
 		if (check) then
 			local keyBound = not bindings.hasNonClick
 
-			-- 배선이 고정된 키만 키 역할을 통째로 건너뛴다. keyBound를 세워두면 아래
-			-- isNonClick 분기도, 끝의 `not keyBound` 해제도 안 돈다.
-			-- 클릭캐스팅 역할은 어느 쪽이든 그대로 돈다.
-			if (bindings.alwaysOurs) then
-				keyBound = true
-			end
 			for i = 1, #bindings do
 				local t = bindings[i]
 				local match = true

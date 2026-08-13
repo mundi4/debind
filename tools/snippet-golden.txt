@@ -440,6 +440,12 @@ DelegateFrameNames[frame] = frame:GetName()
 	local pet = States.pet
 	local petbattle = States.petbattle
 
+
+
+
+
+
+
 	for key, bindings in pairs(BindingsMap) do
 		local check = forceAll
 		if (not check and bindings.updateFlags) then
@@ -451,24 +457,9 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 		end
 
-
-
-
-
-
-		if (check and bindings.alwaysOurs) then
-			check = false
-		end
-
 		if (check) then
 			local keyBound = not bindings.hasNonClick
 
-
-
-
-			if (bindings.alwaysOurs) then
-				keyBound = true
-			end
 			for i = 1, #bindings do
 				local t = bindings[i]
 				local match = true

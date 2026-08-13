@@ -899,12 +899,13 @@ function UpdateBindingsMap()
                         end
 
                         if (clickframe and clickbutton) then
-                            if (clickframe ~= DefaultClickFrame) then
+                            -- `clickframe`은 상태 루프가 `SetBindingClick`에 넘길 때만 읽는다.
+                            -- 배선이 고정된 키는 그 루프를 안 도니 실어 보낼 이유가 없다.
+                            -- `clickbutton`은 클릭 경로가 읽으므로 어느 갈래든 나간다.
+                            if (not alwaysOurs and clickframe ~= DefaultClickFrame) then
                                 appendKeyValue("clickframe", clickframe:GetName());
                             end
-                            if (clickbutton) then
-                                appendKeyValue("clickbutton", clickbutton);
-                            end
+                            appendKeyValue("clickbutton", clickbutton);
                         end
 
                         -- **대상은 여기서만 BindingsMap에 실린다.**
@@ -1173,7 +1174,10 @@ function UpdateBindingsMap()
             end
         end
 
-        if (next(_updateFlags)) then
+        -- **상태 루프 전용이라 상태 구동 키에만 굽는다.** `alwaysOurs` 키는 그 루프가 안 보므로
+        -- (그 표에 없다) 여기 실린 플래그를 읽는 코드가 없다. `_states` 등록은 위에서 이미
+        -- 끝났고 그건 별개다 - 클릭 경로가 아직 `States`를 읽는다.
+        if (not alwaysOurs and next(_updateFlags)) then
             appendLine("bindings.updateFlags=newtable()");
             for flag in pairs(_updateFlags) do
                 appendLine("bindings.updateFlags[%q]=true", flag);
@@ -1212,13 +1216,20 @@ function UpdateBindingsMap()
         if (clickTime and not first) then
             local clickTimeButton = Constants.CLICKTIME_BUTTON_PREFIX .. key;
             DebindPrivate.ClickTimeKeys[key] = clickTimeButton;
-            -- 상태 루프가 걸 때 쓸 이름. 문자열 결합을 클릭 경로 밖으로 빼둔다.
-            -- **이 값이 곧 "clickTime 키인가" 표시다** - 따로 불리언을 두면 둘이 갈라진다.
-            appendLine("bindings.clickTimeButton=%q", clickTimeButton);
             appendLine("ClickTimeKeys[%q]=bindings", clickTimeButton);
             if (alwaysOurs) then
+                -- **진단으로 남긴다.** 아무도 안 읽는다 - 어느 표에 들어 있느냐가 이미 답이고,
+                -- 진짜는 그 멤버십이며 이 필드는 사본이다. 어긋나면 필드가 틀린 것이고, 이걸로
+                -- 판정하는 코드를 새로 쓰면 안 된다. 그래도 두는 이유는 `bindings` 하나만 보고
+                -- 이 키가 어느 갈래인지 알 수 있어야 인게임에서 확인이 되기 때문이다.
                 appendLine("bindings.alwaysOurs=true");
                 appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key, clickTimeButton);
+            else
+                -- 상태 루프가 걸 때 쓸 이름. 문자열 결합을 클릭 경로 밖으로 빼둔다.
+                -- **이 값이 곧 "clickTime 키인가" 표시다** - 따로 불리언을 두면 둘이 갈라진다.
+                -- 배선이 고정된 키에는 굽지 않는다: 거는 것은 위에서 이미 끝났고, 그 루프가
+                -- 이 키를 보지 않는다.
+                appendLine("bindings.clickTimeButton=%q", clickTimeButton);
             end
         end
     end
