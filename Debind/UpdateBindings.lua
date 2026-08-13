@@ -782,10 +782,16 @@ local function AppendBindingsList(key, alwaysOurs)
         appendLine("bindings=newtable()");
     else
         appendLine("bindings=newtable();StateDrivenBindings[%q]=bindings", key);
+        if (DEBUG) then
+            DebindPrivate.StateDrivenKeys[key] = true;
+        end
     end
 end
 
 function UpdateBindingsMap()
+    if (DEBUG) then
+        wipe(DebindPrivate.StateDrivenKeys);
+    end
     appendLine("local bindings,t,u");
     for key, bindingArray in pairs(DebindPrivate.KeyMap) do
         wipe(_updateFlags);

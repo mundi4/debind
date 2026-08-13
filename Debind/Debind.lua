@@ -111,6 +111,16 @@ DebindPrivate.BindingInfoToActionMap = {};
 DebindPrivate.ClickTimeKeys          = {};
 dump("ClickTimeKeys", DebindPrivate.ClickTimeKeys);
 
+--- 배선을 상태 루프가 정하는 키. DEBUG mirror of `StateDrivenBindings` membership, recorded
+--- at emit time (`AppendBindingsList`) -- the same branch emits the insert and records the
+--- key, so the mirror cannot diverge from the table.
+---
+--- **DEBUG 전용.** 읽는 것이 사람뿐이다.
+---
+--- **재할당하지 말 것.** DevTool이 이 참조를 들고 있다 - 갱신은 `wipe` 후 채우기다.
+DebindPrivate.StateDrivenKeys        = {};
+dump("StateDrivenKeys", DebindPrivate.StateDrivenKeys);
+
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;
