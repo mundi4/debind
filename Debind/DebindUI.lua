@@ -541,7 +541,7 @@ local function GetSideTabIcon(sideTabID)
 end
 
 local function TryCloseAnyDialog()
-	if (DebindIconSelectorFrame:Close() and DebindMacroFrame:Close() and DebindOverviewPanel:Close()) then
+	if (DebindIconSelectorFrame:Close() and DebindMacroFrame:Close() and DebindResultPanel:Close()) then
 		return true;
 	end
 	return false;
@@ -1603,7 +1603,7 @@ function DebindLineMixin:OnClick(buttonName)
 	end
 
 	if (buttonName == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
-		DebindFrame.ScrollBox:OnClick();
+		DebindFrame.LayerPanel.ScrollBox:OnClick();
 		return;
 	end
 
@@ -1731,7 +1731,10 @@ function DebindTabMixin:OnClick()
 		DebindIconSelectorFrame:Hide();
 
 		PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN);
-		self:GetParent():SetTab(id);
+		-- Named, not walked up to. The parent is `LayerPanel` now, and the tab is not asking the
+		-- box it sits in to switch - it is telling the window. `OnReceiveDrag` below already
+		-- addressed the window this way.
+		DebindFrame:SetTab(id);
 	end
 end
 
@@ -1899,10 +1902,21 @@ function DebindPortraitMixin:OnDisable()
 	self.Portrait:SetDesaturated(true);
 end
 
+--- The window's contents live in containers, exactly one of which is shown at a time. These two
+--- are the first (`.zzz/main-frame-containers.md`); the export and import panels follow.
+---
+--- **They are empty on purpose.** A container earns its keep by existing: hiding it hides
+--- everything inside it, no matter how many `Update*` passes decide to switch their own widgets
+--- back on. Nothing about that needs a method, and the code that drives these panels still lives
+--- in `DebindFrameMixin` - moving it here would be a second change hiding inside the first, and
+--- the only way to check this one is that the window looks untouched.
+DebindOverviewMixin = {};
+DebindLayerPanelMixin = {};
+
 DebindFrameMixin = {};
 
 function DebindFrameMixin:InitializeSideTabs()
-	self.SideTabs = self.SideTabsFrame.Tabs;
+	self.SideTabs = self.LayerPanel.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
 		local name;
 		if (i == 1) then
@@ -1983,10 +1997,10 @@ function DebindFrameMixin:UpdateEmptyText()
 	if (self.dataProvider:GetSize() == 0) then
 		-- **검색 중이면 다른 말을 한다.** 원래 문구는 "여기 액션이 없으니 끌어다 놓으세요"인데,
 		-- 검색에 안 맞아서 빈 것뿐이면 그건 거짓말이고 하필 할 일까지 틀리게 시킨다.
-		self.ScrollBox.EmptyText:SetText(LLL[_searchText and "NO_SEARCH_RESULTS" or "NO_ACTIONS_IN_THIS_TAB"]);
-		self.ScrollBox.EmptyText:Show();
+		self.LayerPanel.ScrollBox.EmptyText:SetText(LLL[_searchText and "NO_SEARCH_RESULTS" or "NO_ACTIONS_IN_THIS_TAB"]);
+		self.LayerPanel.ScrollBox.EmptyText:Show();
 	else
-		self.ScrollBox.EmptyText:Hide();
+		self.LayerPanel.ScrollBox.EmptyText:Hide();
 	end
 end
 
@@ -2022,7 +2036,7 @@ function DebindFrameMixin:UpdateActionCounts()
 	-- 사라진다 - 탭 줄을 훑는 눈이 걸러내야 할 것이 색으로 걸러져야 한다.
 	local searching = _searchText ~= nil;
 
-	for tabId, tab in ipairs(self.Tabs) do
+	for tabId, tab in ipairs(self.LayerPanel.Tabs) do
 		local label = GetTabLabel(tabId);
 
 		do
@@ -2098,21 +2112,21 @@ function DebindFrameMixin:InitializeScrollBox()
 	end);
 	view:SetElementExtent(LINE_HEIGHT);
 
-	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
+	ScrollUtil.InitScrollBoxListWithScrollBar(self.LayerPanel.ScrollBox, self.LayerPanel.ScrollBar, view);
 
-	self.ScrollBox.OnClick = ScrollBox_OnClick;
-	self.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
+	self.LayerPanel.ScrollBox.OnClick = ScrollBox_OnClick;
+	self.LayerPanel.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
 
-	self.ScrollBox:RegisterForClicks("AnyUp");
-	self.ScrollBox:SetScript("OnClick", self.ScrollBox.OnClick);
-	self.ScrollBox:SetScript("OnReceiveDrag", self.ScrollBox.OnReceiveDrag);
+	self.LayerPanel.ScrollBox:RegisterForClicks("AnyUp");
+	self.LayerPanel.ScrollBox:SetScript("OnClick", self.LayerPanel.ScrollBox.OnClick);
+	self.LayerPanel.ScrollBox:SetScript("OnReceiveDrag", self.LayerPanel.ScrollBox.OnReceiveDrag);
 end
 
 function DebindFrameMixin:InitializeButtons()
 	-- [+]는 이제 **창을 연다.** 예전에는 여기 드롭다운이 매달려 있었는데, 그 안에 있던
 	-- 항목이 전부 주문 선택 창으로 옮겨갔다(주문·매크로·탈것·장난감은 목록으로, 명령과
 	-- 애드온 고유 액션은 각자 탭으로, 매크로 텍스트는 그 창의 버튼으로).
-	self.AddPortrait:SetScript("OnClick", function()
+	self.OverviewPanel.AddPortrait:SetScript("OnClick", function()
 		DebindSpellPickerFrame:Toggle();
 	end)
 
@@ -2150,19 +2164,19 @@ function DebindFrameMixin:InitializeButtons()
 	-- 한때 여기에 모드 **안의** 규칙까지 다 붙어 있었다 - 어떻게 거는지, ESC가 무엇인지,
 	-- 어떻게 끝내는지. 셋 다 들어간 뒤에 필요한 말이고 그건 오버레이가 한다. 게다가 끝내는
 	-- 방법을 적은 줄은 ESC를 나가는 문으로 쓰던 시절 것이라 지금은 **거짓**이었다.
-	self.BindModeButton:SetScript("OnEnter", function(button)
+	self.OverviewPanel.BindModeButton:SetScript("OnEnter", function(button)
 		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 		GameTooltip_SetTitle(GameTooltip, LLL["BIND_MODE"]);
 		GameTooltip_AddNormalLine(GameTooltip, LLL["BIND_MODE_DESC"]);
 		GameTooltip:Show();
 	end);
-	self.BindModeButton:SetScript("OnLeave", function()
+	self.OverviewPanel.BindModeButton:SetScript("OnLeave", function()
 		GameTooltip:Hide();
 	end);
 	self:UpdateBindModeButton();
 
 	-- 값이 실제로 달라졌을 때만 목록을 짓는다. `SetText`는 같은 글자로도 이 스크립트를 부른다.
-	self.SearchBox:SetScript("OnTextChanged", function(editBox)
+	self.LayerPanel.SearchBox:SetScript("OnTextChanged", function(editBox)
 		InputBoxInstructions_OnTextChanged(editBox);
 
 		local text = strtrim(editBox:GetText()):lower();
@@ -2184,8 +2198,8 @@ function DebindFrameMixin:InitializeButtons()
 			self:Update();
 		end
 	end);
-	self.SearchBox:SetScript("OnEditFocusGained", SearchBoxTemplate_OnEditFocusGained);
-	self.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
+	self.LayerPanel.SearchBox:SetScript("OnEditFocusGained", SearchBoxTemplate_OnEditFocusGained);
+	self.LayerPanel.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
 end
 
 
@@ -2253,25 +2267,28 @@ function DebindFrameMixin:OnLoad()
 
 	self:SetPortraitToAsset(133015);
 
-	-- **탭 배열을 우리가 다시 쓴다.** `PanelTabButtonTemplate`이 자기 정의에
-	-- `parentArray="Tabs"`를 달고 있어서(SharedUIPanelTemplates.xml), 그걸 물려받은 프레임은
-	-- 뭘 하든 이 배열에 들어간다. 왼쪽 이름표(OverviewTab)도 같은 템플릿이라 XML에 배열을
-	-- 안 적었는데도 세 번째 칸에 앉아 있었다 - XML 주석이 "안 넣는다"고 말하는 그 일이
-	-- 실제로는 일어나고 있었다.
-	--
-	-- 그래서 `SetNumTabs`가 3을 보고 `AnchorTabs`로 3번 탭을 2번 오른쪽에 다시 매달았다.
-	-- 왼쪽 열 밑에 서 있어야 할 이름표가 **오른쪽 통의 탭 줄로 끌려가** 탭이 셋으로 보였다.
-	-- 선택 상태도 같이 망가진다 - 아래에서 켜둔 것을 `SetTab`이 매번 3번을 끄면서 되돌린다.
-	--
-	-- 고치는 자리가 여기인 이유: 물려받은 `parentArray`는 XML에서 뗄 수가 없다. 배열을
-	-- 쓰는 첫 줄보다 먼저, 진짜 탭 둘로 못 박는다.
-	self.Tabs = { self.Tab1, self.Tab2 };
+	-- 창의 내용물은 컨테이너 안에 있다(`.zzz/main-frame-containers.md`). 위젯마다 별칭을
+	-- 만들지 않고 이 둘만 잡아둔 뒤 나머지는 여기를 거친다.
+	self.LayerPanel = self.OverviewPanel.LayerPanel;
+	self.ResultPanel = self.OverviewPanel.ResultPanel;
 
-	for i, tab in ipairs(self.Tabs) do
+	-- **탭 배열은 이제 저절로 갈린다.** `PanelTabButtonTemplate`이 자기 정의에
+	-- `parentArray="Tabs"`를 달고 있어서(SharedUIPanelTemplates.xml), 그걸 물려받은 프레임은
+	-- 뭘 하든 **부모의** 이 배열에 들어간다 - XML에 안 적어도 그렇다. 공용/캐릭터 탭은
+	-- `LayerPanel`의 자식이고 왼쪽 이름표(OverviewTab)는 창의 자식이라, 둘이 다른 배열에
+	-- 앉는다.
+	--
+	-- 한때 여기서 `self.Tabs = { self.Tab1, self.Tab2 }`로 손으로 되썼다. 셋이 한 배열에
+	-- 섞여 있어서 `SetNumTabs`가 3을 보고 `AnchorTabs`로 이름표를 오른쪽 탭 줄에 끌어다
+	-- 매달았기 때문이다(탭이 셋으로 보였다). 부모가 갈렸으므로 그 줄은 없어졌다.
+	--
+	-- 대신 `PanelTemplates_*`의 인자가 창이 아니라 `LayerPanel`이다 - 그 함수들이 읽는
+	-- `.Tabs`와 `.selectedTab`을 이제 그쪽이 들고 있다.
+	for i, tab in ipairs(self.LayerPanel.Tabs) do
 		tab:SetText(GetTabLabel(i));
 		PanelTemplates_TabResize(tab, 0)
 	end
-	PanelTemplates_SetNumTabs(self, #self.Tabs);
+	PanelTemplates_SetNumTabs(self.LayerPanel, #self.LayerPanel.Tabs);
 
 	-- **여기서 한 번 고르지 않으면 탭이 안 칠해진다.** `PanelTabButtonTemplate`은 켜진 아트
 	-- (LeftActive/Middle/Right)와 꺼진 아트(Left/Middle/Right)를 **둘 다 보이는 채로** 싣고
@@ -2281,7 +2298,7 @@ function DebindFrameMixin:OnLoad()
 	-- `SetTab`을 부르는 자리가 탭 클릭과 `GoToAction`뿐이라, 창을 열고 탭을 한 번도 안 누르면
 	-- selectedTab이 nil인 채였다. 그래서 두 탭 다 아트 여섯 장이 겹쳐 깔린 금색 상자로 떴고,
 	-- 켜진 탭이 어느 쪽인지도 화면에 없었다.
-	PanelTemplates_SetTab(self, _selectedTab);
+	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 
 	-- 왼쪽 열의 이름표. 고를 것이 없으므로 켜진 모양으로 한 번 세워두고 그만이다
 	-- (`PanelTemplates_SelectTab`은 자기 탭 하나만 만진다 - 형제를 안 본다).
@@ -2519,7 +2536,7 @@ function DebindFrameMixin:OnHide()
 	-- The macro editor is not our child either, so this line is the only thing that closes it -
 	-- and closing it is what saves.
 	DebindMacroFrame:Close();
-	DebindOverviewPanel:Close();
+	DebindResultPanel:Close();
 
 	if (self.iconDataProvider) ~= nil then
 		self.iconDataProvider:Release();
@@ -2752,7 +2769,7 @@ function DebindFrameMixin:Refresh(retainScrollPosition)
 	end
 
 	self.dataProvider = dataProvider;
-	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
+	self.LayerPanel.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
 	-- 선택은 **액션이 없어졌을 때만** 풀린다.
 	--
@@ -2792,9 +2809,9 @@ end
 --- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
 local function CommitSelection(self)
 	-- 왼쪽 열을 여기서 따로 다시 그리지 않는다. **맨 아래 `Update`가 이미 그 일을 한다**
-	-- (`DebindOverviewPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
+	-- (`DebindResultPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
 	-- 전체를 두 번 짓는다 - 그 함수는 프로필의 모든 레이어를 훑어 키로 묶는 자리다.
-	DebindOverviewPanel:Close();
+	DebindResultPanel:Close();
 
 	if (_selectionCount > 1) then
 		DebindMacroFrame:Close();
@@ -2981,7 +2998,7 @@ function DebindFrameMixin:ScrollActionIntoView(action)
 	end
 
 	-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
-	self.ScrollBox:ScrollToNearest(index);
+	self.LayerPanel.ScrollBox:ScrollToNearest(index);
 	return elementData;
 end
 
@@ -3085,10 +3102,10 @@ function DebindFrameMixin:Update()
 
 	self:UpdateButtons();
 	self:UpdateListStrip();
-	DebindOverviewPanel:Refresh();
+	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
 
-	self.ScrollBox:ForEachFrame(function(button)
+	self.LayerPanel.ScrollBox:ForEachFrame(function(button)
 		button:Update();
 	end);
 
@@ -3104,10 +3121,10 @@ end
 function DebindFrameMixin:UpdateListStrip()
 	local multi = _selectionCount > 1;
 	if (multi) then
-		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
+		self.LayerPanel.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
 	end
-	self.SelectionCount:SetShown(multi);
-	self.SearchBox:SetShown(not multi);
+	self.LayerPanel.SelectionCount:SetShown(multi);
+	self.LayerPanel.SearchBox:SetShown(not multi);
 
 	-- 검색창이 죽는 자리는 둘이고, **판정은 여기 하나에 모은다.** `UpdateButtons`에도 같은
 	-- 잠금이 있는데 이 함수가 그 뒤에 도므로, 저기서 같이 끄면 여기가 도로 켠다.
@@ -3120,15 +3137,15 @@ function DebindFrameMixin:UpdateListStrip()
 	--    (`UpdateButtons`의 `enableButtons`) 검색만 살아 있으면 목록이 그 밑에서 바뀐다.
 	local capturing = self:IsCapturingKey();
 	local locked = capturing or IsEditingAction();
-	self.SearchBox:SetEnabled(not locked);
+	self.LayerPanel.SearchBox:SetEnabled(not locked);
 	if (locked) then
-		self.SearchBox:ClearFocus();
+		self.LayerPanel.SearchBox:ClearFocus();
 	end
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
 function DebindFrameMixin:UpdateDropHighlight()
-	self.ScrollBoxBackground.Highlight:SetShown(_pickedupInfo ~= nil);
+	self.LayerPanel.ScrollBoxBackground.Highlight:SetShown(_pickedupInfo ~= nil);
 end
 
 --- 아이콘 선택기가 떠 있는 동안 잠기는 것들.
@@ -3138,8 +3155,8 @@ end
 function DebindFrameMixin:UpdateButtons()
 	local enableButtons = not IsEditingAction();
 
-	for i = 1, #self.Tabs do
-		PanelTemplates_SetTabEnabled(self, i, enableButtons);
+	for i = 1, #self.LayerPanel.Tabs do
+		PanelTemplates_SetTabEnabled(self.LayerPanel, i, enableButtons);
 	end
 
 	-- `SideTabs`는 `InitializeSideTabs`가 채우고 그건 `OnLoad`에서만 돈다. 창이 한 번도
@@ -3148,8 +3165,8 @@ function DebindFrameMixin:UpdateButtons()
 		tab:SetEnabled(enableButtons);
 	end
 
-	self.BindModeButton:SetEnabled(enableButtons);
-	self.AddPortrait:SetEnabled(enableButtons);
+	self.OverviewPanel.BindModeButton:SetEnabled(enableButtons);
+	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
 	self.ExportPortrait:SetEnabled(enableButtons);
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
@@ -3173,7 +3190,7 @@ function DebindFrameMixin:SetTab(id)
 	end
 
 	_selectedTab = id;
-	PanelTemplates_SetTab(self, _selectedTab);
+	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
 	self:UpdateSideTabs();
 
 	if (not self.SideTabs[_selectedSideTab]:IsShown()) then
@@ -3289,7 +3306,7 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 	-- UpdateBindings가 저장 전 본문으로 한 번 헛돌고(아래에서 부르고 저장이 또 부른다),
 	-- 키를 듣는 중이었다면 캡처가 안 끊긴 채 목록만 갈린다.
 	DebindMacroFrame:Close();
-	DebindOverviewPanel:Close();
+	DebindResultPanel:Close();
 
 	local destLayer = DebindPrivate.GetProfileLayer(destLayerID);
 
@@ -3486,7 +3503,7 @@ function DebindIconSelectorFrameMixin:Close(force)
 	return true;
 end
 
-DebindOverviewPanelMixin = {};
+DebindResultPanelMixin = {};
 
 --- 왼쪽 열. 보여주는 것은 하나다 - **지금 이 키보드가 어떻게 생겼나.**
 ---
@@ -3498,7 +3515,7 @@ DebindOverviewPanelMixin = {};
 --- 그 문장 밖이고, 오른쪽 통이 이미 전부를 들고 있어서 잃는 것도 없다.
 ---
 --- 한때 매크로 편집기가 두 번째 탭이었다. 되돌린 이유는 `DebindMacroFrame` 주석에 있다.
-function DebindOverviewPanelMixin:OnLoad()
+function DebindResultPanelMixin:OnLoad()
 	self.ContentArea.EmptyText:SetText(LLL["OVERVIEW_EMPTY"]);
 
 	self:InitializeOrderScrollBox();
@@ -3517,7 +3534,7 @@ function DebindOverviewPanelMixin:OnLoad()
 	self:Refresh();
 end
 
-function DebindOverviewPanelMixin:Refresh()
+function DebindResultPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
 	end
@@ -3536,7 +3553,7 @@ end
 --- 모드 중에 탭을 넘나드는 것은 허용해야 한다 - 트랜잭션은 탭에 걸쳐 살고, 되돌릴 목록은
 --- 액션으로 잡으므로 탭 A에서 셋, 탭 B에서 둘을 걸어도 취소는 다섯을 전부 되돌린다.
 --- 모드에서 나가는 길은 오버레이의 두 버튼과 ESC뿐이다.
-function DebindOverviewPanelMixin:Close()
+function DebindResultPanelMixin:Close()
 	return true;
 end
 
@@ -3839,7 +3856,7 @@ function DebindOrderLineMixin:OnClick(button)
 	DebindFrame:GoToAction(row.action, row.layerID);
 end
 
-function DebindOverviewPanelMixin:InitializeOrderScrollBox()
+function DebindResultPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
 	-- 행 사이는 띄우지 않는다(마지막 인자 0). 줄무늬가 경계를 그리므로 틈이 필요 없고,
 	-- 틈이 있으면 무늬가 끊겨서 오히려 줄이 안 세어진다. 경매장 목록도 붙여 놓는다.
@@ -3927,7 +3944,7 @@ end
 ---
 --- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 그 행을
 --- 짚는 것 하나뿐이다(`isCurrent`).
-function DebindOverviewPanelMixin:RefreshKeyboard()
+function DebindResultPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 	local elements = BuildKeyboardElements();
 
@@ -4001,7 +4018,7 @@ function DebindFrameMixin:SetBindingMode(active, button)
 	end
 	self.bindingMode = active or nil;
 	self:UpdateBindModeButton();
-	DebindOverviewPanel.BindOverlay:SetShown(active);
+	DebindResultPanel.BindOverlay:SetShown(active);
 
 	if (active) then
 		-- 되돌릴 목록을 연다. 액션을 키로 잡으므로 **탭에 걸쳐 산다** - 탭 A에서 셋, 탭 B에서
@@ -4076,19 +4093,19 @@ function DebindFrameMixin:SetBindingMode(active, button)
 
 	-- **왼쪽 열의 Refresh다.** 창의 Refresh(오른쪽 목록 재구성)와 이름이 같으므로 여기서
 	-- self:Refresh()라고 쓰면 엉뚱한 목록이 다시 그려진다.
-	DebindOverviewPanel:Refresh();
+	DebindResultPanel:Refresh();
 	self:Update();
 end
 
 --- 토글의 말은 **지금 무엇을 하는 버튼인가**다. 켜져 있으면 "끝내기" - 켜진 상태에서
 --- "키 지정"이라고 적혀 있으면 눌러야 시작되는 것처럼 읽힌다.
 function DebindFrameMixin:UpdateBindModeButton()
-	self.BindModeButton:SetText(self:IsCapturingKey() and LLL["BIND_MODE_STOP"] or LLL["BIND_MODE"]);
+	self.OverviewPanel.BindModeButton:SetText(self:IsCapturingKey() and LLL["BIND_MODE_STOP"] or LLL["BIND_MODE"]);
 end
 
 --- 켜고 끈다. 목록 위 토글이 부른다.
 function DebindFrameMixin:ToggleBindMode()
-	self:SetBindingMode(not self:IsCapturingKey(), self.BindModeButton);
+	self:SetBindingMode(not self:IsCapturingKey(), self.OverviewPanel.BindModeButton);
 end
 
 --- 커서 밑의 행. **들고 있지 않고 그때그때 찾는다.**
@@ -4106,7 +4123,7 @@ end
 --- 빼앗길 일도 없다.
 local function GetHoveredLine()
 	local hovered;
-	DebindFrame.ScrollBox:ForEachFrame(function(frame)
+	DebindFrame.LayerPanel.ScrollBox:ForEachFrame(function(frame)
 		if (not hovered and frame.GetElementData and frame:IsMouseMotionFocus()) then
 			hovered = frame;
 		end
@@ -4209,7 +4226,7 @@ function DebindFrameMixin:CancelBindMode()
 		DebindPrivate.UpdateBindings();
 		self:Refresh(true);
 		self:Update();
-		DebindOverviewPanel:Refresh();
+		DebindResultPanel:Refresh();
 	end
 end
 

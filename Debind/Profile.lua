@@ -587,7 +587,7 @@ end
 --- `or 0`은 nil 쪽 보험이다. API 문서는 이 함수를 non-nilable로 적어두었지만 `Events.lua`가
 --- 로그인 직후 nil을 보고 재시도하고 있으므로(ACTIVE_PLAYER_SPECIALIZATION_CHANGED) 실제로
 --- nil이 오는 창이 있다고 보는 편이 맞다. 여기는 **XML을 읽는 길**에서도 불리므로
---- (`DebindOverviewPanelMixin:OnLoad`) 그 창에 걸리면 창을 열기도 전에 터진다.
+--- (`DebindResultPanelMixin:OnLoad`) 그 창에 걸리면 창을 열기도 전에 터진다.
 function DebindPrivate.EnumerateProfileLayers(spec)
     if (spec == nil) then
         spec = C_SpecializationInfo.GetSpecialization() or 0;

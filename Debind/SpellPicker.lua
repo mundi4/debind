@@ -462,7 +462,7 @@ function DebindSpellPickerFrameMixin:OnShow()
 	-- 이 창을 연 버튼에 눌린 표시를 남긴다. 창이 메인 창을 덮지 않고 옆에 서므로 둘이 같이
 	-- 보이는데, 그때 [+]가 평범하게 서 있으면 이 창이 저 버튼에서 나온 것인지 알 수 없다.
 	-- 오버뷰 창이 자기 버튼에 하는 것과 같다.
-	DebindFrame.AddPortrait:SetSelectedState(true);
+	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(true);
 
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN);
 
@@ -495,7 +495,7 @@ function DebindSpellPickerFrameMixin:OnShow()
 end
 
 function DebindSpellPickerFrameMixin:OnHide()
-	DebindFrame.AddPortrait:SetSelectedState(false);
+	DebindFrame.OverviewPanel.AddPortrait:SetSelectedState(false);
 
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
 

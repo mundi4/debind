@@ -261,7 +261,7 @@ local function GetTabList()
     if (TAB_LIST == nil) then
         TAB_LIST = {};
         local seenLayers = {};
-        for tabID = 1, #DebindFrame.Tabs do
+        for tabID = 1, #DebindFrame.LayerPanel.Tabs do
             local tabLabel = DebindUI.GetTabLabel(tabID);
             if (tabLabel) then
                 for sideTabID = 1, #DebindFrame.SideTabs do
