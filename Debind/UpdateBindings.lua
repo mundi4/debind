@@ -1080,9 +1080,28 @@ function UpdateBindingsMap()
                                     end
                                 end
 
+                                -- 별칭 해석은 어느 갈래든 필요하다. `_unitsSeen`가
+                                -- `EnableUnitWatch`를 몰고, 그게 `UnitAliasMap[별칭]`을 채운다 -
+                                -- 클릭 경로가 대상을 푸는 자리가 정확히 거기다.
                                 _unitsSeen[k] = true;
-                                _unitStates[k] = bor(_unitStates[k] or 0, axes);
-                                _updateFlags[k .. "-exists"] = true;
+
+                                -- **측정은 상태 구동 키만 시킨다.**
+                                --
+                                -- `UnitStates`를 읽는 것은 상태 루프와, `SetUnit`이 리빌드를
+                                -- 부를지 가르는 `UnitStates[별칭] ~= nil` 뿐이다. 배선이 고정된
+                                -- 키는 앞엣것을 안 돌고, 뒤엣것도 시킬 일이 없다 - 그 키 때문에
+                                -- 다시 걸 것이 없으니 호버가 움직일 때마다 리빌드를 부르던 것이
+                                -- 같이 없어진다. 클릭 경로는 잃는 것이 없다: 유닛만은 캐시를
+                                -- 안 믿고 클릭 순간에 다시 잰다.
+                                --
+                                -- **한 벌짜리 누적이라 단위가 중요하다.** `_unitStates`는 리빌드
+                                -- 하나에 하나이고 `bor`로 쌓이므로, 같은 유닛을 상태 구동 키가
+                                -- 하나라도 물면 그 유닛은 그대로 측정된다. 여기서 빼는 것은
+                                -- **이 레코드의 몫**이지 그 유닛이 아니다.
+                                if (not alwaysOurs) then
+                                    _unitStates[k] = bor(_unitStates[k] or 0, axes);
+                                    _updateFlags[k .. "-exists"] = true;
+                                end
                             end
                         end
 
