@@ -838,6 +838,43 @@ RegisterTest("Unused binding", {
     end,
 })
 
+--- 가져온 액션은 배지를 떼기 전까지 아무 키에도 안 걸린다.
+---
+--- **이 애드온이 임포트에 대해 하는 유일한 약속이고, 여기서만 확인된다.** 헤드리스는
+--- `Debind.lua`를 안 싣고(`BuildKeyMap`이 거기 있다) 정적 검사는 게임을 못 본다. 어기면
+--- 문자열을 붙여넣는 순간 남의 키가 실제로 걸리는데, 그게 격리가 막으려는 바로 그 일이다.
+---
+--- **양쪽을 다 묻는다.** "안 걸렸다"만 보면 애초에 안 걸릴 액션이었어도 통과한다 - 배지만
+--- 뗀 같은 액션이 걸리는 것까지 봐야 배지가 원인이라고 말할 수 있다.
+RegisterTest("Import quarantine", {
+    description = "가져오기 배지가 붙어 있는 동안 키에 안 걸리고, 떼면 걸리는지",
+    run = function()
+        local NAME = "Import quarantine"
+        local KEY = "NUMPAD7"
+
+        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, imported = 1 })
+        ApplyBindings()
+
+        if GetNthBinding(KEY, 1) then
+            return Fail(NAME, "배지가 붙었는데 KeyMap에 들어갔다")
+        end
+        -- 게임에게도 묻는다. KeyMap에 없어도 오버라이드가 남아 있으면 키는 여전히 먹는다.
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound ~= "" then
+            return Fail(NAME, "배지가 붙었는데 키가 걸려 있다: " .. bound)
+        end
+
+        -- 배지를 뗀다. 승인이 하는 일이 이것뿐이다(`ApproveImportedActions`).
+        action.imported = nil
+        ApplyBindings()
+
+        if not GetNthBinding(KEY, 1) then
+            return Fail(NAME, "배지를 뗐는데도 안 걸린다 - 앞 절반이 무의미해진다")
+        end
+        return Pass(NAME)
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Conditions
 -----------------------------------------------------------
