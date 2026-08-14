@@ -5053,11 +5053,11 @@ end
 --- 모드의 나머지는 그대로 빌려 쓴다. 키보드/게임패드를 켜는 자리, 편집칸의 포커스를 거두는
 --- 자리, 클릭을 up으로 맞추는 자리가 전부 `SetBindingMode`에 있고, 그 어느 것도 겨누는 것이
 --- 행이냐 벌이냐로 달라지지 않는다.
-function DebindFrameMixin:BeginKeyGroupCapture(actions, label, fromKey)
+function DebindFrameMixin:BeginKeyGroupCapture(actions, label)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
-	_keyGroupCapture = { actions = actions, label = label, fromKey = fromKey };
+	_keyGroupCapture = { actions = actions, label = label };
 	self:SetBindingMode(true, self.OverviewPanel.BindModeButton);
 end
 
@@ -5066,21 +5066,43 @@ end
 --- `_importedOnly`를 끄는 자리도 여기다. 벌에 키를 주는 것은 곧 승인이라(`SetKeyForActions`)
 --- 마지막 배지가 여기서 떨어질 수 있고, 그때 좁힘이 남아 있으면 아무것도 없는 두 목록으로
 --- 끝난다 - `ApproveImportedActions`가 같은 이유로 같은 줄을 들고 있다.
-local function RebuildAfterKeyGroupChange()
+---
+--- **그리고 벌이 어디로 갔는지 보여준다.** 키가 바뀌면 왼쪽 열에서 자리가 통째로 옮겨가는데
+--- (그 열은 키로 묶어 정렬한다), 새 자리가 화면 밖이면 조작이 아무 일도 안 한 것처럼 보인다.
+--- `SetActionKey`가 액션 하나에 하는 일과 같고, 여기서는 벌의 **첫 줄**이 그 대상이다 -
+--- 발동 순서로 첫 줄이라 머리글 바로 아래이고, 거기가 보이면 벌이 보인다.
+---
+--- 고르는 것과 스크롤이 둘 다 필요하다. 선택은 왼쪽 열이 자기 자리로 굴러가게 하고
+--- (`RefreshKeyboard`가 `isCurrent`를 찾아간다) 강조로 어느 줄인지 짚어주며, 오른쪽 목록은
+--- 그 열을 안 보므로 따로 굴려야 한다.
+local function RebuildAfterKeyGroupChange(actions, key)
 	if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
 		_importedOnly = nil;
 	end
 
 	DebindPrivate.UpdateBindings();
 	DebindFrame:Refresh(true);
+
+	local moved = {};
+	for _, action in ipairs(actions) do
+		moved[action] = true;
+	end
+	for _, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
+		if (moved[row.action]) then
+			DebindFrame:SetSelectedAction(row.action);
+			DebindFrame:ScrollActionIntoView(row.action);
+			break;
+		end
+	end
+
 	DebindFrame:Update();
 end
 
---- 차 있는 키에 답이 정해졌을 때 실제로 옮기는 자리. `occupantKey`의 세 값이 그 세 답이다
+--- 차 있는 키에 답이 정해졌을 때 실제로 옮기는 자리. `unbindOccupants`의 두 값이 그 두 답이다
 --- (`MoveKeyGroupToKey`).
-local function ApplyKeyGroupMove(actions, key, occupants, occupantKey)
-	DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, occupantKey);
-	RebuildAfterKeyGroupChange();
+local function ApplyKeyGroupMove(actions, key, occupants, unbindOccupants)
+	DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants);
+	RebuildAfterKeyGroupChange(actions, key);
 end
 
 --- 차 있는 키에 벌을 주려 할 때 묻는 자리.
@@ -5089,16 +5111,12 @@ end
 --- 이 캐릭터의 열한 레이어를 훑고, [가져온 것만]이 켜져 있으면 이 키를 들고 있는 내 벌은
 --- 통째로 숨어 있다), 그 대가를 갚는 것이 누르기 전에 화면에 서 있는 이 수다.
 --- `ApproveAllImported`의 [N개 모두 받기]가 같은 처지에서 같은 답을 냈다.
----
---- **교체는 자기 키가 있는 벌만 할 수 있다.** 키 없이 도착한 벌에는 점유자를 보낼 데가 없어서
---- 교체와 덮어쓰기가 같은 일이 된다. 그래서 임포트의 흔한 길에서는 답이 둘뿐이다.
-local function ShowKeyGroupConflictDialog(actions, key, occupants, label, fromKey)
+local function ShowKeyGroupConflictDialog(actions, key, occupants, label)
 	StaticPopup_Show("DEBIND_KEY_GROUP_CONFLICT", nil, nil, {
 		actions = actions,
 		key = key,
 		occupants = occupants,
 		label = label,
-		fromKey = fromKey,
 	});
 end
 
@@ -5114,9 +5132,8 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 	end
 	self:SetBindingMode(false);
 
-	-- 겨눈 벌 자신은 점유자가 아니다. 빼지 않으면 "F에 이미 3개"라고 물으면서 그 셋이 지금
-	-- 옮기는 바로 그 액션들인 경우가 생기고(같은 키를 다시 준 경우), 교체가 자기 자신을
-	-- 옛 키로 되돌려 보낸다.
+	-- 겨눈 벌 자신은 점유자가 아니다. 빼지 않으면 같은 키를 다시 준 사람에게 "F에 이미 3개"라고
+	-- 묻는데 그 셋이 지금 옮기는 바로 그 액션들이고, 덮어쓰기를 고르면 자기가 자기 키를 뺏는다.
 	local moving = {};
 	for _, action in ipairs(capture.actions) do
 		moving[action] = true;
@@ -5131,11 +5148,11 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 
 	-- **빈 키면 묻지 않는다.** 흔한 길이 여기다 - 받은 벌에 안 쓰던 키를 주는 것.
 	if (#occupants == 0) then
-		ApplyKeyGroupMove(capture.actions, key, nil, nil);
+		ApplyKeyGroupMove(capture.actions, key, nil, false);
 		return;
 	end
 
-	ShowKeyGroupConflictDialog(capture.actions, key, occupants, capture.label, capture.fromKey);
+	ShowKeyGroupConflictDialog(capture.actions, key, occupants, capture.label);
 end
 
 --- 왼쪽 열의 우클릭 메뉴에서 들어오는 입구. 벌을 모으고 겨눔을 세운다.
@@ -5144,7 +5161,7 @@ function DebindUI.BeginKeyGroupCapture(action)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
-	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, importGroup), key);
+	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, importGroup));
 end
 
 --- 이 액션으로 벌째 키를 줄 수 있나. 메뉴가 항목을 세울지 정할 때 묻는다.
@@ -5153,39 +5170,28 @@ function DebindUI.CanBeginKeyGroupCapture(action)
 	return actions ~= nil and #actions > 0;
 end
 
---- 차 있는 키의 세 답. 네 번째 버튼은 그만두기이고, 아무것도 아직 안 바뀌었으므로 그냥 닫는다.
+--- 차 있는 키의 두 답과 그만두기.
 ---
---- **`OnAccept`/`OnCancel`이 아니라 `OnButton1..4`다.** 2번 자리는 취소의 자리라 `OnCancel`을
+--- **`OnAccept`/`OnCancel`이 아니라 `OnButton1..3`이다.** 2번 자리는 취소의 자리라 `OnCancel`을
 --- 달면 Esc가 그것을 부르는데, 여기서 2번은 취소가 아니다(`StaticPopup_EscapePressed`).
---- 넷 다 번호로 달아두면 Esc는 `hideOnEscape`로 그냥 닫히고 아무 답도 고르지 않은 것이 된다.
+--- 셋 다 번호로 달아두면 Esc는 `hideOnEscape`로 그냥 닫히고 아무 답도 고르지 않은 것이 된다.
+--- 3번(그만두기)에 함수를 안 다는 이유도 같다 - 아직 아무것도 안 바뀌었으므로 닫는 것이 전부다.
 StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	-- 문장만 여는 시점에 짓는다. 인자가 셋이라 `StaticPopup_Show`의 `text_arg1/2`로는 모자란다 -
 	-- 클라이언트의 `GENERIC_CONFIRMATION`이 같은 이유로 같은 모양이다.
 	text = "",
 	button1 = LLL["KEY_GROUP_CONFLICT_MERGE"],
-	button2 = LLL["KEY_GROUP_CONFLICT_SWAP"],
-	button3 = LLL["KEY_GROUP_CONFLICT_UNBIND"],
-	button4 = CANCEL,
-	--- **자기 키가 없는 벌에는 교체가 없다.** 점유자를 보낼 데가 없어서 덮어쓰기와 같은 일이
-	--- 되고, 같은 일을 하는 버튼 둘은 답이 셋인 것처럼 보이게 한다. 임포트의 흔한 길이 이쪽이라
-	--- 거기서는 버튼이 셋이다.
-	---
-	--- `OnShow`에서 숨기면 안 된다 - 버튼 자리잡기가 그 전에 끝나서 가운데가 빈 채로 선다.
-	DisplayButton2 = function(_, data)
-		return data ~= nil and data.fromKey ~= nil;
-	end,
+	button2 = LLL["KEY_GROUP_CONFLICT_UNBIND"],
+	button3 = CANCEL,
 	OnShow = function(dialog, data)
 		dialog:SetFormattedText(LLL["KEY_GROUP_CONFLICT"],
 			data.label, GetBindingText(data.key), #data.occupants);
 	end,
 	OnButton1 = function(_, data)
-		ApplyKeyGroupMove(data.actions, data.key, data.occupants, nil);
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
 	end,
 	OnButton2 = function(_, data)
-		ApplyKeyGroupMove(data.actions, data.key, data.occupants, data.fromKey);
-	end,
-	OnButton3 = function(_, data)
-		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, true);
 	end,
 	hideOnEscape = 1,
 	timeout = 0,

@@ -195,8 +195,7 @@ return function(DebindPrivate)
     -- 차 있는 키에 주는 세 가지 답
     ---------------------------------------------------------------------------
 
-    --- 도착 그룹 하나(일반 레이어)와 F를 들고 있는 내 액션 둘. 그룹에는 키가 없으므로
-    --- **교체는 이 판에서 뜻이 없다** - 점유자가 갈 곳이 없다.
+    --- 도착 그룹 하나(일반 레이어)와 F를 들고 있는 내 액션 둘.
     local function ArrivedGroupAndOccupiedF()
         ResetProfile({
             general = {
@@ -214,7 +213,7 @@ return function(DebindPrivate)
         local group, occupants = ArrivedGroupAndOccupiedF();
         check(#occupants == 2, "점유자 " .. #occupants);
 
-        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, nil);
+        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, false);
 
         local rows = DebindPrivate.CollectActionsForKey("F");
         check(Values(rows) == "50 60 10 20", "차례: " .. Values(rows));
@@ -223,7 +222,7 @@ return function(DebindPrivate)
     test("덮어쓰기 - 점유자는 키를 잃고 지워지지는 않는다", function()
         local group, occupants = ArrivedGroupAndOccupiedF();
 
-        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, false);
+        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, true);
 
         local rows = DebindPrivate.CollectActionsForKey("F");
         check(Values(rows) == "10 20", "차례: " .. Values(rows));
@@ -243,30 +242,9 @@ return function(DebindPrivate)
 
         local group = DebindPrivate.CollectImportGroupActions(2);
         local occupants = DebindPrivate.CollectKeyGroupActions("F");
-        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, false);
+        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, true);
 
         check(occupants[1].imported == 7, "점유자의 배지가 떨어졌다");
-    end);
-
-    -- 교체는 **자기 키가 있는 그룹**만 할 수 있다. 여기서는 G의 벌이 F로 가고 F의 벌이 G로 온다.
-    test("교체 - 두 벌이 키를 맞바꾼다", function()
-        ResetProfile({
-            general = {
-                Bound(50, "F", 1),
-                Bound(60, "F", 2),
-                Bound(10, "G", 3),
-                Bound(20, "G", 4),
-            },
-        });
-
-        local moving = DebindPrivate.CollectKeyGroupActions("G");
-        local occupants = DebindPrivate.CollectKeyGroupActions("F");
-        DebindPrivate.MoveKeyGroupToKey(moving, "F", occupants, "G");
-
-        local onF = DebindPrivate.CollectActionsForKey("F");
-        local onG = DebindPrivate.CollectActionsForKey("G");
-        check(Values(onF) == "10 20", "F: " .. Values(onF));
-        check(Values(onG) == "50 60", "G: " .. Values(onG));
     end);
 
     ---------------------------------------------------------------------------

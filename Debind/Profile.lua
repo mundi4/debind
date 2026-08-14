@@ -1111,32 +1111,24 @@ end
 
 --- Moves one key group onto `key`, settling whatever already holds it on the way.
 ---
---- **The three answers to an occupied key are one operation with one parameter.** `occupantKey`
---- says where the set that is already there goes, and its three values are the three answers:
+--- **Two answers to an occupied key, and `unbindOccupants` is which one.** They stay where they are
+--- -- both sets on one key with conditions telling them apart, which is this addon's ordinary state
+--- rather than a compromise -- or they lose their key and this set takes it.
 ---
----   nil     it stays where it is -- **merge**, both sets on one key with conditions telling them
----           apart, which is this addon's ordinary state rather than a compromise
----   a key   it takes that one -- **swap**, and the caller passes the key the moving set is
----           leaving. Taken as an argument rather than read off `actions`, because a set with no
----           key of its own has nothing to swap and the caller is the one that knows
----   false    it loses its key -- **overwrite**
----
---- nil and false being different answers is deliberate and not new here (`hover`, `hasKeys`).
+--- A third answer, the two sets **swapping** keys, was dropped (`devdocs/building-export-import.md`):
+--- a set arriving with no key of its own has nowhere to send the occupants, so on the path this was
+--- built for it is the same operation as unbinding them.
 ---
 --- The occupants are settled first because it reads in the order it happens -- the tenant leaves,
---- then the set moves in. **Nothing depends on it**: no answer leaves the two sets sharing a key
---- (merge does not touch the occupants at all), and `seq` is only ever compared inside one key, so
---- neither set can be numbered against the other. `occupants` having the moving set subtracted out
---- of it already is the caller's, and it is what keeps that true.
+--- then the set moves in. **Nothing depends on it**: neither answer leaves the two sets sharing a
+--- key while they are being numbered, and `seq` is only ever compared inside one key. `occupants`
+--- having the moving set subtracted out of it already is the caller's, and it is what keeps that
+--- true.
 ---
 --- No rebuild, for the reason `SetKeyForActions` gives.
-function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, occupantKey)
-    if (occupants and #occupants > 0 and occupantKey ~= nil) then
-        if (occupantKey == false) then
-            DebindPrivate.ClearKeyForActions(occupants);
-        else
-            DebindPrivate.SetKeyForActions(occupants, occupantKey);
-        end
+function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants)
+    if (unbindOccupants and occupants) then
+        DebindPrivate.ClearKeyForActions(occupants);
     end
     return DebindPrivate.SetKeyForActions(actions, key);
 end

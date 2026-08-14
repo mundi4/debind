@@ -223,16 +223,14 @@ L["KEY_GROUP_SET_KEY_DESC"] = "Every action under this heading gets the key you 
 L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$d|r actions on it, counting every specialization of this character.|n|nWhat should happen to them when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
 --- **Not a compromise, and not a warning.** Several actions on one key, told apart by conditions, is
 --- what this addon is for - so the answer that leaves both sets where they are needs no caveat.
-L["KEY_GROUP_CONFLICT_MERGE"] = "Keep both"
---- Only offered when the set has a key of its own to hand over. The client says it this way
---- (`BINDING_NAME_SWAPUNITFRAMES`).
-L["KEY_GROUP_CONFLICT_SWAP"] = "Swap keys"
---- **"them", because the button has to say which side loses the key.** The client's own `UNBIND` is
---- a button that unbinds the key you are looking at; here there are two sets and the whole question
---- is which one it happens to, so borrowing it would answer a different question than the one asked.
---- Nothing is deleted - they end up in the unbound pile at the bottom of the column, and can be
---- given a key again.
-L["KEY_GROUP_CONFLICT_UNBIND"] = "Unbind them"
+L["KEY_GROUP_CONFLICT_MERGE"] = "Merge"
+--- **The word overstates it and the prompt is what corrects that**: nothing is deleted, the ones
+--- already there only lose the key and go to the unbound pile at the bottom of the column, where a
+--- key can be given back. Two shorter-lived wordings were tried and dropped - "Keep both" beside it
+--- for the merge, which read as a pair of switches rather than as one thing happening; and "Unbind
+--- them", which is accurate but answers "what happens to the others" while the button beside it
+--- answers "what happens to this set", so the two buttons were not asking the same question.
+L["KEY_GROUP_CONFLICT_UNBIND"] = "Overwrite"
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
