@@ -231,6 +231,10 @@ function DebindShareBringFrameMixin:OnLoad()
     self.CancelButton:SetScript("OnClick", function() self:Hide(); end);
 
     self.StripKeysButton.Label:SetText(LLL["EXPORT_STRIP_KEYS"]);
+    -- The label is outside the frame, so pressing the words only ticks the box if the hit rect
+    -- reaches over them. Locales disagree about how far, so the string is asked.
+    self.StripKeysButton:SetHitRectInsets(0,
+        -(self.StripKeysButton.Label:GetStringWidth() + 4), 0, 0);
     self.StripKeysButton:SetScript("OnEnter", function(button)
         GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
         GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
@@ -258,8 +262,17 @@ function DebindShareBringFrameMixin:OnLoad()
     self:SetScript("OnDragStart", self.StartMoving);
     self:SetScript("OnDragStop", self.StopMovingOrSizing);
 
-    -- ESC closes it, which is the same answer as [Cancel]: nothing happens.
-    tinsert(UISpecialFrames, self:GetName());
+    -- ESC closes this and nothing else. `UISpecialFrames` cannot do that -- `CloseSpecialWindows`
+    -- hides **every** shown frame in the list, so one press would take the window behind this with
+    -- it. Every other key keeps going, or the keyboard stops answering while this is up.
+    self:EnableKeyboard(true);
+    self:SetScript("OnKeyDown", function(_, key)
+        local ours = key == "ESCAPE";
+        self:SetPropagateKeyboardInput(not ours);
+        if (ours) then
+            self:Hide();
+        end
+    end);
 end
 
 --- Stands the dialog up for one press of [Bring it in].
@@ -275,6 +288,11 @@ function DebindShareBringFrameMixin:Open(batch, lines)
     local className = batch.class
         and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[batch.class] or batch.class);
 
+    local function Place(region, x, y)
+        region:ClearAllPoints();
+        region:SetPoint("TOPLEFT", self, "TOPLEFT", x, y);
+    end
+
     local y = -TOP_INSET;
     for i, button in ipairs(self.lineButtons) do
         local entry = lines[i];
@@ -289,7 +307,7 @@ function DebindShareBringFrameMixin:Open(batch, lines)
             -- boxes are there for the one who wants less, and asking the other one to tick four
             -- things first would make the dialog a toll.
             button:SetChecked(true);
-            button:SetPoint("TOPLEFT", self, "TOPLEFT", SIDE_INSET, y);
+            Place(button, SIDE_INSET, y);
             y = y - ROW_PITCH;
         end
     end
@@ -303,12 +321,12 @@ function DebindShareBringFrameMixin:Open(batch, lines)
     self.Divider:SetShown(hasKeys);
     if (hasKeys) then
         y = y - DIVIDER_SPACE;
-        self.Divider:SetPoint("TOPLEFT", self, "TOPLEFT", SIDE_INSET, y);
+        Place(self.Divider, SIDE_INSET, y);
         self.Divider:SetPoint("TOPRIGHT", self, "TOPRIGHT", -SIDE_INSET, y);
         y = y - DIVIDER_SPACE;
 
         self.StripKeysButton:SetChecked(false);
-        self.StripKeysButton:SetPoint("TOPLEFT", self, "TOPLEFT", SIDE_INSET, y);
+        Place(self.StripKeysButton, SIDE_INSET, y);
         y = y - ROW_PITCH;
     end
 

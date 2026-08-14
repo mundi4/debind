@@ -1046,6 +1046,9 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
   테이블 넷(`layers`/`keys`/`excluded`/`states`)도 같이 지웠다. **옛 배치에 남은 값은 안 지운다** —
   읽는 데가 없으니 store 버전을 올려 마이그레이션할 값이 아니다.
 - `CommitBatch(batch, options)`로 바뀌었다. options는 대화상자에서 온다.
+- **ESC는 `UISpecialFrames`에 안 넣는다.** `CloseSpecialWindows`가 목록에 있는 **떠 있는 프레임을
+  전부** 닫아서, 한 번 누르면 뒤의 창까지 같이 닫힌다. `OnKeyDown`에서 ESCAPE만 잡고 나머지는
+  `SetPropagateKeyboardInput(true)`로 흘려보낸다. (붙여넣기 창은 아직 목록 쪽이다.)
 
 **딸려서 고친 것 둘 (안 고쳤으면 조용히 틀렸다):**
 
