@@ -239,8 +239,16 @@ function DebindShare.AddBatch(text, source)
     -- decoding every stored string to answer that would undo storing strings in the first place.
     -- They are known at this moment for free, and a batch's contents never change afterwards.
     local groupCount, actionCount = #(payload.groups or {}), 0;
+    -- **Whether there is a key in here at all**, counted at the same moment for the same reason.
+    -- The drawer offers to leave the keys out on the way in, and that control has nothing to switch
+    -- off for a string the sender already sent without them. Answering it later would mean decoding
+    -- the string to draw a row.
+    local hasKeys = false;
     for _, group in ipairs(payload.groups or {}) do
         actionCount = actionCount + #(group.actions or {});
+        if (group.key ~= nil) then
+            hasKeys = true;
+        end
     end
 
     local vars = Vars();
@@ -257,6 +265,11 @@ function DebindShare.AddBatch(text, source)
         class = payload.class,
         groupCount = groupCount,
         actionCount = actionCount,
+        -- **Stored as `false`, not folded to nil.** The drawer tells three states apart: it has
+        -- keys, it has none, and it was stored before this field existed. Only `false` means the
+        -- second, so `or nil` here would make a keyless batch look like an old one and put a
+        -- control on it with nothing to switch off.
+        hasKeys = hasKeys,
 
         -- The work. Empty means "nothing decided yet", which is not the same as "decided to leave
         -- it alone" only for keys -- see `Import.lua` when it exists.

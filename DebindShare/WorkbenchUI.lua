@@ -72,6 +72,34 @@ function DebindShareBatchRowMixin:Init(elementData)
     end);
     self.CommitButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
 
+    -- Nothing to switch off for a string that arrived without keys, and a box there would suggest
+    -- otherwise. `hasKeys` was counted at paste time so drawing a row never decodes the string.
+    --
+    -- **Missing means unknown, and unknown shows it.** A batch stored before that field existed has
+    -- no answer, and hiding the control for those made the option look unbuilt on every row already
+    -- in the drawer. Offering it on a keyless batch costs nothing - `stripKeys` has no key to drop -
+    -- while hiding it on a batch that has keys costs the feature.
+    local strip = self.StripKeysButton;
+    local hasKeys = batch.hasKeys ~= false;
+    strip:SetShown(hasKeys);
+    if (hasKeys) then
+        strip.Label:SetText(LLL["EXPORT_STRIP_KEYS"]);
+        -- The label is outside the frame, so pressing the words only ticks the box if the hit rect
+        -- reaches over them. Locales disagree about how far, so the string is asked.
+        strip:SetHitRectInsets(-(strip.Label:GetStringWidth() + 4), 0, 0, 0);
+        strip:SetChecked(batch.stripKeys == true);
+        strip:SetScript("OnClick", function(button)
+            batch.stripKeys = button:GetChecked() or nil;
+        end);
+        strip:SetScript("OnEnter", function(button)
+            GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+            GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
+            GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_STRIP_KEYS_DESC"]);
+            GameTooltip:Show();
+        end);
+        strip:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+    end
+
     self.PinButton:SetChecked(batch.pinned == true);
     self.PinButton:SetScript("OnClick", function(button)
         batch.pinned = button:GetChecked() or nil;

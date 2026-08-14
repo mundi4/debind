@@ -678,6 +678,10 @@ L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand
 L["EXPORT_SELECT_ALL"] = "Select all"
 L["EXPORT_SELECT_ALL_COUNT"] = "Select all (%d)"
 L["EXPORT_STRIP_KEYS"] = "Leave the keys out"
+-- The same option at the receiving end, and **the label is the export's own key**: one thing, one
+-- name, and the rule really is the same at both ends - leave the keys out. The description cannot be
+-- shared, because that one starts by saying what it sends.
+L["IMPORT_STRIP_KEYS_DESC"] = "Brings the actions in without the keys they were on, so you pick your own.|n|nWhat has to stay together still does. A key split across several conditional actions arrives as one group, and you give the group a key rather than the loose pieces."
 L["EXPORT_STRIP_KEYS_DESC"] = "Sends the actions without the keys they are on, so whoever receives them picks their own.|n|nWhat has to stay together still does. A key split across several conditional actions arrives as one group, and the far side binds the group rather than the loose pieces."
 L["EXPORT_GENERATE"] = "Create string"
 L["EXPORT_EMPTY"] = "There is nothing here to export yet."

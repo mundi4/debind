@@ -135,8 +135,17 @@ end
 --- Groups whose layer this version cannot place are left out, and the count comes back so the
 --- caller can say so. That happens for a scope a newer schema invented; every scope v1 knows has
 --- a destination (`DefaultDestinationLayerID`).
-function DebindShare.PlanImport(payload, batchID)
+---
+--- `options.stripKeys` drops every key on the way in, the mirror of the export's own option. What
+--- quarantine promises is that nothing changes until the reader accepts; this promises that their
+--- keys are not touched even then, which is a different thing and an ordinary thing to want.
+---
+--- **The grouping survives it.** Dropping the key while keeping the set is the entire point: a key
+--- split across conditional actions still has to arrive as one thing to give a key to. Only `key`
+--- goes - `importGroup` and `importOrder` are untouched.
+function DebindShare.PlanImport(payload, batchID, options)
     local placements, skipped = {}, 0;
+    local stripKeys = options and options.stripKeys;
 
     -- **The payload's `id` is not the number that gets stored.** It is unique inside its own
     -- string and nowhere else, so two strings waiting at once would both carry a group 1. Numbers
@@ -165,7 +174,7 @@ function DebindShare.PlanImport(payload, batchID)
                 local action = BuildAction(source);
                 -- **The key comes from the group**, which is where the format keeps it: one group
                 -- is one key, and that is what has to stay together.
-                action.key = group.key;
+                action.key = (not stripKeys) and group.key or nil;
                 action.imported = batchID;
                 action.importGroup = groupID;
                 placements[#placements + 1] = { layerID = layerID, action = action };
@@ -193,7 +202,8 @@ function DebindShare.CommitBatch(batch)
         return nil, reason;
     end
 
-    local placements, skipped = DebindShare.PlanImport(payload, batch.id);
+    local placements, skipped = DebindShare.PlanImport(payload, batch.id,
+        batch.stripKeys and { stripKeys = true } or nil);
     if (#placements == 0) then
         return nil, "NOTHING_TO_PLACE";
     end

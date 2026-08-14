@@ -183,6 +183,31 @@ return function(DebindPrivate, DebindShare)
         check(action.order == nil, "order가 액션에 남았다: " .. tostring(action.order));
     end);
 
+    -- **The receiving end of "leave the keys out".** Quarantine says nothing changes until the
+    -- reader accepts; this says their keys are not touched even then. Wanting somebody's actions
+    -- without their keybinds is ordinary, and until now it could only be had by asking the sender
+    -- to tick the box.
+    --
+    -- **The grouping has to survive it.** Dropping the key while keeping the set is the whole point
+    -- - a key split across conditional actions still has to arrive as one thing to give a key to.
+    test("키를 빼고 가져오면 키만 없고 그룹은 남는다", function()
+        local placements = DebindShare.PlanImport(Payload({
+            { id = 1, key = "F", layer = { scope = "general" },
+              actions = { { type = Constants.SPELL, value = 1, order = 1 },
+                          { type = Constants.SPELL, value = 2, order = 2 } } },
+        }), 1, { stripKeys = true });
+
+        check(#placements == 2, "액션 수 " .. #placements);
+        local group = placements[1].action.importGroup;
+        check(group ~= nil, "그룹이 사라졌다 - 키를 뺐다고 한 벌이 흩어지면 안 된다");
+        for i, placement in ipairs(placements) do
+            check(placement.action.key == nil,
+                "키가 남았다: " .. tostring(placement.action.key));
+            check(placement.action.importGroup == group, "한 그룹인데 번호가 갈렸다");
+            check(placement.action.importOrder == i, "순서가 사라졌다");
+        end
+    end);
+
     -- **A sender exports whole layers, so what they built and never bound goes out too.** Given a
     -- group number, one of those arrives on the far side headed as a set whose key was withheld,
     -- which says it was part of the design and asks what key it deserves. It was not, and the
