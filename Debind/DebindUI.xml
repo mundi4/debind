@@ -1205,6 +1205,92 @@
 							</OnHide>
 						</Scripts>
 					</Button>
+
+					<!--
+						**The strip for what came in. It only stands while something has come in.**
+
+						The rest of the time the whole thing is hidden (`UpdateImportStrip`). Standing
+						always, it would nail two controls to the window of somebody who never imports
+						anything - and both of them only mean something while a badge is on.
+
+						**It stands beside the bind mode toggle.** The checkbox narrows both columns (the
+						left one by whole key groups, the right one action by action), so it cannot sit
+						above either of them: over one column it reads as narrowing that column only. This
+						row is where the things that act on the whole window stand, so it goes here.
+
+						Wrapping the two in a frame is what makes them **appear and disappear together**.
+						One `SetShown` leaves no way for the two widgets' visibility to drift apart.
+					-->
+					<Frame parentKey="ImportStrip" useParentLevel="true" hidden="true">
+						<Size x="1" y="26"/>
+						<Anchors>
+							<Anchor point="LEFT" relativeKey="$parent.BindModeButton" relativePoint="RIGHT" x="14" y="0"/>
+						</Anchors>
+						<Frames>
+							<!--
+								The art and the size are the [Mouseover Cast] checkbox of the click binding
+								window (Blizzard_ClickBindingUI.xml). That window is what this one is modelled
+								on, and the spot that checkbox stands in is the one the bind mode toggle has
+								taken here.
+
+								**The hit rect that makes the words clickable is not written here.** That
+								window nails -100 in, which works because it has nothing to its right; here
+								[Accept all] stands immediately after the label, and in a locale with a short
+								label that button's left edge falls inside the checkbox's hit rect and stops
+								taking presses. `UpdateImportStrip` sizes it against the label instead.
+							-->
+							<CheckButton parentKey="Checkbox">
+								<Size x="26" y="26"/>
+								<Anchors>
+									<Anchor point="LEFT"/>
+								</Anchors>
+								<NormalTexture file="Interface\Buttons\UI-CheckBox-Up"/>
+								<PushedTexture file="Interface\Buttons\UI-CheckBox-Down"/>
+								<HighlightTexture file="Interface\Buttons\UI-CheckBox-Highlight" alphaMode="ADD"/>
+								<CheckedTexture file="Interface\Buttons\UI-CheckBox-Check"/>
+								<DisabledCheckedTexture file="Interface\Buttons\UI-CheckBox-Check-Disabled"/>
+								<Layers>
+									<Layer level="BACKGROUND">
+										<FontString parentKey="Label" inherits="GameFontHighlightMedium">
+											<Anchors>
+												<Anchor point="LEFT" relativePoint="RIGHT" x="0" y="0"/>
+											</Anchors>
+										</FontString>
+									</Layer>
+								</Layers>
+								<Scripts>
+									<OnClick>
+										DebindFrame:SetImportedOnly(self:GetChecked());
+									</OnClick>
+								</Scripts>
+							</CheckButton>
+
+							<!--
+								**The end of the ordinary case.** The second of the design note's two presses -
+								[Bring it in], then this, and the import is over. The label carries the count
+								because how many are about to start working has to be on screen before it is
+								pressed; that number is what stands in for a confirmation box.
+
+								**No width is nailed in**, because label lengths differ by locale.
+								`UpdateImportStrip` fits it to the text.
+
+								It hangs off the right of the checkbox's label. Anchored anywhere else it would
+								sit on top of the words in a locale where they run long - the label is the only
+								thing that knows how wide it is.
+							-->
+							<Button parentKey="ApproveAll" inherits="UIPanelButtonTemplate">
+								<Size x="1" y="22"/>
+								<Anchors>
+									<Anchor point="LEFT" relativeKey="$parent.Checkbox.Label" relativePoint="RIGHT" x="12" y="0"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										DebindFrame:ApproveAllImported();
+									</OnClick>
+								</Scripts>
+							</Button>
+						</Frames>
+					</Frame>
 				</Frames>
 			</Frame>
 

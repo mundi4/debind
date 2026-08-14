@@ -88,6 +88,25 @@ local _selectionCount        = 0;
 --- 오른쪽에서 찾은 행을 누르면 저쪽이 그 행을 짚고 그리로 스크롤한다.
 local _searchText;
 
+--- Is the window showing only what came in from a string, badge still on.
+---
+--- **This one does reach the left column**, unlike the search above, and the reason the objection
+--- there does not apply is that it drops **whole key groups**. What makes filtering that column
+--- dangerous is the reason text on each row, which names the row below it; pulling rows out of a
+--- group leaves sentences pointing at rows that are no longer drawn. A group is either kept entire
+--- or not drawn, so every sentence that survives still has its subject.
+---
+--- It has to reach that column, because the question this filter exists to answer is "what does
+--- what I just took in collide with", and the collision is only visible where a key's actions stand
+--- together (`BuildKeyboardElements`).
+---
+--- **Not saved, and the ordinary path clears it.** Accepting the last badge turns it back off
+--- (`ApproveImportedActions`), because otherwise the import ends on two lists narrowed to a set
+--- with nothing left in it. When the last badge goes some other way - deleted, say - the switch
+--- stays on and `UpdateImportStrip` keeps its strip on screen, so there is always something to
+--- press to get the lists back.
+local _importedOnly;
+
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
 
 local _macrotextIconCache    = {};
@@ -767,28 +786,37 @@ local function SetActionIcon(texture, icon)
 	end
 end
 
---- 이 액션이 지금 검색어에 걸리나. 검색어가 없으면 전부 참이다.
+--- Is this action one of the ones the bin is narrowed to right now. With nothing switched on,
+--- every action is.
 ---
---- 오른쪽 목록(`BuildSortedElements`)과 탭 숫자(`UpdateActionCounts`)가 **같은 이 함수**를
---- 쓴다. 두 벌로 두면 한쪽만 바뀌어서 "(3)"이라고 적힌 탭을 눌렀더니 두 줄만 나오는 일이 난다.
-local function ActionMatchesSearch(action)
+--- The bin (`BuildSortedElements`) and the tab numbers (`UpdateActionCounts`) go through **this one
+--- function**. Kept in two copies, one of them changes and the other does not, and a tab labelled
+--- "(3)" opens onto two rows.
+---
+--- The two narrowings stack rather than replace each other. Searching inside what came in is a
+--- reasonable thing to want, and there is no reading of "both switched on" other than both.
+local function ActionPassesBinFilter(action)
+	if (_importedOnly and not action.imported) then
+		return false;
+	end
 	if (_searchText == nil) then
 		return true;
 	end
 	return strfind(strlower(NameAndIconForAction(action) or ""), _searchText, 1, true) ~= nil;
 end
 
---- 이 레이어에서 **지금 세어야 할** 액션 수. 검색 중이면 걸리는 것만 센다.
+--- How many actions in this layer are **worth counting right now**. Narrowed, only the ones that
+--- got through.
 ---
---- 검색어가 없으면 레이어에게 묻는다 - 훑을 이유가 없다.
+--- With nothing switched on it asks the layer instead - there is nothing to walk it for.
 local function CountActionsInLayer(layer)
-	if (_searchText == nil) then
+	if (_searchText == nil and not _importedOnly) then
 		return layer:GetNumActions();
 	end
 
 	local count = 0;
 	for _, action in layer:Enumerate() do
-		if (ActionMatchesSearch(action)) then
+		if (ActionPassesBinFilter(action)) then
 			count = count + 1;
 		end
 	end
@@ -1000,10 +1028,19 @@ end
 ---
 --- `importGroup` goes with `imported`. It only ever meant "which set did this arrive in", and once
 --- the set is approved it is no longer a set - it is bindings, grouped by key like everything else.
+---
+--- **The last badge takes the narrowing with it.** Accepting the lot is the ordinary end of an
+--- import, and it would end on two empty lists if `_importedOnly` stayed on - narrowed to a set
+--- that no longer has anything in it. Only when nothing is left: accepting one row out of twelve
+--- has to leave the reader looking at the other eleven.
 local function ApproveImportedActions(actions)
     for _, action in ipairs(actions) do
         action.imported = nil;
         action.importGroup = nil;
+    end
+
+    if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
+        _importedOnly = nil;
     end
 
     DebindPrivate.UpdateBindings();
@@ -1471,9 +1508,6 @@ function DebindLineMixin:Update()
 		self.LayerIcons[i]:SetShown(i <= shown);
 	end
 
-	-- 폭도 같이 줄인다. 이 칸은 오른쪽 앵커 없이 고정 폭으로 서 있어서(XML), 시작점만
-	-- 밀면 **끝점이 같이 밀려** 같은 줄 오른쪽의 InfoText(@대상) 아래로 들어간다.
-	-- 아이콘이 먹은 만큼을 빼면 오른쪽 끝은 아이콘이 없을 때와 같은 자리에 선다.
 	-- **아직 안 만진 것.** 지금 그 뜻을 갖는 것은 가져왔지만 승인 전인 액션 하나뿐이다
 	-- (XML 주석 참고). 그 액션은 `BuildKeyMap`이 건너뛰므로 이름이 이미 회색인데, 회색은
 	-- "키 없음"도 뜻하므로 둘을 가르는 것이 이 표시다.
@@ -2102,9 +2136,21 @@ end
 --- 같은 문장으로 말하면 후자가 고장으로 읽힌다.
 function DebindFrameMixin:UpdateEmptyText()
 	if (self.dataProvider:GetSize() == 0) then
-		-- **검색 중이면 다른 말을 한다.** 원래 문구는 "여기 액션이 없으니 끌어다 놓으세요"인데,
-		-- 검색에 안 맞아서 빈 것뿐이면 그건 거짓말이고 하필 할 일까지 틀리게 시킨다.
-		self.LayerPanel.ScrollBox.EmptyText:SetText(LLL[_searchText and "NO_SEARCH_RESULTS" or "NO_ACTIONS_IN_THIS_TAB"]);
+		-- **While something is filtering it says a different thing.** The usual line is "there are
+		-- no actions here, drag one in"; if the list is empty only because something was filtered
+		-- out, that line is a lie and it hands out the wrong next step on top of being one.
+		--
+		-- [Only what came in] outranks the search. With both on, an empty list has two possible
+		-- causes, but "nothing came into this tab" is the one that **goes away when it is switched
+		-- off**, and it is the one with somewhere to point - the side tab counts are already
+		-- holding which tab the rest of it landed in.
+		local emptyKey = "NO_ACTIONS_IN_THIS_TAB";
+		if (_importedOnly) then
+			emptyKey = "NO_IMPORTED_IN_THIS_TAB";
+		elseif (_searchText) then
+			emptyKey = "NO_SEARCH_RESULTS";
+		end
+		self.LayerPanel.ScrollBox.EmptyText:SetText(LLL[emptyKey]);
 		self.LayerPanel.ScrollBox.EmptyText:Show();
 	else
 		self.LayerPanel.ScrollBox.EmptyText:Hide();
@@ -2131,17 +2177,23 @@ end
 -- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
 -- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
 function DebindFrameMixin:UpdateActionCounts()
-	-- **검색 중이면 숫자가 "걸리는 것"의 수로 바뀌고 초록이 된다.**
+	-- **While something is filtering, the number becomes how many got through, and turns green.**
 	--
-	-- 숫자를 안 바꾸면 탭이 거짓말을 한다 - "(12)"를 보고 눌렀는데 목록에 두 줄만 있는 일이
-	-- 생기고, 정작 찾는 이름이 어느 탭에 있는지는 여전히 탭을 하나씩 눌러봐야 안다. 그게 이
-	-- 숫자가 검색 중에 답할 수 있는 유일하게 쓸모 있는 질문이다.
+	-- Leave the number alone and the tab lies - "(12)" is pressed and the list has two rows in it -
+	-- and which tab holds the name being looked for still takes pressing them one at a time. That
+	-- is the only useful question this number can answer while something is filtering.
 	--
-	-- 색을 바꾸는 것은 **지금 숫자의 뜻이 다르다**는 표시다. 같은 자리에 같은 모양으로 다른
-	-- 것을 세어 놓으면, 검색어를 지운 뒤 숫자가 늘어난 것을 액션이 생긴 것으로 읽는다.
-	-- **0은 회색이다.** 초록은 "여기 찾는 게 있다"는 표시라, 없는 곳까지 초록이면 그 뜻이
-	-- 사라진다 - 탭 줄을 훑는 눈이 걸러내야 할 것이 색으로 걸러져야 한다.
-	local searching = _searchText ~= nil;
+	-- Recolouring is the mark that **the number means something else right now**. Count a different
+	-- thing in the same place in the same shape and clearing the filter reads as actions having
+	-- appeared. **Zero is grey.** Green means "what you are after is in here", so green on tabs
+	-- that have none takes that meaning away - an eye running down the tab row should have the
+	-- colour do the discarding for it.
+	--
+	-- **[Only what came in] belongs here on the same terms.** The question the number answers then
+	-- is "which tab did the thing that arrived land in", and since one batch routinely splits
+	-- across off-spec layers, **this is the only place on screen that holds that answer** - the
+	-- left column only ever looks at the current specialization.
+	local narrowed = _searchText ~= nil or _importedOnly == true;
 
 	for tabId, tab in ipairs(self.LayerPanel.Tabs) do
 		local label = GetTabLabel(tabId);
@@ -2161,7 +2213,7 @@ function DebindFrameMixin:UpdateActionCounts()
 					-- 앞질러 정하면 숨김 규칙이 바뀔 때 보이는 숫자가 비게 된다.
 					if (tabId == _selectedTab) then
 						sideTab.Count:SetText(count);
-						if (not searching) then
+						if (not narrowed) then
 							sideTab.Count:SetTextColor(1, 1, 1);
 						elseif (count > 0) then
 							sideTab.Count:SetTextColor(GREEN_FONT_COLOR:GetRGB());
@@ -2180,7 +2232,7 @@ function DebindFrameMixin:UpdateActionCounts()
 			-- 탭 글자는 한 덩어리라 숫자만 물들이려면 색 코드를 끼워 넣어야 한다. 사이드탭은
 			-- 숫자가 제 FontString이라 위에서 색을 직접 준다.
 			local text = "(" .. sum .. ")";
-			if (searching) then
+			if (narrowed) then
 				local color = (sum > 0) and GREEN_FONT_COLOR or DISABLED_FONT_COLOR;
 				text = color:WrapTextInColorCode(text);
 			end
@@ -2271,7 +2323,7 @@ function DebindFrameMixin:InitializeButtons()
 			--
 			-- **앵커는 안 건드린다.** 그건 "벌크 대상"이 아니라 "지금 이야기 중인 행"이고,
 			-- 왼쪽 열과 매크로 창이 그것을 보고 있다. 검색어를 쳤다고 보던 것을 뺏지 않는다.
-			self:PruneSelectionToSearch();
+			self:PruneSelectionToBinFilter();
 			-- 스크롤 자리는 안 지킨다. 목록의 길이 자체가 달라지므로 지켜봐야 엉뚱한 데를
 			-- 보게 되고, 검색은 맨 위부터 읽는 동작이다.
 			self:Refresh();
@@ -2280,6 +2332,64 @@ function DebindFrameMixin:InitializeButtons()
 	end);
 	self.LayerPanel.SearchBox:SetScript("OnEditFocusGained", SearchBoxTemplate_OnEditFocusGained);
 	self.LayerPanel.SearchBox:SetScript("OnEditFocusLost", SearchBoxTemplate_OnEditFocusLost);
+
+	-- The strip for what came in. Switching it on and off is the XML's `OnClick`; what is here is
+	-- the wording and the tooltips, the same split as the bind mode toggle above.
+	local strip = self.OverviewPanel.ImportStrip;
+	strip.Checkbox.Label:SetText(LLL["IMPORTED_ONLY"]);
+	strip.Checkbox:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, LLL["IMPORTED_ONLY"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORTED_ONLY_DESC"]);
+		GameTooltip:Show();
+	end);
+	strip.Checkbox:SetScript("OnLeave", function()
+		GameTooltip:Hide();
+	end);
+	strip.ApproveAll:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, LLL["APPROVE_ALL_IMPORT"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["APPROVE_ALL_IMPORT_DESC"]);
+		GameTooltip:Show();
+	end);
+	strip.ApproveAll:SetScript("OnLeave", function()
+		GameTooltip:Hide();
+	end);
+end
+
+--- Narrows both lists to what came in, or puts them back.
+---
+--- The checkbox is already carrying this state, and it is still not the one read from. There is a
+--- path that switches this off **without the reader touching it** - accepting the last badge, in
+--- `ApproveImportedActions`. `_importedOnly` is the value; the tick is a drawing of it
+--- (`UpdateImportStrip`).
+function DebindFrameMixin:SetImportedOnly(on)
+	on = on and true or nil;
+	if (_importedOnly == on) then
+		return;
+	end
+	_importedOnly = on;
+
+	-- The same tidying that typing in the search box does, for the reason written there
+	-- (`OnTextChanged`): a filtered-out action left in the bulk set makes the count a lie.
+	self:PruneSelectionToBinFilter();
+	self:Refresh();
+	self:Update();
+end
+
+--- Takes **every** badge left in the profile off. The second of the two presses the design note
+--- calls the ordinary path.
+---
+--- **There is no confirmation box.** This button is what the ordinary end of an import looks like,
+--- and a confirmation box on the ordinary end is what turns the badge from a safeguard into
+--- homework. How many are about to start working is in the label before it is pressed
+--- (`UpdateImportStrip`), and that is everything a box here could have said.
+---
+--- **It reaches what is not on screen** - `CollectImportedActions` walks every layer. One batch
+--- routinely splits across off-spec layers, so taking off only what is visible would leave the
+--- rest quarantined somewhere no screen shows until the reader changes specialization.
+function DebindFrameMixin:ApproveAllImported()
+	ApproveImportedActions(DebindPrivate.CollectImportedActions());
 end
 
 
@@ -2822,7 +2932,7 @@ end
 local function BuildSortedElements(layer, layerID)
 	local elements = {};
 	for i, action in layer:Enumerate() do
-		if (ActionMatchesSearch(action)) then
+		if (ActionPassesBinFilter(action)) then
 			elements[#elements + 1] = {
 				action = action,
 				layer = layerID,
@@ -2969,17 +3079,19 @@ function DebindFrameMixin:GetSelectedActions()
 	return actions;
 end
 
---- 검색어에 안 맞게 된 것을 벌크 대상에서 뺀다. 검색어가 바뀔 때만 부른다.
+--- Drops out of the bulk set whatever the bin no longer shows. Called only when what the bin is
+--- narrowed by changes - the search text, or [Only what came in].
 ---
---- 벌크는 **보이는 것만** 손댈 수 있다. 그게 우클릭 계약("남의 행에서 연 메뉴가 안 보이는
---- 것들을 지우면 안 된다")과 같은 규칙이고, 개수 표시가 거짓말을 안 하게 만드는 것이기도 하다.
-function DebindFrameMixin:PruneSelectionToSearch()
+--- Bulk can only touch **what is on screen**. That is the same rule as the right-click contract
+--- ("a menu opened on one row must not delete things that are not visible"), and it is also what
+--- keeps the count from lying.
+function DebindFrameMixin:PruneSelectionToBinFilter()
 	if (_selectionCount == 0) then
 		return;
 	end
 
 	for action in pairs(_selection) do
-		if (not ActionMatchesSearch(action)) then
+		if (not ActionPassesBinFilter(action)) then
 			_selection[action] = nil;
 			_selectionCount = _selectionCount - 1;
 		end
@@ -3197,6 +3309,7 @@ function DebindFrameMixin:Update()
 
 	self:UpdateButtons();
 	self:UpdateListStrip();
+	self:UpdateImportStrip();
 	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
 
@@ -3236,6 +3349,48 @@ function DebindFrameMixin:UpdateListStrip()
 	if (locked) then
 		self.LayerPanel.SearchBox:ClearFocus();
 	end
+end
+
+--- The strip for what came in. **It only stands while at least one badge is left.**
+---
+--- The count is over the **whole profile** (`CollectImportedActions`) - not this tab, not this
+--- specialization. What [Accept all] takes the badge off is that whole set, so the number on the
+--- button has to be that set too. Put the visible count there instead and pressing it switches
+--- more on, somewhere the reader was not looking.
+---
+--- **With [Only what came in] on, a count of zero does not take the strip down.** Accepting is not
+--- the only way the last badge can go - deleting is another - and taking the strip with it would
+--- leave both lists empty with the control that undoes that gone from the screen. The accepting
+--- case never gets here: `ApproveImportedActions` switches it off first.
+---
+--- What locks it is the same as what locks the search box, for the same reasons
+--- (`UpdateListStrip`): during bind mode every character on screen is a key, and while the icon
+--- selector is holding an action that action can leave the list underneath it.
+function DebindFrameMixin:UpdateImportStrip()
+	local strip = self.OverviewPanel.ImportStrip;
+	local count = #DebindPrivate.CollectImportedActions();
+	local shown = count > 0 or _importedOnly == true;
+
+	strip:SetShown(shown);
+	if (not shown) then
+		return;
+	end
+
+	local locked = self:IsCapturingKey() or IsEditingAction();
+
+	strip.Checkbox:SetChecked(_importedOnly == true);
+	strip.Checkbox:SetEnabled(not locked);
+	-- The label lives outside the frame, so pressing the words only ticks the box if the hit rect
+	-- reaches that far. Locales disagree about how far, so it is the string that gets asked (see
+	-- the checkbox comment in the XML).
+	strip.Checkbox:SetHitRectInsets(0, -(strip.Checkbox.Label:GetStringWidth() + 4), 0, 0);
+
+	strip.ApproveAll:SetFormattedText(LLL["APPROVE_ALL_IMPORT"], count);
+	strip.ApproveAll:SetWidth(max(120, strip.ApproveAll:GetFontString():GetStringWidth() + 30));
+	-- At zero there is no badge to take off. The strip is only still standing to leave somewhere to
+	-- switch [Only what came in] back off, which is not this button's business - it asks whether it
+	-- has work of its own.
+	strip.ApproveAll:SetEnabled(count > 0 and not locked);
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
@@ -3684,8 +3839,9 @@ DebindResultPanelMixin = {};
 ---
 --- 한때 매크로 편집기가 두 번째 탭이었다. 되돌린 이유는 `DebindMacroFrame` 주석에 있다.
 function DebindResultPanelMixin:OnLoad()
-	self.ContentArea.EmptyText:SetText(LLL["OVERVIEW_EMPTY"]);
-
+	-- The sentence for the empty column is not written here. There are two of them, so
+	-- `RefreshKeyboard` picks one every time it draws - and that function has already run once by
+	-- the time this returns, through the `Refresh` below.
 	self:InitializeOrderScrollBox();
 
 	-- 오버레이는 이 열의 **모든 것 위**에 서야 한다. XML에 절대 레벨을 박으면 ScrollBox가
@@ -4059,8 +4215,13 @@ end
 --- 특성은 **지금 것**으로 고정이다. 오른쪽에서 오프스펙 레이어를 열어도 여기는 안 따라간다.
 --- 이 열의 문장이 "지금 이 키보드"라서, 따라가면 그 문장이 화면마다 달라진다. 대신
 --- 오프스펙 액션을 만졌을 때 여기가 조용한 것 자체가 "이건 지금 안 돈다"를 말한다.
+---
+--- **Narrowed to what came in, a key is kept or dropped whole** (`_importedOnly`). Which key holds
+--- a badge is settled in the scan below rather than by looking at the rows afterwards, so that the
+--- header and its rows cannot disagree; the scan sees exactly what `CollectActionsForKey` will,
+--- since both walk the live layers and neither leaves anything out.
 local function BuildKeyboardElements()
-	local keySeen, keyArr = {}, {};
+	local keySeen, keyArr, keyHasImported = {}, {}, {};
 	for _, layer in DebindPrivate.EnumerateProfileLayers() do
 		for _, action in layer:Enumerate() do
 			local key = action.key;
@@ -4068,7 +4229,22 @@ local function BuildKeyboardElements()
 				keySeen[key] = true;
 				keyArr[#keyArr + 1] = key;
 			end
+			if (key and action.imported) then
+				keyHasImported[key] = true;
+			end
 		end
+	end
+
+	-- Thinned here rather than inside the loop below, so that loop keeps saying one thing: a key,
+	-- then its rows in firing order.
+	if (_importedOnly) then
+		local kept = {};
+		for _, key in ipairs(keyArr) do
+			if (keyHasImported[key]) then
+				kept[#kept + 1] = key;
+			end
+		end
+		keyArr = kept;
 	end
 
 	sort(keyArr, DebindPrivate.CompareKeys);
@@ -4117,6 +4293,12 @@ end
 function DebindResultPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
 	local elements = BuildKeyboardElements();
+
+	-- **Two reasons to be empty, so two sentences.** Ordinarily empty means no key is bound yet;
+	-- with [Only what came in] on, a keyboard full of keys empties too - a batch that landed
+	-- entirely in off-spec layers leaves no key group for this column to keep, because it only
+	-- looks at the current specialization. Saying "no key is bound yet" there is the screen lying.
+	self.ContentArea.EmptyText:SetText(LLL[_importedOnly and "OVERVIEW_EMPTY_IMPORTED_ONLY" or "OVERVIEW_EMPTY"]);
 
 	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 빈 상자만 남기지 않는다.
 	--

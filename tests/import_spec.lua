@@ -265,5 +265,51 @@ return function(DebindPrivate, DebindShare)
         check(DebindPrivate.GetProfileLayer(1):GetNumActions() == 0, "엉뚱한 데 들어갔다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- Finding them again
+    ---------------------------------------------------------------------------
+
+    -- **What [Accept all] hands to the approver.** The count on that button and the set it
+    -- clears both come from here, so the failure this guards is one number being smaller than the
+    -- other - and the leftovers would sit badged in a layer that has no screen of its own until
+    -- the reader happens to change specialization.
+    test("배지 찾기는 지금 특성 밖의 레이어까지 훑는다", function()
+        ResetProfile();
+        -- Layer 4 is the class layer of spec 2, and the shim's player is spec 1. A batch lands
+        -- there routinely: `DefaultDestinationLayerID` places a group by the scope it was sent
+        -- with, not by the specialization the reader happens to be in.
+        DebindPrivate.PlaceImportedActions({
+            { layerID = 1, action = { type = Constants.SPELL, value = 774, key = "F", imported = 3 } },
+            { layerID = 4, action = { type = Constants.SPELL, value = 774, key = "G", imported = 3 } },
+        });
+
+        -- The premise: the layer that walk is not allowed to use really does leave one out.
+        local live = 0;
+        for _, layer in DebindPrivate.EnumerateProfileLayers() do
+            for _, action in layer:Enumerate() do
+                if (action.imported) then
+                    live = live + 1;
+                end
+            end
+        end
+        check(live == 1, "전제가 틀렸다 - 활성 레이어 훑기가 " .. live .. "개를 봤다");
+
+        check(#DebindPrivate.CollectImportedActions() == 2,
+            "오프스펙 레이어의 배지를 놓쳤다");
+    end);
+
+    test("배지가 없는 액션은 안 따라온다", function()
+        ResetProfile();
+        DebindPrivate.PlaceImportedActions({
+            { layerID = 1, action = { type = Constants.SPELL, value = 774, key = "F", imported = 3 } },
+        });
+        -- The reader's own, placed the ordinary way. Approving must not reach it.
+        DebindPrivate.GetProfileLayer(1):Insert({ type = Constants.SPELL, value = 585, key = "H" });
+
+        local badged = DebindPrivate.CollectImportedActions();
+        check(#badged == 1, "배지 없는 것까지 세었다: " .. #badged);
+        check(badged[1].value == 774, "엉뚱한 액션이 나왔다");
+    end);
+
     return T;
 end

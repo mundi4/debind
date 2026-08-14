@@ -786,3 +786,25 @@ function DebindPrivate.PlaceImportedActions(placements)
         end
     end
 end
+
+--- Every action in the profile still wearing an import badge.
+---
+--- **Every layer, not the live ones.** `EnumerateProfileLayers` answers "what is in play for this
+--- spec", and a batch routinely lands outside that: `DefaultDestinationLayerID` places a group by
+--- the scope it was sent with, so off-spec layers get their share. Counting the live ones would put
+--- a number on screen smaller than what "accept all" has to clear, and leave the rest quarantined
+--- in a layer with nothing on screen saying so.
+---
+--- The order is `pairs`, so there is none worth relying on. Neither caller needs one - the strip
+--- counts the list and accepting clears a field on each.
+function DebindPrivate.CollectImportedActions()
+    local actions = {};
+    for _, layer in pairs(LayerArray) do
+        for _, action in layer:Enumerate() do
+            if (action.imported) then
+                actions[#actions + 1] = action;
+            end
+        end
+    end
+    return actions;
+end

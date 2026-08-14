@@ -902,14 +902,23 @@ RegisterTest("Unused binding", {
     end,
 })
 
---- 가져온 액션은 배지를 떼기 전까지 아무 키에도 안 걸린다.
+--- An imported action reaches no key at all until the badge comes off.
 ---
---- **이 애드온이 임포트에 대해 하는 유일한 약속이고, 여기서만 확인된다.** 헤드리스는
---- `Debind.lua`를 안 싣고(`BuildKeyMap`이 거기 있다) 정적 검사는 게임을 못 본다. 어기면
---- 문자열을 붙여넣는 순간 남의 키가 실제로 걸리는데, 그게 격리가 막으려는 바로 그 일이다.
+--- **It is the one promise this addon makes about importing, and this is the only place it is
+--- checked.** Headless does not load `Debind.lua`, which is where `BuildKeyMap` lives, and the
+--- static checks cannot see the game. Break it and pasting a string is the moment somebody else's
+--- keys go live, which is precisely what quarantine is for.
 ---
---- **양쪽을 다 묻는다.** "안 걸렸다"만 보면 애초에 안 걸릴 액션이었어도 통과한다 - 배지만
---- 뗀 같은 액션이 걸리는 것까지 봐야 배지가 원인이라고 말할 수 있다.
+--- **Both directions, and the game is asked in both.** "It did not bind" on its own passes for an
+--- action that was never going to bind anyway, so the same action with only the badge removed has
+--- to be seen binding before the badge can be called the cause. And `KeyMap` on its own is our own
+--- bookkeeping: an override left behind from an earlier build makes the key still fire while our
+--- table says nothing is there, so each half reads `GetBindingAction` as well.
+---
+--- No waiting anywhere in here, and that is not an oversight. `ApplyBindings` calls
+--- `UpdateBindings` directly, which finishes the state pass and the bindings inside the call, and
+--- `SetOverrideBinding` is what `GetBindingAction` reads - so both are answered by the time the
+--- line after returns. The file header has the full map.
 RegisterTest("Import quarantine", {
     description = "가져오기 배지가 붙어 있는 동안 키에 안 걸리고, 떼면 걸리는지",
     run = function()
@@ -922,18 +931,23 @@ RegisterTest("Import quarantine", {
         if GetNthBinding(KEY, 1) then
             return Fail(NAME, "배지가 붙었는데 KeyMap에 들어갔다")
         end
-        -- 게임에게도 묻는다. KeyMap에 없어도 오버라이드가 남아 있으면 키는 여전히 먹는다.
-        local bound = GetBindingAction(KEY, true) or ""
-        if bound ~= "" then
-            return Fail(NAME, "배지가 붙었는데 키가 걸려 있다: " .. bound)
+        local quarantined = GetBindingAction(KEY, true) or ""
+        if quarantined ~= "" then
+            return Fail(NAME, "배지가 붙었는데 키가 걸려 있다: " .. quarantined)
         end
 
-        -- 배지를 뗀다. 승인이 하는 일이 이것뿐이다(`ApproveImportedActions`).
+        -- Taking the badge off is the whole of accepting (`ApproveImportedActions`).
         action.imported = nil
         ApplyBindings()
 
         if not GetNthBinding(KEY, 1) then
-            return Fail(NAME, "배지를 뗐는데도 안 걸린다 - 앞 절반이 무의미해진다")
+            return Fail(NAME, "배지를 뗐는데도 KeyMap에 안 들어간다 - 앞 절반이 무의미해진다")
+        end
+        -- `CLICK ` is what a bound action looks like to the game: every type goes out through a
+        -- click button, so the prefix is the whole assertion available here.
+        local accepted = GetBindingAction(KEY, true) or ""
+        if accepted:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("배지를 뗐는데 게임에는 안 걸렸다: %q", accepted))
         end
         return Pass(NAME)
     end,

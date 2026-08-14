@@ -161,6 +161,18 @@ function DebindShareBatchRowMixin:Commit()
     end
 
     DebindShareImportPanel:Refresh();
+
+    -- **Overview has to be rebuilt too, and nothing else is going to do it.** The reader is
+    -- standing on the Import tab, so the lists behind it were built before any of this existed;
+    -- going back only shows the panel again (`SelectPanel`), it does not re-read the profile.
+    -- Without this the actions that just landed are missing from Overview - and so is the strip
+    -- that is the only way to accept them - until something unrelated happens to refresh it.
+    --
+    -- `UpdateBindings` is deliberately not called. Everything placed is badged and `BuildKeyMap`
+    -- skips badged actions, so a rebuild here would spend the work to arrive at the key map that
+    -- is already up. The bindings change when the reader accepts, not when they import.
+    DebindFrame:Refresh(true);
+    DebindFrame:Update();
 end
 
 function DebindShareBatchRowMixin:OnEnter()

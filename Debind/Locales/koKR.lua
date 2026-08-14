@@ -377,14 +377,21 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "이 애드온의 예전 전
 -- The window's own tabs. The reasoning is in enUS.
 -- 근거는 enUS 쪽 주석에.
 L["APPROVE_IMPORT"] = "내 것으로 받기"
+-- The overview's import strip. The reasoning is in enUS.
+L["APPROVE_ALL_IMPORT"] = "%d개 모두 받기"
+L["APPROVE_ALL_IMPORT_DESC"] = "아직 기다리고 있는 것을 어디에 있든 전부 받습니다 - 지금 전문화가 아닌 곳에 내려앉은 것까지 포함합니다. 받는 즉시 그 키들이 동작합니다."
+L["IMPORTED_ONLY"] = "가져온 것만"
+L["IMPORTED_ONLY_DESC"] = "문자열로 받아왔지만 아직 받아들이지 않은 것만 양쪽 목록에 남깁니다.|n|n왼쪽은 키를 통째로 보여줍니다. 새로 온 행동이 어떤 것과 한 키를 나눠 쓰게 되는지가 거기서 보입니다."
+L["NO_IMPORTED_IN_THIS_TAB"] = "이 탭에는 기다리는 것이 없습니다. 어디로 갔는지는 탭에 적힌 숫자가 말해 줍니다."
+L["OVERVIEW_EMPTY_IMPORTED_ONLY"] = "받아온 것 중에 지금 전문화가 쓰는 키에 내려앉은 것이 없습니다. 오른쪽의 다른 탭을 봐 주세요."
 -- 근거는 enUS 쪽 주석에.
 L["IMPORT_COMMIT"] = "가져오기"
 L["IMPORT_COMMIT_AGAIN"] = "또 가져오기"
 L["IMPORT_COMMIT_DESC"] = "지정에 넣되 꺼둔 채로 넣습니다. 받아들이기 전까지는 어떤 키도 달라지지 않습니다."
-L["IMPORT_COMMITTED"] = "행동 %d개를 가져왔습니다. 받아들이기 전까지는 꺼져 있습니다 - 빛나는 아이콘을 찾으십시오."
+L["IMPORT_COMMITTED"] = "행동 %d개를 가져왔습니다. 받아들이기 전까지는 꺼져 있고, 받아들이는 줄이 창 맨 위에 생겼습니다."
 L["IMPORT_COMMITTED_SKIPPED"] = "그중 %d개는 이 버전이 모르는 레이어에서 와서 빠졌습니다."
 L["IMPORT_TITLE"] = "가져오기"
-L["IMPORT_MENU_DESC"] = "남이 건넨 문자열을 받아, 무엇이 들어 있는지 먼저 보여줍니다.|n|n어느 레이어로 넣을지는 직접 고르고, 넣겠다고 하기 전까지는 지정에 아무것도 손대지 않습니다."
+L["IMPORT_MENU_DESC"] = "남이 건넨 문자열을 받아, 필요할 때까지 그대로 들고 있습니다.|n|n가져오면 그 안의 행동이 꺼진 채로 들어오므로, 받아들이기 전까지는 무엇을 눌러도 달라지지 않습니다."
 -- 근거는 enUS 쪽 주석에.
 L["IMPORT_DRAWER_EMPTY"] = "아직 아무것도 없습니다.|n|n누가 보내준 문자열을 붙여넣으면, 어떻게 할지 정할 때까지 여기 그대로 있습니다. 받아둔 것은 사라지지 않으니 나중에 다시 와서 이어서 해도 됩니다."
 L["IMPORT_DRAWER_COUNT"] = "받아둔 것 %d개"

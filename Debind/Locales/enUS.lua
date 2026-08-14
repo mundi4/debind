@@ -545,18 +545,55 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- nothing is being changed or repaired, they are saying they will have it, and that is the moment
 -- the keys start working.
 L["APPROVE_IMPORT"] = "Accept as mine"
+-- The same thing for everything at once, which is the ordinary way out. **The number is in the
+-- label** because there is no confirmation box, and the one useful thing such a box could have
+-- said is how much is about to start working.
+L["APPROVE_ALL_IMPORT"] = "Accept all %d"
+-- **It has to say "wherever it went"**, because the count includes actions on specializations you
+-- are not in, and those are on no list the reader can see from here.
+L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went - including other specializations. Their keys start working straight away."
+-- The switch that makes the badge findable instead of something to hunt for. **It says "came in",
+-- not "imported"** - what the reader did was paste a string somebody sent them.
+L["IMPORTED_ONLY"] = "Only what came in"
+-- **The second sentence is the whole point of the switch.** Finding the new actions is easy enough
+-- by colour; what is hard is seeing what each one lands on top of, and that only shows when the
+-- key it wants is drawn with everything already on it.
+L["IMPORTED_ONLY_DESC"] = "Narrows both lists to what came in from a string and has not been accepted yet.|n|nOn the left, each key is still shown whole, so you can see what the new actions would share a key with."
+-- Empty right-hand list while the switch above is on. **It points at the tab numbers** rather than
+-- leaving a dead end - a batch usually lands across several tabs, and the counts are where that
+-- shows.
+L["NO_IMPORTED_IN_THIS_TAB"] = "Nothing waiting in this tab. The counts on the tabs show where it went."
+-- Empty left-hand column while the switch is on. Different from the one above: that list is one
+-- tab, this one is the keyboard, and the only way it can be empty with things still waiting is
+-- that all of them landed on a specialization you are not in.
+L["OVERVIEW_EMPTY_IMPORTED_ONLY"] = "None of what came in landed on a key this specialization uses. Look under the other tabs on the right."
 -- The one thing a drawer row is for. **The second press is not a repeat of the first** - it puts
 -- another copy in - so the label has to change, or "did that work" and "do it again" become the
 -- same gesture.
 L["IMPORT_COMMIT"] = "Bring it in"
 L["IMPORT_COMMIT_AGAIN"] = "Bring in again"
 L["IMPORT_COMMIT_DESC"] = "Adds these to your bindings, switched off. Nothing you press changes until you accept them."
--- **Said out loud because the screen barely moves.** What just arrived is greyed out and bound to
--- nothing, so a press that did a lot looks like a press that did nothing.
-L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you accept them - look for the glowing icons."
+-- **Said out loud because the screen barely moves.** What just arrived is bound to nothing, so a
+-- press that did a lot looks like a press that did nothing.
+--
+-- **It used to end "look for the glowing icons", and nothing glows.** The badge is a colour on the
+-- name and a dot on the icon, and even when that was closer to true it was the wrong thing to send
+-- somebody hunting for - the actions are scattered by name and by key, which is why the strip
+-- exists. So the line points at where the strip stands rather than describing any art.
+--
+-- It says the position, not the words on the controls: renaming either of them must not turn this
+-- sentence into a pointer at something that is not there.
+L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you accept them - a row for doing that is now at the top of the window."
 L["IMPORT_COMMITTED_SKIPPED"] = "%d of them came from a layer this version does not know, and were left out."
 L["IMPORT_TITLE"] = "Import"
-L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and shows what is in it before anything changes.|n|nYou pick which layer each part lands in, and nothing touches your bindings until you say so."
+-- **"You pick which layer each part lands in" was written for a screen that no longer exists.** The
+-- workbench that asked that question was dropped; bringing a string in now places everything by
+-- itself and asks nothing, and where a part landed is corrected afterwards in Overview like any
+-- other action. A tab tooltip promising a choice that never comes is worse than a vague one.
+--
+-- What survives from the old wording is the part that is still the point and still true: nothing is
+-- bound until the reader says so. That is the whole reason to open this tab without worrying.
+L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and keeps it until you want it.|n|nBringing one in adds its actions switched off, so nothing you press changes until you accept them."
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state has to say
 -- what fills it rather than what to do next - there is no next step until something is in there.
 L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nPaste a string somebody sent you and it will sit here until you decide what to do with it. Received strings are kept, so you can come back and finish later."

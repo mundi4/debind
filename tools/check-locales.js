@@ -71,6 +71,14 @@ const PENDING_TRANSLATION = {
     IMPORT_COMMITTED_SKIPPED: ["ruRU"],
     IMPORT_TITLE: ["ruRU"],
     IMPORT_MENU_DESC: ["ruRU"],
+    // The overview's import strip: narrowing both lists to what came in, and accepting the lot.
+    // Same owner as the rows above.
+    IMPORTED_ONLY: ["ruRU"],
+    IMPORTED_ONLY_DESC: ["ruRU"],
+    APPROVE_ALL_IMPORT: ["ruRU"],
+    APPROVE_ALL_IMPORT_DESC: ["ruRU"],
+    NO_IMPORTED_IN_THIS_TAB: ["ruRU"],
+    OVERVIEW_EMPTY_IMPORTED_ONLY: ["ruRU"],
     // The workbench: the drawer of received strings and the paste dialog. Same owner.
     IMPORT_DRAWER_EMPTY: ["ruRU"],
     IMPORT_DRAWER_COUNT: ["ruRU"],
