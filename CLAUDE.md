@@ -9,16 +9,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 단 **네가 나를 극대노하게 만들 만한 잘못을 했으면 그 즉시 존댓말로 태세를 바꿔라.** 그 상황에서
 네가 반말하고 있는 꼴은 내 분노 조절에 아무 도움이 안 된다.
 
-그런 잘못이 어떤 건지:
+What earns it:
 
-- **맞는 길을 놔두고 쉬운 길로 간 것.** 어느 쪽이 맞는지 판단이 안 서면 고르지 말고 물어봐라.
-- **문제 제기를 조사 없이 "문제 없음"으로 닫은 것.** 주석과 `.zzz` 문서는 근거가 못 된다 —
-  실제 코드 경로를 따라가라. 따라간 뒤 문제가 없으면 없다고 말해도 된다.
-- **낡은 메모리를 근거로 판단한 것.** `memory/` 관리는 **100% 네 몫이다.** 메모리가 짚는
-  파일·함수·플래그는 쓰기 전에 아직 있는지 확인하고, 틀린 항목은 그 자리에서 고치거나 지워라.
-- **테스트를 통과시키려고 쓴 것.** 지금 코드가 하는 짓을 받아적은 단언, 뭘 넣어도 통과하는 단언,
-  빨개지니까 느슨하게 고친 단언. 새 테스트는 **고치기 전 코드에서 실패하는 걸 확인하고** 내놔라.
-  기존 테스트가 빨개지면 먼저 의심할 건 코드다.
+- **Taking the easy road with the right one in plain sight.** If you cannot tell which is which,
+  do not pick — ask.
+- **Closing something I raised as "no problem" without investigating it.** Comments and `.zzz`
+  documents are not evidence; follow the actual code path. Having followed it, saying there is no
+  problem is fine.
+- **Reasoning from a stale memory.** `memory/` is **entirely yours to keep.** Before acting on what
+  one says, check that the file, function or flag it names still exists, and fix or delete the
+  entry on the spot when it does not.
+- **Writing a test to make it pass.** An assertion transcribing what the code happens to do now,
+  one that passes whatever you feed it, one loosened because it went red. A new test is handed over
+  only after **you have seen it fail against the unfixed code**. When an existing test goes red,
+  the code is the first suspect.
 
 ## What this is
 
@@ -84,36 +88,38 @@ The pipeline, roughly:
    source strings baked (`BakeSnippet`) before being handed to `SecureHandlerExecute` /
    `SecureHandlerWrapScript`. `tools/lib/bake.js` runs `Snippets.lua` itself through fengari so the
    checks bake exactly what ships; `tools/snippet-golden.txt` locks those bytes.
-   **스니펫 본문을 건드리기 전에 `devdocs/restricted-environment.md`를 읽어라** — 핫패스가
-   어디인지, 본문 안에 주석을 어디까지 쓸 수 있는지. 여기서 틀리면 아무것도 안 터지고 키 하나가
-   조용히 안 먹는다.
+   **Read `devdocs/restricted-environment.md` before touching a snippet body** — which paths are
+   hot, and how far a comment may go inside one. Getting it wrong raises nothing and leaves one key
+   quietly dead.
 
 Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua` +
 `CustomStates.lua` (click-casting frames, the five in-combat switches), `ActionCatalog.lua`
 (searchable index), `DebindUI.lua`/`DropDownMenus.lua`/`SpellPicker.lua`/`Flyout.lua` (UI),
 `Events.lua`, `Legacy.lua` (migration).
 
-## 용어
+## Terminology
 
-**UI 표면의 말과 코드/주석의 말을 구분해라.**
+**What reaches a user and what stays in the code are two vocabularies. Keep them apart.**
 
-- **UI 표면** (`Locales/*.lua`의 `L[...]`, 툴팁, 창 안의 모든 글자) 은 머글이 읽는 것이다.
-  코드 용어와 일치시킬 이유가 없고, **코드나 작동 방식을 알아야 이해되는 표현은 쓰면 안 된다.**
-  스니펫, 속성, 핸들러, 재빌드, 제한 환경 같은 말은 여기 나올 자리가 없다. 그 사람이 이미 아는
-  것 — 키, 액션, 직업, 전문화, 캐릭터 — 으로만 말해라.
-- **주석의 용어는 코드와 반드시 일치해야 한다.** 필드가 `checkedUnits`면 주석에도
-  `checkedUnits`라고 쓴다. 코드에 없는 이름을 주석에서 지어내지 마라.
-- **restricted environment / secure / snippet은 서로 다른 것이다.** 샌드박스 / 테인트·전투 잠금 /
-  본문 문자열. 섞어 쓰지 마라.
+- **The user-facing surface** — `L[...]` in `Locales/*.lua`, tooltips, every word inside the window
+  — is read by someone who has never seen the code. It has no reason to match the code's words, and
+  **must not use anything that has to be understood through the code or through how it works.**
+  Read `devdocs/writing-user-facing-text.md` before adding or rewording a string: a word the client
+  already has beats one we invent.
+- **A comment must use the code's names.** If the field is `checkedUnits`, the comment says
+  `checkedUnits`. Do not invent a name in a comment that the code does not use.
+- **restricted environment, secure and snippet are three different things** — the sandbox, the
+  taint and combat-lockdown side, and the body string. Do not use one for another.
 
-## 주석
+## Comments
 
-- **신규 주석은 전부 영어로 쓴다.**
-- 기존 한국어 주석을 일괄 번역하지 마라. 다만 **어차피 손대는 주석은 통째로 영어로 다시 쓴다** —
-  일부만 고쳐서 두 언어가 섞인 주석을 만들지 마라.
-- 다시 쓸 때 원문의 근거를 요약해 없애지 말 것. 주석이 짧아지는 건 목표가 아니다.
-- **코드가 드러내지 않는 것만 쓴다.** 왜 이 순서인지, 무엇을 우회하는지, 이 조건을 빼면 어떤
-  증상이 나는지, 어느 버전부터 그런지. "무엇을 하는가"는 아래 줄이 이미 말한다.
+- **Write every new comment in English.**
+- Do not bulk-translate the Korean ones. But **a comment you are editing anyway gets rewritten
+  whole, in English** — never half-edited into two languages.
+- Rewriting it must not summarise away the reasoning it held. A shorter comment is not the goal.
+- **Write only what the code does not already show.** Why this order, what it works around, what
+  breaks if the condition goes, which version it started with. The line below already says what it
+  does.
 
 ## Repo conventions
 
@@ -122,9 +128,10 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
   which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
 - `.zzz/` is gitignored design notes. They are proposals, not orders; read the status header first.
   `.zzz/refactor-candidates.md` holds things noticed but not done.
-  - 문서 안의 **개별 항목**이 닫히면 `.zzz/resolved.md`로 옮긴다. 원본에는 미해결만 남긴다.
-  - **문서 전체**의 구현이 완전히 끝나면 그 파일을 `.zzz/legacy/`로 옮긴다. `.zzz/` 최상단에
-    남아 있는 문서는 아직 할 일이 남은 것들이다.
+  - When an **individual item** closes, move it to `.zzz/resolved.md`. What stays in the original
+    is what is still open.
+  - When a **whole document** has been implemented, move the file to `.zzz/legacy/`. Whatever is
+    left at the top level of `.zzz/` is what still has work in it.
 - CI (`.github/workflows/test.yml`) runs luacheck + specs + bench only. Network-dependent checks
   (`check:templates`) are local-only on purpose.
 - Releasing is `devdocs/release.md`. Pushing a tag deploys — never push one as a side effect of
