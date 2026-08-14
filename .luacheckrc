@@ -313,6 +313,7 @@ globals = {
 	"DebindShareImportPanelMixin",
 	"DebindShareBatchRowMixin",
 	"DebindSharePasteFrameMixin",
+	"DebindShareBringFrameMixin",
 	"DebindSpellPickerHeaderMixin",
 	"DebindSpellPickerRowMixin",
 	"DebindSpellPickerTabMixin",
@@ -329,6 +330,7 @@ globals = {
 	"DebindShareCopyFrame",
 	"DebindShareImportPanel",
 	"DebindSharePasteFrame",
+	"DebindShareBringFrame",
 
 	-- The font of the output box. A generated string is long and has no line breaks, so it needs
 	-- a narrow font to fold into a readable number of lines inside the box.

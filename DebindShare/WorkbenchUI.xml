@@ -80,11 +80,16 @@
 				</Anchors>
 			</CheckButton>
 			<!--
-				What the drawer is for. Everything it puts in the profile arrives badged and reaches
-				no key, so this changes nothing about what any key does - which is why it is one
-				press with no question in front of it.
+				What the drawer is for. It opens a dialog rather than acting: everything it will put
+				in the profile arrives badged and reaches no key, so the question in front of it is
+				not "are you sure" but **which of this string, and with or without its keys**
+				(`DebindShareBringFrame`).
 
-				It stays enabled after a batch has been committed. Committing twice makes a second
+				Those two used to be a checkbox on this row. That was wrong in a way the dialog
+				fixes rather than moves: they matter for the one press and nothing else, and stored
+				on the batch they outlived the moment they were ticked.
+
+				It stays enabled after a batch has been brought in. Doing it twice makes a second
 				copy, which is what pasting the same string twice has always done, and the row says
 				it has been used rather than refusing to be used again.
 			-->
@@ -94,41 +99,6 @@
 					<Anchor point="BOTTOMRIGHT" x="-4" y="4"/>
 				</Anchors>
 			</Button>
-			<!--
-				**The receiving end of "leave the keys out".** Quarantine already promises that
-				nothing changes until the reader accepts; this promises their keys are not touched
-				even then. Wanting somebody's actions without their keybinds is ordinary, and until
-				now it could only be had by asking the sender to tick their own box.
-
-				Beside the press it modifies, so the choice is read on the way to making it.
-
-				**Hidden for a string that came without keys** (`hasKeys`, counted at paste time). A
-				control with nothing to switch off is noise, and here it would also suggest the keys
-				are still in there.
-
-				The state lives on the batch, like `pinned`. The row is rebuilt from the drawer on
-				every refresh, so anything held on the frame would untick itself while being looked
-				at.
-			-->
-			<CheckButton parentKey="StripKeysButton" inherits="MinimalCheckboxArtTemplate">
-				<Size x="22" y="22"/>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.CommitButton" relativePoint="LEFT" x="-6" y="0"/>
-				</Anchors>
-				<Layers>
-					<Layer level="ARTWORK">
-						<!--
-							To the **left** of the box. The usual side is taken: this checkbox hangs
-							off `CommitButton`, so a label on its right would sit on the button.
-						-->
-						<FontString parentKey="Label" inherits="GameFontHighlightSmall" justifyH="RIGHT">
-							<Anchors>
-								<Anchor point="RIGHT" relativePoint="LEFT" x="-1" y="0"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-			</CheckButton>
 		</Frames>
 		<!--
 			**After `<Frames>`, not with the other text.** This leans on `CommitButton`, which is
@@ -331,6 +301,88 @@
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		What a press of [Bring it in] asks before it does anything.
+
+		**The two questions on it only mean something for the one press**, which is why they are
+		here and not on the row. Leaving the keys out used to be a checkbox on the row: it was
+		stored on the batch, survived a `/reload`, and a reader who ticked it and came back a week
+		later got something other than what they asked for. A decision that lives exactly as long as
+		the press has to be made in the same moment as the press.
+
+		The lines are which of the string's layers to take, up to four (`CollectImportLines`). They
+		are built in Lua rather than declared here because how many there are is the string's to
+		say, and a checkbox for a layer the string does not carry reads as a choice.
+
+		A dialog rather than a popup, so it can be moved off whatever the reader wants to look at
+		while deciding - the same reason the paste box is one.
+	-->
+	<Frame name="DebindShareBringFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
+		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
+		clampedToScreen="true" mixin="DebindShareBringFrameMixin">
+		<Size x="340" y="220"/>
+		<Anchors>
+			<Anchor point="CENTER"/>
+		</Anchors>
+		<Frames>
+			<!--
+				Right to left, and each declared before whatever leans on it: `relativeKey` is
+				resolved as the frame is built, so a key declared later is nil and the anchor is
+				dropped without a word.
+			-->
+			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
+				<Size x="100" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-14" y="14"/>
+				</Anchors>
+			</Button>
+
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.CancelButton" relativePoint="LEFT" x="-6" y="0"/>
+				</Anchors>
+			</Button>
+
+			<!--
+				**The receiving end of "leave the keys out".** Quarantine already promises that
+				nothing changes until the reader accepts; this promises their keys are not touched
+				even then.
+
+				Below the divider because it is not one of the lines above it: those say *which of
+				this string to take*, this says *what to do with what is taken*. Hidden for a string
+				that came without keys (`hasKeys`, counted at paste time) - a control with nothing to
+				switch off would also read as "the keys are still in there".
+
+				**Placed from Lua, not here**, along with the divider above it: everything down to
+				this point moves with how many lines the string stood, and this one leaves the layout
+				entirely when it is hidden.
+			-->
+			<CheckButton parentKey="StripKeysButton" inherits="MinimalCheckboxArtTemplate">
+				<Size x="22" y="22"/>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="Label" inherits="GameFontHighlightSmall" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="LEFT" relativePoint="RIGHT" x="2" y="0"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</CheckButton>
+		</Frames>
+		<Layers>
+			<Layer level="ARTWORK">
+				<Texture parentKey="Divider" atlas="Options_HorizontalDivider">
+					<Size y="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
 		</Scripts>
 	</Frame>
 

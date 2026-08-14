@@ -32,6 +32,10 @@ local REASON_TEXT   = {
     BAD_PAYLOAD           = "IMPORT_FAILED_DAMAGED",
     -- Nothing the reader did. The addon's own libraries did not load.
     LIBS_MISSING          = "IMPORT_FAILED_LIBS_MISSING",
+    -- Not a failure to read it. Everything picked turned out to have nowhere to go, which one
+    -- ordinary case reaches: a string from a character whose class has specializations this one
+    -- does not (`ImportAddress`).
+    NOTHING_TO_PLACE      = "IMPORT_NOTHING_PLACED",
 };
 
 
@@ -63,7 +67,7 @@ function DebindShareBatchRowMixin:Init(elementData)
     -- the first: it puts a second copy in. Leaving the button reading the same both times would
     -- make "did that work?" and "do it again" the same gesture.
     self.CommitButton:SetText(batch.committed and LLL["IMPORT_COMMIT_AGAIN"] or LLL["IMPORT_COMMIT"]);
-    self.CommitButton:SetScript("OnClick", function() self:Commit(); end);
+    self.CommitButton:SetScript("OnClick", function() self:Bring(); end);
     self.CommitButton:SetScript("OnEnter", function(button)
         GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
         GameTooltip_SetTitle(GameTooltip, button:GetText());
@@ -71,34 +75,6 @@ function DebindShareBatchRowMixin:Init(elementData)
         GameTooltip:Show();
     end);
     self.CommitButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
-
-    -- Nothing to switch off for a string that arrived without keys, and a box there would suggest
-    -- otherwise. `hasKeys` was counted at paste time so drawing a row never decodes the string.
-    --
-    -- **Missing means unknown, and unknown shows it.** A batch stored before that field existed has
-    -- no answer, and hiding the control for those made the option look unbuilt on every row already
-    -- in the drawer. Offering it on a keyless batch costs nothing - `stripKeys` has no key to drop -
-    -- while hiding it on a batch that has keys costs the feature.
-    local strip = self.StripKeysButton;
-    local hasKeys = batch.hasKeys ~= false;
-    strip:SetShown(hasKeys);
-    if (hasKeys) then
-        strip.Label:SetText(LLL["EXPORT_STRIP_KEYS"]);
-        -- The label is outside the frame, so pressing the words only ticks the box if the hit rect
-        -- reaches over them. Locales disagree about how far, so the string is asked.
-        strip:SetHitRectInsets(-(strip.Label:GetStringWidth() + 4), 0, 0, 0);
-        strip:SetChecked(batch.stripKeys == true);
-        strip:SetScript("OnClick", function(button)
-            batch.stripKeys = button:GetChecked() or nil;
-        end);
-        strip:SetScript("OnEnter", function(button)
-            GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-            GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
-            GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_STRIP_KEYS_DESC"]);
-            GameTooltip:Show();
-        end);
-        strip:SetScript("OnLeave", function() GameTooltip:Hide(); end);
-    end
 
     self.PinButton:SetChecked(batch.pinned == true);
     self.PinButton:SetScript("OnClick", function(button)
@@ -167,40 +143,28 @@ function DebindShareBatchRowMixin:UpdateAge()
     end
 end
 
---- Puts this batch into the profile, badged.
+--- Asks what to bring in, and from where.
 ---
---- **The message afterwards is not decoration.** Everything that just landed is quarantined and
---- greyed out, so from the reader's side the screen barely moves: without a line saying what
---- happened and where to go next, a press that did a lot looks like a press that did nothing.
-function DebindShareBatchRowMixin:Commit()
+--- **The string is read here rather than in the dialog**, so a batch that cannot be decoded any
+--- more is turned down where it was pressed instead of opening a window with nothing in it.
+function DebindShareBatchRowMixin:Bring()
     local batch = self.elementData.batch;
-    local placed, skipped = DebindShare.CommitBatch(batch);
 
-    if (not placed) then
-        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[skipped] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
+    local payload, reason = DebindShare.GetBatchPayload(batch);
+    if (not payload) then
+        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
         return;
     end
 
-    DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED"], placed));
-    -- Layers a newer schema invented and this one cannot place. Said separately because it is the
-    -- one case where the count above is not the whole string.
-    if (skipped and skipped > 0) then
-        DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"], skipped), 1, 0.5, 0);
+    local lines = DebindShare.CollectImportLines(payload);
+    if (#lines == 0) then
+        -- Nothing in it this version has a place for. There is no question to ask, so the answer
+        -- is given straight rather than through an empty dialog.
+        DebindPrivate.DisplayMessage(LLL["IMPORT_FAILED_TOO_NEW"], 1, 0, 0);
+        return;
     end
 
-    DebindShareImportPanel:Refresh();
-
-    -- **Overview has to be rebuilt too, and nothing else is going to do it.** The reader is
-    -- standing on the Import tab, so the lists behind it were built before any of this existed;
-    -- going back only shows the panel again (`SelectPanel`), it does not re-read the profile.
-    -- Without this the actions that just landed are missing from Overview - and so is the strip
-    -- that is the only way to accept them - until something unrelated happens to refresh it.
-    --
-    -- `UpdateBindings` is deliberately not called. Everything placed is badged and `BuildKeyMap`
-    -- skips badged actions, so a rebuild here would spend the work to arrive at the key map that
-    -- is already up. The bindings change when the reader accepts, not when they import.
-    DebindFrame:Refresh(true);
-    DebindFrame:Update();
+    DebindShareBringFrame:Open(batch, lines);
 end
 
 function DebindShareBatchRowMixin:OnEnter()
@@ -224,6 +188,191 @@ end
 
 function DebindShareBatchRowMixin:OnLeave()
     GameTooltip:Hide();
+end
+
+
+--------------------------------------------------------------------------------
+-- Bringing one in
+--------------------------------------------------------------------------------
+
+DebindShareBringFrameMixin = {};
+
+--- What each line is called.
+---
+--- **These name what is in the string, not where it goes**, which is why none of the window's own
+--- label helpers can be used. `GetLayerLabel` and `GetSideTabaLabel` build every word out of *this*
+--- character - `UnitName("player")`, `UnitClass("player")`, `GetSpecializationInfo` - so a mage's
+--- string would stand a line reading "Druid" over the mage layer it is actually going to, and the
+--- character lines would carry the reader's own name for somebody else's character.
+---
+--- The class comes from the string (`payload.class`, the only thing about the sender it carries).
+--- The character has no name in it at all and is not supposed to: a string pasted into a public
+--- channel must not ship a name the sender never typed. So that line is called by its scope.
+local LINE_LABELS   = {
+    ["shared.general"]     = "IMPORT_BRING_LINE_SHARED_GENERAL",
+    ["shared.class"]       = "IMPORT_BRING_LINE_SHARED_CLASS",
+    ["character.general"]  = "IMPORT_BRING_LINE_CHARACTER_GENERAL",
+    ["character.spec"]     = "IMPORT_BRING_LINE_CHARACTER_SPEC",
+};
+
+--- Vertical geometry. The dialog grows with how many lines the string stood, so these are what the
+--- height is added up from rather than numbers spread through the layout.
+local TOP_INSET     = 34;
+local SIDE_INSET    = 16;
+local ROW_PITCH     = 24;
+local DIVIDER_SPACE = 10;
+local BOTTOM_INSET  = 44;
+
+function DebindShareBringFrameMixin:OnLoad()
+    self.AcceptButton:SetText(LLL["IMPORT_COMMIT"]);
+    self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
+
+    self.CancelButton:SetText(CANCEL);
+    self.CancelButton:SetScript("OnClick", function() self:Hide(); end);
+
+    self.StripKeysButton.Label:SetText(LLL["EXPORT_STRIP_KEYS"]);
+    self.StripKeysButton:SetScript("OnEnter", function(button)
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+        GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
+        GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_STRIP_KEYS_DESC"]);
+        GameTooltip:Show();
+    end);
+    self.StripKeysButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+
+    -- The line checkboxes. Four at most (`IMPORT_LINES`), and made once: which of them are shown
+    -- is the string's to say, but how many there could ever be is not.
+    self.lineButtons = {};
+    for i = 1, #DebindShare.IMPORT_LINES do
+        local button = CreateFrame("CheckButton", nil, self, "MinimalCheckboxArtTemplate");
+        button:SetSize(22, 22);
+        button.Label = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
+        button.Label:SetPoint("LEFT", button, "RIGHT", 2, 0);
+        -- **Nothing ticked is not an answer.** With every line off the press would place nothing and
+        -- report it as a failure, so the button says so before it is pressed instead.
+        button:SetScript("OnClick", function() self:UpdateAcceptButton(); end);
+        button:Hide();
+        self.lineButtons[i] = button;
+    end
+
+    self:RegisterForDrag("LeftButton");
+    self:SetScript("OnDragStart", self.StartMoving);
+    self:SetScript("OnDragStop", self.StopMovingOrSizing);
+
+    -- ESC closes it, which is the same answer as [Cancel]: nothing happens.
+    tinsert(UISpecialFrames, self:GetName());
+end
+
+--- Stands the dialog up for one press of [Bring it in].
+---
+--- **Everything is reset every time.** The answers here live exactly as long as the press that
+--- opens it - that is the whole reason this is a dialog and not two checkboxes on the row - so a
+--- tick left over from last time would be the failure this replaced.
+function DebindShareBringFrameMixin:Open(batch, lines)
+    self.batch = batch;
+
+    self.TitleText:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchTitle(batch)));
+
+    local className = batch.class
+        and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[batch.class] or batch.class);
+
+    local y = -TOP_INSET;
+    for i, button in ipairs(self.lineButtons) do
+        local entry = lines[i];
+        button:SetShown(entry ~= nil);
+        if (entry) then
+            button.line = entry.line;
+            button.Label:SetText(format(LLL[LINE_LABELS[entry.line]], className or ""));
+            -- The label is outside the frame, so pressing the words only ticks the box if the hit
+            -- rect reaches over them. Locales disagree about how far, so the string is asked.
+            button:SetHitRectInsets(0, -(button.Label:GetStringWidth() + 4), 0, 0);
+            -- **Everything, by default.** Bringing all of it is what the reader came to do; the
+            -- boxes are there for the one who wants less, and asking the other one to tick four
+            -- things first would make the dialog a toll.
+            button:SetChecked(true);
+            button:SetPoint("TOPLEFT", self, "TOPLEFT", SIDE_INSET, y);
+            y = y - ROW_PITCH;
+        end
+    end
+
+    -- **Missing means unknown, and unknown shows it.** A batch stored before `hasKeys` existed has
+    -- no answer, and hiding the control for those made the option look unbuilt on every row already
+    -- in the drawer. Offering it on a keyless batch costs nothing - there is no key to drop - while
+    -- hiding it on a batch that has keys costs the feature.
+    local hasKeys = batch.hasKeys ~= false;
+    self.StripKeysButton:SetShown(hasKeys);
+    self.Divider:SetShown(hasKeys);
+    if (hasKeys) then
+        y = y - DIVIDER_SPACE;
+        self.Divider:SetPoint("TOPLEFT", self, "TOPLEFT", SIDE_INSET, y);
+        self.Divider:SetPoint("TOPRIGHT", self, "TOPRIGHT", -SIDE_INSET, y);
+        y = y - DIVIDER_SPACE;
+
+        self.StripKeysButton:SetChecked(false);
+        self.StripKeysButton:SetPoint("TOPLEFT", self, "TOPLEFT", SIDE_INSET, y);
+        y = y - ROW_PITCH;
+    end
+
+    self:UpdateAcceptButton();
+    self:SetHeight(-y + BOTTOM_INSET);
+    self:Show();
+    self:Raise();
+end
+
+--- Which lines were left ticked, as the set `PlanImport` filters on.
+function DebindShareBringFrameMixin:SelectedLines()
+    local selected = {};
+    for _, button in ipairs(self.lineButtons) do
+        if (button:IsShown() and button:GetChecked()) then
+            selected[button.line] = true;
+        end
+    end
+    return selected;
+end
+
+function DebindShareBringFrameMixin:UpdateAcceptButton()
+    self.AcceptButton:SetEnabled(next(self:SelectedLines()) ~= nil);
+end
+
+--- Puts the batch into the profile, badged.
+---
+--- **The message afterwards is not decoration.** Everything that just landed is quarantined and
+--- greyed out, so from the reader's side the screen barely moves: without a line saying what
+--- happened and where to go next, a press that did a lot looks like a press that did nothing.
+function DebindShareBringFrameMixin:Accept()
+    local batch = self.batch;
+    local placed, skipped = DebindShare.CommitBatch(batch, {
+        lines = self:SelectedLines(),
+        stripKeys = self.StripKeysButton:IsShown() and self.StripKeysButton:GetChecked() or nil,
+    });
+
+    self:Hide();
+
+    if (not placed) then
+        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[skipped] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
+        return;
+    end
+
+    DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED"], placed));
+    -- Layers a newer schema invented and this one cannot place. Said separately because it is the
+    -- one case where the count above is not the whole string. **Lines the reader unticked are not
+    -- in here** - they said no, which is not this version having nowhere to put it.
+    if (skipped and skipped > 0) then
+        DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"], skipped), 1, 0.5, 0);
+    end
+
+    DebindShareImportPanel:Refresh();
+
+    -- **Overview has to be rebuilt too, and nothing else is going to do it.** The reader is
+    -- standing on the Import tab, so the lists behind it were built before any of this existed;
+    -- going back only shows the panel again (`SelectPanel`), it does not re-read the profile.
+    -- Without this the actions that just landed are missing from Overview - and so is the strip
+    -- that is the only way to accept them - until something unrelated happens to refresh it.
+    --
+    -- `UpdateBindings` is deliberately not called. Everything placed is badged and `BuildKeyMap`
+    -- skips badged actions, so a rebuild here would spend the work to arrive at the key map that
+    -- is already up. The bindings change when the reader accepts, not when they import.
+    DebindFrame:Refresh(true);
+    DebindFrame:Update();
 end
 
 
@@ -287,10 +436,13 @@ function DebindShareImportPanelMixin:OnHide()
     -- opposite -- plain stored data whose whole purpose is to survive being closed, and a
     -- `/reload` after that.
     --
-    -- The paste dialog does go. It is a box with half-typed input in it, and unlike the export
-    -- tab's copy dialog what it holds is not yet worth anything to anybody: a finished string
-    -- outliving its tab is useful, an unfinished paste floating over Overview is not.
+    -- The two dialogs do go. The paste box is half-typed input, and unlike the export tab's copy
+    -- dialog what it holds is not yet worth anything to anybody: a finished string outliving its
+    -- tab is useful, an unfinished paste floating over Overview is not. The bring dialog is the
+    -- stronger case - its answers belong to one press of one row's button, and a row that is no
+    -- longer on screen has no press to belong to.
     DebindSharePasteFrame:Hide();
+    DebindShareBringFrame:Hide();
     GameTooltip:Hide();
 end
 

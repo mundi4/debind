@@ -215,6 +215,11 @@ end
 
 --- Commits a batch into the profile, badged.
 ---
+--- `options` is `PlanImport`'s, and comes from the dialog the press opened rather than from the
+--- batch. **Nothing about which lines or whether to keep the keys is stored**: those answers are
+--- worth exactly one press. Stored on the batch, "leave the keys out" outlived the moment it was
+--- ticked and a reader who came back a week later got something other than what they asked for.
+---
 --- **Custom state definitions are not touched.** A state is shared by everything in the profile, so
 --- writing one would change what the reader's *existing* actions do - before they approved
 --- anything, and past the one thing quarantine is for. So an imported action that names `$state3`
@@ -224,14 +229,13 @@ end
 --- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
 --- put to the reader, and it is not built yet (`devdocs/building-export-import.md`). Until it is, the answer is
 --- the one that cannot change anything they already had.
-function DebindShare.CommitBatch(batch)
+function DebindShare.CommitBatch(batch, options)
     local payload, reason = DebindShare.GetBatchPayload(batch);
     if (not payload) then
         return nil, reason;
     end
 
-    local placements, skipped = DebindShare.PlanImport(payload, batch.id,
-        batch.stripKeys and { stripKeys = true } or nil);
+    local placements, skipped = DebindShare.PlanImport(payload, batch.id, options);
     if (#placements == 0) then
         return nil, "NOTHING_TO_PLACE";
     end

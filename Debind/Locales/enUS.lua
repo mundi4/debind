@@ -617,7 +617,30 @@ L["OVERVIEW_EMPTY_IMPORTED_ONLY"] = "None of what came in landed on a key this s
 -- same gesture.
 L["IMPORT_COMMIT"] = "Bring it in"
 L["IMPORT_COMMIT_AGAIN"] = "Bring in again"
-L["IMPORT_COMMIT_DESC"] = "Adds these to your bindings, switched off. Nothing you press changes until you accept them."
+-- **It asks before it does anything now**, so the tooltip says so: the press opens a dialog, and a
+-- tooltip promising the action itself would have the reader looking for what changed.
+L["IMPORT_COMMIT_DESC"] = "Asks which parts of it to take, then adds those to your bindings switched off. Nothing you press changes until you accept them."
+-- Everything picked turned out to have nowhere to go. Reachable in one ordinary way: a string from
+-- a character whose class has specializations this one does not.
+L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anywhere to go on this character."
+-- The dialog that press opens. **%s is where the string came from**, which is the name the row
+-- above it carries - the reader picked this row out of a drawer and the dialog has to say which one
+-- it caught.
+L["IMPORT_BRING_TITLE"] = "Bring in - %s"
+-- The lines in that dialog. **These name what is in the string, not where it is going**, which is
+-- why they cannot use the words the window's own tabs use: those are built out of *this*
+-- character - your name, your class, your specs - and the string is somebody else's.
+--
+-- The character line has no name in it because the string carries none. A string meant to be pasted
+-- into a public channel should not be shipping a character name the sender never typed, so this is
+-- the one place in the window that cannot use the window's own vocabulary.
+L["IMPORT_BRING_LINE_SHARED_GENERAL"] = "Shared / General"
+-- %s is the sender's class.
+L["IMPORT_BRING_LINE_SHARED_CLASS"] = "Shared / %s"
+L["IMPORT_BRING_LINE_CHARACTER_GENERAL"] = "Character / General"
+-- %s is the sender's class. The specializations under it are their class's, and they land on yours
+-- of the same number.
+L["IMPORT_BRING_LINE_CHARACTER_SPEC"] = "Character / %s"
 -- **Said out loud because the screen barely moves.** What just arrived is bound to nothing, so a
 -- press that did a lot looks like a press that did nothing.
 --

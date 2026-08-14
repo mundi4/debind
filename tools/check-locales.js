@@ -68,6 +68,13 @@ const PENDING_TRANSLATION = {
     IMPORT_COMMIT: ["ruRU"],
     IMPORT_COMMIT_AGAIN: ["ruRU"],
     IMPORT_COMMIT_DESC: ["ruRU"],
+    // The dialog that press opens, the lines in it, and what it says when none of them landed.
+    IMPORT_NOTHING_PLACED: ["ruRU"],
+    IMPORT_BRING_TITLE: ["ruRU"],
+    IMPORT_BRING_LINE_SHARED_GENERAL: ["ruRU"],
+    IMPORT_BRING_LINE_SHARED_CLASS: ["ruRU"],
+    IMPORT_BRING_LINE_CHARACTER_GENERAL: ["ruRU"],
+    IMPORT_BRING_LINE_CHARACTER_SPEC: ["ruRU"],
     IMPORT_COMMITTED: ["ruRU"],
     IMPORT_COMMITTED_SKIPPED: ["ruRU"],
     IMPORT_TITLE: ["ruRU"],

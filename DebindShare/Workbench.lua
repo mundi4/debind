@@ -255,12 +255,16 @@ function DebindShare.AddBatch(text, source)
         -- control on it with nothing to switch off.
         hasKeys = hasKeys,
 
-        -- The work. Empty means "nothing decided yet", which is not the same as "decided to leave
-        -- it alone" only for keys -- see `Import.lua` when it exists.
-        layers = {},
-        keys = {},
-        excluded = {},
-        states = {},
+        -- **No decisions are kept here.** There used to be four empty tables in this spot
+        -- (`layers`, `keys`, `excluded`, `states`), waiting for a workbench that was folded, and
+        -- `stripKeys` did get written for a while. It outlived the moment it was ticked: a reader
+        -- who came back a week later pressed [Bring it in] and got something they had not asked
+        -- for. Everything that is decided now is decided in the dialog that press opens and is
+        -- over when the press is (`WorkbenchUI.lua`).
+        --
+        -- Batches saved before this still carry those fields. Nothing reads them and nothing has
+        -- to: dropping a stale field would mean a store version and a migration for values that
+        -- were never anything but empty.
     };
 
     vars.nextID = vars.nextID + 1;
