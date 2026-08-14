@@ -867,21 +867,42 @@ local function DeleteElementData(elementData)
 	DebindFrame:Refresh(true);
 end
 
---- 고른 것 전부를 지운다.
+--- Deletes every one of them, wherever it lives.
 ---
---- **액션마다 elementData를 그때그때 다시 찾는다.** `DeleteElementData`가 한 번 돌 때마다
---- `Refresh`가 목록을 새로 지어서, 미리 모아둔 elementData는 둘째부터 낡은 layer를 들고 있다.
---- 집합이 액션 테이블을 열쇠로 드는 이유가 이것이다.
+--- **It does not go through the list.** It used to look each action up with
+--- `FindElementDataByActionInfo` and skip it when that came back nil, which quietly meant "only
+--- what is drawn right now": that provider holds one layer - the open tab - and only the rows the
+--- search and [Only what came in] left in it. Given the badges of a whole import, which routinely
+--- span layers, it deleted the handful on screen and reported nothing about the rest.
+---
+--- The layer is asked for per action instead (`FindLayerID`), which is the same question the row
+--- was answering and one that no filter can change the answer to.
+---
+--- **One rebuild at the end, not one per action.** Deleting through `DeleteElementData` ran
+--- `UpdateBindings` and a full `Refresh` for every row; a couple of hundred of those is a freeze,
+--- and the intermediate lists were never looked at.
 local function DeleteActions(actions)
+	local removed = false;
 	for _, action in ipairs(actions) do
-		local elementData = DebindFrame:FindElementDataByActionInfo(action);
-		if (elementData) then
-			DeleteElementData(elementData);
+		if (IsEditingAction(action)) then
+			DebindIconSelectorFrame:Close(true);
+		end
+		if (_selectedAction == action) then
+			DebindFrame:SetSelectedAction(nil);
+		end
+		local _, layer = DebindPrivate.FindLayerID(action);
+		if (layer and layer:Remove(action)) then
+			removed = true;
 		end
 	end
 
-	-- 앵커가 지워진 것 중에 있었으면 `DeleteElementData`가 이미 선택을 풀었다. 밖에 있었으면
-	-- 집합에 죽은 테이블이 남으므로 여기서 접는다.
+	if (removed) then
+		DebindPrivate.UpdateBindings();
+		DebindFrame:Refresh(true);
+	end
+
+	-- 앵커가 지워진 것 중에 있었으면 선택을 풀어야 하고, 밖에 있었으면 집합에 죽은 테이블이
+	-- 남으므로 여기서 접는다. 둘 다 이 한 줄이 처리한다.
 	DebindFrame:SetSelectedAction(DebindFrame:GetSelectedAction());
 end
 
