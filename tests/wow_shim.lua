@@ -158,7 +158,10 @@ function M.install()
         GetSpecialization = function() return 1; end,
     };
 
-    local CLASS_FILES = { [1] = "WARRIOR", [2] = "PALADIN", [11] = "DRUID" };
+    -- `MAGE` is here because the sharing specs need **a class that is not ours**: a string from one
+    -- keeps its own class and spec on the way in, and the import refuses a class name no client
+    -- has (`ImportAddress`). Without it those cases would measure the refusal instead.
+    local CLASS_FILES = { [1] = "WARRIOR", [2] = "PALADIN", [8] = "MAGE", [11] = "DRUID" };
     _G.C_CreatureInfo = {
         GetClassInfo = function(classId)
             local classFile = CLASS_FILES[classId];

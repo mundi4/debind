@@ -348,6 +348,20 @@ return function(DebindPrivate, DebindShare)
         check(skipped == 0, "안 고른 것을 못 놓은 것으로 세었다: " .. skipped);
     end);
 
+    -- **A scope with no line is not something the reader turned down.** They were never offered it,
+    -- so the filter must not swallow it - and the filter is on for every press the window makes, so
+    -- swallowing it here would mean the count is only ever right in a test.
+    test("고르는 중이어도 모르는 레이어는 세어서 뺀다", function()
+        local placements, skipped = DebindShare.PlanImport(Payload({
+            { id = 1, actions = InLayer({ scope = "raid" },
+                { { type = Constants.SPELL, value = 1 } }) },
+            { id = 2, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 2 } }) },
+        }), 1, { lines = { ["shared.general"] = true } });
+
+        check(#placements == 1, "액션 수 " .. #placements);
+        check(skipped == 1, "안 센다 - 조용히 사라진다: " .. skipped);
+    end);
+
     ---------------------------------------------------------------------------
     -- SETSTATE: name axis back to the bitpack
     ---------------------------------------------------------------------------

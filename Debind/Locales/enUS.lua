@@ -620,9 +620,9 @@ L["IMPORT_COMMIT_AGAIN"] = "Bring in again"
 -- **It asks before it does anything now**, so the tooltip says so: the press opens a dialog, and a
 -- tooltip promising the action itself would have the reader looking for what changed.
 L["IMPORT_COMMIT_DESC"] = "Asks which parts of it to take, then adds those to your bindings switched off. Nothing you press changes until you accept them."
--- Everything picked turned out to have nowhere to go. Reachable in one ordinary way: a string from
--- a character whose class has specializations this one does not.
-L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anywhere to go on this character."
+-- Everything picked turned out to have nowhere to go - the same two causes as
+-- `IMPORT_COMMITTED_SKIPPED`, with nothing left over to report a count against.
+L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anywhere to go here."
 -- The dialog that press opens. **%s is where the string came from**, which is the name the row
 -- above it carries - the reader picked this row out of a drawer and the dialog has to say which one
 -- it caught.
@@ -652,7 +652,10 @@ L["IMPORT_BRING_LINE_CHARACTER_SPEC"] = "Character / %s"
 -- It says the position, not the words on the controls: renaming either of them must not turn this
 -- sentence into a pointer at something that is not there.
 L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you accept them - a row for doing that is now at the top of the window."
-L["IMPORT_COMMITTED_SKIPPED"] = "%d of them came from a layer this version does not know, and were left out."
+-- **Two things reach this and neither is the reader's doing**, so it names both rather than picking
+-- one: a specialization this character's class does not have, and a layer a newer Debind invented.
+-- It used to say only the second, and the first is the one that actually turns up.
+L["IMPORT_COMMITTED_SKIPPED"] = "%d of them had nowhere to go here and were left out - a specialization this character does not have, or a layer this version does not know."
 L["IMPORT_TITLE"] = "Import"
 -- **"You pick which layer each part lands in" was written for a screen that no longer exists.** The
 -- workbench that asked that question was dropped; bringing a string in now places everything by

@@ -402,7 +402,7 @@ L["IMPORT_BRING_LINE_SHARED_CLASS"] = "공유 / %s"
 L["IMPORT_BRING_LINE_CHARACTER_GENERAL"] = "캐릭터 / 일반"
 L["IMPORT_BRING_LINE_CHARACTER_SPEC"] = "캐릭터 / %s"
 L["IMPORT_COMMITTED"] = "행동 %d개를 가져왔습니다. 받아들이기 전까지는 꺼져 있고, 받아들이는 줄이 창 맨 위에 생겼습니다."
-L["IMPORT_COMMITTED_SKIPPED"] = "그중 %d개는 이 버전이 모르는 레이어에서 와서 빠졌습니다."
+L["IMPORT_COMMITTED_SKIPPED"] = "그중 %d개는 여기 놓일 자리가 없어 빠졌습니다 - 이 캐릭터에 없는 전문화이거나, 이 버전이 모르는 레이어입니다."
 L["IMPORT_TITLE"] = "가져오기"
 L["IMPORT_MENU_DESC"] = "남이 건넨 문자열을 받아, 필요할 때까지 그대로 들고 있습니다.|n|n가져오면 그 안의 행동이 꺼진 채로 들어오므로, 받아들이기 전까지는 무엇을 눌러도 달라지지 않습니다."
 -- 근거는 enUS 쪽 주석에.

@@ -158,9 +158,9 @@ function DebindShareBatchRowMixin:Bring()
 
     local lines = DebindShare.CollectImportLines(payload);
     if (#lines == 0) then
-        -- Nothing in it this version has a place for. There is no question to ask, so the answer
-        -- is given straight rather than through an empty dialog.
-        DebindPrivate.DisplayMessage(LLL["IMPORT_FAILED_TOO_NEW"], 1, 0, 0);
+        -- Nothing in it has anywhere to go. There is no question to ask, so the answer is given
+        -- straight rather than through a dialog with no lines on it.
+        DebindPrivate.DisplayMessage(LLL["IMPORT_NOTHING_PLACED"], 1, 0, 0);
         return;
     end
 
@@ -267,6 +267,16 @@ function DebindShareBringFrameMixin:OnLoad()
     -- it. Every other key keeps going, or the keyboard stops answering while this is up.
     self:EnableKeyboard(true);
     self:SetScript("OnKeyDown", function(_, key)
+        -- `SetPropagateKeyboardInput` is taint in combat. Entering combat hides the window behind
+        -- this and takes the dialog with it (`DebindShareImportPanelMixin:OnHide`), so this is
+        -- normally unreachable - but **a key pressed on the frame combat starts can arrive before
+        -- PLAYER_REGEN_DISABLED.** The same one frame `DebindFrameMixin:OnKeyDown` blocks, blocked
+        -- the same way: do nothing and stand down. That key is eaten and the dialog is gone next
+        -- frame.
+        if (InCombatLockdown()) then
+            return;
+        end
+
         local ours = key == "ESCAPE";
         self:SetPropagateKeyboardInput(not ours);
         if (ours) then
@@ -285,8 +295,18 @@ function DebindShareBringFrameMixin:Open(batch, lines)
 
     self.TitleText:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchTitle(batch)));
 
-    local className = batch.class
-        and (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[batch.class] or batch.class);
+    --- **The class line names the class its actions are going to**, which is the descriptor's and
+    --- not `payload.class`. The two agree in anything this addon builds; a hand-made string can
+    --- disagree, and then the sender's class over somebody else's layer is the wrong one to print.
+    --- The character line has no class of its own to read - specializations belong to whoever sent
+    --- it - so that one falls back to what the string says about the sender.
+    local function ClassName(entry)
+        local class = entry.class or batch.class;
+        if (not class) then
+            return "";
+        end
+        return LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class;
+    end
 
     local function Place(region, x, y)
         region:ClearAllPoints();
@@ -299,7 +319,7 @@ function DebindShareBringFrameMixin:Open(batch, lines)
         button:SetShown(entry ~= nil);
         if (entry) then
             button.line = entry.line;
-            button.Label:SetText(format(LLL[LINE_LABELS[entry.line]], className or ""));
+            button.Label:SetText(format(LLL[LINE_LABELS[entry.line]], ClassName(entry)));
             -- The label is outside the frame, so pressing the words only ticks the box if the hit
             -- rect reaches over them. Locales disagree about how far, so the string is asked.
             button:SetHitRectInsets(0, -(button.Label:GetStringWidth() + 4), 0, 0);

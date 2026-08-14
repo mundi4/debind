@@ -319,8 +319,9 @@ local LAYER_WALK_ORDER   = { 8, 9, 10, 11, 7, 3, 4, 5, 6, 2, 1 };
 local function GroupSelectedActions(isSelected)
     local byKey, keyOrder, keyless = {}, {}, {};
     -- Where this action turned up in the walk. The last tiebreak, and it exists because `sort` is
-    -- not stable: two layers can share a rank (spec 1 and spec 2 are both class-spec layers), and
-    -- with the same `seq` in both the result would otherwise be free to differ between two calls.
+    -- not stable and two actions in one layer can carry the same `seq`. `CleanUpDB` is what usually
+    -- keeps them apart, and it runs at login and at logout rather than after every edit -- so the
+    -- promise this holds up is the export's own: the same profile has to give the same string.
     local ordinal = 0;
 
     for rank = 1, #LAYER_WALK_ORDER do

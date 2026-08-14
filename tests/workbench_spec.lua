@@ -129,6 +129,15 @@ return function(DebindPrivate, DebindShare)
         check(Address({ scope = "class", spec = 0 }) == nil, "직업 이름이 없다");
     end);
 
+    -- **A class name is a key straight into storage.** `shared.classes[<name>]` gets made on the
+    -- spot, no screen reaches it, and `CleanUpDB` walks the eleven loaded layers so it never sees
+    -- it either - every paste of a made-up name would leave one more behind in the account file.
+    test("직업 이름이 아닌 것은 자리를 안 만든다", function()
+        check(Address({ scope = "class", class = "NOSUCHCLASS", spec = 0 }) == nil, "지어낸 이름");
+        check(Address({ scope = "class", class = 3, spec = 0 }) == nil, "문자열이 아닌 것");
+        check(Address({ scope = "class", class = "MAGE", spec = 0 }) ~= nil, "진짜 직업을 거절했다");
+    end);
+
     test("모르는 scope는 주소가 없다", function()
         check(Address({ scope = "raid" }) == nil, "주소를 지어냈다");
         check(Address(nil) == nil, "nil");
@@ -202,6 +211,37 @@ return function(DebindPrivate, DebindShare)
     test("모르는 scope는 줄을 안 만든다", function()
         local order = LineIDs(Payload({ Group({ scope = "raid" }), Group({ scope = "general" }) }));
         check(order == "shared.general", "모르는 scope가 줄을 만들었다: " .. order);
+    end);
+
+    -- **갈 데가 없는 것도 같다.** A line whose every action has nowhere to land is a checkbox that
+    -- does nothing either way, and the reader has no means of telling it from one that would. The
+    -- shim's character has four specializations, so spec 5 is one nothing here can hold.
+    test("갈 데 없는 것만 있는 줄도 안 선다", function()
+        local order = LineIDs(Payload({
+            Group({ scope = "character", spec = 5 }),
+            Group({ scope = "general" }),
+        }));
+        check(order == "shared.general", "놓을 데 없는 줄이 섰다: " .. order);
+    end);
+
+    -- **직업 줄은 자기가 갈 직업을 부른다.** `payload.class` is what the string says about the
+    -- sender, and a hand-made one can put another class's layer under it - then the label would
+    -- print the sender's class over somebody else's layer.
+    test("직업 줄은 descriptor의 직업을 달고 나온다", function()
+        local lines = DebindShare.CollectImportLines(Payload({
+            Group({ scope = "class", class = "MAGE", spec = 1 }),
+        }));
+        check(#lines == 1 and lines[1].class == "MAGE",
+            "직업이 안 실렸다: " .. tostring(lines[1] and lines[1].class));
+
+        -- Two classes on one line: there is no single name to print, so none is offered and the
+        -- dialog falls back to what the string says about the sender.
+        lines = DebindShare.CollectImportLines(Payload({
+            Group({ scope = "class", class = "MAGE", spec = 1 }),
+            Group({ scope = "class", class = CLASS, spec = 1 }),
+        }));
+        check(#lines == 1 and lines[1].class == nil,
+            "둘 중 하나를 골라 적었다: " .. tostring(lines[1] and lines[1].class));
     end);
 
     -- One group can put actions on two lines now, which is why the count is over actions. There is

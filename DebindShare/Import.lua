@@ -184,7 +184,10 @@ function DebindShare.PlanImport(payload, batchID, options)
             local line = DebindShare.ImportLineFor(source.layer);
             local scope, class, spec;
 
-            if (not lines or (line and lines[line])) then
+            -- **Only a line that exists and was unticked leaves in silence.** An action whose scope
+            -- has no line at all is not something the reader turned down - they were never offered
+            -- it - so it goes on to be counted like any other address this version cannot answer.
+            if (not line or not lines or lines[line]) then
                 scope, class, spec = DebindShare.ImportAddress(source.layer);
                 if (not scope) then
                     skipped = skipped + 1;

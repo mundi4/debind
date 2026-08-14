@@ -25,6 +25,21 @@ local STORE_VERSION           = 1;
 --- is a number no client produces -- so it is refused rather than folded to something nearby.
 local MAX_SPEC                = 4;
 
+--- The class names this client has, enumerated the way the pre-rename import does it
+--- (`Legacy.lua`).
+---
+--- **A descriptor's class is a key straight into storage** (`shared.classes[class]`), so one that
+--- names no class would stand up a table no screen can reach and nothing ever clears -- `CleanUpDB`
+--- walks the eleven loaded layers and would never see it. Every paste of a made-up name would grow
+--- the account file by another one.
+local KNOWN_CLASSES           = {};
+for classID = 1, 20 do
+    local classInfo = C_CreatureInfo.GetClassInfo(classID);
+    if (classInfo and classInfo.classFile) then
+        KNOWN_CLASSES[classInfo.classFile] = true;
+    end
+end
+
 --- How long a batch sits before it is offered up for deletion. **Not a rule, a default**: the list
 --- shows the date it arrived and warns before this runs out, and a batch can be pinned out of it
 --- entirely. Nothing is ever removed without having said so first.
@@ -76,7 +91,7 @@ function DebindShare.ImportAddress(descriptor)
     end
 
     if (scope == "class") then
-        if (luatype(descriptor.class) ~= "string") then
+        if (not KNOWN_CLASSES[descriptor.class]) then
             return nil;
         end
         return "class", descriptor.class, spec;
@@ -135,19 +150,31 @@ end
 
 --- Which of the four lines this payload actually has something on, in `IMPORT_LINES` order.
 ---
---- Lines with nothing behind them are left out. A checkbox for a layer the string does not carry
---- reads as a choice, and unticking it would do exactly nothing.
+--- **Only what can land counts.** A line the string does not carry, and a line whose every action
+--- has nowhere to go, are the same thing to the reader: a checkbox that reads as a choice and does
+--- nothing either way. A payload with no line at all is one there is no question to ask about.
 ---
 --- **Counted over actions, not groups.** A group is a key now and a key crosses layers, so one
 --- group can put actions on two lines and there is no number of groups a line owns.
+---
+--- `class` rides along on the class line, taken from the descriptors rather than from
+--- `payload.class`: the label has to name the class the actions are actually going to. It is absent
+--- when the line holds more than one, which the export cannot produce and a hand-made string can.
 function DebindShare.CollectImportLines(payload)
-    local counts = {};
+    local counts, classLine = {}, nil;
 
     for _, group in ipairs(payload.groups or {}) do
         for _, action in ipairs(group.actions or {}) do
             local line = DebindShare.ImportLineFor(action.layer);
-            if (line) then
+            if (line and DebindShare.ImportAddress(action.layer)) then
                 counts[line] = (counts[line] or 0) + 1;
+                if (line == "shared.class") then
+                    if (classLine == nil) then
+                        classLine = action.layer.class;
+                    elseif (classLine ~= action.layer.class) then
+                        classLine = false;
+                    end
+                end
             end
         end
     end
@@ -155,7 +182,11 @@ function DebindShare.CollectImportLines(payload)
     local lines = {};
     for _, line in ipairs(DebindShare.IMPORT_LINES) do
         if (counts[line]) then
-            lines[#lines + 1] = { line = line, actionCount = counts[line] };
+            lines[#lines + 1] = {
+                line = line,
+                actionCount = counts[line],
+                class = line == "shared.class" and classLine or nil,
+            };
         end
     end
     return lines;
