@@ -299,11 +299,16 @@ L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse button not allowed"
 L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Mouse button needs hover"
 L["ORDER_FLAG_UNDEFINED_STATE"] = "Unknown state name"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
--- **The row stands where it would stand if that specialization were the live one**, so this line is
--- the only thing on screen telling it apart from what is running right now. Which one it is comes
+-- **The row stands where it would stand if that specialization were the active one**, so this line
+-- is the only thing on screen telling it apart from what is running right now. Which one it is comes
 -- from the row tooltip, which names the layer; this slot is a few words wide and what has to fit in
 -- it is that the row is not in play.
-L["ORDER_FLAG_OFFSPEC"] = "Other specialization"
+--
+-- **The client's word, not ours.** A specialization is made current with `TALENT_SPEC_ACTIVATE`
+-- ("Activate"), so the state is active / inactive - and `FACTION_INACTIVE` is where the other half
+-- of the pair is already spelled. "Other specialization" was ours and said the wrong thing besides:
+-- it reads as "some specialization elsewhere" when what matters is that this one is switched off.
+L["ORDER_FLAG_OFFSPEC"] = "Inactive specialization"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_GOTO_ACTION"] = "Go to it in %s"
@@ -340,7 +345,7 @@ L["OVERVIEW"] = "Overview"
 -- 그래서 그 약속은 이제 문장에 없고, 대신 **자리가 무엇을 뜻하는지**를 말한다: 다른 전문화의
 -- 행동은 그 전문화였다면 섰을 자리에 서고, 지금 안 돈다는 것은 옆 칸이 말한다. 약속을 지킬 수
 -- 없게 됐을 때 문장을 안 고치면 읽는 사람은 그것을 고장으로 읽는다.
-L["OVERVIEW_DESC"] = "Every action that has a key, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nActions belonging to another specialization are listed too, in the place they would take if that were the specialization you were in. The line beside them says so, and they reach no key until you switch to it. Opening another tab on the right does not change what is listed here.|n|nActions with no key are gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile in name order. Anything still waiting to be accepted is listed as well, and reaches no key until you say so."
+L["OVERVIEW_DESC"] = "Everything in this character's bindings, grouped by the key it is on. Within a key, they are listed in the order Debind tries them.|n|nActions on an inactive specialization are listed too, in the place they would take if that specialization were active. The line beside them says so, and they reach no key until you activate it. Opening another tab on the right does not change what is listed here.|n|nActions with no key are gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile in name order. Anything still waiting to be accepted is listed as well, and reaches no key until you say so."
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
@@ -380,7 +385,7 @@ L["ORDER_BLOCKED_PRIORITY"] = "It cannot pass the action next to it -- they have
 -- property either action could be given; this one says the two never run in the same world, so
 -- there is no order between them to settle. The order on this key is only ever compared inside one
 -- specialization, because that is the only place the numbers mean the same thing.
-L["ORDER_BLOCKED_SPEC"] = "It cannot pass the action next to it -- they belong to different specializations, and only one of them is in play at a time."
+L["ORDER_BLOCKED_SPEC"] = "It cannot pass the action next to it -- they belong to different specializations, and only one specialization is active at a time."
 L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
@@ -451,7 +456,9 @@ L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"
 -- SPELL_PICKER_LEFT_CLICK_TO_ADD의 짝. 오른쪽 클릭이 있다는 것을 말하는 자리가 화면에
 -- 여기뿐이다 - 행은 있으나 없으나 같은 모양이다.
 L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another tab."
-L["SPELL_PICKER_SHOW_OFFSPEC"] = "Other specializations"
+-- Same thing the overview's `ORDER_FLAG_OFFSPEC` names, so it has to be the same word: two names
+-- for one thing in one window is how a reader ends up thinking there are two things.
+L["SPELL_PICKER_SHOW_OFFSPEC"] = "Inactive specializations"
 L["SPELL_PICKER_TAB_COMMAND"] = "Commands"
 L["SPELL_PICKER_TAB_MACRO"] = "Macros"
 L["SPELL_PICKER_TAB_MOUNT"] = "Mounts"
