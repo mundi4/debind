@@ -299,6 +299,11 @@ L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse button not allowed"
 L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Mouse button needs hover"
 L["ORDER_FLAG_UNDEFINED_STATE"] = "Unknown state name"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
+-- **The row stands where it would stand if that specialization were the live one**, so this line is
+-- the only thing on screen telling it apart from what is running right now. Which one it is comes
+-- from the row tooltip, which names the layer; this slot is a few words wide and what has to fit in
+-- it is that the row is not in play.
+L["ORDER_FLAG_OFFSPEC"] = "Other specialization"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_GOTO_ACTION"] = "Go to it in %s"
@@ -325,17 +330,17 @@ L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When
 -- 낱말은 그대로 "load"를 쓴다. 갈라진 것은 낱말이 아니라 빠진 주어였다.
 L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
 L["OVERVIEW"] = "Overview"
--- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 규칙 셋(키 걸린 것만 / 키로 묶임 / 지금
--- 캐릭터·특성 붙박이)을 말할 자리가 여기밖에 없다. 셋째 문장이 있는 이유는 오른쪽에서
--- 오프스펙을 열어도 왼쪽이 안 따라오기 때문이다 - 모르면 고장으로 읽힌다.
+-- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 이 열의 규칙을 말할 자리가 여기밖에 없다.
 --
 -- **"the keyboard you are playing with"라고 쓰지 말 것.** 설계 메모의 말버릇이지 플레이어의
 -- 말이 아니다 - 저쪽에게 keyboard는 책상 위의 물건이라, 이 창이 그걸 보여준다는 소리가 된다.
--- **The last clause is what quarantine cost this sentence.** "What is listed is what would actually
--- happen" stopped being true the day importing started putting actions in the profile switched off:
--- those are listed, they have a key, and pressing it does nothing. Without the exception the one
--- promise this window makes is false for exactly the rows the reader is least sure about.
-L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nWhat is listed is what your current character and specialization would actually do if you pressed the key now. Opening another tab or specialization on the right does not change it, and an action with no key is not listed here at all. Actions with no key are listed too, gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile. The exception to the whole of it is anything still waiting to be accepted - it is listed, but it reaches no key until you say so."
+--
+-- **"여기 있는 것은 지금 누르면 실제로 일어날 일"이 두 번 무너졌다.** 처음은 격리였다 - 꺼진
+-- 채로 들어온 것이 목록에 있고 키도 있는데 눌러도 아무 일이 없다. 두 번째가 오프스펙이다.
+-- 그래서 그 약속은 이제 문장에 없고, 대신 **자리가 무엇을 뜻하는지**를 말한다: 다른 전문화의
+-- 행동은 그 전문화였다면 섰을 자리에 서고, 지금 안 돈다는 것은 옆 칸이 말한다. 약속을 지킬 수
+-- 없게 됐을 때 문장을 안 고치면 읽는 사람은 그것을 고장으로 읽는다.
+L["OVERVIEW_DESC"] = "Every action that has a key, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nActions belonging to another specialization are listed too, in the place they would take if that were the specialization you were in. The line beside them says so, and they reach no key until you switch to it. Opening another tab on the right does not change what is listed here.|n|nActions with no key are gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile in name order. Anything still waiting to be accepted is listed as well, and reaches no key until you say so."
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
@@ -371,6 +376,11 @@ L["ORDER_BLOCKED_CONDITIONAL"] = "It cannot pass the action next to it -- only o
 L["ORDER_BLOCKED_HOVER"] = "It cannot pass the action next to it -- only one of the two runs while hovering a unit frame, and that is compared before the order on this key."
 L["ORDER_BLOCKED_LAYER"] = "It cannot pass the action next to it -- they are in different scopes, and scope is compared before the order on this key."
 L["ORDER_BLOCKED_PRIORITY"] = "It cannot pass the action next to it -- they have different importance, and importance is compared first."
+-- **The one of the four that is not about a rule the reader could change.** The other three name a
+-- property either action could be given; this one says the two never run in the same world, so
+-- there is no order between them to settle. The order on this key is only ever compared inside one
+-- specialization, because that is the only place the numbers mean the same thing.
+L["ORDER_BLOCKED_SPEC"] = "It cannot pass the action next to it -- they belong to different specializations, and only one of them is in play at a time."
 L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
@@ -609,9 +619,14 @@ L["IMPORTED_ONLY_DESC"] = "Narrows both lists to what came in from a string and 
 -- shows.
 L["NO_IMPORTED_IN_THIS_TAB"] = "Nothing waiting in this tab. The counts on the tabs show where it went."
 -- Empty left-hand column while the switch is on. Different from the one above: that list is one
--- tab, this one is the keyboard, and the only way it can be empty with things still waiting is
--- that all of them landed on a specialization you are not in.
-L["OVERVIEW_EMPTY_IMPORTED_ONLY"] = "None of what came in landed on a key this specialization uses. Look under the other tabs on the right."
+-- tab, this one is the whole keyboard.
+--
+-- **It used to send the reader to the other tabs on the right**, because the column only looked at
+-- the live specialization and a batch could land outside it. It shows those now, so the sentence
+-- pointed at a tab that already has nothing new in it. What is left is a class this character is
+-- not - those layers are stored and reached only by logging that class in, and there is no tab
+-- here that would show them.
+L["OVERVIEW_EMPTY_IMPORTED_ONLY"] = "Nothing that came in is waiting on this character. A string from another class lands in that class's own layers, and shows up when you play one."
 -- The one thing a drawer row is for. **The second press is not a repeat of the first** - it puts
 -- another copy in - so the label has to change, or "did that work" and "do it again" become the
 -- same gesture.

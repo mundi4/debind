@@ -99,7 +99,24 @@ return function(DebindPrivate)
         expectBefore(rec({ layerRank = 5, isConditional = true }), rec({ layerRank = 1 }), "isConditional 우선");
     end);
 
-    test("5단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
+    -- **오프스펙 액션은 활성 액션과 같은 밴드에 들어간다.** layerRank가 스코프까지만 좁히므로
+    -- (직업/특성1과 직업/특성3이 같은 값), 그 안에서 자리를 마저 정하는 것이 이 단계다.
+    -- 활성이 0이라 언제나 앞이고, 오프끼리는 특성 번호 차례다.
+    test("5단계 specRank - 활성이 먼저, 오프스펙은 특성 번호 차례", function()
+        expectBefore(rec({ specRank = 0, seq = 99 }), rec({ specRank = 1, seq = 1 }), "활성 우선");
+        expectBefore(rec({ specRank = 1, seq = 99 }), rec({ specRank = 3, seq = 1 }), "특성 번호");
+        -- 없으면 0, 즉 활성이다. 활성 레이어에서 온 레코드는 이 필드를 안 달고 온다.
+        expectBefore(rec({ seq = 5 }), rec({ specRank = 2, seq = 1 }), "specRank 없음 = 활성");
+    end);
+
+    -- **seq보다 앞이어야 한다.** seq는 한 레이어 안에서만 믿을 수 있는 값이라, 레이어 하나로
+    -- 좁혀지기 전에 비교하면 서로 다른 번호 공간을 견주게 된다.
+    test("5단계 specRank - layerRank가 먼저 갈리면 안 본다", function()
+        expectBefore(rec({ layerRank = 1, specRank = 4 }), rec({ layerRank = 2, specRank = 0 }),
+            "layerRank 우선");
+    end);
+
+    test("6단계 seq - 같은 레이어 안에서는 저장된 순서 번호", function()
         expectBefore(rec({ seq = 1 }), rec({ seq = 2 }), "seq");
         -- 번호가 없는 쪽은 0으로 본다. 키가 걸린 액션에는 마이그레이션과 CleanUpDB가 번호를
         -- 보장하므로 정상 데이터에는 없는 경우지만, 정렬 안에서 터지지는 않아야 한다.
@@ -107,12 +124,23 @@ return function(DebindPrivate)
         expectBefore({ layerRank = 1 }, rec({ seq = 1 }), "seq 없음");
     end);
 
+    -- **키가 없으면 seq가 아예 없다**(`PlaceLast`). 키 없이 도착한 그룹은 보낸 사람의 차례를
+    -- `importOrder`에 들고 있고, 이 자리에서 안 읽으면 그 그룹은 통째로 동률이 되어 순서가
+    -- 사라진다 - 키가 빠진 문자열에서는 그것이 설계의 유일한 잔존물이다.
+    test("6단계 - seq가 없으면 importOrder가 그 자리를 든다", function()
+        expectBefore({ layerRank = 1, importOrder = 1 }, { layerRank = 1, importOrder = 2 },
+            "importOrder");
+        -- seq가 있으면 그쪽이 이긴다. 키를 받은 그룹은 seq를 발급받고 importOrder는 남아 있다.
+        expectBefore({ layerRank = 1, seq = 1, importOrder = 9 },
+            { layerRank = 1, seq = 2, importOrder = 1 }, "seq 우선");
+    end);
+
     test("전부 같으면 동률", function()
         expectTie(rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }),
             rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");
     end);
 
-    test("sort 통합 - 5단계가 순서대로 적용된다", function()
+    test("sort 통합 - 6단계가 순서대로 적용된다", function()
         local arr = {
             rec({ seq = 2 }),
             rec({ seq = 1 }),
@@ -120,10 +148,11 @@ return function(DebindPrivate)
             rec({ hover = true, seq = 4 }),
             rec({ priority = 1, seq = 5 }),
             rec({ layerRank = 0, seq = 6 }),
+            rec({ specRank = 2, seq = 7 }),
         };
         sort(arr, CompareActionOrder);
 
-        local expected = { 5, 4, 3, 6, 1, 2 };
+        local expected = { 5, 4, 3, 6, 1, 2, 7 };
         for i = 1, #expected do
             check(arr[i].seq == expected[i],
                 ("%d번째가 seq=%d, 기대값 %d"):format(i, arr[i].seq, expected[i]));
@@ -414,6 +443,12 @@ return function(DebindPrivate)
 
     test("막힘 - 레이어가 다르면 LAYER", function()
         expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", layerRank = 1 }), "LAYER");
+    end);
+
+    -- 다른 특성의 행과는 `seq`를 맞바꿀 수 없다. 두 번호가 서로 다른 레이어의 것이라 맞바꿔도
+    -- 한 칸 움직인다는 보장이 없고, 애초에 둘이 같이 도는 세계가 없다.
+    test("막힘 - 특성이 다르면 SPEC", function()
+        expectBlocked(rec({ name = "t", specRank = 2 }), rec({ name = "n", specRank = 0 }), "SPEC");
     end);
 
     test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 PRIORITY)", function()

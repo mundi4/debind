@@ -11,19 +11,29 @@ local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
 
 --- 같은 키에 걸린 두 액션의 발동 순서를 비교한다.
 ---
---- 레코드 필드: priority, hover, isConditional, layerRank, seq
+--- 레코드 필드: priority, hover, isConditional, layerRank, specRank, seq, importOrder
 ---   priority      - nil이면 Constants.DEFAULT_PRIORITY
 ---   hover         - **원본 값 그대로.** false와 nil이 다른 뜻이다(false = "hover 아님"을
 ---                   명시한 조건이라 조건이 걸린 것으로 친다). 불리언으로 접어 넘기지 말 것
 ---   isConditional - DebindPrivate.IsConditionalAction(action)
----   layerRank     - EnumerateProfileLayers의 순회 순번 (작을수록 구체적인 레이어)
+---   layerRank     - 스코프 순번 (작을수록 구체적인 레이어). 캐릭터/특성 → 캐릭터/공용 →
+---                   직업/특성 → 직업/공용 → 일반. **특성 번호는 안 본다** - 오프스펙
+---                   액션은 활성 액션과 같은 밴드에 들어간다
+---   specRank      - 활성 특성(과 특성 없는 레이어)이 0, 오프스펙이 그 특성 번호 1..4
 ---   seq           - action.seq. 그 레이어 안에서만 뜻이 있는 저장된 순서 번호
+---   importOrder   - 키 없이 도착한 그룹에서 seq를 대신하는 값
 ---
 --- (layerRank, seq)는 예전 binding.ordinal(활성 레이어를 훑으며 매기던 통짜 일련번호)을
 --- 두 자리로 편 것이다. 사전식 비교라 결과는 ordinal 비교와 동일하다.
 ---
+--- **specRank가 seq보다 앞이다.** seq는 한 레이어 안에서만 믿을 수 있는 값이라, 레이어
+--- 하나로 좁혀지기 전에 비교하면 서로 다른 번호 공간을 견주게 된다. layerRank가 스코프까지만
+--- 좁히므로 그 자리를 마저 좁히는 것이 이 단계다.
+---
 --- 이 순서를 바꾸면 저장 데이터는 그대로인데 전 사용자의 발동 순서가 조용히 바뀌고,
 --- 공유 레이어 때문에 순서를 보존하는 마이그레이션을 만들 수가 없다. 건드리지 말 것.
+--- specRank가 끼어든 것은 그 규칙을 어기지 않는다 - 실제로 발동하는 액션은 전부 활성
+--- 레이어에 있어서 이 단계에서 언제나 동률이다.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
     local lhsPriority = lhs.priority or DEFAULT_PRIORITY;
     local rhsPriority = rhs.priority or DEFAULT_PRIORITY;
@@ -47,16 +57,26 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
         return lhs.layerRank < rhs.layerRank;
     end
 
+    -- 오프스펙 액션은 자기 스코프의 활성 액션 **바로 뒤**에 선다. 0이 활성이라 언제나 앞이고,
+    -- 오프끼리는 특성 번호 차례다.
+    local lhsSpec = lhs.specRank or 0;
+    local rhsSpec = rhs.specRank or 0;
+    if (lhsSpec ~= rhsSpec) then
+        return lhsSpec < rhsSpec;
+    end
+
     -- 마지막은 **저장된 순서 번호**다. 한때 여기서 레이어 배열의 자리(index)를 읽었는데,
     -- 목록이 키순 정렬로 바뀌면서 그 자리는 화면에도 안 나오고 만질 방법도 없는 값이 됐다.
     -- 뜻이 없는 값이 순서를 정하니 키를 새로 걸었을 때 어떤 액션은 기존 것들 위로, 어떤
     -- 액션은 아래로 들어갔다 - 같은 조작인데 결과가 그 액션이 우연히 배열 어디에 있었느냐로
     -- 갈렸다. 지금은 키를 걸 때 그 레이어의 맨 뒤 번호를 받는다(Profile.lua의 PlaceLast).
     --
-    -- nil은 0으로 본다. 여기까지 왔다는 건 둘 다 키가 걸린 액션이라는 뜻이고, 그런 액션은
-    -- 마이그레이션과 CleanUpDB가 번호를 보장한다. 그물이 찢어져도 정렬 안에서 nil을 비교해
-    -- 터지는 것보다는 낫다.
-    return (lhs.seq or 0) < (rhs.seq or 0);
+    -- 키가 없으면 `seq`가 아예 없다(`PlaceLast`). 그 자리를 `importOrder`가 든다 - 키 없이
+    -- 도착한 그룹에서 보낸 사람의 차례를 들고 있는 값이고, 여기서 안 읽으면 그 그룹은 이
+    -- 단계에서 통째로 동률이 되어 순서가 사라진다.
+    --
+    -- 둘 다 없으면 0으로 본다. 그물이 찢어져도 정렬 안에서 nil을 비교해 터지는 것보다 낫다.
+    return (lhs.seq or lhs.importOrder or 0) < (rhs.seq or rhs.importOrder or 0);
 end
 
 
@@ -94,6 +114,10 @@ function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
         return "LAYER";
     end
 
+    if ((lhs.specRank or 0) ~= (rhs.specRank or 0)) then
+        return "SPEC";
+    end
+
     return nil;
 end
 
@@ -109,7 +133,7 @@ end
 ---
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
----   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" - 그 단계에서 갈려서 seq까지 안 내려옴
+---   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
 --- 일이 없지만, 이 함수는 "못 하면 이유를 돌려준다"고 약속해 놓고 대신 터지면 안 된다.
@@ -124,10 +148,16 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
     -- button, watches the list rearrange, and believes they settled something. That is the most
     -- expensive kind of wrong this list can be.
     --
+    -- **An off-spec row is not an opponent either**, for the same reason and with one more: it is
+    -- not in the key map now, and the two never run in the same world. Skipping it is also what
+    -- blocks moving one - the target's own neighbour then comes out active, and `specRank` decides
+    -- before `seq` ever does, so this path answers "SPEC" without a branch of its own.
+    --
     -- Skipping past the end is the same answer as starting there, so the two branches below catch
     -- it unchanged: nowhere to move to is nowhere to move to.
     local neighborIndex = targetIndex + direction;
-    while (rows[neighborIndex] and rows[neighborIndex].imported) do
+    while (rows[neighborIndex]
+            and (rows[neighborIndex].imported or (rows[neighborIndex].specRank or 0) ~= 0)) do
         neighborIndex = neighborIndex + direction;
     end
 

@@ -650,6 +650,47 @@ function DebindPrivate.EnumerateProfileLayers(spec)
     return Enumerator, indexArray, 0;
 end
 
+--- 열한 레이어 **전부**를, 스코프 순위와 특성 번호를 달아서.
+---
+--- `EnumerateProfileLayers`는 "지금 이 특성에서 도는 것"을 답한다. 오버뷰는 오프스펙 액션까지
+--- 그리므로 그 물음으로는 모자란다 - 이쪽은 저장에 있는 것을 전부 낸다.
+---
+--- `(순회 번호, layer, scopeRank, specRank)`를 돌려준다.
+---   scopeRank - 캐릭터/특성 1, 캐릭터/공용 2, 직업/특성 3, 직업/공용 4, 일반 5.
+---               **특성 번호는 안 본다.** 오프스펙 액션은 자기 스코프에서 활성 액션과 같은
+---               밴드에 들어가고, 그 안의 자리는 specRank가 정한다(`Ordering.lua`).
+---   specRank  - 활성 특성과 특성 없는 레이어가 0, 나머지는 그 레이어의 특성 번호.
+---
+--- **비교자에게 건네는 layerRank가 이 scopeRank다.** `EnumerateProfileLayers`의 순회 번호와
+--- 값은 다르지만 활성 레이어끼리의 차례는 같으므로, 실제로 발동하는 것들의 순서는 안 바뀐다.
+function DebindPrivate.EnumerateAllProfileLayers(spec)
+    if (spec == nil) then
+        spec = C_SpecializationInfo.GetSpecialization() or 0;
+    end
+
+    local function Enumerator(_, index)
+        while (index < #LAYER_INFOS) do
+            index = index + 1;
+            local layer = DebindPrivate.GetProfileLayer(index);
+            if (layer) then
+                local layerInfo = LAYER_INFOS[index];
+                local layerSpec = layerInfo.spec or 0;
+                local scopeRank;
+                if (layerInfo.isCharacterSpecific) then
+                    scopeRank = layerSpec > 0 and 1 or 2;
+                elseif (layerInfo.key == "GENERAL") then
+                    scopeRank = 5;
+                else
+                    scopeRank = layerSpec > 0 and 3 or 4;
+                end
+                return index, layer, scopeRank, layerSpec ~= spec and layerSpec or 0;
+            end
+        end
+    end
+
+    return Enumerator, nil, 0;
+end
+
 -- 현재 호출자 없음. BuildKeyMap은 (layerRank, index)가 필요해서 EnumerateProfileLayers를
 -- 직접 훑는다. 여기 ordinal은 그 두 값을 평탄화한 것과 같은 순서다.
 function DebindPrivate.EnumerateActionsInActiveLayers()
@@ -722,10 +763,10 @@ function DebindPrivate.CollectActionsForKey(key, spec)
     -- 보면 진짜 잘못된 키에도 ⚠가 안 떴다. 같은 데이터가 보는 특성에 따라 달라 보이면 안 된다.
     local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
 
-    for layerRank, layer in DebindPrivate.EnumerateProfileLayers(spec) do
+    for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(spec) do
         for index, action in layer:Enumerate() do
             if (action.key == key) then
-                rows[#rows + 1] = MakeRow(action, layer, layerRank, index, simulated);
+                rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank);
             end
         end
     end
@@ -744,46 +785,48 @@ end
 ---
 --- `importGroup` selects one arrival group; nil selects the ones belonging to no group at all.
 ---
---- **Sorted by `importOrder`, not by `CompareActionOrder`.** That comparator ends at `seq`, and
---- these have none - a keyless action is never given one (`PlaceLast`). `importOrder` is what the
---- sender's ranking became on arrival, and holding it is the whole reason the field exists.
+--- **Sorted by `CompareActionOrder` like everything else**, which reads `importOrder` where it
+--- would read `seq`: a keyless action is never given a `seq` (`PlaceLast`), and `importOrder` is
+--- what the sender's ranking became on arrival. Holding that is the whole reason the field exists.
 function DebindPrivate.CollectKeylessActionRows(importGroup, spec)
     local rows = {};
     local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
 
-    for layerRank, layer in DebindPrivate.EnumerateProfileLayers(spec) do
+    for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(spec) do
         for index, action in layer:Enumerate() do
             if (action.key == nil and action.importGroup == importGroup) then
-                rows[#rows + 1] = MakeRow(action, layer, layerRank, index, simulated);
+                rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank);
             end
         end
     end
 
-    sort(rows, function(lhs, rhs)
-        local a, b = lhs.action.importOrder, rhs.action.importOrder;
-        if (a and b and a ~= b) then
-            return a < b;
-        end
-        if (lhs.layerRank ~= rhs.layerRank) then
-            return lhs.layerRank < rhs.layerRank;
-        end
-        return lhs.index < rhs.index;
-    end);
+    sort(rows, DebindPrivate.CompareActionOrder);
     return rows;
 end
 
 --- The record the two collectors above hand out, and the only place its shape is written.
-function MakeRow(action, layer, layerRank, index, simulated)
+---
+--- **An off-spec row is the same case as a simulated one** for everything that reads the live key
+--- map. `specRank ~= 0` says this action belongs to a specialization that is not the one in play,
+--- so "unreachable" would be answered out of a key map it was never in.
+function MakeRow(action, layer, layerRank, index, simulated, specRank)
+    simulated = simulated or (specRank ~= nil and specRank ~= 0) or nil;
     return {
                     action        = action,
                     layerID       = layer.layerID,
                     layerRank     = layerRank,
+                    -- 0이면 지금 도는 세계의 것이다. 그 밖은 다른 특성의 액션이고, 비교자가
+                    -- seq를 보기 전에 이 값으로 갈라서 자기 레이어 안에서만 seq를 견주게 한다.
+                    specRank      = specRank,
                     -- 레이어 배열에서의 자리. 순서에는 안 쓰인다(비교자는 seq를 본다).
                     -- 편집 메뉴가 이 값으로 프로필을 만진다 - 같은 레이어로 복사할 때 끼워
                     -- 넣을 자리가 이 번호다(DebindUI.lua의 MoveAction). 그리는 쪽이 손으로
                     -- 세면 같은 뜻의 번호가 두 군데서 따로 만들어진다.
                     index         = index,
                     seq           = action.seq,
+                    -- 키가 없는 동안 `seq`의 자리를 대신하는 값. 비교자가 그렇게 읽는다
+                    -- (`Ordering.lua`) - 키 없이 도착한 그룹은 이것 말고 차례를 말하는 것이 없다.
+                    importOrder   = action.importOrder,
                     priority      = action.priority or Constants.DEFAULT_PRIORITY,
                     -- hover는 파생값이라 **바인딩에서** 읽는다(`Misc.DeriveHoverFields`).
                     -- 액션에는 이제 그 필드가 없고, nil로 읽으면 `CompareActionOrder`의

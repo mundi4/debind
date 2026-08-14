@@ -282,20 +282,6 @@ end
 -- Grouping
 -- ---------------------------------------------------------------------------------------------
 
---- The eleven layers, narrowest first -- the order the profile fires them in.
----
---- Layer IDs run 1..11 (`LAYER_INFOS` in `Profile.lua`): one general, then class spec 0..4, then
---- character spec 0..4. Holes are normal and not an error -- `GetProfileLayer` answers nil for a
---- spec this class does not have, and for every layer at all before `InitDB` has run.
----
---- `EnumerateProfileLayers` builds this same order at run time, but only for the specialization
---- that is live. **The export window opens inactive specs too**, so the whole eleven are spelled
---- out here instead.
----
---- **A layer's place in this list is what ranks its actions inside a group**, below. Walking
---- `1..11` instead would rank general above character-specific, which is backwards.
-local LAYER_WALK_ORDER   = { 8, 9, 10, 11, 7, 3, 4, 5, 6, 2, 1 };
-
 --- Everything selected, split into groups.
 ---
 --- A **group** is one key. It is the unit that has to stay together when the key is dropped: a
@@ -310,9 +296,16 @@ local LAYER_WALK_ORDER   = { 8, 9, 10, 11, 7, 3, 4, 5, 6, 2, 1 };
 --- two headings for what the sender built as one key, gives them two keys, and both fire. There is
 --- nothing in the string by then that could have told them otherwise.
 ---
---- Ranking inside a group therefore has to cross layers too. The receiving side rebuilds
---- everything else from the action itself (priority, hover, conditions all travel), so what `order`
---- has to carry is the part that does not: the layer, and `seq` inside it.
+--- Ranking inside a group therefore has to cross layers too, and it is `CompareActionOrder` that
+--- does it -- the one place in this addon that says what runs first, so a string cannot be ordered
+--- differently from the list the reader will see it in.
+---
+--- **Sent as if no specialization were active.** With one active its layers would rank ahead of the
+--- rest, and then the same profile would produce a different string depending on which
+--- specialization the sender happened to be in. With none, every spec layer is ranked by its own
+--- number and the output is the sender's profile rather than the sender's afternoon. What the
+--- reader sees is theirs to arrange anyway: the badge lands, and the overview sorts it against
+--- *their* active specialization.
 ---
 --- Keyless actions are singletons. In a profile nothing binds two keyless actions to each other
 --- -- whatever group they arrived in was dissolved when they were placed.
@@ -324,31 +317,41 @@ local function GroupSelectedActions(isSelected)
     -- promise this holds up is the export's own: the same profile has to give the same string.
     local ordinal = 0;
 
-    for rank = 1, #LAYER_WALK_ORDER do
-        local layer = DebindPrivate.GetProfileLayer(LAYER_WALK_ORDER[rank]);
-        if (layer) then
-            -- Built once per layer and shared by that layer's actions. The far side reads it and
-            -- never keeps it (`BuildAction` drops it), so one table serving many actions is safe.
-            local descriptor;
+    for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(0) do
+        -- Built once per layer and shared by that layer's actions. The far side reads it and never
+        -- keeps it (`BuildAction` drops it), so one table serving many actions is safe.
+        local descriptor;
 
-            for _, action in layer:Enumerate() do
-                if (isSelected == nil or isSelected[action]) then
-                    descriptor = descriptor or DescribeLayer(layer);
-                    ordinal = ordinal + 1;
-                    local entry = { action = action, layer = descriptor, rank = rank,
-                        ordinal = ordinal };
+        for _, action in layer:Enumerate() do
+            if (isSelected == nil or isSelected[action]) then
+                descriptor = descriptor or DescribeLayer(layer);
+                ordinal = ordinal + 1;
+                -- The fields `CompareActionOrder` reads, and nothing else. `MakeRow` builds the
+                -- same shape for the screen but pays for red text and reachability along the way,
+                -- neither of which a string has any use for.
+                local entry = {
+                    action = action,
+                    layer = descriptor,
+                    ordinal = ordinal,
+                    priority = action.priority,
+                    hover = DebindPrivate.GetBindingInfoForAction(action).hover,
+                    isConditional = DebindPrivate.IsConditionalAction(action),
+                    layerRank = scopeRank,
+                    specRank = specRank,
+                    seq = action.seq,
+                    importOrder = action.importOrder,
+                };
 
-                    if (action.key == nil) then
-                        keyless[#keyless + 1] = entry;
-                    else
-                        local bucket = byKey[action.key];
-                        if (not bucket) then
-                            bucket = {};
-                            byKey[action.key] = bucket;
-                            keyOrder[#keyOrder + 1] = action.key;
-                        end
-                        bucket[#bucket + 1] = entry;
+                if (action.key == nil) then
+                    keyless[#keyless + 1] = entry;
+                else
+                    local bucket = byKey[action.key];
+                    if (not bucket) then
+                        bucket = {};
+                        byKey[action.key] = bucket;
+                        keyOrder[#keyOrder + 1] = action.key;
                     end
+                    bucket[#bucket + 1] = entry;
                 end
             end
         end
@@ -363,12 +366,10 @@ local function GroupSelectedActions(isSelected)
     for i = 1, #keyOrder do
         local bucket = byKey[keyOrder[i]];
         sort(bucket, function(lhs, rhs)
-            if (lhs.rank ~= rhs.rank) then
-                return lhs.rank < rhs.rank;
-            end
-            local lhsSeq, rhsSeq = lhs.action.seq or 0, rhs.action.seq or 0;
-            if (lhsSeq ~= rhsSeq) then
-                return lhsSeq < rhsSeq;
+            if (DebindPrivate.CompareActionOrder(lhs, rhs)) then
+                return true;
+            elseif (DebindPrivate.CompareActionOrder(rhs, lhs)) then
+                return false;
             end
             return lhs.ordinal < rhs.ordinal;
         end);

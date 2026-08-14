@@ -4049,20 +4049,26 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 		accept:SetWidth(max(60, accept:GetFontString():GetStringWidth() + 24));
 	end
 
-	-- **Only the live rows count.** A badged one cannot be an opponent (`ComputeOrderSwap`), so a
-	-- key holding one live row and three badged ones is in the same position as a key holding one:
-	-- put the arrows up and both of them are dead.
+	-- **Only the live rows count.** Neither a badged row nor an off-spec one can be an opponent
+	-- (`ComputeOrderSwap`), so a key holding one live row and three of those is in the same
+	-- position as a key holding one: put the arrows up and both of them are dead.
 	local rows = elementData.rows;
 	local live = 0;
 	if (rows) then
 		for i = 1, #rows do
-			if (not rows[i].imported) then
+			if (not rows[i].imported and (rows[i].specRank or 0) == 0) then
 				live = live + 1;
 			end
 		end
 	end
 
-	if (imported or not elementData.isCurrent or live < 2) then
+	-- **An off-spec row gets no arrows and no accept button either.** What the arrows settle is the
+	-- order on one key, and this row is not on that key in this specialization - the reader would be
+	-- moving something they cannot see the effect of. The slot stays empty and the reason column
+	-- says which specialization it belongs to.
+	local offSpec = (elementData.row.specRank or 0) ~= 0;
+
+	if (imported or offSpec or not elementData.isCurrent or live < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
 		up:Hide();
 		down:Hide();
@@ -4236,6 +4242,13 @@ local function GetOrderReasonText(elementData)
 	-- moment it is accepted, which is when either one starts to matter.
 	if (row.action.imported) then
 		return "";
+	-- **Which specialization it belongs to, in the slot the contest would have used.** The row sits
+	-- where it would sit if that specialization were the live one, so without this line the reader
+	-- has no way to tell it apart from what is running right now. It comes before the problem codes
+	-- for the same reason those come before the ordering sentence: a more specific thing to say
+	-- wins the one slot.
+	elseif ((row.specRank or 0) ~= 0) then
+		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_OFFSPEC"]);
 	elseif (row.unreachable) then
 		return ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
@@ -4375,14 +4388,18 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
 end
 
---- 활성 레이어에서 키가 걸린 액션 전부. 키로 묶고, 그룹 안은 발동 순서다.
+--- 프로필에 있는, 키가 걸린 액션 전부. 키로 묶고, 그룹 안은 발동 순서다.
 ---
 --- 순서를 내는 것은 `CollectActionsForKey`로, 이 애드온에서 순서를 말하는 자리가 그 함수
 --- 하나뿐이다 - 두 화면이 다른 답을 낼 길이 없다.
 ---
---- 특성은 **지금 것**으로 고정이다. 오른쪽에서 오프스펙 레이어를 열어도 여기는 안 따라간다.
---- 이 열의 문장이 "지금 이 키보드"라서, 따라가면 그 문장이 화면마다 달라진다. 대신
---- 오프스펙 액션을 만졌을 때 여기가 조용한 것 자체가 "이건 지금 안 돈다"를 말한다.
+--- **오프스펙 액션도 그린다.** 한때 활성 레이어만 훑었고 근거는 "이 열의 문장이 '지금 이
+--- 키보드'"였는데, 그 대가로 오프스펙에 걸린 것은 이 화면 어디에도 안 나왔다 - 오른쪽 탭을
+--- 열어 하나씩 뒤지는 수밖에 없었다. 지금은 **자기가 활성이었다면 섰을 자리**에 서고
+--- (`EnumerateAllProfileLayers`), 지금 안 돈다는 것은 자리가 아니라 사유 칸이 말한다.
+---
+--- 특성은 **지금 것**으로 고정이다. 오른쪽에서 다른 특성 탭을 열어도 여기는 안 따라간다 -
+--- 무엇이 오프스펙인지가 화면마다 달라지면 이 열의 문장이 흔들린다.
 ---
 --- **Narrowed to what came in, a key is kept or dropped whole** (`_importedOnly`). Which key holds
 --- a badge is settled in the scan below rather than by looking at the rows afterwards, so that the
@@ -4390,7 +4407,7 @@ end
 --- since both walk the live layers and neither leaves anything out.
 local function BuildKeyboardElements()
 	local keySeen, keyArr, keyHasImported = {}, {}, {};
-	for _, layer in DebindPrivate.EnumerateProfileLayers() do
+	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
 		for _, action in layer:Enumerate() do
 			local key = action.key;
 			if (key and not keySeen[key]) then
@@ -4434,9 +4451,14 @@ local function BuildKeyboardElements()
 			-- describe a contest that does not happen. Rows that are themselves badged get no
 			-- sentence at all - `GetOrderReasonText` returns "" for them, and the slot is the
 			-- accept button's.
+			--
+			-- **An off-spec row is out of the running the same way.** It is not in this
+			-- specialization's key map, so a sentence measured against one would describe a
+			-- contest that does not happen - and its own slot says which specialization it
+			-- belongs to instead.
 			local next;
 			for j = i + 1, #rows do
-				if (not rows[j].imported) then
+				if (not rows[j].imported and (rows[j].specRank or 0) == 0) then
 					next = rows[j];
 					break;
 				end
@@ -4476,7 +4498,7 @@ local function BuildKeyboardElements()
 	-- Numbered ascending so the same profile always draws the same order, and the numbers are the
 	-- profile's own (`NextImportGroupID`) rather than the sender's, which repeat across strings.
 	local groupSeen, groupArr, hasPlain = {}, {}, false;
-	for _, layer in DebindPrivate.EnumerateProfileLayers() do
+	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
 		for _, action in layer:Enumerate() do
 			if (action.key == nil) then
 				local group = action.importGroup;
@@ -4518,6 +4540,27 @@ local function BuildKeyboardElements()
 			rows = kept;
 		end
 
+		-- **The pile is sorted by name, and the arrival groups above are not.** Firing order is what
+		-- `CompareActionOrder` answers, and nothing in this pile fires - these are actions with no
+		-- key at all, belonging to no set. What is left to sort them by is the one thing the reader
+		-- is scanning for, which is what the action is. An arrival group is the opposite: its order
+		-- is the sender's design and the only surviving record of it.
+		if (importGroup == nil) then
+			sort(rows, function(lhs, rhs)
+				local lhsName = NameAndIconForAction(lhs.action) or "";
+				local rhsName = NameAndIconForAction(rhs.action) or "";
+				if (lhsName ~= rhsName) then
+					return lhsName < rhsName;
+				end
+				-- Two of the same thing. Falling through to the layer keeps the list from
+				-- rearranging itself between two draws.
+				if (lhs.layerRank ~= rhs.layerRank) then
+					return lhs.layerRank < rhs.layerRank;
+				end
+				return lhs.index < rhs.index;
+			end);
+		end
+
 		if (#rows > 0) then
 			elements[#elements + 1] = {
 				isHeader = true,
@@ -4550,9 +4593,13 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	local elements = BuildKeyboardElements();
 
 	-- **Two reasons to be empty, so two sentences.** Ordinarily empty means no key is bound yet;
-	-- with [Only what came in] on, a keyboard full of keys empties too - a batch that landed
-	-- entirely in off-spec layers leaves no key group for this column to keep, because it only
-	-- looks at the current specialization. Saying "no key is bound yet" there is the screen lying.
+	-- with [Only what came in] on, a keyboard full of keys empties too, and saying "no key is bound
+	-- yet" there is the screen lying.
+	--
+	-- **What can still empty it has changed.** It used to be a batch landing in off-spec layers,
+	-- which this column did not look at; it does now. What is left is a batch that landed in another
+	-- class's layers - those are stored all the same and are not in this character's eleven, so
+	-- nothing here can reach them until that class is logged in.
 	self.ContentArea.EmptyText:SetText(LLL[_importedOnly and "OVERVIEW_EMPTY_IMPORTED_ONLY" or "OVERVIEW_EMPTY"]);
 
 	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 빈 상자만 남기지 않는다.

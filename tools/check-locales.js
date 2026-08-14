@@ -40,6 +40,10 @@ const PENDING_TRANSLATION = {
     LAYER_DESC_SHARED_SPEC: ["ruRU"],
     LAYER_DESC_CHARACTER_GENERAL: ["ruRU"],
     LAYER_DESC_CHARACTER_SPEC: ["ruRU"],
+    // What the overview says about a row belonging to another specialization, and why its arrows
+    // will not move it.
+    ORDER_FLAG_OFFSPEC: ["ruRU"],
+    ORDER_BLOCKED_SPEC: ["ruRU"],
     // The life axis on unit conditions. Same owner as the rows above.
     CONDITION_LIFE: ["ruRU"],
     ONLY_IF: ["ruRU"],
