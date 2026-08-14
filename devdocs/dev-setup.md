@@ -55,6 +55,10 @@ the files it points at rather than the link.
 
 `/reload` picks up a swap — the client re-reads the TOC. No restart.
 
+**Which client you are linked to is part of any in-game result.** `_ptr_` and `_retail_` differ in
+runtime behaviour, not only in API surface, and neither is reliably the newer one — see the PTR rule
+in [testing-a-change.md](testing-a-change.md) before reading an in-game failure as a bug.
+
 ## The dev stamp
 
 A released build shows its version in the window title and the login line, read from the TOC, which

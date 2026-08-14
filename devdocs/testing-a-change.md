@@ -205,6 +205,17 @@ chose.
 UI reloading — none of that is a cost worth bending the design around. Do not avoid pressing a key
 because pressing it does something.
 
+**The client you verify in is a PTR build, and it can be the thing that is wrong — until it isn't.**
+The two clients differ in runtime behaviour and not only in API surface, and that difference is not
+stable across builds. Measured here: `1/0` raised `Division by zero` on the PTR install while
+retail, PUC 5.1, LuaJIT and 5.4 all answered `inf` — and by 2026-08-14 the same install answered
+`inf` as well. Both halves are the rule. When something in the game looks like a bug in a library or
+in our own logic, "because this is a PTR build" belongs in the candidate list; and anything pinned
+or worked around because of such a difference has to be **re-measured on a schedule**, because it
+expires without telling you. One stack trace read as a rule about the whole platform came within a
+step of filing an issue on somebody else's library
+([building-export-import.md](building-export-import.md), the LibSerialize section).
+
 **`npm run check` passing is not "it works".** It cannot see the game. Say what was checked and
 what was not, and do not report a UI or in-game change as done before someone has run `/debtest`.
 
