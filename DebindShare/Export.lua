@@ -11,7 +11,7 @@ local luatype            = type;
 --- lives nowhere yet -- `DecodeExportString` exists only so the round trip is testable, and it
 --- hands back a plain table, never an action.
 ---
---- Design notes and the open questions this file does **not** answer: `.zzz/export-import.md`.
+--- Design notes and the open questions this file does **not** answer: `devdocs/building-export-import.md`.
 
 
 --- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
@@ -39,10 +39,11 @@ local MAX_LAYER_ID       = 11;
 --- reason: they describe **where the action sits in this profile**, not what it does.
 ---
 ---   `key` -- moves up to the group, which is the whole point of the group (see below)
----   `seq` -- an ordering number scoped to one layer. Sending it would collide with the numbers
----            the receiving layer already handed out. Array order carries the same information
----            and needs no reconciliation, so groups and actions are emitted in `seq` order and
----            the number itself is left behind.
+---   `seq` -- an ordering number scoped to one layer. Sending it under that name would collide
+---            with the numbers the receiving layer already handed out -- and would do it silently,
+---            because the far side copies wire fields by name (`BuildAction`). What the ranking
+---            means still travels: actions are emitted in `seq` order and each carries `order`,
+---            its 1..n place in the group, which the far side turns into `importOrder`.
 ---
 --- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
 --- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
@@ -137,7 +138,7 @@ end
 --- Returns nil when the sender's own reference is already dangling. That case ships as-is under
 --- the "send broken things too" rule -- but note that rule is currently unbacked for macros:
 --- `GetBindingIssue` has no branch that checks whether an action's target exists, so a `MACRO`
---- naming nothing does **not** go red on the far side. `.zzz/export-import.md`, open question 7.
+--- naming nothing does **not** go red on the far side. `devdocs/building-export-import.md`, open question 7.
 local function SnapshotMacro(macroName)
     local name, icon, body = GetMacroInfo(macroName);
     if (not name) then
@@ -293,7 +294,7 @@ end
 --- and is exactly the field the option removes.
 ---
 --- **Layer is a group field, and a group never spans layers** (the export half of open question 1
---- in `.zzz/export-import.md`). A key whose actions live in two layers therefore leaves as two
+--- in `devdocs/building-export-import.md`). A key whose actions live in two layers therefore leaves as two
 --- groups. That is not a loss of fidelity so much as the honest shape of what this window
 --- promises: it sends *the contents of these layers*, not *this key's behaviour*, and behaviour
 --- is a computed thing that no layer holds.
@@ -376,6 +377,13 @@ function DebindShare.BuildExportPayload(selection, options)
                     local action = source.actions[j];
                     local copy = CopyFields(action, ACTION_FIELDS);
                     NormalizeAction(action, copy);
+                    -- **Which of this key's actions goes first, said out loud.** The bucket is
+                    -- already sorted by `seq`, so the position is the answer; what it must not be
+                    -- called is `seq`, because the far side copies wire fields by name and that one
+                    -- would land on the action and collide with the numbers the receiving layer has
+                    -- handed out. Computed here rather than copied, which is why this field is in
+                    -- `ACTION_FIELDS` at neither end (`tools/check-export-fields.js`).
+                    copy.order = j;
                     actions[#actions + 1] = copy;
                     exported[#exported + 1] = copy;
                 end

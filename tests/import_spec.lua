@@ -93,11 +93,47 @@ return function(DebindPrivate, DebindShare)
         }), 9);
 
         check(#placements == 2, "액션 수");
+        local groupID = placements[1].action.importGroup;
+        check(groupID ~= nil, "그룹 번호가 없다");
         for _, placement in ipairs(placements) do
             check(placement.action.imported == 9,
                 "배지가 없다 - 이 액션은 들어가는 순간 키에 걸린다");
-            check(placement.action.importGroup == 4, "그룹 번호가 없다");
+            -- **Not the payload's `id`.** One group's members share a number; which number it is
+            -- belongs to the receiving profile, not to the sender (see the test below).
+            check(placement.action.importGroup == groupID, "한 그룹인데 번호가 갈렸다");
         end
+    end);
+
+    -- **The number the reader sees has to be unique in their profile, not in the batch.** The
+    -- payload's `id` is only unique inside its own string, so two strings waiting at once both
+    -- carry a group 1 - and the overview would head two different sets with the same words.
+    --
+    -- Numbers are taken the way `GetNextSeq` takes them: the highest one in the profile plus one,
+    -- with nothing stored. Gaps are fine, and reuse after everything is accepted is fine too -
+    -- nothing refers to an old number.
+    test("그룹 번호는 프로필 안에서 안 겹친다", function()
+        ResetProfile();
+
+        local first = DebindShare.PlanImport(Payload({
+            { id = 1, layer = { scope = "general" },
+              actions = { { type = Constants.SPELL, value = 1 } } },
+            { id = 2, layer = { scope = "general" },
+              actions = { { type = Constants.SPELL, value = 2 } } },
+        }), 1);
+        DebindPrivate.PlaceImportedActions(first);
+
+        -- A second string, whose own group ids start over at 1.
+        local second = DebindShare.PlanImport(Payload({
+            { id = 1, layer = { scope = "general" },
+              actions = { { type = Constants.SPELL, value = 3 } } },
+        }), 2);
+
+        local taken = {};
+        for _, placement in ipairs(first) do
+            taken[placement.action.importGroup] = true;
+        end
+        check(not taken[second[1].action.importGroup],
+            "두 번째 배치가 첫 배치의 그룹 번호를 다시 썼다: " .. tostring(second[1].action.importGroup));
     end);
 
     -- The key lives on the group, because one group is one key and that is what has to stay
@@ -113,6 +149,41 @@ return function(DebindPrivate, DebindShare)
             actions = { { type = Constants.SPELL, value = 774 } } });
         check(action.key == nil, "없던 키가 생겼다");
     end);
+
+    ---------------------------------------------------------------------------
+    -- The order inside a group
+    ---------------------------------------------------------------------------
+
+    -- **Which of a key's actions goes first is design, not decoration**, and a string sent without
+    -- keys carries nothing else that says so. `seq` cannot travel under its own name -- the
+    -- receiving layer has already handed out numbers of its own -- so the wire says `order` and the
+    -- action carries `importOrder` until the group is given a key.
+    test("그룹 안의 순서가 보존된다", function()
+        local placements = DebindShare.PlanImport(Payload({
+            { id = 1, layer = { scope = "general" },
+              actions = { { type = Constants.SPELL, value = 11, order = 1 },
+                          { type = Constants.SPELL, value = 22, order = 2 },
+                          { type = Constants.SPELL, value = 33, order = 3 } } },
+        }), 1);
+
+        check(#placements == 3, "액션 수 " .. #placements);
+        for i, placement in ipairs(placements) do
+            check(placement.action.importOrder == i,
+                i .. "번째 액션의 importOrder가 " .. tostring(placement.action.importOrder));
+        end
+    end);
+
+    -- `BuildAction` copies the wire table with `pairs` and skips only what it names, so a field
+    -- left unnamed rides straight into the profile. `order` is the format's word, not the
+    -- profile's; leaving it on would put a shape in the layer that only `CleanUpDB` would later
+    -- notice.
+    test("선의 order는 액션에 안 남는다", function()
+        local action = PlanOne({ id = 1, layer = { scope = "general" },
+            actions = { { type = Constants.SPELL, value = 774, order = 1 } } });
+        check(action.order == nil, "order가 액션에 남았다: " .. tostring(action.order));
+    end);
+
+    ---------------------------------------------------------------------------
 
     -- Layer to layer. Another class's spec number means something else entirely, so it keeps the
     -- scope and drops the spec (`workbench_spec` measures that in detail; here it just has to be

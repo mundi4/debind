@@ -24,13 +24,19 @@ const repoRoot = path.resolve(__dirname, "..");
 // Fields it is *correct* for the two lists to disagree on. Adding one means leaving a line saying why.
 const EXPECTED_ONLY_IN_PROFILE = {
     key: "moves up to the group field - one group is one key",
-    seq: "an ordering number scoped to one layer - array order says the same thing",
+    seq: "scoped to one layer - the wire's `order` carries the ranking instead",
     // Same reason as those two: they say where the action sits *here*. Sending them would tell the
     // far side that something they just received had already been received, and quarantine it
     // against a batch number that means nothing on their machine.
     imported: "which batch it arrived on - meaningless in someone else's drawer",
     importGroup: "its group inside that batch - the wire already has group ids",
+    importOrder: "made from the wire's `order` on arrival - the sender has no such field",
 };
+
+// **`order` is on the wire and this check cannot see it.** It is computed in `BuildExportPayload`
+// (`copy.order = j`) rather than copied from a profile field, so it appears in neither list. Said
+// here so the gap is a known one: a wire field that stops being written would go unnoticed by this
+// check, and `tests/import_spec.lua` is what covers it instead.
 
 /** Collects the keys inside the braces of `local NAME = { ... };`. */
 function readFieldTable(file, tableName) {

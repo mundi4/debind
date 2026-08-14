@@ -65,10 +65,15 @@ end
 local function BuildAction(source)
     local action = {};
     for k, v in pairs(source) do
-        -- `macro` and `setstate` are the format's, not the profile's. They are read below and do
-        -- not travel any further; `CleanUpDB` would drop them anyway, but leaving them for it to
-        -- find would mean the action is briefly a shape nothing else expects.
-        if (k ~= "macro" and k ~= "setstate") then
+        -- `macro`, `setstate` and `order` are the format's, not the profile's. They are read below
+        -- and do not travel any further; `CleanUpDB` would drop them anyway, but leaving them for
+        -- it to find would mean the action is briefly a shape nothing else expects.
+        --
+        -- **This loop is a blacklist**, so a wire field nobody names here rides straight into the
+        -- profile. That is why the order is not sent as `seq`: under that name it would land on the
+        -- action and collide with the numbers the receiving layer has already handed out, with
+        -- nothing in the way.
+        if (k ~= "macro" and k ~= "setstate" and k ~= "order") then
             if (luatype(v) == "table") then
                 action[k] = CopyTable(v);
             else
@@ -103,6 +108,16 @@ local function BuildAction(source)
         end
     end
 
+    -- **Where the sender's ordering ends up.** `seq` is not on the wire and must not be: it is
+    -- scoped to one layer and the receiving layer has its own numbers. `order` is the group-local
+    -- 1..n, and it stays on the action as `importOrder` until the group is given a key -- at which
+    -- point `seq` is issued in this order and all three import fields go together.
+    --
+    -- Not folded into `seq` here, because `seq` means "which of this key's actions goes first" and
+    -- these have no key. `PlaceLast` keeps that invariant; this field is what makes keeping it
+    -- affordable.
+    action.importOrder = source.order;
+
     return action;
 end
 
@@ -123,18 +138,28 @@ end
 function DebindShare.PlanImport(payload, batchID)
     local placements, skipped = {}, 0;
 
+    -- **The payload's `id` is not the number that gets stored.** It is unique inside its own
+    -- string and nowhere else, so two strings waiting at once would both carry a group 1. Numbers
+    -- are taken from the receiving profile instead, once here rather than per group: nothing is
+    -- written until `PlaceImportedActions`, so asking again mid-loop would answer the same thing
+    -- every time.
+    local nextGroupID = DebindPrivate.NextImportGroupID();
+
     for _, group in ipairs(payload.groups or {}) do
         local layerID = DebindShare.DefaultDestinationLayerID(group.layer);
         if (not layerID) then
             skipped = skipped + 1;
         else
+            local groupID = nextGroupID;
+            nextGroupID = nextGroupID + 1;
+
             for _, source in ipairs(group.actions or {}) do
                 local action = BuildAction(source);
                 -- **The key comes from the group**, which is where the format keeps it: one group
                 -- is one key, and that is what has to stay together.
                 action.key = group.key;
                 action.imported = batchID;
-                action.importGroup = group.id;
+                action.importGroup = groupID;
                 placements[#placements + 1] = { layerID = layerID, action = action };
             end
         end
@@ -152,7 +177,7 @@ end
 --- already something red text says out loud (`BINDING_ISSUE_UNDEFINED_STATE`).
 ---
 --- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
---- put to the reader, and it is not built yet (`.zzz/export-import.md`). Until it is, the answer is
+--- put to the reader, and it is not built yet (`devdocs/building-export-import.md`). Until it is, the answer is
 --- the one that cannot change anything they already had.
 function DebindShare.CommitBatch(batch)
     local payload, reason = DebindShare.GetBatchPayload(batch);

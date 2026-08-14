@@ -37,9 +37,15 @@ local KEYS_TO_SAVE       = {
     -- `importGroup` is its group inside that batch, and it cannot be recomputed. A group is one
     -- layer and one key, but a string sent with keys stripped has none at all, so layer plus key
     -- cannot tell two of them apart -- which is exactly why the transfer format carries an `id`
-    -- per group (`.zzz/export-import.md`).
+    -- per group (`devdocs/building-export-import.md`).
+    --
+    -- `importOrder` is its place inside that group, 1..n, as the sender had them. `seq` cannot
+    -- carry this: it is scoped to one layer and the receiving layer has already handed out numbers
+    -- of its own, so the wire says `order` and this holds it until the group is given a key. All
+    -- three go together the moment the badge comes off.
     imported = true,
     importGroup = true,
+    importOrder = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
     checkedUnits = true,
@@ -807,4 +813,29 @@ function DebindPrivate.CollectImportedActions()
         end
     end
     return actions;
+end
+
+--- The next group number to hand out, unique across the whole profile.
+---
+--- **The number a group is shown under has to be unique here, not in the string it came from.** A
+--- payload's own `id` starts at 1 in every string, so two strings waiting at once would head two
+--- unrelated sets with the same words. That is the one thing this number exists to prevent.
+---
+--- Taken the way `GetNextSeq` takes one: the highest in use plus one, stored nowhere. Gaps are
+--- fine, and so is starting over once everything has been accepted or thrown back - nothing refers
+--- to an old number, and the label only means anything while the group is on screen.
+---
+--- Every layer, not the live ones: one batch routinely splits across off-spec layers, and a number
+--- reused there would collide the moment the reader changed specialization.
+function DebindPrivate.NextImportGroupID()
+    local highest = 0;
+    for _, layer in pairs(LayerArray) do
+        for _, action in layer:Enumerate() do
+            local id = action.importGroup;
+            if (id and id > highest) then
+                highest = id;
+            end
+        end
+    end
+    return highest + 1;
 end
