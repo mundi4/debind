@@ -42,19 +42,61 @@ end
 -- Waiting & Teardown
 -----------------------------------------------------------
 
--- Tests run as coroutines so they can wait. Waiting is not a convenience here: nothing this
--- addon does lands in the frame it was asked for. The state driver polls on its own 0.2s beat,
--- `_onattributechanged` propagates afterwards, `CallMethod` is queued rather than called, and
--- `DirtyFlags` only reaches `UpdateBindings` on the next pass. A test that sets something up and
--- reads it back in the same breath reads the old value and calls it a result.
+-- Tests run as coroutines so they can wait. **Almost nothing here has to.** This file used to say
+-- the opposite -- that nothing the addon does lands in the frame it was asked for -- and paid a
+-- fixed 0.4s at every step for asynchrony that is not there. Following the four paths it named:
+--
+--   * `SecureHandlerExecute` runs the body before it returns.
+--   * `CallMethod` is **not** queued. `HANDLE:CallMethod`
+--     (`Blizzard_RestrictedAddOnEnvironment/RestrictedFrames.lua`) is a `securecall(pcall, ...)`
+--     straight onto the method, so anything a snippet mirrors out is already in the local by the
+--     time the `SecureHandlerExecute` that asked for it returns.
+--   * `SetBindingClick` from the restricted environment calls `SetOverrideBindingClick` directly,
+--     so `GetBindingAction` answers with the new binding immediately.
+--   * `UpdateBindings` ends by setting `state-unitexists` on the driver itself
+--     (`UpdateBindings.lua`, the "execute UpdateBindings with forceAll set" block), which runs
+--     `_onattributechanged` -> the whole state pass -> the bindings, all inside the call. A
+--     rebuild leaves nothing for the poll to finish, which is why `SetMockState` needs no wait
+--     after it: it ends in a rebuild.
+--
+-- Two things do take time, and each has a helper that stops the moment it happens rather than
+-- spending a fixed sum:
+--
+--   * a **queued** rebuild -- `QueueUpdateBindings` defers to `C_Timer.After(0)`, so that one
+--     lands a frame later. `WaitForIdle`.
+--   * Blizzard's state driver poll, up to `updatetime` (0.2s). It is what notices a unit
+--     appearing or going away under a cursor that never moved, and nothing can shorten it.
+--     `WaitUntil`.
+--
+-- **There is no fixed-duration wait left in this file, and adding one back needs an argument.**
+-- The runner still understands a duration -- `coroutine.yield(seconds)` -- so the door is there;
+-- what is gone is the helper that made walking through it look routine. A number here means
+-- "I could not name what I am waiting for", and every one that was here turned out to be waiting
+-- for something that had already happened. `devdocs/when-a-change-takes-effect.md` has the whole
+-- map, including the two traps in writing a condition to wait on.
 --
 -- **Tests that never yield are unaffected.** A coroutine that runs straight through finishes on
 -- its first resume, and the runner steps to the next one without giving up the frame, so a suite
 -- of them still completes in a single frame exactly as it did before.
 
---- Hands the frame back for `seconds` (or until the next one, if omitted or 0).
-local function Wait(seconds)
-    coroutine.yield(seconds or 0)
+--- Gives the frame back until `predicate` answers true, and no longer. Answers what the predicate
+--- last answered, so the caller can tell "it happened" from "the limit ran out".
+---
+--- **The predicate is asked before the first yield.** Most of what this waits on is already true
+--- by then, and a helper that yielded first would put back into every call site the frame this
+--- exists to take out of.
+---
+--- A thing that never happens is indistinguishable from a slow one, so only that case costs the
+--- whole `limit` -- which is the right way round, since a passing run reaches none of it.
+local function WaitUntil(predicate, limit)
+    local start = GetTime()
+    limit = limit or 0.5
+    local answer = predicate()
+    while not answer and (GetTime() - start) < limit do
+        coroutine.yield(0)
+        answer = predicate()
+    end
+    return answer
 end
 
 --- True while a test is stopped waiting for a person to click something.
@@ -326,21 +368,18 @@ local function CleanupActions()
     end
 end
 
---- 예약된 리빌드가 없어질 때까지 기다린다.
+--- Waits until no rebuild is queued any more.
 ---
---- **리빌드는 `States`를 통째로 새로 채운다.** 셋업 도중에 걸린 큐가 테스트 중간에 터지면
---- 테스트가 세워둔 상태가 그 자리에서 지워지고, 증상은 "아무 이유 없이 값이 사라졌다"로
---- 나타난다 - hover 슬롯이 그렇게 죽었다.
+--- **A rebuild refills `States` wholesale.** One queued during setup that goes off in the middle
+--- of a test erases the state the test had stood up, and the symptom is "the value disappeared
+--- for no reason" -- which is how the hover slot died once.
 ---
---- `Wait`이 아니라 `coroutine.yield`을 직접 쓴다. 여기는 프레임을 넘기려는 것뿐이라 진단
---- 로그를 남길 자리가 아니다.
+--- A direct `DebindPrivate.UpdateBindings()` needs none of this: it finishes everything inside
+--- the call. This is for the queued kind, which `QueueUpdateBindings` hands to `C_Timer.After(0)`.
 local function WaitForIdle(limit)
-    local start = GetTime()
-    limit = limit or 2
-    while DebindPrivate.IsUpdateBindingsQueued() and (GetTime() - start) < limit do
-        coroutine.yield(0)
-    end
-    -- 큐가 비었어도 그 리빌드는 방금 끝났을 수 있다. 뒤따르는 것까지 한 프레임 더 준다.
+    WaitUntil(function() return not DebindPrivate.IsUpdateBindingsQueued() end, limit or 2)
+    -- An empty queue does not mean that rebuild has finished -- the timer callback clears the
+    -- flag before it calls `UpdateBindings` -- so one more frame, for whatever follows it.
     coroutine.yield(0)
 end
 
@@ -573,7 +612,11 @@ local function EvalClickTimeKey(key)
 end
 
 --- What the click-cast side answered: the button name it chose, or nil for "not ours, carry on".
+---
+--- `lastEvalAnswered` is the pair to it because **nil is one of the two real answers**, so the
+--- variable alone cannot say whether the answer has arrived.
 local lastEvalAnswer
+local lastEvalAnswered
 
 --- Runs the click-cast decision for `frame` as if it were clicked with mouse button `n` under
 --- modifier mask `mod`. Same shape as `EvalClickTimeKey` and the same limits -- see there.
@@ -587,9 +630,9 @@ local function EvalClickCast(frame, n, mod)
     end
 
     wipe(probeReports)
-    lastEvalAnswer = nil
+    lastEvalAnswer, lastEvalAnswered = nil, false
     DebindPrivate.BindingDriver.DebindTestEvalAnswer = function(_, answer)
-        lastEvalAnswer = answer
+        lastEvalAnswer, lastEvalAnswered = answer, true
     end
 
     SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_eval", frame)
@@ -601,34 +644,35 @@ local function EvalClickCast(frame, n, mod)
     return true
 end
 
---- The button name the last `EvalClickCast` chose, or nil if it declined. `CallMethod` is queued,
---- so this needs a `Wait` after the call.
+--- The button name the last `EvalClickCast` chose, or nil if it declined.
 local function LastEvalAnswer()
     return lastEvalAnswer
 end
 
+--- Waits for the last `EvalClickCast` to have reported back at all, whatever it decided.
+---
+--- **This, not `WaitForWinner`, is what to wait on after a click-cast evaluation** -- including
+--- when the test expects nothing to be chosen. The answer always comes; a winner does not, and
+--- waiting on one where none is expected spends the whole limit proving what was already known.
+--- Read the outcome afterwards with `LastEvalAnswer` and `LastWinner`.
+local function WaitForEvalAnswer(limit)
+    return WaitUntil(function() return lastEvalAnswered end, limit)
+end
+
 --- The record index the snippet last reported as the winner, or nil if it reported none.
---- `CallMethod` is queued rather than called, so this needs a `Wait` after the press.
 local function LastWinner()
     return probeReports[#probeReports]
 end
 
 --- Waits for the winner report to arrive and answers with it.
 ---
---- Same fact as `LastWinner` after a `Wait`, spent differently. A fixed `Wait(0.4)` costs the
---- whole 0.4s on **every** evaluation, and a test that sweeps a few dozen states pays that many
---- times over for an answer that is usually there in the next frame. This gives the frame back
---- until the report lands.
----
---- **A report that never comes is indistinguishable from a slow one**, so "nothing matched" costs
---- the full limit and only that case does. That is the right way round: a sweep is mostly hits.
+--- In practice it is already there: the snippet reports through `CallMethod`, which is called
+--- rather than queued, so the report lands inside the `SecureHandlerExecute` that ran the
+--- evaluation. The wait is what covers the other case -- **no report at all**, which is how
+--- "nothing matched" looks from here and is indistinguishable from a slow one. Only that case
+--- costs the limit, and a sweep is mostly hits.
 local function WaitForWinner(limit)
-    local start = GetTime()
-    limit = limit or 0.5
-    while #probeReports == 0 and (GetTime() - start) < limit do
-        coroutine.yield(0)
-    end
-    return probeReports[#probeReports]
+    return WaitUntil(function() return probeReports[#probeReports] end, limit)
 end
 
 --- Which of the three tables a key's record list ended up in.
@@ -645,7 +689,7 @@ end
 --- generated snippet back would only confirm that the generator wrote what the generator meant to
 --- write; `StateDrivenBindings` is what the update loop actually walks.
 ---
---- Needs a `Wait` after: `CallMethod` is queued.
+--- Read the answer with `WaitForMembership`.
 local lastMembership
 local function ReadKeyMembership(key)
     local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
@@ -664,9 +708,15 @@ local function ReadKeyMembership(key)
     return true
 end
 
---- `{ stateDriven = bool, clickTime = bool, clickCast = bool }` from the last `ReadKeyMembership`.
-local function LastMembership()
-    return lastMembership
+--- `{ stateDriven = bool, clickTime = bool, clickCast = bool }` from the last `ReadKeyMembership`,
+--- waited for. nil means the restricted environment never came back -- the snippet failed to
+--- compile, or the driver is not carrying the tables it reads.
+---
+--- There is no unwaited reader. The answer is already here by the time `ReadKeyMembership`
+--- returns, so the wait costs nothing, and one way in means no call site can read the table
+--- before the answer has replaced it.
+local function WaitForMembership(limit)
+    return WaitUntil(function() return lastMembership end, limit)
 end
 
 -----------------------------------------------------------
@@ -748,10 +798,24 @@ local function HoverLeave(frame)
 end
 
 --- What the secure side currently calls the hovered unit, as seen from outside. The secure
---- `SetUnit` mirrors it out through `CallMethod`, which is queued rather than immediate -- so
---- this is only true after a `Wait`, never in the same breath as the change that caused it.
+--- `SetUnit` mirrors it out through `CallMethod`, and that is a call rather than a queue, so
+--- after `HoverEnter`/`HoverLeave` this is already true in the same breath.
 local function GetHoverUnit()
     return DebindPrivate.Units.hover
+end
+
+--- Waits for the hover slot to be filled (`true`) or emptied (`false`), as seen from outside.
+---
+--- **Which unit is deliberately not asked.** The test that follows one of these compares the unit
+--- itself, and a wait that already agreed with it would be the assertion written twice -- the
+--- wait would pass or time out on exactly what the comparison below is there to decide.
+---
+--- After `HoverEnter`/`HoverLeave` this costs nothing: those run the real snippets through
+--- `SecureHandlerExecute` and the mirror is written before the call returns. It earns its keep
+--- after `SetFrameUnit`, where nothing is driving anything and the change is only noticed when
+--- Blizzard's state driver comes round -- up to `updatetime`, and never sooner.
+local function WaitForHoverSlot(filled, limit)
+    return WaitUntil(function() return (GetHoverUnit() ~= nil) == filled end, limit)
 end
 
 -----------------------------------------------------------
@@ -1237,7 +1301,6 @@ RegisterTest("Undefined $state inside a state's own expression", {
         -- 아무것도 안 걸리는 것과 구분되지 않는다.
         DebindPrivate.CustomStates[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$state2]" }
         ApplyBindings()
-        Wait(0.4)
         local whenTrue = GetBindingAction(KEY, true) or ""
         if whenTrue:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
@@ -1247,7 +1310,6 @@ RegisterTest("Undefined $state inside a state's own expression", {
 
         DebindPrivate.CustomStates[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$typo]" }
         ApplyBindings()
-        Wait(0.4)
         local whenUndefined = GetBindingAction(KEY, true) or ""
         if whenUndefined ~= "" then
             return Fail(NAME, format(
@@ -1449,15 +1511,21 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         HoverEnter(frame)
         AddTeardown(function() HoverLeave(frame) end)
-        Wait(0.3)
+        WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
         end
 
-        -- 커서는 그대로다. 리빌드만 돈다.
+        -- The cursor stays where it is. Only the rebuild runs.
+        --
+        -- **Giving up no frame at all here is the stricter test.** The poll picks the frame back
+        -- up, so a rebuild that did wipe the slot would have it refilled within a tick -- wait,
+        -- and the comparison below reads the recovered value and passes. The rebuild finishes its
+        -- own state pass before it returns, so if the slot went it is already empty on the next
+        -- line. That is why this is the bare call and not `ApplyBindings`, which gives up a frame
+        -- in `WaitForIdle`.
         DebindPrivate.UpdateBindings()
-        Wait(0.3)
 
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("리빌드 뒤 hover=%s, 아직 player여야 한다", tostring(GetHoverUnit())))
@@ -1465,7 +1533,6 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         -- 슬롯이 살아 있는지는 여기서 갈린다. 날아갔으면 leave가 지울 것을 못 찾는다.
         HoverLeave(frame)
-        Wait(0.3)
 
         if GetHoverUnit() ~= nil then
             return Fail(NAME, format(
@@ -1500,16 +1567,21 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
 
         HoverEnter(frame)
         AddTeardown(function() HoverLeave(frame) end)
-        Wait(0.3)
-        
+        WaitForHoverSlot(true)
+
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
         end
-        
+
         -- The cursor has not moved. Only the attribute changed, which is exactly the shape of a
         -- unit despawning under it.
+        --
+        -- **This is one of the two waits in the file that is really a wait.** Nothing is driving
+        -- anything here: the change is only noticed when Blizzard's state driver next comes round,
+        -- which is what this test exists to check. The limit is the ceiling, not the cost -- a
+        -- passing run leaves as soon as the poll lands.
         SetFrameUnit(frame, UNIT_TOKEN_ABSENT)
-        Wait(0.5)
+        WaitForHoverSlot(false)
 
         if GetHoverUnit() ~= nil then
             return Fail(NAME, format(
@@ -1520,7 +1592,7 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         -- The frame is deliberately not dropped when its unit goes away, so that this same poll
         -- can pick it back up. Without that, the slot would stay empty until the mouse moved.
         SetFrameUnit(frame, "player")
-        Wait(0.5)
+        WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format(
@@ -1583,7 +1655,6 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 
         local targets, terr = ClickCastTargets()
         if not targets then return Fail(NAME, terr) end
-        Wait(0.4)
 
         local checked = {}
         for _, target in ipairs(targets) do
@@ -1643,11 +1714,11 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
             -- frame rather than the cache -- so it has to be under the cursor for real.
             HoverEnter(target.frame)
             AddTeardown(function() HoverLeave(target.frame) end)
-            Wait(0.4)
+            WaitForHoverSlot(true)
 
             local ran, rerr = EvalClickCast(target.frame, 3, 0)
             if not ran then return Fail(NAME, format("%s: %s", target.label, rerr)) end
-            Wait(0.4)
+            WaitForEvalAnswer()
 
             if LastWinner() == nil then
                 return Fail(NAME, format("%s: 아무것도 안 골랐다 - 조건이 안 맞았거나 "
@@ -1656,7 +1727,7 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
             seen[#seen + 1] = format("%s=%d", target.label, LastWinner())
 
             HoverLeave(target.frame)
-            Wait(0.2)
+            WaitForHoverSlot(false)
         end
 
         return Pass(NAME, table.concat(seen, ", "))
@@ -1715,11 +1786,14 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
             if not target.blizzard then
                 HoverEnter(target.frame)
                 AddTeardown(function() HoverLeave(target.frame) end)
-                Wait(0.4)
+                WaitForHoverSlot(true)
 
                 local ran, rerr = EvalClickCast(target.frame, 1, 0)
                 if not ran then return Fail(NAME, format("%s: %s", target.label, rerr)) end
-                Wait(0.4)
+
+                -- **The answer, not a winner.** Nothing is expected to be chosen here, and
+                -- `WaitForWinner` would sit out its whole limit on every target proving it.
+                WaitForEvalAnswer()
 
                 if LastWinner() ~= nil then
                     return Fail(NAME, format(
@@ -1735,7 +1809,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
                 end
 
                 HoverLeave(target.frame)
-                Wait(0.2)
+                WaitForHoverSlot(false)
             end
         end
 
@@ -1770,12 +1844,12 @@ RegisterTest("State injection: combat-only binding", {
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
         ApplyBindings()
 
+        -- No wait after either: `SetMockState` ends in a rebuild, and a rebuild runs the state
+        -- pass and the binding inside the call.
         SetMockState("combat", false)
-        Wait(0.4)
         local atPeace = GetBindingAction(KEY, true) or ""
 
         SetMockState("combat", true)
-        Wait(0.4)
         local inCombat = GetBindingAction(KEY, true) or ""
 
         if inCombat == atPeace then
@@ -1791,7 +1865,6 @@ RegisterTest("State injection: combat-only binding", {
         -- Back to peace: the binding has to go away again. Without this the test would pass on a
         -- key that was simply bound the whole time.
         SetMockState("combat", false)
-        Wait(0.4)
         local again = GetBindingAction(KEY, true) or ""
 
         if again ~= atPeace then
@@ -1828,12 +1901,12 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
         })
         ApplyBindings()
 
+        -- No wait after either: `SetMockState` ends in a rebuild, and a rebuild runs the state
+        -- pass and the binding inside the call.
         SetMockState("combat", false)
-        Wait(0.4)
         local atPeace = GetBindingAction(KEY, true) or ""
 
         SetMockState("combat", true)
-        Wait(0.4)
         local inCombat = GetBindingAction(KEY, true) or ""
 
         if inCombat == atPeace then
@@ -1885,7 +1958,6 @@ RegisterTest("Dead axis: measured against a living unit", {
             checkedUnits = { player = { dead = true } },
         })
         ApplyBindings()
-        Wait(0.4)
 
         local whenAlive = GetBindingAction(ALIVE_KEY, true) or ""
         if whenAlive:sub(1, 6) ~= "CLICK " then
@@ -1923,11 +1995,9 @@ RegisterTest("State injection: dead flips a binding", {
         ApplyBindings()
 
         SetMockState("player-dead", false)
-        Wait(0.4)
         local whenAlive = GetBindingAction(KEY, true) or ""
 
         SetMockState("player-dead", true)
-        Wait(0.4)
         local whenDead = GetBindingAction(KEY, true) or ""
 
         if whenDead == whenAlive then
@@ -1941,7 +2011,6 @@ RegisterTest("State injection: dead flips a binding", {
 
         -- 되돌려서 사라지는 것까지 본다. 없으면 내내 걸려 있던 키에도 통과한다.
         SetMockState("player-dead", false)
-        Wait(0.4)
         local again = GetBindingAction(KEY, true) or ""
 
         if again ~= whenAlive then
@@ -1975,7 +2044,10 @@ RegisterTest("Hover condition owns the key through the unit column", {
         local frame, err = CreateTestUnitFrame("player", "group")
         if not frame then return Fail(NAME, err) end
 
-        Wait(0.4)
+        -- Registering a frame can leave a rebuild queued behind it, and that one lands a frame
+        -- later. Everything else on this path has already happened.
+        WaitForIdle()
+
         local before = GetBindingAction(KEY, true) or ""
         if before:sub(1, 6) == "CLICK " then
             return Fail(NAME, format(
@@ -1984,7 +2056,7 @@ RegisterTest("Hover condition owns the key through the unit column", {
 
         HoverEnter(frame)
         AddTeardown(function() HoverLeave(frame) end)
-        Wait(0.4)
+        WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
@@ -1997,7 +2069,7 @@ RegisterTest("Hover condition owns the key through the unit column", {
         end
 
         HoverLeave(frame)
-        Wait(0.4)
+        WaitForHoverSlot(false)
 
         local after = GetBindingAction(KEY, true) or ""
         if after ~= before then
@@ -2034,7 +2106,7 @@ RegisterTest("Hover frame types still narrow on their own", {
 
         HoverEnter(frame)
         AddTeardown(function() HoverLeave(frame) end)
-        Wait(0.4)
+        WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
@@ -2080,9 +2152,7 @@ RegisterTest("Split: a key whose conditions leave no gap is not state-driven", {
         ApplyBindings()
 
         ReadKeyMembership(KEY)
-        Wait(0.4)
-
-        local m = LastMembership()
+        local m = WaitForMembership()
         if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
 
         -- 클릭 시점 표에 있어야 "안 넣은 것"과 "아예 안 나간 것"이 갈린다.
@@ -2111,9 +2181,7 @@ RegisterTest("Split: a key that can be released stays state-driven", {
         ApplyBindings()
 
         ReadKeyMembership(KEY)
-        Wait(0.4)
-
-        local m = LastMembership()
+        local m = WaitForMembership()
         if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
 
         if not m.stateDriven then
@@ -2145,9 +2213,7 @@ RegisterTest("Split: a click-casting-only key is not state-driven", {
         ApplyBindings()
 
         ReadKeyMembership(KEY)
-        Wait(0.4)
-
-        local m = LastMembership()
+        local m = WaitForMembership()
         if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
 
         if not m.clickCast then
@@ -2187,7 +2253,6 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
         local picked = {}
         for _, want in ipairs({ true, false }) do
             SetMockState("combat", want)
-            Wait(0.4)
 
             -- **매번 다시 읽는다.** `SetMockState`가 끝에 리빌드를 돌리므로 KeyMap 배열이
             -- 갈린다. 루프 밖에서 한 번 잡아두면 두 번째 바퀴가 죽은 표를 본다.
@@ -2209,9 +2274,8 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
 
             local ran, rerr = EvalClickTimeKey(KEY)
             if not ran then return Fail(NAME, rerr) end
-            Wait(0.4)
 
-            local idx = LastWinner()
+            local idx = WaitForWinner()
             if idx == nil then
                 return Fail(NAME, format(
                     "combat=%s: 평가는 돌았는데 맞는 레코드가 없다", tostring(want)))
@@ -2265,7 +2329,6 @@ RegisterTest("Click-time key: fixed wiring is never handed back", {
 
         for _, want in ipairs({ true, false, true }) do
             SetMockState("combat", want)
-            Wait(0.4)
 
             local bound = GetBindingAction(KEY, true) or ""
             if bound:sub(1, 6) ~= "CLICK " then
@@ -2475,9 +2538,11 @@ end
 
 RegisterTest("Multi-axis: the press picks the exact record out of seven", {
     description = "네 축의 조합을 전부 훑어, 일곱 레코드가 물린 키에서 매번 정확히 그 레코드가 이기는지",
-    -- The runner's ceiling is a guard against a hung coroutine, not a budget. This one waits on a
-    -- rebuild per state change, thirty-six times over, and none of that is the test being slow in
-    -- the sense the ceiling is watching for.
+    -- The runner's ceiling is a guard against a hung coroutine, not a budget. This one drives a
+    -- rebuild per state change, thirty-six combinations over, and none of that is the test being
+    -- slow in the sense the ceiling is watching for. It is kept where it is rather than trimmed
+    -- to what the run now costs -- the number is a ceiling on hanging, and a test that has to be
+    -- re-raised every time the machine is slower is a test that fails for the wrong reason.
     timeout = 120,
     run = function()
         local NAME = "Multi-axis click-time"
@@ -2611,8 +2676,7 @@ RegisterTest("Multi-axis: the state loop binds the exact record out of seven", {
         -- 이 키가 상태 루프의 표에 있어야 여기서 재는 것이 그 루프다. 배선이 고정된 키였다면
         -- 아래 대조는 전부 통과하면서 아무것도 안 재게 된다.
         ReadKeyMembership(KEY)
-        Wait(0.4)
-        local membership = LastMembership()
+        local membership = WaitForMembership()
         if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
         if not membership.stateDriven then
             return Fail(NAME, "상태 구동 키가 아니다 - 이 테스트가 재려는 루프가 이 키를 안 본다")
@@ -2622,10 +2686,12 @@ RegisterTest("Multi-axis: the state loop binds the exact record out of seven", {
         local wins = {}
 
         for _, state in ipairs(combos) do
+            -- No wait after this, and it used to be the most expensive one in the file -- 36
+            -- combos paying 0.4s each. The claim it rested on ("the state loop measures on its
+            -- own 0.2s beat") is not true of this path: every axis here is set with
+            -- `SetMockState`, which ends in a rebuild, and the rebuild sets `state-unitexists`
+            -- itself and runs the state pass and the bindings before it returns.
             ApplySweepState(state)
-            -- 상태 루프는 자기 0.2초 박자로 잰다. 주입한 값이 `States`에 앉고 그 뒤에
-            -- `_onattributechanged`가 전파될 때까지 기다린다.
-            Wait(0.4)
 
             local want = SweepWinner(STATELOOP_SWEEP, state)
             if not want then
@@ -2705,8 +2771,7 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
         -- 실제로 그 효과를 냈는지 여기서 확인한다 - 안 그러면 아래 "놓아야 한다" 쪽이
         -- 한 번도 안 돈 채로 통과한다.
         ReadKeyMembership(KEY)
-        Wait(0.4)
-        local membership = LastMembership()
+        local membership = WaitForMembership()
         if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
         if not membership.stateDriven then
             return Fail(NAME, "상태 구동 키가 아니다 - 조건 공간에 구멍이 없다는 뜻이다")
@@ -2721,7 +2786,6 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 
         for _, state in ipairs(combos) do
             ApplySweepState(state)
-            Wait(0.4)
 
             local want = SweepWinner(GAPPED_SWEEP, state)
             local bound = GetBindingAction(KEY, true) or ""

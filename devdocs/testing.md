@@ -96,8 +96,9 @@ RegisterTest("what it checks", {
         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F9", combat = true })
         ApplyBindings()
 
+        -- No wait: `SetMockState` ends in a rebuild, and a rebuild runs the state pass and
+        -- the bindings before it returns. See "Waiting" below.
         SetMockState("combat", true)
-        Wait(0.4)
 
         local bound = GetBindingAction("CTRL-SHIFT-F9", true) or ""
         if bound:sub(1, 6) ~= "CLICK " then
@@ -112,33 +113,51 @@ RegisterTest("what it checks", {
 
 | | |
 |---|---|
-| `Wait(seconds)` | hands the frame back. **Nothing here lands in the frame it was asked for** — see below |
+| `WaitUntil(pred, limit)` | hands the frame back until `pred` answers. **There is no fixed-duration wait** — see "Waiting" below for why, and for the four `WaitFor…` helpers built on this |
 | `AddTeardown(fn)` | the runner runs it after the test, however the test ended |
 | `InsertAction` / `ApplyBindings` / `CleanupActions` | build the bindings the test needs |
 | `SetMockState(state, value)` | force a watched state. `nil` releases it; teardown is registered for you. Unit axes take a suffixed name -- `"<unit>-exists"`, `"<unit>-dead"` -- because the value is overridden where the update loop computes it, and that is per axis. **Life is the axis that needs this**: a test can stand up a friendly unit or an absent one, but not a dead one |
 | `CreateTestUnitFrame(unit, frameType)` | a unit frame the test owns, registered through the real path. Returns `nil, reason` if registration was refused |
 | `SetFrameUnit` / `HoverEnter` / `HoverLeave` / `GetHoverUnit` | drive and read the hover slot |
 | `EnableProbes()` | rebake the snippets with reporting turned on |
-| `EvalClickTimeKey(key)` + `LastWinner()` / `WaitForWinner()` | run a click-time key's decision and read which record the snippet picked. `WaitForWinner` gives the frame back until the report lands instead of spending a flat `Wait(0.4)` — use it in a sweep, where the flat wait is most of the runtime |
-| `ReadKeyMembership(key)` / `LastMembership()` | which tables the key's record list landed in: `stateDriven`, `clickTime`, `clickCast`, any combination or none. **Always assert a positive one too** — on its own, "not state-driven" also describes a key that never emitted |
+| `EvalClickTimeKey(key)` + `WaitForWinner()` | run a click-time key's decision and read which record the snippet picked. `LastWinner()` is the unwaited reader, for when a winner is not what is expected |
+| `EvalClickCast(frame, n, mod)` + `WaitForEvalAnswer()` | the same for a unit-frame click. Wait on the **answer**, not on a winner — declining is a legitimate outcome and there is no winner to wait for; then read `LastWinner()` / `LastEvalAnswer()` |
+| `ReadKeyMembership(key)` + `WaitForMembership()` | which tables the key's record list landed in: `stateDriven`, `clickTime`, `clickCast`, any combination or none. **Always assert a positive one too** — on its own, "not state-driven" also describes a key that never emitted |
 | `RequestReload(phase)` + `crossesReload = true` | end the session and resume in the same test. `Scratch()` is what survives |
 
-A test that legitimately takes a while — sweeping a cross product means waiting on a rebuild and a
-poll for every point — raises its own ceiling with `timeout = <seconds>` in the registration. The
+A test that legitimately takes a while — sweeping a cross product drives a rebuild at every point
+— raises its own ceiling with `timeout = <seconds>` in the registration. The
 runner's 30s default is a guard against a hung coroutine, and raising it for everyone would give
 that up for the sake of a few tests.
 
-### Waiting is not optional
+### Waiting
 
-Nothing this addon does completes in the frame you asked for it:
+**Almost nothing here needs a wait, and there is no fixed-duration one left in the kit.** This
+section used to say the opposite — that nothing lands in the frame you asked for it, so when in
+doubt spend 0.4s — and it was wrong on three of its four counts. `CallMethod` is called rather
+than queued, restricted `SetBindingClick` binds the key on the spot, and a direct
+`UpdateBindings()` runs its own state pass before it returns. The full map is
+[when-a-change-takes-effect.md](when-a-change-takes-effect.md); read it before adding a wait.
 
-- the state driver polls on its own 0.2s beat
-- `_onattributechanged` propagates after that
-- `CallMethod` is queued, not called — anything the snippet reports outward arrives later
-- `DirtyFlags` reaches `UpdateBindings` on a later pass
+What is left waits on a named event and stops the moment it happens, so a passing run pays what it
+actually costs rather than a flat sum:
 
-A test that sets something up and reads it back in the same breath reads the old value and calls
-it a result. When in doubt, `Wait(0.4)`.
+| | waits for |
+|---|---|
+| `WaitUntil(pred, limit)` | the primitive. Asks `pred` **before** the first yield, so an already-true condition costs nothing |
+| `WaitForIdle()` | a **queued** rebuild (`QueueUpdateBindings` -> next frame), plus one frame for the one that just ran |
+| `WaitForMembership()` / `WaitForWinner()` / `WaitForEvalAnswer()` | a snippet's answer. Already there in practice; the wait is what turns "no answer at all" into a bounded failure |
+| `WaitForHoverSlot(filled)` | the hover mirror. Free after `HoverEnter`/`HoverLeave`; a real wait after `SetFrameUnit`, which only Blizzard's 0.2s poll notices |
+
+Two ways to get this wrong:
+
+- **Do not wait for the thing you are about to assert.** The assertion can then only fail by
+  timing out, and where the expected value is also the current one the wait returns instantly and
+  proves nothing. `WaitForHoverSlot` asks whether the slot is filled and deliberately not *which*
+  unit, for this reason.
+- **Waiting can be the weaker test.** The poll refills a wiped hover slot within a tick, so giving
+  "does the slot survive a rebuild" any time at all lets it read the recovered value and pass over
+  the bug.
 
 **A test that never yields is unaffected** — a coroutine that runs straight through finishes on
 its first resume, so a suite of them still completes in one frame.
