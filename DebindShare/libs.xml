@@ -11,20 +11,19 @@
          it would also be the only reason this addon needed Debind's Libs folder at all. -->
     <Script file="Libs\LibDeflate\LibDeflate.lua"/>
 
-    <!-- **LibSerialize is pinned to v1.2.1 (MINOR 5), and the reason has since expired.** The pin
-         was never about anything being wrong with v1.2.2 - it was about the client we develop
-         against.
+    <!-- LibSerialize v1.2.2 (MINOR 6), taken 2026-08-14 after a pin that held it at v1.2.1.
 
-         v1.2.2's negative-zero check opens with `if num == 0 and 1 / num < 0`, which is correct
-         under IEEE 754 and answers `inf` on every runtime that follows it: retail, desktop Lua
-         5.1, desktop 5.4. The `_ptr_` client here was an older build that raised "Division by
-         zero" on that instead, and every payload we build is full of zeros (`spec = 0` on each
-         account-wide layer, a random-favourite mount, any zeroed condition mask). So on that one
-         client v1.2.2 could not export at all, and that client is where this gets tested.
+         The pin is recorded because the thing that caused it can come back: v1.2.2's negative-zero
+         check opens with `if num == 0 and 1 / num < 0`, which every number write passes through,
+         and one `_ptr_` build raised "Division by zero" on that rather than answering `inf`. Every
+         payload we build is full of zeros (`spec = 0` on each account-wide layer, any zeroed
+         condition mask), so on that build v1.2.2 could not export at all - and that client is
+         where this gets tested. It answers `inf` now.
 
-         **2026-08-14: that install answers `inf` now, so nothing is holding the pin.** What is
-         still owed before taking v1.2.2 is one in-game export/import round trip on the updated
-         client. `devdocs/building-export-import.md` has the measurements. -->
+         So if export starts erroring on a client that used to work, this line is the suspect, and
+         reverting to v1.2.1 is the workaround rather than a fix.
+
+         `devdocs/building-export-import.md` has the measurements and the cross-version read. -->
     <Script file="Libs\LibSerialize\LibSerialize.lua"/>
 
 </Ui>
