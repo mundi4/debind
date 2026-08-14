@@ -1037,6 +1037,135 @@ function DebindPrivate.CollectImportedActions()
     return actions;
 end
 
+--- Where an action stands inside the set being placed: its `seq` while it has a key, its
+--- `importOrder` while it does not.
+---
+--- **The same two values `MakeRow` hands the comparator, read the same way and for the same
+--- reason.** A keyless action is never given a `seq` (`PlaceLast`), but one it was given during a
+--- brief binding stays on it -- and reading that leftover as a place would let a member of an
+--- arrival group jump its own `importOrder`. The number it was briefly issued belongs to a
+--- ranking this set is not part of.
+local function PlacementRank(action)
+    if (action.key ~= nil) then
+        return action.seq or 0;
+    end
+    return action.importOrder or 0;
+end
+
+--- Puts one key on a whole set of actions at once, in the order the set already has.
+---
+--- **This is the only way the sender's ordering survives.** Giving the actions a key one at a time
+--- issues `seq` in the order they happen to be touched, and for an arrival group that order is the
+--- profile array's, not `importOrder` -- so the one thing a keyless string carries across
+--- (`devdocs/building-export-import.md`) is gone, silently, and the reader has no way to tell.
+---
+--- Every action goes to the **back** of its own layer, in that order. It is what `PlaceLast` does
+--- for anything arriving somewhere, and it is what merging onto an occupied key should mean: the
+--- set that just moved in stands behind the one that was already there. Numbers stay per layer,
+--- which is the only scope they mean anything in (`GetNextSeq`), so a set spread over layers is
+--- ordered inside each of them and the comparator's layer step keeps the layers apart.
+---
+--- **The three import fields go together.** Deciding the key is the reader saying yes -- there is
+--- nothing further to approve about a set they just placed on their own keyboard -- and once it is
+--- placed, `importGroup` heads a set that no longer exists and `importOrder` describes a ranking
+--- `seq` now holds.
+---
+--- **No rebuild here.** `Profile.lua` places actions and does not decide when bindings go up
+--- (`PlaceImportedActions` above is the same); the caller rebuilds once when it is done, which is
+--- the point of doing the set in one call at all.
+function DebindPrivate.SetKeyForActions(actions, key)
+    if (key == nil or actions == nil or #actions == 0) then
+        return false;
+    end
+
+    -- `sort` is not stable, so the collected order rides along as the tiebreak. Without it two
+    -- actions that have nothing to rank them by (a set arriving with no `order` on the wire)
+    -- would come out in a different order on each call.
+    local ordered = {};
+    for i = 1, #actions do
+        ordered[i] = { action = actions[i], rank = PlacementRank(actions[i]), index = i };
+    end
+    sort(ordered, function(lhs, rhs)
+        if (lhs.rank ~= rhs.rank) then
+            return lhs.rank < rhs.rank;
+        end
+        return lhs.index < rhs.index;
+    end);
+
+    for _, entry in ipairs(ordered) do
+        local action = entry.action;
+        local _, layer = DebindPrivate.FindLayerID(action);
+        -- The key first: `PlaceLast` hands out a number only to an action that has one.
+        action.key = key;
+        if (layer) then
+            layer:PlaceLast(action);
+        end
+        action.imported = nil;
+        action.importGroup = nil;
+        action.importOrder = nil;
+        action._dirty = true;
+    end
+
+    return true;
+end
+
+--- The two collectors a key-group operation stands on, and the reach they share.
+---
+--- **Both sides of the operation have to come from the same place.** The set being moved and
+--- whatever already holds the destination key are gathered by one walk with one reach, because a
+--- reach that covers one and not the other is what makes a swap happen by halves and an overwrite
+--- claim a key it left behind somewhere.
+---
+--- **The eleven layers this character has, which is more than what is in play.** Off-spec layers
+--- are in, and they have to be: those actions are drawn in the overview now
+--- (`devdocs/showing-off-spec-actions.md`), so a reader looking at a key sees them, and a set that
+--- crosses specs is one set.
+---
+--- **Another class's layers are out.** A batch lands there readily (`ImportAddress`), so a group
+--- really can have members this walk never sees -- and leaving them is the answer, not the gap:
+---
+---   * a key is a keyboard's, and that is a different keyboard. "This key is this set's now" is a
+---     claim about the eleven layers in play here; carrying it into a class the reader has not
+---     logged would rewrite bindings they never looked at, over a conflict they were never shown.
+---     That is the harm the badge exists to prevent (`CollectImportedActions` stops here for the
+---     same reason, and says so).
+---   * the members left behind lose nothing. They keep the badge, the group and the order, so the
+---     set is still a set the day that class is logged, and it is given a key against the
+---     occupancy of *that* keyboard -- which is the only place the question can be answered.
+local function CollectActionsWhere(match)
+    local actions = {};
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        for _, action in layer:Enumerate() do
+            if (match(action)) then
+                actions[#actions + 1] = action;
+            end
+        end
+    end
+    return actions;
+end
+
+--- One arrival group: what came in together and still has no key of its own.
+---
+--- nil collects nothing. Read literally it would match every action outside any group -- most of
+--- the profile -- and hand that to something whose whole job is to put one key on all of them.
+function DebindPrivate.CollectImportGroupActions(importGroup)
+    if (importGroup == nil) then
+        return {};
+    end
+    return CollectActionsWhere(function(action) return action.importGroup == importGroup; end);
+end
+
+--- Everything on one key. The overview's left column draws exactly this set under one heading.
+---
+--- nil collects nothing, for the same reason as above and with more at stake: keyless actions are
+--- the profile's whole standing pile of unbound ones.
+function DebindPrivate.CollectKeyGroupActions(key)
+    if (key == nil) then
+        return {};
+    end
+    return CollectActionsWhere(function(action) return action.key == key; end);
+end
+
 --- The next group number to hand out, unique across the whole profile.
 ---
 --- **The number a group is shown under has to be unique here, not in the string it came from.** A

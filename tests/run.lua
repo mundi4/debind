@@ -55,6 +55,7 @@ local specs = {
     { name = "export", path = root .. "/export_spec.lua" },
     { name = "workbench", path = root .. "/workbench_spec.lua" },
     { name = "import", path = root .. "/import_spec.lua" },
+    { name = "keygroup", path = root .. "/keygroup_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};
