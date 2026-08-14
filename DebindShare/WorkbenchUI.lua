@@ -217,11 +217,11 @@ local LINE_LABELS   = {
 
 --- Vertical geometry. The dialog grows with how many lines the string stood, so these are what the
 --- height is added up from rather than numbers spread through the layout.
-local TOP_INSET     = 34;
-local SIDE_INSET    = 16;
-local ROW_PITCH     = 24;
-local DIVIDER_SPACE = 10;
-local BOTTOM_INSET  = 44;
+local TOP_INSET    = 34;
+local SIDE_INSET   = 16;
+local ROW_PITCH    = 24;
+local GROUP_GAP    = 16;
+local BOTTOM_INSET = 44;
 
 function DebindShareBringFrameMixin:OnLoad()
     self.AcceptButton:SetText(LLL["IMPORT_COMMIT"]);
@@ -318,13 +318,8 @@ function DebindShareBringFrameMixin:Open(batch, lines)
     -- hiding it on a batch that has keys costs the feature.
     local hasKeys = batch.hasKeys ~= false;
     self.StripKeysButton:SetShown(hasKeys);
-    self.Divider:SetShown(hasKeys);
     if (hasKeys) then
-        y = y - DIVIDER_SPACE;
-        Place(self.Divider, SIDE_INSET, y);
-        self.Divider:SetPoint("TOPRIGHT", self, "TOPRIGHT", -SIDE_INSET, y);
-        y = y - DIVIDER_SPACE;
-
+        y = y - GROUP_GAP;
         self.StripKeysButton:SetChecked(false);
         Place(self.StripKeysButton, SIDE_INSET, y);
         y = y - ROW_PITCH;

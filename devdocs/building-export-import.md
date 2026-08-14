@@ -1046,6 +1046,9 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
   테이블 넷(`layers`/`keys`/`excluded`/`states`)도 같이 지웠다. **옛 배치에 남은 값은 안 지운다** —
   읽는 데가 없으니 store 버전을 올려 마이그레이션할 값이 아니다.
 - `CommitBatch(batch, options)`로 바뀌었다. options는 대화상자에서 온다.
+- **구분선은 뺐다**(모형의 `---`). `Options_HorizontalDivider`를 Lua로 배치하려다 두 번 어긋났고,
+  가를 것이 둘뿐이고 아래쪽이 마지막 한 줄이라 **간격이면 된다.** 되살릴 근거: 아래쪽이 여러 줄로
+  늘어나면 간격만으로는 두 덩어리가 안 갈린다.
 - **ESC는 `UISpecialFrames`에 안 넣는다.** `CloseSpecialWindows`가 목록에 있는 **떠 있는 프레임을
   전부** 닫아서, 한 번 누르면 뒤의 창까지 같이 닫힌다. `OnKeyDown`에서 ESCAPE만 잡고 나머지는
   `SetPropagateKeyboardInput(true)`로 흘려보낸다. (붙여넣기 창은 아직 목록 쪽이다.)

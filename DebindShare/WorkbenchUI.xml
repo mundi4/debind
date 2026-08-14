@@ -352,14 +352,16 @@
 				nothing changes until the reader accepts; this promises their keys are not touched
 				even then.
 
-				Below the divider because it is not one of the lines above it: those say *which of
-				this string to take*, this says *what to do with what is taken*. Hidden for a string
-				that came without keys (`hasKeys`, counted at paste time) - a control with nothing to
-				switch off would also read as "the keys are still in there".
+				Set off from the lines above it, because it is not one of them: those say *which of
+				this string to take*, this says *what to do with what is taken*. **A gap does that
+				and a rule is not needed** - there are two things to tell apart, and one of them is
+				a single row at the end.
 
-				**Placed from Lua, not here**, along with the divider above it: everything down to
-				this point moves with how many lines the string stood, and this one leaves the layout
-				entirely when it is hidden.
+				Hidden for a string that came without keys (`hasKeys`, counted at paste time) - a
+				control with nothing to switch off would also read as "the keys are still in there".
+
+				**Placed from Lua, not here**: everything down to this point moves with how many
+				lines the string stood, and this one leaves the layout entirely when it is hidden.
 			-->
 			<CheckButton parentKey="StripKeysButton" inherits="MinimalCheckboxArtTemplate">
 				<Size x="22" y="22"/>
@@ -374,13 +376,6 @@
 				</Layers>
 			</CheckButton>
 		</Frames>
-		<Layers>
-			<Layer level="ARTWORK">
-				<Texture parentKey="Divider" atlas="Options_HorizontalDivider">
-					<Size y="1"/>
-				</Texture>
-			</Layer>
-		</Layers>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 		</Scripts>
