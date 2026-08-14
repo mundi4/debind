@@ -14,7 +14,7 @@
 # **Being LoadOnDemand is the reason this addon exists.**
 #
 # The workbench is a drawer that received strings pile up in, not a place used once and forgotten
-# (`.zzz/export-import.md`), so its SavedVariables grows over time. SavedVariables are read whole
+# (`devdocs/building-export-import.md`), so its SavedVariables grows over time. SavedVariables are read whole
 # when an addon loads, so keeping this in the main addon would read that file on every login of
 # every user, including everyone who never shares anything. Here it is not read until the window
 # is actually opened. The same goes for 5,500 lines of compression library.

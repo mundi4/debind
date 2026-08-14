@@ -16,7 +16,7 @@ local DebindUI         = DebindPrivate.DebindUI;
 --- **The axis is the layer, and the panel has to say so.** A key's behaviour is computed across
 --- layers, so what this panel can honestly promise is *the contents of these layers* -- if the
 --- receiving side arranges its layers one notch differently, the same actions on the same keys
---- behave differently with nothing missing and nothing overwritten. `.zzz/export-import.md`.
+--- behave differently with nothing missing and nothing overwritten. `devdocs/building-export-import.md`.
 ---
 --- Nothing here validates. A broken action exports as it sits; the far side shows it in red and
 --- the user deletes it. That single rule is what removes every question about spells, macros and
@@ -34,7 +34,7 @@ local LAYER_HEIGHT     = 26;
 --------------------------------------------------------------------------------
 -- Tri-state
 --
--- **No new art was needed, which is what open question 6 in `.zzz/export-import.md` was about.**
+-- **No new art was needed, which is what open question 6 in `devdocs/building-export-import.md` was about.**
 -- The addon list solves the same problem (`AddonList.lua`'s `TriStateCheckbox_SetState`) by dimming
 -- its check, and everything below is built out of stock atlases the same way.
 --------------------------------------------------------------------------------

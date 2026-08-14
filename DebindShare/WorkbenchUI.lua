@@ -10,7 +10,7 @@ local LLL           = DebindPrivate.L;
 ---
 --- Nothing in this file touches the profile. A batch sits outside it until it is committed, which
 --- is the decision the whole design turns on -- once actions are in the profile they scatter, and
---- the group identity the string arrived with is held nowhere. `.zzz/export-import.md`.
+--- the group identity the string arrived with is held nowhere. `devdocs/building-export-import.md`.
 
 local ROW_HEIGHT    = 44;
 

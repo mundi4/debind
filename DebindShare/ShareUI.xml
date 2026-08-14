@@ -7,7 +7,7 @@
 		One action. Checkbox, icon, name, key.
 
 		The row is the **unit of choice** - layers are groups and keys are boundaries, but what
-		the user actually ticks is an action (`.zzz/export-import.md`). So the whole row is a
+		the user actually ticks is an action (`devdocs/building-export-import.md`). So the whole row is a
 		button and clicking anywhere on it toggles; the checkbox is there to be read, not aimed at.
 
 		Art matches the main list and the spell picker (`ClickCastList-ButtonBackground`). Three
@@ -92,7 +92,7 @@
 
 	<!--
 		A layer. The window's outer axis, because it is the only grouping actually stored: a key
-		group crosses layers and so has nowhere to live (`.zzz/export-import.md`).
+		group crosses layers and so has nowhere to live (`devdocs/building-export-import.md`).
 
 		Its checkbox is the middle rung of the three: all -> layer -> action.
 	-->

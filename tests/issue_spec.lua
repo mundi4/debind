@@ -365,7 +365,7 @@ return function(DebindPrivate)
     -- The one issue branch about what an action **points at**. Before it existed such an action
     -- bound normally and did nothing on press -- no error, no mark -- which is the failure the
     -- sharing format's "send broken things too, the reader sees red" rule leans on
-    -- (`.zzz/export-import.md`, open question 7).
+    -- (`devdocs/building-export-import.md`, open question 7).
     --
     -- Both halves matter as much as they do above: a false positive here does not grey a row, it
     -- takes a working macro binding out of `KeyMap` entirely.

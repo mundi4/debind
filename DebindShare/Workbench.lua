@@ -7,7 +7,7 @@ local luatype       = type;
 --- The drawer received strings pile up in, and the work done on them before they become actions.
 ---
 --- **Nothing here touches the profile.** A batch sits outside it until it is committed, which is
---- the decision the design turns on (`.zzz/export-import.md`): once actions are in the profile they
+--- the decision the design turns on (`devdocs/building-export-import.md`): once actions are in the profile they
 --- scatter -- the overview sorts by name, layers split them, and the group identity the string
 --- arrived with is held nowhere. So the keys have to be decided while the grouping is still alive,
 --- and this is the place that holds it while that happens.
@@ -81,7 +81,7 @@ end
 
 --- Where a source layer lands unless the user says otherwise.
 ---
---- **The mapping is layer to layer**, not group to layer (`.zzz/export-import.md`, the second half
+--- **The mapping is layer to layer**, not group to layer (`devdocs/building-export-import.md`, the second half
 --- of open question 1). One row per source layer decides the destination and every group from that
 --- layer follows it. Pulling a single group out to somewhere else is done after committing, in the
 --- main window -- the same line the workbench draws around splitting a group.
