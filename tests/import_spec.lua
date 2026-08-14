@@ -348,10 +348,11 @@ return function(DebindPrivate, DebindShare)
         check(skipped == 0, "안 고른 것을 못 놓은 것으로 세었다: " .. skipped);
     end);
 
-    -- **A scope with no line is not something the reader turned down.** They were never offered it,
-    -- so the filter must not swallow it - and the filter is on for every press the window makes, so
-    -- swallowing it here would mean the count is only ever right in a test.
-    test("고르는 중이어도 모르는 레이어는 세어서 뺀다", function()
+    -- **갈 데 없는 것은 고르는 중에도 세어야 한다.** 줄은 놓일 수 있는 것으로만 세우므로
+    -- (`CollectImportLines`), 놓을 데가 없는 액션은 애초에 물어본 적이 없고 따라서 읽는 사람이
+    -- 뺀 것일 수가 없다. 필터를 먼저 보면 그것들이 조용히 사라진다 - 창은 "2개를 가져왔습니다"라
+    -- 말하고 못 넣은 다섯은 입에 올리지 않는다. 그리고 창은 언제나 필터를 켜고 부른다.
+    test("고르는 중이어도 갈 데 없는 것은 세어서 뺀다", function()
         local placements, skipped = DebindShare.PlanImport(Payload({
             { id = 1, actions = InLayer({ scope = "raid" },
                 { { type = Constants.SPELL, value = 1 } }) },
@@ -360,6 +361,21 @@ return function(DebindPrivate, DebindShare)
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 1, "안 센다 - 조용히 사라진다: " .. skipped);
+    end);
+
+    -- 줄이 안 선 쪽도 마찬가지다. 4특성 캐릭터의 캐릭터 레이어를 3특성 직업이 받으면 그 줄은
+    -- 아예 안 서고(`CollectImportLines`), 그래서 `lines`에도 없다. 그것이 "안 골랐다"로 읽히면
+    -- 안 된다.
+    test("줄조차 안 선 것도 세어서 뺀다", function()
+        local placements, skipped = DebindShare.PlanImport(Payload({
+            { id = 1, actions = InLayer({ scope = "character", spec = 5 },
+                { { type = Constants.SPELL, value = 1 },
+                  { type = Constants.SPELL, value = 2 } }) },
+            { id = 2, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 3 } }) },
+        }), 1, { lines = { ["shared.general"] = true } });
+
+        check(#placements == 1, "액션 수 " .. #placements);
+        check(skipped == 2, "못 놓은 둘을 안 세었다: " .. skipped);
     end);
 
     ---------------------------------------------------------------------------

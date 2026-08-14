@@ -181,16 +181,19 @@ function DebindShare.PlanImport(payload, batchID, options)
         local groupID;
 
         for _, source in ipairs(group.actions or {}) do
-            local line = DebindShare.ImportLineFor(source.layer);
-            local scope, class, spec;
-
-            -- **Only a line that exists and was unticked leaves in silence.** An action whose scope
-            -- has no line at all is not something the reader turned down - they were never offered
-            -- it - so it goes on to be counted like any other address this version cannot answer.
-            if (not line or not lines or lines[line]) then
-                scope, class, spec = DebindShare.ImportAddress(source.layer);
-                if (not scope) then
-                    skipped = skipped + 1;
+            -- **Asked for an address first, and the reader's answer second.** Every action with
+            -- nowhere to go is counted, whatever the filter says: the lines are built out of what
+            -- can land (`CollectImportLines`), so an unplaceable one was never offered and cannot
+            -- have been turned down. Reading the filter first made those vanish silently - the
+            -- window said "brought in 2" and never mentioned the five that did not fit.
+            local scope, class, spec = DebindShare.ImportAddress(source.layer);
+            if (not scope) then
+                skipped = skipped + 1;
+            elseif (lines) then
+                local line = DebindShare.ImportLineFor(source.layer);
+                if (not (line and lines[line])) then
+                    -- Offered and unticked. That is an answer, not a failure, so it is not counted.
+                    scope = nil;
                 end
             end
 

@@ -338,7 +338,10 @@ local function GroupSelectedActions(isSelected)
                     isConditional = DebindPrivate.IsConditionalAction(action),
                     layerRank = scopeRank,
                     specRank = specRank,
-                    seq = action.seq,
+                    -- Read only while there is a key, the same way `MakeRow` reads it: a stored
+                    -- number outlives the key it was issued for, and using it here would let a
+                    -- keyless action that was briefly bound outrank its own `importOrder`.
+                    seq = action.key ~= nil and action.seq or nil,
                     importOrder = action.importOrder,
                 };
 

@@ -303,11 +303,18 @@ end
 --- Swaps the addon's layer enumeration for one that yields only the test layer, and takes the
 --- game's own bindings out from under it.
 ---
---- **Everything that decides what is bound goes through that one function** -- `BuildKeyMap`, the
---- ordering, the UI -- and it is looked up on `DebindPrivate` at each call, so replacing the
---- field is enough and the addon needs no seam of its own. Test scaffolding does not belong in a
---- shipped build.
+--- **Everything that decides what is bound goes through these two functions** -- `BuildKeyMap`,
+--- the ordering, the UI -- and both are looked up on `DebindPrivate` at each call, so replacing
+--- the fields is enough and the addon needs no seam of its own. Test scaffolding does not belong
+--- in a shipped build.
+---
+--- `EnumerateAllProfileLayers` is the second one. It answers "everything stored" rather than "what
+--- is live", which is what the overview walks so that inactive specializations show up; leaving it
+--- alone would have an isolated run reading the tester's real profile through half its paths while
+--- `BuildKeyMap` held only the test layer. It yields two more values, and the stand-in has to yield
+--- them too or the rows come out with no scope and no specialization.
 local realEnumerate
+local realEnumerateAll
 
 local function SetIsolated(isolated)
     if isolated then
@@ -328,6 +335,7 @@ local function SetIsolated(isolated)
 
         if not realEnumerate then
             realEnumerate = DebindPrivate.EnumerateProfileLayers
+            realEnumerateAll = DebindPrivate.EnumerateAllProfileLayers
             local only = { GetTestLayer() }
             DebindPrivate.EnumerateProfileLayers = function()
                 return function(tbl, index)
@@ -337,12 +345,26 @@ local function SetIsolated(isolated)
                     end
                 end, only, 0
             end
+            -- Scope 5 and no specialization. **Neither value can decide anything** -- there is one
+            -- layer, so every row carries the same pair -- and 5 is what the layer it was cloned
+            -- from would answer (`GetTestLayer` takes the general layer's metatable). What matters
+            -- is that they are answered at all: a nil scope would reach the comparator.
+            DebindPrivate.EnumerateAllProfileLayers = function()
+                return function(tbl, index)
+                    index = index + 1
+                    if tbl[index] then
+                        return index, tbl[index], 5, 0
+                    end
+                end, only, 0
+            end
         end
     else
         pcall(RestoreGameBindings)
         if realEnumerate then
             DebindPrivate.EnumerateProfileLayers = realEnumerate
+            DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
             realEnumerate = nil
+            realEnumerateAll = nil
         end
     end
 

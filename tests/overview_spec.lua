@@ -193,6 +193,28 @@ return function(DebindPrivate)
             "importOrder 차례가 아니다");
     end);
 
+    -- **키를 뗀 액션은 번호를 남긴다**(`SetActionKey` - 뗐다 다시 걸 때 자리를 지키려는 것).
+    -- 그 남은 번호가 순서까지 정하면, 잠깐 키를 걸었다 뗀 도착 그룹 멤버가 자기 `importOrder`를
+    -- 잃고 엉뚱한 자리로 간다. 저장은 그대로 두고 읽는 쪽에서 무시한다.
+    test("키를 뗀 뒤 남은 seq가 importOrder를 못 이긴다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, imported = 1, importGroup = 7, importOrder = 1 },
+                -- 한 번 키가 걸렸다 떨어진 것. 저장에는 번호가 남아 있다.
+                { type = Constants.SPELL, value = 2, imported = 1, importGroup = 7, importOrder = 2,
+                  seq = 99 },
+                { type = Constants.SPELL, value = 3, imported = 1, importGroup = 7, importOrder = 3 },
+            },
+        });
+
+        local rows = DebindPrivate.CollectKeylessActionRows(7);
+        check(#rows == 3, "행 수 " .. #rows);
+        for i, row in ipairs(rows) do
+            check(row.action.value == i,
+                i .. "번째가 value=" .. tostring(row.action.value));
+        end
+    end);
+
     test("그룹 없는 키 없는 액션은 그룹 목록에 안 섞인다", function()
         ResetProfile({
             general = {

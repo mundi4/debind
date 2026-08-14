@@ -823,7 +823,12 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
                     -- 넣을 자리가 이 번호다(DebindUI.lua의 MoveAction). 그리는 쪽이 손으로
                     -- 세면 같은 뜻의 번호가 두 군데서 따로 만들어진다.
                     index         = index,
-                    seq           = action.seq,
+                    -- **키가 있을 때만 읽는다.** 저장된 값은 키를 떼도 남는다 - 뗐다 다시 걸
+                    -- 때 자리를 지키려는 것이고 그건 그대로 맞다(`SetActionKey`). 그런데 그
+                    -- 남은 번호를 순서에 쓰면, 잠깐 키를 걸었다 뗀 도착 그룹 멤버가 자기
+                    -- `importOrder`를 잃고 맨 뒤로 간다. `PlaceLast`의 규칙("키가 없으면 번호도
+                    -- 없다")을 읽는 쪽에서도 지키는 것이 이 줄이다.
+                    seq           = action.key ~= nil and action.seq or nil,
                     -- 키가 없는 동안 `seq`의 자리를 대신하는 값. 비교자가 그렇게 읽는다
                     -- (`Ordering.lua`) - 키 없이 도착한 그룹은 이것 말고 차례를 말하는 것이 없다.
                     importOrder   = action.importOrder,

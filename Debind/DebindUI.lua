@@ -4552,10 +4552,15 @@ local function BuildKeyboardElements()
 				if (lhsName ~= rhsName) then
 					return lhsName < rhsName;
 				end
-				-- Two of the same thing. Falling through to the layer keeps the list from
-				-- rearranging itself between two draws.
-				if (lhs.layerRank ~= rhs.layerRank) then
-					return lhs.layerRank < rhs.layerRank;
+				-- Two of the same thing. Falling through keeps the list from rearranging itself
+				-- between two draws - `table.sort` is not stable, so a pair that ties all the way
+				-- down is free to swap.
+				--
+				-- **`layerID`, not `layerRank`.** The rank is a scope now and all four
+				-- character-spec layers share it, so two rows in different specs tie on rank and
+				-- can tie on `index` as well - both being the first action in their own layer.
+				if (lhs.layerID ~= rhs.layerID) then
+					return lhs.layerID < rhs.layerID;
 				end
 				return lhs.index < rhs.index;
 			end);
