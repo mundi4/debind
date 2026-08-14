@@ -313,7 +313,11 @@ L["OVERVIEW"] = "Overview"
 --
 -- **"the keyboard you are playing with"라고 쓰지 말 것.** 설계 메모의 말버릇이지 플레이어의
 -- 말이 아니다 - 저쪽에게 keyboard는 책상 위의 물건이라, 이 창이 그걸 보여준다는 소리가 된다.
-L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nWhat is listed is what your current character and specialization would actually do if you pressed the key now. Opening another tab or specialization on the right does not change it, and an action with no key is not listed here at all."
+-- **The last clause is what quarantine cost this sentence.** "What is listed is what would actually
+-- happen" stopped being true the day importing started putting actions in the profile switched off:
+-- those are listed, they have a key, and pressing it does nothing. Without the exception the one
+-- promise this window makes is false for exactly the rows the reader is least sure about.
+L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nWhat is listed is what your current character and specialization would actually do if you pressed the key now. Opening another tab or specialization on the right does not change it, and an action with no key is not listed here at all. The exception is anything that came in from a string: it is listed, but it reaches no key until you accept it."
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
