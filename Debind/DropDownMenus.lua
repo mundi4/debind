@@ -1184,6 +1184,29 @@ do
         end);
     end
 
+    --- The other answer to the same question, on the same terms as the one above: only built when
+    --- something in the selection carries a badge, and it takes a list either way.
+    ---
+    --- **It is not the delete item wearing a different word.** That one asks about an action of the
+    --- reader's own and is final; this asks about something that arrived, and the string it arrived
+    --- in is still in the drawer - which is what its prompt says, and what makes it the reversible
+    --- half of this pair. Accepting is the half that cannot be undone.
+    local function CreateRejectImportMenuItem(rootDescription, actions)
+        local badged = {};
+        for _, action in ipairs(actions) do
+            if (action and action.imported) then
+                badged[#badged + 1] = action;
+            end
+        end
+        if (#badged == 0) then
+            return;
+        end
+
+        rootDescription:CreateButton(LLL["REJECT_IMPORT"], function()
+            DebindUI.ShowRejectImportConfirmationPopup(badged);
+        end);
+    end
+
     --- 겨누는 것이 하나든 여럿이든 목적지 목록은 **같은 하나**다(`GetTabList`). 그래서 대상을
     --- 밖에서 받는다: `fromLayerID`는 "이미 여기 산다"를 판정하는 데만 쓰이고, `applyFunc`가
     --- 실제로 옮긴다.
@@ -1324,6 +1347,7 @@ do
         end);
 
         CreateApproveImportMenuItem(rootDescription, { _action });
+        CreateRejectImportMenuItem(rootDescription, { _action });
 
         CreateDeleteMenu(rootDescription);
     end
@@ -1376,6 +1400,20 @@ do
             end
         end
 
+        -- **A badged action gets accept and reject instead of the ordering items**, the same swap
+        -- the row itself makes (`UpdateMoveButtons`). While the badge is on this action does not
+        -- fire, so a place earlier or later settles nothing; what can be done to it here is take it
+        -- or throw it back.
+        --
+        -- Not two dead items with a reason, which is what this menu does elsewhere: **why** they
+        -- would be dead is an import matter and not an ordering rule, and `ORDER_BLOCKED_*` exists
+        -- to teach the ordering rules.
+        if (action.imported) then
+            CreateApproveImportMenuItem(rootDescription, { action });
+            CreateRejectImportMenuItem(rootDescription, { action });
+            return;
+        end
+
         CreateMoveMenuItem(-1, "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC");
         CreateMoveMenuItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
     end
@@ -1409,6 +1447,7 @@ do
         end);
 
         CreateApproveImportMenuItem(rootDescription, actions);
+        CreateRejectImportMenuItem(rootDescription, actions);
 
         rootDescription:CreateButton(LLL["DELETE"], function()
             DebindUI.ShowBulkDeleteConfirmationPopup(actions);

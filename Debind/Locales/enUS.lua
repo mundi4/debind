@@ -185,6 +185,17 @@ L["KEY_GROUP_UNBOUND"] = "No key assigned"
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
+-- Sits directly under the key line, because the key is what it qualifies: that line says which key
+-- it has, this one says that key does nothing yet.
+--
+-- **It is the only thing in the tooltip that says so.** The title used to carry the badge as a
+-- colour and no longer does, so if this sentence goes the tooltip stops mentioning it at all.
+--
+-- No source and no date, though the action carries the batch number. Reading either of those means
+-- reading `DebindShare`'s saved variables, and that addon is load-on-demand - a tooltip that says
+-- where a string came from only after some other window has been opened is worse than one that
+-- never claims to.
+L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you accept it."
 -- 한때 "and set its key"가 붙어 있었다. 그 시절에는 행을 고르면 왼쪽 열이 그 액션의 상세
 -- 패널이 되고 거기서 키를 걸었다. 지금 왼쪽 열은 키보드 사영이라 보여주기만 하고, 키는
 -- 목록 위의 [키 지정] 모드에서 건다 - 좌클릭은 고르는 것이 전부다.
@@ -323,6 +334,15 @@ L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Wit
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
 -- 순서 이동 버튼. 3.0에서 그대로 돌아온 문자열이다 - 규칙이 안 바뀌었으므로 말도 안 바꾼다.
 -- ORDER_BLOCKED_*는 `ComputeOrderSwap`이 돌려주는 사유 코드와 이름이 맞물려 있다.
+-- The button that stands in the arrows' place on a row that came in. **Its being there is the row's
+-- way of saying it has not been accepted**, which is why no label says that as well.
+--
+-- **Not the client's `ACCEPT`**, even though the word matches and taking a client global is usually
+-- the right move. That one is for invitations and quests; the rule here is different, and borrowing
+-- it would put a third word (수락) beside the two this feature already uses on the same screen -
+-- "Accept as mine" in the menu, "Accept all %d" in the strip. One thing, one name per screen.
+L["ORDER_ACCEPT"] = "Accept"
+L["ORDER_ACCEPT_DESC"] = "Take this one as yours. Its key starts working now; the rest of what came in stays switched off."
 L["ORDER_MOVE_UP"] = "Run Sooner"
 L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key. Nothing else about it changes."
 L["ORDER_MOVE_DOWN"] = "Run Later"
@@ -552,6 +572,24 @@ L["APPROVE_ALL_IMPORT"] = "Accept all %d"
 -- **It has to say "wherever it went"**, because the count includes actions on specializations you
 -- are not in, and those are on no list the reader can see from here.
 L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went - including other specializations. Their keys start working straight away."
+-- The other answer, and the design note always had the two side by side. **The same set as
+-- [Accept all], opposite verb** - two buttons standing together must not quietly mean different
+-- amounts.
+--
+-- **The pair is accept/reject, and it must not be crossed with keep/discard.** Both are pairs the
+-- reader already owns, so borrowing one word from each leaves them looking for the missing halves.
+--
+-- **Not keep/discard, because "keep" would say the thing is already running** - it asks whether to
+-- let something continue, and the one fact quarantine exists to establish is that none of this is
+-- doing anything yet. The button would contradict the badge. ("Reject" not naming the removal is
+-- the smaller cost, and the prompt below spends one clause on it.)
+L["REJECT_ALL_IMPORT"] = "Reject all %d"
+L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The string it came from stays in the drawer, so you can bring it in again."
+-- The single one, from a row's right-click menu.
+L["REJECT_IMPORT"] = "Reject"
+-- **The second sentence is what makes this pressable.** Without it this reads as the destructive
+-- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
+L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the drawer, so you can bring it in again."
 -- The switch that makes the badge findable instead of something to hunt for. **It says "came in",
 -- not "imported"** - what the reader did was paste a string somebody sent them.
 L["IMPORTED_ONLY"] = "Only what came in"

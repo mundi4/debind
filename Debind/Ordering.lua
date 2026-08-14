@@ -118,7 +118,19 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
         return nil, direction < 0 and "ALREADY_FIRST" or "ALREADY_LAST";
     end
 
+    -- **A badged row is not an opponent.** `BuildKeyMap` leaves those actions out of the build, so
+    -- they are not part of what this key does and therefore not part of its order. Swapping numbers
+    -- with one moves a row on screen and changes nothing about the key - the reader presses a
+    -- button, watches the list rearrange, and believes they settled something. That is the most
+    -- expensive kind of wrong this list can be.
+    --
+    -- Skipping past the end is the same answer as starting there, so the two branches below catch
+    -- it unchanged: nowhere to move to is nowhere to move to.
     local neighborIndex = targetIndex + direction;
+    while (rows[neighborIndex] and rows[neighborIndex].imported) do
+        neighborIndex = neighborIndex + direction;
+    end
+
     if (neighborIndex < 1) then
         return nil, "ALREADY_FIRST";
     elseif (neighborIndex > #rows) then

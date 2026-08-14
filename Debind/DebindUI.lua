@@ -886,6 +886,7 @@ local function DeleteActions(actions)
 end
 
 local ShowDeleteConfirmationPopup, ShowBulkDeleteConfirmationPopup, HideDeleteConfirmationPopup;
+local ShowRejectImportConfirmationPopup;
 do
 	local _deletePopupData;
 
@@ -899,6 +900,34 @@ do
 
 		_deletePopupData = {
 			text = LLL["DELETE_CONFIRM_MESSAGE_MULTIPLE"],
+			text_arg1 = #actions,
+			callback = function()
+				DeleteActions(actions);
+			end,
+			acceptText = YES,
+			cancelText = NO,
+			showAlert = true,
+			referenceKey = "DebindDeleteConfirmation",
+		};
+
+		StaticPopup_ShowCustomGenericConfirmation(_deletePopupData);
+		DebindFrame:UpdateButtons();
+	end
+
+	--- Rejecting what came in, one or all of it.
+	---
+	--- **A separate popup from the delete above, because the sentence is what makes it pressable.**
+	--- Deleting your own action is final; this is not, and saying so is the whole difference: the
+	--- string these came from is still in the drawer, so the way back is to bring it in again. The
+	--- reader cannot know that from the button, and without it this reads as the destructive half
+	--- of the pair when it is in fact the reversible one - accepting is what cannot be undone.
+	---
+	--- Counts rather than names, for the reason the bulk popup above counts.
+	function ShowRejectImportConfirmationPopup(actions)
+		HideDeleteConfirmationPopup();
+
+		_deletePopupData = {
+			text = LLL["REJECT_IMPORT_CONFIRM"],
 			text_arg1 = #actions,
 			callback = function()
 				DeleteActions(actions);
@@ -1037,6 +1066,7 @@ local function ApproveImportedActions(actions)
     for _, action in ipairs(actions) do
         action.imported = nil;
         action.importGroup = nil;
+        action.importOrder = nil;
     end
 
     if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
@@ -1136,8 +1166,13 @@ do
 		local isInactive = not suppressInactive and DebindPrivate.IsInactiveAction(action);
 		local hasIssues = GetIssue() ~= nil;
 
-		local name = ColoredNameAndIconForAction(action);
-		GameTooltip_SetTitle(GameTooltip, name);
+		-- **The title does not carry the list's colours.** Those exist so an eye running down forty
+		-- rows can sort them without reading; a tooltip is one thing the reader already chose to
+		-- read, so there is nothing for the colour to sort. Two of the three also say the wrong
+		-- thing here: a blue title is item rarity in this game's visual grammar, and a grey one
+		-- repeats what the `KEY` line below already says in words. What the colours carry is said
+		-- in lines instead - the badge just under the key, problems on the lines they belong to.
+		GameTooltip_SetTitle(GameTooltip, (NameAndIconForAction(action)));
 
 		do
 			addLabelLine(LLL["KEY"]);
@@ -1155,6 +1190,17 @@ do
 				-- 행의 단축키 칸과 같은 말을 쓴다. 한때 여기만 따로 번역된 키를
 				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
 				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
+			end
+
+			-- **Under the key, because it is the key this qualifies.** The line above says which
+			-- key it has; this one says that key does nothing yet. Anywhere else in the tooltip
+			-- the two would be a statement and a contradiction with other lines in between.
+			--
+			-- Same blue as the name in the list and the dot on the icon, so the three read as one
+			-- mark rather than three. It is the only thing in this tooltip that says so, now that
+			-- the title has stopped carrying the colour.
+			if (action.imported) then
+				addValueLine(IMPORTED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_IMPORTED"]), nil, true);
 			end
 		end
 
@@ -2346,13 +2392,26 @@ function DebindFrameMixin:InitializeButtons()
 	strip.Checkbox:SetScript("OnLeave", function()
 		GameTooltip:Hide();
 	end);
+	-- **The title is the button's own text, not the locale key.** Both labels carry a `%d`, so
+	-- reading the key here would put "Accept all %d" on screen with the placeholder showing.
+	-- Asking the button also means the number in the tooltip is the number under the cursor,
+	-- with no second place to keep it in step.
 	strip.ApproveAll:SetScript("OnEnter", function(button)
 		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-		GameTooltip_SetTitle(GameTooltip, LLL["APPROVE_ALL_IMPORT"]);
+		GameTooltip_SetTitle(GameTooltip, button:GetText());
 		GameTooltip_AddNormalLine(GameTooltip, LLL["APPROVE_ALL_IMPORT_DESC"]);
 		GameTooltip:Show();
 	end);
 	strip.ApproveAll:SetScript("OnLeave", function()
+		GameTooltip:Hide();
+	end);
+	strip.RejectAll:SetScript("OnEnter", function(button)
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, button:GetText());
+		GameTooltip_AddNormalLine(GameTooltip, LLL["REJECT_ALL_IMPORT_DESC"]);
+		GameTooltip:Show();
+	end);
+	strip.RejectAll:SetScript("OnLeave", function()
 		GameTooltip:Hide();
 	end);
 end
@@ -2390,6 +2449,16 @@ end
 --- rest quarantined somewhere no screen shows until the reader changes specialization.
 function DebindFrameMixin:ApproveAllImported()
 	ApproveImportedActions(DebindPrivate.CollectImportedActions());
+end
+
+--- Throws back everything still waiting - the same set [Accept all] would take.
+---
+--- **It asks, and its twin does not.** Accepting is what importing is for, and the count in that
+--- label is the whole of the warning it needs. This one removes N actions on one press, so it goes
+--- through the prompt, which is also the only place the reader is told the way back
+--- (`ShowRejectImportConfirmationPopup`).
+function DebindFrameMixin:RejectAllImported()
+	ShowRejectImportConfirmationPopup(DebindPrivate.CollectImportedActions());
 end
 
 
@@ -3387,10 +3456,13 @@ function DebindFrameMixin:UpdateImportStrip()
 
 	strip.ApproveAll:SetFormattedText(LLL["APPROVE_ALL_IMPORT"], count);
 	strip.ApproveAll:SetWidth(max(120, strip.ApproveAll:GetFontString():GetStringWidth() + 30));
-	-- At zero there is no badge to take off. The strip is only still standing to leave somewhere to
-	-- switch [Only what came in] back off, which is not this button's business - it asks whether it
-	-- has work of its own.
+	strip.RejectAll:SetFormattedText(LLL["REJECT_ALL_IMPORT"], count);
+	strip.RejectAll:SetWidth(max(120, strip.RejectAll:GetFontString():GetStringWidth() + 30));
+	-- At zero there is nothing to take a badge off or throw back. The strip is only still standing
+	-- to leave somewhere to switch [Only what came in] back off, which is not either button's
+	-- business - they ask whether they have work of their own.
 	strip.ApproveAll:SetEnabled(count > 0 and not locked);
+	strip.RejectAll:SetEnabled(count > 0 and not locked);
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
@@ -3902,6 +3974,9 @@ function DebindOrderLineMixin:Init()
 	if (not self.moveIconsSet) then
 		SquareButton_SetIcon(self.MoveUpButton, "UP");
 		SquareButton_SetIcon(self.MoveDownButton, "DOWN");
+		-- The label never changes, so it is written once with the icons rather than on every
+		-- redraw. The width does depend on it and is taken in `UpdateMoveButtons`.
+		self.AcceptButton:SetText(LLL["ORDER_ACCEPT"]);
 		self.moveIconsSet = true;
 	end
 	self:Update();
@@ -3929,13 +4004,44 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	-- **규칙 때문에 막힌 것은 다르다.** 그건 둘 이상이 같은 키를 두고 겨루는데 중요도나
 	-- 조건이 순서를 정하고 있다는 뜻이라, 죽은 버튼과 그 툴팁이 이 애드온에서 순서 규칙을
 	-- 가르치는 몇 안 되는 자리다. 그쪽은 그대로 세워 둔다.
+	--
+	-- **A row that came in gets the accept button instead.** What the arrows decide is which of the
+	-- things on one key goes first, and a badged row does not go at all - up or down, nothing is
+	-- decided. Pressing one does write `seq` though, so the gesture would edit the profile to settle
+	-- nothing. The slot means "what you can do to this row right now", and for this row that is
+	-- accepting it; the arrows come back the moment it is, which is when ordering becomes the job.
+	local accept = self.AcceptButton;
+	local imported = elementData.row.action.imported ~= nil;
+	accept:SetShown(imported);
+	if (imported) then
+		accept:SetWidth(max(60, accept:GetFontString():GetStringWidth() + 24));
+	end
+
+	-- **Only the live rows count.** A badged one cannot be an opponent (`ComputeOrderSwap`), so a
+	-- key holding one live row and three badged ones is in the same position as a key holding one:
+	-- put the arrows up and both of them are dead.
 	local rows = elementData.rows;
-	if (not elementData.isCurrent or not rows or #rows < 2) then
+	local live = 0;
+	if (rows) then
+		for i = 1, #rows do
+			if (not rows[i].imported) then
+				live = live + 1;
+			end
+		end
+	end
+
+	if (imported or not elementData.isCurrent or live < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
 		up:Hide();
 		down:Hide();
 		self.ReasonText:ClearAllPoints();
-		self.ReasonText:SetPoint("RIGHT", -6, 0);
+		-- A row with a button standing pulls the reason line left of it, for the reason spelled out
+		-- in the arrows' branch below.
+		if (imported) then
+			self.ReasonText:SetPoint("RIGHT", accept, "LEFT", -6, 0);
+		else
+			self.ReasonText:SetPoint("RIGHT", -6, 0);
+		end
 		return;
 	end
 
@@ -4046,6 +4152,27 @@ function DebindOrderLineMixin:OnMoveClick(button)
 	end
 end
 
+--- Takes the badge off this one action.
+---
+--- **The same call the right-click menu makes**, so the two ways in cannot come apart - that one
+--- rebuilds the bindings and the list, which is what has to happen the moment a key starts working.
+--- The row redraws out from under the cursor and the button goes with it, since the arrows take the
+--- slot back the instant the badge is gone.
+---
+--- No confirmation, for the reason the strip's button has none: accepting is what importing is for.
+--- What it does have is a slot of its own away from the arrows' (the XML says why).
+function DebindOrderLineMixin:OnAcceptClick()
+	ApproveImportedActions({ self:GetElementData().row.action });
+	GameTooltip:Hide();
+end
+
+function DebindOrderLineMixin:OnAcceptEnter(button)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, LLL["ORDER_ACCEPT"]);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["ORDER_ACCEPT_DESC"]);
+	GameTooltip:Show();
+end
+
 --- 막힌 버튼은 **왜 막혔는지**를 말한다. 그 사유는 순서 규칙 자체라, 이 애드온에서 규칙을
 --- 가르치는 몇 안 되는 자리다.
 function DebindOrderLineMixin:OnMoveEnter(button)
@@ -4068,7 +4195,16 @@ end
 --- 때문이다(Misc.lua). 더 구체적인 쪽만 쓴다.
 local function GetOrderReasonText(elementData)
 	local row = elementData.row;
-	if (row.unreachable) then
+	-- **A badged row says nothing here, because the slot is the button's.** What this column
+	-- normally holds is why this row beat the one below it, and for a row that does not fire that
+	-- sentence is beside the point - it describes an ordering it takes no part in. The problem
+	-- codes go quiet for the same span: accepting comes before fixing, since a problem already
+	-- keeps an action out of the key map (`BuildKeyMap` takes only `not issue`), so taking the
+	-- badge off something broken changes nothing about what any key does. Both come back the
+	-- moment it is accepted, which is when either one starts to matter.
+	if (row.action.imported) then
+		return "";
+	elseif (row.unreachable) then
 		return ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
 		return ERROR_COLOR:WrapTextInColorCode(GetShortIssueText(row.issue));
@@ -4261,7 +4397,18 @@ local function BuildKeyboardElements()
 			-- (이름만 쓰면 방향을 모른다), 레이어는 규칙 이름보다 **실제 두 레이어**를 대는
 			-- 편이 읽힌다. 값은 여기서 뽑아둔다 - 그릴 때는 이웃 행이 손에 없다.
 			local reason, argA, argB;
-			local next = rows[i + 1];
+			-- **The next one that fires, not the next line.** A badged row is not in the order
+			-- (`ComputeOrderSwap` skips it for the same reason), so measuring against one would
+			-- describe a contest that does not happen. Rows that are themselves badged get no
+			-- sentence at all - `GetOrderReasonText` returns "" for them, and the slot is the
+			-- accept button's.
+			local next;
+			for j = i + 1, #rows do
+				if (not rows[j].imported) then
+					next = rows[j];
+					break;
+				end
+			end
 			if (next) then
 				reason = DebindPrivate.GetDecidingOrderAxis(row, next) or "SEQ";
 				if (reason == "PRIORITY") then
@@ -4929,6 +5076,7 @@ DebindUI.MoveActions = MoveActions;
 DebindUI.ApproveImportedActions = ApproveImportedActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebindUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
+DebindUI.ShowRejectImportConfirmationPopup = ShowRejectImportConfirmationPopup;
 DebindUI.NameAndIconForAction = NameAndIconForAction;
 DebindUI.SetActionIcon = SetActionIcon;
 DebindUI.ShowInputBox = ShowInputBox

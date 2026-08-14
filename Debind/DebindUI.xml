@@ -482,6 +482,43 @@
 					</OnLeave>
 				</Scripts>
 			</Button>
+			<!--
+				**The same slot, a different job.** On a row that came in, ordering decides nothing -
+				it does not fire - so the two arrows stand down and this takes their place. What the
+				slot means is "the thing you can do to this row right now", and for a badged row that
+				is accepting it. It also gives that a way in that can be seen: until now the single
+				accept existed only in the right-click menu.
+
+				**It stands on every badged row, not only the selected one**, and that is why the row
+				needs no label saying "not accepted yet". A button offering to accept something is
+				already the statement that it has not been - one mark for one fact instead of two.
+				The arrows cannot do this, which is why they are selected-only: they follow the
+				cursor's target, and this does not.
+
+				**Words, not a tick.** A tick has to be learned; this reads as a sibling of the
+				strip's [Accept all] at the top of the window, which is the button it is a smaller
+				version of.
+
+				Width comes from the text (`UpdateMoveButtons`), because the label's length differs by
+				locale and this column is measured against the name beside it.
+			-->
+			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate" hidden="true">
+				<Size x="1" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" x="-4" y="0"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						self:GetParent():OnAcceptClick();
+					</OnClick>
+					<OnEnter>
+						self:GetParent():OnAcceptEnter(self);
+					</OnEnter>
+					<OnLeave>
+						GameTooltip:Hide();
+					</OnLeave>
+				</Scripts>
+			</Button>
 			<Button parentKey="MoveUpButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true" hidden="true">
 				<Size x="22" y="22"/>
 				<Anchors>
@@ -1286,6 +1323,33 @@
 								<Scripts>
 									<OnClick>
 										DebindFrame:ApproveAllImported();
+									</OnClick>
+								</Scripts>
+							</Button>
+
+							<!--
+								**The other half of the basic path**, and the design note always had it
+								here beside its twin. Without it, undoing a whole import means
+								ctrl-clicking one row at a time - and the left column only shows this
+								specialization, so a per-row way out cannot even finish the job.
+
+								**The same set as [Accept all], opposite verb.** Two buttons standing
+								side by side must not quietly mean different scopes; both take
+								everything still waiting.
+
+								It asks first, unlike its twin. Accepting is what importing is for and
+								the count in the label is the whole warning; this throws N actions away
+								in one press. What makes it pressable is the sentence in the prompt -
+								the string is still in the drawer.
+							-->
+							<Button parentKey="RejectAll" inherits="UIPanelButtonTemplate">
+								<Size x="1" y="22"/>
+								<Anchors>
+									<Anchor point="LEFT" relativeKey="$parent.ApproveAll" relativePoint="RIGHT" x="6" y="0"/>
+								</Anchors>
+								<Scripts>
+									<OnClick>
+										DebindFrame:RejectAllImported();
 									</OnClick>
 								</Scripts>
 							</Button>

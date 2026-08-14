@@ -79,6 +79,15 @@ const PENDING_TRANSLATION = {
     APPROVE_ALL_IMPORT_DESC: ["ruRU"],
     NO_IMPORTED_IN_THIS_TAB: ["ruRU"],
     OVERVIEW_EMPTY_IMPORTED_ONLY: ["ruRU"],
+    // The button a badged row carries in the order list, and what its tooltip says. Same owner.
+    ORDER_ACCEPT: ["ruRU"],
+    ORDER_ACCEPT_DESC: ["ruRU"],
+    LINE_TOOLTIP_IMPORTED: ["ruRU"],
+    // Rejecting what came in - the other half of the strip, and the menu item beside it.
+    REJECT_ALL_IMPORT: ["ruRU"],
+    REJECT_ALL_IMPORT_DESC: ["ruRU"],
+    REJECT_IMPORT: ["ruRU"],
+    REJECT_IMPORT_CONFIRM: ["ruRU"],
     // The workbench: the drawer of received strings and the paste dialog. Same owner.
     IMPORT_DRAWER_EMPTY: ["ruRU"],
     IMPORT_DRAWER_COUNT: ["ruRU"],

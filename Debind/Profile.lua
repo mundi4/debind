@@ -733,6 +733,13 @@ function DebindPrivate.CollectActionsForKey(key, spec)
                     -- (Ordering.lua 주석 참고).
                     hover         = DebindPrivate.GetBindingInfoForAction(action).hover,
                     isConditional = DebindPrivate.IsConditionalAction(action),
+                    -- **Carried on the record rather than read off the action later.** Ordering
+                    -- works on these rows and deliberately never reaches back through `.action`
+                    -- (`hover` is the worked example just above), and `ComputeOrderSwap` has to
+                    -- know which rows are out of the running: a badged action is not in the key
+                    -- map, so it is not in the order either, and swapping numbers with it would
+                    -- move a row on screen without changing what the key does.
+                    imported      = action.imported,
                     issue         = DebindPrivate.GetBindingIssue(action, nil, simulated and "unreachable" or nil),
                     unreachable   = (not simulated) and DebindPrivate.IsUnreachableAction(action) or nil,
                     -- 이 행을 그리는 쪽도 같은 기준으로 물어야 한다. 툴팁이 이걸 보고
