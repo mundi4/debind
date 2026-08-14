@@ -3,7 +3,7 @@ name: testing
 description: How to test a change in this WoW addon. Load this before deciding how to verify any code you write or change here - which of the three layers (headless specs, static checks, in-game DebindTest) can actually catch the mistake, how to write a test in each, and what the checks cannot see. Triggers - writing or changing Lua in Debind/ or DebindTest/, adding a secure snippet, touching bindings/solver/profile code, being asked whether a change works, or reporting a change as done.
 ---
 
-Read `devdocs/testing.md` before choosing how to verify a change.
+Read `devdocs/testing-a-change.md` before choosing how to verify a change.
 
 The short version, so you know whether you need the full document:
 

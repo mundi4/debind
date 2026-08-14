@@ -51,9 +51,9 @@ run the one file through the shim yourself.
 in; `main` is the main worktree). Argument forms and the rest of the local setup are in
 `devdocs/dev-setup.md`.
 
-Read `devdocs/testing.md` **before** deciding how to verify a change. `npm run check` cannot see the
-game: UI and in-game behaviour is only verified by `/debtest`, and secure-snippet failures are
-silent.
+Read `devdocs/testing-a-change.md` **before** deciding how to verify a change. `npm run check`
+cannot see the game: UI and in-game behaviour is only verified by `/debtest`, and secure-snippet
+failures are silent.
 
 ## Shipped addons
 
@@ -126,13 +126,26 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
 - `reference/` is gitignored and read-only: Blizzard's interface code and the client's own strings,
   fetched by a script. None of it is ours — **never commit or push inside it.** What is in there,
   which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
-- `.zzz/` is gitignored design notes. They are proposals, not orders; read the status header first.
-  `.zzz/refactor-candidates.md` holds things noticed but not done.
-  - When an **individual item** closes, move it to `.zzz/resolved.md`. What stays in the original
-    is what is still open.
-  - When a **whole document** has been implemented, move the file to `.zzz/legacy/`. Whatever is
-    left at the top level of `.zzz/` is what still has work in it.
+- `devdocs/` holds two kinds of file, and the file name says which task it is for — never just the
+  topic (`testing.md` read as the test suite; `release.md` read as the release notes).
+  - **Standing documents** are the rules, and they stay put: `dev-setup.md`,
+    `testing-a-change.md`, `cutting-a-release.md`, `restricted-environment.md`,
+    `writing-user-facing-text.md`, `when-a-change-takes-effect.md`.
+  - **Work documents** are a design, a plan, an implementation order, a status writeup. **A new one
+    of those is written here**, opening with a status header (`> 상태: …`). When the whole thing has
+    been implemented the file moves to `devdocs/legacy/`, so a work document still at the top level
+    is one that still has work in it.
+  - A work document is a proposal, not an order — read its status header first.
+  - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
+    back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
+    that ground still holds. An outcome with no reason shuts both doors.
+  - `devdocs/` is committed and `.zzz/` is not, so moving a document across publishes it.
+- `.zzz/` is gitignored and holds the design notes written before that, plus the living indexes.
+  `.zzz/refactor-candidates.md` holds things noticed but not done. When an **individual item**
+  closes, move it to `.zzz/resolved.md`; what stays in the original is what is still open. Hundreds
+  of code comments cite `.zzz/<name>.md` paths — do not relocate one of those files to `devdocs/`
+  as a side effect of anything else.
 - CI (`.github/workflows/test.yml`) runs luacheck + specs + bench only. Network-dependent checks
   (`check:templates`) are local-only on purpose.
-- Releasing is `devdocs/release.md`. Pushing a tag deploys — never push one as a side effect of
-  anything else.
+- Releasing is `devdocs/cutting-a-release.md`. Pushing a tag deploys — never push one as a side
+  effect of anything else.

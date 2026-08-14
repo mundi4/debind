@@ -1,4 +1,4 @@
-# Releasing
+# Cutting a release
 
 Pushing a tag is the deploy. There is no other button.
 
