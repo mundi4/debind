@@ -65,15 +65,20 @@ end
 local function BuildAction(source)
     local action = {};
     for k, v in pairs(source) do
-        -- `macro`, `setstate` and `order` are the format's, not the profile's. They are read below
-        -- and do not travel any further; `CleanUpDB` would drop them anyway, but leaving them for
-        -- it to find would mean the action is briefly a shape nothing else expects.
+        -- `macro`, `setstate`, `order` and `layer` are the format's, not the profile's. They are
+        -- read by the caller or below and do not travel any further; `CleanUpDB` would drop them
+        -- anyway, but leaving them for it to find would mean the action is briefly a shape nothing
+        -- else expects.
+        --
+        -- `layer` matters more than the others here: it is the sender's descriptor **table**,
+        -- shared between the actions of one layer, so copying it in would put one table inside
+        -- several profile actions at once.
         --
         -- **This loop is a blacklist**, so a wire field nobody names here rides straight into the
         -- profile. That is why the order is not sent as `seq`: under that name it would land on the
         -- action and collide with the numbers the receiving layer has already handed out, with
         -- nothing in the way.
-        if (k ~= "macro" and k ~= "setstate" and k ~= "order") then
+        if (k ~= "macro" and k ~= "setstate" and k ~= "order" and k ~= "layer") then
             if (luatype(v) == "table") then
                 action[k] = CopyTable(v);
             else
@@ -126,15 +131,24 @@ end
 -- The whole batch
 -- ---------------------------------------------------------------------------------------------
 
---- Where each group of `payload` lands, and what it becomes.
+--- Where each action of `payload` lands, and what it becomes.
 ---
---- Returns a flat list of `{ layerID, action }`. **Nothing is written here** - building the list
---- and putting it in the profile are separate so the caller can find out that a payload has
---- nowhere to go before any of it has gone there.
+--- Returns a flat list of `{ scope, class, spec, action }`. **Nothing is written here** - building
+--- the list and putting it in the profile are separate so the caller can find out that a payload
+--- has nowhere to go before any of it has gone there.
 ---
---- Groups whose layer this version cannot place are left out, and the count comes back so the
---- caller can say so. That happens for a scope a newer schema invented; every scope v1 knows has
---- a destination (`DefaultDestinationLayerID`).
+--- **The address is per action, not per group.** A group is a key and a key crosses layers
+--- (`Export.lua`), so one group routinely lands in two places while staying one group. It is also
+--- a **storage** address rather than a layer ID: layer IDs are this character's view of the
+--- profile, and a mage's layer has no ID in a druid's session at all (`ImportAddress`).
+---
+--- Actions this version has no address for are left out, and the count comes back so the caller
+--- can say so. Two things reach that: a scope a newer schema invented, and a character-scoped spec
+--- this character does not have.
+---
+--- `options.lines` is a set of `IMPORT_LINES` entries to take, or nil for all of them. A line the
+--- reader unticked is **not** counted as skipped -- they said no to it, which is not the same as
+--- this version having nowhere to put it.
 ---
 --- `options.stripKeys` drops every key on the way in, the mirror of the export's own option. What
 --- quarantine promises is that nothing changes until the reader accepts; this promises that their
@@ -146,6 +160,7 @@ end
 function DebindShare.PlanImport(payload, batchID, options)
     local placements, skipped = {}, 0;
     local stripKeys = options and options.stripKeys;
+    local lines = options and options.lines;
 
     -- **The payload's `id` is not the number that gets stored.** It is unique inside its own
     -- string and nowhere else, so two strings waiting at once would both carry a group 1. Numbers
@@ -155,29 +170,42 @@ function DebindShare.PlanImport(payload, batchID, options)
     local nextGroupID = DebindPrivate.NextImportGroupID();
 
     for _, group in ipairs(payload.groups or {}) do
-        local layerID = DebindShare.DefaultDestinationLayerID(group.layer);
-        if (not layerID) then
-            skipped = skipped + 1;
-        else
-            -- **A group with no `id` was never a group.** The export gives identity only to actions
-            -- that were on a key together (`Export.lua`); one the sender built and never bound
-            -- arrives as a group of one with nothing to hold, because the format is made of groups.
-            -- Numbering it here would head it in the overview as a set whose key was withheld, and
-            -- ask the reader what key something the sender does not use deserves.
-            local groupID;
-            if (group.id ~= nil) then
-                groupID = nextGroupID;
-                nextGroupID = nextGroupID + 1;
+        -- **A group with no `id` was never a group.** The export gives identity only to actions
+        -- that were on a key together (`Export.lua`); one the sender built and never bound arrives
+        -- as a group of one with nothing to hold, because the format is made of groups. Numbering
+        -- it here would head it in the overview as a set whose key was withheld, and ask the reader
+        -- what key something the sender does not use deserves.
+        --
+        -- Taken on the first action that actually lands, so a group the reader unticked or this
+        -- version cannot place does not spend a number on the way past.
+        local groupID;
+
+        for _, source in ipairs(group.actions or {}) do
+            local line = DebindShare.ImportLineFor(source.layer);
+            local scope, class, spec;
+
+            if (not lines or (line and lines[line])) then
+                scope, class, spec = DebindShare.ImportAddress(source.layer);
+                if (not scope) then
+                    skipped = skipped + 1;
+                end
             end
 
-            for _, source in ipairs(group.actions or {}) do
+            if (scope) then
+                if (group.id ~= nil and not groupID) then
+                    groupID = nextGroupID;
+                    nextGroupID = nextGroupID + 1;
+                end
+
                 local action = BuildAction(source);
                 -- **The key comes from the group**, which is where the format keeps it: one group
                 -- is one key, and that is what has to stay together.
                 action.key = (not stripKeys) and group.key or nil;
                 action.imported = batchID;
                 action.importGroup = groupID;
-                placements[#placements + 1] = { layerID = layerID, action = action };
+                placements[#placements + 1] = {
+                    scope = scope, class = class, spec = spec, action = action,
+                };
             end
         end
     end

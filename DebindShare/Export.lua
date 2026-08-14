@@ -16,6 +16,11 @@ local luatype            = type;
 
 --- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
 --- that skips fields it does not know survives additions on its own.
+---
+--- **`layer` moved from the group to the action and this stayed at 1.** That is the one kind of
+--- change the rule above says to bump for, and the exception is that no v1 string has ever left
+--- this repository: sharing did not ship with 3.1.6. There is nothing out there to be read wrongly,
+--- and burning v2 on a shape nobody has would only cost a number. The next such change bumps.
 local SCHEMA_VERSION     = 1;
 
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
@@ -24,14 +29,6 @@ local SCHEMA_VERSION     = 1;
 local ENVELOPE_VERSION   = 1;
 local ENVELOPE_PREFIX    = "DEB";
 local ENVELOPE_SEPARATOR = ":";
-
---- Layer IDs run 1..11 -- `LAYER_INFOS` in `Profile.lua`, one general plus two blocks of five.
---- Holes are normal and not an error: `GetProfileLayer` answers nil for a spec this class does
---- not have, and for every layer at all before `InitDB` has run.
----
---- **The export window opens inactive specs too**, so this walks all of them rather than
---- `EnumerateProfileLayers`, which answers the narrower question of what is live right now.
-local MAX_LAYER_ID       = 11;
 
 --- Action fields that go out on the wire.
 ---
@@ -285,37 +282,73 @@ end
 -- Grouping
 -- ---------------------------------------------------------------------------------------------
 
---- Actions of one layer, in the order the profile fires them, split into groups.
+--- The eleven layers, narrowest first -- the order the profile fires them in.
 ---
---- A **group** is one layer and one key. It is the unit that has to stay together when the key
---- is dropped: a conditional binding is several actions that only mean something as a set, and
---- "export without keys" turns that set into loose actions unless something else holds it. The
---- `id` is what holds it -- identity lives there and not on `key`, which may be nil, may repeat,
---- and is exactly the field the option removes.
+--- Layer IDs run 1..11 (`LAYER_INFOS` in `Profile.lua`): one general, then class spec 0..4, then
+--- character spec 0..4. Holes are normal and not an error -- `GetProfileLayer` answers nil for a
+--- spec this class does not have, and for every layer at all before `InitDB` has run.
 ---
---- **Layer is a group field, and a group never spans layers** (the export half of open question 1
---- in `devdocs/building-export-import.md`). A key whose actions live in two layers therefore leaves as two
---- groups. That is not a loss of fidelity so much as the honest shape of what this window
---- promises: it sends *the contents of these layers*, not *this key's behaviour*, and behaviour
---- is a computed thing that no layer holds.
+--- `EnumerateProfileLayers` builds this same order at run time, but only for the specialization
+--- that is live. **The export window opens inactive specs too**, so the whole eleven are spelled
+--- out here instead.
+---
+--- **A layer's place in this list is what ranks its actions inside a group**, below. Walking
+--- `1..11` instead would rank general above character-specific, which is backwards.
+local LAYER_WALK_ORDER   = { 8, 9, 10, 11, 7, 3, 4, 5, 6, 2, 1 };
+
+--- Everything selected, split into groups.
+---
+--- A **group** is one key. It is the unit that has to stay together when the key is dropped: a
+--- conditional binding is several actions that only mean something as a set, and "export without
+--- keys" turns that set into loose actions unless something else holds it. The `id` is what holds
+--- it -- identity lives there and not on `key`, which may be nil, may repeat, and is exactly the
+--- field the option removes.
+---
+--- **A group spans layers, and the layer is written on each action.** It used to be a group field,
+--- one group per (layer, key), and a key whose actions lived in two layers left as two groups. The
+--- reason that was wrong shows up at the other end: with the keys stripped, the reader is handed
+--- two headings for what the sender built as one key, gives them two keys, and both fire. There is
+--- nothing in the string by then that could have told them otherwise.
+---
+--- Ranking inside a group therefore has to cross layers too. The receiving side rebuilds
+--- everything else from the action itself (priority, hover, conditions all travel), so what `order`
+--- has to carry is the part that does not: the layer, and `seq` inside it.
 ---
 --- Keyless actions are singletons. In a profile nothing binds two keyless actions to each other
 --- -- whatever group they arrived in was dissolved when they were placed.
-local function GroupLayerActions(layer, isSelected)
+local function GroupSelectedActions(isSelected)
     local byKey, keyOrder, keyless = {}, {}, {};
+    -- Where this action turned up in the walk. The last tiebreak, and it exists because `sort` is
+    -- not stable: two layers can share a rank (spec 1 and spec 2 are both class-spec layers), and
+    -- with the same `seq` in both the result would otherwise be free to differ between two calls.
+    local ordinal = 0;
 
-    for _, action in layer:Enumerate() do
-        if (isSelected == nil or isSelected[action]) then
-            if (action.key == nil) then
-                keyless[#keyless + 1] = action;
-            else
-                local bucket = byKey[action.key];
-                if (not bucket) then
-                    bucket = {};
-                    byKey[action.key] = bucket;
-                    keyOrder[#keyOrder + 1] = action.key;
+    for rank = 1, #LAYER_WALK_ORDER do
+        local layer = DebindPrivate.GetProfileLayer(LAYER_WALK_ORDER[rank]);
+        if (layer) then
+            -- Built once per layer and shared by that layer's actions. The far side reads it and
+            -- never keeps it (`BuildAction` drops it), so one table serving many actions is safe.
+            local descriptor;
+
+            for _, action in layer:Enumerate() do
+                if (isSelected == nil or isSelected[action]) then
+                    descriptor = descriptor or DescribeLayer(layer);
+                    ordinal = ordinal + 1;
+                    local entry = { action = action, layer = descriptor, rank = rank,
+                        ordinal = ordinal };
+
+                    if (action.key == nil) then
+                        keyless[#keyless + 1] = entry;
+                    else
+                        local bucket = byKey[action.key];
+                        if (not bucket) then
+                            bucket = {};
+                            byKey[action.key] = bucket;
+                            keyOrder[#keyOrder + 1] = action.key;
+                        end
+                        bucket[#bucket + 1] = entry;
+                    end
                 end
-                bucket[#bucket + 1] = action;
             end
         end
     end
@@ -328,11 +361,20 @@ local function GroupLayerActions(layer, isSelected)
     local groups = {};
     for i = 1, #keyOrder do
         local bucket = byKey[keyOrder[i]];
-        sort(bucket, function(lhs, rhs) return (lhs.seq or 0) < (rhs.seq or 0); end);
-        groups[#groups + 1] = { key = keyOrder[i], actions = bucket };
+        sort(bucket, function(lhs, rhs)
+            if (lhs.rank ~= rhs.rank) then
+                return lhs.rank < rhs.rank;
+            end
+            local lhsSeq, rhsSeq = lhs.action.seq or 0, rhs.action.seq or 0;
+            if (lhsSeq ~= rhsSeq) then
+                return lhsSeq < rhsSeq;
+            end
+            return lhs.ordinal < rhs.ordinal;
+        end);
+        groups[#groups + 1] = { key = keyOrder[i], entries = bucket };
     end
     for i = 1, #keyless do
-        groups[#groups + 1] = { key = nil, actions = { keyless[i] } };
+        groups[#groups + 1] = { key = nil, entries = { keyless[i] } };
     end
 
     return groups;
@@ -362,57 +404,50 @@ function DebindShare.BuildExportPayload(selection, options)
     local stripKeys = options and options.stripKeys;
 
     local groups, exported = {}, {};
+    local sourceGroups = GroupSelectedActions(selection);
 
-    for layerID = 1, MAX_LAYER_ID do
-        local layer = DebindPrivate.GetProfileLayer(layerID);
-        if (layer) then
-            local descriptor;
-            local layerGroups = GroupLayerActions(layer, selection);
+    for i = 1, #sourceGroups do
+        local source = sourceGroups[i];
+        local actions = {};
 
-            for i = 1, #layerGroups do
-                local source = layerGroups[i];
-                local actions = {};
-
-                for j = 1, #source.actions do
-                    local action = source.actions[j];
-                    local copy = CopyFields(action, ACTION_FIELDS);
-                    NormalizeAction(action, copy);
-                    -- **Which of this key's actions goes first, said out loud.** The bucket is
-                    -- already sorted by `seq`, so the position is the answer; what it must not be
-                    -- called is `seq`, because the far side copies wire fields by name and that one
-                    -- would land on the action and collide with the numbers the receiving layer has
-                    -- handed out. Computed here rather than copied, which is why this field is in
-                    -- `ACTION_FIELDS` at neither end (`tools/check-export-fields.js`).
-                    copy.order = j;
-                    actions[#actions + 1] = copy;
-                    exported[#exported + 1] = copy;
-                end
-
-                descriptor = descriptor or DescribeLayer(layer);
-                groups[#groups + 1] = {
-                    -- **Only a group that was on a key gets identity**, and the reason is what the
-                    -- far side is asked to think about.
-                    --
-                    -- A sender exports whole layers, so actions they built and never bound go out
-                    -- with the rest. Given identity, one of those arrives headed as a set whose key
-                    -- was withheld - which says *this was part of the design, decide what key it
-                    -- deserves*. It was not. The reader is left working out what it is for and
-                    -- whether they are supposed to use it, over something the sender does not use
-                    -- either.
-                    --
-                    -- Without the distinction the far side cannot make it. Once keys are stripped a
-                    -- one-action key and a never-bound action arrive as the same table, so this is
-                    -- the only end that still knows.
-                    --
-                    -- The number stays local to this string. The far side takes its own
-                    -- (`PlanImport`), because ids repeat across strings and two can be waiting.
-                    id = source.key ~= nil and (#groups + 1) or nil,
-                    key = (not stripKeys) and source.key or nil,
-                    layer = descriptor,
-                    actions = actions,
-                };
-            end
+        for j = 1, #source.entries do
+            local entry = source.entries[j];
+            local copy = CopyFields(entry.action, ACTION_FIELDS);
+            NormalizeAction(entry.action, copy);
+            -- **Where this action lived, said in terms the far side can resolve.** On the action
+            -- rather than the group because a group is a key and a key crosses layers.
+            copy.layer = entry.layer;
+            -- **Which of this key's actions goes first, said out loud.** The bucket is already
+            -- sorted, so the position is the answer; what it must not be called is `seq`, because
+            -- the far side copies wire fields by name and that one would land on the action and
+            -- collide with the numbers the receiving layer has handed out. Computed here rather
+            -- than copied, which is why neither this nor `layer` is in `ACTION_FIELDS` at either
+            -- end (`tools/check-export-fields.js`).
+            copy.order = j;
+            actions[#actions + 1] = copy;
+            exported[#exported + 1] = copy;
         end
+
+        groups[#groups + 1] = {
+            -- **Only a group that was on a key gets identity**, and the reason is what the far side
+            -- is asked to think about.
+            --
+            -- A sender exports whole layers, so actions they built and never bound go out with the
+            -- rest. Given identity, one of those arrives headed as a set whose key was withheld -
+            -- which says *this was part of the design, decide what key it deserves*. It was not.
+            -- The reader is left working out what it is for and whether they are supposed to use
+            -- it, over something the sender does not use either.
+            --
+            -- Without the distinction the far side cannot make it. Once keys are stripped a
+            -- one-action key and a never-bound action arrive as the same table, so this is the only
+            -- end that still knows.
+            --
+            -- The number stays local to this string. The far side takes its own (`PlanImport`),
+            -- because ids repeat across strings and two can be waiting.
+            id = source.key ~= nil and (#groups + 1) or nil,
+            key = (not stripKeys) and source.key or nil,
+            actions = actions,
+        };
     end
 
     return {

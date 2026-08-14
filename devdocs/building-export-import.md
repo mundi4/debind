@@ -2,8 +2,9 @@
 
 > 상태 (2026-08-14): **익스포트 완료. 임포트는 키 없이 온 것을 받아 보여주는 데까지 서 있다.**
 >
-> **⚠ 다음 할 일은 "★" 두 절이다. 앞의 여러 절을 무효로 만든다.**
-> `DefaultDestinationLayerID`를 지우고 저장 좌표에 직접 쓰는 것, 그리고 bring을 모달로 옮기는 것.
+> **⚠ "★" 두 절이 앞의 여러 절을 무효로 만든다.** 저장 좌표에 직접 쓰기는
+> **만들었다**(2026-08-14, `DefaultDestinationLayerID` 삭제 + 전송 포맷 변경). 남은 ★은
+> bring을 모달로 옮기는 것.
 >
 > 이슈 #6에서 나온 것과 그 뒤 대화에서 잡힌 것.
 >
@@ -15,8 +16,8 @@
 > 서랍 행의 [가져오기] · [가져온 것만] 필터 · [N개 모두 받기] / [N개 모두 거절] · 배지 행의
 > [받기] 버튼과 순서 계산에서의 배제 · 순서 정보의 전송(`order` → `importOrder`) · 키 없는 것들을 왼쪽 열 맨 아래에(`키를 모름 #N`) · **키 빼고 가져오기**.
 >
-> **남은 것:** **레이어 좌표 직접 쓰기(★)** · **bring 모달(★)** · 그룹째 키 주기(원래 목적지) ·
-> 커스텀 상태 이름 충돌 · 자동 백업 · 똑같은 액션 지우기.
+> **남은 것:** **bring 모달(★)** · 그룹째 키 주기(원래 목적지) · 커스텀 상태 이름 충돌 ·
+> 자동 백업 · 똑같은 액션 지우기.
 >
 > **읽는 차례:** 이어서 할 사람은 **"★" 두 절부터** 읽으면 된다. 배경이 필요하면
 > "임포트 — 작업대를 접었다" → "키 없는 것들을 왼쪽 열 맨 아래에" → "안 정한 것".
@@ -131,6 +132,10 @@ DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
 **임포트를 짜는 사람이 볼 것은 이것이다.** 아래는 액션 타입 열다섯 개를 전부 넣고 뽑아
 `DecodeExportString`으로 되돌린 실물이다(문자열 769자, 그룹 17개).
 
+> ⚠ **아래 모양은 2026-08-14에 한 번 바뀌었다** — `layer`가 그룹에서 액션으로 내려갔고 그룹이
+> 키 하나가 됐다. 예시는 바꾼 뒤 모양이다. 왜 바꿨는지는 아래 "★ 레이어는 번역 대상이 아니다"의
+> "실제로 한 것"에.
+
 ```lua
 {
   v = 1,                       -- 스키마 버전. 다르면 DecodeExportString이 거절한다
@@ -139,33 +144,39 @@ DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
     ["$state3"] = { mode = 0, initialValue = true, displayMessage = "Burst" },
   },
   groups = {
-    { id = 11, key = "F", layer = { scope = "general" },
+    -- 한 키가 한 그룹이다. 레이어를 넘어도 갈리지 않는다
+    { id = 11, key = "F",
       actions = {
-        { type = "spell", value = 774, combat = true, priority = 2,
-          checkedUnits = { target = 1 } },
-        { type = "spell", value = 8936, ["$state3"] = true },
+        { type = "spell", value = 8921, forms = 6, order = 1,
+          layer = { scope = "class", class = "DRUID", spec = 0 } },
+        { type = "spell", value = 774, combat = true, priority = 2, order = 2,
+          checkedUnits = { target = 1 }, layer = { scope = "general" } },
+        { type = "spell", value = 8936, ["$state3"] = true, order = 3,
+          layer = { scope = "general" } },
       } },
-    { id = 17, key = "F", layer = { scope = "class", class = "DRUID", spec = 0 },
-      actions = { { type = "spell", value = 8921, forms = 6 } } },
-    { id = 13, key = "SHIFT-G", layer = { scope = "general" },
+    { id = 13, key = "SHIFT-G",
       actions = {
-        { type = "macro", value = "Kick+Pet",
+        { type = "macro", value = "Kick+Pet", order = 1, layer = { scope = "general" },
           macro = { name = "Kick+Pet", body = "/cast Kick\n/petattack",
                     icon = 132219, scope = "account" } },
       } },
-    { id = 10, key = "CTRL-9", layer = { scope = "general" },
-      actions = { { type = "setstate", setstate = { mode = "toggle", state = "$state3" } } } },
-    { id = 16, key = nil, layer = { scope = "general" },   -- 키 없는 액션은 홀로 그룹
-      actions = { { type = "spell", value = 5176 } } },
+    { id = 10, key = "CTRL-9",
+      actions = { { type = "setstate", order = 1, layer = { scope = "general" },
+                    setstate = { mode = "toggle", state = "$state3" } } } },
+    { key = nil,                                    -- 키 없는 액션은 홀로 그룹, id도 없다
+      actions = { { type = "spell", value = 5176, order = 1,
+                    layer = { scope = "general" } } } },
   },
 }
 ```
 
 읽는 쪽이 알아야 할 것:
 
-- **`layer.scope`는 셋뿐이다** — `"general"` / `"class"`(+`class`, `spec`) / `"character"`(+`spec`).
-  `spec = 0`은 "그 클래스 전체". 레이어 **번호는 안 나간다**(2~6이 "내 클래스"라 안 통한다).
-- **`key`는 그룹에 있고 액션에는 없다.** `seq`도 없다. 그룹 안 순서가 곧 `seq` 순서다.
+- **`layer`는 액션에 있고 그룹에는 없다.** `layer.scope`는 셋뿐이다 — `"general"` /
+  `"class"`(+`class`, `spec`) / `"character"`(+`spec`). `spec = 0`은 "그 클래스 전체". 레이어
+  **번호는 안 나간다**(2~6이 "내 클래스"라 안 통한다).
+- **`key`는 그룹에 있고 액션에는 없다.** `seq`도 없다. 그룹 안 순서는 `order`가 말한다 —
+  1..n이고, 레이어를 넘는 그룹에서도 이어진다.
 - **`key = nil`인 그룹 둘이 서로 다른 뜻일 수 있다** — 원래 키가 없던 액션(액션 1개)이거나,
   `stripKeys`로 키를 뗀 묶음(액션 여럿)이거나. 액션 수 말고 구별할 방법이 없다.
 - **`macro`가 붙은 것만 스냅샷이 있다.** `type`/`value`는 그대로라 삼중 일치(이름·스코프·내용)를
@@ -421,6 +432,11 @@ MACRO를 풀어도 커스텀 상태는 남는다. 액션의 상태 참조는 **�
 읽고 쓸 것뿐이다. 스펙은 `tests/workbench_spec.lua`.
 
 ### 레이어 매핑 — 레이어 대 레이어
+
+> ⚠ **이 절은 무효다.** 여기 적힌 셋은 전부 지웠고, 아래 "★ 레이어는 번역 대상이 아니다"가
+> 이긴다. **남겨두는 이유는 기각 사유 때문이다** — 남의 특성 번호를 그대로 옮기지 않는다는
+> 판단 자체는 맞았고, 틀린 것은 *그러니 내 자리로 밀어 넣는다*는 결론이었다. 그 좌표는 옮길
+> 필요가 없다.
 
 `DebindShare.LayerKey(descriptor)` / `.DefaultDestinationLayerID(descriptor)` /
 `.CollectSourceLayers(payload)`.
@@ -787,10 +803,10 @@ importGroup  = <그 배치 안의 그룹 번호>
 
 ---
 
-## ★ 레이어는 번역 대상이 아니다 — `DefaultDestinationLayerID`를 지운다 (2026-08-14, 미착수)
+## ★ 레이어는 번역 대상이 아니다 — `DefaultDestinationLayerID`를 지운다 (2026-08-14, **만들었다**)
 
-**여기가 다음에 할 일이고, 앞의 여러 절을 무효로 만든다.** 아래 "레이어 매핑 — 레이어 대 레이어"와
-`Workbench.lua`의 매핑 코드는 이 절이 이깁니다.
+**앞의 여러 절을 무효로 만든다.** 아래 "레이어 매핑 — 레이어 대 레이어"와 그때의 `Workbench.lua`
+매핑 코드는 이 절이 이깁니다.
 
 ### 무엇이 잘못됐나
 
@@ -870,6 +886,83 @@ db.characters[guid].layers
 > descriptor를 들고 있을 때, 같은 `importGroup`을 받고 **서로 다른 자리에** 놓이는지.
 
 이게 다음 세션의 첫 실패여야 한다.
+
+### 실제로 한 것 (2026-08-14)
+
+**첫 실패는 그 테스트였고, 그것을 초록으로 만들려면 전송 포맷이 같이 움직여야 했다.** 그때
+포맷은 그룹이 `(레이어, 키)`라 익스포트가 레이어를 절대 안 넘겼다 — 위 테스트가 넣는 페이로드를
+만들 수 있는 곳이 없었다. 그래서 **익스포트까지 바꿨다(소유자 결정).**
+
+#### 포맷 — `layer`가 그룹에서 액션으로 내려갔다
+
+```lua
+groups = {
+  { id = 11, key = "F", actions = {
+      { type = "spell", value = 8921, order = 1, layer = { scope="class", class="DRUID", spec=0 } },
+      { type = "spell", value = 774,  order = 2, layer = { scope="general" } },
+  } },
+}
+```
+
+- **그룹은 이제 키 하나다.** 레이어를 넘는다. `키 = nil`인 액션은 여전히 혼자 그룹이고 `id`가 없다.
+- **그룹 안 차례는 (레이어 순위, `seq`)다.** 레이어 순위는 발동 순서 그대로 — 캐릭터/특성 →
+  캐릭터/공용 → 직업/특성 → 직업/공용 → 일반. 나머지 축(중요도·hover·조건)은 액션에 실려 가므로
+  받는 쪽이 스스로 다시 계산할 수 있고, `order`가 나를 것은 **안 실려 가는 것뿐**이다.
+  `sort`가 안정 정렬이 아니라 훑은 차례를 마지막 tiebreak으로 둔다(같은 순위 레이어가 둘 있다).
+- **`v`는 1 그대로다.** 필드가 뜻을 바꿨으니 원칙대로면 올려야 하지만, **v1 문자열이 이 repo 밖으로
+  나간 적이 없다**(공유는 3.1.6에 안 실렸다). 읽을 사람이 없는 모양에 번호를 태우지 않는다.
+  다음번 같은 변화는 올린다. 근거는 `SCHEMA_VERSION` 주석에.
+
+**왜 이게 그냥 테스트 하나가 아니었나:** 키를 빼고 보낸 문자열에서 한 키가 둘로 갈려 도착하면,
+읽는 사람은 머리글 둘을 보고 **키 둘**을 준다. 그러면 둘 다 발동한다. 이 문서가 "조용히 틀린다"고
+적어둔 바로 그 경우이고, 도착한 뒤에는 문자열에 그걸 바로잡을 근거가 하나도 안 남는다.
+
+#### 자리 — `(scope, class, spec)`
+
+- `DebindShare.ImportAddress(descriptor)` → `scope, class, spec` 또는 nil. `DefaultDestinationLayerID`와
+  그 밑의 `FindLayerID`는 지웠다.
+- `PlaceImportedActions(placements)`의 원소가 `{ scope, class, spec, action }`이 됐다.
+  `Profile.lua`의 `StoredActionsAt`이 저장 테이블을 직접 짚는다(없으면 만든다).
+  **넣는 규칙은 안 갈랐다** — 로드 안 된 레이어에는 씌울 레이어 객체가 없어서 `ProfileLayerProto`를
+  저장 테이블에 씌운 스크래치 하나를 돌려 쓰고, `Insert`/`PlaceLast`는 그대로 쓴다.
+- **캐릭터 자리는 `db.char`에서 받는다.** `characters[guid]`는 아직 안 붙어 있을 수 있고
+  (`InitDB`의 지연 생성), 그때 거기 쓰면 `CleanUpDB`가 나중에 붙일 그 테이블이 아니다.
+
+#### 자리가 없는 하나 — 이 캐릭터에 없는 특성
+
+| 보낸 쪽 | 받는 쪽 |
+|---|---|
+| `class / MAGE / spec 4` | `classes.MAGE[4]`. 이 계정이 마법사를 해본 적 없어도 만들어 넣는다 |
+| `character / spec 4` (3특성 직업이 받음) | **자리 없음. 세어서 뺀다** |
+
+앞 절이 "폴백은 사라진다"고 했으므로 예전의 *캐릭터 공용으로 떨어뜨리기*는 안 한다. 그렇다고
+`layers[4]`에 그냥 쓸 수도 없다 — 캐릭터는 직업이 안 바뀌니 **영원히 아무도 안 읽고 아무도 안
+치우는** 테이블이 된다(`CleanUpDB`는 `LayerArray`만 훑고, `HasCharContent`는 그걸 내용으로 세어서
+엔트리를 계속 살려둔다). 직업 쪽은 다르다 — 그 좌표는 언젠가 그 직업으로 접속하면 열린다.
+
+#### `skipped`의 뜻이 바뀌었다 — 그룹 수 → 액션 수
+
+주소가 액션마다라 세는 단위도 액션이다. `IMPORT_COMMITTED_SKIPPED`("그중 %d개는…")가 원래
+액션 수로 읽히는 문장이라 문자열은 안 바꿨다.
+
+**그리고 "안 고른 줄"은 skip이 아니다.** 둘 다 안 들어오지만 하나는 읽는 사람이 준 답이고 하나는
+이 버전이 놓을 데가 없는 것이다. 안 고른 것까지 세면 자기가 뺀 줄을 두고 "이 버전이 모르는
+레이어"라고 말하게 된다.
+
+#### 딸려 온 것들
+
+- **`NextImportGroupID`가 저장 전체를 훑는다**(`ForEachStoredActionList`). `LayerArray`만 보면 안
+  보이는 레이어의 살아 있는 번호를 재사용한다 — 이 절이 그 레이어에 진짜로 쓰기 시작했으니 이제
+  실제로 일어난다. 같은 테이블은 한 번만 세고(붙은 캐릭터 엔트리가 양쪽에서 잡힌다), 아직 안 붙은
+  `db.char`도 따로 넣는다.
+- **`CollectImportedActions`는 `LayerArray`에 그대로 둔다.** 앞 절의 판단대로다 — 판단할 수 없는
+  것을 [N개 모두 받기]가 받으면 안 된다. **대가는 그대로 남아 있다**: 스트립이 사라진 뒤에도
+  계정 어딘가에 배지가 남는다. 어디서 말할지는 여전히 안 정했다.
+- `LayerKey` / `CollectSourceLayers`는 지웠다. 대신 `ImportLineFor` / `CollectImportLines`가
+  들어왔다 — bring 모달이 물을 네 줄(아래 절)이고, 값에서 문자열을 만드는 이유는 `LayerKey`와
+  같다(역직렬화가 액션마다 다른 테이블을 줘도 된다).
+- `BuildAction`의 블랙리스트에 `layer`를 넣었다. 블랙리스트라 안 넣으면 그대로 프로필에 꽂히는데,
+  그건 **보내는 쪽이 액션들 사이에 공유하는 테이블 하나**라 여러 액션이 한 테이블을 물게 된다.
 
 ---
 
@@ -1089,17 +1182,19 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 **`check:export-fields`에 칸 하나 열어야 한다.** 그 검사는 지금 한 방향만 본다 — "저장되는데 안
 나가는 것". `order`는 반대다: **나가는데 저장 필드가 아니다**(보낼 때 계산한다). 예외 칸을
 의도적으로 열어두면 다음 것도 조용히 안 샌다.
-- **그룹은 레이어를 가로지를 수 있다 — 도착한 뒤에.** 도착할 때는 안 갈라진다(`PlanImport`이
-  `layerID`를 그룹마다 한 번 정하고, 보내는 쪽도 "a group never spans layers"다). **그런데 그건
-  도착 시점의 사실이지 불변식이 아니다.** `MoveAction`이 액션을 다른 레이어로 옮기면서
-  `imported`/`importGroup`을 안 지우므로, 읽는 사람이 한 줄만 옮겨도 그룹이 두 레이어에 걸친다.
+- **그룹은 레이어를 가로지른다 — 도착할 때부터.** (여기 한때 "도착할 때는 안 갈라진다"고 적혀
+  있었다. 그때는 참이었다 — 그룹이 `(레이어, 키)`였고 `PlanImport`이 그룹마다 `layerID`를 한 번
+  정했다. **2026-08-14에 그 전제가 없어졌다**: 그룹은 키 하나이고 자리는 액션마다다. 아래 ★ 절.)
+
+  그리고 도착 이후에도 **바뀐다.** `MoveAction`이 액션을 다른 레이어로 옮기면서
+  `imported`/`importGroup`을 안 지우므로, 읽는 사람이 한 줄만 옮겨도 갈래가 하나 더 는다.
   복사는 한술 더 떠서 **같은 그룹 번호를 든 액션을 하나 더** 만든다.
 
   그래서 **왼쪽 열이 그룹을 반만 보여주는 상태가 실재한다.** 그룹을 대상으로 삼는 조작은 화면이나
   살아있는 레이어가 아니라 **프로필 전체를 `importGroup`으로** 훑어야 한다.
 
-  (이 자리에 한때 "그런 경우는 없다"고 적혀 있었다. `PlanImport`만 읽고 불변식이라고 단정한
-  것이다 — 도착 이후의 경로를 안 따라갔다.)
+  (한때 "그런 경우는 없다"고까지 적혀 있었다. `PlanImport`만 읽고 불변식이라고 단정한 것이다 —
+  도착 이후의 경로를 안 따라갔다. 지금은 도착 시점부터 성립하지도 않는다.)
 - **같은 편집에서 챙길 것 둘:** `OVERVIEW_DESC`가 정반대를 약속하고 있다("키가 없는 행동은 아예
   나오지 않습니다"). 그리고 **키 없는 그룹에는 순서 화살표가 없어야 한다** — 키가 없으면 겨룰 일이
   없다. 배지 행에 한 것과 같은 처리이고 사유 칸도 같이 빈다.

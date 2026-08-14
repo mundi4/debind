@@ -1,29 +1,29 @@
 local _, DebindShare = ...;
 
-local DebindPrivate = DebindShare.DebindPrivate;
-local Constants     = DebindPrivate.Constants;
-local luatype       = type;
+local luatype   = type;
 
---- The drawer received strings pile up in, and the work done on them before they become actions.
+--- How many specializations this character's class has. Read here rather than asked of
+--- `GetLayerID`, which **asserts** on a spec beyond that count -- and a spec beyond that count is
+--- ordinary input, since the string may come from a class with more specs than ours.
+local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player")));
+
+--- The drawer received strings pile up in, and what has to be known about one before it becomes
+--- actions: where each of its layers lands, and which of them the reader is offered.
 ---
---- **Nothing here touches the profile.** A batch sits outside it until it is committed, which is
---- the decision the design turns on (`devdocs/building-export-import.md`): once actions are in the profile they
---- scatter -- the overview sorts by name, layers split them, and the group identity the string
---- arrived with is held nowhere. So the keys have to be decided while the grouping is still alive,
---- and this is the place that holds it while that happens.
----
---- Which makes this a workbench rather than a shelf. A batch can be opened, half-decided, closed,
---- and picked up again after a `/reload`, so what is stored is not only the string but every
---- decision made about it so far.
+--- **Nothing here touches the profile.** A batch sits outside it until it is brought in, which is
+--- the decision the design turns on (`devdocs/building-export-import.md`): once actions are in the
+--- profile they scatter -- the overview sorts by name, layers split them -- so what arrived
+--- together has to keep saying so, and `importGroup` is what carries it across.
 
 
 --- Bump when a stored batch changes shape. Separate from the string's own two versions
 --- (`Export.lua`): those describe someone else's bytes, this describes our drawer.
 local STORE_VERSION           = 1;
 
---- Layer IDs run 1..11 (`LAYER_INFOS` in `Profile.lua`). Holes are normal -- `GetProfileLayer`
---- answers nil for a spec this class does not have.
-local MAX_LAYER_ID            = 11;
+--- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
+--- block from 0 to 4). A descriptor naming a spec past this is not a spec we cannot represent, it
+--- is a number no client produces -- so it is refused rather than folded to something nearby.
+local MAX_SPEC                = 4;
 
 --- How long a batch sits before it is offered up for deletion. **Not a rule, a default**: the list
 --- shows the date it arrived and warns before this runs out, and a batch can be pinned out of it
@@ -38,13 +38,29 @@ local EXPIRY_WARNING_SECONDS  = 3 * 24 * 60 * 60;
 -- Source layers
 -- ---------------------------------------------------------------------------------------------
 
---- A payload's layer descriptor, as one string that can be used as a table key.
+--- Where a source layer lands, as the address the profile actually stores things under.
 ---
---- The descriptor arrives as a table (`{scope="class", class="DRUID", spec=2}`) and the sender's
---- own copy is **shared between the groups of one layer** -- but only in the sender's memory.
---- Serializing and deserializing is free to hand back a separate table per group, so identity
---- cannot be what says "these two groups came from the same layer". Value has to be.
-function DebindShare.LayerKey(descriptor)
+--- Returns `scope, class, spec` -- the same three the profile is keyed by (`shared.GENERAL`,
+--- `shared.classes[class][spec]`, `characters[guid].layers[spec]`) -- or nil.
+---
+--- **A layer is not something to translate.** Both profiles use the same coordinate system: one
+--- general layer, then class by spec, then character by spec. What differs between two accounts is
+--- *which class*, and that is a value of the coordinate, not a coordinate of its own. A mage's
+--- spec 2 layer is a mage's spec 2 layer on every account, so it goes there verbatim -- no falling
+--- back, no dropping the spec, no swapping the class for the reader's. `devdocs/building-export-import.md`.
+---
+--- The cost is that a mage's string read by a druid lands somewhere this session cannot see: the
+--- druid's `LayerArray` has no `classes.MAGE` in it, so nothing about it is on screen until they
+--- log the mage. That is the answer, not a gap. The two alternatives were putting a mage's spells
+--- in "all my druids" -- where the reader is asked a question they cannot answer, every line red
+--- because they cannot learn any of it -- and refusing the string outright.
+---
+--- **The one real translation is the character.** "Their character" has no meaning here, so a
+--- character-scoped layer means *this* character at that spec. A spec this character does not have
+--- is the only address with nowhere to go: `characters[guid].layers[4]` on a three-spec class is a
+--- table nothing will ever read and nothing will ever clean up. Answering nil is what gets it
+--- counted and said out loud instead.
+function DebindShare.ImportAddress(descriptor)
     if (luatype(descriptor) ~= "table") then
         return nil;
     end
@@ -52,129 +68,97 @@ function DebindShare.LayerKey(descriptor)
     local scope = descriptor.scope;
     if (scope == "general") then
         return "general";
-    elseif (scope == "class") then
-        return "class:" .. tostring(descriptor.class) .. ":" .. tostring(descriptor.spec or 0);
-    elseif (scope == "character") then
-        return "character:" .. tostring(descriptor.spec or 0);
     end
-    return nil;
-end
 
---- The layer in this profile whose scope is `(isCharacterSpecific, spec)`, or nil if this
---- character has no such layer.
----
---- Asked by walking the layers rather than by computing the ID. `GetLayerID` would compute it, but
---- it **asserts** on a spec beyond this class's count -- and a spec beyond this class's count is
---- exactly the ordinary case here, since the string may come from a class with more specs than
---- ours. Reading the layers back also means the arithmetic that maps a scope to an ID lives in one
---- place (`LAYER_INFOS`) rather than being restated here.
-local function FindLayerID(isCharacterSpecific, spec)
-    for layerID = 1, MAX_LAYER_ID do
-        local layer = DebindPrivate.GetProfileLayer(layerID);
-        if (layer and (layer.isCharacterSpecific == true) == isCharacterSpecific
-                and layer.spec == spec) then
-            return layerID;
+    local spec = descriptor.spec or 0;
+    if (luatype(spec) ~= "number" or spec < 0 or spec > MAX_SPEC) then
+        return nil;
+    end
+
+    if (scope == "class") then
+        if (luatype(descriptor.class) ~= "string") then
+            return nil;
         end
+        return "class", descriptor.class, spec;
     end
+
+    if (scope == "character") then
+        if (spec > NUM_SPECS) then
+            return nil;
+        end
+        return "character", nil, spec;
+    end
+
     return nil;
 end
 
---- Where a source layer lands unless the user says otherwise.
+
+-- ---------------------------------------------------------------------------------------------
+-- The lines the reader is offered
+-- ---------------------------------------------------------------------------------------------
+
+--- What the bring dialog puts a checkbox on, in the order the window's own tab strip stands in.
 ---
---- **The mapping is layer to layer**, not group to layer (`devdocs/building-export-import.md`, the second half
---- of open question 1). One row per source layer decides the destination and every group from that
---- layer follows it. Pulling a single group out to somewhere else is done after committing, in the
---- main window -- the same line the workbench draws around splitting a group.
+--- **Four lines, not one per layer.** The spec layers ride along on the line above them rather than
+--- standing on their own: a string from a four-spec class would otherwise open with ten rows, and
+--- ticking spec 3 but not spec 2 is a decision nobody arrives wanting to make. What is worth
+--- separating is the two things that differ in *who they reach* -- everything on this account
+--- versus this one character.
+DebindShare.IMPORT_LINES      = {
+    "shared.general",
+    "shared.class",
+    "character.general",
+    "character.spec",
+};
+
+--- Which line a layer descriptor belongs to, or nil for one no line covers.
 ---
---- Returns nil when nothing can hold it, which the mapping row shows as a destination the user has
---- to choose. Two cases reach that: a spec layer from a class with more specs than ours, and any
---- descriptor a newer schema might invent.
-function DebindShare.DefaultDestinationLayerID(descriptor)
+--- **Derived from the descriptor's value, never its identity.** The sender shares one descriptor
+--- table between the actions of a layer, but that is only true in the sender's memory --
+--- serializing and deserializing is free to hand back a separate table per action, and then
+--- identity says every action came from a layer of its own.
+function DebindShare.ImportLineFor(descriptor)
     if (luatype(descriptor) ~= "table") then
         return nil;
     end
 
     local scope = descriptor.scope;
     if (scope == "general") then
-        -- The one layer that means the same thing on every account.
-        return FindLayerID(false, nil);
+        return "shared.general";
+    elseif (scope == "class") then
+        return "shared.class";
+    elseif (scope == "character") then
+        return (descriptor.spec or 0) > 0 and "character.spec" or "character.general";
     end
-
-    if (scope == "character") then
-        -- Character-specific to character-specific. Not "my character is not their character" --
-        -- the layer is a scope, and the sender scoped this to one character on purpose.
-        return FindLayerID(true, descriptor.spec or 0)
-            -- A spec we do not have. Falling back to the character's general layer keeps the
-            -- scope and drops only the part of it we cannot represent.
-            or FindLayerID(true, 0);
-    end
-
-    if (scope == "class") then
-        -- **Another class's layer keeps its scope, not its spec.** Spec numbers do not mean the
-        -- same thing across classes -- spec 1 is Balance for a druid and Arcane for a mage -- so
-        -- carrying the number over would be a guess dressed up as a mapping. The class layer with
-        -- no spec is the nearest thing that is actually true: still class-scoped, saying nothing
-        -- about which spec.
-        if (descriptor.class ~= Constants.PLAYER_CLASS) then
-            return FindLayerID(false, 0);
-        end
-        return FindLayerID(false, descriptor.spec or 0) or FindLayerID(false, 0);
-    end
-
     return nil;
 end
 
---- Order for the mapping rows: general, then class, then character, and by spec inside each. The
---- same order the profile's own layers stand in, so the block reads like the tab strip.
-local SCOPE_RANK = { general = 1, class = 2, character = 3 };
-
---- Every distinct layer the payload's groups came from, in that order.
+--- Which of the four lines this payload actually has something on, in `IMPORT_LINES` order.
 ---
---- One entry per **source** layer, because that is what the user is deciding about. The counts ride
---- along so the row can say how much is behind it -- a mapping decision with no idea of its own
---- size is one the user has to open something else to make.
-function DebindShare.CollectSourceLayers(payload)
-    local byKey, layers = {}, {};
+--- Lines with nothing behind them are left out. A checkbox for a layer the string does not carry
+--- reads as a choice, and unticking it would do exactly nothing.
+---
+--- **Counted over actions, not groups.** A group is a key now and a key crosses layers, so one
+--- group can put actions on two lines and there is no number of groups a line owns.
+function DebindShare.CollectImportLines(payload)
+    local counts = {};
 
     for _, group in ipairs(payload.groups or {}) do
-        local key = DebindShare.LayerKey(group.layer);
-        if (key) then
-            local entry = byKey[key];
-            if (not entry) then
-                entry = {
-                    key = key,
-                    descriptor = group.layer,
-                    groupCount = 0,
-                    actionCount = 0,
-                };
-                byKey[key] = entry;
-                layers[#layers + 1] = entry;
+        for _, action in ipairs(group.actions or {}) do
+            local line = DebindShare.ImportLineFor(action.layer);
+            if (line) then
+                counts[line] = (counts[line] or 0) + 1;
             end
-            entry.groupCount = entry.groupCount + 1;
-            entry.actionCount = entry.actionCount + #(group.actions or {});
         end
     end
 
-    sort(layers, function(lhs, rhs)
-        local lhsRank = SCOPE_RANK[lhs.descriptor.scope] or 4;
-        local rhsRank = SCOPE_RANK[rhs.descriptor.scope] or 4;
-        if (lhsRank ~= rhsRank) then
-            return lhsRank < rhsRank;
+    local lines = {};
+    for _, line in ipairs(DebindShare.IMPORT_LINES) do
+        if (counts[line]) then
+            lines[#lines + 1] = { line = line, actionCount = counts[line] };
         end
-        -- Own class first among class layers. It is the one with a real mapping; the rest are
-        -- someone else's and need a decision.
-        local lhsMine = lhs.descriptor.class == Constants.PLAYER_CLASS;
-        local rhsMine = rhs.descriptor.class == Constants.PLAYER_CLASS;
-        if (lhsMine ~= rhsMine) then
-            return lhsMine;
-        end
-        if (lhs.descriptor.class ~= rhs.descriptor.class) then
-            return tostring(lhs.descriptor.class) < tostring(rhs.descriptor.class);
-        end
-        return (lhs.descriptor.spec or 0) < (rhs.descriptor.spec or 0);
-    end);
-
-    return layers;
+    end
+    return lines;
 end
 
 

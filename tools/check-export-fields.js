@@ -33,10 +33,11 @@ const EXPECTED_ONLY_IN_PROFILE = {
     importOrder: "made from the wire's `order` on arrival - the sender has no such field",
 };
 
-// **`order` is on the wire and this check cannot see it.** It is computed in `BuildExportPayload`
-// (`copy.order = j`) rather than copied from a profile field, so it appears in neither list. Said
-// here so the gap is a known one: a wire field that stops being written would go unnoticed by this
-// check, and `tests/import_spec.lua` is what covers it instead.
+// **`order` and `layer` are on the wire and this check cannot see them.** Both are computed in
+// `BuildExportPayload` (`copy.order = j`, `copy.layer = entry.layer`) rather than copied from a
+// profile field, so they appear in neither list. Said here so the gap is a known one: a wire field
+// that stops being written would go unnoticed by this check, and `tests/import_spec.lua` is what
+// covers those two instead.
 
 /** Collects the keys inside the braces of `local NAME = { ... };`. */
 function readFieldTable(file, tableName) {

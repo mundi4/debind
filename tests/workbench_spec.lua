@@ -2,11 +2,15 @@
 --
 -- Two things live here and they fail differently.
 --
--- **Layer mapping** decides where a batch's actions end up. Getting it wrong is not a display bug:
+-- **Addressing** decides where a batch's actions end up. Getting it wrong is not a display bug:
 -- the same actions on the same keys behave differently one layer over, with nothing missing and
 -- nothing overwritten, which is the failure mode this whole design is built around. The cases that
 -- matter are the ones a single-class test cannot produce - a string from a class with more specs
 -- than ours, or from a class whose spec numbers mean something else entirely.
+--
+-- The answer to those is that **there is nothing to map**: both profiles use the same coordinate
+-- system, so a layer travels verbatim and only the character has to be re-read. What these cases
+-- guard is that nothing quietly reintroduces a translation.
 --
 -- **The drawer** holds work across a `/reload`, so what it stores has to survive being written to
 -- SavedVariables and read back. That is why the string is stored rather than the payload.
@@ -52,110 +56,92 @@ return function(DebindPrivate, DebindShare)
     ResetProfile();
 
     ---------------------------------------------------------------------------
-    -- Layer keys
+    -- Where an action goes
     --
-    -- The key is what says "these two groups came from the same layer". It has to come from the
-    -- descriptor's **value**: the sender shares one descriptor table between the groups of a layer,
-    -- but a serialize/deserialize round trip is free to hand back a separate table per group, and
-    -- then identity says every group came from a layer of its own.
+    -- The answer is the address the profile stores by - `(scope, class, spec)`, the same three
+    -- `shared.GENERAL` / `shared.classes[class][spec]` / `characters[guid].layers[spec]` are keyed
+    -- on. Not a layer ID: those are this character's view of the store, and half of what arrives
+    -- has no ID in it at all.
     ---------------------------------------------------------------------------
 
-    local LayerKey = DebindShare.LayerKey;
+    local Address = DebindShare.ImportAddress;
 
-    test("같은 뜻의 서로 다른 테이블은 같은 키다", function()
-        check(LayerKey({ scope = "general" }) == LayerKey({ scope = "general" }), "일반");
-        check(LayerKey({ scope = "class", class = "DRUID", spec = 2 })
-            == LayerKey({ scope = "class", class = "DRUID", spec = 2 }), "직업/특성");
-        check(LayerKey({ scope = "character", spec = 0 })
-            == LayerKey({ scope = "character", spec = 0 }), "캐릭터");
+    test("일반은 일반으로", function()
+        check(Address({ scope = "general" }) == "general", "일반이 아니다");
     end);
 
-    test("다른 뜻은 다른 키다", function()
-        local keys = {
-            LayerKey({ scope = "general" }),
-            LayerKey({ scope = "class", class = "DRUID", spec = 0 }),
-            LayerKey({ scope = "class", class = "DRUID", spec = 2 }),
-            LayerKey({ scope = "class", class = "MAGE", spec = 2 }),
-            LayerKey({ scope = "character", spec = 0 }),
-            LayerKey({ scope = "character", spec = 2 }),
-        };
-        local seen = {};
-        for _, key in ipairs(keys) do
-            check(key ~= nil, "키가 안 나옴");
-            check(not seen[key], "두 레이어가 한 키로 접혔다: " .. tostring(key));
-            seen[key] = true;
-        end
+    test("내 직업 레이어는 그 자리 그대로", function()
+        local scope, class, spec = Address({ scope = "class", class = CLASS, spec = 0 });
+        check(scope == "class" and class == CLASS and spec == 0, "직업 공용");
+
+        scope, class, spec = Address({ scope = "class", class = CLASS, spec = 2 });
+        check(scope == "class" and class == CLASS and spec == 2, "특성 2");
+    end);
+
+    test("캐릭터 레이어는 이 캐릭터로", function()
+        local scope, class, spec = Address({ scope = "character", spec = 0 });
+        check(scope == "character" and class == nil and spec == 0, "캐릭터 공용");
+
+        scope, _, spec = Address({ scope = "character", spec = 2 });
+        check(scope == "character" and spec == 2, "특성 2");
+    end);
+
+    -- **The case a same-class test cannot reach, and the one that used to be wrong.** Spec 2 is
+    -- Feral for a druid and Fire for a mage, and the old mapping answered "the reader's class,
+    -- no spec" - a mage's fire bindings sitting in "all my druids", every line red because the
+    -- reader cannot learn any of it, and nothing on screen they could judge.
+    --
+    -- It goes to the mage's own spec 2 instead, which is where it belongs on every account. The
+    -- reader does not see it in this session; they see it when they log a mage.
+    test("남의 직업 레이어는 직업도 특성도 그대로 간다", function()
+        local scope, class, spec = Address({ scope = "class", class = "MAGE", spec = 2 });
+        check(scope == "class" and class == "MAGE" and spec == 2,
+            "남의 좌표를 내 것으로 밀어 넣었다: " .. tostring(class) .. "/" .. tostring(spec));
+
+        scope, class, spec = Address({ scope = "class", class = "MAGE", spec = 0 });
+        check(scope == "class" and class == "MAGE" and spec == 0, "직업 공용");
     end);
 
     -- `spec` absent and `spec = 0` are the same layer. The format leaves out what it does not need
     -- to say, so both spellings arrive.
-    test("빠진 spec은 0과 같은 레이어다", function()
-        check(LayerKey({ scope = "class", class = "DRUID" })
-            == LayerKey({ scope = "class", class = "DRUID", spec = 0 }), "직업");
-        check(LayerKey({ scope = "character" }) == LayerKey({ scope = "character", spec = 0 }),
-            "캐릭터");
+    test("빠진 spec은 0과 같다", function()
+        local _, _, spec = Address({ scope = "class", class = CLASS });
+        check(spec == 0, "직업 " .. tostring(spec));
+        _, _, spec = Address({ scope = "character" });
+        check(spec == 0, "캐릭터 " .. tostring(spec));
     end);
 
-    -- A scope from a schema this version does not know. Answering nil is what makes the caller
-    -- leave those groups out rather than fold them into some other layer.
-    test("모르는 scope는 키가 없다", function()
-        check(LayerKey({ scope = "raid" }) == nil, "모르는 scope를 받아들였다");
-        check(LayerKey(nil) == nil, "nil");
-        check(LayerKey("general") == nil, "테이블이 아닌 것");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- Default destinations
+    -- **The one address with nowhere to go.** A character-scoped layer means *this* character, and
+    -- a spec this character's class does not have is a table nothing would ever read and nothing
+    -- would ever clean up. Answering nil is what gets it counted and said out loud.
     --
-    -- Layer to layer: one decision per source layer, every group from it follows.
-    ---------------------------------------------------------------------------
-
-    local Destination = DebindShare.DefaultDestinationLayerID;
-
-    --- What `LAYER_INFOS` (Profile.lua) numbers them: 1 general, 2..6 class spec 0..4,
-    --- 7..11 character spec 0..4. Spelled out so a failure names a layer rather than a number.
-    local GENERAL, CLASS_ALL, CLASS_SPEC2 = 1, 2, 4;
-    local CHAR_ALL, CHAR_SPEC2 = 7, 9;
-
-    test("일반은 일반으로", function()
-        check(Destination({ scope = "general" }) == GENERAL, "일반이 아니다");
+    -- The class side is not the same question: `classes.MAGE[4]` is a coordinate that stops being
+    -- ours to judge, so it travels and waits.
+    test("이 캐릭터에 없는 특성은 자리가 없다", function()
+        check(Address({ scope = "character", spec = 5 }) == nil, "5는 어디에도 없다");
+        -- The shim's class is a druid (four specs), so spec 4 is the last one that does exist.
+        check(Address({ scope = "character", spec = 4 }) ~= nil, "있는 특성을 거절했다");
     end);
 
-    test("내 직업 레이어는 그 자리 그대로", function()
-        check(Destination({ scope = "class", class = CLASS, spec = 0 }) == CLASS_ALL, "직업 공용");
-        check(Destination({ scope = "class", class = CLASS, spec = 2 }) == CLASS_SPEC2, "특성 2");
+    test("저장이 담지 못하는 번호는 거절한다", function()
+        check(Address({ scope = "class", class = CLASS, spec = 5 }) == nil, "5번 칸은 없다");
+        check(Address({ scope = "class", class = CLASS, spec = -1 }) == nil, "음수");
+        check(Address({ scope = "class", spec = 0 }) == nil, "직업 이름이 없다");
     end);
 
-    test("캐릭터 레이어는 캐릭터로", function()
-        check(Destination({ scope = "character", spec = 0 }) == CHAR_ALL, "캐릭터 공용");
-        check(Destination({ scope = "character", spec = 2 }) == CHAR_SPEC2, "특성 2");
-    end);
-
-    -- **The case a same-class test cannot reach.** Spec 2 is Feral for a druid and Fire for a
-    -- mage, so carrying the number across would put a mage's fire bindings in a druid's Feral
-    -- layer and call it a mapping. Keeping the scope and dropping the spec is the part that is
-    -- actually true.
-    test("남의 직업 레이어는 특성을 안 가져온다", function()
-        check(Destination({ scope = "class", class = "MAGE", spec = 2 }) == CLASS_ALL,
-            "남의 특성 번호를 내 특성으로 읽었다");
-        check(Destination({ scope = "class", class = "MAGE", spec = 0 }) == CLASS_ALL, "직업 공용");
-    end);
-
-    -- A class with more specs than ours. A druid has four, so spec 5 has no layer here at all -
-    -- and `GetLayerID` would have asserted rather than answered, which is why the lookup walks
-    -- the layers instead.
-    test("우리에게 없는 특성은 공용으로 떨어진다", function()
-        check(Destination({ scope = "class", class = CLASS, spec = 5 }) == CLASS_ALL, "직업");
-        check(Destination({ scope = "character", spec = 5 }) == CHAR_ALL, "캐릭터");
-    end);
-
-    test("모르는 scope는 목적지가 없다", function()
-        check(Destination({ scope = "raid" }) == nil, "목적지를 지어냈다");
-        check(Destination(nil) == nil, "nil");
+    test("모르는 scope는 주소가 없다", function()
+        check(Address({ scope = "raid" }) == nil, "주소를 지어냈다");
+        check(Address(nil) == nil, "nil");
+        check(Address("general") == nil, "테이블이 아닌 것");
     end);
 
     ---------------------------------------------------------------------------
-    -- Collecting source layers
+    -- The lines the reader is offered
+    --
+    -- Four checkboxes, not one per layer. The line has to come from the descriptor's **value**:
+    -- the sender shares one descriptor table between the actions of a layer, but a
+    -- serialize/deserialize round trip is free to hand back a separate table per action, and then
+    -- identity says every action came from a layer of its own.
     ---------------------------------------------------------------------------
 
     local function Payload(groups)
@@ -165,52 +151,70 @@ return function(DebindPrivate, DebindShare)
     local function Group(layer, key, actionCount)
         local actions = {};
         for i = 1, (actionCount or 1) do
-            actions[i] = { type = Constants.SPELL, value = i };
+            actions[i] = { type = Constants.SPELL, value = i, layer = layer };
         end
-        return { id = 1, key = key, layer = layer, actions = actions };
+        return { id = 1, key = key, actions = actions };
     end
 
-    test("같은 레이어의 그룹들이 한 줄로 접힌다", function()
+    local function LineIDs(payload)
+        local out = {};
+        for i, entry in ipairs(DebindShare.CollectImportLines(payload)) do
+            out[i] = entry.line;
+        end
+        return table.concat(out, " ");
+    end
+
+    test("전문화 레이어는 자기 줄에 딸려 들어간다", function()
         -- Separate tables with the same meaning, which is what a decoded payload looks like.
-        local layers = DebindShare.CollectSourceLayers(Payload({
+        local lines = DebindShare.CollectImportLines(Payload({
             Group({ scope = "class", class = CLASS, spec = 2 }, "F", 2),
-            Group({ scope = "class", class = CLASS, spec = 2 }, "G", 3),
+            Group({ scope = "class", class = CLASS, spec = 0 }, "G", 3),
             Group({ scope = "general" }, "H", 1),
         }));
 
-        check(#layers == 2, "줄 수 " .. #layers);
-        check(layers[1].key == LayerKey({ scope = "general" }), "일반이 먼저다");
-        check(layers[1].groupCount == 1 and layers[1].actionCount == 1, "일반 개수");
-        check(layers[2].groupCount == 2 and layers[2].actionCount == 5,
-            "특성 개수 " .. layers[2].groupCount .. "/" .. layers[2].actionCount);
+        check(#lines == 2, "줄 수 " .. #lines);
+        check(lines[1].line == "shared.general", "일반이 먼저다");
+        check(lines[1].actionCount == 1, "일반 개수 " .. lines[1].actionCount);
+        check(lines[2].line == "shared.class", "직업 줄이 없다");
+        check(lines[2].actionCount == 5, "직업 개수 " .. lines[2].actionCount);
     end);
 
-    -- The mapping block reads like the tab strip, and inside the class layers our own class comes
-    -- first: it is the one with a real mapping, the rest need a decision.
-    test("일반 -> 직업 -> 캐릭터 차례이고 내 직업이 앞선다", function()
-        local layers = DebindShare.CollectSourceLayers(Payload({
-            Group({ scope = "character", spec = 0 }),
+    -- **Another class's string still stands a class line.** It really does go to that class's own
+    -- place, so there is nothing to grey out and nothing to warn about.
+    test("차례는 창의 탭 차례고 남의 직업도 줄이 선다", function()
+        local order = LineIDs(Payload({
+            Group({ scope = "character", spec = 2 }),
             Group({ scope = "class", class = "MAGE", spec = 1 }),
             Group({ scope = "general" }),
-            Group({ scope = "class", class = CLASS, spec = 1 }),
+            Group({ scope = "character", spec = 0 }),
         }));
-
-        local order = {};
-        for i, entry in ipairs(layers) do
-            order[i] = entry.descriptor.scope .. "/" .. tostring(entry.descriptor.class);
-        end
-        check(table.concat(order, " ")
-            == "general/nil class/" .. CLASS .. " class/MAGE character/nil",
-            "차례: " .. table.concat(order, " "));
+        check(order == "shared.general shared.class character.general character.spec",
+            "차례: " .. order);
     end);
 
-    test("모르는 scope의 그룹은 줄을 안 만든다", function()
-        local layers = DebindShare.CollectSourceLayers(Payload({
-            Group({ scope = "raid" }),
-            Group({ scope = "general" }),
+    -- A checkbox for something the string does not carry reads as a choice, and unticking it would
+    -- do nothing at all.
+    test("아무것도 없는 줄은 안 선다", function()
+        local order = LineIDs(Payload({ Group({ scope = "general" }) }));
+        check(order == "shared.general", "빈 줄이 섰다: " .. order);
+    end);
+
+    test("모르는 scope는 줄을 안 만든다", function()
+        local order = LineIDs(Payload({ Group({ scope = "raid" }), Group({ scope = "general" }) }));
+        check(order == "shared.general", "모르는 scope가 줄을 만들었다: " .. order);
+    end);
+
+    -- One group can put actions on two lines now, which is why the count is over actions. There is
+    -- no number of groups a line owns.
+    test("한 그룹이 두 줄에 걸쳐도 양쪽이 다 센다", function()
+        local lines = DebindShare.CollectImportLines(Payload({
+            { id = 1, key = "F", actions = {
+                { type = Constants.SPELL, value = 1, layer = { scope = "general" } },
+                { type = Constants.SPELL, value = 2, layer = { scope = "character", spec = 0 } },
+            } },
         }));
-        check(#layers == 1, "줄 수 " .. #layers);
-        check(layers[1].descriptor.scope == "general", "일반이 아니다");
+        check(#lines == 2, "줄 수 " .. #lines);
+        check(lines[1].actionCount == 1 and lines[2].actionCount == 1, "개수");
     end);
 
     ---------------------------------------------------------------------------

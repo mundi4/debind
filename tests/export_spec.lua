@@ -123,18 +123,28 @@ return function(DebindPrivate, DebindShare)
         check(#FindGroup(payload, "G").actions == 1, "G 그룹 크기");
     end);
 
-    test("같은 키라도 레이어가 다르면 그룹이 갈린다", function()
+    -- **A group is a key, and a key crosses layers.** It used to be one group per (layer, key), and
+    -- that split is what the far side could never put back together: with the keys stripped the
+    -- reader is handed two headings for one design, gives them two keys, and both fire. Nothing in
+    -- the string by then could have told them otherwise.
+    --
+    -- The layer moves down onto the action instead, which is the only place that can still say
+    -- where each half lived.
+    test("같은 키면 레이어가 달라도 그룹 하나", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F" } },
             class = { [0] = { { type = Constants.SPELL, value = 2, key = "F" } } },
         });
 
         local payload = DebindShare.BuildExportPayload();
-        check(#payload.groups == 2, "그룹 수 " .. #payload.groups);
-        check(payload.groups[1].key == "F" and payload.groups[2].key == "F", "둘 다 F");
-        check(payload.groups[1].layer.scope == "general", "1번 레이어");
-        check(payload.groups[2].layer.scope == "class", "2번 레이어");
-        check(payload.groups[1].id ~= payload.groups[2].id, "id가 갈려야 한다");
+        check(#payload.groups == 1, "그룹 수 " .. #payload.groups);
+
+        local actions = payload.groups[1].actions;
+        check(#actions == 2, "액션 수 " .. #actions);
+        -- Narrowest first, which is the order the profile fires them in.
+        check(actions[1].layer.scope == "class", "1번 레이어 " .. actions[1].layer.scope);
+        check(actions[2].layer.scope == "general", "2번 레이어 " .. actions[2].layer.scope);
+        check(actions[1].order == 1 and actions[2].order == 2, "순서가 레이어를 안 넘었다");
     end);
 
     test("키 없는 액션은 각자 그룹", function()
@@ -277,14 +287,14 @@ return function(DebindPrivate, DebindShare)
 
         local payload = DebindShare.BuildExportPayload();
         check(payload.class == CLASS, "보내는 쪽 클래스가 없다");
-        check(FindGroup(payload, "F").layer.scope == "general", "공용");
+        check(FindGroup(payload, "F").actions[1].layer.scope == "general", "공용");
 
-        local classLayer = FindGroup(payload, "G").layer;
+        local classLayer = FindGroup(payload, "G").actions[1].layer;
         check(classLayer.scope == "class" and classLayer.class == CLASS and classLayer.spec == 0,
             "클래스 스펙0");
-        check(FindGroup(payload, "H").layer.spec == 1, "클래스 스펙1");
+        check(FindGroup(payload, "H").actions[1].layer.spec == 1, "클래스 스펙1");
 
-        local charLayer = FindGroup(payload, "J").layer;
+        local charLayer = FindGroup(payload, "J").actions[1].layer;
         check(charLayer.scope == "character" and charLayer.spec == 0, "캐릭터 전용");
         check(charLayer.class == nil, "캐릭터 레이어에 클래스를 달지 않는다");
     end);
@@ -295,7 +305,7 @@ return function(DebindPrivate, DebindShare)
 
         local payload = DebindShare.BuildExportPayload();
         check(CountActions(payload) == 1, "안 쓰는 스펙이 빠졌다");
-        check(FindGroup(payload, "F").layer.spec == 3, "스펙 번호");
+        check(FindGroup(payload, "F").actions[1].layer.spec == 3, "스펙 번호");
     end);
 
     ---------------------------------------------------------------------------

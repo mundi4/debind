@@ -70,6 +70,13 @@ local LAYER_INFOS        = {
     [11] = { isCharacterSpecific = true, spec = 4 },
 };
 
+--- 위 두 블록이 각각 spec 0..4를 덮으므로 저장이 자리를 갖는 특성 번호의 최댓값.
+---
+--- `NUM_SPECS`와 다르다 - 그쪽은 **이 직업**이 몇 개냐이고 이쪽은 **저장 구조**가 몇 번까지
+--- 담느냐다. 임포트가 남의 직업 자리에 그대로 쓰므로(`StoredActionsAt`), 거기서 물어야 하는
+--- 것은 내 직업 특성 수가 아니라 이 숫자다.
+local MAX_SPEC           = 4;
+
 
 local ProfileLayerProto = {};
 
@@ -820,40 +827,153 @@ function DebindPrivate.FindLayerID(action)
     end
 end
 
---- Puts imported actions into their layers.
+--- 저장된 액션 목록 하나. `(scope, class, spec)` 주소가 가리키는 자리이며, 없으면 만든다.
+---
+--- **`LayerArray`를 안 거친다.** 그쪽은 *지금 캐릭터가 보는 뷰*라 열한 자리밖에 없다 - 드루이드
+--- 세션에서 `classes.MAGE`는 그 배열에 아예 없다. 임포트는 남의 좌표에 그대로 써야 하므로
+--- (`DebindShare/Workbench.lua`의 `ImportAddress`) 저장 구조를 직접 짚는다.
+---
+--- 이미 로드된 레이어를 가리키면 **같은 테이블이 나온다.** `LoadLayer`가 저장 테이블을 그대로
+--- `layer.actions`에 물려두기 때문에, 여기에 넣은 것은 그 레이어에 넣은 것과 같다.
+local function StoredActionsAt(scope, class, spec)
+    local db = DebindPrivate.db and DebindPrivate.db.global;
+    if (not db) then
+        return nil;
+    end
+
+    local specTbl;
+    if (scope == "general") then
+        local tbl = db.shared.GENERAL;
+        if (not tbl) then
+            tbl = {};
+            db.shared.GENERAL = tbl;
+        end
+        return tbl;
+    elseif (scope == "class") then
+        if (luatype(class) ~= "string") then
+            return nil;
+        end
+        specTbl = db.shared.classes[class];
+        if (not specTbl) then
+            specTbl = {};
+            db.shared.classes[class] = specTbl;
+        end
+    elseif (scope == "character") then
+        -- **이 캐릭터의 것은 `db.char`에서 받는다.** `characters[guid]`가 아직 비어 있을 수 있고
+        -- (`InitDB`의 지연 생성), 그때 `db.char`는 아직 안 붙은 테이블이다. `characters`를 짚으면
+        -- 나중에 `CleanUpDB`가 붙일 그 테이블이 아니라 딴 데다 쓰게 된다.
+        specTbl = DebindPrivate.db.char.layers;
+    else
+        return nil;
+    end
+
+    spec = spec or 0;
+    if (luatype(spec) ~= "number" or spec < 0 or spec > MAX_SPEC) then
+        return nil;
+    end
+
+    local tbl = specTbl[spec];
+    if (not tbl) then
+        tbl = {};
+        specTbl[spec] = tbl;
+    end
+    return tbl;
+end
+
+--- 저장된 액션 목록을 전부 훑는다. 로드된 레이어든 아니든.
+---
+--- **`LayerArray`로는 못 세는 것이 있다.** 그 배열은 지금 캐릭터의 뷰라 다른 직업의 레이어와
+--- 다른 캐릭터의 레이어가 통째로 빠진다. 임포트가 그런 자리에 그대로 쓰므로(`StoredActionsAt`),
+--- 프로필 전체에서 유일해야 하는 값을 그 배열로 구하면 **안 보이는 번호를 재사용한다.**
+---
+--- 같은 테이블은 한 번만 준다. 이 캐릭터의 엔트리는 `characters`와 `db.char` 양쪽에서 잡히는데,
+--- 붙어 있을 때는 같은 테이블이다.
+local function ForEachStoredActionList(fn)
+    local db = DebindPrivate.db and DebindPrivate.db.global;
+    if (not db) then
+        return;
+    end
+
+    local seen = {};
+    local function Visit(tbl)
+        if (luatype(tbl) == "table" and not seen[tbl]) then
+            seen[tbl] = true;
+            fn(tbl);
+        end
+    end
+    local function VisitSpecTable(specTbl)
+        if (luatype(specTbl) == "table") then
+            for _, tbl in pairs(specTbl) do
+                Visit(tbl);
+            end
+        end
+    end
+
+    if (db.shared) then
+        Visit(db.shared.GENERAL);
+        if (db.shared.classes) then
+            for _, classTbl in pairs(db.shared.classes) do
+                VisitSpecTable(classTbl);
+            end
+        end
+    end
+
+    for _, charEntry in pairs(db.characters or {}) do
+        VisitSpecTable(charEntry.layers);
+    end
+
+    -- 아직 `characters`에 안 붙은 이 캐릭터의 엔트리. `CleanUpDB`가 내용이 생긴 뒤에야 붙이므로,
+    -- 캐릭터 레이어에 처음 뭔가를 넣은 직후가 정확히 위 훑기에서 빠지는 구간이다.
+    if (DebindPrivate.db) then
+        VisitSpecTable(DebindPrivate.db.char and DebindPrivate.db.char.layers);
+    end
+end
+
+--- Puts imported actions where they belong.
 ---
 --- **The profile is written from here and not from the sharing addon.** That one owns the wire
---- format and decides what each action becomes; where an action goes and what happens to the
---- layer after is this file's, the same as every other way an action is placed.
+--- format and decides what each action becomes; where an action goes and what happens to the list
+--- after is this file's, the same as every other way an action is placed.
 ---
---- Each entry is `{ layerID, action }`. The pairing is the caller's answer to "where does this
---- go", so a later "send just this group over there" hands the same shape with a different layer
---- and needs nothing new here.
+--- Each entry is `{ scope, class, spec, action }` - the address the profile stores by, not a layer
+--- ID. A layer ID is this character's view and a batch routinely lands outside it, so there is no
+--- ID to hand for "another class's spec 2" at all (`DebindShare/Workbench.lua`).
 ---
 --- **Every action arriving here is expected to carry `imported`**, which keeps it out of the
 --- binding build (`BuildKeyMap`). Nothing is asserted about that: this stays a placement function,
 --- and a caller that placed something live would be answered by the bindings, not by a guard.
 function DebindPrivate.PlaceImportedActions(placements)
+    -- 저장 목록에 `ProfileLayerProto`를 씌워 쓰는 자리. 그쪽 메서드는 `self.actions`밖에 안 보므로
+    -- 주소마다 이 하나를 돌려 쓴다 - 로드 안 된 레이어에는 씌울 레이어 객체가 없고, 넣는 규칙을
+    -- 여기에 한 벌 더 적으면 `PlaceLast`와 갈라진다.
+    local scratch = setmetatable({}, { __index = ProfileLayerProto });
+
     for _, placement in ipairs(placements) do
-        local layer = LayerArray[placement.layerID];
-        if (layer) then
-            layer:Insert(placement.action);
+        local actions = StoredActionsAt(placement.scope, placement.class, placement.spec);
+        if (actions) then
+            scratch.actions = actions;
+            scratch:Insert(placement.action);
             -- Ordering numbers are the receiving layer's to hand out. The wire deliberately leaves
             -- `seq` at home, because the sender's numbers would collide with the ones this layer
             -- has already given (`Export.lua`). Arriving at the back is the honest place for
             -- something that just arrived.
-            layer:PlaceLast(placement.action);
+            scratch:PlaceLast(placement.action);
         end
     end
 end
 
 --- Every action in the profile still wearing an import badge.
 ---
---- **Every layer, not the live ones.** `EnumerateProfileLayers` answers "what is in play for this
---- spec", and a batch routinely lands outside that: `DefaultDestinationLayerID` places a group by
---- the scope it was sent with, so off-spec layers get their share. Counting the live ones would put
---- a number on screen smaller than what "accept all" has to clear, and leave the rest quarantined
---- in a layer with nothing on screen saying so.
+--- **Every loaded layer, not the live ones.** `EnumerateProfileLayers` answers "what is in play for
+--- this spec", and a batch routinely lands outside that: an action is placed by the scope it was
+--- sent with, so off-spec layers get their share. Counting the live ones would put a number on
+--- screen smaller than what "accept all" has to clear, and leave the rest quarantined in a layer
+--- with nothing on screen saying so.
+---
+--- **But it stops at `LayerArray` on purpose**, which `NextImportGroupID` below does not. A layer
+--- this session cannot see is one the reader cannot judge - another class's spells are all red to
+--- them because they cannot learn any of it - so "accept all" must not reach it. It waits until
+--- they log that class, which is what quarantine makes safe.
 ---
 --- The order is `pairs`, so there is none worth relying on. Neither caller needs one - the strip
 --- counts the list and accepting clears a field on each.
@@ -879,17 +999,19 @@ end
 --- fine, and so is starting over once everything has been accepted or thrown back - nothing refers
 --- to an old number, and the label only means anything while the group is on screen.
 ---
---- Every layer, not the live ones: one batch routinely splits across off-spec layers, and a number
---- reused there would collide the moment the reader changed specialization.
+--- **The whole store, not `LayerArray`.** A batch lands in another class's layers as readily as in
+--- this one's, and those are not in this session's view at all. Taking the highest from the view
+--- would reissue a number that is alive somewhere unseen, and the collision surfaces the day the
+--- reader logs that class: two `키를 모름 #3` headings, and every group-wide action sweeping both.
 function DebindPrivate.NextImportGroupID()
     local highest = 0;
-    for _, layer in pairs(LayerArray) do
-        for _, action in layer:Enumerate() do
-            local id = action.importGroup;
+    ForEachStoredActionList(function(actions)
+        for i = 1, #actions do
+            local id = actions[i].importGroup;
             if (id and id > highest) then
                 highest = id;
             end
         end
-    end
+    end);
     return highest + 1;
 end
