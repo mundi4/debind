@@ -7,5 +7,5 @@ tools/cache
 .claude/settings.local.json
 .claude/worktrees
 Debind/DevStamp.lua
-BlizzardInterfaceCode
+reference
 .zzz

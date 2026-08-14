@@ -117,9 +117,9 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
 
 ## Repo conventions
 
-- `BlizzardInterfaceCode/` is a symlink to a local client extract. **Which client varies** — it is
-  whatever the link currently points at, and retail is not always behind PTR. Read the link target
-  (`ls -l BlizzardInterfaceCode`) before treating anything there as live or as unreleased.
+- `reference/` is gitignored and read-only: Blizzard's interface code and the client's own strings,
+  fetched by a script. None of it is ours — **never commit or push inside it.** What is in there,
+  which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
 - `.zzz/` is gitignored design notes. They are proposals, not orders; read the status header first.
   `.zzz/refactor-candidates.md` holds things noticed but not done.
   - 문서 안의 **개별 항목**이 닫히면 `.zzz/resolved.md`로 옮긴다. 원본에는 미해결만 남긴다.

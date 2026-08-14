@@ -9,6 +9,31 @@ npm run link               # lists WoW clients and worktrees
 npm run link -- ptr .      # points _ptr_'s AddOns at this worktree
 ```
 
+## `reference/` — the client's own code and strings
+
+Gitignored, read-only, and none of it ours. Two things live there, both fetched by a script.
+
+```
+npm run ui-source            # move to the newest retail build
+npm run ui-source -- 12.0.7  # pin one build
+npm run globalstrings        # refresh the client strings
+```
+
+`reference/wow-ui-source/` is Blizzard's interface code — a junction to a shallow clone of
+`Gethe/wow-ui-source` kept outside the project, so every worktree shares one copy. Its push URL is
+deliberately broken.
+
+`reference/globalstrings/` is the client's own strings, one file per locale. `writing-user-facing-
+text.md` is what they are for: the game's word for a thing beats one the addon invents.
+
+**Which build you are reading varies, and retail is not always behind PTR.** `version.txt` and
+`SOURCE.txt` say which one is currently there. Read them before calling anything in there live, or
+unreleased.
+
+**Do not go back to the in-game `exportInterfaceFiles` export.** It writes files without ever
+deleting them, so an export folder accumulates files the client dropped years ago — the one this
+replaced held 678 of them, and a grep cannot tell them from live code.
+
 ## Pointing a client at a checkout
 
 `npm run link` swaps the junctions under one client's `Interface\AddOns` so they point into one

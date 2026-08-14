@@ -9,8 +9,12 @@
 // 코드와 무관하게 빌드가 빨개진다. 우리 커밋이 깨뜨리는 검사가 아니라 블리자드가 패치를
 // 내면 깨지는 검사라, 매 커밋이 아니라 **릴리스 전에** 도는 게 맞다 (`npm run check`).
 //
-// 출처는 Gethe/wow-ui-source의 live 브랜치. 라이브에 나가는 물건이니 live로 본다
-// (로컬 BlizzardInterfaceCode/는 PTR 추출본이라 한 패치 앞서 있어서 이 판정엔 못 쓴다).
+// The source is the `live` branch of Gethe/wow-ui-source. What we ship goes to live, so live is
+// what it is judged against.
+//
+// **Not the local `reference/wow-ui-source/`, even though it is a checkout of the same repo.**
+// That one is whatever build somebody pinned it to, and a checkout sitting a patch ahead answers
+// "does this template exist" for a client the reader is not on.
 
 const fs = require("fs");
 const path = require("path");

@@ -16,6 +16,8 @@
     "stamp": "node tools/stamp-dev.js",
     "stamp:install": "node tools/stamp-install.js",
     "link": "node tools/wow-link.js",
+    "globalstrings": "node tools/fetch-globalstrings.js",
+    "ui-source": "node tools/wow-ui-source.js",
     "check:xml-anchors": "node tools/check-xml-anchors.js"
   },
   "devDependencies": {

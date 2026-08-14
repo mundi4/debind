@@ -3,7 +3,7 @@ max_line_length = false
 codes = true
 exclude_files = {
 	"**/Libs",
-	"BlizzardInterfaceCode/**",
+	"reference/**",
 	"DebindTest/**",
 	"tests/**",
 	"node_modules/**",
