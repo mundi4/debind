@@ -192,6 +192,84 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 차 있는 키에 주는 세 가지 답
+    ---------------------------------------------------------------------------
+
+    --- 도착 그룹 하나(일반 레이어)와 F를 들고 있는 내 액션 둘. 그룹에는 키가 없으므로
+    --- **교체는 이 판에서 뜻이 없다** - 점유자가 갈 곳이 없다.
+    local function ArrivedGroupAndOccupiedF()
+        ResetProfile({
+            general = {
+                Bound(50, "F", 1),
+                Bound(60, "F", 2),
+                Arrived(10, 1, 1),
+                Arrived(20, 1, 2),
+            },
+        });
+        return DebindPrivate.CollectImportGroupActions(1), DebindPrivate.CollectKeyGroupActions("F");
+    end
+
+    -- 한 키에 조건으로 갈린 액션 여럿이 이 애드온의 정상 상태다. 병합은 점유자를 안 건드린다.
+    test("병합 - 점유자는 그대로 있고 도착 그룹이 뒤에 선다", function()
+        local group, occupants = ArrivedGroupAndOccupiedF();
+        check(#occupants == 2, "점유자 " .. #occupants);
+
+        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, nil);
+
+        local rows = DebindPrivate.CollectActionsForKey("F");
+        check(Values(rows) == "50 60 10 20", "차례: " .. Values(rows));
+    end);
+
+    test("덮어쓰기 - 점유자는 키를 잃고 지워지지는 않는다", function()
+        local group, occupants = ArrivedGroupAndOccupiedF();
+
+        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, false);
+
+        local rows = DebindPrivate.CollectActionsForKey("F");
+        check(Values(rows) == "10 20", "차례: " .. Values(rows));
+        check(DebindPrivate.GetProfileLayer(1):GetNumActions() == 4, "액션이 지워졌다");
+        for _, action in ipairs(occupants) do
+            check(action.key == nil, "키가 안 풀렸다: " .. tostring(action.value));
+            -- 다시 걸었을 때 사용자가 정해둔 자리로 돌아오려면 번호가 남아야 한다.
+            check(action.seq ~= nil, "번호까지 지워졌다: " .. tostring(action.value));
+        end
+    end);
+
+    test("덮어쓰기가 점유자의 배지는 안 뗀다", function()
+        -- 키까지 실려 온 배치(키 빼고 보내지 않은 경우)라 점유자 쪽에도 배지가 달려 있다.
+        local badgedOccupant = Bound(50, "F", 1);
+        badgedOccupant.imported = 7;
+        ResetProfile({ general = { badgedOccupant, Arrived(10, 2, 1) } });
+
+        local group = DebindPrivate.CollectImportGroupActions(2);
+        local occupants = DebindPrivate.CollectKeyGroupActions("F");
+        DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, false);
+
+        check(occupants[1].imported == 7, "점유자의 배지가 떨어졌다");
+    end);
+
+    -- 교체는 **자기 키가 있는 그룹**만 할 수 있다. 여기서는 G의 벌이 F로 가고 F의 벌이 G로 온다.
+    test("교체 - 두 벌이 키를 맞바꾼다", function()
+        ResetProfile({
+            general = {
+                Bound(50, "F", 1),
+                Bound(60, "F", 2),
+                Bound(10, "G", 3),
+                Bound(20, "G", 4),
+            },
+        });
+
+        local moving = DebindPrivate.CollectKeyGroupActions("G");
+        local occupants = DebindPrivate.CollectKeyGroupActions("F");
+        DebindPrivate.MoveKeyGroupToKey(moving, "F", occupants, "G");
+
+        local onF = DebindPrivate.CollectActionsForKey("F");
+        local onG = DebindPrivate.CollectActionsForKey("G");
+        check(Values(onF) == "10 20", "F: " .. Values(onF));
+        check(Values(onG) == "50 60", "G: " .. Values(onG));
+    end);
+
+    ---------------------------------------------------------------------------
     -- 어디까지 모으나
     ---------------------------------------------------------------------------
 

@@ -97,6 +97,16 @@ const PENDING_TRANSLATION = {
     LINE_TOOLTIP_IMPORTED: ["ruRU"],
     // The header over an arrival group in the overview, once keyless sets are shown there.
     KEY_GROUP_UNKNOWN_KEY: ["ruRU"],
+    // Putting one key on a whole heading's worth of rows, and the question when that key is taken.
+    // Same owner as the rows above.
+    KEY_GROUP_SET_KEY: ["ruRU"],
+    KEY_GROUP_SET_KEY_DESC: ["ruRU"],
+    KEY_GROUP_CONFLICT: ["ruRU"],
+    KEY_GROUP_CONFLICT_MERGE: ["ruRU"],
+    KEY_GROUP_CONFLICT_SWAP: ["ruRU"],
+    KEY_GROUP_CONFLICT_UNBIND: ["ruRU"],
+    BIND_MODE_KEY_GROUP: ["ruRU"],
+    BIND_MODE_KEY_GROUP_HINT: ["ruRU"],
     // Rejecting what came in - the other half of the strip, and the menu item beside it.
     REJECT_ALL_IMPORT: ["ruRU"],
     REJECT_ALL_IMPORT_DESC: ["ruRU"],

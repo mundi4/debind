@@ -30,6 +30,9 @@ L["BIND_MODE_STOP"] = "완료"
 -- 있어서 한국어 클라이언트에서 이미 제 나라 말로 나온다. 여기서 덮으면 오히려 손해다.
 L["BIND_MODE_CANCEL"] = "취소"
 L["BIND_MODE_OVERLAY"] = "오른쪽에서 행동을 가리키고 원하는 키를 누르십시오."
+-- 한 벌을 겨눈 채로 듣는 동안의 문장. 근거는 enUS 쪽 주석에.
+L["BIND_MODE_KEY_GROUP"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r 아래에 있는 것 전부에 줄 키를 눌러 주세요."
+L["BIND_MODE_KEY_GROUP_HINT"] = "Esc를 누르면 아무것도 바꾸지 않고 그만둡니다."
 L["BIND_MODE_DESC"] = "마우스가 가리키는 행동에 누른 키가 그대로 지정되는 모드를 켭니다. 켜져 있는 동안에는 선택과 우클릭 메뉴가 멈춥니다."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "선택된 행동 단축바가 없습니다."
 L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Clique와 함께 쓸 수 없습니다!"
@@ -157,6 +160,13 @@ L["KEEP_IN_BINDING_CONTEXT_DESC"] = "주택 편집기는 열려 있는 동안 �
 L["KEEP_IN_BINDING_CONTEXT"] = "주택 편집기보다 우선"
 L["KEY"] = "키"
 L["KEY_GROUP_UNKNOWN_KEY"] = "키를 모름 #%d"
+-- "그룹"을 못 쓰는 이유와 나머지 근거는 enUS 쪽 주석에.
+L["KEY_GROUP_SET_KEY"] = "여기 있는 것 전부에 키 지정"
+L["KEY_GROUP_SET_KEY_DESC"] = "이 머리글 아래의 행동 전부에 누른 키를 한 번에 지정합니다. 하나씩 옮기면 한 벌이 두 키로 갈라진 채 양쪽 다 실행되는데, 그게 조용히 일어납니다.|n|n문자열로 받아온 것이면 이 조작이 받아들이는 것까지 겸합니다 - 키를 정하는 것이 곧 같은 결정입니다."
+L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r에는 이 캐릭터의 모든 전문화를 통틀어 이미 |cnHIGHLIGHT_FONT_COLOR:%3$d|r개가 걸려 있습니다.|n|n|cnHIGHLIGHT_FONT_COLOR:%1$s|r이(가) 그 키로 가면 그것들은 어떻게 할까요?"
+L["KEY_GROUP_CONFLICT_MERGE"] = "둘 다 두기"
+L["KEY_GROUP_CONFLICT_SWAP"] = "서로 바꾸기"
+L["KEY_GROUP_CONFLICT_UNBIND"] = "기존 것 지정 해제"
 L["LIFE_ALIVE"] = "살아있음"
 L["LIFE_DEAD"] = "죽음"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"

@@ -1400,6 +1400,24 @@ do
             end
         end
 
+        --- **키를 주는 대상은 이 행이 아니라 이 행이 속한 벌이다.** 한 키에 조건으로 갈린
+        --- 액션 여럿이 정상 상태라, 하나만 옮기면 남은 것들이 옛 키에 남아 벌이 조용히 갈라진다
+        --- (`DebindUI.BeginKeyGroupCapture`).
+        ---
+        --- 이 메뉴에 있는 이유: 이 열에서 벌을 나타내는 것은 머리글인데 그것은 마우스를 안
+        --- 먹는 라벨이고(`DebindKeyHeaderTemplate`), 여기에 컨트롤을 얹는 것은 폴드 화살표를
+        --- 기각할 때 이미 답이 난 물음이다. 행의 우클릭은 이 열이 이미 가르치고 있는 손짓이고,
+        --- 항목의 글자가 대상이 벌이라는 것을 말한다.
+        local function CreateKeyGroupCaptureItem()
+            if (not DebindUI.CanBeginKeyGroupCapture(action)) then
+                return;
+            end
+            local description = rootDescription:CreateButton(LLL["KEY_GROUP_SET_KEY"], function()
+                DebindUI.BeginKeyGroupCapture(action);
+            end);
+            SetInstrcutionTooltip(description, LLL["KEY_GROUP_SET_KEY_DESC"]);
+        end
+
         -- **A badged action gets accept and reject instead of the ordering items**, the same swap
         -- the row itself makes (`UpdateMoveButtons`). While the badge is on this action does not
         -- fire, so a place earlier or later settles nothing; what can be done to it here is take it
@@ -1408,12 +1426,18 @@ do
         -- Not two dead items with a reason, which is what this menu does elsewhere: **why** they
         -- would be dead is an import matter and not an ordering rule, and `ORDER_BLOCKED_*` exists
         -- to teach the ordering rules.
+        --
+        -- Giving the set a key stands with them, because it is the third answer to the same
+        -- question and not an ordering item: it settles what came in by putting it on the keyboard,
+        -- which is why it takes the badge off as well (`SetKeyForActions`).
         if (action.imported) then
+            CreateKeyGroupCaptureItem();
             CreateApproveImportMenuItem(rootDescription, { action });
             CreateRejectImportMenuItem(rootDescription, { action });
             return;
         end
 
+        CreateKeyGroupCaptureItem();
         CreateMoveMenuItem(-1, "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC");
         CreateMoveMenuItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
     end

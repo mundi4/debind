@@ -1109,6 +1109,67 @@ function DebindPrivate.SetKeyForActions(actions, key)
     return true;
 end
 
+--- Moves one key group onto `key`, settling whatever already holds it on the way.
+---
+--- **The three answers to an occupied key are one operation with one parameter.** `occupantKey`
+--- says where the set that is already there goes, and its three values are the three answers:
+---
+---   nil     it stays where it is -- **merge**, both sets on one key with conditions telling them
+---           apart, which is this addon's ordinary state rather than a compromise
+---   a key   it takes that one -- **swap**, and the caller passes the key the moving set is
+---           leaving. Taken as an argument rather than read off `actions`, because a set with no
+---           key of its own has nothing to swap and the caller is the one that knows
+---   false    it loses its key -- **overwrite**
+---
+--- nil and false being different answers is deliberate and not new here (`hover`, `hasKeys`).
+---
+--- The occupants are settled first because it reads in the order it happens -- the tenant leaves,
+--- then the set moves in. **Nothing depends on it**: no answer leaves the two sets sharing a key
+--- (merge does not touch the occupants at all), and `seq` is only ever compared inside one key, so
+--- neither set can be numbered against the other. `occupants` having the moving set subtracted out
+--- of it already is the caller's, and it is what keeps that true.
+---
+--- No rebuild, for the reason `SetKeyForActions` gives.
+function DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, occupantKey)
+    if (occupants and #occupants > 0 and occupantKey ~= nil) then
+        if (occupantKey == false) then
+            DebindPrivate.ClearKeyForActions(occupants);
+        else
+            DebindPrivate.SetKeyForActions(occupants, occupantKey);
+        end
+    end
+    return DebindPrivate.SetKeyForActions(actions, key);
+end
+
+--- Takes the key off a set. The other half of an overwrite: the set that was holding the key
+--- steps off it, and the one that asked for it moves in.
+---
+--- **Nothing is deleted, and that is what makes the choice offerable.** A keyless action is out of
+--- the binding build and drawn greyed in the pile at the bottom of the overview, so an overwrite is
+--- a state the reader can look at and walk back, not a loss.
+---
+--- **`seq` stays**, the same as taking a key off one action (`SetActionKey`): it is what puts the
+--- action back where the reader had ordered it if the key is given again. The comparator ignores it
+--- while there is no key (`MakeRow`), so it sits there meaning nothing until then.
+---
+--- **A badge stays too.** Losing a key is not the reader saying anything about where the action
+--- came from, and an arriving action that had a key is still an arriving action without one.
+function DebindPrivate.ClearKeyForActions(actions)
+    if (actions == nil) then
+        return false;
+    end
+    local changed = false;
+    for i = 1, #actions do
+        local action = actions[i];
+        if (action.key ~= nil) then
+            action.key = nil;
+            action._dirty = true;
+            changed = true;
+        end
+    end
+    return changed;
+end
+
 --- The two collectors a key-group operation stands on, and the reach they share.
 ---
 --- **Both sides of the operation have to come from the same place.** The set being moved and

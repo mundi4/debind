@@ -28,6 +28,16 @@ L["BIND_MODE_STOP"] = "Done"
 L["BIND_MODE_UNBIND_HINT"] = ESCAPE_TO_UNBIND
 L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
+--- The same overlay while a whole set is armed, which is the other thing the mode can be listening
+--- for. **It names the set instead of telling them to point at something**, because there is
+--- nothing left to point at - the set was chosen from a menu, and its rows are under this overlay.
+---
+--- "under" is how the column reads: a heading owning the rows beneath it is what it already
+--- teaches, so the heading's own words are enough to say which rows these are.
+L["BIND_MODE_KEY_GROUP"] = "Press the key you want for everything under |cnHIGHLIGHT_FONT_COLOR:%s|r."
+--- Takes the place of the unbind hint, which is false here: Escape is the eraser while you are
+--- pointing at a row, and there is nothing to erase before a key has been given.
+L["BIND_MODE_KEY_GROUP_HINT"] = "Press Escape to stop without changing anything."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Cannot be used with Clique!"
@@ -189,6 +199,40 @@ L["KEY"] = "Key"
 -- rows under it is what the whole column already teaches. `#` and not `(n)`, because a
 -- parenthesised number is a count here (the tab labels).
 L["KEY_GROUP_UNKNOWN_KEY"] = "Key unknown #%d"
+--- The overview's right-click item that puts one key on a whole heading's worth of rows.
+---
+--- **"all of these" and not a name for the set.** "Group" is the party/raid kind in this window
+--- (`CONDITION_GROUP`), and the column has already said which rows go together by drawing them
+--- under one heading - the item only has to say that it means all of them and not the row that was
+--- clicked.
+L["KEY_GROUP_SET_KEY"] = "Set the key for all of these"
+--- **What it is protecting against is worth the sentence.** One at a time is the obvious way to do
+--- this and it is the one that goes wrong quietly: a key's actions are split by conditions on
+--- purpose, so leaving one behind does not look like a mistake anywhere - it looks like two keys,
+--- and both of them fire.
+L["KEY_GROUP_SET_KEY_DESC"] = "Every action under this heading gets the key you press, in one go. Doing it one action at a time is how a set ends up split across two keys with both of them firing.|n|nIf these came in from a string, this accepts them too - deciding their key is the same decision."
+--- Asked when the key that was pressed is already carrying something.
+---
+--- **The count is what this dialog is for.** The set being settled reaches every layer this
+--- character has, so some of what is being counted can be off screen right now - another
+--- specialization's, or hidden by the "only what came in" switch. Saying the number before the
+--- choice is how that is paid for, the same way "Accept all %d" pays for reaching past the screen.
+---
+--- Numbered placeholders because two of them are strings; the rule is in
+--- `devdocs/writing-user-facing-text.md`.
+L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$d|r actions on it, counting every specialization of this character.|n|nWhat should happen to them when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
+--- **Not a compromise, and not a warning.** Several actions on one key, told apart by conditions, is
+--- what this addon is for - so the answer that leaves both sets where they are needs no caveat.
+L["KEY_GROUP_CONFLICT_MERGE"] = "Keep both"
+--- Only offered when the set has a key of its own to hand over. The client says it this way
+--- (`BINDING_NAME_SWAPUNITFRAMES`).
+L["KEY_GROUP_CONFLICT_SWAP"] = "Swap keys"
+--- **"them", because the button has to say which side loses the key.** The client's own `UNBIND` is
+--- a button that unbinds the key you are looking at; here there are two sets and the whole question
+--- is which one it happens to, so borrowing it would answer a different question than the one asked.
+--- Nothing is deleted - they end up in the unbound pile at the bottom of the column, and can be
+--- given a key again.
+L["KEY_GROUP_CONFLICT_UNBIND"] = "Unbind them"
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"

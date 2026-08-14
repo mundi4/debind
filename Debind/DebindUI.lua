@@ -107,6 +107,14 @@ local _searchText;
 --- press to get the lists back.
 local _importedOnly;
 
+--- The key group the bind mode is listening for, while it is listening for one rather than for the
+--- row under the cursor. `{ actions, label, fromKey }`.
+---
+--- **A file local for the same reason `_importedOnly` is one.** It is the state of one screen, it
+--- lives no longer than the mode does (`SetBindingMode` clears it), and nothing outside this file
+--- has anything to ask it.
+local _keyGroupCapture;
+
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
 
 local _macrotextIconCache    = {};
@@ -1845,24 +1853,42 @@ end
 
 DebindKeyHeaderMixin = {};
 
+--- What one key group is called, and the only place that is decided.
+---
+--- The header below writes it, and so does everything that has to name the same set somewhere else
+--- -- what the overlay says it is listening for, and what the prompt says the key is being taken
+--- from. One thing has one name per screen, and a second copy of this drifts from the column.
+---
+--- Plain text. The colours belong to the position: the header greys the unbound pile and tints an
+--- arrival group, and a prompt in the middle of the screen does neither.
+local function KeyGroupLabel(key, importGroup)
+	if (key) then
+		return GetBindingText(key);
+	end
+	if (importGroup) then
+		return format(LLL["KEY_GROUP_UNKNOWN_KEY"], importGroup);
+	end
+	return LLL["OVERVIEW_NO_KEY"];
+end
+
 function DebindKeyHeaderMixin:Init(elementData)
 	self:SetHeight(KeyHeaderExtent(elementData));
 	if (elementData.key) then
-		self.Label:SetText(GetBindingText(elementData.key));
+		self.Label:SetText(KeyGroupLabel(elementData.key));
 	elseif (elementData.importGroup) then
 		-- **A key group whose key was not sent.** Numbered because two strings can be waiting at
 		-- once, and `#` rather than `(n)` because a parenthesised number already means a count in
 		-- this window (the tab labels). Not greyed like the pile below: this set is waiting on a
 		-- decision, and the arrival colour is what says so everywhere else on the row.
 		self.Label:SetText(IMPORTED_FONT_COLOR:WrapTextInColorCode(
-			format(LLL["KEY_GROUP_UNKNOWN_KEY"], elementData.importGroup)));
+			KeyGroupLabel(nil, elementData.importGroup)));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
 		--
 		-- **The client's own words**, through the same key the row's shortcut cell uses. Writing a
 		-- second wording here is how the same window came to say two things once already - the
 		-- tooltip comment on that cell has the history.
-		self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
+		self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel()));
 	end
 end
 
@@ -3953,13 +3979,32 @@ function DebindResultPanelMixin:OnLoad()
 	-- 목록보다 위라는 사실을 여기서 관계로 적는다.
 	local overlay = self.BindOverlay;
 	overlay:SetFrameLevel(self.ContentArea.OrderArea.ScrollBox:GetFrameLevel() + 10);
-	overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
-	overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
 	overlay.DoneButton:SetText(LLL["BIND_MODE_STOP"]);
 	overlay.CancelButton:SetText(LLL["BIND_MODE_CANCEL"]);
+	self:UpdateBindOverlay();
 
 	self.initialized = true;
 	self:Refresh();
+end
+
+--- The two lines on the overlay say what is being listened for, and there are two things it can be.
+---
+--- **Pointing at a row is one of them, not the only one.** With a key group armed there is nothing
+--- left to point at - the set was chosen from a menu - so the sentence names it instead, and Escape
+--- is the way back out rather than the eraser: nothing has been given a key yet, so there is nothing
+--- to erase.
+---
+--- Set from `SetBindingMode`, which is the one place the mode goes in and out, and once at load so
+--- the default is written here rather than in two places.
+function DebindResultPanelMixin:UpdateBindOverlay()
+	local overlay = self.BindOverlay;
+	if (_keyGroupCapture) then
+		overlay.Instruction:SetText(format(LLL["BIND_MODE_KEY_GROUP"], _keyGroupCapture.label));
+		overlay.UnbindHint:SetText(LLL["BIND_MODE_KEY_GROUP_HINT"]);
+	else
+		overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
+		overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
+	end
 end
 
 function DebindResultPanelMixin:Refresh()
@@ -4691,7 +4736,16 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 여기로 오는 것은 전부 **커밋**이다(오버레이의 [종료], 창이 숨는 경우, 토글 다시 누르기).
 		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
 		self.bindEdits = nil;
+
+		-- **The armed key group does not outlive the mode.** Every way out passes here, and one
+		-- left behind would make the next key pressed - in a mode the reader opened for a single
+		-- row - land on a set they chose minutes ago.
+		_keyGroupCapture = nil;
 	end
+
+	-- After the two branches above: the overlay's sentence names the armed set, so it has to be
+	-- written once that is settled either way.
+	DebindResultPanel:UpdateBindOverlay();
 
 	-- 켤 때는 부르는 쪽이 준 과녁을, 끌 때는 **켰던 그 과녁**을 되돌린다. 행 버튼은 풀에서
 	-- 나오므로 그 사이에 다른 행을 그리고 있을 수 있는데, 여기서 다시 찾으면 엉뚱한 행의
@@ -4805,6 +4859,15 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 		return;
 	end
 
+	-- **한 벌이 걸려 있으면 커서는 안 본다.** 대상은 메뉴에서 이미 골랐고, 그 벌의 행들은
+	-- 오버레이 밑에 있어서 가리킬 수도 없다. 여기서 커서를 마저 보면 오버레이 위에서 누른 키가
+	-- 조용히 남의 행으로 간다.
+	if (_keyGroupCapture) then
+		local key = GetConvertedKeyOrButton(input);
+		self:ApplyCapturedKeyToKeyGroup(_CreateKeyChordStringUsingMetaKeyState(key));
+		return;
+	end
+
 	line = line or GetHoveredLine();
 	local elementData = line and line.GetElementData and line:GetElementData();
 	local action = elementData and elementData.action;
@@ -4843,8 +4906,12 @@ function DebindFrameMixin:BindMode_OnKeyDown(button, key)
 	-- 값이 큰 쪽이 빗나가기 쉬운 자리에 있다는 것은 안다 - 행을 겨냥하다 몇 픽셀 빗나가면
 	-- 지우기가 아니라 전체 취소가 된다. 그래도 게임의 같은 모드와 같은 손버릇이 되는 편이
 	-- 우리만의 규칙을 하나 더 만드는 것보다 낫다. 되돌린 것을 되살릴 길은 없다.
+	--
+	-- **한 벌이 걸려 있는 동안에는 지우개가 아니다.** 그 갈래가 지우는 것은 커서 밑의 행인데,
+	-- 지금 커서 밑에 있는 것은 오버레이이고 그 아래 행은 대상도 아니다. 그리고 지울 것도 없다 -
+	-- 아직 아무것도 안 걸었으므로 ESC의 뜻은 그만두기 하나뿐이다.
 	if (key == "ESCAPE") then
-		local line = GetHoveredLine();
+		local line = not _keyGroupCapture and GetHoveredLine();
 		local elementData = line and line:GetElementData();
 		local action = elementData and elementData.action;
 		if (action) then
@@ -4944,6 +5011,187 @@ function DebindFrameMixin:SetActionKey(action, key)
 	self:Update();
 	return true;
 end
+
+
+--------------------------------------------------------------------------------
+-- 키 그룹째 키 주기
+--
+-- 한 키에 조건으로 갈린 액션 여럿이 이 애드온의 정상 상태라, 키를 옮기는 일은 액션 하나가
+-- 아니라 **한 벌**에 대한 일이다. 하나씩 옮기면 넷 중 하나를 빠뜨렸을 때 벌이 조용히 갈라지고,
+-- 키 없이 도착한 벌에서는 보낸 사람의 순서까지 사라진다(`Profile.lua`의 `SetKeyForActions`).
+--
+-- 흐름은 셋이다: 메뉴에서 벌을 고르고 → 줄 키를 누르고 → 그 키가 이미 차 있으면 답한다.
+--------------------------------------------------------------------------------
+
+--- 액션 하나가 속한 벌과, 그 벌이 떠나는 키.
+---
+--- **벌은 왼쪽 열이 머리글 하나 밑에 그리는 것**, 즉 읽는 사람이 가리키고 있는 그것이다:
+--- 같은 키에 걸린 전부이거나, 키 없이 온 것이면 같이 온 도착 그룹이다. `BuildKeyboardElements`가
+--- 이 두 물음으로만 열을 가르므로 세 번째 경우가 없고, 자기가 안 그려진 벌에 속하는 행도 없다.
+---
+--- 키도 그룹도 없는 액션은 아무 벌도 아니다 - 지정 안 된 더미의 한 줄이고, 액션 하나에 키를
+--- 거는 것은 지정 모드가 예전부터 하던 일이다.
+local function CollectKeyGroupForAction(action)
+	if (action == nil) then
+		return nil;
+	end
+	if (action.key ~= nil) then
+		return DebindPrivate.CollectKeyGroupActions(action.key), action.key, nil;
+	end
+	if (action.importGroup) then
+		return DebindPrivate.CollectImportGroupActions(action.importGroup), nil, action.importGroup;
+	end
+	return nil;
+end
+
+--- 벌을 하나 겨누고, 줄 키를 듣기 시작한다.
+---
+--- **대상은 모드보다 먼저 정해진다.** 평소의 지정 모드는 키를 누른 그 순간의 커서 밑 행을
+--- 겨누는데, 여기서는 메뉴에서 벌을 고른 시점에 이미 정해져 있다 - 그래서 `_keyGroupCapture`를
+--- 먼저 세우고 모드를 켠다(오버레이의 문장이 그 값을 읽는다).
+---
+--- 모드의 나머지는 그대로 빌려 쓴다. 키보드/게임패드를 켜는 자리, 편집칸의 포커스를 거두는
+--- 자리, 클릭을 up으로 맞추는 자리가 전부 `SetBindingMode`에 있고, 그 어느 것도 겨누는 것이
+--- 행이냐 벌이냐로 달라지지 않는다.
+function DebindFrameMixin:BeginKeyGroupCapture(actions, label, fromKey)
+	if (actions == nil or #actions == 0) then
+		return;
+	end
+	_keyGroupCapture = { actions = actions, label = label, fromKey = fromKey };
+	self:SetBindingMode(true, self.OverviewPanel.BindModeButton);
+end
+
+--- 다 쓰고 나서 한 번. 액션마다 부르면 벌 하나를 옮길 때 바인딩이 그 수만큼 올라간다.
+---
+--- `_importedOnly`를 끄는 자리도 여기다. 벌에 키를 주는 것은 곧 승인이라(`SetKeyForActions`)
+--- 마지막 배지가 여기서 떨어질 수 있고, 그때 좁힘이 남아 있으면 아무것도 없는 두 목록으로
+--- 끝난다 - `ApproveImportedActions`가 같은 이유로 같은 줄을 들고 있다.
+local function RebuildAfterKeyGroupChange()
+	if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
+		_importedOnly = nil;
+	end
+
+	DebindPrivate.UpdateBindings();
+	DebindFrame:Refresh(true);
+	DebindFrame:Update();
+end
+
+--- 차 있는 키에 답이 정해졌을 때 실제로 옮기는 자리. `occupantKey`의 세 값이 그 세 답이다
+--- (`MoveKeyGroupToKey`).
+local function ApplyKeyGroupMove(actions, key, occupants, occupantKey)
+	DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, occupantKey);
+	RebuildAfterKeyGroupChange();
+end
+
+--- 차 있는 키에 벌을 주려 할 때 묻는 자리.
+---
+--- **숫자가 질문의 값이다.** 이 조작은 화면에 없는 것까지 손대는데(`CollectKeyGroupActions`는
+--- 이 캐릭터의 열한 레이어를 훑고, [가져온 것만]이 켜져 있으면 이 키를 들고 있는 내 벌은
+--- 통째로 숨어 있다), 그 대가를 갚는 것이 누르기 전에 화면에 서 있는 이 수다.
+--- `ApproveAllImported`의 [N개 모두 받기]가 같은 처지에서 같은 답을 냈다.
+---
+--- **교체는 자기 키가 있는 벌만 할 수 있다.** 키 없이 도착한 벌에는 점유자를 보낼 데가 없어서
+--- 교체와 덮어쓰기가 같은 일이 된다. 그래서 임포트의 흔한 길에서는 답이 둘뿐이다.
+local function ShowKeyGroupConflictDialog(actions, key, occupants, label, fromKey)
+	StaticPopup_Show("DEBIND_KEY_GROUP_CONFLICT", nil, nil, {
+		actions = actions,
+		key = key,
+		occupants = occupants,
+		label = label,
+		fromKey = fromKey,
+	});
+end
+
+--- 벌을 겨눈 채로 키가 눌렸다. 여기서 겨눔은 소진된다.
+---
+--- **모드부터 끈다.** 겨눔은 메뉴에서 한 번 고른 것이라 한 번 쓰면 끝인데, 모드를 켜둔 채로
+--- 비우면 다음에 누르는 키가 말없이 커서 밑의 행으로 간다 - 사용자가 연 적 없는 지정 모드가
+--- 열려 있는 셈이다. 그리고 질문이 뜬다면 그 위에서 키를 듣고 있으면 안 된다.
+function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
+	local capture = _keyGroupCapture;
+	if (not capture or key == nil) then
+		return;
+	end
+	self:SetBindingMode(false);
+
+	-- 겨눈 벌 자신은 점유자가 아니다. 빼지 않으면 "F에 이미 3개"라고 물으면서 그 셋이 지금
+	-- 옮기는 바로 그 액션들인 경우가 생기고(같은 키를 다시 준 경우), 교체가 자기 자신을
+	-- 옛 키로 되돌려 보낸다.
+	local moving = {};
+	for _, action in ipairs(capture.actions) do
+		moving[action] = true;
+	end
+
+	local occupants = {};
+	for _, action in ipairs(DebindPrivate.CollectKeyGroupActions(key)) do
+		if (not moving[action]) then
+			occupants[#occupants + 1] = action;
+		end
+	end
+
+	-- **빈 키면 묻지 않는다.** 흔한 길이 여기다 - 받은 벌에 안 쓰던 키를 주는 것.
+	if (#occupants == 0) then
+		ApplyKeyGroupMove(capture.actions, key, nil, nil);
+		return;
+	end
+
+	ShowKeyGroupConflictDialog(capture.actions, key, occupants, capture.label, capture.fromKey);
+end
+
+--- 왼쪽 열의 우클릭 메뉴에서 들어오는 입구. 벌을 모으고 겨눔을 세운다.
+function DebindUI.BeginKeyGroupCapture(action)
+	local actions, key, importGroup = CollectKeyGroupForAction(action);
+	if (actions == nil or #actions == 0) then
+		return;
+	end
+	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, importGroup), key);
+end
+
+--- 이 액션으로 벌째 키를 줄 수 있나. 메뉴가 항목을 세울지 정할 때 묻는다.
+function DebindUI.CanBeginKeyGroupCapture(action)
+	local actions = CollectKeyGroupForAction(action);
+	return actions ~= nil and #actions > 0;
+end
+
+--- 차 있는 키의 세 답. 네 번째 버튼은 그만두기이고, 아무것도 아직 안 바뀌었으므로 그냥 닫는다.
+---
+--- **`OnAccept`/`OnCancel`이 아니라 `OnButton1..4`다.** 2번 자리는 취소의 자리라 `OnCancel`을
+--- 달면 Esc가 그것을 부르는데, 여기서 2번은 취소가 아니다(`StaticPopup_EscapePressed`).
+--- 넷 다 번호로 달아두면 Esc는 `hideOnEscape`로 그냥 닫히고 아무 답도 고르지 않은 것이 된다.
+StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
+	-- 문장만 여는 시점에 짓는다. 인자가 셋이라 `StaticPopup_Show`의 `text_arg1/2`로는 모자란다 -
+	-- 클라이언트의 `GENERIC_CONFIRMATION`이 같은 이유로 같은 모양이다.
+	text = "",
+	button1 = LLL["KEY_GROUP_CONFLICT_MERGE"],
+	button2 = LLL["KEY_GROUP_CONFLICT_SWAP"],
+	button3 = LLL["KEY_GROUP_CONFLICT_UNBIND"],
+	button4 = CANCEL,
+	--- **자기 키가 없는 벌에는 교체가 없다.** 점유자를 보낼 데가 없어서 덮어쓰기와 같은 일이
+	--- 되고, 같은 일을 하는 버튼 둘은 답이 셋인 것처럼 보이게 한다. 임포트의 흔한 길이 이쪽이라
+	--- 거기서는 버튼이 셋이다.
+	---
+	--- `OnShow`에서 숨기면 안 된다 - 버튼 자리잡기가 그 전에 끝나서 가운데가 빈 채로 선다.
+	DisplayButton2 = function(_, data)
+		return data ~= nil and data.fromKey ~= nil;
+	end,
+	OnShow = function(dialog, data)
+		dialog:SetFormattedText(LLL["KEY_GROUP_CONFLICT"],
+			data.label, GetBindingText(data.key), #data.occupants);
+	end,
+	OnButton1 = function(_, data)
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, nil);
+	end,
+	OnButton2 = function(_, data)
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, data.fromKey);
+	end,
+	OnButton3 = function(_, data)
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
+	end,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+	wide = 1,
+};
 
 
 --------------------------------------------------------------------------------
