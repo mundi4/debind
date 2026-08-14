@@ -685,6 +685,10 @@ function DebindPrivate.EnumerateActionsInActiveLayers()
     return Enumerator, layerIdArray, 0;
 end
 
+-- Defined below, between the two collectors that share it. Forward-declared so both can be read
+-- top to bottom without the record's shape sitting in front of either of them.
+local MakeRow;
+
 --- 주어진 키에 걸린 액션을 활성 레이어에서 직접 모아 실제 발동 순서로 정렬해 돌려준다.
 ---
 --- GetKeyMap()을 쓰지 않는 이유: 그쪽은 이슈가 있는 액션과 도달불가 액션이 빠져 있는데,
@@ -714,7 +718,56 @@ function DebindPrivate.CollectActionsForKey(key, spec)
     for layerRank, layer in DebindPrivate.EnumerateProfileLayers(spec) do
         for index, action in layer:Enumerate() do
             if (action.key == key) then
-                rows[#rows + 1] = {
+                rows[#rows + 1] = MakeRow(action, layer, layerRank, index, simulated);
+            end
+        end
+    end
+
+    sort(rows, DebindPrivate.CompareActionOrder);
+    return rows;
+end
+
+--- The rows of one keyless set: either an arrival group, or everything else with no key.
+---
+--- **A keyless action reaches nothing, so none of this is about firing order.** What the overview
+--- shows it for is the one thing that is still true of it: an arrival group is a key's worth of
+--- behaviour whose key was not sent, and the reader has to be able to see the set before deciding
+--- what key to give it. Losing that means reassembling it by eye from a flat list, and a wrong
+--- guess is silent - two actions meant to share a key end up on two, and both fire.
+---
+--- `importGroup` selects one arrival group; nil selects the ones belonging to no group at all.
+---
+--- **Sorted by `importOrder`, not by `CompareActionOrder`.** That comparator ends at `seq`, and
+--- these have none - a keyless action is never given one (`PlaceLast`). `importOrder` is what the
+--- sender's ranking became on arrival, and holding it is the whole reason the field exists.
+function DebindPrivate.CollectKeylessActionRows(importGroup, spec)
+    local rows = {};
+    local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
+
+    for layerRank, layer in DebindPrivate.EnumerateProfileLayers(spec) do
+        for index, action in layer:Enumerate() do
+            if (action.key == nil and action.importGroup == importGroup) then
+                rows[#rows + 1] = MakeRow(action, layer, layerRank, index, simulated);
+            end
+        end
+    end
+
+    sort(rows, function(lhs, rhs)
+        local a, b = lhs.action.importOrder, rhs.action.importOrder;
+        if (a and b and a ~= b) then
+            return a < b;
+        end
+        if (lhs.layerRank ~= rhs.layerRank) then
+            return lhs.layerRank < rhs.layerRank;
+        end
+        return lhs.index < rhs.index;
+    end);
+    return rows;
+end
+
+--- The record the two collectors above hand out, and the only place its shape is written.
+function MakeRow(action, layer, layerRank, index, simulated)
+    return {
                     action        = action,
                     layerID       = layer.layerID,
                     layerRank     = layerRank,
@@ -745,13 +798,7 @@ function DebindPrivate.CollectActionsForKey(key, spec)
                     -- 이 행을 그리는 쪽도 같은 기준으로 물어야 한다. 툴팁이 이걸 보고
                     -- 도달 불가를 뺀다(DebindUI.lua의 ShowLineTooltip).
                     simulated     = simulated or nil,
-                };
-            end
-        end
-    end
-
-    sort(rows, DebindPrivate.CompareActionOrder);
-    return rows;
+    };
 end
 
 --- 액션이 사는 레이어를 찾는다. (layerID, layer)를 돌려주고, 없으면 nil.

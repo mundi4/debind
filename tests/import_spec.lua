@@ -183,6 +183,21 @@ return function(DebindPrivate, DebindShare)
         check(action.order == nil, "order가 액션에 남았다: " .. tostring(action.order));
     end);
 
+    -- **A sender exports whole layers, so what they built and never bound goes out too.** Given a
+    -- group number, one of those arrives on the far side headed as a set whose key was withheld,
+    -- which says it was part of the design and asks what key it deserves. It was not, and the
+    -- reader ends up working out whether they are supposed to use something the sender does not.
+    --
+    -- Only the export can tell the two apart: with keys stripped, a one-action key and an action
+    -- that never had one are the same table on the wire.
+    test("키가 없던 액션은 그룹 없이 들어온다", function()
+        local action = PlanOne({ layer = { scope = "general" },
+            actions = { { type = Constants.SPELL, value = 774 } } });
+        check(action.importGroup == nil,
+            "묶인 적 없는 액션에 그룹이 붙었다: " .. tostring(action.importGroup));
+        check(action.imported ~= nil, "배지는 그대로 있어야 한다");
+    end);
+
     ---------------------------------------------------------------------------
 
     -- Layer to layer. Another class's spec number means something else entirely, so it keeps the

@@ -390,7 +390,23 @@ function DebindShare.BuildExportPayload(selection, options)
 
                 descriptor = descriptor or DescribeLayer(layer);
                 groups[#groups + 1] = {
-                    id = #groups + 1,
+                    -- **Only a group that was on a key gets identity**, and the reason is what the
+                    -- far side is asked to think about.
+                    --
+                    -- A sender exports whole layers, so actions they built and never bound go out
+                    -- with the rest. Given identity, one of those arrives headed as a set whose key
+                    -- was withheld - which says *this was part of the design, decide what key it
+                    -- deserves*. It was not. The reader is left working out what it is for and
+                    -- whether they are supposed to use it, over something the sender does not use
+                    -- either.
+                    --
+                    -- Without the distinction the far side cannot make it. Once keys are stripped a
+                    -- one-action key and a never-bound action arrive as the same table, so this is
+                    -- the only end that still knows.
+                    --
+                    -- The number stays local to this string. The far side takes its own
+                    -- (`PlanImport`), because ids repeat across strings and two can be waiting.
+                    id = source.key ~= nil and (#groups + 1) or nil,
                     key = (not stripKeys) and source.key or nil,
                     layer = descriptor,
                     actions = actions,

@@ -150,8 +150,16 @@ function DebindShare.PlanImport(payload, batchID)
         if (not layerID) then
             skipped = skipped + 1;
         else
-            local groupID = nextGroupID;
-            nextGroupID = nextGroupID + 1;
+            -- **A group with no `id` was never a group.** The export gives identity only to actions
+            -- that were on a key together (`Export.lua`); one the sender built and never bound
+            -- arrives as a group of one with nothing to hold, because the format is made of groups.
+            -- Numbering it here would head it in the overview as a set whose key was withheld, and
+            -- ask the reader what key something the sender does not use deserves.
+            local groupID;
+            if (group.id ~= nil) then
+                groupID = nextGroupID;
+                nextGroupID = nextGroupID + 1;
+            end
 
             for _, source in ipairs(group.actions or {}) do
                 local action = BuildAction(source);

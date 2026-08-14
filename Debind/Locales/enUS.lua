@@ -181,7 +181,14 @@ L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its own shortcuts while it is open, and this addon leaves those keys alone. An action bound to one of them does nothing while the editor is open.|n|nCheck this to take the key anyway: your action runs, and the editor's shortcut on that key does not. The editor still shows the key on its own button, so that button will look usable while doing nothing."
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
 L["KEY"] = "Key"
-L["KEY_GROUP_UNBOUND"] = "No key assigned"
+-- The header over an arrival group whose key was not sent. **Not "group"** - that word already
+-- means the party/raid kind in this window (`CONDITION_GROUP`), and `ORDER_FLAG_GROUPS_NONE_SELECTED`
+-- says so in this very column.
+--
+-- It says what stands in for the key, not that the rows below belong together: a header owning the
+-- rows under it is what the whole column already teaches. `#` and not `(n)`, because a
+-- parenthesised number is a count here (the tab labels).
+L["KEY_GROUP_UNKNOWN_KEY"] = "Key unknown #%d"
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
@@ -328,7 +335,7 @@ L["OVERVIEW"] = "Overview"
 -- happen" stopped being true the day importing started putting actions in the profile switched off:
 -- those are listed, they have a key, and pressing it does nothing. Without the exception the one
 -- promise this window makes is false for exactly the rows the reader is least sure about.
-L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nWhat is listed is what your current character and specialization would actually do if you pressed the key now. Opening another tab or specialization on the right does not change it, and an action with no key is not listed here at all. The exception is anything that came in from a string: it is listed, but it reaches no key until you accept it."
+L["OVERVIEW_DESC"] = "Every action that has a key right now, grouped by key. Within a key, they are listed in the order Debind tries them.|n|nWhat is listed is what your current character and specialization would actually do if you pressed the key now. Opening another tab or specialization on the right does not change it, and an action with no key is not listed here at all. Actions with no key are listed too, gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile. The exception to the whole of it is anything still waiting to be accepted - it is listed, but it reaches no key until you say so."
 -- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 순서를 가르는 축은 넷인데 비교자가
 -- 위에서부터 훑으므로 처음 갈린 하나가 곧 답이다 - 그래서 다섯 중 언제나 하나만 나온다.
 -- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.

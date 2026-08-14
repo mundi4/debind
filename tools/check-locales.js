@@ -83,6 +83,8 @@ const PENDING_TRANSLATION = {
     ORDER_ACCEPT: ["ruRU"],
     ORDER_ACCEPT_DESC: ["ruRU"],
     LINE_TOOLTIP_IMPORTED: ["ruRU"],
+    // The header over an arrival group in the overview, once keyless sets are shown there.
+    KEY_GROUP_UNKNOWN_KEY: ["ruRU"],
     // Rejecting what came in - the other half of the strip, and the menu item beside it.
     REJECT_ALL_IMPORT: ["ruRU"],
     REJECT_ALL_IMPORT_DESC: ["ruRU"],

@@ -1849,9 +1849,20 @@ function DebindKeyHeaderMixin:Init(elementData)
 	self:SetHeight(KeyHeaderExtent(elementData));
 	if (elementData.key) then
 		self.Label:SetText(GetBindingText(elementData.key));
+	elseif (elementData.importGroup) then
+		-- **A key group whose key was not sent.** Numbered because two strings can be waiting at
+		-- once, and `#` rather than `(n)` because a parenthesised number already means a count in
+		-- this window (the tab labels). Not greyed like the pile below: this set is waiting on a
+		-- decision, and the arrival colour is what says so everywhere else on the row.
+		self.Label:SetText(IMPORTED_FONT_COLOR:WrapTextInColorCode(
+			format(LLL["KEY_GROUP_UNKNOWN_KEY"], elementData.importGroup)));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
-		self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["KEY_GROUP_UNBOUND"]));
+		--
+		-- **The client's own words**, through the same key the row's shortcut cell uses. Writing a
+		-- second wording here is how the same window came to say two things once already - the
+		-- tooltip comment on that cell has the history.
+		self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
 	end
 end
 
@@ -4451,6 +4462,82 @@ local function BuildKeyboardElements()
 			};
 		end
 	end
+
+	-- **Then everything with no key, last.** The column above is the keyboard, and these are not on
+	-- it; putting them anywhere but the end would break the reading that a header owns a key.
+	--
+	-- **An arrival group is kept whole and headed on its own.** A key split across conditional
+	-- actions is one thing the sender built, and when the key was not sent that grouping is the only
+	-- surviving record of it - which is exactly what the reader needs in order to decide what key to
+	-- give the set. Dropping it into the general no-key pile would make them guess which of a flat
+	-- list belonged together, and a wrong guess is silent: two actions meant to share a key end up
+	-- on two, and both fire.
+	--
+	-- Numbered ascending so the same profile always draws the same order, and the numbers are the
+	-- profile's own (`NextImportGroupID`) rather than the sender's, which repeat across strings.
+	local groupSeen, groupArr, hasPlain = {}, {}, false;
+	for _, layer in DebindPrivate.EnumerateProfileLayers() do
+		for _, action in layer:Enumerate() do
+			if (action.key == nil) then
+				local group = action.importGroup;
+				if (group == nil) then
+					hasPlain = true;
+				elseif (not groupSeen[group]) then
+					groupSeen[group] = true;
+					groupArr[#groupArr + 1] = group;
+				end
+			end
+		end
+	end
+	sort(groupArr);
+
+	local keylessSets = {};
+	for _, group in ipairs(groupArr) do
+		keylessSets[#keylessSets + 1] = group;
+	end
+	if (hasPlain) then
+		keylessSets[#keylessSets + 1] = false;
+	end
+
+	for _, group in ipairs(keylessSets) do
+		local importGroup = group or nil;
+		local rows = DebindPrivate.CollectKeylessActionRows(importGroup);
+
+		-- **The pile is narrowed row by row, and the groups above are not.** A key group is kept
+		-- whole because the reason text on each row names the one below it; nothing here carries a
+		-- sentence about its neighbour, so there is nothing to break by thinning it. And it has to
+		-- be thinned rather than dropped: an action that came in without a key and without a group
+		-- lives in this pile, and the switch exists to show exactly that.
+		if (importGroup == nil and _importedOnly) then
+			local kept = {};
+			for _, row in ipairs(rows) do
+				if (row.imported) then
+					kept[#kept + 1] = row;
+				end
+			end
+			rows = kept;
+		end
+
+		if (#rows > 0) then
+			elements[#elements + 1] = {
+				isHeader = true,
+				key = nil,
+				importGroup = importGroup,
+				isFirst = #elements == 0 or nil,
+			};
+			for _, row in ipairs(rows) do
+				-- No `reason`, and no `rows`/`index`. Nothing here beat anything: with no key there
+				-- is no contest to win and nowhere to move to, so the arrows stay down
+				-- (`UpdateMoveButtons` finds fewer than two live rows) and the slot beside the name
+				-- is the accept button's.
+				elements[#elements + 1] = {
+					row = row,
+					isCurrent = row.action == _selectedAction,
+				};
+			end
+		end
+	end
+
 	return elements;
 end
 
