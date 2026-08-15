@@ -174,9 +174,9 @@ return function(DebindPrivate)
         end
     end);
 
-    -- 한 그룹이 레이어를 넘어도 한 벌로 선다. 도착할 때부터 그렇고(`PlanImport`), 도착한 뒤
+    -- 한 그룹이 레이어를 넘어도 한 묶음으로 선다. 도착할 때부터 그렇고(`PlanImport`), 도착한 뒤
     -- `MoveAction`이 더 벌려놓을 수도 있다.
-    test("도착 그룹이 레이어를 넘어도 한 벌로 모인다", function()
+    test("도착 그룹이 레이어를 넘어도 한 묶음으로 모인다", function()
         ResetProfile({
             general = {
                 { type = Constants.SPELL, value = 2, imported = 1, importGroup = 7, importOrder = 2 },

@@ -42,7 +42,7 @@ local format             = format;
 --- 같은 벽이 **배경 방향**에도 있을 뻔했다. 위로 펼칠지 아래로 펼칠지는 커서 위치에 달렸으니
 --- 전투 중에 정해지는데, 블리자드 플라이아웃 배경은 방향마다 조각의 자리와 회전이 다르다
 --- (`FlyoutPopupMixin:UpdateBackground`). 우리 배경은 **양끝이 같은 마감**이라 방향을 안 탄다
---- (`CreateBackground` 참고) - 한 벌만 지어두고 스니펫은 배경을 아예 안 만진다.
+--- (`CreateBackground` 참고) - 하나만 지어두고 스니펫은 배경을 아예 안 만진다.
 ---
 --- 결과: 전투 중 스니펫이 하는 일은 **어디에 놓을 것인가** 하나뿐이다.
 ---
@@ -163,7 +163,7 @@ local OPENER_ONCLICK     = format([[
 --- 한쪽 끝만 잘려 보였다 - 아래는 둥근 마감인데 위는 끊긴 이음매였다.
 ---
 --- 그래서 **둘 다 `…-FlyoutButton`**(먼 쪽 마감)을 쓰고 아래쪽만 180도 돌린다. 덤으로 배경이
---- 위아래 대칭이 되어 **방향을 안 탄다** - 위로 펼치든 아래로 펼치든 같은 그림이라 한 벌만
+--- 위아래 대칭이 되어 **방향을 안 탄다** - 위로 펼치든 아래로 펼치든 같은 그림이라 하나만
 --- 지으면 되고, 전투 중 스니펫이 배경을 고를 일이 없다(머리주석 참고).
 local END_CAP_ATLAS = "UI-HUD-ActionBar-IconFrame-FlyoutButton";
 
@@ -405,7 +405,7 @@ local function CreateFlyout(flyoutID)
 	holder:EnableMouse(true);
 	holder:Hide();
 
-	-- 배경 한 벌. 방향을 안 타므로 스니펫에 넘길 것이 없다.
+	-- 배경 하나. 방향을 안 타므로 스니펫에 넘길 것이 없다.
 	CreateBackground(holder);
 
 	-- 손잡이. **보인 채로 둔다** - 숨은 프레임에 `Click()`이 먹는지에 기대지 않으려는 것이다.

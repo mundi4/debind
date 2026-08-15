@@ -246,7 +246,7 @@ return function(DebindPrivate, DebindShare)
 
         check(#placements == 2, "액션 수 " .. #placements);
         local group = placements[1].action.importGroup;
-        check(group ~= nil, "그룹이 사라졌다 - 키를 뺐다고 한 벌이 흩어지면 안 된다");
+        check(group ~= nil, "그룹이 사라졌다 - 키를 뺐다고 한 묶음이 흩어지면 안 된다");
         for i, placement in ipairs(placements) do
             check(placement.action.key == nil,
                 "키가 남았다: " .. tostring(placement.action.key));
@@ -274,7 +274,7 @@ return function(DebindPrivate, DebindShare)
     -- Where each action lands
     ---------------------------------------------------------------------------
 
-    -- **한 키는 레이어를 넘어도 한 벌이다.** The sender groups by key and writes the layer on each
+    -- **한 키는 레이어를 넘어도 한 묶음이다.** The sender groups by key and writes the layer on each
     -- action (`Export.lua`), so one group routinely carries two destinations. Splitting it here
     -- would undo the one thing a keyless string still says: with the keys stripped, the reader
     -- would be handed two headings for what was one key and would give them two keys - and then

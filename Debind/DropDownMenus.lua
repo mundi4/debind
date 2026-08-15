@@ -1368,7 +1368,7 @@ do
     --- 오버뷰 목록(`DebindOrderLineMixin`)의 행에서 우클릭으로 여는 메뉴. **순서 두 항목뿐이다.**
     ---
     --- 화살표 버튼과 **같은 판정·같은 문자열**을 쓴다. 순서 규칙을 말하는 문장이 이 애드온에
-    --- 두 벌 생기면 하나가 낡는데, 낡은 쪽이 거짓말을 해도 잡아줄 검사가 없다.
+    --- 두 군데 생기면 하나가 낡는데, 낡은 쪽이 거짓말을 해도 잡아줄 검사가 없다.
     ---
     --- 못 누르는 항목도 **세워 둔다.** 회색으로 서 있는 두 줄이 "여기서 순서를 만질 수 있다"를
     --- 말하고, 지금 안 되는 이유는 그 툴팁이 댄다 - 빼버리면 메뉴가 통째로 비어서 우클릭이
@@ -1413,14 +1413,16 @@ do
             end
         end
 
-        --- **키를 주는 대상은 이 행이 아니라 이 행이 속한 벌이다.** 한 키에 조건으로 갈린
-        --- 액션 여럿이 정상 상태라, 하나만 옮기면 남은 것들이 옛 키에 남아 벌이 조용히 갈라진다
+        --- **What gets the key is the key group this row belongs to, not the row.** Several actions
+        --- on one key, told apart by conditions, is the ordinary state, so moving one leaves the
+        --- rest on the old key and the group splits without a sound
         --- (`DebindUI.BeginKeyGroupCapture`).
         ---
-        --- 이 메뉴에 있는 이유: 이 열에서 벌을 나타내는 것은 머리글인데 그것은 마우스를 안
-        --- 먹는 라벨이고(`DebindKeyHeaderTemplate`), 여기에 컨트롤을 얹는 것은 폴드 화살표를
-        --- 기각할 때 이미 답이 난 물음이다. 행의 우클릭은 이 열이 이미 가르치고 있는 손짓이고,
-        --- 항목의 글자가 대상이 벌이라는 것을 말한다.
+        --- Why it lives in this menu: what stands for a group in this column is the heading, and
+        --- that is a label with no mouse (`DebindKeyHeaderTemplate`). Putting a control on it is a
+        --- question already answered when the fold arrows were turned down. Right-clicking a row is
+        --- the gesture this column already teaches, and the item's own words say the target is the
+        --- group.
         local function CreateKeyGroupCaptureItem()
             if (not DebindUI.CanBeginKeyGroupCapture(action)) then
                 return;

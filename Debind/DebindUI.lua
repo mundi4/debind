@@ -4846,9 +4846,9 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 		return;
 	end
 
-	-- **한 벌이 걸려 있으면 커서는 안 본다.** 대상은 메뉴에서 이미 골랐고, 그 벌의 행들은
-	-- 오버레이 밑에 있어서 가리킬 수도 없다. 여기서 커서를 마저 보면 오버레이 위에서 누른 키가
-	-- 조용히 남의 행으로 간다.
+	-- **With a key group armed the cursor is not consulted at all.** The target was chosen from a
+	-- menu, and that group's rows are under the overlay where they cannot be pointed at anyway.
+	-- Reading the cursor here would send a key pressed over the overlay to somebody else's row.
 	if (_keyGroupCapture) then
 		local key = GetConvertedKeyOrButton(input);
 		self:ApplyCapturedKeyToKeyGroup(_CreateKeyChordStringUsingMetaKeyState(key));
@@ -4894,9 +4894,10 @@ function DebindFrameMixin:BindMode_OnKeyDown(button, key)
 	-- 지우기가 아니라 전체 취소가 된다. 그래도 게임의 같은 모드와 같은 손버릇이 되는 편이
 	-- 우리만의 규칙을 하나 더 만드는 것보다 낫다. 되돌린 것을 되살릴 길은 없다.
 	--
-	-- **한 벌이 걸려 있는 동안에는 지우개가 아니다.** 그 갈래가 지우는 것은 커서 밑의 행인데,
-	-- 지금 커서 밑에 있는 것은 오버레이이고 그 아래 행은 대상도 아니다. 그리고 지울 것도 없다 -
-	-- 아직 아무것도 안 걸었으므로 ESC의 뜻은 그만두기 하나뿐이다.
+	-- **While a key group is armed it is not the eraser.** That branch erases the row under the
+	-- cursor, and what is under the cursor now is the overlay - the row beneath it is not the target
+	-- either. There is also nothing to erase: no key has been given yet, so Escape can only mean
+	-- stop.
 	if (key == "ESCAPE") then
 		local line = not _keyGroupCapture and GetHoveredLine();
 		local elementData = line and line:GetElementData();
@@ -5018,23 +5019,26 @@ end
 
 
 --------------------------------------------------------------------------------
--- 키 그룹째 키 주기
+-- Giving a whole key group one key
 --
--- 한 키에 조건으로 갈린 액션 여럿이 이 애드온의 정상 상태라, 키를 옮기는 일은 액션 하나가
--- 아니라 **한 벌**에 대한 일이다. 하나씩 옮기면 넷 중 하나를 빠뜨렸을 때 벌이 조용히 갈라지고,
--- 키 없이 도착한 벌에서는 보낸 사람의 순서까지 사라진다(`Profile.lua`의 `SetKeyForActions`).
+-- Several actions on one key, told apart by conditions, is this addon's ordinary state, so moving
+-- a key is a thing done to a **key group** rather than to an action. One at a time splits the group
+-- the moment one of four is missed, and for a group that arrived without a key it also loses the
+-- sender's ordering (`SetKeyForActions` in `Profile.lua`).
 --
--- 흐름은 셋이다: 메뉴에서 벌을 고르고 → 줄 키를 누르고 → 그 키가 이미 차 있으면 답한다.
+-- Three steps: pick the group from a menu -> press the key to give it -> answer if that key is
+-- already carrying something.
 --------------------------------------------------------------------------------
 
---- 액션 하나가 속한 벌과, 그 벌이 떠나는 키.
+--- The key group an action belongs to, and the key that group is leaving.
 ---
---- **벌은 왼쪽 열이 머리글 하나 밑에 그리는 것**, 즉 읽는 사람이 가리키고 있는 그것이다:
---- 같은 키에 걸린 전부이거나, 키 없이 온 것이면 같이 온 도착 그룹이다. `BuildKeyboardElements`가
---- 이 두 물음으로만 열을 가르므로 세 번째 경우가 없고, 자기가 안 그려진 벌에 속하는 행도 없다.
+--- **The group is what the left column draws under one heading**, which is the thing the reader is
+--- pointing at: everything on the same key, or - for something that arrived without one - the
+--- arrival group it came in with. `BuildKeyboardElements` splits that column by exactly those two
+--- questions, so there is no third case and no row belonging to a group it is not drawn under.
 ---
---- 키도 그룹도 없는 액션은 아무 벌도 아니다 - 지정 안 된 더미의 한 줄이고, 액션 하나에 키를
---- 거는 것은 지정 모드가 예전부터 하던 일이다.
+--- An action with neither a key nor a group is nobody's group: it is one row of the unbound pile,
+--- and giving one action a key is what the bind mode has always done.
 local function CollectKeyGroupForAction(action)
 	if (action == nil) then
 		return nil;
@@ -5048,15 +5052,16 @@ local function CollectKeyGroupForAction(action)
 	return nil;
 end
 
---- 벌을 하나 겨누고, 줄 키를 듣기 시작한다.
+--- Arms one key group and starts listening for the key it should get.
 ---
---- **대상은 모드보다 먼저 정해진다.** 평소의 지정 모드는 키를 누른 그 순간의 커서 밑 행을
---- 겨누는데, 여기서는 메뉴에서 벌을 고른 시점에 이미 정해져 있다 - 그래서 `_keyGroupCapture`를
---- 먼저 세우고 모드를 켠다(오버레이의 문장이 그 값을 읽는다).
+--- **The target is settled before the mode is.** The ordinary bind mode aims at whatever row is
+--- under the cursor at the instant a key is pressed; here it was decided when the group was picked
+--- from the menu, which is why `_keyGroupCapture` is set first and the mode turned on after - the
+--- overlay's sentence reads that value.
 ---
---- 모드의 나머지는 그대로 빌려 쓴다. 키보드/게임패드를 켜는 자리, 편집칸의 포커스를 거두는
---- 자리, 클릭을 up으로 맞추는 자리가 전부 `SetBindingMode`에 있고, 그 어느 것도 겨누는 것이
---- 행이냐 벌이냐로 달라지지 않는다.
+--- The rest of the mode is borrowed unchanged. Turning the keyboard and gamepad on, taking focus
+--- off an edit box, matching clicks to the up edge: all of it is in `SetBindingMode`, and none of it
+--- differs by whether a row or a group is being aimed at.
 function DebindFrameMixin:BeginKeyGroupCapture(actions, label)
 	if (actions == nil or #actions == 0) then
 		return;
@@ -5065,20 +5070,23 @@ function DebindFrameMixin:BeginKeyGroupCapture(actions, label)
 	self:SetBindingMode(true, self.OverviewPanel.BindModeButton);
 end
 
---- 다 쓰고 나서 한 번. 액션마다 부르면 벌 하나를 옮길 때 바인딩이 그 수만큼 올라간다.
+--- Once, after everything is written. Per action, moving one group would raise the bindings as many
+--- times as it has members.
 ---
---- `_importedOnly`를 끄는 자리도 여기다. 벌에 키를 주는 것은 곧 승인이라(`SetKeyForActions`)
---- 마지막 배지가 여기서 떨어질 수 있고, 그때 좁힘이 남아 있으면 아무것도 없는 두 목록으로
---- 끝난다 - `ApproveImportedActions`가 같은 이유로 같은 줄을 들고 있다.
+--- **`_importedOnly` is turned off here too.** Giving a group a key is the reader accepting it
+--- (`SetKeyForActions`), so the last badge can come off at this point, and leaving the narrowing on
+--- would end on two empty lists - `ApproveImportedActions` carries the same line for the same
+--- reason.
 ---
---- **그리고 벌이 어디로 갔는지 보여준다.** 키가 바뀌면 왼쪽 열에서 자리가 통째로 옮겨가는데
---- (그 열은 키로 묶어 정렬한다), 새 자리가 화면 밖이면 조작이 아무 일도 안 한 것처럼 보인다.
---- `SetActionKey`가 액션 하나에 하는 일과 같고, 여기서는 벌의 **첫 줄**이 그 대상이다 -
---- 발동 순서로 첫 줄이라 머리글 바로 아래이고, 거기가 보이면 벌이 보인다.
+--- **And the group is followed to where it went.** A changed key moves its whole place in the left
+--- column, which groups and sorts by key, and if the new place is off screen the operation looks
+--- like it did nothing. Same thing `SetActionKey` does for a single action; here the target is the
+--- group's **first row** - first in firing order, so it sits right under the heading, and seeing it
+--- is seeing the group.
 ---
---- 고르는 것과 스크롤이 둘 다 필요하다. 선택은 왼쪽 열이 자기 자리로 굴러가게 하고
---- (`RefreshKeyboard`가 `isCurrent`를 찾아간다) 강조로 어느 줄인지 짚어주며, 오른쪽 목록은
---- 그 열을 안 보므로 따로 굴려야 한다.
+--- Selecting and scrolling are both needed. Selecting rolls the left column to its own place
+--- (`RefreshKeyboard` seeks out `isCurrent`) and marks which row it is; the right list does not
+--- watch that column, so it is rolled separately.
 local function RebuildAfterKeyGroupChange(actions, key)
 	if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
 		_importedOnly = nil;
@@ -5109,12 +5117,13 @@ local function ApplyKeyGroupMove(actions, key, occupants, unbindOccupants)
 	RebuildAfterKeyGroupChange(actions, key);
 end
 
---- 차 있는 키에 벌을 주려 할 때 묻는 자리.
+--- Asked when the key that was pressed is already carrying something.
 ---
---- **숫자가 질문의 값이다.** 이 조작은 화면에 없는 것까지 손대는데(`CollectKeyGroupActions`는
---- 이 캐릭터의 열한 레이어를 훑고, [가져온 것만]이 켜져 있으면 이 키를 들고 있는 내 벌은
---- 통째로 숨어 있다), 그 대가를 갚는 것이 누르기 전에 화면에 서 있는 이 수다.
---- `ApproveAllImported`의 [N개 모두 받기]가 같은 처지에서 같은 답을 냈다.
+--- **The count is what the question is for.** This operation reaches past the screen -
+--- `CollectKeyGroupActions` walks the eleven layers this character has, and with [Only what came in]
+--- on, the reader's own group holding that key is hidden entirely - and the number standing there
+--- before the press is how that is paid for. `ApproveAllImported`'s [Accept all %d] answered the
+--- same way from the same position.
 local function ShowKeyGroupConflictDialog(actions, key, occupants, label)
 	StaticPopup_Show("DEBIND_KEY_GROUP_CONFLICT", nil, nil, {
 		actions = actions,
@@ -5124,11 +5133,12 @@ local function ShowKeyGroupConflictDialog(actions, key, occupants, label)
 	});
 end
 
---- 벌을 겨눈 채로 키가 눌렸다. 여기서 겨눔은 소진된다.
+--- A key was pressed with a group armed. The aim is spent here.
 ---
---- **모드부터 끈다.** 겨눔은 메뉴에서 한 번 고른 것이라 한 번 쓰면 끝인데, 모드를 켜둔 채로
---- 비우면 다음에 누르는 키가 말없이 커서 밑의 행으로 간다 - 사용자가 연 적 없는 지정 모드가
---- 열려 있는 셈이다. 그리고 질문이 뜬다면 그 위에서 키를 듣고 있으면 안 된다.
+--- **The mode goes off first.** The aim was chosen once from a menu, so it is used once; clearing
+--- it while the mode stayed on would send the next key silently to whatever row is under the cursor
+--- - a bind mode the reader never opened, standing open. And if the question comes up, nothing
+--- should be listening for keys over it.
 function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 	local capture = _keyGroupCapture;
 	if (not capture or key == nil) then
@@ -5136,8 +5146,9 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 	end
 	self:SetBindingMode(false);
 
-	-- 겨눈 벌 자신은 점유자가 아니다. 빼지 않으면 같은 키를 다시 준 사람에게 "F에 이미 3개"라고
-	-- 묻는데 그 셋이 지금 옮기는 바로 그 액션들이고, 덮어쓰기를 고르면 자기가 자기 키를 뺏는다.
+	-- The armed group is not its own occupant. Without subtracting it, someone giving a group the
+	-- key it already has would be asked "F already has 3" about the very actions being moved, and
+	-- picking overwrite would take their key from themselves.
 	local moving = {};
 	for _, action in ipairs(capture.actions) do
 		moving[action] = true;
@@ -5150,7 +5161,8 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 		end
 	end
 
-	-- **빈 키면 묻지 않는다.** 흔한 길이 여기다 - 받은 벌에 안 쓰던 키를 주는 것.
+	-- **A free key asks nothing.** This is the common path - giving a group that came in a key the
+	-- reader was not using.
 	if (#occupants == 0) then
 		ApplyKeyGroupMove(capture.actions, key, nil, false);
 		return;
@@ -5159,7 +5171,7 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 	ShowKeyGroupConflictDialog(capture.actions, key, occupants, capture.label);
 end
 
---- 왼쪽 열의 우클릭 메뉴에서 들어오는 입구. 벌을 모으고 겨눔을 세운다.
+--- The way in from the left column's right-click menu: collect the group and set the aim.
 function DebindUI.BeginKeyGroupCapture(action)
 	local actions, key, importGroup = CollectKeyGroupForAction(action);
 	if (actions == nil or #actions == 0) then
@@ -5168,7 +5180,8 @@ function DebindUI.BeginKeyGroupCapture(action)
 	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, importGroup));
 end
 
---- 이 액션으로 벌째 키를 줄 수 있나. 메뉴가 항목을 세울지 정할 때 묻는다.
+--- Can a whole key group be given a key from this action? Asked when the menu decides whether to
+--- stand the item up at all.
 function DebindUI.CanBeginKeyGroupCapture(action)
 	local actions = CollectKeyGroupForAction(action);
 	return actions ~= nil and #actions > 0;
