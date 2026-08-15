@@ -6,6 +6,11 @@
 > (`DefaultDestinationLayerID` 삭제, 2026-08-14)와 bring 모달(같은 날, 화면으로 확인함 08-15),
 > 그리고 **전송 포맷을 저장 구조 그대로**(08-15, 아직 화면으로는 안 봤다).
 >
+> **다만 포맷은 그 예외가 아니다. "전송 포맷 v1 — 실제로 나오는 모양"이 지금 나가는 모양이고,
+> 그것 하나만 보면 된다.** 한동안 그 자리에 옛 모양이 서 있고 진짜는 문서 뒤 ★ 절에 있었는데,
+> **일찍 멈춘 사람이 틀린 포맷을 들고 나가는 배치**였다. 세 번째 ★는 이제 그 모양을 **왜**
+> 골랐는지만 든다.
+>
 > 이슈 #6에서 나온 것과 그 뒤 대화에서 잡힌 것.
 >
 > **⚠ 임포트 설계가 한 번 뒤집혔다. "## 임포트 — 작업대를 접었다"부터 읽을 것.**
@@ -31,7 +36,8 @@
 > 이 문서의 `order`/`importOrder`/`importGroup`이 전부 그것을 우회하려고 생긴 것들이었고, 세 번째
 > ★에서 같이 걷어냈다.
 >
-> **읽는 차례:** 이어서 할 사람은 **"★" 세 절부터** 읽으면 된다. 배경이 필요하면
+> **읽는 차례:** 문자열을 읽고 쓰는 코드를 짤 사람은 **"전송 포맷 v1 — 실제로 나오는 모양"**
+> 하나면 된다. 이어서 설계를 할 사람은 **"★" 세 절부터**. 배경이 필요하면
 > "임포트 — 작업대를 접었다" → "키 없는 것들을 왼쪽 열 맨 아래에" → "안 정한 것".
 
 ## 구현된 것 (2026-08-13) — 익스포트, **별개 애드온으로**
@@ -141,66 +147,68 @@ DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
 
 ### 전송 포맷 v1 — 실제로 나오는 모양
 
-**임포트를 짜는 사람이 볼 것은 이것이다.** 아래는 액션 타입 열다섯 개를 전부 넣고 뽑아
-`DecodeExportString`으로 되돌린 실물이다(문자열 769자, 그룹 17개).
+**임포트를 짜는 사람이 볼 것은 이것이다.** 아래는 지금 코드가 내는 실물이다 — 손으로 쓴 것이
+아니라 프로필을 세워 `BuildExportPayload`를 돌려 찍었다.
 
-> ⚠ **아래는 옛 모양이다. 코드는 더 이상 이걸 안 낸다** (2026-08-15에 갈아엎었다) — 그룹 층과
-> `group.id`와 `order`와 액션의 `layer` 서술이 전부 없어졌다. **지금 모양은 아래 세 번째 ★ 절의
-> "새 모양 — 저장 구조 그대로"에 있고, 임포트를 짜는 사람은 그쪽을 봐야 한다.** 이 블록은 그때까지의
-> 실물로 남긴다.
->
-> (한 번 더 바뀐 적도 있다 — 2026-08-14에 `layer`가 그룹에서 액션으로 내려갔고 그룹이 키
-> 하나가 됐다. 아래 모양은 그 뒤의 것이다.)
+> ⚠ **v1 안에서 두 번 바뀌었고 번호는 안 올렸다** (2026-08-14에 `layer`가 액션으로 내려갔고,
+> 08-15에 그룹 층이 없어졌다). **손에 든 옛 문자열은 `v = 1`이 맞아떨어져 디코드는 되고 뜻만
+> 어긋난다** — 마이그레이션도 방어 코드도 안 짓고 소유자가 지운다. 왜 번호를 안 올렸고 언제 이
+> 예외가 닫히는지는 아래 "★ 전송 포맷의 근거가 무너졌다"의 머리말에 있다.
 
 ```lua
 {
-  v = 1,                       -- 스키마 버전. 다르면 DecodeExportString이 거절한다
-  class = "DRUID",             -- 보내는 쪽 클래스. scope="class" 레이어를 읽으려면 필요
-  states = {                   -- 참조된 것만. 하나도 없으면 이 필드 자체가 없다
+  v = 1,                        -- 스키마 버전. 다르면 DecodeExportString이 거절한다
+  class = "DRUID",              -- 보내는 쪽 클래스. shared.classes를 읽으려면 필요
+  states = {                    -- 참조된 것만. 하나도 없으면 이 필드 자체가 없다
     ["$state3"] = { mode = 0, initialValue = true, displayMessage = "Burst" },
   },
-  groups = {
-    -- 한 키가 한 그룹이다. 레이어를 넘어도 갈리지 않는다
-    { id = 11, key = "F",
-      actions = {
-        { type = "spell", value = 8921, forms = 6, order = 1,
-          layer = { scope = "class", class = "DRUID", spec = 0 } },
-        { type = "spell", value = 774, combat = true, priority = 2, order = 2,
-          checkedUnits = { target = 1 }, layer = { scope = "general" } },
-        { type = "spell", value = 8936, ["$state3"] = true, order = 3,
-          layer = { scope = "general" } },
-      } },
-    { id = 13, key = "SHIFT-G",
-      actions = {
-        { type = "macro", value = "Kick+Pet", order = 1, layer = { scope = "general" },
-          macro = { name = "Kick+Pet", body = "/cast Kick\n/petattack",
-                    icon = 132219, scope = "account" } },
-      } },
-    { id = 10, key = "CTRL-9",
-      actions = { { type = "setstate", order = 1, layer = { scope = "general" },
-                    setstate = { mode = "toggle", state = "$state3" } } } },
-    { key = nil,                                    -- 키 없는 액션은 홀로 그룹, id도 없다
-      actions = { { type = "spell", value = 5176, order = 1,
-                    layer = { scope = "general" } } } },
+
+  -- 여기서부터는 **저장 구조 그대로**다. 경로가 곧 주소이고, 서술 테이블이 없다.
+  shared = {
+    GENERAL = {
+      { type = "spell", value = 774, key = "F", seq = 3, combat = true, priority = 2,
+        checkedUnits = { target = {} } },
+      { type = "spell", value = 8936, key = "F", seq = 7, ["$state3"] = true },
+      { type = "setstate", key = "CTRL-9", seq = 1,
+        setstate = { mode = "toggle", state = "$state3" } },
+      { type = "macro", value = "Kick+Pet", key = "SHIFT-G", seq = 1,
+        macro = { name = "Kick+Pet", body = "/cast Kick\n/petattack",
+                  icon = 132219, scope = "account" } },
+      { type = "spell", value = 5176 },           -- 키가 없다 = 아무 그룹에도 안 속한다
+    },
+    classes = {
+      DRUID = {
+        [0] = { { type = "spell", value = 8921, key = "F", seq = 2, forms = 6 } },
+      },
+    },
+  },
+  char = {                      -- guid를 뗀다. "이 캐릭터"라는 뜻
+    [0] = { { type = "spell", value = 22812, key = "SHIFT-G", seq = 1 } },
   },
 }
 ```
 
 읽는 쪽이 알아야 할 것:
 
-- **`layer`는 액션에 있고 그룹에는 없다.** `layer.scope`는 셋뿐이다 — `"general"` /
-  `"class"`(+`class`, `spec`) / `"character"`(+`spec`). `spec = 0`은 "그 클래스 전체". 레이어
-  **번호는 안 나간다**(2~6이 "내 클래스"라 안 통한다).
-- **`key`는 그룹에 있고 액션에는 없다.** `seq`도 없다. 그룹 안 순서는 `order`가 말한다 —
-  1..n이고, 레이어를 넘는 그룹에서도 이어진다.
-- **`key = nil`인 그룹 둘이 서로 다른 뜻일 수 있다** — 원래 키가 없던 액션(액션 1개)이거나,
-  `stripKeys`로 키를 뗀 묶음(액션 여럿)이거나. 액션 수 말고 구별할 방법이 없다.
+- **경로가 주소다.** `shared.GENERAL` / `shared.classes[직업][특성]` / `char[특성]`, 즉 프로필이
+  저장하는 그 모양이다. 서술 테이블도 레이어 **번호**도 안 나간다(2~6이 "내 클래스"라 안 통한다).
+  `spec = 0`은 "그 직업 전체", 상한은 `MAX_SPEC`. `char`에서 guid를 뗀 것이 유일한 번역이다.
+- **`key`가 액션에 있고, 그것이 곧 그룹이다.** 같은 `key`면 한 묶음이고, 그것을 선언하는 층이
+  없다. 한 키가 레이어 둘에 걸쳐도 갈리지 않는다 — 주소가 둘일 뿐이다.
+- **키를 빼고 보내면 문자열 대신 숫자가 실린다.** `type(key) == "number"` 하나로 갈린다.
+  받는 쪽은 그 번호를 자기 프로필 안에서 다시 매긴다(문자열 안에서만 유일하므로).
+  **원래 키가 없던 액션은 키 없이 나간다** — 아무와도 같은 그룹이 아니라는 뜻이다.
+- **`seq`는 보낸 쪽 번호 그대로다.** 저장할 값이 아니라 **이 문자열 안에서만 뜻이 있는 차례**이고,
+  받는 쪽이 `MAGIC + seq`를 거쳐 자기 번호로 바꾼다. 배열 차례에 안 기대는 이유는 그것이
+  암묵적이어서다 — 디코드부터 배치까지 아무도 다시 담지 않아야 성립한다.
 - **`macro`가 붙은 것만 스냅샷이 있다.** `type`/`value`는 그대로라 삼중 일치(이름·스코프·내용)를
   볼 수 있다. 송신 시점에 이미 댕글링이면 `macro`가 없다.
 - **`setstate`가 붙으면 `value`는 없다.** 비트팩 대신 이름 축이다. `setcustom`은 손 안 댄
   `value` 그대로다(커스텀 **대상**이라 인덱스가 구조적).
 - 조건은 걸린 것만 실린다. 안 건드린 축은 필드 자체가 없다.
-- 액션 필드 명단은 `Export.lua`의 `ACTION_FIELDS`이고 `KEYS_TO_SAVE`와 동기화가 강제된다.
+- **배지 달린 액션은 안 나간다.** 아직 받아들이지 않은 남의 것이라 보내는 사람의 세팅이 아니다.
+- 액션 필드 명단은 `Export.lua`의 `ACTION_FIELDS`이고 `KEYS_TO_SAVE`와 동기화가 강제된다
+  (`imported` 하나만 뺀 전부).
 
 `DecodeExportString(str)`은 페이로드 또는 `nil, 사유`를 준다. 사유:
 `NOT_A_STRING` / `NOT_A_DEBIND_STRING` / `UNSUPPORTED_ENVELOPE` / `LIBS_MISSING` /
@@ -1698,51 +1706,12 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 **경로가 곧 주소다.** 서술 테이블이 없어지고 `StoredActionsAt(scope, class, spec)`이 짚는 그
 모양이 그대로 선다.
 
-```lua
-{
-  v = 1,                        -- 첫 배포 전까지 1 고정
-  class = "DRUID",              -- 보낸 사람. 경로에서 파생 가능하지만 서랍이 쓴다
-  exportedAt = 1755230000,      -- 에폭. 타임존 없음, 그리는 쪽이 푼다
-  name = nil,                   -- 선택. 지금은 익스포트가 언제나 비운다
+> **실물과 읽는 쪽 주의사항은 이 문서 앞의 "전송 포맷 v1 — 실제로 나오는 모양"에 있다.**
+> 여기 한 벌 더 두지 않는다 — 그 절이 임포트를 짜는 사람이 보는 자리이고, 지금 모양이 문서
+> 뒤쪽에 숨어 있던 것이 이 절이 만든 문제였다. 아래는 그 모양을 **왜** 고르게 됐는지다.
 
-  states = {                    -- 참조된 커스텀 상태만. 지금과 같다
-    ["$state3"] = { mode = 0, initialValue = true, displayMessage = "Burst" },
-  },
-
-  shared = {
-    GENERAL = {
-      { type = "spell", value = 774,  key = "F", seq = 3, combat = true, priority = 2,
-        checkedUnits = { target = 1 } },
-      { type = "spell", value = 8936, key = "F", seq = 7, ["$state3"] = true },
-      { type = "setstate", key = "CTRL-9", seq = 1,
-        setstate = { mode = "toggle", state = "$state3" } },
-    },
-    classes = {
-      DRUID = {
-        [0] = { { type = "spell", value = 8921, key = "F", seq = 2, forms = 6 } },
-        [2] = { ... },
-      },
-    },
-  },
-  char = {                      -- guid를 뗀다. "이 캐릭터"라는 뜻
-    [0] = { ... },
-    [3] = { ... },
-  },
-}
-```
-
-읽는 쪽이 알아야 할 것:
-
-- **`key`가 액션에 있고, 그것이 곧 그룹이다.** 같은 `key`면 한 묶음. 그룹 층도 `id`도 없다.
-  **키를 빼고 보내면 문자열 대신 숫자**가 실린다(아래 절) — 타입이 실키와 합성 키를 가른다.
-- **`seq`는 보낸 쪽 번호 그대로다.** 저장할 값이 아니라 **이 문자열 안에서만 뜻이 있는 차례**이고,
-  bring이 `MAGIC + seq`를 거쳐 우리 번호로 바꾼다(위 절). 배열 차례에 기대지 않는 이유는 그것이
-  암묵적이어서다 — 디코드부터 배치까지 아무도 다시 담지 않아야 성립하는데, 그 조건은 나중에
-  조용히 깨진다.
-- **`layer` 서술이 없다.** 경로가 말한다. `spec = 0`은 "그 직업 전체", 상한은 `MAX_SPEC`.
-- `macro` 스냅샷과 `setstate` 이름 축은 **그대로 남는다.** 그 둘은 중첩과 무관하게 받는 쪽에서
-  "성공해버리는" 참조를 막는 장치다.
-- 조건은 걸린 것만 실린다. 안 건드린 축은 필드 자체가 없다.
+`exportedAt`과 `name`은 이 결정에 안 딸린다 — 아래 "전송 포맷에 메타데이터가 없다"의 것이고,
+아직 안 실린다.
 
 ### 키를 빼고 보낼 때 — 합성 키는 **숫자**다
 

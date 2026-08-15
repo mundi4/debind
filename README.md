@@ -2,7 +2,7 @@
 
 **Set a key once, for every character you have. Override it on one class, one spec, or a single alt — and only that key changes.**
 
-A key in Debind goes straight to a spell, an item, or a macro — no action bar slot involved — and the layers decide which characters it covers. Whatever you already bound in WoW's own keybinding window stays exactly where it is.
+A key in Debind goes straight to a spell, an item, or a macro — no action bar slot involved — and the layers decide which characters it covers. Whatever you already bound in WoW's own keybinding window stays exactly where it is, and stays there if you ever remove Debind.
 
 ## The problem
 
@@ -156,7 +156,7 @@ Unit frame addons that support Clique register with Debind the same way they reg
 
 ## A few things worth knowing
 
-**Uninstalling leaves nothing behind.** Debind never writes to your WoW keybindings and never changes a CVar. Pull it out and you're exactly where you were — nothing to undo, nothing to hunt down in the console afterwards.
+**It writes nowhere but its own settings file.** Not your keybindings, not a CVar. Pull it out and there's nothing to undo and nothing to hunt down in the console afterwards.
 
 **You don't have to move everything into it.** Movement, the UI toggles, screenshot, bags — none of that has ever needed to differ by character, and mine are still in WoW's own window. The keys worth moving are the ones you'd otherwise keep in sync across characters by hand, or the ones you want behaving differently depending on what's going on. And if one character really does want a different bag key, that one key goes in that character's layer and no other character changes.
 
