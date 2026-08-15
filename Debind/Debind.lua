@@ -156,7 +156,12 @@ do
 				-- `IsInactiveAction` reads to grey a row out. Up here a quarantined action gets
 				-- exactly the treatment a keyless one already gets - drawn, greyed, reaching
 				-- nothing - and that costs no new drawing code.
-				if (action.key and not action.imported) then
+				-- **A synthetic key is not a key either, and it is checked apart from the badge.**
+				-- It stands in for one the reader has not chosen yet (`NextSyntheticKey`), and
+				-- nothing in the game can be bound to a number. Folding it into the badge test
+				-- would hold only until they accept the set -- the badge comes off then and the
+				-- key does not, and what is left is a record wired to nothing.
+				if (action.key and type(action.key) ~= "number" and not action.imported) then
 					local binding = DebindPrivate.GetBindingInfoForAction(action, true);
 					BindingInfoToActionMap[binding] = action;
 

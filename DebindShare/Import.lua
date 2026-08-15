@@ -59,32 +59,23 @@ end
 
 --- A wire action turned into a profile action.
 ---
---- Fields arrive already filtered by the export's whitelist, so they are copied as they come. What
---- needs undoing is the two things the format deliberately said differently, plus the macro
---- decision above.
+--- **Filtered through the same whitelist the export copies out by** (`ACTION_FIELDS`). This used to
+--- be a blacklist naming the format's own fields, and being the opposite of the other end is what
+--- made it a hazard: a wire field nobody had thought to name rode straight into the profile, and
+--- avoiding that was the last reason left for the ranking to travel under a name other than its own.
+--- With both ends reading one list there is no name to dodge (`devdocs/building-export-import.md`).
+---
+--- `macro` and `setstate` stay out by being what they are -- the format's words, not the profile's.
+--- Both are read below and neither travels further; `CleanUpDB` would drop them anyway, but leaving
+--- them for it to find would mean the action is briefly a shape nothing else expects.
 local function BuildAction(source)
     local action = {};
+    local allowed = DebindShare.ACTION_FIELDS;
     for k, v in pairs(source) do
-        -- `macro`, `setstate`, `order` and `layer` are the format's, not the profile's. They are
-        -- read by the caller or below and do not travel any further; `CleanUpDB` would drop them
-        -- anyway, but leaving them for it to find would mean the action is briefly a shape nothing
-        -- else expects.
-        --
-        -- `layer` matters more than the others here: it is the sender's descriptor **table**,
-        -- shared between the actions of one layer, so copying it in would put one table inside
-        -- several profile actions at once.
-        --
-        -- **This loop is a blacklist while the export side is a whitelist** (`ACTION_FIELDS`), so a
-        -- wire field nobody names here rides straight into the profile. That asymmetry is the thing
-        -- to know about this loop.
-        --
-        -- It is **not** why the ranking is sent as `order` rather than `seq`. That reason used to be
-        -- written here -- "under that name it would collide with the numbers the receiving layer has
-        -- handed out, with nothing in the way" -- and something is in the way: `PlaceImportedActions`
-        -- is the only path that puts these in the profile, and it overwrites `seq` on every one
-        -- with an arrival number before renumbering the group. A sender's number does not survive
-        -- landing. `devdocs/building-export-import.md`.
-        if (k ~= "macro" and k ~= "setstate" and k ~= "order" and k ~= "layer") then
+        -- `$`-prefixed keys pass unlisted, the same escape hatch the export copies out through
+        -- (`CopyFields`) and `CleanUpDB` keeps: a custom state condition is stored under its own
+        -- name, and the redesign turns those into arbitrary names.
+        if (allowed[k] or strsub(k, 1, 1) == "$") then
             if (luatype(v) == "table") then
                 action[k] = CopyTable(v);
             else
@@ -119,16 +110,6 @@ local function BuildAction(source)
         end
     end
 
-    -- **Where the sender's ordering ends up.** `seq` is not on the wire and must not be: it is
-    -- scoped to one key group and the receiving group has its own numbers. `order` is the
-    -- group-local 1..n, and it stays on the action as `importOrder` until the group is given a key
-    -- -- at which point `seq` is issued in this order and all three import fields go together.
-    --
-    -- Not folded into `seq` here, because `seq` means "which of this key's actions goes first" and
-    -- these have no key. `PlaceInKeyGroup` keeps that invariant; this field is what makes keeping
-    -- it affordable.
-    action.importOrder = source.order;
-
     return action;
 end
 
@@ -137,90 +118,107 @@ end
 -- The whole batch
 -- ---------------------------------------------------------------------------------------------
 
+--- Turns the keys a string arrived with into the keys they will be stored under.
+---
+--- **A synthetic key is renumbered, a real one is kept.** The number in the string is unique inside
+--- that string and nowhere else, so two strings waiting at once would both open at 1 and the reader
+--- would be shown two unrelated sets under one heading. The reach is the whole store rather than
+--- the layers this session can see: reusing a number that is alive in a class the reader has not
+--- logged puts the collision a login away instead of removing it.
+---
+--- **`stripKeys` renames instead of removing.** Dropping the key would leave a conditional binding
+--- as a pile of loose actions, and a wrong guess at which of them belonged together is silent --
+--- two that were meant to share a key end up on two, and both fire. Renaming keeps the set intact
+--- and says, in the one way the profile can hold, that its key is still to be decided.
+---
+--- Asked for lazily, and once: nothing is written until `PlaceImportedActions`, so asking again
+--- mid-walk would answer the same thing every time; and a string that needs no synthetic key at all
+--- does not pay for the walk.
+local function KeyMapper(stripKeys)
+    local mapped, nextKey = {}, nil;
+
+    return function(key)
+        local keyType = luatype(key);
+        if (keyType ~= "string" and keyType ~= "number") then
+            -- No key, or something a key cannot be. Either way it joins no group.
+            return nil;
+        end
+        if (keyType == "string" and not stripKeys) then
+            return key;
+        end
+
+        local synthetic = mapped[key];
+        if (not synthetic) then
+            nextKey = nextKey or DebindPrivate.NextSyntheticKey();
+            synthetic, nextKey = nextKey, nextKey + 1;
+            mapped[key] = synthetic;
+        end
+        return synthetic;
+    end
+end
+
 --- Where each action of `payload` lands, and what it becomes.
 ---
 --- Returns a flat list of `{ scope, class, spec, action }`. **Nothing is written here** - building
 --- the list and putting it in the profile are separate so the caller can find out that a payload
 --- has nowhere to go before any of it has gone there.
 ---
---- **The address is per action, not per group.** A group is a key and a key crosses layers
---- (`Export.lua`), so one group routinely lands in two places while staying one group. It is also
---- a **storage** address rather than a layer ID: layer IDs are this character's view of the
---- profile, and a mage's layer has no ID in a druid's session at all (`ImportAddress`).
+--- **The address is the path it was found at**, and it is a **storage** address rather than a layer
+--- ID: layer IDs are this character's view of the profile, and a mage's layer has no ID in a
+--- druid's session at all (`ImportAddress`). A key group is not an address and never was -- a key
+--- crosses layers, so one group routinely lands in two places while staying one group.
 ---
---- Actions this version has no address for are left out, and the count comes back so the caller
---- can say so. Two things reach that: a scope a newer schema invented, and a character-scoped spec
---- this character does not have.
+--- Actions this version has no address for are left out, and the count comes back so the caller can
+--- say so. What reaches that: a class name no client has, a spec number past the end of the store,
+--- and a character-scoped spec this character does not have.
 ---
 --- `options.lines` is a set of `IMPORT_LINES` entries to take, or nil for all of them. A line the
 --- reader unticked is **not** counted as skipped -- they said no to it, which is not the same as
 --- this version having nowhere to put it.
 ---
---- `options.stripKeys` drops every key on the way in, the mirror of the export's own option. What
---- quarantine promises is that nothing changes until the reader accepts; this promises that their
---- keys are not touched even then, which is a different thing and an ordinary thing to want.
----
---- **The grouping survives it.** Dropping the key while keeping the set is the entire point: a key
---- split across conditional actions still has to arrive as one thing to give a key to. Only `key`
---- goes - `importGroup` and `importOrder` are untouched.
+--- `options.stripKeys` is the mirror of the export's own option. What quarantine promises is that
+--- nothing changes until the reader accepts; this promises that their keys are not touched even
+--- then, which is a different thing and an ordinary thing to want.
 function DebindShare.PlanImport(payload, batchID, options)
     local placements, skipped = {}, 0;
-    local stripKeys = options and options.stripKeys;
     local lines = options and options.lines;
+    local MapKey = KeyMapper(options and options.stripKeys);
 
-    -- **The payload's `id` is not the number that gets stored.** It is unique inside its own
-    -- string and nowhere else, so two strings waiting at once would both carry a group 1. Numbers
-    -- are taken from the receiving profile instead, once here rather than per group: nothing is
-    -- written until `PlaceImportedActions`, so asking again mid-loop would answer the same thing
-    -- every time.
-    local nextGroupID = DebindPrivate.NextImportGroupID();
+    DebindShare.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
+        -- **Asked for an address first, and the reader's answer second.** Every action with nowhere
+        -- to go is counted, whatever the filter says: the lines are built out of what can land
+        -- (`CollectImportLines`), so an unplaceable one was never offered and cannot have been
+        -- turned down. Reading the filter first made those vanish silently - the window said
+        -- "brought in 2" and never mentioned the five that did not fit.
+        local scope, class, spec = DebindShare.ImportAddress(listScope, listClass, listSpec);
+        if (not scope) then
+            skipped = skipped + #list;
+            return;
+        end
 
-    for _, group in ipairs(payload.groups or {}) do
-        -- **A group with no `id` was never a group.** The export gives identity only to actions
-        -- that were on a key together (`Export.lua`); one the sender built and never bound arrives
-        -- as a group of one with nothing to hold, because the format is made of groups. Numbering
-        -- it here would head it in the overview as a set whose key was withheld, and ask the reader
-        -- what key something the sender does not use deserves.
-        --
-        -- Taken on the first action that actually lands, so a group the reader unticked or this
-        -- version cannot place does not spend a number on the way past.
-        local groupID;
-
-        for _, source in ipairs(group.actions or {}) do
-            -- **Asked for an address first, and the reader's answer second.** Every action with
-            -- nowhere to go is counted, whatever the filter says: the lines are built out of what
-            -- can land (`CollectImportLines`), so an unplaceable one was never offered and cannot
-            -- have been turned down. Reading the filter first made those vanish silently - the
-            -- window said "brought in 2" and never mentioned the five that did not fit.
-            local scope, class, spec = DebindShare.ImportAddress(source.layer);
-            if (not scope) then
-                skipped = skipped + 1;
-            elseif (lines) then
-                local line = DebindShare.ImportLineFor(source.layer);
-                if (not (line and lines[line])) then
-                    -- Offered and unticked. That is an answer, not a failure, so it is not counted.
-                    scope = nil;
-                end
-            end
-
-            if (scope) then
-                if (group.id ~= nil and not groupID) then
-                    groupID = nextGroupID;
-                    nextGroupID = nextGroupID + 1;
-                end
-
-                local action = BuildAction(source);
-                -- **The key comes from the group**, which is where the format keeps it: one group
-                -- is one key, and that is what has to stay together.
-                action.key = (not stripKeys) and group.key or nil;
-                action.imported = batchID;
-                action.importGroup = groupID;
-                placements[#placements + 1] = {
-                    scope = scope, class = class, spec = spec, action = action,
-                };
+        if (lines) then
+            local line = DebindShare.ImportLineFor(listScope, listSpec);
+            if (not (line and lines[line])) then
+                -- Offered and unticked. That is an answer, not a failure, so it is not counted.
+                return;
             end
         end
-    end
+
+        for _, source in ipairs(list) do
+            local action = BuildAction(source);
+            action.key = MapKey(action.key);
+            -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held here
+            -- as well so a hand-made string cannot walk one in: a number is a place among the
+            -- actions sharing a key, and there is no key to be a place in.
+            if (action.key == nil) then
+                action.seq = nil;
+            end
+            action.imported = batchID;
+            placements[#placements + 1] = {
+                scope = scope, class = class, spec = spec, action = action,
+            };
+        end
+    end);
 
     return placements, skipped;
 end

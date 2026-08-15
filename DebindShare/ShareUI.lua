@@ -144,7 +144,7 @@ function DebindShareRowMixin:Init(elementData)
 
     self.Name:SetText(name or "");
     DebindUI.SetActionIcon(self.Icon, icon);
-    self.Key:SetText(action.key and GetBindingText(action.key) or "");
+    self.Key:SetText(action.key and DebindPrivate.GetKeyDisplayText(action.key) or "");
 
     -- The line marks where one key's group ends and the next begins. The first row under a layer
     -- gets none: the layer's own divider is already the line there, and two rules on top of each
@@ -170,7 +170,7 @@ function DebindShareRowMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, name or "");
     if (action.key) then
-        GameTooltip_AddHighlightLine(GameTooltip, GetBindingText(action.key));
+        GameTooltip_AddHighlightLine(GameTooltip, DebindPrivate.GetKeyDisplayText(action.key));
     else
         GameTooltip_AddNormalLine(GameTooltip, LLL["EXPORT_ROW_NO_KEY"]);
     end

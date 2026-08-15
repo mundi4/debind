@@ -306,7 +306,22 @@ do
     --- 두 키 문자열("SHIFT-F" 등)의 표시 순서를 비교한다.
     --- 실제 키 먼저(SORT_KEYS 순, 모르는 키는 사전순으로 뒤), 같으면 수식키가 적은 쪽,
     --- 그것도 같으면 수식키를 앞에서부터 비교.
+    ---
+    --- **A number is a key whose real one has not been decided yet** and it sorts after every real
+    --- key, in the slot the unbound pile sits in (`devdocs/building-export-import.md`). It has no
+    --- modifiers and no key name to rank, so nothing below this could say anything about it -- and
+    --- comparing a number against a string there is what raises **inside `table.sort`**, which
+    --- leaves the column half drawn.
     function DebindPrivate.CompareKeys(lhs, rhs)
+        local lhsSynthetic = type(lhs) == "number";
+        local rhsSynthetic = type(rhs) == "number";
+        if (lhsSynthetic or rhsSynthetic) then
+            if (lhsSynthetic and rhsSynthetic) then
+                return lhs < rhs;
+            end
+            return rhsSynthetic;
+        end
+
         lhs, rhs = ParseKey(lhs), ParseKey(rhs);
 
         if (lhs.lastKey ~= rhs.lastKey) then

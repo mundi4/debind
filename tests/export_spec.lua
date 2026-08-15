@@ -88,20 +88,49 @@ return function(DebindPrivate, DebindShare)
         return out;
     end
 
-    local function CountActions(payload)
-        local n = 0;
-        for _, group in ipairs(payload.groups) do
-            n = n + #group.actions;
-        end
-        return n;
-    end
-
-    local function FindGroup(payload, key)
-        for _, group in ipairs(payload.groups) do
-            if (group.key == key) then
-                return group;
+    --- Every action in the payload, whatever layer it is under. The nesting **is** the address
+    --- now, so walking it is what a reader has to do too.
+    local function AllActions(payload)
+        local out = {};
+        local function Take(list)
+            for _, action in ipairs(list or {}) do
+                out[#out + 1] = action;
             end
         end
+        local function TakeSpecTable(specTbl)
+            for _, list in pairs(specTbl or {}) do
+                Take(list);
+            end
+        end
+
+        Take(payload.shared and payload.shared.GENERAL);
+        for _, classTbl in pairs(payload.shared and payload.shared.classes or {}) do
+            TakeSpecTable(classTbl);
+        end
+        TakeSpecTable(payload.char);
+        return out;
+    end
+
+    local function CountActions(payload)
+        return #AllActions(payload);
+    end
+
+    --- One key group: everything sharing a key, in the order the payload lists it.
+    local function GroupFor(payload, key)
+        local out = {};
+        for _, action in ipairs(AllActions(payload)) do
+            if (action.key == key) then
+                out[#out + 1] = action;
+            end
+        end
+        return out;
+    end
+
+    --- The one action on `key`, so a test that means to look at a single action says so.
+    local function OneOn(payload, key)
+        local group = GroupFor(payload, key);
+        check(#group == 1, "액션 수 " .. #group);
+        return group[1];
     end
 
     ---------------------------------------------------------------------------
@@ -118,9 +147,8 @@ return function(DebindPrivate, DebindShare)
         });
 
         local payload = DebindShare.BuildExportPayload();
-        check(#payload.groups == 2, "그룹 수 " .. #payload.groups);
-        check(#FindGroup(payload, "F").actions == 2, "F 그룹 크기");
-        check(#FindGroup(payload, "G").actions == 1, "G 그룹 크기");
+        check(#GroupFor(payload, "F") == 2, "F 그룹 크기");
+        check(#GroupFor(payload, "G") == 1, "G 그룹 크기");
     end);
 
     -- **A group is a key, and a key crosses layers.** It used to be one group per (layer, key), and
@@ -128,8 +156,8 @@ return function(DebindPrivate, DebindShare)
     -- reader is handed two headings for one design, gives them two keys, and both fire. Nothing in
     -- the string by then could have told them otherwise.
     --
-    -- The layer moves down onto the action instead, which is the only place that can still say
-    -- where each half lived.
+    -- Nothing declares the grouping now. The two halves sit under two addresses and are one group
+    -- because they carry one key.
     test("같은 키면 레이어가 달라도 그룹 하나", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F" } },
@@ -137,17 +165,12 @@ return function(DebindPrivate, DebindShare)
         });
 
         local payload = DebindShare.BuildExportPayload();
-        check(#payload.groups == 1, "그룹 수 " .. #payload.groups);
-
-        local actions = payload.groups[1].actions;
-        check(#actions == 2, "액션 수 " .. #actions);
-        -- Narrowest first, which is the order the profile fires them in.
-        check(actions[1].layer.scope == "class", "1번 레이어 " .. actions[1].layer.scope);
-        check(actions[2].layer.scope == "general", "2번 레이어 " .. actions[2].layer.scope);
-        check(actions[1].order == 1 and actions[2].order == 2, "순서가 레이어를 안 넘었다");
+        check(#GroupFor(payload, "F") == 2, "그룹이 갈렸다");
+        check(#payload.shared.GENERAL == 1, "일반 자리");
+        check(#payload.shared.classes[CLASS][0] == 1, "직업 공용 자리");
     end);
 
-    test("키 없는 액션은 각자 그룹", function()
+    test("키 없는 액션은 키 없이 나간다", function()
         ResetProfile({
             general = {
                 { type = Constants.SPELL, value = 1 },
@@ -155,12 +178,17 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local payload = DebindShare.BuildExportPayload();
-        check(#payload.groups == 2, "그룹 수 " .. #payload.groups);
-        check(payload.groups[1].key == nil and payload.groups[2].key == nil, "키가 없어야 한다");
+        local actions = AllActions(DebindShare.BuildExportPayload());
+        check(#actions == 2, "액션 수 " .. #actions);
+        for _, action in ipairs(actions) do
+            check(action.key == nil, "없던 키가 생겼다: " .. tostring(action.key));
+        end
     end);
 
-    test("그룹 안 순서는 seq 순", function()
+    -- **The ranking travels as a value, not as a position.** Relying on the array would mean the
+    -- order survives only as long as nobody between decoding and placing rebuilds the list, and
+    -- that is the kind of condition that breaks quietly later.
+    test("그룹 안 차례는 seq가 말한다", function()
         ResetProfile({
             general = {
                 { type = Constants.SPELL, value = 10, key = "F", seq = 20 },
@@ -168,12 +196,14 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local actions = FindGroup(DebindShare.BuildExportPayload(), "F").actions;
-        check(actions[1].value == 20 and actions[2].value == 10,
-            "seq 작은 쪽이 먼저: " .. actions[1].value);
+        local group = GroupFor(DebindShare.BuildExportPayload(), "F");
+        for _, action in ipairs(group) do
+            check(action.seq == (action.value == 10 and 20 or 10),
+                "seq가 안 실렸다: " .. tostring(action.seq));
+        end
     end);
 
-    test("키 순서가 두 번 부르면 같다", function()
+    test("같은 프로필은 두 번 불러도 같은 문자열", function()
         ResetProfile({
             general = {
                 { type = Constants.SPELL, value = 1, key = "SHIFT-F" },
@@ -182,13 +212,12 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local first = DebindShare.BuildExportPayload();
-        local second = DebindShare.BuildExportPayload();
-        for i = 1, #first.groups do
-            check(first.groups[i].key == second.groups[i].key, "자리 " .. i .. "이 흔들린다");
+        local first = AllActions(DebindShare.BuildExportPayload());
+        local second = AllActions(DebindShare.BuildExportPayload());
+        check(#first == #second, "액션 수가 흔들린다");
+        for i = 1, #first do
+            check(first[i].value == second[i].value, "자리 " .. i .. "이 흔들린다");
         end
-        -- And it really is `CompareKeys` order, not storage order.
-        check(first.groups[1].key == "F", "첫 키 " .. tostring(first.groups[1].key));
     end);
 
     ---------------------------------------------------------------------------
@@ -206,9 +235,13 @@ return function(DebindPrivate, DebindShare)
         local stored = LayerActions(1);
         local payload = DebindShare.BuildExportPayload({ [stored[1]] = true });
         check(CountActions(payload) == 1, "액션 수 " .. CountActions(payload));
-        check(payload.groups[1].key == "F", "남은 키");
+        check(AllActions(payload)[1].key == "F", "남은 키");
     end);
 
+    -- **The set is what has to survive**, not the key. A conditional binding is several actions
+    -- that only mean something together, so dropping the key outright would hand the reader a loose
+    -- pile they cannot put back - and a wrong guess is silent, since two actions meant to share a
+    -- key end up on two and both fire.
     test("키를 빼도 묶음은 살아남는다", function()
         ResetProfile({
             general = {
@@ -219,27 +252,50 @@ return function(DebindPrivate, DebindShare)
         });
 
         local payload = DebindShare.BuildExportPayload(nil, { stripKeys = true });
-        check(#payload.groups == 2, "그룹 수 " .. #payload.groups);
-        for _, group in ipairs(payload.groups) do
-            check(group.key == nil, "키가 남아 있다");
-            check(group.id ~= nil, "id가 없으면 묶음이 아니다");
+        local keys = {};
+        for _, action in ipairs(AllActions(payload)) do
+            check(type(action.key) == "number", "합성 키가 숫자가 아니다");
+            keys[action.value] = action.key;
         end
         -- It has to still be 2 + 1, not one loose pile of actions.
-        local sizes = { #payload.groups[1].actions, #payload.groups[2].actions };
-        sort(sizes);
-        check(sizes[1] == 1 and sizes[2] == 2, "묶음이 풀렸다");
+        check(#GroupFor(payload, keys[1]) == 2, "묶음이 풀렸다");
+        check(#GroupFor(payload, keys[3]) == 1, "안 묶인 것이 묶였다");
+    end);
+
+    -- **A never-bound action goes out with no key at all**, which is what says it was in nobody's
+    -- set. Given a synthetic key it would arrive headed as a group whose key was withheld, and ask
+    -- the reader what key something the sender does not use deserves.
+    test("원래 키가 없던 액션은 합성 키도 안 받는다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F" },
+                { type = Constants.SPELL, value = 2 },
+            },
+        });
+
+        for _, action in ipairs(AllActions(DebindShare.BuildExportPayload(nil, { stripKeys = true }))) do
+            if (action.value == 2) then
+                check(action.key == nil, "안 묶였던 것에 키가 붙었다: " .. tostring(action.key));
+            else
+                check(type(action.key) == "number", "합성 키를 못 받았다");
+            end
+        end
     end);
 
     ---------------------------------------------------------------------------
     -- Action fields
     ---------------------------------------------------------------------------
 
-    test("key와 seq는 액션에 안 실린다", function()
-        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F", seq = 7 } } });
+    -- `imported` is the one field `KEYS_TO_SAVE` has and the wire does not. It says which batch an
+    -- action arrived on **in this drawer**, so sending it would tell the far side that something
+    -- they have just received had already been received, quarantined against a number that means
+    -- nothing on their machine.
+    test("imported는 안 실린다", function()
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+        LayerActions(1)[1].imported = 4;
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
-        check(action.key == nil, "key가 액션에 남았다");
-        check(action.seq == nil, "seq가 액션에 남았다");
+        check(OneOn(DebindShare.BuildExportPayload(), "F").imported == nil,
+            "남의 서랍 번호가 나갔다");
     end);
 
     test("화이트리스트 밖 필드는 안 실리고 $상태 조건은 실린다", function()
@@ -252,7 +308,7 @@ return function(DebindPrivate, DebindShare)
         stored["$state3"] = true;
         stored.combat = true;
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
+        local action = OneOn(DebindShare.BuildExportPayload(), "F");
         check(action.somethingNobodyRegistered == nil, "모르는 필드가 나갔다");
         check(action["$state3"] == true, "$상태 조건이 빠졌다");
         check(action.combat == true, "combat이 빠졌다");
@@ -264,7 +320,7 @@ return function(DebindPrivate, DebindShare)
         });
 
         local payload = DebindShare.BuildExportPayload();
-        local action = FindGroup(payload, "F").actions[1];
+        local action = OneOn(payload, "F");
         action.value = 999;
         action.checkedUnits.target = 999;
 
@@ -277,7 +333,10 @@ return function(DebindPrivate, DebindShare)
     -- Describing layers
     ---------------------------------------------------------------------------
 
-    test("레이어는 아이디가 아니라 뜻으로 나간다", function()
+    -- **Layer IDs are the one thing that cannot travel** - 2..6 are "my class", so the sender's
+    -- number does not point at the same layer on the reader's account. The path does: both profiles
+    -- store under one general layer, then class by spec, then character by spec.
+    test("레이어는 번호가 아니라 저장 경로로 나간다", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F" } },
             class = { [0] = { { type = Constants.SPELL, value = 2, key = "G" } },
@@ -287,16 +346,11 @@ return function(DebindPrivate, DebindShare)
 
         local payload = DebindShare.BuildExportPayload();
         check(payload.class == CLASS, "보내는 쪽 클래스가 없다");
-        check(FindGroup(payload, "F").actions[1].layer.scope == "general", "공용");
-
-        local classLayer = FindGroup(payload, "G").actions[1].layer;
-        check(classLayer.scope == "class" and classLayer.class == CLASS and classLayer.spec == 0,
-            "클래스 스펙0");
-        check(FindGroup(payload, "H").actions[1].layer.spec == 1, "클래스 스펙1");
-
-        local charLayer = FindGroup(payload, "J").actions[1].layer;
-        check(charLayer.scope == "character" and charLayer.spec == 0, "캐릭터 전용");
-        check(charLayer.class == nil, "캐릭터 레이어에 클래스를 달지 않는다");
+        check(payload.shared.GENERAL[1].value == 1, "공용");
+        check(payload.shared.classes[CLASS][0][1].value == 2, "클래스 스펙0");
+        check(payload.shared.classes[CLASS][1][1].value == 3, "클래스 스펙1");
+        -- The guid is dropped: "their character" means nothing here, so it says *this* character.
+        check(payload.char[0][1].value == 4, "캐릭터 전용");
     end);
 
     test("비활성 스펙 레이어도 나간다", function()
@@ -305,7 +359,17 @@ return function(DebindPrivate, DebindShare)
 
         local payload = DebindShare.BuildExportPayload();
         check(CountActions(payload) == 1, "안 쓰는 스펙이 빠졌다");
-        check(FindGroup(payload, "F").actions[1].layer.spec == 3, "스펙 번호");
+        check(payload.shared.classes[CLASS][3][1].value == 1, "스펙 번호");
+    end);
+
+    -- An address with nothing at it is not the same as an address with nothing in it. Standing an
+    -- empty list up in the string would give the far side something to walk that says nothing.
+    test("빈 레이어는 경로 자체가 안 선다", function()
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+        local payload = DebindShare.BuildExportPayload();
+        check(payload.shared.classes == nil, "빈 직업 경로가 섰다");
+        check(payload.char == nil, "빈 캐릭터 경로가 섰다");
     end);
 
     ---------------------------------------------------------------------------
@@ -318,7 +382,7 @@ return function(DebindPrivate, DebindShare)
         };
         ResetProfile({ general = { { type = Constants.MACRO, value = "내매크로", key = "F" } } });
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
+        local action = OneOn(DebindShare.BuildExportPayload(), "F");
         check(action.type == Constants.MACRO, "타입은 그대로 유지한다");
         check(action.value == "내매크로", "이름도 그대로 남는다");
         check(action.macro, "스냅샷이 없다");
@@ -333,7 +397,7 @@ return function(DebindPrivate, DebindShare)
         };
         ResetProfile({ general = { { type = Constants.MACRO, value = "내것", key = "F" } } });
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
+        local action = OneOn(DebindShare.BuildExportPayload(), "F");
         check(action.macro.scope == "character", "스코프 " .. tostring(action.macro.scope));
     end);
 
@@ -341,7 +405,7 @@ return function(DebindPrivate, DebindShare)
         MACROS = {};
         ResetProfile({ general = { { type = Constants.MACRO, value = "없는것", key = "F" } } });
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
+        local action = OneOn(DebindShare.BuildExportPayload(), "F");
         check(action.type == Constants.MACRO, "타입");
         check(action.value == "없는것", "이름");
         check(action.macro == nil, "없는 본문을 지어내면 안 된다");
@@ -358,7 +422,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
+        local action = OneOn(DebindShare.BuildExportPayload(), "F");
         check(action.setstate, "정규화가 안 됐다");
         check(action.setstate.mode == "toggle", "모드 " .. tostring(action.setstate.mode));
         check(action.setstate.state == "$state3", "상태 " .. tostring(action.setstate.state));
@@ -370,7 +434,7 @@ return function(DebindPrivate, DebindShare)
         -- it means the same thing in every install.
         ResetProfile({ general = { { type = Constants.SETCUSTOM, value = 2, key = "F" } } });
 
-        local action = FindGroup(DebindShare.BuildExportPayload(), "F").actions[1];
+        local action = OneOn(DebindShare.BuildExportPayload(), "F");
         check(action.value == 2, "값이 바뀌었다");
         check(action.setstate == nil, "상태로 오해했다");
     end);
@@ -498,9 +562,11 @@ return function(DebindPrivate, DebindShare)
     local function CheckSurvived(payload)
         check(payload.v == DebindShare.EXPORT_SCHEMA_VERSION, "스키마 버전");
         check(payload.class == CLASS, "클래스");
-        check(#payload.groups == 2, "그룹 수 " .. #payload.groups);
-        check(FindGroup(payload, "SHIFT-F").actions[2].macro.body == "/cast 재생", "매크로 본문");
-        check(FindGroup(payload, "G").actions[1].setstate.state == "$state3", "상태 이름");
+        check(CountActions(payload) == 3, "액션 수 " .. CountActions(payload));
+        local shiftF = GroupFor(payload, "SHIFT-F");
+        check(#shiftF == 2, "SHIFT-F 그룹 크기 " .. #shiftF);
+        check((shiftF[1].macro or shiftF[2].macro).body == "/cast 재생", "매크로 본문");
+        check(OneOn(payload, "G").setstate.state == "$state3", "상태 이름");
         check(payload.states["$state3"].displayMessage == "3번", "매니페스트");
     end
 
@@ -531,6 +597,76 @@ return function(DebindPrivate, DebindShare)
     io.write(deflateWorks
         and "  export: 압축까지 붙은 전체 왕복을 검사했다\n"
         or "  export: fengari라 압축 왕복은 못 돌았다 (직렬화 왕복만 검사). 실제 lua로 돌릴 것\n");
+
+    ---------------------------------------------------------------------------
+    -- The shape itself
+    --
+    -- **저장 구조 그대로**가 이 포맷의 결론이고, 그리는 코드를 번역 없이 재사용하려는 것이
+    -- 그 이유다 (`devdocs/building-export-import.md`의 세 번째 ★ 절). 아래 넷이 그 결론이
+    -- 실제로 선을 타고 나가는지를 본다.
+    ---------------------------------------------------------------------------
+
+    test("최상위가 저장 주소 그대로다", function()
+        ResetProfile({
+            general = { { type = Constants.SPELL, value = 1, key = "F" } },
+            class = { [2] = { { type = Constants.SPELL, value = 2, key = "G" } } },
+            char = { [0] = { { type = Constants.SPELL, value = 3, key = "H" } } },
+        });
+
+        local payload = DebindShare.BuildExportPayload();
+        check(payload.groups == nil, "그룹 층이 아직 있다");
+        check(payload.shared and #payload.shared.GENERAL == 1, "일반이 저장 경로에 없다");
+        check(payload.shared.classes[CLASS][2][1].value == 2, "직업/특성2 경로");
+        check(payload.char[0][1].value == 3, "캐릭터 경로");
+        check(payload.shared.GENERAL[1].layer == nil, "레이어 서술이 남았다");
+    end);
+
+    test("key가 액션에 실려 그룹을 나른다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F", combat = true },
+                { type = Constants.SPELL, value = 2, key = "F" },
+            },
+        });
+
+        local actions = DebindShare.BuildExportPayload().shared.GENERAL;
+        check(#actions == 2, "액션 수 " .. #actions);
+        check(actions[1].key == "F" and actions[2].key == "F", "키가 액션에 없다");
+    end);
+
+    test("키를 빼면 숫자 키가 실린다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F", combat = true },
+                { type = Constants.SPELL, value = 2, key = "F" },
+                { type = Constants.SPELL, value = 3, key = "G" },
+            },
+        });
+
+        local actions = DebindShare.BuildExportPayload(nil, { stripKeys = true }).shared.GENERAL;
+        local byValue = {};
+        for _, action in ipairs(actions) do
+            check(type(action.key) == "number",
+                "합성 키가 숫자가 아니다: " .. type(action.key));
+            byValue[action.value] = action.key;
+        end
+        check(byValue[1] == byValue[2], "한 키였던 둘이 갈렸다");
+        check(byValue[1] ~= byValue[3], "다른 키였던 것이 합쳐졌다");
+    end);
+
+    test("seq가 선에 실린다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
+                { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
+            },
+        });
+
+        for _, action in ipairs(DebindShare.BuildExportPayload().shared.GENERAL) do
+            check(action.seq == (action.value == 10 and 1 or 2),
+                "seq가 안 실렸다: " .. tostring(action.seq));
+        end
+    end);
 
     test("남의 문자열은 이유를 달고 거절한다", function()
         local cases = {

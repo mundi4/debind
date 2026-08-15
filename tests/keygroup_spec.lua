@@ -1,9 +1,9 @@
--- 키 그룹째 키를 주는 것. `Profile.lua`의 `SetKeyForActions`와 그 앞에 서는 두 수집 함수.
+-- 키 그룹째 키를 주는 것. `Profile.lua`의 `SetKeyForActions`와 그 앞에 서는 수집 함수.
 --
--- **이 파일이 지키는 것은 보낸 사람의 순서다.** 키가 빠진 문자열에서 `importOrder`는 설계의
--- 유일한 잔존물인데(`devdocs/building-export-import.md`), 액션에 하나씩 키를 주면 그 순서가
--- 조용히 사라진다 - `seq`는 만진 차례대로 발급되지 그 액션이 몇 번째였는지를 안 본다.
--- 그래서 그룹째 주는 조작은 편의가 아니라 순서를 지키는 유일한 길이다.
+-- **이 파일이 지키는 것은 보낸 사람의 순서다.** 키가 빠진 문자열이 나르는 설계의 잔존물이
+-- 그것뿐인데(`devdocs/building-export-import.md`), 액션에 하나씩 키를 주면 조용히 사라진다 -
+-- `seq`는 만진 차례대로 발급되지 그 액션이 몇 번째였는지를 안 본다. 그래서 그룹째 주는 조작은
+-- 편의가 아니라 순서를 지키는 유일한 길이다.
 --
 -- 나머지 둘:
 --
@@ -55,13 +55,11 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
     end
 
-    --- One member of an arrival group. No key and no `seq` -- a keyless action is never given a
-    --- number (`PlaceInKeyGroup`), and `importOrder` holds that slot instead.
-    local function Arrived(value, group, order)
-        return {
-            type = Constants.SPELL, value = value,
-            imported = 1, importGroup = group, importOrder = order,
-        };
+    --- One member of a set that arrived with no key of its own. **The key is a number**, which is
+    --- what a key group whose key has not been decided yet carries (`NextSyntheticKey`), and `seq`
+    --- is its place in that group like anywhere else.
+    local function Arrived(value, key, seq)
+        return { type = Constants.SPELL, value = value, imported = 1, key = key, seq = seq };
     end
 
     local function Bound(value, key, seq)
@@ -81,10 +79,10 @@ return function(DebindPrivate)
     -- 보낸 사람의 순서
     ---------------------------------------------------------------------------
 
-    -- **저장 배열의 차례와 `importOrder`를 일부러 어긋나게 세운다.** 둘이 같으면 이 테스트는
-    -- 아무것도 안 재는데, 정확히 그 어긋남이 한 액션씩 키를 줄 때 순서가 사라지는 자리다.
-    -- 그리고 레이어에 이미 번호 7이 나가 있어서, 새 번호는 8부터 나온다.
-    test("그룹째 키를 주면 seq가 importOrder 차례로 나온다", function()
+    -- **저장 배열의 차례와 `seq`를 일부러 어긋나게 세운다.** 둘이 같으면 이 테스트는 아무것도
+    -- 안 재는데, 정확히 그 어긋남이 한 액션씩 키를 줄 때 순서가 사라지는 자리다.
+    -- 그리고 레이어에 이미 번호 7이 나가 있어서, 도착한 셋은 그 뒤에 서야 한다.
+    test("그룹째 키를 주면 실려온 차례가 지켜진다", function()
         ResetProfile({
             general = {
                 Bound(99, "G", 7),
@@ -94,7 +92,7 @@ return function(DebindPrivate)
             },
         });
 
-        local group = DebindPrivate.CollectImportGroupActions(1);
+        local group = DebindPrivate.CollectKeyGroupActions(1);
         check(#group == 3, "그룹 크기 " .. #group);
         DebindPrivate.SetKeyForActions(group, "F");
 
@@ -103,46 +101,26 @@ return function(DebindPrivate)
         check(Values(rows) == "10 20 30", "차례: " .. Values(rows));
     end);
 
-    test("이미 나간 번호 뒤에서 시작한다", function()
+    test("이미 그 키에 있던 것 뒤에 선다", function()
         ResetProfile({
             general = { Bound(99, "F", 7), Arrived(10, 1, 1), Arrived(20, 1, 2) },
         });
 
-        DebindPrivate.SetKeyForActions(DebindPrivate.CollectImportGroupActions(1), "F");
+        DebindPrivate.SetKeyForActions(DebindPrivate.CollectKeyGroupActions(1), "F");
 
         local rows = DebindPrivate.CollectActionsForKey("F");
         check(Values(rows) == "99 10 20", "차례: " .. Values(rows));
     end);
 
-    -- **잠깐 키를 걸었다 뗀 멤버가 자기 그룹을 앞지르면 안 된다.** 키를 떼도 `seq`는 남는데
-    -- (`SetActionKey`), 그 남은 번호를 그대로 두면 그 액션만 다른 번호 공간에서 줄을 선다.
-    test("남아 있는 seq가 importOrder를 이기지 않는다", function()
-        ResetProfile({
-            general = {
-                Arrived(30, 1, 3),
-                Arrived(10, 1, 1),
-                Arrived(20, 1, 2),
-            },
-        });
-        -- 30을 잠깐 걸었다 뗀 자국. 하필 제일 작은 번호라, 이것을 자리로 읽으면 30이 맨
-        -- 앞으로 온다.
-        DebindPrivate.GetProfileLayer(1):GetAction(1).seq = 1;
-
-        DebindPrivate.SetKeyForActions(DebindPrivate.CollectImportGroupActions(1), "F");
-
-        local rows = DebindPrivate.CollectActionsForKey("F");
-        check(Values(rows) == "10 20 30", "차례: " .. Values(rows));
-    end);
-
     -- **레이어마다 자기 번호를 낸다.** `seq`는 한 레이어 안에서만 뜻이 있어서 그래야 맞고,
     -- 그룹 안의 차례는 레이어 안에서 지켜지면 된다 - 레이어끼리는 비교자가 먼저 가른다.
-    test("레이어를 가로지르는 그룹도 각 레이어 안에서 importOrder 차례다", function()
+    test("레이어를 가로지르는 그룹도 각 레이어 안에서 차례를 지킨다", function()
         ResetProfile({
             general = { Arrived(30, 1, 3), Arrived(10, 1, 1) },
             class = { [0] = { Bound(99, "F", 4), Arrived(40, 1, 4), Arrived(20, 1, 2) } },
         });
 
-        local group = DebindPrivate.CollectImportGroupActions(1);
+        local group = DebindPrivate.CollectKeyGroupActions(1);
         check(#group == 4, "그룹 크기 " .. #group);
         DebindPrivate.SetKeyForActions(group, "F");
 
@@ -151,28 +129,26 @@ return function(DebindPrivate)
         check(Values(rows) == "99 20 40 10 30", "차례: " .. Values(rows));
     end);
 
-    test("키를 주면 배지와 그룹과 순서가 같이 사라진다", function()
+    test("키를 주면 배지가 같이 떨어진다", function()
         ResetProfile({ general = { Arrived(10, 1, 1), Arrived(20, 1, 2) } });
 
-        local group = DebindPrivate.CollectImportGroupActions(1);
+        local group = DebindPrivate.CollectKeyGroupActions(1);
         DebindPrivate.SetKeyForActions(group, "F");
 
         for _, action in ipairs(group) do
             check(action.key == "F", "키가 안 걸렸다: " .. tostring(action.value));
             check(action.imported == nil, "배지가 남았다: " .. tostring(action.value));
-            check(action.importGroup == nil, "그룹이 남았다: " .. tostring(action.value));
-            check(action.importOrder == nil, "순서가 남았다: " .. tostring(action.value));
         end
-        check(#DebindPrivate.CollectImportGroupActions(1) == 0, "그룹이 아직 모인다");
+        check(#DebindPrivate.CollectKeyGroupActions(1) == 0, "옛 번호로 아직 모인다");
     end);
 
     ---------------------------------------------------------------------------
     -- 키를 이미 들고 있던 그룹을 옮기는 것
     ---------------------------------------------------------------------------
 
-    -- Merging, replacing and overwriting all stand on this. These actions have no `importOrder`, so
-    -- `seq` is what says where each one stands, and the set that moved lands at the back of the
-    -- destination group -- what `PlaceInKeyGroup` does for anything arriving.
+    -- Merging, replacing and overwriting all stand on this. `seq` is what says where each one
+    -- stands, and the set that moved lands at the back of the destination group -- what
+    -- `PlaceInKeyGroup` does for anything arriving.
     test("키 그룹을 옮겨도 그룹 안의 차례는 그대로다", function()
         ResetProfile({
             general = {
@@ -205,7 +181,7 @@ return function(DebindPrivate)
                 Arrived(20, 1, 2),
             },
         });
-        return DebindPrivate.CollectImportGroupActions(1), DebindPrivate.CollectKeyGroupActions("F");
+        return DebindPrivate.CollectKeyGroupActions(1), DebindPrivate.CollectKeyGroupActions("F");
     end
 
     -- 한 키에 조건으로 갈린 액션 여럿이 이 애드온의 정상 상태다. 병합은 점유자를 안 건드린다.
@@ -243,7 +219,7 @@ return function(DebindPrivate)
         badgedOccupant.imported = 7;
         ResetProfile({ general = { badgedOccupant, Arrived(10, 2, 1) } });
 
-        local group = DebindPrivate.CollectImportGroupActions(2);
+        local group = DebindPrivate.CollectKeyGroupActions(2);
         local occupants = DebindPrivate.CollectKeyGroupActions("F");
         DebindPrivate.MoveKeyGroupToKey(group, "F", occupants, true);
 
@@ -264,8 +240,8 @@ return function(DebindPrivate)
             },
         });
 
-        check(#DebindPrivate.CollectImportGroupActions(1) == 2,
-            "그룹 " .. #DebindPrivate.CollectImportGroupActions(1));
+        check(#DebindPrivate.CollectKeyGroupActions(1) == 2,
+            "그룹 " .. #DebindPrivate.CollectKeyGroupActions(1));
         check(#DebindPrivate.CollectKeyGroupActions("F") == 2,
             "점유자 " .. #DebindPrivate.CollectKeyGroupActions("F"));
     end);
@@ -279,7 +255,7 @@ return function(DebindPrivate)
             otherClass = { [0] = { Arrived(20, 1, 2), Bound(60, "F", 1) } },
         });
 
-        local group = DebindPrivate.CollectImportGroupActions(1);
+        local group = DebindPrivate.CollectKeyGroupActions(1);
         check(#group == 1, "그룹 크기 " .. #group);
         check(#DebindPrivate.CollectKeyGroupActions("F") == 0,
             "점유자 " .. #DebindPrivate.CollectKeyGroupActions("F"));
@@ -287,15 +263,13 @@ return function(DebindPrivate)
         DebindPrivate.SetKeyForActions(group, "F");
 
         local stranger = _G.DebindVars.shared.classes.MAGE[0];
-        check(stranger[1].key == nil, "남의 레이어에 키가 걸렸다");
-        check(stranger[1].importGroup == 1, "남의 레이어에서 그룹이 지워졌다");
+        check(stranger[1].key == 1, "남의 레이어의 멤버까지 키가 바뀌었다");
         check(stranger[2].seq == 1, "남의 레이어의 번호가 바뀌었다");
     end);
 
     test("nil을 주면 아무것도 안 모은다", function()
         ResetProfile({ general = { Bound(10, "F", 1), Arrived(20, 1, 1) } });
 
-        check(#DebindPrivate.CollectImportGroupActions(nil) == 0, "그룹 nil이 뭔가를 모았다");
         check(#DebindPrivate.CollectKeyGroupActions(nil) == 0, "키 nil이 뭔가를 모았다");
     end);
 

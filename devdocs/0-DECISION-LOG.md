@@ -167,6 +167,17 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 
 `building-export-import.md` — "seq를 그대로 싣고"
 
+---
+
+**"`importGroup` · `importOrder` · `NextImportGroupID` · `CollectImportGroupActions`를 걷어낸다."**
+
+문서의 "걷어내지는 것 목록"은 그 함수 하나만 *"남되 키 문자열용으로"*라고 적어두고 있었다. 그 줄은
+합성 키를 숫자로 정하기 전에 쓴 것이라 이름부터 어긋나 있었고, 소유자가 구현 지시에서 통째로
+잘랐다. 남은 것은 "저장 전체의 최댓값 + 1"이라는 기계 하나뿐이라 `NextSyntheticKey`로 축을 바꿔
+다시 섰다 — 이름도 읽는 필드도 바뀌었으니 **남긴 것이 아니다.**
+
+`building-export-import.md` — "걷어내지는 것 목록"
+
 ### `seq`와 밴드
 
 **"지금 seq는 밴드 내에서 부여된 번호가 아니라 그룹 전체에서 부여된 번호다. PlaceLast가 같은

@@ -1259,7 +1259,7 @@ RegisterTest("Conditional before unconditional", {
 -----------------------------------------------------------
 -- Test Cases: Renumbering a key group
 --
--- `devdocs/renumbering-a-key-group.md`. The rule itself is settled headlessly
+-- `devdocs/legacy/renumbering-a-key-group.md`. The rule itself is settled headlessly
 -- (`tests/renumber_spec.lua`) against `CollectActionsForKey`, which is the list the **window
 -- draws**. What only this layer sees is the other end: that the same numbers reach `BuildKeyMap`
 -- and the solver, so the order the reader is shown is the order the key actually fires in. Those
@@ -1399,6 +1399,61 @@ RegisterTest("Renumber: an edit inside one band moves nothing", {
             return Fail(NAME, format("자리가 움직였다: %s", KeyMapOrder(KEY)))
         end
         return Pass(NAME, "1 2 3 4")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: A key group whose key has not been decided yet
+--
+-- A string sent with the keys left out arrives on a **synthetic key**, a number rather than a
+-- binding string (`devdocs/building-export-import.md`). Two halves of that only this layer sees:
+-- that a number never reaches `BuildKeyMap` even once the badge is off, and that the order the set
+-- arrived with is the order the key actually fires in after it is given a real one.
+--
+-- The headless specs measure both against `CollectActionsForKey`, which is the list the **window**
+-- draws. The failure they cannot see is the two walks disagreeing.
+-----------------------------------------------------------
+
+RegisterTest("Import: a pending key group reaches nothing, then keeps its order", {
+    description = "숫자 키가 KeyMap에 안 서고, 키를 주면 실려온 차례 그대로 발동하는지",
+    run = function()
+        local NAME = "Pending key group"
+        local KEY = "CTRL-ALT-F4"
+        -- What `NextSyntheticKey` hands out. Nothing in the game can be bound to it.
+        local PENDING = 1
+
+        -- **No badge on any of them**, which is the point: quarantine is what keeps a set out of
+        -- the build until the reader accepts, and accepting takes the badge off and leaves the
+        -- number. If the two tests were folded into one, this is the moment a dead key appears.
+        --
+        -- Three conditions on three axes, so none of them covers another and the solver drops none.
+        local third = InsertAction({ type = Constants.SPELL, value = 3, key = PENDING, combat = true })
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = PENDING, stealth = true })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = PENDING, pet = true })
+        -- **저장 배열의 차례와 일부러 어긋나게.** 둘이 같으면 아래 차례는 배열 순서를 잰 것이지
+        -- 실려온 차례를 잰 것이 아니다.
+        third.seq, first.seq, second.seq = 3, 1, 2
+        ApplyBindings()
+
+        if GetKeyBindings(PENDING) then
+            return Fail(NAME, "숫자 키가 KeyMap에 섰다")
+        end
+        if GetKeyBindings(KEY) then
+            return Fail(NAME, format("전제가 틀렸다 - %s가 이미 차 있다", KEY))
+        end
+
+        local group = DebindPrivate.CollectKeyGroupActions(PENDING)
+        if #group ~= 3 then
+            return Fail(NAME, format("그룹 크기 %d - 숫자 키로 안 모인다", #group))
+        end
+
+        DebindPrivate.SetKeyForActions(group, KEY)
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "1 2 3" then
+            return Fail(NAME, format("보낸 쪽 차례가 아니다: %s", KeyMapOrder(KEY)))
+        end
+        return Pass(NAME, "숫자 키는 안 서고, 키를 주니 1 2 3")
     end,
 })
 

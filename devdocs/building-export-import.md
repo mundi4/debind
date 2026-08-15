@@ -1,10 +1,10 @@
 # 익스포트 / 임포트 문자열 (2026-08-12, 보강 08-13)
 
-> 상태 (2026-08-14): **익스포트 완료. 임포트는 키 없이 온 것을 받아 보여주는 데까지 서 있다.**
+> 상태 (2026-08-15): **익스포트 완료. 임포트는 키 없이 온 것을 받아 보여주는 데까지 서 있다.**
 >
-> **⚠ "★" 두 절이 앞의 여러 절을 무효로 만든다. 둘 다 만들었다**(2026-08-14, 화면으로
-> 확인함 08-15) — 저장 좌표에 직접 쓰기(`DefaultDestinationLayerID` 삭제 + 전송 포맷 변경)와
-> bring 모달.
+> **⚠ "★" 세 절이 앞의 여러 절을 무효로 만든다. 셋 다 만들었다** — 저장 좌표에 직접 쓰기
+> (`DefaultDestinationLayerID` 삭제, 2026-08-14)와 bring 모달(같은 날, 화면으로 확인함 08-15),
+> 그리고 **전송 포맷을 저장 구조 그대로**(08-15, 아직 화면으로는 안 봤다).
 >
 > 이슈 #6에서 나온 것과 그 뒤 대화에서 잡힌 것.
 >
@@ -14,20 +14,23 @@
 >
 > **선 것:** 격리(`BuildKeyMap`이 배지 달린 액션을 건너뛴다) · 배지 표시(이름 색 + 아이콘 위 점) ·
 > 서랍 행의 [가져오기] · [가져온 것만] 필터 · [N개 모두 받기] / [N개 모두 거절] · 배지 행의
-> [받기] 버튼과 순서 계산에서의 배제 · 순서 정보의 전송(`order` → `importOrder`) · 키 없는 것들을 왼쪽 열 맨 아래에(`키를 모름 #N`) · **키 빼고 가져오기** ·
-> **그룹째 키 주기**(데이터 층 + UI, 2026-08-15 — 화면으로 확인함).
+> [받기] 버튼과 순서 계산에서의 배제 · 키 없는 것들을 왼쪽 열 맨 아래에(`키를 모름 #N`) ·
+> **키 빼고 가져오기** · **그룹째 키 주기**(데이터 층 + UI, 2026-08-15 — 화면으로 확인함) ·
+> **전송 포맷을 저장 구조 그대로**(세 번째 ★, 2026-08-15 — 헤드리스와 `/debtest`까지. **화면으로는
+> 아직 안 봤다**).
 >
 > **남은 것:** **애드온 경계 — UI를 Debind로**(아래 네 번째 ★, 2026-08-15에 정했고 **첫 배포 전에
-> 해야 한다**) · **전송 포맷의 근거가 무너졌다**(세 번째 ★ — 의도는 **그리는 코드 재사용**이고
-> 그게 거기 처음 적혔다) · **가져오기 전 미리보기**(그 재사용이 노리던 것) ·
+> 해야 한다**) · **배지 달린 액션은 안 내보낸다**(세 번째 ★ 안에 남은 하나 — 포맷이 아니라 익스포트
+> 창이 세는 것) · **가져오기 전 미리보기**(포맷을 저장 구조로 맞춘 것이 노리던 것) ·
 > **전송 포맷에 메타데이터가 없다**(내보낸 시각·이름, 그리고 서랍 행 제목과 툴팁) ·
 > **키 그룹 지정 오버레이가 행 지정 오버레이와 똑같이 생긴 것**(1번 절의 ⚠, 안 셋 중 안 골랐다) ·
 > 커스텀 상태 이름 충돌 · 자동 백업 · 똑같은 액션 지우기 ·
 > **안 보이는 레이어에 남는 배지를 어디서 말할지**.
 >
-> **갈라 나간 것:** `seq`가 밴드를 넘을 때 안 따라가는 결함은 임포트와 무관한 기존 문제라
-> `devdocs/renumbering-a-key-group.md`로 세웠다. 이 문서의 `order`/`importOrder`/`importGroup`이
-> 전부 그것을 우회하려고 생긴 것들이라, 그쪽 결론이 서면 여기서 걷어낸다.
+> **갈라 나갔다가 닫힌 것:** `seq`가 밴드를 넘을 때 안 따라가는 결함은 임포트와 무관한 기존
+> 문제라 `renumbering-a-key-group.md`로 세웠고, 그 문서는 **끝나서 `devdocs/legacy/`로 갔다**.
+> 이 문서의 `order`/`importOrder`/`importGroup`이 전부 그것을 우회하려고 생긴 것들이었고, 세 번째
+> ★에서 같이 걷어냈다.
 >
 > **읽는 차례:** 이어서 할 사람은 **"★" 세 절부터** 읽으면 된다. 배경이 필요하면
 > "임포트 — 작업대를 접었다" → "키 없는 것들을 왼쪽 열 맨 아래에" → "안 정한 것".
@@ -142,10 +145,10 @@ DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
 **임포트를 짜는 사람이 볼 것은 이것이다.** 아래는 액션 타입 열다섯 개를 전부 넣고 뽑아
 `DecodeExportString`으로 되돌린 실물이다(문자열 769자, 그룹 17개).
 
-> ⚠ **아래는 지금 코드가 내는 모양이고, 다음 모양이 아니다.** 2026-08-15에 최상위를 레이어로
-> 뒤집기로 정했다 — 그룹 층과 `group.id`와 `order`와 액션의 `layer` 서술이 전부 없어진다.
-> **새 모양은 아래 세 번째 ★ 절의 "새 모양 — 저장 구조 그대로"에 있고, 임포트를 짜는 사람은
-> 그쪽을 봐야 한다.** 이 블록은 그때까지의 실물로 남긴다.
+> ⚠ **아래는 옛 모양이다. 코드는 더 이상 이걸 안 낸다** (2026-08-15에 갈아엎었다) — 그룹 층과
+> `group.id`와 `order`와 액션의 `layer` 서술이 전부 없어졌다. **지금 모양은 아래 세 번째 ★ 절의
+> "새 모양 — 저장 구조 그대로"에 있고, 임포트를 짜는 사람은 그쪽을 봐야 한다.** 이 블록은 그때까지의
+> 실물로 남긴다.
 >
 > (한 번 더 바뀐 적도 있다 — 2026-08-14에 `layer`가 그룹에서 액션으로 내려갔고 그룹이 키
 > 하나가 됐다. 아래 모양은 그 뒤의 것이다.)
@@ -349,6 +352,10 @@ if num == 0 and 1 / num < 0 then
 ("그룹 1"은 아무 의미도 없다) "묶여 있다"만 보이게 — 왼쪽 괄호나 색 띠.
 
 ## 전송 포맷
+
+> ⚠ **이 절은 무효다** (2026-08-15, 세 번째 ★). 그룹 층도 `group.id`도 없어졌고 키가 곧 그룹이다.
+> **남겨두는 이유는 기각 사유 때문이다** — 별도 id를 둔 이유 셋은 전부 참이었고, 합성 키가 그
+> 셋을 id 없이 만족시킨다는 것이 뒤에 나왔다.
 
 ```
 group { id, key = "F" | nil, layer = <서술>, actions = { ... } }
@@ -1520,9 +1527,25 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 
 ---
 
-## ★ 전송 포맷의 근거가 무너졌다 (2026-08-15, 대화. **아직 안 고침**)
+## ★ 전송 포맷의 근거가 무너졌다 (2026-08-15, 대화. **만들었다**)
 
-> 상태: **문서와 코드 주석이 들고 있는 근거들이 틀렸다는 것까지 확인.** 포맷은 아직 안 바꿨다.
+> 상태 (2026-08-15): **포맷을 바꿨다.** 최상위가 저장 주소 그대로이고, `key`가 그룹을 나르고,
+> 키를 뺀 것은 숫자 키로 나가고, `seq`가 제 이름으로 실린다. `importGroup` · `importOrder` ·
+> `NextImportGroupID` · `CollectImportGroupActions`가 없어졌고, `PlaceImportedActions`의 도착
+> 번호가 실려온 `seq`를 더한다 — 그것으로 `renumbering-a-key-group.md`가 닫히고
+> `devdocs/legacy/`로 갔다.
+>
+> **화면으로는 아직 안 봤다.** 헤드리스(`tests/export_spec.lua`, `import_spec.lua`,
+> `workbench_spec.lua`, `overview_spec.lua`, `keygroup_spec.lua`)와 `/debtest`의
+> `Import: a pending key group…` 하나가 서 있다.
+>
+> **이 절에서 아직 안 한 것 하나: 아래 "배지 달린 액션은 안 내보낸다".** 포맷이 아니라 익스포트
+> 창이 무엇을 세고 무엇을 보내느냐라 같이 안 움직였다.
+>
+> **`Ordering.lua`는 안 건드렸다.** 비교자의 `(lhs.seq or lhs.importOrder or 0)`에서
+> `importOrder` 갈래가 이제 아무도 안 채우는 죽은 읽기인데, 그 파일은 바꾸면 전 사용자의 발동
+> 순서가 조용히 달라지는 자리라 **지울지는 소유자에게 물어두었다.** 아래 "걷어내지는 것 목록"의
+> 그 행은 그래서 아직 안 그어졌다.
 >
 > **스키마 번호는 첫 배포 전까지 1로 둔다** (2026-08-15, 소유자 결정). "뜻이 바뀌면 올린다"는
 > 규칙은 **공유가 실린 첫 릴리스부터** 적용된다 — 공유는 3.1.6에 안 실렸으므로 v1 문자열이 이
@@ -1667,7 +1690,7 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 위 셋이 다 처리한다.
 
 **`PlaceLast`와 `GetNextSeq`는 이 그림에 없다.** 그 동작을 제약으로 놓고 설계하면 안 된다고
-적어놨던 자리인데, **2026-08-15에 실제로 없어졌다** → `devdocs/renumbering-a-key-group.md`.
+적어놨던 자리인데, **2026-08-15에 실제로 없어졌다** → `devdocs/legacy/renumbering-a-key-group.md`.
 배치는 번호를 발급하지 않고, 재부여가 1부터 매긴다.
 
 `seq` 자체의 결함(밴드를 넘을 때 안 따라간다)은 **임포트와 무관한 기존 문제**라 따로 세웠고,
@@ -1792,14 +1815,22 @@ key = "F"   -- 실키는 언제나 문자열
 
 | | |
 |---|---|
-| 액션 | `importGroup`, `importOrder` (+`KEYS_TO_SAVE` 두 칸) |
-| 선 | `groups` 층, `group.id`, `order`(→ `seq`가 제 이름으로), 액션의 `layer` 서술 |
-| `Profile.lua` | `NextImportGroupID`는 남되 **키 문자열용**으로. `CollectImportGroupActions`는 `CollectKeyGroupActions` 하나로 접힌다 |
-| `DebindUI.lua` | `CollectKeylessActionRows`와 `BuildKeyboardElements`의 **키 없는 별도 패스**. 도착 그룹이 그냥 키 그룹이 된다 |
-| `Ordering.lua` | `(lhs.seq or lhs.importOrder or 0)`의 `importOrder` 갈래 |
-| `Profile.lua`의 `MakeRow` | `seq = action.key ~= nil and action.seq or nil` 가드 — 키 없이 사는 도착 그룹이 없어지면 지킬 것이 없다 |
-| `DebindUI.lua`의 `PlacementRank` | 위와 같은 이유 |
-| `check:export-fields` | `order`용 예외 칸을 열 필요가 없어졌다 |
+| 액션 | ~~`importGroup`, `importOrder`~~ (+`KEYS_TO_SAVE` 두 칸) |
+| 선 | ~~`groups` 층, `group.id`, `order`(→ `seq`가 제 이름으로), 액션의 `layer` 서술~~ |
+| `Profile.lua` | ~~`NextImportGroupID`~~ · ~~`CollectImportGroupActions`~~. **둘 다 그냥 없앴다** — 앞 칸은 *"남되 키 문자열용으로"*였는데 합성 키를 숫자로 정하기 전에 쓴 줄이라 이름부터 어긋나 있었다. 남은 기계("저장 전체의 최댓값 + 1")는 `NextSyntheticKey`로 축을 바꿔 다시 섰고, 뒤 칸은 `CollectKeyGroupActions` 하나로 접혔다 |
+| `DebindUI.lua` | ~~`CollectKeylessActionRows`와 `BuildKeyboardElements`의 **키 없는 별도 패스**~~. 도착 그룹이 그냥 키 그룹이 됐고, `CollectKeylessActionRows`는 **키가 아예 없는 더미 하나**를 내는 것으로 남았다 |
+| `Ordering.lua` | `(lhs.seq or lhs.importOrder or 0)`의 `importOrder` 갈래 — **아직 안 지웠다. 소유자에게 물어둔 자리다**(머리말) |
+| `Profile.lua`의 `MakeRow` | ~~`seq = action.key ~= nil and action.seq or nil` 가드~~ |
+| ~~`DebindUI.lua`의 `PlacementRank`~~ | `Profile.lua`에 있었고, `action.seq or 0` 한 줄이 되어 호출부로 들어갔다 |
+| `check:export-fields` | ~~`order`용 예외 칸~~. 예외가 `imported` 하나만 남았다 |
+
+**딸려서 같이 손댄 것 셋** (표에 없던 자리):
+
+- `Constants.GetMouseButtonAndPrefix` — 숫자 키에 `:match`를 걸어 **터졌다.** 호버 파생과 키 유효성이
+  둘 다 이 함수를 지나므로 가드를 여기 하나 놓았다.
+- `Ordering.CompareKeys` — 숫자를 실키 전부의 뒤로 몬다. 표가 예고한 자리이고, 실제로 제일 먼저 닿는다.
+- `Misc.GetKeyDisplayText` — 행의 단축키 칸 · 툴팁 · 헤더 · 익스포트 창이 전부 이걸 지난다.
+  낱말을 네 군데 따로 쓰면 같은 창이 같은 것을 두 이름으로 부르게 된다.
 
 ### 아직 안 정한 것
 
@@ -1947,7 +1978,7 @@ WorkbenchUI.lua DebindUI · L · DisplayMessage
 `Export.lua`가 짚는 열 중 넷은 **순서 기계**다(`CompareActionOrder`,
 `EnumerateAllProfileLayers`, `GetBindingInfoForAction`, `IsConditionalAction`). *"순서를 말하는
 자리가 하나뿐이어야 한다"*가 애드온 경계를 넘어 뻗은 자리라 맞는 의존인데, **Debind의 순서 내부가
-곧 DebindShare의 API**라는 뜻이기도 하다 — `devdocs/renumbering-a-key-group.md`를 하면 `Export.lua`가
+곧 DebindShare의 API**라는 뜻이기도 하다 — `devdocs/legacy/renumbering-a-key-group.md`를 하면 `Export.lua`가
 같이 움직인다.
 
 ### 남는 쪽은 이 물음과 무관하다

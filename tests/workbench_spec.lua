@@ -67,22 +67,22 @@ return function(DebindPrivate, DebindShare)
     local Address = DebindShare.ImportAddress;
 
     test("일반은 일반으로", function()
-        check(Address({ scope = "general" }) == "general", "일반이 아니다");
+        check(Address("general") == "general", "일반이 아니다");
     end);
 
     test("내 직업 레이어는 그 자리 그대로", function()
-        local scope, class, spec = Address({ scope = "class", class = CLASS, spec = 0 });
+        local scope, class, spec = Address("class", CLASS, 0);
         check(scope == "class" and class == CLASS and spec == 0, "직업 공용");
 
-        scope, class, spec = Address({ scope = "class", class = CLASS, spec = 2 });
+        scope, class, spec = Address("class", CLASS, 2);
         check(scope == "class" and class == CLASS and spec == 2, "특성 2");
     end);
 
     test("캐릭터 레이어는 이 캐릭터로", function()
-        local scope, class, spec = Address({ scope = "character", spec = 0 });
+        local scope, class, spec = Address("character", nil, 0);
         check(scope == "character" and class == nil and spec == 0, "캐릭터 공용");
 
-        scope, _, spec = Address({ scope = "character", spec = 2 });
+        scope, _, spec = Address("character", nil, 2);
         check(scope == "character" and spec == 2, "특성 2");
     end);
 
@@ -94,20 +94,20 @@ return function(DebindPrivate, DebindShare)
     -- It goes to the mage's own spec 2 instead, which is where it belongs on every account. The
     -- reader does not see it in this session; they see it when they log a mage.
     test("남의 직업 레이어는 직업도 특성도 그대로 간다", function()
-        local scope, class, spec = Address({ scope = "class", class = "MAGE", spec = 2 });
+        local scope, class, spec = Address("class", "MAGE", 2);
         check(scope == "class" and class == "MAGE" and spec == 2,
             "남의 좌표를 내 것으로 밀어 넣었다: " .. tostring(class) .. "/" .. tostring(spec));
 
-        scope, class, spec = Address({ scope = "class", class = "MAGE", spec = 0 });
+        scope, class, spec = Address("class", "MAGE", 0);
         check(scope == "class" and class == "MAGE" and spec == 0, "직업 공용");
     end);
 
-    -- `spec` absent and `spec = 0` are the same layer. The format leaves out what it does not need
-    -- to say, so both spellings arrive.
+    -- `spec` absent and `spec = 0` are the same layer. A hand-made string can leave the number out,
+    -- and both spellings have to mean the layer the profile stores at 0.
     test("빠진 spec은 0과 같다", function()
-        local _, _, spec = Address({ scope = "class", class = CLASS });
+        local _, _, spec = Address("class", CLASS);
         check(spec == 0, "직업 " .. tostring(spec));
-        _, _, spec = Address({ scope = "character" });
+        _, _, spec = Address("character");
         check(spec == 0, "캐릭터 " .. tostring(spec));
     end);
 
@@ -118,51 +118,66 @@ return function(DebindPrivate, DebindShare)
     -- The class side is not the same question: `classes.MAGE[4]` is a coordinate that stops being
     -- ours to judge, so it travels and waits.
     test("이 캐릭터에 없는 특성은 자리가 없다", function()
-        check(Address({ scope = "character", spec = 5 }) == nil, "5는 어디에도 없다");
+        check(Address("character", nil, 5) == nil, "5는 어디에도 없다");
         -- The shim's class is a druid (four specs), so spec 4 is the last one that does exist.
-        check(Address({ scope = "character", spec = 4 }) ~= nil, "있는 특성을 거절했다");
+        check(Address("character", nil, 4) ~= nil, "있는 특성을 거절했다");
     end);
 
     test("저장이 담지 못하는 번호는 거절한다", function()
-        check(Address({ scope = "class", class = CLASS, spec = 5 }) == nil, "5번 칸은 없다");
-        check(Address({ scope = "class", class = CLASS, spec = -1 }) == nil, "음수");
-        check(Address({ scope = "class", spec = 0 }) == nil, "직업 이름이 없다");
+        check(Address("class", CLASS, 5) == nil, "5번 칸은 없다");
+        check(Address("class", CLASS, -1) == nil, "음수");
+        check(Address("class", nil, 0) == nil, "직업 이름이 없다");
     end);
 
     -- **A class name is a key straight into storage.** `shared.classes[<name>]` gets made on the
     -- spot, no screen reaches it, and `CleanUpDB` walks the eleven loaded layers so it never sees
     -- it either - every paste of a made-up name would leave one more behind in the account file.
     test("직업 이름이 아닌 것은 자리를 안 만든다", function()
-        check(Address({ scope = "class", class = "NOSUCHCLASS", spec = 0 }) == nil, "지어낸 이름");
-        check(Address({ scope = "class", class = 3, spec = 0 }) == nil, "문자열이 아닌 것");
-        check(Address({ scope = "class", class = "MAGE", spec = 0 }) ~= nil, "진짜 직업을 거절했다");
+        check(Address("class", "NOSUCHCLASS", 0) == nil, "지어낸 이름");
+        check(Address("class", 3, 0) == nil, "문자열이 아닌 것");
+        check(Address("class", "MAGE", 0) ~= nil, "진짜 직업을 거절했다");
     end);
 
     test("모르는 scope는 주소가 없다", function()
-        check(Address({ scope = "raid" }) == nil, "주소를 지어냈다");
+        check(Address("raid") == nil, "주소를 지어냈다");
         check(Address(nil) == nil, "nil");
-        check(Address("general") == nil, "테이블이 아닌 것");
     end);
 
     ---------------------------------------------------------------------------
     -- The lines the reader is offered
     --
-    -- Four checkboxes, not one per layer. The line has to come from the descriptor's **value**:
-    -- the sender shares one descriptor table between the actions of a layer, but a
-    -- serialize/deserialize round trip is free to hand back a separate table per action, and then
-    -- identity says every action came from a layer of its own.
+    -- Four checkboxes, not one per layer. Which line a layer belongs to comes out of **where it
+    -- sits in the payload**, which is also the address it will land at - so a line the reader can
+    -- tick and a place an action can go cannot come apart.
     ---------------------------------------------------------------------------
 
-    local function Payload(groups)
-        return { v = 1, class = CLASS, groups = groups };
-    end
+    --- A payload built from `{ scope, class, spec, count }` entries, one layer each.
+    local function Payload(layers)
+        local payload = { v = 1, class = CLASS };
 
-    local function Group(layer, key, actionCount)
-        local actions = {};
-        for i = 1, (actionCount or 1) do
-            actions[i] = { type = Constants.SPELL, value = i, layer = layer };
+        for _, entry in ipairs(layers) do
+            local actions = {};
+            for i = 1, (entry.count or 1) do
+                actions[i] = { type = Constants.SPELL, value = i, key = entry.key, seq = i };
+            end
+
+            if (entry.scope == "general") then
+                payload.shared = payload.shared or {};
+                payload.shared.GENERAL = actions;
+            elseif (entry.scope == "class") then
+                payload.shared = payload.shared or {};
+                payload.shared.classes = payload.shared.classes or {};
+                payload.shared.classes[entry.class] = payload.shared.classes[entry.class] or {};
+                payload.shared.classes[entry.class][entry.spec or 0] = actions;
+            elseif (entry.scope == "character") then
+                payload.char = payload.char or {};
+                payload.char[entry.spec or 0] = actions;
+            else
+                payload[entry.scope] = actions;
+            end
         end
-        return { id = 1, key = key, actions = actions };
+
+        return payload;
     end
 
     local function LineIDs(payload)
@@ -174,11 +189,10 @@ return function(DebindPrivate, DebindShare)
     end
 
     test("전문화 레이어는 자기 줄에 딸려 들어간다", function()
-        -- Separate tables with the same meaning, which is what a decoded payload looks like.
         local lines = DebindShare.CollectImportLines(Payload({
-            Group({ scope = "class", class = CLASS, spec = 2 }, "F", 2),
-            Group({ scope = "class", class = CLASS, spec = 0 }, "G", 3),
-            Group({ scope = "general" }, "H", 1),
+            { scope = "class", class = CLASS, spec = 2, key = "F", count = 2 },
+            { scope = "class", class = CLASS, spec = 0, key = "G", count = 3 },
+            { scope = "general", key = "H", count = 1 },
         }));
 
         check(#lines == 2, "줄 수 " .. #lines);
@@ -192,10 +206,10 @@ return function(DebindPrivate, DebindShare)
     -- place, so there is nothing to grey out and nothing to warn about.
     test("차례는 창의 탭 차례고 남의 직업도 줄이 선다", function()
         local order = LineIDs(Payload({
-            Group({ scope = "character", spec = 2 }),
-            Group({ scope = "class", class = "MAGE", spec = 1 }),
-            Group({ scope = "general" }),
-            Group({ scope = "character", spec = 0 }),
+            { scope = "character", spec = 2 },
+            { scope = "class", class = "MAGE", spec = 1 },
+            { scope = "general" },
+            { scope = "character", spec = 0 },
         }));
         check(order == "shared.general shared.class character.general character.spec",
             "차례: " .. order);
@@ -204,32 +218,36 @@ return function(DebindPrivate, DebindShare)
     -- A checkbox for something the string does not carry reads as a choice, and unticking it would
     -- do nothing at all.
     test("아무것도 없는 줄은 안 선다", function()
-        local order = LineIDs(Payload({ Group({ scope = "general" }) }));
+        local order = LineIDs(Payload({ { scope = "general" } }));
         check(order == "shared.general", "빈 줄이 섰다: " .. order);
     end);
 
-    test("모르는 scope는 줄을 안 만든다", function()
-        local order = LineIDs(Payload({ Group({ scope = "raid" }), Group({ scope = "general" }) }));
-        check(order == "shared.general", "모르는 scope가 줄을 만들었다: " .. order);
-    end);
-
-    -- **갈 데가 없는 것도 같다.** A line whose every action has nowhere to land is a checkbox that
-    -- does nothing either way, and the reader has no means of telling it from one that would. The
-    -- shim's character has four specializations, so spec 5 is one nothing here can hold.
+    -- **갈 데가 없는 것은 줄을 안 세운다.** A line whose every action has nowhere to land is a
+    -- checkbox that does nothing either way, and the reader has no means of telling it from one
+    -- that would. The shim's character has four specializations, so spec 5 is one nothing here can
+    -- hold.
     test("갈 데 없는 것만 있는 줄도 안 선다", function()
         local order = LineIDs(Payload({
-            Group({ scope = "character", spec = 5 }),
-            Group({ scope = "general" }),
+            { scope = "character", spec = 5 },
+            { scope = "general" },
         }));
         check(order == "shared.general", "놓을 데 없는 줄이 섰다: " .. order);
+    end);
+
+    test("모르는 직업 이름은 줄을 안 만든다", function()
+        local order = LineIDs(Payload({
+            { scope = "class", class = "NOSUCHCLASS", spec = 0 },
+            { scope = "general" },
+        }));
+        check(order == "shared.general", "모르는 직업이 줄을 만들었다: " .. order);
     end);
 
     -- **직업 줄은 자기가 갈 직업을 부른다.** `payload.class` is what the string says about the
     -- sender, and a hand-made one can put another class's layer under it - then the label would
     -- print the sender's class over somebody else's layer.
-    test("직업 줄은 descriptor의 직업을 달고 나온다", function()
+    test("직업 줄은 그 레이어의 직업을 달고 나온다", function()
         local lines = DebindShare.CollectImportLines(Payload({
-            Group({ scope = "class", class = "MAGE", spec = 1 }),
+            { scope = "class", class = "MAGE", spec = 1 },
         }));
         check(#lines == 1 and lines[1].class == "MAGE",
             "직업이 안 실렸다: " .. tostring(lines[1] and lines[1].class));
@@ -237,21 +255,19 @@ return function(DebindPrivate, DebindShare)
         -- Two classes on one line: there is no single name to print, so none is offered and the
         -- dialog falls back to what the string says about the sender.
         lines = DebindShare.CollectImportLines(Payload({
-            Group({ scope = "class", class = "MAGE", spec = 1 }),
-            Group({ scope = "class", class = CLASS, spec = 1 }),
+            { scope = "class", class = "MAGE", spec = 1 },
+            { scope = "class", class = CLASS, spec = 1 },
         }));
         check(#lines == 1 and lines[1].class == nil,
             "둘 중 하나를 골라 적었다: " .. tostring(lines[1] and lines[1].class));
     end);
 
-    -- One group can put actions on two lines now, which is why the count is over actions. There is
+    -- One key group can put actions on two lines, which is why the count is over actions. There is
     -- no number of groups a line owns.
-    test("한 그룹이 두 줄에 걸쳐도 양쪽이 다 센다", function()
+    test("한 키가 두 줄에 걸쳐도 양쪽이 다 센다", function()
         local lines = DebindShare.CollectImportLines(Payload({
-            { id = 1, key = "F", actions = {
-                { type = Constants.SPELL, value = 1, layer = { scope = "general" } },
-                { type = Constants.SPELL, value = 2, layer = { scope = "character", spec = 0 } },
-            } },
+            { scope = "general", key = "F" },
+            { scope = "character", spec = 0, key = "F" },
         }));
         check(#lines == 2, "줄 수 " .. #lines);
         check(lines[1].actionCount == 1 and lines[2].actionCount == 1, "개수");
@@ -284,7 +300,7 @@ return function(DebindPrivate, DebindShare)
     end
 
     local GOOD = "DEB1:good";
-    local GOOD_PAYLOAD = Payload({ Group({ scope = "general" }, "F", 1) });
+    local GOOD_PAYLOAD = Payload({ { scope = "general", key = "F", count = 1 } });
 
     test("받아들인 문자열이 배치가 된다", function()
         ResetDrawer();
@@ -303,14 +319,29 @@ return function(DebindPrivate, DebindShare)
         ResetDrawer();
         local text = "DEB1:여럿";
         STORED[text] = Payload({
-            Group({ scope = "general" }, "F", 2),
-            Group({ scope = "class", class = CLASS, spec = 1 }, "G", 3),
+            { scope = "general", key = "F", count = 2 },
+            { scope = "class", class = CLASS, spec = 1, key = "G", count = 3 },
         });
 
         local batch = DebindShare.AddBatch(text);
+        -- **A key is a group**, so two keys is two groups however the five actions are spread.
         check(batch.groupCount == 2, "그룹 수 " .. tostring(batch.groupCount));
         check(batch.actionCount == 5, "액션 수 " .. tostring(batch.actionCount));
         check(batch.class == CLASS, "보낸 쪽 클래스");
+    end);
+
+    -- **The type of the key is the whole question**, and the control the drawer puts on the row
+    -- depends on it: a string sent with the keys left out carries a key on every action and still
+    -- has none to leave out.
+    test("숫자 키만 있는 문자열은 뺄 키가 없다고 답한다", function()
+        ResetDrawer();
+        local stripped = "DEB1:키없음";
+        STORED[stripped] = Payload({ { scope = "general", key = 1, count = 2 } });
+        check(DebindShare.AddBatch(stripped).hasKeys == false, "숫자 키를 실키로 셌다");
+
+        local real = "DEB1:키있음";
+        STORED[real] = Payload({ { scope = "general", key = "F", count = 2 } });
+        check(DebindShare.AddBatch(real).hasKeys == true, "실키를 못 봤다");
     end);
 
     -- Refused where the user is looking at it, rather than becoming a row that fails every time it

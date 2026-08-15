@@ -1,4 +1,4 @@
--- Renumbering a key group's ordering numbers. `devdocs/renumbering-a-key-group.md` is the spec.
+-- Renumbering a key group's ordering numbers. `devdocs/legacy/renumbering-a-key-group.md` is the spec.
 --
 -- **What this measures is where an action stands after it crosses a band.** The five steps above
 -- `seq` in `CompareActionOrder` (importance, hover, conditions, layer, specialization) are what that
@@ -335,15 +335,15 @@ return function(DebindPrivate)
         check(Seqs("F") == "1 2 3 4", "numbers: " .. Seqs("F"));
     end);
 
-    -- **Arriving with no key means arriving with no number.** The line that drops the number carried
-    -- is what holds that rule up, and three readers lean on it -- `MakeRow` leaves `seq` off a
-    -- keyless row, `PlacementRank` reads `importOrder` in its place, and the comparator reads the
-    -- two as one step. Left on, it would cost a member of an arrival group its `importOrder`.
+    -- **Arriving with no key means arriving with no number.** A number is a place among the actions
+    -- sharing a key, so one held while there is no key is a place in some group this action is not
+    -- in. Everything that reads `seq` now reads it unguarded (`MakeRow`, `SetKeyForActions`), and
+    -- this line is what makes that safe.
     test("arriving with no key drops the number carried", function()
         ResetProfile({ general = {} });
 
         -- A keyless action that came from another layer holding a 5.
-        local arriving = { type = Constants.SPELL, value = 71, seq = 5, importOrder = 2 };
+        local arriving = { type = Constants.SPELL, value = 71, seq = 5 };
         local layer = DebindPrivate.GetProfileLayer(1);
         layer:Insert(arriving);
         layer:PlaceInKeyGroup(arriving);

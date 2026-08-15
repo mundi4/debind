@@ -930,6 +930,21 @@ function DebindPrivate.IsInactiveAction(action)
     return not DebindPrivate.ActiveActions[action];
 end
 
+--- What to write where a key goes. **Not for a nil key** -- what an action with no key at all reads
+--- as differs by where it is shown, so each of those places says its own word.
+---
+--- **A number is a key group whose key has not been decided yet** (`NextSyntheticKey`). It is drawn
+--- with the same words as its heading in the overview, because it is the same thing being named:
+--- writing a second wording anywhere is how one window came to say two things about one state once
+--- already. `GetBindingText` is not asked -- a number is not a binding string, and this is the guard
+--- that keeps it from being handed one.
+function DebindPrivate.GetKeyDisplayText(key)
+    if (type(key) == "number") then
+        return format(L["KEY_GROUP_UNKNOWN_KEY"], key);
+    end
+    return GetBindingText(key);
+end
+
 --- 게임 메뉴(기본 ESC) 키를 다시 읽는다. `IsKeyInvalidForAction`이 이 두 값으로 막는다.
 ---
 --- **이게 없어서 그 가드가 죽어 있었다.** `gmKey1`/`gmKey2`를 읽는 곳은 있는데 쓰는 곳이

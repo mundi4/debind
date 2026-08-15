@@ -68,28 +68,15 @@ return function(DebindPrivate, DebindShare)
         DebindPrivate.InitDB();
     end
 
-    local function Payload(groups)
-        return { v = 1, class = CLASS, groups = groups };
+    --- A payload holding one general layer. **The path is the address** -- there is no descriptor
+    --- to write, so a test that is not about addressing says nothing about it at all.
+    local function General(actions)
+        return { v = 1, class = CLASS, shared = { GENERAL = actions } };
     end
 
-    local GENERAL = { scope = "general" };
-
-    --- The layer a group's actions lived in, written onto each of them.
-    ---
-    --- **The wire carries `layer` on the action, not on the group** (`Export.lua`): a group is a
-    --- key, and a key crosses layers. Most cases below are not about that, so they hand one
-    --- descriptor to this and it goes on every action - the same table the sender shares between
-    --- them. The case that *is* about the crossing writes the descriptors itself.
-    local function InLayer(descriptor, actions)
-        for i = 1, #actions do
-            actions[i].layer = descriptor;
-        end
-        return actions;
-    end
-
-    --- Plans one group and hands back the single action in it.
-    local function PlanOne(group, batchID)
-        local placements = DebindShare.PlanImport(Payload({ group }), batchID or 1);
+    --- Plans a payload holding exactly one action and hands it back.
+    local function PlanOne(payload, batchID)
+        local placements = DebindShare.PlanImport(payload, batchID or 1);
         check(#placements == 1, "액션 수 " .. #placements);
         return placements[1].action, placements[1];
     end
@@ -97,67 +84,93 @@ return function(DebindPrivate, DebindShare)
     ResetProfile();
 
     ---------------------------------------------------------------------------
-    -- Quarantine and placement
+    -- Quarantine and keys
     ---------------------------------------------------------------------------
 
     test("들어오는 것은 전부 배지를 달고 온다", function()
-        local placements = DebindShare.PlanImport(Payload({
-            { id = 4, key = "F", actions = InLayer(GENERAL, {
-                { type = Constants.SPELL, value = 1 },
-                { type = Constants.SPELL, value = 2 } }) },
+        local placements = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 2, key = "F", seq = 2 },
         }), 9);
 
         check(#placements == 2, "액션 수");
-        local groupID = placements[1].action.importGroup;
-        check(groupID ~= nil, "그룹 번호가 없다");
         for _, placement in ipairs(placements) do
             check(placement.action.imported == 9,
                 "배지가 없다 - 이 액션은 들어가는 순간 키에 걸린다");
-            -- **Not the payload's `id`.** One group's members share a number; which number it is
-            -- belongs to the receiving profile, not to the sender (see the test below).
-            check(placement.action.importGroup == groupID, "한 그룹인데 번호가 갈렸다");
         end
     end);
 
-    -- **The number the reader sees has to be unique in their profile, not in the batch.** The
-    -- payload's `id` is only unique inside its own string, so two strings waiting at once both
-    -- carry a group 1 - and the overview would head two different sets with the same words.
-    --
-    -- A number is the highest one in the profile plus one, with nothing stored. Gaps are fine, and
-    -- reuse after everything is accepted is fine too - nothing refers to an old number.
-    test("그룹 번호는 프로필 안에서 안 겹친다", function()
+    -- The key is on the action and it **is** the group: two actions carrying one key are one set,
+    -- and nothing anywhere has to declare that.
+    test("실키는 그대로 들어온다", function()
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 774, key = "SHIFT-G", seq = 1 } }));
+        check(action.key == "SHIFT-G", "키 " .. tostring(action.key));
+    end);
+
+    test("키 없이 온 액션은 키 없이 들어간다", function()
+        local action = PlanOne(General({ { type = Constants.SPELL, value = 774 } }));
+        check(action.key == nil, "없던 키가 생겼다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Synthetic keys
+    ---------------------------------------------------------------------------
+
+    -- **A number on the wire is a key group whose key was not sent.** It has to be renumbered here:
+    -- the number is unique inside its own string and nowhere else, so two strings waiting at once
+    -- would both open at 1 and the overview would head two unrelated sets with the same words.
+    test("숫자 키는 프로필 안에서 다시 매긴다", function()
         ResetProfile();
 
-        local first = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 1 } }) },
-            { id = 2, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 2 } }) },
+        local first = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 1, key = 1, seq = 1 },
+            { type = Constants.SPELL, value = 2, key = 2, seq = 1 },
         }), 1);
         DebindPrivate.PlaceImportedActions(first);
 
-        -- A second string, whose own group ids start over at 1.
-        local second = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 3 } }) },
-        }), 2);
+        -- A second string, whose own numbering starts over at 1.
+        local second = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 3, key = 1, seq = 1 } }), 2);
 
         local taken = {};
         for _, placement in ipairs(first) do
-            taken[placement.action.importGroup] = true;
+            check(type(placement.action.key) == "number", "숫자 키가 아니다");
+            taken[placement.action.key] = true;
         end
-        check(not taken[second[1].action.importGroup],
-            "두 번째 배치가 첫 배치의 그룹 번호를 다시 썼다: " .. tostring(second[1].action.importGroup));
+        check(not taken[second[1].action.key],
+            "두 번째 배치가 첫 배치의 번호를 다시 썼다: " .. tostring(second[1].action.key));
+    end);
+
+    test("같은 숫자 키였던 것들은 같이 남는다", function()
+        ResetProfile();
+
+        local placements = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 1, key = 4, seq = 1 },
+            { type = Constants.SPELL, value = 2, key = 7, seq = 1 },
+            { type = Constants.SPELL, value = 3, key = 4, seq = 2 },
+        }), 1);
+
+        local byValue = {};
+        for _, placement in ipairs(placements) do
+            byValue[placement.action.value] = placement.action.key;
+        end
+        check(byValue[1] == byValue[3], "한 묶음이 갈렸다");
+        check(byValue[1] ~= byValue[2], "다른 묶음이 합쳐졌다");
     end);
 
     -- **The reused number would be one this session cannot see.** `LayerArray` is the view of the
     -- eleven layers this character has; another class's layers are stored all the same and are not
     -- in it. Counting the view would reissue a number that is alive over there, and the two would
     -- meet - both headed `키를 모름 #3` - the day the reader logs that class.
-    test("안 보이는 레이어의 그룹 번호도 세어 넣는다", function()
+    test("안 보이는 레이어의 숫자 키도 세어 넣는다", function()
         ResetProfile();
 
-        local mage = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer({ scope = "class", class = "MAGE", spec = 2 },
-                { { type = Constants.SPELL, value = 1 } }) },
-        }), 1);
+        local mage = DebindShare.PlanImport({
+            v = 1, class = CLASS,
+            shared = { classes = { MAGE = { [2] = {
+                { type = Constants.SPELL, value = 1, key = 1, seq = 1 } } } } },
+        }, 1);
         DebindPrivate.PlaceImportedActions(mage);
 
         -- The premise: it really did land somewhere the layer view does not reach.
@@ -166,7 +179,7 @@ return function(DebindPrivate, DebindShare)
             local layer = DebindPrivate.GetProfileLayer(layerID);
             if (layer) then
                 for _, action in layer:Enumerate() do
-                    if (action.importGroup) then
+                    if (type(action.key) == "number") then
                         seen = seen + 1;
                     end
                 end
@@ -174,60 +187,10 @@ return function(DebindPrivate, DebindShare)
         end
         check(seen == 0, "전제가 틀렸다 - 이 캐릭터의 레이어에서 " .. seen .. "개가 보인다");
 
-        local next2 = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 2 } }) },
-        }), 2);
-        check(next2[1].action.importGroup ~= mage[1].action.importGroup,
-            "안 보이는 번호를 재사용했다: " .. tostring(next2[1].action.importGroup));
-    end);
-
-    -- The key lives on the group, because one group is one key and that is what has to stay
-    -- together. Reading it off the action would find nothing at all.
-    test("키는 그룹에서 온다", function()
-        local action = PlanOne({ id = 1, key = "SHIFT-G", actions = InLayer(GENERAL,
-            { { type = Constants.SPELL, value = 774 } }) });
-        check(action.key == "SHIFT-G", "키 " .. tostring(action.key));
-    end);
-
-    test("키 없이 온 그룹은 키 없이 들어간다", function()
-        local action = PlanOne({ id = 1, actions = InLayer(GENERAL,
-            { { type = Constants.SPELL, value = 774 } }) });
-        check(action.key == nil, "없던 키가 생겼다");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- The order inside a group
-    ---------------------------------------------------------------------------
-
-    -- **Which of a key's actions goes first is design, not decoration**, and a string sent without
-    -- keys carries nothing else that says so. `seq` cannot travel under its own name -- the
-    -- receiving layer has already handed out numbers of its own -- so the wire says `order` and the
-    -- action carries `importOrder` until the group is given a key.
-    test("그룹 안의 순서가 보존된다", function()
-        local placements = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer(GENERAL, {
-                { type = Constants.SPELL, value = 11, order = 1 },
-                { type = Constants.SPELL, value = 22, order = 2 },
-                { type = Constants.SPELL, value = 33, order = 3 } }) },
-        }), 1);
-
-        check(#placements == 3, "액션 수 " .. #placements);
-        for i, placement in ipairs(placements) do
-            check(placement.action.importOrder == i,
-                i .. "번째 액션의 importOrder가 " .. tostring(placement.action.importOrder));
-        end
-    end);
-
-    -- `BuildAction` copies the wire table with `pairs` and skips only what it names, so a field
-    -- left unnamed rides straight into the profile. `order` and `layer` are the format's words, not
-    -- the profile's; leaving them on would put a shape in the layer that only `CleanUpDB` would
-    -- later notice - and `layer` is worse than a stray field, because it is one table the sender
-    -- shares between actions.
-    test("선의 order와 layer는 액션에 안 남는다", function()
-        local action = PlanOne({ id = 1, actions = InLayer(GENERAL,
-            { { type = Constants.SPELL, value = 774, order = 1 } }) });
-        check(action.order == nil, "order가 액션에 남았다: " .. tostring(action.order));
-        check(action.layer == nil, "layer가 액션에 남았다");
+        local next2 = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 2, key = 1, seq = 1 } }), 2);
+        check(next2[1].action.key ~= mage[1].action.key,
+            "안 보이는 번호를 재사용했다: " .. tostring(next2[1].action.key));
     end);
 
     -- **The receiving end of "leave the keys out".** Quarantine says nothing changes until the
@@ -235,71 +198,114 @@ return function(DebindPrivate, DebindShare)
     -- without their keybinds is ordinary, and until now it could only be had by asking the sender
     -- to tick the box.
     --
-    -- **The grouping has to survive it.** Dropping the key while keeping the set is the whole point
-    -- - a key split across conditional actions still has to arrive as one thing to give a key to.
-    test("키를 빼고 가져오면 키만 없고 그룹은 남는다", function()
-        local placements = DebindShare.PlanImport(Payload({
-            { id = 1, key = "F", actions = InLayer(GENERAL, {
-                { type = Constants.SPELL, value = 1, order = 1 },
-                { type = Constants.SPELL, value = 2, order = 2 } }) },
+    -- **The grouping has to survive it.** Renaming the key rather than dropping it is what does
+    -- that - a key split across conditional actions still has to arrive as one thing to give a key
+    -- to.
+    test("키를 빼고 가져오면 숫자 키로 바뀌고 묶음은 남는다", function()
+        ResetProfile();
+
+        local placements = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 2, key = "F", seq = 2 },
+            { type = Constants.SPELL, value = 3, key = "G", seq = 1 },
         }), 1, { stripKeys = true });
 
-        check(#placements == 2, "액션 수 " .. #placements);
-        local group = placements[1].action.importGroup;
-        check(group ~= nil, "그룹이 사라졌다 - 키를 뺐다고 한 묶음이 흩어지면 안 된다");
+        local byValue = {};
+        for _, placement in ipairs(placements) do
+            check(type(placement.action.key) == "number",
+                "실키가 남았다: " .. tostring(placement.action.key));
+            byValue[placement.action.value] = placement.action.key;
+        end
+        check(byValue[1] == byValue[2], "한 키였던 둘이 갈렸다");
+        check(byValue[1] ~= byValue[3], "다른 키였던 것이 합쳐졌다");
+    end);
+
+    test("키 없이 온 것은 키를 빼도 여전히 키가 없다", function()
+        ResetProfile();
+        local action = PlanOne(General({ { type = Constants.SPELL, value = 1 } }));
+        check(action.key == nil, "안 묶였던 것에 키가 붙었다: " .. tostring(action.key));
+        check(action.imported ~= nil, "배지는 그대로 있어야 한다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The order inside a group
+    ---------------------------------------------------------------------------
+
+    -- **Which of a key's actions goes first is design, not decoration.** It travels as `seq` under
+    -- its own name: the number means nothing in the layer that receives it, and what makes that
+    -- harmless is that `PlaceImportedActions` overwrites every one of them on the way in.
+    test("실려온 seq가 액션에 남는다", function()
+        ResetProfile();
+        local placements = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 11, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 22, key = "F", seq = 2 },
+            { type = Constants.SPELL, value = 33, key = "F", seq = 3 },
+        }), 1);
+
+        check(#placements == 3, "액션 수 " .. #placements);
         for i, placement in ipairs(placements) do
-            check(placement.action.key == nil,
-                "키가 남았다: " .. tostring(placement.action.key));
-            check(placement.action.importGroup == group, "한 그룹인데 번호가 갈렸다");
-            check(placement.action.importOrder == i, "순서가 사라졌다");
+            check(placement.action.seq == i,
+                i .. "번째 액션의 seq가 " .. tostring(placement.action.seq));
         end
     end);
 
-    -- **A sender exports whole layers, so what they built and never bound goes out too.** Given a
-    -- group number, one of those arrives on the far side headed as a set whose key was withheld,
-    -- which says it was part of the design and asks what key it deserves. It was not, and the
-    -- reader ends up working out whether they are supposed to use something the sender does not.
-    --
-    -- Only the export can tell the two apart: with keys stripped, a one-action key and an action
-    -- that never had one are the same table on the wire.
-    test("키가 없던 액션은 그룹 없이 들어온다", function()
-        local action = PlanOne({ actions = InLayer(GENERAL,
-            { { type = Constants.SPELL, value = 774 } }) });
-        check(action.importGroup == nil,
-            "묶인 적 없는 액션에 그룹이 붙었다: " .. tostring(action.importGroup));
-        check(action.imported ~= nil, "배지는 그대로 있어야 한다");
+    -- **No key, no number** is an invariant of the profile (`ClearActionKey`), and a hand-made
+    -- string is exactly the input that would walk one past it.
+    test("키 없이 온 액션의 seq는 버린다", function()
+        ResetProfile();
+        local action = PlanOne(General({ { type = Constants.SPELL, value = 1, seq = 4 } }));
+        check(action.seq == nil, "키 없는 액션이 번호를 들고 들어왔다: " .. tostring(action.seq));
+    end);
+
+    -- **Both ends read one whitelist now** (`ACTION_FIELDS`). It used to be a blacklist here, so a
+    -- wire field nobody had named rode straight into the profile - which is what forced the ranking
+    -- to travel under a name other than `seq` in the first place.
+    test("명단에 없는 선의 필드는 액션에 안 남는다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 774, key = "F", seq = 1,
+              somethingANewerSchemaAdded = true } }));
+        check(action.somethingANewerSchemaAdded == nil,
+            "모르는 선 필드가 프로필까지 들어왔다");
+        check(action.value == 774 and action.key == "F", "명단에 있는 것은 들어와야 한다");
+    end);
+
+    test("$상태 조건은 명단에 없어도 통과한다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1, ["$state3"] = true } }));
+        check(action["$state3"] == true, "$상태 조건이 걸러졌다");
     end);
 
     ---------------------------------------------------------------------------
     -- Where each action lands
     ---------------------------------------------------------------------------
 
-    -- **한 키는 레이어를 넘어도 한 묶음이다.** The sender groups by key and writes the layer on each
-    -- action (`Export.lua`), so one group routinely carries two destinations. Splitting it here
-    -- would undo the one thing a keyless string still says: with the keys stripped, the reader
-    -- would be handed two headings for what was one key and would give them two keys - and then
-    -- both fire.
-    test("한 키가 레이어 여럿에 걸쳐도 그룹 하나로 들어온다", function()
+    -- **한 키는 레이어를 넘어도 한 묶음이다.** The key is on the action and the layer is the path it
+    -- sits under, so one set routinely has two addresses. Splitting it would undo the one thing a
+    -- keyless string still says: the reader would be handed two headings for what was one key and
+    -- would give them two keys - and then both fire.
+    test("한 키가 레이어 여럿에 걸쳐도 묶음 하나로 들어온다", function()
         ResetProfile();
 
-        local placements = DebindShare.PlanImport(Payload({
-            { id = 1, key = "F", actions = {
-                { type = Constants.SPELL, value = 1, order = 1,
-                  layer = { scope = "general" } },
-                { type = Constants.SPELL, value = 2, order = 2,
-                  layer = { scope = "class", class = CLASS, spec = 0 } },
-            } },
-        }), 1);
+        local placements = DebindShare.PlanImport({
+            v = 1, class = CLASS,
+            shared = {
+                GENERAL = { { type = Constants.SPELL, value = 1, key = "F", seq = 1 } },
+                classes = { [CLASS] = { [0] = {
+                    { type = Constants.SPELL, value = 2, key = "F", seq = 1 } } } },
+            },
+        }, 1);
 
         check(#placements == 2, "액션 수 " .. #placements);
-        check(placements[1].action.importGroup ~= nil, "그룹 번호가 없다");
-        check(placements[1].action.importGroup == placements[2].action.importGroup,
-            "레이어가 갈렸다고 그룹까지 갈렸다");
-
-        check(placements[1].scope == "general",
-            "1번이 일반이 아니다: " .. tostring(placements[1].scope));
-        check(placements[2].scope == "class" and placements[2].class == CLASS
-            and placements[2].spec == 0, "2번이 직업 공용 자리가 아니다");
+        local scopes = {};
+        for _, placement in ipairs(placements) do
+            check(placement.action.key == "F", "키가 갈렸다");
+            scopes[placement.scope] = placement;
+        end
+        check(scopes.general, "일반 자리에 안 갔다");
+        check(scopes.class and scopes.class.class == CLASS and scopes.class.spec == 0,
+            "직업 공용 자리에 안 갔다");
     end);
 
     -- **A layer is a coordinate, not something to translate.** Both profiles use the same one, so
@@ -307,26 +313,30 @@ return function(DebindPrivate, DebindShare)
     -- every account. `workbench_spec` measures the addressing in detail; here it just has to be
     -- what the placement actually uses.
     test("목적지는 보낸 쪽 좌표 그대로다", function()
-        local _, general = PlanOne({ id = 1, actions = InLayer(GENERAL,
-            { { type = Constants.SPELL, value = 1 } }) });
+        ResetProfile();
+        local _, general = PlanOne(General({ { type = Constants.SPELL, value = 1 } }));
         check(general.scope == "general", "일반이 아니다: " .. tostring(general.scope));
 
-        local _, foreign = PlanOne({ id = 2, actions = InLayer(
-            { scope = "class", class = "MAGE", spec = 2 },
-            { { type = Constants.SPELL, value = 1 } }) });
+        local _, foreign = PlanOne({
+            v = 1, class = CLASS,
+            shared = { classes = { MAGE = { [2] = { { type = Constants.SPELL, value = 1 } } } } },
+        });
         check(foreign.scope == "class" and foreign.class == "MAGE" and foreign.spec == 2,
             "남의 직업 좌표를 내 것으로 바꿨다: " .. tostring(foreign.class)
                 .. "/" .. tostring(foreign.spec));
     end);
 
-    -- A scope invented by a newer schema. Counted rather than dropped in silence: the window says
-    -- how many did not land.
-    test("모르는 레이어는 세어서 빠진다", function()
-        local placements, skipped = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer({ scope = "raid" },
-                { { type = Constants.SPELL, value = 1 } }) },
-            { id = 2, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 2 } }) },
-        }), 1);
+    -- A class name no client has. Counted rather than dropped in silence: the window says how many
+    -- did not land.
+    test("갈 데 없는 주소는 세어서 빠진다", function()
+        ResetProfile();
+        local placements, skipped = DebindShare.PlanImport({
+            v = 1, class = CLASS,
+            shared = {
+                GENERAL = { { type = Constants.SPELL, value = 2 } },
+                classes = { NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } } },
+            },
+        }, 1);
         check(#placements == 1, "빠뜨릴 것을 안 빠뜨렸다");
         check(skipped == 1, "안 센다 - 조용히 사라진다");
     end);
@@ -336,11 +346,14 @@ return function(DebindPrivate, DebindShare)
     -- first would put "%d came from a layer this version does not know" on screen for a layer they
     -- themselves declined.
     test("안 고른 줄은 빠지되 세지 않는다", function()
-        local placements, skipped = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 1 } }) },
-            { id = 2, actions = InLayer({ scope = "class", class = CLASS, spec = 0 },
-                { { type = Constants.SPELL, value = 2 } }) },
-        }), 1, { lines = { ["shared.general"] = true } });
+        ResetProfile();
+        local placements, skipped = DebindShare.PlanImport({
+            v = 1, class = CLASS,
+            shared = {
+                GENERAL = { { type = Constants.SPELL, value = 1 } },
+                classes = { [CLASS] = { [0] = { { type = Constants.SPELL, value = 2 } } } },
+            },
+        }, 1, { lines = { ["shared.general"] = true } });
 
         check(#placements == 1, "고른 줄만 들어와야 한다: " .. #placements);
         check(placements[1].scope == "general", "엉뚱한 줄이 들어왔다");
@@ -352,11 +365,14 @@ return function(DebindPrivate, DebindShare)
     -- 뺀 것일 수가 없다. 필터를 먼저 보면 그것들이 조용히 사라진다 - 창은 "2개를 가져왔습니다"라
     -- 말하고 못 넣은 다섯은 입에 올리지 않는다. 그리고 창은 언제나 필터를 켜고 부른다.
     test("고르는 중이어도 갈 데 없는 것은 세어서 뺀다", function()
-        local placements, skipped = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer({ scope = "raid" },
-                { { type = Constants.SPELL, value = 1 } }) },
-            { id = 2, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 2 } }) },
-        }), 1, { lines = { ["shared.general"] = true } });
+        ResetProfile();
+        local placements, skipped = DebindShare.PlanImport({
+            v = 1, class = CLASS,
+            shared = {
+                GENERAL = { { type = Constants.SPELL, value = 2 } },
+                classes = { NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } } },
+            },
+        }, 1, { lines = { ["shared.general"] = true } });
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 1, "안 센다 - 조용히 사라진다: " .. skipped);
@@ -366,12 +382,13 @@ return function(DebindPrivate, DebindShare)
     -- 아예 안 서고(`CollectImportLines`), 그래서 `lines`에도 없다. 그것이 "안 골랐다"로 읽히면
     -- 안 된다.
     test("줄조차 안 선 것도 세어서 뺀다", function()
-        local placements, skipped = DebindShare.PlanImport(Payload({
-            { id = 1, actions = InLayer({ scope = "character", spec = 5 },
-                { { type = Constants.SPELL, value = 1 },
-                  { type = Constants.SPELL, value = 2 } }) },
-            { id = 2, actions = InLayer(GENERAL, { { type = Constants.SPELL, value = 3 } }) },
-        }), 1, { lines = { ["shared.general"] = true } });
+        ResetProfile();
+        local placements, skipped = DebindShare.PlanImport({
+            v = 1, class = CLASS,
+            shared = { GENERAL = { { type = Constants.SPELL, value = 3 } } },
+            char = { [5] = { { type = Constants.SPELL, value = 1 },
+                             { type = Constants.SPELL, value = 2 } } },
+        }, 1, { lines = { ["shared.general"] = true } });
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 2, "못 놓은 둘을 안 세었다: " .. skipped);
@@ -382,9 +399,10 @@ return function(DebindPrivate, DebindShare)
     ---------------------------------------------------------------------------
 
     test("상태 이름이 비트팩으로 돌아온다", function()
-        local action = PlanOne({ id = 1, key = "F", actions = InLayer(GENERAL,
-            { { type = Constants.SETSTATE,
-                setstate = { mode = "toggle", state = "$state3" } } }) });
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SETSTATE, key = "F", seq = 1,
+              setstate = { mode = "toggle", state = "$state3" } } }));
 
         local mode, index = DebindPrivate.GetSetCustomStateModeAndIndex(action.value);
         check(mode == "toggle", "모드 " .. tostring(mode));
@@ -393,10 +411,11 @@ return function(DebindPrivate, DebindShare)
     end);
 
     test("세 모드가 다 돌아온다", function()
+        ResetProfile();
         for _, mode in ipairs({ "on", "off", "toggle" }) do
-            local action = PlanOne({ id = 1, key = "F", actions = InLayer(GENERAL,
-                { { type = Constants.SETSTATE,
-                    setstate = { mode = mode, state = "$state1" } } }) });
+            local action = PlanOne(General({
+                { type = Constants.SETSTATE, key = "F", seq = 1,
+                  setstate = { mode = mode, state = "$state1" } } }));
             check(DebindPrivate.GetSetCustomStateModeAndIndex(action.value) == mode,
                 "모드가 안 돌아옴: " .. mode);
         end
@@ -405,9 +424,10 @@ return function(DebindPrivate, DebindShare)
     -- **A name this version does not know must not become a number.** Any number resolves, and it
     -- would resolve to some other state - the key would quietly set the wrong one.
     test("모르는 상태 이름은 값이 안 생긴다", function()
-        local action = PlanOne({ id = 1, key = "F", actions = InLayer(GENERAL,
-            { { type = Constants.SETSTATE,
-                setstate = { mode = "toggle", state = "$nosuchstate" } } }) });
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SETSTATE, key = "F", seq = 1,
+              setstate = { mode = "toggle", state = "$nosuchstate" } } }));
         check(action.value == nil, "엉뚱한 상태를 가리키는 값이 생겼다: " .. tostring(action.value));
         check(action.type == Constants.SETSTATE, "타입은 그대로여야 한다");
     end);
@@ -418,16 +438,16 @@ return function(DebindPrivate, DebindShare)
 
     local SNAPSHOT = { name = "내매크로", body = "/cast 재생", icon = 9, scope = "account" };
 
-    local function MacroGroup()
-        return { id = 1, key = "F", actions = InLayer(GENERAL,
-            { { type = Constants.MACRO, value = "내매크로", macro = SNAPSHOT } }) };
+    local function MacroPayload()
+        return General({ { type = Constants.MACRO, value = "내매크로", key = "F", seq = 1,
+            macro = SNAPSHOT } });
     end
 
     test("이름·스코프·내용이 다 맞으면 참조가 살아 돌아온다", function()
         ResetProfile();
         MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 재생", index = 3 } };
 
-        local action = PlanOne(MacroGroup());
+        local action = PlanOne(MacroPayload());
         check(action.type == Constants.MACRO, "MACROTEXT로 떨어졌다");
         check(action.value == "내매크로", "이름 " .. tostring(action.value));
     end);
@@ -438,7 +458,7 @@ return function(DebindPrivate, DebindShare)
         ResetProfile();
         MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 다른것", index = 3 } };
 
-        local action = PlanOne(MacroGroup());
+        local action = PlanOne(MacroPayload());
         check(action.type == Constants.MACROTEXT, "남의 매크로를 그대로 가리킨다");
         check(action.value == "/cast 재생", "본문 " .. tostring(action.value));
         check(action.name == "내매크로", "이름을 안 들고 왔다");
@@ -446,7 +466,7 @@ return function(DebindPrivate, DebindShare)
 
     test("같은 이름이 아예 없으면 본문으로 떨어진다", function()
         ResetProfile();
-        local action = PlanOne(MacroGroup());
+        local action = PlanOne(MacroPayload());
         check(action.type == Constants.MACROTEXT, "없는 매크로를 가리킨다");
         check(action.value == "/cast 재생", "본문");
     end);
@@ -459,7 +479,7 @@ return function(DebindPrivate, DebindShare)
         MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 재생",
             index = accountLimit + 1 } };
 
-        local action = PlanOne(MacroGroup());
+        local action = PlanOne(MacroPayload());
         check(action.type == Constants.MACROTEXT, "스코프를 안 본다");
     end);
 
@@ -468,8 +488,8 @@ return function(DebindPrivate, DebindShare)
     -- (`BINDING_ISSUE_MISSING_MACRO`).
     test("스냅샷 없이 온 매크로는 그대로 둔다", function()
         ResetProfile();
-        local action = PlanOne({ id = 1, key = "F", actions = InLayer(GENERAL,
-            { { type = Constants.MACRO, value = "없는것" } }) });
+        local action = PlanOne(General({
+            { type = Constants.MACRO, value = "없는것", key = "F", seq = 1 } }));
         check(action.type == Constants.MACRO, "타입이 바뀌었다");
         check(action.value == "없는것", "이름이 바뀌었다");
     end);
@@ -480,10 +500,8 @@ return function(DebindPrivate, DebindShare)
 
     test("놓으면 그 레이어에 서고 순서 번호를 받는다", function()
         ResetProfile();
-        local placements = DebindShare.PlanImport(Payload({
-            { id = 1, key = "F", actions = InLayer(GENERAL,
-                { { type = Constants.SPELL, value = 774 } }) },
-        }), 5);
+        local placements = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 774, key = "F", seq = 1 } }), 5);
 
         DebindPrivate.PlaceImportedActions(placements);
 
@@ -491,9 +509,49 @@ return function(DebindPrivate, DebindShare)
         check(layer:GetNumActions() == 1, "레이어에 안 들어감");
         local action = layer:GetAction(1);
         check(action.imported == 5, "배지가 없다");
-        -- **The sender's number stays home.** It would collide with the ones this layer already
-        -- handed out, so the receiving layer gives its own (`Export.lua` leaves `seq` behind).
-        check(action.seq ~= nil, "순서 번호를 안 받았다");
+        -- **The sender's number does not survive landing.** It is a place inside their layer; this
+        -- one hands out its own, which is what makes carrying it on the wire harmless.
+        check(action.seq == 1, "이 그룹의 번호가 아니다: " .. tostring(action.seq));
+    end);
+
+    -- **보낸 쪽 차례가 그대로 선다.** 도착 번호가 실려온 `seq`를 더하므로, 배치 안의 차례는
+    -- 저장 배열 순서가 아니라 보낸 사람이 정한 것이 된다. 아래는 그 둘을 일부러 어긋나게
+    -- 세운다 - 배열 순서대로 매기는 구현에서는 3 1 2가 나온다.
+    test("한 그룹은 실려온 seq 차례로 번호를 받는다", function()
+        ResetProfile();
+        local placements = DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 30, key = "F", seq = 3 },
+            { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
+        }), 1);
+        DebindPrivate.PlaceImportedActions(placements);
+
+        local layer = DebindPrivate.GetProfileLayer(1);
+        for _, action in layer:Enumerate() do
+            check(action.seq == action.value / 10,
+                "값 " .. action.value .. "의 번호가 " .. tostring(action.seq));
+        end
+    end);
+
+    -- **The arrival number is what keeps them behind what was already there.** Renumbering alone
+    -- cannot say which of a set is new, so a batch landing on an occupied key has to stand behind
+    -- the reader's own without being told which those are.
+    test("이미 있던 것 뒤에 선다", function()
+        ResetProfile();
+        DebindPrivate.GetProfileLayer(1):Insert(
+            { type = Constants.SPELL, value = 99, key = "F", seq = 1 });
+
+        DebindPrivate.PlaceImportedActions(DebindShare.PlanImport(General({
+            { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
+        }), 1));
+
+        local order = {};
+        for _, row in ipairs(DebindPrivate.CollectActionsForKey("F")) do
+            order[#order + 1] = row.action.value;
+        end
+        check(#order == 3 and order[1] == 99 and order[2] == 10 and order[3] == 20,
+            "차례: " .. table.concat(order, " "));
     end);
 
     -- **A class this account has never played still has a place.** The address is the store's, not

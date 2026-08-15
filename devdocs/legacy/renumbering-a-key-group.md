@@ -1,4 +1,5 @@
-> 상태 (2026-08-15): **만들었다. 화면으로 봤다.** 남은 것은 아래 "아직 남은 것" 셋.
+> 상태 (2026-08-15): **끝났다. 만들었고 화면으로 봤다.** 남은 하나(도착 번호에 더할 값)가
+> 전송 포맷 쪽에서 닫히면서 이 문서는 `legacy/`로 왔다.
 >
 > 결론은 아래 그대로다 — **그룹 재부여를 불변식으로 만든다.** 밴드 감지도, 편집 래퍼도 안
 > 만들었다. 근거는 "왜 (나)인가 — ↑↓가 정한다".
@@ -44,15 +45,17 @@
 > 배치하는 자리 넷(`PlaceInKeyGroup`, `PlaceActionInKeyGroup`, `SetKeyForActions`,
 > `PlaceImportedActions`)이 전부 "도착하면 맨 뒤"로 같아지고, 예외가 0개다.
 >
-> ### 아직 남은 것
+> ### 남은 것은 닫혔다 (2026-08-15)
 >
-> 1. **도착 번호에 더할 값.** 아래 표의 `PlaceImportedActions` 행은 `seq = MAGIC + 실려온 seq`인데,
->    선에 `seq`가 실리는 것은 전송 포맷 쪽 작업이라(`devdocs/building-export-import.md`) 아직
->    안 왔다. 지금은 배치 안의 자리(`ipairs` 차례)를 더한다 — 그쪽이 서면 그 자리에 실려온
->    `seq`가 들어간다.
+> 1. **도착 번호에 더할 값 — 닫혔다.** 아래 표의 `PlaceImportedActions` 행은
+>    `seq = MAGIC + 실려온 seq`인데 선에 `seq`가 안 실려서, 그때는 배치 안의 자리(`ipairs` 차례)를
+>    더하고 있었다. 전송 포맷이 `seq`를 제 이름으로 싣게 되면서(`devdocs/building-export-import.md`의
+>    세 번째 ★) 그 자리에 실려온 `seq`가 들어갔다. `tests/import_spec.lua`의 "한 그룹은 실려온 seq
+>    차례로 번호를 받는다"가 그걸 못 박는다 — 저장 배열 차례와 일부러 어긋나게 세워서.
 > 2. **`MoveAction`의 떠난 쪽 재부여 한 줄에 자동 검증이 없다.** 그 함수가 `DebindUI.lua`의
->    local이라 두 층 어디서도 못 부른다. 모양과 걸리는 것은 `.zzz/refactor-candidates.md`의 38번.
-> 3. **1번이 닫히면 이 문서는 `devdocs/legacy/`로 간다.** 최상위에 서 있는 이유가 1번 하나뿐이다.
+>    local이라 두 층 어디서도 못 부른다. **이 문서가 아니라 리팩터 항목이라** 여기서 닫지 않고
+>    `.zzz/refactor-candidates.md`의 38번에 남겨둔다.
+> 3. **1번이 닫혔으므로 이 문서는 `devdocs/legacy/`로 왔다.** 최상위에 서 있던 이유가 그것 하나였다.
 >
 > ---
 >

@@ -3,8 +3,8 @@
 //
 // `KEYS_TO_SAVE` in `Profile.lua` is the one list of "fields that get saved", and `ACTION_FIELDS`
 // in `DebindShare/Export.lua` is the list of "fields that go out on the wire". They must differ by
-// exactly two (`key`, `seq`): those two describe **where an action sits in this profile**, so one
-// moves up to the group and the other is left behind (the comment in `Export.lua` has the detail).
+// exactly one (`imported`), which is the only field that describes **this drawer** rather than the
+// action (the comment in `Export.lua` has the detail).
 //
 // Why this exists: adding a field to only one of them raises **nothing anywhere**. The action saves
 // fine and the export quietly drops it, so it arrives on the far side as an action with one
@@ -23,21 +23,21 @@ const repoRoot = path.resolve(__dirname, "..");
 
 // Fields it is *correct* for the two lists to disagree on. Adding one means leaving a line saying why.
 const EXPECTED_ONLY_IN_PROFILE = {
-    key: "moves up to the group field - one group is one key",
-    seq: "scoped to one key group - the wire's `order` carries the ranking instead",
-    // Same reason as those two: they say where the action sits *here*. Sending them would tell the
-    // far side that something they just received had already been received, and quarantine it
-    // against a batch number that means nothing on their machine.
+    // It says where the action sits *here*. Sending it would tell the far side that something they
+    // just received had already been received, and quarantine it against a batch number that means
+    // nothing on their machine.
     imported: "which batch it arrived on - meaningless in someone else's drawer",
-    importGroup: "its group inside that batch - the wire already has group ids",
-    importOrder: "made from the wire's `order` on arrival - the sender has no such field",
 };
 
-// **`order` and `layer` are on the wire and this check cannot see them.** Both are computed in
-// `BuildExportPayload` (`copy.order = j`, `copy.layer = entry.layer`) rather than copied from a
-// profile field, so they appear in neither list. Said here so the gap is a known one: a wire field
-// that stops being written would go unnoticed by this check, and `tests/import_spec.lua` is what
-// covers those two instead.
+// This list used to hold `key` and `seq` as well, under a format that carried the key on a group
+// layer above the action and renamed the ranking to `order` to keep it from colliding. Both are on
+// the wire under their own names now (`devdocs/building-export-import.md`), which is also what let
+// the receiving side read the same whitelist instead of a blacklist of its own.
+//
+// **`macro` and `setstate` are on the wire and this check cannot see them.** Neither is a profile
+// field: they are what a local reference is rewritten into for the trip, and they are read and
+// dropped on arrival. Said here so the gap is a known one - a wire field that stopped being written
+// would go unnoticed here, and `tests/import_spec.lua` is what covers those two instead.
 
 /** Collects the keys inside the braces of `local NAME = { ... };`. */
 function readFieldTable(file, tableName) {

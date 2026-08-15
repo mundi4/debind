@@ -13,7 +13,7 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- **Nothing here touches the profile.** A batch sits outside it until it is brought in, which is
 --- the decision the design turns on (`devdocs/building-export-import.md`): once actions are in the
 --- profile they scatter -- the overview sorts by name, layers split them -- so what arrived
---- together has to keep saying so, and `importGroup` is what carries it across.
+--- together has to keep saying so, and the key is what carries it across.
 
 
 --- Bump when a stored batch changes shape. Separate from the string's own two versions
@@ -53,10 +53,51 @@ local EXPIRY_WARNING_SECONDS  = 3 * 24 * 60 * 60;
 -- Source layers
 -- ---------------------------------------------------------------------------------------------
 
---- Where a source layer lands, as the address the profile actually stores things under.
+--- Every layer list in a payload, handed its address: `fn(list, scope, class, spec)`.
 ---
---- Returns `scope, class, spec` -- the same three the profile is keyed by (`shared.GENERAL`,
---- `shared.classes[class][spec]`, `characters[guid].layers[spec]`) -- or nil.
+--- **The path is the address.** The payload nests the way storage does -- `shared.GENERAL`,
+--- `shared.classes[class][spec]`, `char[spec]` -- so there is no descriptor to read and nothing to
+--- translate; walking the string and walking the profile are the same walk
+--- (`devdocs/building-export-import.md`).
+---
+--- The address is only where it *claims* to be. `ImportAddress` is what says whether it is one this
+--- profile has a place for, and the two are separate so a caller can count what it turned down.
+---
+--- Everything is type-checked on the way, because a pasted string is untrusted input and none of
+--- this may error. A branch that is not a table is not walked, which is the same answer as a branch
+--- that is not there.
+function DebindShare.ForEachPayloadLayer(payload, fn)
+    local shared = luatype(payload.shared) == "table" and payload.shared or nil;
+
+    if (shared) then
+        if (luatype(shared.GENERAL) == "table") then
+            fn(shared.GENERAL, "general", nil, 0);
+        end
+        if (luatype(shared.classes) == "table") then
+            for class, specTbl in pairs(shared.classes) do
+                if (luatype(specTbl) == "table") then
+                    for spec, list in pairs(specTbl) do
+                        if (luatype(list) == "table") then
+                            fn(list, "class", class, spec);
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if (luatype(payload.char) == "table") then
+        for spec, list in pairs(payload.char) do
+            if (luatype(list) == "table") then
+                fn(list, "character", nil, spec);
+            end
+        end
+    end
+end
+
+--- Does this profile have a place for that address? Returns `scope, class, spec` -- the three the
+--- profile is keyed by (`shared.GENERAL`, `shared.classes[class][spec]`,
+--- `characters[guid].layers[spec]`) -- or nil.
 ---
 --- **A layer is not something to translate.** Both profiles use the same coordinate system: one
 --- general layer, then class by spec, then character by spec. What differs between two accounts is
@@ -75,26 +116,21 @@ local EXPIRY_WARNING_SECONDS  = 3 * 24 * 60 * 60;
 --- is the only address with nowhere to go: `characters[guid].layers[4]` on a three-spec class is a
 --- table nothing will ever read and nothing will ever clean up. Answering nil is what gets it
 --- counted and said out loud instead.
-function DebindShare.ImportAddress(descriptor)
-    if (luatype(descriptor) ~= "table") then
-        return nil;
-    end
-
-    local scope = descriptor.scope;
+function DebindShare.ImportAddress(scope, class, spec)
     if (scope == "general") then
         return "general";
     end
 
-    local spec = descriptor.spec or 0;
+    spec = spec or 0;
     if (luatype(spec) ~= "number" or spec < 0 or spec > MAX_SPEC) then
         return nil;
     end
 
     if (scope == "class") then
-        if (not KNOWN_CLASSES[descriptor.class]) then
+        if (not KNOWN_CLASSES[class]) then
             return nil;
         end
-        return "class", descriptor.class, spec;
+        return "class", class, spec;
     end
 
     if (scope == "character") then
@@ -126,24 +162,14 @@ DebindShare.IMPORT_LINES      = {
     "character.spec",
 };
 
---- Which line a layer descriptor belongs to, or nil for one no line covers.
----
---- **Derived from the descriptor's value, never its identity.** The sender shares one descriptor
---- table between the actions of a layer, but that is only true in the sender's memory --
---- serializing and deserializing is free to hand back a separate table per action, and then
---- identity says every action came from a layer of its own.
-function DebindShare.ImportLineFor(descriptor)
-    if (luatype(descriptor) ~= "table") then
-        return nil;
-    end
-
-    local scope = descriptor.scope;
+--- Which line an address belongs to, or nil for one no line covers.
+function DebindShare.ImportLineFor(scope, spec)
     if (scope == "general") then
         return "shared.general";
     elseif (scope == "class") then
         return "shared.class";
     elseif (scope == "character") then
-        return (descriptor.spec or 0) > 0 and "character.spec" or "character.general";
+        return (spec or 0) > 0 and "character.spec" or "character.general";
     end
     return nil;
 end
@@ -163,21 +189,19 @@ end
 function DebindShare.CollectImportLines(payload)
     local counts, classLine = {}, nil;
 
-    for _, group in ipairs(payload.groups or {}) do
-        for _, action in ipairs(group.actions or {}) do
-            local line = DebindShare.ImportLineFor(action.layer);
-            if (line and DebindShare.ImportAddress(action.layer)) then
-                counts[line] = (counts[line] or 0) + 1;
-                if (line == "shared.class") then
-                    if (classLine == nil) then
-                        classLine = action.layer.class;
-                    elseif (classLine ~= action.layer.class) then
-                        classLine = false;
-                    end
+    DebindShare.ForEachPayloadLayer(payload, function(list, scope, class, spec)
+        local line = DebindShare.ImportLineFor(scope, spec);
+        if (line and DebindShare.ImportAddress(scope, class, spec)) then
+            counts[line] = (counts[line] or 0) + #list;
+            if (line == "shared.class") then
+                if (classLine == nil) then
+                    classLine = class;
+                elseif (classLine ~= class) then
+                    classLine = false;
                 end
             end
         end
-    end
+    end);
 
     local lines = {};
     for _, line in ipairs(DebindShare.IMPORT_LINES) do
@@ -253,18 +277,32 @@ function DebindShare.AddBatch(text, source)
     -- **Counted once, here.** Drawing the drawer needs to say how much is in each row, and
     -- decoding every stored string to answer that would undo storing strings in the first place.
     -- They are known at this moment for free, and a batch's contents never change afterwards.
-    local groupCount, actionCount = #(payload.groups or {}), 0;
+    --
+    -- **A key is a group**, so counting the distinct keys is counting the groups. An action with no
+    -- key at all is in nobody's, and adds to neither count but the total.
+    local groupCount, actionCount = 0, 0;
     -- **Whether there is a key in here at all**, counted at the same moment for the same reason.
     -- The drawer offers to leave the keys out on the way in, and that control has nothing to switch
     -- off for a string the sender already sent without them. Answering it later would mean decoding
     -- the string to draw a row.
-    local hasKeys = false;
-    for _, group in ipairs(payload.groups or {}) do
-        actionCount = actionCount + #(group.actions or {});
-        if (group.key ~= nil) then
-            hasKeys = true;
+    --
+    -- **A real key is a string; a synthetic one is a number** (`Export.lua`), so the type is the
+    -- whole question -- a string sent with the keys left out carries a key on every action and
+    -- still has none to offer.
+    local hasKeys, seenKeys = false, {};
+    DebindShare.ForEachPayloadLayer(payload, function(list)
+        for _, action in ipairs(list) do
+            actionCount = actionCount + 1;
+            local key = action.key;
+            if (key ~= nil and not seenKeys[key]) then
+                seenKeys[key] = true;
+                groupCount = groupCount + 1;
+            end
+            if (luatype(key) == "string") then
+                hasKeys = true;
+            end
         end
-    end
+    end);
 
     local vars = Vars();
     local batch = {

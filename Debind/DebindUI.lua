@@ -1101,12 +1101,13 @@ end
 --- Takes the badge off, which is what lets these actions reach a key.
 ---
 --- **This is the whole of "approve".** Importing put them in the profile and `BuildKeyMap` has been
---- skipping them ever since; clearing the two fields is the reader saying yes, and the rebuild
---- below is the moment their keys actually change. That is on purpose: it is one visible event the
---- reader asked for, rather than something that happened while they were reading a list.
+--- skipping them ever since; clearing the field is the reader saying yes, and the rebuild below is
+--- the moment their keys actually change. That is on purpose: it is one visible event the reader
+--- asked for, rather than something that happened while they were reading a list.
 ---
---- `importGroup` goes with `imported`. It only ever meant "which set did this arrive in", and once
---- the set is approved it is no longer a set - it is bindings, grouped by key like everything else.
+--- **A set that came in without a key keeps its synthetic one**, and is still skipped by the build
+--- after this. That is the honest state - taken, and not yet on a key - and it is the same state an
+--- action the reader accepted while it had no key has always been in.
 ---
 --- **The last badge takes the narrowing with it.** Accepting the lot is the ordinary end of an
 --- import, and it would end on two empty lists if `_importedOnly` stayed on - narrowed to a set
@@ -1115,8 +1116,6 @@ end
 local function ApproveImportedActions(actions)
     for _, action in ipairs(actions) do
         action.imported = nil;
-        action.importGroup = nil;
-        action.importOrder = nil;
     end
 
     if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
@@ -1228,7 +1227,7 @@ do
 			addLabelLine(LLL["KEY"]);
 
 			if (action.key) then
-				local keyText = GetBindingText(action.key);
+				local keyText = DebindPrivate.GetKeyDisplayText(action.key);
 				local error;
 				if (isInactive) then
 					keyText = INACTIVE_COLOR:WrapTextInColorCode(keyText);
@@ -1625,7 +1624,7 @@ function DebindLineMixin:Update()
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
 	if (action.key) then
-		local s = GetBindingText(action.key);
+		local s = DebindPrivate.GetKeyDisplayText(action.key);
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
@@ -1882,27 +1881,31 @@ DebindKeyHeaderMixin = {};
 ---
 --- Plain text. The colours belong to the position: the header greys the unbound pile and tints an
 --- arrival group, and a prompt in the middle of the screen does neither.
-local function KeyGroupLabel(key, importGroup)
-	if (key) then
-		return GetBindingText(key);
-	end
-	if (importGroup) then
-		return format(LLL["KEY_GROUP_UNKNOWN_KEY"], importGroup);
+local function KeyGroupLabel(key)
+	if (key ~= nil) then
+		return DebindPrivate.GetKeyDisplayText(key);
 	end
 	return LLL["OVERVIEW_NO_KEY"];
 end
 
 function DebindKeyHeaderMixin:Init(elementData)
 	self:SetHeight(KeyHeaderExtent(elementData));
-	if (elementData.key) then
+	if (type(elementData.key) == "number") then
+		-- **A key group whose key has not been decided yet.** Numbered because two strings can be
+		-- waiting at once, and `#` rather than `(n)` because a parenthesised number already means a
+		-- count in this window (the tab labels).
+		--
+		-- Tinted while any of it is still badged, greyed once it is not. Both are true of it and
+		-- the colour says which one the reader is looking at: a set waiting on a decision, or one
+		-- they have taken and not yet given a key to.
+		local label = KeyGroupLabel(elementData.key);
+		if (elementData.hasImported) then
+			self.Label:SetText(IMPORTED_FONT_COLOR:WrapTextInColorCode(label));
+		else
+			self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(label));
+		end
+	elseif (elementData.key) then
 		self.Label:SetText(KeyGroupLabel(elementData.key));
-	elseif (elementData.importGroup) then
-		-- **A key group whose key was not sent.** Numbered because two strings can be waiting at
-		-- once, and `#` rather than `(n)` because a parenthesised number already means a count in
-		-- this window (the tab labels). Not greyed like the pile below: this set is waiting on a
-		-- decision, and the arrival colour is what says so everywhere else on the row.
-		self.Label:SetText(IMPORTED_FONT_COLOR:WrapTextInColorCode(
-			KeyGroupLabel(nil, elementData.importGroup)));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
 		--
@@ -4468,7 +4471,13 @@ local function BuildKeyboardElements()
 
 	local elements = {};
 	for _, key in ipairs(keyArr) do
-		elements[#elements + 1] = { isHeader = true, key = key, isFirst = #elements == 0 or nil };
+		elements[#elements + 1] = {
+			isHeader = true,
+			key = key,
+			-- Only the heading of a set with no real key reads this, and only for its colour.
+			hasImported = keyHasImported[key],
+			isFirst = #elements == 0 or nil,
+		};
 
 		-- 각 행에 **바로 아래 행을 이긴 이유**를 붙인다. 마지막 행에는 안 붙는다 - 이길
 		-- 상대가 없다. 넷 다 같았으면(nil) 남은 것은 순서 번호뿐이라 SEQ로 부른다.
@@ -4520,101 +4529,62 @@ local function BuildKeyboardElements()
 	-- **Then everything with no key, last.** The column above is the keyboard, and these are not on
 	-- it; putting them anywhere but the end would break the reading that a header owns a key.
 	--
-	-- **An arrival group is kept whole and headed on its own.** A key split across conditional
-	-- actions is one thing the sender built, and when the key was not sent that grouping is the only
-	-- surviving record of it - which is exactly what the reader needs in order to decide what key to
-	-- give the set. Dropping it into the general no-key pile would make them guess which of a flat
-	-- list belonged together, and a wrong guess is silent: two actions meant to share a key end up
-	-- on two, and both fire.
-	--
-	-- Numbered ascending so the same profile always draws the same order, and the numbers are the
-	-- profile's own (`NextImportGroupID`) rather than the sender's, which repeat across strings.
-	local groupSeen, groupArr, hasPlain = {}, {}, false;
-	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
-		for _, action in layer:Enumerate() do
-			if (action.key == nil) then
-				local group = action.importGroup;
-				if (group == nil) then
-					hasPlain = true;
-				elseif (not groupSeen[group]) then
-					groupSeen[group] = true;
-					groupArr[#groupArr + 1] = group;
-				end
+	-- **One pile, and it used to be several.** A set that arrived without a key was headed on its
+	-- own here, because the grouping was the only surviving record of what the sender had built. It
+	-- comes in on a synthetic key now, so it is a key group and it is drawn as one up above -- the
+	-- pass that split this column in two is gone with the field it split on
+	-- (`devdocs/building-export-import.md`).
+	local rows = DebindPrivate.CollectKeylessActionRows();
+
+	-- **The pile is narrowed row by row, and the key groups above are not.** A key group is kept
+	-- whole because the reason text on each row names the one below it; nothing here carries a
+	-- sentence about its neighbour, so there is nothing to break by thinning it.
+	if (_importedOnly) then
+		local kept = {};
+		for _, row in ipairs(rows) do
+			if (row.imported) then
+				kept[#kept + 1] = row;
 			end
 		end
-	end
-	sort(groupArr);
-
-	local keylessSets = {};
-	for _, group in ipairs(groupArr) do
-		keylessSets[#keylessSets + 1] = group;
-	end
-	if (hasPlain) then
-		keylessSets[#keylessSets + 1] = false;
+		rows = kept;
 	end
 
-	for _, group in ipairs(keylessSets) do
-		local importGroup = group or nil;
-		local rows = DebindPrivate.CollectKeylessActionRows(importGroup);
-
-		-- **The pile is narrowed row by row, and the groups above are not.** A key group is kept
-		-- whole because the reason text on each row names the one below it; nothing here carries a
-		-- sentence about its neighbour, so there is nothing to break by thinning it. And it has to
-		-- be thinned rather than dropped: an action that came in without a key and without a group
-		-- lives in this pile, and the switch exists to show exactly that.
-		if (importGroup == nil and _importedOnly) then
-			local kept = {};
-			for _, row in ipairs(rows) do
-				if (row.imported) then
-					kept[#kept + 1] = row;
-				end
-			end
-			rows = kept;
+	-- **The pile is sorted by name, and the key groups above are not.** Firing order is what
+	-- `CompareActionOrder` answers, and nothing in this pile fires - these are actions with no key
+	-- at all, belonging to no set. What is left to sort them by is the one thing the reader is
+	-- scanning for, which is what the action is.
+	sort(rows, function(lhs, rhs)
+		local lhsName = NameAndIconForAction(lhs.action) or "";
+		local rhsName = NameAndIconForAction(rhs.action) or "";
+		if (lhsName ~= rhsName) then
+			return lhsName < rhsName;
 		end
-
-		-- **The pile is sorted by name, and the arrival groups above are not.** Firing order is what
-		-- `CompareActionOrder` answers, and nothing in this pile fires - these are actions with no
-		-- key at all, belonging to no set. What is left to sort them by is the one thing the reader
-		-- is scanning for, which is what the action is. An arrival group is the opposite: its order
-		-- is the sender's design and the only surviving record of it.
-		if (importGroup == nil) then
-			sort(rows, function(lhs, rhs)
-				local lhsName = NameAndIconForAction(lhs.action) or "";
-				local rhsName = NameAndIconForAction(rhs.action) or "";
-				if (lhsName ~= rhsName) then
-					return lhsName < rhsName;
-				end
-				-- Two of the same thing. Falling through keeps the list from rearranging itself
-				-- between two draws - `table.sort` is not stable, so a pair that ties all the way
-				-- down is free to swap.
-				--
-				-- **`layerID`, not `layerRank`.** The rank is a scope now and all four
-				-- character-spec layers share it, so two rows in different specs tie on rank and
-				-- can tie on `index` as well - both being the first action in their own layer.
-				if (lhs.layerID ~= rhs.layerID) then
-					return lhs.layerID < rhs.layerID;
-				end
-				return lhs.index < rhs.index;
-			end);
+		-- Two of the same thing. Falling through keeps the list from rearranging itself between two
+		-- draws - `table.sort` is not stable, so a pair that ties all the way down is free to swap.
+		--
+		-- **`layerID`, not `layerRank`.** The rank is a scope now and all four character-spec layers
+		-- share it, so two rows in different specs tie on rank and can tie on `index` as well - both
+		-- being the first action in their own layer.
+		if (lhs.layerID ~= rhs.layerID) then
+			return lhs.layerID < rhs.layerID;
 		end
+		return lhs.index < rhs.index;
+	end);
 
-		if (#rows > 0) then
+	if (#rows > 0) then
+		elements[#elements + 1] = {
+			isHeader = true,
+			key = nil,
+			isFirst = #elements == 0 or nil,
+		};
+		for _, row in ipairs(rows) do
+			-- No `reason`, and no `rows`/`index`. Nothing here beat anything: with no key there is
+			-- no contest to win and nowhere to move to, so the arrows stay down (`UpdateMoveButtons`
+			-- finds fewer than two live rows) and the slot beside the name is the accept button's.
 			elements[#elements + 1] = {
-				isHeader = true,
-				key = nil,
-				importGroup = importGroup,
-				isFirst = #elements == 0 or nil,
+				row = row,
+				isCurrent = row.action == _selectedAction,
 			};
-			for _, row in ipairs(rows) do
-				-- No `reason`, and no `rows`/`index`. Nothing here beat anything: with no key there
-				-- is no contest to win and nowhere to move to, so the arrows stay down
-				-- (`UpdateMoveButtons` finds fewer than two live rows) and the slot beside the name
-				-- is the accept button's.
-				elements[#elements + 1] = {
-					row = row,
-					isCurrent = row.action == _selectedAction,
-				};
-			end
 		end
 	end
 
@@ -5033,23 +5003,17 @@ end
 --- The key group an action belongs to, and the key that group is leaving.
 ---
 --- **The group is what the left column draws under one heading**, which is the thing the reader is
---- pointing at: everything on the same key, or - for something that arrived without one - the
---- arrival group it came in with. `BuildKeyboardElements` splits that column by exactly those two
---- questions, so there is no third case and no row belonging to a group it is not drawn under.
+--- pointing at: everything on the same key. A set that arrived without one is on a synthetic key
+--- and so is no different here -- which is what left this with one question where it used to have
+--- two, and `BuildKeyboardElements` splits the column by that same one.
 ---
---- An action with neither a key nor a group is nobody's group: it is one row of the unbound pile,
---- and giving one action a key is what the bind mode has always done.
+--- An action with no key at all is nobody's group: it is one row of the unbound pile, and giving
+--- one action a key is what the bind mode has always done.
 local function CollectKeyGroupForAction(action)
-	if (action == nil) then
+	if (action == nil or action.key == nil) then
 		return nil;
 	end
-	if (action.key ~= nil) then
-		return DebindPrivate.CollectKeyGroupActions(action.key), action.key, nil;
-	end
-	if (action.importGroup) then
-		return DebindPrivate.CollectImportGroupActions(action.importGroup), nil, action.importGroup;
-	end
-	return nil;
+	return DebindPrivate.CollectKeyGroupActions(action.key), action.key;
 end
 
 --- Arms one key group and starts listening for the key it should get.
@@ -5173,11 +5137,11 @@ end
 
 --- The way in from the left column's right-click menu: collect the group and set the aim.
 function DebindUI.BeginKeyGroupCapture(action)
-	local actions, key, importGroup = CollectKeyGroupForAction(action);
+	local actions, key = CollectKeyGroupForAction(action);
 	if (actions == nil or #actions == 0) then
 		return;
 	end
-	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, importGroup));
+	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key));
 end
 
 --- Can a whole key group be given a key from this action? Asked when the menu decides whether to
@@ -5202,7 +5166,7 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	button3 = CANCEL,
 	OnShow = function(dialog, data)
 		dialog:SetFormattedText(LLL["KEY_GROUP_CONFLICT"],
-			data.label, GetBindingText(data.key), #data.occupants);
+			data.label, KeyGroupLabel(data.key), #data.occupants);
 	end,
 	OnButton1 = function(_, data)
 		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);

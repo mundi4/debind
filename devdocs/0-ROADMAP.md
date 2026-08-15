@@ -10,7 +10,7 @@
 | | 트랙 | 문서 |
 |---|---|---|
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
-| **다음 (3.2)** | 익스포트 / 임포트 | `building-export-import.md`<br>`renumbering-a-key-group.md`<br>`showing-off-spec-actions.md` |
+| **다음 (3.2)** | 익스포트 / 임포트 | `building-export-import.md`<br>`showing-off-spec-actions.md`<br>(`legacy/renumbering-a-key-group.md` — 끝났다) |
 | **그다음 (3.3)** | 커스텀 상태 재설계 | `.zzz/custom-states-redesign.md` |
 
 **버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 위 둘은 기능 추가라 마이너를

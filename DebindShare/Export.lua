@@ -7,9 +7,9 @@ local luatype            = type;
 --- Turning a selection of profile actions into one shareable string.
 ---
 --- Nothing in here reads or writes the profile. `BuildExportPayload` walks layers and copies
---- fields out; `EncodeExportPayload` turns the copy into text. Import is a separate slice and
---- lives nowhere yet -- `DecodeExportString` exists only so the round trip is testable, and it
---- hands back a plain table, never an action.
+--- fields out; `EncodeExportPayload` turns the copy into text. `DecodeExportString` is the inverse
+--- of that last step and nothing more -- it hands back a plain table, never an action. Turning one
+--- into actions is `Import.lua`.
 ---
 --- Design notes and the open questions this file does **not** answer: `devdocs/building-export-import.md`.
 
@@ -33,20 +33,15 @@ local ENVELOPE_SEPARATOR = ":";
 
 --- Action fields that go out on the wire.
 ---
---- This is `KEYS_TO_SAVE` (`Profile.lua`) minus two, and the two are dropped for the same
---- reason: they describe **where the action sits in this profile**, not what it does.
+--- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `imported` says which batch an action arrived
+--- on **in this drawer**, which is the one field that means nothing anywhere else.
 ---
----   `key` -- moves up to the group, which is the whole point of the group (see below)
----   `seq` -- an ordering number scoped to one key group, so it means nothing in the group that
----            receives it. What the ranking means travels instead: actions are emitted in `seq`
----            order and each carries `order`, its 1..n place in the group, which the far side turns
----            into `importOrder`.
----
----            **It is not kept off the wire to prevent a collision**, which is what stood here.
----            Sent under its own name it would land on the action (`BuildAction` is a blacklist) and
----            then be overwritten: `PlaceImportedActions` gives every arriving action an arrival
----            number and renumbers the group it lands in. Whether `order` earns its own name is
----            reopened in `devdocs/building-export-import.md`.
+--- `key` and `seq` are on the list. They used to be the two exceptions -- `key` moved up to a group
+--- layer and `seq` was replaced by a computed `order` -- and both reasons are gone: a key **is** the
+--- group now, so there is nothing above the action to hold it, and the collision `seq` was renamed
+--- to avoid was never there. `PlaceImportedActions` is the only way these reach the profile and it
+--- overwrites `seq` on every one of them with an arrival number before renumbering the group, so a
+--- sender's number cannot survive landing. `devdocs/building-export-import.md`.
 ---
 --- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
 --- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
@@ -55,6 +50,8 @@ local ENVELOPE_SEPARATOR = ":";
 local ACTION_FIELDS      = {
     type = true,
     value = true,
+    key = true,
+    seq = true,
     name = true,
     icon = true,
     unit = true,
@@ -79,6 +76,10 @@ local ACTION_FIELDS      = {
     ["$state4"] = true,
     ["$state5"] = true,
 };
+
+--- Read by `Import.lua`, which filters the incoming table through the **same** list. One side a
+--- whitelist and the other a blacklist is what let a wire field nobody named ride into the profile.
+DebindShare.ACTION_FIELDS = ACTION_FIELDS;
 
 --- Which fields of a custom state definition describe the state, as opposed to what it happens
 --- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it from
@@ -119,15 +120,62 @@ local function CopyFields(source, allowed)
     return copy;
 end
 
---- Where a layer sits, said in terms the receiving side can resolve. Layer **IDs** are not
---- portable: 2..6 are "my class", and the sender's class is not the reader's.
-local function DescribeLayer(layer)
+--- The list in `payload` this layer's actions go into, built on the way down.
+---
+--- **The path is the address.** It is the shape the profile stores under
+--- (`shared.GENERAL`, `shared.classes[class][spec]`, `char[spec]`), so nothing describes a layer and
+--- nothing translates one -- the two profiles use the same coordinate system and what differs is
+--- only *which class*, which is a value of the coordinate. Which is also what lets the drawing code
+--- be reused on a payload later without a translation step in front of it
+--- (`devdocs/building-export-import.md`).
+---
+--- Layer **IDs** are what cannot travel: 2..6 are "my class", and the sender's class is not the
+--- reader's. The character block drops the guid for the same reason -- "their character" means
+--- nothing here, so it says *this* character at that spec.
+local function BucketForLayer(payload, layer)
+    local specTbl;
+
     if (layer.isCharacterSpecific) then
-        return { scope = "character", spec = layer.spec };
-    elseif (layer.layerID == 1) then
-        return { scope = "general" };
+        specTbl = payload.char;
+        if (not specTbl) then
+            specTbl = {};
+            payload.char = specTbl;
+        end
+    else
+        local shared = payload.shared;
+        if (not shared) then
+            shared = {};
+            payload.shared = shared;
+        end
+
+        if (layer.layerID == 1) then
+            local general = shared.GENERAL;
+            if (not general) then
+                general = {};
+                shared.GENERAL = general;
+            end
+            return general;
+        end
+
+        local classes = shared.classes;
+        if (not classes) then
+            classes = {};
+            shared.classes = classes;
+        end
+        specTbl = classes[Constants.PLAYER_CLASS];
+        if (not specTbl) then
+            specTbl = {};
+            classes[Constants.PLAYER_CLASS] = specTbl;
+        end
     end
-    return { scope = "class", class = Constants.PLAYER_CLASS, spec = layer.spec };
+
+    local spec = layer.spec or 0;
+    local tbl = specTbl[spec];
+    if (not tbl) then
+        tbl = {};
+        specTbl[spec] = tbl;
+    end
+    return tbl;
 end
 
 --- The macro body, so the reference does not have to survive the trip.
@@ -285,110 +333,41 @@ end
 
 
 -- ---------------------------------------------------------------------------------------------
--- Grouping
+-- Leaving the keys out
 -- ---------------------------------------------------------------------------------------------
 
---- Everything selected, split into groups.
+--- Hands out the synthetic keys "export without the keys" replaces the real ones with.
 ---
---- A **group** is one key. It is the unit that has to stay together when the key is dropped: a
---- conditional binding is several actions that only mean something as a set, and "export without
---- keys" turns that set into loose actions unless something else holds it. The `id` is what holds
---- it -- identity lives there and not on `key`, which may be nil, may repeat, and is exactly the
---- field the option removes.
+--- **The option renames a key, it does not remove one.** A conditional binding is several actions
+--- that only mean anything as a set, and dropping the key outright is what turns that set into a
+--- loose pile the reader cannot put back together. Same key in, same key out, so the grouping needs
+--- nothing declared anywhere: it *is* the key.
 ---
---- **A group spans layers, and the layer is written on each action.** It used to be a group field,
---- one group per (layer, key), and a key whose actions lived in two layers left as two groups. The
---- reason that was wrong shows up at the other end: with the keys stripped, the reader is handed
---- two headings for what the sender built as one key, gives them two keys, and both fire. There is
---- nothing in the string by then that could have told them otherwise.
+--- **A number, and the type is the whole test.** A string prefix (`export#1`) would be a key that
+--- looks like a key -- one guard missed and it is drawn as though the reader had bound it -- while
+--- a number cannot be a binding string at all, so the same slip is loud: `GetBindingText` and
+--- `SetBindingClick` have nothing to do with one. `devdocs/building-export-import.md`.
 ---
---- Ranking inside a group therefore has to cross layers too, and it is `CompareActionOrder` that
---- does it -- the one place in this addon that says what runs first, so a string cannot be ordered
---- differently from the list the reader will see it in.
----
---- **Sent as if no specialization were active.** With one active its layers would rank ahead of the
---- rest, and then the same profile would produce a different string depending on which
---- specialization the sender happened to be in. With none, every spec layer is ranked by its own
---- number and the output is the sender's profile rather than the sender's afternoon. What the
---- reader sees is theirs to arrange anyway: the badge lands, and the overview sorts it against
---- *their* active specialization.
----
---- Keyless actions are singletons. In a profile nothing binds two keyless actions to each other
---- -- whatever group they arrived in was dissolved when they were placed.
-local function GroupSelectedActions(isSelected)
-    local byKey, keyOrder, keyless = {}, {}, {};
-    -- Where this action turned up in the walk. The last tiebreak, and it exists because `sort` is
-    -- not stable and two actions on one key can carry the same `seq`. `CleanUpDB` is what usually
-    -- keeps them apart, and it runs at login and at logout rather than after every edit -- so the
-    -- promise this holds up is the export's own: the same profile has to give the same string.
-    local ordinal = 0;
-
-    for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(0) do
-        -- Built once per layer and shared by that layer's actions. The far side reads it and never
-        -- keeps it (`BuildAction` drops it), so one table serving many actions is safe.
-        local descriptor;
-
-        for _, action in layer:Enumerate() do
-            if (isSelected == nil or isSelected[action]) then
-                descriptor = descriptor or DescribeLayer(layer);
-                ordinal = ordinal + 1;
-                -- The fields `CompareActionOrder` reads, and nothing else. `MakeRow` builds the
-                -- same shape for the screen but pays for red text and reachability along the way,
-                -- neither of which a string has any use for.
-                local entry = {
-                    action = action,
-                    layer = descriptor,
-                    ordinal = ordinal,
-                    priority = action.priority,
-                    hover = DebindPrivate.GetBindingInfoForAction(action).hover,
-                    isConditional = DebindPrivate.IsConditionalAction(action),
-                    layerRank = scopeRank,
-                    specRank = specRank,
-                    -- Read only while there is a key, the same way `MakeRow` reads it: a stored
-                    -- number outlives the key it was issued for, and using it here would let a
-                    -- keyless action that was briefly bound outrank its own `importOrder`.
-                    seq = action.key ~= nil and action.seq or nil,
-                    importOrder = action.importOrder,
-                };
-
-                if (action.key == nil) then
-                    keyless[#keyless + 1] = entry;
-                else
-                    local bucket = byKey[action.key];
-                    if (not bucket) then
-                        bucket = {};
-                        byKey[action.key] = bucket;
-                        keyOrder[#keyOrder + 1] = action.key;
-                    end
-                    bucket[#bucket + 1] = entry;
-                end
-            end
+--- Numbered in the order the walk meets them, which is stable for an unedited profile. The value
+--- means nothing outside this one string -- the reader hands out their own on the way in, because
+--- two strings waiting at once would both start at 1.
+local function KeyRenamer()
+    local renamed, next = {}, 1;
+    return function(key)
+        if (key == nil) then
+            -- **An action that never had a key goes out without one**, and the rule "a set nobody
+            -- bound gets no group" stops being a rule and becomes the shape: with no key it is in
+            -- nobody's key group.
+            return nil;
         end
+        local synthetic = renamed[key];
+        if (not synthetic) then
+            synthetic = next;
+            renamed[key] = synthetic;
+            next = next + 1;
+        end
+        return synthetic;
     end
-
-    -- Sorted so the same profile always produces the same string. Re-exporting after touching
-    -- nothing has to be a no-op the user can see is a no-op, and storage order is not stable
-    -- across an edit. `CompareKeys` is the order the UI already shows keys in.
-    sort(keyOrder, DebindPrivate.CompareKeys);
-
-    local groups = {};
-    for i = 1, #keyOrder do
-        local bucket = byKey[keyOrder[i]];
-        sort(bucket, function(lhs, rhs)
-            if (DebindPrivate.CompareActionOrder(lhs, rhs)) then
-                return true;
-            elseif (DebindPrivate.CompareActionOrder(rhs, lhs)) then
-                return false;
-            end
-            return lhs.ordinal < rhs.ordinal;
-        end);
-        groups[#groups + 1] = { key = keyOrder[i], entries = bucket };
-    end
-    for i = 1, #keyless do
-        groups[#groups + 1] = { key = nil, entries = { keyless[i] } };
-    end
-
-    return groups;
 end
 
 
@@ -402,74 +381,56 @@ DebindShare.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 ---
 --- `selection` is a set of the action tables to send, or nil for everything stored. The export
 --- window checks actions, so a set of actions is what it has; layers are walked here rather than
---- asked for, which is what makes the output ordered and the window's job a filter.
+--- asked for, which is what puts the payload in storage shape and leaves the window a filter.
 ---
---- `options.stripKeys` drops every group's `key` and keeps every group's `id` -- the "send the
---- actions, not my keybinds" option, without the loose-pile failure it usually comes with.
+--- `options.stripKeys` is "send the actions, not my keybinds": every key is replaced by a synthetic
+--- one (`KeyRenamer`), so nothing is lost but the key itself.
+---
+--- **Emitted in storage order, one layer at a time.** Which of a key's actions goes first travels as
+--- `seq`, so the array is not carrying that and does not have to be sorted to say it; and storage
+--- order is stable for a profile nobody has edited, which is what re-exporting has to be able to
+--- show. Whether a layer's actions are clumped by key is deliberately left open until there is a
+--- preview to read them (`devdocs/building-export-import.md`).
 ---
 --- **Nothing is validated.** A broken action exports exactly as it sits. The receiving side shows
 --- it in red and the user deletes it, and that one rule is what removes a whole class of
 --- questions about spells the reader does not have. Where the red text cannot in fact see the
 --- breakage, the format carries the answer instead -- see `SnapshotMacro` and `NormalizeAction`.
 function DebindShare.BuildExportPayload(selection, options)
-    local stripKeys = options and options.stripKeys;
+    local renameKey = (options and options.stripKeys) and KeyRenamer() or nil;
 
-    local groups, exported = {}, {};
-    local sourceGroups = GroupSelectedActions(selection);
+    local payload = {
+        v = SCHEMA_VERSION,
+        -- The sender's class, because `shared.classes` cannot be read without knowing whose it is.
+        -- Nothing else about the sender travels: a string meant to be pasted into a public channel
+        -- should not carry a character name the user did not choose to type.
+        class = Constants.PLAYER_CLASS,
+    };
+    local exported = {};
 
-    for i = 1, #sourceGroups do
-        local source = sourceGroups[i];
-        local actions = {};
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        -- Made on the first action that is actually taken, so an empty layer -- or one the reader
+        -- unticked whole -- leaves no empty table behind for the far side to walk.
+        local bucket;
 
-        for j = 1, #source.entries do
-            local entry = source.entries[j];
-            local copy = CopyFields(entry.action, ACTION_FIELDS);
-            NormalizeAction(entry.action, copy);
-            -- **Where this action lived, said in terms the far side can resolve.** On the action
-            -- rather than the group because a group is a key and a key crosses layers.
-            copy.layer = entry.layer;
-            -- **Which of this key's actions goes first, said out loud.** The bucket is already
-            -- sorted, so the position is the answer; what it must not be called is `seq`, because
-            -- the far side copies wire fields by name and that one would land on the action and
-            -- collide with the numbers the receiving layer has handed out. Computed here rather
-            -- than copied, which is why neither this nor `layer` is in `ACTION_FIELDS` at either
-            -- end (`tools/check-export-fields.js`).
-            copy.order = j;
-            actions[#actions + 1] = copy;
-            exported[#exported + 1] = copy;
+        for _, action in layer:Enumerate() do
+            if (selection == nil or selection[action]) then
+                bucket = bucket or BucketForLayer(payload, layer);
+
+                local copy = CopyFields(action, ACTION_FIELDS);
+                NormalizeAction(action, copy);
+                if (renameKey) then
+                    copy.key = renameKey(action.key);
+                end
+
+                bucket[#bucket + 1] = copy;
+                exported[#exported + 1] = copy;
+            end
         end
-
-        groups[#groups + 1] = {
-            -- **Only a group that was on a key gets identity**, and the reason is what the far side
-            -- is asked to think about.
-            --
-            -- A sender exports whole layers, so actions they built and never bound go out with the
-            -- rest. Given identity, one of those arrives headed as a set whose key was withheld -
-            -- which says *this was part of the design, decide what key it deserves*. It was not.
-            -- The reader is left working out what it is for and whether they are supposed to use
-            -- it, over something the sender does not use either.
-            --
-            -- Without the distinction the far side cannot make it. Once keys are stripped a
-            -- one-action key and a never-bound action arrive as the same table, so this is the only
-            -- end that still knows.
-            --
-            -- The number stays local to this string. The far side takes its own (`PlanImport`),
-            -- because ids repeat across strings and two can be waiting.
-            id = source.key ~= nil and (#groups + 1) or nil,
-            key = (not stripKeys) and source.key or nil,
-            actions = actions,
-        };
     end
 
-    return {
-        v = SCHEMA_VERSION,
-        -- The sender's class, because `scope = "class"` layers cannot be read without it. Nothing
-        -- else about the sender travels: a string meant to be pasted into a public channel should
-        -- not carry a character name the user did not choose to type.
-        class = Constants.PLAYER_CLASS,
-        states = BuildStateManifest(exported),
-        groups = groups,
-    };
+    payload.states = BuildStateManifest(exported);
+    return payload;
 end
 
 --- LibStub is asked at call time, not at load. This file is loaded by the headless specs, which
@@ -495,8 +456,7 @@ function DebindShare.EncodeExportPayload(payload)
 end
 
 --- The inverse, and **only** the inverse. It answers "what was in the string"; it does not touch
---- the profile and does not produce actions. Deciding what to do with the result is import's job
---- and import does not exist yet.
+--- the profile and does not produce actions. Deciding what to do with the result is `Import.lua`'s.
 ---
 --- Returns nil plus a reason for anything malformed. A pasted string is user input from an
 --- untrusted place, so every step here is allowed to fail and none of them may error.
