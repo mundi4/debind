@@ -74,10 +74,16 @@ local function BuildAction(source)
         -- shared between the actions of one layer, so copying it in would put one table inside
         -- several profile actions at once.
         --
-        -- **This loop is a blacklist**, so a wire field nobody names here rides straight into the
-        -- profile. That is why the order is not sent as `seq`: under that name it would land on the
-        -- action and collide with the numbers the receiving layer has already handed out, with
-        -- nothing in the way.
+        -- **This loop is a blacklist while the export side is a whitelist** (`ACTION_FIELDS`), so a
+        -- wire field nobody names here rides straight into the profile. That asymmetry is the thing
+        -- to know about this loop.
+        --
+        -- It is **not** why the ranking is sent as `order` rather than `seq`. That reason used to be
+        -- written here -- "under that name it would collide with the numbers the receiving layer has
+        -- handed out, with nothing in the way" -- and something is in the way: `PlaceImportedActions`
+        -- is the only path that puts these in the profile and it calls `PlaceLast` on every one,
+        -- whose first line is `action.seq = nil`. A sender's number does not survive landing.
+        -- `devdocs/building-export-import.md`.
         if (k ~= "macro" and k ~= "setstate" and k ~= "order" and k ~= "layer") then
             if (luatype(v) == "table") then
                 action[k] = CopyTable(v);

@@ -17,10 +17,11 @@ local luatype            = type;
 --- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
 --- that skips fields it does not know survives additions on its own.
 ---
---- **`layer` moved from the group to the action and this stayed at 1.** That is the one kind of
---- change the rule above says to bump for, and the exception is that no v1 string has ever left
---- this repository: sharing did not ship with 3.1.6. There is nothing out there to be read wrongly,
---- and burning v2 on a shape nobody has would only cost a number. The next such change bumps.
+--- **That rule starts at the first release that carries sharing. Until then this stays 1 whatever
+--- happens to the shape.** Sharing did not ship with 3.1.6, so no v1 string has ever left this
+--- repository and there is nothing out there to be read wrongly; burning version numbers on shapes
+--- nobody has would only spend them. `layer` has already moved from the group to the action under
+--- this same 1, and more of the shape is expected to move (`devdocs/building-export-import.md`).
 local SCHEMA_VERSION     = 1;
 
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
@@ -36,11 +37,16 @@ local ENVELOPE_SEPARATOR = ":";
 --- reason: they describe **where the action sits in this profile**, not what it does.
 ---
 ---   `key` -- moves up to the group, which is the whole point of the group (see below)
----   `seq` -- an ordering number scoped to one layer. Sending it under that name would collide
----            with the numbers the receiving layer already handed out -- and would do it silently,
----            because the far side copies wire fields by name (`BuildAction`). What the ranking
----            means still travels: actions are emitted in `seq` order and each carries `order`,
----            its 1..n place in the group, which the far side turns into `importOrder`.
+---   `seq` -- an ordering number scoped to one layer, so it means nothing in the layer that
+---            receives it. What the ranking means travels instead: actions are emitted in `seq`
+---            order and each carries `order`, its 1..n place in the group, which the far side turns
+---            into `importOrder`.
+---
+---            **It is not kept off the wire to prevent a collision**, which is what stood here.
+---            Sent under its own name it would land on the action (`BuildAction` is a blacklist) and
+---            then be cleared: `PlaceLast` opens with `action.seq = nil` and every imported action
+---            goes through it. Whether `order` earns its own name is reopened in
+---            `devdocs/building-export-import.md`.
 ---
 --- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
 --- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
