@@ -126,7 +126,7 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
 - `reference/` is gitignored and read-only: Blizzard's interface code and the client's own strings,
   fetched by a script. None of it is ours — **never commit or push inside it.** What is in there,
   which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
-- `devdocs/` holds two kinds of file, and the file name says which task it is for — never just the
+- `devdocs/` holds three kinds of file, and the file name says which task it is for — never just the
   topic (`testing.md` read as the test suite; `release.md` read as the release notes).
   - **Standing documents** are the rules, and they stay put: `dev-setup.md`,
     `testing-a-change.md`, `cutting-a-release.md`, `restricted-environment.md`,
@@ -135,6 +135,10 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
     of those is written here**, opening with a status header (`> 상태: …`). When the whole thing has
     been implemented the file moves to `devdocs/legacy/`, so a work document still at the top level
     is one that still has work in it.
+  - **`decision-log.md` is the third kind and there is only one of it** — the day's arguments and
+    decisions, newest day appended, never finished and never moved. **Its line is written in the
+    same commit as the decision**; catching up later makes it a second source of truth. Its own
+    rules are at the top of the file, including why it names files without a path.
   - A work document is a proposal, not an order — read its status header first.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
