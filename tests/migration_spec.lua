@@ -323,24 +323,21 @@ return function(DebindPrivate)
         checkDistinctSeq(actions, "섞인 상태 정리 후");
     end);
 
-    -- **키가 없으면 그물 밖이다.** 한때 여기서 키 없는 액션의 번호도 남의 것과 겹치면 갈랐다 -
-    -- 그때는 번호가 레이어 전체에서 유일했고, 겹친 채로 다시 키를 걸면 지킬 자리가 없었다.
-    --
-    -- 이제 번호는 (레이어, 키) 하나에서만 읽히고 그룹마다 1부터 매겨지므로, 한 레이어 안에서
-    -- 번호가 겹치는 것이 **정상**이다. 키 없는 액션의 번호는 아무와도 안 겨루고, 다시 키를
-    -- 거는 순간 그 그룹이 통째로 다시 매겨진다(`Profile.lua`의 `RenumberKeyGroup`). 그때
-    -- 겹친 번호가 자리를 흔들지 않는 것은 renumber_spec이 따로 세운다.
-    test("키 없는 액션의 번호는 남의 것과 겹쳐도 안 건드린다", function()
+    -- **No key, no number.** This used to split a keyless action's number off another's as well --
+    -- back when taking a key away kept the number, and coming back on a collision left no place to
+    -- keep. Taking the key away now drops the number with it (`Profile.lua`'s `ClearActionKey`), so
+    -- an action like this only exists in an older profile, and this is where it is cleared out.
+    test("키 없는 액션의 번호는 청소가 지운다", function()
         local actions = LoadLayerAndClean({
             { type = "spell", value = 1, key = "F1", seq = 1 },
             { type = "spell", value = 2, seq = 1 },
         });
 
-        check(actions[1].seq == 1 and actions[2].seq == 1,
-            "번호가 바뀌었다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+        check(actions[1].seq == 1, "키 있는 쪽이 바뀌었다: " .. tostring(actions[1].seq));
+        check(actions[2].seq == nil, "키 없는 쪽에 번호가 남았다: " .. tostring(actions[2].seq));
     end);
 
-    -- 같은 이유로, 다른 키의 액션과 번호가 겹치는 것도 정상이다.
+    -- For the same reason, sharing a number with another key's action is normal too.
     test("다른 키끼리 겹치는 번호는 안 건드린다", function()
         local actions = LoadLayerAndClean({
             { type = "spell", value = 1, key = "F1", seq = 1 },

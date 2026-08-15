@@ -434,16 +434,19 @@ L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 L["ORDER_WHY_HOVER"] = "Unit frame rule"
 L["ORDER_WHY_CONDITIONAL"] = "Has conditions"
 L["ORDER_WHY_LAYER"] = "%1$s over %2$s"
--- 넷이 다 동률일 때 남는 축. **"your order"라고 쓰면 안 된다** - 자리는 키를 걸 때 그 그룹의
--- 맨 뒤로 자동으로 받는 것이고(Profile.lua의 PlaceInKeyGroup), 사용자가 고른 적이 없다.
--- placement/put/set 계열이 전부 같은 이유로 거짓이 된다 - 위아래 버튼을 한 번도 안 누른
--- 사람에게는 자기가 놓은 자리가 아니다.
+-- The step that is left when the four above it are all tied. **It must not say "your order"** --
+-- the place is handed out automatically, at the back of the group, when the key is given
+-- (Profile.lua's PlaceInKeyGroup), and the reader never picked it. placement/put/set all turn false
+-- for the same reason: to someone who has never pressed an arrow, it is not a place they put
+-- anything.
 --
--- 지시문("화살표로 옮기세요")도 못 쓴다. 이 줄은 **버튼이 없는 행에도 뜬다** - 버튼은
--- isCurrent인 행에만 서는데(UpdateMoveButtons) 이유 줄은 그룹의 마지막 행만 빼고 다 붙는다.
+-- An instruction ("move it with the arrows") is out too. This line **appears on rows with no
+-- buttons** -- the buttons stand only on isCurrent rows (UpdateMoveButtons) while the reason line
+-- goes on every row but the group's last.
 --
--- 남는 참말은 "넷이 갈리지 않아 순서 그 자체가 정한다"뿐이다. 축의 이름은 PRIORITY_DESC
--- 4번이 부르는 그대로 쓴다 - 툴팁이 가르친 사다리와 칸이 같은 낱말로 맞물려야 한다.
+-- What is left true is "the four did not split, so the order itself decides". The step is named the
+-- way PRIORITY_DESC's fourth line names it, so the ladder the tooltip teaches and this column mesh
+-- on the same words.
 L["ORDER_WHY_SEQ"] = "Order on this key"
 L["PRIORITY"] = "Importance"
 L["PRIORITY1"] = "Very High"

@@ -893,8 +893,9 @@ end
 --- and the intermediate lists were never looked at.
 local function DeleteActions(actions)
 	local removed = false;
-	-- 지운 액션이 있던 (레이어, 키). 지우고 나서 매겨야 하므로 - 없어진 액션으로는 레이어를
-	-- 되찾을 수 없다 - 여기 모아 둔다. 한 번에 여러 레이어·여러 키를 지울 수 있다.
+	-- The (layer, key) each deleted action was in. Renumbering has to happen after the removal and
+	-- an action that is gone cannot be asked for its layer any more, so they are collected on the
+	-- way through. One call can empty several keys across several layers.
 	local touched = {};
 	for _, action in ipairs(actions) do
 		if (IsEditingAction(action)) then
@@ -1055,6 +1056,7 @@ local function MoveAction(elementData, destLayerID, copying)
 		if (not copying) then
 			local fromLayer = DebindPrivate.GetProfileLayer(fromLayerID);
 			fromLayer:Remove(action);
+			fromLayer:RenumberKeyGroup(action.key);
 		end
 	end
 
@@ -1066,12 +1068,9 @@ local function MoveAction(elementData, destLayerID, copying)
 	action = CopyTable(elementData.action);
 	local destLayer = DebindPrivate.GetProfileLayer(destLayerID);
 	destLayer:Insert(action, insertIndex, not copying);
-	-- 순서 번호는 새로 받는다. 복사본은 원본과 같은 번호를 들고 태어나므로 그대로 두면
-	-- 두 액션이 동률이 되고, 다른 레이어로 옮긴 것이면 번호 자체가 저쪽 그룹의 값이라
-	-- 뜻이 없다. 둘 다 "이 키 그룹의 맨 뒤"가 답이다.
-	--
-	-- **떠난 쪽 그룹은 안 건드린다.** 멤버가 빠져도 번호가 화면 차례를 따라 오르는 성질은
-	-- 그대로다(`RenumberKeyGroup`).
+	-- The ordering number is handed out fresh. A copy is born holding the original's, which would
+	-- leave the two tied; one moved from another layer holds a number belonging to that group, which
+	-- means nothing here. "The back of this key group" is the answer to both.
 	destLayer:PlaceInKeyGroup(action);
 
 	DebindPrivate.UpdateBindings();
@@ -3417,8 +3416,9 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 		end
 	end
 	layer:Insert(action);
-	-- 새 액션도 순서 규칙을 똑같이 지난다. 지금 오는 것들은 키 없이 태어나므로 번호를 안
-	-- 받고(SetActionKey가 걸 때 준다), props에 키가 실려 오면 여기서 그 그룹의 맨 뒤에 선다.
+	-- A new action goes through the same ordering rule as anything else. The ones that arrive here
+	-- are born without a key and so get no number (`SetActionKey` hands one out when a key is
+	-- given); if `props` carried a key, this is where it takes the back of that group.
 	layer:PlaceInKeyGroup(action);
 
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
@@ -4177,18 +4177,19 @@ end
 --- 이웃과 **순서 번호를 맞바꾸는 것이 전부다.** 배열 자리는 순서에 아무 영향이 없다
 --- (목록은 정렬해서 그린다) - 순서를 정하는 것은 액션이 들고 있는 seq다.
 ---
---- **앞에 수리 갈래가 있었다.** 번호가 없거나 둘이 같으면 맞바꿔도 그대로라 켜져 있는 버튼이
---- 아무 일도 안 했고(켜고 끄는 판단인 `ComputeOrderSwap`은 번호를 안 본다), 그래서 먼저
---- 그 그룹을 다시 매기고 나서 바꿨다. 이제 그런 번호가 안 생긴다 - 번호를 주는 길이 전부
---- 재부여를 지나므로 한 그룹 안의 번호는 언제나 1..n이고, 손으로 고친 저장 파일은 로그인
---- 때 `CleanUpDB`가 훑는다.
+--- **A repair branch used to stand in front of this.** A missing number or two the same made the
+--- swap a no-op, so an enabled button did nothing at all (`ComputeOrderSwap`, which decides whether
+--- it is enabled, never looks at the numbers) -- and the fix was to renumber the group first, then
+--- swap. Neither can happen now: every path that hands out a number goes through a renumber, so a
+--- group's numbers are always 1..n, and a hand-edited file is swept by `CleanUpDB` at login.
 ---
---- 바꾼 뒤에 다시 매기는 것은 자리가 아니라 번호를 정리하는 것이다 - 맞바꾸기 자체는 화면
---- 차례를 이미 뜻대로 만들어 놓았고, 다시 매기기는 그 차례를 그대로 읽어 1..n으로 좁힌다.
+--- Renumbering after the swap tidies the numbers rather than the order. The swap has already made
+--- the drawn order what was asked for; the renumber reads that order back and closes it to 1..n.
 ---
---- 화살표 버튼과 우클릭 메뉴가 **같은 함수를 지난다.** 저장은 네 가지가 한 벌이라
---- (`seq` 교환 · 재부여 · `_dirty` 둘 · `UpdateBindings`) 두 길로 갈라 적으면 한쪽이 하나를
---- 빠뜨리는 날이 온다 - 그 빠짐은 다음 로그인까지 안 보인다.
+--- The arrow buttons and the right-click menu **go through this one function.** Saving is four
+--- things together (the `seq` swap, the renumber, both `_dirty` flags, `UpdateBindings`), and
+--- writing them along two paths means one of them loses one someday -- and that loss stays
+--- invisible until the next login.
 function DebindUI.ApplyOrderSwap(action, neighbor)
 	if (not action or not neighbor) then
 		return false;
@@ -4937,11 +4938,12 @@ function DebindFrameMixin:CancelBindMode()
 		end
 	end
 
-	-- **되돌아온 그룹을 다시 매긴다.** 되돌리는 것은 여기 적힌 액션들뿐인데, 모드 중에 그
-	-- 액션이 어느 그룹에 들어갔다 나오면 그 그룹의 **다른** 멤버들도 그때 다시 매겨졌다.
-	-- 그건 여기 안 적혀 있다. 나간 자리는 멤버가 빠진 것이라 그대로 둬도 되지만, 돌아온
-	-- 자리는 그 사이에 번호가 좁혀져 있어서 들고 온 옛 번호가 남의 것과 겹칠 수 있다 -
-	-- 겹치면 두 행이 동률이 되고 순서가 정렬할 때마다 달라진다.
+	-- **Renumber the group each one comes back to.** What is restored is the actions written down
+	-- here, but an action passing through another group during the mode renumbered that group's
+	-- **other** members on the way in and out, and none of them are written down. Coming back, the
+	-- group has closed up in the meantime, so the old number handed back can already be somebody
+	-- else's -- and two rows on one number are tied, which makes the order differ from one sort to
+	-- the next.
 	if (restored) then
 		for i = 1, #restored do
 			DebindPrivate.RenumberKeyGroupForAction(restored[i]);
@@ -4969,42 +4971,44 @@ end
 --- 화면 밖이면 따라간다. 목록이 움직이는 이유가 사용자가 방금 누른 키 하나뿐이라, 어디로
 --- 갔는지 보여주는 편이 놀래키는 것보다 낫다.
 ---
---- 순서 번호는 **처음 키를 걸 때** 받는다. 그 시점의 맨 뒤라, 새로 건 바인딩은 언제나
---- 기존 것들 뒤에서 시작한다.
+--- **Giving a key always lands at the back of that group**, whether the action has held the key
+--- before or never had one. There is nothing to tell those apart -- the number is dropped when the
+--- key goes (`ClearActionKey`) -- and detecting it would not help: days later the reader does not
+--- know this action was once on this key, so a position they cannot account for reads the same
+--- either way.
 ---
---- 한때 이 자리에 번호가 없었고 순서의 마지막 단계가 레이어 배열의 자리를 읽었다. 그래서
---- 방금 만든 액션은 배열 끝이라 뒤로 붙고, 예전부터 배열 앞에 있던 액션(키를 뗐다가 다시
---- 거는 경우)은 기존 것들 위로 끼어들었다 - 같은 조작인데 결과가 달랐다.
+--- Once the last ordering step read the action's slot in the layer array. A freshly made action was
+--- at the end of it and went last, while one that had been sitting near the front cut in above
+--- everything -- the same gesture with two different results, which is what the number replaced.
 ---
---- 키를 떼도 번호는 남긴다. 그래야 잠깐 뗐다 다시 걸었을 때 사용자가 ↑↓로 정해둔 자리로
---- 돌아온다. 번호가 남아 있으면 여기서 새로 주지 않는 이유가 그것이다.
---- **대상을 받는다.** 예전에는 고른 액션에만 걸 수 있어서 인자가 없었는데, 지정 모드에서는
---- 커서 밑의 행이 대상이고 그건 고른 행과 다를 수 있다.
+--- **It takes a target.** It used to act on the selected action and needed no argument; in binding
+--- mode the target is the row under the cursor, which can be a different one.
 function DebindFrameMixin:SetActionKey(action, key)
 	if (not action or action.key == key) then
 		return false;
 	end
 
-	-- 지정 모드의 트랜잭션. **액션마다 한 번만** 적는다 - 모드 중에 같은 액션을 세 번 고쳐도
-	-- 되돌릴 값은 모드에 들어오기 전의 것이라야 한다.
+	-- Binding mode's transaction. **Written once per action** -- change the same action three times
+	-- inside the mode and what cancelling restores still has to be what it held on the way in.
 	--
-	-- seq도 같이 적는다. 아래에서 키가 처음 걸리면 순서 번호를 발급하는데, 키만 되돌리면 그
-	-- 액션은 **취소된 세션에서 받은 번호**를 계속 들고 있게 된다. 평소에 키를 떼도 번호를
-	-- 남기는 것은 뗐다 다시 걸 때 자리를 지키려는 것이고, 취소는 없던 일로 만드는 것이라 다르다.
+	-- `seq` is written down with the key. Both move below, and putting only the key back would leave
+	-- the action holding a number from the session that was cancelled.
 	local edits = self.bindEdits;
 	if (edits and edits[action] == nil) then
 		edits[action] = { key = action.key, seq = action.seq };
 	end
 
-	action.key = key;
-	action._dirty = true;
-	-- 키를 걸었으면 그 그룹을 다시 매긴다. 번호가 없으면 도착으로 보고 맨 뒤에 세우는 것도,
-	-- 남아 있으면 그 자리를 그대로 쓰는 것도 저 함수 안이다.
-	--
-	-- **키를 뗄 때는 아무것도 안 한다.** 떠난 그룹의 번호는 멤버가 빠져도 화면 차례를 따라
-	-- 오르는 성질이 그대로고(`RenumberKeyGroup`), 여기서 좁혀버리면 이 액션이 들고 나간 번호가
-	-- 그 그룹의 누군가와 겹쳐 다시 걸었을 때 지킬 자리가 없어진다.
-	DebindPrivate.RenumberKeyGroupForAction(action);
+	-- **Both directions go through `Profile.lua`, and neither is written here.** Giving the key
+	-- puts the action at the back of that group and renumbers it; taking it away drops the number
+	-- and renumbers the group it left. Spelling either out at this call site would put the rule in
+	-- two places, and this is not the only way in.
+	if (key ~= nil) then
+		action.key = key;
+		action._dirty = true;
+		DebindPrivate.PlaceActionInKeyGroup(action);
+	else
+		DebindPrivate.ClearActionKey(action);
+	end
 	DebindPrivate.UpdateBindings();
 	self:Refresh(true);
 	self:ScrollActionIntoView(action);

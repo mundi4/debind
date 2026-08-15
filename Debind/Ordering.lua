@@ -65,18 +65,19 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
         return lhsSpec < rhsSpec;
     end
 
-    -- 마지막은 **저장된 순서 번호**다. 한때 여기서 레이어 배열의 자리(index)를 읽었는데,
-    -- 목록이 키순 정렬로 바뀌면서 그 자리는 화면에도 안 나오고 만질 방법도 없는 값이 됐다.
-    -- 뜻이 없는 값이 순서를 정하니 키를 새로 걸었을 때 어떤 액션은 기존 것들 위로, 어떤
-    -- 액션은 아래로 들어갔다 - 같은 조작인데 결과가 그 액션이 우연히 배열 어디에 있었느냐로
-    -- 갈렸다. 지금은 이 번호가 **그 키 그룹 안에서 지금 보이는 자리**이고, 그룹이 바뀔 때마다
-    -- 1..n으로 다시 매겨진다(Profile.lua의 RenumberKeyGroup).
+    -- Last is the **stored ordering number**. Once this read the action's slot in the layer array,
+    -- and when the list moved to sorting by key that slot became a value nothing showed and nothing
+    -- could touch. A meaningless value deciding the order meant that binding a new key put some
+    -- actions above what was already there and some below -- the same gesture splitting on where
+    -- the action happened to sit in the array. The number now says **where it stands inside its key
+    -- group right now**, and it is rewritten 1..n whenever that group changes (Profile.lua's
+    -- RenumberKeyGroup).
     --
-    -- 키가 없으면 `seq`가 아예 없다(`PlaceInKeyGroup`). 그 자리를 `importOrder`가 든다 - 키 없이
-    -- 도착한 그룹에서 보낸 사람의 차례를 들고 있는 값이고, 여기서 안 읽으면 그 그룹은 이
-    -- 단계에서 통째로 동률이 되어 순서가 사라진다.
+    -- With no key there is no `seq` at all (`ClearActionKey`, `PlaceInKeyGroup`). `importOrder`
+    -- takes the slot -- it is what carries the sender's ranking for a group that arrived with no
+    -- key, and not reading it here would leave that whole group tied at this step, losing the order.
     --
-    -- 둘 다 없으면 0으로 본다. 그물이 찢어져도 정렬 안에서 nil을 비교해 터지는 것보다 낫다.
+    -- Neither present reads as 0. If the net ever tears, that beats comparing nil inside a sort.
     return (lhs.seq or lhs.importOrder or 0) < (rhs.seq or rhs.importOrder or 0);
 end
 

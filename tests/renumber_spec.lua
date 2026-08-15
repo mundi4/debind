@@ -1,13 +1,14 @@
--- 키 그룹의 순서 번호를 다시 매기는 것. `devdocs/renumbering-a-key-group.md`가 명세다.
+-- Renumbering a key group's ordering numbers. `devdocs/renumbering-a-key-group.md` is the spec.
 --
--- **재는 것은 밴드를 넘은 액션이 어디에 서는가다.** `CompareActionOrder`의 `seq` 앞 다섯 층
--- (중요도·hover·조건·레이어·전문화)이 같은 액션들을 그 문서가 "밴드"라고 부른다. 조건을 켜면
--- 액션은 다른 밴드로 가는데, 들고 가는 번호가 그 밴드와 무관한 이력이면 **맨 앞에도 중간에도
--- 맨 뒤에도** 떨어졌다 - 같은 조작인데 결과가 셋이고, 무엇이 그걸 정하는지 화면에 안 나온다.
+-- **What this measures is where an action stands after it crosses a band.** The five steps above
+-- `seq` in `CompareActionOrder` (importance, hover, conditions, layer, specialization) are what that
+-- document calls a band. Turning a condition on sends the action into another band, and while the
+-- number it carries is a history unrelated to that band it landed **at the front, in the middle or
+-- at the back** -- one gesture with three outcomes, and nothing on screen saying which.
 --
--- 재부여가 그 전제를 세운다. 번호가 "그룹 안에서 지금 보이는 자리"이면 밴드들이 번호 구간을
--- 순서대로 나눠 가지므로, 넘어온 번호는 목적지 구간의 바깥일 수밖에 없고 착지는 **왔던 쪽에
--- 면한 끝** 하나로 정해진다.
+-- Renumbering is what puts the premise under it. Once the number is "where this stands in its group
+-- right now", the bands divide the range in order, so a number carried in can only be outside the
+-- destination's range and the landing is fixed at the **end facing where it came from**.
 
 return function(DebindPrivate)
     local T = { passed = 0, failures = {} };
@@ -31,8 +32,8 @@ return function(DebindPrivate)
     local CLASS = Constants.PLAYER_CLASS;
     local GUID = "Player-1-TESTGUID";
 
-    -- keygroup_spec과 같은 전제: 드루이드(4특성), 활성 특성 1.
-    check(CLASS == "DRUID", "드루이드 전제: " .. tostring(CLASS));
+    -- The same premise keygroup_spec runs on: a druid (four specs), specialization 1 active.
+    check(CLASS == "DRUID", "druid assumed, got " .. tostring(CLASS));
 
     local function ResetProfile(layout)
         layout = layout or {};
@@ -45,8 +46,8 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
     end
 
-    --- 조건이 걸린 액션. `combat`은 밴드의 `조건` 층만 건드린다 - hover는 그 위의 독립된
-    --- 층이라 섞으면 무엇이 밴드를 갈랐는지가 흐려진다.
+    --- An action with a condition on it. `combat` touches only the band's `conditions` step -- hover
+    --- is an independent step above it, and mixing the two blurs what split the band.
     local function Cond(value, key, seq)
         return { type = Constants.SPELL, value = value, key = key, seq = seq, combat = true };
     end
@@ -55,7 +56,7 @@ return function(DebindPrivate)
         return { type = Constants.SPELL, value = value, key = key, seq = seq };
     end
 
-    --- 발동 순서 한 줄. 실패했을 때 차례가 눈에 보인다.
+    --- The firing order on one line, so a failure shows the order rather than describing it.
     local function Order(key)
         local out = {};
         for i, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
@@ -64,7 +65,8 @@ return function(DebindPrivate)
         return table.concat(out, " ");
     end
 
-    --- 그룹의 번호를 차례대로. `1 2 3 ...`이 아니면 재부여가 안 돌았거나 자리 순으로 안 돌았다.
+    --- The group's numbers in order. Anything but `1 2 3 ...` means the renumber did not run, or ran
+    --- over something other than the drawn order.
     local function Seqs(key)
         local out = {};
         for i, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
@@ -81,21 +83,24 @@ return function(DebindPrivate)
         end
     end
 
-    --- 게임에서 조건 하나를 켜고 끄는 것. **값을 쓰고 그 키 그룹을 재부여하는 것이 전부**이고,
-    --- 그 둘이 `DropDownMenus.lua`의 `onActionValueChanged`가 하는 일이다.
+    --- Turning one condition on or off in the game. **Writing the value and renumbering that key
+    --- group is the whole of it**, and those two are what `DropDownMenus.lua`'s
+    --- `onActionValueChanged` does.
     local function Edit(action, field, value)
         action[field] = value;
         DebindPrivate.RenumberKeyGroupForAction(action);
     end
 
-    --- 한 키에 밴드 둘, **번호를 일부러 어긋나게 심은** 그룹.
+    --- One key holding two bands, with the numbers **deliberately planted out of step**.
     ---
-    --- 조건밴드가 10·20·30을 들고 무조건밴드가 2·25·99를 든다. 무조건 쪽 하나가 조건을 켜면
-    --- 그 번호는 10~30 구간의 앞에도, 안에도, 뒤에도 떨어질 수 있다 - 셋을 다 낼 수 있게
-    --- 고른 값이다. 번호가 화면 차례와 나란했으면 이 파일은 아무것도 못 잰다.
+    --- The conditional band holds 10, 20 and 30 while the unconditional one holds 2, 25 and 99. Turn
+    --- a condition on for one of the unconditional three and its number falls in front of the 10-30
+    --- range, inside it, or behind it -- values picked so all three outcomes are reachable. Had the
+    --- numbers lined up with the drawn order, this file would measure nothing.
     ---
-    --- **저장 배열의 차례도 화면 차례와 다르게 둔다.** 재부여가 배열 순으로 매기면 이 어긋남이
-    --- 그대로 순서가 되는데, 매겨야 하는 것은 보이는 차례다.
+    --- **The stored array's order is out of step with the drawn order too.** Renumbering in array
+    --- order would turn that mismatch into the firing order, and what has to be numbered is what is
+    --- drawn.
     local function TwoBands()
         ResetProfile({
             general = {
@@ -107,128 +112,156 @@ return function(DebindPrivate)
                 Cond(12, "F", 20),
             },
         });
-        check(Order("F") == "11 12 13 21 22 23", "심어놓은 차례: " .. Order("F"));
+        check(Order("F") == "11 12 13 21 22 23", "planted order: " .. Order("F"));
     end
 
-    --- 어긋난 번호 위로 **편집 한 번을 미리 지나보낸다.**
+    --- Sends **one edit through** ahead of the numbers that are out of step.
     ---
-    --- 재부여는 유도로 서는 불변식이다 - 편집 전에 번호가 화면 차례와 나란했으면 편집 뒤에도
-    --- 나란하다. 옛 저장 파일에서 온 어긋난 번호는 그 유도의 바깥이고, 그것을 안으로 들이는
-    --- 것이 그 그룹에 닿는 첫 편집이다. 아래 토글들은 전부 **그 다음** 편집이다.
+    --- The invariant stands by induction: if the numbers lined up with the drawn order before an
+    --- edit, they line up after it. Numbers out of step from an older profile are outside that
+    --- induction, and the first edit reaching the group is what brings them inside it. Every toggle
+    --- below is the edit **after** that one.
     ---
-    --- 미리 지나가는 이 편집은 밴드를 안 바꾼다(이미 조건이 있는 액션에 조건 하나 더). 그래서
-    --- 자리는 안 움직이고 번호만 정리되는데, 바로 아래 첫 테스트가 그것을 따로 세운다.
+    --- This priming edit crosses no band itself (one more condition on an action that already has
+    --- one), so nothing moves and only the numbers are tidied -- which the first test below stands
+    --- up on its own.
     local function Settle()
         Edit(Find("F", 12), "stealth", true);
     end
 
     ---------------------------------------------------------------------------
-    -- 밴드가 안 바뀌면 아무것도 안 움직인다
+    -- An edit inside one band moves nothing
     ---------------------------------------------------------------------------
 
-    -- 조건을 다듬는 것이 편집의 대부분인데 그때마다 자리를 잃으면 안 된다. `isConditional`은
-    -- 파생값이라 이미 조건이 있는 액션에 조건을 하나 더 켜도 밴드는 그대로다.
-    test("밴드가 안 바뀌는 편집은 자리를 안 바꾼다", function()
+    -- Refining conditions is most of what editing is, and losing the place every time is not on.
+    -- `isConditional` is derived, so one more condition on an action that already has one leaves the
+    -- band where it was.
+    test("an edit that crosses no band moves nothing", function()
         TwoBands();
 
         Edit(Find("F", 12), "stealth", true);
 
-        check(Order("F") == "11 12 13 21 22 23", "자리가 움직였다: " .. Order("F"));
+        check(Order("F") == "11 12 13 21 22 23", "order moved: " .. Order("F"));
     end);
 
-    -- 재부여가 매기는 것은 **보이는 차례**다. 저장 배열의 차례로 매기면 위 테스트는 통과하면서
-    -- (한 번은 화면이 안 움직이므로) 다음 편집부터 순서가 갈린다.
-    test("재부여는 보이는 차례로 1..n을 매긴다", function()
+    -- What the renumber numbers is **the drawn order**. Numbering in array order would pass the test
+    -- above -- nothing moves on the first pass either way -- and split the order from the next edit
+    -- onwards.
+    test("renumbering hands out 1..n in the drawn order", function()
         TwoBands();
 
         Edit(Find("F", 12), "stealth", true);
 
-        check(Seqs("F") == "1 2 3 4 5 6", "번호: " .. Seqs("F"));
+        check(Seqs("F") == "1 2 3 4 5 6", "numbers: " .. Seqs("F"));
     end);
 
     ---------------------------------------------------------------------------
-    -- 밴드를 넘으면 왔던 쪽에 면한 끝
+    -- Crossing a band lands at the end facing where it came from
     ---------------------------------------------------------------------------
 
-    --- 조건을 켠 액션이 조건밴드의 **맨 뒤**에 서는지. 조건밴드는 앞쪽 밴드라, 뒤쪽에서
-    --- 넘어온 번호는 그 구간 전부보다 크고 그래서 맨 뒤다.
+    --- Whether the action whose condition was turned on stands at the **back** of the conditional
+    --- band. That band is the earlier one, so a number arriving from behind it is larger than
+    --- everything in its range, which is the back.
     local function ExpectBackOfConditionalBand(value, expected)
         TwoBands();
         Settle();
 
         Edit(Find("F", value), "combat", true);
 
-        check(Order("F") == expected, "차례: " .. Order("F"));
+        check(Order("F") == expected, "order: " .. Order("F"));
     end
 
-    -- **셋 다 같은 자리로 간다.** 재부여가 없을 때 이 셋이 정확히 맨 앞·중간·맨 뒤였다:
-    -- 21은 2번을 들고 있어서 조건밴드(10~30) 전체보다 앞, 22는 25번이라 20과 30 사이,
-    -- 23은 99번이라 뒤. 같은 조작 하나에 결과가 셋이었고, 무엇이 그걸 정하는지는 화면
-    -- 어디에도 안 나왔다.
-    test("조건을 켜면 조건밴드의 맨 뒤 - 맨 앞으로 떨어지던 것", function()
+    -- **All three land in the same place.** Without renumbering these three were exactly the front,
+    -- the middle and the back: 21 holds 2 and so came before the whole conditional band (10-30), 22
+    -- holds 25 and landed between 20 and 30, 23 holds 99 and landed behind. One gesture with three
+    -- outcomes, and nothing on screen said which.
+    test("turning a condition on lands at the back of the conditional band -- the one that went first", function()
         ExpectBackOfConditionalBand(21, "11 12 13 21 22 23");
     end);
 
-    test("조건을 켜면 조건밴드의 맨 뒤 - 중간으로 떨어지던 것", function()
+    test("turning a condition on lands at the back of the conditional band -- the one that went middle", function()
         ExpectBackOfConditionalBand(22, "11 12 13 22 21 23");
     end);
 
-    test("조건을 켜면 조건밴드의 맨 뒤 - 맨 뒤로 떨어지던 것", function()
+    test("turning a condition on lands at the back of the conditional band -- the one that went last", function()
         ExpectBackOfConditionalBand(23, "11 12 13 23 21 22");
     end);
 
-    -- 반대 방향. 무조건밴드는 뒤쪽 밴드라, 앞에서 넘어온 번호는 그 구간 전부보다 작고
-    -- 그래서 **맨 앞**이다. 나갈 때 "가까운 앞", 들어올 때 "가까운 뒤"라 껐다 켜면 제자리로
-    -- 안 돌아오는데, 그건 재부여를 하는 이상 피할 수 없는 대가다(문서의 "복구 불가는 구조적").
-    test("조건을 끄면 무조건밴드의 맨 앞", function()
+    -- The other direction. The unconditional band is the later one, so a number arriving from in
+    -- front is smaller than everything in its range and lands at the **front**. Leaving is "the near
+    -- front" and returning is "the near back", so toggling off and on does not put the action back
+    -- where it was -- an unavoidable cost of renumbering at all, which the document argues out
+    -- under "복구 불가는 구조적이다".
+    test("turning a condition off lands at the front of the unconditional band", function()
         TwoBands();
         Settle();
 
         Edit(Find("F", 11), "combat", nil);
 
-        check(Order("F") == "12 13 11 21 22 23", "차례: " .. Order("F"));
+        check(Order("F") == "12 13 11 21 22 23", "order: " .. Order("F"));
     end);
 
     ---------------------------------------------------------------------------
-    -- 그룹을 떠나고 돌아오는 것
+    -- Leaving a group and coming back
     ---------------------------------------------------------------------------
 
-    -- **키를 떼도 번호는 남고, 떠난 그룹은 안 좁혀진다.** 둘이 한 벌이다 - 좁히면 이 액션이
-    -- 들고 나간 번호가 남은 멤버의 것과 겹쳐서, 다시 걸었을 때 돌아갈 자리가 없어진다.
-    -- 멤버가 빠져 `1,3`이 되는 것은 성질을 안 깬다(번호가 화면 차례를 따라 오른다).
-    test("키를 떼면 그 자리에 구멍이 남는다", function()
+    -- **The number goes with the key.** It means "which of this key's actions goes first", so with
+    -- no key there is no place for it to be, and leaving it there leaves not a place but **a number
+    -- from somewhere**. The remaining group closes to 1..n -- nothing walks out holding a number, so
+    -- there is nothing to collide with.
+    test("taking the key away drops the number and closes the group", function()
         ResetProfile({
             general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
         });
 
         local leaving = Find("F", 12);
-        leaving.key = nil;
-        DebindPrivate.RenumberKeyGroupForAction(leaving);
+        DebindPrivate.ClearActionKey(leaving);
 
-        check(Seqs("F") == "1 3", "남은 그룹이 좁혀졌다: " .. Seqs("F"));
-        check(leaving.seq == 2, "떠난 액션의 번호가 없어졌다: " .. tostring(leaving.seq));
+        check(leaving.seq == nil, "number kept: " .. tostring(leaving.seq));
+        check(Seqs("F") == "1 2", "remaining group: " .. Seqs("F"));
     end);
 
-    -- 그 구멍 덕에 다시 걸면 제자리다. 도착으로 보고 맨 뒤에 세우는 것은 **번호가 없을 때만**이다.
-    test("떼었다 같은 키에 다시 걸면 제자리", function()
+    -- **Giving the key back is an arrival.** Letting it resume its place would leave the window
+    -- answering two round trips differently -- toggling a condition off and on does not come back
+    -- (structurally, as long as renumbering runs) while unbinding and rebinding would. And a reader
+    -- rebinding days later does not know the action was ever on this key.
+    test("rebinding the same key lands at the back", function()
         ResetProfile({
             general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
         });
 
         local action = Find("F", 12);
-        action.key = nil;
-        DebindPrivate.RenumberKeyGroupForAction(action);
+        DebindPrivate.ClearActionKey(action);
 
         action.key = "F";
-        DebindPrivate.RenumberKeyGroupForAction(action);
+        DebindPrivate.PlaceActionInKeyGroup(action);
 
-        check(Order("F") == "11 12 13", "차례: " .. Order("F"));
-        check(Seqs("F") == "1 2 3", "번호: " .. Seqs("F"));
+        check(Order("F") == "11 13 12", "order: " .. Order("F"));
+        check(Seqs("F") == "1 2 3", "numbers: " .. Seqs("F"));
     end);
 
-    -- 처음 키를 거는 액션은 번호가 없으므로 **그 밴드의 맨 뒤**다. `seq`가 생긴 이유가 그것이고
-    -- (`SetActionKey`), 재부여가 그것을 안 뒤집는다.
-    test("번호 없이 키를 걸면 그 밴드의 맨 뒤", function()
+    -- **Binding a different key gives the same answer.** The number carried used to point into the
+    -- middle of the destination group, so walking into a group of eight holding a 5 landed fifth --
+    -- the symptom this document exists to remove, surviving on this one path.
+    test("binding a different key lands at the back of that band", function()
+        ResetProfile({
+            general = {
+                Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3),
+                Plain(21, "G", 1), Plain(22, "G", 2), Plain(23, "G", 3), Plain(24, "G", 4),
+            },
+        });
+
+        local wanderer = Find("F", 13);
+        DebindPrivate.ClearActionKey(wanderer);
+        wanderer.key = "G";
+        DebindPrivate.PlaceActionInKeyGroup(wanderer);
+
+        check(Order("G") == "21 22 23 24 13", "order: " .. Order("G"));
+    end);
+
+    -- An action being given a key for the first time goes through the same place. A newly bound key
+    -- always starting behind what was already there is why `seq` exists (`SetActionKey`).
+    test("a first key lands at the back of that band", function()
         ResetProfile({
             general = { Cond(11, "F", 1), Cond(12, "F", 2), Plain(21, "F", 3) },
         });
@@ -236,38 +269,39 @@ return function(DebindPrivate)
         local fresh = { type = Constants.SPELL, value = 14, combat = true };
         DebindPrivate.GetProfileLayer(1):Insert(fresh);
         fresh.key = "F";
-        DebindPrivate.RenumberKeyGroupForAction(fresh);
+        DebindPrivate.PlaceActionInKeyGroup(fresh);
 
-        -- 조건밴드의 맨 뒤. 무조건인 21 앞이다.
-        check(Order("F") == "11 12 14 21", "차례: " .. Order("F"));
+        -- The back of the conditional band, which is in front of the unconditional 21.
+        check(Order("F") == "11 12 14 21", "order: " .. Order("F"));
     end);
 
     ---------------------------------------------------------------------------
-    -- ↑↓ 와 삭제와 레이어 이동
+    -- The arrows, deleting, and moving between layers
     ---------------------------------------------------------------------------
 
-    --- `ApplyOrderSwap`이 하는 일에서 화면 갱신만 뺀 것. 그 함수는 `DebindUI.lua`에 있어서
-    --- 여기서 못 부르고, 부를 수 있는 것은 이 두 줄이 전부다. 진짜 버튼은 `/debtest`가 누른다.
+    --- What `ApplyOrderSwap` does with the redraw taken out. That function lives in `DebindUI.lua`
+    --- and cannot be called from here; these two lines are all of it that can. The real button is
+    --- pressed by `/debtest`.
     local function Swap(a, b)
         a.seq, b.seq = b.seq, a.seq;
         DebindPrivate.RenumberKeyGroupForAction(a);
     end
 
-    test("↑↓ 는 딱 한 칸 움직이고 왕복하면 제자리", function()
+    test("the arrows move exactly one step and a round trip comes back", function()
         ResetProfile({
             general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
         });
 
         Swap(Find("F", 12), Find("F", 11));
-        check(Order("F") == "12 11 13", "한 칸 위로: " .. Order("F"));
+        check(Order("F") == "12 11 13", "one step up: " .. Order("F"));
 
         Swap(Find("F", 12), Find("F", 11));
-        check(Order("F") == "11 12 13", "다시 아래로: " .. Order("F"));
-        check(Seqs("F") == "1 2 3", "번호: " .. Seqs("F"));
+        check(Order("F") == "11 12 13", "and back down: " .. Order("F"));
+        check(Seqs("F") == "1 2 3", "numbers: " .. Seqs("F"));
     end);
 
-    -- 지운 액션은 들고 나갈 번호가 없다. 그래서 삭제는 떼기와 달리 그 그룹을 좁힌다.
-    test("삭제하면 그 그룹이 1..n으로 좁혀진다", function()
+    -- A deleted action has no number to walk out with, which is why deleting closes the group up.
+    test("deleting closes the group to 1..n", function()
         ResetProfile({
             general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
         });
@@ -276,53 +310,55 @@ return function(DebindPrivate)
         layer:Remove(Find("F", 12));
         layer:RenumberKeyGroup("F");
 
-        check(Order("F") == "11 13", "차례: " .. Order("F"));
-        check(Seqs("F") == "1 2", "번호: " .. Seqs("F"));
+        check(Order("F") == "11 13", "order: " .. Order("F"));
+        check(Seqs("F") == "1 2", "numbers: " .. Seqs("F"));
     end);
 
-    -- 레이어 이동·복사가 지나는 자리. 들고 온 번호는 저쪽 그룹의 값이라 버리고, 도착한 그룹의
-    -- 자기 밴드 맨 뒤에 선다.
-    test("다른 레이어에 도착하면 그 밴드의 맨 뒤", function()
+    -- The path moving and copying between layers goes through. The number carried belongs to the
+    -- other group, so it is dropped and the action stands at the back of its band in the group it
+    -- landed in.
+    test("arriving in another layer lands at the back of that band", function()
         ResetProfile({
             general = { Cond(11, "F", 1) },
             class = { [0] = { Cond(51, "F", 1), Cond(52, "F", 2), Plain(61, "F", 3) } },
         });
 
-        -- 일반 레이어의 11을 직업/공용으로 옮긴다. 저쪽에서 1번을 들고 왔다.
+        -- Move 11 out of the general layer into class/shared. It arrives holding that layer's 1.
         local moving = Find("F", 11);
         DebindPrivate.GetProfileLayer(1):Remove(moving);
         local destLayer = DebindPrivate.GetProfileLayer(2);
         destLayer:Insert(moving);
         destLayer:PlaceInKeyGroup(moving);
 
-        -- 들고 온 1번을 그대로 뒀으면 51 앞에 섰다.
-        check(Order("F") == "51 52 11 61", "차례: " .. Order("F"));
-        check(Seqs("F") == "1 2 3 4", "번호: " .. Seqs("F"));
+        -- Keeping the 1 it came with would have put it in front of 51.
+        check(Order("F") == "51 52 11 61", "order: " .. Order("F"));
+        check(Seqs("F") == "1 2 3 4", "numbers: " .. Seqs("F"));
     end);
 
-    -- **키 없이 도착하면 번호도 없다.** 들고 온 번호를 버리는 줄이 지키는 것이 이 규칙이고,
-    -- 읽는 쪽 셋이 전부 여기에 기대고 있다 - `MakeRow`는 키가 없으면 `seq`를 안 싣고,
-    -- `PlacementRank`는 그 자리에서 `importOrder`를 읽고, 비교자는 그 둘을 한 자리로 본다.
-    -- 남겨두면 잠깐 키를 걸었다 뗀 도착 그룹 멤버가 자기 `importOrder`를 잃는다.
-    test("키 없이 도착하면 들고 온 번호를 버린다", function()
+    -- **Arriving with no key means arriving with no number.** The line that drops the number carried
+    -- is what holds that rule up, and three readers lean on it -- `MakeRow` leaves `seq` off a
+    -- keyless row, `PlacementRank` reads `importOrder` in its place, and the comparator reads the
+    -- two as one step. Left on, it would cost a member of an arrival group its `importOrder`.
+    test("arriving with no key drops the number carried", function()
         ResetProfile({ general = {} });
 
-        -- 다른 레이어에서 5번을 들고 온, 키 없는 액션.
+        -- A keyless action that came from another layer holding a 5.
         local arriving = { type = Constants.SPELL, value = 71, seq = 5, importOrder = 2 };
         local layer = DebindPrivate.GetProfileLayer(1);
         layer:Insert(arriving);
         layer:PlaceInKeyGroup(arriving);
 
-        check(arriving.seq == nil, "번호가 남았다: " .. tostring(arriving.seq));
+        check(arriving.seq == nil, "number kept: " .. tostring(arriving.seq));
     end);
 
     ---------------------------------------------------------------------------
-    -- 재부여가 닿는 범위
+    -- How far a renumber reaches
     ---------------------------------------------------------------------------
 
-    -- 번호가 읽히는 범위가 (레이어, 키) 하나라 재부여도 거기서 멈춘다. 같은 레이어의 다른
-    -- 키까지 훑으면 사용자가 그 키에서 정해둔 자리가 남의 편집에 딸려 바뀐다.
-    test("같은 레이어의 다른 키는 안 건드린다", function()
+    -- The number is read inside one (layer, key) and nowhere wider, so the renumber stops there too.
+    -- Walking the layer's other keys would drag the places a reader set on those keys along with an
+    -- edit that had nothing to do with them.
+    test("another key in the same layer is left alone", function()
         ResetProfile({
             general = {
                 Cond(11, "F", 10),
@@ -334,38 +370,17 @@ return function(DebindPrivate)
 
         Edit(Find("F", 21), "combat", true);
 
-        check(Seqs("G") == "7 9", "G의 번호가 바뀌었다: " .. Seqs("G"));
+        check(Seqs("G") == "7 9", "G's numbers changed: " .. Seqs("G"));
     end);
 
-    -- **겹친 번호를 들고 그룹에 들어와도 자리가 흔들리면 안 된다.** 번호가 그룹마다 1부터라
-    -- 한 레이어 안에서 겹치는 것이 정상이고, 키를 뗀 액션은 그 번호를 든 채로 남는다
-    -- (`CleanUpDB`가 이제 그것을 안 가른다). 그것이 같은 번호를 쓰는 키에 걸리면 동률이 하나
-    -- 생긴다.
-    test("겹친 번호를 들고 들어오면 쌍둥이 바로 뒤에 선다", function()
-        ResetProfile({
-            general = {
-                Plain(11, "F", 1),
-                Plain(12, "F", 2),
-                -- 키를 뗀 채 1번을 들고 있던 액션. 이제 F에 걸린다.
-                Plain(13, nil, 1),
-            },
-        });
-
-        local rejoining = DebindPrivate.GetProfileLayer(1):GetAction(3);
-        rejoining.key = "F";
-        DebindPrivate.RenumberKeyGroupForAction(rejoining);
-
-        check(Order("F") == "11 13 12", "차례: " .. Order("F"));
-        check(Seqs("F") == "1 2 3", "번호: " .. Seqs("F"));
-    end);
-
-    -- **매기는 답이 `sort`의 속사정에 걸리면 안 된다.** 동률이 여럿이면 `table.sort`는 equals를
-    -- 통째로 흩어놓는다 - 위의 셋짜리로는 안 드러나고 여덟 개쯤에서 드러난다. 재부여의 답은
-    -- 곧바로 저장되므로 한 번 흩어지면 그 차례가 남고, 다시 매길 때 또 달라진다.
+    -- **The answer must not hang on `sort`'s internals.** With several ties `table.sort` scatters the
+    -- equals wholesale -- invisible on the three-element groups above, visible at around eight. The
+    -- renumber's answer is stored immediately, so one scatter sticks and the next pass scatters
+    -- differently.
     --
-    -- 여기까지 오는 것은 손으로 고친 저장 파일이다. **번호는 로드한 뒤에 심는다** - `InitDB`가
-    -- 끝에 `CleanUpDB`를 부르고 그 그물이 한 그룹 안의 겹침을 먼저 갈라버린다.
-    test("동률이 여럿이어도 배열 자리가 차례를 정한다", function()
+    -- Only a hand-edited file gets this far. **The numbers are planted after loading** -- `InitDB`
+    -- ends in `CleanUpDB` and its net splits duplicates inside a group first.
+    test("several ties are ordered by array position", function()
         ResetProfile({
             general = {
                 Plain(1, "F", 1), Plain(2, "F", 2), Plain(3, "F", 3), Plain(4, "F", 4),
@@ -380,17 +395,18 @@ return function(DebindPrivate)
 
         layer:RenumberKeyGroup("F");
 
-        -- 1번을 든 것들이 배열 순으로 먼저, 그다음 2번을 든 것들이 배열 순으로.
-        check(Order("F") == "2 4 6 8 1 3 5 7", "차례: " .. Order("F"));
+        -- The ones holding 1 first in array order, then the ones holding 2 in array order.
+        check(Order("F") == "2 4 6 8 1 3 5 7", "order: " .. Order("F"));
     end);
 
-    -- 레이어마다 1부터 다시 센다. `seq`는 레이어 안에서만 뜻이 있고(비교자가 layerRank로 먼저
-    -- 가른다) 레이어끼리 겹치는 번호는 만날 일이 없다.
+    -- Every layer counts from 1 again. `seq` means something inside one layer only (the comparator
+    -- splits on layerRank first), so numbers repeating across layers never meet.
     --
-    -- **밴드는 레이어보다 넓다.** `조건` 층이 `레이어` 층보다 위라 조건밴드가 레이어를 가로지른다
-    -- (51·11이 붙고 61·21이 붙는다). 그래도 한 레이어로 걸러낸 차례는 전체 차례에서의 상대 순서
-    -- 그대로라, 재부여가 레이어 안에서만 돌아도 매기는 값은 화면 차례다.
-    test("레이어를 가로지르는 키는 레이어마다 1부터", function()
+    -- **A band is wider than a layer.** The `conditions` step sits above the `layer` step, so the
+    -- conditional band crosses layers (51 and 11 come together, then 61 and 21). Filtering that
+    -- order down to one layer still leaves the relative order it had in the whole list, which is why
+    -- a renumber running inside one layer still numbers by the drawn order.
+    test("a key spanning layers counts from 1 in each", function()
         ResetProfile({
             general = { Cond(11, "F", 40), Plain(21, "F", 50) },
             class = { [0] = { Cond(51, "F", 60), Plain(61, "F", 70) } },
@@ -399,9 +415,9 @@ return function(DebindPrivate)
         Edit(Find("F", 11), "stealth", true);
         Edit(Find("F", 51), "stealth", true);
 
-        -- 조건밴드(51·11)가 먼저고 그 안에서 직업/공용이 일반보다 위다.
-        check(Order("F") == "51 11 61 21", "차례: " .. Order("F"));
-        check(Seqs("F") == "1 1 2 2", "번호: " .. Seqs("F"));
+        -- The conditional band (51, 11) comes first, and inside it class/shared outranks general.
+        check(Order("F") == "51 11 61 21", "order: " .. Order("F"));
+        check(Seqs("F") == "1 1 2 2", "numbers: " .. Seqs("F"));
     end);
 
     return T;

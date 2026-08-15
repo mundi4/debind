@@ -55,8 +55,8 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
     end
 
-    --- 도착 그룹의 멤버 하나. 키가 없고 `seq`도 없다 - `PlaceInKeyGroup`이 키 없는 액션에는
-    --- 번호를 안 주기 때문이고, 그 자리를 `importOrder`가 든다.
+    --- One member of an arrival group. No key and no `seq` -- a keyless action is never given a
+    --- number (`PlaceInKeyGroup`), and `importOrder` holds that slot instead.
     local function Arrived(value, group, order)
         return {
             type = Constants.SPELL, value = value,
@@ -170,9 +170,9 @@ return function(DebindPrivate)
     -- 키를 이미 들고 있던 그룹을 옮기는 것
     ---------------------------------------------------------------------------
 
-    -- 병합/교체/덮어쓰기가 전부 이것 위에 선다. `importOrder`가 없는 액션들이라 자리는 `seq`가
-    -- 말하고, 옮겨간 쪽은 목적지 그룹의 맨 뒤에 선다 - 새로 오는 것에 `PlaceInKeyGroup`이 하는
-    -- 일과 같다.
+    -- Merging, replacing and overwriting all stand on this. These actions have no `importOrder`, so
+    -- `seq` is what says where each one stands, and the set that moved lands at the back of the
+    -- destination group -- what `PlaceInKeyGroup` does for anything arriving.
     test("키 그룹을 옮겨도 그룹 안의 차례는 그대로다", function()
         ResetProfile({
             general = {
@@ -229,8 +229,11 @@ return function(DebindPrivate)
         check(DebindPrivate.GetProfileLayer(1):GetNumActions() == 4, "액션이 지워졌다");
         for _, action in ipairs(occupants) do
             check(action.key == nil, "키가 안 풀렸다: " .. tostring(action.value));
-            -- 다시 걸었을 때 사용자가 정해둔 자리로 돌아오려면 번호가 남아야 한다.
-            check(action.seq ~= nil, "번호까지 지워졌다: " .. tostring(action.value));
+            -- **The number goes with the key.** A place means "which of this key's actions goes
+            -- first", so one held while there is no key is not a place but a number from somewhere.
+            -- The action stays and only the number goes -- an overwrite is a state that can be
+            -- walked back because nothing is deleted, not because a number was kept.
+            check(action.seq == nil, "번호가 남았다: " .. tostring(action.value));
         end
     end);
 

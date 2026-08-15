@@ -1286,10 +1286,11 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         local NAME = "Arrow order"
         local KEY = "CTRL-ALT-F1"
 
-        -- **차례가 유일한 차이다.** 둘 다 조건부에 같은 중요도, 한 레이어라 밴드가 같고,
-        -- 그러면 `seq` 말고 가를 것이 없다. 좁은 쪽(combat+stealth)이 앞이면 둘 다 살고,
-        -- 넓은 쪽(combat)이 앞이면 좁은 쪽은 그 안에 통째로 들어가 UNREACHABLE로 빠진다.
-        -- 그래서 이 테스트가 재는 것은 "번호를 바꿨다"가 아니라 **그 번호가 솔버까지 갔다**이다.
+        -- **The order is the only difference.** Both are conditional, at the same importance, in
+        -- one layer, so they share a band and nothing but `seq` can split them. With the narrow one
+        -- (combat+stealth) in front both survive; with the broad one (combat) in front the narrow
+        -- one sits entirely inside it and leaves as UNREACHABLE. So what this measures is not "the
+        -- numbers changed" but **that the numbers reached the solver**.
         local narrow = InsertAction({ type = Constants.SPELL, value = 116, key = KEY,
             combat = true, stealth = true })
         local broad = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
@@ -1299,7 +1300,8 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
             return Fail(NAME, format("좁은 쪽이 앞인데: %s", KeyMapOrder(KEY)))
         end
 
-        -- 화살표 버튼과 우클릭 메뉴가 둘 다 지나는 함수. 번호를 맞바꾸고 그 그룹을 다시 매긴다.
+        -- The function the arrow buttons and the right-click menu both go through. It swaps the two
+        -- numbers and renumbers that group.
         DebindPrivate.DebindUI.ApplyOrderSwap(broad, narrow)
         ApplyBindings()
 
@@ -1307,7 +1309,8 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
             return Fail(NAME, format("넓은 쪽이 앞인데: %s", KeyMapOrder(KEY)))
         end
 
-        -- **되돌려서 되살아나는 것까지 본다.** 없으면 이 테스트는 "처음부터 하나였다"도 통과시킨다.
+        -- **Swapping back, and watching it come alive again.** Without this the test also passes on
+        -- a key that only ever held one record.
         DebindPrivate.DebindUI.ApplyOrderSwap(narrow, broad)
         ApplyBindings()
 
@@ -1318,11 +1321,13 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
     end,
 })
 
---- 한 키에 밴드 둘. **중요도로 가른다** - 조건 유무로 가르면 무조건 레코드가 둘이 되는 순간
---- 하나가 다른 하나를 통째로 덮어 솔버가 지우고, 그러면 재는 것이 자리가 아니라 삭제가 된다.
---- 축이 서로 다른 조건 넷이라 어느 것도 다른 것을 안 덮는다.
+--- Two bands on one key. **Split by importance** -- splitting by whether there are conditions means
+--- that the moment two unconditional records exist one covers the other whole and the solver drops
+--- it, and then what is measured is a deletion rather than a position. Four conditions on four
+--- different axes, so none of them covers another.
 ---
---- 번호는 **일부러 어긋나게** 심는다. 화면 차례와 나란하면 이 설정은 아무것도 못 잰다.
+--- The numbers are planted **deliberately out of step**. Lined up with the drawn order, this setup
+--- measures nothing.
 local function InsertTwoBandKey(key)
     local high1 = InsertAction({ type = Constants.SPELL, value = 1, key = key, priority = 1, combat = true })
     local high2 = InsertAction({ type = Constants.SPELL, value = 2, key = key, priority = 1, stealth = true })
@@ -1345,11 +1350,13 @@ RegisterTest("Renumber: crossing a band lands at the near end", {
             return Fail(NAME, format("심어놓은 차례: %s", KeyMapOrder(KEY)))
         end
 
-        -- 편집 하나가 지나가면서 그룹이 1..4로 정리된다. 재부여는 유도로 서는 불변식이라,
-        -- 옛 저장 파일에서 온 어긋난 번호를 안으로 들이는 것이 그 그룹에 닿는 첫 편집이다.
+        -- One edit passing through closes the group up to 1..4. The invariant stands by induction,
+        -- so numbers out of step from an older profile are brought inside it by the first edit that
+        -- reaches the group.
         GetTestLayer():RenumberKeyGroup(KEY)
 
-        -- 4번을 위 밴드로 올린다. 15번을 그대로 들고 갔으면 10과 20 사이 - **중간**이다.
+        -- Lift 4 into the upper band. Carrying its 15 along would put it between 10 and 20 -- the
+        -- **middle**.
         low2.priority = 1
         DebindPrivate.RenumberKeyGroupForAction(low2)
         ApplyBindings()
@@ -1370,11 +1377,12 @@ RegisterTest("Renumber: an edit inside one band moves nothing", {
         ApplyBindings()
         GetTestLayer():RenumberKeyGroup(KEY)
 
-        -- 이미 조건이 있는 액션에 조건 하나 더. `isConditional`은 파생값이라 밴드는 그대로다.
-        -- 조건을 다듬는 것이 편집의 대부분이라, 그때마다 자리를 잃으면 안 된다.
+        -- One more condition on an action that already has one. `isConditional` is derived, so the
+        -- band does not move. Refining conditions is most of what editing is, and losing the place
+        -- every time is not on.
         --
-        -- 축은 combat을 고른다. stealth를 얹으면 위 밴드의 stealth 레코드가 이걸 덮어버려서
-        -- 자리가 아니라 삭제를 재게 된다.
+        -- combat is the axis to use. Adding stealth would let the upper band's stealth record cover
+        -- this one, and then a deletion is measured rather than a position.
         low1.combat = false
         DebindPrivate.RenumberKeyGroupForAction(low1)
         ApplyBindings()
