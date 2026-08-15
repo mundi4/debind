@@ -3286,6 +3286,79 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: The macro store as an input
+-----------------------------------------------------------
+
+-- **A `MACRO` action naming a macro that does not exist is left out of the build entirely**
+-- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), which makes the macro
+-- store an input to what the keys are. Nothing was watching it: create the macro and the row stops
+-- being red -- the window says nothing is wrong -- while the key stays dead until something
+-- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
+--
+-- **It makes a real macro rather than faking one.** Overriding `GetMacroInfo` would measure whether
+-- a rebuild reads the store, which was never in doubt; what broke is that **no rebuild happens**,
+-- and the only thing that starts one is the client's own event. A stub cannot send it.
+--
+-- Deleting it belongs to the runner, so it goes however this ends.
+RegisterTest("Macro store: creating the missing macro revives the key", {
+    description = "없는 매크로를 만들면 리로드 없이 그 키가 살아나는가",
+    run = function()
+        local NAME = "Macro revive"
+        local KEY = "CTRL-SHIFT-F6"
+        local MACRO = "DebindTestRevive"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 매크로를 만들 수 없다")
+        end
+
+        AddTeardown(function()
+            if not InCombatLockdown() and GetMacroIndexByName(MACRO) > 0 then
+                DeleteMacro(MACRO)
+            end
+        end)
+
+        if GetMacroIndexByName(MACRO) > 0 then
+            DeleteMacro(MACRO)
+        end
+
+        InsertAction({ type = Constants.MACRO, value = MACRO, key = KEY })
+        ApplyBindings()
+
+        -- **The negative first.** Without it a key that was live the whole time reads as a pass,
+        -- and this test would go green on a build where the issue never drops anything.
+        local before = GetBindingAction(KEY, true) or ""
+        if before ~= "" then
+            return Fail(NAME, format("매크로가 없는데 키가 이미 잡혀 있다: %q", before))
+        end
+
+        -- **Asked of the store, not of the return value.** `CreateMacro` raises when there is no
+        -- room, and `0` back would pass a plain `not` check anyway - `0` is true in Lua. Either way
+        -- the answer wanted here is whether the macro is now there.
+        pcall(CreateMacro, MACRO, 132219, "/say debtest")
+        if GetMacroIndexByName(MACRO) == 0 then
+            return Fail(NAME, "매크로를 못 만들었다 - 매크로 칸이 다 찼을 수 있다")
+        end
+
+        -- **Waiting on the binding is right here only because the line above proved it was not
+        -- bound.** The usual objection -- that waiting for what you are about to assert can only
+        -- fail by timing out -- needs the expected value to be a possible current one, and it is
+        -- not. A timeout *is* the finding: nothing rebuilt.
+        WaitUntil(function()
+            return (GetBindingAction(KEY, true) or ""):sub(1, 6) == "CLICK "
+        end, 3)
+
+        local after = GetBindingAction(KEY, true) or ""
+        if after:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "매크로를 만들었는데 키가 아직 죽어 있다 (%q) - UPDATE_MACROS를 아무도 안 듣는다",
+                after))
+        end
+
+        return Pass(NAME, after)
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Across a /reload
 -----------------------------------------------------------
 
