@@ -89,11 +89,16 @@ function ourXmlFiles() {
         }
     };
     // **Every shipped folder that has XML, and DebindTest too.** This once named two of them by
-    // hand and `DebindShare` was not one - the addon this check matters most to, since its window
-    // is built almost entirely out of Blizzard templates and seven of the names it inherits are
-    // referenced nowhere else in the repo. Nothing would have said so: the summary line counts the
-    // same truncated list, so the check printed a healthy number and exited 0.
-    for (const dir of ["Debind", "DebindShare", "DebindCliqueFake", "DebindTest"]) {
+    // hand and `DebindStorage` was not one - back when the sharing window lived over there, which is
+    // where this check mattered most: that window is built almost entirely out of Blizzard
+    // templates and seven of the names it inherits are referenced nowhere else in the repo. Nothing
+    // would have said so, because the summary line counts the same truncated list - the check
+    // printed a healthy number and exited 0.
+    //
+    // Those files are Debind's now. The folder stays on the list anyway: it is guarded by
+    // `existsSync`, and a list of shipped folders that quietly drops one is how this went wrong the
+    // first time.
+    for (const dir of ["Debind", "DebindStorage", "DebindCliqueFake", "DebindTest"]) {
         const full = path.join(repoRoot, dir);
         if (fs.existsSync(full)) walk(full);
     }

@@ -1,4 +1,4 @@
-local _, DebindShare = ...;
+local _, DebindStorage = ...;
 
 local luatype   = type;
 
@@ -74,7 +74,7 @@ end
 --- lists and hand them over whole, so one number sitting where an action belongs raised in whatever
 --- read it next -- and every caller reads them: counting on paste, planning, building. Filtering
 --- here is what lets each of them say `ipairs` and stop worrying.
-function DebindShare.ForEachPayloadLayer(payload, fn)
+function DebindStorage.ForEachPayloadLayer(payload, fn)
     --- The list handed on, with anything that is not an action table left out. A copy, because the
     --- callers walk it with `ipairs` and one hole would stop them early -- and because what is
     --- dropped has to be dropped for every caller alike, not per caller.
@@ -134,13 +134,21 @@ end
 --- is the only address with nowhere to go: `characters[guid].layers[4]` on a three-spec class is a
 --- table nothing will ever read and nothing will ever clean up. Answering nil is what gets it
 --- counted and said out loud instead.
-function DebindShare.ImportAddress(scope, class, spec)
+function DebindStorage.ImportAddress(scope, class, spec)
     if (scope == "general") then
         return "general";
     end
 
+    -- **A slot number, not just a number in range.** `1.5` passes all three comparisons and becomes
+    -- `shared.classes.DRUID[1.5]` - a table no `GetProfileLayer` reads and `CleanUpDB` never walks,
+    -- so every paste of such a string leaves one more behind in the account file. That is precisely
+    -- the outcome this function exists to refuse. NaN is worse: **every** comparison against it is
+    -- false, so it passes the range check and raises where the value is used as an index, halfway
+    -- through placing a batch. `spec ~= floor(spec)` is false for both a fraction and an infinity,
+    -- and `spec ~= spec` is the only thing that catches NaN.
     spec = spec or 0;
-    if (luatype(spec) ~= "number" or spec < 0 or spec > MAX_SPEC) then
+    if (luatype(spec) ~= "number" or spec ~= spec or spec ~= floor(spec)
+        or spec < 0 or spec > MAX_SPEC) then
         return nil;
     end
 
@@ -173,7 +181,7 @@ end
 --- ticking spec 3 but not spec 2 is a decision nobody arrives wanting to make. What is worth
 --- separating is the two things that differ in *who they reach* -- everything on this account
 --- versus this one character.
-DebindShare.IMPORT_LINES      = {
+DebindStorage.IMPORT_LINES      = {
     "shared.general",
     "shared.class",
     "character.general",
@@ -181,7 +189,7 @@ DebindShare.IMPORT_LINES      = {
 };
 
 --- Which line an address belongs to, or nil for one no line covers.
-function DebindShare.ImportLineFor(scope, spec)
+function DebindStorage.ImportLineFor(scope, spec)
     if (scope == "general") then
         return "shared.general";
     elseif (scope == "class") then
@@ -204,16 +212,16 @@ end
 --- `class` rides along on the class line, taken from the descriptors rather than from
 --- `payload.class`: the label has to name the class the actions are actually going to. It is absent
 --- when the line holds more than one, which the export cannot produce and a hand-made string can.
-function DebindShare.CollectImportLines(payload)
+function DebindStorage.CollectImportLines(payload)
     local counts, classLine = {}, nil;
 
-    DebindShare.ForEachPayloadLayer(payload, function(list, scope, class, spec)
+    DebindStorage.ForEachPayloadLayer(payload, function(list, scope, class, spec)
         -- **The address is vetted first**, the same order `PlanImport` reads them in. `ImportAddress`
         -- is the only place `spec` is checked for being a number at all, and the line function
         -- compares it against 0 -- asked the other way round, a payload keyed `char = { ["2"] = … }`
         -- raises where the reader can only see a dead button.
-        if (DebindShare.ImportAddress(scope, class, spec)) then
-            local line = DebindShare.ImportLineFor(scope, spec);
+        if (DebindStorage.ImportAddress(scope, class, spec)) then
+            local line = DebindStorage.ImportLineFor(scope, spec);
             if (line) then
                 counts[line] = (counts[line] or 0) + #list;
                 if (line == "shared.class") then
@@ -228,7 +236,7 @@ function DebindShare.CollectImportLines(payload)
     end);
 
     local lines = {};
-    for _, line in ipairs(DebindShare.IMPORT_LINES) do
+    for _, line in ipairs(DebindStorage.IMPORT_LINES) do
         -- **Zero is not "some".** An empty layer list adds nothing to the count, and `if (count)`
         -- would stand the checkbox up anyway -- 0 is true in Lua. The reader would tick a line that
         -- places nothing and be answered with an error by the dialog that just offered it.
@@ -248,16 +256,16 @@ end
 -- The drawer
 -- ---------------------------------------------------------------------------------------------
 
---- `DebindShareVars`, made if it is not there yet.
+--- `DebindStorageVars`, made if it is not there yet.
 ---
 --- Built on demand rather than from an `ADDON_LOADED` handler. Nothing in this addon runs before
 --- the window is opened -- that is the whole reason it is `LoadOnDemand` -- so there is no earlier
 --- moment for a handler to be the right answer to.
 local function Vars()
-    local vars = _G.DebindShareVars;
+    local vars = _G.DebindStorageVars;
     if (not vars) then
         vars = {};
-        _G.DebindShareVars = vars;
+        _G.DebindStorageVars = vars;
     end
     vars.version = vars.version or STORE_VERSION;
     vars.batches = vars.batches or {};
@@ -275,13 +283,13 @@ end
 local decoded = {};
 
 --- The payload of a stored batch, or nil plus the reason `DecodeExportString` gave.
-function DebindShare.GetBatchPayload(batch)
+function DebindStorage.GetBatchPayload(batch)
     local cached = decoded[batch.id];
     if (cached) then
         return cached;
     end
 
-    local payload, reason = DebindShare.DecodeExportString(batch.text);
+    local payload, reason = DebindStorage.DecodeExportString(batch.text);
     if (not payload) then
         return nil, reason;
     end
@@ -295,8 +303,8 @@ end
 --- **Decoded before it is stored**, so a string that cannot be read is refused where the user is
 --- looking at it rather than becoming a row in the drawer that fails every time it is opened.
 --- Returns the batch, or nil plus the same reason codes `DecodeExportString` uses.
-function DebindShare.AddBatch(text, source)
-    local payload, reason = DebindShare.DecodeExportString(text);
+function DebindStorage.AddBatch(text, source)
+    local payload, reason = DebindStorage.DecodeExportString(text);
     if (not payload) then
         return nil, reason;
     end
@@ -317,7 +325,7 @@ function DebindShare.AddBatch(text, source)
     -- whole question -- a string sent with the keys left out carries a key on every action and
     -- still has none to offer.
     local hasKeys, seenKeys = false, {};
-    DebindShare.ForEachPayloadLayer(payload, function(list)
+    DebindStorage.ForEachPayloadLayer(payload, function(list)
         for _, action in ipairs(list) do
             actionCount = actionCount + 1;
             local key = action.key;
@@ -370,11 +378,11 @@ function DebindShare.AddBatch(text, source)
     return batch;
 end
 
-function DebindShare.GetBatches()
+function DebindStorage.GetBatches()
     return Vars().batches;
 end
 
-function DebindShare.GetBatch(id)
+function DebindStorage.GetBatch(id)
     local batches = Vars().batches;
     for i = 1, #batches do
         if (batches[i].id == id) then
@@ -384,7 +392,7 @@ function DebindShare.GetBatch(id)
     return nil;
 end
 
-function DebindShare.DeleteBatch(id)
+function DebindStorage.DeleteBatch(id)
     local batches = Vars().batches;
     for i = 1, #batches do
         if (batches[i].id == id) then

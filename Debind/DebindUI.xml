@@ -1359,17 +1359,21 @@
 			</Frame>
 
 			<!--
-				**The panel a tab falls back to when its own could not be had.** Import and Export
-				live in `DebindShare`, which is load-on-demand, so at the moment the tab is pressed
-				the panel may not exist - the addon is switched off, or (for now) simply has no
-				panel to hand over yet. `SelectPanel` puts the reason in `Message` and shows this.
+				**The panel a tab falls back to when what it reads could not be had.** Import and
+				Export are this addon's own panels and always exist; what may not is `DebindStorage`,
+				which holds the drawer and answers `IsExportable` and is load on demand. A reader who
+				switched it off in the AddOns list is the one way to get here (`ResolvePanel`).
+
+				**It stands in for the panel rather than letting it draw**, because a list with
+				nothing in it cannot say why it is empty - and "nothing here yet" is a different
+				sentence from "the part that holds it is switched off".
 
 				**It is not a bounce back to Overview.** Sending the reader somewhere they did not
 				ask for reads as "the tab is broken"; standing here with a sentence says what
 				actually happened.
 
 				**The sentence never changes**, so it is set once at load rather than carried in
-				at the moment of failure - there is only one way to end up here (`ResolvePanel`).
+				at the moment of failure - there is only one way to end up here.
 
 				Same shape as the two empty states already in this window (`ScrollBox.EmptyText`,
 				`ContentArea.EmptyText`): one grey sentence, centred, nothing else.

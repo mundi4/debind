@@ -1581,7 +1581,7 @@ RegisterTest("Export: the window's count is what the string carries", {
         ApplyBindings()
 
         -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
-        -- `DebindShare` in, and stopping there is deliberate: a run is isolated to one layer whose
+        -- `DebindStorage` in, and stopping there is deliberate: a run is isolated to one layer whose
         -- id is past every real one, on purpose (`GetTestLayer`), and drawing the list would put
         -- that id through `GetLayerLabel` -- which asks the client for a specialization name and
         -- gets nothing back. Nothing about the numbers below needs a frame on screen.
@@ -1597,8 +1597,8 @@ RegisterTest("Export: the window's count is what the string carries", {
         -- The copy dialog goes with them: it takes keyboard focus when it opens, which is what it
         -- is for, and it must not hold it over whatever runs next.
         AddTeardown(function()
-            DebindShareCopyFrame.Output.EditBox:ClearFocus()
-            DebindShareCopyFrame:Hide()
+            DebindCopyFrame.Output.EditBox:ClearFocus()
+            DebindCopyFrame:Hide()
             panel.layers = nil
             wipe(panel.selected)
         end)
@@ -1626,7 +1626,7 @@ RegisterTest("Export: the window's count is what the string carries", {
         -- And what leaves. `OnGenerateClicked` is the button, and the dialog it fills holds the
         -- string a reader would be handed.
         panel:OnGenerateClicked()
-        local payload, why = DecodeExportedString(DebindShareCopyFrame.text)
+        local payload, why = DecodeExportedString(DebindCopyFrame.text)
         if not payload then
             return Fail(NAME, format("문자열을 못 읽었다: %s", why))
         end

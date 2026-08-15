@@ -1,4 +1,4 @@
--- Turning a received payload back into actions. `DebindShare/Import.lua`.
+-- Turning a received payload back into actions. `DebindStorage/Import.lua`.
 --
 -- **This is the half of the round trip that can be wrong without anyone noticing.** The export side
 -- is checked against the format; here the output is an action that goes straight into someone's
@@ -15,7 +15,7 @@
 -- Everything built here also has to arrive quarantined. An action that landed without `imported`
 -- is bound the moment it lands, which is the one thing this whole path promises not to do.
 
-return function(DebindPrivate, DebindShare)
+return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -76,7 +76,7 @@ return function(DebindPrivate, DebindShare)
 
     --- Plans a payload holding exactly one action and hands it back.
     local function PlanOne(payload, batchID)
-        local placements = DebindShare.PlanImport(payload, batchID or 1);
+        local placements = DebindStorage.PlanImport(payload, batchID or 1);
         check(#placements == 1, "액션 수 " .. #placements);
         return placements[1].action, placements[1];
     end
@@ -88,7 +88,7 @@ return function(DebindPrivate, DebindShare)
     ---------------------------------------------------------------------------
 
     test("들어오는 것은 전부 배지를 달고 온다", function()
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 2, key = "F", seq = 2 },
         }), 9);
@@ -123,14 +123,14 @@ return function(DebindPrivate, DebindShare)
     test("숫자 키는 프로필 안에서 다시 매긴다", function()
         ResetProfile();
 
-        local first = DebindShare.PlanImport(General({
+        local first = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 1, key = 1, seq = 1 },
             { type = Constants.SPELL, value = 2, key = 2, seq = 1 },
         }), 1);
         DebindPrivate.PlaceImportedActions(first);
 
         -- A second string, whose own numbering starts over at 1.
-        local second = DebindShare.PlanImport(General({
+        local second = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 3, key = 1, seq = 1 } }), 2);
 
         local taken = {};
@@ -145,7 +145,7 @@ return function(DebindPrivate, DebindShare)
     test("같은 숫자 키였던 것들은 같이 남는다", function()
         ResetProfile();
 
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 1, key = 4, seq = 1 },
             { type = Constants.SPELL, value = 2, key = 7, seq = 1 },
             { type = Constants.SPELL, value = 3, key = 4, seq = 2 },
@@ -166,7 +166,7 @@ return function(DebindPrivate, DebindShare)
     test("안 보이는 레이어의 숫자 키도 세어 넣는다", function()
         ResetProfile();
 
-        local mage = DebindShare.PlanImport({
+        local mage = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = { classes = { MAGE = { [2] = {
                 { type = Constants.SPELL, value = 1, key = 1, seq = 1 } } } } },
@@ -187,7 +187,7 @@ return function(DebindPrivate, DebindShare)
         end
         check(seen == 0, "전제가 틀렸다 - 이 캐릭터의 레이어에서 " .. seen .. "개가 보인다");
 
-        local next2 = DebindShare.PlanImport(General({
+        local next2 = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 2, key = 1, seq = 1 } }), 2);
         check(next2[1].action.key ~= mage[1].action.key,
             "안 보이는 번호를 재사용했다: " .. tostring(next2[1].action.key));
@@ -204,7 +204,7 @@ return function(DebindPrivate, DebindShare)
     test("키를 빼고 가져오면 숫자 키로 바뀌고 묶음은 남는다", function()
         ResetProfile();
 
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 2, key = "F", seq = 2 },
             { type = Constants.SPELL, value = 3, key = "G", seq = 1 },
@@ -236,7 +236,7 @@ return function(DebindPrivate, DebindShare)
     -- harmless is that `PlaceImportedActions` overwrites every one of them on the way in.
     test("실려온 seq가 액션에 남는다", function()
         ResetProfile();
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 11, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 22, key = "F", seq = 2 },
             { type = Constants.SPELL, value = 33, key = "F", seq = 3 },
@@ -288,7 +288,7 @@ return function(DebindPrivate, DebindShare)
 
     test("액션 자리에 액션이 아닌 것이 있어도 안 터진다", function()
         ResetProfile();
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             5,
             { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
             "쓰레기",
@@ -307,12 +307,130 @@ return function(DebindPrivate, DebindShare)
         check(action.value == "이름", "값이 바뀌었다");
     end);
 
+    -- 같은 것의 받는 쪽. 이름으로 삼중 일치가 성립해 **참조를 살려 둘 때**, 들고 있는 값이 보낸
+    -- 쪽 슬롯 번호면 그건 받는 쪽의 그 번호를 가리킨다 - 이름이 맞았으니 살렸는데 정작 가리키는
+    -- 곳은 남의 자리다. 살릴 때는 이름으로 고쳐 잡는다.
+    test("슬롯 번호로 온 MACRO는 이름으로 고쳐 잡는다", function()
+        ResetProfile();
+        MACROS = {
+            ["옛것"] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
+            [4] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
+        };
+
+        local action = PlanOne(General({
+            { type = Constants.MACRO, value = 4, key = "F", seq = 1,
+              macro = { name = "옛것", body = "/cast 얼음창", icon = 7, scope = "account" } } }));
+
+        check(action.type == Constants.MACRO, "참조가 안 살았다: " .. tostring(action.type));
+        check(action.value == "옛것", "값이 " .. tostring(action.value));
+    end);
+
     test("setstate가 테이블이 아니어도 안 터진다", function()
         ResetProfile();
         local action = PlanOne(General({
             { type = Constants.SETSTATE, key = "F", seq = 1, setstate = 5 } }));
         check(action.type == Constants.SETSTATE, "타입이 바뀌었다");
         check(action.setstate == nil, "포맷 필드가 액션에 남았다");
+    end);
+
+    -- **명단은 이름을 거르지 타입을 안 거른다.** 아래 넷은 전부 계산에 쓰인다 - `seq`는 도착
+    -- 번호에 더해지고(`PlaceImportedActions`), `priority`는 `table.sort` 안에서 비교되고,
+    -- `checkedUnits`는 `pairs`로 훑고, `forms`는 `band`를 지난다. 어느 쪽이든 터지는 자리가
+    -- 커밋 도중이라, 앞의 액션은 이미 들어간 채로 멈춘다.
+    test("타입이 어긋난 선 필드는 안 들어온다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 774, key = "F", seq = {},
+              priority = {}, checkedUnits = "쓰레기", forms = "쓰레기" } }));
+        check(action.seq == nil, "seq " .. tostring(action.seq));
+        check(action.priority == nil, "priority " .. tostring(action.priority));
+        check(action.checkedUnits == nil, "checkedUnits " .. tostring(action.checkedUnits));
+        check(action.forms == nil, "forms " .. tostring(action.forms));
+        check(action.value == 774 and action.key == "F", "멀쩡한 필드까지 걸렀다");
+    end);
+
+    -- **타입 선언이 틀리면 실패가 조용하다.** 멀쩡한 필드가 임포트에서 걸러지고, 받는 쪽은
+    -- 조건 하나가 빠진 액션을 얻는다 - 즉 **더 자주 발동한다.** 위의 두 테스트는 "틀린 값이 안
+    -- 들어온다"만 보므로 그 반대 방향을 못 본다.
+    --
+    -- **값은 명단에서 뽑지 않는다.** 처음엔 선언된 타입으로 표본을 만들었는데, 그러면 선언을
+    -- 바꿔도 표본이 같이 바뀌어서 무엇을 먹여도 통과했다. 아래 값은 전부 **애드온이 실제로 그
+    -- 필드에 쓰는 것**이고 출처가 옆에 적혀 있다. 그래서 선언 하나를 틀리게 하면 빨개진다.
+    --
+    -- 명단에 있는데 여기 없으면 그것도 실패다. 필드가 늘면 이 표도 같이 늘어야 한다.
+    local REAL_VALUES = {
+        -- `DropDownMenus.lua`의 `setActionValue`가 조건에 쓰는 것: 예/아니오/안 물음 = true/false/nil.
+        known = true,
+        combat = true,
+        stealth = true,
+        specialbar = true,
+        extrabar = true,
+        pet = true,
+        petbattle = true,
+        -- 같은 함수의 체크박스 갈래(`not _action[key]`).
+        keepInBindingContext = true,
+        ignoreHoverUnit = true,
+        -- 비트 마스크. `Misc.lua`가 `== 0`으로 비교한다.
+        forms = 6,
+        groups = 3,
+        frameTypes = 1,
+        bonusbars = 2,
+        -- `Constants.SPELL`은 문자열이다("spell").
+        type = Constants.SPELL,
+        value = 774,
+        key = "F",
+        seq = 1,
+        priority = 2,
+        name = "이름",
+        icon = 132219,
+        unit = "target",
+        checkedUnits = { target = {} },
+        ["$state1"] = true,
+        ["$state2"] = true,
+        ["$state3"] = true,
+        ["$state4"] = true,
+        ["$state5"] = true,
+    };
+
+    test("애드온이 실제로 쓰는 값이 명단의 타입을 통과한다", function()
+        ResetProfile();
+
+        local sent = {};
+        for field in pairs(DebindStorage.ACTION_FIELDS) do
+            check(REAL_VALUES[field] ~= nil,
+                field .. "이 명단에 늘었는데 이 표에는 없다");
+            sent[field] = REAL_VALUES[field];
+        end
+
+        local action = PlanOne(General({ sent }));
+        for field, want in pairs(REAL_VALUES) do
+            local got = action[field];
+            if (type(want) == "table") then
+                check(type(got) == "table", field .. "이 테이블로 안 왔다: " .. tostring(got));
+            else
+                check(got == want, field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));
+            end
+        end
+    end);
+
+    -- **SavedVariables까지 가는 쪽.** 배치 루프가 도중에 터지면 앞의 것은 이미 `Insert`된 뒤이고
+    -- 뒤따르는 재번호 매기기가 아예 안 돌아, 살아남은 액션이 내부 도착 밴드(`ARRIVAL_SEQ`)를
+    -- 그대로 들고 저장된다. `CleanUpDB`는 nil과 중복만 고치지 그 범위는 안 걷어낸다.
+    test("망가진 seq가 있어도 배치가 반쯤 끝나지 않는다", function()
+        ResetProfile();
+        DebindPrivate.PlaceImportedActions(DebindStorage.PlanImport(General({
+            { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 20, key = "F", seq = {} },
+            { type = Constants.SPELL, value = 30, key = "F", seq = 3 },
+        }), 1));
+
+        local placed = 0;
+        for _, row in ipairs(DebindPrivate.CollectActionsForKey("F")) do
+            placed = placed + 1;
+            check(type(row.action.seq) == "number" and row.action.seq < 1000,
+                "도착 밴드가 저장에 남았다: " .. tostring(row.action.seq));
+        end
+        check(placed == 3, "액션 수 " .. placed);
     end);
 
     ---------------------------------------------------------------------------
@@ -326,7 +444,7 @@ return function(DebindPrivate, DebindShare)
     test("한 키가 레이어 여럿에 걸쳐도 묶음 하나로 들어온다", function()
         ResetProfile();
 
-        local placements = DebindShare.PlanImport({
+        local placements = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = {
                 GENERAL = { { type = Constants.SPELL, value = 1, key = "F", seq = 1 } },
@@ -368,7 +486,7 @@ return function(DebindPrivate, DebindShare)
     -- did not land.
     test("갈 데 없는 주소는 세어서 빠진다", function()
         ResetProfile();
-        local placements, skipped = DebindShare.PlanImport({
+        local placements, skipped = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = {
                 GENERAL = { { type = Constants.SPELL, value = 2 } },
@@ -385,7 +503,7 @@ return function(DebindPrivate, DebindShare)
     -- themselves declined.
     test("안 고른 줄은 빠지되 세지 않는다", function()
         ResetProfile();
-        local placements, skipped = DebindShare.PlanImport({
+        local placements, skipped = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = {
                 GENERAL = { { type = Constants.SPELL, value = 1 } },
@@ -404,7 +522,7 @@ return function(DebindPrivate, DebindShare)
     -- 말하고 못 넣은 다섯은 입에 올리지 않는다. 그리고 창은 언제나 필터를 켜고 부른다.
     test("고르는 중이어도 갈 데 없는 것은 세어서 뺀다", function()
         ResetProfile();
-        local placements, skipped = DebindShare.PlanImport({
+        local placements, skipped = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = {
                 GENERAL = { { type = Constants.SPELL, value = 2 } },
@@ -421,7 +539,7 @@ return function(DebindPrivate, DebindShare)
     -- 안 된다.
     test("줄조차 안 선 것도 세어서 뺀다", function()
         ResetProfile();
-        local placements, skipped = DebindShare.PlanImport({
+        local placements, skipped = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = { GENERAL = { { type = Constants.SPELL, value = 3 } } },
             char = { [5] = { { type = Constants.SPELL, value = 1 },
@@ -538,7 +656,7 @@ return function(DebindPrivate, DebindShare)
 
     test("놓으면 그 레이어에 서고 순서 번호를 받는다", function()
         ResetProfile();
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 774, key = "F", seq = 1 } }), 5);
 
         DebindPrivate.PlaceImportedActions(placements);
@@ -557,7 +675,7 @@ return function(DebindPrivate, DebindShare)
     -- 세운다 - 배열 순서대로 매기는 구현에서는 3 1 2가 나온다.
     test("한 그룹은 실려온 seq 차례로 번호를 받는다", function()
         ResetProfile();
-        local placements = DebindShare.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 30, key = "F", seq = 3 },
             { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
@@ -579,7 +697,7 @@ return function(DebindPrivate, DebindShare)
         DebindPrivate.GetProfileLayer(1):Insert(
             { type = Constants.SPELL, value = 99, key = "F", seq = 1 });
 
-        DebindPrivate.PlaceImportedActions(DebindShare.PlanImport(General({
+        DebindPrivate.PlaceImportedActions(DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
         }), 1));

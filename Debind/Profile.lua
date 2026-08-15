@@ -988,7 +988,7 @@ end
 ---
 --- **`LayerArray`를 안 거친다.** 그쪽은 *지금 캐릭터가 보는 뷰*라 열한 자리밖에 없다 - 드루이드
 --- 세션에서 `classes.MAGE`는 그 배열에 아예 없다. 임포트는 남의 좌표에 그대로 써야 하므로
---- (`DebindShare/Workbench.lua`의 `ImportAddress`) 저장 구조를 직접 짚는다.
+--- (`DebindStorage/Workbench.lua`의 `ImportAddress`) 저장 구조를 직접 짚는다.
 ---
 --- 이미 로드된 레이어를 가리키면 **같은 테이블이 나온다.** `LoadLayer`가 저장 테이블을 그대로
 --- `layer.actions`에 물려두기 때문에, 여기에 넣은 것은 그 레이어에 넣은 것과 같다.
@@ -1094,7 +1094,7 @@ end
 ---
 --- Each entry is `{ scope, class, spec, action }` - the address the profile stores by, not a layer
 --- ID. A layer ID is this character's view and a batch routinely lands outside it, so there is no
---- ID to hand for "another class's spec 2" at all (`DebindShare/Workbench.lua`).
+--- ID to hand for "another class's spec 2" at all (`DebindStorage/Workbench.lua`).
 ---
 --- **Every action arriving here is expected to carry `imported`**, which keeps it out of the
 --- binding build (`BuildKeyMap`). Nothing is asserted about that: this stays a placement function,
@@ -1404,7 +1404,7 @@ end
 --- The next synthetic key to hand out, unique across the whole profile.
 ---
 --- **A synthetic key stands in for one the reader has not chosen yet** -- it is what a set arrives
---- on when the sender left the keys out (`DebindShare/Import.lua`). A number, because a real key is
+--- on when the sender left the keys out (`DebindStorage/Import.lua`). A number, because a real key is
 --- always a string, so the type alone tells the two apart and there is no name a real key could
 --- collide with.
 ---

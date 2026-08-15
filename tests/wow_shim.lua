@@ -195,7 +195,7 @@ end
 
 --- 애드온 파일들을 순서대로 로드하고 애드온 private 테이블을 돌려준다.
 ---
---- `addon` is optional and exists for the companion addons. `DebindShare` is a **second** addon
+--- `addon` is optional and exists for the companion addons. `DebindStorage` is a **second** addon
 --- with its own table, so its files cannot be loaded into Debind's; the caller builds the table
 --- the game would have given it (with `DebindPrivate` on it, the way the real handshake does) and
 --- passes it in here.

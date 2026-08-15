@@ -2,7 +2,7 @@
 //   npm run check:export-fields
 //
 // `KEYS_TO_SAVE` in `Profile.lua` is the one list of "fields that get saved", and `ACTION_FIELDS`
-// in `DebindShare/Export.lua` is the list of "fields that go out on the wire". They must differ by
+// in `DebindStorage/Export.lua` is the list of "fields that go out on the wire". They must differ by
 // exactly one (`imported`), which is the only field that describes **this drawer** rather than the
 // action (the comment in `Export.lua` has the detail).
 //
@@ -86,7 +86,7 @@ function readFieldTable(file, tableName) {
 }
 
 const saved = readFieldTable("Debind/Profile.lua", "KEYS_TO_SAVE");
-const exported = readFieldTable("DebindShare/Export.lua", "ACTION_FIELDS");
+const exported = readFieldTable("DebindStorage/Export.lua", "ACTION_FIELDS");
 
 const problems = [];
 

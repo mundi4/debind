@@ -250,7 +250,7 @@ L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- colour and no longer does, so if this sentence goes the tooltip stops mentioning it at all.
 --
 -- No source and no date, though the action carries the batch number. Reading either of those means
--- reading `DebindShare`'s saved variables, and that addon is load-on-demand - a tooltip that says
+-- reading `DebindStorage`'s saved variables, and that addon is load-on-demand - a tooltip that says
 -- where a string came from only after some other window has been opened is worse than one that
 -- never claims to.
 L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you accept it."
@@ -628,13 +628,13 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- whether the keys ride along - leave for somewhere you cannot reach: a string handed to someone
 -- else is not recallable. A tooltip is read on purpose, so length is not the cost it looks like.
 --
--- These live here rather than in `DebindShare` because they are eleven strings against that
+-- These live here rather than in `DebindStorage` because they are eleven strings against that
 -- addon's reason for existing, and a second locale tree would need its own parity check.
 -- The window's own tabs (`PANELS` in `DebindUI.lua`). The label is one word, so the tooltip is
 -- where the tab says what it opens - and Import and Export both open something that leaves for
 -- somewhere you cannot reach, so the same "read it on purpose" rule as above applies.
 --
--- The two panels themselves live in `DebindShare`, which is load-on-demand and may not be there.
+-- The two panels themselves live in `DebindStorage`, which is load-on-demand and may not be there.
 -- **One failure, so one message.** That addon cannot load and then not have built its panel, so
 -- "loaded but empty" is not a second case to describe - if it ever happened the install would be
 -- broken, and the second line below is already the fix for that.
@@ -751,6 +751,13 @@ L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nPaste a string somebody sent yo
 L["IMPORT_DRAWER_COUNT"] = "%d received"
 L["IMPORT_PASTE"] = "Paste a string"
 L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
+-- The two halves of the game's own import dialog, which this one is shaped after: a caption over
+-- the box, and the instruction **inside** it. The caption names what the box holds; the
+-- instruction says what to do and then gets out of the way the moment anything is typed. Blizzard
+-- runs them as "Import Text" over "Paste loadout code here" - the caption deliberately does not
+-- repeat the instruction, and the instruction deliberately does not repeat the title.
+L["IMPORT_PASTE_INPUT_LABEL"] = "Text to import"
+L["IMPORT_PASTE_INSTRUCTIONS"] = "Paste the Debind string here"
 -- The one thing about the sender that is ever stored, and only because the reader typed it. The
 -- string itself carries no character name on purpose.
 L["IMPORT_PASTE_SOURCE"] = "Who it came from (optional)"
@@ -769,9 +776,16 @@ L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r from the drawe
 -- The mapping is `REASON_TEXT` in `WorkbenchUI.lua`.
 L["IMPORT_FAILED_NOT_OURS"] = "That is not a Debind string."
 L["IMPORT_FAILED_TOO_NEW"] = "That string was made by a newer version of Debind. Update and try again."
+-- The same refusal pointing the other way, and it must not borrow the sentence above: updating is
+-- what the reader already did. There is nothing for them to do here, so this says so rather than
+-- asking - and it says where the string can still be used, because it can.
+L["IMPORT_FAILED_TOO_OLD"] = "That string was made by a version of Debind too old for this one to read.|n|nNothing you can do here changes that. The string still works in the version it came from."
 L["IMPORT_FAILED_DAMAGED"] = "That string is a Debind string but could not be read. It was most likely copied only part of the way - ask for it again and copy the whole thing."
-L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Share could not load the libraries it reads strings with. Downloading Debind again puts them back."
-L["PANEL_ADDON_MISSING"] = "This needs |cnHIGHLIGHT_FONT_COLOR:Debind Share|r, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Share comes with it."
+L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries it reads strings with. Downloading Debind again puts them back."
+-- **What is missing is what this tab reads, not the tab.** Import and Export are Debind's own
+-- panels now; `Debind Storage` is the load-on-demand part that keeps the strings, and without it
+-- there is nothing for either to show. Switching it off in the AddOns list is the one way here.
+L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind Storage|r keeps, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Storage comes with it."
 L["EXPORT_TITLE"] = "Export"
 L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to send them."
 L["EXPORT_SELECT_ALL"] = "Select all"
@@ -785,6 +799,7 @@ L["EXPORT_STRIP_KEYS_DESC"] = "Sends the actions without the keys they are on, s
 L["EXPORT_GENERATE"] = "Create string"
 L["EXPORT_EMPTY"] = "There is nothing here to export yet."
 L["EXPORT_ROW_NO_KEY"] = "No key"
+L["EXPORT_LAYER_HEADER"] = "%1$s (%2$d/%3$d)"
 L["EXPORT_LAYER_COUNT"] = "%d actions"
 L["EXPORT_FAILED_LIBS_MISSING"] = "The libraries that build the string are missing, which means the install did not finish. Downloading Debind again brings them back."
 L["EXPORT_COPY_TITLE"] = "Copy this string (Ctrl-C)"

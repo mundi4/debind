@@ -35,6 +35,14 @@ DevStamp.lua
 
 Debind.xml
 DebindUI.xml
+
+# The two panels of the sharing tabs. **After `DebindUI.xml`, because they are declared as children
+# of `DebindFrame`** (`parent=` + `parentKey=`), and a parent named before it exists is a frame with
+# no parent. They came over from `DebindStorage` with the addon boundary: the UI is Debind's and what
+# stays over there is the strings and the drawer (`devdocs/building-export-import.md`).
+ShareUI.xml
+WorkbenchUI.xml
+
 SpellPicker.xml
 
 Public.lua

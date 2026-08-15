@@ -16,7 +16,7 @@
 		rather than pointed at nothing - a row that answers the mouse and then does nothing is worse
 		than one that plainly does not.
 	-->
-	<Button name="DebindShareBatchRowTemplate" mixin="DebindShareBatchRowMixin" virtual="true">
+	<Button name="DebindImportBatchRowTemplate" mixin="DebindImportBatchRowMixin" virtual="true">
 		<Size x="400" y="44"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -80,7 +80,7 @@
 				What the drawer is for. It opens a dialog rather than acting: everything it will put
 				in the profile arrives badged and reaches no key, so the question in front of it is
 				not "are you sure" but **which of this string, and with or without its keys**
-				(`DebindShareBringFrame`).
+				(`DebindBringFrame`).
 
 				Those two used to be a checkbox on this row. That was wrong in a way the dialog
 				fixes rather than moves: they matter for the one press and nothing else, and stored
@@ -127,8 +127,10 @@
 		It is a panel and the frame hosts it, which means three things this file has to get right
 		(the same three the export panel needed - `.zzz/main-frame-containers.md`):
 
-		  it stands parented to `UIParent` and hidden until `ResolvePanel` takes delivery, because
-		  this addon is load on demand and does not exist when `DebindUI.xml` is read
+		  a child of `DebindFrame` by `parent=` + `parentKey=`, seated where `OverviewPanel` sits so
+		  `PANELS` can name it by key. It stood parented to `UIParent` and was reparented on the
+		  first press only while this file belonged to the load-on-demand addon and so did not exist
+		  when `DebindUI.xml` was read
 
 		  `useParentLevel`, or the list's own `frameLevel` would land underneath this panel and
 		  draw behind its inset
@@ -136,23 +138,35 @@
 		  **no `enableMouse`**. A panel covering the whole frame that swallows clicks takes the
 		  title bar with it, and the window stops being draggable from this one tab
 
-		The `<Size>` is the width the frame is asked for; the height is the host's.
+		`preferredWidth` is the width the frame is asked for, and the only size written here: pinned
+		to the host on four sides, a `<Size>` of its own would never be the rectangle it ends up with.
 	-->
-	<Frame name="DebindShareImportPanel" parent="UIParent" hidden="true" useParentLevel="true"
-		mixin="DebindShareImportPanelMixin">
-		<Size x="470" y="600"/>
+	<Frame name="DebindImportPanel" parent="DebindFrame" parentKey="ImportPanel" hidden="true"
+		useParentLevel="true" setAllPoints="true" mixin="DebindImportPanelMixin">
+		<KeyValues>
+			<KeyValue key="preferredWidth" value="470" type="number"/>
+		</KeyValues>
 		<Frames>
-			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
 				<!--
-					The same rectangle the export list uses, to the pixel. The two are different
-					tabs of one window and a reader moving between them should not have the list
-					jump; that is the same rule the two columns of Overview follow.
+					The same rectangle the export list uses, to the pixel, and both of them are
+					Overview's (`DebindUI.xml`). The three are tabs of one window and a reader moving
+					between them should not have the list jump; that is the same rule the two columns
+					of Overview follow between themselves.
+
+					The backdrop is Overview's too - a thin border over black rather than
+					`InsetFrameTemplate`'s old bevel, so the box is of the same age as the row art
+					standing on it.
 				-->
+				<KeyValues>
+					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+				</KeyValues>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="8" y="-84"/>
-					<Anchor point="TOPRIGHT" x="-30" y="-84"/>
-					<Anchor point="BOTTOMLEFT" x="8" y="46"/>
-					<Anchor point="BOTTOMRIGHT" x="-30" y="46"/>
+					<Anchor point="TOPLEFT" x="4" y="-85"/>
+					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
 				</Anchors>
 			</Frame>
 
@@ -202,13 +216,15 @@
 			</Frame>
 
 			<!--
-				Sits where the export tab's [Generate] does, at the same end of the same rectangle.
-				The two are the same gesture pointing opposite ways.
+				Sits where the export tab's [Create string] does, which is where the click binding
+				window puts its own (`Blizzard_ClickBindingUI.xml`: `BOTTOMRIGHT -6, 5`, height 23) -
+				on the frame's bottom edge rather than hanging under the list. The two are the same
+				gesture pointing opposite ways, so they stand in the same place.
 			-->
 			<Button parentKey="PasteButton" inherits="UIPanelButtonTemplate">
-				<Size x="160" y="22"/>
+				<Size x="160" y="23"/>
 				<Anchors>
-					<Anchor point="TOPRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="0" y="-5"/>
+					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
 				</Anchors>
 			</Button>
 		</Frames>
@@ -225,23 +241,88 @@
 		A dialog rather than a box in the panel, for the reason the copy dialog is one: a box used
 		when a string arrives and empty the rest of the time spends the list's height on nothing.
 		The drawer is what the panel is for; pasting is how a row gets into it.
+
+		**The shape is the game's own import dialog** - `Blizzard_ClassTalentLoadoutImportDialog.xml`,
+		the one a talent loadout is pasted into. It is the same dialog doing the same job, down to the
+		second field being a label **the receiving player types**: theirs names the loadout, ours says
+		where it came from. What is taken from it:
+
+		  the chrome itself - `DialogBorderDarkTemplate` over a centred `GameFontHighlight` title,
+		    with no title bar and no close X, and a `ContentArea` inset 40 / -40 / -40 / 25
+		  a caption over the big box, `GameFontNormal`, rather than a box with nothing said about it
+		  the instruction **inside** the box as placeholder text, so it costs no height once typing starts
+		  the second field running the full width, not a short box under a wide one
+		  accept and cancel as a centred pair straddling `ContentArea`'s bottom (`120x22`, +-5)
+
+		**With no X, the buttons are the only way out but one.** ESC still closes it
+		(`UISpecialFrames`), which is the game's dialog too. It stays draggable from anywhere on
+		itself, since there is no bar left to drag it by.
+
+		Their two control frames are not copied, only the geometry they produce: a container apiece
+		to hold a label is structure bought for nothing when the label can hang off what it captions.
 	-->
-	<Frame name="DebindSharePasteFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
-		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
-		clampedToScreen="true" mixin="DebindSharePasteFrameMixin">
-		<Size x="460" y="230"/>
+	<Frame name="DebindPasteFrame" parent="UIParent" frameStrata="FULLSCREEN_DIALOG"
+		enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
+		mixin="DebindPasteFrameMixin">
+		<Size x="460" y="315"/>
 		<Anchors>
 			<Anchor point="CENTER"/>
 		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Title" inherits="GameFontHighlight">
+					<Size x="250"/>
+					<Anchors>
+						<Anchor point="TOP" y="-20"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<Frames>
+			<!--
+				Border and background in one, and `useParentLevel` so the title above still draws
+				over it rather than under.
+			-->
+			<Frame parentKey="Border" inherits="DialogBorderDarkTemplate"/>
+
+			<!--
+				Everything below is placed against this rather than against the frame, which is what
+				lets the numbers be the game's numbers instead of ours.
+
+				**The caption lives here**, not in the frame's own layers: it has to span the content
+				width, so it needs this rectangle to point at - and a layer of the frame is read
+				before this frame exists, so an anchor to it would be dropped without a word.
+			-->
+			<Frame parentKey="ContentArea">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="40" y="-40"/>
+					<Anchor point="BOTTOMRIGHT" x="-40" y="25"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="TOPLEFT"/>
+								<Anchor point="TOPRIGHT"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+
+			<!--
+				100 tall is the game's number for the same box. The placeholder inside it is set from
+				Lua (`InputScrollFrame_SetInstructions`) and not by the `instructions` KeyValue the
+				template documents: that one names a **global**, and our strings live in `L`.
+			-->
 			<ScrollFrame parentKey="Input" inherits="InputScrollFrameTemplate">
 				<KeyValues>
 					<KeyValue key="hideCharCount" value="true" type="boolean"/>
 				</KeyValues>
+				<Size y="100"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="16" y="-34"/>
-					<Anchor point="TOPRIGHT" x="-30" y="-34"/>
-					<Anchor point="BOTTOM" x="0" y="76"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea.InputLabel" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea.InputLabel" relativePoint="BOTTOMRIGHT" x="0" y="-10"/>
 				</Anchors>
 			</ScrollFrame>
 
@@ -249,48 +330,66 @@
 				Why the row will say it came from. Optional, and it is the only thing about the
 				sender that ever gets stored: the string itself deliberately carries no character
 				name, so a name here is one the user chose to type.
+
+				**Full width, under a full-width box.** A short box below a wide one reads as a
+				lesser field, and this one is not lesser - it is the only thing the reader can say
+				about what they just pasted.
 			-->
 			<EditBox parentKey="SourceBox" inherits="InputBoxTemplate" autoFocus="false" letters="40">
-				<Size x="220" y="20"/>
+				<Size y="22"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.Input" relativePoint="BOTTOMLEFT" x="6" y="-24"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.Input" relativePoint="BOTTOMLEFT" x="6" y="-42"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.Input" relativePoint="BOTTOMRIGHT" x="-6" y="-42"/>
 				</Anchors>
 				<Layers>
 					<Layer level="ARTWORK">
-						<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT">
+						<FontString parentKey="Label" inherits="GameFontNormal" justifyH="LEFT">
 							<Anchors>
-								<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-6" y="2"/>
+								<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-6" y="4"/>
 							</Anchors>
 						</FontString>
 					</Layer>
 				</Layers>
 			</EditBox>
 
+			<!--
+				The pair straddles the centre, 5 either side, which is where the game puts the two
+				buttons of this dialog. Cancel takes the client's own `CANCEL`, so it is already in
+				every language and follows the game if the game ever rewords it.
+			-->
+			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="5" y="0"/>
+				</Anchors>
+			</Button>
+
 			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
 				<Size x="120" y="22"/>
 				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-16" y="14"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>
 				</Anchors>
 			</Button>
 
 			<!--
-				Why the string was turned down, when it is. It sits above the button that turned it
-				down, so the answer is next to the question, and the text stays in the box behind
-				it: a refusal the reader cannot act on is a refusal in the wrong place.
+				Why the string was turned down, when it is. It sits above the buttons, so the answer
+				is next to the question, and the text stays in the box behind it: a refusal the
+				reader cannot act on is a refusal in the wrong place.
 
-				**Declared after that button**, because it anchors to it. The other way round the
-				anchor is dropped silently and the refusal never appears - which is the worst place
+				**Declared after those buttons**, because it spans them. The other way round the
+				anchors are dropped silently and the refusal never appears - which is the worst place
 				for this particular failure, since the whole point of the line is that a rejected
 				paste says why.
 			-->
 			<Frame parentKey="ErrorHolder" useParentLevel="true">
-				<Size x="240" y="20"/>
 				<Anchors>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.AcceptButton" relativePoint="TOPRIGHT" x="0" y="4"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.CancelButton" relativePoint="TOPLEFT" x="-40" y="6"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.AcceptButton" relativePoint="TOPRIGHT" x="40" y="6"/>
 				</Anchors>
+				<Size y="20"/>
 				<Layers>
 					<Layer level="ARTWORK">
-						<FontString parentKey="Text" inherits="GameFontRedSmall" justifyH="RIGHT" wordwrap="true" setAllPoints="true"/>
+						<FontString parentKey="Text" inherits="GameFontRedSmall" justifyH="CENTER" wordwrap="true" setAllPoints="true"/>
 					</Layer>
 				</Layers>
 			</Frame>
@@ -317,9 +416,9 @@
 		A dialog rather than a popup, so it can be moved off whatever the reader wants to look at
 		while deciding - the same reason the paste box is one.
 	-->
-	<Frame name="DebindShareBringFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
+	<Frame name="DebindBringFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
 		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
-		clampedToScreen="true" mixin="DebindShareBringFrameMixin">
+		clampedToScreen="true" mixin="DebindBringFrameMixin">
 		<Size x="340" y="220"/>
 		<Anchors>
 			<Anchor point="CENTER"/>

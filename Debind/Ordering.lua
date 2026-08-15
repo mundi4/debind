@@ -156,10 +156,17 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
     -- expensive kind of wrong this list can be.
     --
     -- **An off-spec row is not an opponent either**, for the same reason and with one more: it is
-    -- not in the key map now, and the two never run in the same world. Skipping it is also what
-    -- blocks moving one - the target's own neighbour then comes out active, and `specRank` decides
-    -- before `seq` ever does, so this path answers "SPEC" without a branch of its own.
+    -- not in the key map now, and the two never run in the same world.
     --
+    -- **Moving one is refused here rather than by the skip.** The skip used to carry that too - the
+    -- neighbour it lands on comes out active, and `specRank` decides before `seq` ever does - but
+    -- that only holds while some live row is left to land on. On a key whose rows are *all* off-spec
+    -- the loop runs off the end and the answer comes back "already last", said about the first of
+    -- several. The reason is the same either way, so asking up front is both true and shorter.
+    if ((rows[targetIndex].specRank or 0) ~= 0) then
+        return nil, "SPEC";
+    end
+
     -- Skipping past the end is the same answer as starting there, so the two branches below catch
     -- it unchanged: nowhere to move to is nowhere to move to.
     local neighborIndex = targetIndex + direction;

@@ -1,4 +1,4 @@
--- The import workbench. `DebindShare/Workbench.lua`.
+-- The import workbench. `DebindStorage/Workbench.lua`.
 --
 -- Two things live here and they fail differently.
 --
@@ -15,7 +15,7 @@
 -- **The drawer** holds work across a `/reload`, so what it stores has to survive being written to
 -- SavedVariables and read back. That is why the string is stored rather than the payload.
 
-return function(DebindPrivate, DebindShare)
+return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -64,7 +64,7 @@ return function(DebindPrivate, DebindShare)
     -- has no ID in it at all.
     ---------------------------------------------------------------------------
 
-    local Address = DebindShare.ImportAddress;
+    local Address = DebindStorage.ImportAddress;
 
     test("일반은 일반으로", function()
         check(Address("general") == "general", "일반이 아니다");
@@ -129,6 +129,18 @@ return function(DebindPrivate, DebindShare)
         check(Address("class", nil, 0) == nil, "직업 이름이 없다");
     end);
 
+    -- **범위 안이라고 칸 번호인 것은 아니다.** 이 함수가 막으라고 있는 것이 "아무 화면도 안 읽고
+    -- `CleanUpDB`도 안 훑는 자리"인데, 소수는 범위 검사 셋을 그대로 통과해서
+    -- `shared.classes.DRUID[1.5]`를 만든다 - 붙여넣을 때마다 계정 파일에 하나씩 쌓이는 고아다.
+    -- NaN은 더 나쁘다: 비교 셋이 전부 거짓이라 통과한 뒤 인덱스로 쓰이는 자리에서 터진다.
+    test("정수가 아닌 특성 번호는 자리를 안 만든다", function()
+        check(Address("class", CLASS, 1.5) == nil, "소수");
+        check(Address("character", nil, 1.5) == nil, "캐릭터 쪽 소수");
+        check(Address("class", CLASS, 0 / 0) == nil, "NaN");
+        check(Address("class", CLASS, 1 / 0) == nil, "무한대");
+        check(Address("class", CLASS, 2) ~= nil, "멀쩡한 번호를 거절했다");
+    end);
+
     -- **A class name is a key straight into storage.** `shared.classes[<name>]` gets made on the
     -- spot, no screen reaches it, and `CleanUpDB` walks the eleven loaded layers so it never sees
     -- it either - every paste of a made-up name would leave one more behind in the account file.
@@ -187,14 +199,14 @@ return function(DebindPrivate, DebindShare)
 
     local function LineIDs(payload)
         local out = {};
-        for i, entry in ipairs(DebindShare.CollectImportLines(payload)) do
+        for i, entry in ipairs(DebindStorage.CollectImportLines(payload)) do
             out[i] = entry.line;
         end
         return table.concat(out, " ");
     end
 
     test("전문화 레이어는 자기 줄에 딸려 들어간다", function()
-        local lines = DebindShare.CollectImportLines(Payload({
+        local lines = DebindStorage.CollectImportLines(Payload({
             { scope = "class", class = CLASS, spec = 2, key = "F", count = 2 },
             { scope = "class", class = CLASS, spec = 0, key = "G", count = 3 },
             { scope = "general", key = "H", count = 1 },
@@ -264,7 +276,7 @@ return function(DebindPrivate, DebindShare)
     -- 액션 자리에 액션이 아닌 것. 걸러내는 자리가 하나여야 세는 쪽도 넣는 쪽도 `ipairs`로
     -- 끝난다.
     test("액션이 아닌 원소는 걸러진다", function()
-        local lines = DebindShare.CollectImportLines(Payload({
+        local lines = DebindStorage.CollectImportLines(Payload({
             { scope = "general", count = 2, junk = 5 },
         }));
         check(#lines == 1 and lines[1].actionCount == 2,
@@ -283,7 +295,7 @@ return function(DebindPrivate, DebindShare)
     -- sender, and a hand-made one can put another class's layer under it - then the label would
     -- print the sender's class over somebody else's layer.
     test("직업 줄은 그 레이어의 직업을 달고 나온다", function()
-        local lines = DebindShare.CollectImportLines(Payload({
+        local lines = DebindStorage.CollectImportLines(Payload({
             { scope = "class", class = "MAGE", spec = 1 },
         }));
         check(#lines == 1 and lines[1].class == "MAGE",
@@ -291,7 +303,7 @@ return function(DebindPrivate, DebindShare)
 
         -- Two classes on one line: there is no single name to print, so none is offered and the
         -- dialog falls back to what the string says about the sender.
-        lines = DebindShare.CollectImportLines(Payload({
+        lines = DebindStorage.CollectImportLines(Payload({
             { scope = "class", class = "MAGE", spec = 1 },
             { scope = "class", class = CLASS, spec = 1 },
         }));
@@ -302,7 +314,7 @@ return function(DebindPrivate, DebindShare)
     -- One key group can put actions on two lines, which is why the count is over actions. There is
     -- no number of groups a line owns.
     test("한 키가 두 줄에 걸쳐도 양쪽이 다 센다", function()
-        local lines = DebindShare.CollectImportLines(Payload({
+        local lines = DebindStorage.CollectImportLines(Payload({
             { scope = "general", key = "F" },
             { scope = "character", spec = 0, key = "F" },
         }));
@@ -320,10 +332,10 @@ return function(DebindPrivate, DebindShare)
     -- would be skipped by `npm test` and only ever run by hand.
     ---------------------------------------------------------------------------
 
-    local realDecode = DebindShare.DecodeExportString;
+    local realDecode = DebindStorage.DecodeExportString;
     local STORED = {};
 
-    DebindShare.DecodeExportString = function(str)
+    DebindStorage.DecodeExportString = function(str)
         local payload = type(str) == "string" and STORED[strtrim(str)] or nil;
         if (not payload) then
             return nil, "BAD_PAYLOAD";
@@ -332,7 +344,7 @@ return function(DebindPrivate, DebindShare)
     end
 
     local function ResetDrawer()
-        _G.DebindShareVars = nil;
+        _G.DebindStorageVars = nil;
         STORED = {};
     end
 
@@ -343,11 +355,11 @@ return function(DebindPrivate, DebindShare)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local batch = DebindShare.AddBatch(GOOD, "친구");
+        local batch = DebindStorage.AddBatch(GOOD, "친구");
         check(batch, "배치가 안 만들어짐");
         check(batch.source == "친구", "출처");
-        check(#DebindShare.GetBatches() == 1, "서랍에 안 들어감");
-        check(DebindShare.GetBatch(batch.id) == batch, "id로 못 찾음");
+        check(#DebindStorage.GetBatches() == 1, "서랍에 안 들어감");
+        check(DebindStorage.GetBatch(batch.id) == batch, "id로 못 찾음");
     end);
 
     -- Counted at paste time, because the list has to say how much is in each row and decoding
@@ -360,7 +372,7 @@ return function(DebindPrivate, DebindShare)
             { scope = "class", class = CLASS, spec = 1, key = "G", count = 3 },
         });
 
-        local batch = DebindShare.AddBatch(text);
+        local batch = DebindStorage.AddBatch(text);
         -- **A key is a group**, so two keys is two groups however the five actions are spread.
         check(batch.groupCount == 2, "그룹 수 " .. tostring(batch.groupCount));
         check(batch.actionCount == 5, "액션 수 " .. tostring(batch.actionCount));
@@ -374,11 +386,11 @@ return function(DebindPrivate, DebindShare)
         ResetDrawer();
         local stripped = "DEB1:키없음";
         STORED[stripped] = Payload({ { scope = "general", key = 1, count = 2 } });
-        check(DebindShare.AddBatch(stripped).hasKeys == false, "숫자 키를 실키로 셌다");
+        check(DebindStorage.AddBatch(stripped).hasKeys == false, "숫자 키를 실키로 셌다");
 
         local real = "DEB1:키있음";
         STORED[real] = Payload({ { scope = "general", key = "F", count = 2 } });
-        check(DebindShare.AddBatch(real).hasKeys == true, "실키를 못 봤다");
+        check(DebindStorage.AddBatch(real).hasKeys == true, "실키를 못 봤다");
     end);
 
     -- Refused where the user is looking at it, rather than becoming a row that fails every time it
@@ -386,10 +398,10 @@ return function(DebindPrivate, DebindShare)
     test("못 읽는 문자열은 서랍에 안 들어간다", function()
         ResetDrawer();
 
-        local batch, reason = DebindShare.AddBatch("DEB1:쓰레기");
+        local batch, reason = DebindStorage.AddBatch("DEB1:쓰레기");
         check(batch == nil, "받아들였다");
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
-        check(#DebindShare.GetBatches() == 0, "서랍에 들어갔다");
+        check(#DebindStorage.GetBatches() == 0, "서랍에 들어갔다");
     end);
 
     -- What SavedVariables holds is the string. The payload is the same data spelled out in full,
@@ -398,28 +410,28 @@ return function(DebindPrivate, DebindShare)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local batch = DebindShare.AddBatch("  " .. GOOD .. "\n");
+        local batch = DebindStorage.AddBatch("  " .. GOOD .. "\n");
         check(batch.text == GOOD, "다듬어서 저장하지 않았다: " .. tostring(batch.text));
         check(batch.payload == nil, "페이로드를 저장했다");
-        check(DebindShare.GetBatchPayload(batch) == GOOD_PAYLOAD, "다시 못 읽음");
+        check(DebindStorage.GetBatchPayload(batch) == GOOD_PAYLOAD, "다시 못 읽음");
     end);
 
     test("id는 지워도 다시 안 쓰인다", function()
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local first = DebindShare.AddBatch(GOOD);
-        DebindShare.DeleteBatch(first.id);
-        local second = DebindShare.AddBatch(GOOD);
+        local first = DebindStorage.AddBatch(GOOD);
+        DebindStorage.DeleteBatch(first.id);
+        local second = DebindStorage.AddBatch(GOOD);
 
         check(second.id ~= first.id, "지운 id가 재활용됐다 - 그 배치에 붙은 배지가 남의 것이 된다");
-        check(#DebindShare.GetBatches() == 1, "배치 수");
-        check(DebindShare.GetBatch(first.id) == nil, "지운 것이 남아 있다");
+        check(#DebindStorage.GetBatches() == 1, "배치 수");
+        check(DebindStorage.GetBatch(first.id) == nil, "지운 것이 남아 있다");
     end);
 
     test("없는 것을 지우면 아무 일도 안 난다", function()
         ResetDrawer();
-        check(DebindShare.DeleteBatch(999) == false, "지웠다고 답했다");
+        check(DebindStorage.DeleteBatch(999) == false, "지웠다고 답했다");
     end);
 
     -- A batch has to be openable after a `/reload`, and a reload is exactly what SavedVariables
@@ -428,7 +440,7 @@ return function(DebindPrivate, DebindShare)
     test("배치는 저장 가능한 값만 들고 있다", function()
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindShare.AddBatch(GOOD);
+        local batch = DebindStorage.AddBatch(GOOD);
 
         check(getmetatable(batch) == nil, "메타테이블이 붙어 있다");
         for k, v in pairs(batch) do
@@ -443,7 +455,7 @@ return function(DebindPrivate, DebindShare)
     -- 계산을 검사하고 있었다. 판정과 핀이 같이 빠지면서 스펙도 같이 나간다 — 되살릴 때는
     -- 쓸어내는 쪽이 아니라 **묻는** 쪽으로 짓는다(`devdocs/building-export-import.md`).
 
-    DebindShare.DecodeExportString = realDecode;
+    DebindStorage.DecodeExportString = realDecode;
 
     return T;
 end

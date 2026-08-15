@@ -1,7 +1,22 @@
-local _, DebindShare = ...;
+local _, DebindPrivate = ...;
 
-local DebindPrivate = DebindShare.DebindPrivate;
 local LLL           = DebindPrivate.L;
+
+--- The addon that keeps the drawer, parked here when it loads (`EnsureStore` in `DebindUI.lua`).
+---
+--- **Read at call time and never at file scope.** This file is read at login and that one is load
+--- on demand, so a local taken up here would be `nil` forever.
+---
+--- Nothing below guards the result, because everything that calls it is reached from a panel that
+--- `ResolvePanel` refused to show until the load succeeded.
+---
+--- ⚠ **`OnLoad` is not one of those places.** These frames are built when this file is read, which
+--- is login, and that is *before* any of it. It held while this file belonged to the other addon -
+--- then `OnLoad` ran inside its load - and the addon boundary move quietly broke it: the bring
+--- dialog asked for `IMPORT_LINES` at login and got `nil` (`EnsureLineButtons`).
+local function Store()
+    return DebindPrivate.Store;
+end
 
 --- The workbench: the main window's Import tab.
 ---
@@ -25,6 +40,11 @@ local REASON_TEXT   = {
     -- the envelope and the other the schema.
     UNSUPPORTED_ENVELOPE  = "IMPORT_FAILED_TOO_NEW",
     UNSUPPORTED_SCHEMA    = "IMPORT_FAILED_TOO_NEW",
+    -- **The other direction, and the advice is opposite.** "Update and try again" is what the line
+    -- above says, and saying it here would tell a reader to do the thing they have already done -
+    -- this is a string from *before* the schema they are on. Nothing they can do fixes it, so the
+    -- sentence says that instead of asking.
+    SCHEMA_TOO_OLD        = "IMPORT_FAILED_TOO_OLD",
     -- It began as one of ours and stopped being readable partway. Far and away the likeliest cause
     -- is a copy that lost its tail, which is worth saying because the fix is to copy it again.
     BAD_ENCODING          = "IMPORT_FAILED_DAMAGED",
@@ -43,7 +63,7 @@ local REASON_TEXT   = {
 -- One batch in the drawer
 --------------------------------------------------------------------------------
 
-DebindShareBatchRowMixin = {};
+DebindImportBatchRowMixin = {};
 
 --- What to call a batch. The source is free text the user typed at paste time and may be empty.
 local function BatchTitle(batch)
@@ -53,7 +73,7 @@ local function BatchTitle(batch)
     return LLL["IMPORT_BATCH_UNNAMED"];
 end
 
-function DebindShareBatchRowMixin:Init(elementData)
+function DebindImportBatchRowMixin:Init(elementData)
     self.elementData = elementData;
     local batch = elementData.batch;
 
@@ -97,14 +117,14 @@ function DebindShareBatchRowMixin:Init(elementData)
                 -- row only takes it out of the drawer; the open dialog's copy still decodes and
                 -- still commits, so [accept] after this would import in full the batch they just
                 -- confirmed removing - and leave no row to take it back from.
-                DebindShareBringFrame:DismissFor(batch);
-                DebindShare.DeleteBatch(batch.id);
-                DebindShareImportPanel:Refresh();
+                DebindBringFrame:DismissFor(batch);
+                Store().DeleteBatch(batch.id);
+                DebindImportPanel:Refresh();
             end,
             acceptText = YES,
             cancelText = NO,
             showAlert = true,
-            referenceKey = "DebindShareDeleteBatch",
+            referenceKey = "DebindDeleteBatch",
         });
     end);
     self.DeleteButton:SetScript("OnEnter", function(button)
@@ -121,7 +141,7 @@ end
 --- wording again once it was pinned or past. None of that ever happened: the drawer judged expiry
 --- and never acted on it, so the row was telling the reader a date on which nothing occurs. Age is
 --- the half that is a fact, and it is the half they came for anyway.
-function DebindShareBatchRowMixin:UpdateAge()
+function DebindImportBatchRowMixin:UpdateAge()
     local batch = self.elementData.batch;
     -- A floor of one minute, because `SecondsToTime(0)` answers with nothing at all and a row that
     -- says how old everything else is should not go blank for the one just added.
@@ -134,16 +154,16 @@ end
 ---
 --- **The string is read here rather than in the dialog**, so a batch that cannot be decoded any
 --- more is turned down where it was pressed instead of opening a window with nothing in it.
-function DebindShareBatchRowMixin:Bring()
+function DebindImportBatchRowMixin:Bring()
     local batch = self.elementData.batch;
 
-    local payload, reason = DebindShare.GetBatchPayload(batch);
+    local payload, reason = Store().GetBatchPayload(batch);
     if (not payload) then
         DebindPrivate.DisplayMessage(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
         return;
     end
 
-    local lines = DebindShare.CollectImportLines(payload);
+    local lines = Store().CollectImportLines(payload);
     if (#lines == 0) then
         -- Nothing in it has anywhere to go. There is no question to ask, so the answer is given
         -- straight rather than through a dialog with no lines on it.
@@ -151,10 +171,10 @@ function DebindShareBatchRowMixin:Bring()
         return;
     end
 
-    DebindShareBringFrame:Open(batch, lines);
+    DebindBringFrame:Open(batch, lines);
 end
 
-function DebindShareBatchRowMixin:OnEnter()
+function DebindImportBatchRowMixin:OnEnter()
     local batch = self.elementData.batch;
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
@@ -173,7 +193,7 @@ function DebindShareBatchRowMixin:OnEnter()
     GameTooltip:Show();
 end
 
-function DebindShareBatchRowMixin:OnLeave()
+function DebindImportBatchRowMixin:OnLeave()
     GameTooltip:Hide();
 end
 
@@ -182,7 +202,7 @@ end
 -- Bringing one in
 --------------------------------------------------------------------------------
 
-DebindShareBringFrameMixin = {};
+DebindBringFrameMixin = {};
 
 --- What each line is called.
 ---
@@ -210,7 +230,7 @@ local ROW_PITCH    = 24;
 local GROUP_GAP    = 16;
 local BOTTOM_INSET = 44;
 
-function DebindShareBringFrameMixin:OnLoad()
+function DebindBringFrameMixin:OnLoad()
     self.AcceptButton:SetText(LLL["IMPORT_COMMIT"]);
     self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
 
@@ -230,21 +250,6 @@ function DebindShareBringFrameMixin:OnLoad()
     end);
     self.StripKeysButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
 
-    -- The line checkboxes. Four at most (`IMPORT_LINES`), and made once: which of them are shown
-    -- is the string's to say, but how many there could ever be is not.
-    self.lineButtons = {};
-    for i = 1, #DebindShare.IMPORT_LINES do
-        local button = CreateFrame("CheckButton", nil, self, "MinimalCheckboxArtTemplate");
-        button:SetSize(22, 22);
-        button.Label = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
-        button.Label:SetPoint("LEFT", button, "RIGHT", 2, 0);
-        -- **Nothing ticked is not an answer.** With every line off the press would place nothing and
-        -- report it as a failure, so the button says so before it is pressed instead.
-        button:SetScript("OnClick", function() self:UpdateAcceptButton(); end);
-        button:Hide();
-        self.lineButtons[i] = button;
-    end
-
     self:RegisterForDrag("LeftButton");
     self:SetScript("OnDragStart", self.StartMoving);
     self:SetScript("OnDragStop", self.StopMovingOrSizing);
@@ -255,7 +260,7 @@ function DebindShareBringFrameMixin:OnLoad()
     self:EnableKeyboard(true);
     self:SetScript("OnKeyDown", function(_, key)
         -- `SetPropagateKeyboardInput` is taint in combat. Entering combat hides the window behind
-        -- this and takes the dialog with it (`DebindShareImportPanelMixin:OnHide`), so this is
+        -- this and takes the dialog with it (`DebindImportPanelMixin:OnHide`), so this is
         -- normally unreachable - but **a key pressed on the frame combat starts can arrive before
         -- PLAYER_REGEN_DISABLED.** The same one frame `DebindFrameMixin:OnKeyDown` blocks, blocked
         -- the same way: do nothing and stand down. That key is eaten and the dialog is gone next
@@ -272,12 +277,40 @@ function DebindShareBringFrameMixin:OnLoad()
     end);
 end
 
+--- The line checkboxes. Four at most (`IMPORT_LINES`), and made once: which of them are shown is
+--- the string's to say, but how many there could ever be is not.
+---
+--- **Made on the first open and not in `OnLoad`**, because how many there could ever be is a number
+--- only `DebindStorage` has, and that addon is not in yet when this file is read. `OnLoad` used to
+--- run inside its load - back when this file was one of its own - and moving the UI to Debind moved
+--- this line to login, where the answer is `nil`. Nothing reaches this function before the store is
+--- up: the only way here is a row in a drawer that cannot be drawn without it.
+local function EnsureLineButtons(self)
+    if (self.lineButtons) then
+        return;
+    end
+
+    self.lineButtons = {};
+    for i = 1, #Store().IMPORT_LINES do
+        local button = CreateFrame("CheckButton", nil, self, "MinimalCheckboxArtTemplate");
+        button:SetSize(22, 22);
+        button.Label = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
+        button.Label:SetPoint("LEFT", button, "RIGHT", 2, 0);
+        -- **Nothing ticked is not an answer.** With every line off the press would place nothing and
+        -- report it as a failure, so the button says so before it is pressed instead.
+        button:SetScript("OnClick", function() self:UpdateAcceptButton(); end);
+        button:Hide();
+        self.lineButtons[i] = button;
+    end
+end
+
 --- Stands the dialog up for one press of [Bring it in].
 ---
 --- **Everything is reset every time.** The answers here live exactly as long as the press that
 --- opens it - that is the whole reason this is a dialog and not two checkboxes on the row - so a
 --- tick left over from last time would be the failure this replaced.
-function DebindShareBringFrameMixin:Open(batch, lines)
+function DebindBringFrameMixin:Open(batch, lines)
+    EnsureLineButtons(self);
     self.batch = batch;
 
     self.TitleText:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchTitle(batch)));
@@ -339,7 +372,7 @@ function DebindShareBringFrameMixin:Open(batch, lines)
 end
 
 --- Which lines were left ticked, as the set `PlanImport` filters on.
-function DebindShareBringFrameMixin:SelectedLines()
+function DebindBringFrameMixin:SelectedLines()
     local selected = {};
     for _, button in ipairs(self.lineButtons) do
         if (button:IsShown() and button:GetChecked()) then
@@ -352,15 +385,15 @@ end
 --- Shuts the dialog if it is standing on `batch`, and does nothing otherwise.
 ---
 --- **The answers in here belong to one press of one row's button**, and a row that is going away
---- has no press left to belong to. `DebindShareImportPanelMixin:OnHide` closes it for the same
+--- has no press left to belong to. `DebindImportPanelMixin:OnHide` closes it for the same
 --- reason when the whole tab leaves.
-function DebindShareBringFrameMixin:DismissFor(batch)
+function DebindBringFrameMixin:DismissFor(batch)
     if (self:IsShown() and self.batch == batch) then
         self:Hide();
     end
 end
 
-function DebindShareBringFrameMixin:UpdateAcceptButton()
+function DebindBringFrameMixin:UpdateAcceptButton()
     self.AcceptButton:SetEnabled(next(self:SelectedLines()) ~= nil);
 end
 
@@ -369,9 +402,9 @@ end
 --- **The message afterwards is not decoration.** Everything that just landed is quarantined and
 --- greyed out, so from the reader's side the screen barely moves: without a line saying what
 --- happened and where to go next, a press that did a lot looks like a press that did nothing.
-function DebindShareBringFrameMixin:Accept()
+function DebindBringFrameMixin:Accept()
     local batch = self.batch;
-    local placed, skipped = DebindShare.CommitBatch(batch, {
+    local placed, skipped = Store().CommitBatch(batch, {
         lines = self:SelectedLines(),
         stripKeys = self.StripKeysButton:IsShown() and self.StripKeysButton:GetChecked() or nil,
     });
@@ -391,7 +424,7 @@ function DebindShareBringFrameMixin:Accept()
         DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED_SKIPPED"], skipped), 1, 0.5, 0);
     end
 
-    DebindShareImportPanel:Refresh();
+    DebindImportPanel:Refresh();
 
     -- **Overview has to be rebuilt too, and nothing else is going to do it.** The reader is
     -- standing on the Import tab, so the lists behind it were built before any of this existed;
@@ -411,28 +444,24 @@ end
 -- The panel
 --------------------------------------------------------------------------------
 
-DebindShareImportPanelMixin = {};
+DebindImportPanelMixin = {};
 
-function DebindShareImportPanelMixin:OnLoad()
-    -- **What this panel asks the frame to be**, read by `SelectPanel`. Taken from the XML so the
-    -- number lives with the rest of the geometry, and read now because after the frame takes
-    -- delivery `GetWidth` answers with the host's width, which is this value fed back.
-    --
-    -- It is the export panel's width. The two tabs are lists of the same shape and a reader moving
+function DebindImportPanelMixin:OnLoad()
+    -- **What this panel asks the frame to be** is a `KeyValue` in the XML, read by `SelectPanel`.
+    -- It is the export panel's width: the two tabs are lists of the same shape and a reader moving
     -- between them should not have the window change size under them.
-    self.preferredWidth = self:GetWidth();
 
     self.PasteButton:SetText(LLL["IMPORT_PASTE"]);
-    self.PasteButton:SetScript("OnClick", function() DebindSharePasteFrame:Open(); end);
+    self.PasteButton:SetScript("OnClick", function() DebindPasteFrame:Open(); end);
 
     self:InitializeScrollBox();
 end
 
-function DebindShareImportPanelMixin:InitializeScrollBox()
+function DebindImportPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
     view:SetElementFactory(function(factory)
-        factory("DebindShareBatchRowTemplate", function(frame, data) frame:Init(data); end);
+        factory("DebindImportBatchRowTemplate", function(frame, data) frame:Init(data); end);
     end);
     view:SetElementExtentCalculator(function() return ROW_HEIGHT; end);
 
@@ -441,8 +470,8 @@ end
 
 --- Newest first. The drawer is read from the top by someone who just pasted something, and what
 --- they are looking for is almost always what they just put in.
-function DebindShareImportPanelMixin:Refresh()
-    local batches = DebindShare.GetBatches();
+function DebindImportPanelMixin:Refresh()
+    local batches = Store().GetBatches();
 
     local list = {};
     for _, batch in ipairs(batches) do
@@ -457,11 +486,11 @@ function DebindShareImportPanelMixin:Refresh()
     self.HeaderHolder.Text:SetText(#list > 0 and format(LLL["IMPORT_DRAWER_COUNT"], #list) or "");
 end
 
-function DebindShareImportPanelMixin:OnShow()
+function DebindImportPanelMixin:OnShow()
     self:Refresh();
 end
 
-function DebindShareImportPanelMixin:OnHide()
+function DebindImportPanelMixin:OnHide()
     -- **Nothing is thrown away here.** The export panel drops its selection on hide because it
     -- holds references to live action tables that can be deleted while it is away; a batch is the
     -- opposite -- plain stored data whose whole purpose is to survive being closed, and a
@@ -472,8 +501,8 @@ function DebindShareImportPanelMixin:OnHide()
     -- tab is useful, an unfinished paste floating over Overview is not. The bring dialog is the
     -- stronger case - its answers belong to one press of one row's button, and a row that is no
     -- longer on screen has no press to belong to.
-    DebindSharePasteFrame:Hide();
-    DebindShareBringFrame:Hide();
+    DebindPasteFrame:Hide();
+    DebindBringFrame:Hide();
     GameTooltip:Hide();
 end
 
@@ -482,12 +511,17 @@ end
 -- Pasting one in
 --------------------------------------------------------------------------------
 
-DebindSharePasteFrameMixin = {};
+DebindPasteFrameMixin = {};
 
-function DebindSharePasteFrameMixin:OnLoad()
-    self.TitleText:SetText(LLL["IMPORT_PASTE_TITLE"]);
+function DebindPasteFrameMixin:OnLoad()
+    self.Title:SetText(LLL["IMPORT_PASTE_TITLE"]);
+    self.ContentArea.InputLabel:SetText(LLL["IMPORT_PASTE_INPUT_LABEL"]);
     self.SourceBox.Label:SetText(LLL["IMPORT_PASTE_SOURCE"]);
     self.AcceptButton:SetText(LLL["IMPORT_PASTE_ACCEPT"]);
+
+    -- The placeholder inside the box, which the template hands out a setter for. The `instructions`
+    -- KeyValue would do it in the XML, but it resolves a **global** name and ours is an `L` key.
+    InputScrollFrame_SetInstructions(self.Input, LLL["IMPORT_PASTE_INSTRUCTIONS"]);
 
     self:RegisterForDrag("LeftButton");
     self:SetScript("OnDragStart", self.StartMoving);
@@ -496,11 +530,21 @@ function DebindSharePasteFrameMixin:OnLoad()
     local editBox = self.Input.EditBox;
     editBox:SetFontObject(ChatFontNormal);
 
-    -- Typing clears the last refusal. Leaving it up would have the dialog explaining a string that
-    -- is no longer the one in the box.
-    editBox:SetScript("OnTextChanged", function()
+    -- **The template's own handler runs first, and dropping it is not free.** It is the only thing
+    -- that hides `Instructions` (`self.Instructions:SetShown(self:GetText() == "")`), and it also
+    -- re-measures the scroll range and updates the character count. Replacing it outright - which
+    -- this did until the placeholder above was added and the two met - left the grey sentence
+    -- drawn on top of the pasted string for as long as the dialog stood.
+    --
+    -- **Not `InputBoxInstructions_OnTextChanged`**, which is the search boxes' one
+    -- (`DebindUI.lua`, `SpellPicker.lua`). That is a different template with a different region.
+    --
+    -- Ours after it: typing clears the last refusal, because leaving it up would have the dialog
+    -- explaining a string that is no longer the one in the box.
+    editBox:SetScript("OnTextChanged", function(box, isUserInput)
+        InputScrollFrame_OnTextChanged(box, isUserInput);
         self.ErrorHolder.Text:SetText("");
-        self.AcceptButton:SetEnabled(strtrim(editBox:GetText()) ~= "");
+        self.AcceptButton:SetEnabled(strtrim(box:GetText()) ~= "");
     end);
     editBox:SetScript("OnEscapePressed", function()
         editBox:ClearFocus();
@@ -508,18 +552,19 @@ function DebindSharePasteFrameMixin:OnLoad()
     end);
 
     self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
+    self.CancelButton:SetScript("OnClick", function() self:Hide(); end);
 
     -- ESC closes this one on its own. It is a dialog rather than a panel, so unlike the tabs it has
     -- a close of its own to be.
     tinsert(UISpecialFrames, self:GetName());
 end
 
-function DebindSharePasteFrameMixin:Open()
+function DebindPasteFrameMixin:Open()
     self:Show();
     self.Input.EditBox:SetFocus();
 end
 
-function DebindSharePasteFrameMixin:OnShow()
+function DebindPasteFrameMixin:OnShow()
     self.Input.EditBox:SetText("");
     self.SourceBox:SetText("");
     self.ErrorHolder.Text:SetText("");
@@ -530,9 +575,9 @@ end
 --- it is allowed to fail, so the one place a failure can be acted on is the one still holding the
 --- text that caused it. Closing first and reporting into the chat frame would leave the reader with
 --- a message and nothing to fix.
-function DebindSharePasteFrameMixin:Accept()
+function DebindPasteFrameMixin:Accept()
     local source = strtrim(self.SourceBox:GetText());
-    local batch, reason = DebindShare.AddBatch(self.Input.EditBox:GetText(),
+    local batch, reason = Store().AddBatch(self.Input.EditBox:GetText(),
         source ~= "" and source or nil);
 
     if (not batch) then
@@ -541,5 +586,5 @@ function DebindSharePasteFrameMixin:Accept()
     end
 
     self:Hide();
-    DebindShareImportPanel:Refresh();
+    DebindImportPanel:Refresh();
 end

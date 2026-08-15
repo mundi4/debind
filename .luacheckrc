@@ -155,6 +155,12 @@ globals = {
 	"CreateDataProvider",
 	"CreateScrollBoxListLinearView",
 	"CreateScrollBoxListGridView",
+	-- InputScrollFrameTemplate's own setter for the placeholder inside the box. The XML KeyValue
+	-- the template documents resolves a global name, and our strings are `L` keys.
+	"InputScrollFrame_SetInstructions",
+	-- The same template's `OnTextChanged`. Chained rather than replaced: it is what hides that
+	-- placeholder once anything is typed.
+	"InputScrollFrame_OnTextChanged",
 	"CreateAndInitFromMixin",
 	"CreateFromMixins",
 	"TextureKitConstants",
@@ -306,14 +312,14 @@ globals = {
 	"DebindIconSelectorFrameMixin",
 	"DebindStateDriverUpdateThrottleSliderMixin",
 	"DebindSpellPickerFrameMixin",
-	"DebindShareExportPanelMixin",
-	"DebindShareRowMixin",
-	"DebindShareLayerMixin",
-	"DebindShareCopyFrameMixin",
-	"DebindShareImportPanelMixin",
-	"DebindShareBatchRowMixin",
-	"DebindSharePasteFrameMixin",
-	"DebindShareBringFrameMixin",
+	"DebindExportPanelMixin",
+	"DebindExportRowMixin",
+	"DebindExportLayerMixin",
+	"DebindCopyFrameMixin",
+	"DebindImportPanelMixin",
+	"DebindImportBatchRowMixin",
+	"DebindPasteFrameMixin",
+	"DebindBringFrameMixin",
 	"DebindSpellPickerHeaderMixin",
 	"DebindSpellPickerRowMixin",
 	"DebindSpellPickerTabMixin",
@@ -326,11 +332,11 @@ globals = {
 	"DebindIconSelectorFrame",
 	"DebindActionPlacerFrame",
 	"DebindSpellPickerFrame",
-	"DebindShareExportPanel",
-	"DebindShareCopyFrame",
-	"DebindShareImportPanel",
-	"DebindSharePasteFrame",
-	"DebindShareBringFrame",
+	"DebindExportPanel",
+	"DebindCopyFrame",
+	"DebindImportPanel",
+	"DebindPasteFrame",
+	"DebindBringFrame",
 
 	-- The font of the output box. A generated string is long and has no line breaks, so it needs
 	-- a narrow font to fold into a readable number of lines inside the box.

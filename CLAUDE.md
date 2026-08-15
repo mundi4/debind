@@ -63,8 +63,8 @@ is gone by the next change; a test in the kit is there for every one after it.
 
 | Folder | |
 |---|---|
-| `Debind/` | everything |
-| `DebindShare/` | export/import. **LoadOnDemand** — compression libs and the received-strings drawer are never read on login |
+| `Debind/` | everything, **including all UI** — the export/import panels live here too |
+| `DebindStorage/` | what sharing keeps: the strings and the drawer. No UI, no locale strings. **LoadOnDemand** — compression libs and that drawer are never read on login. Debind reaches it as `DebindPrivate.Store` |
 | `Debounce/` | code-less dummy. The only path that reads pre-rename SavedVariables. Removing it orphans every existing user's config (`Debind/Legacy.lua`) |
 | `DebindCliqueFake/` | stands in for Clique so unit-frame addons wire up to us |
 | `DebindTest/` | in-game test kit, not shipped (`.pkgmeta` ignore) |

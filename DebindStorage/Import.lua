@@ -1,6 +1,6 @@
-local _, DebindShare = ...;
+local _, DebindStorage = ...;
 
-local DebindPrivate = DebindShare.DebindPrivate;
+local DebindPrivate = DebindStorage.DebindPrivate;
 local Constants     = DebindPrivate.Constants;
 local luatype       = type;
 
@@ -68,14 +68,33 @@ end
 --- `macro` and `setstate` stay out by being what they are -- the format's words, not the profile's.
 --- Both are read below and neither travels further; `CleanUpDB` would drop them anyway, but leaving
 --- them for it to find would mean the action is briefly a shape nothing else expects.
+--- Whether one wire field may be copied, **by name and by type**.
+---
+--- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
+--- raised halfway through `PlaceImportedActions`, `priority = {}` raised inside the `table.sort`
+--- that follows, `checkedUnits = "x"` was walked with `pairs`. Every one of those went off after
+--- part of the batch was already in the profile. The types are `ACTION_FIELDS`' values.
+---
+--- **A field of the wrong type is dropped, not corrected.** What it should have been is not
+--- knowable, and an action missing a condition is a shape the rest of the addon already handles -
+--- red text included - while a guessed one is a binding that fires when it should not.
+---
+--- `$`-prefixed names pass unlisted, the same escape hatch the export copies out through
+--- (`CopyFields`) and `CleanUpDB` keeps: a custom state condition is stored under its own name, and
+--- the redesign turns those into arbitrary names. They still have to be booleans - `$state1..5` are
+--- declared as such and an arbitrary name does not make the value freer.
+local function FieldAllowed(name, value)
+    local expected = DebindStorage.ACTION_FIELDS[name];
+    if (not expected) then
+        return strsub(name, 1, 1) == "$" and luatype(value) == "boolean";
+    end
+    return strfind(expected, luatype(value), 1, true) ~= nil;
+end
+
 local function BuildAction(source)
     local action = {};
-    local allowed = DebindShare.ACTION_FIELDS;
     for k, v in pairs(source) do
-        -- `$`-prefixed keys pass unlisted, the same escape hatch the export copies out through
-        -- (`CopyFields`) and `CleanUpDB` keeps: a custom state condition is stored under its own
-        -- name, and the redesign turns those into arbitrary names.
-        if (allowed[k] or strsub(k, 1, 1) == "$") then
+        if (luatype(k) == "string" and FieldAllowed(k, v)) then
             if (luatype(v) == "table") then
                 action[k] = CopyTable(v);
             else
@@ -106,7 +125,14 @@ local function BuildAction(source)
     -- later: a reader who creates the macro afterwards keeps the `MACROTEXT`, which is not wrong,
     -- only flatter.
     if (action.type == Constants.MACRO and luatype(source.macro) == "table") then
-        if (not MacroMatches(source.macro)) then
+        if (MacroMatches(source.macro)) then
+            -- **Kept as a live reference, and pointed at the name.** The match was made on the
+            -- name, but the value may be a slot index (old data on the sender's side), and that
+            -- index means the reader's fourth macro rather than the one just matched. A `MACRO`
+            -- stores a name anyway (`ActionCatalog.lua`), so this is also where the legacy shape
+            -- stops being carried forward.
+            action.value = source.macro.name;
+        else
             action.type = Constants.MACROTEXT;
             action.value = source.macro.body;
             action.name = source.macro.name;
@@ -183,25 +209,25 @@ end
 --- `options.stripKeys` is the mirror of the export's own option. What quarantine promises is that
 --- nothing changes until the reader accepts; this promises that their keys are not touched even
 --- then, which is a different thing and an ordinary thing to want.
-function DebindShare.PlanImport(payload, batchID, options)
+function DebindStorage.PlanImport(payload, batchID, options)
     local placements, skipped = {}, 0;
     local lines = options and options.lines;
     local MapKey = KeyMapper(options and options.stripKeys);
 
-    DebindShare.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
+    DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
         -- **Asked for an address first, and the reader's answer second.** Every action with nowhere
         -- to go is counted, whatever the filter says: the lines are built out of what can land
         -- (`CollectImportLines`), so an unplaceable one was never offered and cannot have been
         -- turned down. Reading the filter first made those vanish silently - the window said
         -- "brought in 2" and never mentioned the five that did not fit.
-        local scope, class, spec = DebindShare.ImportAddress(listScope, listClass, listSpec);
+        local scope, class, spec = DebindStorage.ImportAddress(listScope, listClass, listSpec);
         if (not scope) then
             skipped = skipped + #list;
             return;
         end
 
         if (lines) then
-            local line = DebindShare.ImportLineFor(listScope, listSpec);
+            local line = DebindStorage.ImportLineFor(listScope, listSpec);
             if (not (line and lines[line])) then
                 -- Offered and unticked. That is an answer, not a failure, so it is not counted.
                 return;
@@ -243,13 +269,13 @@ end
 --- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
 --- put to the reader, and it is not built yet (`devdocs/building-export-import.md`). Until it is, the answer is
 --- the one that cannot change anything they already had.
-function DebindShare.CommitBatch(batch, options)
-    local payload, reason = DebindShare.GetBatchPayload(batch);
+function DebindStorage.CommitBatch(batch, options)
+    local payload, reason = DebindStorage.GetBatchPayload(batch);
     if (not payload) then
         return nil, reason;
     end
 
-    local placements, skipped = DebindShare.PlanImport(payload, batch.id, options);
+    local placements, skipped = DebindStorage.PlanImport(payload, batch.id, options);
     if (#placements == 0) then
         return nil, "NOTHING_TO_PLACE";
     end

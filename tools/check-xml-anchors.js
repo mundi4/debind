@@ -18,7 +18,11 @@ const path = require("path");
 
 const roots = [
     path.join(__dirname, "..", "Debind"),
-    path.join(__dirname, "..", "DebindShare"),
+    // Only `libs.xml` today - the sharing panels moved to `Debind` with the addon boundary. It
+    // stays listed anyway: a list of shipped folders that quietly drops one is how the sibling
+    // check (`check-templates.js`) went wrong once already, and the next XML added here would go
+    // unchecked without a word.
+    path.join(__dirname, "..", "DebindStorage"),
     path.join(__dirname, "..", "DebindCliqueFake"),
     path.join(__dirname, "..", "DebindTest"),
 ];

@@ -784,7 +784,7 @@ end
 --- nothing - the icon is simply blank, which is only ever noticed by someone looking at that row.
 ---
 --- One function because three lists now draw actions: the layer list, the order list, and the
---- sharing window in `DebindShare`. It is exported for that last one.
+--- sharing window in `DebindStorage`. It is exported for that last one.
 local function SetActionIcon(texture, icon)
 	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
 		texture:SetAtlas(icon:sub(3));
@@ -1940,43 +1940,53 @@ end
 --- The window's tab row. One row per tab, and `id` is the seat - the XML's `id=` and the order
 --- here have to agree, because `parentArray="Tabs"` fills the array by declaration order.
 ---
---- **A panel arrives by one of two roads.** `panelKey` is one this addon's XML already built.
---- `addon`+`panelGlobal` is one a load-on-demand addon builds, and that one **does not exist**
---- until the tab is pressed - which is why it cannot be an XML child and this table exists.
+--- **Every panel is this addon's own now**, so all three arrive by `panelKey`. Two of them used to
+--- be built by the load-on-demand addon, which is why they could not be XML children of the frame
+--- and had to be fetched by global name and reparented. Moving the UI over here closed that road
+--- (`devdocs/building-export-import.md`).
 ---
---- That side hands over nothing yet (steps 3-4 of `.zzz/main-frame-containers.md`), so both of
---- those tabs land on `MissingPanel` for now.
+--- `needsStore` is what is left of the split, and it asks about **data** rather than about the
+--- panel. Import reads the drawer, Export walks the profile through `IsExportable`, and both of
+--- those still live in the addon that is loaded on demand.
 --- Overview's seat. Named because two places outside the tab row have to name it: the first
 --- selection at load, and anything that has to put the reader back somewhere its work is visible.
 local OVERVIEW_PANEL = 1;
 
+local STORE_ADDON = "DebindStorage";
+
 local PANELS = {
 	{ title = "OVERVIEW",     desc = "OVERVIEW_DESC",      panelKey = "OverviewPanel" },
-	{ title = "IMPORT_TITLE", desc = "IMPORT_MENU_DESC",   addon = "DebindShare", panelGlobal = "DebindShareImportPanel" },
-	{ title = "EXPORT_TITLE", desc = "EXPORT_MENU_DESC",   addon = "DebindShare", panelGlobal = "DebindShareExportPanel" },
+	{ title = "IMPORT_TITLE", desc = "IMPORT_MENU_DESC",   panelKey = "ImportPanel", needsStore = true },
+	{ title = "EXPORT_TITLE", desc = "EXPORT_MENU_DESC",   panelKey = "ExportPanel", needsStore = true },
 };
 
---- Brings the sharing addon in. Does nothing if it is already here.
+--- Brings in the addon that builds the strings and keeps the drawer. Does nothing if it is here.
 ---
---- **The private table is parked on `_G` only for the length of `LoadAddOn`.** The first file
---- over there grabs it inside that window (`DebindShare/DebindShare.lua`); `DebindCliqueFake`
---- reaches across the same way.
+--- **The private table is parked on `_G` only for the length of `LoadAddOn`.** The first file over
+--- there grabs it inside that window and hands its own table back as `DebindPrivate.Store`, which
+--- is what the two panels reach the model through. `DebindCliqueFake` crosses the same way.
 ---
 --- It asks `IsAddOnLoaded`. It once named a frame over there instead, which answers "was that one
---- frame built", not "is the addon in" - and the frame it named was the export window, which has
---- since become `DebindShareExportPanel`. Standing in a renamed frame would have started quietly
---- answering no.
-local function LoadShareAddon(name)
-	if (C_AddOns.IsAddOnLoaded(name)) then
+--- frame built", not "is the addon in" - and every frame it could have named now belongs to this
+--- addon, so that test would answer yes on a login where the other one never loaded at all.
+--- **What is asked is whether the handover happened, not whether the addon is in.** `Store` is set
+--- inside the parking window below and nowhere else, so an addon somebody else's `LoadAddOn`
+--- brought in is in memory having been handed nothing - and every caller dereferences that table.
+--- Asking `IsAddOnLoaded` there answers yes and turns the `MissingPanel` fallback into an error on
+--- the tab. Reloading it is not an option either: `LoadAddOn` on something already loaded returns
+--- at once without re-running a line, so the answer is no and the reader gets the panel that says
+--- so. (Only a release build can reach this. `Constants.DEBUG` parks the table for good.)
+local function EnsureStore()
+	if (DebindPrivate.Store) then
 		return true;
 	end
 
 	local prev = _G.DebindPrivate;
 	_G.DebindPrivate = DebindPrivate;
-	local loaded, reason = C_AddOns.LoadAddOn(name);
+	C_AddOns.LoadAddOn(STORE_ADDON);
 	_G.DebindPrivate = prev;
 
-	return loaded, reason;
+	return DebindPrivate.Store ~= nil;
 end
 
 DebindPanelTabMixin = {};
@@ -3602,39 +3612,25 @@ end
 
 --- The panel this tab shows, or nil - in which case `MissingPanel` stands in its place.
 ---
---- **It does not say why, because there is only one why: the other addon did not come in.**
---- "It loaded but has no panel" is not counted separately, because there is no path where that
---- addon loads successfully without building its panel. If it somehow happens the install is
---- broken, and what the reader has to do is the same either way. A second sentence for a branch
---- that cannot happen is a sentence that never reaches the screen.
+--- **The panel always exists; what can be missing is what it reads.** Every one of the three is
+--- built by this addon's own XML, so the old road - fetch it by global name from the load-on-demand
+--- addon, reparent it, pin it - is gone along with the reason for it. What is left is that two of
+--- them have nothing to draw without the addon that holds the drawer and answers `IsExportable`.
 ---
---- **Taking delivery is done once, the first time.** A panel from the other addon is built parented
---- to `UIParent`, because at its load time it has nowhere else to go and no idea who will host it.
---- Reparenting and pinning it to our four corners is what makes it one of ours, and after that it
---- behaves exactly like the `panelKey` road: hidden with the frame, laid out by the frame.
+--- **It does not say why, because there is only one why: that addon did not come in.** A reader who
+--- switched it off in the AddOns list is the one case, and `MissingPanel` says exactly that. Drawing
+--- the panel anyway would put up a list that is empty for a reason it cannot state.
 ---
---- The guard is `GetParent()`, not a flag. A flag would be a second copy of a fact the frame
---- already stores, and the two would be free to disagree.
-local function TakeDelivery(frame, panel)
-	if (panel:GetParent() ~= frame) then
-		panel:SetParent(frame);
-		panel:ClearAllPoints();
-		panel:SetAllPoints(frame);
-	end
-	return panel;
-end
-
+--- Loading is asked here rather than in the panel's `OnShow` so the failure has somewhere to be
+--- said. A panel that shows and then discovers it has no data has already taken the screen.
 function DebindFrameMixin:ResolvePanel(id)
 	local entry = PANELS[id];
 
-	if (entry.panelKey) then
-		return self[entry.panelKey];
+	if (entry.needsStore and not EnsureStore()) then
+		return nil;
 	end
 
-	if (LoadShareAddon(entry.addon)) then
-		local panel = _G[entry.panelGlobal];
-		return panel and TakeDelivery(self, panel);
-	end
+	return self[entry.panelKey];
 end
 
 --- Picks what the window shows. This is the only job the frame has left - how many columns a

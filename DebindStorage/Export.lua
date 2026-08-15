@@ -1,6 +1,6 @@
-local _, DebindShare = ...;
+local _, DebindStorage = ...;
 
-local DebindPrivate      = DebindShare.DebindPrivate;
+local DebindPrivate      = DebindStorage.DebindPrivate;
 local Constants          = DebindPrivate.Constants;
 local luatype            = type;
 
@@ -47,39 +47,55 @@ local ENVELOPE_SEPARATOR = ":";
 --- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
 --- the two drift** -- a field added to one and not the other is otherwise silent: the action
 --- saves fine and simply never exports.
+--- **The value is the type the field may arrive as**, `|`-separated where more than one is real.
+--- The export only ever reads this as a set, but the import reads the type: a whitelist of names
+--- is not a whitelist of values, and every one of these reaches code that computes on it. `seq` is
+--- added to an arrival number, `priority` is compared inside `table.sort`, `checkedUnits` is walked
+--- with `pairs`, the masks go through `band`. A pasted string carrying `seq = {}` raised **inside**
+--- `PlaceImportedActions`, leaving the actions before it in the profile and skipping the renumber
+--- that follows - so the survivors kept the internal arrival band, which `CleanUpDB` does not clamp
+--- and a logout therefore writes to disk.
+---
+--- Kept to one line each. `tools/check-export-fields.js` reads this table by matching `name =` per
+--- line, so a value spread over several lines would have its inner keys read as field names.
 local ACTION_FIELDS      = {
-    type = true,
-    value = true,
-    key = true,
-    seq = true,
-    name = true,
-    icon = true,
-    unit = true,
-    frameTypes = true,
-    groups = true,
-    known = true,
-    combat = true,
-    stealth = true,
-    forms = true,
-    bonusbars = true,
-    specialbar = true,
-    extrabar = true,
-    pet = true,
-    petbattle = true,
-    priority = true,
-    keepInBindingContext = true,
-    ignoreHoverUnit = true,
-    checkedUnits = true,
-    ["$state1"] = true,
-    ["$state2"] = true,
-    ["$state3"] = true,
-    ["$state4"] = true,
-    ["$state5"] = true,
+    type = "string",
+    -- A spell or item id, or a macro name, or a macro body.
+    value = "number|string",
+    -- A binding string, or the number a key-less set travels under (`KeyRenamer`).
+    key = "string|number",
+    seq = "number",
+    name = "string",
+    -- A file id, or a path for the ones that still carry one.
+    icon = "number|string",
+    unit = "string",
+    -- Bit masks.
+    frameTypes = "number",
+    groups = "number",
+    forms = "number",
+    bonusbars = "number",
+    -- Yes / no / not asked, which is `true` / `false` / absent.
+    known = "boolean",
+    combat = "boolean",
+    stealth = "boolean",
+    specialbar = "boolean",
+    extrabar = "boolean",
+    pet = "boolean",
+    petbattle = "boolean",
+    priority = "number",
+    keepInBindingContext = "boolean",
+    ignoreHoverUnit = "boolean",
+    checkedUnits = "table",
+    ["$state1"] = "boolean",
+    ["$state2"] = "boolean",
+    ["$state3"] = "boolean",
+    ["$state4"] = "boolean",
+    ["$state5"] = "boolean",
 };
 
 --- Read by `Import.lua`, which filters the incoming table through the **same** list. One side a
 --- whitelist and the other a blacklist is what let a wire field nobody named ride into the profile.
-DebindShare.ACTION_FIELDS = ACTION_FIELDS;
+DebindStorage.ACTION_FIELDS = ACTION_FIELDS;
 
 --- Which fields of a custom state definition describe the state, as opposed to what it happens
 --- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it from
@@ -190,16 +206,21 @@ end
 --- the "send broken things too" rule -- but note that rule is currently unbacked for macros:
 --- `GetBindingIssue` has no branch that checks whether an action's target exists, so a `MACRO`
 --- naming nothing does **not** go red on the far side. `devdocs/building-export-import.md`, open question 7.
-local function SnapshotMacro(macroName)
-    local name, icon, body = GetMacroInfo(macroName);
+--- `reference` is what the action stores: a name, or - in old data - a **slot index**
+--- (`GetMissingMacroName` in `Misc.lua` knows the same two shapes). An index is the worse of the
+--- two to send bare: it resolves on any install, so the reader's fourth macro answers and the key
+--- casts something nobody chose.
+local function SnapshotMacro(reference)
+    local name, icon, body = GetMacroInfo(reference);
     if (not name) then
         return nil;
     end
 
     -- Account macros occupy the first block of slots and character macros follow, so the index
-    -- is what separates them -- `GetMacroInfo` itself does not say which store answered.
+    -- is what separates them -- `GetMacroInfo` itself does not say which store answered. A numeric
+    -- reference **is** that index; a name has to be asked.
     local scope;
-    local index = GetMacroIndexByName(macroName);
+    local index = luatype(reference) == "number" and reference or GetMacroIndexByName(reference);
     if (index and index > 0) then
         local accountLimit = DebindPrivate.GetMacroSlotLimits();
         if (index > accountLimit) then
@@ -233,8 +254,14 @@ local function NormalizeAction(action, out)
             out.value = nil;
             out.setstate = { mode = mode, state = "$state" .. stateIndex };
         end
-    elseif (action.type == Constants.MACRO and luatype(action.value) == "string") then
-        out.macro = SnapshotMacro(action.value);
+    elseif (action.type == Constants.MACRO) then
+        local valueType = luatype(action.value);
+        -- The two shapes a `MACRO` value takes. The numeric one is old data and is the one that
+        -- must not travel alone: a name that means nothing on the far side at least means nothing,
+        -- while an index means *something* there, and something wrong.
+        if (valueType == "string" or valueType == "number") then
+            out.macro = SnapshotMacro(action.value);
+        end
     end
 end
 
@@ -351,7 +378,7 @@ end
 ---
 --- **A synthetic key is not this.** No badge means the set is the sender's, and "a key group I have
 --- not given a key to" is a fact about their setup worth carrying (`KeyRenamer`).
-function DebindShare.IsExportable(action)
+function DebindStorage.IsExportable(action)
     return action.imported == nil;
 end
 
@@ -399,7 +426,7 @@ end
 -- Public
 -- ---------------------------------------------------------------------------------------------
 
-DebindShare.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
+DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 
 --- The table that becomes the string.
 ---
@@ -425,7 +452,7 @@ DebindShare.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- it in red and the user deletes it, and that one rule is what removes a whole class of
 --- questions about spells the reader does not have. Where the red text cannot in fact see the
 --- breakage, the format carries the answer instead -- see `SnapshotMacro` and `NormalizeAction`.
-function DebindShare.BuildExportPayload(selection, options)
+function DebindStorage.BuildExportPayload(selection, options)
     local renameKey = (options and options.stripKeys) and KeyRenamer() or nil;
 
     local payload = {
@@ -443,7 +470,7 @@ function DebindShare.BuildExportPayload(selection, options)
         local bucket;
 
         for _, action in layer:Enumerate() do
-            if (DebindShare.IsExportable(action) and (selection == nil or selection[action])) then
+            if (DebindStorage.IsExportable(action) and (selection == nil or selection[action])) then
                 bucket = bucket or BucketForLayer(payload, layer);
 
                 local copy = CopyFields(action, ACTION_FIELDS);
@@ -473,7 +500,7 @@ end
 
 --- `DEB<envelope>:<printable>`. The version is outside the compressed blob so a reader can turn
 --- down a string it cannot decode without first trying to decompress it.
-function DebindShare.EncodeExportPayload(payload)
+function DebindStorage.EncodeExportPayload(payload)
     local LibSerialize, LibDeflate = GetLibs();
     if (not LibSerialize or not LibDeflate) then
         return nil, "LIBS_MISSING";
@@ -489,7 +516,7 @@ end
 ---
 --- Returns nil plus a reason for anything malformed. A pasted string is user input from an
 --- untrusted place, so every step here is allowed to fail and none of them may error.
-function DebindShare.DecodeExportString(str)
+function DebindStorage.DecodeExportString(str)
     if (luatype(str) ~= "string") then
         return nil, "NOT_A_STRING";
     end
@@ -522,14 +549,25 @@ function DebindShare.DecodeExportString(str)
     if (not ok or luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
     end
-    if (payload.v ~= SCHEMA_VERSION) then
+    -- **Two directions, and opposite advice.** These were one reason and one sentence - "made by a
+    -- newer version, update and try again" - which is true one way and useless the other: on the
+    -- first schema bump every batch already sitting in the drawer would fail with it, told to
+    -- update by the version they just updated to.
+    --
+    -- Both are still refusals. A bump means a field changed meaning (`SCHEMA_VERSION`'s own note),
+    -- so an old payload cannot be read without a migration written for it, and guessing is how a
+    -- condition silently changes sides.
+    if (luatype(payload.v) ~= "number" or payload.v > SCHEMA_VERSION) then
         return nil, "UNSUPPORTED_SCHEMA";
+    end
+    if (payload.v < SCHEMA_VERSION) then
+        return nil, "SCHEMA_TOO_OLD";
     end
 
     return payload;
 end
 
 --- What the window calls: selection in, string out.
-function DebindShare.ExportSelection(selection, options)
-    return DebindShare.EncodeExportPayload(DebindShare.BuildExportPayload(selection, options));
+function DebindStorage.ExportSelection(selection, options)
+    return DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload(selection, options));
 end

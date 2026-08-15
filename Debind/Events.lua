@@ -63,6 +63,7 @@ function Events.PLAYER_LOGIN()
     EventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED");
     EventFrame:RegisterEvent("PLAYER_PVP_TALENT_UPDATE");
     EventFrame:RegisterEvent("UPDATE_BINDINGS");
+    EventFrame:RegisterEvent("UPDATE_MACROS");
     EventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
     EventFrame:RegisterEvent("CVAR_UPDATE");
     DebindPrivate.ApplyOptions();
@@ -141,6 +142,21 @@ function Events.PLAYER_REGEN_ENABLED()
 end
 
 function Events.UPDATE_BINDINGS()
+    DebindPrivate.QueueUpdateBindings();
+end
+
+--- **A `MACRO` action naming a macro that does not exist is now left out of the build entirely**
+--- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), so the macro store is
+--- an input to what the keys are, and nothing was watching it.
+---
+--- What that cost: create the missing macro and the row stops being red - the window says nothing
+--- is wrong - while the key stays dead until something unrelated rebuilds, or a `/reload`. The same
+--- shape at login, where the store may not be answerable yet in the `PLAYER_LOGIN` tick: every
+--- `MACRO` action would drop for the whole session.
+---
+--- Queued rather than immediate. Renaming a macro fires this per keystroke in the macro editor and
+--- there is nothing to be first for.
+function Events.UPDATE_MACROS()
     DebindPrivate.QueueUpdateBindings();
 end
 

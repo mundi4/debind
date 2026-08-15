@@ -440,6 +440,23 @@ return function(DebindPrivate)
         expectBlocked(rec({ name = "t", specRank = 2 }), rec({ name = "n", specRank = 0 }), "SPEC");
     end);
 
+    -- **행이 전부 오프스펙인 키.** 이웃을 건너뛰는 고리가 목록 끝까지 달려나가고, 그러면
+    -- "끝이라 움직일 데가 없다"가 답으로 나온다 - 첫 번째 행에 대고 "이미 마지막입니다"라고
+    -- 말하는 셈이다. 건너뛰기가 SPEC을 대신 답해준다는 근거는 **살아 있는 행이 하나라도 있을
+    -- 때만** 성립하는데, 이 키에는 없다.
+    test("막힘 - 전부 오프스펙이면 끝이 아니라 SPEC", function()
+        local layer = makeLayer(rec({ name = "a", specRank = 2 }), rec({ name = "b", specRank = 2 }));
+        local rows = sorted(layer);
+
+        local moved, reason = ComputeOrderSwap(rows, 1, DOWN);
+        check(moved == nil, "움직이면 안 됨");
+        check(reason == "SPEC", "이유가 " .. tostring(reason));
+
+        moved, reason = ComputeOrderSwap(rows, 2, UP);
+        check(moved == nil, "위로도 움직이면 안 됨");
+        check(reason == "SPEC", "위로 갈 때 이유가 " .. tostring(reason));
+    end);
+
     test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 PRIORITY)", function()
         expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", priority = 2, layerRank = 1 }), "PRIORITY");
     end);

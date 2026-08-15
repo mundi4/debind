@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run check)",
+      "Bash(npm test)",
+      "Bash(npm run lint)",
+      "Bash(npm run check:locales)",
+      "Bash(npm run check:templates)",
+      "Bash(npm run check:xml)",
+      "Bash(npm run check:xml-methods)",
+      "Bash(npm run check:xml-anchors)",
+      "Bash(npm run check:snippets)",
+      "Bash(npm run check:snippet-golden)",
+      "Bash(npm run check:export-fields)",
+      "Bash(node tests/run.js)",
+      "Bash(node tools/luacheck.js)",
+      "Bash(node tools/check-locales.js)",
+      "Bash(node tools/check-templates.js)",
+      "Bash(node tools/check-xml.js)",
+      "Bash(node tools/check-xml-methods.js)",
+      "Bash(node tools/check-xml-anchors.js)",
+      "Bash(node tools/check-snippets.js)",
+      "Bash(node tools/check-snippet-golden.js)",
+      "Bash(node tools/check-export-fields.js)",
+      "Bash(lua tests/run.lua)",
+      "Bash(lua5.1 tests/run.lua)"
+    ]
+  }
+}

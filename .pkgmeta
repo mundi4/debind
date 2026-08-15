@@ -53,10 +53,14 @@ move-folders:
   Debind/Debind: Debind
   Debind/DebindCliqueFake: DebindCliqueFake
 
-  # Sharing (export/import). LoadOnDemand, so nothing here is read until the window is opened:
-  # neither the compression libraries nor the SavedVariables of the drawer received strings
-  # pile up in.
-  Debind/DebindShare: DebindShare
+  # What sharing keeps: the strings and the drawer they pile up in. LoadOnDemand, so nothing here
+  # is read until one of those two tabs is opened - neither the compression libraries nor these
+  # SavedVariables.
+  #
+  # **Renamed from `DebindShare` on 2026-08-15, which cost nothing** because this folder had never
+  # been in a release: no installed copy carried a `DebindShare.lua` for the rename to orphan. That
+  # window closed the moment it shipped, which is the whole story of the `Debounce` line below.
+  Debind/DebindStorage: DebindStorage
 
   # 코드 없는 더미. 개명 전 SavedVariables(`Debounce.lua`)를 읽는 유일한 경로다.
   # **빼면 안 된다** - 이게 없으면 기존 사용자 전원의 설정이 그 자리에서 고아가 된다.

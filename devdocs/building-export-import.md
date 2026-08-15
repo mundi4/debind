@@ -49,38 +49,43 @@
 **공유를 한 번도 안 하는 사람의 로그인마다** 그 파일을 읽는다. 압축 라이브러리 5,500줄도
 마찬가지다.
 
-→ `DebindShare`. `LoadOnDemand: 1`, `Dependencies: Debind`, `SavedVariables: DebindShareVars`.
+→ `DebindStorage`. `LoadOnDemand: 1`, `Dependencies: Debind`, `SavedVariables: DebindStorageVars`.
 창을 실제로 열기 전까지 아무것도 안 읽힌다. **안 정한 것 4번(대기 영역을 어디에 저장할지)이
 이걸로 닫힌다** — 이 애드온의 자기 SavedVariables다.
 
 ```
-DebindShare/
-  DebindShare.toc
-  DebindShare.lua      LoadAddOn이 도는 동안 _G.DebindPrivate을 받아 챙긴다
-  Export.lua           페이로드 + 문자열
-  ShareUI.xml/.lua     창
-  Libs/                LibDeflate, LibSerialize
+DebindStorage/
+  DebindStorage.toc
+  DebindStorage.lua      LoadAddOn이 도는 동안 _G.DebindPrivate을 받아 챙기고,
+                         같은 순간에 자기 테이블을 DebindPrivate.Store로 걸어준다
+  Export.lua             페이로드 + 문자열
+  Import.lua             그 역
+  Workbench.lua          서랍
+  Libs/                  LibDeflate, LibSerialize
 ```
+
+> ⚠ **창은 여기 없다.** `ShareUI.*`와 `WorkbenchUI.*`는 2026-08-15에 `Debind/`로 갔다
+> (아래 네 번째 ★). 이 절의 나머지는 그때까지의 기록이라 창 이야기가 섞여 있다.
 
 내부 접근은 `DebindCliqueFake`와 같은 방식이다 — 본체가 `LoadAddOn` 앞뒤로 `_G.DebindPrivate`을
 잠깐 세웠다 지우고, 저쪽 첫 파일이 그때 받아 챙긴다(`Public.lua`의 CliqueFake 로드와 같은 모양).
 `Constants.DEBUG`에서만 노출되는 그 전역을 **비-DEBUG 빌드에서도 이 한 순간만** 세운다.
 
-익스포트 API는 `DebindPrivate`이 아니라 **`DebindShare` 테이블**에 앉는다. 호스트 테이블을
+익스포트 API는 `DebindPrivate`이 아니라 **`DebindStorage` 테이블**에 앉는다. 호스트 테이블을
 안 건드린다.
 
 ```
-DebindShare.BuildExportPayload(selection, options)  -- 선택 -> 페이로드 테이블
-DebindShare.EncodeExportPayload(payload)            -- 페이로드 -> "DEB1:..."
-DebindShare.DecodeExportString(str)                 -- 그 역(왕복 검증용). 액션은 안 만든다
-DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
+DebindStorage.BuildExportPayload(selection, options)  -- 선택 -> 페이로드 테이블
+DebindStorage.EncodeExportPayload(payload)            -- 페이로드 -> "DEB1:..."
+DebindStorage.DecodeExportString(str)                 -- 그 역(왕복 검증용). 액션은 안 만든다
+DebindStorage.ExportSelection(selection, options)     -- 창이 부를 것
 ```
 
 - `selection`은 **액션 테이블의 집합**(nil이면 전부). 창이 액션을 체크하므로 창이 손에 쥐는
   것이 그것이고, 레이어는 여기서 훑는다 — 그래서 출력 순서가 정해지고 창은 필터만 한다.
 - `options.stripKeys` = "키 빼고 내보내기". 그룹의 `key`만 떨구고 `id`는 남는다.
 - 직렬화는 **LibSerialize + LibDeflate**, `.pkgmeta`의 `externals:`가 아니라
-  `DebindShare/Libs/`에 **벤더링**했다. 외부 참조로 두면 작업 트리에 파일이 없어서 헤드리스
+  `DebindStorage/Libs/`에 **벤더링**했다. 외부 참조로 두면 작업 트리에 파일이 없어서 헤드리스
   스펙도 로컬 빌드도 라이브러리를 못 본다(기존 LibStub/CallbackHandler와 같은 자리).
   → `findings.md:701`의 "두 줄이면 됨"은 그 점에서 틀렸다. LibStub은 본체 것을 쓴다.
 - 크기 감각: 액션 5개 289자, 30개 464자, 100개 709자, 300개 1363자.
@@ -89,14 +94,14 @@ DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
   `node tests/run.js`에서만 실패한다. 라이브러리도 우리 코드도 아니고 와우는 5.1이라
   게임에서는 안 닿는다. 스펙이 두 겹으로 갈라져 있고 어느 쪽이 돌았는지 매번 찍는다.
 
-### 공유 창 (`DebindShare/ShareUI.lua`, `ShareUI.xml`)
+### 공유 창 (`DebindStorage/ShareUI.lua`, `ShareUI.xml`)
 
 메인 창 오른쪽 위 [+] 옆 버튼이 연다. 버튼이 `LoadAddOn`을 하고, 실패하면 조용히 지나가지 않고
 메시지를 낸다(`EXPORT_ADDON_MISSING`).
 
 **메인 창에 수명이 안 묶여 있다.** 주문 선택 창과 갈리는 지점이다 — 익스포트한 창을 닫았다고
 복사하려던 문자열이 같이 사라지면 안 된다. ESC는 `UISpecialFrames`로 자기가 처리한다.
-프레임 이름도 `DebindShareFrame`이다(export가 아니라) — 임포트가 같은 창을 쓸 것이라서.
+프레임 이름도 `DebindStorageFrame`이다(export가 아니라) — 임포트가 같은 창을 쓸 것이라서.
 
 - 레이어가 그룹 머리글, 그 안이 액션.
 - **머리글은 블리자드의 `ListHeaderVisualTemplate`**(퀘스트 로그가 쓰는 그것). 바 아트와
@@ -117,7 +122,10 @@ DebindShare.ExportSelection(selection, options)     -- 창이 부를 것
   그룹은 이 창이 실제로 보내는 단위라 한 덩어리로 보여야 한다. 그룹을 **그 그룹 첫 액션의
   이름**으로 정렬해서 둘을 같이 만족시켰다. 그룹 사이는 머리글이 아니라 경계선.
 - 비활성 스펙 레이어도 목록에 선다.
-- **문자열은 창 안이 아니라 별도 다이얼로그**(`DebindShareCopyFrame`, `/debtest` 복사 창과
+- **클립보드에 직접 넣는 길이 막혀 있어서 이 창이 있다.** 블리자드가 특성·편집 모드·청사진에서
+  쓰는 `CopyToClipboard`를 애드온 코드에서 부르면 `ADDON_ACTION_FORBIDDEN`이다("블리자드 UI에만
+  있는 기능"). 프로브로 재봤다 — 12.1.0.69299, 2026-08-15.
+- **문자열은 창 안이 아니라 별도 다이얼로그**(`DebindStorageCopyFrame`, `/debtest` 복사 창과
   같은 모양). 문자열은 한 번 읽고 복사하고 다시 안 보는 물건이라, 붙박이 상자는 대부분의
   시간 동안 빈 채로 높이만 먹는다 — 목록이 모자라던 그 높이다. 뜨면 이미 전체 선택 + 포커스라
   Ctrl-C만 누르면 된다. 편집은 막혀 있다(반쯤 지워진 문자열의 사고는 **남의 컴퓨터에서** 난다).
@@ -456,7 +464,7 @@ MACRO를 풀어도 커스텀 상태는 남는다. 액션의 상태 참조는 **�
 
 ## 구현된 것 — 임포트 (2026-08-13): 데이터 층까지
 
-`DebindShare/Workbench.lua`. **UI는 한 줄도 없다.** 여기 있는 것은 아래 "임포트" 절의 창들이
+`DebindStorage/Workbench.lua`. **UI는 한 줄도 없다.** 여기 있는 것은 아래 "임포트" 절의 창들이
 읽고 쓸 것뿐이다. 스펙은 `tests/workbench_spec.lua`.
 
 ### 레이어 매핑 — 레이어 대 레이어
@@ -466,7 +474,7 @@ MACRO를 풀어도 커스텀 상태는 남는다. 액션의 상태 참조는 **�
 > 판단 자체는 맞았고, 틀린 것은 *그러니 내 자리로 밀어 넣는다*는 결론이었다. 그 좌표는 옮길
 > 필요가 없다.
 
-`DebindShare.LayerKey(descriptor)` / `.DefaultDestinationLayerID(descriptor)` /
+`DebindStorage.LayerKey(descriptor)` / `.DefaultDestinationLayerID(descriptor)` /
 `.CollectSourceLayers(payload)`.
 
 - **키를 값에서 만든다.** 보내는 쪽은 한 레이어의 그룹들이 descriptor 테이블 하나를 공유하지만
@@ -555,12 +563,12 @@ Overview = 병합하는 곳
 
 **아직 병합을 시작하지 않은 것**을 담는다. 원문 문자열, 출처, 받은 날짜. ~~핀, 만료 판정.~~
 (둘은 2026-08-15에 빠졌다 — 위 "서랍" 절.) 지금 코드가 그대로 그것이다
-(`DebindShare/Workbench.lua`, `WorkbenchUI.*`).
+(`DebindStorage/Workbench.lua`, `WorkbenchUI.*`).
 
 - **커밋해도 서랍에서 안 지운다** (앞 "안 정한 것" 3번이 여기서 닫힌다). 승인 전에 배치째
   지우고 다시 시작할 수 있어야 하고, 그러려면 원문이 남아 있어야 한다. 행에 "이미 가져옴"
   표시만 붙는다.
-- `DebindShare`를 가른 이유 둘(압축 라이브러리, 서랍의 SavedVariables)이 **둘 다 그대로**다.
+- `DebindStorage`를 가른 이유 둘(압축 라이브러리, 서랍의 SavedVariables)이 **둘 다 그대로**다.
 
 ### 액션에 붙는 것 — 숫자 둘
 
@@ -944,8 +952,8 @@ importGroup  = <그 배치 안의 그룹 번호>
 2. **교체냐 추가냐.** 백업 복원에서 둘이 되는 것. 대기 영역에서 골라 넣게 되면서 덜 급해졌다.
 3. ~~커밋한 항목을 대기에서 지울지 말지~~ → **정해짐: 남긴다**(08-14). 승인 전에 배치째 지우고
    다시 시작할 수 있어야 하고, 그러려면 원문이 서랍에 있어야 한다. 행에 "이미 가져옴" 표시만 붙는다.
-4. ~~대기 영역을 어디에 저장할지~~ → **정해짐: `DebindShare`의 자기 SavedVariables**
-   (`DebindShareVars`). 프로필 밖이고, LoadOnDemand라 창을 열기 전에는 읽히지도 않는다
+4. ~~대기 영역을 어디에 저장할지~~ → **정해짐: `DebindStorage`의 자기 SavedVariables**
+   (`DebindStorageVars`). 프로필 밖이고, LoadOnDemand라 창을 열기 전에는 읽히지도 않는다
    ("구현된 것 → 왜 애드온을 갈랐나").
 5. 시험 모드에 들어와 있다는 표시를 어디에 둘지. 모드 자체는 저장 안 함.
 6. ~~tristate 중간 상태 텍스처~~ → **깔 것이 없다. 블리자드가 이미 한다.**
@@ -1120,7 +1128,7 @@ groups = {
 
 #### 자리 — `(scope, class, spec)`
 
-- `DebindShare.ImportAddress(descriptor)` → `scope, class, spec` 또는 nil. `DefaultDestinationLayerID`와
+- `DebindStorage.ImportAddress(descriptor)` → `scope, class, spec` 또는 nil. `DefaultDestinationLayerID`와
   그 밑의 `FindLayerID`는 지웠다.
 - `PlaceImportedActions(placements)`의 원소가 `{ scope, class, spec, action }`이 됐다.
   `Profile.lua`의 `StoredActionsAt`이 저장 테이블을 직접 짚는다(없으면 만든다).
@@ -1242,7 +1250,7 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 
 ### 실제로 한 것 (2026-08-14)
 
-`DebindShareBringFrame`(`WorkbenchUI.xml` / `.lua`). 행의 [가져오기]가 이걸 연다.
+`DebindStorageBringFrame`(`WorkbenchUI.xml` / `.lua`). 행의 [가져오기]가 이걸 연다.
 
 - **줄은 실제로 놓일 수 있는 것만 선다**(`CollectImportLines`). 없는 레이어와 **갈 데가 없는
   레이어**는 읽는 사람에게 같은 것이다 — 켜도 꺼도 아무 일이 없는 체크박스이고, 둘을 구별할
@@ -1666,9 +1674,9 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 
 같은 거짓이 세 군데 있었다. **셋 다 고쳤다**(2026-08-15, 재부여 작업과 같이):
 
-- `DebindShare/Import.lua`의 `BuildAction` 주석 — *"...with nothing in the way."* 가로막는 것이
+- `DebindStorage/Import.lua`의 `BuildAction` 주석 — *"...with nothing in the way."* 가로막는 것이
   바로 밑에 있다
-- `DebindShare/Export.lua`의 `ACTION_FIELDS` 주석 — `seq`를 안 보내는 이유로 같은 말을 든다
+- `DebindStorage/Export.lua`의 `ACTION_FIELDS` 주석 — `seq`를 안 보내는 이유로 같은 말을 든다
 - 이 문서 "순서를 어떻게 나르나" 표의 `seq`라는 이름으로 그대로 보내기 행
 
 가로막는 것의 이름이 바뀌었다. `PlaceLast`가 아니라 `PlaceImportedActions`가 도착 번호를 얹고
@@ -1779,7 +1787,7 @@ key = "F"   -- 실키는 언제나 문자열
 
 > *"accept하지 않은 액션은 우리 액션이 아니니까 내보내지 않는다. 이 결정이 바뀌지는 않을 것 같다."*
 >
-> **판정은 `DebindShare.IsExportable` 하나**이고 선을 만드는 쪽과 창이 **같은 함수를 부른다.**
+> **판정은 `DebindStorage.IsExportable` 하나**이고 선을 만드는 쪽과 창이 **같은 함수를 부른다.**
 > 레이어 머리글 개수도 [전부 선택] 총계도 고를 수 있는 행도 전부 창의 목록에서 나오므로, 그 목록과
 > 실제로 나가는 것이 갈리면 창이 "12개"라 해놓고 9개를 보낸다. 두 자리에 같은 뜻을 따로 적는 대신
 > 한 함수를 두 번 묻는 것이 그걸 **합의가 아니라 사실로** 만든다. 두 번 묻는 이유는 남아 있다 —
@@ -1928,12 +1936,29 @@ added"*라고 적어놨고, 모르는 필드를 건너뛰는 독자는 추가를
 
 ## ★ 애드온 경계 — UI는 Debind로 돌아온다 (2026-08-15, 소유자 결정)
 
-> 상태: **정했다. 아직 안 옮겼다.**
+> 상태: **옮겼다** (2026-08-15). 이름도 같은 날 `DebindStorage` → **`DebindStorage`**로 바꿨다.
+> **화면으로는 아직 안 봤다** — 로그인 로드 순서와 패널 배달을 통째로 바꾼 변경이라 `/reload`가
+> 유일한 확인이다.
 
 ```
-DebindShare   DebindShareVars · Libs · Export.lua · Import.lua · Workbench.lua
-Debind        나머지 전부 — ShareUI.* 와 WorkbenchUI.* 가 여기로 온다
+DebindStorage   DebindStorageVars · Libs · Export.lua · Import.lua · Workbench.lua
+Debind          나머지 전부 — ShareUI.* 와 WorkbenchUI.* 가 여기로 왔다
 ```
+
+**실제로 한 것**
+
+- 패널 둘이 `DebindFrame`의 XML 자식이 됐다(`parent=` + `parentKey=`). `PANELS`의
+  `addon`/`panelGlobal` 갈래와 `TakeDelivery`(리페어런팅)가 통째로 없어지고 셋 다 `panelKey`다.
+- `needsStore`가 그 자리를 대신한다. `ResolvePanel`이 그 탭에서만 `EnsureStore()`를 부르고,
+  실패하면 `MissingPanel`이 선다 — **패널이 없는 게 아니라 읽을 것이 없는 것**이라 그 문장도
+  같이 고쳤다(`PANEL_ADDON_MISSING`).
+- 모델 손잡이는 **`DebindPrivate.Store`**. 저쪽 첫 파일이 `LoadAddOn` 창 안에서 자기 테이블을
+  걸어주고, UI는 **호출 시점에** 읽는다(파일 스코프에서 잡으면 영원히 nil이다 — UI는 로그인에
+  읽히고 저쪽은 아니다). 역할 이름이라 폴더 개명에 호출부가 안 움직였다.
+- **`preferredWidth`가 `GetWidth()` 읽기에서 XML `KeyValue`로 바뀌었다.** 이건 안 하면 조용히
+  깨지는 자리였다: 패널이 이제 처음부터 호스트에 4면 고정이라 `OnLoad`의 `GetWidth()`가 470이
+  아니라 창 폭을 답한다. 탭마다 폭이 달라지는 기능이 소리 없이 죽었을 것이다.
+- 프레임·믹스인 이름에서 `Share`를 뺐다(`DebindExportPanel`, `DebindCopyFrame`, …).
 
 ### 규칙
 
@@ -1981,12 +2006,12 @@ WorkbenchUI.lua DebindUI · L · DisplayMessage
 `Export.lua`가 짚는 열 중 넷은 **순서 기계**다(`CompareActionOrder`,
 `EnumerateAllProfileLayers`, `GetBindingInfoForAction`, `IsConditionalAction`). *"순서를 말하는
 자리가 하나뿐이어야 한다"*가 애드온 경계를 넘어 뻗은 자리라 맞는 의존인데, **Debind의 순서 내부가
-곧 DebindShare의 API**라는 뜻이기도 하다 — `devdocs/legacy/renumbering-a-key-group.md`를 하면 `Export.lua`가
+곧 DebindStorage의 API**라는 뜻이기도 하다 — `devdocs/legacy/renumbering-a-key-group.md`를 하면 `Export.lua`가
 같이 움직인다.
 
 ### 남는 쪽은 이 물음과 무관하다
 
-`DebindShareVars`가 저쪽에 있는 이유는 개념이 아니라 **플랫폼 사실**이다: SavedVariables는 애드온이
+`DebindStorageVars`가 저쪽에 있는 이유는 개념이 아니라 **플랫폼 사실**이다: SavedVariables는 애드온이
 로드될 때 통째로 읽히고 서랍은 계속 자란다. LoD가 그걸 미루는 유일한 수단이고, 취향이 아니다.
 Libs(208K, 우리 코드보다 크다)와 선 코드는 그 데이터 없이는 쓸 일이 없으니 같이 남는다.
 
@@ -1995,8 +2020,8 @@ Libs(208K, 우리 코드보다 크다)와 선 코드는 그 데이터 없이는 
 
 ### 마감 — 첫 배포
 
-**`DebindShare`는 한 번도 배포된 적이 없다.** `v3.1.6`(2026-08-13) 트리에 그 폴더가 없다.
-`DebindShareVars`를 가진 사용자가 세상에 없으므로 **폴더를 지금 어떻게 째든 마이그레이션이 없다.**
+**`DebindStorage`는 한 번도 배포된 적이 없다.** `v3.1.6`(2026-08-13) 트리에 그 폴더가 없다.
+`DebindStorageVars`를 가진 사용자가 세상에 없으므로 **폴더를 지금 어떻게 째든 마이그레이션이 없다.**
 
 첫 배포 순간 닫힌다. 그 뒤엔 옛 파일을 읽을 셸을 남겨야 하고, 그건 `Debounce/`가 왜 아직 저장소에
 있는지와 같은 이야기가 된다(`.pkgmeta`의 `move-folders`가 SavedVariables 파일 이름을 정한다).
@@ -2010,11 +2035,28 @@ Libs(208K, 우리 코드보다 크다)와 선 코드는 그 데이터 없이는 
 - **로캘은 한 줄도 안 움직인다.** 이미 전부 `Debind/Locales`에 있고, 이 이동이 그걸 변칙에서 규칙으로
   바꾼다.
 
-### 배포 전에 같이 정할 것 — 폴더 이름
+### 폴더 이름 — `DebindStorage` (2026-08-15, 소유자가 후보를 냈고 골랐다)
 
-`DebindShare`는 **기능 이름**인데 남는 것이 하는 일은 "문자열과 서랍"이다. 이름도 배포 전에는
-공짜로 바꿀 수 있는데 `.pkgmeta`의 `move-folders`가 SavedVariables 파일 이름을 정하므로 같이 봐야
-한다. 지금 정할 일은 아니고 **배포 전 목록**에 올려둔다.
+`DebindStorage`는 **기능 이름**인데 남는 것이 하는 일은 "문자열과 서랍"이었다. 한 번도 배포된 적이
+없어 개명이 공짜였고(`.pkgmeta` 주석), 같은 날 같이 했다.
+
+**떨어져 나간 후보들과 이유가 근거다.**
+
+- **`DebindCodes`** — 처음 낸 것. *"백업은 코드 밖으로 나간다"*는 내 반론이 틀렸다는 것을 문서가
+  말해줬다(백업은 익스포트한 문자열을 서랍에 한 줄로 넣는 것이라 그냥 또 하나의 코드다). 그래도
+  낱말(문자열/코드)이 아직 안 정해져서 이름이 그 결정에 매달리게 된다.
+- **`DebindVault`** — 소유자: *"볼트는 와우에서 사람을 희망고문하는 단어인데"*. 클라이언트가 쓰는
+  낱말이냐가 아니라 **플레이어 귀에 뭘로 들리느냐**가 기각 사유다. 위대한 금고.
+- **`Keep` / `Silo` / `Archive`** — 소유자가 낸 셋. `Keep`은 클라이언트에서 던전·지역 이름이고
+  동사로도 읽힌다. `Silo`·`Archive`는 baggage가 없지만 **셋 다 장소 은유**다.
+- **틀을 바꾼 것도 소유자다** — *"Debind Migration이란 애드온을 쓰고 있지. 같은 톤으로 생각해봐"*.
+  동반 애드온의 `## Title`은 은유가 아니라 **일을 그대로 말하는 평범한 명사**다(Debind Migration,
+  Debind Clique Fake). 그 톤에서 이 애드온의 일은 보관이고, `Storage`는 클라이언트가 그 뜻으로
+  쓰는 낱말이다(하우징 **창고** — 소유하고 있지만 지금 배치돼 있지 않은 것이 있는 곳). 우리가
+  들고 있는 것도 그렇다.
+
+**폴더 이름과 `## Title`은 별개다.** `Debounce/`가 그 산 증거다 — 폴더는 SavedVariables 때문에
+못 바꾸고 Title만 `Debind Migration`이다. 여기서는 둘 다 자유로워서 같이 갔다.
 
 ---
 

@@ -1,8 +1,23 @@
-local _, DebindShare = ...;
+local _, DebindPrivate = ...;
 
-local DebindPrivate    = DebindShare.DebindPrivate;
 local LLL              = DebindPrivate.L;
 local DebindUI         = DebindPrivate.DebindUI;
+
+--- The addon that builds and keeps the strings, parked here when it loads (`EnsureStore` in
+--- `DebindUI.lua`).
+---
+--- **Read at call time, never at file scope.** This file is read at login and that one is not: it
+--- is load on demand, and the whole reason it was split off is that nothing of it is touched until
+--- a reader opens one of these two tabs. A local taken up here would be `nil` forever.
+---
+--- Nothing below guards the result, because everything that calls it is reached from a panel that
+--- `ResolvePanel` refused to show until the load succeeded.
+---
+--- ⚠ **`OnLoad` is not one of those places.** These frames are built when this file is read, which
+--- is login, and that is *before* any of it. `WorkbenchUI.lua` broke exactly there in the move.
+local function Store()
+    return DebindPrivate.Store;
+end
 
 --- The export panel: the main window's Export tab.
 ---
@@ -107,26 +122,28 @@ local function SetTriState(checkButton, state)
     SetMark(checkButton, state == STATE_SOME and CHECK_SOME or CHECK_ALL);
 end
 
---- What a set of actions adds up to. `nil` for an empty set -- callers decide whether that reads
---- as "none" (a layer with nothing in it) or as nothing at all.
+--- What a set of actions adds up to, and how many of them are picked. `nil` for an empty set --
+--- callers decide whether that reads as "none" (a layer with nothing in it) or as nothing at all.
+---
+--- **The count comes back with the state because everything that draws one draws the other**: a
+--- layer header prints `(n/m)` beside its box and the top row prints its own total beside its box.
+--- Counting apart from the walk that decides the mark is one question answered in two places.
 local function CombineState(actions, selected)
-    local anySelected, anyUnselected;
+    local selectedCount = 0;
     for i = 1, #actions do
         if (selected[actions[i]]) then
-            anySelected = true;
-        else
-            anyUnselected = true;
+            selectedCount = selectedCount + 1;
         end
     end
 
-    if (not anySelected and not anyUnselected) then
-        return nil;
-    elseif (anySelected and anyUnselected) then
-        return STATE_SOME;
-    elseif (anySelected) then
-        return STATE_ALL;
+    if (#actions == 0) then
+        return nil, 0;
+    elseif (selectedCount == 0) then
+        return STATE_NONE, 0;
+    elseif (selectedCount == #actions) then
+        return STATE_ALL, selectedCount;
     end
-    return STATE_NONE;
+    return STATE_SOME, selectedCount;
 end
 
 
@@ -134,9 +151,9 @@ end
 -- Rows
 --------------------------------------------------------------------------------
 
-DebindShareRowMixin = {};
+DebindExportRowMixin = {};
 
-function DebindShareRowMixin:Init(elementData)
+function DebindExportRowMixin:Init(elementData)
     self.elementData = elementData;
 
     local action = elementData.action;
@@ -154,16 +171,16 @@ function DebindShareRowMixin:Init(elementData)
     self:UpdateSelectionDisplay();
 end
 
-function DebindShareRowMixin:UpdateSelectionDisplay()
-    self.SelectedHighlight:SetShown(DebindShareExportPanel.selected[self.elementData.action] == true);
+function DebindExportRowMixin:UpdateSelectionDisplay()
+    self.SelectedHighlight:SetShown(DebindExportPanel.selected[self.elementData.action] == true);
 end
 
-function DebindShareRowMixin:OnClick()
-    DebindShareExportPanel:ToggleAction(self.elementData.action);
+function DebindExportRowMixin:OnClick()
+    DebindExportPanel:ToggleAction(self.elementData.action);
     self:UpdateSelectionDisplay();
 end
 
-function DebindShareRowMixin:OnEnter()
+function DebindExportRowMixin:OnEnter()
     local action = self.elementData.action;
     local name = DebindUI.NameAndIconForAction(action);
 
@@ -177,7 +194,7 @@ function DebindShareRowMixin:OnEnter()
     GameTooltip:Show();
 end
 
-function DebindShareRowMixin:OnLeave()
+function DebindExportRowMixin:OnLeave()
     GameTooltip:Hide();
 end
 
@@ -191,9 +208,9 @@ end
 ---
 --- The bar carries **two** gestures and they are split by area: the checkbox selects the layer,
 --- everything else collapses it, and the `+`/`-` on the right says which way it currently sits.
-DebindShareLayerMixin = {};
+DebindExportLayerMixin = {};
 
-function DebindShareLayerMixin:OnLoad()
+function DebindExportLayerMixin:OnLoad()
     -- Clear of the checkbox. `ListHeaderVisualMixin` owns the text's anchor and hands out this
     -- call for moving it, so the offset lives here instead of a second anchor in the XML.
     self:AdjustTextOffset(22, 0);
@@ -201,30 +218,40 @@ function DebindShareLayerMixin:OnLoad()
     NormalizeCheckMark(self.Check);
 
     self.Check:SetScript("OnClick", function()
-        DebindShareExportPanel:ToggleLayer(self.elementData.actions);
+        DebindExportPanel:ToggleLayer(self.elementData.actions);
         self:UpdateSelectionDisplay();
     end);
 end
 
-function DebindShareLayerMixin:Init(elementData)
+function DebindExportLayerMixin:Init(elementData)
     self.elementData = elementData;
-    self:SetHeaderText(DebindUI.GetLayerLabel(elementData.layerID));
-    self:GetCollapseButton():UpdateCollapsedState(DebindShareExportPanel:IsLayerCollapsed(elementData.layerID));
+    self:GetCollapseButton():UpdateCollapsedState(DebindExportPanel:IsLayerCollapsed(elementData.layerID));
     self:UpdateSelectionDisplay();
 end
 
-function DebindShareLayerMixin:UpdateSelectionDisplay()
-    SetTriState(self.Check, CombineState(self.elementData.actions, DebindShareExportPanel.selected)
-        or STATE_NONE);
+--- **The header carries a fraction, and the box beside it carries a shape.** All / some / none is
+--- what the tick can say, and "some" is exactly the state a reader has to open the layer to make
+--- sense of - so the layer that is half picked answers the question where it is asked, and a shut
+--- one does not have to be opened to be read.
+---
+--- Written here rather than in `Init` because the left-hand number moves with every tick, and a
+--- header drawn once would go on saying what the selection used to be.
+function DebindExportLayerMixin:UpdateSelectionDisplay()
+    local actions = self.elementData.actions;
+    local state, selectedCount = CombineState(actions, DebindExportPanel.selected);
+
+    self:SetHeaderText(format(LLL["EXPORT_LAYER_HEADER"],
+        DebindUI.GetLayerLabel(self.elementData.layerID), selectedCount, #actions));
+    SetTriState(self.Check, state or STATE_NONE);
 end
 
 --- The bar collapses. Selecting is the checkbox's job and it swallows its own clicks, so a click
 --- arriving here is always about showing and hiding.
-function DebindShareLayerMixin:OnClick()
-    DebindShareExportPanel:ToggleLayerCollapsed(self.elementData.layerID);
+function DebindExportLayerMixin:OnClick()
+    DebindExportPanel:ToggleLayerCollapsed(self.elementData.layerID);
 end
 
-function DebindShareLayerMixin:OnEnter()
+function DebindExportLayerMixin:OnEnter()
     self:CheckHighlightTitle(true);
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
@@ -234,7 +261,7 @@ function DebindShareLayerMixin:OnEnter()
     GameTooltip:Show();
 end
 
-function DebindShareLayerMixin:OnLeave()
+function DebindExportLayerMixin:OnLeave()
     self:CheckHighlightTitle(false);
     GameTooltip:Hide();
 end
@@ -244,18 +271,13 @@ end
 -- The window
 --------------------------------------------------------------------------------
 
-DebindShareExportPanelMixin = {};
+DebindExportPanelMixin = {};
 
-function DebindShareExportPanelMixin:OnLoad()
-    -- **What this panel asks the frame to be**, read by `SelectPanel` when this tab is chosen. The
-    -- frame is free to be a different width per tab, and the panel that knows what it needs is the
-    -- one that should say: Overview wants two columns, this is one list.
-    --
-    -- **Taken from the XML, and only now.** The number belongs with the rest of the geometry, and a
-    -- second copy here would let someone widen the panel in the XML and watch nothing happen. It
-    -- has to be read before the frame takes delivery, though - after that `GetWidth` answers with
-    -- the host's width, which is this value fed back.
-    self.preferredWidth = self:GetWidth();
+function DebindExportPanelMixin:OnLoad()
+    -- **What this panel asks the frame to be** is a `KeyValue` in the XML, read by `SelectPanel`
+    -- when this tab is chosen. The frame is free to be a different width per tab, and the panel
+    -- that knows what it needs is the one that should say: Overview wants two columns, this is one
+    -- list.
 
     self.SelectAllCheck.Text:SetText(LLL["EXPORT_SELECT_ALL"]);
     self.StripKeysCheck.Text:SetText(LLL["EXPORT_STRIP_KEYS"]);
@@ -290,14 +312,14 @@ function DebindShareExportPanelMixin:OnLoad()
     ExtendHitRectOverLabel(self.StripKeysCheck);
 end
 
-function DebindShareExportPanelMixin:InitializeScrollBox()
+function DebindExportPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
     view:SetElementFactory(function(factory, elementData)
         if (elementData.isLayer) then
-            factory("DebindShareLayerTemplate", function(frame, data) frame:Init(data); end);
+            factory("DebindExportLayerTemplate", function(frame, data) frame:Init(data); end);
         else
-            factory("DebindShareRowTemplate", function(frame, data) frame:Init(data); end);
+            factory("DebindExportRowTemplate", function(frame, data) frame:Init(data); end);
         end
     end);
 
@@ -384,13 +406,13 @@ end
 ---     `GetProfileLayer` for 1..11 by hand -- the same eleven layers in the game, and **not** the
 ---     same under `/debtest`, where a run is isolated to a layer of its own by replacing that
 ---     enumerator. Two walks over "the eleven layers" is a split waiting for one of them to change.
-function DebindShareExportPanelMixin:BuildLayers()
+function DebindExportPanelMixin:BuildLayers()
     local layers = {};
 
     for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
         local actions, rows = {}, {};
         for _, action in layer:Enumerate() do
-            if (DebindShare.IsExportable(action)) then
+            if (Store().IsExportable(action)) then
                 actions[#actions + 1] = action;
             end
         end
@@ -420,7 +442,7 @@ end
 --- actions still export, and still count toward the header and the total. That is why the two
 --- lists are separate: everything that asks "what is selected" reads `self.layers`, and only
 --- drawing reads this one.
-function DebindShareExportPanelMixin:BuildDisplayList()
+function DebindExportPanelMixin:BuildDisplayList()
     local list = {};
 
     for _, layer in ipairs(self.layers) do
@@ -436,7 +458,7 @@ function DebindShareExportPanelMixin:BuildDisplayList()
 end
 
 --- Redraws from the layers already built. Collapsing does not re-read the profile.
-function DebindShareExportPanelMixin:RefreshRows()
+function DebindExportPanelMixin:RefreshRows()
     local list = self:BuildDisplayList();
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
     self.ScrollBox.EmptyText:SetText(LLL["EXPORT_EMPTY"]);
@@ -444,17 +466,17 @@ function DebindShareExportPanelMixin:RefreshRows()
     self:UpdateSelectionState();
 end
 
-function DebindShareExportPanelMixin:IsLayerCollapsed(layerID)
+function DebindExportPanelMixin:IsLayerCollapsed(layerID)
     return self.collapsed[layerID] == true;
 end
 
-function DebindShareExportPanelMixin:ToggleLayerCollapsed(layerID)
+function DebindExportPanelMixin:ToggleLayerCollapsed(layerID)
     self.collapsed[layerID] = not self.collapsed[layerID] or nil;
     self:RefreshRows();
 end
 
 --- Every action in the window, collapsed layers included.
-function DebindShareExportPanelMixin:EnumerateListedActions()
+function DebindExportPanelMixin:EnumerateListedActions()
     local actions = {};
     for _, layer in ipairs(self.layers or {}) do
         for _, action in ipairs(layer.actions) do
@@ -471,7 +493,7 @@ end
 
 --- Redraws the checkboxes without rebuilding the list. Rebuilding would drop the scroll position,
 --- and ticking a box is the one gesture where the row you just touched must stay under the cursor.
-function DebindShareExportPanelMixin:UpdateSelectionState()
+function DebindExportPanelMixin:UpdateSelectionState()
     self.ScrollBox:ForEachFrame(function(frame)
         if (frame.UpdateSelectionDisplay) then
             frame:UpdateSelectionDisplay();
@@ -479,14 +501,9 @@ function DebindShareExportPanelMixin:UpdateSelectionState()
     end);
 
     local listed = self:EnumerateListedActions();
-    local selectedCount = 0;
-    for i = 1, #listed do
-        if (self.selected[listed[i]]) then
-            selectedCount = selectedCount + 1;
-        end
-    end
+    local state, selectedCount = CombineState(listed, self.selected);
 
-    SetTriState(self.SelectAllCheck, CombineState(listed, self.selected) or STATE_NONE);
+    SetTriState(self.SelectAllCheck, state or STATE_NONE);
     self.SelectAllCheck.Text:SetText(selectedCount > 0
         and format(LLL["EXPORT_SELECT_ALL_COUNT"], selectedCount)
         or LLL["EXPORT_SELECT_ALL"]);
@@ -502,10 +519,10 @@ end
 --- nothing about what would be exported - throwing the string away there would contradict the one
 --- rule this window makes about collapsing, in the same file, two functions apart.
 local function DropStaleString()
-    DebindShareCopyFrame:Hide();
+    DebindCopyFrame:Hide();
 end
 
-function DebindShareExportPanelMixin:SelectAll(selected)
+function DebindExportPanelMixin:SelectAll(selected)
     DropStaleString();
     local listed = self:EnumerateListedActions();
     for i = 1, #listed do
@@ -514,7 +531,7 @@ function DebindShareExportPanelMixin:SelectAll(selected)
     self:UpdateSelectionState();
 end
 
-function DebindShareExportPanelMixin:ToggleAction(action)
+function DebindExportPanelMixin:ToggleAction(action)
     DropStaleString();
     self.selected[action] = not self.selected[action] or nil;
     self:UpdateSelectionState();
@@ -522,7 +539,7 @@ end
 
 --- A layer toggles as a whole, and "some" counts as off -- one more click gets all of it, which
 --- is what the middle state is asking for.
-function DebindShareExportPanelMixin:ToggleLayer(actions)
+function DebindExportPanelMixin:ToggleLayer(actions)
     DropStaleString();
     local turnOn = CombineState(actions, self.selected) ~= STATE_ALL;
     for i = 1, #actions do
@@ -531,7 +548,7 @@ function DebindShareExportPanelMixin:ToggleLayer(actions)
     self:UpdateSelectionState();
 end
 
-function DebindShareExportPanelMixin:OnSelectAllClicked()
+function DebindExportPanelMixin:OnSelectAllClicked()
     -- Read the state we drew, not the checkbox's own `GetChecked` -- the middle state is drawn as
     -- checked, so the button's idea of its value says "on" for a partial selection and the click
     -- would clear everything when the user meant to complete it.
@@ -540,18 +557,18 @@ end
 
 --- Toggling this changes what the string would contain, so a string already on screen stops being
 --- the one this window would produce.
-function DebindShareExportPanelMixin:OnStripKeysClicked()
+function DebindExportPanelMixin:OnStripKeysClicked()
     DropStaleString();
 end
 
-function DebindShareExportPanelMixin:OnStripKeysEnter()
+function DebindExportPanelMixin:OnStripKeysEnter()
     GameTooltip:SetOwner(self.StripKeysCheck, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
     GameTooltip_AddNormalLine(GameTooltip, LLL["EXPORT_STRIP_KEYS_DESC"]);
     GameTooltip:Show();
 end
 
-function DebindShareExportPanelMixin:OnStripKeysLeave()
+function DebindExportPanelMixin:OnStripKeysLeave()
     GameTooltip:Hide();
 end
 
@@ -560,8 +577,8 @@ end
 -- The string
 --------------------------------------------------------------------------------
 
-function DebindShareExportPanelMixin:OnGenerateClicked()
-    local str, reason = DebindShare.ExportSelection(self.selected, {
+function DebindExportPanelMixin:OnGenerateClicked()
+    local str, reason = Store().ExportSelection(self.selected, {
         stripKeys = self.StripKeysCheck:GetChecked(),
     });
 
@@ -574,7 +591,7 @@ function DebindShareExportPanelMixin:OnGenerateClicked()
         return;
     end
 
-    DebindShareCopyFrame:ShowText(str);
+    DebindCopyFrame:ShowText(str);
 end
 
 
@@ -582,7 +599,7 @@ end
 -- Showing
 --------------------------------------------------------------------------------
 
-function DebindShareExportPanelMixin:OnShow()
+function DebindExportPanelMixin:OnShow()
     -- **Selected before drawn, not after.** Default is everything ticked - sending the lot should
     -- cost opening the window and reading it - and if the list goes up first, every row that gets
     -- built in the gap draws itself against an empty selection. Redrawing afterwards only reaches
@@ -603,7 +620,7 @@ function DebindShareExportPanelMixin:OnShow()
     -- the frame's gesture now, and one tab of three announcing itself is worse than none.
 end
 
-function DebindShareExportPanelMixin:OnHide()
+function DebindExportPanelMixin:OnHide()
     -- The selection is not kept. It names action tables that can be edited or deleted from the
     -- Overview tab while this one is away, and a stale set of references would quietly export
     -- something else. Rebuilding it costs a walk over the layers, which is what `OnShow` does.
@@ -623,11 +640,13 @@ end
 -- The copy dialog
 --------------------------------------------------------------------------------
 
-DebindShareCopyFrameMixin = {};
+DebindCopyFrameMixin = {};
 
-function DebindShareCopyFrameMixin:OnLoad()
-    self.TitleText:SetText(LLL["EXPORT_COPY_TITLE"]);
+function DebindCopyFrameMixin:OnLoad()
+    self.Title:SetText(LLL["EXPORT_COPY_TITLE"]);
+    self.CloseDialogButton:SetScript("OnClick", function() self:Hide(); end);
 
+    -- Dragged from anywhere on itself: the chrome this dialog wears has no title bar to grab.
     self:RegisterForDrag("LeftButton");
     self:SetScript("OnDragStart", self.StartMoving);
     self:SetScript("OnDragStop", self.StopMovingOrSizing);
@@ -648,7 +667,7 @@ end
 
 --- Puts the string up, selected, with the cursor already in it: the whole dialog exists so that
 --- Ctrl-C is the only thing left to do.
-function DebindShareCopyFrameMixin:ShowText(text)
+function DebindCopyFrameMixin:ShowText(text)
     self.text = text;
     self.Output.EditBox:SetText(text);
     self:Show();

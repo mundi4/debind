@@ -13,7 +13,7 @@
 		Art matches the main list and the spell picker (`ClickCastList-ButtonBackground`). Three
 		lists in one addon that look like three different things is three things to learn.
 	-->
-	<Button name="DebindShareRowTemplate" mixin="DebindShareRowMixin" virtual="true">
+	<Button name="DebindExportRowTemplate" mixin="DebindExportRowMixin" virtual="true">
 		<Size x="400" y="28"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -96,7 +96,7 @@
 
 		Its checkbox is the middle rung of the three: all -> layer -> action.
 	-->
-	<Button name="DebindShareLayerTemplate" inherits="ListHeaderVisualTemplate" mixin="DebindShareLayerMixin" virtual="true">
+	<Button name="DebindExportLayerTemplate" inherits="ListHeaderVisualTemplate" mixin="DebindExportLayerMixin" virtual="true">
 		<Size x="400" y="26"/>
 		<Frames>
 			<!--
@@ -128,14 +128,17 @@
 		the Export tab (`PANELS` in `DebindUI.lua`). So it carries no chrome of its own: no portrait,
 		no title, no drag, no `UISpecialFrames` registration. Those belong to the frame that hosts it.
 
-		**It cannot be an XML child of that frame.** This addon is load on demand, so at the moment
-		`DebindUI.xml` is read none of this exists. It is built here, parented to `UIParent` and
-		hidden, and the main frame takes delivery when the tab is first pressed - `ResolvePanel`
-		reparents it and pins it to the frame's four corners.
+		**A child of that frame, declared from another file.** `parent=` plus `parentKey=` seats it
+		exactly where `OverviewPanel` sits, which is what lets `PANELS` name it by key. It could not
+		be one while this file belonged to the load-on-demand addon: at the moment `DebindUI.xml` was
+		read none of it existed, so it stood parented to `UIParent` and was reparented on the first
+		press. That whole road is gone with the addon boundary (`devdocs/building-export-import.md`).
+		The load-on-demand half that remains is the **data**, not the panel.
 
-		Which is why the offsets below still start at -56 and -84 as they did when this was its own
-		window: the frame it lands in is a `PortraitFrameTemplate` too, so the title bar it is
-		clearing is the same height.
+		The offsets below are Overview's, taken from `DebindUI.xml`. They used to be the ones this
+		panel picked while it was its own window - which kept working, because the frame it lands in
+		is a `PortraitFrameTemplate` too and the title bar being cleared is the same height. Working
+		is not the same as landing on the line the tab next door lands on.
 
 		No keyboard on the frame. The output dialog takes focus when there is something to copy and
 		ESC there only drops focus, so nothing here touches `SetPropagateKeyboardInput`, which
@@ -152,13 +155,46 @@
 		take a level of its own would put that 3 underneath it and the list would draw behind its
 		own inset.
 
-		The `<Size>` is the one number the frame asks for (`OnLoad` reads it into `preferredWidth`);
-		the height is the host's.
+		**`preferredWidth` is the one number this panel asks the frame for**, and it is the only size
+		written here: pinned to the host on all four sides, a `<Size>` of its own would never be the
+		rectangle it ends up with. It used to be read back out of `GetWidth()` in `OnLoad` precisely
+		so there would not be two numbers - which only worked while the panel stood unanchored at
+		load, and would now answer with the host's width, this value fed back.
 	-->
-	<Frame name="DebindShareExportPanel" parent="UIParent" hidden="true" useParentLevel="true"
-		mixin="DebindShareExportPanelMixin">
-		<Size x="470" y="600"/>
+	<Frame name="DebindExportPanel" parent="DebindFrame" parentKey="ExportPanel" hidden="true"
+		useParentLevel="true" setAllPoints="true" mixin="DebindExportPanelMixin">
+		<KeyValues>
+			<KeyValue key="preferredWidth" value="470" type="number"/>
+		</KeyValues>
 		<Frames>
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
+				<!--
+					The same combination Blizzard's click binding window puts under its list, and the
+					same one Overview uses (`DebindUI.xml`): a thin border over black instead of
+					`InsetFrameTemplate`'s old bevel, so the box belongs to the same age as the row
+					art laid on top of it (`ClickCastList-ButtonBackground`). This panel took that art
+					from Overview and left the container behind.
+
+					**The rectangle is Overview's too** - left 4, top -85, right -31. These are one
+					window's three tabs, and a box that starts on a different line in each makes the
+					list jump as you switch.
+
+					**The bottom is 50, which is the click binding window's** - the band it leaves for
+					the button row on the frame's bottom edge. Overview's 10 is the band for its layer
+					tabs, and this panel has no such row.
+				-->
+				<KeyValues>
+					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="4" y="-85"/>
+					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
+				</Anchors>
+			</Frame>
+
 			<!--
 				The top rung: everything.
 
@@ -166,11 +202,19 @@
 				against the **element's own** mixin, and a plain Blizzard checkbox template has none,
 				so naming the frame's method reaches nothing. The three chrome widgets below are
 				wired the same way for the same reason.
+
+				**Declared after the inset, because it hangs off it.** An anchor pointing at a sibling
+				that does not exist yet is dropped without a word (`tools/check-xml-anchors.js`).
 			-->
 			<CheckButton parentKey="SelectAllCheck" inherits="MinimalCheckboxArtTemplate">
 				<Size x="24" y="24"/>
+				<!--
+					Hung off the inset rather than off the frame, so the two boxes above and below the
+					list keep one left edge wherever the rectangle goes. `StripKeysCheck` below uses
+					the same offsets mirrored.
+				-->
 				<Anchors>
-					<Anchor point="TOPLEFT" x="12" y="-56"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="4"/>
 				</Anchors>
 				<Layers>
 					<Layer level="ARTWORK">
@@ -182,15 +226,6 @@
 					</Layer>
 				</Layers>
 			</CheckButton>
-
-			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="InsetFrameTemplate">
-				<Anchors>
-					<Anchor point="TOPLEFT" x="8" y="-84"/>
-					<Anchor point="TOPRIGHT" x="-30" y="-84"/>
-					<Anchor point="BOTTOMLEFT" x="8" y="46"/>
-					<Anchor point="BOTTOMRIGHT" x="-30" y="46"/>
-				</Anchors>
-			</Frame>
 
 			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
 				<Anchors>
@@ -215,10 +250,22 @@
 				</Anchors>
 			</EventFrame>
 
+			<!--
+				**The row under the list stands on the frame's bottom edge, not under the inset.**
+				That is where the click binding window puts its own
+				(`Blizzard_ClickBindingUI.xml`: `BOTTOMLEFT 4, 5` and `BOTTOMRIGHT -6, 5`, height 23),
+				and the band between the list and that row is left empty on purpose. Hanging these two
+				off the bottom of the inset instead - which is what this panel did - floats them in
+				the middle of that band with dead space underneath.
+			-->
 			<CheckButton parentKey="StripKeysCheck" inherits="MinimalCheckboxArtTemplate">
 				<Size x="24" y="24"/>
+				<!--
+					y is 4 where the button opposite has 5. The box is a pixel taller than the button,
+					and what has to line up across the row is the centre, not the baseline.
+				-->
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMLEFT" x="4" y="-4"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="4"/>
 				</Anchors>
 				<Layers>
 					<Layer level="ARTWORK">
@@ -232,9 +279,9 @@
 			</CheckButton>
 
 			<Button parentKey="GenerateButton" inherits="UIPanelButtonTemplate">
-				<Size x="140" y="22"/>
+				<Size x="140" y="23"/>
 				<Anchors>
-					<Anchor point="TOPRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="0" y="-5"/>
+					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
 				</Anchors>
 			</Button>
 		</Frames>
@@ -252,26 +299,69 @@
 		never looked at again, so a permanent panel spends height on something that is empty almost
 		all of the time - and that height is exactly what the list was short of.
 
-		Same shape as the copy window in `DebindTest`. Small on purpose: nobody reads this text.
+		**Same chrome as the paste dialog**, which took it from the game's own import dialog
+		(`Blizzard_ClassTalentLoadoutImportDialog.xml`): `DialogBorderDarkTemplate` under a centred
+		`GameFontHighlight` title, no title bar, no close X, and a `ContentArea` inset 40 / -40 /
+		-40 / 25. These two are the same gesture in opposite directions and a reader meets them a
+		minute apart.
+
+		**No caption over the box, unlike over there.** That dialog has two boxes and has to say
+		which is which; this one has a single box the title already names, and a caption repeating
+		the title is a line that says nothing.
+
+		**The close button is not decoration here.** With the X gone, it and ESC are the only ways
+		out - and this is the one dialog that is deliberately left standing when its tab goes away.
 	-->
-	<Frame name="DebindShareCopyFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
-		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
-		clampedToScreen="true" mixin="DebindShareCopyFrameMixin">
-		<Size x="460" y="170"/>
+	<Frame name="DebindCopyFrame" parent="UIParent" frameStrata="FULLSCREEN_DIALOG"
+		enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
+		mixin="DebindCopyFrameMixin">
+		<Size x="460" y="185"/>
 		<Anchors>
 			<Anchor point="CENTER"/>
 		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Title" inherits="GameFontHighlight">
+					<Size x="250"/>
+					<Anchors>
+						<Anchor point="TOP" y="-20"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<Frames>
+			<Frame parentKey="Border" inherits="DialogBorderDarkTemplate"/>
+
+			<Frame parentKey="ContentArea">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="40" y="-40"/>
+					<Anchor point="BOTTOMRIGHT" x="-40" y="25"/>
+				</Anchors>
+			</Frame>
+
 			<ScrollFrame parentKey="Output" inherits="InputScrollFrameTemplate">
 				<KeyValues>
 					<!-- Nobody types here; a character counter over a generated string is noise. -->
 					<KeyValue key="hideCharCount" value="true" type="boolean"/>
 				</KeyValues>
+				<Size y="80"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="16" y="-34"/>
-					<Anchor point="BOTTOMRIGHT" x="-30" y="14"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT"/>
 				</Anchors>
 			</ScrollFrame>
+
+			<!--
+				Centred rather than paired, because there is only one thing to do here: the copy is
+				Ctrl-C and this button is just the way back out. `CLOSE` is the client's own, so it
+				is already in every language.
+			-->
+			<Button parentKey="CloseDialogButton" inherits="UIPanelButtonTemplate" text="CLOSE">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOM" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="0" y="0"/>
+				</Anchors>
+			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

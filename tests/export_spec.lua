@@ -1,4 +1,4 @@
--- The export payload and the string layer. `DebindShare/Export.lua`.
+-- The export payload and the string layer. `DebindStorage/Export.lua`.
 --
 -- Everything checked here is **a promise the format makes**. A format cannot be changed once a
 -- string is in someone else's hands (that is what v1 being v1 means), so there is nowhere else
@@ -11,7 +11,7 @@
 --   * local references (macro names, state indices). Those "succeed" on the far side and point at
 --     the wrong thing. Red text cannot catch that in principle, so only the format can.
 
-return function(DebindPrivate, DebindShare)
+return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -146,7 +146,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(#GroupFor(payload, "F") == 2, "F 그룹 크기");
         check(#GroupFor(payload, "G") == 1, "G 그룹 크기");
     end);
@@ -164,7 +164,7 @@ return function(DebindPrivate, DebindShare)
             class = { [0] = { { type = Constants.SPELL, value = 2, key = "F" } } },
         });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(#GroupFor(payload, "F") == 2, "그룹이 갈렸다");
         check(#payload.shared.GENERAL == 1, "일반 자리");
         check(#payload.shared.classes[CLASS][0] == 1, "직업 공용 자리");
@@ -178,7 +178,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local actions = AllActions(DebindShare.BuildExportPayload());
+        local actions = AllActions(DebindStorage.BuildExportPayload());
         check(#actions == 2, "액션 수 " .. #actions);
         for _, action in ipairs(actions) do
             check(action.key == nil, "없던 키가 생겼다: " .. tostring(action.key));
@@ -196,7 +196,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local group = GroupFor(DebindShare.BuildExportPayload(), "F");
+        local group = GroupFor(DebindStorage.BuildExportPayload(), "F");
         for _, action in ipairs(group) do
             check(action.seq == (action.value == 10 and 20 or 10),
                 "seq가 안 실렸다: " .. tostring(action.seq));
@@ -212,8 +212,8 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local first = AllActions(DebindShare.BuildExportPayload());
-        local second = AllActions(DebindShare.BuildExportPayload());
+        local first = AllActions(DebindStorage.BuildExportPayload());
+        local second = AllActions(DebindStorage.BuildExportPayload());
         check(#first == #second, "액션 수가 흔들린다");
         for i = 1, #first do
             check(first[i].value == second[i].value, "자리 " .. i .. "이 흔들린다");
@@ -233,7 +233,7 @@ return function(DebindPrivate, DebindShare)
         });
 
         local stored = LayerActions(1);
-        local payload = DebindShare.BuildExportPayload({ [stored[1]] = true });
+        local payload = DebindStorage.BuildExportPayload({ [stored[1]] = true });
         check(CountActions(payload) == 1, "액션 수 " .. CountActions(payload));
         check(AllActions(payload)[1].key == "F", "남은 키");
     end);
@@ -251,7 +251,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local payload = DebindShare.BuildExportPayload(nil, { stripKeys = true });
+        local payload = DebindStorage.BuildExportPayload(nil, { stripKeys = true });
         local keys = {};
         for _, action in ipairs(AllActions(payload)) do
             check(type(action.key) == "number", "합성 키가 숫자가 아니다");
@@ -273,7 +273,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        for _, action in ipairs(AllActions(DebindShare.BuildExportPayload(nil, { stripKeys = true }))) do
+        for _, action in ipairs(AllActions(DebindStorage.BuildExportPayload(nil, { stripKeys = true }))) do
             if (action.value == 2) then
                 check(action.key == nil, "안 묶였던 것에 키가 붙었다: " .. tostring(action.key));
             else
@@ -303,7 +303,7 @@ return function(DebindPrivate, DebindShare)
         });
         LayerActions(1)[2].imported = 4;
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(CountActions(payload) == 1, "액션 수 " .. CountActions(payload));
         check(#GroupFor(payload, "G") == 0, "격리 중인 것이 나갔다");
     end);
@@ -315,7 +315,7 @@ return function(DebindPrivate, DebindShare)
         local stored = LayerActions(1)[1];
         stored.imported = 4;
 
-        local payload = DebindShare.BuildExportPayload({ [stored] = true });
+        local payload = DebindStorage.BuildExportPayload({ [stored] = true });
         check(CountActions(payload) == 0, "고르면 나간다");
     end);
 
@@ -329,7 +329,7 @@ return function(DebindPrivate, DebindShare)
         });
         LayerActions(1)[2].imported = 4;
 
-        check(#GroupFor(DebindShare.BuildExportPayload(), "F") == 1, "반만 나가야 한다");
+        check(#GroupFor(DebindStorage.BuildExportPayload(), "F") == 1, "반만 나가야 한다");
     end);
 
     -- **승인했지만 키를 안 준 것은 나간다.** 배지가 없으면 내 것이고, "아직 키를 안 정한 키
@@ -342,7 +342,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local group = GroupFor(DebindShare.BuildExportPayload(), 3);
+        local group = GroupFor(DebindStorage.BuildExportPayload(), 3);
         check(#group == 2, "숫자 키 그룹이 안 나갔다: " .. #group);
     end);
 
@@ -356,7 +356,7 @@ return function(DebindPrivate, DebindShare)
     test("imported는 액션에 실리지 않는다", function()
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
-        check(OneOn(DebindShare.BuildExportPayload(), "F").imported == nil,
+        check(OneOn(DebindStorage.BuildExportPayload(), "F").imported == nil,
             "명단에 없는 필드가 나갔다");
     end);
 
@@ -370,7 +370,7 @@ return function(DebindPrivate, DebindShare)
         stored["$state3"] = true;
         stored.combat = true;
 
-        local action = OneOn(DebindShare.BuildExportPayload(), "F");
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.somethingNobodyRegistered == nil, "모르는 필드가 나갔다");
         check(action["$state3"] == true, "$상태 조건이 빠졌다");
         check(action.combat == true, "combat이 빠졌다");
@@ -381,7 +381,7 @@ return function(DebindPrivate, DebindShare)
             general = { { type = Constants.SPELL, value = 1, key = "F", checkedUnits = { target = 1 } } },
         });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         local action = OneOn(payload, "F");
         action.value = 999;
         action.checkedUnits.target = 999;
@@ -406,7 +406,7 @@ return function(DebindPrivate, DebindShare)
             char = { [0] = { { type = Constants.SPELL, value = 4, key = "J" } } },
         });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(payload.class == CLASS, "보내는 쪽 클래스가 없다");
         check(payload.shared.GENERAL[1].value == 1, "공용");
         check(payload.shared.classes[CLASS][0][1].value == 2, "클래스 스펙0");
@@ -419,7 +419,7 @@ return function(DebindPrivate, DebindShare)
         -- The live spec is 1 (wow_shim), so the spec 3 layer is one nothing is using right now.
         ResetProfile({ class = { [3] = { { type = Constants.SPELL, value = 1, key = "F" } } } });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(CountActions(payload) == 1, "안 쓰는 스펙이 빠졌다");
         check(payload.shared.classes[CLASS][3][1].value == 1, "스펙 번호");
     end);
@@ -429,7 +429,7 @@ return function(DebindPrivate, DebindShare)
     test("빈 레이어는 경로 자체가 안 선다", function()
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(payload.shared.classes == nil, "빈 직업 경로가 섰다");
         check(payload.char == nil, "빈 캐릭터 경로가 섰다");
     end);
@@ -444,12 +444,30 @@ return function(DebindPrivate, DebindShare)
         };
         ResetProfile({ general = { { type = Constants.MACRO, value = "내매크로", key = "F" } } });
 
-        local action = OneOn(DebindShare.BuildExportPayload(), "F");
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.type == Constants.MACRO, "타입은 그대로 유지한다");
         check(action.value == "내매크로", "이름도 그대로 남는다");
         check(action.macro, "스냅샷이 없다");
         check(action.macro.body == "/cast 화염구", "본문");
         check(action.macro.scope == "account", "인덱스 4는 계정 매크로");
+    end);
+
+    -- **옛 데이터는 이름이 아니라 슬롯 번호를 들고 있을 수 있다** - `GetMissingMacroName`이 그걸
+    -- 알고 `value`가 숫자인 경우를 따로 다룬다(`Misc.lua`). 스냅샷이 문자열일 때만 붙으면 그런
+    -- 액션은 맨 번호로 나가고, 받는 쪽에서 `GetMacroInfo(4)`는 **그쪽 4번 매크로**로 성공한다 -
+    -- 빨간 글씨가 원리적으로 못 잡는 바로 그 부류다. 스냅샷이 막으라고 있는 것이 이것이다.
+    test("슬롯 번호로 저장된 옛 MACRO도 스냅샷을 단다", function()
+        MACROS = {
+            [4] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
+            ["옛것"] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
+        };
+        ResetProfile({ general = { { type = Constants.MACRO, value = 4, key = "F" } } });
+
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
+        check(action.macro, "스냅샷이 없다");
+        check(action.macro.body == "/cast 얼음창", "본문 " .. tostring(action.macro.body));
+        check(action.macro.name == "옛것", "이름 " .. tostring(action.macro.name));
+        check(action.macro.scope == "account", "스코프 " .. tostring(action.macro.scope));
     end);
 
     test("캐릭터 매크로는 스코프가 갈린다", function()
@@ -459,7 +477,7 @@ return function(DebindPrivate, DebindShare)
         };
         ResetProfile({ general = { { type = Constants.MACRO, value = "내것", key = "F" } } });
 
-        local action = OneOn(DebindShare.BuildExportPayload(), "F");
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.macro.scope == "character", "스코프 " .. tostring(action.macro.scope));
     end);
 
@@ -467,7 +485,7 @@ return function(DebindPrivate, DebindShare)
         MACROS = {};
         ResetProfile({ general = { { type = Constants.MACRO, value = "없는것", key = "F" } } });
 
-        local action = OneOn(DebindShare.BuildExportPayload(), "F");
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.type == Constants.MACRO, "타입");
         check(action.value == "없는것", "이름");
         check(action.macro == nil, "없는 본문을 지어내면 안 된다");
@@ -484,7 +502,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local action = OneOn(DebindShare.BuildExportPayload(), "F");
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.setstate, "정규화가 안 됐다");
         check(action.setstate.mode == "toggle", "모드 " .. tostring(action.setstate.mode));
         check(action.setstate.state == "$state3", "상태 " .. tostring(action.setstate.state));
@@ -496,7 +514,7 @@ return function(DebindPrivate, DebindShare)
         -- it means the same thing in every install.
         ResetProfile({ general = { { type = Constants.SETCUSTOM, value = 2, key = "F" } } });
 
-        local action = OneOn(DebindShare.BuildExportPayload(), "F");
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.value == 2, "값이 바뀌었다");
         check(action.setstate == nil, "상태로 오해했다");
     end);
@@ -524,7 +542,7 @@ return function(DebindPrivate, DebindShare)
         local stored = LayerActions(1)[1];
         stored["$state3"] = true;
 
-        local manifest = DebindShare.BuildExportPayload().states;
+        local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest, "매니페스트가 없다");
         check(manifest["$state3"], "조건이 가리킨 상태가 빠졌다");
         check(manifest["$state3"].displayMessage == "3번", "정의가 안 실렸다");
@@ -533,7 +551,7 @@ return function(DebindPrivate, DebindShare)
 
     test("아무 상태도 안 쓰면 매니페스트가 없다", function()
         StatefulProfile({ { type = Constants.SPELL, value = 1, key = "F" } });
-        check(DebindShare.BuildExportPayload().states == nil, "빈 매니페스트가 붙었다");
+        check(DebindStorage.BuildExportPayload().states == nil, "빈 매니페스트가 붙었다");
     end);
 
     test("매크로텍스트에 손으로 적은 이름도 걷힌다", function()
@@ -541,7 +559,7 @@ return function(DebindPrivate, DebindShare)
             { type = Constants.MACROTEXT, value = "/cast [$state3] 화염구", key = "F" },
         });
 
-        local manifest = DebindShare.BuildExportPayload().states;
+        local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest and manifest["$state3"], "본문 안 이름이 안 걷혔다");
     end);
 
@@ -550,7 +568,7 @@ return function(DebindPrivate, DebindShare)
             { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_ON + 3, key = "F" },
         });
 
-        local manifest = DebindShare.BuildExportPayload().states;
+        local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest and manifest["$state3"], "SETSTATE가 가리킨 상태가 빠졌다");
     end);
 
@@ -559,7 +577,7 @@ return function(DebindPrivate, DebindShare)
         local stored = LayerActions(1)[1];
         stored["$state4"] = true;
 
-        local manifest = DebindShare.BuildExportPayload().states;
+        local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest["$state4"], "직접 참조");
         check(manifest["$state5"], "expr이 부르는 상태가 안 따라왔다");
     end);
@@ -569,7 +587,7 @@ return function(DebindPrivate, DebindShare)
         local stored = LayerActions(1)[1];
         stored["$state1"] = true;
 
-        local definition = DebindShare.BuildExportPayload().states["$state1"];
+        local definition = DebindStorage.BuildExportPayload().states["$state1"];
         -- `BindDerivedTables` recomputes this from initialValue. It is a reading, not a setting.
         check(definition.value == nil, "value가 실렸다");
         check(definition.initialValue == true, "initialValue는 실려야 한다");
@@ -594,8 +612,8 @@ return function(DebindPrivate, DebindShare)
     local repoRoot = (arg and arg[0] or ""):match("^(.*)[/\\]tests[/\\]run%.lua$") or ".";
     for _, path in ipairs({
         "/Debind/Libs/LibStub/LibStub.lua",
-        "/DebindShare/Libs/LibDeflate/LibDeflate.lua",
-        "/DebindShare/Libs/LibSerialize/LibSerialize.lua",
+        "/DebindStorage/Libs/LibDeflate/LibDeflate.lua",
+        "/DebindStorage/Libs/LibSerialize/LibSerialize.lua",
     }) do
         assert(loadfile(repoRoot .. path), "라이브러리를 못 읽었다: " .. path)();
     end
@@ -616,13 +634,13 @@ return function(DebindPrivate, DebindShare)
             { type = Constants.MACRO, value = "내매크로", key = "SHIFT-F" },
             { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_TOGGLE + 3, key = "G" },
         });
-        return DebindShare.BuildExportPayload();
+        return DebindStorage.BuildExportPayload();
     end
 
     --- Is what came back what went out? Every value checked here exists to stop a local reference
     --- from resolving wrongly, so if this falls the format has stopped doing its whole job.
     local function CheckSurvived(payload)
-        check(payload.v == DebindShare.EXPORT_SCHEMA_VERSION, "스키마 버전");
+        check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "스키마 버전");
         check(payload.class == CLASS, "클래스");
         check(CountActions(payload) == 3, "액션 수 " .. CountActions(payload));
         local shiftF = GroupFor(payload, "SHIFT-F");
@@ -640,7 +658,7 @@ return function(DebindPrivate, DebindShare)
     end);
 
     test("봉투 모양", function()
-        local str = DebindShare.ExportSelection();
+        local str = DebindStorage.ExportSelection();
         check(type(str) == "string", "문자열이 아니다: " .. tostring(str));
         check(str:sub(1, 5) == "DEB1:", "봉투 머리 " .. str:sub(1, 8));
         check(not str:find("%s"), "공백이 섞이면 채팅으로 못 나른다");
@@ -649,8 +667,8 @@ return function(DebindPrivate, DebindShare)
     if (deflateWorks) then
         test("문자열로 나갔다 그대로 돌아온다", function()
             SamplePayload();
-            local str = DebindShare.ExportSelection();
-            local payload, err = DebindShare.DecodeExportString(str);
+            local str = DebindStorage.ExportSelection();
+            local payload, err = DebindStorage.DecodeExportString(str);
             check(payload, "디코드 실패: " .. tostring(err));
             CheckSurvived(payload);
         end);
@@ -675,7 +693,7 @@ return function(DebindPrivate, DebindShare)
             char = { [0] = { { type = Constants.SPELL, value = 3, key = "H" } } },
         });
 
-        local payload = DebindShare.BuildExportPayload();
+        local payload = DebindStorage.BuildExportPayload();
         check(payload.groups == nil, "그룹 층이 아직 있다");
         check(payload.shared and #payload.shared.GENERAL == 1, "일반이 저장 경로에 없다");
         check(payload.shared.classes[CLASS][2][1].value == 2, "직업/특성2 경로");
@@ -691,7 +709,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local actions = DebindShare.BuildExportPayload().shared.GENERAL;
+        local actions = DebindStorage.BuildExportPayload().shared.GENERAL;
         check(#actions == 2, "액션 수 " .. #actions);
         check(actions[1].key == "F" and actions[2].key == "F", "키가 액션에 없다");
     end);
@@ -705,7 +723,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        local actions = DebindShare.BuildExportPayload(nil, { stripKeys = true }).shared.GENERAL;
+        local actions = DebindStorage.BuildExportPayload(nil, { stripKeys = true }).shared.GENERAL;
         local byValue = {};
         for _, action in ipairs(actions) do
             check(type(action.key) == "number",
@@ -724,7 +742,7 @@ return function(DebindPrivate, DebindShare)
             },
         });
 
-        for _, action in ipairs(DebindShare.BuildExportPayload().shared.GENERAL) do
+        for _, action in ipairs(DebindStorage.BuildExportPayload().shared.GENERAL) do
             check(action.seq == (action.value == 10 and 1 or 2),
                 "seq가 안 실렸다: " .. tostring(action.seq));
         end
@@ -739,12 +757,32 @@ return function(DebindPrivate, DebindShare)
             { "DEB1:!!!!!!", "BAD_ENCODING" },
         };
         for _, case in ipairs(cases) do
-            local payload, reason = DebindShare.DecodeExportString(case[1]);
+            local payload, reason = DebindStorage.DecodeExportString(case[1]);
             check(payload == nil, "받아들이면 안 된다: " .. tostring(case[1]));
             check(reason == case[2],
                 tostring(case[1]) .. " -> " .. tostring(reason) .. " (기대 " .. case[2] .. ")");
         end
     end);
+
+    -- **모르는 스키마는 두 방향이 있고, 할 수 있는 일이 반대다.** 하나로 묶여 있던 동안 사유가
+    -- 하나였고 그 문구가 "더 새 버전에서 만들었으니 업데이트하라"였다 - 스키마를 처음 올리는 날
+    -- 서랍에 이미 들어 있던 배치가 전부 그 문장을 달고 못 읽히게 된다. 업데이트는 이미 했는데.
+    -- **압축을 지나야 스키마 번호에 닿는다**, 그래서 위의 전체 왕복과 같은 편에 선다. 짧은
+    -- 페이로드면 stored block이 되어 fengari도 통과할 줄 알았는데 `level = 9`에서는 아니었다.
+    if (deflateWorks) then
+        test("옛 스키마와 새 스키마를 갈라서 답한다", function()
+            local function DecodeWithVersion(v)
+                local _, reason = DebindStorage.DecodeExportString(
+                    DebindStorage.EncodeExportPayload({ v = v, class = CLASS }));
+                return reason;
+            end
+
+            check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1) == "UNSUPPORTED_SCHEMA",
+                "더 새 것");
+            check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION - 1) == "SCHEMA_TOO_OLD",
+                "더 옛 것");
+        end);
+    end
 
     return T;
 end
