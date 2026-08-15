@@ -55,13 +55,20 @@
 		</Layers>
 		<Frames>
 			<!--
-				**Declaration order is anchor order, and both of these were on the wrong side of it.**
-				`relativeKey` is resolved when the frame is built, so a key declared later is nil and
-				the anchor is dropped without a word. The pin simply never appeared.
+				**Declaration order is anchor order.** `relativeKey` is resolved when the frame is
+				built, so a key declared later is nil and the anchor is dropped without a word - a
+				control that simply never appears. This row is where that happened twice, and
+				`npm run check:xml-anchors` exists because of it.
 
 				Right to left and top to bottom, each declared before whatever leans on it. **The two
-				lines do different jobs**: keeping the batch is up top next to removing it, and the
-				one thing this row is for is along the bottom with the size of what it would do.
+				lines do different jobs**: getting rid of the batch is up top, and the one thing this
+				row is for is along the bottom with the size of what it would do.
+
+				A pin stood beside the delete button, to keep a batch out of the expiry sweep.
+				**There is no sweep** - nothing removes a batch but that button - so it exempted the
+				reader from something that does not happen, and the line beside it promised a
+				clear-out the drawer does not perform. Both are gone until there is one, and it will
+				have to ask rather than sweep (`devdocs/building-export-import.md`).
 			-->
 			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
 				<Size x="24" y="24"/>
@@ -69,13 +76,6 @@
 					<Anchor point="TOPRIGHT" x="-2" y="-2"/>
 				</Anchors>
 			</Button>
-			<!--
-				A pin stood here, to keep a batch out of the expiry sweep. **There is no sweep** -
-				nothing removes a batch but this row's delete button - so it exempted the reader
-				from something that does not happen, and the line beside it promised a clear-out
-				the drawer does not perform. Both are gone until there is one, and it will have to
-				ask rather than sweep (`devdocs/building-export-import.md`).
-			-->
 			<!--
 				What the drawer is for. It opens a dialog rather than acting: everything it will put
 				in the profile arrives badged and reaches no key, so the question in front of it is
