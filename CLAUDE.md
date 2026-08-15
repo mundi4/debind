@@ -139,8 +139,11 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
     decisions by date, appended, never finished and never moved. The rest of `devdocs/` holds
     conclusions; this holds **how they moved and who moved them**. The name sorts it to the top of
     the folder; leave it that way.
+    - **Its purpose is to make the owner's judgement visible.** The three tests below are the sieve,
+      not the purpose: something can pass one and still not belong, and implementation-level detail
+      is the usual case — that goes in the document that owns the decision.
     - **Three things earn a line, and nothing else does.** A decision reached without friction does
-      not go here; it goes in the document that owns it. Neither do code changes — git has those.
+      not go here. Neither do code changes — git has those.
       - **We clashed** — the owner and I argued different positions. **Write both, as positions**:
         mine with the reason I held it, theirs in their own words, then which won and why. Mine
         stated weakly is a strawman, and a log of strawmen is worth nothing.
