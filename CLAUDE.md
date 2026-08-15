@@ -139,8 +139,16 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
     decisions by date, appended, never finished and never moved. The rest of `devdocs/` holds
     conclusions; this holds **how they moved and who moved them**. The name sorts it to the top of
     the folder; leave it that way.
-    - **Write a line when a decision is made or reversed**, and when a recorded reason turns out to
-      be false. Not for code changes — git has those.
+    - **Three things earn a line, and nothing else does.** A decision reached without friction does
+      not go here; it goes in the document that owns it. Neither do code changes — git has those.
+      - **We clashed** — the owner and I argued different positions. **Write both, as positions**:
+        mine with the reason I held it, theirs in their own words, then which won and why. Mine
+        stated weakly is a strawman, and a log of strawmen is worth nothing.
+      - **The reasoning came from outside the frame** — the thing that settled it was an angle
+        nobody in the argument was looking from ("decide this from the UI", "who reads this
+        format?", the intent nobody had written down).
+      - **A standing decision was overturned outright** — not narrowed or amended. Record what it
+        was, since the document it lived in will have moved on.
     - **The line goes in the same commit as the decision.** Catching up later makes it a second
       source of truth, which is the one thing this repo will not carry.
     - **One line and a pointer.** The reasoning stays in the document that owns it, named **without
