@@ -1646,6 +1646,177 @@ RegisterTest("Export: the window's count is what the string carries", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: The window's three panels
+--
+-- **All three are Debind's own XML now** (2026-08-15). Two of them used to be built by the
+-- load-on-demand addon and fetched by global name; they are children of the frame by
+-- `parent=` + `parentKey=` and arrive by `panelKey` (`devdocs/building-export-import.md`).
+--
+-- Everything below fails **silently** if it breaks, which is why it is here rather than in a
+-- checklist: a `parentKey` renamed, an XML dropped from the TOC, a fourth panel added without a
+-- width, `EnsureStore` simplified back to `IsAddOnLoaded`. None of that raises, and none of it is
+-- visible to `npm run check` - the panels are built by code that only runs in the game.
+--
+-- **Nothing here inserts an action, on purpose.** A run is isolated to a layer whose id is past
+-- every real one, and drawing the export list would put that id through `GetLayerLabel`. With the
+-- layer empty there are no headers to draw, so the panels can actually be shown.
+-----------------------------------------------------------
+
+--- The other two seats in `PANELS`, kept in step by hand for the reason `EXPORT_PANEL_ID` gives:
+--- that table is a local in `DebindUI.lua`. The first test below is what says so out loud - three
+--- ids that answer with three different panels cannot all be pointing at the wrong seat.
+local OVERVIEW_PANEL_ID, IMPORT_PANEL_ID = 1, 2
+
+RegisterTest("Panels: every tab resolves to a panel of its own", {
+    description = "탭 셋이 각자 자기 패널로 풀리는가 - 하나로 몰리거나 MissingPanel로 떨어지지 않는가",
+    run = function()
+        local NAME = "Panels resolve"
+
+        local seen = {}
+        for _, id in ipairs({ OVERVIEW_PANEL_ID, IMPORT_PANEL_ID, EXPORT_PANEL_ID }) do
+            local panel = DebindFrame:ResolvePanel(id)
+            if not panel then
+                return Fail(NAME, format("%d번 탭이 패널을 못 얻었다 - PANELS의 panelKey나 TOC를 볼 것", id))
+            end
+            if panel == DebindFrame.MissingPanel then
+                return Fail(NAME, format("%d번 탭이 MissingPanel로 떨어졌다", id))
+            end
+            -- The whole point of the move: they are the frame's children rather than something
+            -- reparented on the first press.
+            if panel:GetParent() ~= DebindFrame then
+                return Fail(NAME, format("%d번 패널의 부모가 창이 아니다", id))
+            end
+            if seen[panel] then
+                return Fail(NAME, format("%d번 탭이 %d번과 같은 패널을 준다", id, seen[panel]))
+            end
+            seen[panel] = id
+        end
+
+        return Pass(NAME, "탭 3개가 서로 다른 패널 3개로")
+    end,
+})
+
+-- **The width is a `KeyValue` in the XML and nothing checks it.** It used to be read back out of
+-- `GetWidth()` in `OnLoad`, which worked only while the panel stood unanchored at load; pinned to
+-- the host on four sides that read answers with the window's own width - the value fed back - and
+-- every tab would quietly settle on one size. Turning the KeyValue back into a `<Size>` restores
+-- exactly that failure, with no error anywhere.
+RegisterTest("Panels: the window takes each tab's own width", {
+    description = "탭을 옮기면 창 폭이 그 패널이 요구한 값으로 실제로 바뀌는가",
+    run = function()
+        local NAME = "Panel width"
+
+        local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
+        local export = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
+        if not overview or not export then
+            return Fail(NAME, "패널을 못 얻었다")
+        end
+        if not overview.preferredWidth or not export.preferredWidth then
+            return Fail(NAME, format("폭을 안 들고 있다 (overview=%s, export=%s)",
+                tostring(overview.preferredWidth), tostring(export.preferredWidth)))
+        end
+        if overview.preferredWidth == export.preferredWidth then
+            return Fail(NAME, format(
+                "두 패널이 같은 폭(%d)을 요구한다 - 창 폭을 되읽고 있을 수 있다",
+                overview.preferredWidth))
+        end
+
+        -- Put the reader back where they were, whatever happens below.
+        AddTeardown(function() DebindFrame:SelectPanel(OVERVIEW_PANEL_ID) end)
+
+        -- And that the frame actually listens. Asking the panels alone would pass on a
+        -- `SelectPanel` that stopped applying it.
+        DebindFrame:SelectPanel(EXPORT_PANEL_ID)
+        local exportWidth = DebindFrame:GetWidth()
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+        local overviewWidth = DebindFrame:GetWidth()
+
+        if exportWidth ~= export.preferredWidth or overviewWidth ~= overview.preferredWidth then
+            return Fail(NAME, format("창이 안 따라간다 - export %d(기대 %d), overview %d(기대 %d)",
+                exportWidth, export.preferredWidth, overviewWidth, overview.preferredWidth))
+        end
+
+        return Pass(NAME, format("overview %d, export %d", overviewWidth, exportWidth))
+    end,
+})
+
+-- **The placeholder inside the paste box is drawn and hidden by the template's own
+-- `OnTextChanged`**, and this dialog replaces that script to clear its error line. Chaining is the
+-- whole fix; dropping the chain leaves the grey sentence sitting on top of whatever was pasted, and
+-- it looks like a drawing bug rather than a wiring one. It shipped broken once, for an afternoon.
+RegisterTest("Paste dialog: the instruction gets out of the way", {
+    description = "붙여넣기 상자에 글자가 들어가면 안내문이 숨는가",
+    run = function()
+        local NAME = "Paste instructions"
+
+        local editBox = DebindPasteFrame.Input.EditBox
+        local instructions = editBox.Instructions
+        if not instructions then
+            return Fail(NAME, "Instructions 영역이 없다 - 템플릿이 바뀌었을 수 있다")
+        end
+
+        AddTeardown(function()
+            editBox:ClearFocus()
+            editBox:SetText("")
+            DebindPasteFrame:Hide()
+        end)
+
+        DebindPasteFrame:Open()
+        if not instructions:IsShown() then
+            return Fail(NAME, "빈 상자인데 안내문이 없다")
+        end
+
+        editBox:SetText("DEB1:something")
+        if instructions:IsShown() then
+            return Fail(NAME,
+                "글자가 들어갔는데 안내문이 그대로다 - OnTextChanged가 템플릿 것을 덮었다")
+        end
+
+        -- The negative: it has to come back, or "hidden" would be a one-way trip and an empty box
+        -- would stop saying what to do with it.
+        editBox:SetText("")
+        if not instructions:IsShown() then
+            return Fail(NAME, "다시 비웠는데 안내문이 안 돌아온다")
+        end
+
+        return Pass(NAME, "들어가면 숨고 비우면 돌아온다")
+    end,
+})
+
+-- **The panel is always there; what can be missing is what it reads.** `EnsureStore` asks whether
+-- `DebindPrivate.Store` was handed over, not whether the addon is loaded - the addon can be in
+-- memory having handed over nothing, and every caller dereferences that table. Asking
+-- `IsAddOnLoaded` reads as the natural thing to write (it was, first), and it turns this fallback
+-- into an error on the tab.
+RegisterTest("Panels: no store means no panel, not an error", {
+    description = "Store를 못 얻으면 ResolvePanel이 nil을 내서 MissingPanel이 서는가",
+    run = function()
+        local NAME = "Store missing"
+
+        local saved = DebindPrivate.Store
+        if not saved then
+            return Fail(NAME, "시작부터 Store가 없다 - 이 테스트가 잴 것이 없다")
+        end
+        AddTeardown(function() DebindPrivate.Store = saved end)
+
+        DebindPrivate.Store = nil
+        local importPanel = DebindFrame:ResolvePanel(IMPORT_PANEL_ID)
+        local overviewPanel = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
+        DebindPrivate.Store = saved
+
+        if importPanel ~= nil then
+            return Fail(NAME, "Store가 없는데 임포트 패널을 내줬다 - 그 뒤에서 nil을 인덱싱한다")
+        end
+        -- Overview reads none of it, so it must not be dragged down with them.
+        if overviewPanel == nil then
+            return Fail(NAME, "Store와 무관한 오버뷰까지 막혔다")
+        end
+
+        return Pass(NAME, "임포트는 막히고 오버뷰는 선다")
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Binding Issue Detection
 -----------------------------------------------------------
 
