@@ -1458,6 +1458,137 @@ RegisterTest("Import: a pending key group reaches nothing, then keeps its order"
 })
 
 -----------------------------------------------------------
+-- Test Cases: The export window counts what actually leaves
+--
+-- **This is the one the headless specs cannot reach.** They check the payload, and separately the
+-- window's list is built by code that never runs outside the game. What can go wrong is the two
+-- disagreeing - the window says "12 selected" and nine leave - and neither half is wrong on its
+-- own, so only asking both at once finds it.
+--
+-- Nothing here reads a field to decide what it expects: the string is decoded the way any receiver
+-- would decode it, and the count in it is set against the count the window drew.
+-----------------------------------------------------------
+
+--- The payload inside an exported string, undone the way the far side undoes it. LibStub is global
+--- and the two libraries register with it, so this needs nothing private.
+local function DecodeExportedString(str)
+    local body = type(str) == "string" and str:match("^DEB1:(.+)$")
+    if not body then
+        return nil, format("봉투가 아니다: %s", tostring(str and str:sub(1, 12)))
+    end
+
+    local LibSerialize, LibDeflate = LibStub("LibSerialize", true), LibStub("LibDeflate", true)
+    if not LibSerialize or not LibDeflate then
+        return nil, "라이브러리가 없다"
+    end
+
+    local compressed = LibDeflate:DecodeForPrint(body)
+    local serialized = compressed and LibDeflate:DecompressDeflate(compressed)
+    if not serialized then
+        return nil, "못 푼다"
+    end
+
+    local ok, payload = LibSerialize:Deserialize(serialized)
+    if not ok or type(payload) ~= "table" then
+        return nil, "역직렬화 실패"
+    end
+    return payload
+end
+
+--- Every action in a payload, whatever layer it sits under. The nesting is the address, so this is
+--- the walk a reader makes (`devdocs/building-export-import.md`).
+local function PayloadActions(payload)
+    local out = {}
+    local function Take(list)
+        for _, action in ipairs(list or {}) do
+            out[#out + 1] = action
+        end
+    end
+    local function TakeSpecTable(specTbl)
+        for _, list in pairs(specTbl or {}) do
+            Take(list)
+        end
+    end
+
+    Take(payload.shared and payload.shared.GENERAL)
+    for _, classTbl in pairs(payload.shared and payload.shared.classes or {}) do
+        TakeSpecTable(classTbl)
+    end
+    TakeSpecTable(payload.char)
+    return out
+end
+
+RegisterTest("Export: the window's count is what the string carries", {
+    description = "격리 중인 행이 목록에서 빠지고, 창이 센 수와 실제로 나간 수가 같은지",
+    run = function()
+        local NAME = "Export counts"
+
+        -- Two the tester owns and one still quarantined. A key with both on it is the sharpest
+        -- case: the group goes out half, which is right, and a filter that worked per key rather
+        -- than per action would send three or one.
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F5", combat = true })
+        InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F5" })
+        local badged = InsertAction({ type = Constants.SPELL, value = 6603, key = "CTRL-ALT-F6" })
+        badged.imported = 99
+        ApplyBindings()
+
+        -- The export tab, opened the way a reader opens it: this is what loads `DebindShare` and
+        -- runs the panel's `OnShow`, which is where the list and the selection are built.
+        DebindFrame:Show()
+        AddTeardown(function() DebindFrame:Hide() end)
+        DebindFrame:SelectPanel(3)
+
+        local panel = _G.DebindShareExportPanel
+        if not panel or not panel.layers then
+            return Fail(NAME, "익스포트 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+        end
+        -- The copy dialog takes keyboard focus when it opens (that is what it is for), so it is put
+        -- away by the runner rather than left holding it over whatever runs next.
+        AddTeardown(function()
+            DebindShareCopyFrame.Output.EditBox:ClearFocus()
+            DebindShareCopyFrame:Hide()
+        end)
+
+        -- What the window says, counted twice the way the window counts it: the [select all] total
+        -- walks every listed action, and each header prints its own layer's length.
+        local listed = panel:EnumerateListedActions()
+        local headerTotal = 0
+        for _, layer in ipairs(panel.layers) do
+            headerTotal = headerTotal + #layer.actions
+        end
+        if headerTotal ~= #listed then
+            return Fail(NAME, format("머리글 합 %d, 전체 목록 %d", headerTotal, #listed))
+        end
+
+        for _, action in ipairs(listed) do
+            if action == badged then
+                return Fail(NAME, "격리 중인 액션이 목록에 있다")
+            end
+        end
+
+        -- And what leaves. `OnGenerateClicked` is the button, and the dialog it fills holds the
+        -- string a reader would be handed.
+        panel:OnGenerateClicked()
+        local payload, why = DecodeExportedString(DebindShareCopyFrame.text)
+        if not payload then
+            return Fail(NAME, format("문자열을 못 읽었다: %s", why))
+        end
+
+        local sent = PayloadActions(payload)
+        if #sent ~= #listed then
+            return Fail(NAME, format("창은 %d개라 해놓고 %d개를 보냈다", #listed, #sent))
+        end
+        for _, action in ipairs(sent) do
+            if action.value == badged.value then
+                return Fail(NAME, "격리 중인 액션이 문자열에 실렸다")
+            end
+        end
+
+        return Pass(NAME, format("%d개 = %d개, 배지는 안 나감", #listed, #sent))
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Binding Issue Detection
 -----------------------------------------------------------
 

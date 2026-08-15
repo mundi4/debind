@@ -333,6 +333,30 @@ end
 
 
 -- ---------------------------------------------------------------------------------------------
+-- What can be sent at all
+-- ---------------------------------------------------------------------------------------------
+
+--- Is this action the sender's to send?
+---
+--- **A badged action is not.** What an export claims is "this is my setup", and something received
+--- and not yet decided on is someone else's, sitting quarantined and doing nothing. Passing it on
+--- would spread an undecided thing from person to person: it lands badged on the far side too, and
+--- that reader has no more to go on than this one did.
+---
+--- **The window asks the same question about its own list** (`BuildLayers` in `ShareUI.lua`). Every
+--- number that window prints comes out of that list -- the layer headers, the [select all] total,
+--- which rows can be ticked -- so the two answering differently is the window saying "12" and
+--- sending 9. One function, asked twice, is what makes them the same answer rather than the same
+--- idea written down twice.
+---
+--- **A synthetic key is not this.** No badge means the set is the sender's, and "a key group I have
+--- not given a key to" is a fact about their setup worth carrying (`KeyRenamer`).
+function DebindShare.IsExportable(action)
+    return action.imported == nil;
+end
+
+
+-- ---------------------------------------------------------------------------------------------
 -- Leaving the keys out
 -- ---------------------------------------------------------------------------------------------
 
@@ -383,20 +407,10 @@ DebindShare.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- window checks actions, so a set of actions is what it has; layers are walked here rather than
 --- asked for, which is what puts the payload in storage shape and leaves the window a filter.
 ---
---- **A badged action is not sent, whatever the selection says.** What an export claims is "this is
---- my setup", and something received and not yet decided on is not the sender's -- it is someone
---- else's, sitting quarantined and doing nothing. Passing it on would spread an undecided thing
---- from person to person: it lands badged on the far side too, and that reader has no more to go on
---- than this one did.
----
---- A key can therefore go out half. Two accepted actions on F and one badged one sends two, and
---- that is right - the badged one is not part of the setting yet. **A synthetic key still goes out
---- whole**: no badge means it is the sender's, and "a key group I have not given a key to" is a
---- fact about their setup worth carrying.
----
---- The window filters the same set out of its own list (`BuildLayers`), so what it counts and what
---- leaves cannot come apart. The test here is what makes that true rather than agreed: this window
---- outlives the one that takes badges off.
+--- **`IsExportable` is asked before the selection is**, so a badged action does not go out even if
+--- it is ticked. The window drops those from its own list, but it outlives the window that takes
+--- badges off - a badge can come off, or land, while this one stands open holding a stale set.
+--- A key can therefore go out half, and that is right: the badged one is not part of the setting yet.
 ---
 --- `options.stripKeys` is "send the actions, not my keybinds": every key is replaced by a synthetic
 --- one (`KeyRenamer`), so nothing is lost but the key itself.
@@ -429,7 +443,7 @@ function DebindShare.BuildExportPayload(selection, options)
         local bucket;
 
         for _, action in layer:Enumerate() do
-            if (not action.imported and (selection == nil or selection[action])) then
+            if (DebindShare.IsExportable(action) and (selection == nil or selection[action])) then
                 bucket = bucket or BucketForLayer(payload, layer);
 
                 local copy = CopyFields(action, ACTION_FIELDS);

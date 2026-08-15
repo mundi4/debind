@@ -373,40 +373,43 @@ end
 --- `classes[class]` per spec, so a Balance druid can read their Feral layer without switching.
 --- A window that only showed the live spec would make the user relog to share half their setup.
 ---
---- **Badged actions are left out of the list entirely**, because they are left out of the string
---- (`BuildExportPayload`). Every count this window prints is derived from what is collected here -
---- the layer headers, the [select all] total, and which rows can be ticked - so leaving them
---- listed would let the window say "12" and send 9. A layer holding nothing else drops out with
---- them, and a profile holding nothing else falls to `EXPORT_EMPTY`.
+--- **Every count this window prints comes out of this list** - the layer headers, the [select all]
+--- total, which rows can be ticked - so what it collects has to be exactly what would leave. Two
+--- things keep that true rather than agreed:
+---
+---   * `IsExportable`, the same question the payload asks, so a badged action is not listed and not
+---     counted. A layer holding nothing else drops out with them, and a profile holding nothing
+---     else falls to `EXPORT_EMPTY`.
+---   * `EnumerateAllProfileLayers`, which is the walk the payload makes. This used to ask
+---     `GetProfileLayer` for 1..11 by hand -- the same eleven layers in the game, and **not** the
+---     same under `/debtest`, where a run is isolated to a layer of its own by replacing that
+---     enumerator. Two walks over "the eleven layers" is a split waiting for one of them to change.
 function DebindShareExportPanelMixin:BuildLayers()
     local layers = {};
 
-    for layerID = 1, 11 do
-        local layer = DebindPrivate.GetProfileLayer(layerID);
-        if (layer) then
-            local actions, rows = {}, {};
-            for _, action in layer:Enumerate() do
-                if (not action.imported) then
-                    actions[#actions + 1] = action;
-                end
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        local actions, rows = {}, {};
+        for _, action in layer:Enumerate() do
+            if (DebindShare.IsExportable(action)) then
+                actions[#actions + 1] = action;
             end
+        end
 
-            local firstInLayer = true;
-            for _, group in ipairs(SortLayerActions(actions)) do
-                for index, entry in ipairs(group.actions) do
-                    rows[#rows + 1] = {
-                        action = entry.action,
-                        layerID = layerID,
-                        startsGroup = index == 1,
-                        firstInLayer = firstInLayer,
-                    };
-                    firstInLayer = false;
-                end
+        local firstInLayer = true;
+        for _, group in ipairs(SortLayerActions(actions)) do
+            for index, entry in ipairs(group.actions) do
+                rows[#rows + 1] = {
+                    action = entry.action,
+                    layerID = layer.layerID,
+                    startsGroup = index == 1,
+                    firstInLayer = firstInLayer,
+                };
+                firstInLayer = false;
             end
+        end
 
-            if (#actions > 0) then
-                layers[#layers + 1] = { layerID = layerID, actions = actions, rows = rows };
-            end
+        if (#actions > 0) then
+            layers[#layers + 1] = { layerID = layer.layerID, actions = actions, rows = rows };
         end
     end
 
