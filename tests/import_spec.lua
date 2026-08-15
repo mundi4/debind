@@ -278,6 +278,44 @@ return function(DebindPrivate, DebindShare)
     end);
 
     ---------------------------------------------------------------------------
+    -- Hand-made strings
+    --
+    -- **A pasted string is untrusted input and none of this may error.** The schema check turns
+    -- away anything from a version we do not know, so what is left is a string somebody built by
+    -- hand - which is exactly what that rule exists for. An error here goes off inside
+    -- `CommitBatch`, after part of a batch has already been placed.
+    ---------------------------------------------------------------------------
+
+    test("액션 자리에 액션이 아닌 것이 있어도 안 터진다", function()
+        ResetProfile();
+        local placements = DebindShare.PlanImport(General({
+            5,
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
+            "쓰레기",
+        }), 1);
+        check(#placements == 1, "액션 수 " .. #placements);
+        check(placements[1].action.value == 1, "엉뚱한 것이 들어왔다");
+    end);
+
+    -- `MacroMatches`는 테이블이 아니면 false를 내는데, 그 뒤에서 같은 값을 그대로 인덱싱하고
+    -- 있었다. 타입을 물어놓고 답을 안 쓰는 꼴이라 그 갈래가 곧바로 터졌다.
+    test("macro 스냅샷이 테이블이 아니어도 안 터진다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.MACRO, value = "이름", key = "F", seq = 1, macro = 5 } }));
+        check(action.type == Constants.MACRO, "타입이 바뀌었다");
+        check(action.value == "이름", "값이 바뀌었다");
+    end);
+
+    test("setstate가 테이블이 아니어도 안 터진다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SETSTATE, key = "F", seq = 1, setstate = 5 } }));
+        check(action.type == Constants.SETSTATE, "타입이 바뀌었다");
+        check(action.setstate == nil, "포맷 필드가 액션에 남았다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- Where each action lands
     ---------------------------------------------------------------------------
 

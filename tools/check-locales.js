@@ -40,6 +40,8 @@ const PENDING_TRANSLATION = {
     LAYER_DESC_SHARED_SPEC: ["ruRU"],
     LAYER_DESC_CHARACTER_GENERAL: ["ruRU"],
     LAYER_DESC_CHARACTER_SPEC: ["ruRU"],
+    // The bottom line on a spec tab that is not the one being played. Same owner.
+    INACTIVE_SPEC_DESC: ["ruRU"],
     // What the overview says about a row belonging to another specialization, and why its arrows
     // will not move it.
     ORDER_FLAG_OFFSPEC: ["ruRU"],
@@ -153,10 +155,10 @@ const PENDING_TRANSLATION = {
 //
 // 넣을 때는 **어느 호출부가 그 인자를 넘기는지** 한 줄 남길 것.
 const EXTRA_SPECS_OK = {
-    // DebindUI.lua의 GetSideTabDescription이 (지는 레이어, 전문화명) 둘을 언제나 넘긴다.
-    // enUS는 전문화명을 안 쓰고 "in this spec"으로 대신하므로 1번 하나로 끝나는데(`%s`),
-    // 한국어는 둘 다 쓰면서 차례가 반대라 번호를 붙인다.
-    LAYER_DESC_CHARACTER_SPEC: { koKR: "%2$s%1$s" },
+    // DebindUI.lua의 GetSideTabDescription이 전문화명 하나만 넘긴다. enUS는 그것마저 안 쓴다 -
+    // 툴팁 제목이 이미 "Oreo / Balance"라 "in this spec"으로 가리킬 것이 있어서, 서식이 하나도
+    // 없는 줄이 된다. 한국어는 그 이름이 필요하다.
+    LAYER_DESC_CHARACTER_SPEC: { koKR: "%s" },
 };
 
 // `L["KEY"] = ...` 형태만 센다. 주석(`-- L["X"]`)은 안 잡히도록 줄 앞을 고정한다.
@@ -283,6 +285,14 @@ for (const file of files) {
         .sort();
     // 봐준 것은 **세어서 말한다.** 조용히 넘기면 목록이 늘기만 한다.
     const pending = absent.filter((k) => (PENDING_TRANSLATION[k] || []).includes(locale)).sort();
+    // 그리고 **다 봐준 것은 명단에서 나가야 한다.** 번역이 도착하면 그 키는 `absent`에서 빠지는데,
+    // 면제는 남는다 - 그 뒤에 누가 그 줄을 지우면 이 검사가 초록인 채로 그 언어가 영어로 돌아간다
+    // (이 파일이 만들어진 이유가 정확히 그 회귀다). `check-export-fields.js`가 자기 예외 명단에
+    // 같은 위생 검사를 한다.
+    const staleExempt = Object.keys(PENDING_TRANSLATION)
+        .filter((k) => (PENDING_TRANSLATION[k] || []).includes(locale))
+        .filter((k) => !absent.includes(k))
+        .sort();
     // enUS에 없는 키는 **지워진 문자열의 잔재**다. 화면에 안 나오므로 무해해 보이지만,
     // 다음 사람이 그게 아직 쓰이는 줄 알고 손본다.
     const stale = [...keys].filter((k) => !base.keys.has(k)).sort();
@@ -320,11 +330,20 @@ for (const file of files) {
             console.log(`  - ${k}: 기대값 [${want || "없음"}], 여기는 [${got || "없음"}]`);
         }
     }
+    if (staleExempt.length > 0) {
+        failed = true;
+        console.log(`${locale}: 번역이 도착했는데 PENDING_TRANSLATION에 남아 있는 키 ${staleExempt.length}개`);
+        console.log(`  tools/check-locales.js의 PENDING_TRANSLATION에서 지울 것 - 안 지우면 그 키는`);
+        console.log(`  앞으로 빠져도 이 검사가 아무 말도 안 한다.`);
+        for (const k of staleExempt) {
+            console.log(`  - ${k}`);
+        }
+    }
     if (pending.length > 0) {
         console.log(`${locale}: 번역 대기 ${pending.length}개 (그동안 ${BASE}로 나간다) - ${pending.join(", ")}`);
     }
     if (missing.length === 0 && stale.length === 0 && dupes.length === 0
-        && vague.length === 0 && badSpecs.length === 0) {
+        && vague.length === 0 && badSpecs.length === 0 && staleExempt.length === 0) {
         console.log(`${locale}: 키 ${keys.size}개, 서식까지 ${BASE}와 일치.`);
     }
 }

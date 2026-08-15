@@ -1457,6 +1457,49 @@ RegisterTest("Import: a pending key group reaches nothing, then keeps its order"
     end,
 })
 
+RegisterTest("Key group: the conflict popup's second answer runs", {
+    description = "차 있는 키에 [덮어쓰기]를 눌렀을 때 점유자가 실제로 키를 잃는지",
+    run = function()
+        local NAME = "Conflict overwrite"
+        local KEY = "CTRL-ALT-F7"
+
+        -- The occupant, and the set that wants its key.
+        local occupant = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
+        local mover = InsertAction({ type = Constants.SPELL, value = 2, key = 3, combat = true })
+        ApplyBindings()
+
+        -- **The dialog is opened by name, and answered by pressing its button.** Calling the
+        -- handler directly would prove nothing: the defect this stands over was never in the
+        -- handler but in whether the popup ever reaches it. `StaticPopup_OnClick` dispatches by
+        -- index only when the dialog says to, and without that it sends every index but the first
+        -- to `OnCancel` - so [overwrite] closed and did nothing at all.
+        local dialog = StaticPopup_Show("DEBIND_KEY_GROUP_CONFLICT", nil, nil, {
+            actions = { mover },
+            key = KEY,
+            occupants = { occupant },
+            label = "test",
+        })
+        if not dialog then
+            return Fail(NAME, "대화상자가 안 떴다")
+        end
+        AddTeardown(function() StaticPopup_Hide("DEBIND_KEY_GROUP_CONFLICT") end)
+
+        local button = dialog.GetButton and dialog:GetButton(2)
+        if not button then
+            return Fail(NAME, "2번 버튼을 못 얻었다 - 클라이언트의 대화상자 모양이 바뀌었나")
+        end
+        button:Click()
+
+        if occupant.key ~= nil then
+            return Fail(NAME, format("점유자가 키를 그대로 들고 있다: %s", tostring(occupant.key)))
+        end
+        if mover.key ~= KEY then
+            return Fail(NAME, format("옮긴 쪽이 키를 못 받았다: %s", tostring(mover.key)))
+        end
+        return Pass(NAME, "점유자가 비켰고 그룹이 키를 받았다")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: The export window counts what actually leaves
 --

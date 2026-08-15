@@ -520,13 +520,12 @@ local function GetSideTabDescription(sideTabID, tabID)
 		if (sideTabID == 1) then
 			return LLL["LAYER_DESC_CHARACTER_GENERAL"];
 		end
-		-- **지는 레이어를 먼저 넘긴다.** 다른 두 줄과 차례가 다른데, 그래야 영어가 자리 번호
-		-- 없이 `%s` 하나로 끝난다 - 영어는 전문화명을 안 쓰기 때문이다("in this spec").
-		-- 번호를 붙이면 `%2$s` 하나만 남아 1번을 건너뛰게 되는데, 블리자드 트리에서 확인되는
-		-- 용례는 차례를 **바꾸는** 것뿐이고(ChatFrameUtil의 `%3$s`) 건너뛰는 것은 없다.
-		-- 한국어는 둘 다 쓰므로 번호로 되돌린다.
-		return format(LLL["LAYER_DESC_CHARACTER_SPEC"],
-			GetLayerLabel(GetLayerID(2, 1)), GetSideTabaLabel(sideTabID));
+		-- **The losing layer is not passed.** This is the narrowest of the five, so it beats
+		-- every other one rather than the one below it, and the line says "everywhere else"
+		-- instead of naming any. English then takes no argument at all -- the tooltip title
+		-- already reads "Oreo / Balance" -- while Korean still needs the spec name, so the one
+		-- value goes out and each locale uses it or does not.
+		return format(LLL["LAYER_DESC_CHARACTER_SPEC"], GetSideTabaLabel(sideTabID));
 	end
 	if (sideTabID == 1) then
 		return LLL["LAYER_DESC_SHARED_GENERAL"];
@@ -980,6 +979,16 @@ do
 			text_arg1 = #actions,
 			callback = function()
 				DeleteActions(actions);
+				-- **The last badge takes the narrowing with it here too.** Rejecting the lot is the
+				-- other ordinary end of an import, and this is the third way the last badged action
+				-- can go - `ApproveImportedActions` and `RebuildAfterKeyGroupChange` both drop the
+				-- filter for the same reason. Left on, both lists draw empty and the only way out
+				-- is noticing the checkbox.
+				if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
+					_importedOnly = nil;
+					DebindFrame:Refresh(true);
+					DebindFrame:Update();
+				end
 			end,
 			acceptText = YES,
 			cancelText = NO,
@@ -1121,6 +1130,13 @@ local function ApproveImportedActions(actions)
     if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
         _importedOnly = nil;
     end
+
+    -- **What just left the bin leaves the selection with it.** `imported` is the field the bin
+    -- filter reads, so accepting rows while [only what came in] is on drops them off screen while
+    -- the strip still counts them - "2 selected" over a list with nothing highlighted, and the
+    -- search box stays hidden because the two share that slot. Every other path that changes what
+    -- the filter shows prunes first, and this was the one that did not.
+    DebindFrame:PruneSelectionToBinFilter();
 
     DebindPrivate.UpdateBindings();
     DebindFrame:Refresh(true);
@@ -2078,6 +2094,14 @@ function DebindSideTabMixin:OnEnter()
 	end
 	GameTooltip_SetTitle(GameTooltip, text);
 	GameTooltip_AddNormalLine(GameTooltip, GetSideTabDescription(id));
+
+	-- **Last, not before the description.** The line it qualifies has to be read first, and
+	-- Blizzard puts the "when does this apply" line at the bottom of a tooltip -- `Requires
+	-- Level 40` sits there. Not coloured: red is for a condition that failed, and this one has
+	-- not failed, it is simply not now.
+	if (self.isOffSpec) then
+		GameTooltip_AddNormalLine(GameTooltip, LLL["INACTIVE_SPEC_DESC"]);
+	end
 
 	-- TODO add instruction line. "you can drop here to add/move into this tab"
 
@@ -5164,6 +5188,12 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	button1 = LLL["KEY_GROUP_CONFLICT_MERGE"],
 	button2 = LLL["KEY_GROUP_CONFLICT_UNBIND"],
 	button3 = CANCEL,
+	-- **Without this the second button is dead.** It is what makes `StaticPopup_OnClick` dispatch by
+	-- number; without it the call falls to the backward-compatible branch, where 1 resolves
+	-- `OnAccept or OnButton1`, 3 resolves `OnAlt`, and **everything else resolves `OnCancel`** --
+	-- which this dialog does not have, so [overwrite] would close and do nothing at all. Blizzard's
+	-- own three-button dialog (`GAME_SETTINGS_CONFIRM_DISCARD`) carries it for the same reason.
+	selectCallbackByIndex = true,
 	OnShow = function(dialog, data)
 		dialog:SetFormattedText(LLL["KEY_GROUP_CONFLICT"],
 			data.label, KeyGroupLabel(data.key), #data.occupants);

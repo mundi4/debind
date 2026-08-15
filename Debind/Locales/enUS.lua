@@ -187,6 +187,15 @@ L["GROUP_PARTY"] = "When In Party";
 L["GROUP_RAID"] = "When In Raid";
 L["IGNORE_HOVER_UNIT_DESC"] = "When selected, the action ignores the unit frame's unit."
 L["IGNORE_HOVER_UNIT"] = "Ignore hover unit"
+-- The last line on a spec tab that is not the one being played. The line above it states the
+-- layer's precedence in the present tense, which is not true while the layer is out of play; this
+-- says when it starts being true.
+--
+-- **No verb for entering the spec.** "Switch to it" and the like read equally well as "click this
+-- tab" -- which is what the reader's cursor is on and what they are about to do -- and that
+-- reading is false, since clicking does not make the layer apply. A state ("when you're in this
+-- spec") cannot be read the second way.
+L["INACTIVE_SPEC_DESC"] = "Keys you put here start working when you're in this spec."
 L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its own shortcuts while it is open, and this addon leaves those keys alone. An action bound to one of them does nothing while the editor is open.|n|nCheck this to take the key anyway: your action runs, and the editor's shortcut on that key does not. The editor still shows the key on its own button, so that button will look usable while doing nothing."
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
@@ -294,11 +303,15 @@ L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same ke
 L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless conditions or Importance say otherwise."
 -- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
 L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Shared, unless conditions or Importance say otherwise."
--- 인자는 차례로 지는 레이어의 이름, 전문화명. **위 둘과 차례가 다르다** - 영어는 전문화명을
--- 안 쓰기 때문이다(툴팁 제목이 이미 "Oreo / Balance"라 "this spec"으로 가리킬 것이 있다).
--- 지는 쪽을 1번으로 두면 영어가 자리 번호 없이 끝나고, 한국어만 번호로 차례를 되돌린다.
--- 근거는 GetSideTabDescription 주석에. 서식이 갈리는 것은 check-locales의 EXTRA_SPECS_OK가 안다.
-L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key in %s, unless conditions or Importance say otherwise."
+-- **This is the narrowest layer, so it beats every other one** -- not the one directly below it.
+-- Naming a single loser here was wrong, and naming all four would be a list nobody reads, so it
+-- says "everywhere else", the same move `LAYER_DESC_CHARACTER_GENERAL` makes with "in Shared".
+--
+-- That leaves English with no argument at all: the tooltip title already reads "Oreo / Balance",
+-- so "this spec" has something to point at. Korean still needs the spec name and takes it as the
+-- only `%s`. The two locales therefore disagree on format specifiers, which check-locales knows
+-- about through EXTRA_SPECS_OK.
+L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key everywhere else, unless conditions or Importance say otherwise."
 -- 레이어의 짧은 이름. "X over Y" 한 줄에 들어가는 값이라 한두 낱말이어야 한다.
 -- Shared/General을 Account라 부르는 이유는 GetLayerShortName 주석에.
 L["LAYER_SHORT_ACCOUNT"] = "Account"

@@ -84,7 +84,11 @@ local function BuildAction(source)
         end
     end
 
-    if (source.setstate) then
+    -- **Asked whether it is a table, not whether it is there.** Everything below reads fields off
+    -- these two, and a pasted string is untrusted input that none of this may error on -- a
+    -- hand-made `setstate = 5` would raise here and take the whole commit down with it, halfway
+    -- through placing a batch.
+    if (luatype(source.setstate) == "table") then
         local flag = SETSTATE_MODE_FLAGS[source.setstate.mode];
         local index = Constants.CUSTOM_STATE_INDICES[source.setstate.state];
         if (flag and index) then
@@ -101,7 +105,7 @@ local function BuildAction(source)
     -- macro that exists, or a `MACROTEXT` carrying the body it was sent with. It is not remade
     -- later: a reader who creates the macro afterwards keeps the `MACROTEXT`, which is not wrong,
     -- only flatter.
-    if (action.type == Constants.MACRO and source.macro) then
+    if (action.type == Constants.MACRO and luatype(source.macro) == "table") then
         if (not MacroMatches(source.macro)) then
             action.type = Constants.MACROTEXT;
             action.value = source.macro.body;

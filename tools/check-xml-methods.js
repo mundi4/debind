@@ -127,6 +127,10 @@ function resolveMixins(mixinAttr, inheritsAttr, seen) {
 
 const problems = [];
 
+/** `method=` attributes that reached the mixin lookup. The success line reports this and not a
+ *  re-count of the files, so a walk that quietly stopped checking cannot report a healthy number. */
+let resolved = 0;
+
 for (const file of xmlFiles) {
     const text = fs.readFileSync(file, "utf8");
     const rel = path.relative(root, file);
@@ -171,6 +175,7 @@ for (const file of xmlFiles) {
         }
 
         if (!method || !owner) return;
+        resolved++;
 
         const mixins = resolveMixins(owner.mixin, owner.inherits);
         if (mixins.length === 0) {
@@ -208,9 +213,10 @@ if (problems.length > 0) {
     process.exit(1);
 }
 
-let checked = 0;
-for (const file of xmlFiles) {
-    const text = fs.readFileSync(file, "utf8");
-    checked += (text.match(/\bmethod="/g) || []).length;
-}
-process.stdout.write(`XML method= ${checked}개가 전부 실재하는 믹스인 함수에 닿는다.\n`);
+// **The number is what the walk actually resolved**, counted where it resolves. It used to be
+// re-derived afterwards with a raw `method="` sweep over the same files, which cannot see the walk
+// having stopped checking - the failure the comment above `owner` describes, where the stack
+// underflows and every `method=` returns early, would still have printed a healthy count and
+// exited 0. (That sweep was also plainly wrong: it counted a commented-out `<OnLoad method="…"/>`
+// the walker correctly skips.)
+process.stdout.write(`XML method= ${resolved}개가 전부 실재하는 믹스인 함수에 닿는다.\n`);

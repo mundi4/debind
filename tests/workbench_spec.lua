@@ -152,6 +152,8 @@ return function(DebindPrivate, DebindShare)
     ---------------------------------------------------------------------------
 
     --- A payload built from `{ scope, class, spec, count }` entries, one layer each.
+    --- `count = 0` stands an **empty** layer up, and `junk` puts a non-action in the list -- both
+    --- are shapes a hand-made string carries and neither may raise.
     local function Payload(layers)
         local payload = { v = 1, class = CLASS };
 
@@ -159,6 +161,9 @@ return function(DebindPrivate, DebindShare)
             local actions = {};
             for i = 1, (entry.count or 1) do
                 actions[i] = { type = Constants.SPELL, value = i, key = entry.key, seq = i };
+            end
+            if (entry.junk) then
+                actions[#actions + 1] = entry.junk;
             end
 
             if (entry.scope == "general") then
@@ -232,6 +237,38 @@ return function(DebindPrivate, DebindShare)
             { scope = "general" },
         }));
         check(order == "shared.general", "놓을 데 없는 줄이 섰다: " .. order);
+    end);
+
+    -- **0은 "조금 있음"이 아니다.** 개수를 `if (count)`로 물으면 Lua에서 0이 참이라 빈 레이어도
+    -- 체크박스를 세운다. 읽는 사람은 아무것도 안 놓는 줄을 켜고, 방금 그 선택을 내준 대화상자에게
+    -- 오류로 답을 받는다.
+    test("빈 레이어는 줄을 안 세운다", function()
+        local order = LineIDs(Payload({
+            { scope = "character", spec = 0, count = 0 },
+            { scope = "general" },
+        }));
+        check(order == "shared.general", "빈 줄이 섰다: " .. order);
+    end);
+
+    -- **주소를 먼저 검증한다.** `ImportLineFor`는 특성을 0과 견주는데 그 값이 숫자인지 보는 곳은
+    -- `ImportAddress` 하나뿐이라, 순서가 뒤집히면 손으로 만든 문자열 하나가 서랍을 여는 순간
+    -- 터진다 - 읽는 사람에게는 죽은 버튼으로 보인다.
+    test("특성 자리에 숫자가 아닌 것이 와도 안 터진다", function()
+        local order = LineIDs(Payload({
+            { scope = "character", spec = "2" },
+            { scope = "general" },
+        }));
+        check(order == "shared.general", "이상한 특성이 줄을 만들었다: " .. order);
+    end);
+
+    -- 액션 자리에 액션이 아닌 것. 걸러내는 자리가 하나여야 세는 쪽도 넣는 쪽도 `ipairs`로
+    -- 끝난다.
+    test("액션이 아닌 원소는 걸러진다", function()
+        local lines = DebindShare.CollectImportLines(Payload({
+            { scope = "general", count = 2, junk = 5 },
+        }));
+        check(#lines == 1 and lines[1].actionCount == 2,
+            "쓰레기까지 세었다: " .. tostring(lines[1] and lines[1].actionCount));
     end);
 
     test("모르는 직업 이름은 줄을 안 만든다", function()

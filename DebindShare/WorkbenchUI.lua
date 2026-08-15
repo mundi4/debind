@@ -98,6 +98,11 @@ function DebindShareBatchRowMixin:Init(elementData)
             text = LLL["IMPORT_DELETE_CONFIRM"],
             text_arg1 = BatchTitle(batch),
             callback = function()
+                -- **The dialog goes first, because it holds this batch by reference.** Deleting a
+                -- row only takes it out of the drawer; the open dialog's copy still decodes and
+                -- still commits, so [accept] after this would import in full the batch they just
+                -- confirmed removing - and leave no row to take it back from.
+                DebindShareBringFrame:DismissFor(batch);
                 DebindShare.DeleteBatch(batch.id);
                 DebindShareImportPanel:Refresh();
             end,
@@ -360,6 +365,17 @@ function DebindShareBringFrameMixin:SelectedLines()
         end
     end
     return selected;
+end
+
+--- Shuts the dialog if it is standing on `batch`, and does nothing otherwise.
+---
+--- **The answers in here belong to one press of one row's button**, and a row that is going away
+--- has no press left to belong to. `DebindShareImportPanelMixin:OnHide` closes it for the same
+--- reason when the whole tab leaves.
+function DebindShareBringFrameMixin:DismissFor(batch)
+    if (self:IsShown() and self.batch == batch) then
+        self:Hide();
+    end
 end
 
 function DebindShareBringFrameMixin:UpdateAcceptButton()

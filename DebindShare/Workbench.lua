@@ -63,23 +63,40 @@ local EXPIRY_WARNING_SECONDS  = 3 * 24 * 60 * 60;
 --- The address is only where it *claims* to be. `ImportAddress` is what says whether it is one this
 --- profile has a place for, and the two are separate so a caller can count what it turned down.
 ---
---- Everything is type-checked on the way, because a pasted string is untrusted input and none of
---- this may error. A branch that is not a table is not walked, which is the same answer as a branch
---- that is not there.
+--- Every branch is type-checked on the way down, because a pasted string is untrusted input and
+--- none of this may error. A branch that is not a table is not walked, which is the same answer as
+--- a branch that is not there.
+---
+--- **The elements are checked too, and that is not the same check.** This walk used to stop at the
+--- lists and hand them over whole, so one number sitting where an action belongs raised in whatever
+--- read it next -- and every caller reads them: counting on paste, planning, building. Filtering
+--- here is what lets each of them say `ipairs` and stop worrying.
 function DebindShare.ForEachPayloadLayer(payload, fn)
+    --- The list handed on, with anything that is not an action table left out. A copy, because the
+    --- callers walk it with `ipairs` and one hole would stop them early -- and because what is
+    --- dropped has to be dropped for every caller alike, not per caller.
+    local function Visit(list, scope, class, spec)
+        if (luatype(list) ~= "table") then
+            return;
+        end
+        local actions = {};
+        for i = 1, #list do
+            if (luatype(list[i]) == "table") then
+                actions[#actions + 1] = list[i];
+            end
+        end
+        fn(actions, scope, class, spec);
+    end
+
     local shared = luatype(payload.shared) == "table" and payload.shared or nil;
 
     if (shared) then
-        if (luatype(shared.GENERAL) == "table") then
-            fn(shared.GENERAL, "general", nil, 0);
-        end
+        Visit(shared.GENERAL, "general", nil, 0);
         if (luatype(shared.classes) == "table") then
             for class, specTbl in pairs(shared.classes) do
                 if (luatype(specTbl) == "table") then
                     for spec, list in pairs(specTbl) do
-                        if (luatype(list) == "table") then
-                            fn(list, "class", class, spec);
-                        end
+                        Visit(list, "class", class, spec);
                     end
                 end
             end
@@ -88,9 +105,7 @@ function DebindShare.ForEachPayloadLayer(payload, fn)
 
     if (luatype(payload.char) == "table") then
         for spec, list in pairs(payload.char) do
-            if (luatype(list) == "table") then
-                fn(list, "character", nil, spec);
-            end
+            Visit(list, "character", nil, spec);
         end
     end
 end
@@ -190,14 +205,20 @@ function DebindShare.CollectImportLines(payload)
     local counts, classLine = {}, nil;
 
     DebindShare.ForEachPayloadLayer(payload, function(list, scope, class, spec)
-        local line = DebindShare.ImportLineFor(scope, spec);
-        if (line and DebindShare.ImportAddress(scope, class, spec)) then
-            counts[line] = (counts[line] or 0) + #list;
-            if (line == "shared.class") then
-                if (classLine == nil) then
-                    classLine = class;
-                elseif (classLine ~= class) then
-                    classLine = false;
+        -- **The address is vetted first**, the same order `PlanImport` reads them in. `ImportAddress`
+        -- is the only place `spec` is checked for being a number at all, and the line function
+        -- compares it against 0 -- asked the other way round, a payload keyed `char = { ["2"] = … }`
+        -- raises where the reader can only see a dead button.
+        if (DebindShare.ImportAddress(scope, class, spec)) then
+            local line = DebindShare.ImportLineFor(scope, spec);
+            if (line) then
+                counts[line] = (counts[line] or 0) + #list;
+                if (line == "shared.class") then
+                    if (classLine == nil) then
+                        classLine = class;
+                    elseif (classLine ~= class) then
+                        classLine = false;
+                    end
                 end
             end
         end
@@ -205,7 +226,10 @@ function DebindShare.CollectImportLines(payload)
 
     local lines = {};
     for _, line in ipairs(DebindShare.IMPORT_LINES) do
-        if (counts[line]) then
+        -- **Zero is not "some".** An empty layer list adds nothing to the count, and `if (count)`
+        -- would stand the checkbox up anyway -- 0 is true in Lua. The reader would tick a line that
+        -- places nothing and be answered with an error by the dialog that just offered it.
+        if ((counts[line] or 0) > 0) then
             lines[#lines + 1] = {
                 line = line,
                 actionCount = counts[line],

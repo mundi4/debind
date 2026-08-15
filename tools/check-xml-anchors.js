@@ -19,6 +19,7 @@ const path = require("path");
 const roots = [
     path.join(__dirname, "..", "Debind"),
     path.join(__dirname, "..", "DebindShare"),
+    path.join(__dirname, "..", "DebindCliqueFake"),
     path.join(__dirname, "..", "DebindTest"),
 ];
 
@@ -182,16 +183,30 @@ function checkFile(file, rel) {
     return problems.length;
 }
 
+// **Walked, not listed.** This used to read each root's top level only, so `DebindCliqueFake` was
+// missed entirely and anything put in a subfolder would go unchecked without a word. `Libs` stays
+// out for the reason its siblings give: it is somebody else's code.
 let files = [];
-for (const dir of roots) {
-    if (!fs.existsSync(dir)) {
-        continue;
-    }
-    for (const name of fs.readdirSync(dir)) {
-        if (name.endsWith(".xml")) {
-            files.push({ file: path.join(dir, name), rel: path.join(path.basename(dir), name) });
+const collectXml = (dir, rel) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+            if (entry.name !== "Libs") collectXml(path.join(dir, entry.name), path.join(rel, entry.name));
+        } else if (entry.name.endsWith(".xml")) {
+            files.push({ file: path.join(dir, entry.name), rel: path.join(rel, entry.name) });
         }
     }
+};
+for (const dir of roots) {
+    if (fs.existsSync(dir)) {
+        collectXml(dir, path.basename(dir));
+    }
+}
+
+// **An empty list is not a pass.** Rename a folder and this would otherwise print "0 files, all
+// clean" and exit 0, which is the one answer a check must never give.
+if (files.length === 0) {
+    console.error("검사할 XML을 하나도 못 찾았다. roots가 실제 폴더를 가리키는지 볼 것.");
+    process.exit(1);
 }
 
 let bad = 0;
