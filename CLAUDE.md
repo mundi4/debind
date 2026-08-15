@@ -28,7 +28,7 @@ What earns it:
 
 A World of Warcraft addon. A key goes straight to a spell/item/macro with no action bar slot, and
 five **layers** (account → class → spec → character → character+spec) decide which characters that
-key covers. WoW's own keybindings are never touched — see `readme.md` for the user-facing model.
+key covers. WoW's own keybindings are never touched — see `README.md` for the user-facing model.
 
 ## Commands
 

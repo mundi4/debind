@@ -16,7 +16,7 @@ Most of your binds are the same on every character. Some belong to one class. A 
 
 **And "which character" isn't the only question a key has.** The same key can want one thing in combat and another out of it, one thing on the frame under your mouse and another anywhere else. That part you already know — it's why you ran out of modifier keys, and why the macro got too long.
 
-So the binds have to be layered, and what a key does has to be worked out at the moment you press it.
+So the binds have to be layered, and one key has to be able to mean more than one thing.
 
 ## What you get
 
@@ -25,6 +25,8 @@ So the binds have to be layered, and what a key does has to be worked out at the
 - **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
 - **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it.
 - **Flip what a key does mid-fight.** Five switches of your own, usable in combat, without spending a real modifier.
+
+**Debind is for the keys where the answer isn't "all of them."** Put in the ones you want now — every other key goes on working exactly as it did.
 
 ![The Debind window. The overview column on the left shows every key in the order it fires; the right side is the layer being edited.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/main-window.png)
 
@@ -49,11 +51,9 @@ No profiles to pick. The layers follow your character and spec, and change when 
 
 ![Two layer tabs and their tooltips: Shared / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
 
-**That last row stays out of it.** Debind doesn't copy your keybindings in, doesn't change them, and doesn't run them for WoW. When nothing you put on a key applies, Debind's binding comes off and the game handles the press itself. A key you never gave to Debind was never involved at all.
+**That last row stays out of it.** When nothing you put on a key applies, Debind's binding comes off and the game handles the press itself — Debind never runs your binding for you. A key you never gave to Debind was never involved at all.
 
 WoW's keybinding window has an *account-wide* / *character-specific* switch. It makes no difference to Debind either way — leave yours where it is.
-
-Debind is for the keys where the answer isn't "all of them".
 
 ## Getting started
 
@@ -149,6 +149,8 @@ When an action can't be reached at all, the overview marks it **Never runs**. So
 ## Unit frames
 
 Hovering a unit frame is a condition like any other, so click casting is just a binding with that condition on it.
+
+**`[@mouseover]` is whoever your cursor happens to be over** — a raid frame, a boss frame, or a character standing out in the world, all the same to it, and the game never says which. Debind's hover is unit frames only — and when the one out in the world is what you meant, **mouseover** is a target you pick off the menu like any other.
 
 It's not one switch, either. You pick which frames count — player, pet, party and raid, target and focus, boss, arena — and which reactions, friendly, enemy or neither. So one key can heal off raid frames, do something else on the boss frames, and go back to being a normal key everywhere else.
 
