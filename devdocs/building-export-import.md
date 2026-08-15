@@ -22,7 +22,7 @@
 > [받기] 버튼과 순서 계산에서의 배제 · 키 없는 것들을 왼쪽 열 맨 아래에(`키를 모름 #N`) ·
 > **키 빼고 가져오기** · **그룹째 키 주기**(데이터 층 + UI, 2026-08-15 — 화면으로 확인함) ·
 > **전송 포맷을 저장 구조 그대로**와 **배지 달린 액션은 안 내보내기**(세 번째 ★, 2026-08-15 —
-> 헤드리스와 `/debtest`까지. **화면으로는 아직 안 봤다**).
+> 헤드리스 · `/debtest` · 화면으로 전부 확인함).
 >
 > **남은 것:** **애드온 경계 — UI를 Debind로**(아래 네 번째 ★, 2026-08-15에 정했고 **첫 배포 전에
 > 해야 한다**) · **가져오기 전 미리보기**(포맷을 저장 구조로 맞춘 것이 노리던 것) ·
@@ -1542,9 +1542,10 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 > 번호가 실려온 `seq`를 더한다 — 그것으로 `renumbering-a-key-group.md`가 닫히고
 > `devdocs/legacy/`로 갔다.
 >
-> **화면으로는 아직 안 봤다.** 헤드리스(`tests/export_spec.lua`, `import_spec.lua`,
-> `workbench_spec.lua`, `overview_spec.lua`, `keygroup_spec.lua`)와 `/debtest`의
-> `Import: a pending key group…` 하나가 서 있다.
+> **세 층 다 확인했다** (2026-08-15). 헤드리스(`tests/export_spec.lua`, `import_spec.lua`,
+> `workbench_spec.lua`, `overview_spec.lua`, `keygroup_spec.lua`) · `/debtest`의
+> `Import: a pending key group…`과 `Export: the window's count…` 둘 · 그리고 화면으로 — 키를 빼고
+> 내보낸 문자열을 다시 가져왔을 때의 `키를 모름 #N` 머리글과, 그 그룹에 키를 준 뒤의 발동 순서.
 >
 > **`Ordering.lua`의 `importOrder` 갈래도 지웠다.** 그 파일은 바꾸면 전 사용자의 발동 순서가
 > 조용히 달라지는 자리라 물어보고 손댔다 — 아무도 안 채우는 값이라 결과가 한 칸도 안 바뀐다.

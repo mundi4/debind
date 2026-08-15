@@ -14,7 +14,9 @@ Addons have been putting spells on keys without a bar slot for years. None of th
 
 Most of your binds are the same on every character. Some belong to one class. A few to one spec, one or two to a single character. WoW's own switch is all-or-nothing — the whole set shared, or the whole set per-character — and all-or-nothing has no way to say that. Go character-specific and every key that was the same everywhere now has to be set everywhere — the chore you were trying to avoid, times your alt count.
 
-So the binds have to be layered.
+**And "which character" isn't the only question a key has.** The same key can want one thing in combat and another out of it, one thing on the frame under your mouse and another anywhere else. That part you already know — it's why you ran out of modifier keys, and why the macro got too long.
+
+So the binds have to be layered, and what a key does has to be worked out at the moment you press it.
 
 ## What you get
 
