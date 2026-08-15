@@ -4925,12 +4925,26 @@ function DebindFrameMixin:CancelBindMode()
 	end
 
 	local changed;
+	local restored;
 	for action, original in pairs(edits) do
 		if (action.key ~= original.key or action.seq ~= original.seq) then
 			action.key = original.key;
 			action.seq = original.seq;
 			action._dirty = true;
 			changed = true;
+			restored = restored or {};
+			restored[#restored + 1] = action;
+		end
+	end
+
+	-- **되돌아온 그룹을 다시 매긴다.** 되돌리는 것은 여기 적힌 액션들뿐인데, 모드 중에 그
+	-- 액션이 어느 그룹에 들어갔다 나오면 그 그룹의 **다른** 멤버들도 그때 다시 매겨졌다.
+	-- 그건 여기 안 적혀 있다. 나간 자리는 멤버가 빠진 것이라 그대로 둬도 되지만, 돌아온
+	-- 자리는 그 사이에 번호가 좁혀져 있어서 들고 온 옛 번호가 남의 것과 겹칠 수 있다 -
+	-- 겹치면 두 행이 동률이 되고 순서가 정렬할 때마다 달라진다.
+	if (restored) then
+		for i = 1, #restored do
+			DebindPrivate.RenumberKeyGroupForAction(restored[i]);
 		end
 	end
 
