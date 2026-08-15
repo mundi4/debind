@@ -124,18 +124,6 @@ return function(DebindPrivate)
         expectBefore({ layerRank = 1 }, rec({ seq = 1 }), "seq 없음");
     end);
 
-    -- **With no key there is no seq at all** (`ClearActionKey`, `PlaceInKeyGroup`). A group that
-    -- arrived without one carries the sender's ranking in `importOrder`, and not reading it at this
-    -- step leaves the whole group tied and the order gone -- in a string sent without keys that is
-    -- the only thing the design has left.
-    test("6단계 - seq가 없으면 importOrder가 그 자리를 든다", function()
-        expectBefore({ layerRank = 1, importOrder = 1 }, { layerRank = 1, importOrder = 2 },
-            "importOrder");
-        -- seq가 있으면 그쪽이 이긴다. 키를 받은 그룹은 seq를 발급받고 importOrder는 남아 있다.
-        expectBefore({ layerRank = 1, seq = 1, importOrder = 9 },
-            { layerRank = 1, seq = 2, importOrder = 1 }, "seq 우선");
-    end);
-
     test("전부 같으면 동률", function()
         expectTie(rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }),
             rec({ priority = 2, hover = true, isConditional = true, layerRank = 3, seq = 4 }), "동일 레코드");

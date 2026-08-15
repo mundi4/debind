@@ -9,31 +9,34 @@ local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
 -- (DebindPrivate.CollectActionsForKey).
 
 
---- 같은 키에 걸린 두 액션의 발동 순서를 비교한다.
+--- Which of two actions on one key fires first.
 ---
---- 레코드 필드: priority, hover, isConditional, layerRank, specRank, seq, importOrder
----   priority      - nil이면 Constants.DEFAULT_PRIORITY
----   hover         - **원본 값 그대로.** false와 nil이 다른 뜻이다(false = "hover 아님"을
----                   명시한 조건이라 조건이 걸린 것으로 친다). 불리언으로 접어 넘기지 말 것
----   isConditional - DebindPrivate.IsConditionalAction(action)
----   layerRank     - 스코프 순번 (작을수록 구체적인 레이어). 캐릭터/특성 → 캐릭터/공용 →
----                   직업/특성 → 직업/공용 → 일반. **특성 번호는 안 본다** - 오프스펙
----                   액션은 활성 액션과 같은 밴드에 들어간다
----   specRank      - 활성 특성(과 특성 없는 레이어)이 0, 오프스펙이 그 특성 번호 1..4
----   seq           - action.seq. 그 레이어 안에서만 뜻이 있는 저장된 순서 번호
----   importOrder   - 키 없이 도착한 그룹에서 seq를 대신하는 값
+--- Record fields: priority, hover, isConditional, layerRank, specRank, seq
+---   priority      - `Constants.DEFAULT_PRIORITY` when nil
+---   hover         - **the raw value.** false and nil mean different things (false is a condition
+---                   that says "not hovering" out loud, so it counts as one). Do not fold it to a
+---                   boolean on the way in
+---   isConditional - `DebindPrivate.IsConditionalAction(action)`
+---   layerRank     - the scope's rank (smaller is narrower): character/spec -> character/shared ->
+---                   class/spec -> class/shared -> general. **The specialization number is not read
+---                   here** - an off-spec action goes in the same band as an active one
+---   specRank      - 0 for the active specialization (and for layers that have none), the
+---                   specialization number 1..4 for off-spec
+---   seq           - `action.seq`. The stored ordering number, which means something only inside
+---                   one layer
 ---
---- (layerRank, seq)는 예전 binding.ordinal(활성 레이어를 훑으며 매기던 통짜 일련번호)을
---- 두 자리로 편 것이다. 사전식 비교라 결과는 ordinal 비교와 동일하다.
+--- (layerRank, seq) is the old `binding.ordinal` -- one running number handed out while walking the
+--- active layers -- spread over two. The comparison is lexicographic, so the result is the same as
+--- comparing ordinals was.
 ---
---- **specRank가 seq보다 앞이다.** seq는 한 레이어 안에서만 믿을 수 있는 값이라, 레이어
---- 하나로 좁혀지기 전에 비교하면 서로 다른 번호 공간을 견주게 된다. layerRank가 스코프까지만
---- 좁히므로 그 자리를 마저 좁히는 것이 이 단계다.
+--- **specRank comes before seq.** `seq` can only be trusted inside one layer, so comparing it
+--- before the field is narrowed to one would set two different number spaces against each other.
+--- `layerRank` narrows only as far as the scope, and this step is what finishes the job.
 ---
---- 이 순서를 바꾸면 저장 데이터는 그대로인데 전 사용자의 발동 순서가 조용히 바뀌고,
---- 공유 레이어 때문에 순서를 보존하는 마이그레이션을 만들 수가 없다. 건드리지 말 것.
---- specRank가 끼어든 것은 그 규칙을 어기지 않는다 - 실제로 발동하는 액션은 전부 활성
---- 레이어에 있어서 이 단계에서 언제나 동률이다.
+--- Changing this order leaves the stored data alone and **silently changes the firing order for
+--- every existing user**, and the shared layers make an order-preserving migration impossible to
+--- write. Do not touch it. specRank slipping in does not break that rule - everything that actually
+--- fires is in an active layer, so that step is always a tie for them.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
     local lhsPriority = lhs.priority or DEFAULT_PRIORITY;
     local rhsPriority = rhs.priority or DEFAULT_PRIORITY;
@@ -73,12 +76,14 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
     -- group right now**, and it is rewritten 1..n whenever that group changes (Profile.lua's
     -- RenumberKeyGroup).
     --
-    -- With no key there is no `seq` at all (`ClearActionKey`, `PlaceInKeyGroup`). `importOrder`
-    -- takes the slot -- it is what carries the sender's ranking for a group that arrived with no
-    -- key, and not reading it here would leave that whole group tied at this step, losing the order.
+    -- **Every action being compared here has a key**, so it has a number: no key, no number
+    -- (`ClearActionKey`), and this comparator is only ever asked about actions sharing one. A set
+    -- that arrived without a key of its own is on a synthetic key, which is a key
+    -- (`devdocs/building-export-import.md`) -- there used to be a second field read in this slot
+    -- for exactly that case, and it is gone with the case.
     --
-    -- Neither present reads as 0. If the net ever tears, that beats comparing nil inside a sort.
-    return (lhs.seq or lhs.importOrder or 0) < (rhs.seq or rhs.importOrder or 0);
+    -- Absent reads as 0. If the net ever tears, that beats comparing nil inside a sort.
+    return (lhs.seq or 0) < (rhs.seq or 0);
 end
 
 
