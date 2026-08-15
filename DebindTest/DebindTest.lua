@@ -378,7 +378,7 @@ local function InsertAction(action)
     layer:Insert(action)
     -- 순서 번호는 레이어가 준다. 안 주면 같은 조건끼리 seq가 전부 nil이라 발동 순서가
     -- 정해지지 않고, 삽입 순서를 기대하는 테스트가 정렬 구현에 따라 흔들린다.
-    layer:PlaceLast(action)
+    layer:PlaceInKeyGroup(action)
     return action
 end
 

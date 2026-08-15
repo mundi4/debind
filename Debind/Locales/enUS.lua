@@ -434,8 +434,8 @@ L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 L["ORDER_WHY_HOVER"] = "Unit frame rule"
 L["ORDER_WHY_CONDITIONAL"] = "Has conditions"
 L["ORDER_WHY_LAYER"] = "%1$s over %2$s"
--- 넷이 다 동률일 때 남는 축. **"your order"라고 쓰면 안 된다** - 자리는 키를 걸 때 그 레이어의
--- 맨 뒤 번호로 자동으로 받는 것이고(Profile.lua의 PlaceLast), 사용자가 고른 적이 없다.
+-- 넷이 다 동률일 때 남는 축. **"your order"라고 쓰면 안 된다** - 자리는 키를 걸 때 그 그룹의
+-- 맨 뒤로 자동으로 받는 것이고(Profile.lua의 PlaceInKeyGroup), 사용자가 고른 적이 없다.
 -- placement/put/set 계열이 전부 같은 이유로 거짓이 된다 - 위아래 버튼을 한 번도 안 누른
 -- 사람에게는 자기가 놓은 자리가 아니다.
 --

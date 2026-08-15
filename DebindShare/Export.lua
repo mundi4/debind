@@ -37,16 +37,16 @@ local ENVELOPE_SEPARATOR = ":";
 --- reason: they describe **where the action sits in this profile**, not what it does.
 ---
 ---   `key` -- moves up to the group, which is the whole point of the group (see below)
----   `seq` -- an ordering number scoped to one layer, so it means nothing in the layer that
+---   `seq` -- an ordering number scoped to one key group, so it means nothing in the group that
 ---            receives it. What the ranking means travels instead: actions are emitted in `seq`
 ---            order and each carries `order`, its 1..n place in the group, which the far side turns
 ---            into `importOrder`.
 ---
 ---            **It is not kept off the wire to prevent a collision**, which is what stood here.
 ---            Sent under its own name it would land on the action (`BuildAction` is a blacklist) and
----            then be cleared: `PlaceLast` opens with `action.seq = nil` and every imported action
----            goes through it. Whether `order` earns its own name is reopened in
----            `devdocs/building-export-import.md`.
+---            then be overwritten: `PlaceImportedActions` gives every arriving action an arrival
+---            number and renumbers the group it lands in. Whether `order` earns its own name is
+---            reopened in `devdocs/building-export-import.md`.
 ---
 --- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
 --- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
@@ -318,7 +318,7 @@ end
 local function GroupSelectedActions(isSelected)
     local byKey, keyOrder, keyless = {}, {}, {};
     -- Where this action turned up in the walk. The last tiebreak, and it exists because `sort` is
-    -- not stable and two actions in one layer can carry the same `seq`. `CleanUpDB` is what usually
+    -- not stable and two actions on one key can carry the same `seq`. `CleanUpDB` is what usually
     -- keeps them apart, and it runs at login and at logout rather than after every edit -- so the
     -- promise this holds up is the export's own: the same profile has to give the same string.
     local ordinal = 0;

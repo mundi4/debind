@@ -667,7 +667,9 @@ do
     ---                    macro body, pet command, ... depending on `type`
     ---   key              the key it is bound to. Without one the action is never bound.
     ---   name, icon       display only -- neither the solver nor the runtime reads them
-    ---   seq              creation order, stable across rebuilds
+    ---   seq              its place inside its key group, 1..n. Rewritten after every change to
+    ---                    that group (`Profile.lua`'s `RenumberKeyGroup`), so it always says where
+    ---                    the action stands rather than when it was made.
     ---   priority         number; `Constants.DEFAULT_PRIORITY` when absent
     ---   unit             a `UNIT_INFO` key. See above -- this is the target, not a condition.
     ---   checkedUnits     `{ [unit or "@"] = true | false | "help" | "harm" }`. `"@"` is a

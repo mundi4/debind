@@ -289,8 +289,16 @@ end
 do
     local _dropdown, _elementData, _action;
 
+    --- 편집 메뉴가 액션의 값을 하나 바꿨다.
+    ---
+    --- **바꾼 값이 무엇인지 안 본다.** 조건·중요도·hover는 순서를 정하는 층이라 그중 하나가
+    --- 바뀌면 이 액션이 겨루는 상대가 바뀌는데, 어느 층이 바뀌었는지 가려내는 대신 그 키
+    --- 그룹을 늘 다시 매긴다 - 안 바뀌었으면 재부여가 아무것도 안 움직인다
+    --- (`Profile.lua`의 `RenumberKeyGroup`). 가려내려면 편집 전후를 다 봐야 하고, 그 앞뒤를
+    --- 잡아두는 자리를 이 메뉴의 열 몇 군데 호출부에 나눠 심으면 하나 빠뜨리는 날이 온다.
     local function onActionValueChanged()
         _action._dirty = true;
+        DebindPrivate.RenumberKeyGroupForAction(_action);
         DebindPrivate.UpdateBindings();
         return MenuResponse.Refresh;
     end
@@ -308,12 +316,14 @@ do
         local key, value = args.key, args.value;
         if (value == USE_CHECKED_VALUE) then
             _action[key] = not _action[key];
-            DebindPrivate.UpdateBindings();
-            return MenuResponse.Refresh;
+            -- 체크박스 갈래도 같은 자리를 지난다. 지금 이 길로 오는 둘(`ignoreHoverUnit`,
+            -- `keepInBindingContext`)은 순서를 정하는 층이 아니라 다시 매겨봐야 아무것도
+            -- 안 움직이지만, 그런 필드 하나가 나중에 이 길로 들어오면 그 그룹만 조용히
+            -- 옛 증상을 남긴다.
+            return onActionValueChanged();
         elseif (_action[key] ~= value) then
             _action[key] = value;
-            onActionValueChanged();
-            return MenuResponse.Refresh;
+            return onActionValueChanged();
         end
     end
 

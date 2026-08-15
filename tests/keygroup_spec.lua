@@ -55,8 +55,8 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
     end
 
-    --- 도착 그룹의 멤버 하나. 키가 없고 `seq`도 없다 - `PlaceLast`가 키 없는 액션에는 번호를
-    --- 안 주기 때문이고, 그 자리를 `importOrder`가 든다.
+    --- 도착 그룹의 멤버 하나. 키가 없고 `seq`도 없다 - `PlaceInKeyGroup`이 키 없는 액션에는
+    --- 번호를 안 주기 때문이고, 그 자리를 `importOrder`가 든다.
     local function Arrived(value, group, order)
         return {
             type = Constants.SPELL, value = value,
@@ -171,8 +171,8 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- 병합/교체/덮어쓰기가 전부 이것 위에 선다. `importOrder`가 없는 액션들이라 자리는 `seq`가
-    -- 말하고, 옮겨간 쪽은 목적지 레이어의 맨 뒤에 선다 - 새로 오는 것에 `PlaceLast`가 하는 일과
-    -- 같다.
+    -- 말하고, 옮겨간 쪽은 목적지 그룹의 맨 뒤에 선다 - 새로 오는 것에 `PlaceInKeyGroup`이 하는
+    -- 일과 같다.
     test("키 그룹을 옮겨도 그룹 안의 차례는 그대로다", function()
         ResetProfile({
             general = {

@@ -127,35 +127,94 @@ function ProfileLayerProto:Enumerate(indexBegin, indexEnd)
     return CreateTableEnumerator(self.actions, indexBegin, indexEnd);
 end
 
---- 이 레이어에서 다음에 줄 순서 번호.
+--- 이제 막 이 그룹에 온 액션이 **잠깐** 드는 번호.
 ---
---- 번호는 레이어 안에서만 뜻이 있다. 비교자가 layerRank로 먼저 가르므로 다른 레이어의
---- 액션과는 절대 겹쳐 볼 일이 없다(Ordering.lua).
+--- 하는 일은 "어느 것이 새로 온 것인가"를 숫자의 성질로 만드는 것이다. 재부여가 도는 이상
+--- 저장된 번호는 그룹 크기 이하라 이 값이 언제나 이기고, 그래서 도착한 것은 자기 밴드에서
+--- 기존 것들 뒤에 선다. 여럿이 한꺼번에 오면 여기에 자기들끼리의 차례를 더해 얹는다.
 ---
---- 번호에 구멍이 나는 것은 괜찮다 - 크기 비교만 하지 세는 데 쓰지 않는다.
-function ProfileLayerProto:GetNextSeq()
-    local maxSeq = 0;
+--- **저장 규약이 아니라 한 연산 안의 지역 변수다.** 이 값을 얹는 함수가 곧바로 재부여로
+--- 걷어가므로 SavedVariables에도, 화면에도, 비교자의 지속 상태에도 안 닿는다. 크기 걱정을
+--- 안 하는 것도 그래서다 - 조건이 "이 그룹의 번호보다 크다" 하나뿐이다.
+local ARRIVAL_SEQ = 1000000;
+
+--- 이 레이어에서 `key`에 걸린 액션들에 **지금 보이는 차례로** 1..n을 다시 매긴다.
+---
+--- **(레이어, 키) 하나가 그룹이다.** 번호가 읽히는 범위가 정확히 거기라 - 비교자가 그 앞의
+--- 다섯 층으로 이미 갈라놓는다 - 다른 키의 액션과, 다른 레이어의 액션과 번호가 겹치는 것은
+--- 상관없다.
+---
+--- **이것이 불변식이다.** 액션이 밴드를 넘어도 `seq`는 안 따라가는데, 번호가 언제나 "그룹
+--- 안에서 지금 보이는 자리"이면 밴드들이 번호 구간을 순서대로 나눠 갖게 되고 넘어온 번호는
+--- 목적지 구간의 바깥일 수밖에 없다. 그래서 착지가 **왔던 쪽에 면한 끝** 하나로 정해지고,
+--- 밴드가 안 바뀌는 편집에서는 아무것도 안 움직인다. 근거 전체는
+--- `devdocs/renumbering-a-key-group.md`.
+---
+--- 비교자에 넘기는 레코드가 `MakeRow`의 것보다 짧다. layerRank와 specRank는 한 레이어 안에서
+--- 상수라 아무것도 가르지 못하고, 그 둘을 뺀 차례는 전체 목록을 이 레이어로 걸러낸 것과 같다.
+---
+--- **배열 자리가 마지막 갈래다.** `sort`가 불안정해서, 손으로 고친 저장 파일에 같은 번호 둘이
+--- 있으면 매길 때마다 다른 답이 나온다 - 그 답이 곧 저장되므로 한 번 흔들리면 남는다.
+function ProfileLayerProto:RenumberKeyGroup(key)
+    if (key == nil) then
+        return;
+    end
+
+    local records;
     for i = 1, #self.actions do
-        local seq = self.actions[i].seq;
-        if (seq and seq > maxSeq) then
-            maxSeq = seq;
+        local action = self.actions[i];
+        if (action.key == key) then
+            records = records or {};
+            records[#records + 1] = {
+                action        = action,
+                index         = i,
+                priority      = action.priority or Constants.DEFAULT_PRIORITY,
+                hover         = DebindPrivate.GetBindingInfoForAction(action).hover,
+                isConditional = DebindPrivate.IsConditionalAction(action),
+                seq           = action.seq,
+                importOrder   = action.importOrder,
+            };
         end
     end
-    return maxSeq + 1;
+
+    if (records == nil) then
+        return;
+    end
+
+    sort(records, function(lhs, rhs)
+        if (DebindPrivate.CompareActionOrder(lhs, rhs)) then
+            return true;
+        elseif (DebindPrivate.CompareActionOrder(rhs, lhs)) then
+            return false;
+        end
+        return lhs.index < rhs.index;
+    end);
+
+    for i = 1, #records do
+        local action = records[i].action;
+        if (action.seq ~= i) then
+            action.seq = i;
+            action._dirty = true;
+        end
+    end
 end
 
---- 액션을 이 레이어의 **순서 맨 뒤**에 세운다. 새로 만들었거나 다른 레이어에서 온
---- 액션에 부른다.
+--- 액션이 이 레이어에 **도착했다**: 들고 온 번호를 버리고 그 키 그룹의 맨 뒤에 세운다.
+--- 새로 만들었거나, 복사했거나, 다른 레이어에서 온 액션에 부른다.
 ---
---- 키가 없으면 번호를 주지 않는다. 번호의 뜻이 "이 키를 눌렀을 때 몇 번째로 나가는가"라
---- 키가 없는 동안에는 가리킬 것이 없고, 나중에 키를 걸 때 그 시점의 맨 뒤 번호를 받는다
---- (DebindUI.lua의 SetActionKey).
-function ProfileLayerProto:PlaceLast(action)
-    -- 먼저 지운다. 다른 레이어에서 온 액션이 그 레이어의 번호를 들고 있으면
-    -- GetNextSeq가 자기 자신을 세어 쓸데없이 큰 번호가 나온다.
+--- **넣기와 재부여가 한 함수다.** 그러면 도착 번호가 이 함수 밖으로 샐 자리가 없고, "재부여를
+--- 잊으면 안 된다"를 사람이 기억할 일도 없다.
+---
+--- 들고 온 번호를 먼저 버린다. 다른 레이어에서 왔으면 그 번호는 저쪽 그룹의 값이라 여기서
+--- 뜻이 없고, 같은 레이어로 복사한 것이면 원본과 같은 번호라 둘이 동률이 된다.
+---
+--- 키가 없으면 번호를 주지 않는다. 번호의 뜻이 "이 키를 눌렀을 때 몇 번째로 나가는가"라 키가
+--- 없는 동안에는 가리킬 것이 없다. 나중에 키를 걸 때 받는다(DebindUI.lua의 SetActionKey).
+function ProfileLayerProto:PlaceInKeyGroup(action)
     action.seq = nil;
     if (action.key ~= nil) then
-        action.seq = self:GetNextSeq();
+        action.seq = ARRIVAL_SEQ;
+        self:RenumberKeyGroup(action.key);
     end
 end
 
@@ -507,8 +566,24 @@ end
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
-        -- 이 레이어에서 이미 쓰인 순서 번호. 아래 그물이 **겹치는 번호**를 찾는 데 쓴다.
+        -- 키마다, 그 그룹에서 이미 쓰인 순서 번호. 아래 그물이 **겹치는 번호**를 찾는 데 쓴다.
         local seenSeq = {};
+        -- 키마다 다음에 줄 번호. 처음 필요할 때 그 그룹의 최댓값+1로 연다 - 그물이 걸리는
+        -- 그룹이 드물어서, 레이어를 통째로 미리 세면 대부분 헛일이다.
+        local nextSeq = {};
+        local function NextSeqFor(key)
+            local seq = nextSeq[key];
+            if (seq == nil) then
+                seq = 1;
+                for _, other in layer:Enumerate() do
+                    if (other.key == key and other.seq and other.seq >= seq) then
+                        seq = other.seq + 1;
+                    end
+                end
+            end
+            nextSeq[key] = seq + 1;
+            return seq;
+        end
 
         for _, action in layer:Enumerate() do
             for k in pairs(action) do
@@ -522,38 +597,42 @@ function DebindPrivate.CleanUpDB()
                 action.priority = nil;
             end
 
-            -- 키가 있는데 순서 번호가 없는 액션에 번호를 준다. **마이그레이션이 도달하지
-            -- 못한 데이터를 위한 그물이다** - MigrateDB는 자기가 아는 모양의 표만 훑으므로
-            -- 손으로 고친 SavedVariables나 옛 클라이언트가 남긴 자리는 지나칠 수 있다.
-            -- 번호가 없으면 비교자가 그 액션을 맨 앞으로 보고(Ordering.lua) 순서가 조용히
-            -- 뒤집힌다.
+            -- 순서 번호의 그물. **마이그레이션이 도달하지 못한 데이터를 위한 것이다** -
+            -- MigrateDB는 자기가 아는 모양의 표만 훑으므로 손으로 고친 SavedVariables나 옛
+            -- 클라이언트가 남긴 자리는 지나칠 수 있다. 평소에는 걸릴 것이 없다: 번호를 주는
+            -- 길이 전부 재부여를 지나므로(`RenumberKeyGroup`) 빠진 번호도 한 그룹 안의 겹친
+            -- 번호도 안 생긴다.
             --
-            -- 맨 뒤로 보낸다. 어디에 둘지 알 길이 없을 때 덜 놀라는 쪽이다.
-            if (action.key ~= nil and action.seq == nil) then
-                action.seq = layer:GetNextSeq();
-            end
-
-            -- **겹치는 번호도 건진다.** 없는 번호만 건지던 시절에는 같은 번호 둘이 그대로
-            -- 남았는데, 그러면 비교자가 양쪽 다 false를 내서(Ordering.lua) 두 액션이 동률이
-            -- 되고 `sort`가 임의로 놓는다 - 같은 키에 걸린 두 지정의 발동 순서가 정렬할
-            -- 때마다 달라질 수 있다는 뜻이다. 더 나쁜 것은 **사용자가 그것을 못 고친다**는
-            -- 점이다: 순서 이동은 두 번호를 맞바꾸는 것이라 같은 값끼리는 바꿔도 그대로다
-            -- (DebindUI.lua의 `ApplyOrderSwap`이 누를 때마다 그 그룹을 고쳐주지만, 그건
-            -- 눌러본 그룹만이다).
-            --
-            -- 번호를 들고 있으면 키가 없어도 본다. 키를 떼도 번호를 남기는 것은 뗐다 다시
-            -- 걸었을 때 자리를 지키려는 것인데(PlaceLast 주석), 그 번호가 남의 것과 겹쳐
-            -- 있으면 지킬 자리가 애초에 없다.
-            --
-            -- 나중에 만난 쪽이 새 번호를 받아 맨 뒤로 간다. 둘 중 어느 쪽이 앞이었는지는
-            -- 동률이라 **원래도 정해진 바가 없었으므로**, 여기서 잃는 것이 없다.
-            local seq = action.seq;
-            if (seq ~= nil) then
-                if (seenSeq[seq]) then
-                    seq = layer:GetNextSeq();
-                    action.seq = seq;
+            -- **(레이어, 키) 하나 안에서만 본다.** 재부여가 그룹마다 1부터 매기므로 한 레이어
+            -- 안에서 번호가 겹치는 것이 이제 정상이다 - 다른 키의 액션과는 비교자가 만나게
+            -- 하지를 않는다. 키가 없는 액션도 마찬가지로 아무와도 안 겨룬다. 그 번호는 뗐다
+            -- 다시 걸었을 때 자리를 지키려고 남겨둔 것이고(`SetActionKey`), 다시 걸리는 순간
+            -- 그 그룹이 통째로 다시 매겨진다.
+            local key = action.key;
+            if (key ~= nil) then
+                -- 번호가 없으면 비교자가 그 액션을 0으로 보고(Ordering.lua) 맨 앞으로 보낸다 -
+                -- 그 키를 눌렀을 때 제일 먼저 나가는 자리다. 어디에 둘지 알 길이 없을 때 덜
+                -- 놀라는 쪽은 맨 뒤다.
+                if (action.seq == nil) then
+                    action.seq = NextSeqFor(key);
                 end
-                seenSeq[seq] = true;
+
+                -- **겹치는 번호도 건진다.** 없는 번호만 건지던 시절에는 같은 번호 둘이 그대로
+                -- 남았는데, 그러면 비교자가 양쪽 다 false를 내서(Ordering.lua) 두 액션이 동률이
+                -- 되고 `sort`가 임의로 놓는다 - 같은 키에 걸린 두 지정의 발동 순서가 정렬할
+                -- 때마다 달라질 수 있다는 뜻이다.
+                --
+                -- 나중에 만난 쪽이 새 번호를 받아 맨 뒤로 간다. 둘 중 어느 쪽이 앞이었는지는
+                -- 동률이라 **원래도 정해진 바가 없었으므로**, 여기서 잃는 것이 없다.
+                local group = seenSeq[key];
+                if (group == nil) then
+                    group = {};
+                    seenSeq[key] = group;
+                end
+                if (group[action.seq]) then
+                    action.seq = NextSeqFor(key);
+                end
+                group[action.seq] = true;
             end
         end
     end
@@ -786,8 +865,9 @@ end
 --- `importGroup` selects one arrival group; nil selects the ones belonging to no group at all.
 ---
 --- **Sorted by `CompareActionOrder` like everything else**, which reads `importOrder` where it
---- would read `seq`: a keyless action is never given a `seq` (`PlaceLast`), and `importOrder` is
---- what the sender's ranking became on arrival. Holding that is the whole reason the field exists.
+--- would read `seq`: a keyless action is never given a `seq` (`PlaceInKeyGroup`), and `importOrder`
+--- is what the sender's ranking became on arrival. Holding that is the whole reason the field
+--- exists.
 function DebindPrivate.CollectKeylessActionRows(importGroup, spec)
     local rows = {};
     local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
@@ -826,7 +906,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
                     -- **키가 있을 때만 읽는다.** 저장된 값은 키를 떼도 남는다 - 뗐다 다시 걸
                     -- 때 자리를 지키려는 것이고 그건 그대로 맞다(`SetActionKey`). 그런데 그
                     -- 남은 번호를 순서에 쓰면, 잠깐 키를 걸었다 뗀 도착 그룹 멤버가 자기
-                    -- `importOrder`를 잃고 맨 뒤로 간다. `PlaceLast`의 규칙("키가 없으면 번호도
+                    -- `importOrder`를 잃고 맨 뒤로 간다. `PlaceInKeyGroup`의 규칙("키가 없으면 번호도
                     -- 없다")을 읽는 쪽에서도 지키는 것이 이 줄이다.
                     seq           = action.key ~= nil and action.seq or nil,
                     -- 키가 없는 동안 `seq`의 자리를 대신하는 값. 비교자가 그렇게 읽는다
@@ -873,6 +953,32 @@ function DebindPrivate.FindLayerID(action)
             end
         end
     end
+end
+
+--- 액션 하나가 바뀌었다: 그 액션이 사는 레이어의 키 그룹을 다시 매긴다.
+---
+--- **밴드가 바뀌었는지 안 본다.** 그것을 알려면 편집 전후를 다 봐야 하는데, 안 봐도 답이
+--- 나오는 것이 이 설계의 요점이다 - 밴드가 그대로면 재부여는 아무것도 안 움직인다
+--- (`RenumberKeyGroup`).
+---
+--- **키가 있는데 번호가 없으면 도착으로 본다.** 그 밴드의 맨 뒤에 선다. 처음 키를 거는 액션이
+--- 그렇고, 새로 건 바인딩이 언제나 기존 것들 뒤에서 시작하는 것이 `seq`가 생긴 이유다
+--- (DebindUI.lua의 `SetActionKey`). 번호가 남아 있으면 그대로 쓴다 - 잠깐 뗐다 다시 걸었을 때
+--- 사용자가 ↑↓로 정해둔 자리로 돌아오게 하려고 남겨둔 값이다.
+function DebindPrivate.RenumberKeyGroupForAction(action)
+    if (action == nil or action.key == nil) then
+        return;
+    end
+
+    local _, layer = DebindPrivate.FindLayerID(action);
+    if (layer == nil) then
+        return;
+    end
+
+    if (action.seq == nil) then
+        action.seq = ARRIVAL_SEQ;
+    end
+    layer:RenumberKeyGroup(action.key);
 end
 
 --- 저장된 액션 목록 하나. `(scope, class, spec)` 주소가 가리키는 자리이며, 없으면 만든다.
@@ -993,19 +1099,45 @@ end
 function DebindPrivate.PlaceImportedActions(placements)
     -- 저장 목록에 `ProfileLayerProto`를 씌워 쓰는 자리. 그쪽 메서드는 `self.actions`밖에 안 보므로
     -- 주소마다 이 하나를 돌려 쓴다 - 로드 안 된 레이어에는 씌울 레이어 객체가 없고, 넣는 규칙을
-    -- 여기에 한 벌 더 적으면 `PlaceLast`와 갈라진다.
+    -- 여기에 한 벌 더 적으면 `RenumberKeyGroup`과 갈라진다.
     local scratch = setmetatable({}, { __index = ProfileLayerProto });
 
-    for _, placement in ipairs(placements) do
+    -- 닿은 그룹. 저장 목록 -> 키 -> true. **한 배치는 레이어 여럿·키 여럿에 떨어지므로 "그
+    -- 그룹"이 아니라 닿은 그룹 전부다** - 하나 빠뜨리면 그 그룹만 도착 번호를 든 채 남고,
+    -- 그건 다음 편집까지 조용하다.
+    local touched = {};
+
+    for i, placement in ipairs(placements) do
         local actions = StoredActionsAt(placement.scope, placement.class, placement.spec);
         if (actions) then
+            local action = placement.action;
             scratch.actions = actions;
-            scratch:Insert(placement.action);
-            -- Ordering numbers are the receiving layer's to hand out. The wire deliberately leaves
-            -- `seq` at home, because the sender's numbers would collide with the ones this layer
-            -- has already given (`Export.lua`). Arriving at the back is the honest place for
-            -- something that just arrived.
-            scratch:PlaceLast(placement.action);
+            scratch:Insert(action);
+
+            -- **도착 번호 + 자기들끼리의 차례.** 이 벌은 전부 새로 오는 것이라 재부여만으로는
+            -- 자기들끼리 누가 먼저인지가 안 나온다. 도착 번호가 지배하니 받는 그룹의 기존
+            -- 액션들 뒤에 서고, 낮은 자리가 배치 안의 차례를 지킨다.
+            --
+            -- 키가 없으면 번호가 없다 - `PlaceInKeyGroup`이 세운 규칙이고, 키 없이 도착한
+            -- 그룹의 차례는 `importOrder`가 든다(`Ordering.lua`).
+            action.seq = action.key ~= nil and (ARRIVAL_SEQ + i) or nil;
+            if (action.key ~= nil) then
+                local keys = touched[actions];
+                if (keys == nil) then
+                    keys = {};
+                    touched[actions] = keys;
+                end
+                keys[action.key] = true;
+            end
+        end
+    end
+
+    -- 다 넣은 뒤에 매긴다. 넣을 때마다 매기면 같은 그룹을 액션 수만큼 다시 훑고, 도착 번호가
+    -- 걷혀 나가는 순간이 배치 중간에 끼어 뒤에 오는 것들과 견줄 값이 사라진다.
+    for actions, keys in pairs(touched) do
+        scratch.actions = actions;
+        for key in pairs(keys) do
+            scratch:RenumberKeyGroup(key);
         end
     end
 end
@@ -1041,9 +1173,9 @@ end
 --- `importOrder` while it does not.
 ---
 --- **The same two values `MakeRow` hands the comparator, read the same way and for the same
---- reason.** A keyless action is never given a `seq` (`PlaceLast`), but one it was given during a
---- brief binding stays on it -- and reading that leftover as a place would let a member of an
---- arrival group jump its own `importOrder`. The number it was briefly issued belongs to a
+--- reason.** A keyless action is never given a `seq` (`PlaceInKeyGroup`), but one it was given
+--- during a brief binding stays on it -- and reading that leftover as a place would let a member of
+--- an arrival group jump its own `importOrder`. The number it was briefly issued belongs to a
 --- ranking this set is not part of.
 local function PlacementRank(action)
     if (action.key ~= nil) then
@@ -1059,11 +1191,12 @@ end
 --- profile array's, not `importOrder` -- so the one thing a keyless string carries across
 --- (`devdocs/building-export-import.md`) is gone, silently, and the reader has no way to tell.
 ---
---- Every action goes to the **back** of its own layer, in that order. It is what `PlaceLast` does
---- for anything arriving somewhere, and it is what merging onto an occupied key should mean: the
---- set that just moved in stands behind the one that was already there. Numbers stay per layer,
---- which is the only scope they mean anything in (`GetNextSeq`), so a set spread over layers is
---- ordered inside each of them and the comparator's layer step keeps the layers apart.
+--- Every action goes to the **back** of the key group it lands in, in that order. It is what
+--- `PlaceInKeyGroup` does for anything arriving somewhere, and it is what merging onto an occupied
+--- key should mean: the set that just moved in stands behind the one that was already there.
+--- Numbers stay per (layer, key), which is the only scope they mean anything in
+--- (`RenumberKeyGroup`), so a set spread over layers is ordered inside each of them and the
+--- comparator's layer step keeps the layers apart.
 ---
 --- **The three import fields go together.** Deciding the key is the reader saying yes -- there is
 --- nothing further to approve about a set they just placed on their own keyboard -- and once it is
@@ -1092,18 +1225,32 @@ function DebindPrivate.SetKeyForActions(actions, key)
         return lhs.index < rhs.index;
     end);
 
-    for _, entry in ipairs(ordered) do
+    -- 닿은 레이어. 한 벌이 레이어 여럿에 걸쳐 있을 수 있고, 그 각각이 자기 번호를 낸다.
+    local touched = {};
+
+    for i, entry in ipairs(ordered) do
         local action = entry.action;
         local _, layer = DebindPrivate.FindLayerID(action);
-        -- The key first: `PlaceLast` hands out a number only to an action that has one.
         action.key = key;
-        if (layer) then
-            layer:PlaceLast(action);
-        end
         action.imported = nil;
         action.importGroup = nil;
         action.importOrder = nil;
         action._dirty = true;
+        if (layer) then
+            -- **Arrival number plus this set's own ranking.** Renumbering alone cannot say which of
+            -- these goes first -- they are all new to the group. The arrival number dominates
+            -- whatever the group already holds, so the set lands behind it, and the low digits keep
+            -- the order established above. Both are gone by the time this function returns, which
+            -- is why it is only written where a renumber is going to reach it.
+            action.seq = ARRIVAL_SEQ + i;
+            touched[layer] = true;
+        end
+    end
+
+    -- After the whole set, not per action: the arrival numbers have to still be on every member
+    -- while any of them is being ranked.
+    for layer in pairs(touched) do
+        layer:RenumberKeyGroup(key);
     end
 
     return true;
@@ -1143,6 +1290,13 @@ end
 --- **`seq` stays**, the same as taking a key off one action (`SetActionKey`): it is what puts the
 --- action back where the reader had ordered it if the key is given again. The comparator ignores it
 --- while there is no key (`MakeRow`), so it sits there meaning nothing until then.
+---
+--- **The group they leave is not renumbered**, and neither is the one an action leaves anywhere
+--- else. What renumbering buys is that a group's numbers rise along the order it is drawn in
+--- (`RenumberKeyGroup`), and dropping members cannot break that -- `1,2,4,5` still rises. Doing it
+--- anyway would cost something real: the numbers these keep would then collide with the ones the
+--- group closes up into, and a collision is what makes giving the key back land somewhere nobody
+--- chose.
 ---
 --- **A badge stays too.** Losing a key is not the reader saying anything about where the action
 --- came from, and an arriving action that had a key is still an arriving action without one.
@@ -1225,9 +1379,9 @@ end
 --- payload's own `id` starts at 1 in every string, so two strings waiting at once would head two
 --- unrelated sets with the same words. That is the one thing this number exists to prevent.
 ---
---- Taken the way `GetNextSeq` takes one: the highest in use plus one, stored nowhere. Gaps are
---- fine, and so is starting over once everything has been accepted or thrown back - nothing refers
---- to an old number, and the label only means anything while the group is on screen.
+--- The highest in use plus one, stored nowhere. Gaps are fine, and so is starting over once
+--- everything has been accepted or thrown back - nothing refers to an old number, and the label
+--- only means anything while the group is on screen.
 ---
 --- **The whole store, not `LayerArray`.** A batch lands in another class's layers as readily as in
 --- this one's, and those are not in this session's view at all. Taking the highest from the view

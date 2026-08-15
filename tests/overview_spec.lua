@@ -9,7 +9,7 @@
 --   * **활성 액션끼리의 차례는 한 칸도 안 바뀐다.** 바뀌면 저장 데이터는 그대로인데 전 사용자의
 --     발동 순서가 조용히 달라지고, 공유 레이어 때문에 되돌리는 마이그레이션을 쓸 수가 없다.
 --   * **키 없이 도착한 그룹은 보낸 사람의 차례를 지킨다.** 그 액션들에는 `seq`가 없고
---     (`PlaceLast`), 키가 빠진 문자열에서 `importOrder`가 설계의 유일한 잔존물이다.
+--     (`PlaceInKeyGroup`), 키가 빠진 문자열에서 `importOrder`가 설계의 유일한 잔존물이다.
 
 return function(DebindPrivate)
     local T = { passed = 0, failures = {} };
@@ -154,7 +154,7 @@ return function(DebindPrivate)
     -- 키 없는 것들
     ---------------------------------------------------------------------------
 
-    -- 키가 없으면 `seq`가 아예 없다(`PlaceLast`). 보낸 사람의 차례는 `importOrder`에 있고,
+    -- 키가 없으면 `seq`가 아예 없다(`PlaceInKeyGroup`). 보낸 사람의 차례는 `importOrder`에 있고,
     -- 비교자가 `seq` 자리에서 그것을 읽는다.
     test("도착 그룹은 importOrder 차례로 선다", function()
         ResetProfile({

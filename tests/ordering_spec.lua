@@ -124,7 +124,7 @@ return function(DebindPrivate)
         expectBefore({ layerRank = 1 }, rec({ seq = 1 }), "seq 없음");
     end);
 
-    -- **키가 없으면 seq가 아예 없다**(`PlaceLast`). 키 없이 도착한 그룹은 보낸 사람의 차례를
+    -- **키가 없으면 seq가 아예 없다**(`PlaceInKeyGroup`). 키 없이 도착한 그룹은 보낸 사람의 차례를
     -- `importOrder`에 들고 있고, 이 자리에서 안 읽으면 그 그룹은 통째로 동률이 되어 순서가
     -- 사라진다 - 키가 빠진 문자열에서는 그것이 설계의 유일한 잔존물이다.
     test("6단계 - seq가 없으면 importOrder가 그 자리를 든다", function()

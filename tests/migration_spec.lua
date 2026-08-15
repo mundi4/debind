@@ -323,16 +323,32 @@ return function(DebindPrivate)
         checkDistinctSeq(actions, "섞인 상태 정리 후");
     end);
 
-    test("키를 뗀 채로 번호만 들고 있는 액션도 겹치면 갈린다", function()
-        -- 키를 떼도 번호는 남긴다(PlaceLast). 그 번호가 남의 것과 겹쳐 있으면 다시 걸었을 때
-        -- 지킬 자리가 애초에 없으므로, 키가 없다고 넘어가지 않는다.
+    -- **키가 없으면 그물 밖이다.** 한때 여기서 키 없는 액션의 번호도 남의 것과 겹치면 갈랐다 -
+    -- 그때는 번호가 레이어 전체에서 유일했고, 겹친 채로 다시 키를 걸면 지킬 자리가 없었다.
+    --
+    -- 이제 번호는 (레이어, 키) 하나에서만 읽히고 그룹마다 1부터 매겨지므로, 한 레이어 안에서
+    -- 번호가 겹치는 것이 **정상**이다. 키 없는 액션의 번호는 아무와도 안 겨루고, 다시 키를
+    -- 거는 순간 그 그룹이 통째로 다시 매겨진다(`Profile.lua`의 `RenumberKeyGroup`). 그때
+    -- 겹친 번호가 자리를 흔들지 않는 것은 renumber_spec이 따로 세운다.
+    test("키 없는 액션의 번호는 남의 것과 겹쳐도 안 건드린다", function()
         local actions = LoadLayerAndClean({
             { type = "spell", value = 1, key = "F1", seq = 1 },
             { type = "spell", value = 2, seq = 1 },
         });
 
-        check(actions[1].seq ~= actions[2].seq,
-            "키 없는 액션의 겹친 번호를 지나쳤다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+        check(actions[1].seq == 1 and actions[2].seq == 1,
+            "번호가 바뀌었다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+    end);
+
+    -- 같은 이유로, 다른 키의 액션과 번호가 겹치는 것도 정상이다.
+    test("다른 키끼리 겹치는 번호는 안 건드린다", function()
+        local actions = LoadLayerAndClean({
+            { type = "spell", value = 1, key = "F1", seq = 1 },
+            { type = "spell", value = 2, key = "F2", seq = 1 },
+        });
+
+        check(actions[1].seq == 1 and actions[2].seq == 1,
+            "번호가 바뀌었다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
     end);
 
     test("성한 번호는 청소를 거쳐도 그대로다", function()

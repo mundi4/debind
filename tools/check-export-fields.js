@@ -24,7 +24,7 @@ const repoRoot = path.resolve(__dirname, "..");
 // Fields it is *correct* for the two lists to disagree on. Adding one means leaving a line saying why.
 const EXPECTED_ONLY_IN_PROFILE = {
     key: "moves up to the group field - one group is one key",
-    seq: "scoped to one layer - the wire's `order` carries the ranking instead",
+    seq: "scoped to one key group - the wire's `order` carries the ranking instead",
     // Same reason as those two: they say where the action sits *here*. Sending them would tell the
     // far side that something they just received had already been received, and quarantine it
     // against a batch number that means nothing on their machine.

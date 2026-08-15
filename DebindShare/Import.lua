@@ -81,9 +81,9 @@ local function BuildAction(source)
         -- It is **not** why the ranking is sent as `order` rather than `seq`. That reason used to be
         -- written here -- "under that name it would collide with the numbers the receiving layer has
         -- handed out, with nothing in the way" -- and something is in the way: `PlaceImportedActions`
-        -- is the only path that puts these in the profile and it calls `PlaceLast` on every one,
-        -- whose first line is `action.seq = nil`. A sender's number does not survive landing.
-        -- `devdocs/building-export-import.md`.
+        -- is the only path that puts these in the profile, and it overwrites `seq` on every one
+        -- with an arrival number before renumbering the group. A sender's number does not survive
+        -- landing. `devdocs/building-export-import.md`.
         if (k ~= "macro" and k ~= "setstate" and k ~= "order" and k ~= "layer") then
             if (luatype(v) == "table") then
                 action[k] = CopyTable(v);
@@ -120,13 +120,13 @@ local function BuildAction(source)
     end
 
     -- **Where the sender's ordering ends up.** `seq` is not on the wire and must not be: it is
-    -- scoped to one layer and the receiving layer has its own numbers. `order` is the group-local
-    -- 1..n, and it stays on the action as `importOrder` until the group is given a key -- at which
-    -- point `seq` is issued in this order and all three import fields go together.
+    -- scoped to one key group and the receiving group has its own numbers. `order` is the
+    -- group-local 1..n, and it stays on the action as `importOrder` until the group is given a key
+    -- -- at which point `seq` is issued in this order and all three import fields go together.
     --
     -- Not folded into `seq` here, because `seq` means "which of this key's actions goes first" and
-    -- these have no key. `PlaceLast` keeps that invariant; this field is what makes keeping it
-    -- affordable.
+    -- these have no key. `PlaceInKeyGroup` keeps that invariant; this field is what makes keeping
+    -- it affordable.
     action.importOrder = source.order;
 
     return action;

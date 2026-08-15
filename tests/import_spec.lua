@@ -123,9 +123,8 @@ return function(DebindPrivate, DebindShare)
     -- payload's `id` is only unique inside its own string, so two strings waiting at once both
     -- carry a group 1 - and the overview would head two different sets with the same words.
     --
-    -- Numbers are taken the way `GetNextSeq` takes them: the highest one in the profile plus one,
-    -- with nothing stored. Gaps are fine, and reuse after everything is accepted is fine too -
-    -- nothing refers to an old number.
+    -- A number is the highest one in the profile plus one, with nothing stored. Gaps are fine, and
+    -- reuse after everything is accepted is fine too - nothing refers to an old number.
     test("그룹 번호는 프로필 안에서 안 겹친다", function()
         ResetProfile();
 

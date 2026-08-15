@@ -865,7 +865,9 @@ local function DeleteElementData(elementData)
 	end
 
 	local layer = DebindPrivate.GetProfileLayer(elementData.layer);
+	local key = elementData.action.key;
 	layer:Remove(elementData.action);
+	layer:RenumberKeyGroup(key);
 	DebindPrivate.UpdateBindings();
 
 	-- 목록을 프로필에서 다시 만든다. 예전에는 provider에서 그 행만 빼고 index를 다시 매겼는데,
@@ -891,6 +893,9 @@ end
 --- and the intermediate lists were never looked at.
 local function DeleteActions(actions)
 	local removed = false;
+	-- 지운 액션이 있던 (레이어, 키). 지우고 나서 매겨야 하므로 - 없어진 액션으로는 레이어를
+	-- 되찾을 수 없다 - 여기 모아 둔다. 한 번에 여러 레이어·여러 키를 지울 수 있다.
+	local touched = {};
 	for _, action in ipairs(actions) do
 		if (IsEditingAction(action)) then
 			DebindIconSelectorFrame:Close(true);
@@ -901,6 +906,20 @@ local function DeleteActions(actions)
 		local _, layer = DebindPrivate.FindLayerID(action);
 		if (layer and layer:Remove(action)) then
 			removed = true;
+			if (action.key ~= nil) then
+				local keys = touched[layer];
+				if (keys == nil) then
+					keys = {};
+					touched[layer] = keys;
+				end
+				keys[action.key] = true;
+			end
+		end
+	end
+
+	for layer, keys in pairs(touched) do
+		for key in pairs(keys) do
+			layer:RenumberKeyGroup(key);
 		end
 	end
 
@@ -1048,9 +1067,12 @@ local function MoveAction(elementData, destLayerID, copying)
 	local destLayer = DebindPrivate.GetProfileLayer(destLayerID);
 	destLayer:Insert(action, insertIndex, not copying);
 	-- 순서 번호는 새로 받는다. 복사본은 원본과 같은 번호를 들고 태어나므로 그대로 두면
-	-- 두 액션이 동률이 되고, 다른 레이어로 옮긴 것이면 번호 자체가 저쪽 레이어의 값이라
-	-- 뜻이 없다. 둘 다 "이 레이어의 맨 뒤"가 답이다.
-	destLayer:PlaceLast(action);
+	-- 두 액션이 동률이 되고, 다른 레이어로 옮긴 것이면 번호 자체가 저쪽 그룹의 값이라
+	-- 뜻이 없다. 둘 다 "이 키 그룹의 맨 뒤"가 답이다.
+	--
+	-- **떠난 쪽 그룹은 안 건드린다.** 멤버가 빠져도 번호가 화면 차례를 따라 오르는 성질은
+	-- 그대로다(`RenumberKeyGroup`).
+	destLayer:PlaceInKeyGroup(action);
 
 	DebindPrivate.UpdateBindings();
 
@@ -3396,8 +3418,8 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	end
 	layer:Insert(action);
 	-- 새 액션도 순서 규칙을 똑같이 지난다. 지금 오는 것들은 키 없이 태어나므로 번호를 안
-	-- 받고(SetActionKey가 걸 때 준다), props에 키가 실려 오면 여기서 맨 뒤 번호를 받는다.
-	layer:PlaceLast(action);
+	-- 받고(SetActionKey가 걸 때 준다), props에 키가 실려 오면 여기서 그 그룹의 맨 뒤에 선다.
+	layer:PlaceInKeyGroup(action);
 
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
 	self:Refresh(true);
@@ -3765,7 +3787,7 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 
 	-- 항상 맨 뒤에 붙인다. 떨어진 위치는 의미가 없다.
 	destLayer:Insert(action, nil);
-	destLayer:PlaceLast(action);
+	destLayer:PlaceInKeyGroup(action);
 
 	self:ClearMouse();
 	DebindPrivate.UpdateBindings();
@@ -4152,66 +4174,30 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	self.ReasonText:SetPoint("RIGHT", up, "LEFT", -6, 0);
 end
 
---- 이 키·이 레이어의 액션들에 **지금 보이는 순서 그대로** 번호를 새로 매긴다.
----
---- 맞바꾸기 전에 번호를 성하게 만드는 것이 전부라 화면은 안 움직인다. 걸러 담는 것이
---- 한 레이어뿐인 이유는 seq가 레이어 안에서만 뜻이 있어서다(비교자가 layerRank로 먼저
---- 가른다). 다른 키의 액션과 번호가 겹치는 것은 상관없다 - 비교자는 같은 키끼리만 만난다.
----
---- 맨 뒤 번호부터 나눠 준다. 쓰이지 않은 구간이라 이 레이어의 다른 무엇과도 안 겹치고,
---- 겹치지 않는 것이 이 함수의 존재 이유다.
-local function RenumberKeyGroup(action)
-	local layerID, layer = DebindPrivate.FindLayerID(action);
-	if (not layer) then
-		return;
-	end
-
-	local seq = layer:GetNextSeq();
-	for _, row in ipairs(DebindPrivate.CollectActionsForKey(action.key)) do
-		if (row.layerID == layerID) then
-			row.action.seq = seq;
-			row.action._dirty = true;
-			seq = seq + 1;
-		end
-	end
-end
-
 --- 이웃과 **순서 번호를 맞바꾸는 것이 전부다.** 배열 자리는 순서에 아무 영향이 없다
 --- (목록은 정렬해서 그린다) - 순서를 정하는 것은 액션이 들고 있는 seq다.
 ---
---- **번호가 성치 않으면 먼저 고친다.** 맞바꾸기는 두 번호가 서로 다른 값일 때만 뜻이 있는데,
---- 켜고 끄는 판단(`ComputeOrderSwap`)은 번호를 아예 안 본다 - 네 축(중요도·호버·조건·레이어)만
---- 본다. 그래서 번호가 없거나 둘이 같으면 **켜져 있는 버튼이 아무 일도 안 하는** 상태가 됐다.
---- 소리는 나고 목록은 그대로다.
+--- **앞에 수리 갈래가 있었다.** 번호가 없거나 둘이 같으면 맞바꿔도 그대로라 켜져 있는 버튼이
+--- 아무 일도 안 했고(켜고 끄는 판단인 `ComputeOrderSwap`은 번호를 안 본다), 그래서 먼저
+--- 그 그룹을 다시 매기고 나서 바꿨다. 이제 그런 번호가 안 생긴다 - 번호를 주는 길이 전부
+--- 재부여를 지나므로 한 그룹 안의 번호는 언제나 1..n이고, 손으로 고친 저장 파일은 로그인
+--- 때 `CleanUpDB`가 훑는다.
 ---
---- 그런 번호가 실재한다. 비교자가 `(seq or 0)`으로 nil을 0에 접으므로(Ordering.lua) 번호가
---- 없는 액션들은 **동률이 되어 나란히 붙어 보이고**, 그게 사용자 눈에는 그냥 이웃한 두 줄이다.
---- CleanUpDB의 그물은 nil만 건지고 로그아웃 때 한 번 돈다 - 같은 번호 둘은 그대로 남는다.
+--- 바꾼 뒤에 다시 매기는 것은 자리가 아니라 번호를 정리하는 것이다 - 맞바꾸기 자체는 화면
+--- 차례를 이미 뜻대로 만들어 놓았고, 다시 매기기는 그 차례를 그대로 읽어 1..n으로 좁힌다.
 ---
---- 고치는 쪽을 골랐다. 여기서 물러나면 사용자에게는 고장과 구별되지 않는데, 저 번호는
---- 사용자가 만든 값이 아니라 우리가 매기는 값이라 **말없이 고쳐도 잃는 것이 없다.**
----
---- 화살표 버튼과 우클릭 메뉴가 **같은 함수를 지난다.** 저장은 세 가지가 한 벌이라
---- (`seq` 교환 · `_dirty` 둘 · `UpdateBindings`) 두 길로 갈라 적으면 한쪽이 하나를 빠뜨리는
---- 날이 온다 - 그 빠짐은 다음 로그인까지 안 보인다.
+--- 화살표 버튼과 우클릭 메뉴가 **같은 함수를 지난다.** 저장은 네 가지가 한 벌이라
+--- (`seq` 교환 · 재부여 · `_dirty` 둘 · `UpdateBindings`) 두 길로 갈라 적으면 한쪽이 하나를
+--- 빠뜨리는 날이 온다 - 그 빠짐은 다음 로그인까지 안 보인다.
 function DebindUI.ApplyOrderSwap(action, neighbor)
 	if (not action or not neighbor) then
-		return false;
-	end
-
-	if (action.seq == nil or neighbor.seq == nil or action.seq == neighbor.seq) then
-		RenumberKeyGroup(action);
-	end
-
-	-- 그래도 못 고쳤으면(레이어를 못 찾음) 손을 뗀다. 여기서 nil을 맞바꾸면 **둘 다 번호를
-	-- 잃고** 순서가 조용히 무너진다 - 아무 일도 안 일어나는 편이 낫다.
-	if (action.seq == nil or neighbor.seq == nil or action.seq == neighbor.seq) then
 		return false;
 	end
 
 	action.seq, neighbor.seq = neighbor.seq, action.seq;
 	action._dirty = true;
 	neighbor._dirty = true;
+	DebindPrivate.RenumberKeyGroupForAction(action);
 	DebindPrivate.UpdateBindings();
 	DebindFrame:Refresh(true);
 	DebindFrame:Update();
@@ -4996,15 +4982,15 @@ function DebindFrameMixin:SetActionKey(action, key)
 		edits[action] = { key = action.key, seq = action.seq };
 	end
 
-	if (key ~= nil and action.seq == nil) then
-		local _, layer = DebindPrivate.FindLayerID(action);
-		if (layer) then
-			action.seq = layer:GetNextSeq();
-		end
-	end
-
 	action.key = key;
 	action._dirty = true;
+	-- 키를 걸었으면 그 그룹을 다시 매긴다. 번호가 없으면 도착으로 보고 맨 뒤에 세우는 것도,
+	-- 남아 있으면 그 자리를 그대로 쓰는 것도 저 함수 안이다.
+	--
+	-- **키를 뗄 때는 아무것도 안 한다.** 떠난 그룹의 번호는 멤버가 빠져도 화면 차례를 따라
+	-- 오르는 성질이 그대로고(`RenumberKeyGroup`), 여기서 좁혀버리면 이 액션이 들고 나간 번호가
+	-- 그 그룹의 누군가와 겹쳐 다시 걸었을 때 지킬 자리가 없어진다.
+	DebindPrivate.RenumberKeyGroupForAction(action);
 	DebindPrivate.UpdateBindings();
 	self:Refresh(true);
 	self:ScrollActionIntoView(action);
