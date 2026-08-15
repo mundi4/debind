@@ -760,14 +760,7 @@ L["IMPORT_PASTE_ACCEPT"] = "Add to drawer"
 L["IMPORT_BATCH_UNNAMED"] = "Received string"
 L["IMPORT_BATCH_COUNTS"] = "%1$d keys, %2$d actions"
 L["IMPORT_BATCH_AGE"] = "%s ago"
-L["IMPORT_BATCH_AGE_PINNED"] = "%s ago - kept"
-L["IMPORT_BATCH_AGE_EXPIRING"] = "%1$s ago - goes in %2$s"
-L["IMPORT_BATCH_EXPIRED"] = "Past its keep-by date"
 L["IMPORT_BATCH_FROM_CLASS"] = "From a %s"
-L["IMPORT_BATCH_PIN"] = "Keep this one"
--- **"Not a later date."** Saying "keeps it longer" would invite the reader to look for how much
--- longer, and there is no such number - this takes the batch out of the sweep altogether.
-L["IMPORT_BATCH_PIN_DESC"] = "Received strings are cleared out after about a month. This one will not be."
 L["IMPORT_BATCH_DELETE"] = "Remove from drawer"
 L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r from the drawer?|n|nThis is the only copy. Anything you already added to your bindings stays where it is."
 -- **Four, where the decoder reports eight.** Each of its reasons is a different step, but a reader

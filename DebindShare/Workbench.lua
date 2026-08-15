@@ -40,13 +40,16 @@ for classID = 1, 20 do
     end
 end
 
---- How long a batch sits before it is offered up for deletion. **Not a rule, a default**: the list
---- shows the date it arrived and warns before this runs out, and a batch can be pinned out of it
---- entirely. Nothing is ever removed without having said so first.
-local DEFAULT_EXPIRY_SECONDS  = 30 * 24 * 60 * 60;
-
---- The window in which an expiring batch is called out in the list.
-local EXPIRY_WARNING_SECONDS  = 3 * 24 * 60 * 60;
+--- **There is no expiry.** Two constants and two functions stood here, and a pin on the row to
+--- opt out of them: a batch was judged old after a month and called out three days before, and
+--- nothing ever removed one. So the row showed a date on which nothing happens and the pin
+--- exempted the reader from a sweep that does not exist.
+---
+--- **The design is not rejected, it is unbuilt.** A drawer of received strings does grow, and the
+--- one thing it may not do is let one vanish without having said so - which is why the answer is a
+--- clear-out that **asks**, not a sweep, and why nothing here should judge anything until there is
+--- something to ask with (`devdocs/building-export-import.md`). Judgement with no action is worse
+--- than neither: it puts a promise on screen.
 
 
 -- ---------------------------------------------------------------------------------------------
@@ -393,19 +396,3 @@ function DebindShare.DeleteBatch(id)
     return false;
 end
 
---- Seconds until this batch is old enough to be swept, or nil if it is pinned.
----
---- Negative means it is already past. The list shows this rather than acting on it: a batch that
---- disappeared without the user having been told it was going to is the one outcome the drawer is
---- not allowed to produce.
-function DebindShare.GetSecondsUntilExpiry(batch)
-    if (batch.pinned) then
-        return nil;
-    end
-    return (batch.received + DEFAULT_EXPIRY_SECONDS) - time();
-end
-
-function DebindShare.IsExpiringSoon(batch)
-    local remaining = DebindShare.GetSecondsUntilExpiry(batch);
-    return remaining ~= nil and remaining <= EXPIRY_WARNING_SECONDS;
-end

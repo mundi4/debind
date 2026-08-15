@@ -70,15 +70,12 @@
 				</Anchors>
 			</Button>
 			<!--
-				Keeps the batch out of the expiry sweep entirely. Not a later date: there is no date
-				far enough away to mean "leave this alone".
+				A pin stood here, to keep a batch out of the expiry sweep. **There is no sweep** -
+				nothing removes a batch but this row's delete button - so it exempted the reader
+				from something that does not happen, and the line beside it promised a clear-out
+				the drawer does not perform. Both are gone until there is one, and it will have to
+				ask rather than sweep (`devdocs/building-export-import.md`).
 			-->
-			<CheckButton parentKey="PinButton" inherits="MinimalCheckboxArtTemplate">
-				<Size x="22" y="22"/>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.DeleteButton" relativePoint="LEFT" x="-2" y="0"/>
-				</Anchors>
-			</CheckButton>
 			<!--
 				What the drawer is for. It opens a dialog rather than acting: everything it will put
 				in the profile arrives badged and reaches no key, so the question in front of it is

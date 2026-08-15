@@ -184,14 +184,14 @@ L["LOGIN_MESSAGE"] = "/deb 명령어를 입력하면 창이 열립니다."
 -- 단서는 영어가 뒤에 붙이는 절("unless …")을 한국어에서는 **앞에 세운다.** 뒤에 달면
 -- "우선합니다"를 읽은 뒤에 뒤집는 꼴이라 문장을 두 번 읽게 된다.
 L["LAYER_DESC_SHARED_GENERAL"] = "계정 내 모든 캐릭터용."
-L["LAYER_DESC_SHARED_CLASS"] = "계정 내 모든 %1$s용. 조건과 중요도가 같다면 여기 있는 키가 %2$s의 같은 키보다 우선해요."
+L["LAYER_DESC_SHARED_CLASS"] = "계정 내 모든 %1$s용. 조건과 중요도가 같다면 여기 있는 키가 %2$s의 같은 키보다 우선합니다."
 -- 조사가 직업명 받침을 타므로 "(가)"를 붙인다(사냥꾼이 / 드루이드가). DELETE_CONFIRM_MESSAGE의
 -- "을(를)"과 같은 방식이다.
-L["LAYER_DESC_SHARED_SPEC"] = "계정 내 모든 %1$s이(가) %2$s일 때. 조건과 중요도가 같다면 여기 있는 키가 %3$s의 같은 키보다 우선해요."
-L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도가 같다면 여기 있는 키가 공유 전체의 같은 키보다 우선해요."
+L["LAYER_DESC_SHARED_SPEC"] = "계정 내 모든 %1$s이(가) %2$s일 때. 조건과 중요도가 같다면 여기 있는 키가 %3$s의 같은 키보다 우선합니다."
+L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도가 같다면 여기 있는 키가 공유 전체의 같은 키보다 우선합니다."
 -- 영어는 인자가 하나도 없고(툴팁 제목이 전문화를 이미 보여준다) 여기는 전문화명 하나를 받는다.
 -- 근거는 enUS 쪽 주석에.
-L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %s일 때. 조건과 중요도가 같다면 여기 있는 키가 다른 모든 탭의 같은 키보다 우선해요."
+L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %s일 때. 조건과 중요도가 같다면 여기 있는 키가 다른 모든 탭의 같은 키보다 우선합니다."
 -- 레이어의 짧은 이름. 근거는 enUS 쪽 주석에.
 L["LAYER_SHORT_ACCOUNT"] = "계정"
 L["LAYER_SHORT_CLASS"] = "직업"
@@ -313,7 +313,7 @@ L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "블리자드 상태 드라이버가 �
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "이 값을 바꾸면 성능 문제가 생길 수 있습니다."
 -- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
-L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선해요."
+L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선합니다."
 L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에게 행동을 사용합니다 -- 마우스 올림 조건이 걸려 있어도 마찬가지입니다."
 L["TARGET_UNIT"] = "대상"
 L["TYPE_COMMAND"] = "단축키 명령"
@@ -428,12 +428,7 @@ L["IMPORT_PASTE_ACCEPT"] = "서랍에 넣기"
 L["IMPORT_BATCH_UNNAMED"] = "받은 문자열"
 L["IMPORT_BATCH_COUNTS"] = "키 %1$d개, 행동 %2$d개"
 L["IMPORT_BATCH_AGE"] = "%s 전"
-L["IMPORT_BATCH_AGE_PINNED"] = "%s 전 - 보관"
-L["IMPORT_BATCH_AGE_EXPIRING"] = "%1$s 전 - %2$s 뒤 삭제"
-L["IMPORT_BATCH_EXPIRED"] = "보관 기간이 지났습니다"
 L["IMPORT_BATCH_FROM_CLASS"] = "보낸 쪽: %s"
-L["IMPORT_BATCH_PIN"] = "이건 남겨두기"
-L["IMPORT_BATCH_PIN_DESC"] = "받아둔 문자열은 한 달쯤 지나면 정리됩니다. 이것은 정리하지 않습니다."
 L["IMPORT_BATCH_DELETE"] = "서랍에서 지우기"
 L["IMPORT_DELETE_CONFIRM"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r을(를) 서랍에서 지우시겠습니까?|n|n사본이 이것뿐입니다. 이미 지정에 넣은 것은 그대로 남습니다."
 L["IMPORT_FAILED_NOT_OURS"] = "Debind 문자열이 아닙니다."

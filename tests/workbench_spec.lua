@@ -438,62 +438,10 @@ return function(DebindPrivate, DebindShare)
         end
     end);
 
-    ---------------------------------------------------------------------------
-    -- Expiry
-    --
-    -- Never acted on here - the list shows it. A batch that vanished without the user having been
-    -- told it was going to is the one outcome the drawer is not allowed to produce.
-    ---------------------------------------------------------------------------
-
-    local DAY = 24 * 60 * 60;
-    local realTime = _G.time;
-
-    local function AtDaysLater(days, fn)
-        local base = realTime();
-        _G.time = function() return base + days * DAY; end
-        local ok, err = pcall(fn);
-        _G.time = realTime;
-        if (not ok) then
-            error(err, 0);
-        end
-    end
-
-    test("갓 받은 배치는 만료가 멀다", function()
-        ResetDrawer();
-        STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindShare.AddBatch(GOOD);
-
-        check(DebindShare.GetSecondsUntilExpiry(batch) > 0, "이미 만료");
-        check(DebindShare.IsExpiringSoon(batch) == false, "바로 만료 임박이라고 한다");
-    end);
-
-    test("한 달이 다 되면 임박이라고 말한다", function()
-        ResetDrawer();
-        STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindShare.AddBatch(GOOD);
-
-        AtDaysLater(28, function()
-            check(DebindShare.IsExpiringSoon(batch), "임박이라고 안 한다");
-            check(DebindShare.GetSecondsUntilExpiry(batch) > 0, "아직 지나지는 않았다");
-        end);
-        AtDaysLater(31, function()
-            check(DebindShare.GetSecondsUntilExpiry(batch) < 0, "지났는데 안 지났다고 한다");
-        end);
-    end);
-
-    -- Pinning is what takes a batch out of the sweep entirely, so it must not merely push the date
-    -- out - there is no date it could be pushed to that is far enough.
-    test("핀을 꽂으면 만료가 아예 없다", function()
-        ResetDrawer();
-        STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindShare.AddBatch(GOOD);
-        batch.pinned = true;
-
-        check(DebindShare.GetSecondsUntilExpiry(batch) == nil, "핀인데 만료가 있다");
-        AtDaysLater(365, function()
-            check(DebindShare.IsExpiringSoon(batch) == false, "일 년 뒤에 임박이라고 한다");
-        end);
-    end);
+    -- **만료 케이스 셋이 여기 있었다** (`GetSecondsUntilExpiry` / `IsExpiringSoon` / 핀).
+    -- 판정만 있고 쓸어내는 코드가 없어서, 그 셋은 화면에 아무 일도 안 일어나는 날짜를 띄우는
+    -- 계산을 검사하고 있었다. 판정과 핀이 같이 빠지면서 스펙도 같이 나간다 — 되살릴 때는
+    -- 쓸어내는 쪽이 아니라 **묻는** 쪽으로 짓는다(`devdocs/building-export-import.md`).
 
     DebindShare.DecodeExportString = realDecode;
 

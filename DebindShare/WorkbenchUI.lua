@@ -76,18 +76,13 @@ function DebindShareBatchRowMixin:Init(elementData)
     end);
     self.CommitButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
 
-    self.PinButton:SetChecked(batch.pinned == true);
-    self.PinButton:SetScript("OnClick", function(button)
-        batch.pinned = button:GetChecked() or nil;
-        self:UpdateAge();
-    end);
-    self.PinButton:SetScript("OnEnter", function(button)
-        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-        GameTooltip_SetTitle(GameTooltip, LLL["IMPORT_BATCH_PIN"]);
-        GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_BATCH_PIN_DESC"]);
-        GameTooltip:Show();
-    end);
-    self.PinButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+    -- **No pin, because nothing sweeps.** A pin takes a batch out of a clear-out, and there is no
+    -- clear-out: `AddBatch` appends and only this row's delete button ever removes one. A control
+    -- that exempts you from something that does not happen is a control that does nothing, and the
+    -- sentence beside it ("cleared out after about a month") was the drawer promising a behaviour
+    -- it does not have. The design for that is not rejected -- it is waiting on a clear-out that
+    -- **asks** rather than sweeps, which is the one thing this drawer may not do silently
+    -- (`devdocs/building-export-import.md`).
 
     -- **Deleting asks first, and names what goes.** A batch is the only copy of a string somebody
     -- sent: once the drawer lets go of it the way back is to ask them for it again. The main
@@ -120,32 +115,19 @@ function DebindShareBatchRowMixin:Init(elementData)
     self.DeleteButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
 end
 
---- How old it is, and how long it has left when that is worth saying.
+--- How old it is. **Nothing more, because nothing more is true.**
 ---
---- **The two are one line because they are the same fact from either end.** A drawer that showed
---- only the age would leave the reader to work out when it goes; one that showed only the countdown
---- would stop saying anything at all the moment a batch is pinned.
+--- This line used to carry a countdown as well -- how long the batch had left, and a different
+--- wording again once it was pinned or past. None of that ever happened: the drawer judged expiry
+--- and never acted on it, so the row was telling the reader a date on which nothing occurs. Age is
+--- the half that is a fact, and it is the half they came for anyway.
 function DebindShareBatchRowMixin:UpdateAge()
     local batch = self.elementData.batch;
     -- A floor of one minute, because `SecondsToTime(0)` answers with nothing at all and a row that
     -- says how old everything else is should not go blank for the one just added.
     local age = SecondsToTime(max(time() - batch.received, 60), true);
-
-    local remaining = DebindShare.GetSecondsUntilExpiry(batch);
-    if (remaining == nil) then
-        self.Age:SetText(format(LLL["IMPORT_BATCH_AGE_PINNED"], age));
-        self.Age:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
-    elseif (remaining <= 0) then
-        self.Age:SetText(LLL["IMPORT_BATCH_EXPIRED"]);
-        self.Age:SetTextColor(ERROR_COLOR:GetRGB());
-    elseif (DebindShare.IsExpiringSoon(batch)) then
-        self.Age:SetText(format(LLL["IMPORT_BATCH_AGE_EXPIRING"], age,
-            SecondsToTime(remaining, true)));
-        self.Age:SetTextColor(DebindPrivate.DebindUI.WARNING_FONT_COLOR:GetRGB());
-    else
-        self.Age:SetText(format(LLL["IMPORT_BATCH_AGE"], age));
-        self.Age:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
-    end
+    self.Age:SetText(format(LLL["IMPORT_BATCH_AGE"], age));
+    self.Age:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
 end
 
 --- Asks what to bring in, and from where.
