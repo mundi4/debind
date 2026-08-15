@@ -286,16 +286,78 @@ return function(DebindPrivate, DebindShare)
     -- Action fields
     ---------------------------------------------------------------------------
 
-    -- `imported` is the one field `KEYS_TO_SAVE` has and the wire does not. It says which batch an
-    -- action arrived on **in this drawer**, so sending it would tell the far side that something
-    -- they have just received had already been received, quarantined against a number that means
-    -- nothing on their machine.
-    test("imported는 안 실린다", function()
+    ---------------------------------------------------------------------------
+    -- 배지 달린 것은 안 나간다
+    --
+    -- **내보내기가 하는 말은 "이게 내 세팅이다"인데, 아직 결정 안 한 남의 것은 내 것이 아니다.**
+    -- 실어 보내면 결정 안 된 것이 사람을 건너 퍼진다 - 받는 쪽에서 또 배지를 달고 서고, 그
+    -- 사람도 판단할 근거가 없다.
+    ---------------------------------------------------------------------------
+
+    test("배지 달린 액션은 안 나간다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F" },
+                { type = Constants.SPELL, value = 2, key = "G" },
+            },
+        });
+        LayerActions(1)[2].imported = 4;
+
+        local payload = DebindShare.BuildExportPayload();
+        check(CountActions(payload) == 1, "액션 수 " .. CountActions(payload));
+        check(#GroupFor(payload, "G") == 0, "격리 중인 것이 나갔다");
+    end);
+
+    -- **고른 것이어도 안 나간다.** 창은 자기 목록에서 같은 집합을 걸러내지만, 이 창은 메인 창에
+    -- 수명이 안 묶여 있어서 열어둔 채로 배지가 붙거나 떨어질 수 있다. 여기가 그걸 지키는 자리다.
+    test("골라도 배지 달린 것은 안 나간다", function()
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
-        LayerActions(1)[1].imported = 4;
+        local stored = LayerActions(1)[1];
+        stored.imported = 4;
+
+        local payload = DebindShare.BuildExportPayload({ [stored] = true });
+        check(CountActions(payload) == 0, "고르면 나간다");
+    end);
+
+    -- **한 키가 반만 나갈 수 있고, 그게 맞다.** 배지 달린 하나는 아직 그 세팅의 일부가 아니다.
+    test("한 키에 섞여 있으면 승인된 것만 나간다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F", combat = true },
+                { type = Constants.SPELL, value = 2, key = "F" },
+            },
+        });
+        LayerActions(1)[2].imported = 4;
+
+        check(#GroupFor(DebindShare.BuildExportPayload(), "F") == 1, "반만 나가야 한다");
+    end);
+
+    -- **승인했지만 키를 안 준 것은 나간다.** 배지가 없으면 내 것이고, "아직 키를 안 정한 키
+    -- 그룹"이라는 사실까지 그대로 실린다. 두 규칙이 서로 안 부딪힌다.
+    test("배지 없는 숫자 키는 그대로 나간다", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = 3, seq = 1 },
+                { type = Constants.SPELL, value = 2, key = 3, seq = 2 },
+            },
+        });
+
+        local group = GroupFor(DebindShare.BuildExportPayload(), 3);
+        check(#group == 2, "숫자 키 그룹이 안 나갔다: " .. #group);
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Action fields
+    ---------------------------------------------------------------------------
+
+    -- `imported` is the one field `KEYS_TO_SAVE` has and the wire does not. Nothing carrying it
+    -- goes out at all (above), so what this guards is the field arriving on something else - a
+    -- copy made from a badged action, a hand-edited file.
+    test("imported는 액션에 실리지 않는다", function()
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
         check(OneOn(DebindShare.BuildExportPayload(), "F").imported == nil,
-            "남의 서랍 번호가 나갔다");
+            "명단에 없는 필드가 나갔다");
     end);
 
     test("화이트리스트 밖 필드는 안 실리고 $상태 조건은 실린다", function()

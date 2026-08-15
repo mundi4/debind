@@ -289,16 +289,16 @@ L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- 보는 사람이 같은 문장을 읽어야 둘이 같은 것이라는 걸 안다.
 L["LAYER_DESC_SHARED_GENERAL"] = "Every character on the account."
 -- %s 둘은 차례로 직업명(UnitClass), 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. Beats %2$s unless conditions or Importance say otherwise."
+L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same key in %2$s, unless conditions or Importance say otherwise."
 -- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
-L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. Beats %3$s unless conditions or Importance say otherwise."
+L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless conditions or Importance say otherwise."
 -- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
-L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. Beats everything Shared unless conditions or Importance say otherwise."
+L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Shared, unless conditions or Importance say otherwise."
 -- 인자는 차례로 지는 레이어의 이름, 전문화명. **위 둘과 차례가 다르다** - 영어는 전문화명을
 -- 안 쓰기 때문이다(툴팁 제목이 이미 "Oreo / Balance"라 "this spec"으로 가리킬 것이 있다).
 -- 지는 쪽을 1번으로 두면 영어가 자리 번호 없이 끝나고, 한국어만 번호로 차례를 되돌린다.
 -- 근거는 GetSideTabDescription 주석에. 서식이 갈리는 것은 check-locales의 EXTRA_SPECS_OK가 안다.
-L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. Beats %s unless conditions or Importance say otherwise."
+L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key in %s, unless conditions or Importance say otherwise."
 -- 레이어의 짧은 이름. "X over Y" 한 줄에 들어가는 값이라 한두 낱말이어야 한다.
 -- Shared/General을 Account라 부르는 이유는 GetLayerShortName 주석에.
 L["LAYER_SHORT_ACCOUNT"] = "Account"
@@ -524,7 +524,7 @@ L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause perfo
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 우선순위에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
-L["TAB_DESC_CHARACTER"] = "This character only. Beats Shared unless conditions or Importance say otherwise."
+L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Shared, unless conditions or Importance say otherwise."
 L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it -- even when the hover condition is in play."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"

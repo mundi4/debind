@@ -372,15 +372,23 @@ end
 --- **Inactive specs are opened too.** The data is already there - class layers sit under
 --- `classes[class]` per spec, so a Balance druid can read their Feral layer without switching.
 --- A window that only showed the live spec would make the user relog to share half their setup.
+---
+--- **Badged actions are left out of the list entirely**, because they are left out of the string
+--- (`BuildExportPayload`). Every count this window prints is derived from what is collected here -
+--- the layer headers, the [select all] total, and which rows can be ticked - so leaving them
+--- listed would let the window say "12" and send 9. A layer holding nothing else drops out with
+--- them, and a profile holding nothing else falls to `EXPORT_EMPTY`.
 function DebindShareExportPanelMixin:BuildLayers()
     local layers = {};
 
     for layerID = 1, 11 do
         local layer = DebindPrivate.GetProfileLayer(layerID);
-        if (layer and layer:GetNumActions() > 0) then
+        if (layer) then
             local actions, rows = {}, {};
             for _, action in layer:Enumerate() do
-                actions[#actions + 1] = action;
+                if (not action.imported) then
+                    actions[#actions + 1] = action;
+                end
             end
 
             local firstInLayer = true;
@@ -396,7 +404,9 @@ function DebindShareExportPanelMixin:BuildLayers()
                 end
             end
 
-            layers[#layers + 1] = { layerID = layerID, actions = actions, rows = rows };
+            if (#actions > 0) then
+                layers[#layers + 1] = { layerID = layerID, actions = actions, rows = rows };
+            end
         end
     end
 

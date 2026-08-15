@@ -183,13 +183,13 @@ L["LOGIN_MESSAGE"] = "/deb 명령어를 입력하면 창이 열립니다."
 -- 단서는 영어가 뒤에 붙이는 절("unless …")을 한국어에서는 **앞에 세운다.** 뒤에 달면
 -- "우선합니다"를 읽은 뒤에 뒤집는 꼴이라 문장을 두 번 읽게 된다.
 L["LAYER_DESC_SHARED_GENERAL"] = "계정 내 모든 캐릭터용."
-L["LAYER_DESC_SHARED_CLASS"] = "계정 내 모든 %1$s용. 조건과 중요도가 같다면 %2$s보다 우선합니다."
+L["LAYER_DESC_SHARED_CLASS"] = "계정 내 모든 %1$s용. 조건과 중요도가 같다면 여기 있는 키가 %2$s의 같은 키보다 우선해요."
 -- 조사가 직업명 받침을 타므로 "(가)"를 붙인다(사냥꾼이 / 드루이드가). DELETE_CONFIRM_MESSAGE의
 -- "을(를)"과 같은 방식이다.
-L["LAYER_DESC_SHARED_SPEC"] = "계정 내 모든 %1$s이(가) %2$s일 때. 조건과 중요도가 같다면 %3$s보다 우선합니다."
-L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도가 같다면 공유 전체보다 우선합니다."
+L["LAYER_DESC_SHARED_SPEC"] = "계정 내 모든 %1$s이(가) %2$s일 때. 조건과 중요도가 같다면 여기 있는 키가 %3$s의 같은 키보다 우선해요."
+L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도가 같다면 여기 있는 키가 공유 전체의 같은 키보다 우선해요."
 -- 인자 차례가 영어와 반대다(1번이 지는 레이어, 2번이 전문화명). 근거는 enUS 쪽 주석에.
-L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %2$s일 때. 조건과 중요도가 같다면 %1$s보다 우선합니다."
+L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %2$s일 때. 조건과 중요도가 같다면 여기 있는 키가 %1$s의 같은 키보다 우선해요."
 -- 레이어의 짧은 이름. 근거는 enUS 쪽 주석에.
 L["LAYER_SHORT_ACCOUNT"] = "계정"
 L["LAYER_SHORT_CLASS"] = "직업"
@@ -311,7 +311,7 @@ L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "블리자드 상태 드라이버가 �
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "이 값을 바꾸면 성능 문제가 생길 수 있습니다."
 -- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
-L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 공유보다 우선합니다."
+L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선해요."
 L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에게 행동을 사용합니다 -- 마우스 올림 조건이 걸려 있어도 마찬가지입니다."
 L["TARGET_UNIT"] = "대상"
 L["TYPE_COMMAND"] = "단축키 명령"

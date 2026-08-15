@@ -35,7 +35,9 @@ So the binds have to be layered.
 | Shared / General | every character on the account |
 | *WoW's own keybindings* | *whatever you already had. Debind doesn't touch it.* |
 
-Read it top to bottom. The first row with something for that key wins; the rows under it still cover every other key. If none of them want it, it falls to the bottom row. (Put two actions on the same key and a couple of other things get checked before the layer does — *When a key holds several actions*, further down.)
+**A layer holds only the keys you put in it — never a whole keyboard.** So the question is asked one key at a time: for *this* key, which rows have something to say?
+
+The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does — and to your WoW keybinding if none of them do. Nothing is switched off on the way: the rows below are still answering for every other key. (Put two actions on the same key and a couple of other things get checked before the layer does — *When a key holds several actions*, further down.)
 
 Say `R` is Rebirth, in Shared / Class. Every druid you have presses `R` for a battle rez, and so does the next one you roll. Then Balance wants `R` for Starfall — put Starfall in Shared / Specialization and you're done. **The narrow layer takes over there, the broad one keeps everything else.** Balance gets Starfall, every other druid still gets Rebirth. You didn't copy Rebirth anywhere, you didn't delete it, and it's still in one place when you want to change it.
 
