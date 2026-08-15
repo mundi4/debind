@@ -1636,26 +1636,43 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 **남는 진짜 이유는 하나뿐이다:** 비대칭. 내보내는 쪽 `ACTION_FIELDS`는 화이트리스트인데 받는 쪽
 `BuildAction`은 블랙리스트다. 그걸 화이트리스트로 맞추면 이름으로 피해 갈 일이 없다.
 
-### 순서는 실을 필요가 없다
+### `seq`를 그대로 싣고, bring이 우리 공간으로 옮긴다
 
-정렬된 채로 보내면 **배열 차례가 곧 정렬 키**다. `order`가 생긴 이유는 필요가 아니라 명시성이었고
-(기각 사유가 *"암묵적이다"* 하나였다), 그 전에는 실제로 배열 차례에만 실려 있었다.
+**선의 이름은 `seq`다.** `order`도 `importOrder`도 없다. 이름을 피할 이유였던 충돌이 없었으므로
+(위 절), 선과 저장이 같은 이름을 쓰는 것이 "저장 포맷을 닮게"에도 맞다.
 
-그리고 **실려온 `seq`는 저장되는 값이 아니라 놓는 차례를 정하는 정렬 키**다. 보낸 사람 세계의
-번호라 우리 번호와 섞으면 안 되고, 가져온 액션들끼리 같은 밴드 안에서만 뜻이 있다. 목적지 레이어별로
-모아 정렬한 뒤 차례대로 놓으면 `GetNextSeq`가 "기존 것 뒤에, 자기들끼리는 보낸 사람 차례대로"를
-저절로 만든다. **지금 빠져 있는 것은 그 정렬 한 줄이다** — `PlaceImportedActions`는
-`ipairs(placements)` 차례로 놓는다.
+**그 값은 저장되는 값이 아니다.** 보낸 사람 레이어의 번호라 받는 레이어에서는 아무 뜻이 없다 —
+가져온 액션들끼리, 같은 밴드 안에서만 차례를 말한다. 그래서 bring이 **우리 공간의 번호로 바꾼다.**
 
-정렬 자체는 `CompareActionOrder`다(`seq`는 그 마지막 층일 뿐이고, 익스포트도 그 비교자로 매긴다).
-`hover`와 `isConditional`이 파생값이라 **`BuildAction` 이후 / 놓기 직전**이어야 한다.
+```
+1. 들어온 액션 전부에  seq = MAGIC + 실려온 seq
+2. 목적지 레이어에 넣는다
+3. 닿은 (레이어, 키) 그룹을 재부여 → 1..n
+```
 
-**그리고 `importOrder`가 설 자리도 없어진다** — 합성 키 덕에 도착한 액션에 언제나 키가 있어서
-`PlaceLast`가 언제나 번호를 준다. 키 없는 경우가 사라진다.
+1번이 하는 일이 **"어느 것이 새로 온 것인가"를 숫자의 성질로 만드는 것**이다. 그러고 나면 비교자도
+재부여도 특별한 갈래가 필요 없다 — MAGIC이 지배하니 도착한 것들은 자기 밴드에서 기존 것들 뒤에
+서고, 낮은 자리가 보낸 쪽 차례를 지킨다.
+
+**MAGIC은 bring 안에서만 산다.** 3번이 걷어가므로 SavedVariables에도, 비교자의 지속 상태에도 안
+닿는다. 두 번호 공간이 동시에 존재하는 순간이 없다.
+
+- **내보낼 때 구워 보내지 않는다.** 상수를 알아야 하는 쪽은 정렬하는 쪽이고 그건 bring이다.
+  선에 얹으면 받는 쪽 기계가 문자열에 실린다.
+- **크기는 안 따진다.** 조건이 "받는 레이어의 번호보다 크다" 하나뿐이라, 나중에 더 큰 값으로
+  바꿔도 옛 문자열이 안 깨진다. 그리고 재부여가 도는 이상 저장된 번호는 그룹 크기 이하다.
+- **3번은 "그 그룹"이 아니라 닿은 그룹 전부**다. 한 배치는 레이어 여럿·키 여럿에 떨어진다. 하나
+  빠뜨리면 그 그룹만 MAGIC을 든 채 남고, 그건 다음 편집까지 조용하다.
+
+**그리고 `importOrder`가 설 자리가 없어진다.** 합성 키 덕에 도착한 액션에 언제나 키가 있고, 순서는
+위 셋이 다 처리한다.
+
+**`PlaceLast`와 `GetNextSeq`는 이 그림에 없다.** 없어질 함수라 그 동작을 제약으로 놓고 설계하면
+안 된다 → `devdocs/renumbering-a-key-group.md`의 "손댈 자리". 배치가 번호를 발급하지 않고, 재부여가
+1부터 매긴다.
 
 `seq` 자체의 결함(밴드를 넘을 때 안 따라간다)은 **임포트와 무관한 기존 문제**라 따로 세웠다 →
-`devdocs/renumbering-a-key-group.md`. 위의 "여럿을 한꺼번에 놓기"가 그 문서의 매직넘버 절과 같은
-물건이다.
+같은 문서. 위 3번이 그쪽의 재부여와 **같은 물건**이므로, 이 포맷 작업은 그 설계 위에 선다.
 
 ### 새 모양 — 저장 구조 그대로
 
@@ -1675,14 +1692,15 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 
   shared = {
     GENERAL = {
-      { type = "spell", value = 774,  key = "F", combat = true, priority = 2,
+      { type = "spell", value = 774,  key = "F", seq = 3, combat = true, priority = 2,
         checkedUnits = { target = 1 } },
-      { type = "spell", value = 8936, key = "F", ["$state3"] = true },
-      { type = "setstate", key = "CTRL-9", setstate = { mode = "toggle", state = "$state3" } },
+      { type = "spell", value = 8936, key = "F", seq = 7, ["$state3"] = true },
+      { type = "setstate", key = "CTRL-9", seq = 1,
+        setstate = { mode = "toggle", state = "$state3" } },
     },
     classes = {
       DRUID = {
-        [0] = { { type = "spell", value = 8921, key = "F", forms = 6 } },
+        [0] = { { type = "spell", value = 8921, key = "F", seq = 2, forms = 6 } },
         [2] = { ... },
       },
     },
@@ -1697,9 +1715,10 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 읽는 쪽이 알아야 할 것:
 
 - **`key`가 액션에 있고, 그것이 곧 그룹이다.** 같은 `key`면 한 벌. 그룹 층도 `id`도 없다.
-- **`order`도 `seq`도 없다.** 한 레이어의 액션 배열은 `CompareActionOrder` 차례로 나가므로
-  **배열 자리가 정렬 키**다. 같은 키의 멤버들 사이 상대 순서만 지켜지면 되고, 그 정렬이 그것을
-  준다.
+- **`seq`는 보낸 쪽 번호 그대로다.** 저장할 값이 아니라 **이 문자열 안에서만 뜻이 있는 차례**이고,
+  bring이 `MAGIC + seq`를 거쳐 우리 번호로 바꾼다(위 절). 배열 차례에 기대지 않는 이유는 그것이
+  암묵적이어서다 — 디코드부터 배치까지 아무도 다시 담지 않아야 성립하는데, 그 조건은 나중에
+  조용히 깨진다.
 - **`layer` 서술이 없다.** 경로가 말한다. `spec = 0`은 "그 직업 전체", 상한은 `MAX_SPEC`.
 - `macro` 스냅샷과 `setstate` 이름 축은 **그대로 남는다.** 그 둘은 중첩과 무관하게 받는 쪽에서
   "성공해버리는" 참조를 막는 장치다.
@@ -1745,7 +1764,7 @@ key = "export#1"   -- 같은 문자열이면 같은 벌
 | | |
 |---|---|
 | 액션 | `importGroup`, `importOrder` (+`KEYS_TO_SAVE` 두 칸) |
-| 선 | `groups` 층, `group.id`, `order`, 액션의 `layer` 서술 |
+| 선 | `groups` 층, `group.id`, `order`(→ `seq`가 제 이름으로), 액션의 `layer` 서술 |
 | `Profile.lua` | `NextImportGroupID`는 남되 **키 문자열용**으로. `CollectImportGroupActions`는 `CollectKeyGroupActions` 하나로 접힌다 |
 | `DebindUI.lua` | `CollectKeylessActionRows`와 `BuildKeyboardElements`의 **키 없는 별도 패스**. 도착 그룹이 그냥 키 그룹이 된다 |
 | `Ordering.lua` | `(lhs.seq or lhs.importOrder or 0)`의 `importOrder` 갈래 |

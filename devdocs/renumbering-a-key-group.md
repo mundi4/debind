@@ -242,12 +242,13 @@ X가 자기 밴드의 번호를 들고 다른 밴드로 넘어가면 그 번호�
 
 | | 지금 | 뒤 |
 |---|---|---|
-| `PlaceLast` | `seq = nil` 후 키가 있으면 `GetNextSeq()` | 놓기 + 재부여 쪽으로 흡수 |
+| `PlaceLast` | `seq = nil` 후 키가 있으면 `GetNextSeq()` | **없어진다.** 호출부 다섯이 전부 "레이어에 도착했으니 맨 뒤 번호"인데, 그게 통째로 "넣고 그 키 그룹을 재부여"로 바뀐다 |
+| `GetNextSeq` | 배치가 번호를 발급하는 자리 | **없어진다.** 남은 쓰임(`CleanUpDB` 수리, `RenumberKeyGroup`의 시작값, `SetActionKey`)이 전부 "1부터 다시 매긴다"로 대체된다 |
 | `RenumberKeyGroup` | 번호가 성치 않을 때의 **예외 수리**. `GetNextSeq()`부터 매긴다 | **일상 경로.** 1부터 매긴다 |
 | `ApplyOrderSwap` | 앞에 수리 갈래를 달고 있다 | 수리 갈래가 필요 없어진다 |
 | `CleanUpDB` | 빠진 번호·겹친 번호를 깁는다 | 빠진 번호는 안 생긴다. 겹침 그물은 손으로 고친 저장 파일용으로 남길지 따로 판단 |
 | `SetKeyForActions` | 랭크로 정렬 후 하나씩 `PlaceLast` | 매직넘버 + 재부여 (모양은 이미 같다) |
-| `PlaceImportedActions` | `ipairs(placements)` 차례로 놓는다 | 목적지 레이어별로 **보낸 쪽 차례로 정렬한 뒤** 놓는다 |
+| `PlaceImportedActions` | `ipairs(placements)` 차례로 놓고 `PlaceLast`가 번호를 준다 | **매직넘버 + 재부여.** 들어온 액션에 `seq = MAGIC + 실려온 seq`를 먼저 얹고, 넣고, 닿은 그룹을 전부 재부여한다(`devdocs/building-export-import.md`) |
 
 **재부여가 걸려야 하는 입구**(하나라도 빠지면 그 그룹만 옛 증상이 남고, 재현이 안 된다):
 조건·중요도·hover 편집(`onActionValueChanged`), 키 걸기/떼기(`SetActionKey`), 레이어 이동·복사
