@@ -313,8 +313,15 @@ end
 --- alone would have an isolated run reading the tester's real profile through half its paths while
 --- `BuildKeyMap` held only the test layer. It yields two more values, and the stand-in has to yield
 --- them too or the rows come out with no scope and no specialization.
+---
+--- **`FindLayerID` is the third**, and it is not an enumeration -- it walks `LayerArray`, a local in
+--- `Profile.lua` that the test layer is deliberately not in. Left alone it answers nil for every
+--- test action, and everything built on it becomes a silent no-op: `RenumberKeyGroupForAction`
+--- returns without renumbering, so the arrows and every edit path would appear to work and settle
+--- nothing. A test that drives a real button has to reach the same layer the run is isolated to.
 local realEnumerate
 local realEnumerateAll
+local realFindLayerID
 
 local function SetIsolated(isolated)
     if isolated then
@@ -357,14 +364,32 @@ local function SetIsolated(isolated)
                     end
                 end, only, 0
             end
+
+            realFindLayerID = DebindPrivate.FindLayerID
+            DebindPrivate.FindLayerID = function(action)
+                if action == nil then
+                    return nil
+                end
+                local layer = only[1]
+                for _, candidate in layer:Enumerate() do
+                    if candidate == action then
+                        return layer.layerID, layer
+                    end
+                end
+                -- Not the test layer's. Falls through to the real walk so a test that reaches for
+                -- something the tester actually owns is answered rather than quietly told "nowhere".
+                return realFindLayerID(action)
+            end
         end
     else
         pcall(RestoreGameBindings)
         if realEnumerate then
             DebindPrivate.EnumerateProfileLayers = realEnumerate
             DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
+            DebindPrivate.FindLayerID = realFindLayerID
             realEnumerate = nil
             realEnumerateAll = nil
+            realFindLayerID = nil
         end
     end
 
@@ -1228,6 +1253,136 @@ RegisterTest("Conditional before unconditional", {
             return Fail("Conditional ordering", "second binding is also conditional")
         end
         return Pass("Conditional ordering")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: Renumbering a key group
+--
+-- `devdocs/renumbering-a-key-group.md`. The rule itself is settled headlessly
+-- (`tests/renumber_spec.lua`) against `CollectActionsForKey`, which is the list the **window
+-- draws**. What only this layer sees is the other end: that the same numbers reach `BuildKeyMap`
+-- and the solver, so the order the reader is shown is the order the key actually fires in. Those
+-- are two walks over the same profile and nothing but a test makes them agree.
+-----------------------------------------------------------
+
+--- The order `BuildKeyMap` ended up with, as a string of spell ids. Records the solver dropped
+--- are not in it, which is the point of asking here rather than asking the drawing side.
+local function KeyMapOrder(key)
+    local bindings = GetKeyBindings(key)
+    if not bindings then
+        return "<none>"
+    end
+    local out = {}
+    for i = 1, #bindings do
+        out[i] = tostring(bindings[i].value)
+    end
+    return table.concat(out, " ")
+end
+
+RegisterTest("Renumber: the arrows' order reaches the solver", {
+    description = "↑↓로 두 레코드의 차례를 바꾸면 넓은 쪽이 좁은 쪽을 덮어 KeyMap에서 빠지는지",
+    run = function()
+        local NAME = "Arrow order"
+        local KEY = "CTRL-ALT-F1"
+
+        -- **차례가 유일한 차이다.** 둘 다 조건부에 같은 중요도, 한 레이어라 밴드가 같고,
+        -- 그러면 `seq` 말고 가를 것이 없다. 좁은 쪽(combat+stealth)이 앞이면 둘 다 살고,
+        -- 넓은 쪽(combat)이 앞이면 좁은 쪽은 그 안에 통째로 들어가 UNREACHABLE로 빠진다.
+        -- 그래서 이 테스트가 재는 것은 "번호를 바꿨다"가 아니라 **그 번호가 솔버까지 갔다**이다.
+        local narrow = InsertAction({ type = Constants.SPELL, value = 116, key = KEY,
+            combat = true, stealth = true })
+        local broad = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "116 585" then
+            return Fail(NAME, format("좁은 쪽이 앞인데: %s", KeyMapOrder(KEY)))
+        end
+
+        -- 화살표 버튼과 우클릭 메뉴가 둘 다 지나는 함수. 번호를 맞바꾸고 그 그룹을 다시 매긴다.
+        DebindPrivate.DebindUI.ApplyOrderSwap(broad, narrow)
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "585" then
+            return Fail(NAME, format("넓은 쪽이 앞인데: %s", KeyMapOrder(KEY)))
+        end
+
+        -- **되돌려서 되살아나는 것까지 본다.** 없으면 이 테스트는 "처음부터 하나였다"도 통과시킨다.
+        DebindPrivate.DebindUI.ApplyOrderSwap(narrow, broad)
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "116 585" then
+            return Fail(NAME, format("되돌아오지 않았다: %s", KeyMapOrder(KEY)))
+        end
+        return Pass(NAME, "116 585 -> 585 -> 116 585")
+    end,
+})
+
+--- 한 키에 밴드 둘. **중요도로 가른다** - 조건 유무로 가르면 무조건 레코드가 둘이 되는 순간
+--- 하나가 다른 하나를 통째로 덮어 솔버가 지우고, 그러면 재는 것이 자리가 아니라 삭제가 된다.
+--- 축이 서로 다른 조건 넷이라 어느 것도 다른 것을 안 덮는다.
+---
+--- 번호는 **일부러 어긋나게** 심는다. 화면 차례와 나란하면 이 설정은 아무것도 못 잰다.
+local function InsertTwoBandKey(key)
+    local high1 = InsertAction({ type = Constants.SPELL, value = 1, key = key, priority = 1, combat = true })
+    local high2 = InsertAction({ type = Constants.SPELL, value = 2, key = key, priority = 1, stealth = true })
+    local low1 = InsertAction({ type = Constants.SPELL, value = 3, key = key, pet = true })
+    local low2 = InsertAction({ type = Constants.SPELL, value = 4, key = key, petbattle = true })
+
+    high1.seq, high2.seq, low1.seq, low2.seq = 10, 20, 2, 15
+    return high1, high2, low1, low2
+end
+
+RegisterTest("Renumber: crossing a band lands at the near end", {
+    description = "밴드를 넘긴 액션이 그 밴드의 가까운 쪽 끝에 서고, 그 차례로 KeyMap이 서는지",
+    run = function()
+        local NAME = "Band crossing"
+        local KEY = "CTRL-ALT-F2"
+        local _, _, _, low2 = InsertTwoBandKey(KEY)
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "1 2 3 4" then
+            return Fail(NAME, format("심어놓은 차례: %s", KeyMapOrder(KEY)))
+        end
+
+        -- 편집 하나가 지나가면서 그룹이 1..4로 정리된다. 재부여는 유도로 서는 불변식이라,
+        -- 옛 저장 파일에서 온 어긋난 번호를 안으로 들이는 것이 그 그룹에 닿는 첫 편집이다.
+        GetTestLayer():RenumberKeyGroup(KEY)
+
+        -- 4번을 위 밴드로 올린다. 15번을 그대로 들고 갔으면 10과 20 사이 - **중간**이다.
+        low2.priority = 1
+        DebindPrivate.RenumberKeyGroupForAction(low2)
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "1 2 4 3" then
+            return Fail(NAME, format("가까운 끝이 아니다: %s", KeyMapOrder(KEY)))
+        end
+        return Pass(NAME, "1 2 4 3")
+    end,
+})
+
+RegisterTest("Renumber: an edit inside one band moves nothing", {
+    description = "밴드를 안 바꾸는 편집이 KeyMap 차례를 안 흔드는지",
+    run = function()
+        local NAME = "Band-neutral edit"
+        local KEY = "CTRL-ALT-F3"
+        local _, _, low1 = InsertTwoBandKey(KEY)
+        ApplyBindings()
+        GetTestLayer():RenumberKeyGroup(KEY)
+
+        -- 이미 조건이 있는 액션에 조건 하나 더. `isConditional`은 파생값이라 밴드는 그대로다.
+        -- 조건을 다듬는 것이 편집의 대부분이라, 그때마다 자리를 잃으면 안 된다.
+        --
+        -- 축은 combat을 고른다. stealth를 얹으면 위 밴드의 stealth 레코드가 이걸 덮어버려서
+        -- 자리가 아니라 삭제를 재게 된다.
+        low1.combat = false
+        DebindPrivate.RenumberKeyGroupForAction(low1)
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "1 2 3 4" then
+            return Fail(NAME, format("자리가 움직였다: %s", KeyMapOrder(KEY)))
+        end
+        return Pass(NAME, "1 2 3 4")
     end,
 })
 

@@ -190,6 +190,133 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 그룹을 떠나고 돌아오는 것
+    ---------------------------------------------------------------------------
+
+    -- **키를 떼도 번호는 남고, 떠난 그룹은 안 좁혀진다.** 둘이 한 벌이다 - 좁히면 이 액션이
+    -- 들고 나간 번호가 남은 멤버의 것과 겹쳐서, 다시 걸었을 때 돌아갈 자리가 없어진다.
+    -- 멤버가 빠져 `1,3`이 되는 것은 성질을 안 깬다(번호가 화면 차례를 따라 오른다).
+    test("키를 떼면 그 자리에 구멍이 남는다", function()
+        ResetProfile({
+            general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
+        });
+
+        local leaving = Find("F", 12);
+        leaving.key = nil;
+        DebindPrivate.RenumberKeyGroupForAction(leaving);
+
+        check(Seqs("F") == "1 3", "남은 그룹이 좁혀졌다: " .. Seqs("F"));
+        check(leaving.seq == 2, "떠난 액션의 번호가 없어졌다: " .. tostring(leaving.seq));
+    end);
+
+    -- 그 구멍 덕에 다시 걸면 제자리다. 도착으로 보고 맨 뒤에 세우는 것은 **번호가 없을 때만**이다.
+    test("떼었다 같은 키에 다시 걸면 제자리", function()
+        ResetProfile({
+            general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
+        });
+
+        local action = Find("F", 12);
+        action.key = nil;
+        DebindPrivate.RenumberKeyGroupForAction(action);
+
+        action.key = "F";
+        DebindPrivate.RenumberKeyGroupForAction(action);
+
+        check(Order("F") == "11 12 13", "차례: " .. Order("F"));
+        check(Seqs("F") == "1 2 3", "번호: " .. Seqs("F"));
+    end);
+
+    -- 처음 키를 거는 액션은 번호가 없으므로 **그 밴드의 맨 뒤**다. `seq`가 생긴 이유가 그것이고
+    -- (`SetActionKey`), 재부여가 그것을 안 뒤집는다.
+    test("번호 없이 키를 걸면 그 밴드의 맨 뒤", function()
+        ResetProfile({
+            general = { Cond(11, "F", 1), Cond(12, "F", 2), Plain(21, "F", 3) },
+        });
+
+        local fresh = { type = Constants.SPELL, value = 14, combat = true };
+        DebindPrivate.GetProfileLayer(1):Insert(fresh);
+        fresh.key = "F";
+        DebindPrivate.RenumberKeyGroupForAction(fresh);
+
+        -- 조건밴드의 맨 뒤. 무조건인 21 앞이다.
+        check(Order("F") == "11 12 14 21", "차례: " .. Order("F"));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- ↑↓ 와 삭제와 레이어 이동
+    ---------------------------------------------------------------------------
+
+    --- `ApplyOrderSwap`이 하는 일에서 화면 갱신만 뺀 것. 그 함수는 `DebindUI.lua`에 있어서
+    --- 여기서 못 부르고, 부를 수 있는 것은 이 두 줄이 전부다. 진짜 버튼은 `/debtest`가 누른다.
+    local function Swap(a, b)
+        a.seq, b.seq = b.seq, a.seq;
+        DebindPrivate.RenumberKeyGroupForAction(a);
+    end
+
+    test("↑↓ 는 딱 한 칸 움직이고 왕복하면 제자리", function()
+        ResetProfile({
+            general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
+        });
+
+        Swap(Find("F", 12), Find("F", 11));
+        check(Order("F") == "12 11 13", "한 칸 위로: " .. Order("F"));
+
+        Swap(Find("F", 12), Find("F", 11));
+        check(Order("F") == "11 12 13", "다시 아래로: " .. Order("F"));
+        check(Seqs("F") == "1 2 3", "번호: " .. Seqs("F"));
+    end);
+
+    -- 지운 액션은 들고 나갈 번호가 없다. 그래서 삭제는 떼기와 달리 그 그룹을 좁힌다.
+    test("삭제하면 그 그룹이 1..n으로 좁혀진다", function()
+        ResetProfile({
+            general = { Plain(11, "F", 1), Plain(12, "F", 2), Plain(13, "F", 3) },
+        });
+
+        local layer = DebindPrivate.GetProfileLayer(1);
+        layer:Remove(Find("F", 12));
+        layer:RenumberKeyGroup("F");
+
+        check(Order("F") == "11 13", "차례: " .. Order("F"));
+        check(Seqs("F") == "1 2", "번호: " .. Seqs("F"));
+    end);
+
+    -- 레이어 이동·복사가 지나는 자리. 들고 온 번호는 저쪽 그룹의 값이라 버리고, 도착한 그룹의
+    -- 자기 밴드 맨 뒤에 선다.
+    test("다른 레이어에 도착하면 그 밴드의 맨 뒤", function()
+        ResetProfile({
+            general = { Cond(11, "F", 1) },
+            class = { [0] = { Cond(51, "F", 1), Cond(52, "F", 2), Plain(61, "F", 3) } },
+        });
+
+        -- 일반 레이어의 11을 직업/공용으로 옮긴다. 저쪽에서 1번을 들고 왔다.
+        local moving = Find("F", 11);
+        DebindPrivate.GetProfileLayer(1):Remove(moving);
+        local destLayer = DebindPrivate.GetProfileLayer(2);
+        destLayer:Insert(moving);
+        destLayer:PlaceInKeyGroup(moving);
+
+        -- 들고 온 1번을 그대로 뒀으면 51 앞에 섰다.
+        check(Order("F") == "51 52 11 61", "차례: " .. Order("F"));
+        check(Seqs("F") == "1 2 3 4", "번호: " .. Seqs("F"));
+    end);
+
+    -- **키 없이 도착하면 번호도 없다.** 들고 온 번호를 버리는 줄이 지키는 것이 이 규칙이고,
+    -- 읽는 쪽 셋이 전부 여기에 기대고 있다 - `MakeRow`는 키가 없으면 `seq`를 안 싣고,
+    -- `PlacementRank`는 그 자리에서 `importOrder`를 읽고, 비교자는 그 둘을 한 자리로 본다.
+    -- 남겨두면 잠깐 키를 걸었다 뗀 도착 그룹 멤버가 자기 `importOrder`를 잃는다.
+    test("키 없이 도착하면 들고 온 번호를 버린다", function()
+        ResetProfile({ general = {} });
+
+        -- 다른 레이어에서 5번을 들고 온, 키 없는 액션.
+        local arriving = { type = Constants.SPELL, value = 71, seq = 5, importOrder = 2 };
+        local layer = DebindPrivate.GetProfileLayer(1);
+        layer:Insert(arriving);
+        layer:PlaceInKeyGroup(arriving);
+
+        check(arriving.seq == nil, "번호가 남았다: " .. tostring(arriving.seq));
+    end);
+
+    ---------------------------------------------------------------------------
     -- 재부여가 닿는 범위
     ---------------------------------------------------------------------------
 
