@@ -1286,6 +1286,14 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         local NAME = "Arrow order"
         local KEY = "CTRL-ALT-F1"
 
+        -- **The window has to be open, because this test presses one of its buttons.**
+        -- `ApplyOrderSwap` redraws the list when it is done, and the window builds itself on its
+        -- first `OnShow` -- `OnLoad` is what reaches `LayerPanel` across to where `Refresh` looks
+        -- for it. Nothing here is worth guarding against in `Refresh`: the arrows and the
+        -- right-click menu both live on a row, so there is no way to reach it with the window shut.
+        DebindFrame:Show()
+        AddTeardown(function() DebindFrame:Hide() end)
+
         -- **The order is the only difference.** Both are conditional, at the same importance, in
         -- one layer, so they share a band and nothing but `seq` can split them. With the narrow one
         -- (combat+stealth) in front both survive; with the broad one (combat) in front the narrow
