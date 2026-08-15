@@ -55,6 +55,10 @@ Read `devdocs/testing-a-change.md` **before** deciding how to verify a change. `
 cannot see the game: UI and in-game behaviour is only verified by `/debtest`, and secure-snippet
 failures are silent.
 
+**`/debtest` reaches most of what the game does, so do not hand me a test it could run.** Code
+that can regress gets registered there. A procedure written out in chat is carried out once and
+is gone by the next change; a test in the kit is there for every one after it.
+
 ## Shipped addons
 
 | Folder | |
