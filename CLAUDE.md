@@ -135,9 +135,10 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
     of those is written here**, opening with a status header (`> 상태: …`). When the whole thing has
     been implemented the file moves to `devdocs/legacy/`, so a work document still at the top level
     is one that still has work in it.
-  - **`decision-log.md` is the third kind and there is only one of it** — the day's arguments and
-    decisions, newest day appended, never finished and never moved. **Its line is written in the
-    same commit as the decision**; catching up later makes it a second source of truth. Its own
+  - **`0-DECISION-LOG.md` is the third kind and there is only one of it** — the day's arguments and
+    decisions, newest day appended, never finished and never moved. The name shouts and sorts to the
+    top because someone opening the repository does not go looking for it. **Its line is written in
+    the same commit as the decision**; catching up later makes it a second source of truth. Its own
     rules are at the top of the file, including why it names files without a path.
   - A work document is a proposal, not an order — read its status header first.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
