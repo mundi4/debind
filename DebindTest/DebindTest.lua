@@ -1518,6 +1518,11 @@ local function PayloadActions(payload)
     return out
 end
 
+--- The export tab's seat in `PANELS` (`DebindUI.lua`). That table is a local over there, so this is
+--- the one thing here that has to be kept in step by hand -- the guard below is what says so out
+--- loud rather than quietly measuring the wrong panel.
+local EXPORT_PANEL_ID = 3
+
 RegisterTest("Export: the window's count is what the string carries", {
     description = "격리 중인 행이 목록에서 빠지고, 창이 센 수와 실제로 나간 수가 같은지",
     run = function()
@@ -1532,22 +1537,31 @@ RegisterTest("Export: the window's count is what the string carries", {
         badged.imported = 99
         ApplyBindings()
 
-        -- The export tab, opened the way a reader opens it: this is what loads `DebindShare` and
-        -- runs the panel's `OnShow`, which is where the list and the selection are built.
-        DebindFrame:Show()
-        AddTeardown(function() DebindFrame:Hide() end)
-        DebindFrame:SelectPanel(3)
-
-        local panel = _G.DebindShareExportPanel
-        if not panel or not panel.layers then
+        -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
+        -- `DebindShare` in, and stopping there is deliberate: a run is isolated to one layer whose
+        -- id is past every real one, on purpose (`GetTestLayer`), and drawing the list would put
+        -- that id through `GetLayerLabel` -- which asks the client for a specialization name and
+        -- gets nothing back. Nothing about the numbers below needs a frame on screen.
+        local panel = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
+        if not panel or not panel.BuildLayers then
             return Fail(NAME, "익스포트 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
         end
-        -- The copy dialog takes keyboard focus when it opens (that is what it is for), so it is put
-        -- away by the runner rather than left holding it over whatever runs next.
+
+        -- What `OnShow` does before it draws: build the list, then tick all of it. `OnHide` is what
+        -- normally throws both away, and it cannot run on a panel that was never shown - so the
+        -- runner does it, or the tester's next look at that tab opens on the test's actions.
+        --
+        -- The copy dialog goes with them: it takes keyboard focus when it opens, which is what it
+        -- is for, and it must not hold it over whatever runs next.
         AddTeardown(function()
             DebindShareCopyFrame.Output.EditBox:ClearFocus()
             DebindShareCopyFrame:Hide()
+            panel.layers = nil
+            wipe(panel.selected)
         end)
+
+        panel.layers = panel:BuildLayers()
+        panel:SelectAll(true)
 
         -- What the window says, counted twice the way the window counts it: the [select all] total
         -- walks every listed action, and each header prints its own layer's length.

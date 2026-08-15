@@ -4,14 +4,6 @@
 
 A key in Debind goes straight to a spell, an item, or a macro — no action bar slot involved — and the layers decide which characters it covers. Whatever you already bound in WoW's own keybinding window stays exactly where it is.
 
-- **Layers, not profiles.** account → class → spec → this character → that character's spec. The narrowest layer holding that key wins; the rest keep every other key. Nothing to switch by hand — the layers follow your character and spec.
-- **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
-- **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
-- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it.
-- **Flip what a key does mid-fight.** Five switches of your own, usable in combat, without spending a real modifier.
-
-![The Debind window. The overview column on the left shows every key in the order it fires; the right side is the layer being edited.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/main-window.png)
-
 ## The problem
 
 Roll an alt of a class you already play and you lay its bars out like the others. Some of those spells are on the bar because you want to watch the cooldown. The rest are on the bar because that's where the keybind is. `3` doesn't mean Judgment. `3` means *the third button on the first bar*, and Judgment happens to be standing there.
@@ -23,6 +15,16 @@ Addons have been putting spells on keys without a bar slot for years. None of th
 Most of your binds are the same on every character. Some belong to one class. A few to one spec, one or two to a single character. WoW's own switch is all-or-nothing — the whole set shared, or the whole set per-character — and all-or-nothing has no way to say that. Go character-specific and every key that was the same everywhere now has to be set everywhere — the chore you were trying to avoid, times your alt count.
 
 So the binds have to be layered.
+
+## What you get
+
+- **Layers, not profiles.** account → class → spec → this character → that character's spec. The narrowest layer holding that key wins; the rest keep every other key. Nothing to switch by hand — the layers follow your character and spec.
+- **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
+- **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
+- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it.
+- **Flip what a key does mid-fight.** Five switches of your own, usable in combat, without spending a real modifier.
+
+![The Debind window. The overview column on the left shows every key in the order it fires; the right side is the layer being edited.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/main-window.png)
 
 ## Layers
 
