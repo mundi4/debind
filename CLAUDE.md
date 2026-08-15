@@ -136,10 +136,20 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
     been implemented the file moves to `devdocs/legacy/`, so a work document still at the top level
     is one that still has work in it.
   - **`0-DECISION-LOG.md` is the third kind and there is only one of it** — the day's arguments and
-    decisions, newest day appended, never finished and never moved. The name shouts and sorts to the
-    top because someone opening the repository does not go looking for it. **Its line is written in
-    the same commit as the decision**; catching up later makes it a second source of truth. Its own
-    rules are at the top of the file, including why it names files without a path.
+    decisions by date, appended, never finished and never moved. The rest of `devdocs/` holds
+    conclusions; this holds **how they moved and who moved them**. The name sorts it to the top of
+    the folder; leave it that way.
+    - **Write a line when a decision is made or reversed**, and when a recorded reason turns out to
+      be false. Not for code changes — git has those.
+    - **The line goes in the same commit as the decision.** Catching up later makes it a second
+      source of truth, which is the one thing this repo will not carry.
+    - **One line and a pointer.** The reasoning stays in the document that owns it, named **without
+      a path or a line number** (work documents move to `legacy/`, line numbers rot).
+    - **An entry opening with a quote is the owner's; one without is mine.** That rule alone shows
+      who steered, so never launder an override into "we decided", never soften the line where my
+      position lost, and never invent a reversal where the owner simply agreed.
+    - It is not mine to tidy. A decision made outside my view gets its line from whoever made it —
+      writing it myself would be reconstruction.
   - A work document is a proposal, not an order — read its status header first.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
