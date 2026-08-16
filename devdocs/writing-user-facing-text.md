@@ -63,9 +63,8 @@ is 자세한/자세히, "detailed". A hit proves the word exists somewhere, whic
 **When the client owns the whole sentence, take the sentence.** `L["BIND_MODE_UNBIND_HINT"] =
 ESCAPE_TO_UNBIND` and `L["OVERVIEW_NO_KEY"] = NOT_BOUND` are assignments in **enUS only** — every
 other client already holds those words in its own language, so there is nothing left to translate
-and the game changing its wording carries us along. Two consequences: those keys are listed in
-`ALLOWED_MISSING` in the check, and no locale file may hand-translate them into a second wording
-that can then disagree with the client inside one window.
+and the game changing its wording carries us along. The consequence: no locale file may
+hand-translate them into a second wording that can then disagree with the client inside one window.
 
 ---
 
@@ -129,34 +128,47 @@ returns the key itself, so the screen shows `ORDER_DESC` with no error anywhere.
 `DebindShare` has no locale files of its own — it reads the same table through `DebindPrivate.L`,
 so its strings go in `Debind/Locales/` with everything else.
 
-**ruRU is a translator's file** (ZamestoTV). We add English and register the key in
-`PENDING_TRANSLATION`; we do not machine-translate into it.
+**ruRU is a translator's file** (ZamestoTV). We leave new keys out of it; we do not
+machine-translate into it.
 
-**Do not propose going back to the translator.** Not to ask for the pending keys, not to ask for a
+**Do not propose going back to the translator.** Not to ask for the missing keys, not to ask for a
 reword, not "while we are at it". A volunteer decides their own timing, and a queue that grows is
 the expected state of that file, not a problem to escalate. English is a working answer for every
-key in it, which is what `PENDING_TRANSLATION` exists to make true.
+key in it, which is what the load order above already makes true.
+
+---
+
+## enUS is the only file that has to be complete
+
+**Every key exists in `enUS.lua`, and the enUS wording is where the work goes.** koKR and ruRU are
+neither important nor urgent. They are behind and they are meant to be.
+
+So **when no wording comes to mind for a locale, leave the key out of it** and let the fallback
+carry English into that window. Do not machine-translate to fill the hole, do not park an
+approximate line there intending to come back, and do not register the absence anywhere. An English
+line in a Korean window is visibly untranslated and costs the reader nothing; a Korean line that
+describes the wrong behaviour reads as authoritative and no check can see it.
+
+**Which keys a locale is behind on is a question asked by hand, when the owner decides to ask it**
+— `npm run check:locales -- --missing` lists them. The plain run prints the count and passes. There
+is no list to add a key to: the check used to demand a line per untranslated key, which meant a
+second edit for every new string and told nobody anything the count does not already say.
 
 ---
 
 ## What `npm run check:locales` enforces
 
-It reads the three files as text and compares them to enUS. It catches:
+It reads the three files as text and compares them to enUS. It fails on:
 
-* **keys missing** from a locale, unless the key is registered in one of the two exception tables;
 * **stale keys** — present in a locale, gone from enUS. Harmless on screen, which is the problem:
   the next person assumes the string is still in use and edits it;
 * **duplicate keys** in one file;
 * **placeholder mismatches**, including argument *order*.
 
-The two exception tables are deliberately separate and must stay that way:
-
-| | |
-|---|---|
-| `ALLOWED_MISSING` | correct to be absent forever — the client-global keys above. Leave a line saying why |
-| `PENDING_TRANSLATION` | a debt the translator will clear. Counted and printed on every run |
-
-Merge them and nobody can tell which entries are supposed to shrink, so none of them ever do.
+All three are about what a locale **does** carry. What it does not carry is printed as a count and
+does not fail the run — that is the fallback working. A key missing from **enUS** is the absence
+that matters, and this check is the wrong place to look for it: enUS is the yardstick here, so
+nothing compares the code's `L[...]` reads against the table.
 
 **The placeholder rules**, which apply to enUS first:
 

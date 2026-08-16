@@ -1,147 +1,27 @@
-// 로케일 파일들이 enUS와 같은 키 집합을 갖고 있는지 확인한다.
+// Compare every locale file against enUS.
 //   npm run check:locales
+//   npm run check:locales -- --missing    (also list the untranslated keys)
 //
-// 이걸 만든 이유: 빠진 키는 **조용히** 나간다. locales의 __index가 키를 그대로 돌려주므로
-// 오류 한 줄 없이 화면에 `ORDER_DESC`라는 글자가 뜬다. 러시아어 사용자는 실제로 순서 패널의
-// 설명 줄 자리에서 그걸 보고 있었다 (7f16906이 enUS에만 키를 넣었다).
+// What it is here for is what goes wrong without a word on screen: a key left behind after enUS
+// dropped it, a key written twice in one file, a placeholder that moved. That last one is the
+// loud failure - `format()` raises where an argument is not there, and whoever wrote the
+// translation has never opened that window in their own client.
 //
-// resolved.md의 "ruRU를 따라잡았다"는 한 번 손으로 맞춘 것이라 다음 커밋에서 다시 벌어졌다.
-// 사람이 기억해야 하는 규칙은 규칙이 아니므로 검사로 내린다.
+// **A key a locale does not carry is not a failure.** locales.xml loads enUS first and each
+// locale overwrites only what it translates, so an untranslated key comes out in English, which
+// is a working answer - enUS is the one file that has to be complete. Their number is printed and
+// nothing has to be registered to excuse it: the exemption list this file used to keep cost an
+// edit for every new string and told nobody anything the count does not.
+// devdocs/writing-user-facing-text.md holds the rule.
 //
-// 네트워크를 안 쓰므로 check-templates와 달리 언제 돌려도 된다.
+// No network, unlike check-templates, so it can be run at any time.
 
 const fs = require("fs");
 const path = require("path");
 
 const localesDir = path.join(__dirname, "..", "Debind", "Locales");
 const BASE = "enUS";
-
-// enUS에는 있는데 다른 로케일에는 **없는 게 맞는** 키. 넣을 때는 왜 정상인지 한 줄 남길 것.
-const ALLOWED_MISSING = {
-    // enUS는 클라이언트 전역 NOT_BOUND를 담는다. 다른 로케일에서는 그 전역이 이미
-    // 제 나라 말이라 따로 번역할 것이 없다.
-    OVERVIEW_NO_KEY: ["koKR", "ruRU"],
-    // 같은 이유. 클라이언트 전역 ESCAPE_TO_UNBIND를 그대로 받는다.
-    BIND_MODE_UNBIND_HINT: ["koKR", "ruRU"],
-};
-
-// **번역을 기다리는 중인 키.** 위와 갈라 둔다 - 저쪽은 영영 없는 게 맞는 키이고, 이쪽은
-// 번역자가 손대면 지워져야 하는 빚이다. 한 통에 담으면 둘을 구별할 방법이 없어서, 아무도
-// 이 목록을 줄이지 않게 된다.
-//
-// 없는 동안 화면에 나오는 것은 키 이름이 아니라 **영어**다. locales.xml이 enUS를 먼저
-// 읽고 각 로케일이 같은 테이블을 덮어쓰는 구조라, 안 덮은 자리에는 enUS가 남는다.
-const PENDING_TRANSLATION = {
-    // 레이어 툴팁(3.1). 러시아어는 ZamestoTV 담당이다.
-    TAB_DESC_SHARED: ["ruRU"],
-    TAB_DESC_CHARACTER: ["ruRU"],
-    LAYER_DESC_SHARED_GENERAL: ["ruRU"],
-    LAYER_DESC_SHARED_CLASS: ["ruRU"],
-    LAYER_DESC_SHARED_SPEC: ["ruRU"],
-    LAYER_DESC_CHARACTER_GENERAL: ["ruRU"],
-    LAYER_DESC_CHARACTER_SPEC: ["ruRU"],
-    // The bottom line on a spec tab that is not the one being played. Same owner.
-    INACTIVE_SPEC_DESC: ["ruRU"],
-    // What the overview says about a row belonging to another specialization, and why its arrows
-    // will not move it.
-    ORDER_FLAG_OFFSPEC: ["ruRU"],
-    ORDER_BLOCKED_SPEC: ["ruRU"],
-    // The life axis on unit conditions. Same owner as the rows above.
-    CONDITION_LIFE: ["ruRU"],
-    ONLY_IF: ["ruRU"],
-    LIFE_ALIVE: ["ruRU"],
-    LIFE_DEAD: ["ruRU"],
-    // The "this macro does not exist here" marker, which arrived with sharing. Same owner.
-    BINDING_ERROR_MISSING_MACRO: ["ruRU"],
-    // The sharing window. Same owner as the rows above.
-    EXPORT_TITLE: ["ruRU"],
-    EXPORT_MENU_DESC: ["ruRU"],
-    EXPORT_SELECT_ALL: ["ruRU"],
-    EXPORT_SELECT_ALL_COUNT: ["ruRU"],
-    EXPORT_GENERATE: ["ruRU"],
-    EXPORT_EMPTY: ["ruRU"],
-    EXPORT_ROW_NO_KEY: ["ruRU"],
-    EXPORT_LAYER_HEADER: ["ruRU"],
-    EXPORT_LAYER_COUNT: ["ruRU"],
-    EXPORT_FAILED_LIBS_MISSING: ["ruRU"],
-    EXPORT_COPY_TITLE: ["ruRU"],
-    // The window's own tabs, and what stands in when the panel behind one could not be had. Same
-    // owner as the rows above - these arrived with the tab row, and those panels live here too.
-    APPROVE_IMPORT: ["ruRU"],
-    IMPORT_COMMIT: ["ruRU"],
-    IMPORT_COMMIT_AGAIN: ["ruRU"],
-    IMPORT_COMMIT_DESC: ["ruRU"],
-    // The dialog that press opens, the lines in it, and what it says when none of them landed.
-    IMPORT_NOTHING_PLACED: ["ruRU"],
-    IMPORT_BRING_TITLE: ["ruRU"],
-    IMPORT_BRING_LINE_SHARED_GENERAL: ["ruRU"],
-    IMPORT_BRING_LINE_SHARED_CLASS: ["ruRU"],
-    IMPORT_BRING_LINE_CHARACTER_GENERAL: ["ruRU"],
-    IMPORT_BRING_LINE_CHARACTER_SPEC: ["ruRU"],
-    IMPORT_COMMITTED: ["ruRU"],
-    IMPORT_COMMITTED_SKIPPED: ["ruRU"],
-    IMPORT_TITLE: ["ruRU"],
-    IMPORT_MENU_DESC: ["ruRU"],
-    // The overview's import strip: accepting or throwing back the lot. Same owner as the rows
-    // above. The narrowing that used to stand here is a value of the filter dropdown below.
-    APPROVE_ALL_IMPORT: ["ruRU"],
-    APPROVE_ALL_IMPORT_DESC: ["ruRU"],
-    // The overview's filter dropdown, one tick per value, and the two empty-list lines that stand
-    // when a tick has taken everything out.
-    FILTER_ACTIVE_SPEC: ["ruRU"],
-    FILTER_INACTIVE_SPEC: ["ruRU"],
-    FILTER_KEYED: ["ruRU"],
-    FILTER_UNKEYED: ["ruRU"],
-    FILTER_PENDING: ["ruRU"],
-    NO_ACTIONS_MATCH_FILTERS: ["ruRU"],
-    OVERVIEW_EMPTY_FILTERED: ["ruRU"],
-    // "+%d" and nothing else, so there is nothing to translate today. It is a debt rather than an
-    // allowed absence because the position can take words - "and %d more" - and when it does, this
-    // is the key that has to be found.
-    OVERVIEW_KEY_HEADER_MORE: ["ruRU"],
-    // The button a badged row carries in the order list, and what its tooltip says. Same owner.
-    ORDER_ACCEPT: ["ruRU"],
-    ORDER_ACCEPT_DESC: ["ruRU"],
-    LINE_TOOLTIP_IMPORTED: ["ruRU"],
-    // The header over an arrival group in the overview, once keyless sets are shown there.
-    KEY_GROUP_IMPORTED: ["koKR", "ruRU"],
-    KEY_GROUP_IMPORTED_FROM: ["koKR", "ruRU"],
-    // Putting one key on a whole heading's worth of rows, and the question when that key is taken.
-    // Same owner as the rows above.
-    KEY_GROUP_SET_KEY: ["ruRU"],
-    KEY_GROUP_SET_KEY_DESC: ["ruRU"],
-    KEY_GROUP_CONFLICT: ["ruRU"],
-    KEY_GROUP_CONFLICT_MERGE: ["ruRU"],
-    KEY_GROUP_CONFLICT_UNBIND: ["ruRU"],
-    BIND_MODE_KEY_GROUP: ["ruRU"],
-    BIND_MODE_KEY_GROUP_HINT: ["ruRU"],
-    // Rejecting what came in - the other half of the strip, and the menu item beside it.
-    REJECT_ALL_IMPORT: ["ruRU"],
-    REJECT_ALL_IMPORT_DESC: ["ruRU"],
-    REJECT_IMPORT: ["ruRU"],
-    REJECT_IMPORT_CONFIRM: ["ruRU"],
-    // The workbench: the drawer of received strings and the paste dialog. Same owner.
-    IMPORT_DRAWER_EMPTY: ["ruRU"],
-    IMPORT_DRAWER_COUNT: ["ruRU"],
-    IMPORT_PASTE: ["ruRU"],
-    IMPORT_PASTE_TITLE: ["ruRU"],
-    IMPORT_PASTE_INPUT_LABEL: ["ruRU"],
-    IMPORT_PASTE_INSTRUCTIONS: ["ruRU"],
-    IMPORT_PASTE_SOURCE: ["ruRU"],
-    IMPORT_PASTE_ACCEPT: ["ruRU"],
-    IMPORT_BATCH_UNNAMED: ["ruRU"],
-    IMPORT_BATCH_COUNTS: ["ruRU"],
-    IMPORT_BATCH_AGE: ["ruRU"],
-    IMPORT_BATCH_FROM_CLASS: ["ruRU"],
-    IMPORT_BATCH_DELETE: ["ruRU"],
-    IMPORT_DELETE_CONFIRM: ["ruRU"],
-    IMPORT_FAILED_NOT_OURS: ["ruRU"],
-    IMPORT_FAILED_TOO_NEW: ["ruRU"],
-    IMPORT_FAILED_TOO_OLD: ["ruRU"],
-    IMPORT_FAILED_DAMAGED: ["ruRU"],
-    IMPORT_FAILED_LIBS_MISSING: ["ruRU"],
-    PANEL_ADDON_MISSING: ["ruRU"],
-};
+const LIST_MISSING = process.argv.includes("--missing");
 
 // **base보다 자리표시자를 더 쓰는 게 맞는 키.** 부르는 쪽이 이미 그 인자를 넘기고 있고
 // base 쪽이 안 받고 있을 뿐인 경우다 - Lua의 `format()`은 남는 인자를 그냥 버리므로 터지지
@@ -283,21 +163,8 @@ for (const file of files) {
         })
         .filter(([, want, got]) => want !== got);
 
-    const absent = [...base.keys].filter((k) => !keys.has(k));
-    const missing = absent
-        .filter((k) => !(ALLOWED_MISSING[k] || []).includes(locale))
-        .filter((k) => !(PENDING_TRANSLATION[k] || []).includes(locale))
-        .sort();
-    // 봐준 것은 **세어서 말한다.** 조용히 넘기면 목록이 늘기만 한다.
-    const pending = absent.filter((k) => (PENDING_TRANSLATION[k] || []).includes(locale)).sort();
-    // 그리고 **다 봐준 것은 명단에서 나가야 한다.** 번역이 도착하면 그 키는 `absent`에서 빠지는데,
-    // 면제는 남는다 - 그 뒤에 누가 그 줄을 지우면 이 검사가 초록인 채로 그 언어가 영어로 돌아간다
-    // (이 파일이 만들어진 이유가 정확히 그 회귀다). `check-export-fields.js`가 자기 예외 명단에
-    // 같은 위생 검사를 한다.
-    const staleExempt = Object.keys(PENDING_TRANSLATION)
-        .filter((k) => (PENDING_TRANSLATION[k] || []).includes(locale))
-        .filter((k) => !absent.includes(k))
-        .sort();
+    // Not translated here yet. Reported, never failed - enUS stands in for every one of them.
+    const absent = [...base.keys].filter((k) => !keys.has(k)).sort();
     // enUS에 없는 키는 **지워진 문자열의 잔재**다. 화면에 안 나오므로 무해해 보이지만,
     // 다음 사람이 그게 아직 쓰이는 줄 알고 손본다.
     const stale = [...keys].filter((k) => !base.keys.has(k)).sort();
@@ -305,13 +172,6 @@ for (const file of files) {
     if (dupes.length > 0) {
         failed = true;
         console.log(`${locale}: 중복 키 ${dupes.length}개 - ${dupes.join(", ")}`);
-    }
-    if (missing.length > 0) {
-        failed = true;
-        console.log(`${locale}: ${BASE}에 있는데 빠진 키 ${missing.length}개`);
-        for (const k of missing) {
-            console.log(`  - ${k}`);
-        }
     }
     if (stale.length > 0) {
         failed = true;
@@ -335,26 +195,22 @@ for (const file of files) {
             console.log(`  - ${k}: 기대값 [${want || "없음"}], 여기는 [${got || "없음"}]`);
         }
     }
-    if (staleExempt.length > 0) {
-        failed = true;
-        console.log(`${locale}: 번역이 도착했는데 PENDING_TRANSLATION에 남아 있는 키 ${staleExempt.length}개`);
-        console.log(`  tools/check-locales.js의 PENDING_TRANSLATION에서 지울 것 - 안 지우면 그 키는`);
-        console.log(`  앞으로 빠져도 이 검사가 아무 말도 안 한다.`);
-        for (const k of staleExempt) {
-            console.log(`  - ${k}`);
+    if (absent.length > 0) {
+        const how = LIST_MISSING ? "" : " - 목록은 `-- --missing`";
+        console.log(`${locale}: 아직 안 옮긴 키 ${absent.length}개 (그동안 ${BASE}로 나간다)${how}`);
+        if (LIST_MISSING) {
+            for (const k of absent) {
+                console.log(`  - ${k}`);
+            }
         }
     }
-    if (pending.length > 0) {
-        console.log(`${locale}: 번역 대기 ${pending.length}개 (그동안 ${BASE}로 나간다) - ${pending.join(", ")}`);
-    }
-    if (missing.length === 0 && stale.length === 0 && dupes.length === 0
-        && vague.length === 0 && badSpecs.length === 0 && staleExempt.length === 0) {
-        console.log(`${locale}: 키 ${keys.size}개, 서식까지 ${BASE}와 일치.`);
+    if (stale.length === 0 && dupes.length === 0 && vague.length === 0 && badSpecs.length === 0) {
+        console.log(`${locale}: 옮긴 키 ${keys.size}개, 서식까지 ${BASE}와 일치.`);
     }
 }
 
 if (failed) {
     process.exitCode = 1;
 } else {
-    console.log(`전부 ${BASE}(${base.keys.size}개)와 같은 키 집합이다.`);
+    console.log(`${BASE} ${base.keys.size}개 기준, 옮겨진 자리는 전부 맞는다.`);
 }
