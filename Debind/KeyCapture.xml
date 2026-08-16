@@ -85,12 +85,15 @@
 		<Layers>
 			<Layer level="ARTWORK">
 				<!--
-					**Where the mouse counts, which is the one rule the reader cannot guess.** The
-					keyboard is taken wherever the cursor is; a mouse button or the wheel is only
-					read where it lands, and landing anywhere else does what it always does. The mode
-					puts its own rule in the same position (`BIND_MODE_KEY_GROUP_HINT`).
+					**What to press, and where the mouse counts.** The title names the act; this says
+					how to perform it, including the one rule the reader cannot guess - a mouse
+					button or the wheel is only read where it lands, and landing anywhere else does
+					what it always does.
+
+					Full size, because it is the body of the dialog. It was `Small` while it was a
+					grey footnote under the list, and the size came along when it moved up here.
 				-->
-				<FontString parentKey="Description" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true"/>
+				<FontString parentKey="Description" inherits="GameFontHighlight" justifyH="LEFT" wordwrap="true"/>
 
 				<FontString parentKey="CurrentKeyLabel" inherits="GameFontNormal" justifyH="LEFT" maxLines="1"/>
 				<!--

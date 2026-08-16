@@ -231,14 +231,16 @@ L["KEY"] = "Key"
 --- key are listed under this line with their icons, the way every other list in the addon draws an
 --- action. Saying "for Wrath +2" in a sentence was the version that had to stand in for showing
 --- them.
-L["KEY_CAPTURE_TITLE"] = "Press the key you want"
---- **The one rule the reader cannot guess**, and only that one. A mouse button or the wheel is read
---- where it lands, so pressing one somewhere else does whatever it always does.
+L["KEY_CAPTURE_TITLE"] = "Assign a Key"
+--- **The middle clause is the one that earns its place.** That mouse buttons and the wheel are keys
+--- here is where this addon parts company with the game's own keybinding panel, which will not take
+--- them - so a reader who knows that panel does not try, and nothing else on screen says otherwise.
 ---
---- It said the keyboard works anywhere too. Nobody was wondering - the title says press a key and
---- keys work - and putting it in an exception's sentence made it read as though the keyboard had
---- a condition of its own to check.
-L["KEY_CAPTURE_DESC"] = "Mouse buttons and the wheel only count over this window."
+--- The last clause is the rule that cannot be guessed at all: those are read where they land, and
+--- landing anywhere else does whatever it always does. The keyboard has no such condition and the
+--- line does not raise one - saying it works anywhere only made the reader wonder why it was worth
+--- mentioning.
+L["KEY_CAPTURE_DESC"] = "Press any key to assign it - mouse buttons and the wheel included, but those only count over this window."
 --- The key the set is on today, said once over the whole list. **A label, not a sentence**, because
 --- what follows it is the value - which is also what [Unbind Key] is talking about, so the button
 --- being lit or dead has something on screen to point at.

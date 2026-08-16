@@ -161,8 +161,10 @@ L["KEEP_IN_BINDING_CONTEXT_DESC"] = "주택 편집기는 열려 있는 동안 �
 L["KEEP_IN_BINDING_CONTEXT"] = "주택 편집기보다 우선"
 L["KEY"] = "키"
 -- 제목이 곧 시킬 말이다. 근거는 enUS 쪽 주석에.
-L["KEY_CAPTURE_TITLE"] = "원하는 키를 눌러 주세요"
-L["KEY_CAPTURE_DESC"] = "마우스 버튼과 휠은 이 창 위에서 눌러야 합니다."
+-- "키 지정"은 목록 위 토글의 글자다(BIND_MODE). 클라이언트의 "단축키 설정"(KEY_BINDING)과도
+-- 갈라야 해서 이 낱말이 남는다.
+L["KEY_CAPTURE_TITLE"] = "단축키 지정"
+L["KEY_CAPTURE_DESC"] = "아무 키나 누르면 그 키로 지정됩니다. 마우스 버튼과 휠도 되지만, 그건 이 창 위에서 눌러야 합니다."
 L["KEY_CAPTURE_CURRENT_KEY"] = "현재 키:"
 L["KEY_CAPTURE_TARGETS"] = "다음 행동들에 적용됩니다:"
 L["KEY_CAPTURE_MORE"] = "...외 %d개"
