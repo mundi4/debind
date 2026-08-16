@@ -122,12 +122,9 @@ end
 --- decides its real one (`NextSyntheticKey`), and that number stands *where* a key would without
 --- being a key - which is the whole reason it is a number and a real key is always a string.
 ---
---- Two things here read it. `GetKeyDisplayText` answers a number with the overview heading's words
---- ("Imported Binding #3"), which is right in the column where the heading and its rows are drawn
---- together and wrong on a line labelled "Current key:" - what that line would be saying is that the
---- set is on a key called "Imported Binding #3". And [Unbind Key] would stand lit over nothing to
---- unbind: pressing it drops the synthetic key, which scatters the set into the unbound pile and
---- takes the heading that was holding it together with it.
+--- [Unbind Key] is what reads it. Lit over a set with a synthetic key it would stand over nothing to
+--- unbind: the set is already off every key, and taking that number away would only break it into
+--- loose actions.
 local function HasRealKey(action)
     return type(action.key) == "string";
 end

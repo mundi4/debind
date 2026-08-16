@@ -1328,6 +1328,35 @@ function DebindPrivate.ClearActionKey(action)
     return true;
 end
 
+--- Takes the key off a key group without breaking the group up.
+---
+--- **A set of two or more keeps a key, and it is a synthetic one.** An action with `key == nil` is
+--- nobody's group -- `CollectKeyGroupForAction` says so, and the left column files it in the unbound
+--- pile as a row of its own -- so clearing a set of four leaves four loose actions and the thing the
+--- reader was working with is gone. They cannot be put back together afterwards either: nothing
+--- records that those four were once one set.
+---
+--- The synthetic key is exactly the state an arriving set sits in -- one group, no key yet, waiting
+--- for the reader to decide -- and unbinding arrives at that same state from the other side.
+---
+--- **One action gets nothing.** There is no group to keep, and the unbound pile is where it belongs.
+---
+--- `SetKeyForActions` carries the order across, which is the reason the set is written in one call:
+--- one at a time issues `seq` in whatever order the actions are touched. It also clears `imported`,
+--- which changes nothing here - a set still carrying that badge is already on a synthetic key, and
+--- there is nothing to unbind from one of those.
+---
+--- No rebuild, for the reason `SetKeyForActions` gives.
+function DebindPrivate.UnbindKeyGroup(actions)
+    if (actions == nil or #actions == 0) then
+        return false;
+    end
+    if (#actions == 1) then
+        return DebindPrivate.ClearActionKey(actions[1]);
+    end
+    return DebindPrivate.SetKeyForActions(actions, DebindPrivate.NextSyntheticKey());
+end
+
 --- Takes the key off a set. The other half of an overwrite: the set that was holding the key
 --- steps off it, and the one that asked for it moves in.
 ---
@@ -1401,25 +1430,14 @@ function DebindPrivate.CollectKeyGroupActions(key)
     return CollectActionsWhere(function(action) return action.key == key; end);
 end
 
---- The next synthetic key to hand out, unique across the whole profile.
----
---- **A synthetic key stands in for one the reader has not chosen yet** -- it is what a set arrives
---- on when the sender left the keys out (`DebindStorage/Import.lua`). A number, because a real key is
---- always a string, so the type alone tells the two apart and there is no name a real key could
---- collide with.
----
---- **Unique here, not in the string it came from.** A payload's own numbering starts at 1 in every
---- string, so two strings waiting at once would put two unrelated sets under one heading.
----
---- The highest in use plus one, stored nowhere. Gaps are fine, and so is starting over once every
---- one of them has been given a real key - nothing refers to an old number, and it is only a label
---- for as long as the set is waiting.
+--- The highest synthetic key anywhere in the store. Only the seed below asks.
 ---
 --- **The whole store, not `LayerArray`.** A batch lands in another class's layers as readily as in
 --- this one's, and those are not in this session's view at all. Taking the highest from the view
---- would reissue a number that is alive somewhere unseen, and the collision surfaces the day the
---- reader logs that class: two `키를 모름 #3` headings, and every key-wide action sweeping both.
-function DebindPrivate.NextSyntheticKey()
+--- would leave a number alive somewhere unseen and below the counter, and the collision surfaces the
+--- day the reader logs that class: two waiting sets under one heading, and every key-wide action
+--- sweeping both.
+local function HighestSyntheticKey()
     local highest = 0;
     ForEachStoredActionList(function(actions)
         for i = 1, #actions do
@@ -1429,5 +1447,36 @@ function DebindPrivate.NextSyntheticKey()
             end
         end
     end);
-    return highest + 1;
+    return highest;
+end
+
+--- The next synthetic key to hand out, unique across the whole profile.
+---
+--- **A synthetic key is what holds a set together while it has no key of its own.** A set arrives on
+--- one when the sender left the keys out (`DebindStorage/Import.lua`), and a set the reader unbinds
+--- lands on one for the same reason (`UnbindKeyGroup`): with `key == nil` there is no group left,
+--- only that many loose actions. A number, because a real key is always a string, so the type alone
+--- tells the two apart and there is no name a real key could collide with.
+---
+--- **Unique here, not in the string it came from.** A payload's own numbering starts at 1 in every
+--- string, so two strings waiting at once would put two unrelated sets under one heading.
+---
+--- **Kept in the store and only ever counted up.** It used to be the highest in use plus one, worked
+--- out on every call, and what paid for that walk was the number staying small - it was printed
+--- ("Imported Binding #3"), so it had to restart at 1 once every waiting set had been given a real
+--- key. Nothing prints it any more (`GetKeyDisplayText` names the set instead), so nothing cares how
+--- large it gets, and a counter that never comes down needs no path anywhere to remember to lower
+--- it. Should the numbers ever want tidying it is one pass over the store, run deliberately.
+---
+--- Seeded on first use rather than at login: an existing profile has numbers in it and no counter,
+--- and this is the one place that has to know.
+function DebindPrivate.NextSyntheticKey()
+    local db = DebindPrivate.db.global;
+    if (db.nextSyntheticKey == nil) then
+        db.nextSyntheticKey = HighestSyntheticKey() + 1;
+    end
+
+    local key = db.nextSyntheticKey;
+    db.nextSyntheticKey = key + 1;
+    return key;
 end

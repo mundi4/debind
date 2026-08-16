@@ -933,27 +933,20 @@ end
 --- What to write where a key goes. **Not for a nil key** -- what an action with no key at all reads
 --- as differs by where it is shown, so each of those places says its own word.
 ---
---- **A number is a key group whose key has not been decided yet** (`NextSyntheticKey`). It is drawn
---- with the same words as its heading in the overview, because it is the same thing being named:
---- writing a second wording anywhere is how one window came to say two things about one state once
---- already. `GetBindingText` is not asked -- a number is not a binding string, and this is the guard
---- that keeps it from being handed one.
+--- **A number is a key group with no key yet** (`NextSyntheticKey`) -- a set that came in a string,
+--- or one the reader unbound whole. `GetBindingText` is not asked: a number is not a binding string,
+--- and this is the guard that keeps it from being handed one.
+---
+--- **It reads as the client's `NOT_BOUND`, the same as no key at all**, because that is what it is:
+--- the number is how the set is filed, not something the reader has. It used to print that number
+--- ("Imported Binding #3"), from when the heading had nothing else to call the set by; the heading
+--- names it now - the first action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
 ---
 --- `from` is the key it arrived on, which is `action.imported` for anything that came in a string.
---- The number is the key itself, which is what makes this answerable from anywhere the display text
---- is wanted -- the heading, a row's key cell, a tooltip -- without any of them knowing what else is
---- on screen. A position among the waiting sets would need that, and would move under the reader
---- when a neighbour is accepted.
----
---- **The badge is `true` when it arrived on no key at all**, so this asks for a string rather than
---- for truth -- handing `true` to `GetBindingText` would be the sort of thing that only shows up on
---- somebody else's screen.
+--- Nothing reads it here at the moment.
 function DebindPrivate.GetKeyDisplayText(key, from)
     if (type(key) == "number") then
-        if (type(from) == "string") then
-            return format(L["KEY_GROUP_IMPORTED_FROM"], key, GetBindingText(from));
-        end
-        return format(L["KEY_GROUP_IMPORTED"], key);
+        return L["OVERVIEW_NO_KEY"];
     end
     return GetBindingText(key);
 end

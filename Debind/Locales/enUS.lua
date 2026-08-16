@@ -251,32 +251,15 @@ L["KEY_CAPTURE_TARGETS"] = "Applies to these actions:"
 --- Everything counted here is still getting the key - the line says what is not being drawn, not
 --- what is being left out.
 L["KEY_CAPTURE_MORE"] = "...and %d more"
--- The header over an arrival group whose key has not been decided. **Not "group"** - that word
--- already means the party/raid kind in this window (`CONDITION_GROUP`, and
--- `BINDING_ERROR_GROUPS_NONE_SELECTED` on a row that has none of them selected).
+-- A group with no key of its own - one that came in a string, or one the reader unbound whole
+-- (`UnbindKeyGroup`) - has no key string to write, and there is no key of its own here either. It
+-- reads as `OVERVIEW_NO_KEY`, which is the client's `NOT_BOUND`, the same words the unbound pile
+-- uses (`GetKeyDisplayText`).
 --
--- It says what stands in for the key, not that the rows below belong together: a header owning the
--- rows under it is what the whole column already teaches.
---
--- **It says where the set came from, not that it has no key.** "Not bound" was true and useless:
--- the unbound pile at the bottom of the same column says exactly that, so one column would have
--- carried two headings reading alike in two places that mean different things. What the reader
--- needs from this heading is why a set is sitting there at all.
---
--- **The number is the group's own** (`NextSyntheticKey`), not a count and not a position on screen.
--- It is small and it stays put: the next one handed out is the highest in use plus one, and once
--- every waiting set has been given a real key it starts over at 1. So two of these sitting side by
--- side read as #1 and #2, and accepting one does not renumber the other under the reader's cursor.
---
--- The key the sender had it on rides along when there is one, and **"was" earns its place**:
--- without it, "Imported Binding #1 (SHIFT-G)" reads as a binding *on* SHIFT-G, which is the
--- opposite of what happened.
---
--- Both forms, because the sender may not have had it on a key at all, and then there is nothing to
--- say. `%d` and `%s` are different conversions, so a translation that swaps them is visible on its
--- own and neither needs numbering.
-L["KEY_GROUP_IMPORTED"] = "Imported Binding #%d"
-L["KEY_GROUP_IMPORTED_FROM"] = "Imported Binding #%d (was %s)"
+-- **It used to carry a number** - "Imported Binding #3" - from when the heading had nothing else to
+-- call the set by. The summary beside it is the first action and how many follow (`UpdateSummary`),
+-- so the set is named by what is in it now, the way every other group in the column is read. The
+-- number is how the set is filed, not what it is called.
 --- The overview's right-click item that puts one key on a whole heading's worth of rows.
 ---
 --- **"all of these" and not a name for the set.** "Group" is the party/raid kind in this window

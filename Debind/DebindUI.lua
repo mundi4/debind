@@ -5750,10 +5750,15 @@ function DebindUI.BeginKeyGroupCapture(action)
 		-- **`nil` is [Unbind Key], not a cancel** -- cancelling never gets here. The whole set steps
 		-- off its key together, for the reason the set is moved together: leaving one member behind
 		-- splits the group with both halves still firing.
+		--
+		-- **And it stays a set.** `UnbindKeyGroup` is what keeps it one -- clearing the key outright
+		-- would leave as many loose actions as the group had members, with nothing recording that
+		-- they ever belonged together.
 		if (captured == nil) then
-			DebindPrivate.ClearKeyForActions(actions);
+			DebindPrivate.UnbindKeyGroup(actions);
 			DebindPrivate.UpdateBindings();
 			DebindFrame:Refresh(true);
+			DebindFrame:ScrollActionIntoView(actions[1]);
 			DebindFrame:Update();
 			return;
 		end

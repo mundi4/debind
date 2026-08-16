@@ -166,11 +166,18 @@ end
 --- string and nowhere else, so two strings waiting at once would both open at 1 and the reader
 --- would be shown two unrelated sets under one heading.
 ---
---- Asked for lazily, and once: nothing is written until `PlaceImportedActions`, so asking again
---- mid-walk would answer the same thing every time; and a payload with no keys at all does not pay
---- for the walk.
+--- **One call per group, and nothing counts alongside it.** This used to ask once and then walk its
+--- own number up, because the answer was the highest key in the store plus one -- and nothing is
+--- written until `PlaceImportedActions`, so asking twice mid-walk would have answered the same
+--- thing twice. `NextSyntheticKey` is a counter now and hands out a fresh number every time it is
+--- asked, which makes the local one a second place keeping the same tally: this batch would take
+--- three numbers while the counter moved by one, and the next string to arrive would open on top of
+--- it.
+---
+--- `mapped` is what still has to be remembered here, and it is a different question -- which of the
+--- sender's keys have already been given one of ours, so a set that spans four layers stays one set.
 local function KeyMapper()
-    local mapped, nextKey = {}, nil;
+    local mapped = {};
 
     return function(key)
         local keyType = luatype(key);
@@ -181,8 +188,7 @@ local function KeyMapper()
 
         local synthetic = mapped[key];
         if (not synthetic) then
-            nextKey = nextKey or DebindPrivate.NextSyntheticKey();
-            synthetic, nextKey = nextKey, nextKey + 1;
+            synthetic = DebindPrivate.NextSyntheticKey();
             mapped[key] = synthetic;
         end
         return synthetic;

@@ -166,7 +166,8 @@ L["KEY_CAPTURE_DESC"] = "마우스 버튼과 휠은 이 창 위에서 눌러야 
 L["KEY_CAPTURE_CURRENT_KEY"] = "현재 키:"
 L["KEY_CAPTURE_TARGETS"] = "다음 행동들에 적용됩니다:"
 L["KEY_CAPTURE_MORE"] = "...외 %d개"
--- KEY_GROUP_IMPORTED / _FROM은 여기 없다. 영어로 나간다.
+-- 키 없는 그룹의 키 자리는 OVERVIEW_NO_KEY(클라이언트 전역 NOT_BOUND)로 나간다. 여기 적을 것이
+-- 없다 - 근거는 enUS 쪽 주석에.
 -- "그룹"을 못 쓰는 이유와 나머지 근거는 enUS 쪽 주석에.
 L["KEY_GROUP_SET_KEY"] = "여기 있는 것 전부에 키 지정"
 L["KEY_GROUP_SET_KEY_DESC"] = "이 머리글 아래의 행동 전부에 누른 키를 한 번에 지정합니다. 하나씩 옮기면 한 벌이 두 키로 갈라진 채 양쪽 다 실행되는데, 그게 조용히 일어납니다.|n|n문자열로 받아온 것이면 이 조작이 받아들이는 것까지 겸합니다 - 키를 정하는 것이 곧 같은 결정입니다."

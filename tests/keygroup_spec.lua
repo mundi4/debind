@@ -273,5 +273,63 @@ return function(DebindPrivate)
         check(#DebindPrivate.CollectKeyGroupActions(nil) == 0, "키 nil이 뭔가를 모았다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 그룹째 키를 빼는 것
+    --
+    -- **키를 지우면 그룹이 없어진다.** `key == nil`인 액션은 어느 그룹의 것도 아니고
+    -- (`CollectKeyGroupForAction`), 그 넷이 한 벌이었다는 것을 적어두는 데가 없다. 그래서
+    -- 그룹째 빼는 조작은 키를 지우는 게 아니라 **아직 정하지 않은 키로 옮기는 것**이다.
+    ---------------------------------------------------------------------------
+
+    test("여러 개짜리 그룹을 풀어도 한 덩어리로 남는다", function()
+        ResetProfile({
+            general = { Bound(10, "F", 1), Bound(20, "F", 2), Bound(30, "F", 3) },
+        });
+
+        local group = DebindPrivate.CollectKeyGroupActions("F");
+        check(#group == 3, "그룹 크기 " .. #group);
+        DebindPrivate.UnbindKeyGroup(group);
+
+        local key = group[1].key;
+        check(type(key) == "number", "키가 숫자가 아니다: " .. tostring(key));
+        check(#DebindPrivate.CollectKeyGroupActions("F") == 0, "F에 남은 것이 있다");
+
+        -- 셋이 같은 번호에 있고, 실려온 차례도 그대로다. `seq`를 직접 읽지 않고 발동 순서를
+        -- 그리는 쪽에 묻는 것은 이 파일의 다른 테스트와 같은 이유다.
+        local rows = DebindPrivate.CollectActionsForKey(key);
+        check(Values(rows) == "10 20 30", "차례: " .. Values(rows));
+    end);
+
+    test("하나짜리를 풀면 키가 없어진다", function()
+        ResetProfile({ general = { Bound(10, "F", 1) } });
+
+        local group = DebindPrivate.CollectKeyGroupActions("F");
+        check(#group == 1, "그룹 크기 " .. #group);
+        DebindPrivate.UnbindKeyGroup(group);
+
+        check(group[1].key == nil, "키가 남았다: " .. tostring(group[1].key));
+        check(group[1].seq == nil, "번호가 남았다: " .. tostring(group[1].seq));
+    end);
+
+    -- **번호를 나눠주는 쪽까지 같이 본다.** 둘을 연달아 풀었을 때 같은 번호가 나가면 서로
+    -- 남남인 두 벌이 한 머리글 아래로 합쳐지고, 그건 화면에 나오기 전까지 조용하다.
+    test("연달아 풀어도 두 덩어리가 섞이지 않는다", function()
+        ResetProfile({
+            general = {
+                Bound(10, "F", 1), Bound(20, "F", 2),
+                Bound(30, "G", 1), Bound(40, "G", 2),
+            },
+        });
+
+        local f = DebindPrivate.CollectKeyGroupActions("F");
+        local g = DebindPrivate.CollectKeyGroupActions("G");
+        DebindPrivate.UnbindKeyGroup(f);
+        DebindPrivate.UnbindKeyGroup(g);
+
+        check(f[1].key == f[2].key, "F였던 둘이 갈라졌다");
+        check(g[1].key == g[2].key, "G였던 둘이 갈라졌다");
+        check(f[1].key ~= g[1].key, "두 덩어리가 같은 번호를 받았다: " .. tostring(f[1].key));
+    end);
+
     return T;
 end
