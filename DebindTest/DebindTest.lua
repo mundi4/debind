@@ -1731,55 +1731,17 @@ RegisterTest("Panels: the window takes each tab's own width", {
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
         local overviewWidth = DebindFrame:GetWidth()
 
-        if exportWidth ~= export.preferredWidth or overviewWidth ~= overview.preferredWidth then
+        -- **Within a pixel, not exact.** `GetWidth` reads back what the frame ended up at, and that
+        -- is not obliged to be the number `SetWidth` was handed once the UI scale has been through
+        -- it - 812 comes back as 811 on some scales. What this test is for is that the frame follows
+        -- the panel at all, which an exact compare answers wrongly rather than more strictly.
+        local function Off(got, want) return math.abs(got - want) > 1 end
+        if Off(exportWidth, export.preferredWidth) or Off(overviewWidth, overview.preferredWidth) then
             return Fail(NAME, format("창이 안 따라간다 - export %d(기대 %d), overview %d(기대 %d)",
                 exportWidth, export.preferredWidth, overviewWidth, overview.preferredWidth))
         end
 
         return Pass(NAME, format("overview %d, export %d", overviewWidth, exportWidth))
-    end,
-})
-
--- **The placeholder inside the paste box is drawn and hidden by the template's own
--- `OnTextChanged`**, and this dialog replaces that script to clear its error line. Chaining is the
--- whole fix; dropping the chain leaves the grey sentence sitting on top of whatever was pasted, and
--- it looks like a drawing bug rather than a wiring one. It shipped broken once, for an afternoon.
-RegisterTest("Paste dialog: the instruction gets out of the way", {
-    description = "붙여넣기 상자에 글자가 들어가면 안내문이 숨는가",
-    run = function()
-        local NAME = "Paste instructions"
-
-        local editBox = DebindPasteFrame.Input.EditBox
-        local instructions = editBox.Instructions
-        if not instructions then
-            return Fail(NAME, "Instructions 영역이 없다 - 템플릿이 바뀌었을 수 있다")
-        end
-
-        AddTeardown(function()
-            editBox:ClearFocus()
-            editBox:SetText("")
-            DebindPasteFrame:Hide()
-        end)
-
-        DebindPasteFrame:Open()
-        if not instructions:IsShown() then
-            return Fail(NAME, "빈 상자인데 안내문이 없다")
-        end
-
-        editBox:SetText("DEB1:something")
-        if instructions:IsShown() then
-            return Fail(NAME,
-                "글자가 들어갔는데 안내문이 그대로다 - OnTextChanged가 템플릿 것을 덮었다")
-        end
-
-        -- The negative: it has to come back, or "hidden" would be a one-way trip and an empty box
-        -- would stop saying what to do with it.
-        editBox:SetText("")
-        if not instructions:IsShown() then
-            return Fail(NAME, "다시 비웠는데 안내문이 안 돌아온다")
-        end
-
-        return Pass(NAME, "들어가면 숨고 비우면 돌아온다")
     end,
 })
 

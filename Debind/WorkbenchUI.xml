@@ -263,27 +263,7 @@
 	-->
 	<Frame name="DebindPasteFrame" inherits="DebindDialogTemplate" mixin="DebindPasteFrameMixin">
 		<Size x="460" y="315"/>
-		<Layers>
-			<Layer level="ARTWORK">
-				<!-- Hung off the template's content rectangle, which is what every dialog places against. -->
-				<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">
-					<Anchors>
-						<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT"/>
-						<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
 		<Frames>
-
-			<!--
-				Everything below is placed against this rather than against the frame, which is what
-				lets the numbers be the game's numbers instead of ours.
-
-				**The caption lives here**, not in the frame's own layers: it has to span the content
-				width, so it needs this rectangle to point at - and a layer of the frame is read
-				before this frame exists, so an anchor to it would be dropped without a word.
-			-->
 			<!--
 				100 tall is the game's number for the same box. The placeholder inside it is set from
 				Lua (`InputScrollFrame_SetInstructions`) and not by the `instructions` KeyValue the
@@ -295,8 +275,8 @@
 				</KeyValues>
 				<Size y="100"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.InputLabel" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
-					<Anchor point="TOPRIGHT" relativeKey="$parent.InputLabel" relativePoint="BOTTOMRIGHT" x="0" y="-10"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT" x="0" y="-24"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT" x="0" y="-24"/>
 				</Anchors>
 			</ScrollFrame>
 
@@ -368,6 +348,24 @@
 				</Layers>
 			</Frame>
 		</Frames>
+		<!--
+			**After `<Frames>`, not before them.** This leans on `Input`, and a layer read up top is
+			read before the frames are built - the anchor would be dropped without a word and the
+			caption would sit wherever the frame's own origin is. The row template above carries the
+			same note for the same reason, and moving this to the top is what broke the paste box:
+			the caption came loose, `Input` hung off it, and the box the game measures ended up with
+			no rectangle to measure.
+		-->
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.Input" relativePoint="TOPLEFT" x="0" y="10"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Input" relativePoint="TOPRIGHT" x="0" y="10"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnShow method="OnShow"/>
