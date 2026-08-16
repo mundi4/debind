@@ -1314,6 +1314,9 @@ end
 --- Every layer, not just the live ones. The conflict is a property of the setup rather than of the
 --- specialization being played, and switching spec does not come back here.
 function DebindPrivate.HasBindingBlockedByClique()
+    -- A shortcut, not the guard: `GetBindingIssue` raises this code only when the flag is set, so
+    -- the answer is the same either way. What it buys is that everyone without Clique -- nearly
+    -- everyone -- skips a walk over every action on the profile at login.
     if (not DebindPrivate.CliqueDetected) then
         return false;
     end

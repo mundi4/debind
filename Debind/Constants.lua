@@ -208,9 +208,9 @@ Constants.ISSUE_GRADE_MINOR = 2;
 --- line falls out of `BuildKeyMap`: an ERROR keeps the action out of `KeyMap` entirely, a MINOR one
 --- got in and lost the sort, which means the key itself still fires.
 ---
---- **A code with no row here is treated as ERROR** (`GetIssueGrade`), not as MINOR. Failing loud is
---- the safe direction in a keybinding addon -- a grade nobody wrote would otherwise quietly grey out
---- a binding that does not run.
+--- **A code with no row here is treated as ERROR**: `IsIssueMinor` answers false for it, and that is
+--- the only function that reads this table. Failing loud is the safe direction in a keybinding addon
+--- -- a grade nobody wrote would otherwise quietly grey out a binding that does not run.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,

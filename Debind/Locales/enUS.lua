@@ -209,8 +209,8 @@ L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its 
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
 L["KEY"] = "Key"
 -- The header over an arrival group whose key has not been decided. **Not "group"** - that word
--- already means the party/raid kind in this window (`CONDITION_GROUP`), and
--- `ORDER_FLAG_GROUPS_NONE_SELECTED` says so in this very column.
+-- already means the party/raid kind in this window (`CONDITION_GROUP`, and
+-- `BINDING_ERROR_GROUPS_NONE_SELECTED` on a row that has none of them selected).
 --
 -- It says what stands in for the key, not that the rows below belong together: a header owning the
 -- rows under it is what the whole column already teaches.

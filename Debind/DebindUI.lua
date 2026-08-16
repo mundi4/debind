@@ -5054,6 +5054,11 @@ function BuildKeyboardElements()
 			-- 이 덩어리도 접히므로 같은 요약을 단다. 첫 이름이 발동 순서가 아니라 이름순의
 			-- 첫째라는 것만 다른데, 여기 있는 것은 아무것도 발동하지 않으므로 그 차이가 없다.
 			rows = rows,
+			-- **Not a scan like the one above, a definition.** Having no key at all is what puts an
+			-- action in this pile, so every member of it is inactive by construction. Leaving the
+			-- field off left this heading grey with a gold summary beside it -- the one split
+			-- `UpdateSummary` says it is there to prevent.
+			allInactive = true,
 		};
 		if (collapsed) then
 			rows = {};
