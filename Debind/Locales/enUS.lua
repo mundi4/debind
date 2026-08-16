@@ -725,22 +725,39 @@ L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that c
 -- The client's own shape, from the collection windows: [Collected] / [Not Collected] side by side,
 -- all ticked to begin with, and untick everything on one axis and the list is honestly empty.
 --
+-- **Title Case, because that is what the client's filter items use** - [Collected] / [Not Collected]
+-- / [Usable Items] in the collection windows, and `NOT_BOUND` below is one of those strings.
+--
 -- **"Inactive specialization" is not a fresh wording.** `ORDER_FLAG_OFFSPEC` and
 -- `SPELL_PICKER_SHOW_OFFSPEC` already name this, and one thing has one name per screen - these two
 -- keys exist so each position can be reworded on its own, never so they can say different things.
-L["FILTER_ACTIVE_SPEC"] = "Active specialization"
-L["FILTER_INACTIVE_SPEC"] = "Inactive specialization"
+--
+-- **Plural, and its neighbour is not.** A tick here covers every specialization that is not the one
+-- being played, which is why `SPELL_PICKER_SHOW_OFFSPEC` is plural in the same position;
+-- `ORDER_FLAG_OFFSPEC` is singular because it marks one row. There is only ever one active
+-- specialization, so that side stays singular even though the pair then looks uneven.
+L["FILTER_ACTIVE_SPEC"] = "Active Specialization"
+L["FILTER_INACTIVE_SPEC"] = "Inactive Specializations"
 -- The key axis. **Three values, and none of them overlaps another**: an action either presses on a
 -- key, or is waiting to be accepted, or is neither.
 --
--- "No shortcut" is narrower than it sounds - what is waiting to be accepted has no shortcut either,
--- and it is the next line that carries it. The three standing together is what makes that read: a
--- reader picking among three does not take one of them for the whole.
-L["FILTER_KEYED"] = "Has a shortcut"
-L["FILTER_UNKEYED"] = "No shortcut"
+-- **The word carries "key" with it.** The client's `NOT_BOUND` was tried here and taken back out:
+-- there it stands beside a `Key:` label that supplies the subject, and alone in a list "Bound"
+-- reads as soulbound first. `OVERVIEW_EMPTY` already says it the way that closes - "No key is
+-- bound yet".
+--
+-- **Not "assigned", though the addon says that too.** [Assigned Target] has that word in this same
+-- window, and one word naming two things on one screen is how a reader ends up thinking there is
+-- a connection.
+--
+-- "No Key Bound" is narrower than it sounds: what is waiting to be accepted has no key either, and
+-- the line below carries that. The three standing together is what makes it read - a reader picking
+-- among three does not take one of them for the whole.
+L["FILTER_KEYED"] = "Key Bound"
+L["FILTER_UNKEYED"] = "No Key Bound"
 -- **"Accepted" is the word the rest of the import uses** (`APPROVE_IMPORT`, `LINE_TOOLTIP_IMPORTED`),
 -- so this is not a new idea for the reader - it is the same state named where it can be filtered on.
-L["FILTER_PENDING"] = "Not accepted yet"
+L["FILTER_PENDING"] = "Not Accepted Yet"
 -- Empty right-hand list because a filter took everything out. **Different from the search one**:
 -- that reader knows what they typed, and this one has to open the dropdown to see which value is
 -- switched off.

@@ -400,8 +400,10 @@ L["REJECT_IMPORT"] = "버리기"
 L["REJECT_IMPORT_CONFIRM"] = "받아왔지만 아직 받아들이지 않은 행동 |cnHIGHLIGHT_FONT_COLOR:%d|r개를 버릴까요?|n|n받아온 문자열은 서랍에 그대로 있으니 다시 가져올 수 있습니다."
 L["FILTER_ACTIVE_SPEC"] = "활성 전문화"
 L["FILTER_INACTIVE_SPEC"] = "비활성 전문화"
-L["FILTER_KEYED"] = "단축키 있음"
-L["FILTER_UNKEYED"] = "단축키 없음"
+-- **앞에 "키"를 붙여야 뜻이 닫힌다.** "지정 안 됨"만 두면 무엇이 안 됐다는 것인지 목록 안에서는
+-- 안 서고, 그 말은 키 없는 덩어리 머리글이 이미 쓰고 있다(클라이언트 전역 NOT_BOUND).
+L["FILTER_KEYED"] = "키 지정됨"
+L["FILTER_UNKEYED"] = "키 지정 안 됨"
 L["FILTER_PENDING"] = "아직 안 받음"
 L["NO_ACTIONS_MATCH_FILTERS"] = "이 탭에는 조건에 맞는 것이 없습니다. 무엇이 꺼져 있는지는 왼쪽 열 위의 목록에 있습니다."
 L["OVERVIEW_EMPTY_FILTERED"] = "조건에 맞는 것이 없습니다. 무엇이 꺼져 있는지는 이 열 위의 목록에 있습니다."
