@@ -5794,6 +5794,9 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	OnButton1 = function(_, data)
 		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
 	end,
+	OnButton2 = function(_, data)
+		ApplyKeyGroupMove(data.actions, data.key, data.occupants, true);
+	end,
 	-- **An empty function, and it is not decoration: without it the button is dead.** Under
 	-- `selectCallbackByIndex` the `dialog:Hide()` sits *inside* `if func then`
 	-- (`StaticPopup_OnClick`), so a button with nothing attached neither answers nor closes. Only
