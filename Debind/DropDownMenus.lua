@@ -1418,11 +1418,12 @@ do
         --- rest on the old key and the group splits without a sound
         --- (`DebindUI.BeginKeyGroupCapture`).
         ---
-        --- Why it lives in this menu: what stands for a group in this column is the heading, and
-        --- that is a label with no mouse (`DebindKeyHeaderTemplate`). Putting a control on it is a
-        --- question already answered when the fold arrows were turned down. Right-clicking a row is
-        --- the gesture this column already teaches, and the item's own words say the target is the
-        --- group.
+        --- Why it lives in this menu: what stands for a group in this column is the heading
+        --- (`DebindKeyHeaderTemplate`), and the one gesture that bar has is spoken for -- pressing
+        --- it folds the group, which is what its template is for. A second way in would have to be
+        --- a widget sitting on the bar, and the bar carries none: it says folded by changing its
+        --- own end cap. Right-clicking a row is the gesture this column already teaches, and the
+        --- item's own words say the target is the group.
         local function CreateKeyGroupCaptureItem()
             if (not DebindUI.CanBeginKeyGroupCapture(action)) then
                 return;

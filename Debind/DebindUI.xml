@@ -145,37 +145,23 @@
 	</Frame>
 	
 	<!--
-		단축키 정렬에서 키가 바뀌는 자리마다 들어가는 줄.
+		단축키 정렬에서 키가 바뀌는 자리마다 들어가는 줄. 바 아트는 블리자드의
+		`ListHeaderThreeSliceTemplate`(쿨다운 관리자 설정·화폐 탭이 쓰는 그것)에서 온다.
 
-		**마우스를 켜지 않는다.** 이 창은 드래그를 어디에 떨궈도 받는다 - 위치가 뜻을
-		가지지 않기 때문이다. 헤더가 마우스를 먹으면 그 띠만 드롭이 죽는 사각지대가
-		되므로, 이벤트를 밑의 ScrollBox로 그냥 통과시킨다. 그래서 Button이 아니라 Frame이다.
+		**띠 전체를 눌러 접는다.** 접기가 이 템플릿이 하는 일이고, 오른쪽 끝 조각이 그대로
+		접힘 표시다 - 따로 붙는 컨트롤이 없다. 드롭은 안 받지만(오버뷰는 목적지를 못 대므로,
+		`DebindFrameMixin:OnReceiveDrag`) 그건 이 띠가 아니라 이 목록 전체가 그렇다.
+
+		높이는 템플릿 아트의 제 높이 26이다. 예전 28에는 위쪽에 여백이 절반 들어 있었다 -
+		선이 없는 목록에서 그룹을 가르려고 둔 것이라, 진짜 띠가 그 자리에 서면 할 일이 없다.
 	-->
-	<Frame name="DebindKeyHeaderTemplate" mixin="DebindKeyHeaderMixin" virtual="true">
-		<!--
-			높이의 절반은 **위쪽 여백**이다. 행 사이가 붙어 있는 목록에서 그룹이 갈리려면
-			갈리는 자리에만 숨 쉴 틈이 있어야 하는데, 글자를 아래로 내리는 것만으로 그게
-			된다 - 선을 하나 더 긋는 것보다 조용하다.
-		-->
-		<Size x="450" y="28"/>
-		<Layers>
-			<Layer level="ARTWORK">
-				<!--
-					**금색이 아니라 흰색이다**(GameFontHighlightSmall). 블리자드의
-					ClickBindingHeaderTemplate가 같은 자리에 같은 글꼴을 쓴다.
-
-					금색은 이 창에서 "누를 수 있는 것"과 "값"이 쓰는 색이라, 머리글이 그 색이면
-					키 이름이 행보다 세게 읽혀서 목록이 아니라 머리글이 눈에 먼저 들어온다.
-					여기서 세야 할 것은 키가 아니라 그 밑에 몇 줄이 달렸는가다.
-				-->
-				<FontString parentKey="Label" inherits="GameFontHighlightSmall" justifyH="LEFT" maxLines="1">
-					<Anchors>
-						<Anchor point="BOTTOMLEFT" x="4" y="3"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
-	</Frame>
+	<Button name="DebindKeyHeaderTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindKeyHeaderMixin" registerForClicks="LeftButtonUp" virtual="true">
+		<Size x="450" y="26"/>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+		</Scripts>
+	</Button>
 
 	<Button name="DebindLineTemplate" mixin="DebindLineMixin" virtual="true">
 		<Size x="450" y="46"/>

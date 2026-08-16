@@ -105,15 +105,40 @@ local _searchText;
 --- with nothing left in it. When the last badge goes some other way - deleted, say - the switch
 --- stays on and `UpdateImportStrip` keeps its strip on screen, so there is always something to
 --- press to get the lists back.
-local _importedOnly;
+local _pendingOnly;
 
 --- The key group the bind mode is listening for, while it is listening for one rather than for the
 --- row under the cursor. `{ actions, label, fromKey }`.
 ---
---- **A file local for the same reason `_importedOnly` is one.** It is the state of one screen, it
+--- **A file local for the same reason `_pendingOnly` is one.** It is the state of one screen, it
 --- lives no longer than the mode does (`SetBindingMode` clears it), and nothing outside this file
 --- has anything to ask it.
 local _keyGroupCapture;
+
+--- 오버뷰에서 접혀 있는 키 그룹. 키 자체로 물으며, 키가 없는 맨 아래 덩어리는 `KEYLESS_GROUP`이
+--- 대신 선다 - nil은 테이블 키가 못 되고, 고유 테이블이면 진짜 키와 부딪힐 길이 없다.
+---
+--- **A file local for the same reason `_pendingOnly` is one**, and 보기 상태일 뿐이라 저장하지
+--- 않는다 - 접힌 그룹도 그대로 발동한다. 목록을 다시 그리는 것 말고는 아무것도 안 건드린다.
+local KEYLESS_GROUP = {};
+local _collapsedKeys = {};
+
+--- 액션의 키를 `_collapsedKeys`가 쓰는 이름으로 바꾼다. 키가 없다는 것도 그룹 하나이고,
+--- nil은 테이블 키가 못 되므로 고유 테이블이 그 자리에 선다.
+local function CollapseKeyFor(key)
+	if (key == nil) then
+		return KEYLESS_GROUP;
+	end
+	return key;
+end
+
+--- 다음에 왼쪽 열을 지을 때 화면에 보여줄 액션. `RequestReveal`이 세우고 `RefreshKeyboard`가
+--- 쓰고 지운다.
+---
+--- **다시 그리는 것과 보여주는 것은 다른 일이다.** 예전에는 재구성이 끝날 때마다 선택 행으로
+--- 스크롤했는데, 그러면 선택된 액션이 든 그룹은 접을 수가 없다 - 접는 클릭이 재구성을 부르고,
+--- 재구성이 그 행을 다시 끌어온다. 그래서 "보여줘"라는 뜻인 순간에만 세운다.
+local _revealAction;
 
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
 
@@ -803,7 +828,7 @@ end
 --- The two narrowings stack rather than replace each other. Searching inside what came in is a
 --- reasonable thing to want, and there is no reading of "both switched on" other than both.
 local function ActionPassesBinFilter(action)
-	if (_importedOnly and not action.imported) then
+	if (_pendingOnly and not action.imported) then
 		return false;
 	end
 	if (_searchText == nil) then
@@ -817,7 +842,7 @@ end
 ---
 --- With nothing switched on it asks the layer instead - there is nothing to walk it for.
 local function CountActionsInLayer(layer)
-	if (_searchText == nil and not _importedOnly) then
+	if (_searchText == nil and not _pendingOnly) then
 		return layer:GetNumActions();
 	end
 
@@ -984,8 +1009,8 @@ do
 				-- can go - `ApproveImportedActions` and `RebuildAfterKeyGroupChange` both drop the
 				-- filter for the same reason. Left on, both lists draw empty and the only way out
 				-- is noticing the checkbox.
-				if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
-					_importedOnly = nil;
+				if (_pendingOnly and #DebindPrivate.CollectImportedActions() == 0) then
+					_pendingOnly = nil;
 					DebindFrame:Refresh(true);
 					DebindFrame:Update();
 				end
@@ -1119,7 +1144,7 @@ end
 --- action the reader accepted while it had no key has always been in.
 ---
 --- **The last badge takes the narrowing with it.** Accepting the lot is the ordinary end of an
---- import, and it would end on two empty lists if `_importedOnly` stayed on - narrowed to a set
+--- import, and it would end on two empty lists if `_pendingOnly` stayed on - narrowed to a set
 --- that no longer has anything in it. Only when nothing is left: accepting one row out of twelve
 --- has to leave the reader looking at the other eleven.
 local function ApproveImportedActions(actions)
@@ -1127,8 +1152,8 @@ local function ApproveImportedActions(actions)
         action.imported = nil;
     end
 
-    if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
-        _importedOnly = nil;
+    if (_pendingOnly and #DebindPrivate.CollectImportedActions() == 0) then
+        _pendingOnly = nil;
     end
 
     -- **What just left the bin leaves the selection with it.** `imported` is the field the bin
@@ -1829,7 +1854,9 @@ function DebindLineMixin:OnClick(buttonName)
 			-- 말하는 표시인데, 메뉴가 남의 행에서 열리면 그 말과 메뉴가 가리키는 것이 어긋난다.
 			-- 상세 패널은 A를 보여주는데 방금 연 메뉴는 B를 지우려는 상태가 실제로 생긴다.
 			--
-			-- 좌클릭과 같은 함수를 지난다 - 이미 고른 행이면 저쪽이 일찍 돌아선다.
+			-- 좌클릭과 같은 함수를 지난다. 이미 고른 행이면 저쪽이 고르는 일은 건너뛰지만,
+			-- 왼쪽 열에서 그 행을 다시 찾아주기는 한다 - 메뉴가 열리는 행이 어디 있는지는
+			-- 처음 고를 때나 다시 누를 때나 똑같이 보여야 한다.
 			--
 			-- **집어오는 것보다 먼저다.** 이 호출은 상세 패널을 닫고, 그 길에 매크로 본문
 			-- 저장이 딸려 오면 목록이 통째로 다시 지어진다 - 먼저 집으면 그 테이블이 낡는다.
@@ -1873,19 +1900,17 @@ end
 ---
 --- 행에서 단축키 글자를 빼지는 않는다. 헤더는 스크롤에 밀려 화면 밖으로 나가는데(이 목록은
 --- 고정 헤더가 아니다) 그러면 무슨 키인지 알 수 없는 행들만 남는다.
---- 키 헤더의 높이. 위쪽 절반이 여백이라 그룹이 갈리는 자리에 숨 쉴 틈이 생기는데,
---- **목록의 첫 줄에는 가를 것이 없다** - 거기서는 그 여백이 인셋 위쪽에 뚫린 구멍이 된다.
---- 그래서 첫 헤더만 여백을 뺀 높이로 선다.
-local KEY_HEADER_HEIGHT = 28;
-local KEY_HEADER_HEIGHT_FIRST = 16;
+--- 키 헤더의 높이, 곧 `ListHeaderThreeSliceTemplate` 아트의 제 높이. 여기서 벗어나면 띠가
+--- 프레임 위아래로 삐져나오거나 잘린다 - 아트가 위에서부터 제 크기로 붙기 때문이다.
+---
+--- 첫 헤더만 낮게 세우던 규칙이 여기서 없어졌다. 그건 위쪽 절반이 여백이던 시절의 것으로,
+--- 목록 첫 줄에서는 그 여백이 인셋 위에 뚫린 구멍이 됐다. 여백이 아니라 띠가 서는 지금은
+--- 첫 줄도 가를 것이 없기는 마찬가지고, 구멍도 나지 않는다.
+local KEY_HEADER_HEIGHT = 26;
 -- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;
 local ORDER_LINE_HEIGHT = 28;
-
-local function KeyHeaderExtent(elementData)
-	return elementData.isFirst and KEY_HEADER_HEIGHT_FIRST or KEY_HEADER_HEIGHT;
-end
 
 DebindDialogMixin = {};
 
@@ -1930,8 +1955,28 @@ local function KeyGroupLabel(key, from)
 	return LLL["OVERVIEW_NO_KEY"];
 end
 
+--- 글자색은 두 상태 모두 흰색으로 못박는다. 템플릿의 기본은 금색인데, 금색은 이 창에서
+--- "누를 수 있는 것"과 "값"이 쓰는 색이라 머리글이 그 색이면 키 이름이 행보다 세게 읽힌다 -
+--- 여기서 세야 할 것은 키가 아니라 그 밑에 몇 줄이 달렸는가다. 칠하는 것은 `SetHeaderText`고
+--- 이 두 줄은 무엇으로 칠할지만 정해 둔다.
+function DebindKeyHeaderMixin:OnLoad()
+	self:SetTitleColor(false, HIGHLIGHT_FONT_COLOR);
+	self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
+end
+
+--- 띠 전체가 접기 버튼이다. 이 템플릿에는 따로 달린 컨트롤이 없고 **오른쪽 끝 조각이 곧
+--- 표시**라(`Options_ListExpand_Right` ↔ `_Expanded`), 그 조각만 누르게 하면 화면에 보이는
+--- 것과 누를 수 있는 것이 어긋난다.
+function DebindKeyHeaderMixin:OnClick()
+	local groupKey = CollapseKeyFor(self.elementData.key);
+	_collapsedKeys[groupKey] = not _collapsedKeys[groupKey] or nil;
+	DebindResultPanel:RefreshKeyboard();
+end
+
 function DebindKeyHeaderMixin:Init(elementData)
-	self:SetHeight(KeyHeaderExtent(elementData));
+	self.elementData = elementData;
+	self:UpdateCollapsedState(elementData.collapsed == true);
+
 	if (type(elementData.key) == "number") then
 		-- **A key group whose key has not been decided yet.** What tells two of these apart is the
 		-- key their sender had them on, carried by `importedFrom`; the number they are stored under
@@ -1942,19 +1987,19 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- they have taken and not yet given a key to.
 		local label = KeyGroupLabel(elementData.key, elementData.importedFrom);
 		if (elementData.hasImported) then
-			self.Label:SetText(IMPORTED_FONT_COLOR:WrapTextInColorCode(label));
+			self:SetHeaderText(IMPORTED_FONT_COLOR:WrapTextInColorCode(label));
 		else
-			self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(label));
+			self:SetHeaderText(DISABLED_FONT_COLOR:WrapTextInColorCode(label));
 		end
 	elseif (elementData.key) then
-		self.Label:SetText(KeyGroupLabel(elementData.key));
+		self:SetHeaderText(KeyGroupLabel(elementData.key));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
 		--
 		-- **The client's own words**, through the same key the row's shortcut cell uses. Writing a
 		-- second wording here is how the same window came to say two things once already - the
 		-- tooltip comment on that cell has the history.
-		self.Label:SetText(DISABLED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel()));
+		self:SetHeaderText(DISABLED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel()));
 	end
 end
 
@@ -2333,7 +2378,7 @@ function DebindFrameMixin:UpdateEmptyText()
 		-- off**, and it is the one with somewhere to point - the side tab counts are already
 		-- holding which tab the rest of it landed in.
 		local emptyKey = "NO_ACTIONS_IN_THIS_TAB";
-		if (_importedOnly) then
+		if (_pendingOnly) then
 			emptyKey = "NO_IMPORTED_IN_THIS_TAB";
 		elseif (_searchText) then
 			emptyKey = "NO_SEARCH_RESULTS";
@@ -2381,7 +2426,7 @@ function DebindFrameMixin:UpdateActionCounts()
 	-- is "which tab did the thing that arrived land in", and since one batch routinely splits
 	-- across off-spec layers, **this is the only place on screen that holds that answer** - the
 	-- left column only ever looks at the current specialization.
-	local narrowed = _searchText ~= nil or _importedOnly == true;
+	local narrowed = _searchText ~= nil or _pendingOnly == true;
 
 	for tabId, tab in ipairs(self.LayerPanel.Tabs) do
 		local label = GetTabLabel(tabId);
@@ -2562,14 +2607,14 @@ end
 ---
 --- The checkbox is already carrying this state, and it is still not the one read from. There is a
 --- path that switches this off **without the reader touching it** - accepting the last badge, in
---- `ApproveImportedActions`. `_importedOnly` is the value; the tick is a drawing of it
+--- `ApproveImportedActions`. `_pendingOnly` is the value; the tick is a drawing of it
 --- (`UpdateImportStrip`).
 function DebindFrameMixin:SetImportedOnly(on)
 	on = on and true or nil;
-	if (_importedOnly == on) then
+	if (_pendingOnly == on) then
 		return;
 	end
-	_importedOnly = on;
+	_pendingOnly = on;
 
 	-- The same tidying that typing in the search box does, for the reason written there
 	-- (`OnTextChanged`): a filtered-out action left in the bulk set makes the count a lie.
@@ -3240,6 +3285,14 @@ function DebindFrameMixin:SetSelectedAction(action)
 	-- 1인데 그 하나가 앵커가 아닌 상태가 된다.
 	if (action) then
 		if (_selectedAction == action and _selectionCount == 1 and _selection[action]) then
+			-- **고를 것은 없어도 보여줄 것은 있다.** 이미 고른 행을 다시 누르는 것은 "그거
+			-- 어디 갔지"라는 뜻이다 - 그 사이 왼쪽 열을 굴려놨거나 그룹을 접어놨으면 화면에
+			-- 없고, 선택이 그대로라는 이유로 아무 일도 안 하면 누른 쪽에는 고장으로 보인다.
+			--
+			-- 목록을 다시 짓는 것은 접혀 있을 때 펼쳐야 하기 때문이다(`RefreshKeyboard`가
+			-- 짓기 전에 편다). 이미 펴져 있으면 지은 결과가 같으므로 화면은 스크롤만 한다.
+			_revealAction = action;
+			DebindResultPanel:Refresh();
 			return true;
 		end
 	elseif (_selectedAction == nil and _selectionCount == 0) then
@@ -3253,6 +3306,10 @@ function DebindFrameMixin:SetSelectedAction(action)
 		_selectionCount = 1;
 	end
 	_selectedAction = action;
+
+	-- 오른쪽에서 고른 행을 왼쪽 열에서 찾아준다. 위 가드를 지나왔으므로 여기 오는 것은 선택이
+	-- **바뀐** 경우뿐이고, 같은 행을 다시 고르면 화면은 가만히 있는다.
+	_revealAction = action;
 
 	CommitSelection(self);
 	return true;
@@ -3581,7 +3638,7 @@ end
 function DebindFrameMixin:UpdateImportStrip()
 	local strip = self.OverviewPanel.ImportStrip;
 	local count = #DebindPrivate.CollectImportedActions();
-	local shown = count > 0 or _importedOnly == true;
+	local shown = count > 0 or _pendingOnly == true;
 
 	strip:SetShown(shown);
 	if (not shown) then
@@ -3590,7 +3647,7 @@ function DebindFrameMixin:UpdateImportStrip()
 
 	local locked = self:IsCapturingKey() or IsEditingAction();
 
-	strip.Checkbox:SetChecked(_importedOnly == true);
+	strip.Checkbox:SetChecked(_pendingOnly == true);
 	strip.Checkbox:SetEnabled(not locked);
 	-- The label lives outside the frame, so pressing the words only ticks the box if the hit rect
 	-- reaches that far. Locales disagree about how far, so it is the string that gets asked (see
@@ -4247,6 +4304,9 @@ function DebindUI.ApplyOrderSwap(action, neighbor)
 	action.seq, neighbor.seq = neighbor.seq, action.seq;
 	action._dirty = true;
 	neighbor._dirty = true;
+	-- 움직인 행을 따라간다. 한 칸씩 가는 동안은 대개 이미 보이고 있어서 화면이 서 있지만,
+	-- 그룹의 끝에서 밀려나 화면 밖으로 나가는 순간에는 따라가야 한다.
+	_revealAction = action;
 	DebindPrivate.RenumberKeyGroupForAction(action);
 	DebindPrivate.UpdateBindings();
 	DebindFrame:Refresh(true);
@@ -4463,7 +4523,7 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 		end
 	end);
 	view:SetElementExtentCalculator(function(_, elementData)
-		return elementData.isHeader and KeyHeaderExtent(elementData) or ORDER_LINE_HEIGHT;
+		return elementData.isHeader and KEY_HEADER_HEIGHT or ORDER_LINE_HEIGHT;
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);
@@ -4482,7 +4542,7 @@ end
 --- 특성은 **지금 것**으로 고정이다. 오른쪽에서 다른 특성 탭을 열어도 여기는 안 따라간다 -
 --- 무엇이 오프스펙인지가 화면마다 달라지면 이 열의 문장이 흔들린다.
 ---
---- **Narrowed to what came in, a key is kept or dropped whole** (`_importedOnly`). Which key holds
+--- **Narrowed to what came in, a key is kept or dropped whole** (`_pendingOnly`). Which key holds
 --- a badge is settled in the scan below rather than by looking at the rows afterwards, so that the
 --- header and its rows cannot disagree; the scan sees exactly what `CollectActionsForKey` will,
 --- since both walk the live layers and neither leaves anything out.
@@ -4510,7 +4570,7 @@ local function BuildKeyboardElements()
 
 	-- Thinned here rather than inside the loop below, so that loop keeps saying one thing: a key,
 	-- then its rows in firing order.
-	if (_importedOnly) then
+	if (_pendingOnly) then
 		local kept = {};
 		for _, key in ipairs(keyArr) do
 			if (keyHasImported[key]) then
@@ -4524,19 +4584,24 @@ local function BuildKeyboardElements()
 
 	local elements = {};
 	for _, key in ipairs(keyArr) do
+		local collapsed = _collapsedKeys[key] == true;
 		elements[#elements + 1] = {
 			isHeader = true,
 			key = key,
+			collapsed = collapsed,
 			-- Only the heading of a set with no real key reads these: the first for its colour,
 			-- the second for the key it came in on.
 			hasImported = keyHasImported[key],
 			importedFrom = keyImportedFrom[key],
-			isFirst = #elements == 0 or nil,
 		};
 
 		-- 각 행에 **바로 아래 행을 이긴 이유**를 붙인다. 마지막 행에는 안 붙는다 - 이길
 		-- 상대가 없다. 넷 다 같았으면(nil) 남은 것은 순서 번호뿐이라 SEQ로 부른다.
-		local rows = DebindPrivate.CollectActionsForKey(key);
+		--
+		-- **접혀 있으면 행을 안 만든다.** 만들어두고 숨기는 길도 있지만, 이 목록은 스크롤
+		-- 길이를 elementData 개수로 재므로(`SetElementExtentCalculator`) 숨긴 행은 빈 자리로
+		-- 남는다.
+		local rows = collapsed and {} or DebindPrivate.CollectActionsForKey(key);
 		for i, row in ipairs(rows) do
 			-- 이유마다 딸리는 값이 다르다. 중요도는 **어느 쪽이 높았는지**를 말해야 하고
 			-- (이름만 쓰면 방향을 모른다), 레이어는 규칙 이름보다 **실제 두 레이어**를 대는
@@ -4594,7 +4659,7 @@ local function BuildKeyboardElements()
 	-- **The pile is narrowed row by row, and the key groups above are not.** A key group is kept
 	-- whole because the reason text on each row names the one below it; nothing here carries a
 	-- sentence about its neighbour, so there is nothing to break by thinning it.
-	if (_importedOnly) then
+	if (_pendingOnly) then
 		local kept = {};
 		for _, row in ipairs(rows) do
 			if (row.imported) then
@@ -4627,11 +4692,15 @@ local function BuildKeyboardElements()
 	end);
 
 	if (#rows > 0) then
+		local collapsed = _collapsedKeys[CollapseKeyFor(nil)] == true;
 		elements[#elements + 1] = {
 			isHeader = true,
 			key = nil,
-			isFirst = #elements == 0 or nil,
+			collapsed = collapsed,
 		};
+		if (collapsed) then
+			rows = {};
+		end
 		for _, row in ipairs(rows) do
 			-- No `reason`, and no `rows`/`index`. Nothing here beat anything: with no key there is
 			-- no contest to win and nowhere to move to, so the arrows stay down (`UpdateMoveButtons`
@@ -4646,12 +4715,66 @@ local function BuildKeyboardElements()
 	return elements;
 end
 
+--- 한 행을 화면에 세운다. **머리글까지 같이 세운다** - 이 목록은 고정 머리글이 아니라 머리글이
+--- 스크롤에 밀려 나가고, 그러면 무슨 키인지 알 수 없는 행만 남는다.
+---
+--- 네 갈래다:
+---
+--- 1. **키 없는 덩어리는 행만 본다.** 그 머리글은 키가 아니라 상태를 말하므로("키 지정 안 됨")
+---    행 옆에 같이 있어야 할 이유가 없다.
+--- 2. **둘 다 이미 보이면 움직이지 않는다.** 스크롤은 읽던 자리를 빼앗는 일이라, 화면이 이미
+---    답을 보여주고 있으면 하지 않는 것이 답이다.
+--- 3. 아니면 **둘이 들어오는 최소한만** 움직인다. 위로 벗어났으면 머리글을 맨 위에, 아래로
+---    벗어났으면 행을 맨 아래에 세우면 그게 최소다 - 구간이 화면에 들어가므로 한쪽을 붙이면
+---    다른 쪽은 따라 들어온다.
+--- 4. 머리글부터 행까지가 **화면보다 길면** 둘을 같이 세울 방법이 없다. 그때는 행만 본다.
+---
+--- "보인다"는 완전히 보이는 것이다. 아래 끝에 반쯤 잘린 행은 안 보이는 것으로 센다 -
+--- `AlignNearest`가 쓰는 기준과 같다.
+local function RevealRow(scrollBox, headerIndex, rowIndex, keyless)
+	if (keyless) then
+		scrollBox:ScrollToElementDataIndex(rowIndex, ScrollBoxConstants.AlignNearest);
+		return;
+	end
+
+	local visible = scrollBox:GetVisibleExtent();
+	local headerTop = scrollBox:GetExtentUntil(headerIndex);
+	local rowBottom = scrollBox:GetExtentUntil(rowIndex) + scrollBox:GetElementExtent(rowIndex);
+
+	if ((rowBottom - headerTop) > visible) then
+		scrollBox:ScrollToElementDataIndex(rowIndex, ScrollBoxConstants.AlignNearest);
+		return;
+	end
+
+	local scrollOffset = scrollBox:GetDerivedScrollOffset();
+	if (headerTop >= scrollOffset and rowBottom <= (scrollOffset + visible)) then
+		return;
+	end
+
+	if (headerTop < scrollOffset) then
+		scrollBox:ScrollToOffset(headerTop);
+	else
+		scrollBox:ScrollToOffset(rowBottom - visible);
+	end
+end
+
 --- 왼쪽 열을 다시 그린다.
 ---
 --- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 그 행을
 --- 짚는 것 하나뿐이다(`isCurrent`).
+---
+--- **스크롤은 부탁받았을 때만 움직인다**(`_revealAction`). 그리는 일과 보여주는 일이 갈리는
+--- 자리다 - 그 둘이 붙어 있으면 접기가 성립하지 않는다.
 function DebindResultPanelMixin:RefreshKeyboard()
 	local orderArea = self.ContentArea.OrderArea;
+
+	-- 지어놓고 펼치면 방금 지은 목록을 버리고 다시 지어야 하므로, 펼치는 것이 먼저다.
+	local revealAction = _revealAction;
+	_revealAction = nil;
+	if (revealAction) then
+		_collapsedKeys[CollapseKeyFor(revealAction.key)] = nil;
+	end
+
 	local elements = BuildKeyboardElements();
 
 	-- **Two reasons to be empty, so two sentences.** Ordinarily empty means no key is bound yet;
@@ -4662,7 +4785,7 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	-- which this column did not look at; it does now. What is left is a batch that landed in another
 	-- class's layers - those are stored all the same and are not in this character's eleven, so
 	-- nothing here can reach them until that class is logged in.
-	self.ContentArea.EmptyText:SetText(LLL[_importedOnly and "OVERVIEW_EMPTY_IMPORTED_ONLY" or "OVERVIEW_EMPTY"]);
+	self.ContentArea.EmptyText:SetText(LLL[_pendingOnly and "OVERVIEW_EMPTY_IMPORTED_ONLY" or "OVERVIEW_EMPTY"]);
 
 	-- 걸린 키가 하나도 없으면 구역을 통째로 내린다. 빈 상자만 남기지 않는다.
 	--
@@ -4680,18 +4803,24 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	self.ContentArea.EmptyText:Hide();
 	orderArea:Show();
 
+	-- 보여줄 행과 **그 행이 딸린 머리글**을 여기서 같이 집는다. 액션에서 그룹을 다시 계산하는
+	-- 대신 지나온 머리글을 기억하는 쪽이, 묶는 규칙이 하나로 남는다.
 	local dataProvider = CreateDataProvider();
-	local selectedIndex;
+	local headerIndex, revealIndex, revealHeaderIndex;
 	for i, elementData in ipairs(elements) do
-		if (elementData.isCurrent) then
-			selectedIndex = i;
+		if (elementData.isHeader) then
+			headerIndex = i;
+		elseif (revealAction and elementData.row.action == revealAction) then
+			revealIndex, revealHeaderIndex = i, headerIndex;
 		end
 		dataProvider:Insert(elementData);
 	end
 	orderArea.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.RetainScrollPosition);
 
-	if (selectedIndex) then
-		orderArea.ScrollBox:ScrollToElementDataIndex(selectedIndex, ScrollBoxConstants.AlignNearest);
+	-- 없을 수 있다 - 지워진 액션을 부탁받았거나, [들어온 것만]이 그 그룹을 통째로 걷어냈거나.
+	if (revealIndex) then
+		RevealRow(orderArea.ScrollBox, revealHeaderIndex, revealIndex,
+			elements[revealHeaderIndex].key == nil);
 	end
 end
 
@@ -5038,6 +5167,10 @@ function DebindFrameMixin:SetActionKey(action, key)
 	DebindPrivate.UpdateBindings();
 	self:Refresh(true);
 	self:ScrollActionIntoView(action);
+	-- 키가 바뀌면 왼쪽 열에서 자리를 통째로 옮긴다 - 그 열은 키로 묶고 키로 정렬한다. 간 자리가
+	-- 화면 밖이면 아무 일도 안 일어난 것처럼 보이므로 따라간다. 오른쪽 목록은 저 위에서 따로
+	-- 굴린다(`ScrollActionIntoView`) - 두 열은 서로의 스크롤을 안 본다.
+	_revealAction = action;
 	self:Update();
 	return true;
 end
@@ -5092,7 +5225,7 @@ end
 --- Once, after everything is written. Per action, moving one group would raise the bindings as many
 --- times as it has members.
 ---
---- **`_importedOnly` is turned off here too.** Giving a group a key is the reader accepting it
+--- **`_pendingOnly` is turned off here too.** Giving a group a key is the reader accepting it
 --- (`SetKeyForActions`), so the last badge can come off at this point, and leaving the narrowing on
 --- would end on two empty lists - `ApproveImportedActions` carries the same line for the same
 --- reason.
@@ -5103,12 +5236,12 @@ end
 --- group's **first row** - first in firing order, so it sits right under the heading, and seeing it
 --- is seeing the group.
 ---
---- Selecting and scrolling are both needed. Selecting rolls the left column to its own place
---- (`RefreshKeyboard` seeks out `isCurrent`) and marks which row it is; the right list does not
---- watch that column, so it is rolled separately.
+--- Selecting and scrolling are both needed. Selecting marks which row it is and asks the left
+--- column to find it (`SetSelectedAction` sets `_revealAction`); the right list does not watch that
+--- column, so it is rolled separately.
 local function RebuildAfterKeyGroupChange(actions, key)
-	if (_importedOnly and #DebindPrivate.CollectImportedActions() == 0) then
-		_importedOnly = nil;
+	if (_pendingOnly and #DebindPrivate.CollectImportedActions() == 0) then
+		_pendingOnly = nil;
 	end
 
 	DebindPrivate.UpdateBindings();
