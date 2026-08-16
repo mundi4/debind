@@ -203,17 +203,27 @@ end
 -- Layers
 --------------------------------------------------------------------------------
 
---- A layer header: the game's own collapsible list header (`ListHeaderVisualTemplate`, what the
---- quest log uses), with a tri-state checkbox added on the left.
+--- A layer header: the game's own collapsible list header (`ListHeaderThreeSliceTemplate`, what
+--- the cooldown manager's settings and the currency tab use), with a tri-state checkbox added on
+--- the left.
+---
+--- The quiet bar, not the quest log's `ListHeaderVisualTemplate`: a layer is the divider this
+--- list is cut on rather than the thing being chosen, and the louder art reads as the latter.
 ---
 --- The bar carries **two** gestures and they are split by area: the checkbox selects the layer,
---- everything else collapses it, and the `+`/`-` on the right says which way it currently sits.
+--- everything else collapses it, and the bar's right-hand cap says which way it currently sits.
 DebindExportLayerMixin = {};
 
 function DebindExportLayerMixin:OnLoad()
-    -- Clear of the checkbox. `ListHeaderVisualMixin` owns the text's anchor and hands out this
+    -- Clear of the checkbox. `ListHeaderThreeSliceMixin` owns the text's anchor and hands out this
     -- call for moving it, so the offset lives here instead of a second anchor in the XML.
     self:AdjustTextOffset(22, 0);
+
+    -- One colour for both states, which is what every three-slice header in the client does. The
+    -- bar's own HIGHLIGHT layer answers the mouse, and a title that changed colour alongside it
+    -- would be a second answer to the one question. Neither call paints: `SetHeaderText` does.
+    self:SetTitleColor(false, NORMAL_FONT_COLOR);
+    self:SetTitleColor(true, NORMAL_FONT_COLOR);
 
     NormalizeCheckMark(self.Check);
 
@@ -225,7 +235,7 @@ end
 
 function DebindExportLayerMixin:Init(elementData)
     self.elementData = elementData;
-    self:GetCollapseButton():UpdateCollapsedState(DebindExportPanel:IsLayerCollapsed(elementData.layerID));
+    self:UpdateCollapsedState(DebindExportPanel:IsLayerCollapsed(elementData.layerID));
     self:UpdateSelectionDisplay();
 end
 
@@ -252,8 +262,6 @@ function DebindExportLayerMixin:OnClick()
 end
 
 function DebindExportLayerMixin:OnEnter()
-    self:CheckHighlightTitle(true);
-
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, DebindUI.GetLayerLabel(self.elementData.layerID));
     GameTooltip_AddNormalLine(GameTooltip,
@@ -262,7 +270,6 @@ function DebindExportLayerMixin:OnEnter()
 end
 
 function DebindExportLayerMixin:OnLeave()
-    self:CheckHighlightTitle(false);
     GameTooltip:Hide();
 end
 

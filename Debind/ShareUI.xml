@@ -96,7 +96,7 @@
 
 		Its checkbox is the middle rung of the three: all -> layer -> action.
 	-->
-	<Button name="DebindExportLayerTemplate" inherits="ListHeaderVisualTemplate" mixin="DebindExportLayerMixin" virtual="true">
+	<Button name="DebindExportLayerTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindExportLayerMixin" virtual="true">
 		<Size x="400" y="26"/>
 		<Frames>
 			<!--
@@ -105,8 +105,8 @@
 				to be able to say "not me" by swallowing the click itself.
 
 				The header text is pushed clear of it in `OnLoad` rather than re-anchored here.
-				`ListHeaderVisualMixin` owns that anchor and offers `AdjustTextOffset` for exactly
-				this, and writing a second anchor would leave two rules for one position.
+				`ListHeaderThreeSliceMixin` owns that anchor and offers `AdjustTextOffset` for
+				exactly this, and writing a second anchor would leave two rules for one position.
 			-->
 			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
 				<Size x="24" y="24"/>
