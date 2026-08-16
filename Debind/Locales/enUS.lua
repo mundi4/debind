@@ -167,6 +167,17 @@ L["OVERVIEW_NO_KEY"] = NOT_BOUND
 -- key and a name. Anything wordier and the name it belongs to starts losing characters to it: what
 -- shortens when the bar runs out is the name, never this.
 L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
+-- What the folded pile with no key says instead. **A total, not a "+N"** - nothing is named beside
+-- it, because the pile is sorted by name and its first entry is only alphabetically first. A key
+-- group's first row is what that key actually sends; this one represents nothing.
+--
+-- Dropping the sign is what tells the two apart, since they stand in the same place: "+1" counts
+-- what is not named, this counts everything.
+--
+-- `|4` is the client's own plural form, resolved when the string is drawn rather than by `format`
+-- (`BN_TOAST_PENDING_INVITES` and `D_MINUTES` are handed straight to a FontString the same way).
+-- Russian takes three forms in that escape, not two.
+L["OVERVIEW_NO_KEY_COUNT"] = "%d |4action:actions;"
 -- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
 -- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
 L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
@@ -208,6 +219,38 @@ L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its own shortcuts while it is open, and this addon leaves those keys alone. An action bound to one of them does nothing while the editor is open.|n|nCheck this to take the key anyway: your action runs, and the editor's shortcut on that key does not. The editor still shows the key on its own button, so that button will look usable while doing nothing."
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
 L["KEY"] = "Key"
+--- The dialog that asks for one key, for one action or one set of them (`KeyCapture.lua`).
+---
+--- **The title is the instruction**, which is what the other three dialogs in this window do -
+--- "Bring in - %s", "Paste a Debind string", `EXPORT_COPY_TITLE`. Each of them names the act the
+--- reader came to perform. `KEY_BINDING` stood here first and was the odd one out: the client's word
+--- for the settings *category*, a noun where the neighbours are all verbs, saying nothing about what
+--- pressing something now would do.
+---
+--- **And it does not name the target**, because the dialog shows it - the actions about to get the
+--- key are listed under this line with their icons, the way every other list in the addon draws an
+--- action. Saying "for Wrath +2" in a sentence was the version that had to stand in for showing
+--- them.
+L["KEY_CAPTURE_TITLE"] = "Press the key you want"
+--- **The one rule the reader cannot guess**, and only that one. A mouse button or the wheel is read
+--- where it lands, so pressing one somewhere else does whatever it always does.
+---
+--- It said the keyboard works anywhere too. Nobody was wondering - the title says press a key and
+--- keys work - and putting it in an exception's sentence made it read as though the keyboard had
+--- a condition of its own to check.
+L["KEY_CAPTURE_DESC"] = "Mouse buttons and the wheel only count over this window."
+--- The key the set is on today, said once over the whole list. **A label, not a sentence**, because
+--- what follows it is the value - which is also what [Unbind Key] is talking about, so the button
+--- being lit or dead has something on screen to point at.
+L["KEY_CAPTURE_CURRENT_KEY"] = "Current key:"
+--- The caption over the list. **It reads for one action and for twelve** - a set on one key is the
+--- ordinary case here, so "this action" would be wrong more often than not.
+L["KEY_CAPTURE_TARGETS"] = "Applies to these actions:"
+--- Only when the set is longer than the dialog will draw. **The cap is what this is for**: a key
+--- group has no ceiling the addon can name, and a dialog that grows with it walks off the screen.
+--- Everything counted here is still getting the key - the line says what is not being drawn, not
+--- what is being left out.
+L["KEY_CAPTURE_MORE"] = "...and %d more"
 -- The header over an arrival group whose key has not been decided. **Not "group"** - that word
 -- already means the party/raid kind in this window (`CONDITION_GROUP`, and
 -- `BINDING_ERROR_GROUPS_NONE_SELECTED` on a row that has none of them selected).

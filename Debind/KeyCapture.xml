@@ -1,0 +1,120 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<Script file="KeyCapture.lua" />
+
+	<!--
+		Asking for one key, for one action or one key group. The reasoning is in `KeyCapture.lua`;
+		what is settled here is the shape.
+
+		**This one does not move, and `OnLoad` is where that is said** - `SetMovable(false)` before
+		`InitDialog`, which reads it. Every other dialog is dragged from anywhere on itself because
+		the chrome has no title bar to grab, and here that gesture and the left mouse button being a
+		perfectly good binding are the same gesture: a drag ends in a release on this frame, so
+		moving the dialog would bind the button that moved it. Written in Lua rather than as
+		`movable="false"` here because the frame inherits `movable="true"` and what an attribute
+		does against an inherited one is not something this repo has measured - and the failure is
+		the quiet kind, one drag that silently becomes a binding.
+
+		**`enableKeyboard`, and never turned off.** A hidden frame receives nothing, so the state
+		this dialog has to keep is only "am I up" - which is what `IsShown` already is. The mode has
+		to switch its listening on and off because its target frame stays on screen either way.
+
+		**Only the width is written here.** The height is added up per open, because the dialog grows
+		with the set it is asking about - `DebindBringFrame` is the other one that does this and
+		carries the same note. 380 wide leaves 300 inside `ContentArea`, which is the 120+120 button
+		pair straddling the middle plus its gap.
+	-->
+	<Frame name="DebindKeyCaptureFrame" inherits="DebindDialogTemplate" mixin="DebindKeyCaptureFrameMixin"
+		enableKeyboard="true">
+		<Size x="380" y="150"/>
+		<Frames>
+			<!--
+				The pair the other two dialogs already use: 120x22 straddling `ContentArea`'s bottom,
+				5 either side, the way out on the left and the thing that acts on the right
+				(`DebindPasteFrame`, `DebindBringFrame`).
+
+				Both take client globals, so both are already in every language and follow the game
+				if it ever rewords them. `UNBIND` is the client's own "Unbind Key" - the shorter
+				"Unbind" would be a string of ours to translate everywhere for nothing, and the word
+				it drops is the one that says the button acts on the key already on those rows rather
+				than on the one about to be pressed.
+
+				**Cancel, not Close, with nothing to cancel.** The two are the same action here - the
+				dialog commits and closes on the first key, so there is never a change waiting to be
+				undone. What decides it is the button next to it: against [Unbind Key], which does
+				take the key away, "Cancel" says "leave it as it is" and "Close" says nothing at all.
+				A dialog that asks a question is also where the reader has already been taught that
+				the second button refuses it.
+			-->
+			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="5" y="0"/>
+				</Anchors>
+			</Button>
+
+			<Button parentKey="UnbindButton" inherits="UIPanelButtonTemplate" text="UNBIND">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>
+				</Anchors>
+			</Button>
+		</Frames>
+
+		<!--
+			Top to bottom: what to press, where the mouse counts, the key these are on today, then
+			the actions themselves.
+
+			Three weights, because a dialog in one colour is a dialog nobody reads a shape out of -
+			the label gold, the reading white, the aside grey. The paste dialog captions its fields
+			in gold already, and this window's standing rule is that gold is a label or something
+			pressable and never the value itself.
+
+			**The key is written once, over the set.** A key group *is* the actions that share one
+			key, so a key column down the rows would print the same string on every one of them.
+
+			**Every vertical position is Lua's** (`Open`), because the stack above the rows has a
+			wrapped paragraph in it and the stack below has however many rows the group has. Only the
+			relationships that never move are written here: `CurrentKey` follows its label, and the
+			description spans the content width so it has something to wrap inside.
+
+			The rows are built in Lua too. They are plain regions rather than buttons on purpose - a
+			frame that takes the mouse would swallow the click this dialog exists to read.
+		-->
+		<Layers>
+			<Layer level="ARTWORK">
+				<!--
+					**Where the mouse counts, which is the one rule the reader cannot guess.** The
+					keyboard is taken wherever the cursor is; a mouse button or the wheel is only
+					read where it lands, and landing anywhere else does what it always does. The mode
+					puts its own rule in the same position (`BIND_MODE_KEY_GROUP_HINT`).
+				-->
+				<FontString parentKey="Description" inherits="GameFontHighlightSmall" justifyH="LEFT" wordwrap="true"/>
+
+				<FontString parentKey="CurrentKeyLabel" inherits="GameFontNormal" justifyH="LEFT" maxLines="1"/>
+				<!--
+					Declared after the label it follows: a `relativeKey` naming something not built
+					yet is dropped without a word (`tools/check-xml-anchors.js`).
+				-->
+				<FontString parentKey="CurrentKey" inherits="GameFontHighlight" justifyH="LEFT" maxLines="1">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.CurrentKeyLabel" relativePoint="RIGHT" x="4" y="0"/>
+					</Anchors>
+				</FontString>
+
+				<FontString parentKey="TargetsLabel" inherits="GameFontNormal" justifyH="LEFT" maxLines="1"/>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+			<OnKeyDown method="OnKeyDown"/>
+			<OnMouseDown method="OnMouseDown"/>
+			<OnMouseUp method="OnMouseUp"/>
+			<OnMouseWheel method="OnMouseWheel"/>
+		</Scripts>
+	</Frame>
+
+</Ui>

@@ -160,6 +160,12 @@ L["INACTIVE_SPEC_LABEL"] = "%s (비활성)"
 L["KEEP_IN_BINDING_CONTEXT_DESC"] = "주택 편집기는 열려 있는 동안 몇몇 키를 제 단축키로 가져가고, 이 애드온은 그 키를 건드리지 않습니다. 그 키에 지정된 행동은 편집기가 열려 있는 동안 아무 일도 하지 않습니다.|n|n그래도 키를 가져오려면 체크하십시오. 내 행동이 실행되고, 그 키에 걸린 편집기 단축키는 동작하지 않습니다. 편집기는 여전히 제 버튼에 그 키를 보여주므로, 그 버튼은 쓸 수 있어 보이면서 아무 일도 하지 않습니다."
 L["KEEP_IN_BINDING_CONTEXT"] = "주택 편집기보다 우선"
 L["KEY"] = "키"
+-- 제목이 곧 시킬 말이다. 근거는 enUS 쪽 주석에.
+L["KEY_CAPTURE_TITLE"] = "원하는 키를 눌러 주세요"
+L["KEY_CAPTURE_DESC"] = "마우스 버튼과 휠은 이 창 위에서 눌러야 합니다."
+L["KEY_CAPTURE_CURRENT_KEY"] = "현재 키:"
+L["KEY_CAPTURE_TARGETS"] = "다음 행동들에 적용됩니다:"
+L["KEY_CAPTURE_MORE"] = "...외 %d개"
 -- KEY_GROUP_IMPORTED / _FROM은 여기 없다. 영어로 나간다.
 -- "그룹"을 못 쓰는 이유와 나머지 근거는 enUS 쪽 주석에.
 L["KEY_GROUP_SET_KEY"] = "여기 있는 것 전부에 키 지정"
@@ -399,6 +405,9 @@ L["OVERVIEW_EMPTY_FILTERED"] = "조건에 맞는 것이 없습니다. 무엇이 
 -- 부호와 숫자뿐이라 번역할 것이 없다. 그래도 키를 두는 것은, 언젠가 "외 %d개" 같은 말로 바뀔
 -- 자리가 여기 하나여야 하기 때문이다.
 L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
+-- 영어는 `|4action:actions;`로 수를 맞추는데 한국어는 수 일치가 없다. "행동"도 안 붙인다 -
+-- `개`가 이미 수량 단위라 총수로 읽히고, 머리글이 "지정 안 됨"이라고 이미 말했다.
+L["OVERVIEW_NO_KEY_COUNT"] = "%d개"
 -- 근거는 enUS 쪽 주석에.
 L["IMPORT_COMMIT"] = "가져오기"
 L["IMPORT_COMMIT_AGAIN"] = "또 가져오기"

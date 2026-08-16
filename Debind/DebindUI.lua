@@ -428,6 +428,13 @@ local function _CreateKeyChordStringUsingMetaKeyState(key, useLeftRight)
 	return CreateKeyChordStringFromTable(chord, preventSort);
 end
 
+--- Handed out because the key capture dialog is the second place an arriving input has to become a
+--- chord (`KeyCapture.lua`). What makes it one function and not two is the *state* half: which
+--- modifiers count is read from the keyboard at the instant the input lands, so a second copy would
+--- be a second answer to "what was held down", and the two would drift the first time left and right
+--- modifiers are treated differently on one side only.
+DebindPrivate.CreateKeyChordStringUsingMetaKeyState = _CreateKeyChordStringUsingMetaKeyState;
+
 local GetActionBarTypeLabel;
 do
 	local _bonusbarLabels;
@@ -1995,6 +2002,10 @@ DebindDialogMixin = {};
 --- **Dragged from anywhere on itself.** The chrome these wear has no title bar to grab, so without
 --- this a dialog is nailed to the middle of the screen on top of whatever it is asking about.
 ---
+--- **A dialog that says it does not move is left alone**, and `movable=` on the frame is where that
+--- is said - there is no second flag for it. The one that says so is the key capture dialog, where
+--- dragging and pressing the left mouse button are the same gesture (`KeyCapture.xml`).
+---
 --- **ESC through `UISpecialFrames`, which is the game's net and not ours.** All three of these are
 --- the topmost thing on screen while they stand, and the window behind them is not in that list
 --- (`DebindFrameMixin` keeps its own `OnKeyDown` and says why), so `CloseSpecialWindows` reaches the
@@ -2007,9 +2018,11 @@ function DebindDialogMixin:InitDialog(title)
 		self.Title:SetText(title);
 	end
 
-	self:RegisterForDrag("LeftButton");
-	self:SetScript("OnDragStart", self.StartMoving);
-	self:SetScript("OnDragStop", self.StopMovingOrSizing);
+	if (self:IsMovable()) then
+		self:RegisterForDrag("LeftButton");
+		self:SetScript("OnDragStart", self.StartMoving);
+		self:SetScript("OnDragStop", self.StopMovingOrSizing);
+	end
 
 	tinsert(UISpecialFrames, self:GetName());
 end
@@ -2178,34 +2191,57 @@ function DebindKeyHeaderMixin:UpdateSummary()
 		return;
 	end
 
-	-- **타입은 떼고 이름만.** 세 번째 반환값이 그것이다 - 같은 이유로 상세 패널의 인포 인셋도
-	-- 이 값을 쓴다. 이 줄에서는 자리가 더 무거운 이유이기도 한데, "Wrath (주문)"의 괄호 절반이
-	-- 잘리는 자리를 차지하면 정작 잘리는 것은 이름 쪽이 된다.
-	local _, _, bareName = NameAndIconForAction(rows[1].action);
-	self.ActionName:SetText(bareName or "");
-	self.ActionName:SetWidth(0);
-	self.ActionName:Show();
+	-- **키 없는 덩어리는 개수만 말한다.** 키 그룹에서 첫 이름이 뜻을 갖는 것은 그게 이 키를
+	-- 눌렀을 때 실제로 나가는 것이기 때문인데, 여기는 아무것도 안 나가고 차례도 발동 순서가
+	-- 아니라 이름순이라 첫째가 그냥 가나다순 첫 글자다. 대표로 세울 근거가 없다.
+	--
+	-- **`+N`을 안 쓴다.** 같은 자리에 같은 모양으로 서지만 산수가 다르다 - 저쪽 `+1`은 "이름 댄
+	-- 것 말고 하나 더"이고 여기는 총수다. 부호를 떼는 것이 그 둘을 가른다.
+	--
+	-- 앵커를 갈래마다 다시 잡는 것은 프레임이 풀에서 나오기 때문이다. 이름 칸에 매달린 채로
+	-- 이름만 숨기면 앞 요소가 남긴 폭만큼 개수가 밀려 선다.
+	local keyless = elementData.key == nil;
+	self.ExtraCount:ClearAllPoints();
+
+	if (keyless) then
+		self.ActionName:Hide();
+		self.ExtraCount:SetPoint("LEFT", self.Name, "RIGHT", 4, 0);
+		self.ExtraCount:SetFormattedText(LLL["OVERVIEW_NO_KEY_COUNT"], #rows);
+		self.ExtraCount:Show();
+	else
+		-- **타입은 떼고 이름만.** 세 번째 반환값이 그것이다 - 같은 이유로 상세 패널의 인포
+		-- 인셋도 이 값을 쓴다. 이 줄에서는 자리가 더 무거운 이유이기도 한데, "Wrath (주문)"의
+		-- 괄호 절반이 잘리는 자리를 차지하면 정작 잘리는 것은 이름 쪽이 된다.
+		local _, _, bareName = NameAndIconForAction(rows[1].action);
+		self.ActionName:SetText(bareName or "");
+		self.ActionName:SetWidth(0);
+		self.ActionName:Show();
+
+		self.ExtraCount:SetPoint("LEFT", self.ActionName, "RIGHT", 4, 0);
+		if (#rows > 1) then
+			self.ExtraCount:SetFormattedText(LLL["OVERVIEW_KEY_HEADER_MORE"], #rows - 1);
+			self.ExtraCount:Show();
+		else
+			self.ExtraCount:Hide();
+		end
+	end
 
 	-- **줄이 통째로 흐려진다.** 키만 흐리고 요약을 금색으로 두면 한 줄이 안 나간다는 말과
 	-- 나간다는 말을 같이 하게 된다. 금색은 폰트가 들고 있으므로 되돌릴 때도 명시해야 한다.
+	--
+	-- 키 없는 덩어리는 언제나 흐리다 - 키가 없으니 한 줄도 빌드에 안 들어간다. 머리글 글자가
+	-- 이미 `DISABLED`로 감싸여 나오므로 개수만 금색이면 한 줄이 두 말을 한다.
 	--
 	-- **Red does not travel the same way, on purpose.** Grey is true of every member at once, which
 	-- is what lets it take the whole line; a problem belongs to one row, and this summary names the
 	-- first action only. Painting that name red would accuse whichever action happens to fire first
 	-- of a fault that may be three rows down.
 	local r, g, b = NORMAL_FONT_COLOR:GetRGB();
-	if (elementData.allInactive) then
+	if (keyless or elementData.allInactive) then
 		r, g, b = DISABLED_FONT_COLOR:GetRGB();
 	end
 	self.ActionName:SetTextColor(r, g, b);
 	self.ExtraCount:SetTextColor(r, g, b);
-
-	if (#rows > 1) then
-		self.ExtraCount:SetFormattedText(LLL["OVERVIEW_KEY_HEADER_MORE"], #rows - 1);
-		self.ExtraCount:Show();
-	else
-		self.ExtraCount:Hide();
-	end
 
 	self:LayoutSummary();
 end
@@ -5650,24 +5686,15 @@ local function ShowKeyGroupConflictDialog(actions, key, occupants, label)
 	});
 end
 
---- A key was pressed with a group armed. The aim is spent here.
----
---- **The mode goes off first.** The aim was chosen once from a menu, so it is used once; clearing
---- it while the mode stayed on would send the next key silently to whatever row is under the cursor
---- - a bind mode the reader never opened, standing open. And if the question comes up, nothing
---- should be listening for keys over it.
-function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
-	local capture = _keyGroupCapture;
-	if (not capture or key == nil) then
-		return;
-	end
-	self:SetBindingMode(false);
-
-	-- The armed group is not its own occupant. Without subtracting it, someone giving a group the
+--- The answer, once a key has been taken from the reader. **Whatever asked for it is already gone**
+--- by the time this runs - a question may come up here, and nothing should still be listening for
+--- keys over it.
+local function GiveKeyGroupTheKey(actions, key, label)
+	-- The moving group is not its own occupant. Without subtracting it, someone giving a group the
 	-- key it already has would be asked "F already has 3" about the very actions being moved, and
 	-- picking overwrite would take their key from themselves.
 	local moving = {};
-	for _, action in ipairs(capture.actions) do
+	for _, action in ipairs(actions) do
 		moving[action] = true;
 	end
 
@@ -5681,20 +5708,57 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 	-- **A free key asks nothing.** This is the common path - giving a group that came in a key the
 	-- reader was not using.
 	if (#occupants == 0) then
-		ApplyKeyGroupMove(capture.actions, key, nil, false);
+		ApplyKeyGroupMove(actions, key, nil, false);
 		return;
 	end
 
-	ShowKeyGroupConflictDialog(capture.actions, key, occupants, capture.label);
+	ShowKeyGroupConflictDialog(actions, key, occupants, label);
 end
 
---- The way in from the left column's right-click menu: collect the group and set the aim.
+--- A key was pressed with a group armed. The aim is spent here.
+---
+--- **The mode goes off first.** The aim was chosen once from a menu, so it is used once; clearing
+--- it while the mode stayed on would send the next key silently to whatever row is under the cursor
+--- - a bind mode the reader never opened, standing open.
+function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
+	local capture = _keyGroupCapture;
+	if (not capture or key == nil) then
+		return;
+	end
+	self:SetBindingMode(false);
+	GiveKeyGroupTheKey(capture.actions, key, capture.label);
+end
+
+--- The way in from the left column's right-click menu.
+---
+--- ⚠ **Under trial: this asks in a dialog instead of arming the bind mode** (`KeyCapture.lua`), so
+--- the two of them can be looked at side by side. `DebindFrameMixin:BeginKeyGroupCapture` and
+--- everything reading `_keyGroupCapture` -- the overlay's `BIND_MODE_KEY_GROUP` sentence, the
+--- branches in `BindMode_OnInput` and `BindMode_OnKeyDown` -- are left standing and are unreachable
+--- while this line says `Open`. Whichever shape wins, the other one goes.
+---
+--- The answer path is shared either way: the dialog hands back a key or `nil`, and what happens to
+--- the group after that is the same code the mode reaches.
 function DebindUI.BeginKeyGroupCapture(action)
 	local actions, key = CollectKeyGroupForAction(action);
 	if (actions == nil or #actions == 0) then
 		return;
 	end
-	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, action.imported));
+
+	local label = KeyGroupLabel(key, action.imported);
+	DebindKeyCaptureFrame:Open(actions, function(captured)
+		-- **`nil` is [Unbind Key], not a cancel** -- cancelling never gets here. The whole set steps
+		-- off its key together, for the reason the set is moved together: leaving one member behind
+		-- splits the group with both halves still firing.
+		if (captured == nil) then
+			DebindPrivate.ClearKeyForActions(actions);
+			DebindPrivate.UpdateBindings();
+			DebindFrame:Refresh(true);
+			DebindFrame:Update();
+			return;
+		end
+		GiveKeyGroupTheKey(actions, captured, label);
+	end);
 end
 
 --- Can a whole key group be given a key from this action? Asked when the menu decides whether to
@@ -5704,12 +5768,12 @@ function DebindUI.CanBeginKeyGroupCapture(action)
 	return actions ~= nil and #actions > 0;
 end
 
---- 차 있는 키의 두 답과 그만두기.
+--- The two answers to an occupied key, plus stopping.
 ---
---- **`OnAccept`/`OnCancel`이 아니라 `OnButton1..3`이다.** 2번 자리는 취소의 자리라 `OnCancel`을
---- 달면 Esc가 그것을 부르는데, 여기서 2번은 취소가 아니다(`StaticPopup_EscapePressed`).
---- 셋 다 번호로 달아두면 Esc는 `hideOnEscape`로 그냥 닫히고 아무 답도 고르지 않은 것이 된다.
---- 3번(그만두기)에 함수를 안 다는 이유도 같다 - 아직 아무것도 안 바뀌었으므로 닫는 것이 전부다.
+--- **`OnButton1..3`, not `OnAccept`/`OnCancel`.** Slot 2 is where the client expects cancel to sit,
+--- so an `OnCancel` there would be reached by Escape as well (`StaticPopup_EscapePressed`) - and
+--- slot 2 here is [overwrite]. With all three attached by number, Escape falls through to
+--- `hideOnEscape` and closes without choosing any of them.
 StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	-- 문장만 여는 시점에 짓는다. 인자가 셋이라 `StaticPopup_Show`의 `text_arg1/2`로는 모자란다 -
 	-- 클라이언트의 `GENERIC_CONFIRMATION`이 같은 이유로 같은 모양이다.
@@ -5730,9 +5794,12 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	OnButton1 = function(_, data)
 		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
 	end,
-	OnButton2 = function(_, data)
-		ApplyKeyGroupMove(data.actions, data.key, data.occupants, true);
-	end,
+	-- **An empty function, and it is not decoration: without it the button is dead.** Under
+	-- `selectCallbackByIndex` the `dialog:Hide()` sits *inside* `if func then`
+	-- (`StaticPopup_OnClick`), so a button with nothing attached neither answers nor closes. Only
+	-- the backward-compatible branch below it defaults to hiding. `GAME_SETTINGS_CONFIRM_DISCARD`,
+	-- the dialog this one borrowed `selectCallbackByIndex` from, carries the same empty third.
+	OnButton3 = function() end,
 	hideOnEscape = 1,
 	timeout = 0,
 	whileDead = 1,

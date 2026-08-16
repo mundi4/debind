@@ -43,6 +43,11 @@ DebindUI.xml
 ShareUI.xml
 WorkbenchUI.xml
 
+# Also after `DebindUI.xml`, but for the other reason: it wears `DebindDialogTemplate`, and a
+# template named before it is declared is an inherit that finds nothing. It is not a child of
+# `DebindFrame` - it stands over whatever asked for a key.
+KeyCapture.xml
+
 SpellPicker.xml
 
 Public.lua
