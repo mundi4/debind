@@ -1159,6 +1159,24 @@ function UpdateBindingsMap()
                             end
                         end
 
+                        -- **A state is used by acting on it too, not only by being a condition.**
+                        -- An on/off/toggle action names its state in `value`, so the condition loop
+                        -- below never sees it, and registration is what puts the state's stored
+                        -- value back into `States` at every rebuild (the `_customStates` walk in
+                        -- `UpdateBindings`). Without it the restricted side holds nil while the
+                        -- window shows the stored value, and the first press only brings the two
+                        -- back together -- it reads as a press that did nothing, and the rebuild
+                        -- after it puts the pair back out of step.
+                        --
+                        -- No `_updateFlags` entry: this key's own wiring does not depend on the
+                        -- state, so there is nothing to re-decide when it changes.
+                        if (binding.type == Constants.SETSTATE) then
+                            local _, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(binding.value);
+                            if (stateIndex) then
+                                addCustomState("$state" .. stateIndex);
+                            end
+                        end
+
                         local customStatesTblCreated;
                         for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
                             local state = "$state" .. stateIndex;

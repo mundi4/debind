@@ -766,6 +766,53 @@ local function WaitForMembership(limit)
     return WaitUntil(function() return lastMembership end, limit)
 end
 
+--- What the restricted environment holds for a custom state: `{ present = bool, value = bool }`.
+---
+--- **`present` is the half that cannot be got any other way.** `States` carries a custom state only
+--- once a rebuild has registered it, and a state that was never registered is indistinguishable
+--- from an off one by its value alone -- which is exactly the pair that goes wrong: the window
+--- reads the stored value, the restricted side reads nothing, and a press spends itself matching
+--- them up.
+---
+--- Two booleans rather than the value, because the unregistered case would hand `CallMethod` a nil
+--- and there is no `tostring` in the restricted environment to spell it with. `%1$q` twice for the
+--- reason given at `MOCK_STATE_LINE`.
+---
+--- Asked of `States` rather than of `DebindPrivate.CustomStates`, because the stored table is the
+--- source that was *supposed* to reach the restricted side; reading it back would only confirm that
+--- the test wrote what the test wrote.
+local function ReadSecureState(state)
+    local answer
+    DebindPrivate.BindingDriver.DebindTestSecureState = function(_, present, value)
+        answer = { present = present, value = value }
+    end
+
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
+        self:CallMethod("DebindTestSecureState", States[%1$q] ~= nil, States[%1$q] == true)
+    ]], state))
+
+    return answer
+end
+
+--- Which unit an alias currently points at in the restricted environment, as
+--- `{ present = bool, value = string }`. `value` is `""` when the alias holds nothing.
+---
+--- `UnitAliasMap` rather than `DebindPrivate.Units`, for the reason `ReadSecureState` reads
+--- `States`: the insecure table is the mirror, and a mirror that kept a value the restricted side
+--- had dropped would read as a pass.
+local function ReadSecureUnit(alias)
+    local answer
+    DebindPrivate.BindingDriver.DebindTestSecureUnit = function(_, present, value)
+        answer = { present = present, value = value }
+    end
+
+    SecureHandlerExecute(DebindPrivate.BindingDriver, format([[
+        self:CallMethod("DebindTestSecureUnit", UnitAliasMap[%1$q] ~= nil, UnitAliasMap[%1$q] or "")
+    ]], alias))
+
+    return answer
+end
+
 -----------------------------------------------------------
 -- Test Helpers: Unit Frames
 -----------------------------------------------------------
@@ -1901,6 +1948,206 @@ RegisterTest("Undefined $state inside a state's own expression", {
         end
 
         return Pass(NAME, format("[$state2] -> %s / [$typo] -> 안 걸림", whenTrue))
+    end,
+})
+
+-- **Registration does not only come from conditions.** One action in `KeyMap` that uses a state is
+-- enough to owe it registration, and registration is what puts the stored value back into `States`
+-- at every rebuild (the `_customStates` walk in `UpdateBindings`). An on/off/toggle action names
+-- its state in `value`, so the condition loop never sees it, and without registration the window
+-- reads the stored value while the restricted side holds nothing.
+--
+-- It arrives as "the key does nothing": the first press is spent matching the two up, and the next
+-- rebuild puts them back out of step, so it keeps happening. Headless cannot see it -- one of the
+-- two values that disagree is inside the restricted environment.
+RegisterTest("Setstate action registers its state", {
+    description = "전환 액션만 쓰는 상태도 States에 저장값이 실리는지",
+    run = function()
+        local NAME = "Setstate registers"
+        local KEY = "CTRL-F7"
+        local MODES = Constants.CUSTOM_STATE_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        -- Swapping the slot rather than the fields: the reason is in the comment on the
+        -- `Undefined $state inside a state's own expression` test above.
+        local saved = DebindPrivate.CustomStates[4]
+        AddTeardown(function()
+            DebindPrivate.CustomStates[4] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.CustomStates[4] = { mode = MODES.MANUAL, value = true }
+
+        InsertAction({
+            type = Constants.SETSTATE,
+            value = bor(Constants.SETCUSTOM_MODE_TOGGLE, 4),
+            key = KEY,
+        })
+        ApplyBindings()
+
+        -- With the key unbound, the answer below cannot tell "the state was not registered" from
+        -- "the action never went out at all".
+        local action = GetBindingAction(KEY, true) or ""
+        if action:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("전제가 깨졌다 - 전환 액션이 키에 안 걸렸다 (%q)", action))
+        end
+
+        local st = ReadSecureState("$state4")
+        if not st then
+            return Fail(NAME, "보안 환경이 답을 안 줬다 - 스니펫이 컴파일 안 됐거나 States가 없다")
+        end
+        if not st.present then
+            return Fail(NAME, "States에 $state4가 없다 - 전환 액션만 쓰는 상태는 등록이 안 된다")
+        end
+        if st.value ~= true then
+            return Fail(NAME, "저장값은 켜짐인데 States는 꺼짐이다")
+        end
+
+        return Pass(NAME, "$state4 = 켜짐")
+    end,
+})
+
+-- **Does one toggle flip the value once.** The chain is: write the `$state4` attribute ->
+-- `_onattributechanged` (`CustomStates.lua`) -> `ToggleCustomState` -> `States` -> the mirror.
+-- Broken at any link, it is silent.
+--
+-- **Pressing twice is the point.** The second write carries the **same** `"toggle"` the first one
+-- did, so on a client that skips `OnAttributeChanged` for an unchanged value the first press works
+-- and every one after it is dead. Measured, it does fire (`.zzz/findings.md` §12-2) -- this is what
+-- catches that answer changing.
+--
+-- What it does not prove: that a real keypress arrives. The test above asks that, with
+-- `GetBindingAction`.
+RegisterTest("Custom state toggle flips the value", {
+    description = "전환이 States와 창이 읽는 값을 함께 뒤집는지 (연속 두 번)",
+    run = function()
+        local NAME = "Custom state toggle"
+        local KEY = "ALT-F7"
+        local MODES = Constants.CUSTOM_STATE_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        local saved = DebindPrivate.CustomStates[4]
+        AddTeardown(function()
+            DebindPrivate.CustomStates[4] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        local options = { mode = MODES.MANUAL, value = false }
+        DebindPrivate.CustomStates[4] = options
+
+        -- Registered through a condition. What this test looks at is the toggle, not registration,
+        -- and if a broken registration turned this one red as well neither could be read off the
+        -- result. Macrotext rather than a spell because it binds whoever the character is.
+        InsertAction({ type = Constants.MACROTEXT, value = "/say toggle test", key = KEY, ["$state4"] = false })
+        ApplyBindings()
+
+        local st = ReadSecureState("$state4")
+        if not (st and st.present) then
+            return Fail(NAME, "전제가 깨졌다 - 조건으로 쓴 상태도 States에 없다")
+        end
+        if st.value ~= false then
+            return Fail(NAME, format("전제가 깨졌다 - 저장값은 꺼짐인데 States는 %s다", tostring(st.value)))
+        end
+
+        local frame = DebindPrivate.CustomStatesUpdaterFrame
+        frame:SetAttribute("$state4", "toggle")
+        st = ReadSecureState("$state4")
+        if not (st and st.value == true) then
+            return Fail(NAME, "첫 전환이 States를 안 뒤집었다")
+        end
+
+        frame:SetAttribute("$state4", "toggle")
+        st = ReadSecureState("$state4")
+        if not (st and st.value == false) then
+            return Fail(NAME, "두 번째 전환이 안 먹었다 - 같은 속성값을 다시 쓴 것이 안 통한다")
+        end
+
+        -- The mirror arrives on `C_Timer.After(0)` (`OnCustomStateChanged`, `Misc.lua`). It is what
+        -- the window reads, so a mirror that does not follow leaves the restricted side right and
+        -- the screen lying.
+        coroutine.yield(0)
+        if options.value ~= false then
+            return Fail(NAME, format("창이 읽는 값이 안 따라왔다 (options.value=%s)", tostring(options.value)))
+        end
+
+        return Pass(NAME, "꺼짐 -> 켜짐 -> 꺼짐, 미러까지")
+    end,
+})
+
+-- **Holds down why the custom-target action owes no registration.** A custom state's value lives in
+-- `States`, which a rebuild wipes and refills from the registered ones only -- registration is what
+-- carries the value across. A custom target's value lives in `UnitAliasMap` and UnitWatch's
+-- `unitMap`, and nobody wipes either after they are created at load, so unlike the state action the
+-- target action has nothing to register.
+--
+-- That rests on three things standing in three places. Any one of them changing loses a chosen
+-- target at the next rebuild, silently:
+--   * the rebuild prologue does not wipe those two tables (`UpdateBindings.lua`, the opening
+--     `SecureHandlerExecute`)
+--   * the loop that clears an alias nobody registered with `SetUnit(nil)` skips custom1/2, and
+--     only those (same file)
+--   * the header is created at load whether or not anything registered (`CreateUnitWatchHeader`,
+--     `UnitWatch.lua`)
+--
+-- `"player"` is the target because it is a valid token, is not the group kind so it does not go
+-- down the name-tracking branch, and exists for anyone alone. Writing the attribute instead of
+-- pressing the key is the same door the action goes through (`*attribute-frame` is UnitWatch,
+-- `*attribute-name` is `custom1`).
+RegisterTest("Custom target survives a rebuild", {
+    description = "지정한 @custom1이 리빌드 뒤에도 남는지",
+    run = function()
+        local NAME = "Custom target survives"
+        local KEY = "CTRL-F6"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 지정도 리빌드도 미뤄져서 판정이 안 선다")
+        end
+
+        local previous = DebindPrivate.Units and DebindPrivate.Units.custom1
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                DebindPrivate.UnitWatch:SetAttribute("custom1", previous or "none")
+            end
+        end)
+
+        -- The action is stood up as well. What is being asked is whether the value survives with
+        -- no registration **while that action is in the map**, and a rebuild without it is not
+        -- standing where the question is.
+        InsertAction({ type = Constants.SETCUSTOM, value = 1, key = KEY })
+        ApplyBindings()
+
+        local action = GetBindingAction(KEY, true) or ""
+        if action:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("전제가 깨졌다 - 대상 지정 액션이 키에 안 걸렸다 (%q)", action))
+        end
+
+        DebindPrivate.UnitWatch:SetAttribute("custom1", "player")
+        local u = ReadSecureUnit("custom1")
+        if not (u and u.value == "player") then
+            return Fail(NAME, format("전제가 깨졌다 - 지정이 UnitAliasMap에 안 들어갔다 (%s)",
+                u and format("%q", u.value) or "답 없음"))
+        end
+
+        ApplyBindings()
+
+        u = ReadSecureUnit("custom1")
+        if not u then
+            return Fail(NAME, "보안 환경이 답을 안 줬다")
+        end
+        if u.value ~= "player" then
+            return Fail(NAME, format("리빌드가 지정한 대상을 지웠다 (%q) - 지정 액션은 별칭을 등록시키지 않는다",
+                u.value))
+        end
+
+        return Pass(NAME, "리빌드 뒤에도 custom1 = player")
     end,
 })
 
