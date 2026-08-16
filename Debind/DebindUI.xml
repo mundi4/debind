@@ -154,12 +154,44 @@
 
 		높이는 템플릿 아트의 제 높이 26이다. 예전 28에는 위쪽에 여백이 절반 들어 있었다 -
 		선이 없는 목록에서 그룹을 가르려고 둔 것이라, 진짜 띠가 그 자리에 서면 할 일이 없다.
+
+		**접혔을 때만 안을 요약한다** - 키 다음에 첫 액션 이름과 나머지 개수가 붙는다. 펼쳐져
+		있으면 바로 아래 행들이 이미 그 말을 하고 있으므로 같은 말을 두 번 하지 않는다.
+
+		글자가 셋인 이유는 **잘려도 되는 것이 하나뿐**이기 때문이다. 무슨 키인가와 몇 개 더
+		있는가는 반드시 읽혀야 하고, 이름은 소모품이다. 자리 계산은
+		`DebindKeyHeaderMixin:LayoutSummary`에 있다.
 	-->
 	<Button name="DebindKeyHeaderTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindKeyHeaderMixin" registerForClicks="LeftButtonUp" virtual="true">
 		<Size x="450" y="26"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<!--
+					**키보다 작고, 키와 달리 금색이다.** 키는 흰색으로 못박혀 있는데(`OnLoad`), 그
+					근거가 "세야 할 것은 키가 아니라 그 밑에 몇 줄이 달렸는가다"였다 - 그 몇 줄을
+					말하는 것이 바로 이 둘이라, 눈을 끄는 색이 여기 오는 것이 그 근거대로다.
+					크기로 제목과 갈리고 색으로 무게가 갈린다.
+
+					**앵커는 왼쪽뿐이다.** 폭을 앵커로 묶으면 글자가 짧아도 상자가 그대로 남아
+					개수가 이름에서 멀찍이 떨어져 선다 - `Charge +1`은 붙어 있는 한 마디다.
+					대신 폭을 `LayoutSummary`가 재서 넣는다.
+				-->
+				<FontString parentKey="ActionName" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="RIGHT" x="4" y="0"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="ExtraCount" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.ActionName" relativePoint="RIGHT" x="4" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnClick method="OnClick"/>
+			<OnSizeChanged method="OnSizeChanged"/>
 		</Scripts>
 	</Button>
 
@@ -954,7 +986,7 @@
 									이 `<Layers>`가 `<Frames>` **뒤에** 있어야 하는 이유가 여기 있다 -
 									`relativeKey`는 가리키는 것보다 뒤에 선언돼야 만들 때 nil이 아니다.
 								-->
-								<FontString parentKey="SelectionCount" inherits="GameFontHighlightSmall" justifyH="LEFT" hidden="true">
+								<FontString parentKey="SelectionCount" inherits="GameFontNormalSmall" justifyH="LEFT" hidden="true">
 									<Anchors>
 										<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="9"/>
 									</Anchors>

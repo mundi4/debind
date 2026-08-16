@@ -96,6 +96,10 @@ const PENDING_TRANSLATION = {
     FILTER_PENDING: ["ruRU"],
     NO_ACTIONS_MATCH_FILTERS: ["ruRU"],
     OVERVIEW_EMPTY_FILTERED: ["ruRU"],
+    // "+%d" and nothing else, so there is nothing to translate today. It is a debt rather than an
+    // allowed absence because the position can take words - "and %d more" - and when it does, this
+    // is the key that has to be found.
+    OVERVIEW_KEY_HEADER_MORE: ["ruRU"],
     // The button a badged row carries in the order list, and what its tooltip says. Same owner.
     ORDER_ACCEPT: ["ruRU"],
     ORDER_ACCEPT_DESC: ["ruRU"],

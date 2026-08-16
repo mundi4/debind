@@ -2010,6 +2010,64 @@ end
 function DebindKeyHeaderMixin:OnLoad()
 	self:SetTitleColor(false, HIGHLIGHT_FONT_COLOR);
 	self:SetTitleColor(true, HIGHLIGHT_FONT_COLOR);
+
+	-- **키가 자기 글자만큼만 차지하게 푼다.** 템플릿은 이 칸을 끝 조각까지 늘여 놓는데, 그러면
+	-- 뒤에 붙는 요약이 언제나 띠 끝에서 시작한다. 왼쪽만 남기면 폭이 글자를 따라가고 요약이
+	-- 키 바로 뒤에 선다. x=10은 템플릿이 쓰던 값 그대로다.
+	self.Name:ClearAllPoints();
+	self.Name:SetPoint("LEFT", 10, 0);
+
+	-- **줄바꿈을 끈다.** 안 끄면 긴 이름이 잘리는 대신 둘째 줄로 넘어가 띠 밖으로 삐져나온다 -
+	-- 이 칸은 높이가 한 줄이다. 끄면 `…`로 잘리고, 덤으로 템플릿에 이미 달려 있는 잘림 툴팁이
+	-- 살아난다(`ListHeaderMixin:CheckUpdateTooltip`이 `IsTruncated`를 본다).
+	self.ActionName:SetWordWrap(false);
+end
+
+--- 뷰가 프레임 폭을 잡는 것은 `Init` **뒤**일 수 있다. 폭을 재서 쓰는 계산이라 그때 다시 한다.
+function DebindKeyHeaderMixin:OnSizeChanged()
+	if (self.elementData) then
+		self:LayoutSummary();
+	end
+end
+
+--- 키 뒤에 붙는 요약의 자리를 잡는다. `Charge +1`.
+---
+--- **잘려도 되는 것은 이름 하나뿐이다.** 무슨 키인가와 몇 개 더 있는가는 둘 다 안 읽히면
+--- 머리글이 할 말을 못 한다. 그래서 이름 칸의 폭을 **미리 깎아** 개수가 설 자리를 남긴다 -
+--- 개수를 띠 끝에 못 박는 길도 있었지만, 그러면 짧은 이름에서 개수가 이름과 한참 떨어져 서서
+--- `Charge +1`이 한 마디로 안 읽힌다.
+---
+--- `min`이 두 경우를 다 처리한다. 짧으면 제 폭이 이겨서 상자가 글자에 딱 맞고 개수가 바로 뒤에
+--- 붙고, 길면 깎은 폭이 이겨서 `…`로 잘린다.
+---
+--- **`SetWidth(0)`은 "폭 없음"이 아니라 "제 폭대로"다.** 그래서 자리가 안 나오면 폭을 0으로
+--- 두는 대신 아예 감춘다 - 안 그러면 자리가 없다고 판정한 바로 그 글자가 제 폭으로 펼쳐진다.
+local SUMMARY_MIN_WIDTH = 24;
+
+function DebindKeyHeaderMixin:LayoutSummary()
+	local name = self.ActionName;
+	if (not name:IsShown()) then
+		return;
+	end
+
+	-- 끝 조각은 `useAtlasSize`라 제 폭을 들고 있다. 오른쪽 여백 4는 글자가 그 조각에 닿지
+	-- 않게 하는 값이다.
+	-- 빼는 값들은 전부 XML에 적힌 자리다: 키의 왼쪽 오프셋 10, 끝 조각에 안 닿을 오른쪽 여백 4,
+	-- 그리고 키와 이름 사이 4(`ActionName`의 앵커).
+	local available = self:GetWidth() - self.Right:GetWidth() - 10 - 4
+		- self.Name:GetUnboundedStringWidth() - 4;
+
+	local count = self.ExtraCount;
+	if (count:IsShown()) then
+		available = available - count:GetUnboundedStringWidth() - 4;
+	end
+
+	if (available < SUMMARY_MIN_WIDTH) then
+		name:Hide();
+		count:Hide();
+		return;
+	end
+	name:SetWidth(min(name:GetUnboundedStringWidth(), available));
 end
 
 --- 띠 전체가 접기 버튼이다. 이 템플릿에는 따로 달린 컨트롤이 없고 **오른쪽 끝 조각이 곧
@@ -2049,6 +2107,45 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- tooltip comment on that cell has the history.
 		self:SetHeaderText(DISABLED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel()));
 	end
+
+	self:UpdateSummary();
+end
+
+--- 접혔을 때만 안을 요약한다 - 첫 액션의 이름과, 그 뒤에 몇 개가 더 있는지.
+---
+--- **펼쳐져 있으면 아무것도 안 붙인다.** 바로 아래 행들이 이미 그 목록이라, 같은 말을 머리글이
+--- 한 번 더 하면 눈이 두 곳을 읽고 같은 답을 얻는다.
+---
+--- 첫 액션은 **발동 순서의 첫 번째**다(`CollectActionsForKey`가 정한 차례). 이 키를 눌렀을 때
+--- 실제로 나가는 것이 그것이므로, 하나만 보여줄 수 있다면 그것이어야 한다.
+---
+--- 하나뿐이면 개수를 안 쓴다. `+0`은 셀 것이 없다는 말을 굳이 하는 것이고, 그 자리는 이름이
+--- 더 길게 설 자리로 돌아간다.
+function DebindKeyHeaderMixin:UpdateSummary()
+	local elementData = self.elementData;
+	local rows = elementData.collapsed and elementData.rows;
+	if (not rows or #rows == 0) then
+		self.ActionName:Hide();
+		self.ExtraCount:Hide();
+		return;
+	end
+
+	-- **타입은 떼고 이름만.** 세 번째 반환값이 그것이다 - 같은 이유로 상세 패널의 인포 인셋도
+	-- 이 값을 쓴다. 이 줄에서는 자리가 더 무거운 이유이기도 한데, "Wrath (주문)"의 괄호 절반이
+	-- 잘리는 자리를 차지하면 정작 잘리는 것은 이름 쪽이 된다.
+	local _, _, bareName = NameAndIconForAction(rows[1].action);
+	self.ActionName:SetText(bareName or "");
+	self.ActionName:SetWidth(0);
+	self.ActionName:Show();
+
+	if (#rows > 1) then
+		self.ExtraCount:SetFormattedText(LLL["OVERVIEW_KEY_HEADER_MORE"], #rows - 1);
+		self.ExtraCount:Show();
+	else
+		self.ExtraCount:Hide();
+	end
+
+	self:LayoutSummary();
 end
 
 --- DebindFrameMixin:Update가 목록의 모든 프레임에 이걸 부른다. 헤더가 말하는 것은 키뿐이고
@@ -4742,6 +4839,9 @@ function BuildKeyboardElements()
 				isHeader = true,
 				key = key,
 				collapsed = collapsed,
+				-- 접혔을 때 머리글이 안을 요약한다(`UpdateSummary`). **아래에서 `rows`를 비우는
+				-- 것은 이 지역 이름을 다시 묶는 것**이라 여기 실린 테이블은 그대로 남는다.
+				rows = rows,
 				-- Only the heading of a set with no real key reads these: the first for its colour,
 				-- the second for the key it came in on.
 				hasImported = keyHasImported[key],
@@ -4859,6 +4959,9 @@ function BuildKeyboardElements()
 			isHeader = true,
 			key = nil,
 			collapsed = collapsed,
+			-- 이 덩어리도 접히므로 같은 요약을 단다. 첫 이름이 발동 순서가 아니라 이름순의
+			-- 첫째라는 것만 다른데, 여기 있는 것은 아무것도 발동하지 않으므로 그 차이가 없다.
+			rows = rows,
 		};
 		if (collapsed) then
 			rows = {};

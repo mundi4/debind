@@ -407,6 +407,9 @@ L["FILTER_UNKEYED"] = "단축키 없음"
 L["FILTER_PENDING"] = "아직 안 받음"
 L["NO_ACTIONS_MATCH_FILTERS"] = "이 탭에는 조건에 맞는 것이 없습니다. 무엇이 꺼져 있는지는 왼쪽 열 위의 목록에 있습니다."
 L["OVERVIEW_EMPTY_FILTERED"] = "조건에 맞는 것이 없습니다. 무엇이 꺼져 있는지는 이 열 위의 목록에 있습니다."
+-- 부호와 숫자뿐이라 번역할 것이 없다. 그래도 키를 두는 것은, 언젠가 "외 %d개" 같은 말로 바뀔
+-- 자리가 여기 하나여야 하기 때문이다.
+L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
 -- 근거는 enUS 쪽 주석에.
 L["IMPORT_COMMIT"] = "가져오기"
 L["IMPORT_COMMIT_AGAIN"] = "또 가져오기"

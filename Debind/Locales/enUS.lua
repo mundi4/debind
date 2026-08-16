@@ -159,6 +159,14 @@ L["DELETE"] = "Delete"
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
 L["OVERVIEW_NO_KEY"] = NOT_BOUND
+-- What a folded key group's heading says after the first action's name: how many more are under it.
+-- **Not a total** - the one being named is not counted again, so a key with two actions reads
+-- "Charge +1".
+--
+-- A sign and a number and nothing else, because it sits inside a line that is already carrying a
+-- key and a name. Anything wordier and the name it belongs to starts losing characters to it: what
+-- shortens when the bar runs out is the name, never this.
+L["OVERVIEW_KEY_HEADER_MORE"] = "+%d"
 -- 이 열은 접히지 않으므로 빈 자리가 늘 보인다. "비었다"가 아니라 **무엇을 하면 채워지는지**를
 -- 말한다 - 오른쪽 목록의 빈 문장들과 같은 규칙이다.
 L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right and it turns up here."
