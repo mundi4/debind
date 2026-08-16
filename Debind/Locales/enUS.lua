@@ -359,26 +359,17 @@ L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NOT_SELECTED"] = "Not Selected"
 L["ONLY_IF"] = "Only if..."
 L["OPTIONS"] = "Options"
--- 결과 목록에서 **문제가 있는 행**이 순서 대신 다는 빨간 한 줄. `BINDING_ISSUE_*` 코드마다
--- 하나씩 있고, 없는 코드는 ORDER_FLAG_ISSUE로 물러난다(DebindUI.lua의 GetShortIssueText).
+-- What the overview's reason column says instead of an ordering sentence when the row has something
+-- wrong with it. **Two words for the whole set of problems, one per grade** -- red for a row that is
+-- waiting on the reader, grey for one that is merely outranked.
 --
--- 같은 코드의 긴 문장은 `BINDING_ERROR_*`에 그대로 있다 - **그건 툴팁의 것이다.** 여기는
--- 170px이라 문장을 넣으면 잘리고, 잘린 문장은 아무 말도 안 하느니만 못하다. 대신 짧은 쪽은
--- **무엇을 고치면 되는지**를 말해야 한다. 총칭 하나로 때우던 때는 그걸 툴팁을 열어야 알았다.
-L["ORDER_FLAG_BONUSBARS_NONE_SELECTED"] = "No action bar selected"
-L["ORDER_FLAG_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Clique conflict"
-L["ORDER_FLAG_CONDITIONS_NEVER"] = "Conditions never match"
-L["ORDER_FLAG_FORMS_NONE_SELECTED"] = "No form selected"
-L["ORDER_FLAG_GROUPS_NONE_SELECTED"] = "No group selected"
-L["ORDER_FLAG_HOVER_NONE_SELECTED"] = "No frame type selected"
+-- There was a short line per `BINDING_ISSUE_*` code here once ("No group selected", "Unknown state
+-- name") and they were dropped, which is worth knowing because the reasoning ran the other way at
+-- the time. This column is scanned, not read: its own subject is which row beat the one below it,
+-- and a problem pitched several levels finer made one slot talk at two resolutions. **The detail was
+-- not lost, it was gathered** -- `BINDING_ERROR_*` says it in full, under the very condition it is
+-- about, on the surface the reader opens on purpose.
 L["ORDER_FLAG_ISSUE"] = "Has a problem"
-L["ORDER_FLAG_MISSING_MACRO"] = "No such macro"
-L["ORDER_FLAG_NOT_SUPPORTED_GAMEMENU_KEY"] = "Key opens game menu"
--- 마우스 버튼 두 코드는 서로 다른 규칙이라 문구도 갈라야 한다. 하나는 "호버를 켜면 된다",
--- 다른 하나는 "이 명령에는 어떤 마우스 버튼도 못 쓴다"라서 고칠 방법이 다르다.
-L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse button not allowed"
-L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Mouse button needs hover"
-L["ORDER_FLAG_UNDEFINED_STATE"] = "Unknown state name"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- **The row stands where it would stand if that specialization were the active one**, so this line
 -- is the only thing on screen telling it apart from what is running right now. Which one it is comes

@@ -164,18 +164,8 @@ L["NO_SHAPESHIFT"] = "Без перевоплощения"
 L["NOT_SELECTED"] = "Не выбрано"
 L["OPTIONS"] = "Настройки"
 -- %s는 특성 이름이다(사이드탭 3 이상에서만 이 문장이 뜬다).
--- 문제가 있는 행이 순서 대신 다는 빨간 한 줄. 근거는 enUS 쪽 주석에 있다.
-L["ORDER_FLAG_BONUSBARS_NONE_SELECTED"] = "Не выбрана панель"
-L["ORDER_FLAG_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Конфликт с Clique"
-L["ORDER_FLAG_CONDITIONS_NEVER"] = "Условия невыполнимы"
-L["ORDER_FLAG_FORMS_NONE_SELECTED"] = "Не выбрана форма"
-L["ORDER_FLAG_GROUPS_NONE_SELECTED"] = "Не выбрана группа"
-L["ORDER_FLAG_HOVER_NONE_SELECTED"] = "Не выбран тип фрейма"
+-- 문제마다 하나씩 있던 짧은 문구는 걷어냈다. 근거는 enUS 쪽 주석에 있다.
 L["ORDER_FLAG_ISSUE"] = "Есть проблема"
-L["ORDER_FLAG_NOT_SUPPORTED_GAMEMENU_KEY"] = "Клавиша открывает меню"
-L["ORDER_FLAG_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Кнопка мыши недопустима"
-L["ORDER_FLAG_NOT_SUPPORTED_MOUSE_BUTTON"] = "Нужно наведение"
-L["ORDER_FLAG_UNDEFINED_STATE"] = "Неизвестное состояние"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"

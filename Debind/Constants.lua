@@ -181,7 +181,6 @@ Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE
 Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND = "NOT_SUPPORTED_HOVER_CLICK_COMMAND";
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
 Constants.BINDING_ISSUE_UNREACHABLE                       = "UNREACHABLE";
-Constants.BINDING_ISSUE_CLIQUE_DETECTED                   = "CLIQUE_DETECTED";
 Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE      = "CANNOT_USE_HOVER_WITH_CLIQUE";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
@@ -191,6 +190,41 @@ Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
+
+
+-- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
+-- colour of a new issue is decided by adding a row below rather than by touching every place that
+-- paints one (`devdocs/grading-binding-issues.md`).
+Constants.ISSUE_GRADE_ERROR = 1;
+Constants.ISSUE_GRADE_MINOR = 2;
+
+--- Which grade each code carries. **Judged from this row alone -> ERROR, judged from its neighbours
+--- -> MINOR.**
+---
+--- `UNREACHABLE` is the only MINOR one and the split is not a matter of taste: every other code
+--- comes out of the action's own fields, while that one needs the whole sorted key map
+--- (`CheckUnreachableBindings`). The remedy sits across two rows too -- change this row's key, or
+--- narrow the neighbour, or delete it -- so painting this row red points at half of it. The same
+--- line falls out of `BuildKeyMap`: an ERROR keeps the action out of `KeyMap` entirely, a MINOR one
+--- got in and lost the sort, which means the key itself still fires.
+---
+--- **A code with no row here is treated as ERROR** (`GetIssueGrade`), not as MINOR. Failing loud is
+--- the safe direction in a keybinding addon -- a grade nobody wrote would otherwise quietly grey out
+--- a binding that does not run.
+Constants.BINDING_ISSUE_GRADES = {
+    [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND] = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNREACHABLE]                       = Constants.ISSUE_GRADE_MINOR,
+    [Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE]      = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
+};
 
 
 local BASIC_UNITS                                   = {

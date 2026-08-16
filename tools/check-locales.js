@@ -53,7 +53,6 @@ const PENDING_TRANSLATION = {
     LIFE_DEAD: ["ruRU"],
     // The "this macro does not exist here" marker, which arrived with sharing. Same owner.
     BINDING_ERROR_MISSING_MACRO: ["ruRU"],
-    ORDER_FLAG_MISSING_MACRO: ["ruRU"],
     // The sharing window. Same owner as the rows above.
     EXPORT_TITLE: ["ruRU"],
     EXPORT_MENU_DESC: ["ruRU"],

@@ -33,6 +33,7 @@ local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 local luatype                = type;
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
+local IsIssueMinor           = DebindPrivate.IsIssueMinor;
 local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 local InCombatLockdown       = InCombatLockdown;
@@ -926,8 +927,18 @@ local function ColoredNameAndIconForAction(action, skipCategory)
 		name = IMPORTED_FONT_COLOR:WrapTextInColorCode(name);
 	elseif (action.key == nil or DebindPrivate.IsInactiveAction(action)) then
 		name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
-	elseif (GetBindingIssue(action, nil, skipCategory)) then
-		name = ERROR_COLOR:WrapTextInColorCode(name);
+	else
+		local issue = GetBindingIssue(action, nil, skipCategory);
+		if (issue) then
+			-- **The grade picks the colour, not the code.** A minor one lands on the same grey the
+			-- branch above uses, and that is the point rather than a collision: both say there is
+			-- nothing here to go and fix. Red is for the rows that are waiting on the reader.
+			if (IsIssueMinor(issue)) then
+				name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
+			else
+				name = ERROR_COLOR:WrapTextInColorCode(name);
+			end
+		end
 	end
 	return name, icon;
 end
@@ -1323,7 +1334,17 @@ do
 				else
 					error = hasIssues and GetIssue("key") or nil;
 				end
-				addValueLine(keyText, error);
+				-- **A minor problem is stated here, not shouted.** The key itself is a valid one and
+				-- the sentence under it describes a neighbour, so neither half goes red.
+				-- `addValueLine`'s error argument colours both at once, which is why the sentence is
+				-- put up separately instead of being handed to it.
+				if (error and IsIssueMinor(error)) then
+					addValueLine(keyText);
+					addValueLine(DISABLED_FONT_COLOR:WrapTextInColorCode(
+						"(" .. LLL["BINDING_ERROR_" .. error] .. ")"));
+				else
+					addValueLine(keyText, error);
+				end
 			else
 				-- 행의 단축키 칸과 같은 말을 쓴다. 한때 여기만 따로 번역된 키를
 				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
@@ -1712,12 +1733,13 @@ function DebindLineMixin:Update()
 	self.Name:SetWidth(LINE_NAME_WIDTH - nameOffset);
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
+	local keyIssueIsMinor = keyIssue ~= nil and IsIssueMinor(keyIssue);
 	if (action.key) then
 		local s = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
-		elseif (keyIssue) then
+		elseif (keyIssue and not keyIssueIsMinor) then
 			color = ERROR_COLOR;
 		end
 		if (color) then
@@ -1731,8 +1753,14 @@ function DebindLineMixin:Update()
 	-- 단축키 문제는 단축키 옆에서 말한다. 색만으로는 색맹에 안 걸리고, 어느 칸이 문제인지도
 	-- 말해주지 못한다. BindingText는 폭이 고정된 칸이라 오른쪽 끝에 걸면 글자에서 한참
 	-- 떨어지므로 글자 길이를 재서 바로 뒤에 붙인다.
+	--
+	-- **A minor problem keeps the mark and loses its colour.** Dropping it would leave the row
+	-- saying nothing at all about the key, and the reason this mark exists in the first place is
+	-- that colour alone does not reach a colour-blind reader. Desaturating is how the question mark
+	-- a few lines down already steps back.
 	self.KeyWarning:SetShown(keyIssue ~= nil);
 	if (keyIssue) then
+		self.KeyWarning:SetDesaturated(keyIssueIsMinor);
 		self.KeyWarning:ClearAllPoints();
 		self.KeyWarning:SetPoint("LEFT", self.BindingText, "LEFT", self.BindingText:GetStringWidth() + 4, 0);
 	end
@@ -2102,8 +2130,20 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- 것이면 그렇게 된다 - 이 열은 오프스펙도 그리므로 그런 그룹이 실제로 서 있고, 색이
 		-- 없으면 눌리는 키와 안 눌리는 키가 같은 무게로 읽힌다. 행이 같은 사유로 자기 이름을
 		-- 흐리게 하는 것과 한 규칙이다(`ColoredNameAndIconForAction`).
+		--
+		-- **Red where something in it is waiting to be fixed.** The two cannot both be true - a
+		-- broken row is still in the build, so a group holding one is not all-inactive - and they
+		-- are saying different things about the group: grey is "nothing here runs, and that is
+		-- fine", red is "something here would run and does not".
+		--
+		-- **Blue wins over both, and does so by never meeting them**: a badged set is always filed
+		-- under a key of its own that has no key yet (`KeyMapper`), so it takes the branch above.
+		-- That is the order the reason column already keeps - accepting comes before fixing, since
+		-- what arrived is not ours to fix until it is taken.
 		local label = KeyGroupLabel(elementData.key);
-		if (elementData.allInactive) then
+		if (elementData.hasError) then
+			label = ERROR_COLOR:WrapTextInColorCode(label);
+		elseif (elementData.allInactive) then
 			label = DISABLED_FONT_COLOR:WrapTextInColorCode(label);
 		end
 		self:SetHeaderText(label);
@@ -2148,6 +2188,11 @@ function DebindKeyHeaderMixin:UpdateSummary()
 
 	-- **줄이 통째로 흐려진다.** 키만 흐리고 요약을 금색으로 두면 한 줄이 안 나간다는 말과
 	-- 나간다는 말을 같이 하게 된다. 금색은 폰트가 들고 있으므로 되돌릴 때도 명시해야 한다.
+	--
+	-- **Red does not travel the same way, on purpose.** Grey is true of every member at once, which
+	-- is what lets it take the whole line; a problem belongs to one row, and this summary names the
+	-- first action only. Painting that name red would accuse whichever action happens to fire first
+	-- of a fault that may be three rows down.
 	local r, g, b = NORMAL_FONT_COLOR:GetRGB();
 	if (elementData.allInactive) then
 		r, g, b = DISABLED_FONT_COLOR:GetRGB();
@@ -4393,19 +4438,6 @@ function DebindResultPanelMixin:Close()
 	return true;
 end
 
---- 문제 코드(`Constants.BINDING_ISSUE_*`)를 **이 칸에 들어갈 짧은 형태**로 바꾼다.
----
---- 긴 문장(`BINDING_ERROR_*`)은 툴팁의 것이다 - 170px 칸에서는 잘린다. 그래서 코드마다
---- 짧은 짝(`ORDER_FLAG_*`)을 따로 둔다. 한때 여기가 전부 `Has a Problem`이었는데, 그러면
---- **무엇을 고칠지를 안 말한다** - 툴팁을 열어야만 알 수 있는 것을 칸이 이미 차지하고 있었다.
----
---- `rawget`인 이유: `L`의 메타테이블이 없는 키에 키 이름을 그대로 돌려주므로, 짝을 안 만든
---- 코드가 하나라도 있으면 화면에 `ORDER_FLAG_CONDITIONS_NEVER`가 뜬다. Constants에 코드가
---- 늘고 문자열이 안 따라온 경우에는 총칭으로 물러나는 편이 낫다.
-local function GetShortIssueText(issue)
-	return rawget(LLL, "ORDER_FLAG_" .. issue) or LLL["ORDER_FLAG_ISSUE"];
-end
-
 DebindOrderLineMixin = {};
 
 function DebindOrderLineMixin:Init()
@@ -4607,6 +4639,17 @@ end
 ---
 --- 도달불가와 이슈를 함께 적지 않는 이유는 `GetBindingIssue`가 도달불가도 이슈로 치기
 --- 때문이다(Misc.lua). 더 구체적인 쪽만 쓴다.
+---
+--- **The problem codes arrive here as one word, and that is deliberate.** They used to be spelled
+--- out per code -- "No group selected", "Unknown state name" -- and in a list you scan that reads as
+--- noise: this column's own subject is which row beat the one below it, so a guest sentence pitched
+--- three levels finer makes one slot talk at two resolutions. The detail did not go away, it moved
+--- to the one surface the reader opens on purpose. `BINDING_ERROR_*` under the condition it belongs
+--- to is where it now lives, and only there.
+---
+--- Which leaves this column two words for a problem, matching the two grades exactly: the minor one
+--- keeps its own sentence because "never runs" is the more specific thing to say, and everything
+--- else is red and generic.
 local function GetOrderReasonText(elementData)
 	local row = elementData.row;
 	-- **A badged row says nothing here, because the slot is the button's.** What this column
@@ -4626,9 +4669,9 @@ local function GetOrderReasonText(elementData)
 	elseif ((row.specRank or 0) ~= 0) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_OFFSPEC"]);
 	elseif (row.unreachable) then
-		return ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
+		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
-		return ERROR_COLOR:WrapTextInColorCode(GetShortIssueText(row.issue));
+		return ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
 	end
 
 	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
@@ -4852,11 +4895,27 @@ function BuildKeyboardElements()
 		-- 판정은 빌드에 들어갔는지 하나다(`ActiveActions`). "오프스펙인가"로 물으면 같은
 		-- 답을 내는 다른 사유들 - 배지가 붙었다, 키가 번호다 - 을 따로 다시 세게 된다.
 		-- 행이 자기 이름을 흐리게 할 때 보는 것도 같은 함수다.
+		--
+		-- **Is one of the ones that would run broken?** Only rows that got into the build are asked,
+		-- which is what keeps this from reddening over things the reader cannot act on now: an
+		-- off-spec or badged row is inactive for a reason of its own and already says so in its own
+		-- slot. A problem does not keep an action out of `ActiveActions` (`BuildKeyMap` sets that
+		-- outside the gate), so what is left is exactly "would run, except for this".
+		--
+		-- **One is enough**, unlike the grey above which needs all of them. Grey describes the group
+		-- - nothing here runs - while red points at work waiting in it, and one broken row is work.
+		-- A collapsed heading summarises only its first action, so a rule of "all of them" would
+		-- leave a group with one bad row saying nothing at all while folded.
 		local allInactive = true;
+		local hasError = false;
 		for i = 1, #rows do
 			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
 				allInactive = false;
-				break;
+				local issue = rows[i].issue;
+				if (issue and not DebindPrivate.IsIssueMinor(issue)) then
+					hasError = true;
+					break;
+				end
 			end
 		end
 
@@ -4874,6 +4933,7 @@ function BuildKeyboardElements()
 				-- 것은 이 지역 이름을 다시 묶는 것**이라 여기 실린 테이블은 그대로 남는다.
 				rows = rows,
 				allInactive = allInactive,
+				hasError = hasError,
 				-- Only the heading of a set with no real key reads these: the first for its colour,
 				-- the second for the key it came in on.
 				hasImported = keyHasImported[key],

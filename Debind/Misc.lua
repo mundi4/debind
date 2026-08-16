@@ -1089,6 +1089,18 @@ local GROUP_ROLE_UNITS = {
     mainassist = Constants.GROUP_RAID,
 };
 
+--- Is this problem one that the row it sits on is **not** at fault for?
+---
+--- The one place that reads `BINDING_ISSUE_GRADES`, so that "what does a code with no grade mean"
+--- is answered once. It answers false, which puts an ungraded code in with the loud ones -- see the
+--- table's header for why that is the safe direction.
+---
+--- Takes the code rather than the action because the callers have already asked for one, often for
+--- a single category, and asking again would run the whole of `GetBindingIssue` a second time.
+function DebindPrivate.IsIssueMinor(issue)
+    return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_MINOR;
+end
+
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     local issue;
 
@@ -1284,6 +1296,46 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     return issue;
 end
 
+
+
+--- Is anything in the profile stopped by Clique being installed?
+---
+--- **What the login warning is gated on.** Saying it whenever Clique is loaded means saying it to
+--- people who never bound anything to a unit frame, and a line that is noise on most logins is not
+--- read on the one where it matters.
+---
+--- No count comes back. What the reader needs is whether to go and look, and this is a chat line
+--- that scrolls past -- the window is where the affected rows are already red.
+---
+--- Asked once, from `PLAYER_LOGIN`. It is safe to ask there even though the key map has not been
+--- built yet: `CliqueDetected` is read when the file loads and the addon list cannot change without
+--- a reload, and the two branches below need nothing but the action itself.
+---
+--- Every layer, not just the live ones. The conflict is a property of the setup rather than of the
+--- specialization being played, and switching spec does not come back here.
+function DebindPrivate.HasBindingBlockedByClique()
+    if (not DebindPrivate.CliqueDetected) then
+        return false;
+    end
+
+    local blocked = Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE;
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        for _, action in layer:Enumerate() do
+            -- The same gate `BuildKeyMap` uses. A number stands in for a key not chosen yet and a
+            -- badged action is quarantined -- neither was going to fire, so neither lost anything
+            -- to Clique.
+            if (type(action.key) == "string" and not action.imported) then
+                -- Two branches raise this code and the second is not reachable through the first:
+                -- an action aimed at `hover` can carry the conflict with no hover condition set.
+                if (DebindPrivate.GetBindingIssue(action, "hover") == blocked
+                        or DebindPrivate.GetBindingIssue(action, "unit") == blocked) then
+                    return true;
+                end
+            end
+        end
+    end
+    return false;
+end
 
 
 -- 행동단축바 끌어다 놓은 탈것을 클릭하면 필요한 경우 자동으로 변신이 해제되지만 C_MountJournal.SummonByID를 사용하는 경우 자동으로 변신이 해제되지 않음.

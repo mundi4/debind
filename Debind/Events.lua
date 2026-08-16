@@ -83,7 +83,12 @@ function Events.PLAYER_LOGIN()
     -- separator that was meant to make the version legible renders as a box instead.
     DebindPrivate.DisplayMessage(format("%s |cffa0a0a0-|r %s",
         DebindPrivate.GetVersionLabel(), L["LOGIN_MESSAGE"]));
-    if (DebindPrivate.CliqueDetected) then
+    -- **Only when it is actually costing them something.** This used to go out on the mere presence
+    -- of Clique, which is most often no news at all -- and the login it does matter on is the one
+    -- where a line they have learned to skip is the only thing telling them their unit frame
+    -- bindings stopped. Once per session is enough on its own: the addon list cannot change without
+    -- a reload, so this is the moment the answer can change.
+    if (DebindPrivate.HasBindingBlockedByClique()) then
         DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_CLIQUE_DETECTED"], WARNING_FONT_COLOR:GetRGBA());
     end
 
