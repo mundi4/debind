@@ -1179,11 +1179,21 @@
 						판정이 키 그룹 단위이고 그룹이 사는 곳이 이 열이라, 규칙이 보이는 자리도
 						여기다. 오른쪽은 이 열에 남은 것을 자기 탭으로 한 번 더 자를 뿐이다.
 
-						**둘은 ResultPanel 뒤에 선언된다.** 저 프레임을 앵커로 짚기 때문이고,
+						**XML 순서가 앵커 순서다.** 검색창이 인셋에 자리를 잡고 드롭다운이 거기
+						매달리므로 검색창이 먼저 선언돼야 한다. 주문 선택 창은 이 관계가 반대라
+						순서도 반대다(저쪽은 드롭다운이 인셋 오른쪽 끝에 서고 검색창이 매달린다).
 						앞을 가리키는 앵커는 `check:xml-anchors`가 잡는다.
+
+						**둘은 붙어 선다.** 열 양끝으로 갈라 세우면 가운데가 비고, 그 빈 자리가
+						둘을 서로 무관한 컨트롤로 읽히게 한다 - 실제로는 같은 일을 하는 한 쌍이다.
+						사이 6은 주문 선택 창이 같은 쌍에 쓰는 값이다.
 
 						높이 22와 인셋 위로 4는 주문 선택 창의 검색창과 같은 값이다. 오른쪽 목록
 						인셋도 같은 선(-85)에서 출발하므로 두 열의 머리가 같은 높이에 앉는다.
+
+						**폭 170도 그 창과 같고, 열 폭을 따라 늘이지 않는다.** 한때 왼쪽 끝과
+						드롭다운 사이를 꽉 채웠는데, 이 열에서는 그 길이가 검색어가 아니라 빈 상자로
+						읽혔다. 170은 블리자드 수집품 창들의 검색창과 같은 선이기도 하다.
 
 						**x가 7인 것은 테두리가 프레임 밖으로 나오기 때문이다.**
 						`InputBoxVisualTemplate`의 `Left` 텍스처가 EditBox 사각형보다 **5px 왼쪽**에서
@@ -1191,20 +1201,19 @@
 						테두리가 인셋보다 3px 튀어나온다. 7 = 2 + 5이고, 눈에 보이는 왼쪽 변이 인셋
 						왼쪽에서 2다.
 					-->
-					<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate">
-						<Size x="97" y="22"/>
-						<Anchors>
-							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ResultPanel" relativePoint="TOPRIGHT" x="-2" y="4"/>
-						</Anchors>
-					</DropdownButton>
-
 					<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
 						<Size x="170" y="22"/>
 						<Anchors>
 							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ResultPanel" relativePoint="TOPLEFT" x="7" y="4"/>
-							<Anchor point="RIGHT" relativeKey="$parent.FilterDropdown" relativePoint="LEFT" x="-6" y="0"/>
 						</Anchors>
 					</EditBox>
+
+					<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate">
+						<Size x="97" y="22"/>
+						<Anchors>
+							<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
+						</Anchors>
+					</DropdownButton>
 
 					<!--
 						**메뉴가 아니라 창을 연다.** 한때 여기 드롭다운이 매달려 있었고 그 안에
