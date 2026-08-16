@@ -2098,7 +2098,15 @@ function DebindKeyHeaderMixin:Init(elementData)
 			self:SetHeaderText(DISABLED_FONT_COLOR:WrapTextInColorCode(label));
 		end
 	elseif (elementData.key) then
-		self:SetHeaderText(KeyGroupLabel(elementData.key));
+		-- **키는 걸려 있는데 지금 아무것도 안 나가는 그룹은 흐리다.** 멤버가 전부 다른 특성
+		-- 것이면 그렇게 된다 - 이 열은 오프스펙도 그리므로 그런 그룹이 실제로 서 있고, 색이
+		-- 없으면 눌리는 키와 안 눌리는 키가 같은 무게로 읽힌다. 행이 같은 사유로 자기 이름을
+		-- 흐리게 하는 것과 한 규칙이다(`ColoredNameAndIconForAction`).
+		local label = KeyGroupLabel(elementData.key);
+		if (elementData.allInactive) then
+			label = DISABLED_FONT_COLOR:WrapTextInColorCode(label);
+		end
+		self:SetHeaderText(label);
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
 		--
@@ -2137,6 +2145,15 @@ function DebindKeyHeaderMixin:UpdateSummary()
 	self.ActionName:SetText(bareName or "");
 	self.ActionName:SetWidth(0);
 	self.ActionName:Show();
+
+	-- **줄이 통째로 흐려진다.** 키만 흐리고 요약을 금색으로 두면 한 줄이 안 나간다는 말과
+	-- 나간다는 말을 같이 하게 된다. 금색은 폰트가 들고 있으므로 되돌릴 때도 명시해야 한다.
+	local r, g, b = NORMAL_FONT_COLOR:GetRGB();
+	if (elementData.allInactive) then
+		r, g, b = DISABLED_FONT_COLOR:GetRGB();
+	end
+	self.ActionName:SetTextColor(r, g, b);
+	self.ExtraCount:SetTextColor(r, g, b);
 
 	if (#rows > 1) then
 		self.ExtraCount:SetFormattedText(LLL["OVERVIEW_KEY_HEADER_MORE"], #rows - 1);
@@ -4829,6 +4846,20 @@ function BuildKeyboardElements()
 		local collapsed = _collapsedKeys[key] == true;
 		local shown = KeyGroupPasses(rows, key, keyImportedFrom[key]);
 
+		-- **이 키를 지금 눌러도 아무것도 안 나가는가.** 키는 걸려 있는데 멤버가 전부 다른
+		-- 특성 것인 경우가 그렇고, 머리글은 그때 흐려진다.
+		--
+		-- 판정은 빌드에 들어갔는지 하나다(`ActiveActions`). "오프스펙인가"로 물으면 같은
+		-- 답을 내는 다른 사유들 - 배지가 붙었다, 키가 번호다 - 을 따로 다시 세게 된다.
+		-- 행이 자기 이름을 흐리게 할 때 보는 것도 같은 함수다.
+		local allInactive = true;
+		for i = 1, #rows do
+			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
+				allInactive = false;
+				break;
+			end
+		end
+
 		if (shown) then
 			-- 그룹이 남으면 **멤버 전부가** 집합에 든다. 통째로 남기는 것과 같은 이유다 -
 			-- 오른쪽 목록이 여기서 매치된 하나만 받으면 두 열이 다른 그룹을 말하게 된다.
@@ -4842,6 +4873,7 @@ function BuildKeyboardElements()
 				-- 접혔을 때 머리글이 안을 요약한다(`UpdateSummary`). **아래에서 `rows`를 비우는
 				-- 것은 이 지역 이름을 다시 묶는 것**이라 여기 실린 테이블은 그대로 남는다.
 				rows = rows,
+				allInactive = allInactive,
 				-- Only the heading of a set with no real key reads these: the first for its colour,
 				-- the second for the key it came in on.
 				hasImported = keyHasImported[key],
