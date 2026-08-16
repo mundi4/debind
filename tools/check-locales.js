@@ -83,14 +83,19 @@ const PENDING_TRANSLATION = {
     IMPORT_COMMITTED_SKIPPED: ["ruRU"],
     IMPORT_TITLE: ["ruRU"],
     IMPORT_MENU_DESC: ["ruRU"],
-    // The overview's import strip: narrowing both lists to what came in, and accepting the lot.
-    // Same owner as the rows above.
-    IMPORTED_ONLY: ["ruRU"],
-    IMPORTED_ONLY_DESC: ["ruRU"],
+    // The overview's import strip: accepting or throwing back the lot. Same owner as the rows
+    // above. The narrowing that used to stand here is a value of the filter dropdown below.
     APPROVE_ALL_IMPORT: ["ruRU"],
     APPROVE_ALL_IMPORT_DESC: ["ruRU"],
-    NO_IMPORTED_IN_THIS_TAB: ["ruRU"],
-    OVERVIEW_EMPTY_IMPORTED_ONLY: ["ruRU"],
+    // The overview's filter dropdown, one tick per value, and the two empty-list lines that stand
+    // when a tick has taken everything out.
+    FILTER_ACTIVE_SPEC: ["ruRU"],
+    FILTER_INACTIVE_SPEC: ["ruRU"],
+    FILTER_KEYED: ["ruRU"],
+    FILTER_UNKEYED: ["ruRU"],
+    FILTER_PENDING: ["ruRU"],
+    NO_ACTIONS_MATCH_FILTERS: ["ruRU"],
+    OVERVIEW_EMPTY_FILTERED: ["ruRU"],
     // The button a badged row carries in the order list, and what its tooltip says. Same owner.
     ORDER_ACCEPT: ["ruRU"],
     ORDER_ACCEPT_DESC: ["ruRU"],

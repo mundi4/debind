@@ -690,26 +690,37 @@ L["REJECT_IMPORT"] = "Reject"
 -- **The second sentence is what makes this pressable.** Without it this reads as the destructive
 -- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
 L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the drawer, so you can bring it in again."
--- The switch that makes the badge findable instead of something to hunt for. **It says "came in",
--- not "imported"** - what the reader did was paste a string somebody sent them.
-L["IMPORTED_ONLY"] = "Only what came in"
--- **The second sentence is the whole point of the switch.** Finding the new actions is easy enough
--- by colour; what is hard is seeing what each one lands on top of, and that only shows when the
--- key it wants is drawn with everything already on it.
-L["IMPORTED_ONLY_DESC"] = "Narrows both lists to what came in from a string and has not been accepted yet.|n|nOn the left, each key is still shown whole, so you can see what the new actions would share a key with."
--- Empty right-hand list while the switch above is on. **It points at the tab numbers** rather than
--- leaving a dead end - a batch usually lands across several tabs, and the counts are where that
--- shows.
-L["NO_IMPORTED_IN_THIS_TAB"] = "Nothing waiting in this tab. The counts on the tabs show where it went."
--- Empty left-hand column while the switch is on. Different from the one above: that list is one
--- tab, this one is the whole keyboard.
+-- **The filter dropdown, one tick per value.** Two axes, and each is written out value by value
+-- rather than as one switch that hides a side, so that every tick means the same thing: show this
+-- too. A switch called "off-spec" would mean the opposite of its neighbours - ticking it would add
+-- rows where ticking the others removes them.
 --
--- **It used to send the reader to the other tabs on the right**, because the column only looked at
--- the live specialization and a batch could land outside it. It shows those now, so the sentence
--- pointed at a tab that already has nothing new in it. What is left is a class this character is
--- not - those layers are stored and reached only by logging that class in, and there is no tab
--- here that would show them.
-L["OVERVIEW_EMPTY_IMPORTED_ONLY"] = "Nothing that came in is waiting on this character. A string from another class lands in that class's own layers, and shows up when you play one."
+-- The client's own shape, from the collection windows: [Collected] / [Not Collected] side by side,
+-- all ticked to begin with, and untick everything on one axis and the list is honestly empty.
+--
+-- **"Inactive specialization" is not a fresh wording.** `ORDER_FLAG_OFFSPEC` and
+-- `SPELL_PICKER_SHOW_OFFSPEC` already name this, and one thing has one name per screen - these two
+-- keys exist so each position can be reworded on its own, never so they can say different things.
+L["FILTER_ACTIVE_SPEC"] = "Active specialization"
+L["FILTER_INACTIVE_SPEC"] = "Inactive specialization"
+-- The key axis. **Three values, and none of them overlaps another**: an action either presses on a
+-- key, or is waiting to be accepted, or is neither.
+--
+-- "No shortcut" is narrower than it sounds - what is waiting to be accepted has no shortcut either,
+-- and it is the next line that carries it. The three standing together is what makes that read: a
+-- reader picking among three does not take one of them for the whole.
+L["FILTER_KEYED"] = "Has a shortcut"
+L["FILTER_UNKEYED"] = "No shortcut"
+-- **"Accepted" is the word the rest of the import uses** (`APPROVE_IMPORT`, `LINE_TOOLTIP_IMPORTED`),
+-- so this is not a new idea for the reader - it is the same state named where it can be filtered on.
+L["FILTER_PENDING"] = "Not accepted yet"
+-- Empty right-hand list because a filter took everything out. **Different from the search one**:
+-- that reader knows what they typed, and this one has to open the dropdown to see which value is
+-- switched off.
+L["NO_ACTIONS_MATCH_FILTERS"] = "Nothing in this tab matches the filters. The dropdown above the left column has what is switched off."
+-- Empty left-hand column for the same reason. Different from the one above: that list is one tab,
+-- this one is the whole keyboard.
+L["OVERVIEW_EMPTY_FILTERED"] = "Nothing matches the filters. The dropdown above this column has what is switched off."
 -- The one thing a drawer row is for. **The second press is not a repeat of the first** - it puts
 -- another copy in - so the label has to change, or "did that work" and "do it again" become the
 -- same gesture.
