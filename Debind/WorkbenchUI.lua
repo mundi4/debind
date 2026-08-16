@@ -222,59 +222,23 @@ local LINE_LABELS   = {
     ["character.spec"]     = "IMPORT_BRING_LINE_CHARACTER_SPEC",
 };
 
---- Vertical geometry. The dialog grows with how many lines the string stood, so these are what the
---- height is added up from rather than numbers spread through the layout.
-local TOP_INSET    = 34;
-local SIDE_INSET   = 16;
-local ROW_PITCH    = 24;
-local GROUP_GAP    = 16;
-local BOTTOM_INSET = 44;
+--- **This dialog is the one that grows**, so its height is added up rather than written in the XML.
+--- Where the rows *start* is not part of that sum: they hang off `ContentArea`, which every dialog
+--- places against (`DebindDialogTemplate`). Only the two numbers this dialog actually owns are here.
+---
+--- `CHROME_HEIGHT` is everything the template puts above and below the rows - the caption band and
+--- the strip the buttons stand in.
+local ROW_PITCH     = 24;
+local CHROME_HEIGHT = 84;
 
 function DebindBringFrameMixin:OnLoad()
+    self:InitDialog();
+
     self.AcceptButton:SetText(LLL["IMPORT_COMMIT"]);
     self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
 
     self.CancelButton:SetText(CANCEL);
     self.CancelButton:SetScript("OnClick", function() self:Hide(); end);
-
-    self.StripKeysButton.Label:SetText(LLL["EXPORT_STRIP_KEYS"]);
-    -- The label is outside the frame, so pressing the words only ticks the box if the hit rect
-    -- reaches over them. Locales disagree about how far, so the string is asked.
-    self.StripKeysButton:SetHitRectInsets(0,
-        -(self.StripKeysButton.Label:GetStringWidth() + 4), 0, 0);
-    self.StripKeysButton:SetScript("OnEnter", function(button)
-        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-        GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
-        GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_STRIP_KEYS_DESC"]);
-        GameTooltip:Show();
-    end);
-    self.StripKeysButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
-
-    self:RegisterForDrag("LeftButton");
-    self:SetScript("OnDragStart", self.StartMoving);
-    self:SetScript("OnDragStop", self.StopMovingOrSizing);
-
-    -- ESC closes this and nothing else. `UISpecialFrames` cannot do that -- `CloseSpecialWindows`
-    -- hides **every** shown frame in the list, so one press would take the window behind this with
-    -- it. Every other key keeps going, or the keyboard stops answering while this is up.
-    self:EnableKeyboard(true);
-    self:SetScript("OnKeyDown", function(_, key)
-        -- `SetPropagateKeyboardInput` is taint in combat. Entering combat hides the window behind
-        -- this and takes the dialog with it (`DebindImportPanelMixin:OnHide`), so this is
-        -- normally unreachable - but **a key pressed on the frame combat starts can arrive before
-        -- PLAYER_REGEN_DISABLED.** The same one frame `DebindFrameMixin:OnKeyDown` blocks, blocked
-        -- the same way: do nothing and stand down. That key is eaten and the dialog is gone next
-        -- frame.
-        if (InCombatLockdown()) then
-            return;
-        end
-
-        local ours = key == "ESCAPE";
-        self:SetPropagateKeyboardInput(not ours);
-        if (ours) then
-            self:Hide();
-        end
-    end);
 end
 
 --- The line checkboxes. Four at most (`IMPORT_LINES`), and made once: which of them are shown is
@@ -313,7 +277,7 @@ function DebindBringFrameMixin:Open(batch, lines)
     EnsureLineButtons(self);
     self.batch = batch;
 
-    self.TitleText:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchTitle(batch)));
+    self.Title:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchTitle(batch)));
 
     --- **The class line names the class its actions are going to**, which is the descriptor's and
     --- not `payload.class`. The two agree in anything this addon builds; a hand-made string can
@@ -328,12 +292,13 @@ function DebindBringFrameMixin:Open(batch, lines)
         return LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class;
     end
 
-    local function Place(region, x, y)
+    local function Place(region, y)
         region:ClearAllPoints();
-        region:SetPoint("TOPLEFT", self, "TOPLEFT", x, y);
+        region:SetPoint("TOPLEFT", self.ContentArea, "TOPLEFT", 0, y);
     end
 
-    local y = -TOP_INSET;
+    local rows = 0;
+    local y = 0;
     for i, button in ipairs(self.lineButtons) do
         local entry = lines[i];
         button:SetShown(entry ~= nil);
@@ -347,26 +312,14 @@ function DebindBringFrameMixin:Open(batch, lines)
             -- boxes are there for the one who wants less, and asking the other one to tick four
             -- things first would make the dialog a toll.
             button:SetChecked(true);
-            Place(button, SIDE_INSET, y);
+            Place(button, y);
             y = y - ROW_PITCH;
+            rows = rows + 1;
         end
     end
 
-    -- **Missing means unknown, and unknown shows it.** A batch stored before `hasKeys` existed has
-    -- no answer, and hiding the control for those made the option look unbuilt on every row already
-    -- in the drawer. Offering it on a keyless batch costs nothing - there is no key to drop - while
-    -- hiding it on a batch that has keys costs the feature.
-    local hasKeys = batch.hasKeys ~= false;
-    self.StripKeysButton:SetShown(hasKeys);
-    if (hasKeys) then
-        y = y - GROUP_GAP;
-        self.StripKeysButton:SetChecked(false);
-        Place(self.StripKeysButton, SIDE_INSET, y);
-        y = y - ROW_PITCH;
-    end
-
     self:UpdateAcceptButton();
-    self:SetHeight(-y + BOTTOM_INSET);
+    self:SetHeight(rows * ROW_PITCH + CHROME_HEIGHT);
     self:Show();
     self:Raise();
 end
@@ -406,7 +359,6 @@ function DebindBringFrameMixin:Accept()
     local batch = self.batch;
     local placed, skipped = Store().CommitBatch(batch, {
         lines = self:SelectedLines(),
-        stripKeys = self.StripKeysButton:IsShown() and self.StripKeysButton:GetChecked() or nil,
     });
 
     self:Hide();
@@ -514,18 +466,14 @@ end
 DebindPasteFrameMixin = {};
 
 function DebindPasteFrameMixin:OnLoad()
-    self.Title:SetText(LLL["IMPORT_PASTE_TITLE"]);
-    self.ContentArea.InputLabel:SetText(LLL["IMPORT_PASTE_INPUT_LABEL"]);
+    self:InitDialog(LLL["IMPORT_PASTE_TITLE"]);
+    self.InputLabel:SetText(LLL["IMPORT_PASTE_INPUT_LABEL"]);
     self.SourceBox.Label:SetText(LLL["IMPORT_PASTE_SOURCE"]);
     self.AcceptButton:SetText(LLL["IMPORT_PASTE_ACCEPT"]);
 
     -- The placeholder inside the box, which the template hands out a setter for. The `instructions`
     -- KeyValue would do it in the XML, but it resolves a **global** name and ours is an `L` key.
     InputScrollFrame_SetInstructions(self.Input, LLL["IMPORT_PASTE_INSTRUCTIONS"]);
-
-    self:RegisterForDrag("LeftButton");
-    self:SetScript("OnDragStart", self.StartMoving);
-    self:SetScript("OnDragStop", self.StopMovingOrSizing);
 
     local editBox = self.Input.EditBox;
     editBox:SetFontObject(ChatFontNormal);
@@ -553,10 +501,6 @@ function DebindPasteFrameMixin:OnLoad()
 
     self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
     self.CancelButton:SetScript("OnClick", function() self:Hide(); end);
-
-    -- ESC closes this one on its own. It is a dialog rather than a panel, so unlike the tabs it has
-    -- a close of its own to be.
-    tinsert(UISpecialFrames, self:GetName());
 end
 
 function DebindPasteFrameMixin:Open()

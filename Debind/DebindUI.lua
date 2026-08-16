@@ -1243,7 +1243,7 @@ do
 			addLabelLine(LLL["KEY"]);
 
 			if (action.key) then
-				local keyText = DebindPrivate.GetKeyDisplayText(action.key);
+				local keyText = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
 				local error;
 				if (isInactive) then
 					keyText = INACTIVE_COLOR:WrapTextInColorCode(keyText);
@@ -1640,7 +1640,7 @@ function DebindLineMixin:Update()
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
 	if (action.key) then
-		local s = DebindPrivate.GetKeyDisplayText(action.key);
+		local s = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
@@ -1887,6 +1887,32 @@ local function KeyHeaderExtent(elementData)
 	return elementData.isFirst and KEY_HEADER_HEIGHT_FIRST or KEY_HEADER_HEIGHT;
 end
 
+DebindDialogMixin = {};
+
+--- The behaviour half of `DebindDialogTemplate`. Called from each dialog's own `OnLoad`.
+---
+--- **Dragged from anywhere on itself.** The chrome these wear has no title bar to grab, so without
+--- this a dialog is nailed to the middle of the screen on top of whatever it is asking about.
+---
+--- **ESC through `UISpecialFrames`, which is the game's net and not ours.** All three of these are
+--- the topmost thing on screen while they stand, and the window behind them is not in that list
+--- (`DebindFrameMixin` keeps its own `OnKeyDown` and says why), so `CloseSpecialWindows` reaches the
+--- dialog and stops. One of the three used to hand-roll this with `SetPropagateKeyboardInput`, which
+--- is taint in combat and needed a guard for a frame that cannot be up in combat anyway.
+---
+--- Registered once per dialog and they are never destroyed, so nothing has to come back out.
+function DebindDialogMixin:InitDialog(title)
+	if (title) then
+		self.Title:SetText(title);
+	end
+
+	self:RegisterForDrag("LeftButton");
+	self:SetScript("OnDragStart", self.StartMoving);
+	self:SetScript("OnDragStop", self.StopMovingOrSizing);
+
+	tinsert(UISpecialFrames, self:GetName());
+end
+
 DebindKeyHeaderMixin = {};
 
 --- What one key group is called, and the only place that is decided.
@@ -1897,9 +1923,9 @@ DebindKeyHeaderMixin = {};
 ---
 --- Plain text. The colours belong to the position: the header greys the unbound pile and tints an
 --- arrival group, and a prompt in the middle of the screen does neither.
-local function KeyGroupLabel(key)
+local function KeyGroupLabel(key, from)
 	if (key ~= nil) then
-		return DebindPrivate.GetKeyDisplayText(key);
+		return DebindPrivate.GetKeyDisplayText(key, from);
 	end
 	return LLL["OVERVIEW_NO_KEY"];
 end
@@ -1907,14 +1933,14 @@ end
 function DebindKeyHeaderMixin:Init(elementData)
 	self:SetHeight(KeyHeaderExtent(elementData));
 	if (type(elementData.key) == "number") then
-		-- **A key group whose key has not been decided yet.** Numbered because two strings can be
-		-- waiting at once, and `#` rather than `(n)` because a parenthesised number already means a
-		-- count in this window (the tab labels).
+		-- **A key group whose key has not been decided yet.** What tells two of these apart is the
+		-- key their sender had them on, carried by `importedFrom`; the number they are stored under
+		-- is ours and is never shown.
 		--
 		-- Tinted while any of it is still badged, greyed once it is not. Both are true of it and
 		-- the colour says which one the reader is looking at: a set waiting on a decision, or one
 		-- they have taken and not yet given a key to.
-		local label = KeyGroupLabel(elementData.key);
+		local label = KeyGroupLabel(elementData.key, elementData.importedFrom);
 		if (elementData.hasImported) then
 			self.Label:SetText(IMPORTED_FONT_COLOR:WrapTextInColorCode(label));
 		else
@@ -4461,7 +4487,7 @@ end
 --- header and its rows cannot disagree; the scan sees exactly what `CollectActionsForKey` will,
 --- since both walk the live layers and neither leaves anything out.
 local function BuildKeyboardElements()
-	local keySeen, keyArr, keyHasImported = {}, {}, {};
+	local keySeen, keyArr, keyHasImported, keyImportedFrom = {}, {}, {}, {};
 	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
 		for _, action in layer:Enumerate() do
 			local key = action.key;
@@ -4471,6 +4497,13 @@ local function BuildKeyboardElements()
 			end
 			if (key and action.imported) then
 				keyHasImported[key] = true;
+				-- The key the sender had it on, which is what the heading of a set with no key of
+				-- its own says. Every member of one arrival carries the same value, so the first
+				-- to be walked answers for the group; `true` is the badge of something that
+				-- arrived on no key, and there is nothing to say about that.
+				if (keyImportedFrom[key] == nil and type(action.imported) == "string") then
+					keyImportedFrom[key] = action.imported;
+				end
 			end
 		end
 	end
@@ -4494,8 +4527,10 @@ local function BuildKeyboardElements()
 		elements[#elements + 1] = {
 			isHeader = true,
 			key = key,
-			-- Only the heading of a set with no real key reads this, and only for its colour.
+			-- Only the heading of a set with no real key reads these: the first for its colour,
+			-- the second for the key it came in on.
 			hasImported = keyHasImported[key],
+			importedFrom = keyImportedFrom[key],
 			isFirst = #elements == 0 or nil,
 		};
 
@@ -5161,7 +5196,7 @@ function DebindUI.BeginKeyGroupCapture(action)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
-	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key));
+	DebindFrame:BeginKeyGroupCapture(actions, KeyGroupLabel(key, action.imported));
 end
 
 --- Can a whole key group be given a key from this action? Asked when the menu decides whether to

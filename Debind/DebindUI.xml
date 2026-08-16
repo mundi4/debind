@@ -5,6 +5,56 @@
 	<Script file="DropDownMenus.lua" />
 
 	<!--
+		**Every dialog this addon puts up over its own window.** Three of them exist (copy the
+		string, paste one in, choose what to bring in) and they used to be written out one at a
+		time: two wore a bare frame with a border drawn on, the third inherited
+		`BasicFrameTemplateWithInset` and so came with a title bar, an X and an inset the others had
+		no trace of. Which one the reader met depended on which button they pressed, and nothing in
+		the addon said why.
+
+		What is here is the chrome and nothing else - the size, what goes inside, and what the
+		buttons say are each dialog's own. `DebindDialogMixin:InitDialog` is the other half; it is
+		called from each `OnLoad` rather than run from a script here, so that a dialog reading its
+		own `OnLoad` can see that it happens.
+
+		`DialogBorderDarkTemplate` draws border and background together. The caption is a layer of
+		the frame rather than of the border, so it draws over it.
+	-->
+	<Frame name="DebindDialogTemplate" mixin="DebindDialogMixin" virtual="true"
+		parent="UIParent" frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true"
+		movable="true" clampedToScreen="true">
+		<Anchors>
+			<Anchor point="CENTER"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Title" inherits="GameFontHighlight">
+					<Size x="250"/>
+					<Anchors>
+						<Anchor point="TOP" y="-20"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="Border" inherits="DialogBorderDarkTemplate"/>
+
+			<!--
+				**The rectangle everything inside a dialog is placed against**, so the insets are one
+				set of numbers rather than one per dialog. All three used to restate 40 / -40 / -40 /
+				25, and the third did not have one at all - it placed its rows against the frame with
+				constants of its own, which is how they drifted apart while the chrome looked shared.
+			-->
+			<Frame parentKey="ContentArea">
+				<Anchors>
+					<Anchor point="TOPLEFT" x="40" y="-40"/>
+					<Anchor point="BOTTOMRIGHT" x="-40" y="25"/>
+				</Anchors>
+			</Frame>
+		</Frames>
+	</Frame>
+
+	<!--
 		상세 패널 안의 구역 제목. 제목 하나에 인셋을 또 두르면 상자 안의 상자가 되므로
 		선 하나로 나눈다. 아틀라스는 블리자드 옵션 패널이 같은 용도로 쓰는 것이다.
 

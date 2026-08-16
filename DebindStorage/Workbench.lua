@@ -316,15 +316,7 @@ function DebindStorage.AddBatch(text, source)
     -- **A key is a group**, so counting the distinct keys is counting the groups. An action with no
     -- key at all is in nobody's, and adds to neither count but the total.
     local groupCount, actionCount = 0, 0;
-    -- **Whether there is a key in here at all**, counted at the same moment for the same reason.
-    -- The drawer offers to leave the keys out on the way in, and that control has nothing to switch
-    -- off for a string the sender already sent without them. Answering it later would mean decoding
-    -- the string to draw a row.
-    --
-    -- **A real key is a string; a synthetic one is a number** (`Export.lua`), so the type is the
-    -- whole question -- a string sent with the keys left out carries a key on every action and
-    -- still has none to offer.
-    local hasKeys, seenKeys = false, {};
+    local seenKeys = {};
     DebindStorage.ForEachPayloadLayer(payload, function(list)
         for _, action in ipairs(list) do
             actionCount = actionCount + 1;
@@ -332,9 +324,6 @@ function DebindStorage.AddBatch(text, source)
             if (key ~= nil and not seenKeys[key]) then
                 seenKeys[key] = true;
                 groupCount = groupCount + 1;
-            end
-            if (luatype(key) == "string") then
-                hasKeys = true;
             end
         end
     end);
@@ -353,11 +342,6 @@ function DebindStorage.AddBatch(text, source)
         class = payload.class,
         groupCount = groupCount,
         actionCount = actionCount,
-        -- **Stored as `false`, not folded to nil.** The drawer tells three states apart: it has
-        -- keys, it has none, and it was stored before this field existed. Only `false` means the
-        -- second, so `or nil` here would make a keyless batch look like an old one and put a
-        -- control on it with nothing to switch off.
-        hasKeys = hasKeys,
 
         -- **No decisions are kept here.** There used to be four empty tables in this spot
         -- (`layers`, `keys`, `excluded`, `states`), waiting for a workbench that was folded, and

@@ -150,21 +150,26 @@ end
 
 --- Turns the keys a string arrived with into the keys they will be stored under.
 ---
---- **A synthetic key is renumbered, a real one is kept.** The number in the string is unique inside
---- that string and nowhere else, so two strings waiting at once would both open at 1 and the reader
---- would be shown two unrelated sets under one heading. The reach is the whole store rather than
---- the layers this session can see: reusing a number that is alive in a class the reader has not
---- logged puts the collision a login away instead of removing it.
+--- **Every key is renamed, the sender's real ones included.** A key *is* its group here, so landing
+--- on one the reader already uses is not a merge they can undo later: the two sets become one set,
+--- and nothing records which member came from where. Their own group is left alone and the arrival
+--- stays whole, which is what leaves the decision theirs to make (`devdocs/building-export-import.md`).
 ---
---- **`stripKeys` renames instead of removing.** Dropping the key would leave a conditional binding
---- as a pile of loose actions, and a wrong guess at which of them belonged together is silent --
---- two that were meant to share a key end up on two, and both fire. Renaming keeps the set intact
---- and says, in the one way the profile can hold, that its key is still to be decided.
+--- **Renaming rather than dropping** is what keeps a set a set. Losing the key would leave a
+--- conditional binding as a pile of loose actions, and a wrong guess at which of them belonged
+--- together is silent -- two that were meant to share a key end up on two, and both fire. The
+--- number says, in the one way the profile can hold, that the key is still to be decided.
+---
+--- The number is unique across the whole store rather than the layers this session can see:
+--- reusing one that is alive in a class the reader has not logged puts the collision a login away
+--- instead of removing it. The sender's own numbers are no help -- they are unique inside that one
+--- string and nowhere else, so two strings waiting at once would both open at 1 and the reader
+--- would be shown two unrelated sets under one heading.
 ---
 --- Asked for lazily, and once: nothing is written until `PlaceImportedActions`, so asking again
---- mid-walk would answer the same thing every time; and a string that needs no synthetic key at all
---- does not pay for the walk.
-local function KeyMapper(stripKeys)
+--- mid-walk would answer the same thing every time; and a payload with no keys at all does not pay
+--- for the walk.
+local function KeyMapper()
     local mapped, nextKey = {}, nil;
 
     return function(key)
@@ -172,9 +177,6 @@ local function KeyMapper(stripKeys)
         if (keyType ~= "string" and keyType ~= "number") then
             -- No key, or something a key cannot be. Either way it joins no group.
             return nil;
-        end
-        if (keyType == "string" and not stripKeys) then
-            return key;
         end
 
         local synthetic = mapped[key];
@@ -205,14 +207,10 @@ end
 --- `options.lines` is a set of `IMPORT_LINES` entries to take, or nil for all of them. A line the
 --- reader unticked is **not** counted as skipped -- they said no to it, which is not the same as
 --- this version having nowhere to put it.
----
---- `options.stripKeys` is the mirror of the export's own option. What quarantine promises is that
---- nothing changes until the reader accepts; this promises that their keys are not touched even
---- then, which is a different thing and an ordinary thing to want.
-function DebindStorage.PlanImport(payload, batchID, options)
+function DebindStorage.PlanImport(payload, options)
     local placements, skipped = {}, 0;
     local lines = options and options.lines;
-    local MapKey = KeyMapper(options and options.stripKeys);
+    local MapKey = KeyMapper();
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
         -- **Asked for an address first, and the reader's answer second.** Every action with nowhere
@@ -236,6 +234,19 @@ function DebindStorage.PlanImport(payload, batchID, options)
 
         for _, source in ipairs(list) do
             local action = BuildAction(source);
+
+            -- **The badge is the key it arrived on**, and `true` when it arrived on none. That is
+            -- what the heading has to say -- the number it is stored under is ours and means
+            -- nothing to the reader - and what the accept flow offers as the default key.
+            --
+            -- **Read before the rename, and it is the only chance.** `MapKey` replaces the key with
+            -- a number of ours, so after this line the sender's key exists nowhere else.
+            --
+            -- A number on the wire is the sender's own placeholder, not a key they had, so it
+            -- leaves no hint behind - `true` is "arrived, on nothing you can be told about".
+            local arrived = action.key;
+            action.imported = luatype(arrived) == "string" and arrived or true;
+
             action.key = MapKey(action.key);
             -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held here
             -- as well so a hand-made string cannot walk one in: a number is a place among the
@@ -243,7 +254,6 @@ function DebindStorage.PlanImport(payload, batchID, options)
             if (action.key == nil) then
                 action.seq = nil;
             end
-            action.imported = batchID;
             placements[#placements + 1] = {
                 scope = scope, class = class, spec = spec, action = action,
             };
@@ -256,9 +266,10 @@ end
 --- Commits a batch into the profile, badged.
 ---
 --- `options` is `PlanImport`'s, and comes from the dialog the press opened rather than from the
---- batch. **Nothing about which lines or whether to keep the keys is stored**: those answers are
---- worth exactly one press. Stored on the batch, "leave the keys out" outlived the moment it was
---- ticked and a reader who came back a week later got something other than what they asked for.
+--- batch. **Which lines to take is not stored**: that answer is worth exactly one press. Stored on
+--- the batch, an answer outlives the moment it was ticked and a reader who came back a week later
+--- gets something other than what they asked for -- "leave the keys out" was one of these, before
+--- it stopped being a question at all.
 ---
 --- **Custom state definitions are not touched.** A state is shared by everything in the profile, so
 --- writing one would change what the reader's *existing* actions do - before they approved
@@ -275,7 +286,7 @@ function DebindStorage.CommitBatch(batch, options)
         return nil, reason;
     end
 
-    local placements, skipped = DebindStorage.PlanImport(payload, batch.id, options);
+    local placements, skipped = DebindStorage.PlanImport(payload, options);
     if (#placements == 0) then
         return nil, "NOTHING_TO_PLACE";
     end

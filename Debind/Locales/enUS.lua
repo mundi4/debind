@@ -200,14 +200,32 @@ L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 L["KEEP_IN_BINDING_CONTEXT_DESC"] = "The house editor claims a few keys for its own shortcuts while it is open, and this addon leaves those keys alone. An action bound to one of them does nothing while the editor is open.|n|nCheck this to take the key anyway: your action runs, and the editor's shortcut on that key does not. The editor still shows the key on its own button, so that button will look usable while doing nothing."
 L["KEEP_IN_BINDING_CONTEXT"] = "Override the house editor"
 L["KEY"] = "Key"
--- The header over an arrival group whose key was not sent. **Not "group"** - that word already
--- means the party/raid kind in this window (`CONDITION_GROUP`), and `ORDER_FLAG_GROUPS_NONE_SELECTED`
--- says so in this very column.
+-- The header over an arrival group whose key has not been decided. **Not "group"** - that word
+-- already means the party/raid kind in this window (`CONDITION_GROUP`), and
+-- `ORDER_FLAG_GROUPS_NONE_SELECTED` says so in this very column.
 --
 -- It says what stands in for the key, not that the rows below belong together: a header owning the
--- rows under it is what the whole column already teaches. `#` and not `(n)`, because a
--- parenthesised number is a count here (the tab labels).
-L["KEY_GROUP_UNKNOWN_KEY"] = "Key unknown #%d"
+-- rows under it is what the whole column already teaches.
+--
+-- **It says where the set came from, not that it has no key.** "Not bound" was true and useless:
+-- the unbound pile at the bottom of the same column says exactly that, so one column would have
+-- carried two headings reading alike in two places that mean different things. What the reader
+-- needs from this heading is why a set is sitting there at all.
+--
+-- **The number is the group's own** (`NextSyntheticKey`), not a count and not a position on screen.
+-- It is small and it stays put: the next one handed out is the highest in use plus one, and once
+-- every waiting set has been given a real key it starts over at 1. So two of these sitting side by
+-- side read as #1 and #2, and accepting one does not renumber the other under the reader's cursor.
+--
+-- The key the sender had it on rides along when there is one, and **"was" earns its place**:
+-- without it, "Imported Binding #1 (SHIFT-G)" reads as a binding *on* SHIFT-G, which is the
+-- opposite of what happened.
+--
+-- Both forms, because the sender may not have had it on a key at all, and then there is nothing to
+-- say. `%d` and `%s` are different conversions, so a translation that swaps them is visible on its
+-- own and neither needs numbering.
+L["KEY_GROUP_IMPORTED"] = "Imported Binding #%d"
+L["KEY_GROUP_IMPORTED_FROM"] = "Imported Binding #%d (was %s)"
 --- The overview's right-click item that puts one key on a whole heading's worth of rows.
 ---
 --- **"all of these" and not a name for the set.** "Group" is the party/raid kind in this window
@@ -790,12 +808,6 @@ L["EXPORT_TITLE"] = "Export"
 L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to send them."
 L["EXPORT_SELECT_ALL"] = "Select all"
 L["EXPORT_SELECT_ALL_COUNT"] = "Select all (%d)"
-L["EXPORT_STRIP_KEYS"] = "Leave the keys out"
--- The same option at the receiving end, and **the label is the export's own key**: one thing, one
--- name, and the rule really is the same at both ends - leave the keys out. The description cannot be
--- shared, because that one starts by saying what it sends.
-L["IMPORT_STRIP_KEYS_DESC"] = "Brings the actions in without the keys they were on, so you pick your own.|n|nWhat has to stay together still does. A key split across several conditional actions arrives as one group, and you give the group a key rather than the loose pieces."
-L["EXPORT_STRIP_KEYS_DESC"] = "Sends the actions without the keys they are on, so whoever receives them picks their own.|n|nWhat has to stay together still does. A key split across several conditional actions arrives as one group, and the far side binds the group rather than the loose pieces."
 L["EXPORT_GENERATE"] = "Create string"
 L["EXPORT_EMPTY"] = "There is nothing here to export yet."
 L["EXPORT_ROW_NO_KEY"] = "No key"

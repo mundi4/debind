@@ -209,9 +209,8 @@
 			<CheckButton parentKey="SelectAllCheck" inherits="MinimalCheckboxArtTemplate">
 				<Size x="24" y="24"/>
 				<!--
-					Hung off the inset rather than off the frame, so the two boxes above and below the
-					list keep one left edge wherever the rectangle goes. `StripKeysCheck` below uses
-					the same offsets mirrored.
+					Hung off the inset rather than off the frame, so it keeps one left edge with the list
+					wherever the rectangle goes.
 				-->
 				<Anchors>
 					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="4"/>
@@ -253,31 +252,11 @@
 			<!--
 				**The row under the list stands on the frame's bottom edge, not under the inset.**
 				That is where the click binding window puts its own
-				(`Blizzard_ClickBindingUI.xml`: `BOTTOMLEFT 4, 5` and `BOTTOMRIGHT -6, 5`, height 23),
-				and the band between the list and that row is left empty on purpose. Hanging these two
-				off the bottom of the inset instead - which is what this panel did - floats them in
-				the middle of that band with dead space underneath.
+				(`Blizzard_ClickBindingUI.xml`: `BOTTOMRIGHT -6, 5`, height 23), and the band between
+				the list and that row is left empty on purpose. Hanging this off the bottom of the
+				inset instead - which is what this panel did - floats it in the middle of that band
+				with dead space underneath.
 			-->
-			<CheckButton parentKey="StripKeysCheck" inherits="MinimalCheckboxArtTemplate">
-				<Size x="24" y="24"/>
-				<!--
-					y is 4 where the button opposite has 5. The box is a pixel taller than the button,
-					and what has to line up across the row is the centre, not the baseline.
-				-->
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" x="4" y="4"/>
-				</Anchors>
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT">
-							<Anchors>
-								<Anchor point="LEFT" relativePoint="RIGHT" x="2" y="0"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-			</CheckButton>
-
 			<Button parentKey="GenerateButton" inherits="UIPanelButtonTemplate">
 				<Size x="140" y="23"/>
 				<Anchors>
@@ -299,11 +278,10 @@
 		never looked at again, so a permanent panel spends height on something that is empty almost
 		all of the time - and that height is exactly what the list was short of.
 
-		**Same chrome as the paste dialog**, which took it from the game's own import dialog
-		(`Blizzard_ClassTalentLoadoutImportDialog.xml`): `DialogBorderDarkTemplate` under a centred
-		`GameFontHighlight` title, no title bar, no close X, and a `ContentArea` inset 40 / -40 /
-		-40 / 25. These two are the same gesture in opposite directions and a reader meets them a
-		minute apart.
+		**Same chrome as the other dialogs** - `DebindDialogTemplate`, which took its shape from the
+		game's own import dialog (`Blizzard_ClassTalentLoadoutImportDialog.xml`). This and the paste
+		dialog are the same gesture in opposite directions and a reader meets them a minute apart,
+		which is why none of the geometry is written out here any more.
 
 		**No caption over the box, unlike over there.** That dialog has two boxes and has to say
 		which is which; this one has a single box the title already names, and a caption repeating
@@ -312,32 +290,9 @@
 		**The close button is not decoration here.** With the X gone, it and ESC are the only ways
 		out - and this is the one dialog that is deliberately left standing when its tab goes away.
 	-->
-	<Frame name="DebindCopyFrame" parent="UIParent" frameStrata="FULLSCREEN_DIALOG"
-		enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
-		mixin="DebindCopyFrameMixin">
+	<Frame name="DebindCopyFrame" inherits="DebindDialogTemplate" mixin="DebindCopyFrameMixin">
 		<Size x="460" y="185"/>
-		<Anchors>
-			<Anchor point="CENTER"/>
-		</Anchors>
-		<Layers>
-			<Layer level="ARTWORK">
-				<FontString parentKey="Title" inherits="GameFontHighlight">
-					<Size x="250"/>
-					<Anchors>
-						<Anchor point="TOP" y="-20"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-		</Layers>
 		<Frames>
-			<Frame parentKey="Border" inherits="DialogBorderDarkTemplate"/>
-
-			<Frame parentKey="ContentArea">
-				<Anchors>
-					<Anchor point="TOPLEFT" x="40" y="-40"/>
-					<Anchor point="BOTTOMRIGHT" x="-40" y="25"/>
-				</Anchors>
-			</Frame>
 
 			<ScrollFrame parentKey="Output" inherits="InputScrollFrameTemplate">
 				<KeyValues>

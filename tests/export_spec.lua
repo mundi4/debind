@@ -238,50 +238,6 @@ return function(DebindPrivate, DebindStorage)
         check(AllActions(payload)[1].key == "F", "남은 키");
     end);
 
-    -- **The set is what has to survive**, not the key. A conditional binding is several actions
-    -- that only mean something together, so dropping the key outright would hand the reader a loose
-    -- pile they cannot put back - and a wrong guess is silent, since two actions meant to share a
-    -- key end up on two and both fire.
-    test("키를 빼도 묶음은 살아남는다", function()
-        ResetProfile({
-            general = {
-                { type = Constants.SPELL, value = 1, key = "F", combat = true },
-                { type = Constants.SPELL, value = 2, key = "F" },
-                { type = Constants.SPELL, value = 3, key = "G" },
-            },
-        });
-
-        local payload = DebindStorage.BuildExportPayload(nil, { stripKeys = true });
-        local keys = {};
-        for _, action in ipairs(AllActions(payload)) do
-            check(type(action.key) == "number", "합성 키가 숫자가 아니다");
-            keys[action.value] = action.key;
-        end
-        -- It has to still be 2 + 1, not one loose pile of actions.
-        check(#GroupFor(payload, keys[1]) == 2, "묶음이 풀렸다");
-        check(#GroupFor(payload, keys[3]) == 1, "안 묶인 것이 묶였다");
-    end);
-
-    -- **A never-bound action goes out with no key at all**, which is what says it was in nobody's
-    -- set. Given a synthetic key it would arrive headed as a group whose key was withheld, and ask
-    -- the reader what key something the sender does not use deserves.
-    test("원래 키가 없던 액션은 합성 키도 안 받는다", function()
-        ResetProfile({
-            general = {
-                { type = Constants.SPELL, value = 1, key = "F" },
-                { type = Constants.SPELL, value = 2 },
-            },
-        });
-
-        for _, action in ipairs(AllActions(DebindStorage.BuildExportPayload(nil, { stripKeys = true }))) do
-            if (action.value == 2) then
-                check(action.key == nil, "안 묶였던 것에 키가 붙었다: " .. tostring(action.key));
-            else
-                check(type(action.key) == "number", "합성 키를 못 받았다");
-            end
-        end
-    end);
-
     ---------------------------------------------------------------------------
     -- Action fields
     ---------------------------------------------------------------------------
@@ -712,26 +668,6 @@ return function(DebindPrivate, DebindStorage)
         local actions = DebindStorage.BuildExportPayload().shared.GENERAL;
         check(#actions == 2, "액션 수 " .. #actions);
         check(actions[1].key == "F" and actions[2].key == "F", "키가 액션에 없다");
-    end);
-
-    test("키를 빼면 숫자 키가 실린다", function()
-        ResetProfile({
-            general = {
-                { type = Constants.SPELL, value = 1, key = "F", combat = true },
-                { type = Constants.SPELL, value = 2, key = "F" },
-                { type = Constants.SPELL, value = 3, key = "G" },
-            },
-        });
-
-        local actions = DebindStorage.BuildExportPayload(nil, { stripKeys = true }).shared.GENERAL;
-        local byValue = {};
-        for _, action in ipairs(actions) do
-            check(type(action.key) == "number",
-                "합성 키가 숫자가 아니다: " .. type(action.key));
-            byValue[action.value] = action.key;
-        end
-        check(byValue[1] == byValue[2], "한 키였던 둘이 갈렸다");
-        check(byValue[1] ~= byValue[3], "다른 키였던 것이 합쳐졌다");
     end);
 
     test("seq가 선에 실린다", function()

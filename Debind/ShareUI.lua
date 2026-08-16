@@ -280,7 +280,6 @@ function DebindExportPanelMixin:OnLoad()
     -- list.
 
     self.SelectAllCheck.Text:SetText(LLL["EXPORT_SELECT_ALL"]);
-    self.StripKeysCheck.Text:SetText(LLL["EXPORT_STRIP_KEYS"]);
     self.GenerateButton:SetText(LLL["EXPORT_GENERATE"]);
 
     --- Which actions go. Keyed by the action table itself, so it survives the list being rebuilt
@@ -302,14 +301,9 @@ function DebindExportPanelMixin:OnLoad()
     -- element's *own* mixin, so naming the frame's method on a plain Blizzard template finds
     -- nothing. List rows are the other way round: those carry a mixin, so `method=` is right there.
     self.SelectAllCheck:SetScript("OnClick", function() self:OnSelectAllClicked(); end);
-    self.StripKeysCheck:SetScript("OnClick", function() self:OnStripKeysClicked(); end);
-    self.StripKeysCheck:SetScript("OnEnter", function() self:OnStripKeysEnter(); end);
-    self.StripKeysCheck:SetScript("OnLeave", function() self:OnStripKeysLeave(); end);
     self.GenerateButton:SetScript("OnClick", function() self:OnGenerateClicked(); end);
 
     NormalizeCheckMark(self.SelectAllCheck);
-    NormalizeCheckMark(self.StripKeysCheck);
-    ExtendHitRectOverLabel(self.StripKeysCheck);
 end
 
 function DebindExportPanelMixin:InitializeScrollBox()
@@ -555,32 +549,13 @@ function DebindExportPanelMixin:OnSelectAllClicked()
     self:SelectAll(CombineState(self:EnumerateListedActions(), self.selected) ~= STATE_ALL);
 end
 
---- Toggling this changes what the string would contain, so a string already on screen stops being
---- the one this window would produce.
-function DebindExportPanelMixin:OnStripKeysClicked()
-    DropStaleString();
-end
-
-function DebindExportPanelMixin:OnStripKeysEnter()
-    GameTooltip:SetOwner(self.StripKeysCheck, "ANCHOR_RIGHT");
-    GameTooltip_SetTitle(GameTooltip, LLL["EXPORT_STRIP_KEYS"]);
-    GameTooltip_AddNormalLine(GameTooltip, LLL["EXPORT_STRIP_KEYS_DESC"]);
-    GameTooltip:Show();
-end
-
-function DebindExportPanelMixin:OnStripKeysLeave()
-    GameTooltip:Hide();
-end
-
 
 --------------------------------------------------------------------------------
 -- The string
 --------------------------------------------------------------------------------
 
 function DebindExportPanelMixin:OnGenerateClicked()
-    local str, reason = Store().ExportSelection(self.selected, {
-        stripKeys = self.StripKeysCheck:GetChecked(),
-    });
+    local str, reason = Store().ExportSelection(self.selected);
 
     if (not str) then
         -- The one failure that can reach here is a missing library, which means a broken install
@@ -643,13 +618,8 @@ end
 DebindCopyFrameMixin = {};
 
 function DebindCopyFrameMixin:OnLoad()
-    self.Title:SetText(LLL["EXPORT_COPY_TITLE"]);
+    self:InitDialog(LLL["EXPORT_COPY_TITLE"]);
     self.CloseDialogButton:SetScript("OnClick", function() self:Hide(); end);
-
-    -- Dragged from anywhere on itself: the chrome this dialog wears has no title bar to grab.
-    self:RegisterForDrag("LeftButton");
-    self:SetScript("OnDragStart", self.StartMoving);
-    self:SetScript("OnDragStop", self.StopMovingOrSizing);
 
     local editBox = self.Output.EditBox;
     editBox:SetFontObject(ChatFontNormal);
@@ -661,8 +631,6 @@ function DebindCopyFrameMixin:OnLoad()
         editBox:ClearFocus();
         self:Hide();
     end);
-
-    tinsert(UISpecialFrames, self:GetName());
 end
 
 --- Puts the string up, selected, with the cursor already in it: the whole dialog exists so that

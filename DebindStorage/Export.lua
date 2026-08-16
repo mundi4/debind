@@ -62,7 +62,7 @@ local ACTION_FIELDS      = {
     type = "string",
     -- A spell or item id, or a macro name, or a macro body.
     value = "number|string",
-    -- A binding string, or the number a key-less set travels under (`KeyRenamer`).
+    -- A binding string, or the number a key group the sender never bound travels under.
     key = "string|number",
     seq = "number",
     name = "string",
@@ -377,49 +377,11 @@ end
 --- idea written down twice.
 ---
 --- **A synthetic key is not this.** No badge means the set is the sender's, and "a key group I have
---- not given a key to" is a fact about their setup worth carrying (`KeyRenamer`).
+--- not given a key to" is a fact about their setup worth carrying.
 function DebindStorage.IsExportable(action)
     return action.imported == nil;
 end
 
-
--- ---------------------------------------------------------------------------------------------
--- Leaving the keys out
--- ---------------------------------------------------------------------------------------------
-
---- Hands out the synthetic keys "export without the keys" replaces the real ones with.
----
---- **The option renames a key, it does not remove one.** A conditional binding is several actions
---- that only mean anything as a set, and dropping the key outright is what turns that set into a
---- loose pile the reader cannot put back together. Same key in, same key out, so the grouping needs
---- nothing declared anywhere: it *is* the key.
----
---- **A number, and the type is the whole test.** A string prefix (`export#1`) would be a key that
---- looks like a key -- one guard missed and it is drawn as though the reader had bound it -- while
---- a number cannot be a binding string at all, so the same slip is loud: `GetBindingText` and
---- `SetBindingClick` have nothing to do with one. `devdocs/building-export-import.md`.
----
---- Numbered in the order the walk meets them, which is stable for an unedited profile. The value
---- means nothing outside this one string -- the reader hands out their own on the way in, because
---- two strings waiting at once would both start at 1.
-local function KeyRenamer()
-    local renamed, next = {}, 1;
-    return function(key)
-        if (key == nil) then
-            -- **An action that never had a key goes out without one**, and the rule "a set nobody
-            -- bound gets no group" stops being a rule and becomes the shape: with no key it is in
-            -- nobody's key group.
-            return nil;
-        end
-        local synthetic = renamed[key];
-        if (not synthetic) then
-            synthetic = next;
-            renamed[key] = synthetic;
-            next = next + 1;
-        end
-        return synthetic;
-    end
-end
 
 
 -- ---------------------------------------------------------------------------------------------
@@ -439,8 +401,14 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- badges off - a badge can come off, or land, while this one stands open holding a stale set.
 --- A key can therefore go out half, and that is right: the badged one is not part of the setting yet.
 ---
---- `options.stripKeys` is "send the actions, not my keybinds": every key is replaced by a synthetic
---- one (`KeyRenamer`), so nothing is lost but the key itself.
+--- **The sender's keys go out as they are.** There used to be an option to replace them with
+--- synthetic ones, and nothing was left for it to do: the receiving side renames every arriving key
+--- anyway, so ticking it only withheld which key the sender had it on. Somebody who hands their
+--- setup to another player is showing it off, and the keys are the part worth showing -- they are
+--- not a name, a realm, or anything else a string pasted into a public channel should not carry.
+---
+--- A number still travels: that is a key group the sender has not given a key to, which is a fact
+--- about their setup rather than something withheld.
 ---
 --- **Emitted in storage order, one layer at a time.** Which of a key's actions goes first travels as
 --- `seq`, so the array is not carrying that and does not have to be sorted to say it; and storage
@@ -452,8 +420,7 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- it in red and the user deletes it, and that one rule is what removes a whole class of
 --- questions about spells the reader does not have. Where the red text cannot in fact see the
 --- breakage, the format carries the answer instead -- see `SnapshotMacro` and `NormalizeAction`.
-function DebindStorage.BuildExportPayload(selection, options)
-    local renameKey = (options and options.stripKeys) and KeyRenamer() or nil;
+function DebindStorage.BuildExportPayload(selection)
 
     local payload = {
         v = SCHEMA_VERSION,
@@ -475,9 +442,6 @@ function DebindStorage.BuildExportPayload(selection, options)
 
                 local copy = CopyFields(action, ACTION_FIELDS);
                 NormalizeAction(action, copy);
-                if (renameKey) then
-                    copy.key = renameKey(action.key);
-                end
 
                 bucket[#bucket + 1] = copy;
                 exported[#exported + 1] = copy;
@@ -568,6 +532,6 @@ function DebindStorage.DecodeExportString(str)
 end
 
 --- What the window calls: selection in, string out.
-function DebindStorage.ExportSelection(selection, options)
-    return DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload(selection, options));
+function DebindStorage.ExportSelection(selection)
+    return DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload(selection));
 end

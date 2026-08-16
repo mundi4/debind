@@ -938,9 +938,22 @@ end
 --- writing a second wording anywhere is how one window came to say two things about one state once
 --- already. `GetBindingText` is not asked -- a number is not a binding string, and this is the guard
 --- that keeps it from being handed one.
-function DebindPrivate.GetKeyDisplayText(key)
+---
+--- `from` is the key it arrived on, which is `action.imported` for anything that came in a string.
+--- The number is the key itself, which is what makes this answerable from anywhere the display text
+--- is wanted -- the heading, a row's key cell, a tooltip -- without any of them knowing what else is
+--- on screen. A position among the waiting sets would need that, and would move under the reader
+--- when a neighbour is accepted.
+---
+--- **The badge is `true` when it arrived on no key at all**, so this asks for a string rather than
+--- for truth -- handing `true` to `GetBindingText` would be the sort of thing that only shows up on
+--- somebody else's screen.
+function DebindPrivate.GetKeyDisplayText(key, from)
     if (type(key) == "number") then
-        return format(L["KEY_GROUP_UNKNOWN_KEY"], key);
+        if (type(from) == "string") then
+            return format(L["KEY_GROUP_IMPORTED_FROM"], key, GetBindingText(from));
+        end
+        return format(L["KEY_GROUP_IMPORTED"], key);
     end
     return GetBindingText(key);
 end

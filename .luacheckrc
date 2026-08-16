@@ -298,6 +298,7 @@ globals = {
 	"SlashCmdList",
 
 	-- Mixin globals (for XML templates)
+	"DebindDialogMixin",
 	"DebindLineMixin",
 	"DebindKeyHeaderMixin",
 	"DebindOrderLineMixin",

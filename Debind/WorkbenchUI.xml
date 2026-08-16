@@ -247,8 +247,8 @@
 		second field being a label **the receiving player types**: theirs names the loadout, ours says
 		where it came from. What is taken from it:
 
-		  the chrome itself - `DialogBorderDarkTemplate` over a centred `GameFontHighlight` title,
-		    with no title bar and no close X, and a `ContentArea` inset 40 / -40 / -40 / 25
+		  the chrome itself, which is now `DebindDialogTemplate` and shared with the other two
+		    dialogs rather than written out here
 		  a caption over the big box, `GameFontNormal`, rather than a box with nothing said about it
 		  the instruction **inside** the box as placeholder text, so it costs no height once typing starts
 		  the second field running the full width, not a short box under a wide one
@@ -261,29 +261,20 @@
 		Their two control frames are not copied, only the geometry they produce: a container apiece
 		to hold a label is structure bought for nothing when the label can hang off what it captions.
 	-->
-	<Frame name="DebindPasteFrame" parent="UIParent" frameStrata="FULLSCREEN_DIALOG"
-		enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
-		mixin="DebindPasteFrameMixin">
+	<Frame name="DebindPasteFrame" inherits="DebindDialogTemplate" mixin="DebindPasteFrameMixin">
 		<Size x="460" y="315"/>
-		<Anchors>
-			<Anchor point="CENTER"/>
-		</Anchors>
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString parentKey="Title" inherits="GameFontHighlight">
-					<Size x="250"/>
+				<!-- Hung off the template's content rectangle, which is what every dialog places against. -->
+				<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="TOP" y="-20"/>
+						<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT"/>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT"/>
 					</Anchors>
 				</FontString>
 			</Layer>
 		</Layers>
 		<Frames>
-			<!--
-				Border and background in one, and `useParentLevel` so the title above still draws
-				over it rather than under.
-			-->
-			<Frame parentKey="Border" inherits="DialogBorderDarkTemplate"/>
 
 			<!--
 				Everything below is placed against this rather than against the frame, which is what
@@ -293,23 +284,6 @@
 				width, so it needs this rectangle to point at - and a layer of the frame is read
 				before this frame exists, so an anchor to it would be dropped without a word.
 			-->
-			<Frame parentKey="ContentArea">
-				<Anchors>
-					<Anchor point="TOPLEFT" x="40" y="-40"/>
-					<Anchor point="BOTTOMRIGHT" x="-40" y="25"/>
-				</Anchors>
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="InputLabel" inherits="GameFontNormal" justifyH="LEFT">
-							<Anchors>
-								<Anchor point="TOPLEFT"/>
-								<Anchor point="TOPRIGHT"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-			</Frame>
-
 			<!--
 				100 tall is the game's number for the same box. The placeholder inside it is set from
 				Lua (`InputScrollFrame_SetInstructions`) and not by the `instructions` KeyValue the
@@ -321,8 +295,8 @@
 				</KeyValues>
 				<Size y="100"/>
 				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea.InputLabel" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
-					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea.InputLabel" relativePoint="BOTTOMRIGHT" x="0" y="-10"/>
+					<Anchor point="TOPLEFT" relativeKey="$parent.InputLabel" relativePoint="BOTTOMLEFT" x="0" y="-10"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.InputLabel" relativePoint="BOTTOMRIGHT" x="0" y="-10"/>
 				</Anchors>
 			</ScrollFrame>
 
@@ -416,61 +390,28 @@
 		A dialog rather than a popup, so it can be moved off whatever the reader wants to look at
 		while deciding - the same reason the paste box is one.
 	-->
-	<Frame name="DebindBringFrame" inherits="BasicFrameTemplateWithInset" parent="UIParent"
-		frameStrata="FULLSCREEN_DIALOG" enableMouse="true" hidden="true" movable="true"
-		clampedToScreen="true" mixin="DebindBringFrameMixin">
+	<Frame name="DebindBringFrame" inherits="DebindDialogTemplate" mixin="DebindBringFrameMixin">
 		<Size x="340" y="220"/>
-		<Anchors>
-			<Anchor point="CENTER"/>
-		</Anchors>
 		<Frames>
 			<!--
 				Right to left, and each declared before whatever leans on it: `relativeKey` is
 				resolved as the frame is built, so a key declared later is nil and the anchor is
 				dropped without a word.
 			-->
-			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
-				<Size x="100" y="22"/>
-				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-14" y="14"/>
-				</Anchors>
-			</Button>
-
 			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
 				<Size x="120" y="22"/>
 				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.CancelButton" relativePoint="LEFT" x="-6" y="0"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>
 				</Anchors>
 			</Button>
 
-			<!--
-				**The receiving end of "leave the keys out".** Quarantine already promises that
-				nothing changes until the reader accepts; this promises their keys are not touched
-				even then.
+			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="22"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="5" y="0"/>
+				</Anchors>
+			</Button>
 
-				Set off from the lines above it, because it is not one of them: those say *which of
-				this string to take*, this says *what to do with what is taken*. **A gap does that
-				and a rule is not needed** - there are two things to tell apart, and one of them is
-				a single row at the end.
-
-				Hidden for a string that came without keys (`hasKeys`, counted at paste time) - a
-				control with nothing to switch off would also read as "the keys are still in there".
-
-				**Placed from Lua, not here**: everything down to this point moves with how many
-				lines the string stood, and this one leaves the layout entirely when it is hidden.
-			-->
-			<CheckButton parentKey="StripKeysButton" inherits="MinimalCheckboxArtTemplate">
-				<Size x="22" y="22"/>
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="Label" inherits="GameFontHighlightSmall" justifyH="LEFT">
-							<Anchors>
-								<Anchor point="LEFT" relativePoint="RIGHT" x="2" y="0"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
-			</CheckButton>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

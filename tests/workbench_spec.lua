@@ -379,20 +379,6 @@ return function(DebindPrivate, DebindStorage)
         check(batch.class == CLASS, "보낸 쪽 클래스");
     end);
 
-    -- **The type of the key is the whole question**, and the control the drawer puts on the row
-    -- depends on it: a string sent with the keys left out carries a key on every action and still
-    -- has none to leave out.
-    test("숫자 키만 있는 문자열은 뺄 키가 없다고 답한다", function()
-        ResetDrawer();
-        local stripped = "DEB1:키없음";
-        STORED[stripped] = Payload({ { scope = "general", key = 1, count = 2 } });
-        check(DebindStorage.AddBatch(stripped).hasKeys == false, "숫자 키를 실키로 셌다");
-
-        local real = "DEB1:키있음";
-        STORED[real] = Payload({ { scope = "general", key = "F", count = 2 } });
-        check(DebindStorage.AddBatch(real).hasKeys == true, "실키를 못 봤다");
-    end);
-
     -- Refused where the user is looking at it, rather than becoming a row that fails every time it
     -- is opened.
     test("못 읽는 문자열은 서랍에 안 들어간다", function()

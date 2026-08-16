@@ -75,8 +75,8 @@ return function(DebindPrivate, DebindStorage)
     end
 
     --- Plans a payload holding exactly one action and hands it back.
-    local function PlanOne(payload, batchID)
-        local placements = DebindStorage.PlanImport(payload, batchID or 1);
+    local function PlanOne(payload)
+        local placements = DebindStorage.PlanImport(payload);
         check(#placements == 1, "액션 수 " .. #placements);
         return placements[1].action, placements[1];
     end
@@ -91,26 +91,60 @@ return function(DebindPrivate, DebindStorage)
         local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 2, key = "F", seq = 2 },
-        }), 9);
+        }));
 
         check(#placements == 2, "액션 수");
         for _, placement in ipairs(placements) do
-            check(placement.action.imported == 9,
+            check(placement.action.imported ~= nil,
                 "배지가 없다 - 이 액션은 들어가는 순간 키에 걸린다");
         end
     end);
 
-    -- The key is on the action and it **is** the group: two actions carrying one key are one set,
-    -- and nothing anywhere has to declare that.
-    test("실키는 그대로 들어온다", function()
+    -- **Nothing arrives on a key the reader already uses.** The key is the group, so landing on an
+    -- occupied one is not a merge that can be undone later -- the two sets become one set and no
+    -- field anywhere records which member came from where. Sending it to a synthetic key keeps the
+    -- arrival whole and keeps the reader's own group untouched, which is what lets the decision be
+    -- theirs to make afterwards.
+    test("실키를 달고 와도 숫자 키로 앉는다", function()
+        ResetProfile();
         local action = PlanOne(General({
             { type = Constants.SPELL, value = 774, key = "SHIFT-G", seq = 1 } }));
-        check(action.key == "SHIFT-G", "키 " .. tostring(action.key));
+        check(type(action.key) == "number", "실키로 앉았다: " .. tostring(action.key));
     end);
 
-    test("키 없이 온 액션은 키 없이 들어간다", function()
+    -- The grouping is the thing being protected, so it has to survive the renaming.
+    test("한 키에 있던 것들은 한 숫자 키로 같이 앉는다", function()
+        ResetProfile();
+        local placements = DebindStorage.PlanImport(General({
+            { type = Constants.SPELL, value = 1, key = "G", seq = 1 },
+            { type = Constants.SPELL, value = 2, key = "G", seq = 2 },
+            { type = Constants.SPELL, value = 3, key = "H", seq = 1 },
+        }));
+
+        local byValue = {};
+        for _, placement in ipairs(placements) do
+            byValue[placement.action.value] = placement.action.key;
+        end
+        check(byValue[1] == byValue[2], "한 키였던 둘이 갈렸다");
+        check(byValue[1] ~= byValue[3], "다른 키였던 것이 합쳐졌다");
+    end);
+
+    -- **The badge carries where it came from.** Nothing reads the batch number this used to hold -
+    -- it was written and never asked about - and the arrival key is what the heading needs to say
+    -- which key the sender had it on, and what the accept flow offers as the default. One field, so
+    -- taking the badge off takes the hint with it and neither can outlive the other.
+    test("도착한 키가 배지에 남는다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 774, key = "SHIFT-G", seq = 1 } }));
+        check(action.imported == "SHIFT-G", "도착 키가 안 남았다: " .. tostring(action.imported));
+    end);
+
+    test("키 없이 온 것은 키 없이 들어가고 배지는 true다", function()
+        ResetProfile();
         local action = PlanOne(General({ { type = Constants.SPELL, value = 774 } }));
         check(action.key == nil, "없던 키가 생겼다");
+        check(action.imported == true, "배지 값이 다르다: " .. tostring(action.imported));
     end);
 
     ---------------------------------------------------------------------------
@@ -126,12 +160,12 @@ return function(DebindPrivate, DebindStorage)
         local first = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 1, key = 1, seq = 1 },
             { type = Constants.SPELL, value = 2, key = 2, seq = 1 },
-        }), 1);
+        }));
         DebindPrivate.PlaceImportedActions(first);
 
         -- A second string, whose own numbering starts over at 1.
         local second = DebindStorage.PlanImport(General({
-            { type = Constants.SPELL, value = 3, key = 1, seq = 1 } }), 2);
+            { type = Constants.SPELL, value = 3, key = 1, seq = 1 } }));
 
         local taken = {};
         for _, placement in ipairs(first) do
@@ -149,7 +183,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SPELL, value = 1, key = 4, seq = 1 },
             { type = Constants.SPELL, value = 2, key = 7, seq = 1 },
             { type = Constants.SPELL, value = 3, key = 4, seq = 2 },
-        }), 1);
+        }));
 
         local byValue = {};
         for _, placement in ipairs(placements) do
@@ -170,7 +204,7 @@ return function(DebindPrivate, DebindStorage)
             v = 1, class = CLASS,
             shared = { classes = { MAGE = { [2] = {
                 { type = Constants.SPELL, value = 1, key = 1, seq = 1 } } } } },
-        }, 1);
+        });
         DebindPrivate.PlaceImportedActions(mage);
 
         -- The premise: it really did land somewhere the layer view does not reach.
@@ -188,44 +222,11 @@ return function(DebindPrivate, DebindStorage)
         check(seen == 0, "전제가 틀렸다 - 이 캐릭터의 레이어에서 " .. seen .. "개가 보인다");
 
         local next2 = DebindStorage.PlanImport(General({
-            { type = Constants.SPELL, value = 2, key = 1, seq = 1 } }), 2);
+            { type = Constants.SPELL, value = 2, key = 1, seq = 1 } }));
         check(next2[1].action.key ~= mage[1].action.key,
             "안 보이는 번호를 재사용했다: " .. tostring(next2[1].action.key));
     end);
 
-    -- **The receiving end of "leave the keys out".** Quarantine says nothing changes until the
-    -- reader accepts; this says their keys are not touched even then. Wanting somebody's actions
-    -- without their keybinds is ordinary, and until now it could only be had by asking the sender
-    -- to tick the box.
-    --
-    -- **The grouping has to survive it.** Renaming the key rather than dropping it is what does
-    -- that - a key split across conditional actions still has to arrive as one thing to give a key
-    -- to.
-    test("키를 빼고 가져오면 숫자 키로 바뀌고 묶음은 남는다", function()
-        ResetProfile();
-
-        local placements = DebindStorage.PlanImport(General({
-            { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
-            { type = Constants.SPELL, value = 2, key = "F", seq = 2 },
-            { type = Constants.SPELL, value = 3, key = "G", seq = 1 },
-        }), 1, { stripKeys = true });
-
-        local byValue = {};
-        for _, placement in ipairs(placements) do
-            check(type(placement.action.key) == "number",
-                "실키가 남았다: " .. tostring(placement.action.key));
-            byValue[placement.action.value] = placement.action.key;
-        end
-        check(byValue[1] == byValue[2], "한 키였던 둘이 갈렸다");
-        check(byValue[1] ~= byValue[3], "다른 키였던 것이 합쳐졌다");
-    end);
-
-    test("키 없이 온 것은 키를 빼도 여전히 키가 없다", function()
-        ResetProfile();
-        local action = PlanOne(General({ { type = Constants.SPELL, value = 1 } }));
-        check(action.key == nil, "안 묶였던 것에 키가 붙었다: " .. tostring(action.key));
-        check(action.imported ~= nil, "배지는 그대로 있어야 한다");
-    end);
 
     ---------------------------------------------------------------------------
     -- The order inside a group
@@ -240,7 +241,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SPELL, value = 11, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 22, key = "F", seq = 2 },
             { type = Constants.SPELL, value = 33, key = "F", seq = 3 },
-        }), 1);
+        }));
 
         check(#placements == 3, "액션 수 " .. #placements);
         for i, placement in ipairs(placements) do
@@ -267,7 +268,10 @@ return function(DebindPrivate, DebindStorage)
               somethingANewerSchemaAdded = true } }));
         check(action.somethingANewerSchemaAdded == nil,
             "모르는 선 필드가 프로필까지 들어왔다");
-        check(action.value == 774 and action.key == "F", "명단에 있는 것은 들어와야 한다");
+        -- `key` is on the list too; it arrives and is then renamed, so a number here is what
+        -- "it came through" looks like now.
+        check(action.value == 774 and type(action.key) == "number",
+            "명단에 있는 것은 들어와야 한다");
     end);
 
     test("$상태 조건은 명단에 없어도 통과한다", function()
@@ -292,7 +296,7 @@ return function(DebindPrivate, DebindStorage)
             5,
             { type = Constants.SPELL, value = 1, key = "F", seq = 1 },
             "쓰레기",
-        }), 1);
+        }));
         check(#placements == 1, "액션 수 " .. #placements);
         check(placements[1].action.value == 1, "엉뚱한 것이 들어왔다");
     end);
@@ -346,7 +350,7 @@ return function(DebindPrivate, DebindStorage)
         check(action.priority == nil, "priority " .. tostring(action.priority));
         check(action.checkedUnits == nil, "checkedUnits " .. tostring(action.checkedUnits));
         check(action.forms == nil, "forms " .. tostring(action.forms));
-        check(action.value == 774 and action.key == "F", "멀쩡한 필드까지 걸렀다");
+        check(action.value == 774 and type(action.key) == "number", "멀쩡한 필드까지 걸렀다");
     end);
 
     -- **타입 선언이 틀리면 실패가 조용하다.** 멀쩡한 필드가 임포트에서 걸러지고, 받는 쪽은
@@ -405,7 +409,11 @@ return function(DebindPrivate, DebindStorage)
         local action = PlanOne(General({ sent }));
         for field, want in pairs(REAL_VALUES) do
             local got = action[field];
-            if (type(want) == "table") then
+            if (field == "key") then
+                -- The one field that does not arrive as it was sent: every key is renamed on the
+                -- way in, so what this table can still say about it is that it got through.
+                check(type(got) == "number", "key가 안 왔다: " .. tostring(got));
+            elseif (type(want) == "table") then
                 check(type(got) == "table", field .. "이 테이블로 안 왔다: " .. tostring(got));
             else
                 check(got == want, field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));
@@ -418,14 +426,17 @@ return function(DebindPrivate, DebindStorage)
     -- 그대로 들고 저장된다. `CleanUpDB`는 nil과 중복만 고치지 그 범위는 안 걷어낸다.
     test("망가진 seq가 있어도 배치가 반쯤 끝나지 않는다", function()
         ResetProfile();
-        DebindPrivate.PlaceImportedActions(DebindStorage.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 20, key = "F", seq = {} },
             { type = Constants.SPELL, value = 30, key = "F", seq = 3 },
-        }), 1));
+        }));
+        -- The key they landed on is ours, not the "F" they were sent with.
+        local key = placements[1].action.key;
+        DebindPrivate.PlaceImportedActions(placements);
 
         local placed = 0;
-        for _, row in ipairs(DebindPrivate.CollectActionsForKey("F")) do
+        for _, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
             placed = placed + 1;
             check(type(row.action.seq) == "number" and row.action.seq < 1000,
                 "도착 밴드가 저장에 남았다: " .. tostring(row.action.seq));
@@ -451,12 +462,16 @@ return function(DebindPrivate, DebindStorage)
                 classes = { [CLASS] = { [0] = {
                     { type = Constants.SPELL, value = 2, key = "F", seq = 1 } } } },
             },
-        }, 1);
+        });
 
         check(#placements == 2, "액션 수 " .. #placements);
-        local scopes = {};
+        local scopes, oneKey = {}, nil;
         for _, placement in ipairs(placements) do
-            check(placement.action.key == "F", "키가 갈렸다");
+            -- One key on the wire has to stay one key here, whatever it got renamed to. Two
+            -- numbers would head the same set twice and give the reader two decisions to make
+            -- about one thing.
+            oneKey = oneKey or placement.action.key;
+            check(placement.action.key == oneKey, "키가 갈렸다");
             scopes[placement.scope] = placement;
         end
         check(scopes.general, "일반 자리에 안 갔다");
@@ -492,7 +507,7 @@ return function(DebindPrivate, DebindStorage)
                 GENERAL = { { type = Constants.SPELL, value = 2 } },
                 classes = { NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } } },
             },
-        }, 1);
+        });
         check(#placements == 1, "빠뜨릴 것을 안 빠뜨렸다");
         check(skipped == 1, "안 센다 - 조용히 사라진다");
     end);
@@ -509,7 +524,7 @@ return function(DebindPrivate, DebindStorage)
                 GENERAL = { { type = Constants.SPELL, value = 1 } },
                 classes = { [CLASS] = { [0] = { { type = Constants.SPELL, value = 2 } } } },
             },
-        }, 1, { lines = { ["shared.general"] = true } });
+        }, { lines = { ["shared.general"] = true } });
 
         check(#placements == 1, "고른 줄만 들어와야 한다: " .. #placements);
         check(placements[1].scope == "general", "엉뚱한 줄이 들어왔다");
@@ -528,7 +543,7 @@ return function(DebindPrivate, DebindStorage)
                 GENERAL = { { type = Constants.SPELL, value = 2 } },
                 classes = { NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } } },
             },
-        }, 1, { lines = { ["shared.general"] = true } });
+        }, { lines = { ["shared.general"] = true } });
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 1, "안 센다 - 조용히 사라진다: " .. skipped);
@@ -544,7 +559,7 @@ return function(DebindPrivate, DebindStorage)
             shared = { GENERAL = { { type = Constants.SPELL, value = 3 } } },
             char = { [5] = { { type = Constants.SPELL, value = 1 },
                              { type = Constants.SPELL, value = 2 } } },
-        }, 1, { lines = { ["shared.general"] = true } });
+        }, { lines = { ["shared.general"] = true } });
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 2, "못 놓은 둘을 안 세었다: " .. skipped);
@@ -657,14 +672,14 @@ return function(DebindPrivate, DebindStorage)
     test("놓으면 그 레이어에 서고 순서 번호를 받는다", function()
         ResetProfile();
         local placements = DebindStorage.PlanImport(General({
-            { type = Constants.SPELL, value = 774, key = "F", seq = 1 } }), 5);
+            { type = Constants.SPELL, value = 774, key = "F", seq = 1 } }));
 
         DebindPrivate.PlaceImportedActions(placements);
 
         local layer = DebindPrivate.GetProfileLayer(1);
         check(layer:GetNumActions() == 1, "레이어에 안 들어감");
         local action = layer:GetAction(1);
-        check(action.imported == 5, "배지가 없다");
+        check(action.imported == "F", "배지가 없다: " .. tostring(action.imported));
         -- **The sender's number does not survive landing.** It is a place inside their layer; this
         -- one hands out its own, which is what makes carrying it on the wire harmless.
         check(action.seq == 1, "이 그룹의 번호가 아니다: " .. tostring(action.seq));
@@ -679,7 +694,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SPELL, value = 30, key = "F", seq = 3 },
             { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
-        }), 1);
+        }));
         DebindPrivate.PlaceImportedActions(placements);
 
         local layer = DebindPrivate.GetProfileLayer(1);
@@ -689,25 +704,38 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
-    -- **The arrival number is what keeps them behind what was already there.** Renumbering alone
-    -- cannot say which of a set is new, so a batch landing on an occupied key has to stand behind
-    -- the reader's own without being told which those are.
-    test("이미 있던 것 뒤에 선다", function()
+    -- **The reader's own key is left exactly as it was.** This is the whole point of renaming every
+    -- arriving key: what used to happen here was a merge, and a merge is the one thing quarantine
+    -- cannot take back. The badge keeps an action from firing, but it does not keep the two sets
+    -- apart -- once both are on F, no field anywhere says which member came from where, and giving
+    -- the arrival its own key later is a decision nobody has the information to make.
+    --
+    -- The test that used to stand here checked the arrival stood *behind* the occupant. That
+    -- contest cannot happen now: the group it lands in is new and empty every time.
+    test("이미 쓰고 있는 키는 건드리지 않는다", function()
         ResetProfile();
         DebindPrivate.GetProfileLayer(1):Insert(
             { type = Constants.SPELL, value = 99, key = "F", seq = 1 });
 
-        DebindPrivate.PlaceImportedActions(DebindStorage.PlanImport(General({
+        local placements = DebindStorage.PlanImport(General({
             { type = Constants.SPELL, value = 10, key = "F", seq = 1 },
             { type = Constants.SPELL, value = 20, key = "F", seq = 2 },
-        }), 1));
+        }));
+        DebindPrivate.PlaceImportedActions(placements);
 
-        local order = {};
+        local mine = {};
         for _, row in ipairs(DebindPrivate.CollectActionsForKey("F")) do
-            order[#order + 1] = row.action.value;
+            mine[#mine + 1] = row.action.value;
         end
-        check(#order == 3 and order[1] == 99 and order[2] == 10 and order[3] == 20,
-            "차례: " .. table.concat(order, " "));
+        check(#mine == 1 and mine[1] == 99, "내 키에 섞였다: " .. table.concat(mine, " "));
+
+        -- And the arrival is still one set, in the order it was sent.
+        local arrived = {};
+        for _, row in ipairs(DebindPrivate.CollectActionsForKey(placements[1].action.key)) do
+            arrived[#arrived + 1] = row.action.value;
+        end
+        check(#arrived == 2 and arrived[1] == 10 and arrived[2] == 20,
+            "묶음이 안 남았다: " .. table.concat(arrived, " "));
     end);
 
     -- **A class this account has never played still has a place.** The address is the store's, not

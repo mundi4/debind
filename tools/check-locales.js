@@ -59,9 +59,6 @@ const PENDING_TRANSLATION = {
     EXPORT_MENU_DESC: ["ruRU"],
     EXPORT_SELECT_ALL: ["ruRU"],
     EXPORT_SELECT_ALL_COUNT: ["ruRU"],
-    EXPORT_STRIP_KEYS: ["ruRU"],
-    EXPORT_STRIP_KEYS_DESC: ["ruRU"],
-    IMPORT_STRIP_KEYS_DESC: ["ruRU"],
     EXPORT_GENERATE: ["ruRU"],
     EXPORT_EMPTY: ["ruRU"],
     EXPORT_ROW_NO_KEY: ["ruRU"],
@@ -99,7 +96,8 @@ const PENDING_TRANSLATION = {
     ORDER_ACCEPT_DESC: ["ruRU"],
     LINE_TOOLTIP_IMPORTED: ["ruRU"],
     // The header over an arrival group in the overview, once keyless sets are shown there.
-    KEY_GROUP_UNKNOWN_KEY: ["ruRU"],
+    KEY_GROUP_IMPORTED: ["koKR", "ruRU"],
+    KEY_GROUP_IMPORTED_FROM: ["koKR", "ruRU"],
     // Putting one key on a whole heading's worth of rows, and the question when that key is taken.
     // Same owner as the rows above.
     KEY_GROUP_SET_KEY: ["ruRU"],
