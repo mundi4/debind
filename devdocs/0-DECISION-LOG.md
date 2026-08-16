@@ -480,4 +480,4 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 문서에 적힌 사유가 결정을 낸 사유와 다를 수 있다는 것이 이 건의 값이다. 넷을 하나씩 따지는
 동안 답은 "그때 무엇을 보고 정했나"에 있었다.
 
-`finding-things-in-the-overview.md` — "접기"
+`navigating-the-overview.md` — "접기"
