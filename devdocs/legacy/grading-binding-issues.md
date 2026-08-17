@@ -1,9 +1,7 @@
 # 문제에 등급을 매기기 (2026-08-17)
 
-> 상태: **결정도 코드도 들어갔다(2026-08-17). 화면 확인만 남았다.** 전부 UI라
-> `npm run check`가 본 것이 없다 — 맨 아래 "확인 방법"이 리로드해서 볼 목록이다.
->
-> 열린 것 하나: Clique 로그인 줄의 **문구**는 안 건드렸다(아래 곁가지 마지막 줄).
+> 상태: **끝났다.** 결정도 코드도 들어갔고(2026-08-17, `ca049b8`+`a57bf10`) 화면 확인까지
+> 소유자가 마쳤다(2026-08-17).
 
 배경은 `reworking-the-overview.md`다 — 이 작업이 어디서 나왔는지와 지금 머리글이 무슨
 색을 왜 쓰는지가 거기 있다.
@@ -84,10 +82,11 @@
 
 기준과 이 사실이 13개 전부에서 일치한다. 서로 다른 두 곳에서 같은 선이 나온 셈이다.
 
-## 등급표 — 승인 대기
+## 등급표 (승인됨, 소유자 2026-08-17)
 
 `Constants.lua`의 선언 순서 그대로. "내는 자리"는 전부 `Misc.lua`의 `GetBindingIssue`(또는 그것이
-부르는 `IsKeyInvalidForAction`)다.
+부르는 `IsKeyInvalidForAction`)다. 코드에는 `Constants.BINDING_ISSUE_GRADES`로 들어갔고,
+읽는 것은 `IsIssueMinor` 하나다.
 
 | 코드 | 등급 | 근거 |
 |---|---|---|
@@ -141,12 +140,14 @@
 했는데, 위 기준 항목의 소유자 지적이 그것도 같이 꺾었다. 처방이 실제로 키에 있으므로 ⚠가 가리키는
 칸도 맞다. 갈래는 그대로 두고 등급이 **색과 세기만** 정한다.
 
-| 자리 (`DebindUI.lua`) | 지금 | 회색 등급일 때 |
-|---|---|---|
-| 단축키 글자 (`DebindLineMixin:Update`) | `ERROR_COLOR` | 안 칠함 |
-| ⚠ `KeyWarning` | 그대로 뜸 | **뜨되 desaturate** |
-| 툴팁 KEY 줄 (`ShowLineTooltip`) | 빨간 에러 줄 | 보통 줄 + 회색 괄호 |
-| 이름 (`ColoredNameAndIconForAction`) | 빨강 | 회색 |
+회색 등급이 걸렸을 때 네 자리가 이렇게 나간다:
+
+| 자리 (`DebindUI.lua`) | |
+|---|---|
+| 이름 (`ColoredNameAndIconForAction`) | 빨강 대신 회색 — 위쪽 "비활성" 회색과 같은 색이다. 충돌이 아니라 같은 말이라서 그렇다 |
+| 단축키 글자 (`DebindLineMixin:Update`) | 안 칠한다 |
+| ⚠ `KeyWarning` | **뜨되 desaturate** |
+| 툴팁 KEY 줄 (`ShowLineTooltip`) | 보통 줄 + 회색 괄호 |
 
 ⚠를 남기는 이유는 그 자리의 주석이 이미 적어둔 것이다 — *색만으로는 색맹에 안 걸리고 어느 칸인지도
 안 말해준다.* desaturate는 같은 함수가 `QuestionMark`에 이미 쓰는 관용이다.
@@ -167,7 +168,7 @@
 
 | | | |
 |---|---|---|
-| `ORDER_FLAG_UNREACHABLE` "실행되지 않음" | **회색** | 이슈 코드가 아니라 `row.unreachable` 필드로 따로 온다. 지금 `ERROR_COLOR`인데 등급에 맞춰 바꾼다 |
+| `ORDER_FLAG_UNREACHABLE` "실행되지 않음" | **회색** | 이슈 코드가 아니라 `row.unreachable` 필드로 따로 온다 |
 | `ORDER_FLAG_ISSUE` "문제 있음" | **빨강** | 나머지 전부 |
 
 - `GetShortIssueText`가 없어진다. **유일한 호출자가 이 칸이다.**
@@ -243,43 +244,48 @@
 - **로그인 이후에 새로 알릴 것이 없다.** 새로 만들면 대상 메뉴의 hover 항목이 빨간 줄로 말하고
   (`DebindUI.lua`의 `UNIT_INFO.hover.tooltipWarning`), 임포트로 들어온 것은 배지를 달고 서 있으며
   승인 전엔 아무것도 안 한다. Clique가 켜지고 꺼지는 것은 리로드를 거치고, 리로드가 곧 로그인이다.
-- **문장은 훑었고, 안 바꿨다.** 지금 *"이 애드온의 일부 기능이 동작하지 않습니다"*가 저렇게 뭉갠
-  것은 Clique만 켜져 있으면 무조건 떠서인데, **뜨는 조건이 좁아져도 이 문장은 거짓이 안 된다** —
-  이제 뜰 때는 언제나 참이다. 더 구체적으로 (*"개체창에 마우스를 올려 쓰는 지정이 동작하지
-  않습니다"* 쪽으로) 쓰는 편이 낫지만 **ruRU가 걸린다**: 이건 이미 세 로케일에 다 있는 키라
-  `check:locales`의 면제 목록이 받아주지 않고, 한 로케일만 옛 문장으로 남으면 아무 검사도 못 잡는
-  어긋남이 된다. **열어둔다.**
+- **문장은 그대로 둔다.** *"이 애드온의 일부 기능이 동작하지 않습니다"*가 저렇게 뭉갠 것은 Clique만
+  켜져 있으면 무조건 떠서였는데, 조건이 좁아지면서 **뜰 때마다 참인 문장이 됐다.** 더 구체적으로
+  쓰자는 안은 접었다 — 얻는 것이 문장의 결이고, 이건 세 로케일에 다 있는 키라 한 쪽만 고치면 아무
+  검사도 못 잡는 어긋남이 남는다.
 - **오버레이/팝업은 안 한다.** `Events.lua`의 주석이 선을 그어뒀다 — 답해야 하는 것은 창이
   오버레이로 받는다. 옛 애드온 충돌은 **우리가 답을 요구하는** 것이고, Clique는 사용자의 선택이라
   우리가 요구할 것이 없다. 프레임 등록도 Clique가 있으면 우리가 물러나면서(`FrameRegistry.lua`)
   팝업으로 붙잡는 것은 태도가 안 맞는다.
 
-## 손대는 자리
+## 들어간 자리
 
-- `Constants.lua` — `BINDING_ISSUE_*` 목록, 등급 테이블, `CLIQUE_DETECTED` 삭제
-- `Misc.lua` — 등급을 묻는 함수
-- `Debind.lua` — `BuildKeyMap`의 `if (not issue ...)`, B로 갈 때만 (**지금은 안 건드린다**)
-- `Profile.lua` — `MakeRow`의 `issue` / `unreachable`
+- `Constants.lua` — `BINDING_ISSUE_GRADES`, `CLIQUE_DETECTED` 삭제
+- `Misc.lua` — `IsIssueMinor`(표를 읽는 유일한 자리), `HasBindingBlockedByClique`
 - `DebindUI.lua` — `ColoredNameAndIconForAction`, `DebindLineMixin:Update`, `ShowLineTooltip`,
-  `GetOrderReasonText`(+`GetShortIssueText` 삭제), `DebindKeyHeaderMixin:Init`
-- `Locales/*.lua` — 죽는 `ORDER_FLAG_*` 11개 × 3
+  `GetOrderReasonText`(+`GetShortIssueText` 삭제), `DebindKeyHeaderMixin:Init`,
+  `BuildKeyboardElements`의 `hasError`
+- `Locales/*.lua` — 죽은 `ORDER_FLAG_*` 11개 × 3, `tools/check-locales.js`의 면제 한 줄
 - `Events.lua` — Clique 로그인 줄의 조건
+- `tests/grade_spec.lua` — 아래 참조
+
+`Profile.lua`와 `Debind.lua`는 **안 건드렸다.** `MakeRow`가 싣는 `issue`/`unreachable` 두 필드도,
+`BuildKeyMap`의 `not issue` 게이트도 그대로다 — A를 고른 값이 그것이었다.
 
 **곁다리 하나:** `DebindLineMixin:Update`가 `?` 색칠을 정하면서 `GetBindingIssue`에 없는 갈래 네 개
 (`combat`/`known`/`stealth`/`pet`)를 묻고 있다. 항상 nil이라 증상은 없다. 이 작업과 무관하므로
 `.zzz/refactor-candidates.md` 40번으로 뺐다.
 
-## 확인 방법
+## 어떻게 확인했나
 
-`npm run check`가 색을 못 본다. 등급이 바뀌면 **리로드해서 눈으로** 봐야 하고, 도달 불가는 같은
-키에 조건 없는 액션을 둘 이상 걸어야 재현된다. `devdocs/testing-a-change.md`를 먼저 읽을 것.
+**등급 자체는 헤드리스가 잡는다** — `tests/grade_spec.lua`. 도달불가만 회색인 것, 모르는 코드와
+nil이 빨강으로 떨어지는 것, **모든 코드에 등급이 적혀 있는 것**(코드를 늘리며 표의 한 줄을
+빠뜨리는 자리), 그리고 Clique 조건 일곱 갈래.
 
-빨강 12개 중 재현이 제일 싼 것은 `GROUPS_NONE_SELECTED`(그룹 조건에서 전부 해제)와
-`UNDEFINED_STATE`(매크로 본문에 `[$없는이름]`)다. `CANNOT_USE_HOVER_WITH_CLIQUE`는
-`DebindCliqueFake`가 아니라 **진짜 Clique**가 있어야 한다 — 우리 쪽 더미는 `CliqueDetected`를
-안 켠다.
+붙이기 전에 뮤테이션으로 빨개지는지 봤다. 등급 비교를 뒤집기 / 표에서 도달불가 줄 지우기 /
+모르는 코드를 회색으로 / 활성 레이어만 훑기 / 키·배지 게이트 제거 / 두 갈래 중 하나만 묻기 —
+여섯 개가 각각 죽었다. **`CliqueDetected` 조기 반환만 안 죽는데 그게 맞다**: `GetBindingIssue`가
+같은 플래그를 보므로 답이 같고, 그 줄은 정확성이 아니라 순회를 건너뛰는 지름길이다(주석에 있다).
 
-리로드해서 볼 것:
+**색은 그 어느 것도 못 본다.** 아래를 리로드해서 눈으로 봤다(소유자, 2026-08-17). 재현이 제일 싼
+것은 `GROUPS_NONE_SELECTED`(그룹 조건 전부 해제)와 `UNDEFINED_STATE`(매크로 본문에 `[$없는이름]`)고,
+`CANNOT_USE_HOVER_WITH_CLIQUE`는 `DebindCliqueFake`가 아니라 **진짜 Clique**가 있어야 한다 —
+우리 쪽 더미는 `CliqueDetected`를 안 켠다.
 
 1. **조건을 하나도 안 고른 액션**(그룹 조건 전부 해제). 사유 칸이 `문제 있음` 빨강 하나로
    바뀌었나 — 예전의 `그룹 선택 안 됨`이 아니라. 툴팁의 **그룹 줄 밑에는** 긴 문장이 그대로

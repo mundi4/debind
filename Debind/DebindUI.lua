@@ -5735,7 +5735,8 @@ end
 --- the two of them can be looked at side by side. `DebindFrameMixin:BeginKeyGroupCapture` and
 --- everything reading `_keyGroupCapture` -- the overlay's `BIND_MODE_KEY_GROUP` sentence, the
 --- branches in `BindMode_OnInput` and `BindMode_OnKeyDown` -- are left standing and are unreachable
---- while this line says `Open`. Whichever shape wins, the other one goes.
+--- while this line says `Open`. Whichever shape wins, the other one goes; what has to be decided and
+--- what is still unseen are in `devdocs/asking-for-a-key.md`.
 ---
 --- The answer path is shared either way: the dialog hands back a key or `nil`, and what happens to
 --- the group after that is the same code the mode reaches.

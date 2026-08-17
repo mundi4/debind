@@ -194,7 +194,7 @@ Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
 -- colour of a new issue is decided by adding a row below rather than by touching every place that
--- paints one (`devdocs/grading-binding-issues.md`).
+-- paints one (`devdocs/legacy/grading-binding-issues.md`).
 Constants.ISSUE_GRADE_ERROR = 1;
 Constants.ISSUE_GRADE_MINOR = 2;
 
