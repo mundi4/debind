@@ -31,13 +31,11 @@ L["BULK_SELECTED_COUNT"] = "%d개 선택됨"
 -- it here would give one window two things under one name.
 L["BIND_MODE"] = "키 지정 모드"
 L["BIND_MODE_STOP"] = "완료"
--- BIND_MODE_UNBIND_HINT는 여기 없어야 맞다. enUS가 클라이언트 전역 ESCAPE_TO_UNBIND를 담고
--- 있어서 한국어 클라이언트에서 이미 제 나라 말로 나온다. 여기서 덮으면 오히려 손해다.
+-- **BIND_MODE_UNBIND_HINT는 이제 여기 있어야 한다.** enUS가 클라이언트 전역
+-- ESCAPE_TO_UNBIND를 담고 있던 동안에는 한국어가 공짜로 나왔지만, 그 문장이 이 자리에서 틀려서
+-- 우리 문장으로 바뀌었다(근거는 enUS 쪽 주석). 번역이 들어오기 전까지 이 줄만 영어로 나온다.
 L["BIND_MODE_CANCEL"] = "취소"
 L["BIND_MODE_OVERLAY"] = "오른쪽에서 행동을 가리키고 원하는 키를 누르십시오."
--- 한 벌을 겨눈 채로 듣는 동안의 문장. 근거는 enUS 쪽 주석에.
-L["BIND_MODE_KEY_GROUP"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r 아래에 있는 것 전부에 줄 키를 눌러 주세요."
-L["BIND_MODE_KEY_GROUP_HINT"] = "Esc를 누르면 아무것도 바꾸지 않고 그만둡니다."
 L["BIND_MODE_DESC"] = "마우스가 가리키는 행동에 누른 키가 그대로 지정되는 모드를 켭니다. 켜져 있는 동안에는 선택과 우클릭 메뉴가 멈춥니다."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "선택된 행동 단축바가 없습니다."
 L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Clique와 함께 쓸 수 없습니다!"

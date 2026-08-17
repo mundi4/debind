@@ -35,21 +35,25 @@ L["BULK_SELECTED_COUNT"] = "%d selected"
 -- to say about the button is what pressing it now does.
 L["BIND_MODE"] = "Bind Mode"
 L["BIND_MODE_STOP"] = "Done"
--- 클라이언트 전역을 그대로 받는다(OVERVIEW_NO_KEY와 같은 자리). 게임이 이미 제 나라 말로
--- 들고 있는 규칙이라 우리가 다시 번역할 것이 없고, 게임이 문구를 바꾸면 같이 바뀌어야 맞다.
-L["BIND_MODE_UNBIND_HINT"] = ESCAPE_TO_UNBIND
+-- **This used to be the client global `ESCAPE_TO_UNBIND`, and that was the wrong sentence in this
+-- position.** The client hangs it off the very button being hovered (`QuickKeybindTooltip`), where
+-- "this action" points at something. Ours is nailed to a standing overlay in the left column, so
+-- "this" has nothing to point at. Worse, the reader most likely to be reading it is pointing at
+-- nothing, which is the one state where Escape does not unbind anything at all.
+--
+-- So it names the condition instead of pointing, and it carries **both** of Escape's meanings. The
+-- second one cannot be taken back, and [Cancel] is the only other place that says it exists.
+--
+-- **Two lines, because it is one key with two meanings and the reader has to pick theirs.** Run
+-- together, the second half reads as a footnote to the first; broken at `|n` the two stand as a
+-- pair, opening on the thing that tells them apart. `README.md` carries the same two facts as a
+-- two-item list.
+--
+-- The cost, taken knowingly: the client global came out in the reader's own language for free, and
+-- every locale now has to translate this. Korean and Russian read this English line until they do.
+L["BIND_MODE_UNBIND_HINT"] = "If you are pointing at an action, Escape clears its key.|nIf you are pointing at nothing, Escape puts back every key you changed and leaves."
 L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
---- The same overlay while a whole set is armed, which is the other thing the mode can be listening
---- for. **It names the set instead of telling them to point at something**, because there is
---- nothing left to point at - the set was chosen from a menu, and its rows are under this overlay.
----
---- "under" is how the column reads: a heading owning the rows beneath it is what it already
---- teaches, so the heading's own words are enough to say which rows these are.
-L["BIND_MODE_KEY_GROUP"] = "Press the key you want for everything under |cnHIGHLIGHT_FONT_COLOR:%s|r."
---- Takes the place of the unbind hint, which is false here: Escape is the eraser while you are
---- pointing at a row, and there is nothing to erase before a key has been given.
-L["BIND_MODE_KEY_GROUP_HINT"] = "Press Escape to stop without changing anything."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] = "Cannot be used with Clique!"

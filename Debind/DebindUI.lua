@@ -88,14 +88,6 @@ local _selectionCount        = 0;
 --- 오른쪽에서 찾은 행을 누르면 저쪽이 그 행을 짚고 그리로 스크롤한다.
 local _searchText;
 
---- The key group the bind mode is listening for, while it is listening for one rather than for the
---- row under the cursor. `{ actions, label, fromKey }`.
----
---- **A file local for the same reason `_searchText` is one.** It is the state of one screen, it
---- lives no longer than the mode does (`SetBindingMode` clears it), and nothing outside this file
---- has anything to ask it.
-local _keyGroupCapture;
-
 --- 오버뷰에서 접혀 있는 키 그룹. 키 자체로 물으며, 키가 없는 맨 아래 덩어리는 `KEYLESS_GROUP`이
 --- 대신 선다 - nil은 테이블 키가 못 되고, 고유 테이블이면 진짜 키와 부딪힐 길이 없다.
 ---
@@ -4542,30 +4534,14 @@ function DebindResultPanelMixin:OnLoad()
 	overlay:SetFrameLevel(self.ContentArea.OrderArea.ScrollBox:GetFrameLevel() + 10);
 	overlay.DoneButton:SetText(LLL["BIND_MODE_STOP"]);
 	overlay.CancelButton:SetText(LLL["BIND_MODE_CANCEL"]);
-	self:UpdateBindOverlay();
+	-- **Written once, because the mode listens for one thing: the row under the cursor.** A whole
+	-- set is asked for its key in a dialog instead (`DebindUI.BeginKeyCapture`), so nothing arms
+	-- this overlay with a second sentence to swap in.
+	overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
+	overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
 
 	self.initialized = true;
 	self:Refresh();
-end
-
---- The two lines on the overlay say what is being listened for, and there are two things it can be.
----
---- **Pointing at a row is one of them, not the only one.** With a key group armed there is nothing
---- left to point at - the set was chosen from a menu - so the sentence names it instead, and Escape
---- is the way back out rather than the eraser: nothing has been given a key yet, so there is nothing
---- to erase.
----
---- Set from `SetBindingMode`, which is the one place the mode goes in and out, and once at load so
---- the default is written here rather than in two places.
-function DebindResultPanelMixin:UpdateBindOverlay()
-	local overlay = self.BindOverlay;
-	if (_keyGroupCapture) then
-		overlay.Instruction:SetText(format(LLL["BIND_MODE_KEY_GROUP"], _keyGroupCapture.label));
-		overlay.UnbindHint:SetText(LLL["BIND_MODE_KEY_GROUP_HINT"]);
-	else
-		overlay.Instruction:SetText(LLL["BIND_MODE_OVERLAY"]);
-		overlay.UnbindHint:SetText(LLL["BIND_MODE_UNBIND_HINT"]);
-	end
 end
 
 function DebindResultPanelMixin:Refresh()
@@ -5387,16 +5363,7 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 여기로 오는 것은 전부 **커밋**이다(오버레이의 [종료], 창이 숨는 경우, 토글 다시 누르기).
 		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
 		self.bindEdits = nil;
-
-		-- **The armed key group does not outlive the mode.** Every way out passes here, and one
-		-- left behind would make the next key pressed - in a mode the reader opened for a single
-		-- row - land on a set they chose minutes ago.
-		_keyGroupCapture = nil;
 	end
-
-	-- After the two branches above: the overlay's sentence names the armed set, so it has to be
-	-- written once that is settled either way.
-	DebindResultPanel:UpdateBindOverlay();
 
 	-- 켤 때는 부르는 쪽이 준 과녁을, 끌 때는 **켰던 그 과녁**을 되돌린다. 행 버튼은 풀에서
 	-- 나오므로 그 사이에 다른 행을 그리고 있을 수 있는데, 여기서 다시 찾으면 엉뚱한 행의
@@ -5527,15 +5494,6 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 		return;
 	end
 
-	-- **With a key group armed the cursor is not consulted at all.** The target was chosen from a
-	-- menu, and that group's rows are under the overlay where they cannot be pointed at anyway.
-	-- Reading the cursor here would send a key pressed over the overlay to somebody else's row.
-	if (_keyGroupCapture) then
-		local key = GetConvertedKeyOrButton(input);
-		self:ApplyCapturedKeyToKeyGroup(_CreateKeyChordStringUsingMetaKeyState(key));
-		return;
-	end
-
 	line = line or GetHoveredLine();
 	local elementData = line and line.GetElementData and line:GetElementData();
 	local action = elementData and elementData.action;
@@ -5575,12 +5533,9 @@ function DebindFrameMixin:BindMode_OnKeyDown(button, key)
 	-- 지우기가 아니라 전체 취소가 된다. 그래도 게임의 같은 모드와 같은 손버릇이 되는 편이
 	-- 우리만의 규칙을 하나 더 만드는 것보다 낫다. 되돌린 것을 되살릴 길은 없다.
 	--
-	-- **While a key group is armed it is not the eraser.** That branch erases the row under the
-	-- cursor, and what is under the cursor now is the overlay - the row beneath it is not the target
-	-- either. There is also nothing to erase: no key has been given yet, so Escape can only mean
-	-- stop.
+	-- 두 갈래를 오버레이의 둘째 줄이 말한다(`BIND_MODE_UNBIND_HINT`).
 	if (key == "ESCAPE") then
-		local line = not _keyGroupCapture and GetHoveredLine();
+		local line = GetHoveredLine();
 		local elementData = line and line:GetElementData();
 		local action = elementData and elementData.action;
 		if (action) then
@@ -5737,24 +5692,6 @@ end
 -- already carrying something.
 --------------------------------------------------------------------------------
 
---- Arms one key group and starts listening for the key it should get.
----
---- **The target is settled before the mode is.** The ordinary bind mode aims at whatever row is
---- under the cursor at the instant a key is pressed; here it was decided when the group was picked
---- from the menu, which is why `_keyGroupCapture` is set first and the mode turned on after - the
---- overlay's sentence reads that value.
----
---- The rest of the mode is borrowed unchanged. Turning the keyboard and gamepad on, taking focus
---- off an edit box, matching clicks to the up edge: all of it is in `SetBindingMode`, and none of it
---- differs by whether a row or a group is being aimed at.
-function DebindFrameMixin:BeginKeyGroupCapture(actions, label)
-	if (actions == nil or #actions == 0) then
-		return;
-	end
-	_keyGroupCapture = { actions = actions, label = label };
-	self:SetBindingMode(true, self.OverviewPanel.BindModePortrait);
-end
-
 --- Once, after everything is written. Per action, moving one group would raise the bindings as many
 --- times as it has members.
 ---
@@ -5861,20 +5798,6 @@ local function GiveKeyGroupTheKey(actions, key, label)
 	ShowKeyGroupConflictDialog(actions, key, occupants, label);
 end
 
---- A key was pressed with a group armed. The aim is spent here.
----
---- **The mode goes off first.** The aim was chosen once from a menu, so it is used once; clearing
---- it while the mode stayed on would send the next key silently to whatever row is under the cursor
---- - a bind mode the reader never opened, standing open.
-function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
-	local capture = _keyGroupCapture;
-	if (not capture or key == nil) then
-		return;
-	end
-	self:SetBindingMode(false);
-	GiveKeyGroupTheKey(capture.actions, key, capture.label);
-end
-
 local SharedKeyOf = DebindPrivate.SharedKeyOf;
 
 --- [Unbind Key], for whatever was handed in.
@@ -5919,12 +5842,10 @@ end
 --- window takes 1..n and so does everything below it, which is why the three menus that open it hand
 --- in nothing but an array (`{ action }`, `CollectKeyGroupActions`, `GetSelectedActions`).
 ---
---- ⚠ **Under trial: this asks in a dialog instead of arming the bind mode** (`KeyCapture.lua`), so
---- the two of them can be looked at side by side. `DebindFrameMixin:BeginKeyGroupCapture` and
---- everything reading `_keyGroupCapture` -- the overlay's `BIND_MODE_KEY_GROUP` sentence, the
---- branches in `BindMode_OnInput` and `BindMode_OnKeyDown` -- are left standing and are unreachable
---- while this line says `Open`. Whichever shape wins, the other one goes; what has to be decided and
---- what is still unseen are in `devdocs/asking-for-a-key.md`.
+--- **It asks in a dialog** (`KeyCapture.lua`). The other shape - arming the bind mode with the set
+--- and letting the overlay name it instead of pointing at a row - was built, stood beside this one
+--- while the two were compared, and lost; the mode aims at the row under the cursor and nothing
+--- else. What separates them is in `devdocs/asking-for-a-key.md`.
 ---
 --- **The occupied-key question is asked by occupancy and not by size.** It used to be the set's
 --- question alone, with a single action moving in beside whatever was there and saying nothing - a

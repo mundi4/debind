@@ -378,7 +378,6 @@ end
 ---
 --- **Down before the answer is handed over.** Giving a key can raise a question of its own - the key
 --- may already be carrying something - and nothing should still be listening for keys over that.
---- `ApplyCapturedKeyToKeyGroup` turns the mode off first for the same reason.
 function DebindKeyCaptureFrameMixin:Commit(key)
     local onCommit = self.onCommit;
     if (onCommit == nil) then

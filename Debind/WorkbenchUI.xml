@@ -331,14 +331,20 @@
 				reader cannot act on is a refusal in the wrong place.
 
 				**Declared after those buttons**, because it spans them. The other way round the
-				anchors are dropped silently and the refusal never appears - which is the worst place
+				anchors are dropped silently and the refusal never appears, which is the worst place
 				for this particular failure, since the whole point of the line is that a rejected
 				paste says why.
+
+				**Accept stands on the left and Cancel on the right**, which is the order the game's
+				dialog uses and the opposite of the order they are declared in. Reach for the near
+				name and the two edges cross: hung off Cancel's left and Accept's right, this frame
+				came out 70 wide instead of 330, and every refusal broke into a red column a word
+				at a time.
 			-->
 			<Frame parentKey="ErrorHolder" useParentLevel="true">
 				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.CancelButton" relativePoint="TOPLEFT" x="-40" y="6"/>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.AcceptButton" relativePoint="TOPRIGHT" x="40" y="6"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.AcceptButton" relativePoint="TOPLEFT" x="-40" y="6"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.CancelButton" relativePoint="TOPRIGHT" x="40" y="6"/>
 				</Anchors>
 				<Size y="20"/>
 				<Layers>
