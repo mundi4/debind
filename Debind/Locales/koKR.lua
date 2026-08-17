@@ -369,7 +369,8 @@ L["UNITFRAME_OPTIONS"] = "개체창 설정"
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"] = "개체창에서 마우스 버튼을 뗄 때가 아니라 누를 때 행동이 발동하게 합니다. 블리자드 기본값은 뗄 때입니다."
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "클릭 시전에 마우스 누를 때 사용"
 L["UNNAMED_ACTION"] = "(이름 없음)"
-L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique를 쓰고 있어서 이 애드온의 일부 기능이 동작하지 않습니다."
+-- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
+L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique를 쓰고 있어서 여기 걸어둔 개체창 지정이 동작하지 않습니다."
 -- 창을 덮는 판. 근거는 enUS 쪽 주석에.
 L["MIGRATION_DIALOG_HEADER"] = "Debind"
 L["MIGRATION_DIALOG_TITLE"] = "설정은 그대로 있습니다 - Debind가 닿지 못할 뿐입니다."

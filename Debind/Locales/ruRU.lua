@@ -299,7 +299,8 @@ L["UNITFRAME_OPTIONS"] = "Настройки фреймов юнитов"
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"] = "Запускать действие при нажатии мыши вместо отпускания для фреймов юнитов. Значение по умолчанию Blizzard — отпускание мыши."
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "Использовать нажатие мыши для клик-кастинга"
 L["UNNAMED_ACTION"] = "(Без названия)"
-L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Поскольку вы используете Clique, некоторые функции этого аддона не будут работать."
+-- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
+L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique установлен, поэтому привязки к фреймам юнитов здесь не работают."
 -- [needs review] 아래 셋은 기여자 번역이 아니라 개명 작업 중에 채워 넣은 것이다. 뜻이 틀리지
 -- 않는 선을 노렸을 뿐이라, ZamestoTV가 손보면 그대로 받을 것.
 L["MIGRATION_DIALOG_HEADER"] = "Debind"

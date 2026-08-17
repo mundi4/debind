@@ -638,7 +638,13 @@ L["UNITFRAME_OPTIONS"] = "Unit frame options"
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"] = "Trigger the action on mouse down instead of on mouse up for unit frames. Blizzard's default value is mouse up."
 L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "Use mouse down for click casting"
 L["UNNAMED_ACTION"] = "(Unnamed)"
-L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Because you are using Clique, some features of this addon will not work."
+-- Printed once at login, and only when something is actually stopped
+-- (`HasBindingBlockedByClique`). It used to go out on the mere presence of Clique, which is why it
+-- could only say "some features" -- now it can name what stopped.
+--
+-- **One chat line.** This lands in the same frame as loot and quest text, so it says the one thing
+-- and stops; the addon name is already on the front of it (`_MESSAGE_PREFIX`).
+L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique is installed, so unit frame bindings here do not fire."
 -- 창을 덮는 판. **"왜 이 화면을 보고 있나"를 먼저 답한다** - 사용자는 자기가 무언가를
 -- 껐다는 사실과 이 화면을 연결하지 못한다. 그다음이 "그게 뭔데"이고, 마지막이 부탁이다.
 -- 순서를 뒤집으면(부탁부터) 이유는 안 읽히고 [필요 없음]만 눌린다.
