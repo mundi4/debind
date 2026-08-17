@@ -1,4 +1,4 @@
--- The import workbench. `DebindStorage/Workbench.lua`.
+-- The drawer received strings pile up in. `DebindStorage/Drawer.lua`.
 --
 -- Two things live here and they fail differently.
 --

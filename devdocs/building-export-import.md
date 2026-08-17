@@ -67,11 +67,11 @@ DebindStorage/
                          같은 순간에 자기 테이블을 DebindPrivate.Store로 걸어준다
   Export.lua             페이로드 + 문자열
   Import.lua             그 역
-  Workbench.lua          서랍
+  Drawer.lua          서랍
   Libs/                  LibDeflate, LibSerialize
 ```
 
-> ⚠ **창은 여기 없다.** `ShareUI.*`와 `WorkbenchUI.*`는 2026-08-15에 `Debind/`로 갔다
+> ⚠ **창은 여기 없다.** `ExportUI.*`와 `ImportUI.*`는 2026-08-15에 `Debind/`로 갔다
 > (아래 네 번째 ★). 이 절의 나머지는 그때까지의 기록이라 창 이야기가 섞여 있다.
 
 내부 접근은 `DebindCliqueFake`와 같은 방식이다 — 본체가 `LoadAddOn` 앞뒤로 `_G.DebindPrivate`을
@@ -101,7 +101,7 @@ DebindStorage.ExportSelection(selection, options)     -- 창이 부를 것
   `node tests/run.js`에서만 실패한다. 라이브러리도 우리 코드도 아니고 와우는 5.1이라
   게임에서는 안 닿는다. 스펙이 두 겹으로 갈라져 있고 어느 쪽이 돌았는지 매번 찍는다.
 
-### 공유 창 (`DebindStorage/ShareUI.lua`, `ShareUI.xml`)
+### 공유 창 (`Debind/ExportUI.lua`, `ExportUI.xml`)
 
 메인 창 오른쪽 위 [+] 옆 버튼이 연다. 버튼이 `LoadAddOn`을 하고, 실패하면 조용히 지나가지 않고
 메시지를 낸다(`EXPORT_ADDON_MISSING`).
@@ -473,8 +473,8 @@ MACRO를 풀어도 커스텀 상태는 남는다. 액션의 상태 참조는 **�
 
 ## 구현된 것 — 임포트 (2026-08-13): 데이터 층까지
 
-`DebindStorage/Workbench.lua`. **UI는 한 줄도 없다.** 여기 있는 것은 아래 "임포트" 절의 창들이
-읽고 쓸 것뿐이다. 스펙은 `tests/workbench_spec.lua`.
+`DebindStorage/Drawer.lua`. **UI는 한 줄도 없다.** 여기 있는 것은 아래 "임포트" 절의 창들이
+읽고 쓸 것뿐이다. 스펙은 `tests/drawer_spec.lua`.
 
 ### 레이어 매핑 — 레이어 대 레이어
 
@@ -572,7 +572,7 @@ Overview = 병합하는 곳
 
 **아직 병합을 시작하지 않은 것**을 담는다. 원문 문자열, 출처, 받은 날짜. ~~핀, 만료 판정.~~
 (둘은 2026-08-15에 빠졌다 — 위 "서랍" 절.) 지금 코드가 그대로 그것이다
-(`DebindStorage/Workbench.lua`, `WorkbenchUI.*`).
+(`DebindStorage/Drawer.lua`, `ImportUI.*`).
 
 - **커밋해도 서랍에서 안 지운다** (앞 "안 정한 것" 3번이 여기서 닫힌다). 승인 전에 배치째
   지우고 다시 시작할 수 있어야 하고, 그러려면 원문이 남아 있어야 한다. 행에 "이미 가져옴"
@@ -850,7 +850,7 @@ importGroup  = <그 배치 안의 그룹 번호>
 
 프로필에 넣을 때 자동으로 되는 것들. **물어보지 않는다.**
 
-- **레이어 매핑은 기본값을 적용한다.** `DefaultDestinationLayerID`(`Workbench.lua`)가 이미
+- **레이어 매핑은 기본값을 적용한다.** `DefaultDestinationLayerID`(`Drawer.lua`)가 이미
   그 답을 낸다 — 레이어 대 레이어, 남의 직업 것은 스코프만 지키고 특성은 버린다. 틀렸으면
   배지로 찾아 오버뷰에서 옮긴다.
 - **MACRO는 삼중 일치일 때만 참조로 복구**, 아니면 스냅샷을 본문으로 MACROTEXT
@@ -984,7 +984,7 @@ importGroup  = <그 배치 안의 그룹 번호>
    2창 위에 **소스 레이어마다 한 줄**이고 그 레이어에서 온 그룹은 전부 따라간다. 그룹 줄에는
    레이어 컨트롤이 없다 — 한 그룹만 다른 레이어로 빼는 것은 커밋한 뒤 메인 창에서 한다.
    "작업대에서는 그룹을 쪼갤 수 없다"와 같은 선이다.
-   기본값과 그 근거는 `Workbench.lua`의 `DefaultDestinationLayerID`.
+   기본값과 그 근거는 `Drawer.lua`의 `DefaultDestinationLayerID`.
 2. **교체냐 추가냐.** 백업 복원에서 둘이 되는 것. 대기 영역에서 골라 넣게 되면서 덜 급해졌다.
 3. ~~커밋한 항목을 대기에서 지울지 말지~~ → **정해짐: 남긴다**(08-14). 승인 전에 배치째 지우고
    다시 시작할 수 있어야 하고, 그러려면 원문이 서랍에 있어야 한다. 행에 "이미 가져옴" 표시만 붙는다.
@@ -1050,7 +1050,7 @@ importGroup  = <그 배치 안의 그룹 번호>
 
 ## ★ 레이어는 번역 대상이 아니다 — `DefaultDestinationLayerID`를 지운다 (2026-08-14, **만들었다**)
 
-**앞의 여러 절을 무효로 만든다.** 아래 "레이어 매핑 — 레이어 대 레이어"와 그때의 `Workbench.lua`
+**앞의 여러 절을 무효로 만든다.** 아래 "레이어 매핑 — 레이어 대 레이어"와 그때의 `Drawer.lua`
 매핑 코드는 이 절이 이깁니다.
 
 ### 무엇이 잘못됐나
@@ -1286,7 +1286,7 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 
 ### 실제로 한 것 (2026-08-14)
 
-`DebindStorageBringFrame`(`WorkbenchUI.xml` / `.lua`). 행의 [가져오기]가 이걸 연다.
+`DebindStorageBringFrame`(`ImportUI.xml` / `.lua`). 행의 [가져오기]가 이걸 연다.
 
 - **줄은 실제로 놓일 수 있는 것만 선다**(`CollectImportLines`). 없는 레이어와 **갈 데가 없는
   레이어**는 읽는 사람에게 같은 것이다 — 켜도 꺼도 아무 일이 없는 체크박스이고, 둘을 구별할
@@ -1597,7 +1597,7 @@ GetSideTabaLabel: UnitClass("player")                                -- 내 직�
 > `devdocs/legacy/`로 갔다.
 >
 > **세 층 다 확인했다** (2026-08-15). 헤드리스(`tests/export_spec.lua`, `import_spec.lua`,
-> `workbench_spec.lua`, `overview_spec.lua`, `keygroup_spec.lua`) · `/debtest`의
+> `drawer_spec.lua`, `overview_spec.lua`, `keygroup_spec.lua`) · `/debtest`의
 > `Import: a pending key group…`과 `Export: the window's count…` 둘 · 그리고 화면으로 — 키를 빼고
 > 내보낸 문자열을 다시 가져왔을 때의 `키를 모름 #N` 머리글과, 그 그룹에 키를 준 뒤의 발동 순서.
 >
@@ -1931,7 +1931,7 @@ added"*라고 적어놨고, 모르는 필드를 건너뛰는 독자는 추가를
 
 ### 서랍 행의 제목이 아무 말도 안 한다
 
-`BatchTitle`(`WorkbenchUI.lua`)이 `source`가 비면 `IMPORT_BATCH_UNNAMED`, 즉 **"Received string"**을
+`BatchTitle`(`ImportUI.lua`)이 `source`가 비면 `IMPORT_BATCH_UNNAMED`, 즉 **"Received string"**을
 쓴다. 받은 문자열의 목록에서 "받은 문자열"은 아무것도 안 가른다 — 셋이 나란히 서면 셋 다 같은
 제목이다.
 
@@ -1971,8 +1971,8 @@ added"*라고 적어놨고, 모르는 필드를 건너뛰는 독자는 추가를
 > 유일한 확인이다.
 
 ```
-DebindStorage   DebindStorageVars · Libs · Export.lua · Import.lua · Workbench.lua
-Debind          나머지 전부 — ShareUI.* 와 WorkbenchUI.* 가 여기로 왔다
+DebindStorage   DebindStorageVars · Libs · Export.lua · Import.lua · Drawer.lua
+Debind          나머지 전부 — ExportUI.* 와 ImportUI.* 가 여기로 왔다
 ```
 
 **실제로 한 것**
@@ -2016,18 +2016,18 @@ Debind의 행 템플릿과 `BuildSortedElements`로 그려야 하는데, 폴더�
 **로캘 문자열**
 
 ```
-Export.lua / Import.lua / Workbench.lua    0 / 0 / 0
-ShareUI.lua / WorkbenchUI.lua              13 / 33
+Export.lua / Import.lua / Drawer.lua    0 / 0 / 0
+ExportUI.lua / ImportUI.lua              13 / 33
 ```
 
 **`DebindPrivate` 참조**
 
 ```
-Workbench.lua   0개                        ← 서랍은 완전히 자립
+Drawer.lua   0개                        ← 서랍은 완전히 자립
 Import.lua      4개   전부 모델
 Export.lua      10개  전부 모델
-ShareUI.lua     DebindUI · L · DisplayMessage (+ CompareKeys · GetProfileLayer)
-WorkbenchUI.lua DebindUI · L · DisplayMessage
+ExportUI.lua     DebindUI · L · DisplayMessage (+ CompareKeys · GetProfileLayer)
+ImportUI.lua DebindUI · L · DisplayMessage
 ```
 
 `DebindUI`도 `L`도 `DisplayMessage`도 **옮기는 파일 둘에만** 있다. 남는 쪽은 모델만 짚는다.

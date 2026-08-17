@@ -14,7 +14,7 @@ local DebindUI         = DebindPrivate.DebindUI;
 --- `ResolvePanel` refused to show until the load succeeded.
 ---
 --- ⚠ **`OnLoad` is not one of those places.** These frames are built when this file is read, which
---- is login, and that is *before* any of it. `WorkbenchUI.lua` broke exactly there in the move.
+--- is login, and that is *before* any of it. `ImportUI.lua` broke exactly there in the move.
 local function Store()
     return DebindPrivate.Store;
 end

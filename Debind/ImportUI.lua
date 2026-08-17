@@ -18,7 +18,7 @@ local function Store()
     return DebindPrivate.Store;
 end
 
---- The workbench: the main window's Import tab.
+--- The main window's Import tab.
 ---
 --- **What is here is the drawer** received strings pile up in. Opening a batch and deciding where
 --- it goes is the next slice, so a row does not lead anywhere yet.

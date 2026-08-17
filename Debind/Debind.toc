@@ -40,8 +40,8 @@ DebindUI.xml
 # of `DebindFrame`** (`parent=` + `parentKey=`), and a parent named before it exists is a frame with
 # no parent. They came over from `DebindStorage` with the addon boundary: the UI is Debind's and what
 # stays over there is the strings and the drawer (`devdocs/building-export-import.md`).
-ShareUI.xml
-WorkbenchUI.xml
+ExportUI.xml
+ImportUI.xml
 
 # Also after `DebindUI.xml`, but for the other reason: it wears `DebindDialogTemplate`, and a
 # template named before it is declared is an inherit that finds nothing. It is not a child of

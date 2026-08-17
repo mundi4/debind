@@ -1080,7 +1080,7 @@ L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r from the drawe
 -- **Four, where the decoder reports eight.** Each of its reasons is a different step, but a reader
 -- has three things they might do about one - look again at what they pasted, update, ask for it
 -- again - and a sentence per step would spread those three over eight that all end the same way.
--- The mapping is `REASON_TEXT` in `WorkbenchUI.lua`.
+-- The mapping is `REASON_TEXT` in `ImportUI.lua`.
 L["IMPORT_FAILED_NOT_OURS"] = "That is not a Debind string."
 L["IMPORT_FAILED_TOO_NEW"] = "That string was made by a newer version of Debind. Update and try again."
 -- The same refusal pointing the other way, and it must not borrow the sentence above: updating is

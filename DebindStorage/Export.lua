@@ -370,7 +370,7 @@ end
 --- would spread an undecided thing from person to person: it lands badged on the far side too, and
 --- that reader has no more to go on than this one did.
 ---
---- **The window asks the same question about its own list** (`BuildLayers` in `ShareUI.lua`). Every
+--- **The window asks the same question about its own list** (`BuildLayers` in `ExportUI.lua`). Every
 --- number that window prints comes out of that list -- the layer headers, the [select all] total,
 --- which rows can be ticked -- so the two answering differently is the window saying "12" and
 --- sending 9. One function, asked twice, is what makes them the same answer rather than the same

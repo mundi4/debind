@@ -481,7 +481,7 @@ return function(DebindPrivate, DebindStorage)
 
     -- **A layer is a coordinate, not something to translate.** Both profiles use the same one, so
     -- another class's layer keeps its class *and* its spec: a mage's spec 2 is a mage's spec 2 on
-    -- every account. `workbench_spec` measures the addressing in detail; here it just has to be
+    -- every account. `drawer_spec` measures the addressing in detail; here it just has to be
     -- what the placement actually uses.
     test("목적지는 보낸 쪽 좌표 그대로다", function()
         ResetProfile();
