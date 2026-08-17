@@ -145,24 +145,30 @@
 	</Frame>
 	
 	<!--
-		단축키 정렬에서 키가 바뀌는 자리마다 들어가는 줄. 바 아트는 블리자드의
-		`ListHeaderThreeSliceTemplate`(쿨다운 관리자 설정·화폐 탭이 쓰는 그것)에서 온다.
+		The line that goes in wherever the key changes in the shortcut ordering. The bar art comes
+		from Blizzard's `ListHeaderThreeSliceTemplate` - the one the cooldown manager's settings and
+		the currency tab use.
 
-		**띠 전체를 눌러 접는다.** 접기가 이 템플릿이 하는 일이고, 오른쪽 끝 조각이 그대로
-		접힘 표시다 - 따로 붙는 컨트롤이 없다. 드롭은 안 받지만(오버뷰는 목적지를 못 대므로,
-		`DebindFrameMixin:OnReceiveDrag`) 그건 이 띠가 아니라 이 목록 전체가 그렇다.
+		**The whole bar folds it, and a right-click opens the group's menu**
+		(`DebindKeyHeaderMixin:OnClick`). Folding is what this template is for and the end cap is
+		the fold indicator, so nothing is attached to it - and the menu did not attach anything
+		either. Drops are not taken, the overview having no destination to name
+		(`DebindFrameMixin:OnReceiveDrag`), but that is true of this whole list rather than of this
+		bar.
 
-		높이는 템플릿 아트의 제 높이 26이다. 예전 28에는 위쪽에 여백이 절반 들어 있었다 -
-		선이 없는 목록에서 그룹을 가르려고 둔 것이라, 진짜 띠가 그 자리에 서면 할 일이 없다.
+		The height is 26, which is the art's own. The 28 it used to be carried half a line of
+		padding on top - put there to part groups in a list that had no rule between them, and with
+		a real bar standing in that place there is nothing left for it to do.
 
-		**접혔을 때만 안을 요약한다** - 키 다음에 첫 액션 이름과 나머지 개수가 붙는다. 펼쳐져
-		있으면 바로 아래 행들이 이미 그 말을 하고 있으므로 같은 말을 두 번 하지 않는다.
+		**It summarises what is inside only while folded** - the key, then the first action's name
+		and how many more there are. Expanded, the rows right underneath are already saying that,
+		and the same thing does not get said twice.
 
-		글자가 셋인 이유는 **잘려도 되는 것이 하나뿐**이기 때문이다. 무슨 키인가와 몇 개 더
-		있는가는 반드시 읽혀야 하고, 이름은 소모품이다. 자리 계산은
-		`DebindKeyHeaderMixin:LayoutSummary`에 있다.
+		There are three font strings because **only one of them may be cut**. Which key it is and
+		how many more there are both have to be readable; the name is the expendable one. Where that
+		is worked out is `DebindKeyHeaderMixin:LayoutSummary`.
 	-->
-	<Button name="DebindKeyHeaderTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindKeyHeaderMixin" registerForClicks="LeftButtonUp" virtual="true">
+	<Button name="DebindKeyHeaderTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindKeyHeaderMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
 		<Size x="450" y="26"/>
 		<Layers>
 			<Layer level="ARTWORK">

@@ -245,6 +245,16 @@ L["KEY_CAPTURE_DESC"] = "Press any key to assign it - mouse buttons and the whee
 --- what follows it is the value - which is also what [Unbind Key] is talking about, so the button
 --- being lit or dead has something on screen to point at.
 L["KEY_CAPTURE_CURRENT_KEY"] = "Current key:"
+--- What the line above says when the actions being asked about are **not all on the same key**. It
+--- is the state a hand-made selection can be in and a key group never is, so it arrived with this
+--- window being opened on more than a key group.
+---
+--- **Not the first one's key.** The rows are listed right underneath, so naming one of several keys
+--- is the window contradicting itself in the space of two lines.
+---
+--- Deliberately not a count. "3 keys" invites the reader to work out which three, and the answer to
+--- that is the list below - what this line has to say is only that there is no single answer.
+L["KEY_CAPTURE_CURRENT_KEY_MIXED"] = "More than one"
 --- The caption over the list. **It reads for one action and for twelve** - a set on one key is the
 --- ordinary case here, so "this action" would be wrong more often than not.
 L["KEY_CAPTURE_TARGETS"] = "Applies to these actions:"
@@ -262,38 +272,202 @@ L["KEY_CAPTURE_MORE"] = "...and %d more"
 -- call the set by. The summary beside it is the first action and how many follow (`UpdateSummary`),
 -- so the set is named by what is in it now, the way every other group in the column is read. The
 -- number is how the set is filed, not what it is called.
---- The overview's right-click item that puts one key on a whole heading's worth of rows.
+--- A row's right-click item. **Same three words as the heading's** (`KEY_HEADER_SET_KEY`), because
+--- the act is the same one and the same dialog opens; what differs is how much of the column it
+--- reaches, and that is said by where the reader clicked and by the tooltip below. Two keys and not
+--- one, so the two tooltips can never be made to share a sentence they only half fit.
+L["ACTION_SET_KEY"] = "Assign a key"
+--- **The one thing this has to say is what happens to the rest.** A key's actions are told apart by
+--- conditions, on purpose - so a row walking off to its own key produces no error, no warning and
+--- nothing on screen that looks wrong. The reader finds out later, when two keys each do half of
+--- what one key used to do.
 ---
---- **"all of these" and not a name for the set.** "Group" is the party/raid kind in this window
---- (`CONDITION_GROUP`), and the column has already said which rows go together by drawing them
---- under one heading - the item only has to say that it means all of them and not the row that was
---- clicked.
-L["KEY_GROUP_SET_KEY"] = "Set the key for all of these"
---- **What it is protecting against is worth the sentence.** One at a time is the obvious way to do
---- this and it is the one that goes wrong quietly: a key's actions are split by conditions on
---- purpose, so leaving one behind does not look like a mistake anywhere - it looks like two keys,
---- and both of them fire.
-L["KEY_GROUP_SET_KEY_DESC"] = "Every action under this heading gets the key you press, in one go. Doing it one action at a time is how a set ends up split across two keys with both of them firing.|n|nIf these came in from a string, this accepts them too - deciding their key is the same decision."
+--- **It is not written as a mistake**, because it is not one: giving one condition its own shortcut
+--- is a thing people mean to do. It is written as what happens, and the reader decides.
+---
+--- **It does not describe the dialog.** The opening line used to say "the key you press", which is
+--- wrong twice over - the answer can be a mouse button or the wheel, and it can be [Unbind Key],
+--- which presses nothing and still takes this action out of the set. How the key is given is the
+--- dialog's own line to say (`KEY_CAPTURE_DESC`); this one says who it is given to.
+---
+--- **One string for two lists, and the conditional is what makes that possible.** It is read from
+--- the overview's rows, where the set is drawn under one heading, and from the bin's, where the list
+--- is one layer in name order and nothing says a key can carry several actions at all. "If this
+--- action is part of a set on one key" carries its own premise, so it introduces the fact for the
+--- reader who cannot see it and merely points at it for the reader who can.
+---
+--- Three earlier wordings assumed the overview and read as a non-sequitur in the bin: "the ones it
+--- is listed with" (names the wrong rows there), "only this one moves" (nothing moves there), and
+--- opening on "this action alone", which answers a question that list gives nobody a reason to ask.
+---
+--- It is also right that the clause is conditional rather than flat. Most actions are alone on their
+--- key, and announcing what happens to "the others" every time describes a situation the reader is
+--- usually not in.
+---
+--- "Group" is not available for any of it: in this window that word is the party/raid kind
+--- (`CONDITION_GROUP`).
+L["ACTION_SET_KEY_DESC"] = "Sets the key for this action.|n|nIf this action is part of a set sharing one key, only this action changes - the rest keep the key they are on. Both keys still work; they just stop working as one."
 --- Asked when the key that was pressed is already carrying something.
 ---
---- **The count is what this dialog is for.** The set being settled reaches every layer this
---- character has, so some of what is being counted can be off screen right now - another
---- specialization's, or hidden by the "only what came in" switch. Saying the number before the
---- choice is how that is paid for, the same way "Accept all %d" pays for reaching past the screen.
+--- **The count is what this dialog is for.** The walk behind it reaches every layer this character
+--- has, so some of what is being counted can be off screen right now - another specialization's, or
+--- hidden by the "only what came in" switch. Saying the number before the choice is how that is paid
+--- for, the same way "Accept all %d" pays for reaching past the screen.
+---
+--- **It used to say "counting every specialization of this character", which drew the line in the
+--- wrong place.** Those eleven layers are not all this character's: two of them belong to the class
+--- and one to the account (`EnumerateAllProfileLayers`), so an action counted here can be one that is
+--- on that key for every character the reader has. Naming specializations made the sentence sound
+--- like the reach stopped at this character, and the answer beside it takes the key away from
+--- whatever is counted - which is where that mattered. It now says what the number is: everything
+--- that key does here. Who else that touches is `KEY_GROUP_CONFLICT_SHARED`'s line, and only when
+--- there is somebody.
 ---
 --- Numbered placeholders because two of them are strings; the rule is in
 --- `devdocs/writing-user-facing-text.md`.
-L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$d|r actions on it, counting every specialization of this character.|n|nWhat should happen to them when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
+L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIGHT_FONT_COLOR:%3$d|r actions on it - everything that key does on this character, whichever specialization they belong to.|n|nWhat should happen to them when |cnHIGHLIGHT_FONT_COLOR:%1$s|r moves there?"
+--- Added under the question when any of the ones being counted lives in a shared scope.
+---
+--- **Only then, because most of the time it is not true**, and a dialog that warns about other
+--- characters every time teaches the reader to stop reading it. The test is the layer's own
+--- `isCharacterSpecific`, the same one the importance menu asks before it warns
+--- (`PRIORITY_SHARED_WARNING`).
+---
+--- **It does not name the button.** Spelling out what [Overwrite] says leaves this sentence pointing
+--- at something that is not there the day that word changes, and a line here has already died that
+--- way. "Taking the key from them" is the same act named by what it does.
+L["KEY_GROUP_CONFLICT_SHARED"] = "Some of them are your other characters' as well - they are on that key there too, and taking the key from them takes it everywhere."
 --- **Not a compromise, and not a warning.** Several actions on one key, told apart by conditions, is
 --- what this addon is for - so the answer that leaves both sets where they are needs no caveat.
-L["KEY_GROUP_CONFLICT_MERGE"] = "Merge"
---- **The word overstates it and the prompt is what corrects that**: nothing is deleted, the ones
---- already there only lose the key and go to the unbound pile at the bottom of the column, where a
---- key can be given back. Two shorter-lived wordings were tried and dropped - "Keep both" beside it
---- for the merge, which read as a pair of switches rather than as one thing happening; and "Unbind
---- them", which is accurate but answers "what happens to the others" while the button beside it
---- answers "what happens to this set", so the two buttons were not asking the same question.
-L["KEY_GROUP_CONFLICT_UNBIND"] = "Overwrite"
+---
+--- It said "Merge", which is not a word the client has anywhere and names an operation that does not
+--- happen - nothing is combined, the two simply both sit on the key with their conditions telling
+--- them apart. "Keep them" was written next and thrown out on the spot: with [Cancel] standing beside
+--- it, "keep them" is read as *leave them alone*, which is what the third button does. **"both" is
+--- what stops that reading**, because it puts the arriving side inside the sentence - both are kept,
+--- so the one that is moving still arrives.
+---
+--- **"all" was the other candidate and loses on the same test.** All of what is left open, so it can
+--- still be read as "all of it as it stands". Counts do not trouble "both": four actions moving onto
+--- three reads as both sides, not as two actions.
+L["KEY_GROUP_CONFLICT_KEEP"] = "Keep both"
+--- On the button, because **the two answers to this question are the two most expensive things in
+--- the window** and a word each is not enough for either. One of them takes bindings off keys.
+---
+--- What this one adds is the part nobody expects: **the order becomes a decision**. A key runs down
+--- its list and fires the first action whose conditions match, so two sets landing on one key means
+--- the ranking now decides between them - and nobody chose that ranking, it fell out of the two sets
+--- having been written at different times.
+---
+--- That both sides are kept is the label's line and is not repeated here, the same trim "the key you
+--- press" got. **Where the order is changed is not named either**: spelling out a tab or a menu is a
+--- sentence pointing at something that can be renamed out from under it.
+L["KEY_GROUP_CONFLICT_KEEP_DESC"] = "Pressing the key then runs down the list until something matches, so which one goes off depends on the order they land in - and that order is yours to change."
+--- **The client's own verb for this, and the reader met it a moment ago** - `UNBIND` is a global
+--- ("Unbind Key"), it is what the button on the key capture dialog says, and it names exactly what
+--- happens to these: they lose the key and nothing else.
+---
+--- It said "Overwrite" for a while, which is not a client word either (the one place the game names
+--- that idea, `TUTORIAL_PERKS_PROGRAM_OVERWRITE_FROZEN_ITEM`, reads "Replace") and which overstates
+--- what happens - it sounds like a delete, and nothing is deleted.
+---
+--- **This pair was rejected once and is back on purpose.** The objection was that the two buttons
+--- answer different questions - this one says what happens to the occupants, its partner describes
+--- what the key ends up holding - and that is still true. It was accepted because the pair that
+--- replaced it had the same fault ("Merge" is an end state too) while spending two words the client
+--- does not use, and because the wording that would have fixed the axis reads as [Cancel] beside a
+--- button that unbinds. The mismatch is the cheaper fault; `building-export-import.md` has the line.
+L["KEY_GROUP_CONFLICT_UNBIND"] = "Unbind them"
+--- Two things the label cannot say: **how far it reaches** and **what it does not do.**
+---
+--- The reach, because the count above is every layer this character has and some of those rows are
+--- not on screen - another specialization's, or filtered out. The reader is answering about things
+--- they cannot see, which is the same debt the prompt's number is paying.
+---
+--- And that nothing is deleted, which is what makes this choice offerable at all: it can be walked
+--- back by hand. Saying it here rather than in the label keeps the button one act long.
+L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can see - the count above is every layer this character has. Nothing is deleted: they end up with no key at the bottom of the list, where you can give them one again."
+--- The heading's item. **The words are `ACTION_SET_KEY`'s** - the act is the same and the same
+--- dialog opens - and how much of the column it reaches is left to the tooltip.
+---
+--- **The scope is not in the label, and the reason is width.** "Everything under this" was tried
+--- here and the menu came out wider than the bar it hangs off: a context menu takes the width of its
+--- longest line, and this menu has two lines and no third to hide behind. What pays for the short
+--- label is **the position and the title above it** - the reader right-clicked the set's own bar,
+--- and the title names that set by what is in it.
+---
+--- **The act is named the way the window it opens names itself** (`KEY_CAPTURE_TITLE`). The press
+--- lands in that dialog, so a reader who takes the item and a reader who reads the title are being
+--- told the same thing. Separate keys on purpose - if that dialog is ever renamed, whether this
+--- follows is a decision, not a rename that happens to it.
+--- The heading's tooltip, and the only line in it. **It exists because the gesture it names is the
+--- one thing on this bar that nothing points at**, and since the row menu stopped offering the set's
+--- own items there is no other way in to them.
+---
+--- **Folding is not mentioned, and that is the rule rather than an omission.** Not knowing it costs
+--- the reader nothing: the column opens expanded, so a fold they never discover leaves every action
+--- and every operation reachable. Not knowing the right-click costs them the whole menu. The bar's
+--- end cap is Blizzard's own collapse art besides, so the visible half teaches itself.
+---
+--- "under this heading" rather than "on this key", because a set can be sitting on no key at all and
+--- the heading still stands over it - and because that is the phrase the item's own tooltip uses
+--- (`KEY_HEADER_SET_KEY_DESC`). One set, one way of naming it per screen.
+L["KEY_HEADER_TOOLTIP_INSTRUCTION"] = "Right-click for what can be done to everything under this heading."
+L["KEY_HEADER_SET_KEY"] = "Assign a key"
+--- The heading's import items.
+---
+--- **A heading stands over rows nobody picked**, and what is waiting under it can be five scattered
+--- through twelve that are already the reader's - so the item has to say what it is about to gather.
+--- Where the reader chose the target by hand the count is theirs already and the plain label reads
+--- better, which is why the row and bulk menus keep `APPROVE_IMPORT` / `REJECT_IMPORT`.
+---
+--- **It names the state and does not point.** "Accept these 5" was written first and contradicts
+--- itself over a heading with twelve rows under it: "these" claims the rows, the number is a
+--- fraction of them, and the label cannot say which fraction. "Still waiting" is the subset itself,
+--- and it is the phrase this screen already uses for it (`APPROVE_ALL_IMPORT_DESC`).
+---
+--- **Not the strip's "Accept all %d".** That one reaches the whole profile, and "all" is exactly the
+--- word that would make this promise more than it does: these take what is drawn under this one
+--- heading and nothing else.
+---
+--- **A singular of its own**, because "the 1 still waiting" is not English and falling back to
+--- "Accept as mine" would put the pointing problem back - over twelve rows that label reads as all
+--- of them.
+L["KEY_HEADER_APPROVE"] = "Accept the %d still waiting"
+L["KEY_HEADER_APPROVE_ONE"] = "Accept the one still waiting"
+L["KEY_HEADER_REJECT"] = "Reject the %d still waiting"
+L["KEY_HEADER_REJECT_ONE"] = "Reject the one still waiting"
+--- The other end of the heading's key axis. A menu that can give a key but not take one back sends
+--- the reader looking for the other half.
+---
+--- **The reach is what the label cannot say**, and it is the same debt the conflict prompt pays: the
+--- set is collected from every layer this character has, so some of what steps off the key is not on
+--- screen. That they stay together afterwards is the second half - it is what makes this different
+--- from taking the key off each of them, and a set that comes apart here could not be put back.
+L["KEY_HEADER_UNBIND_DESC"] = "Every action under this heading steps off the key together, wherever it lives - another specialization's included. They stay one set: nothing is deleted and they keep their order, they are simply on no key until you give them one."
+--- **This is where the label's missing half went, so the first line has to carry it**: one key, the
+--- whole set, at once. The heading is also where the reach can be misread on its own - a folded one
+--- draws a single action name and a count - which is what "folded or not" is answering.
+---
+--- No warning about the set coming apart, which is the row tooltip's job. From here there is no one
+--- row on offer - the heading cannot pick one out - so the sentence would be describing something
+--- this menu cannot do.
+---
+--- **It said one more thing and no longer does: that this accepts whatever is still waiting.** True,
+--- and worth saying somewhere - deciding a key is the same decision, and the badge comes off with it
+--- (`SetKeyForActions`). It came out because **this item is on every heading**, so that sentence was
+--- being read by everyone who has never taken a string from anybody, and it teaches a whole
+--- vocabulary they have no use for. The reader it was for meets that vocabulary in the places that
+--- belong to it - the badged row's own tooltip, the accept button beside it, the import strip - and
+--- meets this heading already tinted for the same reason.
+---
+--- **And `ACTION_SET_KEY_DESC` never said it**, so one of the two carrying it made the two items
+--- look like different operations. They open the same dialog and settle the same thing.
+---
+--- It said "the key you press" too, and that is wrong here for the reasons it was wrong there: the
+--- answer can be a mouse button or the wheel, and [Unbind Key] presses nothing and still settles
+--- the whole set. How the key arrives is `KEY_CAPTURE_DESC`'s line.
+L["KEY_HEADER_SET_KEY_DESC"] = "Sets one key for every action under this heading, in one go - folded or not, and however many of them there are."
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
@@ -718,8 +892,36 @@ L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherev
 -- the smaller cost, and the prompt below spends one clause on it.)
 L["REJECT_ALL_IMPORT"] = "Reject all %d"
 L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The string it came from stays in the drawer, so you can bring it in again."
+-- **Why [Move to] and [Copy to] are dead on the multi-selection menu.** Neither names the act, since
+-- one string stands on both - and a sentence naming it would have to be two, saying the same thing
+-- about the same rows.
+--
+-- **Two of them, because the way out differs.** With some of the picked rows still waiting, the
+-- selection is what to change; with all of them waiting there is nothing to take out of it, so what
+-- is left to do is accept, and that item is two rows further down the same menu.
+--
+-- Neither says why moving is refused. The reason is that what arrived is ordered the way its sender
+-- ordered it, which is a sentence about machinery the reader has no reason to hold - and the answer
+-- to "why not" is the same in both cases anyway: it has not been accepted yet.
+-- The third scope [Assign a key] is offered at, after a row (`ACTION_SET_KEY_DESC`) and a heading
+-- (`KEY_HEADER_SET_KEY_DESC`). **The label is the same three words in all three**, since the act is
+-- one act and the same window opens; the scope is what the three tooltips are for.
+--
+-- **The second half is the row's warning, and it is needed more here than there.** A selection can
+-- hold part of a key group, so the rows left behind are ones the reader chose not to pick rather
+-- than ones they never saw - and a key coming apart shows nothing at all until both halves fire.
+L["BULK_SET_KEY_DESC"] = "Sets one key for everything you picked, in one go.|n|nRows sharing a key with something you did not pick are left on it. Both keys still work; they just stop working as one."
+L["BULK_BLOCKED_ALL_IMPORTED"] = "None of what you picked has been accepted yet. That has to come first."
+L["BULK_BLOCKED_SOME_IMPORTED"] = "Some of what you picked has not been accepted yet. Take those rows out of the selection."
 -- The single one, from a row's right-click menu.
 L["REJECT_IMPORT"] = "Reject"
+-- **The second sentence is the whole reason this has a tooltip**, and it is the one [Reject all]
+-- ends on: what makes the item pressable is that the arrival is still in the drawer. Only the first
+-- half had to be rewritten, because this one is aimed at a single row.
+--
+-- Its opposite number is `ORDER_ACCEPT_DESC`, which the menu borrows from the row's accept button.
+-- There was nothing to borrow for this half - no row carries a reject button.
+L["REJECT_IMPORT_DESC"] = "Removes this one. The string it came from stays in the drawer, so you can bring it in again."
 -- **The second sentence is what makes this pressable.** Without it this reads as the destructive
 -- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
 L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the drawer, so you can bring it in again."
@@ -816,6 +1018,16 @@ L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you 
 -- It used to say only the second, and the first is the one that actually turns up.
 L["IMPORT_COMMITTED_SKIPPED"] = "%d of them had nowhere to go here and were left out - a specialization this character does not have, or a layer this version does not know."
 L["IMPORT_TITLE"] = "Import"
+-- **"String" is our word, not the client's, and this is the cluster that uses it.** Measured
+-- 2026-08-17: every place the game shows one of these to a player it calls it a **code** -
+-- `LOADOUT_ERROR_BAD_STRING` reads "Invalid loadout code",
+-- `COOLDOWN_VIEWER_SETTINGS_ERROR_ENTER_IMPORT_STRING_AND_NAME` reads "a valid import code",
+-- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to its
+-- own key names, which is the same line this file is supposed to draw. koKR says 코드 throughout.
+--
+-- **Not renamed, because it is nineteen keys across two files and one track's whole vocabulary.**
+-- Left here as the finding rather than done as a side effect; ruRU carries none of these, so the
+-- cost when it is done is enUS and koKR only.
 -- **"You pick which layer each part lands in" was written for a screen that no longer exists.** The
 -- workbench that asked that question was dropped; bringing a string in now places everything by
 -- itself and asks nothing, and where a part landed is corrected afterwards in Overview like any

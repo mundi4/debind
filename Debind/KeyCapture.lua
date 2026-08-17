@@ -70,6 +70,23 @@ local CAPTION_GAP      = 8;
 -- The rows
 --------------------------------------------------------------------------------
 
+--- Whether there is a key a reader could press.
+---
+--- **A number is not one.** A set that arrived in a string sits on a synthetic key until the reader
+--- decides its real one (`NextSyntheticKey`), and that number stands *where* a key would without
+--- being a key - which is the whole reason it is a number and a real key is always a string.
+---
+--- [Unbind Key] reads it, and so does the key each row draws when the rows disagree. Lit over a set
+--- with a synthetic key the button would stand over nothing to unbind: the set is already off every
+--- key, and taking that number away would only break it into loose actions.
+---
+--- **Up here because `LayoutRow` reads it.** It sat below with the rest of the reading and the rows
+--- had no use for it until they started drawing keys of their own; a local named before it is
+--- defined is `nil` at the call, and nothing says so at run time.
+local function HasRealKey(action)
+    return type(action.key) == "string";
+end
+
 --- One row: icon and name, the way every list in this addon draws an action.
 ---
 --- **Regions on the dialog, not frames.** Anything that takes the mouse would swallow the click this
@@ -85,12 +102,29 @@ local function CreateRow(dialog)
     row.Name:SetJustifyH("LEFT");
     row.Name:SetMaxLines(1);
 
+    --- The key this one action is on. **Only drawn where the rows disagree** - see `LayoutRow`.
+    ---
+    --- Its own span rather than a point on the icon, because a `RIGHT` point sets both axes and the
+    --- right edge here belongs to the dialog while the line belongs to the icon. Given the icon's
+    --- height and told to centre in it, the two agree without a third number.
+    row.Key = dialog:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");
+    row.Key:SetJustifyH("RIGHT");
+    row.Key:SetJustifyV("MIDDLE");
+    row.Key:SetHeight(ICON_SIZE);
+    row.Key:SetMaxLines(1);
+
     return row;
 end
 
 --- Puts one row at `y` and fills it in. The name hangs off the icon by a single `LEFT` point, so it
 --- sits on that line without a second number to keep in step with the first.
-local function LayoutRow(dialog, row, action, y)
+---
+--- **`showKey` is on exactly when the line above cannot name one key** (`CurrentKeyText` reading
+--- "More than one"). With the set all on one key that line has already said it, and a column
+--- repeating it beside every row is the same answer read twice - which is the rule the overview's
+--- folded heading keeps for its summary. Which key each row is on is only worth a column when they
+--- are not the same, and then it is the whole of what the reader came to find out.
+local function LayoutRow(dialog, row, action, y, showKey)
     local name, icon = DebindUI.NameAndIconForAction(action);
 
     row.Icon:ClearAllPoints();
@@ -99,8 +133,30 @@ local function LayoutRow(dialog, row, action, y)
 
     row.Name:ClearAllPoints();
     row.Name:SetPoint("LEFT", row.Icon, "RIGHT", 6, 0);
-    row.Name:SetPoint("RIGHT", dialog.ContentArea, "RIGHT", 0, 0);
     row.Name:SetText(name or "");
+
+    if (showKey) then
+        row.Key:ClearAllPoints();
+        row.Key:SetPoint("TOPRIGHT", dialog.ContentArea, "TOPRIGHT", 0, y);
+
+        -- **Greyed where there is none**, the same rule the line above keeps: a key is white, the
+        -- absence of one is grey, and a reader scanning this column is looking for which rows have
+        -- nothing yet as much as for which key the others are on.
+        if (HasRealKey(action)) then
+            row.Key:SetText(DebindPrivate.GetKeyDisplayText(action.key));
+            row.Key:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
+        else
+            row.Key:SetText(LLL["OVERVIEW_NO_KEY"]);
+            row.Key:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
+        end
+        row.Key:Show();
+
+        -- 이름은 키 앞에서 멈춘다. 안 그러면 긴 이름이 키 위로 지나간다.
+        row.Name:SetPoint("RIGHT", row.Key, "LEFT", -6, 0);
+    else
+        row.Key:Hide();
+        row.Name:SetPoint("RIGHT", dialog.ContentArea, "RIGHT", 0, 0);
+    end
 
     row.Icon:Show();
     row.Name:Show();
@@ -109,6 +165,7 @@ end
 local function HideRow(row)
     row.Icon:Hide();
     row.Name:Hide();
+    row.Key:Hide();
 end
 
 
@@ -116,32 +173,45 @@ end
 -- What is being asked about
 --------------------------------------------------------------------------------
 
---- Whether there is a key a reader could press.
+--- Is there anything here for [Unbind Key] to take off.
 ---
---- **A number is not one.** A set that arrived in a string sits on a synthetic key until the reader
---- decides its real one (`NextSyntheticKey`), and that number stands *where* a key would without
---- being a key - which is the whole reason it is a number and a real key is always a string.
----
---- [Unbind Key] is what reads it. Lit over a set with a synthetic key it would stand over nothing to
---- unbind: the set is already off every key, and taking that number away would only break it into
---- loose actions.
-local function HasRealKey(action)
-    return type(action.key) == "string";
+--- **Any of them, not the first.** This window takes any 1..n actions, and only some of those are a
+--- key group -- a group shares one key by definition, but a selection somebody made by hand shares
+--- nothing. Reading `actions[1]` answered for the rest, which is true of a group and a lie about a
+--- selection.
+local function AnyRealKey(actions)
+    for i = 1, #actions do
+        if (HasRealKey(actions[i])) then
+            return true;
+        end
+    end
+    return false;
 end
 
---- The key the whole set is on.
+--- The menus that offer [Unbind] on a selection ask the same question this dialog's button does, and
+--- have to get the same answer: a menu item lit over a set on a synthetic key would be offering to
+--- take off something that is not a key.
+DebindPrivate.AnyRealKey = AnyRealKey;
+
+--- The key these are on now, for the line that says so.
 ---
---- **One action answers for all of them.** A key group is the actions sharing one key, and a single
---- action is the only one there is, so there is no case here where the rows could disagree.
+--- Three answers, because a set of several can be in a state one action cannot: **they are not all
+--- on the same key.** There is no key to name there, and naming the first one would be picking a
+--- winner out of a list the reader can see disagrees.
 ---
---- With no key it is the client's `NOT_BOUND`, held by `OVERVIEW_NO_KEY`. Read under the other
---- screen's key on purpose: one fact gets one word, and a second key holding the same global is how
---- two screens end up saying it differently.
-local function CurrentKeyText(action)
-    if (not HasRealKey(action)) then
+--- With no key at all it is the client's `NOT_BOUND`, held by `OVERVIEW_NO_KEY`. Read under the
+--- other screen's key on purpose: one fact gets one word, and a second key holding the same global
+--- is how two screens end up saying it differently.
+local function CurrentKeyText(actions)
+    local key, shared = DebindPrivate.SharedKeyOf(actions);
+    if (not shared) then
+        return LLL["KEY_CAPTURE_CURRENT_KEY_MIXED"];
+    end
+
+    if (type(key) ~= "string") then
         return LLL["OVERVIEW_NO_KEY"];
     end
-    return DebindPrivate.GetKeyDisplayText(action.key, action.imported);
+    return DebindPrivate.GetKeyDisplayText(key);
 end
 
 --- Hung on the two buttons so the wheel does not roll past them into the capture below.
@@ -230,10 +300,10 @@ function DebindKeyCaptureFrameMixin:Open(actions, onCommit)
     -- state (`DebindKeyHeaderMixin:Init` greys both the unbound pile and a set still on a synthetic
     -- key). White is the reading; "Not Bound" is the absence of one, and a window that draws those
     -- alike makes the reader look twice at a line whose whole job is to be read once.
-    local hasKey = HasRealKey(actions[1]);
+    local hasKey = AnyRealKey(actions);
     self.CurrentKeyLabel:ClearAllPoints();
     self.CurrentKeyLabel:SetPoint("TOPLEFT", self.ContentArea, "TOPLEFT", 0, y);
-    self.CurrentKey:SetText(CurrentKeyText(actions[1]));
+    self.CurrentKey:SetText(CurrentKeyText(actions));
     self.CurrentKey:SetTextColor((hasKey and HIGHLIGHT_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
     y = y - max(self.CurrentKeyLabel:GetStringHeight(), self.CurrentKey:GetStringHeight()) - GAP;
 
@@ -241,10 +311,13 @@ function DebindKeyCaptureFrameMixin:Open(actions, onCommit)
     self.TargetsLabel:SetPoint("TOPLEFT", self.ContentArea, "TOPLEFT", 0, y);
     y = y - self.TargetsLabel:GetStringHeight() - CAPTION_GAP;
 
+    -- 행마다 자기 키를 다는 것은 **위 줄이 하나로 못 부를 때뿐이다**(`LayoutRow`).
+    local _, sharesOneKey = DebindPrivate.SharedKeyOf(actions);
+
     local drawn = min(#actions, MAX_ROWS);
     for i = 1, MAX_ROWS do
         if (i <= drawn) then
-            LayoutRow(self, self.rows[i], actions[i], y);
+            LayoutRow(self, self.rows[i], actions[i], y, not sharesOneKey);
             y = y - ROW_PITCH;
         else
             HideRow(self.rows[i]);
@@ -262,10 +335,15 @@ function DebindKeyCaptureFrameMixin:Open(actions, onCommit)
         y = y - ROW_PITCH;
     end
 
-    -- **The set shares one key, so one answer covers the button.** It is dead wherever the line
-    -- above reads "Not Bound" - a single action in the unbound pile, and a set still waiting on a
-    -- synthetic key. Neither has a key to take away, and the same `hasKey` decides both so the
-    -- button and the line can never disagree.
+    -- **One real key anywhere in the set is enough to light it**, because that is exactly what the
+    -- button acts on: it takes the key off whatever here has one, and the rest were never on one.
+    -- It is dead where nothing does - a single action in the unbound pile, a set still waiting on a
+    -- synthetic key, a selection where every row is keyless.
+    --
+    -- The same `hasKey` colours the line above, so the two still cannot disagree, but what they
+    -- agree on is now "is there a real key in here" rather than "what key is this on". Those parted
+    -- the day this window started taking selections: the line has three answers and the button has
+    -- two, and the third answer ("More than one") is a lit one.
     self.UnbindButton:SetEnabled(hasKey);
 
     -- **The chrome is measured, not restated.** Whatever the frame is taller than `ContentArea` by

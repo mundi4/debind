@@ -10,6 +10,10 @@ if not DebindPrivate then
 end
 
 local Constants = DebindPrivate.Constants
+-- 메뉴 항목을 문구로 찾는 테스트가 있어서 필요하다. 자리로 찾으면 항목이 하나 끼어드는 날
+-- 조용히 다른 것을 누른다.
+local LLL = DebindPrivate.L
+local DebindUI = DebindPrivate.DebindUI
 local band, bor = bit.band, bit.bor
 
 -----------------------------------------------------------
@@ -1544,6 +1548,156 @@ RegisterTest("Key group: the conflict popup's second answer runs", {
             return Fail(NAME, format("옮긴 쪽이 키를 못 받았다: %s", tostring(mover.key)))
         end
         return Pass(NAME, "점유자가 비켰고 그룹이 키를 받았다")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: The heading's right-click menu
+--
+-- 우클릭 하나가 세 조각을 지난다: 템플릿의 `registerForClicks`, `OnClick`의 오른쪽 갈래,
+-- 그리고 왼쪽 열이 머리글 elementData에 실어 보내는 `rows`. **어느 하나가 빠져도 아무 일도 안
+-- 일어난다** - 오류도 없고, 눌러본 사람만 안다. 셋 다 게임 안에서만 있는 것이라 이 층 말고는
+-- 볼 데가 없다.
+-----------------------------------------------------------
+
+RegisterTest("Key group: the heading's right-click arms the whole group", {
+    description = "머리글을 우클릭해 연 메뉴의 항목이 그룹 전부를 실은 캡처 창을 여는가",
+    run = function()
+        local NAME = "Key group heading menu"
+        local KEY = "CTRL-ALT-F8"
+
+        -- **둘, 그리고 조건으로 갈린 둘.** 하나짜리로는 "그룹째"를 못 잰다 - 겨눈 것이 행
+        -- 하나여도 통과한다.
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
+        ApplyBindings()
+
+        -- **머리글에 실리는 elementData는 왼쪽 열이 지은 그 물건이다.** 손으로 지어 넣으면
+        -- `rows`를 안 싣게 된 날에도 이 테스트가 통과하는데, 메뉴가 그룹을 찾아가는 근거가
+        -- 그 필드다. 창을 띄우지는 않는다 - 데이터는 프레임이 하나도 없어도 지어진다.
+        DebindResultPanel:RefreshKeyboard()
+
+        local elementData
+        for _, data in DebindResultPanel.ContentArea.OrderArea.ScrollBox:GetDataProvider():Enumerate() do
+            if data.isHeader and data.key == KEY then
+                elementData = data
+            end
+        end
+        if not elementData then
+            return Fail(NAME, format("%s의 머리글이 왼쪽 열에 없다 - 검색어나 필터가 걸려 있나", KEY))
+        end
+
+        local header = CreateFrame("Button", nil, UIParent, "DebindKeyHeaderTemplate")
+        header:SetPoint("CENTER")
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            DebindKeyCaptureFrame:Hide()
+            header:Hide()
+            header:SetParent(nil)
+        end)
+        header:Init(elementData)
+
+        -- **눌러서 연다.** `OpenKeyGroupMenu`를 직접 부르면 그 함수만 재고, 우클릭이 거기까지
+        -- 닿는지는 안 잰 채로 통과한다 - 위 대화상자 테스트가 버튼을 직접 누르는 것과 같은
+        -- 이유다.
+        --
+        -- **이것이 못 재는 것 하나:** `registerForClicks`가 진짜 우클릭을 받는지. `Click()`은
+        -- 등록과 무관하게 핸들러를 부를 수 있고, 등록을 되읽는 API는 없다.
+        header:Click("RightButton")
+
+        local menu = Menu.GetManager():GetOpenMenu()
+        if not menu then
+            return Fail(NAME, "우클릭에 메뉴가 안 떴다")
+        end
+
+        -- **문구로 찾는다.** 한동안은 "고를 수 있는 것이 하나뿐"으로 짚었는데, 그건 항목이
+        -- 하나이던 시절의 편법이었고 [단축키 해제]가 서면서 곧바로 빨개졌다 - 재려던 것은
+        -- 항목 **개수**가 아니라 그 항목이 무엇을 겨누느냐였는데 개수에 매여 있었다.
+        --
+        -- 이 물음은 행 쪽 테스트와 같아졌으므로 찾는 방법도 같다.
+        local item
+        menu:EnumerateElementDescriptions(function(_, description)
+            if MenuUtil.GetElementText(description) == LLL["KEY_HEADER_SET_KEY"] then
+                item = description
+            end
+        end)
+        if not item then
+            return Fail(NAME, format("[%s] 항목이 없다", LLL["KEY_HEADER_SET_KEY"]))
+        end
+
+        item:Pick(MenuInputContext.MouseButton, "LeftButton")
+
+        if not DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+        end
+
+        -- 창이 겨눈 것이 그룹 전부인가. 하나만 실려 있으면 누른 키가 한 액션에만 간다.
+        local armed = DebindKeyCaptureFrame.actions or {}
+        local seen = {}
+        for _, action in ipairs(armed) do
+            seen[action] = true
+        end
+        if #armed ~= 2 or not seen[first] or not seen[second] then
+            return Fail(NAME, format("겨눈 것이 그룹이 아니다 - %d개", #armed))
+        end
+
+        return Pass(NAME, format("우클릭 -> 메뉴 -> 캡처 창에 %d개", #armed))
+    end,
+})
+
+--- 같은 창을 여는 항목이 행에도 서는데, **거기서는 그 행 하나만** 실려야 한다. 머리글 것과 낱말이
+--- 같아서(둘 다 「단축키 지정」) 눈으로는 안 갈리고, 틀려도 조용하다 - 창이 뜨고 키도 받는다.
+---
+--- **이것이 안 재는 것:** 우클릭이 메뉴까지 닿는지. 그건 위 테스트가 재고, 여기서 재려면
+--- 스크롤박스에서 나온 행 프레임이 있어야 한다(`DebindOrderLineMixin`은 `GetElementData`를
+--- 읽으므로 손으로 만든 프레임으로는 못 연다). 그래서 메뉴 생성기를 진짜 메뉴 틀에 태우되
+--- 클릭은 건너뛴다.
+RegisterTest("Assign a key: a row's item takes that row alone", {
+    description = "오버뷰 행 메뉴의 [단축키 지정]이 그 행 하나만 실은 캡처 창을 여는가",
+    run = function()
+        local NAME = "Row assign key"
+        local KEY = "CTRL-ALT-F9"
+
+        -- **한 키에 둘.** 하나만 실리는지가 이 테스트의 전부라, 딸린 것이 있어야 잰다.
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
+        InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
+        ApplyBindings()
+
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            DebindKeyCaptureFrame:Hide()
+        end)
+
+        MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupOrderDropdownMenu, first)
+        local menu = Menu.GetManager():GetOpenMenu()
+        if not menu then
+            return Fail(NAME, "메뉴가 안 떴다")
+        end
+
+        -- 여기서는 문구로 찾는다. 이 메뉴에는 고를 수 있는 항목이 여럿이라(순서 두 개) 머리글
+        -- 쪽처럼 "하나뿐"으로는 못 짚는다.
+        local item
+        menu:EnumerateElementDescriptions(function(_, description)
+            if MenuUtil.GetElementText(description) == LLL["ACTION_SET_KEY"] then
+                item = description
+            end
+        end)
+        if not item then
+            return Fail(NAME, format("[%s] 항목이 없다", LLL["ACTION_SET_KEY"]))
+        end
+
+        item:Pick(MenuInputContext.MouseButton, "LeftButton")
+
+        if not DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+        end
+
+        local armed = DebindKeyCaptureFrame.actions or {}
+        if #armed ~= 1 or armed[1] ~= first then
+            return Fail(NAME, format("겨눈 것이 이 행 하나가 아니다 - %d개", #armed))
+        end
+
+        return Pass(NAME, "행 하나만 실렸다")
     end,
 })
 

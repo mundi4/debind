@@ -1267,6 +1267,43 @@ function DebindPrivate.SetKeyForActions(actions, key)
     return true;
 end
 
+--- Is anything here still waiting to be accepted.
+---
+--- **Two callers, and they ask it for opposite reasons**: one to decide whether to stand a section of
+--- a menu up, the other to decide whether the menu opens at all. Both are asking about the same list
+--- of actions, so the walk is here rather than in either of them.
+function DebindPrivate.AnyImportedAction(actions)
+    for i = 1, #(actions or {}) do
+        local action = actions[i];
+        if (action and action.imported) then
+            return true;
+        end
+    end
+    return false;
+end
+
+--- Are these actions all on one key? The key if so, plus a flag - **`nil` twice over means two
+--- different things**, and the flag is what tells "they share no key" from "they share having none".
+---
+--- What it really asks is whether a list is a **set** or a **selection**. A key group is the actions
+--- on one key and answers yes by construction; rows somebody ticked answer whatever their keys say.
+--- Everything that takes 1..n actions and has to behave differently for the two reads it, so it is
+--- here rather than in either caller - two copies of this drift, and the day they do, one window is
+--- drawing what another one is not doing.
+function DebindPrivate.SharedKeyOf(actions)
+    if (actions == nil or #actions == 0) then
+        return nil, false;
+    end
+
+    local key = actions[1].key;
+    for i = 2, #actions do
+        if (actions[i].key ~= key) then
+            return nil, false;
+        end
+    end
+    return key, true;
+end
+
 --- Moves one key group onto `key`, settling whatever already holds it on the way.
 ---
 --- **Two answers to an occupied key, and `unbindOccupants` is which one.** They stay where they are

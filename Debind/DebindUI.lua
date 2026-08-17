@@ -24,7 +24,6 @@ local MACRO_CHAR_LIMIT       = 1000;
 local FRAME_WIDTH            = 812;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
-local WARNING_FONT_COLOR     = CreateColor(1, 0.5, 0, 1);
 --- 가져왔지만 아직 승인 안 된 액션의 이름. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
 --- **뜻이 하나다** - 이 창은 이름 색으로 이미 셋을 말한다(회색·빨강·이 파랑). 넷째를 얹지 말 것.
 local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
@@ -138,12 +137,21 @@ local _filters = {
 	pending      = true,
 };
 
---- 다음에 왼쪽 열을 지을 때 화면에 보여줄 액션. `RequestReveal`이 세우고 `RefreshKeyboard`가
---- 쓰고 지운다.
+--- The row the left column has been asked to put on screen the next time it is built. Four places
+--- set it and `RefreshKeyboard` spends it. **The group it is in is unfolded** as part of that - a
+--- folded group draws no rows at all, so there would be nothing to scroll to.
 ---
---- **다시 그리는 것과 보여주는 것은 다른 일이다.** 예전에는 재구성이 끝날 때마다 선택 행으로
---- 스크롤했는데, 그러면 선택된 액션이 든 그룹은 접을 수가 없다 - 접는 클릭이 재구성을 부르고,
---- 재구성이 그 행을 다시 끌어온다. 그래서 "보여줘"라는 뜻인 순간에만 세운다.
+--- **Drawing and showing are two jobs.** Every rebuild used to scroll to the selected row, and with
+--- that the group holding the selection could not be folded - the fold click asks for a rebuild and
+--- the rebuild drags the row back. So it is only set at a moment that means "show me".
+---
+--- **A row, even where a whole set moved.** A second request that took a key and put the heading on
+--- screen was built and taken back out: the column marks one thing at a time and that mark lives on
+--- rows (`isCurrent`), so a heading scrolled to is a heading the reader still has to pick out of the
+--- others. Revealing the set's first row instead brings the heading along anyway - `RevealRow` is
+--- built to - and the highlight under it says which one. The alternative was a second selection
+--- state on a window whose selection already means something else (what the panel on the right
+--- draws, what a bulk operation acts on), with no answer for when it would clear.
 local _revealAction;
 
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
@@ -2111,13 +2119,113 @@ function DebindKeyHeaderMixin:LayoutSummary()
 	name:SetWidth(min(name:GetUnboundedStringWidth(), available));
 end
 
---- 띠 전체가 접기 버튼이다. 이 템플릿에는 따로 달린 컨트롤이 없고 **오른쪽 끝 조각이 곧
---- 표시**라(`Options_ListExpand_Right` ↔ `_Expanded`), 그 조각만 누르게 하면 화면에 보이는
---- 것과 누를 수 있는 것이 어긋난다.
-function DebindKeyHeaderMixin:OnClick()
+--- The whole bar is the fold button. This template carries no control of its own and **the end
+--- cap is the indicator** (`Options_ListExpand_Right` <-> `_Expanded`), so letting only that piece
+--- be pressed would part what is visible from what is clickable.
+---
+--- Right opens the group's menu, and it is the same bar it has always been: nothing was added to
+--- the art for it, and the fold keeps the button the reader already presses.
+function DebindKeyHeaderMixin:OnClick(button)
+	if (button == "RightButton") then
+		self:OpenKeyGroupMenu();
+		return;
+	end
+
 	local groupKey = CollapseKeyFor(self.elementData.key);
 	_collapsedKeys[groupKey] = not _collapsedKeys[groupKey] or nil;
 	DebindResultPanel:RefreshKeyboard();
+end
+
+--- What this heading's menu would be built over, or `nil` where it would come up empty.
+---
+--- **The actions rather than the rows**, because that is what every item takes, and because the two
+--- callers below are answering one question between them: is there a menu here.
+---
+--- A key group always has one. **A pile only has one when something in it arrived** - neither key
+--- item belongs over rows that share nothing (giving them all one key invents a set the reader never
+--- made, and there is nothing to take off), which leaves the import pair as the only thing that can
+--- stand there. What puts a badge in that pile is an action exported while it was on no key:
+--- `KeyMapper` hands a synthetic key to whatever arrived **on** one and has nothing to give the rest.
+local function HeaderMenuActions(elementData)
+	local rows = elementData.rows;
+	if (not rows or not rows[1]) then
+		return nil;
+	end
+
+	local actions = {};
+	for i = 1, #rows do
+		actions[i] = rows[i].action;
+	end
+
+	if (elementData.key == nil and not DebindPrivate.AnyImportedAction(actions)) then
+		return nil;
+	end
+	return actions;
+end
+
+--- **One line, and it names the right-click.** That gesture is the only thing on this bar nothing
+--- points at, and since the row menu stopped carrying the set's own items there is no other way in
+--- to them - the whole reason the heading was once rejected as a place to put them.
+---
+--- **Folding is left out.** Not knowing it costs the reader nothing: the column opens expanded, so a
+--- fold they never find leaves every action and every operation reachable. Not knowing the
+--- right-click costs them the menu. That is the test for a line here, and it is why the row's tooltip
+--- legitimately names both of its gestures while this one names one.
+---
+--- **The line is hung on exactly the headings that open something**, which is why the same predicate
+--- answers for the tooltip and for the click (`HeaderMenuActions`). A tooltip promising a menu that
+--- never comes is worse than no tooltip, and the two conditions written out twice is how they end up
+--- disagreeing - the pile at the bottom went from opening nothing to opening one pair inside a day.
+---
+--- The template's own tooltip is being overridden and it had a job: the full title when the title is
+--- cut (`ListHeaderMixin:CheckUpdateTooltip`). The title line here does that job. Its other two -
+--- highlighting the title, lighting the end cap - are why the inherited handler is called first
+--- rather than reimplemented.
+function DebindKeyHeaderMixin:OnEnter()
+	ListHeaderMixin.OnEnter(self);
+
+	local elementData = self.elementData;
+	if (elementData == nil or not HeaderMenuActions(elementData)) then
+		return;
+	end
+
+	-- 색은 안 물려준다. 머리글의 파랑·회색·빨강은 **그 자리에서** 이 그룹이 어디 서 있는지를
+	-- 말하는 것이고, 툴팁은 그 물음에 답하는 자리가 아니다(메뉴 제목과 같은 규칙).
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, KeyGroupLabel(elementData.key, elementData.importedFrom));
+	GameTooltip_AddInstructionLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_INSTRUCTION"]);
+	GameTooltip:Show();
+end
+
+function DebindKeyHeaderMixin:OnLeave()
+	ListHeaderMixin.OnLeave(self);
+	GameTooltip:Hide();
+end
+
+--- The menu for the group this heading stands over.
+---
+--- **What identifies the group is its key**, so that is what the menu carries. The menu can still be
+--- standing when the column is rebuilt, and a key is a value rather than a place in a list that has
+--- been thrown away since - the actions are collected from it at the moment the item is pressed,
+--- which also reaches past this screen (`CollectKeyGroupActions` walks every layer).
+---
+--- The first row rides along for the **title** and for nothing else. That one is not interchangeable:
+--- it is first in firing order, which is what the folded heading calls the set by.
+---
+--- Which headings open at all, and what over, is `HeaderMenuActions`. **The list is worked out here
+--- rather than in the menu** because the import items decide whether to stand up while the menu is
+--- being built, and what they must read is what is drawn under this bar right now.
+function DebindKeyHeaderMixin:OpenKeyGroupMenu()
+	local elementData = self.elementData;
+	local actions = HeaderMenuActions(elementData);
+	if (actions == nil) then
+		return;
+	end
+
+	-- 제목이 부르는 이름은 **접혔을 때의 요약과 같은 것**이다 - 첫 액션과 뒤에 몇 개가 더 있는지.
+	-- 그 둘째 값만 여기서 세어 넘긴다.
+	MenuUtil.CreateContextMenu(self, DebindUI.SetupKeyGroupDropdownMenu,
+		elementData.key, actions[1], #actions - 1, actions);
 end
 
 function DebindKeyHeaderMixin:Init(elementData)
@@ -2962,7 +3070,18 @@ end
 --- 물러나면 마이크로 버튼으로 연 게임메뉴가 ESC로 안 닫힌다(우리 창이 키를 먼저 먹는다).
 --- 게임메뉴는 `area="center"` 패널이다(UIPanelWindows.lua:4).
 local function BlizzardOwnsEscape()
-	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil;
+	-- **A dialog standing on top counts too, and it is not a UI panel** - `GetUIPanel` never sees a
+	-- `StaticPopup`, so without this line the two above answer no while a question is on screen
+	-- waiting to be answered. This window then eats that Escape, walks `HandleEscape` to the bottom
+	-- and **closes itself**: the dialog stays up and the window behind it disappears, which is not
+	-- what anybody pressed Escape for.
+	--
+	-- Stepping back is the whole fix. The game keeps its own handler for this
+	-- (`RegisterGameMenuEscHandler` at `GameMenuEscPriority.Dialog` -> `StaticPopup_EscapePressed`),
+	-- and that one reads each dialog's `hideOnEscape` - including other addons', which is the same
+	-- reason this is asked about **any** dialog rather than about ours.
+	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil
+		or StaticPopup_IsAnyDialogShown();
 end
 
 function DebindFrameMixin:OnLoad()
@@ -5165,6 +5284,7 @@ local function RevealRow(scrollBox, headerIndex, rowIndex, keyless)
 	end
 end
 
+
 --- 왼쪽 열을 다시 그린다.
 ---
 --- 선택은 목록을 **거르지 않는다.** 목록은 언제나 키보드 전부이고, 선택이 하는 일은 그 행을
@@ -5489,9 +5609,13 @@ function DebindFrameMixin:CancelBindMode()
 	local changed;
 	local restored;
 	for action, original in pairs(edits) do
-		if (action.key ~= original.key or action.seq ~= original.seq) then
+		-- The badge is restored with the other two. Giving a key inside the mode accepts what
+		-- arrived (`SetActionKey`), and leaving it accepted after a cancel would be the one change
+		-- of the session that the reader cannot take back - the badge is never handed out again.
+		if (action.key ~= original.key or action.seq ~= original.seq or action.imported ~= original.imported) then
 			action.key = original.key;
 			action.seq = original.seq;
+			action.imported = original.imported;
 			action._dirty = true;
 			changed = true;
 			restored = restored or {};
@@ -5552,23 +5676,40 @@ function DebindFrameMixin:SetActionKey(action, key)
 	-- Binding mode's transaction. **Written once per action** -- change the same action three times
 	-- inside the mode and what cancelling restores still has to be what it held on the way in.
 	--
-	-- `seq` is written down with the key. Both move below, and putting only the key back would leave
-	-- the action holding a number from the session that was cancelled.
+	-- All three fields the branch below writes are written down, not just the key. `seq` moves with
+	-- it, and so does the badge; putting back only the key would leave the action holding a number
+	-- from the session that was cancelled, or accepted by a session that was not.
 	local edits = self.bindEdits;
 	if (edits and edits[action] == nil) then
-		edits[action] = { key = action.key, seq = action.seq };
+		edits[action] = { key = action.key, seq = action.seq, imported = action.imported };
 	end
 
 	-- **Both directions go through `Profile.lua`, and neither is written here.** Giving the key
 	-- puts the action at the back of that group and renumbers it; taking it away drops the number
 	-- and renumbers the group it left. Spelling either out at this call site would put the rule in
 	-- two places, and this is not the only way in.
+	--
+	-- **Giving a key to something that arrived takes the badge off it.** Deciding the key is the
+	-- reader saying yes; there is nothing further to approve about an action they just put on their
+	-- own keyboard, and the set's own path has read it that way all along (`SetKeyForActions`).
+	--
+	-- **Only this direction.** [Unbind Key] settles nothing, and what it takes off an arrival is a
+	-- synthetic number rather than a key it was ever on, so it is not the reader taking anything.
+	local accepted;
 	if (key ~= nil) then
+		accepted = action.imported ~= nil;
 		action.key = key;
+		action.imported = nil;
 		action._dirty = true;
 		DebindPrivate.PlaceActionInKeyGroup(action);
 	else
 		DebindPrivate.ClearActionKey(action);
+	end
+	-- `imported` is one of the axes the filters read, so a row that just lost its badge can be one
+	-- this list no longer draws - and the selection would go on counting it while nothing on screen
+	-- is highlighted (`ApproveImportedActions` carries the same call for the same reason).
+	if (accepted) then
+		self:PruneSelectionToBinFilter();
 	end
 	DebindPrivate.UpdateBindings();
 	self:Refresh(true);
@@ -5576,6 +5717,7 @@ function DebindFrameMixin:SetActionKey(action, key)
 	-- 키가 바뀌면 왼쪽 열에서 자리를 통째로 옮긴다 - 그 열은 키로 묶고 키로 정렬한다. 간 자리가
 	-- 화면 밖이면 아무 일도 안 일어난 것처럼 보이므로 따라간다. 오른쪽 목록은 저 위에서 따로
 	-- 굴린다(`ScrollActionIntoView`) - 두 열은 서로의 스크롤을 안 본다.
+	--
 	_revealAction = action;
 	self:Update();
 	return true;
@@ -5593,22 +5735,6 @@ end
 -- Three steps: pick the group from a menu -> press the key to give it -> answer if that key is
 -- already carrying something.
 --------------------------------------------------------------------------------
-
---- The key group an action belongs to, and the key that group is leaving.
----
---- **The group is what the left column draws under one heading**, which is the thing the reader is
---- pointing at: everything on the same key. A set that arrived without one is on a synthetic key
---- and so is no different here -- which is what left this with one question where it used to have
---- two, and `BuildKeyboardElements` splits the column by that same one.
----
---- An action with no key at all is nobody's group: it is one row of the unbound pile, and giving
---- one action a key is what the bind mode has always done.
-local function CollectKeyGroupForAction(action)
-	if (action == nil or action.key == nil) then
-		return nil;
-	end
-	return DebindPrivate.CollectKeyGroupActions(action.key), action.key;
-end
 
 --- Arms one key group and starts listening for the key it should get.
 ---
@@ -5635,29 +5761,48 @@ end
 --- (`SetKeyForActions`), so the last badge can come off at this point; the tick that narrows to
 --- [Pending] is still the reader's to clear, the same as everywhere else.
 ---
---- **And the group is followed to where it went.** A changed key moves its whole place in the left
+--- **And the set is followed to where it went.** A changed key moves its whole place in the left
 --- column, which groups and sorts by key, and if the new place is off screen the operation looks
 --- like it did nothing. Same thing `SetActionKey` does for a single action; here the target is the
---- group's **first row** - first in firing order, so it sits right under the heading, and seeing it
---- is seeing the group.
+--- set's **first row** - first in firing order, so it sits right under the heading, and seeing it
+--- is seeing the set.
+---
+--- **A row and not the heading, even though a set is what moved.** Scrolling to the heading was
+--- built and taken back out: nothing marks a heading, so the reader arrives and still has to work
+--- out which of them it is. Asking for the row brings the heading along (`RevealRow` does that on
+--- its own) and the selection highlight underneath answers "which one" with the one marker this
+--- column has.
 ---
 --- Selecting and scrolling are both needed. Selecting marks which row it is and asks the left
 --- column to find it (`SetSelectedAction` sets `_revealAction`); the right list does not watch that
 --- column, so it is rolled separately.
+---
+--- **`key` may be nil, and then there is no group to walk.** Unbinding a set of one clears the key
+--- outright (`UnbindKeyGroup`), so the action is a row of its own in the pile at the bottom and it
+--- is its own answer - `CollectActionsForKey` has nothing to say about a key that is not there.
 local function RebuildAfterKeyGroupChange(actions, key)
 	DebindPrivate.UpdateBindings();
 	DebindFrame:Refresh(true);
 
-	local moved = {};
-	for _, action in ipairs(actions) do
-		moved[action] = true;
-	end
-	for _, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
-		if (moved[row.action]) then
-			DebindFrame:SetSelectedAction(row.action);
-			DebindFrame:ScrollActionIntoView(row.action);
-			break;
+	local target;
+	if (key == nil) then
+		target = actions[1];
+	else
+		local moved = {};
+		for _, action in ipairs(actions) do
+			moved[action] = true;
 		end
+		for _, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
+			if (moved[row.action]) then
+				target = row.action;
+				break;
+			end
+		end
+	end
+
+	if (target) then
+		DebindFrame:SetSelectedAction(target);
+		DebindFrame:ScrollActionIntoView(target);
 	end
 
 	DebindFrame:Update();
@@ -5729,7 +5874,49 @@ function DebindFrameMixin:ApplyCapturedKeyToKeyGroup(key)
 	GiveKeyGroupTheKey(capture.actions, key, capture.label);
 end
 
---- The way in from the left column's right-click menu.
+local SharedKeyOf = DebindPrivate.SharedKeyOf;
+
+--- [Unbind Key], for whatever was handed in.
+---
+--- **A set steps off its key without coming apart** (`UnbindKeyGroup`): two or more actions sharing
+--- a key get a synthetic one so the profile still records that they belong together, since clearing
+--- the key outright leaves loose actions and nothing that says they were ever one thing.
+---
+--- **A selection is not a set, so it does not get that.** Doing it there would invent a group the
+--- reader never made - five rows that had nothing to do with each other would come out the far side
+--- filed as one arrival. Each of them simply loses its own key.
+local function ReleaseCapturedKey(actions)
+	if (select(2, SharedKeyOf(actions))) then
+		DebindPrivate.UnbindKeyGroup(actions);
+		return;
+	end
+
+	for _, action in ipairs(actions) do
+		DebindPrivate.ClearActionKey(action);
+	end
+end
+
+--- What the question about an occupied key calls the thing that is moving (`KEY_GROUP_CONFLICT`).
+---
+--- Three shapes, and the sentence has to name the one the reader is looking at: one action is called
+--- by its name, a set by the key it is on - the same words its heading uses (`KeyGroupLabel`) - and
+--- a selection by how many were ticked, which is the only thing true of all of them and the same
+--- words the bulk menu's own title uses.
+local function CaptureLabel(actions)
+	if (#actions == 1) then
+		return (NameAndIconForAction(actions[1]));
+	end
+
+	local key, shared = SharedKeyOf(actions);
+	if (shared) then
+		return KeyGroupLabel(key);
+	end
+	return format(LLL["BULK_MENU_TITLE"], #actions);
+end
+
+--- **Asks for a key, and settles whatever comes back.** One action, a key group, a selection - the
+--- window takes 1..n and so does everything below it, which is why the three menus that open it hand
+--- in nothing but an array (`{ action }`, `CollectKeyGroupActions`, `GetSelectedActions`).
 ---
 --- ⚠ **Under trial: this asks in a dialog instead of arming the bind mode** (`KeyCapture.lua`), so
 --- the two of them can be looked at side by side. `DebindFrameMixin:BeginKeyGroupCapture` and
@@ -5738,40 +5925,86 @@ end
 --- while this line says `Open`. Whichever shape wins, the other one goes; what has to be decided and
 --- what is still unseen are in `devdocs/asking-for-a-key.md`.
 ---
---- The answer path is shared either way: the dialog hands back a key or `nil`, and what happens to
---- the group after that is the same code the mode reaches.
-function DebindUI.BeginKeyGroupCapture(action)
-	local actions, key = CollectKeyGroupForAction(action);
+--- **The occupied-key question is asked by occupancy and not by size.** It used to be the set's
+--- question alone, with a single action moving in beside whatever was there and saying nothing - a
+--- split that came from the two paths being written months apart rather than from anything about
+--- them. One rule now: if the key the reader picked is already carrying something that is not part
+--- of what is moving, they are told what and asked what should happen to it.
+function DebindUI.BeginKeyCapture(actions)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
 
-	local label = KeyGroupLabel(key, action.imported);
+	-- **Named before the window opens.** By the time the answer comes back the actions have moved,
+	-- so a set asked about by the key it was on could no longer say which key that was.
+	local label = CaptureLabel(actions);
+
 	DebindKeyCaptureFrame:Open(actions, function(captured)
-		-- **`nil` is [Unbind Key], not a cancel** -- cancelling never gets here. The whole set steps
-		-- off its key together, for the reason the set is moved together: leaving one member behind
-		-- splits the group with both halves still firing.
-		--
-		-- **And it stays a set.** `UnbindKeyGroup` is what keeps it one -- clearing the key outright
-		-- would leave as many loose actions as the group had members, with nothing recording that
-		-- they ever belonged together.
+		-- **`nil` is [Unbind Key], not a cancel** -- cancelling never gets here.
 		if (captured == nil) then
-			DebindPrivate.UnbindKeyGroup(actions);
-			DebindPrivate.UpdateBindings();
-			DebindFrame:Refresh(true);
-			DebindFrame:ScrollActionIntoView(actions[1]);
-			DebindFrame:Update();
+			DebindUI.UnbindActions(actions);
 			return;
 		end
 		GiveKeyGroupTheKey(actions, captured, label);
 	end);
 end
 
---- Can a whole key group be given a key from this action? Asked when the menu decides whether to
---- stand the item up at all.
-function DebindUI.CanBeginKeyGroupCapture(action)
-	local actions = CollectKeyGroupForAction(action);
-	return actions ~= nil and #actions > 0;
+--- [Unbind], straight from a menu. **The same two steps the dialog's [Unbind Key] takes**, in the
+--- same order, because a menu offering the button's other half must not be able to mean something
+--- else by it.
+---
+--- The rebuild is the function the give-key side uses. Four lines here once transcribed it and one
+--- of them was missing - the left column was asked for nothing, so only `ScrollActionIntoView` (the
+--- right list) rolled.
+---
+--- The key is read **after** the release, since that is where it is settled: scattered rows leave
+--- `nil` behind, and the rebuild knows that case.
+function DebindUI.UnbindActions(actions)
+	if (actions == nil or #actions == 0) then
+		return;
+	end
+	ReleaseCapturedKey(actions);
+	RebuildAfterKeyGroupChange(actions, actions[1].key);
+end
+
+--- Is any of what already holds the key **shared with other characters**.
+---
+--- The layer's own `isCharacterSpecific`, which is the same question the importance menu asks before
+--- it warns (`PRIORITY_SHARED_WARNING`). Two of the eleven layers belong to the class and one to the
+--- account, so "take the key from them" can reach every character the reader has - and the count in
+--- the prompt above cannot show that on its own.
+local function AnySharedOccupant(occupants)
+	for _, action in ipairs(occupants) do
+		local _, layer = DebindPrivate.FindLayerID(action);
+		if (layer and not layer.isCharacterSpecific) then
+			return true;
+		end
+	end
+	return false;
+end
+
+--- Hangs a tooltip on one of a dialog's buttons, or takes it off again when `title` is nil.
+---
+--- **`StaticPopup` has no field for this**, so it is scripts put on and taken off around each
+--- showing. Set rather than hooked: hooks stack, and this runs every time the dialog is shown.
+local function SetPopupButtonTooltip(button, title, text)
+	if (not button) then
+		return;
+	end
+
+	if (title == nil) then
+		button:SetScript("OnEnter", nil);
+		button:SetScript("OnLeave", nil);
+		return;
+	end
+
+	button:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+		GameTooltip_SetTitle(GameTooltip, title);
+		GameTooltip_AddNormalLine(GameTooltip, text);
+		GameTooltip:Show();
+	end);
+	button:SetScript("OnLeave", GameTooltip_Hide);
 end
 
 --- The two answers to an occupied key, plus stopping.
@@ -5784,7 +6017,7 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	-- 문장만 여는 시점에 짓는다. 인자가 셋이라 `StaticPopup_Show`의 `text_arg1/2`로는 모자란다 -
 	-- 클라이언트의 `GENERIC_CONFIRMATION`이 같은 이유로 같은 모양이다.
 	text = "",
-	button1 = LLL["KEY_GROUP_CONFLICT_MERGE"],
+	button1 = LLL["KEY_GROUP_CONFLICT_KEEP"],
 	button2 = LLL["KEY_GROUP_CONFLICT_UNBIND"],
 	button3 = CANCEL,
 	-- **Without this the second button is dead.** It is what makes `StaticPopup_OnClick` dispatch by
@@ -5794,8 +6027,26 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	-- own three-button dialog (`GAME_SETTINGS_CONFIRM_DISCARD`) carries it for the same reason.
 	selectCallbackByIndex = true,
 	OnShow = function(dialog, data)
-		dialog:SetFormattedText(LLL["KEY_GROUP_CONFLICT"],
-			data.label, KeyGroupLabel(data.key), #data.occupants);
+		-- **경고는 문장에 이어 붙여서 `SetFormattedText`에 함께 넘긴다.** 이 대화상자의 글은
+		-- 저 함수 하나로만 세워봤고, 붙인 문자열에는 서식이 없으므로 인자는 그대로다.
+		local text = LLL["KEY_GROUP_CONFLICT"];
+		if (AnySharedOccupant(data.occupants)) then
+			text = text .. "|n|n" .. LLL["KEY_GROUP_CONFLICT_SHARED"];
+		end
+		dialog:SetFormattedText(text, data.label, KeyGroupLabel(data.key), #data.occupants);
+
+		-- 두 답이 무엇을 하는지는 낱말 두 개로는 안 나온다. **하나는 지정을 걷어내는 답이고**,
+		-- 이 창은 이 애드온에서 되돌리기가 제일 비싼 자리다.
+		SetPopupButtonTooltip(dialog:GetButton(1),
+			LLL["KEY_GROUP_CONFLICT_KEEP"], LLL["KEY_GROUP_CONFLICT_KEEP_DESC"]);
+		SetPopupButtonTooltip(dialog:GetButton(2),
+			LLL["KEY_GROUP_CONFLICT_UNBIND"], LLL["KEY_GROUP_CONFLICT_UNBIND_DESC"]);
+	end,
+	-- **툴팁은 반드시 떼어낸다.** 대화상자 프레임은 풀에서 돌아가므로, 남겨두면 다음에 그
+	-- 프레임을 쓰는 남의 팝업이 우리 툴팁을 달고 뜬다.
+	OnHide = function(dialog)
+		SetPopupButtonTooltip(dialog:GetButton(1), nil, nil);
+		SetPopupButtonTooltip(dialog:GetButton(2), nil, nil);
 	end,
 	OnButton1 = function(_, data)
 		ApplyKeyGroupMove(data.actions, data.key, data.occupants, false);
@@ -6094,9 +6345,9 @@ end
 DebindUI.UNIT_INFO = UNIT_INFO;
 DebindUI.SORTED_UNIT_LIST = SORTED_UNIT_LIST;
 DebindUI.BINDING_TYPE_NAMES = BINDING_TYPE_NAMES;
--- 경고색은 한 군데서 낸다. 드롭다운 메뉴도 같은 주황을 써야 하는데, 사본을 하나 더 두면
--- 한쪽만 바뀐다.
-DebindUI.WARNING_FONT_COLOR = WARNING_FONT_COLOR;
+-- The blue is minted in one place. The dropdown menus have to draw the same one the rows do, and a
+-- second copy is the one that stops matching the day the original moves.
+DebindUI.IMPORTED_FONT_COLOR = IMPORTED_FONT_COLOR;
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabaLabel = GetSideTabaLabel;
