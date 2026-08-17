@@ -67,7 +67,7 @@ The **+** at the top opens **Add an Action**, with a search box over everything 
 
 ![The Add an Action window on its Spells tab, listing the character's spells with tabs for Macros, Mounts, Toys, Commands and Special.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/add-an-action.png)
 
-To give something a key, turn on **Set Keys** at the top of the window, point at the action and press the key. Mouse buttons and the wheel count. While that mode is on:
+To give something a key, turn on **Bind Mode** — the keycap button at the top of the window, next to the **+** — then point at the action and press the key. Mouse buttons and the wheel count. While that mode is on:
 
 - **Escape, pointing at an action** — clears that action's key.
 - **Escape, pointing at nothing** — puts back every key you've changed since you turned the mode on.

@@ -1173,12 +1173,12 @@
 								</Layers>
 								<Frames>
 									<!--
-										**여기는 UIPanelButtonTemplate이다.** 목록 위의 토글은 은색인데 이 둘은 아니다 -
-										저 덮개는 사실상 다이얼로그이고, 다이얼로그의 확인/취소가 쓰는 버튼이 이것이다
-										(블리자드의 QuickKeybind와 LFG 덮개도 같다). 목록 행 안에서 이 버튼이 문제였던
-										것은 거기가 다이얼로그가 아니라서였다.
+										**These two are UIPanelButtonTemplate.** This cover is a dialog in all but
+										name, and confirm/cancel in a dialog is what this template is for
+										(Blizzard's QuickKeybind and the LFG cover do the same). What made this
+										button wrong inside a list row was that a row is not a dialog.
 
-										커밋. 건 것을 그대로 두고 나간다.
+										Commit. Leaves what was bound as it stands.
 									-->
 									<Button parentKey="DoneButton" inherits="UIPanelButtonTemplate">
 										<Size x="130" y="22"/>
@@ -1254,65 +1254,56 @@
 					</DropdownButton>
 
 					<!--
-						**메뉴가 아니라 창을 연다.** 한때 여기 드롭다운이 매달려 있었고 그 안에
-						타입별 하위 메뉴가 아홉 겹까지 들어갔는데, 지금은 그 항목이 전부 주문 선택
-						창에 있다 - 검색까지 되는 자리라 메뉴로 남길 이유가 없어졌다.
+						**The bind mode toggle.** It stands in the portrait row, and the list itself
+						carries no control for it.
 
-						그래서 `DropdownButton`이 아니라 평범한 `Button`이다. 클릭은
-						`DebindFrameMixin:InitializeButtons`에서 붙인다(오버뷰 버튼과 같은 방식).
+						It was once a button that came up on a row while the cursor was over that row.
+						That puts the way in **under the cursor** - a control appeared and vanished on
+						every row the mouse crossed, and the row lost focus the instant the cursor
+						reached the button, which took the button back down (the target being aimed at
+						blinked). Standing outside the list takes that whole property away.
+
+						The game has the same thing - the action bars' quick keybind mode
+						(Blizzard_QuickKeybind). There too a mode is turned on, the cursor is put on a
+						target, and a key is pressed.
+
+						While it is on, **every input over a row becomes a key** - left and right click
+						are legitimate bindings too (they go with the hover condition), so no exception
+						is made for them. Selecting and the right-click menu stop for that time. That
+						they have stopped has to be on screen, so this button wears the lit ring the
+						whole time (`SetBindingMode` -> `SetSelectedState`).
+
+						The keyboard arrives **at this button**, wherever the cursor happens to be. The
+						target is the row under the cursor at that moment, and it is looked up again on
+						every press (`GetHoveredLine`).
+
+						**The way in and the way out are no longer one place.** It used to stand above
+						the left column, because that column is what the overlay covers when the mode
+						turns on - and [Done]/[Cancel] are on that overlay, so the mode began and ended
+						in one spot. In the portrait row it stands with the other controls that act on
+						the whole window instead, and the exit stays where the overlay is.
 					-->
-					<Button parentKey="AddPortrait" inherits="DebindPortraitTemplate">
+					<Button parentKey="BindModePortrait" inherits="DebindPortraitTemplate">
 						<KeyValues>
-							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
 							<!--
-								제목은 **열리는 창의 제목 그대로**다. "Add..."라는 이 버튼만의
-								낱말을 따로 갖고 있었는데, 눌러서 뜬 창이 "Add an Action"이라고
-								적혀 있으면 같은 것인지 알 수가 없다.
+								The keycap the command actions already wear (`NameAndIconForAction`), so
+								"a key" is one picture across the window. Blizzard uses this atlas in a
+								portrait slot as well (Blizzard_TutorialKeyboardMouseFrame).
 							-->
-							<KeyValue key="TooltipTitle" value="SPELL_PICKER_TITLE" type="string"/>
-							<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
+							<KeyValue key="PortraitTexture" value="A:NPE_Icon" type="string"/>
+							<!--
+								Both are rewritten per state by `UpdateBindModeButton`; these are what
+								they say while the mode is off.
+							-->
+							<KeyValue key="TooltipTitle" value="BIND_MODE" type="string"/>
+							<KeyValue key="TooltipText" value="BIND_MODE_DESC" type="string"/>
 						</KeyValues>
 						<Anchors>
 							<!--
-								`$parent` is the container now, and the portrait row it lines up with belongs to
-								the window - hence the second hop. The side tabs already reach out this way.
+								`$parent` is the container, and the portrait row it joins belongs to the
+								window - hence the second hop. The side tabs already reach out this way.
 							-->
 							<Anchor point="RIGHT" relativeKey="$parent.$parent.CustomStatesPortrait" relativePoint="LEFT" x="-5" y="0"/>
-						</Anchors>
-					</Button>
-
-					<!--
-						**단축키 지정 모드 토글.** **왼쪽 열 위**에 서고, 목록 안에는 아무 컨트롤도 없다.
-
-						한때 행마다 호버하면 뜨는 버튼이었다. 그러면 진입점이 **커서를 따라다닌다** - 마우스가
-						목록을 지나가기만 해도 행마다 컨트롤이 떴다 사라지고, 커서가 그 버튼에 닿는 순간 행은
-						포커스를 잃어 버튼을 도로 내렸다(누르려는 과녁이 깜빡였다). 자리를 목록 밖으로 옮기면
-						그 성질이 통째로 없어진다.
-
-						게임에 같은 물건이 있다 - 액션바의 빠른 키 지정 모드(Blizzard_QuickKeybind). 거기도
-						모드를 켜고, 과녁에 마우스를 얹고, 키를 누른다.
-
-						켜진 동안 **행 위의 모든 입력이 키가 된다** - 좌/우클릭도 정당한 바인딩이라(호버 조건과
-						같이 쓴다) 예외를 두지 않는다. 그래서 그동안 선택과 우클릭 메뉴는 멈춘다. 멈춘다는
-						사실이 화면에 있어야 하므로 이 버튼은 켜져 있는 동안 켜진 표시를 달고 있는다
-						(SetBindingMode의 SelectedHighlight).
-
-						키보드는 커서 위치와 무관하게 **이 버튼으로** 들어온다. 대상은 그때 커서 밑에 있는
-						행이고, 그 행은 누를 때마다 새로 찾는다(GetHoveredLine).
-
-						만지는 것은 오른쪽 목록인데 자리는 왼쪽인 이유는 **나가는 문과 같은 자리**이기
-						때문이다 - 켜지면 바로 아래 왼쪽 열이 덮이고 그 위에 [종료]/[취소]가 뜬다.
-						들어간 자리와 나오는 자리가 한눈에 같은 곳이면 모드의 시작과 끝이 한 덩어리로 읽힌다.
-					-->
-					<Button parentKey="BindModeButton" inherits="UIPanelButtonTemplate">
-						<Size x="150" y="22"/>
-						<Anchors>
-							<!--
-								자리는 클릭 바인딩 창의 [Mouseover Cast] 체크박스와 같다
-								(Blizzard_ClickBindingUI.xml: 프레임 TOPLEFT에서 +60/-30). x가 60인 것은
-								포트레잇을 비켜나기 위해서고, 그 창도 같은 이유로 같은 값을 쓴다.
-							-->
-							<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="60" y="-30"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
@@ -1332,15 +1323,41 @@
 					</Button>
 
 					<!--
+						**메뉴가 아니라 창을 연다.** 한때 여기 드롭다운이 매달려 있었고 그 안에
+						타입별 하위 메뉴가 아홉 겹까지 들어갔는데, 지금은 그 항목이 전부 주문 선택
+						창에 있다 - 검색까지 되는 자리라 메뉴로 남길 이유가 없어졌다.
+
+						그래서 `DropdownButton`이 아니라 평범한 `Button`이다. 클릭은
+						`DebindFrameMixin:InitializeButtons`에서 붙인다(오버뷰 버튼과 같은 방식).
+					-->
+					<Button parentKey="AddPortrait" inherits="DebindPortraitTemplate">
+						<KeyValues>
+							<KeyValue key="PortraitTexture" value="Interface\PaperDollInfoFrame\Character-Plus" type="string"/>
+							<!--
+								제목은 **열리는 창의 제목 그대로**다. "Add..."라는 이 버튼만의
+								낱말을 따로 갖고 있었는데, 눌러서 뜬 창이 "Add an Action"이라고
+								적혀 있으면 같은 것인지 알 수가 없다.
+							-->
+							<KeyValue key="TooltipTitle" value="SPELL_PICKER_TITLE" type="string"/>
+							<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
+						</KeyValues>
+						<Anchors>
+							<Anchor point="RIGHT" relativeKey="$parent.BindModePortrait" relativePoint="LEFT" x="-5" y="0"/>
+						</Anchors>
+					</Button>
+
+					<!--
 						**The strip for what came in. It only stands while something has come in.**
 
 						The rest of the time the whole thing is hidden (`UpdateImportStrip`). Standing
 						always, it would nail two controls to the window of somebody who never imports
 						anything - and both of them only mean something while a badge is on.
 
-						**It stands beside the bind mode toggle.** Its two buttons act on the whole
-						profile rather than on either column, and this row is where the things that act
-						on the whole window stand.
+						**It stands on the row above the two columns.** Its two buttons act on the whole
+						profile rather than on either column, so neither column's head is its place. The
+						bind mode toggle used to stand here too and has moved to the portrait row; this
+						strip stays because it is a strip of labelled buttons with counts in them, which
+						is not something a 31px portrait can carry.
 
 						**The narrowing that used to live here is gone.** A [Only what came in] checkbox
 						stood to the left of these buttons; it is a value of the left column's key axis
@@ -1353,7 +1370,13 @@
 					<Frame parentKey="ImportStrip" useParentLevel="true" hidden="true">
 						<Size x="1" y="26"/>
 						<Anchors>
-							<Anchor point="LEFT" relativeKey="$parent.BindModeButton" relativePoint="RIGHT" x="14" y="0"/>
+							<!--
+								Where the bind mode toggle used to begin, on the line it used to sit on:
+								x=60 clears the portrait row's reach on the left, and y=-41 is that
+								button's centre (top -30, height 22). It hung off that button's right
+								side until the button left this row.
+							-->
+							<Anchor point="LEFT" relativePoint="TOPLEFT" x="60" y="-41"/>
 						</Anchors>
 						<Frames>
 							<!--

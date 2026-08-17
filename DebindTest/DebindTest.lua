@@ -1701,6 +1701,74 @@ RegisterTest("Assign a key: a row's item takes that row alone", {
     end,
 })
 
+--- The mode's own way in. **Four things have to line up for one press, and three of them are silent
+--- when they do not**: the widget key the frame reaches for (`BindModePortrait` -- a wrong one is a
+--- nil index, but only when someone presses it), the XML `OnClick`, the keyboard being switched on
+--- at that button (without it the mode is on and nothing hears a key), and the lit ring that is the
+--- only thing on screen saying selecting and the menu have stopped.
+---
+--- All four moved on the same day the toggle became a portrait: it used to be a labelled button
+--- above the left column, wearing a square silver texture and carrying its state in its text.
+---
+--- **This does not measure what `RegisterForClicks` receives.** `Click()` reaches `OnClick`
+--- whatever the registration says (the same limit the key group popup test writes down).
+RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
+    description = "포트레잇 줄의 토글을 누르면 모드가 켜지고 키보드와 켜진 표시가 따라오는가",
+    run = function()
+        local NAME = "Bind mode toggle"
+
+        -- 창이 떠 있어야 한다. 포트레잇은 첫 `OnShow`에서 스스로를 세우고(`DebindPortraitMixin`),
+        -- 그 전에는 툴팁 필드도 텍스처도 붙지 않은 상태다.
+        DebindFrame:Show()
+        AddTeardown(function()
+            DebindFrame:SetBindingMode(false)
+            DebindFrame:Hide()
+        end)
+
+        local toggle = DebindFrame.OverviewPanel.BindModePortrait
+        if not toggle then
+            return Fail(NAME, "BindModePortrait이 없다 - XML의 parentKey가 바뀌었나")
+        end
+        if DebindFrame:IsCapturingKey() then
+            return Fail(NAME, "시작부터 모드가 켜져 있다")
+        end
+
+        toggle:Click()
+
+        if not DebindFrame:IsCapturingKey() then
+            return Fail(NAME, "눌렀는데 모드가 안 켜졌다")
+        end
+        if not toggle:IsKeyboardEnabled() then
+            return Fail(NAME, "모드는 켜졌는데 이 버튼이 키보드를 안 듣는다")
+        end
+        -- 켜진 표시는 테두리다(`SetSelectedState`): 채도가 돌아오고 그 위의 어두운 판이 내려간다.
+        if toggle.Frame:IsDesaturated() or toggle.UnselectedFrame:IsShown() then
+            return Fail(NAME, "켜졌는데 테두리가 꺼진 모양 그대로다")
+        end
+        if toggle.TooltipTitle ~= LLL["BIND_MODE_STOP"] then
+            return Fail(NAME, format("툴팁 제목이 안 바뀌었다: %s", tostring(toggle.TooltipTitle)))
+        end
+
+        toggle:Click()
+
+        if DebindFrame:IsCapturingKey() then
+            return Fail(NAME, "다시 눌렀는데 모드가 안 꺼졌다")
+        end
+        if toggle:IsKeyboardEnabled() then
+            return Fail(NAME, "모드가 꺼졌는데 키보드를 계속 듣는다")
+        end
+        if not toggle.Frame:IsDesaturated() or not toggle.UnselectedFrame:IsShown() then
+            return Fail(NAME, "꺼졌는데 켜진 표시가 남아 있다")
+        end
+        if toggle.TooltipTitle ~= LLL["BIND_MODE"] or toggle.TooltipText ~= LLL["BIND_MODE_DESC"] then
+            return Fail(NAME, format("툴팁이 안 돌아왔다: %s / %s",
+                tostring(toggle.TooltipTitle), tostring(toggle.TooltipText)))
+        end
+
+        return Pass(NAME, "토글 한 번에 모드·키보드·테두리·툴팁이 함께 움직였다")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: The export window counts what actually leaves
 --

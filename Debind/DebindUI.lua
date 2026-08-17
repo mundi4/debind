@@ -1898,9 +1898,10 @@ function DebindLineMixin:OnLeave()
 end
 
 function DebindLineMixin:OnClick(buttonName)
-	-- **모드가 켜져 있으면 이 행 위의 모든 입력이 키다.** 좌/우클릭도 정당한 바인딩이라
-	-- (호버 조건과 함께 쓴다) 예외를 두지 않는다. 그동안 선택도 메뉴도 멈춘다 - 그게
-	-- 모드를 명시적으로 켜고 끄게 만든 이유고, 켜져 있다는 것은 목록 위 토글이 말한다.
+	-- **While the mode is on, every input over this row is a key.** Left and right click are
+	-- legitimate bindings too (they go with the hover condition), so no exception is made for them.
+	-- Selecting and the menu stop for that time - which is why the mode is turned on and off
+	-- explicitly, and the lit toggle in the portrait row is what says it is on.
 	if (DebindFrame:IsCapturingKey()) then
 		DebindFrame:BindMode_OnInput(buttonName, self);
 		return;
@@ -2570,10 +2571,17 @@ end
 
 function DebindPortraitMixin:OnLoad()
 	self:SetSelectedState(false);
-	self.Portrait:SetTexture(self.PortraitTexture);
+	-- File, ID or atlas behind the `A:` prefix - the same convention the action lists use, and the
+	-- only one of the three that has no keyboard art of its own.
+	SetActionIcon(self.Portrait, self.PortraitTexture);
+	-- **Both lines keep what they are given when it is not a key.** This runs on the first `OnShow`,
+	-- which is later than it looks: the frame's `InitializeButtons` has already been through, and the
+	-- bind mode toggle's two fields are written there (`UpdateBindModeButton`) as finished text. The
+	-- text line without its tail dropped that to nil, and the toggle's tooltip lost its second line
+	-- until the mode was toggled once.
 	if (self.TooltipTitle) then
 		self.TooltipTitle = rawget(LLL, self.TooltipTitle) or _G[self.TooltipTitle] or self.TooltipTitle;
-		self.TooltipText = rawget(LLL, self.TooltipText);
+		self.TooltipText = rawget(LLL, self.TooltipText) or self.TooltipText;
 	end
 	if (self.MenuFunc) then
 		self:SetupMenu(DebindUI[self.MenuFunc]);
@@ -2876,22 +2884,12 @@ function DebindFrameMixin:InitializeButtons()
 		DebindSpellPickerFrame:Toggle();
 	end)
 
-	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 말과 툴팁이다.
+	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 처음 한 번의 툴팁이다.
 	--
-	-- **이 버튼이 답할 질문은 하나다: 누르면 무슨 일이 벌어지나.**
-	--
-	-- 한때 여기에 모드 **안의** 규칙까지 다 붙어 있었다 - 어떻게 거는지, ESC가 무엇인지,
-	-- 어떻게 끝내는지. 셋 다 들어간 뒤에 필요한 말이고 그건 오버레이가 한다. 게다가 끝내는
-	-- 방법을 적은 줄은 ESC를 나가는 문으로 쓰던 시절 것이라 지금은 **거짓**이었다.
-	self.OverviewPanel.BindModeButton:SetScript("OnEnter", function(button)
-		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-		GameTooltip_SetTitle(GameTooltip, LLL["BIND_MODE"]);
-		GameTooltip_AddNormalLine(GameTooltip, LLL["BIND_MODE_DESC"]);
-		GameTooltip:Show();
-	end);
-	self.OverviewPanel.BindModeButton:SetScript("OnLeave", function()
-		GameTooltip:Hide();
-	end);
+	-- 툴팁 자체는 포트레잇 템플릿이 그린다(`DebindPortraitMixin:OnEnter`) - 여기서 하는 일은
+	-- 그 믹스인이 읽을 두 필드를 지금 상태에 맞춰 두는 것뿐이다. 앞서 이 자리에 있던
+	-- SetScript 두 개는 그래서 없어졌다: 툴팁을 직접 그리면 못 누를 때 이유를 붙이는
+	-- `disabledReason` 갈래가 이 버튼에서만 빠진다.
 	self:UpdateBindModeButton();
 
 	-- 값이 실제로 달라졌을 때만 목록을 짓는다. `SetText`는 같은 글자로도 이 스크립트를 부른다.
@@ -4122,7 +4120,7 @@ function DebindFrameMixin:UpdateButtons()
 		tab:SetEnabled(enableButtons);
 	end
 
-	self.OverviewPanel.BindModeButton:SetEnabled(enableButtons);
+	self.OverviewPanel.BindModePortrait:SetEnabled(enableButtons);
 	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
 	self.CustomStatesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
@@ -5360,25 +5358,11 @@ function DebindFrameMixin:IsCapturingKey()
 end
 
 
---- 모드가 켜져 있다는 표시. 블리자드 단축키 버튼이 쓰는 것과 같은 텍스처다
---- (CustomBindingButtonTemplate). 과녁이 행마다 바뀌던 시절에 XML로는 못 박을 수가 없어서
---- 코드로 만들게 됐고, 과녁이 토글 하나로 고정된 지금도 만드는 자리는 여기 하나면 된다.
-local function EnsureCaptureHighlight(button)
-	if (not button.SelectedHighlight) then
-		local selected = button:CreateTexture(nil, "OVERLAY");
-		selected:SetTexture("Interface\\Buttons\\UI-Silver-Button-Select");
-		selected:SetBlendMode("ADD");
-		selected:SetAllPoints(button);
-		selected:Hide();
-		button.SelectedHighlight = selected;
-	end
-	return button.SelectedHighlight;
-end
-
 --- 과녁을 듣는 상태로 넣고 뺀다.
 ---
---- 듣는 동안에만 키보드·게임패드를 켠다. 과녁은 목록 위의 토글 하나이고 풀에서 돌지 않으므로,
---- 예전처럼 "듣던 행이 스크롤로 사라지면" 같은 경우를 여기서 볼 일이 없다.
+--- The keyboard and the gamepad are on only while it is listening. What listens is the one toggle in
+--- the portrait row, and that widget does not come out of a pool - so the case the old shape had to
+--- carry, "the row that was listening scrolled away", cannot arise here.
 function DebindFrameMixin:SetBindingMode(active, button)
 	-- **고른 액션이 없어도 켠다.** 예전에는 행의 키 버튼이 자기 액션을 먼저 고르고 들어와서
 	-- 여기서 그걸 요구할 수 있었다. 지금은 모드가 먼저 켜지고 대상은 **그때그때 커서 밑의
@@ -5427,8 +5411,11 @@ function DebindFrameMixin:SetBindingMode(active, button)
 	if (not button) then
 		return;
 	end
-	EnsureCaptureHighlight(button);
-	button.SelectedHighlight:SetShown(active);
+	-- 켜져 있다는 표시는 **포트레잇이 이미 가진 것**을 쓴다 - 테두리 채도와 그 위의 어두운 판
+	-- (`SetSelectedState`). 여기 있던 것은 블리자드 단축키 버튼의 사각 텍스처를 버튼 전체에
+	-- 덮는 방식이었고(CustomBindingButtonTemplate), 31x31 원형 위에서는 그 사각형이 그대로
+	-- 비어져 나온다. 옆의 두 포트레잇이 메뉴를 연 동안 켜는 표시와도 이제 같은 것이다.
+	button:SetSelectedState(active);
 	button:EnableKeyboard(active);
 	button:EnableMouseWheel(active);
 	if (button.EnableGamePadButton) then
@@ -5479,13 +5466,27 @@ end
 
 --- 토글의 말은 **지금 무엇을 하는 버튼인가**다. 켜져 있으면 "끝내기" - 켜진 상태에서
 --- "키 지정"이라고 적혀 있으면 눌러야 시작되는 것처럼 읽힌다.
+---
+--- 그 말이 이제 툴팁 제목이다. 버튼에 글자가 있던 시절에는 제목이 늘 "키 지정"으로 고정이어도
+--- 상태는 버튼 위에 적혀 있었는데, 포트레잇에는 적을 자리가 없다.
+---
+--- **켜져 있는 동안에는 설명을 뗀다.** `BIND_MODE_DESC`는 "이 모드를 켠다"고 말하는 문장이라
+--- 이미 켜진 버튼 위에서는 거짓이고, 그때 필요한 말 - 어떻게 걸고 어떻게 끝내는지 - 는
+--- 오버레이가 이미 화면에 띄워 두고 있다.
 function DebindFrameMixin:UpdateBindModeButton()
-	self.OverviewPanel.BindModeButton:SetText(self:IsCapturingKey() and LLL["BIND_MODE_STOP"] or LLL["BIND_MODE"]);
+	local button = self.OverviewPanel.BindModePortrait;
+	if (self:IsCapturingKey()) then
+		button.TooltipTitle = LLL["BIND_MODE_STOP"];
+		button.TooltipText = nil;
+	else
+		button.TooltipTitle = LLL["BIND_MODE"];
+		button.TooltipText = LLL["BIND_MODE_DESC"];
+	end
 end
 
---- 켜고 끈다. 목록 위 토글이 부른다.
+--- Turns it on and off. The toggle in the portrait row is what calls this.
 function DebindFrameMixin:ToggleBindMode()
-	self:SetBindingMode(not self:IsCapturingKey(), self.OverviewPanel.BindModeButton);
+	self:SetBindingMode(not self:IsCapturingKey(), self.OverviewPanel.BindModePortrait);
 end
 
 --- 커서 밑의 행. **들고 있지 않고 그때그때 찾는다.**
@@ -5751,7 +5752,7 @@ function DebindFrameMixin:BeginKeyGroupCapture(actions, label)
 		return;
 	end
 	_keyGroupCapture = { actions = actions, label = label };
-	self:SetBindingMode(true, self.OverviewPanel.BindModeButton);
+	self:SetBindingMode(true, self.OverviewPanel.BindModePortrait);
 end
 
 --- Once, after everything is written. Per action, moving one group would raise the bindings as many

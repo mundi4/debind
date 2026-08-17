@@ -19,9 +19,21 @@ L["BULK_SELECTED_COUNT"] = "%d selected"
 -- 조건 툴팁에서 조건 이름(CONDITION_BONUSBAR / CONDITION_GROUP) **바로 아래** 붙는 줄이다.
 -- 둘 다 "No option is selected."였는데, 그러면 같은 툴팁에 두 번 떠도 어느 쪽 이야기인지
 -- 줄만 봐서는 모른다. FORMS/HOVER처럼 무엇이 안 골렸는지를 말한다.
--- 목록 위 토글. 켜면 행을 가리키고 키를 누르는 것만으로 지정된다 - 자세한 근거는
--- DebindUI.xml의 BindModeButton 주석에.
-L["BIND_MODE"] = "Set Keys"
+-- The toggle in the portrait row. With it on, pointing at a row and pressing a key is the whole
+-- act. The reasoning is in the `BindModePortrait` comment in DebindUI.xml.
+--
+-- **It names the mode, not the act** ("Set Keys" before). What the toggle turns on outlives the
+-- press, and a verb on a control that stays lit reads as a one-shot.
+--
+-- The client owns this concept for the action bars - `QUICK_KEYBIND_MODE`, "Quick Keybind Mode" -
+-- and we deliberately do not take that string: ours is a different mode in a different window, and
+-- borrowing the name would promise the game's. "Bind Mode" is still the client's own compound
+-- (`QUICK_KEYBIND_MODE_BUTTON` reads "Quick Bind Mode"), so no word here is invented.
+--
+-- The second one is what the toggle says while the mode is on, and it is a tooltip title now that
+-- the button carries an icon instead of a label. It stays a verb: at that point the only thing left
+-- to say about the button is what pressing it now does.
+L["BIND_MODE"] = "Bind Mode"
 L["BIND_MODE_STOP"] = "Done"
 -- 클라이언트 전역을 그대로 받는다(OVERVIEW_NO_KEY와 같은 자리). 게임이 이미 제 나라 말로
 -- 들고 있는 규칙이라 우리가 다시 번역할 것이 없고, 게임이 문구를 바꾸면 같이 바뀌어야 맞다.
