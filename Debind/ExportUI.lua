@@ -155,6 +155,15 @@ end
 --- An empty list, not nil: the tooltip reads nil as "use your default two lines".
 local NO_INSTRUCTIONS = {};
 
+--- What `EncodeExportPayload` can answer, and the sentence for each.
+---
+--- **One entry, and the table is still worth having.** A reason with no sentence has to come out
+--- as something other than a locale key on the reader's screen, and that cannot be arranged after
+--- an `L` lookup (see where this is read).
+local EXPORT_FAILED_TEXT = {
+    LIBS_MISSING = "EXPORT_FAILED_LIBS_MISSING",
+};
+
 DebindExportRowMixin = {};
 
 function DebindExportRowMixin:Init(elementData)
@@ -587,8 +596,12 @@ function DebindExportPanelMixin:OnGenerateClicked()
         -- The one failure that can reach here is a missing library, which means a broken install
         -- rather than anything the user did. It is not a string to copy, so it does not go in the
         -- dialog that exists for copying.
-        DebindPrivate.DisplayMessage(LLL["EXPORT_FAILED_" .. tostring(reason)] or tostring(reason),
-            1, 0, 0);
+        -- **The fallback has to sit outside `L`, not after it.** `L`'s metatable answers a missing
+        -- key with the key itself, so `L[...] or ...` can never reach its right-hand side and a
+        -- reason nobody wrote a sentence for would print as `EXPORT_FAILED_SOMETHING`. Asking a
+        -- plain table first is what `ImportUI.lua` does, for the same reason.
+        local key = EXPORT_FAILED_TEXT[reason];
+        DebindPrivate.DisplayMessage(key and LLL[key] or tostring(reason), 1, 0, 0);
         return;
     end
 

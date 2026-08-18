@@ -323,6 +323,34 @@ return function(DebindPrivate)
         check(orderOf(layer) == "a,c,b", "a는 안 넘어야 함, 실제: " .. orderOf(layer));
     end);
 
+    -- 배지 붙은 행은 빌드에 안 들어가므로 이 키의 순서에도 없다. 화살표 버튼은 그걸 이미
+    -- 거부하고 있었는데 우클릭 메뉴는 같은 동작을 받아줬다 - 대상 가드가 `specRank`만 보고
+    -- `imported`를 안 봤다. 이웃 건너뛰기는 둘 다 보고 있었다.
+    test("seq 이동 - 배지 붙은 행은 대상이 될 수 없다", function()
+        local rows = {
+            { name = "live", priority = 1, layerRank = 1, seq = 1 },
+            { name = "badged", priority = 1, layerRank = 1, seq = 2, imported = true },
+        };
+
+        local moved, reason = ComputeOrderSwap(rows, 2, UP);
+        check(moved == nil, "배지 붙은 행이 움직였다");
+        check(reason == "IMPORTED", "사유가 IMPORTED여야 함, 실제: " .. tostring(reason));
+    end);
+
+    -- 위 가드가 이웃 건너뛰기까지 먹어버리면 안 된다. 대상이 살아 있으면 배지를 지나
+    -- 그 너머의 살아 있는 행과 맞바꾼다.
+    test("seq 이동 - 살아 있는 행은 배지를 건너뛰고 이웃을 찾는다", function()
+        local rows = {
+            { name = "live1", priority = 1, layerRank = 1, seq = 1 },
+            { name = "badged", priority = 1, layerRank = 1, seq = 2, imported = true },
+            { name = "live2", priority = 1, layerRank = 1, seq = 3 },
+        };
+
+        local neighbor, reason = ComputeOrderSwap(rows, 3, UP);
+        check(reason == nil, "막히면 안 됨: " .. tostring(reason));
+        check(neighbor == rows[1], "배지를 건너뛴 살아 있는 이웃이어야 함");
+    end);
+
     test("seq 이동 - 끝에서는 움직일 데가 없다", function()
         local rows = sorted(makeLayer(rec({ name = "a" }), rec({ name = "b" })));
 

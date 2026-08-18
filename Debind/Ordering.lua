@@ -128,6 +128,21 @@ function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
     return nil;
 end
 
+--- Is this row part of what the key does, and therefore part of its order?
+---
+--- **Two ways to be out, and everything that orders rows treats them the same.** A badged row is
+--- not in the build until it is accepted (`BuildKeyMap` leaves it out), and an off-spec row is not
+--- in this specialization's key map at all. Swapping numbers with either moves a row on screen and
+--- settles nothing about the key, which is the most expensive kind of wrong this list can be.
+---
+--- **Written once because it is asked in four places**: the guard and the neighbour skip in
+--- `ComputeOrderSwap`, the arrows' live count, and the search for the next row that actually fires
+--- (both in `DebindUI.lua`). It was inline at each of them, and the guard had only half of it -
+--- so a badged row refused the arrows and accepted the same move from its right-click menu.
+function DebindPrivate.IsRowInOrder(row)
+    return not row.imported and (row.specRank or 0) == 0;
+end
+
 --- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을
 --- 돌려준다. direction은 -1(위로) / 1(아래로).
 ---
@@ -140,6 +155,7 @@ end
 ---
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
+---   "IMPORTED" | "SPEC" - 대상이 이 키의 순서에 없다(`IsRowInOrder`)
 ---   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
@@ -149,29 +165,20 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
         return nil, direction < 0 and "ALREADY_FIRST" or "ALREADY_LAST";
     end
 
-    -- **A badged row is not an opponent.** `BuildKeyMap` leaves those actions out of the build, so
-    -- they are not part of what this key does and therefore not part of its order. Swapping numbers
-    -- with one moves a row on screen and changes nothing about the key - the reader presses a
-    -- button, watches the list rearrange, and believes they settled something. That is the most
-    -- expensive kind of wrong this list can be.
-    --
-    -- **An off-spec row is not an opponent either**, for the same reason and with one more: it is
-    -- not in the key map now, and the two never run in the same world.
-    --
-    -- **Moving one is refused here rather than by the skip.** The skip used to carry that too - the
-    -- neighbour it lands on comes out active, and `specRank` decides before `seq` ever does - but
-    -- that only holds while some live row is left to land on. On a key whose rows are *all* off-spec
-    -- the loop runs off the end and the answer comes back "already last", said about the first of
-    -- several. The reason is the same either way, so asking up front is both true and shorter.
-    if ((rows[targetIndex].specRank or 0) ~= 0) then
-        return nil, "SPEC";
+    -- **Refused here rather than by the skip below.** The skip would catch it in the ordinary case,
+    -- since the neighbour it lands on comes out live, but only while some live row is left to land
+    -- on. On a key whose rows are all out of the order the loop runs off the end and the answer
+    -- comes back "already last", said about the first of several. Asking up front is both true and
+    -- shorter. Why these rows are out is on `IsRowInOrder`.
+    local target = rows[targetIndex];
+    if (not DebindPrivate.IsRowInOrder(target)) then
+        return nil, target.imported and "IMPORTED" or "SPEC";
     end
 
     -- Skipping past the end is the same answer as starting there, so the two branches below catch
     -- it unchanged: nowhere to move to is nowhere to move to.
     local neighborIndex = targetIndex + direction;
-    while (rows[neighborIndex]
-            and (rows[neighborIndex].imported or (rows[neighborIndex].specRank or 0) ~= 0)) do
+    while (rows[neighborIndex] and not DebindPrivate.IsRowInOrder(rows[neighborIndex])) do
         neighborIndex = neighborIndex + direction;
     end
 

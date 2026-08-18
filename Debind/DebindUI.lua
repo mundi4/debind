@@ -1198,6 +1198,19 @@ end
 --- 옮긴 뒤에는 선택을 접는다. `MoveAction`이 액션 테이블을 복사해서 넣으므로(`CopyTable`)
 --- 집합이 들고 있던 테이블은 어느 레이어에도 없는 것이 된다. 복사는 원본이 그대로 남으므로
 --- 접지 않는다 - 사용자가 고른 것은 원본이고, 사본으로 옮겨주면 방금 무엇을 골랐는지가 틀어진다.
+local function MoveActions(actions, destLayerID, copying)
+	for _, action in ipairs(actions) do
+		local elementData = DebindFrame:FindElementDataByActionInfo(action);
+		if (elementData and (copying or elementData.layer ~= destLayerID)) then
+			MoveAction(elementData, destLayerID, copying);
+		end
+	end
+
+	if (not copying) then
+		DebindFrame:SetSelectedAction(nil);
+	end
+end
+
 --- Takes the badge off, which is what lets these actions reach a key.
 ---
 --- **This is the whole of "approve".** Importing put them in the profile and `BuildKeyMap` has been
@@ -1214,33 +1227,20 @@ end
 --- on an empty list, which is exactly what that state asks for; the dropdown's reset button is on
 --- screen the whole time.
 local function ApproveImportedActions(actions)
-    for _, action in ipairs(actions) do
-        action.imported = nil;
-    end
-
-    -- **What just left the list leaves the selection with it.** `imported` is one of the fields the
-    -- filters read, so accepting rows while [Pending] is the only key value ticked drops them off
-    -- screen while the strip still counts them - "2 selected" over a list with nothing highlighted,
-    -- and the search box stays hidden because the two share that slot. Every other path that
-    -- changes what the filters show prunes first, and this was the one that did not.
-    DebindFrame:PruneSelectionToBinFilter();
-
-    DebindPrivate.UpdateBindings();
-    DebindFrame:Refresh(true);
-    DebindFrame:Update();
-end
-
-local function MoveActions(actions, destLayerID, copying)
 	for _, action in ipairs(actions) do
-		local elementData = DebindFrame:FindElementDataByActionInfo(action);
-		if (elementData and (copying or elementData.layer ~= destLayerID)) then
-			MoveAction(elementData, destLayerID, copying);
-		end
+		action.imported = nil;
 	end
 
-	if (not copying) then
-		DebindFrame:SetSelectedAction(nil);
-	end
+	-- **What just left the list leaves the selection with it.** `imported` is one of the fields the
+	-- filters read, so accepting rows while [Pending] is the only key value ticked drops them off
+	-- screen while the strip still counts them - "2 selected" over a list with nothing highlighted,
+	-- and the search box stays hidden because the two share that slot. Every other path that
+	-- changes what the filters show prunes first, and this was the one that did not.
+	DebindFrame:PruneSelectionToBinFilter();
+
+	DebindPrivate.UpdateBindings();
+	DebindFrame:Refresh(true);
+	DebindFrame:Update();
 end
 
 local AddActionToTooltip, HideActionTooltip;
@@ -4604,7 +4604,7 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	local live = 0;
 	if (rows) then
 		for i = 1, #rows do
-			if (not rows[i].imported and (rows[i].specRank or 0) == 0) then
+			if (DebindPrivate.IsRowInOrder(rows[i])) then
 				live = live + 1;
 			end
 		end
@@ -5084,7 +5084,7 @@ function BuildKeyboardElements()
 			-- belongs to instead.
 			local next;
 			for j = i + 1, #rows do
-				if (not rows[j].imported and (rows[j].specRank or 0) == 0) then
+				if (DebindPrivate.IsRowInOrder(rows[j])) then
 					next = rows[j];
 					break;
 				end

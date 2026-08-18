@@ -675,6 +675,12 @@ L["ORDER_BLOCKED_PRIORITY"] = "It cannot pass the action next to it -- they have
 -- property either action could be given; this one says the two never run in the same world, so
 -- there is no order between them to settle. The order on this key is only ever compared inside one
 -- specialization, because that is the only place the numbers mean the same thing.
+-- **Not the shape the rest of this family uses**, and it should not be: the others say why this
+-- action cannot pass the one beside it, and this one is not in the running at all. What came in a
+-- string reaches no key until it is accepted, so there is no order for it to have a place in.
+-- The second sentence is the one `LINE_TOOLTIP_IMPORTED` already says, because it is the same fact
+-- and a reader who has met it once should not have to learn it twice.
+L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a string, and it reaches no key until you accept it."
 L["ORDER_BLOCKED_SPEC"] = "It cannot pass the action next to it -- they belong to different specializations, and only one specialization is active at a time."
 L["ORDER_WHY_PRIORITY"] = "Importance: %s"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
