@@ -2374,6 +2374,140 @@ RegisterTest("Custom target survives a rebuild", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: What a row's tooltip says about that row's problems
+--
+-- **The row and its tooltip have to give the same answer**, and they reach it through different
+-- doors: the row carries the `issue` that `CollectActionsForKey` worked out, while the tooltip
+-- asks `GetBindingIssue` again as it draws. The two disagreed once -- no warning on the row while
+-- its own tooltip called the binding unreachable in red -- and the field the tooltip reads to
+-- suppress that is what these two pin down.
+--
+-- **Nothing headless can see this.** The answer is a line of text on `GameTooltip`, so it is read
+-- back off the tooltip rather than off the code that filled it: an assertion on what the drawing
+-- function was handed would pass just as well against a tooltip that drew nothing.
+--
+-- What the suppression must and must not reach is one rule with two halves, so there is a test
+-- for each. Turning off the whole `key` branch instead of the one check inside it took the
+-- specialization-independent key validation down with it, and a genuinely bad key stopped
+-- reporting.
+-----------------------------------------------------------
+
+--- Every left-hand line the tooltip is showing, as one string to search.
+local function ReadTooltipText()
+    local parts = {}
+    for i = 1, GameTooltip:NumLines() do
+        local left = _G["GameTooltipTextLeft" .. i]
+        local text = left and left:GetText()
+        if text then
+            tinsert(parts, text)
+        end
+    end
+    return table.concat(parts, "\n")
+end
+
+--- Draws one row's tooltip and hands back what it says. **The only place these tests call the
+--- tooltip**, so the rename that is coming moves one line rather than six.
+---
+--- `suppressInactive` is on because the order list is the caller that draws unreachable rows at
+--- all: with it off, an action the solver dropped reads as inactive and the key line is greyed
+--- instead of carrying the reason.
+local function DrawRowTooltip(row)
+    DebindPrivate.ShowLineTooltip(UIParent, "ANCHOR_NONE", row, true)
+    return ReadTooltipText()
+end
+
+--- Puts the minimum width back. The tooltip sets one and leaves undoing it to whoever showed it,
+--- so a run that skipped this would leave every later tooltip in the session 140 wide.
+local function HideTooltip()
+    ---@diagnostic disable-next-line: redundant-parameter
+    GameTooltip:SetMinimumWidth(0, false)
+    GameTooltip:Hide()
+end
+
+RegisterTest("Tooltip: unreachable, and the row that agrees", {
+    description = "도달 불가 행의 툴팁이 그 사실을 적고, 덮는 행의 툴팁은 안 적는지",
+    run = function()
+        local NAME = "unreachable tooltip"
+        local KEY = "CTRL-SHIFT-F10"
+
+        AddTeardown(HideTooltip)
+
+        -- Two records saying exactly the same thing. The later one can never win, so the solver
+        -- drops it, and it is the one with something to report.
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        InsertAction({ type = Constants.SPELL, value = 586, key = KEY, combat = true })
+        ApplyBindings()
+
+        local subject, cover
+        for _, row in ipairs(DebindPrivate.CollectActionsForKey(KEY)) do
+            if row.unreachable then
+                subject = row
+            else
+                cover = row
+            end
+        end
+        if not subject or not cover then
+            return Fail(NAME, "덮는 행과 덮인 행이 안 갈렸다 - 솔버가 아무것도 안 떨궜다")
+        end
+        if cover.issue ~= nil then
+            return Fail(NAME, format("덮는 행에 문제가 붙었다: %s", tostring(cover.issue)))
+        end
+
+        local text = DrawRowTooltip(cover)
+        if text:find(LLL["BINDING_ERROR_UNREACHABLE"], 1, true) then
+            return Fail(NAME, "멀쩡한 행의 툴팁이 도달 불가라고 적었다")
+        end
+
+        text = DrawRowTooltip(subject)
+        if not text:find(LLL["BINDING_ERROR_UNREACHABLE"], 1, true) then
+            return Fail(NAME, "행은 도달 불가인데 툴팁은 아무 말도 안 한다")
+        end
+
+        -- The order list's other-specialization view. Unreachable is answered out of a key map
+        -- this record was never in, so the tooltip has to drop it. The real path also recomputes
+        -- `issue` from the same flag; only the flag is set here, since the record's shape is what
+        -- the tooltip reads.
+        subject.simulated = true
+        text = DrawRowTooltip(subject)
+        if text:find(LLL["BINDING_ERROR_UNREACHABLE"], 1, true) then
+            return Fail(NAME, "다른 전문화의 세계인데 툴팁이 도달 불가라고 적었다")
+        end
+
+        return Pass(NAME, "덮는 행은 조용하고, 덮인 행은 말하고, 다른 전문화에서 다시 조용하다")
+    end,
+})
+
+RegisterTest("Tooltip: a bad key is still bad in another specialization", {
+    description = "다른 전문화 뷰에서도 전문화와 무관한 키 유효성 검사가 살아 있는지",
+    run = function()
+        local NAME = "off-spec key validity"
+
+        AddTeardown(HideTooltip)
+
+        -- BUTTON1 with no hover condition is invalid wherever it is read from -- nothing about it
+        -- comes out of a key map -- so suppression that reaches it is suppressing too much.
+        InsertAction({ type = Constants.SPELL, value = 585, key = "BUTTON1" })
+        ApplyBindings()
+
+        local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1]
+        if not row then
+            return Fail(NAME, "BUTTON1에 행이 안 섰다")
+        end
+        if row.issue ~= Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON then
+            return Fail(NAME, format("행이 마우스 버튼 문제를 안 들고 있다: %s", tostring(row.issue)))
+        end
+
+        row.simulated = true
+        local text = DrawRowTooltip(row)
+        if not text:find(LLL["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"], 1, true) then
+            return Fail(NAME, "다른 전문화의 세계라는 이유로 키 유효성 검사까지 같이 꺼졌다")
+        end
+
+        return Pass(NAME, "억제는 도달 불가 한 갈래에만 닿는다")
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Special Units (macrotext with @tank etc.)
 -----------------------------------------------------------
 
