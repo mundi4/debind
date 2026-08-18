@@ -205,22 +205,6 @@
 		<Size x="450" y="46"/>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<Texture parentKey="TopBorder" parentArray="Textures" hidden="true">
-					<Size y="2.0" />
-					<Anchors>
-						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-4" y="2"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT" x="4" y="2"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</Texture>
-				<Texture parentKey="BottomBorder" parentArray="Textures" hidden="true">
-					<Size y="2.0" />
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="-4" y="-2"/>
-						<Anchor point="TOPRIGHT" relativePoint="BOTTOMRIGHT" x="4" y="-2"/>
-					</Anchors>
-					<Color r="1" g="1" b="1" a="1"/>
-				</Texture>
 				<!--
 					**ScrollBox 폭까지 늘린다.** 행보다 7씩 넓다 - 뷰의 좌우 패딩이 정확히
 					7이라(InitializeScrollBox) 그만큼을 도로 물어내면 배경이 목록 폭을 꽉 채우고,
@@ -256,29 +240,6 @@
 					<Size x="35" y="35"/>
 					<Anchors>
 						<Anchor point="LEFT" relativePoint="LEFT" x="0" y="0"/>
-					</Anchors>
-				</Texture>
-				<!--
-					이름 앞의 두 칸이 "이 액션이 어디 사는가"를 말한다. **오버뷰 탭에서만
-					켜진다** - 레이어 탭에서는 목록 전체가 한 레이어라 모든 행에 같은 그림이
-					붙고, 그러면 아무것도 구별하지 못하면서 이름만 밀어낸다. 그 답은 창
-					제목에 이미 있다.
-
-					규칙은 순서 리스트(DebindOrderLineTemplate)와 **글자 그대로 같다** -
-					아이콘 하나 = 좁혀진 축 하나, 빈 칸은 남기지 않음, 이름 앵커는 Update가
-					다시 잡음. 한 창 안에서 레이어가 섞이는 목록이 둘인데 서로 다른 그림
-					규칙을 쓰면 배울 것이 두 벌이 된다. 왜 그 규칙인지는 저쪽 주석에 있다.
-				-->
-				<Texture parentArray="LayerIcons" parentKey="LayerIcon1" hidden="true">
-					<Size x="14" y="14"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="5" y="7"/>
-					</Anchors>
-				</Texture>
-				<Texture parentArray="LayerIcons" parentKey="LayerIcon2" hidden="true">
-					<Size x="14" y="14"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.LayerIcon1" relativePoint="RIGHT" x="3" y="0"/>
 					</Anchors>
 				</Texture>
 				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
@@ -470,13 +431,6 @@
 						<Anchor point="LEFT" x="5" y="0"/>
 					</Anchors>
 				</Texture>
-				<!--
-					층 칸. 아이콘 하나 = 좁혀진 축 하나 - 캐릭터 전용이면 초상화가, 일반이
-					아니면 직업·전문화 아이콘이 붙는다. 아무것도 없는 행이 가장 넓은 층이다.
-
-					여기서는 **자리를 예약한다.** 목록일 때는 빈 칸을 남기지 않는 것이 맞았지만
-					(이름이 바로 뒤에 붙어야 하니까) 표에서는 칸이 어긋나는 쪽이 더 나쁘다.
-				-->
 				<!--
 					**이 행이 바로 아래 행을 이긴 이유.** 순서를 가르는 축은 넷(중요도·호버·조건·
 					레이어)인데 비교자가 위에서부터 훑으므로 **처음 갈린 하나**가 곧 답이다

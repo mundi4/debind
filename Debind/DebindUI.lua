@@ -506,11 +506,6 @@ local function GetSideTabaLabel(sideTabID)
 	end
 end
 
---- layerID를 사람이 읽는 라벨로. 탭 라벨을 그대로 쓴다 - 직업명·특성명·캐릭터명이라
---- 새로 배울 게 없다. 좌표는 GetLayerTabs가 낸다.
----
---- 레이어가 섞이는 목록의 행 툴팁이 쓴다(순서 리스트, 오버뷰 탭). 거기서는 범위가 아이콘
---- 두 칸으로만 나오므로 낱말로 확인할 길이 이것뿐이다.
 --- 레이어의 **짧은 이름.** "X over Y"에 들어가는 값이라 한두 낱말이어야 한다 -
 --- `GetLayerLabel`은 "공유 / 일반" 꼴이라 문장에 못 넣는다.
 ---
@@ -527,6 +522,8 @@ local function GetLayerShortName(layerID)
 	return LLL[sideTab == 2 and "LAYER_SHORT_CLASS" or "LAYER_SHORT_SPEC"];
 end
 
+--- **The tab labels, reused verbatim.** They are already the class, specialization and character
+--- names the reader picked the layer with, so a label built from them teaches nothing new.
 local function GetLayerLabel(layerID)
 	local tab, sideTab = GetLayerTabs(layerID);
 	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
@@ -574,27 +571,6 @@ local function GetSideTabDescription(sideTabID, tabID)
 	end
 	return format(LLL["LAYER_DESC_SHARED_SPEC"],
 		GetSideTabaLabel(2), GetSideTabaLabel(sideTabID), GetLayerLabel(GetLayerID(1, 2)));
-end
-
---- "이 캐릭터"를 말하는 그림. **텍스처에 직접 건다** - 없을 때 대신 무엇을 걸지가 이
---- 함수의 절반이라, 경로만 돌려주면 부르는 쪽이 그 판단을 못 한다.
----
---- 진짜 초상화를 쓴다. `SetPortraitTexture`는 블리자드 트리 전역이 쓰는 살아 있는 API라
---- 종족이 늘어도 따라온다.
----
---- **종족 흉상(`Interface\CharacterFrame\TemporaryPortrait-<성별>-<종족>`)을 쓰다 뺐다.**
---- 그 이름은 블리자드 UI 트리 전체에서 참조가 **0건**이라 누가 최신 상태로 유지해 주는지
---- 알 수 없고, 드락티르·토석민처럼 뒤에 나온 종족에 파일이 있는지 확인할 방법이 없다.
---- 없으면 텍스처가 비는데 아이콘 칸은 **켜진 채로** 남아서 이름 앞이 이유 없이 밀린다 -
---- XML 주석이 "빈 칸은 남기지 않는다"고 못 박은 바로 그 모양이 된다. 장비가 나오고 14px에서
---- 뭉개지는 건 이 초상화의 단점이 맞지만, **반쯤의 종족에서 아무것도 안 보이는 것보다 낫다.**
----
---- 직업 아이콘(`GetClassAtlas`)도 후보였는데 **안 된다.** 사이드탭 2번(공유/직업)이 이미
---- 주문서의 직업 스킬라인 아이콘을 쓰고 있어서, 같은 줄에 직업 그림이 두 개 서면 어느 쪽이
---- "이 캐릭터"고 어느 쪽이 "직업 레이어"인지 구분이 안 된다. 이 아이콘이 하는 일이 정확히
---- 그 구분이다.
-local function SetPlayerCharacterIcon(texture)
-	SetPortraitTexture(texture, "player");
 end
 
 --- 사이드탭 아이콘. 사이드탭 줄과 순서 목록의 행이 **같은 그림**을 써야 하므로 한 군데서
@@ -1301,10 +1277,9 @@ do
 
 	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
 	---
-	--- layerLabel을 주면 범위 줄을 하나 더 넣는다. **레이어가 섞이는 목록만** 이걸 준다
-	--- (순서 목록, 오버뷰 탭) - 거기서는 범위가 아이콘 두 칸으로만 나오므로 낱말로 확인할
-	--- 길이 여기밖에 없다. 레이어 탭의 목록은 안 준다: 한 레이어만 그리고 그 이름이 창
-	--- 제목에 있다.
+	--- layerLabel adds a scope line. **Only a list that mixes layers passes it**, which today is
+	--- the order list alone: nothing else on its rows says which layer an action came from. The
+	--- layer tab's list does not, because it draws one layer and the window title names it.
 	---
 	--- suppressInactive는 "이 목록에서는 비활성이라는 말이 뜻이 없다"는 표시다. 순서 목록의
 	--- 다른 특성 뷰가 그렇다 - 그 세계에서는 전부 활성이므로 회색으로 죽이면 거짓말이 된다.
@@ -1676,12 +1651,6 @@ do
 end
 
 
---- 이름 칸의 폭과, 레이어 아이콘이 켜졌을 때 그 시작점이 밀리는 거리. **XML의 값에서
---- 나온다** - 폭은 Name의 Size, 밀리는 거리는 아이콘 크기(14)와 간격(5, 3)의 합이다.
---- 저쪽을 고치면 여기도 고쳐야 하므로 계산을 한 자리에 모아둔다.
-local LINE_NAME_WIDTH = 430;
-local LAYER_ICON_NAME_OFFSET = { [1] = 19, [2] = 36 };
-
 DebindLineMixin = {};
 
 function DebindLineMixin:Init(elementData)
@@ -1703,43 +1672,12 @@ function DebindLineMixin:Update()
 
 	SetActionIcon(self.Icon, icon);
 
-	-- 레이어 아이콘은 오버뷰 탭에서만 켜진다(XML 주석에 이유가 있다). 규칙은 순서 리스트와
-	-- 같고 - 좁혀진 축마다 하나씩, 빈 칸은 안 남김 - 그래서 이름의 왼쪽 앵커도 여기서 다시
-	-- 잡는다. 아이콘이 없으면 XML이 잡아둔 자리 그대로다.
-	local shown = 0;
-	if (elementData.showLayerIcons and elementData.layer) then
-		local tab, sideTab = GetLayerTabs(elementData.layer);
-		if (tab == 2) then
-			shown = shown + 1;
-			SetPlayerCharacterIcon(self.LayerIcons[shown]);
-		end
-		if (sideTab >= 2) then
-			shown = shown + 1;
-			self.LayerIcons[shown]:SetTexture(GetSideTabIcon(sideTab));
-		end
-	end
-	for i = 1, #self.LayerIcons do
-		self.LayerIcons[i]:SetShown(i <= shown);
-	end
-
 	-- **아직 안 만진 것.** 지금 그 뜻을 갖는 것은 가져왔지만 승인 전인 액션 하나뿐이다
 	-- (XML 주석 참고). 그 액션은 `BuildKeyMap`이 건너뛰므로 이름이 이미 회색인데, 회색은
 	-- "키 없음"도 뜻하므로 둘을 가르는 것이 이 표시다.
 	--
 	-- 자리를 안 먹으므로 이름 앵커는 안 건드린다 - 아이콘 위 빈 자리에만 걸린다.
 	self.NewDot:SetShown(action.imported ~= nil);
-
-	-- 폭도 같이 줄인다. 이 칸은 오른쪽 앵커 없이 고정 폭으로 서 있어서(XML), 시작점만
-	-- 밀면 **끝점이 같이 밀려** 같은 줄 오른쪽의 InfoText(@대상) 아래로 들어간다.
-	-- 아이콘이 먹은 만큼을 빼면 오른쪽 끝은 아이콘이 없을 때와 같은 자리에 선다.
-	local nameOffset = LAYER_ICON_NAME_OFFSET[shown] or 0;
-	self.Name:ClearAllPoints();
-	if (shown > 0) then
-		self.Name:SetPoint("LEFT", self.LayerIcons[shown], "RIGHT", 5, 0);
-	else
-		self.Name:SetPoint("LEFT", self.Icon, "RIGHT", 5, 7);
-	end
-	self.Name:SetWidth(LINE_NAME_WIDTH - nameOffset);
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
 	local keyIssueIsMinor = keyIssue ~= nil and IsIssueMinor(keyIssue);
@@ -1870,11 +1808,9 @@ end
 local BIND_MODE_INSTRUCTIONS = { "LINE_TOOLTIP_INSTRUCTION_BIND" };
 
 function DebindLineMixin:OnEnter()
-	-- 범위 줄은 레이어가 섞이는 목록에서만 붙인다. 레이어 탭에서는 창 제목이 이미 말했다.
 	local elementData = self:GetElementData();
-	local layerLabel = elementData.showLayerIcons and elementData.layer and GetLayerLabel(elementData.layer) or nil;
 	local instructionKeys = DebindFrame:IsCapturingKey() and BIND_MODE_INSTRUCTIONS or nil;
-	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, instructionKeys, layerLabel);
+	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, instructionKeys);
 end
 
 --- 휠. 모드가 켜진 동안에만 이 스크립트가 살아 있다(Update의 EnableMouseWheel).
