@@ -2083,12 +2083,12 @@ function DebindKeyHeaderMixin:LayoutSummary()
 		available = available - count:GetUnboundedStringWidth() - 4;
 	end
 
-	if (available < SUMMARY_MIN_WIDTH) then
-		name:Hide();
-		count:Hide();
-		return;
-	end
-	name:SetWidth(min(name:GetUnboundedStringWidth(), available));
+	-- **Narrow is not hidden.** This used to hide both fields when the space fell under a minimum,
+	-- and it could not undo it: the guard above returns before anything measures again, and the
+	-- only thing that shows them is `UpdateSummary`, which the resize path does not go through. One
+	-- narrow moment stripped a pooled heading for good, and widening the window did not bring it
+	-- back. It is clamped instead, so a tight heading truncates to `…` and grows again on its own.
+	name:SetWidth(max(SUMMARY_MIN_WIDTH, min(name:GetUnboundedStringWidth(), available)));
 end
 
 --- The whole bar is the fold button. This template carries no control of its own and **the end
@@ -2264,7 +2264,11 @@ end
 --- 더 길게 설 자리로 돌아간다.
 function DebindKeyHeaderMixin:UpdateSummary()
 	local elementData = self.elementData;
-	local rows = elementData.collapsed and elementData.rows;
+	-- **Folded or not, the heading says the same thing.** It used to summarise only while folded,
+	-- on the reading that the rows below already name themselves. What that cost was a heading that
+	-- changed shape as it was pressed, and a count that vanished exactly when the reader had opened
+	-- the group to compare it against what was inside.
+	local rows = elementData.rows;
 	if (not rows or #rows == 0) then
 		self.ActionName:Hide();
 		self.ExtraCount:Hide();
