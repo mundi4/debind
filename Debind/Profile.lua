@@ -924,8 +924,9 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
                     imported      = action.imported,
                     issue         = DebindPrivate.GetBindingIssue(action, nil, simulated and "unreachable" or nil),
                     unreachable   = (not simulated) and DebindPrivate.IsUnreachableAction(action) or nil,
-                    -- 이 행을 그리는 쪽도 같은 기준으로 물어야 한다. 툴팁이 이걸 보고
-                    -- 도달 불가를 뺀다(DebindUI.lua의 ShowLineTooltip).
+                    -- Whoever draws this row has to ask on the same terms. The row's tooltip
+                    -- passes this as `offWorld` and drops unreachable for it
+                    -- (`DebindUI.lua`'s `AddActionToTooltip`).
                     simulated     = simulated or nil,
     };
 end

@@ -1223,48 +1223,51 @@ local function MoveActions(actions, destLayerID, copying)
 	end
 end
 
-local ShowLineTooltip;
+local AddActionToTooltip, HideActionTooltip;
 do
 	local _lines = {};
-	local GameTooltip = GameTooltip;
 	local LEFT_OFFSET = 10;
+
+	--- Stands in for a caller that passes nothing, so the reads below need no guard. Never
+	--- written to: the entry point only reads fields off it.
+	local EMPTY_OPTS = {};
 
 	--- Drawing order for the group condition, which is also `Constants.GROUP_*`'s bit order.
 	--- Built once: it used to be a table literal inside the loop's `ipairs`, so a hover allocated
 	--- one and threw it away.
 	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
 
-	local function addErrorLine(message, wrap, leftOffset)
-		GameTooltip_AddErrorLine(GameTooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
+	local function addErrorLine(tooltip, message, wrap, leftOffset)
+		GameTooltip_AddErrorLine(tooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
 	end
 
-	local function addLabelLine(label, hasError)
-		GameTooltip_AddBlankLineToTooltip(GameTooltip);
+	local function addLabelLine(tooltip, label, hasError)
+		GameTooltip_AddBlankLineToTooltip(tooltip);
 		if (hasError) then
-			GameTooltip_AddErrorLine(GameTooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
+			GameTooltip_AddErrorLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
 		else
-			GameTooltip_AddHighlightLine(GameTooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
+			GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
 		end
 	end
 
-	local function addValueLine(value, error, wrap, leftOffset)
+	local function addValueLine(tooltip, value, error, wrap, leftOffset)
 		if (error) then
-			GameTooltip_AddErrorLine(GameTooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddErrorLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		else
-			GameTooltip_AddNormalLine(GameTooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(GameTooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddErrorLine(tooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
 		end
 	end
 
-	local function addValueLines(lines, error, wrap, leftOffset)
+	local function addValueLines(tooltip, lines, error, wrap, leftOffset)
 		local fn = error and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
 		for i = 1, #lines do
-			fn(GameTooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
+			fn(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(GameTooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddErrorLine(tooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
 		end
 	end
 
@@ -1305,25 +1308,43 @@ do
 		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
 	end
 
-	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
+	--- Everything one action has to say, written into a tooltip somebody else owns.
 	---
-	--- layerLabel adds a scope line. **Only a list that mixes layers passes it**, which today is
-	--- the order list alone: nothing else on its rows says which layer an action came from. The
-	--- layer tab's list does not, because it draws one layer and the window title names it.
+	--- **Where it goes is the caller's**, which is why neither an owner nor an anchor is asked for:
+	--- the four lists that draw an action anchor differently and one of them will want to add lines
+	--- of its own underneath. So a caller sets the owner, calls this, and shows the tooltip, the
+	--- shape every `GameTooltip_Add…` in the client is used in.
 	---
-	--- suppressInactive는 "이 목록에서는 비활성이라는 말이 뜻이 없다"는 표시다. 순서 목록의
-	--- 다른 특성 뷰가 그렇다 - 그 세계에서는 전부 활성이므로 회색으로 죽이면 거짓말이 된다.
-	function ShowLineTooltip(owner, anchor, elementData, suppressInactive, instructionKeys, layerLabel)
-		GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT");
+	--- The minimum width is the exception, and it is here because it belongs to **this content**:
+	--- the condition lines are unreadable narrower. `HideActionTooltip` puts it back, and a caller
+	--- that hides the tooltip without it leaves every later tooltip in the session that wide.
+	---
+	--- `opts`:
+	---
+	---   offWorld          this action is not from the world the live key map was built for, so
+	---                     **unreachable is dropped and nothing else is.** That verdict comes out
+	---                     of the key map built for the specialization in play, and is not true
+	---                     over there. Key validity has no specialization in it and stays.
+	---   suppressInactive  "inactive means nothing in this list". The order list's other
+	---                     specialization view is that case: everything is active over there, so
+	---                     greying a row would be a lie. Independent of `offWorld` -- that list
+	---                     sets this always and still marks a live row unreachable.
+	---   instructionKeys   locale keys to put at the bottom in place of the default two.
+	---   layerLabel        adds a scope line. **Only a list that mixes layers passes it**, which
+	---                     today is the order list alone: nothing else on its rows says which
+	---                     layer an action came from. The layer tab's list does not, because it
+	---                     draws one layer and the window title names it.
+	function AddActionToTooltip(tooltip, action, opts)
 		---@diagnostic disable-next-line: redundant-parameter
-		GameTooltip:SetMinimumWidth(140, true);
+		tooltip:SetMinimumWidth(140, true);
 
-		local action = elementData.action;
+		opts = opts or EMPTY_OPTS;
+		local suppressInactive = opts.suppressInactive;
+		local instructionKeys = opts.instructionKeys;
+		local layerLabel = opts.layerLabel;
+
 		action._dirty = true;
-		-- Only the order list's rows arrive carrying this, for its other-specialization view.
-		-- Every other caller is drawing facts about the specialization in play, so it has
-		-- nothing to drop.
-		local suppressedCategory = elementData.simulated and "unreachable" or nil;
+		local suppressedCategory = opts.offWorld and "unreachable" or nil;
 
 		--- The only issue lookup this tooltip makes.
 		---
@@ -1354,8 +1375,8 @@ do
 			end
 			local key = "CONDITION_" .. strupper(field);
 			local error = hasIssues and GetIssue(field);
-			addLabelLine(LLL[key]);
-			addValueLine(action[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
+			addLabelLine(tooltip, LLL[key]);
+			addValueLine(tooltip, action[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
 		end
 
 		-- **The title does not carry the list's colours.** Those exist so an eye running down forty
@@ -1364,10 +1385,10 @@ do
 		-- thing here: a blue title is item rarity in this game's visual grammar, and a grey one
 		-- repeats what the `KEY` line below already says in words. What the colours carry is said
 		-- in lines instead - the badge just under the key, problems on the lines they belong to.
-		GameTooltip_SetTitle(GameTooltip, (NameAndIconForAction(action)));
+		GameTooltip_SetTitle(tooltip, (NameAndIconForAction(action)));
 
 		do
-			addLabelLine(LLL["KEY"]);
+			addLabelLine(tooltip, LLL["KEY"]);
 
 			if (action.key) then
 				local keyText = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
@@ -1382,16 +1403,16 @@ do
 				-- `addValueLine`'s error argument colours both at once, which is why the sentence is
 				-- put up separately instead of being handed to it.
 				if (error and IsIssueMinor(error)) then
-					addValueLine(keyText);
-					addValueLine(DISABLED_FONT_COLOR:WrapTextInColorCode(
+					addValueLine(tooltip, keyText);
+					addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
 						"(" .. LLL["BINDING_ERROR_" .. error] .. ")"));
 				else
-					addValueLine(keyText, error);
+					addValueLine(tooltip, keyText, error);
 				end
 			else
 				-- 행의 단축키 칸과 같은 말을 쓴다. 한때 여기만 따로 번역된 키를
 				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
-				addValueLine(INACTIVE_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
+				addValueLine(tooltip, INACTIVE_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
 			end
 
 			-- **Under the key, because it is the key this qualifies.** The line above says which
@@ -1402,15 +1423,15 @@ do
 			-- mark rather than three. It is the only thing in this tooltip that says so, now that
 			-- the title has stopped carrying the colour.
 			if (action.imported) then
-				addValueLine(IMPORTED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_IMPORTED"]), nil, true);
+				addValueLine(tooltip, IMPORTED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_IMPORTED"]), nil, true);
 			end
 		end
 
 		if (action.unit ~= nil) then
-			addLabelLine(LLL["TARGET_UNIT"]);
+			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
 			local error = hasIssues and GetIssue("unit");
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
-			addValueLine(unitStr, error);
+			addValueLine(tooltip, unitStr, error);
 		end
 
 		-- 호버 조건은 `checkedUnits["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
@@ -1419,34 +1440,34 @@ do
 		local hoverCondition = DebindPrivate.UnitConditionForBinding(
 			action.checkedUnits and action.checkedUnits.hover);
 		if (hoverCondition ~= nil) then
-			addLabelLine(LLL["CONDITION_HOVER"]);
+			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
 			if (hoverCondition) then
 				local reactions = hoverCondition.reaction or Constants.REACTION_ALL;
 				local frameTypes = action.frameTypes or Constants.FRAMETYPE_ALL;
 
-				addValueLine(LabelledValue("CONDITION_REACTIONS",
+				addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
 					FlagNames(reactions, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
 					hasIssues and GetIssue("reactions") and true or false, true);
 
-				addValueLine(LabelledValue("CONDITION_FRAMETYPES",
+				addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES",
 					FlagNames(frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_", Constants.FRAMETYPE_ALL)),
 					hasIssues and GetIssue("frameTypes") and true or false, true);
 
 				if (hoverCondition.dead ~= nil) then
-					addValueLine(LabelledValue("CONDITION_LIFE",
+					addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
 						hoverCondition.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]),
 						error and true or false, true);
 				end
 
 				if (action.ignoreHoverUnit) then
-					addValueLine(LLL["IGNORE_HOVER_UNIT"]);
+					addValueLine(tooltip, LLL["IGNORE_HOVER_UNIT"]);
 				end
 			else
-				addValueLine(LLL["CONDITION_HOVER_NO"], error);
+				addValueLine(tooltip, LLL["CONDITION_HOVER_NO"], error);
 			end
 			if (error) then
-				addErrorLine(LLL["BINDING_ERROR_" .. error]);
+				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
 			end
 		end
 
@@ -1458,7 +1479,7 @@ do
 				if (value ~= nil and checkedUnit ~= "hover"
 						and (checkedUnit ~= "@" or (action.unit and action.unit ~= "none"))) then
 					if (first) then
-						addLabelLine(LLL["CONDITION_UNITS"]);
+						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 						first = false;
 					end
 
@@ -1474,19 +1495,19 @@ do
 					-- a line below it in the shape the hover block already uses. A new axis is
 					-- one more branch here.
 					if (value == false) then
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
+						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
 					else
-						addValueLine(unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
+						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
 
 						local reaction = type(value) == "table" and value.reaction or nil;
 						if (reaction ~= nil and reaction ~= Constants.REACTION_ALL) then
-							addValueLine(LabelledValue("CONDITION_REACTIONS",
+							addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
 								FlagNames(reaction, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
 								error, true);
 						end
 
 						if (type(value) == "table" and value.dead ~= nil) then
-							addValueLine(LabelledValue("CONDITION_LIFE",
+							addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
 								value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]), error, true);
 						end
 					end
@@ -1495,10 +1516,10 @@ do
 		end
 
 		if (action.groups ~= nil) then
-			addLabelLine(LLL["CONDITION_GROUP"]);
+			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
 			if (action.groups == 0) then
-				addValueLine(LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
+				addValueLine(tooltip, LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
 				for i = 1, #GROUP_TYPES do
@@ -1508,7 +1529,7 @@ do
 					end
 				end
 				local error = hasIssues and GetIssue("groups");
-				addValueLines(_lines, error);
+				addValueLines(tooltip, _lines, error);
 			end
 		end
 
@@ -1520,14 +1541,14 @@ do
 		-- "does not know it" row to write and `CONDITION_KNOWN_NO` does not exist.
 		if (action.known) then
 			local error = hasIssues and GetIssue("known");
-			addLabelLine(LLL["CONDITION_KNOWN"]);
-			addValueLine(LLL["CONDITION_KNOWN_YES"], error);
+			addLabelLine(tooltip, LLL["CONDITION_KNOWN"]);
+			addValueLine(tooltip, LLL["CONDITION_KNOWN_YES"], error);
 		end
 
 		if (action.forms ~= nil) then
-			addLabelLine(LLL["CONDITION_SHAPESHIFT"]);
+			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
 			if (action.forms == 0) then
-				addValueLine(LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
+				addValueLine(tooltip, LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("forms");
@@ -1547,14 +1568,14 @@ do
 						end
 					end
 				end
-				addValueLines(_lines, error);
+				addValueLines(tooltip, _lines, error);
 			end
 		end
 
 		if (action.bonusbars ~= nil) then
-			addLabelLine(LLL["CONDITION_BONUSBAR"]);
+			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
 			if (action.bonusbars == 0) then
-				addValueLine(LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
+				addValueLine(tooltip, LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("bonusbars");
@@ -1567,7 +1588,7 @@ do
 						end
 					end
 				end
-				addValueLines(_lines, error);
+				addValueLines(tooltip, _lines, error);
 			end
 		end
 
@@ -1579,8 +1600,8 @@ do
 		for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
 			local state = "$state" .. stateIndex;
 			if (action[state] ~= nil) then
-				addLabelLine(format(LLL["CUSTOM_STATE_NUM"], stateIndex));
-				addValueLine(action[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
+				addLabelLine(tooltip, format(LLL["CUSTOM_STATE_NUM"], stateIndex));
+				addValueLine(tooltip, action[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
 			end
 		end
 
@@ -1590,8 +1611,8 @@ do
 		if (hasIssues) then
 			local undefinedState = DebindPrivate.GetUndefinedCustomState(action);
 			if (undefinedState) then
-				GameTooltip_AddBlankLineToTooltip(GameTooltip);
-				addErrorLine(format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
+				GameTooltip_AddBlankLineToTooltip(tooltip);
+				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
 			end
 
 			-- Named here for the same reason. The macro name is the action's `value`, so no
@@ -1600,39 +1621,51 @@ do
 			-- cannot say on its own why the row went red.
 			local missingMacro = DebindPrivate.GetMissingMacroName(action);
 			if (missingMacro) then
-				GameTooltip_AddBlankLineToTooltip(GameTooltip);
-				addErrorLine(format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro), true);
+				GameTooltip_AddBlankLineToTooltip(tooltip);
+				addErrorLine(tooltip, format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro), true);
 			end
 		end
 
 		if (action.priority and action.priority ~= Constants.DEFAULT_PRIORITY) then
-			addLabelLine(LLL["PRIORITY"]);
-			addValueLine(LLL["PRIORITY" .. action.priority]);
+			addLabelLine(tooltip, LLL["PRIORITY"]);
+			addValueLine(tooltip, LLL["PRIORITY" .. action.priority]);
 		end
 
 		-- 중요도 바로 밑에 둔다. 둘 다 순서를 정하는 값이고, 조건들과는 성질이 다르다.
 		if (layerLabel) then
-			addLabelLine(LLL["SCOPE"]);
-			addValueLine(layerLabel);
+			addLabelLine(tooltip, LLL["SCOPE"]);
+			addValueLine(tooltip, layerLabel);
 		end
 
 		if (instructionKeys) then
 			if (#instructionKeys > 0) then
-				GameTooltip_AddBlankLineToTooltip(GameTooltip);
+				GameTooltip_AddBlankLineToTooltip(tooltip);
 				for _, instructionKey in ipairs(instructionKeys) do
-					GameTooltip_AddInstructionLine(GameTooltip, LLL[instructionKey]);
+					GameTooltip_AddInstructionLine(tooltip, LLL[instructionKey]);
 				end
 			end
 		else
-			GameTooltip_AddBlankLineToTooltip(GameTooltip);
-			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
-			GameTooltip_AddInstructionLine(GameTooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"]);
+			GameTooltip_AddBlankLineToTooltip(tooltip);
+			GameTooltip_AddInstructionLine(tooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
+			GameTooltip_AddInstructionLine(tooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"]);
 		end
-
-		GameTooltip:Show();
 	end
 
-	DebindPrivate.ShowLineTooltip = ShowLineTooltip;
+	--- The other half of `AddActionToTooltip`: puts the minimum width back and hides.
+	---
+	--- **A bare `Hide()` is not enough**, which is the one place the split is not clean. The
+	--- content sets a minimum width because it needs one, and a minimum width outlives the
+	--- tooltip that asked for it -- so every tooltip in the session afterwards, ours or the
+	--- game's, comes out that wide. The client pairs the two the same way, in the achievement
+	--- category rows.
+	function HideActionTooltip(tooltip)
+		---@diagnostic disable-next-line: redundant-parameter
+		tooltip:SetMinimumWidth(0, false);
+		tooltip:Hide();
+	end
+
+	DebindPrivate.AddActionToTooltip = AddActionToTooltip;
+	DebindPrivate.HideActionTooltip = HideActionTooltip;
 end
 
 
@@ -1794,8 +1827,11 @@ local BIND_MODE_INSTRUCTIONS = { "LINE_TOOLTIP_INSTRUCTION_BIND" };
 
 function DebindLineMixin:OnEnter()
 	local elementData = self:GetElementData();
-	local instructionKeys = DebindFrame:IsCapturingKey() and BIND_MODE_INSTRUCTIONS or nil;
-	ShowLineTooltip(self, "ANCHOR_RIGHT", elementData, false, instructionKeys);
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	AddActionToTooltip(GameTooltip, elementData.action, {
+		instructionKeys = DebindFrame:IsCapturingKey() and BIND_MODE_INSTRUCTIONS or nil,
+	});
+	GameTooltip:Show();
 end
 
 --- 휠. 모드가 켜진 동안에만 이 스크립트가 살아 있다(Update의 EnableMouseWheel).
@@ -1807,9 +1843,7 @@ function DebindLineMixin:OnMouseWheel(delta)
 end
 
 function DebindLineMixin:OnLeave()
-	---@diagnostic disable-next-line: redundant-parameter
-	GameTooltip:SetMinimumWidth(0, false);
-	GameTooltip:Hide();
+	HideActionTooltip(GameTooltip);
 end
 
 function DebindLineMixin:OnClick(buttonName)
@@ -4789,15 +4823,19 @@ local ORDER_LINE_GOTO_INSTRUCTIONS = {
 };
 
 function DebindOrderLineMixin:OnEnter()
-	local elementData = self:GetElementData();
-	ShowLineTooltip(self, "ANCHOR_LEFT", elementData.row, true,
-		ORDER_LINE_GOTO_INSTRUCTIONS, GetLayerLabel(elementData.row.layerID));
+	local row = self:GetElementData().row;
+	GameTooltip:SetOwner(self, "ANCHOR_LEFT");
+	AddActionToTooltip(GameTooltip, row.action, {
+		offWorld = row.simulated,
+		suppressInactive = true,
+		instructionKeys = ORDER_LINE_GOTO_INSTRUCTIONS,
+		layerLabel = GetLayerLabel(row.layerID),
+	});
+	GameTooltip:Show();
 end
 
 function DebindOrderLineMixin:OnLeave()
-	---@diagnostic disable-next-line: redundant-parameter
-	GameTooltip:SetMinimumWidth(0, false);
-	GameTooltip:Hide();
+	HideActionTooltip(GameTooltip);
 end
 
 --- 결과 목록의 행을 누르면 **그 액션이 사는 통으로 데려간다.**

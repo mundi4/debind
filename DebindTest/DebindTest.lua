@@ -2412,16 +2412,19 @@ end
 --- all: with it off, an action the solver dropped reads as inactive and the key line is greyed
 --- instead of carrying the reason.
 local function DrawRowTooltip(row)
-    DebindPrivate.ShowLineTooltip(UIParent, "ANCHOR_NONE", row, true)
+    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    DebindPrivate.AddActionToTooltip(GameTooltip, row.action, {
+        offWorld = row.simulated,
+        suppressInactive = true,
+    })
+    GameTooltip:Show()
     return ReadTooltipText()
 end
 
 --- Puts the minimum width back. The tooltip sets one and leaves undoing it to whoever showed it,
 --- so a run that skipped this would leave every later tooltip in the session 140 wide.
 local function HideTooltip()
-    ---@diagnostic disable-next-line: redundant-parameter
-    GameTooltip:SetMinimumWidth(0, false)
-    GameTooltip:Hide()
+    DebindPrivate.HideActionTooltip(GameTooltip)
 end
 
 RegisterTest("Tooltip: unreachable, and the row that agrees", {
