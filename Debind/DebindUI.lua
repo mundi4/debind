@@ -1231,6 +1231,11 @@ do
 	local action;
 	local suppressedCategory;
 
+	--- Drawing order for the group condition, which is also `Constants.GROUP_*`'s bit order.
+	--- Built once: it used to be a table literal inside the loop's `ipairs`, so a hover allocated
+	--- one and threw it away.
+	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
+
 	--- 이 툴팁이 쓰는 유일한 이슈 조회.
 	---
 	--- 다른 특성의 순서를 보고 있으면 **도달 불가만 뺀다.** 그 판정은 지금 이 특성으로 만든
@@ -1273,6 +1278,62 @@ do
 		if (type(error) == "string") then
 			GameTooltip_AddErrorLine(GameTooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
 		end
+	end
+
+	--- The names a mask has switched on, comma-joined onto one line.
+	---
+	--- **The full mask and the empty one get a word instead of a list.** Naming every reaction is
+	--- longer than "all" and says less, and an empty mask is not a list of nothing: it is the one
+	--- state nothing can satisfy, so it gets a word a reader can catch.
+	---
+	--- One `prefix` addresses both tables -- the flag is `Constants[prefix .. name]` and the word
+	--- is `LLL[prefix .. name]` -- which holds because the two are keyed alike by construction.
+	local function FlagNames(mask, names, prefix, all)
+		if (mask == all) then
+			return LLL["ALL"];
+		elseif (mask == 0) then
+			return LLL["NOT_SELECTED"];
+		end
+
+		local s = "";
+		for i = 1, #names do
+			local flag = Constants[prefix .. names[i]];
+			if (bit.band(mask, flag) == flag) then
+				if (s ~= "") then
+					s = s .. ", ";
+				end
+				s = s .. LLL[prefix .. names[i]];
+			end
+		end
+		return s;
+	end
+
+	--- A value line that names the axis it is narrowing, in white, ahead of the value.
+	---
+	--- These sit **under** a condition's own label line, one per narrowed axis, so each needs to
+	--- say which axis it is. The label line's shape (`LINE_TOOLTIP_CONDITION_LABEL`) is not reused:
+	--- that one opens a block and this one is inside it.
+	local function LabelledValue(labelKey, value)
+		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
+	end
+
+	--- A condition that is only on or off, drawn whole.
+	---
+	--- **The field name is the body of all three locale keys** -- `combat` gives `CONDITION_COMBAT`
+	--- and `CONDITION_COMBAT_YES`/`_NO` -- so another one of these is a call and three strings
+	--- rather than another copy of the block.
+	---
+	--- `hasIssues` is passed rather than read from anywhere because it is the gate that keeps this
+	--- cheap: with nothing wrong on the action, asking per category would rebuild the binding once
+	--- for every condition row (`GetBindingInfoForAction` rewrites it on every call).
+	local function addBooleanCondition(field, hasIssues)
+		if (action[field] == nil) then
+			return;
+		end
+		local key = "CONDITION_" .. strupper(field);
+		local error = hasIssues and GetIssue(field);
+		addLabelLine(LLL[key]);
+		addValueLine(action[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
 	end
 
 	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
@@ -1361,52 +1422,19 @@ do
 			addLabelLine(LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
 			if (hoverCondition) then
-				wipe(_lines);
 				local reactions = hoverCondition.reaction or Constants.REACTION_ALL;
 				local frameTypes = action.frameTypes or Constants.FRAMETYPE_ALL;
 
-				local s;
-				if (reactions == Constants.REACTION_ALL) then
-					s = LLL["ALL"];
-				elseif (reactions == 0) then
-					s = LLL["NOT_SELECTED"];
-				else
-					s = "";
-					for i = 1, #UNIT_FRAME_REACTIONS do
-						local flag = Constants["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
-						if (bit.band(reactions, flag) == flag) then
-							if (s ~= "") then
-								s = s .. ", ";
-							end
-							s = s .. LLL["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
-						end
-					end
-				end
-				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_REACTIONS"], s);
-				addValueLine(s, hasIssues and GetIssue("reactions") and true or false, true);
+				addValueLine(LabelledValue("CONDITION_REACTIONS",
+					FlagNames(reactions, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
+					hasIssues and GetIssue("reactions") and true or false, true);
 
-				s = nil;
-				if (frameTypes == Constants.FRAMETYPE_ALL) then
-					s = LLL["ALL"];
-				elseif (frameTypes == 0) then
-					s = LLL["NOT_SELECTED"];
-				else
-					s = "";
-					for i = 1, #UNIT_FRAME_TYPES do
-						local flag = Constants["FRAMETYPE_" .. UNIT_FRAME_TYPES[i]];
-						if (bit.band(frameTypes, flag) == flag) then
-							if (s ~= "") then
-								s = s .. ", ";
-							end
-							s = s .. LLL["FRAMETYPE_" .. UNIT_FRAME_TYPES[i]];
-						end
-					end
-				end
-				s = format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_FRAMETYPES"], s);
-				addValueLine(s, hasIssues and GetIssue("frameTypes") and true or false, true);
+				addValueLine(LabelledValue("CONDITION_FRAMETYPES",
+					FlagNames(frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_", Constants.FRAMETYPE_ALL)),
+					hasIssues and GetIssue("frameTypes") and true or false, true);
 
 				if (hoverCondition.dead ~= nil) then
-					addValueLine(format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_LIFE"],
+					addValueLine(LabelledValue("CONDITION_LIFE",
 						hoverCondition.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]),
 						error and true or false, true);
 				end
@@ -1441,7 +1469,6 @@ do
 					else
 						unitStr = UNIT_INFO[checkedUnit].name;
 					end
-					--addValueLine(unitStr);
 					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
 					-- line says whether the unit has to be there, and each constrained axis adds
 					-- a line below it in the shape the hover block already uses. A new axis is
@@ -1453,26 +1480,13 @@ do
 
 						local reaction = type(value) == "table" and value.reaction or nil;
 						if (reaction ~= nil and reaction ~= Constants.REACTION_ALL) then
-							local s;
-							if (reaction == 0) then
-								s = LLL["NOT_SELECTED"];
-							else
-								s = "";
-								for i = 1, #UNIT_FRAME_REACTIONS do
-									local flag = Constants["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
-									if (bit.band(reaction, flag) == flag) then
-										if (s ~= "") then
-											s = s .. ", ";
-										end
-										s = s .. LLL["REACTION_" .. UNIT_FRAME_REACTIONS[i]];
-									end
-								end
-							end
-							addValueLine(format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_REACTIONS"], s), error, true);
+							addValueLine(LabelledValue("CONDITION_REACTIONS",
+								FlagNames(reaction, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
+								error, true);
 						end
 
 						if (type(value) == "table" and value.dead ~= nil) then
-							addValueLine(format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL["CONDITION_LIFE"],
+							addValueLine(LabelledValue("CONDITION_LIFE",
 								value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]), error, true);
 						end
 					end
@@ -1487,10 +1501,10 @@ do
 				addValueLine(LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
-				for _, groupType in ipairs({ "NONE", "PARTY", "RAID" }) do
-					local flag = Constants["GROUP_" .. groupType];
+				for i = 1, #GROUP_TYPES do
+					local flag = Constants["GROUP_" .. GROUP_TYPES[i]];
 					if (bit.band(action.groups, flag) == flag) then
-						tinsert(_lines, LLL["GROUP_" .. groupType]);
+						tinsert(_lines, LLL["GROUP_" .. GROUP_TYPES[i]]);
 					end
 				end
 				local error = hasIssues and GetIssue("groups");
@@ -1498,26 +1512,16 @@ do
 			end
 		end
 
-		if (action.combat ~= nil) then
-			addLabelLine(LLL["CONDITION_COMBAT"]);
-			local error = hasIssues and GetIssue("combat");
-			addValueLine(action.combat == true and LLL["CONDITION_COMBAT_YES"] or LLL["CONDITION_COMBAT_NO"], error);
-		end
+		addBooleanCondition("combat", hasIssues);
+		addBooleanCondition("stealth", hasIssues);
 
-		if (action.stealth ~= nil) then
-			local error = hasIssues and GetIssue("stealth");
-			addLabelLine(LLL["CONDITION_STEALTH"]);
-			addValueLine(action.stealth == true and LLL["CONDITION_STEALTH_YES"] or LLL["CONDITION_STEALTH_NO"], error);
-		end
-
+		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
+		-- menu toggles `known` between true and nil rather than inverting it, so there is no
+		-- "does not know it" row to write and `CONDITION_KNOWN_NO` does not exist.
 		if (action.known) then
 			local error = hasIssues and GetIssue("known");
 			addLabelLine(LLL["CONDITION_KNOWN"]);
 			addValueLine(LLL["CONDITION_KNOWN_YES"], error);
-			-- if (action.known == true) then
-			-- else
-			-- 	addValueLine(LLL["CONDITION_KNOWN_UNKNOWN"], error);
-			-- end
 		end
 
 		if (action.forms ~= nil) then
@@ -1567,29 +1571,10 @@ do
 			end
 		end
 
-		if (action.specialbar ~= nil) then
-			local error = hasIssues and GetIssue("specialbar");
-			addLabelLine(LLL["CONDITION_SPECIALBAR"]);
-			addValueLine(action.specialbar == true and LLL["CONDITION_SPECIALBAR_YES"] or LLL["CONDITION_SPECIALBAR_NO"], error);
-		end
-
-		if (action.extrabar ~= nil) then
-			local error = hasIssues and GetIssue("extrabar");
-			addLabelLine(LLL["CONDITION_EXTRABAR"]);
-			addValueLine(action.extrabar == true and LLL["CONDITION_EXTRABAR_YES"] or LLL["CONDITION_EXTRABAR_NO"], error);
-		end
-
-		if (action.pet ~= nil) then
-			local error = hasIssues and GetIssue("pet");
-			addLabelLine(LLL["CONDITION_PET"]);
-			addValueLine(action.pet == true and LLL["CONDITION_PET_YES"] or LLL["CONDITION_PET_NO"], error);
-		end
-
-		if (action.petbattle ~= nil) then
-			local error = hasIssues and GetIssue("petbattle");
-			addLabelLine(LLL["CONDITION_PETBATTLE"]);
-			addValueLine(action.petbattle == true and LLL["CONDITION_PETBATTLE_YES"] or LLL["CONDITION_PETBATTLE_NO"], error);
-		end
+		addBooleanCondition("specialbar", hasIssues);
+		addBooleanCondition("extrabar", hasIssues);
+		addBooleanCondition("pet", hasIssues);
+		addBooleanCondition("petbattle", hasIssues);
 
 		for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
 			local state = "$state" .. stateIndex;
