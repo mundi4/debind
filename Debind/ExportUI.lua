@@ -655,9 +655,11 @@ function DebindCopyFrameMixin:OnLoad()
     local editBox = self.Output.EditBox;
     editBox:SetFontObject(ChatFontNormal);
 
-    -- Nobody types here. An edited string is a broken string, and the break would only show up on
-    -- whoever it was pasted to.
-    editBox:SetScript("OnChar", function() editBox:SetText(self.text or ""); end);
+    -- **Editing is not blocked here, on purpose.** There was a guard that put the string back on
+    -- every keystroke, and it was guarding the wrong end: it cannot cover a paste that was copied
+    -- half way, or a string somebody wrote by hand, so the import side has to be safe against any
+    -- string whatever this dialog does. Once it is, an edited string is one more string it turns
+    -- away, and this is a text box the reader is allowed to treat as a text box.
     editBox:SetScript("OnEscapePressed", function()
         editBox:ClearFocus();
         self:Hide();
@@ -667,7 +669,6 @@ end
 --- Puts the string up, selected, with the cursor already in it: the whole dialog exists so that
 --- Ctrl-C is the only thing left to do.
 function DebindCopyFrameMixin:ShowText(text)
-    self.text = text;
     self.Output.EditBox:SetText(text);
     self:Show();
     self.Output.EditBox:SetFocus();

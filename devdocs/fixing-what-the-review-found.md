@@ -1,7 +1,10 @@
 # 브랜치 리뷰가 찾은 것 고치기 (2026-08-18 시작)
 
-> 상태: **아무것도 안 고쳤다.** 아래 아홉 개가 전부 열려 있다. 하나(익스포트 탭이 닫힐 때 툴팁
-> 최소 폭이 안 돌아오던 것)는 툴팁 작업이 만든 회귀라 그 자리에서 고쳤고, 여기 없다.
+> 상태: **아무것도 안 고쳤다.** 아래 여덟 개가 전부 열려 있다.
+>
+> 둘이 이 목록에서 빠졌다. 익스포트 탭이 닫힐 때 툴팁 최소 폭이 안 돌아오던 것은 툴팁 작업이
+> 만든 회귀라 그 자리에서 고쳤다. 복사 상자의 편집을 막던 것은 **소유자가 막지 않기로 했다**
+> (`0-DECISION-LOG.md` 2026-08-18).
 >
 > **순서는 정해져 있지 않다.** 아래 "무엇부터"가 내 제안이고 그뿐이다.
 
@@ -35,24 +38,7 @@
 이게 실재하는 입력인 이유는 `Drawer.lua`가 이미 적어뒀다. 붙여넣은 문자열은 믿을 수 없는
 입력이고 여기서는 아무것도 터지면 안 된다.
 
-## 2. 복사 상자의 "아무도 못 친다" 가드가 절반만 덮는다
-
-`ExportUI.lua`의 `DebindCopyFrameMixin:OnLoad`.
-
-```lua
-editBox:SetScript("OnChar", function() editBox:SetText(self.text or ""); end);
-```
-
-`OnChar`는 **찍히는 글자에만** 온다. 백스페이스와 Delete는 안 낸다. 이 믹스인이 거는 스크립트는
-`OnChar`와 `OnEscapePressed` 둘뿐이고 `OnTextChanged`는 없다. 상자는 `InputScrollFrameTemplate`의
-편집 가능한 여러 줄 상자다.
-
-`ShowText`가 열면서 `SetFocus()`와 `HighlightText()`를 한다. **전체가 선택된 채로 뜬다.**
-백스페이스 한 번이면 비고, 되돌리는 것이 없다. 그 상태로 Ctrl-A, Ctrl-C를 하면 빈 문자열을
-복사한다. 받는 쪽은 `IMPORT_FAILED_NOT_OURS`나 `IMPORT_FAILED_DAMAGED`를 보고, **보낸 쪽은 뭐가
-잘못됐는지 알 길이 없다.**
-
-## 3. ESC가 메인 창을 닫고 공유 다이얼로그를 남긴다
+## 2. ESC가 메인 창을 닫고 공유 다이얼로그를 남긴다
 
 `DebindUI.lua`의 `DebindDialogMixin:InitDialog`가 다이얼로그 이름을 `UISpecialFrames`에 넣는다.
 그 표를 읽는 것은 `CloseSpecialWindows()` 하나이고, 그건 ESCAPE **바인딩**이 부른다.
@@ -70,7 +56,7 @@ editBox:SetScript("OnChar", function() editBox:SetText(self.text or ""); end);
 닿지 않는 자리라 사다리 한 칸으로 넣었다"고 있다. 공유 다이얼로그 셋은 그 주석이 안 된다고 말한
 방법을 받았다.
 
-## 4. 임포트가 만든 `SETSTATE`가 값 없이 돌아다닌다
+## 3. 임포트가 만든 `SETSTATE`가 값 없이 돌아다닌다
 
 `Import.lua`의 `BuildAction`은 **일부러** 모르는 모드나 상태 이름에 `action.value = nil`을 준다.
 "타입은 두고 값을 잃는다, 빨간 글씨가 이미 할 말이 있는 모양이다"가 그 자리의 근거다.
@@ -85,7 +71,7 @@ editBox:SetScript("OnChar", function() editBox:SetText(self.text or ""); end);
 고칠 자리는 `Misc.lua`의 그 함수다. 값이 없으면 무엇을 돌려줄지가 결정이고, 그건 이 문서가 아니라
 고치는 사람이 정한다.
 
-## 5. 매크로 스냅샷이 화이트리스트를 비켜간다
+## 4. 매크로 스냅샷이 화이트리스트를 비켜간다
 
 `Import.lua`의 `MacroMatches`가 `luatype(snapshot) ~= "table" or not snapshot.name`만 본다.
 **있느냐만 보고 무엇이냐는 안 본다.** 바로 다음 줄이 `GetMacroInfo(snapshot.name)`이라 이름이
@@ -100,7 +86,7 @@ editBox:SetScript("OnChar", function() editBox:SetText(self.text or ""); end);
 > 아래 갈래(`FieldAllowed`를 안 거치는 복사)는 코드를 눈으로 본 것이고, 어떤 값이 실제로 어디까지
 > 가는지는 끝까지 안 따라갔다. 고칠 때 그 절반을 먼저 확인할 것.
 
-## 6. 배지 붙은 행이 메뉴로는 움직인다
+## 5. 배지 붙은 행이 메뉴로는 움직인다
 
 `Ordering.lua`의 `ComputeOrderSwap`.
 
@@ -120,7 +106,7 @@ end
 같이 설 수 있다. 배지 붙은 행에서 우클릭하면 이동 항목이 켜지고, 눌리면 실제로 순서가 바뀐다.
 **화살표 버튼은 같은 동작을 거부한다.** 켜는 조건과 실행하는 조건이 갈려 있다.
 
-## 7. 접힌 머리글의 요약이 한 번 사라지면 안 돌아온다
+## 6. 접힌 머리글의 요약이 한 번 사라지면 안 돌아온다
 
 `DebindUI.lua`의 `DebindKeyHeaderMixin:LayoutSummary`가 `if (not name:IsShown()) then return end`로
 연다. 폭이 모자라면 `name:Hide()`, `count:Hide()`를 하고 끝난다.
@@ -132,7 +118,7 @@ end
 익스포트로 옮겼다 돌아오면(`SelectPanel`이 폭을 바꾼다) 머리글에 키만 남고 액션 이름과 `+N`이
 없다.
 
-## 8. 검색 한 글자마다 키보드 목록을 여러 번 짓는다
+## 7. 검색 한 글자마다 키보드 목록을 여러 번 짓는다
 
 `DebindUI.lua`의 `NarrowedVisibleActions`가 `CollectVisibleActions`를 거쳐 `BuildKeyboardElements`를
 부른다. 그게 **키마다** `CollectActionsForKey`를 부르고, 그건 다시 열한 레이어를 훑으면서 걸린
@@ -149,7 +135,7 @@ end
 > 정확히 몇 번인지는 끝까지 안 세었다. 호출 자리가 셋이고 `RefreshKeyboard`가 따로 짓는다는
 > 것까지 확인했다.
 
-## 9. 익스포트 실패 폴백이 도달 불가다
+## 8. 익스포트 실패 폴백이 죽어 있다
 
 `ExportUI.lua`에 `LLL["EXPORT_FAILED_" .. tostring(reason)] or tostring(reason)`이 있다.
 
@@ -162,7 +148,7 @@ end
 `ImportUI.lua`는 같은 자리를 제대로 한다. 폴백을 평범한 표 조회 안에 뒀다
 (`REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"`).
 
-## 10. 주석 하나가 남의 함수 위에 서 있다
+## 9. 주석 하나가 남의 함수 위에 서 있다
 
 `DebindUI.lua`에서 `ApproveImportedActions`가 `MoveActions`의 문서 블록과 `MoveActions` 사이에
 끼어 들어갔다. "옮긴 뒤에는 선택을 접는다. `MoveAction`이 액션 테이블을 복사해서 넣으므로…"가
@@ -176,17 +162,18 @@ end
 
 내 제안이고 그뿐이다.
 
-1. **1번과 3번.** 사용자가 평범하게 쓰다 바로 만난다. 3번은 ESC 한 번에 엉뚱한 창이 닫히는
+1. **1번과 2번.** 사용자가 평범하게 쓰다 바로 만난다. 2번은 ESC 한 번에 엉뚱한 창이 닫히는
    것이고, 1번은 남이 준 문자열 하나로 그 배치를 영영 못 열게 된다.
-2. **2번.** 조용히 망가진 문자열을 내보내고 **보낸 쪽이 모른다.** 이 트랙의 값이 문자열을
-   주고받는 것인데 그 문자열이 조용히 깨진다.
-3. **4번과 5번과 6번.** 임포트가 만들어낼 수 있는 모양들, 그리고 켜기와 실행이 갈린 자리.
-4. **7번과 8번.** 화면과 반응 속도.
-5. **9번과 10번.** 잠복과 정리.
+2. **3번과 4번.** 둘 다 임포트가 만들어낼 수 있는 모양이고, 복사 상자를 안 막기로 한 결정이
+   기대는 곳이 바로 여기다. 나가는 쪽을 안 지키기로 했으면 **들어오는 쪽이 아무 문자열에나
+   안전해야 한다.**
+3. **5번.** 켜는 조건과 실행하는 조건이 갈린 자리.
+4. **6번과 7번.** 화면과 반응 속도.
+5. **8번과 9번.** 잠복과 정리.
 
 ## 닫는 법
 
-**항목이 닫히면 이 문서에서 지운다.** 남는 것이 곧 미해결이다. 아홉이 다 닫히면 문서째
+**항목이 닫히면 이 문서에서 지운다.** 남는 것이 곧 미해결이다. 여덟이 다 닫히면 문서째
 `devdocs/legacy/`로 간다.
 
 새 리뷰가 새 항목을 낳으면 여기 붙인다. **붙이기 전에 코드 경로를 따라갈 것.** 확인 안 한
