@@ -19,8 +19,8 @@
 			<Layer level="BACKGROUND">
 				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="-7" y="0"/>
-						<Anchor point="BOTTOMRIGHT" x="7" y="0"/>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
 					</Anchors>
 				</Texture>
 				<!--
@@ -32,15 +32,15 @@
 				<Texture parentKey="GroupBorder" atlas="Options_HorizontalDivider" hidden="true">
 					<Size y="1"/>
 					<Anchors>
-						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT" x="-4" y="0"/>
-						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT" x="4" y="0"/>
+						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT"/>
 					</Anchors>
 				</Texture>
 			</Layer>
 			<Layer level="ARTWORK">
 				<!-- Level with the header's checkbox, which starts at the same inset. -->
 				<Texture parentKey="Icon">
-					<Size x="22" y="22"/>
+					<Size x="20" y="20"/>
 					<Anchors>
 						<Anchor point="LEFT" x="5" y="0"/>
 					</Anchors>
@@ -61,9 +61,9 @@
 						<Anchor point="RIGHT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
-				<FontString parentKey="Name" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
 					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="0"/>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="7" y="0"/>
 						<Anchor point="RIGHT" relativeKey="$parent.Key" relativePoint="LEFT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
@@ -80,7 +80,9 @@
 				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
 			</Layer>
 			<Layer level="HIGHLIGHT">
-				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD"/>
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
 			</Layer>
 		</Layers>
 		<Scripts>
