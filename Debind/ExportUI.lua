@@ -628,7 +628,12 @@ function DebindExportPanelMixin:OnHide()
     wipe(self.selected);
     wipe(self.collapsed);
     self.layers = nil;
-    GameTooltip:Hide();
+
+    -- **Through the pair, because a row's tooltip sets a minimum width.** This line is here for
+    -- the case where the row's own `OnLeave` does not run - the panel going away under the cursor
+    -- - and that is exactly the case where nothing else would put the width back. A bare `Hide()`
+    -- here left every later tooltip in the session 140 wide.
+    DebindPrivate.HideActionTooltip(GameTooltip);
 
     -- **The copy dialog is deliberately left up.** A finished string outlives the tab it came from:
     -- going to Overview to check something should not take away the text you were about to paste.
