@@ -888,11 +888,19 @@ end
 
 --- The record the two collectors above hand out, and the only place its shape is written.
 ---
---- **An off-spec row is the same case as a simulated one** for everything that reads the live key
---- map. `specRank ~= 0` says this action belongs to a specialization that is not the one in play,
---- so "unreachable" would be answered out of a key map it was never in.
+--- **`offWorld` is answered here because this is the only place that knows both halves.** A row is
+--- outside the live world if the caller asked for another specialization's order at all, or if
+--- this action belongs to a specialization other than the one that was asked about. Everything
+--- that reads the live key map has to treat those two the same, since "unreachable" would be
+--- answered out of a key map the action was never in.
+---
+--- **The two halves are not the same value**, which is why neither can stand in for the other. Ask
+--- for specialization 3's order while playing 1, and a layer belonging to 3 comes back with
+--- `specRank == 0` -- it matches what was asked about -- while the whole view is still outside the
+--- live world. `simulated` is the caller's half, `specRank` is the row's, and only the two
+--- together answer the question the tooltip asks.
 function MakeRow(action, layer, layerRank, index, simulated, specRank)
-    simulated = simulated or (specRank ~= nil and specRank ~= 0) or nil;
+    local offWorld = simulated or (specRank ~= nil and specRank ~= 0) or nil;
     return {
                     action        = action,
                     layerID       = layer.layerID,
@@ -922,12 +930,13 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
                     -- map, so it is not in the order either, and swapping numbers with it would
                     -- move a row on screen without changing what the key does.
                     imported      = action.imported,
-                    issue         = DebindPrivate.GetBindingIssue(action, nil, simulated and "unreachable" or nil),
-                    unreachable   = (not simulated) and DebindPrivate.IsUnreachableAction(action) or nil,
-                    -- Whoever draws this row has to ask on the same terms. The row's tooltip
-                    -- passes this as `offWorld` and drops unreachable for it
-                    -- (`DebindUI.lua`'s `AddActionToTooltip`).
-                    simulated     = simulated or nil,
+                    issue         = DebindPrivate.GetBindingIssue(action, nil, offWorld and "unreachable" or nil),
+                    unreachable   = (not offWorld) and DebindPrivate.IsUnreachableAction(action) or nil,
+                    -- Carried so that whoever draws this row asks on the same terms the two above
+                    -- were answered on. The row's tooltip passes it straight through
+                    -- (`DebindUI.lua`'s `AddActionToTooltip`), which is what keeps the row and its
+                    -- tooltip from disagreeing.
+                    offWorld      = offWorld,
     };
 end
 

@@ -530,6 +530,26 @@ local function GetLayerLabel(layerID)
 	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
 end
 
+--- Is this layer outside the world the live key map was built for?
+---
+--- Only a specialization layer can answer yes, and only while a different one is in play. **The
+--- bin list can be sitting on one**: its side tabs reach every specialization's layer, not only
+--- the current one, so what it draws there is not what the solver was answering about.
+---
+--- Nothing visibly depends on this yet. `IsUnreachableAction` is a lookup in a cache the solver
+--- fills, and an off-specialization action was never in it, so the answer comes back empty either
+--- way. That is an accident of how the verdict is stored rather than a decision, and the day it
+--- becomes a computation this is what keeps the tooltip from starting to lie.
+---
+--- **Asked of the layer, not rebuilt from the tab coordinates.** The layer carries the number it
+--- was loaded for (`Profile.lua`'s `LoadLayer`); a side tab is a drawing position that happens to
+--- encode the same thing.
+local function IsLayerOffWorld(layerID)
+	local layer = layerID and DebindPrivate.GetProfileLayer(layerID);
+	local spec = layer and layer.spec;
+	return spec ~= nil and spec > 0 and spec ~= C_SpecializationInfo.GetSpecialization();
+end
+
 --- 사이드탭 툴팁의 설명 줄. **탭과 사이드탭을 같이 받는다** - 사이드탭 혼자서는 문장이 안
 --- 나온다. "일반"은 탭1에서 계정 전체이고 탭2에서는 이 캐릭터 하나인데, 사이드탭 아이콘은
 --- 두 경우에 똑같이 생겼다.
@@ -1829,6 +1849,7 @@ function DebindLineMixin:OnEnter()
 	local elementData = self:GetElementData();
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 	AddActionToTooltip(GameTooltip, elementData.action, {
+		offWorld = IsLayerOffWorld(elementData.layer),
 		instructionKeys = DebindFrame:IsCapturingKey() and BIND_MODE_INSTRUCTIONS or nil,
 	});
 	GameTooltip:Show();
@@ -4826,7 +4847,7 @@ function DebindOrderLineMixin:OnEnter()
 	local row = self:GetElementData().row;
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT");
 	AddActionToTooltip(GameTooltip, row.action, {
-		offWorld = row.simulated,
+		offWorld = row.offWorld,
 		suppressInactive = true,
 		instructionKeys = ORDER_LINE_GOTO_INSTRUCTIONS,
 		layerLabel = GetLayerLabel(row.layerID),

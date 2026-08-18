@@ -2414,7 +2414,7 @@ end
 local function DrawRowTooltip(row)
     GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
     DebindPrivate.AddActionToTooltip(GameTooltip, row.action, {
-        offWorld = row.simulated,
+        offWorld = row.offWorld,
         suppressInactive = true,
     })
     GameTooltip:Show()
@@ -2470,7 +2470,7 @@ RegisterTest("Tooltip: unreachable, and the row that agrees", {
         -- this record was never in, so the tooltip has to drop it. The real path also recomputes
         -- `issue` from the same flag; only the flag is set here, since the record's shape is what
         -- the tooltip reads.
-        subject.simulated = true
+        subject.offWorld = true
         text = DrawRowTooltip(subject)
         if text:find(LLL["BINDING_ERROR_UNREACHABLE"], 1, true) then
             return Fail(NAME, "다른 전문화의 세계인데 툴팁이 도달 불가라고 적었다")
@@ -2500,7 +2500,7 @@ RegisterTest("Tooltip: a bad key is still bad in another specialization", {
             return Fail(NAME, format("행이 마우스 버튼 문제를 안 들고 있다: %s", tostring(row.issue)))
         end
 
-        row.simulated = true
+        row.offWorld = true
         local text = DrawRowTooltip(row)
         if not text:find(LLL["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"], 1, true) then
             return Fail(NAME, "다른 전문화의 세계라는 이유로 키 유효성 검사까지 같이 꺼졌다")
