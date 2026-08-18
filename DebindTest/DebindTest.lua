@@ -1892,10 +1892,11 @@ RegisterTest("Export: the window's count is what the string carries", {
             end
         end
 
-        -- And what leaves. `OnGenerateClicked` is the button, and the dialog it fills holds the
-        -- string a reader would be handed.
+        -- And what leaves. `OnGenerateClicked` is the button, and the box it fills is the one the
+        -- reader copies out of. **The dialog keeps no copy of the string beside that box**, so the
+        -- box is the only place to read it from (`ShowText`).
         panel:OnGenerateClicked()
-        local payload, why = DecodeExportedString(DebindCopyFrame.text)
+        local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
         if not payload then
             return Fail(NAME, format("문자열을 못 읽었다: %s", why))
         end
