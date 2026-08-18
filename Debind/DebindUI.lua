@@ -1671,6 +1671,8 @@ do
 
 		GameTooltip:Show();
 	end
+
+	DebindPrivate.ShowLineTooltip = ShowLineTooltip;
 end
 
 
