@@ -18,6 +18,9 @@ local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "ActionCatalog.lua",
     "Profile.lua",
     "Legacy.lua",
+    -- **A UI file, and the only one the harness loads.** It builds no frames when it is read, and
+    -- the two functions that decide the reader's lines live in it (`CollectImportLines`).
+    "ImportUI.lua",
 });
 
 --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
@@ -25,9 +28,13 @@ local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
 --- stands that same shape up here rather than loading its files into Debind's table.
 local DebindStorage = shim.loadAddon(repoRoot .. "/DebindStorage", {
     "Export.lua",
-    "Drawer.lua",
     "Import.lua",
 }, { DebindPrivate = DebindPrivate });
+
+--- What `DebindStorage.lua` does the instant the game loads that addon. It is not in the list
+--- above, because the shim has no `LoadAddOn` for it to run inside, so the half that points Debind
+--- back at the store is done here. `CollectImportLines` reads it (`ImportUI.lua`).
+DebindPrivate.Store = DebindStorage;
 
 local bench = false;
 for i = 1, #(arg or {}) do
@@ -55,7 +62,7 @@ local specs = {
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
     { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },
     { name = "export", path = root .. "/export_spec.lua" },
-    { name = "drawer", path = root .. "/drawer_spec.lua" },
+    { name = "batch", path = root .. "/batch_spec.lua" },
     { name = "import", path = root .. "/import_spec.lua" },
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },

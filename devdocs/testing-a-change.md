@@ -20,9 +20,11 @@ The cheapest layer, and the only one that runs without the game. Use it for anyt
 function of its inputs.
 
 `tests/run.lua` loads a subset of the addon under a shim: `Constants`, `Ordering`, `Solver`,
-`Misc`, `ActionCatalog`, `Profile`, `Legacy`. **`UpdateBindings.lua` and `SecureBindings.lua` are
-not loaded** — the parts of them that are pure (expression emitters, condition merging) are
-testable in principle but the files also build frames at load, so they are not reachable yet.
+`Misc`, `ActionCatalog`, `Profile`, `Legacy`, and `ImportUI`, the one UI file in the list: it builds
+no frames when it is read, and `CollectImportLines` lives in it. **`UpdateBindings.lua` and
+`SecureBindings.lua` are not loaded** — the parts of them that are pure (expression emitters,
+condition merging) are testable in principle but the files also build frames at load, so they are
+not reachable yet.
 
 Add a spec by dropping a file in `tests/` and registering it in the `specs` list in
 `tests/run.lua`. A spec is a function taking `DebindPrivate` and returning

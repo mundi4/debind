@@ -12,8 +12,8 @@ local LLL           = DebindPrivate.L;
 ---
 --- ⚠ **`OnLoad` is not one of those places.** These frames are built when this file is read, which
 --- is login, and that is *before* any of it. It held while this file belonged to the other addon -
---- then `OnLoad` ran inside its load - and the addon boundary move quietly broke it: the bring
---- dialog asked for `IMPORT_LINES` at login and got `nil` (`EnsureLineButtons`).
+--- then `OnLoad` ran inside its load - and the addon boundary move quietly broke it: what an
+--- `OnLoad` asked the store for came back `nil`, at login, with nothing said about it.
 local function Store()
     return DebindPrivate.Store;
 end
@@ -58,6 +58,95 @@ local REASON_TEXT   = {
     NOTHING_TO_PLACE      = "IMPORT_NOTHING_PLACED",
 };
 
+
+--------------------------------------------------------------------------------
+-- The lines the reader is offered
+--------------------------------------------------------------------------------
+
+--- **These sit on the private table because the other addon asks as well.** `PlanImport` is handed
+--- the lines the reader left ticked and has to know which one each address falls on, so it reads
+--- `ImportLineFor` back out of here (`DebindStorage/Import.lua`).
+---
+--- They used to stand next to the payload walk they call, which left one half of a line over there
+--- and the other half here, where each one is given its name (`LINE_LABELS`). A dialog built out
+--- of something other than lines was a change to two addons, one of them load on demand.
+
+--- What the bring dialog puts a checkbox on, in the order the window's own tab strip stands in.
+---
+--- **Four lines, not one per layer.** The spec layers ride along on the line above them rather than
+--- standing on their own: a string from a four-spec class would otherwise open with ten rows, and
+--- ticking spec 3 but not spec 2 is a decision nobody arrives wanting to make. What is worth
+--- separating is the two things that differ in *who they reach* -- everything on this account
+--- versus this one character.
+local IMPORT_LINES  = {
+    "shared.general",
+    "shared.class",
+    "character.general",
+    "character.spec",
+};
+
+--- Which line an address belongs to, or nil for one no line covers.
+function DebindPrivate.ImportLineFor(scope, spec)
+    if (scope == "general") then
+        return "shared.general";
+    elseif (scope == "class") then
+        return "shared.class";
+    elseif (scope == "character") then
+        return (spec or 0) > 0 and "character.spec" or "character.general";
+    end
+    return nil;
+end
+
+--- Which of the four lines this payload actually has something on, in `IMPORT_LINES` order.
+---
+--- **Only what can land counts.** A line the string does not carry, and a line whose every action
+--- has nowhere to go, are the same thing to the reader: a checkbox that reads as a choice and does
+--- nothing either way. A payload with no line at all is one there is no question to ask about.
+---
+--- **Counted over actions, not groups.** A group is a key now and a key crosses layers, so one
+--- group can put actions on two lines and there is no number of groups a line owns.
+---
+--- `class` rides along on the class line, taken from the descriptors rather than from
+--- `payload.class`: the label has to name the class the actions are actually going to. It is absent
+--- when the line holds more than one, which the export cannot produce and a hand-made string can.
+function DebindPrivate.CollectImportLines(payload)
+    local counts, classLine = {}, nil;
+
+    Store().ForEachPayloadLayer(payload, function(list, scope, class, spec)
+        -- **The address is vetted first**, the same order `PlanImport` reads them in. `ImportAddress`
+        -- is the only place `spec` is checked for being a number at all, and the line function
+        -- compares it against 0 -- asked the other way round, a payload keyed `char = { ["2"] = … }`
+        -- raises where the reader can only see a dead button.
+        if (Store().ImportAddress(scope, class, spec)) then
+            local line = DebindPrivate.ImportLineFor(scope, spec);
+            if (line) then
+                counts[line] = (counts[line] or 0) + #list;
+                if (line == "shared.class") then
+                    if (classLine == nil) then
+                        classLine = class;
+                    elseif (classLine ~= class) then
+                        classLine = false;
+                    end
+                end
+            end
+        end
+    end);
+
+    local lines = {};
+    for _, line in ipairs(IMPORT_LINES) do
+        -- **Zero is not "some".** An empty layer list adds nothing to the count, and `if (count)`
+        -- would stand the checkbox up anyway -- 0 is true in Lua. The reader would tick a line that
+        -- places nothing and be answered with an error by the dialog that just offered it.
+        if ((counts[line] or 0) > 0) then
+            lines[#lines + 1] = {
+                line = line,
+                actionCount = counts[line],
+                class = line == "shared.class" and classLine or nil,
+            };
+        end
+    end
+    return lines;
+end
 
 --------------------------------------------------------------------------------
 -- One batch in the drawer
@@ -163,7 +252,7 @@ function DebindImportBatchRowMixin:Bring()
         return;
     end
 
-    local lines = Store().CollectImportLines(payload);
+    local lines = DebindPrivate.CollectImportLines(payload);
     if (#lines == 0) then
         -- Nothing in it has anywhere to go. There is no question to ask, so the answer is given
         -- straight rather than through a dialog with no lines on it.
@@ -244,18 +333,16 @@ end
 --- The line checkboxes. Four at most (`IMPORT_LINES`), and made once: which of them are shown is
 --- the string's to say, but how many there could ever be is not.
 ---
---- **Made on the first open and not in `OnLoad`**, because how many there could ever be is a number
---- only `DebindStorage` has, and that addon is not in yet when this file is read. `OnLoad` used to
---- run inside its load - back when this file was one of its own - and moving the UI to Debind moved
---- this line to login, where the answer is `nil`. Nothing reaches this function before the store is
---- up: the only way here is a row in a drawer that cannot be drawn without it.
+--- **Made on the first open and not in `OnLoad`**, which is login: four frames for a reader who
+--- never opens this tab are four frames nobody asked for, and this addon is arranged around not
+--- paying for sharing until somebody shares. The only way here is a row in the drawer.
 local function EnsureLineButtons(self)
     if (self.lineButtons) then
         return;
     end
 
     self.lineButtons = {};
-    for i = 1, #Store().IMPORT_LINES do
+    for i = 1, #IMPORT_LINES do
         local button = CreateFrame("CheckButton", nil, self, "MinimalCheckboxArtTemplate");
         button:SetSize(22, 22);
         button.Label = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall");

@@ -34,7 +34,8 @@ local ENVELOPE_SEPARATOR = ":";
 --- Action fields that go out on the wire.
 ---
 --- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `imported` says which batch an action arrived
---- on **in this drawer**, which is the one field that means nothing anywhere else.
+--- on, and a batch exists only on **the receiving side**. It is the one field that means nothing
+--- anywhere else.
 ---
 --- `key` and `seq` are on the list. They used to be the two exceptions -- `key` moved up to a group
 --- layer and `seq` was replaced by a computed `order` -- and both reasons are gone: a key **is** the
@@ -515,7 +516,7 @@ function DebindStorage.DecodeExportString(str)
     end
     -- **Two directions, and opposite advice.** These were one reason and one sentence - "made by a
     -- newer version, update and try again" - which is true one way and useless the other: on the
-    -- first schema bump every batch already sitting in the drawer would fail with it, told to
+    -- first schema bump every batch already received would fail with it, told to
     -- update by the version they just updated to.
     --
     -- Both are still refusals. A bump means a field changed meaning (`SCHEMA_VERSION`'s own note),

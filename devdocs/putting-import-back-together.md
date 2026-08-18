@@ -1,8 +1,9 @@
 # 임포트를 한 덩어리로 되돌리기 (2026-08-18 시작)
 
-> 상태: **아무것도 안 고쳤다.** 작업 트리는 깨끗하다. 아래 "할 일"이 그대로 남은 전부다.
+> 상태: **1번은 했다.** `Drawer.lua`가 사라졌고 `Import.lua`가 한 덩어리다. 줄 두 함수는
+> `Debind/ImportUI.lua`로 갔다. `npm run check` 전부 통과.
 >
-> 2번(저장 형식)만 **아직 안 정해졌다.** 1번은 정해졌고 바로 하면 된다.
+> **남은 것은 2번(저장 형식) 하나고, 아직 안 정해졌다.** 먼저 크기를 재야 한다.
 
 ## 왜 하나
 
@@ -61,6 +62,22 @@
 
 **이름은 안 건드린다.** `CommitBatch`가 진짜 임포트이고 `AddBatch`는 시작해서 세워두는 것이라
 개념 기준으로는 어긋나 있는데, 화면 문자열(`IMPORT_COMMIT`)과 얽혀 있어서 따로 볼 일이다.
+
+### 하면서 나온 것 두 개 (위 계획에 없던 것)
+
+- **`PlanImport`가 `ImportLineFor`를 부른다.** 줄이 `Debind`로 가면 저장 애드온에서 부를 길이
+  없어진다. 그래서 두 함수는 `ImportUI.lua`의 파일 지역이 아니라 `DebindPrivate.ImportLineFor` /
+  `DebindPrivate.CollectImportLines`로 섰다. 저장 애드온은 `Constants`, `NextSyntheticKey`,
+  `PlaceImportedActions`를 이미 그 통로로 읽으므로 새로 뚫은 통로가 아니고, 방향도 계획대로다.
+  줄이 무엇인지는 `Debind`가 정하고 저장 애드온은 물어보기만 한다.
+- **헤드리스 스펙이 `Debind/ImportUI.lua`를 읽는다.** `CollectImportLines` 케이스 여덟 개가 거기
+  걸려 있고, 이 파일은 읽힐 때 프레임을 안 만들어서 셤에 그대로 들어간다. `tests/run.lua`가
+  `DebindPrivate.Store`도 같이 세운다(게임에서는 `DebindStorage.lua`가 하는 일).
+  `devdocs/testing-a-change.md`의 로드 목록도 같이 고쳤다.
+
+`EnsureLineButtons`가 첫 열기까지 미루던 이유가 "그 숫자는 저장 애드온만 안다"였는데 이제
+아니다. 미루는 것 자체는 그대로 뒀고(임포트 탭을 안 여는 사람은 프레임 넷을 안 만든다) 주석만
+다시 썼다.
 
 ## 할 일 2 — 무엇을 저장하나 (**안 정해졌다**)
 

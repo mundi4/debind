@@ -1,4 +1,5 @@
--- The drawer received strings pile up in. `DebindStorage/Drawer.lua`.
+-- What happens to a received string before it is committed: `DebindStorage/Import.lua`, and the
+-- two functions that decide the reader's lines (`CollectImportLines` in `Debind/ImportUI.lua`).
 --
 -- Two things live here and they fail differently.
 --
@@ -199,14 +200,14 @@ return function(DebindPrivate, DebindStorage)
 
     local function LineIDs(payload)
         local out = {};
-        for i, entry in ipairs(DebindStorage.CollectImportLines(payload)) do
+        for i, entry in ipairs(DebindPrivate.CollectImportLines(payload)) do
             out[i] = entry.line;
         end
         return table.concat(out, " ");
     end
 
     test("전문화 레이어는 자기 줄에 딸려 들어간다", function()
-        local lines = DebindStorage.CollectImportLines(Payload({
+        local lines = DebindPrivate.CollectImportLines(Payload({
             { scope = "class", class = CLASS, spec = 2, key = "F", count = 2 },
             { scope = "class", class = CLASS, spec = 0, key = "G", count = 3 },
             { scope = "general", key = "H", count = 1 },
@@ -276,7 +277,7 @@ return function(DebindPrivate, DebindStorage)
     -- 액션 자리에 액션이 아닌 것. 걸러내는 자리가 하나여야 세는 쪽도 넣는 쪽도 `ipairs`로
     -- 끝난다.
     test("액션이 아닌 원소는 걸러진다", function()
-        local lines = DebindStorage.CollectImportLines(Payload({
+        local lines = DebindPrivate.CollectImportLines(Payload({
             { scope = "general", count = 2, junk = 5 },
         }));
         check(#lines == 1 and lines[1].actionCount == 2,
@@ -295,7 +296,7 @@ return function(DebindPrivate, DebindStorage)
     -- sender, and a hand-made one can put another class's layer under it - then the label would
     -- print the sender's class over somebody else's layer.
     test("직업 줄은 그 레이어의 직업을 달고 나온다", function()
-        local lines = DebindStorage.CollectImportLines(Payload({
+        local lines = DebindPrivate.CollectImportLines(Payload({
             { scope = "class", class = "MAGE", spec = 1 },
         }));
         check(#lines == 1 and lines[1].class == "MAGE",
@@ -303,7 +304,7 @@ return function(DebindPrivate, DebindStorage)
 
         -- Two classes on one line: there is no single name to print, so none is offered and the
         -- dialog falls back to what the string says about the sender.
-        lines = DebindStorage.CollectImportLines(Payload({
+        lines = DebindPrivate.CollectImportLines(Payload({
             { scope = "class", class = "MAGE", spec = 1 },
             { scope = "class", class = CLASS, spec = 1 },
         }));
@@ -314,7 +315,7 @@ return function(DebindPrivate, DebindStorage)
     -- One key group can put actions on two lines, which is why the count is over actions. There is
     -- no number of groups a line owns.
     test("한 키가 두 줄에 걸쳐도 양쪽이 다 센다", function()
-        local lines = DebindStorage.CollectImportLines(Payload({
+        local lines = DebindPrivate.CollectImportLines(Payload({
             { scope = "general", key = "F" },
             { scope = "character", spec = 0, key = "F" },
         }));
