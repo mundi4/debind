@@ -1916,6 +1916,115 @@ RegisterTest("Export: the window's count is what the string carries", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: A drawer written by an older store
+--
+-- The drawer keeps the payload now, and a store written before that kept the string
+-- (`devdocs/building-export-import.md`). What brings one forward is `MigrateToPayloads`, and the
+-- headless spec for it **stubs the decoder** -- fengari cannot decompress, so gating those cases on
+-- the real one would mean `npm test` never runs them.
+--
+-- That leaves the half only the game can ask: whether the migration reads a *real* string. A stub
+-- answers yes to whatever shape the call has.
+-----------------------------------------------------------
+
+RegisterTest("Import: a drawer written by store v1 comes forward", {
+    description = "옛 판(문자열)으로 저장된 배치가 페이로드로 올라오고, 못 읽는 것은 남는지",
+    run = function()
+        local NAME = "Store v1"
+
+        -- Exported first, so what the migration is handed is a string a reader would have been
+        -- handed - not one written here to the shape the code expects.
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F7" })
+        ApplyBindings()
+
+        local panel = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
+        if not panel or not panel.BuildLayers then
+            return Fail(NAME, "익스포트 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+        end
+
+        -- Fetching the panel is what brought the addon in, so this is the first line that can ask
+        -- for it (`EnsureStore`).
+        local Store = DebindPrivate.Store
+        if not Store or not Store.GetBatch then
+            return Fail(NAME, "DebindStorage를 못 얻었다")
+        end
+
+        AddTeardown(function()
+            DebindCopyFrame.Output.EditBox:ClearFocus()
+            DebindCopyFrame:Hide()
+            panel.layers = nil
+            wipe(panel.selected)
+        end)
+
+        panel.layers = panel:BuildLayers()
+        panel:SelectAll(true)
+        panel:OnGenerateClicked()
+
+        local text = DebindCopyFrame.Output.EditBox:GetText()
+        local sent, why = DecodeExportedString(text)
+        if not sent then
+            return Fail(NAME, format("내보낸 문자열부터 못 읽었다: %s", tostring(why)))
+        end
+        local sentCount = #PayloadActions(sent)
+
+        -- **The tester's own drawer goes back whatever happens below.** It holds every string they
+        -- have received and this replaces it whole, so the undo is registered before the swap and
+        -- not after the checks.
+        local realVars = _G.DebindStorageVars
+        AddTeardown(function() _G.DebindStorageVars = realVars end)
+
+        _G.DebindStorageVars = {
+            version = 1,
+            nextID = 3,
+            batches = {
+                -- A v1 record: the string, the three values read out of it at paste time, and the
+                -- empty tables the folded workbench left behind.
+                {
+                    id = 1, received = time(), source = "v1", text = text,
+                    class = "DRUID", groupCount = 99, actionCount = 99,
+                    layers = {}, keys = {}, excluded = {}, states = {},
+                },
+                { id = 2, received = time(), source = "v1 damaged", text = "DEB1:못읽는다" },
+            },
+        }
+
+        local good = Store.GetBatch(1)
+        if not good or not good.payload then
+            return Fail(NAME, "v1 배치가 페이로드로 안 올라왔다")
+        end
+        if good.text ~= nil then
+            return Fail(NAME, "올려놓고 문자열도 그대로 들고 있다")
+        end
+        if good.class ~= nil or good.groupCount ~= nil or good.actionCount ~= nil then
+            return Fail(NAME, "페이로드에서 읽을 것을 배치가 또 들고 있다")
+        end
+        if good.layers ~= nil or good.keys ~= nil or good.excluded ~= nil or good.states ~= nil then
+            return Fail(NAME, "접힌 작업대가 남긴 빈 테이블이 그대로다")
+        end
+
+        local _, actionCount = Store.CountBatch(good)
+        if actionCount ~= sentCount then
+            return Fail(NAME, format("보낸 것 %d개, 올라온 것 %d개", sentCount, actionCount))
+        end
+
+        -- **Nothing disappears from the drawer**, which is the one thing it may not do. A string
+        -- the migration cannot read is one the reader has to be told about, not one that is gone
+        -- the next time they look.
+        local damaged = Store.GetBatch(2)
+        if not damaged then
+            return Fail(NAME, "못 읽는 배치가 사라졌다")
+        end
+        local payload, reason = Store.GetBatchPayload(damaged)
+        if payload or not reason then
+            return Fail(NAME, "못 읽는 배치를 읽었다고 한다")
+        end
+
+        return Pass(NAME, format("%d개가 페이로드로 올라오고, 못 읽는 한 줄은 %s로 남았다",
+            actionCount, reason))
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: The window's three panels
 --
 -- **All three are Debind's own XML now** (2026-08-15). Two of them used to be built by the
@@ -2045,6 +2154,84 @@ RegisterTest("Panels: no store means no panel, not an error", {
         end
 
         return Pass(NAME, "임포트는 막히고 오버뷰는 선다")
+    end,
+})
+
+--- **ESC is this window's ladder, not the game's net.** The three sharing dialogs are in
+--- `UISpecialFrames` as well, but that table is read by the ESCAPE *binding*, and the window takes
+--- ESCAPE before any binding runs (`DebindFrameMixin:OnKeyDown`). None of the three enables the
+--- keyboard, so nothing hands it back to them either. Take their rungs off `HandleEscape` and one
+--- press hides the window and leaves the dialog standing over nothing, which is the first thing
+--- below.
+---
+--- The rest is the order, and it is the half that cannot be read off one dialog: all three can
+--- stand at once, since the copy dialog outlives the tab it came from on purpose
+--- (`DebindExportPanelMixin:OnHide`). One press has to move one rung.
+---
+--- **`HandleEscape` rather than a key.** A run unbinds the game's own bindings, so a real ESCAPE
+--- measures the runner as much as the window; and this function is split out from the key plumbing
+--- to be the order on its own, which is exactly what is being asked here.
+RegisterTest("Escape: the sharing dialogs close before the window", {
+    description = "공유 다이얼로그가 떠 있으면 ESC가 창 대신 그 다이얼로그부터 한 칸씩 닫는가",
+    run = function()
+        local NAME = "Escape ladder"
+
+        DebindFrame:Show()
+        AddTeardown(function()
+            DebindCopyFrame.Output.EditBox:ClearFocus()
+            DebindPasteFrame.Input.EditBox:ClearFocus()
+            DebindBringFrame:Hide()
+            DebindPasteFrame:Hide()
+            DebindCopyFrame:Hide()
+            DebindFrame:Hide()
+        end)
+
+        -- 셋 다 세운다. 가져오기 창만 `Open` 대신 맨 `Show`인데, 그쪽은 배치 하나를 받아 줄을
+        -- 짓는 일이라 사다리가 보는 것(`IsShown`)과 상관이 없다.
+        DebindCopyFrame:ShowText("DEBIND-TEST")
+        DebindPasteFrame:Open()
+        DebindBringFrame:Show()
+
+        local steps = {
+            { frame = DebindBringFrame, name = "가져오기 창" },
+            { frame = DebindPasteFrame, name = "붙여넣기 창" },
+            { frame = DebindCopyFrame,  name = "복사 창" },
+        }
+        for _, step in ipairs(steps) do
+            if not step.frame:IsShown() then
+                return Fail(NAME, format("%s을 세우지도 못했다", step.name))
+            end
+        end
+
+        for i, step in ipairs(steps) do
+            if not DebindFrame:HandleEscape() then
+                return Fail(NAME, format("%d번째 ESC를 아무도 안 먹었다", i))
+            end
+            if step.frame:IsShown() then
+                return Fail(NAME, format("ESC %d번째가 %s을 안 닫았다", i, step.name))
+            end
+            -- **여기서 창이 닫히면 그게 이 테스트가 지키는 버그다.** 다이얼로그만 주인 없이 남는다.
+            if not DebindFrame:IsShown() then
+                return Fail(NAME, format("%s을 닫아야 할 ESC가 창을 닫았다", step.name))
+            end
+            -- 한 번에 한 칸. 아직 차례가 아닌 것까지 데려가면 한 번 누르고 두 개가 사라진다.
+            for j = i + 1, #steps do
+                if not steps[j].frame:IsShown() then
+                    return Fail(NAME, format("%s을 닫는 ESC가 %s까지 데려갔다", step.name, steps[j].name))
+                end
+            end
+        end
+
+        -- 그리고 셋이 없어진 **뒤에야** 창이 닫힌다. 이 줄이 없으면 위의 통과는 "ESC가 아무것도
+        -- 안 한다"로도 똑같이 설명된다.
+        if not DebindFrame:HandleEscape() then
+            return Fail(NAME, "다이얼로그가 다 닫힌 뒤의 ESC를 아무도 안 먹었다")
+        end
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "다이얼로그가 다 닫혔는데 창이 ESC에 안 닫힌다")
+        end
+
+        return Pass(NAME, "가져오기, 붙여넣기, 복사, 그다음 창 순으로 한 칸씩 물러났다")
     end,
 })
 

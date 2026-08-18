@@ -195,55 +195,27 @@ local function BucketForLayer(payload, layer)
     return tbl;
 end
 
---- The macro body, so the reference does not have to survive the trip.
----
---- `MACRO` actions store a **name** and read the body out of the sender's macro store at build
---- time (`ConvertToMacroText` in `Misc.lua`). A name is the one kind of broken reference the
---- red-text safety net cannot catch, because it does not break: a reader who happens to have a
---- macro by that name gets **their** macro, silently. So the body travels alongside, and the
---- decision of whether to restore a live reference or fall back to `MACROTEXT` is the reader's.
----
---- Returns nil when the sender's own reference is already dangling. That case ships as-is under
---- the "send broken things too" rule -- but note that rule is currently unbacked for macros:
---- `GetBindingIssue` has no branch that checks whether an action's target exists, so a `MACRO`
---- naming nothing does **not** go red on the far side. `devdocs/building-export-import.md`, open question 7.
---- `reference` is what the action stores: a name, or - in old data - a **slot index**
---- (`GetMissingMacroName` in `Misc.lua` knows the same two shapes). An index is the worse of the
---- two to send bare: it resolves on any install, so the reader's fourth macro answers and the key
---- casts something nobody chose.
-local function SnapshotMacro(reference)
-    local name, icon, body = GetMacroInfo(reference);
-    if (not name) then
-        return nil;
-    end
-
-    -- Account macros occupy the first block of slots and character macros follow, so the index
-    -- is what separates them -- `GetMacroInfo` itself does not say which store answered. A numeric
-    -- reference **is** that index; a name has to be asked.
-    local scope;
-    local index = luatype(reference) == "number" and reference or GetMacroIndexByName(reference);
-    if (index and index > 0) then
-        local accountLimit = DebindPrivate.GetMacroSlotLimits();
-        if (index > accountLimit) then
-            scope = "character";
-        else
-            scope = "account";
-        end
-    end
-
-    return { name = name, body = body, icon = icon, scope = scope };
-end
-
 --- Rewrites the parts of an action whose stored form is an **index into the sender's setup**.
 ---
 --- `SETSTATE` packs mode and state index into one number (`SETCUSTOM_MODE_*` over the low
 --- nibble). An index always resolves on the far side, and resolves to the wrong state, which
---- puts it outside what red text can see for the same reason a macro name is.
+--- puts it outside what red text can see.
 ---
 --- So it goes out on the **name** axis instead: `$state3` rather than 3. `$state1..5` stay valid
 --- names after the custom-state rename (`.zzz/custom-states-redesign.md` step 1), so this shape
 --- survives that change without a schema bump, and it commits nothing about how the profile
 --- stores the value -- that decision is still §9-1's to make.
+---
+--- **`MACRO` needs nothing here, and that is a property of the action rather than of the format.**
+--- A macro reference is a name and only ever a name (`GetMissingMacroName` in `Misc.lua` is where
+--- that rule is written down), so what is stored is already the shape that means the same thing on
+--- the far side -- or means nothing, which is what `BINDING_ISSUE_MISSING_MACRO` is for.
+---
+--- **The body does not travel, and it is not an omission** (2026-08-18,
+--- `devdocs/building-export-import.md`). It is text the user wrote freely, we do not know what is
+--- in it, and the sender knows only that this action calls their macro named X -- not that its
+--- contents ride along. `MACROTEXT` is the opposite case and is untouched: that text was written
+--- inside this addon, to be this action.
 ---
 --- **`SETCUSTOM` is not this.** Despite the name it sets a custom *target* -- a unit slot, like
 --- focus -- and its index is structural, meaning the same thing in every install. It travels
@@ -254,14 +226,6 @@ local function NormalizeAction(action, out)
         if (mode) then
             out.value = nil;
             out.setstate = { mode = mode, state = "$state" .. stateIndex };
-        end
-    elseif (action.type == Constants.MACRO) then
-        local valueType = luatype(action.value);
-        -- The two shapes a `MACRO` value takes. The numeric one is old data and is the one that
-        -- must not travel alone: a name that means nothing on the far side at least means nothing,
-        -- while an index means *something* there, and something wrong.
-        if (valueType == "string" or valueType == "number") then
-            out.macro = SnapshotMacro(action.value);
         end
     end
 end
@@ -419,8 +383,9 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 ---
 --- **Nothing is validated.** A broken action exports exactly as it sits. The receiving side shows
 --- it in red and the user deletes it, and that one rule is what removes a whole class of
---- questions about spells the reader does not have. Where the red text cannot in fact see the
---- breakage, the format carries the answer instead -- see `SnapshotMacro` and `NormalizeAction`.
+--- questions about spells the reader does not have. What `NormalizeAction` rewrites is not an
+--- exception to it: a state index is a reference that would arrive **unbroken and wrong**, which
+--- red text cannot see at all.
 function DebindStorage.BuildExportPayload(selection)
 
     local payload = {

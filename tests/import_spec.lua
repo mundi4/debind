@@ -9,8 +9,9 @@
 --
 --   * a `SETSTATE` value is `mode | index`, and the wire carries a **name**. Rebuild it against the
 --     wrong index and the key sets some other state - silently, because an index always resolves.
---   * a `MACRO` carries a name, and a name is the one broken reference red text cannot see. The
---     snapshot is what turns "your macro of the same name, silently" into a fallback.
+--   * a `MACRO` carries a **name**, and only a name. A slot index would resolve on any install and
+--     point at some other macro; the body no longer travels at all, so nothing can arrive carrying
+--     a stranger's macro text (`devdocs/building-export-import.md`, 2026-08-18).
 --
 -- Everything built here also has to arrive quarantined. An action that landed without `imported`
 -- is bound the moment it lands, which is the one thing this whole path promises not to do.
@@ -38,8 +39,8 @@ return function(DebindPrivate, DebindStorage)
     local GUID = "Player-1-TESTGUID";
 
     ---------------------------------------------------------------------------
-    -- The macro store, stubbed. Same shape as the real API, which is what makes
-    -- the three-way match actually run.
+    -- The macro store, stubbed. Same shape as the real API: `GetMacroInfo` answers to a name or to
+    -- a slot index, which is what lets a bare number be shown resolving to the wrong macro.
     ---------------------------------------------------------------------------
 
     local MACROS = {};
@@ -50,11 +51,6 @@ return function(DebindPrivate, DebindStorage)
             return nil;
         end
         return macro.name, macro.icon, macro.body;
-    end
-
-    _G.GetMacroIndexByName = function(name)
-        local macro = MACROS[name];
-        return macro and macro.index or 0;
     end
 
     local function ResetProfile()
@@ -299,34 +295,6 @@ return function(DebindPrivate, DebindStorage)
         }));
         check(#placements == 1, "액션 수 " .. #placements);
         check(placements[1].action.value == 1, "엉뚱한 것이 들어왔다");
-    end);
-
-    -- `MacroMatches`는 테이블이 아니면 false를 내는데, 그 뒤에서 같은 값을 그대로 인덱싱하고
-    -- 있었다. 타입을 물어놓고 답을 안 쓰는 꼴이라 그 갈래가 곧바로 터졌다.
-    test("macro 스냅샷이 테이블이 아니어도 안 터진다", function()
-        ResetProfile();
-        local action = PlanOne(General({
-            { type = Constants.MACRO, value = "이름", key = "F", seq = 1, macro = 5 } }));
-        check(action.type == Constants.MACRO, "타입이 바뀌었다");
-        check(action.value == "이름", "값이 바뀌었다");
-    end);
-
-    -- 같은 것의 받는 쪽. 이름으로 삼중 일치가 성립해 **참조를 살려 둘 때**, 들고 있는 값이 보낸
-    -- 쪽 슬롯 번호면 그건 받는 쪽의 그 번호를 가리킨다 - 이름이 맞았으니 살렸는데 정작 가리키는
-    -- 곳은 남의 자리다. 살릴 때는 이름으로 고쳐 잡는다.
-    test("슬롯 번호로 온 MACRO는 이름으로 고쳐 잡는다", function()
-        ResetProfile();
-        MACROS = {
-            ["옛것"] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
-            [4] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
-        };
-
-        local action = PlanOne(General({
-            { type = Constants.MACRO, value = 4, key = "F", seq = 1,
-              macro = { name = "옛것", body = "/cast 얼음창", icon = 7, scope = "account" } } }));
-
-        check(action.type == Constants.MACRO, "참조가 안 살았다: " .. tostring(action.type));
-        check(action.value == "옛것", "값이 " .. tostring(action.value));
     end);
 
     test("setstate가 테이블이 아니어도 안 터진다", function()
@@ -593,7 +561,9 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **A name this version does not know must not become a number.** Any number resolves, and it
-    -- would resolve to some other state - the key would quietly set the wrong one.
+    -- would resolve to some other state - the key would quietly set the wrong one. Guessing none
+    -- is what makes the action fail `IsUsableAction` and take the string down with it, which is
+    -- checked above; this is the rebuild refusing to invent the number in the first place.
     test("모르는 상태 이름은 값이 안 생긴다", function()
         ResetProfile();
         local action = PlanOne(General({
@@ -604,65 +574,128 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     ---------------------------------------------------------------------------
-    -- MACRO: the reference comes back only on a three-way match
+    -- MACRO: a name and nothing else
     ---------------------------------------------------------------------------
 
-    local SNAPSHOT = { name = "내매크로", body = "/cast 재생", icon = 9, scope = "account" };
-
-    local function MacroPayload()
-        return General({ { type = Constants.MACRO, value = "내매크로", key = "F", seq = 1,
-            macro = SNAPSHOT } });
-    end
-
-    test("이름·스코프·내용이 다 맞으면 참조가 살아 돌아온다", function()
+    -- A name that resolves stands as a live reference. One that does not is what
+    -- `BINDING_ISSUE_MISSING_MACRO` names, and naming it is the whole of this side's job.
+    test("이름으로 온 MACRO는 그대로 참조로 선다", function()
         ResetProfile();
         MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 재생", index = 3 } };
 
-        local action = PlanOne(MacroPayload());
-        check(action.type == Constants.MACRO, "MACROTEXT로 떨어졌다");
+        local action = PlanOne(General({
+            { type = Constants.MACRO, value = "내매크로", key = "F", seq = 1 } }));
+        check(action.type == Constants.MACRO, "타입 " .. tostring(action.type));
         check(action.value == "내매크로", "이름 " .. tostring(action.value));
     end);
 
-    -- **The case the snapshot exists for.** A macro of the same name with different contents is
-    -- somebody else's macro, and firing it would be silent and wrong.
-    test("이름은 같은데 내용이 다르면 본문으로 떨어진다", function()
-        ResetProfile();
-        MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 다른것", index = 3 } };
-
-        local action = PlanOne(MacroPayload());
-        check(action.type == Constants.MACROTEXT, "남의 매크로를 그대로 가리킨다");
-        check(action.value == "/cast 재생", "본문 " .. tostring(action.value));
-        check(action.name == "내매크로", "이름을 안 들고 왔다");
-    end);
-
-    test("같은 이름이 아예 없으면 본문으로 떨어진다", function()
-        ResetProfile();
-        local action = PlanOne(MacroPayload());
-        check(action.type == Constants.MACROTEXT, "없는 매크로를 가리킨다");
-        check(action.value == "/cast 재생", "본문");
-    end);
-
-    -- Scope is the third leg. An account macro and a character macro of the same name and body are
-    -- still two macros, and the sender meant one of them.
-    test("스코프가 다르면 본문으로 떨어진다", function()
-        ResetProfile();
-        local accountLimit = DebindPrivate.GetMacroSlotLimits();
-        MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 재생",
-            index = accountLimit + 1 } };
-
-        local action = PlanOne(MacroPayload());
-        check(action.type == Constants.MACROTEXT, "스코프를 안 본다");
-    end);
-
-    -- Dangling when it was sent: no snapshot travelled, so there is nothing to fall back to and the
-    -- action stays what it was. Red text is what says so on this side
-    -- (`BINDING_ISSUE_MISSING_MACRO`).
-    test("스냅샷 없이 온 매크로는 그대로 둔다", function()
+    test("없는 이름으로 와도 그대로 둔다", function()
         ResetProfile();
         local action = PlanOne(General({
             { type = Constants.MACRO, value = "없는것", key = "F", seq = 1 } }));
         check(action.type == Constants.MACRO, "타입이 바뀌었다");
         check(action.value == "없는것", "이름이 바뀌었다");
+    end);
+
+    -- **Somebody else's macro body does not come in** (2026-08-18,
+    -- `devdocs/building-export-import.md`). Our export no longer sends one, but a paste is input
+    -- somebody else handed over and may hold anything. A string carrying the old shape leaves no
+    -- body in the profile and does not turn the action into a `MACROTEXT`.
+    test("본문 스냅샷을 달고 와도 본문은 안 앉는다", function()
+        ResetProfile();
+        MACROS = { ["내매크로"] = { name = "내매크로", icon = 9, body = "/cast 다른것", index = 3 } };
+
+        local action = PlanOne(General({
+            { type = Constants.MACRO, value = "내매크로", key = "F", seq = 1,
+              macro = { name = "내매크로", body = "/cast 재생", icon = 9, scope = "account" } } }));
+        check(action.type == Constants.MACRO, "MACROTEXT로 떨어졌다");
+        check(action.value == "내매크로", "값 " .. tostring(action.value));
+        check(action.macro == nil, "포맷 필드가 액션에 남았다");
+    end);
+
+    -- **`type = macro` means `value` is a name, at every moment.** A slot number is not a
+    -- reference, it is a position in a name-ordered list, and one macro created or deleted ahead of
+    -- it hands that position to a different macro. No sharing needed: it breaks the next day on the
+    -- same account and the same character.
+    --
+    -- **Our export cannot emit that**, so a string holding one was edited after it was made, and
+    -- the whole string goes. `AddBatch` reads this and refuses; the rest of the batch is not
+    -- warranted by a string somebody has been inside of.
+    test("숫자를 든 MACRO 하나가 문자열 전체를 거절시킨다", function()
+        check(DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.MACRO, value = 4, key = "F", seq = 1 },
+            { type = Constants.SPELL, value = 774, key = "G", seq = 1 } })), "안 걸렸다");
+    end);
+
+    -- Everything the addon does make goes through untouched. A false positive here refuses a
+    -- perfectly good string and the reader is told to ask for another one that will fail the same
+    -- way, so this half matters as much as the half above.
+    test("멀쩡한 것은 안 걸린다", function()
+        check(not DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.SPELL, value = 774, key = "F", seq = 1 },
+            { type = Constants.MACRO, value = "내매크로", key = "G", seq = 1 },
+            { type = Constants.MACROTEXT, value = "/cast 재생", key = "H", seq = 1 },
+            { type = Constants.COMMAND, value = "JUMP", key = "J", seq = 1 },
+            { type = Constants.PETACTION, value = "PETATTACK", key = "K", seq = 1 },
+            { type = Constants.WORLDMARKER, value = 3, key = "L", seq = 1 },
+            { type = Constants.SETCUSTOM, value = 1, key = "M", seq = 1 },
+            { type = Constants.TARGET, key = "N", seq = 1 },
+            { type = Constants.UNUSED, key = "O", seq = 1 },
+            -- Arriving with no value and a `setstate` table is this type's ordinary shape, which
+            -- is why the check reads the built action rather than what the wire carried.
+            { type = Constants.SETSTATE, key = "P", seq = 1,
+              setstate = { mode = "toggle", state = "$state3" } } })), "멀쩡한 것이 걸렸다");
+    end);
+
+    -- The UI reaches for `value` on these three without asking, so one arriving without it is not a
+    -- broken reference to show in red, it is a row that raises while being drawn.
+    test("값이 있어야 하는 타입이 값 없이 오면 걸린다", function()
+        for _, type in ipairs({ Constants.SETCUSTOM, Constants.COMMAND, Constants.WORLDMARKER }) do
+            check(DebindStorage.PayloadIsImpossible(General({
+                { type = type, key = "F", seq = 1 } })), "안 걸렸다: " .. type);
+        end
+    end);
+
+    -- A type from a Debind that does not exist yet. It cannot be drawn, bound, or repaired, and
+    -- guessing at it is how a key ends up doing something nobody chose.
+    test("모르는 타입도 걸린다", function()
+        check(DebindStorage.PayloadIsImpossible(General({
+            { type = "직업변경", value = 1, key = "F", seq = 1 } })), "안 걸렸다");
+    end);
+
+    -- **`SETSTATE` naming a mode or a state this version does not know.** The rebuild leaves it
+    -- without a value, and a `SETSTATE` with no value is not a shape to show in red - it reached
+    -- `band(nil, …)` and raised. The same gate answers it, so nothing downstream has to.
+    test("풀리지 않는 setstate도 걸린다", function()
+        for _, wire in ipairs({
+            { mode = "없는모드", state = "$state3" },
+            { mode = "toggle", state = "$nosuchstate" },
+        }) do
+            check(DebindStorage.PayloadIsImpossible(General({
+                { type = Constants.SETSTATE, key = "F", seq = 1, setstate = wire } })),
+                "안 걸렸다: " .. tostring(wire.mode) .. "/" .. tostring(wire.state));
+        end
+    end);
+
+    -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in
+    -- WoW's Lua 5.1, out of the drawer row's tooltip, for a batch already written to disk. Our
+    -- export only ever writes this character's class.
+    test("모르는 class를 든 페이로드는 걸린다", function()
+        for _, class in ipairs({ "없는직업", 5 }) do
+            local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1 } });
+            payload.class = class;
+            check(DebindStorage.PayloadIsImpossible(payload), "안 걸렸다: " .. tostring(class));
+        end
+    end);
+
+    -- **NaN survives the round trip** and raises the moment it is used as a table index, which the
+    -- count in `AddBatch` does. Refused with everything else rather than guarded at each place a
+    -- key is indexed by.
+    test("NaN 키도 걸린다", function()
+        local nan = tonumber("nan") or (0 / 0);
+        check(nan ~= nan, "이 인터프리터에서 NaN이 안 만들어졌다");
+        check(DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.SPELL, value = 1, key = nan, seq = 1 } })), "안 걸렸다");
     end);
 
     ---------------------------------------------------------------------------

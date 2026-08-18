@@ -1061,18 +1061,40 @@ function DebindPrivate.GetMissingMacroName(action)
         return nil;
     end
 
-    -- Stored as the name (`ActionCatalog.lua`), but `GetMacroInfo` also takes a slot index and old
-    -- data may hold one. Anything else is not a reference we can ask about.
+    -- **A macro reference is a name. A slot number is not one, at any moment.** `GetMacroInfo`
+    -- answers to either, which is the trap: a number is not a reference at all, it is a **position
+    -- in a list ordered by name**, and the position moves. Create or delete any macro that sorts
+    -- ahead of it and the number now belongs to a different macro. The key then casts something
+    -- nobody chose, and nothing goes red, because nothing broke.
+    --
+    -- **No sharing is involved.** This goes wrong on one account with one character, the day after
+    -- the user names a new macro `Aa`. Which is why the rule sits here rather than anywhere near
+    -- the export: a stored number is already wrong before it travels.
+    --
+    -- Nor can one be repaired into a name. Asking what slot 4 holds answers for the store as it is
+    -- right now, and that is a guess at what was meant, not a recovery of it.
+    --
+    -- So a value that is not a string is reported missing rather than resolved, which drops the
+    -- action out of `KeyMap` entirely (`GetBindingIssue` -> `BuildKeyMap`). Nothing in the addon
+    -- writes one: the picker (`ActionCatalog.lua`) reads a name out of the index it is looping
+    -- over, the cursor drop (`GetActionTypeAndValueFromCursorInfo`) does the same and builds no
+    -- action when no name comes back, and `BuildAction` (`DebindStorage/Import.lua`) refuses the
+    -- field on a pasted one. This is the backstop under all three.
     local value = action.value;
-    local valueType = type(value);
-    if (valueType ~= "string" and valueType ~= "number") then
-        return nil;
+    if (type(value) ~= "string") then
+        -- Truthy whatever it holds, so the action is flagged instead of bound. An action with no
+        -- value at all has no reference to print, and the empty name is the honest answer: the
+        -- tooltip still says no such macro is here, which is the whole of what is known.
+        if (value == nil) then
+            return "";
+        end
+        return tostring(value);
     end
 
     if (GetMacroInfo(value)) then
         return nil;
     end
-    return tostring(value);
+    return value;
 end
 
 local GROUP_ROLE_UNITS = {
@@ -1348,10 +1370,18 @@ function DebindPrivate.GetMountMacroText(value)
     return SUMMON_MOUNT_MACROTEXT:format(value);
 end
 
+--- Whether the menu stands [Convert to macro text] on this action.
+---
+--- **What enables it and what carries it out must not part company.** `ConvertToMacroText` does
+--- nothing at all when it cannot build a body, and a menu item that does nothing when pressed says
+--- why nowhere. A `MACRO` not holding a name is that case.
 function DebindPrivate.CanConvertToMacroText(action)
+    if (action.type == Constants.MACRO) then
+        return type(action.value) == "string";
+    end
+
     return action.type == Constants.SPELL
         or action.type == Constants.ITEM
-        or action.type == Constants.MACRO
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
         or action.type == Constants.SETCUSTOM
@@ -1390,7 +1420,12 @@ function DebindPrivate.ConvertToMacroText(action)
             end
         end
     elseif (action.type == Constants.MACRO) then
-        name, icon, macrotext = GetMacroInfo(action.value);
+        -- Asked only when the value is a name. Anything else is the shape `GetMissingMacroName`
+        -- reports, and `GetMacroInfo(nil)` raises. Leaving it unanswered is the whole handling
+        -- needed: the tail below already treats a nil body as "nothing to convert".
+        if (type(action.value) == "string") then
+            name, icon, macrotext = GetMacroInfo(action.value);
+        end
     elseif (action.type == Constants.MOUNT) then
         local spellID;
         name, spellID, icon = GetMountInfoByID(action.value);

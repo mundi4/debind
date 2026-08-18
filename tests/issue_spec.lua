@@ -407,17 +407,37 @@ return function(DebindPrivate)
         check(GetBindingIssue(macroValueAction("kick+pet")) == MISSING_MACRO, "이슈가 안 남");
     end);
 
-    -- Old data can hold a slot index instead of a name; `GetMacroInfo` takes either.
-    test("슬롯 번호로 저장된 것도 물어본다", function()
-        check(GetBindingIssue(macroValueAction(3)) == nil, "오탐 - 번호로도 물어봐야 한다");
+    -- **A macro reference is a name, at every moment.** `GetMacroInfo` answering to a slot number
+    -- as well is the trap: a number is a position in a name-ordered list, so it still resolves the
+    -- day after a macro sorting ahead of it is created or deleted, and what it resolves to is a
+    -- different macro. Nothing goes red, because nothing broke. This is not about one install
+    -- reading another's string; it is one account on its own.
+    --
+    -- Nor is there a way back to a name. Asking what slot 3 holds answers for the store as it is
+    -- right now, which guesses at what was meant.
+    --
+    -- So this branch is the last gate. A number is not asked about, it is reported. Reporting drops
+    -- the action out of `KeyMap` (`BuildKeyMap`), which is what leaves a number no path to a
+    -- binding.
+    test("슬롯 번호는 물어보지도 않고 이슈다", function()
+        check(GetBindingIssue(macroValueAction(3)) == MISSING_MACRO,
+            "풀리는 번호라고 통과시키면 그 자리 매크로가 조용히 눌린다");
         check(GetBindingIssue(macroValueAction(4)) == MISSING_MACRO, "없는 번호가 안 걸림");
     end);
 
-    -- Neither a name nor an index. There is nothing to ask the game about, so this branch has no
-    -- answer -- whatever else is wrong with the action is not this check's to report.
-    test("이름도 번호도 아니면 이 갈래는 답하지 않는다", function()
-        check(GetBindingIssue(macroValueAction(nil)) ~= MISSING_MACRO, "물어볼 것이 없는데 걸림");
-        check(GetBindingIssue(macroValueAction({})) ~= MISSING_MACRO, "물어볼 것이 없는데 걸림");
+    -- The rest of the same gate. Letting a valueless `MACRO` through leaves a key that does nothing
+    -- when pressed sitting in the list wearing an ordinary face.
+    test("이름이 아니면 무엇이든 이슈다", function()
+        check(GetBindingIssue(macroValueAction(nil)) == MISSING_MACRO, "값 없는 매크로가 안 걸림");
+        check(GetBindingIssue(macroValueAction({})) == MISSING_MACRO, "테이블이 안 걸림");
+    end);
+
+    -- The tooltip takes this through `%s`, so the case with no name to print must not put the word
+    -- "nil" in front of the user.
+    test("적을 이름이 없으면 빈 문자열이지 nil이라는 글자가 아니다", function()
+        check(DebindPrivate.GetMissingMacroName(macroValueAction(nil)) == "",
+            "값 " .. tostring(DebindPrivate.GetMissingMacroName(macroValueAction(nil))));
+        check(DebindPrivate.GetMissingMacroName(macroValueAction(3)) == "3", "번호는 그대로 보인다");
     end);
 
     -- Every other type stores something that resolves the same way on every install, so nothing

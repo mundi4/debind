@@ -27,7 +27,9 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 
 --- Bump when a stored batch changes shape. Separate from the string's own two versions
 --- (`Export.lua`): those describe someone else's bytes, this describes what we keep.
-local STORE_VERSION           = 1;
+---
+--- 2 -- a batch keeps the payload rather than the string it arrived as (`MigrateToPayloads`).
+local STORE_VERSION           = 2;
 
 --- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
 --- block from 0 to 4). A descriptor naming a spec past this is not a spec we cannot represent, it
@@ -179,141 +181,8 @@ function DebindStorage.ImportAddress(scope, class, spec)
 end
 
 -- ---------------------------------------------------------------------------------------------
--- Stored batches
+-- One action
 -- ---------------------------------------------------------------------------------------------
-
---- `DebindStorageVars`, made if it is not there yet.
----
---- Built on demand rather than from an `ADDON_LOADED` handler. Nothing in this addon runs before
---- the window is opened -- that is the whole reason it is `LoadOnDemand` -- so there is no earlier
---- moment for a handler to be the right answer to.
-local function Vars()
-    local vars = _G.DebindStorageVars;
-    if (not vars) then
-        vars = {};
-        _G.DebindStorageVars = vars;
-    end
-    vars.version = vars.version or STORE_VERSION;
-    vars.batches = vars.batches or {};
-    vars.nextID = vars.nextID or 1;
-    return vars;
-end
-
---- **The string is what is stored, not the payload it decodes to.** The string is already
---- compressed -- three hundred actions is about 1.4 KB -- while the table it becomes is the same
---- data spelled out in full. Keeping the table would undo the reason this addon was split off, and
---- it would also throw away the one thing worth keeping if a future version cannot read the string
---- any more: the string itself, which the user can still copy back out.
----
---- Decoding is done when a batch is opened and the result is kept in memory only.
-local decoded = {};
-
---- The payload of a stored batch, or nil plus the reason `DecodeExportString` gave.
-function DebindStorage.GetBatchPayload(batch)
-    local cached = decoded[batch.id];
-    if (cached) then
-        return cached;
-    end
-
-    local payload, reason = DebindStorage.DecodeExportString(batch.text);
-    if (not payload) then
-        return nil, reason;
-    end
-
-    decoded[batch.id] = payload;
-    return payload;
-end
-
---- Takes a pasted string in and keeps it as a batch.
----
---- **Decoded before it is stored**, so a string that cannot be read is refused where the user is
---- looking at it rather than becoming a batch that fails every time it is opened.
---- Returns the batch, or nil plus the same reason codes `DecodeExportString` uses.
-function DebindStorage.AddBatch(text, source)
-    local payload, reason = DebindStorage.DecodeExportString(text);
-    if (not payload) then
-        return nil, reason;
-    end
-
-    -- **Counted once, here.** Both numbers are on screen for every batch, and decoding every
-    -- stored string to answer that would undo storing strings in the first place.
-    -- They are known at this moment for free, and a batch's contents never change afterwards.
-    --
-    -- **A key is a group**, so counting the distinct keys is counting the groups. An action with no
-    -- key at all is in nobody's, and adds to neither count but the total.
-    local groupCount, actionCount = 0, 0;
-    local seenKeys = {};
-    DebindStorage.ForEachPayloadLayer(payload, function(list)
-        for _, action in ipairs(list) do
-            actionCount = actionCount + 1;
-            local key = action.key;
-            if (key ~= nil and not seenKeys[key]) then
-                seenKeys[key] = true;
-                groupCount = groupCount + 1;
-            end
-        end
-    end);
-
-    local vars = Vars();
-    local batch = {
-        id = vars.nextID,
-        received = time(),
-        -- Stored trimmed: a paste out of a chat window can carry whitespace, and the stored copy
-        -- is the one the user may later copy back out.
-        text = strtrim(text),
-        -- Whoever it came from, when the paste knows. Free text and purely for the list -- nothing
-        -- reads it back.
-        source = source,
-        -- The sender's class, which is the only thing about them the string itself carries.
-        class = payload.class,
-        groupCount = groupCount,
-        actionCount = actionCount,
-
-        -- **No decisions are kept here.** There used to be four empty tables in this spot
-        -- (`layers`, `keys`, `excluded`, `states`), waiting for a workbench that was folded, and
-        -- `stripKeys` did get written for a while. It outlived the moment it was ticked: a reader
-        -- who came back a week later pressed [Bring it in] and got something they had not asked
-        -- for. Everything that is decided now is decided in the dialog that press opens and is
-        -- over when the press is (`ImportUI.lua`).
-        --
-        -- Batches saved before this still carry those fields. Nothing reads them and nothing has
-        -- to: dropping a stale field would mean a store version and a migration for values that
-        -- were never anything but empty.
-    };
-
-    vars.nextID = vars.nextID + 1;
-    vars.batches[#vars.batches + 1] = batch;
-    decoded[batch.id] = payload;
-
-    return batch;
-end
-
-function DebindStorage.GetBatches()
-    return Vars().batches;
-end
-
-function DebindStorage.GetBatch(id)
-    local batches = Vars().batches;
-    for i = 1, #batches do
-        if (batches[i].id == id) then
-            return batches[i];
-        end
-    end
-    return nil;
-end
-
-function DebindStorage.DeleteBatch(id)
-    local batches = Vars().batches;
-    for i = 1, #batches do
-        if (batches[i].id == id) then
-            tremove(batches, i);
-            decoded[id] = nil;
-            return true;
-        end
-    end
-    return false;
-end
-
 
 --- The wire says `{mode = "toggle", state = "$state3"}`; the profile stores one number with the
 --- mode in the high bits and the state index in the low nibble. Names travel because an index is a
@@ -325,50 +194,6 @@ local SETSTATE_MODE_FLAGS = {
 };
 
 
--- ---------------------------------------------------------------------------------------------
--- One action
--- ---------------------------------------------------------------------------------------------
-
---- Does this account or character have the very macro this action was pointing at?
----
---- **All three have to match: name, scope and body.** Name alone is what makes a macro reference
---- the one kind of breakage red text cannot see - a reader with a different macro of the same name
---- gets theirs, silently, and nothing anywhere says so. Comparing the body is what turns that from
---- a silent wrong answer into a fallback.
----
---- Matching means the reference comes back alive, which is what makes re-importing your own backup
---- give you back a `MACRO` rather than a flattened copy of its text.
-local function MacroMatches(snapshot)
-    if (luatype(snapshot) ~= "table" or not snapshot.name) then
-        return false;
-    end
-
-    local name, _, body = GetMacroInfo(snapshot.name);
-    if (not name or body ~= snapshot.body) then
-        return false;
-    end
-
-    -- Scope is read the way the export read it: account macros hold the first block of slots.
-    local index = GetMacroIndexByName(snapshot.name);
-    if (not index or index <= 0) then
-        return false;
-    end
-    local accountLimit = DebindPrivate.GetMacroSlotLimits();
-    local scope = index > accountLimit and "character" or "account";
-    return scope == snapshot.scope;
-end
-
---- A wire action turned into a profile action.
----
---- **Filtered through the same whitelist the export copies out by** (`ACTION_FIELDS`). This used to
---- be a blacklist naming the format's own fields, and being the opposite of the other end is what
---- made it a hazard: a wire field nobody had thought to name rode straight into the profile, and
---- avoiding that was the last reason left for the ranking to travel under a name other than its own.
---- With both ends reading one list there is no name to dodge (`devdocs/building-export-import.md`).
----
---- `macro` and `setstate` stay out by being what they are -- the format's words, not the profile's.
---- Both are read below and neither travels further; `CleanUpDB` would drop them anyway, but leaving
---- them for it to find would mean the action is briefly a shape nothing else expects.
 --- Whether one wire field may be copied, **by name and by type**.
 ---
 --- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
@@ -392,6 +217,71 @@ local function FieldAllowed(name, value)
     return strfind(expected, luatype(value), 1, true) ~= nil;
 end
 
+--- What `value` is, per action type. `nil` in this table is not "unlisted", it is **"this type has
+--- no value"** -- the four that need none are spelled out so that an unknown type is unlisted and
+--- an unusable one is not.
+---
+--- The whitelist above cannot say any of this. It reads one field at a time, and `value` is
+--- `number|string` there because a spell id is a number and a macro reference is a name. Which of
+--- the two applies is the **action's type**, and the table has no column for that.
+---
+--- Read by `IsUsableAction`, which is the whole use. Every entry was taken from what the binding
+--- builder does with the value (`UpdateBindings.lua`): `item` goes through `format("item:%d", …)`,
+--- `worldmarker` through `_G["WORLD_MARKER" .. value]`, `petaction` through
+--- `_G["SLASH_" .. value .. "1"]`, `macro` straight into the `*macro-` attribute.
+local VALUE_SHAPES = {
+    [Constants.SPELL]       = "number",
+    [Constants.ITEM]        = "number",
+    [Constants.MOUNT]       = "number",
+    [Constants.FLYOUT]      = "number",
+    [Constants.WORLDMARKER] = "number",
+    [Constants.SETCUSTOM]   = "number",
+    [Constants.SETSTATE]    = "number",
+    [Constants.MACRO]       = "string",
+    [Constants.MACROTEXT]   = "string",
+    [Constants.COMMAND]     = "string",
+    [Constants.PETACTION]   = "string",
+    [Constants.TARGET]      = false,
+    [Constants.FOCUS]       = false,
+    [Constants.TOGGLEMENU]  = false,
+    [Constants.UNUSED]      = false,
+};
+
+--- Is this a shape **this addon could have produced**? Asked of the built action, not of the wire
+--- table, so it answers about what would land rather than about how the format spells it.
+---
+--- **This is not "is it broken".** A spell the reader never learnt, a macro name nothing answers
+--- to: those are ordinary and the whole receiving side is built to show them in red. This asks
+--- whether the action is one the addon can represent at all -- a `macro` holding a number, a
+--- `worldmarker` holding nothing. **Nothing this addon writes builds one of those**, so a string
+--- carrying one was touched by hand somewhere -- the string itself, or the SavedVariables it was
+--- exported from -- and `AddBatch` turns the **whole string** away on it
+--- (`devdocs/building-export-import.md`).
+---
+--- A type nobody knows is the same answer. It cannot be drawn, cannot be bound, and cannot be
+--- repaired into anything.
+local function IsUsableAction(action)
+    local shape = VALUE_SHAPES[action.type];
+    if (shape == nil) then
+        return false;
+    end
+    if (shape == false) then
+        return true;
+    end
+    return luatype(action.value) == shape;
+end
+
+--- A wire action turned into a profile action.
+---
+--- **Filtered through the same whitelist the export copies out by** (`ACTION_FIELDS`). This used to
+--- be a blacklist naming the format's own fields, and being the opposite of the other end is what
+--- made it a hazard: a wire field nobody had thought to name rode straight into the profile, and
+--- avoiding that was the last reason left for the ranking to travel under a name other than its own.
+--- With both ends reading one list there is no name to dodge (`devdocs/building-export-import.md`).
+---
+--- `setstate` stays out by being what it is -- the format's word, not the profile's. It is read
+--- below and travels no further; `CleanUpDB` would drop it anyway, but leaving it for that to find
+--- would mean the action is briefly a shape nothing else expects.
 local function BuildAction(source)
     local action = {};
     for k, v in pairs(source) do
@@ -405,45 +295,279 @@ local function BuildAction(source)
     end
 
     -- **Asked whether it is a table, not whether it is there.** Everything below reads fields off
-    -- these two, and a pasted string is untrusted input that none of this may error on -- a
-    -- hand-made `setstate = 5` would raise here and take the whole commit down with it, halfway
-    -- through placing a batch.
+    -- it, and a pasted string is untrusted input that none of this may error on -- a hand-made
+    -- `setstate = 5` would raise here and take the whole commit down with it, halfway through
+    -- placing a batch.
     if (luatype(source.setstate) == "table") then
         local flag = SETSTATE_MODE_FLAGS[source.setstate.mode];
         local index = Constants.CUSTOM_STATE_INDICES[source.setstate.state];
         if (flag and index) then
             action.value = flag + index;
         else
-            -- A mode or a state name this version does not know. The action keeps its type and
-            -- loses its value, which is the shape red text already has something to say about -
-            -- better than guessing at a number that would set some other state.
+            -- A mode or a state name this version does not know. **No number is guessed**, because
+            -- every number resolves and would set some other state. Leaving it out makes the action
+            -- one `IsUsableAction` turns down, which refuses the string -- the right end for it,
+            -- since a `SETSTATE` with nothing to set is not a shape anything downstream reads.
             action.value = nil;
-        end
-    end
-
-    -- **The macro decision, made once, here.** After this the action is a `MACRO` pointing at a
-    -- macro that exists, or a `MACROTEXT` carrying the body it was sent with. It is not remade
-    -- later: a reader who creates the macro afterwards keeps the `MACROTEXT`, which is not wrong,
-    -- only flatter.
-    if (action.type == Constants.MACRO and luatype(source.macro) == "table") then
-        if (MacroMatches(source.macro)) then
-            -- **Kept as a live reference, and pointed at the name.** The match was made on the
-            -- name, but the value may be a slot index (old data on the sender's side), and that
-            -- index means the reader's fourth macro rather than the one just matched. A `MACRO`
-            -- stores a name anyway (`ActionCatalog.lua`), so this is also where the legacy shape
-            -- stops being carried forward.
-            action.value = source.macro.name;
-        else
-            action.type = Constants.MACROTEXT;
-            action.value = source.macro.body;
-            action.name = source.macro.name;
-            action.icon = source.macro.icon;
         end
     end
 
     return action;
 end
 
+--- Does this payload hold something **this addon could not have made**?
+---
+--- One is enough, and one refuses the whole string (2026-08-18, owner's decision,
+--- `devdocs/building-export-import.md`). Not that one part on its own: our export cannot produce
+--- the shape, so the string was edited after it was made, and **the rest of it is not warranted
+--- either**. It is also the only answer the reader can act on. Nothing in this addon repoints an
+--- existing action, so a bad row left in their profile could only be deleted -- refusing the string
+--- puts the repair back where they can reach it, which is asking for it again.
+---
+--- **Actions are asked of the built one**, not of the wire table, which is why `BuildAction` stands
+--- above this section. The format spells `SETSTATE` as a `setstate` table with no value; reading
+--- the wire shape here would keep that fact in two places.
+---
+--- The other two are the values that are **used as something before anything checks them**, and
+--- both crash rather than misbehave:
+---
+---   * `class` goes into `format("%s", …)` through the drawer row's tooltip, and WoW's Lua 5.1
+---     throws on a table there. That batch could then never be opened, and it is on disk.
+---   * a `key` of NaN raises the moment it is used as a table index, which the count below does and
+---     `KeyMapper` does again. `ImportAddress` turns the same value away for `spec` and says why.
+---
+--- Neither needs its own guard downstream now, because nothing downstream runs on a payload this
+--- refuses -- `AddBatch` asks before it stores, and a batch is the only way in.
+function DebindStorage.PayloadIsImpossible(payload)
+    if (payload.class ~= nil and not KNOWN_CLASSES[payload.class]) then
+        return true;
+    end
+
+    local found = false;
+    DebindStorage.ForEachPayloadLayer(payload, function(list)
+        for _, source in ipairs(list) do
+            if (not IsUsableAction(BuildAction(source))) then
+                found = true;
+            elseif (source.key ~= nil and source.key ~= source.key) then
+                found = true;
+            end
+        end
+    end);
+    return found;
+end
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Stored batches
+-- ---------------------------------------------------------------------------------------------
+
+--- Store v1 kept the string a batch arrived as, three values read out of it at paste time
+--- (`class`, `groupCount`, `actionCount`), and the empty tables a folded workbench had left in the
+--- record. v2 keeps the payload, and the three are read back out of it where they are needed.
+---
+--- **Rebuilt rather than pruned.** A v1 record carries fields nothing has read for a while, and
+--- listing them here to delete them would be a second list to keep in step with the one `AddBatch`
+--- writes. What v2 knows about is what survives.
+---
+--- **A batch this cannot read keeps its string and stays where it is.** A row disappearing on
+--- login is the one thing this drawer may not do (`devdocs/building-export-import.md`), and one
+--- that cannot be read was already unopenable, so nothing is lost by leaving it.
+---
+--- **Which is why this runs once but is not the last word.** The version is stamped forward
+--- whether or not every batch converted -- `LIBS_MISSING` would fail all of them and is over by the
+--- next session -- so `GetBatchPayload` asks again for anything still holding a string, and
+--- finishes the job there.
+local function MigrateToPayloads(vars)
+    for i, old in ipairs(vars.batches) do
+        local payload = old.payload;
+        local text;
+        if (not payload and old.text ~= nil) then
+            payload = DebindStorage.DecodeExportString(old.text);
+            if (not payload) then
+                text = old.text;
+            end
+        end
+
+        vars.batches[i] = {
+            id        = old.id,
+            received  = old.received,
+            source    = old.source,
+            committed = old.committed,
+            payload   = payload,
+            text      = text,
+        };
+    end
+end
+
+--- `DebindStorageVars`, made if it is not there yet.
+---
+--- Built on demand rather than from an `ADDON_LOADED` handler. Nothing in this addon runs before
+--- the window is opened -- that is the whole reason it is `LoadOnDemand` -- so there is no earlier
+--- moment for a handler to be the right answer to.
+---
+--- **Which makes this the only moment a migration can run**, for the same reason: there is no
+--- earlier one. A store made here is stamped current and never migrated.
+local function Vars()
+    local vars = _G.DebindStorageVars;
+    if (not vars) then
+        vars = {};
+        _G.DebindStorageVars = vars;
+    end
+    vars.version = vars.version or STORE_VERSION;
+    vars.batches = vars.batches or {};
+    vars.nextID = vars.nextID or 1;
+
+    if (vars.version < STORE_VERSION) then
+        MigrateToPayloads(vars);
+        vars.version = STORE_VERSION;
+    end
+
+    return vars;
+end
+
+--- The payload of a stored batch, or nil plus the reason it could not be read.
+---
+--- **The payload is what is stored, not the string it came in.** Four reasons for keeping the
+--- string were written down here and all four turned out to be true of both shapes
+--- (`devdocs/building-export-import.md`). The one that decided it points the other way: a string
+--- whose schema has moved is refused outright by `DecodeExportString`, so a drawer of strings is a
+--- drawer that cannot be migrated at all, while a payload can be walked the way `Profile.lua`
+--- walks `dbver`. What is left over is disk size, and holding a smaller thing we cannot read is the
+--- worse end of that trade.
+---
+--- **The gate `AddBatch` stands is stood again here.** A batch that got in before the gate existed
+--- is closed by this one, which is why the gate needs nothing rewritten behind it -- there is only
+--- something to refuse. Everything reading a payload comes through here, so past this line it is
+--- one of ours.
+function DebindStorage.GetBatchPayload(batch)
+    local payload = batch.payload;
+    if (not payload) then
+        -- **A v1 batch `MigrateToPayloads` could not read, finished here instead.** Not all of the
+        -- decoder's refusals are permanent: `LIBS_MISSING` says this install could not load
+        -- LibDeflate *this time*, and the version was stamped forward whether or not a batch
+        -- converted -- so a migration that ran once under a broken install would otherwise strand
+        -- every batch in the drawer for good, with its intact string sitting right there.
+        --
+        -- Which is also why the string is kept rather than the reason: a reason recorded once is a
+        -- verdict, and asking again is the only way to find out it has stopped being true.
+        local reason;
+        payload, reason = DebindStorage.DecodeExportString(batch.text);
+        if (not payload) then
+            return nil, reason;
+        end
+
+        batch.payload = payload;
+        batch.text = nil;
+    end
+
+    if (DebindStorage.PayloadIsImpossible(payload)) then
+        return nil, "IMPOSSIBLE_PAYLOAD";
+    end
+
+    return payload;
+end
+
+--- How many groups and how many actions a batch holds.
+---
+--- **Counted on the spot rather than written down when the batch was made.** Both numbers were
+--- fields on the record while the string was what got stored, because answering them any other way
+--- meant decoding every row of the list to draw it. The payload is right there now, so a stored
+--- copy would only be a second place for the same fact to live.
+---
+--- **A key is a group**, so counting the distinct keys is counting the groups. An action with no
+--- key at all is in nobody's, and adds to the total but to no group.
+function DebindStorage.CountBatch(batch)
+    local groupCount, actionCount = 0, 0;
+    if (not batch.payload) then
+        return groupCount, actionCount;
+    end
+
+    local seenKeys = {};
+    DebindStorage.ForEachPayloadLayer(batch.payload, function(list)
+        for _, action in ipairs(list) do
+            actionCount = actionCount + 1;
+            local key = action.key;
+            if (key ~= nil and not seenKeys[key]) then
+                seenKeys[key] = true;
+                groupCount = groupCount + 1;
+            end
+        end
+    end);
+
+    return groupCount, actionCount;
+end
+
+--- Takes a pasted string in and keeps it as a batch.
+---
+--- **Decoded before it is stored**, so a string that cannot be read is refused where the user is
+--- looking at it rather than becoming a batch that fails every time it is opened.
+--- Returns the batch, or nil plus the same reason codes `DecodeExportString` uses, plus
+--- `IMPOSSIBLE_PAYLOAD` for the check below.
+function DebindStorage.AddBatch(text, source)
+    local payload, reason = DebindStorage.DecodeExportString(text);
+    if (not payload) then
+        return nil, reason;
+    end
+
+    -- **Asked before anything is stored, and before anything below reads a value.** Everything
+    -- from here on treats the payload as one of ours.
+    if (DebindStorage.PayloadIsImpossible(payload)) then
+        return nil, "IMPOSSIBLE_PAYLOAD";
+    end
+
+    local vars = Vars();
+    local batch = {
+        id = vars.nextID,
+        received = time(),
+        -- **What arrived, not the string it arrived in.** The string is not kept: nothing reads it
+        -- back, and a copy of the same contents in a form we may one day be unable to decode is
+        -- worth less than the payload beside it (`GetBatchPayload`).
+        payload = payload,
+        -- Whoever it came from, when the paste knows. Free text and purely for the list -- nothing
+        -- reads it back.
+        source = source,
+
+        -- **No decisions are kept here.** There used to be four empty tables in this spot
+        -- (`layers`, `keys`, `excluded`, `states`), waiting for a workbench that was folded, and
+        -- `stripKeys` did get written for a while. It outlived the moment it was ticked: a reader
+        -- who came back a week later pressed [Bring it in] and got something they had not asked
+        -- for. Everything that is decided now is decided in the dialog that press opens and is
+        -- over when the press is (`ImportUI.lua`).
+        --
+        -- Batches saved before this carried those fields, and `MigrateToPayloads` is where they
+        -- stop being carried.
+    };
+
+    vars.nextID = vars.nextID + 1;
+    vars.batches[#vars.batches + 1] = batch;
+
+    return batch;
+end
+
+function DebindStorage.GetBatches()
+    return Vars().batches;
+end
+
+function DebindStorage.GetBatch(id)
+    local batches = Vars().batches;
+    for i = 1, #batches do
+        if (batches[i].id == id) then
+            return batches[i];
+        end
+    end
+    return nil;
+end
+
+function DebindStorage.DeleteBatch(id)
+    local batches = Vars().batches;
+    for i = 1, #batches do
+        if (batches[i].id == id) then
+            tremove(batches, i);
+            return true;
+        end
+    end
+    return false;
+end
 
 -- ---------------------------------------------------------------------------------------------
 -- The whole batch

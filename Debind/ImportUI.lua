@@ -50,6 +50,11 @@ local REASON_TEXT   = {
     BAD_ENCODING          = "IMPORT_FAILED_DAMAGED",
     BAD_COMPRESSION       = "IMPORT_FAILED_DAMAGED",
     BAD_PAYLOAD           = "IMPORT_FAILED_DAMAGED",
+    -- It read fine and holds something Debind cannot make, which means it was edited after it was
+    -- created (`DebindStorage/Import.lua`). A separate code because that is not the same fact as
+    -- the three above, and the same line because the reader's answer to all four is the same: the
+    -- string in front of them is not usable and the one to have is a fresh one.
+    IMPOSSIBLE_PAYLOAD    = "IMPORT_FAILED_DAMAGED",
     -- Nothing the reader did. The addon's own libraries did not load.
     LIBS_MISSING          = "IMPORT_FAILED_LIBS_MISSING",
     -- Not a failure to read it. Everything picked turned out to have nowhere to go, which one
@@ -162,13 +167,24 @@ local function BatchTitle(batch)
     return LLL["IMPORT_BATCH_UNNAMED"];
 end
 
+--- The class the batch says it came from, or nil.
+---
+--- **Read off the payload, which is what the drawer stores.** The record carried a copy of this
+--- while the drawer stored the string instead, because reading it meant decoding
+--- (`DebindStorage/Import.lua`).
+local function BatchClass(batch)
+    if (not batch.payload) then
+        return nil;
+    end
+    return batch.payload.class;
+end
+
 function DebindImportBatchRowMixin:Init(elementData)
     self.elementData = elementData;
     local batch = elementData.batch;
 
     self.Name:SetText(BatchTitle(batch));
-    self.Counts:SetText(format(LLL["IMPORT_BATCH_COUNTS"], batch.groupCount or 0,
-        batch.actionCount or 0));
+    self.Counts:SetText(format(LLL["IMPORT_BATCH_COUNTS"], Store().CountBatch(batch)));
 
     self:UpdateAge();
 
@@ -269,14 +285,15 @@ function DebindImportBatchRowMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, BatchTitle(batch));
     GameTooltip_AddNormalLine(GameTooltip, format(LLL["IMPORT_BATCH_COUNTS"],
-        batch.groupCount or 0, batch.actionCount or 0));
+        Store().CountBatch(batch)));
 
     -- The sender's class is the only thing about them the string itself carries, and it is worth
     -- saying: it decides whether the class layers in there have anywhere of their own to land.
-    if (batch.class) then
-        local className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[batch.class];
+    local class = BatchClass(batch);
+    if (class) then
+        local className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class];
         GameTooltip_AddNormalLine(GameTooltip,
-            format(LLL["IMPORT_BATCH_FROM_CLASS"], className or batch.class));
+            format(LLL["IMPORT_BATCH_FROM_CLASS"], className or class));
     end
 
     GameTooltip:Show();
@@ -372,7 +389,7 @@ function DebindBringFrameMixin:Open(batch, lines)
     --- The character line has no class of its own to read - specializations belong to whoever sent
     --- it - so that one falls back to what the string says about the sender.
     local function ClassName(entry)
-        local class = entry.class or batch.class;
+        local class = entry.class or BatchClass(batch);
         if (not class) then
             return "";
         end

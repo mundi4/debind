@@ -678,9 +678,18 @@ local function GetActionTypeAndValueFromCursorInfo()
 		if (cursorType == "spell") then
 			type, value = Constants.SPELL, cursorInfo3;
 		elseif (cursorType == "macro") then
+			-- **The cursor carries a slot number, and an action may only carry a name**
+			-- (`GetMissingMacroName`). A number is a position in a name-ordered list, so
+			-- storing it binds whatever later comes to sit in that slot, with nothing going
+			-- red because nothing broke.
+			--
+			-- No name, no action. That means the macro was deleted between the pickup and
+			-- the drop, and refusing the drop beats building a `MACRO` with no name in it.
 			---@diagnostic disable-next-line: param-type-mismatch
 			local macroName = GetMacroInfo(cursorInfo1);
-			type, value = Constants.MACRO, macroName;
+			if (macroName) then
+				type, value = Constants.MACRO, macroName;
+			end
 		elseif (cursorType == "item") then
 			type, value = Constants.ITEM, cursorInfo1;
 		elseif (cursorType == "mount") then
@@ -711,7 +720,13 @@ local function NameAndIconForAction(action)
 		actionName, actionIcon = GetSpellNameAndIconID(overrideID);
 	elseif (type == Constants.MACRO) then
 		local macroName;
-		macroName, actionIcon = GetMacroInfo(value);
+		-- **Asked only when the value is a name.** A `MACRO` that holds anything else is one
+		-- the import refused the value of (`RefusedByActionType`), so there is nothing here
+		-- to ask about and `GetMacroInfo(nil)` raises. The row is drawn red either way:
+		-- `GetMissingMacroName` already reports it.
+		if (luatype(value) == "string") then
+			macroName, actionIcon = GetMacroInfo(value);
+		end
 		if (not macroName) then
 			macroName = value;
 			actionIcon = QUESTION_MARK_ICON_NUM;
@@ -885,10 +900,22 @@ local function IsNarrowed()
 	return false;
 end
 
---- 좁혀져 있으면 왼쪽 열에 서는 액션의 집합, 아니면 nil.
+--- The actions the left column stands while something is narrowing, or nil.
 ---
---- **nil이 "전부"다.** 아무것도 안 걸렸을 때까지 프로필을 통째로 훑어 집합을 만들 이유가 없고,
---- 받는 쪽은 그 값을 "거를 것 없음"으로 읽는다.
+--- **nil is "all of them".** With nothing ticked off and no search text there is no reason to walk
+--- the whole profile to build a set, and the callers read that value as "nothing to filter by".
+---
+--- **One update builds this once, and hands it down.** It is expensive: `BuildKeyboardElements`
+--- walks every layer, and every key group it finds is a `CollectActionsForKey` that rebuilds a
+--- binding per row. So the three that filter by it (`PruneSelectionToBinFilter`, `Refresh`,
+--- `UpdateActionCounts`) take it as an argument, and each of them defaults to calling this only for
+--- the callers that pass nothing. The lifetime is the call stack, so there is no rule about when it
+--- goes stale. The default costs nothing in the case it mostly runs in: not narrowed, where this
+--- returns nil without building.
+---
+--- **`RefreshKeyboard` is not one of the three and keeps its own build.** What it wants is the
+--- element list rather than the set, and it has to run after `_revealAction` has unfolded a group,
+--- which is after the update handed this out.
 local function NarrowedVisibleActions()
 	if (not IsNarrowed()) then
 		return nil;
@@ -1236,10 +1263,15 @@ local function ApproveImportedActions(actions)
 	-- screen while the strip still counts them - "2 selected" over a list with nothing highlighted,
 	-- and the search box stays hidden because the two share that slot. Every other path that
 	-- changes what the filters show prunes first, and this was the one that did not.
-	DebindFrame:PruneSelectionToBinFilter();
+	--- One set for the whole update, because the two below it ask the same question of the same
+	--- profile and building it is a walk over every layer (`NarrowedVisibleActions`). Nothing
+	--- between here and the last of them touches what the answer is made of: `UpdateBindings`
+	--- writes the key map and not `key` or `imported`, which are the two fields the filters read.
+	local visible = NarrowedVisibleActions();
+	DebindFrame:PruneSelectionToBinFilter(visible);
 
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true);
+	DebindFrame:Refresh(true, visible);
 	DebindFrame:Update();
 end
 
@@ -1986,11 +2018,16 @@ DebindDialogMixin = {};
 --- is said - there is no second flag for it. The one that says so is the key capture dialog, where
 --- dragging and pressing the left mouse button are the same gesture (`KeyCapture.xml`).
 ---
---- **ESC through `UISpecialFrames`, which is the game's net and not ours.** All three of these are
---- the topmost thing on screen while they stand, and the window behind them is not in that list
---- (`DebindFrameMixin` keeps its own `OnKeyDown` and says why), so `CloseSpecialWindows` reaches the
---- dialog and stops. One of the three used to hand-roll this with `SetPropagateKeyboardInput`, which
---- is taint in combat and needed a guard for a frame that cannot be up in combat anyway.
+--- **ESC through `UISpecialFrames`, which is the game's net and not ours.** What reads that table is
+--- `CloseSpecialWindows`, and the ESCAPE **binding** is what calls it. So this covers exactly the
+--- case where nothing is standing in front of the binding: a dialog still up with the main window
+--- gone, which the copy dialog is built to be (`DebindExportPanelMixin:OnHide`). While that window
+--- is up it takes ESCAPE before any binding runs and closes these itself, one rung each
+--- (`DebindFrameMixin:HandleEscape`). The key capture dialog needs neither, being the one that
+--- enables the keyboard and answers its own ESC.
+---
+--- One of them used to hand-roll this with `SetPropagateKeyboardInput`, which is taint in combat
+--- and needed a guard for a frame that cannot be up in combat anyway.
 ---
 --- Registered once per dialog and they are never destroyed, so nothing has to come back out.
 function DebindDialogMixin:InitDialog(title)
@@ -2742,7 +2779,7 @@ end
 --
 -- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
 -- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
-function DebindFrameMixin:UpdateActionCounts()
+function DebindFrameMixin:UpdateActionCounts(visible)
 	-- **While something is filtering, the number becomes how many got through, and turns green.**
 	--
 	-- Leave the number alone and the tab lies - "(12)" is pressed and the list has two rows in it -
@@ -2762,7 +2799,7 @@ function DebindFrameMixin:UpdateActionCounts()
 	-- **What is counted is what the left column draws** (`NarrowedVisibleActions`), not what passes
 	-- action by action. The filters judge a key group whole, so counting one action at a time would
 	-- disagree with the list on every group that survived on one member's account.
-	local visible = NarrowedVisibleActions();
+	visible = visible or NarrowedVisibleActions();
 	local narrowed = visible ~= nil;
 
 	for tabId, tab in ipairs(self.LayerPanel.Tabs) do
@@ -2883,10 +2920,15 @@ function DebindFrameMixin:InitializeButtons()
 			--
 			-- **앵커는 안 건드린다.** 그건 "벌크 대상"이 아니라 "지금 이야기 중인 행"이고,
 			-- 왼쪽 열과 매크로 창이 그것을 보고 있다. 검색어를 쳤다고 보던 것을 뺏지 않는다.
-			self:PruneSelectionToBinFilter();
+			--
+			-- One set for the two below, built here because this is the top of the update. The
+			-- keystroke that lands on this line is the reason it is not built three times over
+			-- (`NarrowedVisibleActions`).
+			local visible = NarrowedVisibleActions();
+			self:PruneSelectionToBinFilter(visible);
 			-- 스크롤 자리는 안 지킨다. 목록의 길이 자체가 달라지므로 지켜봐야 엉뚱한 데를
 			-- 보게 되고, 검색은 맨 위부터 읽는 동작이다.
-			self:Refresh();
+			self:Refresh(false, visible);
 			self:Update();
 		end
 	end);
@@ -2976,10 +3018,11 @@ function DebindFrameMixin:SetFilter(name, on)
 	end
 	_filters[name] = on;
 
-	-- The same tidying that typing in the search box does, for the reason written there
-	-- (`OnTextChanged`): a filtered-out action left in the bulk set makes the count a lie.
-	self:PruneSelectionToBinFilter();
-	self:Refresh();
+	-- The same tidying that typing in the search box does, and the same one set for the two of
+	-- them, for the reasons written there (`OnTextChanged`).
+	local visible = NarrowedVisibleActions();
+	self:PruneSelectionToBinFilter(visible);
+	self:Refresh(false, visible);
 	self:Update();
 end
 
@@ -3005,8 +3048,9 @@ function DebindFrameMixin:ResetFilters()
 	for name in pairs(_filters) do
 		_filters[name] = true;
 	end
-	self:PruneSelectionToBinFilter();
-	self:Refresh();
+	local visible = NarrowedVisibleActions();
+	self:PruneSelectionToBinFilter(visible);
+	self:Refresh(false, visible);
 	self:Update();
 end
 
@@ -3474,9 +3518,39 @@ function DebindFrameMixin:HandleEscape()
 		return true;
 	end
 
-	-- **The sharing window has no rung here.** It is a window of its own rather than a panel of
-	-- this one, so its ESC is registered with `UISpecialFrames` where every standalone window's is.
-	-- Putting it on this ladder would mean this window had to be open for that one's ESC to work.
+	-- **The three sharing dialogs.** They are in `UISpecialFrames` as well (`InitDialog`), but that
+	-- table is only read by `CloseSpecialWindows`, which the ESCAPE **binding** calls. This window
+	-- gets ESCAPE first and none of the three enables the keyboard, so `BlizzardOwnsEscape` does not
+	-- stand aside for them and the binding never runs. Take these rungs away and one press hides
+	-- this window while the dialog stays up over nothing. The registration is still what closes
+	-- them when this window is already gone, which the copy dialog is built to outlive
+	-- (`DebindExportPanelMixin:OnHide`).
+	--
+	-- **Three rungs and not one.** ESC is one step back. One rung would either close all three,
+	-- which is three windows for one press, or pick one anyway, and picking is what an ordered
+	-- ladder already is.
+	--
+	-- **The order is how wide the gesture that opened it was**, which is also which of any two
+	-- standing together is the newer. Bring is opened from one row of the drawer, Paste from the
+	-- tab's own button, and the copy dialog is a finished string the reader keeps: it is the only
+	-- one of the three that survives leaving its tab, so it is the older half of every pair that
+	-- can stand at once (a leftover copy dialog under an import dialog, or under the spell picker
+	-- two rungs above). Last is where ESC does not take away the string somebody was about to
+	-- paste.
+	if (DebindBringFrame:IsShown()) then
+		DebindBringFrame:Hide();
+		return true;
+	end
+
+	if (DebindPasteFrame:IsShown()) then
+		DebindPasteFrame:Hide();
+		return true;
+	end
+
+	if (DebindCopyFrame:IsShown()) then
+		DebindCopyFrame:Hide();
+		return true;
+	end
 
 	-- **선택 해제 칸은 없다.** 한때 여기서 ESC 한 번이 선택을 풀었는데, 그건 선택이 상세
 	-- 패널을 펴고 접던 시절의 칸이다 - 물러날 화면이 실제로 있었다. 지금 선택이 하는 일은
@@ -3607,13 +3681,16 @@ local function BuildSortedElements(layer, layerID, visible)
 	return elements;
 end
 
-function DebindFrameMixin:Refresh(retainScrollPosition)
+function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	HideDeleteConfirmationPopup();
+
+	-- Built here for the two below it that filter by the same set, which is the whole of this
+	-- update unless the caller was already holding one (`NarrowedVisibleActions`).
+	visible = visible or NarrowedVisibleActions();
 
 	local dataProvider = CreateDataProvider();
 	local layerID = GetLayerID();
-	local elements = BuildSortedElements(DebindPrivate.GetProfileLayer(layerID), layerID,
-		NarrowedVisibleActions());
+	local elements = BuildSortedElements(DebindPrivate.GetProfileLayer(layerID), layerID, visible);
 
 	for _, elementData in ipairs(elements) do
 		dataProvider:Insert(elementData);
@@ -3644,7 +3721,7 @@ function DebindFrameMixin:Refresh(retainScrollPosition)
 	-- The version hangs off the name for the same reason it is on the login line: so a bug report
 	-- can carry it. Dimmed, because it is there to be found rather than read every time.
 	self:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
-	self:UpdateActionCounts();
+	self:UpdateActionCounts(visible);
 	self:UpdateEmptyText();
 end
 
@@ -3759,12 +3836,12 @@ end
 --- Bulk can only touch **what is on screen**. That is the same rule as the right-click contract
 --- ("a menu opened on one row must not delete things that are not visible"), and it is also what
 --- keeps the count from lying.
-function DebindFrameMixin:PruneSelectionToBinFilter()
+function DebindFrameMixin:PruneSelectionToBinFilter(visible)
 	if (_selectionCount == 0) then
 		return;
 	end
 
-	local visible = NarrowedVisibleActions();
+	visible = visible or NarrowedVisibleActions();
 	if (visible == nil) then
 		return;
 	end
@@ -5653,14 +5730,17 @@ function DebindFrameMixin:SetActionKey(action, key)
 	else
 		DebindPrivate.ClearActionKey(action);
 	end
+	-- One set for the two below it, built after the two fields the filters read are settled
+	-- (`NarrowedVisibleActions`).
+	local visible = NarrowedVisibleActions();
 	-- `imported` is one of the axes the filters read, so a row that just lost its badge can be one
 	-- this list no longer draws - and the selection would go on counting it while nothing on screen
 	-- is highlighted (`ApproveImportedActions` carries the same call for the same reason).
 	if (accepted) then
-		self:PruneSelectionToBinFilter();
+		self:PruneSelectionToBinFilter(visible);
 	end
 	DebindPrivate.UpdateBindings();
-	self:Refresh(true);
+	self:Refresh(true, visible);
 	self:ScrollActionIntoView(action);
 	-- 키가 바뀌면 왼쪽 열에서 자리를 통째로 옮긴다 - 그 열은 키로 묶고 키로 정렬한다. 간 자리가
 	-- 화면 밖이면 아무 일도 안 일어난 것처럼 보이므로 따라간다. 오른쪽 목록은 저 위에서 따로

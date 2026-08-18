@@ -36,9 +36,8 @@ return function(DebindPrivate, DebindStorage)
     ---------------------------------------------------------------------------
     -- The macro store, stubbed
     --
-    -- Only what wow_shim does not already provide. Looking up by name and splitting scope by index
-    -- is the shape of the real API, and standing it up in that shape is what makes SnapshotMacro's
-    -- branches actually run.
+    -- Only what wow_shim does not already provide. Looking a macro up by name is the shape of the
+    -- real API and the only shape the export ever needs: a `MACRO` value is a name.
     ---------------------------------------------------------------------------
 
     local MACROS = {};
@@ -49,11 +48,6 @@ return function(DebindPrivate, DebindStorage)
             return nil;
         end
         return macro.name, macro.icon, macro.body;
-    end
-
-    _G.GetMacroIndexByName = function(name)
-        local macro = MACROS[name];
-        return macro and macro.index or 0;
     end
 
     ---------------------------------------------------------------------------
@@ -394,7 +388,11 @@ return function(DebindPrivate, DebindStorage)
     -- Local references: macros
     ---------------------------------------------------------------------------
 
-    test("MACRO는 본문 스냅샷을 달고 나간다", function()
+    -- **The body does not travel** (2026-08-18, `devdocs/building-export-import.md`). It is text
+    -- the user wrote freely and we do not know what is in it, and the sender knows only that this
+    -- action calls one of their macros, not that its contents ride along. The name goes, and that
+    -- is all that goes.
+    test("MACRO는 이름만 나가고 본문은 안 나간다", function()
         MACROS = {
             ["내매크로"] = { name = "내매크로", icon = 123, body = "/cast 화염구", index = 4 },
         };
@@ -402,39 +400,11 @@ return function(DebindPrivate, DebindStorage)
 
         local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.type == Constants.MACRO, "타입은 그대로 유지한다");
-        check(action.value == "내매크로", "이름도 그대로 남는다");
-        check(action.macro, "스냅샷이 없다");
-        check(action.macro.body == "/cast 화염구", "본문");
-        check(action.macro.scope == "account", "인덱스 4는 계정 매크로");
-    end);
-
-    -- **옛 데이터는 이름이 아니라 슬롯 번호를 들고 있을 수 있다** - `GetMissingMacroName`이 그걸
-    -- 알고 `value`가 숫자인 경우를 따로 다룬다(`Misc.lua`). 스냅샷이 문자열일 때만 붙으면 그런
-    -- 액션은 맨 번호로 나가고, 받는 쪽에서 `GetMacroInfo(4)`는 **그쪽 4번 매크로**로 성공한다 -
-    -- 빨간 글씨가 원리적으로 못 잡는 바로 그 부류다. 스냅샷이 막으라고 있는 것이 이것이다.
-    test("슬롯 번호로 저장된 옛 MACRO도 스냅샷을 단다", function()
-        MACROS = {
-            [4] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
-            ["옛것"] = { name = "옛것", icon = 7, body = "/cast 얼음창", index = 4 },
-        };
-        ResetProfile({ general = { { type = Constants.MACRO, value = 4, key = "F" } } });
-
-        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
-        check(action.macro, "스냅샷이 없다");
-        check(action.macro.body == "/cast 얼음창", "본문 " .. tostring(action.macro.body));
-        check(action.macro.name == "옛것", "이름 " .. tostring(action.macro.name));
-        check(action.macro.scope == "account", "스코프 " .. tostring(action.macro.scope));
-    end);
-
-    test("캐릭터 매크로는 스코프가 갈린다", function()
-        local accountLimit = DebindPrivate.GetMacroSlotLimits();
-        MACROS = {
-            ["내것"] = { name = "내것", icon = 1, body = "/say hi", index = accountLimit + 2 },
-        };
-        ResetProfile({ general = { { type = Constants.MACRO, value = "내것", key = "F" } } });
-
-        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
-        check(action.macro.scope == "character", "스코프 " .. tostring(action.macro.scope));
+        check(action.value == "내매크로", "이름은 그대로 남는다");
+        check(action.macro == nil, "본문 스냅샷이 실렸다");
+        for _, field in ipairs({ "body", "scope" }) do
+            check(action[field] == nil, "본문 필드가 다른 이름으로 실렸다: " .. field);
+        end
     end);
 
     test("이미 끊어진 매크로도 그대로 싣는다", function()
@@ -601,7 +571,8 @@ return function(DebindPrivate, DebindStorage)
         check(CountActions(payload) == 3, "액션 수 " .. CountActions(payload));
         local shiftF = GroupFor(payload, "SHIFT-F");
         check(#shiftF == 2, "SHIFT-F 그룹 크기 " .. #shiftF);
-        check((shiftF[1].macro or shiftF[2].macro).body == "/cast 재생", "매크로 본문");
+        local macro = shiftF[1].type == Constants.MACRO and shiftF[1] or shiftF[2];
+        check(macro.value == "내매크로", "매크로 이름 " .. tostring(macro.value));
         check(OneOn(payload, "G").setstate.state == "$state3", "상태 이름");
         check(payload.states["$state3"].displayMessage == "3번", "매니페스트");
     end
