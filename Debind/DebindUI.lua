@@ -1228,23 +1228,11 @@ do
 	local _lines = {};
 	local GameTooltip = GameTooltip;
 	local LEFT_OFFSET = 10;
-	local action;
-	local suppressedCategory;
 
 	--- Drawing order for the group condition, which is also `Constants.GROUP_*`'s bit order.
 	--- Built once: it used to be a table literal inside the loop's `ipairs`, so a hover allocated
 	--- one and threw it away.
 	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
-
-	--- 이 툴팁이 쓰는 유일한 이슈 조회.
-	---
-	--- 다른 특성의 순서를 보고 있으면 **도달 불가만 뺀다.** 그 판정은 지금 이 특성으로 만든
-	--- 키 맵에서 나오므로 저쪽 세계에서는 참이 아니다. 행은 이미 그렇게 계산돼 있는데
-	--- (`CollectActionsForKey`) 툴팁만 매번 새로 물어서, **행에는 ⚠가 없는데 툴팁은 빨간
-	--- 글씨로 도달 불가라고 적는** 상태였다. 같은 데이터가 같은 화면에서 두 말을 하면 안 된다.
-	local function GetIssue(category)
-		return GetBindingIssue(action, category, suppressedCategory);
-	end
 
 	local function addErrorLine(message, wrap, leftOffset)
 		GameTooltip_AddErrorLine(GameTooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
@@ -1317,25 +1305,6 @@ do
 		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
 	end
 
-	--- A condition that is only on or off, drawn whole.
-	---
-	--- **The field name is the body of all three locale keys** -- `combat` gives `CONDITION_COMBAT`
-	--- and `CONDITION_COMBAT_YES`/`_NO` -- so another one of these is a call and three strings
-	--- rather than another copy of the block.
-	---
-	--- `hasIssues` is passed rather than read from anywhere because it is the gate that keeps this
-	--- cheap: with nothing wrong on the action, asking per category would rebuild the binding once
-	--- for every condition row (`GetBindingInfoForAction` rewrites it on every call).
-	local function addBooleanCondition(field, hasIssues)
-		if (action[field] == nil) then
-			return;
-		end
-		local key = "CONDITION_" .. strupper(field);
-		local error = hasIssues and GetIssue(field);
-		addLabelLine(LLL[key]);
-		addValueLine(action[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
-	end
-
 	--- instructionKeys를 주면 맨 아래 안내 줄을 그것으로 대신한다(로케일 키 배열).
 	---
 	--- layerLabel adds a scope line. **Only a list that mixes layers passes it**, which today is
@@ -1349,14 +1318,45 @@ do
 		---@diagnostic disable-next-line: redundant-parameter
 		GameTooltip:SetMinimumWidth(140, true);
 
-		action = elementData.action;
+		local action = elementData.action;
 		action._dirty = true;
-		-- 순서 목록의 행만 이 표시를 달고 온다(다른 특성 탭). 나머지 호출자는 지금 이
-		-- 특성의 사실을 그리므로 뺄 것이 없다.
-		suppressedCategory = elementData.simulated and "unreachable" or nil;
+		-- Only the order list's rows arrive carrying this, for its other-specialization view.
+		-- Every other caller is drawing facts about the specialization in play, so it has
+		-- nothing to drop.
+		local suppressedCategory = elementData.simulated and "unreachable" or nil;
+
+		--- The only issue lookup this tooltip makes.
+		---
+		--- **Another specialization's order drops one thing: unreachable.** That verdict comes out
+		--- of the key map built for the specialization in play, so it is not true over there. The
+		--- row is already computed that way (`CollectActionsForKey`) while the tooltip asked again
+		--- from scratch, which left **no warning on the row and its own tooltip calling the
+		--- binding unreachable in red**. One set of data must not say two things on one screen.
+		local function GetIssue(category)
+			return GetBindingIssue(action, category, suppressedCategory);
+		end
 
 		local isInactive = not suppressInactive and DebindPrivate.IsInactiveAction(action);
 		local hasIssues = GetIssue() ~= nil;
+
+		--- A condition that is only on or off, drawn whole.
+		---
+		--- **The field name is the body of all three locale keys** -- `combat` gives
+		--- `CONDITION_COMBAT` and `CONDITION_COMBAT_YES`/`_NO` -- so another one of these is a call
+		--- and three strings rather than another copy of the block.
+		---
+		--- `hasIssues` gates the per-category lookup and is not an optimisation to drop: with
+		--- nothing wrong on the action, asking about each condition would rebuild the binding once
+		--- per row, since `GetBindingInfoForAction` rewrites it on every call.
+		local function addBooleanCondition(field)
+			if (action[field] == nil) then
+				return;
+			end
+			local key = "CONDITION_" .. strupper(field);
+			local error = hasIssues and GetIssue(field);
+			addLabelLine(LLL[key]);
+			addValueLine(action[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
+		end
 
 		-- **The title does not carry the list's colours.** Those exist so an eye running down forty
 		-- rows can sort them without reading; a tooltip is one thing the reader already chose to
@@ -1512,8 +1512,8 @@ do
 			end
 		end
 
-		addBooleanCondition("combat", hasIssues);
-		addBooleanCondition("stealth", hasIssues);
+		addBooleanCondition("combat");
+		addBooleanCondition("stealth");
 
 		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
 		-- menu toggles `known` between true and nil rather than inverting it, so there is no
@@ -1571,10 +1571,10 @@ do
 			end
 		end
 
-		addBooleanCondition("specialbar", hasIssues);
-		addBooleanCondition("extrabar", hasIssues);
-		addBooleanCondition("pet", hasIssues);
-		addBooleanCondition("petbattle", hasIssues);
+		addBooleanCondition("specialbar");
+		addBooleanCondition("extrabar");
+		addBooleanCondition("pet");
+		addBooleanCondition("petbattle");
 
 		for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
 			local state = "$state" .. stateIndex;
