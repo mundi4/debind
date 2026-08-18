@@ -4911,6 +4911,8 @@ function DebindOrderLineMixin:OnClick(button)
 	DebindFrame:GoToAction(row.action, row.layerID);
 end
 
+local ORDER_LINE_INDENT = 10;
+
 function DebindResultPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
 	-- 행 사이는 띄우지 않는다(마지막 인자 0). 줄무늬가 경계를 그리므로 틈이 필요 없고,
@@ -4931,6 +4933,9 @@ function DebindResultPanelMixin:InitializeOrderScrollBox()
 	end);
 	view:SetElementExtentCalculator(function(_, elementData)
 		return elementData.isHeader and KEY_HEADER_HEIGHT or ORDER_LINE_HEIGHT;
+	end);
+	view:SetElementIndentCalculator(function(elementData)
+		return elementData.isHeader and 0 or ORDER_LINE_INDENT;
 	end);
 
 	ScrollUtil.InitScrollBoxListWithScrollBar(orderArea.ScrollBox, orderArea.ScrollBar, view);

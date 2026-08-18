@@ -44,6 +44,7 @@ end
 
 local ROW_HEIGHT       = 28;
 local LAYER_HEIGHT     = 26;
+local ROW_INDENT       = 10;
 
 
 --------------------------------------------------------------------------------
@@ -326,6 +327,10 @@ function DebindExportPanelMixin:InitializeScrollBox()
 
     view:SetElementExtentCalculator(function(_, elementData)
         return elementData.isLayer and LAYER_HEIGHT or ROW_HEIGHT;
+    end);
+
+    view:SetElementIndentCalculator(function(elementData)
+        return elementData.isLayer and 0 or ROW_INDENT;
     end);
 
     ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
