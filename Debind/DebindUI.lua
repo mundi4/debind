@@ -1350,10 +1350,11 @@ do
 	---                     greying a row would be a lie. Independent of `offWorld` -- that list
 	---                     sets this always and still marks a live row unreachable.
 	---   instructionKeys   locale keys to put at the bottom in place of the default two.
-	---   layerLabel        adds a scope line. **Only a list that mixes layers passes it**, which
-	---                     today is the order list alone: nothing else on its rows says which
-	---                     layer an action came from. The layer tab's list does not, because it
-	---                     draws one layer and the window title names it.
+	---   layerLabel        adds a scope line. **Only a list that mixes layers passes it**: the
+	---                     order list, whose rows say nothing else about where an action lives,
+	---                     and the export list, which does head its groups but scrolls a long one
+	---                     out of sight. The layer tab's list does not, because it draws one layer
+	---                     and the window title names it.
 	function AddActionToTooltip(tooltip, action, opts)
 		---@diagnostic disable-next-line: redundant-parameter
 		tooltip:SetMinimumWidth(140, true);
@@ -6261,6 +6262,7 @@ DebindUI.GetLayerID = GetLayerID;
 DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabaLabel = GetSideTabaLabel;
 DebindUI.GetLayerLabel = GetLayerLabel;
+DebindUI.IsLayerOffWorld = IsLayerOffWorld;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;
 DebindUI.ApproveImportedActions = ApproveImportedActions;

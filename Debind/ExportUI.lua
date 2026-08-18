@@ -152,6 +152,9 @@ end
 -- Rows
 --------------------------------------------------------------------------------
 
+--- An empty list, not nil: the tooltip reads nil as "use your default two lines".
+local NO_INSTRUCTIONS = {};
+
 DebindExportRowMixin = {};
 
 function DebindExportRowMixin:Init(elementData)
@@ -181,22 +184,33 @@ function DebindExportRowMixin:OnClick()
     self:UpdateSelectionDisplay();
 end
 
+--- The same tooltip the other two lists draw, rather than a name and a key written out here.
+---
+--- **What is being picked is the whole action**, and a name plus a key does not say what leaves
+--- with it. Three lines of it were also a second place holding the words for "no key" and for a
+--- key group's synthetic number, and a second place is a place to drift.
+---
+---   * the scope line is on, because this list mixes layers in one scroll and a long group's
+---     header scrolls out of sight. That is the same reason the order list carries it.
+---   * inactive is suppressed, because **this list does not use colour to say it**: the rows draw
+---     an uncoloured name, and a tooltip greying the key under one of them would be the two
+---     halves of one row disagreeing. Nothing here turns on whether an action runs right now.
+---   * no instruction line, which is what this row has always had. The shared default would be
+---     two lies: a left click here ticks rather than selects, and there is no right-click menu.
 function DebindExportRowMixin:OnEnter()
-    local action = self.elementData.action;
-    local name = DebindUI.NameAndIconForAction(action);
-
+    local elementData = self.elementData;
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-    GameTooltip_SetTitle(GameTooltip, name or "");
-    if (action.key) then
-        GameTooltip_AddHighlightLine(GameTooltip, DebindPrivate.GetKeyDisplayText(action.key));
-    else
-        GameTooltip_AddNormalLine(GameTooltip, LLL["EXPORT_ROW_NO_KEY"]);
-    end
+    DebindPrivate.AddActionToTooltip(GameTooltip, elementData.action, {
+        offWorld = DebindUI.IsLayerOffWorld(elementData.layerID),
+        suppressInactive = true,
+        instructionKeys = NO_INSTRUCTIONS,
+        layerLabel = DebindUI.GetLayerLabel(elementData.layerID),
+    });
     GameTooltip:Show();
 end
 
 function DebindExportRowMixin:OnLeave()
-    GameTooltip:Hide();
+    DebindPrivate.HideActionTooltip(GameTooltip);
 end
 
 
