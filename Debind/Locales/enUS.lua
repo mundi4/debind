@@ -75,7 +75,18 @@ L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no custom state named |cnHIGHLIGH
 -- themselves, so "there is no such macro" on its own reads as a typo -- while the common case, now
 -- that bindings travel, is a binding that came from a machine where that macro did exist.
 L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character. It may have been renamed or deleted, or it may have come from someone else's setup."
-L["BINDING_ERROR_UNREACHABLE"] = "This binding is always preceded by others."
+-- The only MINOR code, so this states what happened and stops there. The key itself still fires,
+-- and leaving an outranked action in place is a choice the reader is allowed to make.
+--
+-- Two things it must not say. The coverage can come from several earlier actions at once
+-- (`CheckUnreachableBindings` hands the whole set to `isCovered`), so sending the reader off to
+-- look at one action points at something that may not exist. And this action may carry no
+-- conditions at all, so any wording resting on the situations it was set up for is false for the
+-- plainest case there is, two condition-less actions on one key.
+--
+-- "No matter what" is what the sentence turns on. Every action but the first is preceded by others,
+-- which is what this line said before, and it was true of the healthy rows just as much.
+L["BINDING_ERROR_UNREACHABLE"] = "This action never runs. No matter what, another action on this key gets there first."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
 L["BLIZZARD_UNIT_FRAMES_BOSS"] = "Boss Frames"
