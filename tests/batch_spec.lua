@@ -172,7 +172,10 @@ return function(DebindPrivate, DebindStorage)
     --- `count = 0` stands an **empty** layer up, and `junk` puts a non-action in the list -- both
     --- are shapes a hand-made string carries and neither may raise.
     local function Payload(layers)
-        local payload = { v = 1, class = CLASS };
+        -- 상수를 읽는다. 숫자를 적어두면 스키마가 올라가는 날 이 파일의 케이스가 전부
+        -- **버전 때문에** 빨개지는데, 여기서 묻는 것은 버전이 아니라 서랍의 행동이다.
+        -- 버전을 묻는 케이스는 아래에서 값을 직접 만들어 쓴다.
+        local payload = { v = DebindStorage.EXPORT_SCHEMA_VERSION, class = CLASS };
 
         for _, entry in ipairs(layers) do
             local actions = {};
@@ -408,6 +411,65 @@ return function(DebindPrivate, DebindStorage)
         check(batch.payload == GOOD_PAYLOAD, "페이로드를 저장 안 했다");
         check(batch.text == nil, "문자열이 남아 있다: " .. tostring(batch.text));
         check(DebindStorage.GetBatchPayload(batch) == GOOD_PAYLOAD, "다시 못 읽음");
+    end);
+
+    -- **서랍에서 여는 문도 버전을 묻는다.** 붙여넣는 쪽은 `DecodeExportString`이 물어서
+    -- `export_spec`이 그것을 잡고 있는데, 서랍은 저장된 페이로드를 그대로 내주고 있었다.
+    --
+    -- 스키마가 하나뿐인 동안은 두 경로가 같은 답을 낸다. **갈리는 것은 스키마가 올라간
+    -- 다음이고, 그때 서랍에 쌓여 있던 것이 검사 없이 새 코드로 들어간다** - 붙여넣기 쪽에만
+    -- 마이그레이션을 얹으면 조용히 그렇게 된다. 그래서 저장된 배치를 손으로 만들어 묻는다.
+    local function StoredBatchWithVersion(version)
+        ResetDrawer();
+        STORED[GOOD] = GOOD_PAYLOAD;
+        local batch = DebindStorage.AddBatch(GOOD);
+        -- 문을 지나 저장된 뒤에 버전만 바꾼다. 붙여넣는 쪽 문은 이 값을 이미 봤으므로,
+        -- 여기서 걸리는 것은 **서랍에서 여는 문**뿐이다.
+        batch.payload = { v = version, class = CLASS, shared = { GENERAL = {} } };
+        return batch;
+    end
+
+    test("서랍에 있는 배치가 더 새 스키마면 거절한다", function()
+        local batch = StoredBatchWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1);
+        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        check(payload == nil, "읽어버렸다");
+        check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+    end);
+
+    test("서랍에 있는 배치가 옛 스키마면 거절한다", function()
+        local batch = StoredBatchWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION - 1);
+        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        check(payload == nil, "읽어버렸다");
+        -- **여기가 3.3에서 갈릴 자리다.** 그때 v1을 읽어야 하므로 이 답은 거절에서
+        -- 마이그레이션으로 바뀐다(`devdocs/building-export-import.md`). 지금 이 케이스가
+        -- 지키는 것은 답이 무엇이냐가 아니라 **묻기는 한다**는 것이다.
+        check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
+    end);
+
+    test("버전이 숫자가 아닌 배치도 거절한다", function()
+        local batch = StoredBatchWithVersion(nil);
+        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        check(payload == nil, "읽어버렸다");
+        check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+    end);
+
+    -- **행은 그려지는데 열면 터지던 자리.** 서랍 행을 그리는 둘(`CountBatch`,
+    -- `BatchClassText`)은 페이로드가 없는 배치를 막고 있어서 날짜만 달고 멀쩡히 선다. 그
+    -- 행을 누르면 문이 페이로드를 그대로 인덱싱했다.
+    --
+    -- **나가는 빌드에서 그런 배치는 안 생긴다** - `AddBatch`가 언제나 채우고, 이 애드온이
+    -- 이번에 처음 나가므로 그 문을 안 지난 배치가 남의 디스크에 있을 수 없다. 닿는 것은
+    -- 문자열 대신 페이로드를 저장하기로 바뀌기 전에 만들어진 개발용 `DebindStorageVars`다.
+    -- 거절이 답인 자리에서 던지지는 말아야 한다.
+    test("페이로드가 없는 배치는 던지지 않고 거절한다", function()
+        ResetDrawer();
+        STORED[GOOD] = GOOD_PAYLOAD;
+        local batch = DebindStorage.AddBatch(GOOD);
+        batch.payload = nil;
+
+        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        check(payload == nil, "읽어버렸다");
+        check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
     end);
 
 

@@ -402,10 +402,27 @@ end
 ---
 --- **The gate `AddBatch` stands is stood again here.** A batch that got in before the gate existed
 --- is closed by this one, which is why the gate needs nothing rewritten behind it -- there is only
---- something to refuse. Everything reading a payload comes through here, so past this line it is
---- one of ours.
+--- something to refuse. **Everything that reads a payload for its contents comes through here**, so
+--- past this line it is one of ours.
+---
+--- Two callers read `batch.payload` without asking: `CountBatch` and `BatchClassText`
+--- (`ImportUI.lua`). Both draw the row rather than act on it, and a row has to be drawable for a
+--- batch that this refuses -- deleting it is the only thing left to do with it, and the delete
+--- button is on the row. So they guard the one field they touch and read nothing else.
+---
+--- **The schema is asked first, and it is asked for the same reason.** `AddBatch` asks it of a
+--- string through `DecodeExportString`; this asks it of a payload that has been sitting in
+--- SavedVariables since some earlier version. The two questions used to be one door apart: what is
+--- pasted was asked and what is stored was not, so the batches most likely to be old were the ones
+--- nothing asked. It answers the same thing on every payload there is today, and stops doing so the
+--- day a schema step is written -- which is what `BringPayloadForward` is for, and why it comes
+--- before the check below rather than after. `PayloadIsImpossible` reads fields whose meaning the
+--- schema decides, so asking it about a payload of an unknown schema is asking the wrong question.
 function DebindStorage.GetBatchPayload(batch)
-    local payload = batch.payload;
+    local payload, reason = DebindStorage.BringPayloadForward(batch.payload);
+    if (not payload) then
+        return nil, reason;
+    end
 
     if (DebindStorage.PayloadIsImpossible(payload)) then
         return nil, "IMPOSSIBLE_PAYLOAD";

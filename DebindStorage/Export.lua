@@ -17,11 +17,15 @@ local luatype            = type;
 --- The schema of `payload`. Bump when a field changes meaning, not when one is added -- a reader
 --- that skips fields it does not know survives additions on its own.
 ---
---- **That rule starts at the first release that carries sharing. Until then this stays 1 whatever
---- happens to the shape.** Sharing did not ship with 3.1.6, so no v1 string has ever left this
---- repository and there is nothing out there to be read wrongly; burning version numbers on shapes
---- nobody has would only spend them. `layer` has already moved from the group to the action under
---- this same 1, and more of the shape is expected to move (`devdocs/building-export-import.md`).
+--- **The rule is live from 3.2, the release that carries sharing.** Before it this stayed 1 through
+--- two shape changes on purpose (`layer` moved from the group down to the action, and the group
+--- layer went): nothing had left the repository, so a number spent on a shape nobody was holding
+--- was a number wasted. **That window is shut.** A string made by 3.2 sits in somebody's notes and
+--- somebody's guide, so a bump from here is a bump under readers holding one written by 1.
+---
+--- **Which is why a bump owes v1 a way forward rather than a refusal** (2026-08-19, owner's
+--- decision; `devdocs/building-export-import.md`). `BringPayloadForward` is where that step goes,
+--- and both doors into a payload run it.
 local SCHEMA_VERSION     = 1;
 
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
@@ -441,6 +445,51 @@ function DebindStorage.EncodeExportPayload(payload)
         .. LibDeflate:EncodeForPrint(compressed);
 end
 
+--- Raises a payload to the schema this version reads, or says why it cannot. Returns the payload,
+--- or nil plus a reason.
+---
+--- **There are no steps yet and this is where the first one goes.** `SCHEMA_VERSION` is 1 and
+--- nothing has ever written a 0, so today the whole function is the two refusals below. The shape
+--- is the one `MigrateLayer` has in `Profile.lua`: a step per version, opened with `<=` so a
+--- payload two versions back walks through all of them.
+---
+--- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
+--- moment it is pasted (`DecodeExportString`, below) and a stored batch is asked when the drawer
+--- opens it (`GetBatchPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
+--- payload it was handed and gave it straight back. That is invisible while there is one schema
+--- and it stops being invisible the day one is added, because the batches already sitting in the
+--- drawer are exactly the ones that would go into the new code unasked. Whoever writes the first
+--- migration writes it here and both doors have it.
+---
+--- **Two directions, and opposite advice.** These were one reason and one sentence, "made by a
+--- newer version, update and try again", which is true one way and useless the other: on the first
+--- schema bump every batch already received would fail with it, told to update by the version they
+--- just updated to.
+---
+--- Both are refusals **until a step is written**. A bump means a field changed meaning
+--- (`SCHEMA_VERSION`'s own note), so an old payload cannot be read by guessing, and guessing is how
+--- a condition silently changes sides.
+---
+--- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
+--- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
+--- out of SavedVariables. Neither may error, and the answer is the same refusal, so asking twice
+--- would be the same question in two places. It caught a real one: a batch with no payload draws in
+--- the drawer perfectly well, because the two that draw the row guard it (`CountBatch`,
+--- `BatchClassText`), and then threw the moment the row was opened.
+function DebindStorage.BringPayloadForward(payload)
+    if (luatype(payload) ~= "table") then
+        return nil, "BAD_PAYLOAD";
+    end
+    if (luatype(payload.v) ~= "number" or payload.v > SCHEMA_VERSION) then
+        return nil, "UNSUPPORTED_SCHEMA";
+    end
+    if (payload.v < SCHEMA_VERSION) then
+        return nil, "SCHEMA_TOO_OLD";
+    end
+
+    return payload;
+end
+
 --- The inverse, and **only** the inverse. It answers "what was in the string"; it does not touch
 --- the profile and does not produce actions. Deciding what to do with the result is `Import.lua`'s.
 ---
@@ -476,25 +525,13 @@ function DebindStorage.DecodeExportString(str)
     end
 
     local ok, payload = LibSerialize:Deserialize(serialized);
-    if (not ok or luatype(payload) ~= "table") then
+    if (not ok) then
         return nil, "BAD_PAYLOAD";
     end
-    -- **Two directions, and opposite advice.** These were one reason and one sentence - "made by a
-    -- newer version, update and try again" - which is true one way and useless the other: on the
-    -- first schema bump every batch already received would fail with it, told to
-    -- update by the version they just updated to.
-    --
-    -- Both are still refusals. A bump means a field changed meaning (`SCHEMA_VERSION`'s own note),
-    -- so an old payload cannot be read without a migration written for it, and guessing is how a
-    -- condition silently changes sides.
-    if (luatype(payload.v) ~= "number" or payload.v > SCHEMA_VERSION) then
-        return nil, "UNSUPPORTED_SCHEMA";
-    end
-    if (payload.v < SCHEMA_VERSION) then
-        return nil, "SCHEMA_TOO_OLD";
-    end
 
-    return payload;
+    -- Whether what came back is a table at all is asked below, with the same answer, on the door a
+    -- stored batch uses too.
+    return DebindStorage.BringPayloadForward(payload);
 end
 
 --- What the window calls: selection in, string out.
