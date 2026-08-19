@@ -2219,7 +2219,7 @@ end
 --- which also reaches past this screen (`CollectKeyGroupActions` walks every layer).
 ---
 --- The first row rides along for the **title** and for nothing else. That one is not interchangeable:
---- it is first in firing order, which is what the folded heading calls the set by.
+--- it is first in firing order, which is what the heading calls the set by.
 ---
 --- Which headings open at all, and what over, is `HeaderMenuActions`. **The list is worked out here
 --- rather than in the menu** because the import items decide whether to stand up while the menu is
@@ -2231,8 +2231,8 @@ function DebindKeyHeaderMixin:OpenKeyGroupMenu()
 		return;
 	end
 
-	-- 제목이 부르는 이름은 **접혔을 때의 요약과 같은 것**이다 - 첫 액션과 뒤에 몇 개가 더 있는지.
-	-- 그 둘째 값만 여기서 세어 넘긴다.
+	-- The title names the set the way the heading does (`UpdateSummary`): the first action, and how
+	-- many more there are. Only that second number is counted here.
 	MenuUtil.CreateContextMenu(self, DebindUI.SetupKeyGroupDropdownMenu,
 		elementData.key, actions[1], #actions - 1, actions);
 end
@@ -2290,22 +2290,21 @@ function DebindKeyHeaderMixin:Init(elementData)
 	self:UpdateSummary();
 end
 
---- 접혔을 때만 안을 요약한다 - 첫 액션의 이름과, 그 뒤에 몇 개가 더 있는지.
+--- Says what the group holds: the first action's name, and how many more there are.
 ---
---- **펼쳐져 있으면 아무것도 안 붙인다.** 바로 아래 행들이 이미 그 목록이라, 같은 말을 머리글이
---- 한 번 더 하면 눈이 두 곳을 읽고 같은 답을 얻는다.
+--- **Folded or not, the heading says the same thing.** It used to summarise only while folded, on
+--- the reading that the rows below already name themselves. What that cost was a heading that
+--- changed shape as it was pressed, and a count that vanished exactly when the reader had opened
+--- the group to compare it against what was inside.
 ---
---- 첫 액션은 **발동 순서의 첫 번째**다(`CollectActionsForKey`가 정한 차례). 이 키를 눌렀을 때
---- 실제로 나가는 것이 그것이므로, 하나만 보여줄 수 있다면 그것이어야 한다.
+--- The first action is **the first in firing order** (the order `CollectActionsForKey` settles).
+--- That is what actually goes out when the key is pressed, so if only one of them can be shown it
+--- has to be that one.
 ---
---- 하나뿐이면 개수를 안 쓴다. `+0`은 셀 것이 없다는 말을 굳이 하는 것이고, 그 자리는 이름이
---- 더 길게 설 자리로 돌아간다.
+--- With only one there is no count. `+0` goes out of its way to say there is nothing to count, and
+--- the room goes back to the name standing longer.
 function DebindKeyHeaderMixin:UpdateSummary()
 	local elementData = self.elementData;
-	-- **Folded or not, the heading says the same thing.** It used to summarise only while folded,
-	-- on the reading that the rows below already name themselves. What that cost was a heading that
-	-- changed shape as it was pressed, and a count that vanished exactly when the reader had opened
-	-- the group to compare it against what was inside.
 	local rows = elementData.rows;
 	if (not rows or #rows == 0) then
 		self.ActionName:Hide();
@@ -5149,8 +5148,8 @@ function BuildKeyboardElements()
 				isHeader = true,
 				key = key,
 				collapsed = collapsed,
-				-- 접혔을 때 머리글이 안을 요약한다(`UpdateSummary`). **아래에서 `rows`를 비우는
-				-- 것은 이 지역 이름을 다시 묶는 것**이라 여기 실린 테이블은 그대로 남는다.
+				-- The heading summarises these (`UpdateSummary`), folded or not. **Emptying `rows`
+				-- below rebinds the local name**, so the table carried here is left as it is.
 				rows = rows,
 				allInactive = allInactive,
 				hasError = hasError,
@@ -5271,8 +5270,9 @@ function BuildKeyboardElements()
 			isHeader = true,
 			key = nil,
 			collapsed = collapsed,
-			-- 이 덩어리도 접히므로 같은 요약을 단다. 첫 이름이 발동 순서가 아니라 이름순의
-			-- 첫째라는 것만 다른데, 여기 있는 것은 아무것도 발동하지 않으므로 그 차이가 없다.
+			-- This pile gets the same summary every other heading gets. What differs is that its
+			-- first name is first in name order rather than in firing order, and nothing here fires
+			-- at all, so the difference has nothing to be about.
 			rows = rows,
 			-- **Not a scan like the one above, a definition.** Having no key at all is what puts an
 			-- action in this pile, so every member of it is inactive by construction. Leaving the
