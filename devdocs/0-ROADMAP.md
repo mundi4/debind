@@ -10,11 +10,17 @@
 | | 트랙 | 문서 |
 |---|---|---|
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
-| **다음 (3.2)** | 익스포트 / 임포트 | `building-export-import.md`<br>`showing-off-spec-actions.md`<br>(`legacy/renumbering-a-key-group.md` — 끝났다) |
+| **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`showing-off-spec-actions.md` |
+| **다음 (3.2.x)** | 되돌린 버전이 프로필을 깎는 것 막기 | `guarding-against-a-downgrade.md` |
 | **그다음 (3.3)** | 커스텀 상태 재설계<br>action에 `conditions` 도입 | `.zzz/custom-states-redesign.md`<br>`straightening-out-action-and-binding.md` |
 
-**버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 위 둘은 기능 추가라 마이너를
-올리는 자리로 보고 적어둔 것이지 확정된 태그가 아니다.
+**버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 3.3은 기능 추가라 마이너를
+올리는 자리로, 3.2.x는 고치기만 하는 것이라 패치 자리로 보고 적어둔 것이지 확정된 태그가 아니다.
+
+**3.2.x가 3.3 앞이다. 이것만은 순서가 아니라 조건이다.** 그 문은 되돌려 **받는 쪽** 코드에
+있어야 값이 있다. 3.3에 넣으면 3.3에서 3.2로 내려가는 사람에게 아무 소용이 없고, 3.3이 나간
+뒤에는 넣을 자리 자체가 없어진다. 지금은 세상에 `dbver` 5뿐이라 아무 일도 안 일어나는데,
+3.3이 `dbver`를 올리는 날 무장된다.
 
 **3.3은 3.2 뒤다.** 전송 포맷이 커스텀 상태를 `$state1..5`라는 지금 이름 그대로 싣기 때문에
 (`Export.lua`), 이름 규칙을 먼저 갈면 아직 검증이 안 끝난 전송 포맷이 같이 흔들린다.
