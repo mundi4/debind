@@ -23,7 +23,6 @@
 | 익스포트 | `BuildExportPayload`, `CopyFields`, `NormalizeAction`, 무엇이 문자열에 실리나 |
 | 마이그레이션 | `dbver` 4 → 5 (유닛 조건 축 분리), `KEYS_TO_SAVE`, `CleanUpDB` |
 | 발동 순서 | `CompareActionOrder`에 `specRank`가 낀 것이 기존 사용자에게 무엇을 하나 |
-| 문자열 | 로케일 채움 상태, README가 새 기능을 말하나 |
 | 열린 항목 | `fixing-what-the-review-found.md`의 둘 |
 
 `npm run check`는 통과한다. 스펙 475개, luacheck, XML 11개, 로케일 서식 대조, 스니펫 46개 파싱과
@@ -120,25 +119,7 @@ v1 배치가 아무 검사도 없이 새 코드의 `BuildAction`과 `PlanImport`
 
 ---
 
-## 고치면 좋은 것
-
-### 4. koKR에 아홉 개가 비어 있다
-
-`KEY_HEADER_APPROVE`, `KEY_HEADER_APPROVE_ONE`, `KEY_HEADER_REJECT`, `KEY_HEADER_REJECT_ONE`,
-`IMPORT_PASTE_ACCEPT`, `OVERVIEW_NO_KEY`, `KEY_HEADER_TOOLTIP_INSTRUCTION`,
-`KEY_HEADER_UNBIND_DESC`, `BIND_MODE_UNBIND_HINT`. 그동안 enUS로 나간다.
-
-앞의 여섯이 **이번 릴리스가 새로 세운 받기/거절 컨트롤과 그 툴팁**이다. 3.1에서 koKR은 전부
-번역돼 있었으니, 새 기능만 영어로 서는 모양이 된다.
-
-ruRU는 105개가 비어 있고 그중 대부분이 공유 쪽이다. 이건 번역자에게서 오는 것이라 여기 항목으로
-세우지 않는다. 안 온 자리는 enUS로 나가고 그건 설계대로다.
-
-### 5. README가 공유를 한 마디도 안 한다
-
-절 목록에 익스포트도 임포트도 없다. README는 `.pkgmeta`의 `ignore`에 없어서 **애드온 폴더 안에
-그대로 실려 나가고**, 프로젝트 페이지가 읽는 것도 이 글이다. 3.2의 간판 기능이 사용자 쪽
-문서에 없다.
+## 고친 것
 
 ### ~~6. `UpdateSummary`의 머리말이 코드와 반대다~~ 고쳤다
 
