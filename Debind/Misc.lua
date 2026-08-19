@@ -937,15 +937,24 @@ end
 --- or one the reader unbound whole. `GetBindingText` is not asked: a number is not a binding string,
 --- and this is the guard that keeps it from being handed one.
 ---
---- **It reads as the client's `NOT_BOUND`, the same as no key at all**, because that is what it is:
+--- **With no `from` it reads as the client's `NOT_BOUND`, the same as no key at all**, because
+--- that is what it is:
 --- the number is how the set is filed, not something the reader has. It used to print that number
 --- ("Imported Binding #3"), from when the heading had nothing else to call the set by; the heading
 --- names it now - the first action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
 ---
---- `from` is the key it arrived on, which is `action.imported` for anything that came in a string.
---- Nothing reads it here at the moment.
+--- **`from` is the key it arrived on** (`action.imported`), and a set still carrying one is named
+--- by it instead. Several arrivals sitting keyless in one list are otherwise the same word repeated,
+--- and the key they came in on is the only thing telling them apart.
+---
+--- It lasts exactly as long as the badge. Accepting clears `imported` and this goes back to
+--- `NOT_BOUND`. **Nothing keeps the key past that, on purpose** (2026-08-19, owner's decision): a
+--- binding the reader does not use is not something the profile carries so it can be shown later.
 function DebindPrivate.GetKeyDisplayText(key, from)
     if (type(key) == "number") then
+        if (type(from) == "string") then
+            return format(L["OVERVIEW_IMPORTED_FROM_KEY"], GetBindingText(from));
+        end
         return L["OVERVIEW_NO_KEY"];
     end
     return GetBindingText(key);

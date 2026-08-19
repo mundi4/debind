@@ -146,7 +146,13 @@ local function LayoutRow(dialog, row, action, y, showKey)
             row.Key:SetText(DebindPrivate.GetKeyDisplayText(action.key));
             row.Key:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
         else
-            row.Key:SetText(LLL["OVERVIEW_NO_KEY"]);
+            -- A row that came in names the key it came in on, the same as the line above and the
+            -- heading it was opened from. Grey all the same: neither of these is a key it has.
+            if (type(action.imported) == "string") then
+                row.Key:SetText(DebindPrivate.GetKeyDisplayText(action.key, action.imported));
+            else
+                row.Key:SetText(LLL["OVERVIEW_NO_KEY"]);
+            end
             row.Key:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
         end
         row.Key:Show();
@@ -202,12 +208,22 @@ DebindPrivate.AnyRealKey = AnyRealKey;
 --- With no key at all it is the client's `NOT_BOUND`, held by `OVERVIEW_NO_KEY`. Read under the
 --- other screen's key on purpose: one fact gets one word, and a second key holding the same global
 --- is how two screens end up saying it differently.
+---
+--- **A set still waiting says the key it came in on instead**, which is what the overview's heading
+--- calls it. The reader gets here from that heading, and the two lines naming one set differently
+--- would read as two different sets.
 local function CurrentKeyText(actions)
     local key, shared = DebindPrivate.SharedKeyOf(actions);
     if (not shared) then
         return LLL["KEY_CAPTURE_CURRENT_KEY_MIXED"];
     end
 
+    if (type(key) == "number") then
+        local from = DebindPrivate.ArrivalKeyOf(actions);
+        if (from) then
+            return DebindPrivate.GetKeyDisplayText(key, from);
+        end
+    end
     if (type(key) ~= "string") then
         return LLL["OVERVIEW_NO_KEY"];
     end

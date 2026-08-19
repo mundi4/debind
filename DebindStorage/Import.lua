@@ -669,9 +669,13 @@ function DebindStorage.PlanImport(payload, options)
         for _, source in ipairs(list) do
             local action = BuildAction(source);
 
-            -- **The badge is the key it arrived on**, and `true` when it arrived on none. That is
-            -- what the heading has to say -- the number it is stored under is ours and means
-            -- nothing to the reader - and what the accept flow offers as the default key.
+            -- **The badge is the key it arrived on**, and `true` when it arrived on none.
+            --
+            -- **Only its presence is read.** Everything looking at this field asks whether it is set:
+            -- the blue name and dot, the [Pending] filter, whether accepting has anything to take off.
+            -- The string itself is not printed anywhere yet. `GetKeyDisplayText` takes it as `from`
+            -- and does not read it, and what names an unbound set on screen today is its first
+            -- action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
             --
             -- **Read before the rename, and it is the only chance.** `MapKey` replaces the key with
             -- a number of ours, so after this line the sender's key exists nowhere else.

@@ -331,5 +331,76 @@ return function(DebindPrivate)
         check(f[1].key ~= g[1].key, "두 덩어리가 같은 번호를 받았다: " .. tostring(f[1].key));
     end);
 
+    -- **한 벌인지 골라놓은 것인지를 이 함수 하나가 답한다**(`SharedKeyOf`). 창도 커밋도 여기서
+    -- 갈리므로, 둘이 서로 다른 답을 보면 화면이 그리는 것과 눌렀을 때 일어나는 일이 어긋난다.
+    --
+    -- **nil이 두 번 나오는 자리라 플래그를 같이 잰다.** "키를 안 나눠 쓴다"와 "다 같이 키가
+    -- 없다"는 첫 반환값이 똑같고, 둘을 섞으면 키 없는 한 벌이 제각각인 선택으로 취급된다 -
+    -- [키 설정 해제]가 그 벌을 합성 키로 안 묶고 흩어버린다.
+    test("SharedKeyOf: 같은 키면 그 키와 참", function()
+        local shared = { { key = "F" }, { key = "F" }, { key = "F" } };
+        local key, ok = DebindPrivate.SharedKeyOf(shared);
+        check(key == "F", "키가 다르다: " .. tostring(key));
+        check(ok == true, "한 벌로 안 봤다");
+
+        local synthetic = { { key = 7 }, { key = 7 } };
+        key, ok = DebindPrivate.SharedKeyOf(synthetic);
+        check(key == 7, "합성 번호가 다르다: " .. tostring(key));
+        check(ok == true, "합성 키 한 벌을 한 벌로 안 봤다");
+    end);
+
+    test("SharedKeyOf: 제각각이면 nil과 거짓", function()
+        local key, ok = DebindPrivate.SharedKeyOf({ { key = "F" }, { key = "G" } });
+        check(key == nil, "키가 나왔다: " .. tostring(key));
+        check(ok == false, "제각각인데 한 벌로 봤다");
+
+        -- 하나만 키가 없어도 제각각이다.
+        key, ok = DebindPrivate.SharedKeyOf({ { key = "F" }, {} });
+        check(ok == false, "키 없는 하나가 섞였는데 한 벌로 봤다");
+    end);
+
+    test("SharedKeyOf: 다 키가 없으면 nil과 참", function()
+        local key, ok = DebindPrivate.SharedKeyOf({ {}, {}, {} });
+        check(key == nil, "없는 키가 나왔다: " .. tostring(key));
+        check(ok == true, "키가 없는 것을 나눠 쓰는 것도 한 벌이다");
+    end);
+
+    test("SharedKeyOf: 빈 목록은 한 벌이 아니다", function()
+        local key, ok = DebindPrivate.SharedKeyOf({});
+        check(key == nil, "빈 목록에서 키가 나왔다: " .. tostring(key));
+        check(ok == false, "빈 목록을 한 벌로 봤다");
+        check(select(2, DebindPrivate.SharedKeyOf(nil)) == false, "nil을 한 벌로 봤다");
+    end);
+
+    -- **머리글과 캡처 창과 확인창이 도착분을 같은 이름으로 부르는 근거**(`ArrivalKeyOf`). 셋이
+    -- 각자 걸으면 한 묶음이 자리마다 다르게 불리고, 읽는 쪽에는 서로 다른 묶음으로 보인다.
+    test("ArrivalKeyOf: 다 같은 키로 왔으면 그 키", function()
+        check(DebindPrivate.ArrivalKeyOf({
+            { imported = "SHIFT-Q" }, { imported = "SHIFT-Q" },
+        }) == "SHIFT-Q", "온 키를 못 냈다");
+    end);
+
+    -- 한 벌의 일부만 받아들인 상태. 배지를 뗀 쪽은 아무 말도 안 하므로, 남은 배지가 그 벌의
+    -- 이름을 계속 진다.
+    test("ArrivalKeyOf: 일부가 승인됐어도 남은 배지가 답한다", function()
+        check(DebindPrivate.ArrivalKeyOf({
+            { imported = nil }, { imported = "CTRL-3" },
+        }) == "CTRL-3", "남은 배지를 못 읽었다");
+    end);
+
+    test("ArrivalKeyOf: 온 키가 갈리면 nil", function()
+        check(DebindPrivate.ArrivalKeyOf({
+            { imported = "F" }, { imported = "G" },
+        }) == nil, "둘 중 하나를 골랐다");
+    end);
+
+    -- `true`는 "키 없이 왔다"다. 이름이 될 키가 없으므로 문자열과 같이 셀 수 없다.
+    test("ArrivalKeyOf: 키 없이 온 것과 도착분이 아닌 것은 nil", function()
+        check(DebindPrivate.ArrivalKeyOf({ { imported = true }, { imported = true } }) == nil,
+            "키 없이 온 것에서 키가 나왔다");
+        check(DebindPrivate.ArrivalKeyOf({ {}, {} }) == nil, "도착분이 아닌데 키가 나왔다");
+        check(DebindPrivate.ArrivalKeyOf(nil) == nil, "nil에서 키가 나왔다");
+    end);
+
     return T;
 end

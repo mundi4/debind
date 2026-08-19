@@ -729,8 +729,8 @@ do
     ---
     --- **It does not replace the binding mode.** That one is still how ten keys get set in a row:
     --- it stays on, aims at whatever the cursor is over, and takes back everything on [Cancel]. This
-    --- is the one-off, on a target that was picked before any key was pressed
-    --- (`devdocs/asking-for-a-key.md` holds the question of whether both survive).
+    --- is the one-off, on a target that was picked before any key was pressed. **Both shapes stay**,
+    --- and what each of them answers is in `devdocs/legacy/asking-for-a-key.md`.
     local function CreateAssignKeyMenuItem(parentDescription)
         local description = parentDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
             DebindUI.BeginKeyCapture({ _action });
@@ -1547,13 +1547,14 @@ do
         -- would be dead is an import matter and not an ordering rule, and `ORDER_BLOCKED_*` exists
         -- to teach the ordering rules.
         --
-        -- **And no key item either, which is a change.** The one that used to stand here settled
-        -- what came in by putting the whole arrival on the keyboard - that is still offered, on the
-        -- heading the arrival is drawn under. What this menu now holds is a key for **one row**, and
-        -- that is the wrong thing to offer something still waiting: it would take one action out of
-        -- the set it arrived in and accept only that one, which is a decision nobody asked for made
-        -- out of a decision they did.
+        -- **The key item stands here too** (2026-08-19, owner's decision). It was left out for a
+        -- while on the reading that a key for one row splits the arrival it came in and accepts only
+        -- that row. Both halves of that are true and neither is a reason to withhold it: splitting a
+        -- set by giving one of its rows a key is an operation this menu already offers everywhere
+        -- else, and giving a key **is** accepting, which is the answer the reader came to this menu
+        -- for. Taking the whole arrival at once is still the heading's item.
         if (action.imported) then
+            CreateAssignKeyItem();
             CreateApproveImportMenuItem(rootDescription, { action });
             CreateRejectImportMenuItem(rootDescription, { action });
             return;

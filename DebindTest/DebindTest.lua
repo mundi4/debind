@@ -1701,6 +1701,161 @@ RegisterTest("Assign a key: a row's item takes that row alone", {
     end,
 })
 
+--- **The same item, on a row that has not been accepted yet.** It was deliberately withheld there
+--- for a while, so a later reading of that reasoning can take it out again and nothing on screen
+--- says so: the menu opens, the other two items are there, and only someone who came to give this
+--- row a key finds out.
+---
+--- **This does not measure what happens after the press.** Giving the key accepts the row, and that
+--- is `SetKeyForActions`' own rule with its own coverage. What is measured here is that the item
+--- stands and that it aims at this row alone.
+RegisterTest("Assign a key: a badged row is offered one too", {
+    description = "아직 안 받은 행의 메뉴에도 [단축키 지정]이 서고 그 행 하나만 실리는가",
+    run = function()
+        local NAME = "Imported row assign key"
+
+        -- **키를 들고 도착한 것.** 합성 번호와 배지가 짝이라, 번호 없이 배지만 세우면 실제로
+        -- 도착한 행과 다른 모양이 된다(`KeyMapper`).
+        local action = InsertAction({
+            type = Constants.SPELL,
+            value = 1,
+            key = DebindPrivate.NextSyntheticKey(),
+            imported = "SHIFT-Q",
+        })
+        ApplyBindings()
+
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            DebindKeyCaptureFrame:Hide()
+        end)
+
+        MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupOrderDropdownMenu, action)
+        local menu = Menu.GetManager():GetOpenMenu()
+        if not menu then
+            return Fail(NAME, "메뉴가 안 떴다")
+        end
+
+        local item
+        menu:EnumerateElementDescriptions(function(_, description)
+            if MenuUtil.GetElementText(description) == LLL["ACTION_SET_KEY"] then
+                item = description
+            end
+        end)
+        if not item then
+            return Fail(NAME, format("[%s] 항목이 없다", LLL["ACTION_SET_KEY"]))
+        end
+
+        item:Pick(MenuInputContext.MouseButton, "LeftButton")
+
+        if not DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+        end
+
+        local armed = DebindKeyCaptureFrame.actions or {}
+        if #armed ~= 1 or armed[1] ~= action then
+            return Fail(NAME, format("겨눈 것이 이 행 하나가 아니다 - %d개", #armed))
+        end
+
+        return Pass(NAME, "배지가 붙은 행에도 항목이 서고, 그 행 하나만 실렸다")
+    end,
+})
+
+--- The fourth way into the same window, and the one with no heading behind it: several rows the
+--- reader ticked, which may sit on different keys or on none.
+---
+--- **Two things are measured and the second is the one that bites.** That the item stands, and that
+--- [Unbind] beside it goes dead when nothing in the selection holds a real key. A synthetic number
+--- is not a key to take off, and it reads as one to any check written with `action.key ~= nil`.
+RegisterTest("Bulk menu: the key pair aims at the whole selection", {
+    description = "여럿 고른 메뉴의 [단축키 지정]이 고른 것 전부를 실은 창을 열고, [단축키 해제]가 배지만 골랐을 때 꺼지는가",
+    run = function()
+        local NAME = "Bulk key items"
+        local KEY = "CTRL-ALT-F10"
+
+        -- **서로 다른 키에 걸린 둘.** 키 그룹으로는 못 만드는 상태이고, 벌크가 그 상태를
+        -- 창까지 나르는지가 이 테스트의 절반이다.
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F11" })
+        ApplyBindings()
+
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            DebindKeyCaptureFrame:Hide()
+        end)
+
+        local function OpenBulkMenu(actions)
+            Menu.GetManager():CloseMenus()
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupBulkDropdownMenu, actions)
+            return Menu.GetManager():GetOpenMenu()
+        end
+
+        local function FindItem(menu, text)
+            local found
+            menu:EnumerateElementDescriptions(function(_, description)
+                if MenuUtil.GetElementText(description) == text then
+                    found = description
+                end
+            end)
+            return found
+        end
+
+        local menu = OpenBulkMenu({ first, second })
+        if not menu then
+            return Fail(NAME, "메뉴가 안 떴다")
+        end
+
+        local unbind = FindItem(menu, LLL["UNBIND"])
+        if not unbind or not unbind:IsEnabled() then
+            return Fail(NAME, "진짜 키를 든 선택인데 [단축키 해제]가 꺼져 있다")
+        end
+
+        local item = FindItem(menu, LLL["ACTION_SET_KEY"])
+        if not item then
+            return Fail(NAME, format("[%s] 항목이 없다", LLL["ACTION_SET_KEY"]))
+        end
+
+        item:Pick(MenuInputContext.MouseButton, "LeftButton")
+
+        if not DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+        end
+
+        local armed = DebindKeyCaptureFrame.actions or {}
+        local seen = {}
+        for _, action in ipairs(armed) do
+            seen[action] = true
+        end
+        if #armed ~= 2 or not seen[first] or not seen[second] then
+            return Fail(NAME, format("고른 것 전부가 안 실렸다 - %d개", #armed))
+        end
+        DebindKeyCaptureFrame:Hide()
+
+        -- **합성 번호만 든 선택.** 여기서 [단축키 해제]가 살아 있으면 뗄 것이 없는데 뗄 수
+        -- 있다고 말하는 것이고, 눌러도 아무 일이 안 일어난다.
+        local badged = InsertAction({
+            type = Constants.SPELL,
+            value = 3,
+            key = DebindPrivate.NextSyntheticKey(),
+            imported = "SHIFT-Q",
+        })
+        ApplyBindings()
+
+        menu = OpenBulkMenu({ badged })
+        if not menu then
+            return Fail(NAME, "두 번째 메뉴가 안 떴다")
+        end
+        unbind = FindItem(menu, LLL["UNBIND"])
+        if not unbind then
+            return Fail(NAME, format("[%s] 항목이 없다", LLL["UNBIND"]))
+        end
+        if unbind:IsEnabled() then
+            return Fail(NAME, "합성 번호뿐인데 [단축키 해제]가 켜져 있다")
+        end
+
+        return Pass(NAME, "고른 둘이 창에 실렸고, 배지만 골랐을 때 해제가 꺼졌다")
+    end,
+})
+
 --- The mode's own way in. **Four things have to line up for one press, and three of them are silent
 --- when they do not**: the widget key the frame reaches for (`BindModePortrait` -- a wrong one is a
 --- nil index, but only when someone presses it), the XML `OnClick`, the keyboard being switched on

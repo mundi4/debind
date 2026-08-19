@@ -2242,9 +2242,10 @@ function DebindKeyHeaderMixin:Init(elementData)
 	self:UpdateCollapsedState(elementData.collapsed == true);
 
 	if (type(elementData.key) == "number") then
-		-- **A key group whose key has not been decided yet.** What tells two of these apart is the
-		-- key their sender had them on, carried by `importedFrom`; the number they are stored under
-		-- is ours and is never shown.
+		-- **A key group whose key has not been decided yet.** The number it is stored under is ours and
+		-- is never shown. One that arrived is named by the key it came in on (`importedFrom`); one the
+		-- reader unbound has nothing to be named by and reads as the client's `NOT_BOUND`. Either way
+		-- the summary beside it (`UpdateSummary`) is what separates two of them.
 		--
 		-- Tinted while any of it is still badged, greyed once it is not. Both are true of it and
 		-- the colour says which one the reader is looking at: a set waiting on a decision, or one
@@ -5905,7 +5906,10 @@ local function CaptureLabel(actions)
 
 	local key, shared = SharedKeyOf(actions);
 	if (shared) then
-		return KeyGroupLabel(key);
+		-- **The heading's words, arrival and all.** A set that arrived is named by the key it came
+		-- in on, and this prompt calling it something else would put one set under two names inside
+		-- a single press.
+		return KeyGroupLabel(key, DebindPrivate.ArrivalKeyOf(actions));
 	end
 	return format(LLL["BULK_MENU_TITLE"], #actions);
 end
@@ -5917,7 +5921,7 @@ end
 --- **It asks in a dialog** (`KeyCapture.lua`). The other shape - arming the bind mode with the set
 --- and letting the overlay name it instead of pointing at a row - was built, stood beside this one
 --- while the two were compared, and lost; the mode aims at the row under the cursor and nothing
---- else. What separates them is in `devdocs/asking-for-a-key.md`.
+--- else. What separates them is in `devdocs/legacy/asking-for-a-key.md`.
 ---
 --- **The occupied-key question is asked by occupancy and not by size.** It used to be the set's
 --- question alone, with a single action moving in beside whatever was there and saying nothing - a

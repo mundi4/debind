@@ -30,9 +30,11 @@ local KEYS_TO_SAVE       = {
     petbattle = true,
     priority = true,
     seq = true,
-    -- **Which batch this action came in on**, and what quarantines it: while it is set the action
-    -- is in the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying
-    -- yes.
+    -- **The key this action came in on**, and what quarantines it: while it is set the action is in
+    -- the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying yes.
+    -- `true` where it arrived on no key at all, and a string is the sender's key, which is what the
+    -- heading calls a set that is still waiting (`GetKeyDisplayText`). It used to be the batch's id,
+    -- from when a string with no keys in it needed something to hold a set together.
     --
     -- **Nothing else about the arrival is stored.** There used to be two more fields here -- the
     -- group inside the batch, and its place in that group -- because a string sent without keys had
@@ -1300,6 +1302,30 @@ end
 --- Everything that takes 1..n actions and has to behave differently for the two reads it, so it is
 --- here rather than in either caller - two copies of this drift, and the day they do, one window is
 --- drawing what another one is not doing.
+--- The key these **arrived** on, when they all arrived on the same one. `nil` where any of them
+--- came in on a different key, came in on none, or was never an arrival at all.
+---
+--- Separate from the key they are on now, which for anything still badged is a synthetic number
+--- (`KeyMapper`). Three screens name a waiting set by this and they have to name it the same, so
+--- the walk is here rather than repeated at each of them.
+function DebindPrivate.ArrivalKeyOf(actions)
+    if (actions == nil) then
+        return nil;
+    end
+
+    local from;
+    for i = 1, #actions do
+        local imported = actions[i].imported;
+        if (type(imported) == "string") then
+            if (from ~= nil and from ~= imported) then
+                return nil;
+            end
+            from = imported;
+        end
+    end
+    return from;
+end
+
 function DebindPrivate.SharedKeyOf(actions)
     if (actions == nil or #actions == 0) then
         return nil, false;

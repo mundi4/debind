@@ -186,6 +186,16 @@ L["DELETE"] = "Delete"
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
 L["OVERVIEW_NO_KEY"] = NOT_BOUND
+--- What a heading says in that place instead, for a set that arrived and has not been given a key
+--- yet: **the key it came in on**, which is the sender's and never this reader's.
+---
+--- "From" and not "Was". The set was never on that key here, so a past tense would be describing
+--- something this profile never held. "Was" is left free for the key a reader had before unbinding
+--- a set of their own, which is the one place it would be true.
+---
+--- It goes when the badge does. Accepting drops the key, and that is deliberate: a binding nobody
+--- uses is not kept around so it can be read later (`GetKeyDisplayText`).
+L["OVERVIEW_IMPORTED_FROM_KEY"] = "From %s"
 -- What a folded key group's heading says after the first action's name: how many more are under it.
 -- **Not a total** - the one being named is not counted again, so a key with two actions reads
 -- "Charge +1".
