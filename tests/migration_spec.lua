@@ -835,5 +835,80 @@ return function(DebindPrivate)
         check(action.importedTypo == nil, "정리가 아무것도 안 걷어낸다 - 위 검사가 무의미해진다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 되돌린 빌드는 자기보다 새 프로필을 안 건드린다
+    --
+    -- `MigrateDB`가 "이미 최신"과 "미래에서 왔다"를 한 `return`에 묶고 있어서, 되돌린 빌드가
+    -- 그냥 지나쳐 `CleanUpDB`까지 갔다. 거기가 이 빌드의 `KEYS_TO_SAVE`에 없는 액션 필드를
+    -- 전부 지우고, 내용을 못 알아본 캐릭터 항목을 통째로 뗀다. `db.dbver`는 높은 채로 남아
+    -- 마이그레이션이 다시 돌 근거가 없어진다. **조용하고 되돌릴 수 없다.**
+    --
+    -- 게임에서 재현하려면 애드온을 실제로 내려야 하고, 한 번 밟으면 그 프로필이 없어진 뒤다.
+    -- 그래서 여기 박아둔다. `devdocs/guarding-against-a-downgrade.md`.
+    ---------------------------------------------------------------------------
+
+    --- 이 빌드보다 한 판 위의 프로필. 액션에도 캐릭터 항목에도 **이 빌드가 모르는 이름**이
+    --- 하나씩 들어 있다. 그 둘이 지워지는 것이 이 버그다.
+    local function NewerProfile()
+        return {
+            dbver = Constants.DB_VERSION + 1,
+            shared = {
+                GENERAL = { { type = "spell", value = 1, key = "F1", seq = 1,
+                    somethingAddedLater = { "kept" } } },
+                classes = {},
+            },
+            -- **비어 보이지만 안 비었다.** `HasCharContent`는 자기가 아는 것만 세므로, 새 판이
+            -- 새 이름으로 담은 내용은 안 보이고 항목이 통째로 떨어져 나간다.
+            characters = {
+                [GUID] = { name = "Tester", layers = {}, somethingAddedLater = { "kept" } },
+            },
+            migrated = {},
+        };
+    end
+
+    local function NewerInit()
+        _G.DebounceVars = nil;
+        _G.DebounceVarsPerChar = nil;
+        _G.DebindVars = NewerProfile();
+        DebindPrivate.InitDB();
+    end
+
+    test("새 프로필을 만나면 물러선다", function()
+        NewerInit();
+        check(DebindPrivate.profileIsNewer == true, "물러서지 않았다");
+    end);
+
+    test("새 프로필은 들어온 그대로 남는다", function()
+        NewerInit();
+
+        local db = _G.DebindVars;
+        check(db.dbver == Constants.DB_VERSION + 1,
+            "dbver가 내려앉았다. 다시 올라가도 마이그레이션이 돌 근거가 없어진다");
+        check(db.shared.GENERAL[1].somethingAddedLater ~= nil,
+            "이 빌드가 모르는 액션 필드가 지워졌다");
+        check(db.characters[GUID] ~= nil,
+            "캐릭터 항목이 통째로 떨어졌다");
+    end);
+
+    -- 로그아웃 경로. 이벤트를 안 걸어서 게임에서는 안 불리지만, **불려도 그 표에 못 닿는
+    -- 것**이 물러선다는 말의 내용이다. 물러설 때 쥐여준 빈 프로필은 떨어져 있어서
+    -- `LayerArray`도 `db.global`도 `_G.DebindVars`가 아니다.
+    test("물러선 뒤에는 정리가 돌아도 새 프로필에 안 닿는다", function()
+        NewerInit();
+        DebindPrivate.CleanUpDB();
+
+        local db = _G.DebindVars;
+        check(db.shared.GENERAL[1].somethingAddedLater ~= nil,
+            "정리가 새 프로필의 액션 필드를 걷어냈다");
+        check(db.characters[GUID] ~= nil, "정리가 캐릭터 항목을 뗐다");
+    end);
+
+    -- 되돌아온 자리. 물러섰던 세션 다음에 정상 프로필로 들어오면 깃발이 서 있으면 안 된다.
+    test("정상 프로필로 돌아오면 깃발이 내려간다", function()
+        NewerInit();
+        FreshInit();
+        check(not DebindPrivate.profileIsNewer, "깃발이 선 채로 남았다");
+    end);
+
     return T;
 end

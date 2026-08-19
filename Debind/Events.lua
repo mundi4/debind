@@ -46,6 +46,18 @@ local function RefreshIdentity()
 end
 
 function Events.PLAYER_LOGIN()
+    -- **Stood down, so this is where the addon ends.** It returns above the eight
+    -- `RegisterEvent` lines below, and the only two registered at file scope are `ADDON_LOADED`
+    -- and `PLAYER_LOGIN`, so this one return leaves the addon listening to nothing at all. That is
+    -- also why `PLAYER_LOGOUT` never gets to call `CleanUpDB` on the way out.
+    --
+    -- `RunLegacyMigration` is the reason the return has to be *here* rather than only in `InitDB`:
+    -- it reaches the stored table by a different path, this one.
+    if (DebindPrivate.profileIsNewer) then
+        DebindPrivate.ReportNewerProfile();
+        return;
+    end
+
     -- **Everything that happens here must be synchronous.** UpdateBindings below has to be up in
     -- the same tick as PLAYER_LOGIN for the addon to survive a reconnect into a boss encounter
     -- (see the comment on ACTIVE_PLAYER_SPECIALIZATION_CHANGED). If importing the old

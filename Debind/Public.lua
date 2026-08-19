@@ -63,6 +63,15 @@ function DebindPublic.UnregisterCallback(target, eventname)
 end
 
 function DebindPublic:ToggleUI()
+	-- **Stood down, so there is no window to open.** What would come up is the empty profile
+	-- `StandDown` handed out, and the user would start putting bindings into a place that saves
+	-- nothing (`Profile.lua`). The refusal sits here rather than in the slash handler because the
+	-- addon compartment button comes through here too, and it is the same shape as the three
+	-- branches below: press something and have nothing happen, and that reads as broken.
+	if (DebindPrivate.profileIsNewer) then
+		DebindPrivate.ReportNewerProfile();
+		return
+	end
 	if (DebindFrame:IsShown()) then
 		DebindFrame:Hide();
 		return
@@ -126,6 +135,21 @@ SlashCmdList["DEBIND"] = function(msg)
 	for s in msg:gmatch("%S+") do
 		tinsert(chunks, s)
 	end
+
+	-- `/deb reset` and `/deb reset confirm`, and **only while the addon has stood down** from a
+	-- profile newer than itself (`Profile.lua`). Nothing here is a general "wipe my settings"
+	-- command; the two steps exist because that is the one state with no other way out.
+	if (DebindPrivate.HandleNewerProfileReset(chunks)) then
+		return;
+	end
+
+	--@debug@
+	-- Plants the development seed and reloads (`DevSeed.lua`). No `SLASH_` global of its own: this
+	-- is the addon's command and the branch is one more word on it.
+	if (DebindPrivate.HandleDevSeedCommand(chunks)) then
+		return;
+	end
+	--@end-debug@
 
 	if (chunks[1] == "custom1" or chunks[1] == "custom2") then
 		DebindPublic:SetCustomTarget(chunks[1], chunks[2]);

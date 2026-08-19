@@ -4332,6 +4332,77 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: Standing down from a profile newer than this build
+-----------------------------------------------------------
+
+-- **The half of standing down that the headless spec cannot reach.** `migration_spec` pins the data
+-- side, meaning that the stored table comes out exactly as it went in. It has no window and no
+-- slash command, so the two doors on this side are only checkable here.
+--
+-- The real decision is made at ADDON_LOADED and cannot be remade inside a session, so the flag is
+-- set by hand. That is the whole of what the flag does: everything downstream of it reads
+-- `profileIsNewer` and nothing else.
+--
+-- **`/deb reset confirm` is deliberately not exercised.** It empties `_G.DebindVars` and reloads,
+-- which is the tester's own settings, and the runner has no way to give them back. What is checked
+-- instead is the two things that would make the second step reachable by accident: that the first
+-- step deletes nothing, and that the command does not exist at all outside this state.
+RegisterTest("Stood down: the window refuses and the reset asks twice", {
+    description = "자기보다 새 프로필 앞에서 창이 안 열리고, /deb reset 1단계가 아무것도 안 지우는가",
+    run = function()
+        local NAME = "Stand down"
+
+        -- **The negative first.** `/deb reset` in ordinary operation must fall through to the
+        -- window, not wipe the account, and asking before the flag is up is the only way to see
+        -- that the guard inside the handler is the thing answering.
+        if DebindPrivate.HandleNewerProfileReset({ "reset" }) then
+            return Fail(NAME, "물러선 상태가 아닌데 /deb reset이 먹혔다. 상시 초기화 명령이 돼 있다")
+        end
+
+        local restore = DebindPrivate.profileIsNewer
+        AddTeardown(function() DebindPrivate.profileIsNewer = restore end)
+
+        DebindFrame:Hide()
+        AddTeardown(function() DebindFrame:Hide() end)
+
+        DebindPrivate.profileIsNewer = true
+
+        -- The refusal sits ahead of the toggle in `ToggleUI`, so a closed window has to stay
+        -- closed. Opening it would hand the user a window whose every edit is thrown away.
+        DebindPublic:ToggleUI()
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "물러선 상태에서 창이 열렸다. 여기서 넣는 바인딩은 저장이 안 된다")
+        end
+
+        -- The compartment button is a second door into the same call, and it is the one a user
+        -- reaches for when a slash command looks broken.
+        Debind_CompartmentFunc()
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "구획 버튼으로는 창이 열렸다")
+        end
+
+        local before = _G.DebindVars
+        if not DebindPrivate.HandleNewerProfileReset({ "reset" }) then
+            return Fail(NAME, "물러선 상태인데 /deb reset을 아무도 안 받았다")
+        end
+        if _G.DebindVars ~= before then
+            return Fail(NAME, "1단계가 저장된 표를 갈아치웠다. 확인을 묻기도 전에 지워진다")
+        end
+
+        -- A word that is not the token must not count as one. `confirm` is the only second word,
+        -- and anything else has to land back on the first step.
+        if not DebindPrivate.HandleNewerProfileReset({ "reset", "yes" }) then
+            return Fail(NAME, "두 번째 낱말이 다르니 명령 자체가 안 받아졌다")
+        end
+        if _G.DebindVars ~= before then
+            return Fail(NAME, "confirm이 아닌 낱말에도 지워졌다")
+        end
+
+        return Pass(NAME)
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: Across a /reload
 -----------------------------------------------------------
 

@@ -2,6 +2,8 @@ local _, DebindPrivate = ...;
 local NUM_SPECS          = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player")));
 
 local Constants          = DebindPrivate.Constants;
+local L                  = DebindPrivate.L;
+local ERROR_COLOR        = _G.ERROR_COLOR;
 local luatype            = type;
 local dump               = DebindPrivate.dump;
 local LayerArray         = {};
@@ -524,12 +526,65 @@ function DebindPrivate.BindDerivedTables()
     end
 end
 
+--- The stored profile was written by a build newer than this one. **Stand down without touching
+--- one thing in it.**
+---
+--- There is nothing to handle. `dbver` having gone up means the format changed, and the only code
+--- that knows what changed and how is the newer code; what an older build can do is not interpret
+--- but step aside. Leave it alone and the file survives: WoW writes the global back out at logout
+--- exactly as it came in, so as long as nobody edits that table it goes out untouched.
+---
+--- **The empty profile handed out here is a detached table, not `_G.DebindVars`.** That is the
+--- whole mechanism. The rest of the addon goes on reading `DebindPrivate.db` and `LayerArray` as
+--- always, but what those end at is the table built here rather than the one that gets saved, so
+--- a write nobody expected still cannot reach disk.
+---
+--- `devdocs/guarding-against-a-downgrade.md`.
+local function StandDown()
+    DebindPrivate.playerGUID = UnitGUID("player");
+    DebindPrivate.db = {
+        global = { shared = { classes = {} }, characters = {}, migrated = {} },
+        char = { layers = {} },
+    };
+    DebindPrivate.BindDerivedTables();
+    DebindPrivate.LoadProfile();
+end
+
 function DebindPrivate.InitDB()
     local db = _G.DebindVars;
     if (not db) then
         db = {};
         _G.DebindVars = db;
     end
+
+    --@debug@
+    -- The other answer to the same condition, and it stands in the same place: a development build
+    -- swaps a seed in and carries on where a release stands down. It also answers the empty client
+    -- and the `/deb seed` command, which is why the call is not inside the branch below. By the
+    -- time that branch is reached the seed has already made `db.dbver` current.
+    -- `devdocs/setting-up-a-dev-profile.md`.
+    --
+    -- Asked for rather than called outright, because the headless harness loads a hand written list
+    -- of files and `DevSeed.lua` is not on it (`tests/run.lua`). It must not be either, or every
+    -- spec starting from an empty profile would be handed the seed instead. In the game the halves
+    -- are never apart: the TOC line and this block are removed by the same packager pass.
+    if (DebindPrivate.ApplyDevSeed) then
+        db = DebindPrivate.ApplyDevSeed(db);
+    end
+    --@end-debug@
+
+    -- **"already current" and "came from the future" are different answers.** `MigrateDB` ties them
+    -- to one `return`, which is right for it, since either way there is no migration to run. That
+    -- is not the same as being safe to walk past. Everything below here edits the stored table: the
+    -- `CleanUpDB` at the tail strips every action field missing from this build's `KEYS_TO_SAVE`
+    -- and detaches a character entry whose content it does not recognise, and `db.dbver` stays high
+    -- afterwards so nothing will ever migrate it back.
+    DebindPrivate.profileIsNewer = (db.dbver ~= nil and db.dbver > Constants.DB_VERSION);
+    if (DebindPrivate.profileIsNewer) then
+        StandDown();
+        return;
+    end
+
     db.dbver = db.dbver or Constants.DB_VERSION;
 
     db.shared = db.shared or {};
@@ -558,6 +613,63 @@ function DebindPrivate.InitDB()
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
     DebindPrivate.CleanUpDB()
+end
+
+--- Says out loud that the addon stood down. Once at login (`Events.lua`), and again every time
+--- somebody tries to open the window (`Public.lua`).
+---
+--- **Chat, not a dialog.** A line at login can scroll past, but the first thing anyone does when an
+--- addon looks broken is type its slash command, and that command still answers with no events
+--- registered at all. The way back opens again whenever they ask, so no one line is the last
+--- chance. There is nothing here to answer either: no choice, no deadline, and the thing to do is
+--- outside the game.
+---
+--- **The order of the three is the point.** The screen they are looking at is one where every key
+--- they set is dead, so the first thing they have to know is that the settings are still there.
+--- Miss that and they go and delete their own SavedVariables, and the file we kept by not touching
+--- it dies that way instead.
+function DebindPrivate.ReportNewerProfile()
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE_KEPT"], ERROR_COLOR:GetRGBA());
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE_WHY"], ERROR_COLOR:GetRGBA());
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE_RESET"], ERROR_COLOR:GetRGBA());
+end
+
+--- `/deb reset`, in two steps. Returns whether this call handled the command.
+---
+--- **It is typed, not pressed, so there is no such thing as a slip.** One mistaken click presses a
+--- popup button; this has to be meant twice. The token to type is printed directly above the line
+--- it is typed on, so there is nothing to count and nothing to remember, and it does not depend on
+--- the login message still being on screen.
+---
+--- **No token with a repeated letter in it** (`reallllllly` and its kind). The default client
+--- cannot copy text out of the chat frame, so the user reads it off the screen and types it again,
+--- and miscounting the letters makes nothing happen at all, which reads as one more thing broken.
+--- What a door has to count is the mistaken attempt, not the deliberate one.
+---
+--- **The token is not translated.** Typing Hangul into a Korean client would be strange, and every
+--- command this addon has is already English (`/debind`, `/deb`, `/debounce`).
+---
+--- **This is the one path allowed to change the stored table while stood down.** What it deletes is
+--- the newer profile, and it is parked nowhere, so saying it cannot be undone is simply true. Not
+--- parking it is what the user chose by typing this.
+---
+--- Replacing `_G.DebindVars` at runtime is safe *here*, where it is not safe in general: nothing is
+--- holding that table. `DebindPrivate.db` and `LayerArray` are looking at the detached table
+--- `StandDown` built, and `PLAYER_LOGOUT` was never even registered (`Events.lua`).
+function DebindPrivate.HandleNewerProfileReset(chunks)
+    if (not DebindPrivate.profileIsNewer or chunks[1] ~= "reset") then
+        return false;
+    end
+
+    if (chunks[2] == "confirm") then
+        _G.DebindVars = {};
+        ReloadUI();
+        return true;
+    end
+
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_RESET_WARNING"], ERROR_COLOR:GetRGBA());
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_RESET_COMMAND"], ERROR_COLOR:GetRGBA());
+    return true;
 end
 
 function DebindPrivate.GetProfileLayer(layerID)

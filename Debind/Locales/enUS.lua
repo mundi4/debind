@@ -862,6 +862,35 @@ L["UNNAMED_ACTION"] = "(Unnamed)"
 -- **One chat line.** This lands in the same frame as loot and quest text, so it says the one thing
 -- and stops; the addon name is already on the front of it (`_MESSAGE_PREFIX`).
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique is installed, so unit frame bindings here do not fire."
+-- **The addon has stood down from settings written by a newer version of itself**, and will not
+-- read or write one byte of them (`Profile.lua`). These three go out at login and again every time
+-- somebody tries to open the window.
+--
+-- **The order is the point, and the first one is why.** The screen they are looking at is one where
+-- every key they set is dead, so the first thing they have to be told is that the settings are
+-- still there. Miss that and they go and delete their own settings file, and the file we saved by
+-- not touching it dies that way instead.
+--
+-- Three lines rather than one sentence, because they are three separate things: what is safe, what
+-- happened, and what they can do about it. A chat line carries one of those.
+--
+-- **No version number anywhere in them.** The one this build could name is its own, which is the
+-- version the reader is being told to move off; the number they need is the one they had, and
+-- nothing here knows it.
+L["NEWER_PROFILE_MESSAGE_KEPT"] = "Everything you set is still here, untouched. Update Debind and you get it all back."
+L["NEWER_PROFILE_MESSAGE_WHY"] = "What is saved was written by a newer version of Debind than the one running now, and this version cannot read it."
+L["NEWER_PROFILE_MESSAGE_RESET"] = "To throw it away and start over on this version instead, type |cnHIGHLIGHT_FONT_COLOR:/deb reset|r."
+-- The first of the two steps. It says what goes and that it is final, and prints the token to type
+-- on the line directly above where it gets typed, so there is nothing to count and nothing to
+-- remember (`Profile.lua`).
+--
+-- **"on every character of this account" is not decoration.** One file holds the whole account, so
+-- somebody typing this on an alt they barely play is about to delete their main's keys too.
+L["NEWER_PROFILE_RESET_WARNING"] = "This deletes everything Debind has saved, on every character of this account. It cannot be undone."
+-- **The command goes at the end of the line**, so that the thing to be typed is the last thing read
+-- and sits immediately above the typing. The token itself is never translated: every command this
+-- addon has is English already.
+L["NEWER_PROFILE_RESET_COMMAND"] = "To go ahead, type this: |cnHIGHLIGHT_FONT_COLOR:/deb reset confirm|r"
 -- 창을 덮는 판. **"왜 이 화면을 보고 있나"를 먼저 답한다** - 사용자는 자기가 무언가를
 -- 껐다는 사실과 이 화면을 연결하지 못한다. 그다음이 "그게 뭔데"이고, 마지막이 부탁이다.
 -- 순서를 뒤집으면(부탁부터) 이유는 안 읽히고 [필요 없음]만 눌린다.
