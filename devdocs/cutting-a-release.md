@@ -7,8 +7,15 @@ Pushing a tag is the deploy. There is no other button.
 #   1. add the new version's section to CHANGELOG.md
 git commit -am "Write the 3.1.7 note"
 git tag v3.1.7
-git push origin main --follow-tags
+git push origin main
+git push origin v3.1.7          # this push is the deploy
 ```
+
+**The tag is pushed by name, on its own line.** It used to say `git push origin main
+--follow-tags`, which pushes **annotated** tags and nothing else. Every tag this project has ever
+cut is lightweight (`git cat-file -t v3.1.6` answers `commit`), so that command pushed main,
+printed nothing about a tag, and deployed nothing — the one failure this file exists to prevent,
+in the shape that looks like success. Caught while cutting 3.2.
 
 `.github/workflows/build.yml` fires on `push: tags` and hands the checkout to
 [BigWigsMods/packager](https://github.com/BigWigsMods/packager), which builds the zip and uploads
