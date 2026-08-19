@@ -11,10 +11,18 @@
 |---|---|---|
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
 | **다음 (3.2)** | 익스포트 / 임포트 | `building-export-import.md`<br>`showing-off-spec-actions.md`<br>(`legacy/renumbering-a-key-group.md` — 끝났다) |
-| **그다음 (3.3)** | 커스텀 상태 재설계 | `.zzz/custom-states-redesign.md` |
+| **그다음 (3.3)** | 커스텀 상태 재설계<br>action에 `conditions` 도입 | `.zzz/custom-states-redesign.md`<br>`straightening-out-action-and-binding.md` |
 
 **버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 위 둘은 기능 추가라 마이너를
 올리는 자리로 보고 적어둔 것이지 확정된 태그가 아니다.
 
 **3.3은 3.2 뒤다.** 전송 포맷이 커스텀 상태를 `$state1..5`라는 지금 이름 그대로 싣기 때문에
 (`Export.lua`), 이름 규칙을 먼저 갈면 아직 검증이 안 끝난 전송 포맷이 같이 흔들린다.
+
+**`conditions`가 3.3과 한 칸인 것은 둘이 같은 필드를 옮기기 때문이다.** 커스텀 상태 재설계가
+`$state1..5`를 이름으로 갈고, `conditions`가 바로 그 필드들을 조건 표 안으로 넣는다. 따로 내면
+같은 필드를 두 번 이사시키는 마이그레이션이 둘 생긴다. `dbver`와 `SCHEMA_VERSION` 범프도 3.3이
+어차피 치르는 값이라, 얹는 쪽이 공짜다.
+
+`conditions`가 든 문서에는 3.3과 무관한 항목도 있다. **`binding`에서 순서 필드를 빼는 것은 저장
+형식을 안 건드리므로 이 배정 밖이고 아무 때나 낼 수 있다.**
