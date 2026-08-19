@@ -34,7 +34,7 @@ Run: `npm test`, or `node tests/run.js` if there is no `lua` binary.
 
 ## 2. Static checks — `npm run check`
 
-Most of these are self-explanatory. Two are not.
+Most of these are self-explanatory. Three are not.
 
 **`check:snippets`** parses every secure snippet body. Snippets are Lua but they live inside
 strings, so `luacheck` cannot see into them, and a body the restricted environment fails to
@@ -56,6 +56,13 @@ Two rules follow from how probes bake:
 
 Anything beyond that means the live table is changing bodies. If you edited a body deliberately,
 `node tools/check-snippet-golden.js --update` and read the diff.
+
+**`check:state-eval`** bakes `EVAL_SNIPPET` and holds it against
+`Constants.STATE_EVAL_EXPRESSIONS`, which is where the state loop gets its own lines. The loop
+measures on its 0.2s beat and the click path measures at the press, so if the two read one axis
+differently the same state answers two ways and nothing below them can tell which answer was
+wrong. It was a load-time `assert` under `Constants.DEBUG` until 2026-08-20, which meant the only
+thing that ever ran it was logging in on a development client.
 
 ## 3. In-game tests — `DebindTest`
 

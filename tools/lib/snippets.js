@@ -152,6 +152,37 @@ function blankNonCode(src) {
 }
 
 /**
+ * Collects the `local X_SNIPPET = [[body]]` pieces by name. An argument carrying one of those
+ * names is only a name, so this is what turns it back into a body -- and it is also where a tool
+ * that wants one piece on its own gets it.
+ *
+ * `code` is the same-length mask `blankNonCode` produces. Pass it if you already have one.
+ */
+function collectSnippetLocals(src, code) {
+    code = code || blankNonCode(src);
+
+    const snippetLocals = new Map();
+    SNIPPET_LOCAL.lastIndex = 0;
+    let m;
+    while ((m = SNIPPET_LOCAL.exec(code))) {
+        const long = (() => {
+            for (let i = m.index + m[0].length; i < src.length; i++) {
+                const s = readLongString(src, i);
+                if (s) return { ...s, start: i };
+                if (src[i] === "\n" && src.slice(m.index, i).includes(";")) return null;
+            }
+            return null;
+        })();
+        if (long) {
+            // 본문 앞, 즉 `local X_SNIPPET =`와 여는 괄호 사이가 게이트가 적히는 자리다.
+            const head = src.slice(m.index, long.start);
+            snippetLocals.set(m[1], { body: long.body, gated: DEBUG_GATED.test(head) });
+        }
+    }
+    return snippetLocals;
+}
+
+/**
  * `Debind/`의 모든 스니펫 본문을 순서대로 넘긴다. 콜백 인자:
  *   { file, line, call, label, body }
  *
@@ -168,26 +199,10 @@ function forEachSnippet(srcDir, cb) {
         const code = blankNonCode(src);
 
         // 1. 조각으로 쓰이는 스니펫 지역변수를 먼저 모은다.
-        const snippetLocals = new Map();
-        SNIPPET_LOCAL.lastIndex = 0;
-        let m;
-        while ((m = SNIPPET_LOCAL.exec(code))) {
-            const long = (() => {
-                for (let i = m.index + m[0].length; i < src.length; i++) {
-                    const s = readLongString(src, i);
-                    if (s) return { ...s, start: i };
-                    if (src[i] === "\n" && src.slice(m.index, i).includes(";")) return null;
-                }
-                return null;
-            })();
-            if (long) {
-                // 본문 앞, 즉 `local X_SNIPPET =`와 여는 괄호 사이가 게이트가 적히는 자리다.
-                const head = src.slice(m.index, long.start);
-                snippetLocals.set(m[1], { body: long.body, gated: DEBUG_GATED.test(head) });
-            }
-        }
+        const snippetLocals = collectSnippetLocals(src, code);
 
         // 2. 호출마다 본문을 모아 넘긴다.
+        let m;
         CALLS.lastIndex = 0;
         while ((m = CALLS.exec(code))) {
             const openParen = m.index + m[0].length - 1;
@@ -213,4 +228,7 @@ function forEachSnippet(srcDir, cb) {
     }
 }
 
-module.exports = { readLongString, blankNonCode, collectBodies, forEachSnippet, CALLS, SNIPPET_LOCAL };
+module.exports = {
+    readLongString, blankNonCode, collectBodies, collectSnippetLocals, forEachSnippet,
+    CALLS, SNIPPET_LOCAL,
+};

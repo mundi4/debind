@@ -813,9 +813,9 @@ local EVAL_SNIPPET = [==[
 			-- 남은 축은 아예 안 잰다 - 순서가 곧 비용인 것은 그대로고, 이제 그 비용이 테이블
 			-- 조회가 아니라 C 호출이라 더 그렇다. 싼 것부터 놓는다.
 			--
-			-- 측정식은 `Constants.STATE_EVAL_EXPRESSIONS`와 **같아야 한다.** 문자열로 끼워
-			-- 넣으면 정적 검사가 본문을 못 찾으므로 리터럴로 쓰고, 어긋나면 로드 시점에
-			-- 터지게 해뒀다(이 파일 아래 `AssertMeasurementsAgree`).
+			-- **These have to match `Constants.STATE_EVAL_EXPRESSIONS`.** Written out rather than
+			-- interpolated in, because `tools/lib/snippets.js` cannot resolve an assembled body and
+			-- every snippet check then skips it. `tools/check-state-eval.js` holds the two together.
 			if (match and t.combat ~= nil) then
 				if (combat == nil) then
 					combat = PlayerInCombat()
@@ -1035,24 +1035,6 @@ local EVAL_SNIPPET = [==[
 		end
 	end
 ]==];
-
---- The two paths measure the same axes and must measure them **the same way**. The update loop
---- generates its lines from `Constants.STATE_EVAL_EXPRESSIONS`; the body above spells them out,
---- because a body assembled from interpolated strings is one `tools/lib/snippets.js` cannot
---- resolve, and an unresolvable body leaves every static check without a sound.
----
---- So the agreement is checked here instead, against the **baked** text -- `CONSTANTS.GROUP_RAID`
---- above is a number by then, which is the form the shared table holds.
----
---- Drift here is the worst kind of quiet: the poll and the press would answer differently for the
---- same state, and nothing downstream could tell which one was wrong.
-if (DebindPrivate.DEBUG) then
-	local baked = DebindPrivate.BakeSnippet(EVAL_SNIPPET);
-	for state, expr in pairs(Constants.STATE_EVAL_EXPRESSIONS) do
-		assert(baked:find(expr, 1, true),
-			format("EVAL_SNIPPET이 %s를 STATE_EVAL_EXPRESSIONS와 다르게 잰다: %s", state, expr));
-	end
-end
 
 --- 클릭 시점 평가. `DefaultClickFrame`의 OnClick을 감싼다.
 ---

@@ -42,7 +42,8 @@ npm run check                 # lint + test + every static check (run this befor
 ```
 
 Individual static checks: `check:locales`, `check:templates`, `check:xml`, `check:xml-methods`,
-`check:snippets`, `check:snippet-golden`, `check:export-fields`.
+`check:xml-anchors`, `check:snippets`, `check:snippet-golden`, `check:state-eval`,
+`check:export-fields`.
 
 There is no filter flag for a single spec — comment out entries in `tests/run.lua`'s spec list, or
 run the one file through the shim yourself.
