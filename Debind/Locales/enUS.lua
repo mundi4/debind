@@ -915,15 +915,51 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- nothing is being changed or repaired, they are saying they will have it, and that is the moment
 -- the keys start working.
 L["APPROVE_IMPORT"] = "Accept as mine"
--- The same thing for everything at once, which is the ordinary way out. **The number is in the
--- label** because there is no confirmation box, and the one useful thing such a box could have
--- said is how much is about to start working.
-L["APPROVE_ALL_IMPORT"] = "Accept all %d"
+-- The row above the two columns, which is the only thing on that row while anything is waiting.
+--
+-- **It names the state, and the two answers to it are in the menu it opens.** Two buttons stood
+-- here - [Accept all %d] and [Reject all %d] - and a label per answer meant the row could not be
+-- one control. Naming the state instead is what folds them: a reader who has not decided yet is
+-- told what there is to decide about, and both verbs are one press away.
+--
+-- **"Pending" is the client's word for exactly this** - something that arrived and is waiting on
+-- the reader to say yes or no (`COMMUNITIES_MEMBER_LIST_PENDING_INVITE_HEADER` = "Pending Invites
+-- (%d)", `CLUB_FINDER_PENDING_REQUESTS`). It is a third name for the state on this screen, after
+-- the filter tick's "Not Accepted Yet" and the menu items' "still waiting", and it earns that by
+-- being the only one of the three that has to stand **alone**: the other two sit inside a sentence
+-- or a verb that supplies what is being waited on, and a button on an empty row has neither.
+--
+-- **"Action" is the reader's word for the thing being counted** and this window already counts them
+-- that way (`OVERVIEW_NO_KEY_COUNT`). `|4` is the client's own plural form, resolved when the
+-- string is drawn rather than by `format`.
+L["IMPORT_PENDING"] = "%d Pending |4Action:Actions;"
+-- **Two facts, and the reader needs both before opening the menu.** What the state means - none of
+-- this is doing anything - and how far the count reaches, which is the one thing they cannot see
+-- from here (the same reason `APPROVE_ALL_IMPORT_DESC` has to say "wherever it went").
+--
+-- **It does not repeat the number**; the title is the button's own text and already carries it.
+L["IMPORT_PENDING_DESC"] = "These came in from a string and do nothing until you accept them - no key of yours behaves any differently while they wait. The count is everything still waiting anywhere in your bindings, including specializations you are not in."
+-- **Both mouse buttons, so neither is named.** Saying "left-click" would make the right one look
+-- like something else; saying both would spend a line on a distinction that does not exist here.
+L["IMPORT_PENDING_INSTRUCTION"] = "Click for what can be done to all of it."
+-- Accepting everything at once, which is the ordinary way out.
+--
+-- **The number is not here, and there is still no confirmation box.** It used to be - this was a
+-- button on the row above the columns and read "Accept all %d", with that number standing in for
+-- the box, since the one useful thing such a box could have said is how much is about to start
+-- working. What carries it now is the button this menu opens off, which reads `IMPORT_PENDING` and
+-- is on screen the whole time the menu is: the count is one widget away rather than gone, and it is
+-- the same count because both come from `CollectImportedActions`.
+--
+-- **"all" is the whole of the scope, and it means the profile.** The heading menu's items name the
+-- subset they gather instead (`KEY_HEADER_APPROVE`) precisely because "all" would overpromise
+-- there; here it does not.
+L["APPROVE_ALL_IMPORT"] = "Accept all"
 -- **It has to say "wherever it went"**, because the count includes actions on specializations you
 -- are not in, and those are on no list the reader can see from here.
 L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went - including other specializations. Their keys start working straight away."
 -- The other answer, and the design note always had the two side by side. **The same set as
--- [Accept all], opposite verb** - two buttons standing together must not quietly mean different
+-- [Accept all], opposite verb** - two items standing together must not quietly mean different
 -- amounts.
 --
 -- **The pair is accept/reject, and it must not be crossed with keep/discard.** Both are pairs the
@@ -933,8 +969,8 @@ L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherev
 -- let something continue, and the one fact quarantine exists to establish is that none of this is
 -- doing anything yet. The button would contradict the badge. ("Reject" not naming the removal is
 -- the smaller cost, and the prompt below spends one clause on it.)
-L["REJECT_ALL_IMPORT"] = "Reject all %d"
-L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The string it came from stays in the drawer, so you can bring it in again."
+L["REJECT_ALL_IMPORT"] = "Reject all"
+L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The string it came from stays in the Import tab, so you can bring it in again."
 -- **Why [Move to] and [Copy to] are dead on the multi-selection menu.** Neither names the act, since
 -- one string stands on both - and a sentence naming it would have to be two, saying the same thing
 -- about the same rows.
@@ -964,10 +1000,10 @@ L["REJECT_IMPORT"] = "Reject"
 --
 -- Its opposite number is `ORDER_ACCEPT_DESC`, which the menu borrows from the row's accept button.
 -- There was nothing to borrow for this half - no row carries a reject button.
-L["REJECT_IMPORT_DESC"] = "Removes this one. The string it came from stays in the drawer, so you can bring it in again."
+L["REJECT_IMPORT_DESC"] = "Removes this one. The string it came from stays in the Import tab, so you can bring it in again."
 -- **The second sentence is what makes this pressable.** Without it this reads as the destructive
 -- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
-L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the drawer, so you can bring it in again."
+L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the Import tab, so you can bring it in again."
 -- **The filter dropdown, one tick per value.** Two axes, and each is written out value by value
 -- rather than as one switch that hides a side, so that every tick means the same thing: show this
 -- too. A switch called "off-spec" would mean the opposite of its neighbours - ticking it would add
@@ -1016,13 +1052,13 @@ L["NO_ACTIONS_MATCH_FILTERS"] = "Nothing in this tab matches the filters. The dr
 -- Empty left-hand column for the same reason. Different from the one above: that list is one tab,
 -- this one is the whole keyboard.
 L["OVERVIEW_EMPTY_FILTERED"] = "Nothing matches the filters. The dropdown above this column has what is switched off."
--- The one thing a drawer row is for. **The second press is not a repeat of the first** - it puts
--- another copy in - so the label has to change, or "did that work" and "do it again" become the
--- same gesture.
+-- The accept button on the dialog a drawer row opens. **It used to be the row's own button too**,
+-- with a second wording for a row that had already been used; the row takes the click itself now
+-- and nothing is tracked about how many times it has been clicked.
 L["IMPORT_COMMIT"] = "Bring it in"
-L["IMPORT_COMMIT_AGAIN"] = "Bring in again"
--- **It asks before it does anything now**, so the tooltip says so: the press opens a dialog, and a
--- tooltip promising the action itself would have the reader looking for what changed.
+-- **The row's tooltip, since the row carries no label of its own.** It says the press opens a
+-- dialog rather than acting - a line promising the action itself would have the reader looking for
+-- what changed.
 L["IMPORT_COMMIT_DESC"] = "Asks which parts of it to take, then adds those to your bindings switched off. Nothing you press changes until you accept them."
 -- Everything picked turned out to have nowhere to go - the same two causes as
 -- `IMPORT_COMMITTED_SKIPPED`, with nothing left over to report a count against.
@@ -1078,11 +1114,15 @@ L["IMPORT_TITLE"] = "Import"
 --
 -- What survives from the old wording is the part that is still the point and still true: nothing is
 -- bound until the reader says so. That is the whole reason to open this tab without worrying.
-L["IMPORT_MENU_DESC"] = "Takes a string someone handed you and keeps it until you want it.|n|nBringing one in adds its actions switched off, so nothing you press changes until you accept them."
--- The drawer. **It is a place things pile up in, not a wizard**, so the empty state has to say
--- what fills it rather than what to do next - there is no next step until something is in there.
-L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nPaste a string somebody sent you and it will sit here until you decide what to do with it. Received strings are kept, so you can come back and finish later."
-L["IMPORT_DRAWER_COUNT"] = "%d received"
+L["IMPORT_MENU_DESC"] = "Keeps a Debind string you paste in until you want it.|n|nBringing one in adds its actions switched off, so nothing you press changes until you accept them."
+-- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills
+-- it rather than what to do next - there is no next step until something is in there.
+--
+-- **The instruction came out when the button moved.** It stood on the far bottom corner of the
+-- frame and this sentence was the only thing pointing at it; it stands directly above this text
+-- now, so telling the reader to press it is the screen describing what the screen already shows.
+-- What is left is the half a visible button cannot say: that anything landing here stays.
+L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nA string you paste will sit here until you decide what to do with it, and it is kept afterwards - so you can come back and finish later."
 L["IMPORT_PASTE"] = "Paste a string"
 L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
 -- The two halves of the game's own import dialog, which this one is shaped after: a caption over
@@ -1092,18 +1132,39 @@ L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
 -- repeat the instruction, and the instruction deliberately does not repeat the title.
 L["IMPORT_PASTE_INPUT_LABEL"] = "Text to import"
 L["IMPORT_PASTE_INSTRUCTIONS"] = "Paste the Debind string here"
--- The one thing about the sender that is ever stored, and only because the reader typed it. The
--- string itself carries no character name on purpose.
-L["IMPORT_PASTE_SOURCE"] = "Who it came from (optional)"
-L["IMPORT_PASTE_ACCEPT"] = "Add to drawer"
--- What a batch is called when no source was typed. Used as the row title and in the delete prompt,
--- so it has to read as a thing rather than as a blank.
-L["IMPORT_BATCH_UNNAMED"] = "Received string"
+-- **A name, not a sender.** It asked "Who it came from", which presumes something the game cannot
+-- do: no string is sent anywhere. One is copied off a page, out of a chat window, out of your own
+-- notes - and the reader pasting their own backup had nothing to put there, which is the case a
+-- name is worth most in. The client asks beside its own paste box and asks for a name
+-- (HUD_CLASS_TALENTS_IMPORT_DIALOG_NAME_LABEL, "New Loadout Name").
+--
+-- No noun in front of it: the dialog title says what is being named.
+L["IMPORT_PASTE_NAME"] = "Name (optional)"
+-- **The client's own, taken whole.** Its loadout import dialog is this dialog - a box to paste
+-- into, an optional name beside it, one button to finish - and that button is this global. So the
+-- word is the game's in every locale and stays the game's if it ever changes it; enUS assigns it
+-- and no other locale file carries the key.
+--
+-- It read "Add to drawer", which named a place nothing on screen is called and made the press
+-- sound like filing rather than importing. The tab is Import and this is the button that does it.
+L["IMPORT_PASTE_ACCEPT"] = HUD_CLASS_TALENTS_IMPORT_LOADOUT_ACCEPT_BUTTON
+-- The row's own line: the sender's class, already wrapped in that class's colour, then the date it
+-- arrived. **Two of the same conversion, so they are numbered** - a locale that wants the date first
+-- can swap them, and unnumbered the swap would silently print them in the wrong order.
+L["IMPORT_BATCH_LINE"] = "%1$s  %2$s"
 L["IMPORT_BATCH_COUNTS"] = "%1$d keys, %2$d actions"
-L["IMPORT_BATCH_AGE"] = "%s ago"
-L["IMPORT_BATCH_FROM_CLASS"] = "From a %s"
-L["IMPORT_BATCH_DELETE"] = "Remove from drawer"
-L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r from the drawer?|n|nThis is the only copy. Anything you already added to your bindings stays where it is."
+-- The free text typed at paste time, on the row's tooltip. **The only human writing about a
+-- batch**, and optional - so it is a line that may not be there rather than the name the batch is
+-- known by. The class it came from is in that name already (`IMPORT_BATCH_LINE`), which is why the
+-- line that used to say it here is gone.
+-- **The first line is the title**: this popup has no title bar, so it is what the reader reads
+-- first and it has to name what goes.
+--
+-- **It said "from the drawer".** Nothing on this screen is called a drawer - the tab says Import
+-- and the list has no name - so the phrase asked the reader to remove something from a place they
+-- have never been shown. What it is being removed from is this list, and the popup is standing on
+-- top of it.
+L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r?|n|nThis is the only copy. Anything you already added to your bindings stays where it is."
 -- **Four, where the decoder reports eight.** Each of its reasons is a different step, but a reader
 -- has three things they might do about one - look again at what they pasted, update, ask for it
 -- again - and a sentence per step would spread those three over eight that all end the same way.
@@ -1121,7 +1182,7 @@ L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries i
 -- there is nothing for either to show. Switching it off in the AddOns list is the one way here.
 L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind Storage|r keeps, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Storage comes with it."
 L["EXPORT_TITLE"] = "Export"
-L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to send them."
+L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to put them in."
 L["EXPORT_SELECT_ALL"] = "Select all"
 L["EXPORT_SELECT_ALL_COUNT"] = "Select all (%d)"
 L["EXPORT_GENERATE"] = "Create string"

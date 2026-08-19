@@ -1771,6 +1771,43 @@ do
         end);
     end
 
+    --- The row above the two columns, on either mouse button. **Two items, and they are the two
+    --- buttons that used to stand there** (`DebindFrameMixin:ShowPendingImportsDropdown`).
+    ---
+    --- **The counts came off the two labels** (2026-08-19, 소유자). They read "Accept all %d" while
+    --- they were buttons on that row, where the number stood in for the confirmation box [Accept all]
+    --- does not get. The button this menu opens off carries it now, reads the same
+    --- `CollectImportedActions`, and stays on screen for as long as the menu does - so the number is
+    --- one widget away rather than gone, and there is no second place keeping it in step.
+    ---
+    --- **The two `_DESC` strings are hung as tooltips rather than dropped.** They were written for
+    --- exactly this scope - everything still waiting, wherever it went - which is what stops them
+    --- being the row-scoped `ORDER_ACCEPT_DESC` / `REJECT_IMPORT_DESC` the menus above borrow. The
+    --- items keep them because "wherever it went" is the one fact the reader cannot see from here.
+    ---
+    --- **Neither item is conditional.** Every other import item in this file builds itself out of
+    --- the way when nothing it aims at carries a badge; these do not need to, because the button
+    --- that opens this menu is itself hidden at zero (`UpdatePendingImports`).
+    function DebindUI.SetupPendingImportsDropdownMenu(dropdown, rootDescription)
+        -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
+        -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupBulkDropdownMenu`와 같은 이유).
+        --
+        -- **`_dropdown`은 안 세운다.** 다른 설정 함수들이 전부 세우고 있지만 읽는 데가 한
+        -- 군데도 없다(`.zzz/refactor-candidates.md`). 죽은 자리를 한 벌 더 늘리지 않는다.
+        _elementData = nil;
+        _action = nil;
+
+        local description = rootDescription:CreateButton(LLL["APPROVE_ALL_IMPORT"], function()
+            DebindFrame:ApproveAllImported();
+        end);
+        SetInstrcutionTooltip(description, LLL["APPROVE_ALL_IMPORT_DESC"]);
+
+        description = rootDescription:CreateButton(LLL["REJECT_ALL_IMPORT"], function()
+            DebindFrame:RejectAllImported();
+        end);
+        SetInstrcutionTooltip(description, LLL["REJECT_ALL_IMPORT_DESC"]);
+    end
+
     --- Right-clicking a row of the spell picker. **The whole menu is the destination list** -
     --- there is nothing else to ask about an entry that is not an action yet.
     ---

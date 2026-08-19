@@ -2938,29 +2938,25 @@ function DebindFrameMixin:InitializeButtons()
 
 	self:InitializeFilterDropdown();
 
-	-- The strip for what came in. Only the two buttons now: the narrowing that used to stand here
-	-- is a tick in the left column's filter dropdown (`_filters.pending`).
-	local strip = self.OverviewPanel.ImportStrip;
-	-- **The title is the button's own text, not the locale key.** Both labels carry a `%d`, so
-	-- reading the key here would put "Accept all %d" on screen with the placeholder showing.
-	-- Asking the button also means the number in the tooltip is the number under the cursor,
-	-- with no second place to keep it in step.
-	strip.ApproveAll:SetScript("OnEnter", function(button)
+	-- What came in and has not been answered. One button now, and the narrowing that used to stand
+	-- beside it is a tick in the left column's filter dropdown (`_filters.pending`).
+	--
+	-- **The title is the button's own text, not the locale key.** The label carries a `%d`, so
+	-- reading the key here would put the placeholder on screen. Asking the button also means the
+	-- number in the tooltip is the number under the cursor, with no second place to keep it in step.
+	--
+	-- **The body says what the state is, and the instruction line says how to leave it.** They were
+	-- one sentence per button while there were two buttons, each explaining its own verb; a label
+	-- that names the state instead has to explain the state, and the two verbs moved into the menu
+	-- along with the sentences that describe them.
+	self.OverviewPanel.PendingImports:SetScript("OnEnter", function(button)
 		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 		GameTooltip_SetTitle(GameTooltip, button:GetText());
-		GameTooltip_AddNormalLine(GameTooltip, LLL["APPROVE_ALL_IMPORT_DESC"]);
+		GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_PENDING_DESC"]);
+		GameTooltip_AddInstructionLine(GameTooltip, LLL["IMPORT_PENDING_INSTRUCTION"]);
 		GameTooltip:Show();
 	end);
-	strip.ApproveAll:SetScript("OnLeave", function()
-		GameTooltip:Hide();
-	end);
-	strip.RejectAll:SetScript("OnEnter", function(button)
-		GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-		GameTooltip_SetTitle(GameTooltip, button:GetText());
-		GameTooltip_AddNormalLine(GameTooltip, LLL["REJECT_ALL_IMPORT_DESC"]);
-		GameTooltip:Show();
-	end);
-	strip.RejectAll:SetScript("OnLeave", function()
+	self.OverviewPanel.PendingImports:SetScript("OnLeave", function()
 		GameTooltip:Hide();
 	end);
 end
@@ -3058,10 +3054,11 @@ end
 --- Takes **every** badge left in the profile off. The second of the two presses the design note
 --- calls the ordinary path.
 ---
---- **There is no confirmation box.** This button is what the ordinary end of an import looks like,
---- and a confirmation box on the ordinary end is what turns the badge from a safeguard into
---- homework. How many are about to start working is in the label before it is pressed
---- (`UpdateImportStrip`), and that is everything a box here could have said.
+--- **There is no confirmation box.** This is what the ordinary end of an import looks like, and a
+--- confirmation box on the ordinary end is what turns the badge from a safeguard into homework. How
+--- many are about to start working is on the button the menu holding this item opened off
+--- (`IMPORT_PENDING`), which stands there for as long as the menu does, and that is everything a box
+--- here could have said.
 ---
 --- **It reaches what is not on screen** - `CollectImportedActions` walks every layer. One batch
 --- routinely splits across off-spec layers, so taking off only what is visible would leave the
@@ -3078,6 +3075,32 @@ end
 --- (`ShowRejectImportConfirmationPopup`).
 function DebindFrameMixin:RejectAllImported()
 	ShowRejectImportConfirmationPopup(DebindPrivate.CollectImportedActions());
+end
+
+--- The menu the row above the columns opens, on either mouse button. **The two items are what the
+--- two buttons there used to be**, and nothing else stands in it - what came in has exactly two
+--- answers.
+---
+--- **It takes no target.** Both items collect the whole profile at the moment they are picked
+--- (`ApproveAllImported` / `RejectAllImported`), so there is nothing to snapshot here and nothing
+--- that can go stale while the menu is up. That is the opposite of the heading and bulk menus, which
+--- read the rows the reader is looking at to decide whether their import items stand up at all.
+---
+--- `contextMenuAction` is left alone, the same as `ShowBulkDropdown` leaves it: it marks which row's
+--- menu is open so that row can be highlighted, and this menu is not about a row.
+function DebindFrameMixin:ShowPendingImportsDropdown(button)
+	local menu = MenuUtil.CreateContextMenu(button, DebindUI.SetupPendingImportsDropdownMenu);
+	self.contextMenu = menu;
+	if (menu) then
+		menu:SetClosedCallback(function()
+			if (self.contextMenu ~= menu) then
+				return;
+			end
+			self.contextMenu = nil;
+			self:Update();
+		end);
+	end
+	self:Update();
 end
 
 
@@ -4067,7 +4090,7 @@ function DebindFrameMixin:Update()
 
 	self:UpdateButtons();
 	self:UpdateListStrip();
-	self:UpdateImportStrip();
+	self:UpdatePendingImports();
 	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
 
@@ -4116,39 +4139,37 @@ function DebindFrameMixin:UpdateListStrip()
 	self.OverviewPanel.FilterDropdown:SetEnabled(not locked);
 end
 
---- The strip for what came in. **It only stands while at least one badge is left.**
+--- The button for what came in. **It only stands while at least one badge is left.**
 ---
 --- The count is over the **whole profile** (`CollectImportedActions`) - not this tab, not this
---- specialization. What [Accept all] takes the badge off is that whole set, so the number on the
---- button has to be that set too. Put the visible count there instead and pressing it switches
+--- specialization. What the menu's two items reach is that whole set, so the number that leads to
+--- them has to be that set too. Put the visible count here instead and pressing through switches
 --- more on, somewhere the reader was not looking.
 ---
 --- **Zero takes it down now.** It used to stand at zero as well, because the narrowing to what came
---- in lived here and taking the strip away took the only switch that undid it. That narrowing is a
---- tick in the filter dropdown, which has its own reset button, so nothing is stranded by the strip
---- leaving when its two buttons have no work.
+--- in lived here and taking it away took the only switch that undid it. That narrowing is a tick in
+--- the filter dropdown, which has its own reset button, so nothing is stranded by this leaving when
+--- there is nothing waiting.
 ---
 --- What locks it is the same as what locks the search box, for the same reasons
 --- (`UpdateListStrip`): during bind mode every character on screen is a key, and while the icon
 --- selector is holding an action that action can leave the list underneath it.
-function DebindFrameMixin:UpdateImportStrip()
-	local strip = self.OverviewPanel.ImportStrip;
+---
+--- **It is an ordinary button and says what it is in words.** Two goes at also saying it in the
+--- badge's blue were tried and both came back out on screen; the XML carries what each cost.
+function DebindFrameMixin:UpdatePendingImports()
+	local button = self.OverviewPanel.PendingImports;
 	local count = #DebindPrivate.CollectImportedActions();
 	local shown = count > 0;
 
-	strip:SetShown(shown);
+	button:SetShown(shown);
 	if (not shown) then
 		return;
 	end
 
-	local locked = self:IsCapturingKey() or IsEditingAction();
-
-	strip.ApproveAll:SetFormattedText(LLL["APPROVE_ALL_IMPORT"], count);
-	strip.ApproveAll:SetWidth(max(120, strip.ApproveAll:GetFontString():GetStringWidth() + 30));
-	strip.RejectAll:SetFormattedText(LLL["REJECT_ALL_IMPORT"], count);
-	strip.RejectAll:SetWidth(max(120, strip.RejectAll:GetFontString():GetStringWidth() + 30));
-	strip.ApproveAll:SetEnabled(not locked);
-	strip.RejectAll:SetEnabled(not locked);
+	button:SetFormattedText(LLL["IMPORT_PENDING"], count);
+	button:SetWidth(max(120, button:GetFontString():GetStringWidth() + 30));
+	button:SetEnabled(not self:IsCapturingKey() and not IsEditingAction());
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
@@ -5831,8 +5852,8 @@ end
 --- **The count is what the question is for.** This operation reaches past the screen -
 --- `CollectKeyGroupActions` walks the eleven layers this character has, and with [Only what came in]
 --- on, the reader's own group holding that key is hidden entirely - and the number standing there
---- before the press is how that is paid for. `ApproveAllImported`'s [Accept all %d] answered the
---- same way from the same position.
+--- before the press is how that is paid for. `ApproveAllImported` reaches past the screen the same
+--- way and answers it the same way, with a count standing beside the press rather than in a box.
 local function ShowKeyGroupConflictDialog(actions, key, occupants, label)
 	StaticPopup_Show("DEBIND_KEY_GROUP_CONFLICT", nil, nil, {
 		actions = actions,

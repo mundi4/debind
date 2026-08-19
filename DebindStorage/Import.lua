@@ -25,11 +25,18 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- what lets it run without asking anything first.
 
 
---- Bump when a stored batch changes shape. Separate from the string's own two versions
---- (`Export.lua`): those describe someone else's bytes, this describes what we keep.
+--- What gets serialized is the payload, so this versions the payload's shape. Bump it when that
+--- shape changes under a reader holding one written by an older version.
 ---
---- 2 -- a batch keeps the payload rather than the string it arrived as (`MigrateToPayloads`).
-local STORE_VERSION           = 2;
+--- It was called `STORE_VERSION` and its comment said "bump when a stored batch changes shape",
+--- which is why it got bumped for something that is not a shape change at all: keeping the payload
+--- instead of the string it arrived in. **The same payload either way** - compressed in a `text`
+--- field or sitting there decoded - so nothing about the serialized shape moved. What moved was
+--- where it lived.
+---
+--- The two versions on the string itself (`Export.lua`) are a different question: those describe
+--- bytes that came from somewhere else, and this one describes what we wrote ourselves.
+local PAYLOAD_VERSION           = 1;
 
 --- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
 --- block from 0 to 4). A descriptor naming a spec past this is not a spec we cannot represent, it
@@ -331,8 +338,8 @@ end
 --- The other two are the values that are **used as something before anything checks them**, and
 --- both crash rather than misbehave:
 ---
----   * `class` goes into `format("%s", …)` through the drawer row's tooltip, and WoW's Lua 5.1
----     throws on a table there. That batch could then never be opened, and it is on disk.
+---   * `class` reaches `format("%s", …)` in the caller, and WoW's Lua 5.1 throws on a table
+---     there. Refusing it here is what keeps a payload on disk from being one nobody can open.
 ---   * a `key` of NaN raises the moment it is used as a table index, which the count below does and
 ---     `KeyMapper` does again. `ImportAddress` turns the same value away for `spec` and says why.
 ---
@@ -361,66 +368,24 @@ end
 -- Stored batches
 -- ---------------------------------------------------------------------------------------------
 
---- Store v1 kept the string a batch arrived as, three values read out of it at paste time
---- (`class`, `groupCount`, `actionCount`), and the empty tables a folded workbench had left in the
---- record. v2 keeps the payload, and the three are read back out of it where they are needed.
----
---- **Rebuilt rather than pruned.** A v1 record carries fields nothing has read for a while, and
---- listing them here to delete them would be a second list to keep in step with the one `AddBatch`
---- writes. What v2 knows about is what survives.
----
---- **A batch this cannot read keeps its string and stays where it is.** A row disappearing on
---- login is the one thing this drawer may not do (`devdocs/building-export-import.md`), and one
---- that cannot be read was already unopenable, so nothing is lost by leaving it.
----
---- **Which is why this runs once but is not the last word.** The version is stamped forward
---- whether or not every batch converted -- `LIBS_MISSING` would fail all of them and is over by the
---- next session -- so `GetBatchPayload` asks again for anything still holding a string, and
---- finishes the job there.
-local function MigrateToPayloads(vars)
-    for i, old in ipairs(vars.batches) do
-        local payload = old.payload;
-        local text;
-        if (not payload and old.text ~= nil) then
-            payload = DebindStorage.DecodeExportString(old.text);
-            if (not payload) then
-                text = old.text;
-            end
-        end
-
-        vars.batches[i] = {
-            id        = old.id,
-            received  = old.received,
-            source    = old.source,
-            committed = old.committed,
-            payload   = payload,
-            text      = text,
-        };
-    end
-end
-
 --- `DebindStorageVars`, made if it is not there yet.
 ---
 --- Built on demand rather than from an `ADDON_LOADED` handler. Nothing in this addon runs before
 --- the window is opened -- that is the whole reason it is `LoadOnDemand` -- so there is no earlier
 --- moment for a handler to be the right answer to.
 ---
---- **Which makes this the only moment a migration can run**, for the same reason: there is no
---- earlier one. A store made here is stamped current and never migrated.
+--- **Which makes this the only moment a migration could run**, for the same reason: there is no
+--- earlier one. There is nothing to migrate yet and there cannot be until this addon ships, so the
+--- version is stamped and nothing reads it back.
 local function Vars()
     local vars = _G.DebindStorageVars;
     if (not vars) then
         vars = {};
         _G.DebindStorageVars = vars;
     end
-    vars.version = vars.version or STORE_VERSION;
+    vars.version = vars.version or PAYLOAD_VERSION;
     vars.batches = vars.batches or {};
     vars.nextID = vars.nextID or 1;
-
-    if (vars.version < STORE_VERSION) then
-        MigrateToPayloads(vars);
-        vars.version = STORE_VERSION;
-    end
 
     return vars;
 end
@@ -428,12 +393,12 @@ end
 --- The payload of a stored batch, or nil plus the reason it could not be read.
 ---
 --- **The payload is what is stored, not the string it came in.** Four reasons for keeping the
---- string were written down here and all four turned out to be true of both shapes
---- (`devdocs/building-export-import.md`). The one that decided it points the other way: a string
---- whose schema has moved is refused outright by `DecodeExportString`, so a drawer of strings is a
---- drawer that cannot be migrated at all, while a payload can be walked the way `Profile.lua`
---- walks `dbver`. What is left over is disk size, and holding a smaller thing we cannot read is the
---- worse end of that trade.
+--- string were written down and all four turned out to be true of both shapes
+--- (`devdocs/building-export-import.md`). What decided it points the other way: `DecodeExportString`
+--- refuses a string outright once its schema has moved, so stored strings are stored values nothing
+--- can bring forward, while a payload can be walked the way `Profile.lua` walks `dbver`. What is
+--- left over is disk size, and holding a smaller thing we cannot read is the worse end of that
+--- trade.
 ---
 --- **The gate `AddBatch` stands is stood again here.** A batch that got in before the gate existed
 --- is closed by this one, which is why the gate needs nothing rewritten behind it -- there is only
@@ -441,24 +406,6 @@ end
 --- one of ours.
 function DebindStorage.GetBatchPayload(batch)
     local payload = batch.payload;
-    if (not payload) then
-        -- **A v1 batch `MigrateToPayloads` could not read, finished here instead.** Not all of the
-        -- decoder's refusals are permanent: `LIBS_MISSING` says this install could not load
-        -- LibDeflate *this time*, and the version was stamped forward whether or not a batch
-        -- converted -- so a migration that ran once under a broken install would otherwise strand
-        -- every batch in the drawer for good, with its intact string sitting right there.
-        --
-        -- Which is also why the string is kept rather than the reason: a reason recorded once is a
-        -- verdict, and asking again is the only way to find out it has stopped being true.
-        local reason;
-        payload, reason = DebindStorage.DecodeExportString(batch.text);
-        if (not payload) then
-            return nil, reason;
-        end
-
-        batch.payload = payload;
-        batch.text = nil;
-    end
 
     if (DebindStorage.PayloadIsImpossible(payload)) then
         return nil, "IMPOSSIBLE_PAYLOAD";
@@ -503,7 +450,7 @@ end
 --- looking at it rather than becoming a batch that fails every time it is opened.
 --- Returns the batch, or nil plus the same reason codes `DecodeExportString` uses, plus
 --- `IMPOSSIBLE_PAYLOAD` for the check below.
-function DebindStorage.AddBatch(text, source)
+function DebindStorage.AddBatch(text, name)
     local payload, reason = DebindStorage.DecodeExportString(text);
     if (not payload) then
         return nil, reason;
@@ -523,19 +470,18 @@ function DebindStorage.AddBatch(text, source)
         -- back, and a copy of the same contents in a form we may one day be unable to decode is
         -- worth less than the payload beside it (`GetBatchPayload`).
         payload = payload,
-        -- Whoever it came from, when the paste knows. Free text and purely for the list -- nothing
+        -- What the reader chose to call it. Free text, optional, purely for the list -- nothing
         -- reads it back.
-        source = source,
-
-        -- **No decisions are kept here.** There used to be four empty tables in this spot
-        -- (`layers`, `keys`, `excluded`, `states`), waiting for a workbench that was folded, and
-        -- `stripKeys` did get written for a while. It outlived the moment it was ticked: a reader
-        -- who came back a week later pressed [Bring it in] and got something they had not asked
-        -- for. Everything that is decided now is decided in the dialog that press opens and is
-        -- over when the press is (`ImportUI.lua`).
         --
-        -- Batches saved before this carried those fields, and `MigrateToPayloads` is where they
-        -- stop being carried.
+        -- **It asked who the string came from.** Nothing sends a string: it is copied off a page or
+        -- out of a notes file, and the reader restoring their own backup had no answer to give - so
+        -- the field stayed empty exactly where a name would have been most use.
+        name = name,
+
+        -- **Nothing else.** A record held five more fields at various points -- four empty tables
+        -- and a `stripKeys` flag -- and every one of them was an answer to a question the caller
+        -- asks at the moment it acts. A stored answer to a question nobody has asked yet is one
+        -- that goes stale between the two.
     };
 
     vars.nextID = vars.nextID + 1;
@@ -730,10 +676,6 @@ function DebindStorage.CommitBatch(batch, options)
     end
 
     DebindPrivate.PlaceImportedActions(placements);
-
-    -- The row says so from now on. Re-committing is allowed and makes a second copy, which is the
-    -- same thing importing the same string twice has always done.
-    batch.committed = time();
 
     return #placements, skipped;
 end

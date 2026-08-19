@@ -14,8 +14,11 @@
 -- guard is that nothing quietly reintroduces a translation.
 --
 -- **The drawer** holds work across a `/reload`, so what it stores has to survive being written to
--- SavedVariables and read back. What it stores is the payload, and the store carries a version so
--- that what an older one wrote can be brought forward instead of refused.
+-- SavedVariables and read back. What it stores is the payload.
+--
+-- **There is no migration to test.** `PAYLOAD_VERSION` versions the payload's shape, and that shape
+-- has never changed. A block of cases here brought a "v1" store forward: what it converted was a
+-- record holding the string instead of the payload, which is the same payload either way.
 
 return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };
@@ -357,9 +360,9 @@ return function(DebindPrivate, DebindStorage)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local batch = DebindStorage.AddBatch(GOOD, "친구");
+        local batch = DebindStorage.AddBatch(GOOD, "친구 세팅");
         check(batch, "배치가 안 만들어짐");
-        check(batch.source == "친구", "출처");
+        check(batch.name == "친구 세팅", "이름");
         check(#DebindStorage.GetBatches() == 1, "서랍에 안 들어감");
         check(DebindStorage.GetBatch(batch.id) == batch, "id로 못 찾음");
     end);
@@ -407,85 +410,6 @@ return function(DebindPrivate, DebindStorage)
         check(DebindStorage.GetBatchPayload(batch) == GOOD_PAYLOAD, "다시 못 읽음");
     end);
 
-    ---------------------------------------------------------------------------
-    -- Coming forward from store v1
-    ---------------------------------------------------------------------------
-
-    --- A drawer written by store v1: the string, the three values read out of it at paste time, and
-    --- the empty tables a folded workbench left in the record.
-    local function V1Drawer(batches)
-        _G.DebindStorageVars = {
-            version = 1,
-            nextID  = #batches + 1,
-            batches = batches,
-        };
-    end
-
-    test("v1 배치가 페이로드로 올라온다", function()
-        ResetDrawer();
-        STORED[GOOD] = GOOD_PAYLOAD;
-        V1Drawer({
-            {
-                id = 1, received = 100, source = "친구", committed = 200,
-                text = GOOD, class = CLASS, groupCount = 1, actionCount = 1,
-                layers = {}, keys = {}, excluded = {}, states = {},
-            },
-        });
-
-        local batch = DebindStorage.GetBatch(1);
-        check(batch.payload == GOOD_PAYLOAD, "페이로드로 안 옮겨졌다");
-        check(batch.text == nil, "문자열이 남아 있다");
-        check(batch.received == 100 and batch.source == "친구" and batch.committed == 200,
-            "v2가 아는 것까지 같이 버렸다");
-        check(batch.class == nil and batch.groupCount == nil and batch.actionCount == nil,
-            "페이로드에서 읽을 수 있는 것을 또 들고 있다");
-        check(batch.layers == nil and batch.keys == nil and batch.excluded == nil
-            and batch.states == nil, "접힌 작업대가 남긴 빈 테이블이 그대로다");
-        check(_G.DebindStorageVars.version == 2, "판 번호를 안 올렸다");
-    end);
-
-    -- **Nothing disappears from the drawer on login.** A string this cannot read was already
-    -- unopenable, and the answer to it is the reader being told why - not the row being gone when
-    -- they next look.
-    test("못 읽는 v1 배치는 남고, 열 때 이유를 말한다", function()
-        ResetDrawer();
-        V1Drawer({
-            { id = 1, received = 100, text = "DEB1:못읽음", groupCount = 3, actionCount = 9 },
-        });
-
-        local batch = DebindStorage.GetBatch(1);
-        check(batch ~= nil, "배치가 사라졌다");
-        check(batch.payload == nil, "못 읽는 것을 읽었다고 한다");
-        check(batch.text == "DEB1:못읽음", "이유를 말할 근거까지 버렸다");
-
-        local payload, reason = DebindStorage.GetBatchPayload(batch);
-        check(payload == nil, "페이로드를 냈다");
-        check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
-
-        local groupCount, actionCount = DebindStorage.CountBatch(batch);
-        check(groupCount == 0 and actionCount == 0,
-            "셀 것이 없는데 개수를 냈다: " .. groupCount .. "/" .. actionCount);
-    end);
-
-    -- **거절이 다 영구적인 것은 아니다.** `LIBS_MISSING`은 이번 세션에 라이브러리를 못 읽었다는
-    -- 말이고, 판 번호는 한 배치라도 옮겨졌는지와 무관하게 올라간다. 그러면 마이그레이션이 한 번
-    -- 헛돈 서랍은 멀쩡한 문자열을 든 채로 영영 안 열린다.
-    test("마이그레이션이 못 읽은 배치는 다음에 다시 묻는다", function()
-        ResetDrawer();
-        V1Drawer({ { id = 1, received = 100, text = GOOD } });
-
-        -- 여기서 마이그레이션이 돈다. 아직 STORED가 비어 있어 디코더가 거절한다.
-        local batch = DebindStorage.GetBatch(1);
-        check(batch.payload == nil, "못 읽을 것을 읽었다");
-        check(_G.DebindStorageVars.version == 2, "판 번호가 안 올라갔다 - 이 케이스의 전제다");
-
-        -- 설치가 고쳐졌다. 서랍은 이미 v2라 마이그레이션은 다시 안 돈다.
-        STORED[GOOD] = GOOD_PAYLOAD;
-
-        check(DebindStorage.GetBatchPayload(batch) == GOOD_PAYLOAD, "다시 안 물었다");
-        check(batch.payload == GOOD_PAYLOAD, "물어놓고 안 옮겼다");
-        check(batch.text == nil, "옮기고도 문자열을 들고 있다");
-    end);
 
     test("id는 지워도 다시 안 쓰인다", function()
         ResetDrawer();

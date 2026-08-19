@@ -1301,28 +1301,48 @@
 					</Button>
 
 					<!--
-						**The strip for what came in. It only stands while something has come in.**
+						**What came in and has not been answered. It only stands while there is some.**
 
-						The rest of the time the whole thing is hidden (`UpdateImportStrip`). Standing
-						always, it would nail two controls to the window of somebody who never imports
-						anything - and both of them only mean something while a badge is on.
+						The rest of the time it is hidden (`UpdatePendingImports`). Standing always, it
+						would nail a control to the window of somebody who never imports anything, and
+						it only means something while a badge is on.
 
-						**It stands on the row above the two columns.** Its two buttons act on the whole
-						profile rather than on either column, so neither column's head is its place. The
+						**It stands on the row above the two columns.** What it reaches is the whole
+						profile rather than either column, so neither column's head is its place. The
 						bind mode toggle used to stand here too and has moved to the portrait row; this
-						strip stays because it is a strip of labelled buttons with counts in them, which
-						is not something a 31px portrait can carry.
+						stays because it is a labelled button with a count in it, which is not something
+						a 31px portrait can carry.
 
 						**The narrowing that used to live here is gone.** A [Only what came in] checkbox
-						stood to the left of these buttons; it is a value of the left column's key axis
-						now (`_filters.pending`), so it is one of the filter dropdown's ticks and no
-						longer has a widget of its own.
+						stood to the left of it; it is a value of the left column's key axis now
+						(`_filters.pending`), so it is one of the filter dropdown's ticks and no longer
+						has a widget of its own.
 
-						Wrapping the buttons in a frame is what makes them **appear and disappear
-						together**. One `SetShown` leaves no way for their visibility to drift apart.
+						**It was two buttons** - [Accept all] and [Reject all] side by side - and both
+						are items in the menu this opens now. What that buys is a label that names the
+						**state** rather than one of the two answers to it: one control can carry both
+						answers, and the row above the columns spends one widget instead of two on
+						something most windows never show at all. The count stays here rather than
+						going into the menu with them, since this button is on screen for as long as
+						the menu is.
+
+						**Both mouse buttons open the same menu.** There is no left-click act left for a
+						right-click to be the alternative to, so a right-click landing on nothing would
+						be the only outcome the split could produce. `UIPanelButtonTemplate` registers
+						the left one on its own; naming a pair replaces that registration rather than
+						adding to it, which is why the left one is written out again here.
+
+						**It is an ordinary button.** Saying "what came in" in the badge's blue as well
+						as in words was tried both ways and neither survived a look at it - the
+						reasons are in `reworking-the-overview.md`, and the one worth having here is
+						that `UI-DialogBox-Button-*` draws **red** in 12.1 however alive its path is.
 					-->
-					<Frame parentKey="ImportStrip" useParentLevel="true" hidden="true">
-						<Size x="1" y="26"/>
+					<Button parentKey="PendingImports" inherits="UIPanelButtonTemplate" registerForClicks="LeftButtonUp,RightButtonUp" hidden="true">
+						<!--
+							**No width is nailed in**, because label lengths differ by locale.
+							`UpdatePendingImports` fits it to the text.
+						-->
+						<Size x="1" y="22"/>
 						<Anchors>
 							<!--
 								Where the bind mode toggle used to begin, on the line it used to sit on:
@@ -1332,56 +1352,12 @@
 							-->
 							<Anchor point="LEFT" relativePoint="TOPLEFT" x="60" y="-41"/>
 						</Anchors>
-						<Frames>
-							<!--
-								**The end of the ordinary case.** The second of the design note's two presses -
-								[Bring it in], then this, and the import is over. The label carries the count
-								because how many are about to start working has to be on screen before it is
-								pressed; that number is what stands in for a confirmation box.
-
-								**No width is nailed in**, because label lengths differ by locale.
-								`UpdateImportStrip` fits it to the text.
-							-->
-							<Button parentKey="ApproveAll" inherits="UIPanelButtonTemplate">
-								<Size x="1" y="22"/>
-								<Anchors>
-									<Anchor point="LEFT"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										DebindFrame:ApproveAllImported();
-									</OnClick>
-								</Scripts>
-							</Button>
-
-							<!--
-								**The other half of the basic path**, and the design note always had it
-								here beside its twin. Without it, undoing a whole import means
-								ctrl-clicking one row at a time - and the left column only shows this
-								specialization, so a per-row way out cannot even finish the job.
-
-								**The same set as [Accept all], opposite verb.** Two buttons standing
-								side by side must not quietly mean different scopes; both take
-								everything still waiting.
-
-								It asks first, unlike its twin. Accepting is what importing is for and
-								the count in the label is the whole warning; this throws N actions away
-								in one press. What makes it pressable is the sentence in the prompt -
-								the string is still in the drawer.
-							-->
-							<Button parentKey="RejectAll" inherits="UIPanelButtonTemplate">
-								<Size x="1" y="22"/>
-								<Anchors>
-									<Anchor point="LEFT" relativeKey="$parent.ApproveAll" relativePoint="RIGHT" x="6" y="0"/>
-								</Anchors>
-								<Scripts>
-									<OnClick>
-										DebindFrame:RejectAllImported();
-									</OnClick>
-								</Scripts>
-							</Button>
-						</Frames>
-					</Frame>
+						<Scripts>
+							<OnClick>
+								DebindFrame:ShowPendingImportsDropdown(self);
+							</OnClick>
+						</Scripts>
+					</Button>
 				</Frames>
 			</Frame>
 

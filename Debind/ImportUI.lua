@@ -159,14 +159,6 @@ end
 
 DebindImportBatchRowMixin = {};
 
---- What to call a batch. The source is free text the user typed at paste time and may be empty.
-local function BatchTitle(batch)
-    if (batch.source and batch.source ~= "") then
-        return batch.source;
-    end
-    return LLL["IMPORT_BATCH_UNNAMED"];
-end
-
 --- The class the batch says it came from, or nil.
 ---
 --- **Read off the payload, which is what the drawer stores.** The record carried a copy of this
@@ -179,27 +171,59 @@ local function BatchClass(batch)
     return batch.payload.class;
 end
 
+--- The row's top line: **the date it arrived, and for now nothing else.**
+---
+--- **The date, not how old it is.** A relative age answers "is this the one I just pasted", which
+--- is only a question for a minute or two; a list that piles up is read by when things came in.
+local function BatchDate(batch)
+    local when = date("*t", batch.received);
+    return FormatShortDate(when.day, when.month, when.year);
+end
+
+--- The class the string says it came from, in that class's colour, or nil when it says nothing.
+---
+--- `GetClassColorObj` answers nil for a token it does not know. A payload carrying a class name
+--- this client has never heard of is turned away long before here (`PayloadIsImpossible`), but the
+--- fallback costs one `or`.
+local function BatchClassText(batch)
+    local class = BatchClass(batch);
+    if (not class) then
+        return nil;
+    end
+
+    local name = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class;
+    local color = GetClassColorObj(class) or NORMAL_FONT_COLOR;
+    return color:WrapTextInColorCode(name);
+end
+
+--- What to call one batch in a sentence. The delete prompt is the one place there is: it names
+--- what is about to go, inside a line of prose, with no second line to put anything on.
+---
+--- **The date alone would not do here.** The row, its tooltip and the bring dialog can all lead
+--- with the date because the class is a line away in each of them; a prompt asking whether to
+--- remove "8/18/2026" has nowhere to put the rest, and two strings pasted the same day would read
+--- identically at the one moment there is no undo.
+local function BatchLabel(batch)
+    local class = BatchClassText(batch);
+    local stamp = BatchDate(batch);
+    if (not class) then
+        return stamp;
+    end
+    return format(LLL["IMPORT_BATCH_LINE"], class, stamp);
+end
+
 function DebindImportBatchRowMixin:Init(elementData)
     self.elementData = elementData;
     local batch = elementData.batch;
 
-    self.Name:SetText(BatchTitle(batch));
-    self.Counts:SetText(format(LLL["IMPORT_BATCH_COUNTS"], Store().CountBatch(batch)));
+    self.Name:SetText(BatchDate(batch));
 
-    self:UpdateAge();
-
-    -- **The label says which of the two this press is**, because the second one is not a repeat of
-    -- the first: it puts a second copy in. Leaving the button reading the same both times would
-    -- make "did that work?" and "do it again" the same gesture.
-    self.CommitButton:SetText(batch.committed and LLL["IMPORT_COMMIT_AGAIN"] or LLL["IMPORT_COMMIT"]);
-    self.CommitButton:SetScript("OnClick", function() self:Bring(); end);
-    self.CommitButton:SetScript("OnEnter", function(button)
-        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-        GameTooltip_SetTitle(GameTooltip, button:GetText());
-        GameTooltip_AddNormalLine(GameTooltip, LLL["IMPORT_COMMIT_DESC"]);
-        GameTooltip:Show();
-    end);
-    self.CommitButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
+    -- **The class goes on the lower line, in front of the counts.** Both halves say what is in the
+    -- string rather than what the reader did with it, so they read as one line; the date on its own
+    -- above is the only thing that orders the list.
+    local counts = format(LLL["IMPORT_BATCH_COUNTS"], Store().CountBatch(batch));
+    local class = BatchClassText(batch);
+    self.Counts:SetText(class and format(LLL["IMPORT_BATCH_LINE"], class, counts) or counts);
 
     -- **No pin, because nothing sweeps.** A pin takes a batch out of a clear-out, and there is no
     -- clear-out: `AddBatch` appends and only this row's delete button ever removes one. A control
@@ -216,7 +240,7 @@ function DebindImportBatchRowMixin:Init(elementData)
     self.DeleteButton:SetScript("OnClick", function()
         StaticPopup_ShowCustomGenericConfirmation({
             text = LLL["IMPORT_DELETE_CONFIRM"],
-            text_arg1 = BatchTitle(batch),
+            text_arg1 = BatchLabel(batch),
             callback = function()
                 -- **The dialog goes first, because it holds this batch by reference.** Deleting a
                 -- row only takes it out of the drawer; the open dialog's copy still decodes and
@@ -232,33 +256,16 @@ function DebindImportBatchRowMixin:Init(elementData)
             referenceKey = "DebindDeleteBatch",
         });
     end);
-    self.DeleteButton:SetScript("OnEnter", function(button)
-        GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
-        GameTooltip_SetTitle(GameTooltip, LLL["IMPORT_BATCH_DELETE"]);
-        GameTooltip:Show();
-    end);
-    self.DeleteButton:SetScript("OnLeave", function() GameTooltip:Hide(); end);
-end
-
---- How old it is. **Nothing more, because nothing more is true.**
----
---- This line used to carry a countdown as well -- how long the batch had left, and a different
---- wording again once it was pinned or past. None of that ever happened: the drawer judged expiry
---- and never acted on it, so the row was telling the reader a date on which nothing occurs. Age is
---- the half that is a fact, and it is the half they came for anyway.
-function DebindImportBatchRowMixin:UpdateAge()
-    local batch = self.elementData.batch;
-    -- A floor of one minute, because `SecondsToTime(0)` answers with nothing at all and a row that
-    -- says how old everything else is should not go blank for the one just added.
-    local age = SecondsToTime(max(time() - batch.received, 60), true);
-    self.Age:SetText(format(LLL["IMPORT_BATCH_AGE"], age));
-    self.Age:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
 end
 
 --- Asks what to bring in, and from where.
 ---
 --- **The string is read here rather than in the dialog**, so a batch that cannot be decoded any
 --- more is turned down where it was pressed instead of opening a window with nothing in it.
+function DebindImportBatchRowMixin:OnClick()
+    self:Bring();
+end
+
 function DebindImportBatchRowMixin:Bring()
     local batch = self.elementData.batch;
 
@@ -282,19 +289,32 @@ end
 function DebindImportBatchRowMixin:OnEnter()
     local batch = self.elementData.batch;
 
+    -- **The row's own two lines, in the same order.** The title is the date and the line under it
+    -- is the class beside the counts, which is what the row itself draws - a tooltip that regroups
+    -- them reads as being about something else.
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-    GameTooltip_SetTitle(GameTooltip, BatchTitle(batch));
-    GameTooltip_AddNormalLine(GameTooltip, format(LLL["IMPORT_BATCH_COUNTS"],
-        Store().CountBatch(batch)));
+    GameTooltip_SetTitle(GameTooltip, BatchDate(batch));
 
-    -- The sender's class is the only thing about them the string itself carries, and it is worth
-    -- saying: it decides whether the class layers in there have anywhere of their own to land.
-    local class = BatchClass(batch);
-    if (class) then
-        local className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class];
-        GameTooltip_AddNormalLine(GameTooltip,
-            format(LLL["IMPORT_BATCH_FROM_CLASS"], className or class));
+    local counts = format(LLL["IMPORT_BATCH_COUNTS"], Store().CountBatch(batch));
+    local class = BatchClassText(batch);
+    GameTooltip_AddNormalLine(GameTooltip,
+        class and format(LLL["IMPORT_BATCH_LINE"], class, counts) or counts);
+
+    -- **What the reader called it, which is the only thing here a person wrote.** It was the row's
+    -- title and could not stay there: it is optional, and the stand-in it fell back to named
+    -- nothing. Here being absent costs the tooltip a line rather than the list its only way to tell
+    -- rows apart.
+    --
+    -- No caption in front of it. It is the reader's own words, and a label on them would be the
+    -- tooltip explaining the reader to themselves.
+    if (batch.name and batch.name ~= "") then
+        GameTooltip_AddNormalLine(GameTooltip, batch.name);
     end
+
+    -- **What the row does, since nothing on it says so any more.** A labelled button carried this
+    -- and named the act in its own text; a row that answers a click has to say what the click is
+    -- for somewhere, and the tooltip is where this list already explains itself.
+    GameTooltip_AddInstructionLine(GameTooltip, LLL["IMPORT_COMMIT_DESC"]);
 
     GameTooltip:Show();
 end
@@ -332,10 +352,19 @@ local LINE_LABELS   = {
 --- Where the rows *start* is not part of that sum: they hang off `ContentArea`, which every dialog
 --- places against (`DebindDialogTemplate`). Only the two numbers this dialog actually owns are here.
 ---
---- `CHROME_HEIGHT` is everything the template puts above and below the rows - the caption band and
---- the strip the buttons stand in.
-local ROW_PITCH     = 24;
-local CHROME_HEIGHT = 84;
+--- `CHROME_HEIGHT` is everything above and below the rows, **written as its parts** because it was
+--- a single number and the number was three short: the rows run down from `ContentArea`'s top and
+--- the buttons sit on its bottom, so anything missing from this sum comes out of the space between
+--- them. At 84 there was none left and the buttons touched the last checkbox.
+---
+--- The two insets are `DebindDialogTemplate`'s and have to be repeated here rather than measured:
+--- `ContentArea` is placed in XML, so at the moment this runs its height is the old one.
+local ROW_PITCH       = 24;
+local CONTENT_TOP     = 40;   -- ContentArea's top inset
+local CONTENT_BOTTOM  = 25;   -- its bottom inset, which is the margin under the buttons
+local BUTTON_HEIGHT   = 22;
+local BUTTON_GAP      = 16;   -- between the last row and the buttons
+local CHROME_HEIGHT   = CONTENT_TOP + CONTENT_BOTTOM + BUTTON_HEIGHT + BUTTON_GAP;
 
 function DebindBringFrameMixin:OnLoad()
     self:InitDialog();
@@ -381,7 +410,7 @@ function DebindBringFrameMixin:Open(batch, lines)
     EnsureLineButtons(self);
     self.batch = batch;
 
-    self.Title:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchTitle(batch)));
+    self.Title:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchDate(batch)));
 
     --- **The class line names the class its actions are going to**, which is the descriptor's and
     --- not `payload.class`. The two agree in anything this addon builds; a hand-made string can
@@ -538,8 +567,6 @@ function DebindImportPanelMixin:Refresh()
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
     self.ScrollBox.EmptyText:SetText(LLL["IMPORT_DRAWER_EMPTY"]);
     self.ScrollBox.EmptyText:SetShown(#list == 0);
-
-    self.HeaderHolder.Text:SetText(#list > 0 and format(LLL["IMPORT_DRAWER_COUNT"], #list) or "");
 end
 
 function DebindImportPanelMixin:OnShow()
@@ -572,7 +599,7 @@ DebindPasteFrameMixin = {};
 function DebindPasteFrameMixin:OnLoad()
     self:InitDialog(LLL["IMPORT_PASTE_TITLE"]);
     self.InputLabel:SetText(LLL["IMPORT_PASTE_INPUT_LABEL"]);
-    self.SourceBox.Label:SetText(LLL["IMPORT_PASTE_SOURCE"]);
+    self.NameBox.Label:SetText(LLL["IMPORT_PASTE_NAME"]);
     self.AcceptButton:SetText(LLL["IMPORT_PASTE_ACCEPT"]);
 
     -- The placeholder inside the box, which the template hands out a setter for. The `instructions`
@@ -614,7 +641,7 @@ end
 
 function DebindPasteFrameMixin:OnShow()
     self.Input.EditBox:SetText("");
-    self.SourceBox:SetText("");
+    self.NameBox:SetText("");
     self.ErrorHolder.Text:SetText("");
     self.AcceptButton:SetEnabled(false);
 end
@@ -624,9 +651,9 @@ end
 --- text that caused it. Closing first and reporting into the chat frame would leave the reader with
 --- a message and nothing to fix.
 function DebindPasteFrameMixin:Accept()
-    local source = strtrim(self.SourceBox:GetText());
+    local name = strtrim(self.NameBox:GetText());
     local batch, reason = Store().AddBatch(self.Input.EditBox:GetText(),
-        source ~= "" and source or nil);
+        name ~= "" and name or nil);
 
     if (not batch) then
         self.ErrorHolder.Text:SetText(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"]);

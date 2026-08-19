@@ -124,6 +124,7 @@ globals = {
 	"GetCVarBool",
 	"GetTime",
 	"time",
+	"date",
 	-- `C_AddOns.EnableAddOn`은 다음 리로드까지 효력이 없다. 그래서 마이그레이션 오버레이의
 	-- [켜고 다시 불러오기]가 둘을 같이 한다(Legacy.lua).
 	"ReloadUI",
@@ -275,8 +276,9 @@ globals = {
 	"NO",
 	-- Per-class localized names, for saying which class a received string came from.
 	"LOCALIZED_CLASS_NAMES_MALE",
-	-- "3 days", "12 hours". The drawer says how old a batch is with it.
-	"SecondsToTime",
+	-- The drawer's rows carry the date a string arrived. **The client owns the field order** -
+	-- enUS puts the month first and koKR the year, and both are in its own globals.
+	"FormatShortDate",
 
 	-- Libraries
 	"LibStub",

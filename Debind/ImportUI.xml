@@ -11,10 +11,9 @@
 		same window rather than a settings screen that wandered in.
 	-->
 	<!--
-		**The row itself does not take a click yet.** Opening a batch is the next slice; until then
-		what it carries is the pin, the remove button and a tooltip. `registerForClicks` is left off
-		rather than pointed at nothing - a row that answers the mouse and then does nothing is worse
-		than one that plainly does not.
+		**Clicking the row is how a batch comes in.** It stood as a labelled button on the row's
+		bottom edge; the row is the batch, so the row is what answers. The remove button on top
+		still takes its own click.
 	-->
 	<Button name="DebindImportBatchRowTemplate" mixin="DebindImportBatchRowMixin" virtual="true">
 		<Size x="400" y="44"/>
@@ -29,23 +28,18 @@
 			</Layer>
 			<Layer level="ARTWORK">
 				<!--
-					Where it came from, or a stand-in when the paste carried no name. The name is
-					free text the user typed, so it is drawn and never read back.
+					**The two things the string itself always carries**: the sender's class, in that
+					class's colour, and when it was received.
+
+					It used to be the free text typed at paste time, falling back to a stand-in that
+					said "Received string" - which is what three rows in a row read like, so the
+					line told them apart from nothing. That text is optional and now lives in the
+					tooltip, where being absent costs the list nothing.
 				-->
-				<FontString parentKey="Name" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
 					<Size x="230" y="0"/>
 					<Anchors>
-						<Anchor point="TOPLEFT" x="10" y="-6"/>
-					</Anchors>
-				</FontString>
-				<!--
-					How old it is, and the expiry warning when there is one. Two facts on one line
-					because they are the same fact from either end.
-				-->
-				<FontString parentKey="Age" inherits="GameFontDisableSmall" maxLines="1" justifyH="LEFT">
-					<Size x="230" y="0"/>
-					<Anchors>
-						<Anchor point="TOPLEFT" relativeKey="$parent.Name" relativePoint="BOTTOMLEFT" x="0" y="-2"/>
+						<Anchor point="LEFT" x="10" y="7"/>
 					</Anchors>
 				</FontString>
 			</Layer>
@@ -70,49 +64,37 @@
 				clear-out the drawer does not perform. Both are gone until there is one, and it will
 				have to ask rather than sweep (`devdocs/building-export-import.md`).
 			-->
+			<!--
+				**The same margin the text keeps on the other side.** `RedButton-Exit` fills its 24px
+				square with no transparent border of its own, so the offset here is the whole of the
+				gap - at the -2 it inherited from the three-line layout it sat all but flush against
+				the row's edge while the left side kept 10.
+			-->
 			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
 				<Size x="24" y="24"/>
 				<Anchors>
-					<Anchor point="TOPRIGHT" x="-2" y="-2"/>
-				</Anchors>
-			</Button>
-			<!--
-				What the drawer is for. It opens a dialog rather than acting: everything it will put
-				in the profile arrives badged and reaches no key, so the question in front of it is
-				not "are you sure" but **which of this string, and with or without its keys**
-				(`DebindBringFrame`).
-
-				Those two used to be a checkbox on this row. That was wrong in a way the dialog
-				fixes rather than moves: they matter for the one press and nothing else, and stored
-				on the batch they outlived the moment they were ticked.
-
-				It stays enabled after a batch has been brought in. Doing it twice makes a second
-				copy, which is what pasting the same string twice has always done, and the row says
-				it has been used rather than refusing to be used again.
-			-->
-			<Button parentKey="CommitButton" inherits="UIPanelButtonTemplate">
-				<Size x="110" y="20"/>
-				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-4" y="4"/>
+					<Anchor point="RIGHT" x="-10" y="0"/>
 				</Anchors>
 			</Button>
 		</Frames>
-		<!--
-			**After `<Frames>`, not with the other text.** This leans on `CommitButton`, which is
-			built in the block above. Up with `Name` and `Age` it was pointing at nothing.
-		-->
 		<Layers>
 			<Layer level="ARTWORK">
-				<!-- How much is in it, next to the button that would place it. -->
-				<FontString parentKey="Counts" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
-					<Size x="140" y="0"/>
+				<!--
+					How much is in it, on the line under the title. **The pair sits the way the bin
+					list's two-line card sits** (`DebindLineTemplate`): both lines hang off `LEFT`
+					at +7 and -8 rather than stacking down from the top, so they stay centred as a
+					block instead of leaving the slack at the bottom.
+				-->
+				<FontString parentKey="Counts" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+					<Size x="230" y="0"/>
 					<Anchors>
-						<Anchor point="RIGHT" relativeKey="$parent.CommitButton" relativePoint="LEFT" x="-6" y="0"/>
+						<Anchor point="LEFT" relativeKey="$parent.Name" relativePoint="LEFT" x="0" y="-15"/>
 					</Anchors>
 				</FontString>
 			</Layer>
 		</Layers>
 		<Scripts>
+			<OnClick method="OnClick"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 		</Scripts>
@@ -149,10 +131,16 @@
 		<Frames>
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
 				<!--
-					The same rectangle the export list uses, to the pixel, and both of them are
-					Overview's (`DebindUI.xml`). The three are tabs of one window and a reader moving
-					between them should not have the list jump; that is the same rule the two columns
-					of Overview follow between themselves.
+					Overview's rectangle (`DebindUI.xml`), which the export list uses as well. The
+					three are tabs of one window and a reader moving between them should not have the
+					list jump; that is the same rule the two columns of Overview follow between
+					themselves.
+
+					**The bottom is Overview's 10 rather than export's 50.** Fifty was the room the
+					[Paste a string] button needed on the frame's bottom edge; the button stands
+					above the list now, so that strip was empty. Export keeps 50 because its own
+					button is still down there - the two tabs differ by exactly the control that is
+					in the way, which is what the shared rectangle was ever about.
 
 					The backdrop is Overview's too - a thin border over black rather than
 					`InsetFrameTemplate`'s old bevel, so the box is of the same age as the row art
@@ -165,8 +153,8 @@
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
 					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
 				</Anchors>
 			</Frame>
 
@@ -199,32 +187,20 @@
 			</EventFrame>
 
 			<!--
-				How many are in the drawer, in the row the export tab spends on its select-all box.
-				A count rather than a label: the drawer is a place things accumulate, and how much
-				has accumulated is the one thing worth saying before you look.
-			-->
-			<Frame parentKey="HeaderHolder" useParentLevel="true">
-				<Size x="300" y="20"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="4" y="6"/>
-				</Anchors>
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT" setAllPoints="true"/>
-					</Layer>
-				</Layers>
-			</Frame>
+				**Above the list, where the count used to be.** It stood on the frame's bottom edge,
+				matching the export tab's [Create string] and the click binding window's own button
+				(`Blizzard_ClickBindingUI.xml`: `BOTTOMRIGHT -6, 5`, height 23) - the two tabs being
+				the same gesture pointing opposite ways.
 
-			<!--
-				Sits where the export tab's [Create string] does, which is where the click binding
-				window puts its own (`Blizzard_ClickBindingUI.xml`: `BOTTOMRIGHT -6, 5`, height 23) -
-				on the frame's bottom edge rather than hanging under the list. The two are the same
-				gesture pointing opposite ways, so they stand in the same place.
+				What was in this row instead was how many strings the drawer holds. That is a number
+				the list itself carries: every one of them is a row, they are short, and counting
+				what is already on screen is what a summary must not do. The way in is what belongs
+				above a list you may have nothing in yet.
 			-->
 			<Button parentKey="PasteButton" inherits="UIPanelButtonTemplate">
 				<Size x="160" y="23"/>
 				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="4"/>
 				</Anchors>
 			</Button>
 		</Frames>
@@ -281,15 +257,19 @@
 			</ScrollFrame>
 
 			<!--
-				Why the row will say it came from. Optional, and it is the only thing about the
-				sender that ever gets stored: the string itself deliberately carries no character
-				name, so a name here is one the user chose to type.
+				What to call it. Optional, and the only thing about a batch a person writes.
+
+				**It asked who the string came from**, which presumed a sender the game has no way
+				to be: a string is copied off a website or out of your own notes, and the reader
+				bringing back their own backup had nothing to answer. The client asks the same
+				question beside its own paste box and asks it as a name
+				().
 
 				**Full width, under a full-width box.** A short box below a wide one reads as a
 				lesser field, and this one is not lesser - it is the only thing the reader can say
 				about what they just pasted.
 			-->
-			<EditBox parentKey="SourceBox" inherits="InputBoxTemplate" autoFocus="false" letters="40">
+			<EditBox parentKey="NameBox" inherits="InputBoxTemplate" autoFocus="false" letters="40">
 				<Size y="22"/>
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.Input" relativePoint="BOTTOMLEFT" x="6" y="-42"/>
