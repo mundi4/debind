@@ -4,12 +4,27 @@ on:
   push:
     branches:
       - '**'
+    # Nothing under these can break a test, and the filter only skips when **every** changed
+    # file matches one, so a commit that touches code as well still runs.
+    #
+    # Deliberately not repeated under `pull_request`: if a required status check is ever turned
+    # on, a docs-only PR that skipped this would have nothing to report and could never merge.
+    paths-ignore:
+      - '**.md'
+      - 'devdocs/**'
+      - 'docs/**'
   pull_request:
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # A green run here is under a minute, and the default ceiling is 360. What has actually gone
+    # wrong is a step that **hangs instead of failing**: on 2026-08-19 `apt-get update` stopped
+    # answering and the job sat for 3h43m until it was cancelled by hand. The number below is not
+    # the point. Going red without someone having to notice is.
+    timeout-minutes: 10
 
     steps:
       - name: Clone project
