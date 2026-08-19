@@ -1,3 +1,30 @@
+# 3.2
+
+**You can hand your setup to somebody else now, as a string.**
+
+The **Export** tab turns any part of it into one line of text, the specializations you are not playing included, so you do not have to switch characters to put them in. It works just as well as a backup of your own.
+
+The **Import** tab is the other end. Paste a string and it stays there until you decide what to do with it, so you can come back and finish later. **Bring it in** asks which parts to take and adds those to your bindings **switched off**: nothing you press behaves any differently until you accept them, one at a time or all at once. What arrives lands on a key of its own rather than joining a key you already use, so a set you receive never quietly merges into a set you built.
+
+**Macro names travel, macro bodies do not.** A received action calls your macro of that name, or says in red that you have no such macro. Nothing about you rides along either: no character name, no realm.
+
+**A new piece appears in your addon list, Debind Storage.** It builds those strings and holds the ones you receive. Leave it enabled: it is loaded on demand, so until you open one of the two tabs it is never read at all. Deleting it loses whatever is still being held there, though anything you already accepted stays in your bindings.
+
+**The overview column got a lot bigger.** A key group folds, and folded it still says what is inside. There is a search box, and a filter for the parts of the list you want out of the way. A key group nothing currently runs from is greyed, and a problem with a binding is now coloured by how much it actually breaks.
+
+**Actions on a specialization you are not in are listed too**, in the place they would take if that specialization were active. They used to be reachable only by opening their tab on the right and looking.
+
+**Assigning a key happens in a dialog now.** It says which key the action is on and what the new one is about to apply to, and it will do a whole key group in one go. If the key is already taken it asks before taking it. Bind Mode is still there for setting a lot of keys quickly.
+
+**A unit condition can ask whether the unit is alive or dead**, and the frame you are hovering now takes the same conditions every other unit does, so you can ask two things about one unit at once. Turning a condition off keeps what you had picked under it.
+
+Also in this one:
+
+- A custom state name with a typo in it now stops the binding and says so, instead of letting it through with that condition simply gone.
+- Spells you have not learned yet are back in the spell picker.
+- Actions sharing a key keep the order you gave them after an edit that could shuffle them.
+- With Clique installed, Debind now says so on login: your unit frame bindings here do not fire while it is there.
+
 # 3.1.6
 
 **12.1 readiness: sealed answers about arena enemies no longer break custom targets.**
