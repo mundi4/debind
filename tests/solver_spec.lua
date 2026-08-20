@@ -816,5 +816,34 @@ return function(DebindPrivate)
         }, "b");
     end);
 
+
+    ---------------------------------------------------------------------------
+    -- 2-d. bonusbar 축의 폭
+    --
+    -- `flagsToConditionFlags` 컬럼은 넷인데 폭까지 잡히는 것은 셋뿐이다. groups와 forms는
+    -- 2-c가, frameTypes는 2-b가 일곱 값을 전부 열거해서 잡는다. **bonusbars는 이 파일 어디에도
+    -- 없었다.**
+    --
+    -- 그리고 이 축만 `Constants` 쪽이 파생값이다 -- `BONUSBAR_ALL`이 `MAX_BONUSBAR_OFFSET`에서
+    -- 나온다. `Solver.lua`는 같은 수를 리터럴로 들고 있어서 그 상수를 올리면 둘이 갈리고,
+    -- 갈리면 "조건 없음"이 축 전체를 뜻하지 않게 된다. 그 파일 머리말이 적어둔 결과가 그대로
+    -- 따라온다: 상자가 조건보다 좁게 나오고 **아직 발동할 수 있는 바인딩이 지워진다.**
+    --
+    -- 두 방향을 다 본다. 앞엣것은 solver의 폭이 좁을 때만, 뒤엣것은 넓을 때만 걸린다.
+    ---------------------------------------------------------------------------
+
+    test("bonusbar 축: 조건 없음과 전체 마스크가 같은 상자다", function()
+        expectRemoved({
+            { name = "open" },
+            { name = "full", bonusbars = Constants.BONUSBAR_ALL },
+        }, "full");
+
+        expectRemoved({
+            { name = "full", bonusbars = Constants.BONUSBAR_ALL },
+            { name = "open" },
+        }, "open");
+    end);
+
+
     return T;
 end
