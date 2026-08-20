@@ -120,10 +120,13 @@ for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
     Constants.CUSTOM_STATE_INDICES["$state" .. i] = i;
 end
 
+--- **1 and 2 are missing on purpose.** They were `ALWAYS_ON` and `ALWAYS_OFF`, declared in the
+--- first big commit and never read once in the addon's whole history -- no UI could set them, so
+--- no profile carries one and there is nothing to migrate. Closing the gap would renumber
+--- `MACRO_CONDITIONAL` and silently reinterpret every stored definition, so the numbers stay
+--- where they are.
 Constants.CUSTOM_STATE_MODES    = {
     MANUAL            = 0,
-    ALWAYS_ON         = 1,
-    ALWAYS_OFF        = 2,
     MACRO_CONDITIONAL = 3,
 };
 
