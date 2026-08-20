@@ -1,9 +1,10 @@
 # action / binding 모양 바로 세우기
 
-> 상태 (2026-08-20): **§4-2, §5-A, §5-B가 들어갔다. 나머지는 아직 제안이다.**
+> 상태 (2026-08-20): **§4-2와 §5 전부가 들어갔다. 남은 것은 §4-1과 §4-3뿐이고, 그 둘은 3.3이다.**
 >
 > 들어간 것: `binding.spellName` 삭제(§5-A), `action._dirty` 삭제(§5-B), 비교자 레코드를
-> `Misc.MakeOrderRecord` 하나로(§4-2). 같은 편집에서
+> `Misc.MakeOrderRecord` 하나로(§4-2), 솔버의 인자 이름(§5-C), `GetBindingIssue`의 모양
+> 갈아타기(§5-D), `binding.reactions` 삭제(§5-E). 같은 편집에서
 > `GetBindingInfoForAction`의 `update` 인자와 `if (true)` 블록이 같이 없어졌고,
 > `.zzz/refactor-candidates.md`의 `UnitConditionToRuntimeScalar` 항목도 같이 닫혔다.
 >
@@ -166,18 +167,35 @@ macro text"라고 적어뒀는데, **없는 소비자를 설명하는 문서가 
 → 지웠다. 되살리는 쪽은 열한 곳이 정확한지 먼저 감사해야 하는데 그건 실행된 적 없는 코드였고,
 그 감사는 §4-2와 아무 상관이 없다. `update` 인자와 `if (true)`도 같이 없어졌다.
 
-**C. 솔버가 binding을 `action`이라고 부른다.** `buildLayout`은 `binding`이라 쓰는데, 바로 아래
+**C. 솔버가 binding을 `action`이라고 부른다.** — **닫혔다 (2026-08-20). 이름을 바꿨다.**
+
+`FIXED_COLUMNS`의 `make`, `makeUnitFlags`/`makeKnownFlags`/`makeCustomStateFlags`,
+`buildConditionSet`이 전부 `binding`을 받는다.
+
+원래 적어둔 것: `buildLayout`은 `binding`이라 쓰는데, 바로 아래
 `buildConditionSet(action, dest)`와 `FIXED_COLUMNS`의 모든 `make = function(action)`은 `action`이라
 쓴다. `makeUnitFlags`가 읽는 `action.unitStates`는 바인딩만 가진 필드다. 한 파일 안에서 같은
 것을 두 이름으로 부르고 있고, 하필 불변식에 쉰 줄 쓰는 그 파일이다.
 
-**D. `GetBindingIssue`가 함수 중간에 모양을 갈아탄다.** `groups`/`forms`/`bonusbars`는 액션에서
+**D. `GetBindingIssue`가 함수 중간에 모양을 갈아탄다.** — **닫혔다 (2026-08-20).**
+
+바인딩을 함수 첫머리에서 한 번 잡고, `groups`/`forms`/`bonusbars`도 거기서 읽는다. 어느 읽기가
+**반드시** 바인딩이어야 하고 어느 것이 선택이었는지는 그 함수 머리 주석에 적었다.
+
+원래 적어둔 것: `groups`/`forms`/`bonusbars`는 액션에서
 읽고, `local binding = ...` 뒤로 `hover`/`reactions`/`frameTypes`는 바인딩에서 읽는다. 그런데
 **어느 쪽은 필수고 어느 쪽은 임의다.** `binding.frameTypes`는 호버가 아니면 nil이 되니 반드시
 바인딩이어야 하고, `groups`는 `_ALL` 접기 말고는 차이가 없어서 아무 쪽이나 된다. 무엇이 어느
 쪽인지 표시가 없다.
 
-**E. 호버가 바인딩 위에 세 겹으로 있다.** `conditions.units.hover` -> `binding.checkedUnits.hover`
+**E. 호버가 바인딩 위에 세 겹으로 있다.** — **닫혔다 (2026-08-20). 두 겹이 됐다.**
+
+`binding.reactions`가 없어졌다. 읽던 곳은 이슈 검사 둘뿐이었고 지금은 `HoverReactionMask`가
+조건에서 바로 읽는다. `binding.hover`는 남는다 - 발동 순서·클릭 경로·솔버 컬럼·키 유효성이
+전부 그것을 읽는다. §9에 이 항목이 미결로 적혀 있던 근거("솔버 스펙이 이 필드를 손으로
+넣는다")는 틀렸었다.
+
+원래 적어둔 것: `conditions.units.hover` -> `binding.checkedUnits.hover`
 -> `binding.hover` + `binding.reactions`. `dbver <= 4`가 없앤 것이 정확히 "한 유닛을 두 컬럼이
 설명하는" 모양인데, **파생 쪽에 그대로 살아남았다.** `Misc.lua`가 대는 이유의 절반은 "솔버
 스펙이 손으로 만든 바인딩"이다. 테스트 편의가 프로덕션 모양을 정하고 있다.

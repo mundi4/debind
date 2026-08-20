@@ -63,15 +63,14 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- 호버 조건은 `checkedUnits["hover"]`에 산다
     --
-    -- 저장에는 그 키 하나뿐이고, `hover`/`reactions`는 거기서 파생된 값이다
-    -- (`Misc.DeriveHoverFields`). 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이
-    -- 들어올림 경로를 지나기 때문**이고, 여기가 그 두 모양이 같은 답을 낸다는 것을 잠근다.
+    -- 저장에는 그 키 하나뿐이고, `hover`는 거기서 파생된 값이다 (`Misc.DeriveHoverFields`).
+    -- 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이 들어올림 경로를 지나기
+    -- 때문**이고, 여기가 그 두 모양이 같은 답을 낸다는 것을 잠근다.
     ---------------------------------------------------------------------------
 
-    test("저장된 호버 조건이 hover/reactions로 파생된다", function()
+    test("저장된 호버 조건이 hover로 파생된다", function()
         local b = spell({ checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } });
         check(b.hover == true, "hover가 안 파생됨");
-        check(b.reactions == Constants.REACTION_HELP, "reactions가 안 파생됨");
         check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "축에 안 실림");
     end);
 
@@ -83,7 +82,6 @@ return function(DebindPrivate)
 
     test("반응을 전부 고른 저장값은 제약이 없는 것과 같다", function()
         local b = spell({ checkedUnits = { hover = { reaction = Constants.REACTION_ALL } } });
-        check(b.reactions == nil, "전체 비트가 안 접힘");
         check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS, "축이 좁아짐");
     end);
 
@@ -169,13 +167,15 @@ return function(DebindPrivate)
     -- 없다. 남겨두면 solver가 없는 축을 좁히고, 사용자는 끄고 나서도 예전 값에 걸린다.
     ---------------------------------------------------------------------------
 
-    test("hover가 없으면 reactions/frameTypes/ignoreHoverUnit이 사라진다", function()
+    test("hover가 없으면 반응/frameTypes/ignoreHoverUnit이 사라진다", function()
         local b = spell({
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
             ignoreHoverUnit = true,
         });
-        check(b.reactions == nil, "reactions가 남음");
+        -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
+        check(b.hover == nil, "hover 조건이 생김");
+        check(b.checkedUnits == nil or b.checkedUnits.hover == nil, "호버 조건이 남음");
         check(b.frameTypes == nil, "frameTypes가 남음");
         check(b.ignoreHoverUnit == nil, "ignoreHoverUnit이 남음");
     end);
@@ -189,7 +189,8 @@ return function(DebindPrivate)
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
         check(b.hover == false, "hover 조건 자체는 남아야 한다");
-        check(b.reactions == nil, "reactions가 남음");
+        -- 안 올렸을 때와 반응은 같이 설 수 없다. 접기가 조건을 `false` 하나로 만든다.
+        check(b.checkedUnits.hover == false, "반응이 조건으로 남음");
         check(b.frameTypes == nil, "frameTypes가 남음");
     end);
 
@@ -201,7 +202,7 @@ return function(DebindPrivate)
 
     test("hover 반응을 전부 고르면 nil로 접힌다", function()
         local b = spell({ hover = true, reactions = Constants.REACTION_ALL });
-        check(b.reactions == nil, "전체 비트가 안 접힘");
+        check(b.checkedUnits.hover.reaction == nil, "전체 비트가 안 접힘");
     end);
 
     test("hover 프레임종류를 전부 고르면 nil로 접힌다", function()
@@ -215,7 +216,7 @@ return function(DebindPrivate)
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
-        check(b.reactions == Constants.REACTION_HELP, "reactions가 바뀜");
+        check(b.checkedUnits.hover.reaction == Constants.REACTION_HELP, "반응이 바뀜");
         check(b.frameTypes == Constants.FRAMETYPE_PLAYER, "frameTypes가 바뀜");
     end);
 

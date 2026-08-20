@@ -1228,13 +1228,17 @@ RegisterTest("Hover condition with reactions", {
         local b = GetNthBinding("BUTTON3", 1)
         if not b then return Fail("Hover condition", "BUTTON3 not in KeyMap") end
         if b.hover ~= true then return Fail("Hover condition", "hover=" .. tostring(b.hover)) end
-        if band(b.reactions, Constants.REACTION_HELP) == 0 then
+        local hoverCondition = b.checkedUnits and b.checkedUnits.hover
+        if type(hoverCondition) ~= "table" then
+            return Fail("Hover condition", format("hover condition is %s, expected a table", tostring(hoverCondition)))
+        end
+        if band(hoverCondition.reaction, Constants.REACTION_HELP) == 0 then
             return Fail("Hover condition", "REACTION_HELP not set")
         end
         if b.frameTypes ~= Constants.FRAMETYPE_GROUP then
             return Fail("Hover condition", "frameTypes=" .. tostring(b.frameTypes))
         end
-        return Pass("Hover condition", format("reactions=%d, frameTypes=%d", b.reactions, b.frameTypes))
+        return Pass("Hover condition", format("reaction=%d, frameTypes=%d", hoverCondition.reaction, b.frameTypes))
     end,
 })
 

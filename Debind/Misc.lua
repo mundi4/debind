@@ -515,10 +515,10 @@ end
 --- A mouse button reaches the not-hovering point and nothing else: the click fires wherever the
 --- cursor already is, and over a unit frame the frame eats it, so only the frame path can act
 --- there. The same absent condition on a keyboard key spans the whole axis.
---- `binding.hover` / `binding.reactions` from the stored condition.
+--- `binding.hover` from the stored condition.
 ---
 --- **Derived, not stored** (`Profile.lua`'s `dbver <= 4` step). Storage keeps one column for the
---- hovered frame's unit; these two are the view of it the rest of the addon already speaks --
+--- hovered frame's unit; this is the view of it the rest of the addon already speaks --
 --- ordering ranks a hover binding by `hover ~= nil` (`Ordering.lua`), the runtime routes a key to
 --- the click path by it (`UpdateBindings.lua`'s `isClickCast`), the frame-type column gates on it
 --- (`Solver.lua`), and key validity asks about it (`IsKeyInvalidForAction`).
@@ -533,18 +533,29 @@ local function DeriveHoverFields(binding)
     local condition = binding.checkedUnits and binding.checkedUnits.hover;
     if (condition == nil) then
         binding.hover = nil;
-        binding.reactions = nil;
     elseif (condition == false) then
         binding.hover = false;
-        binding.reactions = nil;
     else
         binding.hover = true;
-        binding.reactions = condition.reaction ~= Constants.REACTION_ALL and condition.reaction
-            or nil;
     end
 end
 
 DebindPrivate.DeriveHoverFields = DeriveHoverFields;
+
+--- 호버 조건이 허용하는 반응 마스크. 아무 축도 제약 안 하면 nil.
+---
+--- **`binding.reactions`라는 필드였다.** 호버 조건 하나를 세 겹으로 설명하던 마지막 겹이고
+--- (`checkedUnits["hover"]` -> `hover` -> `reactions`), `dbver <= 4`가 저장 쪽에서 없앤 것이
+--- 정확히 그 모양이다. 읽는 데가 아래 이슈 검사 둘뿐이라 필드로 들고 있을 값이 아니었다.
+---
+--- `hover`는 남는다. 저쪽은 발동 순서·클릭 경로·솔버 컬럼·키 유효성이 다 읽는다.
+local function HoverReactionMask(binding)
+    local condition = binding.checkedUnits and binding.checkedUnits.hover;
+    if (type(condition) ~= "table" or condition.reaction == Constants.REACTION_ALL) then
+        return nil;
+    end
+    return condition.reaction;
+end
 
 local function BuildUnitStates(binding)
     DeriveHoverFields(binding);
@@ -639,9 +650,13 @@ do
     ---   unit             a `UNIT_INFO` key. See above -- this is the target, not a condition.
     ---   checkedUnits     `{ [unit or "@"] = true | false | "help" | "harm" }`. `"@"` is a
     ---                    pointer to whatever `unit` names, so it dies when `unit` does.
-    ---   hover            true | false | nil. `reactions` / `frameTypes` / `ignoreHoverUnit`
-    ---                    only mean anything while this is true.
-    ---   reactions        `REACTION_*` mask        frameTypes  `FRAMETYPE_*` mask
+    ---   hover, reactions **not stored any more** (`Profile.lua`'s `dbver <= 4` folded the pair
+    ---                    into `checkedUnits["hover"]`). They still arrive on a profile the
+    ---                    migration has not reached and on a shared string written before it, and
+    ---                    `HoverConditionFromLegacy` is where they are raised onto the copy.
+    ---   frameTypes       `FRAMETYPE_*` mask. Describes the **frame**, not the unit on it, which
+    ---                    is why it stayed an action field when the pair above did not. Means
+    ---                    nothing unless a hover condition is set, and so does `ignoreHoverUnit`.
     ---   groups           `GROUP_*` mask           forms       `FORM_*` mask
     ---   bonusbars        `BONUSBAR_*` mask
     ---   combat, stealth, pet, petbattle, specialbar, extrabar, ignoreHoverUnit,
@@ -654,6 +669,9 @@ do
     ---
     --- ### what a binding has on top of those
     ---
+    ---   hover            true | false | nil, from `checkedUnits["hover"]` (`DeriveHoverFields`).
+    ---                    `false` and `nil` are different answers -- "only when not hovering"
+    ---                    versus "does not care" -- and both are read apart.
     ---   unitStates       `{ [unit] = UNITSTATE_* mask }` from `BuildUnitStates` -- **the only
     ---                    thing the solver reads about units.** The hovered frame's unit rides
     ---                    this under the name `"hover"`.
@@ -718,7 +736,7 @@ do
             binding[state] = action[state];
         end
 
-        -- 의미 없는 조건들을 nil로 만듬. `reactions`는 위에서 파생될 때 이미 접혔다.
+        -- 의미 없는 조건들을 nil로 만듬.
         if (binding.hover) then
             if (binding.frameTypes and band(binding.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
                 binding.frameTypes = nil;
@@ -1123,8 +1141,23 @@ function DebindPrivate.IsIssueMinor(issue)
     return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_MINOR;
 end
 
+--- **Which of the two shapes each check reads is not a free choice, so it is made once here.**
+---
+--- The branches below used to start on the action and switch to the binding halfway down, with
+--- nothing saying which reads had to come from where.
+---
+---   the binding, necessarily -- `frameTypes` is nil'd for a non-hover binding there and only
+---     there, `hover` has no action field at all any more, `unit` is the one the macro will aim
+---     at rather than the one the user picked, and `unitStates` exists nowhere else
+---   the binding, by choice -- `groups`, `forms`, `bonusbars`. Normalizing only folds the
+---     all-bits case to `_ALL`, so a zero reads the same either way; they come off the binding
+---     so that this function speaks one shape
+---   the action, necessarily -- `key`, and the two checks that ask whether a name points at
+---     something (`GetUndefinedCustomState`, `GetMissingMacroName`). None of the three is a
+---     condition and none survives onto the binding
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     local issue;
+    local binding = DebindPrivate.GetBindingInfoForAction(action);
 
     -- `notCategory = "unreachable"`은 이 갈래 **안의 도달불가 검사만** 끈다.
     --
@@ -1144,19 +1177,19 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     end
 
     if (not issue and (not category or category == "groups") and notCategory ~= "groups") then
-        if (action.groups == 0) then
+        if (binding.groups == 0) then
             issue = Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED;
         end
     end
 
     if (not issue and (not category or category == "forms") and notCategory ~= "forms") then
-        if (action.forms == 0) then
+        if (binding.forms == 0) then
             issue = Constants.BINDING_ISSUE_FORMS_NONE_SELECTED;
         end
     end
 
     if (not issue and (not category or category == "bonusbars") and notCategory ~= "bonusbars") then
-        if (action.bonusbars == 0) then
+        if (binding.bonusbars == 0) then
             issue = Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED;
         end
     end
@@ -1185,12 +1218,11 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         end
     end
 
-    local binding = DebindPrivate.GetBindingInfoForAction(action);
     if (not issue and (not category or category == "hover") and notCategory ~= "hover") then
         if (binding.hover ~= nil) then
             if (DebindPrivate.CliqueDetected) then
                 issue = Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE;
-            elseif (binding.hover and (binding.reactions == 0 or binding.frameTypes == 0)) then
+            elseif (binding.hover and (HoverReactionMask(binding) == 0 or binding.frameTypes == 0)) then
                 issue = Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
             end
         end
@@ -1198,7 +1230,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
 
     if (not issue and (not category or category == "reactions") and notCategory ~= "reactions") then
         if (binding.hover) then
-            if (binding.reactions == 0) then
+            if (HoverReactionMask(binding) == 0) then
                 issue = Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
             end
         end

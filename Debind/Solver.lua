@@ -127,87 +127,87 @@ local FIXED_COLUMNS = {
         -- `Misc.lua` already nils the field for non-hover bindings; reading `hover` here is
         -- what stops that from being a cross-file assumption.
         name = "frameTypes",
-        make = function(action)
-            if (not action.hover) then
+        make = function(binding)
+            if (not binding.hover) then
                 return flagsToConditionFlags(nil, 6);
             end
-            return flagsToConditionFlags(action.frameTypes, 6);
+            return flagsToConditionFlags(binding.frameTypes, 6);
         end
     },
     {
         name = "groups",
-        make = function(action)
-            return flagsToConditionFlags(action.groups, 2);
+        make = function(binding)
+            return flagsToConditionFlags(binding.groups, 2);
         end
     },
     {
         name = "bonusbars",
-        make = function(action)
-            return flagsToConditionFlags(action.bonusbars, 5);
+        make = function(binding)
+            return flagsToConditionFlags(binding.bonusbars, 5);
         end
     },
     {
         name = "forms",
-        make = function(action)
-            return flagsToConditionFlags(action.forms, 10);
+        make = function(binding)
+            return flagsToConditionFlags(binding.forms, 10);
         end
     },
     {
         name = "specialbar",
-        make = function(action)
-            return boolToConditionFlags(action.specialbar);
+        make = function(binding)
+            return boolToConditionFlags(binding.specialbar);
         end
     },
     {
         name = "extrabar",
-        make = function(action)
-            return boolToConditionFlags(action.extrabar);
+        make = function(binding)
+            return boolToConditionFlags(binding.extrabar);
         end
     },
     {
         name = "combat",
-        make = function(action)
-            return boolToConditionFlags(action.combat);
+        make = function(binding)
+            return boolToConditionFlags(binding.combat);
         end
     },
     {
         name = "stealth",
-        make = function(action)
-            return boolToConditionFlags(action.stealth);
+        make = function(binding)
+            return boolToConditionFlags(binding.stealth);
         end
     },
     {
         name = "pet",
-        make = function(action)
-            return boolToConditionFlags(action.pet);
+        make = function(binding)
+            return boolToConditionFlags(binding.pet);
         end
     },
     {
         name = "petbattle",
-        make = function(action)
-            return boolToConditionFlags(action.petbattle);
+        make = function(binding)
+            return boolToConditionFlags(binding.petbattle);
         end
     },
 };
 
 -- The condition key for each state index. Built once: `buildConditionSet` reaches for one of
--- these per action per column, and `buildLayout` per binding, so concatenating there would put
--- a string allocation in both loops.
+-- these per binding per column, and `buildLayout` once per binding, so concatenating there would
+-- put a string allocation in both loops.
 local STATE_KEYS = {};
 for i = 1, MAX_NUM_CUSTOM_STATES do
     STATE_KEYS[i] = "$state" .. i;
 end
 
-local function makeCustomStateFlags(action, index)
-    local value = action[STATE_KEYS[index]];
+local function makeCustomStateFlags(binding, index)
+    local value = binding[STATE_KEYS[index]];
     if (value == nil) then
         return STATE_ANY;
     end
     return value and STATE_ON or STATE_OFF;
 end
 
-local function makeUnitFlags(action, unit)
-    local states = action.unitStates;
+local function makeUnitFlags(binding, unit)
+    local states = binding.unitStates;
     local mask = states and states[unit];
     if (mask == nil) then
         return Constants.UNITSTATE_ALL;
@@ -215,9 +215,9 @@ local function makeUnitFlags(action, unit)
     return mask;
 end
 
-local function makeKnownFlags(action, spellValue)
-    if (action.known ~= nil and action.type == Constants.SPELL and action.value == spellValue) then
-        return action.known and KNOWN_YES or KNOWN_NO;
+local function makeKnownFlags(binding, spellValue)
+    if (binding.known ~= nil and binding.type == Constants.SPELL and binding.value == spellValue) then
+        return binding.known and KNOWN_YES or KNOWN_NO;
     end
     return KNOWN_ANY;
 end
@@ -344,9 +344,9 @@ local function buildLayout(bindings)
     _colArg[_numColumns + 1] = nil;
 end
 
-local function buildConditionSet(action, dest)
+local function buildConditionSet(binding, dest)
     for i = 1, _numColumns do
-        dest[i] = _colMake[i](action, _colArg[i]);
+        dest[i] = _colMake[i](binding, _colArg[i]);
     end
     dest[_numColumns + 1] = nil;
     return dest;
