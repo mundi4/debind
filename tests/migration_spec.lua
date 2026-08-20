@@ -556,11 +556,6 @@ return function(DebindPrivate)
     --   런타임   `binding.checkedUnits[유닛]`. 축마다 한 필드고, `UpdateBindings.lua`가
     --            `u.exists` / `u.reaction.<이름>` / `u.dead`로 그대로 옮겨 적는다.
     --            스니펫은 그 셋을 축마다 하나씩 비교한다 (`SecureBindings.lua`)
-    --
-    -- **`UnitConditionToRuntimeScalar`는 여기 없다.** 그 함수가 내는 스칼라 넷을 읽던 방출부는
-    -- 3.2 개발 중에 축별 표로 바뀌었고, 지금 그것을 부르는 것은 스펙뿐이다
-    -- (`.zzz/refactor-candidates.md` 43번). 스니펫이 보는 것을 물으면서 스니펫이 안 보는
-    -- 함수에 물으면, 이 절이 없애려는 그 사각이 한 겹 더 생긴다.
     ---------------------------------------------------------------------------
 
     local function copy(value)
@@ -575,7 +570,7 @@ return function(DebindPrivate)
     end
 
     local function bindingFor(action)
-        return DebindPrivate.GetBindingInfoForAction(action, true);
+        return DebindPrivate.GetBindingInfoForAction(action);
     end
 
     local function stateFor(action)

@@ -192,11 +192,7 @@ function ProfileLayerProto:RenumberKeyGroup(key)
     end);
 
     for i = 1, #records do
-        local action = records[i].action;
-        if (action.seq ~= i) then
-            action.seq = i;
-            action._dirty = true;
-        end
+        records[i].action.seq = i;
     end
 end
 
@@ -1375,7 +1371,6 @@ function DebindPrivate.SetKeyForActions(actions, key)
 
         action.key = key;
         action.imported = nil;
-        action._dirty = true;
         if (layer) then
             -- **Arrival number plus this set's own ranking.** Renumbering alone cannot say which of
             -- these goes first -- they are all new to the group. The arrival number dominates
@@ -1510,7 +1505,6 @@ function DebindPrivate.ClearActionKey(action)
     local key = action.key;
     action.key = nil;
     action.seq = nil;
-    action._dirty = true;
 
     local _, layer = DebindPrivate.FindLayerID(action);
     if (layer) then

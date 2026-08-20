@@ -298,7 +298,6 @@ do
     --- before and after, and putting that pair of snapshots across the dozen call sites in this menu
     --- means missing one someday.
     local function onActionValueChanged()
-        _action._dirty = true;
         DebindPrivate.RenumberKeyGroupForAction(_action);
         DebindPrivate.UpdateBindings();
         return MenuResponse.Refresh;

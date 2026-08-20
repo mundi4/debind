@@ -1396,7 +1396,6 @@ do
 		local instructionKeys = opts.instructionKeys;
 		local layerLabel = opts.layerLabel;
 
-		action._dirty = true;
 		local suppressedCategory = opts.offWorld and "unreachable" or nil;
 
 		--- The only issue lookup this tooltip makes.
@@ -1733,7 +1732,6 @@ end
 function DebindLineMixin:Update()
 	local elementData = self:GetElementData();
 	local action = elementData.action;
-	action._dirty = true;
 
 	local isInactive = DebindPrivate.IsInactiveAction(action);
 	local issue = not isInactive and GetBindingIssue(action) or nil;
@@ -4808,18 +4806,15 @@ end
 --- Renumbering after the swap tidies the numbers rather than the order. The swap has already made
 --- the drawn order what was asked for; the renumber reads that order back and closes it to 1..n.
 ---
---- The arrow buttons and the right-click menu **go through this one function.** Saving is four
---- things together (the `seq` swap, the renumber, both `_dirty` flags, `UpdateBindings`), and
---- writing them along two paths means one of them loses one someday -- and that loss stays
---- invisible until the next login.
+--- The arrow buttons and the right-click menu **go through this one function.** Saving is three
+--- things together (the `seq` swap, the renumber, `UpdateBindings`), and writing them along two
+--- paths means one of them loses one someday -- and that loss stays invisible until the next login.
 function DebindUI.ApplyOrderSwap(action, neighbor)
 	if (not action or not neighbor) then
 		return false;
 	end
 
 	action.seq, neighbor.seq = neighbor.seq, action.seq;
-	action._dirty = true;
-	neighbor._dirty = true;
 	-- 움직인 행을 따라간다. 한 칸씩 가는 동안은 대개 이미 보이고 있어서 화면이 서 있지만,
 	-- 그룹의 끝에서 밀려나 화면 밖으로 나가는 순간에는 따라가야 한다.
 	_revealAction = action;
@@ -5702,7 +5697,6 @@ function DebindFrameMixin:CancelBindMode()
 			action.key = original.key;
 			action.seq = original.seq;
 			action.imported = original.imported;
-			action._dirty = true;
 			changed = true;
 			restored = restored or {};
 			restored[#restored + 1] = action;
@@ -5786,7 +5780,6 @@ function DebindFrameMixin:SetActionKey(action, key)
 		accepted = action.imported ~= nil;
 		action.key = key;
 		action.imported = nil;
-		action._dirty = true;
 		DebindPrivate.PlaceActionInKeyGroup(action);
 	else
 		DebindPrivate.ClearActionKey(action);
@@ -6252,7 +6245,6 @@ function DebindMacroFrameMixin:Save()
 	end
 
 	action.value = text;
-	action._dirty = true;
 	DebindPrivate.UpdateBindings();
 end
 

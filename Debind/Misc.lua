@@ -501,39 +501,6 @@ local function UnitConditionToState(value)
     return mask;
 end
 
---- One stored unit condition -> the four scalars the runtime used to speak.
----
---- **Nothing in the addon calls this, and it does not describe the runtime.** It was written for
---- the emitter back when the snippet was handed one scalar per unit, because the restricted
---- environment has no `bit` library and could not intersect a mask. The emitter now writes one
---- field per axis instead (`u.exists`, `u.reaction.<name>`, `u.dead` in `UpdateBindings.lua`,
---- compared one axis at a time in `SecureBindings.lua`), and this was left standing. 3.2 shipped
---- it that way.
----
---- So the `"never"` below answers for a runtime that is gone. `{ reaction = REACTION_OTHER }` comes
---- back `"never"` here while the shipped emitter writes `u.reaction.other = true` and the condition
---- fires exactly as the menu set it. **Nothing may read this function as a statement about what a
---- condition can express.** Its removal is item 43 in `.zzz/refactor-candidates.md`.
-local function UnitConditionToRuntimeScalar(value)
-    -- 저장 모양이 들어올 수도 있어서 먼저 접는다.
-    value = UnitConditionForBinding(value);
-    if (value == false or type(value) ~= "table") then
-        return value;
-    end
-
-    local reactions = value.reaction;
-    if (reactions == nil or reactions == Constants.REACTION_ALL) then
-        return true;
-    elseif (reactions == Constants.REACTION_HELP) then
-        return "help";
-    elseif (reactions == Constants.REACTION_HARM) then
-        return "harm";
-    end
-    return "never";
-end
-
-DebindPrivate.UnitConditionToRuntimeScalar = UnitConditionToRuntimeScalar;
-
 --- Fold everything that says something about a unit onto one mask per unit.
 ---
 --- `binding.unitStates` is the only thing the solver reads about units. `checkedUnits` and
@@ -687,7 +654,6 @@ do
     ---
     --- ### what a binding has on top of those
     ---
-    ---   spellName        resolved name, for display and macro text
     ---   unitStates       `{ [unit] = UNITSTATE_* mask }` from `BuildUnitStates` -- **the only
     ---                    thing the solver reads about units.** The hovered frame's unit rides
     ---                    this under the name `"hover"`.
@@ -695,174 +661,161 @@ do
     ---                    both solver roles rather than letting it look wider than it is
     ---   layerRank, isConditional
     ---                    filled in by `Debind.lua` after this returns, not here
-    function DebindPrivate.GetBindingInfoForAction(action, update)
+    function DebindPrivate.GetBindingInfoForAction(action)
         local binding = _ActionToBindingCache[action];
 
         if (not binding) then
             binding = {};
             _ActionToBindingCache[action] = binding;
-            update = true;
         end
 
-        if (true) then
-            -- if (update or action._dirty) then
-            action._dirty = nil;
-
-            binding.type, binding.value = action.type, action.value;
-            binding.frameTypes, binding.ignoreHoverUnit = action.frameTypes, action.ignoreHoverUnit;
-            binding.groups = action.groups;
-            binding.combat = action.combat;
-            binding.stealth = action.stealth;
-            binding.known = action.known;
-            binding.forms = action.forms;
-            binding.bonusbars = action.bonusbars;
-            binding.specialbar = action.specialbar;
-            binding.extrabar = action.extrabar;
-            binding.pet = action.pet;
-            binding.petbattle = action.petbattle;
-            binding.unit = action.unit;
-            binding.key = action.key;
-            binding.priority = action.priority or Constants.DEFAULT_PRIORITY;
-            -- 저장 모양 -> 바인딩 모양. 꺼진 조건은 여기서 빠지므로 하류는 기억을 안 만난다.
-            -- 남는 것이 없으면 표 자체를 안 만든다 - `binding.checkedUnits`가 있느냐를 게이트로
-            -- 쓰는 자리가 여럿이라(이슈 검사, `IsConditionalBinding`), 빈 표는 조건이 하나도
-            -- 없는 액션을 조건부로 만든다.
-            binding.checkedUnits = nil;
-            if (action.checkedUnits) then
-                for unit, value in pairs(action.checkedUnits) do
-                    local condition = UnitConditionForBinding(value);
-                    if (condition ~= nil) then
-                        binding.checkedUnits = binding.checkedUnits or {};
-                        binding.checkedUnits[unit] = condition;
-                    end
+        binding.type, binding.value = action.type, action.value;
+        binding.frameTypes, binding.ignoreHoverUnit = action.frameTypes, action.ignoreHoverUnit;
+        binding.groups = action.groups;
+        binding.combat = action.combat;
+        binding.stealth = action.stealth;
+        binding.known = action.known;
+        binding.forms = action.forms;
+        binding.bonusbars = action.bonusbars;
+        binding.specialbar = action.specialbar;
+        binding.extrabar = action.extrabar;
+        binding.pet = action.pet;
+        binding.petbattle = action.petbattle;
+        binding.unit = action.unit;
+        binding.key = action.key;
+        binding.priority = action.priority or Constants.DEFAULT_PRIORITY;
+        -- 저장 모양 -> 바인딩 모양. 꺼진 조건은 여기서 빠지므로 하류는 기억을 안 만난다.
+        -- 남는 것이 없으면 표 자체를 안 만든다 - `binding.checkedUnits`가 있느냐를 게이트로
+        -- 쓰는 자리가 여럿이라(이슈 검사, `IsConditionalBinding`), 빈 표는 조건이 하나도
+        -- 없는 액션을 조건부로 만든다.
+        binding.checkedUnits = nil;
+        if (action.checkedUnits) then
+            for unit, value in pairs(action.checkedUnits) do
+                local condition = UnitConditionForBinding(value);
+                if (condition ~= nil) then
+                    binding.checkedUnits = binding.checkedUnits or {};
+                    binding.checkedUnits[unit] = condition;
                 end
             end
+        end
 
-            -- Same idea for the old hover pair. It is raised **onto the copy**, never onto the
-            -- action: `Profile.lua`'s migration owns rewriting what is stored, and an action this
-            -- reached first would otherwise be rewritten by whoever read it.
-            if (action.hover ~= nil) then
-                binding.checkedUnits = binding.checkedUnits or {};
-                binding.checkedUnits.hover = HoverConditionFromLegacy(
-                    action.hover, action.reactions, binding.checkedUnits.hover);
-            end
+        -- Same idea for the old hover pair. It is raised **onto the copy**, never onto the
+        -- action: `Profile.lua`'s migration owns rewriting what is stored, and an action this
+        -- reached first would otherwise be rewritten by whoever read it.
+        if (action.hover ~= nil) then
+            binding.checkedUnits = binding.checkedUnits or {};
+            binding.checkedUnits.hover = HoverConditionFromLegacy(
+                action.hover, action.reactions, binding.checkedUnits.hover);
+        end
 
-            -- Everything below this line reads `binding.hover`, so it has to be derived here and
-            -- not only in `BuildUnitStates` at the end.
-            DeriveHoverFields(binding);
+        -- Everything below this line reads `binding.hover`, so it has to be derived here and
+        -- not only in `BuildUnitStates` at the end.
+        DeriveHoverFields(binding);
 
-            if action.type == Constants.SPELL and action.value then
-                local spellInfo = C_Spell.GetSpellInfo(action.value)
-                if spellInfo and spellInfo.name then
-                    binding.spellName = spellInfo.name
-                end
-            end
+        for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
+            local state = "$state" .. stateIndex;
+            binding[state] = action[state];
+        end
 
-            for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
-                local state = "$state" .. stateIndex;
-                binding[state] = action[state];
-            end
-
-            -- 의미 없는 조건들을 nil로 만듬. `reactions`는 위에서 파생될 때 이미 접혔다.
-            if (binding.hover) then
-                if (binding.frameTypes and band(binding.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
-                    binding.frameTypes = nil;
-                end
-            else
+        -- 의미 없는 조건들을 nil로 만듬. `reactions`는 위에서 파생될 때 이미 접혔다.
+        if (binding.hover) then
+            if (binding.frameTypes and band(binding.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
                 binding.frameTypes = nil;
-                binding.ignoreHoverUnit = nil;
             end
+        else
+            binding.frameTypes = nil;
+            binding.ignoreHoverUnit = nil;
+        end
 
-            -- **`true` or nothing. There is no third answer here**, unlike every other condition
-            -- in this block. The question is always about this action's own spell -- both the
-            -- conditional (`UpdateBindings` bakes `binding.value` into it) and the solver's column
-            -- (keyed by that same value) -- so `false` would say "cast it only while it is
-            -- unlearned", and no state satisfies that.
-            --
-            -- A nil check rather than a truthy one, for the same reason as the `"@"` cleanup
-            -- below: nothing here writes `false`, but a shared profile can carry one, and left in
-            -- place it reaches `UpdateBindings`, which bakes the same `[known:<value>]` a `true`
-            -- would. It then fires on exactly the state it was asked to stay off.
-            if (binding.known == false or (binding.known ~= nil and binding.type ~= Constants.SPELL)) then
-                binding.known = nil;
-            end
+        -- **`true` or nothing. There is no third answer here**, unlike every other condition
+        -- in this block. The question is always about this action's own spell -- both the
+        -- conditional (`UpdateBindings` bakes `binding.value` into it) and the solver's column
+        -- (keyed by that same value) -- so `false` would say "cast it only while it is
+        -- unlearned", and no state satisfies that.
+        --
+        -- A nil check rather than a truthy one, for the same reason as the `"@"` cleanup
+        -- below: nothing here writes `false`, but a shared profile can carry one, and left in
+        -- place it reaches `UpdateBindings`, which bakes the same `[known:<value>]` a `true`
+        -- would. It then fires on exactly the state it was asked to stay off.
+        if (binding.known == false or (binding.known ~= nil and binding.type ~= Constants.SPELL)) then
+            binding.known = nil;
+        end
 
-            if (binding.checkedUnits) then
-                -- truthy가 아니라 nil 검사다. "@"에 "없을 때"가 들어와 있으면(UI로는 못 만들지만
-                -- 공유 프로필로는 들어온다) truthy 검사는 그걸 못 지우고, 걸 축이 없는 조건이
-                -- 그대로 UpdateBindings까지 간다.
-                if (binding.checkedUnits["@"] ~= nil and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
-                    binding.checkedUnits["@"] = nil;
-                end
-
-                -- `"@"` and an explicit condition on the same unit used to be folded into one key
-                -- here, by hand, for the scalar shape. **Both consumers intersect them
-                -- themselves now**: `BuildUnitStates` with `band` for the solver, and
-                -- `mergeUnitConditions` per axis on the way to the snippet. Folding again would
-                -- be a third copy of one rule, and the one that drifts is the one nothing checks.
-            end
-
-            if (binding.groups and band(binding.groups, Constants.GROUP_ALL) == Constants.GROUP_ALL) then
-                binding.groups = Constants.GROUP_ALL;
-            end
-
-            if (binding.forms and band(binding.forms, Constants.FORM_ALL) == Constants.FORM_ALL) then
-                binding.forms = Constants.FORM_ALL;
-            end
-
-            if (binding.bonusbars and band(binding.bonusbars, Constants.BONUSBAR_ALL) == Constants.BONUSBAR_ALL) then
-                binding.bonusbars = Constants.BONUSBAR_ALL;
-            end
-
-            -- 대상을 못 갖는 타입이면 지운다. 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다 -
-            -- 대상 메뉴를 여는 쪽(`DropDownMenus.lua`)도 같은 값을 본다. 예전에는 여기와
-            -- 저기에 같은 목록이 손으로 하나씩 적혀 있었고, 한쪽에만 타입을 넣는 바람에
-            -- **화면에는 대상이 보이는데 나가는 매크로에는 없는** 상태가 나왔다.
-            if (not Constants.TYPES_WITH_UNIT[binding.type]) then
-                binding.unit = nil;
-            elseif (binding.type == Constants.PETACTION
-                    and not DebindPrivate.PetActionTakesUnit(binding.value)) then
-                -- 펫 명령은 타입만으로 안 갈린다. 대상 메뉴도 같은 것을 보고 안 열린다
-                -- (`DropDownMenus.lua`). 여기서도 지워야 옛 프로필에 남은 값이 안 따라온다.
-                binding.unit = nil;
-            end
-
-            -- **대상을 뺏었으면 `"@"`도 뺏는다.** `"@"`는 대상 유닛을 가리키는 포인터라
-            -- 가리킬 것이 없으면 뜻이 없는데, 그걸 지우는 위쪽 검사는 대상 메뉴가 쓴 값을
-            -- 보고 이미 지나갔다. 바로 위 두 갈래가 그 뒤에서 대상을 지운다.
-            --
-            -- **아래 hover 채워넣기보다 앞이어야 한다.** 저기서 `"hover"`가 들어가고 나면
-            -- 남은 `"@"`가 그걸 가리켜서, focus를 겨누고 켠 조건이 **호버한 유닛** 조건으로
-            -- 조용히 바뀐다. 갈 축이 없어 판정에서 빠지는 것보다 나쁘다 - 이쪽은 멀쩡히
-            -- 동작하는 얼굴로 다른 일을 한다.
-            --
-            -- `""`도 같이 본다. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는 들어오고,
-            -- 위쪽 검사의 목록에는 없다.
-            if (binding.checkedUnits and (binding.unit == nil or binding.unit == "")) then
+        if (binding.checkedUnits) then
+            -- truthy가 아니라 nil 검사다. "@"에 "없을 때"가 들어와 있으면(UI로는 못 만들지만
+            -- 공유 프로필로는 들어온다) truthy 검사는 그걸 못 지우고, 걸 축이 없는 조건이
+            -- 그대로 UpdateBindings까지 간다.
+            if (binding.checkedUnits["@"] ~= nil and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
                 binding.checkedUnits["@"] = nil;
             end
 
-            -- **빈 표는 남기지 않는다.** `"@"`가 유일한 키였으면 위 두 자리가 그것을 지우고
-            -- `{}`가 남는데, `binding.checkedUnits`가 있느냐를 게이트로 쓰는 자리가 여럿이라
-            -- (`IsConditionalBinding`, 이슈 검사) 조건이 하나도 없는 액션이 조건부가 된다.
-            if (binding.checkedUnits and not next(binding.checkedUnits)) then
-                binding.checkedUnits = nil;
-            end
-
-            if (binding.petbattle and binding.specialbar) then
-                binding.specialbar = nil;
-            end
-
-            if (binding.hover and binding.unit == nil) then
-                if (binding.ignoreHoverUnit) then
-                    binding.unit = "";
-                else
-                    binding.unit = "hover";
-                end
-            end
-
-            BuildUnitStates(binding);
+            -- `"@"` and an explicit condition on the same unit used to be folded into one key
+            -- here, by hand, for the scalar shape. **Both consumers intersect them
+            -- themselves now**: `BuildUnitStates` with `band` for the solver, and
+            -- `mergeUnitConditions` per axis on the way to the snippet. Folding again would
+            -- be a third copy of one rule, and the one that drifts is the one nothing checks.
         end
+
+        if (binding.groups and band(binding.groups, Constants.GROUP_ALL) == Constants.GROUP_ALL) then
+            binding.groups = Constants.GROUP_ALL;
+        end
+
+        if (binding.forms and band(binding.forms, Constants.FORM_ALL) == Constants.FORM_ALL) then
+            binding.forms = Constants.FORM_ALL;
+        end
+
+        if (binding.bonusbars and band(binding.bonusbars, Constants.BONUSBAR_ALL) == Constants.BONUSBAR_ALL) then
+            binding.bonusbars = Constants.BONUSBAR_ALL;
+        end
+
+        -- 대상을 못 갖는 타입이면 지운다. 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다 -
+        -- 대상 메뉴를 여는 쪽(`DropDownMenus.lua`)도 같은 값을 본다. 예전에는 여기와
+        -- 저기에 같은 목록이 손으로 하나씩 적혀 있었고, 한쪽에만 타입을 넣는 바람에
+        -- **화면에는 대상이 보이는데 나가는 매크로에는 없는** 상태가 나왔다.
+        if (not Constants.TYPES_WITH_UNIT[binding.type]) then
+            binding.unit = nil;
+        elseif (binding.type == Constants.PETACTION
+                and not DebindPrivate.PetActionTakesUnit(binding.value)) then
+            -- 펫 명령은 타입만으로 안 갈린다. 대상 메뉴도 같은 것을 보고 안 열린다
+            -- (`DropDownMenus.lua`). 여기서도 지워야 옛 프로필에 남은 값이 안 따라온다.
+            binding.unit = nil;
+        end
+
+        -- **대상을 뺏었으면 `"@"`도 뺏는다.** `"@"`는 대상 유닛을 가리키는 포인터라
+        -- 가리킬 것이 없으면 뜻이 없는데, 그걸 지우는 위쪽 검사는 대상 메뉴가 쓴 값을
+        -- 보고 이미 지나갔다. 바로 위 두 갈래가 그 뒤에서 대상을 지운다.
+        --
+        -- **아래 hover 채워넣기보다 앞이어야 한다.** 저기서 `"hover"`가 들어가고 나면
+        -- 남은 `"@"`가 그걸 가리켜서, focus를 겨누고 켠 조건이 **호버한 유닛** 조건으로
+        -- 조용히 바뀐다. 갈 축이 없어 판정에서 빠지는 것보다 나쁘다 - 이쪽은 멀쩡히
+        -- 동작하는 얼굴로 다른 일을 한다.
+        --
+        -- `""`도 같이 본다. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는 들어오고,
+        -- 위쪽 검사의 목록에는 없다.
+        if (binding.checkedUnits and (binding.unit == nil or binding.unit == "")) then
+            binding.checkedUnits["@"] = nil;
+        end
+
+        -- **빈 표는 남기지 않는다.** `"@"`가 유일한 키였으면 위 두 자리가 그것을 지우고
+        -- `{}`가 남는데, `binding.checkedUnits`가 있느냐를 게이트로 쓰는 자리가 여럿이라
+        -- (`IsConditionalBinding`, 이슈 검사) 조건이 하나도 없는 액션이 조건부가 된다.
+        if (binding.checkedUnits and not next(binding.checkedUnits)) then
+            binding.checkedUnits = nil;
+        end
+
+        if (binding.petbattle and binding.specialbar) then
+            binding.specialbar = nil;
+        end
+
+        if (binding.hover and binding.unit == nil) then
+            if (binding.ignoreHoverUnit) then
+                binding.unit = "";
+            else
+                binding.unit = "hover";
+            end
+        end
+
+        BuildUnitStates(binding);
 
         return binding;
     end

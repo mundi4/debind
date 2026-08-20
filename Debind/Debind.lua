@@ -162,7 +162,7 @@ do
 				-- would hold only until they accept the set -- the badge comes off then and the
 				-- key does not, and what is left is a record wired to nothing.
 				if (action.key and type(action.key) ~= "number" and not action.imported) then
-					local binding = DebindPrivate.GetBindingInfoForAction(action, true);
+					local binding = DebindPrivate.GetBindingInfoForAction(action);
 					BindingInfoToActionMap[binding] = action;
 
 					binding.layerRank = layerRank;
