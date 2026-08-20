@@ -250,7 +250,7 @@ end
 --- as-is.
 local function NormalizeAction(action, out)
     if (action.type == Constants.SETSTATE) then
-        local mode, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(action.value);
+        local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
         if (mode) then
             out.value = nil;
             out.setstate = { mode = mode, state = "$state" .. stateIndex };
@@ -292,7 +292,7 @@ local function CollectStateNames(actions, found)
             if (args) then
                 for j = 1, #args do
                     local arg = args[j];
-                    if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE) then
+                    if (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
                         found[arg.name] = true;
                     end
                 end
@@ -322,20 +322,20 @@ local function BuildStateManifest(actions)
 
         for name in pairs(pending) do
             if (manifest[name] == nil) then
-                local index = Constants.CUSTOM_STATE_INDICES[name];
-                local definition = index and DebindPrivate.CustomStates[index];
+                local index = Constants.SWITCH_INDICES[name];
+                local definition = index and DebindPrivate.Switches[index];
                 if (definition) then
                     manifest[name] = CopyFields(definition, STATE_FIELDS);
                     any = true;
 
                     -- A conditional state's expression can name other states, and those have to
                     -- travel too or the definition arrives referring to nothing.
-                    if (definition.mode == Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL
+                    if (definition.mode == Constants.SWITCH_MODES.MACRO_CONDITIONAL
                             and luatype(definition.expr) == "string") then
                         local _, args = DebindPrivate.ParseMacroText(definition.expr);
                         for j = 1, (args and #args or 0) do
                             local arg = args[j];
-                            if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE
+                            if (arg.type == Constants.MACROTEXT_ARG_SWITCH
                                     and manifest[arg.name] == nil) then
                                 nextPending = nextPending or {};
                                 nextPending[arg.name] = true;

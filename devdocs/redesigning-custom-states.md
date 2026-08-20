@@ -1,7 +1,10 @@
 # 커스텀 상태 다시 세우기 (2026-08-12 설계)
 
-> 상태 (2026-08-20): **0단계만 들어갔다(2026-08-13). 1단계부터는 코드가 한 줄도 없고 아래는
-> 전부 제안이다.** §9의 둘은 정해졌다(§9-1은 2026-08-18, §9-2는 2026-08-21).
+> 상태 (2026-08-21): **0단계(2026-08-13)와 1a(2026-08-21)가 들어갔다. 1b부터는 코드가 한 줄도
+> 없고 아래는 전부 제안이다.** §9의 둘은 정해졌다(§9-1은 2026-08-18, §9-2는 2026-08-21).
+> **1a가 지나간 뒤라 아래가 코드를 가리킬 때 쓰는 이름은 새 이름이다.** 옛 이름이 남아 있는
+> 자리는 §9-2·§9-3처럼 **개명 자체를 이야기하는 자리**뿐이다. `db.customStates`와 로케일 키
+> `CUSTOM_STATE_*`는 저장 형식이라 1a에서 안 갔다(§9-3 "저장을 건드리는 절반").
 > **§6-A의 생김새는 미룬다(2026-08-21, 소유자).** 상태 시스템을 다 만들고 나서 정할
 > 문제다. 아이콘 쪽은 같은 날 닫혔다.
 >
@@ -35,14 +38,14 @@
 
 ### 2. ~~정의되지 않은 상태는 **참**이다~~ — **해결됨 (2026-08-13, 0단계)**
 
-원래 증상: `addCustomState`가 실패하면 코드젠이 그 조건 자리를 `""`로 치환했다.
+원래 증상: `addSwitch`가 실패하면 코드젠이 그 조건 자리를 `""`로 치환했다.
 `[$foo]` → `[]` → **항상 참.** 파서가 임의 이름을 통과시키므로 손으로 쓴 매크로에
 `[$typo]` 한 번이면 그 절이 사라지고 바인딩이 무조건 발동했다 — 안 나가는 게 아니라
 **더 나가는** 쪽.
 
 두 겹으로 막았다. 자세한 것은 `.zzz/resolved.md`의 "0단계" 항목.
 
-- `Misc.GetUndefinedCustomState` + `BINDING_ISSUE_UNDEFINED_STATE` — 마커가 붙으면
+- `Misc.GetUndefinedSwitch` + `BINDING_ISSUE_UNDEFINED_STATE` — 마커가 붙으면
   `Debind.lua`의 게이트가 그 액션을 `KeyMap`에서 뺀다.
 - `UpdateMacroTextsMap`의 미정의 갈래가 `""` 대신 `known:0`을 굽는다. 자기 참조 갈래는
   그대로다.
@@ -73,7 +76,7 @@
 | 변이 | 결과 |
 |---|---|
 | 상태 컬럼을 아예 안 만듦 | 2 실패 |
-| `makeCustomStateFlags`가 늘 `STATE_ANY` | 2 실패 |
+| `makeSwitchFlags`가 늘 `STATE_ANY` | 2 실패 |
 | 모든 상태 컬럼이 `$state1`을 읽음 | 1 실패 |
 
 **한쪽만 바꾸는 변이여야 한다**는 것이 이 항목에서 배운 것이다.
@@ -85,9 +88,9 @@
 나가 있다.** 머리주석(1-57행)이 제한 환경에서 쓸 수 있는 것의 목록까지 적어놨다.
 처음부터 다시 판정하지 말 것.
 
-### 7. `GetCustomStateOptions`는 모르는 이름에 에러를 던진다
+### 7. `GetSwitchOptions`는 모르는 이름에 에러를 던진다
 
-`CustomStates.lua`. 이름이 `CUSTOM_STATE_INDICES`에
+`Switches.lua`. 이름이 `SWITCH_INDICES`에
 없으면 `stateIndex`가 nil이 되고 `nil <= 5`에서 터진다. **지금은 도달 불가** — 부르는 쪽이
 전부 사전에 게이트를 통과시키거나 숫자를 넘긴다. 이름이 자유로워지는 순간 도달 가능해진다.
 
@@ -100,15 +103,15 @@
 
 ### 1-1. 이미 이름을 받는 것들
 
-**막고 있는 것은 `UpdateBindings.lua`의 `addCustomState`가 쓰는
-`Constants.CUSTOM_STATE_INDICES[stateName]` 게이트 하나다.** 나머지는 전부 준비돼 있다:
+**막고 있는 것은 `UpdateBindings.lua`의 `addSwitch`가 쓰는
+`Constants.SWITCH_INDICES[stateName]` 게이트 하나다.** 나머지는 전부 준비돼 있다:
 
 | 계층 | 이름 대응 | 근거 |
 |---|---|---|
 | 조건 저장 | **된다** | `CleanUpDB`의 `$` 면제 (⚑1). `KEYS_TO_SAVE`의 `$state1`~`5` 다섯 줄은 이미 잉여 |
 | 매크로 파서 | **된다** | `Misc.lua`의 `ParseMacroText` — `[a-zA-Z0-9_]+` |
-| 보안 런타임 | **된다** | `States[name]`은 문자열 키. `CustomStates.lua`의 `_onclick`은 `strsub(state,1,1) == "$"`만 본다 |
-| 코드젠 | **절반** | `UpdateBindings.lua`의 `UpdateBindingsMap`에 있는 `binding.customStates` 이름 키 루프가 **있는데 아무도 안 채운다** — 죽은 준비 코드 |
+| 보안 런타임 | **된다** | `States[name]`은 문자열 키. `Switches.lua`의 `_onclick`은 `strsub(state,1,1) == "$"`만 본다 |
+| 코드젠 | **절반** | `UpdateBindings.lua`의 `UpdateBindingsMap`에 있는 `binding.switches` 이름 키 루프가 **있는데 아무도 안 채운다** — 죽은 준비 코드 |
 | 상태 합성 | **된다** | `$b`의 `expr` 안 `$a`가 런타임 참조로 구워진다. 자기 자신만 무력화(`UpdateMacroTextsMap`의 `selfReference`) |
 
 **`$` 면제는 2024-09-08 `d3118cf`, 2.0.4부터 나가 있다.** 되돌릴 수 있는 모든 릴리스가
@@ -120,12 +123,12 @@
   `Constants.lua` 밖에서 읽는 데가 없었다. `-S`로 전체 히스토리를 훑어도 `CUSTOM_STATE_MODES.ALWAYS_ON`
   이라는 코드가 나타난 커밋이 없다. **한 번도 도달한 적이 없으므로 마이그레이션도 없다.**
   1과 2 번호는 비워둔 채로 둔다. 당기면 저장된 `MACRO_CONDITIONAL`(3)이 조용히 다른 모드로 읽힌다.
-- **`STATE_CHANGED`** — `Misc.lua`의 `CustomStatesChangedCallback`에서 쏘고 `Public.lua`로
+- **`SWITCH_CHANGED`** — `Misc.lua`의 `SwitchesChangedCallback`에서 쏘고 `Public.lua`로
   공개까지 하는데 **애드온 안에서 듣는 데가 없다.** 라이브 표시는 구독만 하면 공짜다.
 
 ### 1-3. 순환은 터지지 않는다 [확인]
 
-`$a`의 expr이 `[$b]`, `$b`가 `[$a]`. `addCustomState`가 메모를 늦게 쓰지만
+`$a`의 expr이 `[$b]`, `$b`가 `[$a]`. `addSwitch`가 메모를 늦게 쓰지만
 `UpdateBindings.lua`의 `addMacrotext`가 쓰는 `_macrotexts` 메모가
 **재귀 앞에** 걸려서 끊는다. 무한 재귀 없음.
 
@@ -156,170 +159,12 @@
 
 정해야 하는 규칙 넷:
 
-1. **저장 키는 `# 커스텀 상태 다시 세우기 (2026-08-12 설계)
-
-> 상태 (2026-08-20): **0단계만 들어갔다(2026-08-13). 1단계부터는 코드가 한 줄도 없고 아래는
-> 전부 제안이다.** §9의 둘은 정해졌다(§9-1은 2026-08-18, §9-2는 2026-08-21).
-> **§6-A의 생김새는 미룬다(2026-08-21, 소유자).** 상태 시스템을 다 만들고 나서 정할
-> 문제다. 아이콘 쪽은 같은 날 닫혔다.
->
-> **배정은 3.3이다.** `conditions` 중첩과 한 단계로 묶여 있었는데 **그 묶음은 풀렸다
-> (2026-08-20).** 근거가 "둘이 같은 필드를 옮긴다"였는데, 이 문서 §3이 `$state1`~`$state5`를
-> 개명하지 않는다고 적어둔 것과 어긋나 있었다. 중첩은 먼저 나갔고 `dbver`는 6이다.
-> **3.2.x의 다운그레이드 가드가 그 앞이다** — 그건 순서가 아니라 조건이라고 로드맵이 적어뒀다.
->
-> **§9-1의 저장 표현 변경은 `dbver` 7이 아니라 6에 얹는다.** 6은 아직 안 나갔고, 안 나간
-> 범프는 하나로 유지한다(`0-DECISION-LOG.md`, 2026-08-20).
->
-> 전투 중에 쓰는 표면(§6-A 상태 바)까지 포함한다 — 전투 판정은 `Flyout.lua` 선례로 끝났다.
-> 이 문서는 `.zzz/findings.md` §6을 대체한다. 거기 **§6-1(레이어 캐스케이드)은
-> 기각됐다** — 편의 문제가 아니라 성립하지 않아서다. 근거는 §4. 재론하려면 §4-2부터 읽을 것.
->
-> 표시: **[확인]** 코드로 검증함 / **[추론]** 근거는 있으나 미검증 / **[미확인]** 확인 필요.
-> **코드를 가리킬 때는 파일과 이름만 쓴다** — 줄 번호는 이 문서가 `.zzz`에 있던 여드레 만에
-> 전부 낡았다.
-
----
-
-## ⚑ 착수 시 먼저 읽을 것
-
-설계가 아니라 **함정**이다. 설계 세션이 실제로 밟은 것들.
-
-### 1. `$` 접두사는 장식이 아니다
-
-`Profile.lua`의 `CleanUpDB`가 `$`로 시작하는 키는 `KEYS_TO_SAVE`에 없어도 **지우지 않는다.** 저장 키를 `action.pvpzone`처럼 바꾸면
-**매 로드마다 지워진다.** 조건은 `action["$pvpzone"]`으로 저장해야 하고, `$`는 표시할 때만
-뗀다.
-
-### 2. ~~정의되지 않은 상태는 **참**이다~~ — **해결됨 (2026-08-13, 0단계)**
-
-원래 증상: `addCustomState`가 실패하면 코드젠이 그 조건 자리를 `""`로 치환했다.
-`[$foo]` → `[]` → **항상 참.** 파서가 임의 이름을 통과시키므로 손으로 쓴 매크로에
-`[$typo]` 한 번이면 그 절이 사라지고 바인딩이 무조건 발동했다 — 안 나가는 게 아니라
-**더 나가는** 쪽.
-
-두 겹으로 막았다. 자세한 것은 `.zzz/resolved.md`의 "0단계" 항목.
-
-- `Misc.GetUndefinedCustomState` + `BINDING_ISSUE_UNDEFINED_STATE` — 마커가 붙으면
-  `Debind.lua`의 게이트가 그 액션을 `KeyMap`에서 뺀다.
-- `UpdateMacroTextsMap`의 미정의 갈래가 `""` 대신 `known:0`을 굽는다. 자기 참조 갈래는
-  그대로다.
-
-### 3. 정의는 함수 하나로만 닿을 것
-
-`db.global.customStates[...]`를 호출부에서 직접 읽지 말고 **`ResolveStateDefinition(name)`**
-하나를 통과시킨다. 만들 때는 전역 표 한 줄을 반환하면 그만이다. §4-6(계산식만 레이어로)이
-나중에 필요해지면 **그 함수만 바뀐다.** 지금 비용 0이고, 이 문서에서 되돌리기 어려운 유일한
-항목이다.
-
-### 4. 값을 캐릭터로 옮기면 `HasCharContent`도 고쳐야 한다
-
-`Profile.lua`의 `HasCharContent`가 세는 것은 `CustomTargets`와 레이어 둘뿐이다.
-`CleanUpDB`가 그 판정으로 `db.characters[guid]`에 `db.char`를 붙이거나 뗀다.
-안 고치면 상태 값만 저장한 캐릭터의 항목이 로그아웃 때 통째로 사라진다.
-
-### 5. solver 컬럼을 손대면 **일부러 깨뜨려서 잡히는지 확인**할 것 — **했음 (2026-08-13)**
-
-`.zzz/unit-axis-redesign.md` ⚑6의 교훈을 그대로 물려받는다.
-
-⚠ **여기 적어뒀던 변이(`STATE_ON`/`STATE_OFF` 스왑)는 쓸 수 없다.** 둘을 같이 뒤집으면
-영역과 커버가 **같이** 뒤집혀서 비트 이름만 바뀐 동형사상이 된다 — 어떤 테스트도 잡을 수
-없고, 잡으면 그게 버그다. 실제로 돌려서 확인했다(282 통과).
-
-쓸 수 있는 변이 셋. 셋 다 `solver_spec`의 퍼저와 "독립된 커스텀 상태" 케이스가 잡는다:
-
-| 변이 | 결과 |
-|---|---|
-| 상태 컬럼을 아예 안 만듦 | 2 실패 |
-| `makeCustomStateFlags`가 늘 `STATE_ANY` | 2 실패 |
-| 모든 상태 컬럼이 `$state1`을 읽음 | 1 실패 |
-
-**한쪽만 바꾸는 변이여야 한다**는 것이 이 항목에서 배운 것이다.
-
-### 6. 전투 표면은 새로 뚫지 말고 `Flyout.lua`를 베껴라
-
-상태 바(§6-A)가 필요로 하는 것 — **전투 중 여닫기, 전투 중 클릭, 전투 밖에서 굽고 전투
-중엔 밟기만 하기** — 이 셋이 `Flyout.lua`에 **이미 다 있고 릴리스에
-나가 있다.** 머리주석(1-57행)이 제한 환경에서 쓸 수 있는 것의 목록까지 적어놨다.
-처음부터 다시 판정하지 말 것.
-
-### 7. `GetCustomStateOptions`는 모르는 이름에 에러를 던진다
-
-`CustomStates.lua`. 이름이 `CUSTOM_STATE_INDICES`에
-없으면 `stateIndex`가 nil이 되고 `nil <= 5`에서 터진다. **지금은 도달 불가** — 부르는 쪽이
-전부 사전에 게이트를 통과시키거나 숫자를 넘긴다. 이름이 자유로워지는 순간 도달 가능해진다.
-
----
-
-## 1. 지금 있는 것 [확인]
-
-`$state1`~`$state5` 다섯 개 고정. 정의는 `db.global.customStates[1..5]`에 전역.
-상태마다 `mode` / `value` / `initialValue` / `savedValue` / `expr` / `displayMessage`.
-
-### 1-1. 이미 이름을 받는 것들
-
-**막고 있는 것은 `UpdateBindings.lua`의 `addCustomState`가 쓰는
-`Constants.CUSTOM_STATE_INDICES[stateName]` 게이트 하나다.** 나머지는 전부 준비돼 있다:
-
-| 계층 | 이름 대응 | 근거 |
-|---|---|---|
-| 조건 저장 | **된다** | `CleanUpDB`의 `$` 면제 (⚑1). `KEYS_TO_SAVE`의 `$state1`~`5` 다섯 줄은 이미 잉여 |
-| 매크로 파서 | **된다** | `Misc.lua`의 `ParseMacroText` — `[a-zA-Z0-9_]+` |
-| 보안 런타임 | **된다** | `States[name]`은 문자열 키. `CustomStates.lua`의 `_onclick`은 `strsub(state,1,1) == "$"`만 본다 |
-| 코드젠 | **절반** | `UpdateBindings.lua`의 `UpdateBindingsMap`에 있는 `binding.customStates` 이름 키 루프가 **있는데 아무도 안 채운다** — 죽은 준비 코드 |
-| 상태 합성 | **된다** | `$b`의 `expr` 안 `$a`가 런타임 참조로 구워진다. 자기 자신만 무력화(`UpdateMacroTextsMap`의 `selfReference`) |
-
-**`$` 면제는 2024-09-08 `d3118cf`, 2.0.4부터 나가 있다.** 되돌릴 수 있는 모든 릴리스가
-`action["$아무이름"]`을 보존한다 → **조건 저장은 마이그레이션이 필요 없다.**
-
-### 1-2. 죽어 있는 것
-
-- ~~**`CUSTOM_STATE_MODES.ALWAYS_ON` / `ALWAYS_OFF`**~~ — **지웠다 (2026-08-21).** 선언만 있고
-  `Constants.lua` 밖에서 읽는 데가 없었다. `-S`로 전체 히스토리를 훑어도 `CUSTOM_STATE_MODES.ALWAYS_ON`
-  이라는 코드가 나타난 커밋이 없다. **한 번도 도달한 적이 없으므로 마이그레이션도 없다.**
-  1과 2 번호는 비워둔 채로 둔다. 당기면 저장된 `MACRO_CONDITIONAL`(3)이 조용히 다른 모드로 읽힌다.
-- **`STATE_CHANGED`** — `Misc.lua`의 `CustomStatesChangedCallback`에서 쏘고 `Public.lua`로
-  공개까지 하는데 **애드온 안에서 듣는 데가 없다.** 라이브 표시는 구독만 하면 공짜다.
-
-### 1-3. 순환은 터지지 않는다 [확인]
-
-`$a`의 expr이 `[$b]`, `$b`가 `[$a]`. `addCustomState`가 메모를 늦게 쓰지만
-`UpdateBindings.lua`의 `addMacrotext`가 쓰는 `_macrotexts` 메모가
-**재귀 앞에** 걸려서 끊는다. 무한 재귀 없음.
-
-다만 `UpdateAttrChangedHandler`가 굽는 폴링 루프가 `pairs()` 순서로 돈다 → **연쇄된 상태는 한 틱 늦을 수 있다.** 이름이 생기면 합성이 늘 테니
-의존 순서로 정렬하든지 "한 틱 늦는다"를 문서에 적든지 골라야 한다. (지금은 5개라 아무도
-합성하지 않아서 드러나지 않았다.)
-
----
-
-## 2. 왜 아무도 안 쓰나
-
-`.zzz/findings.md` §6-6은 *"조건 엔진이 너무 깊어서"* 로 봤는데, 코드를 보면 원인이 더 얕다.
-**깊이가 아니라 정체성·발견·피드백 셋이 다 없다.**
-
-- **번호가 이름을 대신한다.** "사용자 지정 상태 3"은 아무 말도 안 한다. 쓰려면 3이 뭐였는지
-  사용자가 머리로 기억해야 한다.
-- **만드는 자리와 쓰는 자리가 떨어져 있다.** 조건 하나를 걸려면 초상화 드롭다운을 찾아 열고
-  (`DropDownMenus.lua`), 다섯 개 중 **안 쓰는 번호를 추측해서** 모드를 정하고, 그다음 액션 우클릭 → 조건 메뉴로 간다.
-- **켜졌는지 볼 데가 없다.** 옵션으로 켜는 채팅 메시지가 전부다(§1-2).
-- 액션 카탈로그에는 "사용자 상태 1 켜기 / 끄기 / 전환" 15줄이 들어가 있다
-  (`ActionCatalog.lua`) — **번호 열다섯 줄.**
-
----
-
-## 3. 이름이 정체성이다
-
-`$state1`~`$state5`는 **그냥 유효한 이름으로 남긴다** → 기존 데이터 무변경, 마이그레이션 없음.
-
-정해야 하는 규칙 넷:
-
-를 포함한다** (⚑1). ~~표시할 때만 뗀다.~~ **화면에서도 붙여서 쓴다
+1. **저장 키는 `$`를 포함한다** (⚑1). ~~표시할 때만 뗀다.~~ **화면에서도 붙여서 쓴다
    (2026-08-21) → §6-B.** 사용자가 매크로에 치는 글자가 `[$burst]`라, 목록이 곧 그 글자를
    가르치는 자리가 된다.
 2. **찾을 때 소문자로 정규화한다.** 파서 정규식이 대소문자를 가리고 `States[]`는 정확히
    일치한다 — `[$PvpZone]`이 조용히 미정의가 되는 것을 막는다. 해석은 컴파일 시점
-   (`addCustomState`)이라 런타임 비용 0.
+   (`addSwitch`)이라 런타임 비용 0.
 3. **중복 이름은 만들 수 없다.** 목록 UI가 있으니 자연스럽다.
 4. **개명은 참조를 다시 쓴다 — 네 군데다.** 조건 키 / 매크로 본문(`[$x]`, `no$x`) /
    SETSTATE 값 / **다른 상태의 `expr`**. 마지막 것을 빠뜨리기 쉬운데 실제로 참조된다(§1-1).
@@ -497,13 +342,13 @@ customStates[name].overrides[<레이어키>] = { mode =, expr =, initialValue =,
 `initialValue` 오버라이드는 이름과 달리 **로그인 때만 걸면 거짓말이 된다** — *"이 스펙에서는
 항상 켜짐"* 인데 스펙을 바꿔 들어오니 꺼져 있으면 설정이 틀린 것이다.
 
-기계는 있다: `UpdateBindings`가 재컴파일 때 `_customStates`를 훑어 `SetCustomState`로 값을
+기계는 있다: `UpdateBindings`가 재컴파일 때 `_switches`를 훑어 `SetSwitch`로 값을
 밀어넣고, 스펙 전환은 재컴파일을 부른다. 해석된 `initialValue`를
 그 자리에서 읽으면 된다.
 
 ### 4-9. "기억하기"와 부딪힌다 — 그리고 **코드가 줄어드는 쪽으로 푼다**
 
-`Misc.lua`의 `CustomStatesChangedCallback`이 지금 이렇게 한다:
+`Misc.lua`의 `SwitchesChangedCallback`이 지금 이렇게 한다:
 
 ```lua
 if (options.initialValue == nil) then savedValue = newValue    -- 기억하기
@@ -541,7 +386,7 @@ A(항상 켜짐) → B(기억하기)로 바꾸면 B가 켜진 채로 오고, 원
 기대가 같이 생긴다.**
 
 그리고 증거가 코드에 있다: **`initialValue`("로그인 시 켜기/끄기")는 스코프가 틀려서 만든
-탈출구다.** `Profile.lua`의 `BindDerivedTables`와 `Misc.lua`의 `CustomStatesChangedCallback`.
+탈출구다.** `Profile.lua`의 `BindDerivedTables`와 `Misc.lua`의 `SwitchesChangedCallback`.
 "기억하기"가 실제로는 *"마지막에 로그아웃한 캐릭터가 남긴 값 기억하기"* 라서 찝찝했고,
 그래서 "기억하지 않기"를 옵션으로 준 것이다. 캐릭터로 옮기면 **그 탈출구가 필요 없어지고
 "기억하기"가 정직해진다.**
@@ -561,7 +406,7 @@ A(항상 켜짐) → B(기억하기)로 바꾸면 B가 켜진 채로 오고, 원
 - **`HasCharContent`** (⚑4).
 - 마이그레이션은 §6-4 설계 그대로, 목적지만 `characters[guid]`로. 캐릭터마다 첫 로그인에
   알아서 돌고 관측 가능한 변화 0.
-- 스펙 전환 시 값 주입은 **이미 있다** — `UpdateBindings`가 컴파일할 때 `SetCustomState`로
+- 스펙 전환 시 값 주입은 **이미 있다** — `UpdateBindings`가 컴파일할 때 `SetSwitch`로
   밀어넣는다.
 
 ---
@@ -675,7 +520,7 @@ A(항상 켜짐) → B(기억하기)로 바꾸면 B가 켜진 채로 오고, 원
 > 이걸로 없어진다"* 라고 적혀 있었다. **그 방법은 틀렸다.**
 
 `SecureBindings.lua`가 `SecureCmdOptionParse`에 넘기는 것은 사용자가 저장한 원문이 아니라
-**제한 환경 안에서 합성된 문자열**이다(`CustomStateExpressions[t.state] = s`). 그 갈래 주석이
+**제한 환경 안에서 합성된 문자열**이다(`SwitchExpressions[t.state] = s`). 그 갈래 주석이
 *"`@custom1`·`@hover`처럼 실행 시점에 바뀌어야 하는 것이 있는 본문만 지난다"* 고 적어놨다.
 
 그래서 비보안 쪽에서 원문을 그대로 평가하면 **우리 확장이 전부 조용히 틀린다.**
@@ -707,9 +552,9 @@ F-3의 채택안(전투 중 창을 `Hide()` 대신 키보드만 끄기)은 *"메
 
 #### 무엇을 보여주나 — 이미 계산돼 있다
 
-`UpdateBindings.lua`의 **`_customStates`가 정확히
+`UpdateBindings.lua`의 **`_switches`가 정확히
 그것이다** — "지금 컴파일된 바인딩과 매크로가 실제로 참조하는 상태"의 집합. `ResetContext`가
-매 빌드마다 비우고 `addCustomState`가 조건·매크로 인자에서만 채운다. **행 목록은 공짜다.**
+매 빌드마다 비우고 `addSwitch`가 조건·매크로 인자에서만 채운다. **행 목록은 공짜다.**
 (조회 실패를 `false`로도 적으므로 참인 것만 거른다.)
 
 정의는 열 개여도 **바에는 지금 쓰이는 것만 뜬다.** 안 쓰는 상태가 화면을 먹지 않는다.
@@ -720,13 +565,13 @@ F-3의 채택안(전투 중 창을 `Hide()` 대신 키보드만 끄기)은 *"메
 
 ```
 type            = "attribute"
-attribute-frame = DebindStates          (CustomStatesUpdaterFrame)
+attribute-frame = DebindStates          (SwitchesUpdaterFrame)
 attribute-name  = "$burst"
 attribute-value = "toggle"              ("on" / "off"도 같은 자리)
 ```
 
 `UpdateBindings.lua`의 `SetBindingAttributes`가 SETSTATE 바인딩에
-**글자 그대로 이것을 한다.** 받는 쪽은 `CustomStates.lua`의 `_onattributechanged`고, 거기서 `ToggleCustomState`로 간다. **전투 중 클릭은 아무것도 안 굽고
+**글자 그대로 이것을 한다.** 받는 쪽은 `Switches.lua`의 `_onattributechanged`고, 거기서 `ToggleSwitch`로 간다. **전투 중 클릭은 아무것도 안 굽고
 이미 구워진 속성을 밟기만 한다.**
 
 **`MANUAL` 상태만 버튼을 준다.** `MACRO_CONDITIONAL`은 `UpdateAttrChangedHandler`가 구운 폴링이
@@ -759,7 +604,7 @@ attribute-value = "toggle"              ("on" / "off"도 같은 자리)
 
 **켜짐/꺼짐 그림은 비보안 쪽에서 바꾼다.** 텍스처 변경은 protected가 아니라 전투 중에도
 자유롭고, **통보 경로가 이미 돌고 있다**: 스니펫의 `CallMethod`(`SecureBindings.lua`) →
-`OnCustomStateChanged` → `STATE_CHANGED`(`Misc.lua`의 `CustomStatesChangedCallback`). **듣는 데가 없을 뿐이다**(§1-2).
+`OnSwitchChanged` → `SWITCH_CHANGED`(`Misc.lua`의 `SwitchesChangedCallback`). **듣는 데가 없을 뿐이다**(§1-2).
 바가 그 첫 청취자가 된다.
 
 > 즉 **보안 쪽은 값만 바꾸고, 그림은 비보안 쪽이 그린다.** 전투 중 스니펫이 하는 일은
@@ -776,7 +621,7 @@ attribute-value = "toggle"              ("on" / "off"도 같은 자리)
   포커스). 거기에 묶으면 그 미결이 이 기능에 딸려온다.
 - 구조는 Flyout 그대로: `Screen`(화면 크기, `SecureFrameTemplate`) + 컨테이너 하나.
 
-폈을 때 높이는 `_customStates` 중 `MANUAL`인 것의 개수만큼이고, 그건 **정의 개수가 아니라
+폈을 때 높이는 `_switches` 중 `MANUAL`인 것의 개수만큼이고, 그건 **정의 개수가 아니라
 지금 쓰이는 개수**다.
 
 #### 생김새 — **미룬다 (2026-08-21, 소유자)**
@@ -879,7 +724,7 @@ attribute-value = "toggle"              ("on" / "off"도 같은 자리)
 1. **SETSTATE 액션 편집 컨트롤.** 지금은 없다. `DebindUI.lua`의 `NameAndIconForAction`이 이름을
    지어주는 것이 전부고 `DropDownMenus.lua`에 손잡이가 없다. 지금은 지우고 다시 추가해야 한다.
 2. **값이 빈 SETSTATE를 잡는 이슈.**
-3. **지워진 스위치를 가리키는 SETSTATE를 잡는 이슈.** `Misc.lua`의 `GetUndefinedCustomState`가
+3. **지워진 스위치를 가리키는 SETSTATE를 잡는 이슈.** `Misc.lua`의 `GetUndefinedSwitch`가
    `action.type ~= MACROTEXT`면 바로 nil을 낸다. **매크로 본문만 본다.**
    같은 자리에서 `GetMissingMacro`의 머리주석도 고쳐야 한다. *"액션의 대상이 존재하는지 묻는
    유일한 검사이고 매크로가 그게 필요한 유일한 타입"* 이라고 단언하고 있는데, 이 변경이 그
@@ -951,7 +796,7 @@ picker는 `AddNewAction`에 이름을 nil로 넘기지만 `name`은 전선 필�
 
 ### 9-1. SETSTATE `action.value` 형식 — **정해짐 (2026-08-18): 타입을 셋으로 가른다**
 
-지금은 `mode | index` 비트팩이다 — `Misc.lua`의 `GetSetCustomStateModeAndIndex`,
+지금은 `mode | index` 비트팩이다 — `Misc.lua`의 `GetSetSwitchModeAndIndex`,
 인덱스가 하위 4비트(`band(value, 0xf)`).
 
 ```lua
@@ -991,14 +836,14 @@ picker는 `AddNewAction`에 이름을 nil로 넘기지만 `name`은 전선 필�
 
 #### 다운그레이드 (§8의 그 칸이 바뀐다)
 
-구버전은 `type = "setstate_on"`을 **모르는 타입**으로 본다. `GetSetCustomStateModeAndIndex`는
+구버전은 `type = "setstate_on"`을 **모르는 타입**으로 본다. `GetSetSwitchModeAndIndex`는
 `type == Constants.SETSTATE`일 때만 불리므로 **아예 안 불린다.** 이름이 안 붙고 매크로텍스트가
 안 나오고 바인딩이 안 선다. 즉 **에러가 아니라 "그 액션이 아무것도 안 함"**이고, 그건 모르는
 타입이면 어차피 그렇게 되는 자리다. 문자열 안을 골랐을 때의 Lua 에러보다 낫다.
 
 #### 같이 사라지는 것
 
-- `GetSetCustomStateModeAndIndex` — 부르는 데 다섯이 전부 없어진다
+- `GetSetSwitchModeAndIndex` — 부르는 데 다섯이 전부 없어진다
 - `SETCUSTOM_MODE_ON` / `OFF` / `TOGGLE` / `MASK` — **`Constants.lua`에서 사라지고,
   그것을 쓰는 코드 옆에 로컬로 내려앉는다.** 자리는 둘이다. **아래 마이그레이션 단계**가
   프로필에 저장된 비트팩을 풀어야 하고(`band(value, MASK)`), **`DevSeed.lua`의 옛 `SEEDS`
@@ -1185,7 +1030,7 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 3. **조건만 훑고 매크로 본문은 안 본다.** `action.conditions["$name"]`은 UI가 목록에서 골라
    넣은 것이라 오타가 못 들어온다. 매크로 본문의 `[$burst]`는 손으로 치는 자리고, 거기서 본
    이름을 정의로 승격시키면 **⚑2가 세운 빨간불이 없어진다.** `[$typo]` 한 번이 스위치를
-   만들어버리고 사용자는 오타를 영영 모른다. 본문은 계속 `GetUndefinedCustomState`가 잡는다.
+   만들어버리고 사용자는 오타를 영영 모른다. 본문은 계속 `GetUndefinedSwitch`가 잡는다.
 
 #### 저장을 건드리는 절반
 
@@ -1199,8 +1044,8 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 | | 내용 | 형식 변경 |
 |---|---|---|
 | **0** | ~~solver 컬럼 동적화(§7) + `BINDING_ISSUE_UNDEFINED_STATE`(⚑2)~~ **완료 2026-08-13** | 없음 |
-| **1a** | **어휘 개명만**(§9-3). `SWITCH_MODES`, `SWITCH_CHANGED`, 스니펫에 구워지는 이름과 골든. **동작은 한 줄도 안 바뀐다** | 없음 |
-| **1b** | 게이트 제거, `ResolveStateDefinition`(⚑3), `MAX_NUM_CUSTOM_STATES` 루프 정리, 스위치 개명 + 참조 재작성(§3-4), 화면 낱말을 스위치로(§9-2), `mode` 문자열화와 `resetValue`(§9-3), 다섯 개를 미리 안 만들기(§9-3). **개수는 아직 5개** | `dbver` 6에 얹는다 |
+| **1a** | ~~**어휘 개명만**(§9-3). `SWITCH_MODES`, `SWITCH_CHANGED`, 스니펫에 구워지는 이름과 골든~~ **완료 2026-08-21.** `CustomStates.lua`는 `Switches.lua`가 됐다 | 없음 |
+| **1b** | 게이트 제거, `ResolveStateDefinition`(⚑3), `MAX_NUM_SWITCHES` 루프 정리, 스위치 개명 + 참조 재작성(§3-4), 화면 낱말을 스위치로(§9-2), `mode` 문자열화와 `resetValue`(§9-3), 다섯 개를 미리 안 만들기(§9-3). **개수는 아직 5개** | `dbver` 6에 얹는다 |
 | **2** | 값을 캐릭터로(§5) + `HasCharContent`(⚑4) | 가산만 |
 | **3** | **스위치 바**(§6-A) — `SWITCH_CHANGED` 첫 청취자, 전투 중 토글·접기. **생김새 결정이 이 앞에 있다** | 없음 |
 | **4** | **`Switches` 탭**(§6-B) — 목록·설정. 드롭다운 은퇴. 개수 제한 해제 + 조건 메뉴에서 즉석 생성 + SETSTATE를 이름으로 | SETSTATE만(§9-1) |
@@ -1222,21 +1067,21 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 
 **0단계는 이름 작업과 독립이고 그 자체로 버그 수정이다.** 나머지를 안 해도 값이 나온다.
 
-`MAX_NUM_CUSTOM_STATES`를 도는 자리(1단계 범위, 2026-08-20 기준):
+`MAX_NUM_SWITCHES`를 도는 자리(1b 범위. 2026-08-20에 적었고 이름은 1a 뒤로 고쳤다):
 
 | 파일 | 어디 |
 |---|---|
-| `Constants.lua` | `CUSTOM_STATE_INDICES`를 채우는 루프 |
-| `Solver.lua` | `STATE_KEYS`를 채우는 루프, `buildLayout`의 상태 컬럼 루프 |
-| `Misc.lua` | `BuildUnitStates`, `IsConditionalBinding`, `CustomStatesChangedCallback` |
+| `Constants.lua` | `SWITCH_INDICES`를 채우는 루프 |
+| `Solver.lua` | `STATE_KEYS`를 채우는 루프, `buildLayout`의 스위치 컬럼 루프 |
+| `Misc.lua` | `BuildUnitStates`, `IsConditionalBinding`, `SwitchesChangedCallback` |
 | `Profile.lua` | `BindDerivedTables` |
-| `DropDownMenus.lua` | `SetupCustomStatesDropdownMenu`, `CreateCustomStateConditionMenu` 둘 |
+| `DropDownMenus.lua` | `SetupSwitchesDropdownMenu`, `CreateSwitchConditionMenu` 둘 |
 | `DebindUI.lua` | 액션 툴팁의 조건 줄 |
 | `ActionCatalog.lua` | `BuildSpecialActions` |
 | `UpdateBindings.lua` | `UpdateBindingsMap` |
-| `CustomStates.lua` | `_onattributechanged`·`_onclick` 본문에 숫자를 굽는 자리 셋, 그리고 `GetCustomStateOptions` |
+| `Switches.lua` | `_onattributechanged`·`_onclick` 본문에 숫자를 굽는 자리 셋, 그리고 `GetSwitchOptions` |
 
-**`CustomStates.lua`의 셋은 성격이 다르다.** 나머지는 Lua 쪽 루프라 이름 집합을 도는 것으로
+**`Switches.lua`의 셋은 성격이 다르다.** 나머지는 Lua 쪽 루프라 이름 집합을 도는 것으로
 바뀌지만, 저기는 **스니펫 본문에 숫자가 구워지는 자리**다. `tools/snippet-golden.txt`가 그
 바이트를 잠그고 있으므로 골든도 같이 간다(`restricted-environment.md`).
 

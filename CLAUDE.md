@@ -98,7 +98,7 @@ The pipeline, roughly:
    quietly dead.
 
 Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua` +
-`CustomStates.lua` (click-casting frames, the five in-combat switches), `ActionCatalog.lua`
+`Switches.lua` (click-casting frames, the five in-combat switches), `ActionCatalog.lua`
 (searchable index), `DebindUI.lua`/`DropDownMenus.lua`/`SpellPicker.lua`/`Flyout.lua` (UI),
 `Events.lua`, `Legacy.lua` (migration).
 

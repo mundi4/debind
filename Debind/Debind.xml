@@ -16,6 +16,6 @@
     <Script file="UnitWatch.lua"/>
     <Script file="FrameRegistry.lua"/>
     <Script file="UpdateBindings.lua"/>
-    <Script file="CustomStates.lua"/>
+    <Script file="Switches.lua"/>
 
 </Ui>

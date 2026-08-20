@@ -3,7 +3,7 @@ local L                       = DebindPrivate.L;
 local Constants               = DebindPrivate.Constants;
 
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
-local CUSTOM_STATE_MODES      = Constants.CUSTOM_STATE_MODES;
+local SWITCH_MODES            = Constants.SWITCH_MODES;
 
 local dump                    = DebindPrivate.dump;
 local band                    = bit.band;
@@ -334,7 +334,7 @@ function DebindPrivate.GetMacroSlotLimits()
     return account, character;
 end
 
-function DebindPrivate.GetSetCustomStateModeAndIndex(value)
+function DebindPrivate.GetSetSwitchModeAndIndex(value)
     local modeFlag = band(value, Constants.SETCUSTOM_MODE_MASK);
     local mode;
     if (modeFlag == Constants.SETCUSTOM_MODE_ON) then
@@ -957,21 +957,21 @@ function DebindPrivate.IsKeyInvalidForAction(action, key)
     end
 end
 
---- The first custom state this action's macro text names that nothing defines, or nil.
+--- The first switch this action's macro text names that nothing defines, or nil.
 ---
---- Hand-written macro text is the one place a state name is typed rather than picked, and
+--- Hand-written macro text is the one place a switch name is typed rather than picked, and
 --- `ParseMacroText` lets any `[a-zA-Z0-9_]+` through. A name nothing defines used to reach
 --- codegen and bake to `""` -- `[$typo]` became `[]`, which is **always true**. In a keybinding
 --- addon that is the worst direction to fail in: the binding does not stop firing, it starts
 --- firing everywhere. So the name is checked here and the action is marked, which keeps it out
 --- of `KeyMap` entirely (`Debind.lua`'s `not issue` gate).
 ---
---- **Ask `CUSTOM_STATE_INDICES`, not `GetCustomStateOptions`** -- that one indexes the table by
---- name and errors on a name it does not know (`CustomStates.lua`).
+--- **Ask `SWITCH_INDICES`, not `GetSwitchOptions`** -- that one indexes the table by name and
+--- errors on a name it does not know (`Switches.lua`).
 ---
 --- Not memoized on purpose: `ParseMacroText` caches its own result per string, so a repeated
 --- call here is a table lookup plus a walk over a handful of args.
-function DebindPrivate.GetUndefinedCustomState(action)
+function DebindPrivate.GetUndefinedSwitch(action)
     if (action.type ~= Constants.MACROTEXT or type(action.value) ~= "string") then
         return nil;
     end
@@ -985,8 +985,8 @@ function DebindPrivate.GetUndefinedCustomState(action)
         local arg = args[i];
         -- 부정형(`no$typo`)도 같이 잡는다. 그쪽은 지금도 거짓으로 떨어져 위험하지는 않지만
         -- 오타인 것은 똑같고, 한쪽만 말해주면 고쳐도 왜 아직 안 되는지 알 수 없다.
-        if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE
-                and not Constants.CUSTOM_STATE_INDICES[arg.name]) then
+        if (arg.type == Constants.MACROTEXT_ARG_SWITCH
+                and not Constants.SWITCH_INDICES[arg.name]) then
             return arg.name;
         end
     end
@@ -1087,7 +1087,7 @@ end
 ---     all-bits case to `_ALL`, so a zero reads the same either way. They come off the binding
 ---     so that this function speaks one shape
 ---   the action, necessarily: `key`, and the two checks that ask whether a name points at
----     something (`GetUndefinedCustomState`, `GetMissingMacroName`). None of the three is a
+---     something (`GetUndefinedSwitch`, `GetMissingMacroName`). None of the three is a
 ---     condition and none survives onto the binding
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- **없는 갈래로 물으면 아래 `if`가 전부 비켜가 nil이 나온다**, 그리고 그건 "문제 없음"과
@@ -1141,7 +1141,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- 아니다. 총괄 호출(`GetBindingIssue(action)`)로 걸리고, 행에서는 이름이 빨개진다
     -- (`ColoredNameAndIconForAction`), 툴팁이 어느 이름이 틀렸는지 말한다.
     if (not issue and (not category or category == "states") and notCategory ~= "states") then
-        if (DebindPrivate.GetUndefinedCustomState(action)) then
+        if (DebindPrivate.GetUndefinedSwitch(action)) then
             issue = Constants.BINDING_ISSUE_UNDEFINED_STATE;
         end
     end
@@ -1439,7 +1439,7 @@ function DebindPrivate.ConvertToMacroText(action)
         name = L["TYPE_SETCUSTOM" .. action.value];
         icon = 1505950;
     elseif (action.type == Constants.SETSTATE) then
-        local mode, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(action.value);
+        local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
         if (not mode or (mode ~= "on" and mode ~= "off" and mode ~= "toggle")) then
             return;
         end
@@ -1452,7 +1452,7 @@ function DebindPrivate.ConvertToMacroText(action)
 
 
         -- clickframe:SetAttribute("*type-" .. buttonname, "attribute");
-        --     clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.CustomStatesUpdaterFrame);
+        --     clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.SwitchesUpdaterFrame);
         --     clickframe:SetAttribute("*attribute-name-" .. buttonname, "$state" .. stateIndex);
         --     clickframe:SetAttribute("*attribute-value-" .. buttonname, mode);
 
@@ -1564,7 +1564,7 @@ do
 
                 if (char == "$") then
                     if (strmatch(strsub(token, 2), "^([a-zA-Z0-9_]+)$")) then
-                        arg = appendArg(token, Constants.MACROTEXT_ARG_CUSTOM_STATE, str, reverse);
+                        arg = appendArg(token, Constants.MACROTEXT_ARG_SWITCH, str, reverse);
                         isComplex = true;
                     end
                 end
@@ -1576,7 +1576,7 @@ do
                 -- elseif (not unitsOnly and char == "$") then
                 --     token = strsub(opt, 2, opt:len() + 1);
                 --     if (strmatch(token, "^([a-zA-Z0-9_]+)$")) then
-                --         addArg(opt, Constants.MACROTEXT_ARG_CUSTOM_STATE);
+                --         addArg(opt, Constants.MACROTEXT_ARG_SWITCH);
                 --         isComplex = true;
                 --     else
                 --         appendStr(opt);
@@ -1697,7 +1697,7 @@ do
     --- `ParseMacroText`를 태우지 않는 이유: 그쪽은 `$[a-zA-Z0-9_]+`만 인자로 인정해서
     --- `$foo-bar` 같은 어긋난 토큰을 리터럴로 흘려보내는데, 와우는 **그것도** 똑같이 오류를
     --- 찍는다. 여기서는 `$`로 시작하는 토큰이면 전부 버린다.
-    local function isCustomStateToken(token)
+    local function isSwitchToken(token)
         token = strtrim(token);
         if (strsub(token, 1, 2) == "no") then
             token = strsub(token, 3);
@@ -1715,14 +1715,14 @@ do
         local kept = {};
         local tokens = { strsplit(",", body) };
         for i = 1, #tokens do
-            if (not isCustomStateToken(tokens[i])) then
+            if (not isSwitchToken(tokens[i])) then
                 kept[#kept + 1] = tokens[i];
             end
         end
         return "[" .. table.concat(kept, ",") .. "]";
     end
 
-    function DebindPrivate.StripCustomStateConditions(str)
+    function DebindPrivate.StripSwitchConditions(str)
         if (not str or not strfind(str, "$", 1, true)) then
             return str;
         end
@@ -1834,16 +1834,16 @@ function DebindPrivate.OnSpecialUnitChanged(alias, value)
     end
 end
 
-local _lastCustomStateValues = {};
+local _lastSwitchValues = {};
 local _changedStates = {};
-local function CustomStatesChangedCallback()
-    for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
+local function SwitchesChangedCallback()
+    for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
         local state = "$state" .. stateIndex;
         if (_changedStates[state] ~= nil) then
-            local options = DebindPrivate.GetCustomStateOptions(stateIndex);
+            local options = DebindPrivate.GetSwitchOptions(stateIndex);
 
             local newValue, savedValue = _changedStates[state], nil;
-            if (options.mode == CUSTOM_STATE_MODES.MANUAL) then
+            if (options.mode == SWITCH_MODES.MANUAL) then
                 if (options.initialValue == nil) then
                     savedValue = newValue;
                 else
@@ -1854,10 +1854,10 @@ local function CustomStatesChangedCallback()
             options.value = newValue;
             options.savedValue = savedValue;
 
-            if (_lastCustomStateValues[state] ~= newValue) then
-                _lastCustomStateValues[state] = newValue;
+            if (_lastSwitchValues[state] ~= newValue) then
+                _lastSwitchValues[state] = newValue;
 
-                DebindPrivate.callbacks:Fire("STATE_CHANGED", state, newValue);
+                DebindPrivate.callbacks:Fire("SWITCH_CHANGED", state, newValue);
 
                 if (options and options.displayMessage) then
                     local stateText = format(L["CUSTOM_STATE_NUM"], stateIndex);
@@ -1870,9 +1870,9 @@ local function CustomStatesChangedCallback()
     wipe(_changedStates);
 end
 
-function DebindPrivate.OnCustomStateChanged(name, value)
+function DebindPrivate.OnSwitchChanged(name, value)
     if (not next(_changedStates)) then
-        C_Timer.After(0, CustomStatesChangedCallback);
+        C_Timer.After(0, SwitchesChangedCallback);
     end
 
     _changedStates[name] = value;

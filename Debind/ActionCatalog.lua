@@ -1007,7 +1007,7 @@ local function BuildSpecialActions(entries)
 	-- 사용자 상태. 상태마다 켜기·끄기·전환 셋이라 순서를 상태별로 묶는다 -
 	-- "상태 1 켜기 / 끄기 / 전환" 다음에 상태 2가 온다.
 	local setStateGroup = typeNames[Constants.SETSTATE];
-	for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
+	for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
 		for _, mode in ipairs({ Constants.SETCUSTOM_MODE_ON, Constants.SETCUSTOM_MODE_OFF, Constants.SETCUSTOM_MODE_TOGGLE }) do
 			AddEntry(entries, seen, {
 				type = Constants.SETSTATE,

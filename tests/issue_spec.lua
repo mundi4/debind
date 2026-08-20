@@ -350,7 +350,7 @@ return function(DebindPrivate)
         check(GetBindingIssue(macroAction("/cast [no$typo] Foo")) == UNDEFINED, "이슈가 안 남");
     end);
 
-    -- `States[]`도 `CUSTOM_STATE_INDICES`도 정확히 일치한다. 대소문자가 다르면 런타임에
+    -- `States[]`도 `SWITCH_INDICES`도 정확히 일치한다. 대소문자가 다르면 런타임에
     -- 그냥 미정의고, 눈으로는 맞아 보이는 것이 이 검사가 있어야 하는 이유다.
     test("대소문자가 다르면 미정의다", function()
         check(GetBindingIssue(macroAction("/cast [$State1] Foo")) == UNDEFINED, "이슈가 안 남");
@@ -358,9 +358,9 @@ return function(DebindPrivate)
 
     -- 여러 개면 첫 번째를 말한다. 툴팁이 이름을 적는 자리라 "무엇을" 고칠지가 하나여야 한다.
     test("틀린 이름을 그대로 돌려준다", function()
-        check(DebindPrivate.GetUndefinedCustomState(macroAction("/cast [$state1,no$typo] Foo")) == "$typo",
+        check(DebindPrivate.GetUndefinedSwitch(macroAction("/cast [$state1,no$typo] Foo")) == "$typo",
             "이름을 못 돌려주면 툴팁이 무엇을 고칠지 말할 수 없다");
-        check(DebindPrivate.GetUndefinedCustomState(macroAction("/cast [$state1] Foo")) == nil, "오탐");
+        check(DebindPrivate.GetUndefinedSwitch(macroAction("/cast [$state1] Foo")) == nil, "오탐");
     end);
 
     -- 본문을 파싱하는 타입만 본다. 다른 타입의 `value`는 매크로 본문이 아니라서 같은

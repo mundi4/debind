@@ -186,7 +186,7 @@ local function GetMacrotextIcon(macrotext)
 	-- 매크로 슬롯에 들어가는 것은 **원문이 아니라 `$상태`를 걷어낸 사본이다.** 원문을 그대로
 	-- 넣으면 와우 파서가 자기가 모르는 옵션마다 대화창에 "Unknown macro option: $state1"을
 	-- 찍는다 - 아이콘 하나 뽑자고 사용자 채팅창을 더럽히는 셈이다. 캐시 키는 원문 그대로.
-	local text = DebindPrivate.StripCustomStateConditions(macrotext);
+	local text = DebindPrivate.StripSwitchConditions(macrotext);
 
 	local ret;
 	if (not GetMacroInfo(TEMP_MACRO_NAME)) then
@@ -763,7 +763,7 @@ local function NameAndIconForAction(action)
 		actionIcon = 1505950;
 		skipTypeName = true;
 	elseif (type == Constants.SETSTATE) then
-		local mode, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(value);
+		local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(value);
 
 		if (mode == "on") then
 			actionName = format(LLL["TYPE_SETSTATE_ON_NUM"], stateIndex);
@@ -1665,7 +1665,7 @@ do
 		addBooleanCondition("pet");
 		addBooleanCondition("petbattle");
 
-		for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
+		for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
 			local state = "$state" .. stateIndex;
 			if (conditions[state] ~= nil) then
 				addLabelLine(tooltip, format(LLL["CUSTOM_STATE_NUM"], stateIndex));
@@ -1677,7 +1677,7 @@ do
 		-- 문자열 하나로만 있다. 그래서 이슈 코드만으로는 **어느 이름이 틀렸는지**를 못 말하고,
 		-- 그걸 말하는 것이 이 마커의 존재 이유라 여기서만 이름을 붙여 적는다.
 		if (hasIssues) then
-			local undefinedState = DebindPrivate.GetUndefinedCustomState(action);
+			local undefinedState = DebindPrivate.GetUndefinedSwitch(action);
 			if (undefinedState) then
 				GameTooltip_AddBlankLineToTooltip(tooltip);
 				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
@@ -4247,7 +4247,7 @@ function DebindFrameMixin:UpdateButtons()
 
 	self.OverviewPanel.BindModePortrait:SetEnabled(enableButtons);
 	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
-	self.CustomStatesPortrait:SetEnabled(enableButtons);
+	self.SwitchesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
 end
 

@@ -17,7 +17,7 @@ return function(DebindPrivate)
     local ClearMacroTextCache = DebindPrivate.ClearMacroTextCache;
     local SPECIAL_UNITS = Constants.SPECIAL_UNITS;
     local ARG_UNIT = Constants.MACROTEXT_ARG_UNIT;
-    local ARG_STATE = Constants.MACROTEXT_ARG_CUSTOM_STATE;
+    local ARG_STATE = Constants.MACROTEXT_ARG_SWITCH;
 
     local T = { passed = 0, failures = {} };
 
@@ -590,7 +590,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 7. 아이콘 뽑기용 `$상태` 제거 (StripCustomStateConditions)
+    -- 7. 아이콘 뽑기용 `$상태` 제거 (StripSwitchConditions)
     --
     -- 아이콘은 매크로텍스트를 **진짜 매크로 슬롯에 써넣어** 와우에게 계산시킨다
     -- (DebindUI.lua `GetMacrotextIcon`). `$state1`이 그대로 넘어가면 와우가 대화창에
@@ -601,7 +601,7 @@ return function(DebindPrivate)
     --   (b) `$`가 없는 매크로텍스트는 **글자 하나 안 바뀐다** (본문 속 대괄호 포함)
     ---------------------------------------------------------------------------
 
-    local Strip = DebindPrivate.StripCustomStateConditions;
+    local Strip = DebindPrivate.StripSwitchConditions;
 
     local function expectStrip(input, expected)
         local got = Strip(input);

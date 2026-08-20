@@ -1,7 +1,7 @@
 local _, DebindPrivate = ...;
 local Constants = DebindPrivate.Constants;
 
-local MAX_NUM_CUSTOM_STATES = Constants.MAX_NUM_CUSTOM_STATES;
+local MAX_NUM_SWITCHES = Constants.MAX_NUM_SWITCHES;
 
 local band, bnot = bit.band, bit.bnot;
 local tremove, wipe = tremove, wipe;
@@ -194,11 +194,11 @@ local FIXED_COLUMNS = {
 -- these per binding per column, and `buildLayout` once per binding, so concatenating there would
 -- put a string allocation in both loops.
 local STATE_KEYS = {};
-for i = 1, MAX_NUM_CUSTOM_STATES do
+for i = 1, MAX_NUM_SWITCHES do
     STATE_KEYS[i] = "$state" .. i;
 end
 
-local function makeCustomStateFlags(binding, index)
+local function makeSwitchFlags(binding, index)
     local value = binding.conditions[STATE_KEYS[index]];
     if (value == nil) then
         return STATE_ANY;
@@ -320,11 +320,11 @@ local function buildLayout(bindings)
 
         local conditions = binding.conditions;
 
-        for s = 1, MAX_NUM_CUSTOM_STATES do
+        for s = 1, MAX_NUM_SWITCHES do
             if (not _stateSeen[s] and conditions[STATE_KEYS[s]] ~= nil) then
                 _stateSeen[s] = true;
                 _numColumns = _numColumns + 1;
-                _colMake[_numColumns] = makeCustomStateFlags;
+                _colMake[_numColumns] = makeSwitchFlags;
                 _colArg[_numColumns] = s;
             end
         end

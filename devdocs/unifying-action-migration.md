@@ -64,7 +64,7 @@
 > *"인덱스는 항상 '성공'하는 참조라 받는 쪽 상태 3을 조용히 가리킨다. 이름이면 댕글링이 보이고,
 > `BINDING_ISSUE_UNDEFINED_STATE`가 그것을 빨갛게 띄운다."*
 
-**지금 코드에서는 성립하지 않는다.** `Constants.CUSTOM_STATE_INDICES`는 `"$state" .. i`를 `i`로
+**지금 코드에서는 성립하지 않는다.** `Constants.SWITCH_INDICES`는 `"$state" .. i`를 `i`로
 놓는 표일 뿐이다. `$state3`도 무조건 3으로 풀린다. 슬롯 다섯은 어느 설치본에나 똑같이 있고, 그
 점에서 SETCUSTOM의 유닛 칸과 다르지 않다. **다른 것은 슬롯이 아니라 내용물**인데, 그것은 이름으로
 실어도 안 따라간다. `CommitBatch`가 상태 정의를 안 건드리기 때문이다.

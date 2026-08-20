@@ -456,12 +456,12 @@ return function(DebindPrivate, DebindStorage)
         ResetProfile({
             general = general,
             customStates = {
-                [1] = { mode = Constants.CUSTOM_STATE_MODES.MANUAL, initialValue = true,
+                [1] = { mode = Constants.SWITCH_MODES.MANUAL, initialValue = true,
                         displayMessage = "1번" },
-                [3] = { mode = Constants.CUSTOM_STATE_MODES.MANUAL, displayMessage = "3번" },
-                [4] = { mode = Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL,
+                [3] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "3번" },
+                [4] = { mode = Constants.SWITCH_MODES.MACRO_CONDITIONAL,
                         expr = "[$state5] [combat]" },
-                [5] = { mode = Constants.CUSTOM_STATE_MODES.MANUAL, displayMessage = "5번" },
+                [5] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "5번" },
             },
         });
     end

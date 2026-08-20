@@ -804,7 +804,7 @@ end
 --- and there is no `tostring` in the restricted environment to spell it with. `%1$q` twice for the
 --- reason given at `MOCK_STATE_LINE`.
 ---
---- Asked of `States` rather than of `DebindPrivate.CustomStates`, because the stored table is the
+--- Asked of `States` rather than of `DebindPrivate.Switches`, because the stored table is the
 --- source that was *supposed* to reach the restricted side; reading it back would only confirm that
 --- the test wrote what the test wrote.
 local function ReadSecureState(state)
@@ -2751,30 +2751,30 @@ RegisterTest("Undefined $state inside a state's own expression", {
     run = function()
         local NAME = "Undefined $state in expr"
         local KEY = "CTRL-SHIFT-F8"
-        local MODES = Constants.CUSTOM_STATE_MODES
+        local MODES = Constants.SWITCH_MODES
 
         if InCombatLockdown() then
             return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
         end
 
-        -- **`DebindPrivate.CustomStates`의 슬롯만 갈아끼운다.** 그 표의 항목은
+        -- **`DebindPrivate.Switches`의 슬롯만 갈아끼운다.** 그 표의 항목은
         -- `db.customStates`의 표와 **같은 테이블**이라(`BindDerivedTables`), 필드를 고치면
         -- 사용자의 저장된 설정을 고치는 것이 된다. 슬롯을 바꾸면 되돌릴 것이 참조 둘뿐이다.
-        local saved1, saved2 = DebindPrivate.CustomStates[1], DebindPrivate.CustomStates[2]
+        local saved1, saved2 = DebindPrivate.Switches[1], DebindPrivate.Switches[2]
         AddTeardown(function()
-            DebindPrivate.CustomStates[1] = saved1
-            DebindPrivate.CustomStates[2] = saved2
+            DebindPrivate.Switches[1] = saved1
+            DebindPrivate.Switches[2] = saved2
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
 
-        DebindPrivate.CustomStates[2] = { mode = MODES.MANUAL, value = true }
+        DebindPrivate.Switches[2] = { mode = MODES.MANUAL, value = true }
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$state1"] = true })
 
         -- 켜지는 쪽을 먼저 세운다. 이게 없으면 아래의 "안 걸림"이 계산식 상태로는 원래
         -- 아무것도 안 걸리는 것과 구분되지 않는다.
-        DebindPrivate.CustomStates[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$state2]" }
+        DebindPrivate.Switches[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$state2]" }
         ApplyBindings()
         local whenTrue = GetBindingAction(KEY, true) or ""
         if whenTrue:sub(1, 6) ~= "CLICK " then
@@ -2783,7 +2783,7 @@ RegisterTest("Undefined $state inside a state's own expression", {
                 whenTrue))
         end
 
-        DebindPrivate.CustomStates[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$typo]" }
+        DebindPrivate.Switches[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$typo]" }
         ApplyBindings()
         local whenUndefined = GetBindingAction(KEY, true) or ""
         if whenUndefined ~= "" then
@@ -2796,11 +2796,11 @@ RegisterTest("Undefined $state inside a state's own expression", {
     end,
 })
 
--- **Registration does not only come from conditions.** One action in `KeyMap` that uses a state is
--- enough to owe it registration, and registration is what puts the stored value back into `States`
--- at every rebuild (the `_customStates` walk in `UpdateBindings`). An on/off/toggle action names
--- its state in `value`, so the condition loop never sees it, and without registration the window
--- reads the stored value while the restricted side holds nothing.
+-- **Registration does not only come from conditions.** One action in `KeyMap` that uses a switch
+-- is enough to owe it registration, and registration is what puts the stored value back into
+-- `States` at every rebuild (the `_switches` walk in `UpdateBindings`). An on/off/toggle action
+-- names its switch in `value`, so the condition loop never sees it, and without registration the
+-- window reads the stored value while the restricted side holds nothing.
 --
 -- It arrives as "the key does nothing": the first press is spent matching the two up, and the next
 -- rebuild puts them back out of step, so it keeps happening. Headless cannot see it -- one of the
@@ -2810,7 +2810,7 @@ RegisterTest("Setstate action registers its state", {
     run = function()
         local NAME = "Setstate registers"
         local KEY = "CTRL-F7"
-        local MODES = Constants.CUSTOM_STATE_MODES
+        local MODES = Constants.SWITCH_MODES
 
         if InCombatLockdown() then
             return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
@@ -2818,14 +2818,14 @@ RegisterTest("Setstate action registers its state", {
 
         -- Swapping the slot rather than the fields: the reason is in the comment on the
         -- `Undefined $state inside a state's own expression` test above.
-        local saved = DebindPrivate.CustomStates[4]
+        local saved = DebindPrivate.Switches[4]
         AddTeardown(function()
-            DebindPrivate.CustomStates[4] = saved
+            DebindPrivate.Switches[4] = saved
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
-        DebindPrivate.CustomStates[4] = { mode = MODES.MANUAL, value = true }
+        DebindPrivate.Switches[4] = { mode = MODES.MANUAL, value = true }
 
         InsertAction({
             type = Constants.SETSTATE,
@@ -2857,7 +2857,7 @@ RegisterTest("Setstate action registers its state", {
 })
 
 -- **Does one toggle flip the value once.** The chain is: write the `$state4` attribute ->
--- `_onattributechanged` (`CustomStates.lua`) -> `ToggleCustomState` -> `States` -> the mirror.
+-- `_onattributechanged` (`Switches.lua`) -> `ToggleSwitch` -> `States` -> the mirror.
 -- Broken at any link, it is silent.
 --
 -- **Pressing twice is the point.** The second write carries the **same** `"toggle"` the first one
@@ -2872,21 +2872,21 @@ RegisterTest("Custom state toggle flips the value", {
     run = function()
         local NAME = "Custom state toggle"
         local KEY = "ALT-F7"
-        local MODES = Constants.CUSTOM_STATE_MODES
+        local MODES = Constants.SWITCH_MODES
 
         if InCombatLockdown() then
             return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
         end
 
-        local saved = DebindPrivate.CustomStates[4]
+        local saved = DebindPrivate.Switches[4]
         AddTeardown(function()
-            DebindPrivate.CustomStates[4] = saved
+            DebindPrivate.Switches[4] = saved
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
         local options = { mode = MODES.MANUAL, value = false }
-        DebindPrivate.CustomStates[4] = options
+        DebindPrivate.Switches[4] = options
 
         -- Registered through a condition. What this test looks at is the toggle, not registration,
         -- and if a broken registration turned this one red as well neither could be read off the
@@ -2902,7 +2902,7 @@ RegisterTest("Custom state toggle flips the value", {
             return Fail(NAME, format("전제가 깨졌다 - 저장값은 꺼짐인데 States는 %s다", tostring(st.value)))
         end
 
-        local frame = DebindPrivate.CustomStatesUpdaterFrame
+        local frame = DebindPrivate.SwitchesUpdaterFrame
         frame:SetAttribute("$state4", "toggle")
         st = ReadSecureState("$state4")
         if not (st and st.value == true) then
@@ -2915,7 +2915,7 @@ RegisterTest("Custom state toggle flips the value", {
             return Fail(NAME, "두 번째 전환이 안 먹었다 - 같은 속성값을 다시 쓴 것이 안 통한다")
         end
 
-        -- The mirror arrives on `C_Timer.After(0)` (`OnCustomStateChanged`, `Misc.lua`). It is what
+        -- The mirror arrives on `C_Timer.After(0)` (`OnSwitchChanged`, `Misc.lua`). It is what
         -- the window reads, so a mirror that does not follow leaves the restricted side right and
         -- the screen lying.
         coroutine.yield(0)
@@ -3181,7 +3181,7 @@ RegisterTest("Macrotext with $state", {
         if not args then return Fail("$state macrotext", "ParseMacroText returned nil args") end
         local found = false
         for _, arg in ipairs(args) do
-            if arg.name == "$state1" and arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE then
+            if arg.name == "$state1" and arg.type == Constants.MACROTEXT_ARG_SWITCH then
                 found = true
                 break
             end

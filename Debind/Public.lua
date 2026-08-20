@@ -39,7 +39,7 @@ end
 
 local VALID_EVENTNAMES = {
 	UNIT_CHANGED = true,
-	STATE_CHANGED = true,
+	SWITCH_CHANGED = true,
 };
 
 function DebindPublic.RegisterCallback(target, eventname, method, ...)

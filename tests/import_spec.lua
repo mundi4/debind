@@ -587,7 +587,7 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SETSTATE, key = "F", seq = 1,
               setstate = { mode = "toggle", state = "$state3" } } }));
 
-        local mode, index = DebindPrivate.GetSetCustomStateModeAndIndex(action.value);
+        local mode, index = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
         check(mode == "toggle", "모드 " .. tostring(mode));
         check(index == 3, "상태 번호 " .. tostring(index));
         check(action.setstate == nil, "포맷 필드가 액션에 남았다");
@@ -599,7 +599,7 @@ return function(DebindPrivate, DebindStorage)
             local action = PlanOne(General({
                 { type = Constants.SETSTATE, key = "F", seq = 1,
                   setstate = { mode = mode, state = "$state1" } } }));
-            check(DebindPrivate.GetSetCustomStateModeAndIndex(action.value) == mode,
+            check(DebindPrivate.GetSetSwitchModeAndIndex(action.value) == mode,
                 "모드가 안 돌아옴: " .. mode);
         end
     end);

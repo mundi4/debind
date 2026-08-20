@@ -113,11 +113,11 @@ function Constants.IsConditionField(name)
     return type(name) == "string" and strsub(name, 1, 1) == "$";
 end
 
-Constants.MAX_NUM_CUSTOM_STATES = 5;
+Constants.MAX_NUM_SWITCHES = 5;
 
-Constants.CUSTOM_STATE_INDICES  = {};
-for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
-    Constants.CUSTOM_STATE_INDICES["$state" .. i] = i;
+Constants.SWITCH_INDICES = {};
+for i = 1, Constants.MAX_NUM_SWITCHES do
+    Constants.SWITCH_INDICES["$state" .. i] = i;
 end
 
 --- **1 and 2 are missing on purpose.** They were `ALWAYS_ON` and `ALWAYS_OFF`, declared in the
@@ -125,7 +125,7 @@ end
 --- no profile carries one and there is nothing to migrate. Closing the gap would renumber
 --- `MACRO_CONDITIONAL` and silently reinterpret every stored definition, so the numbers stay
 --- where they are.
-Constants.CUSTOM_STATE_MODES    = {
+Constants.SWITCH_MODES = {
     MANUAL            = 0,
     MACRO_CONDITIONAL = 3,
 };
@@ -136,8 +136,8 @@ Constants.SETCUSTOM_MODE_TOGGLE = 0x400;
 Constants.SETCUSTOM_MODE_MASK   = 0x100 + 0x200 + 0x400;
 
 
-Constants.MACROTEXT_ARG_UNIT         = 1;
-Constants.MACROTEXT_ARG_CUSTOM_STATE = 2;
+Constants.MACROTEXT_ARG_UNIT   = 1;
+Constants.MACROTEXT_ARG_SWITCH = 2;
 
 
 -- Priority Values

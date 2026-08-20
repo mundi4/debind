@@ -555,10 +555,14 @@ end
 ---
 --- It is a separate function because what gets handed over is a **reference**. The pre-rename
 --- import (`Legacy.lua`) replaces these tables wholesale during PLAYER_LOGIN, so without running
---- this again afterwards `DebindPrivate.Options` and `.CustomStates` would keep pointing at the
+--- this again afterwards `DebindPrivate.Options` and `.Switches` would keep pointing at the
 --- empty tables from before the import. For `customStates` it is not only the reference: `value`
 --- has to be recomputed from `initialValue`/`savedValue`, so copying the contents across would not
 --- be enough - this calculation has to run again.
+---
+--- **`db.customStates` keeps its stored name while everything reading it is called a switch.**
+--- Renaming a saved key means migrating it, and the rename that got the rest of the code here was
+--- the half that changes no format (`devdocs/redesigning-custom-states.md` §9-3).
 function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
 
@@ -567,17 +571,17 @@ function DebindPrivate.BindDerivedTables()
     DebindPrivate.Options = db.options;
 
     db.customStates = db.customStates or {};
-    DebindPrivate.CustomStates = {};
+    DebindPrivate.Switches = {};
 
-    for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
+    for i = 1, Constants.MAX_NUM_SWITCHES do
         local stateOptions = db.customStates[i];
         if (not stateOptions) then
             stateOptions = {};
             db.customStates[i] = stateOptions;
         end
 
-        stateOptions.mode = stateOptions.mode or Constants.CUSTOM_STATE_MODES.MANUAL;
-        if (stateOptions.mode == Constants.CUSTOM_STATE_MODES.MANUAL) then
+        stateOptions.mode = stateOptions.mode or Constants.SWITCH_MODES.MANUAL;
+        if (stateOptions.mode == Constants.SWITCH_MODES.MANUAL) then
             if (stateOptions.initialValue ~= nil) then
                 stateOptions.value = stateOptions.initialValue;
             else
@@ -587,7 +591,7 @@ function DebindPrivate.BindDerivedTables()
             stateOptions.value = stateOptions.value or false;
         end
 
-        DebindPrivate.CustomStates[i] = stateOptions;
+        DebindPrivate.Switches[i] = stateOptions;
     end
 end
 

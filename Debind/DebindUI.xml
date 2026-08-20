@@ -742,12 +742,12 @@
 					<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" x="-40" y="-40"/>
 				</Anchors>
 			</DropdownButton>
-			<DropdownButton parentKey="CustomStatesPortrait" inherits="DebindPortraitTemplate">
+			<DropdownButton parentKey="SwitchesPortrait" inherits="DebindPortraitTemplate">
 				<KeyValues>
 					<KeyValue key="PortraitTexture" value="254885" type="number"/>
 					<KeyValue key="TooltipTitle" value="CUSTOM_STATES" type="string"/>
 					<KeyValue key="TooltipText" value="CUSTOM_STATES_DESC" type="string"/>
-					<KeyValue key="MenuFunc" value="SetupCustomStatesDropdownMenu" type="string"/>
+					<KeyValue key="MenuFunc" value="SetupSwitchesDropdownMenu" type="string"/>
 				</KeyValues>
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.OptionsPortrait" relativePoint="LEFT" x="-5" y="0"/>
@@ -1257,7 +1257,7 @@
 								`$parent` is the container, and the portrait row it joins belongs to the
 								window - hence the second hop. The side tabs already reach out this way.
 							-->
-							<Anchor point="RIGHT" relativeKey="$parent.$parent.CustomStatesPortrait" relativePoint="LEFT" x="-5" y="0"/>
+							<Anchor point="RIGHT" relativeKey="$parent.$parent.SwitchesPortrait" relativePoint="LEFT" x="-5" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>

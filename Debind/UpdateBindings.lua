@@ -8,7 +8,7 @@ local DEBUG                   = DebindPrivate.DEBUG;
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
 local BASIC_UNITS             = Constants.BASIC_UNITS;
 local NIL                     = Constants.NIL;
-local CUSTOM_STATE_MODES      = Constants.CUSTOM_STATE_MODES;
+local SWITCH_MODES            = Constants.SWITCH_MODES;
 
 
 
@@ -95,7 +95,7 @@ local UpdateBindingsMap;
 local UpdateMacroTextsMap;
 local UpdateAttrChangedHandler;
 
-local addCustomState;
+local addSwitch;
 local addMacrotext;
 local addMacrotextBinding;
 
@@ -104,7 +104,7 @@ local GetModifierIndex   = DebindPrivate.GetModifierIndex;
 local _strArr            = {};
 local _macrotexts        = {};
 local _macrotextBindings = {};
-local _customStates      = {};
+local _switches          = {};
 local _unitsSeen         = {};
 local _updateFlags       = {};
 local _mergedUnits       = {};
@@ -131,7 +131,7 @@ local function ResetContext()
     wipe(DebindPrivate.ClickTimeKeys);
     wipe(_macrotexts);
     wipe(_macrotextBindings);
-    wipe(_customStates);
+    wipe(_switches);
     wipe(_measuredStates);
     wipe(_measuredUnitAxes);
     wipe(_unitsSeen);
@@ -139,26 +139,26 @@ local function ResetContext()
     _measuresReaction = false;
 end
 
-function addCustomState(stateName)
-    local info = _customStates[stateName];
+function addSwitch(stateName)
+    local info = _switches[stateName];
     if (info == nil) then
-        if (Constants.CUSTOM_STATE_INDICES[stateName]) then
-            local options = DebindPrivate.GetCustomStateOptions(stateName);
+        if (Constants.SWITCH_INDICES[stateName]) then
+            local options = DebindPrivate.GetSwitchOptions(stateName);
             if (options) then
                 info = {
-                    index = Constants.CUSTOM_STATE_INDICES[stateName],
+                    index = Constants.SWITCH_INDICES[stateName],
                     name = stateName,
                     mode = options.mode,
                     value = options.value,
                 };
-                if (options.mode == CUSTOM_STATE_MODES.MACRO_CONDITIONAL) then
+                if (options.mode == SWITCH_MODES.MACRO_CONDITIONAL) then
                     info.expr = options.expr or "";
                     addMacrotextBinding(info.name, info.expr);
                 end
             end
         end
         info = info or false;
-        _customStates[stateName] = info;
+        _switches[stateName] = info;
     end
     return info;
 end
@@ -177,8 +177,8 @@ function addMacrotext(macrotext)
             _macrotexts[macrotext] = ret;
 
             for _, arg in ipairs(args) do
-                if (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE) then
-                    addCustomState(arg.name);
+                if (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
+                    addSwitch(arg.name);
                 elseif (arg.type == Constants.MACROTEXT_ARG_UNIT) then
                     _unitsSeen[arg.name] = true;
                 end
@@ -298,7 +298,7 @@ HandoffWinner = nil
 HandoffHoverUnit = nil
 wipe(MacroTextsMap)
 wipe(UnitStates)
-wipe(CustomStateExpressions)
+wipe(SwitchExpressions)
 
 -- **`unitframe`은 살려서 넘긴다.** `States`에 든 나머지는 리빌드가 끝나면서 전부 다시
 -- 채워지지만, 이건 enter/leave 이벤트로만 서는 값이라 **다시 채워줄 사람이 없다.** 지우면
@@ -327,28 +327,28 @@ States.unitframe = hovered
 
     UpdateAttrChangedHandler();
 
-    for state, stateInfo in pairs(_customStates) do
+    for state, stateInfo in pairs(_switches) do
         if (stateInfo) then
-            -- previous state value
+            -- previous switch value
             if (stateInfo.value ~= nil) then
                 -- States 맵에 직접 입력하면 변경 이벤트가 발생하지 않아서 상태 변경 메시지가 출력 안됨.
                 --appendLine([[States[%1$q]=%s]], state, tostring(stateInfo.value));
-                appendLine([[self:RunAttribute("SetCustomState", %1$q, %s, true)]], state, tostring(stateInfo.value));
+                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s, true)]], state, tostring(stateInfo.value));
             end
 
             -- fixed macro conditional
-            if (stateInfo.mode == CUSTOM_STATE_MODES.MACRO_CONDITIONAL and not addMacrotext(stateInfo.expr)) then
-                appendLine([[CustomStateExpressions[%q]=%q]], state, stateInfo.expr);
+            if (stateInfo.mode == SWITCH_MODES.MACRO_CONDITIONAL and not addMacrotext(stateInfo.expr)) then
+                appendLine([[SwitchExpressions[%q]=%q]], state, stateInfo.expr);
             end
         end
     end
 
     if (#_strArr > 0) then
         local snippet = table.concat(_strArr, "\n");
-        AssertSnippetCompiles(snippet, "CustomStateExpressions");
+        AssertSnippetCompiles(snippet, "SwitchExpressions");
         SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
         if (DEBUG) then
-            dump("CustomStateExpressions snippet", { CopyTable(_strArr), snippet:len() });
+            dump("SwitchExpressions snippet", { CopyTable(_strArr), snippet:len() });
         end
         wipe(_strArr);
     end
@@ -461,7 +461,7 @@ States.unitframe = hovered
             bindingAttrsCache = BindingAttrsCache,
             macrotexts = _macrotexts,
             macrotextBindings = _macrotextBindings,
-            customStates = _customStates,
+            switches = _switches,
         });
     end
 
@@ -610,7 +610,7 @@ function SetBindingAttributes(type, value, unit)
             clickframe:SetAttribute("*attribute-name-" .. buttonname, "custom" .. value);
             clickframe:SetAttribute("*attribute-value-" .. buttonname, "hover");
         elseif (type == Constants.SETSTATE) then
-            local mode, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(value);
+            local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(value);
             if (not mode) then
                 if (DEBUG) then
                     DebindPrivate.log("Invalid value:", type, value);
@@ -618,7 +618,7 @@ function SetBindingAttributes(type, value, unit)
                 return;
             end
             clickframe:SetAttribute("*type-" .. buttonname, "attribute");
-            clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.CustomStatesUpdaterFrame);
+            clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.SwitchesUpdaterFrame);
             clickframe:SetAttribute("*attribute-name-" .. buttonname, "$state" .. stateIndex);
             clickframe:SetAttribute("*attribute-value-" .. buttonname, mode);
         elseif (type == Constants.FLYOUT) then
@@ -1165,50 +1165,50 @@ function UpdateBindingsMap()
                             end
                         end
 
-                        -- **A state is used by acting on it too, not only by being a condition.**
-                        -- An on/off/toggle action names its state in `value`, so the condition loop
-                        -- below never sees it, and registration is what puts the state's stored
-                        -- value back into `States` at every rebuild (the `_customStates` walk in
-                        -- `UpdateBindings`). Without it the restricted side holds nil while the
+                        -- **A switch is used by acting on it too, not only by being a condition.**
+                        -- An on/off/toggle action names its switch in `value`, so the condition
+                        -- loop below never sees it, and registration is what puts the switch's
+                        -- stored value back into `States` at every rebuild (the `_switches` walk
+                        -- in `UpdateBindings`). Without it the restricted side holds nil while the
                         -- window shows the stored value, and the first press only brings the two
                         -- back together -- it reads as a press that did nothing, and the rebuild
                         -- after it puts the pair back out of step.
                         --
                         -- No `_updateFlags` entry: this key's own wiring does not depend on the
-                        -- state, so there is nothing to re-decide when it changes.
+                        -- switch, so there is nothing to re-decide when it changes.
                         if (binding.type == Constants.SETSTATE) then
-                            local _, stateIndex = DebindPrivate.GetSetCustomStateModeAndIndex(binding.value);
+                            local _, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(binding.value);
                             if (stateIndex) then
-                                addCustomState("$state" .. stateIndex);
+                                addSwitch("$state" .. stateIndex);
                             end
                         end
 
-                        local customStatesTblCreated;
-                        for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
+                        local switchesTblCreated;
+                        for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
                             local state = "$state" .. stateIndex;
                             local v = binding.conditions[state];
                             if (v ~= nil) then
-                                if (addCustomState(state)) then
-                                    if (not customStatesTblCreated) then
-                                        appendLine([[t.customStates=newtable()]])
-                                        customStatesTblCreated = true;
+                                if (addSwitch(state)) then
+                                    if (not switchesTblCreated) then
+                                        appendLine([[t.switches=newtable()]])
+                                        switchesTblCreated = true;
                                     end
-                                    appendLine([[t.customStates[%q]=%s]], state, v and "true" or "false");
+                                    appendLine([[t.switches[%q]=%s]], state, v and "true" or "false");
                                     _updateFlags[state] = true;
                                 end
                             end
                         end
 
-                        if (binding.customStates) then
+                        if (binding.switches) then
                             local tblCreated;
-                            for state, v in pairs(binding.customStates) do
-                                local stateInfo = addCustomState(state);
+                            for state, v in pairs(binding.switches) do
+                                local stateInfo = addSwitch(state);
                                 if (stateInfo) then
                                     if (not tblCreated) then
-                                        appendLine([[t.customStates=newtable()]])
+                                        appendLine([[t.switches=newtable()]])
                                         tblCreated = true;
                                     end
-                                    appendLine([[t.customStates[%q]=%s]], state, v and "true" or "false");
+                                    appendLine([[t.switches[%q]=%s]], state, v and "true" or "false");
                                     _updateFlags[state] = true;
                                 end
                             end
@@ -1282,19 +1282,19 @@ function UpdateBindingsMap()
         -- them: a click-cast-only key holds no key-binding record, which is exactly the case
         -- `IsKeyAlwaysOurs` answers `false` for. `not stateDriven` is the union of the two.
         --
-        -- **Custom states are the one exception.** They are the only axis the click path reads
+        -- **Switches are the one exception.** They are the only axis the click path reads
         -- straight out of `States` -- there is nothing to measure, the stored value is the
         -- original -- so cutting the registration would take the value away entirely.
         for k, _ in pairs(_updateFlags) do
             if (k ~= "unitframe" and strsub(k, -7) ~= "-exists"
-                    and (stateDriven or _customStates[k])) then
+                    and (stateDriven or _switches[k])) then
                 _measuredStates[k] = true;
             end
         end
 
         -- **The state loop is the only reader, so only a state-driven key gets these baked.**
         -- Any other key is absent from `StateDrivenBindings`, and nothing else looks at the
-        -- flags. The `_measuredStates` registration above is a separate decision -- custom states
+        -- flags. The `_measuredStates` registration above is a separate decision -- switches
         -- register from either kind, because the click path reads those out of `States`.
         if (stateDriven) then
             -- `RebindOnHoverFrame`은 정확히 이 플래그의 리빌드 전체 합이다. 같은 게이트 안에서
@@ -1406,9 +1406,9 @@ function UpdateMacroTextsMap()
                     appendLine([[t.args[%d]=newtable()]], i);
                     if (arg.type == Constants.MACROTEXT_ARG_UNIT) then
                         appendLine([[t.args[%d].unit=%q]], i, arg.name);
-                    elseif (arg.type == Constants.MACROTEXT_ARG_CUSTOM_STATE) then
+                    elseif (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
                         local selfReference = isState and arg.name == buttonOrStateName;
-                        if (selfReference or not addCustomState(arg.name)) then
+                        if (selfReference or not addSwitch(arg.name)) then
                             -- 두 경우가 한 분기에 있지만 **구워지는 값이 다르다.**
                             --
                             -- 자기 참조(`$a`의 식 안의 `[$a]`)를 `""`로 지우는 것은 의도한
@@ -1643,7 +1643,7 @@ end
             appendLine([[stateValue=SecureCmdOptionParse(%q) and true or false]], state);
             appendStateStore(state);
 
-        elseif (_customStates[state]) then
+        elseif (_switches[state]) then
             -- handle later
         elseif (DEBUG) then
             DebindPrivate.log("Unhandled State: " .. state);
@@ -1670,12 +1670,12 @@ end
         appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOverride);
     end
 
-    -- Update Custom States
-    for state, stateInfo in pairs(_customStates) do
+    -- Update Switches
+    for state, stateInfo in pairs(_switches) do
         if (stateInfo) then
-            if (stateInfo.mode == CUSTOM_STATE_MODES.MACRO_CONDITIONAL) then
-                appendLine([[stateValue=SecureCmdOptionParse(CustomStateExpressions[%q] or "") and true or false]], stateInfo.name);
-                appendLine([[if (States[%1$q] ~= stateValue) then self:RunAttribute("SetCustomState", %1$q, stateValue, true) end]], stateInfo.name);
+            if (stateInfo.mode == SWITCH_MODES.MACRO_CONDITIONAL) then
+                appendLine([[stateValue=SecureCmdOptionParse(SwitchExpressions[%q] or "") and true or false]], stateInfo.name);
+                appendLine([[if (States[%1$q] ~= stateValue) then self:RunAttribute("SetSwitch", %1$q, stateValue, true) end]], stateInfo.name);
             end
         end
     end

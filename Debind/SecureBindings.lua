@@ -73,7 +73,7 @@ SecureHandlerExecute(BindingDriver, [[
 	DefaultClickFrame = self:GetFrameRef("clickFrame")
 	DefaultClickFrameName = DefaultClickFrame:GetName()
 	
-	CustomStateExpressions = newtable()
+	SwitchExpressions = newtable()
 
 	-- 배선이 상태에 달린 키들. 키 -> 그 키의 레코드 배열.
 	--
@@ -140,7 +140,7 @@ SecureHandlerExecute(BindingDriver, [[
 
 	_macrotextsSeen = newtable()
 	_isUpdatingMacrotests = false
-	_customStatesUpdating = newtable()
+	_switchesUpdating = newtable()
 
 	-- 유닛 조건을 클릭 시점에 풀 때 필요한 분류. 화이트리스트 밖이라 스니펫이 스스로
 	-- 알 수 없으므로 아래에서 실어 보낸다.
@@ -232,16 +232,16 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 						DefaultClickFrame:SetAttribute(t.attr, s)
 					end
 					-- No "did the text change" guard around this. The pass already parsed the
-					-- previous `CustomStateExpressions[t.state]` before reaching here, so the
-					-- parse below is what the newly composed text needs; skipping it when the
-					-- text is unchanged would save one call, and this only runs because
-					-- something the text depends on went dirty, so unchanged is the rare case.
+					-- previous `SwitchExpressions[t.state]` before reaching here, so the parse
+					-- below is what the newly composed text needs; skipping it when the text is
+					-- unchanged would save one call, and this only runs because something the
+					-- text depends on went dirty, so unchanged is the rare case.
 					-- It stood as `if (true or ... ~= s)`, which read as a guard and was not one.
 					if (t.state) then
-						CustomStateExpressions[t.state] = s
+						SwitchExpressions[t.state] = s
 						local newValue = SecureCmdOptionParse(s) and true or false
 						if (States[t.state] ~= newValue) then
-							self:RunAttribute("SetCustomState", t.state, newValue, true)
+							self:RunAttribute("SetSwitch", t.state, newValue, true)
 						end
 					end
 				--end
@@ -255,12 +255,12 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 	-- end
 ]=]);
 
-BindingDriver:SetAttribute("SetCustomState", [[
+BindingDriver:SetAttribute("SetSwitch", [[
 	local name, value, skipUpdate = ...
-	--self:CallMethod("print","SetCustomState",name,value,skipUpdate,States[name])
+	--self:CallMethod("print","SetSwitch",name,value,skipUpdate,States[name])
 	if (States[name] ~= value) then
-		if (not _customStatesUpdating[name]) then
-			_customStatesUpdating[name] = true
+		if (not _switchesUpdating[name]) then
+			_switchesUpdating[name] = true
 			
 			States[name] = value
 			DirtyFlags[name] = true
@@ -273,16 +273,16 @@ BindingDriver:SetAttribute("SetCustomState", [[
 				debind_driver:SetAttribute("state-unitexists", name)
 			end
 
-			self:CallMethod("OnCustomStateChanged", name, value)
-			_customStatesUpdating[name] = false
+			self:CallMethod("OnSwitchChanged", name, value)
+			_switchesUpdating[name] = false
 		end
 	end
 ]]);
 
-BindingDriver:SetAttribute("ToggleCustomState", [[
+BindingDriver:SetAttribute("ToggleSwitch", [[
 	local name = ...
 	local value = not States[name]
-	return self:RunAttribute("SetCustomState", name, not States[name])
+	return self:RunAttribute("SetSwitch", name, not States[name])
 ]]);
 
 BindingDriver:SetAttribute("SetUnit", [[
@@ -455,8 +455,8 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					end
 				end
 
-				if (match and t.customStates) then
-					for state, v in pairs(t.customStates) do
+				if (match and t.switches) then
+					for state, v in pairs(t.switches) do
 						if (States[state] ~= v) then
 							match = false
 							break
@@ -729,8 +729,8 @@ function BindingDriver:OnSpecialUnitChanged(alias, value)
 	DebindPrivate.OnSpecialUnitChanged(alias, value);
 end
 
-function BindingDriver:OnCustomStateChanged(name, value)
-	DebindPrivate.OnCustomStateChanged(name, value);
+function BindingDriver:OnSwitchChanged(name, value)
+	DebindPrivate.OnSwitchChanged(name, value);
 end
 
 --- The condition evaluation, kept as its own string so more than one wrapper can carry it.
@@ -804,8 +804,8 @@ local EVAL_SNIPPET = [==[
 			-- 클릭 밖에서 같은 값을 읽는 동안은 캐시가 아니라 공유값이다. 그래서 여기만
 			-- `States`를 그대로 읽고, 테이블 조회 하나뿐이라 제일 앞에 둔다 - 여기서 걸러진
 			-- 레코드는 아래의 C 호출을 하나도 안 치른다.
-			if (match and t.customStates) then
-				for state, v in pairs(t.customStates) do
+			if (match and t.switches) then
+				for state, v in pairs(t.switches) do
 					if (States[state] ~= v) then
 						match = false
 						break

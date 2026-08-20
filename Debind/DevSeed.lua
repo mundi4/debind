@@ -246,9 +246,9 @@ SEEDS[5] = function(guid)
         --- `$state1` above has something to point at. The other three come up as defaults from
         --- `BindDerivedTables`.
         customStates = {
-            [1] = { mode = Constants.CUSTOM_STATE_MODES.MANUAL, initialValue = true,
+            [1] = { mode = Constants.SWITCH_MODES.MANUAL, initialValue = true,
                 displayMessage = true },
-            [2] = { mode = Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
+            [2] = { mode = Constants.SWITCH_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
         },
     };
 end;
@@ -469,9 +469,9 @@ SEEDS[6] = function(guid)
         --- `$state1` above has something to point at. The other three come up as defaults from
         --- `BindDerivedTables`.
         customStates = {
-            [1] = { mode = Constants.CUSTOM_STATE_MODES.MANUAL, initialValue = true,
+            [1] = { mode = Constants.SWITCH_MODES.MANUAL, initialValue = true,
                 displayMessage = true },
-            [2] = { mode = Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
+            [2] = { mode = Constants.SWITCH_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
         },
     };
 end;

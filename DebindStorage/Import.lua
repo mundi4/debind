@@ -306,7 +306,7 @@ local function IsUsableAction(action)
     if (luatype(action.conditions) == "table") then
         for name in pairs(action.conditions) do
             if (luatype(name) == "string" and strsub(name, 1, 1) == "$"
-                    and not Constants.CUSTOM_STATE_INDICES[name]) then
+                    and not Constants.SWITCH_INDICES[name]) then
                 return false;
             end
         end
@@ -344,7 +344,7 @@ local function BuildAction(source)
     -- placing a batch.
     if (luatype(source.setstate) == "table") then
         local flag = SETSTATE_MODE_FLAGS[source.setstate.mode];
-        local index = Constants.CUSTOM_STATE_INDICES[source.setstate.state];
+        local index = Constants.SWITCH_INDICES[source.setstate.state];
         if (flag and index) then
             fields.value = flag + index;
         else

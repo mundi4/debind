@@ -90,18 +90,18 @@ end
 
 
 --------------------------------------------------------------------------------
--- CustomStatesDropDown
+-- SwitchesDropDown
 --------------------------------------------------------------------------------
-function DebindUI.SetupCustomStatesDropdownMenu(dropdown, rootDescription)
+function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
     --GenerateMenu(dropdown, rootDescription, rootMenu);
 
-    for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
-        local stateOptions = DebindPrivate.GetCustomStateOptions(stateIndex);
+    for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
+        local stateOptions = DebindPrivate.GetSwitchOptions(stateIndex);
         local stateDescription = rootDescription:CreateButton(format(LLL["CUSTOM_STATE_NUM"], stateIndex));
         stateDescription:CreateTitle(MenuUtil.GetElementText(stateDescription));
 
         do
-            local manualDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MANUAL"], _isSelected, _setSelected, { targetObj = stateOptions, key = "mode", value = Constants.CUSTOM_STATE_MODES.MANUAL });
+            local manualDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MANUAL"], _isSelected, _setSelected, { targetObj = stateOptions, key = "mode", value = Constants.SWITCH_MODES.MANUAL });
             SetInstrcutionTooltip(manualDescription, LLL["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"]);
 
             manualDescription:CreateTitle(MenuUtil.GetElementText(manualDescription));
@@ -118,7 +118,7 @@ function DebindUI.SetupCustomStatesDropdownMenu(dropdown, rootDescription)
 
         do
             local conditionalDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"], _isSelected, _setSelected,
-                { targetObj = stateOptions, key = "mode", value = Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL });
+                { targetObj = stateOptions, key = "mode", value = Constants.SWITCH_MODES.MACRO_CONDITIONAL });
             SetInstrcutionTooltip(conditionalDescription, LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"]);
 
             conditionalDescription:CreateTitle(MenuUtil.GetElementText(conditionalDescription));
@@ -131,7 +131,7 @@ function DebindUI.SetupCustomStatesDropdownMenu(dropdown, rootDescription)
                             value = nil;
                         end
                         stateOptions.expr = value;
-                        if (stateOptions.mode == Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL) then
+                        if (stateOptions.mode == Constants.SWITCH_MODES.MACRO_CONDITIONAL) then
                             DebindPrivate.UpdateBindings();
                         end
                     end,
@@ -1175,11 +1175,11 @@ do
         AppendDisableYesNo(extrabarDescription, "CONDITION_EXTRABAR", "extrabar");
     end
 
-    local function CreateCustomStateConditionMenu(rootDescription)
+    local function CreateSwitchConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_CUSTOM_STATES", nil,
             -- isActive
             function()
-                for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
+                for i = 1, Constants.MAX_NUM_SWITCHES do
                     if (_action.conditions and _action.conditions["$state" .. i] ~= nil) then
                         return true;
                     end
@@ -1194,7 +1194,7 @@ do
             LLL["CUSTOM_STATES_DESC"]
         );
 
-        for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
+        for i = 1, Constants.MAX_NUM_SWITCHES do
             local stateDescription = CreateActionMenuItemGroup(description, format(LLL["CUSTOM_STATE_NUM"], i), "$state" .. i);
             AppendDisableYesNo(stateDescription, "CONDITION_CUSTOM_STATE", "$state" .. i);
         end
@@ -1510,7 +1510,7 @@ do
 
         CreateActionbarConditionMenu(rootDescription);
 
-        CreateCustomStateConditionMenu(rootDescription);
+        CreateSwitchConditionMenu(rootDescription);
 
         --
         -- Other Options
