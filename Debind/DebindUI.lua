@@ -1408,7 +1408,14 @@ do
 		--- row is already computed that way (`CollectActionsForKey`) while the tooltip asked again
 		--- from scratch, which left **no warning on the row and its own tooltip calling the
 		--- binding unreachable in red**. One set of data must not say two things on one screen.
+		---
+		--- **조건 이름을 그대로 넘기는 호출자가 있어서 갈래인지 먼저 본다.** 조건 열여덟 중
+		--- 검사가 있는 것은 절반이고, 없는 이름으로 물으면 언제나 nil이라 답은 같다. 다른 것은
+		--- DEBUG에서 그 물음이 걸린다는 것뿐이다.
 		local function GetIssue(category)
+			if (category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
+				return nil;
+			end
 			return GetBindingIssue(action, category, suppressedCategory);
 		end
 
@@ -1807,15 +1814,14 @@ function DebindLineMixin:Update()
 		if (isInactive) then
 			self.QuestionMark:SetVertexColor(INACTIVE_COLOR:GetRGBA());
 			self.QuestionMark:SetDesaturated(true);
+		-- **`combat`/`known`/`stealth`/`pet`은 여기 있었고 없는 갈래였다.** `GetBindingIssue`에
+		-- 그 이름의 검사가 없어서 네 번 다 nil이었고, 남은 여섯이 같은 판단을 이미 내리고 있어
+		-- 증상이 없었다. 읽는 사람만 그 조건들에 모순 검사가 있다고 읽었다.
 		elseif (issue and (GetBindingIssue(action, "hover")
 				or GetBindingIssue(action, "groups")
 				or GetBindingIssue(action, "forms")
 				or GetBindingIssue(action, "bonusbars")
 				or GetBindingIssue(action, "specialbar")
-				or GetBindingIssue(action, "combat")
-				or GetBindingIssue(action, "known")
-				or GetBindingIssue(action, "stealth")
-				or GetBindingIssue(action, "pet")
 				or GetBindingIssue(action, "petbattle"))
 			) then
 			self.QuestionMark:SetVertexColor(ERROR_COLOR:GetRGBA());

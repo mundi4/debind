@@ -477,10 +477,25 @@ return function(DebindPrivate)
         check(DebindPrivate.GetMissingMacroName(macroValueAction("Kick+Pet")) == nil, "오탐");
     end);
 
+    --- **없는 갈래로 물으면 DEBUG에서 걸린다.**
+    ---
+    --- 없는 이름은 모든 `if`를 비켜가 nil을 낸다. 그건 "문제 없음"과 생김새가 같아서, 목록
+    --- 행이 그렇게 죽은 갈래 넷을 묻는 동안 아무 신호도 없었다. 배포본에서는 안 세운다 -
+    --- 잘못 물어 잃는 것은 경고 하나뿐이고, 그걸로 키를 죽일 이유가 없다.
+    test("없는 갈래로 물으면 DEBUG에서 걸린다", function()
+        if (not Constants.DEBUG) then
+            return;
+        end
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F", combat = true });
+        check(pcall(GetBindingIssue, action, "combat") == false,
+            "`combat`은 갈래가 없는데 조용히 nil이 나온다");
+        check(pcall(GetBindingIssue, action, "groups") == true, "있는 갈래가 걸렸다");
+    end);
+
     test("다른 갈래를 물으면 안 나온다", function()
         check(GetBindingIssue(macroValueAction("Kick+Pet2"), "key") == nil, "단축키 칸이 빨개진다");
         check(GetBindingIssue(macroValueAction("Kick+Pet2"), "unit") == nil, "대상 메뉴가 빨개진다");
-        check(GetBindingIssue(macroValueAction("Kick+Pet2"), nil, "target") == nil,
+        check(GetBindingIssue(macroValueAction("Kick+Pet2"), nil, "macro") == nil,
             "갈래를 껐는데도 나온다");
     end);
 

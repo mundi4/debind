@@ -618,69 +618,16 @@ DebindPrivate.BuildUnitStates = BuildUnitStates;
 do
     local _ActionToBindingCache = setmetatable({}, { __mode = "kv" });
 
-    --- The two shapes this function converts between.
+    --- 액션을 바인딩으로. **두 모양이 무엇을 드는지는 `devdocs/action-and-binding-shapes.md`가
+    --- 든다** - 여기서 되풀이하면 둘째 진실이 생긴다.
     ---
-    --- An **action** is what a profile stores and what the menus edit. `Profile.lua`'s
-    --- `KEYS_TO_SAVE` is the authoritative field list -- a field missing from there is not
-    --- persisted no matter who writes it. A **binding** is derived per action and is what the
-    --- solver and `UpdateBindings` read. The flow is one-way: a binding is rebuilt from its
-    --- action, never written back, so normalizing a binding never edits what the user typed.
+    --- 이 함수에만 있는 사실 셋:
     ---
-    --- ### `unit` and `checkedUnits` sound like one family and are opposites
+    --- **흐름이 한 방향이다.** 바인딩은 액션에서 다시 만들어지고 액션으로 되쓰이지 않는다.
+    --- 그래서 아래 정규화가 사용자가 적은 것을 안 건드린다.
     ---
-    --- `unit` is **what the action aims at** -- the `[@unit]` of the macro, so it changes what the
-    --- action *does*. Only the `Target` menu's radio list writes it. That menu passes `"unit"` as
-    --- its issue category, which is why `GetBindingIssue(action, "unit")` asks about the target
-    --- and not about any unit condition.
-    ---
-    --- `checkedUnits` is a **condition set** -- when the action fires, never what it acts on.
-    --- The `Units` menu writes it, and so does the lower half of the `Target` menu (under `"@"`).
-    ---
-    --- And `binding.unit` is not `action.unit`. It is the unit the macro will actually aim at:
-    --- cleared for types that cannot carry one, and **filled in with the hovered unit** when a
-    --- hover action has no target of its own. Only `action.unit` answers "did the user point at
-    --- something", which is why the `"@"` cleanup below runs before that fill-in.
-    ---
-    --- ### action fields
-    ---
-    ---   type, value      required. `Constants.SPELL` and friends; `value` is a spell/item id,
-    ---                    macro body, pet command, ... depending on `type`
-    ---   key              the key it is bound to. Without one the action is never bound.
-    ---   name, icon       display only -- neither the solver nor the runtime reads them
-    ---   seq              its place inside its key group, 1..n. Rewritten after every change to
-    ---                    that group (`Profile.lua`'s `RenumberKeyGroup`), so it always says where
-    ---                    the action stands rather than when it was made.
-    ---   priority         number; `Constants.DEFAULT_PRIORITY` when absent
-    ---   unit             a `UNIT_INFO` key. See above -- this is the target, not a condition.
-    ---   checkedUnits     `{ [unit or "@"] = true | false | "help" | "harm" }`. `"@"` is a
-    ---                    pointer to whatever `unit` names, so it dies when `unit` does.
-    ---   hover, reactions **not stored any more** (`Profile.lua`'s `dbver <= 4` folded the pair
-    ---                    into `checkedUnits["hover"]`). They still arrive on a profile the
-    ---                    migration has not reached and on a shared string written before it, and
-    ---                    `HoverConditionFromLegacy` is where they are raised onto the copy.
-    ---   frameTypes       `FRAMETYPE_*` mask. Describes the **frame**, not the unit on it, which
-    ---                    is why it stayed an action field when the pair above did not. Means
-    ---                    nothing unless a hover condition is set, and so does `ignoreHoverUnit`.
-    ---   groups           `GROUP_*` mask           forms       `FORM_*` mask
-    ---   bonusbars        `BONUSBAR_*` mask
-    ---   combat, stealth, pet, petbattle, specialbar, extrabar, ignoreHoverUnit,
-    ---   keepInBindingContext, $state1..$state5
-    ---                    true | false | nil. `keepInBindingContext` is read straight off the
-    ---                    action and is one of the few fields no binding carries.
-    ---   known            true | nil, and only on a spell. **Not the third value the others
-    ---                    have**: it asks about this action's own spell, so `false` would read
-    ---                    as "cast it only while it is unlearned" and names no state at all.
-    ---
-    --- ### what a binding has on top of those
-    ---
-    ---   hover            true | false | nil, from `checkedUnits["hover"]` (`DeriveHoverFields`).
-    ---                    `false` and `nil` are different answers. `false` says "only when not
-    ---                    hovering" and `nil` says "does not care", and both are read apart.
-    ---   unitStates       `{ [unit] = UNITSTATE_* mask }` from `BuildUnitStates` -- **the only
-    ---                    thing the solver reads about units.** The hovered frame's unit rides
-    ---                    this under the name `"hover"`.
-    ---   unitStatesOpaque a `"@"` that could not be placed on any axis; puts the binding out of
-    ---                    both solver roles rather than letting it look wider than it is
+    --- **표를 재사용한다.** 캐시에서 꺼내 제자리에서 덮어쓰므로, 조건부로만 쓰는 필드는 이전
+    --- 리빌드의 값이 남는다. `conditions`를 `wipe`하는 줄이 그것을 막는 자리다.
     ---
     --- **순서 필드는 여기 없다.** 어느 액션이 먼저 발동하느냐는 액션 하나로 답이 안 나오는
     --- 유일한 것이라, 그쪽은 `MakeOrderRecord`가 따로 든다.
@@ -1135,6 +1082,13 @@ end
 ---     something (`GetUndefinedCustomState`, `GetMissingMacroName`). None of the three is a
 ---     condition and none survives onto the binding
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
+    -- **없는 갈래로 물으면 아래 `if`가 전부 비켜가 nil이 나온다**, 그리고 그건 "문제 없음"과
+    -- 생김새가 같다. 목록 행이 그렇게 죽은 갈래 넷을 묻고 있었고, 증상이 없어서 읽는 사람만
+    -- 그 조건들에 검사가 있다고 읽었다. DEBUG에서만 세운다 - 배포본에서 터뜨릴 잘못이 아니다.
+    if (Constants.DEBUG and category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
+        error("GetBindingIssue: 없는 갈래 " .. tostring(category), 2);
+    end
+
     local issue;
     local binding = DebindPrivate.GetBindingInfoForAction(action);
     local conditions = binding.conditions;
@@ -1185,14 +1139,17 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     end
 
     -- Same shape as the branch above: not a condition, but **a name that points at nothing**. So
-    -- there is no caller that asks about it by name -- what needs fixing is the action itself, not
-    -- a condition menu -- and `"target"` here is a name for switching the branch off, not for
-    -- choosing which control to paint.
+    -- there is no caller that asks about it by name: what needs fixing is the action itself rather
+    -- than a condition menu, and the name here is one for switching the branch off.
+    --
+    -- It was `"target"`, which named four other things in this repo already -- an action type, a
+    -- unit token, a frame type, and the `Target` menu's own category, which asks about the unit
+    -- the action aims at and has nothing to do with this.
     --
     -- An action reported here drops out of `KeyMap` entirely (`Debind.lua`). **Nothing is lost by
     -- that**: it is a binding that already pressed and did nothing, so the only thing that changes
     -- is that it becomes visible.
-    if (not issue and (not category or category == "target") and notCategory ~= "target") then
+    if (not issue and (not category or category == "macro") and notCategory ~= "macro") then
         if (DebindPrivate.GetMissingMacroName(action)) then
             issue = Constants.BINDING_ISSUE_MISSING_MACRO;
         end

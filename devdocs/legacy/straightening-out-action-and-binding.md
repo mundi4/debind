@@ -1,12 +1,14 @@
 # action / binding 모양 바로 세우기
 
-> 상태 (2026-08-20): **§4-2와 §5 전부가 들어갔다. 남은 것은 §4-1과 §4-3뿐이고, 그 둘은 3.3이다.**
+> 상태 (2026-08-20): **전부 들어갔다. 이 문서에 남은 일이 없다.**
+>
+> **결론은 `action-and-binding-shapes.md`가 든다.** 그쪽이 표준 문서이고, 이 문서는 그 모양이
+> 왜 이 모양이 됐는지를 남긴다.
 >
 > 들어간 것: `binding.spellName` 삭제(§5-A), `action._dirty` 삭제(§5-B), 비교자 레코드를
 > `Misc.MakeOrderRecord` 하나로(§4-2), 솔버의 인자 이름(§5-C), `GetBindingIssue`의 모양
-> 갈아타기(§5-D), `binding.reactions` 삭제(§5-E). 같은 편집에서
-> `GetBindingInfoForAction`의 `update` 인자와 `if (true)` 블록이 같이 없어졌고,
-> `.zzz/refactor-candidates.md`의 `UnitConditionToRuntimeScalar` 항목도 같이 닫혔다.
+> 갈아타기(§5-D), `binding.reactions` 삭제(§5-E), `conditions` 중첩(§4-1, `dbver 6`),
+> 이슈 갈래를 필드 이름과 분리(§4-3).
 >
 > 시작은 `checkedUnits`라는 이름이 거슬린다는 것이었는데, **이름은 증상이고 원인은 `binding`이
 > 세 가지 일을 겸하는 데 있었다.** 그래서 이 문서는 이름 정리가 아니라 모양 이야기다.
@@ -84,7 +86,20 @@ placement     프로필에서의 위치. 액션에서 파생되지 않는 유일
               CompareActionOrder가 받는 것은 이것 하나
 ```
 
-### 1. `conditions` 중첩
+### 1. `conditions` 중첩 — **들어갔다 (2026-08-20). `dbver 6`.**
+
+액션도 바인딩도 둘 다 중첩한다. 스니펫 페이로드 `t`는 안 바뀐다. 그건 방출부가 굽는 셋째
+모양이고 제한 환경 안에 산다. 무엇이 조건인지는 `Constants.IsConditionField` 하나가 답하고,
+`CleanUpDB`의 `$` 면제가 조건 표 안으로 같이 내려갔다.
+
+아래 표가 "안 접힘"으로 세어둔 다섯 중 넷은 결국 접혔다. `Misc.lua`의 이슈 사슬,
+`Solver.lua`의 `FIXED_COLUMNS`, `UpdateBindings.lua`의 방출부, `DropDownMenus.lua`의 메뉴가
+전부 같은 표를 읽는다. 안 접힌 것은 스니펫 판정 하나뿐이고, 그건 애초에 다른 모양이었다.
+
+`check-export-fields.js`는 파서를 안 고쳤다. 두 명단이 `conditions` 한 줄로 만나고 안쪽은
+`CONDITION_TYPES`라는 **별도 표**가 들어서, 줄 단위 파서가 그대로 읽는다.
+
+원래 적어둔 것:
 
 `KEYS_TO_SAVE` 서른 개 중 **열여덟 개가 조건**이다. 지금은 `unit`이 그 사이에 섞여 앉아 있어서
 `Misc.lua`가 예순 줄짜리 주석으로 "이 둘은 한 식구처럼 들리는데 정반대다"를 설명해야 한다.
@@ -130,7 +145,13 @@ placement     프로필에서의 위치. 액션에서 파생되지 않는 유일
 
 저장 형식을 안 건드린다. `layerRank`도 `specRank`도 원래 저장되지 않는다.
 
-### 3. 이슈 카테고리를 필드 이름과 분리한다
+### 3. 이슈 카테고리를 필드 이름과 분리한다 — **들어갔다 (2026-08-20)**
+
+`Constants.BINDING_ISSUE_CATEGORIES`가 갈래 목록이고, `GetBindingIssue`가 DEBUG에서 없는
+이름을 세운다. 목록 행이 묻던 죽은 갈래 넷(`combat`/`known`/`stealth`/`pet`)이 없어졌다.
+카테고리 `"target"`은 `"macro"`가 됐다.
+
+원래 적어둔 것:
 
 카테고리는 **어느 컨트롤을 빨갛게 칠할지**의 이름이지 필드 이름이 아니다. 이미 `hover`,
 `reactions`, `target` 셋에서 깨져 있다.

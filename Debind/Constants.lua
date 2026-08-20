@@ -59,21 +59,11 @@ Constants.TYPES_WITH_UNIT                 = {
 };
 
 
---- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 산다.
+--- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
+--- 왜 조건이 아닌지는 `devdocs/action-and-binding-shapes.md` §2에 있다.
 ---
---- 조건은 **언제 발동하느냐**를 말한다. 목록 밖에 남은 것들은 각자 다른 것을 말한다:
----
----   unit                 액션이 **겨누는 대상**. 매크로의 `[@unit]`이라 동작이 바뀐다.
----   ignoreHoverUnit      `binding.unit`을 빈 문자열로 두느냐 `"hover"`로 채우느냐를 가른다
----                        (`Misc.lua`). 겨누는 것을 바꾸지 언제 나가는지를 바꾸지 않는다.
----   keepInBindingContext 게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다.
----   priority, seq        발동 순서. imported는 이 서랍의 사정이다.
----   type, value, key, name, icon
----
---- **달러로 시작하는 키는 이 표에 없어도 조건이다.** 커스텀 상태가 그 이름으로 저장되고
---- (`CleanUpDB`의 면제와 같은 규칙), 재설계가 슬롯 다섯을 임의 이름으로 푼다
---- (`devdocs/redesigning-custom-states.md`). 다섯 줄만 적어두면 그날 조용히 조건이 아니게
---- 된다. 그래서 묻는 것은 `IsConditionField`이고, 이 표를 직접 보지 말 것.
+--- **이 표를 직접 보지 말 것.** 묻는 것은 `IsConditionField`이고, 그쪽만이 달러로 시작하는
+--- 이름까지 같이 답한다.
 Constants.CONDITION_FIELDS = {
     checkedUnits = true,
     frameTypes = true,
@@ -87,6 +77,32 @@ Constants.CONDITION_FIELDS = {
     known = true,
     pet = true,
     petbattle = true,
+};
+
+--- 이슈 갈래의 이름들. **어느 컨트롤을 빨갛게 칠할지의 이름이지 필드 이름이 아니다.**
+--- 왜 그 둘이 안 겹치는지는 `devdocs/action-and-binding-shapes.md` §7에 있다.
+---
+--- **표가 필요한 이유는 하나다.** 없는 이름으로 물으면 `GetBindingIssue`의 모든 `if`가
+--- 비켜가 언제나 nil이 나오는데, 그건 "문제 없음"과 구별되지 않는다.
+Constants.BINDING_ISSUE_CATEGORIES = {
+    key = true,
+    -- 조건 묶음. 메뉴가 자기 키를 그대로 넘긴다(`DropDownMenus.lua`).
+    groups = true,
+    forms = true,
+    bonusbars = true,
+    specialbar = true,
+    petbattle = true,
+    frameTypes = true,
+    checkedUnits = true,
+    -- 필드 이름이 아닌 셋.
+    hover = true,
+    reactions = true,
+    unit = true,
+    -- 매크로 이름이 가리키는 것이 없다. 조건이 아니라 액션 자체가 틀린 경우라 짚어 묻는
+    -- 호출자가 없고, 갈래를 끄기 위한 이름으로만 쓰인다.
+    macro = true,
+    -- 매크로 본문이 정의되지 않은 상태를 부른다. 위와 같은 자리다.
+    states = true,
 };
 
 --- 이 이름이 조건 필드인가. 커스텀 상태 이름까지 같이 답한다.

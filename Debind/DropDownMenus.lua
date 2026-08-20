@@ -444,7 +444,11 @@ do
                 else
                     err = error;
                 end
-            elseif (key) then
+            elseif (key and Constants.BINDING_ISSUE_CATEGORIES[key]) then
+                -- **묶음 키가 곧 이슈 갈래인 것은 아니다.** 이 메뉴가 쓰는 키 중 절반은
+                -- 그 이름의 검사가 없다(`combat`, `known`, `stealth`, `pet`, `extrabar`,
+                -- 커스텀 상태, 중요도). 그냥 물으면 언제나 nil이라 지금과 답이 같지만,
+                -- 없는 갈래를 묻는 것 자체가 DEBUG에서 걸린다.
                 err = DebindPrivate.GetBindingIssue(_action, key);
             end
 
