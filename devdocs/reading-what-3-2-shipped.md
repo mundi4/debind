@@ -32,7 +32,8 @@
    `Constants.STATE_EVAL_EXPRESSIONS`와 `EVAL_SNIPPET`에 있어서, `Solver.lua` 머리말의
    포인터를 고치고 raid가 먼저인 이유를 그 두 자리에 적었다. `known` 극성이 런타임에서
    뒤집히던 것은 소유자가 조건의 뜻으로 끊어서 닫았다(`0-DECISION-LOG.md`, `.zzz/resolved.md`의
-   46번). 클릭캐스팅 전용 키가 폴링을 끄는 것은 47번으로 `.zzz/refactor-candidates.md`에 갔다.
+   46번). 클릭캐스팅 전용 키가 폴링을 끌던 것(47번)과 그 원인인 `click`의 세 가지 뜻(48번)도
+   같은 날 닫았다. 47번의 인게임 확인은 `/debtest`의 "Click-cast only"가 든다.
 3. **`Snippets.lua` +264와 `SecureBindings.lua`의 나머지 스니펫.** 골든은 **드리프트**를 막지
    틀린 것을 막지 않는다. 굽는 바이트가 골든과 같다는 말은 지난번과 같다는 말뿐이다.
    `restricted-environment.md`를 먼저 읽어야 하는 자리.

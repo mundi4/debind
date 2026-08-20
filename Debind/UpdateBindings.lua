@@ -1137,20 +1137,25 @@ function UpdateBindingsMap()
                                 -- 클릭 경로가 대상을 푸는 자리가 정확히 거기다.
                                 _unitsSeen[k] = true;
 
-                                -- **측정은 상태 구동 키만 시킨다.**
+                                -- **Only a state-driven key asks for measurement.**
                                 --
-                                -- `UnitStates`를 읽는 것은 상태 루프와, `SetUnit`이 리빌드를
-                                -- 부를지 가르는 `UnitStates[별칭] ~= nil` 뿐이다. 배선이 고정된
-                                -- 키는 앞엣것을 안 돌고, 뒤엣것도 시킬 일이 없다 - 그 키 때문에
-                                -- 다시 걸 것이 없으니 호버가 움직일 때마다 리빌드를 부르던 것이
-                                -- 같이 없어진다. 클릭 경로는 잃는 것이 없다: 유닛만은 캐시를
-                                -- 안 믿고 클릭 순간에 다시 잰다.
+                                -- Two things read `UnitStates`: the state loop, and the
+                                -- `UnitStates[alias] ~= nil` test that decides whether `SetUnit`
+                                -- calls for a rebuild. A key the state loop never walks does not
+                                -- reach the first, and has nothing to ask of the second -- there
+                                -- is nothing to re-bind on its account, so the rebuild it used to
+                                -- trigger every time the hover moved goes with it.
                                 --
-                                -- **하나짜리 누적이라 단위가 중요하다.** `_measuredUnitAxes`는 리빌드
-                                -- 하나에 하나이고 `bor`로 쌓이므로, 같은 유닛을 상태 구동 키가
-                                -- 하나라도 물면 그 유닛은 그대로 측정된다. 여기서 빼는 것은
-                                -- **이 레코드의 몫**이지 그 유닛이 아니다.
-                                if (not alwaysOurs) then
+                                -- The click path loses nothing. Units are the one thing it does
+                                -- not take from the cache; it measures them again at the press.
+                                -- Click-casting does not even take the hover from the cache --
+                                -- the frame that was clicked is `evalFrame`.
+                                --
+                                -- **This is an accumulator, so the unit of the decision matters.**
+                                -- `_measuredUnitAxes` is one table per rebuild and grows by `bor`,
+                                -- so a unit any state-driven key asks about is measured anyway.
+                                -- What is withheld here is **this record's share**, not the unit.
+                                if (stateDriven) then
                                     _measuredUnitAxes[k] = bor(_measuredUnitAxes[k] or 0, axes);
                                     _updateFlags[k .. "-exists"] = true;
                                     if (band(axes, UNITAXIS_REACTION) ~= 0) then
@@ -1262,27 +1267,36 @@ function UpdateBindingsMap()
             AppendBindingsList(key, stateDriven);
         end
 
-        -- **`_measuredStates`는 "잴 상태"다.** 여기로 넘어오는 것 중 잴 수 없는 둘은 걸러낸다:
-        -- `<유닛>-exists`는 유닛 축이라 `_measuredUnitAxes`가 따로 재고, `unitframe`은 재는 것이
-        -- 아니라 enter/leave가 밀어 넣는 것이다.
+        -- **`_measuredStates` is what gets measured**, so the two flags that name something
+        -- unmeasurable are filtered out here: `<unit>-exists` is a unit axis and
+        -- `_measuredUnitAxes` covers it, and `unitframe` is not measured at all -- enter/leave
+        -- push it.
         --
-        -- **그리고 배선이 고정된 키는 축을 등록시키지 않는다.** 클릭 경로가 그 축들을 클릭
-        -- 시점에 직접 재므로 폴링이 재둘 이유가 없고, 상태 루프는 그 키를 안 본다. 흔한
-        -- 프로필에서는 `known:`이 여기서 0이 되어 `SPELLS_CHANGED` 등록까지 같이 내려간다.
+        -- **A key the state loop never walks registers nothing.** The click path measures those
+        -- axes at the press, so there is nothing for the poll to have ready. On an ordinary
+        -- profile `known:` comes out empty here and the `SPELLS_CHANGED` registration goes with
+        -- it.
         --
-        -- **예외는 커스텀 상태 하나뿐이다.** 클릭 경로가 유일하게 `States`를 그대로 읽는 축이라
-        -- (잴 것이 없다 - 저장값이 원본이다) 등록이 끊기면 값이 통째로 사라진다.
+        -- **The question is `stateDriven`, not `not alwaysOurs`.** Two kinds of key leave the
+        -- state loop nothing to decide (`AppendBindingsList`), and `alwaysOurs` is only one of
+        -- them: a click-cast-only key holds no key-binding record, which is exactly the case
+        -- `IsKeyAlwaysOurs` answers `false` for. `not stateDriven` is the union of the two.
+        --
+        -- **Custom states are the one exception.** They are the only axis the click path reads
+        -- straight out of `States` -- there is nothing to measure, the stored value is the
+        -- original -- so cutting the registration would take the value away entirely.
         for k, _ in pairs(_updateFlags) do
             if (k ~= "unitframe" and strsub(k, -7) ~= "-exists"
-                    and (not alwaysOurs or _customStates[k])) then
+                    and (stateDriven or _customStates[k])) then
                 _measuredStates[k] = true;
             end
         end
 
-        -- **상태 루프 전용이라 상태 구동 키에만 굽는다.** `alwaysOurs` 키는 그 루프가 안 보므로
-        -- (그 표에 없다) 여기 실린 플래그를 읽는 코드가 없다. `_measuredStates` 등록은 위에서 이미
-        -- 끝났고 그건 별개다 - 클릭 경로가 아직 `States`를 읽는다.
-        if (not alwaysOurs) then
+        -- **The state loop is the only reader, so only a state-driven key gets these baked.**
+        -- Any other key is absent from `StateDrivenBindings`, and nothing else looks at the
+        -- flags. The `_measuredStates` registration above is a separate decision -- custom states
+        -- register from either kind, because the click path reads those out of `States`.
+        if (stateDriven) then
             -- `RebindOnHoverFrame`은 정확히 이 플래그의 리빌드 전체 합이다. 같은 게이트 안에서
             -- 모아야 뜻이 어긋나지 않는다 - 굽지 않은 키는 깨어날 수도 없다.
             if (_updateFlags.unitframe) then

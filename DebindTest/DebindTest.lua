@@ -3157,6 +3157,86 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
     end,
 })
 
+-- A key whose records all carry a hover condition holds no key-binding record, so there is no key
+-- role to take and hand back and the state loop has nothing to decide for it. `UpdateBindingsMap`
+-- therefore registers none of its axes for measurement -- the click path measures them at the
+-- press, and click-casting does not even take the hover from the cache.
+--
+-- **What this holds is that narrowing the registration did not narrow the judgement.** With
+-- nothing measured on the key's account, a press still has to ask about `combat`. The membership
+-- assertion has to sit next to it: widen the gate back and the registration returns while the
+-- judgement half goes on passing, so on its own it would not notice.
+RegisterTest("Click-cast only: judged at the press with nothing measured for it", {
+    description = "클릭캐스팅 전용 키가 상태 루프 표에서 빠지고도 조건 판정은 그대로인가",
+    run = function()
+        local NAME = "Click-cast only"
+        local KEY = "BUTTON3"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
+        end
+
+        local ok, err = EnableProbes()
+        if not ok then
+            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            checkedUnits = { hover = {} },
+            frameTypes = Constants.FRAMETYPE_ALL,
+            combat = true,
+        })
+        ApplyBindings()
+
+        ReadKeyMembership(KEY)
+        local m = WaitForMembership()
+        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+
+        -- 긍정 쪽을 먼저 본다. "상태 구동이 아님"은 레코드가 아예 안 나간 키도 참이다.
+        if not m.clickCast then
+            return Fail(NAME, "ClickCastKeys에 없다 - 빠진 게 아니라 레코드가 안 나갔다")
+        end
+        if m.stateDriven then
+            return Fail(NAME, "StateDrivenBindings에 들어 있다 - 키를 잡는 레코드가 하나도 "
+                .. "없는데 상태 루프가 매 틱 훑는다")
+        end
+
+        local targets, terr = ClickCastTargets()
+        if not targets then return Fail(NAME, terr) end
+        local target = targets[1]
+
+        -- 레코드가 호버를 조건으로 들고 있고 클릭캐스팅 경로는 그것을 캐시가 아니라 프레임에서
+        -- 읽으므로, 커서가 실제로 그 위에 있어야 한다.
+        HoverEnter(target.frame)
+        AddTeardown(function() HoverLeave(target.frame) end)
+        WaitForHoverSlot(true)
+
+        local function judge(inCombat)
+            SetMockState("combat", inCombat)
+            local ran, rerr = EvalClickCast(target.frame, 3, 0)
+            if not ran then return false, rerr end
+            WaitForEvalAnswer()
+            return true, LastWinner()
+        end
+
+        local ran, hit = judge(true)
+        if not ran then return Fail(NAME, tostring(hit)) end
+        if hit == nil then
+            return Fail(NAME, "전투로 두고도 안 골랐다 - 등록을 끊으면서 판정까지 끊겼다")
+        end
+
+        local ran2, miss = judge(false)
+        if not ran2 then return Fail(NAME, tostring(miss)) end
+        if miss ~= nil then
+            return Fail(NAME, format("비전투인데 %s를 골랐다 - combat 조건을 안 보고 있다",
+                tostring(miss)))
+        end
+
+        return Pass(NAME, format("clickCast만, 전투에서 %s / 비전투에서 없음", tostring(hit)))
+    end,
+})
+
 -- The point of judging on the frame instead of ahead of it: when nothing matches we return nil,
 -- the button name is left alone, and the click carries on into whatever the frame itself does.
 -- On the old path the frame's own `type` had been overwritten, so a click that matched nothing
