@@ -1,11 +1,11 @@
 # 개발용 프로필 갖추기
 
-> 상태 (2026-08-20): **들어갔다.** 씨앗은 [DevSeed.lua](../Debind/DevSeed.lua)에 있고, TOC의
+> 상태 (2026-08-20): **들어갔다.** 씨앗은 [DevSeed.lua](../../Debind/DevSeed.lua)에 있고, TOC의
 > debug / non-debug 한 쌍, `.pkgmeta`의 `ignore` 한 줄, `InitDB` 앞머리의 갈림, `/deb seed`까지
 > 전부 있다. 아래 "씨앗에 무엇을 담나"에 실제로 담은 것이 적혀 있다.
 >
-> **남은 것 하나. `savedvars_spec`을 어떻게 할지 안 정했다** ("동결본은 왜 없어졌나"의 마지막
-> 문단). 코드를 지우는 결정이라 여기서 혼자 안 낸다. 그것 하나 때문에 이 문서가 아직 여기 있다.
+> **남아 있던 `savedvars_spec` 하나도 닫혔다(2026-08-20).** 지웠다. 근거는 "동결본은 왜
+> 없어졌나"의 마지막 문단에 있고, 결정은 소유자가 나에게 맡겼다.
 >
 > 2026-08-19판은 역할 둘("동결본"과 "개발 환경")로 갈라져 있었다. **동결본이 없어졌다.** 근거를
 > 세어보니 커버리지가 아니었고, 그 파일이 실제로 필요했던 이유는 따로 있었다. 아래 두 절이
@@ -28,7 +28,7 @@
 
 ## 동결본은 왜 없어졌나
 
-`.zzz/savedvars/<dbverN>/`에 실제 SavedVariables를 얼려두고 [savedvars_spec](../tests/savedvars_spec.lua)이
+`.zzz/savedvars/<dbverN>/`에 실제 SavedVariables를 얼려두고 `savedvars_spec`이
 그것으로 마이그레이션을 다시 태우는 안이었다. **얼려둔 것을 세어보니 커버리지가 없다.**
 
 | | account1 | account5 |
@@ -37,7 +37,7 @@
 | `hover` | 20개, 전부 `true` | 0개 |
 
 `checkedUnits` 항목은 셋뿐이고 값은 `target = false`, `@ = true`, `focus = true`다. dbver 5가
-옮기는 옛 값의 정의역은 [migration_spec.lua](../tests/migration_spec.lua)에
+옮기는 옛 값의 정의역은 [migration_spec.lua](../../tests/migration_spec.lua)에
 `OLD_VALUES = { true, false, "help", "harm" }`로 **코드에서 뽑아 열거돼 있고**, 실데이터는 그중
 둘만 든다. `"help"`도 `"harm"`도 `hover = false`도 없다. 스펙이 찍는 "액션 92개"는 커버리지가
 아니라 개수다. 90개는 이 마이그레이션에 대해 아무것도 안 밟는다.
@@ -51,12 +51,17 @@ dbver 5 씨앗은 3.3이 나가도 리포에 그대로 있다.
 
 남는 것 하나. **`reactions`는 실데이터에 1, 2, 5, 6, 7이 들어 있는데 `HOVER_VALUES`는
 `REACTION_HELP`(1)와 `REACTION_ALL`(7) 둘만 쓴다.** 비트마스크라 정의역이
-[Constants.lua](../Debind/Constants.lua)의 셋으로 정해지므로 실데이터 없이 열거할 수 있다.
+[Constants.lua](../../Debind/Constants.lua)의 셋으로 정해지므로 실데이터 없이 열거할 수 있다.
 `REACTION_NONE`(16)이 `REACTION_ALL`(7) 밖이라 그것도 같이 봐야 한다. 이건 `migration_spec`의
-일이지 이 문서의 일이 아니다.
+일이지 이 문서의 일이 아니다. **거기서 했다**(2026-08-20).
 
-**`savedvars_spec`을 어떻게 할지는 안 정했다.** 지금 그 스펙은 위 정의역의 부분집합을 92번
-반복한다. 지우는 쪽으로 기울지만 코드를 지우는 결정이라 여기서 혼자 내지 않는다.
+**`savedvars_spec`은 지웠다**(2026-08-20). 위의 셋에 하나가 더 붙어서다. 그 스펙이 뜻이
+그대로인지 보는 방법은 마이그레이션 전과 후를 **각각 같은 함수에 통과시켜 맞대는 것**인데,
+그러면 판정자가 검사 대상과 같은 함수다. 두 값을 같은 방향으로 잘못 읽는 버그는 양쪽이 나란히
+틀린 채 초록이 된다. 92라는 숫자가 그 자리에 대해 약한 이유가 커버리지만이 아니었다.
+
+`migration_spec`이 같은 자리를 **리터럴 기대값**으로 다시 잡았다. 소비자 둘("solver가 보는
+마스크", "방출부가 옮겨 적는 축별 조건")에 대해 정의역의 값마다 답을 적어둔다.
 
 ## 씨앗은 애드온 안에 산다
 
@@ -162,7 +167,7 @@ InitDB 앞머리 (--@debug@)
 /deb seed  → 확인 팝업 → DebindDevVars에 시드 플래그 → ReloadUI()
 ```
 
-[Public.lua](../Debind/Public.lua)의 `SlashCmdList["DEBIND"]`에 `--@debug@`로 감싼 갈래로
+[Public.lua](../../Debind/Public.lua)의 `SlashCmdList["DEBIND"]`에 `--@debug@`로 감싼 갈래로
 붙인다. `SLASH_` 전역을 새로 만들 이유가 없다. 확인은 플래그를 세우기 전에 받는다. 되돌릴 수
 없는 단계가 거기다.
 

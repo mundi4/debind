@@ -57,7 +57,6 @@ local specs = {
     { name = "grade", path = root .. "/grade_spec.lua" },
     { name = "overview", path = root .. "/overview_spec.lua" },
     { name = "normalize", path = root .. "/normalize_spec.lua" },
-    { name = "savedvars", path = root .. "/savedvars_spec.lua" },
     { name = "clicktime", path = root .. "/clicktime_spec.lua" },
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
     { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },

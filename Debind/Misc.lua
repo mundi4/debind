@@ -501,23 +501,21 @@ local function UnitConditionToState(value)
     return mask;
 end
 
---- One stored unit condition -> the vocabulary the click-time snippet speaks.
+--- One stored unit condition -> the four scalars the runtime used to speak.
 ---
---- The snippet compares against `true` / `false` / `"help"` / `"harm"` and has **no `bit`
---- library** (`RestrictedEnvironment.lua`), so it cannot be handed a mask and asked to intersect.
---- Until it learns to resolve a unit onto the axis itself, storage that says more than those four
---- values has nowhere to land.
+--- **Nothing in the addon calls this, and it does not describe the runtime.** It was written for
+--- the emitter back when the snippet was handed one scalar per unit, because the restricted
+--- environment has no `bit` library and could not intersect a mask. The emitter now writes one
+--- field per axis instead (`u.exists`, `u.reaction.<name>`, `u.dead` in `UpdateBindings.lua`,
+--- compared one axis at a time in `SecureBindings.lua`), and this was left standing. 3.2 shipped
+--- it that way.
 ---
---- Unrepresentable conditions come back as `"never"`. There is no safe rounding, but the two
---- directions are not equally bad **here**: a binding that stops firing is visible to whoever set
---- it, while one that fires wider than asked silently takes a key from another binding. The solver
---- is unaffected either way -- it reads `unitStates`, which stays exact.
----
---- Nothing produces such a condition yet: the menus write the same four values they always did,
---- just in the new shape.
+--- So the `"never"` below answers for a runtime that is gone. `{ reaction = REACTION_OTHER }` comes
+--- back `"never"` here while the shipped emitter writes `u.reaction.other = true` and the condition
+--- fires exactly as the menu set it. **Nothing may read this function as a statement about what a
+--- condition can express.** Its removal is item 43 in `.zzz/refactor-candidates.md`.
 local function UnitConditionToRuntimeScalar(value)
-    -- 저장 모양이 들어올 수도 있어서 먼저 접는다. 이 함수를 부르는 것은 스펙뿐이고, 스펙은
-    -- 마이그레이션이 방금 쓴 값을 그대로 넘긴다.
+    -- 저장 모양이 들어올 수도 있어서 먼저 접는다.
     value = UnitConditionForBinding(value);
     if (value == false or type(value) ~= "table") then
         return value;

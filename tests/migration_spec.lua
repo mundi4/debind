@@ -545,53 +545,138 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
     -- dbver 5의 핵심 불변식: **표현만 바꾸고 뜻은 안 바꾼다**
     --
-    -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다. 그래서 값이
-    -- 어떻게 생겼는지가 아니라 **소비자가 보는 것이 그대로인지**를 못 박는다. 소비자는 둘뿐이다:
+    -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다.
     --
-    --   solver  `BuildUnitStates`가 만드는 유닛 축 마스크
-    --   런타임  스니펫에 내려가는 스칼라
+    -- **전후를 맞대지 않는다.** 옛 값과 새 값을 각각 같은 함수에 통과시켜 결과가 같은지만 보면
+    -- 판정자가 검사 대상과 같은 함수다. 그러면 `UnitConditionForBinding`이 두 값을 **같은
+    -- 방향으로** 잘못 읽는 버그는 양쪽이 나란히 틀린 채 초록으로 지나간다. 그래서 여기 적는
+    -- 것은 "이 값의 답은 이것이다"이고, 답을 정하는 것은 그 함수가 아니라 소비자 둘이다.
     --
-    -- 둘 다 옛 값과 새 값에서 같은 답이 나오면, 이 마이그레이션은 사용자가 걸어둔 조건을
-    -- 한 개도 안 바꾼 것이다.
+    --   solver   `binding.unitStates[유닛]`. 유닛에 대해 solver가 읽는 것은 이것 하나다
+    --   런타임   `binding.checkedUnits[유닛]`. 축마다 한 필드고, `UpdateBindings.lua`가
+    --            `u.exists` / `u.reaction.<이름>` / `u.dead`로 그대로 옮겨 적는다.
+    --            스니펫은 그 셋을 축마다 하나씩 비교한다 (`SecureBindings.lua`)
+    --
+    -- **`UnitConditionToRuntimeScalar`는 여기 없다.** 그 함수가 내는 스칼라 넷을 읽던 방출부는
+    -- 3.2 개발 중에 축별 표로 바뀌었고, 지금 그것을 부르는 것은 스펙뿐이다
+    -- (`.zzz/refactor-candidates.md` 43번). 스니펫이 보는 것을 물으면서 스니펫이 안 보는
+    -- 함수에 물으면, 이 절이 없애려는 그 사각이 한 겹 더 생긴다.
     ---------------------------------------------------------------------------
 
-    local UnitConditionToRuntimeScalar = DebindPrivate.UnitConditionToRuntimeScalar;
-
-    --- 옛 형식이 실제로 가질 수 있던 값 전부. `Profile.lua`의 `dbver <= 1` 단계가
-    --- `checkedUnitValue`를 그대로 옮겨 넣으므로, 그 시절 값도 이 넷 안에 있어야 한다.
-    local OLD_VALUES = { true, false, "help", "harm" };
-
-    local function stateFor(action)
-        return DebindPrivate.GetBindingInfoForAction(action, true).unitStates;
+    local function copy(value)
+        if (type(value) ~= "table") then
+            return value;
+        end
+        local out = {};
+        for k, v in pairs(value) do
+            out[k] = v;
+        end
+        return out;
     end
 
-    test("dbver 5 keeps every old value meaning the same thing to the solver", function()
-        for _, old in ipairs(OLD_VALUES) do
-            local before = stateFor({
-                type = Constants.SPELL, value = 100,
-                checkedUnits = { target = old },
-            });
+    local function bindingFor(action)
+        return DebindPrivate.GetBindingInfoForAction(action, true);
+    end
 
-            local layer = { { key = "A", type = Constants.SPELL, value = 100,
-                checkedUnits = { target = old } } };
-            MigrateLayer(layer, 4);
-            local after = stateFor(layer[1]);
+    local function stateFor(action)
+        return bindingFor(action).unitStates;
+    end
 
-            check(before.target == after.target,
-                ("%s의 뜻이 바뀜: %s -> %s"):format(tostring(old),
-                    tostring(before.target), tostring(after.target)));
+    --- 축별 조건이 기대한 것과 같은가.
+    ---
+    --- `nil`은 "조건이 아예 안 실렸다"(꺼진 조건), `false`는 "없을 때"다. 둘은 다른 답이고
+    --- 둘 다 방출부가 다르게 다룬다 - `nil`은 `t.units`에 키가 없는 것이고 `false`는
+    --- `u.exists=false`다.
+    local function sameCondition(got, want)
+        if (want == nil or want == false) then
+            return got == want;
+        end
+        return type(got) == "table" and got.reaction == want.reaction and got.dead == want.dead;
+    end
+
+    local function describe(value)
+        if (type(value) ~= "table") then
+            return tostring(value);
+        end
+        return ("{reaction=%s,dead=%s}"):format(tostring(value.reaction), tostring(value.dead));
+    end
+
+    --- 저장된 유닛 조건 하나 -> 소비자 둘이 보는 답.
+    ---
+    --- 옛 스칼라 넷은 `Profile.lua`의 `dbver <= 1` 단계가 `checkedUnitValue`를 그대로 옮겨
+    --- 넣은 것이라 그 시절 값도 이 안에 있다. 표 모양은 `dbver <= 4`가 낸 것과 메뉴가 지금
+    --- 쓰는 것 전부다.
+    local UNIT_CONDITION_CASES = {
+        -- 옛 스칼라
+        { "true", true, Constants.UNITSTATE_EXISTS, {} },
+        { "false", false, Constants.UNITSTATE_NONE, false },
+        { "\"help\"", "help", Constants.UNITSTATE_HELP, { reaction = Constants.REACTION_HELP } },
+        { "\"harm\"", "harm", Constants.UNITSTATE_HARM, { reaction = Constants.REACTION_HARM } },
+
+        -- 축별 표
+        { "{}", {}, Constants.UNITSTATE_EXISTS, {} },
+        { "{exists=false}", { exists = false }, Constants.UNITSTATE_NONE, false },
+        -- 끈 조건. 기억한 축을 들고 있어도 바인딩에는 안 실린다.
+        { "{off=true,reaction=HELP}", { off = true, reaction = Constants.REACTION_HELP },
+            nil, nil },
+        -- "없을 때"도 축을 기억한다. 기억은 메뉴 것이고 판정에는 안 따라온다.
+        { "{exists=false,reaction=HELP}", { exists = false, reaction = Constants.REACTION_HELP },
+            Constants.UNITSTATE_NONE, false },
+
+        { "{reaction=HELP}", { reaction = Constants.REACTION_HELP },
+            Constants.UNITSTATE_HELP, { reaction = Constants.REACTION_HELP } },
+        { "{reaction=HARM}", { reaction = Constants.REACTION_HARM },
+            Constants.UNITSTATE_HARM, { reaction = Constants.REACTION_HARM } },
+        { "{reaction=OTHER}", { reaction = Constants.REACTION_OTHER },
+            Constants.UNITSTATE_OTHER, { reaction = Constants.REACTION_OTHER } },
+        { "{reaction=HELP+OTHER}",
+            { reaction = Constants.REACTION_HELP + Constants.REACTION_OTHER },
+            Constants.UNITSTATE_HELP + Constants.UNITSTATE_OTHER,
+            { reaction = Constants.REACTION_HELP + Constants.REACTION_OTHER } },
+        -- 셋을 다 고른 것은 "존재"와 같은 집합이다. 마스크는 접히고 저장은 안 접힌다.
+        { "{reaction=ALL}", { reaction = Constants.REACTION_ALL },
+            Constants.UNITSTATE_EXISTS, { reaction = Constants.REACTION_ALL } },
+        -- `REACTION_NONE`은 런타임이 "호버 안 함"을 표시하는 값이라 `REACTION_ALL` **밖**의
+        -- 비트다. 메뉴는 그것을 내주지 않으므로 저장에 있으면 손으로 넣었거나 가져온 것이고,
+        -- 어느 반응에도 안 걸리는 것이 맞는 답이다. 마스크 0은 이슈로 잡혀 화면에 뜬다.
+        { "{reaction=NONE}", { reaction = Constants.REACTION_NONE },
+            0, { reaction = Constants.REACTION_NONE } },
+
+        { "{dead=false}", { dead = false }, Constants.UNITSTATE_ALIVE, { dead = false } },
+        { "{dead=true}", { dead = true }, Constants.UNITSTATE_DEAD, { dead = true } },
+        { "{reaction=HELP,dead=false}", { reaction = Constants.REACTION_HELP, dead = false },
+            Constants.UNITSTATE_HELP_ALIVE,
+            { reaction = Constants.REACTION_HELP, dead = false } },
+    };
+
+    local function checkUnitConditionCase(case, action, when)
+        local label, _, wantMask, wantCond = case[1], case[2], case[3], case[4];
+        local binding = bindingFor(action);
+        local gotMask = binding.unitStates and binding.unitStates.target;
+        local gotCond = binding.checkedUnits and binding.checkedUnits.target;
+
+        check(gotMask == wantMask, ("%s %s: 마스크가 %s여야 하는데 %s"):format(
+            label, when, tostring(wantMask), tostring(gotMask)));
+        check(sameCondition(gotCond, wantCond), ("%s %s: 축별 조건이 %s여야 하는데 %s"):format(
+            label, when, describe(wantCond), describe(gotCond)));
+    end
+
+    test("a stored unit condition means one fixed thing to both consumers", function()
+        for _, case in ipairs(UNIT_CONDITION_CASES) do
+            checkUnitConditionCase(case, { type = Constants.SPELL, value = 100,
+                checkedUnits = { target = copy(case[2]) } }, "(마이그레이션 전)");
         end
     end);
 
-    test("dbver 5 keeps every old value emitting the same thing to the snippet", function()
-        for _, old in ipairs(OLD_VALUES) do
+    -- 같은 표를 마이그레이션 뒤에도 그대로 요구한다. 옛 스칼라는 여기서 표가 되고, 이미 표인
+    -- 것은 안 건드려져야 한다. **답을 두 번 계산해 맞대는 것이 아니라 같은 리터럴에 두 번
+    -- 맞추는 것**이라, 두 경로가 같은 방향으로 틀리면 두 쪽 다 빨개진다.
+    test("dbver 5 leaves that meaning exactly where it was", function()
+        for _, case in ipairs(UNIT_CONDITION_CASES) do
             local layer = { { key = "A", type = Constants.SPELL, value = 100,
-                checkedUnits = { target = old } } };
+                checkedUnits = { target = copy(case[2]) } } };
             MigrateLayer(layer, 4);
-
-            local emitted = UnitConditionToRuntimeScalar(layer[1].checkedUnits.target);
-            check(emitted == old,
-                ("%s가 스니펫에 %s로 내려감"):format(tostring(old), tostring(emitted)));
+            checkUnitConditionCase(case, layer[1], "(마이그레이션 후)");
         end
     end);
 
@@ -599,31 +684,97 @@ return function(DebindPrivate)
     -- 같은 단계가 hover 조건도 옮긴다
     --
     -- `hover`/`reactions`는 **릴리스된 프로필에 실제로 들어 있는** 값이라, 여기가 틀리면
-    -- 사용자가 걸어둔 호버 조건이 조용히 사라지거나 넓어진다. 위와 같은 불변식으로 본다:
-    -- 소비자(solver의 유닛 축)가 옛 값과 새 값에서 같은 답을 내는가.
+    -- 사용자가 걸어둔 호버 조건이 조용히 사라지거나 넓어진다. 위와 같이 리터럴로 못 박는다.
+    --
+    -- **`reactions`는 비트마스크라 정의역이 코드로 정해진다.** 실데이터를 안 봐도 여기서 다
+    -- 셀 수 있고, 아래가 그 전부다.
+    --
+    --   필드가 없음                         제약 안 함
+    --   `HELP`/`HARM`/`OTHER`의 부분집합     여덟 가지. 셋을 다 고른 것이 `REACTION_ALL`이고
+    --                                       빈 것이 `0`인데, `0`은 메뉴가 못 만들고 교집합이
+    --                                       비었을 때만 나오므로 아래 교집합 칸에 있다
+    --   `REACTION_NONE`                      `REACTION_ALL` **밖**의 비트라 어느 반응에도
+    --                                       안 걸린다. `Constants.lua`
     ---------------------------------------------------------------------------
 
-    local HOVER_VALUES = {
-        { hover = true },
-        { hover = true, reactions = Constants.REACTION_HELP },
-        { hover = true, reactions = Constants.REACTION_ALL },
-        { hover = false },
+    local HELP, HARM, OTHER = Constants.REACTION_HELP, Constants.REACTION_HARM,
+        Constants.REACTION_OTHER;
+
+    --- `{ hover, reactions, 그 유닛에 이미 있던 조건, 기대 마스크, 기대 축별 조건 }`
+    ---
+    --- 셋째 자리의 `existing`은 두 메뉴가 다 살아 있던 시절의 프로필이다. 덮으면 걸어둔 것보다
+    --- 넓어지므로 교집합하고, 안 겹치면 어떤 유닛도 못 드는 조건(마스크 0)이 되어 이슈로 잡힌다.
+    local HOVER_CASES = {
+        -- 반응 정의역 전부. 셋을 다 고른 것(`REACTION_ALL`)은 "제약 안 함"으로 접힌다.
+        { true, nil, nil, Constants.UNITSTATE_EXISTS, {} },
+        { true, HELP, nil, Constants.UNITSTATE_HELP, { reaction = HELP } },
+        { true, HARM, nil, Constants.UNITSTATE_HARM, { reaction = HARM } },
+        { true, OTHER, nil, Constants.UNITSTATE_OTHER, { reaction = OTHER } },
+        { true, HELP + HARM, nil, Constants.UNITSTATE_HELP + Constants.UNITSTATE_HARM,
+            { reaction = HELP + HARM } },
+        { true, HELP + OTHER, nil, Constants.UNITSTATE_HELP + Constants.UNITSTATE_OTHER,
+            { reaction = HELP + OTHER } },
+        { true, HARM + OTHER, nil, Constants.UNITSTATE_HARM + Constants.UNITSTATE_OTHER,
+            { reaction = HARM + OTHER } },
+        { true, Constants.REACTION_ALL, nil, Constants.UNITSTATE_EXISTS, {} },
+        -- `REACTION_ALL` 밖의 비트. 위 표의 `{reaction=NONE}`과 같은 답이어야 한다.
+        { true, Constants.REACTION_NONE, nil, 0, { reaction = Constants.REACTION_NONE } },
+
+        -- "호버 안 할 때". 반응은 hover가 참일 때만 뜻이 있으므로 답을 안 바꾼다.
+        { false, nil, nil, Constants.UNITSTATE_NONE, false },
+        { false, HELP, nil, Constants.UNITSTATE_NONE, false },
+        { false, Constants.REACTION_ALL, nil, Constants.UNITSTATE_NONE, false },
+
+        -- 이미 있던 조건과의 교집합.
+        { true, HARM + OTHER, { reaction = HELP + OTHER }, Constants.UNITSTATE_OTHER,
+            { reaction = OTHER } },
+        { true, HARM, { reaction = HELP }, 0, { reaction = 0 } },
+        { true, HELP, { dead = false }, Constants.UNITSTATE_HELP_ALIVE,
+            { reaction = HELP, dead = false } },
+        -- 생사는 반응 축이 아니므로 반응만 걸린 hover와 겹칠 것이 없다. 그대로 남아야 한다.
+        { true, nil, { dead = true }, Constants.UNITSTATE_DEAD, { dead = true } },
+        -- 한쪽이 "없을 때"면 겹치는 유닛 상태가 없다. 둘 다 "없을 때"면 같은 말이라 살아남는다.
+        { true, HELP, false, 0, { reaction = 0 } },
+        { false, nil, {}, 0, { reaction = 0 } },
+        { false, nil, false, Constants.UNITSTATE_NONE, false },
     };
 
-    test("dbver 5 keeps every hover condition meaning the same thing", function()
-        for _, old in ipairs(HOVER_VALUES) do
-            local before = stateFor({ type = Constants.SPELL, value = 100,
-                hover = old.hover, reactions = old.reactions });
+    local function checkHoverCase(case, action, when)
+        local hover, reactions, existing = case[1], case[2], case[3];
+        local wantMask, wantCond = case[4], case[5];
+        local label = ("hover=%s reactions=%s existing=%s"):format(
+            tostring(hover), tostring(reactions), describe(existing));
 
-            local layer = { { key = "A", type = Constants.SPELL, value = 100,
-                hover = old.hover, reactions = old.reactions } };
+        local binding = bindingFor(action);
+        local gotMask = binding.unitStates and binding.unitStates.hover;
+        local gotCond = binding.checkedUnits and binding.checkedUnits.hover;
+
+        check(gotMask == wantMask, ("%s %s: 마스크가 %s여야 하는데 %s"):format(
+            label, when, tostring(wantMask), tostring(gotMask)));
+        check(sameCondition(gotCond, wantCond), ("%s %s: 축별 조건이 %s여야 하는데 %s"):format(
+            label, when, describe(wantCond), describe(gotCond)));
+    end
+
+    local function hoverAction(case)
+        local action = { key = "A", type = Constants.SPELL, value = 100,
+            hover = case[1], reactions = case[2] };
+        if (case[3] ~= nil) then
+            action.checkedUnits = { hover = copy(case[3]) };
+        end
+        return action;
+    end
+
+    test("the old hover pair means one fixed thing to both consumers", function()
+        for _, case in ipairs(HOVER_CASES) do
+            checkHoverCase(case, hoverAction(case), "(마이그레이션 전)");
+        end
+    end);
+
+    test("dbver 5 leaves the hover condition's meaning exactly where it was", function()
+        for _, case in ipairs(HOVER_CASES) do
+            local layer = { hoverAction(case) };
             MigrateLayer(layer, 4);
-            local after = stateFor(layer[1]);
-
-            check(before.hover == after.hover,
-                ("hover=%s reactions=%s의 뜻이 바뀜: %s -> %s"):format(
-                    tostring(old.hover), tostring(old.reactions),
-                    tostring(before.hover), tostring(after.hover)));
+            checkHoverCase(case, layer[1], "(마이그레이션 후)");
         end
     end);
 
@@ -638,25 +789,13 @@ return function(DebindPrivate)
             "반응이 유닛 조건으로 안 옮겨감");
     end);
 
-    -- 두 메뉴가 다 살아 있던 시절의 프로필. 덮으면 걸어둔 것보다 넓어지므로 교집합하고,
-    -- 안 겹치면 어떤 유닛도 못 드는 조건(마스크 0)이 되어 이슈로 잡힌다.
-    test("dbver 5 intersects a hover condition with one already on that unit", function()
-        local layer = { { key = "A", type = Constants.SPELL, value = 100,
-            hover = true, reactions = Constants.REACTION_HELP,
-            checkedUnits = { hover = { reaction = Constants.REACTION_HARM } } } };
-        MigrateLayer(layer, 4);
-
-        check(stateFor(layer[1]).hover == 0, "안 겹치는 두 조건이 0이 안 됨");
-    end);
-
     test("dbver 5 is safe to run twice over a folded hover condition", function()
-        local layer = { { key = "A", type = Constants.SPELL, value = 100,
-            hover = true, reactions = Constants.REACTION_HELP } };
-        MigrateLayer(layer, 4);
-        local once = stateFor(layer[1]).hover;
-        MigrateLayer(layer, 4);
-
-        check(stateFor(layer[1]).hover == once, "다시 돌렸더니 뜻이 바뀜");
+        for _, case in ipairs(HOVER_CASES) do
+            local layer = { hoverAction(case) };
+            MigrateLayer(layer, 4);
+            MigrateLayer(layer, 4);
+            checkHoverCase(case, layer[1], "(두 번 돌린 뒤)");
+        end
     end);
 
     -- 모르는 값이 섞여 있어도 **뜻이 뒤집히면 안 된다.** 옛 버전이 쓴 값을 우리가 모를 수
