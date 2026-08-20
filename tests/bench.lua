@@ -21,9 +21,30 @@
 -- 여기 나오는 숫자가 인게임 비용의 현실적인 근사치다.
 
 return function(DebindPrivate)
+    local Constants = DebindPrivate.Constants;
     local CheckUnreachableBindings = DebindPrivate.CheckUnreachableBindings;
     local ClearUnreachableBindingCache = DebindPrivate.ClearUnreachableBindingCache;
+    local BuildUnitStates = DebindPrivate.BuildUnitStates;
     local Stats = DebindPrivate.SolverStats;
+
+    --- 손으로 쓴 바인딩을 프로덕션과 같은 모양으로 세운다. `solver_spec`의 같은 이름과 같은
+    --- 것이고, 같은 이유로 리터럴을 평평하게 쓴다.
+    ---
+    --- **이 파일에는 이것이 없었다.** 조건이 `binding.conditions`로 내려간 날(`2b8e87d`) 스펙
+    --- 쪽만 따라갔고, 벤치는 평평한 표를 그대로 넘겨서 `buildLayout`이 nil을 인덱싱하며
+    --- 죽었다. CI가 도는데도 그랬던 이유는 그 단계가 스펙 뒤에 따로 서 있어서다.
+    local function nest(binding)
+        local conditions = binding.conditions or {};
+        for k, v in pairs(binding) do
+            if (Constants.IsConditionField(k)) then
+                conditions[k] = v;
+                binding[k] = nil;
+            end
+        end
+        binding.conditions = conditions;
+        BuildUnitStates(binding);
+        return binding;
+    end
 
     local rng = 991;
     local function rnd()
@@ -76,7 +97,7 @@ return function(DebindPrivate)
         end
         if (rnd() < density * 0.3) then b.forms = math.floor(rnd() * 2048); end
         if (rnd() < density * 0.3) then b.groups = math.floor(rnd() * 8); end
-        return b;
+        return nest(b);
     end
 
     local worstMs, worstNodes, worstWork, gaveUpTotal = 0, 0, 0, 0;
