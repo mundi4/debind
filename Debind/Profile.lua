@@ -539,7 +539,7 @@ end
 --- always, but what those end at is the table built here rather than the one that gets saved, so
 --- a write nobody expected still cannot reach disk.
 ---
---- `devdocs/guarding-against-a-downgrade.md`.
+--- `guarding-against-a-downgrade.md`.
 local function StandDown()
     DebindPrivate.playerGUID = UnitGUID("player");
     DebindPrivate.db = {
