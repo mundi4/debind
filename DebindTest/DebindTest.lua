@@ -402,9 +402,31 @@ local function SetIsolated(isolated)
     end
 end
 
+--- 조건을 `action.conditions` 안으로 옮긴다.
+---
+--- 테스트는 조건을 평평하게 적는다 - `InsertAction({ ..., combat = true })`. 저장 모양은
+--- 중첩이라(`devdocs/action-and-binding-shapes.md`), 평평하게 심으면 그 조건이 바인딩까지
+--- 안 가고 **테스트가 걸었다고 믿는 조건 없이** 도는 액션이 된다. 조건이 빠진 액션은
+--- 넓어지는 쪽이라 대개 초록으로 지나간다.
+---
+--- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`가 프로덕션과 같은
+--- 답을 낸다.
+local function NestConditions(action)
+    local conditions = action.conditions
+    for k, v in pairs(action) do
+        if Constants.IsConditionField(k) then
+            conditions = conditions or {}
+            conditions[k] = v
+            action[k] = nil
+        end
+    end
+    action.conditions = conditions
+    return action
+end
+
 local function InsertAction(action)
     local layer = GetTestLayer()
-    layer:Insert(action)
+    layer:Insert(NestConditions(action))
     -- 순서 번호는 레이어가 준다. 안 주면 같은 조건끼리 seq가 전부 nil이라 발동 순서가
     -- 정해지지 않고, 삽입 순서를 기대하는 테스트가 정렬 구현에 따라 흔들린다.
     layer:PlaceInKeyGroup(action)
@@ -1067,8 +1089,8 @@ RegisterTest("Combat condition", {
         end
         local hasCombatTrue, hasCombatFalse = false, false
         for i = 1, #bindings do
-            if bindings[i].combat == true then hasCombatTrue = true end
-            if bindings[i].combat == false then hasCombatFalse = true end
+            if bindings[i].conditions.combat == true then hasCombatTrue = true end
+            if bindings[i].conditions.combat == false then hasCombatFalse = true end
         end
         if not (hasCombatTrue and hasCombatFalse) then
             return Fail("Combat condition", format("combatTrue=%s, combatFalse=%s", tostring(hasCombatTrue), tostring(hasCombatFalse)))
@@ -1085,10 +1107,10 @@ RegisterTest("Group condition", {
         ApplyBindings()
         local b = GetNthBinding("NUMPAD8", 1)
         if not b then return Fail("Group condition", "NUMPAD8 not in KeyMap") end
-        if b.groups ~= groups then
-            return Fail("Group condition", format("expected groups=%d, got %s", groups, tostring(b.groups)))
+        if b.conditions.groups ~= groups then
+            return Fail("Group condition", format("expected groups=%d, got %s", groups, tostring(b.conditions.groups)))
         end
-        return Pass("Group condition", format("groups=%d", b.groups))
+        return Pass("Group condition", format("groups=%d", b.conditions.groups))
     end,
 })
 
@@ -1099,7 +1121,7 @@ RegisterTest("Stealth condition", {
         ApplyBindings()
         local b = GetNthBinding("NUMPAD9", 1)
         if not b then return Fail("Stealth condition", "NUMPAD9 not in KeyMap") end
-        if b.stealth ~= true then return Fail("Stealth condition", "stealth=" .. tostring(b.stealth)) end
+        if b.conditions.stealth ~= true then return Fail("Stealth condition", "stealth=" .. tostring(b.conditions.stealth)) end
         return Pass("Stealth condition")
     end,
 })
@@ -1111,7 +1133,7 @@ RegisterTest("Pet condition", {
         ApplyBindings()
         local b = GetNthBinding("NUMPAD0", 1)
         if not b then return Fail("Pet condition", "NUMPAD0 not in KeyMap") end
-        if b.pet ~= true then return Fail("Pet condition", "pet=" .. tostring(b.pet)) end
+        if b.conditions.pet ~= true then return Fail("Pet condition", "pet=" .. tostring(b.conditions.pet)) end
         return Pass("Pet condition")
     end,
 })
@@ -1124,10 +1146,10 @@ RegisterTest("Forms condition", {
         ApplyBindings()
         local b = GetNthBinding("F5", 1)
         if not b then return Fail("Forms condition", "F5 not in KeyMap") end
-        if b.forms ~= forms then
-            return Fail("Forms condition", format("expected forms=%d, got %s", forms, tostring(b.forms)))
+        if b.conditions.forms ~= forms then
+            return Fail("Forms condition", format("expected forms=%d, got %s", forms, tostring(b.conditions.forms)))
         end
-        return Pass("Forms condition", format("forms=%d", b.forms))
+        return Pass("Forms condition", format("forms=%d", b.conditions.forms))
     end,
 })
 
@@ -1139,10 +1161,10 @@ RegisterTest("Bonusbars condition", {
         ApplyBindings()
         local b = GetNthBinding("F6", 1)
         if not b then return Fail("Bonusbars condition", "F6 not in KeyMap") end
-        if b.bonusbars ~= bonusbars then
-            return Fail("Bonusbars condition", format("expected bonusbars=%d, got %s", bonusbars, tostring(b.bonusbars)))
+        if b.conditions.bonusbars ~= bonusbars then
+            return Fail("Bonusbars condition", format("expected bonusbars=%d, got %s", bonusbars, tostring(b.conditions.bonusbars)))
         end
-        return Pass("Bonusbars condition", format("bonusbars=%d", b.bonusbars))
+        return Pass("Bonusbars condition", format("bonusbars=%d", b.conditions.bonusbars))
     end,
 })
 
@@ -1153,7 +1175,7 @@ RegisterTest("Specialbar condition", {
         ApplyBindings()
         local b = GetNthBinding("F7", 1)
         if not b then return Fail("Specialbar condition", "F7 not in KeyMap") end
-        if b.specialbar ~= true then return Fail("Specialbar condition", "specialbar=" .. tostring(b.specialbar)) end
+        if b.conditions.specialbar ~= true then return Fail("Specialbar condition", "specialbar=" .. tostring(b.conditions.specialbar)) end
         return Pass("Specialbar condition")
     end,
 })
@@ -1165,7 +1187,7 @@ RegisterTest("Extrabar condition", {
         ApplyBindings()
         local b = GetNthBinding("F8", 1)
         if not b then return Fail("Extrabar condition", "F8 not in KeyMap") end
-        if b.extrabar ~= true then return Fail("Extrabar condition", "extrabar=" .. tostring(b.extrabar)) end
+        if b.conditions.extrabar ~= true then return Fail("Extrabar condition", "extrabar=" .. tostring(b.conditions.extrabar)) end
         return Pass("Extrabar condition")
     end,
 })
@@ -1177,7 +1199,7 @@ RegisterTest("Petbattle condition", {
         ApplyBindings()
         local b = GetNthBinding("F9", 1)
         if not b then return Fail("Petbattle condition", "F9 not in KeyMap") end
-        if b.petbattle ~= false then return Fail("Petbattle condition", "petbattle=" .. tostring(b.petbattle)) end
+        if b.conditions.petbattle ~= false then return Fail("Petbattle condition", "petbattle=" .. tostring(b.conditions.petbattle)) end
         return Pass("Petbattle condition")
     end,
 })
@@ -1189,7 +1211,7 @@ RegisterTest("Known condition", {
         ApplyBindings()
         local b = GetNthBinding("F10", 1)
         if not b then return Fail("Known condition", "F10 not in KeyMap") end
-        if b.known ~= true then return Fail("Known condition", "known=" .. tostring(b.known)) end
+        if b.conditions.known ~= true then return Fail("Known condition", "known=" .. tostring(b.conditions.known)) end
         return Pass("Known condition")
     end,
 })
@@ -1206,8 +1228,8 @@ RegisterTest("Custom state condition", {
         end
         local hasTrue, hasFalse = false, false
         for i = 1, #bindings do
-            if bindings[i]["$state1"] == true then hasTrue = true end
-            if bindings[i]["$state1"] == false then hasFalse = true end
+            if bindings[i].conditions["$state1"] == true then hasTrue = true end
+            if bindings[i].conditions["$state1"] == false then hasFalse = true end
         end
         if not (hasTrue and hasFalse) then
             return Fail("Custom state condition", format("true=%s, false=%s", tostring(hasTrue), tostring(hasFalse)))
@@ -1228,17 +1250,17 @@ RegisterTest("Hover condition with reactions", {
         local b = GetNthBinding("BUTTON3", 1)
         if not b then return Fail("Hover condition", "BUTTON3 not in KeyMap") end
         if b.hover ~= true then return Fail("Hover condition", "hover=" .. tostring(b.hover)) end
-        local hoverCondition = b.checkedUnits and b.checkedUnits.hover
+        local hoverCondition = b.conditions.checkedUnits and b.conditions.checkedUnits.hover
         if type(hoverCondition) ~= "table" then
             return Fail("Hover condition", format("hover condition is %s, expected a table", tostring(hoverCondition)))
         end
         if band(hoverCondition.reaction, Constants.REACTION_HELP) == 0 then
             return Fail("Hover condition", "REACTION_HELP not set")
         end
-        if b.frameTypes ~= Constants.FRAMETYPE_GROUP then
-            return Fail("Hover condition", "frameTypes=" .. tostring(b.frameTypes))
+        if b.conditions.frameTypes ~= Constants.FRAMETYPE_GROUP then
+            return Fail("Hover condition", "frameTypes=" .. tostring(b.conditions.frameTypes))
         end
-        return Pass("Hover condition", format("reaction=%d, frameTypes=%d", hoverCondition.reaction, b.frameTypes))
+        return Pass("Hover condition", format("reaction=%d, frameTypes=%d", hoverCondition.reaction, b.conditions.frameTypes))
     end,
 })
 
@@ -1254,11 +1276,11 @@ RegisterTest("CheckedUnits condition", {
         ApplyBindings()
         local b = GetNthBinding("F12", 1)
         if not b then return Fail("CheckedUnits condition", "F12 not in KeyMap") end
-        if not b.checkedUnits then
+        if not b.conditions.checkedUnits then
             return Fail("CheckedUnits condition", "checkedUnits is nil")
         end
-        if not b.checkedUnits["focus"] then
-            return Fail("CheckedUnits condition", "checkedUnits[focus]=" .. tostring(b.checkedUnits["focus"]))
+        if not b.conditions.checkedUnits["focus"] then
+            return Fail("CheckedUnits condition", "checkedUnits[focus]=" .. tostring(b.conditions.checkedUnits["focus"]))
         end
         return Pass("CheckedUnits condition")
     end,
@@ -3212,11 +3234,11 @@ RegisterTest("Multi-condition: combat + group + stealth", {
         local b = GetNthBinding("HOME", 1)
         if not b then return Fail("Multi-condition", "HOME not in KeyMap") end
         local errors = {}
-        if b.combat ~= true then tinsert(errors, "combat=" .. tostring(b.combat)) end
-        if b.groups ~= Constants.GROUP_RAID then tinsert(errors, "groups=" .. tostring(b.groups)) end
-        if b.stealth ~= false then tinsert(errors, "stealth=" .. tostring(b.stealth)) end
-        if b.pet ~= true then tinsert(errors, "pet=" .. tostring(b.pet)) end
-        if b["$state2"] ~= true then tinsert(errors, "$state2=" .. tostring(b["$state2"])) end
+        if b.conditions.combat ~= true then tinsert(errors, "combat=" .. tostring(b.conditions.combat)) end
+        if b.conditions.groups ~= Constants.GROUP_RAID then tinsert(errors, "groups=" .. tostring(b.conditions.groups)) end
+        if b.conditions.stealth ~= false then tinsert(errors, "stealth=" .. tostring(b.conditions.stealth)) end
+        if b.conditions.pet ~= true then tinsert(errors, "pet=" .. tostring(b.conditions.pet)) end
+        if b.conditions["$state2"] ~= true then tinsert(errors, "$state2=" .. tostring(b.conditions["$state2"])) end
         if #errors > 0 then
             return Fail("Multi-condition", table.concat(errors, ", "))
         end
@@ -4313,20 +4335,20 @@ local function ToSweepAction(record, key)
     for k, v in pairs(record.action) do action[k] = v end
 
     local cond = record.cond
-    action.conditions = action.conditions or {}
-    if cond.combat ~= nil then action.conditions.combat = cond.combat end
-    if cond.stealth ~= nil then action.conditions.stealth = cond.stealth end
+    action.combat = cond.combat
+    action.stealth = cond.stealth
     if cond.forms then
         local mask = 0
         for form in pairs(cond.forms) do mask = bor(mask, 2 ^ form) end
-        action.conditions.forms = mask
+        action.forms = mask
     end
     if cond.groups then
         local mask = 0
         for group in pairs(cond.groups) do mask = bor(mask, group) end
-        action.conditions.groups = mask
+        action.groups = mask
     end
-    return action
+    -- 평평하게 적고 한 자리에서 옮긴다. `InsertAction`이 하는 것과 같은 함수다.
+    return NestConditions(action)
 end
 
 --- Stands the swept state up for real.

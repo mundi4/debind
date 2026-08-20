@@ -147,6 +147,118 @@ SEEDS[5] = function(guid)
     };
 end;
 
+--- 조건이 `conditions` 안으로 내려간 판(`dbver` 6). 위 판과 다른 것은 그 한 겹뿐이다.
+SEEDS[6] = function(guid)
+    local CLASS = Constants.PLAYER_CLASS;
+    local HEARTHSTONE = 6948;
+
+    return {
+        dbver = 6,
+
+        shared = {
+            --- The account layer carries the states that only show up on a row: two actions on one
+            --- key, an action naming a macro that is not there, one still waiting to be accepted,
+            --- and one carrying enough conditions to fill a tooltip.
+            GENERAL = {
+                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F1", seq = 1 },
+                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/say account", name = "Say account",
+                    key = "SHIFT-F2", seq = 1 },
+                -- Two on one key, so the overview has a group to order and the ordering menu has
+                -- something to move.
+                { type = Constants.WORLDMARKER, value = 1, key = "SHIFT-F3", seq = 1 },
+                { type = Constants.WORLDMARKER, value = 2, key = "SHIFT-F3", seq = 2 },
+                -- The issue badge: a `MACRO` naming one that does not exist is left out of the
+                -- build entirely and the row says so (`Events.lua`'s UPDATE_MACROS comment).
+                { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "SHIFT-F4", seq = 1 },
+                -- The quarantine badge. `imported` holding a string is an action that arrived from
+                -- somebody else on that key and has not been accepted yet (`Profile.lua`'s
+                -- `KEYS_TO_SAVE`), so it reaches no key until the reader says yes.
+                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F5", seq = 1,
+                    imported = "CTRL-Q" },
+                { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
+                -- Click casting, so the unit column and the frame menu have a row to describe.
+                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/say hovered", name = "Say hovered",
+                    key = "SHIFT-F7", seq = 1,
+                    conditions = { checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } } },
+                -- Enough conditions on one action that its tooltip has to lay several out at once.
+                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
+                    priority = Constants.MAX_PRIORITY,
+                    conditions = { combat = true, groups = Constants.GROUP_PARTY,
+                        ["$state1"] = true } },
+            },
+
+            --- The class tiers. `SHIFT-F1` is deliberately the account layer's key as well, so the
+            --- overview has a row where a narrower layer wins and the wider one is shown losing.
+            classes = {
+                [CLASS] = {
+                    [0] = {
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say class", name = "Say class",
+                            key = "SHIFT-F1", seq = 1 },
+                    },
+                    -- Specs 1 and 2 only: every class has at least two, and no class has the same
+                    -- number as every other.
+                    [1] = {
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say spec one", name = "Say spec one",
+                            key = "SHIFT-F2", seq = 1 },
+                    },
+                    [2] = {
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say spec two", name = "Say spec two",
+                            key = "SHIFT-F2", seq = 1 },
+                    },
+                },
+            },
+        },
+
+        --- **The GUID is read when the seed is planted, never carried in the file.** ptr and xptr
+        --- hold different characters with different GUIDs and either can be deleted without anyone
+        --- being surprised, so a GUID written into a seed would only ever sit there unreachable.
+        --- Planting is inside the addon, where the GUID is available, so the two character tiers
+        --- can be filled after all.
+        characters = {
+            [guid] = {
+                layers = {
+                    [0] = {
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say character",
+                            name = "Say character", key = "SHIFT-F3", seq = 1 },
+                    },
+                    [1] = {
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say character spec one",
+                            name = "Say character spec one", key = "SHIFT-F4", seq = 1 },
+                    },
+                },
+            },
+        },
+
+        --- **Answered, so the pre-rename question never comes up on a seeded client.** `false` is
+        --- the value a fresh install reaches on its own first login (`Legacy.lua`), and without it
+        --- the overlay would stand in front of the window this seed exists to look at.
+        migrated = { [guid] = true },
+        legacyNeeded = false,
+
+        options = {
+            unitframeUseMouseDown = true,
+            addCustomTargetMenusToUnitPopup = true,
+            blizzframes = {},
+        },
+
+        --- Two of the five set up differently, so the custom-state screen has both modes on it and
+        --- `$state1` above has something to point at. The other three come up as defaults from
+        --- `BindDerivedTables`.
+        customStates = {
+            [1] = { mode = Constants.CUSTOM_STATE_MODES.MANUAL, initialValue = true,
+                displayMessage = true },
+            [2] = { mode = Constants.CUSTOM_STATE_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
+        },
+    };
+end;
+
 --- The profile for one `dbver`, built from code. **Built rather than read**, because the case this
 --- has to stand up in is a client whose saved profile cannot be touched and whose disk holds
 --- nothing else we could use.
