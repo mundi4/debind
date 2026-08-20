@@ -270,6 +270,30 @@ return function(DebindPrivate, DebindStorage)
             "명단에 있는 것은 들어와야 한다");
     end);
 
+    --- **이 판이 표현할 수 없는 커스텀 상태 이름은 문자열 통째로 거절이다.**
+    ---
+    --- 재설계 전까지 이 애드온이 쓰는 이름은 `$state1`~`$state5`뿐이다. 메뉴도 picker도 그
+    --- 밖을 못 만든다. 그러니 다른 이름을 실은 문자열은 손으로 고쳐진 것이고, `IsUsableAction`의
+    --- 규칙이 그대로 걸린다 - 망가진 것이 아니라 **만들 수 없는 모양**이다.
+    ---
+    --- 빨갛게 띄우는 쪽이 아닌 이유가 그것이다. 그쪽은 안 배운 주문처럼 평범한데 이 컴퓨터에서
+    --- 안 풀리는 것들 자리다.
+    ---
+    --- 조건만 떨어뜨리는 것은 더 나쁘다. 조건이 빠진 액션은 넓어져서 도착하고, 런타임이 그
+    --- 이름에 컬럼을 안 만들어서 **키의 아래 바인딩을 전부 덮는다.**
+    test("이 판이 모르는 커스텀 상태 조건은 문자열을 통째로 거절한다", function()
+        local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1,
+            conditions = { ["$state9"] = true } } });
+        check(DebindStorage.PayloadIsImpossible(payload) == true,
+            "만들 수 없는 이름이 통과했다");
+    end);
+
+    test("아는 커스텀 상태 조건은 거절 사유가 아니다", function()
+        local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1,
+            conditions = { ["$state3"] = true } } });
+        check(DebindStorage.PayloadIsImpossible(payload) == false, "멀쩡한 문자열을 거절했다");
+    end);
+
     test("$상태 조건은 명단에 없어도 통과한다", function()
         ResetProfile();
         local action = PlanOne(General({

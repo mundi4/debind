@@ -292,6 +292,26 @@ local function IsUsableAction(action)
     if (shape == nil) then
         return false;
     end
+
+    -- **이 판이 만들 수 없는 커스텀 상태 이름.** `ConditionAllowed`가 `$`로 시작하면 다
+    -- 통과시키는데, 그건 재설계가 슬롯 다섯을 임의 이름으로 풀 날을 위한 것이고 **지금
+    -- 런타임이 읽는 이름은 `$state1`~`$state5`뿐이다.** 메뉴도 picker도 그 밖을 못 만든다.
+    --
+    -- 조건만 떨어뜨리는 쪽이 아닌 이유: 조건이 빠진 액션은 넓어져서 도착하고, 솔버가 그
+    -- 이름에 컬럼을 안 만들어 상자가 공간 전체가 된다. 그러면 같은 키의 아래 바인딩을 전부
+    -- 덮어서 사용자가 건 것들이 지워진다.
+    --
+    -- 빨갛게 띄우는 쪽도 아니다. 그쪽은 안 배운 주문처럼 **평범한데 이 컴퓨터에서 안 풀리는**
+    -- 것들 자리고, 이건 우리가 만들 수 없는 모양이다.
+    if (luatype(action.conditions) == "table") then
+        for name in pairs(action.conditions) do
+            if (luatype(name) == "string" and strsub(name, 1, 1) == "$"
+                    and not Constants.CUSTOM_STATE_INDICES[name]) then
+                return false;
+            end
+        end
+    end
+
     if (shape == false) then
         return true;
     end
