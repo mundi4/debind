@@ -436,13 +436,24 @@ return function(DebindPrivate, DebindStorage)
         check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
     end);
 
-    test("서랍에 있는 배치가 옛 스키마면 거절한다", function()
-        local batch = StoredBatchWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION - 1);
+    -- **여기가 갈릴 자리라고 적어둔 그 자리다.** v1을 읽어야 하는 날 답이 거절에서
+    -- 마이그레이션으로 바뀐다고 되어 있었고, 그날이 왔다(`SCHEMA_VERSION` 2, 조건이
+    -- `action.conditions` 안으로 들어감).
+    --
+    -- **서랍에 쌓인 배치가 이 길로 온다.** 여기서 거절하면 받아둔 것이 전부 못 읽히고,
+    -- 조용히 통과시키면 조건이 전부 버려진 채 무조건 액션으로 도착한다.
+    test("서랍에 있는 v1 배치는 사다리를 타고 올라온다", function()
+        local batch = StoredBatchWithVersion(1);
+        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        check(payload ~= nil, "거절당했다: " .. tostring(reason));
+        check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION,
+            "판 번호가 안 올라갔다: " .. tostring(payload.v));
+    end);
+
+    test("사다리에 단계가 없는 판은 거절한다", function()
+        local batch = StoredBatchWithVersion(0);
         local payload, reason = DebindStorage.GetBatchPayload(batch);
         check(payload == nil, "읽어버렸다");
-        -- **여기가 3.3에서 갈릴 자리다.** 그때 v1을 읽어야 하므로 이 답은 거절에서
-        -- 마이그레이션으로 바뀐다(`devdocs/building-export-import.md`). 지금 이 케이스가
-        -- 지키는 것은 답이 무엇이냐가 아니라 **묻기는 한다**는 것이다.
         check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
     end);
 

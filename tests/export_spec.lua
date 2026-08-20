@@ -689,8 +689,11 @@ return function(DebindPrivate, DebindStorage)
 
             check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1) == "UNSUPPORTED_SCHEMA",
                 "더 새 것");
-            check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION - 1) == "SCHEMA_TOO_OLD",
-                "더 옛 것");
+            -- v1은 사다리가 받는다. 거절이 아니다.
+            check(DecodeWithVersion(1) == nil, "v1을 거절했다");
+            -- 사다리에 단계가 없는 판은 여전히 거절이다. 추측으로 읽으면 조건이 조용히
+            -- 편을 바꾼다.
+            check(DecodeWithVersion(0) == "SCHEMA_TOO_OLD", "단계 없는 옛 판");
         end);
     end
 

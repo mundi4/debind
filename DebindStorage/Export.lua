@@ -26,7 +26,12 @@ local luatype            = type;
 --- **Which is why a bump owes v1 a way forward rather than a refusal** (2026-08-19, owner's
 --- decision; `devdocs/building-export-import.md`). `BringPayloadForward` is where that step goes,
 --- and both doors into a payload run it.
-local SCHEMA_VERSION     = 1;
+--- **2 (2026-08-21): 조건이 `action.conditions` 안으로 들어갔다.** v1은 조건 이름을 액션
+--- 최상단에 실었다. 올리지 않으면 v1 문자열과 서랍에 쌓인 배치가 관문을 그대로 통과하고,
+--- `BuildAction`의 화이트리스트가 **조건을 전부 조용히 버린다** - 무조건 액션으로 도착해
+--- 조건부 밴드가 아닌 자리에 서고, 키를 받으면 작성자가 제외한 상태에서도 발동한다.
+--- 반대 방향도 같이 닫힌다. 3.2 리더가 v2를 거절하지, 못 읽는 필드를 떨어뜨리지 않는다.
+local SCHEMA_VERSION     = 2;
 
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
 --- the compressor later has to invalidate old strings; adding a payload field must not. One
@@ -471,10 +476,11 @@ end
 --- Raises a payload to the schema this version reads, or says why it cannot. Returns the payload,
 --- or nil plus a reason.
 ---
---- **There are no steps yet and this is where the first one goes.** `SCHEMA_VERSION` is 1 and
---- nothing has ever written a 0, so today the whole function is the two refusals below. The shape
---- is the one `MigrateLayer` has in `Profile.lua`: a step per version, opened with `<=` so a
---- payload two versions back walks through all of them.
+--- **One step so far: v1 -> v2**, where the conditions moved into `action.conditions`. The shape
+--- is the one `MigrateLayer` has in `Profile.lua`, with one difference: a step here names the
+--- exact version it raises (`== 1`), not `<=`. A payload two versions back then walks every step
+--- in turn, and a number nothing ever wrote falls through to the refusal instead of being
+--- guessed at.
 ---
 --- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
 --- moment it is pasted (`DecodeExportString`, below) and a stored batch is asked when the drawer
@@ -489,9 +495,9 @@ end
 --- schema bump every batch already received would fail with it, told to update by the version they
 --- just updated to.
 ---
---- Both are refusals **until a step is written**. A bump means a field changed meaning
---- (`SCHEMA_VERSION`'s own note), so an old payload cannot be read by guessing, and guessing is how
---- a condition silently changes sides.
+--- `SCHEMA_TOO_OLD` is now the answer only for a version **no step covers**. A bump means a field
+--- changed meaning (`SCHEMA_VERSION`'s own note), so such a payload cannot be read by guessing,
+--- and guessing is how a condition silently changes sides.
 ---
 --- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
 --- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
@@ -499,6 +505,42 @@ end
 --- would be the same question in two places. It caught a real one: a batch with no payload draws in
 --- the drawer perfectly well, because the two that draw the row guard it (`CountBatch`,
 --- `BatchClassText`), and then threw the moment the row was opened.
+--- v1 -> v2. 조건 이름을 액션 최상단에서 `conditions` 안으로 내린다.
+---
+--- **프로필의 `dbver <= 5` 단계와 같은 변환이다** (`Profile.lua`). 무엇이 조건인지는 양쪽 다
+--- `Constants.IsConditionField` 하나에 묻는다. 여기 목록을 또 적으면 갈라지는 날이 온다.
+---
+--- 이름을 먼저 모으고 그다음에 옮긴다. 한 바퀴로 쓰면 `conditions`라는 없던 키가 순회 중에
+--- 생기는데, Lua 5.1이 그 경우의 `next` 동작을 정의하지 않는다.
+local function NestPayloadConditions(payload)
+    local names = {};
+    DebindStorage.ForEachPayloadLayer(payload, function(actions)
+        for i = 1, #actions do
+            local action = actions[i];
+
+            local count = 0;
+            for k in pairs(action) do
+                if (luatype(k) == "string" and Constants.IsConditionField(k)) then
+                    count = count + 1;
+                    names[count] = k;
+                end
+            end
+
+            if (count > 0) then
+                local conditions = luatype(action.conditions) == "table"
+                    and action.conditions or {};
+                for j = 1, count do
+                    local k = names[j];
+                    conditions[k] = action[k];
+                    action[k] = nil;
+                    names[j] = nil;
+                end
+                action.conditions = conditions;
+            end
+        end
+    end);
+end
+
 function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
@@ -506,6 +548,14 @@ function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload.v) ~= "number" or payload.v > SCHEMA_VERSION) then
         return nil, "UNSUPPORTED_SCHEMA";
     end
+    -- **단계는 자기가 올릴 판을 정확히 짚는다.** `< 2`로 열면 세상에 없던 판까지 같이
+    -- 태우고, 그건 모양을 모르는 것을 추측으로 읽는 것이다. 아래 `SCHEMA_TOO_OLD`가
+    -- 그것들을 거절하라고 있는 자리다.
+    if (payload.v == 1) then
+        NestPayloadConditions(payload);
+        payload.v = 2;
+    end
+
     if (payload.v < SCHEMA_VERSION) then
         return nil, "SCHEMA_TOO_OLD";
     end
