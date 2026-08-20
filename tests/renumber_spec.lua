@@ -48,8 +48,29 @@ return function(DebindPrivate)
 
     --- An action with a condition on it. `combat` touches only the band's `conditions` step -- hover
     --- is an independent step above it, and mixing the two blurs what split the band.
+    --- 스펙 리터럴을 **프로덕션과 같은 모양**으로 세운다: 조건은 `conditions` 안에 산다
+    --- (`Profile.lua`의 `KEYS_TO_SAVE`, `Misc.GetBindingInfoForAction`).
+    ---
+    --- 리터럴은 평평하게 쓴다. 자리마다 `conditions = { ... }`를 손으로 적으면 한 줄
+    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 빠진 액션은 넓어진다** - 스펙이 잡아야
+    --- 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    ---
+    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
+    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
+    local function nest(action)
+        local conditions = action.conditions;
+        for k, v in pairs(action) do
+            if (Constants.IsConditionField(k)) then
+                conditions = conditions or {};
+                conditions[k] = v;
+                action[k] = nil;
+            end
+        end
+        action.conditions = conditions;
+        return action;
+    end
     local function Cond(value, key, seq)
-        return { type = Constants.SPELL, value = value, key = key, seq = seq, combat = true };
+        return nest({ type = Constants.SPELL, value = value, key = key, seq = seq, combat = true });
     end
 
     local function Plain(value, key, seq)
@@ -86,8 +107,26 @@ return function(DebindPrivate)
     --- Turning one condition on or off in the game. **Writing the value and renumbering that key
     --- group is the whole of it**, and those two are what `DropDownMenus.lua`'s
     --- `onActionValueChanged` does.
+    --- 조건 하나를 켜거나 끈다. 메뉴가 하는 것과 같은 자리에 쓴다 - 조건은
+    --- `action.conditions` 안이고, 마지막 하나가 풀리면 표를 안 남긴다
+    --- (`DropDownMenus.lua`의 `PruneConditions`, `Profile.lua`의 `CleanUpDB`). 빈 표를
+    --- 남기면 조건이 하나도 없는 액션이 조건부로 분류돼 밴드가 안 갈린다.
     local function Edit(action, field, value)
-        action[field] = value;
+        if (Constants.IsConditionField(field)) then
+            if (value == nil) then
+                if (action.conditions) then
+                    action.conditions[field] = nil;
+                    if (next(action.conditions) == nil) then
+                        action.conditions = nil;
+                    end
+                end
+            else
+                action.conditions = action.conditions or {};
+                action.conditions[field] = value;
+            end
+        else
+            action[field] = value;
+        end
         DebindPrivate.RenumberKeyGroupForAction(action);
     end
 
@@ -266,7 +305,7 @@ return function(DebindPrivate)
             general = { Cond(11, "F", 1), Cond(12, "F", 2), Plain(21, "F", 3) },
         });
 
-        local fresh = { type = Constants.SPELL, value = 14, combat = true };
+        local fresh = nest({ type = Constants.SPELL, value = 14, combat = true });
         DebindPrivate.GetProfileLayer(1):Insert(fresh);
         fresh.key = "F";
         DebindPrivate.PlaceActionInKeyGroup(fresh);

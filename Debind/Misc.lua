@@ -530,7 +530,8 @@ end
 --- below it read `hover`, and `BuildUnitStates` needs it for bindings that never went through
 --- there (the solver specs hand-write theirs).
 local function DeriveHoverFields(binding)
-    local condition = binding.checkedUnits and binding.checkedUnits.hover;
+    local conditions = binding.conditions;
+    local condition = conditions and conditions.checkedUnits and conditions.checkedUnits.hover;
     if (condition == nil) then
         binding.hover = nil;
     elseif (condition == false) then
@@ -550,7 +551,8 @@ DebindPrivate.DeriveHoverFields = DeriveHoverFields;
 ---
 --- `hover`는 남는다. 저쪽은 발동 순서·클릭 경로·솔버 컬럼·키 유효성이 다 읽는다.
 local function HoverReactionMask(binding)
-    local condition = binding.checkedUnits and binding.checkedUnits.hover;
+    local conditions = binding.conditions;
+    local condition = conditions and conditions.checkedUnits and conditions.checkedUnits.hover;
     if (type(condition) ~= "table" or condition.reaction == Constants.REACTION_ALL) then
         return nil;
     end
@@ -580,12 +582,14 @@ local function BuildUnitStates(binding)
     -- **Only when nothing was said about hovering.** An explicit hover condition on a mouse
     -- button key is the user overriding that reading, and it has always won here -- narrowing it
     -- to absent as well would leave an empty box and delete the binding for a reason nobody set.
-    if (binding.key and (binding.checkedUnits == nil or binding.checkedUnits.hover == nil)
+    local conditions = binding.conditions;
+    local checkedUnits = conditions and conditions.checkedUnits;
+
+    if (binding.key and (checkedUnits == nil or checkedUnits.hover == nil)
             and DebindPrivate.GetMouseButtonAndPrefix(binding.key)) then
         narrow("hover", Constants.UNITSTATE_NONE);
     end
 
-    local checkedUnits = binding.checkedUnits;
     if (checkedUnits) then
         for key, value in pairs(checkedUnits) do
             local unit = key;
@@ -689,31 +693,49 @@ do
         end
 
         binding.type, binding.value = action.type, action.value;
-        binding.frameTypes, binding.ignoreHoverUnit = action.frameTypes, action.ignoreHoverUnit;
-        binding.groups = action.groups;
-        binding.combat = action.combat;
-        binding.stealth = action.stealth;
-        binding.known = action.known;
-        binding.forms = action.forms;
-        binding.bonusbars = action.bonusbars;
-        binding.specialbar = action.specialbar;
-        binding.extrabar = action.extrabar;
-        binding.pet = action.pet;
-        binding.petbattle = action.petbattle;
+        binding.ignoreHoverUnit = action.ignoreHoverUnit;
         binding.unit = action.unit;
         binding.key = action.key;
 
+        -- **조건은 한 표를 통째로 옮긴다.** 예전에는 열두 줄이 손으로 적혀 있었고, 축이
+        -- 하나 늘 때마다 이 줄을 잊으면 그 조건이 바인딩에 도착하지 않았다. 조용히 넓어지는
+        -- 쪽이라 아무도 못 잡는다.
+        --
+        -- 표는 **재사용한다.** 아래 정규화가 제자리에서 nil을 쓰므로 액션 쪽 표를 그대로
+        -- 가리키면 사용자가 건 조건을 지우게 된다.
+        local conditions = binding.conditions;
+        if (conditions == nil) then
+            conditions = {};
+            binding.conditions = conditions;
+        else
+            wipe(conditions);
+        end
+        if (action.conditions) then
+            for k, v in pairs(action.conditions) do
+                conditions[k] = v;
+            end
+        end
+
         -- 저장 모양 -> 바인딩 모양. 꺼진 조건은 여기서 빠지므로 하류는 기억을 안 만난다.
-        -- 남는 것이 없으면 표 자체를 안 만든다 - `binding.checkedUnits`가 있느냐를 게이트로
+        -- 남는 것이 없으면 표 자체를 안 만든다 - `conditions.checkedUnits`가 있느냐를 게이트로
         -- 쓰는 자리가 여럿이라(이슈 검사, `IsConditionalBinding`), 빈 표는 조건이 하나도
         -- 없는 액션을 조건부로 만든다.
-        binding.checkedUnits = nil;
-        if (action.checkedUnits) then
-            for unit, value in pairs(action.checkedUnits) do
+        conditions.checkedUnits = nil;
+        -- **평면 `action.checkedUnits`도 받는다.** 나간 적 있는 프로필이 그 모양이고
+        -- (`dbver <= 5`가 옮기기 전), 바로 아래 옛 `hover`/`reactions` 쌍이 같은 이유로
+        -- 여기 있다. 한쪽만 받으면 마이그레이션이 아직 안 닿은 액션의 유닛 조건만 조용히
+        -- 사라지는데, **조건이 사라진 바인딩은 넓어져서 남의 키를 가져간다.**
+        --
+        -- 나머지 축은 안 받는다. 그것들은 값이 스칼라라 중첩 여부가 뜻을 안 바꾸고,
+        -- 액션 최상단을 한 번 더 훑는 값이 리빌드마다 붙는다.
+        local storedUnits = (action.conditions and action.conditions.checkedUnits)
+            or action.checkedUnits;
+        if (storedUnits) then
+            for unit, value in pairs(storedUnits) do
                 local condition = UnitConditionForBinding(value);
                 if (condition ~= nil) then
-                    binding.checkedUnits = binding.checkedUnits or {};
-                    binding.checkedUnits[unit] = condition;
+                    conditions.checkedUnits = conditions.checkedUnits or {};
+                    conditions.checkedUnits[unit] = condition;
                 end
             end
         end
@@ -722,27 +744,26 @@ do
         -- action: `Profile.lua`'s migration owns rewriting what is stored, and an action this
         -- reached first would otherwise be rewritten by whoever read it.
         if (action.hover ~= nil) then
-            binding.checkedUnits = binding.checkedUnits or {};
-            binding.checkedUnits.hover = HoverConditionFromLegacy(
-                action.hover, action.reactions, binding.checkedUnits.hover);
+            conditions.checkedUnits = conditions.checkedUnits or {};
+            conditions.checkedUnits.hover = HoverConditionFromLegacy(
+                action.hover, action.reactions, conditions.checkedUnits.hover);
         end
 
         -- Everything below this line reads `binding.hover`, so it has to be derived here and
         -- not only in `BuildUnitStates` at the end.
         DeriveHoverFields(binding);
 
-        for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
-            local state = "$state" .. stateIndex;
-            binding[state] = action[state];
-        end
+        -- 커스텀 상태를 따로 도는 루프가 여기 있었다. 위 벌크 복사가 조건 표를 통째로
+        -- 옮기므로 슬롯 다섯을 이름으로 세어줄 필요가 없고, 재설계가 임의 이름을 풀어도
+        -- 이 자리가 안 바뀐다.
 
         -- 의미 없는 조건들을 nil로 만듬.
         if (binding.hover) then
-            if (binding.frameTypes and band(binding.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
-                binding.frameTypes = nil;
+            if (conditions.frameTypes and band(conditions.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
+                conditions.frameTypes = nil;
             end
         else
-            binding.frameTypes = nil;
+            conditions.frameTypes = nil;
             binding.ignoreHoverUnit = nil;
         end
 
@@ -756,16 +777,16 @@ do
         -- below: nothing here writes `false`, but a shared profile can carry one, and left in
         -- place it reaches `UpdateBindings`, which bakes the same `[known:<value>]` a `true`
         -- would. It then fires on exactly the state it was asked to stay off.
-        if (binding.known == false or (binding.known ~= nil and binding.type ~= Constants.SPELL)) then
-            binding.known = nil;
+        if (conditions.known == false or (conditions.known ~= nil and binding.type ~= Constants.SPELL)) then
+            conditions.known = nil;
         end
 
-        if (binding.checkedUnits) then
+        if (conditions.checkedUnits) then
             -- truthy가 아니라 nil 검사다. "@"에 "없을 때"가 들어와 있으면(UI로는 못 만들지만
             -- 공유 프로필로는 들어온다) truthy 검사는 그걸 못 지우고, 걸 축이 없는 조건이
             -- 그대로 UpdateBindings까지 간다.
-            if (binding.checkedUnits["@"] ~= nil and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
-                binding.checkedUnits["@"] = nil;
+            if (conditions.checkedUnits["@"] ~= nil and (binding.unit == nil or binding.unit == "none" or binding.unit == "player")) then
+                conditions.checkedUnits["@"] = nil;
             end
 
             -- `"@"` and an explicit condition on the same unit used to be folded into one key
@@ -775,16 +796,16 @@ do
             -- be a third copy of one rule, and the one that drifts is the one nothing checks.
         end
 
-        if (binding.groups and band(binding.groups, Constants.GROUP_ALL) == Constants.GROUP_ALL) then
-            binding.groups = Constants.GROUP_ALL;
+        if (conditions.groups and band(conditions.groups, Constants.GROUP_ALL) == Constants.GROUP_ALL) then
+            conditions.groups = Constants.GROUP_ALL;
         end
 
-        if (binding.forms and band(binding.forms, Constants.FORM_ALL) == Constants.FORM_ALL) then
-            binding.forms = Constants.FORM_ALL;
+        if (conditions.forms and band(conditions.forms, Constants.FORM_ALL) == Constants.FORM_ALL) then
+            conditions.forms = Constants.FORM_ALL;
         end
 
-        if (binding.bonusbars and band(binding.bonusbars, Constants.BONUSBAR_ALL) == Constants.BONUSBAR_ALL) then
-            binding.bonusbars = Constants.BONUSBAR_ALL;
+        if (conditions.bonusbars and band(conditions.bonusbars, Constants.BONUSBAR_ALL) == Constants.BONUSBAR_ALL) then
+            conditions.bonusbars = Constants.BONUSBAR_ALL;
         end
 
         -- 대상을 못 갖는 타입이면 지운다. 목록은 `Constants.TYPES_WITH_UNIT` 하나뿐이다 -
@@ -811,19 +832,19 @@ do
         --
         -- `""`도 같이 본다. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는 들어오고,
         -- 위쪽 검사의 목록에는 없다.
-        if (binding.checkedUnits and (binding.unit == nil or binding.unit == "")) then
-            binding.checkedUnits["@"] = nil;
+        if (conditions.checkedUnits and (binding.unit == nil or binding.unit == "")) then
+            conditions.checkedUnits["@"] = nil;
         end
 
         -- **빈 표는 남기지 않는다.** `"@"`가 유일한 키였으면 위 두 자리가 그것을 지우고
-        -- `{}`가 남는데, `binding.checkedUnits`가 있느냐를 게이트로 쓰는 자리가 여럿이라
+        -- `{}`가 남는데, `conditions.checkedUnits`가 있느냐를 게이트로 쓰는 자리가 여럿이라
         -- (`IsConditionalBinding`, 이슈 검사) 조건이 하나도 없는 액션이 조건부가 된다.
-        if (binding.checkedUnits and not next(binding.checkedUnits)) then
-            binding.checkedUnits = nil;
+        if (conditions.checkedUnits and not next(conditions.checkedUnits)) then
+            conditions.checkedUnits = nil;
         end
 
-        if (binding.petbattle and binding.specialbar) then
-            binding.specialbar = nil;
+        if (conditions.petbattle and conditions.specialbar) then
+            conditions.specialbar = nil;
         end
 
         if (binding.hover and binding.unit == nil) then
@@ -884,62 +905,19 @@ function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     return dest;
 end
 
+--- 이 바인딩에 조건이 하나라도 걸려 있나. 발동 순서의 세 번째 단계가 이걸 읽는다
+--- (`Ordering.lua`).
+---
+--- 축마다 `nil` 검사를 쓴 열두 갈래가 여기 있었다. 축이 하나 늘 때마다 갈래를 잊으면 그 조건이
+--- 걸린 바인딩이 무조건짜리로 분류돼 **발동 순서가 조용히 바뀌었고**, 그 잘못은 화면에
+--- 아무것도 안 남긴다.
+---
+--- **바인딩 쪽 표는 비어 있을 수 있다.** 리빌드마다 제자리에서 다시 채우느라 늘 존재하기
+--- 때문이다(`GetBindingInfoForAction`). 저장 쪽은 반대로 빈 표를 안 남긴다(`CleanUpDB`).
+--- `next`는 둘 다 맞게 답한다.
 function DebindPrivate.IsConditionalBinding(binding)
-    if (binding.hover ~= nil) then
-        return true;
-    end
-
-    if (binding.groups ~= nil) then
-        return true;
-    end
-
-    if (binding.bonusbars ~= nil) then
-        return true;
-    end
-
-    if (binding.specialbar ~= nil) then
-        return true;
-    end
-
-    if (binding.extrabar ~= nil) then
-        return true;
-    end
-
-    if (binding.forms ~= nil) then
-        return true;
-    end
-
-    if (binding.combat ~= nil) then
-        return true;
-    end
-
-    if (binding.stealth ~= nil) then
-        return true;
-    end
-
-    if (binding.known ~= nil) then
-        return true;
-    end
-
-    if (binding.petbattle ~= nil) then
-        return true;
-    end
-
-    if (binding.pet ~= nil) then
-        return true;
-    end
-
-    if (binding.checkedUnits) then
-        return true;
-    end
-
-    for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
-        if (binding["$state" .. stateIndex] ~= nil) then
-            return true;
-        end
-    end
-
-    return false;
+    local conditions = binding.conditions;
+    return conditions ~= nil and next(conditions) ~= nil;
 end
 
 function DebindPrivate.IsInactiveAction(action)
@@ -1000,7 +978,8 @@ end
 --- 마이그레이션이 안 닿은 프로필(`action.hover`)도 `HoverConditionFromLegacy`와 같은 답을
 --- 내야 한다. 저장된 조건이 있으면 그쪽이 이긴다 - 접기가 교집합하는 것과 같은 순서다.
 local function ActionHoverIsOn(action)
-    local condition = action.checkedUnits and action.checkedUnits.hover;
+    local conditions = action.conditions;
+    local condition = conditions and conditions.checkedUnits and conditions.checkedUnits.hover;
     if (condition == nil) then
         return action.hover == true;
     end
@@ -1158,6 +1137,7 @@ end
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     local issue;
     local binding = DebindPrivate.GetBindingInfoForAction(action);
+    local conditions = binding.conditions;
 
     -- `notCategory = "unreachable"`은 이 갈래 **안의 도달불가 검사만** 끈다.
     --
@@ -1177,19 +1157,19 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     end
 
     if (not issue and (not category or category == "groups") and notCategory ~= "groups") then
-        if (binding.groups == 0) then
+        if (conditions.groups == 0) then
             issue = Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED;
         end
     end
 
     if (not issue and (not category or category == "forms") and notCategory ~= "forms") then
-        if (binding.forms == 0) then
+        if (conditions.forms == 0) then
             issue = Constants.BINDING_ISSUE_FORMS_NONE_SELECTED;
         end
     end
 
     if (not issue and (not category or category == "bonusbars") and notCategory ~= "bonusbars") then
-        if (binding.bonusbars == 0) then
+        if (conditions.bonusbars == 0) then
             issue = Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED;
         end
     end
@@ -1222,7 +1202,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         if (binding.hover ~= nil) then
             if (DebindPrivate.CliqueDetected) then
                 issue = Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE;
-            elseif (binding.hover and (HoverReactionMask(binding) == 0 or binding.frameTypes == 0)) then
+            elseif (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
                 issue = Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
             end
         end
@@ -1238,7 +1218,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
 
     if (not issue and (not category or category == "frameTypes") and notCategory ~= "frameTypes") then
         if (binding.hover) then
-            if (binding.frameTypes == 0) then
+            if (conditions.frameTypes == 0) then
                 issue = Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
             end
         end
@@ -1288,13 +1268,13 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         --- 이 묶음이 그 0에 **거들었는가.** 안 거든 묶음을 칠하면 아무것도 안 고른 메뉴가
         --- 빨개진다 - hover에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
         local function contributed(unit)
-            if (not binding.checkedUnits) then
+            if (not conditions.checkedUnits) then
                 return false;
             end
             if (category == "unit") then
-                return binding.checkedUnits["@"] ~= nil and unit == binding.unit;
+                return conditions.checkedUnits["@"] ~= nil and unit == binding.unit;
             end
-            return binding.checkedUnits[unit] ~= nil;
+            return conditions.checkedUnits[unit] ~= nil;
         end
 
         for unit, mask in pairs(binding.unitStates) do
@@ -1325,10 +1305,10 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
 
     -- FIXME
     -- if (not issue and (not category or (category == "groups" or category == "unit") and (notCategory ~= "groups" and notCategory ~= "unit"))) then
-    --     if (binding.groups) then
+    --     if (conditions.groups) then
     --         local groupFlags = GROUP_ROLE_UNITS[binding.checkUnitExists];
     --         if (groupFlags) then
-    --             if (band(groupFlags, binding.groups) == 0) then
+    --             if (band(groupFlags, conditions.groups) == 0) then
     --                 issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
     --             end
     --         end
@@ -1336,13 +1316,13 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- end
 
     if (not issue and (not category or category == "specialbar") and notCategory ~= "specialbar") then
-        if ((binding.specialbar and binding.petbattle == false) or (binding.petbattle and binding.specialbar == false)) then
+        if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
             issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
         end
     end
 
     if (not issue and (not category or category == "petbattle") and notCategory ~= "petbattle") then
-        if ((binding.specialbar and binding.petbattle == false) or (binding.petbattle and binding.specialbar == false)) then
+        if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
             issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
         end
     end

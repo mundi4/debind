@@ -303,40 +303,90 @@ do
         return MenuResponse.Refresh;
     end
 
+    --- 이 키가 사는 표. 조건은 `_action.conditions` 안이고 나머지는 액션 자신이다.
+    --- 어느 이름이 조건인지는 `Constants.IsConditionField`가 답한다.
+    ---
+    --- **참조를 붙들어 두지 않고 부를 때마다 푼다.** 조건 표는 첫 조건이 걸릴 때 생기고
+    --- 마지막 조건이 풀릴 때 없어진다. 메뉴를 세울 때 잡아두면 그 사이에 표가 갈려서
+    --- 사라진 표에 쓰게 된다 - `checkedUnits`가 같은 함정을 갖고 있고 그 자리에 적혀 있다.
+    ---
+    --- `create`가 거짓이면 없는 표를 만들지 않는다. 읽기만 하는 쪽이 조건 하나 없는 액션에
+    --- 표를 만들어 두면, 조건이 하나도 없는데 조건부로 분류된다(`IsConditionalBinding`).
+    local function TableFor(action, key, create)
+        if (not Constants.IsConditionField(key)) then
+            return action;
+        end
+        local conditions = action.conditions;
+        if (conditions == nil and create) then
+            conditions = {};
+            action.conditions = conditions;
+        end
+        return conditions;
+    end
+
+    --- 이 액션의 유닛 조건 표. 없으면 nil이고, 만들지 않는다.
+    local function CheckedUnitsOf(action)
+        return action.conditions and action.conditions.checkedUnits;
+    end
+
+    --- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
+    --- (`IsConditionalBinding`, `CleanUpDB`) 조건이 없는 액션이 조건부가 된다.
+    local function PruneConditions(action)
+        if (action.conditions and next(action.conditions) == nil) then
+            action.conditions = nil;
+        end
+    end
+
     local function actionValueEquals(args)
         local key, value = args.key, args.value;
+        local tbl = TableFor(_action, key);
         if (value == USE_CHECKED_VALUE) then
-            return _action[key] and true or false;
+            return tbl ~= nil and tbl[key] and true or false;
         else
-            return _action[key] == value;
+            return (tbl and tbl[key]) == value;
         end
     end
 
     local function setActionValue(args)
         local key, value = args.key, args.value;
         if (value == USE_CHECKED_VALUE) then
-            _action[key] = not _action[key];
+            local tbl = TableFor(_action, key, true);
+            tbl[key] = not tbl[key];
+            PruneConditions(_action);
             -- The checkbox branch goes through the same place. Neither field that comes this way
             -- today (`ignoreHoverUnit`, `keepInBindingContext`) is a step in the ordering, so the
             -- renumber moves nothing -- but the day one that is arrives here, that group alone
             -- would quietly keep the old symptom.
             return onActionValueChanged();
-        elseif (_action[key] ~= value) then
-            _action[key] = value;
-            return onActionValueChanged();
+        else
+            -- 값이 안 바뀌면 아무것도 안 한다. `nil`을 고를 때 표를 만들었다가 곧바로
+            -- 거두는 일도 없어야 해서, 표는 실제로 쓸 때만 만든다.
+            local tbl = TableFor(_action, key);
+            if ((tbl and tbl[key]) ~= value) then
+                if (value == nil) then
+                    if (tbl) then
+                        tbl[key] = nil;
+                        PruneConditions(_action);
+                    end
+                else
+                    TableFor(_action, key, true)[key] = value;
+                end
+                return onActionValueChanged();
+            end
         end
     end
 
     local function _hasBit(data)
-        local targetObj = data.targetObj or _action;
-        local current = targetObj[data.key] or data.defaultValue or 0;
+        local targetObj = data.targetObj or TableFor(_action, data.key);
+        local current = (targetObj and targetObj[data.key]) or data.defaultValue or 0;
         return bit.band(current, data.value) == data.value;
     end
 
     local function _toggleBit(data)
-        local targetObj = data.targetObj or _action;
+        local targetObj = data.targetObj or TableFor(_action, data.key, true);
         local current = targetObj[data.key] or data.defaultValue or 0;
         targetObj[data.key] = bit.bxor(current, data.value);
+        PruneConditions(_action);
         onActionValueChanged();
         return MenuResponse.Refresh;
     end
@@ -452,7 +502,7 @@ do
     --- `checkedUnits` is nil until the first condition is set, so a reference grabbed while the
     --- menu was being built goes stale the moment the user turns one on.
     local function GetUnitConditionReaction(unit)
-        local value = _action.checkedUnits and _action.checkedUnits[unit];
+        local value = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
         if (type(value) ~= "table") then
             return nil;
         end
@@ -462,7 +512,7 @@ do
     --- 위쪽 라디오 셋 중 어느 것이 켜져 있는가. 조건을 만든 적이 없으면 `nil`.
     --- 표시가 없는 표는 "있을 때"다 - `Misc.UnitConditionForBinding`의 기본값과 같아야 한다.
     local function UnitConditionMode(unit)
-        local value = _action.checkedUnits and _action.checkedUnits[unit];
+        local value = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
         if (value == nil) then
             return nil;
         end
@@ -493,7 +543,7 @@ do
     end
 
     local function GetUnitConditionDead(unit)
-        local value = _action.checkedUnits and _action.checkedUnits[unit];
+        local value = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
         if (type(value) ~= "table") then
             return nil;
         end
@@ -507,7 +557,7 @@ do
     --- 끈 자리에 기억할 축이 하나도 없으면 키를 지운다. 안 그러면 아무것도 안 고른 유닛의
     --- 빈 표가 프로필에 쌓인다.
     local function SetUnitConditionMode(unit, mode)
-        local checkedUnits = _action.checkedUnits;
+        local checkedUnits = CheckedUnitsOf(_action);
         local cond = checkedUnits and checkedUnits[unit];
         if (type(cond) ~= "table") then
             cond = {};
@@ -527,13 +577,16 @@ do
             if (checkedUnits) then
                 checkedUnits[unit] = nil;
                 if (not next(checkedUnits)) then
-                    _action.checkedUnits = nil;
+                    _action.conditions.checkedUnits = nil;
+                    PruneConditions(_action);
                 end
             end
         else
-            checkedUnits = checkedUnits or {};
+            if (checkedUnits == nil) then
+                checkedUnits = {};
+                TableFor(_action, "checkedUnits", true).checkedUnits = checkedUnits;
+            end
             checkedUnits[unit] = cond;
-            _action.checkedUnits = checkedUnits;
         end
 
         onActionValueChanged();
@@ -542,7 +595,7 @@ do
 
     --- Write one axis. Every caller is gated on the `exists` radio, so the table is already there.
     local function SetUnitConditionAxis(unit, axis, value)
-        local cond = _action.checkedUnits and _action.checkedUnits[unit];
+        local cond = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
         if (type(cond) ~= "table") then
             return;
         end
@@ -929,8 +982,8 @@ do
             -- isActive. `"@"`와 `"hover"`는 제 메뉴가 따로 있어서 여기서 안 센다 - 이 묶음이
             -- 안 보여주는 조건 때문에 파랗게 뜨면 어디를 고쳐야 하는지가 안 보인다.
             function()
-                if (_action.checkedUnits) then
-                    for unit, value in pairs(_action.checkedUnits) do
+                if (CheckedUnitsOf(_action)) then
+                    for unit, value in pairs(CheckedUnitsOf(_action)) do
                         if (unit ~= "@" and unit ~= "hover" and UnitConditionIsOn(unit)) then
                             return true;
                         end
@@ -948,8 +1001,8 @@ do
 
         local function listedUnitsWithCondition()
             local units;
-            if (_action.checkedUnits) then
-                for unit in pairs(_action.checkedUnits) do
+            if (CheckedUnitsOf(_action)) then
+                for unit in pairs(CheckedUnitsOf(_action)) do
                     if (isListedUnit(unit) and UnitConditionIsOn(unit)) then
                         units = units or {};
                         tinsert(units, unit);
@@ -1017,13 +1070,14 @@ do
         description:CreateCheckbox(
             LLL["CONDITION_KNOWN_YES"],
             function ()
-                return _action.known == true;
+                return _action.conditions ~= nil and _action.conditions.known == true;
             end,
             function ()
-                if _action.known then
-                    _action.known = nil;
+                if (_action.conditions and _action.conditions.known) then
+                    _action.conditions.known = nil;
+                    PruneConditions(_action);
                 else
-                    _action.known = true;
+                    TableFor(_action, "known", true).known = true;
                 end
                 onActionValueChanged();
                 return MenuResponse.Refresh;
@@ -1088,7 +1142,10 @@ do
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_ACTIONBARS", nil,
             -- isActive
             function()
-                return _action.bonusbars ~= nil or _action.bars ~= nil or _action.specialbar ~= nil or _action.extrabar ~= nil;
+                -- `_action.bars`는 아무도 안 쓰는 필드였다. `KEYS_TO_SAVE`에 없어 늘 nil이라
+                -- 이 절은 죽어 있었고, 나머지 셋이 같은 답을 낸다.
+                local c = _action.conditions;
+                return c ~= nil and (c.bonusbars ~= nil or c.specialbar ~= nil or c.extrabar ~= nil);
             end
         );
 
@@ -1115,7 +1172,7 @@ do
             -- isActive
             function()
                 for i = 1, Constants.MAX_NUM_CUSTOM_STATES do
-                    if (_action["$state" .. i] ~= nil) then
+                    if (_action.conditions and _action.conditions["$state" .. i] ~= nil) then
                         return true;
                     end
                 end

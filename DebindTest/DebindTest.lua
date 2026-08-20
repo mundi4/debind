@@ -4313,17 +4313,18 @@ local function ToSweepAction(record, key)
     for k, v in pairs(record.action) do action[k] = v end
 
     local cond = record.cond
-    if cond.combat ~= nil then action.combat = cond.combat end
-    if cond.stealth ~= nil then action.stealth = cond.stealth end
+    action.conditions = action.conditions or {}
+    if cond.combat ~= nil then action.conditions.combat = cond.combat end
+    if cond.stealth ~= nil then action.conditions.stealth = cond.stealth end
     if cond.forms then
         local mask = 0
         for form in pairs(cond.forms) do mask = bor(mask, 2 ^ form) end
-        action.forms = mask
+        action.conditions.forms = mask
     end
     if cond.groups then
         local mask = 0
         for group in pairs(cond.groups) do mask = bor(mask, group) end
-        action.groups = mask
+        action.conditions.groups = mask
     end
     return action
 end

@@ -273,8 +273,9 @@ return function(DebindPrivate, DebindStorage)
     test("$상태 조건은 명단에 없어도 통과한다", function()
         ResetProfile();
         local action = PlanOne(General({
-            { type = Constants.SPELL, value = 1, key = "F", seq = 1, ["$state3"] = true } }));
-        check(action["$state3"] == true, "$상태 조건이 걸러졌다");
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1,
+                conditions = { ["$state3"] = true } } }));
+        check(action.conditions["$state3"] == true, "$상태 조건이 걸러졌다");
     end);
 
     ---------------------------------------------------------------------------
@@ -330,7 +331,8 @@ return function(DebindPrivate, DebindStorage)
     -- 필드에 쓰는 것**이고 출처가 옆에 적혀 있다. 그래서 선언 하나를 틀리게 하면 빨개진다.
     --
     -- 명단에 있는데 여기 없으면 그것도 실패다. 필드가 늘면 이 표도 같이 늘어야 한다.
-    local REAL_VALUES = {
+    --- 조건 표 **안쪽**의 실제 값. 바깥 명단과 안쪽 명단이 따로 있으므로 표본도 둘이다.
+    local REAL_CONDITIONS = {
         -- `DropDownMenus.lua`의 `setActionValue`가 조건에 쓰는 것: 예/아니오/안 물음 = true/false/nil.
         known = true,
         combat = true,
@@ -339,14 +341,23 @@ return function(DebindPrivate, DebindStorage)
         extrabar = true,
         pet = true,
         petbattle = true,
-        -- 같은 함수의 체크박스 갈래(`not _action[key]`).
-        keepInBindingContext = true,
-        ignoreHoverUnit = true,
         -- 비트 마스크. `Misc.lua`가 `== 0`으로 비교한다.
         forms = 6,
         groups = 3,
         frameTypes = 1,
         bonusbars = 2,
+        checkedUnits = { target = {} },
+        ["$state1"] = true,
+        ["$state2"] = true,
+        ["$state3"] = true,
+        ["$state4"] = true,
+        ["$state5"] = true,
+    };
+
+    local REAL_VALUES = {
+        -- `setActionValue`의 체크박스 갈래. 둘 다 조건이 아니라 액션 최상단이다.
+        keepInBindingContext = true,
+        ignoreHoverUnit = true,
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,
         value = 774,
@@ -356,12 +367,7 @@ return function(DebindPrivate, DebindStorage)
         name = "이름",
         icon = 132219,
         unit = "target",
-        checkedUnits = { target = {} },
-        ["$state1"] = true,
-        ["$state2"] = true,
-        ["$state3"] = true,
-        ["$state4"] = true,
-        ["$state5"] = true,
+        conditions = REAL_CONDITIONS,
     };
 
     test("애드온이 실제로 쓰는 값이 명단의 타입을 통과한다", function()
@@ -374,7 +380,21 @@ return function(DebindPrivate, DebindStorage)
             sent[field] = REAL_VALUES[field];
         end
 
+        for field in pairs(DebindStorage.CONDITION_TYPES) do
+            check(REAL_CONDITIONS[field] ~= nil,
+                field .. "이 조건 명단에 늘었는데 이 표에는 없다");
+        end
+
         local action = PlanOne(General({ sent }));
+        for field, want in pairs(REAL_CONDITIONS) do
+            local got = action.conditions and action.conditions[field];
+            if (type(want) == "table") then
+                check(type(got) == "table", field .. "이 테이블로 안 왔다: " .. tostring(got));
+            else
+                check(got == want, field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));
+            end
+        end
+
         for field, want in pairs(REAL_VALUES) do
             local got = action[field];
             if (field == "key") then

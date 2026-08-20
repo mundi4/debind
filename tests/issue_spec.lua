@@ -30,6 +30,27 @@ return function(DebindPrivate)
     end
 
     --- `"@"`와 명시 유닛 조건을 같이 건 액션의 이슈를 본다.
+    --- 스펙 리터럴을 **프로덕션과 같은 모양**으로 세운다: 조건은 `conditions` 안에 산다
+    --- (`Profile.lua`의 `KEYS_TO_SAVE`, `Misc.GetBindingInfoForAction`).
+    ---
+    --- 리터럴은 평평하게 쓴다. 자리마다 `conditions = { ... }`를 손으로 적으면 한 줄
+    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 빠진 액션은 넓어진다** - 스펙이 잡아야
+    --- 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    ---
+    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
+    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
+    local function nest(action)
+        local conditions = action.conditions;
+        for k, v in pairs(action) do
+            if (Constants.IsConditionField(k)) then
+                conditions = conditions or {};
+                conditions[k] = v;
+                action[k] = nil;
+            end
+        end
+        action.conditions = conditions;
+        return action;
+    end
     local function issueFor(atValue, unitValue)
         local action = {
             type = Constants.SPELL,
@@ -37,7 +58,7 @@ return function(DebindPrivate)
             unit = "target",
             checkedUnits = { ["@"] = atValue, target = unitValue },
         };
-        return GetBindingIssue(action, "checkedUnits");
+        return GetBindingIssue(nest(action), "checkedUnits");
     end
 
     ---------------------------------------------------------------------------
@@ -237,7 +258,7 @@ return function(DebindPrivate)
         for k, v in pairs(fields or {}) do
             action[k] = v;
         end
-        return DebindPrivate.IsKeyInvalidForAction(action, "BUTTON1");
+        return DebindPrivate.IsKeyInvalidForAction(nest(action), "BUTTON1");
     end
 
     test("호버 조건이 없는 왼쪽 버튼은 못 쓴다", function()
@@ -271,10 +292,10 @@ return function(DebindPrivate)
     test("끈 호버 조건은 명령 액션을 막지 않는다", function()
         local HOVER_COMMAND = Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND;
         local function commandIssue(hoverCondition)
-            return DebindPrivate.IsKeyInvalidForAction({
+            return DebindPrivate.IsKeyInvalidForAction(nest({
                 type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "BUTTON3",
                 checkedUnits = { hover = hoverCondition },
-            }, "BUTTON3");
+            }), "BUTTON3");
         end
 
         -- 켜져 있으면 걸리는 것이 맞다. 이 줄이 없으면 아래가 "아무것도 안 걸리는" 것과

@@ -57,12 +57,38 @@ return function(DebindPrivate)
         return t;
     end
 
+    --- 손으로 쓴 바인딩을 **프로덕션과 같은 모양**으로 세운다: 조건은 `binding.conditions`
+    --- 안에 산다(`Misc.GetBindingInfoForAction`).
+    ---
+    --- 스펙 리터럴은 평평하게 쓴다. 여든 줄에 `conditions = { ... }`를 손으로 적으면 한 줄
+    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 사라진 바인딩은 넓어져서** 남을 잘못
+    --- 덮는다 - 스펙이 잡아야 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    ---
+    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
+    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
+    local function nest(binding)
+        local conditions = binding.conditions or {};
+        for k, v in pairs(binding) do
+            if (Constants.IsConditionField(k)) then
+                conditions[k] = v;
+                binding[k] = nil;
+            end
+        end
+        binding.conditions = conditions;
+        return binding;
+    end
+
+    local function nestAll(bindings)
+        for i = 1, #bindings do nest(bindings[i]); end
+        return bindings;
+    end
+
     local function expectTrue(bindings, msg)
-        check(IsKeyAlwaysOurs(bindings) == true, msg);
+        check(IsKeyAlwaysOurs(nestAll(bindings)) == true, msg);
     end
 
     local function expectFalse(bindings, msg)
-        check(IsKeyAlwaysOurs(bindings) == false, msg);
+        check(IsKeyAlwaysOurs(nestAll(bindings)) == false, msg);
     end
 
     ---------------------------------------------------------------------------

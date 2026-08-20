@@ -131,61 +131,61 @@ local FIXED_COLUMNS = {
             if (not binding.hover) then
                 return flagsToConditionFlags(nil, 6);
             end
-            return flagsToConditionFlags(binding.frameTypes, 6);
+            return flagsToConditionFlags(binding.conditions.frameTypes, 6);
         end
     },
     {
         name = "groups",
         make = function(binding)
-            return flagsToConditionFlags(binding.groups, 2);
+            return flagsToConditionFlags(binding.conditions.groups, 2);
         end
     },
     {
         name = "bonusbars",
         make = function(binding)
-            return flagsToConditionFlags(binding.bonusbars, 5);
+            return flagsToConditionFlags(binding.conditions.bonusbars, 5);
         end
     },
     {
         name = "forms",
         make = function(binding)
-            return flagsToConditionFlags(binding.forms, 10);
+            return flagsToConditionFlags(binding.conditions.forms, 10);
         end
     },
     {
         name = "specialbar",
         make = function(binding)
-            return boolToConditionFlags(binding.specialbar);
+            return boolToConditionFlags(binding.conditions.specialbar);
         end
     },
     {
         name = "extrabar",
         make = function(binding)
-            return boolToConditionFlags(binding.extrabar);
+            return boolToConditionFlags(binding.conditions.extrabar);
         end
     },
     {
         name = "combat",
         make = function(binding)
-            return boolToConditionFlags(binding.combat);
+            return boolToConditionFlags(binding.conditions.combat);
         end
     },
     {
         name = "stealth",
         make = function(binding)
-            return boolToConditionFlags(binding.stealth);
+            return boolToConditionFlags(binding.conditions.stealth);
         end
     },
     {
         name = "pet",
         make = function(binding)
-            return boolToConditionFlags(binding.pet);
+            return boolToConditionFlags(binding.conditions.pet);
         end
     },
     {
         name = "petbattle",
         make = function(binding)
-            return boolToConditionFlags(binding.petbattle);
+            return boolToConditionFlags(binding.conditions.petbattle);
         end
     },
 };
@@ -199,7 +199,7 @@ for i = 1, MAX_NUM_CUSTOM_STATES do
 end
 
 local function makeCustomStateFlags(binding, index)
-    local value = binding[STATE_KEYS[index]];
+    local value = binding.conditions[STATE_KEYS[index]];
     if (value == nil) then
         return STATE_ANY;
     end
@@ -216,8 +216,9 @@ local function makeUnitFlags(binding, unit)
 end
 
 local function makeKnownFlags(binding, spellValue)
-    if (binding.known ~= nil and binding.type == Constants.SPELL and binding.value == spellValue) then
-        return binding.known and KNOWN_YES or KNOWN_NO;
+    local known = binding.conditions.known;
+    if (known ~= nil and binding.type == Constants.SPELL and binding.value == spellValue) then
+        return known and KNOWN_YES or KNOWN_NO;
     end
     return KNOWN_ANY;
 end
@@ -317,8 +318,10 @@ local function buildLayout(bindings)
             end
         end
 
+        local conditions = binding.conditions;
+
         for s = 1, MAX_NUM_CUSTOM_STATES do
-            if (not _stateSeen[s] and binding[STATE_KEYS[s]] ~= nil) then
+            if (not _stateSeen[s] and conditions[STATE_KEYS[s]] ~= nil) then
                 _stateSeen[s] = true;
                 _numColumns = _numColumns + 1;
                 _colMake[_numColumns] = makeCustomStateFlags;
@@ -326,7 +329,7 @@ local function buildLayout(bindings)
             end
         end
 
-        if (binding.known ~= nil) then
+        if (conditions.known ~= nil) then
             if (binding.type == Constants.SPELL and binding.value ~= nil) then
                 if (not _knownSeen[binding.value]) then
                     _knownSeen[binding.value] = true;
@@ -589,7 +592,12 @@ end
 --- A record with no conditions at all: every column comes out full, so its box is the whole
 --- space. Appending it to a sorted key and asking whether it is reachable asks exactly "do the
 --- records before it cover everything?".
-local _sentinel = {};
+---
+--- **The empty conditions table is not decoration.** This record goes through `buildLayout` and
+--- `buildConditionSet` beside the real ones, and both reach straight into `binding.conditions`.
+--- A real binding always has that table (`Misc.lua` rebuilds it in place), so nothing guards the
+--- read; leaving it off here is the one record that would be missing it.
+local _sentinel = { conditions = {} };
 local _sentinelArray = {};
 
 --- Is this key ours no matter what the state does?

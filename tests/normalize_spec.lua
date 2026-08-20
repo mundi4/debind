@@ -34,12 +34,33 @@ return function(DebindPrivate)
 
     --- 타입을 안 적으면 주문으로 본다. 대상을 가질 수 있는 타입 중 제일 흔한 것이라
     --- 대부분의 갈래에서 "정상적인 액션"의 대역이 된다.
+    --- 스펙 리터럴을 **프로덕션과 같은 모양**으로 세운다: 조건은 `conditions` 안에 산다
+    --- (`Profile.lua`의 `KEYS_TO_SAVE`, `Misc.GetBindingInfoForAction`).
+    ---
+    --- 리터럴은 평평하게 쓴다. 자리마다 `conditions = { ... }`를 손으로 적으면 한 줄
+    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 빠진 액션은 넓어진다** - 스펙이 잡아야
+    --- 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    ---
+    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
+    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
+    local function nest(action)
+        local conditions = action.conditions;
+        for k, v in pairs(action) do
+            if (Constants.IsConditionField(k)) then
+                conditions = conditions or {};
+                conditions[k] = v;
+                action[k] = nil;
+            end
+        end
+        action.conditions = conditions;
+        return action;
+    end
     local function spell(fields)
         local action = { type = Constants.SPELL, value = 100 };
         for k, v in pairs(fields or {}) do
             action[k] = v;
         end
-        return normalize(action, true);
+        return normalize(nest(action), true);
     end
 
     ---------------------------------------------------------------------------
@@ -102,7 +123,7 @@ return function(DebindPrivate)
         local b = spell({ checkedUnits = {
             target = { off = true, reaction = Constants.REACTION_HELP, dead = true },
         } });
-        check(b.checkedUnits == nil, "꺼진 조건이 바인딩까지 갔다");
+        check(b.conditions.checkedUnits == nil, "꺼진 조건이 바인딩까지 갔다");
         check(b.unitStates == nil or b.unitStates.target == nil, "축을 좁혔다");
     end);
 
@@ -148,15 +169,15 @@ return function(DebindPrivate)
     -- 두 메뉴가 다 살아 있던 시절의 프로필이면 같은 유닛에 조건이 둘 있을 수 있다. 덮으면
     -- 걸어둔 것보다 넓어지므로 교집합하고, 안 겹치면 어떤 유닛도 못 드는 조건이 된다.
     test("옛 hover가 같은 유닛의 조건과 교집합된다", function()
-        local b = normalize({ type = Constants.SPELL, value = 100,
+        local b = normalize(nest({ type = Constants.SPELL, value = 100,
             hover = true, reactions = Constants.REACTION_HELP,
-            checkedUnits = { hover = { reaction = Constants.REACTION_HARM } } }, true);
+            checkedUnits = { hover = { reaction = Constants.REACTION_HARM } } }), true);
         check(b.unitStates["hover"] == 0, "안 겹치는 두 조건이 0이 안 됨");
     end);
 
     test("옛 hover=false가 존재 조건과 만나면 0이 된다", function()
-        local b = normalize({ type = Constants.SPELL, value = 100,
-            hover = false, checkedUnits = { hover = {} } }, true);
+        local b = normalize(nest({ type = Constants.SPELL, value = 100,
+            hover = false, checkedUnits = { hover = {} } }), true);
         check(b.unitStates["hover"] == 0, "부재와 존재가 0이 안 됨");
     end);
 
@@ -175,8 +196,8 @@ return function(DebindPrivate)
         });
         -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
         check(b.hover == nil, "hover 조건이 생김");
-        check(b.checkedUnits == nil or b.checkedUnits.hover == nil, "호버 조건이 남음");
-        check(b.frameTypes == nil, "frameTypes가 남음");
+        check(b.conditions.checkedUnits == nil or b.conditions.checkedUnits.hover == nil, "호버 조건이 남음");
+        check(b.conditions.frameTypes == nil, "frameTypes가 남음");
         check(b.ignoreHoverUnit == nil, "ignoreHoverUnit이 남음");
     end);
 
@@ -190,8 +211,8 @@ return function(DebindPrivate)
         });
         check(b.hover == false, "hover 조건 자체는 남아야 한다");
         -- 안 올렸을 때와 반응은 같이 설 수 없다. 접기가 조건을 `false` 하나로 만든다.
-        check(b.checkedUnits.hover == false, "반응이 조건으로 남음");
-        check(b.frameTypes == nil, "frameTypes가 남음");
+        check(b.conditions.checkedUnits.hover == false, "반응이 조건으로 남음");
+        check(b.conditions.frameTypes == nil, "frameTypes가 남음");
     end);
 
     ---------------------------------------------------------------------------
@@ -202,12 +223,12 @@ return function(DebindPrivate)
 
     test("hover 반응을 전부 고르면 nil로 접힌다", function()
         local b = spell({ hover = true, reactions = Constants.REACTION_ALL });
-        check(b.checkedUnits.hover.reaction == nil, "전체 비트가 안 접힘");
+        check(b.conditions.checkedUnits.hover.reaction == nil, "전체 비트가 안 접힘");
     end);
 
     test("hover 프레임종류를 전부 고르면 nil로 접힌다", function()
         local b = spell({ hover = true, frameTypes = Constants.FRAMETYPE_ALL });
-        check(b.frameTypes == nil, "전체 비트가 안 접힘");
+        check(b.conditions.frameTypes == nil, "전체 비트가 안 접힘");
     end);
 
     test("일부만 고른 마스크는 그대로 남는다", function()
@@ -216,8 +237,8 @@ return function(DebindPrivate)
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
-        check(b.checkedUnits.hover.reaction == Constants.REACTION_HELP, "반응이 바뀜");
-        check(b.frameTypes == Constants.FRAMETYPE_PLAYER, "frameTypes가 바뀜");
+        check(b.conditions.checkedUnits.hover.reaction == Constants.REACTION_HELP, "반응이 바뀜");
+        check(b.conditions.frameTypes == Constants.FRAMETYPE_PLAYER, "frameTypes가 바뀜");
     end);
 
     ---------------------------------------------------------------------------
@@ -225,12 +246,12 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("주문이 아니면 known이 사라진다", function()
-        check(normalize({ type = Constants.ITEM, value = 1, known = true }, true).known == nil,
-            "known이 남음");
+        check(normalize(nest({ type = Constants.ITEM, value = 1, known = true }), true)
+            .conditions.known == nil, "known이 남음");
     end);
 
     test("주문이면 known이 남는다", function()
-        check(spell({ known = true }).known == true, "known이 사라짐");
+        check(spell({ known = true }).conditions.known == true, "known이 사라짐");
     end);
 
     ---------------------------------------------------------------------------
@@ -249,7 +270,7 @@ return function(DebindPrivate)
     end);
 
     test("주문이 아니면 거짓인 known도 사라진다", function()
-        check(normalize({ type = Constants.MACROTEXT, value = "/cast Foo", known = false }, true).known == nil,
+        check(normalize(nest({ type = Constants.MACROTEXT, value = "/cast Foo", known = false }), true).known == nil,
             "known=false가 남음");
     end);
 
@@ -261,17 +282,17 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("대상을 못 갖는 타입이면 대상이 사라진다", function()
-        local b = normalize({ type = Constants.MACROTEXT, value = "/say hi", unit = "focus" }, true);
+        local b = normalize(nest({ type = Constants.MACROTEXT, value = "/say hi", unit = "focus" }), true);
         check(b.unit == nil, "대상이 남음");
     end);
 
     test("대상을 안 받는 펫 명령이면 대상이 사라진다", function()
-        local b = normalize({ type = Constants.PETACTION, value = "PET_FOLLOW", unit = "focus" }, true);
+        local b = normalize(nest({ type = Constants.PETACTION, value = "PET_FOLLOW", unit = "focus" }), true);
         check(b.unit == nil, "대상이 남음");
     end);
 
     test("대상을 받는 펫 명령은 대상을 지킨다", function()
-        local b = normalize({ type = Constants.PETACTION, value = "PET_ATTACK", unit = "focus" }, true);
+        local b = normalize(nest({ type = Constants.PETACTION, value = "PET_ATTACK", unit = "focus" }), true);
         check(b.unit == "focus", "대상이 사라짐");
     end);
 
@@ -327,7 +348,7 @@ return function(DebindPrivate)
 
     test("대상이 멀쩡하면 \"@\"는 남는다", function()
         local b = spell({ unit = "focus", checkedUnits = { ["@"] = true } });
-        check(type(b.checkedUnits["@"]) == "table", "멀쩡한 조건이 지워짐");
+        check(type(b.conditions.checkedUnits["@"]) == "table", "멀쩡한 조건이 지워짐");
         check(b.unitStates.focus == Constants.UNITSTATE_EXISTS, "대상 유닛 축에 안 얹힘");
     end);
 
@@ -342,24 +363,24 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("타입 때문에 대상을 잃으면 \"@\"도 같이 사라진다", function()
-        local b = normalize({
+        local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus",
             checkedUnits = { ["@"] = true },
-        }, true);
+        }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.conditions.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
     test("펫 명령 때문에 대상을 잃어도 \"@\"가 사라진다", function()
-        local b = normalize({
+        local b = normalize(nest({
             type = Constants.PETACTION, value = "PET_FOLLOW",
             unit = "focus",
             checkedUnits = { ["@"] = true },
-        }, true);
+        }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.conditions.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
@@ -367,11 +388,11 @@ return function(DebindPrivate)
     -- 그것을 가리켜서, **focus를 겨누고 켠 조건이 호버한 유닛 조건이 된다.** 판정에서
     -- 빠지는 것과 달리 이건 멀쩡히 동작하는 얼굴로 다른 일을 하므로 아무 데도 안 걸린다.
     test("hover 채워넣기가 대상 잃은 \"@\"를 물려받지 않는다", function()
-        local b = normalize({
+        local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus", hover = true,
             checkedUnits = { ["@"] = "help" },
-        }, true);
+        }), true);
         check(b.unit == "hover", "hover 채워넣기가 안 일어남 - 전제가 깨졌다");
         check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS,
             "\"@\"가 호버 유닛 조건으로 둔갑함");
@@ -406,7 +427,7 @@ return function(DebindPrivate)
 
     test("어긋나면 둘 다 남아서 마스크가 0이 된다", function()
         local b = atAnd("help", "harm");
-        check(b.checkedUnits["@"] ~= nil, "조용히 한쪽이 지워짐");
+        check(b.conditions.checkedUnits["@"] ~= nil, "조용히 한쪽이 지워짐");
         check(b.unitStates.focus == 0, "모순이 마스크에 안 드러남");
     end);
 
@@ -533,12 +554,12 @@ return function(DebindPrivate)
         local b = spell({ unit = "focus", checkedUnits = {
             target = true, mouseover = "help", tank = "harm", healer = false, ["@"] = true,
         } });
-        check(type(b.checkedUnits.target) == "table" and b.checkedUnits.target.reaction == nil,
+        check(type(b.conditions.checkedUnits.target) == "table" and b.conditions.checkedUnits.target.reaction == nil,
             "존재");
-        check(b.checkedUnits.mouseover.reaction == Constants.REACTION_HELP, "우호");
-        check(b.checkedUnits.tank.reaction == Constants.REACTION_HARM, "적대");
-        check(b.checkedUnits.healer == false, "부재는 그대로여야 한다");
-        check(type(b.checkedUnits["@"]) == "table", "\"@\"도 같이 올라와야 한다");
+        check(b.conditions.checkedUnits.mouseover.reaction == Constants.REACTION_HELP, "우호");
+        check(b.conditions.checkedUnits.tank.reaction == Constants.REACTION_HARM, "적대");
+        check(b.conditions.checkedUnits.healer == false, "부재는 그대로여야 한다");
+        check(type(b.conditions.checkedUnits["@"]) == "table", "\"@\"도 같이 올라와야 한다");
     end);
 
     -- 마이그레이션이 아직 안 돈 데이터(가져오기 도중, 손으로 고친 프로필)도 지나간다.
@@ -593,9 +614,9 @@ return function(DebindPrivate)
             forms = Constants.FORM_ALL * 2 + 1,
             bonusbars = Constants.BONUSBAR_ALL * 2 + 1,
         });
-        check(b.groups == Constants.GROUP_ALL, "groups가 안 잘림");
-        check(b.forms == Constants.FORM_ALL, "forms가 안 잘림");
-        check(b.bonusbars == Constants.BONUSBAR_ALL, "bonusbars가 안 잘림");
+        check(b.conditions.groups == Constants.GROUP_ALL, "groups가 안 잘림");
+        check(b.conditions.forms == Constants.FORM_ALL, "forms가 안 잘림");
+        check(b.conditions.bonusbars == Constants.BONUSBAR_ALL, "bonusbars가 안 잘림");
     end);
 
     -- 바인딩은 액션에서 다시 만들어질 뿐 되돌아 쓰이지 않는다. 이게 깨지면 정규화가

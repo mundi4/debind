@@ -317,28 +317,31 @@ return function(DebindPrivate, DebindStorage)
         -- this test never looked at the whitelist at all.
         local stored = LayerActions(1)[1];
         stored.somethingNobodyRegistered = true;
-        stored["$state3"] = true;
-        stored.combat = true;
+        stored.conditions = { ["$state3"] = true, combat = true,
+            -- 조건 표 **안쪽**도 명단이 있다(`CONDITION_TYPES`). 바깥만 검사하고 안쪽을
+            -- 통째로 복사하면 손으로 만든 문자열이 아무 이름이나 실어 보낼 수 있다.
+            somethingNobodyRegistered = true };
 
         local action = OneOn(DebindStorage.BuildExportPayload(), "F");
         check(action.somethingNobodyRegistered == nil, "모르는 필드가 나갔다");
-        check(action["$state3"] == true, "$상태 조건이 빠졌다");
-        check(action.combat == true, "combat이 빠졌다");
+        check(action.conditions["$state3"] == true, "$상태 조건이 빠졌다");
+        check(action.conditions.combat == true, "combat이 빠졌다");
     end);
 
     test("페이로드는 사본이라 고쳐도 프로필이 안 바뀐다", function()
         ResetProfile({
-            general = { { type = Constants.SPELL, value = 1, key = "F", checkedUnits = { target = 1 } } },
+            general = { { type = Constants.SPELL, value = 1, key = "F",
+                conditions = { checkedUnits = { target = 1 } } } },
         });
 
         local payload = DebindStorage.BuildExportPayload();
         local action = OneOn(payload, "F");
         action.value = 999;
-        action.checkedUnits.target = 999;
+        action.conditions.checkedUnits.target = 999;
 
         local stored = LayerActions(1)[1];
         check(stored.value == 1, "value가 프로필까지 바뀌었다");
-        check(stored.checkedUnits.target == 1, "테이블이 참조로 나갔다");
+        check(stored.conditions.checkedUnits.target == 1, "테이블이 참조로 나갔다");
     end);
 
     ---------------------------------------------------------------------------
@@ -466,7 +469,7 @@ return function(DebindPrivate, DebindStorage)
     test("참조한 상태만 매니페스트에 담긴다", function()
         StatefulProfile({ { type = Constants.SPELL, value = 1, key = "F" } });
         local stored = LayerActions(1)[1];
-        stored["$state3"] = true;
+        stored.conditions = { ["$state3"] = true };
 
         local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest, "매니페스트가 없다");
@@ -501,7 +504,7 @@ return function(DebindPrivate, DebindStorage)
     test("상태의 expr이 부르는 상태까지 따라간다", function()
         StatefulProfile({ { type = Constants.SPELL, value = 1, key = "F" } });
         local stored = LayerActions(1)[1];
-        stored["$state4"] = true;
+        stored.conditions = { ["$state4"] = true };
 
         local manifest = DebindStorage.BuildExportPayload().states;
         check(manifest["$state4"], "직접 참조");
@@ -511,7 +514,7 @@ return function(DebindPrivate, DebindStorage)
     test("매니페스트에 런타임 값은 안 들어간다", function()
         StatefulProfile({ { type = Constants.SPELL, value = 1, key = "F" } });
         local stored = LayerActions(1)[1];
-        stored["$state1"] = true;
+        stored.conditions = { ["$state1"] = true };
 
         local definition = DebindStorage.BuildExportPayload().states["$state1"];
         -- `BindDerivedTables` recomputes this from initialValue. It is a reading, not a setting.

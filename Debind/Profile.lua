@@ -15,21 +15,10 @@ local KEYS_TO_SAVE       = {
     name = true,
     icon = true,
     unit = true,
-    -- `hover` and `reactions` used to live here. They are `checkedUnits["hover"]` now -- the
-    -- hovered frame's unit is a unit, and keeping it in its own pair of fields meant one unit
-    -- described by two columns that only met in `Misc.BuildUnitStates`. `frameTypes` and
-    -- `ignoreHoverUnit` stay: those describe the **frame**, not the unit on it.
-    frameTypes = true,
-    groups = true,
-    known = true,
-    combat = true,
-    stealth = true,
-    forms = true,
-    bonusbars = true,
-    specialbar = true,
-    extrabar = true,
-    pet = true,
-    petbattle = true,
+    -- **조건은 전부 이 안에 있다.** 어느 이름이 조건인지는 `Constants.IsConditionField`가
+    -- 답하고, 그 표의 머리주석이 밖에 남은 것들이 왜 조건이 아닌지를 하나씩 적어둔다.
+    -- `hover`/`reactions`도 한때 여기 있었다. 지금은 `conditions.checkedUnits["hover"]`다.
+    conditions = true,
     priority = true,
     seq = true,
     -- **The key this action came in on**, and what quarantines it: while it is set the action is in
@@ -45,12 +34,6 @@ local KEYS_TO_SAVE       = {
     imported = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
-    checkedUnits = true,
-    ["$state1"] = true,
-    ["$state2"] = true,
-    ["$state3"] = true,
-    ["$state4"] = true,
-    ["$state5"] = true,
 };
 
 local LAYER_INFOS        = {
@@ -353,6 +336,38 @@ local function MigrateLayer(layerTbl, dbver)
                 action.checkedUnits.hover = folded;
                 action.hover = nil;
                 action.reactions = nil;
+            end
+        end
+    end
+
+    if (dbver <= 5) then
+        -- **아직 안 나간 단계다. 다음 저장 형식 변경도 7을 새로 열지 말고 여기 얹는다.**
+        -- 나간 적 없는 번호를 둘로 쪼개면 세상에 없는 중간 상태를 위한 단계가 생기고, 그
+        -- 단계는 아무 데이터도 안 만나면서 영원히 남는다. 6이 한 번 나가고 나면 그때부터
+        -- 7이다.
+        --
+        -- 조건을 액션 최상단에서 `conditions` 안으로 내린다.
+        --
+        -- **왜 옮기나.** 저장 필드 서른 개 중 열여덟이 조건이었고, 그 사이에 `unit`이 섞여
+        -- 앉아 있었다. `unit`은 겨누는 대상이고 `checkedUnits`는 언제 발동하느냐라, 이름만
+        -- 보면 한 식구인데 성격이 정반대다. 높이가 갈리면 구조가 그것을 말한다.
+        --
+        -- **무엇이 조건인지는 `Constants.IsConditionField` 하나가 답한다.** 여기 목록을 또
+        -- 적으면 그 표와 갈라지는 날이 온다. `$state1`~`5`도 그 함수가 같이 받는다.
+        --
+        -- 다시 돌아도 안전하다. 최상단에 조건 이름이 안 남아 있으면 아무것도 안 한다.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            for k, v in pairs(action) do
+                if (Constants.IsConditionField(k)) then
+                    action.conditions = action.conditions or {};
+                    action.conditions[k] = v;
+                end
+            end
+            if (action.conditions) then
+                for k in pairs(action.conditions) do
+                    action[k] = nil;
+                end
             end
         end
     end
@@ -700,9 +715,29 @@ function DebindPrivate.CleanUpDB()
         for _, action in layer:Enumerate() do
             for k in pairs(action) do
                 if (KEYS_TO_SAVE[k] == nil) then
-                    if (strsub(k, 1, 1) ~= "$") then
-                        action[k] = nil;
+                    action[k] = nil;
+                end
+            end
+
+            -- **면제가 한 겹 내려왔다.** `$`로 시작하는 키를 남겨두는 규칙은 커스텀 상태
+            -- 조건을 위한 것인데(2024-09-08 `d3118cf`, 2.0.4부터), 조건이 `conditions`
+            -- 안으로 들어가면서 액션 최상단에는 그런 키가 더 이상 없다. 위에서 면제를
+            -- 그대로 두면 `$`로 시작하기만 하면 무엇이든 최상단에 눌러앉는다.
+            --
+            -- 여기서 묻는 것은 `IsConditionField`이므로 재설계가 임의 이름을 풀어도
+            -- (`devdocs/redesigning-custom-states.md`) 이 줄은 안 바뀐다.
+            local conditions = action.conditions;
+            if (conditions) then
+                for k in pairs(conditions) do
+                    if (not Constants.IsConditionField(k)) then
+                        conditions[k] = nil;
                     end
+                end
+                -- **빈 표는 안 남긴다.** 있느냐를 게이트로 쓰는 자리가 여럿이라
+                -- (`IsConditionalBinding`이 `next` 하나로 답한다), 빈 표는 조건이 하나도
+                -- 없는 액션을 조건부로 만든다.
+                if (next(conditions) == nil) then
+                    action.conditions = nil;
                 end
             end
             if (action.priority == Constants.DEFAULT_PRIORITY) then

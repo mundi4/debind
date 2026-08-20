@@ -20,6 +20,7 @@ const fs = require("fs");
 const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "..");
+const NL = String.fromCharCode(10);
 
 // Fields it is *correct* for the two lists to disagree on. Adding one means leaving a line saying why.
 const EXPECTED_ONLY_IN_PROFILE = {
@@ -88,7 +89,35 @@ function readFieldTable(file, tableName) {
 const saved = readFieldTable("Debind/Profile.lua", "KEYS_TO_SAVE");
 const exported = readFieldTable("DebindStorage/Export.lua", "ACTION_FIELDS");
 
+// Conditions live one level down (`action.conditions`), so the two lists above agree on the single
+// name `conditions` and say nothing about what may be inside it. That is a second contract with the
+// same failure mode: a condition named on one side and not the other saves fine and travels as
+// nothing, arriving as an action missing one condition - which usually means "fires more often".
+//
+// `Constants.CONDITION_FIELDS` is what the addon calls a condition; `CONDITION_TYPES` is what the
+// wire carries. `$`-prefixed names are deliberately only on the wire side: `IsConditionField`
+// answers for those by prefix rather than by name, so there is nothing to list.
+const conditions = readFieldTable("Debind/Constants.lua", "Constants.CONDITION_FIELDS");
+const conditionTypes = readFieldTable("DebindStorage/Export.lua", "CONDITION_TYPES");
+
 const problems = [];
+
+for (const field of conditions) {
+    if (conditionTypes.has(field)) continue;
+    problems.push(
+        `조건인데 전송 포맷에 없다: ${field}` + NL +
+        `    Export.lua의 CONDITION_TYPES에 타입과 함께 넣을 것.`
+    );
+}
+
+for (const field of conditionTypes) {
+    if (conditions.has(field)) continue;
+    if (field.startsWith("$")) continue;
+    problems.push(
+        `전송 포맷은 싣는데 조건이 아니다: ${field}` + NL +
+        `    Constants.lua의 CONDITION_FIELDS에 없는 이름은 CleanUpDB가 conditions에서 걷어낸다.`
+    );
+}
 
 for (const field of saved) {
     if (exported.has(field)) continue;
@@ -134,5 +163,5 @@ if (problems.length > 0) {
 
 process.stdout.write(
     `익스포트 필드 ${exported.size}개가 KEYS_TO_SAVE와 맞는다 ` +
-    `(안 보내는 것 ${Object.keys(EXPECTED_ONLY_IN_PROFILE).length}개 제외).\n`
+    `(안 보내는 것 ${Object.keys(EXPECTED_ONLY_IN_PROFILE).length}개 제외), 조건 ${conditions.size}개가 CONDITION_TYPES와 맞는다.\n`
 );

@@ -1283,6 +1283,9 @@ do
 	--- Stands in for a caller that passes nothing, so the reads below need no guard. Never
 	--- written to: the entry point only reads fields off it.
 	local EMPTY_OPTS = {};
+	--- 조건이 하나도 없는 액션을 위한 빈 표. `EMPTY_OPTS`를 같이 쓰지 않는 것은 그 이름이
+	--- 옵션을 말하기 때문이다 - 둘 다 빈 표라는 것은 우연이다.
+	local EMPTY_CONDITIONS = {};
 
 	--- Drawing order for the group condition, which is also `Constants.GROUP_*`'s bit order.
 	--- Built once: it used to be a table literal inside the loop's `ipairs`, so a hover allocated
@@ -1411,6 +1414,9 @@ do
 
 		local isInactive = not suppressInactive and DebindPrivate.IsInactiveAction(action);
 		local hasIssues = GetIssue() ~= nil;
+		-- 조건은 액션 최상단이 아니라 이 표 안이다(`Constants.CONDITION_FIELDS`). 표가 없으면
+		-- 그릴 조건이 하나도 없다는 뜻이라, 아래 갈래들이 전부 저절로 비켜간다.
+		local conditions = action.conditions or EMPTY_CONDITIONS;
 
 		--- A condition that is only on or off, drawn whole.
 		---
@@ -1490,13 +1496,13 @@ do
 		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
 		-- 저장에는 끈 값이 남아 있다. 여기는 **걸린 조건**을 그리는 자리라 그걸 접고 본다.
 		local hoverCondition = DebindPrivate.UnitConditionForBinding(
-			action.checkedUnits and action.checkedUnits.hover);
+			conditions.checkedUnits and conditions.checkedUnits.hover);
 		if (hoverCondition ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
 			if (hoverCondition) then
 				local reactions = hoverCondition.reaction or Constants.REACTION_ALL;
-				local frameTypes = action.frameTypes or Constants.FRAMETYPE_ALL;
+				local frameTypes = conditions.frameTypes or Constants.FRAMETYPE_ALL;
 
 				addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
 					FlagNames(reactions, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
@@ -1523,9 +1529,9 @@ do
 			end
 		end
 
-		if (action.checkedUnits) then
+		if (conditions.checkedUnits) then
 			local first = true;
-			for checkedUnit, stored in pairs(action.checkedUnits) do
+			for checkedUnit, stored in pairs(conditions.checkedUnits) do
 				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"hover"`는 위 호버 묶음이 그렸다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
 				if (value ~= nil and checkedUnit ~= "hover"
@@ -1567,16 +1573,16 @@ do
 			end
 		end
 
-		if (action.groups ~= nil) then
+		if (conditions.groups ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
-			if (action.groups == 0) then
+			if (conditions.groups == 0) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
 				for i = 1, #GROUP_TYPES do
 					local flag = Constants["GROUP_" .. GROUP_TYPES[i]];
-					if (bit.band(action.groups, flag) == flag) then
+					if (bit.band(conditions.groups, flag) == flag) then
 						tinsert(_lines, LLL["GROUP_" .. GROUP_TYPES[i]]);
 					end
 				end
@@ -1591,22 +1597,22 @@ do
 		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
 		-- menu toggles `known` between true and nil rather than inverting it, so there is no
 		-- "does not know it" row to write and `CONDITION_KNOWN_NO` does not exist.
-		if (action.known) then
+		if (conditions.known) then
 			local error = hasIssues and GetIssue("known");
 			addLabelLine(tooltip, LLL["CONDITION_KNOWN"]);
 			addValueLine(tooltip, LLL["CONDITION_KNOWN_YES"], error);
 		end
 
-		if (action.forms ~= nil) then
+		if (conditions.forms ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
-			if (action.forms == 0) then
+			if (conditions.forms == 0) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("forms");
 				for i = 0, 10 do
 					local flag = 2 ^ i;
-					if (bit.band(action.forms, flag) ~= 0) then
+					if (bit.band(conditions.forms, flag) ~= 0) then
 						if (i == 0) then
 							tinsert(_lines, format("[form:%d] (%s)", i, LLL["NO_SHAPESHIFT"]));
 						else
@@ -1624,16 +1630,16 @@ do
 			end
 		end
 
-		if (action.bonusbars ~= nil) then
+		if (conditions.bonusbars ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
-			if (action.bonusbars == 0) then
+			if (conditions.bonusbars == 0) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("bonusbars");
 				for i = 0, Constants.MAX_BONUSBAR_OFFSET do
 					local flag = 2 ^ i;
-					if (bit.band(action.bonusbars, flag) ~= 0) then
+					if (bit.band(conditions.bonusbars, flag) ~= 0) then
 						local label = GetActionBarTypeLabel(i);
 						if (label) then
 							tinsert(_lines, label);
@@ -1651,9 +1657,9 @@ do
 
 		for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
 			local state = "$state" .. stateIndex;
-			if (action[state] ~= nil) then
+			if (conditions[state] ~= nil) then
 				addLabelLine(tooltip, format(LLL["CUSTOM_STATE_NUM"], stateIndex));
-				addValueLine(tooltip, action[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
+				addValueLine(tooltip, conditions[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
 			end
 		end
 

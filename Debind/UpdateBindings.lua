@@ -895,9 +895,9 @@ function UpdateBindingsMap()
                 -- of `KeyMap` -- so it reaches neither the solver nor this file. This is the
                 -- backstop for the two intersections disagreeing, and now it costs nothing.
                 local unreachable;
-                if (binding.checkedUnits) then
+                if (binding.conditions.checkedUnits) then
                     wipe(_mergedUnits);
-                    for k, v in pairs(binding.checkedUnits) do
+                    for k, v in pairs(binding.conditions.checkedUnits) do
                         if (k == "@") then
                             k = binding.unit;
                         end
@@ -1009,9 +1009,9 @@ function UpdateBindingsMap()
                         -- frame record can answer it. It carries its own "is there a frame" guard
                         -- in the snippet for that reason -- there is no `t.hover` in front of it
                         -- any more.
-                        if (binding.hover and binding.frameTypes
-                                and binding.frameTypes ~= Constants.FRAMETYPE_ALL) then
-                            appendKeyValue("frameTypes", binding.frameTypes);
+                        if (binding.hover and binding.conditions.frameTypes
+                                and binding.conditions.frameTypes ~= Constants.FRAMETYPE_ALL) then
+                            appendKeyValue("frameTypes", binding.conditions.frameTypes);
 
                             -- **레코드 단위로, 키 잡는 레코드에만.** `DirtyFlags.unitframe`은
                             -- *유닛은 그대로인데 프레임이 바뀜*을 뜻하고, 상태 루프에서 그것에
@@ -1026,18 +1026,18 @@ function UpdateBindingsMap()
                             end
                         end
 
-                        if (binding.groups ~= nil and binding.groups ~= Constants.GROUP_ALL) then
-                            appendKeyValue("groups", binding.groups);
+                        if (binding.conditions.groups ~= nil and binding.conditions.groups ~= Constants.GROUP_ALL) then
+                            appendKeyValue("groups", binding.conditions.groups);
                             _updateFlags.group = true;
                         end
 
-                        if (binding.combat ~= nil) then
-                            appendKeyValue("combat", binding.combat);
+                        if (binding.conditions.combat ~= nil) then
+                            appendKeyValue("combat", binding.conditions.combat);
                             _updateFlags.combat = true;
                         end
 
-                        if (binding.stealth ~= nil) then
-                            appendKeyValue("stealth", binding.stealth);
+                        if (binding.conditions.stealth ~= nil) then
+                            appendKeyValue("stealth", binding.conditions.stealth);
                             _updateFlags.stealth = true;
                         end
 
@@ -1045,39 +1045,39 @@ function UpdateBindingsMap()
                         -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을
                         -- `States`의 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이
                         -- 두 군데 적힌다.
-                        if (binding.known ~= nil) then
+                        if (binding.conditions.known ~= nil) then
                             local stateValue = "[known:"..binding.value.."]";
                             appendKeyValue("known", stateValue);
                             _updateFlags[stateValue] = true;
                         end
 
-                        if (binding.forms ~= nil and binding.forms ~= Constants.FORM_ALL) then
-                            appendKeyValue("forms", binding.forms);
+                        if (binding.conditions.forms ~= nil and binding.conditions.forms ~= Constants.FORM_ALL) then
+                            appendKeyValue("forms", binding.conditions.forms);
                             _updateFlags.form = true;
                         end
 
-                        if (binding.bonusbars ~= nil and binding.bonusbars ~= Constants.BONUSBAR_ALL) then
-                            appendKeyValue("bonusbars", binding.bonusbars);
+                        if (binding.conditions.bonusbars ~= nil and binding.conditions.bonusbars ~= Constants.BONUSBAR_ALL) then
+                            appendKeyValue("bonusbars", binding.conditions.bonusbars);
                             _updateFlags.bonusbar = true;
                         end
 
-                        if (binding.specialbar ~= nil) then
-                            appendKeyValue("specialbar", binding.specialbar);
+                        if (binding.conditions.specialbar ~= nil) then
+                            appendKeyValue("specialbar", binding.conditions.specialbar);
                             _updateFlags.specialbar = true;
                         end
 
-                        if (binding.extrabar ~= nil) then
-                            appendKeyValue("extrabar", binding.extrabar);
+                        if (binding.conditions.extrabar ~= nil) then
+                            appendKeyValue("extrabar", binding.conditions.extrabar);
                             _updateFlags.extrabar = true;
                         end
 
-                        if (binding.pet ~= nil) then
-                            appendKeyValue("pet", binding.pet);
+                        if (binding.conditions.pet ~= nil) then
+                            appendKeyValue("pet", binding.conditions.pet);
                             _updateFlags.pet = true;
                         end
 
-                        if (binding.petbattle ~= nil) then
-                            appendKeyValue("petbattle", binding.petbattle);
+                        if (binding.conditions.petbattle ~= nil) then
+                            appendKeyValue("petbattle", binding.conditions.petbattle);
                             _updateFlags.petbattle = true;
                         end
 
@@ -1088,7 +1088,7 @@ function UpdateBindingsMap()
                         --     _measuredUnitAxes[binding.checkUnitExists] = true;
                         -- end
 
-                        if (binding.checkedUnits) then
+                        if (binding.conditions.checkedUnits) then
                             -- `_mergedUnits` was filled above, before the record was created --
                             -- "@" already resolved onto the unit it names and merged with any
                             -- explicit condition on that same unit, so that the two cannot write
@@ -1186,7 +1186,7 @@ function UpdateBindingsMap()
                         local customStatesTblCreated;
                         for stateIndex = 1, Constants.MAX_NUM_CUSTOM_STATES do
                             local state = "$state" .. stateIndex;
-                            local v = binding[state];
+                            local v = binding.conditions[state];
                             if (v ~= nil) then
                                 if (addCustomState(state)) then
                                     if (not customStatesTblCreated) then

@@ -59,6 +59,44 @@ Constants.TYPES_WITH_UNIT                 = {
 };
 
 
+--- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 산다.
+---
+--- 조건은 **언제 발동하느냐**를 말한다. 목록 밖에 남은 것들은 각자 다른 것을 말한다:
+---
+---   unit                 액션이 **겨누는 대상**. 매크로의 `[@unit]`이라 동작이 바뀐다.
+---   ignoreHoverUnit      `binding.unit`을 빈 문자열로 두느냐 `"hover"`로 채우느냐를 가른다
+---                        (`Misc.lua`). 겨누는 것을 바꾸지 언제 나가는지를 바꾸지 않는다.
+---   keepInBindingContext 게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다.
+---   priority, seq        발동 순서. imported는 이 서랍의 사정이다.
+---   type, value, key, name, icon
+---
+--- **달러로 시작하는 키는 이 표에 없어도 조건이다.** 커스텀 상태가 그 이름으로 저장되고
+--- (`CleanUpDB`의 면제와 같은 규칙), 재설계가 슬롯 다섯을 임의 이름으로 푼다
+--- (`devdocs/redesigning-custom-states.md`). 다섯 줄만 적어두면 그날 조용히 조건이 아니게
+--- 된다. 그래서 묻는 것은 `IsConditionField`이고, 이 표를 직접 보지 말 것.
+Constants.CONDITION_FIELDS = {
+    checkedUnits = true,
+    frameTypes = true,
+    groups = true,
+    forms = true,
+    bonusbars = true,
+    specialbar = true,
+    extrabar = true,
+    combat = true,
+    stealth = true,
+    known = true,
+    pet = true,
+    petbattle = true,
+};
+
+--- 이 이름이 조건 필드인가. 커스텀 상태 이름까지 같이 답한다.
+function Constants.IsConditionField(name)
+    if (Constants.CONDITION_FIELDS[name]) then
+        return true;
+    end
+    return type(name) == "string" and strsub(name, 1, 1) == "$";
+end
+
 Constants.MAX_NUM_CUSTOM_STATES = 5;
 
 Constants.CUSTOM_STATE_INDICES  = {};

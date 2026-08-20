@@ -219,6 +219,26 @@ local SETSTATE_MODE_FLAGS = {
 local function FieldAllowed(name, value)
     local expected = DebindStorage.ACTION_FIELDS[name];
     if (not expected) then
+        return false;
+    end
+    return strfind(expected, luatype(value), 1, true) ~= nil;
+end
+
+--- The same filter, one level down, for what may sit inside `conditions`.
+---
+--- **The nesting made this necessary rather than optional.** While the conditions were spread
+--- across the action, the whitelist above saw each of them by name; folded into one table they
+--- would arrive as a single `conditions = "table"` that nothing looked inside, and a hand-made
+--- string could put anything in there. `CleanUpDB` sweeps it at the next logout, which is a whole
+--- session of an unknown key riding on a real action.
+---
+--- `$`-prefixed names pass unlisted as booleans, the same escape the export copies out through:
+--- a custom state condition is stored under its own name and the redesign turns those into
+--- arbitrary ones. They still have to be booleans -- `$state1..5` are declared as such and an
+--- arbitrary name does not make the value freer.
+local function ConditionAllowed(name, value)
+    local expected = DebindStorage.CONDITION_TYPES[name];
+    if (not expected) then
         return strsub(name, 1, 1) == "$" and luatype(value) == "boolean";
     end
     return strfind(expected, luatype(value), 1, true) ~= nil;
@@ -332,6 +352,22 @@ local function BuildAction(source)
         -- fall through to `v`.
         if (luatype(k) == "string" and FieldAllowed(k, v)) then
             action[k] = luatype(v) == "table" and CopyTable(v) or v;
+        end
+    end
+
+    -- **The conditions table is filtered after it is copied, not instead.** The loop above is
+    -- still the only writer of `action`; this walks what it just put there.
+    local conditions = action.conditions;
+    if (conditions) then
+        for k, v in pairs(conditions) do
+            if (luatype(k) ~= "string" or not ConditionAllowed(k, v)) then
+                conditions[k] = nil;
+            end
+        end
+        -- An empty table is not "no conditions" downstream, it is an action that reads as
+        -- conditional with nothing on it (`IsConditionalBinding`).
+        if (next(conditions) == nil) then
+            action.conditions = nil;
         end
     end
 

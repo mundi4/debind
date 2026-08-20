@@ -506,7 +506,7 @@ return function(DebindPrivate)
         } };
         MigrateLayer(layer, 4);
 
-        local c = layer[1].checkedUnits;
+        local c = layer[1].conditions.checkedUnits;
         check(type(c.target) == "table" and c.target.reaction == nil,
             "\"존재\"가 빈 테이블이 아님 - 제약하는 축이 없다는 뜻이어야 한다");
         check(type(c.focus) == "table" and c.focus.reaction == Constants.REACTION_HELP,
@@ -522,7 +522,7 @@ return function(DebindPrivate)
         local layer = { { key = "A", type = 1, value = 1, unit = "focus",
             checkedUnits = { ["@"] = "help" } } };
         MigrateLayer(layer, 4);
-        check(layer[1].checkedUnits["@"].reaction == Constants.REACTION_HELP, "\"@\"가 안 옮겨짐");
+        check(layer[1].conditions.checkedUnits["@"].reaction == Constants.REACTION_HELP, "\"@\"가 안 옮겨짐");
     end);
 
     -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
@@ -532,14 +532,14 @@ return function(DebindPrivate)
             checkedUnits = { focus = "help", tank = false } } };
         MigrateLayer(layer, 4);
         MigrateLayer(layer, 4);
-        check(layer[1].checkedUnits.focus.reaction == Constants.REACTION_HELP, "두 번째에 뭉개짐");
-        check(layer[1].checkedUnits.tank.exists == false, "두 번째에 뭉개짐");
+        check(layer[1].conditions.checkedUnits.focus.reaction == Constants.REACTION_HELP, "두 번째에 뭉개짐");
+        check(layer[1].conditions.checkedUnits.tank.exists == false, "두 번째에 뭉개짐");
     end);
 
     test("dbver 5 leaves actions without unit conditions alone", function()
         local layer = { { key = "A", type = 1, value = 1 } };
         MigrateLayer(layer, 4);
-        check(layer[1].checkedUnits == nil, "없던 표가 생김");
+        check(layer[1].conditions == nil, "없던 표가 생김");
     end);
 
     ---------------------------------------------------------------------------
@@ -648,7 +648,7 @@ return function(DebindPrivate)
         local label, _, wantMask, wantCond = case[1], case[2], case[3], case[4];
         local binding = bindingFor(action);
         local gotMask = binding.unitStates and binding.unitStates.target;
-        local gotCond = binding.checkedUnits and binding.checkedUnits.target;
+        local gotCond = binding.conditions.checkedUnits and binding.conditions.checkedUnits.target;
 
         check(gotMask == wantMask, ("%s %s: 마스크가 %s여야 하는데 %s"):format(
             label, when, tostring(wantMask), tostring(gotMask)));
@@ -742,7 +742,7 @@ return function(DebindPrivate)
 
         local binding = bindingFor(action);
         local gotMask = binding.unitStates and binding.unitStates.hover;
-        local gotCond = binding.checkedUnits and binding.checkedUnits.hover;
+        local gotCond = binding.conditions.checkedUnits and binding.conditions.checkedUnits.hover;
 
         check(gotMask == wantMask, ("%s %s: 마스크가 %s여야 하는데 %s"):format(
             label, when, tostring(wantMask), tostring(gotMask)));
@@ -780,7 +780,7 @@ return function(DebindPrivate)
 
         check(layer[1].hover == nil, "옛 hover 필드가 남음");
         check(layer[1].reactions == nil, "옛 reactions 필드가 남음");
-        check(layer[1].checkedUnits.hover.reaction == Constants.REACTION_HELP,
+        check(layer[1].conditions.checkedUnits.hover.reaction == Constants.REACTION_HELP,
             "반응이 유닛 조건으로 안 옮겨감");
     end);
 
@@ -807,6 +807,65 @@ return function(DebindPrivate)
         local after = stateFor(layer[1]);
 
         check(before.target == after.target, "모르는 값의 뜻이 마이그레이션으로 바뀜");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 6: 조건이 `conditions` 안으로 내려간다
+    --
+    -- 저장 필드 서른 개 중 열여덟이 조건이었고 `unit`이 그 사이에 섞여 앉아 있었다.
+    -- `unit`은 겨누는 대상이고 조건은 언제 발동하느냐라, 이름만 보면 한 식구인데 성격이
+    -- 정반대다.
+    --
+    -- **여기서 조건 목록을 따로 적지 않는다.** `Constants.IsConditionField`가 유일한 답이고,
+    -- 스펙이 자기 목록을 들면 그 표가 갈리는 날 스펙만 초록으로 남는다.
+    ---------------------------------------------------------------------------
+
+    test("dbver 6 moves every condition into conditions", function()
+        local layer = { {
+            key = "A", type = Constants.SPELL, value = 100, unit = "target", priority = 2,
+            combat = true, groups = 3, checkedUnits = { target = {} }, ["$state2"] = false,
+        } };
+        MigrateLayer(layer, 5);
+        local action = layer[1];
+
+        check(action.conditions ~= nil, "조건 표가 안 생김");
+        check(action.conditions.combat == true, "combat이 안 옮겨짐");
+        check(action.conditions.groups == 3, "groups가 안 옮겨짐");
+        check(action.conditions["$state2"] == false, "커스텀 상태가 안 옮겨짐 - false는 nil이 아니다");
+        check(type(action.conditions.checkedUnits) == "table", "유닛 조건이 안 옮겨짐");
+
+        check(action.combat == nil and action.groups == nil and action.checkedUnits == nil
+            and action["$state2"] == nil, "최상단에 조건이 남음");
+        -- 조건이 아닌 것은 그대로 있어야 한다. 겨누는 대상까지 같이 내려가면 매크로가
+        -- 겨눌 곳을 잃는다.
+        check(action.unit == "target" and action.priority == 2 and action.value == 100,
+            "조건이 아닌 필드가 같이 내려갔다");
+    end);
+
+    test("dbver 6 leaves an action with no conditions without a table", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 100 } };
+        MigrateLayer(layer, 5);
+        -- 빈 표는 조건이 하나도 없는 액션을 조건부로 만든다(`IsConditionalBinding`), 그리고
+        -- 조건부는 발동 순서에서 무조건보다 앞이다.
+        check(layer[1].conditions == nil, "없던 표가 생김");
+    end);
+
+    test("dbver 6 is safe to run twice", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 100, combat = true } };
+        MigrateLayer(layer, 5);
+        MigrateLayer(layer, 5);
+        check(layer[1].conditions.combat == true, "두 번째에 뭉개짐");
+    end);
+
+    test("dbver 6 runs after the unit-mask step, not before it", function()
+        -- 순서가 뒤집히면 `<= 4`가 평면 `checkedUnits`를 찾다가 못 찾고, 옛 스칼라가 표로
+        -- 안 올라간 채 조건 표 안에 눌러앉는다. 그 뒤로는 다시 돌 기회가 없다.
+        local layer = { { key = "A", type = Constants.SPELL, value = 100,
+            checkedUnits = { target = "help" } } };
+        MigrateLayer(layer, 4);
+        local cond = layer[1].conditions.checkedUnits.target;
+        check(type(cond) == "table" and cond.reaction == Constants.REACTION_HELP,
+            "옛 스칼라가 축별 표로 안 올라왔다");
     end);
 
     ---------------------------------------------------------------------------
@@ -842,13 +901,13 @@ return function(DebindPrivate)
         DebindPrivate.InitDB();
 
         local db = _G.DebindVars;
-        check(type(db.shared.GENERAL[1].checkedUnits.target) == "table",
+        check(type(db.shared.GENERAL[1].conditions.checkedUnits.target) == "table",
             "공유 GENERAL이 안 올라감");
-        check(type(db.shared.classes.DRUID[0][1].checkedUnits.focus) == "table",
+        check(type(db.shared.classes.DRUID[0][1].conditions.checkedUnits.focus) == "table",
             "공유 클래스 레이어가 안 올라감");
-        check(type(db.shared.classes.DRUID[2][1].checkedUnits.tank) == "table",
+        check(type(db.shared.classes.DRUID[2][1].conditions.checkedUnits.tank) == "table",
             "특성이 0이 아닌 레이어가 안 올라감");
-        check(type(db.characters[GUID].layers[0][1].checkedUnits.mouseover) == "table",
+        check(type(db.characters[GUID].layers[0][1].conditions.checkedUnits.mouseover) == "table",
             "캐릭터별 레이어가 안 올라감");
         check(db.dbver == Constants.DB_VERSION, "dbver가 안 올라감");
     end);
@@ -873,8 +932,8 @@ return function(DebindPrivate)
         local action = layer[1];
         check(action.checkedUnit == nil and action.checkedUnitValue == nil,
             "dbver 1 단계가 안 돎 - 전제가 깨졌다");
-        check(type(action.checkedUnits.focus) == "table"
-            and action.checkedUnits.focus.reaction == Constants.REACTION_HELP,
+        check(type(action.conditions.checkedUnits.focus) == "table"
+            and action.conditions.checkedUnits.focus.reaction == Constants.REACTION_HELP,
             "dbver 1이 만든 값을 dbver 5 단계가 못 받음");
         check(action.seq == 1, "dbver 2 단계가 건너뛰어짐");
     end);
@@ -887,16 +946,16 @@ return function(DebindPrivate)
             } };
             MigrateLayer(layer, from);
             local once = {
-                target = layer[1].checkedUnits.target.reaction,
-                tank = layer[1].checkedUnits.tank,
-                at = layer[1].checkedUnits["@"].reaction,
+                target = layer[1].conditions.checkedUnits.target.reaction,
+                tank = layer[1].conditions.checkedUnits.tank,
+                at = layer[1].conditions.checkedUnits["@"].reaction,
                 seq = layer[1].seq,
             };
 
             MigrateLayer(layer, from);
-            check(layer[1].checkedUnits.target.reaction == once.target
-                and layer[1].checkedUnits.tank == once.tank
-                and layer[1].checkedUnits["@"].reaction == once.at
+            check(layer[1].conditions.checkedUnits.target.reaction == once.target
+                and layer[1].conditions.checkedUnits.tank == once.tank
+                and layer[1].conditions.checkedUnits["@"].reaction == once.at
                 and layer[1].seq == once.seq,
                 ("dbver %d에서 두 번째 실행이 값을 바꿈"):format(from));
         end
@@ -918,7 +977,7 @@ return function(DebindPrivate)
 
         DebindPrivate.RunLegacyMigration();
 
-        check(_G.DebindVars.shared.GENERAL[1].checkedUnits.target.reaction
+        check(_G.DebindVars.shared.GENERAL[1].conditions.checkedUnits.target.reaction
             == Constants.REACTION_HELP, "가져온 쪽이 안 올라감 - 전제가 깨졌다");
         check(old.GENERAL[1].checkedUnits.target == "help",
             "옛 파일의 조건이 새 형식으로 덮어써짐 - 롤백이 깨진다");

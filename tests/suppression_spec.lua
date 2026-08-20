@@ -104,8 +104,29 @@ return function(DebindPrivate)
     -- 3. 다른 갈래는 건드리지 않는다
     ---------------------------------------------------------------------------
 
+    --- 스펙 리터럴을 **프로덕션과 같은 모양**으로 세운다: 조건은 `conditions` 안에 산다
+    --- (`Profile.lua`의 `KEYS_TO_SAVE`, `Misc.GetBindingInfoForAction`).
+    ---
+    --- 리터럴은 평평하게 쓴다. 자리마다 `conditions = { ... }`를 손으로 적으면 한 줄
+    --- 빠뜨렸을 때 그 조건이 조용히 사라지고, **조건이 빠진 액션은 넓어진다** - 스펙이 잡아야
+    --- 할 바로 그 종류의 잘못이 스펙 안에서 난다.
+    ---
+    --- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`를 그대로 부르므로
+    --- 축이 하나 늘어도 이 함수는 안 바뀌고, 프로덕션과 갈릴 자리가 없다.
+    local function nest(action)
+        local conditions = action.conditions;
+        for k, v in pairs(action) do
+            if (Constants.IsConditionField(k)) then
+                conditions = conditions or {};
+                conditions[k] = v;
+                action[k] = nil;
+            end
+        end
+        action.conditions = conditions;
+        return action;
+    end
     test("억제는 조건 갈래에 안 닿는다", function()
-        local action = { type = Constants.SPELL, value = 585, key = "T", groups = 0 };
+        local action = nest({ type = Constants.SPELL, value = 585, key = "T", groups = 0 });
         check(GetBindingIssue(action, nil, "unreachable") == Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED,
             "도달 불가를 끄면서 groups 검사까지 같이 껐다");
     end);

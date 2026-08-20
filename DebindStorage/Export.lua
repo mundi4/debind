@@ -74,16 +74,33 @@ local ACTION_FIELDS      = {
     -- A file id, or a path for the ones that still carry one.
     icon = "number|string",
     unit = "string",
+    priority = "number",
+    keepInBindingContext = "boolean",
+    ignoreHoverUnit = "boolean",
+    -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
+    -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
+    conditions = "table",
+};
+
+--- What may sit inside `conditions`, by name and type. **The wire is untrusted**, so the
+--- receiving side filters one level deeper than it used to (`Import.lua`'s `FieldAllowed`).
+---
+--- `known` is asked-or-not-asked, which is `true` or absent -- not the third value the booleans
+--- around it have, because the condition is about the action's own spell and a `false` would say
+--- "cast it only while it is unlearned". The type stays `boolean` because this list filters by
+--- name and type and has no way to say which of the two, and a sender on some other build can put
+--- a `false` on the wire; `GetBindingInfoForAction` is where it dies.
+---
+--- **A `$`-prefixed name passes unlisted, as a boolean.** Custom state conditions are stored
+--- under their own name and the redesign turns the five slots into arbitrary ones
+--- (`devdocs/redesigning-custom-states.md`); listing five and stopping there would drop every
+--- named state the day it lands.
+local CONDITION_TYPES    = {
     -- Bit masks.
     frameTypes = "number",
     groups = "number",
     forms = "number",
     bonusbars = "number",
-    -- **Asked or not asked, which is `true` or absent.** Not the third value the booleans below
-    -- it have: the condition is about the action's own spell, so a `false` would say "cast it
-    -- only while it is unlearned" and names no state. The type here stays `boolean` because this
-    -- list filters by name and type and has no way to say which of the two, and a sender on some
-    -- other build can put a `false` on the wire; `GetBindingInfoForAction` is where it dies.
     known = "boolean",
     combat = "boolean",
     stealth = "boolean",
@@ -91,9 +108,6 @@ local ACTION_FIELDS      = {
     extrabar = "boolean",
     pet = "boolean",
     petbattle = "boolean",
-    priority = "number",
-    keepInBindingContext = "boolean",
-    ignoreHoverUnit = "boolean",
     checkedUnits = "table",
     ["$state1"] = "boolean",
     ["$state2"] = "boolean",
@@ -105,6 +119,7 @@ local ACTION_FIELDS      = {
 --- Read by `Import.lua`, which filters the incoming table through the **same** list. One side a
 --- whitelist and the other a blacklist is what let a wire field nobody named ride into the profile.
 DebindStorage.ACTION_FIELDS = ACTION_FIELDS;
+DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 
 --- Which fields of a custom state definition describe the state, as opposed to what it happens
 --- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it from
@@ -130,11 +145,11 @@ local STATE_FIELDS       = {
 local function CopyFields(source, allowed)
     local copy = {};
     for k, v in pairs(source) do
-        -- `$`-prefixed keys pass whether or not they are listed. That is the same escape hatch
-        -- `CleanUpDB` uses (`Profile.lua`) -- custom state conditions are stored under their own
-        -- name, and the redesign turns `$state1..5` into arbitrary names (`devdocs/redesigning-custom-states.md`).
-        -- Listing five and stopping there would silently drop every named state the day it lands.
-        if (allowed[k] or strsub(k, 1, 1) == "$") then
+        -- The `$` escape that used to sit here is one level down now, in `CONDITION_TYPES`.
+        -- Custom state conditions are stored under their own name, and those names live inside
+        -- `conditions` -- nothing at the top of an action starts with `$` any more, so an escape
+        -- here would only let through whatever else happened to.
+        if (allowed[k]) then
             if (luatype(v) == "table") then
                 copy[k] = CopyTable(v);
             else
@@ -253,9 +268,13 @@ local function CollectStateNames(actions, found)
     for i = 1, #actions do
         local action = actions[i];
 
-        for k in pairs(action) do
-            if (strsub(k, 1, 1) == "$") then
-                found[k] = true;
+        -- 조건 표 안이다. 액션 최상단을 훑던 자리인데, `dbver <= 5`가 조건을 한 겹
+        -- 내리면서 거기엔 `$` 이름이 하나도 안 남는다.
+        if (action.conditions) then
+            for k in pairs(action.conditions) do
+                if (strsub(k, 1, 1) == "$") then
+                    found[k] = true;
+                end
             end
         end
 
