@@ -20,7 +20,6 @@ local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
 local GetMountInfoByID                   = C_MountJournal.GetMountInfoByID;
-local IsConditionalAction                = DebindPrivate.IsConditionalAction;
 
 local BindingDriver                      = CreateFrame("Frame", DEBUG and "DebindBindingDriver" or nil, nil, "SecureHandlerBaseTemplate,SecureHandlerAttributeTemplate");
 BindingDriver:SetAttribute("unit", "player");
@@ -130,9 +129,23 @@ do
 	dump("ActiveActions", ActiveActions);
 	dump("BindingInfoToActionMap", BindingInfoToActionMap);
 
-	-- 순서 규칙 자체는 Ordering.lua에 있다. binding 테이블이 그대로 레코드 역할을 한다
-	-- (priority/hover는 GetBindingInfoForAction이, layerRank/index/isConditional은 아래 루프가 채운다).
-	local BindingSortComparison = DebindPrivate.CompareActionOrder;
+	--- 어느 바인딩이 이 키에서 몇 번째로 서는지. `Misc.lua`의 `MakeOrderRecord`가 채우고,
+	--- 규칙 자체는 `Ordering.lua`에 있다.
+	---
+	--- **바인딩 옆에 두고 바인딩 안에 안 넣는다.** 바인딩은 액션 하나의 순수 파생이라,
+	--- 프로필 안에서의 자리처럼 액션만 봐서는 안 나오는 값이 거기 앉으면 그 성질이 깨진다.
+	--- 예전에는 아래 루프가 `layerRank`/`seq`/`isConditional`을 바인딩에 직접 써넣었고,
+	--- 아무도 그것을 지우지 않아서 다음 리빌드까지 남아 있었다.
+	---
+	--- 키가 약해서(weak) 바인딩이 죽으면 같이 사라진다. `wipe`하지 않는 것은 레코드 표를
+	--- 재사용하기 위해서다 - 이 함수는 리빌드마다 모든 바인딩을 도는데, 예전에는 여기서
+	--- 아무것도 할당하지 않았다.
+	local Placements = setmetatable({}, { __mode = "k" });
+	local CompareActionOrder = DebindPrivate.CompareActionOrder;
+
+	local function BindingSortComparison(lhs, rhs)
+		return CompareActionOrder(Placements[lhs], Placements[rhs]);
+	end
 
 	function DebindPrivate.BuildKeyMap()
 		wipe(KeyMap);
@@ -165,9 +178,10 @@ do
 					local binding = DebindPrivate.GetBindingInfoForAction(action);
 					BindingInfoToActionMap[binding] = action;
 
-					binding.layerRank = layerRank;
-					binding.seq = action.seq;
-					binding.isConditional = IsConditionalAction(action);
+					-- 활성 레이어만 도므로 전문화 순위는 언제나 동률이다. 다른 전문화의 순서를
+					-- 묻는 것은 창 쪽이고, 그쪽은 `CollectActionsForKey`로 간다.
+					Placements[binding] = DebindPrivate.MakeOrderRecord(
+						action, layerRank, nil, Placements[binding]);
 
 					local key = action.key;
 					local issue = DebindPrivate.GetBindingIssue(action);

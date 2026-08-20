@@ -1276,12 +1276,14 @@ RegisterTest("Priority ordering", {
         if not bindings or #bindings < 2 then
             return Fail("Priority ordering", format("expected 2 bindings, got %d", bindings and #bindings or 0))
         end
-        -- priority 1 (Very High) should come first
-        if bindings[1].priority ~= 1 then
-            return Fail("Priority ordering", format("first binding priority=%s, expected 1", tostring(bindings[1].priority)))
+        -- **어느 액션이 앞에 섰는지를 본다.** 레코드에 적힌 값이 아니라 - 순서를 정하는 값은
+        -- 바인딩 옆의 표에 있고(`Debind.lua`의 `Placements`), 그것을 들여다보면 정렬이 실제로
+        -- 무엇을 했는지가 아니라 우리가 무엇을 적었는지를 재게 된다.
+        if bindings[1].value ~= 116 then
+            return Fail("Priority ordering", format("first binding value=%s, expected 116 (priority 1)", tostring(bindings[1].value)))
         end
-        if (bindings[2].priority or 3) ~= 5 then
-            return Fail("Priority ordering", format("second binding priority=%s, expected 5", tostring(bindings[2].priority)))
+        if bindings[2].value ~= 585 then
+            return Fail("Priority ordering", format("second binding value=%s, expected 585 (priority 5)", tostring(bindings[2].value)))
         end
         return Pass("Priority ordering", "priority=1 before priority=5")
     end,
@@ -1297,13 +1299,42 @@ RegisterTest("Conditional before unconditional", {
         if not bindings or #bindings < 2 then
             return Fail("Conditional ordering", format("expected 2 bindings, got %d", bindings and #bindings or 0))
         end
-        if not bindings[1].isConditional then
-            return Fail("Conditional ordering", "first binding is not conditional")
+        if bindings[1].value ~= 116 then
+            return Fail("Conditional ordering", format("first binding value=%s, expected 116 (the conditional one)", tostring(bindings[1].value)))
         end
-        if bindings[2].isConditional then
-            return Fail("Conditional ordering", "second binding is also conditional")
+        if bindings[2].value ~= 585 then
+            return Fail("Conditional ordering", format("second binding value=%s, expected 585", tostring(bindings[2].value)))
         end
         return Pass("Conditional ordering")
+    end,
+})
+
+--- 바인딩이 액션 하나의 순수 파생인가.
+---
+--- **헤드리스가 못 보는 자리다.** `tests/run.lua`는 `Debind.lua`를 안 싣고, 이 필드들을 써넣던
+--- 것이 바로 그 파일의 `BuildKeyMap`이었다. 쓰고 나서 아무도 안 지웠으므로 다음 리빌드까지
+--- 남아 있었고, 그래서 `MakeRow`가 같은 값을 또 만들면서도 서로 안 부딪혔다.
+---
+--- 되돌아가면 조용하다. 순서는 그대로 맞고, 틀려지는 것은 "바인딩만 보면 액션을 안다"는
+--- 성질뿐이라 화면에도 로그에도 아무것도 안 나온다.
+RegisterTest("Binding carries no ordering fields", {
+    description = "순서 필드가 바인딩이 아니라 그 옆 표에 있는지",
+    run = function()
+        InsertAction({ type = Constants.SPELL, value = 585, key = "HOME", priority = 5, combat = false })
+        InsertAction({ type = Constants.SPELL, value = 116, key = "HOME", priority = 1, combat = true })
+        ApplyBindings()
+        local bindings = GetKeyBindings("HOME")
+        if not bindings or #bindings < 2 then
+            return Fail("Binding shape", format("expected 2 bindings, got %d", bindings and #bindings or 0))
+        end
+        for i = 1, #bindings do
+            for _, field in ipairs({ "layerRank", "specRank", "seq", "isConditional", "priority" }) do
+                if bindings[i][field] ~= nil then
+                    return Fail("Binding shape", format("binding %d carries %s=%s", i, field, tostring(bindings[i][field])))
+                end
+            end
+        end
+        return Pass("Binding shape", "순서 필드 없음")
     end,
 })
 

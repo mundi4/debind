@@ -11,12 +11,15 @@ local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
 
 --- Which of two actions on one key fires first.
 ---
+--- **The record comes from `Misc.lua`'s `MakeOrderRecord` and nowhere else.** Three callers build
+--- one (`BuildKeyMap`, `MakeRow`, `RenumberKeyGroup`) and none of them spells the fields out.
+---
 --- Record fields: priority, hover, isConditional, layerRank, specRank, seq
 ---   priority      - `Constants.DEFAULT_PRIORITY` when nil
 ---   hover         - **the raw value.** false and nil mean different things (false is a condition
 ---                   that says "not hovering" out loud, so it counts as one). Do not fold it to a
 ---                   boolean on the way in
----   isConditional - `DebindPrivate.IsConditionalAction(action)`
+---   isConditional - `DebindPrivate.IsConditionalBinding(binding)`
 ---   layerRank     - the scope's rank (smaller is narrower): character/spec -> character/shared ->
 ---                   class/spec -> class/shared -> general. **The specialization number is not read
 ---                   here** - an off-spec action goes in the same band as an active one

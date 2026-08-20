@@ -43,6 +43,24 @@ return function(DebindPrivate)
     end
 
     ---------------------------------------------------------------------------
+    -- 바인딩은 액션 하나의 순수 파생이다
+    --
+    -- 순서를 정하는 값은 액션 하나로 답이 안 나온다 - 프로필 안에서의 자리이기 때문이다.
+    -- 그래서 그것은 `Misc.MakeOrderRecord`가 따로 들고, 바인딩에는 안 앉는다.
+    --
+    -- 여기서 볼 수 있는 것은 `priority`뿐이다. `layerRank`/`seq`/`isConditional`을 써넣던 것은
+    -- `Debind.lua`의 `BuildKeyMap`인데 이 하네스는 그 파일을 안 싣는다 - 그쪽은
+    -- `/debtest`의 `Binding carries no ordering fields`가 본다.
+    ---------------------------------------------------------------------------
+
+    test("바인딩은 순서 필드를 안 든다", function()
+        local b = spell({ priority = 1, seq = 4 });
+        check(b.priority == nil, "priority가 바인딩에 앉아 있다");
+        check(b.seq == nil, "seq가 바인딩에 앉아 있다");
+        check(b.layerRank == nil, "layerRank가 바인딩에 앉아 있다");
+        check(b.isConditional == nil, "isConditional이 바인딩에 앉아 있다");
+    end);
+    ---------------------------------------------------------------------------
     -- 호버 조건은 `checkedUnits["hover"]`에 산다
     --
     -- 저장에는 그 키 하나뿐이고, `hover`/`reactions`는 거기서 파생된 값이다

@@ -659,8 +659,9 @@ do
     ---                    this under the name `"hover"`.
     ---   unitStatesOpaque a `"@"` that could not be placed on any axis; puts the binding out of
     ---                    both solver roles rather than letting it look wider than it is
-    ---   layerRank, isConditional
-    ---                    filled in by `Debind.lua` after this returns, not here
+    ---
+    --- **순서 필드는 여기 없다.** 어느 액션이 먼저 발동하느냐는 액션 하나로 답이 안 나오는
+    --- 유일한 것이라, 그쪽은 `MakeOrderRecord`가 따로 든다.
     function DebindPrivate.GetBindingInfoForAction(action)
         local binding = _ActionToBindingCache[action];
 
@@ -683,7 +684,7 @@ do
         binding.petbattle = action.petbattle;
         binding.unit = action.unit;
         binding.key = action.key;
-        binding.priority = action.priority or Constants.DEFAULT_PRIORITY;
+
         -- 저장 모양 -> 바인딩 모양. 꺼진 조건은 여기서 빠지므로 하류는 기억을 안 만난다.
         -- 남는 것이 없으면 표 자체를 안 만든다 - `binding.checkedUnits`가 있느냐를 게이트로
         -- 쓰는 자리가 여럿이라(이슈 검사, `IsConditionalBinding`), 빈 표는 조건이 하나도
@@ -829,6 +830,40 @@ local GetBindingInfoForAction = DebindPrivate.GetBindingInfoForAction
 function DebindPrivate.IsConditionalAction(action)
     local binding = GetBindingInfoForAction(action);
     return DebindPrivate.IsConditionalBinding(binding);
+end
+
+--- The record `CompareActionOrder` reads, and **the only place its shape is written.**
+---
+--- Three callers build one: `Debind.lua`'s `BuildKeyMap`, and `Profile.lua`'s `MakeRow` and
+--- `RenumberKeyGroup`. Each used to spell the fields out for itself, and the three lists had
+--- drifted apart -- they are never sorted against each other, so nothing was wrong today and
+--- nothing would have said so on the day one of them lost a field.
+---
+--- **Where an action stands is the one thing not derived from the action.** `priority`, `hover`
+--- and `isConditional` are; `layerRank`, `specRank` and `seq` are its place in the profile. Those
+--- last three used to be written onto the binding from outside, which left the binding a pure
+--- function of its action by convention rather than in fact.
+---
+--- `hover` is read **off the binding**, and that is not interchangeable with reading the action:
+--- an action has no such field any more (`Profile.lua`'s `dbver <= 4` folded it into
+--- `checkedUnits["hover"]`), so taking it from there would hand the comparator `nil` every time
+--- and kill its HOVER tier outright -- **the list would then draw in an order the key does not
+--- fire in.** It is also **the raw value**: `false` and `nil` are different answers and the
+--- comparator reads them apart, so it must not be folded to a boolean (`Ordering.lua`).
+---
+--- `dest` lets a caller hand its own table in. `BuildKeyMap` keeps one per binding and rebuilds
+--- in place, because it runs over every bound action on every rebuild and used to allocate
+--- nothing at all.
+function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
+    local binding = GetBindingInfoForAction(action);
+    dest = dest or {};
+    dest.priority = action.priority or Constants.DEFAULT_PRIORITY;
+    dest.hover = binding.hover;
+    dest.isConditional = DebindPrivate.IsConditionalBinding(binding);
+    dest.layerRank = layerRank;
+    dest.specRank = specRank;
+    dest.seq = action.seq;
+    return dest;
 end
 
 function DebindPrivate.IsConditionalBinding(binding)

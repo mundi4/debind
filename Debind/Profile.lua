@@ -150,9 +150,9 @@ local ARRIVAL_SEQ = 1000000;
 --- crosses no band moving nothing. The whole argument is in
 --- `devdocs/legacy/renumbering-a-key-group.md`.
 ---
---- The record handed to the comparator is shorter than `MakeRow`'s. `layerRank` and `specRank` are
---- constant inside one layer and so can decide nothing, and the order without them is the full list
---- filtered down to this layer.
+--- The record is `MakeOrderRecord`'s, with no scope on it. `layerRank` and `specRank` are constant
+--- inside one layer and so can decide nothing, and the order without them is the full list filtered
+--- down to this layer.
 ---
 --- **Array position is the last tiebreak.** `sort` is not stable, so two equal numbers in a
 --- hand-edited file come out differently on each pass -- and that answer is what gets stored, so one
@@ -167,14 +167,10 @@ function ProfileLayerProto:RenumberKeyGroup(key)
         local action = self.actions[i];
         if (action.key == key) then
             records = records or {};
-            records[#records + 1] = {
-                action        = action,
-                index         = i,
-                priority      = action.priority or Constants.DEFAULT_PRIORITY,
-                hover         = DebindPrivate.GetBindingInfoForAction(action).hover,
-                isConditional = DebindPrivate.IsConditionalAction(action),
-                seq           = action.seq,
-            };
+            local record = DebindPrivate.MakeOrderRecord(action, nil, nil);
+            record.action = action;
+            record.index = i;
+            records[#records + 1] = record;
         end
     end
 
@@ -1002,7 +998,9 @@ function DebindPrivate.CollectKeylessActionRows(spec)
     return rows;
 end
 
---- The record the two collectors above hand out, and the only place its shape is written.
+--- The record the two collectors above hand out. Its ordering half is `Misc.lua`'s
+--- `MakeOrderRecord`, shared with `BuildKeyMap` and `RenumberKeyGroup`; what is written here is
+--- the half only a drawn row needs.
 ---
 --- **`offWorld` is answered here because this is the only place that knows both halves.** A row is
 --- outside the live world if the caller asked for another specialization's order at all, or if
@@ -1017,43 +1015,31 @@ end
 --- together answer the question the tooltip asks.
 function MakeRow(action, layer, layerRank, index, simulated, specRank)
     local offWorld = simulated or (specRank ~= nil and specRank ~= 0) or nil;
-    return {
-                    action        = action,
-                    layerID       = layer.layerID,
-                    layerRank     = layerRank,
-                    -- 0이면 지금 도는 세계의 것이다. 그 밖은 다른 특성의 액션이고, 비교자가
-                    -- seq를 보기 전에 이 값으로 갈라서 자기 레이어 안에서만 seq를 견주게 한다.
-                    specRank      = specRank,
-                    -- 레이어 배열에서의 자리. 순서에는 안 쓰인다(비교자는 seq를 본다).
-                    -- 편집 메뉴가 이 값으로 프로필을 만진다 - 같은 레이어로 복사할 때 끼워
-                    -- 넣을 자리가 이 번호다(DebindUI.lua의 MoveAction). 그리는 쪽이 손으로
-                    -- 세면 같은 뜻의 번호가 두 군데서 따로 만들어진다.
-                    index         = index,
-                    seq           = action.seq,
-                    priority      = action.priority or Constants.DEFAULT_PRIORITY,
-                    -- hover는 파생값이라 **바인딩에서** 읽는다(`Misc.DeriveHoverFields`).
-                    -- 액션에는 이제 그 필드가 없고, nil로 읽으면 `CompareActionOrder`의
-                    -- HOVER 층이 통째로 죽어서 **목록이 실제 발동 순서와 다르게 그려진다.**
-                    --
-                    -- 불리언으로 접지 않는 이유는 그대로다: false와 nil이 다른 뜻이다
-                    -- (Ordering.lua 주석 참고).
-                    hover         = DebindPrivate.GetBindingInfoForAction(action).hover,
-                    isConditional = DebindPrivate.IsConditionalAction(action),
-                    -- **Carried on the record rather than read off the action later.** Ordering
-                    -- works on these rows and deliberately never reaches back through `.action`
-                    -- (`hover` is the worked example just above), and `ComputeOrderSwap` has to
-                    -- know which rows are out of the running: a badged action is not in the key
-                    -- map, so it is not in the order either, and swapping numbers with it would
-                    -- move a row on screen without changing what the key does.
-                    imported      = action.imported,
-                    issue         = DebindPrivate.GetBindingIssue(action, nil, offWorld and "unreachable" or nil),
-                    unreachable   = (not offWorld) and DebindPrivate.IsUnreachableAction(action) or nil,
-                    -- Carried so that whoever draws this row asks on the same terms the two above
-                    -- were answered on. The row's tooltip passes it straight through
-                    -- (`DebindUI.lua`'s `AddActionToTooltip`), which is what keeps the row and its
-                    -- tooltip from disagreeing.
-                    offWorld      = offWorld,
-    };
+
+    -- 순서를 정하는 여섯 필드는 `Misc.lua`의 `MakeOrderRecord`가 채운다. 그 위에 얹는 것이
+    -- 아래 넷이고, 그리는 쪽과 편집 메뉴가 그것을 읽는다.
+    local row = DebindPrivate.MakeOrderRecord(action, layerRank, specRank);
+
+    row.action = action;
+    row.layerID = layer.layerID;
+    -- 레이어 배열에서의 자리. 순서에는 안 쓰인다(비교자는 seq를 본다). 편집 메뉴가 이 값으로
+    -- 프로필을 만진다 - 같은 레이어로 복사할 때 끼워 넣을 자리가 이 번호다(DebindUI.lua의
+    -- MoveAction). 그리는 쪽이 손으로 세면 같은 뜻의 번호가 두 군데서 따로 만들어진다.
+    row.index = index;
+    -- **Carried on the record rather than read off the action later.** Ordering works on these
+    -- rows and deliberately never reaches back through `.action`, and `ComputeOrderSwap` has to
+    -- know which rows are out of the running: a badged action is not in the key map, so it is not
+    -- in the order either, and swapping numbers with it would move a row on screen without
+    -- changing what the key does.
+    row.imported = action.imported;
+    row.issue = DebindPrivate.GetBindingIssue(action, nil, offWorld and "unreachable" or nil);
+    row.unreachable = (not offWorld) and DebindPrivate.IsUnreachableAction(action) or nil;
+    -- Carried so that whoever draws this row asks on the same terms the two above were answered
+    -- on. The row's tooltip passes it straight through (`DebindUI.lua`'s `AddActionToTooltip`),
+    -- which is what keeps the row and its tooltip from disagreeing.
+    row.offWorld = offWorld;
+
+    return row;
 end
 
 --- 액션이 사는 레이어를 찾는다. (layerID, layer)를 돌려주고, 없으면 nil.
