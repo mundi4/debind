@@ -1000,8 +1000,10 @@ picker는 `AddNewAction`에 이름을 nil로 넘기지만 `name`은 전선 필�
 
 - `GetSetCustomStateModeAndIndex` — 부르는 데 다섯이 전부 없어진다
 - `SETCUSTOM_MODE_ON` / `OFF` / `TOGGLE` / `MASK` — **`Constants.lua`에서 사라지고,
-  아래 마이그레이션 단계 안에 리터럴로만 남는다.** 그 단계가 프로필에 실제로 저장된 비트팩을
-  풀어야 해서다(`band(value, MASK)`). `Constants.lua`는 이 판이 아는 이름들이라 죽은 이름을
+  그것을 쓰는 코드 옆에 로컬로 내려앉는다.** 자리는 둘이다. **아래 마이그레이션 단계**가
+  프로필에 저장된 비트팩을 풀어야 하고(`band(value, MASK)`), **`DevSeed.lua`의 옛 `SEEDS`
+  빌더**는 그 비트팩을 계속 만들어야 한다. `/deb seed 5`가 옛 프로필을 일부러 심는 경로라,
+  그 빌더가 새 모양을 내면 마이그레이션이 지나갈 데이터가 없어진다. `Constants.lua`는 이 판이 아는 이름들이라 죽은 이름을
   거기 두면 산 것들 옆에 영원히 앉는다. **단계가 자기 리터럴을 든다**
   (`0-DECISION-LOG.md` 2026-08-21, 그리고 `NestPayloadConditions`의 `checkedUnits`가 이미 같은
   이유로 그렇게 서 있다).
