@@ -7,7 +7,7 @@ Constants.DEBUG                           = false;
 Constants.DEBUG                           = true;
 --@end-debug@
 Constants.NIL                             = "\0";
-Constants.DB_VERSION                      = 5;
+Constants.DB_VERSION                      = 6;
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;

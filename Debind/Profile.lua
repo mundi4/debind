@@ -58,9 +58,47 @@ local LAYER_INFOS        = {
 local MAX_SPEC           = 4;
 
 
+--- 액션 최상단에서 조건 이름을 읽으면 **그 자리에서 터진다.** DEBUG 전용.
+---
+--- 조건이 `action.conditions`로 내려간 뒤, 옛 자리를 읽는 코드는 에러가 아니라 `nil`을
+--- 받는다. `nil`은 "조건 없음"과 생김새가 같아서 **바인딩이 넓어지고**, 넓어진 바인딩은
+--- 남의 키를 가져간다. 화면에도 로그에도 아무것도 안 나온다.
+---
+--- **이름으로 훑어서는 다 못 찾는다.** `action.combat`은 grep에 걸리지만 `action[field]`나
+--- `action[key]`처럼 변수로 도는 자리는 안 걸리고, 조건이 열여덟 개라 그렇게 도는 코드가
+--- 오히려 흔하다. 실제로 그렇게 놓친 자리가 셋 나왔다(메뉴 묶음 강조, 툴팁의 불리언 조건,
+--- 그리고 인게임 키트). 읽는 순간 터뜨리는 쪽이 전수 검사가 된다.
+---
+--- **`__index`는 없는 키에만 걸린다**, 즉 잡고 싶은 경우에만 걸린다. 조건이 제자리에
+--- 있으면 `conditions` 안에서 읽히므로 이 함수는 안 불린다.
+---
+--- 저장에는 안 따라간다. 메타테이블은 SavedVariables로 직렬화되지 않는다.
+local ArmAction;
+if (Constants.DEBUG) then
+    local trap = {
+        __index = function(_, k)
+            if (Constants.IsConditionField(k)) then
+                error("action." .. tostring(k) .. "를 최상단에서 읽었다." ..
+                    " 조건은 action.conditions 안이다" ..
+                    " (devdocs/action-and-binding-shapes.md)", 2);
+            end
+            return nil;
+        end,
+    };
+    ArmAction = function(action)
+        if (luatype(action) == "table" and getmetatable(action) == nil) then
+            setmetatable(action, trap);
+        end
+        return action;
+    end
+else
+    ArmAction = function(action) return action; end
+end
+
 local ProfileLayerProto = {};
 
 function ProfileLayerProto:Insert(action, insertIndex, keepId)
+    ArmAction(action);
     if (insertIndex == nil) then
         insertIndex = #self.actions + 1;
     else
@@ -356,18 +394,34 @@ local function MigrateLayer(layerTbl, dbver)
         -- 적으면 그 표와 갈라지는 날이 온다. `$state1`~`5`도 그 함수가 같이 받는다.
         --
         -- 다시 돌아도 안전하다. 최상단에 조건 이름이 안 남아 있으면 아무것도 안 한다.
+        --
+        -- **이름을 먼저 다 모으고, 그다음에 옮긴다.** 한 바퀴로 쓰면 첫 조건을 만났을 때
+        -- `action.conditions`라는 **없던 키**가 순회 중에 생기는데, Lua 5.1은 그 경우의
+        -- `next` 동작을 정의하지 않는다(있는 필드를 지우는 것은 되고, 없던 필드에 대입하는
+        -- 것은 안 된다). 그러면 뒤의 조건이 건너뛰어지고, 최상단에 남은 그것을 바로 뒤의
+        -- `CleanUpDB`가 지운다. **사용자가 건 조건이 로그인 한 번에 사라지고 `dbver`는
+        -- 이미 찍혀 있어서 다시 돌 기회도 없다.**
+        local names = {};
         for i = 1, #layerTbl do
             local action = layerTbl[i];
-            for k, v in pairs(action) do
+
+            local count = 0;
+            for k in pairs(action) do
                 if (Constants.IsConditionField(k)) then
-                    action.conditions = action.conditions or {};
-                    action.conditions[k] = v;
+                    count = count + 1;
+                    names[count] = k;
                 end
             end
-            if (action.conditions) then
-                for k in pairs(action.conditions) do
+
+            if (count > 0) then
+                local conditions = action.conditions or {};
+                for j = 1, count do
+                    local k = names[j];
+                    conditions[k] = action[k];
                     action[k] = nil;
+                    names[j] = nil;
                 end
+                action.conditions = conditions;
             end
         end
     end
@@ -567,8 +621,13 @@ function DebindPrivate.InitDB()
     --@debug@
     -- The other answer to the same condition, and it stands in the same place: a development build
     -- swaps a seed in and carries on where a release stands down. It also answers the empty client
-    -- and the `/deb seed` command, which is why the call is not inside the branch below. By the
-    -- time that branch is reached the seed has already made `db.dbver` current.
+    -- and the `/deb seed` command, which is why the call is not inside the branch below.
+    --
+    -- **What the seed lands on is decided here and nowhere else.** `/deb seed <dbver>` can plant
+    -- any version `DevSeed.lua` has a builder for, so the table coming back is read the same way a
+    -- profile off disk is: an older one falls through to `MigrateDB` and migrates, a newer one
+    -- trips the branch below and this build stands down. Planting one of each is how both of those
+    -- paths are reached on purpose.
     -- `devdocs/setting-up-a-dev-profile.md`.
     --
     -- Asked for rather than called outright, because the headless harness loads a hand written list
@@ -718,6 +777,10 @@ function DebindPrivate.CleanUpDB()
                     action[k] = nil;
                 end
             end
+
+            -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
+            -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
+            ArmAction(action);
 
             -- **면제가 한 겹 내려왔다.** `$`로 시작하는 키를 남겨두는 규칙은 커스텀 상태
             -- 조건을 위한 것인데(2024-09-08 `d3118cf`, 2.0.4부터), 조건이 `conditions`

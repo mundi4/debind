@@ -7,7 +7,7 @@
     "lint": "node tools/luacheck.js",
     "check:templates": "node tools/check-templates.js",
     "check:locales": "node tools/check-locales.js",
-    "check": "npm run lint && npm test && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:snippets && npm run check:snippet-golden && npm run check:state-eval && npm run check:export-fields && npm run check:xml-methods && npm run check:xml-anchors",
+    "check": "npm run lint && npm test && npm run check:locales && npm run check:templates && npm run check:xml && npm run check:snippets && npm run check:snippet-golden && npm run check:state-eval && npm run check:export-fields && npm run check:xml-methods && npm run check:xml-anchors && npm run check:dbver",
     "check:export-fields": "node tools/check-export-fields.js",
     "check:xml-methods": "node tools/check-xml-methods.js",
     "check:xml": "node tools/check-xml.js",
@@ -19,7 +19,8 @@
     "link": "node tools/wow-link.js",
     "globalstrings": "node tools/fetch-globalstrings.js",
     "ui-source": "node tools/wow-ui-source.js",
-    "check:xml-anchors": "node tools/check-xml-anchors.js"
+    "check:xml-anchors": "node tools/check-xml-anchors.js",
+    "check:dbver": "node tools/check-dbver.js"
   },
   "devDependencies": {
     "fengari": "^0.1.4"

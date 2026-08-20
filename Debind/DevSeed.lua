@@ -19,9 +19,10 @@ local Constants        = DebindPrivate.Constants;
 --- `devdocs/setting-up-a-dev-profile.md`.
 
 --- One builder per `dbver`. **When `dbver` goes up, add the new one and leave the old ones where
---- they are.** A given worktree only ever calls the one matching its own `Constants.DB_VERSION`;
---- carrying all of them is what makes this file right wherever it is copied, so no worktree ever
---- has to be checked against its seed.
+--- they are.** Carrying all of them is what makes this file right wherever it is copied, so no
+--- worktree ever has to be checked against its seed. It is also what `/deb seed <dbver>` picks
+--- from: an old builder plants what an upgrading user brings, and one newer than this build plants
+--- what a downgrading user brings.
 
 --- Every macrotext row below carries one, because **an action with no icon is a shape the addon
 --- cannot otherwise produce**: the only way to make one is [New Custom Macro], and that goes through
@@ -47,7 +48,9 @@ SEEDS[5] = function(guid)
         shared = {
             --- The account layer carries the states that only show up on a row: two actions on one
             --- key, an action naming a macro that is not there, one still waiting to be accepted,
-            --- and one carrying enough conditions to fill a tooltip.
+            --- one carrying enough conditions to fill a tooltip, and one apiece for the fields
+            --- that have a control of their own and no other row to sit on (`unit`,
+            --- `ignoreHoverUnit`, `keepInBindingContext`).
             GENERAL = {
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F1", seq = 1 },
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
@@ -66,15 +69,35 @@ SEEDS[5] = function(guid)
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F5", seq = 1,
                     imported = "CTRL-Q" },
                 { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
-                -- Click casting, so the unit column and the frame menu have a row to describe.
+                -- Click casting, so the frame menu and the hover half of the tooltip have a row.
+                -- `ignoreHoverUnit` rides along here because it is the only place it can: the
+                -- menu enables that checkbox only while a hover condition is on
+                -- (`DropDownMenus.lua`), and `GetBindingInfoForAction` drops the field outright
+                -- on a binding that does not hover.
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/say hovered", name = "Say hovered",
-                    key = "SHIFT-F7", seq = 1,
+                    key = "SHIFT-F7", seq = 1, ignoreHoverUnit = true,
                     checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } },
                 -- Enough conditions on one action that its tooltip has to lay several out at once.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
                     combat = true, groups = Constants.GROUP_PARTY,
                     priority = Constants.MAX_PRIORITY, ["$state1"] = true },
+                --- **The target, which is `action.unit` and not a condition.** Without one of
+                --- these the row's `@unit` suffix, the tooltip's target line and the target menu
+                --- are all unreachable in a seeded profile. `TARGET` is used because it takes a
+                --- unit and names no spell, so it stays class independent like everything else
+                --- here.
+                { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
+                --- Target and the `"@"` unit condition on one action, which is a tooltip line of
+                --- its own: `"@"` is drawn as `SELECTED_TARGET_UNIT` and that branch asks for
+                --- `action.unit` (`DebindUI.lua`), so neither row above can reach it alone.
+                { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
+                    key = "SHIFT-F10", seq = 1, checkedUnits = { ["@"] = {} } },
+                -- The binding-context exception: this key stays bound while an editor holds it
+                -- (`Debind.lua`'s `IsKeyYielded`).
+                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/say kept", name = "Say kept",
+                    key = "SHIFT-F11", seq = 1, keepInBindingContext = true },
             },
 
             --- The class tiers. `SHIFT-F1` is deliberately the account layer's key as well, so the
@@ -158,7 +181,9 @@ SEEDS[6] = function(guid)
         shared = {
             --- The account layer carries the states that only show up on a row: two actions on one
             --- key, an action naming a macro that is not there, one still waiting to be accepted,
-            --- and one carrying enough conditions to fill a tooltip.
+            --- one carrying enough conditions to fill a tooltip, and one apiece for the fields
+            --- that have a control of their own and no other row to sit on (`unit`,
+            --- `ignoreHoverUnit`, `keepInBindingContext`).
             GENERAL = {
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F1", seq = 1 },
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
@@ -177,16 +202,38 @@ SEEDS[6] = function(guid)
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F5", seq = 1,
                     imported = "CTRL-Q" },
                 { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
-                -- Click casting, so the unit column and the frame menu have a row to describe.
+                -- Click casting, so the frame menu and the hover half of the tooltip have a row.
+                -- `ignoreHoverUnit` rides along here because it is the only place it can: the
+                -- menu enables that checkbox only while a hover condition is on
+                -- (`DropDownMenus.lua`), and `GetBindingInfoForAction` drops the field outright
+                -- on a binding that does not hover.
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/say hovered", name = "Say hovered",
-                    key = "SHIFT-F7", seq = 1,
+                    key = "SHIFT-F7", seq = 1, ignoreHoverUnit = true,
                     conditions = { checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } } },
                 -- Enough conditions on one action that its tooltip has to lay several out at once.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
                     priority = Constants.MAX_PRIORITY,
                     conditions = { combat = true, groups = Constants.GROUP_PARTY,
                         ["$state1"] = true } },
+                --- **The target, which is `action.unit` and not a condition.** It stays at the
+                --- top of the action on this version too, which is why the two seeds carry this
+                --- row identically. Without one of these the row's `@unit` suffix, the tooltip's
+                --- target line and the target menu are all unreachable in a seeded profile.
+                --- `TARGET` is used because it takes a unit and names no spell, so it stays class
+                --- independent like everything else here.
+                { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
+                --- Target and the `"@"` unit condition on one action, which is a tooltip line of
+                --- its own: `"@"` is drawn as `SELECTED_TARGET_UNIT` and that branch asks for
+                --- `action.unit` (`DebindUI.lua`), so neither row above can reach it alone.
+                { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
+                    key = "SHIFT-F10", seq = 1,
+                    conditions = { checkedUnits = { ["@"] = {} } } },
+                -- The binding-context exception: this key stays bound while an editor holds it
+                -- (`Debind.lua`'s `IsKeyYielded`).
+                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/say kept", name = "Say kept",
+                    key = "SHIFT-F11", seq = 1, keepInBindingContext = true },
             },
 
             --- The class tiers. `SHIFT-F1` is deliberately the account layer's key as well, so the
@@ -292,10 +339,15 @@ function DebindPrivate.ApplyDevSeed(db)
         _G.DebindDevVars = dev;
     end
 
-    local reason;
+    local reason, dbver;
     if (dev.seedPending) then
+        -- The flag carries the `dbver` that was asked for, so an older one arrives here as an
+        -- older one and `MigrateDB` runs on it for real. Cleared before the seed is built: if
+        -- that dbver has no builder the `error` below kills this login, and a flag left standing
+        -- would kill every login after it too.
+        dbver = dev.seedPending;
         dev.seedPending = nil;
-        reason = "asked for";
+        reason = format("asked for, dbver %d", dbver);
     elseif (db.dbver == nil) then
         reason = "nothing saved yet";
     elseif (db.dbver > Constants.DB_VERSION) then
@@ -304,14 +356,40 @@ function DebindPrivate.ApplyDevSeed(db)
         return db;
     end
 
-    db = DebindPrivate.MakeSeed(Constants.DB_VERSION);
+    db = DebindPrivate.MakeSeed(dbver or Constants.DB_VERSION);
     _G.DebindVars = db;
     -- A plain literal, not `L[...]`. Locale files are shipped and this sentence is not.
     DebindPrivate.DisplayMessage(format("Development seed planted (%s).", reason));
     return db;
 end
 
---- `/deb seed`. Returns whether this call handled the command.
+--- The `dbver`s this file has a builder for, low to high, as text for a message.
+local function SeededVersions()
+    local versions = {};
+    for dbver in pairs(SEEDS) do
+        tinsert(versions, dbver);
+    end
+    sort(versions);
+    return table.concat(versions, ", ");
+end
+
+--- `/deb seed`, or `/deb seed <dbver>`. Returns whether this call handled the command.
+---
+--- **A `dbver` is asked for to reach a path only an old or a new profile reaches.** Without one
+--- the seed is this build's own and `InitDB` has nothing to do with it. An older one lands where
+--- an upgrading user's profile lands, so `MigrateDB` runs on data nobody hand wrote for the
+--- occasion. A newer one lands where a downgrading user's lands and this build stands down
+--- (`guarding-against-a-downgrade.md`), which is a state that otherwise takes two clients to
+--- produce; a worktree cut from an older release can reach it because the later builders are still
+--- in the copy of this file it carries.
+---
+--- **So the number is not clamped to what this build can read.** Both directions are the point,
+--- and planting the current one is the way back out of either. `/deb seed` is reachable while
+--- stood down, since `HandleNewerProfileReset` only takes `reset`.
+---
+--- **The number is checked here rather than on the next login.** What is typed wrong is typed at
+--- a prompt that can answer; the same mistake read back at load time comes out as an `error`
+--- inside `InitDB`, with the window gone and the reason a line in the chat frame.
 ---
 --- **The confirmation comes before the flag is set**, because that is the step that cannot be
 --- taken back: what the flag costs on the next login is whatever the client had.
@@ -320,15 +398,26 @@ function DebindPrivate.HandleDevSeedCommand(chunks)
         return false;
     end
 
+    local dbver = Constants.DB_VERSION;
+    if (chunks[2]) then
+        dbver = tonumber(chunks[2]);
+        if (not dbver or not SEEDS[dbver]) then
+            -- Plain literals throughout, not `L[...]`. Locale files are shipped and this is not.
+            DebindPrivate.DisplayMessage(format("No seed written for dbver %s. Have: %s.",
+                chunks[2], SeededVersions()));
+            return true;
+        end
+    end
+
     StaticPopup_ShowCustomGenericConfirmation({
-        text = "Replace this account's Debind settings with the development seed?|n|nWhat is there now is deleted and cannot be brought back.",
+        text = format("Replace this account's Debind settings with the development seed for dbver %d?|n|nWhat is there now is deleted and cannot be brought back.", dbver),
         callback = function()
             local dev = _G.DebindDevVars;
             if (not dev) then
                 dev = {};
                 _G.DebindDevVars = dev;
             end
-            dev.seedPending = true;
+            dev.seedPending = dbver;
             ReloadUI();
         end,
         acceptText = YES,

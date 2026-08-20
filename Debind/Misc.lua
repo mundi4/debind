@@ -675,8 +675,11 @@ do
         --
         -- 나머지 축은 안 받는다. 그것들은 값이 스칼라라 중첩 여부가 뜻을 안 바꾸고,
         -- 액션 최상단을 한 번 더 훑는 값이 리빌드마다 붙는다.
+        -- **`rawget`이다.** 최상단에서 조건 이름을 읽으면 DEBUG 함정이 터지는데
+        -- (`Profile.lua`의 `ArmAction`), 여기는 그 옛 자리를 **일부러** 보는 유일한
+        -- 자리다. 함정을 우회하는 것이 아니라, 함정이 잡으려는 실수가 아니라는 표시다.
         local storedUnits = (action.conditions and action.conditions.checkedUnits)
-            or action.checkedUnits;
+            or rawget(action, "checkedUnits");
         if (storedUnits) then
             for unit, value in pairs(storedUnits) do
                 local condition = UnitConditionForBinding(value);

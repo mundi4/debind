@@ -1499,7 +1499,7 @@ RegisterTest("Renumber: an edit inside one band moves nothing", {
         --
         -- combat is the axis to use. Adding stealth would let the upper band's stealth record cover
         -- this one, and then a deletion is measured rather than a position.
-        low1.combat = false
+        low1.conditions.combat = false
         DebindPrivate.RenumberKeyGroupForAction(low1)
         ApplyBindings()
 
@@ -2689,7 +2689,7 @@ RegisterTest("Issue: BUTTON1 without hover", {
 RegisterTest("Issue: groups=0", {
     description = "groups=0이면 GROUPS_NONE_SELECTED 이슈가 나오는지",
     run = function()
-        local action = { type = Constants.SPELL, value = 585, key = "T", groups = 0 }
+        local action = NestConditions({ type = Constants.SPELL, value = 585, key = "T", groups = 0 })
         local issue = DebindPrivate.GetBindingIssue(action)
         if issue ~= Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED then
             return Fail("Groups=0 issue", format("expected GROUPS_NONE_SELECTED, got %s", tostring(issue)))
@@ -2701,7 +2701,7 @@ RegisterTest("Issue: groups=0", {
 RegisterTest("Issue: forms=0", {
     description = "forms=0이면 FORMS_NONE_SELECTED 이슈가 나오는지",
     run = function()
-        local action = { type = Constants.SPELL, value = 585, key = "T", forms = 0 }
+        local action = NestConditions({ type = Constants.SPELL, value = 585, key = "T", forms = 0 })
         local issue = DebindPrivate.GetBindingIssue(action)
         if issue ~= Constants.BINDING_ISSUE_FORMS_NONE_SELECTED then
             return Fail("Forms=0 issue", format("expected FORMS_NONE_SELECTED, got %s", tostring(issue)))
@@ -4181,9 +4181,9 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
                 return Fail(NAME, format("combat=%s 에서 색인 %d, 그 자리에 레코드가 없다",
                     tostring(want), idx))
             end
-            if got.combat ~= want then
+            if got.conditions.combat ~= want then
                 return Fail(NAME, format("combat=%s 인데 combat=%s 레코드(%d번)를 골랐다",
-                    tostring(want), tostring(got.combat), idx))
+                    tostring(want), tostring(got.conditions.combat), idx))
             end
             picked[#picked + 1] = idx
         end

@@ -869,6 +869,36 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- 옛 자리를 읽으면 소리가 난다
+    --
+    -- 조건이 `conditions`로 내려간 뒤, 옛 자리를 읽는 코드는 에러가 아니라 `nil`을 받는다.
+    -- `nil`은 "조건 없음"과 생김새가 같아서 바인딩이 넓어지고, 넓어진 바인딩은 남의 키를
+    -- 가져간다. 화면에도 로그에도 아무것도 안 남는다.
+    --
+    -- **이름으로 훑어서는 다 못 찾는다.** `action.combat`은 grep에 걸리지만 `action[field]`
+    -- 처럼 변수로 도는 자리는 안 걸리고, 조건이 열여덟 개라 그렇게 도는 코드가 오히려 흔하다.
+    -- 실제로 그렇게 놓친 자리가 셋 나왔다.
+    ---------------------------------------------------------------------------
+
+    test("프로필에 든 액션의 옛 조건 자리를 읽으면 터진다", function()
+        if (not Constants.DEBUG) then
+            return;
+        end
+        FreshInit();
+        local action = { type = Constants.SPELL, value = 100, key = "F", seq = 1,
+            conditions = { combat = true } };
+        DebindPrivate.GetProfileLayer(1):Insert(action);
+        DebindPrivate.CleanUpDB();
+
+        check(action.conditions.combat == true, "전제가 깨졌다 - 조건이 제자리에 없다");
+        check(pcall(function() return action.combat end) == false,
+            "최상단에서 읽었는데 조용히 nil이 나온다");
+        -- 조건이 아닌 이름은 그대로 nil이어야 한다. 함정이 넓으면 멀쩡한 코드가 터진다.
+        check(pcall(function() return action.somethingElse end) == true,
+            "조건이 아닌 이름까지 터진다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 한 판도 빠지지 않는가
     --
     -- 액션이 사는 곳은 셋이다(공유 GENERAL, 공유 클래스/특성, 캐릭터별). 한 곳이라도

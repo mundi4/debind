@@ -1435,13 +1435,16 @@ do
 		--- nothing wrong on the action, asking about each condition would rebuild the binding once
 		--- per row, since `GetBindingInfoForAction` rewrites it on every call.
 		local function addBooleanCondition(field)
-			if (action[field] == nil) then
+			-- **`conditions`에서 읽는다.** 이름을 변수로 받는 자리라, 조건을 최상단에서 내릴 때
+			-- 필드 이름으로 훑는 grep에 안 걸렸다. 액션에서 읽으면 언제나 nil이고 이 여섯 줄이
+			-- 툴팁에서 통째로 사라진다.
+			if (conditions[field] == nil) then
 				return;
 			end
 			local key = "CONDITION_" .. strupper(field);
 			local error = hasIssues and GetIssue(field);
 			addLabelLine(tooltip, LLL[key]);
-			addValueLine(tooltip, action[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
+			addValueLine(tooltip, conditions[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
 		end
 
 		-- **The title does not carry the list's colours.** Those exist so an eye running down forty

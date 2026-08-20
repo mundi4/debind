@@ -462,7 +462,11 @@ do
                         active = active(key);
                     end
                 elseif (key) then
-                    active = _action[key] ~= nil;
+                    -- **`TableFor`를 거친다.** 조건은 `_action.conditions` 안이라 최상단을
+                    -- 보면 언제나 nil이고, 그러면 조건이 걸린 묶음이 하나도 안 파래진다.
+                    -- 조건이 아닌 키(`priority`)는 그대로 액션에서 읽힌다.
+                    local tbl = TableFor(_action, key);
+                    active = tbl ~= nil and tbl[key] ~= nil;
                 end
 
                 if (active) then
