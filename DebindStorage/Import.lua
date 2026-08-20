@@ -286,20 +286,17 @@ end
 --- avoiding that was the last reason left for the ranking to travel under a name other than its own.
 --- With both ends reading one list there is no name to dodge (`devdocs/building-export-import.md`).
 ---
+--- **The whitelist is the last thing this does, and it is the only writer of `action`.** Grep
+--- `action[` in here and there is one line. Everything decided above it writes to `fields`, which
+--- is still the untrusted table, so whoever adds the next rule cannot help but hand it to the
+--- whitelist. Those blocks used to run **after** the loop and assign to `action`, which held only
+--- as long as everyone remembered that writing there put a value in the profile unread.
+---
 --- `setstate` stays out by being what it is -- the format's word, not the profile's. It is read
 --- below and travels no further; `CleanUpDB` would drop it anyway, but leaving it for that to find
 --- would mean the action is briefly a shape nothing else expects.
 local function BuildAction(source)
-    local action = {};
-    for k, v in pairs(source) do
-        if (luatype(k) == "string" and FieldAllowed(k, v)) then
-            if (luatype(v) == "table") then
-                action[k] = CopyTable(v);
-            else
-                action[k] = v;
-            end
-        end
-    end
+    local fields = CopyTable(source);
 
     -- **Asked whether it is a table, not whether it is there.** Everything below reads fields off
     -- it, and a pasted string is untrusted input that none of this may error on -- a hand-made
@@ -309,13 +306,32 @@ local function BuildAction(source)
         local flag = SETSTATE_MODE_FLAGS[source.setstate.mode];
         local index = Constants.CUSTOM_STATE_INDICES[source.setstate.state];
         if (flag and index) then
-            action.value = flag + index;
+            fields.value = flag + index;
         else
             -- A mode or a state name this version does not know. **No number is guessed**, because
             -- every number resolves and would set some other state. Leaving it out makes the action
             -- one `IsUsableAction` turns down, which refuses the string -- the right end for it,
             -- since a `SETSTATE` with nothing to set is not a shape anything downstream reads.
-            action.value = nil;
+            --
+            -- **Cleared rather than left alone.** The wire may carry a `value` of its own beside
+            -- the name, and any number there resolves to some state -- the one thing the name axis
+            -- exists to stop. Declining to write one is not enough; this branch has to take away
+            -- the one that arrived.
+            fields.value = nil;
+        end
+    end
+
+    local action = {};
+    for k, v in pairs(fields) do
+        -- **The key is asked about as well as the value.** A hand-made table brings numbers here,
+        -- and `FieldAllowed` reads the name with `strsub`.
+        --
+        -- A table is copied again rather than handed over. How far `fields` already stands from
+        -- `source` is `CopyTable`'s business, and this line is what makes the profile's table its
+        -- own whatever that answer is. `CopyTable` returns a table, so the `and`/`or` here cannot
+        -- fall through to `v`.
+        if (luatype(k) == "string" and FieldAllowed(k, v)) then
+            action[k] = luatype(v) == "table" and CopyTable(v) or v;
         end
     end
 

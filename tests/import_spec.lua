@@ -573,6 +573,23 @@ return function(DebindPrivate, DebindStorage)
         check(action.type == Constants.SETSTATE, "타입은 그대로여야 한다");
     end);
 
+    -- **딸려온 `value`도 같이 지워야 한다.** 이름 축으로 내보낼 때 `Export.lua`가 `value`를
+    -- 비우므로, `setstate` 옆에 값이 앉아 있는 문자열은 손으로 만든 것이다. 그리고 그 값은 어떤
+    -- 수든 어떤 상태로 풀리므로, 남겨두면 이름 축이 막으려던 바로 그 일 - 엉뚱한 상태를 켜는 키 -
+    -- 이 된다. 번호를 안 지어내는 것만으로는 모자라고, 들어온 것을 치워야 한다.
+    test("안 풀리는 setstate는 딸려온 value도 지운다", function()
+        for _, wire in ipairs({
+            { mode = "없는모드", state = "$state3" },
+            { mode = "toggle", state = "$nosuchstate" },
+        }) do
+            ResetProfile();
+            local action = PlanOne(General({
+                { type = Constants.SETSTATE, key = "F", seq = 1, value = 17, setstate = wire } }));
+            check(action.value == nil, "값이 살아남았다: " .. tostring(action.value)
+                .. " (" .. tostring(wire.mode) .. "/" .. tostring(wire.state) .. ")");
+        end
+    end);
+
     ---------------------------------------------------------------------------
     -- MACRO: a name and nothing else
     ---------------------------------------------------------------------------
