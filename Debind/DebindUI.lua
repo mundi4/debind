@@ -451,7 +451,7 @@ do
 			elseif (Constants.PLAYER_CLASS == "ROGUE") then
 				_bonusbarLabels[1] = GetSpellNameAndIconID(1784);
 			end
-			for i = 0, Constants.MAX_BONUS_ACTIONBAR_OFFSET do
+			for i = 0, Constants.MAX_BONUSBAR_OFFSET do
 				local text = _bonusbarLabels[i];
 				_bonusbarLabels[i] = format("[bonusbar:%d]", i);
 				if (text) then
@@ -1632,7 +1632,7 @@ do
 			else
 				wipe(_lines);
 				local error = hasIssues and GetIssue("bonusbars");
-				for i = 0, Constants.MAX_BONUS_ACTIONBAR_OFFSET do
+				for i = 0, Constants.MAX_BONUSBAR_OFFSET do
 					local flag = 2 ^ i;
 					if (bit.band(action.bonusbars, flag) ~= 0) then
 						local label = GetActionBarTypeLabel(i);

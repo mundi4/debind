@@ -1095,7 +1095,7 @@ do
 
         local bonusbarDescription = CreateActionMenuItemGroup(description, "CONDITION_BONUSBAR", "bonusbars");
         AppendDisable(bonusbarDescription, "CONDITION_BONUSBAR", "bonusbars");
-        AppendCheckboxes(bonusbarDescription, "bonusbars", range(0, Constants.MAX_BONUS_ACTIONBAR_OFFSET, function(offset)
+        AppendCheckboxes(bonusbarDescription, "bonusbars", range(0, Constants.MAX_BONUSBAR_OFFSET, function(offset)
             local name = BONUSBAR_NAMES[offset];
             local label = format("[bonusbar:%d]", offset);
             if (name) then

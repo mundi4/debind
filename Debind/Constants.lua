@@ -83,8 +83,6 @@ Constants.MACROTEXT_ARG_UNIT         = 1;
 Constants.MACROTEXT_ARG_CUSTOM_STATE = 2;
 
 
-Constants.MAX_BONUS_ACTIONBAR_OFFSET = 5;
-
 -- Priority Values
 Constants.DEFAULT_PRIORITY           = 3;
 Constants.MIN_PRIORITY               = 1;
@@ -97,6 +95,12 @@ Constants.GROUP_ALL                  = 2 ^ 3 - 1;
 
 Constants.FORM_ALL                   = 2 ^ 11 - 1;
 
+-- **The one place this number is written.** It was two: this, and a
+-- `MAX_BONUS_ACTIONBAR_OFFSET` that the window and the condition menu drew their checkboxes
+-- from. Same fact, two names, and only this one reaching `BONUSBAR_ALL` -- so raising the
+-- window's would offer a box whose bit no mask here spans, and raising this one would leave
+-- "every box ticked" no longer meaning "no condition". The same duplication `TYPES_WITH_UNIT`
+-- above was made single for, in the same file.
 Constants.MAX_BONUSBAR_OFFSET        = 5;
 Constants.BONUSBAR_ALL               = 2 ^ (Constants.MAX_BONUSBAR_OFFSET + 1) - 1;
 
@@ -130,23 +134,19 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 -- so a hover condition and a unit condition aimed at the same unit cannot describe it two
 -- different ways.
 --
--- Two notes for whoever adds the next per-unit condition -- dead/alive and party/raid are the
--- ones asked for:
+-- **The axis is a product**: absent, or (one of three reactions) x (alive or dead). Life is
+-- folded in here rather than given a column of its own, because "absent, or present and alive"
+-- is not a rectangle in (reaction, life) -- absent has no life value to constrain, so a life
+-- column of {alive} would drop half of that condition and the box would come out narrower than
+-- the condition it stands for. Narrow boxes get deleted for reasons they never asked for.
 --
--- It does not get a column of its own. "Absent, or present and alive" is not a rectangle in
--- (reaction, life), because absent has no life value to constrain; a life column of {alive}
--- would drop half of that condition and the box would come out narrower than the condition it
--- stands for. Narrow boxes get deleted for reasons they never asked for.
---
--- But it should not just widen this enumeration either. A product taken over every axis the
--- addon has runs out of room quickly -- the ceiling is 31 bits, since `bit.bnot` returns a
--- signed 32-bit value and bit 31 turns a mask negative. The product belongs to a key, not to
--- the codebase: `Solver.lua` builds its columns per key already, so it only has to span the
--- axes that key's bindings actually constrain, and storage keeps one mask per axis instead of
--- one packed value. A key that never asks about life then pays nothing for life existing.
--- The axis is a **product**: absent, or (one of three reactions) x (alive or dead). Life does not
--- get a column of its own for the reason above -- "absent, or present and alive" is not a
--- rectangle in (reaction, life), so a life column would have to drop half of that condition.
+-- **The next per-unit condition should not just widen this enumeration** -- party/raid is the
+-- one asked for. A product taken over every axis the addon has runs out of room quickly: the
+-- ceiling is 31 bits, since `bit.bnot` returns a signed 32-bit value and bit 31 turns a mask
+-- negative. The product belongs to a key, not to the codebase -- `Solver.lua` builds its columns
+-- per key already, so it only has to span the axes that key's bindings actually constrain, and
+-- storage keeps one mask per axis instead of one packed value. A key that never asks about
+-- membership then pays nothing for membership existing.
 --
 -- Only the solver sees the product. The runtime keeps one field per axis and compares them
 -- separately, because it never has to reason about coverage -- it only asks whether the unit's

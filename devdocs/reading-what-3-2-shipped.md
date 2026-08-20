@@ -1,6 +1,6 @@
 # 3.2가 내보낸 것 중 아무도 안 읽은 절반 (2026-08-20)
 
-> 상태: **1·2·3·4번을 읽었다(2026-08-20).** 5·6·7번이 남았다.
+> 상태: **1·2·3·4·7번을 읽었다(2026-08-20).** 5·6번이 남았다.
 >
 > 이건 릴리스 전 실사가 아니라 **사후**다. 3.2는 나갔고 사용자 손에 있다. 그러니 여기서 나오는
 > 것은 "내보내도 되나"가 아니라 "무엇이 나갔나"에 답한다.
@@ -49,7 +49,14 @@
    `KeyCapture` 약 2600줄. 분량은 여기가 제일 크다. 순위가 아래인 것은 **틀렸을 때 키가 안
    죽기 때문**이다.
 6. **`enUS.lua` +828.** 새 문자열을 `writing-user-facing-text.md` 기준으로 훑는 일.
-7. `FrameRegistry.lua` +237, `Events.lua`, `ActionCatalog.lua`, `Constants.lua`.
+7. ~~`FrameRegistry.lua` +237, `Events.lua`, `ActionCatalog.lua`, `Constants.lua`.~~
+   **읽었다(2026-08-20).** 제일 큰 것은 `Constants.lua`가 같은 수를 두 이름으로 들고 있던
+   것이다 - 창과 조건 메뉴가 `MAX_BONUS_ACTIONBAR_OFFSET`으로 체크박스를 그리고
+   `BONUSBAR_ALL`은 `MAX_BONUSBAR_OFFSET`에서 나왔다. 40줄 위의 `TYPES_WITH_UNIT`이 같은
+   병으로 한 번 당하고 하나로 만든 자리다. 하나로 합쳤다. 그리고 `i don't know why` 하나와
+   `일단 급하게 픽스` 하나를 답으로 바꿨다(각각 `reference/`의 `CompactUnitFrame.lua`와
+   `ApplyOptions`가 이미 답을 들고 있었다). 유닛 축 주석은 생사를 아직 안 들어온 것처럼
+   적어두고 같은 논증을 두 번 하고 있어서 다시 썼다.
 
 ## 읽기 전에 알고 갈 것
 

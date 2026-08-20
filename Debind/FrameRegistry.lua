@@ -266,8 +266,11 @@ function DebindPrivate.UpdateRegisteredClicks(button)
 
     ApplyDebindRouting(button);
 
-    -- 애드온이 다 로드되지 않은 상태에서 호출이 된다?
-    -- 일단 급하게 픽스
+    -- **`Options` may not be bound yet**, since `BindDerivedTables` runs from `InitDB` at
+    -- ADDON_LOADED and another addon can register a frame before that. Falling back to `AnyUp`
+    -- costs nothing lasting: `ApplyOptions()` at PLAYER_LOGIN walks every registered frame and
+    -- comes back through here, so a frame that took the fallback is corrected before the player
+    -- has a chance to click it.
     local trigger = DebindPrivate.Options and DebindPrivate.Options.unitframeUseMouseDown and "AnyDown" or "AnyUp";
     button:RegisterForClicks(trigger);
     button:EnableMouseWheel(true);
@@ -328,8 +331,16 @@ end
 
 if (not DebindPrivate.CliqueDetected) then
     hooksecurefunc("CompactUnitFrame_SetUpFrame", function(frame)
-        -- error : calling 'GetName' on bad self (Usage: local name = self:GetName())
-        -- i don't know why `frame:GetName()` fails.
+        -- **The flag is Blizzard's own exemption from the name requirement**, and the frames that
+        -- carry it are the ones we must not call `GetName` on. `CompactUnitFrame.lua:26` reads
+        -- `if not self.ignoreCUFNameRequirement and not self:GetName()`, and the templates that
+        -- set it are the nameplate unit frame, the raid-frame settings preview, and the compact
+        -- frame container. The nameplate is the one that showed up here, as
+        -- "calling 'GetName' on bad self".
+        --
+        -- None of the three is a frame click-casting has any business on, so leaving the branch
+        -- is the whole of what is needed. Testing for a nameplate by name would be the wrong
+        -- shape twice over: the name is what cannot be read, and Blizzard already keeps the list.
         if (frame.ignoreCUFNameRequirement) then
             return;
         end
