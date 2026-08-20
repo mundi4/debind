@@ -82,7 +82,7 @@ Everything else about an action — conditions, targets, importance, moving and 
 - **Custom Macro** — a macro kept in the addon instead of taking one of WoW's macro slots. Every WoW macro conditional works in one, and so do a few things WoW has no word for, like `@healer`. **New Custom Macro**, above the picker's list, starts an empty one.
 - **Binding Command**, on **Commands** — one of WoW's own binding commands (jump, open a bag, press a bar button), wrapped so it can carry conditions.
 - **Use WoW's Own Binding**, on **Special** — gives the key back to WoW for the cases you pick, so one spec can go on using your normal binding.
-- **Set Custom Target** and **Set Custom State**, on **Special** — the next two sections.
+- **Set Custom Target** and **Set Switch**, on **Special** — the next two sections.
 
 ![A Custom Macro named "Innervate the healer" open in the editor — kept in the addon, costing none of WoW's macro slots.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/custom-macro.png)
 
@@ -122,13 +122,13 @@ Two more slots that behave like extra focus targets, and don't cost you the real
 
 A custom target follows the person, not their spot in the raid frames — shuffle the group and it goes with them.
 
-## Custom states
+## Switches
 
 Five switches of your own. An action can require one to be on, or off, and a Custom Macro can read it as `[$state1]` / `[no$state1]`.
 
 They can be flipped **in combat**, which is the point of them — it's how you change what a key does in the middle of a fight. G Shift or Hypershift, without spending a real modifier key.
 
-A state can also drive itself from a macro conditional: hand it `[@tank,exists]` and it's on exactly while there's a tank.
+A switch can also drive itself from a macro conditional: hand it `[@tank,exists]` and it's on exactly while there's a tank.
 
 ## When a key holds several actions
 

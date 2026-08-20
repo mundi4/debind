@@ -67,7 +67,7 @@ L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button wit
 -- %s는 매크로 본문에 적힌 그 이름이다. **이 줄만 인자를 받는다** - 다른 BINDING_ERROR_*는
 -- 어느 조건이 문제인지가 이미 그 칸에 보이는데, 이건 본문 안이라 이름을 적어주지 않으면
 -- 무엇을 고쳐야 하는지가 안 보인다.
-L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no custom state named |cnHIGHLIGHT_FONT_COLOR:%s|r. Until the name is fixed this binding does not fire at all."
+L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT_COLOR:%s|r. Until the name is fixed this binding does not fire at all."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
 --
@@ -104,9 +104,9 @@ L["CONDITION_BONUSBAR"] = "Stance-based Action Bar"
 L["CONDITION_COMBAT_NO"] = "While Not in Combat"
 L["CONDITION_COMBAT_YES"] = "While in Combat"
 L["CONDITION_COMBAT"] = "Combat"
-L["CONDITION_CUSTOM_STATES"] = "Custom States"
-L["CONDITION_CUSTOM_STATE_NO"] = "When the State Is Off"
-L["CONDITION_CUSTOM_STATE_YES"] = "When the State Is On"
+L["CONDITION_CUSTOM_STATES"] = "Switches"
+L["CONDITION_CUSTOM_STATE_NO"] = "When the Switch Is Off"
+L["CONDITION_CUSTOM_STATE_YES"] = "When the Switch Is On"
 L["CONDITION_EXTRABAR_NO"] = "When the Extra Action Button Is Not Present"
 L["CONDITION_EXTRABAR_YES"] = "When the Extra Action Button Is Present"
 L["CONDITION_EXTRABAR"] = "Extra Action Button"
@@ -148,20 +148,21 @@ L["CUSTOM_STATE_EDIT_VALUE"] = "Enter macro conditional expression."
 L["CUSTOM_STATE_INITIAL_VALUE"] = "Initial Value"
 L["CUSTOM_STATE_LOGIN_OFF"] = "Turn off when logging in."
 L["CUSTOM_STATE_LOGIN_ON"] = "Turn on when logging in."
-L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "This option lets the addon determine the value of the state based on macro conditional expressions (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
+L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "This option lets the addon determine the value of the switch based on macro conditional expressions (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "Set Automatically"
-L["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"] = "You can change the value of the state here, or change it by using |cnBLUE_FONT_COLOR:Set Custom State|r action at any time (even in combat)."
+L["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"] = "You can change the value of the switch here, or change it by using the |cnBLUE_FONT_COLOR:Set Switch|r action at any time (even in combat)."
 L["CUSTOM_STATE_MODE_MANUAL"] = "Set Manually"
-L["CUSTOM_STATE_NUM"] = "Custom State %d"
+L["CUSTOM_STATE_NUM"] = "Switch %d"
 L["CUSTOM_STATE_OFF"] = "Off"
 L["CUSTOM_STATE_ON"] = "On"
-L["CUSTOM_STATE_REMEMBER"] = "Restore last state value when logging in."
--- 사용자 지정 상태 포트레잇 버튼의 툴팁이자, 조건 메뉴의 [Custom States] 설명이다.
--- 두 자리가 같은 문단을 쓴다 - CONDITION_CUSTOM_STATES_DESC라는 쌍둥이 키가 따로 있었는데,
--- 글자 하나 다르지 않은 문단을 로케일마다 두 번 번역하게 만드는 자리였다. 조건 메뉴 쪽은
--- 이제 이 키를 명시적으로 넘겨받는다(DropDownMenus.lua의 CreateCustomStateConditionMenu).
-L["CUSTOM_STATES_DESC"] = "These are ON/OFF states that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these states on or off at any time, or you can set them as macro conditionals themselves."
-L["CUSTOM_STATES"] = "Custom States"
+L["CUSTOM_STATE_REMEMBER"] = "Restore the last value when logging in."
+-- The tooltip of the SwitchesPortrait button, and the description the condition menu shows for
+-- the switch group. Both places print this one paragraph. A twin key,
+-- CONDITION_CUSTOM_STATES_DESC, used to hold a paragraph that did not differ from this one by a
+-- single character, which meant translating the same text twice in every locale. The condition
+-- menu is handed this key explicitly instead (CreateSwitchConditionMenu in DropDownMenus.lua).
+L["CUSTOM_STATES_DESC"] = "These are ON/OFF switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these switches on or off at any time, or you can set them as macro conditionals themselves."
+L["CUSTOM_STATES"] = "Switches"
 L["CUSTOM_TARGET_CLEAR"] = "Clear"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
 L["CUSTOM_TARGET_HELP_MESSAGE_ARENA"] = "Try while hovering over arena frames."
@@ -813,7 +814,7 @@ L["TYPE_FOCUS_DESC"] = "Sets your focus to this unit. With a role-based unit, on
 L["TYPE_FOCUS"] = "Set Focus Target"
 L["TYPE_ITEM"] = "Item"
 L["TYPE_MACRO"] = "Macro"
-L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read custom states, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"
+L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read your switches, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"
 L["TYPE_MACROTEXT"] = "Custom Macro"
 L["TYPE_MOUNT"] = "Mount"
 L["TYPE_PETACTION"] = "Pet Command"
@@ -821,11 +822,11 @@ L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as t
 L["TYPE_SETCUSTOM"] = "Set Custom Target"
 L["TYPE_SETCUSTOM1"] = "Set Custom Target 1"
 L["TYPE_SETCUSTOM2"] = "Set Custom Target 2"
-L["TYPE_SETSTATE_DESC"] = "Turns a custom state on or off. A custom state is a switch of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too, where WoW keeps you from changing a key binding."
-L["TYPE_SETSTATE_OFF_NUM"] = "Turn Off Custom State %d"
-L["TYPE_SETSTATE_ON_NUM"] = "Turn On Custom State %d"
-L["TYPE_SETSTATE_TOGGLE_NUM"] = "Toggle Custom State %d"
-L["TYPE_SETSTATE"] = "Set Custom State"
+L["TYPE_SETSTATE_DESC"] = "Turns a switch on or off. A switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too, where WoW keeps you from changing a key binding."
+L["TYPE_SETSTATE_OFF_NUM"] = "Turn Off Switch %d"
+L["TYPE_SETSTATE_ON_NUM"] = "Turn On Switch %d"
+L["TYPE_SETSTATE_TOGGLE_NUM"] = "Toggle Switch %d"
+L["TYPE_SETSTATE"] = "Set Switch"
 L["TYPE_SPELL"] = "Spell"
 L["TYPE_TARGET_DESC"] = "Makes this unit your target. The list reaches further than WoW's own targeting bindings -- role-based units such as |cnHIGHLIGHT_FONT_COLOR:Tank|r and |cnHIGHLIGHT_FONT_COLOR:Healer|r, and your custom targets."
 L["TYPE_TARGET"] = "Set Target"
