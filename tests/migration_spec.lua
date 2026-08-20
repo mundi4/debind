@@ -1042,6 +1042,40 @@ return function(DebindPrivate)
         check(db.characters[GUID] ~= nil, "정리가 캐릭터 항목을 뗐다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 리셋은 새 설치가 아니다
+    --
+    -- `/deb reset confirm`이 빈 표를 놓고 리로드하는데, **빈 표는 첫 로그인이 시작하는 바로 그
+    -- 자리다.** `legacyNeeded`가 안 서 있으면 다음 로그인이 개명 전 `DebounceVars`를 보고
+    -- 통째로 인수한다. 되돌릴 수 없다는 말을 읽고 친 사람이 바인딩으로 가득 찬 화면을 다시
+    -- 만나고, 그게 어디서 왔는지 알 방법이 없다. 실제로 밟았다.
+    ---------------------------------------------------------------------------
+
+    test("리셋한 계정은 옛 파일을 다시 안 가져온다", function()
+        _G.DebindVars = NewerProfile();
+        _G.DebounceVars = LegacyAccount();
+        _G.DebounceVarsPerChar = LegacyChar();
+        DebindPrivate.InitDB();
+
+        -- 리로드는 여기서 할 수 없으므로 그 자리만 막아두고, 남는 표를 본다.
+        local reloaded = false;
+        local realReload = _G.ReloadUI;
+        _G.ReloadUI = function() reloaded = true; end;
+        local handled = DebindPrivate.HandleNewerProfileReset({ "reset", "confirm" });
+        _G.ReloadUI = realReload;
+
+        check(handled and reloaded, "confirm이 안 먹었다");
+        check(_G.DebindVars.legacyNeeded == false,
+            "리셋한 표가 개명 전 설정을 사절하지 않는다");
+
+        -- 그 표로 다시 올라온 다음 로그인.
+        DebindPrivate.InitDB();
+        check(DebindPrivate.RunLegacyMigration() == false,
+            "리셋 직후인데 옛 파일을 가져왔다");
+        check(#DebindPrivate.db.global.shared.GENERAL == 0,
+            "리셋 직후인데 공유 레이어에 액션이 있다");
+    end);
+
     -- 되돌아온 자리. 물러섰던 세션 다음에 정상 프로필로 들어오면 깃발이 서 있으면 안 된다.
     test("정상 프로필로 돌아오면 깃발이 내려간다", function()
         NewerInit();

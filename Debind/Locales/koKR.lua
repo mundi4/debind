@@ -403,12 +403,9 @@ L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "클릭 시전에 마우스 누를 때 �
 L["UNNAMED_ACTION"] = "(이름 없음)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique를 쓰고 있어서 여기 걸어둔 개체창 지정이 동작하지 않습니다."
--- 물러섰다고 말하는 세 줄. 순서와 근거는 enUS 쪽 주석에.
-L["NEWER_PROFILE_MESSAGE_KEPT"] = "지정해 둔 것은 전부 그대로 있고 아무것도 바뀌지 않았습니다. Debind를 다시 새 버전으로 올리면 그대로 돌아옵니다."
-L["NEWER_PROFILE_MESSAGE_WHY"] = "지금 저장돼 있는 것은 이 버전보다 새로운 Debind가 저장한 것이라, 이 버전은 읽지 못합니다."
-L["NEWER_PROFILE_MESSAGE_RESET"] = "이대로 지우고 이 버전에서 새로 시작하려면 다음을 입력해 주세요. |cnHIGHLIGHT_FONT_COLOR:/deb reset|r"
-L["NEWER_PROFILE_RESET_WARNING"] = "이 계정의 모든 캐릭터에서 Debind가 저장한 것이 전부 지워집니다. 되돌릴 수 없습니다."
-L["NEWER_PROFILE_RESET_COMMAND"] = "지우려면 다음을 입력해 주세요. |cnHIGHLIGHT_FONT_COLOR:/deb reset confirm|r"
+-- 물러섰다고 말하는 한 줄. 순서와 근거는 enUS 쪽 주석에.
+L["NEWER_PROFILE_MESSAGE"] = "단축키가 하나도 동작하지 않습니다. 저장된 설정이 이 버전보다 새로워서 읽지 못합니다. 아무것도 바뀌지 않았으니 새 버전을 다시 설치하면 그대로 돌아옵니다. 지우고 새로 시작하려면 |cnHIGHLIGHT_FONT_COLOR:/deb reset|r을 입력해 주세요."
+L["NEWER_PROFILE_RESET_PROMPT"] = "이 계정의 모든 캐릭터에서 Debind가 저장한 것이 전부 지워지고 되돌릴 수 없습니다. 지우려면 다음을 입력해 주세요. |cnHIGHLIGHT_FONT_COLOR:/deb reset confirm|r"
 -- 창을 덮는 판. 근거는 enUS 쪽 주석에.
 L["MIGRATION_DIALOG_HEADER"] = "Debind"
 L["MIGRATION_DIALOG_TITLE"] = "설정은 그대로 있습니다 - Debind가 닿지 못할 뿐입니다."

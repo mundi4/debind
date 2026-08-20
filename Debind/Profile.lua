@@ -624,14 +624,12 @@ end
 --- chance. There is nothing here to answer either: no choice, no deadline, and the thing to do is
 --- outside the game.
 ---
---- **The order of the three is the point.** The screen they are looking at is one where every key
---- they set is dead, so the first thing they have to know is that the settings are still there.
---- Miss that and they go and delete their own SavedVariables, and the file we kept by not touching
---- it dies that way instead.
+--- **One line.** It was three, one per thing the design listed as needing to be said, which
+--- mistook a list of what to say for a count of how many times to say it. Three entries in the
+--- frame carrying loot and quest text is three prefixes and three timestamps for one piece of
+--- news, and the sentence order inside one entry does the same work for free.
 function DebindPrivate.ReportNewerProfile()
-    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE_KEPT"], ERROR_COLOR:GetRGBA());
-    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE_WHY"], ERROR_COLOR:GetRGBA());
-    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE_RESET"], ERROR_COLOR:GetRGBA());
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_MESSAGE"], ERROR_COLOR:GetRGBA());
 end
 
 --- `/deb reset`, in two steps. Returns whether this call handled the command.
@@ -662,13 +660,21 @@ function DebindPrivate.HandleNewerProfileReset(chunks)
     end
 
     if (chunks[2] == "confirm") then
-        _G.DebindVars = {};
+        -- **`legacyNeeded = false` is not decoration, it is the difference between a reset and a
+        -- fresh install.** An empty table is exactly what a first-ever login starts from, so
+        -- without this the next login finds `legacyNeeded` unset, reads the pre-rename
+        -- `DebounceVars` still on disk and imports the whole thing (`Legacy.lua`). Somebody who has
+        -- just been told this cannot be undone would come back to a screen full of bindings and no
+        -- way to tell where they came from.
+        --
+        -- Same value and same meaning as answering "I don't need them" in the window's overlay
+        -- (`DeclineLegacyMigration`), and account wide for the same reason: the shared layers are.
+        _G.DebindVars = { legacyNeeded = false };
         ReloadUI();
         return true;
     end
 
-    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_RESET_WARNING"], ERROR_COLOR:GetRGBA());
-    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_RESET_COMMAND"], ERROR_COLOR:GetRGBA());
+    DebindPrivate.DisplayMessage(L["NEWER_PROFILE_RESET_PROMPT"], ERROR_COLOR:GetRGBA());
     return true;
 end
 
