@@ -120,14 +120,18 @@ for i = 1, Constants.MAX_NUM_SWITCHES do
     Constants.SWITCH_INDICES["$state" .. i] = i;
 end
 
---- **1 and 2 are missing on purpose.** They were `ALWAYS_ON` and `ALWAYS_OFF`, declared in the
---- first big commit and never read once in the addon's whole history -- no UI could set them, so
---- no profile carries one and there is nothing to migrate. Closing the gap would renumber
---- `MACRO_CONDITIONAL` and silently reinterpret every stored definition, so the numbers stay
---- where they are.
+--- **Strings, so a mode nothing wrote matches nothing.** A number carries neighbours: one that is
+--- off by one is a different mode, and a gap in the numbering can never be closed without silently
+--- reinterpreting every stored definition. A name that is neither of these two matches neither
+--- reader, and every reader compares with `==` -- no arithmetic, no index, no sort.
+---
+--- The old numbers live on in three places, all of which have to keep speaking a language this
+--- table no longer does: `MigrateSwitches` in `Profile.lua`, the v1 step in `Export.lua` that
+--- raises a shared string's manifest, and the `dbver` 5 builder in `DevSeed.lua` that plants what
+--- those two read.
 Constants.SWITCH_MODES = {
-    MANUAL            = 0,
-    MACRO_CONDITIONAL = 3,
+    MANUAL = "manual",
+    EXPR   = "expr",
 };
 
 Constants.SETCUSTOM_MODE_ON     = 0x100;

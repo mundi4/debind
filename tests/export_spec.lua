@@ -66,7 +66,7 @@ return function(DebindPrivate, DebindStorage)
                 classes = { [CLASS] = layout.class or {} },
             },
             characters = { [GUID] = { layers = layout.char or {} } },
-            customStates = layout.customStates,
+            switches = layout.switches,
             migrated = {},
         };
         DebindPrivate.InitDB();
@@ -455,11 +455,11 @@ return function(DebindPrivate, DebindStorage)
     local function StatefulProfile(general)
         ResetProfile({
             general = general,
-            customStates = {
-                [1] = { mode = Constants.SWITCH_MODES.MANUAL, initialValue = true,
+            switches = {
+                [1] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                         displayMessage = "1번" },
                 [3] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "3번" },
-                [4] = { mode = Constants.SWITCH_MODES.MACRO_CONDITIONAL,
+                [4] = { mode = Constants.SWITCH_MODES.EXPR,
                         expr = "[$state5] [combat]" },
                 [5] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "5번" },
             },
@@ -517,9 +517,9 @@ return function(DebindPrivate, DebindStorage)
         stored.conditions = { ["$state1"] = true };
 
         local definition = DebindStorage.BuildExportPayload().states["$state1"];
-        -- `BindDerivedTables` recomputes this from initialValue. It is a reading, not a setting.
+        -- `BindDerivedTables` recomputes this from resetValue. It is a reading, not a setting.
         check(definition.value == nil, "value가 실렸다");
-        check(definition.initialValue == true, "initialValue는 실려야 한다");
+        check(definition.resetValue == true, "resetValue는 실려야 한다");
     end);
 
     ---------------------------------------------------------------------------
@@ -696,6 +696,32 @@ return function(DebindPrivate, DebindStorage)
             check(DecodeWithVersion(0) == "SCHEMA_TOO_OLD", "단계 없는 옛 판");
         end);
     end
+
+    -- **v1 매니페스트도 같은 단계가 받는다.** 3.2가 이 표를 실어 보냈으므로 v1 문자열이
+    -- 남의 노트에 옛 모양으로 앉아 있다. 아직 매니페스트를 읽는 쪽은 없지만 단계는 한 번
+    -- 쓰면 얼어붙어서, 읽는 쪽이 생기는 날 붙일 자리가 여기 말고는 없다.
+    test("v1 매니페스트의 정의도 새 이름으로 올라온다", function()
+        local payload = DebindStorage.BringPayloadForward({
+            v = 1, class = CLASS,
+            states = {
+                ["$state1"] = { mode = 0, initialValue = true, displayMessage = "1번" },
+                ["$state2"] = { mode = 3, expr = "[combat]" },
+                ["$state3"] = { mode = 0, initialValue = false },
+            },
+        });
+        check(payload, "v1이 거절당했다");
+
+        local states = payload.states;
+        check(states["$state1"].mode == Constants.SWITCH_MODES.MANUAL, "수동 모드");
+        check(states["$state2"].mode == Constants.SWITCH_MODES.EXPR,
+            "계산식 모드가 " .. tostring(states["$state2"].mode) .. "로 남았다");
+        check(states["$state1"].initialValue == nil, "옛 필드가 남았다");
+        check(states["$state1"].resetValue == true, "true가 안 옮겨졌다");
+        -- `false`와 없는 것은 다른 답이다. 뭉개면 "로그인 때 꺼짐"이 "기억한 값"이 된다.
+        check(states["$state3"].resetValue == false,
+            "false가 " .. tostring(states["$state3"].resetValue) .. "가 됐다");
+        check(states["$state1"].displayMessage == "1번", "나머지가 안 따라왔다");
+    end);
 
     return T;
 end

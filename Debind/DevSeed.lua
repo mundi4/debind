@@ -242,18 +242,24 @@ SEEDS[5] = function(guid)
             blizzframes = {},
         },
 
-        --- Two of the five set up differently, so the custom-state screen has both modes on it and
+        --- Two of the five set up differently, so the switches screen has both modes on it and
         --- `$state1` above has something to point at. The other three come up as defaults from
         --- `BindDerivedTables`.
+        ---
+        --- **The old names and the old numbers, spelled out.** This is the shape `dbver` 5 stored,
+        --- and `Constants.SWITCH_MODES` no longer holds a word for it -- reaching for the constant
+        --- would plant `dbver` 6 data under a `dbver` 5 stamp, and `/deb seed 5` is what a
+        --- migration is verified against. `0` is manual and `3` is the expression mode
+        --- (`MigrateSwitches` in `Profile.lua` is the other half of this pair).
         customStates = {
-            [1] = { mode = Constants.SWITCH_MODES.MANUAL, initialValue = true,
-                displayMessage = true },
-            [2] = { mode = Constants.SWITCH_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
+            [1] = { mode = 0, initialValue = true, displayMessage = true },
+            [2] = { mode = 3, expr = "[combat]" },
         },
     };
 end;
 
---- 조건이 `conditions` 안으로 내려간 판(`dbver` 6). 위 판과 다른 것은 그 한 겹뿐이다.
+--- `dbver` 6. 위 판과 둘이 다르다 - 조건이 `conditions` 안으로 내려갔고, 스위치 정의가
+--- `switches`라는 이름 아래 문자열 `mode`와 `resetValue`로 앉는다.
 SEEDS[6] = function(guid)
     local CLASS = Constants.PLAYER_CLASS;
     local HEARTHSTONE = 6948;
@@ -465,13 +471,13 @@ SEEDS[6] = function(guid)
             blizzframes = {},
         },
 
-        --- Two of the five set up differently, so the custom-state screen has both modes on it and
+        --- Two of the five set up differently, so the switches screen has both modes on it and
         --- `$state1` above has something to point at. The other three come up as defaults from
         --- `BindDerivedTables`.
-        customStates = {
-            [1] = { mode = Constants.SWITCH_MODES.MANUAL, initialValue = true,
+        switches = {
+            [1] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                 displayMessage = true },
-            [2] = { mode = Constants.SWITCH_MODES.MACRO_CONDITIONAL, expr = "[combat]" },
+            [2] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
         },
     };
 end;

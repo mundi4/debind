@@ -111,14 +111,14 @@ function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
             manualDescription:CreateDivider();
             manualDescription:CreateTitle(LLL["CUSTOM_STATE_INITIAL_VALUE"]);
 
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_REMEMBER"], _isSelected, _setSelected, { targetObj = stateOptions, key = "initialValue", value = nil });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_ON"], _isSelected, _setSelected, { targetObj = stateOptions, key = "initialValue", value = true });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_OFF"], _isSelected, _setSelected, { targetObj = stateOptions, key = "initialValue", value = false });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_REMEMBER"], _isSelected, _setSelected, { targetObj = stateOptions, key = "resetValue", value = nil });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_ON"], _isSelected, _setSelected, { targetObj = stateOptions, key = "resetValue", value = true });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_OFF"], _isSelected, _setSelected, { targetObj = stateOptions, key = "resetValue", value = false });
         end
 
         do
             local conditionalDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"], _isSelected, _setSelected,
-                { targetObj = stateOptions, key = "mode", value = Constants.SWITCH_MODES.MACRO_CONDITIONAL });
+                { targetObj = stateOptions, key = "mode", value = Constants.SWITCH_MODES.EXPR });
             SetInstrcutionTooltip(conditionalDescription, LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"]);
 
             conditionalDescription:CreateTitle(MenuUtil.GetElementText(conditionalDescription));
@@ -131,7 +131,7 @@ function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
                             value = nil;
                         end
                         stateOptions.expr = value;
-                        if (stateOptions.mode == Constants.SWITCH_MODES.MACRO_CONDITIONAL) then
+                        if (stateOptions.mode == Constants.SWITCH_MODES.EXPR) then
                             DebindPrivate.UpdateBindings();
                         end
                     end,

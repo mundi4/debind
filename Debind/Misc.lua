@@ -1844,7 +1844,7 @@ local function SwitchesChangedCallback()
 
             local newValue, savedValue = _changedStates[state], nil;
             if (options.mode == SWITCH_MODES.MANUAL) then
-                if (options.initialValue == nil) then
+                if (options.resetValue == nil) then
                     savedValue = newValue;
                 else
                     savedValue = nil;

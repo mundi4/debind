@@ -31,6 +31,9 @@ local luatype            = type;
 --- `BuildAction`의 화이트리스트가 **조건을 전부 조용히 버린다** - 무조건 액션으로 도착해
 --- 조건부 밴드가 아닌 자리에 서고, 키를 받으면 작성자가 제외한 상태에서도 발동한다.
 --- 반대 방향도 같이 닫힌다. 3.2 리더가 v2를 거절하지, 못 읽는 필드를 떨어뜨리지 않는다.
+--- **같은 판이 매니페스트도 옮긴다.** 스위치 정의의 `mode`가 숫자에서 문자열이 되고
+--- `initialValue`가 `resetValue`가 됐다. 아직 안 나간 판이라 번호를 새로 열지 않는다 -
+--- 프로필 쪽 `dbver` 6이 같은 이유로 같은 자리에 얹혀 있다.
 local SCHEMA_VERSION     = 2;
 
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
@@ -126,13 +129,16 @@ local CONDITION_TYPES    = {
 DebindStorage.ACTION_FIELDS = ACTION_FIELDS;
 DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 
---- Which fields of a custom state definition describe the state, as opposed to what it happens
+--- Which fields of a switch definition describe the switch, as opposed to what it happens
 --- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it from
---- `initialValue`/`savedValue` on every login, so sending it would ship a runtime reading as if
+--- `resetValue`/`savedValue` on every login, so sending it would ship a runtime reading as if
 --- it were a setting.
+---
+--- **These names are the wire's, and 3.2 wrote the older ones.** A v1 payload carries a numeric
+--- `mode` and `initialValue`, so the step that raises v1 renames them (`BringPayloadForward`).
 local STATE_FIELDS       = {
     mode = true,
-    initialValue = true,
+    resetValue = true,
     savedValue = true,
     displayMessage = true,
     expr = true,
@@ -330,7 +336,7 @@ local function BuildStateManifest(actions)
 
                     -- A conditional state's expression can name other states, and those have to
                     -- travel too or the definition arrives referring to nothing.
-                    if (definition.mode == Constants.SWITCH_MODES.MACRO_CONDITIONAL
+                    if (definition.mode == Constants.SWITCH_MODES.EXPR
                             and luatype(definition.expr) == "string") then
                         local _, args = DebindPrivate.ParseMacroText(definition.expr);
                         for j = 1, (args and #args or 0) do
@@ -546,6 +552,39 @@ local function NestPayloadConditions(payload)
     end);
 end
 
+--- v1 -> v2, 매니페스트 쪽. 스위치 정의의 `mode`가 숫자에서 문자열이 되고 `initialValue`가
+--- `resetValue`가 된다 (`Profile.lua`의 `MigrateSwitches`와 같은 변환).
+---
+--- **아직 아무도 매니페스트를 안 읽는데도 지금 쓴다.** 3.2가 이 표를 실어 보냈으므로 v1
+--- 문자열이 남의 노트에 옛 모양으로 앉아 있고, 읽는 쪽이 생기는 날 이 단계는 이미 얼어붙어
+--- 있다. 그때 붙이려면 v2가 낸 모양을 다시 고치는 단계를 열어야 하는데, 그건 뜻이 v2에서
+--- 바뀐 필드를 v3에서 손보는 것이라 사다리가 거짓말을 하게 된다.
+---
+--- 단계가 자기 리터럴을 든다. 이유는 `NestPayloadConditions`와 같다.
+local function RenamePayloadSwitchFields(payload)
+    local states = payload.states;
+    if (luatype(states) ~= "table") then
+        return;
+    end
+    for _, definition in pairs(states) do
+        if (luatype(definition) == "table") then
+            if (luatype(definition.mode) == "number") then
+                if (definition.mode == 3) then
+                    definition.mode = Constants.SWITCH_MODES.EXPR;
+                else
+                    definition.mode = Constants.SWITCH_MODES.MANUAL;
+                end
+            end
+            if (definition.initialValue ~= nil) then
+                if (definition.resetValue == nil) then
+                    definition.resetValue = definition.initialValue;
+                end
+                definition.initialValue = nil;
+            end
+        end
+    end
+end
+
 function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
@@ -558,6 +597,7 @@ function DebindStorage.BringPayloadForward(payload)
     -- 그것들을 거절하라고 있는 자리다.
     if (payload.v == 1) then
         NestPayloadConditions(payload);
+        RenamePayloadSwitchFields(payload);
         payload.v = 2;
     end
 

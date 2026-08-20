@@ -63,7 +63,7 @@ function Events.PLAYER_LOGIN()
     -- (see the comment on ACTIVE_PLAYER_SPECIALIZATION_CHANGED). If importing the old
     -- SavedVariables fails it simply falls through - it has no right to delay bindings.
     if (DebindPrivate.RunLegacyMigration()) then
-        -- Order matters. The import swaps out the `options`/`customStates` tables wholesale, so
+        -- Order matters. The import swaps out the `options`/`switches` tables wholesale, so
         -- rebind the references **first**, then re-read the layers.
         DebindPrivate.BindDerivedTables();
         DebindPrivate.LoadProfile();

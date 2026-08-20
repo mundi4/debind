@@ -172,6 +172,13 @@ local function ImportAccount(db, old)
             db[key] = (type(value) == "table") and CopyTable(value) or value;
         end
     end
+
+    -- **The switch definitions arrive through that loop, and a copy is all it does.** Layers get
+    -- raised on the way in, each through `MigrateLayer` before it is attached; a definition is not
+    -- in a layer, so nothing above raises one. And nothing below will: this runs at PLAYER_LOGIN,
+    -- long after `MigrateDB` stamped `db.dbver` at the current version, so the ladder never comes
+    -- round again and the old shape would sit there being read as the new one.
+    DebindPrivate.MigrateSwitches(db, dbver);
 end
 
 --- This character's share: `DebounceVarsPerChar` -> `DebindVars.characters[guid]`.

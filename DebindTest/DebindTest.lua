@@ -2758,7 +2758,7 @@ RegisterTest("Undefined $state inside a state's own expression", {
         end
 
         -- **`DebindPrivate.Switches`의 슬롯만 갈아끼운다.** 그 표의 항목은
-        -- `db.customStates`의 표와 **같은 테이블**이라(`BindDerivedTables`), 필드를 고치면
+        -- `db.switches`의 표와 **같은 테이블**이라(`BindDerivedTables`), 필드를 고치면
         -- 사용자의 저장된 설정을 고치는 것이 된다. 슬롯을 바꾸면 되돌릴 것이 참조 둘뿐이다.
         local saved1, saved2 = DebindPrivate.Switches[1], DebindPrivate.Switches[2]
         AddTeardown(function()
@@ -2774,7 +2774,7 @@ RegisterTest("Undefined $state inside a state's own expression", {
 
         -- 켜지는 쪽을 먼저 세운다. 이게 없으면 아래의 "안 걸림"이 계산식 상태로는 원래
         -- 아무것도 안 걸리는 것과 구분되지 않는다.
-        DebindPrivate.Switches[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$state2]" }
+        DebindPrivate.Switches[1] = { mode = MODES.EXPR, expr = "[$state2]" }
         ApplyBindings()
         local whenTrue = GetBindingAction(KEY, true) or ""
         if whenTrue:sub(1, 6) ~= "CLICK " then
@@ -2783,7 +2783,7 @@ RegisterTest("Undefined $state inside a state's own expression", {
                 whenTrue))
         end
 
-        DebindPrivate.Switches[1] = { mode = MODES.MACRO_CONDITIONAL, expr = "[$typo]" }
+        DebindPrivate.Switches[1] = { mode = MODES.EXPR, expr = "[$typo]" }
         ApplyBindings()
         local whenUndefined = GetBindingAction(KEY, true) or ""
         if whenUndefined ~= "" then

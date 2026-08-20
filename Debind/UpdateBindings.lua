@@ -151,7 +151,7 @@ function addSwitch(stateName)
                     mode = options.mode,
                     value = options.value,
                 };
-                if (options.mode == SWITCH_MODES.MACRO_CONDITIONAL) then
+                if (options.mode == SWITCH_MODES.EXPR) then
                     info.expr = options.expr or "";
                     addMacrotextBinding(info.name, info.expr);
                 end
@@ -337,7 +337,7 @@ States.unitframe = hovered
             end
 
             -- fixed macro conditional
-            if (stateInfo.mode == SWITCH_MODES.MACRO_CONDITIONAL and not addMacrotext(stateInfo.expr)) then
+            if (stateInfo.mode == SWITCH_MODES.EXPR and not addMacrotext(stateInfo.expr)) then
                 appendLine([[SwitchExpressions[%q]=%q]], state, stateInfo.expr);
             end
         end
@@ -1673,7 +1673,7 @@ end
     -- Update Switches
     for state, stateInfo in pairs(_switches) do
         if (stateInfo) then
-            if (stateInfo.mode == SWITCH_MODES.MACRO_CONDITIONAL) then
+            if (stateInfo.mode == SWITCH_MODES.EXPR) then
                 appendLine([[stateValue=SecureCmdOptionParse(SwitchExpressions[%q] or "") and true or false]], stateInfo.name);
                 appendLine([[if (States[%1$q] ~= stateValue) then self:RunAttribute("SetSwitch", %1$q, stateValue, true) end]], stateInfo.name);
             end

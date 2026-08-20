@@ -1167,5 +1167,125 @@ return function(DebindPrivate)
         check(not DebindPrivate.profileIsNewer, "깃발이 선 채로 남았다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- dbver 6: 스위치 정의의 저장 모양
+    --
+    -- **정의는 액션이 아니라 사다리가 따로 선다.** `MigrateLayer`가 걷는 것은 레이어의 액션
+    -- 배열이고 정의는 그 근처에 없다 - `MigrateSwitches`가 계정 표의 꼭대기에서 따로 돈다.
+    --
+    -- 셋이 한 단계에 간다. 표 이름 `customStates` -> `switches`, `mode`의 숫자 -> 문자열,
+    -- `initialValue` -> `resetValue`. 어느 하나를 놓쳐도 아무 소리가 안 난다: 새 이름 아래가
+    -- 비어 있으면 다섯 개가 기본값으로 새로 깔리고 사용자가 해둔 설정이 통째로 없던 것이 된다.
+    ---------------------------------------------------------------------------
+
+    local MODES = Constants.SWITCH_MODES;
+
+    --- `dbver` 5 그대로의 계정 표. `DevSeed.lua`의 `SEEDS[5]`가 심는 것과 같은 모양이고,
+    --- **옛 숫자를 직접 든다** - `Constants.SWITCH_MODES`는 그 언어를 더 이상 모른다.
+    ---
+    --- 넷을 두는 이유는 되돌릴 값의 세 답이 서로 다른 답이라서다. `true`와 `false`는 로그인
+    --- 때 켜고 끄는 것이고, 없는 것은 "기억한 값(`savedValue`)으로 가라"다.
+    local function OldSwitchAccount()
+        return {
+            dbver = 5,
+            shared = { classes = {} },
+            characters = {},
+            migrated = {},
+            customStates = {
+                [1] = { mode = 0, initialValue = true, displayMessage = true },
+                [2] = { mode = 3, expr = "[combat]" },
+                [3] = { mode = 0, initialValue = false },
+                [4] = { mode = 0, savedValue = true },
+            },
+        };
+    end
+
+    local function InitWith(db)
+        _G.DebounceVars = nil;
+        _G.DebounceVarsPerChar = nil;
+        _G.DebindVars = db;
+        DebindPrivate.InitDB();
+        return _G.DebindVars;
+    end
+
+    test("dbver 6 moves the switch definitions under their new name", function()
+        local db = InitWith(OldSwitchAccount());
+        check(db.customStates == nil,
+            "옛 이름이 남았다 - 읽는 쪽이 없으니 로그아웃마다 죽은 표가 같이 저장된다");
+        check(type(db.switches) == "table", "switches가 없다");
+        check(db.switches[1].displayMessage == true, "정의가 안 따라왔다");
+        check(db.switches[2].expr == "[combat]", "계산식이 안 따라왔다");
+    end);
+
+    test("dbver 6 turns the mode numbers into names", function()
+        local db = InitWith(OldSwitchAccount());
+        check(db.switches[1].mode == MODES.MANUAL,
+            "수동이 " .. tostring(db.switches[1].mode) .. "로 남았다");
+        check(db.switches[2].mode == MODES.EXPR,
+            "계산식이 " .. tostring(db.switches[2].mode) .. "로 남았다 - 숫자는 어느 쪽과도 안 맞는다");
+    end);
+
+    -- **`false`와 없는 것은 다른 답이다.** 뭉개면 "로그인 때 꺼짐"으로 해둔 스위치가 지난
+    -- 세션의 값을 들고 올라온다.
+    test("dbver 6 renames initialValue without flattening its three answers", function()
+        local db = InitWith(OldSwitchAccount());
+        check(db.switches[1].initialValue == nil and db.switches[3].initialValue == nil,
+            "옛 필드가 남았다");
+        check(db.switches[1].resetValue == true, "true가 안 옮겨졌다");
+        check(db.switches[3].resetValue == false,
+            "false가 " .. tostring(db.switches[3].resetValue) .. "가 됐다");
+        check(db.switches[4].resetValue == nil, "없던 값이 생겼다");
+    end);
+
+    -- 이름이 아니라 **그 이름으로 나오는 답**을 본다. `value`를 정하는 것은 저장이 아니라
+    -- `BindDerivedTables`이고, 그것이 새 이름을 못 읽으면 위가 다 초록이어도 스위치는 틀린
+    -- 값으로 켜진다.
+    test("dbver 6 keeps what each switch comes up as", function()
+        InitWith(OldSwitchAccount());
+        local switches = DebindPrivate.Switches;
+        check(switches[1].value == true, "로그인 때 켜짐이 안 켜졌다");
+        check(switches[3].value == false, "로그인 때 꺼짐이 안 꺼졌다");
+        check(switches[4].value == true, "기억한 값으로 안 돌아갔다");
+    end);
+
+    -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
+    -- 두 번째 바퀴가 문자열 `mode`를 숫자로 못 읽어 수동으로 떨어뜨리면 계산식 스위치가
+    -- 조용히 손으로 켜는 것이 된다.
+    test("dbver 6 is safe to run twice", function()
+        local db = OldSwitchAccount();
+        DebindPrivate.MigrateSwitches(db, 5);
+        DebindPrivate.MigrateSwitches(db, 5);
+        check(db.switches[2].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
+        check(db.switches[1].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
+        check(db.switches[3].resetValue == false, "두 번째에 false가 뭉개졌다");
+    end);
+
+    -- **개명 전 파일의 정의는 `MigrateDB`가 지나간 뒤에 도착한다.** 계정 몫은 덩어리째 얹히는
+    -- 길이고(`Legacy.lua`의 `ImportAccount`), 레이어와 달리 정의를 올려주는 것이 그 위에
+    -- 아무것도 없다. 거기서 사다리를 안 밟으면 옛 모양이 그대로 앉는데 `db.dbver`는 이미
+    -- 찍혀 있어서 다시 돌 기회가 없다.
+    test("the pre-rename import raises the switch definitions too", function()
+        FreshInit();
+        local old = LegacyAccount();
+        old.customStates = {
+            [1] = { mode = 0, initialValue = true, displayMessage = true },
+            [2] = { mode = 3, expr = "[combat]" },
+        };
+        _G.DebounceVars = old;
+
+        DebindPrivate.RunLegacyMigration();
+        -- `Events.lua`가 임포트 직후에 하는 것과 같은 순서. 표가 통째로 갈리므로 참조부터
+        -- 다시 걸어야 한다.
+        DebindPrivate.BindDerivedTables();
+
+        local db = _G.DebindVars;
+        check(db.customStates == nil, "옛 이름 그대로 앉았다 - 읽는 쪽이 없다");
+        check(db.switches[1].mode == MODES.MANUAL and db.switches[1].resetValue == true,
+            "수동 정의가 안 올라왔다");
+        check(db.switches[2].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
+        check(DebindPrivate.Switches[1].displayMessage == true,
+            "올라온 정의가 살아 있는 표에 안 걸렸다");
+    end);
+
     return T;
 end

@@ -459,10 +459,67 @@ local function MigrateShared(shared, dbver)
     end
 end
 
+--- The switch definitions, which sit at the top of the global table rather than inside a layer.
+---
+--- **A second ladder, because `MigrateLayer` cannot reach these.** That one walks a layer's array of
+--- actions; a definition is not an action and lives nowhere near one. Both ladders are stepped in
+--- the same `MigrateDB` pass, so nothing is ever half raised, and `check:dbver` asks each about its
+--- own order because two ladders carrying the same step number is not a fault.
+---
+--- **`Legacy.lua`'s `ImportAccount` is the other caller**, and it is the one that had to be found:
+--- the pre-rename share is laid on top of a table `MigrateDB` has already stamped.
+local function MigrateSwitches(db, dbver)
+    if (dbver <= 5) then
+        -- **아직 안 나간 단계다** - `MigrateLayer`의 같은 단계 주석을 볼 것.
+        --
+        -- 정의의 저장 모양 셋을 한 번에 옮긴다. 표 이름 `customStates` -> `switches`,
+        -- `mode`의 숫자 -> 문자열, `initialValue` -> `resetValue`.
+        --
+        -- **단계가 옛 숫자를 직접 든다.** `Constants.SWITCH_MODES`는 이 판이 더 이상 모르는
+        -- 언어라, 거기에 옛 값을 남겨두면 죽은 이름이 산 것 옆에 영원히 앉는다. 단계는 한 번
+        -- 쓰면 얼어붙어서 갈릴 것이 없다 (`Export.lua`의 `NestPayloadConditions`가 같은
+        -- 이유로 `checkedUnits`라는 글자를 직접 든다).
+        --
+        -- 다시 돌아도 안전하다. 옮길 이름이 안 남아 있으면 아무것도 안 한다 - `mode`는 이미
+        -- 문자열이면 건드리지 않고, `initialValue`는 옮기면서 지운다.
+        if (db.customStates ~= nil) then
+            -- **옛 이름이 있으면 그것이 정의다.** 개명 전 SavedVariables는 `MigrateDB`가
+            -- 지나간 **뒤에** `customStates`를 통째로 얹으므로(`Legacy.lua`의
+            -- `ImportAccount`), 그 길에서는 새 이름이 이미 있는 채로 여기 들어온다. 그때
+            -- 지켜야 하는 것은 방금 들어온 쪽이다.
+            db.switches = db.customStates;
+            db.customStates = nil;
+        end
+
+        local switches = db.switches;
+        if (switches) then
+            for _, definition in pairs(switches) do
+                if (luatype(definition) == "table") then
+                    if (luatype(definition.mode) == "number") then
+                        if (definition.mode == 3) then
+                            definition.mode = Constants.SWITCH_MODES.EXPR;
+                        else
+                            definition.mode = Constants.SWITCH_MODES.MANUAL;
+                        end
+                    end
+
+                    if (definition.initialValue ~= nil) then
+                        if (definition.resetValue == nil) then
+                            definition.resetValue = definition.initialValue;
+                        end
+                        definition.initialValue = nil;
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Used by `Legacy.lua` to raise imported data to the current version before attaching it.
 DebindPrivate.MigrateLayer     = MigrateLayer;
 DebindPrivate.MigrateSpecTable = MigrateSpecTable;
 DebindPrivate.MigrateShared    = MigrateShared;
+DebindPrivate.MigrateSwitches  = MigrateSwitches;
 
 --- **When the version goes up, everything is raised in one pass.** Every entry in `characters` is
 --- in memory on every login, so a single login by any character brings all twenty alts forward on
@@ -482,6 +539,7 @@ local function MigrateDB(db)
     for _, charEntry in pairs(db.characters) do
         MigrateSpecTable(charEntry.layers, dbver);
     end
+    MigrateSwitches(db, dbver);
 
     db.dbver = Constants.DB_VERSION;
 end
@@ -551,18 +609,14 @@ local function HasCharContent(entry)
     return false;
 end
 
---- Fills in defaults for `options` / `customStates` and **hands those tables to `DebindPrivate`**.
+--- Fills in defaults for `options` / `switches` and **hands those tables to `DebindPrivate`**.
 ---
 --- It is a separate function because what gets handed over is a **reference**. The pre-rename
 --- import (`Legacy.lua`) replaces these tables wholesale during PLAYER_LOGIN, so without running
 --- this again afterwards `DebindPrivate.Options` and `.Switches` would keep pointing at the
---- empty tables from before the import. For `customStates` it is not only the reference: `value`
---- has to be recomputed from `initialValue`/`savedValue`, so copying the contents across would not
+--- empty tables from before the import. For `switches` it is not only the reference: `value`
+--- has to be recomputed from `resetValue`/`savedValue`, so copying the contents across would not
 --- be enough - this calculation has to run again.
----
---- **`db.customStates` keeps its stored name while everything reading it is called a switch.**
---- Renaming a saved key means migrating it, and the rename that got the rest of the code here was
---- the half that changes no format (`devdocs/redesigning-custom-states.md` §9-3).
 function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
 
@@ -570,28 +624,30 @@ function DebindPrivate.BindDerivedTables()
     db.options.blizzframes = db.options.blizzframes or {};
     DebindPrivate.Options = db.options;
 
-    db.customStates = db.customStates or {};
+    db.switches = db.switches or {};
     DebindPrivate.Switches = {};
 
     for i = 1, Constants.MAX_NUM_SWITCHES do
-        local stateOptions = db.customStates[i];
-        if (not stateOptions) then
-            stateOptions = {};
-            db.customStates[i] = stateOptions;
+        local switchOptions = db.switches[i];
+        if (not switchOptions) then
+            switchOptions = {};
+            db.switches[i] = switchOptions;
         end
 
-        stateOptions.mode = stateOptions.mode or Constants.SWITCH_MODES.MANUAL;
-        if (stateOptions.mode == Constants.SWITCH_MODES.MANUAL) then
-            if (stateOptions.initialValue ~= nil) then
-                stateOptions.value = stateOptions.initialValue;
+        switchOptions.mode = switchOptions.mode or Constants.SWITCH_MODES.MANUAL;
+        if (switchOptions.mode == Constants.SWITCH_MODES.MANUAL) then
+            -- **`resetValue`가 `nil`인 것은 값이 없는 것이 아니라 답이다** - "기억한 것으로
+            -- 돌아가라". 이 연결은 어느 이름에서도 안 보인다.
+            if (switchOptions.resetValue ~= nil) then
+                switchOptions.value = switchOptions.resetValue;
             else
-                stateOptions.value = stateOptions.savedValue and true or false;
+                switchOptions.value = switchOptions.savedValue and true or false;
             end
         else
-            stateOptions.value = stateOptions.value or false;
+            switchOptions.value = switchOptions.value or false;
         end
 
-        DebindPrivate.Switches[i] = stateOptions;
+        DebindPrivate.Switches[i] = switchOptions;
     end
 end
 
