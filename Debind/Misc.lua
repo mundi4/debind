@@ -670,8 +670,8 @@ do
     --- ### what a binding has on top of those
     ---
     ---   hover            true | false | nil, from `checkedUnits["hover"]` (`DeriveHoverFields`).
-    ---                    `false` and `nil` are different answers -- "only when not hovering"
-    ---                    versus "does not care" -- and both are read apart.
+    ---                    `false` and `nil` are different answers. `false` says "only when not
+    ---                    hovering" and `nil` says "does not care", and both are read apart.
     ---   unitStates       `{ [unit] = UNITSTATE_* mask }` from `BuildUnitStates` -- **the only
     ---                    thing the solver reads about units.** The hovered frame's unit rides
     ---                    this under the name `"hover"`.
@@ -1146,13 +1146,13 @@ end
 --- The branches below used to start on the action and switch to the binding halfway down, with
 --- nothing saying which reads had to come from where.
 ---
----   the binding, necessarily -- `frameTypes` is nil'd for a non-hover binding there and only
+---   the binding, necessarily: `frameTypes` is nil'd for a non-hover binding there and only
 ---     there, `hover` has no action field at all any more, `unit` is the one the macro will aim
 ---     at rather than the one the user picked, and `unitStates` exists nowhere else
----   the binding, by choice -- `groups`, `forms`, `bonusbars`. Normalizing only folds the
----     all-bits case to `_ALL`, so a zero reads the same either way; they come off the binding
+---   the binding, by choice: `groups`, `forms`, `bonusbars`. Normalizing only folds the
+---     all-bits case to `_ALL`, so a zero reads the same either way. They come off the binding
 ---     so that this function speaks one shape
----   the action, necessarily -- `key`, and the two checks that ask whether a name points at
+---   the action, necessarily: `key`, and the two checks that ask whether a name points at
 ---     something (`GetUndefinedCustomState`, `GetMissingMacroName`). None of the three is a
 ---     condition and none survives onto the binding
 function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)

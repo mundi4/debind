@@ -4808,7 +4808,7 @@ end
 ---
 --- The arrow buttons and the right-click menu **go through this one function.** Saving is three
 --- things together (the `seq` swap, the renumber, `UpdateBindings`), and writing them along two
---- paths means one of them loses one someday -- and that loss stays invisible until the next login.
+--- paths means one of them loses one someday. That loss stays invisible until the next login.
 function DebindUI.ApplyOrderSwap(action, neighbor)
 	if (not action or not neighbor) then
 		return false;

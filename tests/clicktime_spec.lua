@@ -12,8 +12,8 @@
 -- 계속 걸려 있거나, SetBinding으로 나갔어야 할 명령이 클릭 프레임으로 가서 아무 일도 안
 -- 한다. 그래서 거짓이어야 하는 경우를 더 촘촘히 본다.
 --
--- 입력은 UpdateBindingsMap의 전처리 루프를 지난 뒤의 bindingArray다. 즉 holdsKey와
--- isConditional이 이미 채워져 있다.
+-- 입력은 UpdateBindingsMap의 전처리 루프를 지난 뒤의 bindingArray다. 즉 holdsKey가 이미
+-- 채워져 있다.
 
 return function(DebindPrivate)
     local IsKeyAlwaysOurs = DebindPrivate.IsKeyAlwaysOurs;
@@ -41,15 +41,18 @@ return function(DebindPrivate)
     end
 
     --- 기본은 "키를 잡는 무조건 주문 액션". 각 테스트가 필요한 것만 덮어쓴다.
-    --- `isConditional`은 프로덕션에서 `IsConditionalAction(action)`으로 파생된다 - **조건이 하나도
-    --- 없는데 참일 수 없다.** 플래그만 세워두면 판정이 진짜 조건을 읽는 순간(도달 가능성) 그
-    --- 레코드는 무조건짜리로 보이고, 표현할 수 없는 모양을 시험하게 된다. 그래서 조건을 하나
-    --- 같이 세운다. 어느 축이든 상관없고 "덮이지 않은 데가 있다"는 것만 있으면 된다.
+    ---
+    --- `isConditional`은 **이 스펙의 어휘일 뿐 바인딩 필드가 아니다.** 판정이 읽는 것은 진짜
+    --- 조건이므로(`IsKeyAlwaysOurs` -> 솔버 컬럼), 이 플래그는 조건을 하나 세우는 것으로만
+    --- 옮겨진다. 어느 축이든 상관없고 "덮이지 않은 데가 있다"는 것만 있으면 된다.
+    ---
+    --- 플래그를 그대로 레코드에 남겨두면 아무도 안 읽으므로, 조건 없이 "조건부"라고 적힌
+    --- 표현할 수 없는 모양을 시험하게 된다.
     local function b(t)
         t = t or {};
         if (t.holdsKey == nil) then t.holdsKey = true; end
-        if (t.isConditional == nil) then t.isConditional = false; end
         if (t.isConditional and t.combat == nil) then t.combat = true; end
+        t.isConditional = nil;
         t.type = t.type or Constants.SPELL;
         return t;
     end

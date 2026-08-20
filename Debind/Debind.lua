@@ -138,7 +138,7 @@ do
 	--- 아무도 그것을 지우지 않아서 다음 리빌드까지 남아 있었다.
 	---
 	--- 키가 약해서(weak) 바인딩이 죽으면 같이 사라진다. `wipe`하지 않는 것은 레코드 표를
-	--- 재사용하기 위해서다 - 이 함수는 리빌드마다 모든 바인딩을 도는데, 예전에는 여기서
+	--- 재사용하기 위해서다. 이 함수는 리빌드마다 모든 바인딩을 도는데, 예전에는 여기서
 	--- 아무것도 할당하지 않았다.
 	local Placements = setmetatable({}, { __mode = "k" });
 	local CompareActionOrder = DebindPrivate.CompareActionOrder;

@@ -121,8 +121,8 @@ placement     프로필에서의 위치. 액션에서 파생되지 않는 유일
 
 `Misc.MakeOrderRecord`가 그 레코드를 만드는 한 자리다. `BuildKeyMap`은 그것을 바인딩 **옆**의
 약한 키 표(`Placements`)에 두고, `MakeRow`는 그 위에 그리기 필드를 얹고, `RenumberKeyGroup`은
-그대로 쓴다. `binding.priority`도 같이 나갔다. `/debtest`의 `Binding carries no ordering fields`가
-되돌아가는 것을 잡는다 - 되돌아가도 순서는 맞아서 화면에는 아무것도 안 나온다.
+그대로 쓴다. `binding.priority`도 같이 나갔다. 되돌아가도 순서는 맞아서 화면에는 아무것도 안
+나오므로, `/debtest`의 `Binding carries no ordering fields`가 그것을 잡는다.
 
 **이것 하나만이 모델을 고친다.** `BuildKeyMap`이 바인딩에 긁어 넣는 대신 placement를 만들고,
 `CompareActionOrder`는 placement만 받는다. 레코드 구현이 셋에서 하나가 되고, `priority` 기본값도
@@ -191,7 +191,7 @@ macro text"라고 적어뒀는데, **없는 소비자를 설명하는 문서가 
 **E. 호버가 바인딩 위에 세 겹으로 있다.** — **닫혔다 (2026-08-20). 두 겹이 됐다.**
 
 `binding.reactions`가 없어졌다. 읽던 곳은 이슈 검사 둘뿐이었고 지금은 `HoverReactionMask`가
-조건에서 바로 읽는다. `binding.hover`는 남는다 - 발동 순서·클릭 경로·솔버 컬럼·키 유효성이
+조건에서 바로 읽는다. `binding.hover`는 남는다. 발동 순서·클릭 경로·솔버 컬럼·키 유효성이
 전부 그것을 읽는다. §9에 이 항목이 미결로 적혀 있던 근거("솔버 스펙이 이 필드를 손으로
 넣는다")는 틀렸었다.
 
@@ -208,7 +208,7 @@ dbver 5는 정상 배포본이다.
 
 그래서 **§4-1은 새 `dbver 6` 단계를 세운다.** 기존 `dbver <= 4` 단계에 얹는 안은 없어졌고,
 "이미 5로 올라간 설치본이 게이트에 막힌다"는 대가도 없어졌다. `tests/migration_spec.lua`의
-`"dbver 5 ..."` 이름도 안 고친다 — 이 리포는 단계를 **목적지 버전**으로 부르고 있어서
+`"dbver 5 ..."` 이름도 안 고친다. 이 리포는 단계를 **목적지 버전**으로 부르고 있어서
 (`dbver <= 4` 단계 = "dbver 5") 지금이 맞다.
 
 **배정은 안 바뀐다.** 근거만 줄어든다. 커스텀 상태 재설계가
