@@ -966,8 +966,14 @@ end
 --- firing everywhere. So the name is checked here and the action is marked, which keeps it out
 --- of `KeyMap` entirely (`Debind.lua`'s `not issue` gate).
 ---
---- **Ask `SWITCH_INDICES`, not `GetSwitchOptions`** -- that one indexes the table by name and
---- errors on a name it does not know (`Switches.lua`).
+--- **The question is whether anything defines the name**, which is `ResolveSwitchDefinition` and
+--- nothing else (`Profile.lua`). It used to be whether the name was one of the five, from when
+--- those five always had a definition whether anybody had made one or not.
+---
+--- That makes this and codegen ask the same door, which they did not before: this side read the
+--- name off the parser and codegen read what the compile had found. They are the same answer now,
+--- and it has to stay that way -- a name codegen bakes to `known:0` with no mark on the action is
+--- a binding whose macro quietly lost a clause.
 ---
 --- Not memoized on purpose: `ParseMacroText` caches its own result per string, so a repeated
 --- call here is a table lookup plus a walk over a handful of args.
@@ -986,7 +992,7 @@ function DebindPrivate.GetUndefinedSwitch(action)
         -- 부정형(`no$typo`)도 같이 잡는다. 그쪽은 지금도 거짓으로 떨어져 위험하지는 않지만
         -- 오타인 것은 똑같고, 한쪽만 말해주면 고쳐도 왜 아직 안 되는지 알 수 없다.
         if (arg.type == Constants.MACROTEXT_ARG_SWITCH
-                and not Constants.SWITCH_INDICES[arg.name]) then
+                and not DebindPrivate.ResolveSwitchDefinition(arg.name)) then
             return arg.name;
         end
     end
@@ -1834,15 +1840,39 @@ function DebindPrivate.OnSpecialUnitChanged(alias, value)
     end
 end
 
+--- What to call this switch on screen.
+---
+--- The five built-in ones are still numbered, because that is the only thing there is to call
+--- them: nothing anywhere carries a name for `$state3`. Anything else is called by the name it has,
+--- **`$` and all** - that is the text the user types into a macro body, so showing it is the same
+--- glyphs they have to write (§3-1 of `devdocs/redesigning-custom-states.md`).
+function DebindPrivate.GetSwitchDisplayName(name)
+    local index = Constants.SWITCH_INDICES[name];
+    if (index) then
+        return format(L["CUSTOM_STATE_NUM"], index);
+    end
+    return name;
+end
+
 local _lastSwitchValues = {};
 local _changedStates = {};
-local function SwitchesChangedCallback()
-    for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
-        local state = "$state" .. stateIndex;
-        if (_changedStates[state] ~= nil) then
-            local options = DebindPrivate.GetSwitchOptions(stateIndex);
 
-            local newValue, savedValue = _changedStates[state], nil;
+--- What the restricted side reported back, folded into the stored definitions.
+---
+--- **It walks what changed, not the five numbers.** A macro can name any switch
+--- (`/click DebindStates $burst-on`, `Switches.lua`), so names outside the five have always been
+--- able to arrive here -- the number loop simply never looked at them.
+---
+--- **A name nothing defines is left alone rather than defined.** There is no row to write the
+--- value into and making one here would be the load-time repair §9-3 of
+--- `devdocs/redesigning-custom-states.md` rules out. The switch still works for this session: the
+--- value lives in the restricted environment's `States`, and what is missing is only the memory of
+--- it across a reload.
+local function SwitchesChangedCallback()
+    for state, newValue in pairs(_changedStates) do
+        local options = DebindPrivate.ResolveSwitchDefinition(state);
+        if (options) then
+            local savedValue = nil;
             if (options.mode == SWITCH_MODES.MANUAL) then
                 if (options.resetValue == nil) then
                     savedValue = newValue;
@@ -1859,10 +1889,10 @@ local function SwitchesChangedCallback()
 
                 DebindPrivate.callbacks:Fire("SWITCH_CHANGED", state, newValue);
 
-                if (options and options.displayMessage) then
-                    local stateText = format(L["CUSTOM_STATE_NUM"], stateIndex);
+                if (options.displayMessage) then
                     local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
-                    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], stateText, valueText));
+                    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"],
+                        DebindPrivate.GetSwitchDisplayName(state), valueText));
                 end
             end
         end

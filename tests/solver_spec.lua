@@ -134,6 +134,27 @@ return function(DebindPrivate)
         }, "s1s2");
     end);
 
+    -- **컬럼은 번호가 아니라 이름마다 선다.** 다섯 번호를 돌며 `$state1`~`$state5`만 컬럼을
+    -- 만들었고, 그래서 그 밖의 이름이 걸린 조건은 솔버에게 **안 보였다** - 상자가 조건 공간
+    -- 전체가 되어 아래 바인딩을 전부 덮는다. 위 두 줄이 왜 컬럼이 하나씩이어야 하는지를
+    -- 말하는 자리고, 여기는 그 컬럼이 이름 하나마다 서는지를 말한다.
+    --
+    -- 조건이 안 보인다는 것은 **더 넓어 보인다**는 뜻이라, 잘못은 위쪽에서 나타난다: 위가
+    -- 아래를 덮어 지운다.
+    test("다섯 밖의 이름도 자기 컬럼을 받는다", function()
+        expectSurvives({
+            { name = "burst", ["$burst"] = true },
+            { name = "always" },
+        }, "always");
+    end);
+
+    test("다섯 밖의 독립된 이름끼리도 서로를 못 덮는다", function()
+        expectSurvives({
+            { name = "burst",    ["$burst"] = true },
+            { name = "tankmode", ["$tankmode"] = true },
+        }, "tankmode");
+    end);
+
     -- §1-3: basicunits/specialunits도 같은 문제. 게다가 units에 언급되지
     -- 않은 유닛의 니블이 0이 되어 상자가 퇴화했음.
     test("서로 다른 유닛 조건은 독립", function()

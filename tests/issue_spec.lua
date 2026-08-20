@@ -333,11 +333,38 @@ return function(DebindPrivate)
         return { type = Constants.MACROTEXT, value = body, key = "F1" };
     end
 
+    --- **정의는 이 스펙이 세운다.** 예전엔 이름이 `$state1`~`$state5`이기만 하면 정의된 것으로
+    --- 쳤고, 그 다섯은 로드마다 심겼으니 아무 데도 안 세워도 답이 나왔다. 이제 판정은
+    --- "정의가 있느냐"이고 정의는 누가 만들어야 있다 - 세우지 않으면 이 절의 절반이 앞서 돈
+    --- 다른 스펙이 프로필에 남긴 것을 읽게 된다.
+    DebindPrivate.Switches = {
+        ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false },
+        ["$state5"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false },
+        -- 다섯 밖의 이름도 정의될 수 있다는 것이 이 단계에서 바뀐 것이다. 아래 "정의되지 않은"
+        -- 절반이 **이름의 생김새가 아니라 정의의 유무**를 보는지가 이 한 줄에 걸린다.
+        ["$burst"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false },
+    };
+
     test("정의된 상태 이름은 이슈가 아니다", function()
         check(GetBindingIssue(macroAction("/cast [$state1] Foo")) == nil, "오탐 - 키가 죽는다");
         check(GetBindingIssue(macroAction("/cast [no$state5] Foo")) == nil, "오탐 - 키가 죽는다");
         check(GetBindingIssue(macroAction("/cast [@focus,harm] Foo")) == nil,
             "오탐 - 상태를 안 쓰는 매크로다");
+    end);
+
+    -- 판정이 이름의 생김새였을 때는 `$state`로 시작하지 않는 이름이 무조건 미정의였다.
+    test("다섯 밖의 이름도 정의돼 있으면 이슈가 아니다", function()
+        check(GetBindingIssue(macroAction("/cast [$burst] Foo")) == nil,
+            "정의해둔 이름을 미정의로 읽었다 - 키가 죽는다");
+        check(GetBindingIssue(macroAction("/cast [no$burst] Foo")) == nil,
+            "부정형에서 정의해둔 이름을 미정의로 읽었다");
+    end);
+
+    -- 그 반대편. 다섯 안의 이름이어도 정의가 없으면 미정의다 - 다섯을 미리 안 만들면서
+    -- 실제로 생기는 경우고, 코드젠도 그 이름을 `known:0`으로 굽는다.
+    test("다섯 안의 이름도 정의가 없으면 이슈가 난다", function()
+        check(GetBindingIssue(macroAction("/cast [$state3] Foo")) == UNDEFINED,
+            "정의가 없는데 이름 생김새로 통과시켰다 - 매크로가 조건을 잃은 채 나간다");
     end);
 
     test("정의되지 않은 이름은 이슈가 난다", function()
@@ -350,8 +377,8 @@ return function(DebindPrivate)
         check(GetBindingIssue(macroAction("/cast [no$typo] Foo")) == UNDEFINED, "이슈가 안 남");
     end);
 
-    -- `States[]`도 `SWITCH_INDICES`도 정확히 일치한다. 대소문자가 다르면 런타임에
-    -- 그냥 미정의고, 눈으로는 맞아 보이는 것이 이 검사가 있어야 하는 이유다.
+    -- `States[]`도 정의 표도 정확히 일치한다. 대소문자가 다르면 런타임에 그냥 미정의고,
+    -- 눈으로는 맞아 보이는 것이 이 검사가 있어야 하는 이유다.
     test("대소문자가 다르면 미정의다", function()
         check(GetBindingIssue(macroAction("/cast [$State1] Foo")) == UNDEFINED, "이슈가 안 남");
     end);

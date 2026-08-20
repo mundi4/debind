@@ -92,37 +92,70 @@ end
 --------------------------------------------------------------------------------
 -- SwitchesDropDown
 --------------------------------------------------------------------------------
+--- `_isSelected` / `_setSelected`의 스위치판. **정의를 표가 아니라 이름으로 든다.**
+---
+--- 정의는 이제 없을 수 있다 - 빈 정의 다섯을 로드마다 심던 것을 그만뒀고, 만드는 것은
+--- 사용자다(`GetOrCreateSwitchDefinition`). 표를 미리 집어 넘기면 그 표가 nil이거나, nil을
+--- 피하려고 메뉴를 여는 것만으로 다섯 줄이 다시 생긴다. 읽을 때는 없으면 없는 대로 답하고
+--- **고르는 순간에만** 만든다.
+local function _isSwitchSelected(data)
+    -- 아직 아무도 안 만든 스위치도 그려진다. 그때 켜져 보여야 하는 줄은 만들었을 때 받게 될
+    -- 값이라, 만드는 쪽과 **같은 표**를 읽는다(`SWITCH_DEFAULTS`). 여기서 `false`만 내면
+    -- 한 줄도 안 켜진 목록이 되고, 따로 적으면 누른 적 없는 값이 바뀌어 보인다.
+    local definition = DebindPrivate.ResolveSwitchDefinition(data.switch)
+        or DebindPrivate.SWITCH_DEFAULTS;
+    if (data.value == USE_CHECKED_VALUE) then
+        return definition[data.key] and true or false;
+    end
+    return definition[data.key] == data.value;
+end
+
+local function _setSwitchSelected(data)
+    local definition = DebindPrivate.GetOrCreateSwitchDefinition(data.switch);
+    if (data.value == USE_CHECKED_VALUE) then
+        definition[data.key] = not definition[data.key];
+    else
+        definition[data.key] = data.value;
+    end
+    DebindPrivate.UpdateBindings();
+    return MenuResponse.Refresh;
+end
+
 function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
     --GenerateMenu(dropdown, rootDescription, rootMenu);
 
+    -- **이 메뉴가 아는 스위치는 붙박이 다섯뿐이다.** 이름이 자유로워져도 여기에는 만들 자리가
+    -- 없어서 세는 것은 여전히 번호다. 목록에서 만들고 지우는 것은 §6-B의 `Switches` 탭이고
+    -- (`devdocs/redesigning-custom-states.md`), 이 메뉴는 거기서 은퇴한다.
     for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
-        local stateOptions = DebindPrivate.GetSwitchOptions(stateIndex);
-        local stateDescription = rootDescription:CreateButton(format(LLL["CUSTOM_STATE_NUM"], stateIndex));
+        local stateName = Constants.SWITCH_NAMES[stateIndex];
+        local stateDescription = rootDescription:CreateButton(DebindPrivate.GetSwitchDisplayName(stateName));
         stateDescription:CreateTitle(MenuUtil.GetElementText(stateDescription));
 
         do
-            local manualDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MANUAL"], _isSelected, _setSelected, { targetObj = stateOptions, key = "mode", value = Constants.SWITCH_MODES.MANUAL });
+            local manualDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MANUAL"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "mode", value = Constants.SWITCH_MODES.MANUAL });
             SetInstrcutionTooltip(manualDescription, LLL["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"]);
 
             manualDescription:CreateTitle(MenuUtil.GetElementText(manualDescription));
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_ON"], _isSelected, _setSelected, { targetObj = stateOptions, key = "value", value = true });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_OFF"], _isSelected, _setSelected, { targetObj = stateOptions, key = "value", value = false });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_ON"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "value", value = true });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_OFF"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "value", value = false });
 
             manualDescription:CreateDivider();
             manualDescription:CreateTitle(LLL["CUSTOM_STATE_INITIAL_VALUE"]);
 
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_REMEMBER"], _isSelected, _setSelected, { targetObj = stateOptions, key = "resetValue", value = nil });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_ON"], _isSelected, _setSelected, { targetObj = stateOptions, key = "resetValue", value = true });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_OFF"], _isSelected, _setSelected, { targetObj = stateOptions, key = "resetValue", value = false });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_REMEMBER"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "resetValue", value = nil });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_ON"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "resetValue", value = true });
+            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_OFF"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "resetValue", value = false });
         end
 
         do
-            local conditionalDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"], _isSelected, _setSelected,
-                { targetObj = stateOptions, key = "mode", value = Constants.SWITCH_MODES.EXPR });
+            local conditionalDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"], _isSwitchSelected, _setSwitchSelected,
+                { switch = stateName, key = "mode", value = Constants.SWITCH_MODES.EXPR });
             SetInstrcutionTooltip(conditionalDescription, LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"]);
 
             conditionalDescription:CreateTitle(MenuUtil.GetElementText(conditionalDescription));
             conditionalDescription:CreateButton(LLL["CUSTOM_STATE_EDIT_VALUE"], function()
+                local current = DebindPrivate.ResolveSwitchDefinition(stateName);
                 DebindUI.ShowInputBox({
                     text = LLL["CUSTOM_STATE_EDIT_VALUE_DESC"],
                     callback = function(value)
@@ -130,19 +163,22 @@ function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
                         if (value == "") then
                             value = nil;
                         end
-                        stateOptions.expr = value;
-                        if (stateOptions.mode == Constants.SWITCH_MODES.EXPR) then
+                        -- 식을 적는 것도 스위치를 만드는 일이다. 여기서도 만들어야 모드를
+                        -- 안 고르고 식부터 적는 순서가 그대로 선다.
+                        local definition = DebindPrivate.GetOrCreateSwitchDefinition(stateName);
+                        definition.expr = value;
+                        if (definition.mode == Constants.SWITCH_MODES.EXPR) then
                             DebindPrivate.UpdateBindings();
                         end
                     end,
                     maxLetters = 100,
-                    currentValue = stateOptions.expr,
+                    currentValue = current and current.expr,
                 });
             end);
         end
 
         stateDescription:CreateDivider();
-        stateDescription:CreateCheckbox(LLL["CUSTOM_STATE_DISPLAY_MESSAGE"], _isSelected, _setSelected, { targetObj = stateOptions, key = "displayMessage", value = USE_CHECKED_VALUE });
+        stateDescription:CreateCheckbox(LLL["CUSTOM_STATE_DISPLAY_MESSAGE"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "displayMessage", value = USE_CHECKED_VALUE });
     end
 end
 
@@ -1178,10 +1214,16 @@ do
     local function CreateSwitchConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_CUSTOM_STATES", nil,
             -- isActive
+            -- **조건 표에 스위치 이름이 하나라도 있느냐.** 다섯 번호를 돌던 자리인데, 이 갈래가
+            -- 켜져 보이느냐는 액션에 실제로 걸린 것을 따라가야 한다 - 다섯 밖의 이름이 걸린
+            -- 액션이 "조건 없음"으로 보이면 그 조건을 지울 자리가 화면에서 사라진다.
             function()
-                for i = 1, Constants.MAX_NUM_SWITCHES do
-                    if (_action.conditions and _action.conditions["$state" .. i] ~= nil) then
-                        return true;
+                local conditions = _action.conditions;
+                if (conditions) then
+                    for name in pairs(conditions) do
+                        if (Constants.IsSwitchName(name)) then
+                            return true;
+                        end
                     end
                 end
                 return false;
@@ -1194,9 +1236,15 @@ do
             LLL["CUSTOM_STATES_DESC"]
         );
 
+        -- **거는 자리는 붙박이 다섯뿐이다.** 즉석에서 이름을 만들어 거는 것은 §4단계의
+        -- 조건 메뉴이고(`devdocs/redesigning-custom-states.md` §6-C), 여기는 그 전이다.
+        -- 이미 걸린 다섯 밖의 이름은 위 `isActive`가 짚어주고, 지우는 것은 액션 툴팁이
+        -- 이름을 적어주는 자리에서 시작한다.
         for i = 1, Constants.MAX_NUM_SWITCHES do
-            local stateDescription = CreateActionMenuItemGroup(description, format(LLL["CUSTOM_STATE_NUM"], i), "$state" .. i);
-            AppendDisableYesNo(stateDescription, "CONDITION_CUSTOM_STATE", "$state" .. i);
+            local stateName = Constants.SWITCH_NAMES[i];
+            local stateDescription = CreateActionMenuItemGroup(description,
+                DebindPrivate.GetSwitchDisplayName(stateName), stateName);
+            AppendDisableYesNo(stateDescription, "CONDITION_CUSTOM_STATE", stateName);
         end
     end
 

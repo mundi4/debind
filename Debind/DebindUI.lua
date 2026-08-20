@@ -1278,6 +1278,9 @@ end
 local AddActionToTooltip, HideActionTooltip;
 do
 	local _lines = {};
+	--- 스위치 조건 줄을 이름순으로 세우는 자리. `_lines`와 나누는 이유는 그쪽이
+	--- `addValueLines` 안에서 비워지며 돌기 때문이다.
+	local _switchNames = {};
 	local LEFT_OFFSET = 10;
 
 	--- Stands in for a caller that passes nothing, so the reads below need no guard. Never
@@ -1665,12 +1668,23 @@ do
 		addBooleanCondition("pet");
 		addBooleanCondition("petbattle");
 
-		for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
-			local state = "$state" .. stateIndex;
-			if (conditions[state] ~= nil) then
-				addLabelLine(tooltip, format(LLL["CUSTOM_STATE_NUM"], stateIndex));
-				addValueLine(tooltip, conditions[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
+		-- **조건 표에 있는 이름을 그린다.** 다섯 번호를 돌던 자리라 그 밖의 이름이 걸린 액션은
+		-- 툴팁에 조건이 아예 없는 것처럼 보였다 - 안 나가는 이유가 화면 어디에도 없다는 뜻이다.
+		--
+		-- `pairs`는 순서를 안 주고 툴팁 줄 순서는 볼 때마다 달라지면 안 되므로 이름순으로
+		-- 세운다. 배열은 파일 위쪽 조건 줄들이 쓰는 `_lines`와 다른 것을 쓴다 - 저쪽은
+		-- `addValueLines`가 자기 것을 비우며 돈다.
+		wipe(_switchNames);
+		for name in pairs(conditions) do
+			if (Constants.IsSwitchName(name)) then
+				tinsert(_switchNames, name);
 			end
+		end
+		sort(_switchNames);
+		for i = 1, #_switchNames do
+			local state = _switchNames[i];
+			addLabelLine(tooltip, DebindPrivate.GetSwitchDisplayName(state));
+			addValueLine(tooltip, conditions[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
 		end
 
 		-- 매크로 본문의 `[$이름]`은 위 조건 칸들과 달리 그릴 자리가 없다 - 저장에는 본문

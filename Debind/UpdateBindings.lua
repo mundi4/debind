@@ -139,22 +139,29 @@ local function ResetContext()
     _measuresReaction = false;
 end
 
+--- This rebuild's take on one switch, or `false` where nothing defines the name.
+---
+--- **The name is not checked against a list any more.** It used to have to be one of the five
+--- (`SWITCH_INDICES`), and a name outside that list was answered `false` without so much as asking
+--- whether it was defined -- so a definition could never be found under any other name, which is
+--- what §10's 1b-2 lifts (`devdocs/redesigning-custom-states.md`). What decides now is the same
+--- thing that decides everywhere else: whether `ResolveSwitchDefinition` has an answer.
+---
+--- `false` is memoized alongside a real one so an undefined name is resolved once per rebuild
+--- rather than once per reference.
 function addSwitch(stateName)
     local info = _switches[stateName];
     if (info == nil) then
-        if (Constants.SWITCH_INDICES[stateName]) then
-            local options = DebindPrivate.GetSwitchOptions(stateName);
-            if (options) then
-                info = {
-                    index = Constants.SWITCH_INDICES[stateName],
-                    name = stateName,
-                    mode = options.mode,
-                    value = options.value,
-                };
-                if (options.mode == SWITCH_MODES.EXPR) then
-                    info.expr = options.expr or "";
-                    addMacrotextBinding(info.name, info.expr);
-                end
+        local options = DebindPrivate.ResolveSwitchDefinition(stateName);
+        if (options) then
+            info = {
+                name = stateName,
+                mode = options.mode,
+                value = options.value,
+            };
+            if (options.mode == SWITCH_MODES.EXPR) then
+                info.expr = options.expr or "";
+                addMacrotextBinding(info.name, info.expr);
             end
         end
         info = info or false;
@@ -1178,39 +1185,34 @@ function UpdateBindingsMap()
                         -- switch, so there is nothing to re-decide when it changes.
                         if (binding.type == Constants.SETSTATE) then
                             local _, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(binding.value);
-                            if (stateIndex) then
-                                addSwitch("$state" .. stateIndex);
+                            local stateName = stateIndex and Constants.SWITCH_NAMES[stateIndex];
+                            if (stateName) then
+                                addSwitch(stateName);
                             end
                         end
 
+                        -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는
+                        -- 루프였고, 그래서 `$state1`~`$state5` 밖의 이름은 조건으로 걸려
+                        -- 있어도 여기서 안 보였다. 솔버는 그 이름에도 컬럼을 만드니
+                        -- (`Solver.lua`) 둘이 갈리면 한쪽은 조건이 있다고 보고 다른 쪽은
+                        -- 없다고 본다.
+                        --
+                        -- **정의가 없어도 굽는다.** 정의를 못 찾으면 조건을 통째로 빼던
+                        -- 자리다 - 빼면 그 바인딩이 조건 없이 상시 발동한다. ⚑2가 매크로
+                        -- 본문에서 막은 것과 같은 실패 방향인데 이쪽이 더 나쁘다: 본문 쪽은
+                        -- 액션에 마커라도 붙는다. 구워두면 런타임 비교가 `States[name] ~= v`라
+                        -- 아무도 안 쓴 이름은 `nil`이고, 참을 걸었든 거짓을 걸었든 안 맞는다 -
+                        -- 어느 쪽으로 걸어도 안 나가는 쪽으로 떨어진다.
                         local switchesTblCreated;
-                        for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
-                            local state = "$state" .. stateIndex;
-                            local v = binding.conditions[state];
-                            if (v ~= nil) then
-                                if (addSwitch(state)) then
-                                    if (not switchesTblCreated) then
-                                        appendLine([[t.switches=newtable()]])
-                                        switchesTblCreated = true;
-                                    end
-                                    appendLine([[t.switches[%q]=%s]], state, v and "true" or "false");
-                                    _updateFlags[state] = true;
+                        for state, v in pairs(binding.conditions) do
+                            if (Constants.IsSwitchName(state)) then
+                                addSwitch(state);
+                                if (not switchesTblCreated) then
+                                    appendLine([[t.switches=newtable()]])
+                                    switchesTblCreated = true;
                                 end
-                            end
-                        end
-
-                        if (binding.switches) then
-                            local tblCreated;
-                            for state, v in pairs(binding.switches) do
-                                local stateInfo = addSwitch(state);
-                                if (stateInfo) then
-                                    if (not tblCreated) then
-                                        appendLine([[t.switches=newtable()]])
-                                        tblCreated = true;
-                                    end
-                                    appendLine([[t.switches[%q]=%s]], state, v and "true" or "false");
-                                    _updateFlags[state] = true;
-                                end
+                                appendLine([[t.switches[%q]=%s]], state, v and "true" or "false");
+                                _updateFlags[state] = true;
                             end
                         end
 
@@ -1643,8 +1645,10 @@ end
             appendLine([[stateValue=SecureCmdOptionParse(%q) and true or false]], state);
             appendStateStore(state);
 
-        elseif (_switches[state]) then
-            -- handle later
+        elseif (_switches[state] ~= nil) then
+            -- 아래 "Update Switches"가 맡는다. **`~= nil`이다** - 정의를 못 찾은 이름은
+            -- `false`로 메모되고, 그것도 스위치라서 여기서 잴 것이 없기는 마찬가지다.
+            -- `_switches[state]`로 물으면 그 이름이 "모르는 상태"로 떨어져 DEBUG 로그가 뜬다.
         elseif (DEBUG) then
             DebindPrivate.log("Unhandled State: " .. state);
         end

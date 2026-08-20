@@ -1,7 +1,7 @@
 local _, DebindPrivate = ...;
 local Constants = DebindPrivate.Constants;
 
-local MAX_NUM_SWITCHES = Constants.MAX_NUM_SWITCHES;
+local IsSwitchName = Constants.IsSwitchName;
 
 local band, bnot = bit.band, bit.bnot;
 local tremove, wipe = tremove, wipe;
@@ -190,16 +190,12 @@ local FIXED_COLUMNS = {
     },
 };
 
--- The condition key for each state index. Built once: `buildConditionSet` reaches for one of
--- these per binding per column, and `buildLayout` once per binding, so concatenating there would
--- put a string allocation in both loops.
-local STATE_KEYS = {};
-for i = 1, MAX_NUM_SWITCHES do
-    STATE_KEYS[i] = "$state" .. i;
-end
-
-local function makeSwitchFlags(binding, index)
-    local value = binding.conditions[STATE_KEYS[index]];
+-- **컬럼의 인자가 이름이다.** 다섯 번호를 도는 루프였고 컬럼마다 번호를 들고 있었다. 스위치
+-- 이름이 자유로워지면 번호로 가리킬 수 없는 이름이 조건에 앉는데, 그런 이름에 컬럼을 안
+-- 만들면 그 조건이 솔버에게 안 보인다 - 상자가 조건 공간 전체가 되어 같은 키의 아래
+-- 바인딩들을 전부 덮고, 사용자가 건 것들이 지워진다.
+local function makeSwitchFlags(binding, name)
+    local value = binding.conditions[name];
     if (value == nil) then
         return STATE_ANY;
     end
@@ -320,12 +316,12 @@ local function buildLayout(bindings)
 
         local conditions = binding.conditions;
 
-        for s = 1, MAX_NUM_SWITCHES do
-            if (not _stateSeen[s] and conditions[STATE_KEYS[s]] ~= nil) then
-                _stateSeen[s] = true;
+        for name in pairs(conditions) do
+            if (not _stateSeen[name] and IsSwitchName(name)) then
+                _stateSeen[name] = true;
                 _numColumns = _numColumns + 1;
                 _colMake[_numColumns] = makeSwitchFlags;
-                _colArg[_numColumns] = s;
+                _colArg[_numColumns] = name;
             end
         end
 

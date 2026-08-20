@@ -243,8 +243,9 @@ SEEDS[5] = function(guid)
         },
 
         --- Two of the five set up differently, so the switches screen has both modes on it and
-        --- `$state1` above has something to point at. The other three come up as defaults from
-        --- `BindDerivedTables`.
+        --- `$state1` above has something to point at. **The other three are not here and do not
+        --- appear**: nothing plants an empty definition any more, and the `dbver` 6 step throws
+        --- away the untouched ones this seed's own migration walks past.
         ---
         --- **The old names and the old numbers, spelled out.** This is the shape `dbver` 5 stored,
         --- and `Constants.SWITCH_MODES` no longer holds a word for it -- reaching for the constant
@@ -472,8 +473,9 @@ SEEDS[6] = function(guid)
         },
 
         --- Two of the five set up differently, so the switches screen has both modes on it and
-        --- `$state1` above has something to point at. The other three come up as defaults from
-        --- `BindDerivedTables`.
+        --- `$state1` above has something to point at. **The other three are simply absent** - a
+        --- definition is a switch somebody made, and nothing plants empty ones
+        --- (`BindDerivedTables`).
         switches = {
             [1] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                 displayMessage = true },

@@ -2717,6 +2717,18 @@ RegisterTest("Issue: forms=0", {
 RegisterTest("Issue: undefined $state in macrotext", {
     description = "정의되지 않은 [$이름]이 든 매크로텍스트가 KeyMap에서 빠지는지",
     run = function()
+        -- **정의를 세우고 시작한다.** 판정이 "이름이 다섯 안이냐"에서 "정의가 있느냐"로
+        -- 옮겨갔고(`ResolveSwitchDefinition`), 정의는 더 이상 로드마다 심기지 않는다. 이
+        -- 캐릭터가 `$state1`을 안 써봤으면 아래 "통과하는 쪽"이 통과하지 않는다.
+        local saved = DebindPrivate.Switches["$state1"]
+        AddTeardown(function()
+            DebindPrivate.Switches["$state1"] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
+
         -- 통과하는 쪽을 먼저 세운다. 이게 없으면 아래 nil이 "마커가 막았다"인지
         -- "매크로텍스트가 원래 안 걸린다"인지 구분되지 않는다.
         InsertAction({ type = Constants.MACROTEXT, value = "/say [$state1] ok", key = "F5" })
@@ -2760,21 +2772,21 @@ RegisterTest("Undefined $state inside a state's own expression", {
         -- **`DebindPrivate.Switches`의 슬롯만 갈아끼운다.** 그 표의 항목은
         -- `db.switches`의 표와 **같은 테이블**이라(`BindDerivedTables`), 필드를 고치면
         -- 사용자의 저장된 설정을 고치는 것이 된다. 슬롯을 바꾸면 되돌릴 것이 참조 둘뿐이다.
-        local saved1, saved2 = DebindPrivate.Switches[1], DebindPrivate.Switches[2]
+        local saved1, saved2 = DebindPrivate.Switches["$state1"], DebindPrivate.Switches["$state2"]
         AddTeardown(function()
-            DebindPrivate.Switches[1] = saved1
-            DebindPrivate.Switches[2] = saved2
+            DebindPrivate.Switches["$state1"] = saved1
+            DebindPrivate.Switches["$state2"] = saved2
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
 
-        DebindPrivate.Switches[2] = { mode = MODES.MANUAL, value = true }
+        DebindPrivate.Switches["$state2"] = { mode = MODES.MANUAL, value = true }
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$state1"] = true })
 
         -- 켜지는 쪽을 먼저 세운다. 이게 없으면 아래의 "안 걸림"이 계산식 상태로는 원래
         -- 아무것도 안 걸리는 것과 구분되지 않는다.
-        DebindPrivate.Switches[1] = { mode = MODES.EXPR, expr = "[$state2]" }
+        DebindPrivate.Switches["$state1"] = { mode = MODES.EXPR, expr = "[$state2]" }
         ApplyBindings()
         local whenTrue = GetBindingAction(KEY, true) or ""
         if whenTrue:sub(1, 6) ~= "CLICK " then
@@ -2783,7 +2795,7 @@ RegisterTest("Undefined $state inside a state's own expression", {
                 whenTrue))
         end
 
-        DebindPrivate.Switches[1] = { mode = MODES.EXPR, expr = "[$typo]" }
+        DebindPrivate.Switches["$state1"] = { mode = MODES.EXPR, expr = "[$typo]" }
         ApplyBindings()
         local whenUndefined = GetBindingAction(KEY, true) or ""
         if whenUndefined ~= "" then
@@ -2818,14 +2830,14 @@ RegisterTest("Setstate action registers its state", {
 
         -- Swapping the slot rather than the fields: the reason is in the comment on the
         -- `Undefined $state inside a state's own expression` test above.
-        local saved = DebindPrivate.Switches[4]
+        local saved = DebindPrivate.Switches["$state4"]
         AddTeardown(function()
-            DebindPrivate.Switches[4] = saved
+            DebindPrivate.Switches["$state4"] = saved
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
-        DebindPrivate.Switches[4] = { mode = MODES.MANUAL, value = true }
+        DebindPrivate.Switches["$state4"] = { mode = MODES.MANUAL, value = true }
 
         InsertAction({
             type = Constants.SETSTATE,
@@ -2878,15 +2890,15 @@ RegisterTest("Custom state toggle flips the value", {
             return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
         end
 
-        local saved = DebindPrivate.Switches[4]
+        local saved = DebindPrivate.Switches["$state4"]
         AddTeardown(function()
-            DebindPrivate.Switches[4] = saved
+            DebindPrivate.Switches["$state4"] = saved
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
         local options = { mode = MODES.MANUAL, value = false }
-        DebindPrivate.Switches[4] = options
+        DebindPrivate.Switches["$state4"] = options
 
         -- Registered through a condition. What this test looks at is the toggle, not registration,
         -- and if a broken registration turned this one red as well neither could be read off the
@@ -2924,6 +2936,87 @@ RegisterTest("Custom state toggle flips the value", {
         end
 
         return Pass(NAME, "꺼짐 -> 켜짐 -> 꺼짐, 미러까지")
+    end,
+})
+
+-- **이름이 `$state1`~`$state5`를 벗어난 첫 자리.** 코드젠이 `SWITCH_INDICES`에 없는 이름을
+-- 문 앞에서 돌려보냈고, 그래서 조건에 그런 이름이 있어도 굽히는 것이 아무것도 없었다. 문이
+-- 사라진 뒤에 이름을 가르는 것은 정의가 있느냐 하나뿐이다.
+--
+-- **헤드리스가 못 본다.** `UpdateBindings.lua`를 러너가 안 싣고(`tests/run.lua`), 판정이
+-- 끝나는 자리는 스니펫이 굽는 `t.switches`와 `States`의 비교다. 문이 다시 서면 조용히
+-- "그 키가 안 먹는다"가 되고, 미정의 갈래는 정반대로 **조건 없이 상시 발동**이 된다.
+--
+-- 셋을 한 자리에서 본다. 켜짐이 없으면 꺼짐은 "원래 아무것도 안 걸린다"와 구분이 안 되고,
+-- 꺼짐이 없으면 켜짐은 "조건을 아예 안 본다"와 구분이 안 된다.
+RegisterTest("Switch condition on a name outside the five", {
+    description = "$state1~5 밖의 이름이 조건으로 서는지, 정의가 없으면 안 나가는지",
+    run = function()
+        local NAME = "Free switch name"
+        local KEY = "CTRL-SHIFT-F10"
+        local UNDEFINED_KEY = "CTRL-SHIFT-F11"
+        local MODES = Constants.SWITCH_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        -- 슬롯만 갈아끼우는 이유는 위 `Undefined $state inside a state's own expression`의
+        -- 주석에 있다. `$burst`는 사용자 프로필에 있을 리 없지만, 있어도 되돌아간다.
+        local saved = DebindPrivate.Switches["$burst"]
+        AddTeardown(function()
+            DebindPrivate.Switches["$burst"] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$burst"] = true })
+        InsertAction({ type = Constants.SPELL, value = 585, key = UNDEFINED_KEY, ["$nodefinition"] = true })
+
+        DebindPrivate.Switches["$burst"] = { mode = MODES.MANUAL, value = true }
+        ApplyBindings()
+
+        local whenOn = GetBindingAction(KEY, true) or ""
+        if whenOn:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "정의해둔 $burst가 켜져 있는데 %q - 다섯 밖의 이름이 코드젠까지 안 갔다", whenOn))
+        end
+
+        DebindPrivate.Switches["$burst"] = { mode = MODES.MANUAL, value = false }
+        ApplyBindings()
+
+        local whenOff = GetBindingAction(KEY, true) or ""
+        if whenOff ~= "" then
+            return Fail(NAME, format(
+                "$burst가 꺼졌는데 키가 %q로 남았다 - 이름은 갔는데 값이 안 비교된다", whenOff))
+        end
+
+        -- 정의가 없는 이름. 조건을 통째로 떨어뜨리면 그 액션은 **넓어져서** 나가므로,
+        -- 여기서 나는 실패는 "안 걸린다"가 아니라 "조건 없이 걸린다"다.
+        local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
+        if whenUndefined ~= "" then
+            return Fail(NAME, format(
+                "정의 없는 이름을 건 액션이 %q로 나갔다 - 조건이 사라져 상시 발동한다", whenUndefined))
+        end
+
+        -- **전투 중에 밟는 길.** 위 둘은 `ApplyBindings()`가 도는 비보안 리빌드인데, 전투
+        -- 중에는 그것이 미뤄지므로 값이 바뀌었을 때 키를 다시 정하는 것은 제한 환경 쪽이다:
+        -- `SetSwitch` -> `DirtyFlags` -> `state-unitexists` -> 제한 환경의 `UpdateBindings`.
+        -- 그 길이 이 이름을 알려면 코드젠이 `bindings.updateFlags`에 이름을 실었어야 하고,
+        -- 안 실렸으면 전투가 끝날 때까지 키가 안 살아난다.
+        --
+        -- 기다리지 않는다. `SetAttribute`가 핸들러를 그 자리에서 돌리고 제한 환경의
+        -- `SetBindingClick`은 즉시 건다(`devdocs/when-a-change-takes-effect.md`).
+        DebindPrivate.SwitchesUpdaterFrame:SetAttribute("$burst", true)
+
+        local afterToggle = GetBindingAction(KEY, true) or ""
+        if afterToggle:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "리빌드 없이 켰는데 키가 %q다 - 전투 중이면 안 살아난다", afterToggle))
+        end
+
+        return Pass(NAME, "$burst 켜짐 -> 걸림 / 꺼짐 -> 빠짐 / 미정의 -> 빠짐 / 리빌드 없이 켜짐")
     end,
 })
 

@@ -1,8 +1,10 @@
 # 커스텀 상태 다시 세우기 (2026-08-12 설계)
 
-> 상태 (2026-08-21): **0단계(2026-08-13), 1a, 그리고 1b를 셋으로 쪼갠 것 중 첫째(정의의 저장
-> 모양)가 들어갔다. 1b-2부터는 코드가 한 줄도 없고 아래는 전부 제안이다.** §9의 둘은
+> 상태 (2026-08-21): **0단계(2026-08-13), 1a, 그리고 1b를 셋으로 쪼갠 것 중 둘째까지 들어갔다.
+> 1b-3부터는 코드가 한 줄도 없고 아래는 전부 제안이다.** §9의 둘은
 > 정해졌다(§9-1은 2026-08-18, §9-2는 2026-08-21).
+> **1b-2에서 동작이 바뀌었다.** 이름을 막던 게이트가 없어졌고(§1-1), 정의는 로드마다 심기지
+> 않는다(§9-3). 개수는 아직 다섯이다.
 > **1a가 지나간 뒤라 아래가 코드를 가리킬 때 쓰는 이름은 새 이름이다.** 옛 이름이 남아 있는
 > 자리는 §9-2·§9-3처럼 **개명 자체를 이야기하는 자리**뿐이다. `db.customStates`는 `db.switches`가
 > 됐고 `mode`는 문자열, `initialValue`는 `resetValue`다(§9-3 "저장을 건드리는 절반"). 로케일 키
@@ -52,12 +54,17 @@
 - `UpdateMacroTextsMap`의 미정의 갈래가 `""` 대신 `known:0`을 굽는다. 자기 참조 갈래는
   그대로다.
 
-### 3. 정의는 함수 하나로만 닿을 것
+### 3. ~~정의는 함수 하나로만 닿을 것~~ — **섰음 (2026-08-21, 1b-2)**
 
-`db.global.customStates[...]`를 호출부에서 직접 읽지 말고 **`ResolveStateDefinition(name)`**
-하나를 통과시킨다. 만들 때는 전역 표 한 줄을 반환하면 그만이다. §4-6(계산식만 레이어로)이
-나중에 필요해지면 **그 함수만 바뀐다.** 지금 비용 0이고, 이 문서에서 되돌리기 어려운 유일한
-항목이다.
+`DebindPrivate.ResolveSwitchDefinition(name)` 하나가 정의로 가는 유일한 문이다. 이름은 이
+문서가 적어둔 `ResolveStateDefinition`이 아니라 `ResolveSwitchDefinition`이다 - 1a가 코드
+어휘를 스위치로 옮긴 뒤라, 여기서 `state`라는 낱말을 새로 심을 자리가 없다(§9-3).
+
+**`Profile.lua`에 있고 `Switches.lua`에 없다.** 저 파일은 읽히는 순간 보안 프레임을 만들어서
+헤드리스 러너가 안 싣는데(`tests/run.lua`), 이 함수를 부르는 곳 둘 - `GetUndefinedSwitch`와
+익스포트의 매니페스트 - 이 스펙에 걸려 있다. 정의가 프로필 데이터라는 점에서도 그쪽이 맞다.
+
+§4-6(동작 필드만 레이어로)이 오면 **그 함수만 바뀐다.**
 
 ### 4. 값을 캐릭터로 옮기면 `HasCharContent`도 고쳐야 한다
 
@@ -90,11 +97,11 @@
 나가 있다.** 머리주석(1-57행)이 제한 환경에서 쓸 수 있는 것의 목록까지 적어놨다.
 처음부터 다시 판정하지 말 것.
 
-### 7. `GetSwitchOptions`는 모르는 이름에 에러를 던진다
+### 7. ~~`GetSwitchOptions`는 모르는 이름에 에러를 던진다~~ — **없앴음 (2026-08-21, 1b-2)**
 
-`Switches.lua`. 이름이 `SWITCH_INDICES`에
-없으면 `stateIndex`가 nil이 되고 `nil <= 5`에서 터진다. **지금은 도달 불가** — 부르는 쪽이
-전부 사전에 게이트를 통과시키거나 숫자를 넘긴다. 이름이 자유로워지는 순간 도달 가능해진다.
+`nil <= 5`로 터지던 함수다. 이름이 자유로워지는 순간 도달 가능해지는 자리였고, ⚑3의 문이
+그것을 대신하면서 통째로 없어졌다. **모르는 이름의 답은 `nil`이고, 그것이 오류가 아니라 평범한
+답이라는 것**이 그 함수의 머리주석이 드는 사실이다.
 
 ---
 
@@ -103,18 +110,26 @@
 `$state1`~`$state5` 다섯 개 고정. 정의는 `db.global.customStates[1..5]`에 전역.
 상태마다 `mode` / `value` / `initialValue` / `savedValue` / `expr` / `displayMessage`.
 
-### 1-1. 이미 이름을 받는 것들
+### 1-1. ~~이미 이름을 받는 것들~~ — **게이트를 걷었다 (2026-08-21, 1b-2)**
 
-**막고 있는 것은 `UpdateBindings.lua`의 `addSwitch`가 쓰는
-`Constants.SWITCH_INDICES[stateName]` 게이트 하나다.** 나머지는 전부 준비돼 있다:
+막고 있던 것은 `UpdateBindings.lua`의 `addSwitch`가 쓰는
+`Constants.SWITCH_INDICES[stateName]` 게이트 하나였고, 지금 이름을 가르는 것은 **정의가
+있느냐** 하나다(⚑3). 나머지는 그때도 전부 준비돼 있었다:
 
 | 계층 | 이름 대응 | 근거 |
 |---|---|---|
 | 조건 저장 | **된다** | `CleanUpDB`의 `$` 면제 (⚑1). `KEYS_TO_SAVE`의 `$state1`~`5` 다섯 줄은 이미 잉여 |
 | 매크로 파서 | **된다** | `Misc.lua`의 `ParseMacroText` — `[a-zA-Z0-9_]+` |
 | 보안 런타임 | **된다** | `States[name]`은 문자열 키. `Switches.lua`의 `_onclick`은 `strsub(state,1,1) == "$"`만 본다 |
-| 코드젠 | **절반** | `UpdateBindings.lua`의 `UpdateBindingsMap`에 있는 `binding.switches` 이름 키 루프가 **있는데 아무도 안 채운다** — 죽은 준비 코드 |
+| 코드젠 | **된다** | 조건 표를 그대로 훑는다. 죽어 있던 `binding.switches` 이름 키 루프는 그것으로 대체돼 없어졌다 |
+| solver | **된다** | 컬럼 인자가 번호가 아니라 이름이다 |
 | 상태 합성 | **된다** | `$b`의 `expr` 안 `$a`가 런타임 참조로 구워진다. 자기 자신만 무력화(`UpdateMacroTextsMap`의 `selfReference`) |
+
+**같이 바뀐 것 둘.** 하나, 정의를 못 찾은 조건을 **떨어뜨리지 않고 그대로 굽는다** — 떨어뜨리면
+그 바인딩이 조건 없이 상시 발동한다(⚑2와 같은 실패 방향인데 마커도 안 붙는다). 런타임 비교가
+`States[name] ~= v`라 아무도 안 쓴 이름은 어느 쪽으로 걸어도 안 맞는다. 둘, `Import.lua`가
+`$state1`~`$state5` 밖의 이름을 실은 문자열을 **거절하던 것을 그만뒀다**(`c6f0b17`) — 그 근거가
+"솔버가 그 이름에 컬럼을 안 만든다"였고, 그 문장이 더는 참이 아니다.
 
 **`$` 면제는 2024-09-08 `d3118cf`, 2.0.4부터 나가 있다.** 되돌릴 수 있는 모든 릴리스가
 `action["$아무이름"]`을 보존한다 → **조건 저장은 마이그레이션이 필요 없다.**
@@ -1012,14 +1027,18 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 
 `UNIT_CHANGED`는 이번 범위 밖이다.
 
-#### 다섯 개를 미리 만들지 않는다
+#### 다섯 개를 미리 만들지 않는다 — **들어갔다 (2026-08-21, 1b-2)**
 
 > **"프로파일 로드 시에 그 캐릭터의 전체 프로파일 레이어 중에서 사용 중인 state이 보이면
 > 그때 추가하면 되잖아."**
 
-지금 `Profile.lua`의 `BindDerivedTables`가 매 로드마다 `for i = 1, MAX`를 돌며 없으면 빈
-정의를 만든다. 그대로 두면 §6-B의 목록이 서는 날, **이 기능을 한 번도 안 쓴 사람에게도 빈 줄
+`Profile.lua`의 `BindDerivedTables`가 매 로드마다 `for i = 1, MAX`를 돌며 없으면 빈
+정의를 만들었다. 그대로 뒀으면 §6-B의 목록이 서는 날, **이 기능을 한 번도 안 쓴 사람에게도 빈 줄
 다섯 개가 깔린 채로 시작한다.**
+
+**만드는 자리가 하나로 옮겨갔다.** `GetOrCreateSwitchDefinition`이고, 부르는 것은 스위치
+드롭다운의 **쓰는 쪽**뿐이다 - 메뉴를 열어보는 것만으로는 안 생기고, 하나를 고르거나 식을 적는
+순간에 그 하나가 생긴다. 이미 심긴 것은 `dbver` 6 단계가 한 번 걷어낸다.
 
 세 조각이 붙는다.
 
@@ -1033,6 +1052,15 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
    넣은 것이라 오타가 못 들어온다. 매크로 본문의 `[$burst]`는 손으로 치는 자리고, 거기서 본
    이름을 정의로 승격시키면 **⚑2가 세운 빨간불이 없어진다.** `[$typo]` 한 번이 스위치를
    만들어버리고 사용자는 오타를 영영 모른다. 본문은 계속 `GetUndefinedSwitch`가 잡는다.
+
+**켜기/끄기/전환 액션도 참조로 센다.** 조건 표를 안 지나가지만(대상이 `value`의 비트팩이다)
+목록에서 골라 넣는 자리인 것은 같아서 오타가 못 들어오고, 안 세면 그 액션이 켜는 것이 아무 데도
+없는 이름이 된다.
+
+**남은 것 하나.** 개명 전 SavedVariables를 얹는 길에서는 이 캐릭터의 옛 레이어가 아직 안
+도착했다(`ImportAccount`가 `ImportCharacter`보다 먼저다). 거기서만 참조 대신 "설정이 남아
+있느냐"가 판정을 든다 - 눌러본 적 있는 스위치는 `savedValue`가 남으므로 실제로 쓰던 것은 다
+살아남는다.
 
 #### 저장을 건드리는 절반
 
@@ -1054,7 +1082,7 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 | **0** | ~~solver 컬럼 동적화(§7) + `BINDING_ISSUE_UNDEFINED_STATE`(⚑2)~~ **완료 2026-08-13** | 없음 |
 | **1a** | ~~**어휘 개명만**(§9-3). `SWITCH_MODES`, `SWITCH_CHANGED`, 스니펫에 구워지는 이름과 골든~~ **완료 2026-08-21.** `CustomStates.lua`는 `Switches.lua`가 됐다 | 없음 |
 | **1b-1** | ~~정의의 저장 모양(§9-3). `db.customStates` -> `db.switches`, `mode` 문자열화, `initialValue` -> `resetValue`~~ **완료 2026-08-21.** 정의는 액션이 아니라 `MigrateSwitches`로 사다리가 따로 섰다 | `dbver` 6에 얹었다 |
-| **1b-2** | 게이트 제거, 개수 제한, 다섯 개를 미리 안 만들기(§9-3), `ResolveStateDefinition`(⚑3), `MAX_NUM_SWITCHES` 루프 정리, 스위치 개명 + 참조 재작성(§3-4). **여기서부터 동작이 바뀐다.** 개수는 아직 5개 | 없음 |
+| **1b-2** | ~~게이트 제거, 다섯 개를 미리 안 만들기(§9-3), `ResolveSwitchDefinition`(⚑3), `MAX_NUM_SWITCHES` 루프 정리~~ **완료 2026-08-21.** 개수는 아직 5개. **개명 + 참조 재작성(§3-4)은 안 들어갔다** — 개명을 시작하는 자리가 §6-B의 목록이라, 그 목록이 서기 전에는 부를 데가 없다 | 없음 |
 | **1b-3** | 화면 낱말을 스위치로(§9-2). 로케일 **키**는 §9-3대로 그대로 둔다 | 없음 |
 | **2** | 값을 캐릭터로(§5) + `HasCharContent`(⚑4) | 가산만 |
 | **3** | **스위치 바**(§6-A) — `SWITCH_CHANGED` 첫 청취자, 전투 중 토글·접기. **생김새 결정이 이 앞에 있다** | 없음 |
@@ -1077,28 +1105,38 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 
 **0단계는 이름 작업과 독립이고 그 자체로 버그 수정이다.** 나머지를 안 해도 값이 나온다.
 
-`MAX_NUM_SWITCHES`를 도는 자리(1b 범위. 2026-08-20에 적었고 이름은 1a 뒤로 고쳤다):
+`MAX_NUM_SWITCHES`를 돌던 자리(2026-08-20에 적었고, 1b-2가 걷었다):
 
-| 파일 | 어디 |
-|---|---|
-| `Constants.lua` | `SWITCH_INDICES`를 채우는 루프 |
-| `Solver.lua` | `STATE_KEYS`를 채우는 루프, `buildLayout`의 스위치 컬럼 루프 |
-| `Misc.lua` | `BuildUnitStates`, `IsConditionalBinding`, `SwitchesChangedCallback` |
-| `Profile.lua` | `BindDerivedTables` |
-| `DropDownMenus.lua` | `SetupSwitchesDropdownMenu`, `CreateSwitchConditionMenu` 둘 |
-| `DebindUI.lua` | 액션 툴팁의 조건 줄 |
-| `ActionCatalog.lua` | `BuildSpecialActions` |
-| `UpdateBindings.lua` | `UpdateBindingsMap` |
-| `Switches.lua` | `_onattributechanged`·`_onclick` 본문에 숫자를 굽는 자리 셋, 그리고 `GetSwitchOptions` |
+| 파일 | 어디 | 뒤 |
+|---|---|---|
+| `Constants.lua` | `SWITCH_INDICES`를 채우는 루프 | 남는다. 붙박이 다섯의 이름표이고, `SWITCH_NAMES`가 그 역이다 |
+| `Solver.lua` | `STATE_KEYS`를 채우는 루프, `buildLayout`의 스위치 컬럼 루프 | 조건 표를 훑는다. 컬럼 인자가 이름이다 |
+| `Misc.lua` | `SwitchesChangedCallback` | 바뀐 것만 훑는다. 정의 없는 이름은 건너뛴다 |
+| `Profile.lua` | `BindDerivedTables` | 있는 것만 훑는다. 만들지 않는다 |
+| `DropDownMenus.lua` | `SetupSwitchesDropdownMenu`, `CreateSwitchConditionMenu` 둘 | **거는 자리는 그대로 다섯**이고, `isActive`만 조건 표를 훑는다. 4단계에서 은퇴한다 |
+| `DebindUI.lua` | 액션 툴팁의 조건 줄 | 조건 표를 훑고 이름순으로 그린다 |
+| `ActionCatalog.lua` | `BuildSpecialActions` | **그대로 다섯.** SETSTATE가 대상을 비트팩으로 들어서 셀 수 있는 것이 번호뿐이다 (§9-1이 없앤다) |
+| `UpdateBindings.lua` | `UpdateBindingsMap` | 조건 표를 훑는다. 죽어 있던 `binding.switches` 루프는 없어졌다 |
+| `Switches.lua` | `_onattributechanged`·`_onclick` 본문, 그리고 `GetSwitchOptions` | 본문에는 **애초에 숫자가 한 군데도 안 구워지고 있었다** |
 
-**`Switches.lua`의 셋은 성격이 다르다.** 나머지는 Lua 쪽 루프라 이름 집합을 도는 것으로
-바뀌지만, 저기는 **스니펫 본문에 숫자가 구워지는 자리**다. `tools/snippet-golden.txt`가 그
-바이트를 잠그고 있으므로 골든도 같이 간다(`restricted-environment.md`).
+**`Misc.lua`의 `BuildUnitStates`와 `IsConditionalBinding`은 목록이 낡은 것이었다.** 조건이
+`action.conditions`로 내려가면서 둘 다 이미 표를 훑는 모양이 됐다.
+
+**`Switches.lua`도 예상과 달랐다.** 숫자를 굽는 자리 셋일 것이라고 적혀 있었는데, 실제로는
+`format`이 두 번 불리면서 한쪽 본문에는 서식 지정자가 아예 없었고 다른 쪽의
+`local MAX_NUM_SWITCHES = %d`는 **선언만 되고 아무도 안 읽는 줄**이었다. 그 줄과 `format` 둘을
+걷어냈고, 골든이 움직인 것은 그 줄과 그 아래 공백 줄 둘뿐이다
+(`restricted-environment.md`).
 
 ---
 
 ## 11. 이 문서가 확인하지 않은 것
 
+- **1b-2의 `/debtest`는 등록만 됐고 아직 안 돌았다 (2026-08-21).** 새 케이스는
+  `Switch condition on a name outside the five`이고, 넷을 한 자리에서 본다: 다섯 밖의 이름이
+  켜졌을 때 걸리는가, 꺼졌을 때 빠지는가, 정의가 없으면 안 나가는가, 그리고 리빌드 없이
+  값만 바뀌었을 때 살아나는가(전투 중에 도는 길). 게이트가 다시 서면 검사는 전부 초록인 채로
+  그 키만 조용히 죽는다.
 - **인게임 검증은 0단계만 있다 — 그건 됐다(2026-08-13 `/debtest` 통과).** ⚑2의 헤드리스
   재현도 짰다: `tests/macrotext_spec.lua`의 "정의되지 않은 상태는 거짓으로 굽는다",
   마커 쪽은 `tests/issue_spec.lua`. **단 `UpdateBindings.lua`는 러너가 안 실으므로 그

@@ -270,28 +270,38 @@ return function(DebindPrivate, DebindStorage)
             "명단에 있는 것은 들어와야 한다");
     end);
 
-    --- **이 판이 표현할 수 없는 커스텀 상태 이름은 문자열 통째로 거절이다.**
+    --- **스위치 이름은 무엇이든 도착한다. 여기 정의가 없어도 그렇다.**
     ---
-    --- 재설계 전까지 이 애드온이 쓰는 이름은 `$state1`~`$state5`뿐이다. 메뉴도 picker도 그
-    --- 밖을 못 만든다. 그러니 다른 이름을 실은 문자열은 손으로 고쳐진 것이고, `IsUsableAction`의
-    --- 규칙이 그대로 걸린다 - 망가진 것이 아니라 **만들 수 없는 모양**이다.
+    --- `$state1`~`$state5` 밖의 이름을 실은 문자열은 통째로 거절이었다(`c6f0b17`). 근거는
+    --- 이름이 아니라 **솔버**였다 - 그 이름에 컬럼이 안 생겨서 조건이 안 보였고, 상자가 조건
+    --- 공간 전체가 되어 그 액션이 같은 키의 아래 바인딩을 전부 덮었다. 컬럼이 이름마다
+    --- 생기고 나면(`Solver.lua`) 그 근거가 없어지고, 거절만 남으면 정반대로 틀린다.
     ---
-    --- 빨갛게 띄우는 쪽이 아닌 이유가 그것이다. 그쪽은 안 배운 주문처럼 평범한데 이 컴퓨터에서
-    --- 안 풀리는 것들 자리다.
-    ---
-    --- 조건만 떨어뜨리는 것은 더 나쁘다. 조건이 빠진 액션은 넓어져서 도착하고, 런타임이 그
-    --- 이름에 컬럼을 안 만들어서 **키의 아래 바인딩을 전부 덮는다.**
-    test("이 판이 모르는 커스텀 상태 조건은 문자열을 통째로 거절한다", function()
+    --- 남는 것은 이 포맷의 원래 규칙이다: **망가진 것도 보내고 받는 쪽이 빨간 것을 보고
+    --- 지운다.** 정의가 없는 이름은 안 배운 주문과 같은 자리 - 평범한데 이 컴퓨터에서 안
+    --- 풀리는 것 - 이고, 그 조건이 걸린 바인딩은 안 나간다.
+    test("이 판에 정의가 없는 스위치 조건도 문자열을 거절하지 않는다", function()
         local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1,
-            conditions = { ["$state9"] = true } } });
-        check(DebindStorage.PayloadIsImpossible(payload) == true,
-            "만들 수 없는 이름이 통과했다");
+            conditions = { ["$burst"] = true } } });
+        check(DebindStorage.PayloadIsImpossible(payload) == false,
+            "만들 수 있는 문자열을 거절했다");
     end);
 
     test("아는 커스텀 상태 조건은 거절 사유가 아니다", function()
         local payload = General({ { type = Constants.SPELL, value = 1, key = "F", seq = 1,
             conditions = { ["$state3"] = true } } });
         check(DebindStorage.PayloadIsImpossible(payload) == false, "멀쩡한 문자열을 거절했다");
+    end);
+
+    -- 거절하지 않는 것과 **조건을 들고 도착하는 것**은 다른 답이다. 조건만 조용히 떨어지면
+    -- 액션이 넓어져서 도착하고, 그게 위 주석이 말하는 "아래 바인딩을 덮는" 바로 그 모양이다.
+    test("정의 없는 스위치 조건이 프로필까지 들어온다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1,
+                conditions = { ["$burst"] = false } } }));
+        check(action.conditions ~= nil and action.conditions["$burst"] == false,
+            "임의 이름 조건이 도중에 사라졌다");
     end);
 
     test("$상태 조건은 명단에 없어도 통과한다", function()

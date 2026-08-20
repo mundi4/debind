@@ -328,8 +328,7 @@ local function BuildStateManifest(actions)
 
         for name in pairs(pending) do
             if (manifest[name] == nil) then
-                local index = Constants.SWITCH_INDICES[name];
-                local definition = index and DebindPrivate.Switches[index];
+                local definition = DebindPrivate.ResolveSwitchDefinition(name);
                 if (definition) then
                     manifest[name] = CopyFields(definition, STATE_FIELDS);
                     any = true;

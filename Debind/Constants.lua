@@ -105,19 +105,42 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     states = true,
 };
 
---- 이 이름이 조건 필드인가. 커스텀 상태 이름까지 같이 답한다.
+--- Is this a switch's name? **The `$` is the whole test.** A switch condition is stored under the
+--- switch's own name (`action.conditions["$burst"]`) rather than in a field this file could list,
+--- so nothing else tells one apart from the fixed condition names above.
+---
+--- Asked wherever a condition table is walked to pick the switches out of it: the solver's columns,
+--- codegen's condition loop, the action tooltip, and the migration that decides which definitions
+--- are still in use.
+function Constants.IsSwitchName(name)
+    return type(name) == "string" and strsub(name, 1, 1) == "$";
+end
+
+--- 이 이름이 조건 필드인가. 스위치 이름까지 같이 답한다.
 function Constants.IsConditionField(name)
     if (Constants.CONDITION_FIELDS[name]) then
         return true;
     end
-    return type(name) == "string" and strsub(name, 1, 1) == "$";
+    return Constants.IsSwitchName(name);
 end
 
+--- **The five built-in names.** Neither of these says how many switches there can be any more:
+--- everything that used to walk `1..MAX_NUM_SWITCHES` looking for switches now walks what is
+--- actually there - a binding's conditions, the definitions that exist - so a name outside this
+--- list reaches the solver and codegen like any other.
+---
+--- What is left is the two jobs only the built-in five have. `SWITCH_INDICES` is the **`SETSTATE`
+--- encoding**: an on/off/toggle action packs its target as a number in `action.value`, the one
+--- place a switch is still named by index, and §9-1 of `devdocs/redesigning-custom-states.md` is
+--- what takes that away. `SWITCH_NAMES` is its inverse, and the definition table is stored by
+--- index too, so `BindDerivedTables` reads the names off it.
 Constants.MAX_NUM_SWITCHES = 5;
 
 Constants.SWITCH_INDICES = {};
+Constants.SWITCH_NAMES = {};
 for i = 1, Constants.MAX_NUM_SWITCHES do
     Constants.SWITCH_INDICES["$state" .. i] = i;
+    Constants.SWITCH_NAMES[i] = "$state" .. i;
 end
 
 --- **Strings, so a mode nothing wrote matches nothing.** A number carries neighbours: one that is

@@ -1006,6 +1006,11 @@ local function BuildSpecialActions(entries)
 
 	-- 사용자 상태. 상태마다 켜기·끄기·전환 셋이라 순서를 상태별로 묶는다 -
 	-- "상태 1 켜기 / 끄기 / 전환" 다음에 상태 2가 온다.
+	--
+	-- **여기만 아직 번호를 센다.** 스위치를 조건으로 거는 자리들은 이름을 도는 것으로 바뀌었지만
+	-- 켜기/끄기/전환 액션은 대상을 `value`의 비트팩으로 들고 있어서, 셀 수 있는 것이 번호뿐이다.
+	-- 타입을 셋으로 가르고 이름을 싣는 것이 그것을 없앤다
+	-- (`devdocs/redesigning-custom-states.md` §9-1).
 	local setStateGroup = typeNames[Constants.SETSTATE];
 	for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
 		for _, mode in ipairs({ Constants.SETCUSTOM_MODE_ON, Constants.SETCUSTOM_MODE_OFF, Constants.SETCUSTOM_MODE_TOGGLE }) do

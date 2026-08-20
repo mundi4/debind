@@ -1240,12 +1240,17 @@ return function(DebindPrivate)
     -- 이름이 아니라 **그 이름으로 나오는 답**을 본다. `value`를 정하는 것은 저장이 아니라
     -- `BindDerivedTables`이고, 그것이 새 이름을 못 읽으면 위가 다 초록이어도 스위치는 틀린
     -- 값으로 켜진다.
+    --
+    -- **살아 있는 표는 이름으로 연다.** 저장은 번호로 앉아 있고 조건·매크로 본문·SETSTATE는
+    -- 전부 이름으로 부르므로, 둘을 잇는 것이 `BindDerivedTables`다. 번호로 열리면
+    -- `ResolveSwitchDefinition`이 아무것도 못 찾는다.
     test("dbver 6 keeps what each switch comes up as", function()
         InitWith(OldSwitchAccount());
         local switches = DebindPrivate.Switches;
-        check(switches[1].value == true, "로그인 때 켜짐이 안 켜졌다");
-        check(switches[3].value == false, "로그인 때 꺼짐이 안 꺼졌다");
-        check(switches[4].value == true, "기억한 값으로 안 돌아갔다");
+        check(switches["$state1"].value == true, "로그인 때 켜짐이 안 켜졌다");
+        check(switches["$state3"].value == false, "로그인 때 꺼짐이 안 꺼졌다");
+        check(switches["$state4"].value == true, "기억한 값으로 안 돌아갔다");
+        check(switches[1] == nil, "번호로도 열린다 - 이름 하나로 답이 나와야 한다");
     end);
 
     -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
@@ -1258,6 +1263,128 @@ return function(DebindPrivate)
         check(db.switches[2].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
         check(db.switches[1].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
         check(db.switches[3].resetValue == false, "두 번째에 false가 뭉개졌다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 6: 아무도 만든 적 없는 정의를 걷어낸다
+    --
+    -- 빈 정의 다섯 개를 매 로드마다 심던 자리가 `BindDerivedTables`였다. 그래서 이 기능을
+    -- 한 번도 안 쓴 프로필에도 정의 다섯이 앉아 있고, §6-B의 목록이 서는 날 그 사람은 빈 줄
+    -- 다섯 개로 시작한다. 심는 것을 그만두고, 이미 심긴 것은 이 단계가 한 번 걷어낸다.
+    --
+    -- **지우는 쪽이 실수하면 조용하다.** 살아 있어야 할 정의가 사라지면 그 이름을 건 조건은
+    -- 영영 거짓이 되고, 매크로 본문의 그 이름은 빨간 마커를 달아 액션째 `KeyMap`에서 빠진다.
+    -- 그래서 아래는 "지운다" 한 줄이 아니라 **남겨야 하는 경우들**이 대부분이다.
+    ---------------------------------------------------------------------------
+
+    --- `dbver` 5 계정 표에 정의 다섯과 레이어를 함께 세운다. 정의는 전부 **손 안 댄 기본값**
+    --- 이므로, 남는 것이 있다면 이유는 참조 하나뿐이다.
+    local function AccountWithUntouchedSwitches(layers)
+        local db = {
+            dbver = 5,
+            shared = { classes = {} },
+            characters = {},
+            migrated = {},
+            customStates = {},
+        };
+        for i = 1, 5 do
+            db.customStates[i] = { mode = 0 };
+        end
+        if (layers) then
+            layers(db);
+        end
+        return db;
+    end
+
+    local function switchNames(db)
+        local names = {};
+        for index in pairs(db.switches or {}) do
+            names[Constants.SWITCH_NAMES[index]] = true;
+        end
+        return names;
+    end
+
+    test("dbver 6 drops the definitions nobody made", function()
+        local db = InitWith(AccountWithUntouchedSwitches());
+        check(next(db.switches) == nil,
+            "아무도 안 건드린 정의가 남았다 - 목록이 빈 줄로 시작한다");
+        check(next(DebindPrivate.Switches) == nil, "살아 있는 표에도 남았다");
+    end);
+
+    -- **로드가 다시 심으면 안 된다.** 걷어내는 것과 안 심는 것은 다른 자리에 있고
+    -- (`MigrateSwitches` / `BindDerivedTables`), 뒤엣것만 빠뜨리면 지운 것이 같은 로그인
+    -- 안에서 도로 생긴다.
+    test("BindDerivedTables no longer plants the five", function()
+        local db = InitWith(AccountWithUntouchedSwitches());
+        DebindPrivate.BindDerivedTables();
+        check(next(db.switches) == nil, "로드가 빈 정의를 다시 심었다");
+    end);
+
+    -- 설정을 해뒀지만 아직 아무 액션에도 안 건 스위치. 참조만 보면 조용히 사라진다.
+    test("dbver 6 keeps a definition that carries a setting", function()
+        local db = InitWith(AccountWithUntouchedSwitches(function(account)
+            account.customStates[1].initialValue = true;
+            account.customStates[2].mode = 3;
+            account.customStates[2].expr = "[combat]";
+            account.customStates[3].displayMessage = true;
+            -- 한 번이라도 눌러본 스위치. 누르면 `savedValue`가 남는다
+            -- (`SwitchesChangedCallback`).
+            account.customStates[4].savedValue = false;
+        end));
+        local names = switchNames(db);
+        check(names["$state1"], "되돌릴 값이 있는 정의가 사라졌다");
+        check(names["$state2"], "계산식 정의가 사라졌다");
+        check(names["$state3"], "메시지 설정이 있는 정의가 사라졌다");
+        check(names["$state4"], "눌러본 적 있는 정의가 사라졌다 - 기억한 값이 날아간다");
+        check(not names["$state5"], "손 안 댄 것까지 남았다");
+    end);
+
+    -- 조건이 이름을 부르면 남는다. 세 자리 전부 - 계정, 클래스, 캐릭터 - 를 훑어야 한다.
+    test("dbver 6 keeps a definition a condition names", function()
+        local db = InitWith(AccountWithUntouchedSwitches(function(account)
+            account.shared.GENERAL = {
+                { type = "spell", value = 1, key = "F1", seq = 1, conditions = { ["$state1"] = true } },
+            };
+            account.shared.classes.DRUID = {
+                [0] = { { type = "spell", value = 2, key = "F2", seq = 1, conditions = { ["$state2"] = false } } },
+            };
+            account.characters[GUID] = {
+                layers = {
+                    [3] = { { type = "spell", value = 3, key = "F3", seq = 1, conditions = { ["$state3"] = true } } },
+                },
+            };
+        end));
+        local names = switchNames(db);
+        check(names["$state1"], "계정 레이어의 조건이 안 걷혔다");
+        check(names["$state2"], "클래스 레이어의 조건이 안 걷혔다");
+        check(names["$state3"], "캐릭터 레이어의 조건이 안 걷혔다");
+        check(not names["$state5"], "아무도 안 부른 것까지 남았다 - 전제가 깨졌다");
+    end);
+
+    -- 켜기/끄기/전환 액션은 `value`에 번호를 싣는다. 조건 표를 안 지나가므로 조건만 훑으면
+    -- 안 보이고, 그 정의가 사라지면 그 액션이 켜는 것이 아무 데도 없는 이름이 된다.
+    test("dbver 6 keeps a definition a SETSTATE action names", function()
+        local db = InitWith(AccountWithUntouchedSwitches(function(account)
+            account.shared.GENERAL = {
+                { type = "setstate", key = "F4", seq = 1,
+                  value = bit.bor(Constants.SETCUSTOM_MODE_TOGGLE, 2) },
+            };
+        end));
+        local names = switchNames(db);
+        check(names["$state2"], "전환 액션이 가리킨 정의가 사라졌다");
+        check(not names["$state1"], "아무도 안 부른 것까지 남았다 - 전제가 깨졌다");
+    end);
+
+    -- **본문은 안 본다.** 조건과 SETSTATE는 목록에서 골라 넣는 자리라 오타가 못 들어오지만,
+    -- 매크로 본문의 `[$이름]`은 손으로 치는 자리다. 거기서 본 이름을 "쓰이는 중"으로 읽으면
+    -- 오타 하나가 정의를 살려두고, ⚑2가 세운 빨간 마커가 그만큼 조용해진다.
+    test("dbver 6 does not read macro bodies as a use", function()
+        local db = InitWith(AccountWithUntouchedSwitches(function(account)
+            account.shared.GENERAL = {
+                { type = "macrotext", value = "/cast [$state1] Foo", key = "F5", seq = 1 },
+            };
+        end));
+        check(next(db.switches) == nil, "본문의 이름이 정의를 살려뒀다");
     end);
 
     -- **개명 전 파일의 정의는 `MigrateDB`가 지나간 뒤에 도착한다.** 계정 몫은 덩어리째 얹히는
@@ -1283,7 +1410,7 @@ return function(DebindPrivate)
         check(db.switches[1].mode == MODES.MANUAL and db.switches[1].resetValue == true,
             "수동 정의가 안 올라왔다");
         check(db.switches[2].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
-        check(DebindPrivate.Switches[1].displayMessage == true,
+        check(DebindPrivate.Switches["$state1"].displayMessage == true,
             "올라온 정의가 살아 있는 표에 안 걸렸다");
     end);
 

@@ -459,6 +459,82 @@ local function MigrateShared(shared, dbver)
     end
 end
 
+--- Every switch name this profile still names, gathered from all five layers of every character
+--- and every class.
+---
+--- **Conditions and `SETSTATE` targets, and nothing else.** Those two are the places a switch is
+--- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
+--- `[$burst]` is typed by hand and is deliberately left out (`devdocs/redesigning-custom-states.md`
+--- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
+--- how the user finds out about the typo at all.
+local function CollectReferencedSwitches(db, found)
+    local function walkLayer(layerTbl)
+        if (layerTbl == nil) then
+            return;
+        end
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local conditions = action.conditions;
+            if (conditions) then
+                for name in pairs(conditions) do
+                    if (Constants.IsSwitchName(name)) then
+                        found[name] = true;
+                    end
+                end
+            end
+            if (action.type == Constants.SETSTATE and luatype(action.value) == "number") then
+                local _, index = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
+                local name = index and Constants.SWITCH_NAMES[index];
+                if (name) then
+                    found[name] = true;
+                end
+            end
+        end
+    end
+
+    local function walkSpecTable(specTbl)
+        if (specTbl == nil) then
+            return;
+        end
+        for spec = 0, 5 do
+            walkLayer(specTbl[spec]);
+        end
+    end
+
+    if (db.shared) then
+        walkLayer(db.shared.GENERAL);
+        if (db.shared.classes) then
+            for _, classTbl in pairs(db.shared.classes) do
+                walkSpecTable(classTbl);
+            end
+        end
+    end
+    if (db.characters) then
+        for _, charEntry in pairs(db.characters) do
+            walkSpecTable(charEntry.layers);
+        end
+    end
+end
+
+--- Has anything been set on this definition, or is it the empty one a load used to plant?
+---
+--- **`value` is not a setting.** `BindDerivedTables` writes it on every load from `resetValue` and
+--- `savedValue`, so it is on every definition including the ones nobody ever touched. Everything
+--- else on a definition got there because somebody chose it -- `savedValue` included, which is a
+--- manual switch having been pressed at least once.
+local function SwitchIsUntouched(definition)
+    for key, value in pairs(definition) do
+        if (key == "mode") then
+            if (value ~= Constants.SWITCH_MODES.MANUAL) then
+                return false;
+            end
+        elseif (key ~= "value") then
+            return false;
+        end
+    end
+    return true;
+end
+
 --- The switch definitions, which sit at the top of the global table rather than inside a layer.
 ---
 --- **A second ladder, because `MigrateLayer` cannot reach these.** That one walks a layer's array of
@@ -468,6 +544,13 @@ end
 ---
 --- **`Legacy.lua`'s `ImportAccount` is the other caller**, and it is the one that had to be found:
 --- the pre-rename share is laid on top of a table `MigrateDB` has already stamped.
+---
+--- **It is handed the whole account table, not just the definitions**, because the step below has
+--- to know which switches the layers still name. On the `ImportAccount` path this character's own
+--- pre-rename layers have not arrived yet (`ImportCharacter` runs after), so a definition used
+--- only there is judged on whether anything was ever set on it. That is enough for a switch the
+--- user actually used: pressing one writes `savedValue`, and both of the other modes write a field
+--- of their own.
 local function MigrateSwitches(db, dbver)
     if (dbver <= 5) then
         -- **아직 안 나간 단계다** - `MigrateLayer`의 같은 단계 주석을 볼 것.
@@ -509,6 +592,29 @@ local function MigrateSwitches(db, dbver)
                         end
                         definition.initialValue = nil;
                     end
+                end
+            end
+
+            -- **다섯을 미리 만들어두던 것을 여기서 되돌린다.** 매 로드마다 빈 정의 다섯 개를
+            -- 심던 자리가 `BindDerivedTables`였고, 그래서 이 기능을 한 번도 안 쓴 프로필에도
+            -- 아무도 만든 적 없는 스위치 다섯이 앉아 있다. 만드는 것은 이제 메뉴뿐이라
+            -- (`GetOrCreateSwitchDefinition`), 그때 심긴 것은 여기서 한 번 걷어낸다.
+            --
+            -- **한 번이지 매 로드 수리가 아니다.** 참조를 훑어 정의를 되살리거나 지우는 것이
+            -- 로그인마다 돈다면, 사용자가 지운 스위치가 참조 때문에 돌아오거나 아직 아무 데도
+            -- 안 건 새 스위치가 사라진다 (`devdocs/redesigning-custom-states.md` §9-3).
+            --
+            -- 지우는 것은 **손댄 적도 없고 참조도 없는** 것뿐이다. 둘 중 하나라도 있으면 남는다:
+            -- 설정을 해뒀는데 아직 아무 액션에도 안 건 스위치가 조용히 사라지면 안 되고, 조건이
+            -- 거는 이름의 정의가 사라지면 그 조건은 영영 거짓인 채로 남는다.
+            local referenced = {};
+            CollectReferencedSwitches(db, referenced);
+
+            for index, definition in pairs(switches) do
+                local name = Constants.SWITCH_NAMES[index];
+                if (luatype(definition) == "table" and name and not referenced[name]
+                        and SwitchIsUntouched(definition)) then
+                    switches[index] = nil;
                 end
             end
         end
@@ -609,6 +715,66 @@ local function HasCharContent(entry)
     return false;
 end
 
+--- What a switch is before anybody sets anything on it.
+---
+--- **Read as well as copied**, and that is the point of it being one table. A switch nobody has
+--- made yet is still drawn in the menu, with a row ticked -- manual, off, remembers -- and those
+--- ticks have to be the ones the user gets if they press the row next to them. Two copies of this
+--- would let the drawing and the making drift apart, which reads as a click that changed something
+--- nobody touched.
+local SWITCH_DEFAULTS = { mode = Constants.SWITCH_MODES.MANUAL, value = false };
+DebindPrivate.SWITCH_DEFAULTS = SWITCH_DEFAULTS;
+
+--- The definition behind a switch name, or nil when nothing defines that name.
+---
+--- **The only door to a definition.** Every caller used to reach into the stored table itself, and
+--- half of them had to know that a definition is filed by index while a condition names it by
+--- string. Going through here is what lets that stop being true in one place: §4-6 of
+--- `devdocs/redesigning-custom-states.md` puts the answer behind a layer cascade, and this function
+--- is the whole of what changes.
+---
+--- **nil is an ordinary answer, not a mistake.** Names are free -- the parser takes any
+--- `[a-zA-Z0-9_]+`, a shared string can carry one this install has never seen, and definitions are
+--- only made for switches somebody set up. Every caller has to have an answer for a name nothing
+--- defines, and everywhere the answer is the same: **it is false, and it stays false.** A macro
+--- body's `[$typo]` bakes to `known:0`, a condition compares against a value nothing ever writes,
+--- and the action carries `BINDING_ISSUE_UNDEFINED_STATE` so the user is told which name it was.
+---
+--- What it must not do is error. It did until now, on `nil <= 5` for any name it did not know
+--- (⚑7), which was unreachable only because every caller passed a gate first.
+function DebindPrivate.ResolveSwitchDefinition(name)
+    return DebindPrivate.Switches[name];
+end
+
+--- The definition behind a switch name, made if it is not there yet.
+---
+--- **Creating is a user's doing, and this is the only place it happens.** The five come up empty
+--- now (`BindDerivedTables`), so somebody setting one in the menu is what puts a row on disk. The
+--- alternative - making a row wherever a reference to the name turns up - is what §9-3 of
+--- `devdocs/redesigning-custom-states.md` rules out: a switch the user deleted would come back on
+--- the next login and the red references to it would go quiet, which is the deletion being undone
+--- by the thing that was supposed to report it.
+---
+--- **Storage is still by index**, so this can only file one of the five. That is also all that can
+--- ask: the menu is the one way to make a switch until §6-B's list arrives with names of its own.
+--- A name it cannot file gets `nil`, the same answer as one nothing defines.
+function DebindPrivate.GetOrCreateSwitchDefinition(name)
+    local definition = DebindPrivate.Switches[name];
+    if (definition) then
+        return definition;
+    end
+
+    local index = Constants.SWITCH_INDICES[name];
+    if (not index) then
+        return nil;
+    end
+
+    definition = CopyTable(SWITCH_DEFAULTS);
+    DebindPrivate.db.global.switches[index] = definition;
+    DebindPrivate.Switches[name] = definition;
+    return definition;
+end
+
 --- Fills in defaults for `options` / `switches` and **hands those tables to `DebindPrivate`**.
 ---
 --- It is a separate function because what gets handed over is a **reference**. The pre-rename
@@ -617,6 +783,18 @@ end
 --- empty tables from before the import. For `switches` it is not only the reference: `value`
 --- has to be recomputed from `resetValue`/`savedValue`, so copying the contents across would not
 --- be enough - this calculation has to run again.
+---
+--- **`DebindPrivate.Switches` is keyed by name, `db.switches` by index.** A condition, a macro
+--- body and a `SETSTATE` at runtime all name a switch by string, so the live table answers the
+--- question everything downstream actually asks (`ResolveSwitchDefinition`). The stored table
+--- keeps the index keys it has always had - moving those is a format change and this step does not
+--- carry one - so the two are joined here and nowhere else.
+---
+--- **Nothing is created.** A row is a switch somebody made; five empty ones were being planted on
+--- every load, which put a row under a name the user never touched and would have filled §6-B's
+--- list with blanks for people who have never used the feature
+--- (`devdocs/redesigning-custom-states.md` §9-3). Definitions are made by the menu now
+--- (`GetOrCreateSwitchDefinition`), and `MigrateSwitches` cleared out the untouched ones once.
 function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
 
@@ -627,27 +805,24 @@ function DebindPrivate.BindDerivedTables()
     db.switches = db.switches or {};
     DebindPrivate.Switches = {};
 
-    for i = 1, Constants.MAX_NUM_SWITCHES do
-        local switchOptions = db.switches[i];
-        if (not switchOptions) then
-            switchOptions = {};
-            db.switches[i] = switchOptions;
-        end
-
-        switchOptions.mode = switchOptions.mode or Constants.SWITCH_MODES.MANUAL;
-        if (switchOptions.mode == Constants.SWITCH_MODES.MANUAL) then
-            -- **`resetValue`가 `nil`인 것은 값이 없는 것이 아니라 답이다** - "기억한 것으로
-            -- 돌아가라". 이 연결은 어느 이름에서도 안 보인다.
-            if (switchOptions.resetValue ~= nil) then
-                switchOptions.value = switchOptions.resetValue;
+    for index, switchOptions in pairs(db.switches) do
+        local name = Constants.SWITCH_NAMES[index];
+        if (name) then
+            switchOptions.mode = switchOptions.mode or Constants.SWITCH_MODES.MANUAL;
+            if (switchOptions.mode == Constants.SWITCH_MODES.MANUAL) then
+                -- **`resetValue`가 `nil`인 것은 값이 없는 것이 아니라 답이다** - "기억한 것으로
+                -- 돌아가라". 이 연결은 어느 이름에서도 안 보인다.
+                if (switchOptions.resetValue ~= nil) then
+                    switchOptions.value = switchOptions.resetValue;
+                else
+                    switchOptions.value = switchOptions.savedValue and true or false;
+                end
             else
-                switchOptions.value = switchOptions.savedValue and true or false;
+                switchOptions.value = switchOptions.value or false;
             end
-        else
-            switchOptions.value = switchOptions.value or false;
-        end
 
-        DebindPrivate.Switches[i] = switchOptions;
+            DebindPrivate.Switches[name] = switchOptions;
+        end
     end
 end
 
