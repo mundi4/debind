@@ -695,7 +695,7 @@ local REACTION_NAMES = {
 --- 같은 유닛에 조건이 두 번 걸렸을 때 하나로 합친다.
 ---
 --- `"@"`는 이 액션 자신의 대상 유닛을 가리키므로, 그 유닛에 명시 조건도 걸려 있으면
---- **`t.checkedUnits`의 같은 키에 두 번 쓰게 된다.** 합치지 않으면 `pairs` 순서에 따라
+--- **`t.units`의 같은 키에 두 번 쓰게 된다.** 합치지 않으면 `pairs` 순서에 따라
 --- 한쪽이 조용히 사라진다 - 걸어둔 조건이 무작위로 없어지는 것이다.
 ---
 --- 포섭 관계(`true` vs `"help"`)는 `GetBindingInfoForAction`의 정규화가 앞에서
@@ -895,9 +895,9 @@ function UpdateBindingsMap()
                 -- of `KeyMap` -- so it reaches neither the solver nor this file. This is the
                 -- backstop for the two intersections disagreeing, and now it costs nothing.
                 local unreachable;
-                if (binding.conditions.checkedUnits) then
+                if (binding.conditions.units) then
                     wipe(_mergedUnits);
-                    for k, v in pairs(binding.conditions.checkedUnits) do
+                    for k, v in pairs(binding.conditions.units) do
                         if (k == "@") then
                             k = binding.unit;
                         end
@@ -1000,7 +1000,7 @@ function UpdateBindingsMap()
 
 
                         -- **`hover` and `reactions` are not emitted.** They are the derived view
-                        -- of `checkedUnits["hover"]`, which goes out below with every other unit
+                        -- of `units["hover"]`, which goes out below with every other unit
                         -- as `t.units["hover"]` -- emitting both would have the match loop ask the
                         -- same question about the same unit twice, once against the frame record
                         -- and once against `UnitStates`.
@@ -1088,7 +1088,7 @@ function UpdateBindingsMap()
                         --     _measuredUnitAxes[binding.checkUnitExists] = true;
                         -- end
 
-                        if (binding.conditions.checkedUnits) then
+                        if (binding.conditions.units) then
                             -- `_mergedUnits` was filled above, before the record was created --
                             -- "@" already resolved onto the unit it names and merged with any
                             -- explicit condition on that same unit, so that the two cannot write

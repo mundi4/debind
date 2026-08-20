@@ -1502,11 +1502,11 @@ do
 			addValueLine(tooltip, unitStr, error);
 		end
 
-		-- 호버 조건은 `checkedUnits["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
+		-- 호버 조건은 `units["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
 		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
 		-- 저장에는 끈 값이 남아 있다. 여기는 **걸린 조건**을 그리는 자리라 그걸 접고 본다.
 		local hoverCondition = DebindPrivate.UnitConditionForBinding(
-			conditions.checkedUnits and conditions.checkedUnits.hover);
+			conditions.units and conditions.units.hover);
 		if (hoverCondition ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
@@ -1539,9 +1539,9 @@ do
 			end
 		end
 
-		if (conditions.checkedUnits) then
+		if (conditions.units) then
 			local first = true;
-			for checkedUnit, stored in pairs(conditions.checkedUnits) do
+			for checkedUnit, stored in pairs(conditions.units) do
 				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"hover"`는 위 호버 묶음이 그렸다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
 				if (value ~= nil and checkedUnit ~= "hover"
@@ -1551,7 +1551,7 @@ do
 						first = false;
 					end
 
-					local error = hasIssues and GetIssue("checkedUnits");
+					local error = hasIssues and GetIssue("units");
 					local unitStr;
 					if (checkedUnit == "@") then
 						unitStr = format(LLL["SELECTED_TARGET_UNIT"], UNIT_INFO[action.unit].name);

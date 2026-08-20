@@ -52,8 +52,8 @@ return function(DebindPrivate)
         end
         for _, u in ipairs(UNITS) do
             if (rnd() < density * 0.6) then
-                b.checkedUnits = b.checkedUnits or {};
-                b.checkedUnits[u] = pick(UNIT_VALS);
+                b.units = b.units or {};
+                b.units[u] = pick(UNIT_VALS);
             end
         end
         if (rnd() < density * 0.5) then
@@ -62,16 +62,16 @@ return function(DebindPrivate)
             b.known = true;
         end
         if (rnd() < density * 0.4) then
-            -- 호버 조건은 `checkedUnits["hover"]`다 - 호버한 프레임의 유닛도 유닛이다.
+            -- 호버 조건은 `units["hover"]`다 - 호버한 프레임의 유닛도 유닛이다.
             -- 반응은 그 안의 한 축이고, `frameTypes`는 프레임을 말하는 값이라 밖에 남는다.
             -- ALL은 안 넣는다: nil로 정규화되므로 없는 것과 같은 모양을 두 번 재게 된다.
             if (rnd() < 0.5) then
                 local condition = {};
                 if (rnd() < 0.6) then condition.reaction = math.floor(rnd() * 6) + 1; end
-                b.checkedUnits = { hover = condition };
+                b.units = { hover = condition };
                 if (rnd() < 0.6) then b.frameTypes = math.floor(rnd() * 126) + 1; end
             else
-                b.checkedUnits = { hover = false };
+                b.units = { hover = false };
             end
         end
         if (rnd() < density * 0.3) then b.forms = math.floor(rnd() * 2048); end

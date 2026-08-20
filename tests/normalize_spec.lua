@@ -95,7 +95,7 @@ return function(DebindPrivate)
         check(b.isConditional == nil, "isConditional이 바인딩에 앉아 있다");
     end);
     ---------------------------------------------------------------------------
-    -- 호버 조건은 `checkedUnits["hover"]`에 산다
+    -- 호버 조건은 `units["hover"]`에 산다
     --
     -- 저장에는 그 키 하나뿐이고, `hover`는 거기서 파생된 값이다 (`Misc.DeriveHoverFields`).
     -- 아래 다른 절들이 옛 이름으로 액션을 만드는 것은 **그쪽이 들어올림 경로를 지나기
@@ -103,24 +103,24 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("저장된 호버 조건이 hover로 파생된다", function()
-        local b = spell({ checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } });
+        local b = spell({ units = { hover = { reaction = Constants.REACTION_HELP } } });
         check(b.hover == true, "hover가 안 파생됨");
         check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "축에 안 실림");
     end);
 
     test("저장된 호버 조건이 false면 부재로 파생된다", function()
-        local b = spell({ checkedUnits = { hover = false } });
+        local b = spell({ units = { hover = false } });
         check(b.hover == false, "false가 안 파생됨 - nil과 다른 답이다");
         check(b.unitStates["hover"] == Constants.UNITSTATE_NONE, "부재로 안 좁혀짐");
     end);
 
     test("반응을 전부 고른 저장값은 제약이 없는 것과 같다", function()
-        local b = spell({ checkedUnits = { hover = { reaction = Constants.REACTION_ALL } } });
+        local b = spell({ units = { hover = { reaction = Constants.REACTION_ALL } } });
         check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS, "축이 좁아짐");
     end);
 
     test("호버 유닛에도 생사가 걸린다", function()
-        local b = spell({ checkedUnits = { hover = { dead = true } } });
+        local b = spell({ units = { hover = { dead = true } } });
         check(b.unitStates["hover"] == Constants.UNITSTATE_DEAD, "생사가 축에 안 실림");
     end);
 
@@ -133,15 +133,15 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("꺼진 조건은 바인딩에 안 나온다", function()
-        local b = spell({ checkedUnits = {
+        local b = spell({ units = {
             target = { off = true, reaction = Constants.REACTION_HELP, dead = true },
         } });
-        check(b.conditions.checkedUnits == nil, "꺼진 조건이 바인딩까지 갔다");
+        check(b.conditions.units == nil, "꺼진 조건이 바인딩까지 갔다");
         check(b.unitStates == nil or b.unitStates.target == nil, "축을 좁혔다");
     end);
 
     test("\"없을 때\"는 기억한 축을 안 읽는다", function()
-        local b = spell({ checkedUnits = {
+        local b = spell({ units = {
             target = { exists = false, reaction = Constants.REACTION_HELP, dead = true },
         } });
         check(b.unitStates.target == Constants.UNITSTATE_NONE,
@@ -151,13 +151,13 @@ return function(DebindPrivate)
     test("표시가 없는 표는 \"있을 때\"다", function()
         -- 손으로 쓴 값과 아직 안 옮겨진 프로필이 이 모양으로 온다. 조건 없음으로 읽으면
         -- 걸어둔 것보다 넓어져 남의 키를 가져간다.
-        check(spell({ checkedUnits = { target = {} } }).unitStates.target
+        check(spell({ units = { target = {} } }).unitStates.target
             == Constants.UNITSTATE_EXISTS, "빈 표가 조건 없음으로 읽힘");
     end);
 
     test("꺼진 조건만 있으면 조건부 액션이 아니다", function()
         local action = { type = Constants.SPELL, value = 100,
-            checkedUnits = { target = { off = true, reaction = Constants.REACTION_HELP } } };
+            units = { target = { off = true, reaction = Constants.REACTION_HELP } } };
         check(not DebindPrivate.IsConditionalAction(action),
             "기억만 하는 값이 액션을 조건부로 만들었다");
     end);
@@ -176,7 +176,7 @@ return function(DebindPrivate)
         local b = normalize(action, true);
         check(b.unitStates["hover"] == Constants.UNITSTATE_HELP, "새 모양과 답이 다름");
         check(action.hover == true, "액션이 고쳐졌다 - 들어올림은 사본에만 일어나야 한다");
-        check(action.checkedUnits == nil, "액션에 checkedUnits가 생겼다");
+        check(action.units == nil, "액션에 units가 생겼다");
     end);
 
     -- 두 메뉴가 다 살아 있던 시절의 프로필이면 같은 유닛에 조건이 둘 있을 수 있다. 덮으면
@@ -184,13 +184,13 @@ return function(DebindPrivate)
     test("옛 hover가 같은 유닛의 조건과 교집합된다", function()
         local b = normalize(nest({ type = Constants.SPELL, value = 100,
             hover = true, reactions = Constants.REACTION_HELP,
-            checkedUnits = { hover = { reaction = Constants.REACTION_HARM } } }), true);
+            units = { hover = { reaction = Constants.REACTION_HARM } } }), true);
         check(b.unitStates["hover"] == 0, "안 겹치는 두 조건이 0이 안 됨");
     end);
 
     test("옛 hover=false가 존재 조건과 만나면 0이 된다", function()
         local b = normalize(nest({ type = Constants.SPELL, value = 100,
-            hover = false, checkedUnits = { hover = {} } }), true);
+            hover = false, units = { hover = {} } }), true);
         check(b.unitStates["hover"] == 0, "부재와 존재가 0이 안 됨");
     end);
 
@@ -209,7 +209,7 @@ return function(DebindPrivate)
         });
         -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
         check(b.hover == nil, "hover 조건이 생김");
-        check(b.conditions.checkedUnits == nil or b.conditions.checkedUnits.hover == nil, "호버 조건이 남음");
+        check(b.conditions.units == nil or b.conditions.units.hover == nil, "호버 조건이 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
         check(b.ignoreHoverUnit == nil, "ignoreHoverUnit이 남음");
     end);
@@ -224,7 +224,7 @@ return function(DebindPrivate)
         });
         check(b.hover == false, "hover 조건 자체는 남아야 한다");
         -- 안 올렸을 때와 반응은 같이 설 수 없다. 접기가 조건을 `false` 하나로 만든다.
-        check(b.conditions.checkedUnits.hover == false, "반응이 조건으로 남음");
+        check(b.conditions.units.hover == false, "반응이 조건으로 남음");
         check(b.conditions.frameTypes == nil, "frameTypes가 남음");
     end);
 
@@ -236,7 +236,7 @@ return function(DebindPrivate)
 
     test("hover 반응을 전부 고르면 nil로 접힌다", function()
         local b = spell({ hover = true, reactions = Constants.REACTION_ALL });
-        check(b.conditions.checkedUnits.hover.reaction == nil, "전체 비트가 안 접힘");
+        check(b.conditions.units.hover.reaction == nil, "전체 비트가 안 접힘");
     end);
 
     test("hover 프레임종류를 전부 고르면 nil로 접힌다", function()
@@ -250,7 +250,7 @@ return function(DebindPrivate)
             reactions = Constants.REACTION_HELP,
             frameTypes = Constants.FRAMETYPE_PLAYER,
         });
-        check(b.conditions.checkedUnits.hover.reaction == Constants.REACTION_HELP, "반응이 바뀜");
+        check(b.conditions.units.hover.reaction == Constants.REACTION_HELP, "반응이 바뀜");
         check(b.conditions.frameTypes == Constants.FRAMETYPE_PLAYER, "frameTypes가 바뀜");
     end);
 
@@ -332,36 +332,36 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("대상을 안 골랐으면 \"@\"가 사라진다", function()
-        check(spell({ checkedUnits = { ["@"] = true } }).checkedUnits == nil, "\"@\"가 남음");
+        check(spell({ units = { ["@"] = true } }).units == nil, "\"@\"가 남음");
     end);
 
     test("대상이 \"none\"이면 \"@\"가 사라진다", function()
-        check(spell({ unit = "none", checkedUnits = { ["@"] = true } }).checkedUnits == nil,
+        check(spell({ unit = "none", units = { ["@"] = true } }).units == nil,
             "\"@\"가 남음");
     end);
 
     test("대상이 \"player\"면 \"@\"가 사라진다", function()
-        check(spell({ unit = "player", checkedUnits = { ["@"] = true } }).checkedUnits == nil,
+        check(spell({ unit = "player", units = { ["@"] = true } }).units == nil,
             "\"@\"가 남음");
     end);
 
     -- 저장된 대상이 빈 문자열인 프로필. 대상 메뉴는 그런 값을 못 쓰지만 공유 프로필로는
     -- 들어온다.
     test("대상이 빈 문자열이면 \"@\"가 사라진다", function()
-        check(spell({ unit = "", checkedUnits = { ["@"] = true } }).checkedUnits == nil,
+        check(spell({ unit = "", units = { ["@"] = true } }).units == nil,
             "\"@\"가 남음");
     end);
 
     -- truthy 검사였다면 `false`("없을 때")를 못 잡고 걸 축이 없는 조건이 `UpdateBindings`
     -- 까지 갔다. UI로는 못 만들지만 공유 프로필로는 들어오는 값이다.
     test("\"@\"가 false여도 사라진다", function()
-        check(spell({ unit = "player", checkedUnits = { ["@"] = false } }).checkedUnits == nil,
+        check(spell({ unit = "player", units = { ["@"] = false } }).units == nil,
             "falsy라 검사에서 빠짐");
     end);
 
     test("대상이 멀쩡하면 \"@\"는 남는다", function()
-        local b = spell({ unit = "focus", checkedUnits = { ["@"] = true } });
-        check(type(b.conditions.checkedUnits["@"]) == "table", "멀쩡한 조건이 지워짐");
+        local b = spell({ unit = "focus", units = { ["@"] = true } });
+        check(type(b.conditions.units["@"]) == "table", "멀쩡한 조건이 지워짐");
         check(b.unitStates.focus == Constants.UNITSTATE_EXISTS, "대상 유닛 축에 안 얹힘");
     end);
 
@@ -379,10 +379,10 @@ return function(DebindPrivate)
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus",
-            checkedUnits = { ["@"] = true },
+            units = { ["@"] = true },
         }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.conditions.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.conditions.units == nil, "갈 곳 없는 \"@\"가 남음");
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
@@ -390,10 +390,10 @@ return function(DebindPrivate)
         local b = normalize(nest({
             type = Constants.PETACTION, value = "PET_FOLLOW",
             unit = "focus",
-            checkedUnits = { ["@"] = true },
+            units = { ["@"] = true },
         }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
-        check(b.conditions.checkedUnits == nil, "갈 곳 없는 \"@\"가 남음");
+        check(b.conditions.units == nil, "갈 곳 없는 \"@\"가 남음");
         check(not b.unitStatesOpaque, "바인딩이 통째로 판정에서 빠짐");
     end);
 
@@ -404,7 +404,7 @@ return function(DebindPrivate)
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus", hover = true,
-            checkedUnits = { ["@"] = "help" },
+            units = { ["@"] = "help" },
         }), true);
         check(b.unit == "hover", "hover 채워넣기가 안 일어남 - 전제가 깨졌다");
         check(b.unitStates["hover"] == Constants.UNITSTATE_EXISTS,
@@ -420,7 +420,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     local function atAnd(atValue, unitValue)
-        return spell({ unit = "focus", checkedUnits = { ["@"] = atValue, focus = unitValue } });
+        return spell({ unit = "focus", units = { ["@"] = atValue, focus = unitValue } });
     end
 
     -- **어느 키에 남았는지는 계약이 아니다.** 예전에는 여기서 손으로 한쪽으로 접었는데, 지금은
@@ -440,7 +440,7 @@ return function(DebindPrivate)
 
     test("어긋나면 둘 다 남아서 마스크가 0이 된다", function()
         local b = atAnd("help", "harm");
-        check(b.conditions.checkedUnits["@"] ~= nil, "조용히 한쪽이 지워짐");
+        check(b.conditions.units["@"] ~= nil, "조용히 한쪽이 지워짐");
         check(b.unitStates.focus == 0, "모순이 마스크에 안 드러남");
     end);
 
@@ -457,18 +457,18 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("유닛 조건 스칼라가 축 위의 마스크가 된다", function()
-        check(spell({ checkedUnits = { target = true } }).unitStates.target
+        check(spell({ units = { target = true } }).unitStates.target
             == Constants.UNITSTATE_EXISTS, "존재");
-        check(spell({ checkedUnits = { target = false } }).unitStates.target
+        check(spell({ units = { target = false } }).unitStates.target
             == Constants.UNITSTATE_NONE, "부재");
-        check(spell({ checkedUnits = { target = "help" } }).unitStates.target
+        check(spell({ units = { target = "help" } }).unitStates.target
             == Constants.UNITSTATE_HELP, "우호");
-        check(spell({ checkedUnits = { target = "harm" } }).unitStates.target
+        check(spell({ units = { target = "harm" } }).unitStates.target
             == Constants.UNITSTATE_HARM, "적대");
     end);
 
     test("\"@\"는 겨누는 유닛의 축으로 펴진다", function()
-        local b = spell({ unit = "focus", checkedUnits = { ["@"] = "help" } });
+        local b = spell({ unit = "focus", units = { ["@"] = "help" } });
         check(b.unitStates.focus == Constants.UNITSTATE_HELP, "대상 유닛 축에 안 얹힘");
         check(b.unitStates["@"] == nil, "\"@\"가 제 축을 가짐");
     end);
@@ -482,22 +482,22 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("빈 테이블은 존재만 요구한다", function()
-        check(spell({ checkedUnits = { target = {} } }).unitStates.target
+        check(spell({ units = { target = {} } }).unitStates.target
             == Constants.UNITSTATE_EXISTS, "존재로 안 접힘");
     end);
 
     test("반응 필드가 유닛 축을 좁힌다", function()
-        check(spell({ checkedUnits = { target = { reaction = Constants.REACTION_HELP } } })
+        check(spell({ units = { target = { reaction = Constants.REACTION_HELP } } })
             .unitStates.target == Constants.UNITSTATE_HELP, "우호");
-        check(spell({ checkedUnits = { target = { reaction = Constants.REACTION_HARM } } })
+        check(spell({ units = { target = { reaction = Constants.REACTION_HARM } } })
             .unitStates.target == Constants.UNITSTATE_HARM, "적대");
-        check(spell({ checkedUnits = { target = { reaction = Constants.REACTION_OTHER } } })
+        check(spell({ units = { target = { reaction = Constants.REACTION_OTHER } } })
             .unitStates.target == Constants.UNITSTATE_OTHER, "기타");
     end);
 
     -- 스칼라로는 못 쓰던 것. 축별 마스크가 생긴 이유의 절반이다.
     test("반응을 여럿 고를 수 있다", function()
-        local b = spell({ checkedUnits = {
+        local b = spell({ units = {
             target = { reaction = Constants.REACTION_HELP + Constants.REACTION_OTHER },
         } });
         check(b.unitStates.target == Constants.UNITSTATE_HELP + Constants.UNITSTATE_OTHER,
@@ -507,7 +507,7 @@ return function(DebindPrivate)
     -- 새 축이 오면 필드가 하나 늘 뿐이다. 모르는 필드가 섞여 있어도 지금 아는 축의 판정은
     -- 그대로여야 한다 - 옛 버전이 새 프로필을 읽는 경우가 이 모양이다.
     test("모르는 축 필드는 지금 판정을 안 바꾼다", function()
-        local b = spell({ checkedUnits = {
+        local b = spell({ units = {
             target = { reaction = Constants.REACTION_HELP, somethingLater = 3 },
         } });
         check(b.unitStates.target == Constants.UNITSTATE_HELP, "모르는 필드에 흔들림");
@@ -522,30 +522,30 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("생사를 안 걸면 축이 안 좁아진다", function()
-        check(spell({ checkedUnits = { target = {} } }).unitStates.target
+        check(spell({ units = { target = {} } }).unitStates.target
             == Constants.UNITSTATE_EXISTS, "존재 6점 전부여야 한다");
     end);
 
     test("살아있음이 죽은 절반을 덜어낸다", function()
-        check(spell({ checkedUnits = { target = { dead = false } } }).unitStates.target
+        check(spell({ units = { target = { dead = false } } }).unitStates.target
             == Constants.UNITSTATE_ALIVE, "살아있는 3점이어야 한다");
     end);
 
     test("죽음이 살아있는 절반을 덜어낸다", function()
-        check(spell({ checkedUnits = { target = { dead = true } } }).unitStates.target
+        check(spell({ units = { target = { dead = true } } }).unitStates.target
             == Constants.UNITSTATE_DEAD, "죽은 3점이어야 한다");
     end);
 
     -- 축 둘이 함께 걸리면 교집합이다. 스칼라 시절에는 이 조합 자체를 저장할 수 없었다.
     test("반응과 생사가 같이 걸리면 한 점이 된다", function()
-        local b = spell({ checkedUnits = {
+        local b = spell({ units = {
             target = { reaction = Constants.REACTION_HELP, dead = false },
         } });
         check(b.unitStates.target == Constants.UNITSTATE_HELP_ALIVE, "우호 x 살아있음 한 점");
     end);
 
     test("반응 여럿과 생사가 같이 걸려도 맞는다", function()
-        local b = spell({ checkedUnits = {
+        local b = spell({ units = {
             target = { reaction = Constants.REACTION_HELP + Constants.REACTION_OTHER, dead = true },
         } });
         check(b.unitStates.target
@@ -555,7 +555,7 @@ return function(DebindPrivate)
 
     -- "없을 때"에는 제약할 생사가 없다. 없음 점은 축 위의 점이 아니다.
     test("없을 때는 생사가 축을 안 건드린다", function()
-        check(spell({ checkedUnits = { target = false } }).unitStates.target
+        check(spell({ units = { target = false } }).unitStates.target
             == Constants.UNITSTATE_NONE, "없음 한 점");
     end);
 
@@ -564,20 +564,20 @@ return function(DebindPrivate)
     -- 실제로 그렇게 터졌다(`/debtest`의 CheckedUnits, 2026-08-12). 헤드리스는 못 봤다:
     -- 하네스가 `UpdateBindings.lua`를 안 읽는다(`refactor-candidates.md` 31번).
     test("옛 스칼라는 바인딩에서 축별 표로 올라온다", function()
-        local b = spell({ unit = "focus", checkedUnits = {
+        local b = spell({ unit = "focus", units = {
             target = true, mouseover = "help", tank = "harm", healer = false, ["@"] = true,
         } });
-        check(type(b.conditions.checkedUnits.target) == "table" and b.conditions.checkedUnits.target.reaction == nil,
+        check(type(b.conditions.units.target) == "table" and b.conditions.units.target.reaction == nil,
             "존재");
-        check(b.conditions.checkedUnits.mouseover.reaction == Constants.REACTION_HELP, "우호");
-        check(b.conditions.checkedUnits.tank.reaction == Constants.REACTION_HARM, "적대");
-        check(b.conditions.checkedUnits.healer == false, "부재는 그대로여야 한다");
-        check(type(b.conditions.checkedUnits["@"]) == "table", "\"@\"도 같이 올라와야 한다");
+        check(b.conditions.units.mouseover.reaction == Constants.REACTION_HELP, "우호");
+        check(b.conditions.units.tank.reaction == Constants.REACTION_HARM, "적대");
+        check(b.conditions.units.healer == false, "부재는 그대로여야 한다");
+        check(type(b.conditions.units["@"]) == "table", "\"@\"도 같이 올라와야 한다");
     end);
 
     -- 마이그레이션이 아직 안 돈 데이터(가져오기 도중, 손으로 고친 프로필)도 지나간다.
     test("옛 스칼라도 여전히 읽힌다", function()
-        check(spell({ checkedUnits = { target = "help" } }).unitStates.target
+        check(spell({ units = { target = "help" } }).unitStates.target
             == Constants.UNITSTATE_HELP, "스칼라 경로가 끊김");
     end);
 
@@ -639,12 +639,12 @@ return function(DebindPrivate)
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus",
             reactions = Constants.REACTION_HELP,
-            checkedUnits = { ["@"] = true, target = "help" },
+            units = { ["@"] = true, target = "help" },
         };
         normalize(action, true);
         check(action.unit == "focus", "액션의 대상이 지워짐");
         check(action.reactions == Constants.REACTION_HELP, "액션의 reactions가 지워짐");
-        check(action.checkedUnits["@"] == true, "액션의 \"@\"가 지워짐");
+        check(action.units["@"] == true, "액션의 \"@\"가 지워짐");
     end);
 
     return T;

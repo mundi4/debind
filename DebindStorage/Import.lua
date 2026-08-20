@@ -205,7 +205,7 @@ local SETSTATE_MODE_FLAGS = {
 ---
 --- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
 --- raised halfway through `PlaceImportedActions`, `priority = {}` raised inside the `table.sort`
---- that follows, `checkedUnits = "x"` was walked with `pairs`. Every one of those went off after
+--- that follows, `units = "x"` was walked with `pairs`. Every one of those went off after
 --- part of the batch was already in the profile. The types are `ACTION_FIELDS`' values.
 ---
 --- **A field of the wrong type is dropped, not corrected.** What it should have been is not

@@ -60,7 +60,7 @@ local ENVELOPE_SEPARATOR = ":";
 --- **The value is the type the field may arrive as**, `|`-separated where more than one is real.
 --- The export only ever reads this as a set, but the import reads the type: a whitelist of names
 --- is not a whitelist of values, and every one of these reaches code that computes on it. `seq` is
---- added to an arrival number, `priority` is compared inside `table.sort`, `checkedUnits` is walked
+--- added to an arrival number, `priority` is compared inside `table.sort`, `units` is walked
 --- with `pairs`, the masks go through `band`. A pasted string carrying `seq = {}` raised **inside**
 --- `PlaceImportedActions`, leaving the actions before it in the profile and skipping the renumber
 --- that follows - so the survivors kept the internal arrival band, which `CleanUpDB` does not clamp
@@ -113,7 +113,7 @@ local CONDITION_TYPES    = {
     extrabar = "boolean",
     pet = "boolean",
     petbattle = "boolean",
-    checkedUnits = "table",
+    units = "table",
     ["$state1"] = "boolean",
     ["$state2"] = "boolean",
     ["$state3"] = "boolean",
@@ -505,10 +505,14 @@ end
 --- would be the same question in two places. It caught a real one: a batch with no payload draws in
 --- the drawer perfectly well, because the two that draw the row guard it (`CountBatch`,
 --- `BatchClassText`), and then threw the moment the row was opened.
---- v1 -> v2. 조건 이름을 액션 최상단에서 `conditions` 안으로 내린다.
+--- v1 -> v2. 조건 이름을 액션 최상단에서 `conditions` 안으로 내리고, 옮기는 김에 이름도 간다
+--- (`checkedUnits` -> `units`).
 ---
 --- **프로필의 `dbver <= 5` 단계와 같은 변환이다** (`Profile.lua`). 무엇이 조건인지는 양쪽 다
---- `Constants.IsConditionField` 하나에 묻는다. 여기 목록을 또 적으면 갈라지는 날이 온다.
+--- `Constants.IsConditionField` 하나에 묻는다 - 그건 매번 읽는 살아 있는 목록이라 여기 또
+--- 적으면 갈라진다. **옛 이름은 반대다.** 단계는 한 번 쓰면 얼어붙어서 갈릴 것이 없고,
+--- `checkedUnits`는 이 판이 더 이상 모르는 이름이라 `Constants`에 두면 죽은 이름이 산 것들
+--- 옆에 영원히 앉는다. 그래서 단계가 자기 리터럴을 든다.
 ---
 --- 이름을 먼저 모으고 그다음에 옮긴다. 한 바퀴로 쓰면 `conditions`라는 없던 키가 순회 중에
 --- 생기는데, Lua 5.1이 그 경우의 `next` 동작을 정의하지 않는다.
@@ -520,7 +524,8 @@ local function NestPayloadConditions(payload)
 
             local count = 0;
             for k in pairs(action) do
-                if (luatype(k) == "string" and Constants.IsConditionField(k)) then
+                if (luatype(k) == "string"
+                        and (Constants.IsConditionField(k) or k == "checkedUnits")) then
                     count = count + 1;
                     names[count] = k;
                 end
@@ -531,7 +536,7 @@ local function NestPayloadConditions(payload)
                     and action.conditions or {};
                 for j = 1, count do
                     local k = names[j];
-                    conditions[k] = action[k];
+                    conditions[k == "checkedUnits" and "units" or k] = action[k];
                     action[k] = nil;
                     names[j] = nil;
                 end

@@ -332,16 +332,16 @@ return function(DebindPrivate, DebindStorage)
 
     -- **명단은 이름을 거르지 타입을 안 거른다.** 아래 넷은 전부 계산에 쓰인다 - `seq`는 도착
     -- 번호에 더해지고(`PlaceImportedActions`), `priority`는 `table.sort` 안에서 비교되고,
-    -- `checkedUnits`는 `pairs`로 훑고, `forms`는 `band`를 지난다. 어느 쪽이든 터지는 자리가
+    -- `units`는 `pairs`로 훑고, `forms`는 `band`를 지난다. 어느 쪽이든 터지는 자리가
     -- 커밋 도중이라, 앞의 액션은 이미 들어간 채로 멈춘다.
     test("타입이 어긋난 선 필드는 안 들어온다", function()
         ResetProfile();
         local action = PlanOne(General({
             { type = Constants.SPELL, value = 774, key = "F", seq = {},
-              priority = {}, checkedUnits = "쓰레기", forms = "쓰레기" } }));
+              priority = {}, units = "쓰레기", forms = "쓰레기" } }));
         check(action.seq == nil, "seq " .. tostring(action.seq));
         check(action.priority == nil, "priority " .. tostring(action.priority));
-        check(action.checkedUnits == nil, "checkedUnits " .. tostring(action.checkedUnits));
+        check(action.units == nil, "units " .. tostring(action.units));
         check(action.forms == nil, "forms " .. tostring(action.forms));
         check(action.value == 774 and type(action.key) == "number", "멀쩡한 필드까지 걸렀다");
     end);
@@ -370,7 +370,7 @@ return function(DebindPrivate, DebindStorage)
         groups = 3,
         frameTypes = 1,
         bonusbars = 2,
-        checkedUnits = { target = {} },
+        units = { target = {} },
         ["$state1"] = true,
         ["$state2"] = true,
         ["$state3"] = true,

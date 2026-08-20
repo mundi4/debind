@@ -4,7 +4,7 @@
 -- 안 들어간다. 즉 여기서 나는 **오탐은 표시 버그가 아니라 키가 안 먹는 것**이다.
 -- 반대로 놓친 모순은 조용히 아무것도 안 하는 바인딩이 된다.
 --
--- `checkedUnits`의 `"@"`는 그 액션 자신의 대상 유닛을 가리키므로, 같은 유닛에
+-- `units`의 `"@"`는 그 액션 자신의 대상 유닛을 가리키므로, 같은 유닛에
 -- 명시 조건이 같이 걸리면 둘이 한 축에서 만난다. 그 조합표가 여기 있다.
 
 return function(DebindPrivate)
@@ -56,9 +56,9 @@ return function(DebindPrivate)
             type = Constants.SPELL,
             value = 100,
             unit = "target",
-            checkedUnits = { ["@"] = atValue, target = unitValue },
+            units = { ["@"] = atValue, target = unitValue },
         };
-        return GetBindingIssue(nest(action), "checkedUnits");
+        return GetBindingIssue(nest(action), "units");
     end
 
     ---------------------------------------------------------------------------
@@ -109,27 +109,29 @@ return function(DebindPrivate)
     -- 개별 유닛 조건이 없으면 nil이 "다른 값"으로 읽혀서 `"@"`만 걸어둔 액션
     -- ("대상이 존재할 때만")이 곧바로 모순으로 잡혔던 자리.
     test("\"@\"만 걸린 액션은 모순이 아님", function()
-        local action = {
+        local action = nest({
             type = Constants.SPELL, value = 100, unit = "target",
-            checkedUnits = { ["@"] = true },
-        };
-        check(GetBindingIssue(action, "checkedUnits") == nil, "오탐 - 비교 상대가 없다");
+            units = { ["@"] = true },
+        });
+        check(GetBindingIssue(action, "units") == nil, "오탐 - 비교 상대가 없다");
     end);
 
     ---------------------------------------------------------------------------
     -- hover 조건 x 유닛 조건
     --
     -- 대상이 `@hover`면 hover 조건과 `"@"` 조건이 같은 유닛을 두고 말한다. 값이 서로
-    -- 다른 필드에 앉아 있어서(`reactions` 대 `checkedUnits`) 조합을 손으로 나열하던
+    -- 다른 필드에 앉아 있어서(`reactions` 대 `units`) 조합을 손으로 나열하던
     -- 시절에는 비교 대상조차 아니었다. 두 조건이 한 축에 접히면서 따로가 아니게 됐다.
     ---------------------------------------------------------------------------
 
+    --- `hover`/`reactions`는 최상단 그대로 둔다. `dbver <= 4`가 저장에서 없앤 짝이고,
+    --- 지금 모양으로 접는 것은 `GetBindingInfoForAction`이 한다. 조건 이름만 `nest`가 내린다.
     local function hoverAction(reactions, atValue)
-        return {
+        return nest({
             type = Constants.SPELL, value = 100, unit = "hover",
             hover = true, reactions = reactions,
-            checkedUnits = { ["@"] = atValue },
-        };
+            units = { ["@"] = atValue },
+        });
     end
 
     test("hover 반응 x @ 조건이 어긋나면 모순", function()
@@ -167,10 +169,10 @@ return function(DebindPrivate)
 
     --- 대상이 hover인데 hover 조건이 "안 올렸을 때"다. 겹치는 상태가 없다.
     local function hoverTargetConflict()
-        return {
+        return nest({
             type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
-            checkedUnits = { ["@"] = {}, hover = { exists = false } },
-        };
+            units = { ["@"] = {}, hover = { exists = false } },
+        });
     end
 
     test("hover x 대상 모순은 액션 전체에서 잡힌다", function()
@@ -188,33 +190,33 @@ return function(DebindPrivate)
     end);
 
     test("hover x 대상 모순은 그 대상의 서브메뉴도 칠한다", function()
-        check(GetBindingIssue(hoverTargetConflict(), "checkedUnits", nil, "@") == NEVER,
+        check(GetBindingIssue(hoverTargetConflict(), "units", nil, "@") == NEVER,
             "\"@\" 서브메뉴가 안 빨개진다");
     end);
 
     -- `Units` 묶음은 `"hover"`를 줄로 안 갖는다. 안 보여주는 조건으로 칠하면 어디를 고쳐야
     -- 하는지가 오히려 안 보인다.
     test("hover x 대상 모순으로 Units 묶음은 안 칠한다", function()
-        check(GetBindingIssue(hoverTargetConflict(), "checkedUnits") == nil, "오탐");
+        check(GetBindingIssue(hoverTargetConflict(), "units") == nil, "오탐");
     end);
 
     --- `"@"`와 같은 유닛의 명시 조건이 어긋난다. 대상 메뉴와 Units 메뉴 둘 다 고칠 수 있다.
     local function targetUnitConflict()
-        return {
+        return nest({
             type = Constants.SPELL, value = 100, key = "F1", unit = "focus",
-            checkedUnits = {
+            units = {
                 ["@"] = { reaction = Constants.REACTION_HELP },
                 focus = { reaction = Constants.REACTION_HARM },
             },
-        };
+        });
     end
 
     -- **안 거든 묶음은 안 칠한다.** hover에서 반응을 하나도 안 고른 것은 hover 메뉴의 문제이고
     -- 제 이름(`HOVER_NONE_SELECTED`)이 있다. 대상 메뉴는 아무것도 안 골랐는데 빨개지면
     -- 어디를 봐야 하는지가 오히려 안 보인다.
     test("hover의 빈 반응만으로 대상 묶음이 빨개지지 않는다", function()
-        local action = { type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
-            checkedUnits = { hover = { reaction = 0 } } };
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
+            units = { hover = { reaction = 0 } } });
         check(GetBindingIssue(action, "unit") == nil, "안 거든 묶음을 칠했다");
         check(GetBindingIssue(action, "hover") ~= nil, "hover 묶음은 잡아야 한다");
     end);
@@ -222,20 +224,20 @@ return function(DebindPrivate)
     -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 그때 이 서브메뉴는 **아무것도 안 묻는
     -- 것**이지 "전부 묻는 것"이 아니다.
     test("대상이 없으면 \"@\" 서브메뉴가 남의 모순을 안 보여준다", function()
-        local action = { type = Constants.SPELL, value = 100, key = "F1",
-            checkedUnits = {
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
+            units = {
                 focus = { reaction = 0 },
-            } };
-        check(GetBindingIssue(action, "checkedUnits", nil, "@") == nil,
+            } });
+        check(GetBindingIssue(action, "units", nil, "@") == nil,
             "\"@\"가 가리킬 유닛이 없는데 남의 유닛 모순이 떴다");
     end);
 
     test("\"@\" x 유닛 조건 모순은 양쪽 묶음을 다 칠한다", function()
         check(GetBindingIssue(targetUnitConflict(), "unit") == NEVER,
             "대상 메뉴가 안 빨개진다");
-        check(GetBindingIssue(targetUnitConflict(), "checkedUnits") == NEVER,
+        check(GetBindingIssue(targetUnitConflict(), "units") == NEVER,
             "Units 묶음이 안 빨개진다");
-        check(GetBindingIssue(targetUnitConflict(), "checkedUnits", nil, "focus") == NEVER,
+        check(GetBindingIssue(targetUnitConflict(), "units", nil, "focus") == NEVER,
             "그 유닛의 서브메뉴가 안 빨개진다");
     end);
 
@@ -245,7 +247,7 @@ return function(DebindPrivate)
     -- 이 판정이 오탐이면 **클릭캐스팅이 통째로 죽는다.** 이슈가 붙은 액션은 `KeyMap`에
     -- 안 들어가고(`Debind.lua`), BUTTON1/BUTTON2에 걸린 것은 거의 전부 클릭캐스팅이다.
     --
-    -- 호버 조건이 `checkedUnits["hover"]`로 옮겨간 뒤 이 검사가 `action.hover`를 계속 읽고
+    -- 호버 조건이 `units["hover"]`로 옮겨간 뒤 이 검사가 `action.hover`를 계속 읽고
     -- 있었다. 그 필드는 이제 저장에 없으므로 **모든** 왼/오른 버튼 바인딩이 지워졌다.
     -- 어느 층도 못 봤다 - 헤드리스에 이 검사의 스펙이 없었고, 화면에는 키가 안 먹는 것으로만
     -- 나타난다.
@@ -266,23 +268,23 @@ return function(DebindPrivate)
     end);
 
     test("저장된 호버 조건이 있으면 왼쪽 버튼을 쓸 수 있다", function()
-        check(mouseKeyIssue({ checkedUnits = { hover = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
-        check(mouseKeyIssue({ checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } }) == nil,
+        check(mouseKeyIssue({ units = { hover = {} } }) == nil, "오탐 - 키가 통째로 죽는다");
+        check(mouseKeyIssue({ units = { hover = { reaction = Constants.REACTION_HELP } } }) == nil,
             "오탐 - 반응이 걸려도 호버 조건이다");
     end);
 
     -- "호버 중이 **아닐** 때"는 호버 조건이 켜진 것이 아니다. 마우스 버튼은 커서가 있는
     -- 자리에서 발동하므로 그 조건으로는 유닛 프레임 클릭을 못 받는다.
     test("호버가 false면 왼쪽 버튼을 못 쓴다", function()
-        check(mouseKeyIssue({ checkedUnits = { hover = false } }) == MOUSE_ISSUE, "이슈가 안 남");
+        check(mouseKeyIssue({ units = { hover = false } }) == MOUSE_ISSUE, "이슈가 안 남");
     end);
 
     -- 저장에는 끈 조건이 표로 남는다. 표라는 이유만으로 "켜짐"이라고 읽으면 이 판정이
     -- 뒤집혀서, 걸리지 말아야 할 왼쪽 버튼이 통과하고 걸릴 것이 안 걸린다.
     test("끈 호버 조건은 왼쪽 버튼을 못 쓰게 한다", function()
-        check(mouseKeyIssue({ checkedUnits = { hover = { exists = false } } }) == MOUSE_ISSUE,
+        check(mouseKeyIssue({ units = { hover = { exists = false } } }) == MOUSE_ISSUE,
             "\"없을 때\"를 켜진 것으로 읽었다");
-        check(mouseKeyIssue({ checkedUnits = { hover = { off = true,
+        check(mouseKeyIssue({ units = { hover = { off = true,
             reaction = Constants.REACTION_HELP } } }) == MOUSE_ISSUE,
             "기억만 하는 값을 켜진 것으로 읽었다");
     end);
@@ -294,7 +296,7 @@ return function(DebindPrivate)
         local function commandIssue(hoverCondition)
             return DebindPrivate.IsKeyInvalidForAction(nest({
                 type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "BUTTON3",
-                checkedUnits = { hover = hoverCondition },
+                units = { hover = hoverCondition },
             }), "BUTTON3");
         end
 

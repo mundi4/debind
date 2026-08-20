@@ -33,9 +33,10 @@
   -- 여기서부터는 저장 구조 그대로다. 경로가 곧 주소이고, 서술 테이블이 없다.
   shared = {
     GENERAL = {
-      { type = "spell", value = 774, key = "F", seq = 3, combat = true, priority = 2,
-        checkedUnits = { target = {} } },
-      { type = "spell", value = 8936, key = "F", seq = 7, ["$state3"] = true },
+      { type = "spell", value = 774, key = "F", seq = 3, priority = 2,
+        conditions = { combat = true, units = { target = {} } } },
+      { type = "spell", value = 8936, key = "F", seq = 7,
+        conditions = { ["$state3"] = true } },
       { type = "setstate", key = "CTRL-9", seq = 1,
         setstate = { mode = "toggle", state = "$state3" } },
       { type = "macro", value = "Kick+Pet", key = "SHIFT-G", seq = 1 },
@@ -43,7 +44,8 @@
     },
     classes = {
       DRUID = {
-        [0] = { { type = "spell", value = 8921, key = "F", seq = 2, forms = 6 } },
+        [0] = { { type = "spell", value = 8921, key = "F", seq = 2,
+                  conditions = { forms = 6 } } },
       },
     },
   },
@@ -1015,7 +1017,7 @@ SavedVariables 파일 이름이 같이 움직인다.
   다른 둘이 "동일"로 잡혀 지워지고 아무 검사도 못 잡는다. `KEYS_TO_SAVE`가 "액션이란 무엇인가"의
   유일한 목록이고 `check:export-fields`가 이미 그걸 감시하므로, 거기서 파생시키면 그 검사를
   물려받는다.
-- **deep**이어야 하는 이유는 `checkedUnits`·`frameTypes`·`groups`·`forms`·`bonusbars`가 테이블이라
+- **deep**이어야 하는 이유는 `conditions` 자체가 표이고 그 안의 `units`·`frameTypes`가 또 표라
   `==`로는 영영 안 맞기 때문이다.
 - 비교에서 빼는 것은 **`seq`**(똑같은 둘은 번호만 다른 게 정상)와 **`imported`**.
 - **살아남는 쪽은 받아들인 것.** "또 가져오기"의 흔한 결과가 "하나는 승인됨, 하나는 배지 달린

@@ -139,7 +139,7 @@ return function(DebindPrivate)
     local function HoverConditionAction()
         return nest({
             type = Constants.SPELL, value = 100, key = "F1", unit = "target", seq = 1,
-            checkedUnits = { hover = { exists = true } },
+            units = { hover = { exists = true } },
         });
     end
 

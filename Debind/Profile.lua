@@ -17,7 +17,7 @@ local KEYS_TO_SAVE       = {
     unit = true,
     -- **조건은 전부 이 안에 있다.** 어느 이름이 조건인지는 `Constants.IsConditionField`가
     -- 답하고, 그 표의 머리주석이 밖에 남은 것들이 왜 조건이 아닌지를 하나씩 적어둔다.
-    -- `hover`/`reactions`도 한때 여기 있었다. 지금은 `conditions.checkedUnits["hover"]`다.
+    -- `hover`/`reactions`도 한때 여기 있었다. 지금은 `conditions.units["hover"]`다.
     conditions = true,
     priority = true,
     seq = true,
@@ -384,11 +384,15 @@ local function MigrateLayer(layerTbl, dbver)
         -- 단계는 아무 데이터도 안 만나면서 영원히 남는다. 6이 한 번 나가고 나면 그때부터
         -- 7이다.
         --
-        -- 조건을 액션 최상단에서 `conditions` 안으로 내린다.
+        -- 조건을 액션 최상단에서 `conditions` 안으로 내리고, 옮기는 김에 이름도 간다.
         --
         -- **왜 옮기나.** 저장 필드 서른 개 중 열여덟이 조건이었고, 그 사이에 `unit`이 섞여
         -- 앉아 있었다. `unit`은 겨누는 대상이고 `checkedUnits`는 언제 발동하느냐라, 이름만
         -- 보면 한 식구인데 성격이 정반대다. 높이가 갈리면 구조가 그것을 말한다.
+        --
+        -- **그래서 `checkedUnits`는 `units`가 된다.** `conditions.` 접두어가 이미 "이건
+        -- 조건이다"를 말하므로 `checked`가 같은 말을 한 번 더 한다. 이름은 옮기는 길에
+        -- 얹혀서 온다 - 따로 단계를 세우면 아무 데이터도 안 만나는 단계가 하나 는다.
         --
         -- **무엇이 조건인지는 `Constants.IsConditionField` 하나가 답한다.** 여기 목록을 또
         -- 적으면 그 표와 갈라지는 날이 온다. `$state1`~`5`도 그 함수가 같이 받는다.
@@ -407,7 +411,7 @@ local function MigrateLayer(layerTbl, dbver)
 
             local count = 0;
             for k in pairs(action) do
-                if (Constants.IsConditionField(k)) then
+                if (Constants.IsConditionField(k) or k == "checkedUnits") then
                     count = count + 1;
                     names[count] = k;
                 end
@@ -417,7 +421,7 @@ local function MigrateLayer(layerTbl, dbver)
                 local conditions = action.conditions or {};
                 for j = 1, count do
                     local k = names[j];
-                    conditions[k] = action[k];
+                    conditions[k == "checkedUnits" and "units" or k] = action[k];
                     action[k] = nil;
                     names[j] = nil;
                 end

@@ -308,7 +308,7 @@ do
     ---
     --- **참조를 붙들어 두지 않고 부를 때마다 푼다.** 조건 표는 첫 조건이 걸릴 때 생기고
     --- 마지막 조건이 풀릴 때 없어진다. 메뉴를 세울 때 잡아두면 그 사이에 표가 갈려서
-    --- 사라진 표에 쓰게 된다 - `checkedUnits`가 같은 함정을 갖고 있고 그 자리에 적혀 있다.
+    --- 사라진 표에 쓰게 된다 - `units`가 같은 함정을 갖고 있고 그 자리에 적혀 있다.
     ---
     --- `create`가 거짓이면 없는 표를 만들지 않는다. 읽기만 하는 쪽이 조건 하나 없는 액션에
     --- 표를 만들어 두면, 조건이 하나도 없는데 조건부로 분류된다(`IsConditionalBinding`).
@@ -325,8 +325,8 @@ do
     end
 
     --- 이 액션의 유닛 조건 표. 없으면 nil이고, 만들지 않는다.
-    local function CheckedUnitsOf(action)
-        return action.conditions and action.conditions.checkedUnits;
+    local function UnitConditionsOf(action)
+        return action.conditions and action.conditions.units;
     end
 
     --- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
@@ -507,10 +507,10 @@ do
     --- these accessors alone.
     ---
     --- The axis widgets all read the table off `_action` at click time rather than capturing it.
-    --- `checkedUnits` is nil until the first condition is set, so a reference grabbed while the
+    --- `units` is nil until the first condition is set, so a reference grabbed while the
     --- menu was being built goes stale the moment the user turns one on.
     local function GetUnitConditionReaction(unit)
-        local value = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
+        local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
         if (type(value) ~= "table") then
             return nil;
         end
@@ -520,7 +520,7 @@ do
     --- 위쪽 라디오 셋 중 어느 것이 켜져 있는가. 조건을 만든 적이 없으면 `nil`.
     --- 표시가 없는 표는 "있을 때"다 - `Misc.UnitConditionForBinding`의 기본값과 같아야 한다.
     local function UnitConditionMode(unit)
-        local value = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
+        local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
         if (value == nil) then
             return nil;
         end
@@ -551,7 +551,7 @@ do
     end
 
     local function GetUnitConditionDead(unit)
-        local value = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
+        local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
         if (type(value) ~= "table") then
             return nil;
         end
@@ -565,8 +565,8 @@ do
     --- 끈 자리에 기억할 축이 하나도 없으면 키를 지운다. 안 그러면 아무것도 안 고른 유닛의
     --- 빈 표가 프로필에 쌓인다.
     local function SetUnitConditionMode(unit, mode)
-        local checkedUnits = CheckedUnitsOf(_action);
-        local cond = checkedUnits and checkedUnits[unit];
+        local units = UnitConditionsOf(_action);
+        local cond = units and units[unit];
         if (type(cond) ~= "table") then
             cond = {};
         end
@@ -582,19 +582,19 @@ do
 
         if (mode == "off" and cond.reaction == nil and cond.dead == nil) then
             -- 기억할 축이 하나도 없다. 빈 표를 남기면 아무것도 안 고른 유닛이 프로필에 쌓인다.
-            if (checkedUnits) then
-                checkedUnits[unit] = nil;
-                if (not next(checkedUnits)) then
-                    _action.conditions.checkedUnits = nil;
+            if (units) then
+                units[unit] = nil;
+                if (not next(units)) then
+                    _action.conditions.units = nil;
                     PruneConditions(_action);
                 end
             end
         else
-            if (checkedUnits == nil) then
-                checkedUnits = {};
-                TableFor(_action, "checkedUnits", true).checkedUnits = checkedUnits;
+            if (units == nil) then
+                units = {};
+                TableFor(_action, "units", true).units = units;
             end
-            checkedUnits[unit] = cond;
+            units[unit] = cond;
         end
 
         onActionValueChanged();
@@ -603,7 +603,7 @@ do
 
     --- Write one axis. Every caller is gated on the `exists` radio, so the table is already there.
     local function SetUnitConditionAxis(unit, axis, value)
-        local cond = CheckedUnitsOf(_action) and CheckedUnitsOf(_action)[unit];
+        local cond = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
         if (type(cond) ~= "table") then
             return;
         end
@@ -641,7 +641,7 @@ do
             end,
             -- error
             function()
-                return DebindPrivate.GetBindingIssue(_action, "checkedUnits", nil, unit);
+                return DebindPrivate.GetBindingIssue(_action, "units", nil, unit);
             end,
             nil, true);
 
@@ -863,7 +863,7 @@ do
         return description;
     end
 
-    --- 이 메뉴가 만지는 것은 `checkedUnits["hover"]`다 - **호버한 프레임의 유닛도 유닛이다**
+    --- 이 메뉴가 만지는 것은 `units["hover"]`다 - **호버한 프레임의 유닛도 유닛이다**
     --- (`Profile.lua`의 `dbver <= 4`). 옛 `hover`/`reactions` 두 필드는 없어졌고, 그 이름들은
     --- 이제 파생값이라(`Misc.DeriveHoverFields`) 이슈 category로는 그대로 쓴다.
     ---
@@ -986,12 +986,12 @@ do
     end
 
     local function CreateUnitConditionMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "checkedUnits",
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "units",
             -- isActive. `"@"`와 `"hover"`는 제 메뉴가 따로 있어서 여기서 안 센다 - 이 묶음이
             -- 안 보여주는 조건 때문에 파랗게 뜨면 어디를 고쳐야 하는지가 안 보인다.
             function()
-                if (CheckedUnitsOf(_action)) then
-                    for unit, value in pairs(CheckedUnitsOf(_action)) do
+                if (UnitConditionsOf(_action)) then
+                    for unit, value in pairs(UnitConditionsOf(_action)) do
                         if (unit ~= "@" and unit ~= "hover" and UnitConditionIsOn(unit)) then
                             return true;
                         end
@@ -1009,8 +1009,8 @@ do
 
         local function listedUnitsWithCondition()
             local units;
-            if (CheckedUnitsOf(_action)) then
-                for unit in pairs(CheckedUnitsOf(_action)) do
+            if (UnitConditionsOf(_action)) then
+                for unit in pairs(UnitConditionsOf(_action)) do
                     if (isListedUnit(unit) and UnitConditionIsOn(unit)) then
                         units = units or {};
                         tinsert(units, unit);
@@ -1029,7 +1029,7 @@ do
                 -- 다시 고르게 만들 이유가 없다.
                 --
                 -- 이름을 먼저 모으는 이유: 끄는 쪽이 기억할 축이 없는 항목을 지우고, 마지막
-                -- 하나가 지워지면 `checkedUnits` 자체가 nil이 된다. 그 표를 돌면서 하면
+                -- 하나가 지워지면 `units` 자체가 nil이 된다. 그 표를 돌면서 하면
                 -- 순회하던 표가 사라진다.
                 local units = listedUnitsWithCondition();
                 if (units) then

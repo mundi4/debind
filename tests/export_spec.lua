@@ -331,17 +331,17 @@ return function(DebindPrivate, DebindStorage)
     test("페이로드는 사본이라 고쳐도 프로필이 안 바뀐다", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F",
-                conditions = { checkedUnits = { target = 1 } } } },
+                conditions = { units = { target = 1 } } } },
         });
 
         local payload = DebindStorage.BuildExportPayload();
         local action = OneOn(payload, "F");
         action.value = 999;
-        action.conditions.checkedUnits.target = 999;
+        action.conditions.units.target = 999;
 
         local stored = LayerActions(1)[1];
         check(stored.value == 1, "value가 프로필까지 바뀌었다");
-        check(stored.conditions.checkedUnits.target == 1, "테이블이 참조로 나갔다");
+        check(stored.conditions.units.target == 1, "테이블이 참조로 나갔다");
     end);
 
     ---------------------------------------------------------------------------

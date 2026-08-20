@@ -65,7 +65,7 @@ Constants.TYPES_WITH_UNIT                 = {
 --- **이 표를 직접 보지 말 것.** 묻는 것은 `IsConditionField`이고, 그쪽만이 달러로 시작하는
 --- 이름까지 같이 답한다.
 Constants.CONDITION_FIELDS = {
-    checkedUnits = true,
+    units = true,
     frameTypes = true,
     groups = true,
     forms = true,
@@ -93,7 +93,7 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     specialbar = true,
     petbattle = true,
     frameTypes = true,
-    checkedUnits = true,
+    units = true,
     -- 필드 이름이 아닌 셋.
     hover = true,
     reactions = true,

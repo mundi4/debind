@@ -56,7 +56,7 @@ action
 `GetBindingIssue(action, "unit")`은 **겨눌 대상의 문제**를 묻는 것이지 유닛 조건을 묻는 것이
 아니다.
 
-**`conditions.checkedUnits`는 정반대다.** 언제 발동하느냐이고 동작은 안 바뀐다. `Units`
+**`conditions.units`는 정반대다.** 언제 발동하느냐이고 동작은 안 바뀐다. `Units`
 메뉴가 쓰고, `Target` 메뉴의 아래쪽 절반도 `"@"`로 여기에 쓴다.
 
 **`ignoreHoverUnit`은 조건이 아니다.** `binding.unit`을 빈 문자열로 두느냐 `"hover"`로
@@ -68,7 +68,7 @@ action
 
 ```
 action.conditions
-    checkedUnits        { [유닛 이름 또는 "@"] = 조건 }. `"@"`는 `unit`이 가리키는 유닛을
+    units               { [유닛 이름 또는 "@"] = 조건 }. `"@"`는 `unit`이 가리키는 유닛을
                         가리키는 포인터라, `unit`이 없어지면 같이 죽는다
     frameTypes          `FRAMETYPE_*` 마스크. **유닛이 아니라 프레임**을 말한다.
                         호버 조건이 없으면 뜻이 없다
@@ -91,7 +91,8 @@ action.conditions
 없는 액션을 조건부로 만든다. 그러면 발동 순서가 바뀐다.
 
 **`hover`와 `reactions`는 더 이상 저장되지 않는다.** `dbver <= 4`가 둘을
-`checkedUnits["hover"]`로 접었다. 마이그레이션이 안 닿은 프로필과 그 전에 공유된 문자열에는
+`units["hover"]`로 접었다(그때 이름은 `checkedUnits`였고, `dbver <= 5`가 옮기면서 바꿨다).
+마이그레이션이 안 닿은 프로필과 그 전에 공유된 문자열에는
 아직 있고, `HoverConditionFromLegacy`가 **사본 위로** 들어올린다.
 
 ---
@@ -113,7 +114,7 @@ binding
 무언가를 골랐는가"에 답하는 것은 `action.unit`뿐이고, `"@"` 정리가 그 채워넣기보다 앞서야
 하는 이유가 그것이다.
 
-**`binding.hover`는 `checkedUnits["hover"]`에서 파생된다** (`DeriveHoverFields`). `false`와
+**`binding.hover`는 `units["hover"]`에서 파생된다** (`DeriveHoverFields`). `false`와
 `nil`은 다른 답이다. `false`는 "안 올렸을 때만"이고 `nil`은 "상관 안 함"이라, 둘을 갈라서 읽는
 자리가 여럿이다(발동 순서, 클릭 경로, 솔버의 프레임 종류 컬럼, 키 유효성).
 

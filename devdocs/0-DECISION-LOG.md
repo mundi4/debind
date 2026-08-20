@@ -1212,3 +1212,13 @@ wire 스키마와 `Misc.lua` 문서 주석은 세 값. 그래서 "증거는 두 
 남는다.
 
 `0-ROADMAP.md`, `action-and-binding-shapes.md`
+
+## 2026-08-21
+
+**소유자.** *"이게 왜 여기 있어야해?"* 옛 조건 이름에서 지금 이름으로 가는 표를 `Constants.lua`에
+놓았다. 근거로 든 것은 두 마이그레이션 사다리가 같은 답을 봐야 한다는 것이었는데, 그 논리는
+**매번 읽는 살아 있는 목록**에나 선다. 단계는 한 번 쓰면 얼어붙어서 갈릴 것이 없고,
+`Constants.lua`는 이 판이 아는 이름들이라 죽은 이름을 거기 두면 `IsConditionField` 옆에 영원히
+앉는다. 각 단계가 자기 리터럴을 든다.
+
+`straightening-out-action-and-binding.md`

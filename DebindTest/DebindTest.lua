@@ -1243,14 +1243,14 @@ RegisterTest("Hover condition with reactions", {
     run = function()
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            checkedUnits = { hover = { reaction = bor(Constants.REACTION_HELP, Constants.REACTION_HARM) } },
+            units = { hover = { reaction = bor(Constants.REACTION_HELP, Constants.REACTION_HARM) } },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
         local b = GetNthBinding("BUTTON3", 1)
         if not b then return Fail("Hover condition", "BUTTON3 not in KeyMap") end
         if b.hover ~= true then return Fail("Hover condition", "hover=" .. tostring(b.hover)) end
-        local hoverCondition = b.conditions.checkedUnits and b.conditions.checkedUnits.hover
+        local hoverCondition = b.conditions.units and b.conditions.units.hover
         if type(hoverCondition) ~= "table" then
             return Fail("Hover condition", format("hover condition is %s, expected a table", tostring(hoverCondition)))
         end
@@ -1271,16 +1271,16 @@ RegisterTest("CheckedUnits condition", {
         InsertAction({
             type = Constants.SPELL, value = 585, key = "F12",
             unit = "target",
-            checkedUnits = { ["focus"] = true },
+            units = { ["focus"] = true },
         })
         ApplyBindings()
         local b = GetNthBinding("F12", 1)
         if not b then return Fail("CheckedUnits condition", "F12 not in KeyMap") end
-        if not b.conditions.checkedUnits then
-            return Fail("CheckedUnits condition", "checkedUnits is nil")
+        if not b.conditions.units then
+            return Fail("CheckedUnits condition", "units is nil")
         end
-        if not b.conditions.checkedUnits["focus"] then
-            return Fail("CheckedUnits condition", "checkedUnits[focus]=" .. tostring(b.conditions.checkedUnits["focus"]))
+        if not b.conditions.units["focus"] then
+            return Fail("CheckedUnits condition", "units[focus]=" .. tostring(b.conditions.units["focus"]))
         end
         return Pass("CheckedUnits condition")
     end,
@@ -3313,7 +3313,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -3369,7 +3369,7 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         -- this reads stays empty. The test builds its own precondition rather than hoping for one.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()
@@ -3460,7 +3460,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -3512,7 +3512,7 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         ApplyBindings()
@@ -3572,7 +3572,7 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_ALL,
             combat = true,
         })
@@ -3657,7 +3657,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         -- A test with no binding at all would pass without the wrapper ever deciding anything.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON1",
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
             combat = true,
         })
@@ -3843,11 +3843,11 @@ RegisterTest("Dead axis: measured against a living unit", {
         -- 무엇이 무엇을 뒤집었는지 구분이 안 된다.
         InsertAction({
             type = Constants.SPELL, value = 585, key = ALIVE_KEY,
-            checkedUnits = { player = { dead = false } },
+            units = { player = { dead = false } },
         })
         InsertAction({
             type = Constants.SPELL, value = 585, key = DEAD_KEY,
-            checkedUnits = { player = { dead = true } },
+            units = { player = { dead = true } },
         })
         ApplyBindings()
 
@@ -3882,7 +3882,7 @@ RegisterTest("State injection: dead flips a binding", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            checkedUnits = { player = { dead = true } },
+            units = { player = { dead = true } },
         })
         ApplyBindings()
 
@@ -3929,7 +3929,7 @@ RegisterTest("Hover condition owns the key through the unit column", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            checkedUnits = { hover = { reaction = Constants.REACTION_HELP } },
+            units = { hover = { reaction = Constants.REACTION_HELP } },
         })
         ApplyBindings()
 
@@ -3987,7 +3987,7 @@ RegisterTest("Hover frame types still narrow on their own", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_BOSS,
         })
         ApplyBindings()
@@ -4099,7 +4099,7 @@ RegisterTest("Split: a click-casting-only key is not state-driven", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = KEY,
-            checkedUnits = { hover = {} },
+            units = { hover = {} },
             frameTypes = Constants.FRAMETYPE_GROUP,
         })
         ApplyBindings()

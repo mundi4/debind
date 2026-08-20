@@ -36,7 +36,7 @@ return function(DebindPrivate)
     -- The solver reads binding.unitStates, which Misc.lua derives while building a binding.
     -- These bindings are hand-written tables that never went through it, so the derivation runs
     -- here -- which also puts it under test, since it is the half that turns hover and
-    -- checkedUnits into one mask per unit.
+    -- units into one mask per unit.
     local BuildUnitStates = DebindPrivate.BuildUnitStates;
 
     --- 손으로 쓴 바인딩을 **프로덕션과 같은 모양**으로 세운다: 조건은 `binding.conditions`
@@ -134,40 +134,40 @@ return function(DebindPrivate)
         }, "s1s2");
     end);
 
-    -- §1-3: basicunits/specialunits도 같은 문제. 게다가 checkedUnits에 언급되지
+    -- §1-3: basicunits/specialunits도 같은 문제. 게다가 units에 언급되지
     -- 않은 유닛의 니블이 0이 되어 상자가 퇴화했음.
     test("서로 다른 유닛 조건은 독립", function()
         expectSurvives({
-            { name = "t", checkedUnits = { target = true } },
-            { name = "f", checkedUnits = { focus = true } },
+            { name = "t", units = { target = true } },
+            { name = "f", units = { focus = true } },
         }, "f");
     end);
 
     test("같은 유닛의 더 좁은 조건은 덮임", function()
         expectRemoved({
-            { name = "exists", checkedUnits = { target = true } },
-            { name = "help",   checkedUnits = { target = "help" } },
+            { name = "exists", units = { target = true } },
+            { name = "help",   units = { target = "help" } },
         }, "help");
     end);
 
     test("우호 조건은 존재 조건을 못 덮음", function()
         expectSurvives({
-            { name = "help",   checkedUnits = { target = "help" } },
-            { name = "exists", checkedUnits = { target = true } },
+            { name = "help",   units = { target = "help" } },
+            { name = "exists", units = { target = true } },
         }, "exists");
     end);
 
     test("우호 조건은 적대 조건을 못 덮음", function()
         expectSurvives({
-            { name = "help", checkedUnits = { target = "help" } },
-            { name = "harm", checkedUnits = { target = "harm" } },
+            { name = "help", units = { target = "help" } },
+            { name = "harm", units = { target = "harm" } },
         }, "harm");
     end);
 
     test("유닛 조건 두 개를 합치면 하나를 덮음", function()
         expectRemoved({
-            { name = "t",   checkedUnits = { target = true } },
-            { name = "tf",  checkedUnits = { target = true, focus = true } },
+            { name = "t",   units = { target = true } },
+            { name = "tf",  units = { target = true, focus = true } },
         }, "tf");
     end);
 
@@ -211,7 +211,7 @@ return function(DebindPrivate)
     -- (조건을 무시하면 실제보다 넓어 보여서 남을 잘못 덮는다)
     test("해석 불가능한 @ 조건은 판정에서 제외", function()
         local s = survivors({
-            { name = "at",     checkedUnits = { ["@"] = true } },
+            { name = "at",     units = { ["@"] = true } },
             { name = "always" },
         });
         check(s["at"] and s["always"], "opaque 바인딩이 관여한 판정이 일어남");
@@ -257,7 +257,7 @@ return function(DebindPrivate)
     test("마우스버튼 키에 hover=true를 주면 다시 마우스오버 축", function()
         expectSurvives({
             { name = "nohover", key = "BUTTON4" },
-            { name = "hover",   key = "BUTTON4", checkedUnits = { hover = {} } },
+            { name = "hover",   key = "BUTTON4", units = { hover = {} } },
         }, "hover");
     end);
 
@@ -308,7 +308,7 @@ return function(DebindPrivate)
         if (b["$state1"] ~= nil and (b["$state1"] and true or false) ~= p.s1) then return false; end
         if (b["$state2"] ~= nil and (b["$state2"] and true or false) ~= p.s2) then return false; end
 
-        local cond = b.checkedUnits and b.checkedUnits.target;
+        local cond = b.units and b.units.target;
         if (cond ~= nil) then
             if (cond == true) then
                 if (p.target == false) then return false; end
@@ -366,8 +366,8 @@ return function(DebindPrivate)
                 parts[#parts + 1] = key .. "=" .. tostring(b[key]);
             end
         end
-        if (b.checkedUnits and b.checkedUnits.target ~= nil) then
-            parts[#parts + 1] = "target=" .. tostring(b.checkedUnits.target);
+        if (b.units and b.units.target ~= nil) then
+            parts[#parts + 1] = "target=" .. tostring(b.units.target);
         end
         if (b.known ~= nil) then
             parts[#parts + 1] = "known(" .. tostring(b.value) .. ")=" .. tostring(b.known);
@@ -424,7 +424,7 @@ return function(DebindPrivate)
         end
         local target = pick(TARGET_CONDS);
         if (target ~= "nil") then
-            b.checkedUnits = { target = target };
+            b.units = { target = target };
         end
         local known = pick(TRI);
         if (known ~= "nil") then b.known = known; end
@@ -553,12 +553,12 @@ return function(DebindPrivate)
         end
     end
 
-    -- The hover condition is `checkedUnits["hover"]` now -- the hovered frame's unit is a unit.
+    -- The hover condition is `units["hover"]` now -- the hovered frame's unit is a unit.
     -- `frameTypes` stays its own field because it describes the **frame**, not the unit on it,
     -- which is why it is still rolled independently below and still has to be ignored when the
     -- binding is not on the hover path.
     local function hoverConditionOf(b)
-        return b.checkedUnits and b.checkedUnits.hover;
+        return b.units and b.units.hover;
     end
 
     local function matchesHoverPoint(b, p)
@@ -610,10 +610,10 @@ return function(DebindPrivate)
         -- be stored now. A mask on a binding that is not hovering is no longer a reachable input.
         local hover = pick({ "nil", "exists", false });
         if (hover == false) then
-            b.checkedUnits = { hover = false };
+            b.units = { hover = false };
         elseif (hover == "exists") then
             local reaction = randomMask(REACTION_VALUES);
-            b.checkedUnits = { hover = { reaction = reaction ~= 0 and reaction or nil } };
+            b.units = { hover = { reaction = reaction ~= 0 and reaction or nil } };
         end
 
         -- still rolled independently of hover on purpose: `frameTypes` is a field of its own, so
@@ -644,8 +644,8 @@ return function(DebindPrivate)
     -- on exactly "not hovering", so the second one is unreachable and has to go.
     test("hover가 아니면 frameTypes를 안 읽는다", function()
         expectRemoved({
-            { name = "cover",   checkedUnits = { hover = false }, frameTypes = Constants.FRAMETYPE_GROUP },
-            { name = "subject", checkedUnits = { hover = false } },
+            { name = "cover",   units = { hover = false }, frameTypes = Constants.FRAMETYPE_GROUP },
+            { name = "subject", units = { hover = false } },
         }, "subject");
     end);
 
@@ -654,8 +654,8 @@ return function(DebindPrivate)
     -- two shapes still order the same way: "not hovering" covers itself.
     test("hover가 아니면 반응을 말할 자리가 없다", function()
         expectRemoved({
-            { name = "cover",   checkedUnits = { hover = false } },
-            { name = "subject", checkedUnits = { hover = false } },
+            { name = "cover",   units = { hover = false } },
+            { name = "subject", units = { hover = false } },
         }, "subject");
     end);
 
@@ -669,14 +669,14 @@ return function(DebindPrivate)
     -- because they are two readings of one unit.
     test("hover 반응과 @ 유닛 조건이 같은 축에 얹힌다", function()
         expectRemoved({
-            { name = "byReaction", checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } },
-            { name = "byUnit",     unit = "hover", checkedUnits = { hover = {}, ["@"] = "help" } },
+            { name = "byReaction", units = { hover = { reaction = Constants.REACTION_HELP } } },
+            { name = "byUnit",     unit = "hover", units = { hover = {}, ["@"] = "help" } },
         }, "byUnit");
 
         -- and the other way round, so this is an identity rather than one side widening
         expectRemoved({
-            { name = "byUnit",     unit = "hover", checkedUnits = { hover = {}, ["@"] = "help" } },
-            { name = "byReaction", checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } },
+            { name = "byUnit",     unit = "hover", units = { hover = {}, ["@"] = "help" } },
+            { name = "byReaction", units = { hover = { reaction = Constants.REACTION_HELP } } },
         }, "byReaction");
     end);
 
@@ -791,10 +791,10 @@ return function(DebindPrivate)
         local OVERLAP = { true, "help", "harm" };
         local bindings = {};
         for i = 1, count do
-            local b = { name = "c" .. i, checkedUnits = {} };
+            local b = { name = "c" .. i, units = {} };
             for u = 1, #UNITS do
                 -- 값이 항상 서로 겹치게 해서 조기 종료가 안 걸리도록 한다
-                b.checkedUnits[UNITS[u]] = OVERLAP[(i + u) % 3 + 1];
+                b.units[UNITS[u]] = OVERLAP[(i + u) % 3 + 1];
             end
             for s = 1, 5 do
                 b["$state" .. s] = ((i + s) % 2 == 0);

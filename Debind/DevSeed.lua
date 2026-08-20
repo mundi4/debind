@@ -327,7 +327,7 @@ SEEDS[6] = function(guid)
                     key = "SHIFT-F7", seq = 1, ignoreHoverUnit = true,
                     conditions = {
                         frameTypes = Constants.FRAMETYPE_PLAYER + Constants.FRAMETYPE_GROUP,
-                        checkedUnits = { hover = { reaction = Constants.REACTION_HELP, dead = false } } } },
+                        units = { hover = { reaction = Constants.REACTION_HELP, dead = false } } } },
                 -- Enough conditions on one action that its tooltip has to lay several out at once.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
                     priority = Constants.MAX_PRIORITY,
@@ -347,7 +347,7 @@ SEEDS[6] = function(guid)
                 --- and on `player` (`Misc.lua`).
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
                     key = "SHIFT-F10", seq = 1,
-                    conditions = { checkedUnits = { ["@"] = {} } } },
+                    conditions = { units = { ["@"] = {} } } },
                 -- The binding-context exception: this key stays bound while an editor holds it
                 -- (`Debind.lua`'s `IsKeyYielded`).
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
@@ -383,11 +383,11 @@ SEEDS[6] = function(guid)
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "healer",
                     key = "CTRL-F6", seq = 1 },
                 --- Unit conditions on units other than the hovered one and the aimed one, which
-                --- is the third of the three menus that write `checkedUnits` and the only one
+                --- is the third of the three menus that write `units` and the only one
                 --- with no row until now. `exists = false` is the "not there" answer, the one
                 --- shape `"@"` is locked out of.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F7", seq = 1,
-                    conditions = { checkedUnits = { tank = {}, custom1 = { exists = false } } } },
+                    conditions = { units = { tank = {}, custom1 = { exists = false } } } },
                 --- The three yes/no conditions with no row. `false` is here on purpose: the
                 --- menu writes it for [No] and the tooltip has a whole second sentence for it, so
                 --- a seed of nothing but `true` leaves half of every one of them unseen.
