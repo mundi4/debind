@@ -1053,7 +1053,7 @@ end
 --- was written and mean nothing here.
 ---
 --- Which is why it could not be left out once strings started travelling between installs
---- (`devdocs/building-export-import.md`, open question 7). Until now a `MACRO` naming nothing simply bound and
+--- (`devdocs/building-export-import.md`). Until now a `MACRO` naming nothing simply bound and
 --- did nothing on press: `UpdateBindings` stamps `*macro-<button>` with the name and the secure
 --- handler finds no macro, with no error and no mark anywhere on screen. The imported-actions rule
 --- is "send broken things too, the reader sees red and deletes them" -- and this was the hole in

@@ -50,9 +50,9 @@ local ROW_INDENT       = 10;
 --------------------------------------------------------------------------------
 -- Tri-state
 --
--- **No new art was needed, which is what open question 6 in `devdocs/building-export-import.md` was about.**
--- The addon list solves the same problem (`AddonList.lua`'s `TriStateCheckbox_SetState`) by dimming
--- its check, and everything below is built out of stock atlases the same way.
+-- **No new art was needed.** The addon list solves the same problem (`AddonList.lua`'s
+-- `TriStateCheckbox_SetState`) by dimming its check, and everything below is built out of stock
+-- atlases the same way.
 --------------------------------------------------------------------------------
 
 local STATE_NONE       = 0;
