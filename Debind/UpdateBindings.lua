@@ -951,10 +951,6 @@ function UpdateBindingsMap()
                         -- 범위를 `GetDelegateFrame`(Debind.lua:61)과 정확히 맞춘다. 그 밖의
                         -- 값은 옛 경로에서도 delegate가 없어 대상이 조용히 사라지므로, 여기서
                         -- 안 내보내는 것이 곧 현행 유지다. `""`(hover인데 재타겟 금지)도 같다.
-                        -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의
-                        -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
-                        -- `typerelease` 조회가 nil이라 아무 일도 안 나므로 붙들 이유가 없고,
-                        -- 괜히 붙들면 낡은 판단을 재사용하게 된다.
                         --
                         -- **클릭캐스팅 레코드도 같은 것을 실어야 한다.** 그쪽도 이제 래퍼가
                         -- 대상을 맨이름으로 넣는다 - 유닛 프레임에서 delegate 프레임으로 가던
@@ -967,6 +963,11 @@ function UpdateBindingsMap()
                         local carriesTarget = isClick
                                 or (Constants.CLICK_TIME_EVAL and clickTime and isNonClick);
 
+                        -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의
+                        -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
+                        -- `typerelease` 조회가 nil이라 아무 일도 안 나므로 붙들 이유가 없고,
+                        -- 괜히 붙들면 낡은 판단을 재사용하게 된다.
+                        --
                         -- **press-and-hold는 키 갈래에만 싣는다.**
                         --
                         -- 클릭캐스팅은 `delegate:Click(button)`으로 오는데 그 호출이 엣지를

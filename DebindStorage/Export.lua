@@ -79,7 +79,11 @@ local ACTION_FIELDS      = {
     groups = "number",
     forms = "number",
     bonusbars = "number",
-    -- Yes / no / not asked, which is `true` / `false` / absent.
+    -- **Asked or not asked, which is `true` or absent.** Not the third value the booleans below
+    -- it have: the condition is about the action's own spell, so a `false` would say "cast it
+    -- only while it is unlearned" and names no state. The type here stays `boolean` because this
+    -- list filters by name and type and has no way to say which of the two, and a sender on some
+    -- other build can put a `false` on the wire; `GetBindingInfoForAction` is where it dies.
     known = "boolean",
     combat = "boolean",
     stealth = "boolean",

@@ -456,6 +456,10 @@ end
 --- These are the states a value can be *derived* for. What cannot be derived at a press -- which
 --- unit the cursor is over, what a user's custom conditional evaluates to -- is not in here.
 Constants.STATE_EVAL_EXPRESSIONS = {
+    -- **Raid is asked first, and that order is what makes the group column a partition.** A raid
+    -- member is also in a party, so the two overlap in reality; the chain is the only reason one
+    -- runtime state lights exactly one bit. Ask about party first and `Solver.lua`'s set algebra
+    -- stops holding, with nothing on either side raising anything (`Solver.lua`'s header).
     group = format(
         [[(UnitPlayerOrPetInRaid("player") and %d) or (UnitPlayerOrPetInParty("player") and %d) or %d]],
         Constants.GROUP_RAID,

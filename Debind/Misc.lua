@@ -677,11 +677,13 @@ do
     ---   reactions        `REACTION_*` mask        frameTypes  `FRAMETYPE_*` mask
     ---   groups           `GROUP_*` mask           forms       `FORM_*` mask
     ---   bonusbars        `BONUSBAR_*` mask
-    ---   known, combat, stealth, pet, petbattle, specialbar, extrabar, ignoreHoverUnit,
+    ---   combat, stealth, pet, petbattle, specialbar, extrabar, ignoreHoverUnit,
     ---   keepInBindingContext, $state1..$state5
-    ---                    true | false | nil. `known` only means something on a spell;
-    ---                    `keepInBindingContext` is read straight off the action and is one of
-    ---                    the few fields no binding carries.
+    ---                    true | false | nil. `keepInBindingContext` is read straight off the
+    ---                    action and is one of the few fields no binding carries.
+    ---   known            true | nil, and only on a spell. **Not the third value the others
+    ---                    have**: it asks about this action's own spell, so `false` would read
+    ---                    as "cast it only while it is unlearned" and names no state at all.
     ---
     --- ### what a binding has on top of those
     ---
@@ -771,7 +773,17 @@ do
                 binding.ignoreHoverUnit = nil;
             end
 
-            if (binding.known and binding.type ~= Constants.SPELL) then
+            -- **`true` or nothing. There is no third answer here**, unlike every other condition
+            -- in this block. The question is always about this action's own spell -- both the
+            -- conditional (`UpdateBindings` bakes `binding.value` into it) and the solver's column
+            -- (keyed by that same value) -- so `false` would say "cast it only while it is
+            -- unlearned", and no state satisfies that.
+            --
+            -- A nil check rather than a truthy one, for the same reason as the `"@"` cleanup
+            -- below: nothing here writes `false`, but a shared profile can carry one, and left in
+            -- place it reaches `UpdateBindings`, which bakes the same `[known:<value>]` a `true`
+            -- would. It then fires on exactly the state it was asked to stay off.
+            if (binding.known == false or (binding.known ~= nil and binding.type ~= Constants.SPELL)) then
                 binding.known = nil;
             end
 

@@ -33,12 +33,21 @@ local pairs = pairs;
         means complement and the split really covers all of `region \ O`. A runtime state
         lights exactly one bit of every column.
 
-        Several axes are exclusive only because **an ordered chain makes them so**, and the
-        chain lives in `UpdateBindings.lua`, not here. Group membership overlaps in reality --
-        a raid member is also in a party -- and comes out single-valued because the chain asks
-        about raid first. Reaction is the same shape (assist, then attack, then other; Blizzard
-        asks the other way round, and that file says so). Reorder one of those and this column
-        stops being a partition without anything here noticing.
+        Several axes are exclusive only because **an ordered chain makes them so**, and no
+        chain lives here. Group membership overlaps in reality -- a raid member is also in a
+        party -- and comes out single-valued because the chain asks about raid first. Reaction
+        is the same shape (assist, then attack, then other; Blizzard asks the other way round,
+        and that file says so). Reorder one of those and this column stops being a partition
+        without anything here noticing.
+
+        Each chain is written twice, once for the poll and once for the click, and the two have
+        to stay in the same order as each other as well as in this one:
+
+          group      `Constants.STATE_EVAL_EXPRESSIONS` and `SecureBindings.lua`'s
+                     `EVAL_SNIPPET`. `check:state-eval` holds those two together, and that is
+                     the only check anywhere near either invariant
+          reaction   `UpdateBindings.lua` emits both the state loop's line and the hover poll's;
+                     `SecureBindings.lua` carries the click path and `setup_onenter`
 
       - **Across columns**, independence is not required. Correlated columns -- target and
         targettarget, combat and form -- leave points in the product space that cannot
