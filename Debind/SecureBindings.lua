@@ -400,7 +400,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 
 		if (check) then
 			-- **이 표에 있는 키는 전부 키를 잡는 레코드를 갖고 있다.** 없는 키는 클릭캐스팅
-			-- 전용이라 `UpdateBindingsMap`이 아예 안 넣는다. 그래서 여기서 `hasNonClick`을
+			-- 전용이라 `UpdateBindingsMap`이 아예 안 넣는다. 그래서 여기서 `hasKeyRecord`을
 			-- 다시 묻지 않는다 - 물어봤자 답이 하나뿐이고, 옛 코드는 그 키들을 훑고 나서
 			-- 레코드 하나 안 읽고 끝냈다.
 			local keyBound
@@ -461,7 +461,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				end
 
 				if (match) then
-					if (not keyBound and t.isNonClick) then
+					if (not keyBound and t.holdsKey) then
 						-- **무엇을 걸 것인가는 이긴 액션이 아니라 세 갈래 중 하나다.**
 						--
 						-- clickTime 키는 어느 클릭 액션이 이기든 거는 것이 `"@"..key` 하나다.
@@ -777,7 +777,7 @@ local EVAL_SNIPPET = [==[
 
 	-- 어느 갈래로 들어왔느냐가 곧 어느 레코드를 보느냐다. 한 키가 양쪽 레코드를 다 가질 수
 	-- 있고 조건도 서로 다르므로, 도착한 경로의 것만 본다.
-	local subset = clickCast and "isClick" or "isNonClick"
+	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	for i = 1, #bindings do
 		local t = bindings[i]
@@ -1132,8 +1132,8 @@ end, [==[
 	-- 자릿값은 `UpdateBindings.lua`의 `GetModifierIndex`와 같아야 한다. 여기만 바꾸면
 	-- 수식어가 걸린 클릭캐스팅만 조용히 다른 목록을 찾는다.
 	--
-	-- 이 갈래로 들어온 클릭은 아래 판정에서 **`isClick` 레코드**를 본다. 같은 키의 키보드
-	-- 쪽(`isNonClick`)과 조건이 다를 수 있으므로 섞으면 안 된다.
+	-- 이 갈래로 들어온 클릭은 아래 판정에서 **`isClickCast` 레코드**를 본다. 같은 키의 키보드
+	-- 쪽(`holdsKey`)과 조건이 다를 수 있으므로 섞으면 안 된다.
 	-- **유닛 프레임 래퍼가 보낸 클릭.** 그쪽은 조건까지 다 보고 왔으므로 여기서는 고르지 않는다
 	-- (§4-2 - 안 맞으면 그쪽이 `nil`을 반환해 프레임의 원래 동작으로 떨어지고, 여기까지 오지도
 	-- 않는다). `clickCast`와 따로 두는 이유는 아직 옛 경로가 살아 있어서다 - 그쪽은 마우스 버튼
@@ -1366,7 +1366,7 @@ if (DebindPrivate.DEBUG) then
 			return
 		end
 
-		-- 키로 들어온 클릭과 같은 자리에 선다: 클릭캐스팅이 아니므로 `isNonClick` 레코드를 보고,
+		-- 키로 들어온 클릭과 같은 자리에 선다: 클릭캐스팅이 아니므로 `holdsKey` 레코드를 보고,
 		-- hover는 enter/leave가 남긴 캐시에서 온다.
 		local clickCast = false
 		local winner, hoverUnit

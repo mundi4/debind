@@ -33,7 +33,7 @@ return function(DebindPrivate)
     --- 그 파생 결과다.
     local function ask(bindings)
         for i = 1, #bindings do
-            bindings[i].isNonClick = true;
+            bindings[i].holdsKey = true;
             BuildUnitStates(bindings[i]);
         end
         return IsKeyAlwaysOurs(bindings);
@@ -70,7 +70,7 @@ return function(DebindPrivate)
         check(ask({
             spell({ name = "inCombat", combat = true }),
             spell({ name = "atPeace", combat = false }),
-            { name = "dead code", type = Constants.UNUSED, isNonClick = true },
+            { name = "dead code", type = Constants.UNUSED, holdsKey = true },
         }) == true, "도달 못 하는 UNUSED가 판정을 깨뜨렸다");
     end);
 
@@ -94,7 +94,7 @@ return function(DebindPrivate)
     -- 무조건 액션보다 **앞에** 있는 UNUSED는 도달한다. 그때 키는 게임으로 돌아간다.
     test("도달 가능한 UNUSED가 있으면 거짓", function()
         check(ask({
-            { name = "release", type = Constants.UNUSED, combat = true, isNonClick = true },
+            { name = "release", type = Constants.UNUSED, combat = true, holdsKey = true },
             spell({ name = "fallback" }),
         }) == false, "도달 가능한 UNUSED인데 참이 나왔다");
     end);
@@ -103,7 +103,7 @@ return function(DebindPrivate)
     test("도달 가능한 COMMAND가 있으면 거짓", function()
         check(ask({
             { name = "cmd", type = Constants.COMMAND, value = "TOGGLEWORLDMAP",
-              combat = true, isNonClick = true },
+              combat = true, holdsKey = true },
             spell({ name = "fallback" }),
         }) == false, "도달 가능한 COMMAND인데 참이 나왔다");
     end);

@@ -11,6 +11,31 @@ Read this before touching a snippet body — the string handed to `SecureHandler
 | **secure** | the taint and combat-lockdown side: secure frame, secure handler, `InCombatLockdown` |
 | **snippet** | the body string itself |
 
+## Names carry more here than anywhere else
+
+**A name inside a body is often the only thread back to where the value came from.** Three things
+take the usual ways of finding out away:
+
+- **Every body shares one environment.** A global written by one snippet is read by another with
+  nothing between them to follow. `States`, `DirtyFlags`, `UnitAliasMap` are all reached that way.
+- **Bodies are spliced textually.** `EVAL_SNIPPET` is concatenated into each wrapper, so locals it
+  declares (`winner`, `hoverUnit`, `unitframe`) are live in code that never declared them, and the
+  declaration is in another string in another part of the file.
+- **Half the values are baked in from outside.** `t.combat` was written by `appendKeyValue` in
+  `UpdateBindings.lua`. Inside the body there is no definition to jump to at all.
+
+So a body cannot be read the way ordinary Lua is read, by following a name to where it was set.
+The name has to be right on its own, and a name that says the wrong thing is not a blemish here —
+it is the only evidence a reader has, pointing the wrong way.
+
+`isNonClick` was that for a long time. It was baked as a record key and read back as `t[subset]`,
+and it named records that are bound with `SetBindingClick` and click a button on
+`DefaultClickFrame`. Two separate edits reached for the wrong flag because of it. It is `holdsKey`
+now, and `isClick` is `isClickCast`.
+
+**Renaming a key that crosses into a body moves `tools/snippet-golden.txt`.** That is expected;
+update it and read the diff, which should hold nothing but the identifier.
+
 ## Hot paths
 
 Where a line costs something every time:

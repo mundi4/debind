@@ -4,7 +4,7 @@
 -- 끝나고 상태에 따라 ClearBinding/SetBinding으로 갈아탈 일이 없는가.
 --
 -- **"어느 액션인가를 클릭 시점에 정하는가"가 아니다.** 그쪽은 키를 잡는 레코드가 하나라도
--- 있으면 참이고(`hasNonClick`), 이 술어가 거짓인 키도 해당된다 - 그런 키는 "잡느냐 놓느냐"만
+-- 있으면 참이고(`hasKeyRecord`), 이 술어가 거짓인 키도 해당된다 - 그런 키는 "잡느냐 놓느냐"만
 -- 상태 루프가 계속 정한다. 두 결정이 분리돼 있다(`click-time-eval.md` §6).
 --
 -- 틀리는 방향이 비대칭이다. 거짓 쪽으로 틀리면 그 키의 배선 판정이 상태 루프에 남을 뿐이라
@@ -12,7 +12,7 @@
 -- 계속 걸려 있거나, SetBinding으로 나갔어야 할 명령이 클릭 프레임으로 가서 아무 일도 안
 -- 한다. 그래서 거짓이어야 하는 경우를 더 촘촘히 본다.
 --
--- 입력은 UpdateBindingsMap의 전처리 루프를 지난 뒤의 bindingArray다. 즉 isNonClick과
+-- 입력은 UpdateBindingsMap의 전처리 루프를 지난 뒤의 bindingArray다. 즉 holdsKey와
 -- isConditional이 이미 채워져 있다.
 
 return function(DebindPrivate)
@@ -47,7 +47,7 @@ return function(DebindPrivate)
     --- 같이 세운다. 어느 축이든 상관없고 "덮이지 않은 데가 있다"는 것만 있으면 된다.
     local function b(t)
         t = t or {};
-        if (t.isNonClick == nil) then t.isNonClick = true; end
+        if (t.holdsKey == nil) then t.holdsKey = true; end
         if (t.isConditional == nil) then t.isConditional = false; end
         if (t.isConditional and t.combat == nil) then t.combat = true; end
         t.type = t.type or Constants.SPELL;
@@ -136,30 +136,30 @@ return function(DebindPrivate)
 
     test("클릭캐스팅 전용 레코드는 키 판정과 무관하다", function()
         expectTrue({
-            b({ isNonClick = false, type = Constants.UNUSED, isConditional = true }),
+            b({ holdsKey = false, type = Constants.UNUSED, isConditional = true }),
             b(),
-        }, "isNonClick이 아닌 UNUSED는 키를 놓아주지 않는다");
+        }, "holdsKey가 아닌 UNUSED는 키를 놓아주지 않는다");
     end);
 
     test("떨궈진 레코드도 건너뛴다", function()
-        -- 걸 수단이 없어 UpdateBindingsMap이 isClick/isNonClick을 둘 다 false로 만든 것.
+        -- 걸 수단이 없어 UpdateBindingsMap이 isClickCast/holdsKey를 둘 다 false로 만든 것.
         expectTrue({
-            b({ isNonClick = false, isConditional = true }),
+            b({ holdsKey = false, isConditional = true }),
             b(),
         }, "떨궈진 항목은 아무것도 걸지 않는다");
     end);
 
     test("전부 클릭캐스팅 전용이면 거짓", function()
         expectFalse({
-            b({ isNonClick = false }),
-            b({ isNonClick = false }),
+            b({ holdsKey = false }),
+            b({ holdsKey = false }),
         }, "키를 잡는 레코드가 하나도 없다");
     end);
 
     test("A를 찾기 전의 클릭캐스팅 UNUSED는 A를 막지 않는다", function()
         expectTrue({
             b({ isConditional = true }),
-            b({ isNonClick = false, type = Constants.UNUSED }),
+            b({ holdsKey = false, type = Constants.UNUSED }),
             b(),
         }, "중간의 클릭 전용 항목은 투명하다");
     end);

@@ -619,7 +619,7 @@ function DebindPrivate.IsKeyAlwaysOurs(bindings)
     --
     -- `click-time-phase3.md` §3은 축 인코딩이 이 일을 대신하므로 거를 필요가 없다고 적었는데,
     -- **틀렸다.** hover 컬럼이 클릭 전용 레코드를 `NONE` 밖으로 밀어내는 것은 그 레코드가
-    -- `hover`를 들고 있을 때뿐이고, `isClick`은 `SETCUSTOM`이나 `unit == "hover"`로도 선다.
+    -- `hover`를 들고 있을 때뿐이고, `isClickCast`은 `SETCUSTOM`이나 `unit == "hover"`로도 선다.
     -- 그런 레코드는 hover 컬럼이 센티넬과 같은 상자라 **센티넬을 덮어버린다** - 키를 잡는
     -- 레코드가 하나도 없는 키가 "언제나 우리 것"으로 나온다.
     --
@@ -629,7 +629,7 @@ function DebindPrivate.IsKeyAlwaysOurs(bindings)
     local n = 0;
     for i = 1, count do
         local binding = bindings[i];
-        if (binding.isNonClick) then
+        if (binding.holdsKey) then
             n = n + 1;
             arr[n] = binding;
         end

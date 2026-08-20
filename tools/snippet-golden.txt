@@ -539,7 +539,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				end
 
 				if (match) then
-					if (not keyBound and t.isNonClick) then
+					if (not keyBound and t.holdsKey) then
 
 
 
@@ -791,7 +791,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local subset = clickCast and "isClick" or "isNonClick"
+	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	for i = 1, #bindings do
 		local t = bindings[i]
@@ -1212,7 +1212,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local subset = clickCast and "isClick" or "isNonClick"
+	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	for i = 1, #bindings do
 		local t = bindings[i]
@@ -1704,7 +1704,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local subset = clickCast and "isClick" or "isNonClick"
+	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	for i = 1, #bindings do
 		local t = bindings[i]
@@ -2108,7 +2108,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local subset = clickCast and "isClick" or "isNonClick"
+	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	for i = 1, #bindings do
 		local t = bindings[i]
@@ -2418,7 +2418,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	local subset = clickCast and "isClick" or "isNonClick"
+	local subset = clickCast and "isClickCast" or "holdsKey"
 
 	for i = 1, #bindings do
 		local t = bindings[i]

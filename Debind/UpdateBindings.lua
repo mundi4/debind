@@ -806,13 +806,13 @@ function UpdateBindingsMap()
         wipe(_updateFlags);
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
-        local hasClick;
-        local hasNonClick;
+        local hasClickCast;
+        local hasKeyRecord;
 
         for i = 1, #bindingArray do
             local binding = bindingArray[i];
-            binding.isClick = button ~= nil and binding.type ~= Constants.COMMAND and (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover");
-            binding.isNonClick = button == nil or not binding.hover;
+            binding.isClickCast = button ~= nil and binding.type ~= Constants.COMMAND and (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover");
+            binding.holdsKey = button == nil or not binding.hover;
             binding.clickframe, binding.clickbutton, binding.pressAndHold =
                     SetBindingAttributes(binding.type, binding.value, binding.unit);
 
@@ -836,11 +836,11 @@ function UpdateBindingsMap()
                     DebindPrivate.log(format("|cffff6666[Debind/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
                         tostring(binding.type), tostring(binding.value), key));
                 end
-                binding.isClick, binding.isNonClick = false, false;
+                binding.isClickCast, binding.holdsKey = false, false;
             end
 
-            hasClick = hasClick or binding.isClick;
-            hasNonClick = hasNonClick or binding.isNonClick;
+            hasClickCast = hasClickCast or binding.isClickCast;
+            hasKeyRecord = hasKeyRecord or binding.holdsKey;
         end
 
         -- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
@@ -853,7 +853,7 @@ function UpdateBindingsMap()
         -- 이미 적어둔 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히
         -- 클릭 시점에 정한다."
         --
-        -- 판정은 반드시 위 전처리 루프가 끝난 뒤다. `isNonClick`이 거기서 정해지고, 걸 수단이
+        -- 판정은 반드시 위 전처리 루프가 끝난 뒤다. `holdsKey`가 거기서 정해지고, 걸 수단이
         -- 없어 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지
         -- 않는데 회귀는 안 나므로 알아채기 어렵다.
         --
@@ -861,7 +861,7 @@ function UpdateBindingsMap()
         -- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
 
         -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
-        local clickTime = Constants.CLICK_TIME_EVAL and hasNonClick and true or false;
+        local clickTime = Constants.CLICK_TIME_EVAL and hasKeyRecord and true or false;
 
         -- 키 배선까지 고정이다. 한 번 `SetBindingClick` 걸고 상태 루프는 이 키의 키 역할을
         -- 아예 안 본다.
@@ -870,15 +870,15 @@ function UpdateBindingsMap()
         -- 상태 루프가 이 키에서 정할 것이 있나. 둘 다여야 한다: 키를 잡는 레코드가 있어야 하고
         -- (없으면 클릭캐스팅 전용이라 걸었다 놓았다 할 키 역할 자체가 없다), 그 배선이 고정이
         -- 아니어야 한다.
-        local stateDriven = hasNonClick and not alwaysOurs;
+        local stateDriven = hasKeyRecord and not alwaysOurs;
 
         local first = true;
 
-        if (hasClick or hasNonClick) then
+        if (hasClickCast or hasKeyRecord) then
             for i = 1, #bindingArray do
                 local binding = bindingArray[i];
-                local isClick = hasClick and binding.isClick;
-                local isNonClick = hasNonClick and binding.isNonClick;
+                local isClickCast = hasClickCast and binding.isClickCast;
+                local holdsKey = hasKeyRecord and binding.holdsKey;
                 local clickframe, clickbutton = binding.clickframe, binding.clickbutton;
 
                 -- Unit conditions are merged **before the record exists**, so a binding that can
@@ -914,7 +914,7 @@ function UpdateBindingsMap()
                     end
                 end
 
-                if ((isClick or isNonClick) and not unreachable) then
+                if ((isClickCast or holdsKey) and not unreachable) then
                     if (first) then
                         first = false;
                         if (DEBUG) then
@@ -924,7 +924,7 @@ function UpdateBindingsMap()
                     end
                     appendLine("t=newtable();tinsert(bindings,t)");
 
-                    if (isClick or isNonClick) then
+                    if (isClickCast or holdsKey) then
                         if (binding.type == Constants.UNUSED) then
                             appendKeyValue("type", Constants.UNUSED);
                         elseif (binding.type == Constants.COMMAND) then
@@ -957,11 +957,11 @@ function UpdateBindingsMap()
                         -- `/click` 한 단계가 없어졌으므로 delegate가 들고 있던 `unit`이
                         -- 안 실리면 대상이 조용히 사라진다.
                         --
-                        -- `isClick` 쪽은 `CLICK_TIME_EVAL`을 안 본다. 그 플래그는 **키 역할을
+                        -- `isClickCast` 쪽은 `CLICK_TIME_EVAL`을 안 본다. 그 플래그는 **키 역할을
                         -- 클릭 시점으로 내릴지**를 가르는 것이고, 클릭캐스팅은 그 선택지가 없다 -
                         -- 매크로를 안 거치려면 래퍼를 지날 수밖에 없어서 언제나 클릭 시점이다.
-                        local carriesTarget = isClick
-                                or (Constants.CLICK_TIME_EVAL and clickTime and isNonClick);
+                        local carriesTarget = isClickCast
+                                or (Constants.CLICK_TIME_EVAL and clickTime and holdsKey);
 
                         -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의
                         -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
@@ -985,7 +985,7 @@ function UpdateBindingsMap()
                         -- 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서
                         -- 놓는 동작이 안 된다. 고치려면 엣지를 실어 올 길이 필요한데
                         -- `SECURE_ACTIONS.click`에는 없다.
-                        if (Constants.CLICK_TIME_EVAL and clickTime and isNonClick
+                        if (Constants.CLICK_TIME_EVAL and clickTime and holdsKey
                                 and binding.pressAndHold) then
                             appendKeyValue("pressAndHold", true);
                         end
@@ -1015,13 +1015,13 @@ function UpdateBindingsMap()
 
                             -- **레코드 단위로, 키 잡는 레코드에만.** `DirtyFlags.unitframe`은
                             -- *유닛은 그대로인데 프레임이 바뀜*을 뜻하고, 상태 루프에서 그것에
-                            -- 걸리는 것은 `t.frameTypes`를 가진 **`isNonClick`** 레코드뿐이다
-                            -- (거는 갈래가 `not keyBound and t.isNonClick` 뒤에 있다). 키 단위로
-                            -- 잡으면 hover 조건이 `isClick` 레코드에만 있는 키까지 깨운다.
+                            -- 걸리는 것은 `t.frameTypes`를 가진 **`holdsKey`** 레코드뿐이다
+                            -- (거는 갈래가 `not keyBound and t.holdsKey` 뒤에 있다). 키 단위로
+                            -- 잡으면 hover 조건이 `isClickCast` 레코드에만 있는 키까지 깨운다.
                             --
                             -- `frameType` 플래그는 안 세운다. `DirtyFlags.frameType`을 세우는
                             -- 곳이 없어서 어떤 키도 못 깨웠다 - 세우는 쪽이 죽어 있었다.
-                            if (isNonClick) then
+                            if (holdsKey) then
                                 _updateFlags.unitframe = true;
                             end
                         end
@@ -1237,12 +1237,12 @@ function UpdateBindingsMap()
                         -- **`unitframe` 플래그를 안 세운다.** 옛 경로에서는 상태 루프가 승자를
                         -- 유닛 프레임에 미리 찍어뒀으니 호버가 바뀌면 다시 골라야 했다. 지금은
                         -- 래퍼가 클릭 순간에 고르므로 다시 걸 것이 없다.
-                        if (isClick) then
-                            appendLine("t.isClick=true");
+                        if (isClickCast) then
+                            appendLine("t.isClickCast=true");
                         end
 
-                        if (isNonClick) then
-                            appendLine("t.isNonClick=true");
+                        if (holdsKey) then
+                            appendLine("t.holdsKey=true");
                         end
                     end
                 end
@@ -1250,14 +1250,14 @@ function UpdateBindingsMap()
         end
 
         -- **아무 레코드도 안 나갔으면 빈 목록이라도 세운다.** 아래로 이어지는 것들은
-        -- (`bindings.updateFlags`, `ClickCastKeys`, `bindings.hasNonClick`, `alwaysOurs`)
-        -- `hasClick`/`hasNonClick`을 보고 도는데, 그 둘은 위 루프가 레코드를 하나도 안
+        -- (`bindings.updateFlags`, `ClickCastKeys`, `bindings.hasKeyRecord`, `alwaysOurs`)
+        -- `hasClickCast`/`hasKeyRecord`을 보고 도는데, 그 둘은 위 루프가 레코드를 하나도 안
         -- 내보낼 수 있다는 것을 모른 채 앞에서 정해졌다. 그러면 `bindings`는 **직전 키의
         -- 목록**을 가리킨 채로 남고, 이 키의 표시가 남의 목록에 붙는다.
         --
         -- 빈 목록은 뜻이 맞다: 쓸 수 있는 레코드가 없는 키이므로 매치 루프가 아무것도 못
         -- 고르고 키는 안 걸린다.
-        if (first and (hasClick or hasNonClick)) then
+        if (first and (hasClickCast or hasKeyRecord)) then
             first = false;
             AppendBindingsList(key, stateDriven);
         end
@@ -1297,7 +1297,7 @@ function UpdateBindingsMap()
             end
         end
 
-        if (hasClick) then
+        if (hasClickCast) then
             -- 클릭캐스팅으로 도착할 자리를 등록한다. 유닛 프레임이 `type="click"`으로 넘기면
             -- 래퍼는 마우스 버튼 이름밖에 못 받으므로(`/click`과 달리 이름을 못 싣는다),
             -- **버튼 번호와 수식어로 이 키를 되찾는다.**
@@ -1312,8 +1312,8 @@ function UpdateBindingsMap()
         -- 이 값이 참이라 물어볼 것이 없어졌다. `alwaysOurs`와 같은 자리다(§2-2): 진짜는 어느
         -- 표에 들어 있느냐이고 이 필드는 그 사본이라, 이걸로 판정하는 코드를 새로 쓰면 안 된다.
         -- 남기는 이유도 같다 - `bindings` 하나만 보고 갈래를 알 수 있어야 인게임에서 확인이 된다.
-        if (hasNonClick) then
-            appendLine("bindings.hasNonClick=true");
+        if (hasKeyRecord) then
+            appendLine("bindings.hasKeyRecord=true");
         end
 
         -- 클릭 시점 키를 배선한다.

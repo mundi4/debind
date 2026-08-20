@@ -553,7 +553,7 @@ DebindPrivate.UnitConditionToRuntimeScalar = UnitConditionToRuntimeScalar;
 --- **Derived, not stored** (`Profile.lua`'s `dbver <= 4` step). Storage keeps one column for the
 --- hovered frame's unit; these two are the view of it the rest of the addon already speaks --
 --- ordering ranks a hover binding by `hover ~= nil` (`Ordering.lua`), the runtime routes a key to
---- the click path by it (`UpdateBindings.lua`'s `isClick`), the frame-type column gates on it
+--- the click path by it (`UpdateBindings.lua`'s `isClickCast`), the frame-type column gates on it
 --- (`Solver.lua`), and key validity asks about it (`IsKeyInvalidForAction`).
 ---
 --- `false` and `nil` are **different answers** and both are load-bearing -- "only when not
