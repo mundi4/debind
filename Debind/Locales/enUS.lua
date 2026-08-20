@@ -941,8 +941,11 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- and, failing that, installing again. No `%s` either, unlike the chat line further down - the
 -- reason string the client hands back is for the log, not the middle of a window.
 -- Taking the badge off imported actions. **The verb is about the reader, not the action** -
--- nothing is being changed or repaired, they are saying they will have it, and that is the moment
--- the keys start working.
+-- nothing is being changed or repaired, they are saying they will have it.
+--
+-- **It is not the moment a key starts working.** Everything that arrives is put on a synthetic key
+-- (`KeyMapper` in `Import.lua`) and the build skips those, so accepting settles who owns the action
+-- and nothing else. Putting it on a key is its own press.
 L["APPROVE_IMPORT"] = "Accept as mine"
 -- The row above the two columns, which is the only thing on that row while anything is waiting.
 --
@@ -986,7 +989,12 @@ L["IMPORT_PENDING_INSTRUCTION"] = "Click for what can be done to all of it."
 L["APPROVE_ALL_IMPORT"] = "Accept all"
 -- **It has to say "wherever it went"**, because the count includes actions on specializations you
 -- are not in, and those are on no list the reader can see from here.
-L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went - including other specializations. Their keys start working straight away."
+--
+-- **And it has to say that nothing starts working.** What arrives is on a synthetic key, which the
+-- build skips, so accepting the lot moves no key at all. Naming where they end up instead is the
+-- honest version, and it borrows the words `KEY_GROUP_CONFLICT_UNBIND_DESC` already uses for that
+-- same place: no key, at the bottom of the list.
+L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went, including other specializations. Nothing starts working yet: what came in is on no key of yours, and waits at the bottom of the list until you give it one."
 -- The other answer, and the design note always had the two side by side. **The same set as
 -- [Accept all], opposite verb** - two items standing together must not quietly mean different
 -- amounts.
