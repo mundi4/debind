@@ -188,6 +188,13 @@ its first resume, so a suite of them still completes in one frame.
 for what a key is bound to, `DebindPrivate.Units.hover` for the hover slot, `LastWinner()` for
 which binding the snippet chose. A test that reads back the value it injected proves nothing.
 
+**Move a widget the way a hand moves it.** `EditBox:SetText()` puts the string in and does **not**
+run `OnTextChanged`, which is where the window does the work. The macro editor lights [Cancel] there
+and the search box sets the search term there, so two tests that typed with `SetText` measured
+nothing and reported a bug the addon did not have. Set the text, then run that widget's own script.
+Fail when there is no script to run: skipping it quietly means the day the XML wiring goes missing,
+those tests pass (`TypeInto` in `DebindTest.lua`).
+
 **Assert the negative too.** Set the condition, check the effect appears; then unset it and check
 it goes away. Without the second half the test also passes on something that was true the whole
 time.

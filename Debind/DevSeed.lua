@@ -22,6 +22,13 @@ local Constants        = DebindPrivate.Constants;
 --- they are.** A given worktree only ever calls the one matching its own `Constants.DB_VERSION`;
 --- carrying all of them is what makes this file right wherever it is copied, so no worktree ever
 --- has to be checked against its seed.
+
+--- Every macrotext row below carries one, because **an action with no icon is a shape the addon
+--- cannot otherwise produce**: the only way to make one is [New Custom Macro], and that goes through
+--- the icon selector, which always hands back a texture. A seeded row without one came up blank in
+--- the name/icon editor and looked like a bug in that window.
+local QUESTION_MARK_ICON = 134400;
+
 local SEEDS = {};
 
 --- Everything here is class independent on purpose. A PTR client is whatever character happens to
@@ -43,7 +50,8 @@ SEEDS[5] = function(guid)
             --- and one carrying enough conditions to fill a tooltip.
             GENERAL = {
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F1", seq = 1 },
-                { type = Constants.MACROTEXT, value = "/say account", name = "Say account",
+                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/say account", name = "Say account",
                     key = "SHIFT-F2", seq = 1 },
                 -- Two on one key, so the overview has a group to order and the ordering menu has
                 -- something to move.
@@ -59,7 +67,8 @@ SEEDS[5] = function(guid)
                     imported = "CTRL-Q" },
                 { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
                 -- Click casting, so the unit column and the frame menu have a row to describe.
-                { type = Constants.MACROTEXT, value = "/say hovered", name = "Say hovered",
+                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/say hovered", name = "Say hovered",
                     key = "SHIFT-F7", seq = 1,
                     checkedUnits = { hover = { reaction = Constants.REACTION_HELP } } },
                 -- Enough conditions on one action that its tooltip has to lay several out at once.
@@ -73,17 +82,20 @@ SEEDS[5] = function(guid)
             classes = {
                 [CLASS] = {
                     [0] = {
-                        { type = Constants.MACROTEXT, value = "/say class", name = "Say class",
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say class", name = "Say class",
                             key = "SHIFT-F1", seq = 1 },
                     },
                     -- Specs 1 and 2 only: every class has at least two, and no class has the same
                     -- number as every other.
                     [1] = {
-                        { type = Constants.MACROTEXT, value = "/say spec one", name = "Say spec one",
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say spec one", name = "Say spec one",
                             key = "SHIFT-F2", seq = 1 },
                     },
                     [2] = {
-                        { type = Constants.MACROTEXT, value = "/say spec two", name = "Say spec two",
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say spec two", name = "Say spec two",
                             key = "SHIFT-F2", seq = 1 },
                     },
                 },
@@ -99,11 +111,13 @@ SEEDS[5] = function(guid)
             [guid] = {
                 layers = {
                     [0] = {
-                        { type = Constants.MACROTEXT, value = "/say character",
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say character",
                             name = "Say character", key = "SHIFT-F3", seq = 1 },
                     },
                     [1] = {
-                        { type = Constants.MACROTEXT, value = "/say character spec one",
+                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                            value = "/say character spec one",
                             name = "Say character spec one", key = "SHIFT-F4", seq = 1 },
                     },
                 },

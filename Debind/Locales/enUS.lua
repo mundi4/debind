@@ -587,6 +587,11 @@ L["LAYER_SHORT_CHARACTER_SPEC"] = "Character spec"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 -- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
 L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d Characters Used"
+-- The tooltip on the same button when it reads REVERT, which happens only on an action the
+-- conversion menu item just made. The label alone would be read as "undo my typing", and this
+-- button is bigger than that: the action goes back to what it was and the body goes with it. The
+-- second sentence is the one that has to be there, since nothing on screen shows that cost.
+L["MACROFRAME_REVERT_DESC"] = "Puts this action back to what it was before it became a Custom Macro. Anything typed here is lost."
 L["MOVE_TO"] = "Move to..."
 -- 회색으로 선 현재 탭 줄의 툴팁. 하나를 옮기든 여럿을 옮기든 같은 문장이라 주어를 안 세운다.
 L["MOVE_TO_CURRENT_TAB_BLOCKED"] = "Already on this tab."

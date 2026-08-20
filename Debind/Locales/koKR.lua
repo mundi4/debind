@@ -240,6 +240,8 @@ L["LAYER_SHORT_CHARACTER"] = "캐릭터"
 L["LAYER_SHORT_CHARACTER_SPEC"] = "캐릭터 전문화"
 L["MACRO_POPUP_TEXT"] = "매크로 이름 입력 (최대 %d자):"
 L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d자 사용"
+-- 근거는 enUS 쪽 주석에.
+L["MACROFRAME_REVERT_DESC"] = "이 행동을 사용자 지정 매크로가 되기 전으로 되돌립니다. 여기 입력한 내용은 사라집니다."
 L["MOVE_TO"] = "옮길 곳..."
 L["MOVE_TO_CURRENT_TAB_BLOCKED"] = "이미 이 탭에 있습니다."
 L["NO_ACTIONS_IN_THIS_TAB"] = "이 탭에는 행동이 없습니다. 주문, 매크로, 아이템, 탈것을 여기로 끌어다 놓으면 새 행동이 추가됩니다."

@@ -1635,33 +1635,48 @@
 							</EditBox>
 						</ScrollChild>
 					</ScrollFrame>
-					<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate" text="CANCEL">
+					<!--
+						One button, two labels. CANCEL puts the edit box back; REVERT, when the
+						conversion menu item opened this window, puts the whole action back. Both
+						are "undo what I just did here", which is why one button carries them, and
+						which of the two is showing is decided in UpdateRevertButton - the label
+						and the enabled state are set there and not here.
+					-->
+					<Button parentKey="RevertButton" inherits="UIPanelButtonTemplate" text="CANCEL">
 						<Size x="90" y="22"/>
 						<Anchors>
 							<Anchor point="BOTTOMRIGHT" x="0" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
-								DebindMacroFrame:Cancel_OnClick();
+								DebindMacroFrame:Revert_OnClick();
 							</OnClick>
+							<OnEnter>
+								DebindMacroFrame:RevertButton_OnEnter(self);
+							</OnEnter>
+							<OnLeave>
+								GameTooltip:Hide();
+							</OnLeave>
 						</Scripts>
 					</Button>
 					<!--
-						The window commits on close and always did, but with [Cancel] as the only
-						button there was nothing to press that meant "yes, keep this" - you had to
-						close the window and trust it. This is that press.
+						[Close] and not [Okay]. Closing this window is what commits the body, by
+						every path it can close by, so a button that reads as the one that saves
+						would promise the opposite - that nothing is written until it is pressed.
+						Standing next to the button that puts the body back, "close" says which of
+						the two keeps what is on screen without claiming to be the only way there.
 
-						It is not the mirror of [Cancel]. That one reverts and stays open so you
-						can see what came back; this one is the way out.
+						parentKey CloseButton twice over is not a collision: the X belongs to the
+						frame and this one to Editor.
 					-->
-					<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate" text="OKAY">
+					<Button parentKey="CloseButton" inherits="UIPanelButtonTemplate" text="CLOSE">
 						<Size x="90" y="22"/>
 						<Anchors>
-							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.CancelButton" relativePoint="BOTTOMLEFT" x="-2" y="0"/>
+							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.RevertButton" relativePoint="BOTTOMLEFT" x="-2" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
-								DebindMacroFrame:Okay_OnClick();
+								DebindMacroFrame:Close_OnClick();
 							</OnClick>
 						</Scripts>
 					</Button>
@@ -1700,15 +1715,21 @@
 		The picker is exactly that missing third window, so their arrangement does not carry over.
 
 		With all of them top-level, strata alone decides: main window and picker settle MEDIUM
-		between themselves via toplevel, this frame and the macro editor sit above at HIGH. No
-		frame level is set by hand anywhere, which is what keeps a fourth window from turning
-		this into arithmetic.
+		between themselves via toplevel, the macro editor sits above at HIGH, and this frame
+		above that at DIALOG. No frame level is set by hand anywhere, which is what keeps a
+		fourth window from turning this into arithmetic.
+
+		**DIALOG rather than HIGH, which is where this frame used to be with the editor.**
+		toplevel only reorders inside one strata, so sharing HIGH meant a click on the editor
+		raised it over the popup it had opened - a popup that locks everything under it while it
+		is up, over an editor that stays up behind it on purpose. A strata apart is what fixes
+		that order instead of leaving it to whichever was clicked last.
 
 		Lifetime still belongs to the main window (DebindFrameMixin:OnHide). That path already
 		closed this frame explicitly back when it was a child, so dropping the parent leaks
 		nothing.
 	-->
-	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="HIGH" parent="UIParent" enableMouse="true" hidden="true">
+	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="DIALOG" parent="UIParent" enableMouse="true" hidden="true">
 		<!--
 			The template anchors TOPLEFT to TOPRIGHT with no relativeTo, which means the parent.
 			That resolved to the main window for free while we were its child; with UIParent as

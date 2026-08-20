@@ -2919,7 +2919,11 @@ function DebindFrameMixin:InitializeButtons()
 			-- 훑으므로 안 보이는 것은 어차피 안 넘어간다. 개수가 늘 사실이어야 한다.
 			--
 			-- **앵커는 안 건드린다.** 그건 "벌크 대상"이 아니라 "지금 이야기 중인 행"이고,
-			-- 왼쪽 열과 매크로 창이 그것을 보고 있다. 검색어를 쳤다고 보던 것을 뺏지 않는다.
+			-- 왼쪽 열이 그것을 보고 있다. 검색어를 쳤다고 보던 자리를 뺏지 않는다.
+			--
+			-- 매크로 편집 창은 반대다. 걸러져 나간 행 위에 떠 있을 자리가 없으므로 `Refresh`가
+			-- 닫는다. 앵커가 남는 것과 어긋나 보이지만, 하나는 화면이 짚는 자리고 하나는 그 행이
+			-- 있어야 뜻이 서는 창이다.
 			--
 			-- One set for the two below, built here because this is the top of the update. The
 			-- keystroke that lands on this line is the reason it is not built three times over
@@ -3505,9 +3509,6 @@ function DebindFrameMixin:HandleEscape()
 		return true;
 	end
 
-	-- 매크로 탭에는 따로 처리할 게 없다. 편집칸에 포커스가 있으면 ESC가 포커스만 풀고
-	-- (여기까지 안 온다), 한 번 더 누르면 아래 선택 해제로 간다 - 그때 본문이 저장된다.
-
 	-- 키를 듣는 중이면 그것부터 그만둔다.
 	--
 	-- 보통은 여기까지 안 온다 - 듣는 중에는 버튼이 마우스 위치와 무관하게 키를 먼저
@@ -3530,6 +3531,25 @@ function DebindFrameMixin:HandleEscape()
 	-- 채로 선택이 풀리고, 한 번 더 누르면 팝업만 남기고 창이 닫힌다.
 	if (DebindIconSelectorFrame:IsShown()) then
 		DebindIconSelectorFrame:Close();
+		return true;
+	end
+
+	-- 매크로 편집 창. It takes no keys of its own and is not in `UISpecialFrames` either, so without
+	-- this rung ESC walked straight past it to `self:Hide()` at the bottom - one press meaning
+	-- "close the editor" took the whole window down with it.
+	--
+	-- **Below the icon selector and above the spell picker**, which is the order the three open in:
+	-- the picker's [New Custom Macro] opens the icon selector, and confirming there opens this
+	-- editor. The picker stays up behind both on purpose (`AddNewAction`).
+	--
+	-- The body survives the press, since closing this window is what commits it. That is not what
+	-- ESC means on the rungs around it, and it is not meant to be: this window holds nothing a press
+	-- could be asked to discard, and [Cancel] inside it is the one thing that puts text back.
+	--
+	-- 편집칸에 포커스가 있으면 첫 ESC는 포커스만 푼다(`OnEscapePressed`). 여기까지는 그 다음
+	-- 누름이 온다.
+	if (DebindMacroFrame:IsShown()) then
+		DebindMacroFrame:Close();
 		return true;
 	end
 
@@ -3715,7 +3735,11 @@ function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	local layerID = GetLayerID();
 	local elements = BuildSortedElements(DebindPrivate.GetProfileLayer(layerID), layerID, visible);
 
+	local selectedIsDrawn = false;
 	for _, elementData in ipairs(elements) do
+		if (elementData.action == _selectedAction) then
+			selectedIsDrawn = true;
+		end
 		dataProvider:Insert(elementData);
 	end
 
@@ -3733,6 +3757,21 @@ function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	-- 프로필에 있나"만 본다.
 	if (_selectedAction and not DebindPrivate.FindLayerID(_selectedAction)) then
 		self:SetSelectedAction(nil);
+	end
+
+	-- **선택은 남아도 편집 창은 닫는다.** 검색어나 필터가 걸리면 고치던 행이 통에서 사라지는데,
+	-- 위 규칙대로 선택은 그대로다. 그러면 화면 어디에도 없는 액션 위에 편집 창만 떠 있고,
+	-- 무엇을 고치는 중인지 가리켜 줄 행이 없다.
+	--
+	-- 닫는 것이 곧 저장이다(`DebindMacroFrameMixin`). 이 길로 사라지는 본문은 없다.
+	--
+	-- The popup goes first, and only when it is standing on this same action: it is also the window
+	-- [New Custom Macro] opens, and that one runs with no selection behind it at all.
+	if (_selectedAction and not selectedIsDrawn) then
+		if (DebindIconSelectorFrame.editAction == _selectedAction) then
+			DebindIconSelectorFrame:Close(true);
+		end
+		DebindMacroFrame:Close();
 	end
 
 	-- **제목은 창의 이름이다. 탭 좌표가 아니다.**
@@ -6089,16 +6128,26 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 --------------------------------------------------------------------------------
 -- 매크로 편집 창
 --
--- 저장 규칙은 기본 매크로 창(Blizzard_MacroUI.lua)을 그대로 따른다: **떠날 때 저장.**
--- 거기서는 다른 매크로를 고르거나, 창이 닫히거나, 이름/아이콘 편집기를 열면 SaveMacro()가
--- 묻지 않고 불린다. 여기도 같고, 버리는 길은 [취소] 버튼 하나뿐이다.
+-- **Closing the window is the commit.** Every path that hides this window writes the body:
+-- [Close], the X, ESC, the main window going away, the selection moving to another action,
+-- combat. Blizzard's macro window works the same way and its OnHide is where SaveMacro() runs
+-- (Blizzard_MacroUI.lua).
+--
+-- **Which is why there is no [Save] and no [Okay].** A button that reads as the one that saves
+-- says the opposite of what happens here: that nothing is written until it is pressed. The reader
+-- has no way to find out otherwise except by losing something. The bottom row is [Close] and the
+-- button that puts the body back.
 --
 -- 그래서 저장을 미루는 상태가 없다. HasUnsavedChanges / 저장-버림 팝업 / Close(force)
 -- 계약은 이 창이 탭이던 시절에 이미 사라졌고, 창으로 돌아왔다고 되살리지 않는다.
 --
+-- **And nothing commits while the window is up**, which is what makes [Cancel] worth having:
+-- `action.value` stays the body the window opened on, so that button always has the exact text to
+-- go back to. The name/icon editor used to save on its way to the popup and it was the one thing
+-- that broke this (EditNameIcon_OnClick).
+--
 -- **대상은 선택된 액션이다.** 창이 자기 대상을 따로 들고 있지 않으므로 왼쪽 목록의 강조가
--- 곧 "지금 무엇을 고치고 있나"이고, 다른 행을 고르면 그 액션의 본문이 올라온다(떠나는
--- 쪽은 저장된다). 탭이던 시절의 규칙 그대로다.
+-- 곧 "지금 무엇을 고치고 있나"이고, 다른 행을 고르면 이 창은 닫힌다(그러면서 저장된다).
 --
 -- 편집 대상(macroAction)은 **창이 열려 있는 동안만** 산다. OnHide가 저장하고 비운다.
 --------------------------------------------------------------------------------
@@ -6117,16 +6166,17 @@ function DebindMacroFrameMixin:OnLoad()
 
 end
 
---- 이 액션으로 창을 연다.
+--- Opens the window on this action.
 ---
---- 창은 선택된 액션만 그리므로 **편집 대상을 선택으로 옮긴다.** 진입점(우클릭 메뉴,
---- 매크로텍스트 변환)이 선택과 무관한 행을 가리킬 수 있기 때문이다.
+--- The window only ever draws the selected action, so **it moves the selection onto its target.**
+--- The ways in (the right-click menu, the conversion) can name a row the selection is nowhere near.
 ---
---- 매크로텍스트가 아닌 액션으로 부르면 곧바로 닫힌다(`Refresh`). 변환 경로는 액션을 먼저
---- 바꾸고 부르므로 그 갈래를 안 지난다.
+--- Called with an action that is not macrotext, it closes again at once (`Refresh`). The conversion
+--- path changes the action first, so it does not go down that branch.
 ---
---- cancelFunc는 매크로텍스트 변환이 [취소]에서 원래 액션으로 되돌리는 데 쓴다. 본문을
---- 올리면서 지워지므로(앞 편집의 것이다) 그 뒤에 건다.
+--- `cancelFunc` is how the conversion path gets its action back, and it is also what turns the
+--- bottom-right button into [Revert] (`UpdateRevertButton`). It goes on **after** `Refresh`, which
+--- clears it while loading the body: the one it clears belongs to whatever was being edited before.
 function DebindMacroFrameMixin:Open(action, cancelFunc)
 	if (not action) then
 		return false;
@@ -6136,6 +6186,7 @@ function DebindMacroFrameMixin:Open(action, cancelFunc)
 	self:Show();
 	self:Refresh();
 	self.macroCancelFunc = cancelFunc;
+	self:UpdateRevertButton();
 
 	DebindFrame:Update();
 	return true;
@@ -6168,6 +6219,9 @@ function DebindMacroFrameMixin:LoadText(action)
 	self.macroCancelFunc = nil;
 	self.macroOriginalText = action.value or "";
 	self.Editor.ScrollFrame.EditBox:SetText(self.macroOriginalText);
+	-- `SetText` reaching `Text_OnTextChanged` would do this, but it does not have to fire when the
+	-- box already holds that exact string - which is what reopening on the same action looks like.
+	self:UpdateRevertButton();
 end
 
 --- 편집 상태만 비운다. 화면 갱신은 부르는 쪽이 한다.
@@ -6177,15 +6231,15 @@ function DebindMacroFrameMixin:ClearEdit()
 	self.macroOriginalText = nil;
 end
 
---- 실제로 바뀌었을 때만 쓴다. 기본 매크로 창의 textChanged 검사와 같은 뜻이다.
+--- Writes the edit box into the action, and only when it differs. Same idea as the base macro
+--- window's textChanged check.
 ---
---- 견주는 것은 **액션에 들어 있는 값**이지 `macroOriginalText`가 아니다. 저 둘은 편집이
---- 시작된 직후에만 같고, 그 뒤로는 뜻이 갈린다 - 하나는 "지금 저장된 것", 하나는
---- "[취소]가 돌아갈 자리"다.
+--- **`OnHide` is the only caller**, which is what makes closing the window the one commit. Anything
+--- else that wants the body written closes the window instead.
 ---
---- The two still come apart while the window is up: EditNameIcon_OnClick saves on the way to
---- the icon selector and leaves this window open behind it. Overwrite macroOriginalText here
---- and that trip alone would cost you the way back.
+--- The guard compares against the field it is about to overwrite and not against
+--- `macroOriginalText`. The two now hold the same value for as long as the window is up, so either
+--- would answer the same; the one that decides whether the profile changes is the one worth asking.
 function DebindMacroFrameMixin:Save()
 	local action = self.macroAction;
 	if (not action) then
@@ -6202,21 +6256,56 @@ function DebindMacroFrameMixin:Save()
 	DebindPrivate.UpdateBindings();
 end
 
---- [취소] = **이 액션을 연 뒤로** 고친 것을 버린다.
+--- The bottom-right button, which carries two meanings on one frame.
 ---
---- 되돌릴 곳은 **두 군데**다. 편집칸과 액션 - 대상을 바꿀 때마다 자동 저장이 돌기 때문에
---- 버려야 할 본문이 이미 `action.value`에 들어가 있을 수 있다. 편집칸만 되돌리면 [취소]가
---- 아무 일도 안 한 것처럼 보이고, 원래 본문은 되찾을 길이 없어진다.
+--- Normally it is [Cancel] and it puts the edit box back to the body the window opened on, so it is
+--- enabled only while those two differ. A greyed-out [Cancel] is this window saying that what is on
+--- screen is what is in the profile.
 ---
---- 매크로텍스트 변환으로 들어왔다면 되돌릴 것이 본문이 아니라 **액션 자체**다(cancelFunc).
---- 그 액션은 더 이상 매크로텍스트가 아니므로 `Refresh`가 창을 닫는다.
+--- Opened from the conversion it is [Revert] instead, and it is always enabled: what it undoes has
+--- already happened, since the action became macrotext the moment the menu item was clicked.
 ---
---- **창은 안 닫는다, [Okay]와 달리.** Two buttons that both leave would be tidier, but they are
---- not the same risk: [Okay] keeps what you see and [취소] throws it away. Leaving the window up
---- puts the reverted body in front of you before anything is final - and if the revert was not
---- what you wanted, it is still there to edit. Costing one more click to leave is the cheaper
+--- **Only that one gets a tooltip.** [Cancel] does exactly what its label says and has no second
+--- result to warn about. [Revert] takes the whole action with it.
+function DebindMacroFrameMixin:UpdateRevertButton()
+	local button = self.Editor.RevertButton;
+	if (self.macroCancelFunc) then
+		button:SetText(REVERT);
+		button:Enable();
+		return;
+	end
+
+	button:SetText(CANCEL);
+	button:SetEnabled(self.Editor.ScrollFrame.EditBox:GetText() ~= (self.macroOriginalText or ""));
+end
+
+function DebindMacroFrameMixin:RevertButton_OnEnter(button)
+	if (not self.macroCancelFunc) then
+		return;
+	end
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, REVERT);
+	GameTooltip_AddNormalLine(GameTooltip, LLL["MACROFRAME_REVERT_DESC"]);
+	GameTooltip:Show();
+end
+
+--- [Cancel], or [Revert] when the conversion opened this window.
+---
+--- **[Cancel] moves the edit box and nothing else.** Nothing has committed the body since the
+--- window opened, so `action.value` is still what `macroOriginalText` holds and there is nothing to
+--- put back in the profile. It used to write the action too, from the days when the window followed
+--- the selection and saved on the way past; both of those are gone.
+---
+--- [Revert] puts back the **action** rather than the body: `cancelFunc` restores the type, name,
+--- icon and unit it had before it became macrotext, and whatever was typed here goes with it. That
+--- action is no longer macrotext, so `Refresh` closes the window.
+---
+--- **[Cancel] does not close, unlike [Close].** Two buttons that both leave would be tidier, but
+--- they are not the same risk: [Close] keeps what you see and [Cancel] throws it away. Leaving the
+--- window up puts the reverted body in front of you before anything is final, and if the revert was
+--- not what you wanted, it is still there to edit. Costing one more click to leave is the cheaper
 --- side of that trade.
-function DebindMacroFrameMixin:Cancel_OnClick()
+function DebindMacroFrameMixin:Revert_OnClick()
 	local action = self.macroAction;
 	if (not action) then
 		return;
@@ -6228,40 +6317,38 @@ function DebindMacroFrameMixin:Cancel_OnClick()
 		-- 먼저 비운다. 안 그러면 되돌린 액션 위에 방금 버린 본문이 다시 저장된다.
 		self:ClearEdit();
 		cancelFunc();
-	else
-		local original = self.macroOriginalText or "";
-		self.Editor.ScrollFrame.EditBox:SetText(original);
-		if ((action.value or "") ~= original) then
-			action.value = original;
-			action._dirty = true;
-			DebindPrivate.UpdateBindings();
-		end
+
+		-- The row's name and icon changed with the type, so the list has to be built again and not
+		-- just redrawn in place. `Refresh` is what closes the window now that it is not macrotext.
+		self:Refresh();
+		DebindFrame:Refresh(true);
+		DebindFrame:Update();
+		return;
 	end
 
-	self:Refresh();
-	DebindFrame:Refresh(true);
-	DebindFrame:Update();
+	self.Editor.ScrollFrame.EditBox:SetText(self.macroOriginalText or "");
+	self:UpdateRevertButton();
 end
 
---- [Okay]. Closing is the whole job: OnHide is where the text is written, and it stays the only
+--- [Close]. Closing is the whole job: OnHide is where the text is written, and it stays the only
 --- place that writes it. Calling Save here too would give the body two commit paths to keep in
---- step for no gain - the point of the button is that the user has something to press, not that
---- it saves by a different road.
-function DebindMacroFrameMixin:Okay_OnClick()
+--- step for no gain.
+function DebindMacroFrameMixin:Close_OnClick()
 	PlaySound(SOUNDKIT.GS_TITLE_OPTION_OK);
 	self:Close();
 end
 
---- 이름/아이콘 편집기로 간다. 기본 매크로 창도 이 시점에 저장한다(MacroEditButton_OnClick).
+--- Goes to the name/icon editor. **It does not save on the way**, which the base macro window does
+--- (MacroEditButton_OnClick) and we deliberately do not: writing the body here would move the place
+--- [Cancel] goes back to, and it would move it on a trip that never touched the body.
 ---
---- 이 창은 **열어둔 채로** 팝업이 그 위에 뜬다. 그래서 돌아왔을 때 본문이 그대로 있고,
---- 예전에 본문을 들고 다니던 tempText 곡예가 통째로 필요 없어졌다.
+--- The popup opens **over** this window, which stays up. So the body is still there when you come
+--- back, and the tempText juggling this used to need is gone.
 function DebindMacroFrameMixin:EditNameIcon_OnClick()
 	local action = self.macroAction;
 	if (not action) then
 		return;
 	end
-	self:Save();
 
 	-- 확인을 눌러도 갈 데가 없다. 이 창이 팝업 아래에 그대로 열려 있고, 새 이름·아이콘은
 	-- 팝업이 닫히면서 도는 Update가 되비춘다.
@@ -6272,6 +6359,7 @@ function DebindMacroFrameMixin:Text_OnTextChanged(editBox)
 	ScrollingEdit_OnTextChanged(editBox, editBox:GetParent());
 	self.Editor.CharLimitText:SetFormattedText(
 		LLL["MACROFRAME_CHAR_LIMIT"], editBox:GetNumLetters(), MACRO_CHAR_LIMIT);
+	self:UpdateRevertButton();
 end
 
 --- 창을 되비춘다. 이름·아이콘은 매번, 본문은 창을 열 때 한 번.

@@ -441,6 +441,20 @@ function DebindSpellPickerFrameMixin:GetSelectedCategoryKey()
 end
 
 function DebindSpellPickerFrameMixin:OnShow()
+	-- **This window opens under those two**, at MEDIUM against their HIGH and DIALOG, so leaving
+	-- them up means the thing that just opened is the thing you cannot see. Closing the editor is
+	-- what commits its body, which is the same answer every other way out of it gives.
+	--
+	-- The icon selector goes first and by force: it belongs to the editor underneath it, so a
+	-- refusal here would leave a popup standing over a window that is on its way out. It should not
+	-- be reachable in the first place - the portraits are locked while it is up - and that is
+	-- exactly why this line is not worth making conditional.
+	--
+	-- 여기서 안 닫히는 것: 이 창이 스스로 연 것들이다. [새 사용자 지정 매크로]는 이미 열려
+	-- 있는 이 창에서 아이콘 선택기와 편집 창을 띄우므로 OnShow를 다시 지나지 않는다.
+	DebindIconSelectorFrame:Close(true);
+	DebindMacroFrame:Close();
+
 	-- 이벤트는 **보이는 동안만** 듣는다. 그러면 닫혀 있는 동안의 변경을 못 듣게 되는데,
 	-- 그건 열 때 무조건 다시 짓는 것으로 갚는다.
 	--

@@ -1925,6 +1925,338 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
 })
 
 -----------------------------------------------------------
+-- Test Cases: The macro editor commits by closing and by nothing else
+--
+-- **The one rule this window has**, and the only layer that can see it: the body reaches the
+-- profile when the window hides, from every path that hides it, and no path writes it while the
+-- window is up. Everything else here hangs off that -- [Cancel] can promise to put the body back
+-- only because nothing moved it, and there is no [Save] because a button saying so would describe
+-- the opposite of what happens.
+--
+-- Nothing below reads the field it is about to assert on. What it checks is `action.value`, which
+-- is what the profile keeps and what the next build reads.
+-----------------------------------------------------------
+
+--- 무엇이 무엇 위에 그려지는가. 게임이 답하는 것은 이 둘뿐이라 순서도 이 둘로 잰다 -
+--- `toplevel`이 하는 일도 결국 같은 층 안에서 둘째 값을 올리는 것이다.
+local STRATA_RANK = {
+    BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4,
+    DIALOG = 5, FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8,
+}
+
+local function DrawsAbove(a, b)
+    local ra = STRATA_RANK[a:GetFrameStrata()]
+    local rb = STRATA_RANK[b:GetFrameStrata()]
+    if ra ~= rb then
+        return ra > rb
+    end
+    return a:GetFrameLevel() > b:GetFrameLevel()
+end
+
+--- 편집칸에 글자를 넣는다. **`SetText`만으로는 `OnTextChanged`가 안 돈다.** 사람이 치면 도는
+--- 그 스크립트가 이 창에서 [취소]를 켜고 끄는 자리이고 검색 상자에서는 검색어를 세우는 자리라,
+--- 안 태우면 여기서 재는 것이 전부 사람이 하는 것과 다른 일이 된다.
+---
+--- **스크립트가 없으면 실패로 돌아온다.** 조용히 건너뛰면 XML의 배선이 빠진 날 이 테스트들이
+--- 초록으로 지나간다.
+local function TypeInto(editBox, text)
+    editBox:SetText(text)
+    local script = editBox:GetScript("OnTextChanged")
+    if not script then
+        return false
+    end
+    script(editBox, true)
+    return true
+end
+
+--- 창을 띄우고 매크로텍스트 액션 하나를 심어 편집 창을 연다. 되돌려 놓는 일은 러너가 한다.
+---
+--- **아이콘을 넣는다.** 아이콘 없는 액션은 이 애드온이 만들 수 없는 모양이고([새 사용자 지정
+--- 매크로]는 아이콘 선택기를 지난다), 그런 액션은 이름·아이콘 팝업이 빈 칸으로 열린다.
+local function OpenMacroEditor(body, cancelFunc)
+    DebindFrame:Show()
+    AddTeardown(function()
+        DebindIconSelectorFrame:Hide()
+        DebindMacroFrame:Hide()
+        DebindFrame:Hide()
+    end)
+
+    local action = InsertAction({ type = Constants.MACROTEXT, value = body,
+        name = "Macro editor test", icon = 134400, key = "CTRL-ALT-F11" })
+    ApplyBindings()
+
+    DebindMacroFrame:Open(action, cancelFunc)
+    return action, DebindMacroFrame.Editor.ScrollFrame.EditBox
+end
+
+RegisterTest("Macro editor: the body reaches the profile when the window closes", {
+    description = "닫아야 저장되고, 이름·아이콘 팝업을 다녀오는 것으로는 저장되지 않는가",
+    run = function()
+        local NAME = "Macro commit"
+
+        local action, box = OpenMacroEditor("/say one")
+        if not DebindMacroFrame:IsShown() then
+            return Fail(NAME, "열리지 않았다")
+        end
+        if box:GetText() ~= "/say one" then
+            return Fail(NAME, format("본문이 안 올라왔다: %q", box:GetText()))
+        end
+
+        if not TypeInto(box, "/say two") then
+            return Fail(NAME, "편집칸에 OnTextChanged가 안 걸려 있다")
+        end
+        if action.value ~= "/say one" then
+            return Fail(NAME, "치는 동안 이미 저장됐다 - 창이 열려 있는데 프로필이 움직였다")
+        end
+
+        -- 이름·아이콘 편집기로 갔다 온다. 기본 매크로 창은 이 자리에서 저장하고 우리는 안 한다:
+        -- 저장하면 [취소]가 돌아갈 자리가, 본문을 건드리지도 않은 나들이에 밀린다.
+        DebindMacroFrame:EditNameIcon_OnClick()
+        if not DebindIconSelectorFrame:IsShown() then
+            return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
+        end
+        if action.value ~= "/say one" then
+            return Fail(NAME, format("팝업을 여는 것이 저장했다: %q", action.value))
+        end
+
+        DebindIconSelectorFrame:Close(true)
+        if not DebindMacroFrame:IsShown() then
+            return Fail(NAME, "팝업이 닫히면서 편집 창까지 데려갔다")
+        end
+        if box:GetText() ~= "/say two" then
+            return Fail(NAME, format("돌아왔더니 본문이 달라졌다: %q", box:GetText()))
+        end
+
+        -- [닫기]. 이 버튼은 창을 닫는 것 말고 아무것도 하지 않고, 저장은 그 닫힘이 한다.
+        DebindMacroFrame.Editor.CloseButton:Click()
+        if DebindMacroFrame:IsShown() then
+            return Fail(NAME, "[닫기]를 눌렀는데 안 닫혔다")
+        end
+        if action.value ~= "/say two" then
+            return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
+        end
+
+        return Pass(NAME, "팝업 나들이는 안 썼고, 닫힘이 썼다")
+    end,
+})
+
+RegisterTest("Macro editor: [Cancel] lights up only when there is something to put back", {
+    description = "고친 것이 없으면 꺼져 있고, 누르면 편집칸만 돌아오고 프로필은 안 움직이는가",
+    run = function()
+        local NAME = "Macro cancel"
+
+        local action, box = OpenMacroEditor("/say one")
+        local button = DebindMacroFrame.Editor.RevertButton
+
+        if button:IsEnabled() then
+            return Fail(NAME, "연 직후인데 되돌릴 것이 있다고 한다")
+        end
+        if button:GetText() ~= CANCEL then
+            return Fail(NAME, format("라벨이 [취소]가 아니다: %q", tostring(button:GetText())))
+        end
+
+        if not TypeInto(box, "/say two") then
+            return Fail(NAME, "편집칸에 OnTextChanged가 안 걸려 있다")
+        end
+        if not button:IsEnabled() then
+            return Fail(NAME, "본문을 고쳤는데 버튼이 꺼져 있다")
+        end
+
+        button:Click()
+
+        if box:GetText() ~= "/say one" then
+            return Fail(NAME, format("편집칸이 안 돌아왔다: %q", box:GetText()))
+        end
+        if action.value ~= "/say one" then
+            return Fail(NAME, format("프로필이 움직였다: %q", action.value))
+        end
+        if button:IsEnabled() then
+            return Fail(NAME, "되돌린 뒤에도 버튼이 켜져 있다")
+        end
+        -- **닫지 않는다.** 되돌린 본문을 눈앞에 두고 다시 고칠 수 있어야 한다.
+        if not DebindMacroFrame:IsShown() then
+            return Fail(NAME, "[취소]가 창까지 닫았다")
+        end
+
+        return Pass(NAME, "꺼짐 -> 켜짐 -> 되돌리고 다시 꺼짐")
+    end,
+})
+
+RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
+    description = "변환으로 열렸으면 라벨이 REVERT가 되고, 눌렀을 때 되돌리는 함수가 도는가",
+    run = function()
+        local NAME = "Macro revert"
+
+        local reverted = false
+        local action, box = OpenMacroEditor("/cast Fireball", function() reverted = true end)
+        local button = DebindMacroFrame.Editor.RevertButton
+
+        if button:GetText() ~= REVERT then
+            return Fail(NAME, format("라벨이 REVERT가 아니다: %q", tostring(button:GetText())))
+        end
+        -- 되돌릴 것은 이미 일어난 변환이라, 아무것도 안 쳤어도 켜져 있어야 한다.
+        if not button:IsEnabled() then
+            return Fail(NAME, "변환으로 열렸는데 버튼이 꺼져 있다")
+        end
+        if not DebindMacroFrame.macroCancelFunc then
+            return Fail(NAME, "cancelFunc이 안 걸렸다 - Refresh가 지우고 아무도 다시 안 걸었나")
+        end
+
+        TypeInto(box, "/cast Frostbolt")
+        button:Click()
+
+        if not reverted then
+            return Fail(NAME, "눌렀는데 되돌리는 함수가 안 돌았다")
+        end
+        -- 되돌린 액션 위에 방금 버린 본문이 다시 저장되면 안 된다.
+        if action.value ~= "/cast Fireball" then
+            return Fail(NAME, format("버린 본문이 저장됐다: %q", action.value))
+        end
+
+        return Pass(NAME, "REVERT가 걸리고, 눌러서 되돌렸고, 본문은 안 새어나갔다")
+    end,
+})
+
+RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then the window", {
+    description = "ESC 한 번에 한 칸씩 물러나는가, 그리고 편집 창을 닫은 ESC가 본문을 남기는가",
+    run = function()
+        local NAME = "Macro escape"
+
+        local action, box = OpenMacroEditor("/say one")
+
+        DebindMacroFrame:EditNameIcon_OnClick()
+        if not DebindIconSelectorFrame:IsShown() then
+            return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
+        end
+
+        DebindFrame:HandleEscape()
+        if DebindIconSelectorFrame:IsShown() then
+            return Fail(NAME, "첫 ESC가 팝업을 안 닫았다")
+        end
+        if not DebindMacroFrame:IsShown() then
+            return Fail(NAME, "첫 ESC가 편집 창까지 데려갔다")
+        end
+
+        TypeInto(box, "/say two")
+        DebindFrame:HandleEscape()
+        if DebindMacroFrame:IsShown() then
+            return Fail(NAME, "둘째 ESC가 편집 창을 안 닫았다")
+        end
+        if not DebindFrame:IsShown() then
+            return Fail(NAME, "둘째 ESC가 메인 창까지 닫았다 - 사다리에 이 칸이 없나")
+        end
+        -- 닫는 것이 저장하는 것이다. ESC로 나가도 본문은 남는다.
+        if action.value ~= "/say two" then
+            return Fail(NAME, format("ESC로 닫혔는데 본문이 안 남았다: %q", action.value))
+        end
+
+        DebindFrame:HandleEscape()
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "셋째 ESC가 메인 창을 안 닫았다")
+        end
+
+        return Pass(NAME, "팝업 -> 편집 창 -> 메인 창, 본문은 남았다")
+    end,
+})
+
+RegisterTest("Macro editor: the name/icon popup stays over the editor", {
+    description = "편집 창을 앞으로 끌어올려도 그 위에 뜬 팝업이 뒤로 가지 않는가",
+    run = function()
+        local NAME = "Macro popup order"
+
+        OpenMacroEditor("/say one")
+        DebindMacroFrame:EditNameIcon_OnClick()
+        if not DebindIconSelectorFrame:IsShown() then
+            return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
+        end
+
+        local function Where()
+            return format("%s/%d vs %s/%d",
+                DebindIconSelectorFrame:GetFrameStrata(), DebindIconSelectorFrame:GetFrameLevel(),
+                DebindMacroFrame:GetFrameStrata(), DebindMacroFrame:GetFrameLevel())
+        end
+
+        if not DrawsAbove(DebindIconSelectorFrame, DebindMacroFrame) then
+            return Fail(NAME, format("열자마자 아래다: %s", Where()))
+        end
+
+        -- 편집 창을 클릭하면 일어나는 일. 둘이 같은 층에 있으면 이 한 줄이 순서를 뒤집는다.
+        DebindMacroFrame:Raise()
+
+        if not DrawsAbove(DebindIconSelectorFrame, DebindMacroFrame) then
+            return Fail(NAME, format("편집 창을 올렸더니 팝업이 뒤로 갔다: %s", Where()))
+        end
+
+        return Pass(NAME, Where())
+    end,
+})
+
+RegisterTest("Macro editor: a row filtered out of the bin takes its editor with it", {
+    description = "검색어에 안 걸려 행이 사라지면 편집 창이 닫히는가, 그리고 본문은 저장되는가",
+    run = function()
+        local NAME = "Macro filtered out"
+
+        local action, box = OpenMacroEditor("/say one")
+        local searchBox = DebindFrame.OverviewPanel.SearchBox
+        -- 여기서도 스크립트를 태운다. 안 그러면 중간에 실패한 날 검색어가 살아남아,
+        -- 뒤따르는 테스트가 전부 텅 빈 통을 보게 된다.
+        AddTeardown(function() TypeInto(searchBox, "") end)
+
+        TypeInto(box, "/say two")
+
+        -- 이 액션의 이름과 겹칠 수 없는 글자. 검색은 이름을 보고 거른다.
+        if not TypeInto(searchBox, "qqzzxx") then
+            return Fail(NAME, "검색 상자에 OnTextChanged가 안 걸려 있다")
+        end
+
+        if DebindMacroFrame:IsShown() then
+            return Fail(NAME, "행이 걸러졌는데 편집 창이 남아 있다")
+        end
+        if not DebindFrame:IsShown() then
+            return Fail(NAME, "메인 창까지 닫혔다")
+        end
+        if action.value ~= "/say two" then
+            return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
+        end
+
+        -- 검색어를 지우면 행은 돌아온다. 편집 창은 안 돌아온다 - 여는 것은 사용자가 한다.
+        TypeInto(searchBox, "")
+        if DebindMacroFrame:IsShown() then
+            return Fail(NAME, "검색어를 지웠더니 편집 창이 혼자 다시 열렸다")
+        end
+
+        return Pass(NAME, "걸러지면서 닫혔고, 본문은 저장됐고, 혼자 안 돌아왔다")
+    end,
+})
+
+RegisterTest("Macro editor: opening the spell picker closes it", {
+    description = "주문 선택 창이 뜨면 그 아래 깔릴 편집 창과 팝업이 먼저 닫히는가",
+    run = function()
+        local NAME = "Macro picker"
+
+        local action, box = OpenMacroEditor("/say one")
+        AddTeardown(function() DebindSpellPickerFrame:Hide() end)
+
+        DebindMacroFrame:EditNameIcon_OnClick()
+        TypeInto(box, "/say two")
+
+        DebindSpellPickerFrame:Show()
+
+        if DebindIconSelectorFrame:IsShown() then
+            return Fail(NAME, "이름·아이콘 팝업이 남아 있다")
+        end
+        if DebindMacroFrame:IsShown() then
+            return Fail(NAME, "편집 창이 남아 있다 - 주문 선택 창이 그 아래에 깔린다")
+        end
+        if action.value ~= "/say two" then
+            return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
+        end
+
+        return Pass(NAME, "둘 다 닫혔고 본문은 남았다")
+    end,
+})
+
+-----------------------------------------------------------
 -- Test Cases: The export window counts what actually leaves
 --
 -- **This is the one the headless specs cannot reach.** They check the payload, and separately the
