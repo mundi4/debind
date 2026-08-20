@@ -231,13 +231,17 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 					if (t.attr) then
 						DefaultClickFrame:SetAttribute(t.attr, s)
 					end
+					-- No "did the text change" guard around this. The pass already parsed the
+					-- previous `CustomStateExpressions[t.state]` before reaching here, so the
+					-- parse below is what the newly composed text needs; skipping it when the
+					-- text is unchanged would save one call, and this only runs because
+					-- something the text depends on went dirty, so unchanged is the rare case.
+					-- It stood as `if (true or ... ~= s)`, which read as a guard and was not one.
 					if (t.state) then
-						if (true or CustomStateExpressions[t.state] ~= s) then
-							CustomStateExpressions[t.state] = s
-							local newValue = SecureCmdOptionParse(s) and true or false
-							if (States[t.state] ~= newValue) then
-								self:RunAttribute("SetCustomState", t.state, newValue, true)
-							end
+						CustomStateExpressions[t.state] = s
+						local newValue = SecureCmdOptionParse(s) and true or false
+						if (States[t.state] ~= newValue) then
+							self:RunAttribute("SetCustomState", t.state, newValue, true)
 						end
 					end
 				--end

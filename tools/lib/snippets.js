@@ -118,7 +118,14 @@ function collectBodies(src, openParen, snippetLocals) {
  * 호출로 오해하면 안 된다. 그리고 5.1 토큰 검사에서 - 메시지 안의 색 코드("|cffff6666")를
  * 비트 or로 읽으면 안 된다.
  */
-function blankNonCode(src) {
+/**
+ * Blanks comments and string contents to spaces, keeping every other position and every newline.
+ *
+ * `commentStarts`, when given an array, collects the index each comment opens at. That is the one
+ * thing the mask alone cannot answer afterwards: a blanked run could have been a comment or a
+ * string, and telling a trailing comment from a `"--"` inside a literal needs to know which.
+ */
+function blankNonCode(src, commentStarts) {
     const out = Array.from(src);
     const blank = (from, to) => {
         for (let k = from; k < to && k < out.length; k++) {
@@ -129,6 +136,7 @@ function blankNonCode(src) {
     let i = 0;
     while (i < src.length) {
         if (src.substr(i, 2) === "--") {
+            if (commentStarts) commentStarts.push(i);
             const long = readLongString(src, i + 2);
             const end = long ? long.next : (src.indexOf("\n", i) < 0 ? src.length : src.indexOf("\n", i));
             blank(i, end);

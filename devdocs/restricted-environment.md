@@ -54,19 +54,26 @@ to find one thing, composing strings, and a layer of indirection added for reada
 
 ## Comments in a body
 
-**Only whole-line comments, and only in a body that goes through `BakeSnippet`.**
+**Whole-line comments only. Never one at the end of a line of code.**
 
 `StripSnippetComments` blanks a line only when the whole line is a comment (`^[ \t]*%-%-`).
 Everything else is carried through verbatim, which makes three things true:
 
 - **Never put a comment at the end of a line of code.** `local a = 1 -- note` survives, and if the
-  next chunk is concatenated onto that same line it lands inside the comment and is gone. Silently:
-  `check-snippets` still sees a body that parses.
-- Opening a line with `--[[` is refused by an `assert`.
-- A body that never reaches `BakeSnippet` — a string passed straight to `SecureHandlerExecute` —
-  keeps every comment, whole-line ones included. Put none there at all.
+  next chunk is concatenated onto that same line it lands inside the comment and is gone. This is
+  the one that has to hold everywhere, baked or not, and `check:snippets` refuses it — nothing else
+  could, since the body still parses and the golden shows it stripped.
+- Opening a line with `--[[` is refused by an `assert`, in a body that is baked. In one that is
+  not, it is an ordinary long comment and nothing objects.
+- **A body that never reaches `BakeSnippet` ships every comment it has.** Most bodies here are
+  that — a string handed straight to `SecureHandlerExecute` or `SetAttribute`, with only
+  `InstallSnippet` and the two explicit `BakeSnippet(...)` calls going through the strip. Whole-line
+  comments are fine there and plenty of them are deliberate; they cost bytes and a one-time parse
+  and nothing per run. What is not fine there is the same thing that is not fine anywhere: a
+  comment sharing a line with code.
 
-Explanations belong in the Lua comment above the body, not inside it.
+Explanations belong in the Lua comment above the body when the reasoning is long. Inside the body,
+keep to what a reader of that line needs.
 
 ## Why the failures are quiet
 

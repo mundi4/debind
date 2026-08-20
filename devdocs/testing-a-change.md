@@ -43,6 +43,11 @@ key stopped working". The checker finds bodies by call name; the list is `CALLS`
 `tools/lib/snippets.js`. **If you pass a body to a function that is not in that list, that snippet
 silently leaves every check.** Watch the count.
 
+It also refuses a comment at the end of a line of code, which is the one comment rule that holds in
+every body (`restricted-environment.md`). Nothing else could see it: the body still parses, and the
+golden below bakes every body — so in one of the many that are **not** baked in the game, the golden
+would show the line stripped while the game gets the comment.
+
 **`check:snippet-golden`** records what each body bakes to and compares on every run. It exists
 because the bake is where injection for testing attaches, and the claim that injection costs a
 shipped build nothing is not one to verify by eye.
@@ -53,6 +58,10 @@ Two rules follow from how probes bake:
   the golden **not at all**
 - a probe that vanishes in a shipped build leaves the blank line its source line occupied, so the
   golden gains **one blank line per probe** and nothing else
+
+Both of those rest on the bake being line for line: one line of source, one line of body, comments
+emptied rather than removed. A diff where the line count moved is a diff where something other than
+a probe changed.
 
 Anything beyond that means the live table is changing bodies. If you edited a body deliberately,
 `node tools/check-snippet-golden.js --update` and read the diff.

@@ -82,6 +82,28 @@ function lua51Violation(source) {
     return null;
 }
 
+// **줄 끝 주석은 어느 본문에서도 금지고, 이것 말고는 그걸 보는 검사가 없다.**
+//
+// `StripSnippetComments`는 줄 전체가 주석인 줄만 비우므로 `local a = 1 -- note`는 그대로
+// 살아남고, 다음 조각이 그 줄에 이어 붙으면 주석 안으로 들어가 사라진다. 파싱은 여전히 되니
+// 위쪽 검사들은 아무 말도 안 한다.
+//
+// **골든도 못 본다.** 그쪽은 본문을 전부 구워서 잠그는데 실제로 구워지는 본문은 몇 개뿐이라,
+// 안 굽는 본문에 줄 끝 주석을 넣으면 골든에는 깎인 모습이 찍히고 게임은 주석을 받는다.
+//
+// 원문에서 본다. 구운 뒤에는 주석이 없으므로 볼 것이 없고, 규칙은 굽든 안 굽든 같다.
+function trailingComment(body) {
+    const starts = [];
+    const masked = blankNonCode(body, starts);
+    for (const at of starts) {
+        const lineStart = masked.lastIndexOf("\n", at - 1) + 1;
+        if (masked.slice(lineStart, at).trim() !== "") {
+            return `${body.slice(0, at).split("\n").length}번째 줄`;
+        }
+    }
+    return null;
+}
+
 const L = lauxlib.luaL_newstate();
 lualib.luaL_openlibs(L);
 
@@ -118,6 +140,15 @@ forEachSnippet(srcDir, ({ file, line, call, label, body }) => {
     checked++;
     const name = `${file}:${line} ${call}`;
     const where = `${name}${label ? ` (${label})` : ""}`;
+
+    const trailing = trailingComment(body);
+    if (trailing) {
+        console.log(`${where}\n    ${trailing}에 줄 끝 주석이 있다. 스니펫 본문에서는 금지다 - `
+            + `그 줄에 다음 조각이 이어 붙으면 주석 안으로 들어가 조용히 사라진다. `
+            + `줄 전체 주석으로 옮길 것`);
+        failed++;
+        return;
+    }
 
     for (const [stage, prepare] of STAGES) {
         let source;

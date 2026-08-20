@@ -129,21 +129,17 @@ function DebindPrivate.StripSnippetComments(str)
 		pos = nl + 1;
 	end
 
+	-- A body ending in a newline has one more line after it, and the loop stops before reaching
+	-- it. Emitting it keeps one line in / one line out, which is what stops `BakeSnippet(a) .. b`
+	-- from putting b's first line on a's last. Lua drops the newline that follows `[[`, so b does
+	-- not bring one of its own, and the join would be silent.
+	if (len > 0 and str:sub(len, len) == "\n") then
+		out[#out + 1] = "";
+	end
+
 	return table.concat(out, "\n");
 end
 
---- Snippet bodies are strings, so anything the restricted environment cannot reach has to be
---- folded in before the body is handed to `SetAttribute`. This is where that folding lives.
----
---- It sits here rather than in `SecureBindings.lua` because `UpdateBindings.lua` generates
---- snippet text too, and both have to fold the same way from the same table.
----
---- **반드시 값 하나만 돌려준다.** `gsub`은 (문자열, 치환횟수)를 주는데, 그걸 그대로 흘리면
---- 마지막 인자 자리에서 남는 값이 다음 매개변수로 들어간다. `SetAttribute(name, body)`는
---- 남는 인자를 무시해서 표가 안 났지만, `SecureHandlerWrapScript(f, script, header, preBody,
---- postBody)`에서는 치환 횟수가 postBody가 되어 "Invalid post-handler body"로 터진다.
---- 그리고 그 오류는 **파일의 나머지를 통째로 중단시킨다** - 뒤따르는 속성들이 전부 정의되지
---- 않은 채로 게임이 계속 돌아서, 증상이 엉뚱한 곳(FrameRegistry의 OnEnter 래핑)에서 난다.
 --- What each `PROBE.<name>(...)` becomes in a shipped build.
 ---
 --- The point of writing them as probes at all is that they are **the plain call and nothing
@@ -246,6 +242,18 @@ function DebindPrivate.RebakeSnippets()
 	return true;
 end
 
+--- Snippet bodies are strings, so anything the restricted environment cannot reach has to be
+--- folded in before the body is handed to `SetAttribute`. This is where that folding lives.
+---
+--- It sits here rather than in `SecureBindings.lua` because `UpdateBindings.lua` generates
+--- snippet text too, and both have to fold the same way from the same table.
+---
+--- **Returns exactly one value.** `gsub` gives back (string, count), and letting that through in
+--- an argument position hands the count to the next parameter. `SetAttribute(name, body)` ignores
+--- a spare argument and so said nothing, but `SecureHandlerWrapScript(f, script, header, preBody,
+--- postBody)` took the count as `postBody` and raised "Invalid post-handler body". That error
+--- **aborts the rest of the file** -- every attribute below it goes undefined while the game
+--- carries on, so the symptom surfaces somewhere else entirely (`FrameRegistry`'s OnEnter wrap).
 function DebindPrivate.BakeSnippet(str)
 	local probes = (DebindPrivate.SnippetProbes and DebindPrivate.SnippetProbes.expand)
 		or DebindPrivate.SNIPPET_PROBES_LIVE;

@@ -1,6 +1,7 @@
 ### CustomStates.lua #1 SecureHandlerExecute
     debind_driver = self:GetFrameRef("debind_driver")
 
+
 ### CustomStates.lua #2 SetAttribute
     local num = tonumber(name)
     if (num) then
@@ -27,6 +28,7 @@
 
     debind_driver:RunAttribute("SetCustomState", name, value and true or false)
 
+
 ### CustomStates.lua #3 SetAttribute
     local MAX_NUM_CUSTOM_STATES = %d
     
@@ -50,9 +52,11 @@
         end
     end
 
+
 ### Debind.lua #1 SecureHandlerExecute
 	DelegateFrames = newtable()
 	DelegateFrameNames = newtable()
+
 
 ### Debind.lua #2 SecureHandlerExecute
 local frame = self:GetFrameRef("clickFrame")
@@ -62,6 +66,7 @@ if (unit) then
 end
 DelegateFrames[frame:GetName()] = frame
 DelegateFrameNames[frame] = frame:GetName()
+
 
 ### Flyout.lua #1 SecureHandlerWrapScript
  return nil, "close" 
@@ -183,6 +188,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	UnitAliasNeedsExists = newtable()
 
 
+
 ### SecureBindings.lua #2 SetAttribute (DEBUG=on)
 
 
@@ -240,19 +246,24 @@ DelegateFrameNames[frame] = frame:GetName()
 					if (t.attr) then
 						DefaultClickFrame:SetAttribute(t.attr, s)
 					end
+
+
+
+
+
+
 					if (t.state) then
-						if (true or CustomStateExpressions[t.state] ~= s) then
-							CustomStateExpressions[t.state] = s
-							local newValue = SecureCmdOptionParse(s) and true or false
-							if (States[t.state] ~= newValue) then
-								self:RunAttribute("SetCustomState", t.state, newValue, true)
-							end
+						CustomStateExpressions[t.state] = s
+						local newValue = SecureCmdOptionParse(s) and true or false
+						if (States[t.state] ~= newValue) then
+							self:RunAttribute("SetCustomState", t.state, newValue, true)
 						end
 					end
 
 			end
 		end
 	end
+
 
 
 
@@ -315,19 +326,24 @@ DelegateFrameNames[frame] = frame:GetName()
 					if (t.attr) then
 						DefaultClickFrame:SetAttribute(t.attr, s)
 					end
+
+
+
+
+
+
 					if (t.state) then
-						if (true or CustomStateExpressions[t.state] ~= s) then
-							CustomStateExpressions[t.state] = s
-							local newValue = SecureCmdOptionParse(s) and true or false
-							if (States[t.state] ~= newValue) then
-								self:RunAttribute("SetCustomState", t.state, newValue, true)
-							end
+						CustomStateExpressions[t.state] = s
+						local newValue = SecureCmdOptionParse(s) and true or false
+						if (States[t.state] ~= newValue) then
+							self:RunAttribute("SetCustomState", t.state, newValue, true)
 						end
 					end
 
 			end
 		end
 	end
+
 
 
 
@@ -357,10 +373,12 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
+
 ### SecureBindings.lua #5 SetAttribute
 	local name = ...
 	local value = not States[name]
 	return self:RunAttribute("SetCustomState", name, not States[name])
+
 
 ### SecureBindings.lua #6 SetAttribute
 	local alias, unit, force = ...
@@ -408,6 +426,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return dirty;
 
+
 ### SecureBindings.lua #7 SetAttribute
 	self:RunAttribute("SetUnit", "tank", UnitAliasMap["tank"], true)
 	self:RunAttribute("SetUnit", "healer", UnitAliasMap["healer"], true)
@@ -416,6 +435,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:RunAttribute("SetUnit", "custom1", UnitAliasMap["custom1"], true)
 	self:RunAttribute("SetUnit", "custom2", UnitAliasMap["custom2"], true)
 	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
+
 
 ### SecureBindings.lua #8 SetAttribute
 
@@ -593,12 +613,14 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	wipe(DirtyFlags)
 
+
 ### SecureBindings.lua #10 SetAttribute
 	local button = self
 	ccframes[button] = ccframes[button] or newtable()
 	ccframes[button].frame = button
 	ccframes[button].frameType = 0
 	ccframes[button].reaction = 0
+
 
 
 
@@ -619,6 +641,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 	ccframes[button] = nil
 
+
 ### SecureBindings.lua #12 SetAttribute
 	local info = ccframes[self]
 	local _, _, w, h = self:GetRect()
@@ -630,6 +653,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		info.t = 1 - info.insetT / h
 		info.b = info.insetB / h
 	end
+
 
 ### SecureBindings.lua #13 SetAttribute
 	local unit = self:GetEffectiveAttribute("unit")
@@ -663,6 +687,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
+
 ### SecureBindings.lua #14 SetAttribute
 	local unitframe = States.unitframe
 	if (not unitframe) then return end
@@ -673,11 +698,14 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	end
 
+
 ### SecureBindings.lua #15 SetAttribute
 	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
 
+
 ### SecureBindings.lua #16 SetAttribute
 	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onleave"))
+
 
 ### SecureBindings.lua #17 SetAttribute
 		return danglingButton and danglingButton:GetAttribute("unit") or nil
@@ -1057,6 +1085,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	HandoffWinner = winner
 	HandoffHoverUnit = hoverUnit
 	return "debind1"
+
 
 ### SecureBindings.lua #23 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
@@ -1553,6 +1582,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
+
 ### SecureBindings.lua #24 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
@@ -2045,6 +2075,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	return winner.clickbutton
 
+
 ### SecureBindings.lua #25 InstallSnippet
 
 
@@ -2061,6 +2092,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	self:SetAttribute("pressAndHoldAction", nil)
 	self:SetAttribute("useOnKeyDown", nil)
+
 
 ### SecureBindings.lua #26 InstallSnippet
 		local button = ...
@@ -2687,6 +2719,7 @@ DelegateFrameNames[frame] = frame:GetName()
     unitMap = newtable()
     CUSTOM_TARGET_VALID_UNIT_TOKENS = newtable()
 
+
 ### UnitWatch.lua #2 SecureHandlerExecute
 self:RunAttribute("OnGroupRosterChanged", true)
 
@@ -2718,6 +2751,7 @@ self:RunAttribute("OnGroupRosterChanged", true)
             end
         end
     end
+
 
 ### UnitWatch.lua #5 SecureHandlerWrapScript
         unitwatch:SetAttribute("grouproster_uptodate", false)
@@ -2788,6 +2822,7 @@ self:RunAttribute("OnGroupRosterChanged", true)
         end
 	end
 
+
 ### UnitWatch.lua #7 SecureHandlerWrapScript
         local alias = self:GetAttribute("alias")
         local value = button
@@ -2830,6 +2865,7 @@ wipe(CustomStateExpressions)
 local hovered = States.unitframe
 wipe(States)
 States.unitframe = hovered
+
 
 ### UpdateBindings.lua #2 SecureHandlerExecute
 self:RunAttribute("SetUnit", %q, nil)
