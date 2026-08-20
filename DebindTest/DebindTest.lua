@@ -2939,6 +2939,57 @@ RegisterTest("Custom state toggle flips the value", {
     end,
 })
 
+-- **기억한 값이 어느 캐릭터의 것이 되느냐.** 정의는 계정 전체가 나눠 쓰고 값은 이 캐릭터의
+-- 것인데(`devdocs/redesigning-custom-states.md` §5), 값이 정의로 돌아가면 "기억하기"가 다시
+-- **마지막에 로그아웃한 캐릭터가 남긴 값 기억하기**가 된다.
+--
+-- **헤드리스가 못 본다.** 쓰는 자리가 `C_Timer.After(0)`으로 오는 미러이고
+-- (`SwitchesChangedCallback`, `Misc.lua`), 러너에는 그 타이머가 없다. 틀려도 조용하다 -
+-- 이번 세션은 멀쩡히 돌고, 값이 어긋난 것은 다음 로그인에 다른 캐릭터로 들어가야 보인다.
+--
+-- **미러 입구부터 본다.** 제한 환경에서 여기까지 오는 사슬은 바로 위 테스트가 끝까지 보므로,
+-- 여기서 다시 세우면 같은 것을 두 번 재면서 전투 중에 못 도는 케이스만 하나 늘어난다.
+RegisterTest("Switch value is remembered per character", {
+    description = "전환이 남기는 기억값이 계정이 아니라 이 캐릭터에 쓰이는지",
+    run = function()
+        local NAME = "Switch value scope"
+        local MODES = Constants.SWITCH_MODES
+
+        local savedValues = DebindPrivate.db.char.switches
+        if not savedValues then
+            return Fail(NAME, "이 캐릭터에 스위치 값을 둘 표가 없다 - InitDB가 안 만들었다")
+        end
+
+        local savedDefinition = DebindPrivate.Switches["$state4"]
+        local savedStored = savedValues["$state4"]
+        AddTeardown(function()
+            DebindPrivate.Switches["$state4"] = savedDefinition
+            savedValues["$state4"] = savedStored
+        end)
+
+        -- **되돌릴 값이 없는 수동**, 곧 "기억하기". 값을 저장하는 유일한 모드다.
+        local options = { mode = MODES.MANUAL, value = false }
+        DebindPrivate.Switches["$state4"] = options
+        savedValues["$state4"] = nil
+
+        DebindPrivate.OnSwitchChanged("$state4", true)
+        coroutine.yield(0)
+
+        if savedValues["$state4"] ~= true then
+            return Fail(NAME, format("이 캐릭터에 안 쓰였다 (%s)", tostring(savedValues["$state4"])))
+        end
+        -- 정의는 계정 전체가 나눠 쓴다. 여기에 값이 남으면 다음 캐릭터가 그걸 물려받는다.
+        if options.savedValue ~= nil then
+            return Fail(NAME, "정의에도 값이 남았다 - 계정 전체가 그 값을 나눠 갖는다")
+        end
+        if options.value ~= true then
+            return Fail(NAME, "창이 읽는 값이 안 따라왔다")
+        end
+
+        return Pass(NAME, "값은 캐릭터에, 정의는 그대로")
+    end,
+})
+
 -- **이름이 `$state1`~`$state5`를 벗어난 첫 자리.** 코드젠이 `SWITCH_INDICES`에 없는 이름을
 -- 문 앞에서 돌려보냈고, 그래서 조건에 그런 이름이 있어도 굽히는 것이 아무것도 없었다. 문이
 -- 사라진 뒤에 이름을 가르는 것은 정의가 있느냐 하나뿐이다.

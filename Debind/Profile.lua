@@ -519,9 +519,13 @@ end
 --- Has anything been set on this definition, or is it the empty one a load used to plant?
 ---
 --- **`value` is not a setting.** `BindDerivedTables` writes it on every load from `resetValue` and
---- `savedValue`, so it is on every definition including the ones nobody ever touched. Everything
---- else on a definition got there because somebody chose it -- `savedValue` included, which is a
---- manual switch having been pressed at least once.
+--- the character's stored value, so it is on every definition including the ones nobody ever
+--- touched. Everything else on a definition got there because somebody chose it.
+---
+--- **Pressing a switch leaves nothing here**, and that is the one thing this cannot answer on its
+--- own. The remembered value sits on the character now, so a switch somebody has used and never
+--- configured looks exactly like one nobody made. `CollectStoredSwitchValues` is what the caller
+--- asks instead.
 local function SwitchIsUntouched(definition)
     for key, value in pairs(definition) do
         if (key == "mode") then
@@ -533,6 +537,65 @@ local function SwitchIsUntouched(definition)
         end
     end
     return true;
+end
+
+--- Every switch name some character remembers a value for.
+---
+--- **Having a value is evidence the switch was used**, and after the `dbver` 6 move it is the only
+--- evidence left for one nobody configured (`SwitchIsUntouched`). Reading it back out of the
+--- characters rather than remembering what the move just wrote is what keeps that step safe to run
+--- twice: the answer is derived from the shape the step produces, not from the one it consumed.
+local function CollectStoredSwitchValues(db, charEntry, out)
+    for _, entry in pairs(db.characters) do
+        for name in pairs(entry.switches or {}) do
+            out[name] = true;
+        end
+    end
+    if (charEntry) then
+        for name in pairs(charEntry.switches or {}) do
+            out[name] = true;
+        end
+    end
+end
+
+--- The remembered value leaves the account table and lands on the characters.
+---
+--- **`db.characters` is inside the account file and all of it is in memory on every login**, so
+--- the design's "each character migrates on its own first login" does not hold here -- the ladder
+--- runs once per account. What that one pass can reach is every entry that already exists plus the
+--- character logging in, and between them they cover everyone who could notice: an alt with no
+--- entry has no character-specific anything, which is the case the entry is lazily withheld for.
+---
+--- **Copied to all of them rather than to one.** Handing the value only to the character present
+--- would silently flip the switch off on every other one at their next login, and which key does
+--- what hangs off that. They diverge from here on, which is the point of the move.
+---
+--- **A value already on a character wins.** Nothing on the ordinary path has one -- `dbver` 5 data
+--- has nowhere to keep it -- but `Legacy.lua` runs this at PLAYER_LOGIN on an account that has been
+--- writing values since it was installed, and the account share it carries is older than any of
+--- them. Whichever value arrives, the one the user set on that character is the newer answer.
+local function MoveSavedValues(db, switches, charEntry)
+    local function Give(entry, name, value)
+        entry.switches = entry.switches or {};
+        if (entry.switches[name] == nil) then
+            entry.switches[name] = value;
+        end
+    end
+
+    for index, definition in pairs(switches) do
+        if (luatype(definition) == "table" and definition.savedValue ~= nil) then
+            local name = Constants.SWITCH_NAMES[index];
+            if (name) then
+                for _, entry in pairs(db.characters) do
+                    Give(entry, name, definition.savedValue);
+                end
+                if (charEntry) then
+                    Give(charEntry, name, definition.savedValue);
+                end
+            end
+            definition.savedValue = nil;
+        end
+    end
 end
 
 --- The switch definitions, which sit at the top of the global table rather than inside a layer.
@@ -549,9 +612,13 @@ end
 --- to know which switches the layers still name. On the `ImportAccount` path this character's own
 --- pre-rename layers have not arrived yet (`ImportCharacter` runs after), so a definition used
 --- only there is judged on whether anything was ever set on it. That is enough for a switch the
---- user actually used: pressing one writes `savedValue`, and both of the other modes write a field
---- of their own.
-local function MigrateSwitches(db, dbver)
+--- user actually used: pressing one leaves a remembered value, and both of the other modes write a
+--- field of their own.
+---
+--- **`charEntry` is this character's entry, and it is handed in because it may not be in
+--- `db.characters` yet** -- `InitDB` withholds an entry until there is something in it. Without it
+--- the remembered value would reach every alt that has an entry and miss the person logging in.
+local function MigrateSwitches(db, dbver, charEntry)
     if (dbver <= 5) then
         -- **아직 안 나간 단계다** - `MigrateLayer`의 같은 단계 주석을 볼 것.
         --
@@ -604,15 +671,24 @@ local function MigrateSwitches(db, dbver)
             -- 로그인마다 돈다면, 사용자가 지운 스위치가 참조 때문에 돌아오거나 아직 아무 데도
             -- 안 건 새 스위치가 사라진다 (`devdocs/redesigning-custom-states.md` §9-3).
             --
-            -- 지우는 것은 **손댄 적도 없고 참조도 없는** 것뿐이다. 둘 중 하나라도 있으면 남는다:
-            -- 설정을 해뒀는데 아직 아무 액션에도 안 건 스위치가 조용히 사라지면 안 되고, 조건이
-            -- 거는 이름의 정의가 사라지면 그 조건은 영영 거짓인 채로 남는다.
-            local referenced = {};
-            CollectReferencedSwitches(db, referenced);
+            -- 지우는 것은 **손댄 적도 없고, 참조도 없고, 어느 캐릭터도 값을 기억하지 않는**
+            -- 것뿐이다. 셋 중 하나라도 있으면 남는다: 설정을 해뒀는데 아직 아무 액션에도 안 건
+            -- 스위치가 조용히 사라지면 안 되고, 조건이 거는 이름의 정의가 사라지면 그 조건은
+            -- 영영 거짓인 채로 남는다.
+            --
+            -- **값을 옮기는 것이 먼저다.** 옮기고 나면 눌러보기만 한 스위치의 정의에는 모드
+            -- 하나만 남아 손 안 댄 것과 모양이 같아진다. 눌러본 증거를 계정이 아니라 캐릭터
+            -- 쪽에서 읽는 것이 그것을 받는 자리이고(`CollectStoredSwitchValues`), 옛 판정을
+            -- 그대로 뒀으면 실제로 쓰던 스위치가 값을 옮긴 바로 그 단계에 지워졌다.
+            MoveSavedValues(db, switches, charEntry);
+
+            local keep = {};
+            CollectReferencedSwitches(db, keep);
+            CollectStoredSwitchValues(db, charEntry, keep);
 
             for index, definition in pairs(switches) do
                 local name = Constants.SWITCH_NAMES[index];
-                if (luatype(definition) == "table" and name and not referenced[name]
+                if (luatype(definition) == "table" and name and not keep[name]
                         and SwitchIsUntouched(definition)) then
                     switches[index] = nil;
                 end
@@ -635,17 +711,17 @@ DebindPrivate.MigrateSwitches  = MigrateSwitches;
 --- The paths that join late (pre-rename SavedVariables, someone else's export file) **arrive
 --- carrying their own version and are raised to the current one before being attached**
 --- (`Legacy.lua`). Once attached, everything is on the same version.
-local function MigrateDB(db)
+local function MigrateDB(db, charEntry)
     local dbver = db.dbver;
     if (dbver >= Constants.DB_VERSION) then
         return;
     end
 
     MigrateShared(db.shared, dbver);
-    for _, charEntry in pairs(db.characters) do
-        MigrateSpecTable(charEntry.layers, dbver);
+    for _, entry in pairs(db.characters) do
+        MigrateSpecTable(entry.layers, dbver);
     end
-    MigrateSwitches(db, dbver);
+    MigrateSwitches(db, dbver, charEntry);
 
     db.dbver = Constants.DB_VERSION;
 end
@@ -699,8 +775,16 @@ end
 --- Does this character entry hold any **content**? The identity fields (`name`, `class`,
 --- `lastSeen`, …) do not count - we write those ourselves on every login, so treating them as
 --- content would give every single alt an entry.
+---
+--- **Everything a character can hold has to be listed here**, and the one that is missing is
+--- silent: `CleanUpDB` detaches the whole entry on the way out, so a character whose only content
+--- this does not recognise loses it at logout rather than at the write, with nothing said either
+--- time (`devdocs/redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
 local function HasCharContent(entry)
     if (entry.CustomTargets and next(entry.CustomTargets) ~= nil) then
+        return true;
+    end
+    if (entry.switches and next(entry.switches) ~= nil) then
         return true;
     end
     local layers = entry.layers;
@@ -790,6 +874,12 @@ end
 --- keeps the index keys it has always had - moving those is a format change and this step does not
 --- carry one - so the two are joined here and nowhere else.
 ---
+--- **The remembered value comes off this character, not off the definition.** The definition is
+--- account-wide and a name raises an expectation of scope that a number never did, so "remember"
+--- used to mean "remember what the character who logged out last left" (§5 of
+--- `devdocs/redesigning-custom-states.md`). Keyed by name because that is what everything asking
+--- for a switch says, and because the five numbers stop being the whole list at stage 4.
+---
 --- **Nothing is created.** A row is a switch somebody made; five empty ones were being planted on
 --- every load, which put a row under a name the user never touched and would have filled §6-B's
 --- list with blanks for people who have never used the feature
@@ -805,6 +895,8 @@ function DebindPrivate.BindDerivedTables()
     db.switches = db.switches or {};
     DebindPrivate.Switches = {};
 
+    local savedValues = DebindPrivate.db.char.switches;
+
     for index, switchOptions in pairs(db.switches) do
         local name = Constants.SWITCH_NAMES[index];
         if (name) then
@@ -815,7 +907,7 @@ function DebindPrivate.BindDerivedTables()
                 if (switchOptions.resetValue ~= nil) then
                     switchOptions.value = switchOptions.resetValue;
                 else
-                    switchOptions.value = switchOptions.savedValue and true or false;
+                    switchOptions.value = savedValues[name] and true or false;
                 end
             else
                 switchOptions.value = switchOptions.value or false;
@@ -844,7 +936,7 @@ local function StandDown()
     DebindPrivate.playerGUID = UnitGUID("player");
     DebindPrivate.db = {
         global = { shared = { classes = {} }, characters = {}, migrated = {} },
-        char = { layers = {} },
+        char = { layers = {}, switches = {} },
     };
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
@@ -898,16 +990,21 @@ function DebindPrivate.InitDB()
     -- Which characters have already had the pre-rename SavedVariables pulled across. `Legacy.lua`.
     db.migrated = db.migrated or {};
 
-    MigrateDB(db);
-
     -- **Lazy creation.** If there is no entry we hand out a **detached** table rather than putting
     -- one in `characters`. Attaching it is `CleanUpDB`'s job, once there is something in it. An alt
     -- that never used a character-specific binding therefore never gets an entry in the account
     -- file - one of the two things bounding how far deleted characters can pile up (the other is
     -- removing empty entries, in the same place).
+    --
+    -- **Made before the migration rather than after**, because a step can have something to write
+    -- here: `MigrateSwitches` hands this character the remembered switch values that used to sit on
+    -- the account table, and a detached entry is the one place it could not otherwise reach.
     local guid = UnitGUID("player");
     local charEntry = db.characters[guid] or {};
     charEntry.layers = charEntry.layers or {};
+    charEntry.switches = charEntry.switches or {};
+
+    MigrateDB(db, charEntry);
 
     DebindPrivate.playerGUID = guid;
     DebindPrivate.db = {

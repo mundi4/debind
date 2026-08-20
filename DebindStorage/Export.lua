@@ -130,16 +130,20 @@ DebindStorage.ACTION_FIELDS = ACTION_FIELDS;
 DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 
 --- Which fields of a switch definition describe the switch, as opposed to what it happens
---- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it from
---- `resetValue`/`savedValue` on every login, so sending it would ship a runtime reading as if
---- it were a setting.
+--- to be doing right now. `value` is deliberately absent: `BindDerivedTables` recomputes it on
+--- every login from `resetValue` and what the character remembers, so sending it would ship a
+--- runtime reading as if it were a setting.
+---
+--- **The remembered value is not on this list and does not belong on it.** It lives on the
+--- character now (`devdocs/redesigning-custom-states.md` §5), and it is one character's on or off
+--- rather than a setting: the person reading the string is not that character. A v1 payload
+--- carries a `savedValue` and nothing reads it.
 ---
 --- **These names are the wire's, and 3.2 wrote the older ones.** A v1 payload carries a numeric
 --- `mode` and `initialValue`, so the step that raises v1 renames them (`BringPayloadForward`).
 local STATE_FIELDS       = {
     mode = true,
     resetValue = true,
-    savedValue = true,
     displayMessage = true,
     expr = true,
 };

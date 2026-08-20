@@ -242,10 +242,16 @@ SEEDS[5] = function(guid)
             blizzframes = {},
         },
 
-        --- Two of the five set up differently, so the switches screen has both modes on it and
-        --- `$state1` above has something to point at. **The other three are not here and do not
+        --- Three of the five set up differently, so the switches screen has both modes on it and
+        --- `$state1` above has something to point at. **The other two are not here and do not
         --- appear**: nothing plants an empty definition any more, and the `dbver` 6 step throws
         --- away the untouched ones this seed's own migration walks past.
+        ---
+        --- **`$state3` is the one the migration has work to do on.** It is a switch somebody
+        --- pressed and never configured, so the whole of it is a `savedValue` sitting on the
+        --- account table - which is what the `dbver` 6 step moves onto the characters and what its
+        --- pruning has to recognise from the other side (`MigrateSwitches`). Without a row like
+        --- this, `/deb seed 5` walks past that step with nothing to carry.
         ---
         --- **The old names and the old numbers, spelled out.** This is the shape `dbver` 5 stored,
         --- and `Constants.SWITCH_MODES` no longer holds a word for it -- reaching for the constant
@@ -255,6 +261,7 @@ SEEDS[5] = function(guid)
         customStates = {
             [1] = { mode = 0, initialValue = true, displayMessage = true },
             [2] = { mode = 3, expr = "[combat]" },
+            [3] = { mode = 0, savedValue = true },
         },
     };
 end;
@@ -457,6 +464,11 @@ SEEDS[6] = function(guid)
                             name = "Say character spec one", key = "SHIFT-F4", seq = 1 },
                     },
                 },
+                --- **The remembered switch value, and it belongs to this character alone.** An alt
+                --- on the same account comes up with `$state3` off, which is the whole point of it
+                --- living here rather than next to the definition (§5 of
+                --- `devdocs/redesigning-custom-states.md`).
+                switches = { ["$state3"] = true },
             },
         },
 
@@ -472,14 +484,19 @@ SEEDS[6] = function(guid)
             blizzframes = {},
         },
 
-        --- Two of the five set up differently, so the switches screen has both modes on it and
-        --- `$state1` above has something to point at. **The other three are simply absent** - a
+        --- Three of the five set up differently, so the switches screen has both modes on it and
+        --- `$state1` above has something to point at. **The other two are simply absent** - a
         --- definition is a switch somebody made, and nothing plants empty ones
         --- (`BindDerivedTables`).
+        ---
+        --- **`$state3` looks like an empty definition and is not one.** It remembers rather than
+        --- resetting (`resetValue` absent), and everything that says somebody used it is the value
+        --- on the character above. That split is what the seed above turns into when it migrates.
         switches = {
             [1] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                 displayMessage = true },
             [2] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+            [3] = { mode = Constants.SWITCH_MODES.MANUAL },
         },
     };
 end;

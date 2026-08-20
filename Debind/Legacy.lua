@@ -178,7 +178,10 @@ local function ImportAccount(db, old)
     -- in a layer, so nothing above raises one. And nothing below will: this runs at PLAYER_LOGIN,
     -- long after `MigrateDB` stamped `db.dbver` at the current version, so the ladder never comes
     -- round again and the old shape would sit there being read as the new one.
-    DebindPrivate.MigrateSwitches(db, dbver);
+    --
+    -- **This character's entry goes with it**, because the step moves the remembered switch values
+    -- onto the characters and the account share is where the old ones ride in.
+    DebindPrivate.MigrateSwitches(db, dbver, DebindPrivate.db.char);
 end
 
 --- This character's share: `DebounceVarsPerChar` -> `DebindVars.characters[guid]`.

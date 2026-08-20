@@ -1868,7 +1868,14 @@ local _changedStates = {};
 --- `devdocs/redesigning-custom-states.md` rules out. The switch still works for this session: the
 --- value lives in the restricted environment's `States`, and what is missing is only the memory of
 --- it across a reload.
+---
+--- **The remembered value goes on the character, the live one on the definition.** The definition
+--- is account-wide, and while the memory sat there too "remember" meant "remember what the
+--- character who logged out last left" (§5 of `devdocs/redesigning-custom-states.md`). Which value
+--- gets remembered is unchanged - stage 5 is what simplifies that rule.
 local function SwitchesChangedCallback()
+    local savedValues = DebindPrivate.db.char.switches;
+
     for state, newValue in pairs(_changedStates) do
         local options = DebindPrivate.ResolveSwitchDefinition(state);
         if (options) then
@@ -1882,7 +1889,7 @@ local function SwitchesChangedCallback()
             end
 
             options.value = newValue;
-            options.savedValue = savedValue;
+            savedValues[state] = savedValue;
 
             if (_lastSwitchValues[state] ~= newValue) then
                 _lastSwitchValues[state] = newValue;

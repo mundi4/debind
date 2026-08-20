@@ -1256,13 +1256,20 @@ return function(DebindPrivate)
     -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
     -- 두 번째 바퀴가 문자열 `mode`를 숫자로 못 읽어 수동으로 떨어뜨리면 계산식 스위치가
     -- 조용히 손으로 켜는 것이 된다.
+    --
+    -- **값을 옮기는 것이 다시 도는 쪽에서 제일 위험하다.** 두 번째 바퀴에는 옮길 것이 안
+    -- 남아 있는데, 걷어내는 쪽이 그것을 계정에서 읽으면 첫 바퀴가 살려둔 정의를 두 번째
+    -- 바퀴가 지운다.
     test("dbver 6 is safe to run twice", function()
         local db = OldSwitchAccount();
-        DebindPrivate.MigrateSwitches(db, 5);
-        DebindPrivate.MigrateSwitches(db, 5);
+        local charEntry = { layers = {}, switches = {} };
+        DebindPrivate.MigrateSwitches(db, 5, charEntry);
+        DebindPrivate.MigrateSwitches(db, 5, charEntry);
         check(db.switches[2].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
         check(db.switches[1].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
         check(db.switches[3].resetValue == false, "두 번째에 false가 뭉개졌다");
+        check(charEntry.switches["$state4"] == true, "두 번째에 기억한 값이 뭉개졌다");
+        check(db.switches[4] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
     end);
 
     ---------------------------------------------------------------------------
@@ -1412,6 +1419,77 @@ return function(DebindPrivate)
         check(db.switches[2].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
         check(DebindPrivate.Switches["$state1"].displayMessage == true,
             "올라온 정의가 살아 있는 표에 안 걸렸다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 6: 기억한 값이 계정에서 캐릭터로
+    --
+    -- **저장되는 값은 하나뿐이다.** 계산식 스위치는 파생값이라 저장할 것이 없고, 남는 것은
+    -- 수동 + "기억하기"(`resetValue == nil`)의 `savedValue` 하나다. 그것이 계정에 앉아 있는
+    -- 동안 "기억하기"는 **마지막에 로그아웃한 캐릭터가 남긴 값 기억하기**였다
+    -- (`devdocs/redesigning-custom-states.md` §5).
+    --
+    -- **`db.characters`는 계정 파일 안에 있고 전부 한꺼번에 메모리에 올라온다.** 그래서
+    -- "캐릭터마다 자기 첫 로그인에 알아서 마이그레이션된다"가 여기서는 성립하지 않는다 -
+    -- 사다리는 계정당 한 번 돈다. 그 한 번에 항목이 있는 캐릭터 전부와 지금 들어온 캐릭터가
+    -- 값을 나눠 받는다.
+    ---------------------------------------------------------------------------
+
+    test("dbver 6 hands the remembered value to this character", function()
+        local db = InitWith(OldSwitchAccount());
+        check(type(DebindPrivate.db.char.switches) == "table", "캐릭터 쪽에 표가 없다");
+        check(DebindPrivate.db.char.switches["$state4"] == true,
+            "기억한 값이 캐릭터로 안 왔다");
+        check(db.switches[4].savedValue == nil,
+            "정의에 값이 남았다 - 두 자리가 같은 것을 말하면 어느 쪽이 답인지가 없다");
+    end);
+
+    -- 항목이 이미 있는 다른 캐릭터도 같은 값을 받는다. 안 받으면 마이그레이션 다음 로그인에
+    -- 스위치가 저 혼자 꺼지고, 그 스위치가 어느 키에 무엇이 걸리는지를 가른다.
+    test("dbver 6 hands the same value to the alts that have an entry", function()
+        local ALT = "Player-1234-0000ABCD";
+        local account = OldSwitchAccount();
+        account.characters[ALT] = {
+            layers = { [0] = { { type = "spell", value = 9, key = "F9", seq = 1 } } },
+        };
+        local db = InitWith(account);
+        check(type(db.characters[ALT].switches) == "table", "다른 캐릭터에 표가 없다");
+        check(db.characters[ALT].switches["$state4"] == true, "다른 캐릭터가 값을 못 받았다");
+    end);
+
+    -- 값을 옮기고 나면 그 정의에 남는 것은 `mode` 하나, 곧 **손 안 댄 기본값과 같은 모양**이다.
+    -- 걷어내는 쪽이 눌러본 증거를 계정이 아니라 캐릭터에서 읽지 않으면, 실제로 쓰던 스위치가
+    -- 값을 옮긴 바로 그 단계에 지워진다.
+    test("dbver 6 keeps a definition whose only trace is the value it moved", function()
+        local db = InitWith(OldSwitchAccount());
+        check(db.switches[4] ~= nil, "눌러본 적 있는 정의가 값을 옮기면서 같이 사라졌다");
+        check(DebindPrivate.Switches["$state4"] ~= nil, "살아 있는 표에서도 사라졌다");
+    end);
+
+    -- 개명 전 SavedVariables를 얹는 길은 이 계정이 **이미 값을 쓰고 있는 동안** 열린다
+    -- (`Legacy.lua`의 `ImportAccount`는 PLAYER_LOGIN에 돈다). 실려 오는 계정 값은 그것들보다
+    -- 오래된 것이라, 덮으면 사용자가 방금 이 캐릭터에서 정한 것이 옛 값으로 되돌아간다.
+    test("dbver 6 does not overwrite a value the character already has", function()
+        local db = OldSwitchAccount();
+        local charEntry = { layers = {}, switches = { ["$state4"] = false } };
+        DebindPrivate.MigrateSwitches(db, 5, charEntry);
+        check(charEntry.switches["$state4"] == false,
+            "이 캐릭터가 정해둔 값이 실려 온 계정 값으로 덮였다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- ⚑4. `HasCharContent`가 새 저장소를 안 세면 값만 저장한 캐릭터의 항목이 로그아웃 한 번에
+    -- 통째로 사라진다. 붙이고 떼는 판정이 그 함수 하나이고(`CleanUpDB`), 떼는 쪽은 조용하다.
+    ---------------------------------------------------------------------------
+
+    test("a character whose only content is a switch value keeps its entry", function()
+        FreshInit();
+        DebindPrivate.db.char.switches = DebindPrivate.db.char.switches or {};
+        DebindPrivate.db.char.switches["$state1"] = true;
+        DebindPrivate.CleanUpDB();
+        local entry = _G.DebindVars.characters[GUID];
+        check(entry ~= nil, "값만 있는 항목이 로그아웃 한 번에 통째로 사라졌다");
+        check(entry.switches["$state1"] == true, "항목은 붙었는데 값이 없다");
     end);
 
     return T;
