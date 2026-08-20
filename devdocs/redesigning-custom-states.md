@@ -999,12 +999,14 @@ picker는 `AddNewAction`에 이름을 nil로 넘기지만 `name`은 전선 필�
 #### 같이 사라지는 것
 
 - `GetSetCustomStateModeAndIndex` — 부르는 데 다섯이 전부 없어진다
-- `SETCUSTOM_MODE_ON` / `OFF` / `TOGGLE` / `MASK` — **`Constants.lua`에서만 사라진다.**
-  값 자체는 두 자리에 리터럴로 남는다. **영구인 v1 어댑터**가 서브테이블을 이 비트팩으로
-  되돌리고(`unifying-action-migration.md` §3-2), 아래 마이그레이션 단계가 그것을 읽는다.
-  `Constants.lua`는 이 판이 아는 이름들이라 죽은 이름을 거기 두면 산 것들 옆에 영원히 앉는다.
-  **단계가 자기 리터럴을 든다**(`0-DECISION-LOG.md` 2026-08-21, 그리고 `NestPayloadConditions`의
-  `checkedUnits`가 이미 같은 이유로 그렇게 서 있다)
+- `SETCUSTOM_MODE_ON` / `OFF` / `TOGGLE` / `MASK` — **`Constants.lua`에서 사라지고,
+  아래 마이그레이션 단계 안에 리터럴로만 남는다.** 그 단계가 프로필에 실제로 저장된 비트팩을
+  풀어야 해서다(`band(value, MASK)`). `Constants.lua`는 이 판이 아는 이름들이라 죽은 이름을
+  거기 두면 산 것들 옆에 영원히 앉는다. **단계가 자기 리터럴을 든다**
+  (`0-DECISION-LOG.md` 2026-08-21, 그리고 `NestPayloadConditions`의 `checkedUnits`가 이미 같은
+  이유로 그렇게 서 있다).
+  **v1 어댑터는 이 값들을 안 쓴다.** 전선이 `mode`를 문자열로 들고 있어서 비트팩을 거칠 이유가
+  없다(`unifying-action-migration.md` §3-2)
 - 전선의 `setstate = { mode, state }` 서브테이블. `type`과 `value` 둘 다 평범한 화이트리스트
   필드라 `BuildAction`의 루프가 그냥 통과시킨다
 - `Export.lua`의 `NormalizeAction` setstate 갈래
