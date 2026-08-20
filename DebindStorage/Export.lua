@@ -132,7 +132,7 @@ local function CopyFields(source, allowed)
     for k, v in pairs(source) do
         -- `$`-prefixed keys pass whether or not they are listed. That is the same escape hatch
         -- `CleanUpDB` uses (`Profile.lua`) -- custom state conditions are stored under their own
-        -- name, and the redesign turns `$state1..5` into arbitrary names (`.zzz/custom-states-redesign.md`).
+        -- name, and the redesign turns `$state1..5` into arbitrary names (`devdocs/redesigning-custom-states.md`).
         -- Listing five and stopping there would silently drop every named state the day it lands.
         if (allowed[k] or strsub(k, 1, 1) == "$") then
             if (luatype(v) == "table") then
@@ -210,7 +210,7 @@ end
 --- puts it outside what red text can see.
 ---
 --- So it goes out on the **name** axis instead: `$state3` rather than 3. `$state1..5` stay valid
---- names after the custom-state rename (`.zzz/custom-states-redesign.md` step 1), so this shape
+--- names after the custom-state rename (`devdocs/redesigning-custom-states.md` step 1), so this shape
 --- survives that change without a schema bump, and it commits nothing about how the profile
 --- stores the value -- that decision is still §9-1's to make.
 ---
@@ -245,7 +245,7 @@ end
 
 --- Every custom state the exported actions name, by name.
 ---
---- Four places hold a reference (`.zzz/custom-states-redesign.md` §3-4) and three of them are
+--- Four places hold a reference (`devdocs/redesigning-custom-states.md` §3-4) and three of them are
 --- reachable from an action: the condition fields on the action itself, a `SETSTATE` value, and
 --- names typed into macro text. The fourth is a state's own `expr` naming another state, which
 --- is why this closes transitively rather than doing one pass.

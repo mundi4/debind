@@ -12,7 +12,7 @@
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
 | **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`showing-off-spec-actions.md` |
 | **다음 (3.2.x)** | 되돌린 버전이 프로필을 깎는 것 막기 | `guarding-against-a-downgrade.md` |
-| **그다음 (3.3)** | 커스텀 상태 재설계<br>action에 `conditions` 도입 | `.zzz/custom-states-redesign.md`<br>`straightening-out-action-and-binding.md` |
+| **그다음 (3.3)** | 커스텀 상태 재설계<br>action에 `conditions` 도입 | `redesigning-custom-states.md`<br>`straightening-out-action-and-binding.md` |
 
 **버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 3.3은 기능 추가라 마이너를
 올리는 자리로, 3.2.x는 고치기만 하는 것이라 패치 자리로 보고 적어둔 것이지 확정된 태그가 아니다.

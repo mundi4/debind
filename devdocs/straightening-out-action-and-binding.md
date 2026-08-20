@@ -220,7 +220,7 @@ SavedVariables는 지우거나 손으로 `dbver`를 4로 내려야 한다.
 §4-1이 3.3에 붙는 이유는 §6에 있다. 둘이 **같은 필드를 옮기고**, 3.3이 `dbver`와
 `SCHEMA_VERSION` 범프를 어차피 치른다.
 
-그리고 `CleanUpDB`의 `$` 탈출구가 둘의 공유 부품이다. `.zzz/custom-states-redesign.md`의 ⚑1에
+그리고 `CleanUpDB`의 `$` 탈출구가 둘의 공유 부품이다. `redesigning-custom-states.md`의 ⚑1에
 따르면 이름 붙은 상태(`action["$pvpzone"]`)가 가지치기에서 살아남는 유일한 이유가 저것인데,
 §4-1이 조건을 중첩하면 가지치기가 한 겹만 훑으므로 탈출구도 같이 내려가야 한다. 따로 내면 같은
 가드를 두 번 고친다.

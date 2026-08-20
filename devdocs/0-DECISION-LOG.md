@@ -797,7 +797,7 @@ MACRO/MACROTEXT로, 주소를 `(scope, class, spec)`로 이미 바꾸고 있다.
 딸려 나온 것: 임포트가 만든 `SETSTATE`가 값 없이 돌아다니다 `band(nil, …)`으로 터지던 것이
 **원인째 없어진다.** 리뷰 목록에서 그 항목을 빼고 이 결정으로 넘겼다.
 
-`.zzz/custom-states-redesign.md` — §9-1
+`redesigning-custom-states.md` — §9-1
 
 ---
 
