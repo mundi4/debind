@@ -107,9 +107,9 @@ return function(DebindPrivate, _, ctx)
         fixture.install();
         DebindPrivate.BuildKeyMap();
 
-        frames.arm();
+        local mark = frames.mark();
         local built = DebindPrivate.UpdateBindings();
-        local entries = frames.disarm();
+        local entries = frames.since(mark);
 
         check(built == true, "UpdateBindings declined to build");
         check(#entries > 0, "the rebuild handed nothing to the secure side");

@@ -251,7 +251,7 @@ return function(DebindPrivate)
             { Constants.COMMAND, "TOGGLEWORLDMAP", nil, {} },
         };
 
-        frames.arm();
+        local mark = frames.mark();
         local described = 0;
         for i = 1, #cases do
             local case = cases[i];
@@ -260,7 +260,7 @@ return function(DebindPrivate)
                 described = described + 1;
             end
         end
-        local entries = frames.disarm();
+        local entries = frames.since(mark);
 
         check(described == #cases - 2,
             "described " .. described .. " of " .. (#cases - 2) .. " bindable types");

@@ -307,10 +307,26 @@ function M.install()
     --- `devdocs/going-headless-outside-the-ui.md`), and the answers come out of `M.world` so a
     --- spec can put the client in a state rather than swapping the function out.
     _G.InCombatLockdown = function() return M.world.inCombat and true or false; end
-    _G.UnitIsDead = function() return false; end
-    _G.UnitIsGhost = function() return false; end
-    _G.PlayerCanAssist = function() return false; end
-    _G.PlayerCanAttack = function() return false; end
+    --- **Life and reaction are answered here and nowhere else.** The restricted environment gets
+    --- the same four functions (`RestrictedEnvironment.lua`), so a unit that is dead to the poll
+    --- cannot be alive to the press -- which is the one disagreement the two sides could have that
+    --- nothing below them would notice.
+    _G.UnitIsDead = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.dead) and true or false;
+    end
+    _G.UnitIsGhost = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.ghost) and true or false;
+    end
+    _G.PlayerCanAssist = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.reaction == "help") and true or false;
+    end
+    _G.PlayerCanAttack = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.reaction == "harm") and true or false;
+    end
     _G.GetShapeshiftForm = function() return 0; end
     _G.GetBonusBarOffset = function() return 0; end
     _G.IsStealthed = function() return false; end

@@ -89,9 +89,9 @@ return function(DebindPrivate)
     -- leave a frame that is watched and never reports anything.
     test("registering wraps the frame's enter and leave", function()
         local frame = UnitFrame();
-        frames.arm();
+        local mark = frames.mark();
         DebindPrivate.RegisterFrame(frame, "target");
-        local entries = frames.disarm();
+        local entries = frames.since(mark);
 
         local wrapped = {};
         for i = 1, #entries do
@@ -127,9 +127,9 @@ return function(DebindPrivate)
 
         -- The fault is now gone. The addon still does not take it, because the answer is stored.
         frame.IsProtected = function() return true; end
-        frames.arm();
+        local mark = frames.mark();
         DebindPrivate.RegisterFrame(frame, "group");
-        local entries = frames.disarm();
+        local entries = frames.since(mark);
 
         check(DebindPrivate.ccframes[frame] == false, "a refused frame was registered later");
         check(#entries == 0, "a refused frame reached the secure side");
@@ -141,9 +141,9 @@ return function(DebindPrivate)
         local frame = UnitFrame();
         DebindPrivate.RegisterFrame(frame, "group");
 
-        frames.arm();
+        local mark = frames.mark();
         DebindPrivate.RegisterFrame(frame, "group");
-        local entries = frames.disarm();
+        local entries = frames.since(mark);
         check(#entries == 0, "the second registration reached the secure side");
     end);
 

@@ -351,9 +351,9 @@ return function(DebindPrivate)
     -- one thing that makes the rest of the file mean what it says.
     test("building a plan registers nothing on the state driver", function()
         local frames = require("wow_frames");
-        frames.arm();
+        local mark = frames.mark();
         PlanFor({ spell({ key = "F1", conditions = { specialbar = true } }) });
-        local entries = frames.disarm();
+        local entries = frames.since(mark);
 
         for i = 1, #entries do
             local e = entries[i];

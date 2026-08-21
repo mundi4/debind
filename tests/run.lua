@@ -115,6 +115,9 @@ local specs = {
     { name = "record", path = root .. "/record_spec.lua" },
     { name = "context", path = root .. "/context_spec.lua" },
     { name = "frames", path = root .. "/frames_spec.lua" },
+    -- **The interpreter, so it goes after everything that only measures the decision.** It runs
+    -- one, which needs every earlier rebuild replayed into it first.
+    { name = "eval", path = root .. "/eval_spec.lua" },
 };
 
 --- Reading and writing a whole file, whichever interpreter this is.

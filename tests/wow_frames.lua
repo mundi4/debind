@@ -21,38 +21,54 @@ local sformat = string.format;
 -- The recorder
 ---------------------------------------------------------------------------
 
---- Everything that crossed to the secure side while the recorder was armed, in the order it
---- crossed. One entry per call; `body` is the snippet source verbatim where there is one.
+--- Everything that has ever crossed to the secure side, in the order it crossed. One entry per
+--- call; `body` is the snippet source verbatim where there is one.
 ---
---- **Armed rather than always on.** Loading the addon files emits a few hundred lines of setup
---- that no rebuild ever repeats, and a golden that carried them would move whenever an unrelated
---- file gained a `SetAttribute` at load.
-local recorder = { armed = false, entries = {} };
+--- **It records from the first line of the first file and never stops.** Two readers want
+--- different windows onto it and neither wants the other's:
+---
+---   the emission golden   one rebuild, from a mark. Loading the addon emits a few hundred lines
+---                         of setup no rebuild repeats, and a golden carrying those would move
+---                         whenever an unrelated file gained a `SetAttribute` at load
+---   the interpreter       **everything**, load included. What it runs is the recording itself,
+---                         so the environment it ends up with is the one the game would have --
+---                         rather than a second copy of the setup written out here, which is the
+---                         one thing that could drift
+local recorder = { entries = {} };
 M.recorder = recorder;
 
-local function record(kind, target, name, body)
-    if (not recorder.armed) then
-        return;
-    end
+--- `frame` and `ref` are the objects behind the labels, and **only the interpreter reads them**.
+--- The golden renders `kind`, `target`, `name` and `body` and nothing else, so carrying a table
+--- here cannot move it.
+local function record(kind, target, name, body, frame, ref)
     recorder.entries[#recorder.entries + 1] = {
         kind = kind,
         target = target,
         name = name,
         body = body,
+        frame = frame,
+        ref = ref,
     };
 end
 M.record = record;
 
-function M.arm()
-    recorder.armed = true;
-    for i = #recorder.entries, 1, -1 do
-        recorder.entries[i] = nil;
-    end
+--- Everything recorded so far, oldest first. The interpreter's window.
+function M.all()
+    return recorder.entries;
 end
 
-function M.disarm()
-    recorder.armed = false;
-    return recorder.entries;
+--- Where the recording stands. Hand it back to `since` to get what happened after it.
+function M.mark()
+    return #recorder.entries;
+end
+
+--- What crossed after `mark`, as a list of its own.
+function M.since(mark)
+    local out = {};
+    for i = mark + 1, #recorder.entries do
+        out[#out + 1] = recorder.entries[i];
+    end
+    return out;
 end
 
 ---------------------------------------------------------------------------
@@ -88,7 +104,7 @@ local function newFrame(frameType, name, parent, template)
     if (parent and parent.__children) then
         parent.__children[#parent.__children + 1] = frame;
     end
-    record("CreateFrame", label(frame), template);
+    record("CreateFrame", label(frame), template, nil, frame);
     return frame;
 end
 M.newFrame = newFrame;
@@ -107,7 +123,7 @@ function frameMethods:HasAccessConstraints() return false; end
 --- that watched only the driver would not notice a spell name going out under the wrong button.
 function frameMethods:SetAttribute(name, value)
     self.__attributes[name] = value;
-    record("SetAttribute", label(self), name, value);
+    record("SetAttribute", label(self), name, value, self);
 end
 
 function frameMethods:GetAttribute(name) return self.__attributes[name]; end
@@ -194,19 +210,22 @@ function M.install()
     end
 
     _G.SecureHandlerExecute = function(frame, body)
-        record("Execute", label(frame), nil, body);
+        record("Execute", label(frame), nil, body, frame);
     end
+    -- **The header comes along.** A wrapped script runs in the header's environment with `self`
+    -- set to the wrapped frame, so an interpreter that only knew the frame could not tell which
+    -- environment the body belongs to.
     _G.SecureHandlerWrapScript = function(frame, script, header, preBody, postBody)
-        record("WrapScript", label(frame), script, preBody);
+        record("WrapScript", label(frame), script, preBody, frame, header);
         if (postBody) then
-            record("WrapScriptPost", label(frame), script, postBody);
+            record("WrapScriptPost", label(frame), script, postBody, frame, header);
         end
     end
     _G.SecureHandlerUnwrapScript = function(frame, script)
-        record("UnwrapScript", label(frame), script);
+        record("UnwrapScript", label(frame), script, nil, frame);
     end
     _G.SecureHandlerSetFrameRef = function(frame, refName, ref)
-        record("SetFrameRef", label(frame), refName, ref and label(ref) or nil);
+        record("SetFrameRef", label(frame), refName, ref and label(ref) or nil, frame, ref);
     end
 
     _G.RegisterUnitWatch = function(frame) record("RegisterUnitWatch", label(frame)); end
