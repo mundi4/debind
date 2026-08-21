@@ -2,13 +2,15 @@
 -- (`devdocs/going-headless-outside-the-ui.md` §6).
 --
 -- **Neither of these interprets anything.** A snippet body handed to `SecureHandlerExecute` is
--- recorded as the string it is and never run; locking what gets emitted needs no execution, which
--- is why the golden can stand up before there is any restricted-environment interpreter (§5).
+-- recorded as the string it is and never run, which is why the golden could stand up before there
+-- was anything that could run one. What does run them is `tests/restricted.lua`, and it runs **this
+-- recording** -- so what it ends up holding is what the game would have built, rather than a second
+-- copy of the setup written out by hand.
 --
--- The two have different lifetimes. The recorder stays -- "what did it execute" is the answer this
--- side of the addon is asked for, so a mock is the cheap shape (§4). The frame shell is here
--- because `Debind.lua`, `SecureBindings.lua` and the rest build frames when they are read, and it
--- gets looked at again once `BuildBindingPlan` no longer meets a frame (§6).
+-- The frame shell is here because `Debind.lua`, `SecureBindings.lua` and the rest build frames when
+-- they are read. §6 said to look at it again once `BuildBindingPlan` no longer met a frame; the
+-- answer is that it stays -- `StampBinding` still builds delegate frames, and both the interpreter
+-- and the click-cast registration specs need real ones to key their tables by.
 
 local M = {};
 

@@ -65,13 +65,12 @@ local _unitsSeen         = {};
 local _updateFlags       = {};
 local _mergedUnits       = {};
 
---- Which names already have a list in `MacroTextsMap`. Module level so a rebuild allocates nothing
---- it can reuse, which is the rule this file runs on.
+--- Which names already have a list in `MacroTextsMap`. Module level, so a rebuild reuses it rather
+--- than allocating - the rule this file runs on.
 local _keysSeen          = {};
 
 --- The world a rebuild was built against, and what it decided to do about it. **Two tables, wiped
---- and refilled**, because a rebuild allocates nothing it can reuse - the rule the rest of this
---- file already runs on.
+--- and refilled**, the way the rest of this file already works.
 ---
 --- Holding the decision apart from the doing is what lets a spec ask what a profile comes to
 --- without a client in front of it: `BuildBindingPlan` answers from `ctx`, and `ApplyBindingPlan`
@@ -477,8 +476,10 @@ end
 --- decision below the snippets -- which events to register, which units to watch, the throttle --
 --- and those are the ones a spec could not reach at all before.
 ---
---- **The plan is a module table, wiped and refilled.** A rebuild allocates nothing it can reuse,
---- which is the rule this whole file runs on.
+--- **The plan is a module table, wiped and refilled**, which is the rule this whole file runs on.
+--- Its two lists do allocate one small table per entry - nine events and five aliases, fixed
+--- counts that do not follow the profile. What follows the profile is the record path, and that
+--- one reuses (`BuildKeyRecord`).
 local function BuildBindingPlan(ctx)
     ResetContext();
 
@@ -607,17 +608,19 @@ function DebindPrivate.UpdateBindings()
     return true;
 end
 
---- The four steps, each reachable on its own.
+--- The steps that answer without doing anything.
 ---
 --- **This is what the split was for.** `BuildBindingPlan` answers "what would this profile come
 --- to" without touching the game, so which state driver events a profile registers -- six
 --- decisions that could previously only be read off a live `SecureStateDriverManager` -- is now a
 --- table a spec compares (`tests/plan_spec.lua`).
+---
+--- **The other two are not here.** `ApplyBindingPlan` and `FinishBindingUpdate` are reached the
+--- only way that would mean anything, by running a rebuild; a name put out for symmetry is a name
+--- nothing has ever called.
 DebindPrivate.CanBuildBindings = CanBuildBindings;
 DebindPrivate.CollectBindingContext = CollectBindingContext;
 DebindPrivate.BuildBindingPlan = BuildBindingPlan;
-DebindPrivate.ApplyBindingPlan = ApplyBindingPlan;
-DebindPrivate.FinishBindingUpdate = FinishBindingUpdate;
 
 --- One binding's attributes, worked out but not yet written anywhere.
 ---
@@ -892,7 +895,6 @@ local function StampBinding(descriptor)
     return delegate or clickframe, buttonname, BindingPressHoldCache[buttonname];
 end
 
-DebindPrivate.CollectBindingFacts = CollectBindingFacts;
 DebindPrivate.DescribeBinding = DescribeBinding;
 DebindPrivate.StampBinding = StampBinding;
 
@@ -1549,7 +1551,6 @@ local function EmitRecord(record)
     end
 end
 
-DebindPrivate.ClassifyKey = ClassifyKey;
 DebindPrivate.MergeKeyUnitConditions = MergeKeyUnitConditions;
 DebindPrivate.BuildKeyRecord = BuildKeyRecord;
 
