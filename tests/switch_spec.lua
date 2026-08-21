@@ -710,5 +710,38 @@ return function(DebindPrivate)
         check(DebindPrivate.CountSwitchOverrides("$nosuch") == 0, "없는 이름이 세어졌다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 대소문자
+    ---------------------------------------------------------------------------
+
+    test("만들 때 이름이 소문자로 내려간다", function()
+        local db = InitWith(Profile());
+        check(DebindPrivate.CreateSwitch("$ZZZ"), "만들기가 거절됐다");
+        check(db.switches["$zzz"] ~= nil, "소문자 이름으로 안 앉았다");
+        check(db.switches["$ZZZ"] == nil, "친 대로 앉았다 - 대소문자만 다른 둘이 생긴다");
+    end);
+
+    test("대소문자만 다른 이름은 이미 있는 것으로 본다", function()
+        InitWith(Profile());
+        check(DebindPrivate.CreateSwitch("$zzz"), "만들기가 거절됐다");
+        local ok, err = DebindPrivate.CreateSwitch("$ZZZ");
+        check(not ok, "`$zzz`가 있는데 `$ZZZ`가 또 만들어졌다");
+        check(err == "SWITCH_NAME_ERROR_TAKEN", "다른 이유로 거절됐다: " .. tostring(err));
+    end);
+
+    test("이름을 바꿀 때도 소문자로 내려간다", function()
+        local db = InitWith(Profile());
+        check(DebindPrivate.RenameSwitch("$state1", "$Burst"), "개명이 거절됐다");
+        check(db.switches["$burst"] ~= nil, "소문자 이름으로 안 앉았다");
+        check(db.switches["$Burst"] == nil, "친 대로 앉았다");
+    end);
+
+    test("대소문자만 바꾸는 개명은 아무 일도 아니다", function()
+        local db = InitWith(Profile());
+        check(DebindPrivate.RenameSwitch("$state1", "$STATE1"),
+            "자기 자신으로 바꾸는 것이 '이미 있음'으로 거절됐다");
+        check(db.switches["$state1"] ~= nil, "정의가 사라졌다");
+    end);
+
     return T;
 end

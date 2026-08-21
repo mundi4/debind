@@ -7,6 +7,7 @@ local ERROR_COLOR        = _G.ERROR_COLOR;
 local luatype            = type;
 -- One caller: the `dbver` 5 step that opens the old SETSTATE bitpack.
 local band               = bit.band;
+local strlower           = strlower;
 local dump               = DebindPrivate.dump;
 local LayerArray         = {};
 
@@ -1251,10 +1252,21 @@ end
 --- it out along with the menu that handed those five names out (§6-C). What is left is the name
 --- rule, which is not a limit but a shape: a name `ParseMacroText` cannot read is one the reader
 --- could never type where the Switches tab tells them to (`IsValidSwitchName`).
+--- **The name goes to lower case here, and `RenameSwitch` is the only other door.** A switch name
+--- is read inside `[...]` beside the client's own macro options, and those do not care about case
+--- -- `[Combat]` fires. Somebody who made `$ZZZ` and later types `[$zzz]` is typing the same name
+--- as far as they are concerned, so two switches that differ only in case are two the reader cannot
+--- tell apart in the list and cannot aim at reliably in a macro.
+---
+--- **Only the doors fold, not `ParseMacroText`.** Folding the reader too would mean the stored
+--- names had to be folded as well, and a body that still says `[$ZZZ]` against a switch named that
+--- way keeps working exactly as it does now. What a body cannot do is quietly find a different
+--- switch: an unfolded name that nothing defines is marked (`GetUndefinedSwitch`).
 function DebindPrivate.CreateSwitch(name)
     if (not Constants.IsValidSwitchName(name)) then
         return false, "SWITCH_NAME_ERROR_INVALID";
     end
+    name = strlower(name);
     if (DebindPrivate.Switches[name]) then
         return false, "SWITCH_NAME_ERROR_TAKEN";
     end
@@ -1382,11 +1394,15 @@ function DebindPrivate.RenameSwitch(oldName, newName)
     if (not definition) then
         return false, "SWITCH_RENAME_ERROR_GONE";
     end
-    if (newName == oldName) then
-        return true;
-    end
+    -- **Shape first, then case, then whether it moved.** Asked in the other order, changing only
+    -- the case of a name reads as a move to a free name and the five rewrites below all run for
+    -- nothing. `CreateSwitch` says why the case is folded at all.
     if (not Constants.IsValidSwitchName(newName)) then
         return false, "SWITCH_NAME_ERROR_INVALID";
+    end
+    newName = strlower(newName);
+    if (newName == oldName) then
+        return true;
     end
     if (DebindPrivate.Switches[newName]) then
         return false, "SWITCH_NAME_ERROR_TAKEN";
