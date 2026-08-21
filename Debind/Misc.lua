@@ -1936,6 +1936,12 @@ end
 
 function DebindPrivate.ApplyOptions(option)
     if (option == nil or option == "unitframeUseMouseDown") then
+        -- **The edge we take moves with the edges the frame delivers.** Change the registration
+        -- alone and the wrapper takes the frame's own edge for one of ours, sending the action a
+        -- second time on it.
+        SecureHandlerExecute(DebindPrivate.BindingDriver,
+            format("ClickCastOnMouseDown=%s", tostring(DebindPrivate.Options.unitframeUseMouseDown and true or false)));
+
         if (not DebindPrivate.CliqueDetected) then
             -- `RegisterForClicks`를 여기서 직접 부르지 않는다. 대상은 **블리자드 유닛프레임
             -- 버튼**이라(`RegisterFrame`이 `IsProtected()` 참인 것만 넣는다) 전투 중에는

@@ -3107,6 +3107,86 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
     end,
 })
 
+-- **What the option is not allowed to take away.** `unitframeUseMouseDown` moves our click to
+-- the press edge, and it used to do that by registering the press edge alone. The frame's own
+-- unit menu runs on the release edge only (`SECURE_ACTIONS.menu` returns while `down` is true),
+-- so a frame registered for the press alone loses it outright: no error, that click just does
+-- nothing. `target` does not gate on the edge, so targeting went on working and hid it through
+-- several releases.
+--
+-- Neither one is tied to a button, since `Enum.ClickBindingInteraction.Target` and
+-- `.OpenContextMenu` are both movable in Blizzard's click binding window. That is why this asks
+-- for the whole release edge rather than one button's.
+--
+-- The registration call is captured on a frame the test owns, because there is no API that asks a
+-- frame which clicks it is registered for. Shadowing the method on our own frame leaves every
+-- other frame alone, and the real one is still called.
+RegisterTest("Click-cast: mouse-down mode keeps the edge the frame's own actions need", {
+    description = "누를 때 발동을 켜도 프레임 자체 동작이 쓰는 뗄 때 엣지가 남는가",
+    run = function()
+        local NAME = "Click edges"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 RegisterForClicks가 막힌다")
+        end
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        local captured
+        local realRegisterForClicks = frame.RegisterForClicks
+        frame.RegisterForClicks = function(self, ...)
+            captured = { ... }
+            return realRegisterForClicks(self, ...)
+        end
+        AddTeardown(function() frame.RegisterForClicks = nil end)
+
+        local saved = DebindPrivate.Options.unitframeUseMouseDown
+        AddTeardown(function()
+            DebindPrivate.Options.unitframeUseMouseDown = saved
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown")
+        end)
+
+        local function Registered(...)
+            for i = 1, select("#", ...) do
+                local want = select(i, ...)
+                for _, got in ipairs(captured) do
+                    if got == want then return true end
+                end
+            end
+            return false
+        end
+
+        local seen = {}
+        for _, useMouseDown in ipairs({ false, true }) do
+            captured = nil
+            DebindPrivate.Options.unitframeUseMouseDown = useMouseDown
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown")
+
+            if not captured then
+                return Fail(NAME, format("useMouseDown=%s: 등록 자체가 안 돌았다",
+                    tostring(useMouseDown)))
+            end
+            seen[#seen + 1] = format("%s=[%s]", tostring(useMouseDown), table.concat(captured, " "))
+
+            if not Registered("AnyUp") then
+                return Fail(NAME, format(
+                    "useMouseDown=%s: [%s] 에 떼는 엣지가 없다. 유닛 메뉴가 도는 자리가 "
+                    .. "그 엣지뿐이라 메뉴가 걸린 버튼이 죽는다",
+                    tostring(useMouseDown), table.concat(captured, " ")))
+            end
+
+            if useMouseDown and not Registered("AnyDown") then
+                return Fail(NAME, format(
+                    "useMouseDown=true 인데 [%s] 에 누르는 엣지가 없다. 옵션이 아무 일도 안 한다",
+                    table.concat(captured, " ")))
+            end
+        end
+
+        return Pass(NAME, table.concat(seen, ", "))
+    end,
+})
+
 RegisterTest("Click-cast: the frame's wrapper picks a winner", {
     description = "유닛 프레임 클릭이 래퍼까지 닿아 조건에 맞는 레코드를 고르는가 (우리 프레임 + 블리자드 프레임)",
     run = function()
