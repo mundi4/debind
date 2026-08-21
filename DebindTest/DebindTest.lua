@@ -3037,8 +3037,8 @@ RegisterTest("Switches tab: the New switch button makes one", {
 --
 -- The XML is measured too: `Check` is a `parentKey` on the template, and a texture that lost its
 -- key leaves `SetShown` reaching nil.
-RegisterTest("Switches tab: the rows under a switch mark the one in use", {
-    description = "탭 행들이 그려지고, 지금 이기는 행에만 표시가 붙는가",
+RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
+    description = "오버라이드 행들이 그려지고, 지금 이기는 행에만 표시가 붙는가",
     run = function()
         local NAME = "Switch layer rows"
         local SWITCH = "$rowlayers"
@@ -3069,7 +3069,7 @@ RegisterTest("Switches tab: the rows under a switch mark the one in use", {
         if not rows then
             local drawn = #SwitchLayerRows(panel, SWITCH)
             return Fail(NAME, format(
-                "탭 행이 %d개다 - 얹은 답 하나와 계정 전체 하나, 둘이 나와야 한다", drawn))
+                "행이 %d개다 - 얹은 오버라이드 하나와 계정 전체 하나, 둘이 나와야 한다", drawn))
         end
 
         local marked, unmarked = {}, {}
@@ -3721,9 +3721,9 @@ RegisterTest("Switch condition on a name outside the five", {
     end,
 })
 
--- Test Cases: 탭마다 다른 답 (§4-6 ~ §4-9)
+-- Test Cases: 레이어 오버라이드 (§4-6 ~ §4-9)
 --
--- 정의는 계정 것이고 **동작만 탭에서 덮인다.** 헤드리스가 보는 것은 표를 되읽는 데까지다
+-- 정의는 계정 것이고 **동작만 레이어에서 덮인다.** 헤드리스가 보는 것은 표를 되읽는 데까지다
 -- (`tests/switch_spec.lua`): 어느 답이 이기는지, 캐릭터가 바뀌어도 안 새는지, 전문화가 바뀌면
 -- 다시 걸리는지. **여기서만 보이는 것은 그 답이 실제로 키까지 가느냐**다 -
 -- `UpdateBindings`가 `ApplySwitchResets`를 부르고, 코드젠이 이긴 행의 `mode`와 `expr`을 굽고,
@@ -3736,8 +3736,8 @@ RegisterTest("Switch condition on a name outside the five", {
 --
 -- ⚠ **레이어 키에 캐릭터가 들어 있는지도 여기서 본다** (§4-7-3). 헤드리스가 같은 것을 보지만
 -- 그쪽의 GUID는 shim이 지어낸 것이라, 진짜 `UnitGUID`로 지은 키가 맞는지는 게임이 답한다.
-RegisterTest("Switch override: a tab answer takes over and reaches the key", {
-    description = "탭에 답을 얹으면 그 답으로 값이 다시 걸리고 키까지 가는가",
+RegisterTest("Switch override: the winning row reaches the key", {
+    description = "오버라이드를 얹으면 그 답으로 값이 다시 걸리고 키까지 가는가",
     run = function()
         local NAME = "Switch override"
         local KEY = "CTRL-SHIFT-F9"
@@ -3777,7 +3777,7 @@ RegisterTest("Switch override: a tab answer takes over and reaches the key", {
         end
         if not layerKey:find(UnitGUID("player"), 1, true) then
             return Fail(NAME, format(
-                "캐릭터 탭의 키가 %q다 - 캐릭터가 안 들어 있으면 다음 캐릭터가 남의 답을 읽는다",
+                "캐릭터 레이어의 키가 %q다 - 캐릭터가 안 들어 있으면 다음 캐릭터가 남의 답을 읽는다",
                 layerKey))
         end
 
@@ -3787,7 +3787,7 @@ RegisterTest("Switch override: a tab answer takes over and reaches the key", {
         local after = GetBindingAction(KEY, true) or ""
         if after:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
-                "이 탭의 답이 '켜짐'인데 키가 %q다 - 리빌드가 새 답을 안 걸었다", after))
+                "오버라이드가 '켜짐'인데 키가 %q다 - 리빌드가 새 답을 안 걸었다", after))
         end
 
         -- 떼면 넓은 쪽 답으로 돌아간다. 이게 없으면 위 한 줄은 "이 스위치는 늘 켜져 있다"와
@@ -3806,12 +3806,12 @@ RegisterTest("Switch override: a tab answer takes over and reaches the key", {
 
 -- **코드젠이 무엇을 굽느냐.** `addSwitch`가 정의에서 `mode`와 `expr`을 읽던 자리인데, 그 둘은
 -- 이제 이긴 행의 것이다. 정의 쪽을 계속 읽으면 여기서는 "수동이고 꺼짐"이 구워져서 키가 안
--- 걸리고, 화면에는 이 탭이 계산식이라고 적혀 있다.
+-- 걸리고, 화면에는 그 오버라이드가 계산식이라고 적혀 있다.
 --
 -- `[nocombat]`인 이유는 이 테스트가 어차피 전투 밖에서만 서기 때문이다. 참으로 계산되는 식이
 -- 필요하고, 전투 판정은 위에서 이미 걸렀다.
-RegisterTest("Switch override: the winning tab's expression is the one baked", {
-    description = "계산식이 탭 쪽에 있을 때 코드젠이 뿌리가 아니라 그 식을 굽는가",
+RegisterTest("Switch override: the winning row's expression is the one baked", {
+    description = "계산식이 오버라이드 쪽에 있을 때 코드젠이 뿌리가 아니라 그 식을 굽는가",
     run = function()
         local NAME = "Switch override expression"
         local KEY = "CTRL-SHIFT-F8"
@@ -3847,21 +3847,21 @@ RegisterTest("Switch override: the winning tab's expression is the one baked", {
         local bound = GetBindingAction(KEY, true) or ""
         if bound:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
-                "이 탭의 식이 [nocombat]인데 키가 %q다 - 뿌리의 답이 구워졌다", bound))
+                "오버라이드의 식이 [nocombat]인데 키가 %q다 - 뿌리의 답이 구워졌다", bound))
         end
 
-        return Pass(NAME, "탭의 식이 구워져서 키가 걸린다")
+        return Pass(NAME, "오버라이드의 식이 구워져서 키가 걸린다")
     end,
 })
 
 -- **리셋의 메아리가 기억을 먹지 않는지** (§4-9). 비보안 쪽이 시작값을 값에 쓰고 제한 환경에
 -- 밀어넣으면, 제한 환경이 그것을 그대로 되보고한다(`SetSwitch` -> `OnSwitchChanged`). 그
 -- 되보고를 사람이 한 것으로 받으면 **로그인 한 번에 기억이 시작값으로 덮인다** - 그리고 그
--- 기억은 강제된 탭을 떠났을 때 돌아갈 값이다.
+-- 기억은 강제된 레이어를 떠났을 때 돌아갈 값이다.
 --
 -- **헤드리스가 못 본다.** 러너는 코드젠도 제한 환경도 안 싣고, 되보고가 오는 자리는
 -- `C_Timer.After(0)` 뒤다(`SwitchesChangedCallback`). 틀려도 이번 세션은 멀쩡히 돌고,
--- 어긋난 것은 탭을 옮기거나 다시 접속해야 보인다.
+-- 어긋난 것은 전문화를 옮기거나 다시 접속해야 보인다.
 RegisterTest("Switch reset does not eat what the character remembers", {
     description = "시작값을 거는 리빌드가 캐릭터의 기억값을 덮지 않는가",
     run = function()
@@ -3900,7 +3900,7 @@ RegisterTest("Switch reset does not eat what the character remembers", {
         end
         if savedValues[SWITCH] ~= true then
             return Fail(NAME, format(
-                "기억값이 %s가 됐다 - 리셋의 메아리가 기억을 덮었다. 강제된 탭을 떠나도 돌아갈 값이 없다",
+                "기억값이 %s가 됐다 - 리셋의 메아리가 기억을 덮었다. 강제된 레이어를 떠나도 돌아갈 값이 없다",
                 tostring(savedValues[SWITCH])))
         end
 

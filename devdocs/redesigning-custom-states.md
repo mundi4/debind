@@ -1433,18 +1433,24 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 
 ## 11. 이 문서가 확인하지 않은 것
 
-- **4단계의 `/debtest`는 등록만 됐고 아직 안 돌았다 (2026-08-21).** 새 케이스 넷이다.
-  `Switch override: a tab answer takes over and reaches the key`(답을 얹으면 값이 다시 걸리고
-  키까지 가는지, 떼면 뿌리로 돌아가는지. 캐릭터 탭의 키에 진짜 `UnitGUID`가 들어 있는지도 같이
-  본다), `Switch override: the winning tab's expression is the one baked`(코드젠이 뿌리가 아니라
-  이긴 행의 `mode`·`expr`을 굽는지), `Switch reset does not eat what the character remembers`
-  (§4-9의 메아리. **왕복이 제한 환경을 지나므로 헤드리스가 못 본다**),
-  `Switches tab: the rows under a switch mark the one in use`(탭 행이 그려지고 표시가 이기는
-  행에만 붙는지).
-  **손으로 밟아야 하는 것은 그 넷 밖이다** — 캐릭터 둘, 전문화 둘. 헤드리스가 규칙으로는
-  보지만(`tests/switch_spec.lua`), 실제로 전문화를 바꿨을 때 키가 따라가는지와 다른 캐릭터로
-  들어갔을 때 남의 답이 안 보이는지는 클라이언트에서만 난다. `/deb seed`의 `dbver` 6 판에
-  그 걸음을 위한 오버라이드가 하나 심겨 있다(`$state1`이 그 직업의 1전문화에서만 꺼짐).
+- **4단계의 `/debtest`가 돌았고 새 케이스 넷은 통과했다 (2026-08-21).**
+  `Switch override: the winning row reaches the key`(오버라이드를 얹으면 값이 다시 걸리고
+  키까지 가는지, 떼면 뿌리로 돌아가는지. 캐릭터 레이어의 키에 진짜 `UnitGUID`가 들어 있는지도
+  같이 본다), `Switch override: the winning row's expression is the one baked`(코드젠이 뿌리가
+  아니라 이긴 행의 `mode`·`expr`을 굽는지), `Switch reset does not eat what the character
+  remembers`(§4-9의 메아리. **왕복이 제한 환경을 지나므로 헤드리스가 못 본다**),
+  `Switches tab: the rows under a switch mark the one that wins`(오버라이드 행이 그려지고
+  표시가 이기는 행에만 붙는지).
+  **같은 판에서 옛 케이스 셋이 빨갛게 났고, 그건 픽스처가 낡은 것이었다.** 셋 다 정의를 심으면서
+  `value`를 손으로 켜고 있었는데, 리빌드가 *답이 움직였으면* 다시 걸게 되면서
+  (`ApplySwitchResets`) 애드온이 처음 보는 이름은 코드젠이 읽기 전에 꺼진 값으로 돌아간다.
+  `SetSwitchValue`로 켜게 고쳤고, **정의에 `value`를 직접 쓰는 것이 스위치를 켜는 방법이기를
+  그만뒀다**는 ⚠를 첫 자리에 적었다.
+- **`/debtest`가 못 닿는 자리는 한 세션이 한 캐릭터·한 전문화라는 것 하나다.** 전문화를 바꿨을 때
+  키가 따라가는지와 다른 캐릭터로 들어갔을 때 남의 답이 안 보이는지는 규칙으로는
+  `tests/switch_spec.lua`가 보지만(전문화·GUID를 갈아끼운다), 진짜 클라이언트에서 나는 것은
+  아니다. `/deb seed`의 `dbver` 6 판에 그 걸음을 위한 오버라이드가 하나 심겨 있다
+  (`$state1`이 그 직업의 1전문화에서만 꺼짐).
 - **오버라이드는 문자열로 안 나간다 (2026-08-21).** 키가 이 설치의 캐릭터와 직업을 가리키므로
   받는 쪽에 없는 캐릭터를 가리키게 된다. `STATE_FIELDS`에 안 넣었고 그 자리에 근거를 적었다 —
   **그 표는 아무 검사도 안 받는다**(§6-A의 ⚠).
