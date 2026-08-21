@@ -360,24 +360,26 @@ Constants.BINDING_ISSUE_GRADES = {
 };
 
 
+--- Both of these are **sets**. They carried a number each until the macro parser stopped baking
+--- `%N$s` templates keyed by the number, and a number nobody reads is read by a person as an
+--- order that means something.
 local BASIC_UNITS                                   = {
-    mouseover = 1,
-    player = 2,
-    pet = 3,
-    target = 4,
-    focus = 5,
-    none = 6,
-    --[""] = 8,
+    mouseover = true,
+    player = true,
+    pet = true,
+    target = true,
+    focus = true,
+    none = true,
 };
 
 local SPECIAL_UNITS                                 = {
-    tank = 1,
-    healer = 2,
-    maintank = 3,
-    mainassist = 4,
-    custom1 = 5,
-    custom2 = 6,
-    hover = 7,
+    tank = true,
+    healer = true,
+    maintank = true,
+    mainassist = true,
+    custom1 = true,
+    custom2 = true,
+    hover = true,
 };
 
 Constants.BASIC_UNITS                               = BASIC_UNITS;

@@ -1632,15 +1632,6 @@ do
                 if (not arg) then
                     appendStr(str);
                 end
-
-                -- elseif (not unitsOnly and char == "$") then
-                --     token = strsub(opt, 2, opt:len() + 1);
-                --     if (strmatch(token, "^([a-zA-Z0-9_]+)$")) then
-                --         addArg(opt, Constants.MACROTEXT_ARG_SWITCH);
-                --         isComplex = true;
-                --     else
-                --         appendStr(opt);
-                --     end
             else
                 appendStr(str);
             end
@@ -1838,79 +1829,6 @@ do
         return (str:gsub("%[([^%[%]]*)%]", stripGroup));
     end
 end
-
-
--- do
---     local _parsedMacrotextCache = {};
---     local _unitSuffixes = {
---         target = true,
---         targettarget = true,
---         targettargettarget = true,
---         targettargettargettarget = true,
---         pet = true,
---         pettarget = true,
---         pettargettarget = true,
---         pettargettargettarget = true,
---     };
-
---     function DebindPrivate.ParseMacroText(str)
---         local cached = _parsedMacrotextCache[str];
---         if (cached == nil) then
---             local args;
---             local unitSeen;
---             local newstr = str:gsub("(%[[^%[%]]*@)(%w+)([^%[%]]*%])", function(pre, token, post)
---                 if (Constants.SPECIAL_UNITS[token]) then
---                     if (not args) then
---                         args = {};
---                         unitSeen = {};
---                     end
---                     if (not unitSeen[token]) then
---                         unitSeen[token] = true;
---                         tinsert(args, token);
---                     end
---                     return format("%s%%%d$s%s", pre, Constants.SPECIAL_UNITS[token], post);
---                 else
---                     for k, v in pairs(Constants.SPECIAL_UNITS) do
---                         if (strsub(token, 1, k:len()) == k) then
---                             local suffix = strsub(token, k:len() + 1);
---                             if (_unitSuffixes[suffix]) then
---                                 --if (suffix == "pet" or suffix == "target") then
---                                 if (not args) then
---                                     args = {};
---                                     unitSeen = {};
---                                 end
---                                 if (not unitSeen[k]) then
---                                     unitSeen[k] = true;
---                                     tinsert(args, k);
---                                 end
---                                 return format("%s%%%d$s%s%s", pre, v, suffix, post);
---                             end
---                         end
---                     end
---                 end
---             end);
---             if (args) then
---                 cached = { newstr, args };
---             else
---                 cached = false;
---             end
---             _parsedMacrotextCache[str] = cached;
---         end
---         if (cached) then
---             return cached[1], cached[2];
---         else
---             return str;
---         end
---     end
-
---     function DebindPrivate.ClearMacroTextCache(excludes)
---         for k in pairs(_parsedMacrotextCache) do
---             if (excludes[k] == nil) then
---                 _parsedMacrotextCache[k] = nil;
---             end
---         end
---     end
--- end
 
 
 local FULL_PLAYER_NAME = FULL_PLAYER_NAME;

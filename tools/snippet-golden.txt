@@ -37,16 +37,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 ### SecureBindings.lua #1 SecureHandlerExecute
 
-
-
-
-
-
-
-
-
-
-
 	debind_driver = self
 	ccframes = newtable()
 
@@ -135,38 +125,29 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### SecureBindings.lua #2 SetAttribute (DEBUG=on)
-
-
-
-
-
-
-
 	local key = ...
 	for state, dependents in pairs(MacroTextsMap) do
 		if (key == true or key == state or DirtyFlags[state]) then
 			for i = 1, #dependents do
 				local t = dependents[i]
-
-
-					local s
-					for i = 1, #t.args do
-						local arg = t.args[i]
-						local value
-						if (arg.unit) then
-							value = UnitAliasMap[arg.unit] or "raid41"
-						elseif (arg.state) then
-							value = States[arg.state] and true or false
-							if (arg.reverse) then
-								value = not value
-							end
-							value = value and "" or "known:0"
-						elseif (arg.fixed) then
-							value = arg.fixed
+				local s
+				for i = 1, #t.args do
+					local arg = t.args[i]
+					local value
+					if (arg.unit) then
+						value = UnitAliasMap[arg.unit] or "raid41"
+					elseif (arg.state) then
+						value = States[arg.state] and true or false
+						if (arg.reverse) then
+							value = not value
 						end
-						t.fragments[i * 2] = value
+						value = value and "" or "known:0"
+					elseif (arg.fixed) then
+						value = arg.fixed
 					end
-					s = table.concat(t.fragments)
+					t.fragments[i * 2] = value
+				end
+				s = table.concat(t.fragments)
 
 
 
@@ -177,66 +158,51 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	self:CallMethod("printMacroText", t.attr or t.state or "?", s)
 
-					if (t.attr) then
-						DefaultClickFrame:SetAttribute(t.attr, s)
+				if (t.attr) then
+					DefaultClickFrame:SetAttribute(t.attr, s)
+				end
+
+
+
+
+
+
+				if (t.state) then
+					SwitchExpressions[t.state] = s
+					local newValue = SecureCmdOptionParse(s) and true or false
+					if (States[t.state] ~= newValue) then
+						self:RunAttribute("SetSwitch", t.state, newValue, true)
 					end
-
-
-
-
-
-
-					if (t.state) then
-						SwitchExpressions[t.state] = s
-						local newValue = SecureCmdOptionParse(s) and true or false
-						if (States[t.state] ~= newValue) then
-							self:RunAttribute("SetSwitch", t.state, newValue, true)
-						end
-					end
-
+				end
 			end
 		end
 	end
 
 
-
-
-
-
-
 ### SecureBindings.lua #3 SetAttribute (DEBUG=off)
-
-
-
-
-
-
-
 	local key = ...
 	for state, dependents in pairs(MacroTextsMap) do
 		if (key == true or key == state or DirtyFlags[state]) then
 			for i = 1, #dependents do
 				local t = dependents[i]
-
-
-					local s
-					for i = 1, #t.args do
-						local arg = t.args[i]
-						local value
-						if (arg.unit) then
-							value = UnitAliasMap[arg.unit] or "raid41"
-						elseif (arg.state) then
-							value = States[arg.state] and true or false
-							if (arg.reverse) then
-								value = not value
-							end
-							value = value and "" or "known:0"
-						elseif (arg.fixed) then
-							value = arg.fixed
+				local s
+				for i = 1, #t.args do
+					local arg = t.args[i]
+					local value
+					if (arg.unit) then
+						value = UnitAliasMap[arg.unit] or "raid41"
+					elseif (arg.state) then
+						value = States[arg.state] and true or false
+						if (arg.reverse) then
+							value = not value
 						end
-						t.fragments[i * 2] = value
+						value = value and "" or "known:0"
+					elseif (arg.fixed) then
+						value = arg.fixed
 					end
-					s = table.concat(t.fragments)
+					t.fragments[i * 2] = value
+				end
+				s = table.concat(t.fragments)
 
 
 
@@ -246,36 +212,29 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-					if (t.attr) then
-						DefaultClickFrame:SetAttribute(t.attr, s)
+				if (t.attr) then
+					DefaultClickFrame:SetAttribute(t.attr, s)
+				end
+
+
+
+
+
+
+				if (t.state) then
+					SwitchExpressions[t.state] = s
+					local newValue = SecureCmdOptionParse(s) and true or false
+					if (States[t.state] ~= newValue) then
+						self:RunAttribute("SetSwitch", t.state, newValue, true)
 					end
-
-
-
-
-
-
-					if (t.state) then
-						SwitchExpressions[t.state] = s
-						local newValue = SecureCmdOptionParse(s) and true or false
-						if (States[t.state] ~= newValue) then
-							self:RunAttribute("SetSwitch", t.state, newValue, true)
-						end
-					end
-
+				end
 			end
 		end
 	end
 
 
-
-
-
-
-
 ### SecureBindings.lua #4 SetAttribute
 	local name, value, skipUpdate = ...
-
 	if (States[name] ~= value) then
 		if (not _switchesUpdating[name]) then
 			_switchesUpdating[name] = true
@@ -557,7 +516,6 @@ DelegateFrameNames[frame] = frame:GetName()
 			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
-
 			end
 		end
 		info.frame = nil
@@ -600,13 +558,9 @@ DelegateFrameNames[frame] = frame:GetName()
         unitframe.unit = unit
         unitframe.reaction = reaction
 		States.unitframe = unitframe
-
-
-
 		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
-
 		end
 	end
 
@@ -618,7 +572,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 		DirtyFlags.unitframe = true
 		debind_driver:SetAttribute("state-unitexists", "unitframe")
-
 	end
 
 

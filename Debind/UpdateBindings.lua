@@ -36,50 +36,6 @@ local BindingPressHoldCache              = {};
 
 local STATE_EVAL_EXPRESSIONS             = Constants.STATE_EVAL_EXPRESSIONS;
 
--- not used
--- local HOVER_CHECK_SNIPPET = format([[
--- if (hovercheck and value ~= "unitframe") then
---     local unitframe = States.unitframe
---     local clear = not unitframe.frame:IsVisible()
-
---     if (not clear) then
---         if (unitframe.l) then
---             local x, y = unitframe.frame:GetMousePosition()
---             if (not x or (x < unitframe.l or x > unitframe.r or y < unitframe.b or y > unitframe.t)) then
---                 clear = true
---             end
---         end
---     end
-
---     if (clear) then
---         States.unitframe = nil
---         hovercheck = false
---         if (self:RunAttribute("SetUnit", "hover", nil)) then
---             DirtyFlags.unitframe = true
---         end
---     else
---         local unit = unitframe.frame:GetEffectiveAttribute("unit");
---         if (UnitExists(unit)) then
---             local reaction
---             if (PlayerCanAssist(unit)) then
---                 reaction = %d
---             elseif (PlayerCanAttack(unit)) then
---                 reaction = %d
---             else
---                 reaction = %d
---             end
-
---             if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
---                 unitframe.unit = unit
---                 unitframe.reaction = reaction
---                 self:RunAttribute("SetUnit", "hover", unit)
---                 DirtyFlags.unitframe = true
---             end
---         end
---     end
--- end
--- ]], Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_NONE);
-
 
 local NextButtonName;
 do

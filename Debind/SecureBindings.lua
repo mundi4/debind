@@ -54,16 +54,6 @@ end
 --- strength of a state nobody looked at.
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);
 SecureHandlerExecute(BindingDriver, [[
-	-- FALSE_VALUES = newtable()
-	-- FALSE_VALUES[0] = true
-	-- FALSE_VALUES["0"] = true
-	-- FALSE_VALUES[false] = true
-	-- FALSE_VALUES["false"] = true
-	-- FALSE_VALUES["FALSE"] = true
-	-- FALSE_VALUES["f"] = true
-	-- FALSE_VALUES["F"] = true
-	-- FALSE_VALUES["off"] = true
-	-- FALSE_VALUES["OFF"] = true
 
 	debind_driver = self
 	ccframes = newtable()
@@ -175,78 +165,62 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 ]] or "";
 
 BindingDriver:SetAttribute("UpdateMacroTexts", [=[
-	--self:CallMethod("print", "UpdateMacroTexts", ...)
-
-	-- local wasUpdating = _isUpdatingMacrotests
-	-- if (not wasUpdating) then
-	-- 	_isUpdatingMacrotests = true
-	-- end
-
 	local key = ...
 	for state, dependents in pairs(MacroTextsMap) do
 		if (key == true or key == state or DirtyFlags[state]) then
 			for i = 1, #dependents do
 				local t = dependents[i]
-				--if (not _macrotextsSeen[t.id]) then
-					--_macrotextsSeen[t.id] = true
-					local s
-					for i = 1, #t.args do
-						local arg = t.args[i]
-						local value
-						if (arg.unit) then
-							value = UnitAliasMap[arg.unit] or "raid41"
-						elseif (arg.state) then
-							value = States[arg.state] and true or false
-							if (arg.reverse) then
-								value = not value
-							end
-							value = value and "" or "known:0"
-						elseif (arg.fixed) then
-							value = arg.fixed
+				local s
+				for i = 1, #t.args do
+					local arg = t.args[i]
+					local value
+					if (arg.unit) then
+						value = UnitAliasMap[arg.unit] or "raid41"
+					elseif (arg.state) then
+						value = States[arg.state] and true or false
+						if (arg.reverse) then
+							value = not value
 						end
-						t.fragments[i * 2] = value
+						value = value and "" or "known:0"
+					elseif (arg.fixed) then
+						value = arg.fixed
 					end
-					s = table.concat(t.fragments)
+					t.fragments[i * 2] = value
+				end
+				s = table.concat(t.fragments)
 
-					-- 실제로 버튼에 올라가는 문자열. 여기가 **보안 쪽에서 매크로 본문이
-					-- 완성되는 유일한 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를
-					-- 지나면 다시 읽을 방법이 없다(속성은 열거가 안 된다).
-					--
-					-- 이 갈래는 `@custom1`·`@hover`처럼 **실행 시점에 바뀌어야 하는 것이
-					-- 있는** 본문만 지난다. 조용하면 그것도 답이다 - 그 본문은 정적이라
-					-- `SetBindingAttributes`가 쓴 그대로라는 뜻이다(그쪽 로그를 볼 것).
+				-- 실제로 버튼에 올라가는 문자열. 여기가 **보안 쪽에서 매크로 본문이
+				-- 완성되는 유일한 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를
+				-- 지나면 다시 읽을 방법이 없다(속성은 열거가 안 된다).
+				--
+				-- 이 갈래는 `@custom1`·`@hover`처럼 **실행 시점에 바뀌어야 하는 것이
+				-- 있는** 본문만 지난다. 조용하면 그것도 답이다 - 그 본문은 정적이라
+				-- `SetBindingAttributes`가 쓴 그대로라는 뜻이다(그쪽 로그를 볼 것).
 ]=] .. PRINT_MACROTEXT_SNIPPET .. [=[
 
-					if (t.attr) then
-						DefaultClickFrame:SetAttribute(t.attr, s)
+				if (t.attr) then
+					DefaultClickFrame:SetAttribute(t.attr, s)
+				end
+				-- No "did the text change" guard around this. The pass already parsed the
+				-- previous `SwitchExpressions[t.state]` before reaching here, so the parse
+				-- below is what the newly composed text needs; skipping it when the text is
+				-- unchanged would save one call, and this only runs because something the
+				-- text depends on went dirty, so unchanged is the rare case.
+				-- It stood as `if (true or ... ~= s)`, which read as a guard and was not one.
+				if (t.state) then
+					SwitchExpressions[t.state] = s
+					local newValue = SecureCmdOptionParse(s) and true or false
+					if (States[t.state] ~= newValue) then
+						self:RunAttribute("SetSwitch", t.state, newValue, true)
 					end
-					-- No "did the text change" guard around this. The pass already parsed the
-					-- previous `SwitchExpressions[t.state]` before reaching here, so the parse
-					-- below is what the newly composed text needs; skipping it when the text is
-					-- unchanged would save one call, and this only runs because something the
-					-- text depends on went dirty, so unchanged is the rare case.
-					-- It stood as `if (true or ... ~= s)`, which read as a guard and was not one.
-					if (t.state) then
-						SwitchExpressions[t.state] = s
-						local newValue = SecureCmdOptionParse(s) and true or false
-						if (States[t.state] ~= newValue) then
-							self:RunAttribute("SetSwitch", t.state, newValue, true)
-						end
-					end
-				--end
+				end
 			end
 		end
 	end
-
-	-- if (not wasUpdating) then
-	-- 	_isUpdatingMacrotests = false
-	-- 	wipe(_macrotextsSeen)
-	-- end
 ]=]);
 
 BindingDriver:SetAttribute("SetSwitch", [[
 	local name, value, skipUpdate = ...
-	--self:CallMethod("print","SetSwitch",name,value,skipUpdate,States[name])
 	if (States[name] ~= value) then
 		if (not _switchesUpdating[name]) then
 			_switchesUpdating[name] = true
@@ -544,7 +518,6 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 			if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 				DirtyFlags.unitframe = true
 				debind_driver:SetAttribute("state-unitexists", "unitframe")
-				--debind_driver:RunAttribute("UpdateBindings")
 			end
 		end
 		info.frame = nil
@@ -594,13 +567,9 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
         unitframe.unit = unit
         unitframe.reaction = reaction
 		States.unitframe = unitframe
-        -- if (unitframe.insetL and not unitframe.l) then
-        --     debind_driver:RunFor(self, debind_driver:GetAttribute("update_hit_bounds"))
-        -- end
 		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
 			DirtyFlags.unitframe = true
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
-			--debind_driver:RunAttribute("UpdateBindings")
 		end
 	end
 ]==]));
@@ -613,7 +582,6 @@ BindingDriver:SetAttribute("setup_onleave", [==[
 	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
 		DirtyFlags.unitframe = true
 		debind_driver:SetAttribute("state-unitexists", "unitframe")
-		--debind_driver:RunAttribute("UpdateBindings")
 	end
 ]==]);
 
