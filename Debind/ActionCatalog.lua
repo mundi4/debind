@@ -42,7 +42,7 @@ local LLL                = DebindPrivate.L;
 ---
 --- **주의: 저장은 base, 표시는 override.** `spellID` 필드는 이미 오버라이드가 적용된
 --- 값이라 그걸 저장하면 특성을 바꿨을 때 죽은 ID가 남는다. `NameAndIconForAction`
---- (`DebindUI.lua`)이 그릴 때 base -> override로 다시 푸는 것이 이 애드온의 규약이다.
+--- (`ActionDisplay.lua`)이 그릴 때 base -> override로 다시 푸는 것이 이 애드온의 규약이다.
 local ActionCatalog = {};
 DebindPrivate.ActionCatalog = ActionCatalog;
 

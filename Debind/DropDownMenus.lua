@@ -8,7 +8,7 @@ local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 
 local SEPARATOR             = { isSeparator = true, };
 local ARRAY_MARKER          = {};
--- 선택 창의 명령 탭도 같은 목록을 건다. 사본을 하나 더 두면 갈라진다 (`DebindUI.lua`).
+-- 선택 창의 명령 탭도 같은 목록을 건다. 사본을 하나 더 두면 갈라진다 (`ActionDisplay.lua`).
 local SORTED_UNIT_LIST      = DebindUI.SORTED_UNIT_LIST;
 local USE_CHECKED_VALUE     = {};
 

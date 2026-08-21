@@ -911,7 +911,7 @@ attribute-value = "toggle"              ("on" / "off"도 같은 자리)
 > **"물음표로 보여주는 게 문제가 되진 않아. 사용자가 이걸 바꾸기 힘든 것도 아니고 말 그대로
 > '언제든' 바꿀 수 있는 항목이잖아."**
 
-강제하지 않는다. 안 고르면 `QUESTION_MARK_ICON_NUM`(`DebindUI.lua`)이고, 이건 와우 매크로와
+강제하지 않는다. 안 고르면 `QUESTION_MARK_ICON_NUM`(`ActionDisplay.lua`)이고, 이건 와우 매크로와
 이 애드온의 `MACROTEXT`가 이미 선 형태다.
 
 #### 필드는 정의에 산다. 그리고 그것이 규약을 안 깬다
@@ -1415,7 +1415,7 @@ CLAUDE.md의 두 어휘 규칙은 코드에 UI 낱말을 강요하지 말라는 
 | `Misc.lua` | `SwitchesChangedCallback` | 바뀐 것만 훑는다. 정의 없는 이름은 건너뛴다 |
 | `Profile.lua` | `BindDerivedTables` | 있는 것만 훑는다. 만들지 않는다 |
 | `DropDownMenus.lua` | `SetupSwitchesDropdownMenu`, `CreateSwitchConditionMenu` 둘 | **거는 자리는 그대로 다섯**이었고, `isActive`만 조건 표를 훑었다. **은퇴는 4단계가 아니라 3c였다** - 앞엣것은 통째로 없어졌고 뒤엣것은 있는 스위치를 훑는다 |
-| `DebindUI.lua` | 액션 툴팁의 조건 줄 | 조건 표를 훑고 이름순으로 그린다 |
+| `ActionTooltip.lua` | 액션 툴팁의 조건 줄 | 조건 표를 훑고 이름순으로 그린다 |
 | `ActionCatalog.lua` | `BuildSpecialActions` | **그대로 다섯**이었다. SETSTATE가 대상을 비트팩으로 들어서 셀 수 있는 것이 번호뿐이었다(§9-1이 없앴다). 3c가 그 자리를 대상 없는 한 줄로 접었다 |
 | `UpdateBindings.lua` | `UpdateBindingsMap` | 조건 표를 훑는다. 죽어 있던 `binding.switches` 루프는 없어졌다 |
 | `Switches.lua` | `_onattributechanged`·`_onclick` 본문, 그리고 `GetSwitchOptions` | 본문에는 **애초에 숫자가 한 군데도 안 구워지고 있었다** |

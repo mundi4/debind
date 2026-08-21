@@ -9,7 +9,8 @@
 > 1. ~~**A.** 오른쪽 열에 자기 믹스인을 준다. 싸고 옮기기뿐이다~~ **했다**(2026-08-22).
 >    `DebindLayerPanelMixin`이 서고 열한 개가 그리로 갔다. 파일은 안 갈랐고 정의 자리도 안
 >    옮겼다. 아래 "A를 하고 나서"
-> 2. **"창보다 위로 올릴 것" 셋.** 개편의 미리보기 패널이 그것들을 쓴다
+> 2. ~~**"창보다 위로 올릴 것" 셋.** 개편의 미리보기 패널이 그것들을 쓴다~~ **했다**(2026-08-22).
+>    파일 셋이 `DebindUI.xml`에서 `DebindUI.lua`보다 먼저 선다. 아래 "2를 하고 나서"
 > 3. **보관함 개편.** 창에 `CallbackRegistryMixin`을 섞고 그 패널이 첫 등록자가 된다
 > 4. **C.** 버스가 실제로 도는 것을 보고 오버뷰 두 열을 옮긴다
 > 5. **B**는 아무 때나. **D**는 C 끝나고 다시 잰다
@@ -118,7 +119,8 @@ grep으로 된다. **열 파일 안에 다른 열의 이름이 한 번도 안 �
   믹스인이 거기 산다.** `BeginKeyCapture`, `SetActionKey`, `GiveKeyGroupTheKey`,
   `ShowKeyGroupConflictDialog`가 이쪽에 남아 있는 것이 오히려 갈라진 상태다
 
-**창보다 위로 올릴 것 (오버뷰 밖에서도 씀)**
+**창보다 위로 올릴 것 (오버뷰 밖에서도 씀)** — **끝났다**(2026-08-22). 실제로 무엇이 어느 파일로
+갔고 무엇이 안 갔는지는 아래 "2를 하고 나서"가 들고 있다. 여기 셋은 그때 무엇을 셌는지다.
 
 - `GetLayerID`, `GetLayerLabel`, `GetLayerShortName`, `IsLayerOffWorld`, `GetSideTabIcon`
 - `NameAndIconForAction`, `ColoredNameAndIconForAction`, `SetActionIcon`. 지금도 `DebindUI`
@@ -220,6 +222,43 @@ grep이 반만 잡는다. 창 자신은 `self.LayerPanel`을 그대로 쓴다.
 
 **2026-08-14에 이 이동을 재고 접은 결정을 뒤집은 것이다.** 무엇이었고 왜 뒤집혔는지는
 `0-DECISION-LOG.md`.
+
+## 2를 하고 나서 (2026-08-22)
+
+파일 셋이 섰고 전부 `DebindUI.xml`에서 `DebindUI.lua`보다 **먼저** 선다. 순서도 이 순서여야 한다.
+
+| 파일 | |
+|---|---|
+| `ActionDisplay.lua` | 액션 이름·아이콘 해석기와 그것에 붙는 낱말들. `NameAndIconForAction`, `ColoredNameAndIconForAction`, `SetActionIcon`, `BINDING_TYPE_NAMES`, `UNIT_INFO`, `SORTED_UNIT_LIST`, `GetMacrotextIcon`과 그 캐시, `IMPORTED_FONT_COLOR`, `QUESTION_MARK_ICON_NUM` |
+| `LayerDisplay.lua` | 레이어 이름과 그 옆 그림. `GetLayerTabs`, `GetTabLabel`, `GetSideTabaLabel`, `GetLayerShortName`, `GetLayerLabel`, `IsLayerOffWorld`, `GetSideTabIcon` |
+| `ActionTooltip.lua` | 액션 툴팁 통째로. `AddActionToTooltip`/`HideActionTooltip`의 `do` 블록, `GetActionBarTypeLabel`, `UNIT_FRAME_REACTIONS`/`UNIT_FRAME_TYPES` |
+
+`DebindUI.lua`가 6667줄에서 5688줄이 됐다. 세 파일 합이 1081줄이고, 차액은 각자 붙은 머리말과
+`local` 재선언이다. 바닥의 `-- temp` 공개 블록도 그만큼 줄었다.
+
+**`DebindPrivate.DebindUI`를 만드는 자리가 `ActionDisplay.lua`로 옮겼다.** `DebindUI.lua`는 이제
+그 표를 있는 그대로 받는다. 순서를 뒤집으면 먼저 온 파일의 첫 줄이 nil을 인덱싱하고 **로드
+시점에 요란하게** 죽는다. 조용히 안 깨지는 것이 이 배치의 조건이었다.
+
+**둘은 안 올라갔다.** `GetLayerID`와 `GetSideTabDescription`이다. 인자를 안 주면 지금 열려 있는
+탭을 답하는데, 그건 전제 3이 말하는 "두 열이 함께 쓰는 것"이라 창의 것이다. 그래서 경계를 넘는
+값은 `layerID` 하나가 됐다. 위 목록이 `GetLayerID`를 올릴 것으로 세었던 것은 이 갈래를 안 보고
+센 것이다.
+
+**`Debind.xml`이 아니라 `DebindUI.xml`에 넣었고, 이건 미룬 것이 하나 있다는 뜻이다.**
+`testing-a-change.md`의 기준은 "UI냐"가 아니라 "프레임이 필요하냐"이고, `Debind.xml`에 있다는
+것은 곧 파이프라인이 그것을 필요로 한다는 주장이다. 셋 중 그 주장이 서는 것은
+`ActionDisplay.lua` 하나뿐이다. `ActionCatalog.lua`가 `AddEntry`에서 해석기를 부르는데, 그 파일은
+`Debind.xml`에 있고 헤드리스로 돌며, 지금은 표를 **호출 시점에** 잡아서 그 의존을 피하고 있다.
+`ActionDisplay.lua`를 `Misc.lua` 뒤로 옮기면 `AddEntry`가 헤드리스에서 실제로 돌 수 있게 된다
+(`catalog_spec`이 지금 `Filter` 하나만 재는 이유가 그것이다). **안 했다.** 2번이 요구한 것은
+"창보다 위로"였고 저건 "파이프라인 안으로"라 별개의 판단이다.
+
+**여섯 번째 죽은 코드가 나왔고 이번엔 지웠다.** `ClearMacrotextIconCache`의
+`if (DebindFrame:IsShown()) then return; end`. 부르는 자리가 `DebindFrameMixin:OnHide` 하나인데
+`OnHide` 안에서는 창이 이미 내려가 있어서 이 가드는 막은 적이 없다. 위 넷과 달리 짚어만 둘 수가
+없었다 - 올라간 파일이 창에게 보이느냐고 묻는 것이 2번이 없애려는 바로 그 되짚기다. 언제 지울지는
+부르는 쪽 몫으로 남겼다.
 
 ## C의 위험
 

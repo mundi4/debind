@@ -2,16 +2,18 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
 
 	<!--
-		**Before `DebindUI.lua`, and that order is load-bearing.** The first of the two creates
-		`DebindPrivate.DebindUI`; both fill it, and the window's file takes the table and what is in it
-		as it finds them. Load them the other way round and the window's opening lines index a nil.
+		**Before `DebindUI.lua`, and this order is load-bearing.** `ActionDisplay.lua` creates
+		`DebindPrivate.DebindUI`; the two after it read out of that table as they load, and the
+		window's file takes the table and what is in it as it finds them. Any other order and the
+		opening lines of whichever came too early index a nil.
 
-		They stand outside the window because every other panel in this addon draws actions and names
-		layers, and none of them should have to go through the overview to do it
-		(`breaking-up-debindui.md`, "창보다 위로 올릴 것").
+		The three stand outside the window because every other panel in this addon draws actions,
+		names layers and hovers over rows, and none of them should have to go through the overview to
+		do it (`breaking-up-debindui.md`, "창보다 위로 올릴 것").
 	-->
 	<Script file="ActionDisplay.lua" />
 	<Script file="LayerDisplay.lua" />
+	<Script file="ActionTooltip.lua" />
 	<Script file="DebindUI.lua" />
 	<Script file="DropDownMenus.lua" />
 

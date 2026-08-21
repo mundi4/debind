@@ -624,7 +624,7 @@ return function(DebindPrivate)
     -- 7. 아이콘 뽑기용 `$상태` 제거 (StripSwitchConditions)
     --
     -- 아이콘은 매크로텍스트를 **진짜 매크로 슬롯에 써넣어** 와우에게 계산시킨다
-    -- (DebindUI.lua `GetMacrotextIcon`). `$state1`이 그대로 넘어가면 와우가 대화창에
+    -- (ActionDisplay.lua `GetMacrotextIcon`). `$state1`이 그대로 넘어가면 와우가 대화창에
     -- "Unknown macro option: $state1"을 찍는다 -- 아이콘 하나에 채팅창이 더러워진다.
     --
     -- 계약은 둘:
