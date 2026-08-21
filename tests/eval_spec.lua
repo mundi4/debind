@@ -10,13 +10,33 @@
 -- button does once it has one. **The two `Multi-axis:` sweeps stay in both places** -- they are the
 -- anchor, and if this interpretation and the game ever part, that is where it shows.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
     local shim = require("wow_shim");
     local frames = require("wow_frames");
     local restricted = require("restricted");
 
     local T = { passed = 0, failures = {} };
+
+    --- **In the shipped shape there is nothing here to run, and that is the check.**
+    ---
+    --- Every case below reaches the decision through `EvalClickTimeKey`, an attribute
+    --- `SecureBindings.lua` sets only under `DEBUG` -- a way to ask the click path what it would
+    --- pick without hardware input, which a released build has no business carrying. So the
+    --- shipped pass asks the one question that is left: **is it really not there.** A hook that
+    --- shipped would be a test entry point on every user's driver frame, reachable by anything
+    --- that can run a snippet.
+    if (ctx and ctx.shipped) then
+        local driver = DebindPrivate.BindingDriver;
+        if (driver:GetAttribute("EvalClickTimeKey") ~= nil
+                or driver:GetAttribute("EvalClickCastFrame") ~= nil) then
+            T.failures[#T.failures + 1] =
+                "the DEBUG-only eval hooks are installed in the shipped shape";
+        else
+            T.passed = T.passed + 1;
+        end
+        return T;
+    end
 
     local function test(name, fn)
         local ok, err = pcall(fn);

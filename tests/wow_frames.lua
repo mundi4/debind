@@ -55,6 +55,18 @@ end
 M.record = record;
 
 --- Everything recorded so far, oldest first. The interpreter's window.
+--- Puts the recorder and the anonymous-frame counter back where they start.
+---
+--- **The counter is the reason this exists.** A frame the addon does not name is labelled
+--- `<Frame#N>` off a running number, and the emission golden records those labels -- so a spec
+--- that stood a frame up before the golden's rebuild shifted every one of them, and the failure
+--- read as "the emission moved" when nothing about the addon had. `run.lua` calls this between
+--- specs, which is the harness half of giving each one a clean addon (§10-1).
+function M.reset()
+    recorder.entries = {};
+    M.__resetAnon();
+end
+
 function M.all()
     return recorder.entries;
 end
@@ -90,6 +102,11 @@ end
 M.label = label;
 
 local _nextAnon = 0;
+
+--- Reached by `M.reset` above, which is declared before this upvalue exists.
+function M.__resetAnon()
+    _nextAnon = 0;
+end
 
 local function newFrame(frameType, name, parent, template)
     _nextAnon = _nextAnon + 1;

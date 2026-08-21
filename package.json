@@ -3,7 +3,7 @@
   "private": true,
   "description": "Local test runner for the Debind addon (no WoW / lua binary required)",
   "scripts": {
-    "test": "node tests/run.js",
+    "test": "node tests/run.js && node tests/run.js --shipped",
     "lint": "node tools/luacheck.js",
     "check:templates": "node tools/check-templates.js",
     "check:locales": "node tools/check-locales.js",

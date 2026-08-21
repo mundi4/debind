@@ -43,7 +43,7 @@ jobs:
           args: -q
 
       - name: Solver tests
-        run: lua5.1 tests/run.lua
+        run: lua5.1 tests/run.lua && lua5.1 tests/run.lua --shipped
 
       # 템플릿 존재 검사(tools/check-templates.js)는 여기서 안 돈다. 로컬 `npm run check`
       # 전용이다 - 판정에 github.com을 쳐야 해서, 네트워크가 흔들리면 코드와 무관하게

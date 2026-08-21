@@ -6,7 +6,7 @@ change spans layers, land a check in each.
 
 | | runs | sees | cannot see |
 |---|---|---|---|
-| `npm test` | headless, no client | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, and which record a press picks | the sandbox itself, taint, combat lockdown, what the game reports a key is bound to, a real frame under a real cursor |
+| `npm test` | headless, no client, **both shapes** | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, and which record a press picks | the sandbox itself, taint, combat lockdown, what the game reports a key is bound to, a real frame under a real cursor |
 | `npm run check` | headless | lint, XML, locale/template parity, snippet syntax, **the exact bytes every snippet bakes to** | whether any of it behaves |
 | `/debtest` | in the game | the real restricted environment: snippets compiling, attributes wiring, event ordering, what the game reports a key is bound to | nothing that needs a second player or a real fight |
 
@@ -39,9 +39,19 @@ Two of the specs are worth knowing about before adding one:
   hands to the secure side, held byte for byte against `tests/emit-golden.txt`. It is a net for
   refactoring and **not a specification**: when the emission is meant to move, run
   `node tests/run.js --update-golden` and read the diff.
-- **The specs that drive a rebuild run last, and in a fixed order.** They leave module-level state
-  behind (`BindingAttrsCache`, the button-name counter, `KeyMap`), and the golden's button names
-  come off that counter. The `specs` list says so where it matters.
+- **Every spec gets its own addon and its own client**, loaded and reset a moment before it runs.
+  Nothing one leaves behind reaches the next, so the order of the list is readability and nothing
+  else — reversing it is a run that has to pass.
+
+`npm test` runs the suite **twice**: once as the working tree reads, once as
+`node tests/run.js --shipped`, which cuts the `--@debug@` blocks out the way the packager does.
+That second pass is the only place the shape a user actually gets is ever run. It emits different
+bytes and has its own recording (`tests/emit-shipped-golden.txt`), because `Constants.DEBUG` being
+false takes the DEBUG-only lines out of what a rebuild emits and leaves the driver frame unnamed.
+
+`eval_spec` has nothing to run in that pass and says so with the one check that is left: the
+click-time eval hooks are **DEBUG-only on purpose**, and the shipped pass asserts they are absent.
+A build that shipped them would be handing every user a test entry point on the driver frame.
 
 Add a spec by dropping a file in `tests/` and registering it in the `specs` list in
 `tests/run.lua`. A spec is a function taking `DebindPrivate` and returning

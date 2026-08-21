@@ -10,6 +10,50 @@ package.path = root .. "/?.lua;" .. package.path;
 local shim = require("wow_shim");
 shim.install();
 
+--- Reading and writing a whole file, whichever interpreter this is.
+---
+--- **fengari has no `io.open`.** It offers `io.write` and nothing that opens a file, so the two
+--- fall back on functions `run.js` installs. A real interpreter never reaches them.
+local function readFile(path)
+    if (io.open) then
+        local file = io.open(path, "rb");
+        if (not file) then return nil, path .. " could not be opened"; end
+        local contents = file:read("*a");
+        file:close();
+        return contents;
+    end
+    return _G.__hostReadFile(path);
+end
+
+local function writeFile(path, contents)
+    if (io.open) then
+        local file = assert(io.open(path, "wb"));
+        file:write(contents);
+        file:close();
+        return;
+    end
+    _G.__hostWriteFile(path, contents);
+end
+
+local bench = false;
+--- Rewrite the recorded files instead of comparing against them. The emission golden is a net for
+--- a refactor and not a specification (`devdocs/going-headless-outside-the-ui.md` §6), so a
+--- deliberate change to what a rebuild emits is answered by updating it and reading the diff --
+--- the same discipline `tools/snippet-golden.txt` already runs on.
+local updateGolden = false;
+--- Read the shape a user gets rather than the one in the working tree: the `--@debug@` blocks come
+--- out, `Constants.DEBUG` stops being true, and every branch under it changes answer
+--- (`going-headless-outside-the-ui.md` §10-2). **This has to be known before the addon is loaded**,
+--- which is why the argument walk sits up here rather than beside the spec list.
+local shipped = false;
+for i = 1, #(arg or {}) do
+    if (arg[i] == "--bench") then bench = true; end
+    if (arg[i] == "--update-golden") then updateGolden = true; end
+    if (arg[i] == "--shipped") then shipped = true; end
+end
+
+local loadOpts = { shipped = shipped, readFile = readFile };
+
 -- Two of the bundled libraries are plain Lua and the harness reads them rather than standing in
 -- for what they do. `CallbackHandler-1.0` is the one that matters: `DebindPrivate.callbacks` is
 -- built out of it in `Debind.lua`, and several specs used to hand-build a stub for that.
@@ -36,7 +80,13 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---     call
 ---   `DevSeed.lua` has to stay out: it plants a profile, and every spec that starts from an
 ---     empty one would be handed the seed instead (`Profile.lua`, `InitDB`)
-local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
+--- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
+--- state from crossing between them: `BindingAttrsCache`, `KeyMap`, the switch table and the
+--- counter the button names come off all start where the game starts them
+--- (`devdocs/going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
+--- a fraction of one spec.
+local function loadAddons()
+    local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
     "Snippets.lua",
     "Ordering.lua",
@@ -57,37 +107,37 @@ local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     -- **A UI file, and the only one the harness loads.** It builds no frames when it is read, and
     -- the two functions that decide the reader's lines live in it (`CollectImportLines`).
     "ImportUI.lua",
-});
+    }, nil, loadOpts);
 
---- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
---- table and Debind hands its private table across for the length of `LoadAddOn`, so the spec
---- stands that same shape up here rather than loading its files into Debind's table.
-local DebindStorage = shim.loadAddon(repoRoot .. "/DebindStorage", {
+    --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
+    --- table and Debind hands its private table across for the length of `LoadAddOn`, so the spec
+    --- stands that same shape up here rather than loading its files into Debind's table.
+    local DebindStorage = shim.loadAddon(repoRoot .. "/DebindStorage", {
     "Export.lua",
     "Import.lua",
-}, { DebindPrivate = DebindPrivate });
+    }, { DebindPrivate = DebindPrivate }, loadOpts);
 
---- What `DebindStorage.lua` does the instant the game loads that addon. It is not in the list
---- above, because the shim has no `LoadAddOn` for it to run inside, so the half that points Debind
---- back at the store is done here. `CollectImportLines` reads it (`ImportUI.lua`).
-DebindPrivate.Store = DebindStorage;
-
-local bench = false;
---- Rewrite the recorded files instead of comparing against them. The emission golden is a net for
---- a refactor and not a specification (`devdocs/going-headless-outside-the-ui.md` §6), so a
---- deliberate change to what a rebuild emits is answered by updating it and reading the diff --
---- the same discipline `tools/snippet-golden.txt` already runs on.
-local updateGolden = false;
-for i = 1, #(arg or {}) do
-    if (arg[i] == "--bench") then bench = true; end
-    if (arg[i] == "--update-golden") then updateGolden = true; end
+    --- What `DebindStorage.lua` does the instant the game loads that addon. It is not in the list
+    --- above, because the shim has no `LoadAddOn` for it to run inside, so the half that points Debind
+    --- back at the store is done here. `CollectImportLines` reads it (`ImportUI.lua`).
+    DebindPrivate.Store = DebindStorage;
+    return DebindPrivate, DebindStorage;
 end
 
 if (bench) then
-    assert(loadfile(root .. "/bench.lua"))()(DebindPrivate);
+    assert(loadfile(root .. "/bench.lua"))()((loadAddons()));
     return;
 end
 
+--- **The order here does not matter.** Every spec is handed an addon loaded a moment earlier and a
+--- client reset to empty, so nothing one leaves behind reaches the next: not
+--- `BindingAttrsCache`, not the counter the button names come off, not a `_G` stub a spec put up
+--- for itself. Reversing this list is a run that has to pass, and it is how the last of that was
+--- found -- `emit_fixture` had never installed a macro store and was passing on one another spec
+--- had left in `_G` (`devdocs/going-headless-outside-the-ui.md` §10-1).
+---
+--- The order is still worth keeping readable: cheapest first, and the ones that run a whole
+--- rebuild after the ones that measure a single function.
 local specs = {
     -- The shim itself. It stands in for the client, so what it gets wrong every spec below
     -- inherits (`wow_shim.lua`, the `CopyTable` comment).
@@ -111,49 +161,14 @@ local specs = {
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
     { name = "switch", path = root .. "/switch_spec.lua" },
-    -- **Last, and it runs a whole rebuild.** Everything above measures a function; this one drives
-    -- `UpdateBindings()` end to end and holds what came out against a recorded file. Module level
-    -- state -- `BindingAttrsCache`, `KeyMap`, the switch table -- is left behind by that
-    -- (`devdocs/going-headless-outside-the-ui.md` §10-1), so it goes after the specs that would
-    -- otherwise inherit it.
     { name = "emit", path = root .. "/emit_spec.lua" },
-    -- **After the golden**, because it builds plans of its own and the button names
-    -- `SetBindingAttributes` hands out run on one counter -- a rebuild before the golden's would
-    -- shift every name in it.
     { name = "plan", path = root .. "/plan_spec.lua" },
     { name = "describe", path = root .. "/describe_spec.lua" },
     { name = "record", path = root .. "/record_spec.lua" },
     { name = "context", path = root .. "/context_spec.lua" },
     { name = "frames", path = root .. "/frames_spec.lua" },
-    -- **The interpreter, so it goes after everything that only measures the decision.** It runs
-    -- one, which needs every earlier rebuild replayed into it first.
     { name = "eval", path = root .. "/eval_spec.lua" },
 };
-
---- Reading and writing a whole file, whichever interpreter this is.
----
---- **fengari has no `io.open`.** It offers `io.write` and nothing that opens a file, so the two
---- fall back on functions `run.js` installs. A real interpreter never reaches them.
-local function readFile(path)
-    if (io.open) then
-        local file = io.open(path, "rb");
-        if (not file) then return nil, path .. " could not be opened"; end
-        local contents = file:read("*a");
-        file:close();
-        return contents;
-    end
-    return _G.__hostReadFile(path);
-end
-
-local function writeFile(path, contents)
-    if (io.open) then
-        local file = assert(io.open(path, "wb"));
-        file:write(contents);
-        file:close();
-        return;
-    end
-    _G.__hostWriteFile(path, contents);
-end
 
 --- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is
 --- the repository root -- a spec is loaded with `loadfile` and has no idea where it lives.
@@ -161,6 +176,7 @@ local ctx = {
     repoRoot = repoRoot,
     root = root,
     updateGolden = updateGolden,
+    shipped = shipped,
     readFile = readFile,
     writeFile = writeFile,
 };
@@ -169,6 +185,9 @@ local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
+    shim.resetWorld();
+    require("wow_frames").reset();
+    local DebindPrivate, DebindStorage = loadAddons();
     local result = chunk()(DebindPrivate, DebindStorage, ctx);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do

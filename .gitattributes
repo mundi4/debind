@@ -14,3 +14,7 @@ tests/emit-golden.txt -text
 # so the two goldens are governed the same way, and so a checkout stops being the thing that
 # rewrites a recording of bytes.
 tools/snippet-golden.txt -text
+
+# The same file for the shape a user gets. The two are separate recordings because the shipped
+# shape emits different bytes -- DEBUG-only lines are gone and the driver frame is unnamed there.
+tests/emit-shipped-golden.txt -text

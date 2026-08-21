@@ -20,7 +20,24 @@ M.world = {
     units = {},
     bindingContexts = {},
     activeBindingContexts = {},
+    macros = {},
 };
+
+--- Puts the world back to empty and reinstalls every stand-in over it.
+---
+--- **A spec that overwrites a global keeps it for the whole run otherwise**, and the next spec
+--- inherits a client somebody else configured. That was not theoretical: `emit_fixture` never
+--- installed a macro store and passed anyway, on whichever `_G.GetMacroInfo` the spec before it
+--- had left behind, and reversing the spec list was what said so (§10-1).
+function M.resetWorld()
+    for key, value in pairs(M.world) do
+        if (type(value) == "table") then
+            for k in pairs(value) do value[k] = nil; end
+        end
+    end
+    M.world.inCombat = false;
+    M.install();
+end
 
 local MASK32 = 4294967296;
 
@@ -288,6 +305,22 @@ function M.install()
     --- `[token] = { id = , raidIndex = , inParty = }`, and `id` is the identity two tokens share
     --- when `UnitIsUnit` says they are one unit -- which is the whole of what resolving a custom
     --- target rests on. It starts empty, which is a client where nothing exists.
+    --- The macro store, answering out of the world like everything else here.
+    ---
+    --- **It starts empty, which is a character with no macros**, and that is a real answer rather
+    --- than an absent function: `ConvertToMacroText` and `GetBindingIssue` both ask, and a nil
+    --- global made them raise in whichever spec had not been handed someone else's stub. Three
+    --- specs stand up richer stores of their own over this one (`export`, `import`, `issue`).
+    _G.GetMacroInfo = function(nameOrIndex)
+        local macro = M.world.macros[nameOrIndex];
+        if (not macro) then return nil; end
+        return macro.name or nameOrIndex, macro.icon, macro.body;
+    end
+    _G.GetMacroIndexByName = function(name)
+        return M.world.macros[name] and 1 or 0;
+    end
+    _G.GetNumMacros = function() return 0, 0; end
+
     _G.UnitExists = function(token) return M.world.units[token] ~= nil; end
     _G.UnitIsUnit = function(a, b)
         local left, right = M.world.units[a], M.world.units[b];
@@ -511,17 +544,57 @@ function M.loadLibs(root, files)
     end
 end
 
+--- Cuts the `--@debug@` blocks out, which is what the packager does on the way to a release. Three
+--- files carry one (`Constants.lua`, `Profile.lua`, `Public.lua`) and thirty lines come out, but
+--- the one that matters is three of them: `Constants.DEBUG` stops being true, and every
+--- `if (DEBUG)` in the addon changes answer with it.
+---
+--- **Only the stripping half is here.** The packager also uncomments `--[===[@non-debug@ ... ]===]`,
+--- and this repo has no such block in any Lua file - the only `@non-debug@` is in the TOC. If one
+--- is ever written, this stops being a faithful stand-in and the shipped pass starts lying.
+local function stripDebugBlocks(src)
+    -- **`loadfile` skips a UTF-8 BOM and `load` does not.** `Debind.lua` carries one, so the
+    -- shipped pass died on line 1 of the first file it read while the ordinary pass had never
+    -- noticed. The game reads files the way `loadfile` does.
+    src = src:gsub("^\239\187\191", "");
+    local out, skipping = {}, false;
+    for line in (src .. "\n"):gmatch("([^\n]*)\n") do
+        if (line:match("^%s*%-%-@debug@%s*$")) then
+            skipping = true;
+        elseif (line:match("^%s*%-%-@end%-debug@%s*$")) then
+            skipping = false;
+        elseif (not skipping) then
+            out[#out + 1] = line;
+        end
+    end
+    return table.concat(out, "\n");
+end
+
 --- 애드온 파일들을 순서대로 로드하고 애드온 private 테이블을 돌려준다.
 ---
 --- `addon` is optional and exists for the companion addons. `DebindStorage` is a **second** addon
 --- with its own table, so its files cannot be loaded into Debind's; the caller builds the table
 --- the game would have given it (with `DebindPrivate` on it, the way the real handshake does) and
 --- passes it in here.
-function M.loadAddon(root, files, addon)
+---
+--- `opts.shipped` reads the shape a user gets rather than the one in the working tree, and
+--- `opts.readFile` is how it gets the bytes -- fengari has no `io.open`, so the runner hands its
+--- own reader down (`run.lua`).
+function M.loadAddon(root, files, addon, opts)
     addon = addon or { L = setmetatable({}, { __index = function(_, k) return k; end }) };
+    opts = opts or {};
     for i = 1, #files do
         local path = root .. "/" .. files[i];
-        local chunk, err = loadfile(path);
+        local chunk, err;
+        if (opts.shipped) then
+            local src = opts.readFile(path);
+            if (not src) then
+                error("failed to read " .. path, 0);
+            end
+            chunk, err = load(stripDebugBlocks(src), "@" .. path);
+        else
+            chunk, err = loadfile(path);
+        end
         if (not chunk) then
             error("failed to load " .. path .. ": " .. tostring(err), 0);
         end

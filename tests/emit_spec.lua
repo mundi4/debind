@@ -99,7 +99,13 @@ return function(DebindPrivate, _, ctx)
 
     local fixture = assert(loadfile(ctx.root .. "/emit_fixture.lua"))()(DebindPrivate, shim);
 
-    local goldenPath = ctx.root .. "/emit-golden.txt";
+    --- **A golden per shape.** The shipped shape emits different bytes, and not only where a
+    --- `if (DEBUG)` writes a comment line into a record list: the driver frame is created
+    --- **unnamed** there (`Debind.lua`, `DEBUG and "DebindBindingDriver" or nil`), so every line
+    --- that names a frame reads differently too. Holding both against one file would mean one of
+    --- the two shapes could never be recorded, and the one that lost is the one users run.
+    local goldenPath = ctx.root
+        .. (ctx.shipped and "/emit-shipped-golden.txt" or "/emit-golden.txt");
 
     local produced;
 
