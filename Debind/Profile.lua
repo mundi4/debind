@@ -968,8 +968,14 @@ function DebindPrivate.GetSwitchLayerKey(layerID)
     return layerInfo.key .. ":" .. layerInfo.spec;
 end
 
---- Every layer this character can file an override at, narrowest scope first. **`GENERAL` is not
---- among them**: that is the root, and the root is the definition.
+--- Every layer this character can file an override at, in the order the window's own tabs stand
+--- in. **`GENERAL` is not among them**: that is the root, and the root is the definition.
+---
+--- **Read in, not resolved in.** Narrowest first is the order an override is *looked up* through
+--- (`ActiveOverrideLayers` below), and nothing here is looked up: the reader picks a situation off
+--- a list. Every other list of layers in the window starts at shared and puts general above the
+--- specializations, since that is how the tabs stand and move, copy and the export window all
+--- walk them. This one ran the other way and read as a mistake next to them.
 ---
 --- **Every specialization, not the one being played.** This is what the Switches tab draws its rows
 --- and its override menu from, and setting a switch up for a specialization you are not currently
@@ -985,14 +991,14 @@ function DebindPrivate.GetOverridableLayerIDs()
             OVERRIDABLE_LAYERS[#OVERRIDABLE_LAYERS + 1] =
                 DebindPrivate.GetLayerID(spec, isCharacterSpecific);
         end
-        for spec = 1, NUM_SPECS do
-            Add(spec, true);
-        end
-        Add(0, true);
+        Add(0, false);
         for spec = 1, NUM_SPECS do
             Add(spec, false);
         end
-        Add(0, false);
+        Add(0, true);
+        for spec = 1, NUM_SPECS do
+            Add(spec, true);
+        end
     end
     return OVERRIDABLE_LAYERS;
 end
