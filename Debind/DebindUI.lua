@@ -772,19 +772,17 @@ local function NameAndIconForAction(action)
 		actionIcon = 1505950;
 		skipTypeName = true;
 	elseif (Constants.SETSTATE_MODES[type]) then
-		-- **No switch picked yet is a name of its own, and the picker reads it off here.** One row
-		-- is added with no value at all (§6-C of `devdocs/redesigning-custom-states.md`), and the
-		-- three sentences below all have a `%s` in them, and putting nil through one raises. The row
-		-- is red beside this text either way (`BINDING_ISSUE_SWITCH_NONE_SELECTED`); what the
-		-- text has to say is which of the two red things it is, and "Pick a switch" says it.
-		if (luatype(value) ~= "string") then
-			actionName = LLL["TYPE_SETSTATE_NONE"];
-		else
-			-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`), and what goes
-			-- into it is the switch's name, `$` and all. Those are the glyphs the Switches tab draws
-			-- and the ones a macro body has to say (§6-B).
-			actionName = format(LLL["TYPE_" .. strupper(type)], value);
-		end
+		-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`), and what goes into
+		-- it is the switch's name, `$` and all. Those are the glyphs the Switches tab draws and the
+		-- ones a macro body has to say (§6-B).
+		--
+		-- **A row with no switch picked yet fills the same sentence rather than replacing it.** One
+		-- is added that way (§6-C of `devdocs/redesigning-custom-states.md`), and all three
+		-- sentences have a `%s` that raises on nil. What goes in is the word, not the instruction:
+		-- a name says what the action is, and telling the reader to go pick one is the job of the
+		-- red the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.
+		actionName = format(LLL["TYPE_" .. strupper(type)],
+			luatype(value) == "string" and value or LLL["TYPE_SETSTATE_ANY"]);
 		actionIcon = 254885;
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then

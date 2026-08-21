@@ -121,10 +121,57 @@ function readKeys(file) {
     return { keys, dupes, contracts };
 }
 
+// **A key the code asks for and enUS does not carry.** `L`'s metatable answers an unknown key
+// with the key itself, so the failure is a screen reading `TYPE_SETSTATE_NONE` where a sentence
+// belongs: no error, no empty label, nothing a locale comparison can see. That is what shipped,
+// and it is why this half exists at all.
+//
+// **Literal lookups only.** Plenty of keys are assembled (`"TYPE_" .. strupper(type)`,
+// `LLL[answer.label]`), and those cannot be resolved by reading the source. Anything spelled out
+// in the file is checked, which is most of them and was the one that got through.
+//
+// Whole-line Lua comments are dropped first: commented-out code names keys that were deliberately
+// retired, and the one in `DropDownMenus.lua` would be reported forever.
+const LOOKUP = /\bL{1,3}\["([A-Z0-9_]+)"\]/g;
+
+function usedKeys(dir, into) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            if (full !== localesDir) {
+                usedKeys(full, into);
+            }
+        } else if (entry.name.endsWith(".lua") || entry.name.endsWith(".xml")) {
+            const src = fs.readFileSync(full, "utf8");
+            for (const line of src.split(/\r?\n/)) {
+                if (/^\s*--/.test(line)) {
+                    continue;
+                }
+                for (const m of line.matchAll(LOOKUP)) {
+                    if (!into.has(m[1])) {
+                        into.set(m[1], path.relative(path.join(__dirname, ".."), full));
+                    }
+                }
+            }
+        }
+    }
+    return into;
+}
+
 const files = fs.readdirSync(localesDir).filter((f) => f.endsWith(".lua"));
 const base = readKeys(path.join(localesDir, `${BASE}.lua`));
 
 let failed = false;
+
+const unknown = [...usedKeys(path.join(__dirname, "..", "Debind"), new Map())]
+    .filter(([key]) => !base.keys.has(key));
+if (unknown.length > 0) {
+    failed = true;
+    console.log(`${BASE}: 코드가 부르는데 없는 키 ${unknown.length}개 (화면에 키 이름이 그대로 나온다)`);
+    for (const [key, where] of unknown) {
+        console.log(`  - ${key} (${where})`);
+    }
+}
 
 if (base.dupes.length > 0) {
     failed = true;
