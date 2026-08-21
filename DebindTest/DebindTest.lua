@@ -2774,13 +2774,16 @@ RegisterTest("Switches tab: the New switch button makes one", {
         if not editBox then
             return Fail(NAME, "상자에 편집칸이 없다. 클라이언트가 이름을 또 바꿨다")
         end
-        -- The box opens on `$` alone. Reading it back is what says so.
-        if editBox:GetText() ~= "$" then
-            return Fail(NAME, format("상자가 %q를 들고 열렸다. $ 하나로 안 열린다",
+        -- **The box opens empty, and `$` is drawn beside it.** The sigil is furniture now: it
+        -- cannot be typed over, deleted or doubled, and what the reader types is joined to it by
+        -- the caller. So the box holding anything at all is the failure, and the switch coming out
+        -- named `$madehere` below is what says the two were joined.
+        if editBox:GetText() ~= "" then
+            return Fail(NAME, format("상자가 %q를 들고 열렸다. 빈 채로 열려야 한다",
                 editBox:GetText()))
         end
 
-        if not TypeInto(editBox, SWITCH) then
+        if not TypeInto(editBox, strsub(SWITCH, 2)) then
             return Fail(NAME, "편집칸에 OnTextChanged가 없다")
         end
         -- **[Done] is pressed, not the callback called.** The button stays disabled until the box
