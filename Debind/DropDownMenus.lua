@@ -226,10 +226,10 @@ local function GetTabList()
     if (TAB_LIST == nil) then
         TAB_LIST = {};
         local seenLayers = {};
-        for tabID = 1, #DebindFrame.LayerPanel.Tabs do
+        for tabID = 1, #DebindLayerPanel.Tabs do
             local tabLabel = DebindUI.GetTabLabel(tabID);
             if (tabLabel) then
-                for sideTabID = 1, #DebindFrame.SideTabs do
+                for sideTabID = 1, #DebindLayerPanel.SideTabs do
                     local sideTabLabel = DebindUI.GetSideTabaLabel(sideTabID);
                     if (sideTabLabel) then
                         local layerID = DebindUI.GetLayerID(tabID, sideTabID);
@@ -881,7 +881,7 @@ do
             -- 목록이 키로 묶여 있던 시절에는 이 행이 "키 없음" 묶음으로 건너뛰어서, 메뉴만
             -- 남고 행은 화면 밖으로 사라졌다. 지금은 이름순이라 키를 지워도 행이 제자리다 -
             -- 그래도 화면 밖에 있을 수는 있으므로(스크롤) 짚어주는 것은 그대로 둔다.
-            DebindFrame:ScrollActionIntoView(_action);
+            DebindLayerPanel:ScrollActionIntoView(_action);
             return MenuResponse.Refresh;
         end);
         description:SetEnabled(function()
@@ -1891,7 +1891,7 @@ do
     --- 열 줄에 한 번에 거는 통로는 되돌릴 수도 없다.
     ---
     --- 고른 것은 전부 **같은 레이어**에 있다. 오른쪽 목록이 한 레이어만 담기 때문이고
-    --- (`DebindFrameMixin:Refresh`), 그래서 "이미 여기 산다"를 화면의 레이어로 답할 수 있다.
+    --- (`DebindLayerPanelMixin:Refresh`), 그래서 "이미 여기 산다"를 화면의 레이어로 답할 수 있다.
     ---
     --- **One badged action in the selection stops move and copy.** What arrived carries the order its
     --- sender designed, and that order lives in `seq` inside one (layer, key) group - so a move hands

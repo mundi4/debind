@@ -6,7 +6,9 @@
 > **순서는 다섯이고, 보관함 개편이 가운데 낀다** (`building-export-import.md`,
 > `0-ROADMAP.md`).
 >
-> 1. **A.** 오른쪽 열에 자기 믹스인을 준다. 싸고 옮기기뿐이다
+> 1. ~~**A.** 오른쪽 열에 자기 믹스인을 준다. 싸고 옮기기뿐이다~~ **했다**(2026-08-22).
+>    `DebindLayerPanelMixin`이 서고 열한 개가 그리로 갔다. 파일은 안 갈랐고 정의 자리도 안
+>    옮겼다. 아래 "A를 하고 나서"
 > 2. **"창보다 위로 올릴 것" 셋.** 개편의 미리보기 패널이 그것들을 쓴다
 > 3. **보관함 개편.** 창에 `CallbackRegistryMixin`을 섞고 그 패널이 첫 등록자가 된다
 > 4. **C.** 버스가 실제로 도는 것을 보고 오버뷰 두 열을 옮긴다
@@ -52,6 +54,8 @@
 - `DebindOrderLineTemplate`의 "층 칸" 주석: 그 템플릿에 `LayerIcon`이 하나도 없다. 설명만 남았다.
 - 툴팁 호버 블록 맨 앞의 `wipe(_lines)`: 그 블록은 `_lines`를 안 쓴다
   (`sharing-one-action-tooltip.md`가 먼저 찾았다).
+- `UpdateSideTabs`의 `self.currentSpec`: 세우는 데 하나, 읽는 데 없음. 같은 줄에서 잡은 지역
+  변수 `currentSpec`으로 그 함수가 다 쓴다. A를 하다 다섯 번째로 나왔고, 이것도 우연히 나왔다.
 
 **왜 안 잡히나.** luacheck의 unused 경고는 지역 변수만 본다. 위 넷은 전부 테이블 필드이거나
 XML 리전이라 경고가 안 난다. 그리고 스코프가 6274줄이라 "이거 읽는 데 있나"를 물으려면 파일
@@ -171,6 +175,51 @@ C에 더해 `OverviewPanel`도 자기 파일을 갖고, `DebindFrame`은 탭 전
   사실을 들고 있을 뿐이라, 지금 그것을 또 가르면 파일 하나가 늘고 얻는 것이 없다
 - **C를 하고 나서 다시 재는 것이 맞다.** C가 끝난 시점에도 컨테이너에 코드가 남아 있으면 그때
   이 항목이 살아난다
+
+## A를 하고 나서 (2026-08-22)
+
+`DebindLayerPanelMixin`이 서고 열한 개가 그리로 갔다. `LayerPanel`은 `mixin=`과 함께
+`name="DebindLayerPanel"`도 받았다. 오른쪽 열을 밖에서 부르는 자리가 왼쪽의 `DebindResultPanel`과
+같은 모양이 되어야 두 열이 이름에서도 대칭이 되기 때문이다. 호출부는 쉰 곳가량 바뀌었고, 얇은
+위임은 하나도 안 남겼다. 남기면 A의 목적인 "무엇이 창의 일이고 무엇이 열의 일인가"가 반만 선다.
+
+**정의 자리는 안 옮겼다.** 열한 개는 지금도 `DebindFrameMixin`의 메서드들 사이에 흩어져 있고
+바뀐 것은 앞의 이름뿐이다. 한 덩어리로 모으려면 파일 지역 함수의 정의 순서에 걸린다.
+`InitializeScrollBox`는 `ScrollBox_OnClick`보다, `SetSelectedAction`은 `CommitSelection`보다
+뒤에 있어야 하고, Lua에서 뒤에 선언된 지역은 앞선 본문의 upvalue가 아니라 전역이 된다. 실패하면
+nil 호출이라 요란하지만, 그 대가를 치를 이유가 없다. C가 어차피 파일로 뗀다.
+
+**같이 간 필드 셋.** `dataProvider`, `SideTabs`, `currentSpec`. 셋 다 쓰는 자리가 옮긴 열한 개
+안에 있어서 창에 남겨두면 열이 창의 필드에 쓰는 모양이 된다. 창 쪽에 남은 읽는 자리는
+`self.LayerPanel.`을 앞에 붙였다(`UpdateEmptyText`, `GetSelectedActions`, `UpdateButtons`,
+`SetTab`).
+
+**선택은 안 갔다.** 쓰는 셋(`SetSelectedAction`, `ToggleActionSelected`, `SelectRangeTo`)만
+열로 갔고 읽는 넷(`GetSelectedAction`, `IsActionSelected`, `GetSelectionCount`,
+`GetSelectedActions`)은 창에 남았다. 왼쪽 열도 그 값을 읽으므로 어느 한 열의 것이 아니다.
+C의 당김 목록에 `GetCurrentSelection()`과 `IsActionSelected()`가 있는 것과 같은 갈래다.
+
+**옮긴 열한 개가 창을 되짚는 자리는 셋이고, C의 밀기 이벤트가 지울 자리가 정확히 이것들이다.**
+
+| 어디 | 무엇을 |
+|---|---|
+| `Refresh` | `DebindFrame:SetTitle`, `DebindFrame:UpdateEmptyText` |
+| `CommitSelection` (파일 지역, 부르는 셋이 전부 열이다) | `DebindFrame:Update` |
+| `UpdateListStrip` | `DebindFrame:IsCapturingKey`, `OverviewPanel.SearchBox`, `OverviewPanel.FilterDropdown` |
+
+행 믹스인(`DebindLineMixin`)은 이 표에 안 넣었다. 그쪽이 `DebindFrame`을 부르는 자리는 대개
+지정 모드, 드롭다운, 드롭처럼 **원래 창의 일**이고, 선택을 읽는 것만 위와 같은 갈래다. 함께
+세어놓으면 C가 지울 것과 안 지울 것이 한 목록에 섞인다.
+
+`GetParent()` 사슬은 하나도 안 썼다. `DebindFrame`을 이름으로 부른다. 1단계에서
+`DebindTabMixin:OnClick`이 부모가 바뀌자 조용히 깨진 자리가 그것이었다(`.zzz/resolved.md`).
+
+**밖에서 이 열을 짚는 철자는 `DebindLayerPanel` 하나다.** `DebindFrame.LayerPanel.ScrollBox`로
+쓰던 둘(`DebindLineMixin:OnClick`, `GetHoveredLine`)도 그리로 맞췄다. 같은 프레임에 철자가 둘이면
+grep이 반만 잡는다. 창 자신은 `self.LayerPanel`을 그대로 쓴다.
+
+**2026-08-14에 이 이동을 재고 접은 결정을 뒤집은 것이다.** 무엇이었고 왜 뒤집혔는지는
+`0-DECISION-LOG.md`.
 
 ## C의 위험
 

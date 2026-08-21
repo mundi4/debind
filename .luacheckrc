@@ -319,6 +319,7 @@ globals = {
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
 	"DebindMigrationDialogMixin",
+	"DebindLayerPanelMixin",
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
 	"DebindIconSelectorFrameMixin",
@@ -343,6 +344,7 @@ globals = {
 	-- Named frames
 	"DebindFrame",
 	"DebindMigrationDialog",
+	"DebindLayerPanel",
 	"DebindResultPanel",
 	"DebindMacroFrame",
 	"DebindIconSelectorFrame",

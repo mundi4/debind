@@ -69,7 +69,7 @@ local _pickedupInfo;
 -- 된다. SHIFT도 옮기게 두면 저 마지막 클릭이 5-8이 되어 범위를 줄일 길이 없어진다.
 --
 -- elementData가 아니라 action 테이블을 들고 있는 이유는 elementData가 Refresh마다 새로
--- 만들어지기 때문이다 (DebindFrameMixin:Refresh).
+-- 만들어지기 때문이다 (DebindLayerPanelMixin:Refresh).
 local _selectedAction;
 
 --- **벌크 대상 집합.** 앵커와는 다른 것이다 - 앵커는 "지금 이야기 중인 행" 하나이고, 이쪽은
@@ -676,7 +676,7 @@ local function CloseDialogsAndRefetchElementData(button)
 		return nil;
 	end
 
-	return DebindFrame:FindElementDataByActionInfo(action);
+	return DebindLayerPanel:FindElementDataByActionInfo(action);
 end
 
 local function GetActionTypeAndValueFromCursorInfo()
@@ -995,7 +995,7 @@ local function DeleteElementData(elementData)
 	end
 
 	if (_selectedAction == elementData.action) then
-		DebindFrame:SetSelectedAction(nil);
+		DebindLayerPanel:SetSelectedAction(nil);
 	end
 
 	local layer = DebindPrivate.GetProfileLayer(elementData.layer);
@@ -1008,7 +1008,7 @@ local function DeleteElementData(elementData)
 	-- 그러면 한 키의 마지막 행을 지웠을 때 그룹 헤더가 홀로 남는다. 게다가 그 index는 배열
 	-- 위치가 아니라 **표시 순서**라서 정렬이 쓰는 order.index와 뜻이 달랐다. 다시 만드는 쪽이
 	-- 액션을 추가하거나 옮길 때 이미 하는 일이기도 하다.
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 end
 
 --- Deletes every one of them, wherever it lives.
@@ -1036,7 +1036,7 @@ local function DeleteActions(actions)
 			DebindIconSelectorFrame:Close(true);
 		end
 		if (_selectedAction == action) then
-			DebindFrame:SetSelectedAction(nil);
+			DebindLayerPanel:SetSelectedAction(nil);
 		end
 		local _, layer = DebindPrivate.FindLayerID(action);
 		if (layer and layer:Remove(action)) then
@@ -1060,12 +1060,12 @@ local function DeleteActions(actions)
 
 	if (removed) then
 		DebindPrivate.UpdateBindings();
-		DebindFrame:Refresh(true);
+		DebindLayerPanel:Refresh(true);
 	end
 
 	-- 앵커가 지워진 것 중에 있었으면 선택을 풀어야 하고, 밖에 있었으면 집합에 죽은 테이블이
 	-- 남으므로 여기서 접는다. 둘 다 이 한 줄이 처리한다.
-	DebindFrame:SetSelectedAction(DebindFrame:GetSelectedAction());
+	DebindLayerPanel:SetSelectedAction(DebindFrame:GetSelectedAction());
 end
 
 local ShowDeleteConfirmationPopup, ShowBulkDeleteConfirmationPopup, HideDeleteConfirmationPopup;
@@ -1256,10 +1256,10 @@ local function MoveAction(elementData, destLayerID, copying)
 	DebindPrivate.UpdateBindings();
 
 	-- 목록은 정렬해서 그리므로 손으로 끼워넣지 않고 다시 만든다.
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 
 	if (fromLayerID == destLayerID) then
-		DebindFrame:ScrollActionIntoView(action);
+		DebindLayerPanel:ScrollActionIntoView(action);
 	end
 end
 
@@ -1280,14 +1280,14 @@ end
 --- 접지 않는다 - 사용자가 고른 것은 원본이고, 사본으로 옮겨주면 방금 무엇을 골랐는지가 틀어진다.
 local function MoveActions(actions, destLayerID, copying)
 	for _, action in ipairs(actions) do
-		local elementData = DebindFrame:FindElementDataByActionInfo(action);
+		local elementData = DebindLayerPanel:FindElementDataByActionInfo(action);
 		if (elementData and (copying or elementData.layer ~= destLayerID)) then
 			MoveAction(elementData, destLayerID, copying);
 		end
 	end
 
 	if (not copying) then
-		DebindFrame:SetSelectedAction(nil);
+		DebindLayerPanel:SetSelectedAction(nil);
 	end
 end
 
@@ -1324,7 +1324,7 @@ local function ApproveImportedActions(actions)
 	DebindFrame:PruneSelectionToBinFilter(visible);
 
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true, visible);
+	DebindLayerPanel:Refresh(true, visible);
 	DebindFrame:Update();
 end
 
@@ -1991,7 +1991,7 @@ function DebindLineMixin:OnClick(buttonName)
 	end
 
 	if (buttonName == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
-		DebindFrame.LayerPanel.ScrollBox:OnClick();
+		DebindLayerPanel.ScrollBox:OnClick();
 		return;
 	end
 
@@ -2036,7 +2036,7 @@ function DebindLineMixin:OnClick(buttonName)
 			-- **집어오는 것보다 먼저다.** 이 호출은 상세 패널을 닫고, 그 길에 매크로 본문
 			-- 저장이 딸려 오면 목록이 통째로 다시 지어진다 - 먼저 집으면 그 테이블이 낡는다.
 			-- 아래 함수가 존재하는 이유가 정확히 그 문제다(`CloseDialogsAndRefetchElementData`).
-			DebindFrame:SetSelectedAction(elementData.action);
+			DebindLayerPanel:SetSelectedAction(elementData.action);
 
 			elementData = CloseDialogsAndRefetchElementData(self);
 			if (not elementData) then
@@ -2057,11 +2057,11 @@ function DebindLineMixin:OnClick(buttonName)
 	-- **SHIFT를 먼저 본다.** CTRL+SHIFT는 범위를 더하는 것이라 SHIFT 갈래에 속하는데, CTRL을
 	-- 먼저 보면 그 조합이 토글로 새어 들어간다.
 	if (IsShiftKeyDown()) then
-		DebindFrame:SelectRangeTo(elementData.action, IsControlKeyDown());
+		DebindLayerPanel:SelectRangeTo(elementData.action, IsControlKeyDown());
 	elseif (IsControlKeyDown()) then
-		DebindFrame:ToggleActionSelected(elementData.action);
+		DebindLayerPanel:ToggleActionSelected(elementData.action);
 	else
-		DebindFrame:SetSelectedAction(elementData.action);
+		DebindLayerPanel:SetSelectedAction(elementData.action);
 	end
 end
 
@@ -2594,12 +2594,12 @@ function DebindSideTabMixin:OnClick()
 
 		-- 사이드탭도 탭과 같은 이동이다 - 바뀌는 것은 레이어 하나뿐이지만 목록이 통째로
 		-- 갈리는 것은 같다. 고른 것을 놓는 이유도 같다(`DebindFrameMixin:SetTab`).
-		DebindFrame:SetSelectedAction(nil);
+		DebindLayerPanel:SetSelectedAction(nil);
 
 		_selectedSideTab = id;
 
-		DebindFrame:UpdateSideTabs();
-		DebindFrame:Refresh();
+		DebindLayerPanel:UpdateSideTabs();
+		DebindLayerPanel:Refresh();
 		-- `Refresh` rebuilds the list; `Update` is what re-reads it. Without this the strip and
 		-- the multi-select tip keep describing the tab we just left - a tip anchored under a list
 		-- that is now empty, or no tip at all on a list that just filled up.
@@ -2733,18 +2733,25 @@ function DebindPortraitMixin:OnDisable()
 	self.Portrait:SetDesaturated(true);
 end
 
---- `OverviewPanel` and `LayerPanel` have no mixin, and that is the finding rather than an
---- oversight. A container here earns its keep by existing - hiding it hides everything inside it,
+--- **`LayerPanel` has a mixin and `OverviewPanel` does not**, and the difference is what each one
+--- is. The outer container earns its keep by existing - hiding it hides everything inside it,
 --- whatever the `Update*` passes decide to switch back on - and nothing about that needs a method.
+--- The right column is not that: it builds a list, it owns the side tabs beside it and the two tabs
+--- under it, and every one of those is answerable without asking the window anything.
 ---
---- Moving the `LayerPanel`-only methods onto one was measured and dropped: the state they read
---- (`dataProvider`, the selection, the search text, binding mode) lives on the frame, so the
---- `self.LayerPanel.` prefix would move from the bodies to the call sites rather than disappear.
---- The count is in `.zzz/resolved.md`.
+--- **The selection did not move with the three gestures that write it.** `SetSelectedAction`,
+--- `ToggleActionSelected` and `SelectRangeTo` are things done to rows in this column, so they sit
+--- on the panel; what they write is read by the left column as well, so it stays the window's and
+--- comes back out through `GetSelectedAction` and its neighbours.
+---
+--- `.zzz/resolved.md` holds a 2026-08-14 measurement that dropped this same move. What it counted
+--- was whether the `self.LayerPanel.` prefix got shorter, and the answer was +1. That is no longer
+--- the question `breaking-up-debindui.md` asks, which is which of the two columns a method is about.
+DebindLayerPanelMixin = {};
 DebindFrameMixin = {};
 
-function DebindFrameMixin:InitializeSideTabs()
-	self.SideTabs = self.LayerPanel.SideTabsFrame.Tabs;
+function DebindLayerPanelMixin:InitializeSideTabs()
+	self.SideTabs = self.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
 		local name;
 		if (i == 1) then
@@ -2774,7 +2781,7 @@ end
 ---
 --- `_selectedSideTab`은 **건드리지 않는다.** 오버뷰를 들렀다 레이어 탭으로 돌아온 사람은
 --- 떠날 때 보던 사이드탭으로 돌아와야 한다.
-function DebindFrameMixin:UpdateSideTabs()
+function DebindLayerPanelMixin:UpdateSideTabs()
 	local currentSpec = C_SpecializationInfo.GetSpecialization();
 	self.currentSpec = currentSpec;
 
@@ -2822,7 +2829,7 @@ end
 --- 갖고, 둘은 정반대다: 걸린 키가 하나도 없거나(할 일이 있다), 문제가 하나도 없거나(없다).
 --- 같은 문장으로 말하면 후자가 고장으로 읽힌다.
 function DebindFrameMixin:UpdateEmptyText()
-	if (self.dataProvider:GetSize() == 0) then
+	if (self.LayerPanel.dataProvider:GetSize() == 0) then
 		-- **While something is filtering it says a different thing.** The usual line is "there are
 		-- no actions here, drag one in"; if the list is empty only because something was filtered
 		-- out, that line is a lie and it hands out the wrong next step on top of being one.
@@ -2862,7 +2869,7 @@ end
 --
 -- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
 -- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
-function DebindFrameMixin:UpdateActionCounts(visible)
+function DebindLayerPanelMixin:UpdateActionCounts(visible)
 	-- **While something is filtering, the number becomes how many got through, and turns green.**
 	--
 	-- Leave the number alone and the tab lies - "(12)" is pressed and the list has two rows in it -
@@ -2885,7 +2892,7 @@ function DebindFrameMixin:UpdateActionCounts(visible)
 	visible = visible or NarrowedVisibleActions();
 	local narrowed = visible ~= nil;
 
-	for tabId, tab in ipairs(self.LayerPanel.Tabs) do
+	for tabId, tab in ipairs(self.Tabs) do
 		local label = GetTabLabel(tabId);
 
 		do
@@ -2948,7 +2955,7 @@ local function ScrollBox_OnReceiveDrag(self)
 	DebindFrame:OnReceiveDrag();
 end
 
-function DebindFrameMixin:InitializeScrollBox()
+function DebindLayerPanelMixin:InitializeScrollBox()
 	local padding = 7;
 	local bottomPadding = 40;
 	local spacing = 4;
@@ -2961,14 +2968,14 @@ function DebindFrameMixin:InitializeScrollBox()
 	end);
 	view:SetElementExtent(LINE_HEIGHT);
 
-	ScrollUtil.InitScrollBoxListWithScrollBar(self.LayerPanel.ScrollBox, self.LayerPanel.ScrollBar, view);
+	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
 
-	self.LayerPanel.ScrollBox.OnClick = ScrollBox_OnClick;
-	self.LayerPanel.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
+	self.ScrollBox.OnClick = ScrollBox_OnClick;
+	self.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
 
-	self.LayerPanel.ScrollBox:RegisterForClicks("AnyUp");
-	self.LayerPanel.ScrollBox:SetScript("OnClick", self.LayerPanel.ScrollBox.OnClick);
-	self.LayerPanel.ScrollBox:SetScript("OnReceiveDrag", self.LayerPanel.ScrollBox.OnReceiveDrag);
+	self.ScrollBox:RegisterForClicks("AnyUp");
+	self.ScrollBox:SetScript("OnClick", self.ScrollBox.OnClick);
+	self.ScrollBox:SetScript("OnReceiveDrag", self.ScrollBox.OnReceiveDrag);
 end
 
 function DebindFrameMixin:InitializeButtons()
@@ -3015,7 +3022,7 @@ function DebindFrameMixin:InitializeButtons()
 			self:PruneSelectionToBinFilter(visible);
 			-- 스크롤 자리는 안 지킨다. 목록의 길이 자체가 달라지므로 지켜봐야 엉뚱한 데를
 			-- 보게 되고, 검색은 맨 위부터 읽는 동작이다.
-			self:Refresh(false, visible);
+			self.LayerPanel:Refresh(false, visible);
 			self:Update();
 		end
 	end);
@@ -3105,7 +3112,7 @@ function DebindFrameMixin:SetFilter(name, on)
 	-- them, for the reasons written there (`OnTextChanged`).
 	local visible = NarrowedVisibleActions();
 	self:PruneSelectionToBinFilter(visible);
-	self:Refresh(false, visible);
+	self.LayerPanel:Refresh(false, visible);
 	self:Update();
 end
 
@@ -3133,7 +3140,7 @@ function DebindFrameMixin:ResetFilters()
 	end
 	local visible = NarrowedVisibleActions();
 	self:PruneSelectionToBinFilter(visible);
-	self:Refresh(false, visible);
+	self.LayerPanel:Refresh(false, visible);
 	self:Update();
 end
 
@@ -3322,8 +3329,8 @@ function DebindFrameMixin:OnLoad()
 	self.shownPanel = self.OverviewPanel;
 	self:SelectPanel(OVERVIEW_PANEL, true);
 
-	self:InitializeScrollBox();
-	self:InitializeSideTabs();
+	self.LayerPanel:InitializeScrollBox();
+	self.LayerPanel:InitializeSideTabs();
 	self:InitializeButtons();
 
 	-- **The window hangs by its top left corner, and every path below goes through this.** Each
@@ -3500,12 +3507,12 @@ function DebindFrameMixin:OnShow()
 		self:OnLoad();
 	end
 
-	self:Refresh();
+	self.LayerPanel:Refresh();
 	-- **`Update`까지 와야 왼쪽 열이 그려진다.** `Refresh`는 오른쪽 목록만 다시 짓고, 왼쪽은
 	-- 선택이 아니라 프로필 전체를 보므로 여기서 같이 깨워야 한다. 예전에는 선택이 없으면
 	-- 왼쪽이 접혀 있어서 이 줄이 없어도 티가 안 났다.
 	self:Update();
-	self:UpdateSideTabs();
+	self.LayerPanel:UpdateSideTabs();
 	self:RegisterEvent("PLAYER_REGEN_DISABLED");
 	self:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 	self:RegisterEvent("CURSOR_CHANGED");
@@ -3597,7 +3604,7 @@ function DebindFrameMixin:OnEvent(event, arg1)
 		self:OnLeaveCombat();
 	elseif (event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED") then
 		self:Update();
-		self:UpdateSideTabs();
+		self.LayerPanel:UpdateSideTabs();
 	end
 end
 
@@ -3764,7 +3771,7 @@ end
 --- 키 없이 앉아 있게 된다. 오버뷰 탭에서는 그 액션이 목록에서 통째로 빠져야 하므로 더 그렇다.
 --- 스크롤 자리는 지킨다 - 방금 만진 줄이 눈앞에서 사라지면 안 된다.
 function DebindFrameMixin:OnBindingsUpdated(_, skipped)
-	self:Refresh(true);
+	self.LayerPanel:Refresh(true);
 	self:Update();
 end
 
@@ -3826,7 +3833,7 @@ local function BuildSortedElements(layer, layerID, visible)
 	return elements;
 end
 
-function DebindFrameMixin:Refresh(retainScrollPosition, visible)
+function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	HideDeleteConfirmationPopup();
 
 	-- Built here for the two below it that filter by the same set, which is the whole of this
@@ -3846,7 +3853,7 @@ function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	end
 
 	self.dataProvider = dataProvider;
-	self.LayerPanel.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
+	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
 	-- 선택은 **액션이 없어졌을 때만** 풀린다.
 	--
@@ -3884,9 +3891,9 @@ function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	-- 아닌 것처럼** 보이는 값은 치른다.
 	-- The version hangs off the name for the same reason it is on the login line: so a bug report
 	-- can carry it. Dimmed, because it is there to be found rather than read every time.
-	self:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
+	DebindFrame:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
 	self:UpdateActionCounts(visible);
-	self:UpdateEmptyText();
+	DebindFrame:UpdateEmptyText();
 end
 
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
@@ -3901,7 +3908,7 @@ end
 --- 안 건드리므로, CTRL-클릭으로 벌크를 시작하는 자리는 이 줄이 따로 챙겨야 한다.
 ---
 --- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
-local function CommitSelection(self)
+local function CommitSelection()
 	-- 왼쪽 열을 여기서 따로 다시 그리지 않는다. **맨 아래 `Update`가 이미 그 일을 한다**
 	-- (`DebindResultPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
 	-- 전체를 두 번 짓는다 - 그 함수는 프로필의 모든 레이어를 훑어 키로 묶는 자리다.
@@ -3916,7 +3923,7 @@ local function CommitSelection(self)
 		DebindMacroFrame:Refresh();
 	end
 
-	self:Update();
+	DebindFrame:Update();
 end
 
 --- **선택을 이 액션 하나로 접고 앵커를 거기 둔다.** nil이면 아무것도 안 고른 상태다.
@@ -3924,7 +3931,7 @@ end
 --- 벌크가 생기기 전부터 있던 입구라 부르는 데가 많다(탭 전환, 지정 모드, `GoToAction`,
 --- 액션이 사라졌을 때). 전부 "이제 이것 하나다"라는 뜻이므로 집합도 여기서 같이 접는다 -
 --- 저쪽들이 집합을 따로 챙기게 만들면 한 군데는 반드시 빠진다.
-function DebindFrameMixin:SetSelectedAction(action)
+function DebindLayerPanelMixin:SetSelectedAction(action)
 	-- **앵커가 같아도 집합이 여럿이면 접어야 한다.** 벌크로 셋을 고른 뒤 그중 앵커 행을 다시
 	-- 좌클릭하는 것이 정확히 그 경우다. 앵커만 보고 돌아서면 나머지 둘이 고른 채로 남는다.
 	--
@@ -3958,7 +3965,7 @@ function DebindFrameMixin:SetSelectedAction(action)
 	-- **바뀐** 경우뿐이고, 같은 행을 다시 고르면 화면은 가만히 있는다.
 	_revealAction = action;
 
-	CommitSelection(self);
+	CommitSelection();
 	return true;
 end
 
@@ -3982,11 +3989,11 @@ end
 --- 쌓이고, 그건 매번 다르기까지 하다.
 function DebindFrameMixin:GetSelectedActions()
 	local actions = {};
-	if (_selectionCount == 0 or not self.dataProvider) then
+	if (_selectionCount == 0 or not self.LayerPanel.dataProvider) then
 		return actions;
 	end
 
-	for _, elementData in self.dataProvider:EnumerateEntireRange() do
+	for _, elementData in self.LayerPanel.dataProvider:EnumerateEntireRange() do
 		if (_selection[elementData.action]) then
 			actions[#actions + 1] = elementData.action;
 		end
@@ -4022,7 +4029,7 @@ end
 ---
 --- **뺐을 때도 앵커는 그 행으로 간다.** 앵커는 "마지막으로 누른 행"이지 "고른 행"이 아니고,
 --- 그래야 SHIFT가 재는 기준점이 방금 누른 자리에 있다.
-function DebindFrameMixin:ToggleActionSelected(action)
+function DebindLayerPanelMixin:ToggleActionSelected(action)
 	if (not action) then
 		return;
 	end
@@ -4036,7 +4043,7 @@ function DebindFrameMixin:ToggleActionSelected(action)
 	end
 	_selectedAction = action;
 
-	CommitSelection(self);
+	CommitSelection();
 end
 
 --- SHIFT-좌클릭. 앵커부터 이 행까지를 집합으로 삼는다.
@@ -4051,7 +4058,7 @@ end
 --- 앵커가 없거나 지금 목록에 없으면 그냥 하나만 고른다. 후자는 실재한다 - 앵커는 액션으로
 --- 들고 있어서 탭이 바뀌어도 살아 있는데, 그 액션은 다른 레이어에 있으므로 여기서는 범위를
 --- 잴 자리가 없다.
-function DebindFrameMixin:SelectRangeTo(action, additive)
+function DebindLayerPanelMixin:SelectRangeTo(action, additive)
 	if (not action or not self.dataProvider) then
 		return;
 	end
@@ -4078,10 +4085,10 @@ function DebindFrameMixin:SelectRangeTo(action, additive)
 		end
 	end
 
-	CommitSelection(self);
+	CommitSelection();
 end
 
-function DebindFrameMixin:FindElementDataByActionInfo(action)
+function DebindLayerPanelMixin:FindElementDataByActionInfo(action)
 	local index, elementData = self.dataProvider:FindByPredicate(function(e) return e.action == action; end);
 	return elementData, index;
 end
@@ -4104,14 +4111,14 @@ end
 --- 어느 행인지는 강조가 이미 말한다.
 ---
 --- 찾은 elementData를 돌려준다 - 부르는 쪽이 그 행을 또 찾지 않아도 되게.
-function DebindFrameMixin:ScrollActionIntoView(action)
+function DebindLayerPanelMixin:ScrollActionIntoView(action)
 	local elementData, index = self:FindElementDataByActionInfo(action);
 	if (not elementData) then
 		return;
 	end
 
 	-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
-	self.LayerPanel.ScrollBox:ScrollToNearest(index);
+	self.ScrollBox:ScrollToNearest(index);
 	return elementData;
 end
 
@@ -4149,10 +4156,10 @@ function DebindFrameMixin:GoToAction(action, layerID)
 	--
 	-- 옮기고 보여주는 것은 그대로 한다. 넣은 것이 어디로 갔는지는 모드와 상관없이 보여야 한다.
 	if (not self:IsCapturingKey()) then
-		self:SetSelectedAction(action);
+		self.LayerPanel:SetSelectedAction(action);
 	end
 
-	self:ScrollActionIntoView(action);
+	self.LayerPanel:ScrollActionIntoView(action);
 end
 
 --- `destLayerID` is the picker's right-click menu naming a tab. Without it the action is born in
@@ -4194,7 +4201,7 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	layer:PlaceInKeyGroup(action);
 
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
-	self:Refresh(true);
+	self.LayerPanel:Refresh(true);
 
 	-- 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 왼쪽 열을
 	-- 그 액션으로 채운다. 커서에서 떨궈 만든 것과 **같은 대접**이어야 한다
@@ -4208,10 +4215,10 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	if (layerID ~= GetLayerID()) then
 		self:GoToAction(action, layerID);
 	else
-		self:SetSelectedAction(action);
+		self.LayerPanel:SetSelectedAction(action);
 	end
 
-	local elementData = self:ScrollActionIntoView(action);
+	local elementData = self.LayerPanel:ScrollActionIntoView(action);
 	self:Update();
 
 	return elementData;
@@ -4229,7 +4236,7 @@ function DebindFrameMixin:Update()
 	end
 
 	self:UpdateButtons();
-	self:UpdateListStrip();
+	self.LayerPanel:UpdateListStrip();
 	self:UpdatePendingImports();
 	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
@@ -4252,12 +4259,12 @@ end
 --- 규칙이었고, 그때는 검색창이 사라지는 것이 곧 "지금은 못 좁힌다"였다. 검색이 왼쪽으로 가면서
 --- 자리가 갈렸고, 무엇보다 **걸러져 나간 선택은 이제 집합에서 빠진다**(`PruneSelectionToBinFilter`) -
 --- 그 규칙이 막으려던 "안 보이는데 골라져 있는" 상태 자체가 안 생긴다.
-function DebindFrameMixin:UpdateListStrip()
+function DebindLayerPanelMixin:UpdateListStrip()
 	local multi = _selectionCount > 1;
 	if (multi) then
-		self.LayerPanel.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
+		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
 	end
-	self.LayerPanel.SelectionCount:SetShown(multi);
+	self.SelectionCount:SetShown(multi);
 
 	-- 좁히는 것이 죽는 자리는 둘이고, **판정은 여기 하나에 모은다.** `UpdateButtons`에도 같은
 	-- 잠금이 있는데 이 함수가 그 뒤에 도므로, 저기서 같이 끄면 여기가 도로 켠다.
@@ -4270,13 +4277,13 @@ function DebindFrameMixin:UpdateListStrip()
 	--    (`UpdateButtons`의 `enableButtons`) 좁히는 것만 살아 있으면 목록이 그 밑에서 바뀐다.
 	--
 	-- **드롭다운도 같이 잠근다.** 둘이 같은 일을 하므로 한쪽만 잠그면 잠긴 이유가 거짓이 된다.
-	local capturing = self:IsCapturingKey();
+	local capturing = DebindFrame:IsCapturingKey();
 	local locked = capturing or IsEditingAction();
-	self.OverviewPanel.SearchBox:SetEnabled(not locked);
+	DebindFrame.OverviewPanel.SearchBox:SetEnabled(not locked);
 	if (locked) then
-		self.OverviewPanel.SearchBox:ClearFocus();
+		DebindFrame.OverviewPanel.SearchBox:ClearFocus();
 	end
-	self.OverviewPanel.FilterDropdown:SetEnabled(not locked);
+	DebindFrame.OverviewPanel.FilterDropdown:SetEnabled(not locked);
 end
 
 --- The button for what came in. **It only stands while at least one badge is left.**
@@ -4330,7 +4337,7 @@ function DebindFrameMixin:UpdateButtons()
 
 	-- `SideTabs`는 `InitializeSideTabs`가 채우고 그건 `OnLoad`에서만 돈다. 창이 한 번도
 	-- 안 열린 세션에서는 nil인데, 그런 경로는 `Update`의 `initialized` 가드에서 막힌다.
-	for _, tab in ipairs(self.SideTabs) do
+	for _, tab in ipairs(self.LayerPanel.SideTabs) do
 		tab:SetEnabled(enableButtons);
 	end
 
@@ -4413,16 +4420,16 @@ function DebindFrameMixin:SetTab(id)
 	-- 일이라, 탭을 옮길 때마다 다시 치게 만들면 검색이 탭 하나짜리 도구가 된다. 새 탭이
 	-- 걸러진 채로 열리는 것은 빈 목록 문구가 갈라준다(`NO_SEARCH_RESULTS`).
 	if (_selectedTab ~= id) then
-		self:SetSelectedAction(nil);
+		self.LayerPanel:SetSelectedAction(nil);
 	end
 
 	_selectedTab = id;
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
-	self:UpdateSideTabs();
+	self.LayerPanel:UpdateSideTabs();
 
-	if (not self.SideTabs[_selectedSideTab]:IsShown()) then
+	if (not self.LayerPanel.SideTabs[_selectedSideTab]:IsShown()) then
 		_selectedSideTab = 1;
-		self:UpdateSideTabs();
+		self.LayerPanel:UpdateSideTabs();
 	end
 
 	-- `Refresh` rebuilds the list, `Update` re-reads it. Both are needed and neither can wait for
@@ -4432,7 +4439,7 @@ function DebindFrameMixin:SetTab(id)
 	--
 	-- (The spell picker deliberately stays open across a tab switch - its whole use is picking
 	-- into one tab after another - which is why it is absent from `UpdateButtons`'s lock list.)
-	self:Refresh();
+	self.LayerPanel:Refresh();
 	self:Update();
 end
 
@@ -4543,7 +4550,7 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 
 	self:ClearMouse();
 	DebindPrivate.UpdateBindings();
-	self:Refresh(true);
+	self.LayerPanel:Refresh(true);
 
 	-- **떨군 곳으로 따라간다.** 탭 버튼에 떨구면 그 탭을 켜고, 방금 생긴 액션을 고르고,
 	-- 화면 안으로 스크롤한다 - `GoToAction`이 그 셋을 이미 한 덩어리로 한다.
@@ -4786,7 +4793,7 @@ function DebindIconSelectorFrameMixin:OkayButton_OnClick()
 
 	-- 이름이 바뀌면 이름순 정렬에서 자리가 바뀐다. Update는 있는 줄을 그 자리에서 고쳐
 	-- 그릴 뿐이라 방금 바꾼 이름이 옛 자리에 남는다.
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 	DebindFrame:Update();
 
 	-- 다음에 무엇이 열릴지는 이 팝업이 정하지 않는다. 연 쪽이 안다. 먼저 꺼내 두는 건
@@ -5019,7 +5026,7 @@ function DebindUI.ApplyOrderSwap(action, neighbor)
 	_revealAction = action;
 	DebindPrivate.RenumberKeyGroupForAction(action);
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 	DebindFrame:Update();
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 	return true;
@@ -5682,7 +5689,7 @@ function DebindFrameMixin:SetBindingMode(active, button)
 
 		-- **선택을 비운다.** 선택은 "지금 이 액션 이야기 중"이라는 뜻인데 모드의 대상은 커서
 		-- 밑의 행이라, 남겨두면 강조가 가리키는 것과 실제로 키가 걸릴 곳이 어긋난다.
-		self:SetSelectedAction(nil);
+		self.LayerPanel:SetSelectedAction(nil);
 	else
 		-- 여기로 오는 것은 전부 **커밋**이다(오버레이의 [종료], 창이 숨는 경우, 토글 다시 누르기).
 		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
@@ -5749,8 +5756,6 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 끄므로 이 값은 어차피 다음에 들을 때까지 아무 일도 하지 않는다.
 	end
 
-	-- **왼쪽 열의 Refresh다.** 창의 Refresh(오른쪽 목록 재구성)와 이름이 같으므로 여기서
-	-- self:Refresh()라고 쓰면 엉뚱한 목록이 다시 그려진다.
 	DebindResultPanel:Refresh();
 	self:Update();
 end
@@ -5795,7 +5800,7 @@ end
 --- 빼앗길 일도 없다.
 local function GetHoveredLine()
 	local hovered;
-	DebindFrame.LayerPanel.ScrollBox:ForEachFrame(function(frame)
+	DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
 		if (not hovered and frame.GetElementData and frame:IsMouseMotionFocus()) then
 			hovered = frame;
 		end
@@ -5916,7 +5921,7 @@ function DebindFrameMixin:CancelBindMode()
 
 	if (changed) then
 		DebindPrivate.UpdateBindings();
-		self:Refresh(true);
+		self.LayerPanel:Refresh(true);
 		self:Update();
 		DebindResultPanel:Refresh();
 	end
@@ -5993,8 +5998,8 @@ function DebindFrameMixin:SetActionKey(action, key)
 		self:PruneSelectionToBinFilter(visible);
 	end
 	DebindPrivate.UpdateBindings();
-	self:Refresh(true, visible);
-	self:ScrollActionIntoView(action);
+	self.LayerPanel:Refresh(true, visible);
+	self.LayerPanel:ScrollActionIntoView(action);
 	-- 키가 바뀌면 왼쪽 열에서 자리를 통째로 옮긴다 - 그 열은 키로 묶고 키로 정렬한다. 간 자리가
 	-- 화면 밖이면 아무 일도 안 일어난 것처럼 보이므로 따라간다. 오른쪽 목록은 저 위에서 따로
 	-- 굴린다(`ScrollActionIntoView`) - 두 열은 서로의 스크롤을 안 본다.
@@ -6045,7 +6050,7 @@ end
 --- is its own answer - `CollectActionsForKey` has nothing to say about a key that is not there.
 local function RebuildAfterKeyGroupChange(actions, key)
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 
 	local target;
 	if (key == nil) then
@@ -6064,8 +6069,8 @@ local function RebuildAfterKeyGroupChange(actions, key)
 	end
 
 	if (target) then
-		DebindFrame:SetSelectedAction(target);
-		DebindFrame:ScrollActionIntoView(target);
+		DebindLayerPanel:SetSelectedAction(target);
+		DebindLayerPanel:ScrollActionIntoView(target);
 	end
 
 	DebindFrame:Update();
@@ -6373,7 +6378,7 @@ function DebindMacroFrameMixin:Open(action, cancelFunc)
 	if (not action) then
 		return false;
 	end
-	DebindFrame:SetSelectedAction(action);
+	DebindLayerPanel:SetSelectedAction(action);
 
 	self:Show();
 	self:Refresh();
@@ -6512,7 +6517,7 @@ function DebindMacroFrameMixin:Revert_OnClick()
 		-- The row's name and icon changed with the type, so the list has to be built again and not
 		-- just redrawn in place. `Refresh` is what closes the window now that it is not macrotext.
 		self:Refresh();
-		DebindFrame:Refresh(true);
+		DebindLayerPanel:Refresh(true);
 		DebindFrame:Update();
 		return;
 	end
