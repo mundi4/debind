@@ -820,24 +820,40 @@ L["SWITCH_ANSWER_OFF"] = "Comes up off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
 L["SWITCH_ANSWER_REMEMBER"] = "Comes up as you left it"
 L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back on if you left it on. Every character remembers its own answer."
--- The rows under a switch: one per tab that answers for it, and the account-wide one last.
+-- The rows under a switch: one per override, and the account-wide answer last.
 --
--- **"Tab", not "layer".** That is the word the window has always used for the same thing -- the
--- fourth step of PRIORITY_DESC is "Tab -- the more specific tab is tried first" -- and the rows
--- are labelled with the tab coordinates a reader picked those tabs by (ORDER_LAYER_LABEL).
+-- **"Override" is the client's own word**, and 덮어쓰기 in Korean: `TRANSMOG_ARTIFACT_OPTIONS_HEADER`
+-- is "Legion Artifact Override" / "군단 유물 덮어쓰기", `TRANSMOG_SLOT_DISPLAY_TYPE_UNASSIGNED_ARTIFACT`
+-- is "Ignore Override" / "덮어쓰기 무시".
+--
+-- ⚠ **Not "tab", which is what this said first.** PRIORITY_DESC calls a layer a tab, and it is right
+-- to: that line compares two actions by *where they were put*. This list answers *when does this
+-- apply*, the Switches tab has no side tabs to point at, and an override does not live in the tab it
+-- names -- copying a tab copies actions and leaves the override behind (§4-7-1). Naming the tab
+-- would promise the opposite.
+--
+-- **The axis has no name here, only its values**: a class, a specialization, a character. That is
+-- the `reaction` move in `devdocs/writing-user-facing-text.md`, and it is what keeps the sentence
+-- out of the window's furniture.
 --
 -- ⚠ **The two lines below are what stops the rows reading as an order.** Stacked rows mean "the
 -- next one runs when this one does not match" everywhere else in this window; here exactly one is
 -- in use and the rest do nothing at all. The tick says which, and these say what the tick means.
-L["SWITCH_OVERRIDE"] = "Different on a tab"
-L["SWITCH_OVERRIDE_DESC"] = "Pick a tab and say what this switch is while that tab is in play. A tab you say nothing about falls back to the next one out, and in the end to the account-wide answer."
-L["SWITCH_OVERRIDE_REMOVE"] = "Remove this tab's answer"
-L["SWITCH_LAYER_WINNING"] = "This is the answer in use right now."
--- **Two reasons, and the reader cannot tell them apart from the row.** A tab answer goes unused
--- either because the tab is not in play at all (another specialization's) or because a more
--- specific tab answered first, and both look exactly like the row above them.
-L["SWITCH_LAYER_UNUSED"] = "Not the answer in use right now. Either this tab is not in play, or a more specific one answered first."
-L["SWITCH_LAYER_MENU_INSTRUCTION"] = "Right-click to change what this tab answers."
+L["SWITCH_OVERRIDE"] = "Override"
+L["SWITCH_OVERRIDE_DESC"] = "Say what this switch comes up as for one class, one specialization or one character. Wherever you set none, the account-wide answer wins."
+L["SWITCH_OVERRIDE_REMOVE"] = "Remove this override"
+-- **Which one wins, not which one differs.** These rows are not a same-or-different reading of the
+-- one above them: exactly one of them decides what the switch comes up as and the rest decide
+-- nothing, so what a row has to say is that it won or that it lost. "Different" names the gap
+-- between two rows, which is neither.
+--
+-- **"Wins" is this addon's own word for it** and the README teaches it in the same breath as the
+-- layers: "The narrowest row that fits wins."
+L["SWITCH_LAYER_WINNING"] = "This one wins here, so it is what the switch comes up as."
+-- **Two ways to lose, and the row shows neither.** An override loses either because it is for a
+-- character or specialization that is not the one in play, or because a narrower one beat it.
+L["SWITCH_LAYER_LOSING"] = "This one does not win here. Either it is not for this character and specialization, or a narrower override beats it."
+L["SWITCH_LAYER_MENU_INSTRUCTION"] = "Right-click to change this answer or take it away."
 -- The row's own tooltip. **The three distances are the point of it**: a switch belongs to the
 -- account while the list belongs to the character reading it, and one total cannot separate a
 -- switch three characters depend on from one that does nothing here any more.
@@ -889,12 +905,12 @@ L["SWITCH_ACTION_TOGGLE"] = "Turns it over"
 L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r?\n|cnHIGHLIGHT_FONT_COLOR:%2$d|r actions across the account name it. They keep the name and go red until you fix them."
 -- **A second line only when there is one to say.** Appended to the sentence above rather than
 -- written into it, so the ordinary case -- a switch that is the same everywhere -- is not made to
--- read a sentence about tab answers it does not have.
+-- read a sentence about overrides it does not have.
 --
--- It says "including the ones you cannot see here" for the same reason the line above counts the
--- whole account: the list only draws the tabs this character reaches, so a druid's answers go
--- without ever having been on screen.
-L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r tab answers go with it, including the ones on your other characters."
+-- It says "this list does not show" for the same reason the line above counts the whole account:
+-- the list draws what one character reaches, so a druid's overrides go without ever having been
+-- on screen.
+L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r overrides go with it, including ones on your other characters that this list does not show."
 -- Empty-list text says what fills it, and now it can quote the button: it is the one under this
 -- list, with a label. It pointed at the picture on the title bar until 3c, which had none.
 --

@@ -310,7 +310,7 @@ function DebindSwitchLayerRowMixin:OnEnter()
     else
         -- **Said out loud, because a row that does nothing looks exactly like one that does.**
         -- The tick marks the winner, and its absence is the whole of what marks the rest.
-        GameTooltip_AddColoredLine(GameTooltip, LLL["SWITCH_LAYER_UNUSED"], GRAY_FONT_COLOR);
+        GameTooltip_AddColoredLine(GameTooltip, LLL["SWITCH_LAYER_LOSING"], GRAY_FONT_COLOR);
     end
 
     GameTooltip_AddBlankLineToTooltip(GameTooltip);

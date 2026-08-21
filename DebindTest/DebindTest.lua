@@ -2842,7 +2842,15 @@ RegisterTest("Switches tab: renaming follows a switch another one computes from"
         -- The action names the outer switch, and that name never moves. What moves is the name
         -- **inside the outer one's expression**, which is the reference the design calls the easy
         -- one to forget.
-        DebindPrivate.Switches[FROM] = { mode = MODES.MANUAL, value = true }
+        --
+        -- ⚠ **Writing `value` into a planted definition is not a way to turn a switch on.** Every
+        -- rebuild re-applies what a switch comes up as wherever that answer has moved since it last
+        -- ran (`ApplySwitchResets`), and a name the addon has never seen has moved by definition --
+        -- so a hand-set `value = true` is back to false before codegen reads it. `SetSwitchValue`
+        -- writes the character's memory beside the value, which is the answer the reset then agrees
+        -- with. Two other tests below plant a value the same way and point back here.
+        DebindPrivate.Switches[FROM] = { mode = MODES.MANUAL }
+        DebindPrivate.SetSwitchValue(FROM, true)
         DebindPrivate.Switches[OUTER] = { mode = MODES.EXPR, expr = "[" .. FROM .. "]" }
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [OUTER] = true })
         ApplyBindings()
@@ -3454,13 +3462,20 @@ RegisterTest("Setstate action registers its state", {
         -- Swapping the slot rather than the fields: the reason is in the comment on the
         -- `Undefined $state inside a state's own expression` test above.
         local saved = DebindPrivate.Switches["$state4"]
+        -- The tester may have used this switch, and the value it is left on is theirs. Turning it
+        -- on below writes that memory, so it is saved and put back like the definition.
+        local savedStored = DebindPrivate.db.char.switches["$state4"]
         AddTeardown(function()
             DebindPrivate.Switches["$state4"] = saved
+            DebindPrivate.db.char.switches["$state4"] = savedStored
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
-        DebindPrivate.Switches["$state4"] = { mode = MODES.MANUAL, value = true }
+        -- On through `SetSwitchValue`, not by writing `value`. The ⚠ on the rename test above says
+        -- why a hand-set value does not survive the rebuild any more.
+        DebindPrivate.Switches["$state4"] = { mode = MODES.MANUAL }
+        DebindPrivate.SetSwitchValue("$state4", true)
 
         InsertAction({
             type = Constants.SETSTATE_TOGGLE,
@@ -3638,8 +3653,10 @@ RegisterTest("Switch condition on a name outside the five", {
         -- 슬롯만 갈아끼우는 이유는 위 `Undefined $state inside a state's own expression`의
         -- 주석에 있다. `$burst`는 사용자 프로필에 있을 리 없지만, 있어도 되돌아간다.
         local saved = DebindPrivate.Switches["$burst"]
+        local savedStored = DebindPrivate.db.char.switches["$burst"]
         AddTeardown(function()
             DebindPrivate.Switches["$burst"] = saved
+            DebindPrivate.db.char.switches["$burst"] = savedStored
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
@@ -3648,7 +3665,11 @@ RegisterTest("Switch condition on a name outside the five", {
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$burst"] = true })
         InsertAction({ type = Constants.SPELL, value = 585, key = UNDEFINED_KEY, ["$nodefinition"] = true })
 
-        DebindPrivate.Switches["$burst"] = { mode = MODES.MANUAL, value = true }
+        -- **Defined once and then flipped**, rather than re-planted on either side. Writing `value`
+        -- into the definition stopped being a way to turn a switch on -- the ⚠ on the rename test
+        -- above says why -- and flipping it is what the reader does anyway.
+        DebindPrivate.Switches["$burst"] = { mode = MODES.MANUAL }
+        DebindPrivate.SetSwitchValue("$burst", true)
         ApplyBindings()
 
         local whenOn = GetBindingAction(KEY, true) or ""
@@ -3657,7 +3678,7 @@ RegisterTest("Switch condition on a name outside the five", {
                 "정의해둔 $burst가 켜져 있는데 %q - 다섯 밖의 이름이 코드젠까지 안 갔다", whenOn))
         end
 
-        DebindPrivate.Switches["$burst"] = { mode = MODES.MANUAL, value = false }
+        DebindPrivate.SetSwitchValue("$burst", false)
         ApplyBindings()
 
         local whenOff = GetBindingAction(KEY, true) or ""
