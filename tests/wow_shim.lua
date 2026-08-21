@@ -69,6 +69,72 @@ local function copyTable(src, shallow)
     return dest;
 end
 
+-- Captured before `install()` swaps `string.format` out, and named so this function does not
+-- depend on the WoW aliases it is itself installing.
+local rawformat, strfind, strsub, strmatch = string.format, string.find, string.sub, string.match;
+
+--- The client's `format` keeps Lua 4.0's **argument selection** (`%N$`), which 5.0 dropped. A
+--- stock interpreter raises `invalid option '%$'` on a string the game formats fine, so this is
+--- not a difference that quietly changes an answer: a spec that reaches one of those strings dies
+--- on the format call rather than on what it measures. There are 122 of them across `Debind/`,
+--- `DebindStorage/` and `DebindTest/`, and every locale file carries some.
+---
+--- **A positional specifier moves the implicit counter.** The client's own documentation
+--- (`https://wowpedia.fandom.com/wiki/API_format`) is
+---
+---     format("%2$d, %1$d, %d", 1, 2) == "2, 1, 2"
+---
+--- The trailing plain `%d` answers 2, not 1. `UpdateBindings.lua` rests on that reading: the
+--- `SetSwitch` line names its first argument and lets the second follow as a plain `%s`.
+---
+--- **Only `%s`, `%d` and `%q` are covered**, which is every conversion this repo pairs with a
+--- positional specifier (85, 18 and 19 of them). Anything else raises. A width or a float
+--- formatted by guesswork would be a wrong answer coming out of the harness, and the harness
+--- answering wrongly is the one failure this file exists to prevent.
+---
+--- Strings with no `%N$` in them never enter this path at all; they go to the real
+--- `string.format` untouched, so everything else it can do still works.
+local function positionalFormat(fmt, ...)
+    if (type(fmt) ~= "string" or not strfind(fmt, "%%%d+%$")) then
+        return rawformat(fmt, ...);
+    end
+
+    local args = { ... };
+    local out, ordered, count = {}, {}, 0;
+    local nextArg, i = 1, 1;
+
+    while (true) do
+        local at = strfind(fmt, "%", i, true);
+        if (not at) then
+            out[#out + 1] = strsub(fmt, i);
+            break;
+        end
+        out[#out + 1] = strsub(fmt, i, at - 1);
+
+        local pos, conv, after = strmatch(fmt, "^%%(%d+)%$([sdq])()", at);
+        if (not pos) then
+            conv, after = strmatch(fmt, "^%%([sdq%%])()", at);
+        end
+        if (not conv) then
+            error("wow_shim: " .. strsub(fmt, at, at + 4)
+                .. " is outside what the positional format stand-in covers (%s, %d, %q): " .. fmt, 2);
+        end
+
+        if (conv == "%") then
+            out[#out + 1] = "%%";
+        else
+            local idx = pos and tonumber(pos) or nextArg;
+            nextArg = idx + 1;
+            count = count + 1;
+            ordered[count] = args[idx];
+            out[#out + 1] = "%" .. conv;
+        end
+        i = after;
+    end
+
+    return rawformat(table.concat(out), (table.unpack or unpack)(ordered, 1, count));
+end
+
 function M.install()
     _G.bit = { band = band, bor = bor, bnot = bnot, lshift = lshift, rshift = rshift };
 
@@ -104,7 +170,13 @@ function M.install()
         return Enumerator, tbl, minIndex;
     end
 
-    _G.format = string.format;
+    _G.format = positionalFormat;
+    -- **The method form has to take the same path.** The client's own strings arrive as globals
+    -- and are formatted with `SOME_GLOBAL:format(...)`, and a localized one carries `%N$` where
+    -- the English one does not. In the game the C function itself is the one that knows about
+    -- argument selection, so patching only the `format` global would leave those call sites on
+    -- stock Lua.
+    string.format = positionalFormat;
     _G.strmatch = string.match;
     _G.strsub = string.sub;
     _G.strfind = string.find;

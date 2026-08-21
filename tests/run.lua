@@ -47,6 +47,9 @@ if (bench) then
 end
 
 local specs = {
+    -- The shim itself. It stands in for the client, so what it gets wrong every spec below
+    -- inherits (`wow_shim.lua`, the `CopyTable` comment).
+    { name = "format", path = root .. "/format_spec.lua" },
     { name = "solver", path = root .. "/solver_spec.lua" },
     { name = "ordering", path = root .. "/ordering_spec.lua" },
     { name = "macrotext", path = root .. "/macrotext_spec.lua" },
