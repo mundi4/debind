@@ -297,6 +297,40 @@ return function(DebindPrivate)
         shim.world.units = {};
     end);
 
+    -- **The case that shipped unverified.** One key asks whether the focus exists; another asks
+    -- whether it is friendly. Under the old encoding, *registering* the reaction axis changed what
+    -- the measured value **meant** -- with nobody asking about reaction a friendly unit came back
+    -- as `true` -- so the second key's condition silently decided the first key's. The symptom was
+    -- key one dying for no reason anyone could see from key one.
+    --
+    -- It went out in 3.1.1 with the secure half checked by a one-off script and nothing else
+    -- (`.zzz/TODO.md` E-7). Both halves are asked here: the press, and the poll that takes the key.
+    test("a reaction condition on one key does not decide another key's", function()
+        Bind({
+            action({ value = 585, key = "F1", conditions = { units = { focus = {} } } }),
+            action({ value = 774, key = "F2",
+                conditions = { units = { focus = { reaction = Constants.REACTION_HELP } } } }),
+        });
+
+        shim.world.units = { focus = { id = "friend", reaction = "help" } };
+        check(winner("F1") == 1, "the existence key did not fire on a friendly focus");
+        check(winner("F2") == 1, "the friendly key did not fire on a friendly focus");
+
+        shim.world.units = { focus = { id = "enemy", reaction = "harm" } };
+        check(winner("F1") == 1,
+            "the existence key died on a hostile focus -- another key's reaction decided it");
+        check(winner("F2") == nil, "the friendly key fired on a hostile focus");
+
+        -- The poll is where the value that meant two things was stored, so it is asked too.
+        interp:pollStates();
+        check(interp.bindings["F1"], "the poll let the existence key go on a hostile focus");
+        check(interp.bindings["F2"] == nil, "the poll kept the friendly key on a hostile focus");
+
+        shim.world.units = {};
+        interp:pollStates();
+        check(interp.bindings["F1"] == nil, "the existence key survived the focus going away");
+    end);
+
     ---------------------------------------------------------------------------
     -- Order
     ---------------------------------------------------------------------------
