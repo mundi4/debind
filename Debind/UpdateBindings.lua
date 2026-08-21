@@ -1564,6 +1564,18 @@ end
 DebindPrivate.MergeKeyUnitConditions = MergeKeyUnitConditions;
 DebindPrivate.BuildKeyRecord = BuildKeyRecord;
 
+--- Is anything this specialization binds reading this switch?
+---
+--- **`_switches` is the answer and not a count of the profile.** It is what the compile put in
+--- front of the restricted side, so a name in it is a name that side holds a value for and reports
+--- changes to. A name outside it has no current state at all: nothing pushes one, nothing reads
+--- one, and the value on the definition is only a memory kept for the next reload.
+---
+--- Rebuilt on every compile, so this answers about the bindings that are up right now.
+function DebindPrivate.IsSwitchTracked(name)
+    return _switches[name] ~= nil;
+end
+
 function UpdateBindingsMap()
     if (DEBUG) then
         wipe(DebindPrivate.StateDrivenKeys);

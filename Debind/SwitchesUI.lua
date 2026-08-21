@@ -149,10 +149,27 @@ function DebindSwitchRowMixin:Update()
     -- this list is the only place they can read it off (§6-B).
     self.Name:SetText(name);
 
+    -- **Nothing reads it, so there is no state to draw.** The value on the definition is a memory
+    -- for the next reload, not what the switch is: the live one lives in the restricted
+    -- environment and only tracked names are there. Drawing "Off" here would be a claim about
+    -- something that has none, and pressing it would move a stored number, print nothing, and
+    -- change no binding.
+    local tracked = DebindPrivate.IsSwitchTracked(name);
+    self.ToggleButton:SetShown(tracked);
+    self.Untracked:SetShown(not tracked);
+    if (not tracked) then
+        self.Untracked:SetText(LLL["SWITCH_NOT_TRACKED"]);
+    end
+    self.Name:SetTextColor((tracked and HIGHLIGHT_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
+
+    if (not tracked) then
+        return;
+    end
+
     local isOn = definition.value and true or false;
     self.ToggleButton:SetText(isOn and LLL["CUSTOM_STATE_ON"] or LLL["CUSTOM_STATE_OFF"]);
 
-    -- **Two different reasons to be dead, and only one of them is temporary.** A computed switch
+    -- **Two more reasons to be dead, and only one of them is temporary.** A computed switch
     -- has no press at all, since the expression decides it and pressing would be overwritten on
     -- the next pass. A manual one is only out of reach until the fight ends.
     --
@@ -228,6 +245,14 @@ function DebindSwitchRowMixin:OnEnter()
         GameTooltip_AddNormalLine(GameTooltip, expr or "");
     end
 
+    -- **On the row and not on the toggle**, because when this is the thing to say the toggle is
+    -- not drawn, and a hidden frame is never entered. The one that is always here has to carry it.
+    if (not DebindPrivate.IsSwitchTracked(self.switchName)) then
+        GameTooltip_AddBlankLineToTooltip(GameTooltip);
+        GameTooltip_AddErrorLine(GameTooltip, LLL["SWITCH_NOT_TRACKED"]);
+        GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_NOT_TRACKED_WHY"]);
+    end
+
     local account, character, live = DebindPrivate.CountSwitchReferences(self.switchName);
     GameTooltip_AddBlankLineToTooltip(GameTooltip);
     GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_USED_BY_HEADER"]);
@@ -280,16 +305,25 @@ function DebindSwitchLayerRowMixin:Update()
     self.Layer:SetText(DebindUI.GetLayerLabel(self.layerID));
     self.Setting:SetText(AnswerLabel(mode, resetValue));
 
-    -- **Greyed, because nothing on this row is pressed to turn the switch on.** It says what the
-    -- switch comes to at this layer, and the one control that flips a value is on the switch row
-    -- above. In that row's weight these read as four more things to click.
-    self.Layer:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
-    self.Setting:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
-
     -- **The winner is worked out here rather than stored on the row**, because it moves without
     -- the list changing: a specialization change hands the same rows a different answer.
     local _, _, _, winner = DebindPrivate.ResolveSwitchAnswer(self.switchName);
-    self.Check:SetShown(winner == self.layerKey);
+    local isWinner = winner == self.layerKey;
+    self.Check:SetShown(isWinner);
+
+    -- **Greyed except the one that wins.** Nothing on any of these rows is pressed to turn the
+    -- switch on, and in the switch row's weight they read as more things to click. But which one
+    -- is actually in force is the answer somebody opened the list for, so it keeps its colour and
+    -- the rest step back behind it.
+    -- **An untracked switch greys all of its rows, winner included.** Which layer wins is still
+    -- true, but it decides a value nothing is reading, so none of them is the live answer to
+    -- anything.
+    local color = DISABLED_FONT_COLOR;
+    if (isWinner and DebindPrivate.IsSwitchTracked(self.switchName)) then
+        color = HIGHLIGHT_FONT_COLOR;
+    end
+    self.Layer:SetTextColor(color:GetRGB());
+    self.Setting:SetTextColor(color:GetRGB());
 end
 
 function DebindSwitchLayerRowMixin:OnClick(button)

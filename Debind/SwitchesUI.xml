@@ -50,6 +50,20 @@
 						<Anchor point="RIGHT" x="-92" y="0"/>
 					</Anchors>
 				</FontString>
+				<!--
+					**Stands where the toggle would, because that is the question it answers.** The
+					button says what the switch is and offers to change it; when nothing reads the
+					switch there is no answer to either, so the slot says why rather than going
+					blank. Wider than the button and right aligned, so a longer translation grows
+					leftwards into the empty middle of the row instead of being cut.
+				-->
+				<FontString parentKey="Untracked" inherits="GameFontDisableSmall" maxLines="1"
+					justifyH="RIGHT" hidden="true">
+					<Size x="140" y="20"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
 			</Layer>
 			<Layer level="HIGHLIGHT">
 				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
@@ -191,8 +205,8 @@
 					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
 				</KeyValues>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="4" y="-112"/>
-					<Anchor point="TOPRIGHT" x="-31" y="-112"/>
+					<Anchor point="TOPLEFT" x="4" y="-85"/>
+					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
 					<Anchor point="BOTTOMLEFT" x="4" y="8"/>
 					<Anchor point="BOTTOMRIGHT" x="-31" y="8"/>
 				</Anchors>

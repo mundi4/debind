@@ -869,7 +869,7 @@ L["SWITCH_LAYER_MENU_INSTRUCTION"] = "Right-click to change this answer or take 
 -- Written as label-and-number rather than as sentences. Three sentences saying almost the same
 -- thing is a paragraph to read; three labels is a column to compare, which is what the reader is
 -- actually doing with them.
-L["SWITCH_USED_BY_HEADER"] = "Actions using it"
+L["SWITCH_USED_BY_HEADER"] = "Actions using it:"
 L["SWITCH_USED_ACCOUNT"] = "Across the account"
 L["SWITCH_USED_CHARACTER"] = "This character"
 -- **"Right now" is a specialization, not a session.** This one counts what the current
@@ -877,6 +877,8 @@ L["SWITCH_USED_CHARACTER"] = "This character"
 -- not. That is the whole reason it is a third line.
 L["SWITCH_USED_LIVE"] = "Active right now"
 L["SWITCH_MENU_INSTRUCTION"] = "Right-click for settings, renaming and deleting."
+L["SWITCH_NOT_TRACKED"] = "Not tracked"
+L["SWITCH_NOT_TRACKED_WHY"] = "No action reads it."
 L["SWITCH_TOGGLE_INSTRUCTION"] = "Click to turn it on or off."
 L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to work the switch does it any time."
 L["SWITCH_TOGGLE_IS_AUTOMATIC"] = "This one is worked out from its macro conditional, so pressing it would not hold."
