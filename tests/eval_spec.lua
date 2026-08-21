@@ -2,7 +2,7 @@
 --
 -- Everything above this file measures what a rebuild decided. This one runs the decision: the
 -- emitted records go into a restricted environment, `EVAL_SNIPPET` walks them, and the winner is
--- read back (`devdocs/going-headless-outside-the-ui.md` §5, `tests/restricted.lua`).
+-- read back (`devdocs/legacy/going-headless-outside-the-ui.md` §5, `tests/restricted.lua`).
 --
 -- These came down from `/debtest`, where they were the only layer that could see them. What each
 -- one gives up by coming down is the same three things (§8): whether the sandbox would compile the
@@ -486,7 +486,7 @@ return function(DebindPrivate, _, ctx)
     --
     -- **This one stays in `/debtest` as well.** It is the anchor: four axes over seven records is
     -- where a difference between this interpretation and the real environment would show
-    -- (`devdocs/going-headless-outside-the-ui.md` §9).
+    -- (`devdocs/legacy/going-headless-outside-the-ui.md` §9).
     test("the press picks the exact record out of seven", function()
         --- The key's records, in order, each as the world it needs. `nil` means the axis is not
         --- named by that record.

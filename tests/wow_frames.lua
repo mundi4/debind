@@ -1,5 +1,5 @@
 -- The frame shell and the secure-handler recorder, the two things the emission golden rests on
--- (`devdocs/going-headless-outside-the-ui.md` §6).
+-- (`devdocs/legacy/going-headless-outside-the-ui.md` §6).
 --
 -- **Neither of these interprets anything.** A snippet body handed to `SecureHandlerExecute` is
 -- recorded as the string it is and never run, which is why the golden could stand up before there

@@ -1,7 +1,7 @@
 -- The profile the emission golden is taken against, and the client facts it needs.
 --
 -- **One fixture, held apart from the spec that uses it.** The golden is a net for a refactor
--- (`devdocs/going-headless-outside-the-ui.md` §6): what it is worth is decided entirely by how
+-- (`devdocs/legacy/going-headless-outside-the-ui.md` §6): what it is worth is decided entirely by how
 -- much of `UpdateBindings.lua` this profile drives, so the profile is the thing to read and to
 -- add to, and burying it inside the comparison would hide that.
 --

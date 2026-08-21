@@ -4,7 +4,7 @@
 -- `SecureHandlerExecute` or stored in an attribute is replayed here in the order it crossed --
 -- login setup first, then the rebuild -- so the tables the click path reads are the ones the game
 -- would have built. Writing the setup out here instead would be a second copy of it, and a second
--- copy is the one thing that can drift (`devdocs/going-headless-outside-the-ui.md` §5).
+-- copy is the one thing that can drift (`devdocs/legacy/going-headless-outside-the-ui.md` §5).
 --
 -- **Only the binding driver's environment.** In the game each header frame gets its own managed
 -- environment, and the click path lives entirely in the driver's -- what `UnitWatch` and the

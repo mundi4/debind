@@ -74,7 +74,7 @@ local _keysSeen          = {};
 ---
 --- Holding the decision apart from the doing is what lets a spec ask what a profile comes to
 --- without a client in front of it: `BuildBindingPlan` answers from `ctx`, and `ApplyBindingPlan`
---- is the only step with an effect (`devdocs/going-headless-outside-the-ui.md` §3-1).
+--- is the only step with an effect (`devdocs/legacy/going-headless-outside-the-ui.md` §3-1).
 local _ctx               = {};
 local _plan              = { events = {}, units = {} };
 
@@ -299,7 +299,7 @@ end
 --- **Most of what it collects is still not a value**, and saying so is the point of the step
 --- existing this early. `BuildKeyMap` fills `DebindPrivate.KeyMap` and the switch reset writes the
 --- profile, so what comes back is a reference to a table this call filled rather than a copy. What
---- turns those into values is stage 3 of `devdocs/going-headless-outside-the-ui.md`; naming the
+--- turns those into values is stage 3 of `devdocs/legacy/going-headless-outside-the-ui.md`; naming the
 --- seam is what makes it possible to move.
 local function CollectBindingContext()
     -- **Where a specialization change reaches a switch** (§4-8 of
@@ -329,7 +329,7 @@ end
 --- **It runs before the build rather than inside `ApplyBindingPlan`, and that is temporary.** The
 --- build still stamps attributes and builds delegate frames as it goes (`SetBindingAttributes`),
 --- so a reset deferred to the apply would land on top of what the build had already put out.
---- Stage 2 of `devdocs/going-headless-outside-the-ui.md` takes the stamping out of the build, and
+--- Stage 2 of `devdocs/legacy/going-headless-outside-the-ui.md` takes the stamping out of the build, and
 --- this moves in with it.
 local function ClearPreviousBindings()
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
@@ -472,7 +472,7 @@ end
 ---
 --- **What is not pure yet is the emitters.** `UpdateBindingsMap` reaches `SetBindingAttributes`,
 --- which stamps the click frame and builds delegate frames as it walks; stages 2 and 3 of
---- `devdocs/going-headless-outside-the-ui.md` take that out. What is already a value is every
+--- `devdocs/legacy/going-headless-outside-the-ui.md` take that out. What is already a value is every
 --- decision below the snippets -- which events to register, which units to watch, the throttle --
 --- and those are the ones a spec could not reach at all before.
 ---
@@ -660,7 +660,7 @@ end
 --- this whole path is here**, which is what leaves `DescribeBinding` with nothing to ask.
 ---
 --- A spec hands these in as plain values instead: it is standing a world up, not imitating an API
---- (`devdocs/going-headless-outside-the-ui.md` §4).
+--- (`devdocs/legacy/going-headless-outside-the-ui.md` §4).
 local function CollectBindingFacts(type, value, unit, facts)
     wipe(facts);
 
@@ -910,7 +910,7 @@ DebindPrivate.StampBinding = StampBinding;
 
 --- Asks, describes, stamps. **The reason a binding was refused is dropped here and nowhere else**,
 --- because the caller's shape still cannot carry one; stage 3 of
---- `devdocs/going-headless-outside-the-ui.md` is where the record loop learns to.
+--- `devdocs/legacy/going-headless-outside-the-ui.md` is where the record loop learns to.
 function SetBindingAttributes(type, value, unit)
     local facts = CollectBindingFacts(type, value, unit, _facts);
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
@@ -1116,7 +1116,7 @@ local CONDITION_AXES     = {
 --- **Two readers, one value.** `CollectRecordAxes` works out what has to be measured for this
 --- record and `EmitRecord` writes it into the snippet, and both read this. That is the whole point
 --- of the record existing: while emitting and accumulating were one walk, the two could disagree
---- and nothing could tell (`devdocs/going-headless-outside-the-ui.md` §3-2).
+--- and nothing could tell (`devdocs/legacy/going-headless-outside-the-ui.md` §3-2).
 ---
 --- **One table, refilled**, like every other scratch table in this file. It is good until the next
 --- `BuildKeyRecord`, and both readers run before that.

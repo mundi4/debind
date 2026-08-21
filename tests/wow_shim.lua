@@ -337,7 +337,7 @@ function M.install()
 
     --- The world the non-secure side asks about while it rebuilds. Every one of these is a value
     --- returning query, the cheap side to mock (§4 of
-    --- `devdocs/going-headless-outside-the-ui.md`), and the answers come out of `M.world` so a
+    --- `devdocs/legacy/going-headless-outside-the-ui.md`), and the answers come out of `M.world` so a
     --- spec can put the client in a state rather than swapping the function out.
     _G.InCombatLockdown = function() return M.world.inCombat and true or false; end
     --- **Life and reaction are answered here and nowhere else.** The restricted environment gets
@@ -460,7 +460,7 @@ function M.install()
     --
     -- **They answer out of `M.world`, and it starts empty.** Every one of these is a query
     -- returning a value, which is the cheap side to mock (§4 of
-    -- `devdocs/going-headless-outside-the-ui.md`), but nothing here invents an answer for an id
+    -- `devdocs/legacy/going-headless-outside-the-ui.md`), but nothing here invents an answer for an id
     -- the spec did not put there: a made-up spell name reads exactly like a real one, and the
     -- caller's other branch -- binding by id because the name did not resolve -- is a path a spec
     -- has to be able to reach on purpose.
@@ -510,7 +510,7 @@ function M.install()
     -- Frames, and everything that crosses to the secure side. Split into its own file because the
     -- emission golden reads the recorder back (`wow_frames.lua`), and because a shell that records
     -- what it was handed is a different kind of stand-in from the value-returning ones above
-    -- (`devdocs/going-headless-outside-the-ui.md` §4).
+    -- (`devdocs/legacy/going-headless-outside-the-ui.md` §4).
     frames.install();
     -- The unit right-click menu. `UnitWatch.lua` adds the "set as custom target" entries to it at
     -- load; what it hands over is a function the client calls back, and nothing headless calls it.

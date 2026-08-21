@@ -5,7 +5,7 @@
 --
 -- **What is here is what needs the game.** Twenty-nine cases came down to the headless specs
 -- when the harness learned to read UpdateBindings.lua and to run the restricted environment
--- (devdocs/going-headless-outside-the-ui.md): the binding types, the twelve condition families,
+-- (devdocs/legacy/going-headless-outside-the-ui.md): the binding types, the twelve condition families,
 -- priority ordering, the three Split: cases, the four Issue: ones and the four macro text ones.
 -- Every one of them asked a question about a value, and a question about a value is answered
 -- more cheaply -- and on every commit -- by npm test.

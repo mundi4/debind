@@ -4,7 +4,7 @@
 -- re-deciding on. Every one of them is a reading of what the profile asked to be measured, and
 -- until `UpdateBindings()` was split into deciding and doing, the only way to see one was to stand
 -- up a `SecureStateDriverManager` in the game and look at what had been registered on it
--- (`devdocs/going-headless-outside-the-ui.md` §3-1).
+-- (`devdocs/legacy/going-headless-outside-the-ui.md` §3-1).
 --
 -- **Two faults have already come out of this exact place**, and the file's own comments record
 -- them: the old predicate did not look at *which* unit carried a reaction condition, so putting

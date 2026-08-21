@@ -8,7 +8,7 @@
 --
 -- Neither of these needed a client. What kept them out of the harness was that `FrameRegistry.lua`
 -- and `UnitWatch.lua` build frames when they load, and the line has moved: a frame shell is what
--- the harness gives them now (`devdocs/going-headless-outside-the-ui.md`).
+-- the harness gives them now (`devdocs/legacy/going-headless-outside-the-ui.md`).
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;

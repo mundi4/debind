@@ -1,5 +1,5 @@
 -- The emission golden: everything one rebuild hands to the secure side, held against a recorded
--- file (`devdocs/going-headless-outside-the-ui.md` §6).
+-- file (`devdocs/legacy/going-headless-outside-the-ui.md` §6).
 --
 -- **This is a net, not a specification.** It says nothing about whether what came out is right; it
 -- says that splitting a 578-line function did not change a byte of it. That is the only thing

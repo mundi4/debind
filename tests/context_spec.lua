@@ -8,7 +8,7 @@
 -- **This file had no test of any kind** (`.zzz/refactor-candidates.md` 10, opened 2026-08-04). It
 -- was checked by opening the editor and pressing keys, and the reason was the harness: it read
 -- pure logic only, and this one builds a frame when it loads. That line is gone
--- (`devdocs/going-headless-outside-the-ui.md`) -- the file is read whole now, on a frame shell.
+-- (`devdocs/legacy/going-headless-outside-the-ui.md`) -- the file is read whole now, on a frame shell.
 
 return function(DebindPrivate)
     local shim = require("wow_shim");

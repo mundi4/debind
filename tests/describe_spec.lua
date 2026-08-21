@@ -2,7 +2,7 @@
 --
 -- `SetBindingAttributes` used to answer both at once by writing the attributes and returning the
 -- button name, so a refusal was a missing return value and one DEBUG log line
--- (`devdocs/going-headless-outside-the-ui.md` §3-3). Getting a refusal wrong is not a binding that
+-- (`devdocs/legacy/going-headless-outside-the-ui.md` §3-3). Getting a refusal wrong is not a binding that
 -- goes missing -- the secure side counts an emitted record as a binding that took, so `keyBound`
 -- goes up and **every lower priority action on that key is blocked with it**. A hunter with no pet
 -- and a Call Pet binding is the case that put the drop there.
