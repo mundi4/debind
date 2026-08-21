@@ -145,29 +145,40 @@ function DebindSwitchRowMixin:Update()
         return;
     end
 
-    -- **The `$` is shown, not stripped.** It is what the user has to type in a macro body, and
-    -- this list is the only place they can read it off (§6-B).
-    self.Name:SetText(name);
-
     -- **Nothing reads it, so there is no state to draw.** The value on the definition is a memory
     -- for the next reload, not what the switch is: the live one lives in the restricted
     -- environment and only tracked names are there. Drawing "Off" here would be a claim about
     -- something that has none, and pressing it would move a stored number, print nothing, and
     -- change no binding.
     local tracked = DebindPrivate.IsSwitchTracked(name);
+    local isOn = definition.value and true or false;
+
     self.ToggleButton:SetShown(tracked);
     self.Untracked:SetShown(not tracked);
     if (not tracked) then
         self.Untracked:SetText(LLL["SWITCH_NOT_TRACKED"]);
     end
-    self.Name:SetTextColor((tracked and HIGHLIGHT_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
+
+    -- **The `$` is shown, not stripped.** It is what the user has to type in a macro body, and
+    -- this list is the only place they can read it off (§6-B).
+    --
+    -- **What it is sits beside the name, and what the button does is on the button.** The one
+    -- label used to be both: it read "On" while the switch was on, in the place a label says what
+    -- pressing will do. In one string rather than two font strings, so the state lands right
+    -- after however long the name is, and a name too long for the row clips the pair together.
+    if (tracked) then
+        self.Name:SetText(name .. "  " .. HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(
+            isOn and LLL["CUSTOM_STATE_ON"] or LLL["CUSTOM_STATE_OFF"]));
+    else
+        self.Name:SetText(name);
+    end
+    self.Name:SetTextColor((tracked and NORMAL_FONT_COLOR or DISABLED_FONT_COLOR):GetRGB());
 
     if (not tracked) then
         return;
     end
 
-    local isOn = definition.value and true or false;
-    self.ToggleButton:SetText(isOn and LLL["CUSTOM_STATE_ON"] or LLL["CUSTOM_STATE_OFF"]);
+    self.ToggleButton:SetText(isOn and LLL["SWITCH_TURN_OFF"] or LLL["SWITCH_TURN_ON"]);
 
     -- **Two more reasons to be dead, and only one of them is temporary.** A computed switch
     -- has no press at all, since the expression decides it and pressing would be overwritten on
@@ -308,20 +319,20 @@ function DebindSwitchLayerRowMixin:Update()
     -- **The winner is worked out here rather than stored on the row**, because it moves without
     -- the list changing: a specialization change hands the same rows a different answer.
     local _, _, _, winner = DebindPrivate.ResolveSwitchAnswer(self.switchName);
-    local isWinner = winner == self.layerKey;
-    self.Check:SetShown(isWinner);
 
     -- **Greyed except the one that wins.** Nothing on any of these rows is pressed to turn the
     -- switch on, and in the switch row's weight they read as more things to click. But which one
     -- is actually in force is the answer somebody opened the list for, so it keeps its colour and
     -- the rest step back behind it.
-    -- **An untracked switch greys all of its rows, winner included.** Which layer wins is still
-    -- true, but it decides a value nothing is reading, so none of them is the live answer to
-    -- anything.
-    local color = DISABLED_FONT_COLOR;
-    if (isWinner and DebindPrivate.IsSwitchTracked(self.switchName)) then
-        color = HIGHLIGHT_FONT_COLOR;
-    end
+    --
+    -- **The tick says the same thing as the colour, so neither survives the switch going
+    -- untracked.** Which layer wins is still true, but it decides a value nothing collects, and a
+    -- tick under a greyed switch is the one mark on screen that reads as live. It is not lost
+    -- either way: the tooltip on every row says whether that layer is the winning one.
+    local inForce = winner == self.layerKey and DebindPrivate.IsSwitchTracked(self.switchName);
+    self.Check:SetShown(inForce);
+
+    local color = inForce and HIGHLIGHT_FONT_COLOR or DISABLED_FONT_COLOR;
     self.Layer:SetTextColor(color:GetRGB());
     self.Setting:SetTextColor(color:GetRGB());
 end

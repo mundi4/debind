@@ -877,6 +877,8 @@ L["SWITCH_USED_CHARACTER"] = "This character"
 -- not. That is the whole reason it is a third line.
 L["SWITCH_USED_LIVE"] = "Active right now"
 L["SWITCH_MENU_INSTRUCTION"] = "Right-click for settings, renaming and deleting."
+L["SWITCH_TURN_ON"] = "Turn On"
+L["SWITCH_TURN_OFF"] = "Turn Off"
 L["SWITCH_NOT_TRACKED"] = "Not tracked"
 L["SWITCH_NOT_TRACKED_WHY"] = "No action reads it."
 L["SWITCH_TOGGLE_INSTRUCTION"] = "Click to turn it on or off."

@@ -83,7 +83,8 @@
 			-->
 			<Button parentKey="ToggleButton" inherits="UIPanelButtonTemplate"
 				motionScriptsWhileDisabled="true">
-				<Size x="58" y="20"/>
+				<!-- Wide enough for the longer of the two labels, which is "Turn Off". -->
+				<Size x="72" y="20"/>
 				<Anchors>
 					<Anchor point="RIGHT" x="-6" y="0"/>
 				</Anchors>
@@ -152,7 +153,7 @@
 				<FontString parentKey="Setting" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
 					<Size x="140" y="0"/>
 					<Anchors>
-						<Anchor point="RIGHT" x="-32" y="0"/>
+						<Anchor point="RIGHT" x="-6" y="0"/>
 					</Anchors>
 				</FontString>
 				<!--

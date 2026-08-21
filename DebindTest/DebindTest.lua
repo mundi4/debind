@@ -2820,10 +2820,15 @@ RegisterTest("Switches tab: the New switch button makes one", {
 -- that is the account-wide row while a tab is overriding it, the list is telling them the opposite
 -- of what their keys do.
 --
+-- **A switch nothing reads has no ticked row at all**, and that is the third half. The tick says
+-- "this is the answer in force", which a switch outside the compile has none of: which tab would
+-- win is still true, but it decides a value nobody collects. So the same rows are read twice here,
+-- once with nothing binding the switch and once with an action that does.
+--
 -- The XML is measured too: `Check` is a `parentKey` on the template, and a texture that lost its
 -- key leaves `SetShown` reaching nil.
 RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
-    description = "오버라이드 행들이 그려지고, 지금 이기는 행에만 표시가 붙는가",
+    description = "오버라이드 행들이 그려지고, 읽는 액션이 있을 때 이기는 행에만 표시가 붙는가",
     run = function()
         local NAME = "Switch layer rows"
         local SWITCH = "$rowlayers"
@@ -2857,13 +2862,42 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
                 "행이 %d개다 - 얹은 오버라이드 하나와 계정 전체 하나, 둘이 나와야 한다", drawn))
         end
 
-        local marked, unmarked = {}, {}
-        for _, row in ipairs(rows) do
-            if not row.Check then
-                return Fail(NAME, "행에 Check가 없다 - 템플릿이 parentKey를 잃었다")
+        -- Nothing binds `$rowlayers` yet, so it is outside the compile and no row is the live
+        -- answer to anything.
+        local function ReadTicks()
+            local marked, unmarked = {}, {}
+            for _, row in ipairs(rows) do
+                if not row.Check then
+                    return nil, "행에 Check가 없다 - 템플릿이 parentKey를 잃었다"
+                end
+                local list = row.Check:IsShown() and marked or unmarked
+                list[#list + 1] = row.layerKey or "(account)"
             end
-            local list = row.Check:IsShown() and marked or unmarked
-            list[#list + 1] = row.layerKey or "(account)"
+            return marked, unmarked
+        end
+
+        local marked, unmarked = ReadTicks()
+        if not marked then
+            return Fail(NAME, unmarked)
+        end
+        if #marked ~= 0 then
+            return Fail(NAME, format(
+                "아무 액션도 안 읽는 스위치인데 %d행에 표시가 붙었다 [%s] - 이길 자리는 있어도 "
+                .. "그 값을 걷어가는 곳이 없다", #marked, table.concat(marked, " ")))
+        end
+
+        -- Now one action reads it, which is what puts the name in front of the restricted side.
+        -- The rows are told to redraw by hand: what changed is the bindings, and the list rebuilds
+        -- itself off switch changes rather than off those.
+        InsertAction({ type = Constants.SETSTATE_TOGGLE, value = SWITCH, key = "CTRL-SHIFT-F8" })
+        ApplyBindings()
+        for _, row in ipairs(rows) do
+            row:Update()
+        end
+
+        marked, unmarked = ReadTicks()
+        if not marked then
+            return Fail(NAME, unmarked)
         end
 
         if #marked ~= 1 then
@@ -2878,7 +2912,7 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
             return Fail(NAME, "안 이기는 행이 하나도 안 그려졌다 - 어디가 다른지 볼 수가 없다")
         end
 
-        return Pass(NAME, format("%d행, 표시는 %s", #rows, marked[1]))
+        return Pass(NAME, format("%d행, 안 읽힐 때 표시 없음 -> 읽히면 %s", #rows, marked[1]))
     end,
 })
 
