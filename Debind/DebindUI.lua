@@ -4524,9 +4524,6 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 	self:GoToAction(action, destLayerID);
 end
 
--- TEMP 조사용 (편집모드 taint). 끝나면 이 줄과 아래 분기를 지운다.
---   1 = None 타입 (스펠북/특성 채우기를 건너뛴다)
---   2 = Spellbook + extraIconsOnly (공용 카운터 증가와 BaseIconFilenames 생성을 건너뛴다)
 --- 아이콘 목록. **블리자드의 `IconDataProvider`를 그대로 쓰면 안 되는 이유가 여기 있다.**
 ---
 --- 그쪽 `Init`은 파일 로컬 `BaseIconFilenames`가 비어 있으면 **부른 쪽이 채우고**, `Release`는

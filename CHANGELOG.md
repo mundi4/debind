@@ -1,3 +1,13 @@
+# 3.2.1
+
+**A fix for party frame health bars standing still in Edit Mode.**
+
+Opening the name and icon window for a custom macro left the game's shared icon list marked as this addon's. Edit Mode reads that list on the way in, to pick the icons for the sample auras it shows you, and reading it there was enough for the game to refuse the party frame health bar updates that came right after. Every entry into Edit Mode did it again, and with an error display installed the errors arrived once per frame. Reloading cleared it, until the next time that window was opened.
+
+Debind keeps its own icon list now, so the game's is neither built nor dropped by this addon. The window itself is unchanged.
+
+This has been here since 3.1. It only became visible on 12.1, where the game seals the health values that the refused update was comparing.
+
 # 3.2
 
 **You can hand your setup to somebody else now, as a string.**
