@@ -875,7 +875,7 @@ L["SWITCH_TOGGLE_IS_AUTOMATIC"] = "This one is worked out from its macro conditi
 L["SWITCH_RENAME"] = "Rename"
 -- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
 -- no learns the rule one refusal at a time; a reader who is told first types a name that takes.
-L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nNames start with |cnHIGHLIGHT_FONT_COLOR:$|r and can hold letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
 -- Making one. **Three places open this box**: the button under the Switches list, the condition
 -- menu, and an on/off/toggle action's own menu. All three exist because a reader finds out they
@@ -883,11 +883,11 @@ L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
 -- switches.
 L["SWITCH_CREATE"] = "New switch..."
 L["SWITCH_CREATE_DESC"] = "Makes a switch and puts it on this action straight away."
-L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nNames start with |cnHIGHLIGHT_FONT_COLOR:$|r and can hold letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 -- **The two refusals a typed name gets, and they are about the name rather than about which box
 -- it was typed into.** Renaming and creating both hand them back (`RenameSwitch`, `CreateSwitch`),
 -- which is why they are not called SWITCH_RENAME_ERROR_* any more.
-L["SWITCH_NAME_ERROR_INVALID"] = "A switch name has to start with |cnHIGHLIGHT_FONT_COLOR:$|r and hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_NAME_ERROR_INVALID"] = "A switch name can hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a switch by that name."
 -- The [Set Switch] menu on an on/off/toggle action: which switch the key works, and what it does
 -- to it. **The verbs are worded as what the key does, not as what the switch is.** "On" beside a

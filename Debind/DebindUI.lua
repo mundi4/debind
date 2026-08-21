@@ -1175,15 +1175,45 @@ end
 ---
 --- Highlighted after filling, so the first keystroke replaces it. The box opens on the current
 --- value to be read *or* typed over, and without this the second of those costs a select-all.
+--- `prefix` draws a glyph to the left of the box that is **not part of what is typed**. A switch
+--- name always begins with `$` and nothing else may, so the reader types `burst` and the caller
+--- joins the two; a sigil that is furniture cannot be deleted, doubled, or left off.
+---
+--- **The dialog is shared, so the glyph is cleared on every call and again when it hides.** It
+--- belongs to no addon in particular: text left on it would sit in front of the next generic
+--- input box anybody opens, ours or the client's own. Held beside the box rather than on it --
+--- writing a field onto a frame the client recycles is how two addons find out they chose the
+--- same name.
+local _inputPrefixes = setmetatable({}, { __mode = "k" });
+
+local function InputPrefix(editBox)
+	local fontString = _inputPrefixes[editBox];
+	if (not fontString) then
+		fontString = editBox:GetParent():CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
+		fontString:SetPoint("RIGHT", editBox, "LEFT", -3, 0);
+		_inputPrefixes[editBox] = fontString;
+		-- Additive, and once per box: the dialog outlives any one use of it.
+		editBox:HookScript("OnHide", function()
+			fontString:SetText("");
+		end);
+	end
+	return fontString;
+end
+
 local function ShowInputBox(data)
 	StaticPopup_ShowCustomGenericInputBox(data);
+
+	local popup = StaticPopup_FindVisible("GENERIC_INPUT_BOX", data);
+	local editBox = popup and popup:GetEditBox();
+	if (not editBox) then
+		return;
+	end
+
+	InputPrefix(editBox):SetText(data.prefix or "");
+
 	if (data.currentValue) then
-		local popup = StaticPopup_FindVisible("GENERIC_INPUT_BOX", data);
-		local editBox = popup and popup:GetEditBox();
-		if (editBox) then
-			editBox:SetText(data.currentValue);
-			editBox:HighlightText();
-		end
+		editBox:SetText(data.currentValue);
+		editBox:HighlightText();
 	end
 end
 

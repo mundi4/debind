@@ -328,16 +328,16 @@ end
 --------------------------------------------------------------------------------
 
 do
-    --- Asking for the name, with the `$` already in the box.
+    --- Asking for the name, with the sigil drawn beside the box rather than sitting in it.
     ---
-    --- **The box opens on the name as it is**, not empty and not without the `$`: what is being
-    --- edited is the exact string a macro body has to say, and a reader who is handed an empty box
-    --- has to guess whether the sigil is part of it.
+    --- **The box opens on the part that varies.** `$` is on every switch name and on nothing else,
+    --- so it is furniture: shown so the reader knows the shape, kept outside the field so it cannot
+    --- be deleted, doubled, or left off. What comes back is joined below.
     local function ShowRenameBox(name)
         DebindUI.ShowInputBox({
             text = LLL["SWITCH_RENAME_PROMPT"],
             callback = function(value)
-                local ok, reason = DebindPrivate.RenameSwitch(name, strtrim(value));
+                local ok, reason = DebindPrivate.RenameSwitch(name, "$" .. strtrim(value));
                 if (not ok and reason) then
                     -- Said in chat rather than in a second dialog. The window is still open on
                     -- the row that did not change, so the sentence has somewhere to be read
@@ -347,8 +347,10 @@ do
                 end
                 DebindPrivate.UpdateBindings();
             end,
-            maxLetters = 32,
-            currentValue = name,
+            -- One less than a stored name allows, because the sigil is not typed here.
+            maxLetters = 31,
+            prefix = "$",
+            currentValue = strsub(name, 2),
         });
     end
 
@@ -499,7 +501,7 @@ do
         DebindUI.ShowInputBox({
             text = LLL["SWITCH_CREATE_PROMPT"],
             callback = function(value)
-                local name = strtrim(value);
+                local name = "$" .. strtrim(value);
                 local ok, reason = DebindPrivate.CreateSwitch(name);
                 if (not ok) then
                     if (reason) then
@@ -514,11 +516,12 @@ do
                 -- its list off that whenever it is up.
                 DebindPrivate.UpdateBindings();
             end,
-            maxLetters = 32,
-            -- **The box opens on the `$` alone.** The rule is in the prompt above it, but a reader
-            -- who is handed an empty box still has to act on a sentence rather than on the field;
-            -- one glyph already sitting there is the same instruction in the place it applies.
-            currentValue = "$",
+            -- One less than a stored name allows, because the sigil is not typed here.
+            maxLetters = 31,
+            -- **The sigil is beside the box, not in it.** The rule is in the prompt above, but a
+            -- reader handed an empty field still has to act on a sentence rather than on the box;
+            -- the glyph says the same thing where it applies, and cannot be typed over.
+            prefix = "$",
         });
     end
 
