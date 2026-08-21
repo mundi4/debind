@@ -65,6 +65,10 @@ local _unitsSeen         = {};
 local _updateFlags       = {};
 local _mergedUnits       = {};
 
+--- Which names already have a list in `MacroTextsMap`. Module level so a rebuild allocates nothing
+--- it can reuse, which is the rule this file runs on.
+local _keysSeen          = {};
+
 --- The world a rebuild was built against, and what it decided to do about it. **Two tables, wiped
 --- and refilled**, because a rebuild allocates nothing it can reuse - the rule the rest of this
 --- file already runs on.
@@ -1714,9 +1718,51 @@ function UpdateBindingsMap()
     return snippet;
 end
 
-function UpdateMacroTextsMap()
-    appendLine("local tempArray, t = newtable()");
+--- One `[$switch]` clause of a macro body, as the argument the restricted side re-evaluates.
+---
+--- **Two cases share this branch and they bake different values.**
+---
+--- Erasing a self reference (`[$a]` inside `$a`'s own expression) to `""` is deliberate - reading
+--- your own value there has the value eat itself.
+---
+--- Undefined is the opposite. `""` turns `[$typo]` into `[]`, which is **always true**, so one
+--- typo makes a binding fire more rather than less. It falls to false instead.
+---
+--- `GetBindingIssue`'s `UNDEFINED_STATE` keeps such an action out of `KeyMap`, **and that is no
+--- reason to leave this empty.** That side judges by the name the parser saw and this one by the
+--- definition the compile actually found; folding two judges into one is how a quiet accident
+--- happens. (A switch's own `expr` is not an action, so that check never sees it at all.)
+local function EmitMacroTextArg(index, arg, ownerName, isState)
+    appendLine([[t.args[%d]=newtable()]], index);
 
+    if (arg.type == Constants.MACROTEXT_ARG_UNIT) then
+        appendLine([[t.args[%d].unit=%q]], index, arg.name);
+        return;
+    end
+
+    if (arg.type ~= Constants.MACROTEXT_ARG_SWITCH) then
+        return;
+    end
+
+    local selfReference = isState and arg.name == ownerName;
+    if (selfReference or not addSwitch(arg.name)) then
+        local fixed = "known:0";
+        if (selfReference and not arg.reverse) then
+            fixed = "";
+        end
+        appendLine([[t.args[%d].fixed=%q]], index, fixed);
+    else
+        appendLine([[t.args[%d].state=%q]], index, arg.name);
+        if (arg.reverse) then
+            appendLine([[t.args[%d].reverse=true]], index);
+        end
+    end
+end
+
+--- One entry per parsed macro body: where it is written back to, its fragments, and the arguments
+--- that get re-evaluated. **Numbering happens here** - `data.index` is what the dependents map
+--- below points at, so nothing else may hand out an id.
+local function EmitMacroTextEntries()
     local index = 0;
 
     for _, buttonOrStateName in ipairs(sortedKeys(_macrotextBindings, _sortedA)) do
@@ -1726,10 +1772,13 @@ function UpdateMacroTextsMap()
             data.index = index;
             appendLine("t=newtable()");
             appendLine("t.id=%d", index);
-            local isState = false;
-            if (strsub(buttonOrStateName, 1, 1) == "$") then
+
+            -- **Where the rebuilt body lands.** A switch's expression is written into
+            -- `SwitchExpressions` under its own name; everything else is a button's
+            -- `*macrotext-` attribute.
+            local isState = strsub(buttonOrStateName, 1, 1) == "$";
+            if (isState) then
                 appendLine("t.state=%q", buttonOrStateName);
-                isState = true;
             else
                 appendLine("t.attr=%q", "*macrotext-" .. buttonOrStateName);
             end
@@ -1739,60 +1788,43 @@ function UpdateMacroTextsMap()
                 appendLine([[t.fragments[%d]=%q]], i, data.fragments[i]);
             end
             for i = 1, #data.args do
-                local arg = data.args[i];
-                appendLine([[t.args[%d]=newtable()]], i);
-                if (arg.type == Constants.MACROTEXT_ARG_UNIT) then
-                    appendLine([[t.args[%d].unit=%q]], i, arg.name);
-                elseif (arg.type == Constants.MACROTEXT_ARG_SWITCH) then
-                    local selfReference = isState and arg.name == buttonOrStateName;
-                    if (selfReference or not addSwitch(arg.name)) then
-                        -- 두 경우가 한 분기에 있지만 **구워지는 값이 다르다.**
-                        --
-                        -- 자기 참조(`$a`의 식 안의 `[$a]`)를 `""`로 지우는 것은 의도한
-                        -- 것이다 - 그 자리에서 자기 값을 읽으면 값이 자기를 먹는다.
-                        --
-                        -- 미정의는 정반대다. `""`는 `[$typo]`를 `[]`로 만들어 **항상 참**이
-                        -- 되고, 그러면 오타 하나가 바인딩을 덜 나가게 하는 게 아니라 더
-                        -- 나가게 한다. 거짓으로 떨어뜨린다.
-                        --
-                        -- `GetBindingIssue`의 `UNDEFINED_STATE`가 그 액션을 KeyMap에서
-                        -- 빼주지만 **그것을 근거로 여기를 비워둘 수는 없다.** 저쪽은
-                        -- 파서가 본 이름으로, 이쪽은 컴파일이 실제로 찾은 정의로 판정한다 -
-                        -- 판정 주체가 갈리는 자리를 하나로 퉁치면 조용한 사고가 된다.
-                        -- (상태의 `expr`은 액션이 아니라서 저쪽 검사에 아예 안 걸린다.)
-                        local fixed = "known:0";
-                        if (selfReference and not arg.reverse) then
-                            fixed = "";
-                        end
-                        appendLine([[t.args[%d].fixed=%q]], i, fixed);
-                    else
-                        appendLine([[t.args[%d].state=%q]], i, arg.name);
-                        if (arg.reverse) then
-                            appendLine([[t.args[%d].reverse=true]], i);
-                        end
-                    end
-                end
+                EmitMacroTextArg(i, data.args[i], buttonOrStateName, isState);
             end
+
             appendLine("tempArray[%d]=t", index);
         end
     end
+end
 
-    -- dependents
-    local keysSeen = {};
+--- Which bodies have to be rebuilt when one name moves. The state loop walks its dirty flags
+--- against this map and rebuilds only the bodies that named the flag.
+local function EmitMacroTextDependents()
+    wipe(_keysSeen);
+
     for _, macrotext in ipairs(sortedKeys(_macrotexts, _sortedA)) do
         local data = _macrotexts[macrotext];
         if (data) then
+            -- A parsed body with no id was never bound to a button or a switch, so nothing would
+            -- read what this line points at.
             assert(data.index);
             for _, arg in ipairs(data.args) do
                 local key = arg.name;
-                if (not keysSeen[key]) then
-                    keysSeen[key] = true;
+                if (not _keysSeen[key]) then
+                    _keysSeen[key] = true;
                     appendLine("MacroTextsMap[%q]=newtable()", key);
                 end
                 appendLine("tinsert(MacroTextsMap[%q], tempArray[%d])", key, data.index);
             end
         end
     end
+end
+
+function UpdateMacroTextsMap()
+    appendLine("local tempArray, t = newtable()");
+
+    EmitMacroTextEntries();
+    EmitMacroTextDependents();
+
     appendLine("tempArray = nil")
 
     local snippet = table.concat(_strArr, "\n");

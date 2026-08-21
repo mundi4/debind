@@ -17,6 +17,7 @@ M.world = {
     flyouts = {},
     inCombat = false,
     bindings = {},
+    units = {},
     bindingContexts = {},
     activeBindingContexts = {},
 };
@@ -112,6 +113,8 @@ local rawformat, strfind, strsub, strmatch = string.format, string.find, string.
 ---
 --- Strings with no `%N$` in them never enter this path at all; they go to the real
 --- `string.format` untouched, so everything else it can do still works.
+local positionalFormat;   -- defined below, after the float fixup it calls
+
 --- **fengari's bare `%f` is not C's.** `string.format("%f", 0.5)` answers `0.5` there and
 --- `0.500000` under every real interpreter, the client's 5.1 included. `Flyout.lua` bakes a
 --- threshold into a snippet body with a bare `%f`, so the same rebuild produced two different
@@ -151,7 +154,7 @@ local function normalizeBareFloat(fmt)
     return table.concat(out);
 end
 
-local function positionalFormat(fmt, ...)
+function positionalFormat(fmt, ...)
     if (type(fmt) == "string") then
         fmt = normalizeBareFloat(fmt);
     end
@@ -281,7 +284,23 @@ function M.install()
     _G.GetTime = function() return 0; end
     _G.GetLocale = function() return "enUS"; end
     _G.UnitClass = function() return "Druid", "DRUID", 11; end
-    _G.UnitExists = function() return false; end
+    --- **The units that exist, and which of them are the same unit.** `M.world.units` is
+    --- `[token] = { id = , raidIndex = , inParty = }`, and `id` is the identity two tokens share
+    --- when `UnitIsUnit` says they are one unit -- which is the whole of what resolving a custom
+    --- target rests on. It starts empty, which is a client where nothing exists.
+    _G.UnitExists = function(token) return M.world.units[token] ~= nil; end
+    _G.UnitIsUnit = function(a, b)
+        local left, right = M.world.units[a], M.world.units[b];
+        return left ~= nil and right ~= nil and left.id == right.id;
+    end
+    _G.UnitInRaid = function(token)
+        local unit = M.world.units[token];
+        return unit and unit.raidIndex;
+    end
+    _G.UnitInParty = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.inParty) and true or false;
+    end
 
     --- The world the non-secure side asks about while it rebuilds. Every one of these is a value
     --- returning query, the cheap side to mock (§4 of
@@ -447,6 +466,10 @@ function M.install()
     -- The unit right-click menu. `UnitWatch.lua` adds the "set as custom target" entries to it at
     -- load; what it hands over is a function the client calls back, and nothing headless calls it.
     _G.SetClampedTextureRotation = function() end
+    -- The chat frame every message the addon prints goes to. It says nothing here; what matters
+    -- is that printing one does not die, since some of them are the only report a refusal makes.
+    _G.DEFAULT_CHAT_FRAME = { AddMessage = function() end };
+    _G.ChatTypeInfo = { SYSTEM = { r = 1, g = 1, b = 0 } };
     _G.Menu = { ModifyMenu = function() end };
     _G.MenuResponse = { Close = 1, Refresh = 2, Open = 3 };
 
