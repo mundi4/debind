@@ -10,14 +10,40 @@ package.path = root .. "/?.lua;" .. package.path;
 local shim = require("wow_shim");
 shim.install();
 
+-- Two of the bundled libraries are plain Lua and the harness reads them rather than standing in
+-- for what they do. `CallbackHandler-1.0` is the one that matters: `DebindPrivate.callbacks` is
+-- built out of it in `Debind.lua`, and several specs used to hand-build a stub for that.
+shim.loadLibs(repoRoot .. "/Debind/Libs", {
+    "LibStub/LibStub.lua",
+    "CallbackHandler-1.0/CallbackHandler-1.0.lua",
+});
+
+--- **The load order is `Debind/Debind.xml`'s, and it has to stay that way.** Every file here takes
+--- upvalues off `DebindPrivate` when it is read -- `SecureBindings.lua` opens with
+--- `local BindingDriver = DebindPrivate.BindingDriver` -- so a file read before the one that puts
+--- the value there binds nil and fails much later, somewhere else.
+---
+--- What is missing is the UI (`devdocs/going-headless-outside-the-ui.md` §11): the line is not
+--- whether a file is UI but whether the function needs a frame, and `ImportUI.lua` is here for
+--- exactly that reason.
 local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
+    "Snippets.lua",
     "Ordering.lua",
     "Solver.lua",
     "Misc.lua",
     "ActionCatalog.lua",
+    "BindingContexts.lua",
+    "Debind.lua",
+    "Flyout.lua",
     "Profile.lua",
     "Legacy.lua",
+    "SecureBindings.lua",
+    "Events.lua",
+    "UnitWatch.lua",
+    "FrameRegistry.lua",
+    "UpdateBindings.lua",
+    "Switches.lua",
     -- **A UI file, and the only one the harness loads.** It builds no frames when it is read, and
     -- the two functions that decide the reader's lines live in it (`CollectImportLines`).
     "ImportUI.lua",
