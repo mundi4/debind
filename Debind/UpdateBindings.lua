@@ -615,15 +615,94 @@ DebindPrivate.BuildBindingPlan = BuildBindingPlan;
 DebindPrivate.ApplyBindingPlan = ApplyBindingPlan;
 DebindPrivate.FinishBindingUpdate = FinishBindingUpdate;
 
-function SetBindingAttributes(type, value, unit)
+--- One binding's attributes, worked out but not yet written anywhere.
+---
+--- **Two parallel arrays rather than a list of pairs**, because an attribute value is allowed to
+--- be nil -- `*macrotext-` is cleared for a macro and `*macro-` for macro text -- and a nil in a
+--- list of pairs is a hole `#` cannot see past. `count` is what says how long they are.
+---
+--- **One table, refilled.** A rebuild allocates nothing it can reuse, so the descriptor a caller
+--- gets back is only good until the next `DescribeBinding` call. Everything that reads one
+--- consumes it on the spot.
+local _descriptor = { attrNames = {}, attrValues = {}, count = 0 };
+
+--- What the client answered for the binding being described. One table, refilled, same as above.
+local _facts = {};
+
+--- Appends one attribute to a descriptor. **A nil value is meaningful** -- it clears the attribute
+--- -- and assigning nil into the reused array is what stops the previous descriptor's value from
+--- standing in for it.
+local function attr(out, name, value)
+    local count = out.count + 1;
+    out.count = count;
+    out.attrNames[count] = name;
+    out.attrValues[count] = value;
+end
+
+--- What the game has to be asked before a binding can be described. **Every call to the client in
+--- this whole path is here**, which is what leaves `DescribeBinding` with nothing to ask.
+---
+--- A spec hands these in as plain values instead: it is standing a world up, not imitating an API
+--- (`devdocs/going-headless-outside-the-ui.md` §4).
+local function CollectBindingFacts(type, value, unit, facts)
+    wipe(facts);
+
+    if (type == Constants.PETACTION) then
+        facts.petMacrotext = DebindPrivate.GetPetActionMacroText(value, unit);
+    elseif (type == Constants.FLYOUT) then
+        facts.flyoutOpener = DebindPrivate.GetFlyoutOpener(value);
+    elseif (type == Constants.SPELL) then
+        -- id는 다르지만 이름은 같은 주문들이 있다.
+        -- 예: 조화 전문화의 달빛야수 변신과 회복 전문화의 달빛야수 변신
+        -- id로 바인딩하는 경우 다른 전문화의 주문은 실행되지 않음.
+        local spellID = FindBaseSpellByID(value) or value;
+        facts.spellID = spellID;
+        facts.spellName = GetSpellNameAndIconID(spellID);
+        if (facts.spellName) then
+            facts.spellSubtext = GetSpellSubtext(spellID);
+        end
+        facts.pressAndHold = IsPressHoldReleaseSpell(value) and true or false;
+    elseif (type == Constants.MOUNT) then
+        -- **Whether the journal names a spell is the fork, not whether that spell has a name.**
+        -- A mount with a spell id goes out as a spell even where the name does not resolve; the
+        -- macro text is only for the ones the journal answers no spell for.
+        local _, spellID = GetMountInfoByID(value);
+        facts.mountSpellID = spellID;
+        if (spellID) then
+            facts.mountSpellName = GetSpellNameAndIconID(spellID);
+        else
+            facts.mountMacrotext = DebindPrivate.GetMountMacroText(value);
+        end
+    end
+
+    return facts;
+end
+
+--- What has to be stamped on the click frame for one binding to be able to fire, or **nil and a
+--- reason**.
+---
+--- **The reason is the point of this function existing apart from the stamping.** A binding with
+--- no way to fire used to leave one DEBUG log line and nothing else, and the caller had to infer
+--- the refusal from a missing return value. Getting that wrong takes the **whole key**: the secure
+--- side counts an emitted record as a binding that took, so `keyBound` goes up, and every lower
+--- priority action on that key is blocked along with it. A hunter with no pet and a Call Pet
+--- binding is the case.
+---
+--- Nothing here asks the client anything. Everything it needs is in `facts`.
+local function DescribeBinding(type, value, unit, facts, out)
+    out = out or { attrNames = {}, attrValues = {} };
+    out.count = 0;
+
+    -- **Two types write no attribute at all and are not refusals.** Unused clears the key and a
+    -- command binds itself, so neither needs a button to click.
     if (type == Constants.UNUSED or type == Constants.COMMAND) then
-        return;
+        return nil, "self-bound";
     end
 
     -- 펫 명령은 **여기서 MACROTEXT가 된다.** 아래에 자기 갈래를 두면 세 가지를 각각 다시
     -- 만들어야 하는데, 셋 다 이미 매크로텍스트 쪽에 있다:
     --
-    --   1. 캐시 키. `BindingAttrsCache`(29줄)는 (type, value)로만 잡고 **한 번도 안 지운다.**
+    --   1. 캐시 키. `BindingAttrsCache`는 (type, value)로만 잡고 **한 번도 안 지운다.**
     --      대상을 본문에 굽는 타입이 자기 갈래를 가지면 같은 명령 + 다른 대상 둘이 한 버튼을
     --      나눠 쓰고, 뒤엣것이 앞엣것의 본문을 실행한다. 본문 자체를 value로 만들면 대상이
     --      키에 들어가므로 그 일이 없다. (캐시 자체는 여전히 이 구조다 - refactor-candidates 18)
@@ -636,28 +715,88 @@ function SetBindingAttributes(type, value, unit)
     -- 공짜로 오지만 **슬롯이 펫마다 다르고 전투 중에는 못 고친다** - 전투 중에 펫이 바뀌면
     -- 그 바인딩이 남은 전투 내내 엉뚱한 명령을 실행한다. 안 되는 것보다 나쁘다.
     if (type == Constants.PETACTION) then
-        local macrotext = DebindPrivate.GetPetActionMacroText(value, unit);
-        if (not macrotext) then
-            if (DEBUG) then
-                DebindPrivate.log("Unknown pet action:", value);
-            end
-            return;
+        if (not facts.petMacrotext) then
+            return nil, "unknown-pet-action";
         end
-        type, value, unit = Constants.MACROTEXT, macrotext, nil;
+        type, value, unit = Constants.MACROTEXT, facts.petMacrotext, nil;
     end
 
-    -- **플라이아웃이 살아있는지는 캐시보다 먼저 본다.** 캐시 적중은 "속성을 다시 안 써도
-    -- 된다"는 뜻이지 "아직 쓸 수 있다"는 뜻이 아닌데, 플라이아웃은 그 둘이 갈라진다.
-    --
-    -- 갈라지는 자리: 마지막 야수를 놓아주면 `RebuildFlyout`이 `numSlots = 0`으로 만들고
-    -- `GetFlyoutOpener`가 nil을 준다. 그런데 `BindingAttrsCache`는 (type, value)로만 잡고
-    -- **한 번도 안 지운다**(29줄, refactor-candidates 18). 그래서 아래 갈래 안에 있던
-    -- opener 검사가 캐시 적중에 통째로 건너뛰어졌고, 바인딩이 그대로 남았다. 눌러도 아무
-    -- 일이 없는 데다 `keyBound`가 서므로 **그 키의 하위 Debind 바인딩까지 전부 막힌다** -
-    -- 캐시를 안 지우니 `/reload` 전에는 안 풀렸다. 아래 604-617 주석이 고치겠다고 적은 바로
-    -- 그 실패인데, "처음부터 슬롯이 없던" 방향으로만 막히고 있었다.
-    local flyoutOpener;
-    if (type == Constants.FLYOUT) then
+    out.type = type;
+    out.value = value;
+    out.unit = unit;
+
+    -- **The key the stamp files this button under**, taken before any branch below rewrites the
+    -- value for its own attribute. It used to be read after, and only the item branch rewrites --
+    -- so an item binding was looked up under `6948` and filed under `"item:6948"`, which is a
+    -- cache that never hits and a button allocated afresh on every rebuild, for the whole session.
+    out.cacheKey = value or NIL;
+
+    if (type == Constants.SPELL) then
+        attr(out, "*type-", "spell");
+        if (facts.spellName) then
+            local spellName = facts.spellName;
+            if (facts.spellSubtext and facts.spellSubtext ~= "") then
+                spellName = spellName .. "(" .. facts.spellSubtext .. ")";
+            end
+            attr(out, "*spell-", spellName);
+        else
+            attr(out, "*spell-", facts.spellID);
+        end
+
+        -- what if 'IsPressHoldReleaseSpell' value is changed by a talent or something? is there a such situation?
+        --
+        -- 그렇다면 이 블록이 캐시 적중으로 통째로 건너뛰어지는 것이 문제가 된다. 답이
+        -- 바뀌어도 `*typerelease-`는 옛날 그대로다. 그래서 **구웠다는 사실 자체를 남긴다** -
+        -- 래퍼가 맨이름 `pressAndHoldAction`을 쓸 때 이 값을 보므로, 다시 물어서 답이
+        -- 달라지면 "시작은 되는데 안 놓이는" 상태가 된다.
+        if (facts.pressAndHold) then
+            attr(out, "*typerelease-", "spell");
+            attr(out, "*pressAndHoldAction-", true);
+        end
+    elseif (type == Constants.ITEM) then
+        attr(out, "*type-", "item");
+        attr(out, "*item-", format("item:%d", value));
+    elseif (type == Constants.MACRO) then
+        attr(out, "*type-", "macro");
+        attr(out, "*macro-", value);
+        attr(out, "*macrotext-", nil);
+    elseif (type == Constants.MACROTEXT) then
+        attr(out, "*type-", "macro");
+        attr(out, "*macro-", nil);
+        attr(out, "*macrotext-", value);
+    elseif (type == Constants.MOUNT) then
+        if (facts.mountSpellID) then
+            attr(out, "*type-", "spell");
+            attr(out, "*spell-", facts.mountSpellName);
+        else
+            attr(out, "*type-", "macro");
+            attr(out, "*macro-", nil);
+            attr(out, "*macrotext-", facts.mountMacrotext);
+        end
+    elseif (type == Constants.TARGET) then
+        attr(out, "*type-", "target");
+    elseif (type == Constants.FOCUS) then
+        attr(out, "*type-", "focus");
+    elseif (type == Constants.TOGGLEMENU) then
+        attr(out, "*type-", "togglemenu");
+    elseif (type == Constants.SETCUSTOM) then
+        attr(out, "*type-", "attribute");
+        attr(out, "*attribute-frame-", DebindPrivate.UnitWatch);
+        attr(out, "*attribute-name-", "custom" .. value);
+        attr(out, "*attribute-value-", "hover");
+    elseif (Constants.SETSTATE_MODES[type]) then
+        -- **The type decides the mode, so the name is all that is left to be wrong.** What
+        -- this guard turned away while the value was a bitpack was an undecodable mode; the
+        -- name inherits the place. Handing `SetAttribute` a nil name raises nothing -- it
+        -- clears the attribute -- and the key then dies quietly on the restricted side.
+        if (luatype(value) ~= "string") then
+            return nil, "switch-not-chosen";
+        end
+        attr(out, "*type-", "attribute");
+        attr(out, "*attribute-frame-", DebindPrivate.SwitchesUpdaterFrame);
+        attr(out, "*attribute-name-", value);
+        attr(out, "*attribute-value-", Constants.SETSTATE_MODES[type]);
+    elseif (type == Constants.FLYOUT) then
         -- **`*type- = "flyout"`을 안 쓴다.** 블리자드의 그 갈래는 `SpellFlyout:Toggle(self, ...)`
         -- 한 줄이고 그 `self`는 `FlyoutButtonMixin`이어야 한다(`GetPopupDirection`을 부른다).
         -- 여기 `clickframe`은 맨몸 `SecureActionButtonTemplate`이라 nil 메서드 호출로 죽는다.
@@ -665,18 +804,41 @@ function SetBindingAttributes(type, value, unit)
         --
         -- 대신 우리 손잡이를 클릭한다. 손잡이의 보안 스니펫이 커서 위치에 우리 플라이아웃을
         -- 열고, 그건 전투 중에도 돈다.
-        flyoutOpener = DebindPrivate.GetFlyoutOpener(value);
-        if (not flyoutOpener) then
+        --
+        -- **살아있는지는 캐시보다 먼저 본다.** 캐시 적중은 "속성을 다시 안 써도 된다"는 뜻이지
+        -- "아직 쓸 수 있다"는 뜻이 아닌데, 플라이아웃은 그 둘이 갈라진다. 마지막 야수를
+        -- 놓아주면 `RebuildFlyout`이 `numSlots = 0`으로 만들고 `GetFlyoutOpener`가 nil을 준다.
+        -- 그 검사가 캐시 안쪽에 있던 동안에는 적중에 통째로 건너뛰어졌고, 바인딩이 그대로
+        -- 남았다. 눌러도 아무 일이 없는 데다 `keyBound`가 서므로 **그 키의 하위 Debind
+        -- 바인딩까지 전부 막힌다** - 캐시를 안 지우니 `/reload` 전에는 안 풀렸다.
+        if (not facts.flyoutOpener) then
             -- 안 배웠거나 슬롯이 전부 비었다(길들인 야수가 없는 야수 소환 등).
-            -- 키를 걸지 않는다 - 걸어두면 눌러도 아무 일이 없다.
-            if (DEBUG) then
-                DebindPrivate.log("No flyout opener:", value);
-            end
-            return;
+            return nil, "no-flyout-opener";
         end
+        attr(out, "*type-", "click");
+        attr(out, "*clickbutton-", facts.flyoutOpener);
+    elseif (type == Constants.WORLDMARKER) then
+        attr(out, "*type-", "worldmarker");
+        attr(out, "*marker-", value);
+    else
+        return nil, "unhandled-type";
     end
 
-    local buttonname = BindingAttrsCache[type] and BindingAttrsCache[type][value or NIL];
+    out.pressAndHold = facts.pressAndHold and true or false;
+    return out;
+end
+
+--- Writes a descriptor onto the click frame and answers what a record has to carry to reach it.
+---
+--- **The cache is this side's business, and `DescribeBinding` knows nothing about it.** A hit
+--- means the attributes are already there under a button name we handed out earlier, so nothing
+--- is written at all -- and `pressAndHold` comes back out of `BindingPressHoldCache` rather than
+--- off the descriptor, because what the wrapper reads is what was **baked**, not what the client
+--- would answer if asked again.
+local function StampBinding(descriptor)
+    local type, value, unit = descriptor.type, descriptor.value, descriptor.unit;
+
+    local buttonname = BindingAttrsCache[type] and BindingAttrsCache[type][descriptor.cacheKey];
     local clickframe = DefaultClickFrame;
     local delegate = unit and unit ~= "" and DebindPrivate.GetDelegateFrame(unit) or nil;
 
@@ -690,100 +852,14 @@ function SetBindingAttributes(type, value, unit)
 
     if (not buttonname) then
         buttonname = NextButtonName();
-        if (type == Constants.SPELL) then
-            -- id는 다르지만 이름은 같은 주문들이 있다.
-            -- 예: 조화 전문화의 달빛야수 변신과 회복 전문화의 달빛야수 변신
-            -- id로 바인딩하는 경우 다른 전문화의 주문은 실행되지 않음.
 
+        local names, values = descriptor.attrNames, descriptor.attrValues;
+        for i = 1, descriptor.count do
+            clickframe:SetAttribute(names[i] .. buttonname, values[i]);
+        end
 
-            clickframe:SetAttribute("*type-" .. buttonname, "spell");
-            local spellID = FindBaseSpellByID(value) or value;
-            local spellName = GetSpellNameAndIconID(spellID);
-            if (spellName) then
-                local subSpellName = GetSpellSubtext(spellID);
-                if (subSpellName and subSpellName ~= "") then
-                    spellName = spellName .. "(" .. subSpellName .. ")";
-                end
-                clickframe:SetAttribute("*spell-" .. buttonname, spellName);
-            else
-                clickframe:SetAttribute("*spell-" .. buttonname, spellID);
-            end
-
-            -- what if 'IsPressHoldReleaseSpell' value is changed by a talent or something? is there a such situation?
-            --
-            -- 그렇다면 이 블록이 캐시 적중으로 통째로 건너뛰어지는 것이 문제가 된다. 답이
-            -- 바뀌어도 `*typerelease-`는 옛날 그대로다. 그래서 **구웠다는 사실 자체를 남긴다** -
-            -- 래퍼가 맨이름 `pressAndHoldAction`을 쓸 때 이 값을 보므로, 다시 물어서 답이
-            -- 달라지면 "시작은 되는데 안 놓이는" 상태가 된다.
-            local isPressAndHold = IsPressHoldReleaseSpell(value);
-            if (isPressAndHold) then
-                clickframe:SetAttribute("*typerelease-" .. buttonname, "spell");
-                clickframe:SetAttribute("*pressAndHoldAction-" .. buttonname, true);
-                BindingPressHoldCache[buttonname] = true;
-            end
-        elseif (type == Constants.ITEM) then
-            value = format("item:%d", value);
-            clickframe:SetAttribute("*type-" .. buttonname, "item");
-            clickframe:SetAttribute("*item-" .. buttonname, value);
-        elseif (type == Constants.MACRO) then
-            clickframe:SetAttribute("*type-" .. buttonname, "macro");
-            clickframe:SetAttribute("*macro-" .. buttonname, value);
-            clickframe:SetAttribute("*macrotext-" .. buttonname, nil);
-        elseif (type == Constants.MACROTEXT) then
-            clickframe:SetAttribute("*type-" .. buttonname, "macro");
-            clickframe:SetAttribute("*macro-" .. buttonname, nil);
-            clickframe:SetAttribute("*macrotext-" .. buttonname, value);
-        elseif (type == Constants.MOUNT) then
-            local _, spellID = GetMountInfoByID(value);
-            if (spellID) then
-                local spellName = GetSpellNameAndIconID(spellID);
-                clickframe:SetAttribute("*type-" .. buttonname, "spell");
-                clickframe:SetAttribute("*spell-" .. buttonname, spellName);
-            else
-                local macrotext = DebindPrivate.GetMountMacroText(value);
-                clickframe:SetAttribute("*type-" .. buttonname, "macro");
-                clickframe:SetAttribute("*macro-" .. buttonname, nil);
-                clickframe:SetAttribute("*macrotext-" .. buttonname, macrotext);
-            end
-        elseif (type == Constants.TARGET) then
-            clickframe:SetAttribute("*type-" .. buttonname, "target");
-        elseif (type == Constants.FOCUS) then
-            clickframe:SetAttribute("*type-" .. buttonname, "focus");
-        elseif (type == Constants.TOGGLEMENU) then
-            clickframe:SetAttribute("*type-" .. buttonname, "togglemenu");
-        elseif (type == Constants.SETCUSTOM) then
-            clickframe:SetAttribute("*type-" .. buttonname, "attribute");
-            clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.UnitWatch);
-            clickframe:SetAttribute("*attribute-name-" .. buttonname, "custom" .. value);
-            clickframe:SetAttribute("*attribute-value-" .. buttonname, "hover");
-        elseif (Constants.SETSTATE_MODES[type]) then
-            -- **The type decides the mode, so the name is all that is left to be wrong.** What
-            -- this guard turned away while the value was a bitpack was an undecodable mode; the
-            -- name inherits the place. Handing `SetAttribute` a nil name raises nothing -- it
-            -- clears the attribute -- and the key then dies quietly on the restricted side.
-            if (luatype(value) ~= "string") then
-                if (DEBUG) then
-                    DebindPrivate.log("Invalid value:", type, value);
-                end
-                return;
-            end
-            clickframe:SetAttribute("*type-" .. buttonname, "attribute");
-            clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.SwitchesUpdaterFrame);
-            clickframe:SetAttribute("*attribute-name-" .. buttonname, value);
-            clickframe:SetAttribute("*attribute-value-" .. buttonname,
-                Constants.SETSTATE_MODES[type]);
-        elseif (type == Constants.FLYOUT) then
-            -- 손잡이는 위에서 이미 받아왔다(캐시 앞에서 봐야 하는 이유가 거기 있다).
-            clickframe:SetAttribute("*type-" .. buttonname, "click");
-            clickframe:SetAttribute("*clickbutton-" .. buttonname, flyoutOpener);
-        elseif (type == Constants.WORLDMARKER) then
-            clickframe:SetAttribute("*type-" .. buttonname, "worldmarker");
-            clickframe:SetAttribute("*marker-" .. buttonname, value);
-        else
-            if (DEBUG) then
-                DebindPrivate.log("Unhandled type:", type);
-            end
-            return;
+        if (descriptor.pressAndHold) then
+            BindingPressHoldCache[buttonname] = true;
         end
 
         if (unit and unit ~= "" and not delegate) then
@@ -806,14 +882,36 @@ function SetBindingAttributes(type, value, unit)
         end
 
         BindingAttrsCache[type] = BindingAttrsCache[type] or {};
-        BindingAttrsCache[type][value or NIL] = buttonname;
-    end
-
-    if (type == Constants.MACROTEXT) then
-        addMacrotextBinding(buttonname, value);
+        BindingAttrsCache[type][descriptor.cacheKey] = buttonname;
     end
 
     return delegate or clickframe, buttonname, BindingPressHoldCache[buttonname];
+end
+
+DebindPrivate.CollectBindingFacts = CollectBindingFacts;
+DebindPrivate.DescribeBinding = DescribeBinding;
+DebindPrivate.StampBinding = StampBinding;
+
+--- Asks, describes, stamps. **The reason a binding was refused is dropped here and nowhere else**,
+--- because the caller's shape still cannot carry one; stage 3 of
+--- `devdocs/going-headless-outside-the-ui.md` is where the record loop learns to.
+function SetBindingAttributes(type, value, unit)
+    local facts = CollectBindingFacts(type, value, unit, _facts);
+    local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
+    if (not descriptor) then
+        if (DEBUG and reason ~= "self-bound") then
+            DebindPrivate.log("No attributes for:", type, value, reason);
+        end
+        return;
+    end
+
+    local clickframe, buttonname, pressAndHold = StampBinding(descriptor);
+
+    if (descriptor.type == Constants.MACROTEXT) then
+        addMacrotextBinding(buttonname, descriptor.value);
+    end
+
+    return clickframe, buttonname, pressAndHold;
 end
 
 --- Which axes have to be **measured** for a unit. Accumulated per unit across every binding that

@@ -111,6 +111,7 @@ local specs = {
     -- `SetBindingAttributes` hands out run on one counter -- a rebuild before the golden's would
     -- shift every name in it.
     { name = "plan", path = root .. "/plan_spec.lua" },
+    { name = "describe", path = root .. "/describe_spec.lua" },
 };
 
 --- Reading and writing a whole file, whichever interpreter this is.
