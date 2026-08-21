@@ -272,6 +272,28 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- What never reaches a key at all
+    ---------------------------------------------------------------------------
+
+    -- **A marker that fails to hold makes a binding fire *more*, not less.** An action naming a
+    -- switch nothing defines is kept out of `KeyMap` by `GetBindingIssue`; if it got through, the
+    -- macro body would bake `[$typo]` down to `[]`, which is **always true**, and one typo would
+    -- turn a conditional binding into an unconditional one. Asking whether the issue was reported
+    -- is not enough -- the question is whether the answer reaches the key.
+    --
+    -- **The passing half is set up first.** Without it, "the key is absent" reads the same as
+    -- "macro text never binds at all".
+    test("a macro body naming an undefined switch reaches no key", function()
+        PlanFor({
+            spell({ type = Constants.MACROTEXT, key = "F1", value = "/say [$burst] ok" }),
+            spell({ type = Constants.MACROTEXT, key = "F2", value = "/say [$typo] bad" }),
+        }, { ["$burst"] = { mode = Constants.SWITCH_MODES.MANUAL } });
+
+        check(DebindPrivate.KeyMap["F1"], "a defined switch kept its key out too -- bad premise");
+        check(DebindPrivate.KeyMap["F2"] == nil, "a typo bound anyway, and bakes to always-true");
+    end);
+
+    ---------------------------------------------------------------------------
     -- Watched units
     ---------------------------------------------------------------------------
 

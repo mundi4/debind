@@ -36,6 +36,16 @@ return function(DebindPrivate)
     local GUID = "Player-1-TESTGUID";
     local interp;
 
+    --- A registered unit frame, for the click-cast test far below.
+    ---
+    --- **Registered before the first rebuild, on purpose.** The interpreter is stood up on
+    --- everything recorded so far and fed each rebuild after that, so anything that has to be in
+    --- its world has to cross before it exists -- a registration slipped in between two rebuilds
+    --- would be in neither window.
+    local unitFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
+    DebindPrivate.RegisterFrame(unitFrame, "group");
+    unitFrame:SetAttribute("unit", "party1");
+
     local seq = 0;
     --- One action, in the shape the profile stores. `seq` runs on its own so the order actions
     --- are written in is the order they sit in the layer.
@@ -143,6 +153,12 @@ return function(DebindPrivate)
         check(index == nil and button == nil, "unused fired something: " .. tostring(button));
         check(interp:recordsFor("F1")[2].type == Constants.UNUSED,
             "the second record is not the unused one");
+
+        -- **And the key goes back to the game.** Firing nothing is not enough: an unused record
+        -- that still held the key would leave the reader's own binding dead under it.
+        interp:pollStates();
+        check(interp.bindings["F1"] == nil, "unused kept the key");
+        interp:resetState();
     end);
 
     ---------------------------------------------------------------------------
@@ -358,6 +374,46 @@ return function(DebindPrivate)
         interp:pollStates();
         check(interp.bindings["F1"] == nil, "the key was not given back");
         interp:resetState();
+    end);
+
+    -- A key that only click-casts holds no key-binding record at all, so there is no key role to
+    -- take or release -- it must not reach the state loop, and it must not be bound.
+    test("a click-casting-only key is not in the state loop", function()
+        Bind({
+            action({ value = 585, key = "BUTTON2", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+        });
+
+        local how = wiring("BUTTON2");
+        check(not how.stateDriven, "a click-cast-only key was handed to the state loop");
+        check(not how.clickTime, "a click-cast-only key was registered as a click-time key");
+        check(not how.bound, "a click-cast-only key was bound");
+
+        -- It is registered where a click that arrives on a unit frame can find it, which is the
+        -- one table it does belong in.
+        check(interp.env.ClickCastKeys[2] and interp.env.ClickCastKeys[2][0],
+            "the click-cast registration is missing");
+    end);
+
+    -- **A click that arrives on a unit frame judges the conditions on the frame**, not from the
+    -- hover cache -- the frame that was clicked is the hover, so there is nothing to look up.
+    -- Answering nil is the fall-through: the click carries on into the frame's own handler, which
+    -- is only reachable from that side.
+    test("a click-cast click is judged against the frame it arrived on", function()
+        Bind({
+            action({ value = 585, key = "BUTTON2", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+        });
+
+        shim.world.units = { party1 = { id = "friend", reaction = "help" } };
+        check(interp:evalClickCast(unitFrame, 2, 0), "a friendly unit frame was declined");
+
+        shim.world.units = { party1 = { id = "enemy", reaction = "harm" } };
+        check(interp:evalClickCast(unitFrame, 2, 0) == nil,
+            "a hostile unit frame was taken by a friendly condition");
+
+        shim.world.units = {};
+        check(interp:evalClickCast(unitFrame, 2, 0) == nil, "an empty unit frame was taken");
     end);
 
     ---------------------------------------------------------------------------

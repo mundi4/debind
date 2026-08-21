@@ -2,6 +2,18 @@
 -- Usage: /debtest opens the list. Every run is a button in it -- plain, the one that includes the
 -- tests which end the session, and the one that reloads first and runs on the other side.
 -- Requires DEBUG mode (DebindPrivate must be exposed as global)
+--
+-- **What is here is what needs the game.** Twenty-nine cases came down to the headless specs
+-- when the harness learned to read UpdateBindings.lua and to run the restricted environment
+-- (devdocs/going-headless-outside-the-ui.md): the binding types, the twelve condition families,
+-- priority ordering, the three Split: cases, the four Issue: ones and the four macro text ones.
+-- Every one of them asked a question about a value, and a question about a value is answered
+-- more cheaply -- and on every commit -- by npm test.
+--
+-- What stayed asks something only a client can answer: what the game reports a key is bound to,
+-- a snippet the sandbox really compiled, a frame under a real cursor, a reload. **Each of those
+-- carries a line above it saying which of the three it is and why**, so the next reader does not
+-- have to work out again why this one is still here.
 
 local DebindPrivate = _G.DebindPrivate
 if not DebindPrivate then
@@ -473,11 +485,6 @@ local function GetNthBinding(key, n)
     return bindings and bindings[n]
 end
 
--- DefaultClickFrame의 attribute 확인
-local function GetClickAttribute(attrPrefix, buttonName)
-    local frame = DebindPrivate.DefaultClickFrame
-    return frame:GetAttribute(attrPrefix .. buttonName)
-end
 
 -----------------------------------------------------------
 -- Test Helpers: State Injection
@@ -942,74 +949,9 @@ end
 -- Test Cases: Action Types
 -----------------------------------------------------------
 
-RegisterTest("Spell binding", {
-    description = "주문 타입 액션이 바인딩되고 attribute가 설정되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "NUMPAD1" })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD1", 1)
-        if not b then return Fail("Spell binding", "NUMPAD1 not in KeyMap") end
-        if b.type ~= Constants.SPELL then return Fail("Spell binding", "type=" .. tostring(b.type)) end
-        if not b.clickbutton then return Fail("Spell binding", "no clickbutton assigned") end
-        local spellAttr = GetClickAttribute("*type-", b.clickbutton)
-        if spellAttr ~= "spell" then return Fail("Spell binding", "*type-=" .. tostring(spellAttr)) end
-        return Pass("Spell binding", "clickbutton=" .. b.clickbutton)
-    end,
-})
-
-RegisterTest("Item binding", {
-    description = "아이템 타입 액션이 바인딩되는지",
-    run = function()
-        InsertAction({ type = Constants.ITEM, value = 6948, key = "NUMPAD2" }) -- Hearthstone
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD2", 1)
-        if not b then return Fail("Item binding", "NUMPAD2 not in KeyMap") end
-        local typeAttr = GetClickAttribute("*type-", b.clickbutton)
-        if typeAttr ~= "item" then return Fail("Item binding", "*type-=" .. tostring(typeAttr)) end
-        local itemAttr = GetClickAttribute("*item-", b.clickbutton)
-        if itemAttr ~= "item:6948" then return Fail("Item binding", "*item-=" .. tostring(itemAttr)) end
-        return Pass("Item binding")
-    end,
-})
-
-RegisterTest("Macrotext binding", {
-    description = "매크로텍스트 액션이 바인딩되는지",
-    run = function()
-        InsertAction({ type = Constants.MACROTEXT, value = "/say test", key = "NUMPAD3", name = "test macro" })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD3", 1)
-        if not b then return Fail("Macrotext binding", "NUMPAD3 not in KeyMap") end
-        local typeAttr = GetClickAttribute("*type-", b.clickbutton)
-        if typeAttr ~= "macro" then return Fail("Macrotext binding", "*type-=" .. tostring(typeAttr)) end
-        return Pass("Macrotext binding")
-    end,
-})
-
-RegisterTest("Command binding", {
-    description = "커맨드 타입은 SetOverrideBinding 방식 - KeyMap에 들어가는지",
-    run = function()
-        InsertAction({ type = Constants.COMMAND, value = "TOGGLECHARACTER0", key = "NUMPAD4" })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD4", 1)
-        if not b then return Fail("Command binding", "NUMPAD4 not in KeyMap") end
-        if b.type ~= Constants.COMMAND then return Fail("Command binding", "type=" .. tostring(b.type)) end
-        return Pass("Command binding")
-    end,
-})
-
-RegisterTest("Target binding", {
-    description = "대상 지정 액션이 바인딩되는지",
-    run = function()
-        InsertAction({ type = Constants.TARGET, key = "NUMPAD5", unit = "focus" })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD5", 1)
-        if not b then return Fail("Target binding", "NUMPAD5 not in KeyMap") end
-        local typeAttr = GetClickAttribute("*type-", b.clickbutton)
-        if typeAttr ~= "target" then return Fail("Target binding", "*type-=" .. tostring(typeAttr)) end
-        return Pass("Target binding")
-    end,
-})
-
+-- **Kept here.** The headless side has the same case (`tests/eval_spec.lua`) and can say the
+-- key was released; what it cannot say is what **the game** reports the key is bound to, and
+-- that is the whole point of an unused record (`going-headless-outside-the-ui.md` §8).
 RegisterTest("Unused binding", {
     description = "UNUSED 타입은 attribute 없이 KeyMap에만 존재하는지",
     run = function()
@@ -1077,182 +1019,6 @@ RegisterTest("Import quarantine", {
 -- Test Cases: Conditions
 -----------------------------------------------------------
 
-RegisterTest("Combat condition", {
-    description = "전투 조건이 바인딩 정보에 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "NUMPAD7", combat = true })
-        InsertAction({ type = Constants.SPELL, value = 116, key = "NUMPAD7", combat = false })
-        ApplyBindings()
-        local bindings = GetKeyBindings("NUMPAD7")
-        if not bindings or #bindings < 2 then
-            return Fail("Combat condition", format("expected 2 bindings, got %d", bindings and #bindings or 0))
-        end
-        local hasCombatTrue, hasCombatFalse = false, false
-        for i = 1, #bindings do
-            if bindings[i].conditions.combat == true then hasCombatTrue = true end
-            if bindings[i].conditions.combat == false then hasCombatFalse = true end
-        end
-        if not (hasCombatTrue and hasCombatFalse) then
-            return Fail("Combat condition", format("combatTrue=%s, combatFalse=%s", tostring(hasCombatTrue), tostring(hasCombatFalse)))
-        end
-        return Pass("Combat condition", "2 bindings with combat true/false")
-    end,
-})
-
-RegisterTest("Group condition", {
-    description = "그룹 조건(파티/레이드) 비트플래그가 바인딩에 반영되는지",
-    run = function()
-        local groups = bor(Constants.GROUP_PARTY, Constants.GROUP_RAID)
-        InsertAction({ type = Constants.SPELL, value = 585, key = "NUMPAD8", groups = groups })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD8", 1)
-        if not b then return Fail("Group condition", "NUMPAD8 not in KeyMap") end
-        if b.conditions.groups ~= groups then
-            return Fail("Group condition", format("expected groups=%d, got %s", groups, tostring(b.conditions.groups)))
-        end
-        return Pass("Group condition", format("groups=%d", b.conditions.groups))
-    end,
-})
-
-RegisterTest("Stealth condition", {
-    description = "은신 조건이 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "NUMPAD9", stealth = true })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD9", 1)
-        if not b then return Fail("Stealth condition", "NUMPAD9 not in KeyMap") end
-        if b.conditions.stealth ~= true then return Fail("Stealth condition", "stealth=" .. tostring(b.conditions.stealth)) end
-        return Pass("Stealth condition")
-    end,
-})
-
-RegisterTest("Pet condition", {
-    description = "펫 조건이 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "NUMPAD0", pet = true })
-        ApplyBindings()
-        local b = GetNthBinding("NUMPAD0", 1)
-        if not b then return Fail("Pet condition", "NUMPAD0 not in KeyMap") end
-        if b.conditions.pet ~= true then return Fail("Pet condition", "pet=" .. tostring(b.conditions.pet)) end
-        return Pass("Pet condition")
-    end,
-})
-
-RegisterTest("Forms condition", {
-    description = "변신/자세 조건 비트플래그가 반영되는지",
-    run = function()
-        local forms = bor(2^0, 2^1) -- form 0 and form 1
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F5", forms = forms })
-        ApplyBindings()
-        local b = GetNthBinding("F5", 1)
-        if not b then return Fail("Forms condition", "F5 not in KeyMap") end
-        if b.conditions.forms ~= forms then
-            return Fail("Forms condition", format("expected forms=%d, got %s", forms, tostring(b.conditions.forms)))
-        end
-        return Pass("Forms condition", format("forms=%d", b.conditions.forms))
-    end,
-})
-
-RegisterTest("Bonusbars condition", {
-    description = "보너스바 조건 비트플래그가 반영되는지",
-    run = function()
-        local bonusbars = bor(2^0, 2^1) -- bonusbar 0 and 1
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F6", bonusbars = bonusbars })
-        ApplyBindings()
-        local b = GetNthBinding("F6", 1)
-        if not b then return Fail("Bonusbars condition", "F6 not in KeyMap") end
-        if b.conditions.bonusbars ~= bonusbars then
-            return Fail("Bonusbars condition", format("expected bonusbars=%d, got %s", bonusbars, tostring(b.conditions.bonusbars)))
-        end
-        return Pass("Bonusbars condition", format("bonusbars=%d", b.conditions.bonusbars))
-    end,
-})
-
-RegisterTest("Specialbar condition", {
-    description = "특수바(차량/변형) 조건이 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F7", specialbar = true })
-        ApplyBindings()
-        local b = GetNthBinding("F7", 1)
-        if not b then return Fail("Specialbar condition", "F7 not in KeyMap") end
-        if b.conditions.specialbar ~= true then return Fail("Specialbar condition", "specialbar=" .. tostring(b.conditions.specialbar)) end
-        return Pass("Specialbar condition")
-    end,
-})
-
-RegisterTest("Extrabar condition", {
-    description = "추가 액션바 조건이 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F8", extrabar = true })
-        ApplyBindings()
-        local b = GetNthBinding("F8", 1)
-        if not b then return Fail("Extrabar condition", "F8 not in KeyMap") end
-        if b.conditions.extrabar ~= true then return Fail("Extrabar condition", "extrabar=" .. tostring(b.conditions.extrabar)) end
-        return Pass("Extrabar condition")
-    end,
-})
-
-RegisterTest("Petbattle condition", {
-    description = "펫 배틀 조건이 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F9", petbattle = false })
-        ApplyBindings()
-        local b = GetNthBinding("F9", 1)
-        if not b then return Fail("Petbattle condition", "F9 not in KeyMap") end
-        if b.conditions.petbattle ~= false then return Fail("Petbattle condition", "petbattle=" .. tostring(b.conditions.petbattle)) end
-        return Pass("Petbattle condition")
-    end,
-})
-
-RegisterTest("Known condition", {
-    description = "주문 습득 조건이 반영되는지",
-    run = function()
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F10", known = true })
-        ApplyBindings()
-        local b = GetNthBinding("F10", 1)
-        if not b then return Fail("Known condition", "F10 not in KeyMap") end
-        if b.conditions.known ~= true then return Fail("Known condition", "known=" .. tostring(b.conditions.known)) end
-        return Pass("Known condition")
-    end,
-})
-
--- **정의를 심고 시작한다.** 이 케이스는 다섯이 매 로드마다 심기던 시절에 써졌고, 그때는
--- `$state1`이 언제나 있었다. 1b-2가 그것을 그만뒀고 3b가 **정의 없는 이름을 부르는 조건**에
--- 마커를 붙였으므로, 안 심으면 두 액션이 `KeyMap`에서 통째로 빠진다. 재던 것과 아무 상관
--- 없는 실패고, 재려던 것은 조건이 바인딩에 실리느냐다.
---
--- 슬롯만 갈아끼우는 이유는 아래 `Undefined $state inside a state's own expression`의 주석에.
-RegisterTest("Custom state condition", {
-    description = "커스텀 상태 조건($이름)이 반영되는지",
-    run = function()
-        local saved = DebindPrivate.Switches["$state1"]
-        AddTeardown(function()
-            DebindPrivate.Switches["$state1"] = saved
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-        DebindPrivate.Switches["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
-
-        InsertAction({ type = Constants.SPELL, value = 585, key = "F11", ["$state1"] = true })
-        InsertAction({ type = Constants.SPELL, value = 116, key = "F11", ["$state1"] = false })
-        ApplyBindings()
-        local bindings = GetKeyBindings("F11")
-        if not bindings or #bindings < 2 then
-            return Fail("Custom state condition", format("expected 2 bindings, got %d", bindings and #bindings or 0))
-        end
-        local hasTrue, hasFalse = false, false
-        for i = 1, #bindings do
-            if bindings[i].conditions["$state1"] == true then hasTrue = true end
-            if bindings[i].conditions["$state1"] == false then hasFalse = true end
-        end
-        if not (hasTrue and hasFalse) then
-            return Fail("Custom state condition", format("true=%s, false=%s", tostring(hasTrue), tostring(hasFalse)))
-        end
-        return Pass("Custom state condition")
-    end,
-})
-
 RegisterTest("Hover condition with reactions", {
     description = "호버 조건 + 반응(아군/적군) 비트플래그가 반영되는지",
     run = function()
@@ -1279,56 +1045,9 @@ RegisterTest("Hover condition with reactions", {
     end,
 })
 
-RegisterTest("CheckedUnits condition", {
-    description = "유닛 존재 확인 조건이 반영되는지",
-    run = function()
-        -- 다른 유닛(focus, pet 등)의 존재를 조건으로 사용
-        InsertAction({
-            type = Constants.SPELL, value = 585, key = "F12",
-            unit = "target",
-            units = { ["focus"] = true },
-        })
-        ApplyBindings()
-        local b = GetNthBinding("F12", 1)
-        if not b then return Fail("CheckedUnits condition", "F12 not in KeyMap") end
-        if not b.conditions.units then
-            return Fail("CheckedUnits condition", "units is nil")
-        end
-        if not b.conditions.units["focus"] then
-            return Fail("CheckedUnits condition", "units[focus]=" .. tostring(b.conditions.units["focus"]))
-        end
-        return Pass("CheckedUnits condition")
-    end,
-})
-
 -----------------------------------------------------------
 -- Test Cases: Priority & Ordering
 -----------------------------------------------------------
-
-RegisterTest("Priority ordering", {
-    description = "우선순위가 높은 바인딩이 KeyMap에서 먼저 오는지",
-    run = function()
-        -- 조건이 겹치면 뒤쪽이 UNREACHABLE로 제거되므로 서로 배타적인 조건을 준다.
-        -- 삽입 순서(ordinal)는 priority 5가 먼저이므로 정렬이 실제로 동작해야만 통과한다.
-        InsertAction({ type = Constants.SPELL, value = 585, key = "INSERT", priority = 5, combat = false }) -- Very Low
-        InsertAction({ type = Constants.SPELL, value = 116, key = "INSERT", priority = 1, combat = true }) -- Very High
-        ApplyBindings()
-        local bindings = GetKeyBindings("INSERT")
-        if not bindings or #bindings < 2 then
-            return Fail("Priority ordering", format("expected 2 bindings, got %d", bindings and #bindings or 0))
-        end
-        -- **어느 액션이 앞에 섰는지를 본다.** 레코드에 적힌 값이 아니라 - 순서를 정하는 값은
-        -- 바인딩 옆의 표에 있고(`Debind.lua`의 `Placements`), 그것을 들여다보면 정렬이 실제로
-        -- 무엇을 했는지가 아니라 우리가 무엇을 적었는지를 재게 된다.
-        if bindings[1].value ~= 116 then
-            return Fail("Priority ordering", format("first binding value=%s, expected 116 (priority 1)", tostring(bindings[1].value)))
-        end
-        if bindings[2].value ~= 585 then
-            return Fail("Priority ordering", format("second binding value=%s, expected 585 (priority 5)", tostring(bindings[2].value)))
-        end
-        return Pass("Priority ordering", "priority=1 before priority=5")
-    end,
-})
 
 RegisterTest("Conditional before unconditional", {
     description = "조건부 바인딩이 무조건 바인딩보다 먼저 오는지 (같은 우선순위)",
@@ -3305,83 +3024,6 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
 -- Test Cases: Binding Issue Detection
 -----------------------------------------------------------
 
-RegisterTest("Issue: BUTTON1 without hover", {
-    description = "BUTTON1을 hover 없이 쓰면 NOT_SUPPORTED_MOUSE_BUTTON 이슈가 나오는지",
-    run = function()
-        local action = { type = Constants.SPELL, value = 585, key = "BUTTON1" }
-        local issue = DebindPrivate.GetBindingIssue(action)
-        if issue ~= Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON then
-            return Fail("BUTTON1 issue", format("expected NOT_SUPPORTED_MOUSE_BUTTON, got %s", tostring(issue)))
-        end
-        return Pass("BUTTON1 issue")
-    end,
-})
-
-RegisterTest("Issue: groups=0", {
-    description = "groups=0이면 GROUPS_NONE_SELECTED 이슈가 나오는지",
-    run = function()
-        local action = NestConditions({ type = Constants.SPELL, value = 585, key = "T", groups = 0 })
-        local issue = DebindPrivate.GetBindingIssue(action)
-        if issue ~= Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED then
-            return Fail("Groups=0 issue", format("expected GROUPS_NONE_SELECTED, got %s", tostring(issue)))
-        end
-        return Pass("Groups=0 issue")
-    end,
-})
-
-RegisterTest("Issue: forms=0", {
-    description = "forms=0이면 FORMS_NONE_SELECTED 이슈가 나오는지",
-    run = function()
-        local action = NestConditions({ type = Constants.SPELL, value = 585, key = "T", forms = 0 })
-        local issue = DebindPrivate.GetBindingIssue(action)
-        if issue ~= Constants.BINDING_ISSUE_FORMS_NONE_SELECTED then
-            return Fail("Forms=0 issue", format("expected FORMS_NONE_SELECTED, got %s", tostring(issue)))
-        end
-        return Pass("Forms=0 issue")
-    end,
-})
-
--- 이 이슈만 **끝까지** 본다. 나머지 이슈 테스트는 `GetBindingIssue`의 답만 묻는데, 그건
--- 헤드리스가 더 싸게 본다(`tests/issue_spec.lua`). 여기서 물을 값이 있는 것은 그 답이
--- `KeyMap`까지 도달하느냐다 - 마커가 막지 못하면 오타 난 조건이 `[]`로 구워져 **조건 없이
--- 상시 발동**한다. 안 나가는 게 아니라 더 나가는 쪽이라, 이슈가 났다는 것만으로는 부족하다.
-RegisterTest("Issue: undefined $state in macrotext", {
-    description = "정의되지 않은 [$이름]이 든 매크로텍스트가 KeyMap에서 빠지는지",
-    run = function()
-        -- **정의를 세우고 시작한다.** 판정이 "이름이 다섯 안이냐"에서 "정의가 있느냐"로
-        -- 옮겨갔고(`ResolveSwitchDefinition`), 정의는 더 이상 로드마다 심기지 않는다. 이
-        -- 캐릭터가 `$state1`을 안 써봤으면 아래 "통과하는 쪽"이 통과하지 않는다.
-        local saved = DebindPrivate.Switches["$state1"]
-        AddTeardown(function()
-            DebindPrivate.Switches["$state1"] = saved
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-        DebindPrivate.Switches["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
-
-        -- 통과하는 쪽을 먼저 세운다. 이게 없으면 아래 nil이 "마커가 막았다"인지
-        -- "매크로텍스트가 원래 안 걸린다"인지 구분되지 않는다.
-        InsertAction({ type = Constants.MACROTEXT, value = "/say [$state1] ok", key = "F5" })
-        InsertAction({ type = Constants.MACROTEXT, value = "/say [$typo] bad", key = "F6" })
-        ApplyBindings()
-
-        if not GetNthBinding("F5", 1) then
-            return Fail("Undefined $state", "전제가 깨졌다 - 정의된 $state1도 KeyMap에 없다")
-        end
-        if GetNthBinding("F6", 1) then
-            return Fail("Undefined $state", "오타 난 조건이 그대로 바인딩됐다 - 항상 참으로 굽힌다")
-        end
-
-        local issue = DebindPrivate.GetBindingIssue({
-            type = Constants.MACROTEXT, value = "/say [$typo] bad", key = "F6" })
-        if issue ~= Constants.BINDING_ISSUE_UNDEFINED_STATE then
-            return Fail("Undefined $state", format("issue=%s", tostring(issue)))
-        end
-        return Pass("Undefined $state", "F5 걸림 / F6 빠짐")
-    end,
-})
-
 -- **코드젠의 fail-safe가 혼자 서는 유일한 자리다.** 위 마커는 액션만 보는데 상태의 계산식은
 -- 액션이 아니라 옵션이라 그 검사에 아예 안 걸린다. 그러니 여기서 미정의 이름이 참으로 굽히면
 -- 막는 것이 하나도 없고, 그 상태를 참조하는 바인딩이 **전부** 조건 없이 켜진 것으로 돈다.
@@ -4114,87 +3756,6 @@ RegisterTest("Tooltip: a bad key is still bad in another specialization", {
     end,
 })
 
------------------------------------------------------------
--- Test Cases: Special Units (macrotext with @tank etc.)
------------------------------------------------------------
-
-RegisterTest("Macrotext with @tank", {
-    description = "@tank 유닛이 포함된 매크로텍스트가 파싱되는지",
-    run = function()
-        local text = "/cast [@tank] Heal"
-        local _, args = DebindPrivate.ParseMacroText(text)
-        if not args then return Fail("@tank macrotext", "ParseMacroText returned nil args") end
-        local foundTank = false
-        for _, arg in ipairs(args) do
-            if arg.name == "tank" and arg.type == Constants.MACROTEXT_ARG_UNIT then
-                foundTank = true
-                break
-            end
-        end
-        if not foundTank then return Fail("@tank macrotext", "tank unit not found in args") end
-        return Pass("@tank macrotext")
-    end,
-})
-
-RegisterTest("Macrotext with @custom1", {
-    description = "@custom1 유닛이 포함된 매크로텍스트가 파싱되는지",
-    run = function()
-        local text = "/cast [@custom1,exists] Heal"
-        local _, args = DebindPrivate.ParseMacroText(text)
-        if not args then return Fail("@custom1 macrotext", "ParseMacroText returned nil args") end
-        local found = false
-        for _, arg in ipairs(args) do
-            if arg.name == "custom1" then
-                found = true
-                break
-            end
-        end
-        if not found then return Fail("@custom1 macrotext", "custom1 not found in args") end
-        return Pass("@custom1 macrotext")
-    end,
-})
-
-RegisterTest("Macrotext with $state", {
-    description = "$state 커스텀 상태가 매크로텍스트에서 파싱되는지",
-    run = function()
-        local text = "/cast [$state1] Heal; Smite"
-        local _, args = DebindPrivate.ParseMacroText(text)
-        if not args then return Fail("$state macrotext", "ParseMacroText returned nil args") end
-        local found = false
-        for _, arg in ipairs(args) do
-            if arg.name == "$state1" and arg.type == Constants.MACROTEXT_ARG_SWITCH then
-                found = true
-                break
-            end
-        end
-        if not found then return Fail("$state macrotext", "$state1 not found in args") end
-        return Pass("$state macrotext")
-    end,
-})
-
--- README가 광고하는 형태. 두 번째 이후 대괄호 그룹이 파서에 도달하지 못하면
--- @healer가 글자 그대로 와우에 넘어가고, 모르는 유닛이라 조용히 실패한다.
-RegisterTest("Macrotext with multiple condition groups", {
-    description = "두 번째 이후 대괄호 그룹의 특수 유닛도 치환되는지",
-    run = function()
-        local text = "/cast [@custom2,exists][@healer,exists][] Innervate"
-        local _, args = DebindPrivate.ParseMacroText(text)
-        if not args then return Fail("multi-group macrotext", "ParseMacroText returned nil args") end
-        local seen = {}
-        for _, arg in ipairs(args) do
-            if arg.type == Constants.MACROTEXT_ARG_UNIT then
-                seen[arg.name] = true
-            end
-        end
-        local missing = {}
-        if not seen.custom2 then tinsert(missing, "custom2") end
-        if not seen.healer then tinsert(missing, "healer") end
-        if #missing > 0 then
-            return Fail("multi-group macrotext", "치환 안 됨: " .. table.concat(missing, ", "))
-        end
-        return Pass("multi-group macrotext", "custom2 + healer 모두 인자로 잡힘")
-    end,
-})
 
 -----------------------------------------------------------
 -- Test Cases: Multi-condition combo
@@ -4705,6 +4266,9 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
 -- Test Cases: State Injection (live)
 -----------------------------------------------------------
 
+-- **Kept here.** The decision is headless now (`tests/eval_spec.lua`), and what stays is the
+-- half that needs the client: `GetBindingAction` reporting the key, and the injection landing
+-- between the measurement and the comparison inside a snippet that really compiled.
 -- The reason the kit exists. A combat-only binding is reachable only in combat, and in combat
 -- nothing outside can drive it -- lockdown stops the clicking, the binding and the attribute
 -- writes. So the one state where this code matters is the one state where it cannot be checked.
@@ -4859,6 +4423,8 @@ RegisterTest("Dead axis: measured against a living unit", {
     end,
 })
 
+-- **Kept here**, for the same reason as the one above: the axis itself is headless
+-- (`tests/eval_spec.lua`, the life axis), and what is left is what the game reports.
 -- The other half, which no living session can produce. `player-dead` is injected at the same
 -- point `combat` is -- right after the snippet measures it, before it stores it -- so the update
 -- loop runs its real path and only the value it lands on differs.
@@ -5018,100 +4584,9 @@ RegisterTest("Hover frame types still narrow on their own", {
 -- Both use a key carrying `[combat]` and `[nocombat]`, which is the smallest binding whose
 -- conditions leave no gap: there is no state in which we would hand the key back.
 
--- **The split itself, which nothing else asserts.** `IsKeyAlwaysOurs` says whether a key's wiring
--- is fixed and headless tests cover that verdict; what is not covered anywhere else is the emitter
--- acting on it. The two are asserted as a pair, because either half alone passes for the wrong
--- reason: "not state-driven" also describes a key that failed to emit at all, and "state-driven"
--- also describes an emitter that ignores the verdict and puts everything in.
-RegisterTest("Split: a key whose conditions leave no gap is not state-driven", {
-    description = "전투/비전투가 다 덮인 키가 상태 루프의 표에서 빠지는가",
-    run = function()
-        local NAME = "Split covered"
-        local KEY = "CTRL-SHIFT-F4"
-
-        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
-            key = KEY, name = "combat", combat = true })
-        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "peace"',
-            key = KEY, name = "peace", combat = false })
-        ApplyBindings()
-
-        ReadKeyMembership(KEY)
-        local m = WaitForMembership()
-        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
-
-        -- 클릭 시점 표에 있어야 "안 넣은 것"과 "아예 안 나간 것"이 갈린다.
-        if not m.clickTime then
-            return Fail(NAME, "ClickTimeKeys에도 없다 - 갈린 게 아니라 레코드가 안 나갔다")
-        end
-        if m.stateDriven then
-            return Fail(NAME,
-                "StateDrivenBindings에 들어 있다 - 조건 공간이 다 덮였는데 상태 루프가 매 틱 훑는다")
-        end
-
-        return Pass(NAME, "clickTime만, stateDriven 아님")
-    end,
-})
-
-RegisterTest("Split: a key that can be released stays state-driven", {
-    description = "전투 조건만 있는 키는 상태 루프가 계속 정해야 하므로 표에 남는가",
-    run = function()
-        local NAME = "Split gapped"
-        local KEY = "CTRL-SHIFT-F3"
-
-        -- 비전투에서 맞는 레코드가 없다 = 그때는 키를 와우에 돌려줘야 한다. 그 판단을 하는
-        -- 것이 상태 루프이므로 이 키는 반드시 그 표에 있어야 한다.
-        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
-            key = KEY, name = "combat", combat = true })
-        ApplyBindings()
-
-        ReadKeyMembership(KEY)
-        local m = WaitForMembership()
-        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
-
-        if not m.stateDriven then
-            return Fail(NAME,
-                "StateDrivenBindings에 없다 - 비전투에서 놓아줄 사람이 없어 키가 물린 채로 남는다")
-        end
-
-        return Pass(NAME, format("stateDriven, clickTime=%s", tostring(m.clickTime)))
-    end,
-})
-
--- 클릭캐스팅 전용 키 - 마우스 버튼에 hover 조건만 걸린 키다. 키를 잡는 레코드가 하나도 없으니
--- 걸었다 놓았다 할 키 역할이 없고, 상태 루프가 이 키에서 정할 것도 없다.
---
--- **전에는 표에 들어 있었고 루프가 레코드 하나 안 읽고 끝냈다.** 그 no-op을 없앤 것이 이
--- 케이스가 지키는 것이다. `clickCast`를 같이 묻는 이유는 위 둘과 같다 - 이 키는 `ClickTimeKeys`에
--- 없으므로, `clickCast`가 없으면 "안 넣었다"와 "아예 안 나갔다"가 밖에서 똑같이 보인다.
-RegisterTest("Split: a click-casting-only key is not state-driven", {
-    description = "키를 잡는 레코드가 없는 키가 상태 루프의 표에서 빠지는가",
-    run = function()
-        local NAME = "Split clickcast-only"
-        local KEY = "BUTTON3"
-
-        InsertAction({
-            type = Constants.SPELL, value = 585, key = KEY,
-            units = { hover = {} },
-            frameTypes = Constants.FRAMETYPE_GROUP,
-        })
-        ApplyBindings()
-
-        ReadKeyMembership(KEY)
-        local m = WaitForMembership()
-        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
-
-        if not m.clickCast then
-            return Fail(NAME, "ClickCastKeys에도 없다 - 갈린 게 아니라 레코드가 안 나갔다")
-        end
-        if m.stateDriven then
-            return Fail(NAME,
-                "StateDrivenBindings에 들어 있다 - 정할 것이 없는데 상태 루프가 매 틱 훑는다")
-        end
-
-        return Pass(NAME, format("clickCast만, stateDriven 아님 (clickTime=%s)", tostring(m.clickTime)))
-    end,
-})
-
+-- **Kept here.** `tests/eval_spec.lua` runs the same `EVAL_SNIPPET` against the same records,
+-- so what this adds is the two things it cannot reach: a body the sandbox really compiled, and
+-- `GetBindingAction` agreeing that the key arrives under the name we bound.
 RegisterTest("Click-time key: the press picks the record the state matches", {
     description = "배선이 고정된 키에서 누르는 순간의 상태가 승자를 가르는가",
     run = function()
@@ -5194,6 +4669,9 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
     end,
 })
 
+-- **Kept here.** Which keys come out with fixed wiring is headless (`tests/eval_spec.lua`);
+-- that the state loop never afterwards takes one back is a claim about what the game reports
+-- over a run, and only the game can be asked.
 -- The other half: the key stays ours. A binding that never gets handed back is the premise the
 -- build-time `SetBindingClick` rests on, and if the update loop ever decided to release this key
 -- the press above would have nothing to arrive at.
@@ -5421,6 +4899,10 @@ for i = 1, #CLICKTIME_SWEEP do
     }
 end
 
+-- **Both places, deliberately.** The same sweep runs headless (`tests/eval_spec.lua`), and this
+-- one is the anchor: four axes over seven records is where an interpretation of the restricted
+-- environment and the real one would part, and there is no other way to find out that they
+-- have (`going-headless-outside-the-ui.md` §9).
 RegisterTest("Multi-axis: the press picks the exact record out of seven", {
     description = "네 축의 조합을 전부 훑어, 일곱 레코드가 물린 키에서 매번 정확히 그 레코드가 이기는지",
     -- The runner's ceiling is a guard against a hung coroutine, not a budget. This one drives a
@@ -5544,6 +5026,8 @@ for i = 1, #STATELOOP_SWEEP do
     end
 end
 
+-- **Kept here.** What it measures is `GetBindingAction` over the whole cross product -- what
+-- the game says the key is bound to -- which is on the list of what no harness sees (§8).
 RegisterTest("Multi-axis: the state loop binds the exact record out of seven", {
     description = "네 축의 조합을 전부 훑어, 상태 루프가 매번 정확히 그 레코드를 키에 거는지",
     timeout = 120,
@@ -5628,6 +5112,8 @@ for i = 1, #CLICKTIME_SWEEP - 1 do
     GAPPED_SWEEP[i] = CLICKTIME_SWEEP[i]
 end
 
+-- **Both places, deliberately.** The second anchor (§9). The headless twin is in
+-- `tests/eval_spec.lua`; keeping this one is what would show the two sides parting.
 RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
     description = "조건에 구멍이 있는 키에서, 잡고 놓는 판정과 누가 이기는지가 서로 어긋나지 않는지",
     timeout = 120,

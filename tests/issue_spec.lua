@@ -642,5 +642,40 @@ return function(DebindPrivate)
             "갈래를 껐는데도 나온다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- An axis with every value turned off
+    ---------------------------------------------------------------------------
+
+    -- **A mask of zero is not "no restriction", it is "nothing".** The two read alike in the
+    -- window -- a group of checkboxes with none ticked looks much like one nobody has opened --
+    -- and they are opposite answers: the first fires everywhere and the second can never fire at
+    -- all. The reader has to be told, and telling them is the whole of what this branch does.
+    --
+    -- Each of the three carries its own code, so the window can redden the group it belongs to.
+    test("an axis with nothing selected is reported, per axis", function()
+        local CASES = {
+            { field = "groups", code = Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED },
+            { field = "forms", code = Constants.BINDING_ISSUE_FORMS_NONE_SELECTED },
+            { field = "bonusbars", code = Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED },
+        };
+
+        for i = 1, #CASES do
+            local case = CASES[i];
+            local action = { type = Constants.SPELL, value = 585, key = "T",
+                conditions = { [case.field] = 0 } };
+            check(GetBindingIssue(action) == case.code,
+                case.field .. ": " .. tostring(GetBindingIssue(action)));
+        end
+    end);
+
+    -- The other direction, which is the half that makes the test mean anything: an axis with
+    -- **some** of its values selected is an ordinary condition and must not be reported.
+    test("an axis with something selected is not reported", function()
+        local action = { type = Constants.SPELL, value = 585, key = "T", conditions = {
+            groups = Constants.GROUP_PARTY, forms = 3, bonusbars = 5,
+        } };
+        check(GetBindingIssue(action) == nil, "issue: " .. tostring(GetBindingIssue(action)));
+    end);
+
     return T;
 end
