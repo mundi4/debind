@@ -126,7 +126,7 @@
 	<Frame name="DebindImportPanel" parent="DebindFrame" parentKey="ImportPanel" hidden="true"
 		useParentLevel="true" setAllPoints="true" mixin="DebindImportPanelMixin">
 		<KeyValues>
-			<KeyValue key="preferredWidth" value="470" type="number"/>
+			<KeyValue key="preferredWidth" value="440" type="number"/>
 		</KeyValues>
 		<Frames>
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
