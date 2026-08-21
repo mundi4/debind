@@ -1,0 +1,314 @@
+-- What a rebuild **decides**, asked without a client.
+--
+-- Six state driver registrations, which units get watched, and whether the hover frame is worth
+-- re-deciding on. Every one of them is a reading of what the profile asked to be measured, and
+-- until `UpdateBindings()` was split into deciding and doing, the only way to see one was to stand
+-- up a `SecureStateDriverManager` in the game and look at what had been registered on it
+-- (`devdocs/going-headless-outside-the-ui.md` §3-1).
+--
+-- **Two faults have already come out of this exact place**, and the file's own comments record
+-- them: the old predicate did not look at *which* unit carried a reaction condition, so putting
+-- one on `target` alone dragged the mouseover registration along with it; and `HoverBindings` was
+-- so wide that the narrow test beside it never mattered. Both are pure decisions and no layer
+-- looked at either.
+--
+-- **The expectations here are the rule, not a transcript.** Each one says what the registration is
+-- *for* -- this event exists so that this axis gets re-measured -- so a change that widens a
+-- predicate fails here rather than being recorded as the new answer.
+
+return function(DebindPrivate)
+    local Constants = DebindPrivate.Constants;
+    local shim = require("wow_shim");
+
+    local T = { passed = 0, failures = {} };
+
+    local function test(name, fn)
+        local ok, err = pcall(fn);
+        if (ok) then
+            T.passed = T.passed + 1;
+        else
+            T.failures[#T.failures + 1] = name .. ": " .. tostring(err);
+        end
+    end
+
+    local function check(cond, msg)
+        if (not cond) then
+            error(msg or "check failed", 2);
+        end
+    end
+
+    local GUID = "Player-1-TESTGUID";
+    local CLASS = Constants.PLAYER_CLASS;
+
+    --- A profile holding exactly the actions handed in, and nothing else. Every test starts from
+    --- one: what gets registered depends on what is in the profile, so a leftover action from the
+    --- test before is a leftover registration.
+    local function Profile(actions, switches)
+        _G.DebindVars = {
+            dbver = Constants.DB_VERSION,
+            shared = { GENERAL = actions, classes = { [CLASS] = {} } },
+            characters = { [GUID] = { layers = {}, switches = {} } },
+            migrated = {},
+            switches = switches or {},
+        };
+        DebindPrivate.InitDB();
+    end
+
+    --- Builds the plan for a profile **without applying any of it**. Nothing reaches the game,
+    --- which is the whole claim this file rests on.
+    local function PlanFor(actions, switches)
+        Profile(actions, switches);
+        local ctx = DebindPrivate.CollectBindingContext();
+        return DebindPrivate.BuildBindingPlan(ctx);
+    end
+
+    --- Did the plan ask for this event, or ask for it gone? Answers nil when the plan says nothing
+    --- about it at all, which is a third outcome and not the same as "no".
+    local function registration(plan, name)
+        for i = 1, #plan.events do
+            if (plan.events[i].name == name) then
+                return plan.events[i].register;
+            end
+        end
+    end
+
+    local function wants(plan, name, msg)
+        check(registration(plan, name) == true, msg or (name .. " was not registered"));
+    end
+
+    local function drops(plan, name, msg)
+        check(registration(plan, name) == false, msg or (name .. " was registered"));
+    end
+
+    local seq = 0;
+    local function spell(t)
+        seq = seq + 1;
+        t.type = t.type or Constants.SPELL;
+        t.value = t.value or 585;
+        t.seq = seq;
+        return t;
+    end
+
+    ---------------------------------------------------------------------------
+    -- May it build at all
+    ---------------------------------------------------------------------------
+
+    -- **Two refusals, and the caller has to tell them apart.** Combat is owed a retry and an
+    -- unknown specialization is not, so an answer that only said "no" would either leave a rebuild
+    -- unpaid or queue one nobody asked for.
+    test("combat and an unknown specialization are different refusals", function()
+        shim.world.inCombat = true;
+        local ok, why = DebindPrivate.CanBuildBindings();
+        shim.world.inCombat = false;
+        check(ok == false and why == "combat", "combat: " .. tostring(ok) .. "/" .. tostring(why));
+
+        local realSpec = _G.C_SpecializationInfo.GetSpecialization;
+        _G.C_SpecializationInfo.GetSpecialization = function() return nil; end
+        local ok2, why2 = DebindPrivate.CanBuildBindings();
+        _G.C_SpecializationInfo.GetSpecialization = realSpec;
+        check(ok2 == false and why2 == "spec", "spec: " .. tostring(ok2) .. "/" .. tostring(why2));
+
+        check(DebindPrivate.CanBuildBindings() == true, "an ordinary world refused to build");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The mouseover registration, and the fault it used to carry
+    ---------------------------------------------------------------------------
+
+    -- `UPDATE_MOUSEOVER_UNIT` exists so a hover unit that goes away under a cursor that never
+    -- moves is noticed. A profile that measures the hover axis needs it.
+    test("a hover condition registers the mouseover event", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+        });
+        wants(plan, "UPDATE_MOUSEOVER_UNIT");
+    end);
+
+    -- **The fault this place is known for.** A reaction condition on `target` says nothing about
+    -- hovering, and the old predicate asked "does anything measure reaction" without asking about
+    -- which unit -- so this profile registered the mouseover event and re-measured the hover slot
+    -- five times a second for nothing.
+    test("a reaction condition on target does not drag the mouseover event with it", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+        });
+        wants(plan, "UNIT_FACTION", "a measured reaction did not register UNIT_FACTION");
+        drops(plan, "UPDATE_MOUSEOVER_UNIT");
+    end);
+
+    -- The other half: with nothing measuring reaction anywhere, `UNIT_FACTION` goes.
+    test("a profile that measures no reaction unregisters UNIT_FACTION", function()
+        local plan = PlanFor({
+            spell({ key = "F1", conditions = { combat = true } }),
+        });
+        drops(plan, "UNIT_FACTION");
+        drops(plan, "UPDATE_MOUSEOVER_UNIT");
+    end);
+
+    -- **Nothing is measured for a key the state loop never walks.** A key whose actions cover the
+    -- whole condition space is bound once and never re-decided, so the axes it names have no
+    -- reader -- the click path measures them again at the press. A registration here would pay for
+    -- a measurement nobody reads.
+    test("a key that is always ours registers nothing", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+            -- **This second action is what changes the answer.** It is unconditional, so nothing
+            -- can take the key away, so the key is bound once and the state loop never walks it.
+            -- The first action on its own registers `UNIT_FACTION` -- two tests above.
+            spell({ key = "F1", value = 774 }),
+        });
+        drops(plan, "UNIT_FACTION");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The bar axes
+    ---------------------------------------------------------------------------
+
+    -- `specialbar` folds `[petbattle]` into its own value, so a profile that asks about it needs
+    -- the pet battle events as well as the two bar events. That is one axis asking for four
+    -- registrations, and the fold is the reason.
+    test("specialbar takes the bar events and the pet battle events", function()
+        local plan = PlanFor({
+            spell({ key = "F1", conditions = { specialbar = true } }),
+            spell({ key = "F2", conditions = { specialbar = false } }),
+        });
+        wants(plan, "UPDATE_OVERRIDE_ACTIONBAR");
+        wants(plan, "UPDATE_VEHICLE_ACTIONBAR");
+        wants(plan, "PET_BATTLE_OPENING_START");
+        wants(plan, "PET_BATTLE_CLOSE");
+        drops(plan, "UPDATE_EXTRA_ACTIONBAR");
+    end);
+
+    -- And the other direction: a pet battle condition takes the pet battle events **only**. The
+    -- fold runs one way.
+    test("petbattle does not take the bar events", function()
+        local plan = PlanFor({
+            spell({ key = "F1", conditions = { petbattle = true } }),
+        });
+        wants(plan, "PET_BATTLE_OPENING_START");
+        wants(plan, "PET_BATTLE_CLOSE");
+        drops(plan, "UPDATE_OVERRIDE_ACTIONBAR");
+        drops(plan, "UPDATE_VEHICLE_ACTIONBAR");
+    end);
+
+    test("extrabar takes its own event and nothing else", function()
+        local plan = PlanFor({
+            spell({ key = "F1", conditions = { extrabar = true } }),
+        });
+        wants(plan, "UPDATE_EXTRA_ACTIONBAR");
+        drops(plan, "UPDATE_OVERRIDE_ACTIONBAR");
+        drops(plan, "PET_BATTLE_CLOSE");
+    end);
+
+    -- A `known:` condition is answered by `SecureCmdOptionParse`, and the spell book is what
+    -- changes that answer. **The state it registers is named after the spell**, so the predicate
+    -- behind this event is a prefix walk over what got measured rather than one lookup -- and on
+    -- an ordinary profile it comes out empty and the event goes.
+    test("a known condition registers SPELLS_CHANGED and nothing else does", function()
+        local plan = PlanFor({
+            spell({ key = "F1", value = 8936, conditions = { known = true } }),
+        });
+        wants(plan, "SPELLS_CHANGED");
+
+        local bare = PlanFor({
+            spell({ key = "F1", conditions = { combat = true } }),
+        });
+        drops(bare, "SPELLS_CHANGED");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Watched units
+    ---------------------------------------------------------------------------
+
+    --- Is this alias watched, per the plan? nil where the plan does not mention it.
+    local function watched(plan, alias)
+        for i = 1, #plan.units do
+            if (plan.units[i].alias == alias) then
+                return plan.units[i].watch;
+            end
+        end
+    end
+
+    -- A role unit is watched because something named it, and the rest are turned off in the same
+    -- pass. **Turning one off is not nothing** -- it clears the alias, so a role unit that was
+    -- resolvable a moment ago stops being.
+    test("only the role units something named are watched", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "tank" }),
+        });
+        check(watched(plan, "tank") == true, "tank was not watched");
+        check(watched(plan, "healer") == false, "healer was watched");
+        check(watched(plan, "maintank") == false, "maintank was watched");
+    end);
+
+    -- The two custom targets are set by an action rather than measured, so the plan has no say
+    -- over them at all -- and answering "off" for one would clear a target the reader chose.
+    test("the custom targets are not the plan's to turn on or off", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "custom1" }),
+        });
+        check(watched(plan, "custom1") == nil, "custom1 is in the plan");
+        check(watched(plan, "custom2") == nil, "custom2 is in the plan");
+    end);
+
+    -- A unit named inside macro text counts the same as one named as a target. The parser is what
+    -- finds it, and the alias has to resolve at the press either way.
+    test("a unit named in macro text is watched", function()
+        local plan = PlanFor({
+            spell({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@healer] Regrowth" }),
+        });
+        check(watched(plan, "healer") == true, "healer was not watched");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Re-deciding on the hover frame
+    ---------------------------------------------------------------------------
+
+    -- **This flag is the narrow question, and its old name was the wide one.** What it asks is
+    -- whether any state-driven key has to be re-decided when the frame under the cursor changes
+    -- while the unit under it does not -- and only a `frameTypes` record can. The unit changing is
+    -- already answered by `SetUnit`.
+    test("only a frame type condition makes the hover frame worth re-deciding on", function()
+        local withFrameType = PlanFor({
+            spell({ key = "F1", unit = "hover", conditions = {
+                frameTypes = Constants.FRAMETYPE_GROUP,
+                units = { hover = { reaction = Constants.REACTION_ALL } },
+            } }),
+        });
+        check(withFrameType.rebindOnHoverFrame == true, "a frameTypes record did not set it");
+
+        -- The same key with a hover condition and no frame type: hovering is measured, but no
+        -- record can answer differently for one frame than another.
+        local plain = PlanFor({
+            spell({ key = "F1", unit = "hover", conditions = {
+                units = { hover = { reaction = Constants.REACTION_ALL } },
+            } }),
+        });
+        check(plain.rebindOnHoverFrame == false, "a plain hover condition set it");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The plan is a decision and nothing more
+    ---------------------------------------------------------------------------
+
+    -- **Every test above built a plan and applied none of it.** If building reached the state
+    -- driver, they would all be measuring the game rather than the decision -- so this asks the
+    -- one thing that makes the rest of the file mean what it says.
+    test("building a plan registers nothing on the state driver", function()
+        local frames = require("wow_frames");
+        frames.arm();
+        PlanFor({ spell({ key = "F1", conditions = { specialbar = true } }) });
+        local entries = frames.disarm();
+
+        for i = 1, #entries do
+            local e = entries[i];
+            check(e.target ~= "SecureStateDriverManager",
+                "the build reached the state driver: " .. e.kind .. " " .. tostring(e.name));
+        end
+    end);
+
+    return T;
+end

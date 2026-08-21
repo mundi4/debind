@@ -65,6 +65,16 @@ local _unitsSeen         = {};
 local _updateFlags       = {};
 local _mergedUnits       = {};
 
+--- The world a rebuild was built against, and what it decided to do about it. **Two tables, wiped
+--- and refilled**, because a rebuild allocates nothing it can reuse - the rule the rest of this
+--- file already runs on.
+---
+--- Holding the decision apart from the doing is what lets a spec ask what a profile comes to
+--- without a client in front of it: `BuildBindingPlan` answers from `ctx`, and `ApplyBindingPlan`
+--- is the only step with an effect (`devdocs/going-headless-outside-the-ui.md` §3-1).
+local _ctx               = {};
+local _plan              = { events = {}, units = {} };
+
 --- **Build time, not runtime.** These two pick what gets measured; the secure globals `States` and
 --- `UnitStates` hold what was measured. The underscore only says "local to this file" and left the
 --- two kinds looking alike, which is a real source of confusion: being registered here decides
@@ -252,28 +262,43 @@ local function appendKeyValue(key, value)
 end
 
 
-function DebindPrivate.UpdateBindings()
+--- May a rebuild run at all, and if not, which "no" is it?
+---
+--- **Two refusals, and they are not the same kind.** Combat is a lockdown we come back from -- the
+--- caller records that a rebuild is owed and `PLAYER_REGEN_ENABLED` pays it. An unknown
+--- specialization is a window that closes on its own, and there is nothing to remember.
+---
+--- **Not knowing the specialization means not building, not building without it.**
+--- `EnumerateProfileLayers` takes nil and passes it on as 0 (its comment: insurance against dying
+--- on the path that reads the XML), but that answer is **the list with both specialization layers
+--- missing**. Somewhere that draws a list it ends in showing less; here it becomes real key
+--- overrides, and **a lower priority action takes the key.** Quietly.
+---
+--- Not building is the safe side because the window shuts by itself:
+--- `Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED` sees the nil, calls itself again 0.05s later, and
+--- that path comes back through here. Until then there are no bindings, and that beats wrong ones.
+---
+--- **A character with no specialization does not land here.** What this API hands one that has not
+--- picked yet is an out of range index rather than nil (`EnumerateProfileLayers`), so nil means
+--- "not known yet" and nothing else.
+local function CanBuildBindings()
     if (InCombatLockdown()) then
-        DebindPrivate.updateBindingsSuspended = true;
-        return;
+        return false, "combat";
     end
-
-    -- **특성을 아직 모르면 짓지 않는다.** `EnumerateProfileLayers`는 nil을 0으로 받아 넘기는데
-    -- (그쪽 주석: XML을 읽는 길에서 터지지 않게 하려는 보험이다) 그 답은 **특성 레이어 둘이
-    -- 빠진 목록**이다. 목록 하나를 그리는 자리에서는 덜 나오는 것으로 끝나지만, 여기서는
-    -- 그대로 실제 키 오버라이드가 되어 **우선순위가 낮은 액션이 키를 가져간다.** 조용히.
-    --
-    -- 짓지 않고 나가는 쪽이 안전한 이유는 이 창이 곧 닫히기 때문이다.
-    -- `Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED`가 nil을 보면 0.05초 뒤 자기를 다시 부르고,
-    -- 그 길이 다시 여기로 온다. 그동안은 바인딩이 없는 상태고, 그건 틀린 바인딩보다 낫다.
-    --
-    -- **특성이 없는 캐릭터는 여기 안 걸린다.** 아직 특성을 못 고른 캐릭터에게 이 API가 주는
-    -- 것은 nil이 아니라 범위 밖 인덱스라(`EnumerateProfileLayers` 주석), nil은 "아직 모른다"
-    -- 하나만 뜻한다.
     if (C_SpecializationInfo.GetSpecialization() == nil) then
-        return;
+        return false, "spec";
     end
+    return true;
+end
 
+--- Everything a rebuild reads before it decides anything.
+---
+--- **Most of what it collects is still not a value**, and saying so is the point of the step
+--- existing this early. `BuildKeyMap` fills `DebindPrivate.KeyMap` and the switch reset writes the
+--- profile, so what comes back is a reference to a table this call filled rather than a copy. What
+--- turns those into values is stage 3 of `devdocs/going-headless-outside-the-ui.md`; naming the
+--- seam is what makes it possible to move.
+local function CollectBindingContext()
     -- **Where a specialization change reaches a switch** (§4-8 of
     -- `devdocs/redesigning-custom-states.md`). An override saying "always on in this
     -- specialization" has to be applied on the way *into* that specialization, not only at login,
@@ -288,6 +313,22 @@ function DebindPrivate.UpdateBindings()
     DebindPrivate.RefreshYieldedKeys();
     DebindPrivate.RefreshGameMenuKeys();
 
+    DebindPrivate.BuildKeyMap();
+
+    local ctx = _ctx;
+    ctx.keyMap = DebindPrivate.KeyMap;
+    ctx.updatetime = DebindPrivate.Options.updatetime;
+    return ctx;
+end
+
+--- Puts the secure side back to nothing, so what the build emits lands on an empty table.
+---
+--- **It runs before the build rather than inside `ApplyBindingPlan`, and that is temporary.** The
+--- build still stamps attributes and builds delegate frames as it goes (`SetBindingAttributes`),
+--- so a reset deferred to the apply would land on top of what the build had already put out.
+--- Stage 2 of `devdocs/going-headless-outside-the-ui.md` takes the stamping out of the build, and
+--- this moves in with it.
+local function ClearPreviousBindings()
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
 wipe(OldStates)
 for k, v in pairs(States) do
@@ -325,25 +366,21 @@ States.unitframe = hovered
 
     ClearOverrideBindings(BindingDriver);
     DebindPrivate.BindingDriver:SetAttribute("_onattributechanged", nil);
+end
 
-    ResetContext();
-
-    DebindPrivate.BuildKeyMap();
-
-    UpdateBindingsMap();
-
-    UpdateMacroTextsMap();
-
-    UpdateAttrChangedHandler();
-
+--- The line that puts a switch's stored value back, plus the fixed macro conditional behind a
+--- computed one. Returns nil where this rebuild has no switch to say anything about.
+---
+--- Writing into `States` directly would raise no change event, so the state change message would
+--- not print. The value goes back through `SetSwitch` for that reason.
+local function BuildSwitchesSnippet()
     for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
         local stateInfo = _switches[state];
         if (stateInfo) then
             -- previous switch value
             if (stateInfo.value ~= nil) then
-                -- States 맵에 직접 입력하면 변경 이벤트가 발생하지 않아서 상태 변경 메시지가 출력 안됨.
-                --appendLine([[States[%1$q]=%s]], state, tostring(stateInfo.value));
-                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s, true)]], state, tostring(stateInfo.value));
+                appendLine([[self:RunAttribute("SetSwitch", %1$q, %s, true)]], state,
+                    tostring(stateInfo.value));
             end
 
             -- fixed macro conditional
@@ -353,83 +390,54 @@ States.unitframe = hovered
         end
     end
 
-    if (#_strArr > 0) then
-        local snippet = table.concat(_strArr, "\n");
-        AssertSnippetCompiles(snippet, "SwitchExpressions");
-        SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
-        if (DEBUG) then
-            dump("SwitchExpressions snippet", { CopyTable(_strArr), snippet:len() });
-        end
-        wipe(_strArr);
+    if (#_strArr == 0) then
+        return nil;
     end
 
-    for _, unit in ipairs(sortedKeys(SPECIAL_UNITS, _sortedA)) do
-        if (unit ~= "custom1" and unit ~= "custom2") then
-            if (_unitsSeen[unit]) then
-                DebindPrivate.EnableUnitWatch(unit);
-            else
-                DebindPrivate.DisableUnitWatch(unit);
-                SecureHandlerExecute(DebindPrivate.BindingDriver, format([[self:RunAttribute("SetUnit", %q, nil)]], unit));
-            end
-        end
+    local snippet = table.concat(_strArr, "\n");
+    AssertSnippetCompiles(snippet, "SwitchExpressions");
+    if (DEBUG) then
+        dump("SwitchExpressions snippet", { CopyTable(_strArr), snippet:len() });
     end
+    wipe(_strArr);
+    return snippet;
+end
 
-    -- **호버 프레임이 바뀌었을 때 다시 걸 것이 있나.** 이름 그대로다: 유닛은 그대로인데
-    -- 프레임만 바뀌는 사건에 반응해야 하는 상태 구동 키가 하나라도 있는가.
-    --
-    -- 예전 이름은 `HoverBindings`였고 값은 *"hover를 쓰는 바인딩이 있나"*였는데, 그건 훨씬
-    -- 넓다 - 호버 유닛이 바뀌는 쪽은 `SetUnit`의 반환값이 이미 답한다. 둘을 `or`로 묶어 쓰는
-    -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
-    SecureHandlerExecute(DebindPrivate.BindingDriver,
-        format("RebindOnHoverFrame=%s", tostring(_rebindOnHoverFrame and true or false)));
+--- Which state driver events this rebuild wants, and which it wants gone.
+---
+--- **Every one of these is a pure reading of what got measured**, and until they were collected
+--- into a value the only way to see one was to stand a `SecureStateDriverManager` up and look at
+--- what had been registered on it. Two faults lived here for exactly that reason, and both are
+--- gone: the old `_measuredStates.reaction` term did not look at *which* unit, so a reaction
+--- condition on `target` alone dragged the mouseover registration along with it, and
+--- `HoverBindings` was so wide that the narrow test beside it meant nothing.
+---
+--- The order here is the order they are applied in. It is written out rather than walked out of a
+--- table, so what a rebuild emits does not depend on `pairs`.
+local function CollectDriverEvents(events)
+    local function want(name, register)
+        events[#events + 1] = { name = name, register = register and true or false };
+    end
 
     -- **묻는 것은 "hover를 재나"다.** 이 등록의 목적이 호버 dangling 감지이므로, 답은 hover
     -- 축을 측정하는 유닛이 있느냐에 있다. 예전 술어의 `_measuredStates.reaction` 항은 잉여였다 -
     -- 반응 조건은 유닛 조건의 일부라 `_measuredUnitAxes`가 이미 덮는다.
-    if (_measuredUnitAxes.hover or _measuredUnitAxes.mouseover) then
-        SecureStateDriverManager:RegisterEvent("UPDATE_MOUSEOVER_UNIT");
-        local updatetime = DebindPrivate.Options.updatetime;
-        if (not updatetime or updatetime < 0 or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
-            updatetime = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-        end
-        SecureStateDriverManager:SetAttribute("updatetime", updatetime);
-    else
-        SecureStateDriverManager:UnregisterEvent("UPDATE_MOUSEOVER_UNIT");
-        SecureStateDriverManager:SetAttribute("updatetime", Constants.STATE_DRIVER_UPDATETIME_DEFAULT);
-    end
+    want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.hover or _measuredUnitAxes.mouseover);
 
     -- 반응 축을 재는 유닛이 하나라도 있으면 등록한다. 예전 술어(`_measuredStates.reaction`)는 어느
     -- 유닛인지를 안 봐서, `target`에만 반응 조건을 걸어도 위의 mouseover 등록까지 딸려 왔다.
     -- 측정에서 파생시키면 앞 단계의 좁히기도 그대로 따라온다 - 배선이 고정된 키만 반응을 묻는
     -- 프로필에서는 재는 유닛이 없고 이 이벤트도 안 걸린다.
-    if (_measuresReaction) then
-        SecureStateDriverManager:RegisterEvent("UNIT_FACTION");
-    else
-        SecureStateDriverManager:UnregisterEvent("UNIT_FACTION");
-    end
+    want("UNIT_FACTION", _measuresReaction);
 
-    if (_measuredStates.specialbar) then
-        SecureStateDriverManager:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR");
-        SecureStateDriverManager:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR");
-    else
-        SecureStateDriverManager:UnregisterEvent("UPDATE_OVERRIDE_ACTIONBAR");
-        SecureStateDriverManager:UnregisterEvent("UPDATE_VEHICLE_ACTIONBAR");
-    end
+    want("UPDATE_OVERRIDE_ACTIONBAR", _measuredStates.specialbar);
+    want("UPDATE_VEHICLE_ACTIONBAR", _measuredStates.specialbar);
 
-    if (_measuredStates.extrabar) then
-        SecureStateDriverManager:RegisterEvent("UPDATE_EXTRA_ACTIONBAR");
-    else
-        SecureStateDriverManager:UnregisterEvent("UPDATE_EXTRA_ACTIONBAR");
-    end
+    want("UPDATE_EXTRA_ACTIONBAR", _measuredStates.extrabar);
 
     -- specialbar folds [petbattle] into its own value, so it needs these too
-    if (_measuredStates.petbattle or _measuredStates.specialbar) then
-        SecureStateDriverManager:RegisterEvent("PET_BATTLE_OPENING_START");
-        SecureStateDriverManager:RegisterEvent("PET_BATTLE_CLOSE");
-    else
-        SecureStateDriverManager:UnregisterEvent("PET_BATTLE_OPENING_START");
-        SecureStateDriverManager:UnregisterEvent("PET_BATTLE_CLOSE");
-    end
+    want("PET_BATTLE_OPENING_START", _measuredStates.petbattle or _measuredStates.specialbar);
+    want("PET_BATTLE_CLOSE", _measuredStates.petbattle or _measuredStates.specialbar);
 
     local hasKnownState = false;
     for state in pairs(_measuredStates) do
@@ -438,25 +446,124 @@ States.unitframe = hovered
             break;
         end
     end
+    want("SPELLS_CHANGED", hasKnownState);
 
-    if (hasKnownState) then
-        SecureStateDriverManager:RegisterEvent("SPELLS_CHANGED");
-    else
-        SecureStateDriverManager:UnregisterEvent("SPELLS_CHANGED");
+    return events;
+end
+
+--- Which special units this rebuild watches. A unit nobody named is not only left unwatched, its
+--- alias is cleared as well -- a stale one would stay resolvable on the secure side.
+---
+--- `custom1` and `custom2` are set by an action rather than measured, so they are not this
+--- function's to turn on or off.
+local function CollectWatchedUnits(units)
+    for _, unit in ipairs(sortedKeys(SPECIAL_UNITS, _sortedA)) do
+        if (unit ~= "custom1" and unit ~= "custom2") then
+            units[#units + 1] = { alias = unit, watch = _unitsSeen[unit] and true or false };
+        end
     end
+    return units;
+end
+
+--- What this rebuild decided, as a value.
+---
+--- **What is not pure yet is the emitters.** `UpdateBindingsMap` reaches `SetBindingAttributes`,
+--- which stamps the click frame and builds delegate frames as it walks; stages 2 and 3 of
+--- `devdocs/going-headless-outside-the-ui.md` take that out. What is already a value is every
+--- decision below the snippets -- which events to register, which units to watch, the throttle --
+--- and those are the ones a spec could not reach at all before.
+---
+--- **The plan is a module table, wiped and refilled.** A rebuild allocates nothing it can reuse,
+--- which is the rule this whole file runs on.
+local function BuildBindingPlan(ctx)
+    ResetContext();
+
+    local plan = _plan;
+    wipe(plan.events);
+    wipe(plan.units);
+
+    plan.bindingsMapSnippet = UpdateBindingsMap();
+    plan.macroTextsSnippet = UpdateMacroTextsMap();
+    plan.attrChangedSnippet = UpdateAttrChangedHandler();
+    plan.switchesSnippet = BuildSwitchesSnippet();
+
+    CollectWatchedUnits(plan.units);
+
+    -- **호버 프레임이 바뀌었을 때 다시 걸 것이 있나.** 이름 그대로다: 유닛은 그대로인데
+    -- 프레임만 바뀌는 사건에 반응해야 하는 상태 구동 키가 하나라도 있는가.
+    --
+    -- 예전 이름은 `HoverBindings`였고 값은 *"hover를 쓰는 바인딩이 있나"*였는데, 그건 훨씬
+    -- 넓다 - 호버 유닛이 바뀌는 쪽은 `SetUnit`의 반환값이 이미 답한다. 둘을 `or`로 묶어 쓰는
+    -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
+    plan.rebindOnHoverFrame = _rebindOnHoverFrame and true or false;
+
+    CollectDriverEvents(plan.events);
+
+    -- **The throttle this rebuild asks for.** `FinishBindingUpdate` sets it again from the option
+    -- the window writes (`ApplyOptions`), so what this one decides stands only for the length of
+    -- the apply. `Options.updatetime` is a key nothing in the repository writes
+    -- (`.zzz/refactor-candidates.md` 33), which makes the clamp below equal to "use the default".
+    local updatetime = ctx.updatetime;
+    if (not updatetime or updatetime < 0 or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
+        updatetime = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
+    end
+    plan.updatetime = updatetime;
+
+    return plan;
+end
+
+--- Hands the plan to the game. **The only step of a rebuild with an effect on the secure side**,
+--- once the two stages that still leave stamping inside the build are done.
+local function ApplyBindingPlan(plan)
+    local driver = DebindPrivate.BindingDriver;
+
+    SecureHandlerExecute(driver, plan.bindingsMapSnippet);
+    SecureHandlerExecute(driver, plan.macroTextsSnippet);
+    driver:SetAttribute("_onattributechanged", plan.attrChangedSnippet);
+
+    if (plan.switchesSnippet) then
+        SecureHandlerExecute(driver, plan.switchesSnippet);
+    end
+
+    for i = 1, #plan.units do
+        local entry = plan.units[i];
+        if (entry.watch) then
+            DebindPrivate.EnableUnitWatch(entry.alias);
+        else
+            DebindPrivate.DisableUnitWatch(entry.alias);
+            SecureHandlerExecute(driver,
+                format([[self:RunAttribute("SetUnit", %q, nil)]], entry.alias));
+        end
+    end
+
+    SecureHandlerExecute(driver, format("RebindOnHoverFrame=%s", tostring(plan.rebindOnHoverFrame)));
+
+    for i = 1, #plan.events do
+        local entry = plan.events[i];
+        if (entry.register) then
+            SecureStateDriverManager:RegisterEvent(entry.name);
+        else
+            SecureStateDriverManager:UnregisterEvent(entry.name);
+        end
+    end
+    SecureStateDriverManager:SetAttribute("updatetime", plan.updatetime);
 
     -- 클릭캐스팅 라우팅을 프레임들에 반영한다. **아래 상태 루프보다 먼저다** - 그쪽이
     -- `<접두사>type<번호>`를 걸므로, 짝인 `clickbutton`이 아직 없으면 그 사이의 클릭이
     -- 조용히 사라진다(`SECURE_ACTIONS.click`이 delegate가 없으면 아무것도 안 한다).
 
     -- execute UpdateBindings with forceAll set
-    SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+    SecureHandlerExecute(driver, [[
         DirtyFlags.forceAll = true
         self:RunAttribute("UpdateAllUnits")
         self:RunAttribute("UpdateMacroTexts", true)
         self:SetAttribute("state-unitexists", 1)
     ]]);
+end
 
+--- What is left once the bindings are up: drop what this rebuild made stale, put the reader's own
+--- throttle back, and say that it happened.
+local function FinishBindingUpdate()
     DebindPrivate.ClearMacroTextCache(_macrotexts);
 
     DebindPrivate.ApplyOptions("stateDriverUpdateThrottle");
@@ -474,9 +581,39 @@ States.unitframe = hovered
             switches = _switches,
         });
     end
-
-    return true
 end
+
+function DebindPrivate.UpdateBindings()
+    local ok, why = CanBuildBindings();
+    if (not ok) then
+        -- **Only combat is owed a retry.** An unknown specialization asks itself again from
+        -- `Events.lua`, so there is nothing here to remember about it.
+        if (why == "combat") then
+            DebindPrivate.updateBindingsSuspended = true;
+        end
+        return;
+    end
+
+    local ctx = CollectBindingContext();
+    ClearPreviousBindings();
+    local plan = BuildBindingPlan(ctx);
+    ApplyBindingPlan(plan);
+    FinishBindingUpdate();
+
+    return true;
+end
+
+--- The four steps, each reachable on its own.
+---
+--- **This is what the split was for.** `BuildBindingPlan` answers "what would this profile come
+--- to" without touching the game, so which state driver events a profile registers -- six
+--- decisions that could previously only be read off a live `SecureStateDriverManager` -- is now a
+--- table a spec compares (`tests/plan_spec.lua`).
+DebindPrivate.CanBuildBindings = CanBuildBindings;
+DebindPrivate.CollectBindingContext = CollectBindingContext;
+DebindPrivate.BuildBindingPlan = BuildBindingPlan;
+DebindPrivate.ApplyBindingPlan = ApplyBindingPlan;
+DebindPrivate.FinishBindingUpdate = FinishBindingUpdate;
 
 function SetBindingAttributes(type, value, unit)
     if (type == Constants.UNUSED or type == Constants.COMMAND) then
@@ -1376,7 +1513,6 @@ function UpdateBindingsMap()
 
     local snippet = table.concat(_strArr, "\n");
     AssertSnippetCompiles(snippet, "UpdateBindingsMap");
-    SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
     if (DEBUG) then
         dump("UpdateBindingsMap", {
             CopyTable(_strArr),
@@ -1384,6 +1520,7 @@ function UpdateBindingsMap()
         });
     end
     wipe(_strArr);
+    return snippet;
 end
 
 function UpdateMacroTextsMap()
@@ -1469,7 +1606,6 @@ function UpdateMacroTextsMap()
 
     local snippet = table.concat(_strArr, "\n");
     AssertSnippetCompiles(snippet, "UpdateMacroTextsMap");
-    SecureHandlerExecute(DebindPrivate.BindingDriver, snippet);
     if (DEBUG) then
         dump("UpdateMacroTextsMap", {
             CopyTable(_strArr),
@@ -1477,6 +1613,7 @@ function UpdateMacroTextsMap()
         });
     end
     wipe(_strArr);
+    return snippet;
 end
 
 local function compareStates(lhs, rhs)
@@ -1710,10 +1847,10 @@ end
 
     local snippet = table.concat(_strArr, "\n");
     AssertSnippetCompiles(snippet, "_onattributechanged");
-    DebindPrivate.BindingDriver:SetAttribute("_onattributechanged", snippet);
 
     if (DEBUG) then
         dump("_onattributechanged", { CopyTable(_strArr), snippet:len() });
     end
     wipe(_strArr);
+    return snippet;
 end

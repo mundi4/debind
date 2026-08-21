@@ -1005,7 +1005,6 @@ WrapScript <Frame#60> OnHide =
 Execute DebindBindingDriver
   | RebindOnHoverFrame=true
 RegisterEvent SecureStateDriverManager UPDATE_MOUSEOVER_UNIT
-SetAttribute SecureStateDriverManager updatetime = 0.2
 RegisterEvent SecureStateDriverManager UNIT_FACTION
 RegisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
 RegisterEvent SecureStateDriverManager UPDATE_VEHICLE_ACTIONBAR
@@ -1013,6 +1012,7 @@ RegisterEvent SecureStateDriverManager UPDATE_EXTRA_ACTIONBAR
 RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
 RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
 RegisterEvent SecureStateDriverManager SPELLS_CHANGED
+SetAttribute SecureStateDriverManager updatetime = 0.2
 Execute DebindBindingDriver
   |         DirtyFlags.forceAll = true
   |         self:RunAttribute("UpdateAllUnits")

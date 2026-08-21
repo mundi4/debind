@@ -107,6 +107,10 @@ local specs = {
     -- (`devdocs/going-headless-outside-the-ui.md` §10-1), so it goes after the specs that would
     -- otherwise inherit it.
     { name = "emit", path = root .. "/emit_spec.lua" },
+    -- **After the golden**, because it builds plans of its own and the button names
+    -- `SetBindingAttributes` hands out run on one counter -- a rebuild before the golden's would
+    -- shift every name in it.
+    { name = "plan", path = root .. "/plan_spec.lua" },
 };
 
 --- Reading and writing a whole file, whichever interpreter this is.
