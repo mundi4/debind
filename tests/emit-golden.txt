@@ -1,0 +1,1022 @@
+Execute DebindBindingDriver
+  | wipe(OldStates)
+  | for k, v in pairs(States) do
+  |     OldStates[k] = v
+  | end
+  | self:RunAttribute("ClearUnitAttributes")
+  | wipe(StateDrivenBindings)
+  | wipe(ClickTimeKeys)
+  | for _, byMod in pairs(ClickCastKeys) do
+  |     wipe(byMod)
+  | end
+  | wipe(HeldButtons)
+  | wipe(HeldUnits)
+  | -- Drop any unconsumed handoff -- it points into the old records.
+  | HandoffBindings = nil
+  | HandoffWinner = nil
+  | HandoffHoverUnit = nil
+  | wipe(MacroTextsMap)
+  | wipe(UnitStates)
+  | wipe(SwitchExpressions)
+  | 
+  | -- **`unitframe`은 살려서 넘긴다.** `States`에 든 나머지는 리빌드가 끝나면서 전부 다시
+  | -- 채워지지만, 이건 enter/leave 이벤트로만 서는 값이라 **다시 채워줄 사람이 없다.** 지우면
+  | -- 다음에 커서가 들어올 때까지 빈 채로 남는다.
+  | --
+  | -- 커서는 그대로 프레임 위에 있는데 조건 하나만 바뀌면(전투 진입, 자세 변경, 특성) 리빌드가
+  | -- 돌고, 그 순간 hover 조건 바인딩이 전부 죽는다. 마우스를 뺐다 다시 올려야 살아났다.
+  | --
+  | -- 짝이 되는 `UnitAliasMap["hover"]`는 이 프롤로그가 안 지운다. 그래서 지우면 둘이 갈리기까지
+  | -- 한다 - hover 유닛은 남아 있는데 hover 프레임은 없는 상태가 된다.
+  | local hovered = States.unitframe
+  | wipe(States)
+  | States.unitframe = hovered
+  | 
+ClearOverrideBindings DebindBindingDriver
+SetAttribute DebindBindingDriver _onattributechanged = nil
+CreateFrame DebindClickButton_hover SecureActionButtonTemplate
+SetAttribute DebindClickButton_hover alias = "hover"
+SetAttribute DebindClickButton_hover unit = "raid41"
+SetAttribute DebindClickButton_hover useparent* = true
+SetAttribute DebindClickButton_hover useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_hover"
+Execute DebindBindingDriver
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+SetAttribute DebindClickButton *type-deb101 = "spell"
+SetAttribute DebindClickButton *spell-deb101 = "Regrowth(Restoration)"
+CreateFrame DebindFlyout66 SecureHandlerBaseTemplate
+CreateFrame <Frame#25>
+CreateFrame <Texture#26>
+CreateFrame <Texture#27>
+CreateFrame <Texture#28>
+CreateFrame DebindFlyout66Opener SecureHandlerClickTemplate
+SetAttribute DebindFlyout66Opener _onclick =
+  | 	local holder = self:GetFrameRef("holder")
+  | 	if (not holder) then
+  | 		return
+  | 	end
+  | 
+  | 	-- 같은 키를 다시 누르면 닫는다. 홀더가 플라이아웃마다 따로라 이 검사만으로 충분하다.
+  | 	if (holder:IsShown()) then
+  | 		holder:Hide()
+  | 		return
+  | 	end
+  | 
+  | 	-- 커서가 화면 아래쪽이면 위로 펼친다. nil이면(커서를 못 잡으면) 아래로 - 화면 위쪽이
+  | 	-- 잘리는 것보다 아래쪽이 잘리는 편이 덜 나쁘다. 위가 잘리면 첫 칸부터 안 보인다.
+  | 	local screen = self:GetFrameRef("screen")
+  | 	local growUp = false
+  | 	if (screen) then
+  | 		local _, my = screen:GetMousePosition()
+  | 		growUp = (my ~= nil) and (my < 0.500000)
+  | 	end
+  | 
+  | 	-- 배경은 안 만진다. 양끝 마감이 같아서 어느 쪽으로 펼치든 같은 그림이다.
+  | 	holder:ClearAllPoints()
+  | 	if (growUp) then
+  | 		holder:SetPoint("BOTTOM", "$cursor", 0, -24)
+  | 	else
+  | 		holder:SetPoint("TOP", "$cursor", 0, 24)
+  | 	end
+  | 	holder:Show()
+  | 
+  | 	-- 자식 버튼을 따로 등록(`AddToAutoHide`)하지 않는다. 버튼이 전부 홀더 **안에** 있어서
+  | 	-- 홀더 사각형 하나가 이미 그것들을 덮는다. 등록 순서 제약(등록 직후에만 추가 가능)에
+  | 	-- 얽힐 이유가 없다.
+  | 	holder:RegisterAutoHide(0.750000)
+  | 
+SetFrameRef DebindFlyout66Opener screen "DebindFlyoutScreen"
+CreateFrame DebindFlyout66Button1 SecureActionButtonTemplate
+SetAttribute DebindFlyout66Button1 type = "spell"
+SetAttribute DebindFlyout66Button1 useOnKeyDown = false
+CreateFrame <Texture#31>
+CreateFrame <Texture#32>
+CreateFrame <Texture#33>
+CreateFrame <Texture#34>
+CreateFrame <Texture#35>
+WrapScript DebindFlyout66Button1 OnClick = " return nil, \"close\" "
+WrapScriptPost DebindFlyout66Button1 OnClick = " owner:Hide() "
+SetAttribute DebindFlyout66Button1 spell = "Call Pet 1"
+CreateFrame DebindFlyout66Button2 SecureActionButtonTemplate
+SetAttribute DebindFlyout66Button2 type = "spell"
+SetAttribute DebindFlyout66Button2 useOnKeyDown = false
+CreateFrame <Texture#37>
+CreateFrame <Texture#38>
+CreateFrame <Texture#39>
+CreateFrame <Texture#40>
+CreateFrame <Texture#41>
+WrapScript DebindFlyout66Button2 OnClick = " return nil, \"close\" "
+WrapScriptPost DebindFlyout66Button2 OnClick = " owner:Hide() "
+SetAttribute DebindFlyout66Button2 spell = "Call Pet 2"
+SetFrameRef DebindFlyout66Opener holder "DebindFlyout66"
+SetAttribute DebindClickButton *type-deb102 = "click"
+SetAttribute DebindClickButton *clickbutton-deb102 = <frame DebindFlyout66Opener>
+SetAttribute DebindClickButton *type-deb103 = "macro"
+SetAttribute DebindClickButton *macro-deb103 = nil
+SetAttribute DebindClickButton *macrotext-deb103 = "/petattack"
+SetAttribute DebindClickButton *type-deb104 = "spell"
+SetAttribute DebindClickButton *spell-deb104 = "Rejuvenation"
+SetAttribute DebindClickButton *type-deb105 = "spell"
+SetAttribute DebindClickButton *spell-deb105 = "Will of the Necropolis"
+SetAttribute DebindClickButton *typerelease-deb105 = "spell"
+SetAttribute DebindClickButton *pressAndHoldAction-deb105 = true
+SetAttribute DebindClickButton *type-deb106 = "spell"
+SetAttribute DebindClickButton *spell-deb106 = 5176
+SetAttribute DebindClickButton *type-deb107 = "spell"
+SetAttribute DebindClickButton *spell-deb107 = "Renew"
+SetAttribute DebindClickButton *type-deb108 = "attribute"
+SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#10>>
+SetAttribute DebindClickButton *attribute-name-deb108 = "custom1"
+SetAttribute DebindClickButton *attribute-value-deb108 = "hover"
+CreateFrame DebindClickButton_custom1 SecureActionButtonTemplate
+SetAttribute DebindClickButton_custom1 alias = "custom1"
+SetAttribute DebindClickButton_custom1 unit = "raid41"
+SetAttribute DebindClickButton_custom1 useparent* = true
+SetAttribute DebindClickButton_custom1 useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_custom1"
+Execute DebindBindingDriver
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+CreateFrame DebindFlyout900 SecureHandlerBaseTemplate
+CreateFrame <Frame#44>
+CreateFrame <Texture#45>
+CreateFrame <Texture#46>
+CreateFrame <Texture#47>
+CreateFrame DebindFlyout900Opener SecureHandlerClickTemplate
+SetAttribute DebindFlyout900Opener _onclick =
+  | 	local holder = self:GetFrameRef("holder")
+  | 	if (not holder) then
+  | 		return
+  | 	end
+  | 
+  | 	-- 같은 키를 다시 누르면 닫는다. 홀더가 플라이아웃마다 따로라 이 검사만으로 충분하다.
+  | 	if (holder:IsShown()) then
+  | 		holder:Hide()
+  | 		return
+  | 	end
+  | 
+  | 	-- 커서가 화면 아래쪽이면 위로 펼친다. nil이면(커서를 못 잡으면) 아래로 - 화면 위쪽이
+  | 	-- 잘리는 것보다 아래쪽이 잘리는 편이 덜 나쁘다. 위가 잘리면 첫 칸부터 안 보인다.
+  | 	local screen = self:GetFrameRef("screen")
+  | 	local growUp = false
+  | 	if (screen) then
+  | 		local _, my = screen:GetMousePosition()
+  | 		growUp = (my ~= nil) and (my < 0.500000)
+  | 	end
+  | 
+  | 	-- 배경은 안 만진다. 양끝 마감이 같아서 어느 쪽으로 펼치든 같은 그림이다.
+  | 	holder:ClearAllPoints()
+  | 	if (growUp) then
+  | 		holder:SetPoint("BOTTOM", "$cursor", 0, -24)
+  | 	else
+  | 		holder:SetPoint("TOP", "$cursor", 0, 24)
+  | 	end
+  | 	holder:Show()
+  | 
+  | 	-- 자식 버튼을 따로 등록(`AddToAutoHide`)하지 않는다. 버튼이 전부 홀더 **안에** 있어서
+  | 	-- 홀더 사각형 하나가 이미 그것들을 덮는다. 등록 순서 제약(등록 직후에만 추가 가능)에
+  | 	-- 얽힐 이유가 없다.
+  | 	holder:RegisterAutoHide(0.750000)
+  | 
+SetFrameRef DebindFlyout900Opener screen "DebindFlyoutScreen"
+SetAttribute DebindFlyout900Opener frameref-holder = nil
+CreateFrame DebindClickButton_healer SecureActionButtonTemplate
+SetAttribute DebindClickButton_healer alias = "healer"
+SetAttribute DebindClickButton_healer unit = "raid41"
+SetAttribute DebindClickButton_healer useparent* = true
+SetAttribute DebindClickButton_healer useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_healer"
+Execute DebindBindingDriver
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+CreateFrame DebindClickButton_target SecureActionButtonTemplate
+SetAttribute DebindClickButton_target unit = "target"
+SetAttribute DebindClickButton_target useparent* = true
+SetAttribute DebindClickButton_target useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_target"
+Execute DebindBindingDriver
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+SetAttribute DebindClickButton *type-deb109 = "worldmarker"
+SetAttribute DebindClickButton *marker-deb109 = 3
+SetAttribute DebindClickButton *type-deb110 = "spell"
+SetAttribute DebindClickButton *spell-deb110 = "Brown Horse"
+SetAttribute DebindClickButton *type-deb111 = "item"
+SetAttribute DebindClickButton *item-deb111 = "item:6948"
+SetAttribute DebindClickButton *type-deb112 = "spell"
+SetAttribute DebindClickButton *spell-deb112 = "Rejuvenation"
+SetAttribute DebindClickButton *type-deb113 = "macro"
+SetAttribute DebindClickButton *macro-deb113 = nil
+SetAttribute DebindClickButton *macrotext-deb113 =
+  | /cast [@tank,$burst] Swiftmend
+  | /cast [no$intent] Rejuvenation
+SetAttribute DebindClickButton *type-deb114 = "attribute"
+SetAttribute DebindClickButton *attribute-frame-deb114 = <frame DebindStates>
+SetAttribute DebindClickButton *attribute-name-deb114 = "$burst"
+SetAttribute DebindClickButton *attribute-value-deb114 = "toggle"
+SetAttribute DebindClickButton *type-deb115 = "attribute"
+SetAttribute DebindClickButton *attribute-frame-deb115 = <frame DebindStates>
+SetAttribute DebindClickButton *attribute-name-deb115 = "$intent"
+SetAttribute DebindClickButton *attribute-value-deb115 = "on"
+SetAttribute DebindClickButton *type-deb116 = "attribute"
+SetAttribute DebindClickButton *attribute-frame-deb116 = <frame DebindStates>
+SetAttribute DebindClickButton *attribute-name-deb116 = "$echo"
+SetAttribute DebindClickButton *attribute-value-deb116 = "off"
+CreateFrame DebindClickButton_focus SecureActionButtonTemplate
+SetAttribute DebindClickButton_focus unit = "focus"
+SetAttribute DebindClickButton_focus useparent* = true
+SetAttribute DebindClickButton_focus useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_focus"
+Execute DebindBindingDriver
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+SetAttribute DebindClickButton *type-deb117 = "target"
+CreateFrame DebindClickButton_player SecureActionButtonTemplate
+SetAttribute DebindClickButton_player unit = "player"
+SetAttribute DebindClickButton_player useparent* = true
+SetAttribute DebindClickButton_player useparent-unit = false
+SetFrameRef DebindBindingDriver clickFrame "DebindClickButton_player"
+Execute DebindBindingDriver
+  | local frame = self:GetFrameRef("clickFrame")
+  | local unit = frame:GetAttribute("alias") or frame:GetAttribute("unit")
+  | if (unit) then
+  | 	DelegateFrames[unit] = frame
+  | end
+  | DelegateFrames[frame:GetName()] = frame
+  | DelegateFrameNames[frame] = frame:GetName()
+  | 
+SetAttribute DebindClickButton *type-deb118 = "togglemenu"
+SetAttribute DebindClickButton *type-deb119 = "macro"
+SetAttribute DebindClickButton *macro-deb119 = nil
+SetAttribute DebindClickButton *macrotext-deb119 =
+  | /cancelform [form:1/2/5/6,nocombat]
+  | /script C_MountJournal.SummonByID(7)
+Execute DebindBindingDriver
+  | local bindings,t,u
+  | -- ALT-F1
+  | bindings=newtable();StateDrivenBindings["ALT-F1"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_hover"
+  | t["clickbutton"]="deb101"
+  | t["unitAlias"]="hover"
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["hover-exists"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F1"]=bindings
+  | bindings.clickTimeButton="@ALT-F1"
+  | -- ALT-F10
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb102"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F10"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"ALT-F10",DefaultClickFrameName,"@ALT-F10")
+  | -- ALT-F11
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb103"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F11"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"ALT-F11",DefaultClickFrameName,"@ALT-F11")
+  | -- ALT-F2
+  | bindings=newtable();StateDrivenBindings["ALT-F2"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_hover"
+  | t["clickbutton"]="deb104"
+  | t["unitAlias"]="hover"
+  | t["frameTypes"]=8
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | u.reaction.harm=true
+  | u.reaction.other=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["hover-exists"]=true
+  | bindings.updateFlags["unitframe"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F2"]=bindings
+  | bindings.clickTimeButton="@ALT-F2"
+  | -- ALT-F3
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb105"
+  | t["pressAndHold"]=true
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F3"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"ALT-F3",DefaultClickFrameName,"@ALT-F3")
+  | -- ALT-F4
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb106"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F4"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"ALT-F4",DefaultClickFrameName,"@ALT-F4")
+  | -- ALT-F5
+  | bindings=newtable();StateDrivenBindings["ALT-F5"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["type"]="unused"
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["combat"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F5"]=bindings
+  | bindings.clickTimeButton="@ALT-F5"
+  | -- ALT-F6
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb108"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F6"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"ALT-F6",DefaultClickFrameName,"@ALT-F6")
+  | -- ALT-F7
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["unitAlias"]="custom1"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F7"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"ALT-F7",DefaultClickFrameName,"@ALT-F7")
+  | -- ALT-F8
+  | bindings=newtable();StateDrivenBindings["ALT-F8"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["combat"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F8"]=bindings
+  | bindings.clickTimeButton="@ALT-F8"
+  | -- ALT-F9
+  | bindings=newtable();StateDrivenBindings["ALT-F9"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["combat"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@ALT-F9"]=bindings
+  | bindings.clickTimeButton="@ALT-F9"
+  | -- CTRL-F1
+  | bindings=newtable();StateDrivenBindings["CTRL-F1"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["forms"]=3
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["form"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F1"]=bindings
+  | bindings.clickTimeButton="@CTRL-F1"
+  | -- CTRL-F10
+  | bindings=newtable();StateDrivenBindings["CTRL-F10"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.harm=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["focus-exists"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F10"]=bindings
+  | bindings.clickTimeButton="@CTRL-F10"
+  | -- CTRL-F11
+  | bindings=newtable();StateDrivenBindings["CTRL-F11"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t.units=newtable()
+  | u=newtable();t.units["pet"]=u
+  | u.exists=false
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["pet-exists"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F11"]=bindings
+  | bindings.clickTimeButton="@CTRL-F11"
+  | -- CTRL-F12
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["unitAlias"]="healer"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F12"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"CTRL-F12",DefaultClickFrameName,"@CTRL-F12")
+  | -- CTRL-F2
+  | bindings=newtable();StateDrivenBindings["CTRL-F2"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["bonusbars"]=5
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["bonusbar"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F2"]=bindings
+  | bindings.clickTimeButton="@CTRL-F2"
+  | -- CTRL-F3
+  | bindings=newtable();StateDrivenBindings["CTRL-F3"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["specialbar"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["specialbar"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F3"]=bindings
+  | bindings.clickTimeButton="@CTRL-F3"
+  | -- CTRL-F4
+  | bindings=newtable();StateDrivenBindings["CTRL-F4"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["extrabar"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["extrabar"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F4"]=bindings
+  | bindings.clickTimeButton="@CTRL-F4"
+  | -- CTRL-F5
+  | bindings=newtable();StateDrivenBindings["CTRL-F5"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t["pet"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["pet"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F5"]=bindings
+  | bindings.clickTimeButton="@CTRL-F5"
+  | -- CTRL-F6
+  | bindings=newtable();StateDrivenBindings["CTRL-F6"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["known"]="[known:8936]"
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["[known:8936]"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F6"]=bindings
+  | bindings.clickTimeButton="@CTRL-F6"
+  | -- CTRL-F7
+  | bindings=newtable();StateDrivenBindings["CTRL-F7"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t.switches=newtable()
+  | t.switches["$burst"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["$burst"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F7"]=bindings
+  | bindings.clickTimeButton="@CTRL-F7"
+  | -- CTRL-F8
+  | bindings=newtable();StateDrivenBindings["CTRL-F8"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_target"
+  | t["clickbutton"]="deb107"
+  | t["unit"]="target"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["target-exists"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F8"]=bindings
+  | bindings.clickTimeButton="@CTRL-F8"
+  | -- CTRL-F9
+  | bindings=newtable();StateDrivenBindings["CTRL-F9"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_target"
+  | t["clickbutton"]="deb101"
+  | t["unit"]="target"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.help=true
+  | u.reaction.other=true
+  | u.dead=false
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["target-exists"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@CTRL-F9"]=bindings
+  | bindings.clickTimeButton="@CTRL-F9"
+  | -- F1
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb107"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F1"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F1",DefaultClickFrameName,"@F1")
+  | -- F10
+  | bindings=newtable();StateDrivenBindings["F10"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["command"]="TOGGLEWORLDMAP"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F10"]=bindings
+  | bindings.clickTimeButton="@F10"
+  | -- F11
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb109"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F11"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F11",DefaultClickFrameName,"@F11")
+  | -- F12
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb110"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F12"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F12",DefaultClickFrameName,"@F12")
+  | -- F2
+  | bindings=newtable();StateDrivenBindings["F2"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t["combat"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb111"
+  | t["stealth"]=true
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["combat"]=true
+  | bindings.updateFlags["stealth"]=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F2"]=bindings
+  | bindings.clickTimeButton="@F2"
+  | -- F3
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t["petbattle"]=true
+  | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb112"
+  | t["petbattle"]=false
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F3"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F3",DefaultClickFrameName,"@F3")
+  | -- F4
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb113"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F4"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F4",DefaultClickFrameName,"@F4")
+  | -- F5
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb114"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F5"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F5",DefaultClickFrameName,"@F5")
+  | -- F6
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb115"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F6"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F6",DefaultClickFrameName,"@F6")
+  | -- F7
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb116"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F7"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F7",DefaultClickFrameName,"@F7")
+  | -- F8
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb117"
+  | t["unit"]="focus"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F8"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F8",DefaultClickFrameName,"@F8")
+  | -- F9
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb118"
+  | t["unit"]="player"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@F9"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"F9",DefaultClickFrameName,"@F9")
+  | -- SHIFT-BUTTON2
+  | bindings=newtable();StateDrivenBindings["SHIFT-BUTTON2"]=bindings
+  | t=newtable();tinsert(bindings,t)
+  | t["clickframe"]="DebindClickButton_hover"
+  | t["clickbutton"]="deb107"
+  | t["unitAlias"]="hover"
+  | t.units=newtable()
+  | u=newtable();t.units["hover"]=u
+  | u.exists=true
+  | u.reaction=newtable()
+  | u.reaction.harm=true
+  | t.isClickCast=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb101"
+  | t.holdsKey=true
+  | bindings.updateFlags=newtable()
+  | bindings.updateFlags["hover-exists"]=true
+  | ClickCastKeys[2]=ClickCastKeys[2] or newtable()
+  | ClickCastKeys[2][4]=bindings
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@SHIFT-BUTTON2"]=bindings
+  | bindings.clickTimeButton="@SHIFT-BUTTON2"
+  | -- SHIFT-F12
+  | bindings=newtable()
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb119"
+  | t.holdsKey=true
+  | bindings.hasKeyRecord=true
+  | ClickTimeKeys["@SHIFT-F12"]=bindings
+  | bindings.alwaysOurs=true
+  | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
+Execute DebindBindingDriver
+  | local tempArray, t = newtable()
+  | t=newtable()
+  | t.id=1
+  | t.state="$echo"
+  | t.fragments,t.args=newtable(),newtable()
+  | t.fragments[1]="[@$burst]["
+  | t.fragments[2]="$burst"
+  | t.fragments[3]="]"
+  | t.args[1]=newtable()
+  | t.args[1].state="$burst"
+  | tempArray[1]=t
+  | t=newtable()
+  | t.id=2
+  | t.attr="*macrotext-deb113"
+  | t.fragments,t.args=newtable(),newtable()
+  | t.fragments[1]="/cast [@"
+  | t.fragments[2]="tank"
+  | t.fragments[3]=","
+  | t.fragments[4]="$burst"
+  | t.fragments[5]="]Swiftmend\
+  | /cast ["
+  | t.fragments[6]="no$intent"
+  | t.fragments[7]="]Rejuvenation"
+  | t.args[1]=newtable()
+  | t.args[1].unit="tank"
+  | t.args[2]=newtable()
+  | t.args[2].state="$burst"
+  | t.args[3]=newtable()
+  | t.args[3].state="$intent"
+  | t.args[3].reverse=true
+  | tempArray[2]=t
+  | MacroTextsMap["tank"]=newtable()
+  | tinsert(MacroTextsMap["tank"], tempArray[2])
+  | MacroTextsMap["$burst"]=newtable()
+  | tinsert(MacroTextsMap["$burst"], tempArray[2])
+  | MacroTextsMap["$intent"]=newtable()
+  | tinsert(MacroTextsMap["$intent"], tempArray[2])
+  | tinsert(MacroTextsMap["$burst"], tempArray[1])
+  | tempArray = nil
+SetAttribute DebindBindingDriver _onattributechanged =
+  | if (name == "state-unitexists") then
+  |     if (value == 0) then return end
+  |     self:SetAttribute("state-unitexists", 0)
+  | 
+  | if (States.unitframe) then
+  |     local unitframe = States.unitframe
+  |     local unit = unitframe.frame:GetEffectiveAttribute("unit");
+  |     if (UnitExists(unit)) then
+  |         local reaction
+  |         if (PlayerCanAssist(unit)) then
+  |             reaction = 1
+  |         elseif (PlayerCanAttack(unit)) then
+  |             reaction = 2
+  |         else
+  |             reaction = 4
+  |         end
+  | 
+  |         if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
+  |             unitframe.unit = unit
+  |             unitframe.reaction = reaction
+  |             self:RunAttribute("SetUnit", "hover", unit)
+  |             DirtyFlags.unitframe = true
+  |         end
+  |     elseif (unitframe.reaction) then
+  |         unitframe.unit = nil
+  |         unitframe.reaction = nil
+  |         self:RunAttribute("SetUnit", "hover", nil)
+  |         DirtyFlags.unitframe = true
+  |     end
+  | end
+  | -- 마지막 인자가 REACTION_OTHER인 것이 중요하다. 여기는 **hover 중이고 UnitExists도 참인**
+  | -- 갈래이므로 REACTION_NONE(= hover 안 함, Solver.lua:67의 그 값)이 올 자리가 아니다.
+  | -- NONE은 REACTION_ALL 밖의 비트라 어떤 사용자 마스크에도 안 걸린다 - 그 값이 들어가면
+  | -- 반응 제한이 걸린 hover 바인딩이 "공격도 도움도 안 되는 대상"에서 전부 죽는다
+  | -- (상인·경비병 등 우호 NPC, 시체, 토템). setup_onenter는 처음부터 OTHER를 쓰고 있어서,
+  | -- 마우스를 올린 직후에는 맞다가 첫 폴링 틱에 꺼지는 형태로 나타났다.
+  | 
+  | local stateValue,u
+  | stateValue=SecureCmdOptionParse("[known:8936]") and true or false
+  | if (States["[known:8936]"] ~= stateValue) then States["[known:8936]"]=stateValue;DirtyFlags["[known:8936]"]=true; end
+  | stateValue=GetBonusBarOffset()
+  | if (States["bonusbar"] ~= stateValue) then States["bonusbar"]=stateValue;DirtyFlags["bonusbar"]=true; end
+  | stateValue=PlayerInCombat()
+  | if (States["combat"] ~= stateValue) then States["combat"]=stateValue;DirtyFlags["combat"]=true; end
+  | stateValue=HasExtraActionBar()
+  | if (States["extrabar"] ~= stateValue) then States["extrabar"]=stateValue;DirtyFlags["extrabar"]=true; end
+  | stateValue=GetShapeshiftForm()
+  | if (States["form"] ~= stateValue) then States["form"]=stateValue;DirtyFlags["form"]=true; end
+  | stateValue=PlayerPetSummary() and true or false
+  | if (States["pet"] ~= stateValue) then States["pet"]=stateValue;DirtyFlags["pet"]=true; end
+  | stateValue=(HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false) or (SecureCmdOptionParse("[petbattle]") and true or false)
+  | if (States["specialbar"] ~= stateValue) then States["specialbar"]=stateValue;DirtyFlags["specialbar"]=true; end
+  | stateValue=IsStealthed()
+  | if (States["stealth"] ~= stateValue) then States["stealth"]=stateValue;DirtyFlags["stealth"]=true; end
+  | u=UnitStates["focus"];if (not u) then u=newtable();UnitStates["focus"]=u end
+  | stateValue=UnitExists("focus") and true or false
+  | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["focus-exists"]=true end
+  | if (u.exists) then
+  | stateValue=(PlayerCanAssist("focus") and "help") or (PlayerCanAttack("focus") and "harm") or "other"
+  | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["focus-exists"]=true end
+  | end
+  | u=UnitStates["hover"];if (not u) then u=newtable();UnitStates["hover"]=u end
+  | stateValue=UnitAliasMap["hover"] and true or false
+  | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["hover-exists"]=true end
+  | if (u.exists) then
+  | stateValue=(PlayerCanAssist(UnitAliasMap["hover"]) and "help") or (PlayerCanAttack(UnitAliasMap["hover"]) and "harm") or "other"
+  | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["hover-exists"]=true end
+  | end
+  | u=UnitStates["pet"];if (not u) then u=newtable();UnitStates["pet"]=u end
+  | stateValue=UnitExists("pet") and true or false
+  | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["pet-exists"]=true end
+  | u=UnitStates["target"];if (not u) then u=newtable();UnitStates["target"]=u end
+  | stateValue=UnitExists("target") and true or false
+  | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["target-exists"]=true end
+  | if (u.exists) then
+  | stateValue=(PlayerCanAssist("target") and "help") or (PlayerCanAttack("target") and "harm") or "other"
+  | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["target-exists"]=true end
+  | stateValue=(UnitIsDead("target") or UnitIsGhost("target")) and true or false
+  | if (u.dead ~= stateValue) then u.dead=stateValue;DirtyFlags["target-exists"]=true end
+  | end
+  | stateValue=SecureCmdOptionParse(SwitchExpressions["$echo"] or "") and true or false
+  | if (States["$echo"] ~= stateValue) then self:RunAttribute("SetSwitch", "$echo", stateValue, true) end
+  | stateValue=SecureCmdOptionParse(SwitchExpressions["$intent"] or "") and true or false
+  | if (States["$intent"] ~= stateValue) then self:RunAttribute("SetSwitch", "$intent", stateValue, true) end
+  | local shouldUpdate
+  | for flag in pairs(DirtyFlags) do
+  |     shouldUpdate = true
+  |     if (MacroTextsMap[flag]) then
+  |         self:RunAttribute("UpdateMacroTexts")
+  |         break
+  |     end
+  | end
+  | 
+  | if (shouldUpdate) then
+  |     self:RunAttribute("UpdateBindings")
+  | end
+  | 
+  | end
+Execute DebindBindingDriver
+  | self:RunAttribute("SetSwitch", "$burst", true, true)
+  | self:RunAttribute("SetSwitch", "$echo", false, true)
+  | self:RunAttribute("SetSwitch", "$intent", false, true)
+  | SwitchExpressions["$intent"]="[combat,nostealth]"
+CreateFrame <Button#53> SecureGroupHeaderTemplate
+SetAttribute <Button#53> alias = "healer"
+SetAttribute <Button#53> showParty = true
+SetAttribute <Button#53> showRaid = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#53> showSolo = true
+SetAttribute <Button#53> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#53> sortMethod = "NAME"
+SetAttribute <Button#53> maxColumns = 1
+SetAttribute <Button#53> unitsPerColumn = 2
+SetAttribute <Button#53> template = ""
+SetAttribute <Button#53> templateType = "Frame"
+SetAttribute <Button#53> roleFilter = "HEALER"
+SetAttribute <Button#53> showSolo = false
+CreateFrame <Button#54> SecureFrameTemplate
+SetAttribute <Button#53> child1 = <frame <Button#54>>
+SetFrameRef <Button#53> child1 "<Button#54>"
+CreateFrame <Button#55> SecureFrameTemplate
+SetAttribute <Button#53> child2 = <frame <Button#55>>
+SetFrameRef <Button#53> child2 "<Button#55>"
+SetFrameRef <Frame#10> unitwatch_header "<Button#53>"
+Execute <Frame#10>
+  |             local alias, numFrames = "healer", 2
+  |             local header = self:GetFrameRef("unitwatch_header")
+  |             UnitwatchHeaders[alias] = header
+  |             ChildFrames[alias] = newtable()
+  |             for i = 1, numFrames do
+  |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
+  |             end
+  |         
+CreateFrame <Frame#56> SecureFrameTemplate
+SetAttribute <Button#53> child3 = <frame <Frame#56>>
+WrapScript <Frame#56> OnHide =
+  | local alias, matchedUnit, tooMany = "healer"
+  | local header = UnitwatchHeaders[alias]
+  | if (not header:IsShown()) then
+  |     return
+  | end
+  | 
+  | for i = 1, 2 do
+  |     local child = ChildFrames[alias][i]
+  |     local unit = child:GetAttribute("unit")
+  |     if (unit) then
+  |         if (matchedUnit) then
+  |             matchedUnit = nil
+  |             tooMany = true
+  |             break
+  |         else
+  |             matchedUnit = unit
+  |         end
+  |     else
+  |         break
+  |     end
+  | end
+  | 
+  | if (unitMap[alias] ~= matchedUnit) then
+  |     unitMap[alias] = matchedUnit
+  |     if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
+  |         debind_driver:RunAttribute("UpdateBindings")
+  |     end
+  |     if (tooMany) then
+  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
+  |     else
+  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
+  |     end
+  | end
+  | self:Show()
+  | 
+Execute DebindBindingDriver
+  | self:RunAttribute("SetUnit", "mainassist", nil)
+Execute DebindBindingDriver
+  | self:RunAttribute("SetUnit", "maintank", nil)
+CreateFrame <Button#57> SecureGroupHeaderTemplate
+SetAttribute <Button#57> alias = "tank"
+SetAttribute <Button#57> showParty = true
+SetAttribute <Button#57> showRaid = true
+SetAttribute <Button#57> showPlayer = true
+SetAttribute <Button#57> showSolo = true
+SetAttribute <Button#57> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#57> sortMethod = "NAME"
+SetAttribute <Button#57> maxColumns = 1
+SetAttribute <Button#57> unitsPerColumn = 2
+SetAttribute <Button#57> template = ""
+SetAttribute <Button#57> templateType = "Frame"
+SetAttribute <Button#57> roleFilter = "TANK"
+SetAttribute <Button#57> showSolo = false
+CreateFrame <Button#58> SecureFrameTemplate
+SetAttribute <Button#57> child1 = <frame <Button#58>>
+SetFrameRef <Button#57> child1 "<Button#58>"
+CreateFrame <Button#59> SecureFrameTemplate
+SetAttribute <Button#57> child2 = <frame <Button#59>>
+SetFrameRef <Button#57> child2 "<Button#59>"
+SetFrameRef <Frame#10> unitwatch_header "<Button#57>"
+Execute <Frame#10>
+  |             local alias, numFrames = "tank", 2
+  |             local header = self:GetFrameRef("unitwatch_header")
+  |             UnitwatchHeaders[alias] = header
+  |             ChildFrames[alias] = newtable()
+  |             for i = 1, numFrames do
+  |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
+  |             end
+  |         
+CreateFrame <Frame#60> SecureFrameTemplate
+SetAttribute <Button#57> child3 = <frame <Frame#60>>
+WrapScript <Frame#60> OnHide =
+  | local alias, matchedUnit, tooMany = "tank"
+  | local header = UnitwatchHeaders[alias]
+  | if (not header:IsShown()) then
+  |     return
+  | end
+  | 
+  | for i = 1, 2 do
+  |     local child = ChildFrames[alias][i]
+  |     local unit = child:GetAttribute("unit")
+  |     if (unit) then
+  |         if (matchedUnit) then
+  |             matchedUnit = nil
+  |             tooMany = true
+  |             break
+  |         else
+  |             matchedUnit = unit
+  |         end
+  |     else
+  |         break
+  |     end
+  | end
+  | 
+  | if (unitMap[alias] ~= matchedUnit) then
+  |     unitMap[alias] = matchedUnit
+  |     if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
+  |         debind_driver:RunAttribute("UpdateBindings")
+  |     end
+  |     if (tooMany) then
+  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
+  |     else
+  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
+  |     end
+  | end
+  | self:Show()
+  | 
+Execute DebindBindingDriver
+  | RebindOnHoverFrame=true
+RegisterEvent SecureStateDriverManager UPDATE_MOUSEOVER_UNIT
+SetAttribute SecureStateDriverManager updatetime = 0.2
+RegisterEvent SecureStateDriverManager UNIT_FACTION
+RegisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
+RegisterEvent SecureStateDriverManager UPDATE_VEHICLE_ACTIONBAR
+RegisterEvent SecureStateDriverManager UPDATE_EXTRA_ACTIONBAR
+RegisterEvent SecureStateDriverManager PET_BATTLE_OPENING_START
+RegisterEvent SecureStateDriverManager PET_BATTLE_CLOSE
+RegisterEvent SecureStateDriverManager SPELLS_CHANGED
+Execute DebindBindingDriver
+  |         DirtyFlags.forceAll = true
+  |         self:RunAttribute("UpdateAllUnits")
+  |         self:RunAttribute("UpdateMacroTexts", true)
+  |         self:SetAttribute("state-unitexists", 1)
+  |     
+SetAttribute SecureStateDriverManager updatetime = 0.2

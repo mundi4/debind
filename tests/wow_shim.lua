@@ -14,6 +14,11 @@ M.world = {
     baseSpells = {},
     mounts = {},
     callPetSlots = {},
+    flyouts = {},
+    inCombat = false,
+    bindings = {},
+    bindingContexts = {},
+    activeBindingContexts = {},
 };
 
 local MASK32 = 4294967296;
@@ -107,7 +112,49 @@ local rawformat, strfind, strsub, strmatch = string.format, string.find, string.
 ---
 --- Strings with no `%N$` in them never enter this path at all; they go to the real
 --- `string.format` untouched, so everything else it can do still works.
+--- **fengari's bare `%f` is not C's.** `string.format("%f", 0.5)` answers `0.5` there and
+--- `0.500000` under every real interpreter, the client's 5.1 included. `Flyout.lua` bakes a
+--- threshold into a snippet body with a bare `%f`, so the same rebuild produced two different
+--- snippets depending on which interpreter ran it -- and the emission golden, which is compared
+--- byte for byte, could then only ever hold for one of them.
+---
+--- C's default precision is 6 and this writes it in. **Only a bare `%f` moves**: a precision that
+--- was spelled out (`%.2f`, `%5.1f`) already answers the same both ways.
+local function normalizeBareFloat(fmt)
+    if (not strfind(fmt, "f", 1, true)) then
+        return fmt;
+    end
+
+    local out, i = {}, 1;
+    while (true) do
+        local at = strfind(fmt, "%", i, true);
+        if (not at) then
+            out[#out + 1] = strsub(fmt, i);
+            break;
+        end
+        out[#out + 1] = strsub(fmt, i, at - 1);
+
+        if (strsub(fmt, at + 1, at + 1) == "%") then
+            out[#out + 1] = "%%";
+            i = at + 2;
+        else
+            local spec, after = strmatch(fmt, "^%%([-+ #0]*%d*%.?%d*)()", at);
+            local conv = strsub(fmt, after, after);
+            if ((conv == "f" or conv == "F") and not strfind(spec, ".", 1, true)) then
+                out[#out + 1] = "%" .. spec .. ".6" .. conv;
+            else
+                out[#out + 1] = "%" .. spec .. conv;
+            end
+            i = after + 1;
+        end
+    end
+    return table.concat(out);
+end
+
 local function positionalFormat(fmt, ...)
+    if (type(fmt) == "string") then
+        fmt = normalizeBareFloat(fmt);
+    end
     if (type(fmt) ~= "string" or not strfind(fmt, "%%%d+%$")) then
         return rawformat(fmt, ...);
     end
@@ -215,6 +262,10 @@ function M.install()
     -- `table.unpack`, so a file that calls the bare name loads under a real 5.1 and dies here --
     -- a difference that would show up as one interpreter finding a fault the other cannot.
     _G.unpack = unpack or table.unpack;
+    -- 5.1 has `loadstring`; 5.3 and 5.4 renamed it to `load`. `AssertSnippetCompiles` reaches for
+    -- it on every generated snippet in a DEBUG build, so the harness gets the real thing rather
+    -- than a stand-in -- the compile it runs is a check worth having here too.
+    _G.loadstring = loadstring or load;
     _G.securecall = function(fn, ...) return fn(...); end
     _G.securecallfunction = function(fn, ...) return fn(...); end
     _G.floor = math.floor;
@@ -231,6 +282,75 @@ function M.install()
     _G.GetLocale = function() return "enUS"; end
     _G.UnitClass = function() return "Druid", "DRUID", 11; end
     _G.UnitExists = function() return false; end
+
+    --- The world the non-secure side asks about while it rebuilds. Every one of these is a value
+    --- returning query, the cheap side to mock (§4 of
+    --- `devdocs/going-headless-outside-the-ui.md`), and the answers come out of `M.world` so a
+    --- spec can put the client in a state rather than swapping the function out.
+    _G.InCombatLockdown = function() return M.world.inCombat and true or false; end
+    _G.UnitIsDead = function() return false; end
+    _G.UnitIsGhost = function() return false; end
+    _G.PlayerCanAssist = function() return false; end
+    _G.PlayerCanAttack = function() return false; end
+    _G.GetShapeshiftForm = function() return 0; end
+    _G.GetBonusBarOffset = function() return 0; end
+    _G.IsStealthed = function() return false; end
+    _G.IsMounted = function() return false; end
+    _G.IsInGroup = function() return false; end
+    _G.IsInRaid = function() return false; end
+    _G.GetNumGroupMembers = function() return 0; end
+    _G.SecureCmdOptionParse = function() return ""; end
+
+    --- The game's own binding table, which the addon reads and never writes: `RefreshGameMenuKeys`
+    --- asks what `TOGGLEGAMEMENU` sits on, and `BindingContexts.lua` walks the whole table to find
+    --- the keys an open editor has claimed. `M.world.bindings` is a list of
+    --- `{ action = , context = , keys = { ... } }` and starts empty, which is a client with
+    --- nothing bound rather than a client that refuses to answer.
+    _G.GetNumBindings = function() return #M.world.bindings; end
+    _G.GetBinding = function(index)
+        local entry = M.world.bindings[index];
+        if (not entry) then return; end
+        return entry.action, entry.category,
+            (table.unpack or unpack)(entry.keys or {}, 1, #(entry.keys or {}));
+    end
+    _G.GetBindingKey = function(action)
+        for i = 1, #M.world.bindings do
+            local entry = M.world.bindings[i];
+            if (entry.action == action) then
+                return (table.unpack or unpack)(entry.keys or {}, 1, #(entry.keys or {}));
+            end
+        end
+    end
+    _G.GetBindingText = function(key) return key; end
+    _G.GetBindingAction = function(key)
+        for i = 1, #M.world.bindings do
+            local entry = M.world.bindings[i];
+            for _, bound in ipairs(entry.keys or {}) do
+                if (bound == key) then return entry.action; end
+            end
+        end
+        return "";
+    end
+
+    --- **12.0's binding contexts, and the shim answers "this client has none".** `Enum` carries
+    --- the table so a value can be named, and `IsBindingContextActive` answers from
+    --- `M.world.activeBindingContexts`, which is empty until a spec opens one. With none active,
+    --- `BindingContexts.lua` yields nothing -- the state every client is in outside the housing
+    --- editor.
+    _G.Enum = {
+        BindingContext = { None = 0, Housing = 1, HousingDecor = 2 },
+        SpellBookSpellBank = { Player = 0, Pet = 1 },
+        SpellBookItemType = { Spell = 1, Flyout = 2, PetAction = 3, FutureSpell = 4 },
+        SpellBookSkillLineIndex = { Class = 2, General = 1 },
+    };
+    _G.C_KeyBindings = {
+        GetBindingContextForAction = function(action)
+            return M.world.bindingContexts[action];
+        end,
+        IsBindingContextActive = function(context)
+            return M.world.activeBindingContexts[context] and true or false;
+        end,
+    };
 
     -- What Profile.lua and Legacy.lua (the pre-rename SavedVariables import) need in order to
     -- load and run. The values are not arbitrary, they are **what the tests expect**: migration_spec
@@ -299,6 +419,21 @@ function M.install()
         --- base", which is what the client answers for every spell that is not overridden.
         FindBaseSpellByID = function(spellID) return M.world.baseSpells[spellID]; end,
     };
+    --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
+    --- flyout the world does not name answers with no slot count at all, which is the "not
+    --- learned" case and the one that makes `SetBindingAttributes` refuse to bind the key.
+    _G.GetFlyoutInfo = function(flyoutID)
+        local flyout = M.world.flyouts[flyoutID];
+        if (not flyout) then return; end
+        return flyout.name, flyout.description, #flyout.slots, true;
+    end
+    _G.GetFlyoutSlotInfo = function(flyoutID, slot)
+        local flyout = M.world.flyouts[flyoutID];
+        local spellID = flyout and flyout.slots[slot];
+        if (not spellID) then return; end
+        local spell = M.world.spells[spellID];
+        return spellID, nil, true, spell and spell.name;
+    end
     _G.GetCallPetSpellInfo = function(spellID)
         local slot = M.world.callPetSlots[spellID];
         if (not slot) then return; end
@@ -311,11 +446,16 @@ function M.install()
     frames.install();
     -- The unit right-click menu. `UnitWatch.lua` adds the "set as custom target" entries to it at
     -- load; what it hands over is a function the client calls back, and nothing headless calls it.
+    _G.SetClampedTextureRotation = function() end
     _G.Menu = { ModifyMenu = function() end };
     _G.MenuResponse = { Close = 1, Refresh = 2, Open = 3 };
 
     _G.SLASH_SCRIPT1 = "/script";
     _G.SLASH_CANCELFORM1 = "/cancelform";
+    -- A pet command that has a slash command, so `GetPetActionMacroText` answers for it. The
+    -- commands that have none are the ones the addon refuses to bind, and reaching that branch is
+    -- a matter of naming one that is not here.
+    _G.SLASH_PETATTACK1 = "/petattack";
 end
 
 --- Reads the bundled libraries. They are ordinary Lua files with no addon arguments -- `LibStub`

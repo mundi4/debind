@@ -84,5 +84,25 @@ return function()
         eq(format("%5.2f|%-3d|", 1.239, 4), " 1.24|4  |");
     end);
 
+    -- **The one conversion the two interpreters answer differently.** fengari gives `0.5` for a
+    -- bare `%f` where C -- and so the client's 5.1 -- gives `0.500000`. `Flyout.lua` bakes a
+    -- threshold into a snippet body with a bare `%f`, so without this the same rebuild builds two
+    -- different snippets depending on who ran it, and the emission golden could only ever hold for
+    -- one of them.
+    test("a bare %f gets C's six places", function()
+        eq(format("%f", 0.5), "0.500000");
+        eq(format("[%f]", 1), "[1.000000]");
+    end);
+
+    -- What must **not** move with it. A precision that was written down already answers the same
+    -- both ways, and an `f` that is not a conversion at all is just a letter.
+    test("only the bare one moves", function()
+        eq(format("%.2f", 0.5), "0.50");
+        eq(format("%5.1f", 0.5), "  0.5");
+        eq(format("%10f", 0.5), "  0.500000");
+        eq(format("100%%f"), "100%f");
+        eq(format("%s off", "50%"), "50% off");
+    end);
+
     return T;
 end

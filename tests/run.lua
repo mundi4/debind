@@ -63,8 +63,14 @@ local DebindStorage = shim.loadAddon(repoRoot .. "/DebindStorage", {
 DebindPrivate.Store = DebindStorage;
 
 local bench = false;
+--- Rewrite the recorded files instead of comparing against them. The emission golden is a net for
+--- a refactor and not a specification (`devdocs/going-headless-outside-the-ui.md` §6), so a
+--- deliberate change to what a rebuild emits is answered by updating it and reading the diff --
+--- the same discipline `tools/snippet-golden.txt` already runs on.
+local updateGolden = false;
 for i = 1, #(arg or {}) do
     if (arg[i] == "--bench") then bench = true; end
+    if (arg[i] == "--update-golden") then updateGolden = true; end
 end
 
 if (bench) then
@@ -95,13 +101,54 @@ local specs = {
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
     { name = "switch", path = root .. "/switch_spec.lua" },
+    -- **Last, and it runs a whole rebuild.** Everything above measures a function; this one drives
+    -- `UpdateBindings()` end to end and holds what came out against a recorded file. Module level
+    -- state -- `BindingAttrsCache`, `KeyMap`, the switch table -- is left behind by that
+    -- (`devdocs/going-headless-outside-the-ui.md` §10-1), so it goes after the specs that would
+    -- otherwise inherit it.
+    { name = "emit", path = root .. "/emit_spec.lua" },
+};
+
+--- Reading and writing a whole file, whichever interpreter this is.
+---
+--- **fengari has no `io.open`.** It offers `io.write` and nothing that opens a file, so the two
+--- fall back on functions `run.js` installs. A real interpreter never reaches them.
+local function readFile(path)
+    if (io.open) then
+        local file = io.open(path, "rb");
+        if (not file) then return nil, path .. " could not be opened"; end
+        local contents = file:read("*a");
+        file:close();
+        return contents;
+    end
+    return _G.__hostReadFile(path);
+end
+
+local function writeFile(path, contents)
+    if (io.open) then
+        local file = assert(io.open(path, "wb"));
+        file:write(contents);
+        file:close();
+        return;
+    end
+    _G.__hostWriteFile(path, contents);
+end
+
+--- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is
+--- the repository root -- a spec is loaded with `loadfile` and has no idea where it lives.
+local ctx = {
+    repoRoot = repoRoot,
+    root = root,
+    updateGolden = updateGolden,
+    readFile = readFile,
+    writeFile = writeFile,
 };
 
 local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
-    local result = chunk()(DebindPrivate, DebindStorage);
+    local result = chunk()(DebindPrivate, DebindStorage, ctx);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do
         totalFailures[#totalFailures + 1] = spec.name .. " / " .. f;

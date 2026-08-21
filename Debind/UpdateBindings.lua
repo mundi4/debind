@@ -83,6 +83,38 @@ local _rebindOnHoverFrame = false;
 --- because the axis constants are declared further down this file than the registration runs.
 local _measuresReaction = false;
 
+--- Scratch arrays for `sortedKeys`. Three, because the walks nest: a key's units are sorted inside
+--- the walk over keys, and one unit's reactions inside the walk over units.
+---
+--- **Wiped and refilled, never reallocated**, which is the rule this whole file already runs on -
+--- a rebuild allocates no table it can reuse.
+local _sortedA           = {};
+local _sortedB           = {};
+local _sortedC           = {};
+
+--- A table's keys, in order.
+---
+--- **Nothing emitted may depend on `pairs`.** Two things rest on that. The generated snippets are
+--- held against a recorded file at every run (`tests/emit_spec.lua`), and `pairs` answers in a
+--- different order under each of the interpreters the specs run on, so an unsorted walk would make
+--- the golden impossible rather than merely noisy. And the button names `SetBindingAttributes`
+--- hands out are drawn in the order keys are visited, so an unsorted walk does not just reorder
+--- the output - it changes what is in it.
+---
+--- In the game the same sort is what makes two dumps of one profile comparable.
+---
+--- The caller picks which scratch array to fill, and the choice is not free: the walks nest.
+local function sortedKeys(t, out)
+    wipe(out);
+    local count = 0;
+    for key in pairs(t) do
+        count = count + 1;
+        out[count] = key;
+    end
+    sort(out);
+    return out;
+end
+
 local function ResetContext()
     wipe(DebindPrivate.ClickTimeKeys);
     wipe(_macrotexts);
@@ -304,7 +336,8 @@ States.unitframe = hovered
 
     UpdateAttrChangedHandler();
 
-    for state, stateInfo in pairs(_switches) do
+    for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
+        local stateInfo = _switches[state];
         if (stateInfo) then
             -- previous switch value
             if (stateInfo.value ~= nil) then
@@ -330,7 +363,7 @@ States.unitframe = hovered
         wipe(_strArr);
     end
 
-    for unit in pairs(SPECIAL_UNITS) do
+    for _, unit in ipairs(sortedKeys(SPECIAL_UNITS, _sortedA)) do
         if (unit ~= "custom1" and unit ~= "custom2") then
             if (_unitsSeen[unit]) then
                 DebindPrivate.EnableUnitWatch(unit);
@@ -783,7 +816,8 @@ function UpdateBindingsMap()
         wipe(DebindPrivate.StateDrivenKeys);
     end
     appendLine("local bindings,t,u");
-    for key, bindingArray in pairs(DebindPrivate.KeyMap) do
+    for _, key in ipairs(sortedKeys(DebindPrivate.KeyMap, _sortedA)) do
+        local bindingArray = DebindPrivate.KeyMap[key];
         wipe(_updateFlags);
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
@@ -1068,7 +1102,8 @@ function UpdateBindingsMap()
                             -- explicit condition on that same unit, so that the two cannot write
                             -- the same key twice and let `pairs` order decide which survives.
                             local unitsTblCreated;
-                            for k, v in pairs(_mergedUnits) do
+                            for _, k in ipairs(sortedKeys(_mergedUnits, _sortedB)) do
+                                local v = _mergedUnits[k];
                                 if (not unitsTblCreated) then
                                     unitsTblCreated = true;
                                     appendLine("t.units=newtable()");
@@ -1094,9 +1129,9 @@ function UpdateBindingsMap()
                                         -- `%` idiom the restricted environment forces on masks
                                         -- needs the same two lookups **plus** arithmetic.
                                         appendLine("u.reaction=newtable()");
-                                        for bit, name in pairs(REACTION_NAMES) do
+                                        for _, bit in ipairs(sortedKeys(REACTION_NAMES, _sortedC)) do
                                             if (band(v.reaction, bit) ~= 0) then
-                                                appendLine("u.reaction.%s=true", name);
+                                                appendLine("u.reaction.%s=true", REACTION_NAMES[bit]);
                                             end
                                         end
                                     end
@@ -1175,7 +1210,8 @@ function UpdateBindingsMap()
                         -- 무엇보다 이건 위험한 방향을 막는 마지막 겹이다. 마커 하나가
                         -- 빠지거나 좁아지는 날 여기가 없으면 ⚑2가 그대로 돌아온다.
                         local switchesTblCreated;
-                        for state, v in pairs(binding.conditions) do
+                        for _, state in ipairs(sortedKeys(binding.conditions, _sortedB)) do
+                            local v = binding.conditions[state];
                             if (Constants.IsSwitchName(state)) then
                                 addSwitch(state);
                                 if (not switchesTblCreated) then
@@ -1278,7 +1314,7 @@ function UpdateBindingsMap()
 
             if (next(_updateFlags)) then
                 appendLine("bindings.updateFlags=newtable()");
-                for flag in pairs(_updateFlags) do
+                for _, flag in ipairs(sortedKeys(_updateFlags, _sortedB)) do
                     appendLine("bindings.updateFlags[%q]=true", flag);
                 end
             end
@@ -1355,7 +1391,8 @@ function UpdateMacroTextsMap()
 
     local index = 0;
 
-    for buttonOrStateName, data in pairs(_macrotextBindings) do
+    for _, buttonOrStateName in ipairs(sortedKeys(_macrotextBindings, _sortedA)) do
+        local data = _macrotextBindings[buttonOrStateName];
         if (data) then
             index = index + 1;
             data.index = index;
@@ -1414,7 +1451,8 @@ function UpdateMacroTextsMap()
 
     -- dependents
     local keysSeen = {};
-    for _, data in pairs(_macrotexts) do
+    for _, macrotext in ipairs(sortedKeys(_macrotexts, _sortedA)) do
+        local data = _macrotexts[macrotext];
         if (data) then
             assert(data.index);
             for _, arg in ipairs(data.args) do
@@ -1622,7 +1660,8 @@ end
     end
 
     -- Update Unit States
-    for unit, axes in pairs(_measuredUnitAxes) do
+    for _, unit in ipairs(sortedKeys(_measuredUnitAxes, _sortedA)) do
+        local axes = _measuredUnitAxes[unit];
         local unitExpr, existsExpr;
         if (unit == "custom1" or unit == "custom2") then
             unitExpr = format("UnitAliasMap[%q]", unit);
@@ -1642,7 +1681,8 @@ end
     end
 
     -- Update Switches
-    for state, stateInfo in pairs(_switches) do
+    for _, state in ipairs(sortedKeys(_switches, _sortedA)) do
+        local stateInfo = _switches[state];
         if (stateInfo) then
             if (stateInfo.mode == SWITCH_MODES.EXPR) then
                 appendLine([[stateValue=SecureCmdOptionParse(SwitchExpressions[%q] or "") and true or false]], stateInfo.name);
