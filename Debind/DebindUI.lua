@@ -4524,9 +4524,105 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 	self:GoToAction(action, destLayerID);
 end
 
+-- TEMP 조사용 (편집모드 taint). 끝나면 이 줄과 아래 분기를 지운다.
+--   1 = None 타입 (스펠북/특성 채우기를 건너뛴다)
+--   2 = Spellbook + extraIconsOnly (공용 카운터 증가와 BaseIconFilenames 생성을 건너뛴다)
+--- 아이콘 목록. **블리자드의 `IconDataProvider`를 그대로 쓰면 안 되는 이유가 여기 있다.**
+---
+--- 그쪽 `Init`은 파일 로컬 `BaseIconFilenames`가 비어 있으면 **부른 쪽이 채우고**, `Release`는
+--- 마지막 사용자가 놓을 때 **부른 쪽이 nil로 지운다**(`IconDataProvider.lua`). 그 자리에 우리가
+--- 쓰면 그 변수의 주인이 Debind가 된다.
+---
+--- 그 값을 편집모드가 읽는다. 진입 첫 줄의 `C_UnitAuras.SwitchAuraDataProvider()`가 오라
+--- 제공자를 **가짜 샘플**로 바꾸고, 그 샘플이 아이콘을 `GetSampleAuraIcon`에서 뽑는데
+--- (`EditModeAuraDataProvider.lua`) 그것이 `IconDataProviderMixin:GetNumIcons`를 지나며
+--- `BaseIconFilenames`를 읽는다. 그 한 번의 읽기로 **편집모드 진입 실행 전체가 우리 오염을
+--- 달고** 돌고, 같은 실행이 이어서 파티 프레임 체력바를 갱신하다 secret 값 비교에서 막힌다
+--- (`PartyMemberHealthCheck`). 증상은 "이름/아이콘 창을 한 번 연 세션에서는 편집모드에 들어갈
+--- 때마다 파티 체력바가 죽고 오류가 매 프레임 쏟아진다"였고, 리로드해야 풀렸다.
+---
+--- 그래서 기본 목록은 우리가 우리 테이블에 든다. **스펠북·특성 채우기와 필터 판정은 블리자드
+--- 것을 그대로 물려받는다** - `extraIconsOnly`를 켜면 그쪽 `Init`이 공용 값을 안 건드리고
+--- `extraIcons`만 채우기 때문이다. 우리가 새로 쓰는 것은 목록을 보는 접근자 셋뿐이다.
+local DebindIconDataProviderMixin = CreateFromMixins(IconDataProviderMixin);
+
+--- 블리자드의 `IconDataProvider_GetBaseIconTexture`와 같은 판정이다. 목록에는 파일 ID와 이름이
+--- 섞여 들어오고, 숫자로 읽히면 그대로가 ID다.
+local function BaseIconTexture(list, index)
+	local texture = list[index];
+	local fileDataID = tonumber(texture);
+	if (fileDataID ~= nil) then
+		return fileDataID;
+	end
+	return [[INTERFACE\ICONS\]] .. texture;
+end
+
+function DebindIconDataProviderMixin:Init(extraType)
+	-- 두 번째 인자가 extraIconsOnly다. 이것이 공용 값을 안 건드리게 하는 스위치다.
+	IconDataProviderMixin.Init(self, extraType, true);
+
+	local spell, item = IconDataProviderIconType.Spell, IconDataProviderIconType.Item;
+	self.baseIcons = { [spell] = {}, [item] = {} };
+
+	-- 순서는 블리자드가 채우는 순서 그대로다. 목록 순서가 곧 화면의 아이콘 순서다.
+	GetLooseMacroIcons(self.baseIcons[spell]);
+	GetMacroIcons(self.baseIcons[spell]);
+	GetLooseMacroItemIcons(self.baseIcons[item]);
+	GetMacroItemIcons(self.baseIcons[item]);
+end
+
+--- 1번 칸은 물음표다. 그 뒤가 extraIcons, 그 뒤가 종류별 기본 목록이다.
+function DebindIconDataProviderMixin:GetNumIcons()
+	local numIcons = 1;
+	if (self:ShouldShowExtraIcons()) then
+		numIcons = numIcons + #self.extraIcons;
+	end
+	for _, iconType in pairs(self.requestedIconTypes) do
+		numIcons = numIcons + #self.baseIcons[iconType];
+	end
+	return numIcons;
+end
+
+function DebindIconDataProviderMixin:GetIconByIndex(index)
+	if (index == 1) then
+		return [[INTERFACE\ICONS\INV_MISC_QUESTIONMARK]];
+	end
+	index = index - 1;
+
+	local numExtraIcons = self:ShouldShowExtraIcons() and #self.extraIcons or 0;
+	if (index <= numExtraIcons) then
+		return self.extraIcons[index];
+	end
+
+	-- 종류별 목록은 각각 1부터라, 어느 목록에 떨어지는지를 빼가며 찾는다.
+	local baseIndex = index - numExtraIcons;
+	for _, iconType in pairs(self.requestedIconTypes) do
+		local list = self.baseIcons[iconType];
+		if (baseIndex <= #list) then
+			return BaseIconTexture(list, baseIndex);
+		end
+		baseIndex = baseIndex - #list;
+	end
+	return nil;
+end
+
+--- 블리자드 쪽은 여기서 공용 카운터를 내리고 마지막이면 공용 목록을 지운다. 우리는 그 자리에
+--- 쓴 적이 없으므로 우리 것만 놓는다.
+---
+--- **비우고 nil로는 두지 않는다.** 놓은 뒤에도 팝업 쪽에는 이 객체를 가리키던 참조가 남고
+--- (`OnShow`가 다음에 열릴 때 새로 받아 간다), nil이면 그 참조로 개수를 묻는 순간 에러가 난다.
+--- 블리자드 쪽은 `BaseIconFilenames`가 없으면 개수를 1로 답하고 넘어가므로, 그쪽과 같은
+--- 자리에서 같은 답이 나오게 빈 목록을 남긴다.
+function DebindIconDataProviderMixin:Release()
+	self.baseIcons = { [IconDataProviderIconType.Spell] = {}, [IconDataProviderIconType.Item] = {} };
+	self.extraIcons = {};
+end
+
+--- 창마다 따로 만들지 않는다. 이름/아이콘 선택기는 매크로 말고 다른 곳에서도 열리고, 목록은
+--- 어느 쪽이든 같다. 창이 닫힐 때 `OnHide`가 놓는다.
 function DebindFrameMixin:RefreshIconDataProvider()
 	if (self.iconDataProvider == nil) then
-		self.iconDataProvider = CreateAndInitFromMixin(IconDataProviderMixin, IconDataProviderExtraType.Spellbook);
+		self.iconDataProvider = CreateAndInitFromMixin(DebindIconDataProviderMixin, IconDataProviderExtraType.Spellbook);
 	end
 	return self.iconDataProvider;
 end
@@ -4575,10 +4671,13 @@ function DebindIconSelectorFrameMixin:OnShow()
 	-- 것을 알아야 한다. 이 표시가 그 짝을 맞춘다.
 	self.popupCounted = true;
 	IconSelectorPopupFrameTemplateMixin.OnShow(self);
+
 	self.BorderBox.IconSelectorEditBox:SetFocus();
 
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN);
+
 	self.iconDataProvider = DebindFrame:RefreshIconDataProvider();
+
 	self:SetIconFilter(IconSelectorPopupFrameIconFilterTypes.All);
 	self:Update();
 	self.BorderBox.IconSelectorEditBox:OnTextChanged();

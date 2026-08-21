@@ -2061,6 +2061,69 @@ local function OpenMacroEditor(body, cancelFunc)
     return action, DebindMacroFrame.Editor.ScrollFrame.EditBox
 end
 
+--- **이 테스트가 지키는 것은 아이콘 목록이 아니라 편집모드다.**
+---
+--- 블리자드의 `IconDataProvider`는 파일 로컬 `BaseIconFilenames`를 **처음 쓰는 쪽이 만들고
+--- 마지막에 놓는 쪽이 지운다.** 그 자리를 우리가 밟으면 그 변수의 주인이 Debind가 되고,
+--- 편집모드는 진입할 때 샘플 오라 아이콘을 뽑느라 그 값을 읽는다
+--- (`EditModeAuraDataProvider.lua`의 `GetSampleAuraIcon` -> `GetNumIcons`). 그 한 번의 읽기로
+--- 편집모드 진입 실행 전체가 물들고, 같은 실행이 이어서 파티 체력바를 갱신하다 secret 비교에
+--- 막힌다. 이름/아이콘 창을 한 번 연 세션은 편집모드에 들어갈 때마다 파티 체력바가 죽었다.
+---
+--- **그 증상은 인게임에서도 못 재는 종류다** - 오염은 Lua에서 안 보이고, 편집모드 진입을
+--- 테스트가 대신 눌러줄 수도 없다. 그래서 재는 것은 그 원인을 만드는 **구조**다. 우리 제공자가
+--- 블리자드 것 그대로면 실패한다.
+RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
+    description = "블리자드 공용 IconDataProvider를 우리가 만들거나 지우지 않는가",
+    run = function()
+        local NAME = "Icon provider"
+
+        DebindFrame:Show()
+        AddTeardown(function()
+            DebindIconSelectorFrame:Hide()
+            DebindFrame:Hide()
+        end)
+
+        local provider = DebindFrame:RefreshIconDataProvider()
+        if not provider then
+            return Fail(NAME, "제공자가 없다")
+        end
+
+        -- 목록을 만드는 쪽과 지우는 쪽, 둘 다 우리 것이어야 한다.
+        if provider.GetNumIcons == IconDataProviderMixin.GetNumIcons then
+            return Fail(NAME, "GetNumIcons가 블리자드 것이다 - 공용 BaseIconFilenames를 읽는다")
+        end
+        if provider.Release == IconDataProviderMixin.Release then
+            return Fail(NAME, "Release가 블리자드 것이다 - 공용 BaseIconFilenames를 지운다")
+        end
+
+        -- 그러고도 목록이 실제로 서야 한다. 물음표 한 칸 + 스펠북 + 기본 목록.
+        local numIcons = provider:GetNumIcons()
+        if numIcons < 2 then
+            return Fail(NAME, format("아이콘이 %d개뿐이다 - 목록이 안 채워졌다", numIcons))
+        end
+
+        local questionMark = provider:GetIconByIndex(1)
+        if questionMark ~= [[INTERFACE\ICONS\INV_MISC_QUESTIONMARK]] then
+            return Fail(NAME, format("1번 칸이 물음표가 아니다: %s", tostring(questionMark)))
+        end
+
+        -- 마지막 칸까지 실제 아이콘이 나와야 한다. 경계를 잘못 세면 여기서 nil이 나온다.
+        local last = provider:GetIconByIndex(numIcons)
+        if last == nil then
+            return Fail(NAME, format("마지막 칸(%d)이 비었다 - 종류별 목록 경계가 어긋났다", numIcons))
+        end
+
+        -- 되찾기. 같은 아이콘이 여러 번 나올 수 있으므로 번호가 아니라 아이콘으로 견준다.
+        local found = provider:GetIndexOfIcon(last)
+        if not found or provider:GetIconByIndex(found) ~= last then
+            return Fail(NAME, format("GetIndexOfIcon이 %s를 못 찾는다", tostring(last)))
+        end
+
+        return Pass(NAME, format("우리 제공자, 아이콘 %d개", numIcons))
+    end,
+})
+
 RegisterTest("Macro editor: the body reaches the profile when the window closes", {
     description = "닫아야 저장되고, 이름·아이콘 팝업을 다녀오는 것으로는 저장되지 않는가",
     run = function()
