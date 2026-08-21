@@ -189,11 +189,20 @@ self:Show()
     end
 end
 
--- 로스터가 바뀌었을 때(uptodate=false) / 다시 최신이 됐을 때(uptodate=true) 커스텀 타겟 정리.
--- 이름 추적(헤더가 켜져 있음)은 사람을 따라가므로 건드리지 않고, 휘발성(원시 토큰)만 손본다.
--- 속성 변경 이벤트에 얹지 않고 명시적으로 호출한다. 동일 값 SetAttribute도
--- _onattributechanged를 발화시키는 건 확인했지만(인게임 측정) 문서화된 동작은 아니다.
--- 무효화가 조용히 안 돌면 @custom1이 로스터가 밀린 뒤 남을 가리키므로 거기에 기대지 않는다.
+-- Tidies custom targets when the roster changed (uptodate=false) and when it is current
+-- again (uptodate=true). Name-tracked ones (their header is shown) follow the person by
+-- themselves, so only the volatile ones (a raw token) are touched here.
+--
+-- A volatile one is dropped rather than carried over because we never learned who it points
+-- at. `unitNames` is filled by `UpdateGroupRoster`, which bails out in combat, so from the
+-- first roster change of a fight onwards a raw `raid7` has no name behind it. At the next
+-- roster change there is nothing to compare against and no way to tell whether `raid7` is
+-- still the same person, and aiming at the wrong one is worse than aiming at nobody.
+--
+-- Called explicitly instead of being hung off the attribute changed event. SetAttribute with
+-- an unchanged value does fire `_onattributechanged` (measured in game), but that is not
+-- documented behaviour, and if invalidation silently stops running then `@custom1` points at
+-- a stranger once the roster has shifted, so nothing here leans on it.
 UnitWatch:SetAttribute("OnGroupRosterChanged", [==[
     local uptodate = ...
     for i = 1, 2 do

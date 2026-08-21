@@ -166,7 +166,7 @@ Unit frame addons that support Clique register with Debind the same way they reg
 
 **These don't go on your action bars.** A Debind action is a binding, not a bar button — there's nothing to drag out. If you want to keep watching something, leave it on the bar where it already is and let Debind take the key; the button carries on doing everything it always did. And if one really needs a slot of its own, that one's a WoW macro — see below.
 
-**Custom targets have one gap, and it's a narrow one.** The group changes mid-fight, and *after that* you pin a party or raid member. Until combat ends that one is tied to their spot in the group rather than to them, and if the group shifts again first it's dropped rather than left pointing at whoever moved into the slot — Debind says so in chat. One pinned before the group changed keeps following them through it.
+**Custom targets have one gap, and it's a narrow one.** Say the group changes mid-fight. Anyone you pinned before that is unaffected, but a party or raid member you pin *after that* only lasts until the group changes again. At that point Debind can no longer tell whether the pin is still on the same person. Pointing at the wrong one is worse than pointing at nobody, so it's cleared, and Debind says so in chat. Pin them again once the fight is over and it behaves like any other.
 
 **A few keys stop working in the house editor.** While it's open the editor claims some keys for its own shortcuts, and Debind leaves those alone — so an action bound to one of them does nothing until you close the editor. If you'd rather keep one of yours, there's a setting on the action for that.
 
