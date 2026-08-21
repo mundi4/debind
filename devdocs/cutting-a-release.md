@@ -40,6 +40,18 @@ delete on both. Re-run a failed run from the Actions page instead.
 
 Only when `main` holds work that cannot ship yet. Otherwise release from `main`.
 
+**Branching from the tag is the right default, and the reason is verification.** What ships is then
+exactly the fix, so the only thing to check is the fix. Branching from a later commit drags in
+whatever was finished since, and all of that has to be verified too, at the worst possible moment.
+
+**Before you cut, read `0-ROADMAP.md` once and ask whether anything waiting has a closing window.**
+Most waiting work loses nothing by waiting one more release. A few things do: a guard that only
+counts if it reaches users *before* the thing it guards against is worthless the moment that thing
+ships, and a hotfix may be the only release leaving before then. This is a look, not a burden. If
+there is such a thing, decide then whether it is small enough to carry; if there is not, cut from
+the tag and move on. 3.2.1 and 3.2.2 both went out from the tag without that look, and the
+downgrade guard lost its window (`legacy/guarding-against-a-downgrade.md`).
+
 ```
 git switch -c hotfix-3.1.7 v3.1.6
 # fix, commit, write the note
