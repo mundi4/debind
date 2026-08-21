@@ -83,6 +83,13 @@ a probe changed.
 Anything beyond that means the live table is changing bodies. If you edited a body deliberately,
 `node tools/check-snippet-golden.js --update` and read the diff.
 
+**Neither golden is compared as raw bytes on Windows, and that is deliberate.** Both are recordings
+of bytes, and `core.autocrlf` rewrites line endings on checkout, so a golden matched only in the
+working tree that generated it: a fresh checkout went red on line 1 showing two lines that look
+identical. Both are marked `-text` in `.gitattributes` and both strip carriage returns on read,
+because the attribute governs what is checked out from here on and a copy already converted stays
+converted. If you are writing a third file of this kind, it needs both halves.
+
 **`check:state-eval`** bakes `EVAL_SNIPPET` and holds it against
 `Constants.STATE_EVAL_EXPRESSIONS`, which is where the state loop gets its own lines. The loop
 measures on its 0.2s beat and the click path measures at the press, so if the two read one axis
@@ -225,16 +232,22 @@ those tests pass (`TypeInto` in `DebindTest.lua`).
 it goes away. Without the second half the test also passes on something that was true the whole
 time.
 
-**Build your own preconditions.** What gets generated depends on the bindings that exist. With no
-hover binding anywhere, `HoverBindings` stays false and the hover axis is never wired; with no
-petbattle binding, that state is resolved by a different branch. Insert what you need and call
-`ApplyBindings()` — do not hope for it.
+**Build your own preconditions.** What gets generated depends on the bindings that exist. With
+nothing measuring the hover axis, `UPDATE_MOUSEOVER_UNIT` is never registered and
+`rebindOnHoverFrame` stays false; with no petbattle binding, that state is resolved by a different
+branch. Insert what you need and call `ApplyBindings()` — do not hope for it.
 
 **Verify that setup took.** `RegisterFrame` refuses quietly and remembers the refusal. Left
 unchecked, a test drives a frame the addon is not watching, reads an empty slot, and reports it.
 
 **Assert outcomes, not mechanism.** Reaching into how a result was produced — which attributes got
 stamped where — ties the test to wiring that is being replaced. Check what the game ended up doing.
+
+**The emission golden is the one deliberate exception, and it is one because it is not a test of
+behaviour.** It records the mechanism on purpose: every string a rebuild hands to the secure side,
+byte for byte. That is a net for moving code, not a claim that what came out is right, and the two
+must not be confused — a spec that wants to know whether a key fires the right action asks
+`restricted.lua`, not the golden.
 
 **One condition on one key proves almost nothing.** It answers "does it look at the condition at
 all", and every fault worth finding is past that line: a key carrying several records, each naming

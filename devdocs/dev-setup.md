@@ -77,6 +77,14 @@ package nor a user. Without the hook there is no file and the label reads `dev`.
 `node_modules` is not created in a new worktree and is not linked automatically. Make the junction
 by hand after `git worktree add`, or none of the tooling runs there.
 
+**`reference/` needs the same treatment, and it is two junctions rather than one.** It is
+gitignored, so a new worktree has nothing there: `reference/globalstrings` (what
+`npm run globalstrings` fetched) and `reference/wow-ui-source` (itself a junction to the shallow
+clone kept outside the project) both have to be pointed at the same places the main worktree points
+at. `npm run check` passes without them, which is exactly why this is easy to miss — what breaks is
+reading Blizzard's own code and strings, and that failure looks like "the file is not there" rather
+than like a setup step nobody did.
+
 **Before removing a worktree, break that junction first.** `git worktree remove` — and anything
 else that deletes the directory recursively — walks through the junction and takes the main repo's
 `node_modules` with it.

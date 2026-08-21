@@ -7,3 +7,10 @@
 # only fixes what is checked out from here on, and a copy already converted stays converted
 # (`tests/emit_spec.lua`).
 tests/emit-golden.txt -text
+
+# The snippet golden is the same kind of file and was already surviving the same way: its checker
+# normalizes on read, and its comment records the same failure (`tools/check-snippet-golden.js`,
+# passing on the file it had just written and going red after one `git reset`). It is marked here
+# so the two goldens are governed the same way, and so a checkout stops being the thing that
+# rewrites a recording of bytes.
+tools/snippet-golden.txt -text
