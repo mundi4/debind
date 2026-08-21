@@ -147,6 +147,11 @@ end
 --- lifts (`devdocs/redesigning-custom-states.md`). What decides now is the same thing that decides
 --- everywhere else: whether `ResolveSwitchDefinition` has an answer.
 ---
+--- **How it behaves is asked of the layers, whether it exists is asked of the definition** (§4-6).
+--- Those are two questions and they get two doors: a switch this character overrides is the same
+--- switch, so `mode` and `expr` come from the row that wins here while the name, and the fact that
+--- there is one at all, stay account-wide.
+---
 --- `false` is memoized alongside a real one so an undefined name is resolved once per rebuild
 --- rather than once per reference.
 function addSwitch(stateName)
@@ -154,13 +159,14 @@ function addSwitch(stateName)
     if (info == nil) then
         local options = DebindPrivate.ResolveSwitchDefinition(stateName);
         if (options) then
+            local mode, _, expr = DebindPrivate.ResolveSwitchAnswer(stateName);
             info = {
                 name = stateName,
-                mode = options.mode,
+                mode = mode,
                 value = options.value,
             };
-            if (options.mode == SWITCH_MODES.EXPR) then
-                info.expr = options.expr or "";
+            if (mode == SWITCH_MODES.EXPR) then
+                info.expr = expr or "";
                 addMacrotextBinding(info.name, info.expr);
             end
         end
@@ -169,7 +175,6 @@ function addSwitch(stateName)
     end
     return info;
 end
-
 function addMacrotext(macrotext)
     local ret = _macrotexts[macrotext];
     if (ret == nil) then
@@ -282,6 +287,17 @@ function DebindPrivate.UpdateBindings()
     if (C_SpecializationInfo.GetSpecialization() == nil) then
         return;
     end
+
+    -- **Where a specialization change reaches a switch** (§4-8 of
+    -- `devdocs/redesigning-custom-states.md`). An override saying "always on in this
+    -- specialization" has to be applied on the way *into* that specialization, not only at login,
+    -- and a specialization change is a rebuild - this one. It is below the guard above on purpose:
+    -- which answer wins depends on the specialization, so asking before it is known would resolve
+    -- every switch against the wrong world and then not ask again.
+    --
+    -- Nothing is re-applied where the answer has not moved, so the ordinary rebuild - a binding
+    -- edited, a macro saved - leaves every value where the reader left it.
+    DebindPrivate.ApplySwitchResets();
 
     DebindPrivate.RefreshYieldedKeys();
     DebindPrivate.RefreshGameMenuKeys();

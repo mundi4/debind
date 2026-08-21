@@ -938,6 +938,303 @@ function DebindPrivate.ResolveSwitchDefinition(name)
     return DebindPrivate.Switches[name];
 end
 
+--- The absolute key a layer's override is filed under, or nil where a layer has none.
+---
+--- ⚠ **`LAYER_INFOS` 7..11 mean "whoever is logged in".** Overrides hang off the definition and
+--- definitions are account-wide, so filing one under the layer's own number would have the next
+--- character to log in read this one's setting, and write over it. The key has to say *which*
+--- character, the way `characters[guid]` already does
+--- (`devdocs/redesigning-custom-states.md` §4-7-3).
+---
+--- **Layer 1 has no key, and that is not a gap.** `GENERAL` is the root answer; it lives on the
+--- definition itself and cannot be missing, which is what the whole cascade stands on (§4-6).
+---
+--- **The specialization half is still the index and not the specialization's own id.** `DRUID:2`
+--- has to be read knowing the class, and the key carries the class, so it is readable. §4-7-3 has
+--- the swap to ids written up along with why it needs no version bump, so it stays available.
+function DebindPrivate.GetSwitchLayerKey(layerID)
+    local layerInfo = LAYER_INFOS[layerID];
+    if (not layerInfo or layerInfo.key == "GENERAL") then
+        return nil;
+    end
+    if (layerInfo.isCharacterSpecific) then
+        local guid = DebindPrivate.playerGUID;
+        if (not guid) then
+            return nil;
+        end
+        return guid .. ":" .. layerInfo.spec;
+    end
+    return layerInfo.key .. ":" .. layerInfo.spec;
+end
+
+--- Every layer this character can file an override at, narrowest scope first. **`GENERAL` is not
+--- among them**: that is the root, and the root is the definition.
+---
+--- **Every specialization, not the one being played.** This is what the Switches tab draws its rows
+--- and its override menu from, and setting a switch up for a specialization you are not currently
+--- in is the ordinary case - the same reason the window's own side tabs reach all of them.
+---
+--- The table is shared and must not be written to. It cannot change during a session: what is in it
+--- is the class's specialization count, which is fixed for the character who is logged in.
+local OVERRIDABLE_LAYERS;
+function DebindPrivate.GetOverridableLayerIDs()
+    if (not OVERRIDABLE_LAYERS) then
+        OVERRIDABLE_LAYERS = {};
+        local function Add(spec, isCharacterSpecific)
+            OVERRIDABLE_LAYERS[#OVERRIDABLE_LAYERS + 1] =
+                DebindPrivate.GetLayerID(spec, isCharacterSpecific);
+        end
+        for spec = 1, NUM_SPECS do
+            Add(spec, true);
+        end
+        Add(0, true);
+        for spec = 1, NUM_SPECS do
+            Add(spec, false);
+        end
+        Add(0, false);
+    end
+    return OVERRIDABLE_LAYERS;
+end
+
+--- The layers an override is looked up through, narrowest first. `GENERAL` is not among them: the
+--- root definition is that row.
+---
+--- **The order is `EnumerateProfileLayers`'s**, deliberately the same walk minus its last entry.
+--- §4-6 chose a cascade for switches by pointing at the order bindings already resolve in, and two
+--- orders that have to agree are better kept as one.
+local _overrideLayers = {};
+local function ActiveOverrideLayers(spec)
+    wipe(_overrideLayers);
+    if (spec == nil) then
+        spec = C_SpecializationInfo.GetSpecialization() or 0;
+    end
+    -- The same guard `EnumerateProfileLayers` uses: a character that has not picked a
+    -- specialization is handed an out-of-range index rather than nil, and those two layers do not
+    -- exist for it.
+    local hasSpec = spec > 0 and spec <= NUM_SPECS;
+    if (hasSpec) then
+        _overrideLayers[#_overrideLayers + 1] = DebindPrivate.GetLayerID(spec, true);
+    end
+    _overrideLayers[#_overrideLayers + 1] = DebindPrivate.GetLayerID(0, true);
+    if (hasSpec) then
+        _overrideLayers[#_overrideLayers + 1] = DebindPrivate.GetLayerID(spec, false);
+    end
+    _overrideLayers[#_overrideLayers + 1] = DebindPrivate.GetLayerID(0, false);
+    return _overrideLayers;
+end
+
+--- How this switch behaves **here**: on this character, in this specialization. Four values, and
+--- the last one says where the answer came from - the winning layer's key, or nil where the root
+--- gave it.
+---
+--- **Not a table.** A merged one would be written through: half of what reaches a definition sets a
+--- field on it, and a copy would take those writes and drop them with nothing said. Editing a
+--- switch is editing one row, and which row is something the caller has to say out loud
+--- (`SetSwitchAnswer`).
+---
+--- **A row is one answer and not a patch**, so the first one found answers all three fields. §4-6
+--- gives a layer four things it can say and `nil` is one of them - "come back the way this
+--- character left it" is `resetValue == nil` - so a field-by-field merge could not express it: a
+--- missing field would mean both "this layer says nothing" and "reset to nothing".
+---
+--- **`displayMessage` is not one of the four**, so it is not here. It stays on the definition with
+--- the one menu that sets it (`SwitchesUI.lua`); an override row carrying it would be a stored
+--- field nothing writes and nothing reads.
+function DebindPrivate.ResolveSwitchAnswer(name)
+    local definition = DebindPrivate.Switches[name];
+    if (not definition) then
+        return nil;
+    end
+
+    local overrides = definition.overrides;
+    if (overrides) then
+        local layerIDs = ActiveOverrideLayers();
+        for i = 1, #layerIDs do
+            local key = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
+            local row = key and overrides[key];
+            if (row) then
+                return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr, key;
+            end
+        end
+    end
+
+    return definition.mode or SWITCH_DEFAULTS.mode, definition.resetValue, definition.expr, nil;
+end
+
+--- The answer one layer gives, or nil where that layer says nothing. `layerKey` nil is the root,
+--- which always answers.
+function DebindPrivate.GetSwitchAnswerAt(name, layerKey)
+    local definition = DebindPrivate.Switches[name];
+    if (not definition) then
+        return nil;
+    end
+
+    local row = definition;
+    if (layerKey ~= nil) then
+        row = definition.overrides and definition.overrides[layerKey];
+        if (not row) then
+            return nil;
+        end
+    end
+    return row.mode or SWITCH_DEFAULTS.mode, row.resetValue, row.expr;
+end
+
+--- Writes one of the four answers at one layer. `layerKey` nil writes the root.
+---
+--- **Both fields, every time**, because the four are one axis: arriving from the expression answer
+--- and setting only `resetValue` leaves a row that computes itself *and* claims to come up on.
+---
+--- **`expr` is left alone**, which is the other half of the same rule. It is not one of the four,
+--- it is the words behind one of them, and a reader who tries the other three and comes back has
+--- not asked to lose what they typed.
+function DebindPrivate.SetSwitchAnswer(name, layerKey, mode, resetValue)
+    local definition = DebindPrivate.Switches[name];
+    if (not definition) then
+        return false;
+    end
+
+    local row = definition;
+    if (layerKey ~= nil) then
+        definition.overrides = definition.overrides or {};
+        row = definition.overrides[layerKey];
+        if (not row) then
+            row = {};
+            definition.overrides[layerKey] = row;
+        end
+    end
+
+    row.mode = mode;
+    row.resetValue = resetValue;
+    return true;
+end
+
+--- The expression behind one row's expression answer, written on its own for the reason above:
+--- picking the answer and saying what it computes are two gestures, and the box that asks the
+--- second one can be reopened without going back through the first.
+function DebindPrivate.SetSwitchExpression(name, layerKey, expr)
+    local definition = DebindPrivate.Switches[name];
+    if (not definition) then
+        return false;
+    end
+
+    local row = definition;
+    if (layerKey ~= nil) then
+        row = definition.overrides and definition.overrides[layerKey];
+        if (not row) then
+            return false;
+        end
+    end
+
+    row.expr = expr;
+    return true;
+end
+
+--- Takes one layer's override away. **The root has none to take**: it is the row §4-6 requires to
+--- always be there, and without it the references pointing at this switch have nowhere to land.
+function DebindPrivate.ClearSwitchOverride(name, layerKey)
+    local definition = DebindPrivate.Switches[name];
+    if (layerKey == nil or not definition or not definition.overrides) then
+        return false;
+    end
+    if (not definition.overrides[layerKey]) then
+        return false;
+    end
+
+    definition.overrides[layerKey] = nil;
+    if (next(definition.overrides) == nil) then
+        definition.overrides = nil;
+    end
+    return true;
+end
+
+--- How many layers override this switch, **counting the ones this character cannot see**.
+---
+--- That is the whole reason it is a number and not a list. The definition is account-wide while the
+--- Switches tab draws the layers one character reaches, so deleting from a priest takes a druid's
+--- overrides with it, and the delete question is the only place that asymmetry is ever on screen
+--- (§6-B).
+function DebindPrivate.CountSwitchOverrides(name)
+    local definition = DebindPrivate.Switches[name];
+    local count = 0;
+    for _ in pairs(definition and definition.overrides or {}) do
+        count = count + 1;
+    end
+    return count;
+end
+
+--- Every switch back to what its answer says it comes up as, wherever that answer has moved since
+--- the last time this ran.
+---
+--- **`resetValue` is not a login-time value** (§4-8). An override saying "always on in this
+--- specialization" is a lie the moment changing into that specialization leaves the switch off. The
+--- answer in effect moves when the specialization moves, when the character does, and when the
+--- reader edits a row - one event as far as this is concerned, *the answer is not the one that was
+--- last applied*.
+---
+--- **Not on every rebuild.** A rebuild runs whenever a binding is edited, so applying every time
+--- would put a forced switch back on seconds after the reader pressed it off. What is compared is
+--- the answer itself, so nothing moves while it stands still.
+---
+--- **The expression is not part of the comparison.** Three fields decide a reset - where the answer
+--- came from, whether it is computed, and what it resets to - and rewording an expression changes
+--- none of them. The expression loop recomputes the value on the next pass anyway.
+local _appliedAnswers = {};
+
+function DebindPrivate.ApplySwitchResets()
+    local savedValues = DebindPrivate.db.char.switches;
+
+    for name, definition in pairs(DebindPrivate.Switches) do
+        local mode, resetValue, _, layerKey = DebindPrivate.ResolveSwitchAnswer(name);
+        -- One string rather than three values kept side by side: what is being asked is "the same
+        -- answer from the same row", and three compared one at a time is three chances to forget
+        -- one.
+        local applied = tostring(layerKey) .. "|" .. mode .. "|" .. tostring(resetValue);
+        if (_appliedAnswers[name] ~= applied) then
+            _appliedAnswers[name] = applied;
+            if (mode == Constants.SWITCH_MODES.MANUAL) then
+                -- **`resetValue == nil` is an answer, not a missing value** - come back to what
+                -- this character was left on. That link is invisible in either field's name.
+                if (resetValue ~= nil) then
+                    definition.value = resetValue;
+                else
+                    definition.value = savedValues[name] and true or false;
+                end
+            else
+                definition.value = definition.value or false;
+            end
+        end
+    end
+
+    -- Names whose definition has gone. Left in, a switch made again under the same name would come
+    -- up holding an answer nobody gave it.
+    for name in pairs(_appliedAnswers) do
+        if (not DebindPrivate.Switches[name]) then
+            _appliedAnswers[name] = nil;
+        end
+    end
+end
+
+--- Forgets what was last applied, so the next `ApplySwitchResets` applies every switch again.
+---
+--- One caller: `BindDerivedTables`, which runs at load and again after the pre-rename import swaps
+--- the tables out (`Legacy.lua`). Both are a new world, and a memo carried across it would answer
+--- for switches that are no longer the same switches.
+local function ForgetAppliedAnswers()
+    wipe(_appliedAnswers);
+end
+
+--- Carries what was last applied over to a new name.
+---
+--- **The memo is keyed by name, so a rename that leaves it behind is a press.** The new name has
+--- nothing recorded, the first rebuild after the rename therefore applies its answer from scratch,
+--- and a switch whose answer is "comes up off" goes off in front of a reader who only asked to
+--- rename it. `RenameSwitch` is careful not to touch the value itself for exactly this reason; the
+--- rebuild that follows it is where the value would actually move.
+local function MoveAppliedAnswer(oldName, newName)
+    _appliedAnswers[newName] = _appliedAnswers[oldName];
+    _appliedAnswers[oldName] = nil;
+end
+
 --- Makes a switch under this name. Answers `true`, or `false` and a locale key saying why it
 --- refused. It is the same contract `RenameSwitch` has, and for the same reason: both are a reader
 --- typing a name into a box, and the sentence they get back has to be about the name they typed.
@@ -1068,7 +1365,8 @@ end
 ---   * an on/off/toggle action's target, `action.value`
 ---   * a macro body's `[$burst]` and `no$burst`
 ---   * **another switch's expression**, which is the one that gets forgotten. An expression is a
----     macro body too, and one switch computed from another is a shape this addon supports
+---     macro body too, and one switch computed from another is a shape this addon supports. There
+---     is one per row that answers with an expression now, not one per switch
 ---
 --- And a fifth that is not a reference but is keyed by the name all the same: the value each
 --- character remembers. Left behind, a switch that remembers would come up off after a rename with
@@ -1110,9 +1408,19 @@ function DebindPrivate.RenameSwitch(oldName, newName)
         end
     end, DebindPrivate.db.char);
 
+    -- **Every row, not only the root's.** A layer override carries an expression of its own, and
+    -- one left behind is the quietest failure this function has: the switch computed from the old
+    -- name bakes to `known:0` **on that one tab**, so it works everywhere the reader is likely to
+    -- look and is false in the one place they set it up for.
+    local function RenameInRow(row)
+        if (luatype(row.expr) == "string") then
+            row.expr = DebindPrivate.RenameSwitchInMacroText(row.expr, oldName, newName);
+        end
+    end
     for _, other in pairs(DebindPrivate.Switches) do
-        if (luatype(other.expr) == "string") then
-            other.expr = DebindPrivate.RenameSwitchInMacroText(other.expr, oldName, newName);
+        RenameInRow(other);
+        for _, row in pairs(other.overrides or {}) do
+            RenameInRow(row);
         end
     end
 
@@ -1130,6 +1438,7 @@ function DebindPrivate.RenameSwitch(oldName, newName)
 
     DebindPrivate.Switches[newName] = definition;
     DebindPrivate.Switches[oldName] = nil;
+    MoveAppliedAnswer(oldName, newName);
 
     DebindPrivate.OnSwitchesChanged();
     return true;
@@ -1168,8 +1477,8 @@ end
 --- import (`Legacy.lua`) replaces these tables wholesale during PLAYER_LOGIN, so without running
 --- this again afterwards `DebindPrivate.Options` and `.Switches` would keep pointing at the
 --- empty tables from before the import. For `switches` it is not only the reference: `value`
---- has to be recomputed from `resetValue`/`savedValue`, so copying the contents across would not
---- be enough - this calculation has to run again.
+--- has to be recomputed from the answer in effect and `savedValue`, so copying the contents across
+--- would not be enough - that calculation has to run again.
 ---
 --- **`DebindPrivate.Switches` is `db.switches`.** Both are keyed by name, so there is nothing left
 --- to join: a condition, a macro body and an on/off/toggle target all name a switch by string, and
@@ -1181,7 +1490,7 @@ end
 --- account-wide and a name raises an expectation of scope that a number never did, so "remember"
 --- used to mean "remember what the character who logged out last left" (§5 of
 --- `devdocs/redesigning-custom-states.md`). Keyed by name because that is what everything asking
---- for a switch says, and because the five numbers stop being the whole list at stage 4.
+--- for a switch says, and because the five numbers stopped being the whole list.
 ---
 --- **Nothing is created.** A row is a switch somebody made; five empty ones were being planted on
 --- every load, which put a row under a name the user never touched and would have filled §6-B's
@@ -1198,48 +1507,44 @@ function DebindPrivate.BindDerivedTables()
     db.switches = db.switches or {};
     DebindPrivate.Switches = db.switches;
 
-    local savedValues = DebindPrivate.db.char.switches;
-
-    for name, switchOptions in pairs(db.switches) do
-        switchOptions.mode = switchOptions.mode or Constants.SWITCH_MODES.MANUAL;
-        if (switchOptions.mode == Constants.SWITCH_MODES.MANUAL) then
-            -- **`resetValue`가 `nil`인 것은 값이 없는 것이 아니라 답이다** - "기억한 것으로
-            -- 돌아가라". 이 연결은 어느 이름에서도 안 보인다.
-            if (switchOptions.resetValue ~= nil) then
-                switchOptions.value = switchOptions.resetValue;
-            else
-                switchOptions.value = savedValues[name] and true or false;
-            end
-        else
-            switchOptions.value = switchOptions.value or false;
-        end
-    end
+    -- **The value is not computed here any more.** Which answer a switch is giving depends on the
+    -- character and the specialization now (§4-6), so the same calculation has to run again every
+    -- time either of those moves - and a load is only the first of those times.
+    ForgetAppliedAnswers();
+    DebindPrivate.ApplySwitchResets();
 end
 
---- Sets a switch's value, **and settles what the character remembers of it in the same breath**.
+--- A person changed a switch, **and what the character remembers of it moves with it**.
 ---
---- Those two are one write and were two. A switch that resets to nothing keeps what it was left on
---- (`resetValue == nil` -> `savedValue`), so a value written without the memory beside it survives
---- until the next load and then quietly goes back. The restricted side's report has always come
---- through here (`SwitchesChangedCallback`); the Switches tab's toggle is the second caller, and it
---- is what turned a rule into a function. Written out twice, the tab's toggle would have looked
---- like it worked and lost the switch on the next reload.
+--- Those two are one write and were two. A value written without the memory beside it survives
+--- until the next load and then quietly goes back. The restricted side's report comes through here
+--- (`SwitchesChangedCallback`); the Switches tab's toggle is the second caller, and it is what
+--- turned a rule into a function. Written out twice, the tab's toggle would have looked like it
+--- worked and lost the switch on the next reload.
+---
+--- **The memory is never cleared** (§4-9). It used to be wiped whenever the switch had a reset
+--- value, on the grounds that a forced switch has nothing to remember. With overrides that reading
+--- turns into "leaving the specialization that forced it throws away what it was before", and the
+--- value the reader gets back is whatever the force happened to be. So `savedValue` follows the
+--- last real value and the answer in effect decides only whether to apply its own
+--- (`ApplySwitchResets`) - one branch fewer, and no observable difference where nothing overrides.
+---
+--- **A value the definition already holds is a reset coming back, not news.** Applying a reset
+--- writes the field here and hands it to the restricted side, which reports it straight back
+--- (`OnSwitchChanged`); taking that report as a memory is exactly the throwing-away above, from the
+--- other direction. Everything a person does arrives as a change, so equality is what tells the two
+--- apart.
 ---
 --- **What the caller still owns is the rebuild.** Nothing in this file asks for one; the value only
 --- reaches a key through `UpdateBindings`, and both callers have their own moment for it.
 function DebindPrivate.SetSwitchValue(name, value)
     local definition = DebindPrivate.Switches[name];
-    if (not definition) then
+    if (not definition or definition.value == value) then
         return;
     end
 
-    local savedValue = nil;
-    if (definition.mode == Constants.SWITCH_MODES.MANUAL and definition.resetValue == nil) then
-        savedValue = value;
-    end
-
     definition.value = value;
-    DebindPrivate.db.char.switches[name] = savedValue;
+    DebindPrivate.db.char.switches[name] = value;
 end
 
 --- The set of switches changed: one was made, renamed or deleted.

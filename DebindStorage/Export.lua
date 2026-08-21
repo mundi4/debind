@@ -167,6 +167,16 @@ DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 --- rather than a setting: the person reading the string is not that character. A v1 payload
 --- carries a `savedValue` and nothing reads it.
 ---
+--- **`overrides` is not on this list either, and that is a decision.** A layer answer is filed
+--- under an absolute key naming *this* installation's characters and classes
+--- (`GetSwitchLayerKey`), so `Player-1329-0004AB27:2` addresses somebody the receiver has never
+--- had. What travels is the answer everything falls back to, which is the one a definition always
+--- has. §4-6 of `devdocs/redesigning-custom-states.md`.
+---
+--- ⚠ **Nothing checks this table.** `check:export-fields` compares `ACTION_FIELDS` and the
+--- condition table and never looks here, so a definition field added without a line here simply
+--- does not go out - no error on either side and no check to catch it.
+---
 --- **These names are the wire's, and 3.2 wrote the older ones.** A v1 payload carries a numeric
 --- `mode` and `initialValue`, so the step that raises v1 renames them (`BringPayloadForward`).
 local STATE_FIELDS       = {

@@ -4,11 +4,16 @@
 	<Script file="SwitchesUI.lua" />
 
 	<!--
-		One switch. Its name, what it comes up as, what it is right now, and the menu.
+		One switch. Its name, what it is right now, and the menu.
 
 		**The name is drawn with its `$`**, which is the one thing on this row that is not a
 		setting: it is the text the user types into a macro body, so the list is where those glyphs
 		get learned (§6-B of `devdocs/redesigning-custom-states.md`).
+
+		**What it comes up as is not here.** It was, while there was one answer; since stage 4 there
+		is one per layer and they are drawn on the rows underneath. Leaving a copy of the winning
+		one up here would put the same words on screen twice with nothing saying which of the two
+		is being edited by which menu.
 
 		Art matches the main list, the export list and the spell picker
 		(`ClickCastList-ButtonBackground`). Four lists in one addon that look like four things is
@@ -33,40 +38,16 @@
 			</Layer>
 			<Layer level="ARTWORK">
 				<!--
-					**What the switch comes up as**, which is one of the four answers a switch can
-					give (§4-6). Not the mode: "Set Manually" on its own does not say whether the
-					switch comes up on, comes up off, or comes back the way it was left, and those
-					are three different switches to live with.
-
-					**This column is the fixed one and the name takes what is left**, which is the
-					way round the export list already does it (`Key` there, declared before the
-					name for this reason). The answers are four known strings and the widest of
-					them is what 140 is measured against; a name is short in practice and is the
-					one thing the row's tooltip repeats, so it is the safer of the two to clip.
-					Sized the other way round, a `$state3` eight characters wide reserved 170 and
-					left the answer to be cut into an ellipsis.
-
 					**Its right edge is a number rather than the toggle's left edge.** A layer is
 					laid out before the frames below are declared, so an anchor naming one of them
 					reaches nothing and is dropped without a word. The string would end up with a
 					single horizontal point, no width, and draw nothing at all. The number is the
 					two buttons plus their gaps: 4 + 22 + 2 + 58 + 6.
 				-->
-				<FontString parentKey="Setting" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
-					<Size x="140" y="0"/>
-					<Anchors>
-						<Anchor point="RIGHT" x="-92" y="0"/>
-					</Anchors>
-				</FontString>
-				<!--
-					**Declared after the column it hangs off**, so the anchor finds it. Both
-					horizontal points are set, which is what gives the name a width without a
-					number of its own: it ends where the answer begins.
-				-->
 				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
 					<Anchors>
 						<Anchor point="LEFT" x="8" y="0"/>
-						<Anchor point="RIGHT" relativeKey="$parent.Setting" relativePoint="LEFT" x="-6" y="0"/>
+						<Anchor point="RIGHT" x="-92" y="0"/>
 					</Anchors>
 				</FontString>
 			</Layer>
@@ -78,7 +59,8 @@
 		</Layers>
 		<Frames>
 			<!--
-				The menu, and the only place this row can be renamed or deleted from.
+				The menu, and the only place this row can be renamed, deleted or given a layer
+				setting from.
 
 				**Visible rather than right-click only.** The main list can hide its menu behind
 				right-click because every row there is something the user made and put a key on;
@@ -130,6 +112,79 @@
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		One layer's answer for the switch above it, and the last of them is always the account-wide
+		one the definition itself carries.
+
+		**No background and an indent**, so the block reads as one switch rather than as a list of
+		them. The switch rows keep the plate; these hang off the row above.
+
+		⚠ **Read as a list of situations, not as an order** (§6-B). Only one of these is in use at a
+		time and the rest are simply not, which is the opposite of what a stack of rows means
+		everywhere else in this window - there the one below runs when the one above does not match.
+		Two things are here to stop that reading: **every row is labelled with its layer**, so
+		`Oreo / Balance` says *when* rather than *which is first*, and **the one in use is ticked**,
+		because the value up on the switch row says what the switch is and never says where that
+		came from.
+
+		**Right-click only, and no arrow of its own.** The visible handle belongs to the switch,
+		which is the row a reader arrives at; giving every layer row an arrow as well would put four
+		or five of them down one edge for one switch.
+	-->
+	<Button name="DebindSwitchLayerRowTemplate" mixin="DebindSwitchLayerRowMixin" virtual="true"
+		registerForClicks="RightButtonUp">
+		<Size x="400" y="20"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<!--
+					The tick. `checkmark-minimal` is the mark this addon already uses for "this one"
+					(`ExportUI.lua`), at a size of its own rather than the atlas's: the atlas is
+					drawn for a checkbox and comes out taller than this row.
+				-->
+				<Texture parentKey="Check" atlas="checkmark-minimal" hidden="true">
+					<Size x="12" y="12"/>
+					<Anchors>
+						<Anchor point="LEFT" x="18" y="0"/>
+					</Anchors>
+				</Texture>
+				<!--
+					**The answer's column is the fixed one and the layer name takes what is left**,
+					which is the way round the export list already does it. The answers are four
+					known strings and the widest of them is what 140 is measured against; a layer
+					name is the window's own tab wording and is the one thing this row's tooltip
+					repeats, so it is the safer of the two to clip.
+				-->
+				<FontString parentKey="Setting" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="140" y="0"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-32" y="0"/>
+					</Anchors>
+				</FontString>
+				<!--
+					**Declared after the column it hangs off**, so the anchor finds it. Both
+					horizontal points are set, which is what gives the label a width without a
+					number of its own: it ends where the answer begins.
+				-->
+				<FontString parentKey="Layer" inherits="GameFontHighlightSmall" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" x="34" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.Setting" relativePoint="LEFT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
 			<OnClick method="OnClick"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>

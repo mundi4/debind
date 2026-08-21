@@ -498,9 +498,22 @@ SEEDS[6] = function(guid)
         --- **Filed by name, which is what `dbver` 6 stores.** The numbers this held are the shape
         --- the seed above carries, and the step between the two is the one that moves them
         --- (`MigrateSwitches`).
+        --- **One of them answers differently on one tab**, so the Switches list has a switch with
+        --- more than the account-wide row under it and the tick has somewhere to move to. It is on
+        --- the class tab for specialization 1, which makes changing specialization the thing that
+        --- moves it - the case §4-8 exists for and the one no check can see.
+        ---
+        --- **The key shape is `GetSwitchLayerKey`'s** and is written out here the way every other
+        --- stored shape in this file is. A character tab's key would name a GUID, which is a
+        --- character this seed cannot know; a class tab's key is the class of whoever plants it.
         switches = {
             ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
-                displayMessage = true },
+                displayMessage = true,
+                overrides = {
+                    [Constants.PLAYER_CLASS .. ":1"] = {
+                        mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
+                },
+            },
             ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
             ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
         },

@@ -1969,8 +1969,10 @@ local _changedStates = {};
 --- **The remembered value goes on the character, the live one on the definition**, and both are
 --- `SetSwitchValue`'s to write (`Profile.lua`). The definition is account-wide, and while the
 --- memory sat there too "remember" meant "remember what the character who logged out last left"
---- (§5 of `devdocs/redesigning-custom-states.md`). Which value gets remembered is unchanged -
---- stage 5 is what simplifies that rule.
+--- (§5 of `devdocs/redesigning-custom-states.md`). **Which of these reports becomes a memory is
+--- decided there and not here**: a report carrying the value the definition already holds is a
+--- reset this side pushed a moment ago coming back round, and it is the one that must not be
+--- remembered (§4-9).
 ---
 --- What is left here is what only this path knows: that the value came from outside, so somebody
 --- may be listening, and the user may have asked to be told.

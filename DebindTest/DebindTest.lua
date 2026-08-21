@@ -2695,14 +2695,32 @@ RegisterTest("Panels: no store means no panel, not an error", {
 -----------------------------------------------------------
 
 --- The row drawn for one switch, once the list has laid itself out.
+---
+--- **`layerID` is what tells the two kinds of row apart.** Since stage 4 a switch's own row is
+--- followed by one row per tab that answers for it, and those carry the same `switchName` - without
+--- this a test asking for "the row" gets whichever the walk reached last, which is a tab row with
+--- no toggle on it.
 local function SwitchRow(panel, name)
     local found
     panel.ScrollBox:ForEachFrame(function(frame)
-        if frame.switchName == name then
+        if frame.switchName == name and not frame.layerID then
             found = frame
         end
     end)
     return found
+end
+
+--- The tab rows under one switch. **Whatever is in view**, like every other walk over a scroll box
+--- here: `ForEachFrame` reaches the frames that exist, so a caller matches on `layerKey` rather
+--- than on a position in the list.
+local function SwitchLayerRows(panel, name)
+    local rows = {}
+    panel.ScrollBox:ForEachFrame(function(frame)
+        if frame.switchName == name and frame.layerID then
+            rows[#rows + 1] = frame
+        end
+    end)
+    return rows
 end
 
 --- Opens the tab and hands back the panel with its rows built. Puts the reader back on Overview
@@ -2997,6 +3015,77 @@ RegisterTest("Switches tab: the New switch button makes one", {
         end
 
         return Pass(NAME, SWITCH .. " 생성 + 목록에 행")
+    end,
+})
+
+-- **The rows under a switch, and the tick on the one in use** (§6-B). What the list has to answer
+-- without a click is *where is this different*, so the tab that is answering right now is marked
+-- and the ones that are not are still drawn.
+--
+-- **Both halves are the test.** A tick nowhere and a tick on every row look equally like "the mark
+-- works" from one row, and the row a reader takes as the answer is whichever one is ticked - if
+-- that is the account-wide row while a tab is overriding it, the list is telling them the opposite
+-- of what their keys do.
+--
+-- The XML is measured too: `Check` is a `parentKey` on the template, and a texture that lost its
+-- key leaves `SetShown` reaching nil.
+RegisterTest("Switches tab: the rows under a switch mark the one in use", {
+    description = "탭 행들이 그려지고, 지금 이기는 행에만 표시가 붙는가",
+    run = function()
+        local NAME = "Switch layer rows"
+        local SWITCH = "$rowlayers"
+        local MODES = Constants.SWITCH_MODES
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.db.char.switches[SWITCH] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, value = false }
+
+        local layerKey = DebindPrivate.GetSwitchLayerKey(
+            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
+        if not layerKey then
+            return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
+        end
+        DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.MANUAL, true)
+
+        local panel = OpenSwitchesTab()
+        local rows = WaitUntil(function()
+            local found = SwitchLayerRows(panel, SWITCH)
+            return #found >= 2 and found or nil
+        end, 2)
+        if not rows then
+            local drawn = #SwitchLayerRows(panel, SWITCH)
+            return Fail(NAME, format(
+                "탭 행이 %d개다 - 얹은 답 하나와 계정 전체 하나, 둘이 나와야 한다", drawn))
+        end
+
+        local marked, unmarked = {}, {}
+        for _, row in ipairs(rows) do
+            if not row.Check then
+                return Fail(NAME, "행에 Check가 없다 - 템플릿이 parentKey를 잃었다")
+            end
+            local list = row.Check:IsShown() and marked or unmarked
+            list[#list + 1] = row.layerKey or "(account)"
+        end
+
+        if #marked ~= 1 then
+            return Fail(NAME, format("표시된 행이 %d개다 [%s] - 이기는 행은 언제나 하나다",
+                #marked, table.concat(marked, " ")))
+        end
+        if marked[1] ~= layerKey then
+            return Fail(NAME, format(
+                "%q에 표시가 붙었다 - 이기는 것은 %q인데 목록이 반대로 말한다", marked[1], layerKey))
+        end
+        if #unmarked == 0 then
+            return Fail(NAME, "안 이기는 행이 하나도 안 그려졌다 - 어디가 다른지 볼 수가 없다")
+        end
+
+        return Pass(NAME, format("%d행, 표시는 %s", #rows, marked[1]))
     end,
 })
 
@@ -3608,6 +3697,193 @@ RegisterTest("Switch condition on a name outside the five", {
         end
 
         return Pass(NAME, "$burst 켜짐 -> 걸림 / 꺼짐 -> 빠짐 / 미정의 -> 마커 붙고 빠짐 / 리빌드 없이 켜짐")
+    end,
+})
+
+-- Test Cases: 탭마다 다른 답 (§4-6 ~ §4-9)
+--
+-- 정의는 계정 것이고 **동작만 탭에서 덮인다.** 헤드리스가 보는 것은 표를 되읽는 데까지다
+-- (`tests/switch_spec.lua`): 어느 답이 이기는지, 캐릭터가 바뀌어도 안 새는지, 전문화가 바뀌면
+-- 다시 걸리는지. **여기서만 보이는 것은 그 답이 실제로 키까지 가느냐**다 -
+-- `UpdateBindings`가 `ApplySwitchResets`를 부르고, 코드젠이 이긴 행의 `mode`와 `expr`을 굽고,
+-- 제한 환경이 그 값을 되보고한다. 그 셋 중 어느 하나가 빠져도 조용하다.
+-----------------------------------------------------------
+
+-- **얹으면 걸리고 떼면 빠진다.** 사슬 전체를 한 줄로 재는 케이스다: 답을 쓰는 것 ->
+-- `ResolveSwitchAnswer`가 그 행을 이기게 하는 것 -> 리빌드가 값을 다시 거는 것 -> 코드젠 ->
+-- 실제 키. 가운데 하나만 빠져도 화면에는 새 답이 적혀 있고 키는 옛 답대로 논다.
+--
+-- ⚠ **레이어 키에 캐릭터가 들어 있는지도 여기서 본다** (§4-7-3). 헤드리스가 같은 것을 보지만
+-- 그쪽의 GUID는 shim이 지어낸 것이라, 진짜 `UnitGUID`로 지은 키가 맞는지는 게임이 답한다.
+RegisterTest("Switch override: a tab answer takes over and reaches the key", {
+    description = "탭에 답을 얹으면 그 답으로 값이 다시 걸리고 키까지 가는가",
+    run = function()
+        local NAME = "Switch override"
+        local KEY = "CTRL-SHIFT-F9"
+        local SWITCH = "$ovrtab"
+        local MODES = Constants.SWITCH_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        local savedValue = DebindPrivate.db.char.switches[SWITCH]
+        AddTeardown(function()
+            -- 오버라이드는 정의 **안에** 살아서 슬롯 하나를 되돌리면 같이 되돌아간다
+            -- (§4-7-1이 그 자리를 고른 이유 중 하나다).
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.db.char.switches[SWITCH] = savedValue
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false, value = false }
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
+        ApplyBindings()
+
+        local before = GetBindingAction(KEY, true) or ""
+        if before ~= "" then
+            return Fail(NAME, format("전제가 깨졌다 - 꺼진 채로 시작하는 스위치인데 키가 %q다",
+                before))
+        end
+
+        local layerKey = DebindPrivate.GetSwitchLayerKey(
+            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
+        if not layerKey then
+            return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
+        end
+        if not layerKey:find(UnitGUID("player"), 1, true) then
+            return Fail(NAME, format(
+                "캐릭터 탭의 키가 %q다 - 캐릭터가 안 들어 있으면 다음 캐릭터가 남의 답을 읽는다",
+                layerKey))
+        end
+
+        DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.MANUAL, true)
+        ApplyBindings()
+
+        local after = GetBindingAction(KEY, true) or ""
+        if after:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "이 탭의 답이 '켜짐'인데 키가 %q다 - 리빌드가 새 답을 안 걸었다", after))
+        end
+
+        -- 떼면 넓은 쪽 답으로 돌아간다. 이게 없으면 위 한 줄은 "이 스위치는 늘 켜져 있다"와
+        -- 구별이 안 된다.
+        DebindPrivate.ClearSwitchOverride(SWITCH, layerKey)
+        ApplyBindings()
+
+        local back = GetBindingAction(KEY, true) or ""
+        if back ~= "" then
+            return Fail(NAME, format("답을 뗐는데 키가 %q로 남았다 - 뿌리로 안 돌아갔다", back))
+        end
+
+        return Pass(NAME, format("%s: 얹음 -> 걸림 / 뗌 -> 빠짐", layerKey))
+    end,
+})
+
+-- **코드젠이 무엇을 굽느냐.** `addSwitch`가 정의에서 `mode`와 `expr`을 읽던 자리인데, 그 둘은
+-- 이제 이긴 행의 것이다. 정의 쪽을 계속 읽으면 여기서는 "수동이고 꺼짐"이 구워져서 키가 안
+-- 걸리고, 화면에는 이 탭이 계산식이라고 적혀 있다.
+--
+-- `[nocombat]`인 이유는 이 테스트가 어차피 전투 밖에서만 서기 때문이다. 참으로 계산되는 식이
+-- 필요하고, 전투 판정은 위에서 이미 걸렀다.
+RegisterTest("Switch override: the winning tab's expression is the one baked", {
+    description = "계산식이 탭 쪽에 있을 때 코드젠이 뿌리가 아니라 그 식을 굽는가",
+    run = function()
+        local NAME = "Switch override expression"
+        local KEY = "CTRL-SHIFT-F8"
+        local SWITCH = "$ovrexpr"
+        local MODES = Constants.SWITCH_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄지고 [nocombat]도 거짓이다")
+        end
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.db.char.switches[SWITCH] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        -- 뿌리는 수동이고 꺼짐이며 식이 아예 없다. 정의 쪽을 읽으면 구울 식이 없다.
+        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false, value = false }
+
+        local layerKey = DebindPrivate.GetSwitchLayerKey(
+            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
+        if not layerKey then
+            return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
+        end
+        DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.EXPR)
+        DebindPrivate.SetSwitchExpression(SWITCH, layerKey, "[nocombat]")
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
+        ApplyBindings()
+
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "이 탭의 식이 [nocombat]인데 키가 %q다 - 뿌리의 답이 구워졌다", bound))
+        end
+
+        return Pass(NAME, "탭의 식이 구워져서 키가 걸린다")
+    end,
+})
+
+-- **리셋의 메아리가 기억을 먹지 않는지** (§4-9). 비보안 쪽이 시작값을 값에 쓰고 제한 환경에
+-- 밀어넣으면, 제한 환경이 그것을 그대로 되보고한다(`SetSwitch` -> `OnSwitchChanged`). 그
+-- 되보고를 사람이 한 것으로 받으면 **로그인 한 번에 기억이 시작값으로 덮인다** - 그리고 그
+-- 기억은 강제된 탭을 떠났을 때 돌아갈 값이다.
+--
+-- **헤드리스가 못 본다.** 러너는 코드젠도 제한 환경도 안 싣고, 되보고가 오는 자리는
+-- `C_Timer.After(0)` 뒤다(`SwitchesChangedCallback`). 틀려도 이번 세션은 멀쩡히 돌고,
+-- 어긋난 것은 탭을 옮기거나 다시 접속해야 보인다.
+RegisterTest("Switch reset does not eat what the character remembers", {
+    description = "시작값을 거는 리빌드가 캐릭터의 기억값을 덮지 않는가",
+    run = function()
+        local NAME = "Switch reset echo"
+        local SWITCH = "$resetecho"
+        local MODES = Constants.SWITCH_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 리셋이 안 걸린다")
+        end
+
+        local savedValues = DebindPrivate.db.char.switches
+        local saved = DebindPrivate.Switches[SWITCH]
+        local savedValue = savedValues[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            savedValues[SWITCH] = savedValue
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+
+        -- 켜둔 채로 두고 나갔던 스위치인데, 지금 이기는 답이 "꺼진 채로 시작"이다.
+        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false, value = true }
+        savedValues[SWITCH] = true
+
+        ApplyBindings()
+        -- 되보고는 다음 프레임에 온다. 여기서 기다리는 것은 **이 테스트가 묻는 값이 아니라**
+        -- 미러가 돌 기회다(`devdocs/when-a-change-takes-effect.md`).
+        WaitForIdle()
+
+        local definition = DebindPrivate.Switches[SWITCH]
+        if definition.value ~= false then
+            return Fail(NAME, format("시작값이 아예 안 걸렸다 (%s) - 아래 판정이 성립 안 한다",
+                tostring(definition.value)))
+        end
+        if savedValues[SWITCH] ~= true then
+            return Fail(NAME, format(
+                "기억값이 %s가 됐다 - 리셋의 메아리가 기억을 덮었다. 강제된 탭을 떠나도 돌아갈 값이 없다",
+                tostring(savedValues[SWITCH])))
+        end
+
+        return Pass(NAME, "값은 꺼짐, 기억은 켜짐 그대로")
     end,
 })
 

@@ -5,6 +5,15 @@ local LLL              = DebindPrivate.L;
 local DebindUI         = DebindPrivate.DebindUI;
 
 local ROW_HEIGHT       = 28;
+--- A layer row. Shorter than a switch row on purpose: the list is a switch with its layers under
+--- it, and two rows of the same height read as two switches.
+local LAYER_ROW_HEIGHT = 20;
+
+--- The root's own layer, which is `GetLayerID(nil, false)`. It is drawn like the overrides and
+--- edited like them, and it is the one row that is always there and cannot be taken away (§4-6 of
+--- `devdocs/redesigning-custom-states.md`): the definition itself is that answer, which is why it
+--- is the one layer `GetSwitchLayerKey` gives no key for.
+local ROOT_LAYER_ID    = 1;
 
 --- The four answers a switch can give, in the order the menu offers them.
 ---
@@ -28,18 +37,42 @@ local ANSWERS = {
                         desc  = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC" },
 };
 
---- Which of the four this definition is giving right now.
-local function AnswerFor(definition)
-    if (definition.mode == Constants.SWITCH_MODES.EXPR) then
+--- Which of the four an answer is.
+---
+--- **It takes the answer, not the definition.** A definition holds the root's answer, and since
+--- stage 4 the one in effect may be a layer's instead (`ResolveSwitchAnswer`). Handed a definition,
+--- this would draw the root's words on a row a specialization is overriding.
+local function AnswerFor(mode, resetValue)
+    if (mode == Constants.SWITCH_MODES.EXPR) then
         return "expr";
     end
-    if (definition.resetValue == true) then
+    if (resetValue == true) then
         return "on";
     end
-    if (definition.resetValue == false) then
+    if (resetValue == false) then
         return "off";
     end
     return "remember";
+end
+
+local function AnswerLabel(mode, resetValue)
+    local answerKey = AnswerFor(mode, resetValue);
+    for _, answer in ipairs(ANSWERS) do
+        if (answer.key == answerKey) then
+            return LLL[answer.label];
+        end
+    end
+    return "";
+end
+
+--- Which of the four one layer is giving, or nil where it says nothing. The menu's radios read
+--- this, and **nothing ticked is the honest answer for a layer with no override**.
+local function AnswerKeyAt(name, layerKey)
+    local mode, resetValue = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
+    if (not mode) then
+        return nil;
+    end
+    return AnswerFor(mode, resetValue);
 end
 
 --- Redraws the rows that are up, from wherever the change was made.
@@ -54,35 +87,37 @@ local function RefreshPanelRows()
     end
 end
 
---- Writes one of the four back. **Both fields, every time**, because the four are one axis: coming
---- from the expression answer and setting only `resetValue` would leave a switch that computes
---- itself *and* claims to come up on.
-local function SetAnswer(name, answerKey)
-    local definition = DebindPrivate.ResolveSwitchDefinition(name);
-    if (not definition) then
-        return;
+--- Rebuilds the list, which is what an answer needs and a value does not: **giving a layer an
+--- answer puts a row on the list that was not there**, and taking one away removes it.
+local function RefreshPanelList()
+    if (DebindSwitchesPanel:IsShown()) then
+        DebindSwitchesPanel:RefreshRows();
     end
+end
 
+--- Writes one of the four back, at one layer. `layerKey` nil is the root row.
+local function SetAnswer(name, layerKey, answerKey)
+    local MODES = Constants.SWITCH_MODES;
     if (answerKey == "expr") then
-        definition.mode = Constants.SWITCH_MODES.EXPR;
+        DebindPrivate.SetSwitchAnswer(name, layerKey, MODES.EXPR, nil);
+    elseif (answerKey == "on") then
+        DebindPrivate.SetSwitchAnswer(name, layerKey, MODES.MANUAL, true);
+    elseif (answerKey == "off") then
+        DebindPrivate.SetSwitchAnswer(name, layerKey, MODES.MANUAL, false);
     else
-        definition.mode = Constants.SWITCH_MODES.MANUAL;
-        if (answerKey == "on") then
-            definition.resetValue = true;
-        elseif (answerKey == "off") then
-            definition.resetValue = false;
-        else
-            definition.resetValue = nil;
-        end
+        DebindPrivate.SetSwitchAnswer(name, layerKey, MODES.MANUAL, nil);
     end
 
+    -- **The rebuild is what makes the answer true**, not just stored: it is where the new answer
+    -- gets applied to the value where it has moved (`ApplySwitchResets`), so the toggle column on
+    -- the row above is showing the result of this press by the time the list is redrawn.
     DebindPrivate.UpdateBindings();
-    RefreshPanelRows();
+    RefreshPanelList();
 end
 
 
 --------------------------------------------------------------------------------
--- A row
+-- A switch's row
 --------------------------------------------------------------------------------
 
 DebindSwitchRowMixin = {};
@@ -102,6 +137,10 @@ end
 --- Draws the row from the definition. **Read fresh every time** rather than kept on the row: a
 --- switch's value is changed by keys, by macros and by the expression loop, none of which come
 --- through this panel.
+---
+--- **What it comes up as is not on this row any more.** That answer belongs to a layer since stage
+--- 4 and there can be several, so it is drawn once per layer on the rows underneath. What is left
+--- here is the switch itself: its name, and what it is right now.
 function DebindSwitchRowMixin:Update()
     local name = self.switchName;
     local definition = DebindPrivate.ResolveSwitchDefinition(name);
@@ -113,21 +152,17 @@ function DebindSwitchRowMixin:Update()
     -- this list is the only place they can read it off (§6-B).
     self.Name:SetText(name);
 
-    local answerKey = AnswerFor(definition);
-    for _, answer in ipairs(ANSWERS) do
-        if (answer.key == answerKey) then
-            self.Setting:SetText(LLL[answer.label]);
-            break;
-        end
-    end
-
     local isOn = definition.value and true or false;
     self.ToggleButton:SetText(isOn and LLL["CUSTOM_STATE_ON"] or LLL["CUSTOM_STATE_OFF"]);
 
     -- **Two different reasons to be dead, and only one of them is temporary.** A computed switch
     -- has no press at all, since the expression decides it and pressing would be overwritten on
     -- the next pass. A manual one is only out of reach until the fight ends.
-    self.ToggleButton:SetEnabled(answerKey ~= "expr" and not InCombatLockdown());
+    --
+    -- **Asked of the answer in effect**, not of the root: a switch computed on this specialization
+    -- and pressed on every other one is exactly what an override is for.
+    local mode = DebindPrivate.ResolveSwitchAnswer(name);
+    self.ToggleButton:SetEnabled(mode ~= Constants.SWITCH_MODES.EXPR and not InCombatLockdown());
 end
 
 function DebindSwitchRowMixin:OnClick(button)
@@ -157,14 +192,14 @@ function DebindSwitchRowMixin:OnToggleClick()
 end
 
 function DebindSwitchRowMixin:OnToggleEnter()
-    local definition = DebindPrivate.ResolveSwitchDefinition(self.switchName);
-    if (not definition) then
+    local mode = DebindPrivate.ResolveSwitchAnswer(self.switchName);
+    if (not mode) then
         return;
     end
 
     GameTooltip:SetOwner(self.ToggleButton, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.switchName);
-    if (AnswerFor(definition) == "expr") then
+    if (mode == Constants.SWITCH_MODES.EXPR) then
         GameTooltip_AddErrorLine(GameTooltip, LLL["SWITCH_TOGGLE_IS_AUTOMATIC"]);
     elseif (InCombatLockdown()) then
         GameTooltip_AddErrorLine(GameTooltip, LLL["SWITCH_TOGGLE_IN_COMBAT"]);
@@ -185,15 +220,15 @@ end
 --- a switch this character alone uses; a wide first number and a zero last one is one that belongs
 --- to somebody else's specialization, and the reader cannot tell those apart from a single total.
 function DebindSwitchRowMixin:OnEnter()
-    local definition = DebindPrivate.ResolveSwitchDefinition(self.switchName);
-    if (not definition) then
+    local mode, _, expr = DebindPrivate.ResolveSwitchAnswer(self.switchName);
+    if (not mode) then
         return;
     end
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, self.switchName);
-    if (AnswerFor(definition) == "expr") then
-        GameTooltip_AddNormalLine(GameTooltip, definition.expr or "");
+    if (mode == Constants.SWITCH_MODES.EXPR) then
+        GameTooltip_AddNormalLine(GameTooltip, expr or "");
     end
 
     local account, character, live = DebindPrivate.CountSwitchReferences(self.switchName);
@@ -217,7 +252,79 @@ end
 
 
 --------------------------------------------------------------------------------
--- The row's menu
+-- A layer's row, under the switch it answers for
+--------------------------------------------------------------------------------
+
+--- One layer's answer for the switch above it. The root is one of these too.
+---
+--- ⚠ **These are a situation list and not an order list**, which is the trap in stacking them
+--- vertically (§6-B). Bindings on one key fall through to the next when the one above does not
+--- match; layers here do not - one wins and the rest are simply not in use. That is why every row
+--- carries its layer's name and why the winner is marked: `Oreo / Balance` means "when I am this
+--- character in this specialization", never "first choice".
+DebindSwitchLayerRowMixin = {};
+
+function DebindSwitchLayerRowMixin:Init(elementData)
+    self.switchName = elementData.name;
+    self.layerID = elementData.layerID;
+    self.layerKey = elementData.layerKey;
+    self:Update();
+end
+
+function DebindSwitchLayerRowMixin:Update()
+    local mode, resetValue = DebindPrivate.GetSwitchAnswerAt(self.switchName, self.layerKey);
+    if (not mode) then
+        return;
+    end
+
+    self.Layer:SetText(DebindUI.GetLayerLabel(self.layerID));
+    self.Setting:SetText(AnswerLabel(mode, resetValue));
+
+    -- **The winner is worked out here rather than stored on the row**, because it moves without
+    -- the list changing: a specialization change hands the same rows a different answer.
+    local _, _, _, winner = DebindPrivate.ResolveSwitchAnswer(self.switchName);
+    self.Check:SetShown(winner == self.layerKey);
+end
+
+function DebindSwitchLayerRowMixin:OnClick(button)
+    if (button == "RightButton") then
+        DebindUI.ShowSwitchLayerMenu(self, self.switchName, self.layerID, self.layerKey);
+    end
+end
+
+function DebindSwitchLayerRowMixin:OnEnter()
+    local mode, _, expr = DebindPrivate.GetSwitchAnswerAt(self.switchName, self.layerKey);
+    if (not mode) then
+        return;
+    end
+
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+    GameTooltip_SetTitle(GameTooltip, DebindUI.GetLayerLabel(self.layerID));
+    if (mode == Constants.SWITCH_MODES.EXPR) then
+        GameTooltip_AddNormalLine(GameTooltip, expr or "");
+    end
+
+    local _, _, _, winner = DebindPrivate.ResolveSwitchAnswer(self.switchName);
+    if (winner == self.layerKey) then
+        GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_LAYER_WINNING"]);
+    else
+        -- **Said out loud, because a row that does nothing looks exactly like one that does.**
+        -- The tick marks the winner, and its absence is the whole of what marks the rest.
+        GameTooltip_AddColoredLine(GameTooltip, LLL["SWITCH_LAYER_UNUSED"], GRAY_FONT_COLOR);
+    end
+
+    GameTooltip_AddBlankLineToTooltip(GameTooltip);
+    GameTooltip_AddInstructionLine(GameTooltip, LLL["SWITCH_LAYER_MENU_INSTRUCTION"]);
+    GameTooltip:Show();
+end
+
+function DebindSwitchLayerRowMixin:OnLeave()
+    GameTooltip:Hide();
+end
+
+
+--------------------------------------------------------------------------------
+-- The menus
 --------------------------------------------------------------------------------
 
 do
@@ -245,15 +352,26 @@ do
         });
     end
 
-    --- **The question carries the count**, and that is the whole of what makes it answerable. The
+    --- **The question carries the counts**, and that is the whole of what makes it answerable. The
     --- definition is account-wide while this list shows one character's reach, so deleting from a
-    --- priest can take a druid's conditions with it, and this line is the only place that
-    --- asymmetry is ever on screen (§6-B).
+    --- priest can take a druid's conditions *and* a druid's layer settings with it, and this is the
+    --- only place either asymmetry is ever on screen (§6-B).
+    ---
+    --- **The sentence is put together here rather than handed to the popup in pieces.** The dialog
+    --- formats with exactly two arguments (`SharedDialogDefs.lua`), so a third number has nowhere
+    --- to go; a finished string with no specifiers left in it goes through the same call unharmed.
+    --- Nothing that lands in it can carry a `%` of its own - a switch name is `$` and word
+    --- characters (`IsValidSwitchName`) and the rest are numbers.
     local function ShowDeleteConfirmation(name)
+        local text = format(LLL["SWITCH_DELETE_CONFIRM"], name,
+            DebindPrivate.CountSwitchReferences(name));
+        local overrides = DebindPrivate.CountSwitchOverrides(name);
+        if (overrides > 0) then
+            text = text .. "\n" .. format(LLL["SWITCH_DELETE_CONFIRM_OVERRIDES"], overrides);
+        end
+
         StaticPopup_ShowCustomGenericConfirmation({
-            text = LLL["SWITCH_DELETE_CONFIRM"],
-            text_arg1 = name,
-            text_arg2 = DebindPrivate.CountSwitchReferences(name),
+            text = text,
             callback = function()
                 DebindPrivate.DeleteSwitch(name);
                 DebindPrivate.UpdateBindings();
@@ -265,36 +383,49 @@ do
         });
     end
 
-    local function SetupSwitchMenu(_, rootDescription, name)
-        rootDescription:CreateTitle(name);
-
+    --- The four answers, as radios, for one layer. Shared by the two places that offer them: the
+    --- submenu that **makes** an override, and the row menu that **edits** one.
+    ---
+    --- **Nothing is ticked where the layer has no override yet**, which is the state the submenu
+    --- opens in. A tick there would be the root's answer wearing the layer's name.
+    local function CreateAnswerRadios(description, name, layerKey)
         for _, answer in ipairs(ANSWERS) do
-            local description = rootDescription:CreateRadio(LLL[answer.label], function()
-                local definition = DebindPrivate.ResolveSwitchDefinition(name);
-                return definition ~= nil and AnswerFor(definition) == answer.key;
+            local radio = description:CreateRadio(LLL[answer.label], function()
+                return AnswerKeyAt(name, layerKey) == answer.key;
             end, function()
-                SetAnswer(name, answer.key);
+                SetAnswer(name, layerKey, answer.key);
                 -- The expression answer is the one that needs a second thing said, so it asks
                 -- for it on the spot. The other three are finished the moment they are picked.
                 if (answer.key == "expr") then
-                    DebindUI.ShowSwitchExpressionBox(name);
+                    DebindUI.ShowSwitchExpressionBox(name, layerKey);
                 end
                 return MenuResponse.Refresh;
             end);
-            DebindUI.SetInstructionTooltip(description, LLL[answer.desc]);
+            DebindUI.SetInstructionTooltip(radio, LLL[answer.desc]);
         end
+    end
 
-        -- Editing the expression again once it is the answer. Without this the only way back into
-        -- the box is picking a different answer and picking this one again, which throws the
-        -- expression away on the way past.
-        local definition = DebindPrivate.ResolveSwitchDefinition(name);
-        if (definition and AnswerFor(definition) == "expr") then
-            rootDescription:CreateButton(LLL["CUSTOM_STATE_EDIT_VALUE"], function()
-                DebindUI.ShowSwitchExpressionBox(name);
-            end);
+    local function SetupSwitchMenu(_, rootDescription, name)
+        rootDescription:CreateTitle(name);
+
+        -- **Where an override is made**, and the only place: once a layer has one it has a row of
+        -- its own on the list, and that row's menu is where it is edited. Two doors into one
+        -- setting is two places to look for it.
+        local overrideDescription = rootDescription:CreateButton(LLL["SWITCH_OVERRIDE"]);
+        DebindUI.SetInstructionTooltip(overrideDescription, LLL["SWITCH_OVERRIDE_DESC"]);
+        local layerIDs = DebindPrivate.GetOverridableLayerIDs();
+        for i = 1, #layerIDs do
+            local layerKey = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
+            if (layerKey) then
+                CreateAnswerRadios(
+                    overrideDescription:CreateButton(DebindUI.GetLayerLabel(layerIDs[i])),
+                    name, layerKey);
+            end
         end
 
         rootDescription:CreateDivider();
+        -- **Not one of the four, so it is not on a layer.** It says whether a change is worth a
+        -- line in chat, which is about the switch and not about where the switch is being used.
         rootDescription:CreateCheckbox(LLL["CUSTOM_STATE_DISPLAY_MESSAGE"], function()
             local options = DebindPrivate.ResolveSwitchDefinition(name);
             return options ~= nil and options.displayMessage == true;
@@ -317,6 +448,40 @@ do
 
     function DebindUI.ShowSwitchMenu(owner, name)
         MenuUtil.CreateContextMenu(owner, SetupSwitchMenu, name);
+    end
+
+    --- One layer row's menu: what this layer says, and taking it back.
+    ---
+    --- **The root has no [Remove].** That row is not an override, it is the value everything else
+    --- falls back to, and §4-6 built the whole cascade on it always being there - the conditions
+    --- naming this switch would have nowhere to land without it (§6-B).
+    local function SetupSwitchLayerMenu(_, rootDescription, name, layerID, layerKey)
+        rootDescription:CreateTitle(DebindUI.GetLayerLabel(layerID));
+        CreateAnswerRadios(rootDescription, name, layerKey);
+
+        -- Editing the expression again once it is the answer. Without this the only way back into
+        -- the box is picking a different answer and picking this one again, which throws the
+        -- expression away on the way past.
+        if (AnswerKeyAt(name, layerKey) == "expr") then
+            rootDescription:CreateButton(LLL["CUSTOM_STATE_EDIT_VALUE"], function()
+                DebindUI.ShowSwitchExpressionBox(name, layerKey);
+            end);
+        end
+
+        if (layerKey ~= nil) then
+            rootDescription:CreateDivider();
+            -- **Our own words, not the client's `REMOVE`.** That global reads "Remove" in English
+            -- and 추방 in Korean, which is what you do to somebody in your group.
+            rootDescription:CreateButton(LLL["SWITCH_OVERRIDE_REMOVE"], function()
+                DebindPrivate.ClearSwitchOverride(name, layerKey);
+                DebindPrivate.UpdateBindings();
+                RefreshPanelList();
+            end);
+        end
+    end
+
+    function DebindUI.ShowSwitchLayerMenu(owner, name, layerID, layerKey)
+        MenuUtil.CreateContextMenu(owner, SetupSwitchLayerMenu, name, layerID, layerKey);
     end
 
     --- Asking for a name and making the switch. `onCreated` is handed the name, and is not called
@@ -346,8 +511,7 @@ do
                     onCreated(name);
                 end
                 -- No redraw here: `CreateSwitch` fires `OnSwitchesChanged`, and the panel rebuilds
-                -- its list off that whenever it is up. `RefreshPanelRows` would be the wrong half
-                -- anyway, since it redraws the rows that exist and the new switch has none yet.
+                -- its list off that whenever it is up.
                 DebindPrivate.UpdateBindings();
             end,
             maxLetters = 32,
@@ -362,8 +526,12 @@ do
     --- row that picks the expression opens it, and so does the [Edit] item under that row once it
     --- is picked. Two boxes asking for one string in two wordings is two syntaxes to a reader who
     --- cannot see that it is one field.
-    function DebindUI.ShowSwitchExpressionBox(name)
-        local definition = DebindPrivate.ResolveSwitchDefinition(name);
+    ---
+    --- **It edits one layer's expression**, the one whose answer was picked. A switch computed one
+    --- way on this specialization and another way everywhere else is two expressions, and a box
+    --- that always wrote the root would quietly overwrite the wrong one.
+    function DebindUI.ShowSwitchExpressionBox(name, layerKey)
+        local _, _, expr = DebindPrivate.GetSwitchAnswerAt(name, layerKey);
         DebindUI.ShowInputBox({
             text = LLL["CUSTOM_STATE_EDIT_VALUE_DESC"],
             callback = function(value)
@@ -371,18 +539,16 @@ do
                 if (value == "") then
                     value = nil;
                 end
-                local options = DebindPrivate.ResolveSwitchDefinition(name);
-                if (not options) then
+                if (not DebindPrivate.SetSwitchExpression(name, layerKey, value)) then
                     return;
                 end
-                options.expr = value;
                 DebindPrivate.UpdateBindings();
                 -- The row draws the expression in its tooltip, so it is one of the two columns
                 -- this can change.
                 RefreshPanelRows();
             end,
             maxLetters = 100,
-            currentValue = definition and definition.expr,
+            currentValue = expr,
         });
     end
 end
@@ -408,29 +574,53 @@ end
 function DebindSwitchesPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
-    view:SetElementFactory(function(factory)
-        factory("DebindSwitchRowTemplate", function(frame, data) frame:Init(data); end);
+    view:SetElementFactory(function(factory, elementData)
+        if (elementData.layerID) then
+            factory("DebindSwitchLayerRowTemplate", function(frame) frame:Init(elementData); end);
+        else
+            factory("DebindSwitchRowTemplate", function(frame) frame:Init(elementData); end);
+        end
     end);
 
-    view:SetElementExtentCalculator(function()
-        return ROW_HEIGHT;
+    view:SetElementExtentCalculator(function(_, elementData)
+        return elementData.layerID and LAYER_ROW_HEIGHT or ROW_HEIGHT;
     end);
 
     ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
 end
 
---- Rebuilds the list from the definitions.
+--- Rebuilds the list from the definitions: a switch, then the layers that answer for it.
+---
+--- **Only the layers that say something, plus the root.** A row per layer whether it had an
+--- override or not would be eleven rows for a switch that is the same everywhere, and the reader
+--- would have to read all of them to find out that none of them differ.
+---
+--- **Every specialization, not the one being played**, which is why the winner is marked rather
+--- than being the only row drawn. What the list answers without a click is *where is this
+--- different*, and a list that hid the other specializations could not answer it (§6-B).
+---
+--- **The layers another character or another class overrides are not here and cannot be.** They are
+--- in the account file all the same, which is what the delete question counts (`ShowDeleteConfirmation`).
 ---
 --- **Nothing is cached between refreshes.** The set changes from a rename here, a switch deleted
---- here, and a switch made anywhere the new-switch box is reachable from (the button under this
---- list, the condition menu, an on/off/toggle action's menu). The values change from more places
---- still, so a list kept across a redraw would be a second answer to a question the profile
---- already answers.
+--- here, an override made or removed here, and a switch made anywhere the new-switch box is
+--- reachable from. The values change from more places still, so a list kept across a redraw would
+--- be a second answer to a question the profile already answers.
 function DebindSwitchesPanelMixin:RefreshRows()
-    local names = DebindPrivate.GetSwitchNames();
+    local layerIDs = DebindPrivate.GetOverridableLayerIDs();
     local list = {};
-    for _, name in ipairs(names) do
+
+    for _, name in ipairs(DebindPrivate.GetSwitchNames()) do
         list[#list + 1] = { name = name };
+        for i = 1, #layerIDs do
+            local layerKey = DebindPrivate.GetSwitchLayerKey(layerIDs[i]);
+            if (layerKey and DebindPrivate.GetSwitchAnswerAt(name, layerKey)) then
+                list[#list + 1] = { name = name, layerID = layerIDs[i], layerKey = layerKey };
+            end
+        end
+        -- The root, last and always. `layerKey` is left nil, which is what every door into a
+        -- definition's own answer takes for "the root" (`GetSwitchAnswerAt`).
+        list[#list + 1] = { name = name, layerID = ROOT_LAYER_ID };
     end
 
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
@@ -456,6 +646,10 @@ function DebindSwitchesPanelMixin:OnShow()
     DebindPrivate.RegisterCallback(self, "OnSwitchesChanged");
     self:RegisterEvent("PLAYER_REGEN_DISABLED");
     self:RegisterEvent("PLAYER_REGEN_ENABLED");
+    -- **A fourth, and it is the one this list was rebuilt for.** Changing specialization moves the
+    -- tick from one layer row to another and can move every value with it, and neither of the two
+    -- callbacks above is fired by a switch whose value did not happen to change.
+    self:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 end
 
 function DebindSwitchesPanelMixin:OnHide()
@@ -463,13 +657,19 @@ function DebindSwitchesPanelMixin:OnHide()
     DebindPrivate.UnregisterCallback(self, "OnSwitchesChanged");
     self:UnregisterEvent("PLAYER_REGEN_DISABLED");
     self:UnregisterEvent("PLAYER_REGEN_ENABLED");
+    self:UnregisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
     GameTooltip:Hide();
 end
 
---- Combat is the only thing this panel watches the game for, and it watches it for one widget:
---- the toggle is a plain button, so it stands down for the fight (§6-B).
-function DebindSwitchesPanelMixin:OnEvent()
-    self:UpdateRows();
+--- Combat is one of the two things this panel watches the game for, and it watches it for one
+--- widget: the toggle is a plain button, so it stands down for the fight (§6-B). The other is a
+--- specialization change, which redraws rather than merely updating - the answer in effect moves.
+function DebindSwitchesPanelMixin:OnEvent(event)
+    if (event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED") then
+        self:RefreshRows();
+    else
+        self:UpdateRows();
+    end
 end
 
 function DebindSwitchesPanelMixin:SWITCH_CHANGED()

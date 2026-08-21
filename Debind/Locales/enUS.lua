@@ -820,6 +820,24 @@ L["SWITCH_ANSWER_OFF"] = "Comes up off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
 L["SWITCH_ANSWER_REMEMBER"] = "Comes up as you left it"
 L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back on if you left it on. Every character remembers its own answer."
+-- The rows under a switch: one per tab that answers for it, and the account-wide one last.
+--
+-- **"Tab", not "layer".** That is the word the window has always used for the same thing -- the
+-- fourth step of PRIORITY_DESC is "Tab -- the more specific tab is tried first" -- and the rows
+-- are labelled with the tab coordinates a reader picked those tabs by (ORDER_LAYER_LABEL).
+--
+-- ⚠ **The two lines below are what stops the rows reading as an order.** Stacked rows mean "the
+-- next one runs when this one does not match" everywhere else in this window; here exactly one is
+-- in use and the rest do nothing at all. The tick says which, and these say what the tick means.
+L["SWITCH_OVERRIDE"] = "Different on a tab"
+L["SWITCH_OVERRIDE_DESC"] = "Pick a tab and say what this switch is while that tab is in play. A tab you say nothing about falls back to the next one out, and in the end to the account-wide answer."
+L["SWITCH_OVERRIDE_REMOVE"] = "Remove this tab's answer"
+L["SWITCH_LAYER_WINNING"] = "This is the answer in use right now."
+-- **Two reasons, and the reader cannot tell them apart from the row.** A tab answer goes unused
+-- either because the tab is not in play at all (another specialization's) or because a more
+-- specific tab answered first, and both look exactly like the row above them.
+L["SWITCH_LAYER_UNUSED"] = "Not the answer in use right now. Either this tab is not in play, or a more specific one answered first."
+L["SWITCH_LAYER_MENU_INSTRUCTION"] = "Right-click to change what this tab answers."
 -- The row's own tooltip. **The three distances are the point of it**: a switch belongs to the
 -- account while the list belongs to the character reading it, and one total cannot separate a
 -- switch three characters depend on from one that does nothing here any more.
@@ -869,6 +887,14 @@ L["SWITCH_ACTION_TOGGLE"] = "Turns it over"
 -- It says the actions keep the name rather than that they lose it: they do, they turn red, and
 -- that red is how they get found again.
 L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r?\n|cnHIGHLIGHT_FONT_COLOR:%2$d|r actions across the account name it. They keep the name and go red until you fix them."
+-- **A second line only when there is one to say.** Appended to the sentence above rather than
+-- written into it, so the ordinary case -- a switch that is the same everywhere -- is not made to
+-- read a sentence about tab answers it does not have.
+--
+-- It says "including the ones you cannot see here" for the same reason the line above counts the
+-- whole account: the list only draws the tabs this character reaches, so a druid's answers go
+-- without ever having been on screen.
+L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r tab answers go with it, including the ones on your other characters."
 -- Empty-list text says what fills it, and now it can quote the button: it is the one under this
 -- list, with a label. It pointed at the picture on the title bar until 3c, which had none.
 --
