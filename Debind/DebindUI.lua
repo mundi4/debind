@@ -3272,6 +3272,15 @@ function DebindFrameMixin:OnLoad()
 	self:InitializeSideTabs();
 	self:InitializeButtons();
 
+	-- **The window hangs by its top left corner, and every path below goes through this.** Each
+	-- tab names its own width (`SelectPanel`), and the frame is resized under whatever anchor it
+	-- happens to be standing on. Anchored by its centre it keeps half of the width difference on
+	-- each side, so changing tabs walks the window sideways.
+	local function AnchorTopLeft(x, y)
+		self:ClearAllPoints();
+		self:SetPoint("TOPLEFT", "UIParent", "BOTTOMLEFT", x, y);
+	end
+
 	self:RegisterForDrag("LeftButton");
 	self:SetScript("OnDragStart", function()
 		self:StartMoving();
@@ -3279,17 +3288,27 @@ function DebindFrameMixin:OnLoad()
 	self:SetScript("OnDragStop", function()
 		self:StopMovingOrSizing();
 		self:SetUserPlaced(false);
-		-- 좌상단을 저장한다. 상세 패널 때문에 폭이 바뀌므로 중심을 저장하면 창이 옆으로 흐른다.
-		DebindPrivate.db.global.ui.main = { x = self:GetLeft(), y = self:GetTop() };
+		-- **`StartMoving` chooses the anchor, not us.** A window dropped near the middle of the
+		-- screen comes back anchored by its centre, so saving the top left is not enough on its
+		-- own: what was saved only described where the window was, and the anchor that keeps a
+		-- tab change off the left edge lasted until the first drag. Reloading looked like a fix
+		-- because the load path below is where that anchor was set.
+		local x, y = self:GetLeft(), self:GetTop();
+		AnchorTopLeft(x, y);
+		DebindPrivate.db.global.ui.main = { x = x, y = y };
 	end);
 
 	DebindPrivate.db.global.ui = DebindPrivate.db.global.ui or {};
-	self:ClearAllPoints();
 	local pos = DebindPrivate.db.global.ui.main;
 	if (pos) then
-		self:SetPoint("TOPLEFT", "UIParent", "BOTTOMLEFT", pos.x, pos.y);
+		AnchorTopLeft(pos.x, pos.y);
 	else
-		self:SetPoint("CENTER", "UIParent", 0, 0);
+		-- Centred, written as the top left corner that centres it. `SetPoint("CENTER")` puts the
+		-- window in the same place but leaves it hanging by the centre, so a window nobody has
+		-- moved yet drifted on its first tab change. The width is already the one `SelectPanel`
+		-- gave it a few lines up.
+		AnchorTopLeft((UIParent:GetWidth() - self:GetWidth()) / 2,
+			(UIParent:GetHeight() + self:GetHeight()) / 2);
 	end
 end
 
@@ -4311,9 +4330,9 @@ function DebindFrameMixin:SelectPanel(id, force)
 	-- nothing keeps whatever is up, which is what `MissingPanel` wants - it is standing in for a
 	-- panel whose width nobody can ask for.
 	--
-	-- Width only. The height is the same list-shaped rectangle in every tab, and the frame saves
-	-- its **top left** (`OnDragStop`), so growing sideways leaves the corner the user put it at
-	-- where they put it.
+	-- Width only. The height is the same list-shaped rectangle in every tab, and the frame hangs
+	-- by its **top left** (`AnchorTopLeft` in `OnLoad`), so growing sideways leaves the corner the
+	-- user put it at where they put it.
 	if (panel.preferredWidth) then
 		self:SetWidth(panel.preferredWidth);
 	end

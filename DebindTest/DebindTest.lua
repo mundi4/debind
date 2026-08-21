@@ -2559,6 +2559,75 @@ RegisterTest("Panels: the window takes each tab's own width", {
     end,
 })
 
+-- **A dragged window hangs by whatever anchor `StartMoving` chose**, and one dropped near the
+-- middle of the screen comes back on a centre one. `SetWidth` then splits the difference between
+-- both sides, so every tab change slid the window sideways by half of it. `OnDragStop` saved a
+-- top left corner and nothing pinned the window to one, which is why a `/reload` appeared to fix
+-- it: the load path was the only place that anchored by the corner.
+--
+-- The drag itself cannot be driven from here. What the test stands in for is the one thing
+-- `StartMoving` leaves behind, the centre anchor, and everything after that is the window's own
+-- `OnDragStop`.
+RegisterTest("Panels: a dragged window keeps its left edge across a tab change", {
+    description = "끌어다 놓은 창이 탭을 옮겨 폭이 바뀌어도 왼쪽 변이 그대로인가",
+    run = function()
+        local NAME = "Left edge"
+
+        local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
+        local export = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
+        if not overview or not export then
+            return Fail(NAME, "패널을 못 얻었다")
+        end
+        -- Two tabs of the same width would leave nothing to measure, and this would pass on any
+        -- anchor at all.
+        if overview.preferredWidth == export.preferredWidth then
+            return Fail(NAME, format("두 탭이 같은 폭(%s)을 요구한다", tostring(overview.preferredWidth)))
+        end
+
+        if not DebindFrame:IsShown() then
+            DebindFrame:Show()
+            AddTeardown(function() DebindFrame:Hide() end)
+        end
+
+        -- Where the tester had the window, and what they had saved. `OnDragStop` writes both.
+        local point, relativeTo, relativePoint, x, y = DebindFrame:GetPoint(1)
+        local saved = DebindPrivate.db.global.ui.main
+        AddTeardown(function()
+            DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+            DebindPrivate.db.global.ui.main = saved
+            if point then
+                DebindFrame:ClearAllPoints()
+                DebindFrame:SetPoint(point, relativeTo, relativePoint, x, y)
+            end
+        end)
+
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+        DebindFrame:ClearAllPoints()
+        DebindFrame:SetPoint("CENTER", "UIParent", 0, 0)
+
+        local dragStop = DebindFrame:GetScript("OnDragStop")
+        if not dragStop then
+            return Fail(NAME, "OnDragStop이 없다 - 창이 끌리지 않는다")
+        end
+        dragStop(DebindFrame)
+
+        local before = DebindFrame:GetLeft()
+        DebindFrame:SelectPanel(EXPORT_PANEL_ID)
+        local after = DebindFrame:GetLeft()
+        if not before or not after then
+            return Fail(NAME, "창의 왼쪽 변을 못 읽었다")
+        end
+        -- Within a pixel: `GetLeft` reads back what the frame ended up at, and the UI scale is in
+        -- the middle of that (the tab width test above says the same thing).
+        if math.abs(after - before) > 1 then
+            return Fail(NAME, format("왼쪽 변이 %.0f에서 %.0f로 움직였다", before, after))
+        end
+
+        return Pass(NAME, format("%.0f 그대로 (폭 %d -> %d)",
+            before, overview.preferredWidth, export.preferredWidth))
+    end,
+})
+
 -- **The panel is always there; what can be missing is what it reads.** `EnsureStore` asks whether
 -- `DebindPrivate.Store` was handed over, not whether the addon is loaded - the addon can be in
 -- memory having handed over nothing, and every caller dereferences that table. Asking
