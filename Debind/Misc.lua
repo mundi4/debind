@@ -334,22 +334,6 @@ function DebindPrivate.GetMacroSlotLimits()
     return account, character;
 end
 
-function DebindPrivate.GetSetSwitchModeAndIndex(value)
-    local modeFlag = band(value, Constants.SETCUSTOM_MODE_MASK);
-    local mode;
-    if (modeFlag == Constants.SETCUSTOM_MODE_ON) then
-        mode = "on";
-    elseif (modeFlag == Constants.SETCUSTOM_MODE_OFF) then
-        mode = "off";
-    elseif (modeFlag == Constants.SETCUSTOM_MODE_TOGGLE) then
-        mode = "toggle";
-    else
-        return;
-    end
-    local stateIndex = band(value, 0xf);
-    return mode, stateIndex;
-end
-
 local UNIT_SCALAR_TO_STATE = {
     [true]    = Constants.UNITSTATE_EXISTS,
     [false]   = Constants.UNITSTATE_NONE,
@@ -1375,7 +1359,7 @@ function DebindPrivate.CanConvertToMacroText(action)
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
         or action.type == Constants.SETCUSTOM
-        or action.type == Constants.SETSTATE
+        or Constants.SETSTATE_MODES[action.type] ~= nil
         or action.type == Constants.WORLDMARKER;
 end
 
@@ -1444,27 +1428,15 @@ function DebindPrivate.ConvertToMacroText(action)
         macrotext = format("/click DebindCustom%d hover", action.value);
         name = L["TYPE_SETCUSTOM" .. action.value];
         icon = 1505950;
-    elseif (action.type == Constants.SETSTATE) then
-        local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
-        if (not mode or (mode ~= "on" and mode ~= "off" and mode ~= "toggle")) then
-            return;
-        end
-
-        local state = "$state" .. stateIndex;
-        macrotext = format("/click DebindStates %s-%s", state, mode);
-        name = format(L["TYPE_SETSTATE_" .. strupper(mode) .. "_NUM"], stateIndex);
+    elseif (Constants.SETSTATE_MODES[action.type]) then
+        -- **The body needs a name and a mode, and the action already holds both** -- the name in
+        -- `value`, the mode decided by the type. The locale key assembles off the type for the
+        -- same reason, which is half of why the type names are underscored (`Constants.lua`).
+        macrotext = format("/click DebindStates %s-%s", action.value,
+            Constants.SETSTATE_MODES[action.type]);
+        name = format(L["TYPE_" .. strupper(action.type)],
+            DebindPrivate.GetSwitchDisplayName(action.value));
         icon = 254885;
-
-
-
-        -- clickframe:SetAttribute("*type-" .. buttonname, "attribute");
-        --     clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.SwitchesUpdaterFrame);
-        --     clickframe:SetAttribute("*attribute-name-" .. buttonname, "$state" .. stateIndex);
-        --     clickframe:SetAttribute("*attribute-value-" .. buttonname, mode);
-
-        -- macrotext = format("/click DebindStates%d hover", action.value);
-        -- name = L["TYPE_SETCUSTOM" .. action.value];
-        -- icon = 1505950;
     elseif (action.type == Constants.WORLDMARKER) then
         macrotext = format("/wm %d", action.value);
         name = _G["WORLD_MARKER" .. action.value];

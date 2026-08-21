@@ -7,8 +7,9 @@
 --
 -- Two of those are the whole reason the format is shaped the way it is:
 --
---   * a `SETSTATE` value is `mode | index`, and the wire carries a **name**. Rebuild it against the
---     wrong index and the key sets some other state - silently, because an index always resolves.
+--   * a `SETSTATE` value is a switch **name**, on the wire and in the profile alike (§9-1 of
+--     `devdocs/redesigning-custom-states.md`). What still has to be rebuilt is v1's `setstate`
+--     subtable, and that happens at the door rather than here.
 --   * a `MACRO` carries a **name**, and only a name. A slot index would resolve on any install and
 --     point at some other macro; the body no longer travels at all, so nothing can arrive carrying
 --     a stranger's macro text (`devdocs/building-export-import.md`, 2026-08-18).
@@ -588,60 +589,91 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     ---------------------------------------------------------------------------
-    -- SETSTATE: name axis back to the bitpack
+    -- SETSTATE: v1's subtable, and the shape it lands in
+    --
+    -- **The rebuild left this file.** The profile stores a type and a name now (§9-1 of
+    -- `devdocs/redesigning-custom-states.md`), so a current payload lands as it arrived and
+    -- `BuildAction` has nothing to do with it. What v1 spelled as a `setstate` subtable is a
+    -- version step like any other, and it stands one door earlier - `BringPayloadForward`.
     ---------------------------------------------------------------------------
 
-    test("상태 이름이 비트팩으로 돌아온다", function()
-        ResetProfile();
-        local action = PlanOne(General({
-            { type = Constants.SETSTATE, key = "F", seq = 1,
-              setstate = { mode = "toggle", state = "$state3" } } }));
+    --- A payload run through the door both entrances go through.
+    local function Forwarded(payload)
+        local raised, reason = DebindStorage.BringPayloadForward(payload);
+        check(raised, "관문이 거절했다: " .. tostring(reason));
+        return raised;
+    end
 
-        local mode, index = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
-        check(mode == "toggle", "모드 " .. tostring(mode));
-        check(index == 3, "상태 번호 " .. tostring(index));
-        check(action.setstate == nil, "포맷 필드가 액션에 남았다");
-    end);
+    --- The wire shape 3.2 wrote. `Constants.SETSTATE` is gone, so the old type is a literal here
+    --- for the same reason the migration step holds one.
+    local function V1Setstate(mode, state)
+        return General({
+            { type = "setstate", key = "F", seq = 1,
+              setstate = { mode = mode, state = state } } });
+    end
 
-    test("세 모드가 다 돌아온다", function()
-        ResetProfile();
-        for _, mode in ipairs({ "on", "off", "toggle" }) do
-            local action = PlanOne(General({
-                { type = Constants.SETSTATE, key = "F", seq = 1,
-                  setstate = { mode = mode, state = "$state1" } } }));
-            check(DebindPrivate.GetSetSwitchModeAndIndex(action.value) == mode,
-                "모드가 안 돌아옴: " .. mode);
-        end
-    end);
-
-    -- **A name this version does not know must not become a number.** Any number resolves, and it
-    -- would resolve to some other state - the key would quietly set the wrong one. Guessing none
-    -- is what makes the action fail `IsUsableAction` and take the string down with it, which is
-    -- checked above; this is the rebuild refusing to invent the number in the first place.
-    test("모르는 상태 이름은 값이 안 생긴다", function()
-        ResetProfile();
-        local action = PlanOne(General({
-            { type = Constants.SETSTATE, key = "F", seq = 1,
-              setstate = { mode = "toggle", state = "$nosuchstate" } } }));
-        check(action.value == nil, "엉뚱한 상태를 가리키는 값이 생겼다: " .. tostring(action.value));
-        check(action.type == Constants.SETSTATE, "타입은 그대로여야 한다");
-    end);
-
-    -- **딸려온 `value`도 같이 지워야 한다.** 이름 축으로 내보낼 때 `Export.lua`가 `value`를
-    -- 비우므로, `setstate` 옆에 값이 앉아 있는 문자열은 손으로 만든 것이다. 그리고 그 값은 어떤
-    -- 수든 어떤 상태로 풀리므로, 남겨두면 이름 축이 막으려던 바로 그 일 - 엉뚱한 상태를 켜는 키 -
-    -- 이 된다. 번호를 안 지어내는 것만으로는 모자라고, 들어온 것을 치워야 한다.
-    test("안 풀리는 setstate는 딸려온 value도 지운다", function()
-        for _, wire in ipairs({
-            { mode = "없는모드", state = "$state3" },
-            { mode = "toggle", state = "$nosuchstate" },
+    test("v1의 서브테이블이 타입과 이름으로 도착한다", function()
+        for _, case in ipairs({
+            { mode = "on", type = Constants.SETSTATE_ON },
+            { mode = "off", type = Constants.SETSTATE_OFF },
+            { mode = "toggle", type = Constants.SETSTATE_TOGGLE },
         }) do
             ResetProfile();
-            local action = PlanOne(General({
-                { type = Constants.SETSTATE, key = "F", seq = 1, value = 17, setstate = wire } }));
-            check(action.value == nil, "값이 살아남았다: " .. tostring(action.value)
-                .. " (" .. tostring(wire.mode) .. "/" .. tostring(wire.state) .. ")");
+            local action = PlanOne(Forwarded(V1Setstate(case.mode, "$state3")));
+            check(action.type == case.type, case.mode .. " -> " .. tostring(action.type));
+            check(action.value == "$state3", "이름 " .. tostring(action.value));
+            check(action.setstate == nil, "포맷 필드가 액션에 남았다");
         end
+    end);
+
+    -- **이 문서 전체가 겨눈 자리다.** 같은 액션이 v1 서브테이블로 와도 지금 모양으로 와도 같은
+    -- 것으로 도착해야 한다. 갈리면 액션 모양이 둘이라는 뜻이고, 그러면 마이그레이션도 두 벌이
+    -- 된다 (`devdocs/legacy/unifying-action-migration.md`).
+    test("v1 페이로드와 새 페이로드가 같은 액션으로 도착한다", function()
+        ResetProfile();
+        local fromV1 = PlanOne(Forwarded(V1Setstate("toggle", "$state3")));
+
+        local current = General({
+            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "F", seq = 1 } });
+        current.v = DebindStorage.EXPORT_SCHEMA_VERSION;
+        current.dbver = Constants.DB_VERSION;
+
+        ResetProfile();
+        local fromCurrent = PlanOne(Forwarded(current));
+
+        for _, field in ipairs({ "type", "value", "key", "seq", "imported" }) do
+            check(fromV1[field] == fromCurrent[field],
+                field .. ": " .. tostring(fromV1[field]) .. " vs " .. tostring(fromCurrent[field]));
+        end
+    end);
+
+    -- **모르는 모드는 옛 타입인 채로 남는다.** 무엇을 하려던 액션인지 알 수 없으니 셋 중
+    -- 아무거나 고르면 켜기가 끄기가 된다. 남은 `"setstate"`는 이 판이 모르는 타입이라
+    -- `IsUsableAction`이 걸러내고, 문자열 전체가 거절된다 - 아래 그 자리에서 다시 본다.
+    --
+    -- **딸려온 `value`도 같이 죽는다.** v1은 `value`를 비우고 보냈으므로 그 자리에 숫자가
+    -- 앉아 있는 문자열은 손으로 만든 것이고, 그 숫자는 어떤 것이든 어떤 스위치로 풀린다.
+    test("모르는 모드는 안 갈리고, 그래서 못 쓰는 액션이 된다", function()
+        local payload = Forwarded(V1Setstate("없는모드", "$state3"));
+        local action = payload.shared.GENERAL[1];
+        check(action.type == "setstate", "타입 " .. tostring(action.type));
+        check(action.setstate == nil, "서브테이블이 남았다");
+        check(DebindStorage.PayloadIsImpossible(payload), "문자열이 안 거절됐다");
+    end);
+
+    -- **정의가 없는 이름은 그대로 도착한다. 이것이 바뀐 자리다.**
+    --
+    -- 전에는 `SWITCH_INDICES`에 없는 이름이면 값이 안 만들어져서 문자열이 통째로 거절됐다.
+    -- 그 거절은 이름을 번호로 되돌려야 해서 생긴 것이지 판단이 아니었고, 저장 표현이 이름이
+    -- 된 지금은 되돌릴 것이 없다. 도착한 뒤의 답도 이미 있다 - 정의가 없는 스위치를 가리키는
+    -- 것은 조건 쪽에서 이미 평범하게 받아들이는 모양이고(`ConditionAllowed`), 누르면 아무
+    -- 일도 안 일어난다. 붙박이 다섯을 가리키면서 정의가 없는 액션은 이 리포에서 이미 만들 수
+    -- 있다 - 카탈로그에서 고르는 것은 정의를 안 심는다(`GetOrCreateSwitchDefinition`).
+    test("정의가 없는 이름도 그대로 도착한다", function()
+        ResetProfile();
+        local action = PlanOne(Forwarded(V1Setstate("toggle", "$nosuchswitch")));
+        check(action.type == Constants.SETSTATE_TOGGLE, "타입 " .. tostring(action.type));
+        check(action.value == "$nosuchswitch", "이름 " .. tostring(action.value));
     end);
 
     ---------------------------------------------------------------------------
@@ -712,10 +744,8 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SETCUSTOM, value = 1, key = "M", seq = 1 },
             { type = Constants.TARGET, key = "N", seq = 1 },
             { type = Constants.UNUSED, key = "O", seq = 1 },
-            -- Arriving with no value and a `setstate` table is this type's ordinary shape, which
-            -- is why the check reads the built action rather than what the wire carried.
-            { type = Constants.SETSTATE, key = "P", seq = 1,
-              setstate = { mode = "toggle", state = "$state3" } } })), "멀쩡한 것이 걸렸다");
+            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "P", seq = 1 } })),
+            "멀쩡한 것이 걸렸다");
     end);
 
     -- The UI reaches for `value` on these three without asking, so one arriving without it is not a
@@ -734,18 +764,20 @@ return function(DebindPrivate, DebindStorage)
             { type = "직업변경", value = 1, key = "F", seq = 1 } })), "안 걸렸다");
     end);
 
-    -- **`SETSTATE` naming a mode or a state this version does not know.** The rebuild leaves it
-    -- without a value, and a `SETSTATE` with no value is not a shape to show in red - it reached
-    -- `band(nil, …)` and raised. The same gate answers it, so nothing downstream has to.
-    test("풀리지 않는 setstate도 걸린다", function()
-        for _, wire in ipairs({
-            { mode = "없는모드", state = "$state3" },
-            { mode = "toggle", state = "$nosuchstate" },
-        }) do
-            check(DebindStorage.PayloadIsImpossible(General({
-                { type = Constants.SETSTATE, key = "F", seq = 1, setstate = wire } })),
-                "안 걸렸다: " .. tostring(wire.mode) .. "/" .. tostring(wire.state));
-        end
+    -- **The old single type is one nothing knows any more**, so a payload still carrying it is
+    -- turned away by the same rule that turns away a type from a Debind that does not exist. It
+    -- is reachable two ways: a v1 string whose mode the adapter could not read (above), and a
+    -- string somebody wrote by hand.
+    test("옛 단일 타입 setstate는 모르는 타입으로 걸린다", function()
+        check(DebindStorage.PayloadIsImpossible(General({
+            { type = "setstate", value = "$state3", key = "F", seq = 1 } })), "안 걸렸다");
+    end);
+
+    -- The three that replaced it carry a name, and a number there is a reference to nothing: it
+    -- reaches `SetAttribute` as the name of the attribute to set (`UpdateBindings.lua`).
+    test("이름 대신 숫자를 든 SETSTATE도 걸린다", function()
+        check(DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.SETSTATE_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");
     end);
 
     -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in

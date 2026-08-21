@@ -424,18 +424,21 @@ return function(DebindPrivate, DebindStorage)
     -- Local references: states
     ---------------------------------------------------------------------------
 
-    test("SETSTATE는 인덱스가 아니라 이름으로 나간다", function()
+    -- **The one field the export used to rewrite.** A `setstate = { mode, state }` subtable was
+    -- hung on the copy and `value` was cleared, which put the same action in two shapes and the
+    -- migration for it in two copies (`devdocs/legacy/unifying-action-migration.md`). What is asked
+    -- now is that nothing is rewritten at all.
+    test("SETSTATE도 저장된 모양 그대로 나간다", function()
         ResetProfile({
             general = {
-                { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_TOGGLE + 3, key = "F" },
+                { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "F" },
             },
         });
 
         local action = OneOn(DebindStorage.BuildExportPayload(), "F");
-        check(action.setstate, "정규화가 안 됐다");
-        check(action.setstate.mode == "toggle", "모드 " .. tostring(action.setstate.mode));
-        check(action.setstate.state == "$state3", "상태 " .. tostring(action.setstate.state));
-        check(action.value == nil, "비트팩이 같이 나가면 어느 쪽이 진짜인지 모른다");
+        check(action.type == Constants.SETSTATE_TOGGLE, "타입 " .. tostring(action.type));
+        check(action.value == "$state3", "값 " .. tostring(action.value));
+        check(action.setstate == nil, "선에만 있는 모양을 아직 만들고 있다");
     end);
 
     test("SETCUSTOM은 손대지 않는다", function()
@@ -494,7 +497,7 @@ return function(DebindPrivate, DebindStorage)
 
     test("SETSTATE가 가리킨 상태도 걷힌다", function()
         StatefulProfile({
-            { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_ON + 3, key = "F" },
+            { type = Constants.SETSTATE_ON, value = "$state3", key = "F" },
         });
 
         local manifest = DebindStorage.BuildExportPayload().states;
@@ -561,7 +564,7 @@ return function(DebindPrivate, DebindStorage)
         StatefulProfile({
             { type = Constants.SPELL, value = 774, key = "SHIFT-F", combat = true },
             { type = Constants.MACRO, value = "내매크로", key = "SHIFT-F" },
-            { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_TOGGLE + 3, key = "G" },
+            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "G" },
         });
         return DebindStorage.BuildExportPayload();
     end
@@ -570,13 +573,15 @@ return function(DebindPrivate, DebindStorage)
     --- from resolving wrongly, so if this falls the format has stopped doing its whole job.
     local function CheckSurvived(payload)
         check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION, "스키마 버전");
+        -- 액션 모양의 버전은 봉투와 따로 실린다. 안 실리면 받는 쪽이 그것을 거절한다.
+        check(payload.dbver == Constants.DB_VERSION, "dbver " .. tostring(payload.dbver));
         check(payload.class == CLASS, "클래스");
         check(CountActions(payload) == 3, "액션 수 " .. CountActions(payload));
         local shiftF = GroupFor(payload, "SHIFT-F");
         check(#shiftF == 2, "SHIFT-F 그룹 크기 " .. #shiftF);
         local macro = shiftF[1].type == Constants.MACRO and shiftF[1] or shiftF[2];
         check(macro.value == "내매크로", "매크로 이름 " .. tostring(macro.value));
-        check(OneOn(payload, "G").setstate.state == "$state3", "상태 이름");
+        check(OneOn(payload, "G").value == "$state3", "상태 이름");
         check(payload.states["$state3"].displayMessage == "3번", "매니페스트");
     end
 
@@ -721,6 +726,59 @@ return function(DebindPrivate, DebindStorage)
         check(states["$state3"].resetValue == false,
             "false가 " .. tostring(states["$state3"].resetValue) .. "가 됐다");
         check(states["$state1"].displayMessage == "1번", "나머지가 안 따라왔다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 액션 사다리는 프로필의 것 하나뿐이다
+    --
+    -- 같은 변환이 두 벌 서 있었다. 조건 중첩이 `MigrateLayer` 안에 한 번, 페이로드 쪽에
+    -- 손으로 한 번(`NestPayloadConditions`). `devdocs/legacy/unifying-action-migration.md`가
+    -- 없애려던 것이 그 갈라짐이다.
+    ---------------------------------------------------------------------------
+
+    -- **이 케이스만 결과가 아니라 경로를 본다.** 결과만 보는 검사는 두 벌이 우연히 같은 답을
+    -- 내는 동안 아무 말도 안 하고, 갈렸다는 사실 자체가 여기서 막으려는 것이다.
+    --
+    -- 액션은 `dbver` 5 모양이다 - 조건이 평면이고 SETSTATE가 비트팩이라, 그 판 단계의 두
+    -- 갈래를 한 액션이 같이 지난다.
+    test("페이로드의 액션은 프로필의 사다리를 그대로 탄다", function()
+        local seen = {};
+        local real = DebindPrivate.MigrateLayer;
+        DebindPrivate.MigrateLayer = function(layerTbl, dbver)
+            seen[#seen + 1] = dbver;
+            return real(layerTbl, dbver);
+        end;
+
+        local ok, err = pcall(function()
+            local payload = DebindStorage.BringPayloadForward({
+                v = 1, class = CLASS,
+                shared = { GENERAL = {
+                    { type = "setstate", key = "F", seq = 1, value = 0x400 + 3,
+                      combat = true },
+                } },
+            });
+            check(payload, "v1이 거절당했다");
+
+            local action = payload.shared.GENERAL[1];
+            check(action.conditions and action.conditions.combat == true,
+                "조건이 안 내려갔다");
+            check(action.combat == nil, "최상단에 조건이 남았다");
+            check(action.type == Constants.SETSTATE_TOGGLE,
+                "타입이 안 갈렸다: " .. tostring(action.type));
+            check(action.value == "$state3", "이름 " .. tostring(action.value));
+            check(payload.dbver == Constants.DB_VERSION,
+                "올린 뒤에도 옛 dbver가 남았다: " .. tostring(payload.dbver));
+        end);
+
+        DebindPrivate.MigrateLayer = real;
+        if (not ok) then
+            error(err, 0);
+        end
+
+        check(#seen > 0, "프로필 사다리를 안 불렀다 - 같은 변환이 두 벌 서 있다");
+        for _, dbver in ipairs(seen) do
+            check(dbver == 5, "v1을 5로 안 넘겼다: " .. tostring(dbver));
+        end
     end);
 
     return T;

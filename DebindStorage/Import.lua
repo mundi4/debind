@@ -191,16 +191,6 @@ end
 -- One action
 -- ---------------------------------------------------------------------------------------------
 
---- The wire says `{mode = "toggle", state = "$state3"}`; the profile stores one number with the
---- mode in the high bits and the state index in the low nibble. Names travel because an index is a
---- reference that always resolves and resolves to the wrong state (`Export.lua`).
-local SETSTATE_MODE_FLAGS = {
-    on = Constants.SETCUSTOM_MODE_ON,
-    off = Constants.SETCUSTOM_MODE_OFF,
-    toggle = Constants.SETCUSTOM_MODE_TOGGLE,
-};
-
-
 --- Whether one wire field may be copied, **by name and by type**.
 ---
 --- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
@@ -270,7 +260,11 @@ local VALUE_SHAPES = {
     [Constants.FLYOUT]      = "number",
     [Constants.WORLDMARKER] = "number",
     [Constants.SETCUSTOM]   = "number",
-    [Constants.SETSTATE]    = "number",
+    -- A switch name. It reaches `SetAttribute` as the name of the attribute to set
+    -- (`UpdateBindings.lua`), where a number would name an attribute nothing reads.
+    [Constants.SETSTATE_ON]     = "string",
+    [Constants.SETSTATE_OFF]    = "string",
+    [Constants.SETSTATE_TOGGLE] = "string",
     [Constants.MACRO]       = "string",
     [Constants.MACROTEXT]   = "string",
     [Constants.COMMAND]     = "string",
@@ -320,34 +314,14 @@ end
 --- whitelist. Those blocks used to run **after** the loop and assign to `action`, which held only
 --- as long as everyone remembered that writing there put a value in the profile unread.
 ---
---- `setstate` stays out by being what it is -- the format's word, not the profile's. It is read
---- below and travels no further; `CleanUpDB` would drop it anyway, but leaving it for that to find
---- would mean the action is briefly a shape nothing else expects.
+--- **Nothing is rebuilt on the way in any more, and the whitelist is the whole of it.** A
+--- `SETSTATE` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
+--- where it was turned back into the bitpack the profile stored. §9-1 made the stored form a `type`
+--- and a name, so what arrives is what lands and the loop below just copies it
+--- (`devdocs/legacy/unifying-action-migration.md` §3-1). Reading the old subtable is
+--- `BringPayloadForward`'s now, one door earlier, where every other version step lives.
 local function BuildAction(source)
     local fields = CopyTable(source);
-
-    -- **Asked whether it is a table, not whether it is there.** Everything below reads fields off
-    -- it, and a pasted string is untrusted input that none of this may error on -- a hand-made
-    -- `setstate = 5` would raise here and take the whole commit down with it, halfway through
-    -- placing a batch.
-    if (luatype(source.setstate) == "table") then
-        local flag = SETSTATE_MODE_FLAGS[source.setstate.mode];
-        local index = Constants.SWITCH_INDICES[source.setstate.state];
-        if (flag and index) then
-            fields.value = flag + index;
-        else
-            -- A mode or a state name this version does not know. **No number is guessed**, because
-            -- every number resolves and would set some other state. Leaving it out makes the action
-            -- one `IsUsableAction` turns down, which refuses the string -- the right end for it,
-            -- since a `SETSTATE` with nothing to set is not a shape anything downstream reads.
-            --
-            -- **Cleared rather than left alone.** The wire may carry a `value` of its own beside
-            -- the name, and any number there resolves to some state -- the one thing the name axis
-            -- exists to stop. Declining to write one is not enough; this branch has to take away
-            -- the one that arrived.
-            fields.value = nil;
-        end
-    end
 
     local action = {};
     for k, v in pairs(fields) do
@@ -392,8 +366,8 @@ end
 --- puts the repair back where they can reach it, which is asking for it again.
 ---
 --- **Actions are asked of the built one**, not of the wire table, which is why `BuildAction` stands
---- above this section. The format spells `SETSTATE` as a `setstate` table with no value; reading
---- the wire shape here would keep that fact in two places.
+--- above this section. The two differ by what the whitelist drops, and asking about the wire table
+--- would be asking about fields that never land.
 ---
 --- The other two are the values that are **used as something before anything checks them**, and
 --- both crash rather than misbehave:

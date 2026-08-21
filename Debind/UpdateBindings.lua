@@ -616,9 +616,12 @@ function SetBindingAttributes(type, value, unit)
             clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.UnitWatch);
             clickframe:SetAttribute("*attribute-name-" .. buttonname, "custom" .. value);
             clickframe:SetAttribute("*attribute-value-" .. buttonname, "hover");
-        elseif (type == Constants.SETSTATE) then
-            local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(value);
-            if (not mode) then
+        elseif (Constants.SETSTATE_MODES[type]) then
+            -- **The type decides the mode, so the name is all that is left to be wrong.** What
+            -- this guard turned away while the value was a bitpack was an undecodable mode; the
+            -- name inherits the place. Handing `SetAttribute` a nil name raises nothing -- it
+            -- clears the attribute -- and the key then dies quietly on the restricted side.
+            if (luatype(value) ~= "string") then
                 if (DEBUG) then
                     DebindPrivate.log("Invalid value:", type, value);
                 end
@@ -626,8 +629,9 @@ function SetBindingAttributes(type, value, unit)
             end
             clickframe:SetAttribute("*type-" .. buttonname, "attribute");
             clickframe:SetAttribute("*attribute-frame-" .. buttonname, DebindPrivate.SwitchesUpdaterFrame);
-            clickframe:SetAttribute("*attribute-name-" .. buttonname, "$state" .. stateIndex);
-            clickframe:SetAttribute("*attribute-value-" .. buttonname, mode);
+            clickframe:SetAttribute("*attribute-name-" .. buttonname, value);
+            clickframe:SetAttribute("*attribute-value-" .. buttonname,
+                Constants.SETSTATE_MODES[type]);
         elseif (type == Constants.FLYOUT) then
             -- 손잡이는 위에서 이미 받아왔다(캐시 앞에서 봐야 하는 이유가 거기 있다).
             clickframe:SetAttribute("*type-" .. buttonname, "click");
@@ -1183,12 +1187,9 @@ function UpdateBindingsMap()
                         --
                         -- No `_updateFlags` entry: this key's own wiring does not depend on the
                         -- switch, so there is nothing to re-decide when it changes.
-                        if (binding.type == Constants.SETSTATE) then
-                            local _, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(binding.value);
-                            local stateName = stateIndex and Constants.SWITCH_NAMES[stateIndex];
-                            if (stateName) then
-                                addSwitch(stateName);
-                            end
+                        if (Constants.SETSTATE_MODES[binding.type]
+                                and luatype(binding.value) == "string") then
+                            addSwitch(binding.value);
                         end
 
                         -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는

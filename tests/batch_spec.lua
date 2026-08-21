@@ -175,7 +175,14 @@ return function(DebindPrivate, DebindStorage)
         -- 상수를 읽는다. 숫자를 적어두면 스키마가 올라가는 날 이 파일의 케이스가 전부
         -- **버전 때문에** 빨개지는데, 여기서 묻는 것은 버전이 아니라 서랍의 행동이다.
         -- 버전을 묻는 케이스는 아래에서 값을 직접 만들어 쓴다.
-        local payload = { v = DebindStorage.EXPORT_SCHEMA_VERSION, class = CLASS };
+        --
+        -- **둘을 다 든다.** 봉투 모양은 `v`가, 그 안의 액션 모양은 `dbver`가 센다
+        -- (`devdocs/legacy/unifying-action-migration.md` §3-3). 하나만 들면 서랍 문이 거절한다.
+        local payload = {
+            v = DebindStorage.EXPORT_SCHEMA_VERSION,
+            dbver = Constants.DB_VERSION,
+            class = CLASS,
+        };
 
         for _, entry in ipairs(layers) do
             local actions = {};
@@ -462,6 +469,49 @@ return function(DebindPrivate, DebindStorage)
         local payload, reason = DebindStorage.GetBatchPayload(batch);
         check(payload == nil, "읽어버렸다");
         check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+    end);
+
+    -- **봉투 위에 사다리가 하나 더 있다.** `v`는 주소 체계를 세고 `dbver`는 그 안의 액션
+    -- 모양을 센다. 두 질문이 한 숫자에 얹혀 있던 것을 가른 것이 이 변경이고, 그래서 봉투가
+    -- 통과한 뒤에도 물어볼 것이 남는다.
+    --
+    -- v1은 이 자리에 안 걸린다. 판 번호가 곧 답이라 어댑터가 5를 찍고 지나간다.
+    local function StoredBatchWithDbver(dbver)
+        local batch = StoredBatchWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION);
+        batch.payload.dbver = dbver;
+        return batch;
+    end
+
+    -- 이 판이 v2를 내면서 `dbver`를 같이 싣기 시작했으므로, 안 든 v2는 어느 빌드도 만든 적이
+    -- 없는 모양이다. 추측으로 읽으면 액션을 어느 사다리에 태울지를 지어내게 된다.
+    test("dbver를 안 든 v2 배치는 거절한다", function()
+        local payload, reason = DebindStorage.GetBatchPayload(StoredBatchWithDbver(nil));
+        check(payload == nil, "읽어버렸다");
+        check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
+    end);
+
+    test("이 빌드보다 새 dbver를 든 배치는 거절한다", function()
+        local payload, reason = DebindStorage.GetBatchPayload(
+            StoredBatchWithDbver(Constants.DB_VERSION + 1));
+        check(payload == nil, "읽어버렸다");
+        check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
+    end);
+
+    -- **바닥은 공유가 나간 판이다.** 그 밑으로 내려가면 `MigrateLayer`의 옛 단계들에 닿는데,
+    -- 그것들은 프로필만 지나가던 시절에 쓰여서 필드가 제 타입이라고 믿는다. 붙여넣기는 에러를
+    -- 내면 안 되는 자리라 읽기 전에 거절한다.
+    test("공유가 나가기 전 dbver를 든 배치는 거절한다", function()
+        local payload, reason = DebindStorage.GetBatchPayload(StoredBatchWithDbver(4));
+        check(payload == nil, "읽어버렸다");
+        check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
+    end);
+
+    -- NaN은 위아래 비교를 전부 빠져나간다. 통과시키면 어느 단계도 안 맞는 판으로 사다리에
+    -- 들어가고, 그건 아무 단계도 안 밟은 액션을 이 판의 것이라고 도장 찍는 것이다.
+    test("dbver가 NaN인 배치도 거절한다", function()
+        local payload, reason = DebindStorage.GetBatchPayload(StoredBatchWithDbver(0 / 0));
+        check(payload == nil, "읽어버렸다");
+        check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
     end);
 
     -- **행은 그려지는데 열면 터지던 자리.** 서랍 행을 그리는 둘(`CountBatch`,

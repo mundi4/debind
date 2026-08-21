@@ -16,7 +16,7 @@ local Constants        = DebindPrivate.Constants;
 --- **The seed is written, not captured.** No real name and no real GUID goes in, which is the
 --- whole reason it can be committed at all.
 ---
---- `devdocs/setting-up-a-dev-profile.md`.
+--- `devdocs/legacy/setting-up-a-dev-profile.md`.
 
 --- One builder per `dbver`. **When `dbver` goes up, add the new one and leave the old ones where
 --- they are.** Carrying all of them is what makes this file right wherever it is copied, so no
@@ -147,11 +147,13 @@ SEEDS[5] = function(guid)
                 --- Only commands with a `BINDING_NAME_*` reach the picker, so the seed uses one
                 --- that has had one for as long as the game has.
                 { type = Constants.COMMAND, value = "TOGGLEBACKPACK", key = "CTRL-F3", seq = 1 },
-                --- Custom state switching. The value packs the mode into the high bits over the
-                --- state index (`ActionCatalog.lua` builds it the same way), and state 2 is one
-                --- the seed actually defines below.
-                { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_TOGGLE + 2,
-                    key = "CTRL-F4", seq = 1 },
+                --- Switch flipping. **The old shape, spelled out.** `dbver` 5 packed the mode
+                --- into the high bits over the state index, and neither that type name nor the
+                --- mode flags survive in `Constants.lua` -- reaching for a constant would plant
+                --- `dbver` 6 data under a `dbver` 5 stamp, and `/deb seed 5` is what the step
+                --- that unpacks it is verified against (`MigrateLayer` in `Profile.lua`).
+                --- `0x400` is toggle, and state 2 is one the seed actually defines below.
+                { type = "setstate", value = 0x400 + 2, key = "CTRL-F4", seq = 1 },
                 --- [Unused], which carries no value at all: the key is handed back to the game's
                 --- own binding rather than taken.
                 { type = Constants.UNUSED, key = "CTRL-F5", seq = 1 },
@@ -383,10 +385,10 @@ SEEDS[6] = function(guid)
                 --- Only commands with a `BINDING_NAME_*` reach the picker, so the seed uses one
                 --- that has had one for as long as the game has.
                 { type = Constants.COMMAND, value = "TOGGLEBACKPACK", key = "CTRL-F3", seq = 1 },
-                --- Custom state switching. The value packs the mode into the high bits over the
-                --- state index (`ActionCatalog.lua` builds it the same way), and state 2 is one
-                --- the seed actually defines below.
-                { type = Constants.SETSTATE, value = Constants.SETCUSTOM_MODE_TOGGLE + 2,
+                --- Switch flipping. The mode is the type and the target is the switch name
+                --- (`ActionCatalog.lua` builds it the same way), and `$state2` is one the seed
+                --- actually defines below.
+                { type = Constants.SETSTATE_TOGGLE, value = "$state2",
                     key = "CTRL-F4", seq = 1 },
                 --- [Unused], which carries no value at all: the key is handed back to the game's
                 --- own binding rather than taken.

@@ -5,6 +5,8 @@ local Constants          = DebindPrivate.Constants;
 local L                  = DebindPrivate.L;
 local ERROR_COLOR        = _G.ERROR_COLOR;
 local luatype            = type;
+-- One caller: the `dbver` 5 step that opens the old SETSTATE bitpack.
+local band               = bit.band;
 local dump               = DebindPrivate.dump;
 local LayerArray         = {};
 
@@ -233,10 +235,22 @@ function ProfileLayerProto:PlaceInKeyGroup(action)
     end
 end
 
---- 레이어 배열 하나를 dbver에서 Constants.DB_VERSION까지 올린다.
+--- Raises one layer's array of actions from `dbver` to `Constants.DB_VERSION`.
 ---
---- 단계마다 `dbver <= N`으로 여는 것에 주의. `== N`이면 두 판 밀린 프로필이 첫 단계만
---- 밟고 나온다. 각 단계는 자기가 이미 끝난 데이터 위에서 다시 돌아도 안전해야 한다.
+--- **Every step opens with `dbver <= N`, never `== N`.** With `==`, a profile two versions behind
+--- walks the first step and leaves. And each step has to be safe to run again on data it has
+--- already finished.
+---
+--- **What comes through here is not only the profile.** A received payload's action array rides
+--- the same ladder (`BringPayloadForward` in `Export.lua`). That is what keeps one transformation
+--- from being written twice (`devdocs/legacy/unifying-action-migration.md` §3-4), and the price
+--- of it is that **the input is no longer trusted**: a pasted string's fields arrive as any type at
+--- all, and
+--- an error raised in here takes down a commit with half the batch already in the profile.
+---
+--- So **the steps a payload can reach** ask about types, and the rest stand as they were written
+--- when only the profile came through. A payload's `dbver` cannot go below 5
+--- (`OLDEST_PAYLOAD_DBVER` in `Export.lua`), which is what keeps it out of them.
 local function MigrateLayer(layerTbl, dbver)
     if (layerTbl == nil) then
         return;
@@ -418,7 +432,8 @@ local function MigrateLayer(layerTbl, dbver)
             end
 
             if (count > 0) then
-                local conditions = action.conditions or {};
+                local conditions = luatype(action.conditions) == "table"
+                    and action.conditions or {};
                 for j = 1, count do
                     local k = names[j];
                     conditions[k == "checkedUnits" and "units" or k] = action[k];
@@ -426,6 +441,39 @@ local function MigrateLayer(layerTbl, dbver)
                     names[j] = nil;
                 end
                 action.conditions = conditions;
+            end
+        end
+
+        -- SETSTATE's `mode | index` bitpack, opened out into three types and a name.
+        --
+        -- **The step holds the old name and the old numbers itself.** Neither the type `"setstate"`
+        -- nor the `SETCUSTOM_MODE_*` flags is a language this build speaks any more, and left in
+        -- `Constants.lua` a dead name sits next to the live ones forever. A step is frozen once it
+        -- is written, so there is nothing here for it to drift from (`0-DECISION-LOG.md`,
+        -- 2026-08-21; `MigrateSwitches` below holds its own old numbers for the same reason).
+        --
+        -- **A mode this does not recognise is left alone.** A bitpack that is none of the three
+        -- does not say what the action was meant to do, and picking a type for it would turn an
+        -- "on" into an "off". Left under the old type it reaches nothing and does nothing, which is
+        -- where an unknown type ends up anyway.
+        --
+        -- Safe to run again: an action already split has a type that is not `"setstate"`.
+        -- **The payload side stands on that.** The v1 adapter opens its subtable straight into the
+        -- new types, and this block walks past what it produced (`Export.lua`).
+        local SETSTATE_BY_FLAG = {
+            [0x100] = Constants.SETSTATE_ON,
+            [0x200] = Constants.SETSTATE_OFF,
+            [0x400] = Constants.SETSTATE_TOGGLE,
+        };
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            if (action.type == "setstate" and luatype(action.value) == "number") then
+                local newType = SETSTATE_BY_FLAG[band(action.value, 0x100 + 0x200 + 0x400)];
+                local name = Constants.SWITCH_NAMES[band(action.value, 0xf)];
+                if (newType and name) then
+                    action.type = newType;
+                    action.value = name;
+                end
             end
         end
     end
@@ -482,12 +530,8 @@ local function CollectReferencedSwitches(db, found)
                     end
                 end
             end
-            if (action.type == Constants.SETSTATE and luatype(action.value) == "number") then
-                local _, index = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
-                local name = index and Constants.SWITCH_NAMES[index];
-                if (name) then
-                    found[name] = true;
-                end
+            if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
+                found[action.value] = true;
             end
         end
     end
@@ -959,7 +1003,7 @@ function DebindPrivate.InitDB()
     -- profile off disk is: an older one falls through to `MigrateDB` and migrates, a newer one
     -- trips the branch below and this build stands down. Planting one of each is how both of those
     -- paths are reached on purpose.
-    -- `devdocs/setting-up-a-dev-profile.md`.
+    -- `devdocs/legacy/setting-up-a-dev-profile.md`.
     --
     -- Asked for rather than called outright, because the headless harness loads a hand written list
     -- of files and `DevSeed.lua` is not on it (`tests/run.lua`). It must not be either, or every

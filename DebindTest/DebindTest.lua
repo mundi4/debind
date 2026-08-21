@@ -2840,8 +2840,8 @@ RegisterTest("Setstate action registers its state", {
         DebindPrivate.Switches["$state4"] = { mode = MODES.MANUAL, value = true }
 
         InsertAction({
-            type = Constants.SETSTATE,
-            value = bor(Constants.SETCUSTOM_MODE_TOGGLE, 4),
+            type = Constants.SETSTATE_TOGGLE,
+            value = "$state4",
             key = KEY,
         })
         ApplyBindings()

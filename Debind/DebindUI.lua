@@ -234,7 +234,13 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.COMMAND] = LLL["TYPE_COMMAND"],
 	[Constants.WORLDMARKER] = LLL["TYPE_WORLDMARKER"],
 	[Constants.SETCUSTOM] = LLL["TYPE_SETCUSTOM"],
-	[Constants.SETSTATE] = LLL["TYPE_SETSTATE"],
+	-- **Three types, one answer.** What sits in this table is what kind of action it is, and
+	-- turning one on, off, or over are all setting a switch. It is also what puts the catalog's
+	-- fifteen rows under one heading (`ActionCatalog.lua`). It is not printed beside the row: the
+	-- SETSTATE branch below raises `skipTypeName`.
+	[Constants.SETSTATE_ON] = LLL["TYPE_SETSTATE"],
+	[Constants.SETSTATE_OFF] = LLL["TYPE_SETSTATE"],
+	[Constants.SETSTATE_TOGGLE] = LLL["TYPE_SETSTATE"],
 	[Constants.UNUSED] = LLL["TYPE_UNUSED"],
 };
 
@@ -762,16 +768,12 @@ local function NameAndIconForAction(action)
 		actionName = LLL["TYPE_SETCUSTOM" .. value];
 		actionIcon = 1505950;
 		skipTypeName = true;
-	elseif (type == Constants.SETSTATE) then
-		local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(value);
-
-		if (mode == "on") then
-			actionName = format(LLL["TYPE_SETSTATE_ON_NUM"], stateIndex);
-		elseif (mode == "off") then
-			actionName = format(LLL["TYPE_SETSTATE_OFF_NUM"], stateIndex);
-		elseif (mode == "toggle") then
-			actionName = format(LLL["TYPE_SETSTATE_TOGGLE_NUM"], stateIndex);
-		end
+	elseif (Constants.SETSTATE_MODES[type]) then
+		-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`). What goes into it is
+		-- what the switch is called, which for the built-in five is its number
+		-- (`GetSwitchDisplayName`).
+		actionName = format(LLL["TYPE_" .. strupper(type)],
+			DebindPrivate.GetSwitchDisplayName(value));
 		actionIcon = 254885;
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then

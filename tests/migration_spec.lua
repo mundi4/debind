@@ -869,6 +869,61 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 6: SETSTATE가 타입 셋과 이름으로 갈린다
+    --
+    -- 저장은 `mode | index` 비트팩 하나였다. 모드가 `type`으로 올라가고 대상이 이름이 된다
+    -- (`devdocs/redesigning-custom-states.md` §9-1).
+    --
+    -- **틀리면 조용하다.** 모드를 잘못 읽으면 켜는 키가 끄는 키가 되고, 이름을 잘못 읽으면
+    -- 남의 스위치를 켠다. 둘 다 화면에는 멀쩡한 줄로 그려진다.
+    ---------------------------------------------------------------------------
+
+    --- 옛 모드 비트. 단계와 마찬가지로 스펙도 자기 리터럴을 든다 - `Constants`에는 이제
+    --- 이 숫자들이 없고, 있으면 안 된다.
+    local OLD_SETSTATE_FLAGS = { on = 0x100, off = 0x200, toggle = 0x400 };
+
+    test("dbver 6 splits the SETSTATE bitpack into three types", function()
+        for mode, flag in pairs(OLD_SETSTATE_FLAGS) do
+            local layer = { { key = "A", type = "setstate", value = flag + 3, seq = 1 } };
+            MigrateLayer(layer, 5);
+            local action = layer[1];
+            check(Constants.SETSTATE_MODES[action.type] == mode,
+                mode .. " -> " .. tostring(action.type));
+            check(action.value == "$state3", "이름 " .. tostring(action.value));
+        end
+    end);
+
+    -- 다섯 슬롯이 전부 자기 이름으로 나와야 한다. 한 칸 밀리면 그 키는 옆 스위치를 켠다.
+    test("dbver 6 maps every switch index to its own name", function()
+        for index = 1, Constants.MAX_NUM_SWITCHES do
+            local layer = { { key = "A", type = "setstate", value = 0x400 + index } };
+            MigrateLayer(layer, 5);
+            check(layer[1].value == "$state" .. index,
+                index .. " -> " .. tostring(layer[1].value));
+        end
+    end);
+
+    -- 세 값 중 어느 것도 아닌 비트팩은 무엇을 하려던 액션인지 말해주지 않는다. 아무 타입이나
+    -- 골라주면 켜기가 끄기가 되므로 옛 타입인 채로 남기고, 그 타입은 어디서도 안 걸린다.
+    test("dbver 6 leaves a mode it cannot read alone", function()
+        local layer = { { key = "A", type = "setstate", value = 0x800 + 3 } };
+        MigrateLayer(layer, 5);
+        check(layer[1].type == "setstate", "타입 " .. tostring(layer[1].type));
+        check(layer[1].value == 0x800 + 3, "값이 바뀌었다: " .. tostring(layer[1].value));
+    end);
+
+    -- 이미 갈린 액션 위에서 다시 돌면 이름을 숫자로 읽으려 든다. 타입으로 걸러지는 것이
+    -- 그것을 막고, **페이로드 쪽이 바로 그 성질 위에 선다** - v1 어댑터가 서브테이블을 곧장
+    -- 새 타입으로 펴서 이 단계에 넘긴다(`Export.lua`).
+    test("dbver 6 is safe to run twice over a split SETSTATE", function()
+        local layer = { { key = "A", type = "setstate", value = 0x400 + 2 } };
+        MigrateLayer(layer, 5);
+        MigrateLayer(layer, 5);
+        check(layer[1].type == Constants.SETSTATE_TOGGLE, "타입 " .. tostring(layer[1].type));
+        check(layer[1].value == "$state2", "이름 " .. tostring(layer[1].value));
+    end);
+
+    ---------------------------------------------------------------------------
     -- 옛 자리를 읽으면 소리가 난다
     --
     -- 조건이 `conditions`로 내려간 뒤, 옛 자리를 읽는 코드는 에러가 아니라 `nil`을 받는다.
@@ -1368,18 +1423,25 @@ return function(DebindPrivate)
         check(not names["$state5"], "아무도 안 부른 것까지 남았다 - 전제가 깨졌다");
     end);
 
-    -- 켜기/끄기/전환 액션은 `value`에 번호를 싣는다. 조건 표를 안 지나가므로 조건만 훑으면
+    -- 켜기/끄기/전환 액션은 대상을 `value`에 싣는다. 조건 표를 안 지나가므로 조건만 훑으면
     -- 안 보이고, 그 정의가 사라지면 그 액션이 켜는 것이 아무 데도 없는 이름이 된다.
+    --
+    -- **한 판 안에서 두 단계의 차례를 같이 본다.** 씨앗은 `dbver` 5라 액션이 아직 비트팩이고,
+    -- 참조를 걷는 쪽은 이름으로 읽는다. `MigrateShared`가 `MigrateSwitches`보다 먼저 돌지
+    -- 않으면 여기서 걷히는 이름이 하나도 없고, 정의는 전부 지워진다.
     test("dbver 6 keeps a definition a SETSTATE action names", function()
         local db = InitWith(AccountWithUntouchedSwitches(function(account)
             account.shared.GENERAL = {
-                { type = "setstate", key = "F4", seq = 1,
-                  value = bit.bor(Constants.SETCUSTOM_MODE_TOGGLE, 2) },
+                { type = "setstate", key = "F4", seq = 1, value = 0x400 + 2 },
             };
         end));
         local names = switchNames(db);
         check(names["$state2"], "전환 액션이 가리킨 정의가 사라졌다");
         check(not names["$state1"], "아무도 안 부른 것까지 남았다 - 전제가 깨졌다");
+
+        local action = db.shared.GENERAL[1];
+        check(action.type == Constants.SETSTATE_TOGGLE, "액션이 안 갈렸다: " .. tostring(action.type));
+        check(action.value == "$state2", "이름 " .. tostring(action.value));
     end);
 
     -- **본문은 안 본다.** 조건과 SETSTATE는 목록에서 골라 넣는 자리라 오타가 못 들어오지만,

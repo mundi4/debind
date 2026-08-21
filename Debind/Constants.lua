@@ -38,7 +38,23 @@ Constants.TOGGLEMENU                      = "togglemenu";
 Constants.COMMAND                         = "command";
 Constants.WORLDMARKER                     = "worldmarker";
 Constants.SETCUSTOM                       = "setcustom";
-Constants.SETSTATE                        = "setstate";
+--- **On, off and toggle are three verbs, not one verb with a parameter.** Every other type has a
+--- verb in `type` and an object in `value`; this one folded the verb into the value as a
+--- `mode | index` bitpack. With the mode moved up, `value` carries one switch name and nothing else
+--- (`devdocs/redesigning-custom-states.md` §9-1).
+---
+--- **Three types rather than a `mode` field, because that adds no surface to validate.** A mode
+--- nothing wrote is simply an unknown type, and what to do about an unknown type is a question that
+--- has to be answered anyway. A `mode` field would have to turn away a sender's `mode = "explode"`
+--- on its own, and it would sit in `ACTION_FIELDS` -- a whitelist every action passes through --
+--- meaning nothing at all to the other fourteen types.
+---
+--- **Underscored.** The other type constants run words together (`"macrotext"`), but those read as
+--- one word and `setstateon` does not. `-` is out: the runtime already uses that character to join
+--- a name to a mode (`/click DebindStates $state3-on`).
+Constants.SETSTATE_ON                     = "setstate_on";
+Constants.SETSTATE_OFF                    = "setstate_off";
+Constants.SETSTATE_TOGGLE                 = "setstate_toggle";
 Constants.UNUSED                          = "unused";
 
 --- 대상(unit)을 가질 수 있는 액션 타입.
@@ -129,11 +145,15 @@ end
 --- actually there - a binding's conditions, the definitions that exist - so a name outside this
 --- list reaches the solver and codegen like any other.
 ---
---- What is left is the two jobs only the built-in five have. `SWITCH_INDICES` is the **`SETSTATE`
---- encoding**: an on/off/toggle action packs its target as a number in `action.value`, the one
---- place a switch is still named by index, and §9-1 of `devdocs/redesigning-custom-states.md` is
---- what takes that away. `SWITCH_NAMES` is its inverse, and the definition table is stored by
---- index too, so `BindDerivedTables` reads the names off it.
+--- What is left is the one job only the built-in five have: **the definition table is stored by
+--- index**, so `SWITCH_NAMES` is what `BindDerivedTables` reads the names off and `SWITCH_INDICES`
+--- is what `GetOrCreateSwitchDefinition` files a new one under. §6-B's list is what takes that
+--- away (`devdocs/redesigning-custom-states.md`).
+---
+--- **`SETSTATE` no longer encodes here.** An on/off/toggle action carried its target as an index
+--- inside a bitpacked `action.value` until §9-1 split the type in three and put the name in the
+--- value. The catalog still offers exactly these five, because five is still all there are to
+--- offer -- it reads them off `SWITCH_NAMES` rather than counting.
 Constants.MAX_NUM_SWITCHES = 5;
 
 Constants.SWITCH_INDICES = {};
@@ -157,10 +177,18 @@ Constants.SWITCH_MODES = {
     EXPR   = "expr",
 };
 
-Constants.SETCUSTOM_MODE_ON     = 0x100;
-Constants.SETCUSTOM_MODE_OFF    = 0x200;
-Constants.SETCUSTOM_MODE_TOGGLE = 0x400;
-Constants.SETCUSTOM_MODE_MASK   = 0x100 + 0x200 + 0x400;
+--- The three types, to the mode string the restricted side is handed. **Telling the type and
+--- reading the mode out of it are one lookup** -- every `if (type == Constants.SETSTATE)` became
+--- this table.
+---
+--- The values are attribute values, not locale keys. Where they go out is the second half of
+--- `/click DebindStates $state3-on` (`UpdateBindings.lua`); what goes on screen is keyed off the
+--- type name instead.
+Constants.SETSTATE_MODES = {
+    [Constants.SETSTATE_ON]     = "on",
+    [Constants.SETSTATE_OFF]    = "off",
+    [Constants.SETSTATE_TOGGLE] = "toggle",
+};
 
 
 Constants.MACROTEXT_ARG_UNIT   = 1;

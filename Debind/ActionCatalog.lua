@@ -1004,19 +1004,25 @@ local function BuildSpecialActions(entries)
 		});
 	end
 
-	-- 사용자 상태. 상태마다 켜기·끄기·전환 셋이라 순서를 상태별로 묶는다 -
-	-- "상태 1 켜기 / 끄기 / 전환" 다음에 상태 2가 온다.
+	-- Setting a switch. Each one has an on, an off and a toggle, so the order groups by switch --
+	-- "switch 1 on / off / toggle", then switch 2.
 	--
-	-- **여기만 아직 번호를 센다.** 스위치를 조건으로 거는 자리들은 이름을 도는 것으로 바뀌었지만
-	-- 켜기/끄기/전환 액션은 대상을 `value`의 비트팩으로 들고 있어서, 셀 수 있는 것이 번호뿐이다.
-	-- 타입을 셋으로 가르고 이름을 싣는 것이 그것을 없앤다
-	-- (`devdocs/redesigning-custom-states.md` §9-1).
-	local setStateGroup = typeNames[Constants.SETSTATE];
+	-- **What this offers is the built-in five, and five is still all there is to offer.** The one
+	-- way to make a switch is the menu (`GetOrCreateSwitchDefinition`), so a name cannot get
+	-- outside them. When §6-B's list arrives this walks the definitions instead
+	-- (`devdocs/redesigning-custom-states.md`).
+	--
+	-- **The name travels, not the number.** §9-1 split the type in three and put the target in
+	-- `value` as a name, where it used to be an index inside a bitpack. So the names are read off
+	-- `SWITCH_NAMES` by index: walking it with `pairs` would order the list differently on every
+	-- client.
+	local setStateGroup = typeNames[Constants.SETSTATE_TOGGLE];
 	for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
-		for _, mode in ipairs({ Constants.SETCUSTOM_MODE_ON, Constants.SETCUSTOM_MODE_OFF, Constants.SETCUSTOM_MODE_TOGGLE }) do
+		for _, actionType in ipairs({ Constants.SETSTATE_ON, Constants.SETSTATE_OFF,
+				Constants.SETSTATE_TOGGLE }) do
 			AddEntry(entries, seen, {
-				type = Constants.SETSTATE,
-				value = bit.bor(mode, stateIndex),
+				type = actionType,
+				value = Constants.SWITCH_NAMES[stateIndex],
 				group = setStateGroup,
 				tooltipText = LLL["TYPE_SETSTATE_DESC"],
 			});

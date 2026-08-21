@@ -26,15 +26,43 @@ local luatype            = type;
 --- **Which is why a bump owes v1 a way forward rather than a refusal** (2026-08-19, owner's
 --- decision; `devdocs/building-export-import.md`). `BringPayloadForward` is where that step goes,
 --- and both doors into a payload run it.
---- **2 (2026-08-21): 조건이 `action.conditions` 안으로 들어갔다.** v1은 조건 이름을 액션
---- 최상단에 실었다. 올리지 않으면 v1 문자열과 서랍에 쌓인 배치가 관문을 그대로 통과하고,
---- `BuildAction`의 화이트리스트가 **조건을 전부 조용히 버린다** - 무조건 액션으로 도착해
---- 조건부 밴드가 아닌 자리에 서고, 키를 받으면 작성자가 제외한 상태에서도 발동한다.
---- 반대 방향도 같이 닫힌다. 3.2 리더가 v2를 거절하지, 못 읽는 필드를 떨어뜨리지 않는다.
---- **같은 판이 매니페스트도 옮긴다.** 스위치 정의의 `mode`가 숫자에서 문자열이 되고
---- `initialValue`가 `resetValue`가 됐다. 아직 안 나간 판이라 번호를 새로 열지 않는다 -
---- 프로필 쪽 `dbver` 6이 같은 이유로 같은 자리에 얹혀 있다.
+---
+--- **2 (2026-08-21): the conditions moved into `action.conditions`.** v1 carried their names at the
+--- top of the action. Without the bump, a v1 string and every batch stacked in the drawer walk
+--- through the gate as they are and `BuildAction`'s whitelist **drops every condition in silence**
+--- -- they land as unconditional actions, stand where no conditional band belongs, and fire on a
+--- key in states the writer had ruled out. It closes the other direction too: a 3.2 reader turns a
+--- v2 away rather than shedding the fields it cannot read.
+---
+--- **The same version moves the manifest.** A switch definition's `mode` went from a number to a
+--- string and `initialValue` became `resetValue`. The number is not split for it, because 2 has not
+--- gone out -- the `dbver` 6 on the profile side sits in the same place for the same reason.
+---
+--- **And 2 carries a `dbver` alongside.** This one number was counting two things: the shape of the
+--- envelope and the shape of an action. It went up when only the addressing moved and the actions
+--- did not, and it would have to go up the other way round as well. The profile already versions
+--- the action shape and calls that number `dbver`, so the payload carries the same one
+--- (`devdocs/legacy/unifying-action-migration.md` §3-3) -- which is what lets the two ladders be
+--- one.
+---
+--- **That rides on 2 as well.** v3.2 sent 1; 2 has not gone out. Splitting a number nothing is
+--- holding makes a step for a version that never existed, and that step stays forever without ever
+--- meeting a string.
+---
+--- So there are two versions, and what separates them is **whether the payload carries its own
+--- `dbver`**. v1 does not: its version number is the answer, and the branch below stamps 5.
 local SCHEMA_VERSION     = 2;
+
+--- The lowest `dbver` a payload can carry.
+---
+--- **5 is the version sharing shipped on.** v1 came out of 3.2, whose `DB_VERSION` was 5, so no
+--- string this addon ever made holds an action shape older than that.
+---
+--- **The floor is what lets `MigrateLayer` be called as it stands.** That ladder's steps at 4 and
+--- below were written while only the profile came through them and take their fields to be the
+--- type they should be. A hand-written `dbver = 1` reaching them raises, and a paste is not a place
+--- that may raise.
+local OLDEST_PAYLOAD_DBVER = 5;
 
 --- How the bytes are packed, which is a **separate** number from the schema on purpose. Swapping
 --- the compressor later has to invalidate old strings; adding a payload field must not. One
@@ -233,40 +261,30 @@ local function BucketForLayer(payload, layer)
     return tbl;
 end
 
---- Rewrites the parts of an action whose stored form is an **index into the sender's setup**.
+--- **An action goes out in the shape it is stored in. Nothing here rewrites one.**
 ---
---- `SETSTATE` packs mode and state index into one number (`SETCUSTOM_MODE_*` over the low
---- nibble). An index always resolves on the far side, and resolves to the wrong state, which
---- puts it outside what red text can see.
+--- `NormalizeAction` stood in this spot and rewrote exactly one type. It cleared `SETSTATE`'s
+--- bitpacked `value` and hung a `setstate = { mode, state }` subtable off the copy -- a field that
+--- is not in `ACTION_FIELDS` and therefore outside the contract `check-export-fields.js` holds. The
+--- same action existed in two shapes, in the profile and on the wire, and the migration for it was
+--- about to exist in two copies for the same reason.
 ---
---- So it goes out on the **name** axis instead: `$state3` rather than 3. `$state1..5` stay valid
---- names after the custom-state rename (`devdocs/redesigning-custom-states.md` step 1), so this shape
---- survives that change without a schema bump, and it commits nothing about how the profile
---- stores the value -- that decision is still §9-1's to make.
+--- **§9-1 took the reason away.** With the stored form itself a `type` and a name, what goes on the
+--- wire is not a bitpack any more, and both fields are ordinary whitelisted ones that `CopyFields`
+--- passes through. The whole argument is `devdocs/legacy/unifying-action-migration.md`, sections 1
+--- to 3.
 ---
---- **`MACRO` needs nothing here, and that is a property of the action rather than of the format.**
---- A macro reference is a name and only ever a name (`GetMissingMacroName` in `Misc.lua` is where
---- that rule is written down), so what is stored is already the shape that means the same thing on
---- the far side -- or means nothing, which is what `BINDING_ISSUE_MISSING_MACRO` is for.
+--- The other types never needed anything here, and why still holds.
 ---
---- **The body does not travel, and it is not an omission** (2026-08-18,
---- `devdocs/building-export-import.md`). It is text the user wrote freely, we do not know what is
---- in it, and the sender knows only that this action calls their macro named X -- not that its
---- contents ride along. `MACROTEXT` is the opposite case and is untouched: that text was written
---- inside this addon, to be this action.
+--- **`MACRO`** carries a name and only ever a name (`GetMissingMacroName` in `Misc.lua`), so what
+--- is stored already means the same thing on the far side -- or means nothing, which is what
+--- `BINDING_ISSUE_MISSING_MACRO` is for. **The body does not travel**: it is text the user wrote
+--- freely, and the sender knows only that this action calls their macro named X, not that its
+--- contents ride along (2026-08-18, `devdocs/building-export-import.md`). `MACROTEXT` is the
+--- opposite case and travels whole -- that text was written inside this addon, to be this action.
 ---
---- **`SETCUSTOM` is not this.** Despite the name it sets a custom *target* -- a unit slot, like
---- focus -- and its index is structural, meaning the same thing in every install. It travels
---- as-is.
-local function NormalizeAction(action, out)
-    if (action.type == Constants.SETSTATE) then
-        local mode, stateIndex = DebindPrivate.GetSetSwitchModeAndIndex(action.value);
-        if (mode) then
-            out.value = nil;
-            out.setstate = { mode = mode, state = "$state" .. stateIndex };
-        end
-    end
-end
+--- **`SETCUSTOM` is not a switch despite the name.** It sets a custom *target* -- a unit slot, like
+--- focus -- and its index is structural, meaning the same thing in every install.
 
 
 -- ---------------------------------------------------------------------------------------------
@@ -276,9 +294,9 @@ end
 --- Every custom state the exported actions name, by name.
 ---
 --- Four places hold a reference (`devdocs/redesigning-custom-states.md` §3-4) and three of them are
---- reachable from an action: the condition fields on the action itself, a `SETSTATE` value, and
---- names typed into macro text. The fourth is a state's own `expr` naming another state, which
---- is why this closes transitively rather than doing one pass.
+--- reachable from an action: the condition fields on the action itself, an on/off/toggle action's
+--- `value`, and names typed into macro text. The fourth is a state's own `expr` naming another
+--- state, which is why this closes transitively rather than doing one pass.
 local function CollectStateNames(actions, found)
     for i = 1, #actions do
         local action = actions[i];
@@ -293,8 +311,8 @@ local function CollectStateNames(actions, found)
             end
         end
 
-        if (action.setstate) then
-            found[action.setstate.state] = true;
+        if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
+            found[action.value] = true;
         end
 
         if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
@@ -422,15 +440,20 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- show. Whether a layer's actions are clumped by key is deliberately left open until there is a
 --- preview to read them (`devdocs/building-export-import.md`).
 ---
---- **Nothing is validated.** A broken action exports exactly as it sits. The receiving side shows
---- it in red and the user deletes it, and that one rule is what removes a whole class of
---- questions about spells the reader does not have. What `NormalizeAction` rewrites is not an
---- exception to it: a state index is a reference that would arrive **unbroken and wrong**, which
---- red text cannot see at all.
+--- **Nothing is validated, and nothing is rewritten.** A broken action exports exactly as it sits.
+--- The receiving side shows it in red and the user deletes it, and that one rule is what removes a
+--- whole class of questions about spells the reader does not have. The one standing exception was
+--- `SETSTATE`, whose stored index would have arrived **unbroken and wrong** where red text cannot
+--- see it; §9-1 made the stored form a name, so there is nothing left to rewrite.
 function DebindStorage.BuildExportPayload(selection)
 
     local payload = {
         v = SCHEMA_VERSION,
+        -- **The shape of the actions below, which is not the same question as `v`.** The profile is
+        -- already at `Constants.DB_VERSION` by the time anything can be exported -- `MigrateDB` runs
+        -- at login -- so this says what these actions are, and the reading side raises them with the
+        -- same ladder the profile uses (`BringPayloadForward`).
+        dbver = Constants.DB_VERSION,
         -- The sender's class, because `shared.classes` cannot be read without knowing whose it is.
         -- Nothing else about the sender travels: a string meant to be pasted into a public channel
         -- should not carry a character name the user did not choose to type.
@@ -448,7 +471,6 @@ function DebindStorage.BuildExportPayload(selection)
                 bucket = bucket or BucketForLayer(payload, layer);
 
                 local copy = CopyFields(action, ACTION_FIELDS);
-                NormalizeAction(action, copy);
 
                 bucket[#bucket + 1] = copy;
                 exported[#exported + 1] = copy;
@@ -482,90 +504,24 @@ function DebindStorage.EncodeExportPayload(payload)
         .. LibDeflate:EncodeForPrint(compressed);
 end
 
---- Raises a payload to the schema this version reads, or says why it cannot. Returns the payload,
---- or nil plus a reason.
+--- `dbver` 6, the manifest side. A switch definition's `mode` goes from a number to a string and
+--- `initialValue` becomes `resetValue` -- the same transformation `MigrateSwitches` makes in
+--- `Profile.lua`, which is why it hangs off `dbver` rather than off the envelope: a definition is
+--- profile data and `dbver` is what versions that. Every payload it actually meets is a v1 one, as
+--- v2 can only have come from a profile already at 6.
 ---
---- **One step so far: v1 -> v2**, where the conditions moved into `action.conditions`. The shape
---- is the one `MigrateLayer` has in `Profile.lua`, with one difference: a step here names the
---- exact version it raises (`== 1`), not `<=`. A payload two versions back then walks every step
---- in turn, and a number nothing ever wrote falls through to the refusal instead of being
---- guessed at.
+--- **It cannot share the profile's function.** `MigrateSwitches` takes the whole account table,
+--- because the rest of what it does at this step is hand remembered values out to the characters
+--- and throw away the definitions nothing names. A manifest has no characters, no layers to be
+--- named by, and nothing to prune. What is left over is the rename, and that is written here.
 ---
---- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
---- moment it is pasted (`DecodeExportString`, below) and a stored batch is asked when the drawer
---- opens it (`GetBatchPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
---- payload it was handed and gave it straight back. That is invisible while there is one schema
---- and it stops being invisible the day one is added, because the batches already sitting in the
---- drawer are exactly the ones that would go into the new code unasked. Whoever writes the first
---- migration writes it here and both doors have it.
+--- **Written before anything reads a manifest at all.** 3.2 sent this table, so v1 strings sit in
+--- other people's notes in the old shape, and by the day something reads one this step is long
+--- frozen. Adding it then would mean a later step correcting a field whose meaning moved here --
+--- a ladder that lies about which version changed what.
 ---
---- **Two directions, and opposite advice.** These were one reason and one sentence, "made by a
---- newer version, update and try again", which is true one way and useless the other: on the first
---- schema bump every batch already received would fail with it, told to update by the version they
---- just updated to.
----
---- `SCHEMA_TOO_OLD` is now the answer only for a version **no step covers**. A bump means a field
---- changed meaning (`SCHEMA_VERSION`'s own note), so such a payload cannot be read by guessing,
---- and guessing is how a condition silently changes sides.
----
---- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
---- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
---- out of SavedVariables. Neither may error, and the answer is the same refusal, so asking twice
---- would be the same question in two places. It caught a real one: a batch with no payload draws in
---- the drawer perfectly well, because the two that draw the row guard it (`CountBatch`,
---- `BatchClassText`), and then threw the moment the row was opened.
---- v1 -> v2. 조건 이름을 액션 최상단에서 `conditions` 안으로 내리고, 옮기는 김에 이름도 간다
---- (`checkedUnits` -> `units`).
----
---- **프로필의 `dbver <= 5` 단계와 같은 변환이다** (`Profile.lua`). 무엇이 조건인지는 양쪽 다
---- `Constants.IsConditionField` 하나에 묻는다 - 그건 매번 읽는 살아 있는 목록이라 여기 또
---- 적으면 갈라진다. **옛 이름은 반대다.** 단계는 한 번 쓰면 얼어붙어서 갈릴 것이 없고,
---- `checkedUnits`는 이 판이 더 이상 모르는 이름이라 `Constants`에 두면 죽은 이름이 산 것들
---- 옆에 영원히 앉는다. 그래서 단계가 자기 리터럴을 든다.
----
---- 이름을 먼저 모으고 그다음에 옮긴다. 한 바퀴로 쓰면 `conditions`라는 없던 키가 순회 중에
---- 생기는데, Lua 5.1이 그 경우의 `next` 동작을 정의하지 않는다.
-local function NestPayloadConditions(payload)
-    local names = {};
-    DebindStorage.ForEachPayloadLayer(payload, function(actions)
-        for i = 1, #actions do
-            local action = actions[i];
-
-            local count = 0;
-            for k in pairs(action) do
-                if (luatype(k) == "string"
-                        and (Constants.IsConditionField(k) or k == "checkedUnits")) then
-                    count = count + 1;
-                    names[count] = k;
-                end
-            end
-
-            if (count > 0) then
-                local conditions = luatype(action.conditions) == "table"
-                    and action.conditions or {};
-                for j = 1, count do
-                    local k = names[j];
-                    conditions[k == "checkedUnits" and "units" or k] = action[k];
-                    action[k] = nil;
-                    names[j] = nil;
-                end
-                action.conditions = conditions;
-            end
-        end
-    end);
-end
-
---- v1 -> v2, 매니페스트 쪽. 스위치 정의의 `mode`가 숫자에서 문자열이 되고 `initialValue`가
---- `resetValue`가 된다 (`Profile.lua`의 `MigrateSwitches`와 같은 변환).
----
---- **아직 아무도 매니페스트를 안 읽는데도 지금 쓴다.** 3.2가 이 표를 실어 보냈으므로 v1
---- 문자열이 남의 노트에 옛 모양으로 앉아 있고, 읽는 쪽이 생기는 날 이 단계는 이미 얼어붙어
---- 있다. 그때 붙이려면 v2가 낸 모양을 다시 고치는 단계를 열어야 하는데, 그건 뜻이 v2에서
---- 바뀐 필드를 v3에서 손보는 것이라 사다리가 거짓말을 하게 된다.
----
---- 단계가 자기 리터럴을 든다. 이유는 `NestPayloadConditions`와 같다.
-local function RenamePayloadSwitchFields(payload)
-    local states = payload.states;
+--- The step holds its own literals, for the reason the SETSTATE step in `Profile.lua` does.
+local function RenameManifestSwitchFields(states)
     if (luatype(states) ~= "table") then
         return;
     end
@@ -588,6 +544,113 @@ local function RenamePayloadSwitchFields(payload)
     end
 end
 
+--- v1 -> v2, the action side. The wire spelled a `SETSTATE` as a `setstate = { mode, state }`
+--- subtable with no `value`; it is opened out into the `type` and the name the profile stores
+--- (`devdocs/legacy/unifying-action-migration.md` §3-2).
+---
+--- **This adapter is permanent.** The door to dropping v1 shut when 3.2 shipped: those strings are
+--- in other people's hands and the reading side has to be able to read them. It can stay because
+--- there is so little of it -- the ladder does not get longer, one short rung stands at the bottom
+--- of it for good, and it is the same rung however many format changes come after.
+---
+--- **It does not go through the bitpack**, even though `dbver` 5 is what the payload is then
+--- stamped as. The wire already holds both halves the new shape needs -- a verb in `mode` and a name in
+--- `state` -- so three strings become three types and that is the whole of it. Packing them into a
+--- number for the very next step to unpack is work that cancels itself, which is why the old mode
+--- flags are nowhere in here (2026-08-21, owner's decision).
+---
+--- **The ladder is still one ladder.** The shared step keys on the old single type `"setstate"`,
+--- so an action that arrives already carrying `setstate_toggle` walks past it. That is not a
+--- special case, it is the idempotence that block is written to have anyway.
+---
+--- **Asked whether it is a table, not whether it is there.** A hand-made `setstate = 5` would raise
+--- here and take down a commit with half a batch already placed. A mode or a name this build cannot
+--- read leaves the action under the old type, which is a type nothing knows -- `IsUsableAction`
+--- turns it down and the whole string with it, and that is the right end for a `SETSTATE` with
+--- nothing to set.
+local V1_SETSTATE_TYPES = {
+    on     = Constants.SETSTATE_ON,
+    off    = Constants.SETSTATE_OFF,
+    toggle = Constants.SETSTATE_TOGGLE,
+};
+
+local function OpenV1Setstate(payload)
+    DebindStorage.ForEachPayloadLayer(payload, function(actions)
+        for i = 1, #actions do
+            local action = actions[i];
+            if (luatype(action.setstate) == "table") then
+                local newType = V1_SETSTATE_TYPES[action.setstate.mode];
+                local name = action.setstate.state;
+                if (newType and luatype(name) == "string") then
+                    action.type = newType;
+                    action.value = name;
+                end
+                action.setstate = nil;
+            end
+        end
+    end);
+end
+
+--- Raises a payload's **contents** to this build's `dbver`, action arrays and manifest alike.
+---
+--- **The actions go up the profile's own ladder.** `MigrateLayer` walks an array of actions and
+--- touches nothing above one, and a payload's layer is an array of actions, so it goes across as it
+--- is. Writing the same transformation twice is what this replaces: condition nesting stood here in
+--- full, in a second copy of the `dbver <= 5` step
+--- (`devdocs/legacy/unifying-action-migration.md` §3-4).
+---
+--- **What is walked is still each side's own.** Layer addresses and key mapping are different
+--- things in a profile and in a payload; only the per-action ladder is shared.
+local function BringPayloadDataForward(payload)
+    local dbver = payload.dbver;
+
+    if (dbver <= 5) then
+        RenameManifestSwitchFields(payload.states);
+    end
+
+    DebindStorage.ForEachPayloadLayer(payload, function(actions)
+        DebindPrivate.MigrateLayer(actions, dbver);
+    end);
+
+    payload.dbver = Constants.DB_VERSION;
+end
+
+--- Raises a payload to what this version reads, or says why it cannot. Returns the payload, or nil
+--- plus a reason.
+---
+--- **Two ladders, and they are asked in this order.** `payload.v` describes the envelope -- the
+--- `shared` / `classes` / `char` addresses, the `states` manifest, what `seq` means -- and
+--- `payload.dbver` describes the actions inside it. The envelope has to be raised first, because
+--- v1 does not carry a `dbver` and the step that raises it is what stamps one on
+--- (`devdocs/legacy/unifying-action-migration.md` §3-3).
+---
+--- **An envelope step names the exact version it raises (`== 1`), not `<=`.** A payload two
+--- versions back then walks every step in turn, and a number nothing ever wrote falls through to
+--- the refusal instead of being guessed at. The `dbver` ladder is the opposite and opens with
+--- `<=`, because that one is the profile's and every version between the ends of it is real.
+---
+--- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
+--- moment it is pasted (`DecodeExportString`, below) and a stored batch is asked when the drawer
+--- opens it (`GetBatchPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
+--- payload it was handed and gave it straight back. That is invisible while there is one schema
+--- and it stops being invisible the day one is added, because the batches already sitting in the
+--- drawer are exactly the ones that would go into the new code unasked.
+---
+--- **Two directions, and opposite advice.** These were one reason and one sentence, "made by a
+--- newer version, update and try again", which is true one way and useless the other: on the first
+--- schema bump every batch already received would fail with it, told to update by the version they
+--- just updated to.
+---
+--- `SCHEMA_TOO_OLD` is the answer for a version **no step covers**, on either ladder. A bump
+--- means a field changed meaning (`SCHEMA_VERSION`'s own note), so such a payload cannot be read
+--- by guessing, and guessing is how a condition silently changes sides.
+---
+--- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
+--- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
+--- out of SavedVariables. Neither may error, and the answer is the same refusal, so asking twice
+--- would be the same question in two places. It caught a real one: a batch with no payload draws in
+--- the drawer perfectly well, because the two that draw the row guard it (`CountBatch`,
+--- `BatchClassText`), and then threw the moment the row was opened.
 function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
@@ -595,18 +658,35 @@ function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload.v) ~= "number" or payload.v > SCHEMA_VERSION) then
         return nil, "UNSUPPORTED_SCHEMA";
     end
-    -- **단계는 자기가 올릴 판을 정확히 짚는다.** `< 2`로 열면 세상에 없던 판까지 같이
-    -- 태우고, 그건 모양을 모르는 것을 추측으로 읽는 것이다. 아래 `SCHEMA_TOO_OLD`가
-    -- 그것들을 거절하라고 있는 자리다.
     if (payload.v == 1) then
-        NestPayloadConditions(payload);
-        RenamePayloadSwitchFields(payload);
+        OpenV1Setstate(payload);
+        -- **The version number is the answer.** v1 came out of 3.2 and 3.2 stored `dbver` 5, so
+        -- these actions are that shape whatever the payload says -- a hand-written `dbver` on a
+        -- v1 string is overwritten rather than believed. Conditions are still flat at this point
+        -- and the shared `dbver <= 5` step is what nests them.
+        payload.dbver = OLDEST_PAYLOAD_DBVER;
         payload.v = 2;
     end
 
     if (payload.v < SCHEMA_VERSION) then
         return nil, "SCHEMA_TOO_OLD";
     end
+
+    -- **NaN passes every comparison below**, and a payload claiming it would walk through the range
+    -- check and reach `MigrateLayer` with a version no step can match. It is asked about the same
+    -- way a NaN key is (`PayloadIsImpossible`).
+    local dbver = payload.dbver;
+    if (luatype(dbver) ~= "number" or dbver ~= dbver) then
+        return nil, "BAD_PAYLOAD";
+    end
+    if (dbver > Constants.DB_VERSION) then
+        return nil, "UNSUPPORTED_SCHEMA";
+    end
+    if (dbver < OLDEST_PAYLOAD_DBVER) then
+        return nil, "SCHEMA_TOO_OLD";
+    end
+
+    BringPayloadDataForward(payload);
 
     return payload;
 end
