@@ -180,6 +180,7 @@ globals = {
 	"SetPortraitTexture",
 	"GameTooltip_AddBlankLineToTooltip",
 	"GameTooltip_AddColoredLine",
+	"GameTooltip_AddColoredDoubleLine",
 	"GameTooltip_Hide",
 	"StaticPopup_Show",
 	"StaticPopup_ShowCustomGenericConfirmation",

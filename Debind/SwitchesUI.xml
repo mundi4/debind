@@ -58,31 +58,7 @@
 			</Layer>
 		</Layers>
 		<Frames>
-			<!--
-				The menu, and the only place this row can be renamed, deleted or given a layer
-				setting from.
-
-				**Visible rather than right-click only.** The main list can hide its menu behind
-				right-click because every row there is something the user made and put a key on;
-				a switch's whole configuration is in here, so a list with no visible handle is a
-				list that looks like it does nothing.
-
-				`UIPanelSquareButton` with the DOWN icon is the addon's own arrow
-				(`DebindUI.xml`'s move buttons), which is why the icon is set in Lua.
-			-->
-			<Button parentKey="MenuButton" inherits="UIPanelSquareButton">
-				<Size x="22" y="22"/>
-				<Anchors>
-					<Anchor point="RIGHT" x="-4" y="0"/>
-				</Anchors>
-				<Scripts>
-					<!-- No mixin on these two: the row owns the state, so the click goes there. -->
-					<OnClick>
-						self:GetParent():OnMenuClick();
-					</OnClick>
-				</Scripts>
-			</Button>
-			<!--
+						<!--
 				**A plain button, deliberately.** Making it a secure one would put a protected
 				frame inside the window, and the reason this window can stay open in combat is
 				that it holds none (F-3 of `devdocs/redesigning-custom-states.md`). So it is
@@ -95,7 +71,7 @@
 				motionScriptsWhileDisabled="true">
 				<Size x="58" y="20"/>
 				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.MenuButton" relativePoint="LEFT" x="-2" y="0"/>
+					<Anchor point="RIGHT" x="-6" y="0"/>
 				</Anchors>
 				<Scripts>
 					<OnClick>
@@ -111,7 +87,6 @@
 			</Button>
 		</Frames>
 		<Scripts>
-			<OnLoad method="OnLoad"/>
 			<OnClick method="OnClick"/>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
@@ -216,10 +191,10 @@
 					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
 				</KeyValues>
 				<Anchors>
-					<Anchor point="TOPLEFT" x="4" y="-85"/>
-					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
+					<Anchor point="TOPLEFT" x="4" y="-112"/>
+					<Anchor point="TOPRIGHT" x="-31" y="-112"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="8"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="8"/>
 				</Anchors>
 			</Frame>
 
@@ -256,10 +231,11 @@
 				way to make a switch at all: the portrait's dropdown that used to carry it is gone
 				(§6-C). The empty-list text points here.
 
-				Same place and same size as the export panel's own button, on the frame's bottom
-				edge rather than under the inset, which is where the click binding window puts one
-				(`Blizzard_ClickBindingUI.xml`). Text is set in `OnLoad`: `text=` on the template
-				takes a global's name, and ours live in `L`.
+				Above the list and to the left, where the import tab puts the one button that adds
+				to its list (`ImportUI.xml`'s `PasteButton`). The two tabs answer the same shape of
+				question, which is what puts a row in here, so the control sits in the same place on both.
+				Text is set in `OnLoad`: `text=` on the template takes a global's name, and ours
+				live in `L`.
 
 				**Not disabled in combat, unlike the toggles on the rows.** Those press a value the
 				restricted side has to be told about; this writes a definition nothing is bound to
@@ -269,7 +245,7 @@
 			<Button parentKey="NewButton" inherits="UIPanelButtonTemplate">
 				<Size x="140" y="23"/>
 				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="4"/>
 				</Anchors>
 				<Scripts>
 					<OnClick>

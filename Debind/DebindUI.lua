@@ -1189,8 +1189,10 @@ local _inputPrefixes = setmetatable({}, { __mode = "k" });
 local function InputPrefix(editBox)
 	local fontString = _inputPrefixes[editBox];
 	if (not fontString) then
-		fontString = editBox:GetParent():CreateFontString(nil, "OVERLAY", "GameFontNormalLarge");
-		fontString:SetPoint("RIGHT", editBox, "LEFT", -3, 0);
+		fontString = editBox:GetParent():CreateFontString(nil, "OVERLAY", "GameFontHighlight");
+		-- Into the box's own left inset, not against its frame edge: `InputBoxTemplate` starts its
+		-- text some way in, so anchoring to the edge leaves a gap the offset cannot see.
+		fontString:SetPoint("RIGHT", editBox, "LEFT", 5, 0);
 		_inputPrefixes[editBox] = fontString;
 		-- Additive, and once per box: the dialog outlives any one use of it.
 		editBox:HookScript("OnHide", function()

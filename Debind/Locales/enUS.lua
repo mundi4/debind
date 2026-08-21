@@ -811,15 +811,23 @@ L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause perfo
 -- the last of them is `CUSTOM_STATE_MODE_MACRO_CONDITIONAL`, which keeps its old key name from
 -- the settings menu on the portrait that 3c took off the window.
 --
--- **"Comes up" and not "at login."** It is applied at login *and* on every specialization change,
--- and the old field name saying otherwise is exactly what got renamed for lying about it. The
--- tooltips are where the two moments get spelled out.
-L["SWITCH_ANSWER_ON"] = "Comes up on"
+-- **The label says the ordinary thing and the tooltip carries the rest.** This read "comes up on"
+-- for a while, picked so that no one moment was named: the answer is applied at login and on every
+-- specialization change too. That was a code lesson wearing a screen label. `initialValue` was
+-- renamed for naming one moment because a field that is incomplete is a field that is wrong, and
+-- the same is not true of a word somebody reads.
+--
+-- **A reader only asks what it starts as.** Resetting on a specialization change is ours: a value
+-- that is going to be thrown away is a value not worth keeping, so we throw it away at the moment
+-- it stops applying. That is a reason to write the code that way, not a reason to make the label
+-- vague enough to cover it. The tooltips below say both moments in one sentence, which is where
+-- somebody who wants that goes.
+L["SWITCH_ANSWER_ON"] = "Starts on"
 L["SWITCH_ANSWER_ON_DESC"] = "Turns on when you log in and when you change specialization. You can still turn it off by hand in between."
-L["SWITCH_ANSWER_OFF"] = "Comes up off"
+L["SWITCH_ANSWER_OFF"] = "Starts off"
 L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
-L["SWITCH_ANSWER_REMEMBER"] = "Comes up as you left it"
-L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back on if you left it on. Every character remembers its own answer."
+L["SWITCH_ANSWER_REMEMBER"] = "As you left it"
+L["SWITCH_ANSWER_REMEMBER_DESC"] = "Starts on if you left it on. Every character remembers its own answer."
 -- The rows under a switch: one per override, and the account-wide answer last.
 --
 -- **"Override" is the client's own word**, and 덮어쓰기 in Korean: `TRANSMOG_ARTIFACT_OPTIONS_HEADER`
@@ -862,12 +870,12 @@ L["SWITCH_LAYER_MENU_INSTRUCTION"] = "Right-click to change this answer or take 
 -- thing is a paragraph to read; three labels is a column to compare, which is what the reader is
 -- actually doing with them.
 L["SWITCH_USED_BY_HEADER"] = "Actions using it"
-L["SWITCH_USED_ACCOUNT"] = "Across the account: |cnHIGHLIGHT_FONT_COLOR:%d|r"
-L["SWITCH_USED_CHARACTER"] = "This character: |cnHIGHLIGHT_FONT_COLOR:%d|r"
+L["SWITCH_USED_ACCOUNT"] = "Across the account"
+L["SWITCH_USED_CHARACTER"] = "This character"
 -- **"Right now" is a specialization, not a session.** This one counts what the current
 -- specialization reads, so it drops when the reader changes specialization and the two above do
 -- not. That is the whole reason it is a third line.
-L["SWITCH_USED_LIVE"] = "Active right now: |cnHIGHLIGHT_FONT_COLOR:%d|r"
+L["SWITCH_USED_LIVE"] = "Active right now"
 L["SWITCH_MENU_INSTRUCTION"] = "Right-click for settings, renaming and deleting."
 L["SWITCH_TOGGLE_INSTRUCTION"] = "Click to turn it on or off."
 L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to work the switch does it any time."
@@ -882,6 +890,7 @@ L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
 -- want a switch while they are setting up the thing that needs it, not while looking at a list of
 -- switches.
 L["SWITCH_CREATE"] = "New switch..."
+L["SWITCH_CREATE_BUTTON"] = "New switch"
 L["SWITCH_CREATE_DESC"] = "Makes a switch and puts it on this action straight away."
 L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 -- **The two refusals a typed name gets, and they are about the name rather than about which box

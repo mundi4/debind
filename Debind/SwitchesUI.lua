@@ -4,6 +4,10 @@ local Constants        = DebindPrivate.Constants;
 local LLL              = DebindPrivate.L;
 local DebindUI         = DebindPrivate.DebindUI;
 
+--- What the counts under "Actions using it" are pushed in by. **In code and not in the strings**:
+--- it is layout, and a translator handed leading spaces will lose them or double them.
+local INDENT           = "   ";
+
 local ROW_HEIGHT       = 28;
 --- A layer row. Shorter than a switch row on purpose: the list is a switch with its layers under
 --- it, and two rows of the same height read as two switches.
@@ -122,13 +126,6 @@ end
 
 DebindSwitchRowMixin = {};
 
---- The arrow. `UIPanelSquareButton` carries no icon of its own, so the art is picked in code, the
---- way the main list's move buttons pick theirs. It is set here rather than in the factory below,
---- because a row is built once and bound to many switches.
-function DebindSwitchRowMixin:OnLoad()
-    SquareButton_SetIcon(self.MenuButton, "DOWN");
-end
-
 function DebindSwitchRowMixin:Init(elementData)
     self.switchName = elementData.name;
     self:Update();
@@ -172,7 +169,7 @@ function DebindSwitchRowMixin:OnClick(button)
 end
 
 function DebindSwitchRowMixin:OnMenuClick()
-    DebindUI.ShowSwitchMenu(self.MenuButton, self.switchName);
+    DebindUI.ShowSwitchMenu(self, self.switchName);
 end
 
 --- Turning it on or off by hand.
@@ -234,12 +231,15 @@ function DebindSwitchRowMixin:OnEnter()
     local account, character, live = DebindPrivate.CountSwitchReferences(self.switchName);
     GameTooltip_AddBlankLineToTooltip(GameTooltip);
     GameTooltip_AddNormalLine(GameTooltip, LLL["SWITCH_USED_BY_HEADER"]);
-    GameTooltip_AddColoredLine(GameTooltip, format(LLL["SWITCH_USED_ACCOUNT"], account),
-        NORMAL_FONT_COLOR);
-    GameTooltip_AddColoredLine(GameTooltip, format(LLL["SWITCH_USED_CHARACTER"], character),
-        NORMAL_FONT_COLOR);
-    GameTooltip_AddColoredLine(GameTooltip, format(LLL["SWITCH_USED_LIVE"], live),
-        NORMAL_FONT_COLOR);
+    -- **Label left, number right.** The three are a column to compare, and a number baked into the
+    -- sentence lands wherever each translation happens to end. It also takes the specifier out of
+    -- the locale string, so a translator is not holding one.
+    GameTooltip_AddColoredDoubleLine(GameTooltip, INDENT .. LLL["SWITCH_USED_ACCOUNT"], account,
+        NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+    GameTooltip_AddColoredDoubleLine(GameTooltip, INDENT .. LLL["SWITCH_USED_CHARACTER"], character,
+        NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
+    GameTooltip_AddColoredDoubleLine(GameTooltip, INDENT .. LLL["SWITCH_USED_LIVE"], live,
+        NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR);
 
     GameTooltip_AddBlankLineToTooltip(GameTooltip);
     GameTooltip_AddInstructionLine(GameTooltip, LLL["SWITCH_MENU_INSTRUCTION"]);
@@ -279,6 +279,12 @@ function DebindSwitchLayerRowMixin:Update()
 
     self.Layer:SetText(DebindUI.GetLayerLabel(self.layerID));
     self.Setting:SetText(AnswerLabel(mode, resetValue));
+
+    -- **Greyed, because nothing on this row is pressed to turn the switch on.** It says what the
+    -- switch comes to at this layer, and the one control that flips a value is on the switch row
+    -- above. In that row's weight these read as four more things to click.
+    self.Layer:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
+    self.Setting:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
 
     -- **The winner is worked out here rather than stored on the row**, because it moves without
     -- the list changing: a specialization change hands the same rows a different answer.
@@ -470,16 +476,19 @@ do
             end);
         end
 
-        if (layerKey ~= nil) then
-            rootDescription:CreateDivider();
-            -- **Our own words, not the client's `REMOVE`.** That global reads "Remove" in English
-            -- and 추방 in Korean, which is what you do to somebody in your group.
-            rootDescription:CreateButton(LLL["SWITCH_OVERRIDE_REMOVE"], function()
-                DebindPrivate.ClearSwitchOverride(name, layerKey);
-                DebindPrivate.UpdateBindings();
-                RefreshPanelList();
-            end);
-        end
+        rootDescription:CreateDivider();
+        -- **Our own words, not the client's `REMOVE`.** That global reads "Remove" in English
+        -- and 추방 in Korean, which is what you do to somebody in your group.
+        --
+        -- **Shown greyed on the root rather than left out.** The root is not an override and has
+        -- nothing to remove, but a menu that is one item shorter there reads as a menu that
+        -- forgot: the reader compares it against the one they opened a row above.
+        local removeDescription = rootDescription:CreateButton(LLL["SWITCH_OVERRIDE_REMOVE"], function()
+            DebindPrivate.ClearSwitchOverride(name, layerKey);
+            DebindPrivate.UpdateBindings();
+            RefreshPanelList();
+        end);
+        removeDescription:SetEnabled(layerKey ~= nil);
     end
 
     function DebindUI.ShowSwitchLayerMenu(owner, name, layerID, layerKey)
@@ -567,7 +576,7 @@ function DebindSwitchesPanelMixin:OnLoad()
     self:InitializeScrollBox();
     -- `text=` in the XML names a global, and ours are in `L` (the export panel's button is set the
     -- same way, for the same reason).
-    self.NewButton:SetText(LLL["SWITCH_CREATE"]);
+    self.NewButton:SetText(LLL["SWITCH_CREATE_BUTTON"]);
 end
 
 function DebindSwitchesPanelMixin:OnNewClick()
@@ -627,7 +636,7 @@ function DebindSwitchesPanelMixin:RefreshRows()
     end
 
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
-    self.ScrollBox.EmptyText:SetText(format(LLL["SWITCHES_EMPTY"], LLL["SWITCH_CREATE"]));
+    self.ScrollBox.EmptyText:SetText(format(LLL["SWITCHES_EMPTY"], LLL["SWITCH_CREATE_BUTTON"]));
     self.ScrollBox.EmptyText:SetShown(#list == 0);
 end
 
