@@ -28,18 +28,16 @@ local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
 local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
-local luatype                = type;
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
 local IsIssueMinor           = DebindPrivate.IsIssueMinor;
-local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
--- Two files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
--- the blue an imported one wears; `LayerDisplay.lua` owns what a layer is called and the icon beside
--- it. Both load before this file and neither knows the window exists.
+-- Three files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
+-- the blue an imported one wears, `LayerDisplay.lua` owns what a layer is called and the icon beside
+-- it, and `ActionTooltip.lua` owns the block that goes up on hover. All three load before this file
+-- and none of them knows the window exists.
 local IMPORTED_FONT_COLOR            = DebindUI.IMPORTED_FONT_COLOR;
-local QUESTION_MARK_ICON_NUM         = DebindUI.QUESTION_MARK_ICON_NUM;
 local UNIT_INFO                      = DebindUI.UNIT_INFO;
 local NameAndIconForAction           = DebindUI.NameAndIconForAction;
 local ColoredNameAndIconForAction    = DebindUI.ColoredNameAndIconForAction;
