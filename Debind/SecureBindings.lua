@@ -262,25 +262,6 @@ BindingDriver:SetAttribute("SetUnit", [[
 
 		if (UnitStates[alias] ~= nil) then
 			dirty = true
-			-- local existsKey = alias.."-exists"
-			-- local existsValue
-			-- if (alias == "custom1" or alias == "custom2") then
-			-- 	existsValue = unit ~= nil and UnitExists(unit) and true or false
-			-- 	if (unit) then
-			-- 		RegisterAttributeDriver(self, existsKey, format("[@%s,exists]1;0", unit))
-			-- 	else
-			-- 		UnregisterAttributeDriver(self, existsKey)
-			-- 		self:SetAttribute(existsKey, 0)
-			-- 	end
-			-- else
-			-- 	existsValue = unit ~= nil
-			-- end
-
-			-- if (UnitStates[alias] ~= existsValue) then
-			-- 	UnitStates[alias] = existsValue
-			-- 	DirtyFlags[existsKey] = true
-			-- 	dirty = true
-			-- end
 		end
 
 		if (MacroTextsMap[alias]) then

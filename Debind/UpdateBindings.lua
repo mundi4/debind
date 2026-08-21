@@ -1062,13 +1062,6 @@ function UpdateBindingsMap()
                             _updateFlags.petbattle = true;
                         end
 
-                        -- if (binding.checkUnitExists) then
-                        --     appendKeyValue("checkUnitExists", binding.checkUnitExists);
-                        --     local existsKey = binding.checkUnitExists .. "-exists";
-                        --     _updateFlags[existsKey] = true;
-                        --     _measuredUnitAxes[binding.checkUnitExists] = true;
-                        -- end
-
                         if (binding.conditions.units) then
                             -- `_mergedUnits` was filled above, before the record was created --
                             -- "@" already resolved onto the unit it names and merged with any
@@ -1669,7 +1662,6 @@ for flag in pairs(DirtyFlags) do
 end
 
 if (shouldUpdate) then
-    --self:CallMethod("print", "Call UpdateBindings()")
     self:RunAttribute("UpdateBindings")
 end
 ]]);

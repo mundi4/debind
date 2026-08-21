@@ -1338,18 +1338,6 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         end
     end
 
-    -- FIXME
-    -- if (not issue and (not category or (category == "groups" or category == "unit") and (notCategory ~= "groups" and notCategory ~= "unit"))) then
-    --     if (conditions.groups) then
-    --         local groupFlags = GROUP_ROLE_UNITS[binding.checkUnitExists];
-    --         if (groupFlags) then
-    --             if (band(groupFlags, conditions.groups) == 0) then
-    --                 issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
-    --             end
-    --         end
-    --     end
-    -- end
-
     if (not issue and (not category or category == "specialbar") and notCategory ~= "specialbar") then
         if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
             issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
@@ -1961,14 +1949,6 @@ function DebindPrivate.ApplyOptions(option)
             end
         end
     end
-    -- if (option == nil or option == "removeStateDriverUpdateThrottle") then
-    --     if (DebindPrivate.Options.removeStateDriverUpdateThrottle) then
-    --         print("ApplyOptions", 0)
-    --         SecureStateDriverManager:SetAttribute("updatetime", 0);
-    --     else
-    --         SecureStateDriverManager:SetAttribute("updatetime", STATE_DRIVER_UPDATE_THROTTLE_DEFAULT);
-    --     end
-    -- end
     if (option == nil or option == "stateDriverUpdateThrottle") then
         local value = DebindPrivate.Options.stateDriverUpdateThrottle or STATE_DRIVER_UPDATE_THROTTLE_DEFAULT;
         if (type(value) == "number") then

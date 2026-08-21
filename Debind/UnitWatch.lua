@@ -670,15 +670,6 @@ local function AddCustomTargetMenus(owner, rootDescription, contextData)
                 end
                 return MenuResponse.Close;
             end);
-
-            -- desc:AddInitializer(function(button, elementDescription, menu)
-            --     local current = DebindPrivate.Units["custom" .. i];
-            --     if (current and UnitIsUnit(unit, current)) then
-            --         button.fontString:SetTextColor(BLUE_FONT_COLOR:GetRGB());
-            --     else
-            --         button.fontString:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB());
-            --     end
-            -- end);
         end
     end
 end

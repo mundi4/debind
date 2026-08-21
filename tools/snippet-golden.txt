@@ -23,11 +23,6 @@ DelegateFrameNames[frame] = frame:GetName()
 		local button = self:GetFrameRef("clickcast_button")
 		self:RunFor(button, self:GetAttribute("InitFrame"))
 		ccframes[button].frameType = button:GetAttribute("debind_frametype")
-
-
-
-
-
 	
 
 ### FrameRegistry.lua #2 SecureHandlerExecute
@@ -276,25 +271,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		if (UnitStates[alias] ~= nil) then
 			dirty = true
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 		end
 
 		if (MacroTextsMap[alias]) then
