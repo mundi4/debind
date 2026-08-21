@@ -1159,12 +1159,22 @@ end
 ---
 --- 닫는 일은 팝업 자신이 한다(확인·취소·ESC). 우리가 강제로 닫아야 할 자리가 생기면 그때
 --- 표를 다시 만들면 되고, 그 전까지는 없는 편이 정확하다.
+--- **The box is reached through the dialog's accessor, not by a field name.** `popup.editBox` was
+--- the field before the dialog became `GameDialogMixin`, and it has been `EditBox` behind
+--- `GetEditBox()` since (`Blizzard_StaticPopup_Game/GameDialog.lua`). Indexing the old name gave
+--- nil and errored on the line below, which nothing caught for as long as it did because this
+--- branch only runs when a caller passes a value to open on.
+---
+--- Highlighted after filling, so the first keystroke replaces it. The box opens on the current
+--- value to be read *or* typed over, and without this the second of those costs a select-all.
 local function ShowInputBox(data)
 	StaticPopup_ShowCustomGenericInputBox(data);
 	if (data.currentValue) then
 		local popup = StaticPopup_FindVisible("GENERIC_INPUT_BOX", data);
-		if (popup) then
-			popup.editBox:SetText(data.currentValue);
+		local editBox = popup and popup:GetEditBox();
+		if (editBox) then
+			editBox:SetText(data.currentValue);
+			editBox:HighlightText();
 		end
 	end
 end
@@ -2420,6 +2430,9 @@ local STORE_ADDON = "DebindStorage";
 
 local PANELS = {
 	{ title = "OVERVIEW",     desc = "OVERVIEW_DESC",      panelKey = "OverviewPanel" },
+	-- **Ahead of the sharing pair, and the only seat that is not about actions.** It reads the
+	-- switch definitions, which are ordinary profile data, so it needs nothing loaded on demand.
+	{ title = "CUSTOM_STATES", desc = "CUSTOM_STATES_DESC", panelKey = "SwitchesPanel" },
 	{ title = "IMPORT_TITLE", desc = "IMPORT_MENU_DESC",   panelKey = "ImportPanel", needsStore = true },
 	{ title = "EXPORT_TITLE", desc = "EXPORT_MENU_DESC",   panelKey = "ExportPanel", needsStore = true },
 };

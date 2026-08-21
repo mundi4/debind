@@ -179,6 +179,7 @@ globals = {
 	"SquareButton_SetIcon",
 	"SetPortraitTexture",
 	"GameTooltip_AddBlankLineToTooltip",
+	"GameTooltip_AddColoredLine",
 	"GameTooltip_Hide",
 	"StaticPopup_Show",
 	"StaticPopup_ShowCustomGenericConfirmation",
@@ -329,6 +330,8 @@ globals = {
 	"DebindSpellPickerHeaderMixin",
 	"DebindSpellPickerRowMixin",
 	"DebindSpellPickerTabMixin",
+	"DebindSwitchesPanelMixin",
+	"DebindSwitchRowMixin",
 
 	-- Named frames
 	"DebindFrame",
@@ -338,6 +341,7 @@ globals = {
 	"DebindIconSelectorFrame",
 	"DebindActionPlacerFrame",
 	"DebindSpellPickerFrame",
+	"DebindSwitchesPanel",
 	"DebindExportPanel",
 	"DebindCopyFrame",
 	"DebindImportPanel",

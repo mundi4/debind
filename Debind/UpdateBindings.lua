@@ -1204,6 +1204,13 @@ function UpdateBindingsMap()
                         -- 액션에 마커라도 붙는다. 구워두면 런타임 비교가 `States[name] ~= v`라
                         -- 아무도 안 쓴 이름은 `nil`이고, 참을 걸었든 거짓을 걸었든 안 맞는다 -
                         -- 어느 쪽으로 걸어도 안 나가는 쪽으로 떨어진다.
+                        --
+                        -- **이제 그 액션은 여기까지 오지도 않는다.** 정의 없는 이름을 조건으로
+                        -- 건 액션에도 마커가 붙어서(`GetUndefinedSwitch`) `KeyMap`에서 빠지고,
+                        -- 그래서 위 갈래는 액션 쪽으로는 도달 불가가 됐다. **그렇다고 지우지
+                        -- 말 것** - 스위치의 계산식은 액션이 아니라 이 길로 그대로 내려오고,
+                        -- 무엇보다 이건 위험한 방향을 막는 마지막 겹이다. 마커 하나가
+                        -- 빠지거나 좁아지는 날 여기가 없으면 ⚑2가 그대로 돌아온다.
                         local switchesTblCreated;
                         for state, v in pairs(binding.conditions) do
                             if (Constants.IsSwitchName(state)) then

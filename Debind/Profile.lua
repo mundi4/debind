@@ -507,32 +507,27 @@ local function MigrateShared(shared, dbver)
     end
 end
 
---- Every switch name this profile still names, gathered from all five layers of every character
---- and every class.
+--- Every action stored anywhere in this account file, handed to `fn`.
 ---
---- **Conditions and `SETSTATE` targets, and nothing else.** Those two are the places a switch is
---- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
---- `[$burst]` is typed by hand and is deliberately left out (`devdocs/redesigning-custom-states.md`
---- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
---- how the user finds out about the typo at all.
-local function CollectReferencedSwitches(db, found)
+--- **Wider than `LayerArray`, and it has to be.** That array is the eleven layers this character
+--- on this specialization reads. A switch is account-wide, so anything that counts or rewrites
+--- references to one has to reach the druid's layers while the priest is logged in. Otherwise a
+--- rename fixes what is on screen and quietly breaks what is not.
+---
+--- **`charEntry` is this character's entry and it is handed in, because it may not be in
+--- `db.characters` yet.** An entry is attached once there is something in it (`CleanUpDB`), so
+--- everything a character puts in its own layers this session lives in a table the account walk
+--- cannot see. That is not an edge: it is the layer the reader is looking at while they rename.
+---
+--- Takes the account table rather than reading `DebindPrivate.db`, because the migration walks
+--- this on a profile that is not attached yet.
+local function ForEachStoredAction(db, fn, charEntry)
     local function walkLayer(layerTbl)
         if (layerTbl == nil) then
             return;
         end
         for i = 1, #layerTbl do
-            local action = layerTbl[i];
-            local conditions = action.conditions;
-            if (conditions) then
-                for name in pairs(conditions) do
-                    if (Constants.IsSwitchName(name)) then
-                        found[name] = true;
-                    end
-                end
-            end
-            if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
-                found[action.value] = true;
-            end
+            fn(layerTbl[i]);
         end
     end
 
@@ -553,11 +548,47 @@ local function CollectReferencedSwitches(db, found)
             end
         end
     end
+    local attached = false;
     if (db.characters) then
-        for _, charEntry in pairs(db.characters) do
-            walkSpecTable(charEntry.layers);
+        for _, entry in pairs(db.characters) do
+            if (entry == charEntry) then
+                attached = true;
+            end
+            walkSpecTable(entry.layers);
         end
     end
+    if (charEntry and not attached) then
+        walkSpecTable(charEntry.layers);
+    end
+end
+DebindPrivate.ForEachStoredAction = ForEachStoredAction;
+
+--- Every switch name this profile still names, gathered from all five layers of every character
+--- and every class.
+---
+--- **Conditions and `SETSTATE` targets, and nothing else.** Those two are the places a switch is
+--- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
+--- `[$burst]` is typed by hand and is deliberately left out (`devdocs/redesigning-custom-states.md`
+--- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
+--- how the user finds out about the typo at all.
+---
+--- **No `charEntry`, unlike the callers further down.** This runs inside the migration, where the
+--- entry for the character logging in has just been made and holds nothing but what the ladder
+--- itself writes there.
+local function CollectReferencedSwitches(db, found)
+    ForEachStoredAction(db, function(action)
+        local conditions = action.conditions;
+        if (conditions) then
+            for name in pairs(conditions) do
+                if (Constants.IsSwitchName(name)) then
+                    found[name] = true;
+                end
+            end
+        end
+        if (Constants.SETSTATE_MODES[action.type] and luatype(action.value) == "string") then
+            found[action.value] = true;
+        end
+    end);
 end
 
 --- Has anything been set on this definition, or is it the empty one a load used to plant?
@@ -737,6 +768,39 @@ local function MigrateSwitches(db, dbver, charEntry)
                     switches[index] = nil;
                 end
             end
+
+            -- **The table stops being filed by number and starts being filed by name.** Everything
+            -- downstream of storage already named a switch by string: a condition key, a macro
+            -- body, an on/off/toggle target, `DebindPrivate.Switches`. The number was the one
+            -- place left where a switch had a second identity. Renaming is what could not be built
+            -- on top of that: the name would have had to be a field beside the number, and then
+            -- two things would say which switch this is (§6-B of
+            -- `devdocs/redesigning-custom-states.md`).
+            --
+            -- **Only number keys move.** A table that has already been through here is keyed by
+            -- name, and the pre-rename share `Legacy.lua` lays on top arrives numbered and comes
+            -- back through this step, so running twice has to be a no-op on what it produced.
+            --
+            -- A number outside the five is dropped rather than carried. Nothing could ever address
+            -- it: `BindDerivedTables` read names off `SWITCH_NAMES` and skipped anything it had no
+            -- name for, so such a row has never been a switch anybody could see or set.
+            --
+            -- Collected before anything moves, because **adding a key to a table `pairs` is walking
+            -- is undefined.** Clearing one is allowed and putting one back is not, and the two
+            -- would have been in the same loop.
+            local numbered = {};
+            for index, definition in pairs(switches) do
+                if (luatype(index) == "number") then
+                    numbered[index] = definition;
+                end
+            end
+            for index, definition in pairs(numbered) do
+                switches[index] = nil;
+                local name = Constants.SWITCH_NAMES[index];
+                if (name and switches[name] == nil) then
+                    switches[name] = definition;
+                end
+            end
         end
     end
 end
@@ -883,24 +947,247 @@ end
 --- the next login and the red references to it would go quiet, which is the deletion being undone
 --- by the thing that was supposed to report it.
 ---
---- **Storage is still by index**, so this can only file one of the five. That is also all that can
---- ask: the menu is the one way to make a switch until §6-B's list arrives with names of its own.
---- A name it cannot file gets `nil`, the same answer as one nothing defines.
+--- **Storage takes any name now, and the gate is what keeps the count at five.** A definition is
+--- filed under its own name, so nothing about the table stops a sixth. What stops it is that the
+--- only names offered anywhere are the built-in five that are still free (`GetOfferedSwitchNames`),
+--- and this refuses everything else. Lifting the count is stage 3c
+--- (`devdocs/redesigning-custom-states.md` §10), and it is this line.
+---
+--- A name it will not file gets `nil`, the same answer as one nothing defines.
 function DebindPrivate.GetOrCreateSwitchDefinition(name)
     local definition = DebindPrivate.Switches[name];
     if (definition) then
         return definition;
     end
 
-    local index = Constants.SWITCH_INDICES[name];
-    if (not index) then
+    if (not Constants.SWITCH_INDICES[name]) then
         return nil;
     end
 
     definition = CopyTable(SWITCH_DEFAULTS);
-    DebindPrivate.db.global.switches[index] = definition;
     DebindPrivate.Switches[name] = definition;
+    DebindPrivate.OnSwitchesChanged();
     return definition;
+end
+
+--- Every switch that exists, by name, in the order a list draws them.
+---
+--- Sorted rather than walked with `pairs`, which would order the Switches tab and the picker's
+--- special category differently on every client and differently again after a reload.
+function DebindPrivate.GetSwitchNames(out)
+    out = out or {};
+    for name in pairs(DebindPrivate.Switches) do
+        out[#out + 1] = name;
+    end
+    sort(out);
+    return out;
+end
+
+--- The names a menu may offer: every switch that exists, then the built-in names still free.
+---
+--- **Two different offers in one list, and the second one is temporary.** A definition is a switch
+--- that exists and can be set. A free built-in name is a switch that can be *made*: choosing
+--- anything on it is what creates it (`GetOrCreateSwitchDefinition`). Handing names out in
+--- advance is only how making one works until stage 3c gives it a place of its own
+--- (`devdocs/redesigning-custom-states.md` §6-C).
+---
+--- **The cap is where "five switches" is enforced on screen**, the create gate being where it is
+--- enforced in the data. Renaming frees a built-in name, so without it a profile with two renamed
+--- switches would be offered five more.
+function DebindPrivate.GetOfferedSwitchNames(out)
+    out = DebindPrivate.GetSwitchNames(out);
+    for i = 1, Constants.MAX_NUM_SWITCHES do
+        if (#out >= Constants.MAX_NUM_SWITCHES) then
+            break;
+        end
+        local name = Constants.SWITCH_NAMES[i];
+        if (DebindPrivate.Switches[name] == nil) then
+            out[#out + 1] = name;
+        end
+    end
+    return out;
+end
+
+--- Does this action name that switch, in any of the three places one can be named?
+---
+--- A condition key, an on/off/toggle target, and a macro body. The body is asked through the
+--- parser, which is the same door `GetUndefinedSwitch` uses, so what is counted here is exactly
+--- what goes red there.
+local function ActionNamesSwitch(action, name)
+    local conditions = action.conditions;
+    if (conditions and conditions[name] ~= nil) then
+        return true;
+    end
+    if (Constants.SETSTATE_MODES[action.type] and action.value == name) then
+        return true;
+    end
+    if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+        local _, args = DebindPrivate.ParseMacroText(action.value);
+        for i = 1, (args and #args or 0) do
+            local arg = args[i];
+            if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name == name) then
+                return true;
+            end
+        end
+    end
+    return false;
+end
+
+--- How many actions name this switch, at three distances: **the whole account, this character, and
+--- what is live right now.** Widest first, and each one contains the next.
+---
+--- **One number could not answer the question the reader is asking.** A definition belongs to the
+--- account while the screen in front of them belongs to a character, so "used by 5" leaves them
+--- unable to tell a switch three of their characters depend on from one nothing has used since
+--- they made it. Deleting is where that matters most and the delete question carries the widest of
+--- the three, but the row's tooltip is where a reader goes to find out what a switch is *for*.
+---
+--- The three walks:
+---
+---   * the account is every action stored anywhere (`ForEachStoredAction`)
+---   * this character is its eleven layers, inactive specializations included -- what it could
+---     reach by switching specialization, not what it reaches now
+---   * live is the layers this specialization actually reads, which is the set `BuildKeyMap` binds
+---     from. A number that drops when you change specialization is the honest one for "does this
+---     switch do anything for me at the moment"
+---
+--- **Actions, not references**: an action naming the same switch in its condition and again in its
+--- macro body is one row that goes wrong, and what is being reported is how much of the profile
+--- this reaches.
+function DebindPrivate.CountSwitchReferences(name)
+    local account, character, live = 0, 0, 0;
+
+    ForEachStoredAction(DebindPrivate.db.global, function(action)
+        if (ActionNamesSwitch(action, name)) then
+            account = account + 1;
+        end
+    end, DebindPrivate.db.char);
+
+    -- **The layer walks, not a second pass over the same tables.** The eleven layers are the
+    -- addon's own answer to "what does this character read", and going through them is what keeps
+    -- these two numbers agreeing with the list the reader is looking at.
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        for _, action in layer:Enumerate() do
+            if (ActionNamesSwitch(action, name)) then
+                character = character + 1;
+            end
+        end
+    end
+
+    for _, layer in DebindPrivate.EnumerateProfileLayers() do
+        for _, action in layer:Enumerate() do
+            if (ActionNamesSwitch(action, name)) then
+                live = live + 1;
+            end
+        end
+    end
+
+    return account, character, live;
+end
+
+--- Renames a switch, **and rewrites every reference to it**. Answers `true`, or `false` and a
+--- locale key saying why it refused.
+---
+--- **The rename is the four rewrites.** The definition moving is the easy part; a name is written
+--- down in four other kinds of place, and one missed leaves a condition that never matches or a
+--- macro clause that quietly stopped being a clause (`devdocs/redesigning-custom-states.md` §3):
+---
+---   * a condition key, `action.conditions["$burst"]`
+---   * an on/off/toggle action's target, `action.value`
+---   * a macro body's `[$burst]` and `no$burst`
+---   * **another switch's expression**, which is the one that gets forgotten. An expression is a
+---     macro body too, and one switch computed from another is a shape this addon supports
+---
+--- And a fifth that is not a reference but is keyed by the name all the same: the value each
+--- character remembers. Left behind, a switch that remembers would come up off after a rename with
+--- nothing anywhere saying the value had been dropped.
+---
+--- **Every character and every class, not the layers on screen** (`ForEachStoredAction`).
+---
+--- The live table is re-keyed rather than rebuilt, because `BindDerivedTables` recomputes `value`
+--- from `resetValue`, and rebuilding here would reset a switch the user has on right now as a
+--- side effect of renaming it.
+function DebindPrivate.RenameSwitch(oldName, newName)
+    local definition = DebindPrivate.Switches[oldName];
+    if (not definition) then
+        return false, "SWITCH_RENAME_ERROR_GONE";
+    end
+    if (newName == oldName) then
+        return true;
+    end
+    if (not Constants.IsValidSwitchName(newName)) then
+        return false, "SWITCH_RENAME_ERROR_INVALID";
+    end
+    if (DebindPrivate.Switches[newName]) then
+        return false, "SWITCH_RENAME_ERROR_TAKEN";
+    end
+
+    local db = DebindPrivate.db.global;
+
+    ForEachStoredAction(db, function(action)
+        local conditions = action.conditions;
+        if (conditions and conditions[oldName] ~= nil) then
+            conditions[newName] = conditions[oldName];
+            conditions[oldName] = nil;
+        end
+        if (Constants.SETSTATE_MODES[action.type] and action.value == oldName) then
+            action.value = newName;
+        end
+        if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+            action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName);
+        end
+    end, DebindPrivate.db.char);
+
+    for _, other in pairs(DebindPrivate.Switches) do
+        if (luatype(other.expr) == "string") then
+            other.expr = DebindPrivate.RenameSwitchInMacroText(other.expr, oldName, newName);
+        end
+    end
+
+    for _, entry in pairs(db.characters) do
+        if (entry.switches and entry.switches[oldName] ~= nil) then
+            entry.switches[newName] = entry.switches[oldName];
+            entry.switches[oldName] = nil;
+        end
+    end
+    local charSwitches = DebindPrivate.db.char.switches;
+    if (charSwitches[oldName] ~= nil) then
+        charSwitches[newName] = charSwitches[oldName];
+        charSwitches[oldName] = nil;
+    end
+
+    DebindPrivate.Switches[newName] = definition;
+    DebindPrivate.Switches[oldName] = nil;
+
+    DebindPrivate.OnSwitchesChanged();
+    return true;
+end
+
+--- Deletes a switch. **References to it are left where they are.**
+---
+--- That is the decision and not an omission: an action naming a switch nothing defines goes red
+--- (`GetUndefinedSwitch`), and the red is how the user finds the places they have to go and fix.
+--- Rewriting them here would delete parts of actions the user never asked to lose, and doing it
+--- silently would be worse than the red (§9-3 of `devdocs/redesigning-custom-states.md` turns the
+--- same argument the other way round: a reference must not resurrect a definition either).
+---
+--- **The remembered values go**, because they are this switch's and nothing else's. Leaving them
+--- would hand its value to the next switch that happens to take the name.
+function DebindPrivate.DeleteSwitch(name)
+    if (not DebindPrivate.Switches[name]) then
+        return false;
+    end
+
+    DebindPrivate.Switches[name] = nil;
+    for _, entry in pairs(DebindPrivate.db.global.characters) do
+        if (entry.switches) then
+            entry.switches[name] = nil;
+        end
+    end
+    DebindPrivate.db.char.switches[name] = nil;
+
+    DebindPrivate.OnSwitchesChanged();
+    return true;
 end
 
 --- Fills in defaults for `options` / `switches` and **hands those tables to `DebindPrivate`**.
@@ -912,11 +1199,11 @@ end
 --- has to be recomputed from `resetValue`/`savedValue`, so copying the contents across would not
 --- be enough - this calculation has to run again.
 ---
---- **`DebindPrivate.Switches` is keyed by name, `db.switches` by index.** A condition, a macro
---- body and a `SETSTATE` at runtime all name a switch by string, so the live table answers the
---- question everything downstream actually asks (`ResolveSwitchDefinition`). The stored table
---- keeps the index keys it has always had - moving those is a format change and this step does not
---- carry one - so the two are joined here and nowhere else.
+--- **`DebindPrivate.Switches` is `db.switches`.** Both are keyed by name, so there is nothing left
+--- to join: a condition, a macro body and an on/off/toggle target all name a switch by string, and
+--- the stored table now answers under the same key (`ResolveSwitchDefinition`). It used to be a
+--- second table built here, because storage filed a definition by index and the index was a second
+--- identity a switch could not be renamed while it had.
 ---
 --- **The remembered value comes off this character, not off the definition.** The definition is
 --- account-wide and a name raises an expectation of scope that a number never did, so "remember"
@@ -937,28 +1224,64 @@ function DebindPrivate.BindDerivedTables()
     DebindPrivate.Options = db.options;
 
     db.switches = db.switches or {};
-    DebindPrivate.Switches = {};
+    DebindPrivate.Switches = db.switches;
 
     local savedValues = DebindPrivate.db.char.switches;
 
-    for index, switchOptions in pairs(db.switches) do
-        local name = Constants.SWITCH_NAMES[index];
-        if (name) then
-            switchOptions.mode = switchOptions.mode or Constants.SWITCH_MODES.MANUAL;
-            if (switchOptions.mode == Constants.SWITCH_MODES.MANUAL) then
-                -- **`resetValue`가 `nil`인 것은 값이 없는 것이 아니라 답이다** - "기억한 것으로
-                -- 돌아가라". 이 연결은 어느 이름에서도 안 보인다.
-                if (switchOptions.resetValue ~= nil) then
-                    switchOptions.value = switchOptions.resetValue;
-                else
-                    switchOptions.value = savedValues[name] and true or false;
-                end
+    for name, switchOptions in pairs(db.switches) do
+        switchOptions.mode = switchOptions.mode or Constants.SWITCH_MODES.MANUAL;
+        if (switchOptions.mode == Constants.SWITCH_MODES.MANUAL) then
+            -- **`resetValue`가 `nil`인 것은 값이 없는 것이 아니라 답이다** - "기억한 것으로
+            -- 돌아가라". 이 연결은 어느 이름에서도 안 보인다.
+            if (switchOptions.resetValue ~= nil) then
+                switchOptions.value = switchOptions.resetValue;
             else
-                switchOptions.value = switchOptions.value or false;
+                switchOptions.value = savedValues[name] and true or false;
             end
-
-            DebindPrivate.Switches[name] = switchOptions;
+        else
+            switchOptions.value = switchOptions.value or false;
         end
+    end
+end
+
+--- Sets a switch's value, **and settles what the character remembers of it in the same breath**.
+---
+--- Those two are one write and were two. A switch that resets to nothing keeps what it was left on
+--- (`resetValue == nil` -> `savedValue`), so a value written without the memory beside it survives
+--- until the next load and then quietly goes back. The restricted side's report has always come
+--- through here (`SwitchesChangedCallback`); the Switches tab's toggle is the second caller, and it
+--- is what turned a rule into a function. Written out twice, the tab's toggle would have looked
+--- like it worked and lost the switch on the next reload.
+---
+--- **What the caller still owns is the rebuild.** Nothing in this file asks for one; the value only
+--- reaches a key through `UpdateBindings`, and both callers have their own moment for it.
+function DebindPrivate.SetSwitchValue(name, value)
+    local definition = DebindPrivate.Switches[name];
+    if (not definition) then
+        return;
+    end
+
+    local savedValue = nil;
+    if (definition.mode == Constants.SWITCH_MODES.MANUAL and definition.resetValue == nil) then
+        savedValue = value;
+    end
+
+    definition.value = value;
+    DebindPrivate.db.char.switches[name] = savedValue;
+end
+
+--- The set of switches changed: one was made, renamed or deleted.
+---
+--- **Only the set.** A switch's value flipping is `SWITCH_CHANGED` and has listeners of its own;
+--- this is for the list itself changing. Two things read that list: the picker's catalog, which
+--- offers one on/off/toggle action per switch, and the Switches tab.
+---
+--- The bus is `Debind.lua`'s and the headless runner does not load that file (`tests/run.lua`), so
+--- it is asked for rather than assumed. Everything that calls this is reachable from a spec.
+function DebindPrivate.OnSwitchesChanged()
+    DebindPrivate.ActionCatalog.Invalidate();
+    if (DebindPrivate.callbacks) then
+        DebindPrivate.callbacks:Fire("OnSwitchesChanged");
     end
 end
 

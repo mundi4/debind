@@ -2377,7 +2377,7 @@ end
 --- The export tab's seat in `PANELS` (`DebindUI.lua`). That table is a local over there, so this is
 --- the one thing here that has to be kept in step by hand -- the guard below is what says so out
 --- loud rather than quietly measuring the wrong panel.
-local EXPORT_PANEL_ID = 3
+local EXPORT_PANEL_ID = 4
 
 RegisterTest("Export: the window's count is what the string carries", {
     description = "격리 중인 행이 목록에서 빠지고, 창이 센 수와 실제로 나간 수가 같은지",
@@ -2476,18 +2476,22 @@ RegisterTest("Export: the window's count is what the string carries", {
 -- layer empty there are no headers to draw, so the panels can actually be shown.
 -----------------------------------------------------------
 
---- The other two seats in `PANELS`, kept in step by hand for the reason `EXPORT_PANEL_ID` gives:
---- that table is a local in `DebindUI.lua`. The first test below is what says so out loud - three
---- ids that answer with three different panels cannot all be pointing at the wrong seat.
-local OVERVIEW_PANEL_ID, IMPORT_PANEL_ID = 1, 2
+--- The other three seats in `PANELS`, kept in step by hand for the reason `EXPORT_PANEL_ID` gives:
+--- that table is a local in `DebindUI.lua`. The first test below is what says so out loud - four
+--- ids that answer with four different panels cannot all be pointing at the wrong seat.
+---
+--- **Switches sits second, ahead of the sharing pair**, so both of those moved up one when it
+--- arrived. Numbers that drift here do not error: they measure a different panel and pass.
+local OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID = 1, 2
+local IMPORT_PANEL_ID = 3
 
 RegisterTest("Panels: every tab resolves to a panel of its own", {
-    description = "탭 셋이 각자 자기 패널로 풀리는가 - 하나로 몰리거나 MissingPanel로 떨어지지 않는가",
+    description = "탭 넷이 각자 자기 패널로 풀리는가 - 하나로 몰리거나 MissingPanel로 떨어지지 않는가",
     run = function()
         local NAME = "Panels resolve"
 
         local seen = {}
-        for _, id in ipairs({ OVERVIEW_PANEL_ID, IMPORT_PANEL_ID, EXPORT_PANEL_ID }) do
+        for _, id in ipairs({ OVERVIEW_PANEL_ID, IMPORT_PANEL_ID, EXPORT_PANEL_ID, SWITCHES_PANEL_ID }) do
             local panel = DebindFrame:ResolvePanel(id)
             if not panel then
                 return Fail(NAME, format("%d번 탭이 패널을 못 얻었다 - PANELS의 panelKey나 TOC를 볼 것", id))
@@ -2506,7 +2510,7 @@ RegisterTest("Panels: every tab resolves to a panel of its own", {
             seen[panel] = id
         end
 
-        return Pass(NAME, "탭 3개가 서로 다른 패널 3개로")
+        return Pass(NAME, "탭 4개가 서로 다른 패널 4개로")
     end,
 })
 
@@ -2658,6 +2662,283 @@ RegisterTest("Panels: no store means no panel, not an error", {
         end
 
         return Pass(NAME, "임포트는 막히고 오버뷰는 선다")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: The Switches tab
+--
+-- **Everything here is a wire that fails without a word.** A row's toggle writes a value that only
+-- means something once codegen has been past it; a rename rewrites four kinds of reference and the
+-- ones it misses are silent by construction, since a condition that stops matching draws exactly
+-- like one that matches. Headless specs check that the rename moves the stored strings
+-- (`tests/switch_spec.lua`); what only the game answers is whether the key still fires afterwards.
+--
+-- **The definition is put in by hand rather than made through the menu.** A run must not leave a
+-- switch in the tester's profile, and the definitions table is the account's. So the slot is
+-- swapped and put back, the way the switch tests further up do it.
+-----------------------------------------------------------
+
+--- The row drawn for one switch, once the list has laid itself out.
+local function SwitchRow(panel, name)
+    local found
+    panel.ScrollBox:ForEachFrame(function(frame)
+        if frame.switchName == name then
+            found = frame
+        end
+    end)
+    return found
+end
+
+--- Opens the tab and hands back the panel with its rows built. Puts the reader back on Overview
+--- and closes the window afterwards, however the test ends.
+---
+--- **The list is refreshed here rather than left to `OnShow`.** Showing a frame that is already
+--- shown fires nothing, and `SelectPanel` turns back when its tab is already the current one, so a
+--- tester who left this tab open gets neither. The rows would then be the ones drawn before the
+--- test planted anything, which reads as "the list does not list switches" -- it measured a stale
+--- draw. Build the precondition, do not hope for it.
+local function OpenSwitchesTab()
+    DebindFrame:Show()
+    AddTeardown(function()
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+        DebindFrame:Hide()
+    end)
+    DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
+
+    local panel = DebindFrame.SwitchesPanel
+    panel:RefreshRows()
+    return panel
+end
+
+RegisterTest("Switches tab: the toggle on a row moves the key", {
+    description = "목록의 켜기/끄기 단추가 실제로 그 스위치를 건 키를 붙였다 뗐다 하는가",
+    run = function()
+        local NAME = "Switch row toggle"
+        local KEY = "CTRL-SHIFT-F7"
+        local SWITCH = "$rowtoggle"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 이 단추가 비활성이라 판정이 안 선다")
+        end
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            DebindPrivate.db.char.switches[SWITCH] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
+        ApplyBindings()
+
+        local panel = OpenSwitchesTab()
+        -- The list lays itself out on a later frame, so the row is waited for rather than assumed.
+        -- What is waited on is the widget existing, not the answer this test is about.
+        local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
+        if not row then
+            -- What the list did hold, because "no row" has two very different causes: the name
+            -- never reached `GetSwitchNames`, or it did and no frame was built for it.
+            local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
+            return Fail(NAME, format("목록에 그 스위치의 행이 없다. 이름들: [%s]", names))
+        end
+        if not row.ToggleButton:IsEnabled() then
+            return Fail(NAME, "직접 켜고 끄는 스위치인데 단추가 비활성이다")
+        end
+
+        -- **Pressed, not called.** `OnToggleClick` reached directly would pass on a row whose XML
+        -- lost its `OnClick`, which is exactly the wiring this test is here for.
+        row.ToggleButton:Click()
+
+        local whenOn = GetBindingAction(KEY, true) or ""
+        if whenOn:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("켰는데 키가 %q다 - 값이 코드젠까지 안 갔다", whenOn))
+        end
+
+        row.ToggleButton:Click()
+
+        local whenOff = GetBindingAction(KEY, true) or ""
+        if whenOff ~= "" then
+            return Fail(NAME, format("껐는데 키가 %q로 남았다", whenOff))
+        end
+
+        return Pass(NAME, "눌러서 켜짐 -> 걸림 / 다시 눌러 꺼짐 -> 빠짐")
+    end,
+})
+
+-- **What a rename does to stored actions is not askable here, and it is not a hole.** A run is
+-- isolated to a layer that lives nowhere in the account table (`GetTestLayer`), and a rename walks
+-- what the account stores. So a test-layer action naming the old switch is left alone by design,
+-- and a test built on one measures the harness rather than the addon.
+--
+-- The four rewrites over stored actions are `tests/switch_spec.lua`'s, which reads the tables back.
+-- What the game has to answer instead is **the one reference that is not an action**: a switch
+-- computed from another switch. That one is rewritten by walking the definitions, which a test does
+-- own, and the whole of its effect is inside the restricted environment -- the expression is baked
+-- and handed to `SecureCmdOptionParse`, so a name left behind bakes to `known:0` and every binding
+-- that switch drives goes quiet with nothing said.
+RegisterTest("Switches tab: renaming follows a switch another one computes from", {
+    description = "개명한 이름을 계산식으로 쓰는 스위치가 새 이름을 따라가서 계속 도는가",
+    run = function()
+        local NAME = "Switch rename in expr"
+        local KEY = "CTRL-SHIFT-F7"
+        local OUTER = "$renameouter"
+        local FROM, TO = "$renameme", "$renamed"
+        local MODES = Constants.SWITCH_MODES
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        local savedOuter = DebindPrivate.Switches[OUTER]
+        local savedFrom, savedTo = DebindPrivate.Switches[FROM], DebindPrivate.Switches[TO]
+        AddTeardown(function()
+            DebindPrivate.Switches[OUTER] = savedOuter
+            DebindPrivate.Switches[FROM] = savedFrom
+            DebindPrivate.Switches[TO] = savedTo
+            DebindPrivate.db.char.switches[FROM] = nil
+            DebindPrivate.db.char.switches[TO] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+
+        -- The action names the outer switch, and that name never moves. What moves is the name
+        -- **inside the outer one's expression**, which is the reference the design calls the easy
+        -- one to forget.
+        DebindPrivate.Switches[FROM] = { mode = MODES.MANUAL, value = true }
+        DebindPrivate.Switches[OUTER] = { mode = MODES.EXPR, expr = "[" .. FROM .. "]" }
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [OUTER] = true })
+        ApplyBindings()
+
+        if (GetBindingAction(KEY, true) or ""):sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, "전제가 깨졌다 - 개명 전에도 계산식이 키를 안 걸었다")
+        end
+
+        local ok, reason = DebindPrivate.RenameSwitch(FROM, TO)
+        if not ok then
+            return Fail(NAME, format("개명이 거절됐다: %s", tostring(reason)))
+        end
+        ApplyBindings()
+
+        local afterRename = GetBindingAction(KEY, true) or ""
+        if afterRename:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format(
+                "개명 뒤에 키가 %q다 - 계산식이 옛 이름을 들고 있어 known:0으로 구워진다",
+                afterRename))
+        end
+
+        -- **The half that catches a dropped clause.** A rewrite that emptied the expression instead
+        -- of renaming inside it leaves the outer switch always true, so the key stays bound too.
+        -- Turning the renamed switch off is what tells "followed" from "vanished" apart.
+        DebindPrivate.SetSwitchValue(TO, false)
+        ApplyBindings()
+
+        local whenOff = GetBindingAction(KEY, true) or ""
+        if whenOff ~= "" then
+            return Fail(NAME, format(
+                "새 이름을 껐는데 키가 %q로 남았다 - 계산식이 이름을 잃고 상시 참이 됐다", whenOff))
+        end
+
+        return Pass(NAME, format("[%s] -> [%s]로 따라갔고 새 이름으로 꺼진다", FROM, TO))
+    end,
+})
+
+-- **A dialog that opens on a value is two things, and only one of them is checkable by eye.** That
+-- it opens is obvious; that it opens *carrying* what is already stored is a line of code that runs
+-- after the popup is up, reaching into the client's own frame. That reach was written against
+-- `popup.editBox`, a field the dialog stopped having when it became `GameDialogMixin`, so the box
+-- opened blank and then errored -- and it errored only for callers that pass a value, which is why
+-- it lived so long (`ShowInputBox` in `DebindUI.lua`).
+--
+-- The rename box goes through the same function, so this covers both.
+RegisterTest("Switches tab: the expression box opens on the expression", {
+    description = "식 편집 상자가 지금 식을 들고 열리는가",
+    run = function()
+        local NAME = "Switch input box"
+        local SWITCH = "$boxopen"
+        local EXPR = "[combat]"
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
+            if dialog then
+                -- **Focus first.** The box takes the keyboard when it opens, and a hidden frame
+                -- that still holds it swallows what the next test types.
+                local editBox = dialog:GetEditBox()
+                if editBox then
+                    editBox:ClearFocus()
+                end
+                dialog:Hide()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.EXPR, expr = EXPR }
+
+        DebindUI.ShowSwitchExpressionBox(SWITCH)
+
+        local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
+        if not dialog then
+            return Fail(NAME, "상자가 안 떴다")
+        end
+        local editBox = dialog:GetEditBox()
+        if not editBox then
+            return Fail(NAME, "상자에 편집칸이 없다 - 클라이언트가 이름을 또 바꿨다")
+        end
+        local text = editBox:GetText()
+        if text ~= EXPR then
+            return Fail(NAME, format("상자가 %q를 들고 열렸다 - 적어둔 식이 안 실렸다", text))
+        end
+
+        return Pass(NAME, format("%q", text))
+    end,
+})
+
+-- **The mark that stands in for everything else.** An imported string plants no switch definitions
+-- (`devdocs/building-export-import.md`), so an on/off/toggle action arriving from someone else can
+-- name a switch this profile has never had. Nothing about the row says so; what says so is the
+-- action going red and dropping out of `KeyMap`, and that gate only runs in the game.
+RegisterTest("Setstate action naming a switch nothing defines does not bind", {
+    description = "정의 없는 이름을 켜는 액션이 빨개지고 KeyMap에서 빠지는가",
+    run = function()
+        local NAME = "Undefined switch target"
+        local DEFINED_KEY = "CTRL-SHIFT-F9"
+        local UNDEFINED_KEY = "CTRL-SHIFT-F10"
+        local SWITCH = "$targetme"
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
+
+        -- The passing half first: without it a missing binding below reads as "switch actions do
+        -- not bind at all" rather than as the marker doing its job.
+        InsertAction({ type = Constants.SETSTATE_TOGGLE, value = SWITCH, key = DEFINED_KEY })
+        InsertAction({ type = Constants.SETSTATE_TOGGLE, value = "$nodefinition",
+            key = UNDEFINED_KEY })
+        ApplyBindings()
+
+        if not GetNthBinding(DEFINED_KEY, 1) then
+            return Fail(NAME, "전제가 깨졌다 - 정의해둔 스위치를 켜는 액션도 KeyMap에 없다")
+        end
+        if GetNthBinding(UNDEFINED_KEY, 1) then
+            return Fail(NAME, "아무 데도 없는 이름을 켜는 액션이 그대로 걸렸다")
+        end
+
+        local issue = DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_TOGGLE,
+            value = "$nodefinition", key = UNDEFINED_KEY })
+        if issue ~= Constants.BINDING_ISSUE_UNDEFINED_STATE then
+            return Fail(NAME, format("issue=%s - 행이 멀쩡한 채로 그려진다", tostring(issue)))
+        end
+
+        return Pass(NAME, "정의된 것은 걸리고 정의 없는 것은 빠진다")
     end,
 })
 
@@ -3120,6 +3401,12 @@ RegisterTest("Switch condition on a name outside the five", {
                 "정의 없는 이름을 건 액션이 %q로 나갔다 - 조건이 사라져 상시 발동한다", whenUndefined))
         end
 
+        -- **막는 겹이 둘이다.** 마커가 그 액션을 `KeyMap`에서 빼고(행이 빨개지고 툴팁이 이름을
+        -- 적는다), 그 아래에서 코드젠이 조건을 거짓으로 굽는다. 위 한 줄은 둘 중 하나만 살아
+        -- 있어도 초록이고, **어느 쪽이 막았는지는 여기서 물을 일이 아니다** - 마커가 무엇을
+        -- 답하는지는 순수 함수라 `tests/issue_spec.lua`가 본다. 여기가 답하는 것은 그 답이
+        -- 실제로 키를 안 걸게 하느냐다(`BuildKeyMap`의 게이트).
+
         -- **전투 중에 밟는 길.** 위 둘은 `ApplyBindings()`가 도는 비보안 리빌드인데, 전투
         -- 중에는 그것이 미뤄지므로 값이 바뀌었을 때 키를 다시 정하는 것은 제한 환경 쪽이다:
         -- `SetSwitch` -> `DirtyFlags` -> `state-unitexists` -> 제한 환경의 `UpdateBindings`.
@@ -3136,7 +3423,7 @@ RegisterTest("Switch condition on a name outside the five", {
                 "리빌드 없이 켰는데 키가 %q다 - 전투 중이면 안 살아난다", afterToggle))
         end
 
-        return Pass(NAME, "$burst 켜짐 -> 걸림 / 꺼짐 -> 빠짐 / 미정의 -> 빠짐 / 리빌드 없이 켜짐")
+        return Pass(NAME, "$burst 켜짐 -> 걸림 / 꺼짐 -> 빠짐 / 미정의 -> 마커 붙고 빠짐 / 리빌드 없이 켜짐")
     end,
 })
 

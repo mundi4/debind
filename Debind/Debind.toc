@@ -75,6 +75,11 @@ DebindUI.xml
 ExportUI.xml
 ImportUI.xml
 
+# The Switches tab, a child of `DebindFrame` for the same reason and with the same requirement:
+# after `DebindUI.xml`. It is not a sharing panel and reads nothing from the load-on-demand addon -
+# what it draws is the switch definitions, which are ordinary profile data.
+SwitchesUI.xml
+
 # Also after `DebindUI.xml`, but for the other reason: it wears `DebindDialogTemplate`, and a
 # template named before it is declared is an inherit that finds nothing. It is not a child of
 # `DebindFrame` - it stands over whatever asked for a key.

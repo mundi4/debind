@@ -64,9 +64,11 @@ L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected.
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
 L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse buttons cannot be used for Binding Command that uses the hover condition."
 L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used with the hover condition."
--- %s는 매크로 본문에 적힌 그 이름이다. **이 줄만 인자를 받는다** - 다른 BINDING_ERROR_*는
--- 어느 조건이 문제인지가 이미 그 칸에 보이는데, 이건 본문 안이라 이름을 적어주지 않으면
--- 무엇을 고쳐야 하는지가 안 보인다.
+-- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
+-- action sets. **This line and the macro one below are the only errors that take an argument** --
+-- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
+-- box it belongs to. Neither of these two has a box, so without the name there is nothing on
+-- screen saying what to fix.
 L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT_COLOR:%s|r. Until the name is fixed this binding does not fire at all."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
@@ -801,6 +803,58 @@ L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
 L["STATE_DRIVER_UPDATE_THROTTLE"] = "State driver update throttle"
 L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Some states, such as those related to mouseover, may not be updated immediately. By changing this value, you can adjust the update frequency for these states. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
+-- The Switches tab. Everything below is read on that tab and nowhere else.
+--
+-- **The four answers.** A switch is either worked out from a macro conditional or pressed by hand,
+-- and a pressed one still has to say what it is when the session starts. Those are one question to
+-- a reader, so the four are worded as four answers to it rather than as a mode plus a setting --
+-- the last of them is `CUSTOM_STATE_MODE_MACRO_CONDITIONAL`, which the settings menu on the
+-- portrait already uses for the same choice.
+--
+-- **"Comes up" and not "at login."** It is applied at login *and* on every specialization change,
+-- and the old field name saying otherwise is exactly what got renamed for lying about it. The
+-- tooltips are where the two moments get spelled out.
+L["SWITCH_ANSWER_ON"] = "Comes up on"
+L["SWITCH_ANSWER_ON_DESC"] = "Turns on when you log in and when you change specialization. You can still turn it off by hand in between."
+L["SWITCH_ANSWER_OFF"] = "Comes up off"
+L["SWITCH_ANSWER_OFF_DESC"] = "Turns off when you log in and when you change specialization. You can still turn it on by hand in between."
+L["SWITCH_ANSWER_REMEMBER"] = "Comes up as you left it"
+L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back on if you left it on. Every character remembers its own answer."
+-- The row's own tooltip. **The three distances are the point of it**: a switch belongs to the
+-- account while the list belongs to the character reading it, and one total cannot separate a
+-- switch three characters depend on from one that does nothing here any more.
+--
+-- Written as label-and-number rather than as sentences. Three sentences saying almost the same
+-- thing is a paragraph to read; three labels is a column to compare, which is what the reader is
+-- actually doing with them.
+L["SWITCH_USED_BY_HEADER"] = "Actions using it"
+L["SWITCH_USED_ACCOUNT"] = "Across the account: |cnHIGHLIGHT_FONT_COLOR:%d|r"
+L["SWITCH_USED_CHARACTER"] = "This character: |cnHIGHLIGHT_FONT_COLOR:%d|r"
+-- **"Right now" is a specialization, not a session.** This one counts what the current
+-- specialization reads, so it drops when the reader changes specialization and the two above do
+-- not. That is the whole reason it is a third line.
+L["SWITCH_USED_LIVE"] = "Active right now: |cnHIGHLIGHT_FONT_COLOR:%d|r"
+L["SWITCH_MENU_INSTRUCTION"] = "Right-click for settings, renaming and deleting."
+L["SWITCH_TOGGLE_INSTRUCTION"] = "Click to turn it on or off."
+L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to work the switch does it any time."
+L["SWITCH_TOGGLE_IS_AUTOMATIC"] = "This one is worked out from its macro conditional, so pressing it would not hold."
+L["SWITCH_RENAME"] = "Rename"
+-- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
+-- no learns the rule one refusal at a time; a reader who is told first types a name that takes.
+L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nNames start with |cnHIGHLIGHT_FONT_COLOR:$|r and can hold letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_RENAME_ERROR_INVALID"] = "A switch name has to start with |cnHIGHLIGHT_FONT_COLOR:$|r and hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_RENAME_ERROR_TAKEN"] = "There is already a switch by that name."
+L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
+-- **Deleting says how much it reaches, because the list cannot.** The definition is the account's
+-- and the list shows what this character can see, so the number is the only place a reader learns
+-- that deleting here takes conditions off actions on their other characters.
+--
+-- It says the actions keep the name rather than that they lose it: they do, they turn red, and
+-- that red is how they get found again.
+L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r?\n|cnHIGHLIGHT_FONT_COLOR:%2$d|r actions across the account name it. They keep the name and go red until you fix them."
+-- Empty-list text says what fills it. The button it points at is the one on the window's title
+-- bar, and naming it by picture rather than by label is deliberate: it carries no label to quote.
+L["SWITCHES_EMPTY"] = "No switches yet.\nThe switch button at the top of this window is where one gets made."
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 우선순위에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.

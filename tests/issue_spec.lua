@@ -406,6 +406,120 @@ return function(DebindPrivate)
             "갈래를 껐는데도 나온다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- A condition on a switch nothing defines
+    --
+    -- **The third place a switch is named, and the last one to be marked.** It could not dangle
+    -- while the five always had definitions planted for them, and the `dbver` 6 step keeps every
+    -- definition a condition still names -- so nothing in a migrated profile reaches this. What
+    -- reaches it is the two things that arrived with §6-B: a switch **deleted** from the list, and
+    -- an imported string naming one this profile never had.
+    --
+    -- **The mark changes nothing about what fires.** Codegen bakes the condition whether or not
+    -- anything defines the name, and the restricted side compares `States[name] ~= v` against a
+    -- `nil` -- so the binding already never matched, on `true` or on `false` alike. What the mark
+    -- adds is the reason, on the row and in the tooltip, instead of a binding that looks ordinary
+    -- and quietly does nothing.
+    ---------------------------------------------------------------------------
+
+    local function conditionAction(conditions)
+        return { type = Constants.SPELL, value = 1, key = "F1", conditions = conditions };
+    end
+
+    test("정의 없는 스위치를 조건으로 건 액션은 이슈가 난다", function()
+        check(GetBindingIssue(conditionAction({ ["$typo"] = true })) == UNDEFINED,
+            "켜짐 조건이 멀쩡한 줄로 그려진다 - 눌러도 아무 일이 없는데 이유가 화면에 없다");
+        -- 꺼짐 조건도 같이 죽는다. `States[이름]`이 nil이라 `nil ~= false`가 참이 되어
+        -- 안 맞는 쪽으로 떨어진다 - 여기만 빠뜨리면 절반이 조용한 채로 남는다.
+        check(GetBindingIssue(conditionAction({ ["$typo"] = false })) == UNDEFINED,
+            "꺼짐 조건은 안 잡는다");
+    end);
+
+    test("정의된 스위치를 조건으로 건 액션은 이슈가 아니다", function()
+        check(GetBindingIssue(conditionAction({ ["$state1"] = true })) == nil,
+            "오탐 - 멀쩡한 조건부 바인딩이 통째로 죽는다");
+        check(GetBindingIssue(conditionAction({ ["$burst"] = false })) == nil,
+            "다섯 밖의 이름을 정의해둔 채로 미정의로 읽었다");
+    end);
+
+    -- 액션의 `value`를 안 보는 타입에도 조건은 걸린다. 본문이나 대상만 보던 시절의 가드가
+    -- 남아 있으면 주문 액션의 조건은 통째로 안 읽힌다.
+    test("본문도 대상도 없는 타입의 조건까지 본다", function()
+        check(GetBindingIssue({ type = Constants.SPELL, value = 585, key = "F1",
+            conditions = { ["$typo"] = true } }) == UNDEFINED, "값이 문자열이 아니면 안 본다");
+    end);
+
+    -- **조건만 보는 문이 따로 있는 이유.** 조건 메뉴의 스위치 칸이 이 답으로 빨개지는데
+    -- (`CreateSwitchConditionMenu`), 셋을 다 보는 쪽을 쓰면 **본문 오타 하나에 조건 칸이
+    -- 빨개진다** - 조건은 멀쩡한데 고칠 데를 엉뚱한 곳으로 가리키는 표시다.
+    test("조건만 보는 문은 본문과 대상을 안 본다", function()
+        local body = macroAction("/cast [$typo] Foo");
+        check(DebindPrivate.GetUndefinedSwitch(body) == "$typo", "전제가 깨졌다");
+        check(DebindPrivate.GetUndefinedSwitchCondition(body) == nil,
+            "본문 오타에 조건 칸이 빨개진다");
+
+        local target = { type = Constants.SETSTATE_ON, value = "$typo", key = "F1" };
+        check(DebindPrivate.GetUndefinedSwitchCondition(target) == nil,
+            "대상 오타에 조건 칸이 빨개진다");
+
+        check(DebindPrivate.GetUndefinedSwitchCondition(conditionAction({ ["$typo"] = true }))
+            == "$typo", "조건은 잡아야 한다");
+    end);
+
+    -- 이름을 문장에 찍어 넣는 자리가 있으므로(메뉴), 여러 개일 때 **매번 같은 이름**이 나와야
+    -- 한다. `pairs` 순서를 그대로 쓰면 열 때마다 다른 이름이 나온다.
+    test("정의 없는 조건이 여럿이면 늘 같은 이름을 낸다", function()
+        local action = conditionAction({ ["$zzz"] = true, ["$aaa"] = true, ["$mmm"] = false });
+        for _ = 1, 5 do
+            check(DebindPrivate.GetUndefinedSwitchCondition(action) == "$aaa",
+                "열 때마다 다른 이름이 나온다");
+        end
+    end);
+
+    ---------------------------------------------------------------------------
+    -- An on/off/toggle action naming a switch nothing defines
+    --
+    -- **A switch is named in two places and only one of them is a macro body.** The other is
+    -- `action.value` on the three setting types, where no parser runs, no condition row draws it,
+    -- and until now nothing looked: the row drew clean and the press set a name that exists
+    -- nowhere. The switch never came on, and nothing on screen said why.
+    --
+    -- **The mark is the whole warning.** An imported string plants no definitions on purpose
+    -- (`devdocs/building-export-import.md`), so a shared action pointing at a switch the reader
+    -- has never made arrives with nothing else to announce it.
+    --
+    -- Marked means dropped from `KeyMap`, which is what the missing-macro branch below already
+    -- does and for the same reason: a key that did nothing on press loses nothing by not binding.
+    ---------------------------------------------------------------------------
+
+    local function setSwitchAction(actionType, name)
+        return { type = actionType, value = name, key = "F1" };
+    end
+
+    test("정의 없는 이름을 가리키는 스위치 액션은 이슈가 난다", function()
+        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_ON, "$typo")) == UNDEFINED,
+            "켜기가 아무 데도 없는 이름을 가리킨 채 멀쩡한 줄로 그려진다");
+        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_OFF, "$typo")) == UNDEFINED,
+            "끄기가 아무 데도 없는 이름을 가리킨 채 멀쩡한 줄로 그려진다");
+        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_TOGGLE, "$typo")) == UNDEFINED,
+            "전환이 아무 데도 없는 이름을 가리킨 채 멀쩡한 줄로 그려진다");
+    end);
+
+    -- The other half, and it is the expensive one to get wrong: a false positive here takes a
+    -- working switch action out of `KeyMap`.
+    test("정의된 이름을 가리키는 스위치 액션은 이슈가 아니다", function()
+        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_ON, "$state1")) == nil,
+            "오탐 - 키가 죽는다");
+        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_TOGGLE, "$burst")) == nil,
+            "다섯 밖의 이름을 정의해둔 채로 미정의로 읽었다");
+    end);
+
+    -- 같은 갈래다. 갈래를 끈 호출에서도 같이 꺼져야 둘이 한 갈래로 산다.
+    test("스위치 액션도 states 갈래다", function()
+        check(GetBindingIssue(setSwitchAction(Constants.SETSTATE_ON, "$typo"), nil, "states") == nil,
+            "갈래를 껐는데도 나온다");
+    end);
+
     -- 정규화 자체(`"@"`가 언제 지워지는가, 대상이 언제 채워지는가)는 `normalize_spec.lua`가
     -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
 

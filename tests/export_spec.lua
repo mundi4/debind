@@ -459,12 +459,12 @@ return function(DebindPrivate, DebindStorage)
         ResetProfile({
             general = general,
             switches = {
-                [1] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
+                ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                         displayMessage = "1번" },
-                [3] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "3번" },
-                [4] = { mode = Constants.SWITCH_MODES.EXPR,
+                ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "3번" },
+                ["$state4"] = { mode = Constants.SWITCH_MODES.EXPR,
                         expr = "[$state5] [combat]" },
-                [5] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "5번" },
+                ["$state5"] = { mode = Constants.SWITCH_MODES.MANUAL, displayMessage = "5번" },
             },
         });
     end

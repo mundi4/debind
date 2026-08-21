@@ -132,6 +132,17 @@ function Constants.IsSwitchName(name)
     return type(name) == "string" and strsub(name, 1, 1) == "$";
 end
 
+--- Is this a name a switch may be given? **Stricter than `IsSwitchName`**, which asks what a stored
+--- key is and has to answer yes to whatever is already in a profile.
+---
+--- The pattern is `ParseMacroText`'s, and it is the same pattern for a reason that is not tidiness:
+--- a name outside it cannot be written into a macro body at all. The parser drops the token and
+--- the condition goes to the game as literal text. So a name this refuses is one the user could
+--- never type where the list tells them to (§6-B of `devdocs/redesigning-custom-states.md`).
+function Constants.IsValidSwitchName(name)
+    return type(name) == "string" and strmatch(name, "^%$[a-zA-Z0-9_]+$") ~= nil;
+end
+
 --- 이 이름이 조건 필드인가. 스위치 이름까지 같이 답한다.
 function Constants.IsConditionField(name)
     if (Constants.CONDITION_FIELDS[name]) then
@@ -145,10 +156,17 @@ end
 --- actually there - a binding's conditions, the definitions that exist - so a name outside this
 --- list reaches the solver and codegen like any other.
 ---
---- What is left is the one job only the built-in five have: **the definition table is stored by
---- index**, so `SWITCH_NAMES` is what `BindDerivedTables` reads the names off and `SWITCH_INDICES`
---- is what `GetOrCreateSwitchDefinition` files a new one under. §6-B's list is what takes that
---- away (`devdocs/redesigning-custom-states.md`).
+--- **Storage does not use either of these any more.** A definition is filed under its own name, so
+--- these are no longer an identity a switch has. §6-B's list took that away and the `dbver` 6
+--- step moved the numbered rows over (`devdocs/redesigning-custom-states.md`).
+---
+--- Two jobs are left, and both are about these five being the names a user is *handed* rather than
+--- the names a switch can have. `SWITCH_NAMES` in order is the free names the menus offer
+--- (`GetOfferedSwitchNames`) and what that migration step files the old rows under.
+--- `SWITCH_INDICES` answers "is this one of the five" for two callers: the count gate in
+--- `GetOrCreateSwitchDefinition`, which is the whole of what keeps a profile to five switches until
+--- stage 3c, and the numbered label a switch nobody has renamed is drawn with
+--- (`GetSwitchDisplayName`).
 ---
 --- **`SETSTATE` no longer encodes here.** An on/off/toggle action carried its target as an index
 --- inside a bitpacked `action.value` until §9-1 split the type in three and put the name in the

@@ -1268,44 +1268,53 @@ return function(DebindPrivate)
         check(db.customStates == nil,
             "옛 이름이 남았다 - 읽는 쪽이 없으니 로그아웃마다 죽은 표가 같이 저장된다");
         check(type(db.switches) == "table", "switches가 없다");
-        check(db.switches[1].displayMessage == true, "정의가 안 따라왔다");
-        check(db.switches[2].expr == "[combat]", "계산식이 안 따라왔다");
+        check(db.switches["$state1"].displayMessage == true, "정의가 안 따라왔다");
+        check(db.switches["$state2"].expr == "[combat]", "계산식이 안 따라왔다");
     end);
 
     test("dbver 6 turns the mode numbers into names", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches[1].mode == MODES.MANUAL,
-            "수동이 " .. tostring(db.switches[1].mode) .. "로 남았다");
-        check(db.switches[2].mode == MODES.EXPR,
-            "계산식이 " .. tostring(db.switches[2].mode) .. "로 남았다 - 숫자는 어느 쪽과도 안 맞는다");
+        check(db.switches["$state1"].mode == MODES.MANUAL,
+            "수동이 " .. tostring(db.switches["$state1"].mode) .. "로 남았다");
+        check(db.switches["$state2"].mode == MODES.EXPR,
+            "계산식이 " .. tostring(db.switches["$state2"].mode) .. "로 남았다 - 숫자는 어느 쪽과도 안 맞는다");
     end);
 
     -- **`false`와 없는 것은 다른 답이다.** 뭉개면 "로그인 때 꺼짐"으로 해둔 스위치가 지난
     -- 세션의 값을 들고 올라온다.
     test("dbver 6 renames initialValue without flattening its three answers", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches[1].initialValue == nil and db.switches[3].initialValue == nil,
+        check(db.switches["$state1"].initialValue == nil and db.switches["$state3"].initialValue == nil,
             "옛 필드가 남았다");
-        check(db.switches[1].resetValue == true, "true가 안 옮겨졌다");
-        check(db.switches[3].resetValue == false,
-            "false가 " .. tostring(db.switches[3].resetValue) .. "가 됐다");
-        check(db.switches[4].resetValue == nil, "없던 값이 생겼다");
+        check(db.switches["$state1"].resetValue == true, "true가 안 옮겨졌다");
+        check(db.switches["$state3"].resetValue == false,
+            "false가 " .. tostring(db.switches["$state3"].resetValue) .. "가 됐다");
+        check(db.switches["$state4"].resetValue == nil, "없던 값이 생겼다");
     end);
 
     -- 이름이 아니라 **그 이름으로 나오는 답**을 본다. `value`를 정하는 것은 저장이 아니라
     -- `BindDerivedTables`이고, 그것이 새 이름을 못 읽으면 위가 다 초록이어도 스위치는 틀린
     -- 값으로 켜진다.
-    --
-    -- **살아 있는 표는 이름으로 연다.** 저장은 번호로 앉아 있고 조건·매크로 본문·SETSTATE는
-    -- 전부 이름으로 부르므로, 둘을 잇는 것이 `BindDerivedTables`다. 번호로 열리면
-    -- `ResolveSwitchDefinition`이 아무것도 못 찾는다.
     test("dbver 6 keeps what each switch comes up as", function()
         InitWith(OldSwitchAccount());
         local switches = DebindPrivate.Switches;
         check(switches["$state1"].value == true, "로그인 때 켜짐이 안 켜졌다");
         check(switches["$state3"].value == false, "로그인 때 꺼짐이 안 꺼졌다");
         check(switches["$state4"].value == true, "기억한 값으로 안 돌아갔다");
-        check(switches[1] == nil, "번호로도 열린다 - 이름 하나로 답이 나와야 한다");
+    end);
+
+    -- **The number was a second identity and it is gone.** A definition is filed under its own
+    -- name now, which is what the Switches tab needs to be able to rename one: a name that lives
+    -- beside a number is a name the number can disagree with. Leaving a numbered row behind is
+    -- silent: `BindDerivedTables` walks names, so the row is simply never seen again and
+    -- everything set on that switch is gone from the screen while still sitting in the file.
+    test("dbver 6 files the definitions by name", function()
+        local db = InitWith(OldSwitchAccount());
+        check(db.switches[1] == nil and db.switches[2] == nil,
+            "번호로도 열린다 - 한 스위치에 두 이름이 남았다");
+        check(db.switches["$state1"] ~= nil, "이름으로 안 옮겨졌다");
+        check(db.switches["$state1"] == DebindPrivate.Switches["$state1"],
+            "저장과 살아 있는 표가 서로 다른 정의를 들고 있다");
     end);
 
     -- 단계는 자기가 이미 끝낸 데이터 위에서 다시 돌아도 안전해야 한다(`MigrateLayer` 주석).
@@ -1320,11 +1329,11 @@ return function(DebindPrivate)
         local charEntry = { layers = {}, switches = {} };
         DebindPrivate.MigrateSwitches(db, 5, charEntry);
         DebindPrivate.MigrateSwitches(db, 5, charEntry);
-        check(db.switches[2].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
-        check(db.switches[1].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
-        check(db.switches[3].resetValue == false, "두 번째에 false가 뭉개졌다");
+        check(db.switches["$state2"].mode == MODES.EXPR, "두 번째에 계산식 모드가 뭉개졌다");
+        check(db.switches["$state1"].resetValue == true, "두 번째에 되돌릴 값이 뭉개졌다");
+        check(db.switches["$state3"].resetValue == false, "두 번째에 false가 뭉개졌다");
         check(charEntry.switches["$state4"] == true, "두 번째에 기억한 값이 뭉개졌다");
-        check(db.switches[4] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
+        check(db.switches["$state4"] ~= nil, "두 번째 바퀴가 눌러본 적 있는 정의를 지웠다");
     end);
 
     ---------------------------------------------------------------------------
@@ -1360,8 +1369,8 @@ return function(DebindPrivate)
 
     local function switchNames(db)
         local names = {};
-        for index in pairs(db.switches or {}) do
-            names[Constants.SWITCH_NAMES[index]] = true;
+        for name in pairs(db.switches or {}) do
+            names[name] = true;
         end
         return names;
     end
@@ -1476,9 +1485,9 @@ return function(DebindPrivate)
 
         local db = _G.DebindVars;
         check(db.customStates == nil, "옛 이름 그대로 앉았다 - 읽는 쪽이 없다");
-        check(db.switches[1].mode == MODES.MANUAL and db.switches[1].resetValue == true,
+        check(db.switches["$state1"].mode == MODES.MANUAL and db.switches["$state1"].resetValue == true,
             "수동 정의가 안 올라왔다");
-        check(db.switches[2].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
+        check(db.switches["$state2"].mode == MODES.EXPR, "계산식 정의가 안 올라왔다");
         check(DebindPrivate.Switches["$state1"].displayMessage == true,
             "올라온 정의가 살아 있는 표에 안 걸렸다");
     end);
@@ -1502,7 +1511,7 @@ return function(DebindPrivate)
         check(type(DebindPrivate.db.char.switches) == "table", "캐릭터 쪽에 표가 없다");
         check(DebindPrivate.db.char.switches["$state4"] == true,
             "기억한 값이 캐릭터로 안 왔다");
-        check(db.switches[4].savedValue == nil,
+        check(db.switches["$state4"].savedValue == nil,
             "정의에 값이 남았다 - 두 자리가 같은 것을 말하면 어느 쪽이 답인지가 없다");
     end);
 
@@ -1524,7 +1533,7 @@ return function(DebindPrivate)
     -- 값을 옮긴 바로 그 단계에 지워진다.
     test("dbver 6 keeps a definition whose only trace is the value it moved", function()
         local db = InitWith(OldSwitchAccount());
-        check(db.switches[4] ~= nil, "눌러본 적 있는 정의가 값을 옮기면서 같이 사라졌다");
+        check(db.switches["$state4"] ~= nil, "눌러본 적 있는 정의가 값을 옮기면서 같이 사라졌다");
         check(DebindPrivate.Switches["$state4"] ~= nil, "살아 있는 표에서도 사라졌다");
     end);
 

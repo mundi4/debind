@@ -494,11 +494,15 @@ SEEDS[6] = function(guid)
         --- **`$state3` looks like an empty definition and is not one.** It remembers rather than
         --- resetting (`resetValue` absent), and everything that says somebody used it is the value
         --- on the character above. That split is what the seed above turns into when it migrates.
+        ---
+        --- **Filed by name, which is what `dbver` 6 stores.** The numbers this held are the shape
+        --- the seed above carries, and the step between the two is the one that moves them
+        --- (`MigrateSwitches`).
         switches = {
-            [1] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
+            ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                 displayMessage = true },
-            [2] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
-            [3] = { mode = Constants.SWITCH_MODES.MANUAL },
+            ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+            ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
         },
     };
 end;

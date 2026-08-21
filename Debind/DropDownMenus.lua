@@ -74,12 +74,18 @@ local function _setSelected(data)
     return MenuResponse.Refresh;
 end
 
-local function SetInstrcutionTooltip(description, text)
+--- A menu item's tooltip: its own label as the title, one instruction line under it.
+---
+--- Shared out because the Switches tab builds a menu of its own with the same items in it
+--- (`SwitchesUI.lua`), and two copies of this would be two answers to "what does a menu item's
+--- tooltip look like" in one window.
+function DebindUI.SetInstructionTooltip(description, text)
     description:SetTooltip(function(tooltip, elementDescription)
         GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
         GameTooltip_AddInstructionLine(tooltip, text);
     end);
 end
+local SetInstructionTooltip = DebindUI.SetInstructionTooltip;
 
 local function SetErrorTooltip(description, text)
     description:SetTooltip(function(tooltip, elementDescription)
@@ -124,17 +130,21 @@ end
 function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
     --GenerateMenu(dropdown, rootDescription, rootMenu);
 
-    -- **이 메뉴가 아는 스위치는 붙박이 다섯뿐이다.** 이름이 자유로워져도 여기에는 만들 자리가
-    -- 없어서 세는 것은 여전히 번호다. 목록에서 만들고 지우는 것은 §6-B의 `Switches` 탭이고
-    -- (`devdocs/redesigning-custom-states.md`), 이 메뉴는 거기서 은퇴한다.
-    for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
-        local stateName = Constants.SWITCH_NAMES[stateIndex];
+    -- **What this menu lists is the switches that exist, plus the built-in names still free**
+    -- (`GetOfferedSwitchNames`). It walked the five numbers while those were the only names a
+    -- switch could have; a renamed switch is not among them and would have dropped off this menu
+    -- while an empty `$state1` took its place.
+    --
+    -- Choosing anything under a free name is still what makes that switch. The Switches tab is
+    -- where one is renamed and deleted (§6-B of `devdocs/redesigning-custom-states.md`), and this
+    -- menu retires into it at stage 3c.
+    for _, stateName in ipairs(DebindPrivate.GetOfferedSwitchNames()) do
         local stateDescription = rootDescription:CreateButton(DebindPrivate.GetSwitchDisplayName(stateName));
         stateDescription:CreateTitle(MenuUtil.GetElementText(stateDescription));
 
         do
             local manualDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MANUAL"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "mode", value = Constants.SWITCH_MODES.MANUAL });
-            SetInstrcutionTooltip(manualDescription, LLL["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"]);
+            SetInstructionTooltip(manualDescription, LLL["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"]);
 
             manualDescription:CreateTitle(MenuUtil.GetElementText(manualDescription));
             manualDescription:CreateRadio(LLL["CUSTOM_STATE_ON"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "value", value = true });
@@ -151,7 +161,7 @@ function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
         do
             local conditionalDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"], _isSwitchSelected, _setSwitchSelected,
                 { switch = stateName, key = "mode", value = Constants.SWITCH_MODES.EXPR });
-            SetInstrcutionTooltip(conditionalDescription, LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"]);
+            SetInstructionTooltip(conditionalDescription, LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"]);
 
             conditionalDescription:CreateTitle(MenuUtil.GetElementText(conditionalDescription));
             conditionalDescription:CreateButton(LLL["CUSTOM_STATE_EDIT_VALUE"], function()
@@ -203,7 +213,7 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             DebindPrivate.ApplyOptions("unitframeUseMouseDown");
             return MenuResponse.Refresh;
         end);
-        SetInstrcutionTooltip(useMouseDownDescription, LLL["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"]);
+        SetInstructionTooltip(useMouseDownDescription, LLL["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"]);
 
         unitframeDescription:CreateDivider();
 
@@ -222,7 +232,7 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
     do
         local specialUnitsDescription = rootDescription:CreateButton(LLL["SPECIAL_UNITS"]);
         local excludePlayerDescription = specialUnitsDescription:CreateButton(LLL["EXCLUDE_PLAYER"]);
-        SetInstrcutionTooltip(excludePlayerDescription, LLL["EXCLUDE_PLAYER_DESC"]);
+        SetInstructionTooltip(excludePlayerDescription, LLL["EXCLUDE_PLAYER_DESC"]);
         for _, unit in ipairs({ "tank", "healer", "maintank", "mainassist" }) do
             excludePlayerDescription:CreateCheckbox(DebindUI.UNIT_INFO[unit].name, function()
                 return DebindPrivate.Options.excludePlayer and DebindPrivate.Options.excludePlayer[unit];
@@ -249,7 +259,7 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
         --     DebindPrivate.ApplyOptions("removeStateDriverUpdateThrottle");
         --     return MenuResponse.Refresh;
         -- end);
-        SetInstrcutionTooltip(stateDriverUpdateThrottleDescription, LLL["STATE_DRIVER_UPDATE_THROTTLE_DESC"]);
+        SetInstructionTooltip(stateDriverUpdateThrottleDescription, LLL["STATE_DRIVER_UPDATE_THROTTLE_DESC"]);
         stateDriverUpdateThrottleDescription:SetTooltip(function(tooltip, elementDescription)
             GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
             GameTooltip_AddInstructionLine(tooltip, LLL["STATE_DRIVER_UPDATE_THROTTLE_DESC"]);
@@ -271,7 +281,7 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             DebindPrivate.ApplyOptions("addCustomTargetMenusToUnitPopup");
             return MenuResponse.Refresh;
         end);
-        SetInstrcutionTooltip(addCustomTargetMenusToUnitPopupDescription, LLL["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"]);
+        SetInstructionTooltip(addCustomTargetMenusToUnitPopupDescription, LLL["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"]);
     end
 
     -- do
@@ -490,7 +500,11 @@ do
 
             if (err) then
                 color = ERROR_COLOR;
-                err = rawget(LLL, err) or rawget(LLL, "BINDING_ERROR_" .. err) or error;
+                -- **마지막 폴백은 `err`이지 `error`가 아니다.** 이슈 코드로 온 것은 위 두
+                -- 조회가 문장으로 바꿔주는데, 이미 완성된 문장으로 온 것은 둘 다 못 찾는다.
+                -- 거기서 `error`로 떨어지면 **함수를 넘긴 호출자에게 함수가 그대로 나간다** -
+                -- 이름을 문장에 찍어 넣어야 하는 갈래(스위치 조건)가 그 경우다.
+                err = rawget(LLL, err) or rawget(LLL, "BINDING_ERROR_" .. err) or err;
             else
                 local active = isActive;
                 if (active) then
@@ -831,7 +845,7 @@ do
         local description = parentDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
             DebindUI.BeginKeyCapture({ _action });
         end);
-        SetInstrcutionTooltip(description, LLL["ACTION_SET_KEY_DESC"]);
+        SetInstructionTooltip(description, LLL["ACTION_SET_KEY_DESC"]);
     end
 
     local function CreateUnbindMenuItem(parentDescription)
@@ -881,11 +895,11 @@ do
                 -- TODO locale 파일 업데이트 할 것.
                 -- local instructionTooltip = rawget(LLL, "TARGET_UNIT_" .. strupper(unit) .. "_DESC") or (unitInfo.type and "TARGET_UNIT_" .. strupper(unitInfo.type) .. "_DESC");
                 -- if (instructionTooltip) then
-                --     SetInstrcutionTooltip(optionDescription, instructionTooltip);
+                --     SetInstructionTooltip(optionDescription, instructionTooltip);
                 -- end
 
                 if (unitInfo.tooltipTitle) then
-                    SetInstrcutionTooltip(unitDescription, unitInfo.tooltipTitle);
+                    SetInstructionTooltip(unitDescription, unitInfo.tooltipTitle);
                 end
             end
         end
@@ -1017,7 +1031,7 @@ do
 
         description:CreateDivider();
         local ignoreHoverUnit = description:CreateCheckbox(LLL["IGNORE_HOVER_UNIT"], actionValueEquals, setActionValue, { key = "ignoreHoverUnit", value = USE_CHECKED_VALUE });
-        SetInstrcutionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
+        SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
         ignoreHoverUnit:SetEnabled(hoverConditionIsOn);
     end
 
@@ -1228,22 +1242,62 @@ do
                 end
                 return false;
             end,
-            nil, -- error
-            -- 설명은 **명시적으로** 넘긴다. 안 넘기면 `CONDITION_CUSTOM_STATES_DESC`를
+            -- error
+            -- **다른 조건 묶음과 같은 자리다.** 저쪽은 갈래 이름이 곧 이슈 갈래라 헬퍼가
+            -- 알아서 `GetBindingIssue(_action, key)`를 묻는데, 스위치 조건은 갈래 키가 아니라
+            -- **이름마다 따로**라 물을 키가 없다. 그래서 답을 여기서 만들어 넘긴다.
+            --
+            -- **본문 오타로는 안 빨개진다.** `GetUndefinedSwitch`는 매크로 본문과
+            -- 켜기/끄기/전환의 대상까지 같이 답하므로, 그걸 쓰면 조건은 멀쩡한데 이 칸이
+            -- 빨개져서 고칠 곳을 엉뚱한 데로 가리킨다. 조건만 보는 문이 따로 있다.
+            function()
+                local name = _action and DebindPrivate.GetUndefinedSwitchCondition(_action);
+                if (name) then
+                    return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], name);
+                end
+            end,
+            -- 설명은 **명시적으로** 찍어 넘긴다. 안 넘기면 `CONDITION_CUSTOM_STATES_DESC`를
             -- 찾아가는데, 그건 사용자 지정 상태 버튼의 툴팁(CUSTOM_STATES_DESC)과 글자
             -- 하나 다르지 않은 문단이었다 - 같은 말을 로케일마다 두 번 번역하게 만드는
             -- 자리라 키를 없애고 이쪽으로 붙였다.
             LLL["CUSTOM_STATES_DESC"]
         );
 
-        -- **거는 자리는 붙박이 다섯뿐이다.** 즉석에서 이름을 만들어 거는 것은 §4단계의
-        -- 조건 메뉴이고(`devdocs/redesigning-custom-states.md` §6-C), 여기는 그 전이다.
-        -- 이미 걸린 다섯 밖의 이름은 위 `isActive`가 짚어주고, 지우는 것은 액션 툴팁이
-        -- 이름을 적어주는 자리에서 시작한다.
-        for i = 1, Constants.MAX_NUM_SWITCHES do
-            local stateName = Constants.SWITCH_NAMES[i];
+        -- **Only switches that exist** (2026-08-21, 소유자). A condition on a name nothing defines
+        -- is false for ever and nothing says so: it draws like any other condition, and no marker
+        -- covers it -- `GetUndefinedSwitch` reads macro bodies and on/off/toggle targets, not
+        -- condition keys. Offering a name to hang one on was offering a dead end. Making a switch
+        -- is the `Switches` tab, and this menu is where an existing one gets attached.
+        --
+        -- **Plus whatever this action already names**, defined or not, because taking a condition
+        -- off is done here and nowhere else. A switch deleted while an action still names it would
+        -- otherwise leave that condition on the action with no way to reach it, which is worse than
+        -- the dead end this list just stopped offering.
+        local switchNames = DebindPrivate.GetSwitchNames();
+        local conditions = _action and _action.conditions;
+        if (conditions) then
+            for name in pairs(conditions) do
+                if (Constants.IsSwitchName(name) and not DebindPrivate.ResolveSwitchDefinition(name)) then
+                    switchNames[#switchNames + 1] = name;
+                end
+            end
+            sort(switchNames);
+        end
+
+        -- **이름마다 자기 답을 낸다.** 헬퍼가 `error(key)`로 그 묶음의 키를 넘겨주므로 함수
+        -- 하나면 되고, 줄마다 클로저를 만들 이유가 없다. 위 묶음이 빨개지는 것은 "이 액션에
+        -- 끊긴 조건이 있다"이고, 여기가 빨개지는 것은 **어느 것인지**다.
+        local function UndefinedSwitchError(name)
+            if (not DebindPrivate.ResolveSwitchDefinition(name)) then
+                return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], name);
+            end
+        end
+
+        for _, stateName in ipairs(switchNames) do
             local stateDescription = CreateActionMenuItemGroup(description,
-                DebindPrivate.GetSwitchDisplayName(stateName), stateName);
+                DebindPrivate.GetSwitchDisplayName(stateName), stateName,
+                nil, -- isActive: 키로 조건 표를 읽는 기본 판정이 맞다
+                UndefinedSwitchError);
             AppendDisableYesNo(stateDescription, "CONDITION_CUSTOM_STATE", stateName);
         end
     end
@@ -1254,7 +1308,7 @@ do
     local function CreateKeepInBindingContextMenuItem(rootDescription)
         local description = rootDescription:CreateCheckbox(LLL["KEEP_IN_BINDING_CONTEXT"], actionValueEquals,
             setActionValue, { key = "keepInBindingContext", value = USE_CHECKED_VALUE });
-        SetInstrcutionTooltip(description, LLL["KEEP_IN_BINDING_CONTEXT_DESC"]);
+        SetInstructionTooltip(description, LLL["KEEP_IN_BINDING_CONTEXT_DESC"]);
     end
 
     --- 중요도는 이 메뉴에서 **파장이 가장 넓은 값**이다. 축이 둘 다 넓다: 이 액션이 걸린
@@ -1351,7 +1405,7 @@ do
         -- - "this one", and the rest of the set staying switched off - which stops being true the
         -- moment the bulk menu hands this a set.
         if (#badged == 1) then
-            SetInstrcutionTooltip(description, LLL["ORDER_ACCEPT_DESC"]);
+            SetInstructionTooltip(description, LLL["ORDER_ACCEPT_DESC"]);
         end
     end
 
@@ -1385,7 +1439,7 @@ do
         -- There was no string to borrow here: the left column's row carries no reject button, so this
         -- half of the pair had never been explained anywhere a single action was the subject.
         if (#badged == 1) then
-            SetInstrcutionTooltip(description, LLL["REJECT_IMPORT_DESC"]);
+            SetInstructionTooltip(description, LLL["REJECT_IMPORT_DESC"]);
         end
     end
 
@@ -1623,7 +1677,7 @@ do
             description:SetEnabled(neighbor ~= nil);
 
             if (neighbor) then
-                SetInstrcutionTooltip(description, LLL[descKey]);
+                SetInstructionTooltip(description, LLL[descKey]);
             else
                 SetErrorTooltip(description, LLL["ORDER_BLOCKED_" .. reason]);
             end
@@ -1647,7 +1701,7 @@ do
             local description = rootDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
                 DebindUI.BeginKeyCapture({ action });
             end);
-            SetInstrcutionTooltip(description, LLL["ACTION_SET_KEY_DESC"]);
+            SetInstructionTooltip(description, LLL["ACTION_SET_KEY_DESC"]);
         end
 
         -- **A badged action gets accept and reject instead of the ordering items**, the same swap
@@ -1739,7 +1793,7 @@ do
             local description = rootDescription:CreateButton(LLL["KEY_HEADER_SET_KEY"], function()
                 DebindUI.BeginKeyCapture(DebindPrivate.CollectKeyGroupActions(key));
             end);
-            SetInstrcutionTooltip(description, LLL["KEY_HEADER_SET_KEY_DESC"]);
+            SetInstructionTooltip(description, LLL["KEY_HEADER_SET_KEY_DESC"]);
 
             -- **The other end of the same axis**, and the same rule the dialog's own [Unbind Key]
             -- button keeps: a synthetic number is not a key to take off, so a set still waiting on
@@ -1748,7 +1802,7 @@ do
                 DebindUI.UnbindActions(DebindPrivate.CollectKeyGroupActions(key));
             end);
             description:SetEnabled(DebindPrivate.AnyRealKey(actions));
-            SetInstrcutionTooltip(description, LLL["KEY_HEADER_UNBIND_DESC"]);
+            SetInstructionTooltip(description, LLL["KEY_HEADER_UNBIND_DESC"]);
         else
             -- **The pile at the bottom, and only when something in it arrived.** Its heading names a
             -- state rather than a key, so neither key item belongs: giving them all one key would
@@ -1837,7 +1891,7 @@ do
         local description = rootDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
             DebindUI.BeginKeyCapture(actions);
         end);
-        SetInstrcutionTooltip(description, LLL["BULK_SET_KEY_DESC"]);
+        SetInstructionTooltip(description, LLL["BULK_SET_KEY_DESC"]);
 
         -- **A synthetic number is not a key to take off** (`DebindPrivate.AnyRealKey`), which is the
         -- answer the dialog's own [Unbind Key] button already gives - so a selection that is nothing
@@ -1912,12 +1966,12 @@ do
         local description = rootDescription:CreateButton(LLL["APPROVE_ALL_IMPORT"], function()
             DebindFrame:ApproveAllImported();
         end);
-        SetInstrcutionTooltip(description, LLL["APPROVE_ALL_IMPORT_DESC"]);
+        SetInstructionTooltip(description, LLL["APPROVE_ALL_IMPORT_DESC"]);
 
         description = rootDescription:CreateButton(LLL["REJECT_ALL_IMPORT"], function()
             DebindFrame:RejectAllImported();
         end);
-        SetInstrcutionTooltip(description, LLL["REJECT_ALL_IMPORT_DESC"]);
+        SetInstructionTooltip(description, LLL["REJECT_ALL_IMPORT_DESC"]);
     end
 
     --- Right-clicking a row of the spell picker. **The whole menu is the destination list** -

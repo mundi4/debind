@@ -3,7 +3,6 @@ local L                       = DebindPrivate.L;
 local Constants               = DebindPrivate.Constants;
 
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
-local SWITCH_MODES            = Constants.SWITCH_MODES;
 
 local dump                    = DebindPrivate.dump;
 local band                    = bit.band;
@@ -941,14 +940,36 @@ function DebindPrivate.IsKeyInvalidForAction(action, key)
     end
 end
 
---- The first switch this action's macro text names that nothing defines, or nil.
+--- The first switch this action names that nothing defines, or nil.
 ---
---- Hand-written macro text is the one place a switch name is typed rather than picked, and
---- `ParseMacroText` lets any `[a-zA-Z0-9_]+` through. A name nothing defines used to reach
+--- **An action names a switch in three places, and they fail in different directions.**
+---
+--- One is a condition key, `action.conditions["$burst"]`. That one is already harmless and already
+--- dead: codegen bakes the condition whether or not anything defines the name, and the restricted
+--- side compares `States[name] ~= v` against a `nil`, so the binding matches on neither `true` nor
+--- `false`. **Which is exactly why it needs saying out loud** -- the row draws like any other
+--- conditional binding and the key does nothing, for ever, with no reason on screen. It could not
+--- happen until §6-B: the five always had definitions, and the `dbver` 6 step keeps every
+--- definition a condition still names. Deleting a switch is what makes it reachable, along with an
+--- imported string naming one this profile never had.
+---
+--- Another is hand-written macro text, the one place a name is typed rather than picked:
+--- `ParseMacroText` lets any `[a-zA-Z0-9_]+` through, and a name nothing defines used to reach
 --- codegen and bake to `""` -- `[$typo]` became `[]`, which is **always true**. In a keybinding
 --- addon that is the worst direction to fail in: the binding does not stop firing, it starts
---- firing everywhere. So the name is checked here and the action is marked, which keeps it out
---- of `KeyMap` entirely (`Debind.lua`'s `not issue` gate).
+--- firing everywhere.
+---
+--- The other is the target of an on/off/toggle action, which is `action.value`. That one is picked
+--- from a list, so it cannot be mistyped. But the switch it was picked for can be deleted
+--- afterwards, and a string from someone else arrives naming switches this profile has never had,
+--- because an import plants no definitions (`devdocs/building-export-import.md`). Nothing goes
+--- wide there: the press sets a name nothing reads and the row draws clean. **Which is the
+--- problem.** The reader's only sign that the key does nothing is that nothing happens, and this
+--- mark is the only thing that can say so out loud.
+---
+--- Either way the action is marked, which keeps it out of `KeyMap` entirely (`Debind.lua`'s
+--- `not issue` gate). Dropping the switch action loses nothing that was working: it was a key that
+--- did nothing on press, the same trade the `MISSING_MACRO` branch below already makes.
 ---
 --- **The question is whether anything defines the name**, which is `ResolveSwitchDefinition` and
 --- nothing else (`Profile.lua`). It used to be whether the name was one of the five, from when
@@ -961,8 +982,53 @@ end
 ---
 --- Not memoized on purpose: `ParseMacroText` caches its own result per string, so a repeated
 --- call here is a table lookup plus a walk over a handful of args.
+--- The switch this action's **conditions** name that nothing defines, or nil.
+---
+--- Split out from the whole answer below because the condition menu asks exactly this: it colours
+--- the box that owns switch conditions, and a macro body's typo must not turn that box red -- the
+--- conditions in it would be fine and the reader would go looking in the wrong place
+--- (`CreateSwitchConditionMenu`).
+---
+--- **The lowest name, not the first one `pairs` hands over.** One name gets printed, and a message
+--- that names a different one each time it is opened cannot be acted on. Compared rather than
+--- sorted, since this runs once per row while a list is drawn.
+function DebindPrivate.GetUndefinedSwitchCondition(action)
+    local conditions = action.conditions;
+    if (not conditions) then
+        return nil;
+    end
+
+    local undefined;
+    for name in pairs(conditions) do
+        if (Constants.IsSwitchName(name) and (undefined == nil or name < undefined)
+                and not DebindPrivate.ResolveSwitchDefinition(name)) then
+            undefined = name;
+        end
+    end
+    return undefined;
+end
+
 function DebindPrivate.GetUndefinedSwitch(action)
-    if (action.type ~= Constants.MACROTEXT or type(action.value) ~= "string") then
+    -- **Conditions before the value, because they hang off every type.** A spell action carries a
+    -- number and a command carries nothing, and both can be conditioned on a switch -- a guard on
+    -- `action.value` in front of this would read the conditions of macro-shaped actions only.
+    local condition = DebindPrivate.GetUndefinedSwitchCondition(action);
+    if (condition) then
+        return condition;
+    end
+
+    if (type(action.value) ~= "string") then
+        return nil;
+    end
+
+    if (Constants.SETSTATE_MODES[action.type]) then
+        if (DebindPrivate.ResolveSwitchDefinition(action.value)) then
+            return nil;
+        end
+        return action.value;
+    end
+
+    if (action.type ~= Constants.MACROTEXT) then
         return nil;
     end
 
@@ -1126,10 +1192,13 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         end
     end
 
-    -- 이 갈래에는 **조건 메뉴가 없다.** 이름은 매크로 본문에 손으로 적히고, 그래서 짚어 묻는
-    -- 호출자도 없다 - `"states"`는 갈래를 끄기 위한 이름이지 어느 칸을 칠할지 고르는 이름이
-    -- 아니다. 총괄 호출(`GetBindingIssue(action)`)로 걸리고, 행에서는 이름이 빨개진다
-    -- (`ColoredNameAndIconForAction`), 툴팁이 어느 이름이 틀렸는지 말한다.
+    -- **Three ways to name a switch, and a box for only one of them.** A macro body and an
+    -- on/off/toggle target are the action itself, so nothing asks about them by name: they are
+    -- caught by the overall call (`GetBindingIssue(action)`), the row turns red
+    -- (`ColoredNameAndIconForAction`) and the tooltip says which name is wrong. A condition does
+    -- have a box, and that box colours itself off `GetUndefinedSwitchCondition` rather than off
+    -- this branch (`CreateSwitchConditionMenu`) -- it has to name the switch in its message, and
+    -- it must not go red for a typo that is in the body instead.
     if (not issue and (not category or category == "states") and notCategory ~= "states") then
         if (DebindPrivate.GetUndefinedSwitch(action)) then
             issue = Constants.BINDING_ISSUE_UNDEFINED_STATE;
@@ -1700,6 +1769,61 @@ do
         return "[" .. table.concat(kept, ",") .. "]";
     end
 
+    local _renameFrom, _renameTo;
+
+    --- One condition group, with every token naming `_renameFrom` renamed. nil leaves it alone.
+    local function renameGroup(body)
+        if (not strfind(body, "$", 1, true)) then
+            return nil;
+        end
+
+        local touched = false;
+        local tokens = { strsplit(",", body) };
+        for i = 1, #tokens do
+            local token = tokens[i];
+            local trimmed = strtrim(token);
+            local prefix = "";
+            if (strsub(trimmed, 1, 2) == "no") then
+                prefix = "no";
+                trimmed = strsub(trimmed, 3);
+            end
+            if (trimmed == _renameFrom) then
+                -- The spacing around the token is the user's and is kept. Only the name moves.
+                tokens[i] = (strmatch(token, "^%s*") or "") .. prefix .. _renameTo
+                    .. (strmatch(token, "%s*$") or "");
+                touched = true;
+            end
+        end
+
+        if (not touched) then
+            return nil;
+        end
+        return "[" .. table.concat(tokens, ",") .. "]";
+    end
+
+    --- The same macro text with every `[$from]` and `[no$from]` renamed to `to`.
+    ---
+    --- **Whole tokens, never substrings.** A plain `gsub` on the name would also rewrite `$burstx`
+    --- and `[@$burst]`, and what is being edited here is text the user typed by hand. Anything
+    --- this touches that was not exactly this switch is a macro they have to find and fix without
+    --- being told it changed.
+    ---
+    --- **Only inside `[...]`**, which is the same boundary `StripSwitchConditions` keeps and for
+    --- the same reason: `/say [$burst]` outside a condition position is text, and a name that
+    --- happens to appear in a chat line is not a reference to anything.
+    ---
+    --- Renaming a switch has to rewrite four kinds of reference and this is the one that cannot be
+    --- done by moving a key: a condition, an on/off/toggle target and another switch's expression
+    --- each hold the name whole, while a macro body holds it inside a sentence
+    --- (`devdocs/redesigning-custom-states.md` §3).
+    function DebindPrivate.RenameSwitchInMacroText(str, from, to)
+        if (not str or not strfind(str, from, 1, true)) then
+            return str;
+        end
+        _renameFrom, _renameTo = from, to;
+        return (str:gsub("%[([^%[%]]*)%]", renameGroup));
+    end
+
     function DebindPrivate.StripSwitchConditions(str)
         if (not str or not strfind(str, "$", 1, true)) then
             return str;
@@ -1841,27 +1965,19 @@ local _changedStates = {};
 --- value lives in the restricted environment's `States`, and what is missing is only the memory of
 --- it across a reload.
 ---
---- **The remembered value goes on the character, the live one on the definition.** The definition
---- is account-wide, and while the memory sat there too "remember" meant "remember what the
---- character who logged out last left" (§5 of `devdocs/redesigning-custom-states.md`). Which value
---- gets remembered is unchanged - stage 5 is what simplifies that rule.
+--- **The remembered value goes on the character, the live one on the definition**, and both are
+--- `SetSwitchValue`'s to write (`Profile.lua`). The definition is account-wide, and while the
+--- memory sat there too "remember" meant "remember what the character who logged out last left"
+--- (§5 of `devdocs/redesigning-custom-states.md`). Which value gets remembered is unchanged -
+--- stage 5 is what simplifies that rule.
+---
+--- What is left here is what only this path knows: that the value came from outside, so somebody
+--- may be listening, and the user may have asked to be told.
 local function SwitchesChangedCallback()
-    local savedValues = DebindPrivate.db.char.switches;
-
     for state, newValue in pairs(_changedStates) do
         local options = DebindPrivate.ResolveSwitchDefinition(state);
         if (options) then
-            local savedValue = nil;
-            if (options.mode == SWITCH_MODES.MANUAL) then
-                if (options.resetValue == nil) then
-                    savedValue = newValue;
-                else
-                    savedValue = nil;
-                end
-            end
-
-            options.value = newValue;
-            savedValues[state] = savedValue;
+            DebindPrivate.SetSwitchValue(state, newValue);
 
             if (_lastSwitchValues[state] ~= newValue) then
                 _lastSwitchValues[state] = newValue;

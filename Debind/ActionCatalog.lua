@@ -1007,22 +1007,28 @@ local function BuildSpecialActions(entries)
 	-- Setting a switch. Each one has an on, an off and a toggle, so the order groups by switch --
 	-- "switch 1 on / off / toggle", then switch 2.
 	--
-	-- **What this offers is the built-in five, and five is still all there is to offer.** The one
-	-- way to make a switch is the menu (`GetOrCreateSwitchDefinition`), so a name cannot get
-	-- outside them. When §6-B's list arrives this walks the definitions instead
-	-- (`devdocs/redesigning-custom-states.md`).
+	-- **What this offers is the switches that exist**, which is a walk over the definitions rather
+	-- than over the built-in five. It was the five while a switch could not be renamed; now the
+	-- five are names a switch may be *given* and not the names it has (`Constants.SWITCH_NAMES`),
+	-- so offering them would put `$state1` in the picker after the user has renamed it to
+	-- `$burst`. That is an action pointing at a name nothing defines, which is exactly what goes
+	-- red (`GetUndefinedSwitch`).
+	--
+	-- A profile with no switches contributes no rows here, and that is the honest answer: there is
+	-- nothing to set. Making one is the Switches tab (§6-B of
+	-- `devdocs/redesigning-custom-states.md`), and the catalog is rebuilt when that list changes
+	-- (`OnSwitchesChanged` -> `ActionCatalog.Invalidate`).
 	--
 	-- **The name travels, not the number.** §9-1 split the type in three and put the target in
-	-- `value` as a name, where it used to be an index inside a bitpack. So the names are read off
-	-- `SWITCH_NAMES` by index: walking it with `pairs` would order the list differently on every
-	-- client.
+	-- `value` as a name, where it used to be an index inside a bitpack. Sorted rather than walked
+	-- with `pairs`, which would order the list differently on every client.
 	local setStateGroup = typeNames[Constants.SETSTATE_TOGGLE];
-	for stateIndex = 1, Constants.MAX_NUM_SWITCHES do
+	for _, switchName in ipairs(DebindPrivate.GetSwitchNames()) do
 		for _, actionType in ipairs({ Constants.SETSTATE_ON, Constants.SETSTATE_OFF,
 				Constants.SETSTATE_TOGGLE }) do
 			AddEntry(entries, seen, {
 				type = actionType,
-				value = Constants.SWITCH_NAMES[stateIndex],
+				value = switchName,
 				group = setStateGroup,
 				tooltipText = LLL["TYPE_SETSTATE_DESC"],
 			});

@@ -65,6 +65,7 @@ local specs = {
     { name = "import", path = root .. "/import_spec.lua" },
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
+    { name = "switch", path = root .. "/switch_spec.lua" },
 };
 
 local totalPassed, totalFailures = 0, {};

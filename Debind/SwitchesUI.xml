@@ -1,0 +1,206 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<Script file="SwitchesUI.lua" />
+
+	<!--
+		One switch. Its name, what it comes up as, what it is right now, and the menu.
+
+		**The name is drawn with its `$`**, which is the one thing on this row that is not a
+		setting: it is the text the user types into a macro body, so the list is where those glyphs
+		get learned (§6-B of `devdocs/redesigning-custom-states.md`).
+
+		Art matches the main list, the export list and the spell picker
+		(`ClickCastList-ButtonBackground`). Four lists in one addon that look like four things is
+		four things to learn.
+
+		**The row is not a click target.** Every gesture on it belongs to a named control: the
+		toggle to the button, the menu to the arrow. "Left-click toggles" on a row that also
+		carries a delete is a misclick that costs a switch. Right-click anywhere opens the
+		menu, which is the gesture the main list already teaches.
+	-->
+	<Button name="DebindSwitchRowTemplate" mixin="DebindSwitchRowMixin" virtual="true"
+		registerForClicks="RightButtonUp">
+		<Size x="400" y="28"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<!--
+					**What the switch comes up as**, which is one of the four answers a switch can
+					give (§4-6). Not the mode: "Set Manually" on its own does not say whether the
+					switch comes up on, comes up off, or comes back the way it was left, and those
+					are three different switches to live with.
+
+					**This column is the fixed one and the name takes what is left**, which is the
+					way round the export list already does it (`Key` there, declared before the
+					name for this reason). The answers are four known strings and the widest of
+					them is what 140 is measured against; a name is short in practice and is the
+					one thing the row's tooltip repeats, so it is the safer of the two to clip.
+					Sized the other way round, a `$state3` eight characters wide reserved 170 and
+					left the answer to be cut into an ellipsis.
+
+					**Its right edge is a number rather than the toggle's left edge.** A layer is
+					laid out before the frames below are declared, so an anchor naming one of them
+					reaches nothing and is dropped without a word. The string would end up with a
+					single horizontal point, no width, and draw nothing at all. The number is the
+					two buttons plus their gaps: 4 + 22 + 2 + 58 + 6.
+				-->
+				<FontString parentKey="Setting" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="140" y="0"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-92" y="0"/>
+					</Anchors>
+				</FontString>
+				<!--
+					**Declared after the column it hangs off**, so the anchor finds it. Both
+					horizontal points are set, which is what gives the name a width without a
+					number of its own: it ends where the answer begins.
+				-->
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" x="8" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.Setting" relativePoint="LEFT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Frames>
+			<!--
+				The menu, and the only place this row can be renamed or deleted from.
+
+				**Visible rather than right-click only.** The main list can hide its menu behind
+				right-click because every row there is something the user made and put a key on;
+				a switch's whole configuration is in here, so a list with no visible handle is a
+				list that looks like it does nothing.
+
+				`UIPanelSquareButton` with the DOWN icon is the addon's own arrow
+				(`DebindUI.xml`'s move buttons), which is why the icon is set in Lua.
+			-->
+			<Button parentKey="MenuButton" inherits="UIPanelSquareButton">
+				<Size x="22" y="22"/>
+				<Anchors>
+					<Anchor point="RIGHT" x="-4" y="0"/>
+				</Anchors>
+				<Scripts>
+					<!-- No mixin on these two: the row owns the state, so the click goes there. -->
+					<OnClick>
+						self:GetParent():OnMenuClick();
+					</OnClick>
+				</Scripts>
+			</Button>
+			<!--
+				**A plain button, deliberately.** Making it a secure one would put a protected
+				frame inside the window, and the reason this window can stay open in combat is
+				that it holds none (F-3 of `devdocs/redesigning-custom-states.md`). So it is
+				disabled in combat, and turning a switch on mid-fight is the switch bar's job
+				(§6-A) or a key carrying an on/off/toggle action.
+
+				`motionScriptsWhileDisabled` so the tooltip can say why it is greyed.
+			-->
+			<Button parentKey="ToggleButton" inherits="UIPanelButtonTemplate"
+				motionScriptsWhileDisabled="true">
+				<Size x="58" y="20"/>
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.MenuButton" relativePoint="LEFT" x="-2" y="0"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						self:GetParent():OnToggleClick();
+					</OnClick>
+					<OnEnter>
+						self:GetParent():OnToggleEnter();
+					</OnEnter>
+					<OnLeave>
+						GameTooltip:Hide();
+					</OnLeave>
+				</Scripts>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		**A panel, not a window.** It is the fourth seat in `PANELS` (`DebindUI.lua`), reached by
+		the Switches tab. Everything the export panel's own header says about being a panel holds here
+		word for word: no chrome, no ESC, no drag, no `enableMouse`, `useParentLevel`, and a
+		`preferredWidth` the frame reads when the tab is chosen.
+
+		**The rectangle is Overview's, bottom included.** Left 4, top -85, right -31 are the three
+		every tab shares so the list does not jump as you switch. The bottom is 10 rather than the
+		export panel's 50, because that band is a button row and this panel has none. The one
+		thing a reader does here is on the rows.
+	-->
+	<Frame name="DebindSwitchesPanel" parent="DebindFrame" parentKey="SwitchesPanel" hidden="true"
+		useParentLevel="true" setAllPoints="true" mixin="DebindSwitchesPanelMixin">
+		<KeyValues>
+			<!-- Overview's width. One list this narrow has nothing to spend more on, and keeping
+			     the number means the window does not resize between these two tabs. -->
+			<KeyValue key="preferredWidth" value="440" type="number"/>
+		</KeyValues>
+		<Frames>
+			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
+				<KeyValues>
+					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" x="4" y="-85"/>
+					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
+				</Anchors>
+			</Frame>
+
+			<!--
+				**Declared after the inset, because it hangs off it.** An anchor pointing at a
+				sibling that does not exist yet is dropped without a word
+				(`tools/check-xml-anchors.js`).
+			-->
+			<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y="-5"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y="5"/>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER">
+							<Size x="320" y="0"/>
+							<Anchors>
+								<Anchor point="TOP" x="0" y="-40"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Button>
+			<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
+				</Anchors>
+			</EventFrame>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+			<OnEvent method="OnEvent"/>
+		</Scripts>
+	</Frame>
+</Ui>

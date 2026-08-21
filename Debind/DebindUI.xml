@@ -1422,12 +1422,28 @@
 					<Anchor point="TOPLEFT" relativeKey="$parent.OverviewPanel.ResultPanel" relativePoint="BOTTOMLEFT" x="8" y="-9"/>
 				</Anchors>
 			</Button>
-			<Button parentKey="ImportTab" inherits="DebindPanelTabTemplate" id="2">
+			<!--
+				**Second, ahead of the two sharing tabs.** The row reads outward: what this
+				character has, what the addon itself is set to, and then moving either in or out.
+				Import and Export are one pair and stay next to each other at the end.
+
+				**The panel this opens is declared in another file** (`SwitchesUI.xml`), which is
+				why nothing here names it: the seat is `id`, and `PANELS` in `DebindUI.lua` is what
+				joins the number to a `parentKey`. The two have to agree, because `parentArray="Tabs"`
+				fills the array by declaration order. That is also why this button is **moved**
+				rather than renumbered where it stood.
+			-->
+			<Button parentKey="SwitchesTab" inherits="DebindPanelTabTemplate" id="2">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.OverviewTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
-			<Button parentKey="ExportTab" inherits="DebindPanelTabTemplate" id="3">
+			<Button parentKey="ImportTab" inherits="DebindPanelTabTemplate" id="3">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.SwitchesTab" relativePoint="TOPRIGHT" x="3" y="0"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="ExportTab" inherits="DebindPanelTabTemplate" id="4">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.ImportTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
