@@ -1,6 +1,13 @@
 ﻿<Ui xmlns="http://www.blizzard.com/wow/ui/"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
 
+	<!--
+		**Before `DebindUI.lua`, and that order is load-bearing.** It creates `DebindPrivate.DebindUI`
+		and puts the action resolver into it, and the window's file takes both as it finds them. Every
+		other panel in this addon draws actions out of this one, so it cannot sit inside the window's
+		scope (`breaking-up-debindui.md`, "창보다 위로 올릴 것").
+	-->
+	<Script file="ActionDisplay.lua" />
 	<Script file="DebindUI.lua" />
 	<Script file="DropDownMenus.lua" />
 
