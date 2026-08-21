@@ -1,0 +1,5 @@
+# The snippet golden is a recording of bytes, compared byte for byte. `core.autocrlf` is on for
+# most people working on this, and it would rewrite the line endings on checkout, so the file only
+# ever matched in the working tree that generated it and a fresh checkout on Windows went red on
+# two lines that look identical. `-text` keeps git out of it.
+tools/snippet-golden.txt -text
