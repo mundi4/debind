@@ -1046,81 +1046,522 @@ local function AppendBindingsList(key, stateDriven)
     end
 end
 
+--- Which dirty flag re-decides a key that carries a record field.
+---
+--- **This table is what stops "what went out" and "what gets measured" from being written down
+--- twice.** They used to be: the emitting branch for an axis set its own flag on the line below,
+--- so an axis emitted without its flag was a key that never woke up, and a flag set without its
+--- axis was a measurement nobody read. Both happened. The flags are read off the finished record
+--- now (`CollectRecordAxes`), so there is no second place for them to be written.
+---
+--- The names do not match the field names for four of them, and that is the other half of why the
+--- pairing was easy to get wrong: `groups` wakes on `group`, `forms` on `form`, `bonusbars` on
+--- `bonusbar`.
+---
+--- `known` is `true` rather than a name: **the value it emits is the state name**, brackets and
+--- all, because the click path hands the same string to `SecureCmdOptionParse` that the poll uses
+--- as a key in `States`.
+---
+--- `frameTypes` is not in here. Its flag depends on the record's own `holdsKey`, so it is read
+--- where that is in hand.
+local FIELD_FLAGS        = {
+    groups     = "group",
+    combat     = "combat",
+    stealth    = "stealth",
+    known      = true,
+    forms      = "form",
+    bonusbars  = "bonusbar",
+    specialbar = "specialbar",
+    extrabar   = "extrabar",
+    pet        = "pet",
+    petbattle  = "petbattle",
+};
+
+--- The condition axes that go out as a plain field, **in the order they are emitted in**, with the
+--- value that means "no restriction" for the three that have one.
+---
+--- `known` carries `derived`: what goes out is not the condition's value but the macro conditional
+--- built from the action's own value.
+local CONDITION_AXES     = {
+    { field = "groups",     allValue = Constants.GROUP_ALL },
+    { field = "combat" },
+    { field = "stealth" },
+    { field = "known",      derived = true },
+    { field = "forms",      allValue = Constants.FORM_ALL },
+    { field = "bonusbars",  allValue = Constants.BONUSBAR_ALL },
+    { field = "specialbar" },
+    { field = "extrabar" },
+    { field = "pet" },
+    { field = "petbattle" },
+};
+
+--- One emitted record, as a value.
+---
+--- **Two readers, one value.** `CollectRecordAxes` works out what has to be measured for this
+--- record and `EmitRecord` writes it into the snippet, and both read this. That is the whole point
+--- of the record existing: while emitting and accumulating were one walk, the two could disagree
+--- and nothing could tell (`devdocs/going-headless-outside-the-ui.md` §3-2).
+---
+--- **One table, refilled**, like every other scratch table in this file. It is good until the next
+--- `BuildKeyRecord`, and both readers run before that.
+local _record            = {
+    fieldNames = {},
+    fieldValues = {},
+    fieldCount = 0,
+    units = {},
+    switches = {},
+};
+
+local function field(record, name, value)
+    local count = record.fieldCount + 1;
+    record.fieldCount = count;
+    record.fieldNames[count] = name;
+    record.fieldValues[count] = value;
+end
+
+--- Stamps every binding on one key and **drops the ones with no way to fire**.
+---
+--- `DescribeBinding` refuses a value it cannot build attributes for (an unknown pet command, a
+--- flyout with every slot empty), and a record emitted for one of those is counted by the secure
+--- side as a binding that took: `keyBound` goes up, neither `SetBindingClick` nor `ClearBinding`
+--- runs, and the `not keyBound` cleanup below it is skipped as well.
+---
+--- **So the whole key is eaten.** Not just that action -- every lower priority action on the same
+--- key goes with it. A hunter with no pet and a Call Pet binding is the case.
+---
+--- Unused and command are the exception: both fire without a `clickbutton`, by their own route
+--- (`ClearBinding` / `SetBinding`).
+local function PrepareKeyBindings(key, bindingArray)
+    local button = bindingArray.button;
+    local hasClickCast, hasKeyRecord = false, false;
+
+    for i = 1, #bindingArray do
+        local binding = bindingArray[i];
+        binding.isClickCast = button ~= nil and binding.type ~= Constants.COMMAND and
+            (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover") and
+            true or false;
+        binding.holdsKey = (button == nil or not binding.hover) and true or false;
+        binding.clickframe, binding.clickbutton, binding.pressAndHold =
+            SetBindingAttributes(binding.type, binding.value, binding.unit);
+
+        -- Read here rather than where the record is built, so that nothing below this line needs
+        -- a frame at all. `DefaultClickFrame` is the one the record leaves out.
+        binding.clickframeName = (binding.clickframe and binding.clickframe ~= DefaultClickFrame)
+            and binding.clickframe:GetName() or nil;
+
+        if (binding.type ~= Constants.UNUSED and binding.type ~= Constants.COMMAND
+                and not (binding.clickframe and binding.clickbutton)) then
+            if (DEBUG) then
+                DebindPrivate.log(format("|cffff6666[Debind/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
+                    tostring(binding.type), tostring(binding.value), key));
+            end
+            binding.isClickCast, binding.holdsKey = false, false;
+        end
+
+        hasClickCast = hasClickCast or binding.isClickCast;
+        hasKeyRecord = hasKeyRecord or binding.holdsKey;
+    end
+
+    return hasClickCast, hasKeyRecord;
+end
+
+--- The three answers a key gets before any of its records is built.
+---
+--- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
+---
+---   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
+---   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
+---
+--- `IsKeyAlwaysOurs`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이 거짓이면 두
+--- 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가 이미 적어둔
+--- 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히 클릭 시점에 정한다."
+---
+--- **`PrepareKeyBindings` 뒤에만 부를 수 있다.** `holdsKey`가 거기서 정해지고, 걸 수단이 없어
+--- 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지 않는데
+--- 회귀는 안 나므로 알아채기 어렵다.
+---
+--- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
+--- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
+local function ClassifyKey(bindingArray, hasKeyRecord)
+    -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
+    local clickTime = Constants.CLICK_TIME_EVAL and hasKeyRecord and true or false;
+
+    -- 키 배선까지 고정이다. 한 번 `SetBindingClick` 걸고 상태 루프는 이 키의 키 역할을
+    -- 아예 안 본다.
+    local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysOurs(bindingArray) and true or false;
+
+    -- 상태 루프가 이 키에서 정할 것이 있나. 둘 다여야 한다: 키를 잡는 레코드가 있어야 하고
+    -- (없으면 클릭캐스팅 전용이라 걸었다 놓았다 할 키 역할 자체가 없다), 그 배선이 고정이
+    -- 아니어야 한다.
+    local stateDriven = hasKeyRecord and not alwaysOurs;
+
+    return clickTime, alwaysOurs, stateDriven;
+end
+
+--- 같은 유닛에 두 번 걸린 조건을 하나로 접는다. 접어서 아무것도 안 남으면 **nil** - 그 바인딩은
+--- 어떤 상태에서도 안 나가므로 레코드를 만들지 않는다.
+---
+--- `"@"`는 이 액션 자신의 대상 유닛을 가리키므로, 그 유닛에 명시 조건도 걸려 있으면
+--- **같은 키에 두 번 쓰게 된다.** 접지 않으면 `pairs` 순서에 따라 한쪽이 조용히 사라진다 -
+--- 걸어둔 조건이 무작위로 없어지는 것이다.
+---
+--- **여기까지 오는 것 자체가 원래 없다.** `mergeUnitConditions`가 `NEVER`를 내는 세 갈래는 전부
+--- `binding.unitStates`에 0 마스크를 남기고, 그것을 `GetBindingIssue`가 보고하고 `Debind.lua`가
+--- `KeyMap`에서 빼므로 솔버에도 이 파일에도 안 온다. 남겨두는 것은 그 두 교집합 구현이 갈리는
+--- 날을 위해서고, 값으로 만들고 나니 비용이 없다.
+local function MergeKeyUnitConditions(binding, out)
+    wipe(out);
+
+    local units = binding.conditions.units;
+    if (not units) then
+        return out;
+    end
+
+    for k, v in pairs(units) do
+        if (k == "@") then
+            k = binding.unit;
+        end
+        -- A "@" with no unit to point at has no axis to land on. Normalization should have
+        -- dropped it, so drop it quietly.
+        if (k ~= nil) then
+            v = mergeUnitConditions(out[k], v);
+            if (v == NEVER) then
+                return nil;
+            end
+            out[k] = v;
+        end
+    end
+
+    return out;
+end
+
+--- One binding, as the record the restricted side will hold. **nil where the binding can never
+--- fire**, which is the unit conditions folding to nothing.
+---
+--- Nothing here reaches a frame or the client. The one frame question -- which click frame the
+--- state loop hands `SetBindingClick` -- was answered in `PrepareKeyBindings` and arrives as a
+--- name.
+local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickTime, out)
+    if (not MergeKeyUnitConditions(binding, out.units)) then
+        return nil;
+    end
+
+    local conditions = binding.conditions;
+
+    out.fieldCount = 0;
+    wipe(out.switches);
+    out.isClickCast = isClickCast;
+    out.holdsKey = holdsKey;
+    out.targetUnit = binding.unit;
+    out.setsSwitch = nil;
+    out.carriesFrameTypes = false;
+
+    if (binding.type == Constants.UNUSED) then
+        field(out, "type", Constants.UNUSED);
+    elseif (binding.type == Constants.COMMAND) then
+        field(out, "command", binding.value);
+    end
+
+    if (binding.clickframe and binding.clickbutton) then
+        -- `clickframe`은 상태 루프가 `SetBindingClick`에 넘길 때만 읽는다. 배선이 고정된
+        -- 키는 그 루프를 안 도니 실어 보낼 이유가 없다. `clickbutton`은 클릭 경로가
+        -- 읽으므로 어느 갈래든 나간다.
+        if (not alwaysOurs and binding.clickframeName) then
+            field(out, "clickframe", binding.clickframeName);
+        end
+        field(out, "clickbutton", binding.clickbutton);
+    end
+
+    -- **대상은 여기서만 레코드에 실린다.**
+    --
+    -- 옛 경로는 대상을 delegate 프레임의 맨이름 `unit`으로 나르므로 실어 보낼 필요가 없었다.
+    -- 클릭 시점 경로는 `DefaultClickFrame` 하나에 걸고 래퍼가 클릭 순간에 맨이름으로 넣기
+    -- 때문에 어느 대상인지를 스니펫이 알아야 한다.
+    --
+    -- 범위를 `GetDelegateFrame`(Debind.lua)과 정확히 맞춘다. 그 밖의 값은 옛 경로에서도
+    -- delegate가 없어 대상이 조용히 사라지므로, 여기서 안 내보내는 것이 곧 현행 유지다.
+    -- `""`(hover인데 재타겟 금지)도 같다.
+    --
+    -- **클릭캐스팅 레코드도 같은 것을 실어야 한다.** 그쪽도 이제 래퍼가 대상을 맨이름으로
+    -- 넣는다 - 유닛 프레임에서 delegate 프레임으로 가던 `/click` 한 단계가 없어졌으므로
+    -- delegate가 들고 있던 `unit`이 안 실리면 대상이 조용히 사라진다.
+    --
+    -- `isClickCast` 쪽은 `CLICK_TIME_EVAL`을 안 본다. 그 플래그는 **키 역할을 클릭 시점으로
+    -- 내릴지**를 가르는 것이고, 클릭캐스팅은 그 선택지가 없다 - 매크로를 안 거치려면 래퍼를
+    -- 지날 수밖에 없어서 언제나 클릭 시점이다.
+    local carriesTarget = isClickCast or (Constants.CLICK_TIME_EVAL and clickTime and holdsKey);
+
+    -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의 선택을 붙들어야 하는지를
+    -- 이걸로 가른다 - 그 밖의 액션은 up에서 `typerelease` 조회가 nil이라 아무 일도 안 나므로
+    -- 붙들 이유가 없고, 괜히 붙들면 낡은 판단을 재사용하게 된다.
+    --
+    -- **press-and-hold는 키 갈래에만 싣는다.**
+    --
+    -- 클릭캐스팅은 `delegate:Click(button)`으로 오는데 그 호출이 엣지를 안 싣는다. 그래서
+    -- 언제나 `down=false`로 도착하고, 래퍼의 `if (down)` 갈래가 영영 안 돌아 이 값을 읽을
+    -- 자리가 없다.
+    --
+    -- **읽을 자리를 만들어서도 안 된다.** 여기서 `pressAndHoldAction`을 켜면 게이트가
+    -- `useOnKeyDown`을 강제로 참으로 만드는데 (SecureTemplates.lua:813), 도착이 `down=false`라
+    -- `clickAction = (down and useOnKeyDown)`이 거짓이 되고 `releasePressAndHoldAction`으로
+    -- 넘어가 **누른 적 없는 주문의 `typerelease`만 나간다.** 지금처럼 안 싣는 쪽이 평범한
+    -- 시전으로 떨어져서 낫다.
+    --
+    -- 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서 놓는 동작이 안 된다.
+    -- 고치려면 엣지를 실어 올 길이 필요한데 `SECURE_ACTIONS.click`에는 없다.
+    if (Constants.CLICK_TIME_EVAL and clickTime and holdsKey and binding.pressAndHold) then
+        field(out, "pressAndHold", true);
+    end
+
+    if (carriesTarget and binding.unit and binding.unit ~= "") then
+        if (SPECIAL_UNITS[binding.unit]) then
+            field(out, "unitAlias", binding.unit);
+        elseif (BASIC_UNITS[binding.unit]) then
+            field(out, "unit", binding.unit);
+        end
+    end
+
+    -- **`hover` and `reactions` are not emitted.** They are the derived view of `units["hover"]`,
+    -- which goes out below with every other unit as `t.units["hover"]` -- emitting both would have
+    -- the match loop ask the same question about the same unit twice, once against the frame
+    -- record and once against `UnitStates`.
+    --
+    -- `frameTypes` stays, because it describes the **frame** and only the frame record can answer
+    -- it. It carries its own "is there a frame" guard in the snippet for that reason -- there is
+    -- no `t.hover` in front of it any more.
+    if (binding.hover and conditions.frameTypes
+            and conditions.frameTypes ~= Constants.FRAMETYPE_ALL) then
+        field(out, "frameTypes", conditions.frameTypes);
+        out.carriesFrameTypes = true;
+    end
+
+    for i = 1, #CONDITION_AXES do
+        local axis = CONDITION_AXES[i];
+        local value = conditions[axis.field];
+        if (value ~= nil and value ~= axis.allValue) then
+            if (axis.derived) then
+                -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
+                -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을 `States`의
+                -- 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이 두 군데 적힌다.
+                value = "[known:" .. binding.value .. "]";
+            end
+            field(out, axis.field, value);
+        end
+    end
+
+    -- **A switch is used by acting on it too, not only by being a condition.** An on/off/toggle
+    -- action names its switch in `value`, so the condition loop below never sees it, and
+    -- registration is what puts the switch's stored value back into `States` at every rebuild.
+    -- Without it the restricted side holds nil while the window shows the stored value, and the
+    -- first press only brings the two back together -- it reads as a press that did nothing, and
+    -- the rebuild after it puts the pair back out of step.
+    --
+    -- No flag: this key's own wiring does not depend on the switch, so there is nothing to
+    -- re-decide when it changes.
+    if (Constants.SETSTATE_MODES[binding.type] and luatype(binding.value) == "string") then
+        out.setsSwitch = binding.value;
+    end
+
+    -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는 루프였고, 그래서
+    -- `$state1`~`$state5` 밖의 이름은 조건으로 걸려 있어도 여기서 안 보였다. 솔버는 그 이름에도
+    -- 컬럼을 만드니 (`Solver.lua`) 둘이 갈리면 한쪽은 조건이 있다고 보고 다른 쪽은 없다고 본다.
+    --
+    -- **정의가 없어도 굽는다.** 정의를 못 찾으면 조건을 통째로 빼던 자리다 - 빼면 그 바인딩이
+    -- 조건 없이 상시 발동한다. ⚑2가 매크로 본문에서 막은 것과 같은 실패 방향인데 이쪽이 더
+    -- 나쁘다: 본문 쪽은 액션에 마커라도 붙는다. 구워두면 런타임 비교가 `States[name] ~= v`라
+    -- 아무도 안 쓴 이름은 `nil`이고, 참을 걸었든 거짓을 걸었든 안 맞는다 - 어느 쪽으로 걸어도
+    -- 안 나가는 쪽으로 떨어진다.
+    --
+    -- **이제 그 액션은 여기까지 오지도 않는다.** 정의 없는 이름을 조건으로 건 액션에도 마커가
+    -- 붙어서(`GetUndefinedSwitch`) `KeyMap`에서 빠지고, 그래서 위 갈래는 액션 쪽으로는 도달
+    -- 불가가 됐다. **그렇다고 지우지 말 것** - 스위치의 계산식은 액션이 아니라 이 길로 그대로
+    -- 내려오고, 무엇보다 이건 위험한 방향을 막는 마지막 겹이다. 마커 하나가 빠지거나 좁아지는
+    -- 날 여기가 없으면 ⚑2가 그대로 돌아온다.
+    for state, value in pairs(conditions) do
+        if (Constants.IsSwitchName(state)) then
+            out.switches[state] = value and true or false;
+        end
+    end
+
+    return out;
+end
+
+--- What has to be measured because of this record, read **off the record itself**.
+---
+--- That is the whole reason the record is a value. While this was done on the way out, the axis
+--- and the flag that wakes a key carrying it were two lines next to each other, and either could
+--- go without the other -- an emitted axis with no flag is a key that never wakes up, and a flag
+--- with no axis is a measurement nobody reads.
+local function CollectRecordAxes(record, stateDriven)
+    for i = 1, record.fieldCount do
+        local name = record.fieldNames[i];
+        if (name == "frameTypes") then
+            -- **레코드 단위로, 키 잡는 레코드에만.** `DirtyFlags.unitframe`은 *유닛은 그대로인데
+            -- 프레임이 바뀜*을 뜻하고, 상태 루프에서 그것에 걸리는 것은 `t.frameTypes`를 가진
+            -- **`holdsKey`** 레코드뿐이다 (거는 갈래가 `not keyBound and t.holdsKey` 뒤에 있다).
+            -- 키 단위로 잡으면 hover 조건이 `isClickCast` 레코드에만 있는 키까지 깨운다.
+            --
+            -- `frameType` 플래그는 안 세운다. `DirtyFlags.frameType`을 세우는 곳이 없어서 어떤
+            -- 키도 못 깨웠다 - 세우는 쪽이 죽어 있었다.
+            if (record.holdsKey) then
+                _updateFlags.unitframe = true;
+            end
+        else
+            local flag = FIELD_FLAGS[name];
+            if (flag == true) then
+                _updateFlags[record.fieldValues[i]] = true;
+            elseif (flag) then
+                _updateFlags[flag] = true;
+            end
+        end
+    end
+
+    for unit, condition in pairs(record.units) do
+        local axes = UNITAXIS_EXISTS;
+        if (condition ~= false) then
+            if (condition.reaction) then
+                axes = bor(axes, UNITAXIS_REACTION);
+            end
+            if (condition.dead ~= nil) then
+                axes = bor(axes, UNITAXIS_DEAD);
+            end
+        end
+
+        -- 별칭 해석은 어느 갈래든 필요하다. `_unitsSeen`가 `EnableUnitWatch`를 몰고, 그게
+        -- `UnitAliasMap[별칭]`을 채운다 - 클릭 경로가 대상을 푸는 자리가 정확히 거기다.
+        _unitsSeen[unit] = true;
+
+        -- **Only a state-driven key asks for measurement.**
+        --
+        -- Two things read `UnitStates`: the state loop, and the `UnitStates[alias] ~= nil` test
+        -- that decides whether `SetUnit` calls for a rebuild. A key the state loop never walks
+        -- does not reach the first, and has nothing to ask of the second -- there is nothing to
+        -- re-bind on its account, so the rebuild it used to trigger every time the hover moved
+        -- goes with it.
+        --
+        -- The click path loses nothing. Units are the one thing it does not take from the cache;
+        -- it measures them again at the press. Click-casting does not even take the hover from the
+        -- cache -- the frame that was clicked is `evalFrame`.
+        --
+        -- **This is an accumulator, so the unit of the decision matters.** `_measuredUnitAxes` is
+        -- one table per rebuild and grows by `bor`, so a unit any state-driven key asks about is
+        -- measured anyway. What is withheld here is **this record's share**, not the unit.
+        if (stateDriven) then
+            _measuredUnitAxes[unit] = bor(_measuredUnitAxes[unit] or 0, axes);
+            _updateFlags[unit .. "-exists"] = true;
+            if (band(axes, UNITAXIS_REACTION) ~= 0) then
+                _measuresReaction = true;
+            end
+        end
+    end
+
+    if (record.setsSwitch) then
+        addSwitch(record.setsSwitch);
+    end
+
+    for state in pairs(record.switches) do
+        addSwitch(state);
+        _updateFlags[state] = true;
+    end
+
+    if (record.targetUnit) then
+        _unitsSeen[record.targetUnit] = true;
+    end
+end
+
+--- Writes one record into the snippet being built.
+local function EmitRecord(record)
+    appendLine("t=newtable();tinsert(bindings,t)");
+
+    for i = 1, record.fieldCount do
+        appendKeyValue(record.fieldNames[i], record.fieldValues[i]);
+    end
+
+    local unitsTblCreated;
+    for _, unit in ipairs(sortedKeys(record.units, _sortedB)) do
+        local condition = record.units[unit];
+        if (not unitsTblCreated) then
+            unitsTblCreated = true;
+            appendLine("t.units=newtable()");
+        end
+        appendLine("u=newtable();t.units[%q]=u", unit);
+
+        if (condition == false) then
+            appendLine("u.exists=false");
+        else
+            appendLine("u.exists=true");
+            if (condition.reaction) then
+                -- A set, not a mask: membership is one lookup, while the `%` idiom the restricted
+                -- environment forces on masks needs the same two lookups **plus** arithmetic.
+                appendLine("u.reaction=newtable()");
+                for _, bit in ipairs(sortedKeys(REACTION_NAMES, _sortedC)) do
+                    if (band(condition.reaction, bit) ~= 0) then
+                        appendLine("u.reaction.%s=true", REACTION_NAMES[bit]);
+                    end
+                end
+            end
+            if (condition.dead ~= nil) then
+                appendLine("u.dead=%s", tostring(condition.dead));
+            end
+        end
+    end
+
+    local switchesTblCreated;
+    for _, state in ipairs(sortedKeys(record.switches, _sortedB)) do
+        if (not switchesTblCreated) then
+            appendLine([[t.switches=newtable()]]);
+            switchesTblCreated = true;
+        end
+        appendLine([[t.switches[%q]=%s]], state, record.switches[state] and "true" or "false");
+    end
+
+    -- **유닛 프레임은 매크로를 거치지 않는다.**
+    --
+    -- 옛 경로는 `type="macro"` + `macrotext="/click <프레임> <버튼>"`이었다. 그러면 **바깥이
+    -- 매크로**가 되고, 도착한 버튼의 액션이 또 매크로면 실행되지 않는다(게임 제약,
+    -- `click-time-poc-results.md` §2-5). 매크로텍스트·매크로·펫 명령·spellID 없는 탈것이 통째로
+    -- 안 나갔다.
+    --
+    -- `type="click"`은 `SECURE_ACTIONS.click` 한 줄이라 매크로를 안 거친다. 대신 **버튼 이름을
+    -- 못 싣는다** - `delegate:Click(button)`이 원래 마우스 버튼을 그대로 넘긴다. 그래서 어느
+    -- 액션인지는 래퍼가 도착한 뒤에 `ClickCastKeys`에서 되찾는다.
+    --
+    -- 그 덕에 거기서 거는 `clickbutton`은 **언제나 같은 프레임**이다. 승자가 바뀌어도 안
+    -- 바뀌므로 옛 경로처럼 액션마다 다시 쓸 일이 없다. **아무것도 안 굽는다.** 유닛 프레임에
+    -- 미리 찍어둘 것이 없어서다 - 프레임이 들고 있는 것은 등록 때 한 번 쓴 고정값
+    -- (`*type-debind1` / `*clickbutton-debind1`)뿐이고, 어느 액션인지는 래퍼가 클릭 순간에
+    -- 정한다.
+    --
+    -- 그래서 이 레코드가 클릭 갈래에 속한다는 표시 하나면 된다. 래퍼가 그것으로 볼 레코드를
+    -- 고른다(`EVAL_SNIPPET`의 `subset`). **`unitframe` 플래그를 안 세운다.** 옛 경로에서는 상태
+    -- 루프가 승자를 유닛 프레임에 미리 찍어뒀으니 호버가 바뀌면 다시 골라야 했다. 지금은 래퍼가
+    -- 클릭 순간에 고르므로 다시 걸 것이 없다.
+    if (record.isClickCast) then
+        appendLine("t.isClickCast=true");
+    end
+
+    if (record.holdsKey) then
+        appendLine("t.holdsKey=true");
+    end
+end
+
+DebindPrivate.ClassifyKey = ClassifyKey;
+DebindPrivate.MergeKeyUnitConditions = MergeKeyUnitConditions;
+DebindPrivate.BuildKeyRecord = BuildKeyRecord;
+
 function UpdateBindingsMap()
     if (DEBUG) then
         wipe(DebindPrivate.StateDrivenKeys);
     end
     appendLine("local bindings,t,u");
+
     for _, key in ipairs(sortedKeys(DebindPrivate.KeyMap, _sortedA)) do
         local bindingArray = DebindPrivate.KeyMap[key];
         wipe(_updateFlags);
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
-        local hasClickCast;
-        local hasKeyRecord;
-
-        for i = 1, #bindingArray do
-            local binding = bindingArray[i];
-            binding.isClickCast = button ~= nil and binding.type ~= Constants.COMMAND and (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover");
-            binding.holdsKey = button == nil or not binding.hover;
-            binding.clickframe, binding.clickbutton, binding.pressAndHold =
-                    SetBindingAttributes(binding.type, binding.value, binding.unit);
-
-            -- **나갈 수단이 없는 바인딩은 여기서 떨군다.**
-            --
-            -- `SetBindingAttributes`는 값이 못 쓰는 것이면 아무것도 안 걸고 되돌아간다
-            -- (알 수 없는 펫 명령, 칸이 전부 빈 플라이아웃 등). 그런데 그때도 레코드는
-            -- 실려 나갔고, 보안 쪽(`SecureBindings.lua`)은 그것을 **성사된 바인딩으로 센다** -
-            -- `keyBound`가 서면서 `SetBindingClick`도 `ClearBinding`도 안 부르고, 아래쪽
-            -- `not keyBound` 청소까지 건너뛴다.
-            --
-            -- 결과는 **키가 통째로 먹히는 것**이다. 그 액션이 안 나가는 데서 끝나지 않고
-            -- 같은 키의 낮은 우선순위 액션들이 전부 막힌다. 야수를 안 데리고 다니는
-            -- 사냥꾼의 "야수 소환"이 그 경우다.
-            --
-            -- 사용 안 함과 명령은 예외다. 둘은 clickbutton 없이 자기 방식으로 나간다
-            -- (`ClearBinding` / `SetBinding`).
-            if (binding.type ~= Constants.UNUSED and binding.type ~= Constants.COMMAND
-                    and not (binding.clickframe and binding.clickbutton)) then
-                if (DEBUG) then
-                    DebindPrivate.log(format("|cffff6666[Debind/attr]|r DROP %s/%s (%s) 걸 수단이 없다",
-                        tostring(binding.type), tostring(binding.value), key));
-                end
-                binding.isClickCast, binding.holdsKey = false, false;
-            end
-
-            hasClickCast = hasClickCast or binding.isClickCast;
-            hasKeyRecord = hasKeyRecord or binding.holdsKey;
-        end
-
-        -- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
-        --
-        --   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
-        --   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
-        --
-        -- `IsKeyAlwaysOurs`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이
-        -- 거짓이면 두 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가
-        -- 이미 적어둔 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히
-        -- 클릭 시점에 정한다."
-        --
-        -- 판정은 반드시 위 전처리 루프가 끝난 뒤다. `holdsKey`가 거기서 정해지고, 걸 수단이
-        -- 없어 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지
-        -- 않는데 회귀는 안 나므로 알아채기 어렵다.
-        --
-        -- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
-        -- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
-
-        -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
-        local clickTime = Constants.CLICK_TIME_EVAL and hasKeyRecord and true or false;
-
-        -- 키 배선까지 고정이다. 한 번 `SetBindingClick` 걸고 상태 루프는 이 키의 키 역할을
-        -- 아예 안 본다.
-        local alwaysOurs = clickTime and DebindPrivate.IsKeyAlwaysOurs(bindingArray);
-
-        -- 상태 루프가 이 키에서 정할 것이 있나. 둘 다여야 한다: 키를 잡는 레코드가 있어야 하고
-        -- (없으면 클릭캐스팅 전용이라 걸었다 놓았다 할 키 역할 자체가 없다), 그 배선이 고정이
-        -- 아니어야 한다.
-        local stateDriven = hasKeyRecord and not alwaysOurs;
+        local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
+        local clickTime, alwaysOurs, stateDriven = ClassifyKey(bindingArray, hasKeyRecord);
 
         local first = true;
 
@@ -1129,370 +1570,20 @@ function UpdateBindingsMap()
                 local binding = bindingArray[i];
                 local isClickCast = hasClickCast and binding.isClickCast;
                 local holdsKey = hasKeyRecord and binding.holdsKey;
-                local clickframe, clickbutton = binding.clickframe, binding.clickbutton;
 
-                -- Unit conditions are merged **before the record exists**, so a binding that can
-                -- never fire is skipped instead of emitted with a marker that says so.
-                --
-                -- Emitting it would cost three times over: the match loop walks and rejects it on
-                -- every re-selection, its units get registered for measurement so the update loop
-                -- prices them every tick, and every ordinary condition pays whatever lookup the
-                -- marker needs.
-                --
-                -- **Nothing should reach here anyway.** All three ways `mergeUnitConditions` can
-                -- come back `NEVER` leave a zero mask in `binding.unitStates`, which
-                -- `GetBindingIssue` reports and `Debind.lua` acts on by keeping the binding out
-                -- of `KeyMap` -- so it reaches neither the solver nor this file. This is the
-                -- backstop for the two intersections disagreeing, and now it costs nothing.
-                local unreachable;
-                if (binding.conditions.units) then
-                    wipe(_mergedUnits);
-                    for k, v in pairs(binding.conditions.units) do
-                        if (k == "@") then
-                            k = binding.unit;
-                        end
-                        -- A "@" with no unit to point at has no axis to land on. Normalization
-                        -- should have dropped it, so drop it quietly.
-                        if (k ~= nil) then
-                            v = mergeUnitConditions(_mergedUnits[k], v);
-                            if (v == NEVER) then
-                                unreachable = true;
-                                break;
+                if (isClickCast or holdsKey) then
+                    local record = BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs,
+                        clickTime, _record);
+                    if (record) then
+                        if (first) then
+                            first = false;
+                            if (DEBUG) then
+                                appendLine("-- %s", key);
                             end
-                            _mergedUnits[k] = v;
+                            AppendBindingsList(key, stateDriven);
                         end
-                    end
-                end
-
-                if ((isClickCast or holdsKey) and not unreachable) then
-                    if (first) then
-                        first = false;
-                        if (DEBUG) then
-                            appendLine("-- %s", key);
-                        end
-                        AppendBindingsList(key, stateDriven);
-                    end
-                    appendLine("t=newtable();tinsert(bindings,t)");
-
-                    if (isClickCast or holdsKey) then
-                        if (binding.type == Constants.UNUSED) then
-                            appendKeyValue("type", Constants.UNUSED);
-                        elseif (binding.type == Constants.COMMAND) then
-                            appendKeyValue("command", binding.value);
-                        end
-
-                        if (clickframe and clickbutton) then
-                            -- `clickframe`은 상태 루프가 `SetBindingClick`에 넘길 때만 읽는다.
-                            -- 배선이 고정된 키는 그 루프를 안 도니 실어 보낼 이유가 없다.
-                            -- `clickbutton`은 클릭 경로가 읽으므로 어느 갈래든 나간다.
-                            if (not alwaysOurs and clickframe ~= DefaultClickFrame) then
-                                appendKeyValue("clickframe", clickframe:GetName());
-                            end
-                            appendKeyValue("clickbutton", clickbutton);
-                        end
-
-                        -- **대상은 여기서만 레코드에 실린다.**
-                        --
-                        -- 옛 경로는 대상을 delegate 프레임의 맨이름 `unit`으로 나르므로
-                        -- 실어 보낼 필요가 없었다. 클릭 시점 경로는 `DefaultClickFrame`
-                        -- 하나에 걸고 래퍼가 클릭 순간에 맨이름으로 넣기 때문에 어느 대상인지를
-                        -- 스니펫이 알아야 한다.
-                        --
-                        -- 범위를 `GetDelegateFrame`(Debind.lua:61)과 정확히 맞춘다. 그 밖의
-                        -- 값은 옛 경로에서도 delegate가 없어 대상이 조용히 사라지므로, 여기서
-                        -- 안 내보내는 것이 곧 현행 유지다. `""`(hover인데 재타겟 금지)도 같다.
-                        --
-                        -- **클릭캐스팅 레코드도 같은 것을 실어야 한다.** 그쪽도 이제 래퍼가
-                        -- 대상을 맨이름으로 넣는다 - 유닛 프레임에서 delegate 프레임으로 가던
-                        -- `/click` 한 단계가 없어졌으므로 delegate가 들고 있던 `unit`이
-                        -- 안 실리면 대상이 조용히 사라진다.
-                        --
-                        -- `isClickCast` 쪽은 `CLICK_TIME_EVAL`을 안 본다. 그 플래그는 **키 역할을
-                        -- 클릭 시점으로 내릴지**를 가르는 것이고, 클릭캐스팅은 그 선택지가 없다 -
-                        -- 매크로를 안 거치려면 래퍼를 지날 수밖에 없어서 언제나 클릭 시점이다.
-                        local carriesTarget = isClickCast
-                                or (Constants.CLICK_TIME_EVAL and clickTime and holdsKey);
-
-                        -- up 엣지에서 `typerelease`가 나갈 수 있는 액션인가. 래퍼가 down의
-                        -- 선택을 붙들어야 하는지를 이걸로 가른다 - 그 밖의 액션은 up에서
-                        -- `typerelease` 조회가 nil이라 아무 일도 안 나므로 붙들 이유가 없고,
-                        -- 괜히 붙들면 낡은 판단을 재사용하게 된다.
-                        --
-                        -- **press-and-hold는 키 갈래에만 싣는다.**
-                        --
-                        -- 클릭캐스팅은 `delegate:Click(button)`으로 오는데 그 호출이 엣지를
-                        -- 안 싣는다. 그래서 언제나 `down=false`로 도착하고, 래퍼의
-                        -- `if (down)` 갈래가 영영 안 돌아 이 값을 읽을 자리가 없다.
-                        --
-                        -- **읽을 자리를 만들어서도 안 된다.** 여기서 `pressAndHoldAction`을
-                        -- 켜면 게이트가 `useOnKeyDown`을 강제로 참으로 만드는데
-                        -- (SecureTemplates.lua:813), 도착이 `down=false`라
-                        -- `clickAction = (down and useOnKeyDown)`이 거짓이 되고
-                        -- `releasePressAndHoldAction`으로 넘어가 **누른 적 없는 주문의
-                        -- `typerelease`만 나간다.** 지금처럼 안 싣는 쪽이 평범한 시전으로
-                        -- 떨어져서 낫다.
-                        --
-                        -- 그래서 클릭캐스팅으로 건 유지·시전 주문은 눌러서 시작하고 떼서
-                        -- 놓는 동작이 안 된다. 고치려면 엣지를 실어 올 길이 필요한데
-                        -- `SECURE_ACTIONS.click`에는 없다.
-                        if (Constants.CLICK_TIME_EVAL and clickTime and holdsKey
-                                and binding.pressAndHold) then
-                            appendKeyValue("pressAndHold", true);
-                        end
-
-                        if (carriesTarget and binding.unit and binding.unit ~= "") then
-                            if (SPECIAL_UNITS[binding.unit]) then
-                                appendKeyValue("unitAlias", binding.unit);
-                            elseif (BASIC_UNITS[binding.unit]) then
-                                appendKeyValue("unit", binding.unit);
-                            end
-                        end
-
-
-                        -- **`hover` and `reactions` are not emitted.** They are the derived view
-                        -- of `units["hover"]`, which goes out below with every other unit
-                        -- as `t.units["hover"]` -- emitting both would have the match loop ask the
-                        -- same question about the same unit twice, once against the frame record
-                        -- and once against `UnitStates`.
-                        --
-                        -- `frameTypes` stays, because it describes the **frame** and only the
-                        -- frame record can answer it. It carries its own "is there a frame" guard
-                        -- in the snippet for that reason -- there is no `t.hover` in front of it
-                        -- any more.
-                        if (binding.hover and binding.conditions.frameTypes
-                                and binding.conditions.frameTypes ~= Constants.FRAMETYPE_ALL) then
-                            appendKeyValue("frameTypes", binding.conditions.frameTypes);
-
-                            -- **레코드 단위로, 키 잡는 레코드에만.** `DirtyFlags.unitframe`은
-                            -- *유닛은 그대로인데 프레임이 바뀜*을 뜻하고, 상태 루프에서 그것에
-                            -- 걸리는 것은 `t.frameTypes`를 가진 **`holdsKey`** 레코드뿐이다
-                            -- (거는 갈래가 `not keyBound and t.holdsKey` 뒤에 있다). 키 단위로
-                            -- 잡으면 hover 조건이 `isClickCast` 레코드에만 있는 키까지 깨운다.
-                            --
-                            -- `frameType` 플래그는 안 세운다. `DirtyFlags.frameType`을 세우는
-                            -- 곳이 없어서 어떤 키도 못 깨웠다 - 세우는 쪽이 죽어 있었다.
-                            if (holdsKey) then
-                                _updateFlags.unitframe = true;
-                            end
-                        end
-
-                        if (binding.conditions.groups ~= nil and binding.conditions.groups ~= Constants.GROUP_ALL) then
-                            appendKeyValue("groups", binding.conditions.groups);
-                            _updateFlags.group = true;
-                        end
-
-                        if (binding.conditions.combat ~= nil) then
-                            appendKeyValue("combat", binding.conditions.combat);
-                            _updateFlags.combat = true;
-                        end
-
-                        if (binding.conditions.stealth ~= nil) then
-                            appendKeyValue("stealth", binding.conditions.stealth);
-                            _updateFlags.stealth = true;
-                        end
-
-                        -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
-                        -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을
-                        -- `States`의 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이
-                        -- 두 군데 적힌다.
-                        if (binding.conditions.known ~= nil) then
-                            local stateValue = "[known:"..binding.value.."]";
-                            appendKeyValue("known", stateValue);
-                            _updateFlags[stateValue] = true;
-                        end
-
-                        if (binding.conditions.forms ~= nil and binding.conditions.forms ~= Constants.FORM_ALL) then
-                            appendKeyValue("forms", binding.conditions.forms);
-                            _updateFlags.form = true;
-                        end
-
-                        if (binding.conditions.bonusbars ~= nil and binding.conditions.bonusbars ~= Constants.BONUSBAR_ALL) then
-                            appendKeyValue("bonusbars", binding.conditions.bonusbars);
-                            _updateFlags.bonusbar = true;
-                        end
-
-                        if (binding.conditions.specialbar ~= nil) then
-                            appendKeyValue("specialbar", binding.conditions.specialbar);
-                            _updateFlags.specialbar = true;
-                        end
-
-                        if (binding.conditions.extrabar ~= nil) then
-                            appendKeyValue("extrabar", binding.conditions.extrabar);
-                            _updateFlags.extrabar = true;
-                        end
-
-                        if (binding.conditions.pet ~= nil) then
-                            appendKeyValue("pet", binding.conditions.pet);
-                            _updateFlags.pet = true;
-                        end
-
-                        if (binding.conditions.petbattle ~= nil) then
-                            appendKeyValue("petbattle", binding.conditions.petbattle);
-                            _updateFlags.petbattle = true;
-                        end
-
-                        if (binding.conditions.units) then
-                            -- `_mergedUnits` was filled above, before the record was created --
-                            -- "@" already resolved onto the unit it names and merged with any
-                            -- explicit condition on that same unit, so that the two cannot write
-                            -- the same key twice and let `pairs` order decide which survives.
-                            local unitsTblCreated;
-                            for _, k in ipairs(sortedKeys(_mergedUnits, _sortedB)) do
-                                local v = _mergedUnits[k];
-                                if (not unitsTblCreated) then
-                                    unitsTblCreated = true;
-                                    appendLine("t.units=newtable()");
-                                end
-                                appendLine("u=newtable();t.units[%q]=u", k);
-
-                                local axes = UNITAXIS_EXISTS;
-                                if (v == false) then
-                                    appendLine("u.exists=false");
-                                else
-                                    appendLine("u.exists=true");
-                                    if (v.reaction) then
-                                        -- 이 축이 `UNIT_FACTION` 등록을 몬다. 예전에는 여기서
-                                        -- `_updateFlags.reaction`을 세워 그 일을 시켰는데, 그건
-                                        -- **깨우는 플래그가 아니었다** - `DirtyFlags.reaction`을
-                                        -- 세우는 곳이 없어서 어떤 키도 못 깨웠고, 하는 일이라고는
-                                        -- `_measuredStates.reaction`을 통해 등록을 켜는 것뿐이었다.
-                                        -- 게다가 어느 유닛인지를 안 보므로 `target`에만 반응
-                                        -- 조건을 걸어도 mouseover 이벤트까지 딸려 왔다.
-                                        -- 이제 등록은 `_measuredUnitAxes`에서 파생시킨다(위 `UpdateBindings`).
-                                        axes = bor(axes, UNITAXIS_REACTION);
-                                        -- A set, not a mask: membership is one lookup, while the
-                                        -- `%` idiom the restricted environment forces on masks
-                                        -- needs the same two lookups **plus** arithmetic.
-                                        appendLine("u.reaction=newtable()");
-                                        for _, bit in ipairs(sortedKeys(REACTION_NAMES, _sortedC)) do
-                                            if (band(v.reaction, bit) ~= 0) then
-                                                appendLine("u.reaction.%s=true", REACTION_NAMES[bit]);
-                                            end
-                                        end
-                                    end
-                                    if (v.dead ~= nil) then
-                                        axes = bor(axes, UNITAXIS_DEAD);
-                                        appendLine("u.dead=%s", tostring(v.dead));
-                                    end
-                                end
-
-                                -- 별칭 해석은 어느 갈래든 필요하다. `_unitsSeen`가
-                                -- `EnableUnitWatch`를 몰고, 그게 `UnitAliasMap[별칭]`을 채운다 -
-                                -- 클릭 경로가 대상을 푸는 자리가 정확히 거기다.
-                                _unitsSeen[k] = true;
-
-                                -- **Only a state-driven key asks for measurement.**
-                                --
-                                -- Two things read `UnitStates`: the state loop, and the
-                                -- `UnitStates[alias] ~= nil` test that decides whether `SetUnit`
-                                -- calls for a rebuild. A key the state loop never walks does not
-                                -- reach the first, and has nothing to ask of the second -- there
-                                -- is nothing to re-bind on its account, so the rebuild it used to
-                                -- trigger every time the hover moved goes with it.
-                                --
-                                -- The click path loses nothing. Units are the one thing it does
-                                -- not take from the cache; it measures them again at the press.
-                                -- Click-casting does not even take the hover from the cache --
-                                -- the frame that was clicked is `evalFrame`.
-                                --
-                                -- **This is an accumulator, so the unit of the decision matters.**
-                                -- `_measuredUnitAxes` is one table per rebuild and grows by `bor`,
-                                -- so a unit any state-driven key asks about is measured anyway.
-                                -- What is withheld here is **this record's share**, not the unit.
-                                if (stateDriven) then
-                                    _measuredUnitAxes[k] = bor(_measuredUnitAxes[k] or 0, axes);
-                                    _updateFlags[k .. "-exists"] = true;
-                                    if (band(axes, UNITAXIS_REACTION) ~= 0) then
-                                        _measuresReaction = true;
-                                    end
-                                end
-                            end
-                        end
-
-                        -- **A switch is used by acting on it too, not only by being a condition.**
-                        -- An on/off/toggle action names its switch in `value`, so the condition
-                        -- loop below never sees it, and registration is what puts the switch's
-                        -- stored value back into `States` at every rebuild (the `_switches` walk
-                        -- in `UpdateBindings`). Without it the restricted side holds nil while the
-                        -- window shows the stored value, and the first press only brings the two
-                        -- back together -- it reads as a press that did nothing, and the rebuild
-                        -- after it puts the pair back out of step.
-                        --
-                        -- No `_updateFlags` entry: this key's own wiring does not depend on the
-                        -- switch, so there is nothing to re-decide when it changes.
-                        if (Constants.SETSTATE_MODES[binding.type]
-                                and luatype(binding.value) == "string") then
-                            addSwitch(binding.value);
-                        end
-
-                        -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는
-                        -- 루프였고, 그래서 `$state1`~`$state5` 밖의 이름은 조건으로 걸려
-                        -- 있어도 여기서 안 보였다. 솔버는 그 이름에도 컬럼을 만드니
-                        -- (`Solver.lua`) 둘이 갈리면 한쪽은 조건이 있다고 보고 다른 쪽은
-                        -- 없다고 본다.
-                        --
-                        -- **정의가 없어도 굽는다.** 정의를 못 찾으면 조건을 통째로 빼던
-                        -- 자리다 - 빼면 그 바인딩이 조건 없이 상시 발동한다. ⚑2가 매크로
-                        -- 본문에서 막은 것과 같은 실패 방향인데 이쪽이 더 나쁘다: 본문 쪽은
-                        -- 액션에 마커라도 붙는다. 구워두면 런타임 비교가 `States[name] ~= v`라
-                        -- 아무도 안 쓴 이름은 `nil`이고, 참을 걸었든 거짓을 걸었든 안 맞는다 -
-                        -- 어느 쪽으로 걸어도 안 나가는 쪽으로 떨어진다.
-                        --
-                        -- **이제 그 액션은 여기까지 오지도 않는다.** 정의 없는 이름을 조건으로
-                        -- 건 액션에도 마커가 붙어서(`GetUndefinedSwitch`) `KeyMap`에서 빠지고,
-                        -- 그래서 위 갈래는 액션 쪽으로는 도달 불가가 됐다. **그렇다고 지우지
-                        -- 말 것** - 스위치의 계산식은 액션이 아니라 이 길로 그대로 내려오고,
-                        -- 무엇보다 이건 위험한 방향을 막는 마지막 겹이다. 마커 하나가
-                        -- 빠지거나 좁아지는 날 여기가 없으면 ⚑2가 그대로 돌아온다.
-                        local switchesTblCreated;
-                        for _, state in ipairs(sortedKeys(binding.conditions, _sortedB)) do
-                            local v = binding.conditions[state];
-                            if (Constants.IsSwitchName(state)) then
-                                addSwitch(state);
-                                if (not switchesTblCreated) then
-                                    appendLine([[t.switches=newtable()]])
-                                    switchesTblCreated = true;
-                                end
-                                appendLine([[t.switches[%q]=%s]], state, v and "true" or "false");
-                                _updateFlags[state] = true;
-                            end
-                        end
-
-                        if (binding.unit) then
-                            _unitsSeen[binding.unit] = true;
-                        end
-
-                        -- **유닛 프레임은 매크로를 거치지 않는다.**
-                        --
-                        -- 옛 경로는 `type="macro"` + `macrotext="/click <프레임> <버튼>"`이었다.
-                        -- 그러면 **바깥이 매크로**가 되고, 도착한 버튼의 액션이 또 매크로면
-                        -- 실행되지 않는다(게임 제약, `click-time-poc-results.md` §2-5).
-                        -- 매크로텍스트·매크로·펫 명령·spellID 없는 탈것이 통째로 안 나갔다.
-                        --
-                        -- `type="click"`은 `SECURE_ACTIONS.click` 한 줄이라 매크로를 안 거친다.
-                        -- 대신 **버튼 이름을 못 싣는다** - `delegate:Click(button)`이 원래 마우스
-                        -- 버튼을 그대로 넘긴다. 그래서 어느 액션인지는 래퍼가 도착한 뒤에
-                        -- `ClickCastKeys`에서 되찾는다(아래 등록).
-                        --
-                        -- 그 덕에 여기서 거는 `clickbutton`은 **언제나 같은 프레임**이다.
-                        -- 승자가 바뀌어도 안 바뀌므로 옛 경로처럼 액션마다 다시 쓸 일이 없다.
-                        -- **아무것도 안 굽는다.** 유닛 프레임에 미리 찍어둘 것이 없어서다 -
-                        -- 프레임이 들고 있는 것은 등록 때 한 번 쓴 고정값
-                        -- (`*type-debind1` / `*clickbutton-debind1`)뿐이고, 어느 액션인지는
-                        -- 래퍼가 클릭 순간에 정한다.
-                        --
-                        -- 그래서 이 레코드가 클릭 갈래에 속한다는 표시 하나면 된다. 래퍼가
-                        -- 그것으로 볼 레코드를 고른다(`EVAL_SNIPPET`의 `subset`).
-                        -- **`unitframe` 플래그를 안 세운다.** 옛 경로에서는 상태 루프가 승자를
-                        -- 유닛 프레임에 미리 찍어뒀으니 호버가 바뀌면 다시 골라야 했다. 지금은
-                        -- 래퍼가 클릭 순간에 고르므로 다시 걸 것이 없다.
-                        if (isClickCast) then
-                            appendLine("t.isClickCast=true");
-                        end
-
-                        if (holdsKey) then
-                            appendLine("t.holdsKey=true");
-                        end
+                        CollectRecordAxes(record, stateDriven);
+                        EmitRecord(record);
                     end
                 end
             end
@@ -1566,6 +1657,7 @@ function UpdateBindingsMap()
             appendLine("ClickCastKeys[%d]=ClickCastKeys[%d] or newtable()", button, button);
             appendLine("ClickCastKeys[%d][%d]=bindings", button, GetModifierIndex(buttonPrefix));
         end
+
         -- **진단으로만 남는다.** 상태 루프가 마지막 독자였는데, 그 루프가 도는 키는 이제 전부
         -- 이 값이 참이라 물어볼 것이 없어졌다. `alwaysOurs`와 같은 자리다(§2-2): 진짜는 어느
         -- 표에 들어 있느냐이고 이 필드는 그 사본이라, 이걸로 판정하는 코드를 새로 쓰면 안 된다.
@@ -1598,7 +1690,8 @@ function UpdateBindingsMap()
                 -- 판정하는 코드를 새로 쓰면 안 된다. 그래도 두는 이유는 `bindings` 하나만 보고
                 -- 이 키가 어느 갈래인지 알 수 있어야 인게임에서 확인이 되기 때문이다.
                 appendLine("bindings.alwaysOurs=true");
-                appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key, clickTimeButton);
+                appendLine("self:SetBindingClick(true,%q,DefaultClickFrameName,%q)", key,
+                    clickTimeButton);
             else
                 -- 상태 루프가 걸 때 쓸 이름. 문자열 결합을 클릭 경로 밖으로 빼둔다.
                 -- **이 값이 곧 "clickTime 키인가" 표시다** - 따로 불리언을 두면 둘이 갈라진다.

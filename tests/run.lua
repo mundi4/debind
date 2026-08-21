@@ -112,6 +112,7 @@ local specs = {
     -- shift every name in it.
     { name = "plan", path = root .. "/plan_spec.lua" },
     { name = "describe", path = root .. "/describe_spec.lua" },
+    { name = "record", path = root .. "/record_spec.lua" },
 };
 
 --- Reading and writing a whole file, whichever interpreter this is.

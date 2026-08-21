@@ -220,6 +220,58 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- Every axis a record carries is an axis the loop measures
+    ---------------------------------------------------------------------------
+
+    -- **The pairing this sweeps used to be written down twice.** Emitting an axis onto a record
+    -- and registering the state that wakes a key carrying it were two lines beside each other, so
+    -- either could go without the other -- an emitted axis with no state is a key that never wakes
+    -- up, and a state with no axis is a measurement nobody reads. The states are read off the
+    -- finished record now, and this is what says the two still line up.
+    --
+    -- **The state names are not the field names for four of them**, which is the other half of why
+    -- the pairing was easy to get wrong: `groups` wakes on `group`, `forms` on `form`,
+    -- `bonusbars` on `bonusbar`.
+    test("every condition axis on a state-driven key is measured by the state loop", function()
+        local AXES = {
+            { conditions = { groups = Constants.GROUP_PARTY }, state = "group" },
+            { conditions = { combat = true }, state = "combat" },
+            { conditions = { stealth = true }, state = "stealth" },
+            { conditions = { forms = 3 }, state = "form" },
+            { conditions = { bonusbars = 5 }, state = "bonusbar" },
+            { conditions = { specialbar = true }, state = "specialbar" },
+            { conditions = { extrabar = true }, state = "extrabar" },
+            { conditions = { pet = true }, state = "pet" },
+            { conditions = { petbattle = true }, state = "petbattle" },
+        };
+
+        for i = 1, #AXES do
+            local axis = AXES[i];
+            local plan = PlanFor({ spell({ key = "F1", conditions = axis.conditions }) });
+            local measured = ('States["%s"]'):format(axis.state);
+            check(plan.attrChangedSnippet:find(measured, 1, true),
+                axis.state .. " is carried by a record and never measured");
+
+            -- **And the other direction, in the same pass.** Without it the sweep also passes on a
+            -- loop that measures every axis whatever the profile asks for, which is what the
+            -- registration narrowing above exists to prevent.
+            for j = 1, #AXES do
+                if (j ~= i) then
+                    local other = ('States["%s"]'):format(AXES[j].state);
+                    -- `specialbar` folds `[petbattle]` into itself, so those two travel together
+                    -- and neither one alone proves anything about the other.
+                    local paired = (axis.state == "specialbar" and AXES[j].state == "petbattle")
+                        or (axis.state == "petbattle" and AXES[j].state == "specialbar");
+                    if (not paired) then
+                        check(not plan.attrChangedSnippet:find(other, 1, true),
+                            axis.state .. " dragged " .. AXES[j].state .. " into the loop");
+                    end
+                end
+            end
+        end
+    end);
+
+    ---------------------------------------------------------------------------
     -- Watched units
     ---------------------------------------------------------------------------
 
