@@ -1578,7 +1578,6 @@ do
     end
 
     local function parseOptions(unitsOnly, ...)
-        local isComplex = false;
         local n = select("#", ...);
         for i = 1, n do
             if (i > 1 and lastChar() ~= ",") then
@@ -1627,7 +1626,6 @@ do
                 if (char == "$") then
                     if (strmatch(strsub(token, 2), "^([a-zA-Z0-9_]+)$")) then
                         arg = appendArg(token, Constants.MACROTEXT_ARG_SWITCH, str, reverse);
-                        isComplex = true;
                     end
                 end
 
@@ -1647,7 +1645,6 @@ do
                 appendStr(str);
             end
         end
-        return isComplex;
     end
 
     function DebindPrivate.ParseMacroText(str, unitsOnly)
@@ -1657,7 +1654,6 @@ do
             _fragments = {};
             _args = {};
 
-            local isComplex;
             local lines = { strsplit("\n", str) };
 
             for lineNum, line in ipairs(lines) do
@@ -1678,9 +1674,7 @@ do
                     local s1, nextIndex = strmatch(line, "^%s*%[([^%]]*)%]()", idx);
                     if (s1) then
                         appendStr("[")
-                        if (parseOptions(unitsOnly, strsplit("[,]", s1))) then
-                            isComplex = true;
-                        end
+                        parseOptions(unitsOnly, strsplit("[,]", s1));
                         appendStr("]");
                         idx = nextIndex;
 
@@ -1705,20 +1699,13 @@ do
                 end
             end
 
+            -- Odd slots are text, even slots are argument slots. What sits in an even slot is
+            -- **the source token itself** (`tank` for `@tank`, `no$state1`), and the restricted
+            -- side overwrites those slots in its own copy before concatenating. Nothing touches
+            -- the table cached here, so `table.concat` on it is the macro body as this parser
+            -- read it, which is what a caller wanting the normalized text builds for itself.
             if (#_fragments > 1) then
-                local normalized = table.concat(_fragments);
-                if (isComplex) then
-                    cached = { _fragments, _args, true, normalized };
-                else
-                    for i = 1, #_args do
-                        local arg = _args[i];
-                        assert(arg.type == Constants.MACROTEXT_ARG_UNIT);
-                        local unitIndex = SPECIAL_UNITS[arg.name];
-                        _fragments[i * 2] = format("%%%d$s", unitIndex);
-                    end
-                    local s = table.concat(_fragments);
-                    cached = { s, _args, nil, normalized };
-                end
+                cached = { _fragments, _args };
             else
                 cached = false;
             end
@@ -1727,7 +1714,7 @@ do
         end
 
         if (cached) then
-            return cached[1], cached[2], cached[3], cached[4];
+            return cached[1], cached[2];
         else
             return str;
         end

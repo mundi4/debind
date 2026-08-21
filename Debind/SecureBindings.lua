@@ -190,34 +190,23 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 				--if (not _macrotextsSeen[t.id]) then
 					--_macrotextsSeen[t.id] = true
 					local s
-					if (t.fragments) then
-						for i = 1, #t.args do
-							local arg = t.args[i]
-							local value
-							if (arg.unit) then
-								value = UnitAliasMap[arg.unit] or "raid41"
-							elseif (arg.state) then
-								value = States[arg.state] and true or false
-								if (arg.reverse) then
-									value = not value
-								end
-								value = value and "" or "known:0"
-							elseif (arg.fixed) then
-								value = arg.fixed
+					for i = 1, #t.args do
+						local arg = t.args[i]
+						local value
+						if (arg.unit) then
+							value = UnitAliasMap[arg.unit] or "raid41"
+						elseif (arg.state) then
+							value = States[arg.state] and true or false
+							if (arg.reverse) then
+								value = not value
 							end
-							t.fragments[i * 2] = value
+							value = value and "" or "known:0"
+						elseif (arg.fixed) then
+							value = arg.fixed
 						end
-						s = table.concat(t.fragments)
-					else
-						s = format(t.formatString,
-								UnitAliasMap["tank"] or "raid41",
-								UnitAliasMap["healer"] or "raid41",
-								UnitAliasMap["maintank"] or "raid41",
-								UnitAliasMap["mainassist"] or "raid41",
-								UnitAliasMap["custom1"] or "raid41",
-								UnitAliasMap["custom2"] or "raid41",
-								UnitAliasMap["hover"] or "raid41")
+						t.fragments[i * 2] = value
 					end
+					s = table.concat(t.fragments)
 
 					-- 실제로 버튼에 올라가는 문자열. 여기가 **보안 쪽에서 매크로 본문이
 					-- 완성되는 유일한 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를

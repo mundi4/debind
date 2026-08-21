@@ -79,56 +79,59 @@ return function(DebindPrivate)
         return (s:gsub("%[", "[ "):gsub("%]", " ]"):gsub(",", " , "));
     end
 
-    local function expectRoundTrip(macrotext)
-        local _, args, _, normalized = ParseMacroText(macrotext);
+    --- The macro body as the parser read it. The even slots still hold the source token, so
+    --- concatenating the fragments gives the text back with the parser's whitespace
+    --- normalization applied and nothing else changed. The parser used to hand this out as a
+    --- fourth return value; it stopped, because the caller can build it in one line and only
+    --- this file ever wanted it.
+    local function normalizedOf(macrotext)
+        local fragments, args = ParseMacroText(macrotext);
         if (not args) then
-            return; -- 파싱 대상이 아님. normalized 없음
+            return nil; -- Nothing for the parser to pick up, so there is no normalized text
+        end
+        return table.concat(fragments), args;
+    end
+
+    local function expectRoundTrip(macrotext)
+        local normalized = normalizedOf(macrotext);
+        if (not normalized) then
+            return; -- Not a body this parser has anything to say about
         end
         check(canon(normalized) == canon(macrotext),
             format("정규화가 내용을 바꿈\n     원문 %q\n     결과 %q", macrotext, normalized));
     end
 
-    --- 와우의 format은 `%N$s` 위치 지정자를 받지만 순수 Lua는 안 받는다.
-    local function applyPositional(fmt, values)
-        return (fmt:gsub("%%(%d+)%$s", function(n) return values[tonumber(n)]; end));
-    end
-
-    --- SecureBindings.lua:86-113의 치환을 그대로 흉내낸다.
-    --- 보안 환경이 실제로 와우에 넘기는 문자열을 만들어 준다.
+    --- Mirrors the substitution `UpdateMacroTexts` does in `SecureBindings.lua`, so this file
+    --- can see the string the restricted environment actually hands the game.
+    ---
+    --- One branch is correct here. A body carrying only units and one carrying a switch take
+    --- the same path.
     local function resolve(macrotext, units, states)
         units, states = units or {}, states or {};
-        local first, args, isComplex = ParseMacroText(macrotext);
+        local fragments, args = ParseMacroText(macrotext);
         if (not args) then
-            return first; -- 특수 토큰 없음. 원문 그대로
+            return fragments; -- No token of ours in it, so the parser hands back the source
         end
 
-        if (isComplex) then
-            local frags = {};
-            for i = 1, #first do
-                frags[i] = first[i];
-            end
-            for i = 1, #args do
-                local arg = args[i];
-                local value;
-                if (arg.type == ARG_UNIT) then
-                    value = units[arg.name] or "raid41";
-                else
-                    local on = states[arg.name] and true or false;
-                    if (arg.reverse) then
-                        on = not on;
-                    end
-                    value = on and "" or "known:0";
+        local frags = {};
+        for i = 1, #fragments do
+            frags[i] = fragments[i];
+        end
+        for i = 1, #args do
+            local arg = args[i];
+            local value;
+            if (arg.type == ARG_UNIT) then
+                value = units[arg.name] or "raid41";
+            else
+                local on = states[arg.name] and true or false;
+                if (arg.reverse) then
+                    on = not on;
                 end
-                frags[i * 2] = value;
+                value = on and "" or "known:0";
             end
-            return table.concat(frags);
+            frags[i * 2] = value;
         end
-
-        local ordered = {};
-        for name, index in pairs(SPECIAL_UNITS) do
-            ordered[index] = units[name] or "raid41";
-        end
-        return applyPositional(first, ordered);
+        return table.concat(frags);
     end
 
     local LEAKABLE = { "@tank", "@healer", "@maintank", "@mainassist", "@custom1", "@custom2", "@hover", "$state" };
@@ -271,7 +274,7 @@ return function(DebindPrivate)
     end);
 
     test("명령 뒤 공백은 여러 개여도 보존된다", function()
-        local _, _, _, normalized = ParseMacroText("/cast  [@tank]  Foo");
+        local normalized = normalizedOf("/cast  [@tank]  Foo");
         check(normalized == "/cast  [@tank]Foo", "정규화 결과가 " .. tostring(normalized));
     end);
 
@@ -412,56 +415,84 @@ return function(DebindPrivate)
     end);
 
     test("닫히지 않은 대괄호는 그대로 흘려보낸다", function()
-        local a, args = ParseMacroText("/cast [@tank][@healer Foo");
+        local normalized, args = normalizedOf("/cast [@tank][@healer Foo");
         check(args and #args == 1, "첫 그룹은 파싱됐어야 함");
         check(args[1].name == "tank", "이름이 " .. tostring(args[1].name));
-        check(a:find("[@healer Foo", 1, true), "망가진 꼬리가 보존되지 않음");
+        check(normalized:find("[@healer Foo", 1, true), "망가진 꼬리가 보존되지 않음");
     end);
 
     ---------------------------------------------------------------------------
     -- 5. SecureBindings.lua가 의존하는 반환값 계약
     ---------------------------------------------------------------------------
 
-    test("계약: 특수 유닛만 있으면 formatString", function()
-        local fmt, args, isComplex = ParseMacroText("/cast [@tank][@healer] Foo");
-        check(type(fmt) == "string", "fragments가 아니라 문자열이어야 함");
-        check(not isComplex, "isComplex가 켜짐");
-        check(fmt == "/cast [@%1$s][@%2$s]Foo", "포맷 문자열이 " .. fmt);
-        check(#args == 2, "인자 수가 " .. #args);
+    --- **There is one shape.** A body carrying only units and a body carrying a switch come
+    --- back as the same thing.
+    ---
+    --- The two used to differ. Units only produced a `%N$s` format string where `N` was the
+    --- number in `SPECIAL_UNITS`, and that number was written down in three places (the table,
+    --- the site that baked it, seven hand-written arguments on the restricted side), so
+    --- **adding or removing one special unit silently misaligned the rest**. With the branch
+    --- gone there is no number left to keep aligned.
+    local function checkFragmentShape(macrotext, argCount)
+        local frags, args = ParseMacroText(macrotext);
+        check(type(frags) == "table", macrotext .. ": fragments가 테이블이 아님");
+        check(#args == argCount, macrotext .. ": 인자 수가 " .. #args);
+        -- Odd slots are text, even slots are argument slots (`SecureBindings` overwrites
+        -- `fragments[i * 2]`).
+        check(#frags == #args * 2 + 1, macrotext .. ": fragments 길이가 " .. #frags);
+        for i = 1, #args do
+            check(frags[i * 2] == (args[i].sourceString or args[i].name),
+                format("%s: fragments[%d]가 %q, 인자는 %q",
+                    macrotext, i * 2, frags[i * 2], args[i].name));
+        end
+        return frags, args;
+    end
+
+    test("계약: 특수 유닛만 있어도 fragments다", function()
+        local _, args = checkFragmentShape("/cast [@tank][@healer] Foo", 2);
         check(args[1].type == ARG_UNIT and args[2].type == ARG_UNIT, "타입이 UNIT이 아님");
     end);
 
-    test("계약: 커스텀 상태가 끼면 fragments", function()
-        local frags, args, isComplex = ParseMacroText("/cast [$state1][@tank] Foo");
-        check(type(frags) == "table", "fragments가 테이블이 아님");
-        check(isComplex == true, "isComplex가 안 켜짐");
-        -- 홀수 = 글자, 짝수 = 인자 자리 (SecureBindings가 `fragments[i*2]`를 덮어씀)
-        check(#frags == #args * 2 + 1, "fragments 길이가 " .. #frags);
-        for i = 1, #args do
-            check(frags[i * 2] == (args[i].sourceString or args[i].name),
-                format("fragments[%d]가 %q, 인자는 %q", i * 2, frags[i * 2], args[i].name));
-        end
+    test("계약: 스위치가 끼어도 같은 모양이다", function()
+        local _, args = checkFragmentShape("/cast [$state1][@tank] Foo", 2);
+        check(args[1].type == ARG_STATE, "첫 인자가 스위치가 아님");
+        check(args[2].type == ARG_UNIT, "둘째 인자가 UNIT이 아님");
     end);
 
-    test("계약: 유닛 인덱스가 보안 환경 인자 순서와 맞는다", function()
-        -- SecureBindings.lua:106-113이 tank, healer, maintank, mainassist,
-        -- custom1, custom2, hover 순으로 넘긴다
-        local order = { "tank", "healer", "maintank", "mainassist", "custom1", "custom2", "hover" };
-        for i = 1, #order do
-            check(SPECIAL_UNITS[order[i]] == i, order[i] .. "의 인덱스가 " .. tostring(SPECIAL_UNITS[order[i]]));
-            local fmt = ParseMacroText("/cast [@" .. order[i] .. "] Foo");
-            check(fmt == format("/cast [@%%%d$s]Foo", i), "포맷 문자열이 " .. fmt);
+    test("계약: 특수 유닛 일곱이 전부 같은 모양으로 나온다", function()
+        -- This used to check, per unit, that the `N` in `%N$s` matched that unit's number. With
+        -- no number left to keep, what remains is **whether all seven are picked up as
+        -- arguments**. One that leaks through as literal text hands `@tank` to the game as is.
+        for name in pairs(SPECIAL_UNITS) do
+            local _, args = checkFragmentShape("/cast [@" .. name .. "] Foo", 1);
+            check(args[1].name == name, name .. "이 인자로 안 잡힘");
+            check(args[1].type == ARG_UNIT, name .. "의 타입이 UNIT이 아님");
         end
     end);
 
     test("계약: 캐시가 같은 결과를 준다", function()
+        -- A hit hands back **the same table**; after a clear, **a different table holding the
+        -- same thing**. This used to be one `==` between two first return values, and that one
+        -- comparison answered both questions at once because they were strings. They are tables
+        -- now, so `==` answers identity only and the two questions have to be asked separately.
         local text = "/cast [@tank][@healer] Foo";
-        local a1, args1 = ParseMacroText(text);
-        local a2, args2 = ParseMacroText(text);
-        check(a1 == a2 and args1 == args2, "캐시가 다른 값을 돌려줌");
+        local frags1, args1 = ParseMacroText(text);
+        local frags2, args2 = ParseMacroText(text);
+        check(frags1 == frags2 and args1 == args2, "캐시가 다른 표를 돌려줌");
+
         ClearMacroTextCache();
-        local a3 = ParseMacroText(text);
-        check(a1 == a3, "캐시를 비우니 결과가 달라짐");
+        local frags3, args3 = ParseMacroText(text);
+        check(frags3 ~= frags1, "캐시를 비웠는데 같은 표가 나옴");
+        check(table.concat(frags3) == table.concat(frags1), "비운 뒤 정규화 결과가 달라짐");
+        check(#args3 == #args1, "비운 뒤 인자 수가 달라짐");
+        for i = 1, #frags1 do
+            check(frags3[i] == frags1[i],
+                format("비운 뒤 fragments[%d]가 %q에서 %q로", i, frags1[i], frags3[i]));
+        end
+        for i = 1, #args1 do
+            check(args3[i].name == args1[i].name and args3[i].type == args1[i].type,
+                format("비운 뒤 인자 %d가 달라짐", i));
+        end
     end);
 
     ---------------------------------------------------------------------------

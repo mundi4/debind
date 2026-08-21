@@ -150,34 +150,23 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 					local s
-					if (t.fragments) then
-						for i = 1, #t.args do
-							local arg = t.args[i]
-							local value
-							if (arg.unit) then
-								value = UnitAliasMap[arg.unit] or "raid41"
-							elseif (arg.state) then
-								value = States[arg.state] and true or false
-								if (arg.reverse) then
-									value = not value
-								end
-								value = value and "" or "known:0"
-							elseif (arg.fixed) then
-								value = arg.fixed
+					for i = 1, #t.args do
+						local arg = t.args[i]
+						local value
+						if (arg.unit) then
+							value = UnitAliasMap[arg.unit] or "raid41"
+						elseif (arg.state) then
+							value = States[arg.state] and true or false
+							if (arg.reverse) then
+								value = not value
 							end
-							t.fragments[i * 2] = value
+							value = value and "" or "known:0"
+						elseif (arg.fixed) then
+							value = arg.fixed
 						end
-						s = table.concat(t.fragments)
-					else
-						s = format(t.formatString,
-								UnitAliasMap["tank"] or "raid41",
-								UnitAliasMap["healer"] or "raid41",
-								UnitAliasMap["maintank"] or "raid41",
-								UnitAliasMap["mainassist"] or "raid41",
-								UnitAliasMap["custom1"] or "raid41",
-								UnitAliasMap["custom2"] or "raid41",
-								UnitAliasMap["hover"] or "raid41")
+						t.fragments[i * 2] = value
 					end
+					s = table.concat(t.fragments)
 
 
 
@@ -231,34 +220,23 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 					local s
-					if (t.fragments) then
-						for i = 1, #t.args do
-							local arg = t.args[i]
-							local value
-							if (arg.unit) then
-								value = UnitAliasMap[arg.unit] or "raid41"
-							elseif (arg.state) then
-								value = States[arg.state] and true or false
-								if (arg.reverse) then
-									value = not value
-								end
-								value = value and "" or "known:0"
-							elseif (arg.fixed) then
-								value = arg.fixed
+					for i = 1, #t.args do
+						local arg = t.args[i]
+						local value
+						if (arg.unit) then
+							value = UnitAliasMap[arg.unit] or "raid41"
+						elseif (arg.state) then
+							value = States[arg.state] and true or false
+							if (arg.reverse) then
+								value = not value
 							end
-							t.fragments[i * 2] = value
+							value = value and "" or "known:0"
+						elseif (arg.fixed) then
+							value = arg.fixed
 						end
-						s = table.concat(t.fragments)
-					else
-						s = format(t.formatString,
-								UnitAliasMap["tank"] or "raid41",
-								UnitAliasMap["healer"] or "raid41",
-								UnitAliasMap["maintank"] or "raid41",
-								UnitAliasMap["mainassist"] or "raid41",
-								UnitAliasMap["custom1"] or "raid41",
-								UnitAliasMap["custom2"] or "raid41",
-								UnitAliasMap["hover"] or "raid41")
+						t.fragments[i * 2] = value
 					end
+					s = table.concat(t.fragments)
 
 
 
