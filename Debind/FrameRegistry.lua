@@ -258,8 +258,24 @@ function DebindPrivate.UpdateRegisteredClicks(button)
     -- costs nothing lasting: `ApplyOptions()` at PLAYER_LOGIN walks every registered frame and
     -- comes back through here, so a frame that took the fallback is corrected before the player
     -- has a chance to click it.
-    local trigger = DebindPrivate.Options and DebindPrivate.Options.unitframeUseMouseDown and "AnyDown" or "AnyUp";
-    button:RegisterForClicks(trigger);
+    --
+    -- **Moving our click to the press must not take the release away from the frame.**
+    -- `SECURE_ACTIONS.menu` acts on the release and returns on the press, so a frame registered
+    -- for the press alone loses its unit menu outright: nothing raises, the click just does
+    -- nothing. `target` does not gate on the edge, which is why targeting went on working and
+    -- hid it. Neither is tied to a button either. `Enum.ClickBindingInteraction.Target` and
+    -- `.OpenContextMenu` are both movable in Blizzard's click binding window, so there is no one
+    -- button whose release could be handed back on its own.
+    --
+    -- Both edges are registered, and the wrapper answers the press so that the frame's own
+    -- actions reach it once, on the release, exactly as they do without the option. Handing the
+    -- press back instead would run them twice, and `ExecuteBinding` (Blizzard's own click
+    -- casting) does not look at the edge at all: that is a second cast per click.
+    if (DebindPrivate.Options and DebindPrivate.Options.unitframeUseMouseDown) then
+        button:RegisterForClicks("AnyDown", "AnyUp");
+    else
+        button:RegisterForClicks("AnyUp");
+    end
     button:EnableMouseWheel(true);
 
     -- 프레임 내에 마우스에 반응하는 자식 프레임이 있는 경우 그 자식 프레임으로 마우스를 올렸을 때

@@ -126,6 +126,12 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 신경 쓰는 것은 `frameTypes` 레코드뿐이라 대개 거짓이고, 그러면 커서가 공대 프레임을
 	-- 쓸고 지나가도 유닛이 안 바뀌는 한 리빌드가 안 나간다.
 	RebindOnHoverFrame = false
+
+	-- **Which edge of a unit frame click is ours** (`unitframeUseMouseDown`). Which edges the
+	-- frame delivers at all is `FrameRegistry`'s call; this decides which of the arriving ones
+	-- we take and which one is handed back to the frame. `ApplyOptions` writes it.
+	ClickCastOnMouseDown = false
+
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
@@ -1016,25 +1022,39 @@ end, [==[
 		return
 	end
 
+	-- **A registered frame delivers only the edges we asked for.** A press arriving here is one
+	-- we turned on for ourselves, and the frame's own actions are waiting on the release, which
+	-- is the single edge they reach without the option too. So every answer below keeps the
+	-- press and hands back only the release. Handing the press back as well would run those
+	-- actions twice: `menu` is the only one that refuses to act on a press, while `target` and
+	-- `ExecuteBinding`, which is Blizzard's own click casting, never look at the edge.
+	--
+	-- `debindnull` is a suffix nobody wrote an attribute for, so a click answered with it is
+	-- spent and there is nothing left to run.
+	local isDown = down and true or false
+
+	local bindings
 	local n = MouseButtonNumbers[button]
-	if (not n) then
-		return
+	if (n) then
+		local mod = 0
+		if (IsAltKeyDown()) then
+			mod = mod + CONSTANTS.MOD_ALT
+		end
+		if (IsControlKeyDown()) then
+			mod = mod + CONSTANTS.MOD_CTRL
+		end
+		if (IsShiftKeyDown()) then
+			mod = mod + CONSTANTS.MOD_SHIFT
+		end
+
+		local byMod = ClickCastKeys[n]
+		bindings = byMod and byMod[mod]
 	end
 
-	local mod = 0
-	if (IsAltKeyDown()) then
-		mod = mod + CONSTANTS.MOD_ALT
-	end
-	if (IsControlKeyDown()) then
-		mod = mod + CONSTANTS.MOD_CTRL
-	end
-	if (IsShiftKeyDown()) then
-		mod = mod + CONSTANTS.MOD_SHIFT
-	end
-
-	local byMod = ClickCastKeys[n]
-	local bindings = byMod and byMod[mod]
 	if (not bindings) then
+		if (isDown) then
+			return "debindnull"
+		end
 		return
 	end
 
@@ -1044,7 +1064,15 @@ end, [==[
 ]==] .. EVAL_SNIPPET .. [==[
 
 	if (not winner or not winner.clickbutton) then
+		if (isDown) then
+			return "debindnull"
+		end
 		return
+	end
+
+	-- Ours, but on the edge we do not act on: the other one already sent it.
+	if (isDown ~= ClickCastOnMouseDown) then
+		return "debindnull"
 	end
 
 	HandoffBindings = bindings

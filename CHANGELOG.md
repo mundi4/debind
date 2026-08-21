@@ -1,3 +1,13 @@
+# 3.2.2
+
+**A fix for the unit frame menu going missing under one option.**
+
+With **Use mouse down for click casting** on, right-clicking a unit frame did nothing at all: the menu the game opens there never came up. Left-clicking still picked the unit up as your target, so the option looked like it was doing its job.
+
+That setting asked the frames to report the press of a click and not the release, and the release is the only moment the game opens that menu. They report both now, and click casting still fires on the press.
+
+Nothing changes with the option off, which is how it comes.
+
 # 3.2.1
 
 **A fix for party frame health bars standing still in Edit Mode.**

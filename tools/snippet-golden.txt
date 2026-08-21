@@ -103,6 +103,12 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	RebindOnHoverFrame = false
+
+
+
+
+	ClickCastOnMouseDown = false
+
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
@@ -612,25 +618,39 @@ DelegateFrameNames[frame] = frame:GetName()
 		return
 	end
 
+
+
+
+
+
+
+
+
+
+	local isDown = down and true or false
+
+	local bindings
 	local n = MouseButtonNumbers[button]
-	if (not n) then
-		return
+	if (n) then
+		local mod = 0
+		if (IsAltKeyDown()) then
+			mod = mod + CONSTANTS.MOD_ALT
+		end
+		if (IsControlKeyDown()) then
+			mod = mod + CONSTANTS.MOD_CTRL
+		end
+		if (IsShiftKeyDown()) then
+			mod = mod + CONSTANTS.MOD_SHIFT
+		end
+
+		local byMod = ClickCastKeys[n]
+		bindings = byMod and byMod[mod]
 	end
 
-	local mod = 0
-	if (IsAltKeyDown()) then
-		mod = mod + CONSTANTS.MOD_ALT
-	end
-	if (IsControlKeyDown()) then
-		mod = mod + CONSTANTS.MOD_CTRL
-	end
-	if (IsShiftKeyDown()) then
-		mod = mod + CONSTANTS.MOD_SHIFT
-	end
-
-	local byMod = ClickCastKeys[n]
-	local bindings = byMod and byMod[mod]
 	if (not bindings) then
+		if (isDown) then
+			return "debindnull"
+		end
 		return
 	end
 
@@ -930,7 +950,15 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	if (not winner or not winner.clickbutton) then
+		if (isDown) then
+			return "debindnull"
+		end
 		return
+	end
+
+
+	if (isDown ~= ClickCastOnMouseDown) then
+		return "debindnull"
 	end
 
 	HandoffBindings = bindings
