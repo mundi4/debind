@@ -23,9 +23,19 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 --- `local BindingDriver = DebindPrivate.BindingDriver` -- so a file read before the one that puts
 --- the value there binds nil and fails much later, somewhere else.
 ---
---- What is missing is the UI (`devdocs/going-headless-outside-the-ui.md` §11): the line is not
---- whether a file is UI but whether the function needs a frame, and `ImportUI.lua` is here for
---- exactly that reason.
+--- **This is exactly `Debind.xml`, and that is not the same as "everything but the UI".** The
+--- two differ at both ends, and §11 of `devdocs/going-headless-outside-the-ui.md` says which
+--- rule decides: whether the **function** needs a frame, not whether the file is UI.
+---
+---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
+---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
+---     along because the pipeline calls into it
+---   `ImportUI.lua` is UI and is here for the opposite reason: `CollectImportLines` needs none
+---   `Public.lua` is **not** UI and is **not** here. It is in the TOC after `DebindUI.xml`
+---     rather than in this XML, and nothing in the pipeline calls it - it is what other addons
+---     call
+---   `DevSeed.lua` has to stay out: it plants a profile, and every spec that starts from an
+---     empty one would be handed the seed instead (`Profile.lua`, `InitDB`)
 local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
     "Snippets.lua",

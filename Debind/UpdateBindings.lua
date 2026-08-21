@@ -504,10 +504,20 @@ local function BuildBindingPlan(ctx)
 
     CollectDriverEvents(plan.events);
 
-    -- **The throttle this rebuild asks for.** `FinishBindingUpdate` sets it again from the option
-    -- the window writes (`ApplyOptions`), so what this one decides stands only for the length of
-    -- the apply. `Options.updatetime` is a key nothing in the repository writes
-    -- (`.zzz/refactor-candidates.md` 33), which makes the clamp below equal to "use the default".
+    -- **The throttle this rebuild asks for, and it is the fallback rather than the answer.**
+    -- `FinishBindingUpdate` writes `updatetime` again from the option the window's slider sets
+    -- (`ApplyOptions`), and that one usually wins.
+    --
+    -- **Usually, not always.** `ApplyOptions` only writes when the stored option is a number, and
+    -- nothing type-checks `db.options` -- so a hand-edited SavedVariables holding a string skips it
+    -- entirely, and then what the state driver runs on is the value decided here. Do not delete
+    -- this write on the grounds that the other one covers it: `STATE_DRIVER_UPDATE_THROTTLE` is
+    -- Blizzard's own, shared with every addon, and leaving nobody to write it means whatever was
+    -- there last stays (`.zzz/refactor-candidates.md` 33).
+    --
+    -- `Options.updatetime` is a key nothing in the repository writes, so the clamp below comes out
+    -- at the default today. It is also the only place a profile that polls for a mouseover unit
+    -- could ever ask for a rate of its own -- which `ApplyOptions` running afterwards takes away.
     local updatetime = ctx.updatetime;
     if (not updatetime or updatetime < 0 or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
         updatetime = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;

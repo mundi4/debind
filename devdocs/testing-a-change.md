@@ -6,7 +6,7 @@ change spans layers, land a check in each.
 
 | | runs | sees | cannot see |
 |---|---|---|---|
-| `npm test` | headless, no client | **the whole pipeline except the UI** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, and which record a press picks | the sandbox itself, taint, combat lockdown, what the game reports a key is bound to, a real frame under a real cursor |
+| `npm test` | headless, no client | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, and which record a press picks | the sandbox itself, taint, combat lockdown, what the game reports a key is bound to, a real frame under a real cursor |
 | `npm run check` | headless | lint, XML, locale/template parity, snippet syntax, **the exact bytes every snippet bakes to** | whether any of it behaves |
 | `/debtest` | in the game | the real restricted environment: snippets compiling, attributes wiring, event ordering, what the game reports a key is bound to | nothing that needs a second player or a real fight |
 
@@ -17,12 +17,15 @@ change spans layers, land a check in each.
 ## 1. Headless specs — `tests/`
 
 The cheapest layer, and the only one that runs without the game. Use it for anything that is a
-function of its inputs — which, since `going-headless-outside-the-ui.md`, is everything but the UI.
+function of its inputs — which, since `going-headless-outside-the-ui.md`, is the whole pipeline.
 
-`tests/run.lua` reads the addon in `Debind.xml`'s order under a shim, all of it except the UI files
-— plus `ImportUI.lua`, which is here because the line is **not whether a file is UI but whether the
-function needs a frame**, and `CollectImportLines` does not. What stands in for the client is three
-things:
+`tests/run.lua` reads **exactly `Debind.xml`**, in its order, under a shim — plus `ImportUI.lua`.
+That is close to "everything but the UI" and it is not the same thing, and the difference is the
+rule: **not whether a file is UI, but whether the function needs a frame.** `ImportUI.lua` is in
+because `CollectImportLines` needs none. `Flyout.lua` is UI, needs one, and is in anyway — the
+pipeline asks it for a flyout opener. `Public.lua` is not UI, is not in `Debind.xml`, and is out.
+
+What stands in for the client is three things:
 
 | | |
 |---|---|
