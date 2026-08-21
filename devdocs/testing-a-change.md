@@ -6,7 +6,7 @@ change spans layers, land a check in each.
 
 | | runs | sees | cannot see |
 |---|---|---|---|
-| `npm test` | headless, no client | pure logic — solving, ordering, derivations, migration | anything that needs a frame, an attribute, or the restricted environment |
+| `npm test` | headless, no client | **the whole pipeline except the UI** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, and which record a press picks | the sandbox itself, taint, combat lockdown, what the game reports a key is bound to, a real frame under a real cursor |
 | `npm run check` | headless | lint, XML, locale/template parity, snippet syntax, **the exact bytes every snippet bakes to** | whether any of it behaves |
 | `/debtest` | in the game | the real restricted environment: snippets compiling, attributes wiring, event ordering, what the game reports a key is bound to | nothing that needs a second player or a real fight |
 
@@ -17,14 +17,28 @@ change spans layers, land a check in each.
 ## 1. Headless specs — `tests/`
 
 The cheapest layer, and the only one that runs without the game. Use it for anything that is a
-function of its inputs.
+function of its inputs — which, since `going-headless-outside-the-ui.md`, is everything but the UI.
 
-`tests/run.lua` loads a subset of the addon under a shim: `Constants`, `Ordering`, `Solver`,
-`Misc`, `ActionCatalog`, `Profile`, `Legacy`, and `ImportUI`, the one UI file in the list: it builds
-no frames when it is read, and `CollectImportLines` lives in it. **`UpdateBindings.lua` and
-`SecureBindings.lua` are not loaded** — the parts of them that are pure (expression emitters,
-condition merging) are testable in principle but the files also build frames at load, so they are
-not reachable yet.
+`tests/run.lua` reads the addon in `Debind.xml`'s order under a shim, all of it except the UI files
+— plus `ImportUI.lua`, which is here because the line is **not whether a file is UI but whether the
+function needs a frame**, and `CollectImportLines` does not. What stands in for the client is three
+things:
+
+| | |
+|---|---|
+| `tests/wow_shim.lua` | the value-returning queries, answered out of `shim.world` — spells, mounts, units, the game's own binding table. A spec puts a world up rather than swapping a function out |
+| `tests/wow_frames.lua` | the frame shell, and a recorder that keeps **everything** the addon hands to the secure side, in order |
+| `tests/restricted.lua` | the restricted environment. It replays that recording, so the tables the click path reads are the ones the game would have built, and then runs `EVAL_SNIPPET` — which is how "which action does this key fire" has a headless answer at all |
+
+Two of the specs are worth knowing about before adding one:
+
+- **`emit_spec.lua` is the emission golden.** One rebuild against a fixed profile, every string it
+  hands to the secure side, held byte for byte against `tests/emit-golden.txt`. It is a net for
+  refactoring and **not a specification**: when the emission is meant to move, run
+  `node tests/run.js --update-golden` and read the diff.
+- **The specs that drive a rebuild run last, and in a fixed order.** They leave module-level state
+  behind (`BindingAttrsCache`, the button-name counter, `KeyMap`), and the golden's button names
+  come off that counter. The `specs` list says so where it matters.
 
 Add a spec by dropping a file in `tests/` and registering it in the `specs` list in
 `tests/run.lua`. A spec is a function taking `DebindPrivate` and returning
@@ -76,6 +90,15 @@ thing that ever ran it was logging in on a development client.
 ## 3. In-game tests — `DebindTest`
 
 Needs `Constants.DEBUG` on, since the kit reaches the addon through `_G.DebindPrivate`.
+
+**What belongs here is what needs the game.** Twenty-nine cases came down to `tests/` when the
+harness learned to read the emitters and run the restricted environment, and every one of them was
+a question about a value. What stayed asks something a client alone can answer, and **each of those
+carries a line above it saying so** — a test still here without one is a test nobody has re-read.
+
+Two of them are in **both** places deliberately: the `Multi-axis:` sweeps. Four axes over seven
+records is where the headless reading of the restricted environment and the real one would part,
+and there is no other way to find out that they have.
 
 ```
 /debtest          the list window. Everything a run needs is in it:
