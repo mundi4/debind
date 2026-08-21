@@ -10,14 +10,50 @@ package.path = root .. "/?.lua;" .. package.path;
 local shim = require("wow_shim");
 shim.install();
 
+-- Two of the bundled libraries are plain Lua and the harness reads them rather than standing in
+-- for what they do. `CallbackHandler-1.0` is the one that matters: `DebindPrivate.callbacks` is
+-- built out of it in `Debind.lua`, and several specs used to hand-build a stub for that.
+shim.loadLibs(repoRoot .. "/Debind/Libs", {
+    "LibStub/LibStub.lua",
+    "CallbackHandler-1.0/CallbackHandler-1.0.lua",
+});
+
+--- **The load order is `Debind/Debind.xml`'s, and it has to stay that way.** Every file here takes
+--- upvalues off `DebindPrivate` when it is read -- `SecureBindings.lua` opens with
+--- `local BindingDriver = DebindPrivate.BindingDriver` -- so a file read before the one that puts
+--- the value there binds nil and fails much later, somewhere else.
+---
+--- **This is exactly `Debind.xml`, and that is not the same as "everything but the UI".** The
+--- two differ at both ends, and §11 of `devdocs/going-headless-outside-the-ui.md` says which
+--- rule decides: whether the **function** needs a frame, not whether the file is UI.
+---
+---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
+---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
+---     along because the pipeline calls into it
+---   `ImportUI.lua` is UI and is here for the opposite reason: `CollectImportLines` needs none
+---   `Public.lua` is **not** UI and is **not** here. It is in the TOC after `DebindUI.xml`
+---     rather than in this XML, and nothing in the pipeline calls it - it is what other addons
+---     call
+---   `DevSeed.lua` has to stay out: it plants a profile, and every spec that starts from an
+---     empty one would be handed the seed instead (`Profile.lua`, `InitDB`)
 local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
+    "Snippets.lua",
     "Ordering.lua",
     "Solver.lua",
     "Misc.lua",
     "ActionCatalog.lua",
+    "BindingContexts.lua",
+    "Debind.lua",
+    "Flyout.lua",
     "Profile.lua",
     "Legacy.lua",
+    "SecureBindings.lua",
+    "Events.lua",
+    "UnitWatch.lua",
+    "FrameRegistry.lua",
+    "UpdateBindings.lua",
+    "Switches.lua",
     -- **A UI file, and the only one the harness loads.** It builds no frames when it is read, and
     -- the two functions that decide the reader's lines live in it (`CollectImportLines`).
     "ImportUI.lua",
@@ -37,8 +73,14 @@ local DebindStorage = shim.loadAddon(repoRoot .. "/DebindStorage", {
 DebindPrivate.Store = DebindStorage;
 
 local bench = false;
+--- Rewrite the recorded files instead of comparing against them. The emission golden is a net for
+--- a refactor and not a specification (`devdocs/going-headless-outside-the-ui.md` §6), so a
+--- deliberate change to what a rebuild emits is answered by updating it and reading the diff --
+--- the same discipline `tools/snippet-golden.txt` already runs on.
+local updateGolden = false;
 for i = 1, #(arg or {}) do
     if (arg[i] == "--bench") then bench = true; end
+    if (arg[i] == "--update-golden") then updateGolden = true; end
 end
 
 if (bench) then
@@ -69,13 +111,65 @@ local specs = {
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
     { name = "switch", path = root .. "/switch_spec.lua" },
+    -- **Last, and it runs a whole rebuild.** Everything above measures a function; this one drives
+    -- `UpdateBindings()` end to end and holds what came out against a recorded file. Module level
+    -- state -- `BindingAttrsCache`, `KeyMap`, the switch table -- is left behind by that
+    -- (`devdocs/going-headless-outside-the-ui.md` §10-1), so it goes after the specs that would
+    -- otherwise inherit it.
+    { name = "emit", path = root .. "/emit_spec.lua" },
+    -- **After the golden**, because it builds plans of its own and the button names
+    -- `SetBindingAttributes` hands out run on one counter -- a rebuild before the golden's would
+    -- shift every name in it.
+    { name = "plan", path = root .. "/plan_spec.lua" },
+    { name = "describe", path = root .. "/describe_spec.lua" },
+    { name = "record", path = root .. "/record_spec.lua" },
+    { name = "context", path = root .. "/context_spec.lua" },
+    { name = "frames", path = root .. "/frames_spec.lua" },
+    -- **The interpreter, so it goes after everything that only measures the decision.** It runs
+    -- one, which needs every earlier rebuild replayed into it first.
+    { name = "eval", path = root .. "/eval_spec.lua" },
+};
+
+--- Reading and writing a whole file, whichever interpreter this is.
+---
+--- **fengari has no `io.open`.** It offers `io.write` and nothing that opens a file, so the two
+--- fall back on functions `run.js` installs. A real interpreter never reaches them.
+local function readFile(path)
+    if (io.open) then
+        local file = io.open(path, "rb");
+        if (not file) then return nil, path .. " could not be opened"; end
+        local contents = file:read("*a");
+        file:close();
+        return contents;
+    end
+    return _G.__hostReadFile(path);
+end
+
+local function writeFile(path, contents)
+    if (io.open) then
+        local file = assert(io.open(path, "wb"));
+        file:write(contents);
+        file:close();
+        return;
+    end
+    _G.__hostWriteFile(path, contents);
+end
+
+--- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is
+--- the repository root -- a spec is loaded with `loadfile` and has no idea where it lives.
+local ctx = {
+    repoRoot = repoRoot,
+    root = root,
+    updateGolden = updateGolden,
+    readFile = readFile,
+    writeFile = writeFile,
 };
 
 local totalPassed, totalFailures = 0, {};
 
 for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
-    local result = chunk()(DebindPrivate, DebindStorage);
+    local result = chunk()(DebindPrivate, DebindStorage, ctx);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do
         totalFailures[#totalFailures + 1] = spec.name .. " / " .. f;
