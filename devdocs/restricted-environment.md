@@ -52,6 +52,19 @@ squeeze.
 Habits that are free elsewhere and are not free here: building a table per run, walking everything
 to find one thing, composing strings, and a layer of indirection added for readability.
 
+**`RunAttribute` is not a function call.** It reads a string out of an attribute and compiles it on
+the spot. So the move that makes ordinary code readable and testable, pulling the shared part out
+into something callable, is the expensive one in here, and the reflex to reach for it has to be
+resisted rather than followed.
+
+What splits a body is **text concatenation at build time**: `EVAL_SNIPPET` is spliced into each
+wrapper that carries it. Splicing also keeps the locals it declares (`winner`, `hoverUnit`) visible
+to the code after it, which a call could not do without turning each one into a shared global.
+
+The click wrappers hold **no `RunAttribute` and no `RunFor` at all**, and that is kept deliberately
+(decided 2026-08-11). The ones that remain sit in setup, in hover enter/leave, and in the state
+paths.
+
 ## Comments in a body
 
 **Whole-line comments only. Never one at the end of a line of code.**
