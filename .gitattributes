@@ -1,0 +1,9 @@
+# The emission golden is a recording of bytes, compared byte for byte. `core.autocrlf` is on for
+# most people working on this, and it would rewrite the line endings on checkout -- so the file
+# only ever matched in the working tree that generated it, and any fresh checkout on Windows went
+# red on line 1 with two lines that look identical.
+#
+# `-text` keeps git out of it. The spec also strips carriage returns when it reads, because this
+# only fixes what is checked out from here on, and a copy already converted stays converted
+# (`tests/emit_spec.lua`).
+tests/emit-golden.txt -text

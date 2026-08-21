@@ -136,6 +136,14 @@ return function(DebindPrivate, _, ctx)
         local golden = ctx.readFile(goldenPath);
         check(golden, "no golden at " .. goldenPath .. " -- run with --update-golden");
 
+        -- **Carriage returns come off, and that is not laziness.** The file is a recording of
+        -- bytes, but git rewrites line endings on checkout wherever `core.autocrlf` is on --
+        -- so the golden matched only in the working tree that generated it, and any fresh
+        -- checkout on Windows went red on line 1 showing two lines that look identical.
+        -- `.gitattributes` keeps git out of the file from here on; this is what carries a copy
+        -- that was already converted.
+        golden = golden:gsub("\r\n", "\n");
+
         if (golden == produced) then
             return;
         end
