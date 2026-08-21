@@ -96,101 +96,20 @@ end
 
 
 --------------------------------------------------------------------------------
--- SwitchesDropDown
+-- The switches menu that used to hang off the portrait
 --------------------------------------------------------------------------------
---- `_isSelected` / `_setSelected`의 스위치판. **정의를 표가 아니라 이름으로 든다.**
+--- **It is gone, and the tab is where it went** (stage 3c, `devdocs/redesigning-custom-states.md`
+--- §6-B). `SetupSwitchesDropdownMenu` stood here and edited `mode`, `resetValue`, `expr` and
+--- `displayMessage` on five offered names, which is the whole of what a row's menu on the
+--- `Switches` tab does now, only over however many switches the reader has made, with renaming
+--- and deleting beside it and a list that can be scrolled.
 ---
---- 정의는 이제 없을 수 있다 - 빈 정의 다섯을 로드마다 심던 것을 그만뒀고, 만드는 것은
---- 사용자다(`GetOrCreateSwitchDefinition`). 표를 미리 집어 넘기면 그 표가 nil이거나, nil을
---- 피하려고 메뉴를 여는 것만으로 다섯 줄이 다시 생긴다. 읽을 때는 없으면 없는 대로 답하고
---- **고르는 순간에만** 만든다.
-local function _isSwitchSelected(data)
-    -- 아직 아무도 안 만든 스위치도 그려진다. 그때 켜져 보여야 하는 줄은 만들었을 때 받게 될
-    -- 값이라, 만드는 쪽과 **같은 표**를 읽는다(`SWITCH_DEFAULTS`). 여기서 `false`만 내면
-    -- 한 줄도 안 켜진 목록이 되고, 따로 적으면 누른 적 없는 값이 바뀌어 보인다.
-    local definition = DebindPrivate.ResolveSwitchDefinition(data.switch)
-        or DebindPrivate.SWITCH_DEFAULTS;
-    if (data.value == USE_CHECKED_VALUE) then
-        return definition[data.key] and true or false;
-    end
-    return definition[data.key] == data.value;
-end
-
-local function _setSwitchSelected(data)
-    local definition = DebindPrivate.GetOrCreateSwitchDefinition(data.switch);
-    if (data.value == USE_CHECKED_VALUE) then
-        definition[data.key] = not definition[data.key];
-    else
-        definition[data.key] = data.value;
-    end
-    DebindPrivate.UpdateBindings();
-    return MenuResponse.Refresh;
-end
-
-function DebindUI.SetupSwitchesDropdownMenu(dropdown, rootDescription)
-    --GenerateMenu(dropdown, rootDescription, rootMenu);
-
-    -- **What this menu lists is the switches that exist, plus the built-in names still free**
-    -- (`GetOfferedSwitchNames`). It walked the five numbers while those were the only names a
-    -- switch could have; a renamed switch is not among them and would have dropped off this menu
-    -- while an empty `$state1` took its place.
-    --
-    -- Choosing anything under a free name is still what makes that switch. The Switches tab is
-    -- where one is renamed and deleted (§6-B of `devdocs/redesigning-custom-states.md`), and this
-    -- menu retires into it at stage 3c.
-    for _, stateName in ipairs(DebindPrivate.GetOfferedSwitchNames()) do
-        local stateDescription = rootDescription:CreateButton(DebindPrivate.GetSwitchDisplayName(stateName));
-        stateDescription:CreateTitle(MenuUtil.GetElementText(stateDescription));
-
-        do
-            local manualDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MANUAL"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "mode", value = Constants.SWITCH_MODES.MANUAL });
-            SetInstructionTooltip(manualDescription, LLL["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"]);
-
-            manualDescription:CreateTitle(MenuUtil.GetElementText(manualDescription));
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_ON"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "value", value = true });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_OFF"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "value", value = false });
-
-            manualDescription:CreateDivider();
-            manualDescription:CreateTitle(LLL["CUSTOM_STATE_INITIAL_VALUE"]);
-
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_REMEMBER"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "resetValue", value = nil });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_ON"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "resetValue", value = true });
-            manualDescription:CreateRadio(LLL["CUSTOM_STATE_LOGIN_OFF"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "resetValue", value = false });
-        end
-
-        do
-            local conditionalDescription = stateDescription:CreateRadio(LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"], _isSwitchSelected, _setSwitchSelected,
-                { switch = stateName, key = "mode", value = Constants.SWITCH_MODES.EXPR });
-            SetInstructionTooltip(conditionalDescription, LLL["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"]);
-
-            conditionalDescription:CreateTitle(MenuUtil.GetElementText(conditionalDescription));
-            conditionalDescription:CreateButton(LLL["CUSTOM_STATE_EDIT_VALUE"], function()
-                local current = DebindPrivate.ResolveSwitchDefinition(stateName);
-                DebindUI.ShowInputBox({
-                    text = LLL["CUSTOM_STATE_EDIT_VALUE_DESC"],
-                    callback = function(value)
-                        value = strtrim(value);
-                        if (value == "") then
-                            value = nil;
-                        end
-                        -- 식을 적는 것도 스위치를 만드는 일이다. 여기서도 만들어야 모드를
-                        -- 안 고르고 식부터 적는 순서가 그대로 선다.
-                        local definition = DebindPrivate.GetOrCreateSwitchDefinition(stateName);
-                        definition.expr = value;
-                        if (definition.mode == Constants.SWITCH_MODES.EXPR) then
-                            DebindPrivate.UpdateBindings();
-                        end
-                    end,
-                    maxLetters = 100,
-                    currentValue = current and current.expr,
-                });
-            end);
-        end
-
-        stateDescription:CreateDivider();
-        stateDescription:CreateCheckbox(LLL["CUSTOM_STATE_DISPLAY_MESSAGE"], _isSwitchSelected, _setSwitchSelected, { switch = stateName, key = "displayMessage", value = USE_CHECKED_VALUE });
-    end
-end
+--- **Two doors saying "switch" is what closed this one.** Making one was here and everything else
+--- about one was there, and the button carried no label to point at from the empty list.
+---
+--- The two things this file kept are the two that belong to an action rather than to a switch:
+--- hanging a condition on one (`CreateSwitchConditionMenu`) and saying which one an on/off/toggle
+--- action works (`CreateSetSwitchMenuItem`).
 
 --------------------------------------------------------------------------------
 -- OptionsDropDown
@@ -832,6 +751,111 @@ do
         end
     end
 
+    --- The three verbs, top to bottom. `Constants.SETSTATE_MODES` is a lookup and would order this
+    --- differently on every client; a menu whose rows move is one the hand cannot learn.
+    local SETSTATE_VERBS = {
+        { type = Constants.SETSTATE_ON,     label = "SWITCH_ACTION_ON" },
+        { type = Constants.SETSTATE_OFF,    label = "SWITCH_ACTION_OFF" },
+        { type = Constants.SETSTATE_TOGGLE, label = "SWITCH_ACTION_TOGGLE" },
+    };
+
+    --- Which switch an on/off/toggle action works, and what it does to it.
+    ---
+    --- **This is what the picker stopped asking** (§6-C of `devdocs/redesigning-custom-states.md`).
+    --- The special tab offered three rows per switch, so choosing one there was the only way to
+    --- say which, and changing your mind afterwards meant deleting the action and adding another.
+    --- It had to be here regardless: deleting a switch leaves every action that named it pointing
+    --- at nothing, and this is where those get repointed rather than thrown away.
+    ---
+    --- **Two axes in one box, because they are one sentence.** "Turn `$burst` on" is what the row
+    --- says it does, and a reader who has the verb in one menu and the target in another has to
+    --- hold half of it in their head while they open the other.
+    local function CreateSetSwitchMenuItem(parentDescription)
+        if (not Constants.SETSTATE_MODES[_action.type]) then
+            return;
+        end
+
+        -- The box goes red for both of this action's two ways of being wrong, and the sentence has
+        -- to say which. Passed in rather than left to the `states` category, which would find the
+        -- right issue code and then print `BINDING_ERROR_UNDEFINED_STATE` with its `%s` unfilled.
+        local description = CreateActionMenuItemGroup(parentDescription, "TYPE_SETSTATE", nil,
+            -- isActive: a target is what makes this action finished, not a condition on it.
+            function()
+                return type(_action.value) == "string";
+            end,
+            function()
+                local value = _action.value;
+                if (type(value) ~= "string") then
+                    return LLL["BINDING_ERROR_SWITCH_NONE_SELECTED"];
+                end
+                if (not DebindPrivate.ResolveSwitchDefinition(value)) then
+                    return format(LLL["BINDING_ERROR_UNDEFINED_STATE"], value);
+                end
+            end,
+            LLL["TYPE_SETSTATE_DESC"]);
+
+        -- **Plus whatever this action already names**, on the same rule the condition list keeps:
+        -- a deleted switch has to stay pickable here or the row that names it cannot be read back
+        -- off the menu at all. Unlike a condition it cannot simply be taken off, because an action
+        -- with no target is the unfinished state rather than a clean one. What this offers is the
+        -- way to point it somewhere else.
+        local switchNames = DebindPrivate.GetSwitchNames();
+        local current = _action.value;
+        if (type(current) == "string" and not DebindPrivate.ResolveSwitchDefinition(current)) then
+            switchNames[#switchNames + 1] = current;
+            sort(switchNames);
+        end
+
+        for _, stateName in ipairs(switchNames) do
+            local stateDescription = description:CreateRadio(stateName, function()
+                return _action.value == stateName;
+            end, function()
+                -- **The stored name goes with it.** `NameAndIconForAction` builds the row's text
+                -- from the type and the target every time it draws, so that follows on its own.
+                -- But an action that came in from a shared string can be carrying `action.name`,
+                -- and that one would go on saying `Toggle $burst` after the target moved
+                -- (`ACTION_FIELDS`, §6-C).
+                _action.value = stateName;
+                _action.name = nil;
+                return onActionValueChanged();
+            end);
+            if (not DebindPrivate.ResolveSwitchDefinition(stateName)) then
+                SetErrorTooltip(stateDescription,
+                    format(LLL["BINDING_ERROR_UNDEFINED_STATE"], stateName));
+            end
+        end
+
+        -- Making one from here, for the reason the condition menu grew the same item: the reader
+        -- is already looking at the thing they want the switch for.
+        do
+            local action = _action;
+            local newDescription = description:CreateButton(LLL["SWITCH_CREATE"], function()
+                DebindUI.ShowNewSwitchBox(function(name)
+                    action.value = name;
+                    action.name = nil;
+                    DebindPrivate.RenumberKeyGroupForAction(action);
+                    DebindPrivate.UpdateBindings();
+                end);
+            end);
+            SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
+        end
+
+        description:CreateDivider();
+        description:CreateTitle(LLL["SWITCH_ACTION_TITLE"]);
+
+        for _, verb in ipairs(SETSTATE_VERBS) do
+            description:CreateRadio(LLL[verb.label], function()
+                return _action.type == verb.type;
+            end, function()
+                _action.type = verb.type;
+                _action.name = nil;
+                return onActionValueChanged();
+            end);
+        end
+
+        return description;
+    end
+
     --- The bin's own way to give this action a key, and the same one the overview's rows offer
     --- (`DebindUI.BeginKeyCapture`). It stands right beside [Unbind] because the two are the ends
     --- of one axis - what key is this on - and a menu that can take a key away but not give one back
@@ -1257,17 +1281,21 @@ do
                 end
             end,
             -- 설명은 **명시적으로** 찍어 넘긴다. 안 넘기면 `CONDITION_CUSTOM_STATES_DESC`를
-            -- 찾아가는데, 그건 사용자 지정 상태 버튼의 툴팁(CUSTOM_STATES_DESC)과 글자
-            -- 하나 다르지 않은 문단이었다 - 같은 말을 로케일마다 두 번 번역하게 만드는
-            -- 자리라 키를 없애고 이쪽으로 붙였다.
+            -- 찾아가는데, 그건 `CUSTOM_STATES_DESC`와 글자 하나 다르지 않은 문단이었다. 같은
+            -- 말을 로케일마다 두 번 번역하게 만드는 자리라 키를 없애고 이쪽으로 붙였다.
+            -- 저쪽 키는 초상화의 스위치 단추 툴팁이었고, 3c가 그 단추를 걷은 뒤로는
+            -- `Switches` 탭 자신의 툴팁이다(`DebindUI.lua`의 `PANELS`).
             LLL["CUSTOM_STATES_DESC"]
         );
 
         -- **Only switches that exist** (2026-08-21, 소유자). A condition on a name nothing defines
         -- is false for ever and nothing says so: it draws like any other condition, and no marker
         -- covers it -- `GetUndefinedSwitch` reads macro bodies and on/off/toggle targets, not
-        -- condition keys. Offering a name to hang one on was offering a dead end. Making a switch
-        -- is the `Switches` tab, and this menu is where an existing one gets attached.
+        -- condition keys. Offering a name to hang one on was offering a dead end.
+        --
+        -- **Making one is at the bottom of this list**, which is not the same thing: a name typed
+        -- there gets a definition before the condition goes on, so nothing here ever hangs a
+        -- condition on a name nothing defines.
         --
         -- **Plus whatever this action already names**, defined or not, because taking a condition
         -- off is done here and nowhere else. A switch deleted while an action still names it would
@@ -1294,11 +1322,33 @@ do
         end
 
         for _, stateName in ipairs(switchNames) do
-            local stateDescription = CreateActionMenuItemGroup(description,
-                DebindPrivate.GetSwitchDisplayName(stateName), stateName,
+            local stateDescription = CreateActionMenuItemGroup(description, stateName, stateName,
                 nil, -- isActive: 키로 조건 표를 읽는 기본 판정이 맞다
                 UndefinedSwitchError);
             AppendDisableYesNo(stateDescription, "CONDITION_CUSTOM_STATE", stateName);
+        end
+
+        -- **만드는 자리가 여기에도 있다** (§6-2). 조건을 걸려고 이 메뉴를 연 사람은 이미
+        -- "이 액션이 언제 나갈지"를 생각하고 있고, 그 자리에서 스위치가 없다는 것을 안다.
+        -- 창을 닫고 탭으로 건너가서 만들고 돌아와 다시 이 메뉴를 여는 왕복이 이 기능을 아무도
+        -- 안 쓰는 이유로 지목된 하나다.
+        --
+        -- **만들고 나서 그 조건을 바로 켠다.** 만들기만 하면 방금 지나온 자리를 한 번 더
+        -- 지나야 하고, 이름을 적은 사람이 원한 것은 정의가 아니라 이 액션에 걸린 조건이다.
+        if (_action) then
+            local action = _action;
+            local newDescription = description:CreateButton(LLL["SWITCH_CREATE"], function()
+                DebindUI.ShowNewSwitchBox(function(name)
+                    action.conditions = action.conditions or {};
+                    action.conditions[name] = true;
+                    -- **`onActionValueChanged`가 아니라 손으로 편다.** 저건 파일 단위 `_action`을
+                    -- 읽는데, 팝업이 답할 때쯤에는 그 값이 다른 행의 메뉴 것으로 바뀌어 있을 수
+                    -- 있다. 조건이 하나 붙으면 순서 규칙이 달라지므로 번호는 다시 매겨야 한다.
+                    DebindPrivate.RenumberKeyGroupForAction(action);
+                    DebindPrivate.UpdateBindings();
+                end);
+            end);
+            SetInstructionTooltip(newDescription, LLL["SWITCH_CREATE_DESC"]);
         end
     end
 
@@ -1575,6 +1625,11 @@ do
             CreateRejectImportMenuItem(rootDescription, { _action });
             return;
         end
+
+        -- **First, because on a fresh one it is the only thing worth doing.** The picker adds an
+        -- on/off/toggle action with no target (§6-C), so the reader arrives here at a red row that
+        -- does nothing, and what fixes it is this box.
+        CreateSetSwitchMenuItem(rootDescription);
 
         CreateConvertToMacroTextMenuItem(rootDescription);
 

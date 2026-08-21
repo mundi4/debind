@@ -1216,9 +1216,24 @@ RegisterTest("Known condition", {
     end,
 })
 
+-- **정의를 심고 시작한다.** 이 케이스는 다섯이 매 로드마다 심기던 시절에 써졌고, 그때는
+-- `$state1`이 언제나 있었다. 1b-2가 그것을 그만뒀고 3b가 **정의 없는 이름을 부르는 조건**에
+-- 마커를 붙였으므로, 안 심으면 두 액션이 `KeyMap`에서 통째로 빠진다. 재던 것과 아무 상관
+-- 없는 실패고, 재려던 것은 조건이 바인딩에 실리느냐다.
+--
+-- 슬롯만 갈아끼우는 이유는 아래 `Undefined $state inside a state's own expression`의 주석에.
 RegisterTest("Custom state condition", {
-    description = "커스텀 상태 조건($state1~5)이 반영되는지",
+    description = "커스텀 상태 조건($이름)이 반영되는지",
     run = function()
+        local saved = DebindPrivate.Switches["$state1"]
+        AddTeardown(function()
+            DebindPrivate.Switches["$state1"] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
+
         InsertAction({ type = Constants.SPELL, value = 585, key = "F11", ["$state1"] = true })
         InsertAction({ type = Constants.SPELL, value = 116, key = "F11", ["$state1"] = false })
         ApplyBindings()
@@ -2897,6 +2912,175 @@ RegisterTest("Switches tab: the expression box opens on the expression", {
     end,
 })
 
+-- **The button that replaced the portrait's dropdown** (3c, §6-C of
+-- `devdocs/redesigning-custom-states.md`). Making a switch was a menu on the window's title bar
+-- until now; it is this button, the condition menu and an on/off/toggle action's own menu, and all
+-- three go through `DebindUI.ShowNewSwitchBox`.
+--
+-- **Pressed and typed into, not called.** `ShowNewSwitchBox` reached directly passes on a panel
+-- whose XML lost the `OnClick`, and `SetText` without the box's own accept path passes on a dialog
+-- whose button does nothing. Both of those are the wiring this test is here for.
+RegisterTest("Switches tab: the New switch button makes one", {
+    description = "목록 아래 단추가 상자를 띄우고, 적어 넣은 이름으로 스위치가 생기는가",
+    run = function()
+        local NAME = "New switch button"
+        local SWITCH = "$madehere"
+
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = nil
+            DebindPrivate.db.char.switches[SWITCH] = nil
+            local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
+            if dialog then
+                -- Focus first: a hidden box that still holds the keyboard swallows what the next
+                -- test types (the expression box test above says the same).
+                local editBox = dialog:GetEditBox()
+                if editBox then
+                    editBox:ClearFocus()
+                end
+                dialog:Hide()
+            end
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+
+        if DebindPrivate.Switches[SWITCH] then
+            return Fail(NAME, "전제가 깨졌다. 그 이름의 스위치가 이미 있다")
+        end
+
+        local panel = OpenSwitchesTab()
+        if not panel.NewButton then
+            return Fail(NAME, "패널에 NewButton이 없다. XML이 안 실렸다")
+        end
+        if not panel.NewButton:IsEnabled() then
+            return Fail(NAME, "단추가 비활성이다")
+        end
+
+        panel.NewButton:Click()
+
+        local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
+        if not dialog then
+            return Fail(NAME, "단추를 눌렀는데 상자가 안 떴다")
+        end
+        local editBox = dialog:GetEditBox()
+        if not editBox then
+            return Fail(NAME, "상자에 편집칸이 없다. 클라이언트가 이름을 또 바꿨다")
+        end
+        -- The box opens on `$` alone. Reading it back is what says so.
+        if editBox:GetText() ~= "$" then
+            return Fail(NAME, format("상자가 %q를 들고 열렸다. $ 하나로 안 열린다",
+                editBox:GetText()))
+        end
+
+        if not TypeInto(editBox, SWITCH) then
+            return Fail(NAME, "편집칸에 OnTextChanged가 없다")
+        end
+        -- **[Done] is pressed, not the callback called.** The button stays disabled until the box
+        -- has text in it (`StaticPopup_StandardNonEmptyTextHandler`), so pressing it is also what
+        -- says `TypeInto` reached the handler a hand would have.
+        local accept = dialog:GetButton1()
+        if not accept:IsEnabled() then
+            return Fail(NAME, "이름을 적었는데 [완료]가 비활성이다")
+        end
+        accept:Click()
+
+        if not DebindPrivate.Switches[SWITCH] then
+            local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
+            return Fail(NAME, format("스위치가 안 생겼다. 있는 것: [%s]", names))
+        end
+
+        -- The list has to have heard about it. Making one fires `OnSwitchesChanged` and the panel
+        -- rebuilds off that, so a row missing here is that callback not reaching an open tab.
+        local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
+        if not row then
+            return Fail(NAME, "스위치는 생겼는데 목록에 행이 안 섰다")
+        end
+
+        return Pass(NAME, SWITCH .. " 생성 + 목록에 행")
+    end,
+})
+
+-- **The picker's one row, and the action it leaves behind** (§6-C).
+--
+-- The special tab offered three rows per switch until 3c; it offers one that names no switch, and
+-- the action it adds is finished in the action's own menu. Two things only the game answers: that
+-- `NameAndIconForAction` has a name for a target-less one at all (it formats `%s` with the switch
+-- name, and nil there raises), and that the action stays out of `KeyMap` until a switch is picked.
+--
+-- **Headless cannot see either.** The catalog reads `DebindUI.BINDING_TYPE_NAMES` and the runner
+-- loads neither that file nor `UpdateBindings.lua` (`tests/testing-a-change.md`). The issue code
+-- itself is `tests/switch_spec.lua`'s.
+RegisterTest("Picker offers one switch row and it binds nothing until told which", {
+    description = "선택 창의 스위치 줄이 하나인가, 대상 없는 액션이 안 걸렸다가 고르면 걸리는가",
+    run = function()
+        local NAME = "Switch picker row"
+        local KEY = "CTRL-SHIFT-F8"
+        local SWITCH = "$pickedlater"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        local saved = DebindPrivate.Switches[SWITCH]
+        AddTeardown(function()
+            DebindPrivate.Switches[SWITCH] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, value = true }
+
+        local special
+        for _, category in ipairs(DebindPrivate.ActionCatalog.GetCategories()) do
+            if category.key == "special" then
+                special = category
+            end
+        end
+        if not special then
+            return Fail(NAME, "특수 카테고리가 없다")
+        end
+
+        local rows, sample = 0, nil
+        for _, entry in ipairs(DebindPrivate.ActionCatalog.GetEntries(special)) do
+            if Constants.SETSTATE_MODES[entry.type] then
+                rows = rows + 1
+                sample = entry
+            end
+        end
+        -- One, whatever the profile holds. A definition existing is what used to add three.
+        if rows ~= 1 then
+            return Fail(NAME, format("스위치 줄이 %d개다. 다시 스위치마다 세 줄씩 뿌린다", rows))
+        end
+        if sample.value ~= nil then
+            return Fail(NAME, format("줄이 %q를 물고 있다. 어느 스위치인지를 여기서 정한다",
+                tostring(sample.value)))
+        end
+        -- The name is what the picker draws. `"?"` is the resolver saying it could not, and
+        -- `AddEntry` drops a row it cannot name, so a missing name would have shown as rows == 0.
+        if not sample.name or sample.name == "?" then
+            return Fail(NAME, format("줄 이름이 %q다", tostring(sample.name)))
+        end
+
+        local action = InsertAction({ type = sample.type, value = sample.value, key = KEY })
+        ApplyBindings()
+
+        if GetNthBinding(KEY, 1) then
+            return Fail(NAME, "어느 스위치인지 안 정한 액션이 그대로 걸렸다")
+        end
+
+        -- The other half: picking one is all that was missing. Without this the line above also
+        -- describes an action that never binds at all.
+        action.value = SWITCH
+        ApplyBindings()
+
+        if not GetNthBinding(KEY, 1) then
+            return Fail(NAME, "스위치를 정했는데도 안 걸린다")
+        end
+
+        return Pass(NAME, "한 줄 · 대상 없이는 안 걸림 · 정하면 걸림")
+    end,
+})
+
 -- **The mark that stands in for everything else.** An imported string plants no switch definitions
 -- (`devdocs/building-export-import.md`), so an on/off/toggle action arriving from someone else can
 -- name a switch this profile has never had. Nothing about the row says so; what says so is the
@@ -3719,9 +3903,20 @@ RegisterTest("Macrotext with multiple condition groups", {
 -- Test Cases: Multi-condition combo
 -----------------------------------------------------------
 
+-- `$state2`의 정의를 심는 이유는 `Custom state condition`의 주석과 같다. 다섯 중 하나를
+-- 조건으로 쓰는 케이스는 전부 자기 정의를 세우고 시작해야 한다.
 RegisterTest("Multi-condition: combat + group + stealth", {
     description = "여러 조건 동시 설정이 바인딩에 모두 반영되는지",
     run = function()
+        local saved = DebindPrivate.Switches["$state2"]
+        AddTeardown(function()
+            DebindPrivate.Switches["$state2"] = saved
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        DebindPrivate.Switches["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, value = true }
+
         InsertAction({
             type = Constants.SPELL, value = 585, key = "HOME",
             combat = true,

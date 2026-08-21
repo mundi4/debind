@@ -262,9 +262,17 @@ local VALUE_SHAPES = {
     [Constants.SETCUSTOM]   = "number",
     -- A switch name. It reaches `SetAttribute` as the name of the attribute to set
     -- (`UpdateBindings.lua`), where a number would name an attribute nothing reads.
-    [Constants.SETSTATE_ON]     = "string",
-    [Constants.SETSTATE_OFF]    = "string",
-    [Constants.SETSTATE_TOGGLE] = "string",
+    --
+    -- **Or nothing at all**, which is a shape this addon started producing at stage 3c: the picker
+    -- adds one row with no target and the switch is picked in the action's own menu afterwards
+    -- (`devdocs/redesigning-custom-states.md` §6-C). A reader can export a layer before getting
+    -- round to that, and this table is asked whether the addon *could* have made the action. So
+    -- refusing it here would turn away the whole string over a half-finished row, which is the one
+    -- thing the receiving side is built not to do. It lands, it is red
+    -- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`), and it does not bind.
+    [Constants.SETSTATE_ON]     = "string|nil",
+    [Constants.SETSTATE_OFF]    = "string|nil",
+    [Constants.SETSTATE_TOGGLE] = "string|nil",
     [Constants.MACRO]       = "string",
     [Constants.MACROTEXT]   = "string",
     [Constants.COMMAND]     = "string",
@@ -297,7 +305,9 @@ local function IsUsableAction(action)
     if (shape == false) then
         return true;
     end
-    return luatype(action.value) == shape;
+    -- `|`-separated, read the way `ConditionAllowed` reads `CONDITION_TYPES`. One type needs it so
+    -- far and `"nil"` is the alternative it needs, which `luatype` answers with like any other.
+    return strfind(shape, luatype(action.value), 1, true) ~= nil;
 end
 
 --- A wire action turned into a profile action.

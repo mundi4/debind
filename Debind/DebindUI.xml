@@ -742,17 +742,18 @@
 					<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" x="-40" y="-40"/>
 				</Anchors>
 			</DropdownButton>
-			<DropdownButton parentKey="SwitchesPortrait" inherits="DebindPortraitTemplate">
-				<KeyValues>
-					<KeyValue key="PortraitTexture" value="254885" type="number"/>
-					<KeyValue key="TooltipTitle" value="CUSTOM_STATES" type="string"/>
-					<KeyValue key="TooltipText" value="CUSTOM_STATES_DESC" type="string"/>
-					<KeyValue key="MenuFunc" value="SetupSwitchesDropdownMenu" type="string"/>
-				</KeyValues>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.OptionsPortrait" relativePoint="LEFT" x="-5" y="0"/>
-				</Anchors>
-			</DropdownButton>
+			<!--
+				**The switch button stood here and is gone** (3c,
+				`devdocs/redesigning-custom-states.md` §6-C). It opened a menu that edited five
+				offered names in place, which is the whole of what a row's menu on the `Switches`
+				tab does now, over however many switches the reader made, with renaming, deleting
+				and a scrollbar beside it.
+
+				What closed it was two doors saying "switch" in one window: making one was up here
+				and everything else about one was on the tab, and the empty list had to point at a
+				button with no label to quote. `OptionsPortrait` is the only one left on this row,
+				which is why nothing below re-anchors.
+			-->
 			<!--
 				**Tab one's container: everything this window shows today.** It covers the whole frame, and
 				that is the whole trick - every offset declared inside it (`-31/-85`, the side tabs standing
@@ -1256,8 +1257,12 @@
 							<!--
 								`$parent` is the container, and the portrait row it joins belongs to the
 								window - hence the second hop. The side tabs already reach out this way.
+
+								It hung off `SwitchesPortrait` until 3c took that button off the row.
+								`OptionsPortrait` is the only one left up there, so this is now the
+								second seat rather than the third.
 							-->
-							<Anchor point="RIGHT" relativeKey="$parent.$parent.SwitchesPortrait" relativePoint="LEFT" x="-5" y="0"/>
+							<Anchor point="RIGHT" relativeKey="$parent.$parent.OptionsPortrait" relativePoint="LEFT" x="-5" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>

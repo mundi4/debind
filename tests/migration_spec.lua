@@ -895,7 +895,7 @@ return function(DebindPrivate)
 
     -- 다섯 슬롯이 전부 자기 이름으로 나와야 한다. 한 칸 밀리면 그 키는 옆 스위치를 켠다.
     test("dbver 6 maps every switch index to its own name", function()
-        for index = 1, Constants.MAX_NUM_SWITCHES do
+        for index = 1, #Constants.SWITCH_NAMES do
             local layer = { { key = "A", type = "setstate", value = 0x400 + index } };
             MigrateLayer(layer, 5);
             check(layer[1].value == "$state" .. index,

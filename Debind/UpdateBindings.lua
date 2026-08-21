@@ -141,11 +141,11 @@ end
 
 --- This rebuild's take on one switch, or `false` where nothing defines the name.
 ---
---- **The name is not checked against a list any more.** It used to have to be one of the five
---- (`SWITCH_INDICES`), and a name outside that list was answered `false` without so much as asking
---- whether it was defined -- so a definition could never be found under any other name, which is
---- what §10's 1b-2 lifts (`devdocs/redesigning-custom-states.md`). What decides now is the same
---- thing that decides everywhere else: whether `ResolveSwitchDefinition` has an answer.
+--- **The name is not checked against a list any more.** It used to have to be one of the numbered
+--- five, and a name outside them was answered `false` without so much as asking whether it was
+--- defined. So a definition could never be found under any other name, which is what §10's 1b-2
+--- lifts (`devdocs/redesigning-custom-states.md`). What decides now is the same thing that decides
+--- everywhere else: whether `ResolveSwitchDefinition` has an answer.
 ---
 --- `false` is memoized alongside a real one so an undefined name is resolved once per rebuild
 --- rather than once per reference.

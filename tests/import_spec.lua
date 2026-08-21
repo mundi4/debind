@@ -780,6 +780,15 @@ return function(DebindPrivate, DebindStorage)
             { type = Constants.SETSTATE_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");
     end);
 
+    -- **값이 아예 없는 것은 반대다.** 3c부터 선택 창이 대상 없는 켜기/끄기/전환을 하나 넣으므로
+    -- (§6-C), 그 상태로 내보낸 문자열은 **이 애드온이 만들 수 있는 모양**이다. 여기서 걸면
+    -- 반쯤 만든 줄 하나 때문에 문자열이 통째로 거절되는데, 받는 쪽 규칙은 그 반대다. 깨진
+    -- 것도 보내고 읽는 사람이 빨간 줄을 보고 지운다.
+    test("스위치를 안 고른 SETSTATE는 안 걸린다", function()
+        check(not DebindStorage.PayloadIsImpossible(General({
+            { type = Constants.SETSTATE_TOGGLE, key = "F", seq = 1 } })), "걸렸다");
+    end);
+
     -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in
     -- WoW's Lua 5.1, out of the drawer row's tooltip, for a batch already written to disk. Our
     -- export only ever writes this character's class.

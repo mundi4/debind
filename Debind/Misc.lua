@@ -1199,8 +1199,19 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- have a box, and that box colours itself off `GetUndefinedSwitchCondition` rather than off
     -- this branch (`CreateSwitchConditionMenu`) -- it has to name the switch in its message, and
     -- it must not go red for a typo that is in the body instead.
+    --
+    -- The on/off/toggle target grew a box of its own in 3c (`CreateSetSwitchMenuItem`), and it
+    -- colours itself the same way and for the same reason.
     if (not issue and (not category or category == "states") and notCategory ~= "states") then
-        if (DebindPrivate.GetUndefinedSwitch(action)) then
+        -- **Not chosen yet is asked first, because the other question cannot be asked of it.**
+        -- An on/off/toggle action arrives from the picker with no target at all (§6-C), and
+        -- "nothing defines nil" is a sentence with no name to print in it. `GetUndefinedSwitch`
+        -- says nothing about a value that is not a string, which is the same guard the binding
+        -- builder keeps (`UpdateBindings.lua`). The two have to agree, or an action drawn clean
+        -- is one that turns back at the door with nothing said.
+        if (Constants.SETSTATE_MODES[action.type] and type(action.value) ~= "string") then
+            issue = Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
+        elseif (DebindPrivate.GetUndefinedSwitch(action)) then
             issue = Constants.BINDING_ISSUE_UNDEFINED_STATE;
         end
     end
@@ -1423,12 +1434,17 @@ function DebindPrivate.CanConvertToMacroText(action)
         return type(action.value) == "string";
     end
 
+    -- An on/off/toggle action that has not been told which switch yet is the same case: the body
+    -- is `/click DebindStates <name>-<mode>`, and there is no name to put in it (§6-C).
+    if (Constants.SETSTATE_MODES[action.type]) then
+        return type(action.value) == "string";
+    end
+
     return action.type == Constants.SPELL
         or action.type == Constants.ITEM
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
         or action.type == Constants.SETCUSTOM
-        or Constants.SETSTATE_MODES[action.type] ~= nil
         or action.type == Constants.WORLDMARKER;
 end
 
@@ -1503,8 +1519,7 @@ function DebindPrivate.ConvertToMacroText(action)
         -- same reason, which is half of why the type names are underscored (`Constants.lua`).
         macrotext = format("/click DebindStates %s-%s", action.value,
             Constants.SETSTATE_MODES[action.type]);
-        name = format(L["TYPE_" .. strupper(action.type)],
-            DebindPrivate.GetSwitchDisplayName(action.value));
+        name = format(L["TYPE_" .. strupper(action.type)], action.value);
         icon = 254885;
     elseif (action.type == Constants.WORLDMARKER) then
         macrotext = format("/wm %d", action.value);
@@ -1936,20 +1951,6 @@ function DebindPrivate.OnSpecialUnitChanged(alias, value)
     end
 end
 
---- What to call this switch on screen.
----
---- The five built-in ones are still numbered, because that is the only thing there is to call
---- them: nothing anywhere carries a name for `$state3`. Anything else is called by the name it has,
---- **`$` and all** - that is the text the user types into a macro body, so showing it is the same
---- glyphs they have to write (§3-1 of `devdocs/redesigning-custom-states.md`).
-function DebindPrivate.GetSwitchDisplayName(name)
-    local index = Constants.SWITCH_INDICES[name];
-    if (index) then
-        return format(L["CUSTOM_STATE_NUM"], index);
-    end
-    return name;
-end
-
 local _lastSwitchValues = {};
 local _changedStates = {};
 
@@ -1986,8 +1987,8 @@ local function SwitchesChangedCallback()
 
                 if (options.displayMessage) then
                     local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];
-                    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"],
-                        DebindPrivate.GetSwitchDisplayName(state), valueText));
+                    DebindPrivate.DisplayMessage(format(L["STATE_CHANGED_MESSAGE"], state,
+                        valueText));
                 end
             end
         end

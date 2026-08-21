@@ -979,8 +979,12 @@ ActionCatalog.RegisterSource({
 ---                      `BINDING_HEADER_RAID_TARGET`) 명령 탭으로 간다(`AddOwnCommands`)
 ---
 --- 남는 셋은 전부 "레이어와 조건이 있는 애드온"이라야 뜻이 통하는 것들이다. 그래서 이
---- 탭은 항목이 스무 줄뿐이어도 자기 자리를 갖는다 - 여기 처음 온 사람이 **이 애드온이
+--- 탭은 항목이 네 줄뿐이어도 자기 자리를 갖는다. 여기 처음 온 사람이 **이 애드온이
 --- 무엇을 더 할 수 있는지**를 보는 자리이기도 하다.
+---
+--- 스무 줄이었다. 열다섯이 스위치 셋 × 다섯이었고, 개수 제한이 풀리면서 그 자리가 한 줄이
+--- 됐다(§6-C). **줄어든 것이 아니라 목록에서 빠진 것이다.** 개념은 그대로 한 줄로 서 있고,
+--- 어느 스위치냐는 액션 편집 메뉴가 답한다.
 ---
 --- 이름·아이콘은 전부 `NameAndIconForAction`이 낸다 - 여기 있는 타입이 그 함수가
 --- `skipTypeName`으로 처리하는 것들이라 이름이 이미 완성돼 있다.
@@ -1004,36 +1008,29 @@ local function BuildSpecialActions(entries)
 		});
 	end
 
-	-- Setting a switch. Each one has an on, an off and a toggle, so the order groups by switch --
-	-- "switch 1 on / off / toggle", then switch 2.
+	-- Setting a switch. **One row, and it names no switch** (§6-C of
+	-- `devdocs/redesigning-custom-states.md`).
 	--
-	-- **What this offers is the switches that exist**, which is a walk over the definitions rather
-	-- than over the built-in five. It was the five while a switch could not be renamed; now the
-	-- five are names a switch may be *given* and not the names it has (`Constants.SWITCH_NAMES`),
-	-- so offering them would put `$state1` in the picker after the user has renamed it to
-	-- `$burst`. That is an action pointing at a name nothing defines, which is exactly what goes
-	-- red (`GetUndefinedSwitch`).
+	-- It was three rows per switch, one each for on, off and toggle, which came to fifteen of this
+	-- tab's twenty while a profile could hold five. Lifting that count turned the number into
+	-- "however many the reader has made", and this tab is a hand-written list whose whole job is
+	-- showing somebody new **what the addon can do**; a screen of `$burst on / $burst off /
+	-- $burst toggle` says that once and then repeats itself.
 	--
-	-- A profile with no switches contributes no rows here, and that is the honest answer: there is
-	-- nothing to set. Making one is the Switches tab (§6-B of
-	-- `devdocs/redesigning-custom-states.md`), and the catalog is rebuilt when that list changes
-	-- (`OnSwitchesChanged` -> `ActionCatalog.Invalidate`).
+	-- **What the row adds is an action with no target**, which starts red
+	-- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`) and does not bind until the reader picks a switch in
+	-- its own menu (`CreateSetSwitchMenuItem`). That menu has to exist regardless: deleting a
+	-- switch leaves actions pointing at a name nothing defines, and repointing one is where they
+	-- get fixed. Once it exists the picker has nothing left to ask.
 	--
-	-- **The name travels, not the number.** §9-1 split the type in three and put the target in
-	-- `value` as a name, where it used to be an index inside a bitpack. Sorted rather than walked
-	-- with `pairs`, which would order the list differently on every client.
-	local setStateGroup = typeNames[Constants.SETSTATE_TOGGLE];
-	for _, switchName in ipairs(DebindPrivate.GetSwitchNames()) do
-		for _, actionType in ipairs({ Constants.SETSTATE_ON, Constants.SETSTATE_OFF,
-				Constants.SETSTATE_TOGGLE }) do
-			AddEntry(entries, seen, {
-				type = actionType,
-				value = switchName,
-				group = setStateGroup,
-				tooltipText = LLL["TYPE_SETSTATE_DESC"],
-			});
-		end
-	end
+	-- **Toggle, because it is the only one of the three that finishes on one key.** On and off are
+	-- halves and take two keys to get anywhere, so a reader who presses the row they just made and
+	-- sees something happen got the useful default.
+	AddEntry(entries, seen, {
+		type = Constants.SETSTATE_TOGGLE,
+		group = typeNames[Constants.SETSTATE_TOGGLE],
+		tooltipText = LLL["TYPE_SETSTATE_DESC"],
+	});
 
 	-- 사용 안 함. **혼자여도 머리글을 준다.**
 	--

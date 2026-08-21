@@ -61,6 +61,11 @@ L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected."
+-- The fourth of the *_NONE_SELECTED family, and the only one that is not about a condition: the
+-- action itself has not been told which switch it works. Kept apart from the line below on
+-- purpose. "You have not picked one" and "the one you picked is gone" send the reader to two
+-- different places, and the second names a switch while this one has none to name.
+L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No switch is picked. Until one is, this binding does not fire at all."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
 L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse buttons cannot be used for Binding Command that uses the hover condition."
 L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used with the hover condition."
@@ -147,22 +152,17 @@ L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
 L["CUSTOM_STATE_DISPLAY_MESSAGE"] = "Show message on change."
 L["CUSTOM_STATE_EDIT_VALUE_DESC"] = "Enter macro conditional expression.\n(Example: |cnHIGHLIGHT_FONT_COLOR:[@tank,exists,combat]|r)"
 L["CUSTOM_STATE_EDIT_VALUE"] = "Enter macro conditional expression."
-L["CUSTOM_STATE_INITIAL_VALUE"] = "Initial Value"
-L["CUSTOM_STATE_LOGIN_OFF"] = "Turn off when logging in."
-L["CUSTOM_STATE_LOGIN_ON"] = "Turn on when logging in."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC"] = "This option lets the addon determine the value of the switch based on macro conditional expressions (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["CUSTOM_STATE_MODE_MACRO_CONDITIONAL"] = "Set Automatically"
-L["CUSTOM_STATE_MODE_MANUAL_INSTRUCTION"] = "You can change the value of the switch here, or change it by using the |cnBLUE_FONT_COLOR:Set Switch|r action at any time (even in combat)."
-L["CUSTOM_STATE_MODE_MANUAL"] = "Set Manually"
-L["CUSTOM_STATE_NUM"] = "Switch %d"
 L["CUSTOM_STATE_OFF"] = "Off"
 L["CUSTOM_STATE_ON"] = "On"
-L["CUSTOM_STATE_REMEMBER"] = "Restore the last value when logging in."
--- The tooltip of the SwitchesPortrait button, and the description the condition menu shows for
--- the switch group. Both places print this one paragraph. A twin key,
--- CONDITION_CUSTOM_STATES_DESC, used to hold a paragraph that did not differ from this one by a
--- single character, which meant translating the same text twice in every locale. The condition
--- menu is handed this key explicitly instead (CreateSwitchConditionMenu in DropDownMenus.lua).
+-- What a switch is, said once. The Switches tab's own tooltip prints it (PANELS in DebindUI.lua)
+-- and so does the condition menu's switch group, which is handed this key explicitly
+-- (CreateSwitchConditionMenu in DropDownMenus.lua). A twin key, CONDITION_CUSTOM_STATES_DESC, used
+-- to hold a paragraph that did not differ from this one by a single character, which meant
+-- translating the same text twice in every locale.
+--
+-- It said "the tooltip of the SwitchesPortrait button" until 3c took that button off the window.
 L["CUSTOM_STATES_DESC"] = "These are ON/OFF switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these switches on or off at any time, or you can set them as macro conditionals themselves."
 L["CUSTOM_STATES"] = "Switches"
 L["CUSTOM_TARGET_CLEAR"] = "Clear"
@@ -808,8 +808,8 @@ L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause perfo
 -- **The four answers.** A switch is either worked out from a macro conditional or pressed by hand,
 -- and a pressed one still has to say what it is when the session starts. Those are one question to
 -- a reader, so the four are worded as four answers to it rather than as a mode plus a setting --
--- the last of them is `CUSTOM_STATE_MODE_MACRO_CONDITIONAL`, which the settings menu on the
--- portrait already uses for the same choice.
+-- the last of them is `CUSTOM_STATE_MODE_MACRO_CONDITIONAL`, which keeps its old key name from
+-- the settings menu on the portrait that 3c took off the window.
 --
 -- **"Comes up" and not "at login."** It is applied at login *and* on every specialization change,
 -- and the old field name saying otherwise is exactly what got renamed for lying about it. The
@@ -842,9 +842,26 @@ L["SWITCH_RENAME"] = "Rename"
 -- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
 -- no learns the rule one refusal at a time; a reader who is told first types a name that takes.
 L["SWITCH_RENAME_PROMPT"] = "What should this switch be called?\nNames start with |cnHIGHLIGHT_FONT_COLOR:$|r and can hold letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
-L["SWITCH_RENAME_ERROR_INVALID"] = "A switch name has to start with |cnHIGHLIGHT_FONT_COLOR:$|r and hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
-L["SWITCH_RENAME_ERROR_TAKEN"] = "There is already a switch by that name."
 L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
+-- Making one. **Three places open this box**: the button under the Switches list, the condition
+-- menu, and an on/off/toggle action's own menu. All three exist because a reader finds out they
+-- want a switch while they are setting up the thing that needs it, not while looking at a list of
+-- switches.
+L["SWITCH_CREATE"] = "New switch..."
+L["SWITCH_CREATE_DESC"] = "Makes a switch and puts it on this action straight away."
+L["SWITCH_CREATE_PROMPT"] = "What should the new switch be called?\nNames start with |cnHIGHLIGHT_FONT_COLOR:$|r and can hold letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+-- **The two refusals a typed name gets, and they are about the name rather than about which box
+-- it was typed into.** Renaming and creating both hand them back (`RenameSwitch`, `CreateSwitch`),
+-- which is why they are not called SWITCH_RENAME_ERROR_* any more.
+L["SWITCH_NAME_ERROR_INVALID"] = "A switch name has to start with |cnHIGHLIGHT_FONT_COLOR:$|r and hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a switch by that name."
+-- The [Set Switch] menu on an on/off/toggle action: which switch the key works, and what it does
+-- to it. **The verbs are worded as what the key does, not as what the switch is.** "On" beside a
+-- list of switches reads as the switch's own value, which is the one thing this menu cannot set.
+L["SWITCH_ACTION_TITLE"] = "Pressing the key"
+L["SWITCH_ACTION_ON"] = "Turns it on"
+L["SWITCH_ACTION_OFF"] = "Turns it off"
+L["SWITCH_ACTION_TOGGLE"] = "Turns it over"
 -- **Deleting says how much it reaches, because the list cannot.** The definition is the account's
 -- and the list shows what this character can see, so the number is the only place a reader learns
 -- that deleting here takes conditions off actions on their other characters.
@@ -852,9 +869,13 @@ L["SWITCH_RENAME_ERROR_GONE"] = "That switch is not here any more."
 -- It says the actions keep the name rather than that they lose it: they do, they turn red, and
 -- that red is how they get found again.
 L["SWITCH_DELETE_CONFIRM"] = "Delete |cnHIGHLIGHT_FONT_COLOR:%1$s|r?\n|cnHIGHLIGHT_FONT_COLOR:%2$d|r actions across the account name it. They keep the name and go red until you fix them."
--- Empty-list text says what fills it. The button it points at is the one on the window's title
--- bar, and naming it by picture rather than by label is deliberate: it carries no label to quote.
-L["SWITCHES_EMPTY"] = "No switches yet.\nThe switch button at the top of this window is where one gets made."
+-- Empty-list text says what fills it, and now it can quote the button: it is the one under this
+-- list, with a label. It pointed at the picture on the title bar until 3c, which had none.
+--
+-- **%s is that button's own label** (SWITCH_CREATE), put in rather than written out again. Two
+-- copies of a button's name is one of them going stale the day the button is reworded, and the
+-- sentence points at a control the reader is meant to find by its glyphs.
+L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below makes one."
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 우선순위에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.

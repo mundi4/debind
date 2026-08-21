@@ -142,10 +142,10 @@
 		word for word: no chrome, no ESC, no drag, no `enableMouse`, `useParentLevel`, and a
 		`preferredWidth` the frame reads when the tab is chosen.
 
-		**The rectangle is Overview's, bottom included.** Left 4, top -85, right -31 are the three
-		every tab shares so the list does not jump as you switch. The bottom is 10 rather than the
-		export panel's 50, because that band is a button row and this panel has none. The one
-		thing a reader does here is on the rows.
+		**The rectangle is Overview's.** Left 4, top -85, right -31 are the three every tab shares so
+		the list does not jump as you switch, and the bottom is the export panel's 50. That band is
+		a button row, and since 3c this panel has one: making a switch. It said 10 here while making
+		one was the portrait's dropdown, which is the door that closed.
 	-->
 	<Frame name="DebindSwitchesPanel" parent="DebindFrame" parentKey="SwitchesPanel" hidden="true"
 		useParentLevel="true" setAllPoints="true" mixin="DebindSwitchesPanelMixin">
@@ -163,8 +163,8 @@
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
 					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
 				</Anchors>
 			</Frame>
 
@@ -195,6 +195,33 @@
 					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
 				</Anchors>
 			</EventFrame>
+
+			<!--
+				**The one thing this tab does that is not on a row**, and since 3c the only visible
+				way to make a switch at all: the portrait's dropdown that used to carry it is gone
+				(§6-C). The empty-list text points here.
+
+				Same place and same size as the export panel's own button, on the frame's bottom
+				edge rather than under the inset, which is where the click binding window puts one
+				(`Blizzard_ClickBindingUI.xml`). Text is set in `OnLoad`: `text=` on the template
+				takes a global's name, and ours live in `L`.
+
+				**Not disabled in combat, unlike the toggles on the rows.** Those press a value the
+				restricted side has to be told about; this writes a definition nothing is bound to
+				yet, and the rebuild behind it stands itself down until the fight ends
+				(`UpdateBindings`). Greying it would be a lockout with nothing behind it.
+			-->
+			<Button parentKey="NewButton" inherits="UIPanelButtonTemplate">
+				<Size x="140" y="23"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
+				</Anchors>
+				<Scripts>
+					<OnClick>
+						self:GetParent():OnNewClick();
+					</OnClick>
+				</Scripts>
+			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

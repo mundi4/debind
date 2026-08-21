@@ -739,8 +739,8 @@ local function MigrateSwitches(db, dbver, charEntry)
 
             -- **다섯을 미리 만들어두던 것을 여기서 되돌린다.** 매 로드마다 빈 정의 다섯 개를
             -- 심던 자리가 `BindDerivedTables`였고, 그래서 이 기능을 한 번도 안 쓴 프로필에도
-            -- 아무도 만든 적 없는 스위치 다섯이 앉아 있다. 만드는 것은 이제 메뉴뿐이라
-            -- (`GetOrCreateSwitchDefinition`), 그때 심긴 것은 여기서 한 번 걷어낸다.
+            -- 아무도 만든 적 없는 스위치 다섯이 앉아 있다. 만드는 것은 이제 사용자가 이름을
+            -- 적는 것뿐이라(`CreateSwitch`), 그때 심긴 것은 여기서 한 번 걷어낸다.
             --
             -- **한 번이지 매 로드 수리가 아니다.** 참조를 훑어 정의를 되살리거나 지우는 것이
             -- 로그인마다 돈다면, 사용자가 지운 스위치가 참조 때문에 돌아오거나 아직 아무 데도
@@ -938,36 +938,33 @@ function DebindPrivate.ResolveSwitchDefinition(name)
     return DebindPrivate.Switches[name];
 end
 
---- The definition behind a switch name, made if it is not there yet.
+--- Makes a switch under this name. Answers `true`, or `false` and a locale key saying why it
+--- refused. It is the same contract `RenameSwitch` has, and for the same reason: both are a reader
+--- typing a name into a box, and the sentence they get back has to be about the name they typed.
 ---
---- **Creating is a user's doing, and this is the only place it happens.** The five come up empty
---- now (`BindDerivedTables`), so somebody setting one in the menu is what puts a row on disk. The
---- alternative - making a row wherever a reference to the name turns up - is what §9-3 of
+--- **Creating is a user's doing, and this is the only place it happens.** Nothing is planted at
+--- load (`BindDerivedTables`), so a row on disk means somebody made it. The alternative, making
+--- one wherever a reference to the name turns up, is what §9-3 of
 --- `devdocs/redesigning-custom-states.md` rules out: a switch the user deleted would come back on
 --- the next login and the red references to it would go quiet, which is the deletion being undone
 --- by the thing that was supposed to report it.
 ---
---- **Storage takes any name now, and the gate is what keeps the count at five.** A definition is
---- filed under its own name, so nothing about the table stops a sixth. What stops it is that the
---- only names offered anywhere are the built-in five that are still free (`GetOfferedSwitchNames`),
---- and this refuses everything else. Lifting the count is stage 3c
---- (`devdocs/redesigning-custom-states.md` §10), and it is this line.
----
---- A name it will not file gets `nil`, the same answer as one nothing defines.
-function DebindPrivate.GetOrCreateSwitchDefinition(name)
-    local definition = DebindPrivate.Switches[name];
-    if (definition) then
-        return definition;
+--- **There is no count.** `GetOrCreateSwitchDefinition` stood here and refused every name outside
+--- the built-in five, which was the whole of what kept a profile to five switches; stage 3c took
+--- it out along with the menu that handed those five names out (§6-C). What is left is the name
+--- rule, which is not a limit but a shape: a name `ParseMacroText` cannot read is one the reader
+--- could never type where the Switches tab tells them to (`IsValidSwitchName`).
+function DebindPrivate.CreateSwitch(name)
+    if (not Constants.IsValidSwitchName(name)) then
+        return false, "SWITCH_NAME_ERROR_INVALID";
+    end
+    if (DebindPrivate.Switches[name]) then
+        return false, "SWITCH_NAME_ERROR_TAKEN";
     end
 
-    if (not Constants.SWITCH_INDICES[name]) then
-        return nil;
-    end
-
-    definition = CopyTable(SWITCH_DEFAULTS);
-    DebindPrivate.Switches[name] = definition;
+    DebindPrivate.Switches[name] = CopyTable(SWITCH_DEFAULTS);
     DebindPrivate.OnSwitchesChanged();
-    return definition;
+    return true;
 end
 
 --- Every switch that exists, by name, in the order a list draws them.
@@ -980,31 +977,6 @@ function DebindPrivate.GetSwitchNames(out)
         out[#out + 1] = name;
     end
     sort(out);
-    return out;
-end
-
---- The names a menu may offer: every switch that exists, then the built-in names still free.
----
---- **Two different offers in one list, and the second one is temporary.** A definition is a switch
---- that exists and can be set. A free built-in name is a switch that can be *made*: choosing
---- anything on it is what creates it (`GetOrCreateSwitchDefinition`). Handing names out in
---- advance is only how making one works until stage 3c gives it a place of its own
---- (`devdocs/redesigning-custom-states.md` §6-C).
----
---- **The cap is where "five switches" is enforced on screen**, the create gate being where it is
---- enforced in the data. Renaming frees a built-in name, so without it a profile with two renamed
---- switches would be offered five more.
-function DebindPrivate.GetOfferedSwitchNames(out)
-    out = DebindPrivate.GetSwitchNames(out);
-    for i = 1, Constants.MAX_NUM_SWITCHES do
-        if (#out >= Constants.MAX_NUM_SWITCHES) then
-            break;
-        end
-        local name = Constants.SWITCH_NAMES[i];
-        if (DebindPrivate.Switches[name] == nil) then
-            out[#out + 1] = name;
-        end
-    end
     return out;
 end
 
@@ -1116,10 +1088,10 @@ function DebindPrivate.RenameSwitch(oldName, newName)
         return true;
     end
     if (not Constants.IsValidSwitchName(newName)) then
-        return false, "SWITCH_RENAME_ERROR_INVALID";
+        return false, "SWITCH_NAME_ERROR_INVALID";
     end
     if (DebindPrivate.Switches[newName]) then
-        return false, "SWITCH_RENAME_ERROR_TAKEN";
+        return false, "SWITCH_NAME_ERROR_TAKEN";
     end
 
     local db = DebindPrivate.db.global;
@@ -1214,8 +1186,8 @@ end
 --- **Nothing is created.** A row is a switch somebody made; five empty ones were being planted on
 --- every load, which put a row under a name the user never touched and would have filled §6-B's
 --- list with blanks for people who have never used the feature
---- (`devdocs/redesigning-custom-states.md` §9-3). Definitions are made by the menu now
---- (`GetOrCreateSwitchDefinition`), and `MigrateSwitches` cleared out the untouched ones once.
+--- (`devdocs/redesigning-custom-states.md` §9-3). A definition is made by a reader naming one
+--- (`CreateSwitch`), and `MigrateSwitches` cleared out the untouched ones once.
 function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
 
@@ -1279,7 +1251,9 @@ end
 --- The bus is `Debind.lua`'s and the headless runner does not load that file (`tests/run.lua`), so
 --- it is asked for rather than assumed. Everything that calls this is reachable from a spec.
 function DebindPrivate.OnSwitchesChanged()
-    DebindPrivate.ActionCatalog.Invalidate();
+    -- **The catalog is not rebuilt here any more.** It listed three rows per switch, so making or
+    -- deleting one moved what the picker offered; 3c collapsed that to one row that names no
+    -- switch (`BuildSpecialActions`), and the index now holds nothing this set can change.
     if (DebindPrivate.callbacks) then
         DebindPrivate.callbacks:Fire("OnSwitchesChanged");
     end

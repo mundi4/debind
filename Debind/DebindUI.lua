@@ -769,11 +769,19 @@ local function NameAndIconForAction(action)
 		actionIcon = 1505950;
 		skipTypeName = true;
 	elseif (Constants.SETSTATE_MODES[type]) then
-		-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`). What goes into it is
-		-- what the switch is called, which for the built-in five is its number
-		-- (`GetSwitchDisplayName`).
-		actionName = format(LLL["TYPE_" .. strupper(type)],
-			DebindPrivate.GetSwitchDisplayName(value));
+		-- **No switch picked yet is a name of its own, and the picker reads it off here.** One row
+		-- is added with no value at all (§6-C of `devdocs/redesigning-custom-states.md`), and the
+		-- three sentences below all have a `%s` in them, and putting nil through one raises. The row
+		-- is red beside this text either way (`BINDING_ISSUE_SWITCH_NONE_SELECTED`); what the
+		-- text has to say is which of the two red things it is, and "Pick a switch" says it.
+		if (luatype(value) ~= "string") then
+			actionName = LLL["TYPE_SETSTATE_NONE"];
+		else
+			-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`), and what goes
+			-- into it is the switch's name, `$` and all. Those are the glyphs the Switches tab draws
+			-- and the ones a macro body has to say (§6-B).
+			actionName = format(LLL["TYPE_" .. strupper(type)], value);
+		end
 		actionIcon = 254885;
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then
@@ -1695,7 +1703,7 @@ do
 		sort(_switchNames);
 		for i = 1, #_switchNames do
 			local state = _switchNames[i];
-			addLabelLine(tooltip, DebindPrivate.GetSwitchDisplayName(state));
+			addLabelLine(tooltip, state);
 			addValueLine(tooltip, conditions[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
 		end
 
@@ -4295,7 +4303,6 @@ function DebindFrameMixin:UpdateButtons()
 
 	self.OverviewPanel.BindModePortrait:SetEnabled(enableButtons);
 	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
-	self.SwitchesPortrait:SetEnabled(enableButtons);
 	self.OptionsPortrait:SetEnabled(enableButtons);
 end
 

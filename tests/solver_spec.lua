@@ -155,6 +155,26 @@ return function(DebindPrivate)
         }, "tankmode");
     end);
 
+    -- **개수 제한이 풀린 뒤에도 컬럼이 이름마다 선다** (3c). 위 둘은 다섯 밖의 이름 **하나**를
+    -- 보고, 여기는 그 이름이 **몇 개든** 저마다 축을 받는지를 본다. 컬럼이 어딘가에서 워드
+    -- 하나나 다섯 칸으로 접히면 여섯째부터 남의 축에 얹혀서 서로를 덮기 시작한다.
+    --
+    -- 하나만 켜진 상자 열둘은 서로 겹치는 데가 없다. 열둘을 다 합쳐도 조건 공간을 못 채우므로
+    -- 무조건 바인딩도 그대로 남아야 한다.
+    test("스위치가 열둘이어도 저마다 컬럼을 받는다", function()
+        local bindings = {};
+        for i = 1, 12 do
+            bindings[i] = { name = "s" .. i, ["$sw" .. i] = true };
+        end
+        bindings[#bindings + 1] = { name = "always" };
+
+        local s = survivors(bindings);
+        for i = 1, 12 do
+            check(s["s" .. i], "s" .. i .. "이(가) 사라졌다. 그 이름이 남의 컬럼에 얹혔다");
+        end
+        check(s["always"], "무조건 바인딩이 사라졌다. 상자 열둘이 조건 공간을 다 덮었다");
+    end);
+
     -- §1-3: basicunits/specialunits도 같은 문제. 게다가 units에 언급되지
     -- 않은 유닛의 니블이 0이 되어 상자가 퇴화했음.
     test("서로 다른 유닛 조건은 독립", function()

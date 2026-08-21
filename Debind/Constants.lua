@@ -117,7 +117,8 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     -- 매크로 이름이 가리키는 것이 없다. 조건이 아니라 액션 자체가 틀린 경우라 짚어 묻는
     -- 호출자가 없고, 갈래를 끄기 위한 이름으로만 쓰인다.
     macro = true,
-    -- 매크로 본문이 정의되지 않은 상태를 부른다. 위와 같은 자리다.
+    -- 액션이 스위치를 잘못 가리킨다. 정의가 없는 이름을 부르거나(매크로 본문·조건·켜기 대상),
+    -- 켜기/끄기/전환인데 아직 어느 스위치인지 안 골랐거나. 위와 같은 자리다.
     states = true,
 };
 
@@ -151,35 +152,28 @@ function Constants.IsConditionField(name)
     return Constants.IsSwitchName(name);
 end
 
---- **The five built-in names.** Neither of these says how many switches there can be any more:
---- everything that used to walk `1..MAX_NUM_SWITCHES` looking for switches now walks what is
---- actually there - a binding's conditions, the definitions that exist - so a name outside this
---- list reaches the solver and codegen like any other.
+--- **The names the five numbered rows became.** Nothing here says how many switches there can be:
+--- everything that used to walk `1..MAX_NUM_SWITCHES` looking for switches walks what is actually
+--- there. A binding's conditions and the definitions that exist are what get walked, so a name
+--- outside this list reaches the solver and codegen like any other. Stage 3c took the last count
+--- off the creating end as well, so there is no upper bound anywhere any more
+--- (`devdocs/redesigning-custom-states.md` §6-C).
 ---
---- **Storage does not use either of these any more.** A definition is filed under its own name, so
---- these are no longer an identity a switch has. §6-B's list took that away and the `dbver` 6
---- step moved the numbered rows over (`devdocs/redesigning-custom-states.md`).
+--- **Storage does not use this.** A definition is filed under its own name, so a number is no
+--- longer an identity a switch has. §6-B's list took that away and the `dbver` 6 step moved the
+--- numbered rows over.
 ---
---- Two jobs are left, and both are about these five being the names a user is *handed* rather than
---- the names a switch can have. `SWITCH_NAMES` in order is the free names the menus offer
---- (`GetOfferedSwitchNames`) and what that migration step files the old rows under.
---- `SWITCH_INDICES` answers "is this one of the five" for two callers: the count gate in
---- `GetOrCreateSwitchDefinition`, which is the whole of what keeps a profile to five switches until
---- stage 3c, and the numbered label a switch nobody has renamed is drawn with
---- (`GetSwitchDisplayName`).
+--- **One job is left, and it belongs to migration.** `MigrateSwitches` in `Profile.lua` reads a
+--- stored number and needs the name that row becomes, and the `dbver` 5 SETSTATE bitpack carries an
+--- index that needs the same. Nothing on the live path asks: a profile holding `$state3` holds it
+--- exactly the way it holds `$burst`, and every list, menu and tooltip calls it by the name it is
+--- filed under.
 ---
---- **`SETSTATE` no longer encodes here.** An on/off/toggle action carried its target as an index
---- inside a bitpacked `action.value` until §9-1 split the type in three and put the name in the
---- value. The catalog still offers exactly these five, because five is still all there are to
---- offer -- it reads them off `SWITCH_NAMES` rather than counting.
-Constants.MAX_NUM_SWITCHES = 5;
-
-Constants.SWITCH_INDICES = {};
-Constants.SWITCH_NAMES = {};
-for i = 1, Constants.MAX_NUM_SWITCHES do
-    Constants.SWITCH_INDICES["$state" .. i] = i;
-    Constants.SWITCH_NAMES[i] = "$state" .. i;
-end
+--- **`SWITCH_INDICES` went with the count** (3c). It answered "is this one of the five" for two
+--- callers. One was the create gate, which was the whole of what kept a profile to five switches.
+--- The other was a numbered label the Switches tab already contradicted by drawing `$state3`
+--- beside it.
+Constants.SWITCH_NAMES = { "$state1", "$state2", "$state3", "$state4", "$state5" };
 
 --- **Strings, so a mode nothing wrote matches nothing.** A number carries neighbours: one that is
 --- off by one is a different mode, and a gap in the numbering can never be closed without silently
@@ -317,6 +311,14 @@ Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELE
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
+-- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
+-- these. It offers one row instead of three per switch, and the switch is chosen in the action's
+-- own menu afterwards (§6-C of `devdocs/redesigning-custom-states.md`).
+--
+-- **A fourth `*_NONE_SELECTED`, not a variant of the code above.** "You have not picked one" and
+-- "the one you picked is gone" send the reader to two different places, and the three existing
+-- members of that family are the shape a half-made action already has here.
+Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTED";
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
@@ -353,6 +355,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
 };
 

@@ -24,7 +24,7 @@ So the binds have to be layered, and one key has to be able to mean more than on
 - **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
 - **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
 - **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it.
-- **Flip what a key does mid-fight.** Five switches of your own, usable in combat, without spending a real modifier.
+- **Flip what a key does mid-fight.** Switches of your own, usable in combat, without spending a real modifier.
 
 **Debind is for the keys where the answer isn't "all of them."** Put in the ones you want now — every other key goes on working exactly as it did.
 
@@ -124,7 +124,9 @@ A custom target follows the person, not their spot in the raid frames — shuffl
 
 ## Switches
 
-Five switches of your own. An action can require one to be on, or off, and a Custom Macro can read it as `[$state1]` / `[no$state1]`.
+On/off switches of your own, as many as you want. You name each one, and the name is what you write: an action can require `$burst` to be on, or off, and a Custom Macro reads it as `[$burst]` / `[no$burst]`.
+
+The **Switches** tab, along the top of the window, is the list of them: what each one comes up as when you log in, what it is right now, and a button to turn it over. **New switch...** under the list makes one, and so does the same entry on an action's condition menu, which hangs the new switch on that action as it makes it.
 
 They can be flipped **in combat**, which is the point of them — it's how you change what a key does in the middle of a fight. G Shift or Hypershift, without spending a real modifier key.
 

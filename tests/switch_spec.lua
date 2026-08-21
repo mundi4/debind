@@ -257,7 +257,7 @@ return function(DebindPrivate)
         for _, bad in ipairs({ "burst", "$", "$bur st", "$버스트", "$burst!", "" }) do
             local ok, reason = DebindPrivate.RenameSwitch("$state1", bad);
             check(not ok, "매크로에 칠 수 없는 이름 " .. bad .. "을 받았다");
-            check(reason == "SWITCH_RENAME_ERROR_INVALID", "이유가 " .. tostring(reason));
+            check(reason == "SWITCH_NAME_ERROR_INVALID", "이유가 " .. tostring(reason));
         end
         check(db.switches["$state1"] ~= nil, "거절해놓고 정의를 옮겼다");
         check(General(db)[1].conditions["$state1"] == true, "거절해놓고 조건을 옮겼다");
@@ -267,7 +267,7 @@ return function(DebindPrivate)
         local db = InitWith(Profile());
         local ok, reason = DebindPrivate.RenameSwitch("$state1", "$state2");
         check(not ok, "두 스위치가 한 이름을 갖게 뒀다");
-        check(reason == "SWITCH_RENAME_ERROR_TAKEN", "이유가 " .. tostring(reason));
+        check(reason == "SWITCH_NAME_ERROR_TAKEN", "이유가 " .. tostring(reason));
         check(db.switches["$state2"].mode == MODES.EXPR, "남의 정의를 덮어썼다");
         check(General(db)[3].value == "$state1", "거절해놓고 액션을 옮겼다");
     end);
@@ -347,33 +347,87 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 메뉴가 내놓는 이름
+    -- 만들기
+    --
+    -- 3c 전까지는 **붙박이 다섯 이름 위에서만** 만들어졌고, 그것이 개수를 다섯으로 붙들어
+    -- 두는 유일한 자리였다. 그 문이 없어졌으니 여기서 답해야 하는 것은 둘이다. 아무 이름이나
+    -- 되는가, 그리고 **이름 규칙은 여전히 서는가**. 둘째가 빠지면 매크로 본문에 적을 수 없는
+    -- 이름이 프로필에 앉는다(`ParseMacroText`가 그 토큰을 버리고 조건이 글자 그대로 나간다).
     ---------------------------------------------------------------------------
 
-    -- **개명은 붙박이 이름을 하나 비운다.** 상한이 없으면 둘을 개명한 사람에게 다섯 개를 더
-    -- 만들 자리가 생긴다. 개수 제한을 푸는 것은 3c이고 여기가 아니다.
-    test("메뉴가 내놓는 이름은 다섯을 안 넘는다", function()
-        InitWith(Profile());
-        DebindPrivate.RenameSwitch("$state1", "$burst");
-        local offered = DebindPrivate.GetOfferedSwitchNames();
-        check(#offered == Constants.MAX_NUM_SWITCHES,
-            "내놓은 것이 " .. #offered .. "개다");
-        check(offered[1] == "$burst", "만든 것이 먼저 서지 않는다: " .. tostring(offered[1]));
-        local seen = {};
-        for _, name in ipairs(offered) do
-            check(not seen[name], name .. "이 두 번 나온다");
-            seen[name] = true;
-        end
-        check(seen["$state2"], "이미 있는 스위치가 빠졌다");
+    test("붙박이 다섯 밖의 이름으로도 만들어진다", function()
+        local db = InitWith(Profile());
+        check(DebindPrivate.CreateSwitch("$newname"), "다섯 밖의 이름이 거절됐다");
+        check(db.switches["$newname"] ~= nil, "정의가 안 앉았다");
+        check(db.switches["$newname"].mode == MODES.MANUAL,
+            "기본값이 안 들어갔다: " .. tostring(db.switches["$newname"].mode));
     end);
 
-    -- 만드는 자리는 붙박이 이름 위에만 선다. 그것이 3c까지 개수를 다섯으로 붙들어 두는 곳이다.
-    test("붙박이가 아닌 이름은 만들어지지 않는다", function()
+    -- 씨앗에 둘이 있고 여덟을 더 만든다. 상한이 다시 서면 여섯째에서 걸린다.
+    test("다섯을 넘겨 만들어도 전부 남는다", function()
+        local db = InitWith(Profile());
+        for i = 1, 8 do
+            check(DebindPrivate.CreateSwitch("$extra" .. i), i .. "번째에서 거절됐다");
+        end
+        local names = DebindPrivate.GetSwitchNames();
+        check(#names == 10, "정의가 " .. #names .. "개다");
+        for i = 1, 8 do
+            check(db.switches["$extra" .. i] ~= nil, "$extra" .. i .. "이 안 남았다");
+        end
+    end);
+
+    test("이름 규칙에 안 맞으면 거절한다", function()
         InitWith(Profile());
-        check(DebindPrivate.GetOrCreateSwitchDefinition("$newname") == nil,
-            "아무 이름으로나 만들어진다 - 개수 제한이 없어졌다");
-        check(DebindPrivate.GetOrCreateSwitchDefinition("$state3") ~= nil,
-            "비어 있는 붙박이 이름을 못 만든다");
+        local ok, reason = DebindPrivate.CreateSwitch("burst");
+        check(not ok, "$ 없는 이름이 통과했다");
+        check(reason == "SWITCH_NAME_ERROR_INVALID", "이유가 " .. tostring(reason));
+        check(not DebindPrivate.CreateSwitch("$has space"), "빈칸이 든 이름이 통과했다");
+        check(not DebindPrivate.CreateSwitch("$"), "$ 하나가 통과했다");
+    end);
+
+    test("이미 있는 이름은 거절한다", function()
+        InitWith(Profile());
+        local ok, reason = DebindPrivate.CreateSwitch("$state1");
+        check(not ok, "이미 있는 이름이 통과했다");
+        check(reason == "SWITCH_NAME_ERROR_TAKEN", "이유가 " .. tostring(reason));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 아직 스위치를 안 고른 켜기/끄기/전환
+    --
+    -- 선택 창이 값 없이 하나 넣는다(§6-C). **그 액션은 KeyMap에서 빠져야 한다.** 안 빠지면
+    -- `SetAttribute`가 nil 이름을 받아 속성을 지우고, 키는 조용히 아무 일도 안 한다.
+    ---------------------------------------------------------------------------
+
+    test("스위치를 안 고른 켜기/끄기/전환은 빨개진다", function()
+        InitWith(Profile());
+        local NONE = Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED;
+        for _, actionType in ipairs({ Constants.SETSTATE_ON, Constants.SETSTATE_OFF,
+                Constants.SETSTATE_TOGGLE }) do
+            local issue = DebindPrivate.GetBindingIssue({ type = actionType, key = "F1" });
+            check(issue == NONE, actionType .. "이 " .. tostring(issue) .. "다");
+        end
+        -- 고르고 나면 사라진다. 이게 없으면 위는 "이 타입은 늘 빨갛다"와 구별이 안 된다.
+        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_TOGGLE,
+            value = "$state1", key = "F1" }) == nil, "고른 뒤에도 빨갛다");
+    end);
+
+    -- 이름이 없는 것과 이름이 틀린 것은 다른 이야기를 한다. 한 코드로 접으면 사용자가 읽는
+    -- 문장이 "안 골랐다"인데 실제로는 "고른 것이 없어졌다"가 된다.
+    test("안 고른 것과 없는 것을 가르는 코드가 다르다", function()
+        InitWith(Profile());
+        check(DebindPrivate.GetBindingIssue({ type = Constants.SETSTATE_ON, value = "$typo",
+                key = "F1" }) == Constants.BINDING_ISSUE_UNDEFINED_STATE,
+            "없는 이름이 안 고른 것으로 보고된다");
+    end);
+
+    -- 본문을 지을 수 없는 액션에 [매크로로 바꾸기]를 세우면 눌러도 아무 일이 없다.
+    test("스위치를 안 고르면 매크로로 못 바꾼다", function()
+        InitWith(Profile());
+        check(not DebindPrivate.CanConvertToMacroText({ type = Constants.SETSTATE_TOGGLE }),
+            "이름이 없는데도 바꾸기를 내준다");
+        check(DebindPrivate.CanConvertToMacroText({ type = Constants.SETSTATE_TOGGLE,
+            value = "$state1" }), "이름이 있는데 바꾸기가 안 선다");
     end);
 
     return T;

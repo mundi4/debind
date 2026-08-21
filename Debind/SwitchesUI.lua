@@ -20,9 +20,10 @@ local ANSWERS = {
     { key = "on",       label = "SWITCH_ANSWER_ON",       desc = "SWITCH_ANSWER_ON_DESC" },
     { key = "off",      label = "SWITCH_ANSWER_OFF",      desc = "SWITCH_ANSWER_OFF_DESC" },
     { key = "remember", label = "SWITCH_ANSWER_REMEMBER", desc = "SWITCH_ANSWER_REMEMBER_DESC" },
-    -- The expression's own words, which the settings menu on the portrait already uses for the
-    -- same choice. Reuse here is real: it is one rule, and a second key for it would be a second
-    -- thing to translate that can then disagree inside one window.
+    -- The expression's own words. The key kept its `CUSTOM_STATE_` name from when the settings
+    -- menu on the portrait used it for the same choice, and that menu is gone (3c); the string is
+    -- one rule, and a second key for it would be a second thing to translate that can then
+    -- disagree inside one window.
     { key = "expr",     label = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL",
                         desc  = "CUSTOM_STATE_MODE_MACRO_CONDITIONAL_DESC" },
 };
@@ -318,8 +319,48 @@ do
         MenuUtil.CreateContextMenu(owner, SetupSwitchMenu, name);
     end
 
-    --- The macro conditional box. **The same one the portrait's settings menu opens**, down to the
-    --- prompt: two boxes asking for one string in two wordings is two syntaxes to a reader who
+    --- Asking for a name and making the switch. `onCreated` is handed the name, and is not called
+    --- when nothing was made.
+    ---
+    --- **Three places open this box**: the button under this list, the condition menu, and an
+    --- on/off/toggle action's own menu (`DropDownMenus.lua`). That is the whole point of stage
+    --- 3c: making a switch belongs wherever the reader turns out to need one, not on a trip to a
+    --- tab they have to know about first (§6-2 of `devdocs/redesigning-custom-states.md`).
+    ---
+    --- It reads like `ShowRenameBox` on purpose, down to saying no in chat rather than in a second
+    --- dialog: the two are one gesture, and `CreateSwitch` and `RenameSwitch` answer with the same
+    --- two refusals in the same shape.
+    function DebindUI.ShowNewSwitchBox(onCreated)
+        DebindUI.ShowInputBox({
+            text = LLL["SWITCH_CREATE_PROMPT"],
+            callback = function(value)
+                local name = strtrim(value);
+                local ok, reason = DebindPrivate.CreateSwitch(name);
+                if (not ok) then
+                    if (reason) then
+                        DebindPrivate.DisplayMessage(LLL[reason]);
+                    end
+                    return;
+                end
+                if (onCreated) then
+                    onCreated(name);
+                end
+                -- No redraw here: `CreateSwitch` fires `OnSwitchesChanged`, and the panel rebuilds
+                -- its list off that whenever it is up. `RefreshPanelRows` would be the wrong half
+                -- anyway, since it redraws the rows that exist and the new switch has none yet.
+                DebindPrivate.UpdateBindings();
+            end,
+            maxLetters = 32,
+            -- **The box opens on the `$` alone.** The rule is in the prompt above it, but a reader
+            -- who is handed an empty box still has to act on a sentence rather than on the field;
+            -- one glyph already sitting there is the same instruction in the place it applies.
+            currentValue = "$",
+        });
+    end
+
+    --- The macro conditional box. **One box, wherever the expression is edited from**: the answer
+    --- row that picks the expression opens it, and so does the [Edit] item under that row once it
+    --- is picked. Two boxes asking for one string in two wordings is two syntaxes to a reader who
     --- cannot see that it is one field.
     function DebindUI.ShowSwitchExpressionBox(name)
         local definition = DebindPrivate.ResolveSwitchDefinition(name);
@@ -355,6 +396,13 @@ DebindSwitchesPanelMixin = {};
 
 function DebindSwitchesPanelMixin:OnLoad()
     self:InitializeScrollBox();
+    -- `text=` in the XML names a global, and ours are in `L` (the export panel's button is set the
+    -- same way, for the same reason).
+    self.NewButton:SetText(LLL["SWITCH_CREATE"]);
+end
+
+function DebindSwitchesPanelMixin:OnNewClick()
+    DebindUI.ShowNewSwitchBox();
 end
 
 function DebindSwitchesPanelMixin:InitializeScrollBox()
@@ -373,10 +421,11 @@ end
 
 --- Rebuilds the list from the definitions.
 ---
---- **Nothing is cached between refreshes.** The set changes from three places outside this panel
---- (the settings menu on the portrait, a rename here, a switch deleted here) and the values change
---- from many more, so a list kept across a redraw would be a second answer to a question the
---- profile already answers.
+--- **Nothing is cached between refreshes.** The set changes from a rename here, a switch deleted
+--- here, and a switch made anywhere the new-switch box is reachable from (the button under this
+--- list, the condition menu, an on/off/toggle action's menu). The values change from more places
+--- still, so a list kept across a redraw would be a second answer to a question the profile
+--- already answers.
 function DebindSwitchesPanelMixin:RefreshRows()
     local names = DebindPrivate.GetSwitchNames();
     local list = {};
@@ -385,7 +434,7 @@ function DebindSwitchesPanelMixin:RefreshRows()
     end
 
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
-    self.ScrollBox.EmptyText:SetText(LLL["SWITCHES_EMPTY"]);
+    self.ScrollBox.EmptyText:SetText(format(LLL["SWITCHES_EMPTY"], LLL["SWITCH_CREATE"]));
     self.ScrollBox.EmptyText:SetShown(#list == 0);
 end
 
@@ -400,9 +449,9 @@ function DebindSwitchesPanelMixin:OnShow()
     self:RefreshRows();
 
     -- **Three things move this list while it is up, and none of them is this panel.** A key or a
-    -- macro flips a value, the expression loop computes one, and the settings menu on the portrait
-    -- can make a switch without this tab hearing about it. Subscribing is what makes the list say
-    -- what is true rather than what was true when the tab was opened.
+    -- macro flips a value, the expression loop computes one, and the action menus can make a switch
+    -- with the reader standing on another tab. Subscribing is what makes the list say what is true
+    -- rather than what was true when the tab was opened.
     DebindPrivate.RegisterCallback(self, "SWITCH_CHANGED");
     DebindPrivate.RegisterCallback(self, "OnSwitchesChanged");
     self:RegisterEvent("PLAYER_REGEN_DISABLED");
