@@ -43,6 +43,15 @@
 					</Anchors>
 				</FontString>
 			</Layer>
+			<!--
+				**The one way this addon says a row is picked**, and the fourth list to use it: the
+				overview's two columns and the preview beside this one draw it with the same three
+				lines. A row here had no picked state at all until the right column arrived - a click
+				used to open a dialog, so there was nothing to be picked *for*.
+			-->
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+			</Layer>
 			<Layer level="HIGHLIGHT">
 				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD"/>
 			</Layer>
