@@ -733,7 +733,7 @@
 	</ScrollFrame>
 	<!-- ESC는 이 창이 직접 받는다(enableKeyboard). 블리자드가 내주는 두 자리 - UISpecialFrames와
 	     RegisterGameMenuEscHandler - 를 둘 다 안 쓰는 이유가 DebindFrameMixin:OnLoad에 있다. -->
-	<Frame name="DebindFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="DebindFrameMixin" movable="true" clampedToScreen="true" enableKeyboard="true">
+	<Frame name="DebindFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="CallbackRegistryMixin,DebindFrameMixin" movable="true" clampedToScreen="true" enableKeyboard="true">
 		<Size x="440" y="620"/>
 		<Anchors>
 			<Anchor point="CENTER"/>
@@ -1443,9 +1443,8 @@
 				</Anchors>
 			</Button>
 			<!--
-				**Second, ahead of the two sharing tabs.** The row reads outward: what this
-				character has, what the addon itself is set to, and then moving either in or out.
-				Import and Export are one pair and stay next to each other at the end.
+				**Second, ahead of the sharing tab.** The row reads outward: what this character
+				has, what the addon itself is set to, and then what is kept aside.
 
 				**The panel this opens is declared in another file** (`SwitchesUI.xml`), which is
 				why nothing here names it: the seat is `id`, and `PANELS` in `DebindUI.lua` is what
@@ -1458,14 +1457,15 @@
 					<Anchor point="TOPLEFT" relativeKey="$parent.OverviewTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
-			<Button parentKey="ImportTab" inherits="DebindPanelTabTemplate" id="3">
+			<!--
+				**One seat where there were two.** Import and Export were a pair pointing opposite
+				ways at the same list, and that list is what they had in common: a stored payload is
+				a thing now rather than a step on the way in or out, so both directions are buttons
+				on the one tab (`devdocs/building-export-import.md` 12절).
+			-->
+			<Button parentKey="StorageTab" inherits="DebindPanelTabTemplate" id="3">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.SwitchesTab" relativePoint="TOPRIGHT" x="3" y="0"/>
-				</Anchors>
-			</Button>
-			<Button parentKey="ExportTab" inherits="DebindPanelTabTemplate" id="4">
-				<Anchors>
-					<Anchor point="TOPLEFT" relativeKey="$parent.ImportTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
 

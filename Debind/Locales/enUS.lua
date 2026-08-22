@@ -1226,35 +1226,9 @@ L["NO_ACTIONS_MATCH_FILTERS"] = "Nothing in this tab matches the filters. The dr
 -- Empty left-hand column for the same reason. Different from the one above: that list is one tab,
 -- this one is the whole keyboard.
 L["OVERVIEW_EMPTY_FILTERED"] = "Nothing matches the filters. The dropdown above this column has what is switched off."
--- The accept button on the dialog a drawer row opens. **It used to be the row's own button too**,
--- with a second wording for a row that had already been used; the row takes the click itself now
--- and nothing is tracked about how many times it has been clicked.
-L["IMPORT_COMMIT"] = "Bring it in"
--- **The row's tooltip, since the row carries no label of its own.** It says the press opens a
--- dialog rather than acting - a line promising the action itself would have the reader looking for
--- what changed.
-L["IMPORT_COMMIT_DESC"] = "Asks which parts of it to take, then adds those to your bindings switched off. Nothing you press changes until you accept them."
 -- Everything picked turned out to have nowhere to go - the same two causes as
 -- `IMPORT_COMMITTED_SKIPPED`, with nothing left over to report a count against.
 L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anywhere to go here."
--- The dialog that press opens. **%s is where the string came from**, which is the name the row
--- above it carries - the reader picked this row out of a drawer and the dialog has to say which one
--- it caught.
-L["IMPORT_BRING_TITLE"] = "Bring in - %s"
--- The lines in that dialog. **These name what is in the string, not where it is going**, which is
--- why they cannot use the words the window's own tabs use: those are built out of *this*
--- character - your name, your class, your specs - and the string is somebody else's.
---
--- The character line has no name in it because the string carries none. A string meant to be pasted
--- into a public channel should not be shipping a character name the sender never typed, so this is
--- the one place in the window that cannot use the window's own vocabulary.
-L["IMPORT_BRING_LINE_SHARED_GENERAL"] = "Shared / General"
--- %s is the sender's class.
-L["IMPORT_BRING_LINE_SHARED_CLASS"] = "Shared / %s"
-L["IMPORT_BRING_LINE_CHARACTER_GENERAL"] = "Character / General"
--- %s is the sender's class. The specializations under it are their class's, and they land on yours
--- of the same number.
-L["IMPORT_BRING_LINE_CHARACTER_SPEC"] = "Character / %s"
 -- **Said out loud because the screen barely moves.** What just arrived is bound to nothing, so a
 -- press that did a lot looks like a press that did nothing.
 --
@@ -1270,25 +1244,49 @@ L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you 
 -- one: a specialization this character's class does not have, and a layer a newer Debind invented.
 -- It used to say only the second, and the first is the one that actually turns up.
 L["IMPORT_COMMITTED_SKIPPED"] = "%d of them had nowhere to go here and were left out - a specialization this character does not have, or a layer this version does not know."
-L["IMPORT_TITLE"] = "Import"
--- **"String" is our word, not the client's, and this is the cluster that uses it.** Measured
--- 2026-08-17: every place the game shows one of these to a player it calls it a **code** -
--- `LOADOUT_ERROR_BAD_STRING` reads "Invalid loadout code",
+-- The tab. **A place, not the thing kept in it** - the client has no empty word for one of these
+-- (Blueprint, Layout and Loadout are each already something else) and naming a place needs none.
+--
+-- The client's own word for a tab holding what you own and have not put anywhere yet is
+-- `HOUSE_EDITOR_CATALOG_STORAGE_TAB`, the housing catalog's. **Three locales come off that one
+-- string**, which is what settled it against counting the word on its own - "보관함" is 65 lines
+-- in koKR and almost none of them are this in enUS.
+--
+-- It is also the AddOns list name of the addon that keeps the payloads, and that was known and
+-- taken: the two never stand on one screen (12절 of `devdocs/building-export-import.md`).
+-- **No object on it.** There is one thing this makes and one thing it makes it from, so a range
+-- would be a word that adds nothing - and any range it named would be too narrow, since what goes
+-- in includes the specializations you are not playing.
+L["STORAGE_CREATE"] = "Create"
+-- The client says this seven times across four features - the cooldown viewer, housing, talents,
+-- edit mode - and every one of them means what this means.
+L["STORAGE_IMPORT"] = "Import"
+-- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
+-- into text to hand to somebody.
+--
+-- **"String" is our word, not the client's, and this key is the first to stop using it.**
+-- Measured 2026-08-17: every place the game shows one of these to a player it calls it a **code**
+-- - `LOADOUT_ERROR_BAD_STRING` reads "Invalid loadout code",
 -- `COOLDOWN_VIEWER_SETTINGS_ERROR_ENTER_IMPORT_STRING_AND_NAME` reads "a valid import code",
--- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to its
--- own key names, which is the same line this file is supposed to draw. koKR says 코드 throughout.
+-- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to
+-- its own key names, which is the same line this file is supposed to draw. koKR says 코드
+-- throughout.
 --
--- **Not renamed, because it is nineteen keys across two files and one track's whole vocabulary.**
--- Left here as the finding rather than done as a side effect; ruRU carries none of these, so the
--- cost when it is done is enUS and koKR only.
--- **"You pick which layer each part lands in" was written for a screen that no longer exists.** The
--- workbench that asked that question was dropped; bringing a string in now places everything by
--- itself and asks nothing, and where a part landed is corrected afterwards in Overview like any
--- other action. A tab tooltip promising a choice that never comes is worse than a vague one.
---
--- What survives from the old wording is the part that is still the point and still true: nothing is
--- bound until the reader says so. That is the whole reason to open this tab without worrying.
-L["IMPORT_MENU_DESC"] = "Keeps a Debind string you paste in until you want it.|n|nBringing one in adds its actions switched off, so nothing you press changes until you accept them."
+-- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
+-- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
+-- when it is done is enUS and koKR only.
+L["STORAGE_COPY"] = "Copy Share Code"
+L["STORAGE_TITLE"] = "Storage"
+-- The header over actions this version has no layer for: a specialization number past the end of
+-- the class they came from, which only a hand-edited string carries. **They are drawn rather than
+-- dropped**, so what the preview counts is what the string holds - and adding them puts them
+-- nowhere, which is the number said separately after a press.
+L["STORAGE_PREVIEW_ELSEWHERE"] = "Nowhere to put these"
+-- ⚠ **Placeholder.** The right column stands empty until a row is picked and the wording is to be
+-- settled off the screen, so this is deliberately not translated yet (12절).
+L["STORAGE_NOTHING_PICKED"] = "Pick something on the left to see what is in it."
+L["STORAGE_MENU_DESC"] = "Keeps setups aside: ones you make from this character, and ones you paste in from someone else.|n|nNothing in here is switched on. Adding one puts its actions in switched off, so nothing you press changes until you accept them."
+
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills
 -- it rather than what to do next - there is no next step until something is in there.
 --
@@ -1297,7 +1295,6 @@ L["IMPORT_MENU_DESC"] = "Keeps a Debind string you paste in until you want it.|n
 -- now, so telling the reader to press it is the screen describing what the screen already shows.
 -- What is left is the half a visible button cannot say: that anything landing here stays.
 L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nA string you paste will sit here until you decide what to do with it, and it is kept afterwards - so you can come back and finish later."
-L["IMPORT_PASTE"] = "Paste a string"
 L["IMPORT_PASTE_TITLE"] = "Paste a Debind string"
 -- The two halves of the game's own import dialog, which this one is shaped after: a caption over
 -- the box, and the instruction **inside** it. The caption names what the box holds; the
@@ -1355,11 +1352,8 @@ L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries i
 -- panels now; `Debind Storage` is the load-on-demand part that keeps the strings, and without it
 -- there is nothing for either to show. Switching it off in the AddOns list is the one way here.
 L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind Storage|r keeps, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Storage comes with it."
-L["EXPORT_TITLE"] = "Export"
-L["EXPORT_MENU_DESC"] = "Turns any part of your setup into a string you can hand to someone else or keep as a backup.|n|nEverything is selected when the window opens, and the specs you are not playing right now are in the list too - you do not have to switch to put them in."
 L["EXPORT_SELECT_ALL"] = "Select all"
 L["EXPORT_SELECT_ALL_COUNT"] = "Select all (%d)"
-L["EXPORT_GENERATE"] = "Create string"
 L["EXPORT_EMPTY"] = "There is nothing here to export yet."
 L["EXPORT_LAYER_HEADER"] = "%1$s (%2$d/%3$d)"
 L["EXPORT_LAYER_COUNT"] = "%d actions"

@@ -79,6 +79,15 @@ const WOW_GLOBALS = `
     MAX_RAID_MEMBERS = 40
     MAX_ARENA_ENEMIES = 5
     UnitClass = function() return "Warrior", "WARRIOR", 1 end
+    -- The class table Constants.lua builds at load (CLASS_IDS). One real answer is enough:
+    -- nothing baked reads that table, and what the loop needs is a call that does not raise and
+    -- a range that ends.
+    C_CreatureInfo = {
+        GetClassInfo = function(classID)
+            if classID == 1 then return { classFile = "WARRIOR" } end
+            return nil
+        end,
+    }
 `;
 
 // **WoW is Lua 5.1 and fengari is 5.3.** `BakeSnippet` writes a constant out with `tostring`,

@@ -141,15 +141,13 @@ local function ImportAccount(db, old)
         db.shared.GENERAL = ImportLayer(old.GENERAL, dbver);
     end
 
-    local isClassKey = {};
-    for classId = 1, 20 do
-        local classInfo = C_CreatureInfo.GetClassInfo(classId);
-        local class = classInfo and classInfo.classFile;
-        if (class) then
-            isClassKey[class] = true;
-            if (old[class]) then
-                db.shared.classes[class] = ImportSpecTable(old[class], dbver);
-            end
+    -- **The one enumeration of the client's classes** (`Constants.CLASS_IDS`). The loop that built
+    -- it stood here as well and the local below is what it was for: telling a class key in the old
+    -- table apart from the housekeeping keys sitting beside it.
+    local isClassKey = Constants.CLASS_IDS;
+    for class in pairs(isClassKey) do
+        if (old[class]) then
+            db.shared.classes[class] = ImportSpecTable(old[class], dbver);
         end
     end
 

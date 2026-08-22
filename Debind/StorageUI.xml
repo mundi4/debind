@@ -15,7 +15,7 @@
 		bottom edge; the row is the entry, so the row is what answers. The remove button on top
 		still takes its own click.
 	-->
-	<Button name="DebindImportEntryRowTemplate" mixin="DebindImportEntryRowMixin" virtual="true">
+	<Button name="DebindStorageEntryRowTemplate" mixin="DebindStorageEntryRowMixin" virtual="true">
 		<Size x="400" y="44"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -100,11 +100,124 @@
 		</Scripts>
 	</Button>
 
-	<!--
-		**The main window's Import tab.**
+	<Button name="DebindStoragePreviewRowTemplate" mixin="DebindStoragePreviewRowMixin" virtual="true">
+		<Size x="400" y="28"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="ClickCastList-ButtonBackground">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+				<!--
+					The key boundary. Groups are drawn as a **line**, not a header row - the same
+					choice the main list made, and for the same reason: a header would promise
+					that what follows fires in the order shown, and this window shows one layer
+					at a time so it has no standing to say that.
+				-->
+				<Texture parentKey="GroupBorder" atlas="Options_HorizontalDivider" hidden="true">
+					<Size y="1"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativePoint="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT" relativePoint="TOPRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<!-- Level with the header's checkbox, which starts at the same inset. -->
+				<Texture parentKey="Icon">
+					<Size x="20" y="20"/>
+					<Anchors>
+						<Anchor point="LEFT" x="5" y="0"/>
+					</Anchors>
+				</Texture>
+				<!--
+					The key sits on every row even though a group shares one. Reading down a
+					column is how you find the key you meant to send; making only the first row
+					of a group carry it means the answer moves when the sort changes.
 
-		What is here is the drawer received strings pile up in. Opening an entry and deciding where it
-		goes is the next slice, so a row does not lead anywhere yet.
+					**Declared before the name, because the name hangs off it.** A `relativeKey`
+					pointing at a sibling that does not exist yet does not take, and a FontString
+					that ends up with one of its two horizontal points missing has no width and
+					draws nothing at all.
+				-->
+				<FontString parentKey="Key" inherits="GameFontDisableSmall" maxLines="1" justifyH="RIGHT">
+					<Size x="120" y="0"/>
+					<Anchors>
+						<Anchor point="RIGHT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+				<FontString parentKey="Name" inherits="GameFontNormal" maxLines="1" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="7" y="0"/>
+						<Anchor point="RIGHT" relativeKey="$parent.Key" relativePoint="LEFT" x="-6" y="0"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+			<!--
+				**A picked row is lit, not ticked.** Same art and same layer the main window uses on
+				its selected rows, so "this one is picked" looks one way across the addon.
+
+				It also settles which rung is which. A checkbox on every row put three columns of
+				boxes down the list and the eye could not tell the layer's box from an action's; a
+				lit row cannot be mistaken for the header above it.
+			-->
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedHighlight" atlas="auctionhouse-ui-row-select" alpha=".8" hidden="true" alphaMode="ADD"/>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="FrameHighlight" atlas="ClickCastList-ButtonHighlight" setAllPoints="true" alphaMode="ADD">
+					<Color r="1" g="1" b="0" a="1"/>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		A layer. The window's outer axis, because it is the only grouping actually stored: a key
+		group crosses layers and so has nowhere to live (`devdocs/building-export-import.md`).
+
+		Its checkbox is the middle rung of the three: all -> layer -> action.
+	-->
+	<Button name="DebindStoragePreviewLayerTemplate" inherits="ListHeaderThreeSliceTemplate" mixin="DebindStoragePreviewLayerMixin" virtual="true">
+		<Size x="400" y="26"/>
+		<Frames>
+			<!--
+				**This checkbox takes its own clicks**, unlike the one on a row. Here the two
+				gestures mean different things - the bar collapses, the box selects - so the box has
+				to be able to say "not me" by swallowing the click itself.
+
+				The header text is pushed clear of it in `OnLoad` rather than re-anchored here.
+				`ListHeaderThreeSliceMixin` owns that anchor and offers `AdjustTextOffset` for
+				exactly this, and writing a second anchor would leave two rules for one position.
+			-->
+			<CheckButton parentKey="Check" inherits="MinimalCheckboxArtTemplate">
+				<Size x="24" y="24"/>
+				<Anchors>
+					<Anchor point="LEFT" x="5" y="0"/>
+				</Anchors>
+			</CheckButton>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Button>
+
+	<!--
+		**The main window's Storage tab.**
+
+		Two columns, the same shape Overview has: what there is on the left, what is picked on the
+		right. It was two tabs pointing opposite ways at the same list until the list itself became
+		the thing (12절 of `devdocs/building-export-import.md`).
 
 		It is a panel and the frame hosts it, which means three things this file has to get right
 		(the same three the export panel needed - `.zzz/main-frame-containers.md`):
@@ -114,47 +227,45 @@
 		  first press only while this file belonged to the load-on-demand addon and so did not exist
 		  when `DebindUI.xml` was read
 
-		  `useParentLevel`, or the list's own `frameLevel` would land underneath this panel and
+		  `useParentLevel`, or a list's own `frameLevel` would land underneath this panel and
 		  draw behind its inset
 
 		  **no `enableMouse`**. A panel covering the whole frame that swallows clicks takes the
 		  title bar with it, and the window stops being draggable from this one tab
 
 		`preferredWidth` is the width the frame is asked for, and the only size written here: pinned
-		to the host on four sides, a `<Size>` of its own would never be the rectangle it ends up with.
+		to the host on four sides, a `<Size>` of its own would never be the rectangle it ends up
+		with. **It is Overview's number**, because this is now Overview's shape - two columns want
+		the room two columns want, and a reader crossing between the two tabs should not have the
+		window resize under them.
 	-->
-	<Frame name="DebindImportPanel" parent="DebindFrame" parentKey="ImportPanel" hidden="true"
-		useParentLevel="true" setAllPoints="true" mixin="DebindImportPanelMixin">
+	<Frame name="DebindStoragePanel" parent="DebindFrame" parentKey="StoragePanel" hidden="true"
+		useParentLevel="true" setAllPoints="true" mixin="DebindStoragePanelMixin">
 		<KeyValues>
-			<KeyValue key="preferredWidth" value="440" type="number"/>
+			<KeyValue key="preferredWidth" value="867" type="number"/>
 		</KeyValues>
 		<Frames>
+			<!--
+				The entry list's inset. **Overview's rectangle** (`DebindUI.xml`): the tabs of one
+				window should not have their lists jump as the reader moves between them.
+
+				**The bottom is 50 rather than Overview's 10.** That band is where the two buttons
+				under this column stand, on the frame's own bottom edge - which is where the click
+				binding window puts its own (`Blizzard_ClickBindingUI.xml`).
+
+				A fixed width, given by `<Size>` with only the two left corners pinned. The column
+				holds two short lines and a delete button and does not get wider on a wider window;
+				what should take the extra room is the preview beside it.
+			-->
 			<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate">
-				<!--
-					Overview's rectangle (`DebindUI.xml`), which the export list uses as well. The
-					three are tabs of one window and a reader moving between them should not have the
-					list jump; that is the same rule the two columns of Overview follow between
-					themselves.
-
-					**The bottom is Overview's 10 rather than export's 50.** Fifty was the room the
-					[Paste a string] button needed on the frame's bottom edge; the button stands
-					above the list now, so that strip was empty. Export keeps 50 because its own
-					button is still down there - the two tabs differ by exactly the control that is
-					in the way, which is what the shared rectangle was ever about.
-
-					The backdrop is Overview's too - a thin border over black rather than
-					`InsetFrameTemplate`'s old bevel, so the box is of the same age as the row art
-					standing on it.
-				-->
+				<Size x="300" y="0"/>
 				<KeyValues>
 					<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
 					<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
 				</KeyValues>
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
-					<Anchor point="TOPRIGHT" x="-31" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
 				</Anchors>
 			</Frame>
 
@@ -166,12 +277,11 @@
 				<Layers>
 					<Layer level="ARTWORK">
 						<!--
-							The drawer is empty far more often than the export list is, and an empty
-							drawer has to say what fills it. This is the only instruction the panel
-							carries.
+							An empty list has to say what fills it, and this one is empty on a first
+							login by definition.
 						-->
 						<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
-							<Size x="320" y="0"/>
+							<Size x="240" y="0"/>
 							<Anchors>
 								<Anchor point="TOP" x="0" y="-60"/>
 							</Anchors>
@@ -187,20 +297,114 @@
 			</EventFrame>
 
 			<!--
-				**Above the list, where the count used to be.** It stood on the frame's bottom edge,
-				matching the export tab's [Create string] and the click binding window's own button
-				(`Blizzard_ClickBindingUI.xml`: `BOTTOMRIGHT -6, 5`, height 23) - the two tabs being
-				the same gesture pointing opposite ways.
-
-				What was in this row instead was how many strings the drawer holds. That is a number
-				the list itself carries: every one of them is a row, they are short, and counting
-				what is already on screen is what a summary must not do. The way in is what belongs
-				above a list you may have nothing in yet.
+				**The two ways a row gets into the list, under the list.** They are the same kind of
+				act pointing at the same column, so they stand together rather than one of them
+				sitting above the list as the paste button used to.
 			-->
-			<Button parentKey="PasteButton" inherits="UIPanelButtonTemplate">
+			<Button parentKey="CreateButton" inherits="UIPanelButtonTemplate">
+				<Size x="146" y="23"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" x="8" y="5"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="ImportButton" inherits="UIPanelButtonTemplate">
+				<Size x="146" y="23"/>
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.CreateButton" relativePoint="RIGHT" x="5" y="0"/>
+				</Anchors>
+			</Button>
+
+			<!--
+				**The right column: what the picked entry holds.**
+
+				Its own frame rather than a second list loose in the panel, so the two columns are
+				two things on screen and two things in the code. It takes whatever width is left,
+				which is the way round it should be: the entry rows are short and fixed and the
+				actions are what a reader is actually reading.
+
+				**Declared after the left column, because it hangs off it.** `relativeKey` resolves
+				when the frame is built and a key declared later is nil - the anchor is then dropped
+				without a word and the column simply never appears (`check:xml-anchors`).
+			-->
+			<Frame parentKey="Preview" useParentLevel="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="27" y="0"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
+				</Anchors>
+				<Frames>
+					<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate" setAllPoints="true">
+						<KeyValues>
+							<KeyValue key="backdropBorderColor" value="DARKGRAY_COLOR" type="global"/>
+							<KeyValue key="backdropColor" value="BLACK_FONT_COLOR" type="global"/>
+						</KeyValues>
+					</Frame>
+
+					<Button parentKey="ScrollBox" inherits="WowScrollBoxList" frameLevel="3">
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="5" y="-5"/>
+							<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="-5" y="5"/>
+						</Anchors>
+						<Layers>
+							<Layer level="ARTWORK">
+								<!--
+									**Three things it can be saying** and one of them is the ordinary
+									resting state: nothing is picked. The column stands empty rather
+									than folding away, so the shape of the tab does not change under
+									a click (12절, 소유자).
+								-->
+								<FontString parentKey="EmptyText" hidden="true" inherits="GameFontDisable" justifyH="CENTER" wordwrap="true">
+									<Size x="380" y="0"/>
+									<Anchors>
+										<Anchor point="TOP" x="0" y="-60"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
+					</Button>
+					<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+						<Anchors>
+							<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="5" y="-5"/>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="BOTTOMRIGHT" x="5" y="5"/>
+						</Anchors>
+					</EventFrame>
+
+					<!--
+						The top rung of the three. Above the list because that is where a heading
+						over a list goes, and hidden when there is no list under it to head.
+					-->
+					<CheckButton parentKey="SelectAllCheck" inherits="MinimalCheckboxArtTemplate">
+						<Size x="24" y="24"/>
+						<Anchors>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="4"/>
+						</Anchors>
+						<Layers>
+							<Layer level="ARTWORK">
+								<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT">
+									<Anchors>
+										<Anchor point="LEFT" relativePoint="RIGHT" x="4" y="0"/>
+									</Anchors>
+								</FontString>
+							</Layer>
+						</Layers>
+					</CheckButton>
+				</Frames>
+			</Frame>
+
+			<!--
+				**The two ways the picked entry leaves, under the column that shows it.** Each pair
+				of buttons sits under the column it acts on, so which of the two lists a press is
+				about is a matter of where it is rather than something to read.
+			-->
+			<Button parentKey="CopyButton" inherits="UIPanelButtonTemplate">
 				<Size x="160" y="23"/>
 				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="4"/>
+					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="AddButton" inherits="UIPanelButtonTemplate">
+				<Size x="120" y="23"/>
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.CopyButton" relativePoint="LEFT" x="-5" y="0"/>
 				</Anchors>
 			</Button>
 		</Frames>
@@ -359,47 +563,56 @@
 	</Frame>
 
 	<!--
-		What a press of [Bring it in] asks before it does anything.
+		Where the finished string is handed over.
 
-		**The two questions on it only mean something for the one press**, which is why they are
-		here and not on the row. Leaving the keys out used to be a checkbox on the row: it was
-		stored on the entry, survived a `/reload`, and a reader who ticked it and came back a week
-		later got something other than what they asked for. A decision that lives exactly as long as
-		the press has to be made in the same moment as the press.
+		**A dialog rather than a box in the window.** The string is read once, selected, copied and
+		never looked at again, so a permanent panel spends height on something that is empty almost
+		all of the time - and that height is exactly what the list was short of.
 
-		The lines are which of the string's layers to take, up to four (`CollectImportLines`). They
-		are built in Lua rather than declared here because how many there are is the string's to
-		say, and a checkbox for a layer the string does not carry reads as a choice.
+		**Same chrome as the other dialogs** - `DebindDialogTemplate`, which took its shape from the
+		game's own import dialog (`Blizzard_ClassTalentLoadoutImportDialog.xml`). This and the paste
+		dialog are the same gesture in opposite directions and a reader meets them a minute apart,
+		which is why none of the geometry is written out here any more.
 
-		A dialog rather than a popup, so it can be moved off whatever the reader wants to look at
-		while deciding - the same reason the paste box is one.
+		**No caption over the box, unlike over there.** That dialog has two boxes and has to say
+		which is which; this one has a single box the title already names, and a caption repeating
+		the title is a line that says nothing.
+
+		**The close button is not decoration here.** With the X gone, it and ESC are the only ways
+		out - and this is the one dialog that is deliberately left standing when its tab goes away.
 	-->
-	<Frame name="DebindBringFrame" inherits="DebindDialogTemplate" mixin="DebindBringFrameMixin">
-		<Size x="340" y="220"/>
+	<Frame name="DebindCopyFrame" inherits="DebindDialogTemplate" mixin="DebindCopyFrameMixin">
+		<Size x="460" y="185"/>
 		<Frames>
+
+			<ScrollFrame parentKey="Output" inherits="InputScrollFrameTemplate">
+				<KeyValues>
+					<!-- Nobody types here; a character counter over a generated string is noise. -->
+					<KeyValue key="hideCharCount" value="true" type="boolean"/>
+				</KeyValues>
+				<Size y="80"/>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.ContentArea" relativePoint="TOPLEFT"/>
+					<Anchor point="TOPRIGHT" relativeKey="$parent.ContentArea" relativePoint="TOPRIGHT"/>
+				</Anchors>
+			</ScrollFrame>
+
 			<!--
-				Right to left, and each declared before whatever leans on it: `relativeKey` is
-				resolved as the frame is built, so a key declared later is nil and the anchor is
-				dropped without a word.
+				Centred rather than paired, because there is only one thing to do here: the copy is
+				Ctrl-C and this button is just the way back out. `CLOSE` is the client's own, so it
+				is already in every language.
 			-->
-			<Button parentKey="AcceptButton" inherits="UIPanelButtonTemplate">
+			<Button parentKey="CloseDialogButton" inherits="UIPanelButtonTemplate" text="CLOSE">
 				<Size x="120" y="22"/>
 				<Anchors>
-					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="-5" y="0"/>
+					<Anchor point="BOTTOM" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="0" y="0"/>
 				</Anchors>
 			</Button>
-
-			<Button parentKey="CancelButton" inherits="UIPanelButtonTemplate">
-				<Size x="120" y="22"/>
-				<Anchors>
-					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ContentArea" relativePoint="BOTTOM" x="5" y="0"/>
-				</Anchors>
-			</Button>
-
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 		</Scripts>
 	</Frame>
+
 
 </Ui>

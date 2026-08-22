@@ -11,7 +11,8 @@
 >    옮겼다. 아래 "A를 하고 나서"
 > 2. ~~**"창보다 위로 올릴 것" 셋.** 개편의 미리보기 패널이 그것들을 쓴다~~ **했다**(2026-08-22).
 >    파일 셋이 `DebindUI.xml`에서 `DebindUI.lua`보다 먼저 선다. 아래 "2를 하고 나서"
-> 3. **보관함 개편.** 창에 `CallbackRegistryMixin`을 섞고 그 패널이 첫 등록자가 된다
+> 3. ~~**보관함 개편.** 창에 `CallbackRegistryMixin`을 섞고 그 패널이 첫 등록자가 된다~~
+>    **버스가 섰다**(2026-08-22). 아래 "3을 하고 나서"
 > 4. **C.** 버스가 실제로 도는 것을 보고 오버뷰 두 열을 옮긴다
 > 5. **B**는 아무 때나. **D**는 C 끝나고 다시 잰다
 >
@@ -381,3 +382,37 @@ C를 한다면 옮기기 **전에** `/debtest`에 기준선을 건다. 무엇을
   **Export 행만 `ColoredNameAndIconForAction`을 안 써서 색 규칙이 없다**
 - 28px 한 줄 행의 밑판 템플릿, 그리고 `ORDER_LINE_INDENT`/`ROW_INDENT`와
   `ORDER_LINE_HEIGHT`/`ROW_HEIGHT`를 한 곳으로
+
+## 3을 하고 나서 (2026-08-22)
+
+**버스는 이름 하나로 섰다.** `DebindFrame`에 `CallbackRegistryMixin`을 섞고 `OnLoad`에서
+`GenerateCallbackEvents`를 부르는데, 선언한 것이 `OnStoreChanged` 하나다. 등록자는 보관함
+패널이고 쏘는 자리는 `Create`·`Import`·삭제 셋이다.
+
+**여섯을 다 안 세운 이유는 들을 열이 없어서다.** 위 C의 밀기 목록(`OnSelectionChanged` 외 다섯)은
+전부 오버뷰 두 열의 것이고, 그 열들이 등록하는 파일이 되는 것이 C다. 지금 선언해두면 아무도 안
+타는 버스에 이름 다섯이 서고, **한 번도 쏘인 적 없는 이름은 한 번도 검사된 적 없는 이름이다.**
+
+**`OnProfileChanged`도 이벤트가 아니다.** `DebindFrame:NotifyProfileChanged()`라는 창의 메서드로
+섰고, 안에서 자기 두 열을 직접 부른다. 다시 그릴 대상이 둘 다 창 자신의 것이라 지금 쏘면 받는
+데가 없다. C가 그 열을 파일로 뗄 때 이 함수의 몸통이 `TriggerEvent` 한 줄로 바뀌고 **이름과
+호출부는 그대로 남는다.**
+
+**옛 패널이 열 이름을 부르던 자리가 실제로 없어졌다.** 가져오기가 커밋 뒤에
+`DebindLayerPanel:Refresh(true)`와 `DebindFrame:Update()`를 손으로 부르고 있었다 - 한 패널이 다른
+열의 배치를 아는 모양이고, C가 없애려는 것이 그것이다. 지금은 `NotifyProfileChanged()` 하나다.
+
+**호출 순서에 기댄 자리는 안 생겼다.** 새 패널에는 잃을 순서가 없다는 것이 3번을 C 앞에 세운
+사유였고, 실제로 그랬다. `TriggerEvent`가 순서를 보장하지 않는다는 제약에 걸리는 코드가 이번에
+하나도 안 나왔다.
+
+**같이 올라간 것 둘.**
+
+- `GetLayerLabel(layerID, class)`. `layerID`는 어느 직업인지를 안 담는 좌표라 열한 숫자가 누구
+  레이어든 그대로 서술하는데, 빠져 있던 값 하나가 직업이었다. 미리보기가 남의 페이로드를 그리는
+  자리에서 필요해졌고, `IMPORT_BRING_LINE_*`이라는 별도 라벨 한 벌이 그래서 서 있었다. nil을
+  넘기면 지금까지와 같아서 기존 호출부 열댓 군데는 안 바뀌었다. 반대 방향은
+  `GetLayerIDForAddress(scope, spec)`이고 같은 파일에 있다.
+- `Constants.CLASS_IDS`. 클라이언트의 직업을 세는 루프가 세 군데(`Legacy.lua`, `Import.lua`,
+  그리고 새로 쓸 뻔한 `LayerDisplay.lua`)에 각자 있었다. 앞 둘은 값을 플래그로만 읽어서 id로도
+  그대로 성립한다.

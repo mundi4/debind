@@ -1476,8 +1476,10 @@ local PANELS = {
 	-- **Ahead of the sharing pair, and the only seat that is not about actions.** It reads the
 	-- switch definitions, which are ordinary profile data, so it needs nothing loaded on demand.
 	{ title = "CUSTOM_STATES", desc = "CUSTOM_STATES_DESC", panelKey = "SwitchesPanel" },
-	{ title = "IMPORT_TITLE", desc = "IMPORT_MENU_DESC",   panelKey = "ImportPanel", needsStore = true },
-	{ title = "EXPORT_TITLE", desc = "EXPORT_MENU_DESC",   panelKey = "ExportPanel", needsStore = true },
+	-- **One seat where there were two.** Making a string and taking one in are the same list read
+	-- in two directions, and what they had in common is the list (12절 of
+	-- `devdocs/building-export-import.md`).
+	{ title = "STORAGE_TITLE", desc = "STORAGE_MENU_DESC", panelKey = "StoragePanel", needsStore = true },
 };
 
 --- Brings in the addon that builds the strings and keeps the drawer. Does nothing if it is here.
@@ -2220,8 +2222,37 @@ local function BlizzardOwnsEscape()
 		or StaticPopup_IsAnyDialogShown();
 end
 
+--- What the window announces to the panels sitting in it.
+---
+--- **Blizzard's own registry, kept private to this frame.** `EventRegistry` is a global instance of
+--- this very mixin, so nothing here is a machine of our own -- what was worth avoiding about the
+--- global bus was the global, not the mixin (`devdocs/breaking-up-debindui.md`).
+---
+--- **A name not declared here raises where it is fired.** `GenerateCallbackEvents` turns each of
+--- these into `DebindFrame.Event.<name>` and `SetUndefinedEventsAllowed` is off by default, so a
+--- typo is an error at the call rather than a listener that never runs. That is the whole reason
+--- this is worth more than a table of functions: the failure this replaces was silent.
+---
+--- **`TriggerEvent` does not promise an order.** Nothing may be registered here that needs to run
+--- before or after another registrant.
+--- **One name, because one thing listens.** The rest of C's list (`OnSelectionChanged`,
+--- `OnFilterChanged`, and the four beside them) belongs to the overview's two columns and goes up
+--- when those columns become files that register. Declaring them now would put six names on a bus
+--- nothing rides, and a name nothing has ever fired is a name nothing has ever checked.
+local FRAME_EVENTS = {
+	--- The list of stored entries changed: one was made, taken in from a string, or deleted.
+	---
+	--- **Fired even when the storage tab did it itself**, so there is one path rather than a
+	--- direct redraw for the near case and an event for the far one. The far one is the overview's
+	--- key group menu, which makes an entry from a screen that is not the one that has to redraw.
+	"OnStoreChanged",
+};
+
 function DebindFrameMixin:OnLoad()
 	self.initialized = true;
+
+	CallbackRegistryMixin.OnLoad(self);
+	self:GenerateCallbackEvents(FRAME_EVENTS);
 
 	--- ESC는 이 창이 직접 받는다(XML의 enableKeyboard). 블리자드가 내주는 두 자리를
 	--- **둘 다 안 쓴다.**
@@ -2672,30 +2703,28 @@ function DebindFrameMixin:HandleEscape()
 		return true;
 	end
 
-	-- **The three sharing dialogs.** They are in `UISpecialFrames` as well (`InitDialog`), but that
+	-- **The two sharing dialogs.** They are in `UISpecialFrames` as well (`InitDialog`), but that
 	-- table is only read by `CloseSpecialWindows`, which the ESCAPE **binding** calls. This window
-	-- gets ESCAPE first and none of the three enables the keyboard, so `BlizzardOwnsEscape` does not
+	-- gets ESCAPE first and neither of them enables the keyboard, so `BlizzardOwnsEscape` does not
 	-- stand aside for them and the binding never runs. Take these rungs away and one press hides
 	-- this window while the dialog stays up over nothing. The registration is still what closes
 	-- them when this window is already gone, which the copy dialog is built to outlive
-	-- (`DebindExportPanelMixin:OnHide`).
+	-- (`DebindStoragePanelMixin:OnHide`).
 	--
-	-- **Three rungs and not one.** ESC is one step back. One rung would either close all three,
-	-- which is three windows for one press, or pick one anyway, and picking is what an ordered
-	-- ladder already is.
+	-- **Two rungs and not one.** ESC is one step back. One rung would either close both, which is
+	-- two windows for one press, or pick one anyway, and picking is what an ordered ladder already
+	-- is.
 	--
 	-- **The order is how wide the gesture that opened it was**, which is also which of any two
-	-- standing together is the newer. Bring is opened from one row of the drawer, Paste from the
-	-- tab's own button, and the copy dialog is a finished string the reader keeps: it is the only
-	-- one of the three that survives leaving its tab, so it is the older half of every pair that
-	-- can stand at once (a leftover copy dialog under an import dialog, or under the spell picker
-	-- two rungs above). Last is where ESC does not take away the string somebody was about to
-	-- paste.
-	if (DebindBringFrame:IsShown()) then
-		DebindBringFrame:Hide();
-		return true;
-	end
-
+	-- standing together is the newer. Paste comes off the tab's own button, and the copy dialog is a
+	-- finished string the reader keeps: it is the one that survives leaving its tab, so it is the
+	-- older half of every pair that can stand at once (a leftover copy dialog under a paste dialog,
+	-- or under the spell picker two rungs above). Last is where ESC does not take away the string
+	-- somebody was about to paste.
+	--
+	-- **There were three.** The bring dialog asked which layers to take, and the tick moved onto the
+	-- action when the preview column arrived -- there is nothing left for it to ask
+	-- (`devdocs/building-export-import.md` 12절).
 	if (DebindPasteFrame:IsShown()) then
 		DebindPasteFrame:Hide();
 		return true;
@@ -3250,6 +3279,30 @@ function DebindFrameMixin:Update()
 	self:UpdateEmptyText();
 
 	self:UpdateDropHighlight();
+end
+
+--- Something outside the overview put actions in the profile or took them out.
+---
+--- **A panel says what happened, and the window decides who redraws.** The storage tab used to
+--- name `DebindLayerPanel` and `DebindFrame` and call both, which is one panel knowing the layout
+--- of another. What it knows now is that the profile moved.
+---
+--- **Not an event, and not yet.** Both columns that have to redraw are the window's own, so it
+--- calls them; an `OnProfileChanged` declared here would be fired at nobody. It goes up when C
+--- makes those columns files that register, and this function keeps its name and its callers
+--- (`devdocs/breaking-up-debindui.md`).
+---
+--- **No rebuild.** Everything an import places is badged and `BuildKeyMap` skips a badged action,
+--- so a rebuild here would spend the walk to arrive at the key map that is already up. Bindings
+--- move when the reader accepts, not when the actions land.
+function DebindFrameMixin:NotifyProfileChanged()
+	self.LayerPanel:Refresh(true);
+	self:Update();
+end
+
+--- An entry was made, taken in from a string, or deleted.
+function DebindFrameMixin:NotifyStoreChanged()
+	self:TriggerEvent(self.Event.OnStoreChanged);
 end
 
 --- 오른쪽 목록 위의 개수, 그리고 왼쪽 열 위의 좁히는 두 컨트롤.

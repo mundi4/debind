@@ -53,20 +53,17 @@ local ENTRY_VERSION             = 1;
 --- is a number no client produces -- so it is refused rather than folded to something nearby.
 local MAX_SPEC                = 4;
 
---- The class names this client has, enumerated the way the pre-rename import does it
---- (`Legacy.lua`).
+--- The class names this client has (`Constants.CLASS_IDS`, keyed by `classFile`).
 ---
 --- **A descriptor's class is a key straight into storage** (`shared.classes[class]`), so one that
 --- names no class would stand up a table no screen can reach and nothing ever clears -- `CleanUpDB`
 --- walks the eleven loaded layers and would never see it. Every paste of a made-up name would grow
 --- the account file by another one.
-local KNOWN_CLASSES           = {};
-for classID = 1, 20 do
-    local classInfo = C_CreatureInfo.GetClassInfo(classID);
-    if (classInfo and classInfo.classFile) then
-        KNOWN_CLASSES[classInfo.classFile] = true;
-    end
-end
+---
+--- Only presence is read here. The value is the class id, which is what a caller that has to
+--- **name** something needs (`LayerDisplay.lua`) -- the same table answering both is why the loop
+--- that built it is not written out here any more.
+local KNOWN_CLASSES           = Constants.CLASS_IDS;
 
 --- **There is no expiry.** Two constants and two functions stood here, and a pin on the row to
 --- opt out of them: an entry was judged old after a month and called out three days before, and
@@ -706,41 +703,29 @@ end
 --- loud.
 ---
 --- **The tick is on an action because that is where the preview puts it.** It used to be on a line
---- -- four of them, one per place a payload could land -- and the dialog that asked went away with
---- the preview arriving: a reader looking at the actions themselves has no reason to be asked about
---- the layers first (`devdocs/building-export-import.md`).
----
---- `options.lines` is what that dialog passed and it goes when the dialog does. It is a set of
---- `IMPORT_LINES` names, resolved through Debind because a line is the dialog's unit and not ours.
+--- -- four of them, one per place a payload could land, offered by a dialog the press opened. The
+--- preview column replaced both: a reader looking at the actions themselves has no reason to be
+--- asked about the layers first, and the answer is no longer worth a window of its own
+--- (`devdocs/building-export-import.md` 12절).
 function DebindStorage.PlanImport(payload, options)
     local placements, skipped = {}, 0;
-    local lines = options and options.lines;
     local selection = options and options.selection;
     local MapKey = KeyMapper();
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
         -- **Asked for an address first, and the reader's answer second.** Every action with nowhere
-        -- to go is counted, whatever the filter says: the lines are built out of what can land
-        -- (`CollectImportLines`), so an unplaceable one was never offered and cannot have been
-        -- turned down. Reading the filter first made those vanish silently - the window said
-        -- "brought in 2" and never mentioned the five that did not fit.
+        -- to go is counted whatever the tick says: what has no address was never drawn for them to
+        -- turn down, so reading the filter first would make those vanish silently - the window
+        -- saying "brought in 2" and never mentioning the five that did not fit.
         local scope, class, spec = DebindStorage.ImportAddress(listScope, listClass, listSpec);
         if (not scope) then
             skipped = skipped + #list;
             return;
         end
 
-        if (lines) then
-            local line = DebindPrivate.ImportLineFor(listScope, listSpec);
-            if (not (line and lines[line])) then
-                -- Offered and unticked. That is an answer, not a failure, so it is not counted.
-                return;
-            end
-        end
-
         for _, source in ipairs(list) do
-            -- Unticked is offered and turned down, the same answer a line used to give, so it is
-            -- passed over rather than counted.
+            -- Unticked is offered and turned down, which is an answer rather than a failure, so it
+            -- is passed over rather than counted.
             if (not selection or selection[source]) then
                 local action = BuildAction(source);
 

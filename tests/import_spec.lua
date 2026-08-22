@@ -535,54 +535,17 @@ return function(DebindPrivate, DebindStorage)
         check(skipped == 1, "안 센다 - 조용히 사라진다");
     end);
 
-    -- **A line the reader unticked is not a skip.** Both leave the actions out, but one of them is
-    -- the answer they gave and the other is this version having nowhere to put it. Counting the
-    -- first would put "%d came from a layer this version does not know" on screen for a layer they
-    -- themselves declined.
-    test("안 고른 줄은 빠지되 세지 않는다", function()
-        ResetProfile();
-        local placements, skipped = DebindStorage.PlanImport({
-            v = 1, class = CLASS,
-            shared = {
-                GENERAL = { { type = Constants.SPELL, value = 1 } },
-                classes = { [CLASS] = { [0] = { { type = Constants.SPELL, value = 2 } } } },
-            },
-        }, { lines = { ["shared.general"] = true } });
-
-        check(#placements == 1, "고른 줄만 들어와야 한다: " .. #placements);
-        check(placements[1].scope == "general", "엉뚱한 줄이 들어왔다");
-        check(skipped == 0, "안 고른 것을 못 놓은 것으로 세었다: " .. skipped);
-    end);
-
-    -- **갈 데 없는 것은 고르는 중에도 세어야 한다.** 줄은 놓일 수 있는 것으로만 세우므로
-    -- (`CollectImportLines`), 놓을 데가 없는 액션은 애초에 물어본 적이 없고 따라서 읽는 사람이
-    -- 뺀 것일 수가 없다. 필터를 먼저 보면 그것들이 조용히 사라진다 - 창은 "2개를 가져왔습니다"라
-    -- 말하고 못 넣은 다섯은 입에 올리지 않는다. 그리고 창은 언제나 필터를 켜고 부른다.
-    test("고르는 중이어도 갈 데 없는 것은 세어서 뺀다", function()
-        ResetProfile();
-        local placements, skipped = DebindStorage.PlanImport({
-            v = 1, class = CLASS,
-            shared = {
-                GENERAL = { { type = Constants.SPELL, value = 2 } },
-                classes = { NOSUCHCLASS = { [0] = { { type = Constants.SPELL, value = 1 } } } },
-            },
-        }, { lines = { ["shared.general"] = true } });
-
-        check(#placements == 1, "액션 수 " .. #placements);
-        check(skipped == 1, "안 센다 - 조용히 사라진다: " .. skipped);
-    end);
-
-    -- 줄이 안 선 쪽도 마찬가지다. 4특성 캐릭터의 캐릭터 레이어를 3특성 직업이 받으면 그 줄은
-    -- 아예 안 서고(`CollectImportLines`), 그래서 `lines`에도 없다. 그것이 "안 골랐다"로 읽히면
-    -- 안 된다.
-    test("줄조차 안 선 것도 세어서 뺀다", function()
+    -- 직업 이름이 아니라 **특성 번호**가 자리를 없애는 쪽. 4특성 캐릭터의 캐릭터 레이어를
+    -- 3특성 직업이 받으면 그 액션들은 갈 데가 없고, 그것은 읽는 사람이 뺀 것이 아니라 이 판이
+    -- 놓을 데가 없는 것이라 세어야 한다.
+    test("이 캐릭터에 없는 특성 번호도 세어서 뺀다", function()
         ResetProfile();
         local placements, skipped = DebindStorage.PlanImport({
             v = 1, class = CLASS,
             shared = { GENERAL = { { type = Constants.SPELL, value = 3 } } },
             char = { [5] = { { type = Constants.SPELL, value = 1 },
                              { type = Constants.SPELL, value = 2 } } },
-        }, { lines = { ["shared.general"] = true } });
+        });
 
         check(#placements == 1, "액션 수 " .. #placements);
         check(skipped == 2, "못 놓은 둘을 안 세었다: " .. skipped);

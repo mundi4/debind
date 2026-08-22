@@ -2120,11 +2120,11 @@ RegisterTest("Macro editor: opening the spell picker closes it", {
 })
 
 -----------------------------------------------------------
--- Test Cases: The export window counts what actually leaves
+-- Test Cases: The storage tab counts what actually leaves
 --
 -- **This is the one the headless specs cannot reach.** They check the payload, and separately the
--- window's list is built by code that never runs outside the game. What can go wrong is the two
--- disagreeing - the window says "12 selected" and nine leave - and neither half is wrong on its
+-- panel's list is built by code that never runs outside the game. What can go wrong is the two
+-- disagreeing - the panel says "12 selected" and nine leave - and neither half is wrong on its
 -- own, so only asking both at once finds it.
 --
 -- Nothing here reads a field to decide what it expects: the string is decoded the way any receiver
@@ -2180,13 +2180,18 @@ local function PayloadActions(payload)
     return out
 end
 
---- The export tab's seat in `PANELS` (`DebindUI.lua`). That table is a local over there, so this is
---- the one thing here that has to be kept in step by hand -- the guard below is what says so out
+--- The storage tab's seat in `PANELS` (`DebindUI.lua`). That table is a local over there, so this
+--- is the one thing here that has to be kept in step by hand -- the guard below is what says so out
 --- loud rather than quietly measuring the wrong panel.
-local EXPORT_PANEL_ID = 4
+local STORAGE_PANEL_ID = 3
 
-RegisterTest("Export: the window's count is what the string carries", {
-    description = "격리 중인 행이 목록에서 빠지고, 창이 센 수와 실제로 나간 수가 같은지",
+--- **Three numbers, and they have to agree.** What the preview counts, what the string carries, and
+--- what adding it back would put in the profile. The tick set feeds all three (`FilterPayload`,
+--- `PlanImport`), so a filter read in one place and not another is silent everywhere else: the
+--- window says 12, the string carries 9, and nobody sees the difference until somebody else opens
+--- it (12절 of `devdocs/building-export-import.md`).
+RegisterTest("Storage: the preview, the string and the add all count the same", {
+    description = "미리보기가 센 수와 문자열이 나른 수와 Add가 놓을 수가 같은지, 배지는 빠지는지",
     run = function()
         local NAME = "Export counts"
 
@@ -2200,36 +2205,40 @@ RegisterTest("Export: the window's count is what the string carries", {
         ApplyBindings()
 
         -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
-        -- `DebindStorage` in, and stopping there is deliberate: a run is isolated to one layer whose
-        -- id is past every real one, on purpose (`GetTestLayer`), and drawing the list would put
-        -- that id through `GetLayerLabel` -- which asks the client for a specialization name and
-        -- gets nothing back. Nothing about the numbers below needs a frame on screen.
-        local panel = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
-        if not panel or not panel.BuildLayers then
-            return Fail(NAME, "익스포트 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+        -- `DebindStorage` in, and stopping there is enough: nothing below needs a frame on screen.
+        --
+        -- The run's own layer has an id past every real one (`GetTestLayer`), and that used to be a
+        -- reason not to build the list at all. It is not one any more: the preview names a layer by
+        -- the **payload's address** rather than by that id, and `BuildExportPayload` files a layer
+        -- with no character flag and no spec under the class block -- an address every client has.
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
         end
 
-        -- What `OnShow` does before it draws: build the list, then tick all of it. `OnHide` is what
-        -- normally throws both away, and it cannot run on a panel that was never shown - so the
-        -- runner does it, or the tester's next look at that tab opens on the test's actions.
+        -- **The entry is real and it stays until teardown.** Making one is the only way into the
+        -- list, and a row the runner leaves behind is a row the tester finds later - so it goes,
+        -- along with the panel's own view state, which `OnHide` would normally clear and cannot on
+        -- a panel that was never shown.
         --
-        -- The copy dialog goes with them: it takes keyboard focus when it opens, which is what it
-        -- is for, and it must not hold it over whatever runs next.
+        -- The copy dialog goes too: it takes keyboard focus when it opens, which is what it is for,
+        -- and it must not hold it over whatever runs next.
+        local entry = DebindPrivate.Store.CreateEntry()
         AddTeardown(function()
             DebindCopyFrame.Output.EditBox:ClearFocus()
             DebindCopyFrame:Hide()
-            panel.layers = nil
-            wipe(panel.selected)
+            panel:SelectEntry(nil)
+            DebindPrivate.Store.DeleteEntry(entry.id)
         end)
 
-        panel.layers = panel:BuildLayers()
-        panel:SelectAll(true)
+        -- What `OnShow` does: pick the row, which builds the preview and ticks all of it.
+        panel:SelectEntry(entry)
 
         -- What the window says, counted twice the way the window counts it: the [select all] total
         -- walks every listed action, and each header prints its own layer's length.
         local listed = panel:EnumerateListedActions()
         local headerTotal = 0
-        for _, layer in ipairs(panel.layers) do
+        for _, layer in ipairs(panel.previewLayers or {}) do
             headerTotal = headerTotal + #layer.actions
         end
         if headerTotal ~= #listed then
@@ -2242,10 +2251,10 @@ RegisterTest("Export: the window's count is what the string carries", {
             end
         end
 
-        -- And what leaves. `OnGenerateClicked` is the button, and the box it fills is the one the
+        -- And what leaves. `OnCopyClicked` is the button, and the box it fills is the one the
         -- reader copies out of. **The dialog keeps no copy of the string beside that box**, so the
         -- box is the only place to read it from (`ShowText`).
-        panel:OnGenerateClicked()
+        panel:OnCopyClicked()
         local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
         if not payload then
             return Fail(NAME, format("문자열을 못 읽었다: %s", why))
@@ -2261,7 +2270,19 @@ RegisterTest("Export: the window's count is what the string carries", {
             end
         end
 
-        return Pass(NAME, format("%d개 = %d개, 배지는 안 나감", #listed, #sent))
+        -- **The third number.** Adding puts the same set into the profile and gets there through
+        -- `PlanImport` rather than through the string, so this is what catches a tick set one of the
+        -- two reads and the other does not. Planned rather than placed: the count is what is being
+        -- asked, and placing would leave the run's layer holding a second copy of everything.
+        local planned, skipped = DebindPrivate.Store.PlanImport(payload, { selection = panel.selected })
+        if #planned ~= #listed then
+            return Fail(NAME, format("창은 %d개라 해놓고 %d개를 놓는다", #listed, #planned))
+        end
+        if skipped ~= 0 then
+            return Fail(NAME, format("갈 데 없는 것이 %d개 나왔다 - 이 판이 만든 주소다", skipped))
+        end
+
+        return Pass(NAME, format("%d개 = %d개 = %d개, 배지는 안 나감", #listed, #sent, #planned))
     end,
 })
 
@@ -2273,31 +2294,31 @@ RegisterTest("Export: the window's count is what the string carries", {
 -- `parent=` + `parentKey=` and arrive by `panelKey` (`devdocs/building-export-import.md`).
 --
 -- Everything below fails **silently** if it breaks, which is why it is here rather than in a
--- checklist: a `parentKey` renamed, an XML dropped from the TOC, a fourth panel added without a
+-- checklist: a `parentKey` renamed, an XML dropped from the TOC, another panel added without a
 -- width, `EnsureStore` simplified back to `IsAddOnLoaded`. None of that raises, and none of it is
 -- visible to `npm run check` - the panels are built by code that only runs in the game.
 --
--- **Nothing here inserts an action, on purpose.** A run is isolated to a layer whose id is past
--- every real one, and drawing the export list would put that id through `GetLayerLabel`. With the
--- layer empty there are no headers to draw, so the panels can actually be shown.
+-- **Nothing here inserts an action, on purpose.** Showing a panel is all these ask about, and an
+-- empty profile is the cheapest way to ask it. What the storage tab draws with actions in it is the
+-- test above, which builds an entry rather than a screen.
 -----------------------------------------------------------
 
---- The other three seats in `PANELS`, kept in step by hand for the reason `EXPORT_PANEL_ID` gives:
---- that table is a local in `DebindUI.lua`. The first test below is what says so out loud - four
---- ids that answer with four different panels cannot all be pointing at the wrong seat.
+--- The other two seats in `PANELS`, kept in step by hand for the reason `STORAGE_PANEL_ID` gives:
+--- that table is a local in `DebindUI.lua`. The first test below is what says so out loud - ids
+--- that answer with different panels cannot all be pointing at the wrong seat.
 ---
---- **Switches sits second, ahead of the sharing pair**, so both of those moved up one when it
---- arrived. Numbers that drift here do not error: they measure a different panel and pass.
+--- **Switches sits second, ahead of sharing.** There were four seats while making a string and
+--- taking one in were separate tabs; they are one now. Numbers that drift here do not error: they
+--- measure a different panel and pass.
 local OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID = 1, 2
-local IMPORT_PANEL_ID = 3
 
 RegisterTest("Panels: every tab resolves to a panel of its own", {
-    description = "탭 넷이 각자 자기 패널로 풀리는가 - 하나로 몰리거나 MissingPanel로 떨어지지 않는가",
+    description = "탭 셋이 각자 자기 패널로 풀리는가 - 하나로 몰리거나 MissingPanel로 떨어지지 않는가",
     run = function()
         local NAME = "Panels resolve"
 
         local seen = {}
-        for _, id in ipairs({ OVERVIEW_PANEL_ID, IMPORT_PANEL_ID, EXPORT_PANEL_ID, SWITCHES_PANEL_ID }) do
+        for _, id in ipairs({ OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID, STORAGE_PANEL_ID }) do
             local panel = DebindFrame:ResolvePanel(id)
             if not panel then
                 return Fail(NAME, format("%d번 탭이 패널을 못 얻었다 - PANELS의 panelKey나 TOC를 볼 것", id))
@@ -2330,16 +2351,19 @@ RegisterTest("Panels: the window takes each tab's own width", {
     run = function()
         local NAME = "Panel width"
 
+        -- **The pair is Overview and Switches.** It was Overview and the export tab until the two
+        -- sharing tabs became one that has two columns -- which asks for Overview's own width, and
+        -- two panels legitimately wanting the same number leave this nothing to measure.
         local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
-        local export = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
-        if not overview or not export then
+        local narrow = DebindFrame:ResolvePanel(SWITCHES_PANEL_ID)
+        if not overview or not narrow then
             return Fail(NAME, "패널을 못 얻었다")
         end
-        if not overview.preferredWidth or not export.preferredWidth then
-            return Fail(NAME, format("폭을 안 들고 있다 (overview=%s, export=%s)",
-                tostring(overview.preferredWidth), tostring(export.preferredWidth)))
+        if not overview.preferredWidth or not narrow.preferredWidth then
+            return Fail(NAME, format("폭을 안 들고 있다 (overview=%s, switches=%s)",
+                tostring(overview.preferredWidth), tostring(narrow.preferredWidth)))
         end
-        if overview.preferredWidth == export.preferredWidth then
+        if overview.preferredWidth == narrow.preferredWidth then
             return Fail(NAME, format(
                 "두 패널이 같은 폭(%d)을 요구한다 - 창 폭을 되읽고 있을 수 있다",
                 overview.preferredWidth))
@@ -2350,8 +2374,8 @@ RegisterTest("Panels: the window takes each tab's own width", {
 
         -- And that the frame actually listens. Asking the panels alone would pass on a
         -- `SelectPanel` that stopped applying it.
-        DebindFrame:SelectPanel(EXPORT_PANEL_ID)
-        local exportWidth = DebindFrame:GetWidth()
+        DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
+        local narrowWidth = DebindFrame:GetWidth()
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
         local overviewWidth = DebindFrame:GetWidth()
 
@@ -2360,12 +2384,12 @@ RegisterTest("Panels: the window takes each tab's own width", {
         -- it - 812 comes back as 811 on some scales. What this test is for is that the frame follows
         -- the panel at all, which an exact compare answers wrongly rather than more strictly.
         local function Off(got, want) return math.abs(got - want) > 1 end
-        if Off(exportWidth, export.preferredWidth) or Off(overviewWidth, overview.preferredWidth) then
-            return Fail(NAME, format("창이 안 따라간다 - export %d(기대 %d), overview %d(기대 %d)",
-                exportWidth, export.preferredWidth, overviewWidth, overview.preferredWidth))
+        if Off(narrowWidth, narrow.preferredWidth) or Off(overviewWidth, overview.preferredWidth) then
+            return Fail(NAME, format("창이 안 따라간다 - switches %d(기대 %d), overview %d(기대 %d)",
+                narrowWidth, narrow.preferredWidth, overviewWidth, overview.preferredWidth))
         end
 
-        return Pass(NAME, format("overview %d, export %d", overviewWidth, exportWidth))
+        return Pass(NAME, format("overview %d, switches %d", overviewWidth, narrowWidth))
     end,
 })
 
@@ -2384,13 +2408,13 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         local NAME = "Left edge"
 
         local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
-        local export = DebindFrame:ResolvePanel(EXPORT_PANEL_ID)
-        if not overview or not export then
+        local narrow = DebindFrame:ResolvePanel(SWITCHES_PANEL_ID)
+        if not overview or not narrow then
             return Fail(NAME, "패널을 못 얻었다")
         end
         -- Two tabs of the same width would leave nothing to measure, and this would pass on any
-        -- anchor at all.
-        if overview.preferredWidth == export.preferredWidth then
+        -- anchor at all. **Switches is the narrow one**; the storage tab asks for Overview's width.
+        if overview.preferredWidth == narrow.preferredWidth then
             return Fail(NAME, format("두 탭이 같은 폭(%s)을 요구한다", tostring(overview.preferredWidth)))
         end
 
@@ -2422,7 +2446,7 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         dragStop(DebindFrame)
 
         local before = DebindFrame:GetLeft()
-        DebindFrame:SelectPanel(EXPORT_PANEL_ID)
+        DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
         local after = DebindFrame:GetLeft()
         if not before or not after then
             return Fail(NAME, "창의 왼쪽 변을 못 읽었다")
@@ -2434,7 +2458,7 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         end
 
         return Pass(NAME, format("%.0f 그대로 (폭 %d -> %d)",
-            before, overview.preferredWidth, export.preferredWidth))
+            before, overview.preferredWidth, narrow.preferredWidth))
     end,
 })
 
@@ -2455,12 +2479,12 @@ RegisterTest("Panels: no store means no panel, not an error", {
         AddTeardown(function() DebindPrivate.Store = saved end)
 
         DebindPrivate.Store = nil
-        local importPanel = DebindFrame:ResolvePanel(IMPORT_PANEL_ID)
+        local storagePanel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
         local overviewPanel = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
         DebindPrivate.Store = saved
 
-        if importPanel ~= nil then
-            return Fail(NAME, "Store가 없는데 임포트 패널을 내줬다 - 그 뒤에서 nil을 인덱싱한다")
+        if storagePanel ~= nil then
+            return Fail(NAME, "Store가 없는데 보관함 패널을 내줬다 - 그 뒤에서 nil을 인덱싱한다")
         end
         -- Overview reads none of it, so it must not be dragged down with them.
         if overviewPanel == nil then
@@ -3051,16 +3075,18 @@ RegisterTest("Setstate action naming a switch nothing defines does not bind", {
     end,
 })
 
---- **ESC is this window's ladder, not the game's net.** The three sharing dialogs are in
+--- **ESC is this window's ladder, not the game's net.** The two sharing dialogs are in
 --- `UISpecialFrames` as well, but that table is read by the ESCAPE *binding*, and the window takes
---- ESCAPE before any binding runs (`DebindFrameMixin:OnKeyDown`). None of the three enables the
---- keyboard, so nothing hands it back to them either. Take their rungs off `HandleEscape` and one
---- press hides the window and leaves the dialog standing over nothing, which is the first thing
---- below.
+--- ESCAPE before any binding runs (`DebindFrameMixin:OnKeyDown`). Neither enables the keyboard, so
+--- nothing hands it back to them either. Take their rungs off `HandleEscape` and one press hides
+--- the window and leaves the dialog standing over nothing, which is the first thing below.
 ---
---- The rest is the order, and it is the half that cannot be read off one dialog: all three can
---- stand at once, since the copy dialog outlives the tab it came from on purpose
---- (`DebindExportPanelMixin:OnHide`). One press has to move one rung.
+--- The rest is the order, and it is the half that cannot be read off one dialog: both can stand at
+--- once, since the copy dialog outlives the tab it came from on purpose
+--- (`DebindStoragePanelMixin:OnHide`). One press has to move one rung.
+---
+--- **There were three.** The bring dialog asked which layers to take, and went with the question
+--- when the tick moved onto the action (`devdocs/building-export-import.md` 12절).
 ---
 --- **`HandleEscape` rather than a key.** A run unbinds the game's own bindings, so a real ESCAPE
 --- measures the runner as much as the window; and this function is split out from the key plumbing
@@ -3074,20 +3100,16 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         AddTeardown(function()
             DebindCopyFrame.Output.EditBox:ClearFocus()
             DebindPasteFrame.Input.EditBox:ClearFocus()
-            DebindBringFrame:Hide()
             DebindPasteFrame:Hide()
             DebindCopyFrame:Hide()
             DebindFrame:Hide()
         end)
 
-        -- 셋 다 세운다. 가져오기 창만 `Open` 대신 맨 `Show`인데, 그쪽은 배치 하나를 받아 줄을
-        -- 짓는 일이라 사다리가 보는 것(`IsShown`)과 상관이 없다.
+        -- 둘 다 세운다.
         DebindCopyFrame:ShowText("DEBIND-TEST")
         DebindPasteFrame:Open()
-        DebindBringFrame:Show()
 
         local steps = {
-            { frame = DebindBringFrame, name = "가져오기 창" },
             { frame = DebindPasteFrame, name = "붙여넣기 창" },
             { frame = DebindCopyFrame,  name = "복사 창" },
         }

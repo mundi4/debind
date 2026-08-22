@@ -13,6 +13,31 @@ Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
 Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 
+--- Every class this client has: `classFile` (`"DRUID"`) -> `classID`.
+---
+--- **The one enumeration.** The loop stood written out in three places -- the pre-rename import,
+--- the payload gate and the layer labels -- each asking the same question of the same API and each
+--- keeping a table of its own. Two of them only wanted "is this a real class name" and read the
+--- value as a flag, which the id answers as well.
+---
+--- `classFile` is the key because that is what the profile files a class under
+--- (`shared.classes[class]`) and what a payload carries. The id is what the client wants back when
+--- something has to be named -- a specialization of a class that is not this character's has no
+--- other way in (`C_SpecializationInfo.GetSpecializationInfoForClassID`).
+---
+--- **20 rather than a count the client hands out.** There is no "how many classes" call; the range
+--- is walked and whatever answers is real. A class added by a patch lands inside it.
+---
+--- Here rather than beside any one caller because `Constants.lua` is the first file read
+--- (`Debind.xml`) and the load-on-demand addon reads this table too.
+Constants.CLASS_IDS                       = {};
+for classID = 1, 20 do
+    local classInfo = C_CreatureInfo.GetClassInfo(classID);
+    if (classInfo and classInfo.classFile) then
+        Constants.CLASS_IDS[classInfo.classFile] = classID;
+    end
+end
+
 -- 키를 누른 순간 보안 스니펫이 조건을 평가해 액션을 고르는 경로. 끄면 라우팅이 전부 멈추고
 -- 모든 키가 상태 구동(옛 경로)으로 돌아간다 - 회귀가 보이면 여기부터 뒤집어 볼 것.
 -- 어느 키가 이 경로로 가는지는 `IsKeyAlwaysOurs`가 정한다.

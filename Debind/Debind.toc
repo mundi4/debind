@@ -67,13 +67,14 @@ DevSeed.lua
 #@end-debug@
 
 DebindUI.xml
-
-# The two panels of the sharing tabs. **After `DebindUI.xml`, because they are declared as children
-# of `DebindFrame`** (`parent=` + `parentKey=`), and a parent named before it exists is a frame with
-# no parent. They came over from `DebindStorage` with the addon boundary: the UI is Debind's and what
-# stays over there is the strings and the drawer (`devdocs/building-export-import.md`).
-ExportUI.xml
-ImportUI.xml
+# The sharing tab. **After `DebindUI.xml`, because it is declared as a child of `DebindFrame`**
+# (`parent=` + `parentKey=`), and a parent named before it exists is a frame with no parent. It came
+# over from `DebindStorage` with the addon boundary: the UI is Debind's and what stays over there is
+# the strings and the store (`devdocs/building-export-import.md`).
+#
+# **It was two files and two tabs.** Making a string and taking one in are the same list now, so
+# `ExportUI.*` is gone and this pair holds the one panel (12절).
+StorageUI.xml
 
 # The Switches tab, a child of `DebindFrame` for the same reason and with the same requirement:
 # after `DebindUI.xml`. It is not a sharing panel and reads nothing from the load-on-demand addon -

@@ -12,6 +12,7 @@ local _, DebindPrivate = ...;
 --- below, so the sharing panels and the switches tab can ask without a window being open at all
 --- (`breaking-up-debindui.md`, "창보다 위로 올릴 것").
 local LLL                    = DebindPrivate.L;
+local Constants              = DebindPrivate.Constants;
 local DebindUI               = DebindPrivate.DebindUI;
 local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
@@ -66,12 +67,87 @@ local function GetLayerShortName(layerID)
 	return LLL[sideTab == 2 and "LAYER_SHORT_CLASS" or "LAYER_SHORT_SPEC"];
 end
 
+--- A payload's address as a `layerID`. `scope` is the `"general"` / `"class"` / `"character"` a
+--- payload is keyed by (`ForEachPayloadLayer`).
+---
+--- **The numbers describe anybody's layers.** Which class they belong to is not in them, which is
+--- why it is the second argument to the label rather than something the id has to carry -- and why
+--- an address out of somebody else's string maps straight onto one.
+---
+--- Nil for a spec past the end. A hand-made string can name spec 9 and there is no eleventh layer
+--- for it to be; the caller draws it or drops it, and this does not decide that.
+local function GetLayerIDForAddress(scope, spec)
+	spec = spec or 0;
+	if (spec < 0 or spec > 4 or spec ~= floor(spec)) then
+		return nil;
+	end
+	if (scope == "general") then
+		return 1;
+	elseif (scope == "class") then
+		return spec == 0 and 2 or spec + 2;
+	elseif (scope == "character") then
+		return 7 + spec;
+	end
+	return nil;
+end
+
+--- `GetSideTabaLabel` for a **named** class: spec 0 is the class itself, above that its
+--- specializations.
+---
+--- The side tab version reads `UnitClass("player")` and `GetSpecializationInfo`, which is right for
+--- that row -- it is this character's layers -- and wrong for anything else. Nil for a spec number
+--- past the end of a real class, which only a hand-made string carries: one naming a class this
+--- client does not have never reaches a screen (`PayloadIsImpossible`).
+local function GetSideLabelForClass(class, spec)
+	if (spec == 0) then
+		return LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class;
+	end
+	local classID = Constants.CLASS_IDS[class];
+	if (not classID) then
+		return nil;
+	end
+	local _, specName = C_SpecializationInfo.GetSpecializationInfoForClassID(classID, spec);
+	return specName;
+end
+
 --- **The tab labels, reused verbatim.** They are already the class, specialization and character
 --- names the reader picked the layer with, so a label built from them teaches nothing new.
-local function GetLayerLabel(layerID)
+---
+--- **`class` says whose layer it is, and nil means this character's.** A `layerID` is a coordinate
+--- that never mentions a class -- it says general, class, class-by-spec, character, character-by-
+--- spec -- so the same eleven numbers describe anybody's layers and what was missing was only the
+--- one value. Every call site that means "mine" passes nothing and reads as it did.
+---
+--- The one thing a foreign layer cannot have is a **name**: a string carries no character name on
+--- purpose (`devdocs/building-export-import.md` 3절), so the character scope falls back to the bare
+--- word. Naming it would print *this* reader's character over somebody else's layer, which is the
+--- fault that made the bring dialog write a second set of labels of its own (`IMPORT_BRING_LINE_*`).
+local function GetLayerLabel(layerID, class)
 	local tab, sideTab = GetLayerTabs(layerID);
-	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
-	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
+	local scope;
+
+	if (tab ~= 2) then
+		scope = LLL["SHARED_BINDINGS"];
+	elseif (class) then
+		scope = LLL["LAYER_SHORT_CHARACTER"];
+	else
+		scope = UnitName("player");
+	end
+
+	if (not class) then
+		return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
+	end
+
+	-- Side tab 1 is "general" under either tab, and 2 is the class itself; 3 and up are that
+	-- class's specializations, counted the way the side tab row counts them.
+	local side;
+	if (sideTab == 1) then
+		side = LLL["GENERAL"];
+	else
+		side = GetSideLabelForClass(class, sideTab == 2 and 0 or sideTab - 2);
+	end
+
+	return format(LLL["ORDER_LAYER_LABEL"], scope, side or LLL["GENERAL"]);
 end
 
 --- Is this layer outside the world the live key map was built for?
@@ -114,5 +190,6 @@ DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabaLabel = GetSideTabaLabel;
 DebindUI.GetLayerShortName = GetLayerShortName;
 DebindUI.GetLayerLabel = GetLayerLabel;
+DebindUI.GetLayerIDForAddress = GetLayerIDForAddress;
 DebindUI.IsLayerOffWorld = IsLayerOffWorld;
 DebindUI.GetSideTabIcon = GetSideTabIcon;

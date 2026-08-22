@@ -74,7 +74,9 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
 ---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
 ---     along because the pipeline calls into it
----   `ImportUI.lua` is UI and is here for the opposite reason: `CollectImportLines` needs none
+---   `StorageUI.lua` is UI and is **not** here any more. It was, for two functions that decided
+---     which layers the bring dialog offered; the tick moved onto the action and both went with
+---     the dialog (`devdocs/building-export-import.md` 12절)
 ---   `Public.lua` is **not** UI and is **not** here. It is in the TOC after `DebindUI.xml`
 ---     rather than in this XML, and nothing in the pipeline calls it - it is what other addons
 ---     call
@@ -104,9 +106,6 @@ local function loadAddons()
     "FrameRegistry.lua",
     "UpdateBindings.lua",
     "Switches.lua",
-    -- **A UI file, and the only one the harness loads.** It builds no frames when it is read, and
-    -- the two functions that decide the reader's lines live in it (`CollectImportLines`).
-    "ImportUI.lua",
     }, nil, loadOpts);
 
     --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
@@ -118,8 +117,8 @@ local function loadAddons()
     }, { DebindPrivate = DebindPrivate }, loadOpts);
 
     --- What `DebindStorage.lua` does the instant the game loads that addon. It is not in the list
-    --- above, because the shim has no `LoadAddOn` for it to run inside, so the half that points Debind
-    --- back at the store is done here. `CollectImportLines` reads it (`ImportUI.lua`).
+    --- above, because the shim has no `LoadAddOn` for it to run inside, so the half that points
+    --- Debind back at the store is done here.
     DebindPrivate.Store = DebindStorage;
     return DebindPrivate, DebindStorage;
 end
