@@ -45,7 +45,6 @@ do
         tmp[#tmp + 1] = format("CUSTOM_TARGET_VALID_UNIT_TOKENS[%q]=%q", k, v);
     end
     SecureHandlerExecute(UnitWatch, table.concat(tmp, "\n"));
-    tmp = nil;
 end
 
 ---------------------------------------

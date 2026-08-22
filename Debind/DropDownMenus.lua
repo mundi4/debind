@@ -6,7 +6,6 @@ local DebindUI            = DebindPrivate.DebindUI;
 local dump                  = DebindPrivate.dump
 local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 
-local SEPARATOR             = { isSeparator = true, };
 local ARRAY_MARKER          = {};
 -- 선택 창의 명령 탭도 같은 목록을 건다. 사본을 하나 더 두면 갈라진다 (`ActionDisplay.lua`).
 local SORTED_UNIT_LIST      = DebindUI.SORTED_UNIT_LIST;
@@ -50,28 +49,6 @@ local function range(startIndex, endIndex, func)
     end
     arr[ARRAY_MARKER] = true;
     return arr;
-end
-
-local function _isSelected(data)
-    local targetObj = data.targetObj;
-    local value = data.value;
-    if (value == USE_CHECKED_VALUE) then
-        return targetObj[data.key] and true or false;
-    else
-        return targetObj[data.key] == value;
-    end
-end
-
-local function _setSelected(data)
-    local targetObj = data.targetObj;
-    local value = data.value;
-    if (value == USE_CHECKED_VALUE) then
-        targetObj[data.key] = not targetObj[data.key];
-    else
-        targetObj[data.key] = value;
-    end
-    DebindPrivate.UpdateBindings();
-    return MenuResponse.Refresh;
 end
 
 --- A menu item's tooltip: its own label as the title, one instruction line under it.
@@ -252,7 +229,7 @@ end
 -- EditDropDown_Initialize
 --------------------------------------------------------------------------------
 do
-    local _dropdown, _elementData, _action;
+    local _elementData, _action;
 
     --- The edit menu has changed one of the action's values.
     ---
@@ -1551,7 +1528,6 @@ do
 
 
     function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
-        _dropdown = dropdown;
         _elementData = elementData;
         _action = elementData.action;
 
@@ -1560,7 +1536,6 @@ do
         --     return;
         -- end
 
-        local description;
         local title = DebindUI.NameAndIconForAction(elementData.action);
         rootDescription:CreateTitle(title);
 
@@ -1702,7 +1677,6 @@ do
     --- 대상은 액션 하나다. 행이 아니라 액션으로 받는 이유는 `ComputeOrderSwapForAction`
     --- 주석에 - 요약하면 메뉴가 떠 있는 동안 목록이 낡을 수 있어서다.
     function DebindUI.SetupOrderDropdownMenu(dropdown, rootDescription, action)
-        _dropdown = dropdown;
         -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
         -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupBulkDropdownMenu`와 같은 이유).
         _elementData = nil;
@@ -1818,7 +1792,6 @@ do
     --- so a delete here takes rows nobody selected - which is the same line the edit menu's other
     --- items are kept out on (`reworking-the-overview.md`).
     function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, action, extraCount, actions)
-        _dropdown = dropdown;
         -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
         -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupOrderDropdownMenu`와 같은 이유).
         _elementData = nil;
@@ -1919,7 +1892,6 @@ do
     --- [Accept] and [Reject] need no branch of their own - they aim at the badged ones and build
     --- themselves out of the way when there are none.
     function DebindUI.SetupBulkDropdownMenu(dropdown, rootDescription, actions)
-        _dropdown = dropdown;
         -- 단일 메뉴가 쓰는 것들이다. 벌크에서는 겨눈 것이 하나가 아니므로 비워둔다 - 남아
         -- 있으면 이 메뉴가 안 쓰는 값을 다음 단일 메뉴가 물려받는다.
         _elementData = nil;
@@ -2012,9 +1984,6 @@ do
     function DebindUI.SetupPendingImportsDropdownMenu(dropdown, rootDescription)
         -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
         -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupBulkDropdownMenu`와 같은 이유).
-        --
-        -- **`_dropdown`은 안 세운다.** 다른 설정 함수들이 전부 세우고 있지만 읽는 데가 한
-        -- 군데도 없다(`.zzz/refactor-candidates.md`). 죽은 자리를 한 벌 더 늘리지 않는다.
         _elementData = nil;
         _action = nil;
 
@@ -2040,7 +2009,6 @@ do
     --- looking at stays in it and stays enabled; adding there is exactly what left click does, and
     --- dropping the row would make the list a different shape in this menu than in the other two.
     function DebindUI.SetupSpellPickerDropdownMenu(dropdown, rootDescription, entry)
-        _dropdown = dropdown;
         -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
         -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupBulkDropdownMenu`와 같은 이유).
         _elementData = nil;

@@ -163,35 +163,6 @@ local _revealAction;
 
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
 
-local _keyInfoCache        = {};
-local _mods                = {
-	LALT = true,
-	RALT = true,
-	ALT = true,
-	LCTRL = true,
-	RCTRL = true,
-	CTRL = true,
-	LSHIFT = true,
-	RSHIFT = true,
-	SHIFT = true,
-	META = true,
-}
-local function _GetKeyInfo(key)
-	if (_keyInfoCache[key]) then
-		return _keyInfoCache[key];
-	end
-	local sa = { strsplit("-", key) };
-	local keyInfo = {};
-	keyInfo.key = key;
-	if (#sa > 0 and not _mods[sa[#sa]]) then
-		keyInfo.lastKey = GetConvertedKeyOrButton(tremove(sa, #sa));
-	end
-	keyInfo.mods = sa;
-
-	_keyInfoCache[key] = keyInfo;
-	return keyInfo;
-end
-
 local function _CreateKeyChordStringUsingMetaKeyState(key, useLeftRight)
 	local chord = {};
 	-- 순서: ALT-CTRL-SHIFT

@@ -198,7 +198,6 @@ function DebindPrivate.GetSpellTabNameAndIcon(index)
     end
 end
 
-local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
 --- 펫 명령(공격·따라가기·대기·태세…)을 보안 슬래시 명령으로 옮기는 표.
 ---
@@ -1112,13 +1111,6 @@ function DebindPrivate.GetMissingMacroName(action)
     return value;
 end
 
-local GROUP_ROLE_UNITS = {
-    tank = Constants.GROUP_PARTY + Constants.GROUP_RAID,
-    healer = Constants.GROUP_PARTY + Constants.GROUP_RAID,
-    maintank = Constants.GROUP_RAID,
-    mainassist = Constants.GROUP_RAID,
-};
-
 --- Is this problem one that the row it sits on is **not** at fault for?
 ---
 --- The one place that reads `BINDING_ISSUE_GRADES`, so that "what does a code with no grade mean"
@@ -1588,7 +1580,6 @@ do
                         if (strsub(token, 1, unit:len()) == unit) then
                             local s = strsub(token, unit:len() + 1);
                             if (UNIT_SUFFIXES[s]) then
-                                token = unit;
                                 appendStr("@");
                                 appendArg(unit, Constants.MACROTEXT_ARG_UNIT);
                                 appendStr(s);

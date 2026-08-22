@@ -1,9 +1,7 @@
 local ADDON_NAME, DebindPrivate = ...;
 local L                           = DebindPrivate.L;
 
-local Constants                   = DebindPrivate.Constants;
 local dump                        = DebindPrivate.dump;
-local luatype                     = type;
 local EventFrame                  = CreateFrame("Frame");
 local Events                      = {};
 

@@ -1,4 +1,4 @@
-local ADDON_NAME, DebindPrivate = ...;
+local _, DebindPrivate = ...;
 
 --- Midnight에서 생긴 바인딩 컨텍스트 대응.
 ---

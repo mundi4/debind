@@ -5,21 +5,14 @@ DebindPrivate.callbacks                = LibStub("CallbackHandler-1.0"):New(Debi
 DebindPrivate.CliqueDetected           = C_AddOns.IsAddOnLoaded("Clique");
 DebindPrivate.Units                    = {};
 
-local L                                  = DebindPrivate.L;
 local DEBUG                              = DebindPrivate.DEBUG;
 local SPECIAL_UNITS                      = Constants.SPECIAL_UNITS;
 local BASIC_UNITS                        = Constants.BASIC_UNITS;
 
 local dump                               = DebindPrivate.dump;
-local luatype                            = type;
-local format, tostring                   = format, tostring;
-local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
-local band, bor, bnot                    = bit.band, bit.bor, bit.bnot;
-local InCombatLockdown                   = InCombatLockdown;
-local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
+local tostring                           = tostring;
+local wipe, pairs, tinsert, sort         = wipe, pairs, tinsert, sort;
 
-local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
-local GetMountInfoByID                   = C_MountJournal.GetMountInfoByID;
 
 local BindingDriver                      = CreateFrame("Frame", DEBUG and "DebindBindingDriver" or nil, nil, "SecureHandlerBaseTemplate,SecureHandlerAttributeTemplate");
 BindingDriver:SetAttribute("unit", "player");
