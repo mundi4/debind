@@ -247,8 +247,22 @@ function M.install()
         record("SetFrameRef", label(frame), refName, ref and label(ref) or nil, frame, ref);
     end
 
-    _G.RegisterUnitWatch = function(frame) record("RegisterUnitWatch", label(frame)); end
-    _G.UnregisterUnitWatch = function(frame) record("UnregisterUnitWatch", label(frame)); end
+    --- The unit existence watch, as a set of registered frames.
+    ---
+    --- **The membership is kept, not only recorded.** `ApplyBindingPlan` asks
+    --- `UnitWatchRegistered` before writing, so a stand-in that always answered `nil` would have
+    --- every rebuild register again and the golden would record a write that the game never sees
+    --- (`SecureStateDriver.lua`, `unitExistsWatchers`).
+    local unitWatched = setmetatable({}, { __mode = "k" });
+    _G.RegisterUnitWatch = function(frame, asState)
+        unitWatched[frame] = asState and true or false;
+        record("RegisterUnitWatch", label(frame));
+    end
+    _G.UnregisterUnitWatch = function(frame)
+        unitWatched[frame] = nil;
+        record("UnregisterUnitWatch", label(frame));
+    end
+    _G.UnitWatchRegistered = function(frame) return unitWatched[frame] ~= nil; end
     _G.RegisterStateDriver = function(frame, state, values)
         record("RegisterStateDriver", label(frame), state, values);
     end

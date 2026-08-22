@@ -365,6 +365,76 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- Whether the 0.2s beat runs at all
+    ---------------------------------------------------------------------------
+
+    -- **The beat costs something before anything of ours is measured**: Blizzard writes
+    -- `state-unitexists` and the handler writes it back, five times a second, forever. A profile
+    -- with nothing to re-read has no use for any of that, and `RegisterUnitWatch` was a load-time
+    -- call nothing ever took back.
+    --
+    -- What follows says what the beat is *for* in each case, one reason per test, because a
+    -- predicate is only as good as the narrowest thing it still catches.
+    test("a profile with no conditions at all does not ask for the beat", function()
+        local plan = PlanFor({ spell({ key = "F1" }) });
+        check(plan.statePoll == false,
+            "nothing in this profile is measured and the beat was asked for anyway");
+    end);
+
+    -- **State-driven and measuring nothing is a real shape**, and it is the one that looks like a
+    -- hole. A mouse button carries "not while hovering" from the key itself (`BuildUnitStates`),
+    -- so an unconditional action on `BUTTON4` does not cover the space and its wiring belongs to
+    -- the state loop -- while no condition anywhere asks for a measurement. The pass that closes
+    -- the rebuild binds it with `forceAll` and nothing exists that could take it away, so the
+    -- answer is `false` on purpose.
+    test("a key the state loop owns but measures nothing does not ask for the beat", function()
+        local plan = PlanFor({ spell({ key = "BUTTON4" }) });
+        check(plan.statePoll == false,
+            "a mouse-button key with no conditions asked for a beat with nothing to measure");
+    end);
+
+    test("a measured state asks for the beat", function()
+        local plan = PlanFor({ spell({ key = "F1", conditions = { combat = true } }) });
+        check(plan.statePoll == true, "a combat condition did not ask for the beat");
+    end);
+
+    -- A unit condition lands in `_measuredUnitAxes` rather than `_measuredStates`, so the two
+    -- are separate terms and this is the one that catches a predicate asking only the first.
+    test("a unit condition asks for the beat", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { exists = true } } } }),
+        });
+        check(plan.statePoll == true, "a target condition did not ask for the beat");
+    end);
+
+    -- Hover is the one alias the beat itself keeps fresh -- a unit changing under a cursor that
+    -- never moved is invisible to enter and leave both.
+    test("naming hover asks for the beat", function()
+        local plan = PlanFor({
+            { type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew", seq = 1 },
+        });
+        check(plan.statePoll == true, "an @hover macro body did not ask for the beat");
+    end);
+
+    -- **Asked of `_switches`, not of what is measured.** Nothing conditions on this switch, so it
+    -- is absent from `_measuredStates` while its two lines are still in the pass -- a macro body
+    -- reads it and `displayMessage` announces it.
+    --
+    -- **`[mounted]` and not `[combat]`, and that is the whole test.** A conditional the gate can
+    -- read registers the states behind it as measured (`addSwitch`), and then the first term of
+    -- the predicate answers before this one is ever reached -- so a version that forgot computed
+    -- switches entirely would pass. This is the switch that measures nothing.
+    test("a computed switch nothing conditions on asks for the beat", function()
+        local plan = PlanFor({
+            { type = Constants.MACROTEXT, key = "F1", value = "/cast [$state1] Renew", seq = 1 },
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
+        });
+        check(plan.statePoll == true, "a computed switch did not ask for the beat");
+    end);
+
+    ---------------------------------------------------------------------------
     -- The plan is a decision and nothing more
     ---------------------------------------------------------------------------
 

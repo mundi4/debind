@@ -126,6 +126,11 @@ return function(DebindPrivate)
     --- 다시 정해야 하는가 (`RebindOnHoverFrame`). `setup_onenter`는 처음부터 그 둘을 `or`로
     --- 묶어 물었는데 폴링만 `DirtyFlags.unitframe`을 무조건 세웠고, `DirtyFlags`에 뭐가 하나만
     --- 있어도 상태 구동 키가 전부 훑인다.
+    ---
+    --- **이 프로필에서는 이제 hover 블록 자체가 안 나간다** (2026-08-22). 아무것도 hover를
+    --- 이름으로 안 대므로 `_unitsSeen.hover`가 거짓이고, 폴링이 그 프레임을 아예 안 본다.
+    --- 그래서 이 테스트가 지키는 것은 결과 하나지만 그 뒤에 겹이 둘이 됐다. 안쪽 겹 - hover를
+    --- 이름으로는 대지만 다시 걸 것은 없는 프로필 - 은 아래 매크로텍스트 테스트가 밟는다.
     test("호버 유닛이 바뀌어도 그것을 읽는 것이 없으면 폴링이 리빌드를 안 부른다", function()
         twoParty();
         local i = Bind({ action({ value = 585, key = "F1", combat = true }) });
@@ -152,6 +157,86 @@ return function(DebindPrivate)
 
         check(i:rebuildCount() > before,
             "호버 조건이 걸린 프로필인데 폴링이 리빌드를 안 불렀다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 폴링이 hover 블록을 내보내는 조건
+    ---------------------------------------------------------------------------
+
+    --- 그 키에 걸린 매크로 본문. 속성은 열거가 안 되므로 레코드가 들고 있는 버튼 이름으로
+    --- 되찾는다.
+    local function macrotextOn(key)
+        local records = interp:recordsFor(key);
+        if (not records) then
+            return nil, "이 키에는 클릭 시점 레코드가 없다";
+        end
+        for n = 1, #records do
+            local button = records[n].clickbutton;
+            local text = button
+                and DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button);
+            if (text) then
+                return text;
+            end
+        end
+        return nil, "레코드 중 매크로 본문을 가진 것이 없다";
+    end
+
+    --- **`@hover` 매크로는 조건을 하나도 안 걸고도 폴링을 필요로 한다.**
+    ---
+    --- 본문의 `@hover`는 `UnitAliasMap["hover"]`로 치환되고, 그 별칭을 커서가 멈춰 있는 동안
+    --- 갱신하는 것은 폴링의 hover 블록뿐이다. 다시 걸 키는 없다 - `UnitStates`에 hover 행이
+    --- 없고 `RebindOnHoverFrame`도 거짓이라 `SetUnit`이 거짓을 돌려준다. 그런데도 블록은
+    --- 나가야 한다.
+    ---
+    --- 그래서 블록을 켜는 술어는 `_measuredUnitAxes.hover`가 아니라 **hover를 이름으로 대는
+    --- 것이 있느냐**(`_unitsSeen.hover`)다. 좁히면 이 본문이 옛 유닛을 계속 겨눈다.
+    test("조건 없는 @hover 매크로도 폴링이 별칭을 따라가 준다", function()
+        twoParty();
+        local i = Bind({
+            action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew" }),
+        });
+
+        local before = settleOn("party1");
+
+        local text, why = macrotextOn("F1");
+        check(text, why);
+        check(text:find("party1", 1, true), ("전제가 깨졌다 - 첫 본문이 %q다"):format(text));
+
+        unitFrame:SetAttribute("unit", "party2");
+        i:pollStates();
+
+        text = macrotextOn("F1");
+        check(text:find("party2", 1, true),
+            ("커서가 멈춘 채 프레임의 유닛이 바뀌었는데 본문이 %q에 머물렀다"):format(text));
+
+        -- 별칭만 따라가면 되는 프로필이라 다시 걸 키는 없다. 이게 없으면 위 두 줄은 폴링이
+        -- 모든 키를 다시 정하는 쪽으로 넘어가도 그대로 통과한다.
+        check(i:rebuildCount() == before,
+            "겨누기만 하는 프로필인데 폴링이 리빌드를 불렀다");
+    end);
+
+    --- **@custom1 지정 액션은 유닛을 이름으로 안 댄다.**
+    ---
+    --- 어느 슬롯을 채울지가 `value`고 어디서 가져올지는 `DescribeBinding`이 `UnitWatch`에
+    --- `"hover"` 리터럴로 굽는다. 그래서 이 액션의 조건에도 대상에도 hover가 없고,
+    --- `_unitsSeen`가 레코드에서 그것을 들을 길이 `record.readsHoverUnit`뿐이다. 빠뜨리면
+    --- 폴링이 이 프로필에서 hover 블록을 안 내보내고, 커서가 멈춘 채 프레임의 유닛이 바뀌면
+    --- 옛 유닛이 custom1로 들어간다.
+    test("@custom1 지정 액션만 있어도 폴링이 호버 유닛을 따라간다", function()
+        twoParty();
+        local i = Bind({ action({ type = Constants.SETCUSTOM, value = 1, key = "F1" }) });
+
+        settleOn("party1");
+        check(i.driverHandle:RunAttribute("GetHoveredUnit") == "party1",
+            "전제가 깨졌다 - enter가 호버 슬롯을 안 채웠다");
+
+        unitFrame:SetAttribute("unit", "party2");
+        i:pollStates();
+
+        local hovered = i.driverHandle:RunAttribute("GetHoveredUnit");
+        check(hovered == "party2",
+            ("커서가 멈춘 채 프레임의 유닛이 바뀌었는데 호버 슬롯이 %s다")
+                :format(hovered and ("%q"):format(hovered) or "비었다"));
     end);
 
     ---------------------------------------------------------------------------

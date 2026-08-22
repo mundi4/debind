@@ -571,6 +571,49 @@ local function CollectWatchedUnits(units)
     return units;
 end
 
+--- Does this rebuild want the 0.2s beat at all?
+---
+--- `RegisterUnitWatch(BindingDriver, true)` is what makes Blizzard write `state-unitexists` five
+--- times a second, and our handler write it back -- **two attribute writes and two handler entries
+--- a tick before anything of ours has been measured.** A profile that answers `false` here has
+--- nothing for that pass to do: no state to re-read, no unit row to refresh, no computed switch to
+--- work out, and nothing naming hover.
+---
+--- **`_onattributechanged` stays either way.** What is being turned off is only the periodicity.
+--- `SetSwitch`, `setup_onenter` and `setup_onleave` all reach the handler by writing
+--- `state-unitexists` themselves, and so does the block that closes a rebuild -- so the pass still
+--- runs whenever something actually moves.
+---
+--- Hover is in here for the same reason it gates the block above: the poll is the only thing that
+--- notices a unit changing under a cursor that never moved, and `UnitAliasMap["hover"]` is what
+--- goes stale when nobody notices.
+---
+--- **A computed switch is asked of `_switches` and not of `_measuredStates`.** A switch no record
+--- conditions on is absent from the second and still has its two lines in the pass, because a
+--- macro body can read it and `displayMessage` can announce it.
+---
+--- **A state-driven key is not asked about, and does not need to be.** What wakes such a key is
+--- `bindings.updateFlags`, and every flag that can be in there comes from something this already
+--- covers: `unitframe` needs `binding.hover` and so `_unitsSeen.hover`, `<unit>-exists` is written
+--- in the same branch that fills `_measuredUnitAxes`, and a state or switch name lands in
+--- `_measuredStates`. A key with no flags at all is a real shape rather than a hole -- a mouse
+--- button carries "not while hovering" from the key itself (`BuildUnitStates`), so an
+--- unconditional action on `BUTTON4` is state-driven with nothing measured. The pass that closes
+--- a rebuild binds it with `forceAll`, and nothing that could take it away exists.
+local function WantsStatePoll()
+    if (next(_measuredStates) or next(_measuredUnitAxes) or _unitsSeen.hover) then
+        return true;
+    end
+
+    for _, info in pairs(_switches) do
+        if (info and info.mode == SWITCH_MODES.EXPR) then
+            return true;
+        end
+    end
+
+    return false;
+end
+
 --- What this rebuild decided, as a value.
 ---
 --- **What is not pure yet is the emitters.** `UpdateBindingsMap` reaches `SetBindingAttributes`,
@@ -604,6 +647,8 @@ local function BuildBindingPlan(ctx)
     -- 넓다 - 호버 유닛이 바뀌는 쪽은 `SetUnit`의 반환값이 이미 답한다. 둘을 `or`로 묶어 쓰는
     -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
     plan.rebindOnHoverFrame = _rebindOnHoverFrame and true or false;
+
+    plan.statePoll = WantsStatePoll();
 
     CollectDriverEvents(plan.events);
 
@@ -665,6 +710,22 @@ local function ApplyBindingPlan(plan)
         end
     end
     SecureStateDriverManager:SetAttribute("updatetime", plan.updatetime);
+
+    -- **Only on a change.** Registering again is not free and not silent: Blizzard's handler shows
+    -- the manager and measures the frame on the spot, which writes `state-unitexists` and runs a
+    -- pass. Asking first keeps a rebuild that decided the same thing as the last one from
+    -- producing one (`SecureStateDriver.lua`, `addwatchstate`).
+    --
+    -- **Turning it back on is its own first tick**, and that is what makes it safe to turn off:
+    -- `addwatchstate` measures the frame right there, so the pass a profile was missing arrives
+    -- with the registration rather than up to 0.2s later.
+    if (plan.statePoll ~= UnitWatchRegistered(driver)) then
+        if (plan.statePoll) then
+            RegisterUnitWatch(driver, true);
+        else
+            UnregisterUnitWatch(driver);
+        end
+    end
 
     -- 클릭캐스팅 라우팅을 프레임들에 반영한다. **아래 상태 루프보다 먼저다** - 그쪽이
     -- `<접두사>type<번호>`를 걸므로, 짝인 `clickbutton`이 아직 없으면 그 사이의 클릭이
@@ -1481,6 +1542,14 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
         out.setsSwitch = binding.value;
     end
 
+    -- **A `SETCUSTOM` action reads the hovered unit, and it is the one reader that names no unit.**
+    -- Its value is which custom slot to fill; where the unit comes from is baked as the literal
+    -- `"hover"` on the `UnitWatch` frame (`DescribeBinding`), and the restricted side resolves it
+    -- through `GetHoveredUnit` at the press. So nothing about this binding's units or its target
+    -- says "hover" and `_unitsSeen` would not hear about it -- which is what turns the hover slot
+    -- off underneath it.
+    out.readsHoverUnit = binding.type == Constants.SETCUSTOM;
+
     -- **조건 표에 있는 스위치 이름을 그대로 훑는다.** 다섯 번호를 도는 루프였고, 그래서
     -- `$state1`~`$state5` 밖의 이름은 조건으로 걸려 있어도 여기서 안 보였다. 솔버는 그 이름에도
     -- 컬럼을 만드니 (`Solver.lua`) 둘이 갈리면 한쪽은 조건이 있다고 보고 다른 쪽은 없다고 본다.
@@ -1585,6 +1654,10 @@ local function CollectRecordAxes(record, stateDriven)
 
     if (record.targetUnit) then
         _unitsSeen[record.targetUnit] = true;
+    end
+
+    if (record.readsHoverUnit) then
+        _unitsSeen.hover = true;
     end
 end
 
@@ -2046,6 +2119,23 @@ if (name == "state-unitexists") then
     self:SetAttribute("state-unitexists", 0)
 ]]);
 
+    -- **The block below is what costs a tick while the cursor rests on a unit frame**, and a
+    -- profile where nothing names hover pays it for an answer nobody reads. `_unitsSeen.hover` is
+    -- what decides, and it is a superset of every reader rather than a list of them:
+    --
+    --   the hover row of the state loop    `record.units.hover` -> `_measuredUnitAxes.hover`
+    --   a key re-decided on the frame      `frameTypes` needs `binding.hover`, so `units.hover`
+    --   a binding aimed at `@hover`        `record.targetUnit`
+    --   `@hover` inside a macro body       `addMacrotext` files the argument as a unit
+    --   a `SETCUSTOM` action               says so itself (`record.readsHoverUnit`)
+    --
+    -- **The click path is not in that list and does not belong there.** It reads the frame again
+    -- at the press (`EVAL_SNIPPET`), so what the poll left behind is not what it answers with.
+    --
+    -- The slot itself stays: `setup_onenter` fills it whether or not this block is emitted, so a
+    -- rebuild that starts naming hover finds a warm slot rather than an empty one and the first
+    -- tick after it brings the unit up to date.
+    --
     -- The `elseif` below is the half that was missing. A unit can go away under a cursor that
     -- never moves -- neither enter nor leave fires -- and without it the reaction the frame had
     -- when the cursor arrived stayed true forever. The frame itself is kept so this same poll
@@ -2060,7 +2150,8 @@ if (name == "state-unitexists") then
     -- vendors and guards, corpses, totems. `setup_onenter` has used `OTHER` from the start, so the
     -- symptom was a binding that was right the moment the cursor arrived and went out on the first
     -- poll tick.
-    appendLine([[
+    if (_unitsSeen.hover) then
+        appendLine([[
 if (States.unitframe) then
     local unitframe = States.unitframe
     local unit = unitframe.frame:GetEffectiveAttribute("unit");
@@ -2090,6 +2181,7 @@ if (States.unitframe) then
     end
 end
 ]], Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_OTHER);
+    end
 
     -- Update States
     -- `u` holds the `UnitStates` row being refreshed. Declared here rather than assigned as a

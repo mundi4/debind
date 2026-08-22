@@ -82,6 +82,8 @@ globals = {
 	-- Frame / Secure handler
 	"CreateFrame",
 	"RegisterUnitWatch",
+	"UnregisterUnitWatch",
+	"UnitWatchRegistered",
 	"SecureHandlerSetFrameRef",
 	"SecureHandlerExecute",
 	"SecureHandlerWrapScript",

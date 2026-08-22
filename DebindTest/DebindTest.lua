@@ -3932,6 +3932,61 @@ RegisterTest("Secure update path", {
     end,
 })
 
+-- **0.2초 박자는 잴 것이 있을 때만 돈다** (`devdocs/trimming-the-restricted-hot-paths.md` ③).
+-- 조건이 하나도 없는 프로필에서는 `RegisterUnitWatch`를 놓고, 조건 하나가 다시 걸게 한다.
+--
+-- 헤드리스는 **결정만** 볼 수 있다 (`plan.statePoll`, `tests/plan_spec.lua`). 인터프리터의
+-- `pollStates`는 속성을 직접 찔러서 패스를 돌리므로 등록 여부와 무관하게 돈다. 그러니
+-- 등록이 진짜로 블리자드 매니저에 닿았는지는 여기서만 답이 나온다.
+--
+-- **키가 계속 걸려 있는지를 같이 묻는다.** 이 항목이 서는 근거가 "배선이 고정된 키는 리빌드
+-- 스니펫이 한 번 걸고 끝이라 폴링과 무관하다"이므로, 그 근거를 확인하지 않으면 이 테스트는
+-- 등록이 떨어진 것만 보고 키가 죽은 것은 못 본다.
+RegisterTest("State poll follows what is measured", {
+    description = "잴 것이 없으면 0.2초 박자를 놓고, 조건 하나가 다시 걸게 하는지",
+    run = function()
+        local NAME = "State poll registration"
+        local PLAIN = "CTRL-SHIFT-F10"
+        local CONDITIONAL = "CTRL-SHIFT-F11"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        local driver = DebindPrivate.BindingDriver
+        if not driver then return Fail(NAME, "BindingDriver가 없다") end
+
+        -- 앞선 테스트가 넣어둔 조건부 액션이 하나라도 남아 있으면 박자는 당연히 걸려 있다.
+        -- 레이어를 비우는 것이 이 테스트의 전제고, 끝나고도 비워둔다.
+        CleanupActions()
+        AddTeardown(CleanupActions)
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = PLAIN })
+        ApplyBindings()
+
+        if UnitWatchRegistered(driver) then
+            return Fail(NAME, "조건이 하나도 없는 프로필인데 0.2초 박자가 걸려 있다")
+        end
+
+        local bound = GetBindingAction(PLAIN, true) or ""
+        if bound:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("박자를 놓았더니 키가 안 걸렸다 (%q)", bound))
+        end
+
+        -- **다른 키다.** 같은 키에 얹으면 조건 없는 액션이 조건 공간을 이미 덮어서 그 키는
+        -- 여전히 배선 고정이고, 그런 키의 축은 `_measuredStates`에 안 올라간다 - 조건을
+        -- 넣었는데 재는 것은 없는 상태가 되어 이 테스트가 조용히 무의미해진다.
+        InsertAction({ type = Constants.SPELL, value = 585, key = CONDITIONAL, combat = true })
+        ApplyBindings()
+
+        if not UnitWatchRegistered(driver) then
+            return Fail(NAME, "전투 조건을 넣었는데 0.2초 박자가 안 돌아왔다")
+        end
+
+        return Pass(NAME, "잴 것에 따라 등록이 붙었다 떨어진다")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Hover Slot (live)
 -----------------------------------------------------------
