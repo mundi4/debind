@@ -457,7 +457,7 @@ end
 --- past this line it is one of ours.
 ---
 --- Two callers read `entry.payload` without asking: `CountEntry` and `EntryClassText`
---- (`ImportUI.lua`). Both draw the row rather than act on it, and a row has to be drawable for a
+--- (`StorageUI.lua`). Both draw the row rather than act on it, and a row has to be drawable for a
 --- entry that this refuses -- deleting it is the only thing left to do with it, and the delete
 --- button is on the row. So they guard the one field they touch and read nothing else.
 ---

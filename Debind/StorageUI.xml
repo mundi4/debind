@@ -2,17 +2,17 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
 ..\FrameXML\UI.xsd">
 
-	<Script file="ImportUI.lua"/>
+	<Script file="StorageUI.lua"/>
 
 	<!--
-		One received entry: where it came from, how much is in it, and how long it has left.
+		One entry: whose it is, how much is in it, and when it turned up.
 
-		Same row art as everywhere else this addon draws a list, so the drawer reads as part of the
+		Same row art as everywhere else this addon draws a list, so the column reads as part of the
 		same window rather than a settings screen that wandered in.
-	-->
-	<!--
-		**Clicking the row is how an entry comes in.** It stood as a labelled button on the row's
-		bottom edge; the row is the entry, so the row is what answers. The remove button on top
+
+		**Clicking the row picks it**, and the right column shows what is in it. It used to open a
+		dialog and start an import - a row that acts rather than a row that is chosen - which there
+		was nothing to choose it *for* until there was a second column to read. The delete button
 		still takes its own click.
 	-->
 	<Button name="DebindStorageEntryRowTemplate" mixin="DebindStorageEntryRowMixin" virtual="true">

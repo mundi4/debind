@@ -424,11 +424,13 @@ end
 --- would spread an undecided thing from person to person: it lands badged on the far side too, and
 --- that reader has no more to go on than this one did.
 ---
---- **The window asks the same question about its own list** (`BuildLayers` in `ExportUI.lua`). Every
---- number that window prints comes out of that list -- the layer headers, the [select all] total,
---- which rows can be ticked -- so the two answering differently is the window saying "12" and
---- sending 9. One function, asked twice, is what makes them the same answer rather than the same
---- idea written down twice.
+--- **Nothing asks this twice any more.** The export window used to build its own list and ask this
+--- of every action on the way, which meant the window's numbers and the payload's contents were two
+--- walks that had to agree -- and disagreeing looked like the window saying "12" and sending 9.
+---
+--- A payload is made once (`CreateEntry`) and the panel draws that payload, so there is no second
+--- walk to be wrong: a badged action is not in the entry, therefore not in the preview, therefore
+--- not in the count and not in the string (`devdocs/building-export-import.md` 12절).
 ---
 --- **A synthetic key is not this.** No badge means the set is the sender's, and "a key group I have
 --- not given a key to" is a fact about their setup worth carrying.

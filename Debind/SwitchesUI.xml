@@ -134,7 +134,7 @@
 			<Layer level="ARTWORK">
 				<!--
 					The tick. `checkmark-minimal` is the mark this addon already uses for "this one"
-					(`ExportUI.lua`), at a size of its own rather than the atlas's: the atlas is
+					(`StorageUI.lua`), at a size of its own rather than the atlas's: the atlas is
 					drawn for a checkbox and comes out taller than this row.
 				-->
 				<Texture parentKey="Check" atlas="checkmark-minimal" hidden="true">
@@ -246,8 +246,8 @@
 				way to make a switch at all: the portrait's dropdown that used to carry it is gone
 				(§6-C). The empty-list text points here.
 
-				Above the list and to the left, where the import tab puts the one button that adds
-				to its list (`ImportUI.xml`'s `PasteButton`). The two tabs answer the same shape of
+				Above the list and to the left, where the storage tab puts the buttons that add to its
+				list (`StorageUI.xml`'s `CreateButton`). The two tabs answer the same shape of
 				question, which is what puts a row in here, so the control sits in the same place on both.
 				Text is set in `OnLoad`: `text=` on the template takes a global's name, and ours
 				live in `L`.
