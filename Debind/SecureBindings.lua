@@ -376,7 +376,13 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					end
 				end
 
-				if (match and
+				-- **The outer parentheses are load-bearing.** `and` binds tighter than `or`, so
+				-- without them this reads as `(match and <first>) or <second> or ...` and every term
+				-- after the first is evaluated whether or not `match` still stands. The answer came
+				-- out the same either way, which is why it sat here unnoticed. What it cost was the
+				-- eight tests on a record the frame type check had already turned away, and what it
+				-- risked was the next term added here quietly not being guarded.
+				if (match and (
 					(t.groups ~= nil and (t.groups % (group + group)) < group) or
 					(t.combat ~= nil and t.combat ~= combat) or
 					(t.forms and (t.forms % (form + form)) < form) or
@@ -386,7 +392,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					(t.stealth ~= nil and t.stealth ~= stealth) or
 					(t.petbattle ~= nil and t.petbattle ~= petbattle) or
 					(t.pet ~= nil and t.pet ~= pet)
-				) then
+				)) then
 					match = false
 				end
 				

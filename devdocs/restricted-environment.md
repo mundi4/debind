@@ -52,10 +52,17 @@ squeeze.
 Habits that are free elsewhere and are not free here: building a table per run, walking everything
 to find one thing, composing strings, and a layer of indirection added for readability.
 
-**`RunAttribute` is not a function call.** It reads a string out of an attribute and compiles it on
-the spot. So the move that makes ordinary code readable and testable, pulling the shared part out
-into something callable, is the expensive one in here, and the reflex to reach for it has to be
-resisted rather than followed.
+**`RunAttribute` costs more than a function call, and it is not a compile.** Blizzard keys a closure
+cache on the body string, so `loadstring` runs once for a given body and every call after it is a
+hit (`RestrictedExecution.lua`, `CreateClosureFactory` and `CallRestrictedClosure`). What a call
+still costs is an attribute read, two hash lookups, an environment swap, a `pcall`, and a scrub of
+`self` and of every argument. That is enough to keep out of a hot path and not enough to treat as a
+compile, so weigh it against what the body actually does rather than reaching for a rule.
+
+Two things follow from the cache being keyed by text. A body whose text changes on every rebuild
+takes a fresh entry each time, and the cache is shared across every addon and rotates at a thousand
+entries. Generated snippets are worth keeping textually stable for that reason as well as for
+reading the golden.
 
 What splits a body is **text concatenation at build time**: `EVAL_SNIPPET` is spliced into each
 wrapper that carries it. Splicing also keeps the locals it declares (`winner`, `hoverUnit`) visible

@@ -384,7 +384,13 @@ DelegateFrameNames[frame] = frame:GetName()
 					end
 				end
 
-				if (match and
+
+
+
+
+
+
+				if (match and (
 					(t.groups ~= nil and (t.groups % (group + group)) < group) or
 					(t.combat ~= nil and t.combat ~= combat) or
 					(t.forms and (t.forms % (form + form)) < form) or
@@ -394,7 +400,7 @@ DelegateFrameNames[frame] = frame:GetName()
 					(t.stealth ~= nil and t.stealth ~= stealth) or
 					(t.petbattle ~= nil and t.petbattle ~= petbattle) or
 					(t.pet ~= nil and t.pet ~= pet)
-				) then
+				)) then
 					match = false
 				end
 				
