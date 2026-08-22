@@ -439,6 +439,98 @@ return function(DebindPrivate, DebindStorage)
     -- 계산을 검사하고 있었다. 판정과 핀이 같이 빠지면서 스펙도 같이 나간다 — 되살릴 때는
     -- 쓸어내는 쪽이 아니라 **묻는** 쪽으로 짓는다(`devdocs/building-export-import.md`).
 
+    ---------------------------------------------------------------------------
+    -- Cutting actions out of an entry
+    --
+    -- **The only edit an entry has** (12절). It changes a payload that is already on disk, so what
+    -- it leaves behind has to be a payload every other reader of one can walk: no list holding an
+    -- action that is gone, and no address holding an empty list.
+    ---------------------------------------------------------------------------
+
+    --- An entry standing on `payload`, without going near the store.
+    local function EntryOf(payload)
+        return { id = 1, received = 0, payload = payload };
+    end
+
+    test("고른 것만 빠진다", function()
+        local payload = Payload({ { scope = "general", key = "F", count = 3 } });
+        local list = payload.shared.GENERAL;
+        local doomed = list[2];
+
+        local removed = DebindStorage.RemoveEntryActions(EntryOf(payload), { [doomed] = true });
+
+        check(removed == 1, "지운 수 " .. tostring(removed));
+        check(#payload.shared.GENERAL == 2, "남은 수 " .. #payload.shared.GENERAL);
+        for _, action in ipairs(payload.shared.GENERAL) do
+            check(action ~= doomed, "지운 것이 남아 있다");
+        end
+    end);
+
+    test("여러 레이어에 걸친 것도 한 번에 빠진다", function()
+        local payload = Payload({
+            { scope = "general", key = "F", count = 2 },
+            { scope = "character", spec = 1, key = "F", count = 2 },
+        });
+        local doomed = {
+            [payload.shared.GENERAL[1]] = true,
+            [payload.char[1][1]] = true,
+        };
+
+        check(DebindStorage.RemoveEntryActions(EntryOf(payload), doomed) == 2, "지운 수");
+        check(#payload.shared.GENERAL == 1, "일반이 안 줄었다");
+        check(#payload.char[1] == 1, "캐릭터가 안 줄었다");
+    end);
+
+    -- **빈 자리는 자리가 아니다.** 액션이 하나도 없는 주소가 남으면 그리는 쪽은 머리글을 세우고
+    -- `PlanImport`는 놓을 데를 내주는데, 놓을 것이 없다.
+    test("비워진 레이어는 주소째 걷힌다", function()
+        local payload = Payload({
+            { scope = "general", key = "F", count = 1 },
+            { scope = "class", class = CLASS, spec = 2, key = "G", count = 1 },
+            { scope = "character", spec = 0, key = "H", count = 1 },
+        });
+        local doomed = {
+            [payload.shared.GENERAL[1]] = true,
+            [payload.shared.classes[CLASS][2][1]] = true,
+            [payload.char[0][1]] = true,
+        };
+
+        check(DebindStorage.RemoveEntryActions(EntryOf(payload), doomed) == 3, "지운 수");
+        check(payload.shared.GENERAL == nil, "빈 일반 목록이 남았다");
+        check(payload.shared.classes[CLASS] == nil, "빈 직업 표가 남았다");
+        check(payload.char[0] == nil, "빈 캐릭터 목록이 남았다");
+    end);
+
+    test("일부만 지운 레이어는 그대로 선다", function()
+        local payload = Payload({ { scope = "general", key = "F", count = 2 } });
+        DebindStorage.RemoveEntryActions(EntryOf(payload),
+            { [payload.shared.GENERAL[1]] = true });
+        check(payload.shared.GENERAL ~= nil, "안 빈 목록을 걷었다");
+        check(#payload.shared.GENERAL == 1, "남은 수");
+    end);
+
+    -- 원래 비어 있던 것을 치우지 않는다. 아무것도 안 지운 호출이 페이로드를 바꾸면, 눌러도
+    -- 아무 일도 없는 메뉴 항목이 디스크의 내용을 건드리는 것이 된다.
+    test("아무것도 안 지우면 아무것도 안 건드린다", function()
+        local payload = Payload({ { scope = "general", key = "F", count = 0 } });
+        local stranger = { type = Constants.SPELL, value = 99 };
+
+        check(DebindStorage.RemoveEntryActions(EntryOf(payload), { [stranger] = true }) == 0,
+            "없는 것을 지웠다고 답했다");
+        check(payload.shared.GENERAL ~= nil, "원래 비어 있던 목록을 걷었다");
+    end);
+
+    -- 매니페스트는 안 건드린다. 무엇을 참조했었나는 만들 때의 사실이고, 실제로 나가는 것만
+    -- 남기는 것은 문자열을 만드는 순간의 일이다(`FilterPayload`).
+    test("매니페스트는 그대로 둔다", function()
+        local payload = Payload({ { scope = "general", key = "F", count = 1 } });
+        payload.states = { ["$state3"] = { mode = "manual" } };
+
+        DebindStorage.RemoveEntryActions(EntryOf(payload),
+            { [payload.shared.GENERAL[1]] = true });
+        check(payload.states and payload.states["$state3"], "매니페스트가 사라졌다");
+    end);
+
     DebindStorage.DecodeExportString = realDecode;
 
     return T;

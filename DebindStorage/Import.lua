@@ -99,6 +99,11 @@ local KNOWN_CLASSES           = Constants.CLASS_IDS;
 --- lists and hand them over whole, so one number sitting where an action belongs raised in whatever
 --- read it next -- and every caller reads them: counting on paste, planning, building. Filtering
 --- here is what lets each of them say `ipairs` and stop worrying.
+---
+--- **The stored list comes last, and only one caller takes it.** Everything that reads a payload
+--- wants the filtered copy; the one that *edits* one has to reach the table the payload actually
+--- holds (`RemoveEntryAction`). Handing it over here rather than walking the three addresses again
+--- is what keeps the shape of a payload written down once.
 function DebindStorage.ForEachPayloadLayer(payload, fn)
     --- The list handed on, with anything that is not an action table left out. A copy, because the
     --- callers walk it with `ipairs` and one hole would stop them early -- and because what is
@@ -113,7 +118,7 @@ function DebindStorage.ForEachPayloadLayer(payload, fn)
                 actions[#actions + 1] = list[i];
             end
         end
-        fn(actions, scope, class, spec);
+        fn(actions, scope, class, spec, list);
     end
 
     local shared = luatype(payload.shared) == "table" and payload.shared or nil;
@@ -604,6 +609,73 @@ function DebindStorage.CreateEntry(selection)
         realm = GetRealmName(),
         guid = DebindPrivate.playerGUID,
     });
+end
+
+--- Takes a set of actions out of an entry, for good. Answers how many it found.
+---
+--- **The one edit an entry has** (`devdocs/building-export-import.md` 12절). Adding, reordering and
+--- changing an action are all absent and each for its own reason; what is left is throwing part of
+--- it away, and that exists because making an entry takes the whole profile -- eleven layers of it,
+--- with no screen in front to pick from -- so a reader who wants to hand over one part has to be
+--- able to cut the rest out of the copy.
+---
+--- **A set rather than one action, because the panel already has a set.** The ticks are a
+--- multi-selection the reader made for the other two verbs, and a second selection state alongside
+--- it is the thing the overview turned down once already for having no answer to when it clears.
+---
+--- **It does not come back.** Unlike a tick, which is a different answer every time the entry is
+--- used, this is the entry changing: the profile is still there and the string was already made, so
+--- the way back is another entry rather than an undo of this one.
+---
+--- **The stored lists, not the copies `ForEachPayloadLayer` hands out.** Removing from a copy would
+--- report success and change nothing.
+---
+--- An emptied list goes with its actions. A payload carrying `char = { [0] = {} }` claims a layer
+--- it has nothing for, and everything downstream would have to know an address can be empty -- the
+--- preview would draw a header over nothing and `PlanImport` would offer somewhere to put it.
+---
+--- **The manifest is left alone.** It says which switches the entry referred to when it was made,
+--- and a definition nothing points at costs a reader nothing: `FilterPayload` narrows it to what is
+--- actually going out at the moment a string is made, which is the only moment it matters.
+function DebindStorage.RemoveEntryActions(entry, actions)
+    local payload = entry and entry.payload;
+    if (luatype(payload) ~= "table" or luatype(actions) ~= "table") then
+        return 0;
+    end
+
+    local removed = 0;
+
+    DebindStorage.ForEachPayloadLayer(payload, function(_, scope, class, spec, list)
+        local took = 0;
+        -- Backwards, because removing shifts everything above the index down.
+        for i = #list, 1, -1 do
+            if (actions[list[i]]) then
+                tremove(list, i);
+                took = took + 1;
+            end
+        end
+        removed = removed + took;
+
+        -- **Only a layer this emptied.** A payload that arrived holding an empty list is left as it
+        -- arrived: tidying one nobody touched would make an untouched entry change on a press that
+        -- did nothing to it.
+        if (took == 0 or #list > 0) then
+            return;
+        end
+
+        if (scope == "general") then
+            payload.shared.GENERAL = nil;
+        elseif (scope == "class") then
+            payload.shared.classes[class][spec] = nil;
+            if (next(payload.shared.classes[class]) == nil) then
+                payload.shared.classes[class] = nil;
+            end
+        else
+            payload.char[spec] = nil;
+        end
+    end);
+
+    return removed;
 end
 
 function DebindStorage.GetEntries()

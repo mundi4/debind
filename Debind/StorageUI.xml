@@ -109,7 +109,7 @@
 		</Scripts>
 	</Button>
 
-	<Button name="DebindStoragePreviewRowTemplate" mixin="DebindStoragePreviewRowMixin" virtual="true">
+	<Button name="DebindStoragePreviewRowTemplate" mixin="DebindStoragePreviewRowMixin" registerForClicks="LeftButtonUp RightButtonUp" virtual="true">
 		<Size x="400" y="28"/>
 		<Layers>
 			<Layer level="BACKGROUND">

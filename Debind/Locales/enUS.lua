@@ -1257,6 +1257,18 @@ L["IMPORT_COMMITTED_SKIPPED"] = "%d of them had nowhere to go here and were left
 -- **No object on it.** There is one thing this makes and one thing it makes it from, so a range
 -- would be a word that adds nothing - and any range it named would be too narrow, since what goes
 -- in includes the specializations you are not playing.
+-- The right-click menu on an action in the preview. **Taking things out is the only edit an entry
+-- has**, so these two are the whole menu.
+--
+-- "This action" rather than the action's name: the row is under the cursor and the menu is over
+-- it, so naming it again would be the menu reading the screen back.
+L["STORAGE_DELETE_ACTION"] = "Delete this action"
+-- The other item. %d is what is ticked, which starts as everything in the entry - so the number is
+-- usually large and is usually not a number the reader chose.
+L["STORAGE_DELETE_SELECTED"] = "Delete %d selected"
+-- Which is why two or more ask. One does not: a menu is already enough hands not to reach by
+-- accident, and the second look is for the count rather than for the act.
+L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take %1$d actions out of this? They do not come back - you would have to make it again."
 L["STORAGE_CREATE"] = "Create"
 -- The client says this seven times across four features - the cooldown viewer, housing, talents,
 -- edit mode - and every one of them means what this means.

@@ -297,8 +297,15 @@ end
 --- is a row that acts rather than a row that is chosen -- and there was nothing to choose it *for*
 --- until there was a second column to read (12절). What the entry then does is on the buttons under
 --- the column that shows it, where the reader can see what they are about to hand over.
+--- **Pressing the picked row lets it go.** One row is showing at a time, so without this there is
+--- no way back to nothing once anything has been picked - and the empty column is a real state
+--- rather than a gap, since the two buttons under it turn off with it.
 function DebindStorageEntryRowMixin:OnClick()
-    DebindStoragePanel:SelectEntry(self.elementData.entry);
+    local entry = self.elementData.entry;
+    if (DebindStoragePanel:GetSelectedEntry() == entry) then
+        entry = nil;
+    end
+    DebindStoragePanel:SelectEntry(entry);
 end
 
 function DebindStorageEntryRowMixin:OnEnter()
@@ -379,7 +386,56 @@ function DebindStoragePreviewRowMixin:UpdateSelectionDisplay()
     self.SelectedHighlight:SetShown(DebindStoragePanel.selected[self.elementData.action] == true);
 end
 
-function DebindStoragePreviewRowMixin:OnClick()
+--- The row's menu: taking things out of the entry, which is the only edit an entry has (12절).
+---
+--- **Two items, because the tick set is not always what the reader means.** Ticking is what goes
+--- out, and it starts as everything -- so the set is a poor stand-in for "this one", and an entry
+--- opened and right-clicked would offer to delete all of it under a count nobody chose.
+---
+--- **One action never asks; two or more do** (2026-08-22, 소유자). A menu is enough hands not to
+--- arrive at by accident, which is the whole of the case for one; what it is not enough of is a
+--- second look at a number the reader did not choose. Ticking starts as everything, so the count on
+--- that second item is usually the whole entry.
+---
+--- That is the line 4절 drew between [accept all] and [reject all], from the same reading: a label
+--- carrying a count is warning enough only while the count is small.
+local function SetupPreviewRowMenu(_, rootDescription, action)
+    rootDescription:CreateButton(LLL["STORAGE_DELETE_ACTION"], function()
+        DebindStoragePanel:DeleteActions({ [action] = true });
+    end);
+
+    local selected = DebindStoragePanel.selected;
+    local count = 0;
+    for _ in pairs(selected) do
+        count = count + 1;
+    end
+
+    local description = rootDescription:CreateButton(
+        format(LLL["STORAGE_DELETE_SELECTED"], count), function()
+            if (count < 2) then
+                DebindStoragePanel:DeleteActions(selected);
+                return;
+            end
+            StaticPopup_ShowCustomGenericConfirmation({
+                text = LLL["STORAGE_DELETE_SELECTED_CONFIRM"],
+                text_arg1 = count,
+                callback = function() DebindStoragePanel:DeleteActions(selected); end,
+                acceptText = YES,
+                cancelText = NO,
+                showAlert = true,
+                referenceKey = "DebindDeleteEntryActions",
+            });
+        end);
+    -- Nothing ticked is not an error to explain, it is an item with nothing to act on.
+    description:SetEnabled(count > 0);
+end
+
+function DebindStoragePreviewRowMixin:OnClick(button)
+    if (button == "RightButton") then
+        MenuUtil.CreateContextMenu(self, SetupPreviewRowMenu, self.elementData.action);
+        return;
+    end
+
     DebindStoragePanel:ToggleAction(self.elementData.action);
     self:UpdateSelectionDisplay();
 end
@@ -867,6 +923,42 @@ end
 local function DropStaleString()
     DebindCopyFrame:Hide();
 end
+--- Cuts a set of actions out of the entry that is showing, and draws what is left.
+---
+--- **The set is copied before anything is removed.** The usual caller hands over `self.selected`
+--- itself, and `SelectEntry` below wipes that table on its way to rebuilding - so the store would
+--- be walking an emptied set halfway through.
+---
+--- **Rebuilt through `SelectEntry`, not patched in place.** Every list here is keyed by the action
+--- tables that are gone: the tick set, the collapse state's layers, the rows. Re-picking the same
+--- entry is the one path that puts all of them back in step, and it is the path `OnShow` already
+--- takes for the same reason.
+---
+--- ⚠ **The tick set does not survive it.** Everything comes back ticked, which is what picking an
+--- entry means. A reader who trimmed a long entry down and then wanted to hand over only part of
+--- what is left has to tick again.
+function DebindStoragePanelMixin:DeleteActions(actions)
+    local entry = self.selectedEntry;
+    if (not entry) then
+        return;
+    end
+
+    local doomed = {};
+    for action in pairs(actions) do
+        doomed[action] = true;
+    end
+
+    if (Store().RemoveEntryActions(entry, doomed) == 0) then
+        return;
+    end
+
+    DropStaleString();
+    self:SelectEntry(entry);
+
+    -- The row's counts are drawn from the payload, so the left column is stale too.
+    self:RefreshEntries();
+end
+
 
 function DebindStoragePanelMixin:SelectAll(selected)
     DropStaleString();
