@@ -106,7 +106,7 @@ local function GetSideLabelForClass(class, spec)
 	if (not classID) then
 		return nil;
 	end
-	local _, specName = C_SpecializationInfo.GetSpecializationInfoForClassID(classID, spec);
+	local _, specName = GetSpecializationInfoForClassID(classID, spec);
 	return specName;
 end
 

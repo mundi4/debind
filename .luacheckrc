@@ -75,6 +75,11 @@ globals = {
 	"C_ToyBox",
 	"C_SpellBook",
 	"C_SpecializationInfo",
+	-- **Not under `C_SpecializationInfo`, despite naming a specialization.** A plain global, the
+	-- way `Blizzard_ClassMenu` and the character create screen call it. Naming a spec of a class
+	-- that is not this character's has no other route, and the namespaced spelling raised in the
+	-- game while luacheck saw an ordinary field read on a known table.
+	"GetSpecializationInfoForClassID",
 	"C_Timer",
 	"EventRegistry",
 	"C_TradeSkillUI",

@@ -736,6 +736,14 @@ function DebindStoragePanelMixin:SelectEntry(entry)
         local payload, reason = Store().GetEntryPayload(entry);
         if (payload) then
             self.previewLayers = BuildPreviewLayers(payload);
+
+            -- **Everything starts shut.** Open, the column is one long run of actions and the
+            -- layers - the axis it is cut on - are lost in it. Shut, the first screen is the whole
+            -- shape of what is in the entry, and opening one is how you go and look.
+            for _, layer in ipairs(self.previewLayers) do
+                self.collapsed[layer.key] = true;
+            end
+
             self:SelectAll(true);
         else
             -- **The row stays.** An entry this cannot read is one there is nothing left to do with
