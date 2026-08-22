@@ -1239,6 +1239,10 @@ L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anyw
 --
 -- It says the position, not the words on the controls: renaming either of them must not turn this
 -- sentence into a pointer at something that is not there.
+-- The other way in. **Both halves are said** because a string can hold either kind: what the sender
+-- had on a key is on that key now, and what they had not bound yet cannot be, so it lands the same
+-- way everything else does.
+L["IMPORT_COMMITTED_KEYED"] = "Brought in %d actions on the keys they came with. Anything that arrived without one is switched off until you give it a key."
 L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you accept them - a row for doing that is now at the top of the window."
 -- **Two things reach this and neither is the reader's doing**, so it names both rather than picking
 -- one: a specialization this character's class does not have, and a layer a newer Debind invented.
@@ -1270,9 +1274,13 @@ L["STORAGE_DELETE_SELECTED"] = "Delete %d selected"
 -- accident, and the second look is for the count rather than for the act.
 L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take %1$d actions out of this? They do not come back - you would have to make it again."
 L["STORAGE_CREATE"] = "Create"
--- The client says this seven times across four features - the cooldown viewer, housing, talents,
--- edit mode - and every one of them means what this means.
-L["STORAGE_IMPORT"] = "Import"
+-- **Not "Import", which the client owns and spends on something else.** Every one of those buttons
+-- takes a code and makes it yours in one press. This one takes a code and puts a row in a list, and
+-- nothing the reader has is any different afterwards, so the word would promise the half of the
+-- client's gesture that only happens later and on another button (2026-08-22, 소유자).
+--
+-- Says "Share Code" because `STORAGE_COPY` does, and the two are the same code going opposite ways.
+L["STORAGE_PASTE"] = "Paste Share Code"
 -- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
 --
@@ -1287,7 +1295,33 @@ L["STORAGE_IMPORT"] = "Import"
 -- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
 -- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
 -- when it is done is enUS and koKR only.
-L["STORAGE_COPY"] = "Copy Share Code"
+-- **The button's own label, and it says what is being acted on rather than what happens to it.**
+-- Four verbs will not fit across the row that counts the ticks, and the one thing a verb here has
+-- to carry is where the actions go, which is exactly what a label shortened to fit loses. So the
+-- label breaks off and the menu finishes it (2026-08-22, 소유자).
+L["STORAGE_ACTIONS"] = "With these..."
+-- Taking the arrival on the sender's keys, switched on. **"Their keys" rather than "the keys"**:
+-- whose they are is the whole of what is being decided, since landing on one the reader already
+-- uses puts two sets on one key.
+L["STORAGE_ADD_KEYED"] = "Add and Accept with Their Keys"
+L["STORAGE_COPY"] = "Create Share Code"
+-- **The destination, because `Add` on its own points at the list.** This said the client's `ADD`,
+-- and in the client that word sits on buttons that put a row in a list: add a friend, add to the
+-- ignore list. Two buttons under the list on the left already do that here, so a reader looking at
+-- a list and a button beside it read the third one as another of those.
+--
+-- **"Actions" rather than "keys" or "this character".** Neither is true. Every key is replaced on
+-- the way in, so nothing new turns up under a key, and where an action lands is what its own
+-- address says, which can be a place every character shares.
+L["STORAGE_ADD"] = "Add to My Actions"
+-- **The date has to say which date it is.** The row shows it bare, where it is one of two lines
+-- and the reader is scanning rather than reading; the tooltip is where somebody stops to ask, and
+-- an unlabelled number there answers "made", "pasted" and "today" equally well.
+--
+-- Which word applies is which way the entry got here, and the character name is what says so: only
+-- an entry made on this account carries one.
+L["STORAGE_ENTRY_MADE"] = "Created %s"
+L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
 L["STORAGE_TITLE"] = "Storage"
 -- The header over actions this version has no layer for: a specialization number past the end of
 -- the class they came from, which only a hand-edited string carries. **They are drawn rather than
@@ -1364,8 +1398,12 @@ L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries i
 -- panels now; `Debind Storage` is the load-on-demand part that keeps the strings, and without it
 -- there is nothing for either to show. Switching it off in the AddOns list is the one way here.
 L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind Storage|r keeps, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Storage comes with it."
-L["EXPORT_SELECT_ALL"] = "Select all"
-L["EXPORT_SELECT_ALL_COUNT"] = "Select all (%d)"
+-- **One box does both jobs**, so the label says what is true and not what a click would do. It
+-- read "Select all" while checked, at the moment a click would put everything down.
+--
+-- **Both numbers, because one on its own reads as the total.** "Select all (8)" says there are
+-- eight here, which is the opposite of what it meant on an entry of 24 with 8 picked.
+L["EXPORT_SELECTED_COUNT"] = "%1$d of %2$d selected"
 L["EXPORT_EMPTY"] = "There is nothing here to export yet."
 L["EXPORT_LAYER_HEADER"] = "%1$s (%2$d/%3$d)"
 L["EXPORT_LAYER_COUNT"] = "%d actions"

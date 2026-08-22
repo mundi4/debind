@@ -28,8 +28,9 @@
 			</Layer>
 			<Layer level="ARTWORK">
 				<!--
-					**The two things the string itself always carries**: the sender's class, in that
-					class's colour, and when it was received.
+					**Who it came from**: the class icon, then the character and realm that made it,
+					in that class's colour. A row taken in from a string has no character to name and
+					spells the class instead, which is the only thing about its sender that travels.
 
 					It used to be the free text typed at paste time, falling back to a stand-in that
 					said "Received string" - which is what three rows in a row read like, so the
@@ -258,9 +259,9 @@
 				The entry list's inset. **Overview's rectangle** (`DebindUI.xml`): the tabs of one
 				window should not have their lists jump as the reader moves between them.
 
-				**The bottom is 50 rather than Overview's 10.** That band is where the two buttons
-				under this column stand, on the frame's own bottom edge - which is where the click
-				binding window puts its own (`Blizzard_ClickBindingUI.xml`).
+				**The bottom is Overview's 10.** Nothing stands under either column any more: what
+				fills the list is above it and what acts on the picked entry is above the other one,
+				so the 40 that band used to take goes back to the rows.
 
 				A fixed width, given by `<Size>` with only the two left corners pinned. The column
 				holds two short lines and a delete button and does not get wider on a wider window;
@@ -274,7 +275,7 @@
 				</KeyValues>
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="50"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
 				</Anchors>
 			</Frame>
 
@@ -306,17 +307,20 @@
 			</EventFrame>
 
 			<!--
-				**The two ways a row gets into the list, under the list.** They are the same kind of
-				act pointing at the same column, so they stand together rather than one of them
-				sitting above the list as the paste button used to.
+				**The two ways a row gets into the list, above the list.** They make what is under
+				them, and the band at the bottom of this panel belongs to the buttons that act on the
+				picked entry: a button that fills a list and a button that spends one row of it are
+				two different jobs and should not stand in one row of controls (2026-08-22, 소유자).
+
+				Together they are as wide as the list: 146 and 146 with 5 between them.
 			-->
 			<Button parentKey="CreateButton" inherits="UIPanelButtonTemplate">
 				<Size x="146" y="23"/>
 				<Anchors>
-					<Anchor point="BOTTOMLEFT" x="8" y="5"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="5"/>
 				</Anchors>
 			</Button>
-			<Button parentKey="ImportButton" inherits="UIPanelButtonTemplate">
+			<Button parentKey="PasteButton" inherits="UIPanelButtonTemplate">
 				<Size x="146" y="23"/>
 				<Anchors>
 					<Anchor point="LEFT" relativeKey="$parent.CreateButton" relativePoint="RIGHT" x="5" y="0"/>
@@ -338,7 +342,7 @@
 			<Frame parentKey="Preview" useParentLevel="true">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPRIGHT" x="27" y="0"/>
-					<Anchor point="BOTTOMRIGHT" x="-31" y="50"/>
+					<Anchor point="BOTTOMRIGHT" x="-31" y="10"/>
 				</Anchors>
 				<Frames>
 					<Frame parentKey="ScrollBoxBackground" useParentLevel="true" inherits="TooltipBackdropTemplate" setAllPoints="true">
@@ -396,26 +400,26 @@
 							</Layer>
 						</Layers>
 					</CheckButton>
+
+					<!--
+						**One button, and the verbs are inside it.** Four of them would not fit
+						beside the count, and shortening them to fit costs the one thing a verb here
+						has to carry: where the actions go (2026-08-22, 소유자). The label names what
+						is being acted on and breaks off, so the menu finishes the sentence.
+
+						**Right after the count, not at the far end of the row.** The count is what the
+						button acts on, so the two read as one line rather than as two controls that
+						happen to share a row.
+					-->
+					<Button parentKey="ActionsButton" inherits="UIPanelButtonTemplate">
+						<Size x="150" y="22"/>
+						<Anchors>
+							<Anchor point="LEFT" relativeKey="$parent.SelectAllCheck.Text" relativePoint="RIGHT" x="8" y="0"/>
+						</Anchors>
+					</Button>
 				</Frames>
 			</Frame>
 
-			<!--
-				**The two ways the picked entry leaves, under the column that shows it.** Each pair
-				of buttons sits under the column it acts on, so which of the two lists a press is
-				about is a matter of where it is rather than something to read.
-			-->
-			<Button parentKey="CopyButton" inherits="UIPanelButtonTemplate">
-				<Size x="160" y="23"/>
-				<Anchors>
-					<Anchor point="BOTTOMRIGHT" x="-6" y="5"/>
-				</Anchors>
-			</Button>
-			<Button parentKey="AddButton" inherits="UIPanelButtonTemplate">
-				<Size x="120" y="23"/>
-				<Anchors>
-					<Anchor point="RIGHT" relativeKey="$parent.CopyButton" relativePoint="LEFT" x="-5" y="0"/>
-				</Anchors>
-			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>

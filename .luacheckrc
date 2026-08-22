@@ -171,6 +171,9 @@ globals = {
 	-- UI utility
 	"CreateColor",
 	"GetClassColorObj",
+	-- The class icon on a storage row, built out of the class name and drawn inline in the text.
+	"GetClassAtlas",
+	"CreateAtlasMarkup",
 	"CopyTable",
 	"CreateTableEnumerator",
 	"CreateDataProvider",

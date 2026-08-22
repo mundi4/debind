@@ -234,18 +234,60 @@ local function EntryLabel(entry)
     end
     return format(LLL["IMPORT_ENTRY_LINE"], class, stamp);
 end
---- Who made it, or what it came from.
+--- The class's own icon, inline, or nil for a class this client does not have.
 ---
---- **A row made here says which character**, which is the one thing that tells two of your own
---- backups apart -- they carry the same class and often the same date. A row that came from a
---- string cannot say it: the string does not carry a character name and is not meant to
---- (`devdocs/building-export-import.md` 3절), so it falls back to the class, which is the only
---- thing about its sender that does travel.
-local function EntryTitle(entry)
-    if (entry.character) then
-        return entry.character;
+--- **Gated on the client knowing the name**, because the atlas is built out of it
+--- (`GetClassAtlas`) and one that does not exist draws nothing at all. A payload naming a class
+--- nobody has cannot be opened (`PayloadIsImpossible`), but its row is still drawn: deleting it is
+--- the only thing left to do with it and the delete button is on the row.
+local function ClassIcon(class)
+    if (not (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class])) then
+        return nil;
     end
-    return EntryClassText(entry) or EntryDate(entry);
+    return CreateAtlasMarkup(GetClassAtlas(strlower(class)), 16, 16);
+end
+
+--- Who made it, or what it came from: the class icon, then a name, in the class's colour.
+---
+--- **The icon is where the class lives, and it is in the same place on every row** (2026-08-22,
+--- 소유자). The words beside it are not the same thing twice: a row made here says which character,
+--- which is the one thing that tells two of your own backups apart, since they carry the same class
+--- and often the same date. A row that came from a string cannot say it. The string does not carry
+--- a character name and is not meant to (`devdocs/building-export-import.md` 3절), so the class
+--- name is what the words fall back to. Spelling the class only in that second case is what used to
+--- move it between the title and a line of its own.
+---
+--- **The realm rides with the name, in the client's form.** `FULL_PLAYER_NAME` is what the friends
+--- list joins the two with and every locale carries it, so this is not a format of ours.
+local function EntryTitle(entry)
+    local class = EntryClass(entry);
+    local text;
+
+    if (entry.character and entry.realm) then
+        text = format(FULL_PLAYER_NAME, entry.character, entry.realm);
+    elseif (entry.character) then
+        text = entry.character;
+    elseif (class and LOCALIZED_CLASS_NAMES_MALE) then
+        text = LOCALIZED_CLASS_NAMES_MALE[class];
+    end
+
+    -- Nothing about the sender at all. A payload with no class reaches this, and the date is the
+    -- one thing every row has.
+    if (not text) then
+        return EntryDate(entry);
+    end
+
+    if (not class) then
+        return text;
+    end
+
+    local color = GetClassColorObj(class) or NORMAL_FONT_COLOR;
+    local icon = ClassIcon(class);
+    text = color:WrapTextInColorCode(text);
+    if (not icon) then
+        return text;
+    end
+    return icon .. " " .. text;
 end
 
 function DebindStorageEntryRowMixin:Init(elementData)
@@ -312,28 +354,23 @@ function DebindStorageEntryRowMixin:OnEnter()
     local entry = self.elementData.entry;
 
     -- **The row's own two lines, in the same order.** A tooltip that regroups them reads as being
-    -- about something else.
+    -- about something else. The title is the row's own first line, realm and all, so neither the
+    -- realm nor the class needs a line of its own down here.
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, EntryTitle(entry));
 
-    local counts = format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry));
+    -- **A line each.** The row runs the two together because it has two lines for everything it
+    -- holds. Here there is room, and they answer different questions.
+    --
+    -- **A date on its own is any date.** Which one this is depends on where the entry came from: one
+    -- made here is dated when it was made, one that arrived is dated when it was pasted, and both
+    -- are the same field. There is no third answer to confuse it with, since a string carries no
+    -- date of its own (7절).
+    GameTooltip_AddNormalLine(GameTooltip, format(
+        LLL[entry.character and "STORAGE_ENTRY_MADE" or "STORAGE_ENTRY_RECEIVED"],
+        EntryDate(entry)));
     GameTooltip_AddNormalLine(GameTooltip,
-        format(LLL["IMPORT_ENTRY_LINE"], EntryDate(entry), counts));
-
-    -- **The realm belongs here rather than on the row.** It only ever separates two characters of
-    -- the same name, which is rare enough that the list should not spend a line on it and precise
-    -- enough that the tooltip must not drop it.
-    if (entry.realm) then
-        GameTooltip_AddNormalLine(GameTooltip, entry.realm);
-    end
-
-    -- The class, for a row whose title is a character name and therefore does not say it.
-    if (entry.character) then
-        local class = EntryClassText(entry);
-        if (class) then
-            GameTooltip_AddNormalLine(GameTooltip, class);
-        end
-    end
+        format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry)));
 
     -- **What the reader called it, which is the only thing here a person wrote.** No caption in
     -- front of it: it is their own words, and a label on them would be the tooltip explaining the
@@ -664,15 +701,30 @@ local function BuildPreviewLayers(payload)
     return order;
 end
 
+--- The verbs, all of them, behind the one button on the count's row.
+---
+--- **A menu rather than a row of buttons.** Each of these has to say where the actions go, and a
+--- label short enough to fit four across cannot (2026-08-22, 소유자). In here they have the room to
+--- say it, and a fifth verb costs no width at all.
+local function SetupActionsMenu(_, rootDescription)
+    rootDescription:CreateButton(LLL["STORAGE_ADD"], function()
+        DebindStoragePanel:OnAddClicked();
+    end);
+    rootDescription:CreateButton(LLL["STORAGE_ADD_KEYED"], function()
+        DebindStoragePanel:OnAddClicked(true);
+    end);
+    rootDescription:CreateButton(LLL["STORAGE_COPY"], function()
+        DebindStoragePanel:OnCopyClicked();
+    end);
+end
+
 function DebindStoragePanelMixin:OnLoad()
     -- **What this panel asks the frame to be** is a `KeyValue` in the XML, read by `SelectPanel`.
     -- Two columns now, so it asks for Overview's width rather than a single list's.
 
     self.CreateButton:SetText(LLL["STORAGE_CREATE"]);
-    self.ImportButton:SetText(LLL["STORAGE_IMPORT"]);
-    self.AddButton:SetText(ADD);
-    self.CopyButton:SetText(LLL["STORAGE_COPY"]);
-    self.Preview.SelectAllCheck.Text:SetText(LLL["EXPORT_SELECT_ALL"]);
+    self.PasteButton:SetText(LLL["STORAGE_PASTE"]);
+    self.Preview.ActionsButton:SetText(LLL["STORAGE_ACTIONS"]);
 
     --- Which entry the right column is showing. **Held by reference**, so deleting the row it
     --- points at has to clear it and nothing else has to be reconciled.
@@ -695,9 +747,10 @@ function DebindStoragePanelMixin:OnLoad()
     -- element's *own* mixin, so naming the panel's method on a plain Blizzard template finds
     -- nothing. List rows are the other way round: those carry a mixin.
     self.CreateButton:SetScript("OnClick", function() self:OnCreateClicked(); end);
-    self.ImportButton:SetScript("OnClick", function() DebindPasteFrame:Open(); end);
-    self.AddButton:SetScript("OnClick", function() self:OnAddClicked(); end);
-    self.CopyButton:SetScript("OnClick", function() self:OnCopyClicked(); end);
+    self.PasteButton:SetScript("OnClick", function() DebindPasteFrame:Open(); end);
+    self.Preview.ActionsButton:SetScript("OnClick", function()
+        MenuUtil.CreateContextMenu(self.Preview.ActionsButton, SetupActionsMenu);
+    end);
     self.Preview.SelectAllCheck:SetScript("OnClick", function() self:OnSelectAllClicked(); end);
 
     NormalizeCheckMark(self.Preview.SelectAllCheck);
@@ -782,35 +835,48 @@ end
 --- button; the boxes are there for the reader who wants less (2절). Nothing carries across from
 --- the entry that was showing a moment ago -- two entries do not share an action table, so a
 --- leftover tick could not survive anyway, and wiping says so rather than relying on it.
+--- Reads the entry that is showing and builds the layers again.
+---
+--- **The view state is not touched here.** What is ticked and what is collapsed are the reader's
+--- answers rather than anything the payload decides, so cutting actions out of an entry can come
+--- through this and keep them. Picking an entry throws them away on purpose, and does it itself.
+function DebindStoragePanelMixin:RebuildPreviewLayers()
+    self.previewLayers = nil;
+    self.previewReason = nil;
+
+    local entry = self.selectedEntry;
+    if (not entry) then
+        return;
+    end
+
+    local payload, reason = Store().GetEntryPayload(entry);
+    if (payload) then
+        self.previewLayers = BuildPreviewLayers(payload);
+        return;
+    end
+
+    -- **The row stays.** An entry this cannot read is one there is nothing left to do with but
+    -- delete, and the delete button is on the row, so the failure belongs in the column that was
+    -- going to show it rather than in a message that takes the row away.
+    self.previewReason = LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"];
+end
+
 function DebindStoragePanelMixin:SelectEntry(entry)
     self.selectedEntry = entry;
     wipe(self.selected);
     wipe(self.collapsed);
-    self.previewLayers = nil;
 
-    if (entry) then
-        local payload, reason = Store().GetEntryPayload(entry);
-        if (payload) then
-            self.previewLayers = BuildPreviewLayers(payload);
-
-            -- **Everything starts shut.** Open, the column is one long run of actions and the
-            -- layers - the axis it is cut on - are lost in it. Shut, the first screen is the whole
-            -- shape of what is in the entry, and opening one is how you go and look.
-            for _, layer in ipairs(self.previewLayers) do
-                self.collapsed[layer.key] = true;
-            end
-
-            self:SelectAll(true);
-        else
-            -- **The row stays.** An entry this cannot read is one there is nothing left to do with
-            -- but delete, and the delete button is on the row -- so the failure belongs in the
-            -- column that was going to show it rather than in a message that takes the row away.
-            self.previewReason = LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"];
-        end
-    end
+    self:RebuildPreviewLayers();
 
     if (self.previewLayers) then
-        self.previewReason = nil;
+        -- **Everything starts shut.** Open, the column is one long run of actions and the layers,
+        -- the axis it is cut on, are lost in it. Shut, the first screen is the whole shape of what
+        -- is in the entry, and opening one is how you go and look.
+        for _, layer in ipairs(self.previewLayers) do
+            self.collapsed[layer.key] = true;
+        end
+
+        self:SelectAll(true);
     end
 
     self:UpdateEntrySelectionDisplay();
@@ -902,17 +968,19 @@ function DebindStoragePanelMixin:UpdateSelectionState()
     local state, selectedCount = CombineState(listed, self.selected);
 
     SetTriState(self.Preview.SelectAllCheck, state or STATE_NONE);
-    self.Preview.SelectAllCheck.Text:SetText(selectedCount > 0
-        and format(LLL["EXPORT_SELECT_ALL_COUNT"], selectedCount)
-        or LLL["EXPORT_SELECT_ALL"]);
+    -- **A state, not a verb** (2026-08-22, 소유자). One box does both jobs: it picks everything up
+    -- and it puts everything down, so a label naming either one is wrong at the moment the other is
+    -- what a click would do. It says what is true instead. Both numbers are there because one on
+    -- its own reads as the total, which had a half picked entry announcing that it held eight.
+    self.Preview.SelectAllCheck.Text:SetText(
+        format(LLL["EXPORT_SELECTED_COUNT"], selectedCount, #listed));
     ExtendHitRectOverLabel(self.Preview.SelectAllCheck);
     self.Preview.SelectAllCheck:SetShown(#listed > 0);
 
-    -- **Both verbs read the same number**, which is the point of the tick being on the action: one
-    -- of them writes a string and the other writes into the profile, and what they take is the
-    -- same set.
-    self.AddButton:SetEnabled(selectedCount > 0);
-    self.CopyButton:SetEnabled(selectedCount > 0);
+    -- **Every verb reads the same number**, which is the point of the tick being on the action:
+    -- one of them writes a string and the rest write into the profile, and what they take is the
+    -- same set. Nothing ticked means the menu would open on items that could all do nothing.
+    self.Preview.ActionsButton:SetEnabled(selectedCount > 0);
 end
 
 --- A string already on screen describes a set that no longer exists, so it goes.
@@ -926,17 +994,17 @@ end
 --- Cuts a set of actions out of the entry that is showing, and draws what is left.
 ---
 --- **The set is copied before anything is removed.** The usual caller hands over `self.selected`
---- itself, and `SelectEntry` below wipes that table on its way to rebuilding - so the store would
---- be walking an emptied set halfway through.
+--- itself, and the tick set is cleared of what went, so without the copy that loop would be
+--- emptying the table it is walking.
 ---
---- **Rebuilt through `SelectEntry`, not patched in place.** Every list here is keyed by the action
---- tables that are gone: the tick set, the collapse state's layers, the rows. Re-picking the same
---- entry is the one path that puts all of them back in step, and it is the path `OnShow` already
---- takes for the same reason.
+--- **What the reader set up survives the cut** (2026-08-22, 소유자). Only the actions that are gone
+--- leave the tick set. What is collapsed, where the column is scrolled to and what is still ticked
+--- are all answers they gave, and re-picking the entry, which is how this used to redraw, took all
+--- three back. The tick set is the sharp one: it is what `Copy` and `Add` read, so handing it back
+--- as everything makes the next press send what nobody picked.
 ---
---- ⚠ **The tick set does not survive it.** Everything comes back ticked, which is what picking an
---- entry means. A reader who trimmed a long entry down and then wanted to hand over only part of
---- what is left has to tick again.
+--- A layer that has just lost its last action goes with it, so the headers cannot outlive their
+--- rows (`RemoveEntryActions`).
 function DebindStoragePanelMixin:DeleteActions(actions)
     local entry = self.selectedEntry;
     if (not entry) then
@@ -952,8 +1020,13 @@ function DebindStoragePanelMixin:DeleteActions(actions)
         return;
     end
 
+    for action in pairs(doomed) do
+        self.selected[action] = nil;
+    end
+
     DropStaleString();
-    self:SelectEntry(entry);
+    self:RebuildPreviewLayers();
+    self:RefreshPreview();
 
     -- The row's counts are drawn from the payload, so the left column is stale too.
     self:RefreshEntries();
@@ -1016,25 +1089,33 @@ function DebindStoragePanelMixin:OnCreateClicked()
     self:SelectEntry(entry);
 end
 
---- An entry's ticked actions go into the profile, badged.
+--- An entry's ticked actions go into the profile.
 ---
---- **The message afterwards is not decoration.** Everything that lands is quarantined and greyed
+--- `keepKeys` is the second of the two ways in: on the keys they were sent on, accepted, rather
+--- than parked on numbers with a badge. One function because everything after the press is the
+--- same question, and two menu items because the choice is the reader's.
+---
+--- **The message afterwards is not decoration.** What lands the first way is quarantined and greyed
 --- out, so from the reader's side the screen barely moves: without a line saying what happened and
 --- where to go next, a press that did a lot looks like a press that did nothing.
-function DebindStoragePanelMixin:OnAddClicked()
+function DebindStoragePanelMixin:OnAddClicked(keepKeys)
     local entry = self.selectedEntry;
     if (not entry) then
         return;
     end
 
-    local placed, skipped = Store().CommitEntry(entry, { selection = self.selected });
+    local placed, skipped = Store().CommitEntry(entry, {
+        selection = self.selected,
+        keepKeys = keepKeys,
+    });
 
     if (not placed) then
         DebindPrivate.DisplayMessage(LLL[REASON_TEXT[skipped] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
         return;
     end
 
-    DebindPrivate.DisplayMessage(format(LLL["IMPORT_COMMITTED"], placed));
+    DebindPrivate.DisplayMessage(format(
+        LLL[keepKeys and "IMPORT_COMMITTED_KEYED" or "IMPORT_COMMITTED"], placed));
     -- Layers a newer schema invented and this one cannot place. Said separately because it is the
     -- one case where the count above is not the whole string. **Actions the reader unticked are
     -- not in here** - they said no, which is not this version having nowhere to put it.

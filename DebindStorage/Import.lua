@@ -769,6 +769,9 @@ end
 --- say so. What reaches that: a class name no client has, a spec number past the end of the store,
 --- and a character-scoped spec this character does not have.
 ---
+--- `options.keepKeys` takes the arrival on the keys it was sent on and leaves the badge off, which
+--- is the accepted-on-arrival verb. Everything below about renaming is what it turns off.
+---
 --- `options.selection` is a set of the payload's action tables to take, or nil for all of them.
 --- **Unticked is not skipped** -- that is an answer the reader gave, where `skipped` counts what
 --- this version had nowhere to put. Both end up absent and only one of them is worth saying out
@@ -782,6 +785,7 @@ end
 function DebindStorage.PlanImport(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
+    local keepKeys = options and options.keepKeys;
     local MapKey = KeyMapper();
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
@@ -814,15 +818,30 @@ function DebindStorage.PlanImport(payload, options)
                 --
                 -- A number on the wire is the sender's own placeholder, not a key they had, so it
                 -- leaves no hint behind - `true` is "arrived, on nothing you can be told about".
-                local arrived = action.key;
-                action.imported = luatype(arrived) == "string" and arrived or true;
+                -- **One verb asks for the opposite of all that**, and it is the reader saying so by
+                -- name: take this on the keys it was sent on, live, instead of parked on a number to
+                -- be bound later. The merge the renaming exists to prevent is then the thing being
+                -- chosen, so the rule steps aside rather than being weakened.
+                --
+                -- **A number on the wire is renamed even then.** It is the sender's own placeholder
+                -- for one they had not decided, unique inside that one string and nowhere else, so
+                -- two arrivals would land on each other. The badge still comes off: the verb is
+                -- accept, and a row left waiting is what it was pressed to avoid.
+                local keyed = keepKeys and luatype(action.key) == "string";
 
-                action.key = MapKey(action.key);
-                -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held here
-                -- as well so a hand-made string cannot walk one in: a number is a place among the
-                -- actions sharing a key, and there is no key to be a place in.
-                if (action.key == nil) then
-                    action.seq = nil;
+                if (not keyed) then
+                    if (not keepKeys) then
+                        local arrived = action.key;
+                        action.imported = luatype(arrived) == "string" and arrived or true;
+                    end
+
+                    action.key = MapKey(action.key);
+                    -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
+                    -- here as well so a hand-made string cannot walk one in: a number is a place
+                    -- among the actions sharing a key, and there is no key to be a place in.
+                    if (action.key == nil) then
+                        action.seq = nil;
+                    end
                 end
                 placements[#placements + 1] = {
                     scope = scope, class = class, spec = spec, action = action,

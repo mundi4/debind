@@ -109,6 +109,39 @@ return function(DebindPrivate, DebindStorage)
         check(type(action.key) == "number", "실키로 앉았다: " .. tostring(action.key));
     end);
 
+    -- **The one verb that asks for the opposite**, and the reader asked for it by name: taking the
+    -- arrival on the keys it was sent on, live, rather than parked on numbers to be bound later.
+    -- The merge the renaming exists to prevent is the thing being chosen here, so the rule above
+    -- steps aside rather than being weakened.
+    test("키를 그대로 두라 하면 실키가 남고 배지가 안 붙는다", function()
+        ResetProfile();
+        local placements = DebindStorage.PlanImport(General({
+            { type = Constants.SPELL, value = 774, key = "SHIFT-G", seq = 1 },
+        }), { keepKeys = true });
+        check(#placements == 1, "하나가 아니다");
+        check(placements[1].action.key == "SHIFT-G",
+            "실키가 안 남았다: " .. tostring(placements[1].action.key));
+        check(placements[1].action.imported == nil, "배지가 붙었다");
+    end);
+
+    -- **A number on the wire is still renamed.** It is the sender's own placeholder for a key they
+    -- had not decided, unique inside that one string and nowhere else, so two arrivals would
+    -- collide on it.
+    --
+    -- **The badge comes off all the same.** The verb is accept, and one row of the arrival left
+    -- waiting is the thing it was pressed to avoid (2026-08-22, 소유자). What lands has no key,
+    -- which the profile has always allowed and draws greyed.
+    test("키를 그대로 두라 하면 숫자 키는 다시 매기되 배지는 안 붙는다", function()
+        ResetProfile();
+        local placements = DebindStorage.PlanImport(General({
+            { type = Constants.SPELL, value = 774, key = 7, seq = 1 },
+        }), { keepKeys = true });
+        check(#placements == 1, "하나가 아니다");
+        check(placements[1].action.key ~= 7,
+            "보낸 쪽 번호가 그대로 앉았다: " .. tostring(placements[1].action.key));
+        check(placements[1].action.imported == nil, "배지가 붙었다");
+    end);
+
     -- The grouping is the thing being protected, so it has to survive the renaming.
     test("한 키에 있던 것들은 한 숫자 키로 같이 앉는다", function()
         ResetProfile();
