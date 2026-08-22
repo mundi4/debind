@@ -91,6 +91,17 @@ DelegateFrameNames[frame] = frame:GetName()
 	ClickUnitDead = newtable()
 
 	MacroTextsMap = newtable()
+
+
+
+
+
+
+
+
+
+	DeferredMacroTexts = newtable()
+
 	UnitAliasMap = newtable()
 	UnitStates = newtable()
 	States = newtable()
@@ -133,49 +144,63 @@ DelegateFrameNames[frame] = frame:GetName()
 	for state, dependents in pairs(MacroTextsMap) do
 		if (key == true or key == state or DirtyFlags[state]) then
 			for i = 1, #dependents do
-				local t = dependents[i]
+				local entry = dependents[i]
 				local s
-				for i = 1, #t.args do
-					local arg = t.args[i]
-					local value
-					if (arg.unit) then
-						value = UnitAliasMap[arg.unit] or "raid41"
-					elseif (arg.state) then
-						value = States[arg.state] and true or false
-						if (arg.reverse) then
-							value = not value
-						end
-						value = value and "" or "known:0"
-					elseif (arg.fixed) then
-						value = arg.fixed
-					end
-					t.fragments[i * 2] = value
+				local hoverAlias = UnitAliasMap["hover"]
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+
+
+
+
+
+
+
+
+
+
+
+
+
+	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
+
+				if (entry.attr) then
+					DefaultClickFrame:SetAttribute(entry.attr, s)
 				end
-				s = table.concat(t.fragments)
 
 
 
 
 
 
-
-
-	self:CallMethod("printMacroText", t.attr or t.state or "?", s)
-
-				if (t.attr) then
-					DefaultClickFrame:SetAttribute(t.attr, s)
-				end
-
-
-
-
-
-
-				if (t.state) then
-					SwitchExpressions[t.state] = s
+				if (entry.state) then
+					SwitchExpressions[entry.state] = s
 					local newValue = SecureCmdOptionParse(s) and true or false
-					if (States[t.state] ~= newValue) then
-						self:RunAttribute("SetSwitch", t.state, newValue, true)
+					if (States[entry.state] ~= newValue) then
+						self:RunAttribute("SetSwitch", entry.state, newValue, true)
 					end
 				end
 			end
@@ -188,48 +213,62 @@ DelegateFrameNames[frame] = frame:GetName()
 	for state, dependents in pairs(MacroTextsMap) do
 		if (key == true or key == state or DirtyFlags[state]) then
 			for i = 1, #dependents do
-				local t = dependents[i]
+				local entry = dependents[i]
 				local s
-				for i = 1, #t.args do
-					local arg = t.args[i]
-					local value
-					if (arg.unit) then
-						value = UnitAliasMap[arg.unit] or "raid41"
-					elseif (arg.state) then
-						value = States[arg.state] and true or false
-						if (arg.reverse) then
-							value = not value
-						end
-						value = value and "" or "known:0"
-					elseif (arg.fixed) then
-						value = arg.fixed
-					end
-					t.fragments[i * 2] = value
+				local hoverAlias = UnitAliasMap["hover"]
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+				if (entry.attr) then
+					DefaultClickFrame:SetAttribute(entry.attr, s)
 				end
-				s = table.concat(t.fragments)
 
 
 
 
 
 
-
-
-
-				if (t.attr) then
-					DefaultClickFrame:SetAttribute(t.attr, s)
-				end
-
-
-
-
-
-
-				if (t.state) then
-					SwitchExpressions[t.state] = s
+				if (entry.state) then
+					SwitchExpressions[entry.state] = s
 					local newValue = SecureCmdOptionParse(s) and true or false
-					if (States[t.state] ~= newValue) then
-						self:RunAttribute("SetSwitch", t.state, newValue, true)
+					if (States[entry.state] ~= newValue) then
+						self:RunAttribute("SetSwitch", entry.state, newValue, true)
 					end
 				end
 			end
@@ -1401,6 +1440,38 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+		debind_driver:CallMethod("printMacroText", entry.attr, s)
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
 
 
 
@@ -1894,6 +1965,37 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
 
 
 
@@ -1974,7 +2076,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("useOnKeyDown", nil)
 
 
-### SecureBindings.lua #25 InstallSnippet
+### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -2277,10 +2379,385 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 		end
 	end
-		return winner and winner.clickbutton or nil
+		if (not winner or not winner.clickbutton) then
+			return
+		end
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+		debind_driver:CallMethod("printMacroText", entry.attr, s)
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+		return winner.clickbutton
 	
 
-### SecureBindings.lua #26 InstallSnippet
+### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
+		local button = ...
+		local bindings = ClickTimeKeys[button]
+		if (not bindings) then
+			return
+		end
+
+
+
+		local clickCast = false
+		local winner, hoverUnit
+		local evalFrame = States.unitframe
+
+
+
+
+
+
+	local unitframe = evalFrame
+	local hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
+
+	local memoReady = false
+
+
+
+	local subset = clickCast and "isClickCast" or "holdsKey"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
+					match = false
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+			if (match and t.switches) then
+				for state, v in pairs(t.switches) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
+				match = false
+			end
+
+			if (match and t.units) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
+				end
+
+
+
+
+
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						else
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
+						end
+
+
+
+
+
+
+						local exists
+						if (not unit) then
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
+							end
+						else
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
+								end
+							end
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				
+				break
+			end
+		end
+	end
+		if (not winner or not winner.clickbutton) then
+			return
+		end
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+		return winner.clickbutton
+	
+
+### SecureBindings.lua #27 InstallSnippet (DEBUG=on)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
@@ -2587,7 +3064,386 @@ DelegateFrameNames[frame] = frame:GetName()
 			end
 		end
 	end
-		return winner and winner.clickbutton or nil
+		if (not winner or not winner.clickbutton) then
+			return
+		end
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+		debind_driver:CallMethod("printMacroText", entry.attr, s)
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+		return winner.clickbutton
+	
+
+### SecureBindings.lua #28 InstallSnippet (DEBUG=off)
+		local n, mod = ...
+		local info = ccframes[self]
+		if (not info) then
+			return
+		end
+
+		local byMod = ClickCastKeys[n]
+		local bindings = byMod and byMod[mod]
+		if (not bindings) then
+			return
+		end
+
+		local clickCast = true
+		local winner, hoverUnit
+		local evalFrame = info
+
+
+
+
+
+
+	local unitframe = evalFrame
+	local hoverFrameType
+	if (unitframe) then
+		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
+		if (hoverUnit and UnitExists(hoverUnit)) then
+			hoverFrameType = unitframe.frameType
+		else
+			unitframe = nil
+			hoverUnit = nil
+		end
+	end
+
+
+
+
+
+
+
+
+
+
+	local group, form, bonusbar
+	local combat, stealth, specialbar, extrabar, pet, petbattle
+
+	local memoReady = false
+
+
+
+	local subset = clickCast and "isClickCast" or "holdsKey"
+
+	for i = 1, #bindings do
+		local t = bindings[i]
+		if (t[subset]) then
+			local match = true
+
+
+
+			if (t.frameTypes) then
+				if (not unitframe) then
+					match = false
+				elseif ((t.frameTypes % (hoverFrameType + hoverFrameType)) < hoverFrameType) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+			if (match and t.switches) then
+				for state, v in pairs(t.switches) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
+			end
+
+
+
+
+
+
+
+
+			if (match and t.combat ~= nil) then
+				if (combat == nil) then
+					combat = PlayerInCombat()
+					
+				end
+				if (t.combat ~= combat) then
+					match = false
+				end
+			end
+
+			if (match and t.stealth ~= nil) then
+				if (stealth == nil) then
+					stealth = IsStealthed()
+					
+				end
+				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.pet ~= nil) then
+				if (pet == nil) then
+					pet = PlayerPetSummary() and true or false
+					
+				end
+				if (t.pet ~= pet) then
+					match = false
+				end
+			end
+
+			if (match and t.extrabar ~= nil) then
+				if (extrabar == nil) then
+					extrabar = HasExtraActionBar()
+					
+				end
+				if (t.extrabar ~= extrabar) then
+					match = false
+				end
+			end
+
+			if (match and t.groups ~= nil) then
+				if (group == nil) then
+					group = (UnitPlayerOrPetInRaid("player") and CONSTANTS.GROUP_RAID) or (UnitPlayerOrPetInParty("player") and CONSTANTS.GROUP_PARTY) or CONSTANTS.GROUP_NONE
+					
+				end
+				if ((t.groups % (group + group)) < group) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.forms) then
+				if (form == nil) then
+					form = GetShapeshiftForm()
+					
+					form = 2 ^ (form or 0)
+				end
+				if ((t.forms % (form + form)) < form) then
+					match = false
+				end
+			end
+
+			if (match and t.bonusbars) then
+				if (bonusbar == nil) then
+					bonusbar = GetBonusBarOffset()
+					
+					bonusbar = 2 ^ (bonusbar or 0)
+				end
+				if ((t.bonusbars % (bonusbar + bonusbar)) < bonusbar) then
+					match = false
+				end
+			end
+
+
+
+
+			if (match and t.petbattle ~= nil) then
+				if (petbattle == nil) then
+					petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+					
+				end
+				if (t.petbattle ~= petbattle) then
+					match = false
+				end
+			end
+
+
+
+			if (match and t.specialbar ~= nil) then
+				if (specialbar == nil) then
+					specialbar = HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false
+					if (not specialbar) then
+						if (petbattle == nil) then
+							petbattle = SecureCmdOptionParse("[petbattle]") and true or false
+							
+						end
+						specialbar = petbattle
+					end
+					
+				end
+				if (t.specialbar ~= specialbar) then
+					match = false
+				end
+			end
+
+
+
+
+
+
+
+
+
+
+
+			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
+				match = false
+			end
+
+			if (match and t.units) then
+				if (not memoReady) then
+					memoReady = true
+					wipe(ClickUnitExists)
+					wipe(ClickUnitReaction)
+					wipe(ClickUnitDead)
+				end
+
+
+
+
+
+				for u, cond in pairs(t.units) do
+					local ok = true
+					do
+						local unit, needsExists
+						if (u == "hover") then
+
+
+
+							unit = hoverUnit
+						else
+
+
+							needsExists = UnitAliasNeedsExists[u]
+							if (needsExists ~= nil) then
+								unit = UnitAliasMap[u]
+							else
+								unit = u
+								needsExists = true
+							end
+						end
+
+
+
+
+
+
+						local exists
+						if (not unit) then
+							exists = false
+						elseif (needsExists) then
+							exists = ClickUnitExists[unit]
+							if (exists == nil) then
+								exists = UnitExists(unit) and true or false
+								ClickUnitExists[unit] = exists
+							end
+						else
+							exists = true
+						end
+
+						if (cond.exists ~= nil and cond.exists ~= exists) then
+							ok = false
+						elseif (exists) then
+							if (cond.reaction) then
+								local reaction = ClickUnitReaction[unit]
+								if (reaction == nil) then
+									reaction = (PlayerCanAssist(unit) and "help")
+											or (PlayerCanAttack(unit) and "harm")
+											or "other"
+									ClickUnitReaction[unit] = reaction
+								end
+								if (not cond.reaction[reaction]) then
+									ok = false
+								end
+							end
+
+
+
+
+
+							if (ok and cond.dead ~= nil) then
+								local dead = ClickUnitDead[unit]
+								if (dead == nil) then
+									dead = (UnitIsDead(unit) or UnitIsGhost(unit)) and true or false
+									ClickUnitDead[unit] = dead
+								end
+								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
+						end
+					end
+
+					if (not ok) then
+						match = false
+						break
+					end
+				end
+			end
+
+			if (match) then
+				winner = t
+				
+				break
+			end
+		end
+	end
+		if (not winner or not winner.clickbutton) then
+			return
+		end
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+
+
+
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+		return winner.clickbutton
 	
 
 ### Switches.lua #1 SecureHandlerExecute
@@ -2778,6 +3634,7 @@ HandoffBindings = nil
 HandoffWinner = nil
 HandoffHoverUnit = nil
 wipe(MacroTextsMap)
+wipe(DeferredMacroTexts)
 wipe(UnitStates)
 wipe(SwitchExpressions)
 

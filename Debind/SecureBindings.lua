@@ -114,6 +114,17 @@ SecureHandlerExecute(BindingDriver, [[
 	ClickUnitDead = newtable()
 
 	MacroTextsMap = newtable()
+
+	-- 클릭까지 미룬 매크로 본문. `버튼 이름 -> 조립 재료`.
+	--
+	-- **`MacroTextsMap`과 겹치지 않는다.** 한 본문은 둘 중 한 쪽에만 있다. 여기 있는 것은
+	-- 상태가 움직일 때 아무도 안 굽고, 그 버튼이 이긴 클릭에서만 구워진다. 그래서 커서가
+	-- 공대 프레임을 쓸고 가는 동안 `SetUnit`이 도는 목록에서 이것들이 통째로 빠진다.
+	--
+	-- 버튼 이름으로 색인하는 이유는 클릭 순간에 그것 말고 손에 쥔 것이 없어서다 - 래퍼가
+	-- 고른 승자가 들고 있는 것이 `clickbutton`이고, 그 이름이 곧 `*macrotext-` 뒤에 붙는다.
+	DeferredMacroTexts = newtable()
+
 	UnitAliasMap = newtable()
 	UnitStates = newtable()
 	States = newtable()
@@ -170,63 +181,123 @@ end
 --- 뒤라, 실사용자도 전투 중 상태가 바뀔 때마다 의존 바인딩 수만큼 `CallMethod`를 치른다.
 --- 아래 `UpdateBindings`가 같은 방식으로 갈린다.
 local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
-	self:CallMethod("printMacroText", t.attr or t.state or "?", s)
+	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 ]] or "";
+
+--- 매크로텍스트 하나를 조립한다. 호출부가 `entry`, `s`, `hoverAlias`를 선언해서 준다.
+---
+--- **두 자리에서 굽는다.** 상태가 움직일 때(`UpdateMacroTexts`)와 클릭이 도착했을 때(아래
+--- `OnClick` 래퍼). 그래서 조립은 여기 한 벌만 있고 양쪽에 이어붙는다 - 두 벌이 되면
+--- `arg.reverse`를 한쪽에서만 고치는 날이 오고, 그 본문은 조용히 반대로 나간다.
+---
+--- **`hoverAlias`를 호출부가 주는 이유가 이 함수가 안 갈리는 이유다.** 상태가 움직여서 구울
+--- 때 호버 유닛은 `UnitAliasMap["hover"]`뿐이지만, **클릭 순간에는 그것을 쓰면 안 된다** -
+--- 래퍼는 프레임에서 유닛을 다시 읽어 조건을 판정하고 대상도 그 값으로 쏘므로, 본문만 캐시에서
+--- 가져오면 **판정한 유닛과 본문이 겨누는 유닛이 갈린다.** 우호/적대로 효과가 갈리는 주문에서
+--- 그것은 "안 나감"이 아니라 "다른 것이 나감"이다.
+---
+--- 짝수 칸만 덮어쓴다. 홀수 칸은 파서가 넣어둔 리터럴이고 `#entry.args`는 짝수 칸 수다
+--- (`ParseMacroText`).
+local COMPOSE_MACROTEXT_SNIPPET = [==[
+	for i = 1, #entry.args do
+		local arg = entry.args[i]
+		local value
+		if (arg.unit) then
+			-- **삼항 흉내를 안 쓴다.** `hoverAlias`는 호버 중이 아니면 nil이라
+			-- `arg.unit == "hover" and hoverAlias or UnitAliasMap[arg.unit]`가 그 경우에
+			-- 캐시로 떨어진다 - 정확히 위 주석이 막으려는 일이 된다.
+			if (arg.unit == "hover") then
+				value = hoverAlias
+			else
+				value = UnitAliasMap[arg.unit]
+			end
+			value = value or "raid41"
+		elseif (arg.state) then
+			value = States[arg.state] and true or false
+			if (arg.reverse) then
+				value = not value
+			end
+			value = value and "" or "known:0"
+		elseif (arg.fixed) then
+			value = arg.fixed
+		end
+		entry.fragments[i * 2] = value
+	end
+	s = table.concat(entry.fragments)
+]==];
 
 BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 	local key = ...
 	for state, dependents in pairs(MacroTextsMap) do
 		if (key == true or key == state or DirtyFlags[state]) then
 			for i = 1, #dependents do
-				local t = dependents[i]
+				local entry = dependents[i]
 				local s
-				for i = 1, #t.args do
-					local arg = t.args[i]
-					local value
-					if (arg.unit) then
-						value = UnitAliasMap[arg.unit] or "raid41"
-					elseif (arg.state) then
-						value = States[arg.state] and true or false
-						if (arg.reverse) then
-							value = not value
-						end
-						value = value and "" or "known:0"
-					elseif (arg.fixed) then
-						value = arg.fixed
-					end
-					t.fragments[i * 2] = value
-				end
-				s = table.concat(t.fragments)
+				local hoverAlias = UnitAliasMap["hover"]
+]=] .. COMPOSE_MACROTEXT_SNIPPET .. [=[
 
-				-- 실제로 버튼에 올라가는 문자열. 여기가 **보안 쪽에서 매크로 본문이
-				-- 완성되는 유일한 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를
-				-- 지나면 다시 읽을 방법이 없다(속성은 열거가 안 된다).
+				-- 실제로 버튼에 올라가는 문자열. 여기가 **상태가 움직여서 본문이 완성되는
+				-- 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를 지나면 다시 읽을
+				-- 방법이 없다(속성은 열거가 안 된다).
 				--
 				-- 이 갈래는 `@custom1`·`@hover`처럼 **실행 시점에 바뀌어야 하는 것이
 				-- 있는** 본문만 지난다. 조용하면 그것도 답이다 - 그 본문은 정적이라
 				-- `SetBindingAttributes`가 쓴 그대로라는 뜻이다(그쪽 로그를 볼 것).
+				--
+				-- **버튼에 얹히는 본문은 대개 여기까지 안 온다.** 클릭까지 미룬 것은
+				-- `MacroTextsMap`에 아예 안 들어가고 `DeferredMacroTexts`로 빠진다
+				-- (`UpdateBindings.lua`의 `EmitMacroTextEntries`). 여기 남는 `entry.attr`은
+				-- `CLICK_TIME_EVAL`이 꺼진 빌드의 것뿐이다.
 ]=] .. PRINT_MACROTEXT_SNIPPET .. [=[
 
-				if (t.attr) then
-					DefaultClickFrame:SetAttribute(t.attr, s)
+				if (entry.attr) then
+					DefaultClickFrame:SetAttribute(entry.attr, s)
 				end
 				-- No "did the text change" guard around this. The pass already parsed the
-				-- previous `SwitchExpressions[t.state]` before reaching here, so the parse
+				-- previous `SwitchExpressions[entry.state]` before reaching here, so the parse
 				-- below is what the newly composed text needs; skipping it when the text is
 				-- unchanged would save one call, and this only runs because something the
 				-- text depends on went dirty, so unchanged is the rare case.
 				-- It stood as `if (true or ... ~= s)`, which read as a guard and was not one.
-				if (t.state) then
-					SwitchExpressions[t.state] = s
+				if (entry.state) then
+					SwitchExpressions[entry.state] = s
 					local newValue = SecureCmdOptionParse(s) and true or false
-					if (States[t.state] ~= newValue) then
-						self:RunAttribute("SetSwitch", t.state, newValue, true)
+					if (States[entry.state] ~= newValue) then
+						self:RunAttribute("SetSwitch", entry.state, newValue, true)
 					end
 				end
 			end
 		end
 	end
 ]=]);
+
+--- 이긴 레코드의 매크로 본문을 클릭 순간에 굽는다. 승자가 정해진 **뒤, 버튼 이름을 돌려주기
+--- 전에** 이어붙는다.
+---
+--- **`RunAttribute`도 `RunFor`도 안 쓴다.** 이어붙이기라 2026-08-11 결정이 그대로 선다.
+---
+--- **할당 하나를 산다.** 클릭 경로에서 문자열을 안 만든다는 것이 이 래퍼의 규칙인데, 여기서
+--- `table.concat`이 하나 난다. 그것이 이 항목의 거래다: 커서가 공대 프레임을 쓸고 가는 동안
+--- `@hover` 본문 **전부**를 다시 굽던 것을, 클릭당 **이긴 하나**로 바꾼다. 클릭은 사람 손
+--- 속도라 아무리 빨라도 초당 열 번이고, 프레임 쓸기는 그렇지 않다.
+---
+--- `DeferredMacroTexts`에 없는 버튼이면 아무 일도 안 한다. 정적인 본문은 `StampBinding`이 쓴
+--- 그대로고, 상태가 움직여야 하는 본문 중 여기 없는 것은 위 `UpdateMacroTexts`가 맡는다.
+--- 같은 로그의 클릭 쪽. **`self`가 아니라 `debind_driver`다** - 이 래퍼의 `self`는 감싼
+--- 프레임이라 `printMacroText`가 거기 없다.
+local PRINT_BAKED_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
+		debind_driver:CallMethod("printMacroText", entry.attr, s)
+]] or "";
+
+local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
+	local entry = DeferredMacroTexts[winner.clickbutton]
+	if (entry) then
+		local s
+		local hoverAlias = hoverUnit
+]==] .. COMPOSE_MACROTEXT_SNIPPET .. PRINT_BAKED_MACROTEXT_SNIPPET .. [==[
+		DefaultClickFrame:SetAttribute(entry.attr, s)
+	end
+]==];
 
 BindingDriver:SetAttribute("SetSwitch", [[
 	local name, value, skipUpdate = ...
@@ -1245,6 +1316,7 @@ end, [==[
 	if (not winner or not winner.clickbutton) then
 		return false
 	end
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
 	--
@@ -1353,7 +1425,11 @@ if (DebindPrivate.DEBUG) then
 		local winner, hoverUnit
 		local evalFrame = States.unitframe
 ]==] .. EVAL_SNIPPET .. [==[
-		return winner and winner.clickbutton or nil
+		if (not winner or not winner.clickbutton) then
+			return
+		end
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
+		return winner.clickbutton
 	]==]);
 
 	--- The same door for the click-cast side. Run it **for the unit frame** (`RunFor`), which is
@@ -1382,7 +1458,11 @@ if (DebindPrivate.DEBUG) then
 		local winner, hoverUnit
 		local evalFrame = info
 ]==] .. EVAL_SNIPPET .. [==[
-		return winner and winner.clickbutton or nil
+		if (not winner or not winner.clickbutton) then
+			return
+		end
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
+		return winner.clickbutton
 	]==]);
 end
 

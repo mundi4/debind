@@ -453,6 +453,7 @@ HandoffBindings = nil
 HandoffWinner = nil
 HandoffHoverUnit = nil
 wipe(MacroTextsMap)
+wipe(DeferredMacroTexts)
 wipe(UnitStates)
 wipe(SwitchExpressions)
 
@@ -1958,17 +1959,39 @@ local function EmitMacroTextArg(index, arg, ownerName, isState)
     end
 end
 
---- One entry per parsed macro body: where it is written back to, its fragments, and the arguments
---- that get re-evaluated. **Numbering happens here** - `data.index` is what the dependents map
---- below points at, so nothing else may hand out an id.
+--- One entry per parsed macro body: where it is written back to, its fragments, the arguments that
+--- get re-evaluated, and which of the two tables it lands in.
+---
+--- **A body goes into exactly one of them, and which one is the whole of ②.**
+---
+---   `MacroTextsMap[name]`   rebuilt whenever `name` moves. A switch's expression lives here,
+---                           because the poll reads the value it produces and there is nobody to
+---                           rebuild it at that moment
+---   `DeferredMacroTexts`    rebuilt by the click that picks it, and by nothing else. A button's
+---                           `*macrotext-` is read only when that button is clicked
+---
+--- That is what takes the hover sweep down: `SetUnit` walks `MacroTextsMap[alias]`, and a profile
+--- whose `@hover` bodies are all buttons leaves that list empty.
+---
+--- **`Constants.CLICK_TIME_EVAL` is the gate, and it is not decoration.** Deferring rests on every
+--- click reaching the `OnClick` wrapper, which is where the winner is baked. With the flag off, the
+--- state loop binds a record's own button directly (`SetBindingClick(..., t.clickframe or
+--- DefaultClickFrameName, t.clickbutton)`) and no wrapper runs, so a deferred body would never be
+--- built at all and the binding would fire with an empty macro.
+---
+--- **Dependents are emitted next to the entry rather than in a second pass.** The pass that used to
+--- do it walked `_macrotexts` by body text and reached the entry through `data.index`, which is one
+--- field on a table shared by every name bound to the same text -- so two names sharing a body left
+--- the second overwriting the first, and only one of them had dependents. Walking the names is the
+--- same walk the entries already do, and there is no id to keep in step.
 local function EmitMacroTextEntries()
     local index = 0;
+    wipe(_keysSeen);
 
     for _, buttonOrStateName in ipairs(sortedKeys(_macrotextBindings, _sortedA)) do
         local data = _macrotextBindings[buttonOrStateName];
         if (data) then
             index = index + 1;
-            data.index = index;
             appendLine("t=newtable()");
             appendLine("t.id=%d", index);
 
@@ -1990,41 +2013,26 @@ local function EmitMacroTextEntries()
                 EmitMacroTextArg(i, data.args[i], buttonOrStateName, isState);
             end
 
-            appendLine("tempArray[%d]=t", index);
-        end
-    end
-end
-
---- Which bodies have to be rebuilt when one name moves. The state loop walks its dirty flags
---- against this map and rebuilds only the bodies that named the flag.
-local function EmitMacroTextDependents()
-    wipe(_keysSeen);
-
-    for _, macrotext in ipairs(sortedKeys(_macrotexts, _sortedA)) do
-        local data = _macrotexts[macrotext];
-        if (data) then
-            -- A parsed body with no id was never bound to a button or a switch, so nothing would
-            -- read what this line points at.
-            assert(data.index);
-            for _, arg in ipairs(data.args) do
-                local key = arg.name;
-                if (not _keysSeen[key]) then
-                    _keysSeen[key] = true;
-                    appendLine("MacroTextsMap[%q]=newtable()", key);
+            if (not isState and Constants.CLICK_TIME_EVAL) then
+                appendLine("DeferredMacroTexts[%q]=t", buttonOrStateName);
+            else
+                for _, arg in ipairs(data.args) do
+                    local key = arg.name;
+                    if (not _keysSeen[key]) then
+                        _keysSeen[key] = true;
+                        appendLine("MacroTextsMap[%q]=newtable()", key);
+                    end
+                    appendLine("tinsert(MacroTextsMap[%q], t)", key);
                 end
-                appendLine("tinsert(MacroTextsMap[%q], tempArray[%d])", key, data.index);
             end
         end
     end
 end
 
 function UpdateMacroTextsMap()
-    appendLine("local tempArray, t = newtable()");
+    appendLine("local t");
 
     EmitMacroTextEntries();
-    EmitMacroTextDependents();
-
-    appendLine("tempArray = nil")
 
     local snippet = table.concat(_strArr, "\n");
     AssertSnippetCompiles(snippet, "UpdateMacroTextsMap");

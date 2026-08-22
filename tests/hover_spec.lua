@@ -12,13 +12,19 @@
 -- 다른 하나는 등록이 풀린 프레임이다. 래퍼를 안 떼므로 그런 프레임에서도 우리 본문이 계속
 -- 돌고, 거기 들어갔을 때 무엇을 하느냐가 해제의 실체다.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
     local shim = require("wow_shim");
     local frames = require("wow_frames");
     local restricted = require("restricted");
 
     local T = { passed = 0, failures = {} };
+
+    --- 클릭 시점 판정에 닿는 문은 `EvalClickTimeKey`이고 **DEBUG 전용이다**
+    --- (`eval_spec.lua`가 배포 형태에서 그것이 없음을 확인한다). 그 문을 지나야 하는 테스트는
+    --- 배포 패스에서 돌 수 없다. 그 아래 굽는 코드는 두 형태가 같은 바이트라, 여기서 잃는 것은
+    --- 문뿐이다.
+    local skipClickTests = ctx and ctx.shipped;
 
     local function test(name, fn)
         local ok, err = pcall(fn);
@@ -66,13 +72,13 @@ return function(DebindPrivate)
         return t;
     end
 
-    local function Bind(actions)
+    local function Bind(actions, switches)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
             characters = { [GUID] = { layers = {}, switches = {} } },
             migrated = {},
-            switches = {},
+            switches = switches or {},
         };
         DebindPrivate.InitDB();
 
@@ -181,39 +187,96 @@ return function(DebindPrivate)
         return nil, "레코드 중 매크로 본문을 가진 것이 없다";
     end
 
-    --- **`@hover` 매크로는 조건을 하나도 안 걸고도 폴링을 필요로 한다.**
+    --- **`@hover` 스위치 계산식은 조건을 하나도 안 걸고도 폴링을 필요로 한다.**
     ---
-    --- 본문의 `@hover`는 `UnitAliasMap["hover"]`로 치환되고, 그 별칭을 커서가 멈춰 있는 동안
+    --- 계산식의 `@hover`는 `UnitAliasMap["hover"]`로 치환되고, 커서가 멈춰 있는 동안 그 별칭을
     --- 갱신하는 것은 폴링의 hover 블록뿐이다. 다시 걸 키는 없다 - `UnitStates`에 hover 행이
     --- 없고 `RebindOnHoverFrame`도 거짓이라 `SetUnit`이 거짓을 돌려준다. 그런데도 블록은
     --- 나가야 한다.
     ---
-    --- 그래서 블록을 켜는 술어는 `_measuredUnitAxes.hover`가 아니라 **hover를 이름으로 대는
-    --- 것이 있느냐**(`_unitsSeen.hover`)다. 좁히면 이 본문이 옛 유닛을 계속 겨눈다.
-    test("조건 없는 @hover 매크로도 폴링이 별칭을 따라가 준다", function()
+    --- **버튼 본문이 아니라 스위치 계산식인 것이 이 테스트의 전부다.** 버튼에 얹히는 본문은
+    --- 클릭까지 미뤄져서(②) 클릭이 프레임에서 유닛을 다시 읽어 굽는다 - 그쪽은 이 별칭을 아예
+    --- 안 본다. 폴링이 유지해야 하는 `MacroTextsMap` 의존자로 남는 것은 계산식뿐이다.
+    test("@hover 스위치 계산식은 폴링이 별칭을 따라가 준다", function()
+        twoParty();
+        local i = Bind({
+            action({ value = 585, key = "F1", conditions = { ["$state1"] = true } }),
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[@hover]" },
+        });
+
+        settleOn("party1");
+        check(i.env.SwitchExpressions["$state1"] == "[@party1]",
+            ("전제가 깨졌다 - 첫 계산식이 %q다")
+                :format(tostring(i.env.SwitchExpressions["$state1"])));
+
+        unitFrame:SetAttribute("unit", "party2");
+        i:pollStates();
+
+        check(i.env.SwitchExpressions["$state1"] == "[@party2]",
+            ("커서가 멈춘 채 프레임의 유닛이 바뀌었는데 계산식이 %q에 머물렀다")
+                :format(tostring(i.env.SwitchExpressions["$state1"])));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 버튼 본문을 클릭까지 미루기 (②)
+    ---------------------------------------------------------------------------
+
+    if (not skipClickTests) then
+
+    --- **버튼에 얹히는 본문은 상태가 움직일 때 아무도 안 굽는다.**
+    ---
+    --- `MacroTextsMap`에 안 들어가고 `DeferredMacroTexts`로 빠지므로, 커서가 프레임을 쓸고
+    --- 가는 동안 `SetUnit`이 도는 목록에서 통째로 빠진다. 그 대신 그 버튼이 이긴 클릭에서
+    --- 구워진다.
+    test("@hover 버튼 본문은 폴링이 아니라 클릭이 굽는다", function()
         twoParty();
         local i = Bind({
             action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew" }),
         });
 
-        local before = settleOn("party1");
+        check(i.env.MacroTextsMap.hover == nil,
+            "버튼 본문이 여전히 hover의 의존자로 남아 있다");
 
-        local text, why = macrotextOn("F1");
-        check(text, why);
-        check(text:find("party1", 1, true), ("전제가 깨졌다 - 첫 본문이 %q다"):format(text));
+        settleOn("party1");
+        local text = macrotextOn("F1");
+        check(text == "/cast [@hover] Renew",
+            ("폴링이 본문을 구웠다 (%q). 이건 클릭까지 미룬 것이다"):format(tostring(text)));
 
-        unitFrame:SetAttribute("unit", "party2");
-        i:pollStates();
+        i:evalKey("F1");
 
         text = macrotextOn("F1");
-        check(text:find("party2", 1, true),
-            ("커서가 멈춘 채 프레임의 유닛이 바뀌었는데 본문이 %q에 머물렀다"):format(text));
-
-        -- 별칭만 따라가면 되는 프로필이라 다시 걸 키는 없다. 이게 없으면 위 두 줄은 폴링이
-        -- 모든 키를 다시 정하는 쪽으로 넘어가도 그대로 통과한다.
-        check(i:rebuildCount() == before,
-            "겨누기만 하는 프로필인데 폴링이 리빌드를 불렀다");
+        check(text == "/cast [@party1]Renew",
+            ("클릭이 본문을 안 구웠거나 잘못 구웠다 (%q)"):format(tostring(text)));
     end);
+
+    --- **클릭이 굽는 값은 캐시가 아니라 그 클릭이 판정한 유닛이다.**
+    ---
+    --- 래퍼는 프레임에서 유닛을 다시 읽어 조건을 판정하고 대상도 그 값으로 쏜다. 본문만
+    --- `UnitAliasMap["hover"]`에서 가져오면 **판정한 유닛과 본문이 겨누는 유닛이 갈린다** -
+    --- 우호/적대로 효과가 갈리는 주문에서는 "안 나감"이 아니라 "다른 것이 나감"이다.
+    ---
+    --- 폴링을 안 돌리는 것이 이 테스트의 방법이다. 그러면 별칭은 party1에 머무는데 프레임은
+    --- 이미 party2를 가리키므로, 본문이 어느 쪽을 읽었는지가 갈라진다.
+    test("클릭이 구운 본문은 그 클릭이 판정한 유닛을 겨눈다", function()
+        twoParty();
+        local i = Bind({
+            action({ type = Constants.MACROTEXT, key = "F1", value = "/cast [@hover] Renew" }),
+        });
+
+        settleOn("party1");
+        unitFrame:SetAttribute("unit", "party2");
+        check(i.env.UnitAliasMap.hover == "party1",
+            "전제가 깨졌다 - 별칭이 벌써 따라갔다. 폴링이 돈 것이다");
+
+        i:evalKey("F1");
+
+        local text = macrotextOn("F1");
+        check(text == "/cast [@party2]Renew",
+            ("본문이 캐시된 별칭을 읽었다 (%q). 클릭은 party2를 판정했다"):format(tostring(text)));
+    end);
+
+    end
 
     --- **@custom1 지정 액션은 유닛을 이름으로 안 댄다.**
     ---

@@ -5003,6 +5003,64 @@ RegisterTest("Click-time key: fixed wiring is never handed back", {
     end,
 })
 
+-- **클릭이 매크로 본문을 굽는다** (`devdocs/trimming-the-restricted-hot-paths.md` ②).
+-- 버튼에 얹히는 본문은 상태가 움직일 때 아무도 안 굽고, 그 버튼이 이긴 클릭에서 구워진다.
+--
+-- 값 자체는 헤드리스가 본다(`tests/hover_spec.lua`). **여기서만 답이 나오는 것은 그 쓰기가
+-- 제한 환경에서 통하느냐다** - 래퍼 안에서 보호된 프레임에 `SetAttribute`를 걸고, 그 직후
+-- 게임이 같은 이름으로 속성을 읽는다. 안 통하면 아무것도 안 터지고 본문이 옛 값으로 나간다.
+RegisterTest("Click bakes the deferred macro body", {
+    description = "@hover 매크로 본문을 클릭이 굽는지 (제한 환경의 SetAttribute가 통하는지)",
+    run = function()
+        local NAME = "Deferred macrotext"
+        local KEY = "CTRL-SHIFT-F9"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+        end
+
+        AddTeardown(CleanupActions)
+
+        local frame, why = CreateTestUnitFrame("player", "unit")
+        if not frame then
+            return Fail(NAME, "테스트 프레임 등록이 거절됐다: " .. tostring(why))
+        end
+
+        InsertAction({ type = Constants.MACROTEXT, value = "/cast [@hover] Debind", key = KEY })
+        ApplyBindings()
+
+        local binding = GetNthBinding(KEY, 1)
+        local button = binding and binding.clickbutton
+        if not button then
+            return Fail(NAME, "전제가 깨졌다 - 이 액션에 클릭 버튼 이름이 안 붙었다")
+        end
+
+        SetFrameUnit(frame, "player")
+        HoverEnter(frame)
+        WaitForHoverSlot(true)
+
+        -- **아직 아무도 안 구웠어야 한다.** 여기 있는 것은 `StampBinding`이 쓴 원문이고,
+        -- `@hover`가 그대로 남아 있는 것이 곧 "폴링은 이 본문을 안 만진다"의 증거다.
+        local raw = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
+        if not (raw and raw:find("@hover", 1, true)) then
+            return Fail(NAME, format("전제가 깨졌다 - 클릭 전에 본문이 벌써 %q다", tostring(raw)))
+        end
+
+        local ok, evalWhy = EvalClickTimeKey(KEY)
+        if not ok then
+            return Fail(NAME, evalWhy)
+        end
+        WaitForWinner()
+
+        local baked = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
+        if not (baked and baked:find("@player", 1, true)) then
+            return Fail(NAME, format("클릭이 본문을 안 구웠다 (%q)", tostring(baked)))
+        end
+
+        return Pass(NAME, baked)
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Many records on one key, many axes at once
 -----------------------------------------------------------

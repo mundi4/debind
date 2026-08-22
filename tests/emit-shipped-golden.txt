@@ -16,6 +16,7 @@ Execute <Frame#3>
   | HandoffWinner = nil
   | HandoffHoverUnit = nil
   | wipe(MacroTextsMap)
+  | wipe(DeferredMacroTexts)
   | wipe(UnitStates)
   | wipe(SwitchExpressions)
   | 
@@ -682,7 +683,7 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
 Execute <Frame#3>
-  | local tempArray, t = newtable()
+  | local t
   | t=newtable()
   | t.id=1
   | t.state="$echo"
@@ -692,7 +693,8 @@ Execute <Frame#3>
   | t.fragments[3]="]"
   | t.args[1]=newtable()
   | t.args[1].state="$burst"
-  | tempArray[1]=t
+  | MacroTextsMap["$burst"]=newtable()
+  | tinsert(MacroTextsMap["$burst"], t)
   | t=newtable()
   | t.id=2
   | t.attr="*macrotext-deb113"
@@ -712,15 +714,7 @@ Execute <Frame#3>
   | t.args[3]=newtable()
   | t.args[3].state="$intent"
   | t.args[3].reverse=true
-  | tempArray[2]=t
-  | MacroTextsMap["tank"]=newtable()
-  | tinsert(MacroTextsMap["tank"], tempArray[2])
-  | MacroTextsMap["$burst"]=newtable()
-  | tinsert(MacroTextsMap["$burst"], tempArray[2])
-  | MacroTextsMap["$intent"]=newtable()
-  | tinsert(MacroTextsMap["$intent"], tempArray[2])
-  | tinsert(MacroTextsMap["$burst"], tempArray[1])
-  | tempArray = nil
+  | DeferredMacroTexts["deb113"]=t
 SetAttribute <Frame#3> _onattributechanged =
   | if (name == "state-unitexists") then
   |     if (value == 0) then return end
