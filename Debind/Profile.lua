@@ -2137,7 +2137,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
     row.issue = DebindPrivate.GetBindingIssue(action, nil, offWorld and "unreachable" or nil);
     row.unreachable = (not offWorld) and DebindPrivate.IsUnreachableAction(action) or nil;
     -- Carried so that whoever draws this row asks on the same terms the two above were answered
-    -- on. The row's tooltip passes it straight through (`DebindUI.lua`'s `AddActionToTooltip`),
+    -- on. The row's tooltip passes it straight through (`ActionTooltip.lua`),
     -- which is what keeps the row and its tooltip from disagreeing.
     row.offWorld = offWorld;
 

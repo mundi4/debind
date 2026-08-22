@@ -198,7 +198,6 @@ function DebindPrivate.GetSpellTabNameAndIcon(index)
     end
 end
 
-local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
 --- 펫 명령(공격·따라가기·대기·태세…)을 보안 슬래시 명령으로 옮기는 표.
 ---
@@ -1112,13 +1111,6 @@ function DebindPrivate.GetMissingMacroName(action)
     return value;
 end
 
-local GROUP_ROLE_UNITS = {
-    tank = Constants.GROUP_PARTY + Constants.GROUP_RAID,
-    healer = Constants.GROUP_PARTY + Constants.GROUP_RAID,
-    maintank = Constants.GROUP_RAID,
-    mainassist = Constants.GROUP_RAID,
-};
-
 --- Is this problem one that the row it sits on is **not** at fault for?
 ---
 --- The one place that reads `BINDING_ISSUE_GRADES`, so that "what does a code with no grade mean"
@@ -1588,7 +1580,6 @@ do
                         if (strsub(token, 1, unit:len()) == unit) then
                             local s = strsub(token, unit:len() + 1);
                             if (UNIT_SUFFIXES[s]) then
-                                token = unit;
                                 appendStr("@");
                                 appendArg(unit, Constants.MACROTEXT_ARG_UNIT);
                                 appendStr(s);
@@ -1712,7 +1703,7 @@ end
 do
     --- 조건절에서 `$상태` 토큰만 걷어낸 사본.
     ---
-    --- 아이콘을 뽑을 때 쓴다. `GetMacrotextIcon`(DebindUI.lua)은 매크로텍스트를 **진짜 매크로
+    --- 아이콘을 뽑을 때 쓴다. `GetMacrotextIcon`(ActionDisplay.lua)은 매크로텍스트를 **진짜 매크로
     --- 슬롯에 써넣어서** 와우가 동적 아이콘을 계산하게 만드는데, 와우 파서는 조건을 훑다가 모르는
     --- 옵션을 만나면 대화창에 "Unknown macro option: $state1"을 찍는다. 우리 상태 토큰이 전부
     --- 여기 걸린다. 특수 유닛(`@custom1`)은 모르는 유닛이면 조건이 조용히 실패할 뿐이라 남겨둔다.

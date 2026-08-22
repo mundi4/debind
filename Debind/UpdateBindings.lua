@@ -3,7 +3,6 @@ local Constants               = DebindPrivate.Constants;
 local BindingDriver           = DebindPrivate.BindingDriver;
 local DefaultClickFrame       = DebindPrivate.DefaultClickFrame;
 
-local L                       = DebindPrivate.L;
 local DEBUG                   = DebindPrivate.DEBUG;
 local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
 local BASIC_UNITS             = Constants.BASIC_UNITS;
@@ -16,7 +15,7 @@ local dump                               = DebindPrivate.dump;
 local luatype                            = type;
 local format, tostring, select           = format, tostring, select;
 local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
-local band, bor, bnot                    = bit.band, bit.bor, bit.bnot;
+local band, bor                          = bit.band, bit.bor;
 local InCombatLockdown                   = InCombatLockdown;
 local FindBaseSpellByID                  = C_SpellBook.FindBaseSpellByID;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
@@ -63,7 +62,6 @@ local _macrotextBindings = {};
 local _switches          = {};
 local _unitsSeen         = {};
 local _updateFlags       = {};
-local _mergedUnits       = {};
 
 --- Which names already have a list in `MacroTextsMap`. Module level, so a rebuild reuses it rather
 --- than allocating - the rule this file runs on.
@@ -204,20 +202,6 @@ end
 
 function addMacrotextBinding(buttonOrStateName, macrotext)
     _macrotextBindings[buttonOrStateName] = addMacrotext(macrotext)
-end
-
-local function formatValue(value)
-    if (value == nil) then
-        return "nil";
-    elseif (value == true) then
-        return "true";
-    elseif (value == false) then
-        return "false";
-    elseif (luatype(value) == "string") then
-        return format("%q", value);
-    else
-        return tostring(value);
-    end
 end
 
 local function appendLine(str, ...)

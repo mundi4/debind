@@ -12,12 +12,24 @@ ignore = {
 	"112", -- mutating non-standard global (Mixin method assignments)
 	"212/self",
 	"1/[A-Z][A-Z][A-Z0-9_]+", -- three letter+ uppercase constants (WoW convention)
-	"211", -- unused local variable
+	-- **211 / 231 / 311 are on.** They were off from the day this file was born
+	-- (2026-04-09, the commit that added luacheck to CI) - the price of pointing a linter at a
+	-- codebase that had never seen one, not a decision anybody made. An unused local is code
+	-- nobody runs, and this repo treats that as evidence rather than noise: three of them
+	-- survived a file split in silence before these came back on.
+	--
+	-- **212 / 213 / 232 stay off, and they are a different class.** An unused argument is a
+	-- signature the game hands us, not code we wrote and abandoned.
+	--
+	-- **`dump` is exempt by name.** `DebindPrivate.dump` is a real debug facility
+	-- (`Constants.lua`), and every file carries a local alias for it so a print can be dropped in
+	-- and taken back out without touching the header. Deleting the aliases would only mean
+	-- retyping one the next time; leaving them warning forever would teach us to skim the list,
+	-- and a list nobody reads catches nothing.
+	"211/dump",
 	"212", -- unused argument
 	"213", -- unused loop variable
-	"231", -- variable never accessed
 	"232", -- argument never accessed
-	"311", -- value assigned to variable is unused
 	"321", -- accessing uninitialized variable
 	"432", -- shadowing upvalue
 	"542", -- empty if branch
@@ -319,6 +331,7 @@ globals = {
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
 	"DebindMigrationDialogMixin",
+	"DebindLayerPanelMixin",
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
 	"DebindIconSelectorFrameMixin",
@@ -343,6 +356,7 @@ globals = {
 	-- Named frames
 	"DebindFrame",
 	"DebindMigrationDialog",
+	"DebindLayerPanel",
 	"DebindResultPanel",
 	"DebindMacroFrame",
 	"DebindIconSelectorFrame",

@@ -1,6 +1,5 @@
 local _, DebindPrivate = ...
 local BindingDriver      = DebindPrivate.BindingDriver;
-local Constants          = DebindPrivate.Constants;
 local LLL                = DebindPrivate.L;
 
 DebindPublic           = {};

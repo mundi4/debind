@@ -121,7 +121,7 @@ SEEDS[5] = function(guid)
                 { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
                 --- Target and the `"@"` unit condition on one action, which is a tooltip line of
                 --- its own: `"@"` is drawn as `SELECTED_TARGET_UNIT` and that branch asks for
-                --- `action.unit` (`DebindUI.lua`), so neither row above can reach it alone. The
+                --- `action.unit` (`ActionTooltip.lua`), so neither row above can reach it alone. The
                 --- unit has to be one that can be absent, since `"@"` is dropped again on `none`
                 --- and on `player` (`Misc.lua`).
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
@@ -133,7 +133,7 @@ SEEDS[5] = function(guid)
                     key = "SHIFT-F11", seq = 1, keepInBindingContext = true },
                 --- Mount, on the one value that resolves for every character alive: `0` is the
                 --- random favourite, drawn from a spell rather than the journal
-                --- (`DebindUI.lua`), so a client with nothing collected still gets a name and an
+                --- (`ActionDisplay.lua`), so a client with nothing collected still gets a name and an
                 --- icon. A real `mountID` would be a red row on any character that has not
                 --- learned it.
                 { type = Constants.MOUNT, value = 0, key = "SHIFT-F12", seq = 1 },
@@ -358,7 +358,7 @@ SEEDS[6] = function(guid)
                 { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
                 --- Target and the `"@"` unit condition on one action, which is a tooltip line of
                 --- its own: `"@"` is drawn as `SELECTED_TARGET_UNIT` and that branch asks for
-                --- `action.unit` (`DebindUI.lua`), so neither row above can reach it alone. The
+                --- `action.unit` (`ActionTooltip.lua`), so neither row above can reach it alone. The
                 --- unit has to be one that can be absent, since `"@"` is dropped again on `none`
                 --- and on `player` (`Misc.lua`).
                 { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
@@ -371,7 +371,7 @@ SEEDS[6] = function(guid)
                     key = "SHIFT-F11", seq = 1, keepInBindingContext = true },
                 --- Mount, on the one value that resolves for every character alive: `0` is the
                 --- random favourite, drawn from a spell rather than the journal
-                --- (`DebindUI.lua`), so a client with nothing collected still gets a name and an
+                --- (`ActionDisplay.lua`), so a client with nothing collected still gets a name and an
                 --- icon. A real `mountID` would be a red row on any character that has not
                 --- learned it.
                 { type = Constants.MOUNT, value = 0, key = "SHIFT-F12", seq = 1 },

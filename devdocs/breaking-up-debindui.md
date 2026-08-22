@@ -6,8 +6,11 @@
 > **순서는 다섯이고, 보관함 개편이 가운데 낀다** (`building-export-import.md`,
 > `0-ROADMAP.md`).
 >
-> 1. **A.** 오른쪽 열에 자기 믹스인을 준다. 싸고 옮기기뿐이다
-> 2. **"창보다 위로 올릴 것" 셋.** 개편의 미리보기 패널이 그것들을 쓴다
+> 1. ~~**A.** 오른쪽 열에 자기 믹스인을 준다. 싸고 옮기기뿐이다~~ **했다**(2026-08-22).
+>    `DebindLayerPanelMixin`이 서고 열한 개가 그리로 갔다. 파일은 안 갈랐고 정의 자리도 안
+>    옮겼다. 아래 "A를 하고 나서"
+> 2. ~~**"창보다 위로 올릴 것" 셋.** 개편의 미리보기 패널이 그것들을 쓴다~~ **했다**(2026-08-22).
+>    파일 셋이 `DebindUI.xml`에서 `DebindUI.lua`보다 먼저 선다. 아래 "2를 하고 나서"
 > 3. **보관함 개편.** 창에 `CallbackRegistryMixin`을 섞고 그 패널이 첫 등록자가 된다
 > 4. **C.** 버스가 실제로 도는 것을 보고 오버뷰 두 열을 옮긴다
 > 5. **B**는 아무 때나. **D**는 C 끝나고 다시 잰다
@@ -52,10 +55,22 @@
 - `DebindOrderLineTemplate`의 "층 칸" 주석: 그 템플릿에 `LayerIcon`이 하나도 없다. 설명만 남았다.
 - 툴팁 호버 블록 맨 앞의 `wipe(_lines)`: 그 블록은 `_lines`를 안 쓴다
   (`sharing-one-action-tooltip.md`가 먼저 찾았다).
+- `UpdateSideTabs`의 `self.currentSpec`: 세우는 데 하나, 읽는 데 없음. 같은 줄에서 잡은 지역
+  변수 `currentSpec`으로 그 함수가 다 쓴다. A를 하다 다섯 번째로 나왔고, 이것도 우연히 나왔다.
 
 **왜 안 잡히나.** luacheck의 unused 경고는 지역 변수만 본다. 위 넷은 전부 테이블 필드이거나
 XML 리전이라 경고가 안 난다. 그리고 스코프가 6274줄이라 "이거 읽는 데 있나"를 물으려면 파일
 전체를 훑어야 하고, 훑어서 없다는 것이 곧 없다는 뜻인지도 확신이 안 선다.
+
+**그런데 지역 변수도 안 잡힌다 (2026-08-22에 확인).** `.luacheckrc`의 `ignore`가 211(unused
+local), 231(never accessed), 311(assigned but unused)을 전부 끄고 있다. 위 문단이 "지역 변수는
+본다"고 적은 것은 luacheck의 기본값이지 이 리포의 설정이 아니다. 2번을 하다 `luatype`,
+`GetSpellNameAndIconID`, `QUESTION_MARK_ICON_NUM` 셋이 옮겨간 코드를 따라 죽었는데 검사는 조용히
+통과했고, 손으로 세어서 찾았다. `DebindUI.lua`의 `dump`와 `_GetKeyInfo`는 이번 작업
+**전부터** 죽어 있었다. 안 지웠다.
+
+이게 아래 "죽은 코드를 어떻게 다시 안 쌓나"의 전제를 바꾼다. 가른다고 unused가 일하기
+시작하지는 않는다.
 
 ## 정해진 전제
 
@@ -114,7 +129,8 @@ grep으로 된다. **열 파일 안에 다른 열의 이름이 한 번도 안 �
   믹스인이 거기 산다.** `BeginKeyCapture`, `SetActionKey`, `GiveKeyGroupTheKey`,
   `ShowKeyGroupConflictDialog`가 이쪽에 남아 있는 것이 오히려 갈라진 상태다
 
-**창보다 위로 올릴 것 (오버뷰 밖에서도 씀)**
+**창보다 위로 올릴 것 (오버뷰 밖에서도 씀)** — **끝났다**(2026-08-22). 실제로 무엇이 어느 파일로
+갔고 무엇이 안 갔는지는 아래 "2를 하고 나서"가 들고 있다. 여기 셋은 그때 무엇을 셌는지다.
 
 - `GetLayerID`, `GetLayerLabel`, `GetLayerShortName`, `IsLayerOffWorld`, `GetSideTabIcon`
 - `NameAndIconForAction`, `ColoredNameAndIconForAction`, `SetActionIcon`. 지금도 `DebindUI`
@@ -172,6 +188,88 @@ C에 더해 `OverviewPanel`도 자기 파일을 갖고, `DebindFrame`은 탭 전
 - **C를 하고 나서 다시 재는 것이 맞다.** C가 끝난 시점에도 컨테이너에 코드가 남아 있으면 그때
   이 항목이 살아난다
 
+## A를 하고 나서 (2026-08-22)
+
+`DebindLayerPanelMixin`이 서고 열한 개가 그리로 갔다. `LayerPanel`은 `mixin=`과 함께
+`name="DebindLayerPanel"`도 받았다. 오른쪽 열을 밖에서 부르는 자리가 왼쪽의 `DebindResultPanel`과
+같은 모양이 되어야 두 열이 이름에서도 대칭이 되기 때문이다. 호출부는 쉰 곳가량 바뀌었고, 얇은
+위임은 하나도 안 남겼다. 남기면 A의 목적인 "무엇이 창의 일이고 무엇이 열의 일인가"가 반만 선다.
+
+**정의 자리는 안 옮겼다.** 열한 개는 지금도 `DebindFrameMixin`의 메서드들 사이에 흩어져 있고
+바뀐 것은 앞의 이름뿐이다. 한 덩어리로 모으려면 파일 지역 함수의 정의 순서에 걸린다.
+`InitializeScrollBox`는 `ScrollBox_OnClick`보다, `SetSelectedAction`은 `CommitSelection`보다
+뒤에 있어야 하고, Lua에서 뒤에 선언된 지역은 앞선 본문의 upvalue가 아니라 전역이 된다. 실패하면
+nil 호출이라 요란하지만, 그 대가를 치를 이유가 없다. C가 어차피 파일로 뗀다.
+
+**같이 간 필드 셋.** `dataProvider`, `SideTabs`, `currentSpec`. 셋 다 쓰는 자리가 옮긴 열한 개
+안에 있어서 창에 남겨두면 열이 창의 필드에 쓰는 모양이 된다. 창 쪽에 남은 읽는 자리는
+`self.LayerPanel.`을 앞에 붙였다(`UpdateEmptyText`, `GetSelectedActions`, `UpdateButtons`,
+`SetTab`).
+
+**선택은 안 갔다.** 쓰는 셋(`SetSelectedAction`, `ToggleActionSelected`, `SelectRangeTo`)만
+열로 갔고 읽는 넷(`GetSelectedAction`, `IsActionSelected`, `GetSelectionCount`,
+`GetSelectedActions`)은 창에 남았다. 왼쪽 열도 그 값을 읽으므로 어느 한 열의 것이 아니다.
+C의 당김 목록에 `GetCurrentSelection()`과 `IsActionSelected()`가 있는 것과 같은 갈래다.
+
+**옮긴 열한 개가 창을 되짚는 자리는 셋이고, C의 밀기 이벤트가 지울 자리가 정확히 이것들이다.**
+
+| 어디 | 무엇을 |
+|---|---|
+| `Refresh` | `DebindFrame:SetTitle`, `DebindFrame:UpdateEmptyText` |
+| `CommitSelection` (파일 지역, 부르는 셋이 전부 열이다) | `DebindFrame:Update` |
+| `UpdateListStrip` | `DebindFrame:IsCapturingKey`, `OverviewPanel.SearchBox`, `OverviewPanel.FilterDropdown` |
+
+행 믹스인(`DebindLineMixin`)은 이 표에 안 넣었다. 그쪽이 `DebindFrame`을 부르는 자리는 대개
+지정 모드, 드롭다운, 드롭처럼 **원래 창의 일**이고, 선택을 읽는 것만 위와 같은 갈래다. 함께
+세어놓으면 C가 지울 것과 안 지울 것이 한 목록에 섞인다.
+
+`GetParent()` 사슬은 하나도 안 썼다. `DebindFrame`을 이름으로 부른다. 1단계에서
+`DebindTabMixin:OnClick`이 부모가 바뀌자 조용히 깨진 자리가 그것이었다(`.zzz/resolved.md`).
+
+**밖에서 이 열을 짚는 철자는 `DebindLayerPanel` 하나다.** `DebindFrame.LayerPanel.ScrollBox`로
+쓰던 둘(`DebindLineMixin:OnClick`, `GetHoveredLine`)도 그리로 맞췄다. 같은 프레임에 철자가 둘이면
+grep이 반만 잡는다. 창 자신은 `self.LayerPanel`을 그대로 쓴다.
+
+**2026-08-14에 이 이동을 재고 접은 결정을 뒤집은 것이다.** 무엇이었고 왜 뒤집혔는지는
+`0-DECISION-LOG.md`.
+
+## 2를 하고 나서 (2026-08-22)
+
+파일 셋이 섰고 전부 `DebindUI.xml`에서 `DebindUI.lua`보다 **먼저** 선다. 순서도 이 순서여야 한다.
+
+| 파일 | |
+|---|---|
+| `ActionDisplay.lua` | 액션 이름·아이콘 해석기와 그것에 붙는 낱말들. `NameAndIconForAction`, `ColoredNameAndIconForAction`, `SetActionIcon`, `BINDING_TYPE_NAMES`, `UNIT_INFO`, `SORTED_UNIT_LIST`, `GetMacrotextIcon`과 그 캐시, `IMPORTED_FONT_COLOR`, `QUESTION_MARK_ICON_NUM` |
+| `LayerDisplay.lua` | 레이어 이름과 그 옆 그림. `GetLayerTabs`, `GetTabLabel`, `GetSideTabaLabel`, `GetLayerShortName`, `GetLayerLabel`, `IsLayerOffWorld`, `GetSideTabIcon` |
+| `ActionTooltip.lua` | 액션 툴팁 통째로. `AddActionToTooltip`/`HideActionTooltip`의 `do` 블록, `GetActionBarTypeLabel`, `UNIT_FRAME_REACTIONS`/`UNIT_FRAME_TYPES` |
+
+`DebindUI.lua`가 6667줄에서 5688줄이 됐다. 세 파일 합이 1081줄이고, 차액은 각자 붙은 머리말과
+`local` 재선언이다. 바닥의 `-- temp` 공개 블록도 그만큼 줄었다.
+
+**`DebindPrivate.DebindUI`를 만드는 자리가 `ActionDisplay.lua`로 옮겼다.** `DebindUI.lua`는 이제
+그 표를 있는 그대로 받는다. 순서를 뒤집으면 먼저 온 파일의 첫 줄이 nil을 인덱싱하고 **로드
+시점에 요란하게** 죽는다. 조용히 안 깨지는 것이 이 배치의 조건이었다.
+
+**둘은 안 올라갔다.** `GetLayerID`와 `GetSideTabDescription`이다. 인자를 안 주면 지금 열려 있는
+탭을 답하는데, 그건 전제 3이 말하는 "두 열이 함께 쓰는 것"이라 창의 것이다. 그래서 경계를 넘는
+값은 `layerID` 하나가 됐다. 위 목록이 `GetLayerID`를 올릴 것으로 세었던 것은 이 갈래를 안 보고
+센 것이다.
+
+**`Debind.xml`이 아니라 `DebindUI.xml`에 넣었고, 이건 미룬 것이 하나 있다는 뜻이다.**
+`testing-a-change.md`의 기준은 "UI냐"가 아니라 "프레임이 필요하냐"이고, `Debind.xml`에 있다는
+것은 곧 파이프라인이 그것을 필요로 한다는 주장이다. 셋 중 그 주장이 서는 것은
+`ActionDisplay.lua` 하나뿐이다. `ActionCatalog.lua`가 `AddEntry`에서 해석기를 부르는데, 그 파일은
+`Debind.xml`에 있고 헤드리스로 돌며, 지금은 표를 **호출 시점에** 잡아서 그 의존을 피하고 있다.
+`ActionDisplay.lua`를 `Misc.lua` 뒤로 옮기면 `AddEntry`가 헤드리스에서 실제로 돌 수 있게 된다
+(`catalog_spec`이 지금 `Filter` 하나만 재는 이유가 그것이다). **안 했다.** 2번이 요구한 것은
+"창보다 위로"였고 저건 "파이프라인 안으로"라 별개의 판단이다.
+
+**여섯 번째 죽은 코드가 나왔고 이번엔 지웠다.** `ClearMacrotextIconCache`의
+`if (DebindFrame:IsShown()) then return; end`. 부르는 자리가 `DebindFrameMixin:OnHide` 하나인데
+`OnHide` 안에서는 창이 이미 내려가 있어서 이 가드는 막은 적이 없다. 위 넷과 달리 짚어만 둘 수가
+없었다 - 올라간 파일이 창에게 보이느냐고 묻는 것이 2번이 없애려는 바로 그 되짚기다. 언제 지울지는
+부르는 쪽 몫으로 남겼다.
+
 ## C의 위험
 
 **1. 이벤트를 굵게 잡으면 이중 작업이 돌아온다.** `CommitSelection`에 그 경고가 이미 있다.
@@ -215,8 +313,34 @@ XML 참조뿐이다.
 
 ## 죽은 코드를 어떻게 다시 안 쌓나
 
-가르는 것만으로는 절반이다. 스코프가 작아지면 luacheck의 unused 경고가 실제로 일하기 시작하지만,
-**테이블 필드와 XML 리전은 여전히 안 잡힌다.** 이번에 나온 넷 중 셋이 그것이다.
+가르는 것만으로는 절반이다. 테이블 필드와 XML 리전은 luacheck가 원래 못 본다. 지역 변수는
+**`.luacheckrc`가 꺼놨었고, 2026-08-22에 켰다.**
+
+### 211 / 231 / 311을 켰다 (2026-08-22)
+
+**되돌리기도 뒤집기도 아니었다.** `.luacheckrc`는 2026-04-09 `8eaae4f`에서 **파일 자체가 생기면서**
+211/212/213을 껐고, 그 커밋의 부제가 *"Also: add luacheck to CI"* 다. 린트를 한 번도 안 돌린
+코드베이스에 검사를 붙이면서 치른 값이지 내려진 결정이 아니다. **껐을 때의 값이 안 적혀 있던
+이유는 값이 없어서였다.**
+
+**212 / 213 / 232는 껐다. 종류가 다르다.** 안 쓰는 인자는 게임이 넘겨주는 시그니처이지 우리가
+쓰고 버린 코드가 아니다.
+
+**`dump`은 이름째 뺐다**(`211/dump`). `DebindPrivate.dump`은 `Constants.lua`가 세운 실제 설비이고
+파일마다 맨 위에 지역 별칭을 깔아두는 것이 관례다. 지우면 다음 디버깅에서 도로 넣게 되고,
+남겨두면 경고 다섯이 영구히 떠서 **목록을 훑고 넘기게 된다.** 아무도 안 읽는 목록은 아무것도
+안 잡는다.
+
+34개를 하나씩 봤다. 헤더의 죽은 지역 캐시가 대부분이었고, 실제로 아무도 안 부르는 함수 넷
+(`_GetKeyInfo`+`_keyInfoCache`+`_mods`, `_isSelected`, `_setSelected`, `formatValue`), 아무도 안
+읽는 표 둘(`GROUP_ROLE_UNITS`, `_mergedUnits`), 값이 안 읽히는 대입 둘(`Misc.lua`의 `token`,
+`UnitWatch.lua`의 `tmp`)이 나왔다.
+
+**일괄로 지우면 안 되는 이유가 그 자리에서 하나 나왔다.** W231은 "안 쓴다"가 아니라 **"읽는 데가
+없다"** 이다. `_dropdown`을 선언에서 이름만 빼자 대입 다섯이 그대로 **전역 쓰기**가 됐고 검사가
+W111로 잡았다. 답은 선언과 대입을 같이 걷어내는 것이었다. 그 자리는 `.zzz/refactor-candidates.md`에
+이미 올라가 있던 것이고, 다섯 번째 설정 함수가 여섯 번째 죽은 대입을 안 만들려고 일부러 비워둔
+자리이기도 했다. 같이 닫았다.
 
 그래서 정적 검사를 하나 더 다는 안이 있다. **XML에 `parentKey`로 선언됐는데 Lua 어디서도 안
 읽히는 리전**을 찾는 검사다. `tools/check-xml-methods.js`가 `method=` 대상이 실재하는지 보는

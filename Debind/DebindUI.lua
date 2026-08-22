@@ -1,5 +1,4 @@
 ﻿local _, DebindPrivate     = ...;
-DebindPrivate.DebindUI   = {};
 
 local NUM_SPECS              = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player")));
 local Constants              = DebindPrivate.Constants;
@@ -27,20 +26,33 @@ local MACRO_CHAR_LIMIT       = 1000;
 local FRAME_WIDTH            = 867;
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
 local ERROR_COLOR            = _G.ERROR_COLOR;
---- 가져왔지만 아직 승인 안 된 액션의 이름. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
---- **뜻이 하나다** - 이 창은 이름 색으로 이미 셋을 말한다(회색·빨강·이 파랑). 넷째를 얹지 말 것.
-local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
 local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
-local luatype                = type;
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
 local IsIssueMinor           = DebindPrivate.IsIssueMinor;
-local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
-local InCombatLockdown       = InCombatLockdown;
-local QUESTION_MARK_ICON_NUM = 134400;
-local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
+
+-- Three files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
+-- the blue an imported one wears, `LayerDisplay.lua` owns what a layer is called and the icon beside
+-- it, and `ActionTooltip.lua` owns the block that goes up on hover. All three load before this file
+-- and none of them knows the window exists.
+local IMPORTED_FONT_COLOR            = DebindUI.IMPORTED_FONT_COLOR;
+local UNIT_INFO                      = DebindUI.UNIT_INFO;
+local NameAndIconForAction           = DebindUI.NameAndIconForAction;
+local ColoredNameAndIconForAction    = DebindUI.ColoredNameAndIconForAction;
+local SetActionIcon                  = DebindUI.SetActionIcon;
+
+local GetLayerTabs                   = DebindUI.GetLayerTabs;
+local GetTabLabel                    = DebindUI.GetTabLabel;
+local GetSideTabaLabel               = DebindUI.GetSideTabaLabel;
+local GetLayerShortName              = DebindUI.GetLayerShortName;
+local GetLayerLabel                  = DebindUI.GetLayerLabel;
+local IsLayerOffWorld                = DebindUI.IsLayerOffWorld;
+local GetSideTabIcon                 = DebindUI.GetSideTabIcon;
+
+local AddActionToTooltip             = DebindPrivate.AddActionToTooltip;
+local HideActionTooltip              = DebindPrivate.HideActionTooltip;
 
 local _selectedTab           = 1;
 local _selectedSideTab       = 1;
@@ -69,7 +81,7 @@ local _pickedupInfo;
 -- 된다. SHIFT도 옮기게 두면 저 마지막 클릭이 5-8이 되어 범위를 줄일 길이 없어진다.
 --
 -- elementData가 아니라 action 테이블을 들고 있는 이유는 elementData가 Refresh마다 새로
--- 만들어지기 때문이다 (DebindFrameMixin:Refresh).
+-- 만들어지기 때문이다 (DebindLayerPanelMixin:Refresh).
 local _selectedAction;
 
 --- **벌크 대상 집합.** 앵커와는 다른 것이다 - 앵커는 "지금 이야기 중인 행" 하나이고, 이쪽은
@@ -151,252 +163,6 @@ local _revealAction;
 
 DebindUI.ActionMenuRootTag = "DEBIND_ACTION_ROOT";
 
-local _macrotextIconCache    = {};
-local function GetMacrotextIcon(macrotext)
-	if (macrotext == nil or macrotext == "") then
-		return QUESTION_MARK_ICON_NUM;
-	end
-
-	-- for line in string.gmatch(macrotext, "[^\r\n]+") do
-	-- 	-- Trim trailing whitespace from each line
-	-- 	line = string.gsub(line, "%s+$", "")
-
-	-- 	local val = SecureCmdOptionParse(line);
-	-- 	-- if (string.sub(line, 1, 12):lower() == "#showtooltip") then
-	-- 	-- 	val = string.sub(line, 13):gsub("%s+", ""):match("%s*(.*)");
-	-- 	-- elseif (string.sub(line, 1, 1) == "/") then
-	-- 	-- 	val = string.match(line, "%s+(.*)")
-	-- 	-- end
-	-- 	if (val and val:len() > 0) then
-	-- 		local _, icon = GetSpellNameAndIconID(val);
-	-- 		if (icon == nil) then
-	-- 			_, _, _, _, _, _, _, _, _, icon = C_Item.GetItemInfo(val);
-	-- 		end
-	-- 		return icon;
-	-- 	end
-	-- end
-
-	if (_macrotextIconCache[macrotext]) then
-		return _macrotextIconCache[macrotext];
-	end
-	if (InCombatLockdown()) then
-		return nil;
-	end
-	if (MacroFrame and MacroFrame:IsShown()) then
-		return nil;
-	end
-
-	-- 매크로 슬롯에 들어가는 것은 **원문이 아니라 `$상태`를 걷어낸 사본이다.** 원문을 그대로
-	-- 넣으면 와우 파서가 자기가 모르는 옵션마다 대화창에 "Unknown macro option: $state1"을
-	-- 찍는다 - 아이콘 하나 뽑자고 사용자 채팅창을 더럽히는 셈이다. 캐시 키는 원문 그대로.
-	local text = DebindPrivate.StripSwitchConditions(macrotext);
-
-	local ret;
-	if (not GetMacroInfo(TEMP_MACRO_NAME)) then
-		local cnt1, cnt2 = GetNumMacros();
-		-- 예전엔 `MAX_ACCOUNT_MACROS` 전역을 그대로 썼는데 **그런 전역은 없다.** 여기서
-		-- 숫자와 nil을 비교하다 터지고 있었고, 오류를 삼키는 애드온을 쓰면 이 함수만
-		-- 조용히 죽어서 매크로텍스트 아이콘이 영영 물음표로 남는다.
-		local maxAccountMacros, maxCharacterMacros = DebindPrivate.GetMacroSlotLimits();
-		local isCharacterSpecific;
-		if (cnt1 >= maxAccountMacros) then
-			if (cnt2 >= maxCharacterMacros) then
-				return nil;
-			end
-			isCharacterSpecific = true;
-		end
-		CreateMacro(TEMP_MACRO_NAME, QUESTION_MARK_ICON_NUM, text, isCharacterSpecific);
-	else
-		EditMacro(TEMP_MACRO_NAME, nil, nil, text);
-	end
-
-	_, ret = GetMacroInfo(TEMP_MACRO_NAME);
-	DeleteMacro(TEMP_MACRO_NAME);
-	_macrotextIconCache[macrotext] = ret;
-	return ret;
-end
-
-local function ClearMacrotextIconCache()
-	if (DebindFrame:IsShown()) then
-		return;
-	end
-	wipe(_macrotextIconCache);
-end
-
-local BINDING_TYPE_NAMES   = {
-	[Constants.SPELL] = LLL["TYPE_SPELL"],
-	[Constants.ITEM] = LLL["TYPE_ITEM"],
-	[Constants.MACRO] = LLL["TYPE_MACRO"],
-	[Constants.MACROTEXT] = LLL["TYPE_MACROTEXT"],
-	[Constants.MOUNT] = LLL["TYPE_MOUNT"],
-	[Constants.PETACTION] = LLL["TYPE_PETACTION"],
-	[Constants.FLYOUT] = LLL["TYPE_FLYOUT"],
-	[Constants.TARGET] = LLL["TYPE_TARGET"],
-	[Constants.FOCUS] = LLL["TYPE_FOCUS"],
-	[Constants.TOGGLEMENU] = LLL["TYPE_TOGGLEMENU"],
-	[Constants.COMMAND] = LLL["TYPE_COMMAND"],
-	[Constants.WORLDMARKER] = LLL["TYPE_WORLDMARKER"],
-	[Constants.SETCUSTOM] = LLL["TYPE_SETCUSTOM"],
-	-- **Three types, one answer.** What sits in this table is what kind of action it is, and
-	-- turning one on, off, or over are all setting a switch. It is also what puts the catalog's
-	-- fifteen rows under one heading (`ActionCatalog.lua`). It is not printed beside the row: the
-	-- SETSTATE branch below raises `skipTypeName`.
-	[Constants.SETSTATE_ON] = LLL["TYPE_SETSTATE"],
-	[Constants.SETSTATE_OFF] = LLL["TYPE_SETSTATE"],
-	[Constants.SETSTATE_TOGGLE] = LLL["TYPE_SETSTATE"],
-	[Constants.UNUSED] = LLL["TYPE_UNUSED"],
-};
-
-local UNIT_FRAME_REACTIONS = {
-	"HELP",
-	"HARM",
-	"OTHER",
-};
-
-local UNIT_FRAME_TYPES     = {
-	"PLAYER",
-	"PET",
-	"GROUP",
-	"TARGET",
-	"BOSS",
-	"ARENA",
-	"UNKNOWN",
-};
-
-local UNIT_INFO            = {
-	player = {
-		name = LLL["UNIT_PLAYER"],
-		unitexists = false,
-	},
-	pet = {
-		name = LLL["UNIT_PET"],
-		checkedUnit = false,
-	},
-	target = {
-		name = LLL["UNIT_TARGET"],
-		--spell = false,
-		--item = false,
-		--target = false,
-	},
-	focus = {
-		name = LLL["UNIT_FOCUS"],
-		focus = false,
-	},
-	mouseover = {
-		name = LLL["UNIT_MOUSEOVER"],
-		togglemenu = false, -- doesn't work!
-	},
-	tank = {
-		name = LLL["UNIT_TANK"],
-		tooltipTitle = LLL["UNIT_ROLE_DESC"],
-		type = "role",
-	},
-	healer = {
-		name = LLL["UNIT_HEALER"],
-		tooltipTitle = LLL["UNIT_ROLE_DESC"],
-		type = "role",
-	},
-	maintank = {
-		name = LLL["UNIT_MAINTANK"],
-		tooltipTitle = LLL["UNIT_ROLE_DESC"],
-		type = "role",
-	},
-	mainassist = {
-		name = LLL["UNIT_MAINASSIST"],
-		tooltipTitle = LLL["UNIT_ROLE_DESC"],
-		type = "role",
-	},
-	custom1 = {
-		name = LLL["UNIT_CUSTOM1"],
-		type = "custom",
-	},
-	custom2 = {
-		name = LLL["UNIT_CUSTOM2"],
-		type = "custom",
-	},
-	hover = {
-		name = LLL["UNIT_HOVER"],
-		-- spell = false,
-		-- item = false,
-		tooltipTitle = LLL["UNIT_HOVER_DESC"],
-		tooltipWarning = DebindPrivate.CliqueDetected and ERROR_COLOR:WrapTextInColorCode(LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"]) or nil,
-		unitexists = false,
-	},
-	none = {
-		name = LLL["UNIT_NONE"],
-		tooltipTitle = LLL["UNIT_NONE_DESC"],
-		target = false,
-		focus = false,
-		togglemenu = false,
-		-- `none`은 "대상 없음"이 아니다. **실행할 때 타겟 입력을 받게 하는 것**이다 -
-		-- 지금 대상이 있든 없든 상관없이 대상 지정 모드로 들어가고, 사용자가 찍는다.
-		-- 자동 자기시전도 안 걸린다. 그게 와우 동작이고 이 항목의 설명(UNIT_NONE_DESC)이다.
-		--
-		-- 그래서 **시전에만 있는 개념**이다. 소환수 명령은 대상 지정 모드로 들어가는 시전이
-		-- 아니라 그냥 실행되는 명령이라, 받을 입력이 없다.
-		--
-		-- **게임에서 확인함(2026-08-05).** 같은 조건절을 두 명령에 넣어 비교했다:
-		--   `/cast [@none] 화염구`   → 된다 (타겟 입력을 받는다)
-		--   `/petattack [@none]`     → 안 된다
-		-- 조건절 자체는 멀쩡하고 **명령 쪽이 안 받는다.** 추론이 아니라 실측이다.
-		petaction = false,
-		unitexists = false,
-	},
-};
-
---- 대상 목록을 **보여줄 순서.** `UNIT_INFO`는 해시라 순서가 없어서 이 배열이 필요하다.
----
---- 여기 있는 것이 곧 목록이다 - `UNIT_INFO`에만 있고 여기 없는 유닛은 어느 메뉴에도
---- 안 나온다. 어느 타입이 어느 유닛을 받는지는 `UNIT_INFO[unit][type] ~= false`가 따로 답한다.
----
---- **`DebindUI`에 둔 것은 두 곳이 쓰기 때문이다.** [추가] 드롭다운(`DropDownMenus.lua`)과
---- 선택 창의 기타 탭(`ActionCatalog.lua`)이 같은 목록을 걸어야 한다 - 한때 `TYPES_WITH_UNIT`이
---- 두 파일에 복사돼 있다가 한쪽만 고쳐져서 펫 명령의 대상이 조용히 지워진 적이 있다.
-local SORTED_UNIT_LIST     = {
-	"player",
-	"pet",
-	"target",
-	"focus",
-	"mouseover",
-	"tank",
-	"healer",
-	"maintank",
-	"mainassist",
-	"custom1",
-	"custom2",
-	"hover",
-	"none",
-};
-
-local _keyInfoCache        = {};
-local _mods                = {
-	LALT = true,
-	RALT = true,
-	ALT = true,
-	LCTRL = true,
-	RCTRL = true,
-	CTRL = true,
-	LSHIFT = true,
-	RSHIFT = true,
-	SHIFT = true,
-	META = true,
-}
-local function _GetKeyInfo(key)
-	if (_keyInfoCache[key]) then
-		return _keyInfoCache[key];
-	end
-	local sa = { strsplit("-", key) };
-	local keyInfo = {};
-	keyInfo.key = key;
-	if (#sa > 0 and not _mods[sa[#sa]]) then
-		keyInfo.lastKey = GetConvertedKeyOrButton(tremove(sa, #sa));
-	end
-	keyInfo.mods = sa;
-
-	_keyInfoCache[key] = keyInfo;
-	return keyInfo;
-end
-
 local function _CreateKeyChordStringUsingMetaKeyState(key, useLeftRight)
 	local chord = {};
 	-- 순서: ALT-CTRL-SHIFT
@@ -444,119 +210,12 @@ end
 --- modifiers are treated differently on one side only.
 DebindPrivate.CreateKeyChordStringUsingMetaKeyState = _CreateKeyChordStringUsingMetaKeyState;
 
-local GetActionBarTypeLabel;
-do
-	local _bonusbarLabels;
-	function GetActionBarTypeLabel(index)
-		if (_bonusbarLabels == nil) then
-			_bonusbarLabels = {
-				[0] = LLL["DEFAULT"],
-				[5] = GetFlyoutInfo(229),
-			};
-			if (Constants.PLAYER_CLASS == "DRUID") then
-				_bonusbarLabels[1] = GetSpellNameAndIconID(768);
-				_bonusbarLabels[3] = GetSpellNameAndIconID(5487);
-				_bonusbarLabels[4] = GetSpellNameAndIconID(24858);
-			elseif (Constants.PLAYER_CLASS == "ROGUE") then
-				_bonusbarLabels[1] = GetSpellNameAndIconID(1784);
-			end
-			for i = 0, Constants.MAX_BONUSBAR_OFFSET do
-				local text = _bonusbarLabels[i];
-				_bonusbarLabels[i] = format("[bonusbar:%d]", i);
-				if (text) then
-					_bonusbarLabels[i] = format("%s (%s)", _bonusbarLabels[i], text);
-				end
-			end
-		end
-		return _bonusbarLabels[index];
-	end
-end
-
 local function GetLayerID(tab, sideTab)
 	tab = tab or _selectedTab;
 	sideTab = sideTab or _selectedSideTab;
 	local isCharacterSpecific = tab == 2;
 	local spec = sideTab >= 2 and sideTab - 2 or nil;
 	return DebindPrivate.GetLayerID(spec, isCharacterSpecific);
-end
-
---- GetLayerID의 역방향. 레이어가 어느 탭 좌표에 사는지 돌려준다.
----
---- 레이어 7은 (nil, true)와 (0, true) 양쪽에서 나오지만 - 탭2에는 "직업 공용"에 해당하는
---- 사이드탭이 없어서 UpdateSideTabs가 사이드탭2를 숨긴다 - 되돌릴 때는 사이드탭 1을 준다.
---- 탭2에서 레이어 7이 실제로 서 있는 자리가 그것이다.
-local function GetLayerTabs(layerID)
-	if (layerID >= 7) then
-		local spec = layerID - 7;
-		return 2, spec > 0 and spec + 2 or 1;
-	end
-	return 1, layerID == 1 and 1 or layerID;
-end
-
---- 탭 라벨은 **낱말 하나**다. 예전에는 "공유 바인딩" / "%s 전용 바인딩"이었는데, 탭이
---- 셋이 되면서 줄에 안 들어간다. "바인딩"은 어느 탭에서나 참이라 셋을 가르는 일을 안 하고,
---- 창 제목이 같은 값을 한 번 더 말하므로 뜻도 안 잃는다.
-local function GetTabLabel(tabID)
-	if (tabID == 1) then
-		return LLL["SHARED_BINDINGS"];
-	else
-		return UnitName("player");
-	end
-end
-
-local function GetSideTabaLabel(sideTabID)
-	if (sideTabID == 1) then
-		return LLL["GENERAL"];
-	elseif (sideTabID == 2) then
-		return UnitClass("player");
-	else
-		local _, specName = C_SpecializationInfo.GetSpecializationInfo(sideTabID - 2);
-		return specName;
-	end
-end
-
---- 레이어의 **짧은 이름.** "X over Y"에 들어가는 값이라 한두 낱말이어야 한다 -
---- `GetLayerLabel`은 "공유 / 일반" 꼴이라 문장에 못 넣는다.
----
---- 공유/일반을 Account라 부른다. "Shared"는 무엇과 공유하는지를 안 말하는데 여기서 답은
---- 계정이고, 짧기까지 하다.
-local function GetLayerShortName(layerID)
-	local tab, sideTab = GetLayerTabs(layerID);
-	if (tab == 2) then
-		return LLL[sideTab == 1 and "LAYER_SHORT_CHARACTER" or "LAYER_SHORT_CHARACTER_SPEC"];
-	end
-	if (sideTab == 1) then
-		return LLL["LAYER_SHORT_ACCOUNT"];
-	end
-	return LLL[sideTab == 2 and "LAYER_SHORT_CLASS" or "LAYER_SHORT_SPEC"];
-end
-
---- **The tab labels, reused verbatim.** They are already the class, specialization and character
---- names the reader picked the layer with, so a label built from them teaches nothing new.
-local function GetLayerLabel(layerID)
-	local tab, sideTab = GetLayerTabs(layerID);
-	local scope = tab == 2 and UnitName("player") or LLL["SHARED_BINDINGS"];
-	return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
-end
-
---- Is this layer outside the world the live key map was built for?
----
---- Only a specialization layer can answer yes, and only while a different one is in play. **The
---- bin list can be sitting on one**: its side tabs reach every specialization's layer, not only
---- the current one, so what it draws there is not what the solver was answering about.
----
---- Nothing visibly depends on this yet. `IsUnreachableAction` is a lookup in a cache the solver
---- fills, and an off-specialization action was never in it, so the answer comes back empty either
---- way. That is an accident of how the verdict is stored rather than a decision, and the day it
---- becomes a computation this is what keeps the tooltip from starting to lie.
----
---- **Asked of the layer, not rebuilt from the tab coordinates.** The layer carries the number it
---- was loaded for (`Profile.lua`'s `LoadLayer`); a side tab is a drawing position that happens to
---- encode the same thing.
-local function IsLayerOffWorld(layerID)
-	local layer = layerID and DebindPrivate.GetProfileLayer(layerID);
-	local spec = layer and layer.spec;
-	return spec ~= nil and spec > 0 and spec ~= C_SpecializationInfo.GetSpecialization();
 end
 
 --- 사이드탭 툴팁의 설명 줄. **탭과 사이드탭을 같이 받는다** - 사이드탭 혼자서는 문장이 안
@@ -600,21 +259,6 @@ local function GetSideTabDescription(sideTabID, tabID)
 	end
 	return format(LLL["LAYER_DESC_SHARED_SPEC"],
 		GetSideTabaLabel(2), GetSideTabaLabel(sideTabID), GetLayerLabel(GetLayerID(1, 2)));
-end
-
---- 사이드탭 아이콘. 사이드탭 줄과 순서 목록의 행이 **같은 그림**을 써야 하므로 한 군데서
---- 낸다 - 어긋나면 사용자가 왼쪽에서 배운 그림이 오른쪽에서 다른 뜻이 된다.
---- **아이콘 하나만 돌려준다.** `GetSpecializationInfo`는 `select(4, …)`에서도 세 개를
---- 뱉으므로(icon, role, primaryStat) 그대로 흘리면 `Texture:SetTexture(icon, role, primaryStat)`가
---- 되어 뒤 둘이 wrapMode 인자로 먹힌다. 사이드탭은 `SetNormalTexture`라 인자를 하나만 받아
---- 티가 안 났고, 순서 목록의 레이어 아이콘에서만 드러난다.
-local function GetSideTabIcon(sideTabID)
-	if (sideTabID <= 2) then
-		local _, icon = GetSpellTabNameAndIcon(sideTabID);
-		return icon;
-	end
-	local icon = select(4, C_SpecializationInfo.GetSpecializationInfo(sideTabID - 2));
-	return icon;
 end
 
 local function TryCloseAnyDialog()
@@ -676,7 +320,7 @@ local function CloseDialogsAndRefetchElementData(button)
 		return nil;
 	end
 
-	return DebindFrame:FindElementDataByActionInfo(action);
+	return DebindLayerPanel:FindElementDataByActionInfo(action);
 end
 
 local function GetActionTypeAndValueFromCursorInfo()
@@ -712,144 +356,6 @@ local function GetActionTypeAndValueFromCursorInfo()
 			type, value = Constants.FLYOUT, cursorInfo1;
 		end
 		return type, value;
-	end
-end
-
---- 액션 하나를 받는다. 목록 elementData를 그대로 넘기지 말 것 - 부르는 쪽이 `.action`을
---- 꺼내서 넘긴다. 아래 색칠하는 쪽도 같은 계약이다.
-local function NameAndIconForAction(action)
-	local type = action.type;
-	local value = action.value;
-	local skipTypeName;
-
-	local actionName, actionIcon;
-	if (type == Constants.SPELL) then
-		local baseSpellID = C_SpellBook.FindBaseSpellByID(value) or value;
-		local overrideID = C_SpellBook.FindSpellOverrideByID(baseSpellID) or baseSpellID;
-		actionName, actionIcon = GetSpellNameAndIconID(overrideID);
-	elseif (type == Constants.MACRO) then
-		local macroName;
-		-- **Asked only when the value is a name.** A `MACRO` that holds anything else is one
-		-- the import refused the value of (`RefusedByActionType`), so there is nothing here
-		-- to ask about and `GetMacroInfo(nil)` raises. The row is drawn red either way:
-		-- `GetMissingMacroName` already reports it.
-		if (luatype(value) == "string") then
-			macroName, actionIcon = GetMacroInfo(value);
-		end
-		if (not macroName) then
-			macroName = value;
-			actionIcon = QUESTION_MARK_ICON_NUM;
-		end
-		actionName = macroName;
-	elseif (type == Constants.MACROTEXT) then
-		actionName = action.name;
-		actionIcon = action.icon
-		if (actionIcon == QUESTION_MARK_ICON_NUM) then
-			actionIcon = GetMacrotextIcon(action.value) or actionIcon;
-		end
-	elseif (type == Constants.ITEM) then
-		local name = C_Item.GetItemNameByID(value);
-		local icon = C_Item.GetItemIconByID(value);
-		actionName = name;
-		actionIcon = icon;
-	elseif (type == Constants.MOUNT) then
-		local name, icon;
-		if (value == 0 or value == 268435455) then
-			name, icon = GetSpellNameAndIconID(150544);
-		elseif (value) then
-			name, _, icon = C_MountJournal.GetMountInfoByID(value);
-		end
-		actionName = name;
-		actionIcon = icon;
-	elseif (type == Constants.PETACTION) then
-		-- 이름·아이콘은 **저장돼 있다.** 다른 타입과 달리 여기서 다시 풀 수가 없다 - 펫
-		-- 명령의 이름과 아이콘은 소환수 주문서에 있고, 펫이 없으면 그 주문서가 통째로
-		-- 비어서 물어볼 데가 없다. 프로필 목록은 펫이 없을 때도 그려져야 한다.
-		actionName = action.name;
-		actionIcon = action.icon;
-	elseif (type == Constants.SETCUSTOM) then
-		actionName = LLL["TYPE_SETCUSTOM" .. value];
-		actionIcon = 1505950;
-		skipTypeName = true;
-	elseif (Constants.SETSTATE_MODES[type]) then
-		-- The locale key assembles straight off the type (`TYPE_SETSTATE_ON`), and what goes into
-		-- it is the switch's name, `$` and all. Those are the glyphs the Switches tab draws and the
-		-- ones a macro body has to say (§6-B).
-		--
-		-- **A row with no switch picked yet fills the same sentence rather than replacing it.** One
-		-- is added that way (§6-C of `devdocs/redesigning-custom-states.md`), and all three
-		-- sentences have a `%s` that raises on nil. What goes in is the word, not the instruction:
-		-- a name says what the action is, and telling the reader to go pick one is the job of the
-		-- red the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.
-		actionName = format(LLL["TYPE_" .. strupper(type)],
-			luatype(value) == "string" and value or LLL["TYPE_SETSTATE_ANY"]);
-		actionIcon = 254885;
-		skipTypeName = true;
-	elseif (type == Constants.COMMAND) then
-		actionName = _G["BINDING_NAME_" .. value] or value;
-		actionIcon = "A:NPE_Icon"
-	elseif (type == Constants.TARGET) then
-		actionName = BINDING_TYPE_NAMES[Constants.TARGET];
-		actionIcon = 132212;
-		skipTypeName = true;
-	elseif (type == Constants.FOCUS) then
-		actionName = LLL["TYPE_FOCUS"];
-		actionIcon = 132212;
-		skipTypeName = true;
-	elseif (type == Constants.TOGGLEMENU) then
-		actionName = LLL["TYPE_TOGGLEMENU"];
-		actionIcon = 134331;
-		skipTypeName = true;
-	elseif (type == Constants.WORLDMARKER) then
-		actionName = _G["WORLD_MARKER" .. value];
-		actionIcon = 4238933;
-		skipTypeName = true;
-	elseif (type == Constants.FLYOUT) then
-		-- 저장된 것은 flyoutID 하나뿐이다. 이름도 아이콘도 여기서 다시 푼다 - 아이콘은
-		-- 주문책이 그 플라이아웃 칸에 그리는 그림이고, 주문서를 훑어야 나온다(`Misc.lua` 참고).
-		--
-		-- 오프스펙을 허용하는 인자를 켜둔다. 여기는 **그리는** 쪽이라, 다른 특성에서 걸어둔
-		-- 플라이아웃도 이름과 그림이 나와야 목록에서 한 줄을 차지할 수 있다.
-		actionName, actionIcon = DebindPrivate.GetFlyoutNameAndIcon(value, true);
-	elseif (type == Constants.UNUSED) then
-		actionName = BINDING_TYPE_NAMES[Constants.UNUSED];
-		-- **되돌리기지 금지가 아니다.** 빨간 X(`ReadyCheck-NotReady`)를 쓰던 자리인데, 그
-		-- 그림은 "막는다·아무 일도 안 한다"로 읽혀서 툴팁과 반대말을 했다 - 키는 그대로
-		-- 눌리고 WoW 바인딩이 시키는 일을 한다. 블리자드가 "기본값으로 되돌리기"에 쓰는
-		-- 화살표를 그대로 빌려온다(쿨다운 뷰어의 변경 취소, 커스터마이즈의 카메라 초기화).
-		actionIcon = "A:common-icon-undo";
-		skipTypeName = true;
-	else
-		actionName = action.name or LLL["UNNAMED_ACTION"];
-		actionIcon = action.icon or QUESTION_MARK_ICON_NUM;
-	end
-
-	-- 세 번째 반환값은 **타입을 안 붙인 이름**이다. 타입을 따로 보여주는 자리(상세 패널의
-	-- 인포 인셋)에서 쓴다 - 안 그러면 "Wrath (Spell)" 옆에 "Spell"이 또 붙는다.
-	local bareName = actionName or "?";
-	if (not skipTypeName) then
-		local typeName = BINDING_TYPE_NAMES[action.type]; -- rawget(LLL, action.type);
-		if (typeName) then
-			actionName = format(LLL["BINDING_TITLE"], typeName or "?", actionName or "?");
-		end
-	end
-	actionName = actionName or "?";
-	return actionName, actionIcon or QUESTION_MARK_ICON_NUM, bareName;
-end
-
---- Puts an icon from `NameAndIconForAction` on a texture.
----
---- The second return value is **not always a texture.** Binding commands and `UNUSED` hand back an
---- atlas name behind an `A:` prefix, and `SetTexture` on one of those draws nothing and raises
---- nothing - the icon is simply blank, which is only ever noticed by someone looking at that row.
----
---- One function because three lists now draw actions: the layer list, the order list, and the
---- sharing window in `DebindStorage`. It is exported for that last one.
-local function SetActionIcon(texture, icon)
-	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
-		texture:SetAtlas(icon:sub(3));
-	else
-		texture:SetTexture(icon);
 	end
 end
 
@@ -955,35 +461,6 @@ local function CountActionsInLayer(layer, visible)
 	return count;
 end
 
---- skipCategory는 **그 행이 스스로 보여주는** 이슈 계열이다. 이름은 다른 데서 안 보이는
---- 문제만 물들인다 - 단축키 칸이 이미 빨간데 이름까지 빨개지면 행 전체가 잘못된 것으로
---- 읽힌다. 도달불가는 이 행의 잘못이 아니라 다른 행 때문에 생기는 것이라 더 그렇다.
---- 단축키를 따로 안 보여주는 쪽(오버뷰, 툴팁 제목)은 안 넘기면 예전 그대로다.
-local function ColoredNameAndIconForAction(action, skipCategory)
-	local name, icon = NameAndIconForAction(action);
-	if (action.imported) then
-		-- **회색 자리를 가져간다.** 가져온 액션은 빌드에 안 들어가므로 어차피 회색이 될
-		-- 것인데, 그러면 "키가 없다"와 구별이 안 된다. 파랑이 그 자리에 서면 "안 나간다"와
-		-- "왜"를 한 색이 같이 말한다. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
-		name = IMPORTED_FONT_COLOR:WrapTextInColorCode(name);
-	elseif (action.key == nil or DebindPrivate.IsInactiveAction(action)) then
-		name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
-	else
-		local issue = GetBindingIssue(action, nil, skipCategory);
-		if (issue) then
-			-- **The grade picks the colour, not the code.** A minor one lands on the same grey the
-			-- branch above uses, and that is the point rather than a collision: both say there is
-			-- nothing here to go and fix. Red is for the rows that are waiting on the reader.
-			if (IsIssueMinor(issue)) then
-				name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
-			else
-				name = ERROR_COLOR:WrapTextInColorCode(name);
-			end
-		end
-	end
-	return name, icon;
-end
-
 
 
 local function DeleteElementData(elementData)
@@ -995,7 +472,7 @@ local function DeleteElementData(elementData)
 	end
 
 	if (_selectedAction == elementData.action) then
-		DebindFrame:SetSelectedAction(nil);
+		DebindLayerPanel:SetSelectedAction(nil);
 	end
 
 	local layer = DebindPrivate.GetProfileLayer(elementData.layer);
@@ -1008,7 +485,7 @@ local function DeleteElementData(elementData)
 	-- 그러면 한 키의 마지막 행을 지웠을 때 그룹 헤더가 홀로 남는다. 게다가 그 index는 배열
 	-- 위치가 아니라 **표시 순서**라서 정렬이 쓰는 order.index와 뜻이 달랐다. 다시 만드는 쪽이
 	-- 액션을 추가하거나 옮길 때 이미 하는 일이기도 하다.
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 end
 
 --- Deletes every one of them, wherever it lives.
@@ -1036,7 +513,7 @@ local function DeleteActions(actions)
 			DebindIconSelectorFrame:Close(true);
 		end
 		if (_selectedAction == action) then
-			DebindFrame:SetSelectedAction(nil);
+			DebindLayerPanel:SetSelectedAction(nil);
 		end
 		local _, layer = DebindPrivate.FindLayerID(action);
 		if (layer and layer:Remove(action)) then
@@ -1060,12 +537,12 @@ local function DeleteActions(actions)
 
 	if (removed) then
 		DebindPrivate.UpdateBindings();
-		DebindFrame:Refresh(true);
+		DebindLayerPanel:Refresh(true);
 	end
 
 	-- 앵커가 지워진 것 중에 있었으면 선택을 풀어야 하고, 밖에 있었으면 집합에 죽은 테이블이
 	-- 남으므로 여기서 접는다. 둘 다 이 한 줄이 처리한다.
-	DebindFrame:SetSelectedAction(DebindFrame:GetSelectedAction());
+	DebindLayerPanel:SetSelectedAction(DebindFrame:GetSelectedAction());
 end
 
 local ShowDeleteConfirmationPopup, ShowBulkDeleteConfirmationPopup, HideDeleteConfirmationPopup;
@@ -1256,10 +733,10 @@ local function MoveAction(elementData, destLayerID, copying)
 	DebindPrivate.UpdateBindings();
 
 	-- 목록은 정렬해서 그리므로 손으로 끼워넣지 않고 다시 만든다.
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 
 	if (fromLayerID == destLayerID) then
-		DebindFrame:ScrollActionIntoView(action);
+		DebindLayerPanel:ScrollActionIntoView(action);
 	end
 end
 
@@ -1280,14 +757,14 @@ end
 --- 접지 않는다 - 사용자가 고른 것은 원본이고, 사본으로 옮겨주면 방금 무엇을 골랐는지가 틀어진다.
 local function MoveActions(actions, destLayerID, copying)
 	for _, action in ipairs(actions) do
-		local elementData = DebindFrame:FindElementDataByActionInfo(action);
+		local elementData = DebindLayerPanel:FindElementDataByActionInfo(action);
 		if (elementData and (copying or elementData.layer ~= destLayerID)) then
 			MoveAction(elementData, destLayerID, copying);
 		end
 	end
 
 	if (not copying) then
-		DebindFrame:SetSelectedAction(nil);
+		DebindLayerPanel:SetSelectedAction(nil);
 	end
 end
 
@@ -1324,483 +801,8 @@ local function ApproveImportedActions(actions)
 	DebindFrame:PruneSelectionToBinFilter(visible);
 
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true, visible);
+	DebindLayerPanel:Refresh(true, visible);
 	DebindFrame:Update();
-end
-
-local AddActionToTooltip, HideActionTooltip;
-do
-	local _lines = {};
-	--- 스위치 조건 줄을 이름순으로 세우는 자리. `_lines`와 나누는 이유는 그쪽이
-	--- `addValueLines` 안에서 비워지며 돌기 때문이다.
-	local _switchNames = {};
-	local LEFT_OFFSET = 10;
-
-	--- Stands in for a caller that passes nothing, so the reads below need no guard. Never
-	--- written to: the entry point only reads fields off it.
-	local EMPTY_OPTS = {};
-	--- 조건이 하나도 없는 액션을 위한 빈 표. `EMPTY_OPTS`를 같이 쓰지 않는 것은 그 이름이
-	--- 옵션을 말하기 때문이다 - 둘 다 빈 표라는 것은 우연이다.
-	local EMPTY_CONDITIONS = {};
-
-	--- Drawing order for the group condition, which is also `Constants.GROUP_*`'s bit order.
-	--- Built once: it used to be a table literal inside the loop's `ipairs`, so a hover allocated
-	--- one and threw it away.
-	local GROUP_TYPES = { "NONE", "PARTY", "RAID" };
-
-	local function addErrorLine(tooltip, message, wrap, leftOffset)
-		GameTooltip_AddErrorLine(tooltip, message, wrap or false, leftOffset or LEFT_OFFSET);
-	end
-
-	local function addLabelLine(tooltip, label, hasError)
-		GameTooltip_AddBlankLineToTooltip(tooltip);
-		if (hasError) then
-			GameTooltip_AddErrorLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
-		else
-			GameTooltip_AddHighlightLine(tooltip, format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], label));
-		end
-	end
-
-	local function addValueLine(tooltip, value, error, wrap, leftOffset)
-		if (error) then
-			GameTooltip_AddErrorLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
-		else
-			GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
-		end
-		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(tooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
-		end
-	end
-
-	local function addValueLines(tooltip, lines, error, wrap, leftOffset)
-		local fn = error and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
-		for i = 1, #lines do
-			fn(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
-		end
-		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(tooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
-		end
-	end
-
-	--- The names a mask has switched on, comma-joined onto one line.
-	---
-	--- **The full mask and the empty one get a word instead of a list.** Naming every reaction is
-	--- longer than "all" and says less, and an empty mask is not a list of nothing: it is the one
-	--- state nothing can satisfy, so it gets a word a reader can catch.
-	---
-	--- One `prefix` addresses both tables -- the flag is `Constants[prefix .. name]` and the word
-	--- is `LLL[prefix .. name]` -- which holds because the two are keyed alike by construction.
-	local function FlagNames(mask, names, prefix, all)
-		if (mask == all) then
-			return LLL["ALL"];
-		elseif (mask == 0) then
-			return LLL["NOT_SELECTED"];
-		end
-
-		local s = "";
-		for i = 1, #names do
-			local flag = Constants[prefix .. names[i]];
-			if (bit.band(mask, flag) == flag) then
-				if (s ~= "") then
-					s = s .. ", ";
-				end
-				s = s .. LLL[prefix .. names[i]];
-			end
-		end
-		return s;
-	end
-
-	--- A value line that names the axis it is narrowing, in white, ahead of the value.
-	---
-	--- These sit **under** a condition's own label line, one per narrowed axis, so each needs to
-	--- say which axis it is. The label line's shape (`LINE_TOOLTIP_CONDITION_LABEL`) is not reused:
-	--- that one opens a block and this one is inside it.
-	local function LabelledValue(labelKey, value)
-		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
-	end
-
-	--- Everything one action has to say, written into a tooltip somebody else owns.
-	---
-	--- **Where it goes is the caller's**, which is why neither an owner nor an anchor is asked for:
-	--- the four lists that draw an action anchor differently and one of them will want to add lines
-	--- of its own underneath. So a caller sets the owner, calls this, and shows the tooltip, the
-	--- shape every `GameTooltip_Add…` in the client is used in.
-	---
-	--- The minimum width is the exception, and it is here because it belongs to **this content**:
-	--- the condition lines are unreadable narrower. `HideActionTooltip` puts it back, and a caller
-	--- that hides the tooltip without it leaves every later tooltip in the session that wide.
-	---
-	--- `opts`:
-	---
-	---   offWorld          this action is not from the world the live key map was built for, so
-	---                     **unreachable is dropped and nothing else is.** That verdict comes out
-	---                     of the key map built for the specialization in play, and is not true
-	---                     over there. Key validity has no specialization in it and stays.
-	---   suppressInactive  "inactive means nothing in this list". The order list's other
-	---                     specialization view is that case: everything is active over there, so
-	---                     greying a row would be a lie. Independent of `offWorld` -- that list
-	---                     sets this always and still marks a live row unreachable.
-	---   instructionKeys   locale keys to put at the bottom in place of the default two.
-	---   layerLabel        adds a scope line. **Only a list that mixes layers passes it**: the
-	---                     order list, whose rows say nothing else about where an action lives,
-	---                     and the export list, which does head its groups but scrolls a long one
-	---                     out of sight. The layer tab's list does not, because it draws one layer
-	---                     and the window title names it.
-	function AddActionToTooltip(tooltip, action, opts)
-		---@diagnostic disable-next-line: redundant-parameter
-		tooltip:SetMinimumWidth(140, true);
-
-		opts = opts or EMPTY_OPTS;
-		local suppressInactive = opts.suppressInactive;
-		local instructionKeys = opts.instructionKeys;
-		local layerLabel = opts.layerLabel;
-
-		local suppressedCategory = opts.offWorld and "unreachable" or nil;
-
-		--- The only issue lookup this tooltip makes.
-		---
-		--- **Another specialization's order drops one thing: unreachable.** That verdict comes out
-		--- of the key map built for the specialization in play, so it is not true over there. The
-		--- row is already computed that way (`CollectActionsForKey`) while the tooltip asked again
-		--- from scratch, which left **no warning on the row and its own tooltip calling the
-		--- binding unreachable in red**. One set of data must not say two things on one screen.
-		---
-		--- **조건 이름을 그대로 넘기는 호출자가 있어서 갈래인지 먼저 본다.** 조건 열여덟 중
-		--- 검사가 있는 것은 절반이고, 없는 이름으로 물으면 언제나 nil이라 답은 같다. 다른 것은
-		--- DEBUG에서 그 물음이 걸린다는 것뿐이다.
-		local function GetIssue(category)
-			if (category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
-				return nil;
-			end
-			return GetBindingIssue(action, category, suppressedCategory);
-		end
-
-		local isInactive = not suppressInactive and DebindPrivate.IsInactiveAction(action);
-		local hasIssues = GetIssue() ~= nil;
-		-- 조건은 액션 최상단이 아니라 이 표 안이다(`Constants.CONDITION_FIELDS`). 표가 없으면
-		-- 그릴 조건이 하나도 없다는 뜻이라, 아래 갈래들이 전부 저절로 비켜간다.
-		local conditions = action.conditions or EMPTY_CONDITIONS;
-
-		--- A condition that is only on or off, drawn whole.
-		---
-		--- **The field name is the body of all three locale keys** -- `combat` gives
-		--- `CONDITION_COMBAT` and `CONDITION_COMBAT_YES`/`_NO` -- so another one of these is a call
-		--- and three strings rather than another copy of the block.
-		---
-		--- `hasIssues` gates the per-category lookup and is not an optimisation to drop: with
-		--- nothing wrong on the action, asking about each condition would rebuild the binding once
-		--- per row, since `GetBindingInfoForAction` rewrites it on every call.
-		local function addBooleanCondition(field)
-			-- **`conditions`에서 읽는다.** 이름을 변수로 받는 자리라, 조건을 최상단에서 내릴 때
-			-- 필드 이름으로 훑는 grep에 안 걸렸다. 액션에서 읽으면 언제나 nil이고 이 여섯 줄이
-			-- 툴팁에서 통째로 사라진다.
-			if (conditions[field] == nil) then
-				return;
-			end
-			local key = "CONDITION_" .. strupper(field);
-			local error = hasIssues and GetIssue(field);
-			addLabelLine(tooltip, LLL[key]);
-			addValueLine(tooltip, conditions[field] == true and LLL[key .. "_YES"] or LLL[key .. "_NO"], error);
-		end
-
-		-- **The title does not carry the list's colours.** Those exist so an eye running down forty
-		-- rows can sort them without reading; a tooltip is one thing the reader already chose to
-		-- read, so there is nothing for the colour to sort. Two of the three also say the wrong
-		-- thing here: a blue title is item rarity in this game's visual grammar, and a grey one
-		-- repeats what the `KEY` line below already says in words. What the colours carry is said
-		-- in lines instead - the badge just under the key, problems on the lines they belong to.
-		GameTooltip_SetTitle(tooltip, (NameAndIconForAction(action)));
-
-		do
-			addLabelLine(tooltip, LLL["KEY"]);
-
-			if (action.key) then
-				local keyText = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
-				local error;
-				if (isInactive) then
-					keyText = INACTIVE_COLOR:WrapTextInColorCode(keyText);
-				else
-					error = hasIssues and GetIssue("key") or nil;
-				end
-				-- **A minor problem is stated here, not shouted.** The key itself is a valid one and
-				-- the sentence under it describes a neighbour, so neither half goes red.
-				-- `addValueLine`'s error argument colours both at once, which is why the sentence is
-				-- put up separately instead of being handed to it.
-				if (error and IsIssueMinor(error)) then
-					addValueLine(tooltip, keyText);
-					addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
-						"(" .. LLL["BINDING_ERROR_" .. error] .. ")"));
-				else
-					addValueLine(tooltip, keyText, error);
-				end
-			else
-				-- 행의 단축키 칸과 같은 말을 쓴다. 한때 여기만 따로 번역된 키를
-				-- 들고 있어서, 로케일에 따라 같은 창 안에서 두 낱말이 될 수 있었다.
-				addValueLine(tooltip, INACTIVE_COLOR:WrapTextInColorCode(LLL["OVERVIEW_NO_KEY"]));
-			end
-
-			-- **Under the key, because it is the key this qualifies.** The line above says which
-			-- key it has; this one says that key does nothing yet. Anywhere else in the tooltip
-			-- the two would be a statement and a contradiction with other lines in between.
-			--
-			-- Same blue as the name in the list and the dot on the icon, so the three read as one
-			-- mark rather than three. It is the only thing in this tooltip that says so, now that
-			-- the title has stopped carrying the colour.
-			if (action.imported) then
-				addValueLine(tooltip, IMPORTED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_IMPORTED"]), nil, true);
-			end
-		end
-
-		if (action.unit ~= nil) then
-			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
-			local error = hasIssues and GetIssue("unit");
-			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
-			addValueLine(tooltip, unitStr, error);
-		end
-
-		-- 호버 조건은 `units["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
-		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
-		-- 저장에는 끈 값이 남아 있다. 여기는 **걸린 조건**을 그리는 자리라 그걸 접고 본다.
-		local hoverCondition = DebindPrivate.UnitConditionForBinding(
-			conditions.units and conditions.units.hover);
-		if (hoverCondition ~= nil) then
-			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
-			local error = hasIssues and GetIssue("hover");
-			if (hoverCondition) then
-				local reactions = hoverCondition.reaction or Constants.REACTION_ALL;
-				local frameTypes = conditions.frameTypes or Constants.FRAMETYPE_ALL;
-
-				addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
-					FlagNames(reactions, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
-					hasIssues and GetIssue("reactions") and true or false, true);
-
-				addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES",
-					FlagNames(frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_", Constants.FRAMETYPE_ALL)),
-					hasIssues and GetIssue("frameTypes") and true or false, true);
-
-				if (hoverCondition.dead ~= nil) then
-					addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
-						hoverCondition.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]),
-						error and true or false, true);
-				end
-
-				if (action.ignoreHoverUnit) then
-					addValueLine(tooltip, LLL["IGNORE_HOVER_UNIT"]);
-				end
-			else
-				addValueLine(tooltip, LLL["CONDITION_HOVER_NO"], error);
-			end
-			if (error) then
-				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
-			end
-		end
-
-		if (conditions.units) then
-			local first = true;
-			for checkedUnit, stored in pairs(conditions.units) do
-				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"hover"`는 위 호버 묶음이 그렸다.
-				local value = DebindPrivate.UnitConditionForBinding(stored);
-				if (value ~= nil and checkedUnit ~= "hover"
-						and (checkedUnit ~= "@" or (action.unit and action.unit ~= "none"))) then
-					if (first) then
-						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
-						first = false;
-					end
-
-					local error = hasIssues and GetIssue("units");
-					local unitStr;
-					if (checkedUnit == "@") then
-						unitStr = format(LLL["SELECTED_TARGET_UNIT"], UNIT_INFO[action.unit].name);
-					else
-						unitStr = UNIT_INFO[checkedUnit].name;
-					end
-					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
-					-- line says whether the unit has to be there, and each constrained axis adds
-					-- a line below it in the shape the hover block already uses. A new axis is
-					-- one more branch here.
-					if (value == false) then
-						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
-					else
-						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
-
-						local reaction = type(value) == "table" and value.reaction or nil;
-						if (reaction ~= nil and reaction ~= Constants.REACTION_ALL) then
-							addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
-								FlagNames(reaction, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
-								error, true);
-						end
-
-						if (type(value) == "table" and value.dead ~= nil) then
-							addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
-								value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]), error, true);
-						end
-					end
-				end
-			end
-		end
-
-		if (conditions.groups ~= nil) then
-			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
-
-			if (conditions.groups == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_GROUPS_NONE_SELECTED"], true);
-			else
-				wipe(_lines);
-				for i = 1, #GROUP_TYPES do
-					local flag = Constants["GROUP_" .. GROUP_TYPES[i]];
-					if (bit.band(conditions.groups, flag) == flag) then
-						tinsert(_lines, LLL["GROUP_" .. GROUP_TYPES[i]]);
-					end
-				end
-				local error = hasIssues and GetIssue("groups");
-				addValueLines(tooltip, _lines, error);
-			end
-		end
-
-		addBooleanCondition("combat");
-		addBooleanCondition("stealth");
-
-		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
-		-- menu toggles `known` between true and nil rather than inverting it, so there is no
-		-- "does not know it" row to write and `CONDITION_KNOWN_NO` does not exist.
-		if (conditions.known) then
-			local error = hasIssues and GetIssue("known");
-			addLabelLine(tooltip, LLL["CONDITION_KNOWN"]);
-			addValueLine(tooltip, LLL["CONDITION_KNOWN_YES"], error);
-		end
-
-		if (conditions.forms ~= nil) then
-			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
-			if (conditions.forms == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
-			else
-				wipe(_lines);
-				local error = hasIssues and GetIssue("forms");
-				for i = 0, 10 do
-					local flag = 2 ^ i;
-					if (bit.band(conditions.forms, flag) ~= 0) then
-						if (i == 0) then
-							tinsert(_lines, format("[form:%d] (%s)", i, LLL["NO_SHAPESHIFT"]));
-						else
-							local _, _, _, spellID = GetShapeshiftFormInfo(i);
-							local spellName = spellID and GetSpellNameAndIconID(spellID);
-							if (spellName) then
-								tinsert(_lines, format("[form:%d] (%s)", i, spellName));
-							else
-								tinsert(_lines, format("[form:%d]", i));
-							end
-						end
-					end
-				end
-				addValueLines(tooltip, _lines, error);
-			end
-		end
-
-		if (conditions.bonusbars ~= nil) then
-			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
-			if (conditions.bonusbars == 0) then
-				addValueLine(tooltip, LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
-			else
-				wipe(_lines);
-				local error = hasIssues and GetIssue("bonusbars");
-				for i = 0, Constants.MAX_BONUSBAR_OFFSET do
-					local flag = 2 ^ i;
-					if (bit.band(conditions.bonusbars, flag) ~= 0) then
-						local label = GetActionBarTypeLabel(i);
-						if (label) then
-							tinsert(_lines, label);
-						end
-					end
-				end
-				addValueLines(tooltip, _lines, error);
-			end
-		end
-
-		addBooleanCondition("specialbar");
-		addBooleanCondition("extrabar");
-		addBooleanCondition("pet");
-		addBooleanCondition("petbattle");
-
-		-- **조건 표에 있는 이름을 그린다.** 다섯 번호를 돌던 자리라 그 밖의 이름이 걸린 액션은
-		-- 툴팁에 조건이 아예 없는 것처럼 보였다 - 안 나가는 이유가 화면 어디에도 없다는 뜻이다.
-		--
-		-- `pairs`는 순서를 안 주고 툴팁 줄 순서는 볼 때마다 달라지면 안 되므로 이름순으로
-		-- 세운다. 배열은 파일 위쪽 조건 줄들이 쓰는 `_lines`와 다른 것을 쓴다 - 저쪽은
-		-- `addValueLines`가 자기 것을 비우며 돈다.
-		wipe(_switchNames);
-		for name in pairs(conditions) do
-			if (Constants.IsSwitchName(name)) then
-				tinsert(_switchNames, name);
-			end
-		end
-		sort(_switchNames);
-		for i = 1, #_switchNames do
-			local state = _switchNames[i];
-			addLabelLine(tooltip, state);
-			addValueLine(tooltip, conditions[state] == true and LLL["CONDITION_CUSTOM_STATE_YES"] or LLL["CONDITION_CUSTOM_STATE_NO"]);
-		end
-
-		-- 매크로 본문의 `[$이름]`은 위 조건 칸들과 달리 그릴 자리가 없다 - 저장에는 본문
-		-- 문자열 하나로만 있다. 그래서 이슈 코드만으로는 **어느 이름이 틀렸는지**를 못 말하고,
-		-- 그걸 말하는 것이 이 마커의 존재 이유라 여기서만 이름을 붙여 적는다.
-		if (hasIssues) then
-			local undefinedState = DebindPrivate.GetUndefinedSwitch(action);
-			if (undefinedState) then
-				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefinedState), true);
-			end
-
-			-- Named here for the same reason. The macro name is the action's `value`, so no
-			-- condition row above draws it, and the name on the row is the one
-			-- `NameAndIconForAction` hands back **unchanged** next to a question-mark icon -- it
-			-- cannot say on its own why the row went red.
-			local missingMacro = DebindPrivate.GetMissingMacroName(action);
-			if (missingMacro) then
-				GameTooltip_AddBlankLineToTooltip(tooltip);
-				addErrorLine(tooltip, format(LLL["BINDING_ERROR_MISSING_MACRO"], missingMacro), true);
-			end
-		end
-
-		if (action.priority and action.priority ~= Constants.DEFAULT_PRIORITY) then
-			addLabelLine(tooltip, LLL["PRIORITY"]);
-			addValueLine(tooltip, LLL["PRIORITY" .. action.priority]);
-		end
-
-		-- 중요도 바로 밑에 둔다. 둘 다 순서를 정하는 값이고, 조건들과는 성질이 다르다.
-		if (layerLabel) then
-			addLabelLine(tooltip, LLL["SCOPE"]);
-			addValueLine(tooltip, layerLabel);
-		end
-
-		if (instructionKeys) then
-			if (#instructionKeys > 0) then
-				GameTooltip_AddBlankLineToTooltip(tooltip);
-				for _, instructionKey in ipairs(instructionKeys) do
-					GameTooltip_AddInstructionLine(tooltip, LLL[instructionKey]);
-				end
-			end
-		else
-			GameTooltip_AddBlankLineToTooltip(tooltip);
-			GameTooltip_AddInstructionLine(tooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"]);
-			GameTooltip_AddInstructionLine(tooltip, LLL["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"]);
-		end
-	end
-
-	--- The other half of `AddActionToTooltip`: puts the minimum width back and hides.
-	---
-	--- **A bare `Hide()` is not enough**, which is the one place the split is not clean. The
-	--- content sets a minimum width because it needs one, and a minimum width outlives the
-	--- tooltip that asked for it -- so every tooltip in the session afterwards, ours or the
-	--- game's, comes out that wide. The client pairs the two the same way, in the achievement
-	--- category rows.
-	function HideActionTooltip(tooltip)
-		---@diagnostic disable-next-line: redundant-parameter
-		tooltip:SetMinimumWidth(0, false);
-		tooltip:Hide();
-	end
-
-	DebindPrivate.AddActionToTooltip = AddActionToTooltip;
-	DebindPrivate.HideActionTooltip = HideActionTooltip;
 end
 
 
@@ -1991,7 +993,7 @@ function DebindLineMixin:OnClick(buttonName)
 	end
 
 	if (buttonName == "LeftButton" and GetActionTypeAndValueFromCursorInfo()) then
-		DebindFrame.LayerPanel.ScrollBox:OnClick();
+		DebindLayerPanel.ScrollBox:OnClick();
 		return;
 	end
 
@@ -2036,7 +1038,7 @@ function DebindLineMixin:OnClick(buttonName)
 			-- **집어오는 것보다 먼저다.** 이 호출은 상세 패널을 닫고, 그 길에 매크로 본문
 			-- 저장이 딸려 오면 목록이 통째로 다시 지어진다 - 먼저 집으면 그 테이블이 낡는다.
 			-- 아래 함수가 존재하는 이유가 정확히 그 문제다(`CloseDialogsAndRefetchElementData`).
-			DebindFrame:SetSelectedAction(elementData.action);
+			DebindLayerPanel:SetSelectedAction(elementData.action);
 
 			elementData = CloseDialogsAndRefetchElementData(self);
 			if (not elementData) then
@@ -2057,11 +1059,11 @@ function DebindLineMixin:OnClick(buttonName)
 	-- **SHIFT를 먼저 본다.** CTRL+SHIFT는 범위를 더하는 것이라 SHIFT 갈래에 속하는데, CTRL을
 	-- 먼저 보면 그 조합이 토글로 새어 들어간다.
 	if (IsShiftKeyDown()) then
-		DebindFrame:SelectRangeTo(elementData.action, IsControlKeyDown());
+		DebindLayerPanel:SelectRangeTo(elementData.action, IsControlKeyDown());
 	elseif (IsControlKeyDown()) then
-		DebindFrame:ToggleActionSelected(elementData.action);
+		DebindLayerPanel:ToggleActionSelected(elementData.action);
 	else
-		DebindFrame:SetSelectedAction(elementData.action);
+		DebindLayerPanel:SetSelectedAction(elementData.action);
 	end
 end
 
@@ -2594,12 +1596,12 @@ function DebindSideTabMixin:OnClick()
 
 		-- 사이드탭도 탭과 같은 이동이다 - 바뀌는 것은 레이어 하나뿐이지만 목록이 통째로
 		-- 갈리는 것은 같다. 고른 것을 놓는 이유도 같다(`DebindFrameMixin:SetTab`).
-		DebindFrame:SetSelectedAction(nil);
+		DebindLayerPanel:SetSelectedAction(nil);
 
 		_selectedSideTab = id;
 
-		DebindFrame:UpdateSideTabs();
-		DebindFrame:Refresh();
+		DebindLayerPanel:UpdateSideTabs();
+		DebindLayerPanel:Refresh();
 		-- `Refresh` rebuilds the list; `Update` is what re-reads it. Without this the strip and
 		-- the multi-select tip keep describing the tab we just left - a tip anchored under a list
 		-- that is now empty, or no tip at all on a list that just filled up.
@@ -2733,18 +1735,25 @@ function DebindPortraitMixin:OnDisable()
 	self.Portrait:SetDesaturated(true);
 end
 
---- `OverviewPanel` and `LayerPanel` have no mixin, and that is the finding rather than an
---- oversight. A container here earns its keep by existing - hiding it hides everything inside it,
+--- **`LayerPanel` has a mixin and `OverviewPanel` does not**, and the difference is what each one
+--- is. The outer container earns its keep by existing - hiding it hides everything inside it,
 --- whatever the `Update*` passes decide to switch back on - and nothing about that needs a method.
+--- The right column is not that: it builds a list, it owns the side tabs beside it and the two tabs
+--- under it, and every one of those is answerable without asking the window anything.
 ---
---- Moving the `LayerPanel`-only methods onto one was measured and dropped: the state they read
---- (`dataProvider`, the selection, the search text, binding mode) lives on the frame, so the
---- `self.LayerPanel.` prefix would move from the bodies to the call sites rather than disappear.
---- The count is in `.zzz/resolved.md`.
+--- **The selection did not move with the three gestures that write it.** `SetSelectedAction`,
+--- `ToggleActionSelected` and `SelectRangeTo` are things done to rows in this column, so they sit
+--- on the panel; what they write is read by the left column as well, so it stays the window's and
+--- comes back out through `GetSelectedAction` and its neighbours.
+---
+--- `.zzz/resolved.md` holds a 2026-08-14 measurement that dropped this same move. What it counted
+--- was whether the `self.LayerPanel.` prefix got shorter, and the answer was +1. That is no longer
+--- the question `breaking-up-debindui.md` asks, which is which of the two columns a method is about.
+DebindLayerPanelMixin = {};
 DebindFrameMixin = {};
 
-function DebindFrameMixin:InitializeSideTabs()
-	self.SideTabs = self.LayerPanel.SideTabsFrame.Tabs;
+function DebindLayerPanelMixin:InitializeSideTabs()
+	self.SideTabs = self.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
 		local name;
 		if (i == 1) then
@@ -2774,7 +1783,7 @@ end
 ---
 --- `_selectedSideTab`은 **건드리지 않는다.** 오버뷰를 들렀다 레이어 탭으로 돌아온 사람은
 --- 떠날 때 보던 사이드탭으로 돌아와야 한다.
-function DebindFrameMixin:UpdateSideTabs()
+function DebindLayerPanelMixin:UpdateSideTabs()
 	local currentSpec = C_SpecializationInfo.GetSpecialization();
 	self.currentSpec = currentSpec;
 
@@ -2822,7 +1831,7 @@ end
 --- 갖고, 둘은 정반대다: 걸린 키가 하나도 없거나(할 일이 있다), 문제가 하나도 없거나(없다).
 --- 같은 문장으로 말하면 후자가 고장으로 읽힌다.
 function DebindFrameMixin:UpdateEmptyText()
-	if (self.dataProvider:GetSize() == 0) then
+	if (self.LayerPanel.dataProvider:GetSize() == 0) then
 		-- **While something is filtering it says a different thing.** The usual line is "there are
 		-- no actions here, drag one in"; if the list is empty only because something was filtered
 		-- out, that line is a lie and it hands out the wrong next step on top of being one.
@@ -2862,7 +1871,7 @@ end
 --
 -- 오버뷰 탭은 이 계산을 통째로 안 탄다. 세는 것도 다르고(문제의 수), 없으면 아무것도 안
 -- 붙는다. 사이드탭도 안 건드린다 - 그 탭에서는 숨어 있다.
-function DebindFrameMixin:UpdateActionCounts(visible)
+function DebindLayerPanelMixin:UpdateActionCounts(visible)
 	-- **While something is filtering, the number becomes how many got through, and turns green.**
 	--
 	-- Leave the number alone and the tab lies - "(12)" is pressed and the list has two rows in it -
@@ -2885,7 +1894,7 @@ function DebindFrameMixin:UpdateActionCounts(visible)
 	visible = visible or NarrowedVisibleActions();
 	local narrowed = visible ~= nil;
 
-	for tabId, tab in ipairs(self.LayerPanel.Tabs) do
+	for tabId, tab in ipairs(self.Tabs) do
 		local label = GetTabLabel(tabId);
 
 		do
@@ -2948,7 +1957,7 @@ local function ScrollBox_OnReceiveDrag(self)
 	DebindFrame:OnReceiveDrag();
 end
 
-function DebindFrameMixin:InitializeScrollBox()
+function DebindLayerPanelMixin:InitializeScrollBox()
 	local padding = 7;
 	local bottomPadding = 40;
 	local spacing = 4;
@@ -2961,14 +1970,14 @@ function DebindFrameMixin:InitializeScrollBox()
 	end);
 	view:SetElementExtent(LINE_HEIGHT);
 
-	ScrollUtil.InitScrollBoxListWithScrollBar(self.LayerPanel.ScrollBox, self.LayerPanel.ScrollBar, view);
+	ScrollUtil.InitScrollBoxListWithScrollBar(self.ScrollBox, self.ScrollBar, view);
 
-	self.LayerPanel.ScrollBox.OnClick = ScrollBox_OnClick;
-	self.LayerPanel.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
+	self.ScrollBox.OnClick = ScrollBox_OnClick;
+	self.ScrollBox.OnReceiveDrag = ScrollBox_OnReceiveDrag;
 
-	self.LayerPanel.ScrollBox:RegisterForClicks("AnyUp");
-	self.LayerPanel.ScrollBox:SetScript("OnClick", self.LayerPanel.ScrollBox.OnClick);
-	self.LayerPanel.ScrollBox:SetScript("OnReceiveDrag", self.LayerPanel.ScrollBox.OnReceiveDrag);
+	self.ScrollBox:RegisterForClicks("AnyUp");
+	self.ScrollBox:SetScript("OnClick", self.ScrollBox.OnClick);
+	self.ScrollBox:SetScript("OnReceiveDrag", self.ScrollBox.OnReceiveDrag);
 end
 
 function DebindFrameMixin:InitializeButtons()
@@ -3015,7 +2024,7 @@ function DebindFrameMixin:InitializeButtons()
 			self:PruneSelectionToBinFilter(visible);
 			-- 스크롤 자리는 안 지킨다. 목록의 길이 자체가 달라지므로 지켜봐야 엉뚱한 데를
 			-- 보게 되고, 검색은 맨 위부터 읽는 동작이다.
-			self:Refresh(false, visible);
+			self.LayerPanel:Refresh(false, visible);
 			self:Update();
 		end
 	end);
@@ -3105,7 +2114,7 @@ function DebindFrameMixin:SetFilter(name, on)
 	-- them, for the reasons written there (`OnTextChanged`).
 	local visible = NarrowedVisibleActions();
 	self:PruneSelectionToBinFilter(visible);
-	self:Refresh(false, visible);
+	self.LayerPanel:Refresh(false, visible);
 	self:Update();
 end
 
@@ -3133,7 +2142,7 @@ function DebindFrameMixin:ResetFilters()
 	end
 	local visible = NarrowedVisibleActions();
 	self:PruneSelectionToBinFilter(visible);
-	self:Refresh(false, visible);
+	self.LayerPanel:Refresh(false, visible);
 	self:Update();
 end
 
@@ -3322,8 +2331,8 @@ function DebindFrameMixin:OnLoad()
 	self.shownPanel = self.OverviewPanel;
 	self:SelectPanel(OVERVIEW_PANEL, true);
 
-	self:InitializeScrollBox();
-	self:InitializeSideTabs();
+	self.LayerPanel:InitializeScrollBox();
+	self.LayerPanel:InitializeSideTabs();
 	self:InitializeButtons();
 
 	-- **The window hangs by its top left corner, and every path below goes through this.** Each
@@ -3500,12 +2509,12 @@ function DebindFrameMixin:OnShow()
 		self:OnLoad();
 	end
 
-	self:Refresh();
+	self.LayerPanel:Refresh();
 	-- **`Update`까지 와야 왼쪽 열이 그려진다.** `Refresh`는 오른쪽 목록만 다시 짓고, 왼쪽은
 	-- 선택이 아니라 프로필 전체를 보므로 여기서 같이 깨워야 한다. 예전에는 선택이 없으면
 	-- 왼쪽이 접혀 있어서 이 줄이 없어도 티가 안 났다.
 	self:Update();
-	self:UpdateSideTabs();
+	self.LayerPanel:UpdateSideTabs();
 	self:RegisterEvent("PLAYER_REGEN_DISABLED");
 	self:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 	self:RegisterEvent("CURSOR_CHANGED");
@@ -3571,7 +2580,7 @@ function DebindFrameMixin:OnHide()
 	-- 안 끄면 다음에 창을 열 때 목록이 빛나고 있다 - 창을 닫는 것도, 전투에 끌려들어가는
 	-- 것도 커서에 뭘 든 채로 일어난다.
 	self:UpdateDropHighlight();
-	ClearMacrotextIconCache();
+	DebindUI.ClearMacrotextIconCache();
 end
 
 function DebindFrameMixin:OnEvent(event, arg1)
@@ -3597,7 +2606,7 @@ function DebindFrameMixin:OnEvent(event, arg1)
 		self:OnLeaveCombat();
 	elseif (event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED") then
 		self:Update();
-		self:UpdateSideTabs();
+		self.LayerPanel:UpdateSideTabs();
 	end
 end
 
@@ -3764,7 +2773,7 @@ end
 --- 키 없이 앉아 있게 된다. 오버뷰 탭에서는 그 액션이 목록에서 통째로 빠져야 하므로 더 그렇다.
 --- 스크롤 자리는 지킨다 - 방금 만진 줄이 눈앞에서 사라지면 안 된다.
 function DebindFrameMixin:OnBindingsUpdated(_, skipped)
-	self:Refresh(true);
+	self.LayerPanel:Refresh(true);
 	self:Update();
 end
 
@@ -3826,7 +2835,7 @@ local function BuildSortedElements(layer, layerID, visible)
 	return elements;
 end
 
-function DebindFrameMixin:Refresh(retainScrollPosition, visible)
+function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	HideDeleteConfirmationPopup();
 
 	-- Built here for the two below it that filter by the same set, which is the whole of this
@@ -3846,7 +2855,7 @@ function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	end
 
 	self.dataProvider = dataProvider;
-	self.LayerPanel.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
+	self.ScrollBox:SetDataProvider(dataProvider, retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
 	-- 선택은 **액션이 없어졌을 때만** 풀린다.
 	--
@@ -3884,9 +2893,9 @@ function DebindFrameMixin:Refresh(retainScrollPosition, visible)
 	-- 아닌 것처럼** 보이는 값은 치른다.
 	-- The version hangs off the name for the same reason it is on the login line: so a bug report
 	-- can carry it. Dimmed, because it is there to be found rather than read every time.
-	self:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
+	DebindFrame:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
 	self:UpdateActionCounts(visible);
-	self:UpdateEmptyText();
+	DebindFrame:UpdateEmptyText();
 end
 
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
@@ -3901,7 +2910,7 @@ end
 --- 안 건드리므로, CTRL-클릭으로 벌크를 시작하는 자리는 이 줄이 따로 챙겨야 한다.
 ---
 --- 한 번 닫히면 다중인 동안 다시 안 열린다 - `Refresh`가 `IsShown()`에서 먼저 돌아선다.
-local function CommitSelection(self)
+local function CommitSelection()
 	-- 왼쪽 열을 여기서 따로 다시 그리지 않는다. **맨 아래 `Update`가 이미 그 일을 한다**
 	-- (`DebindResultPanel:Refresh`). 둘 다 부르면 선택이 한 번 달라질 때마다 키보드
 	-- 전체를 두 번 짓는다 - 그 함수는 프로필의 모든 레이어를 훑어 키로 묶는 자리다.
@@ -3916,7 +2925,7 @@ local function CommitSelection(self)
 		DebindMacroFrame:Refresh();
 	end
 
-	self:Update();
+	DebindFrame:Update();
 end
 
 --- **선택을 이 액션 하나로 접고 앵커를 거기 둔다.** nil이면 아무것도 안 고른 상태다.
@@ -3924,7 +2933,7 @@ end
 --- 벌크가 생기기 전부터 있던 입구라 부르는 데가 많다(탭 전환, 지정 모드, `GoToAction`,
 --- 액션이 사라졌을 때). 전부 "이제 이것 하나다"라는 뜻이므로 집합도 여기서 같이 접는다 -
 --- 저쪽들이 집합을 따로 챙기게 만들면 한 군데는 반드시 빠진다.
-function DebindFrameMixin:SetSelectedAction(action)
+function DebindLayerPanelMixin:SetSelectedAction(action)
 	-- **앵커가 같아도 집합이 여럿이면 접어야 한다.** 벌크로 셋을 고른 뒤 그중 앵커 행을 다시
 	-- 좌클릭하는 것이 정확히 그 경우다. 앵커만 보고 돌아서면 나머지 둘이 고른 채로 남는다.
 	--
@@ -3958,7 +2967,7 @@ function DebindFrameMixin:SetSelectedAction(action)
 	-- **바뀐** 경우뿐이고, 같은 행을 다시 고르면 화면은 가만히 있는다.
 	_revealAction = action;
 
-	CommitSelection(self);
+	CommitSelection();
 	return true;
 end
 
@@ -3982,11 +2991,11 @@ end
 --- 쌓이고, 그건 매번 다르기까지 하다.
 function DebindFrameMixin:GetSelectedActions()
 	local actions = {};
-	if (_selectionCount == 0 or not self.dataProvider) then
+	if (_selectionCount == 0 or not self.LayerPanel.dataProvider) then
 		return actions;
 	end
 
-	for _, elementData in self.dataProvider:EnumerateEntireRange() do
+	for _, elementData in self.LayerPanel.dataProvider:EnumerateEntireRange() do
 		if (_selection[elementData.action]) then
 			actions[#actions + 1] = elementData.action;
 		end
@@ -4022,7 +3031,7 @@ end
 ---
 --- **뺐을 때도 앵커는 그 행으로 간다.** 앵커는 "마지막으로 누른 행"이지 "고른 행"이 아니고,
 --- 그래야 SHIFT가 재는 기준점이 방금 누른 자리에 있다.
-function DebindFrameMixin:ToggleActionSelected(action)
+function DebindLayerPanelMixin:ToggleActionSelected(action)
 	if (not action) then
 		return;
 	end
@@ -4036,7 +3045,7 @@ function DebindFrameMixin:ToggleActionSelected(action)
 	end
 	_selectedAction = action;
 
-	CommitSelection(self);
+	CommitSelection();
 end
 
 --- SHIFT-좌클릭. 앵커부터 이 행까지를 집합으로 삼는다.
@@ -4051,7 +3060,7 @@ end
 --- 앵커가 없거나 지금 목록에 없으면 그냥 하나만 고른다. 후자는 실재한다 - 앵커는 액션으로
 --- 들고 있어서 탭이 바뀌어도 살아 있는데, 그 액션은 다른 레이어에 있으므로 여기서는 범위를
 --- 잴 자리가 없다.
-function DebindFrameMixin:SelectRangeTo(action, additive)
+function DebindLayerPanelMixin:SelectRangeTo(action, additive)
 	if (not action or not self.dataProvider) then
 		return;
 	end
@@ -4078,10 +3087,10 @@ function DebindFrameMixin:SelectRangeTo(action, additive)
 		end
 	end
 
-	CommitSelection(self);
+	CommitSelection();
 end
 
-function DebindFrameMixin:FindElementDataByActionInfo(action)
+function DebindLayerPanelMixin:FindElementDataByActionInfo(action)
 	local index, elementData = self.dataProvider:FindByPredicate(function(e) return e.action == action; end);
 	return elementData, index;
 end
@@ -4104,14 +3113,14 @@ end
 --- 어느 행인지는 강조가 이미 말한다.
 ---
 --- 찾은 elementData를 돌려준다 - 부르는 쪽이 그 행을 또 찾지 않아도 되게.
-function DebindFrameMixin:ScrollActionIntoView(action)
+function DebindLayerPanelMixin:ScrollActionIntoView(action)
 	local elementData, index = self:FindElementDataByActionInfo(action);
 	if (not elementData) then
 		return;
 	end
 
 	-- AlignNearest. 보이면 그대로 두고, 벗어난 쪽으로만 딱 그만큼 움직인다.
-	self.LayerPanel.ScrollBox:ScrollToNearest(index);
+	self.ScrollBox:ScrollToNearest(index);
 	return elementData;
 end
 
@@ -4149,10 +3158,10 @@ function DebindFrameMixin:GoToAction(action, layerID)
 	--
 	-- 옮기고 보여주는 것은 그대로 한다. 넣은 것이 어디로 갔는지는 모드와 상관없이 보여야 한다.
 	if (not self:IsCapturingKey()) then
-		self:SetSelectedAction(action);
+		self.LayerPanel:SetSelectedAction(action);
 	end
 
-	self:ScrollActionIntoView(action);
+	self.LayerPanel:ScrollActionIntoView(action);
 end
 
 --- `destLayerID` is the picker's right-click menu naming a tab. Without it the action is born in
@@ -4194,7 +3203,7 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	layer:PlaceInKeyGroup(action);
 
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
-	self:Refresh(true);
+	self.LayerPanel:Refresh(true);
 
 	-- 곧바로 선택한다. 방금 생긴 액션은 키를 정해야 쓸모가 생기는데, 선택이 왼쪽 열을
 	-- 그 액션으로 채운다. 커서에서 떨궈 만든 것과 **같은 대접**이어야 한다
@@ -4208,10 +3217,10 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	if (layerID ~= GetLayerID()) then
 		self:GoToAction(action, layerID);
 	else
-		self:SetSelectedAction(action);
+		self.LayerPanel:SetSelectedAction(action);
 	end
 
-	local elementData = self:ScrollActionIntoView(action);
+	local elementData = self.LayerPanel:ScrollActionIntoView(action);
 	self:Update();
 
 	return elementData;
@@ -4229,7 +3238,7 @@ function DebindFrameMixin:Update()
 	end
 
 	self:UpdateButtons();
-	self:UpdateListStrip();
+	self.LayerPanel:UpdateListStrip();
 	self:UpdatePendingImports();
 	DebindResultPanel:Refresh();
 	DebindMacroFrame:Refresh();
@@ -4252,12 +3261,12 @@ end
 --- 규칙이었고, 그때는 검색창이 사라지는 것이 곧 "지금은 못 좁힌다"였다. 검색이 왼쪽으로 가면서
 --- 자리가 갈렸고, 무엇보다 **걸러져 나간 선택은 이제 집합에서 빠진다**(`PruneSelectionToBinFilter`) -
 --- 그 규칙이 막으려던 "안 보이는데 골라져 있는" 상태 자체가 안 생긴다.
-function DebindFrameMixin:UpdateListStrip()
+function DebindLayerPanelMixin:UpdateListStrip()
 	local multi = _selectionCount > 1;
 	if (multi) then
-		self.LayerPanel.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
+		self.SelectionCount:SetFormattedText(LLL["BULK_SELECTED_COUNT"], _selectionCount);
 	end
-	self.LayerPanel.SelectionCount:SetShown(multi);
+	self.SelectionCount:SetShown(multi);
 
 	-- 좁히는 것이 죽는 자리는 둘이고, **판정은 여기 하나에 모은다.** `UpdateButtons`에도 같은
 	-- 잠금이 있는데 이 함수가 그 뒤에 도므로, 저기서 같이 끄면 여기가 도로 켠다.
@@ -4270,13 +3279,13 @@ function DebindFrameMixin:UpdateListStrip()
 	--    (`UpdateButtons`의 `enableButtons`) 좁히는 것만 살아 있으면 목록이 그 밑에서 바뀐다.
 	--
 	-- **드롭다운도 같이 잠근다.** 둘이 같은 일을 하므로 한쪽만 잠그면 잠긴 이유가 거짓이 된다.
-	local capturing = self:IsCapturingKey();
+	local capturing = DebindFrame:IsCapturingKey();
 	local locked = capturing or IsEditingAction();
-	self.OverviewPanel.SearchBox:SetEnabled(not locked);
+	DebindFrame.OverviewPanel.SearchBox:SetEnabled(not locked);
 	if (locked) then
-		self.OverviewPanel.SearchBox:ClearFocus();
+		DebindFrame.OverviewPanel.SearchBox:ClearFocus();
 	end
-	self.OverviewPanel.FilterDropdown:SetEnabled(not locked);
+	DebindFrame.OverviewPanel.FilterDropdown:SetEnabled(not locked);
 end
 
 --- The button for what came in. **It only stands while at least one badge is left.**
@@ -4330,7 +3339,7 @@ function DebindFrameMixin:UpdateButtons()
 
 	-- `SideTabs`는 `InitializeSideTabs`가 채우고 그건 `OnLoad`에서만 돈다. 창이 한 번도
 	-- 안 열린 세션에서는 nil인데, 그런 경로는 `Update`의 `initialized` 가드에서 막힌다.
-	for _, tab in ipairs(self.SideTabs) do
+	for _, tab in ipairs(self.LayerPanel.SideTabs) do
 		tab:SetEnabled(enableButtons);
 	end
 
@@ -4413,16 +3422,16 @@ function DebindFrameMixin:SetTab(id)
 	-- 일이라, 탭을 옮길 때마다 다시 치게 만들면 검색이 탭 하나짜리 도구가 된다. 새 탭이
 	-- 걸러진 채로 열리는 것은 빈 목록 문구가 갈라준다(`NO_SEARCH_RESULTS`).
 	if (_selectedTab ~= id) then
-		self:SetSelectedAction(nil);
+		self.LayerPanel:SetSelectedAction(nil);
 	end
 
 	_selectedTab = id;
 	PanelTemplates_SetTab(self.LayerPanel, _selectedTab);
-	self:UpdateSideTabs();
+	self.LayerPanel:UpdateSideTabs();
 
-	if (not self.SideTabs[_selectedSideTab]:IsShown()) then
+	if (not self.LayerPanel.SideTabs[_selectedSideTab]:IsShown()) then
 		_selectedSideTab = 1;
-		self:UpdateSideTabs();
+		self.LayerPanel:UpdateSideTabs();
 	end
 
 	-- `Refresh` rebuilds the list, `Update` re-reads it. Both are needed and neither can wait for
@@ -4432,7 +3441,7 @@ function DebindFrameMixin:SetTab(id)
 	--
 	-- (The spell picker deliberately stays open across a tab switch - its whole use is picking
 	-- into one tab after another - which is why it is absent from `UpdateButtons`'s lock list.)
-	self:Refresh();
+	self.LayerPanel:Refresh();
 	self:Update();
 end
 
@@ -4543,7 +3552,7 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 
 	self:ClearMouse();
 	DebindPrivate.UpdateBindings();
-	self:Refresh(true);
+	self.LayerPanel:Refresh(true);
 
 	-- **떨군 곳으로 따라간다.** 탭 버튼에 떨구면 그 탭을 켜고, 방금 생긴 액션을 고르고,
 	-- 화면 안으로 스크롤한다 - `GoToAction`이 그 셋을 이미 한 덩어리로 한다.
@@ -4786,7 +3795,7 @@ function DebindIconSelectorFrameMixin:OkayButton_OnClick()
 
 	-- 이름이 바뀌면 이름순 정렬에서 자리가 바뀐다. Update는 있는 줄을 그 자리에서 고쳐
 	-- 그릴 뿐이라 방금 바꾼 이름이 옛 자리에 남는다.
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 	DebindFrame:Update();
 
 	-- 다음에 무엇이 열릴지는 이 팝업이 정하지 않는다. 연 쪽이 안다. 먼저 꺼내 두는 건
@@ -5019,7 +4028,7 @@ function DebindUI.ApplyOrderSwap(action, neighbor)
 	_revealAction = action;
 	DebindPrivate.RenumberKeyGroupForAction(action);
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 	DebindFrame:Update();
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 	return true;
@@ -5682,7 +4691,7 @@ function DebindFrameMixin:SetBindingMode(active, button)
 
 		-- **선택을 비운다.** 선택은 "지금 이 액션 이야기 중"이라는 뜻인데 모드의 대상은 커서
 		-- 밑의 행이라, 남겨두면 강조가 가리키는 것과 실제로 키가 걸릴 곳이 어긋난다.
-		self:SetSelectedAction(nil);
+		self.LayerPanel:SetSelectedAction(nil);
 	else
 		-- 여기로 오는 것은 전부 **커밋**이다(오버레이의 [종료], 창이 숨는 경우, 토글 다시 누르기).
 		-- 되돌리는 쪽은 CancelBindMode가 목록을 먼저 챙긴 뒤에 이 함수를 부른다.
@@ -5749,8 +4758,6 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 끄므로 이 값은 어차피 다음에 들을 때까지 아무 일도 하지 않는다.
 	end
 
-	-- **왼쪽 열의 Refresh다.** 창의 Refresh(오른쪽 목록 재구성)와 이름이 같으므로 여기서
-	-- self:Refresh()라고 쓰면 엉뚱한 목록이 다시 그려진다.
 	DebindResultPanel:Refresh();
 	self:Update();
 end
@@ -5795,7 +4802,7 @@ end
 --- 빼앗길 일도 없다.
 local function GetHoveredLine()
 	local hovered;
-	DebindFrame.LayerPanel.ScrollBox:ForEachFrame(function(frame)
+	DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
 		if (not hovered and frame.GetElementData and frame:IsMouseMotionFocus()) then
 			hovered = frame;
 		end
@@ -5916,7 +4923,7 @@ function DebindFrameMixin:CancelBindMode()
 
 	if (changed) then
 		DebindPrivate.UpdateBindings();
-		self:Refresh(true);
+		self.LayerPanel:Refresh(true);
 		self:Update();
 		DebindResultPanel:Refresh();
 	end
@@ -5993,8 +5000,8 @@ function DebindFrameMixin:SetActionKey(action, key)
 		self:PruneSelectionToBinFilter(visible);
 	end
 	DebindPrivate.UpdateBindings();
-	self:Refresh(true, visible);
-	self:ScrollActionIntoView(action);
+	self.LayerPanel:Refresh(true, visible);
+	self.LayerPanel:ScrollActionIntoView(action);
 	-- 키가 바뀌면 왼쪽 열에서 자리를 통째로 옮긴다 - 그 열은 키로 묶고 키로 정렬한다. 간 자리가
 	-- 화면 밖이면 아무 일도 안 일어난 것처럼 보이므로 따라간다. 오른쪽 목록은 저 위에서 따로
 	-- 굴린다(`ScrollActionIntoView`) - 두 열은 서로의 스크롤을 안 본다.
@@ -6045,7 +5052,7 @@ end
 --- is its own answer - `CollectActionsForKey` has nothing to say about a key that is not there.
 local function RebuildAfterKeyGroupChange(actions, key)
 	DebindPrivate.UpdateBindings();
-	DebindFrame:Refresh(true);
+	DebindLayerPanel:Refresh(true);
 
 	local target;
 	if (key == nil) then
@@ -6064,8 +5071,8 @@ local function RebuildAfterKeyGroupChange(actions, key)
 	end
 
 	if (target) then
-		DebindFrame:SetSelectedAction(target);
-		DebindFrame:ScrollActionIntoView(target);
+		DebindLayerPanel:SetSelectedAction(target);
+		DebindLayerPanel:ScrollActionIntoView(target);
 	end
 
 	DebindFrame:Update();
@@ -6373,7 +5380,7 @@ function DebindMacroFrameMixin:Open(action, cancelFunc)
 	if (not action) then
 		return false;
 	end
-	DebindFrame:SetSelectedAction(action);
+	DebindLayerPanel:SetSelectedAction(action);
 
 	self:Show();
 	self:Refresh();
@@ -6512,7 +5519,7 @@ function DebindMacroFrameMixin:Revert_OnClick()
 		-- The row's name and icon changed with the type, so the list has to be built again and not
 		-- just redrawn in place. `Refresh` is what closes the window now that it is not macrotext.
 		self:Refresh();
-		DebindFrame:Refresh(true);
+		DebindLayerPanel:Refresh(true);
 		DebindFrame:Update();
 		return;
 	end
@@ -6640,23 +5647,11 @@ function DebindStateDriverUpdateThrottleSliderMixin:UpdateVisibleState()
 end
 
 -- temp
-DebindUI.UNIT_INFO = UNIT_INFO;
-DebindUI.SORTED_UNIT_LIST = SORTED_UNIT_LIST;
-DebindUI.BINDING_TYPE_NAMES = BINDING_TYPE_NAMES;
--- The blue is minted in one place. The dropdown menus have to draw the same one the rows do, and a
--- second copy is the one that stops matching the day the original moves.
-DebindUI.IMPORTED_FONT_COLOR = IMPORTED_FONT_COLOR;
 DebindUI.GetLayerID = GetLayerID;
-DebindUI.GetTabLabel = GetTabLabel;
-DebindUI.GetSideTabaLabel = GetSideTabaLabel;
-DebindUI.GetLayerLabel = GetLayerLabel;
-DebindUI.IsLayerOffWorld = IsLayerOffWorld;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;
 DebindUI.ApproveImportedActions = ApproveImportedActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebindUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
 DebindUI.ShowRejectImportConfirmationPopup = ShowRejectImportConfirmationPopup;
-DebindUI.NameAndIconForAction = NameAndIconForAction;
-DebindUI.SetActionIcon = SetActionIcon;
 DebindUI.ShowInputBox = ShowInputBox

@@ -520,7 +520,7 @@ function DebindBringFrameMixin:Accept()
     -- `UpdateBindings` is deliberately not called. Everything placed is badged and `BuildKeyMap`
     -- skips badged actions, so a rebuild here would spend the work to arrive at the key map that
     -- is already up. The bindings change when the reader accepts, not when they import.
-    DebindFrame:Refresh(true);
+    DebindLayerPanel:Refresh(true);
     DebindFrame:Update();
 end
 

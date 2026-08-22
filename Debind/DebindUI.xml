@@ -1,6 +1,19 @@
 ﻿<Ui xmlns="http://www.blizzard.com/wow/ui/"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
 
+	<!--
+		**Before `DebindUI.lua`, and this order is load-bearing.** `ActionDisplay.lua` creates
+		`DebindPrivate.DebindUI`; the two after it read out of that table as they load, and the
+		window's file takes the table and what is in it as it finds them. Any other order and the
+		opening lines of whichever came too early index a nil.
+
+		The three stand outside the window because every other panel in this addon draws actions,
+		names layers and hovers over rows, and none of them should have to go through the overview to
+		do it (`breaking-up-debindui.md`, "창보다 위로 올릴 것").
+	-->
+	<Script file="ActionDisplay.lua" />
+	<Script file="LayerDisplay.lua" />
+	<Script file="ActionTooltip.lua" />
 	<Script file="DebindUI.lua" />
 	<Script file="DropDownMenus.lua" />
 
@@ -782,7 +795,7 @@
 						Same two rules as the container above, for the same two reasons: covers the whole frame so
 						the offsets below keep their numbers, and `useParentLevel` so `ScrollBox` keeps its order.
 					-->
-					<Frame parentKey="LayerPanel" useParentLevel="true" setAllPoints="true">
+					<Frame parentKey="LayerPanel" name="DebindLayerPanel" useParentLevel="true" mixin="DebindLayerPanelMixin" setAllPoints="true">
 						<Frames>
 							<!--
 								**통.** 지금 고른 레이어에 담긴 액션 목록이고, 창의 오른쪽에 산다.
