@@ -593,7 +593,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     test("봉투 모양", function()
-        local str = DebindStorage.ExportSelection();
+        local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
         check(type(str) == "string", "문자열이 아니다: " .. tostring(str));
         check(str:sub(1, 5) == "DEB1:", "봉투 머리 " .. str:sub(1, 8));
         check(not str:find("%s"), "공백이 섞이면 채팅으로 못 나른다");
@@ -602,7 +602,7 @@ return function(DebindPrivate, DebindStorage)
     if (deflateWorks) then
         test("문자열로 나갔다 그대로 돌아온다", function()
             SamplePayload();
-            local str = DebindStorage.ExportSelection();
+            local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
             local payload, err = DebindStorage.DecodeExportString(str);
             check(payload, "디코드 실패: " .. tostring(err));
             CheckSurvived(payload);
@@ -612,6 +612,149 @@ return function(DebindPrivate, DebindStorage)
     io.write(deflateWorks
         and "  export: 압축까지 붙은 전체 왕복을 검사했다\n"
         or "  export: fengari라 압축 왕복은 못 돌았다 (직렬화 왕복만 검사). 실제 lua로 돌릴 것\n");
+
+    ---------------------------------------------------------------------------
+    -- 보관함에 앉는 것
+    --
+    -- 프로필에서 만든 엔트리는 **누구 것인지를 셋으로 든다**. 그 셋이 페이로드 밖에 있는 것이
+    -- 곧 그것이 문자열에 안 실린다는 뜻이라, 여기서 재는 것은 값이 맞느냐만이 아니라
+    -- **어디에 앉느냐**다 (`devdocs/building-export-import.md` 12절).
+    --
+    -- 그 셋이 페이로드 안으로 들어가는 편집은 어떤 검사도 못 잡는다. 문자열은 그대로 만들어지고
+    -- 남의 화면에서 캐릭터 이름이 보인다.
+    ---------------------------------------------------------------------------
+
+    --- 페이로드 최상단에 설 수 있는 이름 전부. 닫힌 목록이라 새 필드가 붙으면 여기가 먼저
+    --- 빨개진다.
+    local PAYLOAD_KEYS = {
+        v = true, dbver = true, class = true, states = true, shared = true, char = true,
+    };
+
+    local function ResetStore()
+        _G.DebindStorageVars = nil;
+    end
+
+    test("프로필에서 만든 것이 캐릭터명·서버명·guid를 든다", function()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+        local entry = DebindStorage.CreateEntry();
+        check(entry.character == "Tester", "캐릭터명 " .. tostring(entry.character));
+        check(entry.realm == "Test Realm", "서버명 " .. tostring(entry.realm));
+        check(entry.guid == GUID, "guid " .. tostring(entry.guid));
+        check(CountActions(entry.payload) == 1, "액션이 안 담겼다");
+    end);
+
+    test("그 셋은 페이로드 밖이다", function()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+        local payload = DebindStorage.CreateEntry().payload;
+        for name in pairs(payload) do
+            check(PAYLOAD_KEYS[name],
+                "페이로드가 모르는 필드를 들었다: " .. tostring(name));
+        end
+    end);
+
+    -- 붙여넣기는 문자열을 지나야 하고 그 길은 압축을 지난다. **fengari에서는 안 돈다**(위
+    -- WARNING), 그래서 이것만 위의 전체 왕복과 같은 편에 선다. 조건 없이 세워두면 node에서
+    -- 아무것도 안 재고 초록으로 지나간다.
+    if (deflateWorks) then
+        test("붙여넣은 것에는 그 셋이 없다", function()
+            ResetStore();
+            ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+            local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
+            local entry = DebindStorage.ImportEntry(str, "받은 것");
+            check(entry, "받아들여지지 않았다");
+            check(entry.character == nil and entry.realm == nil and entry.guid == nil,
+                "받은 것에 신원이 붙었다");
+        end);
+    end
+
+    ---------------------------------------------------------------------------
+    -- 고른 것만 나간다
+    --
+    -- 선택은 안 남는다. 한 엔트리를 매번 다르게 쓰는 답이라, 문자열을 만드는 그 순간에만
+    -- 뜻이 있다 (12절 "체크박스와 삭제는 다른 일을 한다").
+    ---------------------------------------------------------------------------
+
+    test("고른 액션만 실린다", function()
+        ResetStore();
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F" },
+                { type = Constants.SPELL, value = 2, key = "G" },
+            },
+            char = { [0] = { { type = Constants.SPELL, value = 3, key = "H" } } },
+        });
+
+        local payload = DebindStorage.CreateEntry().payload;
+        local all = AllActions(payload);
+        check(#all == 3, "만들기가 셋을 안 담았다: " .. #all);
+
+        local selection = {};
+        for _, action in ipairs(all) do
+            if (action.value ~= 2) then
+                selection[action] = true;
+            end
+        end
+
+        local out = DebindStorage.FilterPayload(payload, selection);
+        check(CountActions(out) == 2, "실린 수 " .. CountActions(out));
+        check(#GroupFor(out, "G") == 0, "안 고른 것이 실렸다");
+        check(OneOn(out, "F").value == 1, "일반 레이어 것이 빠졌다");
+        check(OneOn(out, "H").value == 3, "캐릭터 레이어 것이 빠졌다");
+        -- 주소는 경로 그 자체다. 골라낸 뒤에도 같은 자리에 있어야 받는 쪽이 같은 곳에 놓는다.
+        check(out.char and out.char[0], "캐릭터 자리가 안 섰다");
+        check(out.shared and out.shared.GENERAL, "일반 자리가 안 섰다");
+        check(out.v == payload.v and out.dbver == payload.dbver and out.class == payload.class,
+            "봉투 필드가 안 따라왔다");
+    end);
+
+    test("안 고르면 페이로드가 그대로 나간다", function()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+
+        local payload = DebindStorage.CreateEntry().payload;
+        check(DebindStorage.FilterPayload(payload, nil) == payload, "같은 표가 아니다");
+    end);
+
+    test("골라낸 뒤 매니페스트가 참조된 것만 남는다", function()
+        ResetStore();
+        StatefulProfile({
+            { type = Constants.SPELL, value = 1, key = "F" },
+            { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "G" },
+        });
+        LayerActions(1)[1].conditions = { ["$state1"] = true };
+
+        local payload = DebindStorage.CreateEntry().payload;
+        check(payload.states["$state1"] and payload.states["$state3"], "둘 다 안 실렸다");
+
+        local selection = {};
+        selection[OneOn(payload, "G")] = true;
+
+        local states = DebindStorage.FilterPayload(payload, selection).states;
+        check(states["$state3"], "고른 것이 쓰는 상태가 빠졌다");
+        check(states["$state1"] == nil, "안 고른 것이 쓰던 상태가 남았다");
+    end);
+
+    test("골라낼 때 정의는 페이로드 것을 쓴다", function()
+        ResetStore();
+        StatefulProfile({ { type = Constants.SETSTATE_TOGGLE, value = "$state3", key = "G" } });
+
+        local payload = DebindStorage.CreateEntry().payload;
+        -- 남이 준 문자열이면 정의가 내 것과 다르다. 여기서 프로필을 다시 물으면 그 순간
+        -- **남의 정의가 내 것으로 바뀐 채** 나간다.
+        payload.states["$state3"].displayMessage = "보낸 사람 것";
+
+        local selection = {};
+        selection[OneOn(payload, "G")] = true;
+
+        local states = DebindStorage.FilterPayload(payload, selection).states;
+        check(states["$state3"].displayMessage == "보낸 사람 것",
+            "프로필 정의로 바뀌었다: " .. tostring(states["$state3"].displayMessage));
+    end);
 
     ---------------------------------------------------------------------------
     -- The shape itself

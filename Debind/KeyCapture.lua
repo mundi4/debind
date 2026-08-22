@@ -6,8 +6,8 @@ local DebindUI         = DebindPrivate.DebindUI;
 --- Asking for one key, for one action or one key group, once.
 ---
 --- The addon's other way of taking a key is a **mode**: the toggle over the list stays on, whatever
---- is under the cursor gets what you press, and a session's worth of changes is cancelled as a
---- batch (`SetBindingMode` in `DebindUI.lua`). That shape is for hanging ten keys in a row. This one
+--- is under the cursor gets what you press, and a session's worth of changes is cancelled in one
+--- go (`SetBindingMode` in `DebindUI.lua`). That shape is for hanging ten keys in a row. This one
 --- is for the opposite case - a reader who wants the key for *this* set and nothing else. There is
 --- no aiming, so there is nothing to say about pointing: the dialog shows what it is asking about
 --- and takes the next key.

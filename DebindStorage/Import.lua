@@ -10,11 +10,11 @@ local luatype       = type;
 local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player")));
 
 --- The receiving end: a pasted string waits until the reader says to bring it in, and then becomes
---- actions in the profile. The reverse of `Export.lua`, and only that. Deciding *which* batch to
+--- actions in the profile. The reverse of `Export.lua`, and only that. Deciding *which* entry to
 --- commit, and what to do with the result afterwards, belongs to the window and to the main
 --- window's Overview.
 ---
---- **A batch is outside the profile until it is committed**, which is the decision the design turns
+--- **An entry is outside the profile until it is committed**, which is the decision the design turns
 --- on (`devdocs/building-export-import.md`): once actions are in the profile they scatter -- the
 --- overview sorts by name, layers split them -- so what arrived together has to keep saying so, and
 --- the key is what carries it across.
@@ -25,18 +25,28 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- what lets it run without asking anything first.
 
 
---- What gets serialized is the payload, so this versions the payload's shape. Bump it when that
---- shape changes under a reader holding one written by an older version.
+--- The shape of a stored **entry** -- the record below, not the payload inside it.
 ---
---- It was called `STORE_VERSION` and its comment said "bump when a stored batch changes shape",
+--- **Two shapes sit in one row and each has its own number.** `payload.v` says what the payload is,
+--- and that number belongs to the wire: it moves when a string's shape moves, and the reader it
+--- answers to is somebody holding a string an older version wrote (`Export.lua`). This one says
+--- what the row around that payload is, and nothing outside this addon ever sees it.
+---
+--- **Keeping them apart is what lets either move alone.** Folded into one, a change to the record
+--- here would have to move the wire number, and every string sitting in somebody else's notes would
+--- be turned away for a change that never left this disk.
+---
+--- **A field added is not a bump** - the rule `SCHEMA_VERSION` states, for the same reason: a reader
+--- that skips what it does not know survives an addition on its own. That is what the three an
+--- entry made from a profile carries are. A row without them is a row that came from a string,
+--- which is exactly what their absence should mean.
+---
+--- It was called `STORE_VERSION` and its comment said "bump when a stored entry changes shape",
 --- which is why it got bumped for something that is not a shape change at all: keeping the payload
 --- instead of the string it arrived in. **The same payload either way** - compressed in a `text`
 --- field or sitting there decoded - so nothing about the serialized shape moved. What moved was
 --- where it lived.
----
---- The two versions on the string itself (`Export.lua`) are a different question: those describe
---- bytes that came from somewhere else, and this one describes what we wrote ourselves.
-local PAYLOAD_VERSION           = 1;
+local ENTRY_VERSION             = 1;
 
 --- The highest spec number the profile has a place for (`LAYER_INFOS` in `Profile.lua` runs each
 --- block from 0 to 4). A descriptor naming a spec past this is not a spec we cannot represent, it
@@ -59,7 +69,7 @@ for classID = 1, 20 do
 end
 
 --- **There is no expiry.** Two constants and two functions stood here, and a pin on the row to
---- opt out of them: a batch was judged old after a month and called out three days before, and
+--- opt out of them: an entry was judged old after a month and called out three days before, and
 --- nothing ever removed one. So the row showed a date on which nothing happens and the pin
 --- exempted the reader from a sweep that does not exist.
 ---
@@ -162,7 +172,7 @@ function DebindStorage.ImportAddress(scope, class, spec)
     -- so every paste of such a string leaves one more behind in the account file. That is precisely
     -- the outcome this function exists to refuse. NaN is worse: **every** comparison against it is
     -- false, so it passes the range check and raises where the value is used as an index, halfway
-    -- through placing a batch. `spec ~= floor(spec)` is false for both a fraction and an infinity,
+    -- through placing an entry. `spec ~= floor(spec)` is false for both a fraction and an infinity,
     -- and `spec ~= spec` is the only thing that catches NaN.
     spec = spec or 0;
     if (luatype(spec) ~= "number" or spec ~= spec or spec ~= floor(spec)
@@ -196,7 +206,7 @@ end
 --- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
 --- raised halfway through `PlaceImportedActions`, `priority = {}` raised inside the `table.sort`
 --- that follows, `units = "x"` was walked with `pairs`. Every one of those went off after
---- part of the batch was already in the profile. The types are `ACTION_FIELDS`' values.
+--- part of the entry was already in the profile. The types are `ACTION_FIELDS`' values.
 ---
 --- **A field of the wrong type is dropped, not corrected.** What it should have been is not
 --- knowable, and an action missing a condition is a shape the rest of the addon already handles -
@@ -291,7 +301,7 @@ local VALUE_SHAPES = {
 --- whether the action is one the addon can represent at all -- a `macro` holding a number, a
 --- `worldmarker` holding nothing. **Nothing this addon writes builds one of those**, so a string
 --- carrying one was touched by hand somewhere -- the string itself, or the SavedVariables it was
---- exported from -- and `AddBatch` turns the **whole string** away on it
+--- exported from -- and `ImportEntry` turns the **whole string** away on it
 --- (`devdocs/building-export-import.md`).
 ---
 --- A type nobody knows is the same answer. It cannot be drawn, cannot be bound, and cannot be
@@ -388,7 +398,7 @@ end
 ---     `KeyMapper` does again. `ImportAddress` turns the same value away for `spec` and says why.
 ---
 --- Neither needs its own guard downstream now, because nothing downstream runs on a payload this
---- refuses -- `AddBatch` asks before it stores, and a batch is the only way in.
+--- refuses -- `ImportEntry` asks before it stores, and an entry is the only way in.
 function DebindStorage.PayloadIsImpossible(payload)
     if (payload.class ~= nil and not KNOWN_CLASSES[payload.class]) then
         return true;
@@ -409,7 +419,7 @@ end
 
 
 -- ---------------------------------------------------------------------------------------------
--- Stored batches
+-- Stored entries
 -- ---------------------------------------------------------------------------------------------
 
 --- `DebindStorageVars`, made if it is not there yet.
@@ -427,14 +437,14 @@ local function Vars()
         vars = {};
         _G.DebindStorageVars = vars;
     end
-    vars.version = vars.version or PAYLOAD_VERSION;
-    vars.batches = vars.batches or {};
+    vars.version = vars.version or ENTRY_VERSION;
+    vars.entries = vars.entries or {};
     vars.nextID = vars.nextID or 1;
 
     return vars;
 end
 
---- The payload of a stored batch, or nil plus the reason it could not be read.
+--- The payload of a stored entry, or nil plus the reason it could not be read.
 ---
 --- **The payload is what is stored, not the string it came in.** Four reasons for keeping the
 --- string were written down and all four turned out to be true of both shapes
@@ -444,26 +454,26 @@ end
 --- left over is disk size, and holding a smaller thing we cannot read is the worse end of that
 --- trade.
 ---
---- **The gate `AddBatch` stands is stood again here.** A batch that got in before the gate existed
+--- **The gate `ImportEntry` stands is stood again here.** An entry that got in before the gate existed
 --- is closed by this one, which is why the gate needs nothing rewritten behind it -- there is only
 --- something to refuse. **Everything that reads a payload for its contents comes through here**, so
 --- past this line it is one of ours.
 ---
---- Two callers read `batch.payload` without asking: `CountBatch` and `BatchClassText`
+--- Two callers read `entry.payload` without asking: `CountEntry` and `EntryClassText`
 --- (`ImportUI.lua`). Both draw the row rather than act on it, and a row has to be drawable for a
---- batch that this refuses -- deleting it is the only thing left to do with it, and the delete
+--- entry that this refuses -- deleting it is the only thing left to do with it, and the delete
 --- button is on the row. So they guard the one field they touch and read nothing else.
 ---
---- **The schema is asked first, and it is asked for the same reason.** `AddBatch` asks it of a
+--- **The schema is asked first, and it is asked for the same reason.** `ImportEntry` asks it of a
 --- string through `DecodeExportString`; this asks it of a payload that has been sitting in
 --- SavedVariables since some earlier version. The two questions used to be one door apart: what is
---- pasted was asked and what is stored was not, so the batches most likely to be old were the ones
+--- pasted was asked and what is stored was not, so the entries most likely to be old were the ones
 --- nothing asked. It answers the same thing on every payload there is today, and stops doing so the
 --- day a schema step is written -- which is what `BringPayloadForward` is for, and why it comes
 --- before the check below rather than after. `PayloadIsImpossible` reads fields whose meaning the
 --- schema decides, so asking it about a payload of an unknown schema is asking the wrong question.
-function DebindStorage.GetBatchPayload(batch)
-    local payload, reason = DebindStorage.BringPayloadForward(batch.payload);
+function DebindStorage.GetEntryPayload(entry)
+    local payload, reason = DebindStorage.BringPayloadForward(entry.payload);
     if (not payload) then
         return nil, reason;
     end
@@ -475,23 +485,23 @@ function DebindStorage.GetBatchPayload(batch)
     return payload;
 end
 
---- How many groups and how many actions a batch holds.
+--- How many groups and how many actions an entry holds.
 ---
---- **Counted on the spot rather than written down when the batch was made.** Both numbers were
+--- **Counted on the spot rather than written down when the entry was made.** Both numbers were
 --- fields on the record while the string was what got stored, because answering them any other way
 --- meant decoding every row of the list to draw it. The payload is right there now, so a stored
 --- copy would only be a second place for the same fact to live.
 ---
 --- **A key is a group**, so counting the distinct keys is counting the groups. An action with no
 --- key at all is in nobody's, and adds to the total but to no group.
-function DebindStorage.CountBatch(batch)
+function DebindStorage.CountEntry(entry)
     local groupCount, actionCount = 0, 0;
-    if (not batch.payload) then
+    if (not entry.payload) then
         return groupCount, actionCount;
     end
 
     local seenKeys = {};
-    DebindStorage.ForEachPayloadLayer(batch.payload, function(list)
+    DebindStorage.ForEachPayloadLayer(entry.payload, function(list)
         for _, action in ipairs(list) do
             actionCount = actionCount + 1;
             local key = action.key;
@@ -505,13 +515,55 @@ function DebindStorage.CountBatch(batch)
     return groupCount, actionCount;
 end
 
---- Takes a pasted string in and keeps it as a batch.
+--- Seats a payload in the store and hands back the row it became.
+---
+--- **Both ways in end here**, so an entry made from this profile and one pasted out of a string are
+--- the same kind of thing from the moment they exist. What separates them is what `extra` carries,
+--- and that is three fields about where it came from.
+---
+--- **The automatic backup is why this is one door rather than two.** A backup is an entry made from
+--- the profile and restoring one is pressing the same button any other row has, so there is nothing
+--- for it to have of its own (`devdocs/building-export-import.md`). A branch built for backups
+--- would be code no ordinary press ever walks, and code nothing walks is code nothing has checked.
+local function StoreEntry(payload, extra)
+    local vars = Vars();
+    local entry = extra or {};
+
+    entry.id = vars.nextID;
+    -- **When this row appeared here**, which is what the list sorts and dates by. For a pasted
+    -- string that is when it was pasted; for one made here it is when it was made. What it is not
+    -- is when the setting it holds was *exported* -- a string carries nothing about its sender but
+    -- their class, so that is a second question with no answer on the wire yet
+    -- (`devdocs/building-export-import.md`).
+    entry.received = time();
+    -- **What arrived, not the string it arrived in.** The string is not kept: nothing reads it
+    -- back, and a copy of the same contents in a form we may one day be unable to decode is worth
+    -- less than the payload beside it (`GetEntryPayload`).
+    entry.payload = payload;
+
+    vars.nextID = vars.nextID + 1;
+    vars.entries[#vars.entries + 1] = entry;
+
+    return entry;
+end
+
+--- Takes a pasted string in and keeps it as an entry.
 ---
 --- **Decoded before it is stored**, so a string that cannot be read is refused where the user is
---- looking at it rather than becoming a batch that fails every time it is opened.
---- Returns the batch, or nil plus the same reason codes `DecodeExportString` uses, plus
+--- looking at it rather than becoming an entry that fails every time it is opened.
+--- Returns the entry, or nil plus the same reason codes `DecodeExportString` uses, plus
 --- `IMPOSSIBLE_PAYLOAD` for the check below.
-function DebindStorage.AddBatch(text, name)
+---
+--- **`name` is what the reader chose to call it.** Free text, optional, purely for the list --
+--- nothing reads it back. It asked who the string came from once: nothing *sends* a string, it is
+--- copied off a page or out of a notes file, and the reader restoring their own backup had no
+--- answer to give, so the field stayed empty exactly where a name would have been most use.
+---
+--- **Nothing about the sender lands here.** A row made from a profile carries three fields saying
+--- whose it is (`CreateEntry`), and a pasted one has none of them -- deliberately, since a string
+--- meant for a public channel does not carry a character name. Their absence is what says this came
+--- from somebody else.
+function DebindStorage.ImportEntry(text, name)
     local payload, reason = DebindStorage.DecodeExportString(text);
     if (not payload) then
         return nil, reason;
@@ -523,53 +575,59 @@ function DebindStorage.AddBatch(text, name)
         return nil, "IMPOSSIBLE_PAYLOAD";
     end
 
-    local vars = Vars();
-    local batch = {
-        id = vars.nextID,
-        received = time(),
-        -- **What arrived, not the string it arrived in.** The string is not kept: nothing reads it
-        -- back, and a copy of the same contents in a form we may one day be unable to decode is
-        -- worth less than the payload beside it (`GetBatchPayload`).
-        payload = payload,
-        -- What the reader chose to call it. Free text, optional, purely for the list -- nothing
-        -- reads it back.
-        --
-        -- **It asked who the string came from.** Nothing sends a string: it is copied off a page or
-        -- out of a notes file, and the reader restoring their own backup had no answer to give - so
-        -- the field stayed empty exactly where a name would have been most use.
-        name = name,
-
-        -- **Nothing else.** A record held five more fields at various points -- four empty tables
-        -- and a `stripKeys` flag -- and every one of them was an answer to a question the caller
-        -- asks at the moment it acts. A stored answer to a question nobody has asked yet is one
-        -- that goes stale between the two.
-    };
-
-    vars.nextID = vars.nextID + 1;
-    vars.batches[#vars.batches + 1] = batch;
-
-    return batch;
+    return StoreEntry(payload, { name = name });
 end
 
-function DebindStorage.GetBatches()
-    return Vars().batches;
+--- Makes an entry out of this character's profile and keeps it.
+---
+--- `selection` is a set of action tables, or nil for the whole profile. **The button that makes one
+--- passes nil**: there is no screen for picking first, because everything a profile holds is
+--- already the answer and asking would put a step in front of the one press. Narrowing is what the
+--- entry itself is for afterwards -- a row can have actions deleted out of it, and what gets handed
+--- out is ticked at the moment it is handed out (`FilterPayload`). The one caller that does pass a
+--- set is the key group shortcut, which has a range in its hand already.
+---
+--- **Badged actions are left out**, by `BuildExportPayload` asking `IsExportable`. So a fresh entry
+--- never shows a blue row: what is in it is what this reader has approved, which is also what makes
+--- it worth anything as a backup -- the thing a key group operation can take away is an approved
+--- action, and a badged one still has its own entry sitting in the list to be added again.
+---
+--- **The three fields are only on rows made here**, and they answer three questions: which
+--- character a row in the list belongs to, what to call an automatic backup, and whether this is
+--- the reader's own backup rather than somebody else's setting. That last one is the axis the
+--- custom-state question could never be decided on, because nothing on the wire tells the two apart
+--- (`devdocs/building-export-import.md`).
+---
+--- **They are outside the payload**, which is what keeps them off the wire. A string is made by
+--- encoding `entry.payload`, so there is no step that has to remember to drop them and no way for a
+--- later edit to forget.
+function DebindStorage.CreateEntry(selection)
+    return StoreEntry(DebindStorage.BuildExportPayload(selection), {
+        character = UnitName("player"),
+        realm = GetRealmName(),
+        guid = DebindPrivate.playerGUID,
+    });
 end
 
-function DebindStorage.GetBatch(id)
-    local batches = Vars().batches;
-    for i = 1, #batches do
-        if (batches[i].id == id) then
-            return batches[i];
+function DebindStorage.GetEntries()
+    return Vars().entries;
+end
+
+function DebindStorage.GetEntry(id)
+    local entries = Vars().entries;
+    for i = 1, #entries do
+        if (entries[i].id == id) then
+            return entries[i];
         end
     end
     return nil;
 end
 
-function DebindStorage.DeleteBatch(id)
-    local batches = Vars().batches;
-    for i = 1, #batches do
-        if (batches[i].id == id) then
-            tremove(batches, i);
+function DebindStorage.DeleteEntry(id)
+    local entries = Vars().entries;
+    for i = 1, #entries do
+        if (entries[i].id == id) then
+            tremove(entries, i);
             return true;
         end
     end
@@ -577,7 +635,7 @@ function DebindStorage.DeleteBatch(id)
 end
 
 -- ---------------------------------------------------------------------------------------------
--- The whole batch
+-- The whole entry
 -- ---------------------------------------------------------------------------------------------
 
 --- Turns the keys a string arrived with into the keys they will be stored under.
@@ -602,7 +660,7 @@ end
 --- own number up, because the answer was the highest key in the store plus one -- and nothing is
 --- written until `PlaceImportedActions`, so asking twice mid-walk would have answered the same
 --- thing twice. `NextSyntheticKey` is a counter now and hands out a fresh number every time it is
---- asked, which makes the local one a second place keeping the same tally: this batch would take
+--- asked, which makes the local one a second place keeping the same tally: this entry would take
 --- three numbers while the counter moved by one, and the next string to arrive would open on top of
 --- it.
 ---
@@ -642,15 +700,22 @@ end
 --- say so. What reaches that: a class name no client has, a spec number past the end of the store,
 --- and a character-scoped spec this character does not have.
 ---
---- `options.lines` is a set of `IMPORT_LINES` entries to take, or nil for all of them. A line the
---- reader unticked is **not** counted as skipped -- they said no to it, which is not the same as
---- this version having nowhere to put it.
+--- `options.selection` is a set of the payload's action tables to take, or nil for all of them.
+--- **Unticked is not skipped** -- that is an answer the reader gave, where `skipped` counts what
+--- this version had nowhere to put. Both end up absent and only one of them is worth saying out
+--- loud.
 ---
---- **A line is the dialog's unit and not ours**, so both the list of them and which one an address
---- falls on are read back out of Debind (`ImportUI.lua`), where the words that name them are.
+--- **The tick is on an action because that is where the preview puts it.** It used to be on a line
+--- -- four of them, one per place a payload could land -- and the dialog that asked went away with
+--- the preview arriving: a reader looking at the actions themselves has no reason to be asked about
+--- the layers first (`devdocs/building-export-import.md`).
+---
+--- `options.lines` is what that dialog passed and it goes when the dialog does. It is a set of
+--- `IMPORT_LINES` names, resolved through Debind because a line is the dialog's unit and not ours.
 function DebindStorage.PlanImport(payload, options)
     local placements, skipped = {}, 0;
     local lines = options and options.lines;
+    local selection = options and options.selection;
     local MapKey = KeyMapper();
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
@@ -674,45 +739,49 @@ function DebindStorage.PlanImport(payload, options)
         end
 
         for _, source in ipairs(list) do
-            local action = BuildAction(source);
+            -- Unticked is offered and turned down, the same answer a line used to give, so it is
+            -- passed over rather than counted.
+            if (not selection or selection[source]) then
+                local action = BuildAction(source);
 
-            -- **The badge is the key it arrived on**, and `true` when it arrived on none.
-            --
-            -- **Only its presence is read.** Everything looking at this field asks whether it is set:
-            -- the blue name and dot, the [Pending] filter, whether accepting has anything to take off.
-            -- The string itself is not printed anywhere yet. `GetKeyDisplayText` takes it as `from`
-            -- and does not read it, and what names an unbound set on screen today is its first
-            -- action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
-            --
-            -- **Read before the rename, and it is the only chance.** `MapKey` replaces the key with
-            -- a number of ours, so after this line the sender's key exists nowhere else.
-            --
-            -- A number on the wire is the sender's own placeholder, not a key they had, so it
-            -- leaves no hint behind - `true` is "arrived, on nothing you can be told about".
-            local arrived = action.key;
-            action.imported = luatype(arrived) == "string" and arrived or true;
+                -- **The badge is the key it arrived on**, and `true` when it arrived on none.
+                --
+                -- **Only its presence is read.** Everything looking at this field asks whether it is set:
+                -- the blue name and dot, the [Pending] filter, whether accepting has anything to take off.
+                -- The string itself is not printed anywhere yet. `GetKeyDisplayText` takes it as `from`
+                -- and does not read it, and what names an unbound set on screen today is its first
+                -- action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
+                --
+                -- **Read before the rename, and it is the only chance.** `MapKey` replaces the key with
+                -- a number of ours, so after this line the sender's key exists nowhere else.
+                --
+                -- A number on the wire is the sender's own placeholder, not a key they had, so it
+                -- leaves no hint behind - `true` is "arrived, on nothing you can be told about".
+                local arrived = action.key;
+                action.imported = luatype(arrived) == "string" and arrived or true;
 
-            action.key = MapKey(action.key);
-            -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held here
-            -- as well so a hand-made string cannot walk one in: a number is a place among the
-            -- actions sharing a key, and there is no key to be a place in.
-            if (action.key == nil) then
-                action.seq = nil;
+                action.key = MapKey(action.key);
+                -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held here
+                -- as well so a hand-made string cannot walk one in: a number is a place among the
+                -- actions sharing a key, and there is no key to be a place in.
+                if (action.key == nil) then
+                    action.seq = nil;
+                end
+                placements[#placements + 1] = {
+                    scope = scope, class = class, spec = spec, action = action,
+                };
             end
-            placements[#placements + 1] = {
-                scope = scope, class = class, spec = spec, action = action,
-            };
         end
     end);
 
     return placements, skipped;
 end
 
---- Commits a batch into the profile, badged.
+--- Commits an entry into the profile, badged.
 ---
 --- `options` is `PlanImport`'s, and comes from the dialog the press opened rather than from the
---- batch. **Which lines to take is not stored**: that answer is worth exactly one press. Stored on
---- the batch, an answer outlives the moment it was ticked and a reader who came back a week later
+--- entry. **Which lines to take is not stored**: that answer is worth exactly one press. Stored on
+--- the entry, an answer outlives the moment it was ticked and a reader who came back a week later
 --- gets something other than what they asked for -- "leave the keys out" was one of these, before
 --- it stopped being a question at all.
 ---
@@ -725,8 +794,8 @@ end
 --- Asking instead - keep mine, take theirs, rename - is the one question this path is supposed to
 --- put to the reader, and it is not built yet (`devdocs/building-export-import.md`). Until it is, the answer is
 --- the one that cannot change anything they already had.
-function DebindStorage.CommitBatch(batch, options)
-    local payload, reason = DebindStorage.GetBatchPayload(batch);
+function DebindStorage.CommitEntry(entry, options)
+    local payload, reason = DebindStorage.GetEntryPayload(entry);
     if (not payload) then
         return nil, reason;
     end

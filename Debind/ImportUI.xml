@@ -5,17 +5,17 @@
 	<Script file="ImportUI.lua"/>
 
 	<!--
-		One received batch: where it came from, how much is in it, and how long it has left.
+		One received entry: where it came from, how much is in it, and how long it has left.
 
 		Same row art as everywhere else this addon draws a list, so the drawer reads as part of the
 		same window rather than a settings screen that wandered in.
 	-->
 	<!--
-		**Clicking the row is how a batch comes in.** It stood as a labelled button on the row's
-		bottom edge; the row is the batch, so the row is what answers. The remove button on top
+		**Clicking the row is how an entry comes in.** It stood as a labelled button on the row's
+		bottom edge; the row is the entry, so the row is what answers. The remove button on top
 		still takes its own click.
 	-->
-	<Button name="DebindImportBatchRowTemplate" mixin="DebindImportBatchRowMixin" virtual="true">
+	<Button name="DebindImportEntryRowTemplate" mixin="DebindImportEntryRowMixin" virtual="true">
 		<Size x="400" y="44"/>
 		<Layers>
 			<Layer level="BACKGROUND">
@@ -55,11 +55,11 @@
 				`npm run check:xml-anchors` exists because of it.
 
 				Right to left and top to bottom, each declared before whatever leans on it. **The two
-				lines do different jobs**: getting rid of the batch is up top, and the one thing this
+				lines do different jobs**: getting rid of the entry is up top, and the one thing this
 				row is for is along the bottom with the size of what it would do.
 
-				A pin stood beside the delete button, to keep a batch out of the expiry sweep.
-				**There is no sweep** - nothing removes a batch but that button - so it exempted the
+				A pin stood beside the delete button, to keep an entry out of the expiry sweep.
+				**There is no sweep** - nothing removes an entry but that button - so it exempted the
 				reader from something that does not happen, and the line beside it promised a
 				clear-out the drawer does not perform. Both are gone until there is one, and it will
 				have to ask rather than sweep (`devdocs/building-export-import.md`).
@@ -103,7 +103,7 @@
 	<!--
 		**The main window's Import tab.**
 
-		What is here is the drawer received strings pile up in. Opening a batch and deciding where it
+		What is here is the drawer received strings pile up in. Opening an entry and deciding where it
 		goes is the next slice, so a row does not lead anywhere yet.
 
 		It is a panel and the frame hosts it, which means three things this file has to get right
@@ -257,7 +257,7 @@
 			</ScrollFrame>
 
 			<!--
-				What to call it. Optional, and the only thing about a batch a person writes.
+				What to call it. Optional, and the only thing about an entry a person writes.
 
 				**It asked who the string came from**, which presumed a sender the game has no way
 				to be: a string is copied off a website or out of your own notes, and the reader
@@ -363,7 +363,7 @@
 
 		**The two questions on it only mean something for the one press**, which is why they are
 		here and not on the row. Leaving the keys out used to be a checkbox on the row: it was
-		stored on the batch, survived a `/reload`, and a reader who ticked it and came back a week
+		stored on the entry, survived a `/reload`, and a reader who ticked it and came back a week
 		later got something other than what they asked for. A decision that lives exactly as long as
 		the press has to be made in the same moment as the press.
 

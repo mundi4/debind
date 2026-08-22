@@ -27,11 +27,11 @@ local KEYS_TO_SAVE       = {
     -- **The key this action came in on**, and what quarantines it: while it is set the action is in
     -- the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying yes.
     -- `true` where it arrived on no key at all, and a string is the sender's key, which is what the
-    -- heading calls a set that is still waiting (`GetKeyDisplayText`). It used to be the batch's id,
+    -- heading calls a set that is still waiting (`GetKeyDisplayText`). It used to be the store row's id,
     -- from when a string with no keys in it needed something to hold a set together.
     --
     -- **Nothing else about the arrival is stored.** There used to be two more fields here -- the
-    -- group inside the batch, and its place in that group -- because a string sent without keys had
+    -- group inside the arrival, and its place in that group -- because a string sent without keys had
     -- nothing else to hold a set together. It arrives with a key now, a synthetic one, so the group
     -- is a key group like any other and its order is `seq` (`devdocs/building-export-import.md`).
     imported = true,
@@ -247,7 +247,7 @@ end
 --- from being written twice (`devdocs/legacy/unifying-action-migration.md` §3-4), and the price
 --- of it is that **the input is no longer trusted**: a pasted string's fields arrive as any type at
 --- all, and
---- an error raised in here takes down a commit with half the batch already in the profile.
+--- an error raised in here takes down a commit with half the arrival already in the profile.
 ---
 --- So **the steps a payload can reach** ask about types, and the rest stand as they were written
 --- when only the profile came through. A payload's `dbver` cannot go below 5
@@ -2315,7 +2315,7 @@ end
 --- after is this file's, the same as every other way an action is placed.
 ---
 --- Each entry is `{ scope, class, spec, action }` - the address the profile stores by, not a layer
---- ID. A layer ID is this character's view and a batch routinely lands outside it, so there is no
+--- ID. A layer ID is this character's view and one arrival routinely lands outside it, so there is no
 --- ID to hand for "another class's spec 2" at all (`DebindStorage/Import.lua`).
 ---
 --- **Every action arriving here is expected to carry `imported`**, which keeps it out of the
@@ -2328,7 +2328,7 @@ function DebindPrivate.PlaceImportedActions(placements)
     -- from `RenumberKeyGroup`.
     local scratch = setmetatable({}, { __index = ProfileLayerProto });
 
-    -- The groups this touches: stored list -> key -> true. **One batch lands across several layers
+    -- The groups this touches: stored list -> key -> true. **One arrival lands across several layers
     -- and several keys, so this is not "that group" but every group reached** -- miss one and it
     -- alone is left holding arrival numbers, which stays quiet until the next edit.
     local touched = {};
@@ -2364,7 +2364,7 @@ function DebindPrivate.PlaceImportedActions(placements)
     end
 
     -- After all of them are in, not one at a time: renumbering per placement walks the same group
-    -- once per action, and it would take the arrival numbers away mid-batch -- leaving the ones
+    -- once per action, and it would take the arrival numbers away mid-arrival -- leaving the ones
     -- still to come with nothing to be ranked against.
     for actions, keys in pairs(touched) do
         scratch.actions = actions;
@@ -2377,7 +2377,7 @@ end
 --- Every action in the profile still wearing an import badge.
 ---
 --- **Every loaded layer, not the live ones.** `EnumerateProfileLayers` answers "what is in play for
---- this spec", and a batch routinely lands outside that: an action is placed by the scope it was
+--- this spec", and an arrival routinely lands outside that: an action is placed by the scope it was
 --- sent with, so off-spec layers get their share. Counting the live ones would put a number on
 --- screen smaller than what "accept all" has to clear, and leave the rest quarantined in a layer
 --- with nothing on screen saying so.
@@ -2672,7 +2672,7 @@ end
 --- (`devdocs/showing-off-spec-actions.md`), so a reader looking at a key sees them, and a set that
 --- crosses specs is one set.
 ---
---- **Another class's layers are out.** A batch lands there readily (`ImportAddress`), so a group
+--- **Another class's layers are out.** An arrival lands there readily (`ImportAddress`), so a group
 --- really can have members this walk never sees -- and leaving them is the answer, not the gap:
 ---
 ---   * a key is a keyboard's, and that is a different keyboard. "This key is this set's now" is a
@@ -2713,7 +2713,7 @@ end
 
 --- The highest synthetic key anywhere in the store. Only the seed below asks.
 ---
---- **The whole store, not `LayerArray`.** A batch lands in another class's layers as readily as in
+--- **The whole store, not `LayerArray`.** An arrival lands in another class's layers as readily as in
 --- this one's, and those are not in this session's view at all. Taking the highest from the view
 --- would leave a number alive somewhere unseen and below the counter, and the collision surfaces the
 --- day the reader logs that class: two waiting sets under one heading, and every key-wide action

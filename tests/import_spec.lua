@@ -126,7 +126,7 @@ return function(DebindPrivate, DebindStorage)
         check(byValue[1] ~= byValue[3], "다른 키였던 것이 합쳐졌다");
     end);
 
-    -- **The badge carries where it came from.** Nothing reads the batch number this used to hold -
+    -- **The badge carries where it came from.** Nothing reads the entry number this used to hold -
     -- it was written and never asked about - and the arrival key is what the heading needs to say
     -- which key the sender had it on, and what the accept flow offers as the default. One field, so
     -- taking the badge off takes the hint with it and neither can outlive the other.
@@ -319,7 +319,7 @@ return function(DebindPrivate, DebindStorage)
     -- **A pasted string is untrusted input and none of this may error.** The schema check turns
     -- away anything from a version we do not know, so what is left is a string somebody built by
     -- hand - which is exactly what that rule exists for. An error here goes off inside
-    -- `CommitBatch`, after part of a batch has already been placed.
+    -- `CommitEntry`, after part of an entry has already been placed.
     ---------------------------------------------------------------------------
 
     test("액션 자리에 액션이 아닌 것이 있어도 안 터진다", function()
@@ -504,7 +504,7 @@ return function(DebindPrivate, DebindStorage)
 
     -- **A layer is a coordinate, not something to translate.** Both profiles use the same one, so
     -- another class's layer keeps its class *and* its spec: a mage's spec 2 is a mage's spec 2 on
-    -- every account. `batch_spec` measures the addressing in detail; here it just has to be
+    -- every account. `entry_spec` measures the addressing in detail; here it just has to be
     -- what the placement actually uses.
     test("목적지는 보낸 쪽 좌표 그대로다", function()
         ResetProfile();
@@ -588,6 +588,25 @@ return function(DebindPrivate, DebindStorage)
         check(skipped == 2, "못 놓은 둘을 안 세었다: " .. skipped);
     end);
 
+    -- **틱은 이제 액션에 붙는다.** 미리보기가 액션을 그리고 거기서 고르므로, 놓이는 것도 액션
+    -- 단위로 갈린다 (`devdocs/building-export-import.md` 12절). 줄 필터와 같은 규칙이 그대로
+    -- 선다: 안 고른 것은 빠지되 세지 않는다.
+    test("안 고른 액션은 빠지되 세지 않는다", function()
+        ResetProfile();
+        local mine = { type = Constants.SPELL, value = 1, key = "F" };
+        local theirs = { type = Constants.SPELL, value = 2, key = "G" };
+
+        local placements, skipped = DebindStorage.PlanImport(General({ mine, theirs }),
+            { selection = { [mine] = true } });
+
+        check(#placements == 1, "고른 것만 놓여야 한다: " .. #placements);
+        check(placements[1].action.value == 1, "엉뚱한 액션이 놓였다");
+        check(skipped == 0, "안 고른 것을 못 놓은 것으로 세었다: " .. skipped);
+    end);
+
+    -- **갈 데 없는 것을 세는 자리는 액션 틱에 안 걸린다.** 주소를 못 찾은 레이어는 액션을 도는
+    -- 데까지 오지 않고 통째로 세어진다. 줄 필터에서는 그 순서가 실제로 뒤집힐 수 있어 검사가
+    -- 하나 서 있는데(위), 여기서는 뒤집을 자리 자체가 없다.
     ---------------------------------------------------------------------------
     -- SETSTATE: v1's subtable, and the shape it lands in
     --
@@ -722,7 +741,7 @@ return function(DebindPrivate, DebindStorage)
     -- same account and the same character.
     --
     -- **Our export cannot emit that**, so a string holding one was edited after it was made, and
-    -- the whole string goes. `AddBatch` reads this and refuses; the rest of the batch is not
+    -- the whole string goes. `ImportEntry` reads this and refuses; the rest of the entry is not
     -- warranted by a string somebody has been inside of.
     test("숫자를 든 MACRO 하나가 문자열 전체를 거절시킨다", function()
         check(DebindStorage.PayloadIsImpossible(General({
@@ -790,7 +809,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **`payload.class` is read as a class name and printed with `%s`.** A table there throws in
-    -- WoW's Lua 5.1, out of the drawer row's tooltip, for a batch already written to disk. Our
+    -- WoW's Lua 5.1, out of the drawer row's tooltip, for an entry already written to disk. Our
     -- export only ever writes this character's class.
     test("모르는 class를 든 페이로드는 걸린다", function()
         for _, class in ipairs({ "없는직업", 5 }) do
@@ -801,7 +820,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **NaN survives the round trip** and raises the moment it is used as a table index, which the
-    -- count in `AddBatch` does. Refused with everything else rather than guarded at each place a
+    -- count in `ImportEntry` does. Refused with everything else rather than guarded at each place a
     -- key is indexed by.
     test("NaN 키도 걸린다", function()
         local nan = tonumber("nan") or (0 / 0);
@@ -919,7 +938,7 @@ return function(DebindPrivate, DebindStorage)
     -- the reader happens to change specialization.
     test("배지 찾기는 지금 특성 밖의 레이어까지 훑는다", function()
         ResetProfile();
-        -- Layer 4 is the class layer of spec 2, and the shim's player is spec 1. A batch lands
+        -- Layer 4 is the class layer of spec 2, and the shim's player is spec 1. An entry lands
         -- there routinely: an action is placed by the scope it was sent with, not by the
         -- specialization the reader happens to be in.
         DebindPrivate.PlaceImportedActions({

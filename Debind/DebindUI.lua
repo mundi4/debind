@@ -1885,7 +1885,7 @@ function DebindLayerPanelMixin:UpdateActionCounts(visible)
 	-- colour do the discarding for it.
 	--
 	-- **Which tab did the thing that arrived land in** is a question only this row can answer. The
-	-- left column draws off-spec actions but not which layer holds one, and a batch routinely
+	-- left column draws off-spec actions but not which layer holds one, and one entry routinely
 	-- splits across layers; the number beside each side tab is where that lands.
 	--
 	-- **What is counted is what the left column draws** (`NarrowedVisibleActions`), not what passes
@@ -2155,7 +2155,7 @@ end
 --- (`IMPORT_PENDING`), which stands there for as long as the menu does, and that is everything a box
 --- here could have said.
 ---
---- **It reaches what is not on screen** - `CollectImportedActions` walks every layer. One batch
+--- **It reaches what is not on screen** - `CollectImportedActions` walks every layer. One entry
 --- routinely splits across off-spec layers, so taking off only what is visible would leave the
 --- rest quarantined somewhere no screen shows until the reader changes specialization.
 function DebindFrameMixin:ApproveAllImported()

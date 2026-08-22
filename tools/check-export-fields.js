@@ -25,9 +25,9 @@ const NL = String.fromCharCode(10);
 // Fields it is *correct* for the two lists to disagree on. Adding one means leaving a line saying why.
 const EXPECTED_ONLY_IN_PROFILE = {
     // It says where the action sits *here*. Sending it would tell the far side that something they
-    // just received had already been received, and quarantine it against a batch number that means
+    // just received had already been received, and quarantine it against a key of ours that means
     // nothing on their machine.
-    imported: "which batch it arrived on - meaningless in someone else's drawer",
+    imported: "the key it arrived on - meaningless in someone else's store",
 };
 
 // This list used to hold `key` and `seq` as well, under a format that carried the key on a group

@@ -20,10 +20,10 @@ end
 
 --- The main window's Import tab.
 ---
---- **What is here is the drawer** received strings pile up in. Opening a batch and deciding where
+--- **What is here is the drawer** received strings pile up in. Opening an entry and deciding where
 --- it goes is the next slice, so a row does not lead anywhere yet.
 ---
---- Nothing in this file touches the profile. A batch sits outside it until it is committed, which
+--- Nothing in this file touches the profile. An entry sits outside it until it is committed, which
 --- is the decision the whole design turns on -- once actions are in the profile they scatter, and
 --- the group identity the string arrived with is held nowhere. `devdocs/building-export-import.md`.
 
@@ -154,29 +154,29 @@ function DebindPrivate.CollectImportLines(payload)
 end
 
 --------------------------------------------------------------------------------
--- One batch in the drawer
+-- One entry in the drawer
 --------------------------------------------------------------------------------
 
-DebindImportBatchRowMixin = {};
+DebindImportEntryRowMixin = {};
 
---- The class the batch says it came from, or nil.
+--- The class the entry says it came from, or nil.
 ---
 --- **Read off the payload, which is what the drawer stores.** The record carried a copy of this
 --- while the drawer stored the string instead, because reading it meant decoding
 --- (`DebindStorage/Import.lua`).
-local function BatchClass(batch)
-    if (not batch.payload) then
+local function EntryClass(entry)
+    if (not entry.payload) then
         return nil;
     end
-    return batch.payload.class;
+    return entry.payload.class;
 end
 
 --- The row's top line: **the date it arrived, and for now nothing else.**
 ---
 --- **The date, not how old it is.** A relative age answers "is this the one I just pasted", which
 --- is only a question for a minute or two; a list that piles up is read by when things came in.
-local function BatchDate(batch)
-    local when = date("*t", batch.received);
+local function EntryDate(entry)
+    local when = date("*t", entry.received);
     return FormatShortDate(when.day, when.month, when.year);
 end
 
@@ -185,8 +185,8 @@ end
 --- `GetClassColorObj` answers nil for a token it does not know. A payload carrying a class name
 --- this client has never heard of is turned away long before here (`PayloadIsImpossible`), but the
 --- fallback costs one `or`.
-local function BatchClassText(batch)
-    local class = BatchClass(batch);
+local function EntryClassText(entry)
+    local class = EntryClass(entry);
     if (not class) then
         return nil;
     end
@@ -196,80 +196,80 @@ local function BatchClassText(batch)
     return color:WrapTextInColorCode(name);
 end
 
---- What to call one batch in a sentence. The delete prompt is the one place there is: it names
+--- What to call one entry in a sentence. The delete prompt is the one place there is: it names
 --- what is about to go, inside a line of prose, with no second line to put anything on.
 ---
 --- **The date alone would not do here.** The row, its tooltip and the bring dialog can all lead
 --- with the date because the class is a line away in each of them; a prompt asking whether to
 --- remove "8/18/2026" has nowhere to put the rest, and two strings pasted the same day would read
 --- identically at the one moment there is no undo.
-local function BatchLabel(batch)
-    local class = BatchClassText(batch);
-    local stamp = BatchDate(batch);
+local function EntryLabel(entry)
+    local class = EntryClassText(entry);
+    local stamp = EntryDate(entry);
     if (not class) then
         return stamp;
     end
-    return format(LLL["IMPORT_BATCH_LINE"], class, stamp);
+    return format(LLL["IMPORT_ENTRY_LINE"], class, stamp);
 end
 
-function DebindImportBatchRowMixin:Init(elementData)
+function DebindImportEntryRowMixin:Init(elementData)
     self.elementData = elementData;
-    local batch = elementData.batch;
+    local entry = elementData.entry;
 
-    self.Name:SetText(BatchDate(batch));
+    self.Name:SetText(EntryDate(entry));
 
     -- **The class goes on the lower line, in front of the counts.** Both halves say what is in the
     -- string rather than what the reader did with it, so they read as one line; the date on its own
     -- above is the only thing that orders the list.
-    local counts = format(LLL["IMPORT_BATCH_COUNTS"], Store().CountBatch(batch));
-    local class = BatchClassText(batch);
-    self.Counts:SetText(class and format(LLL["IMPORT_BATCH_LINE"], class, counts) or counts);
+    local counts = format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry));
+    local class = EntryClassText(entry);
+    self.Counts:SetText(class and format(LLL["IMPORT_ENTRY_LINE"], class, counts) or counts);
 
-    -- **No pin, because nothing sweeps.** A pin takes a batch out of a clear-out, and there is no
-    -- clear-out: `AddBatch` appends and only this row's delete button ever removes one. A control
+    -- **No pin, because nothing sweeps.** A pin takes an entry out of a clear-out, and there is no
+    -- clear-out: `ImportEntry` appends and only this row's delete button ever removes one. A control
     -- that exempts you from something that does not happen is a control that does nothing, and the
     -- sentence beside it ("cleared out after about a month") was the drawer promising a behaviour
     -- it does not have. The design for that is not rejected -- it is waiting on a clear-out that
     -- **asks** rather than sweeps, which is the one thing this drawer may not do silently
     -- (`devdocs/building-export-import.md`).
 
-    -- **Deleting asks first, and names what goes.** A batch is the only copy of a string somebody
+    -- **Deleting asks first, and names what goes.** An entry is the only copy of a string somebody
     -- sent: once the drawer lets go of it the way back is to ask them for it again. The main
     -- window asks the same way before deleting an action, and for the same reason -- there is no
     -- undo, which is what separates these two from move and copy.
     self.DeleteButton:SetScript("OnClick", function()
         StaticPopup_ShowCustomGenericConfirmation({
             text = LLL["IMPORT_DELETE_CONFIRM"],
-            text_arg1 = BatchLabel(batch),
+            text_arg1 = EntryLabel(entry),
             callback = function()
-                -- **The dialog goes first, because it holds this batch by reference.** Deleting a
+                -- **The dialog goes first, because it holds this entry by reference.** Deleting a
                 -- row only takes it out of the drawer; the open dialog's copy still decodes and
-                -- still commits, so [accept] after this would import in full the batch they just
+                -- still commits, so [accept] after this would import in full the entry they just
                 -- confirmed removing - and leave no row to take it back from.
-                DebindBringFrame:DismissFor(batch);
-                Store().DeleteBatch(batch.id);
+                DebindBringFrame:DismissFor(entry);
+                Store().DeleteEntry(entry.id);
                 DebindImportPanel:Refresh();
             end,
             acceptText = YES,
             cancelText = NO,
             showAlert = true,
-            referenceKey = "DebindDeleteBatch",
+            referenceKey = "DebindDeleteEntry",
         });
     end);
 end
 
 --- Asks what to bring in, and from where.
 ---
---- **The string is read here rather than in the dialog**, so a batch that cannot be decoded any
+--- **The string is read here rather than in the dialog**, so an entry that cannot be decoded any
 --- more is turned down where it was pressed instead of opening a window with nothing in it.
-function DebindImportBatchRowMixin:OnClick()
+function DebindImportEntryRowMixin:OnClick()
     self:Bring();
 end
 
-function DebindImportBatchRowMixin:Bring()
-    local batch = self.elementData.batch;
+function DebindImportEntryRowMixin:Bring()
+    local entry = self.elementData.entry;
 
-    local payload, reason = Store().GetBatchPayload(batch);
+    local payload, reason = Store().GetEntryPayload(entry);
     if (not payload) then
         DebindPrivate.DisplayMessage(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
         return;
@@ -283,22 +283,22 @@ function DebindImportBatchRowMixin:Bring()
         return;
     end
 
-    DebindBringFrame:Open(batch, lines);
+    DebindBringFrame:Open(entry, lines);
 end
 
-function DebindImportBatchRowMixin:OnEnter()
-    local batch = self.elementData.batch;
+function DebindImportEntryRowMixin:OnEnter()
+    local entry = self.elementData.entry;
 
     -- **The row's own two lines, in the same order.** The title is the date and the line under it
     -- is the class beside the counts, which is what the row itself draws - a tooltip that regroups
     -- them reads as being about something else.
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-    GameTooltip_SetTitle(GameTooltip, BatchDate(batch));
+    GameTooltip_SetTitle(GameTooltip, EntryDate(entry));
 
-    local counts = format(LLL["IMPORT_BATCH_COUNTS"], Store().CountBatch(batch));
-    local class = BatchClassText(batch);
+    local counts = format(LLL["IMPORT_ENTRY_COUNTS"], Store().CountEntry(entry));
+    local class = EntryClassText(entry);
     GameTooltip_AddNormalLine(GameTooltip,
-        class and format(LLL["IMPORT_BATCH_LINE"], class, counts) or counts);
+        class and format(LLL["IMPORT_ENTRY_LINE"], class, counts) or counts);
 
     -- **What the reader called it, which is the only thing here a person wrote.** It was the row's
     -- title and could not stay there: it is optional, and the stand-in it fell back to named
@@ -307,8 +307,8 @@ function DebindImportBatchRowMixin:OnEnter()
     --
     -- No caption in front of it. It is the reader's own words, and a label on them would be the
     -- tooltip explaining the reader to themselves.
-    if (batch.name and batch.name ~= "") then
-        GameTooltip_AddNormalLine(GameTooltip, batch.name);
+    if (entry.name and entry.name ~= "") then
+        GameTooltip_AddNormalLine(GameTooltip, entry.name);
     end
 
     -- **What the row does, since nothing on it says so any more.** A labelled button carried this
@@ -319,7 +319,7 @@ function DebindImportBatchRowMixin:OnEnter()
     GameTooltip:Show();
 end
 
-function DebindImportBatchRowMixin:OnLeave()
+function DebindImportEntryRowMixin:OnLeave()
     GameTooltip:Hide();
 end
 
@@ -406,19 +406,19 @@ end
 --- **Everything is reset every time.** The answers here live exactly as long as the press that
 --- opens it - that is the whole reason this is a dialog and not two checkboxes on the row - so a
 --- tick left over from last time would be the failure this replaced.
-function DebindBringFrameMixin:Open(batch, lines)
+function DebindBringFrameMixin:Open(entry, lines)
     EnsureLineButtons(self);
-    self.batch = batch;
+    self.entry = entry;
 
-    self.Title:SetText(format(LLL["IMPORT_BRING_TITLE"], BatchDate(batch)));
+    self.Title:SetText(format(LLL["IMPORT_BRING_TITLE"], EntryDate(entry)));
 
     --- **The class line names the class its actions are going to**, which is the descriptor's and
     --- not `payload.class`. The two agree in anything this addon builds; a hand-made string can
     --- disagree, and then the sender's class over somebody else's layer is the wrong one to print.
     --- The character line has no class of its own to read - specializations belong to whoever sent
     --- it - so that one falls back to what the string says about the sender.
-    local function ClassName(entry)
-        local class = entry.class or BatchClass(batch);
+    local function ClassName(descriptor)
+        local class = descriptor.class or EntryClass(descriptor);
         if (not class) then
             return "";
         end
@@ -433,11 +433,11 @@ function DebindBringFrameMixin:Open(batch, lines)
     local rows = 0;
     local y = 0;
     for i, button in ipairs(self.lineButtons) do
-        local entry = lines[i];
-        button:SetShown(entry ~= nil);
-        if (entry) then
-            button.line = entry.line;
-            button.Label:SetText(format(LLL[LINE_LABELS[entry.line]], ClassName(entry)));
+        local descriptor = lines[i];
+        button:SetShown(descriptor ~= nil);
+        if (descriptor) then
+            button.line = descriptor.line;
+            button.Label:SetText(format(LLL[LINE_LABELS[descriptor.line]], ClassName(descriptor)));
             -- The label is outside the frame, so pressing the words only ticks the box if the hit
             -- rect reaches over them. Locales disagree about how far, so the string is asked.
             button:SetHitRectInsets(0, -(button.Label:GetStringWidth() + 4), 0, 0);
@@ -468,13 +468,13 @@ function DebindBringFrameMixin:SelectedLines()
     return selected;
 end
 
---- Shuts the dialog if it is standing on `batch`, and does nothing otherwise.
+--- Shuts the dialog if it is standing on `entry`, and does nothing otherwise.
 ---
 --- **The answers in here belong to one press of one row's button**, and a row that is going away
 --- has no press left to belong to. `DebindImportPanelMixin:OnHide` closes it for the same
 --- reason when the whole tab leaves.
-function DebindBringFrameMixin:DismissFor(batch)
-    if (self:IsShown() and self.batch == batch) then
+function DebindBringFrameMixin:DismissFor(entry)
+    if (self:IsShown() and self.entry == entry) then
         self:Hide();
     end
 end
@@ -483,14 +483,14 @@ function DebindBringFrameMixin:UpdateAcceptButton()
     self.AcceptButton:SetEnabled(next(self:SelectedLines()) ~= nil);
 end
 
---- Puts the batch into the profile, badged.
+--- Puts the entry into the profile, badged.
 ---
 --- **The message afterwards is not decoration.** Everything that just landed is quarantined and
 --- greyed out, so from the reader's side the screen barely moves: without a line saying what
 --- happened and where to go next, a press that did a lot looks like a press that did nothing.
 function DebindBringFrameMixin:Accept()
-    local batch = self.batch;
-    local placed, skipped = Store().CommitBatch(batch, {
+    local entry = self.entry;
+    local placed, skipped = Store().CommitEntry(entry, {
         lines = self:SelectedLines(),
     });
 
@@ -546,7 +546,7 @@ function DebindImportPanelMixin:InitializeScrollBox()
     local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
 
     view:SetElementFactory(function(factory)
-        factory("DebindImportBatchRowTemplate", function(frame, data) frame:Init(data); end);
+        factory("DebindImportEntryRowTemplate", function(frame, data) frame:Init(data); end);
     end);
     view:SetElementExtentCalculator(function() return ROW_HEIGHT; end);
 
@@ -556,13 +556,13 @@ end
 --- Newest first. The drawer is read from the top by someone who just pasted something, and what
 --- they are looking for is almost always what they just put in.
 function DebindImportPanelMixin:Refresh()
-    local batches = Store().GetBatches();
+    local entries = Store().GetEntries();
 
     local list = {};
-    for _, batch in ipairs(batches) do
-        list[#list + 1] = { batch = batch };
+    for _, entry in ipairs(entries) do
+        list[#list + 1] = { entry = entry };
     end
-    sort(list, function(lhs, rhs) return lhs.batch.id > rhs.batch.id; end);
+    sort(list, function(lhs, rhs) return lhs.entry.id > rhs.entry.id; end);
 
     self.ScrollBox:SetDataProvider(CreateDataProvider(list), true);
     self.ScrollBox.EmptyText:SetText(LLL["IMPORT_DRAWER_EMPTY"]);
@@ -575,7 +575,7 @@ end
 
 function DebindImportPanelMixin:OnHide()
     -- **Nothing is thrown away here.** The export panel drops its selection on hide because it
-    -- holds references to live action tables that can be deleted while it is away; a batch is the
+    -- holds references to live action tables that can be deleted while it is away; an entry is the
     -- opposite -- plain stored data whose whole purpose is to survive being closed, and a
     -- `/reload` after that.
     --
@@ -652,10 +652,10 @@ end
 --- a message and nothing to fix.
 function DebindPasteFrameMixin:Accept()
     local name = strtrim(self.NameBox:GetText());
-    local batch, reason = Store().AddBatch(self.Input.EditBox:GetText(),
+    local entry, reason = Store().ImportEntry(self.Input.EditBox:GetText(),
         name ~= "" and name or nil);
 
-    if (not batch) then
+    if (not entry) then
         self.ErrorHolder.Text:SetText(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"]);
         return;
     end

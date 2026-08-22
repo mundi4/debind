@@ -590,7 +590,7 @@ end
 --------------------------------------------------------------------------------
 
 function DebindExportPanelMixin:OnGenerateClicked()
-    local str, reason = Store().ExportSelection(self.selected);
+    local str, reason = Store().EncodeExportPayload(Store().BuildExportPayload(self.selected));
 
     if (not str) then
         -- The one failure that can reach here is a missing library, which means a broken install

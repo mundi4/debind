@@ -3,7 +3,7 @@
 --
 -- Two things live here and they fail differently.
 --
--- **Addressing** decides where a batch's actions end up. Getting it wrong is not a display bug:
+-- **Addressing** decides where an entry's actions end up. Getting it wrong is not a display bug:
 -- the same actions on the same keys behave differently one layer over, with nothing missing and
 -- nothing overwritten, which is the failure mode this whole design is built around. The cases that
 -- matter are the ones a single-class test cannot produce - a string from a class with more specs
@@ -370,14 +370,14 @@ return function(DebindPrivate, DebindStorage)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local batch = DebindStorage.AddBatch(GOOD, "친구 세팅");
-        check(batch, "배치가 안 만들어짐");
-        check(batch.name == "친구 세팅", "이름");
-        check(#DebindStorage.GetBatches() == 1, "서랍에 안 들어감");
-        check(DebindStorage.GetBatch(batch.id) == batch, "id로 못 찾음");
+        local entry = DebindStorage.ImportEntry(GOOD, "친구 세팅");
+        check(entry, "배치가 안 만들어짐");
+        check(entry.name == "친구 세팅", "이름");
+        check(#DebindStorage.GetEntries() == 1, "서랍에 안 들어감");
+        check(DebindStorage.GetEntry(entry.id) == entry, "id로 못 찾음");
     end);
 
-    -- Counted off the payload every time the row asks, because the payload is what the batch
+    -- Counted off the payload every time the row asks, because the payload is what the entry
     -- holds. The two numbers were stored fields while the string was.
     test("개수는 저장된 페이로드에서 나온다", function()
         ResetDrawer();
@@ -387,13 +387,13 @@ return function(DebindPrivate, DebindStorage)
             { scope = "class", class = CLASS, spec = 1, key = "G", count = 3 },
         });
 
-        local batch = DebindStorage.AddBatch(text);
+        local entry = DebindStorage.ImportEntry(text);
         -- **A key is a group**, so two keys is two groups however the five actions are spread.
-        local groupCount, actionCount = DebindStorage.CountBatch(batch);
+        local groupCount, actionCount = DebindStorage.CountEntry(entry);
         check(groupCount == 2, "그룹 수 " .. tostring(groupCount));
         check(actionCount == 5, "액션 수 " .. tostring(actionCount));
-        check(batch.payload.class == CLASS, "보낸 쪽 클래스");
-        check(batch.groupCount == nil and batch.actionCount == nil,
+        check(entry.payload.class == CLASS, "보낸 쪽 클래스");
+        check(entry.groupCount == nil and entry.actionCount == nil,
             "개수를 배치에 또 적어뒀다 - 페이로드와 갈릴 자리가 생긴다");
     end);
 
@@ -402,10 +402,10 @@ return function(DebindPrivate, DebindStorage)
     test("못 읽는 문자열은 서랍에 안 들어간다", function()
         ResetDrawer();
 
-        local batch, reason = DebindStorage.AddBatch("DEB1:쓰레기");
-        check(batch == nil, "받아들였다");
+        local entry, reason = DebindStorage.ImportEntry("DEB1:쓰레기");
+        check(entry == nil, "받아들였다");
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
-        check(#DebindStorage.GetBatches() == 0, "서랍에 들어갔다");
+        check(#DebindStorage.GetEntries() == 0, "서랍에 들어갔다");
     end);
 
     -- What SavedVariables holds is the payload. The string is refused outright once the schema
@@ -414,10 +414,10 @@ return function(DebindPrivate, DebindStorage)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local batch = DebindStorage.AddBatch("  " .. GOOD .. "\n");
-        check(batch.payload == GOOD_PAYLOAD, "페이로드를 저장 안 했다");
-        check(batch.text == nil, "문자열이 남아 있다: " .. tostring(batch.text));
-        check(DebindStorage.GetBatchPayload(batch) == GOOD_PAYLOAD, "다시 못 읽음");
+        local entry = DebindStorage.ImportEntry("  " .. GOOD .. "\n");
+        check(entry.payload == GOOD_PAYLOAD, "페이로드를 저장 안 했다");
+        check(entry.text == nil, "문자열이 남아 있다: " .. tostring(entry.text));
+        check(DebindStorage.GetEntryPayload(entry) == GOOD_PAYLOAD, "다시 못 읽음");
     end);
 
     -- **서랍에서 여는 문도 버전을 묻는다.** 붙여넣는 쪽은 `DecodeExportString`이 물어서
@@ -426,19 +426,19 @@ return function(DebindPrivate, DebindStorage)
     -- 스키마가 하나뿐인 동안은 두 경로가 같은 답을 낸다. **갈리는 것은 스키마가 올라간
     -- 다음이고, 그때 서랍에 쌓여 있던 것이 검사 없이 새 코드로 들어간다** - 붙여넣기 쪽에만
     -- 마이그레이션을 얹으면 조용히 그렇게 된다. 그래서 저장된 배치를 손으로 만들어 묻는다.
-    local function StoredBatchWithVersion(version)
+    local function StoredEntryWithVersion(version)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindStorage.AddBatch(GOOD);
+        local entry = DebindStorage.ImportEntry(GOOD);
         -- 문을 지나 저장된 뒤에 버전만 바꾼다. 붙여넣는 쪽 문은 이 값을 이미 봤으므로,
         -- 여기서 걸리는 것은 **서랍에서 여는 문**뿐이다.
-        batch.payload = { v = version, class = CLASS, shared = { GENERAL = {} } };
-        return batch;
+        entry.payload = { v = version, class = CLASS, shared = { GENERAL = {} } };
+        return entry;
     end
 
     test("서랍에 있는 배치가 더 새 스키마면 거절한다", function()
-        local batch = StoredBatchWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1);
-        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        local entry = StoredEntryWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1);
+        local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
         check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
     end);
@@ -450,23 +450,23 @@ return function(DebindPrivate, DebindStorage)
     -- **서랍에 쌓인 배치가 이 길로 온다.** 여기서 거절하면 받아둔 것이 전부 못 읽히고,
     -- 조용히 통과시키면 조건이 전부 버려진 채 무조건 액션으로 도착한다.
     test("서랍에 있는 v1 배치는 사다리를 타고 올라온다", function()
-        local batch = StoredBatchWithVersion(1);
-        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        local entry = StoredEntryWithVersion(1);
+        local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload ~= nil, "거절당했다: " .. tostring(reason));
         check(payload.v == DebindStorage.EXPORT_SCHEMA_VERSION,
             "판 번호가 안 올라갔다: " .. tostring(payload.v));
     end);
 
     test("사다리에 단계가 없는 판은 거절한다", function()
-        local batch = StoredBatchWithVersion(0);
-        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        local entry = StoredEntryWithVersion(0);
+        local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
         check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
     end);
 
     test("버전이 숫자가 아닌 배치도 거절한다", function()
-        local batch = StoredBatchWithVersion(nil);
-        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        local entry = StoredEntryWithVersion(nil);
+        local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
         check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
     end);
@@ -476,23 +476,23 @@ return function(DebindPrivate, DebindStorage)
     -- 통과한 뒤에도 물어볼 것이 남는다.
     --
     -- v1은 이 자리에 안 걸린다. 판 번호가 곧 답이라 어댑터가 5를 찍고 지나간다.
-    local function StoredBatchWithDbver(dbver)
-        local batch = StoredBatchWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION);
-        batch.payload.dbver = dbver;
-        return batch;
+    local function StoredEntryWithDbver(dbver)
+        local entry = StoredEntryWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION);
+        entry.payload.dbver = dbver;
+        return entry;
     end
 
     -- 이 판이 v2를 내면서 `dbver`를 같이 싣기 시작했으므로, 안 든 v2는 어느 빌드도 만든 적이
     -- 없는 모양이다. 추측으로 읽으면 액션을 어느 사다리에 태울지를 지어내게 된다.
     test("dbver를 안 든 v2 배치는 거절한다", function()
-        local payload, reason = DebindStorage.GetBatchPayload(StoredBatchWithDbver(nil));
+        local payload, reason = DebindStorage.GetEntryPayload(StoredEntryWithDbver(nil));
         check(payload == nil, "읽어버렸다");
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
     end);
 
     test("이 빌드보다 새 dbver를 든 배치는 거절한다", function()
-        local payload, reason = DebindStorage.GetBatchPayload(
-            StoredBatchWithDbver(Constants.DB_VERSION + 1));
+        local payload, reason = DebindStorage.GetEntryPayload(
+            StoredEntryWithDbver(Constants.DB_VERSION + 1));
         check(payload == nil, "읽어버렸다");
         check(reason == "UNSUPPORTED_SCHEMA", "이유 " .. tostring(reason));
     end);
@@ -501,7 +501,7 @@ return function(DebindPrivate, DebindStorage)
     -- 그것들은 프로필만 지나가던 시절에 쓰여서 필드가 제 타입이라고 믿는다. 붙여넣기는 에러를
     -- 내면 안 되는 자리라 읽기 전에 거절한다.
     test("공유가 나가기 전 dbver를 든 배치는 거절한다", function()
-        local payload, reason = DebindStorage.GetBatchPayload(StoredBatchWithDbver(4));
+        local payload, reason = DebindStorage.GetEntryPayload(StoredEntryWithDbver(4));
         check(payload == nil, "읽어버렸다");
         check(reason == "SCHEMA_TOO_OLD", "이유 " .. tostring(reason));
     end);
@@ -509,26 +509,26 @@ return function(DebindPrivate, DebindStorage)
     -- NaN은 위아래 비교를 전부 빠져나간다. 통과시키면 어느 단계도 안 맞는 판으로 사다리에
     -- 들어가고, 그건 아무 단계도 안 밟은 액션을 이 판의 것이라고 도장 찍는 것이다.
     test("dbver가 NaN인 배치도 거절한다", function()
-        local payload, reason = DebindStorage.GetBatchPayload(StoredBatchWithDbver(0 / 0));
+        local payload, reason = DebindStorage.GetEntryPayload(StoredEntryWithDbver(0 / 0));
         check(payload == nil, "읽어버렸다");
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
     end);
 
-    -- **행은 그려지는데 열면 터지던 자리.** 서랍 행을 그리는 둘(`CountBatch`,
-    -- `BatchClassText`)은 페이로드가 없는 배치를 막고 있어서 날짜만 달고 멀쩡히 선다. 그
+    -- **행은 그려지는데 열면 터지던 자리.** 서랍 행을 그리는 둘(`CountEntry`,
+    -- `EntryClassText`)은 페이로드가 없는 배치를 막고 있어서 날짜만 달고 멀쩡히 선다. 그
     -- 행을 누르면 문이 페이로드를 그대로 인덱싱했다.
     --
-    -- **나가는 빌드에서 그런 배치는 안 생긴다** - `AddBatch`가 언제나 채우고, 이 애드온이
+    -- **나가는 빌드에서 그런 배치는 안 생긴다** - `ImportEntry`가 언제나 채우고, 이 애드온이
     -- 이번에 처음 나가므로 그 문을 안 지난 배치가 남의 디스크에 있을 수 없다. 닿는 것은
     -- 문자열 대신 페이로드를 저장하기로 바뀌기 전에 만들어진 개발용 `DebindStorageVars`다.
     -- 거절이 답인 자리에서 던지지는 말아야 한다.
     test("페이로드가 없는 배치는 던지지 않고 거절한다", function()
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindStorage.AddBatch(GOOD);
-        batch.payload = nil;
+        local entry = DebindStorage.ImportEntry(GOOD);
+        entry.payload = nil;
 
-        local payload, reason = DebindStorage.GetBatchPayload(batch);
+        local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
     end);
@@ -538,30 +538,30 @@ return function(DebindPrivate, DebindStorage)
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
 
-        local first = DebindStorage.AddBatch(GOOD);
-        DebindStorage.DeleteBatch(first.id);
-        local second = DebindStorage.AddBatch(GOOD);
+        local first = DebindStorage.ImportEntry(GOOD);
+        DebindStorage.DeleteEntry(first.id);
+        local second = DebindStorage.ImportEntry(GOOD);
 
         check(second.id ~= first.id, "지운 id가 재활용됐다 - 그 배치에 붙은 배지가 남의 것이 된다");
-        check(#DebindStorage.GetBatches() == 1, "배치 수");
-        check(DebindStorage.GetBatch(first.id) == nil, "지운 것이 남아 있다");
+        check(#DebindStorage.GetEntries() == 1, "배치 수");
+        check(DebindStorage.GetEntry(first.id) == nil, "지운 것이 남아 있다");
     end);
 
     test("없는 것을 지우면 아무 일도 안 난다", function()
         ResetDrawer();
-        check(DebindStorage.DeleteBatch(999) == false, "지웠다고 답했다");
+        check(DebindStorage.DeleteEntry(999) == false, "지웠다고 답했다");
     end);
 
-    -- A batch has to be openable after a `/reload`, and a reload is exactly what SavedVariables
+    -- An entry has to be openable after a `/reload`, and a reload is exactly what SavedVariables
     -- being a plain table has to survive. Nothing here may be a closure, a metatable, or a
     -- reference to a live profile table.
     test("배치는 저장 가능한 값만 들고 있다", function()
         ResetDrawer();
         STORED[GOOD] = GOOD_PAYLOAD;
-        local batch = DebindStorage.AddBatch(GOOD);
+        local entry = DebindStorage.ImportEntry(GOOD);
 
-        check(getmetatable(batch) == nil, "메타테이블이 붙어 있다");
-        for k, v in pairs(batch) do
+        check(getmetatable(entry) == nil, "메타테이블이 붙어 있다");
+        for k, v in pairs(entry) do
             local vt = type(v);
             check(vt == "string" or vt == "number" or vt == "boolean" or vt == "table",
                 "저장 못 하는 값: " .. tostring(k) .. " = " .. vt);

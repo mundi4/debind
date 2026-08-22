@@ -28,7 +28,7 @@ local luatype            = type;
 --- and both doors into a payload run it.
 ---
 --- **2 (2026-08-21): the conditions moved into `action.conditions`.** v1 carried their names at the
---- top of the action. Without the bump, a v1 string and every batch stacked in the drawer walk
+--- top of the action. Without the bump, a v1 string and every entry stacked in the drawer walk
 --- through the gate as they are and `BuildAction`'s whitelist **drops every condition in silence**
 --- -- they land as unconditional actions, stand where no conditional band belongs, and fire on a
 --- key in states the writer had ruled out. It closes the other direction too: a 3.2 reader turns a
@@ -73,8 +73,8 @@ local ENVELOPE_SEPARATOR = ":";
 
 --- Action fields that go out on the wire.
 ---
---- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `imported` says which batch an action arrived
---- on, and a batch exists only on **the receiving side**. It is the one field that means nothing
+--- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `imported` says which entry an action arrived
+--- on, and an entry exists only on **the receiving side**. It is the one field that means nothing
 --- anywhere else.
 ---
 --- `key` and `seq` are on the list. They used to be the two exceptions -- `key` moved up to a group
@@ -225,10 +225,14 @@ end
 --- Layer **IDs** are what cannot travel: 2..6 are "my class", and the sender's class is not the
 --- reader's. The character block drops the guid for the same reason -- "their character" means
 --- nothing here, so it says *this* character at that spec.
-local function BucketForLayer(payload, layer)
+--- **Addressed the way `ForEachPayloadLayer` reads one**, so writing a payload and walking one name
+--- the same three places. `BucketForLayer` translates a profile layer into that address and this
+--- builds the tables along it; the second caller already has the address, having read it off a
+--- payload (`FilterPayload`).
+local function BucketAt(payload, scope, class, spec)
     local specTbl;
 
-    if (layer.isCharacterSpecific) then
+    if (scope == "character") then
         specTbl = payload.char;
         if (not specTbl) then
             specTbl = {};
@@ -241,7 +245,7 @@ local function BucketForLayer(payload, layer)
             payload.shared = shared;
         end
 
-        if (layer.layerID == 1) then
+        if (scope == "general") then
             local general = shared.GENERAL;
             if (not general) then
                 general = {};
@@ -255,20 +259,29 @@ local function BucketForLayer(payload, layer)
             classes = {};
             shared.classes = classes;
         end
-        specTbl = classes[Constants.PLAYER_CLASS];
+        specTbl = classes[class];
         if (not specTbl) then
             specTbl = {};
-            classes[Constants.PLAYER_CLASS] = specTbl;
+            classes[class] = specTbl;
         end
     end
 
-    local spec = layer.spec or 0;
     local tbl = specTbl[spec];
     if (not tbl) then
         tbl = {};
         specTbl[spec] = tbl;
     end
     return tbl;
+end
+
+local function BucketForLayer(payload, layer)
+    if (layer.isCharacterSpecific) then
+        return BucketAt(payload, "character", nil, layer.spec or 0);
+    end
+    if (layer.layerID == 1) then
+        return BucketAt(payload, "general", nil, 0);
+    end
+    return BucketAt(payload, "class", Constants.PLAYER_CLASS, layer.spec or 0);
 end
 
 --- **An action goes out in the shape it is stored in. Nothing here rewrites one.**
@@ -348,7 +361,14 @@ end
 ---
 --- A referenced state with no definition is left out rather than sent empty. The sender has
 --- nothing to say about it, and an empty definition would read as "defined, and blank".
-local function BuildStateManifest(actions)
+---
+--- **Where a definition comes from is the caller's to say.** Building a payload out of the profile
+--- asks the profile; narrowing a payload that is already made asks that payload's own manifest
+--- (`FilterPayload`), and must not ask the profile -- an entry that arrived in a string carries
+--- somebody else's definitions, and resolving those names here would quietly swap them for this
+--- reader's. Everything else about the walk is the same, transitive close included, so it is one
+--- function taking a resolver rather than two that drift.
+local function BuildStateManifest(actions, Resolve)
     local referenced = {};
     CollectStateNames(actions, referenced);
 
@@ -360,7 +380,7 @@ local function BuildStateManifest(actions)
 
         for name in pairs(pending) do
             if (manifest[name] == nil) then
-                local definition = DebindPrivate.ResolveSwitchDefinition(name);
+                local definition = Resolve(name);
                 if (definition) then
                     manifest[name] = CopyFields(definition, STATE_FIELDS);
                     any = true;
@@ -488,8 +508,51 @@ function DebindStorage.BuildExportPayload(selection)
         end
     end
 
-    payload.states = BuildStateManifest(exported);
+    payload.states = BuildStateManifest(exported, DebindPrivate.ResolveSwitchDefinition);
     return payload;
+end
+
+--- The same payload with only `selection`'s actions in it. `nil` selection hands the payload back
+--- as it is.
+---
+--- **What travels is decided here rather than when an entry is made.** An entry is a whole thing
+--- somebody keeps; which part of it to hand out is a different answer every time, worth exactly one
+--- press, and so it is never written down (`devdocs/building-export-import.md`). Deleting from the
+--- entry is the other verb and it is permanent -- one narrows a copy, the other narrows the thing.
+---
+--- **The fields an entry carries about itself do not travel, and nothing here has to drop them.**
+--- They sit on the row, outside the payload, so what a payload holds is exactly what a string
+--- holds: the reader's character name, realm and guid cannot reach a string that gets pasted into a
+--- public channel because they were never in the table this encodes.
+---
+--- The actions are carried over by reference. Nothing downstream writes to one -- this table is
+--- built to be encoded and dropped -- and copying them would only make the entry's own copies
+--- (`CopyFields`, when it was built) into copies of copies.
+function DebindStorage.FilterPayload(payload, selection)
+    if (selection == nil) then
+        return payload;
+    end
+
+    local out = { v = payload.v, dbver = payload.dbver, class = payload.class };
+    local kept = {};
+
+    DebindStorage.ForEachPayloadLayer(payload, function(list, scope, class, spec)
+        local bucket;
+        for _, action in ipairs(list) do
+            if (selection[action]) then
+                bucket = bucket or BucketAt(out, scope, class, spec);
+                bucket[#bucket + 1] = action;
+                kept[#kept + 1] = action;
+            end
+        end
+    end);
+
+    local states = luatype(payload.states) == "table" and payload.states or nil;
+    out.states = states and BuildStateManifest(kept, function(name)
+        return states[name];
+    end) or nil;
+
+    return out;
 end
 
 --- LibStub is asked at call time, not at load. This file is loaded by the headless specs, which
@@ -574,7 +637,7 @@ end
 --- special case, it is the idempotence that block is written to have anyway.
 ---
 --- **Asked whether it is a table, not whether it is there.** A hand-made `setstate = 5` would raise
---- here and take down a commit with half a batch already placed. A mode or a name this build cannot
+--- here and take down a commit with half an entry already placed. A mode or a name this build cannot
 --- read leaves the action under the old type, which is a type nothing knows -- `IsUsableAction`
 --- turns it down and the whole string with it, and that is the right end for a `SETSTATE` with
 --- nothing to set.
@@ -640,15 +703,15 @@ end
 --- `<=`, because that one is the profile's and every version between the ends of it is real.
 ---
 --- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
---- moment it is pasted (`DecodeExportString`, below) and a stored batch is asked when the drawer
---- opens it (`GetBatchPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
+--- moment it is pasted (`DecodeExportString`, below) and a stored entry is asked when the drawer
+--- opens it (`GetEntryPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
 --- payload it was handed and gave it straight back. That is invisible while there is one schema
---- and it stops being invisible the day one is added, because the batches already sitting in the
+--- and it stops being invisible the day one is added, because the entries already sitting in the
 --- drawer are exactly the ones that would go into the new code unasked.
 ---
 --- **Two directions, and opposite advice.** These were one reason and one sentence, "made by a
 --- newer version, update and try again", which is true one way and useless the other: on the first
---- schema bump every batch already received would fail with it, told to update by the version they
+--- schema bump every entry already received would fail with it, told to update by the version they
 --- just updated to.
 ---
 --- `SCHEMA_TOO_OLD` is the answer for a version **no step covers**, on either ladder. A bump
@@ -658,9 +721,9 @@ end
 --- **"Is it a payload at all" is asked here and nowhere else.** Both doors hand over something they
 --- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
 --- out of SavedVariables. Neither may error, and the answer is the same refusal, so asking twice
---- would be the same question in two places. It caught a real one: a batch with no payload draws in
---- the drawer perfectly well, because the two that draw the row guard it (`CountBatch`,
---- `BatchClassText`), and then threw the moment the row was opened.
+--- would be the same question in two places. It caught a real one: an entry with no payload draws in
+--- the drawer perfectly well, because the two that draw the row guard it (`CountEntry`,
+--- `EntryClassText`), and then threw the moment the row was opened.
 function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
         return nil, "BAD_PAYLOAD";
@@ -741,11 +804,21 @@ function DebindStorage.DecodeExportString(str)
     end
 
     -- Whether what came back is a table at all is asked below, with the same answer, on the door a
-    -- stored batch uses too.
+    -- stored entry uses too.
     return DebindStorage.BringPayloadForward(payload);
 end
 
---- What the window calls: selection in, string out.
-function DebindStorage.ExportSelection(selection)
-    return DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload(selection));
+--- What the window calls: an entry and what is ticked in it, string out.
+---
+--- **The profile is not read here.** It was, while the export window built a string straight out of
+--- the layers, and the entry is what stands between them now: making one is the moment the profile
+--- is read (`CreateEntry`), and everything after that -- deleting from it, ticking part of it,
+--- handing it out -- is about the entry. So an entry that arrived in somebody else's string goes
+--- back out through this same call, which is what makes passing one on cost nothing to build.
+function DebindStorage.ExportEntry(entry, selection)
+    local payload, reason = DebindStorage.GetEntryPayload(entry);
+    if (not payload) then
+        return nil, reason;
+    end
+    return DebindStorage.EncodeExportPayload(DebindStorage.FilterPayload(payload, selection));
 end

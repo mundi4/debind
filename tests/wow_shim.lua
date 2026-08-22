@@ -430,6 +430,10 @@ function M.install()
     _G.UnitSex = function() return 2; end
     _G.UnitFactionGroup = function() return "Alliance"; end
     _G.GetNormalizedRealmName = function() return "TestRealm"; end
+    -- **Not the normalized one.** An entry made from a profile keeps the realm to say whose it is,
+    -- and that is read by a person rather than matched against anything, so it is the name with its
+    -- spaces in (`CreateEntry`).
+    _G.GetRealmName = function() return "Test Realm"; end
     _G.time = function() return 1770000000; end
 
     _G.C_SpecializationInfo = {

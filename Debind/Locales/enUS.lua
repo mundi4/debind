@@ -517,7 +517,7 @@ L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- **It is the only thing in the tooltip that says so.** The title used to carry the badge as a
 -- colour and no longer does, so if this sentence goes the tooltip stops mentioning it at all.
 --
--- No source and no date, though the action carries the batch number. Reading either of those means
+-- No source and no date, though the action carries the key it arrived on. Reading either of those means
 -- reading `DebindStorage`'s saved variables, and that addon is load-on-demand - a tooltip that says
 -- where a string came from only after some other window has been opened is worse than one that
 -- never claims to.
@@ -1325,11 +1325,11 @@ L["IMPORT_PASTE_ACCEPT"] = HUD_CLASS_TALENTS_IMPORT_LOADOUT_ACCEPT_BUTTON
 -- The row's own line: the sender's class, already wrapped in that class's colour, then the date it
 -- arrived. **Two of the same conversion, so they are numbered** - a locale that wants the date first
 -- can swap them, and unnumbered the swap would silently print them in the wrong order.
-L["IMPORT_BATCH_LINE"] = "%1$s  %2$s"
-L["IMPORT_BATCH_COUNTS"] = "%1$d keys, %2$d actions"
--- The free text typed at paste time, on the row's tooltip. **The only human writing about a
--- batch**, and optional - so it is a line that may not be there rather than the name the batch is
--- known by. The class it came from is in that name already (`IMPORT_BATCH_LINE`), which is why the
+L["IMPORT_ENTRY_LINE"] = "%1$s  %2$s"
+L["IMPORT_ENTRY_COUNTS"] = "%1$d keys, %2$d actions"
+-- The free text typed at paste time, on the row's tooltip. **The only human writing about an
+-- entry**, and optional - so it is a line that may not be there rather than the name the entry is
+-- known by. The class it came from is in that name already (`IMPORT_ENTRY_LINE`), which is why the
 -- line that used to say it here is gone.
 -- **The first line is the title**: this popup has no title bar, so it is what the reader reads
 -- first and it has to name what goes.

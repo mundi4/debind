@@ -156,7 +156,7 @@ local specs = {
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
     { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },
     { name = "export", path = root .. "/export_spec.lua" },
-    { name = "batch", path = root .. "/batch_spec.lua" },
+    { name = "entry", path = root .. "/entry_spec.lua" },
     { name = "import", path = root .. "/import_spec.lua" },
     { name = "keygroup", path = root .. "/keygroup_spec.lua" },
     { name = "renumber", path = root .. "/renumber_spec.lua" },
