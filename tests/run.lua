@@ -168,6 +168,7 @@ local specs = {
     { name = "context", path = root .. "/context_spec.lua" },
     { name = "frames", path = root .. "/frames_spec.lua" },
     { name = "eval", path = root .. "/eval_spec.lua" },
+    { name = "hover", path = root .. "/hover_spec.lua" },
 };
 
 --- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is

@@ -1932,6 +1932,15 @@ if (name == "state-unitexists") then
     -- when the cursor arrived stayed true forever. The frame itself is kept so this same poll
     -- can pick the unit back up; only the reaction is cleared, and `reaction == nil` is what
     -- every reader now treats as "not hovering".
+    --
+    -- **The last of the three formatted in below is `REACTION_OTHER`, not `REACTION_NONE`.** This
+    -- is the branch where a unit is hovered and `UnitExists` is true, so "not hovering" has no
+    -- place in it. `REACTION_NONE` is a bit outside `REACTION_ALL` (`Solver.lua`), so no mask a
+    -- user can build ever matches it. Put it here and every hover binding carrying a reaction
+    -- restriction dies on a target that can be neither helped nor attacked: friendly NPCs such as
+    -- vendors and guards, corpses, totems. `setup_onenter` has used `OTHER` from the start, so the
+    -- symptom was a binding that was right the moment the cursor arrived and went out on the first
+    -- poll tick.
     appendLine([[
 if (States.unitframe) then
     local unitframe = States.unitframe
@@ -1949,22 +1958,18 @@ if (States.unitframe) then
         if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
             unitframe.unit = unit
             unitframe.reaction = reaction
-            self:RunAttribute("SetUnit", "hover", unit)
-            DirtyFlags.unitframe = true
+            if (self:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+                DirtyFlags.unitframe = true
+            end
         end
     elseif (unitframe.reaction) then
         unitframe.unit = nil
         unitframe.reaction = nil
-        self:RunAttribute("SetUnit", "hover", nil)
-        DirtyFlags.unitframe = true
+        if (self:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+            DirtyFlags.unitframe = true
+        end
     end
 end
--- 마지막 인자가 REACTION_OTHER인 것이 중요하다. 여기는 **hover 중이고 UnitExists도 참인**
--- 갈래이므로 REACTION_NONE(= hover 안 함, Solver.lua:67의 그 값)이 올 자리가 아니다.
--- NONE은 REACTION_ALL 밖의 비트라 어떤 사용자 마스크에도 안 걸린다 - 그 값이 들어가면
--- 반응 제한이 걸린 hover 바인딩이 "공격도 도움도 안 되는 대상"에서 전부 죽는다
--- (상인·경비병 등 우호 NPC, 시체, 토템). setup_onenter는 처음부터 OTHER를 쓰고 있어서,
--- 마우스를 올린 직후에는 맞다가 첫 폴링 틱에 꺼지는 형태로 나타났다.
 ]], Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_OTHER);
 
     -- Update States

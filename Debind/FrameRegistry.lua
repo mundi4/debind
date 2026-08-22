@@ -57,6 +57,21 @@ local UNITFRAME_TYPES              = {
 };
 
 
+--- 이미 `OnEnter`/`OnLeave`를 감싼 프레임. 아래 `_wrapped`와 같은 물건이고, 같은 이유로
+--- 비운 적이 없다.
+---
+--- **등록이 풀려도 안 뗀다.** `SecureHandlerUnwrapScript`이 떼는 것은 맨 위 래퍼인데
+--- (`SecureHandlers.lua`의 `RemoveWrapper`가 `frame:GetScript`으로 지금 걸린 것을 잡는다),
+--- 그것이 우리 것이라는 보장이 없다. 남이 나중에 같은 스크립트를 감쌌으면 우리가 부르는 그
+--- 호출은 **남의 것을 떼고 우리 것은 남긴다.** 그러면 `ccframes`에 행이 없는 프레임에서 우리
+--- 본문이 계속 돌고, 남의 래퍼는 영영 사라진다. 우리가 감싼 `OnClick`이 진작 이렇게 하고
+--- 있었고 `OnEnter`/`OnLeave`만 안 그랬다.
+---
+--- **그래서 해제는 본문이 한다.** `ccframes[self]`에 행이 없으면 `setup_onenter`는 물러나고,
+--- 물러나면서 호버 슬롯을 비운다. 추적 안 하는 프레임 안에 커서가 있다는 것 자체가 우리가
+--- 마지막으로 적어둔 프레임 안에는 없다는 뜻이라, 그 빈 자리가 곧 맞는 답이다.
+local _hoverWrapped = setmetatable({}, { __mode = "k" });
+
 function DebindPrivate.RegisterFrame(button, type)
     if (DebindPrivate.CliqueDetected) then
         return;
@@ -112,7 +127,8 @@ function DebindPrivate.RegisterFrame(button, type)
 		ccframes[button].frameType = button:GetAttribute("debind_frametype")
 	]=]);
 
-    if (not DebindPrivate.CliqueDetected) then
+    if (not DebindPrivate.CliqueDetected and not _hoverWrapped[button]) then
+        _hoverWrapped[button] = true;
         SecureHandlerWrapScript(button, "OnEnter", BindingDriver, BindingDriver:GetAttribute("setup_onenter"));
         SecureHandlerWrapScript(button, "OnLeave", BindingDriver, BindingDriver:GetAttribute("setup_onleave"));
     end
@@ -138,11 +154,6 @@ function DebindPrivate.UnregisterFrame(button)
 			self:RunFor(button, self:GetAttribute("DeinitFrame"))
 		]=]);
         DebindPrivate.ccframes[button] = nil;
-
-        if (not DebindPrivate.CliqueDetected) then
-            SecureHandlerUnwrapScript(button, "OnEnter");
-            SecureHandlerUnwrapScript(button, "OnLeave");
-        end
     end
 end
 

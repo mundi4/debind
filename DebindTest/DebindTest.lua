@@ -4069,6 +4069,71 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
     end,
 })
 
+-- 등록이 풀린 프레임에 커서가 들어갔을 때.
+--
+-- 해제는 래퍼를 떼지 않는다 (`FrameRegistry.lua`의 `_hoverWrapped`). 뗄 수 있는 것은 맨 위
+-- 래퍼뿐이고 그것이 우리 것이라는 보장이 없어서인데, 그래서 등록이 풀린 프레임에서도 우리
+-- `setup_onenter`가 계속 돈다. 거기서 무엇을 하느냐가 해제의 실체다.
+--
+-- 그냥 물러나면 안 된다. 마우스 포커스는 한 번에 하나이므로 **추적 안 하는 프레임 안에 커서가
+-- 있다는 것 자체가 우리가 마지막으로 적어둔 프레임 안에는 없다는 증거다.** 그래서 슬롯을
+-- 비운다. `OnLeave` 유실의 청소이기도 하다.
+--
+-- **여기 남는 이유.** 값 쪽은 `tests/hover_spec.lua`가 같은 두 스니펫을 돌려 이미 본다. 이
+-- 테스트가 더 보는 것은 하나다: 감싼 스크립트 안에서 `RunAttribute`로 다른 본문을 부르는 것을
+-- **진짜 샌드박스가 받아주는가.** 안 받아주면 오류도 로그도 없이 그 갈래만 죽는다.
+RegisterTest("Hover slot: a deregistered frame stands the slot down", {
+    description = "등록이 풀린 프레임에 들어가면 hover 슬롯이 비는가",
+    run = function()
+        local NAME = "Deregistered frame"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록과 해제가 막힌다")
+        end
+
+        -- hover 조건이 있어야 hover 축이 측정되고 이 슬롯이 읽을 값을 갖는다.
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = "BUTTON3",
+            units = { hover = {} },
+        })
+        ApplyBindings()
+
+        local tracked, trackedErr = CreateTestUnitFrame("player", "group")
+        if not tracked then return Fail(NAME, trackedErr) end
+
+        local dropped, droppedErr = CreateTestUnitFrame("player", "group")
+        if not dropped then return Fail(NAME, droppedErr) end
+
+        DebindPrivate.UnregisterFrame(dropped)
+        if DebindPrivate.ccframes[dropped] ~= nil then
+            return Fail(NAME, "전제가 깨졌다. UnregisterFrame이 행을 안 지웠다")
+        end
+
+        HoverEnter(tracked)
+        AddTeardown(function() HoverLeave(tracked) end)
+        WaitForHoverSlot(true)
+
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+        end
+
+        -- 래퍼가 그대로 붙어 있으므로 여기도 우리 본문이 돈다.
+        --
+        -- **기다리지 않는다.** `SecureHandlerExecute`는 본문을 돌리고 나서 돌아오고, 슬롯이
+        -- 안 비는 것이 바로 이 테스트가 찾는 결함이다. 기다리면 폴링이 정리한 값을 읽고
+        -- 통과할 수 있다.
+        HoverEnter(dropped)
+
+        if GetHoverUnit() ~= nil then
+            return Fail(NAME, format(
+                "추적 안 하는 프레임에 들어갔는데 hover=%s. 옛 프레임이 슬롯에 남았다",
+                tostring(GetHoverUnit())))
+        end
+
+        return Pass(NAME, "등록이 풀린 프레임 진입이 슬롯을 비운다")
+    end,
+})
+
 --- The frames a click-cast test has to cover: one we made, and one of Blizzard's.
 ---
 --- **Driving only our own frame would miss the thing that changed.** Blizzard's frames are the

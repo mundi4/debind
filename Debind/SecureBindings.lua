@@ -119,12 +119,15 @@ SecureHandlerExecute(BindingDriver, [[
 	States = newtable()
 	DirtyFlags = newtable()
 
-	-- 호버 **프레임**이 바뀌었을 때 다시 걸 것이 있나. `UpdateBindings`가 리빌드마다 굽는다.
+	-- Is there anything to re-bind when the hover **frame** changes? `UpdateBindings` bakes this
+	-- on every rebuild.
 	--
-	-- 아래 세 자리에서 `SetUnit`의 반환값과 `or`로 묶인다. 둘은 **서로 다른 사건**이다:
-	-- 반환값은 *호버 유닛이 바뀜*, 이쪽은 *유닛은 그대로인데 프레임이 바뀜*. 뒤엣것을
-	-- 신경 쓰는 것은 `frameTypes` 레코드뿐이라 대개 거짓이고, 그러면 커서가 공대 프레임을
-	-- 쓸고 지나가도 유닛이 안 바뀌는 한 리빌드가 안 나간다.
+	-- Four places `or` it with what `SetUnit` returns: `DeinitFrame`, `setup_onenter` and
+	-- `setup_onleave` below, and the state poll in `UpdateBindings.lua`. The two are **different
+	-- events**. The return value says *the hover unit changed*; this one says *the unit is the
+	-- same and the frame is not*. Only a `frameTypes` record cares about the second, so it is
+	-- false on most profiles, and then a cursor sweeping across raid frames raises no rebuild for
+	-- as long as the unit under it stays the same.
 	RebindOnHoverFrame = false
 
 	-- **Which edge of a unit frame click is ours** (`unitframeUseMouseDown`). Which edges the
@@ -490,7 +493,6 @@ BindingDriver:SetAttribute("InitFrame", [==[
 	ccframes[button] = ccframes[button] or newtable()
 	ccframes[button].frame = button
 	ccframes[button].frameType = 0
-	ccframes[button].reaction = 0
 	-- `*clickbutton-debind1`은 여기 없다. 값이 프레임이라 보안 스니펫이 쓰면 핸들이 그대로
 	-- 저장되고 비보안 쪽이 진짜 프레임을 못 얻는다. 등록 때 비보안 쪽에서 한 번 쓴다
 	-- (`FrameRegistry.lua`의 `ApplyDebindRouting`).
@@ -512,19 +514,17 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 	ccframes[button] = nil
 ]==]);
 
-BindingDriver:SetAttribute("update_hit_bounds", [==[
-	local info = ccframes[self]
-	local _, _, w, h = self:GetRect()
-	if (w and h and w > 0 and h > 0) then
-		w = floor(w + 0.5)
-		h = floor(h + 0.5)
-		info.l = info.insetL / w
-		info.r = 1 - info.insetR / w
-		info.t = 1 - info.insetT / h
-		info.b = info.insetB / h
-	end
-]==])
-
+-- **A frame with no row stands down, and empties the slot on its way out.** The wrapper is never
+-- taken off (`FrameRegistry.lua`), so this body still runs on a frame the addon stopped watching.
+-- Leaving quietly would be wrong: the cursor being inside that frame is proof it is not inside
+-- whatever was recorded last, and `setup_onleave` is the cleanup for an `OnLeave` that never
+-- arrived. Keeping the wrapper is what makes a deregistered frame one more witness to it.
+--
+-- **The call is a statement and the `return` carries nothing**, rather than `return <call>`.
+-- A wrapped `OnEnter` reads the first value its pre-body answers with and skips the frame's own
+-- handler on `false` (`SecureHandlers.lua`, `Wrapped_OnEnter`). Forwarding whatever
+-- `setup_onleave` happens to answer with would put that contract in the other body's hands.
+--
 -- A frame whose unit does not exist counts as **not hovering**, and the frame is still recorded
 -- so the poll can pick it back up when the unit returns. Recording it is what makes recovery
 -- possible: neither enter nor leave fires while the cursor sits still, so dropping the frame
@@ -536,23 +536,28 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
 	local unit = self:GetEffectiveAttribute("unit")
 
 	local unitframe = ccframes[self]
-    local reaction
-    if (unit and UnitExists(unit)) then
-        if (PlayerCanAssist(unit)) then
-            reaction = CONSTANTS.REACTION_HELP
-        elseif (PlayerCanAttack(unit)) then
-            reaction = CONSTANTS.REACTION_HARM
-        else
-            reaction = CONSTANTS.REACTION_OTHER
-        end
-    else
-        unit = nil
-    end
+	if (not unitframe) then
+		debind_driver:RunAttribute("setup_onleave")
+		return
+	end
 
-    local unitChanged = unitframe.unit ~= unit or unitframe.reaction ~= reaction
+	local reaction
+	if (unit and UnitExists(unit)) then
+		if (PlayerCanAssist(unit)) then
+			reaction = CONSTANTS.REACTION_HELP
+		elseif (PlayerCanAttack(unit)) then
+			reaction = CONSTANTS.REACTION_HARM
+		else
+			reaction = CONSTANTS.REACTION_OTHER
+		end
+	else
+		unit = nil
+	end
+
+	local unitChanged = unitframe.unit ~= unit or unitframe.reaction ~= reaction
 	if (States.unitframe ~= unitframe or unitChanged) then
-        unitframe.unit = unit
-        unitframe.reaction = reaction
+		unitframe.unit = unit
+		unitframe.reaction = reaction
 		States.unitframe = unitframe
 		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
 			DirtyFlags.unitframe = true

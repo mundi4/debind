@@ -16,16 +16,7 @@ SecureHandlerExecute(SwitchesUpdaterFrame, [=[
     debind_driver = self:GetFrameRef("debind_driver")
 ]=]);
 
--- **번호는 이름의 약칭일 뿐이다.** 사용자가 매크로에 `/click DebindStates 3`이라고 칠 수 있어서
--- 숫자를 `$state3`으로 편다. 다섯이라는 개수를 아는 것은 아니고 알 필요도 없다 - 이름을
--- 모르는 스위치에 `SetSwitch`를 하면 `States`에 값이 앉고, 그것을 조건으로 건 바인딩은
--- `States[name] ~= v`에서 어긋나 안 나간다.
 SwitchesUpdaterFrame:SetAttribute("_onattributechanged", [==[
-    local num = tonumber(name)
-    if (num) then
-        name = "$state"..num
-    end
-
     if (value == nil or value == "" or value == "toggle" or value == "TOGGLE") then
         debind_driver:RunAttribute("ToggleSwitch", name)
         return
@@ -47,6 +38,17 @@ SwitchesUpdaterFrame:SetAttribute("_onattributechanged", [==[
     debind_driver:RunAttribute("SetSwitch", name, value and true or false)
 ]==]);
 
+
+-- **A number is a shorthand for a name.** A user can type `/click DebindStates 3` in a macro
+-- body, so a numeric button becomes `$state3` here. This is the only door it comes through.
+-- Everything that sets an attribute on this frame either passes the `$` guard below or is a
+-- stored switch name (`*attribute-name-` in `UpdateBindings.lua`), so `_onattributechanged`
+-- never sees a bare number.
+--
+-- **It does not know there are five, and does not need to.** A name nothing defines still lands
+-- in `States` when `SetSwitch` runs, and nothing can be conditioned on it:
+-- `GetUndefinedSwitchCondition` marks such an action and `Debind.lua` keeps it out of `KeyMap`,
+-- so no record carrying that name is ever built.
 
 -- TODO validate the switch name.
 SwitchesUpdaterFrame:SetAttribute("_onclick", [==[

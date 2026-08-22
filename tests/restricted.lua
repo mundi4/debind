@@ -179,6 +179,9 @@ function handleMethods:RunAttribute(name, ...)
     if (type(body) ~= "string") then
         return;
     end
+    if (name == "UpdateBindings") then
+        self.__interp.rebuilds = self.__interp.rebuilds + 1;
+    end
     return self.__interp:run(body, self, "self,...", ...);
 end
 
@@ -406,6 +409,30 @@ end
 function Interp:pollStates()
     self.driverHandle:SetAttribute("state-unitexists", 1);
 end
+--- How many times the restricted `UpdateBindings` has run.
+---
+--- **Some questions are only about whether it ran at all.** A rebuild that re-decides every key
+--- to the value it already held changes no binding, so `interp.bindings` answers the same either
+--- way and the count is the only thing left to ask. Snapshot it, do the thing, compare.
+function Interp:rebuildCount()
+    return self.rebuilds;
+end
+
+--- Drives the real `setup_onenter` for a frame, the way the wrapped `OnEnter` script does.
+---
+--- The frame has to be one `RegisterFrame` took, or `ccframes` has no row for it and the body
+--- has nothing to fill in.
+function Interp:hoverEnter(frame)
+    return self.driverHandle:RunFor(handleFor(self, frame),
+        self.driver:GetAttribute("setup_onenter"));
+end
+
+--- The other half. Takes no frame: `setup_onleave` clears whatever is in the hover slot, which
+--- is what makes it the cleanup for an `OnLeave` that never arrived.
+function Interp:hoverLeave(frame)
+    return self.driverHandle:RunFor(handleFor(self, frame),
+        self.driver:GetAttribute("setup_onleave"));
+end
 
 --- Stands an interpreter up on everything recorded so far.
 ---
@@ -420,6 +447,7 @@ function M.new(DebindPrivate, world)
     interp.handles = {};
     interp.closures = {};
     interp.bindings = {};
+    interp.rebuilds = 0;
     interp.state = {
         combat = false,
         stealth = false,
