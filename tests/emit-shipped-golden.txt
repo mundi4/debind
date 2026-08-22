@@ -800,8 +800,10 @@ SetAttribute <Frame#3> _onattributechanged =
   | end
   | stateValue=SecureCmdOptionParse(SwitchExpressions["$echo"] or "") and true or false
   | if (States["$echo"] ~= stateValue) then self:RunAttribute("SetSwitch", "$echo", stateValue, true) end
+  | if (DirtyFlags.forceAll or DirtyFlags["combat"] or DirtyFlags["stealth"]) then
   | stateValue=SecureCmdOptionParse(SwitchExpressions["$intent"] or "") and true or false
   | if (States["$intent"] ~= stateValue) then self:RunAttribute("SetSwitch", "$intent", stateValue, true) end
+  | end
   | local shouldUpdate
   | for flag in pairs(DirtyFlags) do
   |     shouldUpdate = true

@@ -49,6 +49,10 @@ end
 --- **Anything outside the grammar raises**, rather than being read as no match. A condition this
 --- does not know is a spec measuring something other than what it says.
 local function parseCondition(interp, expr)
+    -- Counted before the early return, so an expression that is skipped and one that is answered
+    -- trivially still read apart. `Interp:parseCount` is the reader.
+    interp.parses[expr or ""] = (interp.parses[expr or ""] or 0) + 1;
+
     if (expr == nil or expr == "") then
         return "";
     end
@@ -418,6 +422,16 @@ function Interp:rebuildCount()
     return self.rebuilds;
 end
 
+--- How many times `SecureCmdOptionParse` has been handed this exact string.
+---
+--- **The state loop skipping a parse is not visible in any value it leaves behind** -- a switch
+--- whose answer did not move reads the same whether the loop worked it out again or let it stand.
+--- So the count is the only thing left to ask, the way `rebuildCount` is for a rebuild that
+--- re-decided every key to what it already held. Snapshot it, poll, compare.
+function Interp:parseCount(expr)
+    return self.parses[expr] or 0;
+end
+
 --- Drives the real `setup_onenter` for a frame, the way the wrapped `OnEnter` script does.
 ---
 --- The frame has to be one `RegisterFrame` took, or `ccframes` has no row for it and the body
@@ -448,6 +462,7 @@ function M.new(DebindPrivate, world)
     interp.closures = {};
     interp.bindings = {};
     interp.rebuilds = 0;
+    interp.parses = {};
     interp.state = {
         combat = false,
         stealth = false,

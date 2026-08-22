@@ -15,6 +15,9 @@ local dump                               = DebindPrivate.dump;
 local luatype                            = type;
 local format, tostring, select           = format, tostring, select;
 local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
+--- `string.gmatch` rather than the bare global. The client carries both, the headless runner only
+--- the one under `string` (`tests/wow_shim.lua`).
+local gmatch                             = string.gmatch;
 local band, bor                          = bit.band, bit.bor;
 local InCombatLockdown                   = InCombatLockdown;
 local FindBaseSpellByID                  = C_SpellBook.FindBaseSpellByID;
@@ -138,6 +141,101 @@ local function ResetContext()
     _measuresReaction = false;
 end
 
+--- Which measured state a macro conditional word answers to.
+---
+--- **Every entry is a claim that the word and the state move together**, so the table is short on
+--- purpose. `vehicleui`, `overridebar` and `possessbar` are the ones that look like they belong and
+--- do not: `specialbar` folds three `Has...ActionBar` calls into one boolean, and not one of the
+--- three is the question those words ask.
+local SWITCH_GATE_STATES = {
+    combat    = "combat",
+    stealth   = "stealth",
+    form      = "form",
+    stance    = "form",
+    bonusbar  = "bonusbar",
+    group     = "group",
+    pet       = "pet",
+    petbattle = "petbattle",
+    extrabar  = "extrabar",
+};
+
+--- Words whose argument can move the answer on its own.
+---
+--- `States.pet` is `PlayerPetSummary()` boiled down to a boolean, so trading one pet for another
+--- leaves it standing while `[pet:Imp]` flips. The bare word is answered by the state, the argument
+--- form is not. Every other word in the table above is answered whole: `GetShapeshiftForm()` covers
+--- every `form:` argument, `GetBonusBarOffset()` every `bonusbar:`, and the group partition every
+--- `group:`.
+local SWITCH_GATE_ARG_MOVES = { pet = true };
+
+--- Names already in the gate being built. Module level, wiped and refilled, the rule this file runs
+--- on.
+local _gateSeen = {};
+
+--- One token out of a macro conditional, as the dirty flag that can move it.
+---
+--- `nil` is "cannot tell", and the caller reads that as the whole expression being ungatable.
+local function SwitchGateFlag(token)
+    -- A unit token puts the answer on `UnitAliasMap` and on whoever that unit turns out to be.
+    -- Neither raises a flag the switch lines could read.
+    if (strsub(token, 1, 1) == "@") then
+        return nil;
+    end
+
+    if (strsub(token, 1, 2) == "no") then
+        token = strsub(token, 3);
+    end
+
+    -- A switch reference. `SetSwitch` raises `DirtyFlags[name]`, so the name already is the flag.
+    if (strsub(token, 1, 1) == "$") then
+        return strmatch(token, "^%$[a-zA-Z0-9_]+$");
+    end
+
+    local word, rest = strmatch(token, "^(%a+)(.*)$");
+    local state = word and SWITCH_GATE_STATES[word];
+    if (not state) then
+        return nil;
+    end
+    if (rest ~= "" and (strsub(rest, 1, 1) ~= ":" or SWITCH_GATE_ARG_MOVES[word])) then
+        return nil;
+    end
+    return state;
+end
+
+--- The dirty flags a computed switch's value can move on, or `nil` where that cannot be worked out.
+---
+--- The state loop hands every computed switch to `SecureCmdOptionParse` on the 0.2s beat, and the
+--- answer cannot have moved unless something the conditional reads moved with it. What comes back
+--- here is that something, named as the flags the same pass has already set by the time the switch
+--- lines run.
+---
+--- **One word it cannot place and the whole expression is ungatable.** `[mounted]` is not measured
+--- here, so a gate built out of the rest of that expression would freeze the switch on whatever it
+--- answered last, and nothing anywhere would say so.
+---
+--- Only the bracket groups are read. What sits outside them is the macro body, baked into the
+--- expression, and it reads the same on every tick.
+local function CollectSwitchGate(expr)
+    local gate;
+    wipe(_gateSeen);
+
+    for group in gmatch(expr, "%[([^%]]*)%]") do
+        for token in gmatch(group, "[^,]+") do
+            local flag = SwitchGateFlag(strtrim(token));
+            if (not flag) then
+                return nil;
+            end
+            if (not _gateSeen[flag]) then
+                _gateSeen[flag] = true;
+                gate = gate or {};
+                gate[#gate + 1] = flag;
+            end
+        end
+    end
+
+    return gate;
+end
+
 --- This rebuild's take on one switch, or `false` where nothing defines the name.
 ---
 --- **The name is not checked against a list any more.** It used to have to be one of the numbered
@@ -166,6 +264,27 @@ function addSwitch(stateName)
             };
             if (mode == SWITCH_MODES.EXPR) then
                 info.expr = expr or "";
+                info.gate = CollectSwitchGate(info.expr);
+
+                -- **The flags have to exist, so the states behind them are registered from here.**
+                -- Nothing else would ask for them: a switch's conditional is read by no other part
+                -- of a rebuild, so a profile whose only `[combat]` sits inside a switch would leave
+                -- `DirtyFlags.combat` for the gate to open on. The gate would never open and the
+                -- switch would sit on its last answer for good.
+                --
+                -- One `PlayerInCombat()` a tick is what buys the parse, and the registration also
+                -- puts the switch on whichever state driver events that state brings with it
+                -- (`CollectDriverEvents`), so it stops waiting out the beat.
+                if (info.gate) then
+                    for i = 1, #info.gate do
+                        local flag = info.gate[i];
+                        -- A switch name is not measured. Its flag comes from `SetSwitch`.
+                        if (strsub(flag, 1, 1) ~= "$") then
+                            _measuredStates[flag] = true;
+                        end
+                    end
+                end
+
                 addMacrotextBinding(info.name, info.expr);
             end
         end
@@ -2057,8 +2176,25 @@ end
         local stateInfo = _switches[state];
         if (stateInfo) then
             if (stateInfo.mode == SWITCH_MODES.EXPR) then
+                -- **`forceAll` is the term that makes the rest of the gate safe to trust.** It is
+                -- set by the block that closes a rebuild, and the pass it opens is the one where
+                -- `States` has just been wiped, so the switch is worked out from nothing there
+                -- whatever its flags say. Everything below that is the steady state.
+                local gate = stateInfo.gate;
+                if (gate) then
+                    local terms = "DirtyFlags.forceAll";
+                    for i = 1, #gate do
+                        terms = terms .. format(" or DirtyFlags[%q]", gate[i]);
+                    end
+                    appendLine("if (%s) then", terms);
+                end
+
                 appendLine([[stateValue=SecureCmdOptionParse(SwitchExpressions[%q] or "") and true or false]], stateInfo.name);
                 appendLine([[if (States[%1$q] ~= stateValue) then self:RunAttribute("SetSwitch", %1$q, stateValue, true) end]], stateInfo.name);
+
+                if (gate) then
+                    appendLine("end");
+                end
             end
         end
     end
