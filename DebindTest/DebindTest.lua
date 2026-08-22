@@ -2274,7 +2274,18 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
         -- `PlanImport` rather than through the string, so this is what catches a tick set one of the
         -- two reads and the other does not. Planned rather than placed: the count is what is being
         -- asked, and placing would leave the run's layer holding a second copy of everything.
-        local planned, skipped = DebindPrivate.Store.PlanImport(payload, { selection = panel.selected })
+        --
+        -- **The entry's own payload, not the one decoded above.** A tick is the action table
+        -- itself, so a payload built by decoding holds a second set of tables that nothing has
+        -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanImport`
+        -- through `CommitEntry`, which opens the entry the same way the preview did
+        -- (`GetEntryPayload`).
+        local stored = DebindPrivate.Store.GetEntryPayload(entry)
+        if not stored then
+            return Fail(NAME, "엔트리 페이로드를 못 열었다")
+        end
+
+        local planned, skipped = DebindPrivate.Store.PlanImport(stored, { selection = panel.selected })
         if #planned ~= #listed then
             return Fail(NAME, format("창은 %d개라 해놓고 %d개를 놓는다", #listed, #planned))
         end
