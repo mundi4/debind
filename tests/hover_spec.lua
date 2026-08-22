@@ -20,10 +20,10 @@ return function(DebindPrivate, _, ctx)
 
     local T = { passed = 0, failures = {} };
 
-    --- 클릭 시점 판정에 닿는 문은 `EvalClickTimeKey`이고 **DEBUG 전용이다**
-    --- (`eval_spec.lua`가 배포 형태에서 그것이 없음을 확인한다). 그 문을 지나야 하는 테스트는
-    --- 배포 패스에서 돌 수 없다. 그 아래 굽는 코드는 두 형태가 같은 바이트라, 여기서 잃는 것은
-    --- 문뿐이다.
+    --- The door to the click-time decision is `EvalClickTimeKey`, and it is **DEBUG only**
+    --- (`eval_spec.lua` asserts it is absent from the shipped shape). A test that has to go
+    --- through it cannot run in the shipped pass. The baking below it is the same bytes in both
+    --- shapes, so what is given up here is the door and nothing else.
     local skipClickTests = ctx and ctx.shipped;
 
     local function test(name, fn)
@@ -125,18 +125,18 @@ return function(DebindPrivate, _, ctx)
     -- 폴링이 리빌드를 부르는 조건
     ---------------------------------------------------------------------------
 
-    --- **읽는 것이 없으면 리빌드도 없다.**
+    --- **Nothing reads it, so nothing is rebuilt.**
     ---
-    --- 호버가 다시 걸 일이 되는 조건은 둘이고 폴링은 둘 다 물어야 한다. 호버 유닛을 읽는
-    --- 바인딩이 있는가 (`SetUnit`이 `UnitStates`를 보고 답한다), 그리고 `frameTypes` 레코드를
-    --- 다시 정해야 하는가 (`RebindOnHoverFrame`). `setup_onenter`는 처음부터 그 둘을 `or`로
-    --- 묶어 물었는데 폴링만 `DirtyFlags.unitframe`을 무조건 세웠고, `DirtyFlags`에 뭐가 하나만
-    --- 있어도 상태 구동 키가 전부 훑인다.
+    --- Two things make a hover change worth re-deciding a key over, and the poll has to ask both:
+    --- is there a binding that reads the hovered unit (`SetUnit` answers that off `UnitStates`),
+    --- and is there a `frameTypes` record to decide again (`RebindOnHoverFrame`). `setup_onenter`
+    --- asked the two as one `or` from the start; only the poll set `DirtyFlags.unitframe`
+    --- unconditionally, and one entry in `DirtyFlags` walks every state-driven key.
     ---
-    --- **이 프로필에서는 이제 hover 블록 자체가 안 나간다** (2026-08-22). 아무것도 hover를
-    --- 이름으로 안 대므로 `_unitsSeen.hover`가 거짓이고, 폴링이 그 프레임을 아예 안 본다.
-    --- 그래서 이 테스트가 지키는 것은 결과 하나지만 그 뒤에 겹이 둘이 됐다. 안쪽 겹 - hover를
-    --- 이름으로는 대지만 다시 걸 것은 없는 프로필 - 은 아래 매크로텍스트 테스트가 밟는다.
+    --- **This profile no longer emits the hover block at all** (2026-08-22). Nothing names hover,
+    --- so `_unitsSeen.hover` is false and the poll never looks at the frame. What this test holds
+    --- is one outcome with two layers behind it now; the inner layer -- a profile that names hover
+    --- but has nothing to re-decide -- is what the macro text tests below stand on.
     test("호버 유닛이 바뀌어도 그것을 읽는 것이 없으면 폴링이 리빌드를 안 부른다", function()
         twoParty();
         local i = Bind({ action({ value = 585, key = "F1", combat = true }) });
@@ -150,7 +150,7 @@ return function(DebindPrivate, _, ctx)
                 :format(i:rebuildCount() - before));
     end);
 
-    --- 반대쪽. 이게 없으면 위 테스트는 폴링이 아무것도 안 하는 상태에서도 통과한다.
+    --- The other side. Without it the test above also passes on a poll that does nothing at all.
     test("호버를 읽는 바인딩이 있으면 같은 변화가 리빌드를 부른다", function()
         twoParty();
         local i = Bind({
@@ -166,11 +166,11 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- 폴링이 hover 블록을 내보내는 조건
+    -- What makes the poll emit the hover block
     ---------------------------------------------------------------------------
 
-    --- 그 키에 걸린 매크로 본문. 속성은 열거가 안 되므로 레코드가 들고 있는 버튼 이름으로
-    --- 되찾는다.
+    --- The macro body on that key. Attributes do not enumerate, so it is recovered through the
+    --- button name the record carries.
     local function macrotextOn(key)
         local records = interp:recordsFor(key);
         if (not records) then
@@ -187,16 +187,17 @@ return function(DebindPrivate, _, ctx)
         return nil, "레코드 중 매크로 본문을 가진 것이 없다";
     end
 
-    --- **`@hover` 스위치 계산식은 조건을 하나도 안 걸고도 폴링을 필요로 한다.**
+    --- **A `@hover` switch expression needs the poll without carrying a single condition.**
     ---
-    --- 계산식의 `@hover`는 `UnitAliasMap["hover"]`로 치환되고, 커서가 멈춰 있는 동안 그 별칭을
-    --- 갱신하는 것은 폴링의 hover 블록뿐이다. 다시 걸 키는 없다 - `UnitStates`에 hover 행이
-    --- 없고 `RebindOnHoverFrame`도 거짓이라 `SetUnit`이 거짓을 돌려준다. 그런데도 블록은
-    --- 나가야 한다.
+    --- The `@hover` in it is substituted with `UnitAliasMap["hover"]`, and while the cursor sits
+    --- still the only thing that keeps that alias current is the poll hover block. There is no key
+    --- to re-decide: `UnitStates` holds no hover row and `RebindOnHoverFrame` is false, so
+    --- `SetUnit` answers false. The block still has to go out.
     ---
-    --- **버튼 본문이 아니라 스위치 계산식인 것이 이 테스트의 전부다.** 버튼에 얹히는 본문은
-    --- 클릭까지 미뤄져서(②) 클릭이 프레임에서 유닛을 다시 읽어 굽는다 - 그쪽은 이 별칭을 아예
-    --- 안 본다. 폴링이 유지해야 하는 `MacroTextsMap` 의존자로 남는 것은 계산식뿐이다.
+    --- **That this is a switch expression and not a button body is the whole test.** A body on a
+    --- button is held back to the click (item 2), and the click reads the unit off the frame
+    --- again -- it never looks at this alias. What is left for the poll to keep current in
+    --- `MacroTextsMap` is the expressions.
     test("@hover 스위치 계산식은 폴링이 별칭을 따라가 준다", function()
         twoParty();
         local i = Bind({
@@ -219,16 +220,16 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- 버튼 본문을 클릭까지 미루기 (②)
+    -- Holding a button body back to the click (item 2)
     ---------------------------------------------------------------------------
 
     if (not skipClickTests) then
 
-    --- **버튼에 얹히는 본문은 상태가 움직일 때 아무도 안 굽는다.**
+    --- **A body that goes on a button is baked by nobody when a state moves.**
     ---
-    --- `MacroTextsMap`에 안 들어가고 `DeferredMacroTexts`로 빠지므로, 커서가 프레임을 쓸고
-    --- 가는 동안 `SetUnit`이 도는 목록에서 통째로 빠진다. 그 대신 그 버튼이 이긴 클릭에서
-    --- 구워진다.
+    --- It is not in `MacroTextsMap` but in `DeferredMacroTexts`, so it drops out of the list
+    --- `SetUnit` walks while the cursor sweeps frames. It is baked by the click that picks that
+    --- button instead.
     test("@hover 버튼 본문은 폴링이 아니라 클릭이 굽는다", function()
         twoParty();
         local i = Bind({
@@ -250,14 +251,15 @@ return function(DebindPrivate, _, ctx)
             ("클릭이 본문을 안 구웠거나 잘못 구웠다 (%q)"):format(tostring(text)));
     end);
 
-    --- **클릭이 굽는 값은 캐시가 아니라 그 클릭이 판정한 유닛이다.**
+    --- **What the click bakes is the unit it judged, not the cache.**
     ---
-    --- 래퍼는 프레임에서 유닛을 다시 읽어 조건을 판정하고 대상도 그 값으로 쏜다. 본문만
-    --- `UnitAliasMap["hover"]`에서 가져오면 **판정한 유닛과 본문이 겨누는 유닛이 갈린다** -
-    --- 우호/적대로 효과가 갈리는 주문에서는 "안 나감"이 아니라 "다른 것이 나감"이다.
+    --- The wrapper reads the unit off the frame again to judge the conditions, and aims at what
+    --- it read. Take only the body from `UnitAliasMap["hover"]` and **the unit that was judged
+    --- and the unit the body aims at come apart** -- on a spell whose effect forks on friend or
+    --- foe, that is not "nothing goes out" but "something else does".
     ---
-    --- 폴링을 안 돌리는 것이 이 테스트의 방법이다. 그러면 별칭은 party1에 머무는데 프레임은
-    --- 이미 party2를 가리키므로, 본문이 어느 쪽을 읽었는지가 갈라진다.
+    --- Not running the poll is how this test asks. The alias then stays on party1 while the frame
+    --- already points at party2, so which of the two the body read is visible in the answer.
     test("클릭이 구운 본문은 그 클릭이 판정한 유닛을 겨눈다", function()
         twoParty();
         local i = Bind({
@@ -278,13 +280,13 @@ return function(DebindPrivate, _, ctx)
 
     end
 
-    --- **@custom1 지정 액션은 유닛을 이름으로 안 댄다.**
+    --- **A @custom1 action names no unit anywhere.**
     ---
-    --- 어느 슬롯을 채울지가 `value`고 어디서 가져올지는 `DescribeBinding`이 `UnitWatch`에
-    --- `"hover"` 리터럴로 굽는다. 그래서 이 액션의 조건에도 대상에도 hover가 없고,
-    --- `_unitsSeen`가 레코드에서 그것을 들을 길이 `record.readsHoverUnit`뿐이다. 빠뜨리면
-    --- 폴링이 이 프로필에서 hover 블록을 안 내보내고, 커서가 멈춘 채 프레임의 유닛이 바뀌면
-    --- 옛 유닛이 custom1로 들어간다.
+    --- Which slot to fill is `value`, and where the unit comes from is baked by `DescribeBinding`
+    --- as the literal `"hover"` on `UnitWatch`. So neither this action's conditions nor its target
+    --- says hover, and the only way `_unitsSeen` hears about it from the record is
+    --- `record.readsHoverUnit`. Miss it and the poll emits no hover block for this profile -- and
+    --- when the frame's unit changes under a still cursor, the old unit lands in custom1.
     test("@custom1 지정 액션만 있어도 폴링이 호버 유닛을 따라간다", function()
         twoParty();
         local i = Bind({ action({ type = Constants.SETCUSTOM, value = 1, key = "F1" }) });

@@ -215,7 +215,17 @@ if (_G.Grid2) then
 	local Grid2 = _G.Grid2;
 	local UnitIsUnit = UnitIsUnit;
 
-	local aliases = { "custom1", "custom2", "hover", "tank", "healer", "maintank", "mainassist" };
+	--- **`hover` was in this list and came out on 2026-08-22.**
+	---
+	--- What that status lit was a mark on the unit whose frame the cursor is on -- which the
+	--- cursor is already marking. The other six are not like that: they were pointed somewhere a
+	--- while ago or resolved automatically, and nothing on screen says who they are now. That
+	--- difference is what this list turns on.
+	---
+	--- What went with it is the report itself. `SetUnit` no longer crosses to the insecure side
+	--- when the hovered unit moves (`SecureBindings.lua`), and that crossing happened twice per
+	--- frame the cursor swept. So `DebindPublic.Units.hover` is nil from here on.
+	local aliases = { "custom1", "custom2", "tank", "healer", "maintank", "mainassist" };
 	for i = 1, #aliases do
 		local theAlias = aliases[i];
 		-- **Stays `debounce_` after the rename.** Grid2 persists this key in its own saved

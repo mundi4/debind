@@ -115,14 +115,15 @@ SecureHandlerExecute(BindingDriver, [[
 
 	MacroTextsMap = newtable()
 
-	-- 클릭까지 미룬 매크로 본문. `버튼 이름 -> 조립 재료`.
+	-- The macro bodies held back until a click. `button name -> what it takes to compose one`.
 	--
-	-- **`MacroTextsMap`과 겹치지 않는다.** 한 본문은 둘 중 한 쪽에만 있다. 여기 있는 것은
-	-- 상태가 움직일 때 아무도 안 굽고, 그 버튼이 이긴 클릭에서만 구워진다. 그래서 커서가
-	-- 공대 프레임을 쓸고 가는 동안 `SetUnit`이 도는 목록에서 이것들이 통째로 빠진다.
+	-- **This and `MacroTextsMap` do not overlap.** A body is in one or the other. What is here is
+	-- rebuilt by nobody when a state moves, and by the click that picks that button. That is what
+	-- takes a raid-frame sweep down: the list `SetUnit` walks no longer holds them.
 	--
-	-- 버튼 이름으로 색인하는 이유는 클릭 순간에 그것 말고 손에 쥔 것이 없어서다 - 래퍼가
-	-- 고른 승자가 들고 있는 것이 `clickbutton`이고, 그 이름이 곧 `*macrotext-` 뒤에 붙는다.
+	-- Indexed by button name because at the moment of a click that is the only thing in hand --
+	-- what the wrapper's winner carries is `clickbutton`, and that name is what `*macrotext-`
+	-- ends in.
 	DeferredMacroTexts = newtable()
 
 	UnitAliasMap = newtable()
@@ -184,28 +185,30 @@ local PRINT_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 ]] or "";
 
---- 매크로텍스트 하나를 조립한다. 호출부가 `entry`, `s`, `hoverAlias`를 선언해서 준다.
+--- Composes one macro body. The caller declares `entry`, `s` and `hoverAlias` and hands them in.
 ---
---- **두 자리에서 굽는다.** 상태가 움직일 때(`UpdateMacroTexts`)와 클릭이 도착했을 때(아래
---- `OnClick` 래퍼). 그래서 조립은 여기 한 벌만 있고 양쪽에 이어붙는다 - 두 벌이 되면
---- `arg.reverse`를 한쪽에서만 고치는 날이 오고, 그 본문은 조용히 반대로 나간다.
+--- **Two places bake.** When a state moves (`UpdateMacroTexts`), and when a click arrives (the
+--- `OnClick` wrapper below). So the composition is one copy spliced into both -- two copies and
+--- the day comes when `arg.reverse` is fixed on one side only, and that body goes out inverted
+--- with nothing to say so.
 ---
---- **`hoverAlias`를 호출부가 주는 이유가 이 함수가 안 갈리는 이유다.** 상태가 움직여서 구울
---- 때 호버 유닛은 `UnitAliasMap["hover"]`뿐이지만, **클릭 순간에는 그것을 쓰면 안 된다** -
---- 래퍼는 프레임에서 유닛을 다시 읽어 조건을 판정하고 대상도 그 값으로 쏘므로, 본문만 캐시에서
---- 가져오면 **판정한 유닛과 본문이 겨누는 유닛이 갈린다.** 우호/적대로 효과가 갈리는 주문에서
---- 그것은 "안 나감"이 아니라 "다른 것이 나감"이다.
+--- **`hoverAlias` comes from the caller, and that is what keeps this one copy.** When a state
+--- moves the hovered unit can only be `UnitAliasMap["hover"]`, but **at a click that value must
+--- not be used**: the wrapper reads the unit off the frame again to judge the conditions and aims
+--- at what it read, so taking only the body from the cache **splits the unit that was judged from
+--- the unit the body aims at.** On a spell whose effect forks on friend or foe, that is not "the
+--- action does not go out" but "a different one does".
 ---
---- 짝수 칸만 덮어쓴다. 홀수 칸은 파서가 넣어둔 리터럴이고 `#entry.args`는 짝수 칸 수다
---- (`ParseMacroText`).
+--- Only the even slots are overwritten. The odd ones are the literals the parser left, and
+--- `#entry.args` is the number of even slots (`ParseMacroText`).
 local COMPOSE_MACROTEXT_SNIPPET = [==[
 	for i = 1, #entry.args do
 		local arg = entry.args[i]
 		local value
 		if (arg.unit) then
-			-- **삼항 흉내를 안 쓴다.** `hoverAlias`는 호버 중이 아니면 nil이라
-			-- `arg.unit == "hover" and hoverAlias or UnitAliasMap[arg.unit]`가 그 경우에
-			-- 캐시로 떨어진다 - 정확히 위 주석이 막으려는 일이 된다.
+			-- **No ternary stand-in here.** `hoverAlias` is nil while nothing is hovered, so
+			-- `arg.unit == "hover" and hoverAlias or UnitAliasMap[arg.unit]` falls through to the
+			-- cache in exactly that case -- which is the thing the comment above exists to stop.
 			if (arg.unit == "hover") then
 				value = hoverAlias
 			else
@@ -236,18 +239,20 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 				local hoverAlias = UnitAliasMap["hover"]
 ]=] .. COMPOSE_MACROTEXT_SNIPPET .. [=[
 
-				-- 실제로 버튼에 올라가는 문자열. 여기가 **상태가 움직여서 본문이 완성되는
-				-- 자리**라 로그도 여기 있어야 한다 - 아래 SetAttribute를 지나면 다시 읽을
-				-- 방법이 없다(속성은 열거가 안 된다).
+				-- The string that actually goes on the button. This is **where a body is
+				-- finished because a state moved**, so the log belongs here -- past the
+				-- SetAttribute below there is no way to read it back (attributes do not
+				-- enumerate).
 				--
-				-- 이 갈래는 `@custom1`·`@hover`처럼 **실행 시점에 바뀌어야 하는 것이
-				-- 있는** 본문만 지난다. 조용하면 그것도 답이다 - 그 본문은 정적이라
-				-- `SetBindingAttributes`가 쓴 그대로라는 뜻이다(그쪽 로그를 볼 것).
+				-- Only bodies with something that **has to change at run time** come through
+				-- here, `@custom1` and `@hover` and the like. Silence is an answer too: it means
+				-- that body is static and stands as `SetBindingAttributes` wrote it (look at that
+				-- log instead).
 				--
-				-- **버튼에 얹히는 본문은 대개 여기까지 안 온다.** 클릭까지 미룬 것은
-				-- `MacroTextsMap`에 아예 안 들어가고 `DeferredMacroTexts`로 빠진다
-				-- (`UpdateBindings.lua`의 `EmitMacroTextEntries`). 여기 남는 `entry.attr`은
-				-- `CLICK_TIME_EVAL`이 꺼진 빌드의 것뿐이다.
+				-- **A body that goes on a button mostly does not reach here.** What is held back
+				-- for the click is not in `MacroTextsMap` at all; it is in `DeferredMacroTexts`
+				-- (`EmitMacroTextEntries` in `UpdateBindings.lua`). The `entry.attr` left here
+				-- belongs to a build with `CLICK_TIME_EVAL` off.
 ]=] .. PRINT_MACROTEXT_SNIPPET .. [=[
 
 				if (entry.attr) then
@@ -271,20 +276,21 @@ BindingDriver:SetAttribute("UpdateMacroTexts", [=[
 	end
 ]=]);
 
---- 이긴 레코드의 매크로 본문을 클릭 순간에 굽는다. 승자가 정해진 **뒤, 버튼 이름을 돌려주기
---- 전에** 이어붙는다.
+--- Bakes the winning record's macro body at the click. Spliced in **after the winner is settled
+--- and before the button name goes back**.
 ---
---- **`RunAttribute`도 `RunFor`도 안 쓴다.** 이어붙이기라 2026-08-11 결정이 그대로 선다.
+--- **No `RunAttribute` and no `RunFor`.** Splicing is what keeps the 2026-08-11 decision standing.
 ---
---- **할당 하나를 산다.** 클릭 경로에서 문자열을 안 만든다는 것이 이 래퍼의 규칙인데, 여기서
---- `table.concat`이 하나 난다. 그것이 이 항목의 거래다: 커서가 공대 프레임을 쓸고 가는 동안
---- `@hover` 본문 **전부**를 다시 굽던 것을, 클릭당 **이긴 하나**로 바꾼다. 클릭은 사람 손
---- 속도라 아무리 빨라도 초당 열 번이고, 프레임 쓸기는 그렇지 않다.
+--- **It buys one allocation.** This wrapper's rule is that the click path builds no strings, and
+--- here one `table.concat` does. That is this item's trade: rebuilding **every** `@hover` body
+--- while the cursor sweeps a raid frame becomes **the one that won** per click. A click runs at
+--- hand speed, ten a second at the outside; sweeping frames does not.
 ---
---- `DeferredMacroTexts`에 없는 버튼이면 아무 일도 안 한다. 정적인 본문은 `StampBinding`이 쓴
---- 그대로고, 상태가 움직여야 하는 본문 중 여기 없는 것은 위 `UpdateMacroTexts`가 맡는다.
---- 같은 로그의 클릭 쪽. **`self`가 아니라 `debind_driver`다** - 이 래퍼의 `self`는 감싼
---- 프레임이라 `printMacroText`가 거기 없다.
+--- A button that is not in `DeferredMacroTexts` costs nothing here. A static body stands as
+--- `StampBinding` wrote it, and a body that has to move with a state and is not here belongs to
+--- `UpdateMacroTexts` above.
+--- The same log on the click side. **`debind_driver`, not `self`** -- this wrapper's `self` is
+--- the frame it wraps, and `printMacroText` is not on that one.
 local PRINT_BAKED_MACROTEXT_SNIPPET = DebindPrivate.DEBUG and [[
 		debind_driver:CallMethod("printMacroText", entry.attr, s)
 ]] or "";
@@ -348,7 +354,15 @@ BindingDriver:SetAttribute("SetUnit", [[
 			self:RunAttribute("UpdateMacroTexts", alias)
 		end
 
-		if (not force) then
+		-- **Hover is not announced outside** (2026-08-22). What sets it apart from the other
+		-- aliases is not how often it moves but **what knowing it is good for**. `custom1` was
+		-- pointed at somebody a while ago, so asking who that is now makes sense; hover is the
+		-- unit on the frame the cursor is on right now, and looking at the cursor is faster.
+		--
+		-- So this one line was crossing to the insecure side **twice per frame the cursor swept**
+		-- (enter and leave) to fire a `UNIT_CHANGED` nobody was listening for.
+		-- `DebindPrivate.Units.hover` is empty from here on.
+		if (not force and alias ~= "hover") then
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
 		end
 	end

@@ -228,8 +228,13 @@ its first resume, so a suite of them still completes in one frame.
 ## 4. Rules that came from real failures
 
 **Ask the game, not yourself.** Assert on what the game reports — `GetBindingAction(key, true)`
-for what a key is bound to, `DebindPrivate.Units.hover` for the hover slot, `LastWinner()` for
+for what a key is bound to, `GetHoverUnit()` for the hover slot, `LastWinner()` for
 which binding the snippet chose. A test that reads back the value it injected proves nothing.
+
+**And ask the restricted side, not its mirror.** `ReadSecureState` / `ReadSecureUnit` go to
+`States` and `UnitAliasMap` themselves; `DebindPrivate.Units` is a copy kept up to date by a
+report, and a copy that held a value the restricted side had dropped would read as a pass. Hover
+has no copy at all any more — `SetUnit` stopped reporting it on 2026-08-22.
 
 **Move a widget the way a hand moves it.** `EditBox:SetText()` puts the string in and does **not**
 run `OnTextChanged`, which is where the window does the work. The macro editor lights [Cancel] there

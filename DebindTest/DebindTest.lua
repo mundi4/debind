@@ -924,11 +924,20 @@ local function HoverLeave(frame)
     ]])
 end
 
---- What the secure side currently calls the hovered unit, as seen from outside. The secure
---- `SetUnit` mirrors it out through `CallMethod`, and that is a call rather than a queue, so
---- after `HoverEnter`/`HoverLeave` this is already true in the same breath.
+--- What the restricted side currently calls the hovered unit.
+---
+--- **Asked of `UnitAliasMap` and not of `DebindPrivate.Units`**, which is what `ReadSecureUnit`
+--- says about every other alias: the insecure table is a mirror, and a mirror that kept a value
+--- the restricted side had dropped would read as a pass. This one was the odd reader out.
+---
+--- It has to be, now: hover is the one alias that is **not** mirrored out at all (2026-08-22).
+--- `SetUnit` stopped reporting it, so `DebindPrivate.Units.hover` is nil whatever is hovered.
 local function GetHoverUnit()
-    return DebindPrivate.Units.hover
+    local answer = ReadSecureUnit("hover")
+    if not (answer and answer.present) then
+        return nil
+    end
+    return answer.value
 end
 
 --- Waits for the hover slot to be filled (`true`) or emptied (`false`), as seen from outside.
@@ -3932,16 +3941,18 @@ RegisterTest("Secure update path", {
     end,
 })
 
--- **0.2초 박자는 잴 것이 있을 때만 돈다** (`devdocs/trimming-the-restricted-hot-paths.md` ③).
--- 조건이 하나도 없는 프로필에서는 `RegisterUnitWatch`를 놓고, 조건 하나가 다시 걸게 한다.
+-- **The 0.2s beat runs only where there is something to measure**
+-- (`devdocs/trimming-the-restricted-hot-paths.md`, item 3). A profile with no conditions at all
+-- lets `RegisterUnitWatch` go, and one condition brings it back.
 --
--- 헤드리스는 **결정만** 볼 수 있다 (`plan.statePoll`, `tests/plan_spec.lua`). 인터프리터의
--- `pollStates`는 속성을 직접 찔러서 패스를 돌리므로 등록 여부와 무관하게 돈다. 그러니
--- 등록이 진짜로 블리자드 매니저에 닿았는지는 여기서만 답이 나온다.
+-- Headless can see **the decision only** (`plan.statePoll`, `tests/plan_spec.lua`). The
+-- interpreter's `pollStates` writes the attribute itself, so it runs a pass whether or not the
+-- frame is registered. Whether the registration really reached Blizzard's manager is answerable
+-- here and nowhere else.
 --
--- **키가 계속 걸려 있는지를 같이 묻는다.** 이 항목이 서는 근거가 "배선이 고정된 키는 리빌드
--- 스니펫이 한 번 걸고 끝이라 폴링과 무관하다"이므로, 그 근거를 확인하지 않으면 이 테스트는
--- 등록이 떨어진 것만 보고 키가 죽은 것은 못 본다.
+-- **It asks whether the key is still bound, in the same breath.** What this item rests on is that
+-- a fixed-wiring key is bound once by the rebuild snippet and owes the poll nothing -- and
+-- without checking that, the test would see the registration go and not see the key die with it.
 RegisterTest("State poll follows what is measured", {
     description = "잴 것이 없으면 0.2초 박자를 놓고, 조건 하나가 다시 걸게 하는지",
     run = function()
@@ -3956,8 +3967,8 @@ RegisterTest("State poll follows what is measured", {
         local driver = DebindPrivate.BindingDriver
         if not driver then return Fail(NAME, "BindingDriver가 없다") end
 
-        -- 앞선 테스트가 넣어둔 조건부 액션이 하나라도 남아 있으면 박자는 당연히 걸려 있다.
-        -- 레이어를 비우는 것이 이 테스트의 전제고, 끝나고도 비워둔다.
+        -- One conditional action left behind by an earlier test and the beat is registered for
+        -- reasons of its own. An empty layer is this test's premise, and it leaves one behind.
         CleanupActions()
         AddTeardown(CleanupActions)
 
@@ -3973,9 +3984,10 @@ RegisterTest("State poll follows what is measured", {
             return Fail(NAME, format("박자를 놓았더니 키가 안 걸렸다 (%q)", bound))
         end
 
-        -- **다른 키다.** 같은 키에 얹으면 조건 없는 액션이 조건 공간을 이미 덮어서 그 키는
-        -- 여전히 배선 고정이고, 그런 키의 축은 `_measuredStates`에 안 올라간다 - 조건을
-        -- 넣었는데 재는 것은 없는 상태가 되어 이 테스트가 조용히 무의미해진다.
+        -- **A different key.** Put on the same one, the unconditional action already covers the
+        -- condition space, so the key stays fixed-wiring -- and a key like that registers no axis
+        -- in `_measuredStates`. The condition would be in the profile with nothing measured for
+        -- it, and this test would go quietly meaningless.
         InsertAction({ type = Constants.SPELL, value = 585, key = CONDITIONAL, combat = true })
         ApplyBindings()
 
@@ -5003,12 +5015,14 @@ RegisterTest("Click-time key: fixed wiring is never handed back", {
     end,
 })
 
--- **클릭이 매크로 본문을 굽는다** (`devdocs/trimming-the-restricted-hot-paths.md` ②).
--- 버튼에 얹히는 본문은 상태가 움직일 때 아무도 안 굽고, 그 버튼이 이긴 클릭에서 구워진다.
+-- **The click bakes the macro body** (`devdocs/trimming-the-restricted-hot-paths.md`, item 2).
+-- A body that goes on a button is baked by nobody when a state moves, and by the click that
+-- picks that button.
 --
--- 값 자체는 헤드리스가 본다(`tests/hover_spec.lua`). **여기서만 답이 나오는 것은 그 쓰기가
--- 제한 환경에서 통하느냐다** - 래퍼 안에서 보호된 프레임에 `SetAttribute`를 걸고, 그 직후
--- 게임이 같은 이름으로 속성을 읽는다. 안 통하면 아무것도 안 터지고 본문이 옛 값으로 나간다.
+-- The value itself is headless (`tests/hover_spec.lua`). **What is answerable only here is
+-- whether that write goes through**: inside the wrapper it sets an attribute on a protected
+-- frame, and the game reads the same name a moment later. If it does not go through, nothing
+-- raises and the old body fires.
 RegisterTest("Click bakes the deferred macro body", {
     description = "@hover 매크로 본문을 클릭이 굽는지 (제한 환경의 SetAttribute가 통하는지)",
     run = function()
@@ -5039,8 +5053,8 @@ RegisterTest("Click bakes the deferred macro body", {
         HoverEnter(frame)
         WaitForHoverSlot(true)
 
-        -- **아직 아무도 안 구웠어야 한다.** 여기 있는 것은 `StampBinding`이 쓴 원문이고,
-        -- `@hover`가 그대로 남아 있는 것이 곧 "폴링은 이 본문을 안 만진다"의 증거다.
+        -- **Nobody should have baked it yet.** What is here is what `StampBinding` wrote, and
+        -- `@hover` still standing in it is the proof that the poll does not touch this body.
         local raw = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
         if not (raw and raw:find("@hover", 1, true)) then
             return Fail(NAME, format("전제가 깨졌다 - 클릭 전에 본문이 벌써 %q다", tostring(raw)))

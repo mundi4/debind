@@ -182,11 +182,12 @@ function collectSnippetLocals(src, code) {
             return null;
         })();
         if (long) {
-            // **조각이 다른 조각으로 만들어질 수 있다.** 클릭 순간에 굽는 본문이 그렇다 -
-            // 조립 루프는 `UpdateMacroTexts`와 한 벌을 나눠 쓰고 로그는 DEBUG에서만 붙는다.
-            // 첫 긴 문자열만 집어가던 동안에는 그런 선언이 **앞토막으로 잘려서** 여기를 떠났고,
-            // 잘린 자리가 `if`를 안 닫아서 시끄럽게 실패한 것이 운이었다. 닫혔으면 검사를
-            // 통과한 채로 실제와 다른 본문을 보고 있었을 것이다.
+            // **A piece can be made of other pieces.** The body baked at a click is one: the
+            // composition loop is a copy it shares with `UpdateMacroTexts`, and the log only
+            // joins it in a DEBUG build. While only the first long string was taken, such a
+            // declaration left here **cut off at its head** -- and it failing loudly, because the
+            // cut left an `if` unclosed, was luck. Had it closed, the checks would have passed
+            // while looking at a body the game never runs.
             const parts = [{ literal: long.body }];
             let i = long.next;
             for (;;) {
@@ -201,8 +202,8 @@ function collectSnippetLocals(src, code) {
                     i = nested.next;
                     continue;
                 }
-                // 이미 모아둔 조각만 인정한다. 선언 순서가 곧 해결 순서라 뒤에 오는 이름은
-                // 여기서 안 보이는데, 그것은 Lua에서도 nil이라 같은 이야기다.
+                // Only a piece already collected counts. Declaration order is resolution order,
+                // so a name declared later is not visible here -- and it is nil in Lua too.
                 const ident = /^[A-Za-z_][\w]*/.exec(src.slice(i));
                 if (ident && snippetLocals.has(ident[0])) {
                     parts.push({ ref: ident[0] });
@@ -216,9 +217,9 @@ function collectSnippetLocals(src, code) {
             const head = src.slice(m.index, long.start);
             const gated = DEBUG_GATED.test(head);
 
-            // **선언이 걸린 것과 안쪽에 걸린 것이 든 것은 다르다.** 앞엣것은 릴리스에서
-            // 통째로 사라지고, 뒤엣것은 그 자리만 비어서 **짧아진 채로 존재한다.** 둘을 한
-            // 플래그로 묶으면 뒤엣것이 릴리스에서 통째로 없는 것으로 기록된다.
+            // **A gated declaration and a declaration holding a gated piece are not the same.**
+            // The first disappears whole in a release build; the second **stays, shorter**, with
+            // only that spot emptied. One flag for both records the second as absent.
             const hasGatedPart = parts.some(
                 (p) => p.ref !== undefined
                     && (snippetLocals.get(p.ref).gated || snippetLocals.get(p.ref).hasGatedPart));
@@ -273,9 +274,10 @@ function forEachSnippet(srcDir, cb) {
                 // 게이트가 붙은 참조가 하나라도 있을 때만 두 형상이 존재한다. 무조건 들어가는
                 // 조각은 어느 쪽에서도 본문 그대로다.
                 const resolve = (p) => (p.ref ? snippetLocals.get(p.ref).body : p.literal);
-                // **한 조각이 두 가지 이유로 형상을 둘 갖는다**: 그 선언이 DEBUG에 걸려 있어
-                // 통째로 빠지거나, 안에 그런 것이 들어 있어 그 자리만 빈다. 두 번째를 첫
-                // 번째로 취급하면 릴리스 형상이 통째로 없는 것으로 기록된다.
+                // **A piece has two shapes for either of two reasons**: its own declaration is
+                // gated under DEBUG and it drops out whole, or it holds one that is and only
+                // that spot empties. Treating the second as the first records the release shape
+                // as missing entirely.
                 const twoShapes = (p) => p.ref !== undefined
                     && (snippetLocals.get(p.ref).gated || snippetLocals.get(p.ref).hasGatedPart);
                 const resolveOff = (p) => {

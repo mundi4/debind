@@ -100,6 +100,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
 	DeferredMacroTexts = newtable()
 
 	UnitAliasMap = newtable()
@@ -185,6 +186,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
 	self:CallMethod("printMacroText", entry.attr or entry.state or "?", s)
 
 				if (entry.attr) then
@@ -241,6 +244,8 @@ DelegateFrameNames[frame] = frame:GetName()
 		entry.fragments[i * 2] = value
 	end
 	s = table.concat(entry.fragments)
+
+
 
 
 
@@ -325,7 +330,15 @@ DelegateFrameNames[frame] = frame:GetName()
 			self:RunAttribute("UpdateMacroTexts", alias)
 		end
 
-		if (not force) then
+
+
+
+
+
+
+
+
+		if (not force and alias ~= "hover") then
 			self:CallMethod("OnSpecialUnitChanged", alias, unit)
 		end
 	end
