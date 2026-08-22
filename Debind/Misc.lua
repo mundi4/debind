@@ -1858,8 +1858,15 @@ local _changedStates = {};
 --- reset this side pushed a moment ago coming back round, and it is the one that must not be
 --- remembered (§4-9).
 ---
---- What is left here is what only this path knows: that the value came from outside, so somebody
---- may be listening, and the user may have asked to be told.
+--- What is left here is what only this path knows: that the value came from outside, and the
+--- user may have asked to be told.
+---
+--- **Nothing is broadcast any more.** `SWITCH_CHANGED` went on 2026-08-22. A listener on it
+--- meant every switch value had to be right the moment it moved, and that reachability is what
+--- kept a computed switch from being worked out lazily
+--- (`devdocs/trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
+--- which `SetSwitchValue` above still fills in, so what it lost was a reason to redraw rather
+--- than the value to draw.
 local function SwitchesChangedCallback()
     for state, newValue in pairs(_changedStates) do
         local options = DebindPrivate.ResolveSwitchDefinition(state);
@@ -1868,8 +1875,6 @@ local function SwitchesChangedCallback()
 
             if (_lastSwitchValues[state] ~= newValue) then
                 _lastSwitchValues[state] = newValue;
-
-                DebindPrivate.callbacks:Fire("SWITCH_CHANGED", state, newValue);
 
                 if (options.displayMessage) then
                     local valueText = newValue and L["STATE_CHANGED_MESSAGE_ON"] or L["STATE_CHANGED_MESSAGE_OFF"];

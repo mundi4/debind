@@ -697,20 +697,26 @@ function DebindSwitchesPanelMixin:OnShow()
 
     -- **Three things move this list while it is up, and none of them is this panel.** A key or a
     -- macro flips a value, the expression loop computes one, and the action menus can make a switch
-    -- with the reader standing on another tab. Subscribing is what makes the list say what is true
-    -- rather than what was true when the tab was opened.
-    DebindPrivate.RegisterCallback(self, "SWITCH_CHANGED");
+    -- with the reader standing on another tab. Watching for them is what makes the list say what is
+    -- true rather than what was true when the tab was opened.
+    --
+    -- **The first two are pulled and the third is pushed.** A value moving used to arrive as
+    -- `SWITCH_CHANGED`; that event is gone, because anything listening to it made every switch
+    -- value have to be current the instant it moved
+    -- (`devdocs/trimming-the-restricted-hot-paths.md`). The set of switches changing is a different
+    -- question, it is rare, and it still arrives.
+    self.seenSerial = DebindPrivate.switchValueSerial;
     DebindPrivate.RegisterCallback(self, "OnSwitchesChanged");
     self:RegisterEvent("PLAYER_REGEN_DISABLED");
     self:RegisterEvent("PLAYER_REGEN_ENABLED");
     -- **A fourth, and it is the one this list was rebuilt for.** Changing specialization moves the
-    -- tick from one layer row to another and can move every value with it, and neither of the two
-    -- callbacks above is fired by a switch whose value did not happen to change.
+    -- tick from one layer row to another and can move every value with it. Neither of the two above
+    -- covers it: the counter only moves where a value moved, and a switch that was already on in
+    -- both specializations moves nothing while the row it belongs to has gone elsewhere.
     self:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 end
 
 function DebindSwitchesPanelMixin:OnHide()
-    DebindPrivate.UnregisterCallback(self, "SWITCH_CHANGED");
     DebindPrivate.UnregisterCallback(self, "OnSwitchesChanged");
     self:UnregisterEvent("PLAYER_REGEN_DISABLED");
     self:UnregisterEvent("PLAYER_REGEN_ENABLED");
@@ -729,7 +735,19 @@ function DebindSwitchesPanelMixin:OnEvent(event)
     end
 end
 
-function DebindSwitchesPanelMixin:SWITCH_CHANGED()
+--- **The list pulls the values.** What a row draws is `definition.value`, which the report out of
+--- the restricted environment still fills in; what went away is the event that used to say when.
+---
+--- **A counter, not a clock.** Redrawing on a beat would repaint every row for nothing most of
+--- the time; `switchValueSerial` moves only where a value really moved (`Profile.lua`), so this
+--- is one comparison a frame and a redraw exactly when there is something to redraw. That makes
+--- it as prompt as the event was.
+function DebindSwitchesPanelMixin:OnUpdate()
+    local serial = DebindPrivate.switchValueSerial;
+    if (self.seenSerial == serial) then
+        return;
+    end
+    self.seenSerial = serial;
     self:UpdateRows();
 end
 

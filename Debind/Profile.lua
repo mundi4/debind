@@ -1559,6 +1559,12 @@ end
 ---
 --- **What the caller still owns is the rebuild.** Nothing in this file asks for one; the value only
 --- reaches a key through `UpdateBindings`, and both callers have their own moment for it.
+--- **Bumped only where a value really moved**, which the early return above already decides.
+--- The Switches tab watches this instead of an event: a switch flipping stopped being one on
+--- 2026-08-22 (`Public.lua`), and a counter is what is left to notice it by. Reading it is one
+--- comparison, so the tab can ask every frame and redraw only when the answer moves.
+DebindPrivate.switchValueSerial = 0;
+
 function DebindPrivate.SetSwitchValue(name, value)
     local definition = DebindPrivate.Switches[name];
     if (not definition or definition.value == value) then
@@ -1567,12 +1573,14 @@ function DebindPrivate.SetSwitchValue(name, value)
 
     definition.value = value;
     DebindPrivate.db.char.switches[name] = value;
+    DebindPrivate.switchValueSerial = DebindPrivate.switchValueSerial + 1;
 end
 
 --- The set of switches changed: one was made, renamed or deleted.
 ---
---- **Only the set.** A switch's value flipping is `SWITCH_CHANGED` and has listeners of its own;
---- this is for the list itself changing. Two things read that list: the picker's catalog, which
+--- **Only the set.** A switch's value flipping stopped being an event on 2026-08-22 and the
+--- Switches tab polls for it now (`SwitchesUI.lua`); this is for the list itself changing, which is
+--- rare enough to stay pushed. Two things read that list: the picker's catalog, which
 --- offers one on/off/toggle action per switch, and the Switches tab.
 ---
 --- The bus is `Debind.lua`'s and the headless runner does not load that file (`tests/run.lua`), so

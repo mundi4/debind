@@ -36,9 +36,14 @@ function DebindPublic:UpdateRegisteredClicks(button)
 	DebindPrivate.UpdateRegisteredClicks(button);
 end
 
+--- **`SWITCH_CHANGED` was here and is not any more (2026-08-22).** Anything listening made every
+--- switch value have to be current the instant it moved, and that reachability is what stopped a
+--- computed switch from being worked out only when something asks
+--- (`devdocs/trimming-the-restricted-hot-paths.md`). Nothing in the addon listened and the event
+--- was never announced anywhere. If a reason to publish switch values comes back, it comes back
+--- as something cheaper than a broadcast on every flip.
 local VALID_EVENTNAMES = {
 	UNIT_CHANGED = true,
-	SWITCH_CHANGED = true,
 };
 
 function DebindPublic.RegisterCallback(target, eventname, method, ...)
