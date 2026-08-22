@@ -187,7 +187,7 @@ return function(DebindPrivate)
     end);
 
     test("승인 전 배지가 붙은 것은 안 센다", function()
-        ResetProfile({ general = { HoverTargetAction({ imported = "F1" }) } });
+        ResetProfile({ general = { HoverTargetAction({ arrivalID = 7 }) } });
         check(BlockedWithClique(true) == false, "격리된 액션을 센다");
     end);
 

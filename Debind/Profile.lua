@@ -24,20 +24,199 @@ local KEYS_TO_SAVE       = {
     conditions = true,
     priority = true,
     seq = true,
-    -- **The key this action came in on**, and what quarantines it: while it is set the action is in
-    -- the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying yes.
-    -- `true` where it arrived on no key at all, and a string is the sender's key, which is what the
-    -- heading calls a set that is still waiting (`GetKeyDisplayText`). It used to be the store row's id,
-    -- from when a string with no keys in it needed something to hold a set together.
+    -- **Which arrival put this action here**, and what quarantines it: while it is set the action is
+    -- in the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying yes.
+    -- A number, handed out one per arrival by `NextArrivalID`, and it is half of what a key group is:
+    -- two sets can sit on the same key while only one of them is the reader's
+    -- (`devdocs/building-export-import.md` 12절).
     --
-    -- **Nothing else about the arrival is stored.** There used to be two more fields here -- the
-    -- group inside the arrival, and its place in that group -- because a string sent without keys had
-    -- nothing else to hold a set together. It arrives with a key now, a synthetic one, so the group
-    -- is a key group like any other and its order is `seq` (`devdocs/building-export-import.md`).
-    imported = true,
+    -- **Nothing else about the arrival is stored.** The key it came in on is `key`, the same field
+    -- the reader's own actions use, and its place in the set is `seq`. There used to be a synthetic
+    -- key here doing the group's work; what that cost is in the same 12절.
+    arrivalID = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
 };
+
+--- Which of an action's stored fields decide whether two actions are **the same thing**.
+---
+--- **Derived from `KEYS_TO_SAVE` rather than copied**, so a field added above is compared without
+--- anybody remembering to come here. A second hand-written list is a list that drifts, and the
+--- direction it would drift in is the dangerous one: a field left out makes two different actions
+--- answer "same".
+---
+--- **Two are left out.**
+---
+---   * `seq` is a place inside a key group, not a property of the action. Comparing it would make
+---     the one case worth finding impossible to find: `RenumberKeyGroup` numbers a layer's key group
+---     1..n, so two actions on one key **always** differ in it. And it would answer three different
+---     ways depending on where it was asked -- keyless actions all carry nil and so compare fine,
+---     while two layers number from 1 each and match only by coincidence.
+---   * `arrivalID` is which arrival brought it. Comparing it means the same payload brought twice is
+---     never the same thing, which is the whole of what the duplicate check exists to catch.
+---
+--- **The layer is not in here either, and cannot be.** An import holds a payload's layer against the
+--- profile layer it would land in, so the caller pairs the addresses up and the answer wanted is
+--- about the rest. A signature carrying the address would never match across that pair.
+local IDENTITY_FIELDS    = {};
+do
+    local NOT_IDENTITY = { seq = true, arrivalID = true };
+    for name in pairs(KEYS_TO_SAVE) do
+        if (not NOT_IDENTITY[name]) then
+            IDENTITY_FIELDS[#IDENTITY_FIELDS + 1] = name;
+        end
+    end
+    sort(IDENTITY_FIELDS);
+end
+
+local tconcat            = table.concat;
+
+--- One value as text that only an equal value can produce.
+---
+--- **Strings carry their length** because one of them is a macro body, which can hold every
+--- character this uses as punctuation. `n1` and `s1:1` keep the number `1` apart from the string
+--- `"1"`, which a plain `tostring` would not.
+---
+--- **A table with nothing left in it comes back nil, and the caller drops the whole entry.** An
+--- action with no conditions is written both ways in this profile: `Misc.lua` clears
+--- `conditions.units` down to nil rather than leaving an empty table, precisely because several
+--- places gate on the table existing. Two actions that differ only in which of those two shapes
+--- they are written in are the same action.
+---
+--- **Keys are sorted, and by type first.** `pairs` order is not the order anything was written in
+--- and is not stable across two tables holding the same thing.
+local function Canonical(value)
+    local kind = luatype(value);
+    if (value == nil) then
+        return nil;
+    elseif (kind == "string") then
+        return "s" .. #value .. ":" .. value;
+    elseif (kind == "number") then
+        return "n" .. tostring(value);
+    elseif (kind == "boolean") then
+        if (value) then return "bt"; end
+        return "bf";
+    elseif (kind ~= "table") then
+        return kind .. ":" .. tostring(value);
+    end
+
+    local names = {};
+    for name in pairs(value) do
+        names[#names + 1] = name;
+    end
+    sort(names, function(lhs, rhs)
+        local lhsType, rhsType = luatype(lhs), luatype(rhs);
+        if (lhsType ~= rhsType) then
+            return lhsType < rhsType;
+        end
+        return lhs < rhs;
+    end);
+
+    local parts = {};
+    for i = 1, #names do
+        local piece = Canonical(value[names[i]]);
+        if (piece ~= nil) then
+            parts[#parts + 1] = Canonical(names[i]) .. "=" .. piece;
+        end
+    end
+    if (#parts == 0) then
+        return nil;
+    end
+    return "{" .. tconcat(parts, ",") .. "}";
+end
+
+--- What this action **is**, as one string. Two actions are the same thing exactly when these match.
+---
+--- The fields are `IDENTITY_FIELDS`, which says which and why. A field the action does not have is
+--- left out rather than written as nil, so "no key" and "some key" come out different and "no key"
+--- and "no key" come out the same.
+function DebindPrivate.ActionSignature(action)
+    local parts = {};
+    for i = 1, #IDENTITY_FIELDS do
+        local name = IDENTITY_FIELDS[i];
+        local piece = Canonical(action[name]);
+        if (piece ~= nil) then
+            parts[#parts + 1] = name .. "=" .. piece;
+        end
+    end
+    return tconcat(parts, ";");
+end
+
+local ActionSignature = DebindPrivate.ActionSignature;
+
+--- Are these two the same action. **The two entry points below stand on the same signature**, so
+--- there is no pair of them that can disagree about what "same" is.
+function DebindPrivate.ActionsAreEqual(lhs, rhs)
+    if (lhs == rhs) then
+        return true;
+    end
+    if (lhs == nil or rhs == nil) then
+        return false;
+    end
+    return ActionSignature(lhs) == ActionSignature(rhs);
+end
+
+--- Which of `candidates` are already in `existing`. Answers with a table: candidate action -> the
+--- one in `existing` it matches.
+---
+--- **One pass over each list**, not every pair against every pair. The signature is worked out once
+--- per action.
+---
+--- **Both sides have to be one address**, since the address is not in the signature. An import hands
+--- in a payload's layer and the profile layer it would land in; the profile sweep hands in one
+--- layer twice over. Handing in two lists gathered across layers answers a question nobody asked.
+function DebindPrivate.MatchActionsAgainst(candidates, existing)
+    local found = {};
+    if (candidates == nil or existing == nil) then
+        return found;
+    end
+
+    local bySignature = {};
+    for i = 1, #existing do
+        local action = existing[i];
+        local signature = ActionSignature(action);
+        if (bySignature[signature] == nil) then
+            bySignature[signature] = action;
+        end
+    end
+
+    for i = 1, #candidates do
+        local action = candidates[i];
+        local match = bySignature[ActionSignature(action)];
+        if (match ~= nil and match ~= action) then
+            found[action] = match;
+        end
+    end
+    return found;
+end
+
+--- Which of these repeat something earlier in the same list. Answers with a table: the later action
+--- -> the first one like it.
+---
+--- **The first one is what stays**, and the caller needs that to be the rule rather than an
+--- accident. Two arrivals of the same payload leave whole groups sitting on top of each other, but
+--- an arrival that carried one extra action leaves a group that is only partly a repeat -- and
+--- taking away whichever copy came to hand can leave the older group short a member while the newer
+--- one stands whole. `arrivalID` counts up, so first in the list is the one that was here first.
+function DebindPrivate.FindRepeatedActions(actions)
+    local found = {};
+    if (actions == nil) then
+        return found;
+    end
+
+    local firstSeen = {};
+    for i = 1, #actions do
+        local action = actions[i];
+        local signature = ActionSignature(action);
+        local first = firstSeen[signature];
+        if (first == nil) then
+            firstSeen[signature] = action;
+        else
+            found[action] = first;
+        end
+    end
+    return found;
+end
 
 local LAYER_INFOS        = {
     [1] = { key = "GENERAL" },
@@ -163,9 +342,15 @@ local ARRIVAL_SEQ = 1000000;
 
 --- Renumbers the actions on `key` in this layer 1..n, **in the order they are drawn**.
 ---
---- **One (layer, key) is one group**, because that is exactly the reach of the number -- the
---- comparator has already split on the five steps above it -- so sharing numbers with another key,
---- or with another layer, decides nothing.
+--- **One (layer, key, arrivalID) is one group**, because that is exactly the reach of the number --
+--- the comparator has already split on the five steps above it -- so sharing numbers with another
+--- key, or with another layer, decides nothing.
+---
+--- **`arrivalID` is in there because two sets can sit on one key.** The reader's own set is on
+--- `(key, nil)` and an arrival that came in on the same key is on `(key, 7)`; they are two groups
+--- and neither is drawn under the other's heading. Numbering them together would rank a quarantined
+--- action in among the reader's, which decides nothing about firing (a badged action is not in the
+--- key map) and everything about the numbers their own group is left holding.
 ---
 --- **This is the invariant.** `seq` does not follow an action across a band, but if the number is
 --- always "where this stands in its group right now" then the bands divide the range in order, and
@@ -181,7 +366,7 @@ local ARRIVAL_SEQ = 1000000;
 --- **Array position is the last tiebreak.** `sort` is not stable, so two equal numbers in a
 --- hand-edited file come out differently on each pass -- and that answer is what gets stored, so one
 --- wobble sticks.
-function ProfileLayerProto:RenumberKeyGroup(key)
+function ProfileLayerProto:RenumberKeyGroup(key, arrivalID)
     if (key == nil) then
         return;
     end
@@ -189,7 +374,7 @@ function ProfileLayerProto:RenumberKeyGroup(key)
     local records;
     for i = 1, #self.actions do
         local action = self.actions[i];
-        if (action.key == key) then
+        if (action.key == key and action.arrivalID == arrivalID) then
             records = records or {};
             local record = DebindPrivate.MakeOrderRecord(action, nil, nil);
             record.action = action;
@@ -232,7 +417,7 @@ function ProfileLayerProto:PlaceInKeyGroup(action)
     action.seq = nil;
     if (action.key ~= nil) then
         action.seq = ARRIVAL_SEQ;
-        self:RenumberKeyGroup(action.key);
+        self:RenumberKeyGroup(action.key, action.arrivalID);
     end
 end
 
@@ -475,6 +660,46 @@ local function MigrateLayer(layerTbl, dbver)
                     action.type = newType;
                     action.value = name;
                 end
+            end
+        end
+
+        -- 합성 키가 없어진다. `key`는 실키 문자열 아니면 nil이고, 어느 arrival이 놓았느냐는
+        -- `arrivalID`가 따로 든다(`devdocs/building-export-import.md` 12절).
+        --
+        -- **`imported`가 도착 키를 나르던 것을 `key`가 도로 받는다.** 발동을 막는 것은 이제
+        -- 배지 하나이고(`BuildKeyMap`), 그 게이트는 원래부터 키 타입이 아니라 배지를 보고
+        -- 있었으므로 실키가 들어와도 격리는 그대로다.
+        --
+        -- **옛 배지 전부가 arrival 하나가 된다.** 옛 합성 번호를 그대로 물려주면 번호가 큰
+        -- 값에서 시작하고, 그 번호로 갈라 둘 이유도 없다 - 갈라 두는 값은 같은 키 위에
+        -- 두 세트가 앉는 경우인데, 도착 키가 같았던 옛 대기분은 어차피 한 묶음으로 읽어도
+        -- 된다. 카운터를 2로 세우는 것은 `MigrateDB`다.
+        --
+        -- **배지 없이 숫자 키만 든 줄은 키를 잃는다.** 사용자가 직접 언바인드한 세트이고, 그
+        -- 번호는 아무도 지목할 수 없는 값이라 남겨두면 그 줄들만 영원히 그룹으로 선다.
+        --
+        -- 키가 없으면 번호도 없다는 규칙(`PlaceInKeyGroup`)을 여기서도 지킨다.
+        --
+        -- **페이로드도 이 사다리를 탄다.** 거기엔 `imported`가 없고 숫자 `key`만 있을 수
+        -- 있는데(키를 벗겨 보내던 시절의 문자열), 그쪽도 같은 답이 맞다. 정렬은 안 한다 -
+        -- 이 단계가 만나는 것은 신뢰할 수 없는 입력이고, `CompareActionOrder`에 넘기면
+        -- `priority`가 테이블인 문자열 하나가 커밋 도중에 터진다.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local badge = action.imported;
+            if (badge ~= nil) then
+                action.imported = nil;
+                if (luatype(badge) == "string") then
+                    action.key = badge;
+                else
+                    action.key = nil;
+                end
+                action.arrivalID = 1;
+            elseif (luatype(action.key) == "number") then
+                action.key = nil;
+            end
+            if (action.key == nil) then
+                action.seq = nil;
             end
         end
     end
@@ -831,6 +1056,18 @@ local function MigrateDB(db, charEntry)
         MigrateSpecTable(entry.layers, dbver);
     end
     MigrateSwitches(db, dbver, charEntry);
+
+    if (dbver <= 5) then
+        -- `MigrateLayer`'s step above stamps every badge it finds as arrival 1, so the next one
+        -- handed out has to be 2. **Here and not there**, because that ladder runs once per layer
+        -- and is also what a pasted payload rides -- a payload has no business writing this
+        -- profile's counter.
+        --
+        -- The counter this replaces was `nextSyntheticKey`, and it counted keys rather than
+        -- arrivals. Left behind it is a field nothing reads sitting in SavedVariables forever.
+        db.nextArrivalID = 2;
+        db.nextSyntheticKey = nil;
+    end
 
     db.dbver = Constants.DB_VERSION;
 end
@@ -1762,24 +1999,29 @@ end
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
-        -- Per key, the numbers that group has already used. The net below reads it to find
-        -- **duplicates**.
+        -- Per group, the numbers it has already used. The net below reads it to find **duplicates**.
+        --
+        -- **A group is `(key, arrivalID)`, so the tally is keyed by both.** By key alone the
+        -- reader's own set on `CTRL-1` and an arrival that came in on `CTRL-1` share one tally, and
+        -- every number the second of them holds reads as a duplicate of the first's -- the net then
+        -- renumbers a group that nothing was wrong with, on every logout.
         local seenSeq = {};
-        -- Per key, the next number to hand out. Opened at that group's highest plus one the first
+        -- Per group, the next number to hand out. Opened at that group's highest plus one the first
         -- time it is needed -- almost no group ever trips the net, so counting the whole layer up
         -- front would be wasted on nearly all of them.
         local nextSeq = {};
-        local function NextSeqFor(key)
-            local seq = nextSeq[key];
+        local function NextSeqFor(groupID, key, arrivalID)
+            local seq = nextSeq[groupID];
             if (seq == nil) then
                 seq = 1;
                 for _, other in layer:Enumerate() do
-                    if (other.key == key and other.seq and other.seq >= seq) then
+                    if (other.key == key and other.arrivalID == arrivalID
+                            and other.seq and other.seq >= seq) then
                         seq = other.seq + 1;
                     end
                 end
             end
-            nextSeq[key] = seq + 1;
+            nextSeq[groupID] = seq + 1;
             return seq;
         end
 
@@ -1836,11 +2078,12 @@ function DebindPrivate.CleanUpDB()
                 -- since every path that gives the key back overwrites it anyway.
                 action.seq = nil;
             else
+                local groupID = key .. "/" .. tostring(action.arrivalID);
                 -- With no number the comparator reads the action as 0 (Ordering.lua) and puts it
                 -- first -- the slot that fires before anything else on that key. With no way to
                 -- know where it belongs, the back is the less startling end.
                 if (action.seq == nil) then
-                    action.seq = NextSeqFor(key);
+                    action.seq = NextSeqFor(groupID, key, action.arrivalID);
                 end
 
                 -- **Duplicates are caught too.** When only missing numbers were, two of the same
@@ -1850,13 +2093,13 @@ function DebindPrivate.CleanUpDB()
                 --
                 -- The one met later takes a new number and goes to the back. Which of them was
                 -- ahead was **never decided in the first place**, being a tie, so nothing is lost.
-                local group = seenSeq[key];
+                local group = seenSeq[groupID];
                 if (group == nil) then
                     group = {};
-                    seenSeq[key] = group;
+                    seenSeq[groupID] = group;
                 end
                 if (group[action.seq]) then
-                    action.seq = NextSeqFor(key);
+                    action.seq = NextSeqFor(groupID, key, action.arrivalID);
                 end
                 group[action.seq] = true;
             end
@@ -2053,7 +2296,12 @@ local MakeRow;
 ---
 --- 돌려주는 레코드는 호출자 소유의 새 테이블이다. action 테이블에는 아무것도 쓰지 말 것이며,
 --- GetBindingInfoForAction이 준 테이블도 쓰지 않는다(그쪽 필드는 BuildKeyMap이 소유한다).
-function DebindPrivate.CollectActionsForKey(key, spec)
+---
+--- **`arrivalID`까지 맞아야 한 그룹이다.** 도착분은 보낸 사람의 실키를 그대로 들고 오므로 내
+--- 것과 같은 키 위에 앉는데, 그 둘은 머리글이 둘이고 순서도 따로다. 키만 보고 모으면 격리된
+--- 것이 내 발동 순서 목록에 섞여 서고, 그 목록으로 순서를 매기는 자리가 그것을 저장한다.
+--- 안 넘기면 nil, 곧 내 것이다.
+function DebindPrivate.CollectActionsForKey(key, spec, arrivalID)
     local rows = {};
     if (key == nil) then
         return rows;
@@ -2070,7 +2318,7 @@ function DebindPrivate.CollectActionsForKey(key, spec)
 
     for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(spec) do
         for index, action in layer:Enumerate() do
-            if (action.key == key) then
+            if (action.key == key and action.arrivalID == arrivalID) then
                 rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank);
             end
         end
@@ -2084,9 +2332,10 @@ end
 ---
 --- **One set, not several.** It used to take an arrival group as well: a string sent without keys
 --- put its sets in here, and each of them had to stay whole because the grouping was the only
---- surviving record of what the sender had built. An arriving set carries a synthetic key now, so
---- it is a key group and is collected as one (`CollectActionsForKey`), and what is left here is the
---- standing pile of actions nobody has bound.
+--- surviving record of what the sender had built. An arrival keeps the key it was sent on now, so
+--- it is a key group and is collected as one (`CollectActionsForKey`). What reaches this pile is
+--- what has no key at all: the standing heap nobody has bound, plus the odd arrival the sender had
+--- unbound too.
 ---
 --- **A keyless action reaches nothing, so none of this is about firing order.** The comparator is
 --- still what sorts them, since it is the only ordering this file has; the caller that draws the
@@ -2141,7 +2390,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
     -- know which rows are out of the running: a badged action is not in the key map, so it is not
     -- in the order either, and swapping numbers with it would move a row on screen without
     -- changing what the key does.
-    row.imported = action.imported;
+    row.arrivalID = action.arrivalID;
     row.issue = DebindPrivate.GetBindingIssue(action, nil, offWorld and "unreachable" or nil);
     row.unreachable = (not offWorld) and DebindPrivate.IsUnreachableAction(action) or nil;
     -- Carried so that whoever draws this row asks on the same terms the two above were answered
@@ -2186,7 +2435,7 @@ function DebindPrivate.RenumberKeyGroupForAction(action)
 
     local _, layer = DebindPrivate.FindLayerID(action);
     if (layer) then
-        layer:RenumberKeyGroup(action.key);
+        layer:RenumberKeyGroup(action.key, action.arrivalID);
     end
 end
 
@@ -2259,56 +2508,7 @@ local function StoredActionsAt(scope, class, spec)
     return tbl;
 end
 
---- 저장된 액션 목록을 전부 훑는다. 로드된 레이어든 아니든.
----
---- **`LayerArray`로는 못 세는 것이 있다.** 그 배열은 지금 캐릭터의 뷰라 다른 직업의 레이어와
---- 다른 캐릭터의 레이어가 통째로 빠진다. 임포트가 그런 자리에 그대로 쓰므로(`StoredActionsAt`),
---- 프로필 전체에서 유일해야 하는 값을 그 배열로 구하면 **안 보이는 번호를 재사용한다.**
----
---- 같은 테이블은 한 번만 준다. 이 캐릭터의 엔트리는 `characters`와 `db.char` 양쪽에서 잡히는데,
---- 붙어 있을 때는 같은 테이블이다.
-local function ForEachStoredActionList(fn)
-    local db = DebindPrivate.db and DebindPrivate.db.global;
-    if (not db) then
-        return;
-    end
-
-    local seen = {};
-    local function Visit(tbl)
-        if (luatype(tbl) == "table" and not seen[tbl]) then
-            seen[tbl] = true;
-            fn(tbl);
-        end
-    end
-    local function VisitSpecTable(specTbl)
-        if (luatype(specTbl) == "table") then
-            for _, tbl in pairs(specTbl) do
-                Visit(tbl);
-            end
-        end
-    end
-
-    if (db.shared) then
-        Visit(db.shared.GENERAL);
-        if (db.shared.classes) then
-            for _, classTbl in pairs(db.shared.classes) do
-                VisitSpecTable(classTbl);
-            end
-        end
-    end
-
-    for _, charEntry in pairs(db.characters or {}) do
-        VisitSpecTable(charEntry.layers);
-    end
-
-    -- 아직 `characters`에 안 붙은 이 캐릭터의 엔트리. `CleanUpDB`가 내용이 생긴 뒤에야 붙이므로,
-    -- 캐릭터 레이어에 처음 뭔가를 넣은 직후가 정확히 위 훑기에서 빠지는 구간이다.
-    if (DebindPrivate.db) then
-        VisitSpecTable(DebindPrivate.db.char and DebindPrivate.db.char.layers);
-    end
-end
-
---- Puts imported actions where they belong.
+--- Puts an arrival's actions where they belong.
 ---
 --- **The profile is written from here and not from the sharing addon.** That one owns the wire
 --- format and decides what each action becomes; where an action goes and what happens to the list
@@ -2318,19 +2518,24 @@ end
 --- ID. A layer ID is this character's view and one arrival routinely lands outside it, so there is no
 --- ID to hand for "another class's spec 2" at all (`DebindStorage/Import.lua`).
 ---
---- **Every action arriving here is expected to carry `imported`**, which keeps it out of the
---- binding build (`BuildKeyMap`). Nothing is asserted about that: this stays a placement function,
---- and a caller that placed something live would be answered by the bindings, not by a guard.
-function DebindPrivate.PlaceImportedActions(placements)
+--- **Every action arriving here is expected to carry `arrivalID`**, which keeps it out of the
+--- binding build (`BuildKeyMap`) and is half of which group it lands in. Nothing is asserted about
+--- that: this stays a placement function, and a caller that placed something live would be answered
+--- by the bindings, not by a guard.
+function DebindPrivate.PlaceArrivedActions(placements)
     -- Where a stored list is worn as a `ProfileLayerProto`. Those methods look at nothing but
     -- `self.actions`, so one of these is reused for every address -- an unloaded layer has no layer
     -- object to put on, and writing the placement rule out a second time here would let it drift
     -- from `RenumberKeyGroup`.
     local scratch = setmetatable({}, { __index = ProfileLayerProto });
 
-    -- The groups this touches: stored list -> key -> true. **One arrival lands across several layers
-    -- and several keys, so this is not "that group" but every group reached** -- miss one and it
-    -- alone is left holding arrival numbers, which stays quiet until the next edit.
+    -- The groups this touches: stored list -> `key/arrivalID` -> the pair. **One arrival lands across
+    -- several layers and several keys, so this is not "that group" but every group reached** -- miss
+    -- one and it alone is left holding arrival numbers, which stays quiet until the next edit.
+    --
+    -- **The pair and not the key**, because the key the arrival came in on is routinely one the
+    -- reader already uses; renumbering by key alone would reach into their group and rank a
+    -- quarantined action among theirs.
     local touched = {};
 
     for _, placement in ipairs(placements) do
@@ -2353,12 +2558,13 @@ function DebindPrivate.PlaceImportedActions(placements)
             -- No key, no number -- the rule `PlaceInKeyGroup` sets.
             action.seq = action.key ~= nil and (ARRIVAL_SEQ + (action.seq or 0)) or nil;
             if (action.key ~= nil) then
-                local keys = touched[actions];
-                if (keys == nil) then
-                    keys = {};
-                    touched[actions] = keys;
+                local groups = touched[actions];
+                if (groups == nil) then
+                    groups = {};
+                    touched[actions] = groups;
                 end
-                keys[action.key] = true;
+                groups[action.key .. "/" .. tostring(action.arrivalID)] =
+                    { key = action.key, arrivalID = action.arrivalID };
             end
         end
     end
@@ -2366,10 +2572,10 @@ function DebindPrivate.PlaceImportedActions(placements)
     -- After all of them are in, not one at a time: renumbering per placement walks the same group
     -- once per action, and it would take the arrival numbers away mid-arrival -- leaving the ones
     -- still to come with nothing to be ranked against.
-    for actions, keys in pairs(touched) do
+    for actions, groups in pairs(touched) do
         scratch.actions = actions;
-        for key in pairs(keys) do
-            scratch:RenumberKeyGroup(key);
+        for _, group in pairs(groups) do
+            scratch:RenumberKeyGroup(group.key, group.arrivalID);
         end
     end
 end
@@ -2382,18 +2588,22 @@ end
 --- screen smaller than what "accept all" has to clear, and leave the rest quarantined in a layer
 --- with nothing on screen saying so.
 ---
---- **But it stops at `LayerArray` on purpose**, which `NextSyntheticKey` below does not. A layer
---- this session cannot see is one the reader cannot judge - another class's spells are all red to
---- them because they cannot learn any of it - so "accept all" must not reach it. It waits until
---- they log that class, which is what quarantine makes safe.
+--- **But it stops at this character on purpose.** A layer this session cannot see is one the reader
+--- cannot judge - another class's spells are all red to them because they cannot learn any of it -
+--- so "accept all" must not reach it. It waits until they log that class, which is what quarantine
+--- makes safe. `EnumerateAllProfileLayers` draws exactly that line (`CollectActionsWhere` says why),
+--- and **the reach is why it is used rather than walking `LayerArray`** - the two answer the same
+--- set, and only the enumeration is a seam the in-game kit can stand a test layer behind
+--- (`DebindTest.lua`, `SetIsolated`). Walked directly, this function answered "nothing is waiting"
+--- for every test that put a badge in front of it.
 ---
---- The order is `pairs`, so there is none worth relying on. Neither caller needs one - the strip
---- counts the list and accepting clears a field on each.
-function DebindPrivate.CollectImportedActions()
+--- There is no order worth relying on. Neither caller needs one - the strip counts the list and
+--- accepting clears a field on each.
+function DebindPrivate.CollectArrivedActions()
     local actions = {};
-    for _, layer in pairs(LayerArray) do
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
         for _, action in layer:Enumerate() do
-            if (action.imported) then
+            if (action.arrivalID) then
                 actions[#actions + 1] = action;
             end
         end
@@ -2419,7 +2629,7 @@ end
 --- further to approve about a set they just placed on their own keyboard.
 ---
 --- **No rebuild here.** `Profile.lua` places actions and does not decide when bindings go up
---- (`PlaceImportedActions` above is the same); the caller rebuilds once when it is done, which is
+--- (`PlaceArrivedActions` above is the same); the caller rebuilds once when it is done, which is
 --- the point of doing the set in one call at all.
 function DebindPrivate.SetKeyForActions(actions, key)
     if (key == nil or actions == nil or #actions == 0) then
@@ -2440,33 +2650,38 @@ function DebindPrivate.SetKeyForActions(actions, key)
         return lhs.index < rhs.index;
     end);
 
-    -- The groups this touches: layer -> key -> true. A set spans layers readily, and each of them
-    -- hands out its own numbers; and the key being left is a group of its own.
+    -- The groups this touches: layer -> `key/arrivalID` -> the pair. A set spans layers readily, and
+    -- each of them hands out its own numbers; and the group being left is a group of its own.
+    --
+    -- **The pair, because the badge comes off here.** A set that arrived on `CTRL-1` is leaving
+    -- `(CTRL-1, 7)` and joining `(CTRL-1, nil)`, and by key alone those two are one group and the
+    -- departure would never be renumbered.
     local touched = {};
-    local function Touch(layer, groupKey)
-        local keys = touched[layer];
-        if (keys == nil) then
-            keys = {};
-            touched[layer] = keys;
+    local function Touch(layer, groupKey, groupArrivalID)
+        local groups = touched[layer];
+        if (groups == nil) then
+            groups = {};
+            touched[layer] = groups;
         end
-        keys[groupKey] = true;
+        groups[groupKey .. "/" .. tostring(groupArrivalID)] = { key = groupKey, arrivalID = groupArrivalID };
     end
 
     for i, entry in ipairs(ordered) do
         local action = entry.action;
         local _, layer = DebindPrivate.FindLayerID(action);
         if (layer) then
-            -- The group being left, when there was one. It closes up behind the departure the same
-            -- way it does for a delete -- nothing walks out holding a number, so there is nothing
-            -- to collide with and no reason for this to be the one change that skips it.
-            if (action.key ~= nil and action.key ~= key) then
-                Touch(layer, action.key);
+            -- The group being left, when there was one and it is not the one being joined. It closes
+            -- up behind the departure the same way it does for a delete -- nothing walks out holding
+            -- a number, so there is nothing to collide with and no reason for this to be the one
+            -- change that skips it.
+            if (action.key ~= nil and (action.key ~= key or action.arrivalID ~= nil)) then
+                Touch(layer, action.key, action.arrivalID);
             end
-            Touch(layer, key);
+            Touch(layer, key, nil);
         end
 
         action.key = key;
-        action.imported = nil;
+        action.arrivalID = nil;
         if (layer) then
             -- **Arrival number plus this set's own ranking.** Renumbering alone cannot say which of
             -- these goes first -- they are all new to the group. The arrival number dominates
@@ -2479,9 +2694,9 @@ function DebindPrivate.SetKeyForActions(actions, key)
 
     -- After the whole set, not per action: the arrival numbers have to still be on every member
     -- while any of them is being ranked.
-    for layer, keys in pairs(touched) do
-        for groupKey in pairs(keys) do
-            layer:RenumberKeyGroup(groupKey);
+    for layer, groups in pairs(touched) do
+        for _, group in pairs(groups) do
+            layer:RenumberKeyGroup(group.key, group.arrivalID);
         end
     end
 
@@ -2493,56 +2708,38 @@ end
 --- **Two callers, and they ask it for opposite reasons**: one to decide whether to stand a section of
 --- a menu up, the other to decide whether the menu opens at all. Both are asking about the same list
 --- of actions, so the walk is here rather than in either of them.
-function DebindPrivate.AnyImportedAction(actions)
+function DebindPrivate.AnyArrivedAction(actions)
     for i = 1, #(actions or {}) do
         local action = actions[i];
-        if (action and action.imported) then
+        if (action and action.arrivalID) then
             return true;
         end
     end
     return false;
 end
 
---- Are these actions all on one key? The key if so, plus a flag - **`nil` twice over means two
+--- Are these actions all one key group? The key if so, plus a flag - **`nil` twice over means two
 --- different things**, and the flag is what tells "they share no key" from "they share having none".
 ---
---- What it really asks is whether a list is a **set** or a **selection**. A key group is the actions
---- on one key and answers yes by construction; rows somebody ticked answer whatever their keys say.
---- Everything that takes 1..n actions and has to behave differently for the two reads it, so it is
---- here rather than in either caller - two copies of this drift, and the day they do, one window is
---- drawing what another one is not doing.
---- The key these **arrived** on, when they all arrived on the same one. `nil` where any of them
---- came in on a different key, came in on none, or was never an arrival at all.
+--- What it really asks is whether a list is a **set** or a **selection**. A key group answers yes by
+--- construction; rows somebody ticked answer whatever they are. Everything that takes 1..n actions
+--- and has to behave differently for the two reads it, so it is here rather than in either caller -
+--- two copies of this drift, and the day they do, one window is drawing what another one is not
+--- doing.
 ---
---- Separate from the key they are on now, which for anything still badged is a synthetic number
---- (`KeyMapper`). Three screens name a waiting set by this and they have to name it the same, so
---- the walk is here rather than repeated at each of them.
-function DebindPrivate.ArrivalKeyOf(actions)
-    if (actions == nil) then
-        return nil;
-    end
-
-    local from;
-    for i = 1, #actions do
-        local imported = actions[i].imported;
-        if (type(imported) == "string") then
-            if (from ~= nil and from ~= imported) then
-                return nil;
-            end
-            from = imported;
-        end
-    end
-    return from;
-end
-
+--- **`arrivalID` has to agree as well.** The reader's own set on `CTRL-1` and an arrival that came in
+--- on `CTRL-1` are two groups (`RenumberKeyGroup`), and a list holding some of each is a selection
+--- however much the keys line up. Anything wanting the arrival itself reads `actions[1].arrivalID`
+--- once this has said they are one group.
 function DebindPrivate.SharedKeyOf(actions)
     if (actions == nil or #actions == 0) then
         return nil, false;
     end
 
     local key = actions[1].key;
+    local arrivalID = actions[1].arrivalID;
     for i = 2, #actions do
-        if (actions[i].key ~= key) then
+        if (actions[i].key ~= key or actions[i].arrivalID ~= arrivalID) then
             return nil, false;
         end
     end
@@ -2598,52 +2795,30 @@ function DebindPrivate.ClearActionKey(action)
         return false;
     end
 
-    local key = action.key;
+    local key, arrivalID = action.key, action.arrivalID;
     action.key = nil;
     action.seq = nil;
 
     local _, layer = DebindPrivate.FindLayerID(action);
     if (layer) then
-        layer:RenumberKeyGroup(key);
+        layer:RenumberKeyGroup(key, arrivalID);
     end
     return true;
 end
 
---- Takes the key off a key group without breaking the group up.
+--- Takes the key off a set. Both the [Unbind] paths and the losing half of an overwrite.
 ---
---- **A set of two or more keeps a key, and it is a synthetic one.** An action with `key == nil` is
---- nobody's group -- `CollectKeyGroupForAction` says so, and the left column files it in the unbound
---- pile as a row of its own -- so clearing a set of four leaves four loose actions and the thing the
---- reader was working with is gone. They cannot be put back together afterwards either: nothing
---- records that those four were once one set.
+--- **The set comes apart, and there is no way for it not to.** A group is the actions on one key
+--- (`RenumberKeyGroup`), so with the key gone there is no group -- four loose actions, and nothing
+--- anywhere recording that they were once one thing. There used to be a number stood in the key's
+--- place to hold them together; what that cost is in `devdocs/building-export-import.md` 12절.
 ---
---- The synthetic key is exactly the state an arriving set sits in -- one group, no key yet, waiting
---- for the reader to decide -- and unbinding arrives at that same state from the other side.
+--- **So the asking is the caller's, and it is not optional.** The reader cannot walk this back from
+--- what is on screen, because what they would need is the membership and that is what just went.
+--- `DebindUI.UnbindActions` is where the question is put.
 ---
---- **One action gets nothing.** There is no group to keep, and the unbound pile is where it belongs.
----
---- `SetKeyForActions` carries the order across, which is the reason the set is written in one call:
---- one at a time issues `seq` in whatever order the actions are touched. It also clears `imported`,
---- which changes nothing here - a set still carrying that badge is already on a synthetic key, and
---- there is nothing to unbind from one of those.
----
---- No rebuild, for the reason `SetKeyForActions` gives.
-function DebindPrivate.UnbindKeyGroup(actions)
-    if (actions == nil or #actions == 0) then
-        return false;
-    end
-    if (#actions == 1) then
-        return DebindPrivate.ClearActionKey(actions[1]);
-    end
-    return DebindPrivate.SetKeyForActions(actions, DebindPrivate.NextSyntheticKey());
-end
-
---- Takes the key off a set. The other half of an overwrite: the set that was holding the key
---- steps off it, and the one that asked for it moves in.
----
---- **Nothing is deleted, and that is what makes the choice offerable.** A keyless action is out of
---- the binding build and drawn greyed in the pile at the bottom of the overview, so an overwrite is
---- a state the reader can look at and walk back, not a loss.
+--- **Nothing is deleted.** A keyless action is out of the binding build and drawn greyed in the pile
+--- at the bottom of the overview, so each of them individually can be given a key again.
 ---
 --- **A badge stays.** Losing a key is not the reader saying anything about where the action came
 --- from, and an arriving action that had a key is still an arriving action without one.
@@ -2678,7 +2853,7 @@ end
 ---   * a key is a keyboard's, and that is a different keyboard. "This key is this set's now" is a
 ---     claim about the eleven layers in play here; carrying it into a class the reader has not
 ---     logged would rewrite bindings they never looked at, over a conflict they were never shown.
----     That is the harm the badge exists to prevent (`CollectImportedActions` stops here for the
+---     That is the harm the badge exists to prevent (`CollectArrivedActions` stops here for the
 ---     same reason, and says so).
 ---   * the members left behind lose nothing. They keep the badge, the group and the order, so the
 ---     set is still a set the day that class is logged, and it is given a key against the
@@ -2695,69 +2870,47 @@ local function CollectActionsWhere(match)
     return actions;
 end
 
---- Everything on one key. The overview's left column draws exactly this set under one heading.
+--- One key group: everything on `key` that came in on the same arrival. The overview's left column
+--- draws exactly this set under one heading.
 ---
---- **A set that arrived without a key is collected by this too**, since a synthetic key is a key
---- (`devdocs/building-export-import.md`). There used to be a second collector for those, asking by
---- the group number they carried instead, and one walk answering both is what stops the two from
---- ever disagreeing about what a set is.
+--- **Both halves, because one key carries more than one group.** The reader's own set is
+--- `(key, nil)` and an arrival that came in on that key is `(key, 7)`. Asking by key alone hands
+--- back both, and every caller here does something to the whole answer: puts one key on it, takes
+--- the key off it, counts it as what occupies the key. A quarantined action occupies nothing
+--- (`BuildKeyMap` skips it), so sweeping it in as an occupant is a count the reader cannot account
+--- for and an unbind they did not ask for.
 ---
 --- nil collects nothing. Read literally it would match the profile's whole standing pile of unbound
 --- actions, and hand that to something whose job is to put one key on all of them.
-function DebindPrivate.CollectKeyGroupActions(key)
+function DebindPrivate.CollectKeyGroupActions(key, arrivalID)
     if (key == nil) then
         return {};
     end
-    return CollectActionsWhere(function(action) return action.key == key; end);
-end
-
---- The highest synthetic key anywhere in the store. Only the seed below asks.
----
---- **The whole store, not `LayerArray`.** An arrival lands in another class's layers as readily as in
---- this one's, and those are not in this session's view at all. Taking the highest from the view
---- would leave a number alive somewhere unseen and below the counter, and the collision surfaces the
---- day the reader logs that class: two waiting sets under one heading, and every key-wide action
---- sweeping both.
-local function HighestSyntheticKey()
-    local highest = 0;
-    ForEachStoredActionList(function(actions)
-        for i = 1, #actions do
-            local key = actions[i].key;
-            if (luatype(key) == "number" and key > highest) then
-                highest = key;
-            end
-        end
+    return CollectActionsWhere(function(action)
+        return action.key == key and action.arrivalID == arrivalID;
     end);
-    return highest;
 end
 
---- The next synthetic key to hand out, unique across the whole profile.
+--- The next arrival number to hand out, unique across the whole profile.
 ---
---- **A synthetic key is what holds a set together while it has no key of its own.** A set arrives on
---- one when the sender left the keys out (`DebindStorage/Import.lua`), and a set the reader unbinds
---- lands on one for the same reason (`UnbindKeyGroup`): with `key == nil` there is no group left,
---- only that many loose actions. A number, because a real key is always a string, so the type alone
---- tells the two apart and there is no name a real key could collide with.
+--- **An arrival number is which arrival put an action here**, and with `key` it is what a key group
+--- is: two sets sit on one key readily, and only one of them is the reader's own. It is also the
+--- badge -- while it is set the action is in the profile and reaches no key (`BuildKeyMap`), and
+--- taking it off is the reader saying yes.
 ---
---- **Unique here, not in the string it came from.** A payload's own numbering starts at 1 in every
---- string, so two strings waiting at once would put two unrelated sets under one heading.
+--- **Unique here, not in the string it came from.** A payload carries no such number at all; this is
+--- the receiving side's own count of how many times it has placed one.
 ---
---- **Kept in the store and only ever counted up.** It used to be the highest in use plus one, worked
---- out on every call, and what paid for that walk was the number staying small - it was printed
---- ("Imported Binding #3"), so it had to restart at 1 once every waiting set had been given a real
---- key. Nothing prints it any more (`GetKeyDisplayText` names the set instead), so nothing cares how
---- large it gets, and a counter that never comes down needs no path anywhere to remember to lower
---- it. Should the numbers ever want tidying it is one pass over the store, run deliberately.
+--- **Kept in the store and only ever counted up.** Nothing prints it, so nothing cares how large it
+--- gets, and a counter that never comes down needs no path anywhere to remember to lower it.
 ---
---- Seeded on first use rather than at login: an existing profile has numbers in it and no counter,
---- and this is the one place that has to know.
-function DebindPrivate.NextSyntheticKey()
+--- **No seeding walk.** There used to be one, because the number lived in `key` and an existing
+--- profile had numbers in it and no counter. The migration to `arrivalID` writes the counter itself
+--- (`dbver` ladder), so every profile that has any of these has a counter above them, and one that
+--- does not starts at 1.
+function DebindPrivate.NextArrivalID()
     local db = DebindPrivate.db.global;
-    if (db.nextSyntheticKey == nil) then
-        db.nextSyntheticKey = HighestSyntheticKey() + 1;
-    end
-
-    local key = db.nextSyntheticKey;
-    db.nextSyntheticKey = key + 1;
-    return key;
+    local id = db.nextArrivalID or 1;
+    db.nextArrivalID = id + 1;
+    return id;
 end

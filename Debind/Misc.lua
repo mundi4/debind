@@ -864,30 +864,12 @@ end
 --- What to write where a key goes. **Not for a nil key** -- what an action with no key at all reads
 --- as differs by where it is shown, so each of those places says its own word.
 ---
---- **A number is a key group with no key yet** (`NextSyntheticKey`) -- a set that came in a string,
---- or one the reader unbound whole. `GetBindingText` is not asked: a number is not a binding string,
---- and this is the guard that keeps it from being handed one.
----
---- **With no `from` it reads as the client's `NOT_BOUND`, the same as no key at all**, because
---- that is what it is:
---- the number is how the set is filed, not something the reader has. It used to print that number
---- ("Imported Binding #3"), from when the heading had nothing else to call the set by; the heading
---- names it now - the first action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
----
---- **`from` is the key it arrived on** (`action.imported`), and a set still carrying one is named
---- by it instead. Several arrivals sitting keyless in one list are otherwise the same word repeated,
---- and the key they came in on is the only thing telling them apart.
----
---- It lasts exactly as long as the badge. Accepting clears `imported` and this goes back to
---- `NOT_BOUND`. **Nothing keeps the key past that, on purpose** (2026-08-19, owner's decision): a
---- binding the reader does not use is not something the profile carries so it can be shown later.
-function DebindPrivate.GetKeyDisplayText(key, from)
-    if (type(key) == "number") then
-        if (type(from) == "string") then
-            return format(L["OVERVIEW_IMPORTED_FROM_KEY"], GetBindingText(from));
-        end
-        return L["OVERVIEW_NO_KEY"];
-    end
+--- **A key is a binding string and nothing else.** This used to take a second argument and to guard
+--- against a number, because a set whose key the reader had not decided sat on one and the heading
+--- had to be told separately which key it had come in on. An arrival keeps the key it was sent on,
+--- so the key names it (`devdocs/building-export-import.md` 12절) and there is no second thing left
+--- to say.
+function DebindPrivate.GetKeyDisplayText(key)
     return GetBindingText(key);
 end
 
@@ -1376,7 +1358,7 @@ function DebindPrivate.HasBindingBlockedByClique()
             -- The same gate `BuildKeyMap` uses. A number stands in for a key not chosen yet and a
             -- badged action is quarantined -- neither was going to fire, so neither lost anything
             -- to Clique.
-            if (type(action.key) == "string" and not action.imported) then
+            if (type(action.key) == "string" and not action.arrivalID) then
                 -- Two branches raise this code and the second is not reachable through the first:
                 -- an action aimed at `hover` can carry the conflict with no hover condition set.
                 if (DebindPrivate.GetBindingIssue(action, "hover") == blocked

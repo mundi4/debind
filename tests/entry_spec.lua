@@ -482,7 +482,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- **빈 자리는 자리가 아니다.** 액션이 하나도 없는 주소가 남으면 그리는 쪽은 머리글을 세우고
-    -- `PlanImport`는 놓을 데를 내주는데, 놓을 것이 없다.
+    -- `PlanArrival`는 놓을 데를 내주는데, 놓을 것이 없다.
     test("비워진 레이어는 주소째 걷힌다", function()
         local payload = Payload({
             { scope = "general", key = "F", count = 1 },

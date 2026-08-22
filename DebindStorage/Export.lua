@@ -73,14 +73,14 @@ local ENVELOPE_SEPARATOR = ":";
 
 --- Action fields that go out on the wire.
 ---
---- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `imported` says which entry an action arrived
---- on, and an entry exists only on **the receiving side**. It is the one field that means nothing
---- anywhere else.
+--- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `arrivalID` counts the arrivals **this store**
+--- has taken in, and that count exists nowhere else. It is the one field that means nothing on
+--- another machine.
 ---
 --- `key` and `seq` are on the list. They used to be the two exceptions -- `key` moved up to a group
 --- layer and `seq` was replaced by a computed `order` -- and both reasons are gone: a key **is** the
 --- group now, so there is nothing above the action to hold it, and the collision `seq` was renamed
---- to avoid was never there. `PlaceImportedActions` is the only way these reach the profile and it
+--- to avoid was never there. `PlaceArrivedActions` is the only way these reach the profile and it
 --- overwrites `seq` on every one of them with an arrival number before renumbering the group, so a
 --- sender's number cannot survive landing. `devdocs/building-export-import.md`.
 ---
@@ -93,7 +93,7 @@ local ENVELOPE_SEPARATOR = ":";
 --- is not a whitelist of values, and every one of these reaches code that computes on it. `seq` is
 --- added to an arrival number, `priority` is compared inside `table.sort`, `units` is walked
 --- with `pairs`, the masks go through `band`. A pasted string carrying `seq = {}` raised **inside**
---- `PlaceImportedActions`, leaving the actions before it in the profile and skipping the renumber
+--- `PlaceArrivedActions`, leaving the actions before it in the profile and skipping the renumber
 --- that follows - so the survivors kept the internal arrival band, which `CleanUpDB` does not clamp
 --- and a logout therefore writes to disk.
 ---
@@ -103,8 +103,12 @@ local ACTION_FIELDS      = {
     type = "string",
     -- A spell or item id, or a macro name, or a macro body.
     value = "number|string",
-    -- A binding string, or the number a key group the sender never bound travels under.
-    key = "string|number",
+    -- A binding string. **Only a string** - a number used to be "a group whose key the sender had
+    -- not decided", and nothing makes one any more (`devdocs/building-export-import.md` 12절). An
+    -- old string can still hold them and the ladder nils those on the way in (`MigrateLayer`,
+    -- `dbver <= 5`); this line catches one that reaches here anyway, because a number landing in
+    -- `key` would stand as a group nobody can name and no key the reader can press.
+    key = "string",
     seq = "number",
     name = "string",
     -- A file id, or a path for the ones that still carry one.
@@ -432,10 +436,10 @@ end
 --- walk to be wrong: a badged action is not in the entry, therefore not in the preview, therefore
 --- not in the count and not in the string (`devdocs/building-export-import.md` 12절).
 ---
---- **A synthetic key is not this.** No badge means the set is the sender's, and "a key group I have
---- not given a key to" is a fact about their setup worth carrying.
+--- **A keyless action is not this.** No badge means the action is the sender's, and "something I
+--- have not given a key to" is a fact about their setup worth carrying.
 function DebindStorage.IsExportable(action)
-    return action.imported == nil;
+    return action.arrivalID == nil;
 end
 
 
@@ -458,10 +462,11 @@ DebindStorage.EXPORT_SCHEMA_VERSION = SCHEMA_VERSION;
 --- A key can therefore go out half, and that is right: the badged one is not part of the setting yet.
 ---
 --- **The sender's keys go out as they are.** There used to be an option to replace them with
---- synthetic ones, and nothing was left for it to do: the receiving side renames every arriving key
---- anyway, so ticking it only withheld which key the sender had it on. Somebody who hands their
---- setup to another player is showing it off, and the keys are the part worth showing -- they are
---- not a name, a realm, or anything else a string pasted into a public channel should not carry.
+--- numbers, and it withheld nothing worth withholding: somebody who hands their setup to another
+--- player is showing it off, and the keys are the part worth showing -- they are not a name, a
+--- realm, or anything else a string pasted into a public channel should not carry. The receiving
+--- side keeps them and holds the actions back with a badge instead
+--- (`devdocs/building-export-import.md` 12절).
 ---
 --- A number still travels: that is a key group the sender has not given a key to, which is a fact
 --- about their setup rather than something withheld.

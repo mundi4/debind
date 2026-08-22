@@ -80,10 +80,10 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
     -- RenumberKeyGroup).
     --
     -- **Every action being compared here has a key**, so it has a number: no key, no number
-    -- (`ClearActionKey`), and this comparator is only ever asked about actions sharing one. A set
-    -- that arrived without a key of its own is on a synthetic key, which is a key
-    -- (`devdocs/building-export-import.md`) -- there used to be a second field read in this slot
-    -- for exactly that case, and it is gone with the case.
+    -- (`ClearActionKey`), and this comparator is only ever asked about actions sharing one. An
+    -- arrival keeps the key it was sent on, so it is a key group like any other
+    -- (`devdocs/building-export-import.md` 12절) -- there used to be a second field read in this
+    -- slot for sets that had no key of their own, and it is gone with that case.
     --
     -- Absent reads as 0. If the net ever tears, that beats comparing nil inside a sort.
     return (lhs.seq or 0) < (rhs.seq or 0);
@@ -143,7 +143,7 @@ end
 --- (both in `DebindUI.lua`). It was inline at each of them, and the guard had only half of it -
 --- so a badged row refused the arrows and accepted the same move from its right-click menu.
 function DebindPrivate.IsRowInOrder(row)
-    return not row.imported and (row.specRank or 0) == 0;
+    return not row.arrivalID and (row.specRank or 0) == 0;
 end
 
 --- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을
@@ -175,7 +175,7 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
     -- shorter. Why these rows are out is on `IsRowInOrder`.
     local target = rows[targetIndex];
     if (not DebindPrivate.IsRowInOrder(target)) then
-        return nil, target.imported and "IMPORTED" or "SPEC";
+        return nil, target.arrivalID and "IMPORTED" or "SPEC";
     end
 
     -- Skipping past the end is the same answer as starting there, so the two branches below catch

@@ -9,7 +9,7 @@
 --   * **활성 액션끼리의 차례는 한 칸도 안 바뀐다.** 바뀌면 저장 데이터는 그대로인데 전 사용자의
 --     발동 순서가 조용히 달라지고, 공유 레이어 때문에 되돌리는 마이그레이션을 쓸 수가 없다.
 --   * **A set that arrived without a key of its own is a key group like any other.** Its key is a
---     number rather than a binding string (`NextSyntheticKey`), and that is the whole difference -
+--     number rather than a binding string (`NextArrivalID`), and that is the whole difference -
 --     it is collected by key and ordered by `seq` the same way, which is what let this column stop
 --     having a second kind of heading.
 
@@ -153,22 +153,22 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 키를 아직 안 정한 그룹, 그리고 키가 아예 없는 것들
+    -- 아직 승인 안 된 도착 그룹, 그리고 키가 아예 없는 것들
     ---------------------------------------------------------------------------
 
-    -- **A set that arrived without a key is a key group.** The key is a number rather than a
-    -- binding string (`NextSyntheticKey`), and everything from there on is the ordinary path: it is
-    -- collected by key, it is ordered by `seq`, and the column draws it under one heading.
-    test("숫자 키 그룹도 키 그룹처럼 모이고 seq 차례로 선다", function()
+    -- **An arrival is a key group like any other.** It sits on the key it was sent on and carries
+    -- an `arrivalID` beside it, and everything from there is the ordinary path: it is collected by
+    -- the pair, it is ordered by `seq`, and the column draws it under one heading.
+    test("도착 그룹도 키 그룹처럼 모이고 seq 차례로 선다", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 3, imported = 1, key = 7, seq = 3 },
-                { type = Constants.SPELL, value = 1, imported = 1, key = 7, seq = 1 },
-                { type = Constants.SPELL, value = 2, imported = 1, key = 7, seq = 2 },
+                { type = Constants.SPELL, value = 3, arrivalID = 1, key = "SHIFT-Q", seq = 3 },
+                { type = Constants.SPELL, value = 1, arrivalID = 1, key = "SHIFT-Q", seq = 1 },
+                { type = Constants.SPELL, value = 2, arrivalID = 1, key = "SHIFT-Q", seq = 2 },
             },
         });
 
-        local rows = DebindPrivate.CollectActionsForKey(7);
+        local rows = DebindPrivate.CollectActionsForKey("SHIFT-Q", nil, 1);
         check(#rows == 3, "행 수 " .. #rows);
         for i, row in ipairs(rows) do
             check(row.action.value == i,
@@ -176,21 +176,21 @@ return function(DebindPrivate)
         end
     end);
 
-    -- 한 그룹이 레이어를 넘어도 한 묶음으로 선다. 도착할 때부터 그렇고(`PlanImport`), 도착한 뒤
+    -- 한 그룹이 레이어를 넘어도 한 묶음으로 선다. 도착할 때부터 그렇고(`PlanArrival`), 도착한 뒤
     -- `MoveAction`이 더 벌려놓을 수도 있다.
-    test("숫자 키 그룹이 레이어를 넘어도 한 묶음으로 모인다", function()
+    test("도착 그룹이 레이어를 넘어도 한 묶음으로 모인다", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 2, imported = 1, key = 7, seq = 1 },
+                { type = Constants.SPELL, value = 2, arrivalID = 1, key = "SHIFT-Q", seq = 1 },
             },
             class = {
                 [0] = {
-                    { type = Constants.SPELL, value = 1, imported = 1, key = 7, seq = 1 },
+                    { type = Constants.SPELL, value = 1, arrivalID = 1, key = "SHIFT-Q", seq = 1 },
                 },
             },
         });
 
-        local rows = DebindPrivate.CollectActionsForKey(7);
+        local rows = DebindPrivate.CollectActionsForKey("SHIFT-Q", nil, 1);
         check(#rows == 2, "행 수 " .. #rows);
         -- 직업/공용이 일반보다 좁다. 레이어가 갈리면 `seq`는 안 읽힌다.
         check(rows[1].action.value == 1 and rows[2].action.value == 2,
@@ -199,15 +199,15 @@ return function(DebindPrivate)
 
     -- **키가 아예 없는 것은 그 그룹의 일부가 아니다.** 아무 키와도 같은 그룹이 아니라는 뜻이고,
     -- 왼쪽 열 맨 아래의 지정 안 된 더미가 그 자리다.
-    test("키 없는 액션은 숫자 키 그룹에 안 섞인다", function()
+    test("키 없는 액션은 도착 그룹에 안 섞인다", function()
         ResetProfile({
             general = {
-                { type = Constants.SPELL, value = 1, imported = 1, key = 7, seq = 1 },
+                { type = Constants.SPELL, value = 1, arrivalID = 1, key = "SHIFT-Q", seq = 1 },
                 { type = Constants.SPELL, value = 2 },
             },
         });
 
-        check(#DebindPrivate.CollectActionsForKey(7) == 1, "그룹에 남이 끼었다");
+        check(#DebindPrivate.CollectActionsForKey("SHIFT-Q", nil, 1) == 1, "그룹에 남이 끼었다");
         local plain = DebindPrivate.CollectKeylessActionRows();
         check(#plain == 1 and plain[1].action.value == 2, "키 없는 쪽이 안 나왔다");
     end);

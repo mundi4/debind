@@ -83,6 +83,50 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
 
+    --- **A computed switch naming another custom state**, which is the one shape the cases above do
+    --- not reach - theirs all name a game state (`[combat]`). The chain here is two links long, and
+    --- either of them going quiet leaves the key simply unbound with nothing raised.
+    ---
+    --- **⚠ `resetValue` is the setting and `value` is derived from it.** `ApplySwitchResets` writes
+    --- `value` on every load and again whenever a switch's answer moves, from `resetValue` and what
+    --- the character was left on (`Profile.lua`). So a switch stood up with `value` alone holds only
+    --- until the next time that guard opens - and whether it opens depends on **what the switch was
+    --- before**, since the guard compares `layerKey|mode|resetValue`.
+    ---
+    --- That is not a hypothetical. The in-game kit had this test written with `value`, and it passed
+    --- for a year against a profile whose `$state2` was already MANUAL - the answer string never
+    --- moved, so the guard never opened. It went red the day the dev seed was rewritten with
+    --- `$state2` as a computed switch, and read as "computed states do not reach bindings"
+    --- (2026-08-23). The test was wrong and the addon was not.
+    test("a computed switch that names another custom state reaches the key", function()
+        local i = Bind(GatedKey(), {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state2]" },
+            ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true },
+        });
+
+        check(i.env.States["$state2"] == true,
+            "the manual state it names is " .. tostring(i.env.States["$state2"]));
+        check(i.env.States["$state1"] == true,
+            "the computed state did not follow it: " .. tostring(i.env.States["$state1"]));
+        check(i.bindings["F1"], "the key hanging off the computed state was not bound");
+
+    end);
+
+    --- 위 테스트의 짝. **없으면 위가 "이 키는 원래 늘 걸린다"와 구분이 안 된다** - 계산식이
+    --- 이름을 아예 안 읽고 참을 내도 통과한다.
+    test("the same chain with the named state off leaves the key alone", function()
+        local i = Bind(GatedKey(), {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state2]" },
+            ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
+        });
+
+        check(i.env.States["$state2"] == false,
+            "the manual state it names is " .. tostring(i.env.States["$state2"]));
+        check(i.env.States["$state1"] == false,
+            "the computed state did not follow it: " .. tostring(i.env.States["$state1"]));
+        check(i.bindings["F1"] == nil, "the key was bound while the state it hangs off is off");
+    end);
+
     test("a conditional built out of measured states is parsed only when one of them moves",
         function()
             local i = Bind(GatedKey(), {

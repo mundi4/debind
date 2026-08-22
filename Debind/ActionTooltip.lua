@@ -257,7 +257,7 @@ do
 			addLabelLine(tooltip, LLL["KEY"]);
 
 			if (action.key) then
-				local keyText = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
+				local keyText = DebindPrivate.GetKeyDisplayText(action.key);
 				local error;
 				if (isInactive) then
 					keyText = INACTIVE_COLOR:WrapTextInColorCode(keyText);
@@ -288,7 +288,7 @@ do
 			-- Same blue as the name in the list and the dot on the icon, so the three read as one
 			-- mark rather than three. It is the only thing in this tooltip that says so, now that
 			-- the title has stopped carrying the colour.
-			if (action.imported) then
+			if (action.arrivalID) then
 				addValueLine(tooltip, IMPORTED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_IMPORTED"]), nil, true);
 			end
 		end

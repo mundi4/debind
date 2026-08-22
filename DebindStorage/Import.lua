@@ -19,10 +19,12 @@ local NUM_SPECS = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3,
 --- overview sorts by name, layers split them -- so what arrived together has to keep saying so, and
 --- the key is what carries it across.
 ---
---- **Everything that lands is quarantined.** Each action carries `imported`, and while that is set
---- `BuildKeyMap` skips it: the string is in the profile, drawn and editable, and reaches no key
+--- **Everything that lands is quarantined.** Each action carries `arrivalID`, and while that is set
+--- `BuildKeyMap` skips it: the actions are in the profile, drawn and editable, and reach no key
 --- until the reader takes the badge off. So committing never changes what any key does, which is
---- what lets it run without asking anything first.
+--- what lets it run without asking anything first - **even though each of them keeps the key it was
+--- sent on**, which is routinely one the reader already uses
+--- (`devdocs/building-export-import.md` 12절).
 
 
 --- The shape of a stored **entry** -- the record below, not the payload inside it.
@@ -206,7 +208,7 @@ end
 --- Whether one wire field may be copied, **by name and by type**.
 ---
 --- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
---- raised halfway through `PlaceImportedActions`, `priority = {}` raised inside the `table.sort`
+--- raised halfway through `PlaceArrivedActions`, `priority = {}` raised inside the `table.sort`
 --- that follows, `units = "x"` was walked with `pairs`. Every one of those went off after
 --- part of the entry was already in the profile. The types are `ACTION_FIELDS`' values.
 ---
@@ -396,8 +398,8 @@ end
 ---
 ---   * `class` reaches `format("%s", …)` in the caller, and WoW's Lua 5.1 throws on a table
 ---     there. Refusing it here is what keeps a payload on disk from being one nobody can open.
----   * a `key` of NaN raises the moment it is used as a table index, which the count below does and
----     `KeyMapper` does again. `ImportAddress` turns the same value away for `spec` and says why.
+---   * a `key` of NaN raises the moment it is used as a table index, which the count below does.
+---     `ImportAddress` turns the same value away for `spec` and says why.
 ---
 --- Neither needs its own guard downstream now, because nothing downstream runs on a payload this
 --- refuses -- `ImportEntry` asks before it stores, and an entry is the only way in.
@@ -632,7 +634,7 @@ end
 ---
 --- An emptied list goes with its actions. A payload carrying `char = { [0] = {} }` claims a layer
 --- it has nothing for, and everything downstream would have to know an address can be empty -- the
---- preview would draw a header over nothing and `PlanImport` would offer somewhere to put it.
+--- preview would draw a header over nothing and `PlanArrival` would offer somewhere to put it.
 ---
 --- **The manifest is left alone.** It says which switches the entry referred to when it was made,
 --- and a definition nothing points at costs a reader nothing: `FilterPayload` narrows it to what is
@@ -707,53 +709,6 @@ end
 -- The whole entry
 -- ---------------------------------------------------------------------------------------------
 
---- Turns the keys a string arrived with into the keys they will be stored under.
----
---- **Every key is renamed, the sender's real ones included.** A key *is* its group here, so landing
---- on one the reader already uses is not a merge they can undo later: the two sets become one set,
---- and nothing records which member came from where. Their own group is left alone and the arrival
---- stays whole, which is what leaves the decision theirs to make (`devdocs/building-export-import.md`).
----
---- **Renaming rather than dropping** is what keeps a set a set. Losing the key would leave a
---- conditional binding as a pile of loose actions, and a wrong guess at which of them belonged
---- together is silent -- two that were meant to share a key end up on two, and both fire. The
---- number says, in the one way the profile can hold, that the key is still to be decided.
----
---- The number is unique across the whole store rather than the layers this session can see:
---- reusing one that is alive in a class the reader has not logged puts the collision a login away
---- instead of removing it. The sender's own numbers are no help -- they are unique inside that one
---- string and nowhere else, so two strings waiting at once would both open at 1 and the reader
---- would be shown two unrelated sets under one heading.
----
---- **One call per group, and nothing counts alongside it.** This used to ask once and then walk its
---- own number up, because the answer was the highest key in the store plus one -- and nothing is
---- written until `PlaceImportedActions`, so asking twice mid-walk would have answered the same
---- thing twice. `NextSyntheticKey` is a counter now and hands out a fresh number every time it is
---- asked, which makes the local one a second place keeping the same tally: this entry would take
---- three numbers while the counter moved by one, and the next string to arrive would open on top of
---- it.
----
---- `mapped` is what still has to be remembered here, and it is a different question -- which of the
---- sender's keys have already been given one of ours, so a set that spans four layers stays one set.
-local function KeyMapper()
-    local mapped = {};
-
-    return function(key)
-        local keyType = luatype(key);
-        if (keyType ~= "string" and keyType ~= "number") then
-            -- No key, or something a key cannot be. Either way it joins no group.
-            return nil;
-        end
-
-        local synthetic = mapped[key];
-        if (not synthetic) then
-            synthetic = DebindPrivate.NextSyntheticKey();
-            mapped[key] = synthetic;
-        end
-        return synthetic;
-    end
-end
-
 --- Where each action of `payload` lands, and what it becomes.
 ---
 --- Returns a flat list of `{ scope, class, spec, action }`. **Nothing is written here** - building
@@ -769,8 +724,18 @@ end
 --- say so. What reaches that: a class name no client has, a spec number past the end of the store,
 --- and a character-scoped spec this character does not have.
 ---
---- `options.keepKeys` takes the arrival on the keys it was sent on and leaves the badge off, which
---- is the accepted-on-arrival verb. Everything below about renaming is what it turns off.
+--- **Every action keeps the key it was sent on, and the badge is what holds it back.** The badge is
+--- `arrivalID`, one number for this whole call, and while it is set the action is in the profile and
+--- reaches no key (`BuildKeyMap`). With `key` it is also which group the action lands in, so an
+--- arrival that came in on a key the reader already uses stands under its own heading rather than
+--- merging into theirs (`devdocs/building-export-import.md` 12절).
+---
+--- There used to be a rename here instead: the key was replaced with a number of ours, so that
+--- landing on a key the reader used could not become a merge they cannot undo. The pair does that
+--- job now without taking the key away, and what the rename cost is in the same 12절.
+---
+--- `options.keepKeys` leaves the badge off, which is the accepted-on-arrival verb: the actions land
+--- live, on the keys they were sent on.
 ---
 --- `options.selection` is a set of the payload's action tables to take, or nil for all of them.
 --- **Unticked is not skipped** -- that is an answer the reader gave, where `skipped` counts what
@@ -782,11 +747,17 @@ end
 --- preview column replaced both: a reader looking at the actions themselves has no reason to be
 --- asked about the layers first, and the answer is no longer worth a window of its own
 --- (`devdocs/building-export-import.md` 12절).
-function DebindStorage.PlanImport(payload, options)
+function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
     local keepKeys = options and options.keepKeys;
-    local MapKey = KeyMapper();
+    -- **One number for the whole call**, because one call is one arrival. Every action of it lands
+    -- badged with the same value, which is what keeps a set that spans four layers one set.
+    --
+    -- **Asked for lazily.** A plan that places nothing spends no number, and `keepKeys` never asks
+    -- at all. The counter only ever counts up, so a plan that is built and then thrown away costs
+    -- nothing but a gap.
+    local arrivalID;
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
         -- **Asked for an address first, and the reader's answer second.** Every action with nowhere
@@ -805,44 +776,21 @@ function DebindStorage.PlanImport(payload, options)
             if (not selection or selection[source]) then
                 local action = BuildAction(source);
 
-                -- **The badge is the key it arrived on**, and `true` when it arrived on none.
-                --
-                -- **Only its presence is read.** Everything looking at this field asks whether it is set:
-                -- the blue name and dot, the [Pending] filter, whether accepting has anything to take off.
-                -- The string itself is not printed anywhere yet. `GetKeyDisplayText` takes it as `from`
-                -- and does not read it, and what names an unbound set on screen today is its first
-                -- action and how many follow (`DebindKeyHeaderMixin:UpdateSummary`).
-                --
-                -- **Read before the rename, and it is the only chance.** `MapKey` replaces the key with
-                -- a number of ours, so after this line the sender's key exists nowhere else.
-                --
-                -- A number on the wire is the sender's own placeholder, not a key they had, so it
-                -- leaves no hint behind - `true` is "arrived, on nothing you can be told about".
-                -- **One verb asks for the opposite of all that**, and it is the reader saying so by
-                -- name: take this on the keys it was sent on, live, instead of parked on a number to
-                -- be bound later. The merge the renaming exists to prevent is then the thing being
-                -- chosen, so the rule steps aside rather than being weakened.
-                --
-                -- **A number on the wire is renamed even then.** It is the sender's own placeholder
-                -- for one they had not decided, unique inside that one string and nowhere else, so
-                -- two arrivals would land on each other. The badge still comes off: the verb is
-                -- accept, and a row left waiting is what it was pressed to avoid.
-                local keyed = keepKeys and luatype(action.key) == "string";
-
-                if (not keyed) then
-                    if (not keepKeys) then
-                        local arrived = action.key;
-                        action.imported = luatype(arrived) == "string" and arrived or true;
-                    end
-
-                    action.key = MapKey(action.key);
-                    -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
-                    -- here as well so a hand-made string cannot walk one in: a number is a place
-                    -- among the actions sharing a key, and there is no key to be a place in.
-                    if (action.key == nil) then
-                        action.seq = nil;
-                    end
+                -- **The badge, unless the reader asked for these live.** Nothing else is done to the
+                -- key: it is the sender's, it is a real key, and it is half of the group this action
+                -- lands in.
+                if (not keepKeys) then
+                    arrivalID = arrivalID or DebindPrivate.NextArrivalID();
+                    action.arrivalID = arrivalID;
                 end
+
+                -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
+                -- here as well so a hand-made string cannot walk one in: a number is a place among
+                -- the actions sharing a key, and there is no key to be a place in.
+                if (action.key == nil) then
+                    action.seq = nil;
+                end
+
                 placements[#placements + 1] = {
                     scope = scope, class = class, spec = spec, action = action,
                 };
@@ -855,7 +803,7 @@ end
 
 --- Commits an entry into the profile, badged.
 ---
---- `options` is `PlanImport`'s, and comes from the dialog the press opened rather than from the
+--- `options` is `PlanArrival`'s, and comes from the dialog the press opened rather than from the
 --- entry. **Which lines to take is not stored**: that answer is worth exactly one press. Stored on
 --- the entry, an answer outlives the moment it was ticked and a reader who came back a week later
 --- gets something other than what they asked for -- "leave the keys out" was one of these, before
@@ -876,12 +824,12 @@ function DebindStorage.CommitEntry(entry, options)
         return nil, reason;
     end
 
-    local placements, skipped = DebindStorage.PlanImport(payload, options);
+    local placements, skipped = DebindStorage.PlanArrival(payload, options);
     if (#placements == 0) then
         return nil, "NOTHING_TO_PLACE";
     end
 
-    DebindPrivate.PlaceImportedActions(placements);
+    DebindPrivate.PlaceArrivedActions(placements);
 
     return #placements, skipped;
 end

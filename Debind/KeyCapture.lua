@@ -72,13 +72,13 @@ local CAPTION_GAP      = 8;
 
 --- Whether there is a key a reader could press.
 ---
---- **A number is not one.** A set that arrived in a string sits on a synthetic key until the reader
---- decides its real one (`NextSyntheticKey`), and that number stands *where* a key would without
---- being a key - which is the whole reason it is a number and a real key is always a string.
+--- **A key is a string or it is nothing.** There used to be a third answer, a number standing where
+--- a key would for a set whose key had not been decided; that shape is gone
+--- (`devdocs/building-export-import.md` 12절) and what is left is the plain question.
 ---
---- [Unbind Key] reads it, and so does the key each row draws when the rows disagree. Lit over a set
---- with a synthetic key the button would stand over nothing to unbind: the set is already off every
---- key, and taking that number away would only break it into loose actions.
+--- [Unbind Key] reads it, and so does the key each row draws when the rows disagree. **A selection
+--- is why it is any of them rather than the first**: a group shares one key by definition, and rows
+--- somebody ticked share nothing.
 ---
 --- **Up here because `LayoutRow` reads it.** It sat below with the rest of the reading and the rows
 --- had no use for it until they started drawing keys of their own; a local named before it is
@@ -148,8 +148,8 @@ local function LayoutRow(dialog, row, action, y, showKey)
         else
             -- A row that came in names the key it came in on, the same as the line above and the
             -- heading it was opened from. Grey all the same: neither of these is a key it has.
-            if (type(action.imported) == "string") then
-                row.Key:SetText(DebindPrivate.GetKeyDisplayText(action.key, action.imported));
+            if (type(action.arrivalID) == "string") then
+                row.Key:SetText(DebindPrivate.GetKeyDisplayText(action.key));
             else
                 row.Key:SetText(LLL["OVERVIEW_NO_KEY"]);
             end
@@ -195,8 +195,8 @@ local function AnyRealKey(actions)
 end
 
 --- The menus that offer [Unbind] on a selection ask the same question this dialog's button does, and
---- have to get the same answer: a menu item lit over a set on a synthetic key would be offering to
---- take off something that is not a key.
+--- have to get the same answer: a menu item lit over rows that are all keyless would be offering to
+--- take off a key none of them has.
 DebindPrivate.AnyRealKey = AnyRealKey;
 
 --- The key these are on now, for the line that says so.
@@ -209,22 +209,16 @@ DebindPrivate.AnyRealKey = AnyRealKey;
 --- other screen's key on purpose: one fact gets one word, and a second key holding the same global
 --- is how two screens end up saying it differently.
 ---
---- **A set still waiting says the key it came in on instead**, which is what the overview's heading
---- calls it. The reader gets here from that heading, and the two lines naming one set differently
---- would read as two different sets.
+--- **A set still waiting says the key it came in on**, because that is the key it is on: an arrival
+--- keeps the sender's key and the badge is what holds it back (`devdocs/building-export-import.md`
+--- 12절). That is what the overview's heading says too, and the reader got here from that heading.
 local function CurrentKeyText(actions)
     local key, shared = DebindPrivate.SharedKeyOf(actions);
     if (not shared) then
         return LLL["KEY_CAPTURE_CURRENT_KEY_MIXED"];
     end
 
-    if (type(key) == "number") then
-        local from = DebindPrivate.ArrivalKeyOf(actions);
-        if (from) then
-            return DebindPrivate.GetKeyDisplayText(key, from);
-        end
-    end
-    if (type(key) ~= "string") then
+    if (key == nil) then
         return LLL["OVERVIEW_NO_KEY"];
     end
     return DebindPrivate.GetKeyDisplayText(key);
@@ -313,9 +307,9 @@ function DebindKeyCaptureFrameMixin:Open(actions, onCommit)
     -- wins is not ours to assume.
     --
     -- **Greyed where there is no key**, which is the rule the left column already keeps for the same
-    -- state (`DebindKeyHeaderMixin:Init` greys both the unbound pile and a set still on a synthetic
-    -- key). White is the reading; "Not Bound" is the absence of one, and a window that draws those
-    -- alike makes the reader look twice at a line whose whole job is to be read once.
+    -- state (`DebindKeyHeaderMixin:Init` greys the unbound pile). White is the reading; "Not Bound"
+    -- is the absence of one, and a window that draws those alike makes the reader look twice at a
+    -- line whose whole job is to be read once.
     local hasKey = AnyRealKey(actions);
     self.CurrentKeyLabel:ClearAllPoints();
     self.CurrentKeyLabel:SetPoint("TOPLEFT", self.ContentArea, "TOPLEFT", 0, y);
@@ -353,8 +347,8 @@ function DebindKeyCaptureFrameMixin:Open(actions, onCommit)
 
     -- **One real key anywhere in the set is enough to light it**, because that is exactly what the
     -- button acts on: it takes the key off whatever here has one, and the rest were never on one.
-    -- It is dead where nothing does - a single action in the unbound pile, a set still waiting on a
-    -- synthetic key, a selection where every row is keyless.
+    -- It is dead where nothing does - a single action in the unbound pile, or a selection where
+    -- every row is keyless.
     --
     -- The same `hasKey` colours the line above, so the two still cannot disagree, but what they
     -- agree on is now "is there a real key in here" rather than "what key is this on". Those parted

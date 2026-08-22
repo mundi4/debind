@@ -189,16 +189,6 @@ L["DELETE"] = "Delete"
 -- 있었는데, 그러면 로케일이 손으로 옮긴 말과 클라이언트의 말이 같은 창 안에서 갈릴 수
 -- 있었다 - 같은 뜻은 한 군데서만 나와야 한다.
 L["OVERVIEW_NO_KEY"] = NOT_BOUND
---- What a heading says in that place instead, for a set that arrived and has not been given a key
---- yet: **the key it came in on**, which is the sender's and never this reader's.
----
---- "From" and not "Was". The set was never on that key here, so a past tense would be describing
---- something this profile never held. "Was" is left free for the key a reader had before unbinding
---- a set of their own, which is the one place it would be true.
----
---- It goes when the badge does. Accepting drops the key, and that is deliberate: a binding nobody
---- uses is not kept around so it can be read later (`GetKeyDisplayText`).
-L["OVERVIEW_IMPORTED_FROM_KEY"] = "From %s"
 -- What a folded key group's heading says after the first action's name: how many more are under it.
 -- **Not a total** - the one being named is not counted again, so a key with two actions reads
 -- "Charge +1".
@@ -303,15 +293,6 @@ L["KEY_CAPTURE_TARGETS"] = "Applies to these actions:"
 --- Everything counted here is still getting the key - the line says what is not being drawn, not
 --- what is being left out.
 L["KEY_CAPTURE_MORE"] = "...and %d more"
--- A group with no key of its own - one that came in a string, or one the reader unbound whole
--- (`UnbindKeyGroup`) - has no key string to write, and there is no key of its own here either. It
--- reads as `OVERVIEW_NO_KEY`, which is the client's `NOT_BOUND`, the same words the unbound pile
--- uses (`GetKeyDisplayText`).
---
--- **It used to carry a number** - "Imported Binding #3" - from when the heading had nothing else to
--- call the set by. The summary beside it is the first action and how many follow (`UpdateSummary`),
--- so the set is named by what is in it now, the way every other group in the column is read. The
--- number is how the set is filed, not what it is called.
 --- A row's right-click item. **Same three words as the heading's** (`KEY_HEADER_SET_KEY`), because
 --- the act is the same one and the same dialog opens; what differs is how much of the column it
 --- reaches, and that is said by where the reader clicked and by the tooltip below. Two keys and not
@@ -378,19 +359,24 @@ L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIG
 --- way. "Taking the key from them" is the same act named by what it does.
 L["KEY_GROUP_CONFLICT_SHARED"] = "Some of them are your other characters' as well - they are on that key there too, and taking the key from them takes it everywhere."
 --- **Not a compromise, and not a warning.** Several actions on one key, told apart by conditions, is
---- what this addon is for - so the answer that leaves both sets where they are needs no caveat.
+--- what this addon is for - so the answer that puts the two sets on one key needs no caveat.
 ---
---- It said "Merge", which is not a word the client has anywhere and names an operation that does not
---- happen - nothing is combined, the two simply both sit on the key with their conditions telling
---- them apart. "Keep them" was written next and thrown out on the spot: with [Cancel] standing beside
---- it, "keep them" is read as *leave them alone*, which is what the third button does. **"both" is
---- what stops that reading**, because it puts the arriving side inside the sentence - both are kept,
---- so the one that is moving still arrives.
+--- **It said "Keep both", and before that "Merge", and it is back to `Merge` because the objection
+--- that killed it stopped being true.** That objection was that nothing is combined -- the two sets
+--- simply both sat on the key with their conditions telling them apart, because what arrived was
+--- parked on a key of its own. It is not parked anywhere now: accepting moves it onto `(key, nil)`,
+--- the reader's own group, and `RenumberKeyGroup` ranks the two as **one** group, 1..n
+--- (`devdocs/building-export-import.md` 12절). Combining is exactly what happens.
 ---
---- **"all" was the other candidate and loses on the same test.** All of what is left open, so it can
---- still be read as "all of it as it stands". Counts do not trouble "both": four actions moving onto
---- three reads as both sides, not as two actions.
-L["KEY_GROUP_CONFLICT_KEEP"] = "Keep both"
+--- The other half of that objection was that the client does not use the word. That test answers
+--- "is there a word here to reuse", and it was being read as "would a reader know this one" -- which
+--- it does not answer at all. Somebody who plays this game has merged a save, a profile and an addon
+--- config, and `Merge` costs them nothing to read (2026-08-23, owner).
+---
+--- **And it says what `Keep both` could not.** "Both" names the outcome and leaves the mechanism to
+--- the tooltip; the mechanism is the part the reader has to picture, because from here on the two
+--- move as one and the order between them is a thing they own.
+L["KEY_GROUP_CONFLICT_KEEP"] = "Merge"
 --- On the button, because **the two answers to this question are the two most expensive things in
 --- the window** and a word each is not enough for either. One of them takes bindings off keys.
 ---
@@ -424,9 +410,11 @@ L["KEY_GROUP_CONFLICT_UNBIND"] = "Unbind them"
 --- not on screen - another specialization's, or filtered out. The reader is answering about things
 --- they cannot see, which is the same debt the prompt's number is paying.
 ---
---- And that nothing is deleted, which is what makes this choice offerable at all: it can be walked
---- back by hand. Saying it here rather than in the label keeps the button one act long.
-L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can see - the count above is every layer this character has. Nothing is deleted: they end up with no key at the bottom of the list, where you can give them one again."
+--- And **what it cannot put back.** Nothing is deleted, and each of them can be given a key again --
+--- but they stop being one set, and which ones belonged together is not written down anywhere. The
+--- half-sentence this used to be read as "you can undo this", which is false for the part that
+--- matters. Saying it here rather than in the label keeps the button one act long.
+L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can see - the count above is every layer this character has. Nothing is deleted: each one ends up with no key at the bottom of the list, where you can give it one again. They stop being one set, though, and nothing records which ones went together."
 --- The heading's item. **The words are `ACTION_SET_KEY`'s** - the act is the same and the same
 --- dialog opens - and how much of the column it reaches is left to the tooltip.
 ---
@@ -969,6 +957,21 @@ L["TYPE_WORLDMARKER_DESC"] = "Drops this world marker on the ground your cursor 
 L["TYPE_WORLDMARKER"] = "World Marker"
 L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."
 L["UNBIND"] = "Unbind Key"
+--- Asked before a key comes off two or more actions that share one.
+---
+--- **The whole point of the sentence is the last clause.** Taking a key off deletes nothing and the
+--- reader can give each action a key again, so the obvious reading of "unbind" is that it can be
+--- undone. What it actually costs is the grouping, and no field anywhere remembers it -- so if they
+--- do not remember which ones went together, there is no way back to it.
+---
+--- **The count is what the box is for.** A single action is never asked about: there is no set there
+--- to lose. What the reader is being told is the size of what comes apart.
+---
+--- "Separate actions" and not "lose their key", because losing the key is the part they asked for.
+L["UNBIND_SCATTERS_CONFIRM"] = "%d actions share a key here. Taking it off leaves them as separate actions with no key, and nothing records that they went together - if you do not remember, you cannot put them back."
+--- **The verb, not [Okay].** The reader is agreeing to the thing the sentence just described rather
+--- than acknowledging that they read it, and the client's own destructive prompts name the act.
+L["UNBIND_SCATTERS_CONFIRM_YES"] = "Unbind and separate"
 L["UNIT_CUSTOM1"] = "Custom Target 1"
 L["UNIT_CUSTOM2"] = "Custom Target 2"
 L["UNIT_DISABLE"] = "Disable"
@@ -1080,9 +1083,10 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- Taking the badge off imported actions. **The verb is about the reader, not the action** -
 -- nothing is being changed or repaired, they are saying they will have it.
 --
--- **It is not the moment a key starts working.** Everything that arrives is put on a synthetic key
--- (`KeyMapper` in `Import.lua`) and the build skips those, so accepting settles who owns the action
--- and nothing else. Putting it on a key is its own press.
+-- **It is the moment a key starts working.** What arrives keeps the key it was sent on and the badge
+-- is the only thing holding it back, so this press puts it live. It used to be the opposite - what
+-- arrived sat on a number the build skipped - and the sentence that said so went with the number
+-- (`devdocs/building-export-import.md` 12절).
 L["APPROVE_IMPORT"] = "Accept as mine"
 -- The row above the two columns, which is the only thing on that row while anything is waiting.
 --
@@ -1118,7 +1122,7 @@ L["IMPORT_PENDING_INSTRUCTION"] = "Click for what can be done to all of it."
 -- the box, since the one useful thing such a box could have said is how much is about to start
 -- working. What carries it now is the button this menu opens off, which reads `IMPORT_PENDING` and
 -- is on screen the whole time the menu is: the count is one widget away rather than gone, and it is
--- the same count because both come from `CollectImportedActions`.
+-- the same count because both come from `CollectArrivedActions`.
 --
 -- **"all" is the whole of the scope, and it means the profile.** The heading menu's items name the
 -- subset they gather instead (`KEY_HEADER_APPROVE`) precisely because "all" would overpromise
@@ -1127,11 +1131,49 @@ L["APPROVE_ALL_IMPORT"] = "Accept all"
 -- **It has to say "wherever it went"**, because the count includes actions on specializations you
 -- are not in, and those are on no list the reader can see from here.
 --
--- **And it has to say that nothing starts working.** What arrives is on a synthetic key, which the
--- build skips, so accepting the lot moves no key at all. Naming where they end up instead is the
--- honest version, and it borrows the words `KEY_GROUP_CONFLICT_UNBIND_DESC` already uses for that
--- same place: no key, at the bottom of the list.
-L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went, including other specializations. Nothing starts working yet: what came in is on no key of yours, and waits at the bottom of the list until you give it one."
+-- **And it has to say that these go live.** They arrive on the keys the sender had them on and the
+-- badge is the only thing holding them back, so taking the badge off is the moment they start
+-- working. It used to say the opposite, truthfully: what arrived sat on a number the build skipped,
+-- so accepting could not reach a key. That number is gone
+-- (`devdocs/building-export-import.md` 12절) and the sentence went with it.
+L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went, including other specializations. They start working on the keys they came in on. If any of those is a key you already use, you will be asked what to do about it first."
+-- Asked once for the whole batch, when accepting would take keys the reader is using.
+--
+-- **Two numbers, and they count different things.** The first is how many actions start working,
+-- which is what the reader pressed for. The second is how many of their own key groups are standing
+-- on the contested keys, which is what the answer decides the fate of.
+--
+-- Groups and not actions in that second number, because that is the unit at risk: taking a key off
+-- four actions leaves four loose ones and no record that they went together
+-- (`KEY_GROUP_CONFLICT_UNBIND_DESC`).
+--
+-- **The question asks who gets the key, not what happens to one side.** It read "What should happen
+-- to yours?" while the answers were two, and stayed there when a third was added - at which point
+-- [Merge] was not an answer to the question above it. Every one of the three names a winner, so the
+-- question has to be the one they all answer.
+L["APPROVE_ALL_OCCUPIED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$d|r actions are waiting, and some of them came in on keys you already use - |cnHIGHLIGHT_FONT_COLOR:%2$d|r of your key groups are on those keys.|n|nWho gets those keys?"
+-- **The answer that changes nothing of what is already there**, and first because that is where
+-- Enter lands.
+--
+-- **`Existing` and not `Mine`.** The pair with `Incoming` is exact - the two words name the two
+-- sides and neither claims anything about them. `Mine` claims one thing that is not always true:
+-- what came in can be the reader's own backup (`Create` makes a payload out of this profile), and
+-- then both sides are theirs and the label says otherwise. That is the same fault `Theirs` was
+-- turned down for on the other button.
+L["APPROVE_ALL_KEEP_EXISTING"] = "Keep Existing"
+-- What the label cannot say: **the incoming ones still arrive.** This answer is about the key, not
+-- about whether to take them - the reader already pressed accept - so what steps aside is the key
+-- and they land unbound. That is the state everything used to arrive in before an arrival kept the
+-- key it was sent on (`devdocs/building-export-import.md` 12절).
+--
+-- **And that it is only the contested keys.** Anything that came in on a key nobody was using takes
+-- that key whichever of the three is pressed.
+L["APPROVE_ALL_KEEP_EXISTING_DESC"] = "Only on the keys you are already using. What came in on those ends up with no key at the bottom of the list, where you can give it one. Anything that came in on a free key takes that key either way."
+-- The other exclusive answer. **`Take` rather than `Overwrite`** - nothing is deleted and your
+-- actions only lose the key, so a word that says "destroyed" would have to be walked back by its own
+-- tooltip. It also puts both labels on one axis: each of the three names what ends up on the key,
+-- and the reader reads the set instead of each label.
+L["APPROVE_ALL_TAKE_INCOMING"] = "Take Incoming"
 -- The other answer, and the design note always had the two side by side. **The same set as
 -- [Accept all], opposite verb** - two items standing together must not quietly mean different
 -- amounts.

@@ -38,8 +38,9 @@ local SEEDS = {};
 --- rows are for is the window, not the cast.
 ---
 --- The keys are the shifted and control function rows, which is where a PTR character has nothing
---- of its own. Three rows carry no key at all: two share a synthetic number and one has none, which
---- is what an arriving set looks like before it is accepted.
+--- of its own. Five rows carry no real key: two share a synthetic number with a badge, two share one
+--- without, and one has no key at all - the three shapes `dbver` 5 could hold, and what the step
+--- that raises it has to tell apart.
 SEEDS[5] = function(guid)
     local CLASS = Constants.PLAYER_CLASS;
     local HEARTHSTONE = 6948;
@@ -72,28 +73,34 @@ SEEDS[5] = function(guid)
                 -- The issue badge: a `MACRO` naming one that does not exist is left out of the
                 -- build entirely and the row says so (`Events.lua`'s UPDATE_MACROS comment).
                 { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "SHIFT-F4", seq = 1 },
-                --- The quarantine badge, and **it sits on a synthetic key.** `imported` is set
-                --- while an arriving set waits to be accepted, and by then the key is a number of
-                --- ours: import renames every key it is handed, the sender's real ones included
-                --- (`DebindStorage/Import.lua`'s `KeyMapper`), and the string it took off is the
-                --- badge itself. A real key carrying a badge is a shape no path can produce.
+                --- The quarantine badge as `dbver` 5 wrote it, and **this shape is why this builder
+                --- is kept.** Back then an arriving set was renamed onto a number of ours and the
+                --- sender's key was carried in `imported`; the step that raises 5 puts the key back
+                --- and turns the badge into an arrival number (`Profile.lua`,
+                --- `devdocs/building-export-import.md` 12절). Seeding 5 is what runs that step, so
+                --- **the old field names are spelled out here on purpose** and nothing in this
+                --- builder follows a rename made elsewhere.
                 ---
-                --- Two of them on the one number, because what the unbound heading names is a
-                --- **set** - its summary is the first action and how many follow.
+                --- Two of them on the one number, because what the heading names is a **set**.
                 ---
-                --- **`nextSyntheticKey` is deliberately left out.** A profile with numbers in it
-                --- and no counter is exactly the case `NextSyntheticKey` seeds itself from, and
-                --- writing the counter here would step around the only path that does it.
+                --- **The counter is deliberately left out.** A profile with numbers in it and no
+                --- counter is exactly the case the migration has to answer, and writing one here
+                --- would step around it.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = 1, seq = 1,
                     imported = "CTRL-Q" },
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/say arrived", name = "Say arrived", key = 1, seq = 2,
                     imported = "CTRL-Q" },
-                --- The other arrival shape: the sender left it on no key at all, so `KeyMapper`
-                --- hands back nothing and the badge is `true`. **No key, no `seq`** - the
-                --- invariant `ClearActionKey` keeps and the import holds to as well.
+                --- The other arrival shape 5 could hold: the sender left it on no key at all, so
+                --- there was no key to move aside and the badge is `true`. **No key, no `seq`.**
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/say unplaced", name = "Say unplaced", imported = true },
+                --- A set the reader unbound whole: a synthetic key **and no badge**, which is what
+                --- tells it from the two above. The step turns this one into two keyless actions
+                --- rather than into an arrival, and that difference is the whole of what it has to
+                --- get right.
+                { type = Constants.WORLDMARKER, value = 3, key = 2, seq = 1 },
+                { type = Constants.WORLDMARKER, value = 4, key = 2, seq = 2 },
                 { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
                 --- Click casting, so the frame menu and the hover half of the tooltip have a row.
                 --- Three fields ride along here because this is the only row they can sit on: the
@@ -277,6 +284,12 @@ SEEDS[6] = function(guid)
     return {
         dbver = 6,
 
+        --- **Above every `arrivalID` planted below.** `NextArrivalID` reads this and nothing else:
+        --- it stopped walking the store for the highest number in use the day that number moved out
+        --- of `key`, because the migration writes the counter itself. Left out here, the first real
+        --- arrival would be handed 1 and land inside the seeded set.
+        nextArrivalID = 2,
+
         shared = {
             --- **The account layer is where the coverage lives**, and it is filled by walking three
             --- lists rather than by taste: every action type the picker can hand out, every field in
@@ -302,28 +315,28 @@ SEEDS[6] = function(guid)
                 -- The issue badge: a `MACRO` naming one that does not exist is left out of the
                 -- build entirely and the row says so (`Events.lua`'s UPDATE_MACROS comment).
                 { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "SHIFT-F4", seq = 1 },
-                --- The quarantine badge, and **it sits on a synthetic key.** `imported` is set
-                --- while an arriving set waits to be accepted, and by then the key is a number of
-                --- ours: import renames every key it is handed, the sender's real ones included
-                --- (`DebindStorage/Import.lua`'s `KeyMapper`), and the string it took off is the
-                --- badge itself. A real key carrying a badge is a shape no path can produce.
+                --- **An arrival, and it sits on the key it was sent on.** What holds it back is the
+                --- badge, `arrivalID`, and with `key` that pair is also which group it belongs to
+                --- (`devdocs/building-export-import.md` 12절). A number in `key` is a shape no path
+                --- produces any more.
                 ---
-                --- Two of them on the one number, because what the unbound heading names is a
-                --- **set** - its summary is the first action and how many follow.
+                --- **On `SHIFT-F3`, which the account layer already uses.** That collision is the
+                --- state the pair exists for and no other row here reaches it: the column stands two
+                --- headings on one key, one live and one waiting, and neither is drawn into the
+                --- other. Landing it on a free key would seed a screen that looks the same whether
+                --- the grouping is right or wrong.
                 ---
-                --- **`nextSyntheticKey` is deliberately left out.** A profile with numbers in it
-                --- and no counter is exactly the case `NextSyntheticKey` seeds itself from, and
-                --- writing the counter here would step around the only path that does it.
-                { type = Constants.ITEM, value = HEARTHSTONE, key = 1, seq = 1,
-                    imported = "CTRL-Q" },
+                --- Two of them on the one arrival, because what the heading names is a **set**.
+                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F3", seq = 1,
+                    arrivalID = 1 },
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say arrived", name = "Say arrived", key = 1, seq = 2,
-                    imported = "CTRL-Q" },
-                --- The other arrival shape: the sender left it on no key at all, so `KeyMapper`
-                --- hands back nothing and the badge is `true`. **No key, no `seq`** - the
-                --- invariant `ClearActionKey` keeps and the import holds to as well.
+                    value = "/say arrived", name = "Say arrived", key = "SHIFT-F3", seq = 2,
+                    arrivalID = 1 },
+                --- The other arrival shape: the sender had it on no key, so it lands on none.
+                --- **No key, no group and no `seq`** - it goes to the unbound pile wearing a badge,
+                --- rather than under a heading of its own.
                 { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say unplaced", name = "Say unplaced", imported = true },
+                    value = "/say unplaced", name = "Say unplaced", arrivalID = 1 },
                 { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
                 --- Click casting, so the frame menu and the hover half of the tooltip have a row.
                 --- Three fields ride along here because this is the only row they can sit on: the

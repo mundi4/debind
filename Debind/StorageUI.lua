@@ -392,7 +392,7 @@ end
 --
 -- **The same three rungs the export list had** - everything, layer, action - over a payload
 -- instead of over the profile. What is ticked here is what a string carries and what `Add` places
--- (`FilterPayload`, `PlanImport`), and the tick is not written down: it is a different answer
+-- (`FilterPayload`, `PlanArrival`), and the tick is not written down: it is a different answer
 -- every time the entry is used (12절).
 --------------------------------------------------------------------------------
 
@@ -645,7 +645,7 @@ local ELSEWHERE_ORDER = 100;
 ---
 --- **Every count the panel prints comes out of this**, and so does what a press hands over: the
 --- header fractions, the [select all] total, which rows can be ticked, and the set `FilterPayload`
---- and `PlanImport` are given. One list is what makes those the same answer rather than the same
+--- and `PlanArrival` are given. One list is what makes those the same answer rather than the same
 --- idea written twice -- the fault being guarded against is the panel saying 12 while the string
 --- carries 9 (`devdocs/building-export-import.md` 2절).
 ---

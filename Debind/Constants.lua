@@ -450,10 +450,9 @@ end
 
 local _mousebuttonCache = {};
 function DebindPrivate.GetMouseButtonAndPrefix(key)
-    -- **A key group whose key has not been decided yet carries a number** (`NextSyntheticKey`), and
-    -- a number is not a mouse button and has no `:match` to ask with. This is the funnel both the
-    -- hover derivation and key validity come through, so the guard belongs here rather than at each
-    -- of them.
+    -- **A key is a string or it is nothing** (`devdocs/building-export-import.md` 12절), and nil has
+    -- no `:match` to ask with. This is the funnel both the hover derivation and key validity come
+    -- through, so the guard belongs here rather than at each of them.
     if (type(key) ~= "string") then
         return nil;
     end

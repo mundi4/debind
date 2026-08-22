@@ -383,7 +383,7 @@ end
 --- 단축키를 따로 안 보여주는 쪽(오버뷰, 툴팁 제목)은 안 넘기면 예전 그대로다.
 local function ColoredNameAndIconForAction(action, skipCategory)
 	local name, icon = NameAndIconForAction(action);
-	if (action.imported) then
+	if (action.arrivalID) then
 		-- **회색 자리를 가져간다.** 가져온 액션은 빌드에 안 들어가므로 어차피 회색이 될
 		-- 것인데, 그러면 "키가 없다"와 구별이 안 된다. 파랑이 그 자리에 서면 "안 나간다"와
 		-- "왜"를 한 색이 같이 말한다. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.

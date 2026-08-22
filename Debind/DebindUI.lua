@@ -111,13 +111,16 @@ local _searchText;
 local KEYLESS_GROUP = {};
 local _collapsedKeys = {};
 
---- 액션의 키를 `_collapsedKeys`가 쓰는 이름으로 바꾼다. 키가 없다는 것도 그룹 하나이고,
+--- 액션의 그룹을 `_collapsedKeys`가 쓰는 이름으로 바꾼다. 키가 없다는 것도 그룹 하나이고,
 --- nil은 테이블 키가 못 되므로 고유 테이블이 그 자리에 선다.
-local function CollapseKeyFor(key)
+---
+--- **`arrivalID`까지 넣는다.** 한 키 위에 내 세트와 도착분이 나란히 서고 머리글도 둘이라, 키만
+--- 이름으로 삼으면 한쪽을 접었을 때 다른 쪽까지 같이 접힌다.
+local function CollapseKeyFor(key, arrivalID)
 	if (key == nil) then
 		return KEYLESS_GROUP;
 	end
-	return key;
+	return key .. "/" .. tostring(arrivalID);
 end
 
 --- 왼쪽 열의 필터. **값별 포함 체크박스**라 켜진 값만 통과한다 - 블리자드 수집품 창의
@@ -128,11 +131,10 @@ end
 ---   특성 - 활성 / 비활성
 ---   키   - 있음(진짜 키) / 없음(수락은 했는데 키를 안 줌) / Pending(아직 수락도 안 함)
 ---
---- **키 축의 셋이 안 겹치는 것은 우연이 아니다.** 배지를 다는 자리가 임포트 하나뿐인데 그쪽은
---- 들어온 키를 문자열이든 숫자든 전부 합성 번호로 바꾼다(`DebindStorage/Import.lua`의
---- `KeyMapper`). 그래서 문자열 키에 배지가 붙는 길이 없고, 키를 주는 것과 배지를 떼는 것도
---- 같은 두 줄이다(`SetKeyForActions`). 「단축키 없음」이 이름보다 좁은 뜻인 이유가 이것이다 -
---- Pending도 키가 없지만 저쪽이 가져간다.
+--- **키 축의 셋이 겹칠 수 있다.** 배지 달린 것도 실키를 들고 있어서(`devdocs/building-export-import.md`
+--- 12절) Pending과 「단축키 있음」이 같은 액션을 가리킬 수 있다. 축마다 따로 묻고 통과하면
+--- 남기는 것이 그래서 맞다 - 한 축이 다른 축을 대신 답하게 만들면, 도착분을 보려고 Pending만
+--- 켠 사람이 키 축에서 그것을 다시 잃는다.
 ---
 --- **저장하지 않는다.** 걸려 있다는 사실은 드롭다운의 리셋 버튼이 말한다(`UIResetButtonTemplate`은
 --- 기본값이 아닐 때만 뜬다).
@@ -380,7 +382,7 @@ local function ActionPassesFilters(action, specRank)
 		return false;
 	end
 
-	if (action.imported ~= nil) then
+	if (action.arrivalID ~= nil) then
 		return _filters.pending == true;
 	end
 	if (type(action.key) == "string") then
@@ -770,25 +772,65 @@ end
 
 --- Takes the badge off, which is what lets these actions reach a key.
 ---
---- **This is the whole of "approve".** Importing put them in the profile and `BuildKeyMap` has been
---- skipping them ever since; clearing the field is the reader saying yes, and the rebuild below is
---- the moment their keys actually change. That is on purpose: it is one visible event the reader
---- asked for, rather than something that happened while they were reading a list.
+--- **Accepting is a move, not a field edit.** An arrival sits on `(key, arrivalID)` and accepting it
+--- lands it on `(key, nil)`, which is a key group the reader may already have things in -- so it
+--- goes through `SetKeyForActions`, the one path that carries a set's own order across and stands it
+--- behind whatever the destination already held. Clearing the field on each action instead would
+--- leave the sender's `seq` interleaved with the reader's and quietly reorder what fires first.
 ---
---- **A set that came in without a key keeps its synthetic one**, and is still skipped by the build
---- after this. That is the honest state - taken, and not yet on a key - and it is the same state an
---- action the reader accepted while it had no key has always been in.
+--- **What lands on `nil` is not a move.** An arrival that came in on no key has no group to join, so
+--- the badge simply comes off and it stays in the unbound pile.
+---
+--- **`contested` is the reader's answer, and it only ever names keys both sides want.** One of three
+--- things, and each is one of the buttons: nil where nothing collided or the reader chose to merge
+--- (both sets end up on the key and the order decides), `"mine"` where the arrivals on those keys
+--- step aside, `"theirs"` where the reader's own actions on those keys lose them. Keys outside it
+--- are untouched by the answer: an arrival on a free key lands on it whichever button was pressed.
+---
+--- **`occupants` is only read for `"theirs"`**, and the caller gathers it from the same walk that
+--- decided there was a question to ask -- so the set the prompt counted is the set that moves.
 ---
 --- **The narrowing is left alone.** [Pending] is a tick in the filter dropdown now, and a tick is
 --- the reader's to clear. Accepting the lot while it is the only value ticked on the key axis ends
 --- on an empty list, which is exactly what that state asks for; the dropdown's reset button is on
 --- screen the whole time.
-local function ApproveImportedActions(actions)
-	for _, action in ipairs(actions) do
-		action.imported = nil;
+local function ApproveArrivedActions(actions, occupants, contested, answer)
+	if (answer == "theirs" and occupants) then
+		DebindPrivate.ClearKeyForActions(occupants);
 	end
 
-	-- **What just left the list leaves the selection with it.** `imported` is one of the fields the
+	-- Grouped, because `SetKeyForActions` takes a set and the order inside it is the thing being
+	-- carried. **`(key, arrivalID)`**, so two arrivals that came in on one key do not become one
+	-- ranking on the way through.
+	local groups, order = {}, {};
+	for _, action in ipairs(actions) do
+		-- **Keeping mine means this one arrives with no key**, not that it does not arrive: the
+		-- reader pressed accept, so the badge comes off either way and what steps aside is the key.
+		-- It lands in the unbound pile, which is the state a badge used to leave everything in and
+		-- the reason this answer exists at all.
+		if (answer == "mine" and action.key ~= nil and contested and contested[action.key]) then
+			action.key = nil;
+			action.seq = nil;
+			action.arrivalID = nil;
+		elseif (action.key == nil) then
+			action.arrivalID = nil;
+		else
+			local groupID = action.key .. "/" .. tostring(action.arrivalID);
+			local group = groups[groupID];
+			if (group == nil) then
+				group = { key = action.key };
+				groups[groupID] = group;
+				order[#order + 1] = groupID;
+			end
+			group[#group + 1] = action;
+		end
+	end
+	for i = 1, #order do
+		local group = groups[order[i]];
+		DebindPrivate.SetKeyForActions(group, group.key);
+	end
+
+	-- **What just left the list leaves the selection with it.** `arrivalID` is one of the fields the
 	-- filters read, so accepting rows while [Pending] is the only key value ticked drops them off
 	-- screen while the strip still counts them - "2 selected" over a list with nothing highlighted,
 	-- and the search box stays hidden because the two share that slot. Every other path that
@@ -796,7 +838,8 @@ local function ApproveImportedActions(actions)
 	--- One set for the whole update, because the two below it ask the same question of the same
 	--- profile and building it is a walk over every layer (`NarrowedVisibleActions`). Nothing
 	--- between here and the last of them touches what the answer is made of: `UpdateBindings`
-	--- writes the key map and not `key` or `imported`, which are the two fields the filters read.
+	--- writes the key map and not `key` or `arrivalID`, which are the two fields the filters read.
+
 	local visible = NarrowedVisibleActions();
 	DebindFrame:PruneSelectionToBinFilter(visible);
 
@@ -831,12 +874,12 @@ function DebindLineMixin:Update()
 	-- "키 없음"도 뜻하므로 둘을 가르는 것이 이 표시다.
 	--
 	-- 자리를 안 먹으므로 이름 앵커는 안 건드린다 - 아이콘 위 빈 자리에만 걸린다.
-	self.NewDot:SetShown(action.imported ~= nil);
+	self.NewDot:SetShown(action.arrivalID ~= nil);
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
 	local keyIssueIsMinor = keyIssue ~= nil and IsIssueMinor(keyIssue);
 	if (action.key) then
-		local s = DebindPrivate.GetKeyDisplayText(action.key, action.imported);
+		local s = DebindPrivate.GetKeyDisplayText(action.key);
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
@@ -1222,7 +1265,7 @@ function DebindKeyHeaderMixin:OnClick(button)
 		return;
 	end
 
-	local groupKey = CollapseKeyFor(self.elementData.key);
+	local groupKey = CollapseKeyFor(self.elementData.key, self.elementData.arrivalID);
 	_collapsedKeys[groupKey] = not _collapsedKeys[groupKey] or nil;
 	DebindResultPanel:RefreshKeyboard();
 end
@@ -1235,8 +1278,8 @@ end
 --- A key group always has one. **A pile only has one when something in it arrived** - neither key
 --- item belongs over rows that share nothing (giving them all one key invents a set the reader never
 --- made, and there is nothing to take off), which leaves the import pair as the only thing that can
---- stand there. What puts a badge in that pile is an action exported while it was on no key:
---- `KeyMapper` hands a synthetic key to whatever arrived **on** one and has nothing to give the rest.
+--- stand there. What puts a badge in that pile is an action the sender had on no key: it lands on
+--- none here either, so it is loose rather than a group of its own.
 local function HeaderMenuActions(elementData)
 	local rows = elementData.rows;
 	if (not rows or not rows[1]) then
@@ -1248,7 +1291,7 @@ local function HeaderMenuActions(elementData)
 		actions[i] = rows[i].action;
 	end
 
-	if (elementData.key == nil and not DebindPrivate.AnyImportedAction(actions)) then
+	if (elementData.key == nil and not DebindPrivate.AnyArrivedAction(actions)) then
 		return nil;
 	end
 	return actions;
@@ -1283,7 +1326,7 @@ function DebindKeyHeaderMixin:OnEnter()
 	-- 색은 안 물려준다. 머리글의 파랑·회색·빨강은 **그 자리에서** 이 그룹이 어디 서 있는지를
 	-- 말하는 것이고, 툴팁은 그 물음에 답하는 자리가 아니다(메뉴 제목과 같은 규칙).
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	GameTooltip_SetTitle(GameTooltip, KeyGroupLabel(elementData.key, elementData.importedFrom));
+	GameTooltip_SetTitle(GameTooltip, KeyGroupLabel(elementData.key));
 	GameTooltip_AddInstructionLine(GameTooltip, LLL["KEY_HEADER_TOOLTIP_INSTRUCTION"]);
 	GameTooltip:Show();
 end
@@ -1295,10 +1338,10 @@ end
 
 --- The menu for the group this heading stands over.
 ---
---- **What identifies the group is its key**, so that is what the menu carries. The menu can still be
---- standing when the column is rebuilt, and a key is a value rather than a place in a list that has
---- been thrown away since - the actions are collected from it at the moment the item is pressed,
---- which also reaches past this screen (`CollectKeyGroupActions` walks every layer).
+--- **What identifies the group is `(key, arrivalID)`**, so that pair is what the menu carries. The
+--- menu can still be standing when the column is rebuilt, and a pair of values is not a place in a
+--- list that has been thrown away since - the actions are collected from it at the moment the item
+--- is pressed, which also reaches past this screen (`CollectKeyGroupActions` walks every layer).
 ---
 --- The first row rides along for the **title** and for nothing else. That one is not interchangeable:
 --- it is first in firing order, which is what the heading calls the set by.
@@ -1316,28 +1359,23 @@ function DebindKeyHeaderMixin:OpenKeyGroupMenu()
 	-- The title names the set the way the heading does (`UpdateSummary`): the first action, and how
 	-- many more there are. Only that second number is counted here.
 	MenuUtil.CreateContextMenu(self, DebindUI.SetupKeyGroupDropdownMenu,
-		elementData.key, actions[1], #actions - 1, actions);
+		elementData.key, actions[1], #actions - 1, actions, elementData.arrivalID);
 end
 
 function DebindKeyHeaderMixin:Init(elementData)
 	self.elementData = elementData;
 	self:UpdateCollapsedState(elementData.collapsed == true);
 
-	if (type(elementData.key) == "number") then
-		-- **A key group whose key has not been decided yet.** The number it is stored under is ours and
-		-- is never shown. One that arrived is named by the key it came in on (`importedFrom`); one the
-		-- reader unbound has nothing to be named by and reads as the client's `NOT_BOUND`. Either way
-		-- the summary beside it (`UpdateSummary`) is what separates two of them.
+	if (elementData.arrivalID ~= nil) then
+		-- **An arrival, waiting to be taken.** It is on the key it was sent on, so the key is what
+		-- names it -- and that key is routinely one the reader already uses, which is why the group
+		-- is `(key, arrivalID)` and this heading is not the same heading as theirs
+		-- (`devdocs/building-export-import.md` 12절). What separates two of them on screen is the
+		-- summary beside the key (`UpdateSummary`) and the tint here.
 		--
-		-- Tinted while any of it is still badged, greyed once it is not. Both are true of it and
-		-- the colour says which one the reader is looking at: a set waiting on a decision, or one
-		-- they have taken and not yet given a key to.
-		local label = KeyGroupLabel(elementData.key, elementData.importedFrom);
-		if (elementData.hasImported) then
-			self:SetHeaderText(IMPORTED_FONT_COLOR:WrapTextInColorCode(label));
-		else
-			self:SetHeaderText(DISABLED_FONT_COLOR:WrapTextInColorCode(label));
-		end
+		-- **Tinted rather than greyed.** Grey is "nothing here runs, and that is fine"; this one is
+		-- waiting on the reader, which is work.
+		self:SetHeaderText(IMPORTED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel(elementData.key)));
 	elseif (elementData.key) then
 		-- **키는 걸려 있는데 지금 아무것도 안 나가는 그룹은 흐리다.** 멤버가 전부 다른 특성
 		-- 것이면 그렇게 된다 - 이 열은 오프스펙도 그리므로 그런 그룹이 실제로 서 있고, 색이
@@ -1349,10 +1387,10 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- are saying different things about the group: grey is "nothing here runs, and that is
 		-- fine", red is "something here would run and does not".
 		--
-		-- **Blue wins over both, and does so by never meeting them**: a badged set is always filed
-		-- under a key of its own that has no key yet (`KeyMapper`), so it takes the branch above.
-		-- That is the order the reason column already keeps - accepting comes before fixing, since
-		-- what arrived is not ours to fix until it is taken.
+		-- **Blue wins over both, and does so by never meeting them**: an arrival is its own group
+		-- (`arrivalID`), so it takes the branch above even when it sits on this very key. That is the
+		-- order the reason column already keeps - accepting comes before fixing, since what arrived
+		-- is not ours to fix until it is taken.
 		local label = KeyGroupLabel(elementData.key);
 		if (elementData.hasError) then
 			label = ERROR_COLOR:WrapTextInColorCode(label);
@@ -2148,20 +2186,75 @@ function DebindFrameMixin:ResetFilters()
 	self:Update();
 end
 
+--- Whose keys the reader would be handing over: their own actions sitting on a key one of these
+--- arrivals came in on.
+---
+--- **`arrivalID == nil` is what makes something an occupant.** A quarantined action holds a key
+--- without occupying it (`BuildKeyMap` skips it), so a second arrival on the same key is not in
+--- anyone's way and is not offered up here.
+---
+--- Answers the list and how many key groups it spans. The count is what the prompt says, because
+--- what the reader loses on the overwrite answer is groups rather than actions: each of those comes
+--- apart and nothing records which of its members went together (`ClearKeyForActions`).
+local function OccupantsOfArrivals(arrivals)
+	local keys, occupants, groups = {}, {}, 0;
+	-- The keys both sides want, which is what the reader is answering about. Handed back so the
+	-- answer can be applied to those keys and to no others.
+	local contested = {};
+	for i = 1, #arrivals do
+		local key = arrivals[i].key;
+		if (key ~= nil) then
+			keys[key] = true;
+		end
+	end
+
+	local seenGroup = {};
+	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+		for _, action in layer:Enumerate() do
+			if (action.arrivalID == nil and action.key ~= nil and keys[action.key]) then
+				occupants[#occupants + 1] = action;
+				contested[action.key] = true;
+				if (not seenGroup[action.key]) then
+					seenGroup[action.key] = true;
+					groups = groups + 1;
+				end
+			end
+		end
+	end
+	return occupants, groups, contested;
+end
+
 --- Takes **every** badge left in the profile off. The second of the two presses the design note
 --- calls the ordinary path.
 ---
---- **There is no confirmation box.** This is what the ordinary end of an import looks like, and a
---- confirmation box on the ordinary end is what turns the badge from a safeguard into homework. How
---- many are about to start working is on the button the menu holding this item opened off
---- (`IMPORT_PENDING`), which stands there for as long as the menu does, and that is everything a box
---- here could have said.
+--- **The ordinary end asks nothing.** A confirmation box on the ordinary end is what turns the badge
+--- from a safeguard into homework, and how many are about to start working is on the button the menu
+--- holding this item opened off (`IMPORT_PENDING`), which stands there for as long as the menu does.
 ---
---- **It reaches what is not on screen** - `CollectImportedActions` walks every layer. One entry
+--- **⚠ It asks when a key would be taken.** An arrival keeps the key it was sent on, so accepting
+--- the lot puts those keys live -- and where the reader already uses one, something has to give.
+--- Nothing used to: what arrived sat on a number the build skipped, so accepting could not reach a
+--- key at all. That number is gone (`devdocs/building-export-import.md` 12절) and this question is
+--- what stands in its place. **A free key still asks nothing**, which is the common case and the
+--- reason the box is not on the ordinary end after all.
+---
+--- **It reaches what is not on screen** - `CollectArrivedActions` walks every layer. One entry
 --- routinely splits across off-spec layers, so taking off only what is visible would leave the
 --- rest quarantined somewhere no screen shows until the reader changes specialization.
 function DebindFrameMixin:ApproveAllImported()
-	ApproveImportedActions(DebindPrivate.CollectImportedActions());
+	local arrivals = DebindPrivate.CollectArrivedActions();
+	if (#arrivals == 0) then
+		return;
+	end
+
+	local occupants, groups, contested = OccupantsOfArrivals(arrivals);
+	if (#occupants == 0) then
+		ApproveArrivedActions(arrivals);
+		return;
+	end
+
+	StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED", #arrivals, groups,
+		{ arrivals = arrivals, occupants = occupants, contested = contested });
 end
 
 --- Throws back everything still waiting - the same set [Accept all] would take.
@@ -2171,7 +2264,7 @@ end
 --- through the prompt, which is also the only place the reader is told the way back
 --- (`ShowRejectImportConfirmationPopup`).
 function DebindFrameMixin:RejectAllImported()
-	ShowRejectImportConfirmationPopup(DebindPrivate.CollectImportedActions());
+	ShowRejectImportConfirmationPopup(DebindPrivate.CollectArrivedActions());
 end
 
 --- The menu the row above the columns opens, on either mouse button. **The two items are what the
@@ -3343,7 +3436,7 @@ end
 
 --- The button for what came in. **It only stands while at least one badge is left.**
 ---
---- The count is over the **whole profile** (`CollectImportedActions`) - not this tab, not this
+--- The count is over the **whole profile** (`CollectArrivedActions`) - not this tab, not this
 --- specialization. What the menu's two items reach is that whole set, so the number that leads to
 --- them has to be that set too. Put the visible count here instead and pressing through switches
 --- more on, somewhere the reader was not looking.
@@ -3361,7 +3454,7 @@ end
 --- badge's blue were tried and both came back out on screen; the XML carries what each cost.
 function DebindFrameMixin:UpdatePendingImports()
 	local button = self.OverviewPanel.PendingImports;
-	local count = #DebindPrivate.CollectImportedActions();
+	local count = #DebindPrivate.CollectArrivedActions();
 	local shown = count > 0;
 
 	button:SetShown(shown);
@@ -3991,9 +4084,9 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	-- nothing. The slot means "what you can do to this row right now", and for this row that is
 	-- accepting it; the arrows come back the moment it is, which is when ordering becomes the job.
 	local accept = self.AcceptButton;
-	local imported = elementData.row.action.imported ~= nil;
-	accept:SetShown(imported);
-	if (imported) then
+	local arrived = elementData.row.action.arrivalID ~= nil;
+	accept:SetShown(arrived);
+	if (arrived) then
 		accept:SetWidth(max(60, accept:GetFontString():GetStringWidth() + 24));
 	end
 
@@ -4016,14 +4109,14 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	-- says which specialization it belongs to.
 	local offSpec = (elementData.row.specRank or 0) ~= 0;
 
-	if (imported or offSpec or not elementData.isCurrent or live < 2) then
+	if (arrived or offSpec or not elementData.isCurrent or live < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
 		up:Hide();
 		down:Hide();
 		self.ReasonText:ClearAllPoints();
 		-- A row with a button standing pulls the reason line left of it, for the reason spelled out
 		-- in the arrows' branch below.
-		if (imported) then
+		if (arrived) then
 			self.ReasonText:SetPoint("RIGHT", accept, "LEFT", -6, 0);
 		else
 			self.ReasonText:SetPoint("RIGHT", -6, 0);
@@ -4113,7 +4206,7 @@ end
 --- No confirmation, for the reason the strip's button has none: accepting is what importing is for.
 --- What it does have is a slot of its own away from the arrows' (the XML says why).
 function DebindOrderLineMixin:OnAcceptClick()
-	ApproveImportedActions({ self:GetElementData().row.action });
+	ApproveArrivedActions({ self:GetElementData().row.action });
 	GameTooltip:Hide();
 end
 
@@ -4164,7 +4257,7 @@ local function GetOrderReasonText(elementData)
 	-- keeps an action out of the key map (`BuildKeyMap` takes only `not issue`), so taking the
 	-- badge off something broken changes nothing about what any key does. Both come back the
 	-- moment it is accepted, which is when either one starts to matter.
-	if (row.action.imported) then
+	if (row.action.arrivalID) then
 		return "";
 	-- **Which specialization it belongs to, in the slot the contest would have used.** The row sits
 	-- where it would sit if that specialization were the live one, so without this line the reader
@@ -4226,7 +4319,7 @@ function DebindOrderLineMixin:Update()
 
 	self:SetReasonText(GetOrderReasonText(elementData));
 
-	self.NewDot:SetShown(row.action.imported ~= nil);
+	self.NewDot:SetShown(row.action.arrivalID ~= nil);
 
 	-- 지금 보고 있는 액션은 오른쪽 목록의 선택과 같은 하이라이트로 띄운다.
 	self.SelectedHighlight:SetShown(elementData.isCurrent);
@@ -4342,7 +4435,7 @@ end
 ---
 --- **검색은 머리글이 말하는 것에도 걸린다.** 이 열에서 그룹을 부르는 이름이 곧 단축키라, 키를
 --- 쳐서 거기 뭐가 걸렸는지 보는 것이 액션 이름으로 찾는 것만큼 자연스럽다.
-local function KeyGroupPasses(rows, key, importedFrom)
+local function KeyGroupPasses(rows, key)
 	local any = false;
 	for i = 1, #rows do
 		if (ActionPassesFilters(rows[i].action, rows[i].specRank)) then
@@ -4354,7 +4447,7 @@ local function KeyGroupPasses(rows, key, importedFrom)
 		return any;
 	end
 
-	if (NameMatchesSearch(DebindPrivate.GetKeyDisplayText(key, importedFrom))) then
+	if (NameMatchesSearch(DebindPrivate.GetKeyDisplayText(key))) then
 		return true;
 	end
 	for i = 1, #rows do
@@ -4374,34 +4467,48 @@ end
 --- 거른다. **접힘은 집합에 안 든다** - 접기는 이 열의 보기 상태이지 필터가 아니라, 접힌 그룹의
 --- 액션도 오른쪽에는 그대로 서 있어야 한다.
 function BuildKeyboardElements()
-	local keySeen, keyArr, keyHasImported, keyImportedFrom = {}, {}, {}, {};
+	-- **한 키가 그룹 하나가 아니다.** 도착분은 보낸 사람의 실키를 그대로 들고 오므로 내 세트와
+	-- 같은 키 위에 앉고, 그 둘은 머리글이 둘이다(`devdocs/building-export-import.md` 12절).
+	-- 그래서 훑는 단위가 `(key, arrivalID)` 쌍이고, 아래 `groups`는 그 쌍의 목록이다.
+	local seen, groups = {}, {};
 	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
 		for _, action in layer:Enumerate() do
 			local key = action.key;
-			if (key and not keySeen[key]) then
-				keySeen[key] = true;
-				keyArr[#keyArr + 1] = key;
-			end
-			if (key and action.imported) then
-				keyHasImported[key] = true;
-				-- The key the sender had it on, which is what the heading of a set with no key of
-				-- its own says. Every member of one arrival carries the same value, so the first
-				-- to be walked answers for the group; `true` is the badge of something that
-				-- arrived on no key, and there is nothing to say about that.
-				if (keyImportedFrom[key] == nil and type(action.imported) == "string") then
-					keyImportedFrom[key] = action.imported;
+			if (key) then
+				local groupID = key .. "/" .. tostring(action.arrivalID);
+				if (not seen[groupID]) then
+					seen[groupID] = true;
+					groups[#groups + 1] = { key = key, arrivalID = action.arrivalID };
 				end
 			end
 		end
 	end
 
-	sort(keyArr, DebindPrivate.CompareKeys);
+	-- 키가 먼저고, 같은 키 안에서는 **내 것이 위**다. 도착분은 아직 안 눌리는 것이라, 눌리는
+	-- 그룹을 위에 두는 편이 그 키를 눌렀을 때 무엇이 나가는지를 먼저 읽게 한다. 그다음은 번호
+	-- 순이고, 번호는 도착한 차례라 오래된 것이 위에 선다.
+	sort(groups, function(lhs, rhs)
+		if (lhs.key ~= rhs.key) then
+			return DebindPrivate.CompareKeys(lhs.key, rhs.key);
+		end
+		if (lhs.arrivalID == rhs.arrivalID) then
+			return false;
+		end
+		if (lhs.arrivalID == nil) then
+			return true;
+		end
+		if (rhs.arrivalID == nil) then
+			return false;
+		end
+		return lhs.arrivalID < rhs.arrivalID;
+	end);
 
 	local elements, visible = {}, {};
-	for _, key in ipairs(keyArr) do
-		local rows = DebindPrivate.CollectActionsForKey(key);
-		local collapsed = _collapsedKeys[key] == true;
-		local shown = KeyGroupPasses(rows, key, keyImportedFrom[key]);
+	for _, group in ipairs(groups) do
+		local key, arrivalID = group.key, group.arrivalID;
+		local rows = DebindPrivate.CollectActionsForKey(key, nil, arrivalID);
+		local collapsed = _collapsedKeys[CollapseKeyFor(key, arrivalID)] == true;
+		local shown = KeyGroupPasses(rows, key);
 
 		-- **이 키를 지금 눌러도 아무것도 안 나가는가.** 키는 걸려 있는데 멤버가 전부 다른
 		-- 특성 것인 경우가 그렇고, 머리글은 그때 흐려진다.
@@ -4448,10 +4555,9 @@ function BuildKeyboardElements()
 				rows = rows,
 				allInactive = allInactive,
 				hasError = hasError,
-				-- Only the heading of a set with no real key reads these: the first for its colour,
-				-- the second for the key it came in on.
-				hasImported = keyHasImported[key],
-				importedFrom = keyImportedFrom[key],
+				-- Which arrival this group is, or nil for the reader own. The heading reads it to
+				-- know whether to tint, and the collapse state and the menu are filed under it.
+				arrivalID = arrivalID,
 			};
 		end
 
@@ -4512,10 +4618,9 @@ function BuildKeyboardElements()
 	-- it; putting them anywhere but the end would break the reading that a header owns a key.
 	--
 	-- **One pile, and it used to be several.** A set that arrived without a key was headed on its
-	-- own here, because the grouping was the only surviving record of what the sender had built. It
-	-- comes in on a synthetic key now, so it is a key group and it is drawn as one up above -- the
-	-- pass that split this column in two is gone with the field it split on
-	-- (`devdocs/building-export-import.md`).
+	-- own here, because the grouping was the only surviving record of what the sender had built. An
+	-- arrival keeps the key it was sent on now, so anything of it that reaches this pile came in on
+	-- no key at all and was never a set (`devdocs/building-export-import.md` 12절).
 	local rows = DebindPrivate.CollectKeylessActionRows();
 
 	-- **The pile is narrowed row by row, and the key groups above are not.** A key group is kept
@@ -4659,7 +4764,7 @@ function DebindResultPanelMixin:RefreshKeyboard()
 	local revealAction = _revealAction;
 	_revealAction = nil;
 	if (revealAction) then
-		_collapsedKeys[CollapseKeyFor(revealAction.key)] = nil;
+		_collapsedKeys[CollapseKeyFor(revealAction.key, revealAction.arrivalID)] = nil;
 	end
 
 	local elements = BuildKeyboardElements();
@@ -4952,10 +5057,10 @@ function DebindFrameMixin:CancelBindMode()
 		-- The badge is restored with the other two. Giving a key inside the mode accepts what
 		-- arrived (`SetActionKey`), and leaving it accepted after a cancel would be the one change
 		-- of the session that the reader cannot take back - the badge is never handed out again.
-		if (action.key ~= original.key or action.seq ~= original.seq or action.imported ~= original.imported) then
+		if (action.key ~= original.key or action.seq ~= original.seq or action.arrivalID ~= original.arrivalID) then
 			action.key = original.key;
 			action.seq = original.seq;
-			action.imported = original.imported;
+			action.arrivalID = original.arrivalID;
 			changed = true;
 			restored = restored or {};
 			restored[#restored + 1] = action;
@@ -5020,7 +5125,7 @@ function DebindFrameMixin:SetActionKey(action, key)
 	-- from the session that was cancelled, or accepted by a session that was not.
 	local edits = self.bindEdits;
 	if (edits and edits[action] == nil) then
-		edits[action] = { key = action.key, seq = action.seq, imported = action.imported };
+		edits[action] = { key = action.key, seq = action.seq, arrivalID = action.arrivalID };
 	end
 
 	-- **Both directions go through `Profile.lua`, and neither is written here.** Giving the key
@@ -5032,13 +5137,13 @@ function DebindFrameMixin:SetActionKey(action, key)
 	-- reader saying yes; there is nothing further to approve about an action they just put on their
 	-- own keyboard, and the set's own path has read it that way all along (`SetKeyForActions`).
 	--
-	-- **Only this direction.** [Unbind Key] settles nothing, and what it takes off an arrival is a
-	-- synthetic number rather than a key it was ever on, so it is not the reader taking anything.
+	-- **Only this direction.** [Unbind Key] settles nothing: it takes a key away rather than deciding
+	-- one, so it is not the reader taking the action.
 	local accepted;
 	if (key ~= nil) then
-		accepted = action.imported ~= nil;
+		accepted = action.arrivalID ~= nil;
 		action.key = key;
-		action.imported = nil;
+		action.arrivalID = nil;
 		DebindPrivate.PlaceActionInKeyGroup(action);
 	else
 		DebindPrivate.ClearActionKey(action);
@@ -5048,7 +5153,7 @@ function DebindFrameMixin:SetActionKey(action, key)
 	local visible = NarrowedVisibleActions();
 	-- `imported` is one of the axes the filters read, so a row that just lost its badge can be one
 	-- this list no longer draws - and the selection would go on counting it while nothing on screen
-	-- is highlighted (`ApproveImportedActions` carries the same call for the same reason).
+	-- is highlighted (`ApproveArrivedActions` carries the same call for the same reason).
 	if (accepted) then
 		self:PruneSelectionToBinFilter(visible);
 	end
@@ -5100,8 +5205,8 @@ end
 --- column to find it (`SetSelectedAction` sets `_revealAction`); the right list does not watch that
 --- column, so it is rolled separately.
 ---
---- **`key` may be nil, and then there is no group to walk.** Unbinding a set of one clears the key
---- outright (`UnbindKeyGroup`), so the action is a row of its own in the pile at the bottom and it
+--- **`key` may be nil, and then there is no group to walk.** Unbinding clears the key outright
+--- (`ClearKeyForActions`), so what is left is rows of their own in the pile at the bottom and each
 --- is its own answer - `CollectActionsForKey` has nothing to say about a key that is not there.
 local function RebuildAfterKeyGroupChange(actions, key)
 	DebindPrivate.UpdateBindings();
@@ -5185,24 +5290,36 @@ end
 
 local SharedKeyOf = DebindPrivate.SharedKeyOf;
 
---- [Unbind Key], for whatever was handed in.
+--- How many of what was handed in would come apart: the size of every key group with two or more
+--- members inside this list, added up.
 ---
---- **A set steps off its key without coming apart** (`UnbindKeyGroup`): two or more actions sharing
---- a key get a synthetic one so the profile still records that they belong together, since clearing
---- the key outright leaves loose actions and nothing that says they were ever one thing.
+--- **Counted inside the list, not in the profile.** Unbinding two of a group of four leaves the
+--- other two together, and what the reader loses is that those two were with them. One member alone
+--- in here loses nothing that was not already only its own.
 ---
---- **A selection is not a set, so it does not get that.** Doing it there would invent a group the
---- reader never made - five rows that had nothing to do with each other would come out the far side
---- filed as one arrival. Each of them simply loses its own key.
-local function ReleaseCapturedKey(actions)
-	if (select(2, SharedKeyOf(actions))) then
-		DebindPrivate.UnbindKeyGroup(actions);
-		return;
+--- The group is `(key, arrivalID)`, which is what keeps an arrival on the reader's key from being
+--- counted as part of their set.
+local function ScatteredByUnbinding(actions)
+	local sizes, order = {}, {};
+	for i = 1, #actions do
+		local action = actions[i];
+		if (action.key ~= nil) then
+			local groupID = action.key .. "/" .. tostring(action.arrivalID);
+			if (sizes[groupID] == nil) then
+				order[#order + 1] = groupID;
+			end
+			sizes[groupID] = (sizes[groupID] or 0) + 1;
+		end
 	end
 
-	for _, action in ipairs(actions) do
-		DebindPrivate.ClearActionKey(action);
+	local scattered = 0;
+	for i = 1, #order do
+		local size = sizes[order[i]];
+		if (size >= 2) then
+			scattered = scattered + size;
+		end
 	end
+	return scattered;
 end
 
 --- What the question about an occupied key calls the thing that is moving (`KEY_GROUP_CONFLICT`).
@@ -5218,10 +5335,9 @@ local function CaptureLabel(actions)
 
 	local key, shared = SharedKeyOf(actions);
 	if (shared) then
-		-- **The heading's words, arrival and all.** A set that arrived is named by the key it came
-		-- in on, and this prompt calling it something else would put one set under two names inside
-		-- a single press.
-		return KeyGroupLabel(key, DebindPrivate.ArrivalKeyOf(actions));
+		-- **The heading's words.** A set is named by the key it is on, arrival or not, and this
+		-- prompt calling it something else would put one set under two names inside a single press.
+		return KeyGroupLabel(key);
 	end
 	return format(LLL["BULK_MENU_TITLE"], #actions);
 end
@@ -5259,9 +5375,7 @@ function DebindUI.BeginKeyCapture(actions)
 	end);
 end
 
---- [Unbind], straight from a menu. **The same two steps the dialog's [Unbind Key] takes**, in the
---- same order, because a menu offering the button's other half must not be able to mean something
---- else by it.
+--- Takes the key off, having asked if a set is about to come apart.
 ---
 --- The rebuild is the function the give-key side uses. Four lines here once transcribed it and one
 --- of them was missing - the left column was asked for nothing, so only `ScrollActionIntoView` (the
@@ -5269,12 +5383,35 @@ end
 ---
 --- The key is read **after** the release, since that is where it is settled: scattered rows leave
 --- `nil` behind, and the rebuild knows that case.
+local function ReleaseAndRebuild(actions)
+	DebindPrivate.ClearKeyForActions(actions);
+	RebuildAfterKeyGroupChange(actions, actions[1].key);
+end
+
+--- [Unbind], from either place that offers it: the menu item, and the dialog's [Unbind Key] button
+--- (`BeginKeyCapture`, where a nil capture comes back). **One function, because a menu offering the
+--- button's other half must not be able to mean something else by it.**
+---
+--- **It asks when a set would come apart.** Taking the key off is what breaks a group up, and
+--- nothing records that those actions were ever one thing (`ClearKeyForActions`) -- so a reader who
+--- does not remember the membership has no way back. One action alone is not asked about: there is
+--- no set there to lose, which is the same line the entry's action delete draws
+--- (`devdocs/building-export-import.md` 12절).
+---
+--- Cancelling does nothing at all. It does not reopen the dialog the button was on either: that
+--- dialog has already closed and asking for a key again is a fresh press.
 function DebindUI.UnbindActions(actions)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
-	ReleaseCapturedKey(actions);
-	RebuildAfterKeyGroupChange(actions, actions[1].key);
+
+	local scattered = ScatteredByUnbinding(actions);
+	if (scattered < 2) then
+		ReleaseAndRebuild(actions);
+		return;
+	end
+
+	StaticPopup_Show("DEBIND_UNBIND_SCATTERS", scattered, nil, { actions = actions });
 end
 
 --- Is any of what already holds the key **shared with other characters**.
@@ -5370,6 +5507,76 @@ StaticPopupDialogs["DEBIND_KEY_GROUP_CONFLICT"] = {
 	-- the backward-compatible branch below it defaults to hiding. `GAME_SETTINGS_CONFIRM_DISCARD`,
 	-- the dialog this one borrowed `selectCallbackByIndex` from, carries the same empty third.
 	OnButton3 = function() end,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+	wide = 1,
+};
+
+--- **The one thing here that cannot be walked back.** Nothing is deleted, so every action can be
+--- given a key again one at a time -- but which of them belonged together is not written down
+--- anywhere, and after this it is only in the reader's head.
+StaticPopupDialogs["DEBIND_UNBIND_SCATTERS"] = {
+	text = LLL["UNBIND_SCATTERS_CONFIRM"],
+	button1 = LLL["UNBIND_SCATTERS_CONFIRM_YES"],
+	button2 = CANCEL,
+	OnAccept = function(_, data)
+		ReleaseAndRebuild(data.actions);
+	end,
+	hideOnEscape = 1,
+	timeout = 0,
+	whileDead = 1,
+};
+
+--- Asked once for the whole batch, when accepting everything would take keys the reader is using.
+---
+--- **Three answers and each names a winner**, which is what lets the reader read the set rather than
+--- each label: mine, theirs, or both. The loser is the other one, and what happens to it is the
+--- tooltip's.
+---
+--- **Four buttons, and the safest is first.** Button 1 is where Enter lands, and the answer that
+--- touches nothing of the reader's is the one that belongs under a key they may be holding down.
+---
+--- **`KEY_GROUP_CONFLICT` shares `Merge` and nothing else.** That prompt asks after the reader picked
+--- a key for a set, so "keep mine" there is "do not do what I just asked" -- which is Cancel -- and
+--- the set moving in is not always an arrival. One word means one thing in both; the rest differ
+--- because the questions do.
+---
+--- **Cancel accepts nothing.** Half a batch is not one of the answers: the reader is being asked
+--- about the keys, and there is no half-answer to that.
+StaticPopupDialogs["DEBIND_APPROVE_ALL_OCCUPIED"] = {
+	text = LLL["APPROVE_ALL_OCCUPIED"],
+	button1 = LLL["APPROVE_ALL_KEEP_EXISTING"],
+	button2 = LLL["APPROVE_ALL_TAKE_INCOMING"],
+	button3 = LLL["KEY_GROUP_CONFLICT_KEEP"],
+	button4 = CANCEL,
+	-- Without this every button but the first is dead, for the reason `DEBIND_KEY_GROUP_CONFLICT`
+	-- spells out.
+	selectCallbackByIndex = true,
+	OnShow = function(dialog)
+		SetPopupButtonTooltip(dialog:GetButton(1),
+			LLL["APPROVE_ALL_KEEP_EXISTING"], LLL["APPROVE_ALL_KEEP_EXISTING_DESC"]);
+		SetPopupButtonTooltip(dialog:GetButton(2),
+			LLL["APPROVE_ALL_TAKE_INCOMING"], LLL["KEY_GROUP_CONFLICT_UNBIND_DESC"]);
+		SetPopupButtonTooltip(dialog:GetButton(3),
+			LLL["KEY_GROUP_CONFLICT_KEEP"], LLL["KEY_GROUP_CONFLICT_KEEP_DESC"]);
+	end,
+	OnHide = function(dialog)
+		SetPopupButtonTooltip(dialog:GetButton(1), nil, nil);
+		SetPopupButtonTooltip(dialog:GetButton(2), nil, nil);
+		SetPopupButtonTooltip(dialog:GetButton(3), nil, nil);
+	end,
+	OnButton1 = function(_, data)
+		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "mine");
+	end,
+	OnButton2 = function(_, data)
+		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "theirs");
+	end,
+	OnButton3 = function(_, data)
+		ApproveArrivedActions(data.arrivals, data.occupants, data.contested, "merge");
+	end,
+	-- Empty and not decoration, for the reason `DEBIND_KEY_GROUP_CONFLICT` spells out.
+	OnButton4 = function() end,
 	hideOnEscape = 1,
 	timeout = 0,
 	whileDead = 1,
@@ -5703,7 +5910,7 @@ end
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;
-DebindUI.ApproveImportedActions = ApproveImportedActions;
+DebindUI.ApproveArrivedActions = ApproveArrivedActions;
 DebindUI.ShowDeleteConfirmationPopup = ShowDeleteConfirmationPopup;
 DebindUI.ShowBulkDeleteConfirmationPopup = ShowBulkDeleteConfirmationPopup;
 DebindUI.ShowRejectImportConfirmationPopup = ShowRejectImportConfirmationPopup;

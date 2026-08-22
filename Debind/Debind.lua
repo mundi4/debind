@@ -162,12 +162,13 @@ do
 				-- `IsInactiveAction` reads to grey a row out. Up here a quarantined action gets
 				-- exactly the treatment a keyless one already gets - drawn, greyed, reaching
 				-- nothing - and that costs no new drawing code.
-				-- **A synthetic key is not a key either, and it is checked apart from the badge.**
-				-- It stands in for one the reader has not chosen yet (`NextSyntheticKey`), and
-				-- nothing in the game can be bound to a number. Folding it into the badge test
-				-- would hold only until they accept the set -- the badge comes off then and the
-				-- key does not, and what is left is a record wired to nothing.
-				if (action.key and type(action.key) ~= "number" and not action.imported) then
+				-- **The badge is the whole of the gate now.** An arrival keeps the key it was sent
+				-- on, so the key says nothing about whether it is the reader's yet - this line
+				-- used to have a second test for a number standing in for an undecided key, and
+				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
+				-- accepting is the moment a key starts working, where it used to leave the set
+				-- parked; the prompt on [Accept all] is where that difference is paid for.
+				if (action.key and not action.arrivalID) then
 					local binding = DebindPrivate.GetBindingInfoForAction(action);
 					BindingInfoToActionMap[binding] = action;
 

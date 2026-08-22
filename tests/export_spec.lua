@@ -251,7 +251,7 @@ return function(DebindPrivate, DebindStorage)
                 { type = Constants.SPELL, value = 2, key = "G" },
             },
         });
-        LayerActions(1)[2].imported = 4;
+        LayerActions(1)[2].arrivalID = 4;
 
         local payload = DebindStorage.BuildExportPayload();
         check(CountActions(payload) == 1, "액션 수 " .. CountActions(payload));
@@ -263,7 +263,7 @@ return function(DebindPrivate, DebindStorage)
     test("골라도 배지 달린 것은 안 나간다", function()
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
         local stored = LayerActions(1)[1];
-        stored.imported = 4;
+        stored.arrivalID = 4;
 
         local payload = DebindStorage.BuildExportPayload({ [stored] = true });
         check(CountActions(payload) == 0, "고르면 나간다");
@@ -277,7 +277,7 @@ return function(DebindPrivate, DebindStorage)
                 { type = Constants.SPELL, value = 2, key = "F" },
             },
         });
-        LayerActions(1)[2].imported = 4;
+        LayerActions(1)[2].arrivalID = 4;
 
         check(#GroupFor(DebindStorage.BuildExportPayload(), "F") == 1, "반만 나가야 한다");
     end);
@@ -306,7 +306,7 @@ return function(DebindPrivate, DebindStorage)
     test("imported는 액션에 실리지 않는다", function()
         ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
-        check(OneOn(DebindStorage.BuildExportPayload(), "F").imported == nil,
+        check(OneOn(DebindStorage.BuildExportPayload(), "F").arrivalID == nil,
             "명단에 없는 필드가 나갔다");
     end);
 

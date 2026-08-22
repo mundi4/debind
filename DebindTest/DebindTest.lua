@@ -996,7 +996,7 @@ RegisterTest("Import quarantine", {
         local NAME = "Import quarantine"
         local KEY = "NUMPAD7"
 
-        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, imported = 1 })
+        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, arrivalID = 1 })
         ApplyBindings()
 
         if GetNthBinding(KEY, 1) then
@@ -1007,8 +1007,8 @@ RegisterTest("Import quarantine", {
             return Fail(NAME, "배지가 붙었는데 키가 걸려 있다: " .. quarantined)
         end
 
-        -- Taking the badge off is the whole of accepting (`ApproveImportedActions`).
-        action.imported = nil
+        -- Taking the badge off is the whole of accepting (`ApproveArrivedActions`).
+        action.arrivalID = nil
         ApplyBindings()
 
         if not GetNthBinding(KEY, 1) then
@@ -1252,50 +1252,49 @@ RegisterTest("Renumber: an edit inside one band moves nothing", {
         return Pass(NAME, "1 2 3 4")
     end,
 })
-
 -----------------------------------------------------------
--- Test Cases: A key group whose key has not been decided yet
+-- Test Cases: an arrival waiting on the key it came in on
 --
--- A string sent with the keys left out arrives on a **synthetic key**, a number rather than a
--- binding string (`devdocs/building-export-import.md`). Two halves of that only this layer sees:
--- that a number never reaches `BuildKeyMap` even once the badge is off, and that the order the set
--- arrived with is the order the key actually fires in after it is given a real one.
+-- What arrives keeps the sender's key and is held back by the badge alone
+-- (`devdocs/building-export-import.md` 12절). Two halves of that only this layer sees: that a badged
+-- action never reaches `BuildKeyMap` **even while it sits on a key the reader also uses**, and that
+-- the order the set arrived with is the order the key actually fires in once it is accepted.
 --
 -- The headless specs measure both against `CollectActionsForKey`, which is the list the **window**
 -- draws. The failure they cannot see is the two walks disagreeing.
 -----------------------------------------------------------
 
-RegisterTest("Import: a pending key group reaches nothing, then keeps its order", {
-    description = "숫자 키가 KeyMap에 안 서고, 키를 주면 실려온 차례 그대로 발동하는지",
+RegisterTest("Import: an arrival reaches nothing, then keeps its order", {
+    description = "배지 달린 것이 KeyMap에 안 서고, 승인하면 실려온 차례 그대로 발동하는지",
     run = function()
         local NAME = "Pending key group"
         local KEY = "CTRL-ALT-F4"
-        -- What `NextSyntheticKey` hands out. Nothing in the game can be bound to it.
-        local PENDING = 1
+        -- What `NextArrivalID` hands out. Any number does: nothing reads its value.
+        local ARRIVAL = 1
 
-        -- **No badge on any of them**, which is the point: quarantine is what keeps a set out of
-        -- the build until the reader accepts, and accepting takes the badge off and leaves the
-        -- number. If the two tests were folded into one, this is the moment a dead key appears.
+        -- **The badge on every one of them**, which is the point: quarantine is what keeps a set out
+        -- of the build until the reader accepts, and it is the only thing doing that now - the key
+        -- below is a real one the game could bind this instant.
         --
         -- Three conditions on three axes, so none of them covers another and the solver drops none.
-        local third = InsertAction({ type = Constants.SPELL, value = 3, key = PENDING, combat = true })
-        local first = InsertAction({ type = Constants.SPELL, value = 1, key = PENDING, stealth = true })
-        local second = InsertAction({ type = Constants.SPELL, value = 2, key = PENDING, pet = true })
+        local third = InsertAction({ type = Constants.SPELL, value = 3, key = KEY,
+            arrivalID = ARRIVAL, combat = true })
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY,
+            arrivalID = ARRIVAL, stealth = true })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = KEY,
+            arrivalID = ARRIVAL, pet = true })
         -- **저장 배열의 차례와 일부러 어긋나게.** 둘이 같으면 아래 차례는 배열 순서를 잰 것이지
         -- 실려온 차례를 잰 것이 아니다.
         third.seq, first.seq, second.seq = 3, 1, 2
         ApplyBindings()
 
-        if GetKeyBindings(PENDING) then
-            return Fail(NAME, "숫자 키가 KeyMap에 섰다")
-        end
         if GetKeyBindings(KEY) then
-            return Fail(NAME, format("전제가 틀렸다 - %s가 이미 차 있다", KEY))
+            return Fail(NAME, format("배지가 달렸는데 %s가 섰다", KEY))
         end
 
-        local group = DebindPrivate.CollectKeyGroupActions(PENDING)
+        local group = DebindPrivate.CollectKeyGroupActions(KEY, ARRIVAL)
         if #group ~= 3 then
-            return Fail(NAME, format("그룹 크기 %d - 숫자 키로 안 모인다", #group))
+            return Fail(NAME, format("그룹 크기 %d - 쌍으로 안 모인다", #group))
         end
 
         DebindPrivate.SetKeyForActions(group, KEY)
@@ -1304,7 +1303,7 @@ RegisterTest("Import: a pending key group reaches nothing, then keeps its order"
         if KeyMapOrder(KEY) ~= "1 2 3" then
             return Fail(NAME, format("보낸 쪽 차례가 아니다: %s", KeyMapOrder(KEY)))
         end
-        return Pass(NAME, "숫자 키는 안 서고, 키를 주니 1 2 3")
+        return Pass(NAME, "배지 달린 동안은 안 서고, 승인하니 1 2 3")
     end,
 })
 
@@ -1316,7 +1315,7 @@ RegisterTest("Key group: the conflict popup's second answer runs", {
 
         -- The occupant, and the set that wants its key.
         local occupant = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
-        local mover = InsertAction({ type = Constants.SPELL, value = 2, key = 3, combat = true })
+        local mover = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F9", combat = true })
         ApplyBindings()
 
         -- **The dialog is opened by name, and answered by pressing its button.** Calling the
@@ -1348,6 +1347,218 @@ RegisterTest("Key group: the conflict popup's second answer runs", {
             return Fail(NAME, format("옮긴 쪽이 키를 못 받았다: %s", tostring(mover.key)))
         end
         return Pass(NAME, "점유자가 비켰고 그룹이 키를 받았다")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: what the pair costs, and what pays for it
+--
+-- An arrival keeps the key it was sent on and a badge holds it back, so the two things that used to
+-- be impossible are now ordinary: **two groups on one key**, and **accepting putting a key live**.
+-- Each is answered by a question the reader is asked, and a question is exactly the kind of thing
+-- that can be wired up wrong in silence -- the popup opens, a button does nothing, and only someone
+-- who pressed it finds out (`devdocs/building-export-import.md` 12절).
+-----------------------------------------------------------
+
+RegisterTest("Unbind: a set is not scattered without asking", {
+    description = "여러 개짜리 그룹의 [단축키 해제]가 확인창을 세우고, 확인해야 흩어지는가",
+    run = function()
+        local NAME = "Unbind scatters"
+        local KEY = "CTRL-ALT-F11"
+
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
+        local second = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
+        ApplyBindings()
+
+        AddTeardown(function() StaticPopup_Hide("DEBIND_UNBIND_SCATTERS") end)
+
+        DebindUI.UnbindActions({ first, second })
+
+        -- **The gate comes first.** Nothing may be off its key while the question is still standing:
+        -- that is the whole of what the box buys, and a call that acts and then asks would pass
+        -- every check written about the popup itself.
+        if first.key ~= KEY or second.key ~= KEY then
+            return Fail(NAME, "묻기도 전에 키가 풀렸다")
+        end
+        local dialog = StaticPopup_FindVisible("DEBIND_UNBIND_SCATTERS")
+        if not dialog then
+            return Fail(NAME, "확인창이 안 떴다")
+        end
+
+        local button = dialog.GetButton and dialog:GetButton(1)
+        if not button then
+            return Fail(NAME, "1번 버튼을 못 얻었다 - 클라이언트의 대화상자 모양이 바뀌었나")
+        end
+        button:Click()
+
+        if first.key ~= nil or second.key ~= nil then
+            return Fail(NAME, format("확인했는데 키가 남았다: %s %s",
+                tostring(first.key), tostring(second.key)))
+        end
+        return Pass(NAME, "묻고 나서 흩어졌다")
+    end,
+})
+
+RegisterTest("Unbind: one action is not asked about", {
+    description = "혼자인 액션의 [단축키 해제]는 확인창 없이 바로 풀리는가",
+    run = function()
+        local NAME = "Unbind single"
+        local KEY = "CTRL-ALT-F12"
+
+        -- **혼자면 잃을 세트가 없다.** 여기에 확인창이 서면 흔한 조작마다 상자가 뜬다.
+        local only = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
+        ApplyBindings()
+
+        AddTeardown(function() StaticPopup_Hide("DEBIND_UNBIND_SCATTERS") end)
+
+        DebindUI.UnbindActions({ only })
+
+        if StaticPopup_FindVisible("DEBIND_UNBIND_SCATTERS") then
+            return Fail(NAME, "하나뿐인데 확인창이 떴다")
+        end
+        if only.key ~= nil then
+            return Fail(NAME, format("키가 안 풀렸다: %s", tostring(only.key)))
+        end
+        return Pass(NAME, "안 묻고 바로 풀렸다")
+    end,
+})
+
+RegisterTest("Accept all: an occupied key is asked about, and all three answers run", {
+    description = "도착 키가 내가 쓰는 키면 확인창이 서고, 답 셋이 각각 실제로 도는가",
+    run = function()
+        local NAME = "Accept all occupied"
+        local KEY = "CTRL-ALT-F5"
+        local FREE = "CTRL-ALT-F3"
+
+        AddTeardown(function() StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED") end)
+
+        --- 세 답을 한 자리에서 재려면 매번 같은 판을 다시 세워야 한다. 내 것 하나, 같은 키로
+        --- 도착한 것 하나, 그리고 **아무도 안 쓰는 키로 도착한 것 하나** - 마지막 것이 세 답
+        --- 어디서도 안 밀려나야 한다는 것이 이 창에서 제일 조용히 틀릴 자리다.
+        ---
+        --- **둘 다 조건을 하나씩 지고, 축이 다르다.** 축이 달라야 솔버가 둘 다 남기고, **둘 다
+        --- 조건부여야** 비교자가 `seq`까지 내려온다 - `isConditional`이 3단계고 `seq`는
+        --- 6단계라(`Ordering.lua`), 한쪽만 조건부면 병합 차례는 도착분이 뒤에 서는지와 아무
+        --- 상관없이 그쪽이 앞선다. 한쪽 조건을 지우면 이 테스트는 맞는 코드에 대고 빨개진다.
+        ---
+        --- **판마다 레이어를 비운다.** 이 키트는 테스트 사이에 안 비우고, 이 테스트는 한 키를 세
+        --- 번 다시 쓴다 - 안 비우면 세 번째 판의 차례는 그 판의 둘이 아니라 앞 두 판이 남긴
+        --- 것까지 섞인 더미를 재게 되고, 겹치는 것을 솔버가 떨어낸 결과가 답으로 나온다.
+        --- 끝나고 한 번 더 비우는 것은 뒤에 오는 테스트 몫이다.
+        AddTeardown(CleanupActions)
+
+        local mine, arrived, free
+        local function Setup(arrivalID)
+            CleanupActions()
+            mine = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, stealth = true })
+            arrived = InsertAction({ type = Constants.SPELL, value = 2, key = KEY,
+                arrivalID = arrivalID, combat = true })
+            free = InsertAction({ type = Constants.SPELL, value = 3, key = FREE,
+                arrivalID = arrivalID })
+            ApplyBindings()
+        end
+
+        local function Answer(index, label)
+            DebindFrame:ApproveAllImported()
+            if arrived.arrivalID == nil then
+                return format("[%s] 묻기도 전에 배지가 떨어졌다", label)
+            end
+            local dialog = StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED")
+            if not dialog then
+                return format("[%s] 확인창이 안 떴다", label)
+            end
+            local button = dialog.GetButton and dialog:GetButton(index)
+            if not button then
+                return format("[%s] %d번 버튼을 못 얻었다 - 대화상자 모양이 바뀌었나", label, index)
+            end
+            button:Click()
+            ApplyBindings()
+            if free.key ~= FREE or free.arrivalID ~= nil then
+                return format("[%s] 안 겹치는 키로 온 것이 휩쓸렸다: %s", label, tostring(free.key))
+            end
+            return nil
+        end
+
+        -- **전제: 배지가 붙어 있는 동안은 실키를 들고도 안 선다.** 이게 무너지면 아래 셋은
+        -- 무엇을 재는지 알 수 없다.
+        Setup(1)
+        if KeyMapOrder(KEY) ~= "1" then
+            return Fail(NAME, format("배지 달린 것이 이미 섰다: %s", KeyMapOrder(KEY)))
+        end
+
+        -- 1. [Keep Existing]. 내 키는 그대로, 겹친 도착분은 키 없이 앉는다.
+        local err = Answer(1, "Keep Existing")
+        if err then return Fail(NAME, err) end
+        if mine.key ~= KEY then
+            return Fail(NAME, format("[Keep Existing]인데 내 키가 풀렸다: %s", tostring(mine.key)))
+        end
+        if arrived.key ~= nil or arrived.arrivalID ~= nil or arrived.seq ~= nil then
+            return Fail(NAME, format("겹친 도착분이 키 없이 안 앉았다: %s", tostring(arrived.key)))
+        end
+        if KeyMapOrder(KEY) ~= "1" then
+            return Fail(NAME, format("내 키가 달라졌다: %s", KeyMapOrder(KEY)))
+        end
+
+        -- 2. [Take Incoming]. 점유자가 키를 잃고, 지워지지는 않는다.
+        Setup(2)
+        err = Answer(2, "Take Incoming")
+        if err then return Fail(NAME, err) end
+        if mine.key ~= nil then
+            return Fail(NAME, format("[Take Incoming]인데 내 키가 남았다: %s", tostring(mine.key)))
+        end
+        if arrived.key ~= KEY or arrived.arrivalID ~= nil then
+            return Fail(NAME, "도착분이 키를 못 받았거나 배지가 남았다")
+        end
+
+        -- 3. [Merge]. 둘 다 그 키에 남고 도착분이 뒤에 선다.
+        Setup(3)
+        err = Answer(3, "Merge")
+        if err then return Fail(NAME, err) end
+        if mine.key ~= KEY then
+            return Fail(NAME, format("[Merge]인데 내 키가 풀렸다: %s", tostring(mine.key)))
+        end
+        if KeyMapOrder(KEY) ~= "1 2" then
+            return Fail(NAME, format("병합 차례가 아니다: %s", KeyMapOrder(KEY)))
+        end
+        return Pass(NAME, "묻고, 셋이 각각 돌고, 안 겹치는 키는 셋 다에서 그대로였다")
+    end,
+
+
+
+
+
+
+
+
+
+
+})
+
+RegisterTest("Accept all: a free key is not asked about", {
+    description = "도착 키가 내가 안 쓰는 키면 확인창 없이 바로 서는가",
+    run = function()
+        local NAME = "Accept all free"
+        local KEY = "CTRL-ALT-F6"
+
+        AddTeardown(function() StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED") end)
+
+        -- **흔한 경우다.** 여기에 상자가 서면 배지가 안전장치가 아니라 숙제가 된다.
+        local arrived = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, arrivalID = 1 })
+        ApplyBindings()
+
+        DebindFrame:ApproveAllImported()
+
+        if StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED") then
+            return Fail(NAME, "빈 키인데 확인창이 떴다")
+        end
+        if arrived.arrivalID ~= nil then
+            return Fail(NAME, "배지가 안 떨어졌다")
+        end
+        ApplyBindings()
+        if KeyMapOrder(KEY) ~= "1" then
+            return Fail(NAME, format("승인했는데 안 섰다: %s", KeyMapOrder(KEY)))
+        end
+        return Pass(NAME, "안 묻고 바로 섰다")
     end,
 })
 
@@ -1514,13 +1725,13 @@ RegisterTest("Assign a key: a badged row is offered one too", {
     run = function()
         local NAME = "Imported row assign key"
 
-        -- **키를 들고 도착한 것.** 합성 번호와 배지가 짝이라, 번호 없이 배지만 세우면 실제로
-        -- 도착한 행과 다른 모양이 된다(`KeyMapper`).
+        -- **키를 들고 도착한 것.** 실키와 배지가 짝이다 - 도착분은 보낸 사람의 키를 그대로 들고
+        -- 오고, 붙잡아 두는 것은 배지 하나다.
         local action = InsertAction({
             type = Constants.SPELL,
             value = 1,
-            key = DebindPrivate.NextSyntheticKey(),
-            imported = "SHIFT-Q",
+            key = "SHIFT-Q",
+            arrivalID = 1,
         })
         ApplyBindings()
 
@@ -1564,10 +1775,10 @@ RegisterTest("Assign a key: a badged row is offered one too", {
 --- reader ticked, which may sit on different keys or on none.
 ---
 --- **Two things are measured and the second is the one that bites.** That the item stands, and that
---- [Unbind] beside it goes dead when nothing in the selection holds a real key. A synthetic number
---- is not a key to take off, and it reads as one to any check written with `action.key ~= nil`.
+--- [Unbind] beside it goes dead when nothing in the selection holds a key at all. Lit over rows that
+--- are all keyless it offers to take off a key none of them has, and pressing it does nothing.
 RegisterTest("Bulk menu: the key pair aims at the whole selection", {
-    description = "여럿 고른 메뉴의 [단축키 지정]이 고른 것 전부를 실은 창을 열고, [단축키 해제]가 배지만 골랐을 때 꺼지는가",
+    description = "여럿 고른 메뉴의 [단축키 지정]이 고른 것 전부를 실은 창을 열고, [단축키 해제]가 키 없는 것만 골랐을 때 꺼지는가",
     run = function()
         local NAME = "Bulk key items"
         local KEY = "CTRL-ALT-F10"
@@ -1630,17 +1841,15 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
         end
         DebindKeyCaptureFrame:Hide()
 
-        -- **합성 번호만 든 선택.** 여기서 [단축키 해제]가 살아 있으면 뗄 것이 없는데 뗄 수
-        -- 있다고 말하는 것이고, 눌러도 아무 일이 안 일어난다.
-        local badged = InsertAction({
+        -- **키가 아예 없는 것만 든 선택.** 여기서 [단축키 해제]가 살아 있으면 뗄 것이 없는데 뗄
+        -- 수 있다고 말하는 것이고, 눌러도 아무 일이 안 일어난다.
+        local keyless = InsertAction({
             type = Constants.SPELL,
             value = 3,
-            key = DebindPrivate.NextSyntheticKey(),
-            imported = "SHIFT-Q",
         })
         ApplyBindings()
 
-        menu = OpenBulkMenu({ badged })
+        menu = OpenBulkMenu({ keyless })
         if not menu then
             return Fail(NAME, "두 번째 메뉴가 안 떴다")
         end
@@ -1649,10 +1858,10 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
             return Fail(NAME, format("[%s] 항목이 없다", LLL["UNBIND"]))
         end
         if unbind:IsEnabled() then
-            return Fail(NAME, "합성 번호뿐인데 [단축키 해제]가 켜져 있다")
+            return Fail(NAME, "키가 없는 것뿐인데 [단축키 해제]가 켜져 있다")
         end
 
-        return Pass(NAME, "고른 둘이 창에 실렸고, 배지만 골랐을 때 해제가 꺼졌다")
+        return Pass(NAME, "고른 둘이 창에 실렸고, 키 없는 것만 골랐을 때 해제가 꺼졌다")
     end,
 })
 
@@ -2187,7 +2396,7 @@ local STORAGE_PANEL_ID = 3
 
 --- **Three numbers, and they have to agree.** What the preview counts, what the string carries, and
 --- what adding it back would put in the profile. The tick set feeds all three (`FilterPayload`,
---- `PlanImport`), so a filter read in one place and not another is silent everywhere else: the
+--- `PlanArrival`), so a filter read in one place and not another is silent everywhere else: the
 --- window says 12, the string carries 9, and nobody sees the difference until somebody else opens
 --- it (12절 of `devdocs/building-export-import.md`).
 RegisterTest("Storage: the preview, the string and the add all count the same", {
@@ -2201,7 +2410,7 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F5", combat = true })
         InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F5" })
         local badged = InsertAction({ type = Constants.SPELL, value = 6603, key = "CTRL-ALT-F6" })
-        badged.imported = 99
+        badged.arrivalID = 99
         ApplyBindings()
 
         -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
@@ -2271,13 +2480,13 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
         end
 
         -- **The third number.** Adding puts the same set into the profile and gets there through
-        -- `PlanImport` rather than through the string, so this is what catches a tick set one of the
+        -- `PlanArrival` rather than through the string, so this is what catches a tick set one of the
         -- two reads and the other does not. Planned rather than placed: the count is what is being
         -- asked, and placing would leave the run's layer holding a second copy of everything.
         --
         -- **The entry's own payload, not the one decoded above.** A tick is the action table
         -- itself, so a payload built by decoding holds a second set of tables that nothing has
-        -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanImport`
+        -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanArrival`
         -- through `CommitEntry`, which opens the entry the same way the preview did
         -- (`GetEntryPayload`).
         local stored = DebindPrivate.Store.GetEntryPayload(entry)
@@ -2285,7 +2494,7 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
             return Fail(NAME, "엔트리 페이로드를 못 열었다")
         end
 
-        local planned, skipped = DebindPrivate.Store.PlanImport(stored, { selection = panel.selected })
+        local planned, skipped = DebindPrivate.Store.PlanArrival(stored, { selection = panel.selected })
         if #planned ~= #listed then
             return Fail(NAME, format("창은 %d개라 해놓고 %d개를 놓는다", #listed, #planned))
         end
@@ -3196,7 +3405,14 @@ RegisterTest("Undefined $state inside a state's own expression", {
             end
         end)
 
-        DebindPrivate.Switches["$state2"] = { mode = MODES.MANUAL, value = true }
+        -- **`resetValue`, not `value`.** `value` is derived: `ApplySwitchResets` rewrites it from
+        -- `resetValue` and what this character was left on, and it does so whenever a switch's
+        -- answer moves - which swapping this slot **is**. Written with `value` this line held only
+        -- while the profile's own `$state2` already had the same `mode`/`resetValue` pair, so the
+        -- test passed or failed on what the tester happened to have configured. It went red the day
+        -- the dev seed made `$state2` a computed switch. `tests/switchgate_spec.lua` holds the
+        -- chain itself now; what is left here is the half only the client can answer.
+        DebindPrivate.Switches["$state2"] = { mode = MODES.MANUAL, resetValue = true }
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$state1"] = true })
 
         -- 켜지는 쪽을 먼저 세운다. 이게 없으면 아래의 "안 걸림"이 계산식 상태로는 원래

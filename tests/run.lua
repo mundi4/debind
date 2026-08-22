@@ -154,6 +154,7 @@ local specs = {
     { name = "clicktime", path = root .. "/clicktime_spec.lua" },
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
     { name = "alwaysours", path = root .. "/alwaysours_spec.lua" },
+    { name = "identity", path = root .. "/identity_spec.lua" },
     { name = "export", path = root .. "/export_spec.lua" },
     { name = "entry", path = root .. "/entry_spec.lua" },
     { name = "import", path = root .. "/import_spec.lua" },

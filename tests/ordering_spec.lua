@@ -329,7 +329,7 @@ return function(DebindPrivate)
     test("seq 이동 - 배지 붙은 행은 대상이 될 수 없다", function()
         local rows = {
             { name = "live", priority = 1, layerRank = 1, seq = 1 },
-            { name = "badged", priority = 1, layerRank = 1, seq = 2, imported = true },
+            { name = "badged", priority = 1, layerRank = 1, seq = 2, arrivalID = 7 },
         };
 
         local moved, reason = ComputeOrderSwap(rows, 2, UP);
@@ -342,7 +342,7 @@ return function(DebindPrivate)
     test("seq 이동 - 살아 있는 행은 배지를 건너뛰고 이웃을 찾는다", function()
         local rows = {
             { name = "live1", priority = 1, layerRank = 1, seq = 1 },
-            { name = "badged", priority = 1, layerRank = 1, seq = 2, imported = true },
+            { name = "badged", priority = 1, layerRank = 1, seq = 2, arrivalID = 7 },
             { name = "live2", priority = 1, layerRank = 1, seq = 3 },
         };
 

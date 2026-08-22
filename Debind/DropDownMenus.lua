@@ -1408,7 +1408,7 @@ do
     local function CreateApproveImportMenuItem(rootDescription, actions, counted)
         local badged = {};
         for _, action in ipairs(actions) do
-            if (action and action.imported) then
+            if (action and action.arrivalID) then
                 badged[#badged + 1] = action;
             end
         end
@@ -1422,7 +1422,7 @@ do
         end
 
         local description = rootDescription:CreateButton(label, function()
-            DebindUI.ApproveImportedActions(badged);
+            DebindUI.ApproveArrivedActions(badged);
         end);
         -- **The accept button's own words** (`DebindOrderLineMixin:OnAcceptEnter`). One operation with
         -- two entrances has one explanation, and the labels differing is what the two positions need
@@ -1446,7 +1446,7 @@ do
     local function CreateRejectImportMenuItem(rootDescription, actions, counted)
         local badged = {};
         for _, action in ipairs(actions) do
-            if (action and action.imported) then
+            if (action and action.arrivalID) then
                 badged[#badged + 1] = action;
             end
         end
@@ -1562,7 +1562,7 @@ do
         -- title line carrying a picture, a position and a consequence read as none of the three.
         if (elementData.layer) then
             local color;
-            if (_action.imported) then
+            if (_action.arrivalID) then
                 color = DebindUI.IMPORTED_FONT_COLOR;
             end
             rootDescription:CreateTitle(DebindUI.GetLayerLabel(elementData.layer), color);
@@ -1587,14 +1587,14 @@ do
         -- three items are: take it and put it somewhere, take it where it lies, throw it back.
         --
         -- [Accept] keeps its place under it rather than being made redundant. What it leaves behind
-        -- is an action taken and not yet on a key - it holds the synthetic number its arrival was
-        -- filed under and the build still skips it - which is the honest state for a reader who
-        -- wants the thing but has not decided where it goes (`ApproveImportedActions`).
+        -- is the action live on the key it came in on, which is what the reader is saying yes to
+        -- (`ApproveArrivedActions`). It used to leave it parked on a number the build skipped; the
+        -- number is gone and so is that half-state.
         --
         -- **It also takes this row out of the set it arrived in**, and that is why the left column's
         -- row menu does not carry it: over there the set is drawn as a group with a heading, and the
         -- heading is where its key belongs (`DebindUI.SetupOrderDropdownMenu`).
-        if (_action.imported) then
+        if (_action.arrivalID) then
             CreateAssignKeyMenuItem(rootDescription);
             CreateApproveImportMenuItem(rootDescription, { _action });
             CreateRejectImportMenuItem(rootDescription, { _action });
@@ -1748,7 +1748,7 @@ do
         -- set by giving one of its rows a key is an operation this menu already offers everywhere
         -- else, and giving a key **is** accepting, which is the answer the reader came to this menu
         -- for. Taking the whole arrival at once is still the heading's item.
-        if (action.imported) then
+        if (action.arrivalID) then
             CreateAssignKeyItem();
             CreateApproveImportMenuItem(rootDescription, { action });
             CreateRejectImportMenuItem(rootDescription, { action });
@@ -1791,7 +1791,7 @@ do
     --- **No delete.** A heading is a reading of the column rather than something the reader picked,
     --- so a delete here takes rows nobody selected - which is the same line the edit menu's other
     --- items are kept out on (`reworking-the-overview.md`).
-    function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, action, extraCount, actions)
+    function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, action, extraCount, actions, arrivalID)
         -- 편집 메뉴가 쓰는 것들이다. 이 메뉴는 안 쓰므로 비워둔다 - 남아 있으면 여기서
         -- 지나간 값을 다음 편집 메뉴가 물려받는다(`SetupOrderDropdownMenu`와 같은 이유).
         _elementData = nil;
@@ -1819,17 +1819,20 @@ do
             -- and this walk reaches every layer of the character rather than what the column happens
             -- to be drawing.
             local description = rootDescription:CreateButton(LLL["KEY_HEADER_SET_KEY"], function()
-                DebindUI.BeginKeyCapture(DebindPrivate.CollectKeyGroupActions(key));
+                DebindUI.BeginKeyCapture(DebindPrivate.CollectKeyGroupActions(key, arrivalID));
             end);
             SetInstructionTooltip(description, LLL["KEY_HEADER_SET_KEY_DESC"]);
 
-            -- **The other end of the same axis**, and the same rule the dialog's own [Unbind Key]
-            -- button keeps: a synthetic number is not a key to take off, so a set still waiting on
-            -- one leaves this dead (`DebindPrivate.AnyRealKey`).
+            -- **The other end of the same axis.** Every group under a heading is on a real key now,
+            -- arrival or not, so there is nothing here to grey out: what used to leave this dead was
+            -- a set parked on a number, and that shape is gone.
+            --
+            -- **It asks before it scatters.** Taking the key off breaks the set up for good
+            -- (`DebindUI.UnbindActions`), which is why the item can be one press while the answer is
+            -- not.
             description = rootDescription:CreateButton(LLL["UNBIND"], function()
-                DebindUI.UnbindActions(DebindPrivate.CollectKeyGroupActions(key));
+                DebindUI.UnbindActions(DebindPrivate.CollectKeyGroupActions(key, arrivalID));
             end);
-            description:SetEnabled(DebindPrivate.AnyRealKey(actions));
             SetInstructionTooltip(description, LLL["KEY_HEADER_UNBIND_DESC"]);
         else
             -- **The pile at the bottom, and only when something in it arrived.** Its heading names a
@@ -1847,7 +1850,7 @@ do
         -- The divider is asked for **before** the two items rather than after, because they build
         -- themselves out of the way when nothing is badged - and a divider with nothing under it is
         -- a menu with a line across the bottom of it.
-        if (DebindPrivate.AnyImportedAction(actions)) then
+        if (DebindPrivate.AnyArrivedAction(actions)) then
             if (key ~= nil) then
                 rootDescription:CreateDivider();
             end
@@ -1920,9 +1923,8 @@ do
         end);
         SetInstructionTooltip(description, LLL["BULK_SET_KEY_DESC"]);
 
-        -- **A synthetic number is not a key to take off** (`DebindPrivate.AnyRealKey`), which is the
-        -- answer the dialog's own [Unbind Key] button already gives - so a selection that is nothing
-        -- but a set still waiting on one leaves this dead.
+        -- **A selection with no real key in it has nothing to take off** (`DebindPrivate.AnyRealKey`),
+        -- which is the answer the dialog's own [Unbind Key] button already gives.
         description = rootDescription:CreateButton(LLL["UNBIND"], function()
             DebindUI.UnbindActions(actions);
         end);
@@ -1932,7 +1934,7 @@ do
         -- neither. Counting rather than stopping at the first one is what tells them apart.
         local badgedCount = 0;
         for i = 1, #actions do
-            if (actions[i].imported) then
+            if (actions[i].arrivalID) then
                 badgedCount = badgedCount + 1;
             end
         end
@@ -1970,7 +1972,7 @@ do
     --- **The counts came off the two labels** (2026-08-19, 소유자). They read "Accept all %d" while
     --- they were buttons on that row, where the number stood in for the confirmation box [Accept all]
     --- does not get. The button this menu opens off carries it now, reads the same
-    --- `CollectImportedActions`, and stays on screen for as long as the menu does - so the number is
+    --- `CollectArrivedActions`, and stays on screen for as long as the menu does - so the number is
     --- one widget away rather than gone, and there is no second place keeping it in step.
     ---
     --- **The two `_DESC` strings are hung as tooltips rather than dropped.** They were written for
