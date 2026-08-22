@@ -646,10 +646,11 @@ function DebindStoragePanelMixin:OnLoad()
 
     NormalizeCheckMark(self.Preview.SelectAllCheck);
 
-    -- **This panel is the bus's first registrant** (`FRAME_EVENTS` in `DebindUI.lua`). An entry can
-    -- be made from a screen that is not this one -- the overview's key group menu -- so the list
-    -- redraws on the event rather than on the presses it happens to own.
-    DebindFrame:RegisterCallback(DebindFrame.Event.OnStoreChanged, self.RefreshEntries, self);
+    -- **The bus is not registered with here.** ⚠ `DebindFrame` has no `OnLoad` in its XML - the
+    -- window builds itself on the first `OnShow` and not before - while this runs when the file is
+    -- read, which is login. `DebindFrame.Event` does not exist yet at that moment and reaching for
+    -- it is an error rather than a nil registration, which is at least loud. `OnShow` below is
+    -- where it goes, and that is the pattern Blizzard's own `CallbackRegistrantTemplate` describes.
 end
 
 function DebindStoragePanelMixin:InitializeScrollBoxes()
@@ -978,6 +979,18 @@ end
 --------------------------------------------------------------------------------
 
 function DebindStoragePanelMixin:OnShow()
+    -- **This panel is the bus's first registrant** (`FRAME_EVENTS` in `DebindUI.lua`). An entry can
+    -- be made from a screen that is not this one -- the overview's key group menu -- so the list
+    -- redraws on the event rather than on the presses it happens to own.
+    --
+    -- **Here rather than in `OnLoad`**, because the window declares its events in an `OnLoad` that
+    -- does not run until it is first opened. Getting here at all means the window is up, so the
+    -- registry is up too.
+    --
+    -- Registering again on every show costs nothing: an owner holds one callback per event and a
+    -- second registration replaces the first (`CallbackRegistry.lua`).
+    DebindFrame:RegisterCallback(DebindFrame.Event.OnStoreChanged, self.RefreshEntries, self);
+
     self:RefreshEntries();
 
     -- **The entry that was showing is re-read rather than kept drawn.** Its payload can have been
@@ -988,6 +1001,11 @@ function DebindStoragePanelMixin:OnShow()
 end
 
 function DebindStoragePanelMixin:OnHide()
+    -- **Off the bus while hidden.** Redrawing a column nobody is looking at is work for nothing,
+    -- and `OnShow` reads the list again anyway - so nothing is missed by not listening. The pair of
+    -- these two is what `CallbackRegistrantTemplate` is.
+    DebindFrame:UnregisterCallback(DebindFrame.Event.OnStoreChanged, self);
+
     -- **The list is not thrown away**, unlike the tick set: an entry is plain stored data whose
     -- whole purpose is to survive being closed and a `/reload` after that.
     --
@@ -1079,7 +1097,11 @@ function DebindPasteFrameMixin:Accept()
     end
 
     self:Hide();
-    DebindStoragePanel:Refresh();
+
+    -- **Through the bus, and then landed on.** The list is the same list every other way in feeds,
+    -- and the row would be easy to miss at the top of one the reader is already looking at.
+    DebindFrame:NotifyStoreChanged();
+    DebindStoragePanel:SelectEntry(entry);
 end
 
 
