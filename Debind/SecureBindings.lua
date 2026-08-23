@@ -142,11 +142,6 @@ SecureHandlerExecute(BindingDriver, [[
 	-- as long as the unit under it stays the same.
 	RebindOnHoverFrame = false
 
-	-- **Which edge of a unit frame click is ours** (`unitframeUseMouseDown`). Which edges the
-	-- frame delivers at all is `FrameRegistry`'s call; this decides which of the arriving ones
-	-- we take and which one is handed back to the frame. `ApplyOptions` writes it.
-	ClickCastOnMouseDown = false
-
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
@@ -1166,8 +1161,10 @@ end, [==[
 		return
 	end
 
-	-- Ours, but on the edge we do not act on: the other one already sent it.
-	if (isDown ~= ClickCastOnMouseDown) then
+	-- The release edge is ours, and `FrameRegistry` registers that one alone. A press still
+	-- arrives if the frame's own addon re-registers `AnyDown` after us, and acting on it would
+	-- send the action twice for one click, so it is swallowed here rather than trusted away.
+	if (isDown) then
 		return "debindnull"
 	end
 

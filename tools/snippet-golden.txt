@@ -119,11 +119,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	RebindOnHoverFrame = false
 
-
-
-
-	ClickCastOnMouseDown = false
-
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
@@ -1009,7 +1004,9 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-	if (isDown ~= ClickCastOnMouseDown) then
+
+
+	if (isDown) then
 		return "debindnull"
 	end
 

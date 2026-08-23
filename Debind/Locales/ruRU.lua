@@ -291,8 +291,6 @@ L["UNIT_ROLE_DESC"] = "Если выбраны Танк, Лекарь, Глав�
 L["UNIT_TANK"] = "Танк"
 L["UNIT_TARGET"] = "Цель"
 L["UNITFRAME_OPTIONS"] = "Настройки фреймов юнитов"
-L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"] = "Запускать действие при нажатии мыши вместо отпускания для фреймов юнитов. Значение по умолчанию Blizzard — отпускание мыши."
-L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "Использовать нажатие мыши для клик-кастинга"
 L["UNNAMED_ACTION"] = "(Без названия)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique установлен, поэтому привязки к фреймам юнитов здесь не работают."

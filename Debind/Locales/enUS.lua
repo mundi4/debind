@@ -992,8 +992,6 @@ L["UNIT_ROLE_DESC"] = "Tank, Healer, Main Tank and Main Assist only work while e
 L["UNIT_TANK"] = "Tank"
 L["UNIT_TARGET"] = "Target"
 L["UNITFRAME_OPTIONS"] = "Unit frame options"
-L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"] = "Trigger the action on mouse down instead of on mouse up for unit frames. Blizzard's default value is mouse up."
-L["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"] = "Use mouse down for click casting"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once at login, and only when something is actually stopped
 -- (`HasBindingBlockedByClique`). It used to go out on the mere presence of Clique, which is why it

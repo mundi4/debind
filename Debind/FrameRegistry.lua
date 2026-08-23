@@ -264,29 +264,17 @@ function DebindPrivate.UpdateRegisteredClicks(button)
 
     ApplyDebindRouting(button);
 
-    -- **`Options` may not be bound yet**, since `BindDerivedTables` runs from `InitDB` at
-    -- ADDON_LOADED and another addon can register a frame before that. Falling back to `AnyUp`
-    -- costs nothing lasting: `ApplyOptions()` at PLAYER_LOGIN walks every registered frame and
-    -- comes back through here, so a frame that took the fallback is corrected before the player
-    -- has a chance to click it.
+    -- **The release edge, and only that one.** It is what every unit frame Blizzard ships
+    -- registers (`SecureUnitButton_OnLoad`, and no caller passes `clickArgs`), and it is the edge
+    -- a frame's own actions run on: `SECURE_ACTIONS.menu` acts on the release and returns on the
+    -- press. `target` does not gate on the edge at all.
     --
-    -- **Moving our click to the press must not take the release away from the frame.**
-    -- `SECURE_ACTIONS.menu` acts on the release and returns on the press, so a frame registered
-    -- for the press alone loses its unit menu outright: nothing raises, the click just does
-    -- nothing. `target` does not gate on the edge, which is why targeting went on working and
-    -- hid it. Neither is tied to a button either. `Enum.ClickBindingInteraction.Target` and
-    -- `.OpenContextMenu` are both movable in Blizzard's click binding window, so there is no one
-    -- button whose release could be handed back on its own.
-    --
-    -- Both edges are registered, and the wrapper answers the press so that the frame's own
-    -- actions reach it once, on the release, exactly as they do without the option. Handing the
-    -- press back instead would run them twice, and `ExecuteBinding` (Blizzard's own click
-    -- casting) does not look at the edge at all: that is a second cast per click.
-    if (DebindPrivate.Options and DebindPrivate.Options.unitframeUseMouseDown) then
-        button:RegisterForClicks("AnyDown", "AnyUp");
-    else
-        button:RegisterForClicks("AnyUp");
-    end
+    -- **Registering the press as well is not ours to do.** This runs on frames another addon
+    -- owns, and its `OnClick` has no reason to gate on `down` the way Blizzard's does - it fires
+    -- its own action a second time on an edge it never asked for. `unitframeUseMouseDown` used to
+    -- ask for that press edge; it is gone, and there is no Blizzard setting to follow in its
+    -- place, since none of this reaches `ActionButtonUseKeyDown`.
+    button:RegisterForClicks("AnyUp");
     button:EnableMouseWheel(true);
 
     -- 프레임 내에 마우스에 반응하는 자식 프레임이 있는 경우 그 자식 프레임으로 마우스를 올렸을 때

@@ -102,17 +102,6 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             unitframeDescription:SetEnabled(false);
         end
 
-        local useMouseDownDescription = unitframeDescription:CreateCheckbox(LLL["UNITFRAME_TRIGGER_ON_MOUSE_DOWN"], function()
-            return DebindPrivate.Options.unitframeUseMouseDown;
-        end, function()
-            DebindPrivate.Options.unitframeUseMouseDown = not DebindPrivate.Options.unitframeUseMouseDown;
-            DebindPrivate.ApplyOptions("unitframeUseMouseDown");
-            return MenuResponse.Refresh;
-        end);
-        SetInstructionTooltip(useMouseDownDescription, LLL["UNITFRAME_TRIGGER_ON_MOUSE_DOWN_DESC"]);
-
-        unitframeDescription:CreateDivider();
-
         local framesDescription = unitframeDescription:CreateButton(LLL["BLIZZARD_UNIT_FRAMES"]);
         for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
             framesDescription:CreateCheckbox(LLL["BLIZZARD_UNIT_FRAMES_" .. strupper(frameType)], function()

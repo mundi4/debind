@@ -4680,22 +4680,24 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
     end,
 })
 
--- **What the option is not allowed to take away.** `unitframeUseMouseDown` moves our click to
--- the press edge, and it used to do that by registering the press edge alone. The frame's own
--- unit menu runs on the release edge only (`SECURE_ACTIONS.menu` returns while `down` is true),
--- so a frame registered for the press alone loses it outright: no error, that click just does
--- nothing. `target` does not gate on the edge, so targeting went on working and hid it through
--- several releases.
+-- **A registered frame gets the release edge and nothing else.** That edge is the one a frame's
+-- own actions run on: `SECURE_ACTIONS.menu` acts on the release and returns while `down` is true,
+-- so a frame missing it loses its unit menu outright, with no error to say so. `target` does not
+-- gate on the edge, which is why targeting went on working and hid that through several releases.
+-- Neither is tied to a button, since `Enum.ClickBindingInteraction.Target` and `.OpenContextMenu`
+-- are both movable in Blizzard's click binding window, which is why this asks for the whole
+-- release edge rather than one button's.
 --
--- Neither one is tied to a button, since `Enum.ClickBindingInteraction.Target` and
--- `.OpenContextMenu` are both movable in Blizzard's click binding window. That is why this asks
--- for the whole release edge rather than one button's.
+-- The press edge is asked about too, and it has to be absent. `UpdateRegisteredClicks` runs on
+-- frames another addon owns, and registering an edge that addon never asked for runs its own
+-- `OnClick` a second time per click. `unitframeUseMouseDown` registered that edge, and this is
+-- what it was removed over.
 --
 -- The registration call is captured on a frame the test owns, because there is no API that asks a
 -- frame which clicks it is registered for. Shadowing the method on our own frame leaves every
 -- other frame alone, and the real one is still called.
-RegisterTest("Click-cast: mouse-down mode keeps the edge the frame's own actions need", {
-    description = "누를 때 발동을 켜도 프레임 자체 동작이 쓰는 뗄 때 엣지가 남는가",
+RegisterTest("Click-cast: a registered frame keeps the release edge and only that one", {
+    description = "등록한 프레임이 뗄 때 엣지만 갖는가",
     run = function()
         local NAME = "Click edges"
 
@@ -4714,11 +4716,11 @@ RegisterTest("Click-cast: mouse-down mode keeps the edge the frame's own actions
         end
         AddTeardown(function() frame.RegisterForClicks = nil end)
 
-        local saved = DebindPrivate.Options.unitframeUseMouseDown
-        AddTeardown(function()
-            DebindPrivate.Options.unitframeUseMouseDown = saved
-            DebindPrivate.ApplyOptions("unitframeUseMouseDown")
-        end)
+        DebindPrivate.UpdateRegisteredClicks(frame)
+
+        if not captured then
+            return Fail(NAME, "등록 자체가 안 돌았다")
+        end
 
         local function Registered(...)
             for i = 1, select("#", ...) do
@@ -4730,33 +4732,21 @@ RegisterTest("Click-cast: mouse-down mode keeps the edge the frame's own actions
             return false
         end
 
-        local seen = {}
-        for _, useMouseDown in ipairs({ false, true }) do
-            captured = nil
-            DebindPrivate.Options.unitframeUseMouseDown = useMouseDown
-            DebindPrivate.ApplyOptions("unitframeUseMouseDown")
+        local seen = table.concat(captured, " ")
 
-            if not captured then
-                return Fail(NAME, format("useMouseDown=%s: 등록 자체가 안 돌았다",
-                    tostring(useMouseDown)))
-            end
-            seen[#seen + 1] = format("%s=[%s]", tostring(useMouseDown), table.concat(captured, " "))
-
-            if not Registered("AnyUp") then
-                return Fail(NAME, format(
-                    "useMouseDown=%s: [%s] 에 떼는 엣지가 없다. 유닛 메뉴가 도는 자리가 "
-                    .. "그 엣지뿐이라 메뉴가 걸린 버튼이 죽는다",
-                    tostring(useMouseDown), table.concat(captured, " ")))
-            end
-
-            if useMouseDown and not Registered("AnyDown") then
-                return Fail(NAME, format(
-                    "useMouseDown=true 인데 [%s] 에 누르는 엣지가 없다. 옵션이 아무 일도 안 한다",
-                    table.concat(captured, " ")))
-            end
+        if not Registered("AnyUp") then
+            return Fail(NAME, format(
+                "[%s] 에 떼는 엣지가 없다. 유닛 메뉴가 도는 자리가 그 엣지뿐이라 메뉴가 걸린 "
+                .. "버튼이 죽는다", seen))
         end
 
-        return Pass(NAME, table.concat(seen, ", "))
+        if Registered("AnyDown", "LeftButtonDown", "RightButtonDown", "MiddleButtonDown") then
+            return Fail(NAME, format(
+                "[%s] 에 누르는 엣지가 있다. 유닛프레임 애드온이 요청한 적 없는 엣지라 그쪽 "
+                .. "OnClick이 클릭 한 번에 두 번 돈다", seen))
+        end
+
+        return Pass(NAME, seen)
     end,
 })
 
