@@ -16,6 +16,18 @@ characters, because those are theirs. They do not know about snippets, attribute
 rebuilds, layers-as-a-data-structure, or the restricted environment, and a sentence that only makes
 sense once you know one of those is a broken sentence no matter how accurate it is.
 
+**And say what they do know.** They are PC users and they are gamers. Save files, installers,
+launchers, addon profiles, macro slots, a key rebinding screen: they have used all of it for years.
+Words like *merge*, *overwrite*, *existing*, *incoming*, *import*, *slot*, *default* teach them
+nothing new and need no softening. Rephrasing one of those into a longer, gentler phrase does not
+make the sentence easier. It makes it vaguer, and vagueness costs this reader far more than a word
+they already knew.
+
+A word is cut because it is **wrong for the thing**, never because it feels advanced. "Would a
+beginner follow this" is not the test and was never the test. Neither is how often the word appears
+in `reference/globalstrings/`: that count answers "is there already a word for this", and reading a
+zero as "they will not know it" throws away a word they knew and buys a limp phrase with it.
+
 **Say it in the game's words, not ours.** When the client already has a name for the thing, take
 that name — `Locales/koKR.lua`'s header carries the worked examples, and they are not cosmetic:
 
@@ -37,6 +49,17 @@ that name — `Locales/koKR.lua`'s header carries the worked examples, and they 
   12.1.0, says "Adds additional information to tooltips and several other interfaces." The word is
   gone from the client. It could be checked at all only because the note named the key — a note
   saying "the client uses this word" without one cannot be re-verified by anybody.
+
+**First ask whether the client has the thing, not whether it has the word.** A unit frame, a
+stance, a class, a spec, a keybinding are the game's own, it has already settled a name for each,
+and using a second one puts two names on one thing in front of someone who cannot know they are the
+same. That is the whole of this rule.
+
+**A concept the client does not have is not settled by counting the word in its strings.** Merging
+two profiles, overwriting an entry, importing a string, a slot, a default: WoW never had occasion to
+print any of that, so its strings hold no opinion and there is nothing to look up. Searching anyway
+turns a zero into a verdict it cannot carry, and the usual result is a correct word thrown out for a
+longer one that says less. Pick the plainest word that is true of the thing and move on.
 
 Check the client's own strings before inventing a word. They are on disk, one file per locale:
 `reference/globalstrings/{enUS,koKR,ruRU}.lua`, refreshed by `npm run globalstrings`, with
