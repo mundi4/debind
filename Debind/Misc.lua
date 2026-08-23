@@ -923,7 +923,7 @@ end
 
 --- The first switch this action names that nothing defines, or nil.
 ---
---- **An action names a switch in three places, and they fail in different directions.**
+--- **An action names a switch in four places, and they fail in different directions.**
 ---
 --- One is a condition key, `action.conditions["$burst"]`. That one is already harmless and already
 --- dead: codegen bakes the condition whether or not anything defines the name, and the restricted
@@ -940,13 +940,17 @@ end
 --- addon that is the worst direction to fail in: the binding does not stop firing, it starts
 --- firing everywhere.
 ---
---- The other is the target of an on/off/toggle action, which is `action.value`. That one is picked
+--- The third is the target of an on/off/toggle action, which is `action.value`. That one is picked
 --- from a list, so it cannot be mistyped. But the switch it was picked for can be deleted
 --- afterwards, and a string from someone else arrives naming switches this profile has never had,
 --- because an import plants no definitions (`devdocs/building-export-import.md`). Nothing goes
 --- wide there: the press sets a name nothing reads and the row draws clean. **Which is the
 --- problem.** The reader's only sign that the key does nothing is that nothing happens, and this
 --- mark is the only thing that can say so out loud.
+---
+--- The last is that same target after [Convert to macro text] has opened it out into
+--- `/click DebindStates $burst-on` (`ForEachClickedSwitch`). It fails the way the third one does,
+--- and it is here because otherwise converting an action would be a way of taking the mark off it.
 ---
 --- Either way the action is marked, which keeps it out of `KeyMap` entirely (`Debind.lua`'s
 --- `not issue` gate). Dropping the switch action loses nothing that was working: it was a key that
@@ -1014,11 +1018,8 @@ function DebindPrivate.GetUndefinedSwitch(action)
     end
 
     local _, args = DebindPrivate.ParseMacroText(action.value);
-    if (not args) then
-        return nil;
-    end
 
-    for i = 1, #args do
+    for i = 1, (args and #args or 0) do
         local arg = args[i];
         -- 부정형(`no$typo`)도 같이 잡는다. 그쪽은 지금도 거짓으로 떨어져 위험하지는 않지만
         -- 오타인 것은 똑같고, 한쪽만 말해주면 고쳐도 왜 아직 안 되는지 알 수 없다.
@@ -1027,6 +1028,17 @@ function DebindPrivate.GetUndefinedSwitch(action)
             return arg.name;
         end
     end
+
+    -- **A body can work a switch as well as read one**, and the parser above only sees the reading.
+    -- [Convert to macro text] opens an on/off/toggle action out into
+    -- `/click DebindStates $burst-on`, so the reference the branch further up catches while it
+    -- sits in `action.value` moves inside a string the moment the reader converts. Left out here,
+    -- converting an action is a way to take the mark off it.
+    return DebindPrivate.ForEachClickedSwitch(action.value, function(name)
+        if (not DebindPrivate.ResolveSwitchDefinition(name)) then
+            return name;
+        end
+    end);
 end
 
 --- The macro name this action points at, when nothing answers to it. nil when the action is fine
@@ -1386,6 +1398,15 @@ function DebindPrivate.GetMountMacroText(value)
     return SUMMON_MOUNT_MACROTEXT:format(value);
 end
 
+--- The frame an on/off/toggle action clicks, by the name it answers to in a macro body.
+---
+--- **The string is out there in users' profiles.** `ConvertToMacroText` writes it, and `Legacy.lua`
+--- repairs the pre-rename spelling of it inside bodies people typed by hand, so a body naming a
+--- switch this way is a reference the same as a condition is. Written once because the readers
+--- below have to be looking for exactly what the writer put down (`Switches.lua` gives the frame
+--- this name).
+local SWITCH_CLICK_TARGET = "DebindStates";
+
 --- Whether the menu stands [Convert to macro text] on this action.
 ---
 --- **What enables it and what carries it out must not part company.** `ConvertToMacroText` does
@@ -1479,7 +1500,7 @@ function DebindPrivate.ConvertToMacroText(action)
         -- **The body needs a name and a mode, and the action already holds both** -- the name in
         -- `value`, the mode decided by the type. The locale key assembles off the type for the
         -- same reason, which is half of why the type names are underscored (`Constants.lua`).
-        macrotext = format("/click DebindStates %s-%s", action.value,
+        macrotext = format("/click %s %s-%s", SWITCH_CLICK_TARGET, action.value,
             Constants.SETSTATE_MODES[action.type]);
         name = format(L["TYPE_" .. strupper(action.type)], action.value);
         icon = 254885;
@@ -1755,27 +1776,106 @@ do
         return "[" .. table.concat(tokens, ",") .. "]";
     end
 
-    --- The same macro text with every `[$from]` and `[no$from]` renamed to `to`.
+    --- Every `/click DebindStates <button>` in a body, button by button. `fn` is handed the raw
+    --- button token and whatever it answers, if anything, is answered from here.
+    ---
+    --- **The button is one whitespace-run token**, because `/click` reads it that way: a third
+    --- argument after it is the down/up flag and has nothing to do with which switch is worked.
+    local function eachClickButton(str, fn)
+        for button in str:gmatch(SWITCH_CLICK_TARGET .. "%s+(%S+)") do
+            local answer = fn(button);
+            if (answer) then
+                return answer;
+            end
+        end
+    end
+
+    --- The switch one such button works, or nil where it works none.
+    ---
+    --- **`Switches.lua`'s `_onclick` is the grammar and this has to read it the same way.** The
+    --- mode is split off at the first `-`, a bare number is shorthand for `$state<n>`, and a token
+    --- that does not end up starting with `$` is one that handler quietly does nothing with.
+    local function switchForClickButton(button)
+        local name = strsplit("-", button, 2);
+        local num = tonumber(name);
+        if (num) then
+            name = "$state" .. num;
+        end
+        if (strsub(name, 1, 1) ~= "$") then
+            return nil;
+        end
+        return name;
+    end
+
+    --- The switch each `/click DebindStates …` line in this body works. `fn` is called with each
+    --- name in the order they appear and the first answer it gives is handed back.
+    ---
+    --- **This is a fifth place a body names a switch, and we are the ones who put it there.**
+    --- [Convert to macro text] opens an on/off/toggle action out into one of these lines
+    --- (`ConvertToMacroText`), so a reference that used to sit in `action.value` where every walk
+    --- could see it moves inside a string where none of them could.
+    function DebindPrivate.ForEachClickedSwitch(str, fn)
+        if (type(str) ~= "string" or not strfind(str, SWITCH_CLICK_TARGET, 1, true)) then
+            return nil;
+        end
+        return eachClickButton(str, function(button)
+            local name = switchForClickButton(button);
+            if (name) then
+                return fn(name);
+            end
+        end);
+    end
+
+    --- The same body with every `/click DebindStates <from>` pointed at `to`.
+    ---
+    --- The mode is left exactly as it was: it is not part of the name, and a button written with a
+    --- trailing `-` or with no mode at all means the same thing after the rename as before it.
+    local function renameClickedSwitch(str, from, to)
+        return (str:gsub("(" .. SWITCH_CLICK_TARGET .. "%s+)(%S+)", function(head, button)
+            local token, mode = strsplit("-", button, 2);
+            if (switchForClickButton(token) ~= from) then
+                return nil;
+            end
+            if (mode) then
+                return head .. to .. "-" .. mode;
+            end
+            return head .. to;
+        end));
+    end
+
+    --- The same macro text with every `[$from]`, `[no$from]` and `/click DebindStates <from>`
+    --- renamed to `to`.
     ---
     --- **Whole tokens, never substrings.** A plain `gsub` on the name would also rewrite `$burstx`
     --- and `[@$burst]`, and what is being edited here is text the user typed by hand. Anything
     --- this touches that was not exactly this switch is a macro they have to find and fix without
     --- being told it changed.
     ---
-    --- **Only inside `[...]`**, which is the same boundary `StripSwitchConditions` keeps and for
-    --- the same reason: `/say [$burst]` outside a condition position is text, and a name that
-    --- happens to appear in a chat line is not a reference to anything.
+    --- **Inside `[...]`, and after the frame name, and nowhere else.** The first boundary is the
+    --- one `StripSwitchConditions` keeps and for the same reason: `/say [$burst]` outside a
+    --- condition position is text. The second is a position too - what follows `DebindStates` is
+    --- read as a switch by the handler on the other end, so a name there is as much a reference as
+    --- one in a condition.
     ---
-    --- Renaming a switch has to rewrite four kinds of reference and this is the one that cannot be
+    --- Renaming a switch has to rewrite five kinds of reference and this is the one that cannot be
     --- done by moving a key: a condition, an on/off/toggle target and another switch's expression
     --- each hold the name whole, while a macro body holds it inside a sentence
     --- (`devdocs/redesigning-custom-states.md` §3).
     function DebindPrivate.RenameSwitchInMacroText(str, from, to)
-        if (not str or not strfind(str, from, 1, true)) then
+        if (not str) then
             return str;
         end
-        _renameFrom, _renameTo = from, to;
-        return (str:gsub("%[([^%[%]]*)%]", renameGroup));
+        if (strfind(str, from, 1, true)) then
+            _renameFrom, _renameTo = from, to;
+            str = (str:gsub("%[([^%[%]]*)%]", renameGroup));
+        end
+        -- **Asked separately, because the number shorthand carries no `$` to find.**
+        -- `/click DebindStates 1` names `$state1` without those seven characters appearing in the
+        -- body at all, so the guard above would answer no for a body that has to be rewritten.
+        if (strfind(str, SWITCH_CLICK_TARGET, 1, true)) then
+            str = renameClickedSwitch(str, from, to);
+        end
+        return str;
     end
 
     function DebindPrivate.StripSwitchConditions(str)

@@ -1600,11 +1600,12 @@ function DebindPrivate.GetSwitchNames(out)
     return out;
 end
 
---- Does this action name that switch, in any of the three places one can be named?
+--- Does this action name that switch, in any of the four places one can be named?
 ---
---- A condition key, an on/off/toggle target, and a macro body. The body is asked through the
---- parser, which is the same door `GetUndefinedSwitch` uses, so what is counted here is exactly
---- what goes red there.
+--- A condition key, an on/off/toggle target, and a macro body twice over: the conditions in it, and
+--- the `/click DebindStates …` line [Convert to macro text] writes an on/off/toggle action out as.
+--- Both halves of the body are asked through the same doors `GetUndefinedSwitch` uses, so what is
+--- counted here is exactly what goes red there.
 local function ActionNamesSwitch(action, name)
     local conditions = action.conditions;
     if (conditions and conditions[name] ~= nil) then
@@ -1620,6 +1621,11 @@ local function ActionNamesSwitch(action, name)
             if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name == name) then
                 return true;
             end
+        end
+        if (DebindPrivate.ForEachClickedSwitch(action.value, function(clicked)
+                return clicked == name;
+            end)) then
+            return true;
         end
     end
     return false;
@@ -1680,18 +1686,21 @@ end
 --- Renames a switch, **and rewrites every reference to it**. Answers `true`, or `false` and a
 --- locale key saying why it refused.
 ---
---- **The rename is the four rewrites.** The definition moving is the easy part; a name is written
---- down in four other kinds of place, and one missed leaves a condition that never matches or a
+--- **The rename is the five rewrites.** The definition moving is the easy part; a name is written
+--- down in five other kinds of place, and one missed leaves a condition that never matches or a
 --- macro clause that quietly stopped being a clause (`devdocs/redesigning-custom-states.md` §3):
 ---
 ---   * a condition key, `action.conditions["$burst"]`
 ---   * an on/off/toggle action's target, `action.value`
 ---   * a macro body's `[$burst]` and `no$burst`
+---   * a macro body's `/click DebindStates $burst-on`, which is that same target after
+---     [Convert to macro text] opened the action out (`RenameSwitchInMacroText`). We write that
+---     line ourselves, so the name being inside a string here is our doing rather than the user's
 ---   * **another switch's expression**, which is the one that gets forgotten. An expression is a
 ---     macro body too, and one switch computed from another is a shape this addon supports. There
 ---     is one per row that answers with an expression now, not one per switch
 ---
---- And a fifth that is not a reference but is keyed by the name all the same: the value each
+--- And a sixth that is not a reference but is keyed by the name all the same: the value each
 --- character remembers. Left behind, a switch that remembers would come up off after a rename with
 --- nothing anywhere saying the value had been dropped.
 ---
@@ -1706,7 +1715,7 @@ function DebindPrivate.RenameSwitch(oldName, newName)
         return false, "SWITCH_RENAME_ERROR_GONE";
     end
     -- **Shape first, then case, then whether it moved.** Asked in the other order, changing only
-    -- the case of a name reads as a move to a free name and the five rewrites below all run for
+    -- the case of a name reads as a move to a free name and the six rewrites below all run for
     -- nothing. `CreateSwitch` says why the case is folded at all.
     if (not Constants.IsValidSwitchName(newName)) then
         return false, "SWITCH_NAME_ERROR_INVALID";

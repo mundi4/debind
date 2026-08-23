@@ -219,6 +219,42 @@ return function(DebindPrivate)
             "조건절 밖의 글자까지 바꿨다 - 사용자가 친 문장이다: " .. body);
     end);
 
+    --- 본문 안에 조건절 말고 스위치 이름이 앉는 자리가 하나 더 있다. **우리가 써넣은
+    --- 자리다** - [매크로로 바꾸기]가 켜기/끄기/전환 액션을 `/click DebindStates $이름-모드`로
+    --- 펴고(`ConvertToMacroText`), 개명 전 이름을 그 본문 안에서 고치는 코드까지 있다
+    --- (`Legacy.lua`). 그러니 이 꼴은 이미 사용자 프로필에 들어 있다.
+    local function ClickBody(body)
+        local db = Profile();
+        table.insert(db.shared.GENERAL,
+            { type = Constants.MACROTEXT, key = "F8", seq = 1, value = body });
+        return InitWith(db);
+    end
+
+    test("[매크로로 바꾸기]가 낸 본문의 대상이 따라온다", function()
+        local db = ClickBody("/cast Foo\n/click DebindStates $state1-toggle");
+        DebindPrivate.RenameSwitch("$state1", "$burst");
+        local body = General(db)[4].value;
+        check(body == "/cast Foo\n/click DebindStates $burst-toggle",
+            "본문이 옛 이름을 누른다 - 눌러도 아무 일이 없다: " .. body);
+    end);
+
+    -- 번호는 이름의 줄임말이다(`Switches.lua`의 `_onclick`). `/click DebindStates 1`은
+    -- `$state1`을 누르는 것이고, 개명이 안 따라가면 없어진 이름을 누르게 된다.
+    test("본문의 번호 줄임말도 따라온다", function()
+        local db = ClickBody("/click DebindStates 1-on");
+        DebindPrivate.RenameSwitch("$state1", "$burst");
+        check(General(db)[4].value == "/click DebindStates $burst-on",
+            "번호가 안 따라왔다: " .. General(db)[4].value);
+    end);
+
+    -- 반대쪽. 같은 줄에 있어도 다른 스위치를 누르는 것은 안 건드린다.
+    test("남의 이름을 누르는 줄은 안 건드린다", function()
+        local db = ClickBody("/click DebindStates $state2-off");
+        DebindPrivate.RenameSwitch("$state1", "$burst");
+        check(General(db)[4].value == "/click DebindStates $state2-off",
+            "남의 이름까지 바꿨다: " .. General(db)[4].value);
+    end);
+
     test("다른 스위치의 계산식이 따라온다", function()
         local db = InitWith(Profile());
         DebindPrivate.RenameSwitch("$state1", "$burst");
@@ -360,6 +396,16 @@ return function(DebindPrivate)
             "지운 이름을 가리키는 액션이 멀쩡한 줄로 남는다");
     end);
 
+    -- 같은 액션을 [매크로로 바꾸기]로 편 것도 같은 말을 해야 한다. 안 그러면 바꾸기 하나로
+    -- 빨간 줄이 멀쩡한 줄이 되고, 그 키가 아무 일도 안 한다는 것을 말해주는 자리가 사라진다.
+    test("지운 스위치를 누르는 본문도 빨개진다", function()
+        ClickBody("/click DebindStates $state1-toggle");
+        DebindPrivate.DeleteSwitch("$state1");
+        check(DebindPrivate.GetBindingIssue(General(DebindPrivate.db.global)[4])
+                == Constants.BINDING_ISSUE_UNDEFINED_STATE,
+            "지운 이름을 누르는 본문이 멀쩡한 줄로 남는다");
+    end);
+
     -- 값은 이 스위치의 것이라 같이 간다. 남겨두면 같은 이름을 다음에 쓰는 스위치가 남의 값을
     -- 물려받는다.
     test("지우면 기억한 값도 간다", function()
@@ -386,6 +432,14 @@ return function(DebindPrivate)
         check(DebindPrivate.CountSwitchReferences("$state2") == 1,
             "본문의 부정형(`no$state2`)을 안 셌다");
         check(DebindPrivate.CountSwitchReferences("$nosuch") == 0, "없는 이름이 세어졌다");
+    end);
+
+    -- 지우기 문장이 드는 숫자다. 누르는 본문을 안 세면 "0개가 이 이름을 쓴다"고 물어놓고
+    -- 지운 다음 키 하나가 죽는다.
+    test("누르는 본문도 걸린 것으로 센다", function()
+        ClickBody("/click DebindStates $state1-toggle");
+        local account = DebindPrivate.CountSwitchReferences("$state1");
+        check(account == 7, "센 것이 " .. account .. "개다");
     end);
 
     -- **세 거리가 서로 다른 답이라는 것이 이 함수의 존재 이유다.** 하나로 합치면 세 캐릭터가
@@ -743,6 +797,17 @@ return function(DebindPrivate)
         check(DebindPrivate.CreateSwitch("$ZZZ"), "만들기가 거절됐다");
         check(db.switches["$zzz"] ~= nil, "소문자 이름으로 안 앉았다");
         check(db.switches["$ZZZ"] == nil, "친 대로 앉았다 - 대소문자만 다른 둘이 생긴다");
+    end);
+
+    -- **접힌 이름을 만든 쪽에 되돌려준다.** 만드는 자리 셋 중 둘은 만들자마자 그 이름을 액션에
+    -- 적는다 - 조건 키, 켜기/끄기/전환의 대상(`DropDownMenus.lua`). 친 대로 적으면 정의가 없는
+    -- 이름이 액션에 앉아 그 액션이 그 자리에서 빨개지고 `KeyMap`에서 빠지는데
+    -- (`GetUndefinedSwitch`), 목록에는 스위치가 멀쩡히 만들어져 있다.
+    test("만든 이름을 부른 쪽에 알려준다", function()
+        InitWith(Profile());
+        local ok, made = DebindPrivate.CreateSwitch("$ZZZ");
+        check(ok, "만들기가 거절됐다");
+        check(made == "$zzz", "알려준 이름이 " .. tostring(made) .. "다");
     end);
 
     test("대소문자만 다른 이름은 이미 있는 것으로 본다", function()

@@ -1275,9 +1275,14 @@ do
         );
 
         -- **Only switches that exist** (2026-08-21, 소유자). A condition on a name nothing defines
-        -- is false for ever and nothing says so: it draws like any other condition, and no marker
-        -- covers it -- `GetUndefinedSwitch` reads macro bodies and on/off/toggle targets, not
-        -- condition keys. Offering a name to hang one on was offering a dead end.
+        -- matches on neither `true` nor `false`, so the key it is on never fires. Offering a name to
+        -- hang one on was offering a dead end.
+        --
+        -- **The dead end is marked, and that is not a reason to offer it.** `GetUndefinedSwitch`
+        -- reads condition keys as well as bodies and targets, so such an action goes red and drops
+        -- out of `KeyMap` (`Misc.lua`). The mark is there for the ways a name goes undefined *after*
+        -- the condition was hung - a switch deleted, a string from someone else - and a list that
+        -- lets the reader build one on purpose is a list that manufactures work for it.
         --
         -- **Making one is at the bottom of this list**, which is not the same thing: a name typed
         -- there gets a definition before the condition goes on, so nothing here ever hangs a
