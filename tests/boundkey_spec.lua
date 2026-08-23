@@ -343,6 +343,56 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- The macro store as an input
+    ---------------------------------------------------------------------------
+
+    -- **A `MACRO` action naming a macro that does not exist is left out of the build entirely**
+    -- (`GetMissingMacroName` -> `BINDING_ISSUE_MISSING_MACRO` -> `BuildKeyMap`), which makes the
+    -- macro store an input to what the keys are. Nothing was watching it: make the macro and the row
+    -- stops being red -- the window says nothing is wrong -- while the key stays dead until
+    -- something unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is what is registered for that.
+    --
+    -- **The login has to have happened, because that is where the listening starts.**
+    -- `Events.PLAYER_LOGIN` registers `UPDATE_MACROS` and seven others, so an addon that was loaded
+    -- and never logged in hears none of them -- which is the shape every spec here ran in until the
+    -- harness could deliver an event at all.
+    --
+    -- **No `CheckStateDriven`, and that is the case rather than an omission.** The action carries no
+    -- condition, so once it builds at all the key is wired once and the loop never looks at it
+    -- again. What stands in for that premise is the line below it: the key is not bound to start
+    -- with, so the assertion at the end cannot pass on a key that was live the whole time.
+    --
+    -- ⚠ **What stays in `/debtest`**: that the client sends `UPDATE_MACROS` when a macro is made.
+    -- The store is the harness's here and the event is sent by hand, so what this holds is that the
+    -- handler is listening and rebuilds -- not that anything ever calls it.
+    test("the store moving under a key revives it, once the event arrives", function()
+        shim.world.macros["Revive"] = nil;
+        Bind({ spell({ type = Constants.MACRO, value = "Revive", key = "F1" }) }, {});
+        check(Bound("F1") == "",
+            "a key naming a macro that does not exist was bound: " .. Bound("F1"));
+
+        -- **The last thing the login does is talk to the window**, and `DebindUI.lua` needs frames
+        -- so the harness does not read it. Standing the one function in is the spec saying "this
+        -- part is UI and is somebody else's to check" -- everything above it in the handler is the
+        -- pipeline, which is what is wanted here.
+        DebindPrivate.ShowMigrationDialogIfPending =
+            DebindPrivate.ShowMigrationDialogIfPending or function() end;
+        check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+        _G.CreateMacro("Revive", 132219, "/say hello");
+
+        local mark = frames.mark();
+        check(frames.fireEvent("UPDATE_MACROS") > 0, "nobody is listening for UPDATE_MACROS");
+
+        -- `Events.UPDATE_MACROS` queues rather than rebuilds: renaming a macro fires it per
+        -- keystroke in the client's editor and there is nothing to be first for.
+        frames.drainTimers();
+        interp:replay(frames.since(mark));
+        interp:pollStates();
+
+        check(IsLive("F1"), "the macro exists and the key is still dead: " .. Bound("F1"));
+    end);
+
+    ---------------------------------------------------------------------------
     -- The life axis, at the key
     ---------------------------------------------------------------------------
 

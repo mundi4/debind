@@ -35,7 +35,7 @@ What stands in for the client is three things:
 | | |
 |---|---|
 | `tests/wow_shim.lua` | the value-returning queries, answered out of `shim.world` — spells, mounts, units, the game's own binding table. A spec puts a world up rather than swapping a function out |
-| `tests/wow_frames.lua` | the frame shell, and a recorder that keeps **everything** the addon hands to the secure side, in order |
+| `tests/wow_frames.lua` | the frame shell, a recorder that keeps **everything** the addon hands to the secure side in order, the override bindings in force, the timer queue, and `fireEvent` to deliver a client event |
 | `tests/restricted.lua` | the restricted environment. It replays that recording, so the tables the click path reads are the ones the game would have built, and then runs `EVAL_SNIPPET` — which is how "which action does this key fire" has a headless answer at all |
 
 **One table is not a recording, and it is the one that moved the boundary.** An override is state —
@@ -129,6 +129,11 @@ when `GetBindingAction` learned to answer, and three that day when `ActionDispla
 `ActionTooltip.lua` joined the load list. Every one of them was a question about a value. What
 stayed asks something a client alone can answer, and **each of those carries a line above it saying
 so** — a test still here without one is a test nobody has re-read.
+
+**An event handler needs the login fired first.** Everything but `ADDON_LOADED` and `PLAYER_LOGIN`
+is registered inside `Events.PLAYER_LOGIN`, so `frames.fireEvent("PLAYER_LOGIN")` comes before
+`frames.fireEvent(whatever)`. The login's last line reaches `DebindUI.lua`, which needs frames, so
+a spec stands `ShowMigrationDialogIfPending` in — that one call is UI and has its own coverage.
 
 **A line saying so is not proof that it is still true.** The five that came down last were all
 carrying confident ones, and four of those named a file the harness had started loading a year

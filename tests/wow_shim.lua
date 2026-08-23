@@ -321,6 +321,18 @@ function M.install()
         return M.world.macros[name] and 1 or 0;
     end
     _G.GetNumMacros = function() return 0, 0; end
+    --- Making and deleting one, so the store can move under a profile that names a macro.
+    ---
+    --- **Neither sends the event.** In the client `UPDATE_MACROS` follows, and what the addon has to
+    --- get right is that it listens -- so a stand-in that fired it here would be answering the very
+    --- question (`Events.lua`, `UPDATE_MACROS`). A spec sends it with `frames.fireEvent`.
+    _G.CreateMacro = function(name, icon, body)
+        M.world.macros[name] = { name = name, icon = icon, body = body };
+        return 1;
+    end
+    _G.DeleteMacro = function(nameOrIndex)
+        M.world.macros[nameOrIndex] = nil;
+    end
 
     _G.UnitExists = function(token) return M.world.units[token] ~= nil; end
     _G.UnitIsUnit = function(a, b)
@@ -469,6 +481,12 @@ function M.install()
     _G.C_AddOns = {
         LoadAddOn = function() return true; end,
         IsAddOnLoaded = function() return false; end,
+        --- **`nil` is the answer a working tree gives.** The packager stamps `## Version:` from the
+        --- tag, so a checkout has the literal `@project-version@` there or nothing at all, and
+        --- `GetVersionLabel` is written around exactly that -- it falls back when the metadata has
+        --- an `@` in it or is missing. Answering with a made-up version would take that branch out
+        --- of reach of every spec.
+        GetAddOnMetadata = function() return nil; end,
     };
 
     -- Misc.lua가 파일 스코프에서 건드리는 것들. 매크로텍스트 파서와는 무관하지만

@@ -10,6 +10,12 @@
 -- Every one of them asked a question about a value, and a question about a value is answered
 -- more cheaply -- and on every commit -- by npm test.
 --
+-- **`Events.lua` runs headless now** (2026-08-23). Everything but `ADDON_LOADED` and `PLAYER_LOGIN`
+-- is registered **inside** `Events.PLAYER_LOGIN`, so an addon that was loaded and never logged in
+-- hears nothing -- which is the shape every spec ran in, and the reason no event handler had ever
+-- been exercised outside the game. `wow_frames.fireEvent` delivers one now. The macro-store case
+-- kept only its client half here: sending `UPDATE_MACROS` is the one part no harness can do.
+--
 -- **Two more came down on the re-read that followed** (2026-08-23). Both were kept by a line
 -- naming `GetBindingAction`, which had stopped being a reason a few hours earlier: whether a
 -- fixed-wired key is ever handed back, and the state loop's own sweep over four axes. The press
@@ -4839,9 +4845,11 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 -- being red -- the window says nothing is wrong -- while the key stays dead until something
 -- unrelated rebuilds, or a `/reload`. `UPDATE_MACROS` is registered for that.
 --
--- **It makes a real macro rather than faking one.** Overriding `GetMacroInfo` would measure whether
--- a rebuild reads the store, which was never in doubt; what broke is that **no rebuild happens**,
--- and the only thing that starts one is the client's own event. A stub cannot send it.
+-- **The half that is left is the client's.** `tests/boundkey_spec.lua` sends `UPDATE_MACROS` by
+-- hand and holds everything downstream of it: that the addon is listening, that the handler queues
+-- a rebuild, and that the key comes back. What no harness can send is the event itself, and this
+-- makes a real macro rather than faking one for exactly that reason -- what broke was never "a
+-- rebuild does not read the store" but that **no rebuild happens**.
 --
 -- Deleting it belongs to the runner, so it goes however this ends.
 RegisterTest("Macro store: creating the missing macro revives the key", {

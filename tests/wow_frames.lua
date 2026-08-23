@@ -91,11 +91,56 @@ function M.reset()
     recorder.entries = {};
     for key in pairs(overrides) do overrides[key] = nil; end
     M.__clearTimers();
+    M.__clearListeners();
     M.__resetAnon();
 end
 
 function M.all()
     return recorder.entries;
+end
+
+--- Everyone listening for something, so `fireEvent` has a list to walk.
+---
+--- **Cleared by `reset`, and finding out why cost an afternoon.** Every spec gets its own addon,
+--- so every spec builds its own `EventFrame`; a list that survived the reset would hand the next
+--- spec's event to the previous spec's frame, whose `DebindPrivate` never had `InitDB` run on it.
+--- The symptom was `RunLegacyMigration` indexing a nil `db` -- which reads exactly like "the login
+--- path does not work headless" and is nothing of the kind.
+local listening = {};
+
+--- Sends one event to every frame registered for it, the way the client does.
+---
+--- **`RegisterEvent` was kept and never delivered against.** The membership has been recorded and
+--- readable since the shell was written, so a spec could ask *whether* the addon listens for
+--- something -- and nothing could make it hear one. `Events.lua`'s handlers had therefore never run
+--- headless at all, and everything they do was out of reach for a reason one function long.
+---
+--- **The list is taken before any of it runs.** A handler that registers or unregisters while this
+--- one is going out must not change who gets *this* event, which is the client's own rule.
+function M.fireEvent(event, ...)
+    local listeners = {};
+    for i = 1, #listening do
+        local frame = listening[i];
+        if (frame.__events[event]) then listeners[#listeners + 1] = frame; end
+    end
+    for i = 1, #listeners do
+        local script = listeners[i]:GetScript("OnEvent");
+        if (script) then script(listeners[i], event, ...); end
+    end
+    return #listeners;
+end
+
+--- Reached by `M.reset`, which is written above this upvalue.
+function M.__clearListeners()
+    for i = #listening, 1, -1 do listening[i] = nil; end
+end
+
+--- Reached by `RegisterEvent`, for the same reason.
+function M.__listen(frame)
+    for i = 1, #listening do
+        if (listening[i] == frame) then return; end
+    end
+    listening[#listening + 1] = frame;
 end
 
 --- Where the recording stands. Hand it back to `since` to get what happened after it.
@@ -184,6 +229,7 @@ function frameMethods:GetScript(script) return self.__scripts[script]; end
 function frameMethods:HookScript(script, handler) self.__scripts[script] = handler; end
 
 function frameMethods:RegisterEvent(event)
+    M.__listen(self);
     self.__events[event] = true;
     record("RegisterEvent", label(self), event);
 end
@@ -254,6 +300,19 @@ function M.install()
     _G.CreateFrame = function(frameType, name, parent, template)
         return newFrame(frameType, name, parent, template);
     end
+
+    --- The client's own unit frames, which this addon registers on rather than replaces.
+    ---
+    --- **Only the two the walk cannot survive without.** `UpdateBlizzardFrames` guards every plain
+    --- global with `if (frame)`, so `PlayerFrame` and the rest being absent is a client where those
+    --- frames do not exist -- a real answer. The party container is different: it is **indexed**
+    --- (`PartyFrame["MemberFrame"..i]`), so an absent one raises rather than degrading, and
+    --- `MAX_BOSS_FRAMES` sizes a loop.
+    ---
+    --- A spec that wants the walk to actually find something puts frames in here itself. What this
+    --- buys is that reaching the walk at all stops being an error.
+    _G.PartyFrame = {};
+    _G.MAX_BOSS_FRAMES = 5;
 
     _G.SecureHandlerExecute = function(frame, body)
         record("Execute", label(frame), nil, body, frame);
