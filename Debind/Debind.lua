@@ -1,4 +1,4 @@
-﻿local _, DebindPrivate                 = ...;
+local _, DebindPrivate                 = ...;
 local Constants                          = DebindPrivate.Constants;
 DebindPrivate.DEBUG                    = Constants.DEBUG;
 DebindPrivate.callbacks                = LibStub("CallbackHandler-1.0"):New(DebindPrivate);

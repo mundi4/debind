@@ -1,4 +1,4 @@
-﻿local _, DebindPrivate     = ...;
+local _, DebindPrivate     = ...;
 
 local NUM_SPECS              = C_SpecializationInfo.GetNumSpecializationsForClassID(select(3, UnitClass("player")));
 local Constants              = DebindPrivate.Constants;

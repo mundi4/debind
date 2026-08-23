@@ -61,6 +61,55 @@ function runLuacheck(args) {
     return run.status === null ? 1 : run.status;
 }
 
+// A byte order mark on a Lua file, which **only the reference implementation refuses**. The game
+// loads such a file, luacheck parses it, and fengari (`npm test`) parses it, so every check this
+// repo runs on Windows goes green while `lua5.1 tests/run.lua` dies on line 1 of it. That is what
+// CI runs, and it is the one reader that cannot be reproduced here.
+//
+// It cost a red CI on the v3.3 tag: two files had carried a mark since the rename, and nothing
+// noticed until the harness started loading them (`tests/run.lua`). An editor writing one back is
+// a keystroke, so the answer is a check rather than a fixed file.
+const BOM_DIRS = ["Debind", "DebindStorage", "DebindTest", "DebindCliqueFake", "tests", "tools"];
+
+function luaFiles(dir, out) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            if (entry.name !== "Libs" && entry.name !== "bin" && entry.name !== "node_modules") {
+                luaFiles(full, out);
+            }
+        } else if (entry.name.endsWith(".lua")) {
+            out.push(full);
+        }
+    }
+    return out;
+}
+
+function checkNoBOM() {
+    const marked = [];
+    for (const dir of BOM_DIRS) {
+        const full = path.join(repoRoot, dir);
+        if (!fs.existsSync(full)) continue;
+        for (const file of luaFiles(full, [])) {
+            const head = Buffer.alloc(3);
+            const fd = fs.openSync(file, "r");
+            const read = fs.readSync(fd, head, 0, 3, 0);
+            fs.closeSync(fd);
+            if (read === 3 && head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf) {
+                marked.push(path.relative(repoRoot, file).replace(/\\/g, "/"));
+            }
+        }
+    }
+    if (marked.length) {
+        console.error(
+            `Lua 파일 ${marked.length}개가 BOM으로 시작합니다. lua5.1이 첫 줄에서 죽습니다:\n` +
+            marked.map((f) => `  ${f}`).join("\n"));
+        return 1;
+    }
+    console.log(`BOM으로 시작하는 Lua 파일이 없다.`);
+    return 0;
+}
+
 if (process.argv.slice(2).length) {
     process.exit(runLuacheck(process.argv.slice(2)));
 }
@@ -68,4 +117,4 @@ if (process.argv.slice(2).length) {
 const status = runLuacheck(["-q", "."]);
 const syntax = runLuacheck(
     ["-q", ...SYNTAX_ONLY_DIRS, "--no-config", "--std", "lua51", "--only", "011"]);
-process.exit(status || syntax);
+process.exit(status || syntax || checkNoBOM());
