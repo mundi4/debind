@@ -1315,11 +1315,12 @@ end
 --- §4-6 chose a cascade for switches by pointing at the order bindings already resolve in, and two
 --- orders that have to agree are better kept as one.
 local _overrideLayers = {};
-local function ActiveOverrideLayers(spec)
+--- **It asks the client rather than taking a specialization.** It stood with one as an argument
+--- that nothing ever passed, so the branch reading it had never run once - and the one caller is a
+--- lookup for *here*, which has no other specialization to be handed.
+local function ActiveOverrideLayers()
     wipe(_overrideLayers);
-    if (spec == nil) then
-        spec = C_SpecializationInfo.GetSpecialization() or 0;
-    end
+    local spec = C_SpecializationInfo.GetSpecialization() or 0;
     -- The same guard `EnumerateProfileLayers` uses: a character that has not picked a
     -- specialization is handed an out-of-range index rather than nil, and those two layers do not
     -- exist for it.
