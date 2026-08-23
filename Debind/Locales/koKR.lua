@@ -112,7 +112,6 @@ L["CUSTOM_STATE_ON"] = "켜짐"
 -- 근거는 enUS 쪽 주석에.
 L["CUSTOM_STATES_DESC"] = "|cnLIGHTBLUE_FONT_COLOR:사용자 지정 매크로|r에서 특수 조건이나 매크로 조건문으로 쓸 수 있는 켜짐/꺼짐 스위치입니다 (예: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). 언제든지 켜고 끌 수 있고, 스위치 자체를 매크로 조건문으로 지정할 수도 있습니다."
 L["CUSTOM_STATES"] = "스위치"
-L["CUSTOM_TARGET_CLEAR"] = "지우기"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:'%2$s'에서 지정하지 못했습니다|r"
 L["CUSTOM_TARGET_HELP_MESSAGE_ARENA"] = "투기장 개체창에 마우스를 올린 채로 해 보십시오."
 L["CUSTOM_TARGET_HELP_MESSAGE_BOSS"] = "우두머리 개체창에 마우스를 올린 채로 해 보십시오."

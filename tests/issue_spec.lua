@@ -524,6 +524,61 @@ return function(DebindPrivate)
     -- 본다. 여기는 그 결과에 이슈가 붙는지만 본다.
 
     ---------------------------------------------------------------------------
+    -- 계산식이 부르는 이름
+    --
+    -- **이름이 적히는 다섯 번째 자리이고, 유일하게 액션 안이 아니다.** 위 넷은 전부 액션을
+    -- 물어서 답이 나오는데 계산식은 정의에 산다 - 건네줄 액션이 없어서 `GetBindingIssue`가
+    -- 아예 못 본다. 그래서 문이 따로 있고, 그 문을 읽는 곳도 `Switches` 탭 하나다.
+    --
+    -- 여기가 비어 있으면 어떻게 되는가: 지운 이름이 코드젠에서 `known:0`으로 구워져
+    -- (`EmitMacroTextArg`) 그 스위치가 영영 거짓이 되는데, 계산식은 화면에 그대로 맞게
+    -- 보인다. 삭제가 참조를 일부러 남기는 것이 설계이므로(`DeleteSwitch`), 빨간 것이
+    -- 없으면 그 설계가 성립하지 않는다.
+    ---------------------------------------------------------------------------
+
+    local GetUndefinedSwitchInExpr = DebindPrivate.GetUndefinedSwitchInExpr;
+
+    test("계산식이 부르는 정의 없는 이름을 돌려준다", function()
+        check(GetUndefinedSwitchInExpr("[$typo]", "$derived") == "$typo", "안 잡는다");
+        check(GetUndefinedSwitchInExpr("[$state1,$typo]", "$derived") == "$typo",
+            "멀쩡한 이름 뒤에 오면 못 잡는다");
+    end);
+
+    -- 오탐 쪽. 여기가 틀리면 멀쩡한 계산식 스위치가 빨간 채로 앉아 있고, 읽는 사람은 고칠 것이
+    -- 없는 것을 고치러 간다.
+    test("정의된 이름만 부르는 계산식은 깨끗하다", function()
+        check(GetUndefinedSwitchInExpr("[$state1]", "$derived") == nil, "오탐");
+        check(GetUndefinedSwitchInExpr("[combat,nostealth]", "$derived") == nil,
+            "스위치를 안 부르는 계산식인데 뭔가 돌려준다");
+        -- **`@hover`이지 `@focus`가 아니다.** 파서가 인자로 적어두는 것은 값을 갈아끼워야 하는
+        -- 별칭뿐이고, 맨 유닛 토큰은 글자 그대로 남아 인자 목록에 아예 안 들어온다 - 그것으로는
+        -- 인자 종류를 안 보는 판까지 통과한다.
+        check(GetUndefinedSwitchInExpr("[@hover,harm]", "$derived") == nil, "유닛을 스위치로 읽었다");
+    end);
+
+    -- **자기 참조는 미정의가 아니다.** 코드젠이 그 자리를 지워서 굽지(`EmitMacroTextArg`) 죽은
+    -- 이름으로 치지 않는다. 여기서 갈라주지 않으면 `[$a]`를 품은 `$a`가 영원히 빨갛고, 읽는
+    -- 사람에게는 만들 수 없는 이름을 만들라는 말이 된다.
+    test("자기 자신을 부르는 것은 미정의가 아니다", function()
+        check(GetUndefinedSwitchInExpr("[$a]", "$a") == nil, "자기 참조를 죽은 이름으로 읽었다");
+        check(GetUndefinedSwitchInExpr("[$a,$typo]", "$a") == "$typo",
+            "자기 참조를 건너뛰면서 뒤의 오타까지 놓쳤다");
+    end);
+
+    -- 부정형도 같이 본다. 매크로 본문 쪽과 같은 이유다 - 지금도 거짓으로 떨어져 위험하지는
+    -- 않지만 오타인 것은 똑같고, 한쪽만 말해주면 고쳐도 왜 안 되는지 알 수 없다.
+    test("부정형 오타도 잡는다", function()
+        check(GetUndefinedSwitchInExpr("[no$typo]", "$derived") == "$typo", "안 잡는다");
+    end);
+
+    -- 답이 `[식]`이 아닌 행은 계산식을 안 읽는데 글자는 들고 있다(`SetSwitchAnswer`가 일부러
+    -- 안 지운다). 그 nil이 여기까지 오므로 문이 스스로 답해야 한다.
+    test("계산식이 없으면 nil이다", function()
+        check(GetUndefinedSwitchInExpr(nil, "$derived") == nil, "nil에 터진다");
+        check(GetUndefinedSwitchInExpr("", "$derived") == nil, "빈 문자열에 뭔가 돌려준다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- A `MACRO` naming a macro that is not here
     --
     -- The one issue branch about what an action **points at**. Before it existed such an action

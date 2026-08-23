@@ -1041,6 +1041,42 @@ function DebindPrivate.GetUndefinedSwitch(action)
     end);
 end
 
+--- The switch a computed switch's own `expr` names that nothing defines, or nil.
+---
+--- **A fifth place a name is written down, and the only one that is not in an action.** The four
+--- above are asked of an action and answered by `GetUndefinedSwitch`; an `expr` belongs to a
+--- definition, so there is no action to hand over and nothing above ever sees it. What that costs
+--- is the quietest failure this system has: codegen bakes the dead name to `known:0`
+--- (`EmitMacroTextArg` in `UpdateBindings.lua`), so the switch computed from it is false for ever
+--- while its expression still reads correctly wherever it is drawn.
+---
+--- **Deleting is what makes it reachable, and leaving the reference behind is the design.** A
+--- reference is kept so the reader can find it (`DeleteSwitch` in `Profile.lua`), which only works
+--- while something is red. Renaming already rewrites this one; deleting has no rewrite to do and
+--- so needs this instead.
+---
+--- **`ownerName` is not optional, and nil is not "no owner".** An expression naming its own switch
+--- is erased rather than read (`EmitMacroTextArg` again) -- a defined name behaving oddly, not a
+--- dead one. Passed nil, `[$a]` inside `$a` would be reported as broken.
+---
+--- **The first the parser hands over, not the lowest.** These arrive in the order they were typed,
+--- unlike the condition keys above, so the first is already the same one on every draw and it is
+--- the one nearest the start of the line the reader is looking at.
+function DebindPrivate.GetUndefinedSwitchInExpr(expr, ownerName)
+    if (type(expr) ~= "string") then
+        return nil;
+    end
+
+    local _, args = DebindPrivate.ParseMacroText(expr);
+    for i = 1, (args and #args or 0) do
+        local arg = args[i];
+        if (arg.type == Constants.MACROTEXT_ARG_SWITCH and arg.name ~= ownerName
+                and not DebindPrivate.ResolveSwitchDefinition(arg.name)) then
+            return arg.name;
+        end
+    end
+end
+
 --- The macro name this action points at, when nothing answers to it. nil when the action is fine
 --- or is not a `MACRO` at all.
 ---
@@ -2022,8 +2058,23 @@ function DebindPrivate.ApplyOptions(option)
         if (onMouseDown == nil) then
             onMouseDown = GetCVarBool("ActionButtonUseKeyDown") and true or false;
         end
-        SecureHandlerExecute(DebindPrivate.BindingDriver,
-            format("ClickCastOnMouseDown=%s", tostring(onMouseDown)));
+        --- **A lockdown blocks the only door this value has.** `SecureHandlerExecute` cannot cross
+        --- one, and no other path pushes the click edge, so an answer given during a fight used to
+        --- reach nothing and go on not reaching it for the rest of the session while the menu
+        --- showed it as the one chosen. Both doors are open in combat: the CVar moves whenever the
+        --- game says so (`Events.CVAR_UPDATE`), and the options menu takes the answer with the
+        --- window up. Login is a third, since a reconnect into an encounter arrives locked down.
+        ---
+        --- The value is not carried, only the fact that one is owed. Whatever is read when the
+        --- fight ends is the answer that stands then, which is the right one if the reader moved
+        --- it twice while it could not cross.
+        if (InCombatLockdown()) then
+            DebindPrivate.clickEdgeSuspended = true;
+        else
+            DebindPrivate.clickEdgeSuspended = nil;
+            SecureHandlerExecute(DebindPrivate.BindingDriver,
+                format("ClickCastOnMouseDown=%s", tostring(onMouseDown)));
+        end
     end
 
     if (option == nil or option == "stateDriverUpdateThrottle") then

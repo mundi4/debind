@@ -1045,6 +1045,12 @@ local function MigrateSwitches(db, dbver, charEntry)
             -- 스위치가 조용히 사라지면 안 되고, 조건이 거는 이름의 정의가 사라지면 그 조건은
             -- 영영 거짓인 채로 남는다.
             --
+            -- **다른 스위치의 계산식은 그 셋에 없고, 없는 것이 맞다.** 계산식은 손으로 치는
+            -- 글자라 오타 하나가 정의를 살려두게 되는데, 그건 `CollectReferencedSwitches`가
+            -- 매크로 본문을 일부러 뺀 이유 그대로다. 그래서 `[$state3]`만 가리키던 손 안 댄
+            -- 정의는 여기서 지워지고, 그것을 부르던 스위치가 `Switches` 탭에서 빨개진다
+            -- (`GetUndefinedSwitchInExpr`). 지우고 말해주는 쪽이지 조용히 살려두는 쪽이 아니다.
+            --
             -- **값을 옮기는 것이 먼저다.** 옮기고 나면 눌러보기만 한 스위치의 정의에는 모드
             -- 하나만 남아 손 안 댄 것과 모양이 같아진다. 눌러본 증거를 계정이 아니라 캐릭터
             -- 쪽에서 읽는 것이 그것을 받는 자리이고(`CollectStoredSwitchValues`), 옛 판정을
@@ -1559,9 +1565,17 @@ local function MoveAppliedAnswer(oldName, newName)
     _appliedAnswers[oldName] = nil;
 end
 
---- Makes a switch under this name. Answers `true`, or `false` and a locale key saying why it
---- refused. It is the same contract `RenameSwitch` has, and for the same reason: both are a reader
---- typing a name into a box, and the sentence they get back has to be about the name they typed.
+--- Makes a switch under this name. Answers `true` **and the name it was filed under**, or `false`
+--- and a locale key saying why it refused. The refusal half is the contract `RenameSwitch` has, and
+--- for the same reason: both are a reader typing a name into a box, and the sentence they get back
+--- has to be about the name they typed.
+---
+--- **The name comes back because it is not always the one that went in.** The case is folded here,
+--- and the callers that make a switch in order to point something at it - the condition menu and an
+--- on/off/toggle action's target menu (`DropDownMenus.lua`) - would otherwise hang that reference on
+--- the typed spelling. Nothing defines `$Burst`, so the action goes red and drops out of `KeyMap`
+--- the moment it is made (`GetUndefinedSwitch`), while the list shows the switch sitting there
+--- under `$burst`.
 ---
 --- **Creating is a user's doing, and this is the only place it happens.** Nothing is planted at
 --- load (`BindDerivedTables`), so a row on disk means somebody made it. The alternative, making
@@ -1596,7 +1610,7 @@ function DebindPrivate.CreateSwitch(name)
 
     DebindPrivate.Switches[name] = CopyTable(SWITCH_DEFAULTS);
     DebindPrivate.OnSwitchesChanged();
-    return true;
+    return true, name;
 end
 
 --- Every switch that exists, by name, in the order a list draws them.
@@ -1664,6 +1678,12 @@ end
 --- **Actions, not references**: an action naming the same switch in its condition and again in its
 --- macro body is one row that goes wrong, and what is being reported is how much of the profile
 --- this reaches.
+---
+--- **So another switch's `expr` is not counted, and the delete question can read `0` while one
+--- names it.** Widening this to cover it would make the three numbers stop meaning rows, which is
+--- what the reader is being asked about. The switch computed from the deleted name goes red on its
+--- own row instead (`GetUndefinedSwitchInExpr`), which is the same trade every other reference
+--- gets: deleting leaves it where it is and the red is what finds it.
 function DebindPrivate.CountSwitchReferences(name)
     local account, character, live = 0, 0, 0;
 
@@ -1794,8 +1814,11 @@ end
 
 --- Deletes a switch. **References to it are left where they are.**
 ---
---- That is the decision and not an omission: an action naming a switch nothing defines goes red
---- (`GetUndefinedSwitch`), and the red is how the user finds the places they have to go and fix.
+--- That is the decision and not an omission: a reference to a switch nothing defines goes red, and
+--- the red is how the user finds the places they have to go and fix. Four of the five kinds are in
+--- an action and are marked by `GetUndefinedSwitch`; the fifth is another switch's `expr`, which is
+--- in no action at all and is marked on the Switches tab instead
+--- (`GetUndefinedSwitchInExpr`, `SwitchesUI.lua`).
 --- Rewriting them here would delete parts of actions the user never asked to lose, and doing it
 --- silently would be worse than the red (§9-3 of `devdocs/redesigning-custom-states.md` turns the
 --- same argument the other way round: a reference must not resurrect a definition either).

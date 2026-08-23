@@ -66,7 +66,10 @@ local UNITFRAME_TYPES              = {
 --- **Only the tokens that hold still are here.** A header hands its children units and takes them
 --- back, so a child's token says which slot it is filling right now and not what the frame is.
 --- Those frames arrive from the header instead, which calls them all group frames, and that path
---- is left to win: it runs after this one and overwrites what this decided.
+--- is the one that wins. Not because it runs later - `CollectOUFFrames` reaches the same children
+--- on every loading screen, and running order alone had the two trading the frame back and forth.
+--- It wins because it names a category and this reading cannot, which is what `RegisterFrame`
+--- compares before it lets a second registration through.
 ---
 --- **So every `<owner>pet` spelling is out, `playerpet` with the rest.** A pet frame carries `pet`,
 --- which is what Blizzard's own pet header gives the slot for your own pet (`GetPetUnit` in
@@ -159,6 +162,24 @@ local function DeriveFrameType(button)
     end
 end
 
+--- The frames a group header has told us are its children.
+---
+--- **Being a header's child is what the frame is, so it outranks every other answer.** A header
+--- hands a child whichever unit it is filling and takes it back, so reading that child gives the
+--- slot it holds this second: `player` in the self slot of a party block, and nothing at all in a
+--- spare the header has emptied. Neither is what the frame is.
+---
+--- **The other doors reach these same frames and cannot say so.** oUF writes every object it builds
+--- into `ClickCastFrames`, header children included, and `CollectOUFFrames` fetches the ones that
+--- write never reached - both through the Clique shape, which has no field for the kind. So the
+--- header's answer has to survive them rather than be the most recent one.
+---
+--- **Never emptied, and weak so a frame can still go.** Registration is taken away and given back
+--- while the frame stays what it is: an addon reclaiming a frame writes `nil` into
+--- `ClickCastFrames` and adds it again later, and between those two the row this would otherwise
+--- live on is gone.
+local _headerChildren = setmetatable({}, { __mode = "k" });
+
 
 --- 이미 `OnEnter`/`OnLeave`를 감싼 프레임. 아래 `_wrapped`와 같은 물건이고, 같은 이유로
 --- 비운 적이 없다.
@@ -190,8 +211,16 @@ function DebindPrivate.RegisterFrame(button, type)
     --- attribute after it, and the addon on top of that library registers again once the frame is
     --- finished. Standing down on `type` matching alone spent the second call on a frame we had
     --- already given up on.
+    ---
+    --- **And what is compared is the answer, not the argument the caller happened to pass.** The
+    --- same frame arrives under different arguments from different doors - `"group"` off its
+    --- header, `true` through the Clique shape - and comparing those had a header's child
+    --- re-registered on every pass that reached it, with the frame read afresh each time
+    --- (`_headerChildren` says why that reading is wrong).
     local seen = DebindPrivate.ccframes[button];
-    if (seen and (seen.hd or (seen.type == type and seen.frameType ~= Constants.FRAMETYPE_UNKNOWN))) then
+    local told = _headerChildren[button] and Constants.FRAMETYPE_GROUP or UNITFRAME_TYPES[type];
+    if (seen and (seen.hd or (seen.frameType ~= Constants.FRAMETYPE_UNKNOWN
+            and (told == nil or told == seen.frameType)))) then
         return;
     end
 
@@ -227,7 +256,7 @@ function DebindPrivate.RegisterFrame(button, type)
         DebindPrivate.UnregisterFrame(button);
     end
 
-    local frameType = UNITFRAME_TYPES[type] or DeriveFrameType(button) or UNITFRAME_TYPES.unknown;
+    local frameType = told or DeriveFrameType(button) or UNITFRAME_TYPES.unknown;
     button:SetAttribute("debind_frametype", frameType);
 
     SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clickcast_button", button);
@@ -556,6 +585,10 @@ local function CollectHeaderChildren(header)
         if (not child) then
             return;
         end
+        -- **Marked before it is offered, and the mark stays.** This is the only door that knows
+        -- these frames are a header's, and the answer has to hold for the doors that do not
+        -- (`_headerChildren`).
+        _headerChildren[child] = true;
         -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
         -- `IsForbidden` false is no longer proof that touching it will not raise.
         pcall(DebindPrivate.RegisterFrame, child, "group");

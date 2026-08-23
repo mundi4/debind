@@ -272,6 +272,44 @@ return function(DebindPrivate)
             "the frame appended to the first library was never offered");
         check(DebindPrivate.ccframes[second[2]],
             "the frame appended to the second library was never offered");
+
+        -- **And a frame another door has already answered for is left standing.** Header children
+        -- land in this list too -- `initObject` appends before the branch that separates a spawned
+        -- frame from a header's child -- and the header is the door that knows what they are: it
+        -- hands a child whichever unit it is filling and takes it back, so the token says which
+        -- slot and not which frame. A party block's self slot carries `player`, so a pass that
+        -- re-read this one would hand it back as the player frame on the next loading screen, and
+        -- the next roster change would hand it to the header again.
+        local child = ForeignFrame("SomeUIHeaderUnitButton1", "player");
+        local header = frames.newFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
+        header:SetAttribute("child1", child);
+        SecureGroupHeader_Update(header);
+        check(DebindPrivate.ccframes[child]
+            and DebindPrivate.ccframes[child].frameType == Constants.FRAMETYPE_GROUP,
+            "the header did not answer for its own child");
+
+        first[4] = child;
+        CollectOUFFrames();
+        check(DebindPrivate.ccframes[child].frameType == Constants.FRAMETYPE_GROUP,
+            "the library pass read the header's child back as "
+                .. tostring(DebindPrivate.ccframes[child].frameType));
+
+        -- **And a spare child has no unit to be read off at all**, which is the same fault without
+        -- needing a name to go wrong. A group that shrinks leaves its extra children hidden with
+        -- the unit taken back off them (`configureChildren`), so re-reading one answers `unknown`
+        -- and the frame stops matching the group records the reader bound.
+        local spare = ForeignFrame("SomeUIHeaderUnitButton9", "raid9");
+        header:SetAttribute("child2", spare);
+        SecureGroupHeader_Update(header);
+        check(DebindPrivate.ccframes[spare].frameType == Constants.FRAMETYPE_GROUP,
+            "the header did not answer for the spare child");
+
+        spare:SetAttribute("unit", nil);
+        first[5] = spare;
+        CollectOUFFrames();
+        check(DebindPrivate.ccframes[spare].frameType == Constants.FRAMETYPE_GROUP,
+            "the emptied child came back as "
+                .. tostring(DebindPrivate.ccframes[spare].frameType));
     end);
 
     ---------------------------------------------------------------------------

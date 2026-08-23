@@ -329,7 +329,6 @@ BindingDriver:SetAttribute("SetSwitch", [[
 
 BindingDriver:SetAttribute("ToggleSwitch", [[
 	local name = ...
-	local value = not States[name]
 	return self:RunAttribute("SetSwitch", name, not States[name])
 ]]);
 

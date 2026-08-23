@@ -396,6 +396,23 @@ return function(DebindPrivate)
             "지운 이름을 가리키는 액션이 멀쩡한 줄로 남는다");
     end);
 
+    -- **다섯 번째 참조도 같은 말을 해야 한다.** 다른 스위치의 계산식은 액션이 아니라
+    -- `GetBindingIssue`가 못 보고, 액션 수를 세는 자리도 못 센다(`CountSwitchReferences`는
+    -- 액션만 훑는다). 그래서 지우고 나면 `$state2`가 `known:0`으로 구워져 영영 거짓인데
+    -- 계산식은 화면에 맞게 보인다. 이 문 하나가 그 자리를 빨갛게 만든다 - 빨간 것이 없으면
+    -- "참조는 남기고 남은 것이 빨개진다"가 성립하지 않는다.
+    test("지운 스위치를 계산식으로 부르는 스위치도 빨개진다", function()
+        InitWith(Profile());
+        local answerExpr = select(3, DebindPrivate.ResolveSwitchAnswer("$state2"));
+        check(DebindPrivate.GetUndefinedSwitchInExpr(answerExpr, "$state2") == nil,
+            "전제가 깨졌다 - 지우기 전부터 빨갛다");
+
+        DebindPrivate.DeleteSwitch("$state1");
+        answerExpr = select(3, DebindPrivate.ResolveSwitchAnswer("$state2"));
+        check(DebindPrivate.GetUndefinedSwitchInExpr(answerExpr, "$state2") == "$state1",
+            "지운 이름을 계산식으로 부르는 스위치가 멀쩡한 줄로 남는다");
+    end);
+
     -- 같은 액션을 [매크로로 바꾸기]로 편 것도 같은 말을 해야 한다. 안 그러면 바꾸기 하나로
     -- 빨간 줄이 멀쩡한 줄이 되고, 그 키가 아무 일도 안 한다는 것을 말해주는 자리가 사라진다.
     test("지운 스위치를 누르는 본문도 빨개진다", function()
@@ -826,10 +843,11 @@ return function(DebindPrivate)
         check(db.switches["$ZZZ"] == nil, "친 대로 앉았다 - 대소문자만 다른 둘이 생긴다");
     end);
 
-    -- **접힌 이름을 만든 쪽에 되돌려준다.** 만드는 자리 셋 중 둘은 만들자마자 그 이름을 액션에
-    -- 적는다 - 조건 키, 켜기/끄기/전환의 대상(`DropDownMenus.lua`). 친 대로 적으면 정의가 없는
-    -- 이름이 액션에 앉아 그 액션이 그 자리에서 빨개지고 `KeyMap`에서 빠지는데
-    -- (`GetUndefinedSwitch`), 목록에는 스위치가 멀쩡히 만들어져 있다.
+    -- **The lower-cased name goes back to whoever asked for it.** Two of the three places a switch
+    -- is made write that name onto an action the moment it exists: a condition key, and an
+    -- on/off/toggle target (`DropDownMenus.lua`). Given the spelling the reader typed, an action
+    -- ends up naming a switch nothing defines, so it goes red and drops out of `KeyMap`
+    -- (`GetUndefinedSwitch`) while the list shows the switch made and well.
     test("만든 이름을 부른 쪽에 알려준다", function()
         InitWith(Profile());
         local ok, made = DebindPrivate.CreateSwitch("$ZZZ");

@@ -924,6 +924,88 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 6: the import badge becomes a key and an arrival number
+    --
+    -- 3.2 stored a waiting set as a synthetic number in `key` plus `imported`, which held the
+    -- sender's real key. The synthetic key is gone: `key` is the sender's own and `arrivalID` is
+    -- what holds the set back (`devdocs/building-export-import.md` 12절).
+    --
+    -- **Both ways of getting this wrong are silent, and one of them fires keys.** Drop the badge
+    -- and a set the reader never agreed to reaches every key it was sent on. Leave the synthetic
+    -- number in `key` and those rows stand under a heading nobody can press, for good.
+    ---------------------------------------------------------------------------
+
+    test("dbver 6 gives an arrival back the key it was sent on", function()
+        local layer = { { type = Constants.SPELL, value = 1, key = 12345, seq = 1,
+            imported = "F1" } };
+        MigrateLayer(layer, 5);
+        local action = layer[1];
+        check(action.key == "F1", "키 " .. tostring(action.key));
+        check(action.arrivalID == 1, "배지 " .. tostring(action.arrivalID));
+        check(action.imported == nil, "옛 배지가 남음");
+    end);
+
+    -- `imported = true` was a set that arrived on no key at all. There is nothing to give back, and
+    -- the synthetic number was never one the reader could press -- so the key goes, and the number
+    -- inside the group goes with it (`PlaceInKeyGroup`의 규칙: 키가 없으면 번호도 없다).
+    test("dbver 6 takes the synthetic key off a set that arrived without one", function()
+        local layer = { { type = Constants.SPELL, value = 1, key = 12345, seq = 2,
+            imported = true } };
+        MigrateLayer(layer, 5);
+        local action = layer[1];
+        check(action.key == nil, "키 " .. tostring(action.key));
+        check(action.seq == nil, "키 없는 액션이 번호를 들고 있다");
+        check(action.arrivalID == 1, "배지 " .. tostring(action.arrivalID));
+    end);
+
+    -- A number in `key` with no badge beside it is a set the user unbound by hand. Nobody can name
+    -- that number, so leaving it would stand those rows up as a group of their own forever.
+    test("dbver 6 drops a numbered key that carries no badge", function()
+        local layer = { { type = Constants.SPELL, value = 1, key = 999, seq = 3 } };
+        MigrateLayer(layer, 5);
+        local action = layer[1];
+        check(action.key == nil and action.seq == nil, "숫자 키가 남음");
+        check(action.arrivalID == nil, "배지가 없는데 도착 번호가 붙었다");
+    end);
+
+    test("dbver 6 is safe to run twice over a raised badge", function()
+        local layer = { { type = Constants.SPELL, value = 1, key = 12345, seq = 1,
+            imported = "F1" } };
+        MigrateLayer(layer, 5);
+        MigrateLayer(layer, 5);
+        check(layer[1].key == "F1", "키 " .. tostring(layer[1].key));
+        check(layer[1].arrivalID == 1, "배지 " .. tostring(layer[1].arrivalID));
+    end);
+
+    -- **The counter is `MigrateDB`'s, not the layer ladder's**, and that split is what this pins.
+    -- Every badge the ladder meets is stamped arrival 1, so the next number handed out has to be 2;
+    -- hand out 1 again and the new arrival merges into the migrated one, since a group is
+    -- `(key, arrivalID)`. Accepting one would then accept both.
+    test("dbver 6 stands the arrival counter above the badges it stamped", function()
+        _G.DebindVars = {
+            dbver = 5,
+            migrated = {},
+            shared = {
+                GENERAL = { { type = Constants.SPELL, value = 1, key = 777, seq = 1,
+                    imported = "F1" } },
+                classes = {},
+            },
+            characters = {},
+            -- What the counter was called when it counted keys instead of arrivals.
+            nextSyntheticKey = 778,
+        };
+        _G.DebounceVars = nil;
+        _G.DebounceVarsPerChar = nil;
+        DebindPrivate.InitDB();
+
+        local db = _G.DebindVars;
+        check(db.shared.GENERAL[1].arrivalID == 1, "배지가 안 올라감 - 전제가 깨졌다");
+        check(db.nextArrivalID == 2, "다음 도착 번호 " .. tostring(db.nextArrivalID));
+        check(DebindPrivate.NextArrivalID() == 2, "새 도착분이 마이그레이션된 것과 같은 번호를 받는다");
+        check(db.nextSyntheticKey == nil, "아무도 안 읽는 옛 카운터가 남음");
+    end);
+
+    ---------------------------------------------------------------------------
     -- 옛 자리를 읽으면 소리가 난다
     --
     -- 조건이 `conditions`로 내려간 뒤, 옛 자리를 읽는 코드는 에러가 아니라 `nil`을 받는다.

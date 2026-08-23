@@ -163,7 +163,6 @@ L["CUSTOM_STATE_ON"] = "On"
 -- It said "the tooltip of the SwitchesPortrait button" until 3c took that button off the window.
 L["CUSTOM_STATES_DESC"] = "These are ON/OFF switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these switches on or off at any time, or you can set them as macro conditionals themselves."
 L["CUSTOM_STATES"] = "Switches"
-L["CUSTOM_TARGET_CLEAR"] = "Clear"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
 L["CUSTOM_TARGET_HELP_MESSAGE_ARENA"] = "Try while hovering over arena frames."
 L["CUSTOM_TARGET_HELP_MESSAGE_BOSS"] = "Try while hovering over boss frames."

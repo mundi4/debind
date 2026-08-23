@@ -194,6 +194,13 @@ function Events.PLAYER_REGEN_ENABLED()
         end
         wipe(DebindPrivate.RegisterClickQueue);
     end
+    -- The click edge could not cross while the fight was on (`ApplyOptions`), and this is the only
+    -- place it is asked for again. It reads the answer as it stands now rather than one recorded
+    -- when the crossing was refused.
+    if (DebindPrivate.clickEdgeSuspended) then
+        DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+    end
+
     if (DebindPrivate.updateBindingsSuspended) then
         DebindPrivate.updateBindingsSuspended = nil;
         DebindPrivate.UpdateBindings();

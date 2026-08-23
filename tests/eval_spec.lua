@@ -597,6 +597,66 @@ return function(DebindPrivate, _, ctx)
             "the press fired against the reader's answer");
     end);
 
+    --- The same answer given during a lockdown, and the fight ending after it.
+    ---
+    --- Answers how much crossed while the lockdown was up, and replays whatever crosses when it
+    --- lifts. The push is the only thing the wrapper reads, so a value that never crosses is a
+    --- value the reader does not have.
+    --- **The login is fired first because nothing listens for the fight ending before it.**
+    --- `PLAYER_REGEN_ENABLED` is registered in the login handler, so a spec that only sends the
+    --- second one measures nothing at all and goes green on a broken addon.
+    local function SetClickEdgeInCombat(apply)
+        DebindPrivate.ShowMigrationDialogIfPending =
+            DebindPrivate.ShowMigrationDialogIfPending or function() end;
+        check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+
+        shim.world.inCombat = true;
+        local mark = frames.mark();
+        apply();
+        local crossed = #frames.since(mark);
+
+        shim.world.inCombat = false;
+        mark = frames.mark();
+        check(frames.fireEvent("PLAYER_REGEN_ENABLED") > 0,
+            "nothing is listening for PLAYER_REGEN_ENABLED");
+        interp:replay(frames.since(mark));
+        return crossed;
+    end
+
+    -- **`SecureHandlerExecute` cannot cross a lockdown, and nothing else pushes this value.** So an
+    -- answer given in combat reached nothing and stayed unreached for the session, while the menu
+    -- went on showing it as the one chosen. It waits for the end of the fight now.
+    test("an edge chosen in combat is pushed when the fight ends", function()
+        ClickCastBind();
+        DebindPrivate.Options.unitframeUseMouseDown = true;
+        check(SetClickEdgeInCombat(function()
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+        end) == 0, "the push crossed during the lockdown");
+
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debind1",
+            "the answer given in combat never reached the wrapper");
+    end);
+
+    -- The same road for the third answer, which the game moves rather than the reader. A CVar can
+    -- be set in a fight, and `Events.CVAR_UPDATE` re-resolves the edge off it through this same
+    -- call. **What waits is the fact that a push is owed, not the value**, so the answer that
+    -- crosses is the one standing when the fight ends.
+    test("the game's setting moving in combat is followed when the fight ends", function()
+        ClickCastBind();
+        DebindPrivate.Options.unitframeUseMouseDown = nil;
+        check(SetClickEdgeInCombat(function()
+            shim.world.cvars.ActionButtonUseKeyDown = true;
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+            shim.world.cvars.ActionButtonUseKeyDown = false;
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+            shim.world.cvars.ActionButtonUseKeyDown = true;
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+        end) == 0, "a push crossed during the lockdown");
+
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debind1",
+            "the setting that moved in combat never reached the wrapper");
+    end);
+
     ---------------------------------------------------------------------------
     -- Four axes over seven records
     ---------------------------------------------------------------------------

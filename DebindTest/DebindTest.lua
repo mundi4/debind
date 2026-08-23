@@ -4920,6 +4920,120 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
     end,
 })
 
+-- **Another addon takes the name `ClickCastFrames`, and we take it back.** The harness cannot see
+-- this: that table is stood up by `DebindCliqueFake`, which is only read once `DebindPublic` is
+-- there, and the runner loads neither.
+--
+-- Three questions. Does the name come back; does a frame handed over **before** the theft still
+-- answer afterwards (which is why the store lives outside the table); and is a second reclaim
+-- harmless. The last one is the quiet one: putting a fresh table over a name that is already ours
+-- throws away everything taken so far, and the `nil` another addon writes to reclaim a frame then
+-- reaches nothing.
+RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
+    description = "남이 ClickCastFrames를 가져갔을 때 되찾는가, 되찾은 뒤 두 번 불러도 되는가",
+    run = function()
+        local NAME = "ClickCastFrames reclaim"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+        end
+        if not DebindPrivate.ReclaimClickCastFrames then
+            return Fail(NAME, "DebindCliqueFake가 안 올라왔다 - 이 판에는 되찾을 이름이 없다")
+        end
+
+        local ours = _G.ClickCastFrames
+        if type(ours) ~= "table" then
+            return Fail(NAME, format("ClickCastFrames가 표가 아니다 (%s)", type(ours)))
+        end
+        AddTeardown(function() _G.ClickCastFrames = ours end)
+
+        -- One frame in through our door before the theft. `CreateTestUnitFrame` calls
+        -- `RegisterFrame` outright, so the write below is what goes through the table.
+        local frame, err = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        if not frame then return Fail(NAME, err) end
+        _G.ClickCastFrames[frame] = true
+        if not _G.ClickCastFrames[frame] then
+            return Fail(NAME, "표에 넣은 프레임이 되읽히지 않는다 - 남의 회수 루프가 우리를 못 지난다")
+        end
+
+        -- Somebody puts their own proxy over it, in the shape the real one has: a fresh table, a
+        -- store of its own in an upvalue, no chaining.
+        local theirs = setmetatable({}, {
+            __index = function() return nil end,
+            __newindex = function() end,
+        })
+        _G.ClickCastFrames = theirs
+
+        DebindPrivate.ReclaimClickCastFrames()
+        local reclaimed = _G.ClickCastFrames
+        if reclaimed == theirs then
+            return Fail(NAME, "이름을 못 되찾았다 - 이후 등록이 전부 남의 표로 간다")
+        end
+        if not reclaimed[frame] then
+            return Fail(NAME, "되찾은 표가 뺏기기 전에 받아둔 프레임을 잊었다")
+        end
+
+        -- And on a name that is already ours, nothing at all should happen.
+        DebindPrivate.ReclaimClickCastFrames()
+        if _G.ClickCastFrames ~= reclaimed then
+            return Fail(NAME, "이미 우리 것인 이름에 표를 또 얹었다 - 받아둔 목록이 날아간다")
+        end
+        if not _G.ClickCastFrames[frame] then
+            return Fail(NAME, "두 번째 회수가 받아둔 프레임을 지웠다")
+        end
+
+        return Pass(NAME, "되찾았고, 받아둔 것이 남았고, 두 번째는 no-op")
+    end,
+})
+
+-- **Does the hook stand on a real secure frame.** What the harness sees is the rule: narrowed, we
+-- put it back (`tests/frames_spec.lua`). What only the game answers is whether hanging
+-- `hooksecurefunc` on the frame's own method takes at all, and whether the call that puts it back
+-- is refused for taint.
+RegisterTest("Click-cast: another addon narrowing the frame is put back", {
+    description = "남이 RegisterForClicks/EnableMouseWheel을 좁혔을 때 우리가 되돌리는가",
+    run = function()
+        local NAME = "Click input reasserted"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 RegisterForClicks가 막힌다")
+        end
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        -- There is no getter for what was last registered, so what is measured is the call our
+        -- side makes to put it back.
+        local seen
+        local realRegisterForClicks = frame.RegisterForClicks
+        frame.RegisterForClicks = function(self, ...)
+            seen = table.concat({ ... }, " ")
+            return realRegisterForClicks(self, ...)
+        end
+        AddTeardown(function() frame.RegisterForClicks = nil end)
+
+        -- The call another click-casting engine makes to write its own edge on. A hook runs after
+        -- the original returns, so this one line has to drag our own reassert along with it.
+        frame:RegisterForClicks("AnyUp")
+        if not seen then
+            return Fail(NAME, "우리 훅이 안 돌았다 - 좁혀진 프레임이 그대로 남는다")
+        end
+        if not (strfind(seen, "AnyUp", 1, true) and strfind(seen, "AnyDown", 1, true)) then
+            return Fail(NAME, format("되돌린 값이 [%s]다 - 한쪽 엣지가 안 온다", seen))
+        end
+
+        -- And the wheel. That addon turns it off in the **line after** the one that narrows the
+        -- clicks, so hooking only the clicks leaves it off a moment after we put things back.
+        seen = nil
+        frame:EnableMouseWheel(false)
+        if not seen then
+            return Fail(NAME, "휠을 끈 호출이 되돌리기를 안 불렀다")
+        end
+
+        return Pass(NAME, seen)
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Click-time keys (what the press decides)
 -----------------------------------------------------------

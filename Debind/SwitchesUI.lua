@@ -254,6 +254,16 @@ function DebindSwitchRowMixin:OnEnter()
     GameTooltip_SetTitle(GameTooltip, self.switchName);
     if (mode == Constants.SWITCH_MODES.EXPR) then
         GameTooltip_AddNormalLine(GameTooltip, expr or "");
+
+        -- **The winning row's words, so this is the switch being wrong rather than one of its
+        -- rows.** The red itself sits on the layer row below, where the expression is edited; what
+        -- this adds is the name, because the line above it is a row of conditions and nothing in it
+        -- looks any different once one of them stops meaning anything.
+        local undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
+        if (undefined) then
+            GameTooltip_AddErrorLine(GameTooltip,
+                format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefined));
+        end
     end
 
     -- **On the row and not on the toggle**, because when this is the thing to say the toggle is
@@ -308,7 +318,7 @@ function DebindSwitchLayerRowMixin:Init(elementData)
 end
 
 function DebindSwitchLayerRowMixin:Update()
-    local mode, resetValue = DebindPrivate.GetSwitchAnswerAt(self.switchName, self.layerKey);
+    local mode, resetValue, expr = DebindPrivate.GetSwitchAnswerAt(self.switchName, self.layerKey);
     if (not mode) then
         return;
     end
@@ -334,7 +344,27 @@ function DebindSwitchLayerRowMixin:Update()
 
     local color = inForce and HIGHLIGHT_FONT_COLOR or DISABLED_FONT_COLOR;
     self.Layer:SetTextColor(color:GetRGB());
-    self.Setting:SetTextColor(color:GetRGB());
+
+    -- **Red on the answer, and it outranks the greying.** A losing row is greyed because there is
+    -- nothing to do about it, which is the opposite of what this says -- and a row losing today is
+    -- the one in force after a specialization change, so the reader has to be able to find it
+    -- before it starts deciding anything. The layer's own name keeps the grey, so which row wins
+    -- still reads the way it did.
+    --
+    -- **This is the only place a dead name inside an expression is ever shown.** Every other
+    -- reference to a switch rides on an action, which goes red and drops out of `KeyMap`; an `expr`
+    -- belongs to a definition and reaches neither (`GetUndefinedSwitchInExpr` in `Misc.lua`).
+    -- Deleting a switch leaves its references where they are on purpose (`DeleteSwitch`), and this
+    -- row is what makes that promise true for the one kind that is not an action.
+    --
+    -- **Asked only where the answer is the expression.** A row keeps the words it was given after
+    -- the reader moves it off `[식]` (`SetSwitchAnswer`), so asking regardless would redden a row
+    -- over a name it has stopped reading.
+    local undefined;
+    if (mode == Constants.SWITCH_MODES.EXPR) then
+        undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
+    end
+    self.Setting:SetTextColor((undefined and ERROR_COLOR or color):GetRGB());
 end
 
 function DebindSwitchLayerRowMixin:OnClick(button)
@@ -353,6 +383,15 @@ function DebindSwitchLayerRowMixin:OnEnter()
     GameTooltip_SetTitle(GameTooltip, DebindUI.GetLayerLabel(self.layerID));
     if (mode == Constants.SWITCH_MODES.EXPR) then
         GameTooltip_AddNormalLine(GameTooltip, expr or "");
+
+        -- Named here as well as on the switch row above, because this is the row that goes red and
+        -- the row the reader opens to fix it. A losing row only says it here: the switch itself is
+        -- working, and its tooltip has nothing to complain about.
+        local undefined = DebindPrivate.GetUndefinedSwitchInExpr(expr, self.switchName);
+        if (undefined) then
+            GameTooltip_AddErrorLine(GameTooltip,
+                format(LLL["BINDING_ERROR_UNDEFINED_STATE"], undefined));
+        end
     end
 
     local _, _, _, winner = DebindPrivate.ResolveSwitchAnswer(self.switchName);
@@ -543,6 +582,13 @@ do
     --- Asking for a name and making the switch. `onCreated` is handed the name, and is not called
     --- when nothing was made.
     ---
+    --- **The name handed over is the one `CreateSwitch` filed, not the one that was typed.** The
+    --- case is folded on the way in, and the two callers that pass an `onCreated` write the name
+    --- straight onto an action - a condition key, an on/off/toggle target. Given the typed
+    --- spelling, `$Burst` would go on an action that nothing defines a switch for, so the row goes
+    --- red and stops binding at all (`GetUndefinedSwitch`) while the list shows `$burst` made and
+    --- well.
+    ---
     --- **Three places open this box**: the button under this list, the condition menu, and an
     --- on/off/toggle action's own menu (`DropDownMenus.lua`). That is the whole point of stage
     --- 3c: making a switch belongs wherever the reader turns out to need one, not on a trip to a
@@ -555,16 +601,17 @@ do
         DebindUI.ShowInputBox({
             text = LLL["SWITCH_CREATE_PROMPT"],
             callback = function(value)
-                local name = "$" .. strtrim(value);
-                local ok, reason = DebindPrivate.CreateSwitch(name);
+                -- The second answer is the name it was filed under, or the locale key it refused
+                -- with.
+                local ok, answer = DebindPrivate.CreateSwitch("$" .. strtrim(value));
                 if (not ok) then
-                    if (reason) then
-                        DebindPrivate.DisplayMessage(LLL[reason]);
+                    if (answer) then
+                        DebindPrivate.DisplayMessage(LLL[answer]);
                     end
                     return;
                 end
                 if (onCreated) then
-                    onCreated(name);
+                    onCreated(answer);
                 end
                 -- No redraw here: `CreateSwitch` fires `OnSwitchesChanged`, and the panel rebuilds
                 -- its list off that whenever it is up.
