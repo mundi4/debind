@@ -19,12 +19,16 @@ change spans layers, land a check in each.
 The cheapest layer, and the only one that runs without the game. Use it for anything that is a
 function of its inputs — which, since `going-headless-outside-the-ui.md`, is the whole pipeline.
 
-`tests/run.lua` reads **exactly `Debind.xml`**, in its order, under a shim. That is close to
-"everything but the UI" and it is not the same thing, and the difference is the rule: **not whether
-a file is UI, but whether the function needs a frame.** `Flyout.lua` is UI, needs one, and is in
-anyway — the pipeline asks it for a flyout opener. `Public.lua` is not UI, is not in `Debind.xml`,
-and is out. `StorageUI.lua` was in for two functions that needed no frame, and went when those
-went with the bring dialog.
+`tests/run.lua` reads **`Debind.xml` plus two of `DebindUI.xml`'s**, in their order, under a shim.
+The rule is not whether a file is UI but **whether the function needs a frame**. `Flyout.lua` is UI,
+needs one, and is in anyway — the pipeline asks it for a flyout opener. `ActionDisplay.lua` and
+`ActionTooltip.lua` are UI files that need none: one resolves what an action is called, the other
+takes the tooltip as an argument, so both are in and the words a reader sees became testable with
+them. `Public.lua` is not UI, is not in `Debind.xml`, and is out. `StorageUI.lua` was in for two
+functions that needed no frame, and went when those went with the bring dialog.
+
+**The list is the answer, not this paragraph.** It has grown twice; read `tests/run.lua` before
+concluding that something is out of reach.
 
 What stands in for the client is three things:
 
@@ -120,10 +124,11 @@ thing that ever ran it was logging in on a development client.
 Needs `Constants.DEBUG` on, since the kit reaches the addon through `_G.DebindPrivate`.
 
 **What belongs here is what needs the game.** Twenty-nine cases came down to `tests/` when the
-harness learned to read the emitters and run the restricted environment, and five more on
-2026-08-23 when `GetBindingAction` learned to answer. Every one of them was a question about a
-value. What stayed asks something a client alone can answer, and **each of those carries a line
-above it saying so** — a test still here without one is a test nobody has re-read.
+harness learned to read the emitters and run the restricted environment; five more on 2026-08-23
+when `GetBindingAction` learned to answer, and three that day when `ActionDisplay.lua` and
+`ActionTooltip.lua` joined the load list. Every one of them was a question about a value. What
+stayed asks something a client alone can answer, and **each of those carries a line above it saying
+so** — a test still here without one is a test nobody has re-read.
 
 **A line saying so is not proof that it is still true.** The five that came down last were all
 carrying confident ones, and four of those named a file the harness had started loading a year

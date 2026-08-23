@@ -12,6 +12,7 @@ M.frames = frames;
 M.world = {
     spells = {},
     baseSpells = {},
+    overrideSpells = {},
     mounts = {},
     callPetSlots = {},
     flyouts = {},
@@ -501,6 +502,15 @@ function M.install()
         --- The id an override points back at. Absent from the table means "this id is its own
         --- base", which is what the client answers for every spell that is not overridden.
         FindBaseSpellByID = function(spellID) return M.world.baseSpells[spellID]; end,
+        --- The other direction: what this spell has *become*. A talent or a form replaces a spell
+        --- while it holds, and the name a reader is shown is the replacement's -- so a stand-in
+        --- that always answered the id back would hide the whole branch.
+        ---
+        --- `M.world.overrideSpells[id]` is the replacement; absent means nothing is overriding it,
+        --- which the client answers as the id itself.
+        FindSpellOverrideByID = function(spellID)
+            return M.world.overrideSpells[spellID] or spellID;
+        end,
     };
     --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
     --- flyout the world does not name answers with no slot count at all, which is the "not
@@ -537,12 +547,73 @@ function M.install()
     _G.Menu = { ModifyMenu = function() end };
     _G.MenuResponse = { Close = 1, Refresh = 2, Open = 3 };
 
+    --- The client's colour objects, down to the one method the addon uses on them. The wrap is the
+    --- real escape sequence rather than a passthrough, so a spec reading a tooltip line back sees
+    --- what a reader would -- including a colour that swallowed the text it was meant to wrap.
+    local function color(code)
+        return {
+            WrapTextInColorCode = function(_, text) return "|c" .. code .. text .. "|r"; end,
+        };
+    end
+    _G.DISABLED_FONT_COLOR = color("ff808080");
+    _G.ERROR_COLOR = color("ffff2020");
+    _G.INACTIVE_COLOR = color("ff7f7f7f");
+    _G.BRIGHTBLUE_FONT_COLOR = color("ff00b0ff");
+
+    --- **The tooltip is an argument, not a screen.** `ActionTooltip.lua` takes the frame it writes
+    --- to and knows nothing else about the client, so what it needs from here is the free functions
+    --- the client puts the lines through -- and a tooltip to collect them is `M.newTooltip()`.
+    ---
+    --- Each keeps which kind of line it was. A spec that only ever read the text back could not
+    --- tell "the reason is written" from "the reason is written in the ordinary colour", and the
+    --- error lines are the ones the tooltip exists to carry.
+    local function addLine(kind)
+        return function(tooltip, text, wrap, leftOffset)
+            tooltip.lines[#tooltip.lines + 1] = {
+                kind = kind, text = text, wrap = wrap, leftOffset = leftOffset,
+            };
+        end
+    end
+    _G.GameTooltip_AddNormalLine = addLine("normal");
+    _G.GameTooltip_AddErrorLine = addLine("error");
+    _G.GameTooltip_AddHighlightLine = addLine("highlight");
+    _G.GameTooltip_AddInstructionLine = addLine("instruction");
+    _G.GameTooltip_AddBlankLineToTooltip = function(tooltip)
+        tooltip.lines[#tooltip.lines + 1] = { kind = "blank", text = "" };
+    end
+    _G.GameTooltip_SetTitle = function(tooltip, text)
+        tooltip.lines[#tooltip.lines + 1] = { kind = "title", text = text };
+    end
+
     _G.SLASH_SCRIPT1 = "/script";
     _G.SLASH_CANCELFORM1 = "/cancelform";
     -- A pet command that has a slash command, so `GetPetActionMacroText` answers for it. The
     -- commands that have none are the ones the addon refuses to bind, and reaching that branch is
     -- a matter of naming one that is not here.
     _G.SLASH_PETATTACK1 = "/petattack";
+end
+
+--- A tooltip to draw into, and the lines it ends up holding.
+---
+--- **Only what `ActionTooltip.lua` reaches for.** It sets a minimum width and hides, and everything
+--- else it does goes through the `GameTooltip_Add…` free functions above -- so this is the whole
+--- surface, and a call outside it should fail loudly here rather than be absorbed.
+---
+--- `text()` is the reader's view: every line's text, in order, joined the way the in-game kit joins
+--- what it reads off `GameTooltipTextLeft…`.
+function M.newTooltip()
+    local tooltip = { lines = {} };
+    function tooltip:SetMinimumWidth(width, shown)
+        self.minimumWidth = width;
+        self.minimumWidthShown = shown;
+    end
+    function tooltip:Hide() self.hidden = true; end
+    function tooltip:text()
+        local parts = {};
+        for i = 1, #self.lines do parts[i] = self.lines[i].text or ""; end
+        return table.concat(parts, "\n");
+    end
+    return tooltip;
 end
 
 --- Reads the bundled libraries. They are ordinary Lua files with no addon arguments -- `LibStub`

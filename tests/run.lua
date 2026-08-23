@@ -67,10 +67,16 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 --- `local BindingDriver = DebindPrivate.BindingDriver` -- so a file read before the one that puts
 --- the value there binds nil and fails much later, somewhere else.
 ---
---- **This is exactly `Debind.xml`, and that is not the same as "everything but the UI".** The
---- two differ at both ends, and §11 of `devdocs/legacy/going-headless-outside-the-ui.md` says which
---- rule decides: whether the **function** needs a frame, not whether the file is UI.
+--- **This is `Debind.xml` plus two, and it is not "everything but the UI".** §11 of
+--- `devdocs/legacy/going-headless-outside-the-ui.md` says which rule decides: whether the
+--- **function** needs a frame, not whether the file is UI.
 ---
+---   `ActionDisplay.lua` and `ActionTooltip.lua` are `DebindUI.xml`'s and are here, in that XML's
+---     order. Neither calls `CreateFrame` or touches the screen: the first resolves what an action
+---     is called, the second **takes the tooltip as an argument** and puts its lines through the
+---     client's `GameTooltip_Add…` functions. Everything drawn anywhere reads through them, so
+---     leaving them out put the words a reader sees out of reach of every spec -- and put
+---     `ActionCatalog` out of reach too, since it asks the first one to name a row
 ---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
 ---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
 ---     along because the pipeline calls into it
@@ -97,6 +103,8 @@ local function loadAddons()
     "ActionCatalog.lua",
     "BindingContexts.lua",
     "Debind.lua",
+    "ActionDisplay.lua",
+    "ActionTooltip.lua",
     "Flyout.lua",
     "Profile.lua",
     "Legacy.lua",
@@ -170,6 +178,7 @@ local specs = {
     { name = "frames", path = root .. "/frames_spec.lua" },
     { name = "eval", path = root .. "/eval_spec.lua" },
     { name = "boundkey", path = root .. "/boundkey_spec.lua" },
+    { name = "display", path = root .. "/display_spec.lua" },
     { name = "hover", path = root .. "/hover_spec.lua" },
 };
 
