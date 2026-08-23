@@ -1220,6 +1220,30 @@ L["REJECT_IMPORT_DESC"] = "Removes this one. The string it came from stays in th
 -- **The second sentence is what makes this pressable.** Without it this reads as the destructive
 -- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
 L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%d|r actions that came in and have not been accepted?|n|nThey are removed, but the string they came from stays in the Import tab, so you can bring it in again."
+--- The one-shot in the options menu. **A sweep of what the reader already has**, not of what is
+--- arriving - two payloads made by the same person share their account layer, and bringing both in
+--- leaves that layer holding the same action twice.
+---
+--- "Duplicate" and not "identical": the client uses neither on a button, and between the two only
+--- one says the second copy is redundant rather than merely alike.
+L["REMOVE_DUPLICATES"] = "Remove Duplicate Actions"
+--- Three things the label has no room for, and each of them changes what the reader expects.
+---
+--- **Which two count as the same one**: everything about the action including the key, so two on
+--- different keys are two bindings and stay.
+--- **How far it looks**: inside one layer only. The same action on the general layer and on a
+--- specialization layer is the stack this addon is for, not a mistake.
+--- **What it keeps**: the one that fires first, so nothing about what a key does moves.
+L["REMOVE_DUPLICATES_DESC"] = "Looks for actions that are exactly the same - same key and all - sitting in the same layer, and removes the extra copies. The one that fires first stays. The same action on two different layers is left alone: that is how a specialization overrides the general list."
+--- Pressed on a profile with nothing to find. **A line rather than a box** - there is nothing to
+--- confirm and nothing to look at, and a dialog saying "no" is a dialog to dismiss.
+L["REMOVE_DUPLICATES_NONE"] = "No duplicate actions to remove."
+--- **The count is the whole question.** Naming them would be the same name repeated, which is what
+--- a duplicate is.
+---
+--- **And it says nothing is lost**, which is what makes one press over rows the reader has not
+--- looked at offerable at all: every one of these has a twin staying behind.
+L["REMOVE_DUPLICATES_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%d|r duplicate actions?|n|nEach one is an exact copy of another in the same layer, and the copy that fires first is staying. Nothing your keys do will change."
 -- **The filter dropdown, one tick per value.** Two axes, and each is written out value by value
 -- rather than as one switch that hides a side, so that every tick means the same thing: show this
 -- too. A switch called "off-spec" would mean the opposite of its neighbours - ticking it would add

@@ -218,6 +218,57 @@ function DebindPrivate.FindRepeatedActions(actions)
     return found;
 end
 
+--- Every action in the profile that repeats another one, and can go.
+---
+--- **A layer at a time, and that is the whole rule** (2026-08-23, 소유자). Two layers holding the
+--- same action is not a mistake, it is the **design**: a narrower layer covering a wider one is what
+--- the five of them are for, and folding those two together would flatten a stack the reader built
+--- on purpose. It also falls out of the signature having no address in it (`IDENTITY_FIELDS`) - the
+--- caller says what to hold against what, and here the caller says "this layer against itself".
+---
+--- **What stays is the smallest `seq`.** That is the one that fires first on its key, so it is the
+--- one the reader can see; keeping either of the others would move what the key does. Two actions
+--- with the same signature share a key by construction, so inside one layer their `seq` are 1..n and
+--- always differ - the rule is total wherever a key is involved.
+---
+--- **Keyless duplicates are in, and there `seq` decides nothing.** No key, no number
+--- (`PlaceInKeyGroup`), so every one of them holds nil and the array is the only order left. It is
+--- taken not because insertion order means anything - it is edit history - but because it is the one
+--- answer that does not move between two runs over the same profile.
+---
+--- Nothing is written here. The caller deletes, asks first, and rebuilds (`DebindUI.lua`).
+function DebindPrivate.CollectDuplicateActions()
+    local duplicates = {};
+
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        -- **Sorted before it is asked**, because `FindRepeatedActions` keeps whatever comes first
+        -- and what "first" means is this file's to decide rather than that function's. `sort` is not
+        -- stable, so the array position rides along as the tiebreak - without it the keyless case
+        -- answers differently on each pass and the reader is offered a different action to lose.
+        local ordered = {};
+        for index, action in layer:Enumerate() do
+            ordered[#ordered + 1] = { action = action, seq = action.seq, index = index };
+        end
+        sort(ordered, function(lhs, rhs)
+            if ((lhs.seq or 0) ~= (rhs.seq or 0)) then
+                return (lhs.seq or 0) < (rhs.seq or 0);
+            end
+            return lhs.index < rhs.index;
+        end);
+
+        local actions = {};
+        for i = 1, #ordered do
+            actions[i] = ordered[i].action;
+        end
+
+        for action in pairs(DebindPrivate.FindRepeatedActions(actions)) do
+            duplicates[#duplicates + 1] = action;
+        end
+    end
+
+    return duplicates;
+end
+
 local LAYER_INFOS        = {
     [1] = { key = "GENERAL" },
     [2] = { key = Constants.PLAYER_CLASS, spec = 0 },

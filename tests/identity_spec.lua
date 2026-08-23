@@ -227,5 +227,96 @@ return function(DebindPrivate)
         check(found[list[1]] == nil, "첫째는 남는다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 프로필 안의 중복
+    --
+    -- **판정은 레이어 안에서만 한다** (2026-08-23, 소유자). 서로 다른 레이어에 같은 액션이 있는
+    -- 것은 중복이 아니라 **설계**다 - 좁은 레이어가 넓은 레이어를 덮는 것이 이 애드온의 층이고,
+    -- 그 둘을 합치면 사용자가 세운 층이 무너진다.
+    --
+    -- **남는 것은 `seq`가 가장 작은 것.** 그것이 그 키를 눌렀을 때 먼저 나가는 것이라
+    -- 화면에서 보이는 값이다. 배열 순서는 삽입 이력이라 뜻이 없다(`ProfileLayerProto:Insert`가
+    -- 끝에 붙이고 편집 메뉴만 자리를 지정한다).
+    ---------------------------------------------------------------------------
+
+    --- `InitDB`가 읽는 모양 그대로. 일반 레이어와 직업 spec 0, 둘이면 "레이어를 가로지르면
+    --- 중복이 아니다"를 잴 수 있다.
+    local function ResetProfile(general, classSpec0)
+        _G.DebindVars = {
+            dbver = DebindPrivate.Constants.DB_VERSION,
+            shared = {
+                GENERAL = general or {},
+                classes = { [DebindPrivate.Constants.PLAYER_CLASS] = { [0] = classSpec0 or {} } },
+            },
+            characters = { ["Player-1-TESTGUID"] = { layers = {} } },
+            migrated = {},
+        };
+        DebindPrivate.InitDB();
+    end
+
+    local function Spell(value, key, seq)
+        return { type = DebindPrivate.Constants.SPELL, value = value, key = key, seq = seq };
+    end
+
+    local function ValuesOf(actions)
+        local out = {};
+        for i, action in ipairs(actions) do out[i] = tostring(action.value); end
+        table.sort(out);
+        return table.concat(out, " ");
+    end
+
+    test("같은 레이어 같은 키의 중복에서 seq가 큰 쪽이 집힌다", function()
+        ResetProfile({ Spell(1, "F", 2), Spell(1, "F", 1) });
+
+        local dupes = DebindPrivate.CollectDuplicateActions();
+        check(#dupes == 1, "집힌 수 " .. #dupes);
+        check(dupes[1].seq == 2, "seq 작은 쪽이 집혔다: " .. tostring(dupes[1].seq));
+    end);
+
+    -- **배열 순서로 고르면 이 테스트가 빨개진다.** 배열은 삽입 이력이라 `seq`와 어긋날 수 있고,
+    -- 위 판은 일부러 어긋나게 세웠다.
+    test("배열 순서가 아니라 seq가 고른다", function()
+        ResetProfile({ Spell(1, "F", 5), Spell(1, "F", 3), Spell(1, "F", 4) });
+
+        local dupes = DebindPrivate.CollectDuplicateActions();
+        check(#dupes == 2, "집힌 수 " .. #dupes);
+        check(ValuesOf(dupes) == "1 1", "값이 다르다: " .. ValuesOf(dupes));
+        for _, action in ipairs(dupes) do
+            check(action.seq ~= 3, "seq 3이 집혔다 - 제일 작은 것이 남아야 한다");
+        end
+    end);
+
+    -- **레이어를 가로지르는 것은 중복이 아니다.** 좁은 레이어가 넓은 것을 덮는 것이 이 애드온의
+    -- 층이라, 여기서 하나를 지우면 사용자가 세운 층이 무너진다.
+    test("다른 레이어의 같은 액션은 중복이 아니다", function()
+        ResetProfile({ Spell(1, "F", 1) }, { Spell(1, "F", 1) });
+
+        check(#DebindPrivate.CollectDuplicateActions() == 0, "레이어를 가로질러 집혔다");
+    end);
+
+    test("키가 다르면 중복이 아니다", function()
+        ResetProfile({ Spell(1, "F", 1), Spell(1, "G", 1) });
+
+        check(#DebindPrivate.CollectDuplicateActions() == 0, "키가 다른데 집혔다");
+    end);
+
+    -- **키가 없는 것들은 `seq`가 전부 nil이다**(키 없으면 번호 없음). 거기서는 배열 순서가
+    -- 유일하게 흔들리지 않는 값이라 앞엣것이 남는다 - 뜻이 있어서가 아니라 안 흔들려서다.
+    test("키 없는 중복은 배열 앞엣것이 남는다", function()
+        local first = Spell(1);
+        local second = Spell(1);
+        ResetProfile({ first, second });
+
+        local dupes = DebindPrivate.CollectDuplicateActions();
+        check(#dupes == 1, "집힌 수 " .. #dupes);
+        check(dupes[1] == second, "앞엣것이 집혔다");
+    end);
+
+    test("중복이 없으면 빈 배열", function()
+        ResetProfile({ Spell(1, "F", 1), Spell(2, "F", 2) });
+
+        check(#DebindPrivate.CollectDuplicateActions() == 0, "없는 중복이 나왔다");
+    end);
+
     return T;
 end

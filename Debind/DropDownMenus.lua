@@ -180,6 +180,23 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
         SetInstructionTooltip(addCustomTargetMenusToUnitPopupDescription, LLL["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"]);
     end
 
+    do
+        rootDescription:CreateDivider();
+
+        --- **The one item here that does something rather than remembering something.** Everything
+        --- above it is a setting the reader leaves switched; this runs once and deletes. The divider
+        --- is what keeps it from sitting shoulder to shoulder with toggles that are safe to poke,
+        --- and the client puts its own one-shot [Reset to Defaults] in a settings menu the same way.
+        ---
+        --- **It does not say how many.** Working that out means sweeping every layer, and doing it
+        --- to label a menu item is a walk on every open of a menu whose other items have nothing to
+        --- do with it. The count comes back the moment it is pressed
+        --- (`DebindUI.RemoveDuplicateActions`).
+        local removeDuplicatesDescription = rootDescription:CreateButton(
+            LLL["REMOVE_DUPLICATES"], DebindUI.RemoveDuplicateActions);
+        SetInstructionTooltip(removeDuplicatesDescription, LLL["REMOVE_DUPLICATES_DESC"]);
+    end
+
     -- do
     --     local sliderDescription = rootDescription:CreateTemplate("DebindStateDriverUpdateThrottleSliderTemplate");
     --     sliderDescription:AddInitializer(function(frame, description, menu)

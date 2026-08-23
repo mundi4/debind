@@ -478,9 +478,9 @@ local function DeleteElementData(elementData)
 	end
 
 	local layer = DebindPrivate.GetProfileLayer(elementData.layer);
-	local key = elementData.action.key;
+	local key, arrivalID = elementData.action.key, elementData.action.arrivalID;
 	layer:Remove(elementData.action);
-	layer:RenumberKeyGroup(key);
+	layer:RenumberKeyGroup(key, arrivalID);
 	DebindPrivate.UpdateBindings();
 
 	-- 목록을 프로필에서 다시 만든다. 예전에는 provider에서 그 행만 빼고 index를 다시 매겼는데,
@@ -521,19 +521,20 @@ local function DeleteActions(actions)
 		if (layer and layer:Remove(action)) then
 			removed = true;
 			if (action.key ~= nil) then
-				local keys = touched[layer];
-				if (keys == nil) then
-					keys = {};
-					touched[layer] = keys;
+				local groups = touched[layer];
+				if (groups == nil) then
+					groups = {};
+					touched[layer] = groups;
 				end
-				keys[action.key] = true;
+				groups[action.key .. "/" .. tostring(action.arrivalID)] =
+					{ key = action.key, arrivalID = action.arrivalID };
 			end
 		end
 	end
 
-	for layer, keys in pairs(touched) do
-		for key in pairs(keys) do
-			layer:RenumberKeyGroup(key);
+	for layer, groups in pairs(touched) do
+		for _, group in pairs(groups) do
+			layer:RenumberKeyGroup(group.key, group.arrivalID);
 		end
 	end
 
@@ -548,6 +549,7 @@ local function DeleteActions(actions)
 end
 
 local ShowDeleteConfirmationPopup, ShowBulkDeleteConfirmationPopup, HideDeleteConfirmationPopup;
+local ShowRemoveDuplicatesConfirmationPopup;
 local ShowRejectImportConfirmationPopup;
 do
 	local _deletePopupData;
@@ -636,8 +638,54 @@ do
 			_deletePopupData = nil;
 		end
 	end
+
+	--- Removing the duplicates the sweep found. **Its own popup rather than the bulk delete's**,
+	--- because the sentence is the difference: the bulk one asks about rows the reader picked and
+	--- can see, and this one asks about rows they have not looked at, in layers that may not be on
+	--- screen. What makes it pressable is that nothing is lost -- every one of these has a twin
+	--- staying behind -- and only its own wording can say that.
+	function ShowRemoveDuplicatesConfirmationPopup(actions)
+		HideDeleteConfirmationPopup();
+
+		_deletePopupData = {
+			text = LLL["REMOVE_DUPLICATES_CONFIRM"],
+			text_arg1 = #actions,
+			callback = function()
+				DeleteActions(actions);
+			end,
+			acceptText = YES,
+			cancelText = NO,
+			showAlert = true,
+			referenceKey = "DebindDeleteConfirmation",
+		};
+
+		StaticPopup_ShowCustomGenericConfirmation(_deletePopupData);
+		DebindFrame:UpdateButtons();
+	end
 end
 
+
+--- [Remove duplicate actions], from the options menu.
+---
+--- **The walk happens on the press, not when the menu opens.** Greying the item out would mean
+--- sweeping every layer every time somebody opens that menu to change something else, and what it
+--- would buy is one press. Pressing it on a clean profile answers in a line.
+---
+--- **The count is the whole of the question.** A duplicate is by definition indistinguishable from
+--- the one that stays -- that is what a matching signature means -- so there is no per-row fact the
+--- reader could act on differently, and a list of names would be the same name over and over. That
+--- is a different case from the preview's rows, where marking was turned down for showing something
+--- uncertain (`devdocs/building-export-import.md` 12절); a count of exact matches is not uncertain.
+---
+--- It asks because nothing here is undoable, which is the rule the bulk delete beside it keeps.
+function DebindUI.RemoveDuplicateActions()
+	local duplicates = DebindPrivate.CollectDuplicateActions();
+	if (#duplicates == 0) then
+		DebindPrivate.DisplayMessage(LLL["REMOVE_DUPLICATES_NONE"]);
+		return;
+	end
+	ShowRemoveDuplicatesConfirmationPopup(duplicates);
+end
 --- 이름 바꾸기 따위의 입력 팝업. **띄우기만 한다.**
 ---
 --- 한때 여기 `_shownInputBoxes` 표와 `HideInputBox` · `HideAllInputBoxes`가 같이 있었는데
@@ -714,8 +762,9 @@ local function MoveAction(elementData, destLayerID, copying)
 	else
 		if (not copying) then
 			local fromLayer = DebindPrivate.GetProfileLayer(fromLayerID);
+			local fromKey, fromArrival = action.key, action.arrivalID;
 			fromLayer:Remove(action);
-			fromLayer:RenumberKeyGroup(action.key);
+			fromLayer:RenumberKeyGroup(fromKey, fromArrival);
 		end
 	end
 
