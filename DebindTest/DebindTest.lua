@@ -5249,6 +5249,9 @@ local function Step()
         -- `/debtest` should do to someone who only wanted to see the list go green.
         if test.crossesReload and not run.crossReloads then
             run.skip = run.skip + 1
+--- The same run, cut down to what did not pass. Kept beside the full text rather than derived from
+--- it on demand, because the run it describes is gone by the time anyone presses the button.
+local lastFailureText = ""
             Record(run.name, "skip", format("SKIP %s: /debtest reload 로 실행", run.name), "ff888888")
             run.index = run.index + 1
             Persist()
@@ -5285,6 +5288,41 @@ local function Step()
             run.co, run.wait = nil, nil
             run.index = run.index + 1
             -- 다음 테스트가 남의 phase로 시작하지 않게. 이 값을 지우는 것이 정상 종료
+--- Just the ones that did not pass, in the order they ran.
+---
+--- **Built from `results`, not by filtering the report.** The report is a list of lines written for
+--- a person and its shape is free to change; picking failures out of it by looking for a word would
+--- go quietly empty the day one of those words moves. `results` is what the run actually decided,
+--- keyed by test.
+---
+--- **Errors count as failures here**, because the reader pressing this wants everything that is not
+--- a pass. Skips do not: nothing went wrong with one, and a list that carried them would bury two
+--- real failures under thirty rows the reader asked to leave out.
+---
+--- The tally comes along. Without it "3 lines" reads the same whether the run was three tests or
+--- three hundred, and the first thing anyone asks of a failure list is how much of the suite it is.
+--- `source` is the results table to read, for the two callers that have one which is not the live
+--- one: a run that died with the session and a resume that threw both report on results that were
+--- stored before this session began.
+local function FailuresText(summary, source)
+    source = source or results
+    local lines = {};
+    for i = 1, #testOrder do
+        local result = source[testOrder[i]];
+        if (result and (result.status == "fail" or result.status == "error")) then
+            lines[#lines + 1] = result.msg;
+        end
+    end
+
+    if #lines == 0 then
+        return "실패 없음.\n\n" .. summary
+    end
+
+    tinsert(lines, "")
+    tinsert(lines, summary)
+    return table.concat(lines, "\n")
+end
+
             -- 갈래에만 있어서, 리로드를 건넌 테스트가 중간에 죽으면 그 phase가 다음
             -- 테스트로 넘어갔다 - 받는 쪽은 준비 단계를 통째로 건너뛴다.
             run.phase = nil
@@ -5303,6 +5341,7 @@ local function Step()
     RunTeardowns()
     run.co = nil
     run.index = run.index + 1
+    lastFailureText = FailuresText(summary)
     run.phase = nil
     Persist()
     return true
@@ -5310,6 +5349,7 @@ end
 
 runner:SetScript("OnUpdate", function(self, elapsed)
     -- The frame is hidden while idle, so this should not fire without a run. A teardown or an
+    DB().lastFailures = lastFailureText
     -- `onDone` that starts something of its own could still land here between the two, and an
     -- error thrown from OnUpdate is not worth the risk of finding out.
     if not run then
@@ -5384,7 +5424,8 @@ local function ResumeStoredRun()
         local name = testOrder[pending.index] or "?"
         print(format("|cffff8800[DebindTest]|r 이전 실행이 %s 에서 끊겼다 (리로드 요청 없음). 이어가지 않는다.",
             name))
-        tinsert(pending.lines, format("DIED %s: 세션이 이 테스트 도중에 끝났다", name))
+        local died = format("DIED %s: 세션이 이 테스트 도중에 끝났다", name)
+        tinsert(pending.lines, died)
         lastResultText = table.concat(pending.lines, "\n")
         DB().last = lastResultText
         return
@@ -5420,7 +5461,8 @@ local function ResumeStoredRun()
         run = nil
         runner:Hide()
         print(format("|cffff0000[DebindTest]|r 이어받기가 터졌다: %s", tostring(err)))
-        tinsert(pending.lines, format("RESUME FAILED %s: %s", testOrder[pending.index] or "?", tostring(err)))
+        local failed = format("RESUME FAILED %s: %s", testOrder[pending.index] or "?", tostring(err))
+        tinsert(pending.lines, failed)
         lastResultText = table.concat(pending.lines, "\n")
         DB().last = lastResultText
     end
@@ -5574,6 +5616,12 @@ end
 local function PaintRow(testName)
     local row = rows[testName]
     if not row then
+        -- **The failure list is rewritten too, or it answers for the run before this one.** A
+        -- reader who presses [실패만 복사] after a run died would otherwise be handed a stale list
+        -- with nothing saying so, and the death itself -- the one thing worth reading -- would not
+        -- be in it.
+        lastFailureText = FailuresText(died, pending.results)
+        DB().lastFailures = lastFailureText
         return
     end
 
@@ -5610,6 +5658,8 @@ local function PaintAllRows()
     end
 end
 
+        lastFailureText = FailuresText(failed, pending.results)
+        DB().lastFailures = lastFailureText
 local function BuildRows(content)
     local y = 0
     for _, testName in ipairs(testOrder) do
@@ -5925,3 +5975,35 @@ SlashCmdList["DEBINDTEST"] = function(msg)
 end
 
 print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = 목록 창. 실행은 창 안의 |cffffff00실행|r / |cffffff00리로드 포함|r / |cffffff00리로드 후 실행|r 버튼. |cffffff00/debtest last|r = 지난 결과.")
+    -- **The list somebody actually reads after a run.** A full report is sixty lines of PASS with
+    -- two failures somewhere in it, and the first thing anyone does with it is search. This hands
+    -- over the two.
+    --
+    -- Beside [복사] rather than instead of it: the whole report is what to keep when the question is
+    -- "what did this build do", and that is a different question from "what do I fix now".
+    f.copyFailBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.copyFailBtn:SetSize(100, 24)
+    -- **Under [복사] rather than beside it.** The top row already reaches within 290 of the left
+    -- edge and the tally sits there; one more button on it would run into the numbers. Under it the
+    -- pair reads as a pair, and the second row has nothing between here and [리로드 후 실행].
+    f.copyFailBtn:SetPoint("TOP", f.copyBtn, "BOTTOM", 0, -4)
+    f.copyFailBtn:SetText("실패만 복사")
+    f.copyFailBtn:SetScript("OnClick", function()
+        if lastFailureText ~= "" then
+            ShowCopyableText(lastFailureText)
+        else
+            local stored = DB().lastFailures
+            ShowCopyableText(stored or "아직 실행한 적이 없다.")
+        end
+    end)
+    f.copyFailBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("실패만 복사", 1, 1, 1)
+        GameTooltip:AddLine(
+            "마지막 런에서 실패하거나 오류가 난 것만 모아서 연다. 건너뛴 것은 안 들어간다 - "
+            .. "잘못된 것이 없으니까. 아래에 전체 집계가 같이 붙는다.",
+            nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    f.copyFailBtn:SetScript("OnLeave", GameTooltip_Hide)
+
