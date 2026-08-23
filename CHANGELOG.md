@@ -16,6 +16,8 @@ What is kept there is a payload, and there are two ways to get one: **New Payloa
 
 **What arrives keeps the key it was sent on.** It used to be parked on a key of its own with a number where the key goes, and that number was the only thing telling one arrival from another. An arrival now sits on its real key and stays a set of its own, so you can see what it would do before accepting it, and your set on that key is not touched. Accepting a whole key at once asks which side wins: **Keep Existing**, **Take Incoming** or **Merge**.
 
+**A switch itself does not travel with the code.** The actions do, and each one reads whichever switch of yours carries that name, so a payload built around `$burst` starts working the moment you have a `$burst` of your own. Until then those actions sit red and say which name they are missing. Nothing that arrives writes a switch, because a switch is shared by everything in your profile and writing one would change what your existing actions do before you had accepted anything.
+
 **Share codes made here cannot be read by 3.2.** What an action looks like on the wire changed, and an older build says so rather than guessing. Codes and pending payloads from 3.2 are read here exactly as before.
 
 **Your unit frame bindings now reach the frames other addons draw.**
