@@ -710,12 +710,15 @@ end
 --- **The items say how, because the button already said what.** Repeating the verb inside would
 --- leave the reader reading the same words twice to find the one clause that differs.
 local function SetupAddMenu(_, rootDescription)
-    rootDescription:CreateButton(LLL["STORAGE_ADD_QUARANTINED"], function()
+    local description = rootDescription:CreateButton(LLL["STORAGE_ADD_QUARANTINED"], function()
         DebindStoragePanel:OnAddClicked();
     end);
-    rootDescription:CreateButton(LLL["STORAGE_ADD_KEYED"], function()
+    DebindUI.SetInstructionTooltip(description, LLL["STORAGE_ADD_QUARANTINED_DESC"]);
+
+    description = rootDescription:CreateButton(LLL["STORAGE_ADD_ACCEPTED"], function()
         DebindStoragePanel:OnAddClicked(true);
     end);
+    DebindUI.SetInstructionTooltip(description, LLL["STORAGE_ADD_ACCEPTED_DESC"]);
 end
 
 function DebindStoragePanelMixin:OnLoad()
@@ -1123,22 +1126,27 @@ end
 
 --- An entry's ticked actions go into the profile.
 ---
---- `keepKeys` is the second of the two ways in: on the keys they were sent on, accepted, rather
---- than parked on numbers with a badge. One function because everything after the press is the
---- same question, and two menu items because the choice is the reader's.
+--- **Both menu items land the same way**, badged, and `accept` says whether to take the badges off
+--- again on the spot. It used to be a flag that reached down into the plan and left the badge off,
+--- which put the actions live on the sender's keys with nothing asked -- and where the reader
+--- already used one of those keys, that is a merge they never chose. Accepting is the path that
+--- asks about exactly that, so the second item goes through it (2026-08-23, 소유자).
 ---
---- **The message afterwards is not decoration.** What lands the first way is quarantined and greyed
---- out, so from the reader's side the screen barely moves: without a line saying what happened and
---- where to go next, a press that did a lot looks like a press that did nothing.
-function DebindStoragePanelMixin:OnAddClicked(keepKeys)
+--- **The message afterwards is not decoration.** What lands is quarantined and greyed out, so from
+--- the reader's side the screen barely moves: without a line saying what happened and where to go
+--- next, a press that did a lot looks like a press that did nothing.
+---
+--- **Which line depends on what the approval did, not on what was asked for.** A key nobody uses is
+--- accepted where it stands and the actions are live; an occupied one puts a prompt up, and until
+--- it is answered the true thing to say is what the other item's line says.
+function DebindStoragePanelMixin:OnAddClicked(accept)
     local entry = self.selectedEntry;
     if (not entry) then
         return;
     end
 
-    local placed, skipped = Store().CommitEntry(entry, {
+    local placed, skipped, actions = Store().CommitEntry(entry, {
         selection = self.selected,
-        keepKeys = keepKeys,
     });
 
     if (not placed) then
@@ -1146,8 +1154,10 @@ function DebindStoragePanelMixin:OnAddClicked(keepKeys)
         return;
     end
 
+    local accepted = accept and DebindFrame:ApproveArrivals(actions);
+
     DebindPrivate.DisplayMessage(format(
-        LLL[keepKeys and "IMPORT_COMMITTED_KEYED" or "IMPORT_COMMITTED"], placed));
+        LLL[accepted and "IMPORT_COMMITTED_KEYED" or "IMPORT_COMMITTED"], placed));
     -- Layers a newer schema invented and this one cannot place. Said separately because it is the
     -- one case where the count above is not the whole string. **Actions the reader unticked are
     -- not in here** - they said no, which is not this version having nowhere to put it.

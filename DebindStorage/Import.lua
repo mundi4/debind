@@ -734,8 +734,11 @@ end
 --- landing on a key the reader used could not become a merge they cannot undo. The pair does that
 --- job now without taking the key away, and what the rename cost is in the same 12절.
 ---
---- `options.keepKeys` leaves the badge off, which is the accepted-on-arrival verb: the actions land
---- live, on the keys they were sent on.
+--- **Everything lands badged, and there is no option for otherwise** (2026-08-23, 소유자). There was
+--- one: the accept-on-arrival verb skipped the badge and put the actions straight on the sender's
+--- keys. That is the same thing accepting does, and accepting asks first where a key is already in
+--- use -- so the door that skipped the badge was the door that skipped the question. That verb
+--- lands here like any other now and runs the approval afterwards (`DebindFrameMixin:ApproveArrivals`).
 ---
 --- `options.selection` is a set of the payload's action tables to take, or nil for all of them.
 --- **Unticked is not skipped** -- that is an answer the reader gave, where `skipped` counts what
@@ -750,13 +753,11 @@ end
 function DebindStorage.PlanArrival(payload, options)
     local placements, skipped = {}, 0;
     local selection = options and options.selection;
-    local keepKeys = options and options.keepKeys;
     -- **One number for the whole call**, because one call is one arrival. Every action of it lands
     -- badged with the same value, which is what keeps a set that spans four layers one set.
     --
-    -- **Asked for lazily.** A plan that places nothing spends no number, and `keepKeys` never asks
-    -- at all. The counter only ever counts up, so a plan that is built and then thrown away costs
-    -- nothing but a gap.
+    -- **Asked for lazily.** A plan that places nothing spends no number. The counter only ever
+    -- counts up, so a plan that is built and then thrown away costs nothing but a gap.
     local arrivalID;
 
     DebindStorage.ForEachPayloadLayer(payload, function(list, listScope, listClass, listSpec)
@@ -776,13 +777,10 @@ function DebindStorage.PlanArrival(payload, options)
             if (not selection or selection[source]) then
                 local action = BuildAction(source);
 
-                -- **The badge, unless the reader asked for these live.** Nothing else is done to the
-                -- key: it is the sender's, it is a real key, and it is half of the group this action
-                -- lands in.
-                if (not keepKeys) then
-                    arrivalID = arrivalID or DebindPrivate.NextArrivalID();
-                    action.arrivalID = arrivalID;
-                end
+                -- **The badge. Nothing else is done to the key**: it is the sender's, it is a real
+                -- key, and it is half of the group this action lands in.
+                arrivalID = arrivalID or DebindPrivate.NextArrivalID();
+                action.arrivalID = arrivalID;
 
                 -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
                 -- here as well so a hand-made string cannot walk one in: a number is a place among
@@ -831,5 +829,14 @@ function DebindStorage.CommitEntry(entry, options)
 
     DebindPrivate.PlaceArrivedActions(placements);
 
-    return #placements, skipped;
+    -- **What went in, for the caller that has something else to do to it.** The tables here are the
+    -- ones now sitting in the profile - `PlaceArrivedActions` inserts these, it does not copy them -
+    -- so accepting this arrival and no other is a matter of handing this list on
+    -- (`DebindFrameMixin:ApproveArrivals`).
+    local actions = {};
+    for i = 1, #placements do
+        actions[i] = placements[i].action;
+    end
+
+    return #placements, skipped, actions;
 end

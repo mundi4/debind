@@ -459,7 +459,7 @@ L["APPROVE_IMPORT"] = "내 것으로 받기"
 -- `COMMUNITIES_MEMBER_LIST_PENDING_INVITE_HEADER` = "대기 중인 초대 (%d)"). 영어는 `|4`로 수를
 -- 맞추는데 한국어는 수 일치가 없고, "개"가 이미 수량 단위라 "행동"을 안 붙인다
 -- (`OVERVIEW_NO_KEY_COUNT`과 같은 이유).
-L["IMPORT_PENDING"] = "대기 중 %d개"
+L["IMPORT_PENDING"] = "대기 중 %d개..."
 L["IMPORT_PENDING_DESC"] = "문자열로 들어왔지만 아직 안 받은 것들입니다. 받기 전에는 아무 일도 안 하고, 원래 쓰시던 키도 그대로입니다. 개수는 지금 전문화가 아닌 곳에 내려앉은 것까지 포함한 전부입니다."
 L["IMPORT_PENDING_INSTRUCTION"] = "클릭하면 전부에 할 수 있는 일이 나옵니다."
 L["APPROVE_ALL_IMPORT"] = "모두 받기"

@@ -298,6 +298,19 @@ L["KEY_CAPTURE_MORE"] = "...and %d more"
 --- reaches, and that is said by where the reader clicked and by the tooltip below. Two keys and not
 --- one, so the two tooltips can never be made to share a sentence they only half fit.
 L["ACTION_SET_KEY"] = "Assign a key"
+-- The same item on a row that arrived and has not been accepted. **Giving one a key accepts it**
+-- (`DebindFrameMixin:SetActionKey`), which the reader had no way of knowing before pressing.
+--
+-- **The three words stay, and a clause goes after them** (2026-08-23, 소유자). They are the act's
+-- name at every scope it is offered at, so replacing them here would make this look like a
+-- different operation; what is added is the half that is true only on this row.
+--
+-- **`&`, and it is doing a different job from the client's** (2026-08-23, 소유자). The client keeps
+-- the ampersand for pairs of nouns ("Dungeons & Raids") and spells the word out on a button that
+-- does two things ("Save and Exit"). In a menu the two halves have to be told apart at a glance
+-- from the item above, which is the first half on its own - the ampersand is the mark that reads as
+-- a join before the words are read at all.
+L["ACTION_SET_KEY_ACCEPT"] = "Assign a key & Accept"
 --- **The one thing this has to say is what happens to the rest.** A key's actions are told apart by
 --- conditions, on purpose - so a row walking off to its own key produces no error, no warning and
 --- nothing on screen that looks wrong. The reader finds out later, when two keys each do half of
@@ -328,6 +341,15 @@ L["ACTION_SET_KEY"] = "Assign a key"
 --- "Group" is not available for any of it: in this window that word is the party/raid kind
 --- (`CONDITION_GROUP`).
 L["ACTION_SET_KEY_DESC"] = "Sets the key for this action.|n|nIf this action is part of a set sharing one key, only this action changes - the rest keep the key they are on. Both keys still work; they just stop working as one."
+-- The same item on a row that arrived, where the line above is **false**: "both keys still work" is
+-- what happens between two sets of the reader's own, and the set this one is leaving is pending - so
+-- its key does nothing at all.
+--
+-- **And the warning does not come back in another form** (2026-08-23, 소유자). It is there above
+-- because a set of the reader's own comes apart with nothing to show for it until both halves fire.
+-- What is left behind here is drawn in the arrival's blue and is still sitting on screen, so the
+-- reader is told by the list rather than by a sentence.
+L["ACTION_SET_KEY_ACCEPT_DESC"] = "Sets the key for this action and takes it: it starts working on that key."
 --- Asked when the key that was pressed is already carrying something.
 ---
 --- **The count is what this dialog is for.** The walk behind it reaches every layer this character
@@ -458,44 +480,42 @@ L["KEY_HEADER_SET_KEY"] = "Assign a key"
 --- word that would make this promise more than it does: these take what is drawn under this one
 --- heading and nothing else.
 ---
---- **A singular of its own**, because "the 1 still waiting" is not English and falling back to
---- "Accept as mine" would put the pointing problem back - over twelve rows that label reads as all
---- of them.
+--- **A singular of its own**, because "the 1 still waiting" is not English and falling back to the
+--- bare `APPROVE_IMPORT` would put the pointing problem back - over twelve rows, a label with no
+--- count in it reads as all of them.
 L["KEY_HEADER_APPROVE"] = "Accept the %d still waiting"
 L["KEY_HEADER_APPROVE_ONE"] = "Accept the one still waiting"
 L["KEY_HEADER_REJECT"] = "Reject the %d still waiting"
 L["KEY_HEADER_REJECT_ONE"] = "Reject the one still waiting"
---- The other end of the heading's key axis. A menu that can give a key but not take one back sends
---- the reader looking for the other half.
----
---- **The reach is what the label cannot say**, and it is the same debt the conflict prompt pays: the
---- set is collected from every layer this character has, so some of what steps off the key is not on
---- screen. That they stay together afterwards is the second half - it is what makes this different
---- from taking the key off each of them, and a set that comes apart here could not be put back.
-L["KEY_HEADER_UNBIND_DESC"] = "Every action under this heading steps off the key together, wherever it lives - another specialization's included. They stay one set: nothing is deleted and they keep their order, they are simply on no key until you give them one."
+-- **[Unbind] came off the heading's menu** (2026-08-23, 소유자) and this went with it. The other end
+-- of that axis is a button on the window [Assign a key] opens, over the same set, so the menu item
+-- was a second door to it that could scatter a set without the reader having gone to decide its
+-- key. What the sentence here explained lives on that button now.
 --- **This is where the label's missing half went, so the first line has to carry it**: one key, the
---- whole set, at once. The heading is also where the reach can be misread on its own - a folded one
---- draws a single action name and a count - which is what "folded or not" is answering.
+--- whole set, at once.
+---
+--- **The tail is the part the reader cannot check** (2026-08-23, 소유자). It read "folded or not, and
+--- however many of them there are", which answers a hazard nobody has: a folded heading is still
+--- that heading, and the count is not a danger. What is actually out of sight is that the set is
+--- collected from every layer this character has, so a specialization they are not in changes too.
 ---
 --- No warning about the set coming apart, which is the row tooltip's job. From here there is no one
 --- row on offer - the heading cannot pick one out - so the sentence would be describing something
 --- this menu cannot do.
 ---
---- **It said one more thing and no longer does: that this accepts whatever is still waiting.** True,
---- and worth saying somewhere - deciding a key is the same decision, and the badge comes off with it
---- (`SetKeyForActions`). It came out because **this item is on every heading**, so that sentence was
---- being read by everyone who has never taken a string from anybody, and it teaches a whole
---- vocabulary they have no use for. The reader it was for meets that vocabulary in the places that
---- belong to it - the badged row's own tooltip, the accept button beside it, the import strip - and
---- meets this heading already tinted for the same reason.
----
---- **And `ACTION_SET_KEY_DESC` never said it**, so one of the two carrying it made the two items
---- look like different operations. They open the same dialog and settle the same thing.
+--- **That it accepts what is waiting is the arrival's line, not this one.** Deciding a key is that
+--- decision and the badge comes off with it (`SetKeyForActions`), but **this item is on every
+--- heading** - saying it here teaches a vocabulary to everyone who has never taken a string from
+--- anybody. The heading that arrived has a string of its own, and a label that says it out loud.
 ---
 --- It said "the key you press" too, and that is wrong here for the reasons it was wrong there: the
 --- answer can be a mouse button or the wheel, and [Unbind Key] presses nothing and still settles
 --- the whole set. How the key arrives is `KEY_CAPTURE_DESC`'s line.
-L["KEY_HEADER_SET_KEY_DESC"] = "Sets one key for every action under this heading, in one go - folded or not, and however many of them there are."
+L["KEY_HEADER_SET_KEY_DESC"] = "Sets one key for every action under this heading, in one go - including any in specializations you are not in."
+-- The same item over a heading that arrived. **Nothing is left behind here**, which is the one way
+-- it differs from the row's: the press takes the whole set, so there is no half still pending to
+-- warn about. The reach is still what the label cannot say.
+L["KEY_HEADER_SET_KEY_ACCEPT_DESC"] = "Sets one key for every action under this heading and takes them all, in one go - including any in specializations you are not in."
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
@@ -666,7 +686,19 @@ L["OVERVIEW_DESC"] = "Everything in this character's bindings, grouped by the ke
 -- it would put a third word (수락) beside the two this feature already uses on the same screen -
 -- "Accept as mine" in the menu, "Accept all %d" in the strip. One thing, one name per screen.
 L["ORDER_ACCEPT"] = "Accept"
-L["ORDER_ACCEPT_DESC"] = "Take this one as yours. Its key starts working now; the rest of what came in stays switched off."
+-- **The one thing the label cannot say** (2026-08-23, 소유자): the press is the moment the key goes
+-- live. It also said "take this one as yours", which is the label again in other words, and that the
+-- rest of the arrival stays pending - a thing nobody reads the item as doing, since the menu was
+-- opened over one row and its title names that row.
+L["ORDER_ACCEPT_DESC"] = "This one starts working on the key it came in on."
+-- **The same press on something that arrived with no key** (2026-08-23, 소유자). The line above is
+-- false there and false in the way that costs most: it names an outcome the reader then goes looking
+-- for. Nothing about the screen changes on this press except that the row stops being pending, so
+-- the sentence has to be the part that is still missing.
+--
+-- The item under it does both halves in one press (`ACTION_SET_KEY_ACCEPT`), which is what a reader
+-- who wanted this working wants instead.
+L["ORDER_ACCEPT_NO_KEY_DESC"] = "This one came in with no key. Accepting takes it, but it does nothing until you give it one."
 L["ORDER_MOVE_UP"] = "Run Sooner"
 L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key. Nothing else about it changes."
 L["ORDER_MOVE_DOWN"] = "Run Later"
@@ -1085,7 +1117,12 @@ L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this 
 -- is the only thing holding it back, so this press puts it live. It used to be the opposite - what
 -- arrived sat on a number the build skipped - and the sentence that said so went with the number
 -- (`devdocs/building-export-import.md` 12절).
-L["APPROVE_IMPORT"] = "Accept as mine"
+--
+-- **"As mine" came off** (2026-08-23, 소유자). It marked the answer while there was nothing else in
+-- the menu it could be confused with; the item beside it now is the same verb with a key picked
+-- first, and the two read as a pair only if the plain one is plain. `ORDER_ACCEPT` on the row is
+-- the same word for the same press, which is what one thing having one name means.
+L["APPROVE_IMPORT"] = "Accept"
 -- The row above the two columns, which is the only thing on that row while anything is waiting.
 --
 -- **It names the state, and the two answers to it are in the menu it opens.** Two buttons stood
@@ -1103,7 +1140,12 @@ L["APPROVE_IMPORT"] = "Accept as mine"
 -- **"Action" is the reader's word for the thing being counted** and this window already counts them
 -- that way (`OVERVIEW_NO_KEY_COUNT`). `|4` is the client's own plural form, resolved when the
 -- string is drawn rather than by `format`.
-L["IMPORT_PENDING"] = "%d Pending |4Action:Actions;"
+--
+-- **It breaks off** (2026-08-23, 소유자). The press opens a menu rather than doing anything, and a
+-- label that names a state on a button that acts is the one shape a reader cannot tell apart from a
+-- label that names a state on a button that asks. The tab's own [Add to My Setup...] breaks off for
+-- the same reason.
+L["IMPORT_PENDING"] = "%d Pending |4Action:Actions;..."
 -- **Two facts, and the reader needs both before opening the menu.** What the state means - none of
 -- this is doing anything - and how far the count reaches, which is the one thing they cannot see
 -- from here (the same reason `APPROVE_ALL_IMPORT_DESC` has to say "wherever it went").
@@ -1137,19 +1179,31 @@ L["APPROVE_ALL_IMPORT"] = "Accept all"
 L["APPROVE_ALL_IMPORT_DESC"] = "Accepts everything that is still waiting, wherever it went, including other specializations. They start working on the keys they came in on. If any of those is a key you already use, you will be asked what to do about it first."
 -- Asked once for the whole batch, when accepting would take keys the reader is using.
 --
--- **Two numbers, and they count different things.** The first is how many actions start working,
--- which is what the reader pressed for. The second is how many of their own key groups are standing
--- on the contested keys, which is what the answer decides the fate of.
+-- **Two doors reach it and the sentence has to be true from both** (2026-08-23, 소유자). [Accept
+-- all] takes every badge in the profile, so it opened "%d actions are waiting" - which the storage
+-- tab's [Add and Accept] makes false twice over: nothing was waiting, since that press is what put
+-- them there, and the count is what that press placed rather than the backlog. What both have in
+-- common is the moment: some keys are about to change hands.
 --
--- Groups and not actions in that second number, because that is the unit at risk: taking a key off
--- four actions leaves four loose ones and no record that they went together
--- (`KEY_GROUP_CONFLICT_UNBIND_DESC`).
+-- **Two numbers, and they count different things.** The first is how many actions start working,
+-- which is what the reader pressed for. The second is how many of their own are standing on the
+-- contested keys, which is what the answer decides the fate of.
+--
+-- **Both count actions** (2026-08-23, 소유자). The second one counted key groups, on the grounds
+-- that a group is the unit at risk - taking a key off four actions leaves four loose ones and no
+-- record that they went together (`KEY_GROUP_CONFLICT_UNBIND_DESC`). A group is not a thing the
+-- reader has ever been shown a count of, though, and two numbers in one sentence counting two
+-- different units is a sentence nobody can read at speed.
+--
+-- **And a hedge went with it.** It read "some of them came in on keys you already use", which is a
+-- vague quantity standing in front of an exact one. There was nothing for the vagueness to cover
+-- once both numbers count the same thing.
 --
 -- **The question asks who gets the key, not what happens to one side.** It read "What should happen
 -- to yours?" while the answers were two, and stayed there when a third was added - at which point
 -- [Merge] was not an answer to the question above it. Every one of the three names a winner, so the
 -- question has to be the one they all answer.
-L["APPROVE_ALL_OCCUPIED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$d|r actions are waiting, and some of them came in on keys you already use - |cnHIGHLIGHT_FONT_COLOR:%2$d|r of your key groups are on those keys.|n|nWho gets those keys?"
+L["APPROVE_ALL_OCCUPIED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$d|r actions are about to take the keys they came in on, and |cnHIGHLIGHT_FONT_COLOR:%2$d|r of yours are on those keys already.|n|nWho gets those keys?"
 -- **The answer that changes nothing of what is already there**, and first because that is where
 -- Enter lands.
 --
@@ -1306,8 +1360,8 @@ L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anyw
 -- The other way in. **Both halves are said** because a string can hold either kind: what the sender
 -- had on a key is on that key now, and what they had not bound yet cannot be, so it lands the same
 -- way everything else does.
-L["IMPORT_COMMITTED_KEYED"] = "Brought in %d actions on the keys they came with. Anything that arrived without one is switched off until you give it a key."
-L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you accept them - a row for doing that is now at the top of the window."
+L["IMPORT_COMMITTED_KEYED"] = "Brought in %d actions on the keys they came with. Anything that arrived without one is unbound until you give it a key."
+L["IMPORT_COMMITTED"] = "Brought in %d actions. They are pending until you accept them - a row for doing that is now at the top of the window."
 -- **Two things reach this and neither is the reader's doing**, so it names both rather than picking
 -- one: a specialization this character's class does not have, and a layer a newer Debind invented.
 -- It used to say only the second, and the first is the one that actually turns up.
@@ -1350,7 +1404,7 @@ L["STORAGE_CREATE"] = "New Payload"
 --
 -- It says the two directions rather than the contents: a payload is worth having because it goes
 -- somewhere, and both places it goes are one press away on this screen.
-L["STORAGE_CREATE_TOOLTIP"] = "A payload is a set of actions kept aside from your bindings. You can add one back to your setup later, or hand it to somebody else as a share code."
+L["STORAGE_CREATE_TOOLTIP"] = "A payload is a saved set of actions, kept outside your bindings. Add one to your bindings later, or send it to somebody as a share code."
 -- The press, in the line the client keeps for what a click does.
 L["STORAGE_CREATE_INSTRUCTION"] = "Click to make one out of everything this character has right now."
 -- **Not "Import", which the client owns and spends on something else.** Every one of those buttons
@@ -1378,17 +1432,35 @@ L["STORAGE_PASTE"] = "Paste Share Code"
 -- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
 -- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
 -- when it is done is enUS and koKR only.
--- Taking the arrival on the sender's keys, switched on. **"Their keys" rather than "the keys"**:
--- whose they are is the whole of what is being decided, since landing on one the reader already
--- uses puts two sets on one key.
+-- **"With Their Keys" came off** (2026-08-23, 소유자). It named the whole of what the answer decided
+-- while an arrival was parked on a number of ours; since the badge became the only thing holding
+-- one back, an arrival carries the sender's key from the moment it lands and accepting is what lets
+-- that key fire. The clause said what `Accept` already says.
+L["STORAGE_ADD_ACCEPTED"] = "Add and Accept"
+-- **The second sentence is the same one the other door to that prompt uses**
+-- (`APPROVE_ALL_IMPORT_DESC`). One question asked from two places is announced the same way, or the
+-- reader meets a prompt one of them never mentioned.
 --
--- **The verb came off it** (2026-08-23, 소유자). It is one of two items under a button that already
--- says [Add to My Setup...], and what the two differ by is the state the actions land in.
-L["STORAGE_ADD_KEYED"] = "Switched On, on Their Keys"
--- The other item on that menu, and the one the reader wants nine times out of ten. **It says the
--- state the actions land in**, because that is the whole of what the two items differ by and the
--- verb is already on the button above them.
-L["STORAGE_ADD_QUARANTINED"] = "Switched Off Until I Accept Them"
+-- **No warning that accepting cannot be undone.** True of accepting wherever it is pressed rather
+-- than of this item, and a warning on the ordinary choice is what turns a decision into a hazard.
+L["STORAGE_ADD_ACCEPTED_DESC"] = "They start working straight away, on the keys they came in on. If any of those is a key you use, you are asked what to do about it first."
+-- **What the label leaves out is that nothing of the reader's moves**, which is the reason to pick
+-- this item at all: "pending" says they are waiting and says nothing about what happens to the keys
+-- already in use.
+--
+-- It named the row in Overview where a pending arrival is accepted. That is one of three places
+-- accepting is offered - the row's own button and its menu are the others - so the sentence was
+-- wrong about the only part it added, and the count is on screen the moment the reader gets there.
+L["STORAGE_ADD_QUARANTINED_DESC"] = "They go into your bindings doing nothing, and none of your keys change until you accept them."
+-- The other item on that menu, and the one the reader wants nine times out of ten.
+--
+-- **No switch on this tab** (2026-08-23, 소유자). It read "Switched Off Until I Accept Them", which
+-- drags a word this addon has a whole tab of into a screen that has nothing to do with one - and
+-- promises a thing that flips both ways, where accepting an arrival is a door that only opens one
+-- way (`ApproveArrivedActions` is the only writer, and nothing puts the badge back).
+--
+-- `Pending` is what the overview's button and filter already call this state (`IMPORT_PENDING`).
+L["STORAGE_ADD_QUARANTINED"] = "Add as Pending"
 L["STORAGE_COPY"] = "Create Share Code"
 -- **The destination, because `Add` on its own points at the list.** This said the client's `ADD`,
 -- and in the client that word sits on buttons that put a row in a list: add a friend, add to the
@@ -1396,16 +1468,24 @@ L["STORAGE_COPY"] = "Create Share Code"
 -- a list and a button beside it read the third one as another of those.
 --
 -- **Not "keys" and not "this character".** Neither is true. Nothing new turns up under a key while
--- an arrival is still switched off, and where an action lands is what its own address says, which
--- can be a place every character shares.
+-- an arrival is still pending, and where an action lands is what its own address says, which can be
+-- a place every character shares.
 --
--- **"My Setup" and not "My Actions"** (2026-08-23, 소유자). The other end of the same press is a
--- payload, which is a set of actions (`STORAGE_CREATE_TOOLTIP`); naming both ends "actions" makes
--- the sentence say a thing goes into itself. What it goes into is the lot of what the reader has.
+-- **Not "My Actions"** (2026-08-23, 소유자). The other end of the same press is a payload, which is
+-- a set of actions (`STORAGE_CREATE_TOOLTIP`); naming both ends "actions" makes the sentence say a
+-- thing goes into itself. What it goes into is the lot of what the reader has.
+--
+-- **"My Bindings", after a spell as "My Setup"** (2026-08-23, 소유자). Bindings was turned down on
+-- the grounds that some actions have no key, and that reading is wrong: the client's own Key
+-- Bindings screen lists a command that is not bound, so **unbound is a state inside bindings rather
+-- than outside them**. A word is cut for being wrong about the thing, not for being awkward in a
+-- corner of it (`devdocs/writing-user-facing-text.md`) - and following the corner left `Setup`,
+-- which is a word of ours that says less. This one is the client's, it is what this window edits,
+-- and the item's own tooltip was already saying it.
 --
 -- **It breaks off, because the press asks rather than acts** (2026-08-23, 소유자). The two ways the
 -- actions can land are the reader's to pick, so the menu finishes the sentence the label starts.
-L["STORAGE_ADD"] = "Add to My Setup..."
+L["STORAGE_ADD"] = "Add to My Bindings..."
 -- **The date has to say which date it is.** The row shows it bare, where it is one of two lines
 -- and the reader is scanning rather than reading; the tooltip is where somebody stops to ask, and
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
@@ -1430,10 +1510,11 @@ L["STORAGE_TITLE"] = "Storage"
 -- dropped**, so what the preview counts is what the string holds - and adding them puts them
 -- nowhere, which is the number said separately after a press.
 L["STORAGE_PREVIEW_ELSEWHERE"] = "Nowhere to put these"
--- ⚠ **Placeholder.** The right column stands empty until a row is picked and the wording is to be
--- settled off the screen, so this is deliberately not translated yet (12절).
-L["STORAGE_NOTHING_PICKED"] = "Pick something on the left to see what is in it."
-L["STORAGE_MENU_DESC"] = "Keeps setups aside: ones you make from this character, and ones you paste in from someone else.|n|nNothing in here is switched on. Adding one puts its actions in switched off, so nothing you press changes until you accept them."
+-- The right column's resting state: nothing picked. **It said "pick something"** because the thing
+-- in the list had no name to call it by, which is what a screen that will not name its object is
+-- reduced to. It has one now (`STORAGE_CREATE`), so the sentence says which thing to pick.
+L["STORAGE_NOTHING_PICKED"] = "Pick a payload on the left to see what is in it."
+L["STORAGE_MENU_DESC"] = "Where payloads are kept: ones you save from this character, and ones you paste in from somebody else.|n|nAdding one puts its actions in as pending, so none of your keys change until you accept them."
 
 -- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills
 -- it rather than what to do next - there is no next step until something is in there.

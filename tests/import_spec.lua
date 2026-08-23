@@ -110,9 +110,13 @@ return function(DebindPrivate, DebindStorage)
             "배지가 arrival 번호가 아니다: " .. tostring(action.arrivalID));
     end);
 
-    -- **The one verb that asks for the opposite**, and the reader asked for it by name: taking the
-    -- arrival live rather than parked behind a badge to be accepted later.
-    test("키를 그대로 두라 하면 실키가 남고 배지가 안 붙는다", function()
+    -- **No way in skips the badge** (2026-08-23, 소유자). There was one: the accept-on-arrival verb
+    -- asked the plan to leave it off, and the actions went live on the sender's keys with nothing
+    -- asked -- where the reader already used one of those keys, a merge they never chose. That verb
+    -- lands badged like everything else now and runs the approval afterwards, which is the path that
+    -- asks. The old option name is fed in here on purpose: an option nothing reads has to be inert
+    -- rather than quietly still working.
+    test("배지를 빼달라는 옵션은 없다", function()
         ResetProfile();
         local placements = DebindStorage.PlanArrival(General({
             { type = Constants.SPELL, value = 774, key = "SHIFT-G", seq = 1 },
@@ -120,7 +124,8 @@ return function(DebindPrivate, DebindStorage)
         check(#placements == 1, "하나가 아니다");
         check(placements[1].action.key == "SHIFT-G",
             "실키가 안 남았다: " .. tostring(placements[1].action.key));
-        check(placements[1].action.arrivalID == nil, "배지가 붙었다");
+        check(type(placements[1].action.arrivalID) == "number",
+            "배지가 안 붙었다: " .. tostring(placements[1].action.arrivalID));
     end);
 
     -- **A number in `key` is not a key any more.** It used to mean "a group whose key the sender had

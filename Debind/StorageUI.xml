@@ -259,12 +259,11 @@
 				The entry list's inset. **Overview's rectangle** (`DebindUI.xml`): the tabs of one
 				window should not have their lists jump as the reader moves between them.
 
-				**The bottom is a band and both columns stop at it** (2026-08-23, 소유자). The client's
-				own list frame puts its buttons there and nowhere else
-				(`Blizzard_ClickBindingUI.xml`: the inset stops short of the bottom, the buttons sit
-				on the floor at each end of it), and this is a list frame. Overview has no band, so
-				the two tabs' lists do not end on the same line; the columns do, which is the pair
-				the eye actually reads together.
+				**The ways in went back above the list** (2026-08-23, 소유자, 화면 확인용). They spent a
+				while on the floor, where the client's own list frame keeps its buttons
+				(`Blizzard_ClickBindingUI.xml`). ⚠ **The two columns no longer end on the same line**:
+				this one runs to Overview's 10 and the preview stops at 45 to leave its own two
+				buttons a band. That is the thing to look at.
 
 				**Overview's rectangle down to the number** (2026-08-23, 소유자). Its two columns are
 				405 and 405 with a 22 gutter inside the same 867, so writing the same three values
@@ -284,7 +283,7 @@
 				</KeyValues>
 				<Anchors>
 					<Anchor point="TOPLEFT" x="4" y="-85"/>
-					<Anchor point="BOTTOMLEFT" x="4" y="45"/>
+					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
 				</Anchors>
 			</Frame>
 
@@ -334,7 +333,7 @@
 			<Button parentKey="CreateButton" inherits="UIPanelDynamicResizeButtonTemplate">
 				<Size x="80" y="23"/>
 				<Anchors>
-					<Anchor point="BOTTOMLEFT" x="4" y="10"/>
+					<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBoxBackground" relativePoint="TOPLEFT" x="0" y="5"/>
 				</Anchors>
 			</Button>
 			<!--

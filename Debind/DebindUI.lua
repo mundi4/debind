@@ -2246,7 +2246,7 @@ end
 --- what the reader loses on the overwrite answer is groups rather than actions: each of those comes
 --- apart and nothing records which of its members went together (`ClearKeyForActions`).
 local function OccupantsOfArrivals(arrivals)
-	local keys, occupants, groups = {}, {}, 0;
+	local keys, occupants = {}, {};
 	-- The keys both sides want, which is what the reader is answering about. Handed back so the
 	-- answer can be applied to those keys and to no others.
 	local contested = {};
@@ -2257,20 +2257,15 @@ local function OccupantsOfArrivals(arrivals)
 		end
 	end
 
-	local seenGroup = {};
 	for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
 		for _, action in layer:Enumerate() do
 			if (action.arrivalID == nil and action.key ~= nil and keys[action.key]) then
 				occupants[#occupants + 1] = action;
 				contested[action.key] = true;
-				if (not seenGroup[action.key]) then
-					seenGroup[action.key] = true;
-					groups = groups + 1;
-				end
 			end
 		end
 	end
-	return occupants, groups, contested;
+	return occupants, contested;
 end
 
 --- Takes **every** badge left in the profile off. The second of the two presses the design note
@@ -2287,23 +2282,37 @@ end
 --- what stands in its place. **A free key still asks nothing**, which is the common case and the
 --- reason the box is not on the ordinary end after all.
 ---
+--- **Two presses reach this, and the question is theirs to share.** [Accept all] hands over every
+--- badge in the profile; the storage tab's [Add and Accept] hands over the ones that press just put
+--- there. What a key collision means is the same either way, so the walk that finds one and the
+--- prompt that asks about it are written once (`devdocs/building-export-import.md` 12절).
+---
+--- **Answers with whether it is finished.** A free key is decided here and now; an occupied one puts
+--- a dialog up and the answer arrives later, so a caller with something to say about the outcome
+--- cannot say it yet. Until the reader answers, the arrivals are exactly what they were a moment
+--- ago -- badged, in the profile, waiting -- which is what makes [Cancel] a whole answer rather
+--- than half of one.
+function DebindFrameMixin:ApproveArrivals(arrivals)
+	if (arrivals == nil or #arrivals == 0) then
+		return true;
+	end
+
+	local occupants, contested = OccupantsOfArrivals(arrivals);
+	if (#occupants == 0) then
+		ApproveArrivedActions(arrivals);
+		return true;
+	end
+
+	StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED", #arrivals, #occupants,
+		{ arrivals = arrivals, occupants = occupants, contested = contested });
+	return false;
+end
+
 --- **It reaches what is not on screen** - `CollectArrivedActions` walks every layer. One entry
 --- routinely splits across off-spec layers, so taking off only what is visible would leave the
 --- rest quarantined somewhere no screen shows until the reader changes specialization.
 function DebindFrameMixin:ApproveAllImported()
-	local arrivals = DebindPrivate.CollectArrivedActions();
-	if (#arrivals == 0) then
-		return;
-	end
-
-	local occupants, groups, contested = OccupantsOfArrivals(arrivals);
-	if (#occupants == 0) then
-		ApproveArrivedActions(arrivals);
-		return;
-	end
-
-	StaticPopup_Show("DEBIND_APPROVE_ALL_OCCUPIED", #arrivals, groups,
-		{ arrivals = arrivals, occupants = occupants, contested = contested });
+	self:ApproveArrivals(DebindPrivate.CollectArrivedActions());
 end
 
 --- Throws back everything still waiting - the same set [Accept all] would take.
@@ -4259,10 +4268,15 @@ function DebindOrderLineMixin:OnAcceptClick()
 	GameTooltip:Hide();
 end
 
+--- **Two sentences, and which one is true is the row's own key.** What arrived on a key starts
+--- firing on this press; what arrived without one is taken and still does nothing, and saying the
+--- first of those over the second sends the reader looking for a key that was never there.
 function DebindOrderLineMixin:OnAcceptEnter(button)
+	local action = self:GetElementData().row.action;
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, LLL["ORDER_ACCEPT"]);
-	GameTooltip_AddNormalLine(GameTooltip, LLL["ORDER_ACCEPT_DESC"]);
+	GameTooltip_AddNormalLine(GameTooltip,
+		LLL[action.key ~= nil and "ORDER_ACCEPT_DESC" or "ORDER_ACCEPT_NO_KEY_DESC"]);
 	GameTooltip:Show();
 end
 
@@ -5416,8 +5430,14 @@ function DebindUI.BeginKeyCapture(actions)
 
 	DebindKeyCaptureFrame:Open(actions, function(captured)
 		-- **`nil` is [Unbind Key], not a cancel** -- cancelling never gets here.
+		--
+		-- **And it accepts, the same as the other answer** (2026-08-23, 소유자). This window is the
+		-- reader deciding the key, which is what accepting an arrival is; the item that opens it
+		-- over a badged row says so on its face (`ACTION_SET_KEY_ACCEPT`). Without this the reader
+		-- came through a door labelled accept, pressed the button on it, and got neither half: no
+		-- key and still waiting.
 		if (captured == nil) then
-			DebindUI.UnbindActions(actions);
+			DebindUI.UnbindActions(actions, true);
 			return;
 		end
 		GiveKeyGroupTheKey(actions, captured, label);
@@ -5432,8 +5452,21 @@ end
 ---
 --- The key is read **after** the release, since that is where it is settled: scattered rows leave
 --- `nil` behind, and the rebuild knows that case.
-local function ReleaseAndRebuild(actions)
+--- `accepting` takes the badge off as well, and only the capture dialog's [Unbind Key] passes it.
+--- **Inside that window both answers are the reader deciding the key**, which is the whole of what
+--- accepting an arrival is (`DebindFrameMixin:SetActionKey` says so on the other answer). The menu's
+--- own [Unbind] passes nothing: that one is aimed at a row rather than opened over a question.
+---
+--- **After the release, not before.** `ClearKeyForActions` renumbers the group each action leaves,
+--- and the group is `(key, arrivalID)` -- clearing the badge first would send it to renumber a group
+--- these actions were never in.
+local function ReleaseAndRebuild(actions, accepting)
 	DebindPrivate.ClearKeyForActions(actions);
+	if (accepting) then
+		for i = 1, #actions do
+			actions[i].arrivalID = nil;
+		end
+	end
 	RebuildAfterKeyGroupChange(actions, actions[1].key);
 end
 
@@ -5449,18 +5482,22 @@ end
 ---
 --- Cancelling does nothing at all. It does not reopen the dialog the button was on either: that
 --- dialog has already closed and asking for a key again is a fresh press.
-function DebindUI.UnbindActions(actions)
+--- `accepting` rides through to `ReleaseAndRebuild`, which is where it means anything. It has to
+--- travel through the prompt as well: cancelling that prompt leaves the actions exactly as they
+--- were, badge included, which is the only reading of [Cancel] that is true.
+function DebindUI.UnbindActions(actions, accepting)
 	if (actions == nil or #actions == 0) then
 		return;
 	end
 
 	local scattered = ScatteredByUnbinding(actions);
 	if (scattered < 2) then
-		ReleaseAndRebuild(actions);
+		ReleaseAndRebuild(actions, accepting);
 		return;
 	end
 
-	StaticPopup_Show("DEBIND_UNBIND_SCATTERS", scattered, nil, { actions = actions });
+	StaticPopup_Show("DEBIND_UNBIND_SCATTERS", scattered, nil,
+		{ actions = actions, accepting = accepting });
 end
 
 --- Is any of what already holds the key **shared with other characters**.
@@ -5570,7 +5607,7 @@ StaticPopupDialogs["DEBIND_UNBIND_SCATTERS"] = {
 	button1 = LLL["UNBIND_SCATTERS_CONFIRM_YES"],
 	button2 = CANCEL,
 	OnAccept = function(_, data)
-		ReleaseAndRebuild(data.actions);
+		ReleaseAndRebuild(data.actions, data.accepting);
 	end,
 	hideOnEscape = 1,
 	timeout = 0,

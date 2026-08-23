@@ -1435,10 +1435,13 @@ do
         -- rather than a difference in what happens.
         --
         -- **It is only hung when one action is aimed at.** The string is written for a single arrival
-        -- - "this one", and the rest of the set staying switched off - which stops being true the
-        -- moment the bulk menu hands this a set.
+        -- - "this one" - which stops being true the moment the bulk menu hands this a set.
+        --
+        -- **And which of the two it is depends on that action's key**, the same as on the button:
+        -- one arrived on a key and starts firing here, the other arrived without one and does not.
         if (#badged == 1) then
-            SetInstructionTooltip(description, LLL["ORDER_ACCEPT_DESC"]);
+            SetInstructionTooltip(description,
+                LLL[badged[1].key ~= nil and "ORDER_ACCEPT_DESC" or "ORDER_ACCEPT_NO_KEY_DESC"]);
         end
     end
 
@@ -1694,8 +1697,14 @@ do
         -- **로컬에 한 번 받는다.** `NameAndIconForAction`은 셋을 돌려주는데(이름·아이콘·본디
         -- 이름), 그대로 넘기면 아이콘 파일 ID가 `CreateTitle`의 두 번째 인자인 **색** 자리로
         -- 들어가서 메뉴가 열리는 순간 터진다(`MenuUtil.lua`의 `useColor`).
+        --
+        -- **The blue an arrival wears follows it into the menu** (2026-08-23, 소유자). The row's
+        -- name and its dot are already that colour (`DebindUI.IMPORTED_FONT_COLOR`), and this menu
+        -- offers a different three items on a row that has one - so the title saying which kind of
+        -- row it opened over is the same answer as why the items are what they are. Passing no
+        -- colour lands on the client's title gold, which is what every other row gets.
         local title = DebindUI.NameAndIconForAction(action);
-        rootDescription:CreateTitle(title);
+        rootDescription:CreateTitle(title, action.arrivalID and DebindUI.IMPORTED_FONT_COLOR or nil);
 
         local function CreateMoveMenuItem(direction, titleKey, descKey)
             local description = rootDescription:CreateButton(LLL[titleKey], function()
@@ -1732,11 +1741,19 @@ do
         --- not a mistake - one action of four moving to its own key is how a condition gets its own
         --- shortcut - but a key's actions are told apart by conditions, so a set coming apart looks
         --- like nothing at all until both halves fire.
+        --- **On something that arrived, the label says the other half** (2026-08-23, 소유자). Giving
+        --- an arrival a key accepts it (`DebindFrameMixin:SetActionKey`), and until the label said
+        --- so the reader pressed this expecting the key to move and nothing else. The three words
+        --- are still the act's name, so the item stays the same item wherever it is offered; the
+        --- clause is only true here.
         local function CreateAssignKeyItem()
-            local description = rootDescription:CreateButton(LLL["ACTION_SET_KEY"], function()
-                DebindUI.BeginKeyCapture({ action });
-            end);
-            SetInstructionTooltip(description, LLL["ACTION_SET_KEY_DESC"]);
+            local arrived = action.arrivalID ~= nil;
+            local description = rootDescription:CreateButton(
+                LLL[arrived and "ACTION_SET_KEY_ACCEPT" or "ACTION_SET_KEY"], function()
+                    DebindUI.BeginKeyCapture({ action });
+                end);
+            SetInstructionTooltip(description,
+                LLL[arrived and "ACTION_SET_KEY_ACCEPT_DESC" or "ACTION_SET_KEY_DESC"]);
         end
 
         -- **A badged action gets accept and reject instead of the ordering items**, the same swap
@@ -1754,14 +1771,24 @@ do
         -- set by giving one of its rows a key is an operation this menu already offers everywhere
         -- else, and giving a key **is** accepting, which is the answer the reader came to this menu
         -- for. Taking the whole arrival at once is still the heading's item.
+        -- **The plain answer first, then the same answer with a key picked, then the other one**
+        -- (2026-08-23, 소유자). The key item led, from when it was the odd one out here; the two
+        -- accepts belong side by side, since the second is the first with one thing decided along
+        -- the way, and [Reject] is the end of the list because it is the answer that goes the other
+        -- way.
         if (action.arrivalID) then
-            CreateAssignKeyItem();
             CreateApproveImportMenuItem(rootDescription, { action });
+            CreateAssignKeyItem();
             CreateRejectImportMenuItem(rootDescription, { action });
             return;
         end
 
+        -- **A line between the key and the order** (2026-08-23, 소유자). Which key this is on and
+        -- where it stands among the actions sharing that key are two questions, and the second one
+        -- only exists once the first is answered. Run together they read as three settings of one
+        -- kind.
         CreateAssignKeyItem();
+        rootDescription:CreateDivider();
         CreateMoveMenuItem(-1, "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC");
         CreateMoveMenuItem(1, "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC");
     end
@@ -1812,7 +1839,10 @@ do
             if (extraCount and extraCount > 0) then
                 title = format("%s %s", title, format(LLL["OVERVIEW_KEY_HEADER_MORE"], extraCount));
             end
-            rootDescription:CreateTitle(title);
+            -- **A heading over an arrival wears the arrival's blue**, the same as the row's menu
+            -- title and for the same reason: the three items under it are a different three, and
+            -- the colour is what says which kind of heading this is before they are read.
+            rootDescription:CreateTitle(title, arrivalID and DebindUI.IMPORTED_FONT_COLOR or nil);
 
             -- **The same three words as the row's item** (`ACTION_SET_KEY`), and a key of its own all
             -- the same. What differs is how much of the column each one reaches, and neither label
@@ -1824,22 +1854,37 @@ do
             -- moment the answer is worth anything: the menu may have stood open through a rebuild,
             -- and this walk reaches every layer of the character rather than what the column happens
             -- to be drawing.
-            local description = rootDescription:CreateButton(LLL["KEY_HEADER_SET_KEY"], function()
-                DebindUI.BeginKeyCapture(DebindPrivate.CollectKeyGroupActions(key, arrivalID));
-            end);
-            SetInstructionTooltip(description, LLL["KEY_HEADER_SET_KEY_DESC"]);
+            local function CreateAssignKeyItem()
+                local description = rootDescription:CreateButton(
+                    LLL[arrivalID and "ACTION_SET_KEY_ACCEPT" or "KEY_HEADER_SET_KEY"],
+                    function()
+                        DebindUI.BeginKeyCapture(DebindPrivate.CollectKeyGroupActions(key, arrivalID));
+                    end);
+                SetInstructionTooltip(description,
+                    LLL[arrivalID and "KEY_HEADER_SET_KEY_ACCEPT_DESC" or "KEY_HEADER_SET_KEY_DESC"]);
+            end
 
-            -- **The other end of the same axis.** Every group under a heading is on a real key now,
-            -- arrival or not, so there is nothing here to grey out: what used to leave this dead was
-            -- a set parked on a number, and that shape is gone.
+            -- **A heading over an arrival gets the row's three, in the row's order** (2026-08-23,
+            -- 소유자). The reader pointing at a heading and pointing at a row of it are asking about
+            -- different amounts, not about different things, so the answers on offer have to be the
+            -- same ones in the same order or the two menus teach two models of one feature.
             --
-            -- **It asks before it scatters.** Taking the key off breaks the set up for good
-            -- (`DebindUI.UnbindActions`), which is why the item can be one press while the answer is
-            -- not.
-            description = rootDescription:CreateButton(LLL["UNBIND"], function()
-                DebindUI.UnbindActions(DebindPrivate.CollectKeyGroupActions(key, arrivalID));
-            end);
-            SetInstructionTooltip(description, LLL["KEY_HEADER_UNBIND_DESC"]);
+            -- **[Unbind] is not among them.** Giving the set a key accepts it and so does taking the
+            -- key off inside that window (`DebindUI.BeginKeyCapture`); an item that only scatters
+            -- the set and leaves it waiting is the one answer this heading has no use for.
+            if (arrivalID) then
+                CreateApproveImportMenuItem(rootDescription, actions);
+                CreateAssignKeyItem();
+                CreateRejectImportMenuItem(rootDescription, actions);
+                return;
+            end
+
+            -- **One item, and taking the key off is not a second one** (2026-08-23, 소유자). It stood
+            -- here as the other end of the same axis, and the window this item opens has that end on
+            -- it: [Unbind Key] is a button on the capture dialog, over the same set, asking the same
+            -- question. A menu item beside it was the one door in this window that could scatter a
+            -- set without the reader having gone to decide its key.
+            CreateAssignKeyItem();
         else
             -- **The pile at the bottom, and only when something in it arrived.** Its heading names a
             -- state rather than a key, so neither key item belongs: giving them all one key would
@@ -1853,13 +1898,11 @@ do
         -- are the rows drawn under this heading - and the pile is narrowed row by row, so a badge
         -- filtered out of the column is not something a menu opened on it may touch.
         --
-        -- The divider is asked for **before** the two items rather than after, because they build
-        -- themselves out of the way when nothing is badged - and a divider with nothing under it is
-        -- a menu with a line across the bottom of it.
+        -- **Only the keyless pile reaches this now.** A heading over an arrival answers above, with
+        -- the same three the row's menu offers; here the heading names a state rather than a key, so
+        -- what is under it is any number of unrelated arrivals and the count is the only thing that
+        -- says how many the press would take.
         if (DebindPrivate.AnyArrivedAction(actions)) then
-            if (key ~= nil) then
-                rootDescription:CreateDivider();
-            end
             CreateApproveImportMenuItem(rootDescription, actions, true);
             CreateRejectImportMenuItem(rootDescription, actions, true);
         end
