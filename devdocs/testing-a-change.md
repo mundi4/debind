@@ -6,9 +6,9 @@ change spans layers, land a check in each.
 
 | | runs | sees | cannot see |
 |---|---|---|---|
-| `npm test` | headless, no client, **both shapes** | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, and which record a press picks | the sandbox itself, taint, combat lockdown, what the game reports a key is bound to, a real frame under a real cursor |
+| `npm test` | headless, no client, **both shapes** | **the whole pipeline** — solving, ordering, derivations, migration, what a rebuild decides, what it emits, which record a press picks, and **what a key ends up bound to** | the sandbox itself, taint, combat lockdown, Blizzard's own 0.2s beat, a real frame under a real cursor |
 | `npm run check` | headless | lint, XML, locale/template parity, snippet syntax, **the exact bytes every snippet bakes to** | whether any of it behaves |
-| `/debtest` | in the game | the real restricted environment: snippets compiling, attributes wiring, event ordering, what the game reports a key is bound to | nothing that needs a second player or a real fight |
+| `/debtest` | in the game | the real restricted environment: snippets compiling, attributes wiring, event ordering, the client's own frames, dialogs and menus | nothing that needs a second player or a real fight |
 
 `npm run check` runs the first two together. It does **not** run the third, and it never will.
 
@@ -33,6 +33,13 @@ What stands in for the client is three things:
 | `tests/wow_shim.lua` | the value-returning queries, answered out of `shim.world` — spells, mounts, units, the game's own binding table. A spec puts a world up rather than swapping a function out |
 | `tests/wow_frames.lua` | the frame shell, and a recorder that keeps **everything** the addon hands to the secure side, in order |
 | `tests/restricted.lua` | the restricted environment. It replays that recording, so the tables the click path reads are the ones the game would have built, and then runs `EVAL_SNIPPET` — which is how "which action does this key fire" has a headless answer at all |
+
+**One table is not a recording, and it is the one that moved the boundary.** An override is state —
+put on by one rebuild and taken off by the next — so recording the calls could never answer *what is
+in force now*. `wow_frames.lua` keeps it: the restricted `SetBindingClick` writes it, a rebuild's
+`ClearOverrideBindings` takes its own back off, and `GetBindingAction(key, true)` reads it. That is
+the whole of why `tests/boundkey_spec.lua` exists, and why **an old comment saying the game alone
+can report a key is not evidence** — check `tests/run.lua` and this table before believing one.
 
 Two of the specs are worth knowing about before adding one:
 
@@ -113,9 +120,15 @@ thing that ever ran it was logging in on a development client.
 Needs `Constants.DEBUG` on, since the kit reaches the addon through `_G.DebindPrivate`.
 
 **What belongs here is what needs the game.** Twenty-nine cases came down to `tests/` when the
-harness learned to read the emitters and run the restricted environment, and every one of them was
-a question about a value. What stayed asks something a client alone can answer, and **each of those
-carries a line above it saying so** — a test still here without one is a test nobody has re-read.
+harness learned to read the emitters and run the restricted environment, and five more on
+2026-08-23 when `GetBindingAction` learned to answer. Every one of them was a question about a
+value. What stayed asks something a client alone can answer, and **each of those carries a line
+above it saying so** — a test still here without one is a test nobody has re-read.
+
+**A line saying so is not proof that it is still true.** The five that came down last were all
+carrying confident ones, and four of those named a file the harness had started loading a year
+before. So when the line names something the harness cannot do, read `tests/run.lua`'s list and
+`wow_frames.lua` before you believe it — that boundary has moved twice and will move again.
 
 Two of them are in **both** places deliberately: the `Multi-axis:` sweeps. Four axes over seven
 records is where the headless reading of the restricted environment and the real one would part,

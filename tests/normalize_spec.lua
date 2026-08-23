@@ -82,9 +82,10 @@ return function(DebindPrivate)
     -- 순서를 정하는 값은 액션 하나로 답이 안 나온다 - 프로필 안에서의 자리이기 때문이다.
     -- 그래서 그것은 `Misc.MakeOrderRecord`가 따로 들고, 바인딩에는 안 앉는다.
     --
-    -- 여기서 볼 수 있는 것은 `priority`뿐이다. `layerRank`/`seq`/`isConditional`을 써넣던 것은
-    -- `Debind.lua`의 `BuildKeyMap`인데 이 하네스는 그 파일을 안 싣는다 - 그쪽은
-    -- `/debtest`의 `Binding carries no ordering fields`가 본다.
+    -- 여기서 보는 것은 `GetBindingInfoForAction`이 낸 바인딩이다. `layerRank`/`seq`/
+    -- `isConditional`을 써넣던 것은 `Debind.lua`의 `BuildKeyMap`이고, **그 파일도 이 하네스가
+    -- 싣는다** - `KeyMap`을 거쳐 나온 쪽은 아직 `/debtest`의 `Binding carries no ordering
+    -- fields`가 보고 있고, 여기로 내려올 수 있다.
     ---------------------------------------------------------------------------
 
     test("바인딩은 순서 필드를 안 든다", function()
@@ -561,8 +562,9 @@ return function(DebindPrivate)
 
     -- **옛 스칼라는 여기서 끝난다.** 아래를 지나간 뒤로는 축별 표 하나만 존재해야 한다.
     -- 방출·메뉴·이슈 검사가 저마다 타입 검사를 하게 두면, 잊은 한 곳이 불리언을 색인한다 -
-    -- 실제로 그렇게 터졌다(`/debtest`의 CheckedUnits, 2026-08-12). 헤드리스는 못 봤다:
-    -- 하네스가 `UpdateBindings.lua`를 안 읽는다(`refactor-candidates.md` 31번).
+    -- 실제로 그렇게 터졌다(`/debtest`의 CheckedUnits, 2026-08-12). 그때 헤드리스가 못 본 이유는
+    -- 하네스가 `UpdateBindings.lua`를 안 읽어서였는데, **지금은 읽는다**(2026-08-21,
+    -- `.zzz/resolved.md` 10+31번). 같은 종류가 다시 나면 이 층에서 잡힌다.
     test("옛 스칼라는 바인딩에서 축별 표로 올라온다", function()
         local b = spell({ unit = "focus", units = {
             target = true, mouseover = "help", tank = "harm", healer = false, ["@"] = true,

@@ -390,7 +390,18 @@ function M.install()
         end
     end
     _G.GetBindingText = function(key) return key; end
-    _G.GetBindingAction = function(key)
+    --- **`checkOverride` is the whole of what this addon asks about.** Debind never touches the
+    --- saved binding set; everything it does is an override on the driver, so a reader that
+    --- ignored the second argument could only ever answer for the client's own bindings and the
+    --- addon's own work was invisible to it (`wow_frames.lua`, `overrides`).
+    ---
+    --- An override wins outright where there is one, which is what the flag means: the client
+    --- looks past the saved set while the key is held.
+    _G.GetBindingAction = function(key, checkOverride)
+        if (checkOverride) then
+            local action = frames.overrideAction(key);
+            if (action) then return action; end
+        end
         for i = 1, #M.world.bindings do
             local entry = M.world.bindings[i];
             for _, bound in ipairs(entry.keys or {}) do

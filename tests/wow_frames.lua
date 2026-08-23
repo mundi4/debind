@@ -54,8 +54,33 @@ local function record(kind, target, name, body, frame, ref)
 end
 M.record = record;
 
+--- The override bindings in force right now, keyed by the key they are on.
+---
+--- **The recording cannot answer this one.** Every other call crosses once and a reader walks the
+--- entries back; an override is *state* -- put on by one rebuild and taken off by the next -- and
+--- the question `GetBindingAction` answers is what is in force now, not what once crossed. So it
+--- is kept here beside the recording rather than derived from it.
+---
+--- **Both sides write here, because in the game both sides write the same table.** The insecure
+--- side only ever clears (`UpdateBindings.lua`, the prologue); every set comes from the restricted
+--- `SetBindingClick`/`SetBinding`, which is why `restricted.lua` takes this table as its own
+--- `interp.bindings` instead of keeping a second one. `owner` is the frame that would own the
+--- override in game, so a clear takes its own and leaves everyone else's.
+local overrides = {};
+M.overrides = overrides;
+
+--- What the game reports the key is bound to, or `nil` where no override holds it. The two shapes
+--- are the two calls that make one: a click override answers `CLICK <button>:<mousebutton>`, and a
+--- command override answers the command verbatim.
+function M.overrideAction(key)
+    local entry = overrides[key];
+    if (not entry) then return nil; end
+    if (entry.command) then return entry.command; end
+    return sformat("CLICK %s:%s", entry.buttonName, entry.mouseButton or "LeftButton");
+end
+
 --- Everything recorded so far, oldest first. The interpreter's window.
---- Puts the recorder and the anonymous-frame counter back where they start.
+--- Puts the recorder, the overrides and the anonymous-frame counter back where they start.
 ---
 --- **The counter is the reason this exists.** A frame the addon does not name is labelled
 --- `<Frame#N>` off a running number, and the emission golden records those labels -- so a spec
@@ -64,6 +89,7 @@ M.record = record;
 --- specs, which is the harness half of giving each one a clean addon (§10-1).
 function M.reset()
     recorder.entries = {};
+    for key in pairs(overrides) do overrides[key] = nil; end
     M.__resetAnon();
 end
 
@@ -270,12 +296,26 @@ function M.install()
         record("UnregisterStateDriver", label(frame), state);
     end
 
-    _G.ClearOverrideBindings = function(frame) record("ClearOverrideBindings", label(frame)); end
-    _G.SetOverrideBindingClick = function(frame, priority, key, button, buttonName)
-        record("SetOverrideBindingClick", label(frame), key, button, buttonName);
+    --- **The frame goes in the frame slot on all three.** It used to be left out on the clear and
+    --- to be the mouse button on the click, which nothing noticed because the golden renders
+    --- `kind`/`target`/`name`/`body` and reads none of it -- but `replay` picks entries by
+    --- `entry.frame`, so a clear could never reach the interpreter.
+    _G.ClearOverrideBindings = function(frame)
+        record("ClearOverrideBindings", label(frame), nil, nil, frame);
+        for key, entry in pairs(overrides) do
+            if (entry.owner == frame) then overrides[key] = nil; end
+        end
+    end
+    --- The parameter names are the client's: `buttonName` is the button the key is routed to and
+    --- `mouseButton` is which of its clicks. Reading them the other way round is how the two got
+    --- swapped in the recording above.
+    _G.SetOverrideBindingClick = function(frame, priority, key, buttonName, mouseButton)
+        record("SetOverrideBindingClick", label(frame), key, buttonName, frame);
+        overrides[key] = { owner = frame, buttonName = buttonName, mouseButton = mouseButton };
     end
     _G.SetOverrideBinding = function(frame, priority, key, command)
-        record("SetOverrideBinding", label(frame), key, command);
+        record("SetOverrideBinding", label(frame), key, command, frame);
+        overrides[key] = { owner = frame, command = command };
     end
 
     --- `hooksecurefunc` on a table method. The addon uses it on frames (`Debind.lua` logs every

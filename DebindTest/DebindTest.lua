@@ -10,10 +10,17 @@
 -- Every one of them asked a question about a value, and a question about a value is answered
 -- more cheaply -- and on every commit -- by npm test.
 --
--- What stayed asks something only a client can answer: what the game reports a key is bound to,
--- a snippet the sandbox really compiled, a frame under a real cursor, a reload. **Each of those
--- carries a line above it saying which of the three it is and why**, so the next reader does not
--- have to work out again why this one is still here.
+-- **Five more came down when `GetBindingAction` learned to answer** (2026-08-23). Overrides used
+-- to cross to a recording that nothing read back, so "what is the key bound to" was the line
+-- between the layers and a great many cases here were on the wrong side of it; the restricted
+-- `SetBindingClick` and `GetBindingAction` share one table now (`tests/wow_frames.lua`), and
+-- `tests/boundkey_spec.lua` is what asks it. **A justification naming what the harness cannot load
+-- has to be re-read against `tests/run.lua` before it is believed** -- that list has grown twice.
+--
+-- What stayed asks something only a client can answer: a snippet the sandbox really compiled, a
+-- frame under a real cursor, Blizzard's own 0.2s beat, a dialog the client builds, a real macro
+-- store, a reload. **Each of those carries a line above it saying which of the three it is and
+-- why**, so the next reader does not have to work out again why this one is still here.
 
 local DebindPrivate = _G.DebindPrivate
 if not DebindPrivate then
@@ -970,57 +977,6 @@ RegisterTest("Unused binding", {
         if not b then return Fail("Unused binding", "NUMPAD6 not in KeyMap") end
         if b.type ~= Constants.UNUSED then return Fail("Unused binding", "type=" .. tostring(b.type)) end
         return Pass("Unused binding")
-    end,
-})
-
---- An imported action reaches no key at all until the badge comes off.
----
---- **It is the one promise this addon makes about importing, and this is the only place it is
---- checked.** Headless does not load `Debind.lua`, which is where `BuildKeyMap` lives, and the
---- static checks cannot see the game. Break it and pasting a string is the moment somebody else's
---- keys go live, which is precisely what quarantine is for.
----
---- **Both directions, and the game is asked in both.** "It did not bind" on its own passes for an
---- action that was never going to bind anyway, so the same action with only the badge removed has
---- to be seen binding before the badge can be called the cause. And `KeyMap` on its own is our own
---- bookkeeping: an override left behind from an earlier build makes the key still fire while our
---- table says nothing is there, so each half reads `GetBindingAction` as well.
----
---- No waiting anywhere in here, and that is not an oversight. `ApplyBindings` calls
---- `UpdateBindings` directly, which finishes the state pass and the bindings inside the call, and
---- `SetOverrideBinding` is what `GetBindingAction` reads - so both are answered by the time the
---- line after returns. The file header has the full map.
-RegisterTest("Import quarantine", {
-    description = "가져오기 배지가 붙어 있는 동안 키에 안 걸리고, 떼면 걸리는지",
-    run = function()
-        local NAME = "Import quarantine"
-        local KEY = "NUMPAD7"
-
-        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY, arrivalID = 1 })
-        ApplyBindings()
-
-        if GetNthBinding(KEY, 1) then
-            return Fail(NAME, "배지가 붙었는데 KeyMap에 들어갔다")
-        end
-        local quarantined = GetBindingAction(KEY, true) or ""
-        if quarantined ~= "" then
-            return Fail(NAME, "배지가 붙었는데 키가 걸려 있다: " .. quarantined)
-        end
-
-        -- Taking the badge off is the whole of accepting (`ApproveArrivedActions`).
-        action.arrivalID = nil
-        ApplyBindings()
-
-        if not GetNthBinding(KEY, 1) then
-            return Fail(NAME, "배지를 뗐는데도 KeyMap에 안 들어간다 - 앞 절반이 무의미해진다")
-        end
-        -- `CLICK ` is what a bound action looks like to the game: every type goes out through a
-        -- click button, so the prefix is the whole assertion available here.
-        local accepted = GetBindingAction(KEY, true) or ""
-        if accepted:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("배지를 뗐는데 게임에는 안 걸렸다: %q", accepted))
-        end
-        return Pass(NAME)
     end,
 })
 
@@ -2987,92 +2943,6 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
     end,
 })
 
--- **What a rename does to stored actions is not askable here, and it is not a hole.** A run is
--- isolated to a layer that lives nowhere in the account table (`GetTestLayer`), and a rename walks
--- what the account stores. So a test-layer action naming the old switch is left alone by design,
--- and a test built on one measures the harness rather than the addon.
---
--- The four rewrites over stored actions are `tests/switch_spec.lua`'s, which reads the tables back.
--- What the game has to answer instead is **the one reference that is not an action**: a switch
--- computed from another switch. That one is rewritten by walking the definitions, which a test does
--- own, and the whole of its effect is inside the restricted environment -- the expression is baked
--- and handed to `SecureCmdOptionParse`, so a name left behind bakes to `known:0` and every binding
--- that switch drives goes quiet with nothing said.
-RegisterTest("Switches tab: renaming follows a switch another one computes from", {
-    description = "개명한 이름을 계산식으로 쓰는 스위치가 새 이름을 따라가서 계속 도는가",
-    run = function()
-        local NAME = "Switch rename in expr"
-        local KEY = "CTRL-SHIFT-F7"
-        local OUTER = "$renameouter"
-        local FROM, TO = "$renameme", "$renamed"
-        local MODES = Constants.SWITCH_MODES
-
-        if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
-        end
-
-        local savedOuter = DebindPrivate.Switches[OUTER]
-        local savedFrom, savedTo = DebindPrivate.Switches[FROM], DebindPrivate.Switches[TO]
-        AddTeardown(function()
-            DebindPrivate.Switches[OUTER] = savedOuter
-            DebindPrivate.Switches[FROM] = savedFrom
-            DebindPrivate.Switches[TO] = savedTo
-            DebindPrivate.db.char.switches[FROM] = nil
-            DebindPrivate.db.char.switches[TO] = nil
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-
-        -- The action names the outer switch, and that name never moves. What moves is the name
-        -- **inside the outer one's expression**, which is the reference the design calls the easy
-        -- one to forget.
-        --
-        -- ⚠ **Writing `value` into a planted definition is not a way to turn a switch on.** Every
-        -- rebuild re-applies what a switch comes up as wherever that answer has moved since it last
-        -- ran (`ApplySwitchResets`), and a name the addon has never seen has moved by definition --
-        -- so a hand-set `value = true` is back to false before codegen reads it. `SetSwitchValue`
-        -- writes the character's memory beside the value, which is the answer the reset then agrees
-        -- with. Two other tests below plant a value the same way and point back here.
-        DebindPrivate.Switches[FROM] = { mode = MODES.MANUAL }
-        DebindPrivate.SetSwitchValue(FROM, true)
-        DebindPrivate.Switches[OUTER] = { mode = MODES.EXPR, expr = "[" .. FROM .. "]" }
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [OUTER] = true })
-        ApplyBindings()
-
-        if (GetBindingAction(KEY, true) or ""):sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, "전제가 깨졌다 - 개명 전에도 계산식이 키를 안 걸었다")
-        end
-
-        local ok, reason = DebindPrivate.RenameSwitch(FROM, TO)
-        if not ok then
-            return Fail(NAME, format("개명이 거절됐다: %s", tostring(reason)))
-        end
-        ApplyBindings()
-
-        local afterRename = GetBindingAction(KEY, true) or ""
-        if afterRename:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "개명 뒤에 키가 %q다 - 계산식이 옛 이름을 들고 있어 known:0으로 구워진다",
-                afterRename))
-        end
-
-        -- **The half that catches a dropped clause.** A rewrite that emptied the expression instead
-        -- of renaming inside it leaves the outer switch always true, so the key stays bound too.
-        -- Turning the renamed switch off is what tells "followed" from "vanished" apart.
-        DebindPrivate.SetSwitchValue(TO, false)
-        ApplyBindings()
-
-        local whenOff = GetBindingAction(KEY, true) or ""
-        if whenOff ~= "" then
-            return Fail(NAME, format(
-                "새 이름을 껐는데 키가 %q로 남았다 - 계산식이 이름을 잃고 상시 참이 됐다", whenOff))
-        end
-
-        return Pass(NAME, format("[%s] -> [%s]로 따라갔고 새 이름으로 꺼진다", FROM, TO))
-    end,
-})
-
 -- **A dialog that opens on a value is two things, and only one of them is checkable by eye.** That
 -- it opens is obvious; that it opens *carrying* what is already stored is a line of code that runs
 -- after the popup is up, reaching into the client's own frame. That reach was written against
@@ -3525,70 +3395,6 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
 -- Test Cases: Binding Issue Detection
 -----------------------------------------------------------
 
--- **코드젠의 fail-safe가 혼자 서는 유일한 자리다.** 위 마커는 액션만 보는데 상태의 계산식은
--- 액션이 아니라 옵션이라 그 검사에 아예 안 걸린다. 그러니 여기서 미정의 이름이 참으로 굽히면
--- 막는 것이 하나도 없고, 그 상태를 참조하는 바인딩이 **전부** 조건 없이 켜진 것으로 돈다.
---
--- 경로: `expr` -> `addMacrotext` -> 코드젠의 `arg.fixed` -> `UpdateMacroTexts`가 완성한 문자열
--- -> `SecureCmdOptionParse`. `""`로 구우면 `[$typo]`가 `[]`가 되어 **참**이고, `known:0`이면
--- 거짓이다. 그 갈림이 보안 환경 안에서만 일어나서 헤드리스로는 못 본다.
-RegisterTest("Undefined $state inside a state's own expression", {
-    description = "상태 계산식의 정의되지 않은 [$이름]이 그 상태를 켜버리지 않는지",
-    run = function()
-        local NAME = "Undefined $state in expr"
-        local KEY = "CTRL-SHIFT-F8"
-        local MODES = Constants.SWITCH_MODES
-
-        if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
-        end
-
-        -- **`DebindPrivate.Switches`의 슬롯만 갈아끼운다.** 그 표의 항목은
-        -- `db.switches`의 표와 **같은 테이블**이라(`BindDerivedTables`), 필드를 고치면
-        -- 사용자의 저장된 설정을 고치는 것이 된다. 슬롯을 바꾸면 되돌릴 것이 참조 둘뿐이다.
-        local saved1, saved2 = DebindPrivate.Switches["$state1"], DebindPrivate.Switches["$state2"]
-        AddTeardown(function()
-            DebindPrivate.Switches["$state1"] = saved1
-            DebindPrivate.Switches["$state2"] = saved2
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-
-        -- **`resetValue`, not `value`.** `value` is derived: `ApplySwitchResets` rewrites it from
-        -- `resetValue` and what this character was left on, and it does so whenever a switch's
-        -- answer moves - which swapping this slot **is**. Written with `value` this line held only
-        -- while the profile's own `$state2` already had the same `mode`/`resetValue` pair, so the
-        -- test passed or failed on what the tester happened to have configured. It went red the day
-        -- the dev seed made `$state2` a computed switch. `tests/switchgate_spec.lua` holds the
-        -- chain itself now; what is left here is the half only the client can answer.
-        DebindPrivate.Switches["$state2"] = { mode = MODES.MANUAL, resetValue = true }
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, ["$state1"] = true })
-
-        -- 켜지는 쪽을 먼저 세운다. 이게 없으면 아래의 "안 걸림"이 계산식 상태로는 원래
-        -- 아무것도 안 걸리는 것과 구분되지 않는다.
-        DebindPrivate.Switches["$state1"] = { mode = MODES.EXPR, expr = "[$state2]" }
-        ApplyBindings()
-        local whenTrue = GetBindingAction(KEY, true) or ""
-        if whenTrue:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "전제가 깨졌다 - 참인 계산식($state2=켜짐)인데 %q. 계산식 상태가 바인딩까지 안 닿는다",
-                whenTrue))
-        end
-
-        DebindPrivate.Switches["$state1"] = { mode = MODES.EXPR, expr = "[$typo]" }
-        ApplyBindings()
-        local whenUndefined = GetBindingAction(KEY, true) or ""
-        if whenUndefined ~= "" then
-            return Fail(NAME, format(
-                "미정의 이름이 계산식을 참으로 만들었다 (%q) - 그 상태를 쓰는 바인딩이 전부 켜진다",
-                whenUndefined))
-        end
-
-        return Pass(NAME, format("[$state2] -> %s / [$typo] -> 안 걸림", whenTrue))
-    end,
-})
-
 -- **Registration does not only come from conditions.** One action in `KeyMap` that uses a switch
 -- is enough to owe it registration, and registration is what puts the stored value back into
 -- `States` at every rebuild (the `_switches` walk in `UpdateBindings`). An on/off/toggle action
@@ -3873,134 +3679,50 @@ RegisterTest("Switch condition on a name outside the five", {
 
 -- Test Cases: 레이어 오버라이드 (§4-6 ~ §4-9)
 --
--- 정의는 계정 것이고 **동작만 레이어에서 덮인다.** 헤드리스가 보는 것은 표를 되읽는 데까지다
--- (`tests/switch_spec.lua`): 어느 답이 이기는지, 캐릭터가 바뀌어도 안 새는지, 전문화가 바뀌면
--- 다시 걸리는지. **여기서만 보이는 것은 그 답이 실제로 키까지 가느냐**다 -
--- `UpdateBindings`가 `ApplySwitchResets`를 부르고, 코드젠이 이긴 행의 `mode`와 `expr`을 굽고,
--- 제한 환경이 그 값을 되보고한다. 그 셋 중 어느 하나가 빠져도 조용하다.
+-- 정의는 계정 것이고 **동작만 레이어에서 덮인다.** 어느 답이 이기는지는 `tests/switch_spec.lua`가
+-- 표를 되읽어서 보고, 그 답이 실제로 키까지 가느냐는 `tests/boundkey_spec.lua`가 본다 -
+-- `ApplySwitchResets`가 값을 다시 걸고, 코드젠이 이긴 행의 `mode`와 `expr`을 굽고, 상태 루프가
+-- 그 키를 잡는 사슬 전체다.
+--
+-- **여기 남는 것은 하나뿐이다.** 아래를 보라.
 -----------------------------------------------------------
 
--- **얹으면 걸리고 떼면 빠진다.** 사슬 전체를 한 줄로 재는 케이스다: 답을 쓰는 것 ->
--- `ResolveSwitchAnswer`가 그 행을 이기게 하는 것 -> 리빌드가 값을 다시 거는 것 -> 코드젠 ->
--- 실제 키. 가운데 하나만 빠져도 화면에는 새 답이 적혀 있고 키는 옛 답대로 논다.
+-- **오버라이드가 어느 이름 아래 쌓이느냐.** 캐릭터 레이어의 키에 이 캐릭터가 안 들어 있으면
+-- 다음 캐릭터가 남의 답을 자기 것으로 읽는다.
 --
--- ⚠ **레이어 키에 캐릭터가 들어 있는지도 여기서 본다** (§4-7-3). 헤드리스가 같은 것을 보지만
--- 그쪽의 GUID는 shim이 지어낸 것이라, 진짜 `UnitGUID`로 지은 키가 맞는지는 게임이 답한다.
-RegisterTest("Switch override: the winning row reaches the key", {
-    description = "오버라이드를 얹으면 그 답으로 값이 다시 걸리고 키까지 가는가",
+-- **헤드리스가 이것만 못 본다.** 같은 문자열을 `tests/switch_spec.lua`가 보지만 그쪽 GUID는
+-- shim이 지어낸 것이라, 스펙이 확인하는 것은 자기가 심은 값이 돌아왔다는 것뿐이다. 진짜
+-- `UnitGUID`로 지은 키가 맞는지는 클라이언트만 답한다.
+RegisterTest("Switch override: the layer key carries this character", {
+    description = "이 캐릭터·이 전문화의 오버라이드 키에 진짜 GUID가 들어 있는가",
     run = function()
-        local NAME = "Switch override"
-        local KEY = "CTRL-SHIFT-F9"
-        local SWITCH = "$ovrtab"
-        local MODES = Constants.SWITCH_MODES
-
-        if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
-        end
-
-        local saved = DebindPrivate.Switches[SWITCH]
-        local savedValue = DebindPrivate.db.char.switches[SWITCH]
-        AddTeardown(function()
-            -- 오버라이드는 정의 **안에** 살아서 슬롯 하나를 되돌리면 같이 되돌아간다
-            -- (§4-7-1이 그 자리를 고른 이유 중 하나다).
-            DebindPrivate.Switches[SWITCH] = saved
-            DebindPrivate.db.char.switches[SWITCH] = savedValue
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false, value = false }
-
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
-        ApplyBindings()
-
-        local before = GetBindingAction(KEY, true) or ""
-        if before ~= "" then
-            return Fail(NAME, format("전제가 깨졌다 - 꺼진 채로 시작하는 스위치인데 키가 %q다",
-                before))
-        end
+        local NAME = "Switch override layer key"
 
         local layerKey = DebindPrivate.GetSwitchLayerKey(
             DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
         if not layerKey then
             return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
         end
-        if not layerKey:find(UnitGUID("player"), 1, true) then
+
+        local guid = UnitGUID("player")
+        if not layerKey:find(guid, 1, true) then
             return Fail(NAME, format(
-                "캐릭터 레이어의 키가 %q다 - 캐릭터가 안 들어 있으면 다음 캐릭터가 남의 답을 읽는다",
-                layerKey))
+                "캐릭터 레이어의 키가 %q다 - %q가 없으면 다음 캐릭터가 남의 답을 읽는다",
+                layerKey, guid))
         end
 
-        DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.MANUAL, true)
-        ApplyBindings()
-
-        local after = GetBindingAction(KEY, true) or ""
-        if after:sub(1, 6) ~= "CLICK " then
+        -- **반쪽 대조.** 직업 레이어의 키에는 캐릭터가 들어 있으면 안 된다. 없으면 위 한 줄은
+        -- "모든 레이어 키에 GUID가 붙는다"와 구분이 안 되고, 그러면 같은 직업의 다른 캐릭터가
+        -- 공유해야 할 답을 못 읽는다.
+        local classKey = DebindPrivate.GetSwitchLayerKey(
+            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), false))
+        if classKey and classKey:find(guid, 1, true) then
             return Fail(NAME, format(
-                "오버라이드가 '켜짐'인데 키가 %q다 - 리빌드가 새 답을 안 걸었다", after))
+                "직업 레이어의 키가 %q다 - 캐릭터가 들어가면 같은 직업끼리 답을 못 나눈다",
+                classKey))
         end
 
-        -- 떼면 넓은 쪽 답으로 돌아간다. 이게 없으면 위 한 줄은 "이 스위치는 늘 켜져 있다"와
-        -- 구별이 안 된다.
-        DebindPrivate.ClearSwitchOverride(SWITCH, layerKey)
-        ApplyBindings()
-
-        local back = GetBindingAction(KEY, true) or ""
-        if back ~= "" then
-            return Fail(NAME, format("답을 뗐는데 키가 %q로 남았다 - 뿌리로 안 돌아갔다", back))
-        end
-
-        return Pass(NAME, format("%s: 얹음 -> 걸림 / 뗌 -> 빠짐", layerKey))
-    end,
-})
-
--- **코드젠이 무엇을 굽느냐.** `addSwitch`가 정의에서 `mode`와 `expr`을 읽던 자리인데, 그 둘은
--- 이제 이긴 행의 것이다. 정의 쪽을 계속 읽으면 여기서는 "수동이고 꺼짐"이 구워져서 키가 안
--- 걸리고, 화면에는 그 오버라이드가 계산식이라고 적혀 있다.
---
--- `[nocombat]`인 이유는 이 테스트가 어차피 전투 밖에서만 서기 때문이다. 참으로 계산되는 식이
--- 필요하고, 전투 판정은 위에서 이미 걸렀다.
-RegisterTest("Switch override: the winning row's expression is the one baked", {
-    description = "계산식이 오버라이드 쪽에 있을 때 코드젠이 뿌리가 아니라 그 식을 굽는가",
-    run = function()
-        local NAME = "Switch override expression"
-        local KEY = "CTRL-SHIFT-F8"
-        local SWITCH = "$ovrexpr"
-        local MODES = Constants.SWITCH_MODES
-
-        if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄지고 [nocombat]도 거짓이다")
-        end
-
-        local saved = DebindPrivate.Switches[SWITCH]
-        AddTeardown(function()
-            DebindPrivate.Switches[SWITCH] = saved
-            DebindPrivate.db.char.switches[SWITCH] = nil
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-        -- 뿌리는 수동이고 꺼짐이며 식이 아예 없다. 정의 쪽을 읽으면 구울 식이 없다.
-        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false, value = false }
-
-        local layerKey = DebindPrivate.GetSwitchLayerKey(
-            DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
-        if not layerKey then
-            return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
-        end
-        DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.EXPR)
-        DebindPrivate.SetSwitchExpression(SWITCH, layerKey, "[nocombat]")
-
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
-        ApplyBindings()
-
-        local bound = GetBindingAction(KEY, true) or ""
-        if bound:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "오버라이드의 식이 [nocombat]인데 키가 %q다 - 뿌리의 답이 구워졌다", bound))
-        end
-
-        return Pass(NAME, "오버라이드의 식이 구워져서 키가 걸린다")
+        return Pass(NAME, format("char=%q / class=%q", layerKey, tostring(classKey)))
     end,
 })
 
@@ -5074,58 +4796,14 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
 -- Test Cases: The unit axes, measured for real
 -----------------------------------------------------------
 
--- Headless cannot reach any of this. `UpdateBindings.lua` and `SecureBindings.lua` are not loaded
--- there, so the whole emit-and-match half -- registering an axis, measuring it every tick,
--- comparing it in the snippet -- has no coverage until the game runs it.
+-- The emit-and-match half -- registering an axis, measuring it every tick, comparing it in the
+-- snippet -- reads headless now: `tests/eval_spec.lua` asks it at the press and
+-- `tests/boundkey_spec.lua` asks it at the key. What is left here is the axis nothing outside the
+-- game can put a unit into.
 
--- The live half of the life axis: a unit that is really there and really alive.
---
--- **Both directions, and neither of them mocked.** `dead = false` has to bind and `dead = true`
--- has to not, on the same key with the same unit, which is what tells a measured axis apart from
--- an axis nobody emitted. A condition that is never registered leaves `u.dead` nil, and nil
--- matches neither -- so a broken registration fails the first half, while a broken comparison
--- fails the second.
-RegisterTest("Dead axis: measured against a living unit", {
-    description = "살아 있는 플레이어에 대해 생사 조건이 양쪽으로 갈리는가",
-    run = function()
-        local NAME = "Dead axis"
-        local ALIVE_KEY = "CTRL-SHIFT-F10"
-        local DEAD_KEY = "CTRL-SHIFT-F11"
-
-        if UnitIsDeadOrGhost("player") then
-            return Fail(NAME, "플레이어가 죽어 있다. 이 테스트는 살아 있는 것을 전제로 한다")
-        end
-
-        -- 키를 둘로 나눈다. 하나에 두 조건을 차례로 걸면 뒤엣것이 앞엣것의 결과를 지우고,
-        -- 무엇이 무엇을 뒤집었는지 구분이 안 된다.
-        InsertAction({
-            type = Constants.SPELL, value = 585, key = ALIVE_KEY,
-            units = { player = { dead = false } },
-        })
-        InsertAction({
-            type = Constants.SPELL, value = 585, key = DEAD_KEY,
-            units = { player = { dead = true } },
-        })
-        ApplyBindings()
-
-        local whenAlive = GetBindingAction(ALIVE_KEY, true) or ""
-        if whenAlive:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format(
-                "살아있음 조건인데 %q. 생사 축이 등록되지 않아 u.dead가 nil일 수 있다", whenAlive))
-        end
-
-        local whenDead = GetBindingAction(DEAD_KEY, true) or ""
-        if whenDead:sub(1, 6) == "CLICK " then
-            return Fail(NAME, format(
-                "죽음 조건인데 살아 있는 플레이어에게 %q가 걸렸다. 비교가 안 도는 것이다", whenDead))
-        end
-
-        return Pass(NAME, format("alive -> %s, dead -> %q", whenAlive, whenDead))
-    end,
-})
-
--- **Kept here**, for the same reason as the one above: the axis itself is headless
--- (`tests/eval_spec.lua`, the life axis), and what is left is what the game reports.
+-- **Kept here.** The axis itself is headless (`tests/eval_spec.lua`, the life axis) and so is the
+-- living half (`tests/boundkey_spec.lua`). This is the dead half, which no living session can
+-- produce and no world a spec writes down can prove.
 -- The other half, which no living session can produce. `player-dead` is injected at the same
 -- point `combat` is -- right after the snippet measures it, before it stores it -- so the update
 -- loop runs its real path and only the value it lands on differs.

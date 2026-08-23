@@ -169,6 +169,7 @@ local specs = {
     { name = "context", path = root .. "/context_spec.lua" },
     { name = "frames", path = root .. "/frames_spec.lua" },
     { name = "eval", path = root .. "/eval_spec.lua" },
+    { name = "boundkey", path = root .. "/boundkey_spec.lua" },
     { name = "hover", path = root .. "/hover_spec.lua" },
 };
 

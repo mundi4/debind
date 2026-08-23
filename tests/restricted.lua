@@ -202,15 +202,21 @@ function handleMethods:CallMethod(name, ...)
     end
 end
 
---- What the state loop and the fixed-wiring branch use to take a key. **Recorded rather than
---- performed**, which is what makes "what is this key bound to" answerable headless -- the
---- question `GetBindingAction` answers in game.
-function handleMethods:SetBindingClick(priority, key, frameName, button)
-    self.__interp.bindings[key] = { frameName = frameName, button = button };
+--- What the state loop and the fixed-wiring branch use to take a key. In the game these reach
+--- `SetOverrideBindingClick` on the header, so what they write is the override table itself
+--- (`wow_frames.lua`) and not a record of having written -- which is what lets `GetBindingAction`
+--- answer headless at all.
+---
+--- `owner` is the driver, because the header the restricted call runs on is what owns the override
+--- in game. A rebuild's `ClearOverrideBindings(BindingDriver)` is what takes these back off.
+function handleMethods:SetBindingClick(priority, key, buttonName, mouseButton)
+    self.__interp.bindings[key] = {
+        owner = self.__interp.driver, buttonName = buttonName, mouseButton = mouseButton,
+    };
 end
 
 function handleMethods:SetBinding(priority, key, command)
-    self.__interp.bindings[key] = { command = command };
+    self.__interp.bindings[key] = { owner = self.__interp.driver, command = command };
 end
 
 function handleMethods:ClearBinding(key)
@@ -352,6 +358,11 @@ function Interp:replay(entries)
                 self:run(entry.body, self.driverHandle, "self,...");
             elseif (entry.kind == "SetFrameRef") then
                 self.driverHandle.__refs[entry.name] = handleFor(self, entry.ref);
+            elseif (entry.kind == "ClearOverrideBindings") then
+                --- **A rebuild's prologue, replayed in its place in the order.** Without it a key
+                --- this rebuild stopped mentioning keeps the binding the last one gave it, and
+                --- every "and then the key goes away again" reads as a pass.
+                ClearOverrideBindings(entry.frame);
             end
         end
     end
@@ -460,7 +471,10 @@ function M.new(DebindPrivate, world)
     interp.world = world;
     interp.handles = {};
     interp.closures = {};
-    interp.bindings = {};
+    --- **The override table itself, not a copy.** `GetBindingAction` reads the same one
+    --- (`wow_frames.lua`), so a spec that asks the interpreter and a spec that asks the client
+    --- cannot be told two different things about the same key.
+    interp.bindings = frames.overrides;
     interp.rebuilds = 0;
     interp.parses = {};
     interp.state = {
