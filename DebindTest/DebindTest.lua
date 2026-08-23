@@ -3266,6 +3266,95 @@ RegisterTest("Switches tab: the New switch button makes one", {
     end,
 })
 
+-- **만드는 자리 셋 중 둘은 만든 이름을 곧바로 액션에 적는다** - 조건 키와 켜기/끄기/전환의
+-- 대상이다(`DropDownMenus.lua`). 둘 다 `ShowNewSwitchBox`가 넘겨주는 이름을 받아 적으므로,
+-- 적어 넣은 철자와 실제로 앉은 이름이 갈리면 그 액션이 정의 없는 이름을 가리킨 채로 만들어지고
+-- 그 자리에서 빨개진다. 이름은 만들 때 소문자로 접힌다(`CreateSwitch`).
+--
+-- **위 단추 테스트는 이 자리를 안 지난다.** 저쪽은 콜백 없이 열어서 스위치가 생겼는지만 본다.
+-- 넘겨받는 이름이 무엇이냐는 콜백을 걸고 여는 쪽에서만 답이 나오고, 그렇게 여는 두 자리는
+-- 메뉴다.
+--
+-- 헤드리스는 `CreateSwitch`의 반환값까지 본다(`tests/switch_spec.lua`의 "만든 이름을 부른 쪽에
+-- 알려준다"). 여기서만 답할 수 있는 것은 상자를 실제로 치고 [완료]를 눌렀을 때 그 값이 부른
+-- 쪽까지 내려오는가다.
+RegisterTest("Switches tab: a name typed in capitals reaches the caller folded", {
+    description = "대문자로 적어 만든 스위치가 부른 쪽에는 실제로 앉은 이름으로 내려오는가",
+    run = function()
+        local NAME = "New switch name folds"
+        local TYPED = "ZzKit"
+        local STORED = "$zzkit"
+
+        AddTeardown(function()
+            DebindPrivate.Switches[STORED] = nil
+            DebindPrivate.db.char.switches[STORED] = nil
+            local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
+            if dialog then
+                -- Focus first: a hidden box that still holds the keyboard swallows what the next
+                -- test types (the two tests above say the same).
+                local editBox = dialog:GetEditBox()
+                if editBox then
+                    editBox:ClearFocus()
+                end
+                dialog:Hide()
+            end
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+
+        if DebindPrivate.Switches[STORED] then
+            return Fail(NAME, "전제가 깨졌다. 그 이름의 스위치가 이미 있다")
+        end
+
+        -- **부른 쪽 자리에 선다.** 두 메뉴가 이 함수에 넘기는 것이 정확히 이 모양의 콜백이고,
+        -- 그 안에서 하는 일이 받은 이름을 `action.conditions[name]` 이나 `action.value`에
+        -- 적는 것이다.
+        local called, handed
+        DebindUI.ShowNewSwitchBox(function(name)
+            called = true
+            handed = name
+        end)
+
+        local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
+        if not dialog then
+            return Fail(NAME, "상자가 안 떴다")
+        end
+        local editBox = dialog:GetEditBox()
+        if not editBox then
+            return Fail(NAME, "상자에 편집칸이 없다. 클라이언트가 이름을 또 바꿨다")
+        end
+        if not TypeInto(editBox, TYPED) then
+            return Fail(NAME, "편집칸에 OnTextChanged가 없다")
+        end
+        -- [완료]를 누른다. 콜백은 그 단추에 걸려 있고, 직접 부르면 상자를 지나는 길이 아니라
+        -- 우리가 넘긴 함수만 재게 된다.
+        local accept = dialog:GetButton1()
+        if not accept:IsEnabled() then
+            return Fail(NAME, "이름을 적었는데 [완료]가 비활성이다")
+        end
+        accept:Click()
+
+        if not DebindPrivate.Switches[STORED] then
+            local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
+            return Fail(NAME, format("%s로 안 앉았다. 있는 것: [%s]", STORED, names))
+        end
+        if not called then
+            return Fail(NAME, "스위치는 생겼는데 부른 쪽이 안 불렸다. 메뉴에서 만들면 조건이 안 걸린다")
+        end
+        if handed ~= STORED then
+            return Fail(NAME, format(
+                "부른 쪽이 %s를 받았다. 이것을 조건이나 켜기 대상으로 적으면 그 액션이 빨개진다",
+                tostring(handed)))
+        end
+        if not DebindPrivate.ResolveSwitchDefinition(handed) then
+            return Fail(NAME, format("%s로는 정의가 안 열린다", tostring(handed)))
+        end
+
+        return Pass(NAME, format("%s -> %s", TYPED, handed))
+    end,
+})
+
 -- **The rows under a switch, and the tick on the one in use** (§6-B). What the list has to answer
 -- without a click is *where is this different*, so the tab that is answering right now is marked
 -- and the ones that are not are still drawn.
@@ -3368,6 +3457,98 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
         end
 
         return Pass(NAME, format("%d행, 안 읽힐 때 표시 없음 -> 읽히면 %s", #rows, marked[1]))
+    end,
+})
+
+-- **다섯 번째 자리, 그리고 액션이 아닌 유일한 자리.** 스위치의 답이 `[식]`이면 그 식은 매크로
+-- 조건문이라 다른 스위치를 부를 수 있는데, 그 이름은 정의 안에 살아서 `GetUndefinedSwitch`가
+-- 볼 일이 없다. 지운 스위치의 참조를 그 자리에 남겨두는 것은 설계고(`DeleteSwitch`), 그 설계는
+-- 남은 것이 빨개질 때만 성립한다. 안 빨개지면 코드젠이 그 이름을 `known:0`으로 굽고
+-- (`EmitMacroTextArg`) 계산되는 스위치가 조용히 다른 것이 된다.
+--
+-- 헤드리스는 답하는 함수까지 본다(`tests/issue_spec.lua`). 여기서만 답할 수 있는 것은 **행이
+-- 실제로 빨개지는가**다: 색은 `Update`가 칠하고, 지우기는 목록을 통째로 다시 세우며, 다시 선
+-- 행이 같은 답을 들고 있어야 한다.
+--
+-- **지우기 전을 먼저 읽는다.** 처음부터 빨간 행이면 "빨개졌다"가 아무 말도 아니다.
+RegisterTest("Switches tab: an expression left naming a deleted switch goes red", {
+    description = "지운 스위치를 부르는 계산식이 남았을 때 그 행이 빨개지는가",
+    run = function()
+        local NAME = "Expression names a dead switch"
+        local MODES = Constants.SWITCH_MODES
+        local SOURCE = "$exprsrc"
+        local DERIVED = "$exprdst"
+
+        local savedSource = DebindPrivate.Switches[SOURCE]
+        local savedDerived = DebindPrivate.Switches[DERIVED]
+        AddTeardown(function()
+            DebindPrivate.Switches[SOURCE] = savedSource
+            DebindPrivate.Switches[DERIVED] = savedDerived
+            DebindPrivate.db.char.switches[SOURCE] = nil
+            DebindPrivate.db.char.switches[DERIVED] = nil
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBindings()
+            end
+        end)
+        -- **`value`는 안 쓴다.** 그건 파생 필드고 설정은 `resetValue`다. 여기서 필요한 것은
+        -- "직접 켜고 끄는 스위치가 하나 있다"뿐이라 모드만 적는다.
+        DebindPrivate.Switches[SOURCE] = { mode = MODES.MANUAL }
+        DebindPrivate.Switches[DERIVED] = {
+            mode = MODES.EXPR,
+            expr = format("[%s] [combat]", SOURCE),
+        }
+
+        --- 계정 전체 행. 오버라이드를 안 얹었으므로 이 스위치의 행은 이것 하나다.
+        local function RootRow(panel)
+            for _, row in ipairs(SwitchLayerRows(panel, DERIVED)) do
+                if row.layerKey == nil then
+                    return row
+                end
+            end
+        end
+
+        --- **애드온 자신의 빨강과 대는 것이 "빨갛다"의 뜻이다.** 이기는 행은 강조색, 지는 행은
+        --- 회색이라 셋 중 어느 것인지는 값으로만 갈린다.
+        local function IsRed(fontString)
+            local r, g, b = fontString:GetTextColor()
+            local er, eg, eb = ERROR_COLOR:GetRGB()
+            return math.abs(r - er) < 0.01 and math.abs(g - eg) < 0.01
+                and math.abs(b - eb) < 0.01
+        end
+
+        local panel = OpenSwitchesTab()
+        local row = WaitUntil(function() return RootRow(panel) end, 2)
+        if not row then
+            return Fail(NAME, format("%s의 계정 전체 행이 안 섰다", DERIVED))
+        end
+        if not row.Setting then
+            return Fail(NAME, "행에 Setting이 없다. 템플릿이 parentKey를 잃었다")
+        end
+        if IsRed(row.Setting) then
+            return Fail(NAME, format("전제가 깨졌다. %s가 아직 있는데 행이 벌써 빨갛다", SOURCE))
+        end
+
+        DebindPrivate.DeleteSwitch(SOURCE)
+
+        -- 지우기가 `OnSwitchesChanged`를 쏘고 목록이 다시 선다. 프레임은 재활용되므로 위에서
+        -- 잡아둔 것을 다시 읽지 않고 다시 찾는다.
+        local reddened = WaitUntil(function()
+            local found = RootRow(panel)
+            if found and found.Setting and IsRed(found.Setting) then
+                return found
+            end
+        end, 2)
+        if not reddened then
+            if not RootRow(panel) then
+                return Fail(NAME, format("%s의 행이 목록에서 사라졌다", DERIVED))
+            end
+            local expr = DebindPrivate.Switches[DERIVED].expr
+            return Fail(NAME, format(
+                "식이 %s인데 행이 안 빨개졌다 (끊긴 이름: %s). 지운 참조를 찾아갈 자리가 없다",
+                expr, tostring(DebindPrivate.GetUndefinedSwitchInExpr(expr, DERIVED))))
+        end
+
+        return Pass(NAME, format("%s 삭제 -> %s의 행이 빨강", SOURCE, DERIVED))
     end,
 })
 
