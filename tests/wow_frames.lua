@@ -90,6 +90,7 @@ end
 function M.reset()
     recorder.entries = {};
     for key in pairs(overrides) do overrides[key] = nil; end
+    M.__clearTimers();
     M.__resetAnon();
 end
 
@@ -350,6 +351,15 @@ function M.install()
     --- Runs every queued callback once, in the order they were queued. Anything one of them
     --- queues in turn is left for the next drain, so a callback that reschedules itself cannot
     --- spin here.
+    --- Throws away what is still queued, without running it.
+    ---
+    --- **A pending timer is a spec's, and it must not fire inside the next one.** `reset` gives each
+    --- spec a clean client; a callback left over from the one before would run against an addon it
+    --- was never loaded with, and the first `drainTimers` in a later spec is where it would land.
+    function M.__clearTimers()
+        for i = #timers, 1, -1 do timers[i] = nil; end
+    end
+
     function M.drainTimers()
         local pending = {};
         for i = 1, #timers do

@@ -20,6 +20,9 @@
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
     local MODES = Constants.SWITCH_MODES;
+    -- For `drainTimers`: the mirror the restricted side's report goes through is a `C_Timer.After(0)`
+    -- callback, and the harness queues those rather than running them where they were asked for.
+    local frames = require("wow_frames");
 
     -- `LoadProfile` fires "OnProfileLoaded", and so does the notifier every edit below ends in.
     -- The bus is built in `Debind.lua`, which the runner does not load.
@@ -276,6 +279,27 @@ return function(DebindPrivate)
         check(DebindPrivate.Switches["$state1"].value == true, "값이 안 켜졌다");
         check(DebindPrivate.db.char.switches["$state1"] == true,
             "기억을 안 남겼다 - 다음 로드에 도로 꺼진다");
+    end);
+
+    -- **다른 문이다.** 위는 비보안 쪽이 값을 바꾸는 자리이고, 이쪽은 제한 환경이 바뀐 값을
+    -- 되보고하는 자리다(`OnSwitchChanged`). 사람이 키를 눌러 전환하면 오는 것이 이쪽이라,
+    -- 여기가 정의에 쓰면 "기억하기"가 다시 **마지막에 로그아웃한 캐릭터의 값 기억하기**가 된다.
+    --
+    -- **미러는 `C_Timer.After(0)` 뒤에 온다**(`SwitchesChangedCallback`, `Misc.lua`). 하네스의
+    -- 타이머는 쌓아두고 `drainTimers`가 돌리므로, 그 한 줄이 게임의 다음 프레임 자리다.
+    test("제한 환경의 되보고도 값을 캐릭터에 쓴다", function()
+        InitWith(Profile());
+        local options = DebindPrivate.Switches["$state1"];
+        check(options.value ~= true, "전제가 깨졌다 - 시작부터 켜져 있다");
+
+        DebindPrivate.OnSwitchChanged("$state1", true);
+        check(frames.drainTimers() > 0, "미러가 아예 예약되지 않았다");
+
+        check(DebindPrivate.db.char.switches["$state1"] == true,
+            "이 캐릭터에 안 쓰였다");
+        -- 정의는 계정 전체가 나눠 쓴다. 여기에 값이 남으면 다음 캐릭터가 그걸 물려받는다.
+        check(options.savedValue == nil, "정의에도 값이 남았다");
+        check(options.value == true, "창이 읽는 값이 안 따라왔다");
     end);
 
     ---------------------------------------------------------------------------

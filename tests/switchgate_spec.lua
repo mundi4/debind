@@ -39,6 +39,7 @@ return function(DebindPrivate)
 
     local GUID = "Player-1-GATESPEC";
     local interp;
+    local Rebuild;
 
     --- Stands a profile up, rebuilds, and hands back the interpreter with the new records in it.
     ---
@@ -54,7 +55,15 @@ return function(DebindPrivate)
             switches = switches,
         };
         DebindPrivate.InitDB();
+        return Rebuild();
+    end
 
+    --- A rebuild on the profile that is already loaded.
+    ---
+    --- **Split out because a reload is not a rebuild.** `Bind` builds `DebindVars` from scratch, so
+    --- anything written into the profile since -- a switch value the character remembers, say --
+    --- goes with it. A case about what survives a rebuild has to use this one.
+    function Rebuild()
         local mark = frames.mark();
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
 
@@ -215,6 +224,41 @@ return function(DebindPrivate)
 
             interp.state.combat = false;
         end);
+
+    -- **The echo of a reset must not become a memory** (§4-9 of
+    -- `devdocs/redesigning-custom-states.md`). The insecure side writes a switch's starting value and
+    -- pushes it in; the restricted side reports that same value straight back out (`SetSwitch` ->
+    -- `OnSwitchChanged`), and taking the report as a person having moved the switch overwrites the
+    -- memory **on one login** -- which is the value the character goes back to when it leaves a
+    -- layer that forces the answer.
+    --
+    -- **The whole round trip, not the two halves.** `switch_spec.lua` pins each end separately: that
+    -- a reset writes `value`, and that `SetSwitchValue` writes the memory. Neither can see them meet,
+    -- and meeting is the fault: the report arrives a frame later through the mirror
+    -- (`SwitchesChangedCallback`), so it is `drainTimers` that puts the two in the same room.
+    test("a reset that comes back through the restricted side is not remembered", function()
+        -- **No starting value yet**, so the switch is a plain "leave it where I left it" one and
+        -- turning it on is a memory rather than something a reset will argue with.
+        local i = Bind(GatedKey(), {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL },
+        });
+
+        DebindPrivate.SetSwitchValue("$state1", true);
+        check(DebindPrivate.db.char.switches["$state1"] == true, "setup: nothing was remembered");
+
+        -- **Giving it a starting value is what moves the answer**, and a moved answer is the only
+        -- thing that makes the next rebuild re-apply one (`ApplySwitchResets` compares
+        -- `layerKey|mode|resetValue`). Rebuilding with the same answer would push nothing in and
+        -- there would be no echo to mistake for a person.
+        DebindPrivate.Switches["$state1"].resetValue = false;
+        Rebuild();
+
+        check(i.env.States["$state1"] == false, "the reset did not reach the restricted side");
+        frames.drainTimers();
+
+        check(DebindPrivate.db.char.switches["$state1"] == true,
+            "the reset's echo was taken for a person and ate the memory");
+    end);
 
     test("a switch computed from another switch follows it", function()
         local i = Bind({

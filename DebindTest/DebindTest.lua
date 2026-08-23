@@ -10,6 +10,11 @@
 -- Every one of them asked a question about a value, and a question about a value is answered
 -- more cheaply -- and on every commit -- by npm test.
 --
+-- **Two more came down when a spec first drained the harness's timer queue** (2026-08-23).
+-- `C_Timer.After(0)` is queued rather than run there, and `wow_frames.drainTimers` had never been
+-- called by anything -- so "the mirror arrives next frame" read as out of reach when the next
+-- frame was one function call away.
+--
 -- **Three more came down when the two frame-free UI files joined the load list** (2026-08-23).
 -- `ActionDisplay.lua` names an action and `ActionTooltip.lua` writes the block that hangs off it,
 -- and neither ever needed a frame -- the tooltip is an argument. So the words a reader sees are a
@@ -3457,57 +3462,6 @@ RegisterTest("Custom state toggle flips the value", {
     end,
 })
 
--- **기억한 값이 어느 캐릭터의 것이 되느냐.** 정의는 계정 전체가 나눠 쓰고 값은 이 캐릭터의
--- 것인데(`devdocs/redesigning-custom-states.md` §5), 값이 정의로 돌아가면 "기억하기"가 다시
--- **마지막에 로그아웃한 캐릭터가 남긴 값 기억하기**가 된다.
---
--- **헤드리스가 못 본다.** 쓰는 자리가 `C_Timer.After(0)`으로 오는 미러이고
--- (`SwitchesChangedCallback`, `Misc.lua`), 러너에는 그 타이머가 없다. 틀려도 조용하다 -
--- 이번 세션은 멀쩡히 돌고, 값이 어긋난 것은 다음 로그인에 다른 캐릭터로 들어가야 보인다.
---
--- **미러 입구부터 본다.** 제한 환경에서 여기까지 오는 사슬은 바로 위 테스트가 끝까지 보므로,
--- 여기서 다시 세우면 같은 것을 두 번 재면서 전투 중에 못 도는 케이스만 하나 늘어난다.
-RegisterTest("Switch value is remembered per character", {
-    description = "전환이 남기는 기억값이 계정이 아니라 이 캐릭터에 쓰이는지",
-    run = function()
-        local NAME = "Switch value scope"
-        local MODES = Constants.SWITCH_MODES
-
-        local savedValues = DebindPrivate.db.char.switches
-        if not savedValues then
-            return Fail(NAME, "이 캐릭터에 스위치 값을 둘 표가 없다 - InitDB가 안 만들었다")
-        end
-
-        local savedDefinition = DebindPrivate.Switches["$state4"]
-        local savedStored = savedValues["$state4"]
-        AddTeardown(function()
-            DebindPrivate.Switches["$state4"] = savedDefinition
-            savedValues["$state4"] = savedStored
-        end)
-
-        -- **되돌릴 값이 없는 수동**, 곧 "기억하기". 값을 저장하는 유일한 모드다.
-        local options = { mode = MODES.MANUAL, value = false }
-        DebindPrivate.Switches["$state4"] = options
-        savedValues["$state4"] = nil
-
-        DebindPrivate.OnSwitchChanged("$state4", true)
-        coroutine.yield(0)
-
-        if savedValues["$state4"] ~= true then
-            return Fail(NAME, format("이 캐릭터에 안 쓰였다 (%s)", tostring(savedValues["$state4"])))
-        end
-        -- 정의는 계정 전체가 나눠 쓴다. 여기에 값이 남으면 다음 캐릭터가 그걸 물려받는다.
-        if options.savedValue ~= nil then
-            return Fail(NAME, "정의에도 값이 남았다 - 계정 전체가 그 값을 나눠 갖는다")
-        end
-        if options.value ~= true then
-            return Fail(NAME, "창이 읽는 값이 안 따라왔다")
-        end
-
-        return Pass(NAME, "값은 캐릭터에, 정의는 그대로")
-    end,
-})
-
 -- **이름이 `$state1`~`$state5`를 벗어난 첫 자리.** 코드젠이 `SWITCH_INDICES`에 없는 이름을
 -- 문 앞에서 돌려보냈고, 그래서 조건에 그런 이름이 있어도 굽히는 것이 아무것도 없었다. 문이
 -- 사라진 뒤에 이름을 가르는 것은 정의가 있느냐 하나뿐이다.
@@ -3647,60 +3601,6 @@ RegisterTest("Switch override: the layer key carries this character", {
         end
 
         return Pass(NAME, format("char=%q / class=%q", layerKey, tostring(classKey)))
-    end,
-})
-
--- **리셋의 메아리가 기억을 먹지 않는지** (§4-9). 비보안 쪽이 시작값을 값에 쓰고 제한 환경에
--- 밀어넣으면, 제한 환경이 그것을 그대로 되보고한다(`SetSwitch` -> `OnSwitchChanged`). 그
--- 되보고를 사람이 한 것으로 받으면 **로그인 한 번에 기억이 시작값으로 덮인다** - 그리고 그
--- 기억은 강제된 레이어를 떠났을 때 돌아갈 값이다.
---
--- **헤드리스가 못 본다.** 러너는 코드젠도 제한 환경도 안 싣고, 되보고가 오는 자리는
--- `C_Timer.After(0)` 뒤다(`SwitchesChangedCallback`). 틀려도 이번 세션은 멀쩡히 돌고,
--- 어긋난 것은 전문화를 옮기거나 다시 접속해야 보인다.
-RegisterTest("Switch reset does not eat what the character remembers", {
-    description = "시작값을 거는 리빌드가 캐릭터의 기억값을 덮지 않는가",
-    run = function()
-        local NAME = "Switch reset echo"
-        local SWITCH = "$resetecho"
-        local MODES = Constants.SWITCH_MODES
-
-        if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 리셋이 안 걸린다")
-        end
-
-        local savedValues = DebindPrivate.db.char.switches
-        local saved = DebindPrivate.Switches[SWITCH]
-        local savedValue = savedValues[SWITCH]
-        AddTeardown(function()
-            DebindPrivate.Switches[SWITCH] = saved
-            savedValues[SWITCH] = savedValue
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-
-        -- 켜둔 채로 두고 나갔던 스위치인데, 지금 이기는 답이 "꺼진 채로 시작"이다.
-        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false, value = true }
-        savedValues[SWITCH] = true
-
-        ApplyBindings()
-        -- 되보고는 다음 프레임에 온다. 여기서 기다리는 것은 **이 테스트가 묻는 값이 아니라**
-        -- 미러가 돌 기회다(`devdocs/when-a-change-takes-effect.md`).
-        WaitForIdle()
-
-        local definition = DebindPrivate.Switches[SWITCH]
-        if definition.value ~= false then
-            return Fail(NAME, format("시작값이 아예 안 걸렸다 (%s) - 아래 판정이 성립 안 한다",
-                tostring(definition.value)))
-        end
-        if savedValues[SWITCH] ~= true then
-            return Fail(NAME, format(
-                "기억값이 %s가 됐다 - 리셋의 메아리가 기억을 덮었다. 강제된 레이어를 떠나도 돌아갈 값이 없다",
-                tostring(savedValues[SWITCH])))
-        end
-
-        return Pass(NAME, "값은 꺼짐, 기억은 켜짐 그대로")
     end,
 })
 
