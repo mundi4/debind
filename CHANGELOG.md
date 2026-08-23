@@ -1,3 +1,21 @@
+# 3.3
+
+**Your unit frame bindings now reach the frames other addons draw.**
+
+Clicking a unit frame to cast is meant to work on whatever frames you use, and for a lot of setups it quietly did not. Debind hears about a frame through a list every click casting addon shares, and any addon that runs click casting of its own can take that list over: from that moment the frames being drawn go somewhere Debind never sees them. Frames built from a group of players are worse still, because those connect once, at the moment they are built, and a connection missed then is missed for the session.
+
+Debind now goes and finds them instead of waiting to be told. It asks the frame library its frames came from, it takes the members of a group frame set off the set itself as they appear, and it takes the shared list back when another addon has claimed it. If another addon then narrows what a frame will deliver, Debind puts it back rather than going silent.
+
+**A frame drawn by another addon is now recognised for what it is.** Every one of them used to arrive as "other", so a binding you scoped to party frames did nothing on the party frames you were actually looking at. Debind now reads the frame, which matters most for the slot in a party frame set that holds you: it reports itself as the player, and it is a party frame.
+
+**A new setting decides when a click on a unit frame casts** (in **Unit frame options**). Mouse up is what Blizzard's own frames do and what you get if you leave it alone, mouse down fires the moment the button goes down, and the third answer follows **Cast action keybinds on key down** in the game's own settings, which is the one your keys already follow.
+
+Also in this one:
+
+- A click on a mouse button you have no binding for is left alone on the way down as well as the way up. It used to be taken on the press even when Debind had nothing to run, which quietly ate that click from the frame underneath.
+- Mouse wheel bindings on a unit frame survive another addon turning the wheel off on that frame.
+- **Add custom target menus on the unit popup** is gone, and with it the entries it added to the right-click menu on a unit. That menu is one the game protects, and adding to it put Debind's name in error reports for breakage that started elsewhere. Setting a custom target from a binding is unchanged.
+
 # 3.2.2
 
 **A fix for the unit frame menu going missing under one option.**

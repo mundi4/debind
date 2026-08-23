@@ -80,6 +80,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ClickCastOnMouseDown = false
+
+
+
 	HeldButtons = newtable()
 	HeldUnits = newtable()
 
@@ -628,13 +632,17 @@ DelegateFrameNames[frame] = frame:GetName()
 
 ### SecureBindings.lua #19 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
-		if (ccframes[button]) then
+		local info = ccframes[button]
+		if (info and info.hd) then
 			return
 		end
 
-		self:RunFor(button, self:GetAttribute("InitFrame"))
-		ccframes[button].hd = true
-		ccframes[button].frameType = CONSTANTS.FRAMETYPE_GROUP
+		if (not info) then
+			self:RunFor(button, self:GetAttribute("InitFrame"))
+			info = ccframes[button]
+		end
+		info.hd = true
+		info.frameType = CONSTANTS.FRAMETYPE_GROUP
 		button:SetAttribute("useparent-clickbutton", true)
 		
 		button:Run([[debind_driver = self:GetParent():GetFrameRef("clickcast_header")]])
@@ -665,17 +673,6 @@ DelegateFrameNames[frame] = frame:GetName()
 		return
 	end
 
-
-
-
-
-
-
-
-
-
-	local isDown = down and true or false
-
 	local bindings
 	local n = MouseButtonNumbers[button]
 	if (n) then
@@ -695,9 +692,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	if (not bindings) then
-		if (isDown) then
-			return "debindnull"
-		end
 		return
 	end
 
@@ -997,16 +991,25 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	if (not winner or not winner.clickbutton) then
-		if (isDown) then
-			return "debindnull"
-		end
 		return
 	end
 
 
 
 
-	if (isDown) then
+
+
+
+
+
+
+
+
+
+
+
+
+	if ((down and true or false) ~= ClickCastOnMouseDown) then
 		return "debindnull"
 	end
 

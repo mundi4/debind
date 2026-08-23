@@ -739,23 +739,45 @@
 			<Anchor point="CENTER"/>
 		</Anchors>
 		<Frames>
-			<DropdownButton parentKey="OptionsPortrait" inherits="DebindPortraitTemplate">
+			<!--
+				**The gear is in the title bar, and it is Blizzard's own gear.**
+				`UIPanelIconDropdownButtonTemplate` (SharedUIPanelTemplates.xml) is a 15x16
+				`DropdownButton` carrying the `questlog-icon-setting` atlas, and the client hangs it
+				off `CloseButton`'s left edge in exactly this seat
+				(`Blizzard_HousingCornerstone.xml`, `Blizzard_HousingBulletinBoard.xml`). Nothing
+				here draws a gear of its own.
+
+				It was a `DebindPortraitTemplate` on the portrait row below until then, sharing a
+				31x31 round frame with [+] and the bind mode toggle. Those two are actions taken on
+				the list under them; this one is the window's own settings, and the title bar is
+				where this client puts that.
+
+				**`frameLevel` is the whole of why anything in this corner is visible.** The frame's
+				border is a child of its own at level 500 (`NineSlicePanelTemplate`), so a button
+				taking the default parent+1 is drawn *under* the gold corner art and simply is not
+				there - it still takes the cursor, which is what made it look like a missing texture.
+				510 is the number the close button beside it carries
+				(`UIPanelCloseButtonNoScripts`), and it is the title bar's band:
+				`TitleContainer` is 510 too.
+
+				`motionScriptsWhileDisabled` so the tooltip still answers while the window is locked
+				down - `UpdateButtons` greys this out in combat and the reason belongs on the button.
+			-->
+			<DropdownButton parentKey="OptionsButton" inherits="UIPanelIconDropdownButtonTemplate" mixin="DebindOptionsButtonMixin" motionScriptsWhileDisabled="true" frameLevel="510">
 				<KeyValues>
-					<!-- <KeyValue key="PortraitTexture" value="Interface\WorldMap\GEAR_64GREY" type="string"/> -->
-					<KeyValue key="PortraitTexture" value="Interface\Icons\pet_type_mechanical" type="string"/>
 					<KeyValue key="TooltipTitle" value="OPTIONS" type="string"/>
 					<KeyValue key="MenuFunc" value="SetupOptionsDropdownMenu" type="string"/>
 				</KeyValues>
 				<Anchors>
-					<!--
-						**프레임 오른쪽 위에 붙는다.** 자리는 클릭 바인딩 창의 포트레잇 버튼과
-						같다(Blizzard_ClickBindingUI.xml: 프레임 TOPRIGHT에서 -40/-40, 다음 것이
-						왼쪽으로 -5). 그 창의 것과 우리 것은 템플릿부터 같은 31x31인데, 간격 -5만
-						베끼고 기준은 인셋으로 잡아 놓아서 창이 넓어지거나 인셋이 움직일 때마다
-						같이 흘렀다.
-					-->
-					<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" x="-40" y="-40"/>
+					<Anchor point="RIGHT" relativeKey="$parent.CloseButton" relativePoint="LEFT" x="-4" y="-1"/>
 				</Anchors>
+				<Scripts>
+					<OnShow method="OnShow"/>
+					<OnEnter method="OnEnter"/>
+					<OnLeave method="OnLeave"/>
+					<OnEnable method="OnEnable"/>
+					<OnDisable method="OnDisable"/>
+				</Scripts>
 			</DropdownButton>
 			<!--
 				**The switch button stood here and is gone** (3c,
@@ -766,8 +788,11 @@
 
 				What closed it was two doors saying "switch" in one window: making one was up here
 				and everything else about one was on the tab, and the empty list had to point at a
-				button with no label to quote. `OptionsPortrait` is the only one left on this row,
-				which is why nothing below re-anchors.
+				button with no label to quote.
+
+				The gear followed it off the row, to the title bar. What is left down there is the two
+				buttons that act on the list - [+] and the bind mode toggle - and `BindModePortrait`
+				is what holds the row's position now.
 			-->
 			<!--
 				**Tab one's container: everything this window shows today.** It covers the whole frame, and
@@ -1224,6 +1249,39 @@
 					</DropdownButton>
 
 					<!--
+						**Clean up, and it holds the right end of the portrait row.** The seat and the
+						numbers are the ones the gear stood at before it went to the title bar, which
+						are the click binding window's (`Blizzard_ClickBindingUI.xml`: TOPRIGHT
+						-40/-40, the next one -5 to its left). Measured from the frame rather than an
+						inset - an inset moves when the window is resized and used to drag the row
+						with it.
+
+						**The art is the bag frame's, and so is the job.** `bags-button-autosort-up`
+						is what the client puts on [Clean Up Bags]; a reader who has ever sorted a bag
+						already knows what this button is going to do to a list.
+
+						**It is enabled only while there is something to remove**
+						(`DebindFrameMixin:UpdateButtons`), unlike the same one-shot in the options
+						menu, which is always pressable and answers in a line. A button standing in
+						the open can say "nothing to do" by being grey; a menu item cannot, because
+						nobody opens a menu to look at it.
+					-->
+					<Button parentKey="CleanUpPortrait" inherits="DebindPortraitTemplate">
+						<KeyValues>
+							<KeyValue key="PortraitTexture" value="A:bags-button-autosort-up" type="string"/>
+							<KeyValue key="TooltipTitle" value="REMOVE_DUPLICATES" type="string"/>
+							<KeyValue key="TooltipText" value="REMOVE_DUPLICATES_DESC" type="string"/>
+						</KeyValues>
+						<Anchors>
+							<!--
+								`$parent` is the container and the row belongs to the window, hence the
+								second hop. The side tabs already reach out this way.
+							-->
+							<Anchor point="TOPRIGHT" relativeKey="$parent.$parent" relativePoint="TOPRIGHT" x="-40" y="-40"/>
+						</Anchors>
+					</Button>
+
+					<!--
 						**The bind mode toggle.** It stands in the portrait row, and the list itself
 						carries no control for it.
 
@@ -1270,14 +1328,11 @@
 						</KeyValues>
 						<Anchors>
 							<!--
-								`$parent` is the container, and the portrait row it joins belongs to the
-								window - hence the second hop. The side tabs already reach out this way.
-
-								It hung off `SwitchesPortrait` until 3c took that button off the row.
-								`OptionsPortrait` is the only one left up there, so this is now the
-								second seat rather than the third.
+								Second seat from the right. It hung off `SwitchesPortrait`, then off
+								`OptionsPortrait`; the gear went to the title bar and `CleanUpPortrait`
+								took the seat it left, so this hangs off that one now.
 							-->
-							<Anchor point="RIGHT" relativeKey="$parent.$parent.OptionsPortrait" relativePoint="LEFT" x="-5" y="0"/>
+							<Anchor point="RIGHT" relativeKey="$parent.CleanUpPortrait" relativePoint="LEFT" x="-5" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>

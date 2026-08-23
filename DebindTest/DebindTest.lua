@@ -1502,14 +1502,19 @@ RegisterTest("Assign a key: a badged row is offered one too", {
             return Fail(NAME, "메뉴가 안 떴다")
         end
 
+        -- **The badged row's own label**, which is the plain one with the other half spelled out:
+        -- giving an arrival a key accepts it, and the item says so before it is pressed
+        -- (`ACTION_SET_KEY_ACCEPT`). Looking for the plain words here would pass on a row that had
+        -- lost its badge somewhere earlier in the run.
+        local wanted = LLL["ACTION_SET_KEY_ACCEPT"]
         local item
         menu:EnumerateElementDescriptions(function(_, description)
-            if MenuUtil.GetElementText(description) == LLL["ACTION_SET_KEY"] then
+            if MenuUtil.GetElementText(description) == wanted then
                 item = description
             end
         end)
         if not item then
-            return Fail(NAME, format("[%s] 항목이 없다", LLL["ACTION_SET_KEY"]))
+            return Fail(NAME, format("[%s] 항목이 없다", wanted))
         end
 
         item:Pick(MenuInputContext.MouseButton, "LeftButton")
@@ -1524,6 +1529,55 @@ RegisterTest("Assign a key: a badged row is offered one too", {
         end
 
         return Pass(NAME, "배지가 붙은 행에도 항목이 서고, 그 행 하나만 실렸다")
+    end,
+})
+
+--- **Both answers in that window are the reader deciding the key** (2026-08-23, 소유자), and
+--- deciding the key is what accepting an arrival is (`DebindFrameMixin:SetActionKey`). The item that
+--- opened it says so on its face, so pressing the button on the window it opened has to keep the
+--- promise: [Unbind Key] used to leave the arrival with no key **and** still waiting, which is
+--- neither half of what the label said.
+---
+--- The menu's own [Unbind] is not this and does not accept - it is aimed at a row rather than opened
+--- over a question, and one function serves both, so nothing but the flag tells them apart.
+RegisterTest("Assign a key: unbinding from that window accepts too", {
+    description = "[Assign a key & Accept]로 연 창에서 [단축키 해제]를 눌러도 승인되는가",
+    run = function()
+        local NAME = "Imported row unbind accepts"
+
+        local action = InsertAction({
+            type = Constants.SPELL,
+            value = 1,
+            key = "SHIFT-Q",
+            arrivalID = 1,
+        })
+        ApplyBindings()
+
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+            DebindKeyCaptureFrame:Hide()
+        end)
+
+        DebindUI.BeginKeyCapture({ action })
+        if not DebindKeyCaptureFrame:IsShown() then
+            return Fail(NAME, "캡처 창이 안 떴다")
+        end
+        if not DebindKeyCaptureFrame.UnbindButton:IsEnabled() then
+            return Fail(NAME, "실키를 들고 왔는데 [단축키 해제]가 꺼져 있다")
+        end
+
+        -- 그 버튼이 하는 일 그대로다: 답을 nil로 넘긴다.
+        DebindKeyCaptureFrame:Commit(nil)
+
+        if action.key ~= nil then
+            return Fail(NAME, format("키가 안 떨어졌다: %s", tostring(action.key)))
+        end
+        if action.arrivalID ~= nil then
+            return Fail(NAME, format("승인이 안 됐다 - 배지가 %s로 남았다",
+                tostring(action.arrivalID)))
+        end
+
+        return Pass(NAME, "키가 떨어지고 배지도 같이 떨어졌다")
     end,
 })
 
@@ -2330,6 +2384,75 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
     end,
 })
 
+--- **The second door to the same outcome asks the same question** (2026-08-23, 소유자). [Add and
+--- Accept] used to reach down into the plan and leave the badge off, which put the arrivals live on
+--- the sender's keys with nothing asked - and on a key the reader already uses, that is a merge
+--- they never chose. It lands badged now and runs the approval, so the prompt [Accept all] raises
+--- stands here too.
+---
+--- **Until the prompt is answered the arrivals are pending**, which is what makes its [Cancel] a
+--- whole answer: nothing is half done, the actions are in and waiting like any other arrival.
+---
+--- `StaticPopup_Show` is the game's, so nothing outside it can see this.
+RegisterTest("Storage: adding and accepting asks about a key I am using", {
+    description = "[Add and Accept]이 겹치는 키에 대해 일괄 승인 확인창을 띄우는가",
+    run = function()
+        local NAME = "Storage add and accept"
+        local KEY = "CTRL-ALT-F4"
+
+        AddTeardown(function() StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED") end)
+
+        -- 내 것이 그 키에 이미 서 있다. 페이로드는 프로필에서 뜨므로 같은 키를 들고 돌아온다.
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
+        ApplyBindings()
+
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+        end
+
+        local entry = DebindPrivate.Store.CreateEntry()
+        AddTeardown(function()
+            panel:SelectEntry(nil)
+            DebindPrivate.Store.DeleteEntry(entry.id)
+        end)
+
+        panel:SelectEntry(entry)
+        local listed = panel:EnumerateListedActions()
+        if #listed == 0 then
+            return Fail(NAME, "전제가 깨졌다 - 엔트리에 액션이 하나도 없다")
+        end
+
+        panel:OnAddClicked(true)
+
+        local dialog = StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED")
+        if not dialog then
+            return Fail(NAME, "내가 쓰는 키로 들어왔는데 아무것도 안 물었다")
+        end
+
+        -- **창이 들고 있는 것을 읽는다.** `CollectArrivedActions`로는 못 본다 - 페이로드는 이 판이
+        -- 만든 레이어의 주소를 못 실어서(`ImportAddress`) 도착분이 **진짜** 클래스 레이어로
+        -- 내려앉는데, 키트는 열거 셋을 갈아끼워 그쪽을 안 보여준다. 게임에서는 같은 것을 보고,
+        -- 여기서는 이 목록이 그 자리다.
+        local pending = dialog.data and dialog.data.arrivals or {}
+        if #pending == 0 then
+            return Fail(NAME, "확인창이 아무것도 안 들고 섰다")
+        end
+
+        -- **묻는 동안은 대기 상태다.** 배지가 떨어져 있으면 창은 이미 지나간 일을 묻는 것이 된다.
+        for _, action in ipairs(pending) do
+            if action.arrivalID == nil then
+                return Fail(NAME, "확인창이 떠 있는데 배지가 떨어진 것이 있다")
+            end
+            if action.key ~= KEY then
+                return Fail(NAME, format("도착분이 보낸 키를 잃었다: %s", tostring(action.key)))
+            end
+        end
+
+        return Pass(NAME, format("확인창이 섰고 %d개가 대기 중이다", #pending))
+    end,
+})
+
 --- **Leaving the tab is not the same as picking a different entry** (2026-08-23, 소유자). What is
 --- ticked and which layers are open are the reader's answers, and `OnShow` used to throw both away
 --- and start the entry over - so a glance at Overview undid however many clicks they had spent
@@ -2618,6 +2741,70 @@ RegisterTest("Panels: no store means no panel, not an error", {
         end
 
         return Pass(NAME, "임포트는 막히고 오버뷰는 선다")
+    end,
+})
+
+--- **The client is the only thing that can answer this one.** Both halves are frame questions: what
+--- `UpdateButtons` left the button's enabled state at, and whether the press put the client's own
+--- confirmation up. The headless harness has neither.
+---
+--- What it guards is the button being the only door. It is grey exactly when the sweep finds
+--- nothing, so a lit button is a promise, and `RemoveDuplicateActions` walking a second time on the
+--- press is what keeps that promise from resting on a cached answer. Gate the two on different
+--- walks and a lit button starts answering `REMOVE_DUPLICATES_NONE`.
+RegisterTest("Duplicates: the clean up button is lit only where there is something to remove", {
+    description = "중복이 있을 때만 청소 버튼이 켜지고, 누르면 확인창이 뜨는가",
+    run = function()
+        local NAME = "Duplicates clean up"
+        local KEY = "CTRL-ALT-F7"
+
+        if not DebindFrame:IsShown() then
+            DebindFrame:Show()
+            AddTeardown(function() DebindFrame:Hide() end)
+        end
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+
+        -- The confirmation is the client's and outlives a failed run, so it goes whatever happens.
+        AddTeardown(function() StaticPopup_Hide("GENERIC_CONFIRMATION") end)
+
+        local cleanUp = DebindFrame.OverviewPanel.CleanUpPortrait
+        DebindFrame:Update()
+        if cleanUp:IsEnabled() then
+            return Fail(NAME, "중복이 하나도 없는데 청소 버튼이 켜져 있다")
+        end
+        -- Grey with no reason on the tooltip is a button that cannot say why.
+        if cleanUp.disabledReason ~= LLL["REMOVE_DUPLICATES_NONE"] then
+            return Fail(NAME, "꺼진 버튼이 이유를 안 들고 있다")
+        end
+
+        -- Two actions a signature cannot tell apart, in one layer. That is the whole of what the
+        -- sweep looks for.
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
+        ApplyBindings()
+
+        DebindFrame:Update()
+        if not cleanUp:IsEnabled() then
+            return Fail(NAME, "중복이 있는데 청소 버튼이 꺼져 있다")
+        end
+        if cleanUp.disabledReason ~= nil then
+            return Fail(NAME, "켜진 버튼이 꺼진 이유를 아직 들고 있다")
+        end
+
+        local onClick = cleanUp:GetScript("OnClick")
+        if not onClick then
+            return Fail(NAME, "청소 버튼에 OnClick이 안 걸려 있다")
+        end
+        onClick(cleanUp)
+
+        -- **The press has to reach the confirmation**, which is the half `UpdateButtons` cannot
+        -- promise: the button lighting up says the walk found something, and this says the press
+        -- walked again and agreed.
+        if not StaticPopup_IsCustomGenericConfirmationShown("DebindDeleteConfirmation") then
+            return Fail(NAME, "버튼은 켜져 있는데 눌러도 확인창이 안 떴다 - 두 쪽 검출이 갈렸다")
+        end
+
+        return Pass(NAME, "없으면 꺼지고 있으면 켜지며, 눌러서 확인창까지 간다")
     end,
 })
 
@@ -3146,6 +3333,12 @@ RegisterTest("Custom state toggle flips the value", {
 --
 -- 셋을 한 자리에서 본다. 켜짐이 없으면 꺼짐은 "원래 아무것도 안 걸린다"와 구분이 안 되고,
 -- 꺼짐이 없으면 켜짐은 "조건을 아예 안 본다"와 구분이 안 된다.
+--
+-- **여기 남는 이유는 그 셋이 아니라 마지막 한 줄이다.** 셋은 `tests/boundkey_spec.lua`가 볼
+-- 수 있다. 못 보는 것은 **전투 중에 밟는 길**이다: `SwitchesUpdaterFrame`에 속성을 쓰면
+-- 클라이언트가 `_onattributechanged`를 부르고 거기서 키가 다시 걸리는데, 하네스는 속성을
+-- 저장만 하고 그 핸들러를 안 부른다. 스펙이 본문을 손으로 부르면 재는 것이 "본문이 맞느냐"로
+-- 바뀌고, 여기서 묻는 것은 **쓰기가 핸들러를 부르느냐**다.
 RegisterTest("Switch condition on a name outside the five", {
     description = "$state1~5 밖의 이름이 조건으로 서는지, 정의가 없으면 안 나가는지",
     run = function()
@@ -3297,6 +3490,12 @@ RegisterTest("Switch override: the layer key carries this character", {
 -- down the name-tracking branch, and exists for anyone alone. Writing the attribute instead of
 -- pressing the key is the same door the action goes through (`*attribute-frame` is UnitWatch,
 -- `*attribute-name` is `custom1`).
+--
+-- **And that door is why this stays.** The write lands on the UnitWatch header, and
+-- `tests/restricted.lua` replays **only the driver's** bodies -- every other header has its own
+-- managed environment in the game, and replaying its bodies into the driver's would put their
+-- globals in the wrong table. So the one thing this measures is the one thing that harness declines
+-- to have an opinion about.
 RegisterTest("Custom target survives a rebuild", {
     description = "지정한 @custom1이 리빌드 뒤에도 남는지",
     run = function()
@@ -3333,12 +3532,6 @@ RegisterTest("Custom target survives a rebuild", {
         end
 
         ApplyBindings()
---
--- **여기 남는 이유는 그 셋이 아니라 마지막 한 줄이다.** 셋은 `tests/boundkey_spec.lua`가 볼
--- 수 있다. 못 보는 것은 **전투 중에 밟는 길**이다: `SwitchesUpdaterFrame`에 속성을 쓰면
--- 클라이언트가 `_onattributechanged`를 부르고 거기서 키가 다시 걸리는데, 하네스는 속성을
--- 저장만 하고 그 핸들러를 안 부른다. 스펙이 본문을 손으로 부르면 재는 것이 "본문이 맞느냐"로
--- 바뀌고, 여기서 묻는 것은 **쓰기가 핸들러를 부르느냐**다.
 
         u = ReadSecureUnit("custom1")
         if not u then
@@ -3490,12 +3683,6 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
         AddTeardown(function() HoverLeave(frame) end)
         WaitForHoverSlot(true)
 
---
--- **And that door is why this stays.** The write lands on the UnitWatch header, and
--- `tests/restricted.lua` replays **only the driver's** bodies -- every other header has its own
--- managed environment in the game, and replaying its bodies into the driver's would put their
--- globals in the wrong table. So the one thing this measures is the one thing that harness declines
--- to have an opinion about.
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
         end
@@ -3732,24 +3919,35 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
     end,
 })
 
--- **A registered frame gets the release edge and nothing else.** That edge is the one a frame's
--- own actions run on: `SECURE_ACTIONS.menu` acts on the release and returns while `down` is true,
--- so a frame missing it loses its unit menu outright, with no error to say so. `target` does not
--- gate on the edge, which is why targeting went on working and hid that through several releases.
--- Neither is tied to a button, since `Enum.ClickBindingInteraction.Target` and `.OpenContextMenu`
--- are both movable in Blizzard's click binding window, which is why this asks for the whole
--- release edge rather than one button's.
+-- **A registered frame gets both edges, and the wrapper picks between them.**
 --
--- The press edge is asked about too, and it has to be absent. `UpdateRegisteredClicks` runs on
--- frames another addon owns, and registering an edge that addon never asked for runs its own
--- `OnClick` a second time per click. `unitframeUseMouseDown` registered that edge, and this is
--- what it was removed over.
+-- The release is the edge a frame's own actions run on: `SECURE_ACTIONS.menu` acts on the release
+-- and returns while `down` is true, so a frame missing it loses its unit menu outright, with no
+-- error to say so. `target` does not gate on the edge, which is why targeting went on working and
+-- hid that through several releases. Neither is tied to a button, since
+-- `Enum.ClickBindingInteraction.Target` and `.OpenContextMenu` are both movable in Blizzard's
+-- click binding window, which is why this asks for the whole release edge rather than one
+-- button's.
+--
+-- **The press has to be there too, which is the reverse of what this case used to ask.** It was
+-- written when `unitframeUseMouseDown` had just been removed, over a claim that registering an
+-- edge another addon never asked for runs its `OnClick` twice per click. That claim is false:
+-- `SecureActionButton_OnClick` computes
+-- `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`, so a frame acts on
+-- exactly one edge however many are delivered. Delivery and action are separate, and the option
+-- is back with three answers, one of them the press.
+--
+-- So a narrowing here is a silent death in either direction: without the press, choosing to cast
+-- on mouse down does nothing at all; without the release, the default does. And narrowing to
+-- per-button forms takes the middle and thumb buttons off the frame entirely, since a frame
+-- delivers only what it is registered for.
 --
 -- The registration call is captured on a frame the test owns, because there is no API that asks a
--- frame which clicks it is registered for. Shadowing the method on our own frame leaves every
--- other frame alone, and the real one is still called.
-RegisterTest("Click-cast: a registered frame keeps the release edge and only that one", {
-    description = "등록한 프레임이 뗄 때 엣지만 갖는가",
+-- frame which clicks it is registered for (`SimpleButtonAPIDocumentation.lua` has the setter and
+-- no getter). Shadowing the method on our own frame leaves every other frame alone, and the real
+-- one is still called.
+RegisterTest("Click-cast: a registered frame carries both click edges", {
+    description = "등록한 프레임이 누를 때와 뗄 때 엣지를 다 갖는가",
     run = function()
         local NAME = "Click edges"
 
@@ -3774,12 +3972,9 @@ RegisterTest("Click-cast: a registered frame keeps the release edge and only tha
             return Fail(NAME, "등록 자체가 안 돌았다")
         end
 
-        local function Registered(...)
-            for i = 1, select("#", ...) do
-                local want = select(i, ...)
-                for _, got in ipairs(captured) do
-                    if got == want then return true end
-                end
+        local function Registered(want)
+            for _, got in ipairs(captured) do
+                if got == want then return true end
             end
             return false
         end
@@ -3789,13 +3984,13 @@ RegisterTest("Click-cast: a registered frame keeps the release edge and only tha
         if not Registered("AnyUp") then
             return Fail(NAME, format(
                 "[%s] 에 떼는 엣지가 없다. 유닛 메뉴가 도는 자리가 그 엣지뿐이라 메뉴가 걸린 "
-                .. "버튼이 죽는다", seen))
+                .. "버튼이 죽고, 시전 시점을 뗄 때로 둔 사람은 클릭이 아예 안 온다", seen))
         end
 
-        if Registered("AnyDown", "LeftButtonDown", "RightButtonDown", "MiddleButtonDown") then
+        if not Registered("AnyDown") then
             return Fail(NAME, format(
-                "[%s] 에 누르는 엣지가 있다. 유닛프레임 애드온이 요청한 적 없는 엣지라 그쪽 "
-                .. "OnClick이 클릭 한 번에 두 번 돈다", seen))
+                "[%s] 에 누르는 엣지가 없다. 시전 시점을 누를 때로 둔 사람에게 클릭이 아예 "
+                .. "안 온다", seen))
         end
 
         return Pass(NAME, seen)
@@ -4278,6 +4473,65 @@ RegisterTest("Hover frame types still narrow on their own", {
         end
 
         return Pass(NAME, format("종류가 어긋나면 안 잡음 (%q)", wrongType))
+    end,
+})
+
+-- **Only the game runs this one.** `clickcast_register` is a snippet body, and the takeover it
+-- performs happens inside the restricted environment on tables the headless harness never builds.
+-- `tests/frames_spec.lua` covers the other half -- what `RegisterFrame` works the type out to.
+--
+-- What is pinned: an addon reaching us through both doors gets the same answer whichever order it
+-- uses them in. It did not. `ClickCastFrames` writes `unknown` because the Clique protocol carries
+-- no kind, and this body used to stand down on finding any row at all -- so an addon that registers
+-- through the header before it styles the child came out a group frame, while one that styles first
+-- kept the `unknown` the styling pass had left behind.
+RegisterTest("Header registration takes a frame back from the click-cast table", {
+    description = "ClickCastFrames가 먼저 잡은 프레임을 헤더 등록이 되찾는가",
+    run = function()
+        local NAME = "Header takeover"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+        end
+
+        -- `true` is what unit frame addons actually put in `ClickCastFrames`, and it is not one of
+        -- our category names -- so this is the door that yields `unknown`.
+        local frame, err = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, true)
+        if not frame then return Fail(NAME, err) end
+
+        local before = DebindPrivate.ccframes[frame]
+        if before.frameType ~= Constants.FRAMETYPE_UNKNOWN then
+            return Fail(NAME, format("첫 등록이 unknown이어야 하는데 %s였다", tostring(before.frameType)))
+        end
+
+        -- Exactly what a header does: hand the button over on the driver and run the body.
+        SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_cc", frame)
+        SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+            self:SetAttribute("clickcast_button", self:GetFrameRef("debindtest_cc"))
+            self:RunAttribute("clickcast_register")
+        ]])
+
+        -- `UnregisterFrame` skips `hd` rows, so the header's own door is the only way back out.
+        AddTeardown(function()
+            SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_cc", frame)
+            SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+                self:SetAttribute("clickcast_button", self:GetFrameRef("debindtest_cc"))
+                self:RunAttribute("clickcast_unregister")
+            ]])
+        end)
+
+        local after = DebindPrivate.ccframes[frame]
+        if type(after) ~= "table" then
+            return Fail(NAME, format("헤더 등록 후 행이 사라졌다 (%s)", tostring(after)))
+        end
+        if not after.hd then
+            return Fail(NAME, "헤더 등록이 물러났다. hd가 안 켜졌다")
+        end
+        if after.frameType ~= Constants.FRAMETYPE_GROUP then
+            return Fail(NAME, format("unknown을 못 덮었다. frameType=%s", tostring(after.frameType)))
+        end
+
+        return Pass(NAME, "unknown 행을 헤더가 group으로 되찾음")
     end,
 })
 
@@ -5070,6 +5324,9 @@ end
 -----------------------------------------------------------
 
 local lastResultText = ""
+--- The same run, cut down to what did not pass. Kept beside the full text rather than derived from
+--- it on demand, because the run it describes is gone by the time anyone presses the button.
+local lastFailureText = ""
 
 local runner = CreateFrame("Frame")
 runner:Hide()
@@ -5106,6 +5363,41 @@ local function Persist()
     }
 end
 
+--- Just the ones that did not pass, in the order they ran.
+---
+--- **Built from `results`, not by filtering the report.** The report is a list of lines written for
+--- a person and its shape is free to change; picking failures out of it by looking for a word would
+--- go quietly empty the day one of those words moves. `results` is what the run actually decided,
+--- keyed by test.
+---
+--- **Errors count as failures here**, because the reader pressing this wants everything that is not
+--- a pass. Skips do not: nothing went wrong with one, and a list that carried them would bury two
+--- real failures under thirty rows the reader asked to leave out.
+---
+--- The tally comes along. Without it "3 lines" reads the same whether the run was three tests or
+--- three hundred, and the first thing anyone asks of a failure list is how much of the suite it is.
+--- `source` is the results table to read, for the two callers that have one which is not the live
+--- one: a run that died with the session and a resume that threw both report on results that were
+--- stored before this session began.
+local function FailuresText(summary, source)
+    source = source or results
+    local lines = {};
+    for i = 1, #testOrder do
+        local result = source[testOrder[i]];
+        if (result and (result.status == "fail" or result.status == "error")) then
+            lines[#lines + 1] = result.msg;
+        end
+    end
+
+    if #lines == 0 then
+        return "실패 없음.\n\n" .. summary
+    end
+
+    tinsert(lines, "")
+    tinsert(lines, summary)
+    return table.concat(lines, "\n")
+end
+
 local function FinishRun()
     pcall(CleanupActions)
     RunTeardowns()
@@ -5124,6 +5416,7 @@ local function FinishRun()
     print(format("\n|cff00ccff%s|r", summary))
 
     lastResultText = table.concat(run.lines, "\n")
+    lastFailureText = FailuresText(summary)
 
     local onDone = run.onDone
     run = nil
@@ -5131,6 +5424,7 @@ local function FinishRun()
     Persist()
 
     DB().last = lastResultText
+    DB().lastFailures = lastFailureText
 
     if onDone then onDone() end
 end
@@ -5257,9 +5551,6 @@ local function Step()
         -- `/debtest` should do to someone who only wanted to see the list go green.
         if test.crossesReload and not run.crossReloads then
             run.skip = run.skip + 1
---- The same run, cut down to what did not pass. Kept beside the full text rather than derived from
---- it on demand, because the run it describes is gone by the time anyone presses the button.
-local lastFailureText = ""
             Record(run.name, "skip", format("SKIP %s: /debtest reload 로 실행", run.name), "ff888888")
             run.index = run.index + 1
             Persist()
@@ -5296,41 +5587,6 @@ local lastFailureText = ""
             run.co, run.wait = nil, nil
             run.index = run.index + 1
             -- 다음 테스트가 남의 phase로 시작하지 않게. 이 값을 지우는 것이 정상 종료
---- Just the ones that did not pass, in the order they ran.
----
---- **Built from `results`, not by filtering the report.** The report is a list of lines written for
---- a person and its shape is free to change; picking failures out of it by looking for a word would
---- go quietly empty the day one of those words moves. `results` is what the run actually decided,
---- keyed by test.
----
---- **Errors count as failures here**, because the reader pressing this wants everything that is not
---- a pass. Skips do not: nothing went wrong with one, and a list that carried them would bury two
---- real failures under thirty rows the reader asked to leave out.
----
---- The tally comes along. Without it "3 lines" reads the same whether the run was three tests or
---- three hundred, and the first thing anyone asks of a failure list is how much of the suite it is.
---- `source` is the results table to read, for the two callers that have one which is not the live
---- one: a run that died with the session and a resume that threw both report on results that were
---- stored before this session began.
-local function FailuresText(summary, source)
-    source = source or results
-    local lines = {};
-    for i = 1, #testOrder do
-        local result = source[testOrder[i]];
-        if (result and (result.status == "fail" or result.status == "error")) then
-            lines[#lines + 1] = result.msg;
-        end
-    end
-
-    if #lines == 0 then
-        return "실패 없음.\n\n" .. summary
-    end
-
-    tinsert(lines, "")
-    tinsert(lines, summary)
-    return table.concat(lines, "\n")
-end
-
             -- 갈래에만 있어서, 리로드를 건넌 테스트가 중간에 죽으면 그 phase가 다음
             -- 테스트로 넘어갔다 - 받는 쪽은 준비 단계를 통째로 건너뛴다.
             run.phase = nil
@@ -5349,7 +5605,6 @@ end
     RunTeardowns()
     run.co = nil
     run.index = run.index + 1
-    lastFailureText = FailuresText(summary)
     run.phase = nil
     Persist()
     return true
@@ -5357,7 +5612,6 @@ end
 
 runner:SetScript("OnUpdate", function(self, elapsed)
     -- The frame is hidden while idle, so this should not fire without a run. A teardown or an
-    DB().lastFailures = lastFailureText
     -- `onDone` that starts something of its own could still land here between the two, and an
     -- error thrown from OnUpdate is not worth the risk of finding out.
     if not run then
@@ -5436,6 +5690,12 @@ local function ResumeStoredRun()
         tinsert(pending.lines, died)
         lastResultText = table.concat(pending.lines, "\n")
         DB().last = lastResultText
+        -- **The failure list is rewritten too, or it answers for the run before this one.** A
+        -- reader who presses [실패만 복사] after a run died would otherwise be handed a stale list
+        -- with nothing saying so, and the death itself -- the one thing worth reading -- would not
+        -- be in it.
+        lastFailureText = FailuresText(died, pending.results)
+        DB().lastFailures = lastFailureText
         return
     end
 
@@ -5473,6 +5733,8 @@ local function ResumeStoredRun()
         tinsert(pending.lines, failed)
         lastResultText = table.concat(pending.lines, "\n")
         DB().last = lastResultText
+        lastFailureText = FailuresText(failed, pending.results)
+        DB().lastFailures = lastFailureText
     end
 end
 
@@ -5624,12 +5886,6 @@ end
 local function PaintRow(testName)
     local row = rows[testName]
     if not row then
-        -- **The failure list is rewritten too, or it answers for the run before this one.** A
-        -- reader who presses [실패만 복사] after a run died would otherwise be handed a stale list
-        -- with nothing saying so, and the death itself -- the one thing worth reading -- would not
-        -- be in it.
-        lastFailureText = FailuresText(died, pending.results)
-        DB().lastFailures = lastFailureText
         return
     end
 
@@ -5666,8 +5922,6 @@ local function PaintAllRows()
     end
 end
 
-        lastFailureText = FailuresText(failed, pending.results)
-        DB().lastFailures = lastFailureText
 local function BuildRows(content)
     local y = 0
     for _, testName in ipairs(testOrder) do
@@ -5808,6 +6062,38 @@ local function CreateTestUI()
             ShowCopyableText(stored or "아직 실행한 적이 없다.")
         end
     end)
+
+    -- **The list somebody actually reads after a run.** A full report is sixty lines of PASS with
+    -- two failures somewhere in it, and the first thing anyone does with it is search. This hands
+    -- over the two.
+    --
+    -- Beside [복사] rather than instead of it: the whole report is what to keep when the question is
+    -- "what did this build do", and that is a different question from "what do I fix now".
+    f.copyFailBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.copyFailBtn:SetSize(100, 24)
+    -- **Under [복사] rather than beside it.** The top row already reaches within 290 of the left
+    -- edge and the tally sits there; one more button on it would run into the numbers. Under it the
+    -- pair reads as a pair, and the second row has nothing between here and [리로드 후 실행].
+    f.copyFailBtn:SetPoint("TOP", f.copyBtn, "BOTTOM", 0, -4)
+    f.copyFailBtn:SetText("실패만 복사")
+    f.copyFailBtn:SetScript("OnClick", function()
+        if lastFailureText ~= "" then
+            ShowCopyableText(lastFailureText)
+        else
+            local stored = DB().lastFailures
+            ShowCopyableText(stored or "아직 실행한 적이 없다.")
+        end
+    end)
+    f.copyFailBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("실패만 복사", 1, 1, 1)
+        GameTooltip:AddLine(
+            "마지막 런에서 실패하거나 오류가 난 것만 모아서 연다. 건너뛴 것은 안 들어간다 - "
+            .. "잘못된 것이 없으니까. 아래에 전체 집계가 같이 붙는다.",
+            nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    f.copyFailBtn:SetScript("OnLeave", GameTooltip_Hide)
 
     -- The tally, on the button row -- the first thing to read, level with the thing that changes
     -- it.
@@ -5983,35 +6269,3 @@ SlashCmdList["DEBINDTEST"] = function(msg)
 end
 
 print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = 목록 창. 실행은 창 안의 |cffffff00실행|r / |cffffff00리로드 포함|r / |cffffff00리로드 후 실행|r 버튼. |cffffff00/debtest last|r = 지난 결과.")
-    -- **The list somebody actually reads after a run.** A full report is sixty lines of PASS with
-    -- two failures somewhere in it, and the first thing anyone does with it is search. This hands
-    -- over the two.
-    --
-    -- Beside [복사] rather than instead of it: the whole report is what to keep when the question is
-    -- "what did this build do", and that is a different question from "what do I fix now".
-    f.copyFailBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    f.copyFailBtn:SetSize(100, 24)
-    -- **Under [복사] rather than beside it.** The top row already reaches within 290 of the left
-    -- edge and the tally sits there; one more button on it would run into the numbers. Under it the
-    -- pair reads as a pair, and the second row has nothing between here and [리로드 후 실행].
-    f.copyFailBtn:SetPoint("TOP", f.copyBtn, "BOTTOM", 0, -4)
-    f.copyFailBtn:SetText("실패만 복사")
-    f.copyFailBtn:SetScript("OnClick", function()
-        if lastFailureText ~= "" then
-            ShowCopyableText(lastFailureText)
-        else
-            local stored = DB().lastFailures
-            ShowCopyableText(stored or "아직 실행한 적이 없다.")
-        end
-    end)
-    f.copyFailBtn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine("실패만 복사", 1, 1, 1)
-        GameTooltip:AddLine(
-            "마지막 런에서 실패하거나 오류가 난 것만 모아서 연다. 건너뛴 것은 안 들어간다 - "
-            .. "잘못된 것이 없으니까. 아래에 전체 집계가 같이 붙는다.",
-            nil, nil, nil, true)
-        GameTooltip:Show()
-    end)
-    f.copyFailBtn:SetScript("OnLeave", GameTooltip_Hide)
-

@@ -7,8 +7,6 @@ local L = addon.L;
 -- 바꾸면 같이 바뀌어야 맞다. 한때 같은 뜻에 hex와 색 이름이 섞여서, 빨강 하나가
 -- 문자열마다 다른 빨강이었다.
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
-L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP"] = "Add custom target menus on the unit popup"
-L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"] = "Add 'Set Custom Target' menu items to the unit popup menu if possible. These menus will only work when you are out of combat."
 L["ADDON_NAME"] = "Debind"
 L["ALL"] = "All"
 -- 여럿을 고른 채로 연 우클릭 메뉴의 제목. 이름을 나열하지 않는 이유는 DELETE_CONFIRM_MESSAGE_MULTIPLE
@@ -1023,6 +1021,16 @@ L["UNIT_PLAYER"] = "Player"
 L["UNIT_ROLE_DESC"] = "Tank, Healer, Main Tank and Main Assist only work while exactly one member of your party or raid holds that role."
 L["UNIT_TANK"] = "Tank"
 L["UNIT_TARGET"] = "Target"
+-- **`nil` is one of the three and not a missing answer.** The game only asks this question of
+-- keybinds (`ACTION_BUTTON_USE_KEY_DOWN`), so the entry names the game rather than the key
+-- setting: a reader who has never opened that setting still knows what "the game" means, and one
+-- who has will find the wording again in the tooltip.
+L["UNITFRAME_CLICK_EDGE"] = "Clicking a unit frame casts on"
+-- `%s` is the game's own wording for its keybind setting, put in where it is shown.
+L["UNITFRAME_CLICK_EDGE_DESC"] = "Blizzard's own unit frames cast when the mouse button comes back up.|n|nWhatever the game does follows |cnHIGHLIGHT_FONT_COLOR:%s|r in the game's own settings, which is the setting your keys already follow."
+L["UNITFRAME_CLICK_EDGE_DOWN"] = "Mouse down"
+L["UNITFRAME_CLICK_EDGE_GAME"] = "Whatever the game does"
+L["UNITFRAME_CLICK_EDGE_UP"] = "Mouse up"
 L["UNITFRAME_OPTIONS"] = "Unit frame options"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once at login, and only when something is actually stopped

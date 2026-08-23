@@ -102,6 +102,29 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             unitframeDescription:SetEnabled(false);
         end
 
+        --- The three answers, and `nil` among them is one of them and not the absence of one:
+        --- it is "whatever the game does", which `ApplyOptions` reads off the CVar. So the radio
+        --- compares against `data.value` rather than testing for a value being there at all.
+        local edgeDescription = unitframeDescription:CreateButton(LLL["UNITFRAME_CLICK_EDGE"]);
+        SetInstructionTooltip(edgeDescription,
+            format(LLL["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN));
+
+        local function clickEdgeIs(data)
+            return DebindPrivate.Options.unitframeUseMouseDown == data.value;
+        end
+
+        local function setClickEdge(data)
+            DebindPrivate.Options.unitframeUseMouseDown = data.value;
+            DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+            return MenuResponse.Refresh;
+        end
+
+        edgeDescription:CreateRadio(LLL["UNITFRAME_CLICK_EDGE_GAME"], clickEdgeIs, setClickEdge, {});
+        edgeDescription:CreateRadio(LLL["UNITFRAME_CLICK_EDGE_DOWN"], clickEdgeIs, setClickEdge, { value = true });
+        edgeDescription:CreateRadio(LLL["UNITFRAME_CLICK_EDGE_UP"], clickEdgeIs, setClickEdge, { value = false });
+
+        unitframeDescription:CreateDivider();
+
         local framesDescription = unitframeDescription:CreateButton(LLL["BLIZZARD_UNIT_FRAMES"]);
         for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
             framesDescription:CreateCheckbox(LLL["BLIZZARD_UNIT_FRAMES_" .. strupper(frameType)], function()
@@ -158,33 +181,13 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
         end)
     end
 
-    do
-        local addCustomTargetMenusToUnitPopupDescription = rootDescription:CreateCheckbox(LLL["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP"], function()
-            return DebindPrivate.Options.addCustomTargetMenusToUnitPopup and true or false;
-        end, function()
-            DebindPrivate.Options.addCustomTargetMenusToUnitPopup = (not DebindPrivate.Options.addCustomTargetMenusToUnitPopup) or nil;
-            DebindPrivate.ApplyOptions("addCustomTargetMenusToUnitPopup");
-            return MenuResponse.Refresh;
-        end);
-        SetInstructionTooltip(addCustomTargetMenusToUnitPopupDescription, LLL["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"]);
-    end
-
-    do
-        rootDescription:CreateDivider();
-
-        --- **The one item here that does something rather than remembering something.** Everything
-        --- above it is a setting the reader leaves switched; this runs once and deletes. The divider
-        --- is what keeps it from sitting shoulder to shoulder with toggles that are safe to poke,
-        --- and the client puts its own one-shot [Reset to Defaults] in a settings menu the same way.
-        ---
-        --- **It does not say how many.** Working that out means sweeping every layer, and doing it
-        --- to label a menu item is a walk on every open of a menu whose other items have nothing to
-        --- do with it. The count comes back the moment it is pressed
-        --- (`DebindUI.RemoveDuplicateActions`).
-        local removeDuplicatesDescription = rootDescription:CreateButton(
-            LLL["REMOVE_DUPLICATES"], DebindUI.RemoveDuplicateActions);
-        SetInstructionTooltip(removeDuplicatesDescription, LLL["REMOVE_DUPLICATES_DESC"]);
-    end
+    -- **[Remove Duplicate Actions] stood here, behind a divider, and is a button on the portrait
+    -- row now** (`CleanUpPortrait`). It was the one item in this menu that did something rather
+    -- than remembering something, and that was always the awkward part: everything else here is a
+    -- setting the reader leaves switched. What decided it is that the button can be grey. A menu
+    -- item cannot say "there is nothing to clean up" without being opened and read, so it was
+    -- always pressable and answered in a line; a button in the open says it by being lit or not,
+    -- and paying for that sweep on every gesture is a price only the button's own row owes.
 
     -- do
     --     local sliderDescription = rootDescription:CreateTemplate("DebindStateDriverUpdateThrottleSliderTemplate");

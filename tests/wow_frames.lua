@@ -251,6 +251,9 @@ end
 function frameMethods:IsEventRegistered(event) return self.__events[event] ~= nil; end
 
 function frameMethods:RegisterForClicks(...) self.__clicks = { ... }; end
+--- Kept rather than dropped with the other setters, because the addon puts it back when another
+--- addon turns it off and a spec has to be able to see that it did.
+function frameMethods:EnableMouseWheel(on) self.__mouseWheel = on and true or false; end
 
 --- Clicking a shell does nothing. What a click would reach is the restricted side, and that is the
 --- one thing this file does not stand in for.
@@ -270,7 +273,7 @@ function frameMethods:CreateFontString() return newFrame("FontString"); end
 local function noop() end
 for _, name in ipairs({
     "SetPoint", "ClearAllPoints", "SetAllPoints", "SetSize", "SetWidth", "SetHeight",
-    "SetFrameStrata", "SetFrameLevel", "SetParent", "EnableMouse", "EnableMouseWheel",
+    "SetFrameStrata", "SetFrameLevel", "SetParent", "EnableMouse",
     "SetPropagateMouseMotion", "SetNormalTexture", "SetPushedTexture", "SetHighlightTexture",
     "SetTexture", "SetAtlas", "SetVertTile", "SetText", "SetEnabled", "SetAlpha", "SetScale",
     "SetClampedToScreen", "SetToplevel", "SetMovable", "SetHitRectInsets", "SetTexCoord",

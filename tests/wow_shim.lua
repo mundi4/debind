@@ -10,6 +10,7 @@ M.frames = frames;
 --- everything else stays absent, which is not the same as a default -- see the comment on
 --- `C_Spell` in `install`.
 M.world = {
+    cvars = {},
     spells = {},
     baseSpells = {},
     overrideSpells = {},
@@ -478,9 +479,31 @@ function M.install()
 
     -- Loading the dummy addon. Succeeds by default; `migration_spec` swaps this out when it
     -- exercises the disabled path.
+    --- **The one CVar the addon reads for itself.** `ApplyOptions` folds the click edge option's
+    --- third answer -- the reader leaving it to the game -- onto this, and the restricted side
+    --- cannot ask for it. Off by default, which is the client's default and the release edge.
+    --- **The header globals, as things to hook rather than things that work.** The addon hooks
+    --- these to find a group header's children, and `hooksecurefunc` needs something standing
+    --- there to wrap. What they do is Blizzard's and out of reach headless; a spec drives the
+    --- hook by calling one, which is what the game does on every roster change.
+    _G.SecureGroupHeader_OnLoad = function() end
+    _G.SecureGroupHeader_Update = function() end
+    _G.SecureGroupPetHeader_OnLoad = function() end
+    _G.SecureGroupPetHeader_Update = function() end
+
+    _G.GetCVarBool = function(name)
+        return M.world.cvars[name] and true or false;
+    end
+
+    _G.ACTION_BUTTON_USE_KEY_DOWN = "Cast action keybinds on key down";
+
     _G.C_AddOns = {
         LoadAddOn = function() return true; end,
         IsAddOnLoaded = function() return false; end,
+        --- **Nothing installed, which is what a headless run has.** `CollectOUFFrames` walks this
+        --- list asking every addon for its `X-oUF` global, so a spec that wants the walk to find
+        --- something puts an addon here itself.
+        GetNumAddOns = function() return 0; end,
         --- **`nil` is the answer a working tree gives.** The packager stamps `## Version:` from the
         --- tag, so a checkout has the literal `@project-version@` there or nothing at all, and
         --- `GetVersionLabel` is written around exactly that -- it falls back when the metadata has

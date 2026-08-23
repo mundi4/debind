@@ -1909,6 +1909,23 @@ function DebindPrivate.DisplayMessage(message, r, g, b)
 end
 
 function DebindPrivate.ApplyOptions(option)
+    if (option == nil or option == "unitframeUseMouseDown") then
+        --- **Three answers folded into one boolean before it crosses.** The restricted side
+        --- cannot read a CVar, so `nil` - the reader not having chosen - is resolved here, and
+        --- re-resolved whenever the CVar moves (`Events.CVAR_UPDATE`).
+        ---
+        --- **`ActionButtonUseKeyDown` is a setting about keys**, and this is a click on somebody
+        --- else's frame. It is what `nil` follows because it is the only place the game asks the
+        --- question at all, and because the key side of the addon already falls to it: a reader
+        --- who answered it once should not have to answer it twice.
+        local onMouseDown = DebindPrivate.Options.unitframeUseMouseDown;
+        if (onMouseDown == nil) then
+            onMouseDown = GetCVarBool("ActionButtonUseKeyDown") and true or false;
+        end
+        SecureHandlerExecute(DebindPrivate.BindingDriver,
+            format("ClickCastOnMouseDown=%s", tostring(onMouseDown)));
+    end
+
     if (option == nil or option == "stateDriverUpdateThrottle") then
         local value = DebindPrivate.Options.stateDriverUpdateThrottle or STATE_DRIVER_UPDATE_THROTTLE_DEFAULT;
         if (type(value) == "number") then

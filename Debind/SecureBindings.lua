@@ -101,6 +101,10 @@ SecureHandlerExecute(BindingDriver, [[
 	MouseButtonNumbers["Button4"] = 4
 	MouseButtonNumbers["Button5"] = 5
 
+	-- 클릭 시전이 어느 엣지에 발동하는가. `ApplyOptions`가 매번 다시 쓴다. 여기 기본값은
+	-- 그 전에 클릭이 도착해도 답이 있게 하려는 것이고, 블리자드 개체창의 기본값과 같다.
+	ClickCastOnMouseDown = false
+
 	-- 실행 엣지가 down일 때 down의 선택을 up이 재사용하기 위한 자리. 버튼 이름 -> 이긴 레코드,
 	-- 그리고 그때 확정한 대상. down이 항상 먼저 오므로 덮어쓰기로 자가 치유된다.
 	HeldButtons = newtable()
@@ -692,15 +696,31 @@ else
 		return States.unitframe and States.unitframe.unit or nil
 	]==]);
 
+	--- **A row already here is not a reason to stand down.** An addon can reach us through both
+	--- doors, and it used to be whichever one arrived first that decided the frame's kind: this
+	--- one calls every frame it takes a group frame, `RegisterFrame` reads the frame itself. An
+	--- addon that runs `clickcast_register` before it styles the child came out a group frame,
+	--- while one that styles first did not -- styling is where the child is written into
+	--- `ClickCastFrames`, so its header children were already sitting in `ccframes` by the time
+	--- this ran and kept whatever the other door had decided. Two addons doing the same thing in
+	--- the other order got different answers out of us.
+	---
+	--- **The header is the one that knows.** Its children hold whichever slot they are filling
+	--- right now, so the unit on them says nothing about the frame, and this path overwrites what
+	--- the other one worked out. `hd` still stops a second pass, since by then the answer is ours.
 	BindingDriver:SetAttribute("clickcast_register", BakeSnippet([==[
 		local button = self:GetAttribute("clickcast_button")
-		if (ccframes[button]) then
+		local info = ccframes[button]
+		if (info and info.hd) then
 			return
 		end
 
-		self:RunFor(button, self:GetAttribute("InitFrame"))
-		ccframes[button].hd = true
-		ccframes[button].frameType = CONSTANTS.FRAMETYPE_GROUP
+		if (not info) then
+			self:RunFor(button, self:GetAttribute("InitFrame"))
+			info = ccframes[button]
+		end
+		info.hd = true
+		info.frameType = CONSTANTS.FRAMETYPE_GROUP
 		button:SetAttribute("useparent-clickbutton", true)
 		
 		button:Run([[debind_driver = self:GetParent():GetFrameRef("clickcast_header")]])
@@ -1113,17 +1133,6 @@ end, [==[
 		return
 	end
 
-	-- **A registered frame delivers only the edges we asked for.** A press arriving here is one
-	-- we turned on for ourselves, and the frame's own actions are waiting on the release, which
-	-- is the single edge they reach without the option too. So every answer below keeps the
-	-- press and hands back only the release. Handing the press back as well would run those
-	-- actions twice: `menu` is the only one that refuses to act on a press, while `target` and
-	-- `ExecuteBinding`, which is Blizzard's own click casting, never look at the edge.
-	--
-	-- `debindnull` is a suffix nobody wrote an attribute for, so a click answered with it is
-	-- spent and there is nothing left to run.
-	local isDown = down and true or false
-
 	local bindings
 	local n = MouseButtonNumbers[button]
 	if (n) then
@@ -1143,9 +1152,6 @@ end, [==[
 	end
 
 	if (not bindings) then
-		if (isDown) then
-			return "debindnull"
-		end
 		return
 	end
 
@@ -1155,16 +1161,25 @@ end, [==[
 ]==] .. EVAL_SNIPPET .. [==[
 
 	if (not winner or not winner.clickbutton) then
-		if (isDown) then
-			return "debindnull"
-		end
 		return
 	end
 
-	-- The release edge is ours, and `FrameRegistry` registers that one alone. A press still
-	-- arrives if the frame's own addon re-registers `AnyDown` after us, and acting on it would
-	-- send the action twice for one click, so it is swallowed here rather than trusted away.
-	if (isDown) then
+	-- **The edge we do not act on is swallowed.** Both edges are registered because
+	-- which ones arrive is the frame's state and not ours (`FrameRegistry.lua`), so the press is
+	-- there to be dealt with whether we wanted it or not, and it has to be spent: left alone it
+	-- would run the frame's own action on the press and ours on the release, casting twice for one
+	-- click. Answering it with `debindnull` -- a suffix nobody wrote an attribute for -- takes the
+	-- click without running anything, and the frame's own `type1` is not read for it either.
+	--
+	-- **Which edge that is, is the reader's.** `ClickCastOnMouseDown` carries their answer, and
+	-- where they left it alone it carries the game's (`ApplyOptions`). The release is what every
+	-- unit frame Blizzard ships is registered for (`SecureUnitButton_OnLoad`), so that is what
+	-- leaving it alone comes out as.
+	--
+	-- Only a click we are actually taking is swallowed. One we decline is left alone on both
+	-- edges, and `SecureActionButton_OnClick` gates the frame's own action to one of them by
+	-- itself: `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`.
+	if ((down and true or false) ~= ClickCastOnMouseDown) then
 		return "debindnull"
 	end
 
@@ -1249,8 +1264,8 @@ end, [==[
 	-- 안 나간다.** 오류도 로그도 없다.
 	--
 	-- 그래서 이 갈래에서만 거짓으로 못박는다. 도착 엣지가 고정이므로 CVar에 물어볼 것이 없다.
-	-- 어느 엣지에 클릭이 오느냐는 유닛 프레임의 `RegisterForClicks`가 정하고, 그건 그 프레임
-	-- 주인의 몫이다.
+	-- 진짜 클릭이 어느 엣지에 오느냐와는 별개다 - 그건 OnClick 래퍼가 보고, 래퍼는 뗄 때
+	-- 발동한다. 여기까지 온 시점에는 이미 그 결정이 끝나 있다.
 	if (clickCast) then
 		self:SetAttribute("useOnKeyDown", false)
 	end

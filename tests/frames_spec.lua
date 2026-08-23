@@ -104,6 +104,301 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- Working the type out when nobody supplies one
+    ---------------------------------------------------------------------------
+
+    --- A frame the way another addon hands one over through `ClickCastFrames`: the Clique
+    --- protocol carries no category, so the second argument is whatever that addon put in the
+    --- table and never one of our names.
+    local function ForeignFrame(name, unit)
+        local frame = frames.newFrame("Button", name, nil, "SecureUnitButtonTemplate");
+        if (unit) then
+            frame:SetAttribute("unit", unit);
+        end
+        return frame;
+    end
+
+    -- Every frame any other unit frame addon hands over arrived as `unknown`, because the only
+    -- thing feeding the category table was our own Blizzard registration.
+    test("a frame nobody described is read off its own unit", function()
+        local CASES = {
+            { "target", Constants.FRAMETYPE_TARGET },
+            { "focus", Constants.FRAMETYPE_TARGET },
+            { "targettarget", Constants.FRAMETYPE_TARGET },
+            { "pet", Constants.FRAMETYPE_PET },
+            { "party2", Constants.FRAMETYPE_GROUP },
+            { "raid17", Constants.FRAMETYPE_GROUP },
+            { "boss3", Constants.FRAMETYPE_BOSS },
+            { "arena1", Constants.FRAMETYPE_ARENA },
+            { "player", Constants.FRAMETYPE_PLAYER },
+        };
+        for i = 1, #CASES do
+            local frame = ForeignFrame(nil, CASES[i][1]);
+            DebindPrivate.RegisterFrame(frame, true);
+            check(DebindPrivate.ccframes[frame].frameType == CASES[i][2],
+                CASES[i][1] .. ": " .. tostring(DebindPrivate.ccframes[frame].frameType));
+        end
+    end);
+
+    -- **The one token that lies.** A party frame set has five slots and only four party units, so
+    -- the slot holding you carries `player` -- Blizzard's compact container does it, and so does a
+    -- unit frame addon that draws its own party block, sometimes with the token written on the
+    -- frame for good. Reading the unit alone calls that frame the player frame, which is the one
+    -- place the name gets asked.
+    test("a party frame holding the player is still a party frame", function()
+        local frame = ForeignFrame("SomeUIPartySelfButton", "player");
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_GROUP,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
+    -- The player frame of the same addon, so the case above is not passing by refusing `player`
+    -- outright.
+    test("a frame named for the player is the player frame", function()
+        local frame = ForeignFrame("SomeUIUnitFrames_Player", "player");
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_PLAYER,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
+    -- **And the name is asked nowhere else**, because an addon puts its own prefix in every name
+    -- it makes. This pack is named for a group frame, so every frame it draws carries the word,
+    -- and its target frame would answer group to anything that read the name before the unit.
+    test("an addon named for a group frame does not make all its frames group frames", function()
+        local frame = ForeignFrame("PartyPixelUI_TargetFrame", "target");
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_TARGET,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
+    -- **`unknown` closes nothing.** A frame library can write the unit attribute *after* the
+    -- styling pass that registers the frame, so the first call has nothing to read, and the addon
+    -- on top of it registers the finished frame a second time. Standing down on the type matching
+    -- spent that second call.
+    test("a frame that could not be read is asked again", function()
+        local frame = ForeignFrame(nil, nil);
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_UNKNOWN,
+            "the first pass should have had nothing to go on");
+
+        frame:SetAttribute("unit", "target");
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_TARGET,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Fetching what another addon's table swallowed
+    ---------------------------------------------------------------------------
+
+    --- The addon list the collector walks, shaped the way the game's is: **fixed before the first
+    --- pass.** `X-oUF` is read out of the `.toc`, which the client has parsed for every addon by
+    --- the time anything runs, so the collector walks the list once and works off the names it
+    --- found. A library declared here after that first pass would be one the game could not have
+    --- produced, and the collector would rightly never see it.
+    local oufAddons = {};
+
+    local function DeclareOUFLibrary(objects)
+        local name = "SomeUIoUF" .. (#oufAddons + 1);
+        oufAddons[#oufAddons + 1] = name;
+        _G[name] = { objects = objects };
+        return name;
+    end
+
+    --- One pass, with those addons standing where `GetAddOnMetadata` can find them.
+    local function CollectOUFFrames()
+        local realNum = _G.C_AddOns.GetNumAddOns;
+        local realMeta = _G.C_AddOns.GetAddOnMetadata;
+        _G.C_AddOns.GetNumAddOns = function() return #oufAddons; end
+        _G.C_AddOns.GetAddOnMetadata = function(i, field)
+            if (field == "X-oUF") then
+                return oufAddons[i];
+            end
+        end
+
+        local ok, err = pcall(DebindPrivate.CollectOUFFrames);
+
+        _G.C_AddOns.GetNumAddOns = realNum;
+        _G.C_AddOns.GetAddOnMetadata = realMeta;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    -- **These frames were addressed to us and went somewhere else.** A frame library writes every
+    -- frame it builds into `ClickCastFrames`, and a unit frame addon running click casting of its
+    -- own can put its own table over that global first, so the writes land there and we never hear
+    -- of them. Getting the global back afterwards does not get the frames back, and the other
+    -- table cannot be read out of. So the library is asked instead, through the `X-oUF` global it
+    -- publishes itself under.
+    --
+    -- **One test, because the collector remembers across passes and so does a session.** The list
+    -- it reads keeps growing -- a header gets more children as the roster does, a frame spawned
+    -- later lands on the end -- so what has to be shown is a sequence: the frames standing at the
+    -- first pass, then the ones appended after it, then that a pass with nothing new offers
+    -- nothing. Split into three, each would be starting from the other two's marks.
+    test("a library's frames are fetched, and the ones appended after them", function()
+        local first = { ForeignFrame(nil, "party1"), ForeignFrame(nil, "party2") };
+        -- A second library, to show the mark is kept per library rather than as one number. An
+        -- addon is free to carry its own copy of oUF under its own global.
+        local second = { ForeignFrame(nil, "target") };
+        DeclareOUFLibrary(first);
+        DeclareOUFLibrary(second);
+
+        CollectOUFFrames();
+        for i = 1, 2 do
+            local seen = DebindPrivate.ccframes[first[i]];
+            check(seen and seen.frameType == Constants.FRAMETYPE_GROUP,
+                "first library, object " .. i .. ": " .. tostring(seen and seen.frameType));
+        end
+        check(DebindPrivate.ccframes[second[1]], "the second library was never asked");
+
+        -- Nothing new: the mark is what makes a pass on every loading screen cost nothing.
+        local offered = 0;
+        local realRegister = DebindPrivate.RegisterFrame;
+        DebindPrivate.RegisterFrame = function(...)
+            offered = offered + 1;
+            return realRegister(...);
+        end
+        CollectOUFFrames();
+        DebindPrivate.RegisterFrame = realRegister;
+        check(offered == 0, "a pass over nothing new offered " .. offered .. " frames again");
+
+        -- And the tail each library grew since.
+        first[3] = ForeignFrame(nil, "party3");
+        second[2] = ForeignFrame(nil, "focus");
+        CollectOUFFrames();
+        check(DebindPrivate.ccframes[first[3]],
+            "the frame appended to the first library was never offered");
+        check(DebindPrivate.ccframes[second[2]],
+            "the frame appended to the second library was never offered");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Holding on to the click input
+    ---------------------------------------------------------------------------
+
+    --- What the frame will deliver, as one string to look for words in.
+    local function ClicksOn(frame)
+        return frame.__clicks and table.concat(frame.__clicks, " ") or "";
+    end
+
+    -- **A registered frame has to keep delivering both edges and the wheel**, because that is what
+    -- the click wrapper reads and what a wheel binding arrives on. Nothing guarantees it: the
+    -- registration is the frame's own state, so the last addon to write it writes it for everyone.
+    test("a registered frame is set up to deliver both edges and the wheel", function()
+        local frame = ForeignFrame(nil, "party1");
+        DebindPrivate.RegisterFrame(frame, true);
+
+        local clicks = ClicksOn(frame);
+        check(strfind(clicks, "AnyUp", 1, true) and strfind(clicks, "AnyDown", 1, true),
+            "clicks: " .. clicks);
+        check(frame.__mouseWheel == true, "the wheel was not turned on");
+    end);
+
+    -- **Another click-casting addon narrows it, and does so more than once.** It writes its own
+    -- edge onto every frame it takes, and again on every re-registration rather than only when its
+    -- setting moves; turning itself off narrows the frame too, with the wheel going off in the
+    -- line after the edges. Every one of those leaves a binding on this frame silently dead, so
+    -- the frame is listened to and put back.
+    test("a frame narrowed by another addon is put back", function()
+        local frame = ForeignFrame(nil, "party1");
+        DebindPrivate.RegisterFrame(frame, true);
+
+        frame:RegisterForClicks("AnyDown");
+        frame:EnableMouseWheel(false);
+
+        local clicks = ClicksOn(frame);
+        check(strfind(clicks, "AnyUp", 1, true) and strfind(clicks, "AnyDown", 1, true),
+            "clicks: " .. clicks);
+        check(frame.__mouseWheel == true, "the wheel was left off");
+    end);
+
+    -- **And a frame we let go is let go.** The hook cannot be taken off a frame, so what stops it
+    -- is the row being gone: putting the input back on a frame the addon is no longer watching
+    -- would be holding on to somebody else's.
+    test("a frame we stopped watching is left where the other addon put it", function()
+        local frame = ForeignFrame(nil, "party1");
+        DebindPrivate.RegisterFrame(frame, true);
+        DebindPrivate.UnregisterFrame(frame);
+
+        frame:RegisterForClicks("AnyDown");
+        frame:EnableMouseWheel(false);
+
+        check(ClicksOn(frame) == "AnyDown", "clicks: " .. ClicksOn(frame));
+        check(frame.__mouseWheel == false, "the wheel was turned back on");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Taking a group header's children off the header
+    ---------------------------------------------------------------------------
+
+    --- A header the way `configureChildren` leaves one: each unit button in a `child<i>` attribute,
+    --- counted from 1 and ending where the attribute does.
+    local function HeaderWithChildren(n)
+        local header = frames.newFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
+        local children = {};
+        for i = 1, n do
+            children[i] = ForeignFrame(nil, "raid" .. i);
+            header:SetAttribute("child" .. i, children[i]);
+        end
+        return header, children;
+    end
+
+    -- **A header's children reach us off the header or not at all.** The header protocol connects
+    -- once, when the header is built, by reading a global we have to be standing in at that moment;
+    -- a header built before that, or one whose addon does not speak the protocol, is never joined.
+    -- The table is no better, since whoever holds its name gets the writes.
+    test("a header hands over its children when it is loaded", function()
+        local header, children = HeaderWithChildren(3);
+        SecureGroupHeader_OnLoad(header);
+
+        for i = 1, 3 do
+            local seen = DebindPrivate.ccframes[children[i]];
+            check(seen and seen.frameType == Constants.FRAMETYPE_GROUP,
+                "child " .. i .. ": " .. tostring(seen and seen.frameType));
+        end
+    end);
+
+    -- **A group grows and the header makes more.** `configureChildren` runs inside
+    -- `SecureGroupHeader_Update`, so the hook on it is both the certain catch and the re-walk.
+    test("children made after the load are taken on the next update", function()
+        local header, children = HeaderWithChildren(1);
+        SecureGroupHeader_OnLoad(header);
+        check(DebindPrivate.ccframes[children[1]], "the first child was not taken");
+
+        children[2] = ForeignFrame(nil, "raid2");
+        header:SetAttribute("child2", children[2]);
+        SecureGroupHeader_Update(header);
+
+        check(DebindPrivate.ccframes[children[2]], "the child added afterwards was never offered");
+    end);
+
+    -- The pet headers are the same door and the same answer: what someone reading "pet frame"
+    -- pictures is their own pet's frame, not a grid of other people's pets.
+    test("a pet header's children are group frames too", function()
+        local header, children = HeaderWithChildren(2);
+        SecureGroupPetHeader_Update(header);
+
+        for i = 1, 2 do
+            local seen = DebindPrivate.ccframes[children[i]];
+            check(seen and seen.frameType == Constants.FRAMETYPE_GROUP,
+                "child " .. i .. ": " .. tostring(seen and seen.frameType));
+        end
+    end);
+
+    -- The walk stops where the attributes do, rather than at some count of its own.
+    test("the walk stops at the first missing child", function()
+        local header, children = HeaderWithChildren(2);
+        local beyond = ForeignFrame(nil, "raid9");
+        header:SetAttribute("child4", beyond);
+        SecureGroupHeader_Update(header);
+
+        check(DebindPrivate.ccframes[children[2]], "the last contiguous child was not taken");
+        check(DebindPrivate.ccframes[beyond] == nil, "a child past the gap was taken");
+    end);
+
+    ---------------------------------------------------------------------------
     -- Refusals
     ---------------------------------------------------------------------------
 

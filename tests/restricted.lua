@@ -419,6 +419,21 @@ function Interp:evalClickCast(frame, n, mod)
         self.driver:GetAttribute("EvalClickCastFrame"), n, mod);
 end
 
+--- Drives the real `OnClick` wrapper the way a click arriving on a registered unit frame does,
+--- and answers the button name it hands back: `debind1` where one of our bindings took the click,
+--- `debindnull` where the click was already spent, nil where the name is left alone and the click
+--- carries on into the frame's own handler.
+---
+--- **The shipped body, not a stand-in for it.** `evalClickCast` above runs `EVAL_SNIPPET` with the
+--- wrapper's prologue replaced by arguments, so the prologue is the one part of the click path it
+--- cannot see -- and the prologue is where the edges are decided. Which edges even arrive is the
+--- frame's state rather than ours, so getting that wrong leaves a key that raises nothing and does
+--- nothing. `UnitFrameClickPre` is the baked body itself, kept where the re-wrap can reach it.
+function Interp:clickFrame(frame, button, down)
+    return self:run(self.Private.UnitFrameClickPre, handleFor(self, frame), "self, button, down",
+        button, down);
+end
+
 --- Runs one pass of the state loop, the way the 0.2s poll does. Whatever it decides to bind lands
 --- in `interp.bindings`.
 function Interp:pollStates()
@@ -468,6 +483,7 @@ function M.new(DebindPrivate, world)
     local interp = setmetatable({}, Interp);
 
     interp.Constants = DebindPrivate.Constants;
+    interp.Private = DebindPrivate;
     interp.world = world;
     interp.handles = {};
     interp.closures = {};

@@ -16,8 +16,6 @@ local L = addon.L;
 if (GetLocale() ~= "koKR") then return end
 
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
-L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP"] = "개체 우클릭 메뉴에 사용자 지정 대상 항목 추가"
-L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"] = "가능한 경우 개체 우클릭 메뉴에 '사용자 지정 대상 지정' 항목을 추가합니다. 이 항목은 전투 중이 아닐 때만 동작합니다."
 L["ADDON_NAME"] = "Debind"
 L["ALL"] = "전체"
 -- 근거는 enUS 쪽 주석에.
@@ -426,6 +424,11 @@ L["UNIT_PLAYER"] = "플레이어"
 L["UNIT_ROLE_DESC"] = "방어 전담, 치유 전담, 주요 방어 전담, 지원공격 전담은 파티나 공격대에서 그 역할을 맡은 사람이 정확히 한 명일 때만 동작합니다."
 L["UNIT_TANK"] = "방어 전담"
 L["UNIT_TARGET"] = "대상"
+L["UNITFRAME_CLICK_EDGE"] = "개체창을 클릭해서 시전하는 시점"
+L["UNITFRAME_CLICK_EDGE_DESC"] = "블리자드 개체창은 마우스 버튼을 뗄 때 시전합니다.|n|n'게임이 하는 대로'는 게임 설정의 |cnHIGHLIGHT_FONT_COLOR:%s|r를 따릅니다. 단축키가 이미 따르고 있는 그 설정입니다."
+L["UNITFRAME_CLICK_EDGE_DOWN"] = "누를 때"
+L["UNITFRAME_CLICK_EDGE_GAME"] = "게임이 하는 대로"
+L["UNITFRAME_CLICK_EDGE_UP"] = "뗄 때"
 L["UNITFRAME_OPTIONS"] = "개체창 설정"
 L["UNNAMED_ACTION"] = "(이름 없음)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.

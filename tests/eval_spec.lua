@@ -471,6 +471,133 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
+    -- Which edge of the click we take
+    ---------------------------------------------------------------------------
+
+    -- **Which edges arrive is the frame's state and not ours.** `RegisterForClicks` is set on the
+    -- frame, so the last addon to call it decides for every wrapper on it, and a frame we put on
+    -- the release can be moved to the press behind our back. `FrameRegistry` therefore asks for
+    -- both, and the wrapper has to answer for both. Three rules come out of that, one test each:
+    --
+    --   * the release is the edge we act on, which is the one every unit frame Blizzard ships is
+    --     registered for (`SecureUnitButton_OnLoad`);
+    --   * a click we are not taking is left alone on both edges, so the frame's own action runs
+    --     exactly where it would have;
+    --   * a click we *are* taking is swallowed on the press as well, or the frame acts on the
+    --     press and we act on the release and one click casts twice.
+    --
+    -- These run the shipped wrapper body (`interp:clickFrame`), not `EVAL_SNIPPET` with the
+    -- prologue replaced -- the prologue is the whole of what is being asked about here.
+    --- The reader's answer, put in the way the options menu puts it. `nil` is one of the three and
+    --- means the game decides, so the CVar it falls to is set here alongside it.
+    local function SetClickEdge(value, useKeyDown)
+        DebindPrivate.Options.unitframeUseMouseDown = value;
+        shim.world.cvars.ActionButtonUseKeyDown = useKeyDown;
+
+        local mark = frames.mark();
+        DebindPrivate.ApplyOptions("unitframeUseMouseDown");
+        interp:replay(frames.since(mark));
+    end
+
+    local function ClickCastBind()
+        Bind({
+            action({ value = 585, key = "BUTTON2", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            -- A second button, for the case where two are held at once.
+            action({ value = 585, key = "BUTTON1", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+        });
+        shim.world.units = { party1 = { id = "friend", reaction = "help" } };
+        -- Nothing chosen and the game's own setting off, which is where a fresh install stands.
+        SetClickEdge(nil, nil);
+    end
+
+    test("the release fires the binding", function()
+        ClickCastBind();
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debind1",
+            "the release did not take the click");
+    end);
+
+    -- `debindnull` is a suffix nobody wrote an attribute for, so the press is taken and nothing
+    -- runs on it -- the frame's own `type1` included.
+    test("the press of a click we take is swallowed", function()
+        ClickCastBind();
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debindnull",
+            "the press was left for the frame's own action");
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debind1",
+            "the release did not fire after its press was swallowed");
+    end);
+
+    -- **Both edges of a click we decline are left alone**, so the frame keeps whichever one it
+    -- acts on. Answering the press with `debindnull` here would eat clicks we have no binding for.
+    test("a click we decline is left alone on both edges", function()
+        ClickCastBind();
+        shim.world.units = { party1 = { id = "enemy", reaction = "harm" } };
+        check(interp:clickFrame(unitFrame, "RightButton", true) == nil,
+            "the press of a declined click was swallowed");
+        check(interp:clickFrame(unitFrame, "RightButton", false) == nil,
+            "the release of a declined click was swallowed");
+    end);
+
+    -- A button we bound nothing to is declined the same way, and never reaches the eval at all.
+    test("a button with no binding is left alone on both edges", function()
+        ClickCastBind();
+        check(interp:clickFrame(unitFrame, "MiddleButton", true) == nil,
+            "the press of an unbound button was swallowed");
+        check(interp:clickFrame(unitFrame, "MiddleButton", false) == nil,
+            "the release of an unbound button was swallowed");
+    end);
+
+    -- **Nothing is carried between buttons.** Two held at once interleave their presses and
+    -- releases, and each has to be judged where it stands.
+    test("two buttons held at once each resolve on their own release", function()
+        ClickCastBind();
+        check(interp:clickFrame(unitFrame, "LeftButton", true) == "debindnull",
+            "the first press was not swallowed");
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debindnull",
+            "the second press was not swallowed");
+        check(interp:clickFrame(unitFrame, "LeftButton", false) == "debind1",
+            "the first button did not fire on its release");
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debind1",
+            "the second button did not fire on its release");
+    end);
+
+
+    -- **And which edge that is, is the reader's.** The wrapper reads one boolean; folding the
+    -- three answers onto it is `ApplyOptions`', and the restricted side cannot read a CVar for
+    -- itself. The swallowing goes with it: whichever edge is not the one we act on.
+    test("choosing the press moves both the firing and the swallowing", function()
+        ClickCastBind();
+        SetClickEdge(true, nil);
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debind1",
+            "the press did not fire once it was chosen");
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debindnull",
+            "the release was left for the frame's own action");
+    end);
+
+    -- The third answer: the reader has chosen nothing, so the game's own keybind setting decides.
+    test("leaving it to the game follows the game's setting", function()
+        ClickCastBind();
+        SetClickEdge(nil, true);
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debind1",
+            "the press did not fire with the game's setting on");
+
+        SetClickEdge(nil, false);
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debind1",
+            "the release did not fire with the game's setting off");
+    end);
+
+    -- And an answer of their own outranks it, or the third answer would be the only one there is.
+    test("a chosen edge outranks the game's setting", function()
+        ClickCastBind();
+        SetClickEdge(false, true);
+        check(interp:clickFrame(unitFrame, "RightButton", false) == "debind1",
+            "the release did not fire though it was the one chosen");
+        check(interp:clickFrame(unitFrame, "RightButton", true) == "debindnull",
+            "the press fired against the reader's answer");
+    end);
+
+    ---------------------------------------------------------------------------
     -- Four axes over seven records
     ---------------------------------------------------------------------------
 

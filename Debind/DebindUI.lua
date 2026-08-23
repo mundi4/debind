@@ -665,11 +665,12 @@ do
 end
 
 
---- [Remove duplicate actions], from the options menu.
+--- The clean up button on the portrait row (`CleanUpPortrait`), and its only caller.
 ---
---- **The walk happens on the press, not when the menu opens.** Greying the item out would mean
---- sweeping every layer every time somebody opens that menu to change something else, and what it
---- would buy is one press. Pressing it on a clean profile answers in a line.
+--- **It walks again on the press.** `UpdateButtons` has already walked to decide whether the button
+--- is lit, and this does not trust that answer - what it hands the confirmation has to be the list
+--- as it stands at the press, not one collected at the last gesture. The empty branch is what the
+--- disagreement would come out as, and it cannot be reached from a lit button.
 ---
 --- **The count is the whole of the question.** A duplicate is by definition indistinguishable from
 --- the one that stays -- that is what a matching signature means -- so there is no per-row fact the
@@ -686,6 +687,7 @@ function DebindUI.RemoveDuplicateActions()
 	end
 	ShowRemoveDuplicatesConfirmationPopup(duplicates);
 end
+
 --- 이름 바꾸기 따위의 입력 팝업. **띄우기만 한다.**
 ---
 --- 한때 여기 `_shownInputBoxes` 표와 `HideInputBox` · `HideAllInputBoxes`가 같이 있었는데
@@ -1748,6 +1750,60 @@ function DebindSideTabMixin:IsActive()
 	return _selectedSideTab == self:GetID();
 end
 
+--- The title bar's gear. **Everything it draws is `UIPanelIconDropdownButtonTemplate`'s**, so what
+--- is left here is the three things that template has no opinion about: which menu it opens, what
+--- it says under the cursor, and going grey while the window is locked down.
+---
+--- **The same two KeyValues as `DebindPortraitMixin`, read the same way**, because the portrait row
+--- is where this button came from and one convention for "which menu, which tooltip" is worth more
+--- than a second one that happens to be shorter.
+DebindOptionsButtonMixin = {};
+
+--- Deferred to the first `OnShow` for the reason the portrait row defers: `DebindUI` is filled in as
+--- this file runs and the XML is loaded before it, so `MenuFunc` cannot be resolved at load time.
+function DebindOptionsButtonMixin:OnShow()
+	if (self.initialized) then
+		return;
+	end
+	self.initialized = true;
+
+	if (self.TooltipTitle) then
+		self.TooltipTitle = rawget(LLL, self.TooltipTitle) or _G[self.TooltipTitle] or self.TooltipTitle;
+		self.TooltipText = rawget(LLL, self.TooltipText) or self.TooltipText;
+	end
+	if (self.MenuFunc) then
+		self:SetupMenu(DebindUI[self.MenuFunc]);
+	end
+end
+
+function DebindOptionsButtonMixin:OnEnter()
+	if (not self.TooltipTitle) then
+		return;
+	end
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	GameTooltip_SetTitle(GameTooltip, self.TooltipTitle);
+	if (self.TooltipText) then
+		GameTooltip_AddNormalLine(GameTooltip, self.TooltipText);
+	end
+	if (self.disabledReason and not self:IsEnabled()) then
+		GameTooltip_AddBlankLineToTooltip(GameTooltip);
+		GameTooltip_AddErrorLine(GameTooltip, self.disabledReason);
+	end
+	GameTooltip:Show();
+end
+
+function DebindOptionsButtonMixin:OnLeave()
+	GameTooltip:Hide();
+end
+
+function DebindOptionsButtonMixin:OnEnable()
+	self.Icon:SetDesaturated(false);
+end
+
+function DebindOptionsButtonMixin:OnDisable()
+	self.Icon:SetDesaturated(true);
+end
+
 DebindPortraitMixin = {};
 
 function DebindPortraitMixin:SetSelectedState(isSelected)
@@ -2075,6 +2131,13 @@ function DebindFrameMixin:InitializeButtons()
 	-- 애드온 고유 액션은 각자 탭으로, 매크로 텍스트는 그 창의 버튼으로).
 	self.OverviewPanel.AddPortrait:SetScript("OnClick", function()
 		DebindSpellPickerFrame:Toggle();
+	end)
+
+	-- **The same entry point as the options menu's item.** It is enabled only when the sweep has
+	-- something (`UpdateButtons`), so the "nothing to remove" line that function prints is not
+	-- reachable from here - it stays for the menu, which is always pressable.
+	self.OverviewPanel.CleanUpPortrait:SetScript("OnClick", function()
+		DebindUI.RemoveDuplicateActions();
 	end)
 
 	-- 지정 모드 토글. 켜고 끄는 것은 XML의 OnClick이고, 여기는 처음 한 번의 툴팁이다.
@@ -3549,7 +3612,23 @@ function DebindFrameMixin:UpdateButtons()
 
 	self.OverviewPanel.BindModePortrait:SetEnabled(enableButtons);
 	self.OverviewPanel.AddPortrait:SetEnabled(enableButtons);
-	self.OptionsPortrait:SetEnabled(enableButtons);
+	self.OptionsButton:SetEnabled(enableButtons);
+
+	-- **The sweep runs here, on a button that says "nothing to do" by being grey.** The same walk
+	-- was turned down for the options menu's item and still is: a menu is opened to reach one of
+	-- the things in it, so the other items would pay for this one on every open. A button standing
+	-- in the row is looked at rather than opened, and grey is the only answer it can give.
+	--
+	-- **`CollectDuplicateActions` and nothing cheaper.** An "is there one" that walked differently
+	-- would let the button light up over a press that finds nothing, or stay grey over one that
+	-- would have found something. Every place that asks this question asks it the one way.
+	--
+	-- What it costs is the walk on each pass through here, which is one per gesture in an open
+	-- window rather than anything on a frame.
+	local duplicates = #DebindPrivate.CollectDuplicateActions();
+	local cleanUp = self.OverviewPanel.CleanUpPortrait;
+	cleanUp.disabledReason = (duplicates == 0) and LLL["REMOVE_DUPLICATES_NONE"] or nil;
+	cleanUp:SetEnabled(enableButtons and duplicates > 0);
 end
 
 --- The panel this tab shows, or nil - in which case `MissingPanel` stands in its place.

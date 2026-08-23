@@ -246,7 +246,6 @@ SEEDS[5] = function(guid)
         legacyNeeded = false,
 
         options = {
-            addCustomTargetMenusToUnitPopup = true,
             blizzframes = {},
         },
 
@@ -493,7 +492,6 @@ SEEDS[6] = function(guid)
         legacyNeeded = false,
 
         options = {
-            addCustomTargetMenusToUnitPopup = true,
             blizzframes = {},
         },
 

@@ -4,8 +4,6 @@ local L = addon.L;
 if (GetLocale() ~= "ruRU") then return end
 
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
-L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP"] = "Добавить пользовательские меню целей в контекстное меню юнита"
-L["ADD_CUSTOM_TARGET_MENUS_TO_UNIT_POPUP_DESC"] = "Добавляет пункты меню 'Установить пользовательскую цель' в контекстное меню юнита, если это возможно. Эти меню работают только вне боя."
 L["ADDON_NAME"] = "Debind"
 L["ALL"] = "Все"
 -- 근거는 enUS 쪽 주석에.

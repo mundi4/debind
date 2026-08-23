@@ -55,7 +55,7 @@ return function(DebindPrivate)
                 [0] = { { type = "spell", value = 2, key = "F2", seq = 1 } },
                 [1] = {},
             },
-            options = { addCustomTargetMenusToUnitPopup = true },
+            options = { stateDriverUpdateThrottle = 0.25 },
             ui = { anchorPos = { x = 100, y = 200 } },
             spellPickerUI = { pos = { x = 300, y = 400 } },
             overviewui = { pos = { x = 500, y = 600 } },
@@ -163,7 +163,7 @@ return function(DebindPrivate)
 
         check(DebindPrivate.Options == _G.DebindVars.options,
             "Options still points at the pre-import empty table");
-        check(DebindPrivate.Options.addCustomTargetMenusToUnitPopup == true, "the old option did not arrive");
+        check(DebindPrivate.Options.stateDriverUpdateThrottle == 0.25, "the old option did not arrive");
     end);
 
     test("the character's share moves into the char entry", function()
@@ -428,7 +428,7 @@ return function(DebindPrivate)
         _G.DebounceVars = LegacyAccount();
         DebindPrivate.RunLegacyMigration();
 
-        check(_G.DebindVars.options.addCustomTargetMenusToUnitPopup == true, "the old options did not arrive");
+        check(_G.DebindVars.options.stateDriverUpdateThrottle == 0.25, "the old options did not arrive");
         check(_G.DebindVars.shared.GENERAL[1].key == "F1", "the bindings did not arrive");
     end);
 

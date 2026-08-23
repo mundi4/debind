@@ -76,6 +76,7 @@ function Events.PLAYER_LOGIN()
     EventFrame:RegisterEvent("UPDATE_MACROS");
     EventFrame:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
     EventFrame:RegisterEvent("CVAR_UPDATE");
+    EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
     DebindPrivate.ApplyOptions();
     DebindPrivate.UpdateBlizzardFrames(true);
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
@@ -115,6 +116,41 @@ function Events.PLAYER_LOGIN()
     -- 이고, 그 상태에서 애드온 창을 열어볼 이유가 없다. 창에 붙여두면 원인을 스스로 찾아낸
     -- 사람에게만 보이는 안내가 된다.
     DebindPrivate.ShowMigrationDialogIfPending();
+
+    --- **In this tick, never on a timer.** A unit frame addon that runs its own click casting can
+    --- put its own table over `ClickCastFrames`, and the ones that do it do it from their own
+    --- handler for this same event. From then on every registration goes there instead of here,
+    --- its own frames and every other addon's alike. A tick later would sit after every addon's
+    --- login handler and is the obvious place for this, and it is the wrong one.
+    ---
+    --- Logging in during a fight was measured: the whole sequence from the first `ADDON_LOADED`
+    --- through `PLAYER_ENTERING_WORLD`, `PLAYER_REGEN_DISABLED` and the first event that answers
+    --- `InCombatLockdown()` true arrives **before the first `OnUpdate` of the session**. There is
+    --- 160ms between this event and lockdown and not one frame in it, so every delay lands after
+    --- lockdown, and a frame claimed under lockdown waits for the fight to end. Reconnecting into
+    --- an encounter is the login where the bindings matter most, and it is the same reason this
+    --- function is synchronous (see `ACTIVE_PLAYER_SPECIALIZATION_CHANGED`).
+    ---
+    --- **`PLAYER_ENTERING_WORLD` catches what this one is too early for.** It is a separate event,
+    --- so it is dispatched after every addon's handler for this one, and it measured 156ms later
+    --- and still out of lockdown. Claiming in both places is the whole of the window.
+    if (DebindPrivate.ReclaimClickCastFrames) then
+        DebindPrivate.ReclaimClickCastFrames();
+    end
+end
+
+--- Registered from `PLAYER_LOGIN` above, so the first one to arrive is the login's own. Also comes
+--- on every zone change, which costs a table read while the name is already ours.
+---
+--- **This is the moment both of these need.** Every addon's login handler has run, so the frames
+--- exist and whoever was going to take `ClickCastFrames` has taken it, and combat has not been
+--- re-applied yet, so a frame can still be wired. It is also the last such moment: after this the
+--- next one out of lockdown is `PLAYER_REGEN_ENABLED`, which is a fight away.
+function Events.PLAYER_ENTERING_WORLD()
+    if (DebindPrivate.ReclaimClickCastFrames) then
+        DebindPrivate.ReclaimClickCastFrames();
+    end
+    DebindPrivate.CollectOUFFrames();
 end
 
 function Events.PLAYER_LOGOUT()
@@ -132,6 +168,14 @@ function Events.PLAYER_PVP_TALENT_UPDATE()
 end
 
 function Events.PLAYER_REGEN_ENABLED()
+    --- **Before the queues, because it decides what is in them next time.** The login claim only
+    --- covers an addon that had taken `ClickCastFrames` by then; one that takes it later, or that
+    --- the user switches on mid-session, is caught here. Costs a table read and a metatable
+    --- comparison when the name is already ours, which is every other fight.
+    if (DebindPrivate.ReclaimClickCastFrames) then
+        DebindPrivate.ReclaimClickCastFrames();
+    end
+
     if (#DebindPrivate.RegisterQueue > 0) then
         for i = 1, #DebindPrivate.RegisterQueue do
             DebindPrivate.RegisterFrame(DebindPrivate.RegisterQueue[i][1], DebindPrivate.RegisterQueue[i][2]);
@@ -198,6 +242,8 @@ end
 
 function Events.CVAR_UPDATE(_, name, value)
     if (name == "ActionButtonUseKeyDown") then
+        -- The click edge too, where the reader left that one to the game (`ApplyOptions`).
+        DebindPrivate.ApplyOptions("unitframeUseMouseDown");
         DebindPrivate.QueueUpdateBindings();
     end
 end
