@@ -285,6 +285,35 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- A key the loop is not allowed to touch
+    ---------------------------------------------------------------------------
+
+    -- **A key whose records leave no gap is wired once and never handed back**, and the build-time
+    -- `SetBindingClick` rests on that: let the loop release it and the press it was wired for has
+    -- nothing to arrive at. `eval_spec` says the key comes out that way; this says it stays that way
+    -- while the state under it moves.
+    --
+    -- **Three flips rather than two**, so "it happens to be right on the way out" fails.
+    test("a key with no gap is never handed back while the state moves", function()
+        Bind({
+            spell({ type = Constants.MACROTEXT, value = '/run local _ = "combat"', key = "F1",
+                name = "combat", conditions = { combat = true } }),
+            spell({ type = Constants.MACROTEXT, value = '/run local _ = "peace"', key = "F1",
+                seq = 2, name = "peace", conditions = { combat = false } }),
+        }, {});
+        check(interp.env.StateDrivenBindings["F1"] == nil,
+            "the key was handed to the state loop, so this is not the case it says it is");
+
+        for _, want in ipairs({ true, false, true }) do
+            interp.state.combat = want;
+            interp:pollStates();
+            check(IsLive("F1"),
+                "combat=" .. tostring(want) .. " and the key came back as " .. Bound("F1"));
+        end
+        interp.state.combat = false;
+    end);
+
+    ---------------------------------------------------------------------------
     -- The life axis, at the key
     ---------------------------------------------------------------------------
 

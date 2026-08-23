@@ -572,6 +572,104 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
+    -- **The same cross product, asked of the other decider.** The press picks a record out of a key
+    -- it already holds; the loop decides what the key *is*, and it reads the same four axes through
+    -- the code the 0.2s beat runs. A sweep of one says nothing about the other.
+    --
+    -- **`COMMAND` records, so the answer names itself.** Every other type goes out through a click
+    -- button and reads back as the same `CLICK` whichever record won; a command override reads back
+    -- as the command, so what the key is bound to identifies the row without decoding anything.
+    -- The last row is `UNUSED`: the key is released rather than bound, and `""` is the only outcome
+    -- that is an empty string -- which is the negative half, checked in the same table as the rest.
+    test("the state loop binds the exact record out of seven", function()
+        local ROWS = {
+            { expect = "TOGGLEBAGS", combat = true, stealth = true, group = "raid",
+                petbattle = false },
+            { expect = "OPENALLBAGS", combat = true, stealth = true },
+            { expect = "TOGGLEBACKPACK", combat = true, group = "raid" },
+            { expect = "TOGGLECHARACTER0", combat = true },
+            { expect = "TOGGLEACHIEVEMENT", stealth = true, petbattle = true },
+            { expect = "JUMP", group = "raid" },
+            { expect = "", unused = true },
+        };
+
+        local actions = {};
+        for i = 1, #ROWS do
+            local row = ROWS[i];
+            local conditions = {};
+            if (row.combat ~= nil) then conditions.combat = row.combat; end
+            if (row.stealth ~= nil) then conditions.stealth = row.stealth; end
+            if (row.petbattle ~= nil) then conditions.petbattle = row.petbattle; end
+            if (row.group ~= nil) then conditions.groups = Constants.GROUP_RAID; end
+            if (row.unused) then
+                actions[i] = action({ type = Constants.UNUSED, key = "F1",
+                    conditions = conditions });
+            else
+                actions[i] = action({ type = Constants.COMMAND, value = row.expect, key = "F1",
+                    conditions = conditions });
+            end
+        end
+        Bind(actions);
+
+        local records = interp:recordsFor("F1");
+        check(records and #records == #ROWS,
+            "records emitted: " .. tostring(records and #records) .. " of " .. #ROWS);
+        check(interp.env.StateDrivenBindings["F1"] ~= nil,
+            "the key is not state-driven, so this sweep is measuring the wrong decider");
+
+        local function expected(world)
+            for i = 1, #ROWS do
+                local row = ROWS[i];
+                local matched = true;
+                if (row.combat ~= nil and row.combat ~= world.combat) then matched = false; end
+                if (row.stealth ~= nil and row.stealth ~= world.stealth) then matched = false; end
+                if (row.petbattle ~= nil and row.petbattle ~= world.petbattle) then matched = false; end
+                if (row.group ~= nil and world.group ~= "raid") then matched = false; end
+                if (matched) then return i; end
+            end
+        end
+
+        local won = {};
+        local combinations = 0;
+        for combat = 0, 1 do
+            for stealth = 0, 1 do
+                for petbattle = 0, 1 do
+                    for grouped = 0, 1 do
+                        local world = {
+                            combat = combat == 1,
+                            stealth = stealth == 1,
+                            petbattle = petbattle == 1,
+                            group = grouped == 1 and "raid" or "none",
+                        };
+                        interp:resetState();
+                        interp.state.combat = world.combat;
+                        interp.state.stealth = world.stealth;
+                        interp.state.petbattle = world.petbattle;
+                        interp.state.group = world.group;
+                        interp:pollStates();
+
+                        combinations = combinations + 1;
+                        local want = expected(world);
+                        check(want, "no row is expected to win, which the last one makes impossible");
+                        local bound = frames.overrideAction("F1") or "";
+                        check(bound == ROWS[want].expect,
+                            ("combat=%s stealth=%s petbattle=%s group=%s: row %d should hold the key,"
+                                .. " so %q -- got %q"):format(tostring(world.combat),
+                                tostring(world.stealth), tostring(world.petbattle), world.group,
+                                want, ROWS[want].expect, bound));
+                        won[want] = true;
+                    end
+                end
+            end
+        end
+
+        check(combinations == 16, "combinations swept: " .. combinations);
+        for i = 1, #ROWS do
+            check(won[i], "record " .. i .. " never won -- the sweep cannot reach it");
+        end
+        interp:resetState();
+    end);
+
     -- **The poll and the press have to agree.** They measure the same axes through different code:
     -- the poll writes into `States` on its 0.2s beat and the press measures at the click. A key
     -- with a gap in it -- no record matches in some worlds -- is where they part if they are going

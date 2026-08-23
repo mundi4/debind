@@ -10,6 +10,12 @@
 -- Every one of them asked a question about a value, and a question about a value is answered
 -- more cheaply -- and on every commit -- by npm test.
 --
+-- **Two more came down on the re-read that followed** (2026-08-23). Both were kept by a line
+-- naming `GetBindingAction`, which had stopped being a reason a few hours earlier: whether a
+-- fixed-wired key is ever handed back, and the state loop's own sweep over four axes. The press
+-- sweep and the poll-and-press one **stay** -- those two are §9's anchors and are meant to be in
+-- both places, which the one that left was not.
+--
 -- **Nine more came down that were never blocked by anything** (2026-08-23). Every one asked what
 -- `BuildKeyMap` hands out for a key, which the harness has been able to answer since 2026-08-21;
 -- what kept them here was a line above each saying otherwise. `tests/keymap_spec.lua` and two
@@ -4425,40 +4431,6 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
     end,
 })
 
--- **Kept here.** Which keys come out with fixed wiring is headless (`tests/eval_spec.lua`);
--- that the state loop never afterwards takes one back is a claim about what the game reports
--- over a run, and only the game can be asked.
--- The other half: the key stays ours. A binding that never gets handed back is the premise the
--- build-time `SetBindingClick` rests on, and if the update loop ever decided to release this key
--- the press above would have nothing to arrive at.
---
--- Three flips rather than two, so that "it happens to be right on the way out" fails.
-RegisterTest("Click-time key: fixed wiring is never handed back", {
-    description = "조건 공간이 다 덮인 키는 상태가 뒤집혀도 배선이 그대로인가",
-    run = function()
-        local NAME = "Click-time wiring"
-        local KEY = "CTRL-SHIFT-F12"
-
-        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
-            key = KEY, name = "combat", combat = true })
-        InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "peace"',
-            key = KEY, name = "peace", combat = false })
-        ApplyBindings()
-
-        for _, want in ipairs({ true, false, true }) do
-            SetMockState("combat", want)
-
-            local bound = GetBindingAction(KEY, true) or ""
-            if bound:sub(1, 6) ~= "CLICK " then
-                return Fail(NAME, format("combat=%s 에서 %q, CLICK 이어야 한다",
-                    tostring(want), bound))
-            end
-        end
-
-        return Pass(NAME, "상태를 뒤집어도 CLICK 그대로")
-    end,
-})
-
 -- **The click bakes the macro body** (`devdocs/trimming-the-restricted-hot-paths.md`, item 2).
 -- A body that goes on a button is baked by nobody when a state moves, and by the click that
 -- picks that button.
@@ -4799,112 +4771,6 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
         return Pass(NAME, format("%d개 조합 전부 정확히 맞음, 레코드 %d개가 모두 한 번 이상 이김",
             #combos, #CLICKTIME_SWEEP))
-    end,
-})
-
--- The same question asked of the **poll**, which needs a different key to be asked at all.
---
--- A key whose records are all clickable tells the state loop almost nothing apart: whichever
--- record wins, what gets bound is the one click-time button, so `GetBindingAction` answers the
--- same string for every winner. Commands do not share: the loop calls `SetBinding(true, key,
--- t.command)` with the winning record's own string, and `ClearBinding` for an unused one -- so
--- the key's own reported action names the record exactly, and it is the *game* naming it.
---
--- Those records also make the key state-driven rather than fixed: a reachable command or unused
--- record is precisely what `IsKeyAlwaysOurs` refuses, so this key stays in the loop's table.
-local STATELOOP_SWEEP = {
-    { label = "combat+form1|2", value = "TOGGLEWORLDMAP",
-      cond = { combat = true, forms = { [1] = true, [2] = true } } },
-    { label = "combat+raid",    value = "OPENALLBAGS",
-      cond = { combat = true, groups = { [Constants.GROUP_RAID] = true } } },
-    { label = "stealth+form0",  value = "TOGGLEBACKPACK",
-      cond = { stealth = true, forms = { [0] = true } } },
-    { label = "peace+grouped",  value = "TOGGLECHARACTER0",
-      cond = { combat = false, stealth = false,
-               groups = { [Constants.GROUP_PARTY] = true, [Constants.GROUP_RAID] = true } } },
-    { label = "form2",          value = "TOGGLEACHIEVEMENT",
-      cond = { forms = { [2] = true } } },
-    { label = "combat",         value = "JUMP",
-      cond = { combat = true } },
-    -- Unconditional and unused: the key is released rather than bound, which is its own outcome
-    -- and the only one that is an empty string.
-    { label = "fallback-unused", cond = {} },
-}
-
-for i = 1, #STATELOOP_SWEEP do
-    local record = STATELOOP_SWEEP[i]
-    if record.value then
-        record.action = { type = Constants.COMMAND, value = record.value }
-        record.expect = record.value
-    else
-        record.action = { type = Constants.UNUSED }
-        record.expect = ""
-    end
-end
-
--- **Kept here.** What it measures is `GetBindingAction` over the whole cross product -- what
--- the game says the key is bound to -- which is on the list of what no harness sees (§8).
-RegisterTest("Multi-axis: the state loop binds the exact record out of seven", {
-    description = "네 축의 조합을 전부 훑어, 상태 루프가 매번 정확히 그 레코드를 키에 거는지",
-    timeout = 120,
-    run = function()
-        local NAME = "Multi-axis state loop"
-        local KEY = "CTRL-SHIFT-F2"
-
-        if InCombatLockdown() then
-            return Fail(NAME, "진짜 전투 중에는 주입 결과와 실제가 구분되지 않는다")
-        end
-
-        local ok, err = SetUpSweepKey(STATELOOP_SWEEP, KEY)
-        if not ok then return Fail(NAME, err) end
-
-        -- 이 키가 상태 루프의 표에 있어야 여기서 재는 것이 그 루프다. 배선이 고정된 키였다면
-        -- 아래 대조는 전부 통과하면서 아무것도 안 재게 된다.
-        ReadKeyMembership(KEY)
-        local membership = WaitForMembership()
-        if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
-        if not membership.stateDriven then
-            return Fail(NAME, "상태 구동 키가 아니다 - 이 테스트가 재려는 루프가 이 키를 안 본다")
-        end
-
-        local combos = BuildCombos()
-        local wins = {}
-
-        for _, state in ipairs(combos) do
-            -- No wait after this, and it used to be the most expensive one in the file -- 36
-            -- combos paying 0.4s each. The claim it rested on ("the state loop measures on its
-            -- own 0.2s beat") is not true of this path: every axis here is set with
-            -- `SetMockState`, which ends in a rebuild, and the rebuild sets `state-unitexists`
-            -- itself and runs the state pass and the bindings before it returns.
-            ApplySweepState(state)
-
-            local want = SweepWinner(STATELOOP_SWEEP, state)
-            if not want then
-                return Fail(NAME, format("%s: 기대 승자가 없다 - 마지막이 무조건인데 그럴 수 없다",
-                    ComboLabel(state)))
-            end
-
-            local record = STATELOOP_SWEEP[want]
-            local bound = GetBindingAction(KEY, true) or ""
-            if bound ~= record.expect then
-                return Fail(NAME, format("%s: %d번(%s)이 이겨야 하니 %q여야 하는데 %q",
-                    ComboLabel(state), want, record.label, record.expect, bound))
-            end
-
-            wins[want] = (wins[want] or 0) + 1
-        end
-
-        local missing = UnreachedRecords(STATELOOP_SWEEP, wins)
-        if missing then
-            return Fail(NAME, format("%d개 조합 어디서도 안 이긴 레코드: %s - 훑는 축이 그 자리를 못 만든다",
-                #combos, table.concat(missing, ", ")))
-        end
-
-        -- **음성 대조는 표가 이미 들고 있다.** 마지막 레코드가 이기는 조합에서 키는 풀려
-        -- 있어야 하고(`""`), 그것이 위 루프에서 다른 칸과 똑같이 검사된다 - 조건이 맞을 때
-        -- 걸리는 것만 보고 안 맞을 때 놓는지는 안 보는 반쪽짜리가 될 수 없다.
-        return Pass(NAME, format("%d개 조합 전부 정확히 맞음, 레코드 %d개가 모두 한 번 이상 이김",
-            #combos, #STATELOOP_SWEEP))
     end,
 })
 
