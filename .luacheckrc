@@ -185,6 +185,10 @@ globals = {
 	-- The same template's `OnTextChanged`. Chained rather than replaced: it is what hides that
 	-- placeholder once anything is typed.
 	"InputScrollFrame_OnTextChanged",
+	-- `UIPanelDynamicResizeButtonTemplate`'s own sizer. The template calls it from an `OnLoad`,
+	-- which is before a panel's `OnLoad` has put a label on the button, so the two storage buttons
+	-- call it again once they have one.
+	"DynamicResizeButton_Resize",
 	"CreateAndInitFromMixin",
 	"CreateFromMixins",
 	"TextureKitConstants",

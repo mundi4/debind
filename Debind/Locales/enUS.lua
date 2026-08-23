@@ -1314,19 +1314,6 @@ L["IMPORT_COMMITTED"] = "Brought in %d actions. They are switched off until you 
 -- one: a specialization this character's class does not have, and a layer a newer Debind invented.
 -- It used to say only the second, and the first is the one that actually turns up.
 L["IMPORT_COMMITTED_SKIPPED"] = "%d of them had nowhere to go here and were left out - a specialization this character does not have, or a layer this version does not know."
--- The tab. **A place, not the thing kept in it** - the client has no empty word for one of these
--- (Blueprint, Layout and Loadout are each already something else) and naming a place needs none.
---
--- The client's own word for a tab holding what you own and have not put anywhere yet is
--- `HOUSE_EDITOR_CATALOG_STORAGE_TAB`, the housing catalog's. **Three locales come off that one
--- string**, which is what settled it against counting the word on its own - "보관함" is 65 lines
--- in koKR and almost none of them are this in enUS.
---
--- It is also the AddOns list name of the addon that keeps the payloads, and that was known and
--- taken: the two never stand on one screen (12절 of `devdocs/building-export-import.md`).
--- **No object on it.** There is one thing this makes and one thing it makes it from, so a range
--- would be a word that adds nothing - and any range it named would be too narrow, since what goes
--- in includes the specializations you are not playing.
 -- The right-click menu on an action in the preview. **Taking things out is the only edit an entry
 -- has**, so these two are the whole menu.
 --
@@ -1339,13 +1326,45 @@ L["STORAGE_DELETE_SELECTED"] = "Delete %d selected"
 -- Which is why two or more ask. One does not: a menu is already enough hands not to reach by
 -- accident, and the second look is for the count rather than for the act.
 L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take %1$d actions out of this? They do not come back - you would have to make it again."
-L["STORAGE_CREATE"] = "Create"
+-- The door that makes a row out of what this character has right now, beside the one that makes a
+-- row out of a code somebody sent.
+--
+-- **The thing has a name now, and the name is the code's** (2026-08-23, 소유자). 12절 spent a while
+-- looking for a word for what sits in this list and settled on not naming it, on the grounds that
+-- the client's own names are each already something else and the free ones are free because nobody
+-- uses them. That is overturned: the reader is told the word rather than kept away from it, and the
+-- tooltip below is where they are told (`0-DECISION-LOG.md`).
+--
+-- **`Save` was here for one commit and did not hold.** It reads as the button that keeps a settings
+-- screen, which is a thing this window has none of.
+--
+-- **No object and no range on it.** What this takes is everything the character has, including the
+-- specializations they are not playing, so any range it named would be too narrow - and what it
+-- makes is the row that appears right above it.
+L["STORAGE_CREATE"] = "New Payload"
+-- What the word means, on the button that makes one. **A tooltip is read by someone who stopped to
+-- ask**, so it has the room to teach a word the list itself only uses.
+--
+-- **The two lines have two subjects and that is why they are two lines** (2026-08-23, 소유자). This
+-- one is about the thing: what a payload is, and what having one is good for. The instruction line
+-- under it is about the press. Written as one paragraph they came out as three sentences the reader
+-- has to sort by subject as they go.
+--
+-- It says the two directions rather than the contents: a payload is worth having because it goes
+-- somewhere, and both places it goes are one press away on this screen.
+L["STORAGE_CREATE_TOOLTIP"] = "A payload is a set of actions kept aside from your bindings. You can add one back to your setup later, or hand it to somebody else as a share code."
+-- The press, in the line the client keeps for what a click does.
+L["STORAGE_CREATE_INSTRUCTION"] = "Click to make one out of everything this character has right now."
 -- **Not "Import", which the client owns and spends on something else.** Every one of those buttons
 -- takes a code and makes it yours in one press. This one takes a code and puts a row in a list, and
 -- nothing the reader has is any different afterwards, so the word would promise the half of the
 -- client's gesture that only happens later and on another button (2026-08-22, 소유자).
 --
 -- Says "Share Code" because `STORAGE_COPY` does, and the two are the same code going opposite ways.
+--
+-- **It keeps "Paste", where the other one names what it makes.** The two doors are not the same
+-- shape: one takes what the reader already has and the other wants something out of their
+-- clipboard, and the verb is the part of that they have to know before pressing.
 L["STORAGE_PASTE"] = "Paste Share Code"
 -- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
 -- into text to hand to somebody.
@@ -1361,25 +1380,34 @@ L["STORAGE_PASTE"] = "Paste Share Code"
 -- **The rest are not renamed, and that is still a finding rather than a decision.** It is a dozen
 -- keys across two files and one track's whole vocabulary; ruRU carries none of them, so the cost
 -- when it is done is enUS and koKR only.
--- **The button's own label, and it says what is being acted on rather than what happens to it.**
--- Four verbs will not fit across the row that counts the ticks, and the one thing a verb here has
--- to carry is where the actions go, which is exactly what a label shortened to fit loses. So the
--- label breaks off and the menu finishes it (2026-08-22, 소유자).
-L["STORAGE_ACTIONS"] = "With these..."
 -- Taking the arrival on the sender's keys, switched on. **"Their keys" rather than "the keys"**:
 -- whose they are is the whole of what is being decided, since landing on one the reader already
 -- uses puts two sets on one key.
-L["STORAGE_ADD_KEYED"] = "Add and Accept with Their Keys"
+--
+-- **The verb came off it** (2026-08-23, 소유자). It is one of two items under a button that already
+-- says [Add to My Setup...], and what the two differ by is the state the actions land in.
+L["STORAGE_ADD_KEYED"] = "Switched On, on Their Keys"
+-- The other item on that menu, and the one the reader wants nine times out of ten. **It says the
+-- state the actions land in**, because that is the whole of what the two items differ by and the
+-- verb is already on the button above them.
+L["STORAGE_ADD_QUARANTINED"] = "Switched Off Until I Accept Them"
 L["STORAGE_COPY"] = "Create Share Code"
 -- **The destination, because `Add` on its own points at the list.** This said the client's `ADD`,
 -- and in the client that word sits on buttons that put a row in a list: add a friend, add to the
 -- ignore list. Two buttons under the list on the left already do that here, so a reader looking at
 -- a list and a button beside it read the third one as another of those.
 --
--- **"Actions" rather than "keys" or "this character".** Neither is true. Every key is replaced on
--- the way in, so nothing new turns up under a key, and where an action lands is what its own
--- address says, which can be a place every character shares.
-L["STORAGE_ADD"] = "Add to My Actions"
+-- **Not "keys" and not "this character".** Neither is true. Nothing new turns up under a key while
+-- an arrival is still switched off, and where an action lands is what its own address says, which
+-- can be a place every character shares.
+--
+-- **"My Setup" and not "My Actions"** (2026-08-23, 소유자). The other end of the same press is a
+-- payload, which is a set of actions (`STORAGE_CREATE_TOOLTIP`); naming both ends "actions" makes
+-- the sentence say a thing goes into itself. What it goes into is the lot of what the reader has.
+--
+-- **It breaks off, because the press asks rather than acts** (2026-08-23, 소유자). The two ways the
+-- actions can land are the reader's to pick, so the menu finishes the sentence the label starts.
+L["STORAGE_ADD"] = "Add to My Setup..."
 -- **The date has to say which date it is.** The row shows it bare, where it is one of two lines
 -- and the reader is scanning rather than reading; the tooltip is where somebody stops to ask, and
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
@@ -1388,6 +1416,16 @@ L["STORAGE_ADD"] = "Add to My Actions"
 -- an entry made on this account carries one.
 L["STORAGE_ENTRY_MADE"] = "Created %s"
 L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
+-- The tab. **A place, not the thing kept in it** - the client has no empty word for one of these
+-- (Blueprint, Layout and Loadout are each already something else) and naming a place needs none.
+--
+-- The client's own word for a tab holding what you own and have not put anywhere yet is
+-- `HOUSE_EDITOR_CATALOG_STORAGE_TAB`, the housing catalog's. **Three locales come off that one
+-- string**, which is what settled it against counting the word on its own - "보관함" is 65 lines
+-- in koKR and almost none of them are this in enUS.
+--
+-- It is also the AddOns list name of the addon that keeps the payloads, and that was known and
+-- taken: the two never stand on one screen (12절 of `devdocs/building-export-import.md`).
 L["STORAGE_TITLE"] = "Storage"
 -- The header over actions this version has no layer for: a specialization number past the end of
 -- the class they came from, which only a hand-edited string carries. **They are drawn rather than
@@ -1431,9 +1469,11 @@ L["IMPORT_PASTE_NAME"] = "Name (optional)"
 -- It read "Add to drawer", which named a place nothing on screen is called and made the press
 -- sound like filing rather than importing. The tab is Import and this is the button that does it.
 L["IMPORT_PASTE_ACCEPT"] = HUD_CLASS_TALENTS_IMPORT_LOADOUT_ACCEPT_BUTTON
--- The row's own line: the sender's class, already wrapped in that class's colour, then the date it
--- arrived. **Two of the same conversion, so they are numbered** - a locale that wants the date first
--- can swap them, and unnumbered the swap would silently print them in the wrong order.
+-- Two things about an entry, side by side. The row's second line puts the date in front of the
+-- counts and the delete prompt puts the sender in front of the date, so what fills the two is the
+-- caller's. **Two of the same conversion, so they are numbered** - a locale that wants them the
+-- other way round can swap them, and unnumbered the swap would silently print them in the wrong
+-- order.
 L["IMPORT_ENTRY_LINE"] = "%1$s  %2$s"
 L["IMPORT_ENTRY_COUNTS"] = "%1$d keys, %2$d actions"
 -- The free text typed at paste time, on the row's tooltip. **The only human writing about an
@@ -1451,7 +1491,7 @@ L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r?|n|nThis is th
 -- **Four, where the decoder reports eight.** Each of its reasons is a different step, but a reader
 -- has three things they might do about one - look again at what they pasted, update, ask for it
 -- again - and a sentence per step would spread those three over eight that all end the same way.
--- The mapping is `REASON_TEXT` in `ImportUI.lua`.
+-- The mapping is `REASON_TEXT` in `StorageUI.lua`.
 L["IMPORT_FAILED_NOT_OURS"] = "That is not a Debind string."
 L["IMPORT_FAILED_TOO_NEW"] = "That string was made by a newer version of Debind. Update and try again."
 -- The same refusal pointing the other way, and it must not borrow the sentence above: updating is

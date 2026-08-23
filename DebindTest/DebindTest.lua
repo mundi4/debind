@@ -2506,6 +2506,156 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
     end,
 })
 
+--- **The two verbs grey out, they do not leave** (2026-08-23, 소유자). A control that disappears
+--- takes with it the answer to "what can I do here", and the screen where nothing is picked is
+--- exactly where the reader is asking. The heading check is the other way round - it heads a list,
+--- so with no list under it there is nothing for it to head.
+---
+--- **Nothing raises when an `IsEnabled` goes the wrong way** and no static check reads frame state,
+--- so the three can only be held together from in here. One of them going missing altogether raises
+--- for a different reason: `parentKey` is what these are found by, and a renamed one answers nil.
+RegisterTest("Storage: the verbs grey out when nothing is picked", {
+    description = "고른 엔트리가 없을 때 두 버튼이 사라지지 않고 회색이 되는가",
+    run = function()
+        local NAME = "Storage verbs"
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F7" })
+
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+        end
+
+        local verbs = {
+            { button = panel.Preview.AddButton,  name = "[Add to My Setup]" },
+            { button = panel.Preview.CopyButton, name = "[Create Share Code]" },
+        }
+        for _, verb in ipairs(verbs) do
+            if not verb.button then
+                return Fail(NAME, format("%s 버튼이 없다 - XML의 parentKey를 볼 것", verb.name))
+            end
+        end
+
+        local entry = DebindPrivate.Store.CreateEntry()
+        AddTeardown(function()
+            panel:SelectEntry(nil)
+            DebindPrivate.Store.DeleteEntry(entry.id)
+        end)
+
+        -- **켜지는 쪽을 먼저 본다.** 이것이 없으면 아래의 통과가 "둘 다 원래 꺼져 있다"로도
+        -- 똑같이 설명된다.
+        panel:SelectEntry(entry)
+        if #panel:EnumerateListedActions() == 0 then
+            return Fail(NAME, "전제가 깨졌다 - 방금 만든 엔트리에 액션이 하나도 없다")
+        end
+        if not panel.Preview.SelectAllCheck:IsShown() then
+            return Fail(NAME, "액션이 있는 엔트리를 골랐는데 [select all]이 없다")
+        end
+        for _, verb in ipairs(verbs) do
+            if not verb.button:IsEnabled() then
+                return Fail(NAME, format("전부 틱된 엔트리를 골랐는데 %s이 회색이다", verb.name))
+            end
+        end
+
+        panel:SelectEntry(nil)
+        if panel.Preview.SelectAllCheck:IsShown() then
+            return Fail(NAME, "아무것도 안 골랐는데 [select all]이 서 있다")
+        end
+        for _, verb in ipairs(verbs) do
+            if not verb.button:IsShown() then
+                return Fail(NAME, format("%s이 없어졌다 - 회색이 되어야 한다", verb.name))
+            end
+            if verb.button:IsEnabled() then
+                return Fail(NAME, format("아무것도 안 골랐는데 %s을 누를 수 있다", verb.name))
+            end
+        end
+
+        return Pass(NAME, "고르면 둘 다 켜지고, 놓으면 선 채로 회색이 된다")
+    end,
+})
+
+--- **Leaving the tab is not the same as picking a different entry** (2026-08-23, 소유자). What is
+--- ticked and which layers are open are the reader's answers, and `OnShow` used to throw both away
+--- and start the entry over - so a glance at Overview undid however many clicks they had spent
+--- setting up what to bring.
+---
+--- **What makes keeping them safe is that the tables do not move.** A tick is keyed by the action
+--- table itself, and both walks that open a stored payload write into the tables rather than
+--- replacing them (`GetEntryPayload`, `MigrateLayer`). Nothing headless can see that, because what
+--- is being asked is what two frame scripts do in sequence.
+RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
+    description = "탭을 떠났다 돌아오면 틱과 펼침이 그대로 남는가",
+    run = function()
+        local NAME = "Storage view state"
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F8" })
+        InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F9" })
+
+        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+        if not panel or not panel.SelectEntry then
+            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+        end
+
+        -- **창을 세우고 시작한다.** 패널 `OnShow`가 창의 콜백 버스에 등록하는데, 그 버스는
+        -- `DebindFrameMixin:OnLoad`가 만들고 그것을 부르는 것은 창의 첫 `OnShow`다. 안 세우고
+        -- 부르면 `DebindFrame.Event`가 nil이다.
+        DebindFrame:Show()
+
+        local entry = DebindPrivate.Store.CreateEntry()
+        AddTeardown(function()
+            panel:SelectEntry(nil)
+            panel:OnHide()
+            DebindPrivate.Store.DeleteEntry(entry.id)
+            DebindFrame:Hide()
+        end)
+
+        panel:OnShow()
+        panel:SelectEntry(entry)
+
+        local listed = panel:EnumerateListedActions()
+        local layer = (panel.previewLayers or {})[1]
+        if #listed < 2 or not layer then
+            return Fail(NAME, format("전제가 깨졌다 - 액션 %d개, 레이어 %s",
+                #listed, tostring(layer and layer.key)))
+        end
+
+        -- 고른 직후는 전부 틱에 전부 접힘이다. 읽는 사람이 손댈 만한 것을 하나씩 뒤집는다.
+        local untickedAction = listed[1]
+        panel:ToggleAction(untickedAction)
+        panel:ToggleLayerCollapsed(layer.key)
+        if panel.selected[untickedAction] or panel:IsLayerCollapsed(layer.key) then
+            return Fail(NAME, "전제가 깨졌다 - 손댄 것이 그 자리에서 안 뒤집혔다")
+        end
+
+        -- 탭을 떠났다가 돌아온다. 창이 패널을 갈아끼울 때 도는 것이 이 둘이다.
+        panel:OnHide()
+        panel:OnShow()
+
+        if panel:GetSelectedEntry() ~= entry then
+            return Fail(NAME, "돌아왔더니 고른 엔트리가 바뀌었다")
+        end
+        if panel.selected[untickedAction] then
+            return Fail(NAME, "풀어둔 틱이 다시 켜져 있다")
+        end
+        if panel:IsLayerCollapsed(layer.key) then
+            return Fail(NAME, "펴둔 레이어가 다시 접혔다")
+        end
+
+        -- 나머지가 그대로 남았는지까지 본다. 위의 둘만 보면 "전부 꺼졌다"도 통과한다.
+        local stillTicked = 0
+        for _, action in ipairs(panel:EnumerateListedActions()) do
+            if panel.selected[action] then
+                stillTicked = stillTicked + 1
+            end
+        end
+        if stillTicked ~= #listed - 1 then
+            return Fail(NAME, format("틱이 %d개 남아야 하는데 %d개다", #listed - 1, stillTicked))
+        end
+
+        return Pass(NAME, format("틱 %d개와 펼친 레이어가 탭을 건너서 남았다", stillTicked))
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: The window's three panels
 --

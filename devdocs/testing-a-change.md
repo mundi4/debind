@@ -19,11 +19,12 @@ change spans layers, land a check in each.
 The cheapest layer, and the only one that runs without the game. Use it for anything that is a
 function of its inputs — which, since `going-headless-outside-the-ui.md`, is the whole pipeline.
 
-`tests/run.lua` reads **exactly `Debind.xml`**, in its order, under a shim — plus `ImportUI.lua`.
-That is close to "everything but the UI" and it is not the same thing, and the difference is the
-rule: **not whether a file is UI, but whether the function needs a frame.** `ImportUI.lua` is in
-because `CollectImportLines` needs none. `Flyout.lua` is UI, needs one, and is in anyway — the
-pipeline asks it for a flyout opener. `Public.lua` is not UI, is not in `Debind.xml`, and is out.
+`tests/run.lua` reads **exactly `Debind.xml`**, in its order, under a shim. That is close to
+"everything but the UI" and it is not the same thing, and the difference is the rule: **not whether
+a file is UI, but whether the function needs a frame.** `Flyout.lua` is UI, needs one, and is in
+anyway — the pipeline asks it for a flyout opener. `Public.lua` is not UI, is not in `Debind.xml`,
+and is out. `StorageUI.lua` was in for two functions that needed no frame, and went when those
+went with the bring dialog.
 
 What stands in for the client is three things:
 
