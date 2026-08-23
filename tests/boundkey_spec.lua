@@ -285,6 +285,35 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- Registration is what carries a value across a rebuild
+    ---------------------------------------------------------------------------
+
+    -- **Registration does not only come from conditions.** One action in `KeyMap` that uses a
+    -- switch is enough to owe it registration, and registration is what puts the stored value back
+    -- into `States` at every rebuild (the `_switches` walk in `UpdateBindings`). An on/off/toggle
+    -- action names its switch in `value`, so the **condition** loop never sees it -- and without
+    -- registration the window reads the stored value while the restricted side holds nothing.
+    --
+    -- It arrives as "the key does nothing": the first press is spent matching the two up, and the
+    -- next rebuild puts them back out of step, so it keeps happening.
+    --
+    -- **The key is asked first.** With it unbound, the answer below cannot tell "the state was not
+    -- registered" from "the action never went out at all".
+    test("an action that only sets a switch still registers it", function()
+        Bind({ spell({ type = Constants.SETSTATE_TOGGLE, value = "$state4", key = "F1" }) },
+            { ["$state4"] = { mode = MODES.MANUAL } });
+        DebindPrivate.SetSwitchValue("$state4", true);
+        Rebuild();
+
+        check(IsLive("F1"), "the switch action did not reach the key: " .. Bound("F1"));
+        check(interp.env.States["$state4"] ~= nil,
+            "the restricted side holds no $state4 -- a switch only an action uses went unregistered");
+        check(interp.env.States["$state4"] == true,
+            "the stored value is on and the restricted side reads "
+            .. tostring(interp.env.States["$state4"]));
+    end);
+
+    ---------------------------------------------------------------------------
     -- A key the loop is not allowed to touch
     ---------------------------------------------------------------------------
 

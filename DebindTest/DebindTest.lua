@@ -3063,73 +3063,6 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
 -- Test Cases: Binding Issue Detection
 -----------------------------------------------------------
 
--- **Registration does not only come from conditions.** One action in `KeyMap` that uses a switch
--- is enough to owe it registration, and registration is what puts the stored value back into
--- `States` at every rebuild (the `_switches` walk in `UpdateBindings`). An on/off/toggle action
--- names its switch in `value`, so the condition loop never sees it, and without registration the
--- window reads the stored value while the restricted side holds nothing.
---
--- It arrives as "the key does nothing": the first press is spent matching the two up, and the next
--- rebuild puts them back out of step, so it keeps happening. Headless cannot see it -- one of the
--- two values that disagree is inside the restricted environment.
-RegisterTest("Setstate action registers its state", {
-    description = "전환 액션만 쓰는 상태도 States에 저장값이 실리는지",
-    run = function()
-        local NAME = "Setstate registers"
-        local KEY = "CTRL-F7"
-        local MODES = Constants.SWITCH_MODES
-
-        if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
-        end
-
-        -- Swapping the slot rather than the fields: the reason is in the comment on the
-        -- `Undefined $state inside a state's own expression` test above.
-        local saved = DebindPrivate.Switches["$state4"]
-        -- The tester may have used this switch, and the value it is left on is theirs. Turning it
-        -- on below writes that memory, so it is saved and put back like the definition.
-        local savedStored = DebindPrivate.db.char.switches["$state4"]
-        AddTeardown(function()
-            DebindPrivate.Switches["$state4"] = saved
-            DebindPrivate.db.char.switches["$state4"] = savedStored
-            if not InCombatLockdown() then
-                DebindPrivate.UpdateBindings()
-            end
-        end)
-        -- On through `SetSwitchValue`, not by writing `value`. The ⚠ on the rename test above says
-        -- why a hand-set value does not survive the rebuild any more.
-        DebindPrivate.Switches["$state4"] = { mode = MODES.MANUAL }
-        DebindPrivate.SetSwitchValue("$state4", true)
-
-        InsertAction({
-            type = Constants.SETSTATE_TOGGLE,
-            value = "$state4",
-            key = KEY,
-        })
-        ApplyBindings()
-
-        -- With the key unbound, the answer below cannot tell "the state was not registered" from
-        -- "the action never went out at all".
-        local action = GetBindingAction(KEY, true) or ""
-        if action:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("전제가 깨졌다 - 전환 액션이 키에 안 걸렸다 (%q)", action))
-        end
-
-        local st = ReadSecureState("$state4")
-        if not st then
-            return Fail(NAME, "보안 환경이 답을 안 줬다 - 스니펫이 컴파일 안 됐거나 States가 없다")
-        end
-        if not st.present then
-            return Fail(NAME, "States에 $state4가 없다 - 전환 액션만 쓰는 상태는 등록이 안 된다")
-        end
-        if st.value ~= true then
-            return Fail(NAME, "저장값은 켜짐인데 States는 꺼짐이다")
-        end
-
-        return Pass(NAME, "$state4 = 켜짐")
-    end,
-})
-
 -- **Does one toggle flip the value once.** The chain is: write the `$state4` attribute ->
 -- `_onattributechanged` (`Switches.lua`) -> `ToggleSwitch` -> `States` -> the mirror.
 -- Broken at any link, it is silent.
@@ -3204,10 +3137,6 @@ RegisterTest("Custom state toggle flips the value", {
 -- **이름이 `$state1`~`$state5`를 벗어난 첫 자리.** 코드젠이 `SWITCH_INDICES`에 없는 이름을
 -- 문 앞에서 돌려보냈고, 그래서 조건에 그런 이름이 있어도 굽히는 것이 아무것도 없었다. 문이
 -- 사라진 뒤에 이름을 가르는 것은 정의가 있느냐 하나뿐이다.
---
--- **헤드리스가 못 본다.** `UpdateBindings.lua`를 러너가 안 싣고(`tests/run.lua`), 판정이
--- 끝나는 자리는 스니펫이 굽는 `t.switches`와 `States`의 비교다. 문이 다시 서면 조용히
--- "그 키가 안 먹는다"가 되고, 미정의 갈래는 정반대로 **조건 없이 상시 발동**이 된다.
 --
 -- 셋을 한 자리에서 본다. 켜짐이 없으면 꺼짐은 "원래 아무것도 안 걸린다"와 구분이 안 되고,
 -- 꺼짐이 없으면 켜짐은 "조건을 아예 안 본다"와 구분이 안 된다.
@@ -3398,6 +3327,12 @@ RegisterTest("Custom target survives a rebuild", {
         end
 
         ApplyBindings()
+--
+-- **여기 남는 이유는 그 셋이 아니라 마지막 한 줄이다.** 셋은 `tests/boundkey_spec.lua`가 볼
+-- 수 있다. 못 보는 것은 **전투 중에 밟는 길**이다: `SwitchesUpdaterFrame`에 속성을 쓰면
+-- 클라이언트가 `_onattributechanged`를 부르고 거기서 키가 다시 걸리는데, 하네스는 속성을
+-- 저장만 하고 그 핸들러를 안 부른다. 스펙이 본문을 손으로 부르면 재는 것이 "본문이 맞느냐"로
+-- 바뀌고, 여기서 묻는 것은 **쓰기가 핸들러를 부르느냐**다.
 
         u = ReadSecureUnit("custom1")
         if not u then
@@ -3549,6 +3484,12 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
         AddTeardown(function() HoverLeave(frame) end)
         WaitForHoverSlot(true)
 
+--
+-- **And that door is why this stays.** The write lands on the UnitWatch header, and
+-- `tests/restricted.lua` replays **only the driver's** bodies -- every other header has its own
+-- managed environment in the game, and replaying its bodies into the driver's would put their
+-- globals in the wrong table. So the one thing this measures is the one thing that harness declines
+-- to have an opinion about.
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
         end
