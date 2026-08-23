@@ -182,7 +182,7 @@
 	</Button>
 
 	<!--
-		**A panel, not a window.** It is the fourth seat in `PANELS` (`DebindUI.lua`), reached by
+		**A panel, not a window.** It is the second seat in `PANELS` (`DebindUI.lua`), reached by
 		the Switches tab. Everything the export panel's own header says about being a panel holds here
 		word for word: no chrome, no ESC, no drag, no `enableMouse`, `useParentLevel`, and a
 		`preferredWidth` the frame reads when the tab is chosen.

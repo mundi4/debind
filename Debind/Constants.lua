@@ -23,7 +23,7 @@ Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 --- `classFile` is the key because that is what the profile files a class under
 --- (`shared.classes[class]`) and what a payload carries. The id is what the client wants back when
 --- something has to be named -- a specialization of a class that is not this character's has no
---- other way in (`C_SpecializationInfo.GetSpecializationInfoForClassID`).
+--- other way in (`GetSpecializationInfoForClassID`, a global rather than one of `C_SpecializationInfo`'s).
 ---
 --- **20 rather than a count the client hands out.** There is no "how many classes" call; the range
 --- is walked and whatever answers is real. A class added by a patch lands inside it.
