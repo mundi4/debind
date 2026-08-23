@@ -312,6 +312,35 @@ return function(DebindPrivate)
         check(dupes[1] == second, "앞엣것이 집혔다");
     end);
 
+    -- **도착분은 내 것과 한 그룹이 아니다.** 그룹은 `(key, arrivalID)`라 내 세트와 도착분이
+    -- 각자 1부터 번호를 매긴다. 그래서 한 레이어를 `seq`만으로 줄 세우면 배지 달린 쪽이 내 것
+    -- 앞에 설 수 있고, 그러면 남는 것이 **어느 키에도 안 닿는 액션**이 된다. 배지가 붙어 있는
+    -- 동안 `BuildKeyMap`이 그것을 건너뛰므로, 지운 뒤에는 그 키가 하던 일이 하나 사라진다.
+    test("도착분과 내 액션이 겹치면 내 것이 남는다", function()
+        local mine = Spell(1, "F", 2);
+        local arrival = Spell(1, "F", 1);
+        arrival.arrivalID = 7;
+        ResetProfile({ Spell(2, "F", 1), mine, arrival });
+
+        local dupes = DebindPrivate.CollectDuplicateActions();
+        check(#dupes == 1, "집힌 수 " .. #dupes);
+        check(dupes[1] == arrival, "내 액션이 집혔다. 배지 달린 쪽은 키에 안 닿는다");
+    end);
+
+    -- 도착분끼리는 먼저 온 쪽이 남는다. `arrivalID`가 올라가므로 그것이 "먼저 왔다"이고, 각
+    -- 도착분의 `seq`는 자기 그룹 안 차례라 둘을 가로질러 대면 아무것도 못 가린다.
+    test("도착분 둘이 겹치면 먼저 온 쪽이 남는다", function()
+        local older = Spell(1, "F", 2);
+        older.arrivalID = 7;
+        local newer = Spell(1, "F", 1);
+        newer.arrivalID = 8;
+        ResetProfile({ older, newer });
+
+        local dupes = DebindPrivate.CollectDuplicateActions();
+        check(#dupes == 1, "집힌 수 " .. #dupes);
+        check(dupes[1] == newer, "먼저 온 도착분이 집혔다");
+    end);
+
     test("중복이 없으면 빈 배열", function()
         ResetProfile({ Spell(1, "F", 1), Spell(2, "F", 2) });
 

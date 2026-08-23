@@ -226,10 +226,17 @@ end
 --- on purpose. It also falls out of the signature having no address in it (`IDENTITY_FIELDS`) - the
 --- caller says what to hold against what, and here the caller says "this layer against itself".
 ---
---- **What stays is the smallest `seq`.** That is the one that fires first on its key, so it is the
---- one the reader can see; keeping either of the others would move what the key does. Two actions
---- with the same signature share a key by construction, so inside one layer their `seq` are 1..n and
---- always differ - the rule is total wherever a key is involved.
+--- **What stays is the smallest `seq` in its group, and the group is `(key, arrivalID)`.** That is
+--- the one that fires first on the key, so it is the one the reader can see; keeping a later one
+--- would move what the key does. Two actions with the same signature share a key by construction,
+--- so inside one group their `seq` are 1..n and always differ. Across two groups the number decides
+--- nothing - each is renumbered from 1 on its own (`RenumberKeyGroup`) - which is why the group is
+--- ranked ahead of it below.
+---
+--- **The reader's own set outranks every arrival, and arrivals rank oldest first.** While a badge is
+--- on it an action reaches no key at all (`BuildKeyMap`), so letting one stand as the copy that
+--- stays would take away a binding that works and leave one that does nothing in its place. Between
+--- two arrivals `arrivalID` counts up, so the lower number is the one that was here first.
 ---
 --- **Keyless duplicates are in, and there `seq` decides nothing.** No key, no number
 --- (`PlaceInKeyGroup`), so every one of them holds nil and the array is the only order left. It is
@@ -247,9 +254,19 @@ function DebindPrivate.CollectDuplicateActions()
         -- answers differently on each pass and the reader is offered a different action to lose.
         local ordered = {};
         for index, action in layer:Enumerate() do
-            ordered[#ordered + 1] = { action = action, seq = action.seq, index = index };
+            ordered[#ordered + 1] = {
+                action = action, seq = action.seq, arrivalID = action.arrivalID, index = index,
+            };
         end
         sort(ordered, function(lhs, rhs)
+            if (lhs.arrivalID ~= rhs.arrivalID) then
+                if (lhs.arrivalID == nil) then
+                    return true;
+                elseif (rhs.arrivalID == nil) then
+                    return false;
+                end
+                return lhs.arrivalID < rhs.arrivalID;
+            end
             if ((lhs.seq or 0) ~= (rhs.seq or 0)) then
                 return (lhs.seq or 0) < (rhs.seq or 0);
             end

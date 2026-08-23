@@ -2766,6 +2766,10 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
 
         -- The confirmation is the client's and outlives a failed run, so it goes whatever happens.
         AddTeardown(function() StaticPopup_Hide("GENERIC_CONFIRMATION") end)
+        -- **The two duplicates below go too.** This case opens by asserting the layer holds nothing
+        -- the sweep would find, and leaving them behind hands that same precondition to the next
+        -- case as something it has to know about.
+        AddTeardown(CleanupActions)
 
         local cleanUp = DebindFrame.OverviewPanel.CleanUpPortrait
         DebindFrame:Update()
@@ -2805,6 +2809,197 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
         end
 
         return Pass(NAME, "없으면 꺼지고 있으면 켜지며, 눌러서 확인창까지 간다")
+    end,
+})
+
+--- The other half of the sweep: what the press actually takes away.
+---
+--- **This is the only path in the addon that deletes with no way back, so the kit is where it gets
+--- pressed.** The headless spec stops at `CollectDuplicateActions` handing back a list
+--- (`tests/identity_spec.lua`). Between that list and the profile afterwards lie the press, the
+--- client's confirmation and `DeleteActions` renumbering what is left, and the reader says yes to
+--- all of it at once.
+---
+--- **Every action here carries a condition, and the two kinds carry different ones.** The solver
+--- drops a binding a higher one already covers, so two unconditional actions on one key leave a
+--- single row in the key map and `KeyMapOrder` stops being able to say what survived. Different
+--- axes keep both, which is what lets the last check ask whether the key still does what it did.
+---
+--- **Crossing layers is left to the headless spec.** A run is isolated to one layer
+--- (`SetIsolated`), so a second one here would be a stand-in of my own making, measured against the
+--- same walk the spec already measures against a profile that really has two.
+RegisterTest("Duplicates: the press takes the copy that never fires", {
+    description = "청소를 확인까지 하면 무엇이 지워지고 무엇이 남는가",
+    run = function()
+        local NAME = "Duplicates removal"
+        local KEY = "CTRL-ALT-F8"
+
+        if not DebindFrame:IsShown() then
+            DebindFrame:Show()
+            AddTeardown(function() DebindFrame:Hide() end)
+        end
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+
+        AddTeardown(function() StaticPopup_Hide("GENERIC_CONFIRMATION") end)
+        AddTeardown(CleanupActions)
+
+        local cleanUp = DebindFrame.OverviewPanel.CleanUpPortrait
+
+        --- The action while it is still in the layer, nil once it has been deleted. The table it
+        --- was is still in hand either way, so asking it is no answer.
+        local function Living(action)
+            for _, candidate in GetTestLayer():Enumerate() do
+                if candidate == action then
+                    return candidate
+                end
+            end
+            return nil
+        end
+
+        --- One group's `seq` on `KEY`, smallest first, as a string. The group is `(key, arrivalID)`.
+        local function GroupSeqs(arrivalID)
+            local out = {}
+            for _, action in GetTestLayer():Enumerate() do
+                if action.key == KEY and action.arrivalID == arrivalID then
+                    out[#out + 1] = action.seq or -1
+                end
+            end
+            table.sort(out)
+            for i = 1, #out do
+                out[i] = tostring(out[i])
+            end
+            return table.concat(out, " ")
+        end
+
+        --- Presses the button and says yes to what comes up.
+        ---
+        --- **The reference key is read before anything is clicked.** `GENERIC_CONFIRMATION` is the
+        --- client's shared dialog and `StaticPopup_Visible` hands back whichever went up first, so
+        --- pressing blind is pressing a stranger's [Yes].
+        local function SweepAndAccept()
+            DebindFrame:Update()
+            if not cleanUp:IsEnabled() then
+                return "중복을 세웠는데 청소 단추가 꺼져 있다"
+            end
+            cleanUp:Click()
+            if not StaticPopup_IsCustomGenericConfirmationShown("DebindDeleteConfirmation") then
+                return "눌러도 확인창이 안 떴다"
+            end
+            local _, dialog = StaticPopup_Visible("GENERIC_CONFIRMATION")
+            if not dialog or not dialog.data
+                or dialog.data.referenceKey ~= "DebindDeleteConfirmation" then
+                return "우리 것이 아닌 확인창이 앞에 서 있다"
+            end
+            dialog:GetButton1():Click()
+            ApplyBindings()
+            return nil
+        end
+
+        -- 1. 내 그룹 안의 중복 하나와, 같은 키에 앉은 도착분 그룹 안의 중복 하나. 한 번에 둘 다
+        --    잡히고, 지운 뒤 두 그룹이 서로의 번호에 손대지 않아야 한다.
+        CleanupActions()
+        local keeper = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, stealth = true })
+        local twinA = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, combat = true })
+        local twinB = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, combat = true })
+        local badgedA = InsertAction({ type = Constants.SPELL, value = 3, key = KEY,
+            arrivalID = 7, combat = true })
+        local badgedB = InsertAction({ type = Constants.SPELL, value = 3, key = KEY,
+            arrivalID = 7, combat = true })
+        ApplyBindings()
+
+        -- **전제: 두 그룹이 각자 1부터다.** 이게 아니면 아래 번호 검사가 무엇을 재는지 알 수 없다.
+        if GroupSeqs(nil) ~= "1 2 3" or GroupSeqs(7) ~= "1 2" then
+            return Fail(NAME, format("판이 안 섰다. 내 것 [%s], 도착분 [%s]",
+                GroupSeqs(nil), GroupSeqs(7)))
+        end
+        local loser, winner = twinB, twinA
+        if twinB.seq < twinA.seq then
+            loser, winner = twinA, twinB
+        end
+
+        local err = SweepAndAccept()
+        if err then return Fail(NAME, err) end
+
+        if Living(loser) then
+            return Fail(NAME, "seq가 큰 쪽이 안 지워졌다")
+        end
+        if not Living(winner) or not Living(keeper) then
+            return Fail(NAME, "먼저 나가는 쪽이 지워졌다")
+        end
+        if not Living(badgedA) or Living(badgedB) then
+            return Fail(NAME, "도착분 그룹 안의 중복이 안 잡혔거나 엉뚱한 쪽이 잡혔다")
+        end
+        -- **각 그룹이 자기 안에서 다시 1..n이다.** 둘을 섞어 번호를 매기면 도착분이 3을 들고
+        -- 내 그룹이 1..3을 채운다.
+        if GroupSeqs(nil) ~= "1 2" then
+            return Fail(NAME, format("지운 뒤 내 그룹의 번호가 안 이어진다: [%s]", GroupSeqs(nil)))
+        end
+        if GroupSeqs(7) ~= "1" then
+            return Fail(NAME, format("도착분이 내 그룹과 섞여 번호를 받았다: [%s]", GroupSeqs(7)))
+        end
+        if KeyMapOrder(KEY) ~= "1 2" then
+            return Fail(NAME, format("지운 뒤 그 키가 하던 일이 달라졌다: [%s]", KeyMapOrder(KEY)))
+        end
+
+        -- 2. 도착분이 내 액션의 정확한 사본으로 왔을 때. **배지가 붙어 있는 동안 그것은 어느
+        --    키에도 안 닿으므로**(`BuildKeyMap`), 그쪽을 남기고 내 것을 지우면 키가 하던 일이
+        --    하나 사라진다. 두 그룹이 각자 1부터 매기는 탓에 도착분의 `seq`가 내 것보다 작을 수
+        --    있고, `seq`만으로 줄을 세우면 정확히 그렇게 진다.
+        CleanupActions()
+        local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, stealth = true })
+        local mine = InsertAction({ type = Constants.SPELL, value = 4, key = KEY, combat = true })
+        local badged = InsertAction({ type = Constants.SPELL, value = 4, key = KEY,
+            arrivalID = 9, combat = true })
+        ApplyBindings()
+
+        if KeyMapOrder(KEY) ~= "1 4" then
+            return Fail(NAME, format("판이 안 섰다. 키가 [%s]", KeyMapOrder(KEY)))
+        end
+        if not (badged.seq and mine.seq and badged.seq < mine.seq) then
+            return Fail(NAME, format("도착분 %s, 내 것 %s. 이 판이 재려던 것이 아니다",
+                tostring(badged.seq), tostring(mine.seq)))
+        end
+
+        err = SweepAndAccept()
+        if err then return Fail(NAME, err) end
+
+        if not Living(mine) or not Living(first) then
+            return Fail(NAME, "배지 달린 사본이 남고 내 액션이 지워졌다")
+        end
+        if Living(badged) then
+            return Fail(NAME, "도착분 사본이 안 지워졌다")
+        end
+        if KeyMapOrder(KEY) ~= "1 4" then
+            return Fail(NAME, format("확인창은 키가 안 바뀐다고 했는데 바뀌었다: [%s]",
+                KeyMapOrder(KEY)))
+        end
+
+        -- 3. 하나도 없을 때. **단추는 이 갈래에 못 닿으므로**(회색이다) 직접 부른다. 회색인 것
+        --    자체는 위 케이스가 잰다.
+        CleanupActions()
+        InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
+        ApplyBindings()
+        DebindFrame:Update()
+        if cleanUp:IsEnabled() then
+            return Fail(NAME, "중복이 없는데 청소 단추가 켜져 있다")
+        end
+
+        local said
+        local realDisplay = DebindPrivate.DisplayMessage
+        DebindPrivate.DisplayMessage = function(message) said = message end
+        local ok, thrown = pcall(DebindUI.RemoveDuplicateActions)
+        DebindPrivate.DisplayMessage = realDisplay
+        if not ok then
+            return Fail(NAME, format("빈 갈래에서 터졌다: %s", tostring(thrown)))
+        end
+        if said ~= LLL["REMOVE_DUPLICATES_NONE"] then
+            return Fail(NAME, format("없다고 말하지 않았다: %s", tostring(said)))
+        end
+        if StaticPopup_IsCustomGenericConfirmationShown("DebindDeleteConfirmation") then
+            return Fail(NAME, "지울 것이 없는데 확인창이 떴다")
+        end
+
+        return Pass(NAME, "먼저 나가는 쪽이 남고, 그룹끼리 번호가 안 섞이며, 없으면 한 줄로 답한다")
     end,
 })
 
