@@ -187,16 +187,19 @@
 		word for word: no chrome, no ESC, no drag, no `enableMouse`, `useParentLevel`, and a
 		`preferredWidth` the frame reads when the tab is chosen.
 
-		**The rectangle is Overview's.** Left 4, top -85, right -31 are the three every tab shares so
-		the list does not jump as you switch, and the bottom is the export panel's 50. That band is
-		a button row, and since 3c this panel has one: making a switch. It said 10 here while making
-		one was the portrait's dropdown, which is the door that closed.
+		**The rectangle is the one every tab stands its list in.** Left 4, top -85 and right -31 are
+		shared with the storage tab and with Overview's two columns, so the black inset does not move
+		as you switch; the bottom is 8. The control that adds to the list is above it rather than in
+		a band underneath, which is where the storage tab puts its own (`StorageUI.xml`).
 	-->
 	<Frame name="DebindSwitchesPanel" parent="DebindFrame" parentKey="SwitchesPanel" hidden="true"
 		useParentLevel="true" setAllPoints="true" mixin="DebindSwitchesPanelMixin">
 		<KeyValues>
-			<!-- Overview's width. One list this narrow has nothing to spend more on, and keeping
-			     the number means the window does not resize between these two tabs. -->
+			<!-- One column: 4 + 405 + 31. The 405 is the black rectangle every tab stands a list
+			     in, and 440 is the width that leaves room for exactly one of them. Overview and
+			     the storage tab put two side by side and come to 867 (`FRAME_WIDTH` in
+			     `DebindUI.lua`), so the window does narrow coming here. What has to hold still
+			     across a tab change is the list, not the frame around it. -->
 			<KeyValue key="preferredWidth" value="440" type="number"/>
 		</KeyValues>
 		<Frames>
