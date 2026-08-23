@@ -655,6 +655,33 @@ return function(DebindPrivate)
             "리빌드가 사용자가 끈 스위치를 도로 켰다");
     end);
 
+    -- **값이 움직였으면 카운터도 움직여야 한다.** `Switches` 탭은 값을 이 카운터로 당겨 본다
+    -- (`SwitchesUI.lua`의 `OnUpdate`) - 값 변경 이벤트가 없어진 뒤로 그것뿐이다. 리셋이
+    -- 카운터를 안 올리면 탭이 리셋을 못 본다. 전문화 전환은 리빌드를 **0.05초 미루는 수가
+    -- 있어서**(`Events.lua`) 그 사이 탭이 이미 다시 그려진 뒤다.
+    --
+    -- **제한 환경의 되보고도 못 살린다.** 그쪽은 방금 밀어넣은 값을 그대로 돌려주는데,
+    -- `SetSwitchValue`의 메아리 가드가 같은 값에서 먼저 돌아나간다(§4-9).
+    test("리셋이 값을 옮기면 카운터도 움직인다", function()
+        InitWith(Profile());
+        local before = DebindPrivate.switchValueSerial;
+        DebindPrivate.SetSwitchAnswer("$state1", nil, MODES.MANUAL, true);
+        DebindPrivate.ApplySwitchResets();
+        check(DebindPrivate.Switches["$state1"].value == true, "시작값이 안 걸렸다");
+        check(DebindPrivate.switchValueSerial ~= before,
+            "값이 켜졌는데 카운터가 그대로다 - 탭이 옛 값을 계속 그린다");
+    end);
+
+    -- 나머지 절반. 안 움직인 값에 카운터를 올리면 탭이 매 리빌드마다 통째로 다시 그린다.
+    test("아무것도 안 옮긴 리셋은 카운터를 안 건드린다", function()
+        InitWith(Profile());
+        DebindPrivate.ApplySwitchResets();
+        local before = DebindPrivate.switchValueSerial;
+        DebindPrivate.ApplySwitchResets();
+        check(DebindPrivate.switchValueSerial == before,
+            "값이 그대로인데 카운터가 움직였다");
+    end);
+
     ---------------------------------------------------------------------------
     -- savedValue는 안 지운다 (§4-9)
     --

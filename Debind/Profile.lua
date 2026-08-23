@@ -1503,6 +1503,7 @@ function DebindPrivate.ApplySwitchResets()
         local applied = tostring(layerKey) .. "|" .. mode .. "|" .. tostring(resetValue);
         if (_appliedAnswers[name] ~= applied) then
             _appliedAnswers[name] = applied;
+            local was = definition.value;
             if (mode == Constants.SWITCH_MODES.MANUAL) then
                 -- **`resetValue == nil` is an answer, not a missing value** - come back to what
                 -- this character was left on. That link is invisible in either field's name.
@@ -1513,6 +1514,16 @@ function DebindPrivate.ApplySwitchResets()
                 end
             else
                 definition.value = definition.value or false;
+            end
+            -- **The counter is how the Switches tab finds out** (`SwitchesUI.lua`). It cannot be
+            -- left to `SetSwitchValue`: the field is written here rather than through it, because
+            -- a reset must not become the value this character remembers (§4-9), and the
+            -- restricted side's report of the same value turns back at that function's echo
+            -- guard. Nor is the tab's own specialization event enough - a rebuild can be put off
+            -- 0.05s waiting for the new specialization to be readable (`Events.lua`), and by then
+            -- the tab has already redrawn.
+            if (definition.value ~= was) then
+                DebindPrivate.switchValueSerial = DebindPrivate.switchValueSerial + 1;
             end
         end
     end
@@ -1877,6 +1888,10 @@ end
 --- The Switches tab watches this instead of an event: a switch flipping stopped being one on
 --- 2026-08-22 (`Public.lua`), and a counter is what is left to notice it by. Reading it is one
 --- comparison, so the tab can ask every frame and redraw only when the answer moves.
+---
+--- **Two functions raise it and this is only one of them.** A reset writes the field without
+--- coming through here (`ApplySwitchResets`), and it moves values the tab has to redraw, so it
+--- raises the counter itself. What decides is the same question in both: did the value move.
 DebindPrivate.switchValueSerial = 0;
 
 function DebindPrivate.SetSwitchValue(name, value)
