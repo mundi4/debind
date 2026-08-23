@@ -96,6 +96,23 @@ return function(DebindPrivate)
         return table.concat(out, " ");
     end
 
+    --- The order `BuildKeyMap` ended up with, as a string of values.
+    ---
+    --- **The other end of the same walk.** Everything above reads `CollectActionsForKey`, which is
+    --- the list the **window draws**; this reads what the build handed the secure side. They are two
+    --- walks over one profile, and nothing but a case like this makes them agree -- a reader shown
+    --- one order while the key fires in another has no way to find out.
+    ---
+    --- Records the solver dropped are not in it, which is the point of asking here.
+    local function KeyMapOrder(key)
+        check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
+        local bindings = DebindPrivate.KeyMap[key];
+        if (not bindings) then return "<none>"; end
+        local out = {};
+        for i = 1, #bindings do out[i] = tostring(bindings[i].value); end
+        return table.concat(out, " ");
+    end
+
     local function Find(key, value)
         for _, row in ipairs(DebindPrivate.CollectActionsForKey(key)) do
             if (row.action.value == value) then
@@ -325,6 +342,74 @@ return function(DebindPrivate)
         a.seq, b.seq = b.seq, a.seq;
         DebindPrivate.RenumberKeyGroupForAction(a);
     end
+
+    ---------------------------------------------------------------------------
+    -- And the same numbers reach the solver
+    ---------------------------------------------------------------------------
+
+    -- **The order is the only difference between these two.** Both are conditional, at the same
+    -- importance, in one layer, so they share a band and nothing but `seq` can split them. With the
+    -- narrow one in front both survive; with the broad one in front the narrow one sits entirely
+    -- inside it and the solver drops it. So what this measures is not that the numbers changed but
+    -- that they **reached the solver** -- the drawn order alone cannot tell those apart.
+    test("the arrows' order reaches the solver", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 116, key = "F", seq = 1,
+                    conditions = { combat = true, stealth = true } },
+                { type = Constants.SPELL, value = 585, key = "F", seq = 2,
+                    conditions = { combat = true } },
+            },
+        });
+        check(KeyMapOrder("F") == "116 585", "planted: " .. KeyMapOrder("F"));
+
+        Swap(Find("F", 585), Find("F", 116));
+        check(KeyMapOrder("F") == "585",
+            "the broad one in front and the narrow one survived: " .. KeyMapOrder("F"));
+
+        -- Swapping back and watching it come alive again. Without this the case also passes on a
+        -- key that only ever held one record.
+        Swap(Find("F", 116), Find("F", 585));
+        check(KeyMapOrder("F") == "116 585", "it did not come back: " .. KeyMapOrder("F"));
+    end);
+
+    -- **Crossing a band, read off the build.** The drawn order says where the action landed; this
+    -- says the build agrees.
+    --
+    -- **Four conditions on four different axes.** `TwoBands` above splits by importance and leaves
+    -- three records saying the same thing in each band, which is fine for a drawn order and useless
+    -- here: the solver keeps the first of each and what would be measured is a deletion rather than
+    -- a position.
+    --
+    -- **The numbers are planted out of step on purpose.** Lined up with the drawn order this
+    -- measures nothing; `4` carries a 15, which would put it in the **middle** of the upper band if
+    -- the number came across with it instead of being renumbered to the near end.
+    test("a band crossing lands at the near end in the built order too", function()
+        ResetProfile({
+            general = {
+                { type = Constants.SPELL, value = 1, key = "F", priority = 1, seq = 10,
+                    conditions = { combat = true } },
+                { type = Constants.SPELL, value = 2, key = "F", priority = 1, seq = 20,
+                    conditions = { stealth = true } },
+                { type = Constants.SPELL, value = 3, key = "F", seq = 2,
+                    conditions = { pet = true } },
+                { type = Constants.SPELL, value = 4, key = "F", seq = 15,
+                    conditions = { petbattle = true } },
+            },
+        });
+        check(KeyMapOrder("F") == "1 2 3 4", "planted: " .. KeyMapOrder("F"));
+
+        -- **One edit through first**, for the reason `Settle` gives: the numbers are out of step
+        -- until an edit reaches the group, and every case here is about the edit *after* that one.
+        -- This one crosses no band -- a second condition on an action that already has one -- so it
+        -- moves nothing and only closes the group up to 1..4.
+        Edit(Find("F", 3), "stealth", false);
+        check(KeyMapOrder("F") == "1 2 3 4", "the priming edit moved something: " .. KeyMapOrder("F"));
+
+        Edit(Find("F", 4), "priority", 1);
+        check(KeyMapOrder("F") == "1 2 4 3",
+            "the crossing did not land at the near end of its new band: " .. KeyMapOrder("F"));
+    end);
 
     test("the arrows move exactly one step and a round trip comes back", function()
         ResetProfile({
