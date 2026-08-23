@@ -45,7 +45,7 @@ local SetActionIcon                  = DebindUI.SetActionIcon;
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
 local GetTabLabel                    = DebindUI.GetTabLabel;
-local GetSideTabaLabel               = DebindUI.GetSideTabaLabel;
+local GetSideTabLabel               = DebindUI.GetSideTabLabel;
 local GetLayerShortName              = DebindUI.GetLayerShortName;
 local GetLayerLabel                  = DebindUI.GetLayerLabel;
 local IsLayerOffWorld                = DebindUI.IsLayerOffWorld;
@@ -250,17 +250,17 @@ local function GetSideTabDescription(sideTabID, tabID)
 		-- instead of naming any. English then takes no argument at all -- the tooltip title
 		-- already reads "Oreo / Balance" -- while Korean still needs the spec name, so the one
 		-- value goes out and each locale uses it or does not.
-		return format(LLL["LAYER_DESC_CHARACTER_SPEC"], GetSideTabaLabel(sideTabID));
+		return format(LLL["LAYER_DESC_CHARACTER_SPEC"], GetSideTabLabel(sideTabID));
 	end
 	if (sideTabID == 1) then
 		return LLL["LAYER_DESC_SHARED_GENERAL"];
 	end
 	if (sideTabID == 2) then
 		return format(LLL["LAYER_DESC_SHARED_CLASS"],
-			GetSideTabaLabel(2), GetLayerLabel(GetLayerID(1, 1)));
+			GetSideTabLabel(2), GetLayerLabel(GetLayerID(1, 1)));
 	end
 	return format(LLL["LAYER_DESC_SHARED_SPEC"],
-		GetSideTabaLabel(2), GetSideTabaLabel(sideTabID), GetLayerLabel(GetLayerID(1, 2)));
+		GetSideTabLabel(2), GetSideTabLabel(sideTabID), GetLayerLabel(GetLayerID(1, 2)));
 end
 
 local function TryCloseAnyDialog()

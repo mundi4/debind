@@ -40,7 +40,7 @@ local function GetTabLabel(tabID)
 	end
 end
 
-local function GetSideTabaLabel(sideTabID)
+local function GetSideTabLabel(sideTabID)
 	if (sideTabID == 1) then
 		return LLL["GENERAL"];
 	elseif (sideTabID == 2) then
@@ -91,7 +91,7 @@ local function GetLayerIDForAddress(scope, spec)
 	return nil;
 end
 
---- `GetSideTabaLabel` for a **named** class: spec 0 is the class itself, above that its
+--- `GetSideTabLabel` for a **named** class: spec 0 is the class itself, above that its
 --- specializations.
 ---
 --- The side tab version reads `UnitClass("player")` and `GetSpecializationInfo`, which is right for
@@ -135,7 +135,7 @@ local function GetLayerLabel(layerID, class)
 	end
 
 	if (not class) then
-		return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabaLabel(sideTab));
+		return format(LLL["ORDER_LAYER_LABEL"], scope, GetSideTabLabel(sideTab));
 	end
 
 	-- Side tab 1 is "general" under either tab, and 2 is the class itself; 3 and up are that
@@ -187,7 +187,7 @@ end
 
 DebindUI.GetLayerTabs = GetLayerTabs;
 DebindUI.GetTabLabel = GetTabLabel;
-DebindUI.GetSideTabaLabel = GetSideTabaLabel;
+DebindUI.GetSideTabLabel = GetSideTabLabel;
 DebindUI.GetLayerShortName = GetLayerShortName;
 DebindUI.GetLayerLabel = GetLayerLabel;
 DebindUI.GetLayerIDForAddress = GetLayerIDForAddress;

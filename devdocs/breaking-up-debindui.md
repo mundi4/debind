@@ -241,7 +241,7 @@ grep이 반만 잡는다. 창 자신은 `self.LayerPanel`을 그대로 쓴다.
 | 파일 | |
 |---|---|
 | `ActionDisplay.lua` | 액션 이름·아이콘 해석기와 그것에 붙는 낱말들. `NameAndIconForAction`, `ColoredNameAndIconForAction`, `SetActionIcon`, `BINDING_TYPE_NAMES`, `UNIT_INFO`, `SORTED_UNIT_LIST`, `GetMacrotextIcon`과 그 캐시, `IMPORTED_FONT_COLOR`, `QUESTION_MARK_ICON_NUM` |
-| `LayerDisplay.lua` | 레이어 이름과 그 옆 그림. `GetLayerTabs`, `GetTabLabel`, `GetSideTabaLabel`, `GetLayerShortName`, `GetLayerLabel`, `IsLayerOffWorld`, `GetSideTabIcon` |
+| `LayerDisplay.lua` | 레이어 이름과 그 옆 그림. `GetLayerTabs`, `GetTabLabel`, `GetSideTabLabel`, `GetLayerShortName`, `GetLayerLabel`, `IsLayerOffWorld`, `GetSideTabIcon` |
 | `ActionTooltip.lua` | 액션 툴팁 통째로. `AddActionToTooltip`/`HideActionTooltip`의 `do` 블록, `GetActionBarTypeLabel`, `UNIT_FRAME_REACTIONS`/`UNIT_FRAME_TYPES` |
 
 `DebindUI.lua`가 6667줄에서 5688줄이 됐다. 세 파일 합이 1081줄이고, 차액은 각자 붙은 머리말과

@@ -216,7 +216,7 @@ local function GetTabList()
             local tabLabel = DebindUI.GetTabLabel(tabID);
             if (tabLabel) then
                 for sideTabID = 1, #DebindLayerPanel.SideTabs do
-                    local sideTabLabel = DebindUI.GetSideTabaLabel(sideTabID);
+                    local sideTabLabel = DebindUI.GetSideTabLabel(sideTabID);
                     if (sideTabLabel) then
                         local layerID = DebindUI.GetLayerID(tabID, sideTabID);
                         if (not seenLayers[layerID]) then
