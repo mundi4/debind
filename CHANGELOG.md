@@ -1,5 +1,23 @@
 # 3.3
 
+**Custom states are switches now, and there is no longer a fixed five of them.**
+
+They used to be five numbered slots, sitting in the list whether you used them or not. Now you make one when you want one and give it a name, and that name is what everything else reads: a condition on `$burst`, a macro conditional `[$burst]`. Renaming rewrites every action that names it, on every character of the account, including the macro bodies it appears in. The five you already have keep working under the names `$state1` to `$state5`, so nothing you set up before this moves.
+
+**Switches have a tab of their own.** It lists the ones you have, what each comes up as, which actions read it, and whether anything reads it at all. Settings, renaming and deleting are on the right-click menu there, and out of combat you can turn one on or off from the list. You can also make one from the condition menu, or from the action you are editing, at the moment you find you need it. Deleting one leaves the actions that name it red rather than quietly dropping the condition, so you can see where to go.
+
+**What a switch comes up as can differ per class, specialization or character.** The account wide answer is **Starts on**, **Starts off** or **As you left it**, and any of the tabs on the left can carry an override that replaces it there. **As you left it is remembered per character now**; it used to be one answer everybody on the account shared.
+
+**A key that works a switch says which way it works it**: turns it on, turns it off, or turns it over.
+
+**Export and Import are one tab now, Storage.**
+
+What is kept there is a payload, and there are two ways to get one: **New Payload** makes one out of everything the character has right now, **Paste Share Code** takes one from somebody else. Pick a payload on the left and its actions stand on the right, where you can tick the part you want and delete outright what you never want in it. Putting it into your bindings is two answers, **Add as Pending**, which changes nothing your keys do until you accept them, and **Add and Accept**, which starts them straight away and asks first about any key of yours they land on. **Create Share Code** turns the ticked part back into a string.
+
+**What arrives keeps the key it was sent on.** It used to be parked on a key of its own with a number where the key goes, and that number was the only thing telling one arrival from another. An arrival now sits on its real key and stays a set of its own, so you can see what it would do before accepting it, and your set on that key is not touched. Accepting a whole key at once asks which side wins: **Keep Existing**, **Take Incoming** or **Merge**.
+
+**Share codes made here cannot be read by 3.2.** What an action looks like on the wire changed, and an older build says so rather than guessing. Codes and pending payloads from 3.2 are read here exactly as before.
+
 **Your unit frame bindings now reach the frames other addons draw.**
 
 Clicking a unit frame to cast is meant to work on whatever frames you use, and for a lot of setups it quietly did not. Debind hears about a frame through a list every click casting addon shares, and any addon that runs click casting of its own can take that list over: from that moment the frames being drawn go somewhere Debind never sees them. Frames built from a group of players are worse still, because those connect once, at the moment they are built, and a connection missed then is missed for the session.
@@ -15,6 +33,10 @@ Also in this one:
 - A click on a mouse button you have no binding for is left alone on the way down as well as the way up. It used to be taken on the press even when Debind had nothing to run, which quietly ate that click from the frame underneath.
 - Mouse wheel bindings on a unit frame survive another addon turning the wheel off on that frame.
 - **Add custom target menus on the unit popup** is gone, and with it the entries it added to the right-click menu on a unit. That menu is one the game protects, and adding to it put Debind's name in error reports for breakage that started elsewhere. Setting a custom target from a binding is unchanged.
+
+- **Remove Duplicate Actions**, on the overview row and in the options menu. It looks for actions that are exact copies of one another inside one layer and takes the copies out, keeping the one that fires first. The same action on two layers is left alone: that is what the layers are for.
+- Taking the key off a set of actions asks first, because unbinding scatters them and nothing records that they went together.
+- An older Debind now stands down from settings a newer one wrote, instead of reading what it can and dropping the rest. None of your keys work and it says why, and putting the newer version back returns everything.
 
 # 3.2.2
 
