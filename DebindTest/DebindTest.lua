@@ -3086,7 +3086,11 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
                 DebindPrivate.UpdateBindings()
             end
         end)
-        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, value = false }
+        -- **`resetValue`, not `value`.** The second is derived - a rebuild recomputes it from
+        -- the answer in effect and from what this character remembers (`ApplySwitchResets`), so
+        -- a setup that writes it is writing something the first rebuild may overwrite. What is
+        -- wanted here is the answer "comes up off", and that is a `resetValue`.
+        DebindPrivate.Switches[SWITCH] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false }
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, [SWITCH] = true })
         ApplyBindings()
@@ -3386,7 +3390,8 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
                 DebindPrivate.UpdateBindings()
             end
         end)
-        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, value = false }
+        -- `resetValue` and not `value`, for the reason the toggle test above spells out.
+        DebindPrivate.Switches[SWITCH] = { mode = MODES.MANUAL, resetValue = false }
 
         local layerKey = DebindPrivate.GetSwitchLayerKey(
             DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
@@ -3657,11 +3662,15 @@ RegisterTest("Custom state toggle flips the value", {
         local saved = DebindPrivate.Switches["$state4"]
         AddTeardown(function()
             DebindPrivate.Switches["$state4"] = saved
+            DebindPrivate.db.char.switches["$state4"] = nil
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBindings()
             end
         end)
-        local options = { mode = MODES.MANUAL, value = false }
+        -- **`resetValue` and not `value`**, which is what makes the premise below hold on a
+        -- second run: written as a value it is recomputed from what this character remembers,
+        -- and this test leaves a remembered value behind every time it toggles.
+        local options = { mode = MODES.MANUAL, resetValue = false }
         DebindPrivate.Switches["$state4"] = options
 
         -- Registered through a condition. What this test looks at is the toggle, not registration,
