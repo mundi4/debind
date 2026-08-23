@@ -718,7 +718,18 @@ function M.loadAddon(root, files, addon, opts)
             if (not src) then
                 error("failed to read " .. path, 0);
             end
-            chunk, err = load(stripDebugBlocks(src), "@" .. path);
+            -- **`loadstring` wherever there is one.** 5.1's `load` takes a reader function and
+            -- refuses a string outright; 5.2 folded the two together, so fengari (`npm test`) and
+            -- any 5.3 or 5.4 here take this line and the reference 5.1 that CI runs does not. The
+            -- shipped pass is the only one that compiles from a string rather than a path, which
+            -- is why that reader died here and nowhere else. `restricted.lua` says the same thing
+            -- about `setfenv`.
+            local source = stripDebugBlocks(src);
+            if (_G.loadstring) then
+                chunk, err = _G.loadstring(source, "@" .. path);
+            else
+                chunk, err = load(source, "@" .. path);
+            end
         else
             chunk, err = loadfile(path);
         end
