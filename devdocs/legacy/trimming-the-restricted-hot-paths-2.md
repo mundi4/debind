@@ -12,7 +12,7 @@
 > | ⑥ 조건 없는 `COMMAND`/`UNUSED` 키가 상태 루프에 있다 | **들어갔다** |
 > | ⑦ 그 키들의 제한환경 왕복 | **들어갔다** |
 >
-> 앞 문서는 `legacy/trimming-the-restricted-hot-paths.md`다. 거기서 닫힌 여섯은 그대로 서 있고,
+> 앞 문서는 `trimming-the-restricted-hot-paths.md`다. 거기서 닫힌 여섯은 그대로 서 있고,
 > **접었던 ⑦만 근거가 무너져서 여기로 온다.**
 
 ## 앞 문서가 계기의 주기를 틀리게 잡았다
