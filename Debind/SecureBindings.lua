@@ -76,6 +76,27 @@ SecureHandlerExecute(BindingDriver, [[
 	-- 아래 상태 루프가 이 표의 유일한 독자다.
 	StateDrivenBindings = newtable()
 
+	-- The same keys the other way round: dirty flag -> the record lists that flag can wake.
+	--
+	-- **Not a second membership.** `StateDrivenBindings` is still what says a key is state-driven,
+	-- and the `forceAll` pass walks that one. This is only the index that turns "which flags moved"
+	-- into "which keys have to be looked at" without asking every key whether it cares.
+	--
+	-- A state-driven key that registers no flag at all is in neither of the lists here, and that is
+	-- the same answer it always got: with `bindings.updateFlags` nil the old check fell through to
+	-- `forceAll` too.
+	DirtyKeys = newtable()
+
+	-- The lists above, flattened for one pass. **Made once and cut with a count**, never wiped and
+	-- never rebuilt: a pass that fills fewer slots than the last one simply reads fewer.
+	WorkList = newtable()
+
+	-- Which pass is running, as a number that only goes up. A key registered on two flags that are
+	-- both dirty is reached twice, and this is what makes the second arrival free rather than a
+	-- second walk over the same records. A rebuild hands out new record lists, so `bindings.seen`
+	-- starts nil again and nothing has to be reset.
+	UpdateGeneration = 0
+
 	-- 클릭 시점 평가로 넘긴 키들. 버튼 이름("@" + 키) -> 그 키의 레코드 배열.
 	-- OnClick 래퍼가 도착한 버튼 이름으로 여기를 찾아 자기 키인지 가른다.
 	--
@@ -393,6 +414,15 @@ BindingDriver:SetAttribute("UpdateAllUnits", [[
 BindingDriver:SetAttribute("ClearUnitAttributes", [==[
 ]==]);
 
+--- How many keys this pass is about to decide. **DEBUG only** -- in a shipped build the string is
+--- empty and the line is not in the snippet at all.
+---
+--- **The generation guard it exists for cannot be seen in a value.** A key reached through two
+--- dirty flags and decided twice lands on the same answer, because `bindings.bound` turns the
+--- second one into a no-op. So what the guard saves is the walk and nothing else, and a spec that
+--- asked what the key ended up bound to would pass with the guard taken out.
+local WORK_COUNT_SNIPPET = DebindPrivate.DEBUG and "\tWorkCount = work\n" or "";
+
 BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local vargs = newtable()
 	if (DirtyFlags.forceAll) then
@@ -433,141 +463,163 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local pet = States.pet
 	local petbattle = States.petbattle
 
-	-- **배선이 고정된 키는 이 표에 없다.** `UpdateBindingsMap`이 안 넣는다 - 그 키는 빌드
-	-- 시점에 한 번 걸고 끝이고, 어느 액션인지는 래퍼가 클릭 순간에 정한다. 여기서 걸러내던
-	-- 시절에는 훑기는 훑고 매번 "볼 것 없음"으로 끝났다.
+	-- **어느 키를 볼지 고르는 것과 그 키를 정하는 것을 가른다.** 아래 판정은 한 벌이고 두 갈래가
+	-- 같은 작업목록으로 들어온다. 예순 줄짜리 본문이 두 벌이 되는 것이 이 뒤집기를 한 번 접게
+	-- 만든 값이었다.
+	--
+	-- **배선이 고정된 키는 어느 쪽에도 없다.** `UpdateBindingsMap`이 안 넣는다 - 그 키는 빌드
+	-- 시점에 한 번 걸고 끝이고, 어느 액션인지는 래퍼가 클릭 순간에 정한다.
 	--
 	-- **alwaysOurs이지 clickTime이 아니다.** clickTime 키 중 배선이 고정 아닌 것은 여기 있고,
 	-- "잡느냐 놓느냐"를 계속 정해야 한다 - 빼면 놓아줘야 할 때 못 놓는다.
-	for key, bindings in pairs(StateDrivenBindings) do
-		local check = forceAll
-		if (not check and bindings.updateFlags) then
-			for flag in pairs(DirtyFlags) do
-				if (bindings.updateFlags[flag]) then
-					check = true
-					break
+	local work = 0
+
+	if (forceAll) then
+		-- 리빌드가 여는 패스다. 어느 플래그가 움직였느냐가 뜻이 없으므로 전부 본다.
+		for _, bindings in pairs(StateDrivenBindings) do
+			work = work + 1
+			WorkList[work] = bindings
+		end
+	else
+		-- **한 키가 두 플래그에 걸려 있고 둘 다 더티면 두 번 도달한다.** 세대 번호가 두 번째를
+		-- 공짜로 만든다. 값으로는 안 드러나는 자리다 - 두 번 정해도 `bindings.bound` 비교가
+		-- 두 번째를 no-op으로 만들어서 결과가 같다. 그래서 이건 값이 아니라 비용을 지킨다.
+		UpdateGeneration = UpdateGeneration + 1
+		for flag in pairs(DirtyFlags) do
+			local list = DirtyKeys[flag]
+			if (list) then
+				for i = 1, #list do
+					local bindings = list[i]
+					if (bindings.seen ~= UpdateGeneration) then
+						bindings.seen = UpdateGeneration
+						work = work + 1
+						WorkList[work] = bindings
+					end
 				end
 			end
 		end
+	end
+]==] .. WORK_COUNT_SNIPPET .. [==[
 
-		if (check) then
-			-- **이 표에 있는 키는 전부 키를 잡는 레코드를 갖고 있다.** 없는 키는 클릭캐스팅
-			-- 전용이라 `UpdateBindingsMap`이 아예 안 넣는다. 그래서 여기서 `hasKeyRecord`을
-			-- 다시 묻지 않는다 - 물어봤자 답이 하나뿐이고, 옛 코드는 그 키들을 훑고 나서
-			-- 레코드 하나 안 읽고 끝냈다.
-			local keyBound
+	for w = 1, work do
+		local bindings = WorkList[w]
+		local key = bindings.key
 
-			for i = 1, #bindings do
-				local t = bindings[i]
-				local match = true
+		-- **이 목록에 있는 키는 전부 키를 잡는 레코드를 갖고 있다.** 없는 키는 클릭캐스팅
+		-- 전용이라 `UpdateBindingsMap`이 아예 안 넣는다. 그래서 여기서 `hasKeyRecord`을
+		-- 다시 묻지 않는다 - 물어봤자 답이 하나뿐이고, 옛 코드는 그 키들을 훑고 나서
+		-- 레코드 하나 안 읽고 끝냈다.
+		local keyBound
 
-				-- 호버 중이냐, 그 유닛이 어떠냐는 아래 t.units["hover"]가 답한다. 여기 남은
-				-- 것은 프레임의 종류뿐이라 제 존재 검사를 직접 들고 있다.
-				if (t.frameTypes) then
-					if (not unitframe) then
-						match = false
-					elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
-						match = false
-					end
-				end
+		for i = 1, #bindings do
+			local t = bindings[i]
+			local match = true
 
-				-- **The outer parentheses are load-bearing.** `and` binds tighter than `or`, so
-				-- without them this reads as `(match and <first>) or <second> or ...` and every term
-				-- after the first is evaluated whether or not `match` still stands. The answer came
-				-- out the same either way, which is why it sat here unnoticed. What it cost was the
-				-- eight tests on a record the frame type check had already turned away, and what it
-				-- risked was the next term added here quietly not being guarded.
-				if (match and (
-					(t.groups ~= nil and (t.groups % (group + group)) < group) or
-					(t.combat ~= nil and t.combat ~= combat) or
-					(t.forms and (t.forms % (form + form)) < form) or
-					(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-					(t.specialbar ~= nil and t.specialbar ~= specialbar) or
-					(t.extrabar ~= nil and t.extrabar ~= extrabar) or
-					(t.stealth ~= nil and t.stealth ~= stealth) or
-					(t.petbattle ~= nil and t.petbattle ~= petbattle) or
-					(t.pet ~= nil and t.pet ~= pet)
-				)) then
+			-- 호버 중이냐, 그 유닛이 어떠냐는 아래 t.units["hover"]가 답한다. 여기 남은
+			-- 것은 프레임의 종류뿐이라 제 존재 검사를 직접 들고 있다.
+			if (t.frameTypes) then
+				if (not unitframe) then
+					match = false
+				elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
 					match = false
 				end
-				
-				if (match and t.known ~= nil) then
-					if (States[t.known] ~= true) then
+			end
+
+			-- **The outer parentheses are load-bearing.** `and` binds tighter than `or`, so
+			-- without them this reads as `(match and <first>) or <second> or ...` and every term
+			-- after the first is evaluated whether or not `match` still stands. The answer came
+			-- out the same either way, which is why it sat here unnoticed. What it cost was the
+			-- eight tests on a record the frame type check had already turned away, and what it
+			-- risked was the next term added here quietly not being guarded.
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= extrabar) or
+				(t.stealth ~= nil and t.stealth ~= stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
+				(t.pet ~= nil and t.pet ~= pet)
+			)) then
+				match = false
+			end
+			
+			if (match and t.known ~= nil) then
+				if (States[t.known] ~= true) then
+					match = false
+				end
+			end
+
+			if (match and t.units) then
+				for checkedUnit, cond in pairs(t.units) do
+					local s = UnitStates[checkedUnit]
+					if (not s or cond.exists ~= s.exists
+							or (cond.reaction and not cond.reaction[s.reaction])
+							or (cond.dead ~= nil and cond.dead ~= s.dead)) then
 						match = false
-					end
-				end
-
-				if (match and t.units) then
-					for checkedUnit, cond in pairs(t.units) do
-						local s = UnitStates[checkedUnit]
-						if (not s or cond.exists ~= s.exists
-								or (cond.reaction and not cond.reaction[s.reaction])
-								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
-							match = false
-							break
-						end
-					end
-				end
-
-				if (match and t.switches) then
-					for state, v in pairs(t.switches) do
-						if (States[state] ~= v) then
-							match = false
-							break
-						end
-					end
-				end
-
-				if (match) then
-					if (not keyBound and t.holdsKey) then
-						-- **무엇을 걸 것인가는 이긴 액션이 아니라 세 갈래 중 하나다.**
-						--
-						-- clickTime 키는 어느 클릭 액션이 이기든 거는 것이 `"@"..key` 하나다.
-						-- 그래서 이긴 것으로 비교하면 승자가 뒤집힐 때마다 같은 값을 다시 거는
-						-- SetOverrideBinding이 나간다 - hover가 걸린 키에서 이게 제일 잦다.
-						-- 결과로 비교하면 그 재바인딩이 통째로 없어진다.
-						--
-						-- 셋은 서로 겹치지 않는다: false(놓아줌) / 명령 문자열 / 버튼 이름.
-						-- clickTime이 아니면 옛 규약대로 t 자체를 쓴다.
-						local outcome
-						if (t.type == CONSTANTS.UNUSED) then
-							outcome = false
-						elseif (t.command) then
-							outcome = t.command
-						elseif (t.clickbutton) then
-							outcome = bindings.clickTimeButton or t
-						end
-
-						if (bindings.bound ~= outcome) then
-							bindings.bound = outcome
-							if (t.type == CONSTANTS.UNUSED) then
-								self:ClearBinding(key)
-							elseif (t.command) then
-								self:SetBinding(true, key, t.command)
-							elseif (t.clickbutton) then
-								if (bindings.clickTimeButton) then
-									-- 어느 액션인지는 래퍼가 클릭 순간에 정한다. 여기서는
-									-- "클릭이 이겼다"까지만 정한다.
-									self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
-								else
-									self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
-								end
-							end
-						end
-						keyBound = i
-					end
-
-					if (keyBound) then
 						break
 					end
 				end
 			end
 
-			if (not keyBound) then
-				bindings.bound = nil
-				self:ClearBinding(key)
+			if (match and t.switches) then
+				for state, v in pairs(t.switches) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
 			end
 
+			if (match) then
+				if (not keyBound and t.holdsKey) then
+					-- **무엇을 걸 것인가는 이긴 액션이 아니라 세 갈래 중 하나다.**
+					--
+					-- clickTime 키는 어느 클릭 액션이 이기든 거는 것이 `"@"..key` 하나다.
+					-- 그래서 이긴 것으로 비교하면 승자가 뒤집힐 때마다 같은 값을 다시 거는
+					-- SetOverrideBinding이 나간다 - hover가 걸린 키에서 이게 제일 잦다.
+					-- 결과로 비교하면 그 재바인딩이 통째로 없어진다.
+					--
+					-- 셋은 서로 겹치지 않는다: false(놓아줌) / 명령 문자열 / 버튼 이름.
+					-- clickTime이 아니면 옛 규약대로 t 자체를 쓴다.
+					local outcome
+					if (t.type == CONSTANTS.UNUSED) then
+						outcome = false
+					elseif (t.command) then
+						outcome = t.command
+					elseif (t.clickbutton) then
+						outcome = bindings.clickTimeButton or t
+					end
+
+					if (bindings.bound ~= outcome) then
+						bindings.bound = outcome
+						if (t.type == CONSTANTS.UNUSED) then
+							self:ClearBinding(key)
+						elseif (t.command) then
+							self:SetBinding(true, key, t.command)
+						elseif (t.clickbutton) then
+							if (bindings.clickTimeButton) then
+								-- 어느 액션인지는 래퍼가 클릭 순간에 정한다. 여기서는
+								-- "클릭이 이겼다"까지만 정한다.
+								self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
+							else
+								self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
+							end
+						end
+					end
+					keyBound = i
+				end
+
+				if (keyBound) then
+					break
+				end
+			end
+		end
+
+		if (not keyBound) then
+			bindings.bound = nil
+			self:ClearBinding(key)
 		end
 	end
 

@@ -463,6 +463,12 @@ wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
 end
+-- The lists and not the table, so a flag keeps the one it already has. Same reason as the line
+-- above it: what is thrown away is the contents, and the table itself is a thing this rebuild
+-- would only have to make again.
+for _, list in pairs(DirtyKeys) do
+    wipe(list)
+end
 wipe(HeldButtons)
 wipe(HeldUnits)
 -- Drop any unconsumed handoff -- it points into the old records.
@@ -1288,9 +1294,13 @@ end
 --- The list still has an owner either way: the `ClickTimeKeys` or `ClickCastKeys` registration
 --- below holds it, and that is the table the wrapper reaches it through. Every one of those lines
 --- is driven by the same `first` flag, so a key that emitted no records gets none of them.
+--- **The key goes on the list itself for the state-driven kind.** The update loop reaches a list
+--- through `DirtyKeys`, which is an array of lists and carries no key, and the loop needs one to
+--- bind or release with. The other kinds are reached by a button name that already spells the key.
 local function AppendBindingsList(key, stateDriven)
     if (stateDriven) then
         appendLine("bindings=newtable();StateDrivenBindings[%q]=bindings", key);
+        appendLine("bindings.key=%q", key);
         if (DEBUG) then
             DebindPrivate.StateDrivenKeys[key] = true;
         end
@@ -1964,11 +1974,17 @@ function UpdateBindingsMap()
                 _rebindOnHoverFrame = true;
             end
 
-            if (next(_updateFlags)) then
-                appendLine("bindings.updateFlags=newtable()");
-                for _, flag in ipairs(sortedKeys(_updateFlags, _sortedB)) do
-                    appendLine("bindings.updateFlags[%q]=true", flag);
-                end
+            -- **Filed under the flags rather than carrying them.** The list used to hold its own
+            -- `updateFlags` and the loop asked every key whether it cared about anything that had
+            -- moved, so a pass cost one walk over `DirtyFlags` per key whether or not that key was
+            -- ever going to be looked at. Indexed this way the pass reaches only the lists the
+            -- flags that actually moved point at.
+            --
+            -- `DirtyKeys[flag]` is made on first use, the way `ClickCastKeys` already is, so a
+            -- profile pays for a flag nobody registered with nothing at all.
+            for _, flag in ipairs(sortedKeys(_updateFlags, _sortedB)) do
+                appendLine("DirtyKeys[%1$q]=DirtyKeys[%1$q] or newtable();tinsert(DirtyKeys[%1$q],bindings)",
+                    flag);
             end
         end
 

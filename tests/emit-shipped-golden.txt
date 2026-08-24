@@ -9,6 +9,12 @@ Execute <Frame#3>
   | for _, byMod in pairs(ClickCastKeys) do
   |     wipe(byMod)
   | end
+  | -- The lists and not the table, so a flag keeps the one it already has. Same reason as the line
+  | -- above it: what is thrown away is the contents, and the table itself is a thing this rebuild
+  | -- would only have to make again.
+  | for _, list in pairs(DirtyKeys) do
+  |     wipe(list)
+  | end
   | wipe(HeldButtons)
   | wipe(HeldUnits)
   | -- Drop any unconsumed handoff -- it points into the old records.
@@ -287,6 +293,7 @@ SetOverrideBinding <Frame#3> F10 "TOGGLEWORLDMAP"
 Execute <Frame#3>
   | local bindings,t,u
   | bindings=newtable();StateDrivenBindings["ALT-F1"]=bindings
+  | bindings.key="ALT-F1"
   | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_hover"
   | t["clickbutton"]="deb101"
@@ -297,8 +304,7 @@ Execute <Frame#3>
   | u.reaction=newtable()
   | u.reaction.help=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["hover-exists"]=true
+  | DirtyKeys["hover-exists"]=DirtyKeys["hover-exists"] or newtable();tinsert(DirtyKeys["hover-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F1"]=bindings
   | bindings.clickTimeButton="@ALT-F1"
@@ -319,6 +325,7 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"ALT-F11",DefaultClickFrameName,"@ALT-F11")
   | bindings=newtable();StateDrivenBindings["ALT-F2"]=bindings
+  | bindings.key="ALT-F2"
   | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_hover"
   | t["clickbutton"]="deb104"
@@ -332,9 +339,8 @@ Execute <Frame#3>
   | u.reaction.harm=true
   | u.reaction.other=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["hover-exists"]=true
-  | bindings.updateFlags["unitframe"]=true
+  | DirtyKeys["hover-exists"]=DirtyKeys["hover-exists"] or newtable();tinsert(DirtyKeys["hover-exists"],bindings)
+  | DirtyKeys["unitframe"]=DirtyKeys["unitframe"] or newtable();tinsert(DirtyKeys["unitframe"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F2"]=bindings
   | bindings.clickTimeButton="@ALT-F2"
@@ -356,6 +362,7 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"ALT-F4",DefaultClickFrameName,"@ALT-F4")
   | bindings=newtable();StateDrivenBindings["ALT-F5"]=bindings
+  | bindings.key="ALT-F5"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["combat"]=true
@@ -363,8 +370,7 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["type"]="unused"
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["combat"]=true
+  | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F5"]=bindings
   | bindings.clickTimeButton="@ALT-F5"
@@ -386,36 +392,37 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"ALT-F7",DefaultClickFrameName,"@ALT-F7")
   | bindings=newtable();StateDrivenBindings["ALT-F8"]=bindings
+  | bindings.key="ALT-F8"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["combat"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["combat"]=true
+  | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F8"]=bindings
   | bindings.clickTimeButton="@ALT-F8"
   | bindings=newtable();StateDrivenBindings["ALT-F9"]=bindings
+  | bindings.key="ALT-F9"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["combat"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["combat"]=true
+  | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F9"]=bindings
   | bindings.clickTimeButton="@ALT-F9"
   | bindings=newtable();StateDrivenBindings["CTRL-F1"]=bindings
+  | bindings.key="CTRL-F1"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["forms"]=3
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["form"]=true
+  | DirtyKeys["form"]=DirtyKeys["form"] or newtable();tinsert(DirtyKeys["form"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F1"]=bindings
   | bindings.clickTimeButton="@CTRL-F1"
   | bindings=newtable();StateDrivenBindings["CTRL-F10"]=bindings
+  | bindings.key="CTRL-F10"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t.units=newtable()
@@ -424,20 +431,19 @@ Execute <Frame#3>
   | u.reaction=newtable()
   | u.reaction.harm=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["focus-exists"]=true
+  | DirtyKeys["focus-exists"]=DirtyKeys["focus-exists"] or newtable();tinsert(DirtyKeys["focus-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F10"]=bindings
   | bindings.clickTimeButton="@CTRL-F10"
   | bindings=newtable();StateDrivenBindings["CTRL-F11"]=bindings
+  | bindings.key="CTRL-F11"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb104"
   | t.units=newtable()
   | u=newtable();t.units["pet"]=u
   | u.exists=false
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["pet-exists"]=true
+  | DirtyKeys["pet-exists"]=DirtyKeys["pet-exists"] or newtable();tinsert(DirtyKeys["pet-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F11"]=bindings
   | bindings.clickTimeButton="@CTRL-F11"
@@ -451,67 +457,68 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"CTRL-F12",DefaultClickFrameName,"@CTRL-F12")
   | bindings=newtable();StateDrivenBindings["CTRL-F2"]=bindings
+  | bindings.key="CTRL-F2"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["bonusbars"]=5
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["bonusbar"]=true
+  | DirtyKeys["bonusbar"]=DirtyKeys["bonusbar"] or newtable();tinsert(DirtyKeys["bonusbar"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F2"]=bindings
   | bindings.clickTimeButton="@CTRL-F2"
   | bindings=newtable();StateDrivenBindings["CTRL-F3"]=bindings
+  | bindings.key="CTRL-F3"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["specialbar"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["specialbar"]=true
+  | DirtyKeys["specialbar"]=DirtyKeys["specialbar"] or newtable();tinsert(DirtyKeys["specialbar"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F3"]=bindings
   | bindings.clickTimeButton="@CTRL-F3"
   | bindings=newtable();StateDrivenBindings["CTRL-F4"]=bindings
+  | bindings.key="CTRL-F4"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["extrabar"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["extrabar"]=true
+  | DirtyKeys["extrabar"]=DirtyKeys["extrabar"] or newtable();tinsert(DirtyKeys["extrabar"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F4"]=bindings
   | bindings.clickTimeButton="@CTRL-F4"
   | bindings=newtable();StateDrivenBindings["CTRL-F5"]=bindings
+  | bindings.key="CTRL-F5"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t["pet"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["pet"]=true
+  | DirtyKeys["pet"]=DirtyKeys["pet"] or newtable();tinsert(DirtyKeys["pet"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F5"]=bindings
   | bindings.clickTimeButton="@CTRL-F5"
   | bindings=newtable();StateDrivenBindings["CTRL-F6"]=bindings
+  | bindings.key="CTRL-F6"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["known"]="[known:8936]"
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["[known:8936]"]=true
+  | DirtyKeys["[known:8936]"]=DirtyKeys["[known:8936]"] or newtable();tinsert(DirtyKeys["[known:8936]"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F6"]=bindings
   | bindings.clickTimeButton="@CTRL-F6"
   | bindings=newtable();StateDrivenBindings["CTRL-F7"]=bindings
+  | bindings.key="CTRL-F7"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
   | t.switches=newtable()
   | t.switches["$burst"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["$burst"]=true
+  | DirtyKeys["$burst"]=DirtyKeys["$burst"] or newtable();tinsert(DirtyKeys["$burst"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F7"]=bindings
   | bindings.clickTimeButton="@CTRL-F7"
   | bindings=newtable();StateDrivenBindings["CTRL-F8"]=bindings
+  | bindings.key="CTRL-F8"
   | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_target"
   | t["clickbutton"]="deb107"
@@ -522,12 +529,12 @@ Execute <Frame#3>
   | u.reaction=newtable()
   | u.reaction.help=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["target-exists"]=true
+  | DirtyKeys["target-exists"]=DirtyKeys["target-exists"] or newtable();tinsert(DirtyKeys["target-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F8"]=bindings
   | bindings.clickTimeButton="@CTRL-F8"
   | bindings=newtable();StateDrivenBindings["CTRL-F9"]=bindings
+  | bindings.key="CTRL-F9"
   | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_target"
   | t["clickbutton"]="deb101"
@@ -540,8 +547,7 @@ Execute <Frame#3>
   | u.reaction.other=true
   | u.dead=false
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["target-exists"]=true
+  | DirtyKeys["target-exists"]=DirtyKeys["target-exists"] or newtable();tinsert(DirtyKeys["target-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F9"]=bindings
   | bindings.clickTimeButton="@CTRL-F9"
@@ -570,6 +576,7 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"F12",DefaultClickFrameName,"@F12")
   | bindings=newtable();StateDrivenBindings["F2"]=bindings
+  | bindings.key="F2"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t["combat"]=true
@@ -578,9 +585,8 @@ Execute <Frame#3>
   | t["clickbutton"]="deb111"
   | t["stealth"]=true
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["combat"]=true
-  | bindings.updateFlags["stealth"]=true
+  | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
+  | DirtyKeys["stealth"]=DirtyKeys["stealth"] or newtable();tinsert(DirtyKeys["stealth"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@F2"]=bindings
   | bindings.clickTimeButton="@F2"
@@ -648,6 +654,7 @@ Execute <Frame#3>
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"F9",DefaultClickFrameName,"@F9")
   | bindings=newtable();StateDrivenBindings["SHIFT-BUTTON2"]=bindings
+  | bindings.key="SHIFT-BUTTON2"
   | t=newtable();tinsert(bindings,t)
   | t["clickframe"]="DebindClickButton_hover"
   | t["clickbutton"]="deb107"
@@ -661,8 +668,7 @@ Execute <Frame#3>
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
   | t.holdsKey=true
-  | bindings.updateFlags=newtable()
-  | bindings.updateFlags["hover-exists"]=true
+  | DirtyKeys["hover-exists"]=DirtyKeys["hover-exists"] or newtable();tinsert(DirtyKeys["hover-exists"],bindings)
   | ClickCastKeys[2]=ClickCastKeys[2] or newtable()
   | ClickCastKeys[2][4]=bindings
   | bindings.hasKeyRecord=true

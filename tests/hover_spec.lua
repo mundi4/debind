@@ -442,6 +442,54 @@ return function(DebindPrivate, _, ctx)
             "the rebuild's pass left combat at " .. tostring(interp.env.States.combat));
     end);
 
+    ---------------------------------------------------------------------------
+    -- Which keys a pass walks
+    ---------------------------------------------------------------------------
+
+    -- **A key on two axes that both went dirty in one pass is decided once.** The pass reaches it
+    -- through each flag's list, and the generation number is what makes the second arrival free.
+    --
+    -- **It cannot be asked in a value**, which is the whole reason `WorkCount` is here: deciding a
+    -- key twice lands on the same answer, because `bindings.bound` turns the second one into a
+    -- no-op. A case that read the key back would pass with the guard taken out.
+    test("a key on two dirty axes is decided once", function()
+        twoParty();
+        Bind({
+            action({ key = "F1", value = 585, conditions = { combat = true, stealth = true } }),
+        });
+
+        -- **Settled to a known world first.** `Bind` resets the interpreter's state but not
+        -- `States`, which the rebuild filled from whatever the case before this one left. An axis
+        -- that was already true does not go dirty when this case sets it true, and then the pass
+        -- has one flag in hand rather than two and proves nothing.
+        interp.state.combat = false;
+        interp.state.stealth = false;
+        interp:pollStates();
+        check(interp.env.States.combat == false and interp.env.States.stealth == false,
+            "전제가 깨졌다. 시작부터 축이 서 있다");
+
+        -- Both at once, so the pass has two flags in hand and one key filed under each.
+        interp.state.combat = true;
+        interp.state.stealth = true;
+        interp:pollStates();
+
+        check(interp.env.DirtyKeys.combat and #interp.env.DirtyKeys.combat == 1,
+            "전제가 깨졌다. combat 목록에 이 키가 없다");
+        check(interp.env.DirtyKeys.stealth and #interp.env.DirtyKeys.stealth == 1,
+            "전제가 깨졌다. stealth 목록에 이 키가 없다");
+
+        -- **`rawget`, because the environment raises on a name it does not carry.** In the shipped
+        -- shape it does not carry this one, and that absence is the other half of the case: a
+        -- counter that only a test reads has no business in a real user's snippet.
+        local walked = rawget(interp.env, "WorkCount");
+        if (ctx and ctx.shipped) then
+            check(walked == nil, "the DEBUG-only walk counter is in the shipped snippet");
+            return;
+        end
+
+        check(walked == 1, "one key on two dirty axes was walked " .. tostring(walked) .. " times");
+    end);
+
     --- Rebuilds the profile that is already loaded with the throttle set to `value`, and puts the
     --- option back so nothing after this reads it.
     local function RebuildWithThrottle(value)

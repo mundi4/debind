@@ -57,6 +57,27 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
+
+
+
+	DirtyKeys = newtable()
+
+
+
+	WorkList = newtable()
+
+
+
+
+
+	UpdateGeneration = 0
+
+
+
+
+
 	ClickTimeKeys = newtable()
 
 
@@ -414,135 +435,156 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-	for key, bindings in pairs(StateDrivenBindings) do
-		local check = forceAll
-		if (not check and bindings.updateFlags) then
-			for flag in pairs(DirtyFlags) do
-				if (bindings.updateFlags[flag]) then
-					check = true
-					break
+
+
+
+	local work = 0
+
+	if (forceAll) then
+
+		for _, bindings in pairs(StateDrivenBindings) do
+			work = work + 1
+			WorkList[work] = bindings
+		end
+	else
+
+
+
+		UpdateGeneration = UpdateGeneration + 1
+		for flag in pairs(DirtyFlags) do
+			local list = DirtyKeys[flag]
+			if (list) then
+				for i = 1, #list do
+					local bindings = list[i]
+					if (bindings.seen ~= UpdateGeneration) then
+						bindings.seen = UpdateGeneration
+						work = work + 1
+						WorkList[work] = bindings
+					end
 				end
 			end
 		end
+	end
 
-		if (check) then
-
-
-
-
-			local keyBound
-
-			for i = 1, #bindings do
-				local t = bindings[i]
-				local match = true
-
-
-
-				if (t.frameTypes) then
-					if (not unitframe) then
-						match = false
-					elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
-						match = false
-					end
-				end
+	for w = 1, work do
+		local bindings = WorkList[w]
+		local key = bindings.key
 
 
 
 
 
+		local keyBound
+
+		for i = 1, #bindings do
+			local t = bindings[i]
+			local match = true
 
 
-				if (match and (
-					(t.groups ~= nil and (t.groups % (group + group)) < group) or
-					(t.combat ~= nil and t.combat ~= combat) or
-					(t.forms and (t.forms % (form + form)) < form) or
-					(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
-					(t.specialbar ~= nil and t.specialbar ~= specialbar) or
-					(t.extrabar ~= nil and t.extrabar ~= extrabar) or
-					(t.stealth ~= nil and t.stealth ~= stealth) or
-					(t.petbattle ~= nil and t.petbattle ~= petbattle) or
-					(t.pet ~= nil and t.pet ~= pet)
-				)) then
+
+			if (t.frameTypes) then
+				if (not unitframe) then
+					match = false
+				elseif ((t.frameTypes % (unitframe.frameType + unitframe.frameType)) < unitframe.frameType) then
 					match = false
 				end
-				
-				if (match and t.known ~= nil) then
-					if (States[t.known] ~= true) then
+			end
+
+
+
+
+
+
+
+			if (match and (
+				(t.groups ~= nil and (t.groups % (group + group)) < group) or
+				(t.combat ~= nil and t.combat ~= combat) or
+				(t.forms and (t.forms % (form + form)) < form) or
+				(t.bonusbars and (t.bonusbars % (bonusbar + bonusbar)) < bonusbar) or
+				(t.specialbar ~= nil and t.specialbar ~= specialbar) or
+				(t.extrabar ~= nil and t.extrabar ~= extrabar) or
+				(t.stealth ~= nil and t.stealth ~= stealth) or
+				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
+				(t.pet ~= nil and t.pet ~= pet)
+			)) then
+				match = false
+			end
+			
+			if (match and t.known ~= nil) then
+				if (States[t.known] ~= true) then
+					match = false
+				end
+			end
+
+			if (match and t.units) then
+				for checkedUnit, cond in pairs(t.units) do
+					local s = UnitStates[checkedUnit]
+					if (not s or cond.exists ~= s.exists
+							or (cond.reaction and not cond.reaction[s.reaction])
+							or (cond.dead ~= nil and cond.dead ~= s.dead)) then
 						match = false
-					end
-				end
-
-				if (match and t.units) then
-					for checkedUnit, cond in pairs(t.units) do
-						local s = UnitStates[checkedUnit]
-						if (not s or cond.exists ~= s.exists
-								or (cond.reaction and not cond.reaction[s.reaction])
-								or (cond.dead ~= nil and cond.dead ~= s.dead)) then
-							match = false
-							break
-						end
-					end
-				end
-
-				if (match and t.switches) then
-					for state, v in pairs(t.switches) do
-						if (States[state] ~= v) then
-							match = false
-							break
-						end
-					end
-				end
-
-				if (match) then
-					if (not keyBound and t.holdsKey) then
-
-
-
-
-
-
-
-
-
-						local outcome
-						if (t.type == CONSTANTS.UNUSED) then
-							outcome = false
-						elseif (t.command) then
-							outcome = t.command
-						elseif (t.clickbutton) then
-							outcome = bindings.clickTimeButton or t
-						end
-
-						if (bindings.bound ~= outcome) then
-							bindings.bound = outcome
-							if (t.type == CONSTANTS.UNUSED) then
-								self:ClearBinding(key)
-							elseif (t.command) then
-								self:SetBinding(true, key, t.command)
-							elseif (t.clickbutton) then
-								if (bindings.clickTimeButton) then
-
-
-									self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
-								else
-									self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
-								end
-							end
-						end
-						keyBound = i
-					end
-
-					if (keyBound) then
 						break
 					end
 				end
 			end
 
-			if (not keyBound) then
-				bindings.bound = nil
-				self:ClearBinding(key)
+			if (match and t.switches) then
+				for state, v in pairs(t.switches) do
+					if (States[state] ~= v) then
+						match = false
+						break
+					end
+				end
 			end
 
+			if (match) then
+				if (not keyBound and t.holdsKey) then
+
+
+
+
+
+
+
+
+
+					local outcome
+					if (t.type == CONSTANTS.UNUSED) then
+						outcome = false
+					elseif (t.command) then
+						outcome = t.command
+					elseif (t.clickbutton) then
+						outcome = bindings.clickTimeButton or t
+					end
+
+					if (bindings.bound ~= outcome) then
+						bindings.bound = outcome
+						if (t.type == CONSTANTS.UNUSED) then
+							self:ClearBinding(key)
+						elseif (t.command) then
+							self:SetBinding(true, key, t.command)
+						elseif (t.clickbutton) then
+							if (bindings.clickTimeButton) then
+
+
+								self:SetBindingClick(true, key, DefaultClickFrameName, bindings.clickTimeButton)
+							else
+								self:SetBindingClick(true, key, t.clickframe or DefaultClickFrameName, t.clickbutton)
+							end
+						end
+					end
+					keyBound = i
+				end
+
+				if (keyBound) then
+					break
+				end
+			end
+		end
+
+		if (not keyBound) then
+			bindings.bound = nil
+			self:ClearBinding(key)
 		end
 	end
 
@@ -3650,6 +3692,12 @@ wipe(StateDrivenBindings)
 wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do
     wipe(byMod)
+end
+
+
+
+for _, list in pairs(DirtyKeys) do
+    wipe(list)
 end
 wipe(HeldButtons)
 wipe(HeldUnits)

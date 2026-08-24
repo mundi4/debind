@@ -1,10 +1,10 @@
 # 제한 환경 핫패스에서 뺄 것들 2 (2026-08-24 조사)
 
-> 상태: **②③④⑤⑥⑦이 전부 들어갔다.** ①은 소유자가 범위에서 뺐다.
+> 상태: **일곱 개 전부 들어갔다.**
 >
 > | | |
 > |---|---|
-> | ① 상태 루프 순회 방식 (앞 문서 ⑦ 다시 열기) | 근거가 바뀌었고 측정치가 있다. **범위 밖** |
+> | ① 상태 루프 순회 방식 (앞 문서 ⑦ 다시 열기) | **들어갔다** |
 > | ② `state-unitexists`의 값을 힌트로 쓴다 | **들어갔다** |
 > | ③ 계기 있는 축은 웨이크에서 안 잰다 | **들어갔다** |
 > | ④ `"unitframe"` 웨이크의 hover 블록 | **들어갔다** (③과 같은 게이트) |
@@ -36,7 +36,7 @@ tank, healer 같은 별칭이 움직일 때다.
 전부 매 틱 아니면 프레임 하나 지나갈 때마다라 근거의 종류가 다르다"고 적었다. 계기를 따라가 보니
 ⑦도 후자다.
 
-## ① 상태 루프 순회 방식
+## ① 상태 루프 순회 방식 — **들어갔다 (2026-08-24)**
 
 지금은 키마다 `pairs(DirtyFlags)`를 돈다. 비용이 키 수와 더티 플래그 수의 곱이다.
 
@@ -93,6 +93,75 @@ tank, healer 같은 별칭이 움직일 때다.
 C만 먼저 하는 길도 있다. 여섯 줄이고 `forceAll`도 세대 번호도 안 건드리며 간격의 43%를 가져온다.
 배열은 로그인 셋업에서 `ClickTimeKeys`처럼 한 번 만들어 두어야 한다. 패스마다 `newtable()`을 하면
 아끼려던 것을 도로 뱉는다.
+
+### 들어간 모양
+
+B로 갔다. **본문이 두 벌이 되는 문제는 작업목록이 없앤다.** 고르는 것과 도는 것을 갈랐다.
+
+```lua
+local work = 0
+if (forceAll) then
+    for _, bindings in pairs(StateDrivenBindings) do
+        work = work + 1; WorkList[work] = bindings
+    end
+else
+    UpdateGeneration = UpdateGeneration + 1
+    for flag in pairs(DirtyFlags) do
+        local list = DirtyKeys[flag]
+        if (list) then
+            for i = 1, #list do
+                local bindings = list[i]
+                if (bindings.seen ~= UpdateGeneration) then
+                    bindings.seen = UpdateGeneration
+                    work = work + 1; WorkList[work] = bindings
+                end
+            end
+        end
+    end
+end
+
+for w = 1, work do
+    local bindings = WorkList[w]
+    local key = bindings.key
+    <판정 한 벌>
+end
+```
+
+**`AllKeys` 배열은 안 만들었다.** `forceAll`을 배열로 돌면 400키에서 75us가 59us가 되지만, 그러자고
+멤버십의 사본을 하나 더 두게 된다. `StateDrivenBindings`가 상태 구동이냐의 유일한 출처로 남고
+`forceAll`은 지금처럼 `pairs`로 돈다. 그래서 실제로 산 것은 더티 경로뿐이다. 400키 더티 하나에서
+43.7us가 8us대로 간다.
+
+바뀐 것들.
+
+- `bindings.updateFlags`가 없어지고 `DirtyKeys[flag]`에 `tinsert`가 들어간다. 스니펫 길이는 거의 같다
+- `bindings.key`를 굽는다. 역인덱스에는 키 문자열이 없다
+- `WorkList`, `UpdateGeneration`은 로그인 셋업에서 한 번 만든다. `WorkList`는 `work`로만 자르고
+  지우지 않는다
+- 프롤로그가 `DirtyKeys`의 **목록만** 지운다. `ClickCastKeys`와 같은 이유로 테이블 정체성을 유지한다
+
+**축을 하나도 등록 안 한 상태 구동 키는 어느 목록에도 없고, 그건 새 이야기가 아니다.**
+`bindings.updateFlags`가 nil이던 시절에도 검사가 `forceAll`로 떨어졌다. 역인덱스가 그걸 구멍처럼
+보이게 만들 뿐이다.
+
+### 헤드리스가 잡는 자리
+
+기존 스펙 전체가 그물이다. 역인덱스가 키를 하나라도 놓치면 그 키가 다시 안 정해지고,
+`boundkey_spec`과 `switchgate_spec`이 곧장 빨개진다. 실제로 `bindings.key`를 안 굽는 것과
+`DirtyKeys` 목록을 안 지우는 것 둘 다 그렇게 잡혔다.
+
+**세대 번호만 그 그물에 안 걸린다.** 키를 두 번 정해도 `bindings.bound` 비교가 두 번째를 no-op으로
+만들어서 값이 같다. 그래서 그것만 셀 수밖에 없고, DEBUG 전용 `WorkCount` 한 줄을 스니펫에 넣었다.
+`hover_spec`의 *"a key on two dirty axes is decided once"*가 그걸 읽고, shipped 형태에서는 그 이름이
+환경에 없다는 것까지 같은 케이스가 확인한다.
+
+처음 쓴 그 케이스는 아무 코드에나 통과했다. `Bind`가 인터프리터 상태만 되돌리고 `States`는 앞
+케이스가 남긴 값 그대로라, 이미 참이던 축은 다시 참으로 놓아도 더티가 안 됐다. 축이 하나만
+움직이면 도달도 한 번이고 세대 번호는 잴 것이 없다. **알려진 세계로 먼저 가라앉히고 나서 둘을
+동시에 뒤집어야** 이 케이스가 뜻을 갖는다.
+
+`forceAll` 갈래는 따로 못 잡는다. 리빌드는 `States`를 비우고 시작하므로 측정되는 축이 전부 더티가
+되고, 그러면 더티 경로만으로도 모든 키에 도달한다. **깨도 안 빨개지는 케이스는 안 남겼다.**
 
 ## ② `state-unitexists`의 값을 힌트로 쓴다 — **들어갔다 (2026-08-24)**
 
