@@ -272,6 +272,40 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- Who builds the unit rows
+    ---------------------------------------------------------------------------
+
+    -- **A row in `UnitStates` says one thing: this unit is measured.** Two snippets read it that
+    -- way -- `SetUnit` asks whether moving an alias can change what a key answers, and the
+    -- matcher treats a missing row as "not a unit this build measures". Neither survives the tick
+    -- owning the row: while the poll created it on first sight, its absence also meant *no tick
+    -- has been round yet*, and the two readers had no way to tell which they were looking at.
+    --
+    -- So the rebuild builds them and the tick only reads them. Both halves are asserted here,
+    -- because either one alone passes on a build that creates rows in both places.
+    test("the rebuild builds a row for each measured unit and the tick builds none", function()
+        local plan = PlanFor({
+            spell({ key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+            spell({ key = "F2", conditions = { units = { focus = { exists = true } } } }),
+        });
+
+        check(plan.unitRowsSnippet, "no rebuild snippet builds the rows");
+        for _, unit in ipairs({ "target", "focus" }) do
+            check(plan.unitRowsSnippet:find(('UnitStates["%s"]=newtable()'):format(unit), 1, true),
+                unit .. " is measured but the rebuild builds no row for it");
+        end
+
+        -- **A unit nothing measures gets no row**, or the readers above go back to answering
+        -- "measured" for every alias that exists.
+        check(not plan.unitRowsSnippet:find("pet", 1, true),
+            "a row was built for a unit the loop never reads");
+
+        check(not plan.attrChangedSnippet:find("newtable()", 1, true),
+            "the tick still builds a row, so its absence still means two things");
+    end);
+
+    ---------------------------------------------------------------------------
     -- What never reaches a key at all
     ---------------------------------------------------------------------------
 
