@@ -147,13 +147,14 @@ return function(DebindPrivate, _, ctx)
         local targetType = attributesOf("F5");
         check(targetType == "target", "target: " .. tostring(targetType));
 
-        -- **A command has no button to click.** It binds itself, so the press path answers with
-        -- nothing and the record carries the command name instead.
-        local index = winner("F4");
-        check(index == nil, "a command named a click button");
-        local records = interp:recordsFor("F4");
-        check(records and records[1].command == "TOGGLEWORLDMAP",
-            "the command is not on the record");
+        -- **A command has no button to click, and with no condition in front of it there is
+        -- nothing for the press path to know about at all.** The rebuild files the override
+        -- itself, so the key never gets a click-time button and the wrapper can never be handed
+        -- one for it (`GetSettledBinding`). A command a state can lose still comes down here; that
+        -- pair is in `boundkey_spec`.
+        check(interp:recordsFor("F4") == nil, "a settled command left a record for the press path");
+        check(_G.GetBindingAction("F4", true) == "TOGGLEWORLDMAP",
+            "the command did not reach the key: " .. tostring(_G.GetBindingAction("F4", true)));
     end);
 
     -- **Unused takes the key back**, and it is the only record that wins by having nothing to

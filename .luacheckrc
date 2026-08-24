@@ -97,6 +97,7 @@ globals = {
 	"SecureHandlerWrapScript",
 	"SecureHandlerUnwrapScript",
 	"ClearOverrideBindings",
+	"SetOverrideBinding",
 	"SetOverrideBindingClick",
 
 	-- Unit functions

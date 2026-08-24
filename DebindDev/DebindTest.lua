@@ -4700,6 +4700,56 @@ RegisterTest("State injection: combat-only binding", {
     end,
 })
 
+-- **The one half of a settled command the harness cannot reach.** Which keys stop being
+-- state-driven, and that the record and the click-time button go with them, is decided in pure
+-- code and asked in `tests/boundkey_spec.lua`. What is left for the client is whether an override
+-- the addon files from **outside** the restricted environment actually takes: every other binding
+-- this addon puts out goes through a frame handle, and `SetOverrideBinding` called from our own
+-- Lua is a path nothing here had walked before.
+--
+-- The state loop is also asked, and asked the way a reader could: the key answers with the command
+-- and keeps answering after a state that nothing on this key mentions has been turned over. A key
+-- the loop was still re-deciding would be indistinguishable on the first read alone.
+RegisterTest("Settled command: filed from outside the restricted environment", {
+    description = "An unconditional command reaches the key without the update loop",
+    run = function()
+        local NAME = "Settled command"
+        local KEY = "CTRL-SHIFT-F12"
+        local COMMAND = "TOGGLEWORLDMAP"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be filed")
+        end
+
+        InsertAction({ type = Constants.COMMAND, value = COMMAND, key = KEY })
+        ApplyBindings()
+
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound ~= COMMAND then
+            return Fail(NAME, format("the key answers %q, it should answer %q", bound, COMMAND))
+        end
+
+        if DebindPrivate.StateDrivenKeys and DebindPrivate.StateDrivenKeys[KEY] then
+            return Fail(NAME, "the key is still in the update loop, which has nothing to decide for it")
+        end
+        if DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY] then
+            return Fail(NAME, "the key got a click-time button that no click can arrive under")
+        end
+
+        -- A pass of the state loop, driven the way every other case here drives one. The key is
+        -- not in the table it walks, so what this proves is that nothing takes the binding away.
+        SetMockState("combat", true)
+        local afterPass = GetBindingAction(KEY, true) or ""
+        SetMockState("combat", false)
+
+        if afterPass ~= COMMAND then
+            return Fail(NAME, format("a state pass left the key at %q", afterPass))
+        end
+
+        return Pass(NAME, format("%s is on the key and the loop never sees it", COMMAND))
+    end,
+})
+
 -- Turning probes on rebuilds every registered snippet from its raw text, including the click
 -- wrapper -- the hottest path here and the one that decides which record wins. A rebuild that
 -- produced a body the restricted environment refuses would leave the addon looking loaded and

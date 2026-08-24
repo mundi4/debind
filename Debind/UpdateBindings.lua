@@ -97,6 +97,13 @@ local _measuredUnitAxes  = {};
 --- so this is aggregated from the same per-key flags rather than kept as its own condition.
 local _rebindOnHoverFrame = false;
 
+--- The keys a rebuild binds to a command itself, in two parallel arrays rather than a table per
+--- entry. How many of them there are follows the profile, and the record path's rule is that a
+--- rebuild allocates no table it can reuse.
+local _commandKeys       = {};
+local _commandValues     = {};
+local _commandCount      = 0;
+
 --- Does any measured unit carry the reaction axis? That is what `UNIT_FACTION` is registered for.
 --- Accumulated where the axes are worked out rather than derived by walking `_measuredUnitAxes` later,
 --- because the axis constants are declared further down this file than the registration runs.
@@ -144,6 +151,7 @@ local function ResetContext()
     wipe(_unitsSeen);
     _rebindOnHoverFrame = false;
     _measuresReaction = false;
+    _commandCount = 0;
 end
 
 --- Which measured state a macro conditional word answers to.
@@ -658,6 +666,14 @@ local function BuildBindingPlan(ctx)
     -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
     plan.rebindOnHoverFrame = _rebindOnHoverFrame and true or false;
 
+    -- **Filled by `UpdateBindingsMap` on its way past**, the way `_rebindOnHoverFrame` is. The
+    -- arrays are the module's and outlive the plan; `commandCount` is what says how much of them
+    -- this rebuild filled, so a rebuild with fewer command keys than the last one does not read
+    -- the leftovers.
+    plan.commandKeys = _commandKeys;
+    plan.commandValues = _commandValues;
+    plan.commandCount = _commandCount;
+
     plan.statePoll = WantsStatePoll();
 
     CollectDriverEvents(plan.events);
@@ -692,6 +708,23 @@ end
 --- once the two stages that still leave stamping inside the build are done.
 local function ApplyBindingPlan(plan)
     local driver = DebindPrivate.BindingDriver;
+
+    -- **The keys whose answer was settled at build time, bound from out here.**
+    --
+    -- `HANDLE:SetBinding` is `SetOverrideBinding(GetHandleFrame(self), ...)` and nothing else
+    -- (`RestrictedFrames.lua`), so going through the restricted environment for one of these buys
+    -- the right to do it under lockdown and nothing more. `CanBuildBindings` refuses a rebuild in
+    -- combat, so that right has no buyer here, and the other half of the pair is already out here:
+    -- `ClearPreviousBindings` calls `ClearOverrideBindings` on the same frame.
+    --
+    -- **`true` for the priority**, which is what `HANDLE:ClearBinding` clears and what the update
+    -- loop passed. A binding filed at the other priority is one the clear would walk past.
+    --
+    -- Settled `UNUSED` keys are not in this list and want no call. The prologue released every
+    -- override the driver owned and nothing has taken this key since.
+    for i = 1, plan.commandCount do
+        SetOverrideBinding(driver, true, plan.commandKeys[i], plan.commandValues[i]);
+    end
 
     SecureHandlerExecute(driver, plan.bindingsMapSnippet);
     SecureHandlerExecute(driver, plan.macroTextsSnippet);
@@ -1382,6 +1415,38 @@ end
 ---
 --- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
 --- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
+--- The binding a key is settled on before any state is read, when it is one that goes out without
+--- a click. **nil for every other key**, which is nearly all of them.
+---
+--- **The third kind of key the update loop has nothing to decide for**, beside the two
+--- `AppendBindingsList` already leaves out. `UNUSED` hands the key back and `COMMAND` binds it with
+--- `SetBinding`, so with no condition in front of either the answer is fixed at build time and the
+--- loop can only arrive at it again on every pass.
+---
+--- **The first key-holding record is the whole test.** The loop takes the first one that matches,
+--- so an unconditional record at that position always wins and nothing after it can be reached.
+--- Anything else stays with the loop, including an unconditional command that a conditional action
+--- sits above: there the winner moves with the state, which is exactly what the loop is for.
+---
+--- **Narrower than `IsKeyAlwaysOurs` on purpose.** That one asks whether the condition space is
+--- covered, which is enough when the answer is "our click frame either way"; here the answer *is*
+--- the record, so covering the space is not enough and only position settles it.
+---
+--- **Only callable after `PrepareKeyBindings`.** `holdsKey` is decided there, and reading it first
+--- answers nil for every key with no regression to show for it.
+local function GetSettledBinding(bindingArray)
+    for i = 1, #bindingArray do
+        local binding = bindingArray[i];
+        if (binding.holdsKey) then
+            if ((binding.type == Constants.UNUSED or binding.type == Constants.COMMAND)
+                    and binding.conditions and next(binding.conditions) == nil) then
+                return binding;
+            end
+            return nil;
+        end
+    end
+end
+
 local function ClassifyKey(bindingArray, hasKeyRecord)
     -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
     local clickTime = Constants.CLICK_TIME_EVAL and hasKeyRecord and true or false;
@@ -1784,15 +1849,29 @@ function UpdateBindingsMap()
 
         local button, buttonPrefix = bindingArray.button, bindingArray.buttonPrefix;
         local hasClickCast, hasKeyRecord = PrepareKeyBindings(key, bindingArray);
-        local clickTime, alwaysOurs, stateDriven = ClassifyKey(bindingArray, hasKeyRecord);
+
+        -- **A settled key leaves the key side out of the snippet entirely.** The rebuild binds it
+        -- below and nothing on the restricted side reads a record for it again: not the update
+        -- loop, which it is not in, and not the click wrapper, which is reached through a button
+        -- name this key never gets. Its click-cast records, if it has any, go out as they always
+        -- did -- that half is a different question and a different table.
+        local settled = GetSettledBinding(bindingArray);
+        local hasKeySnippet = hasKeyRecord and not settled;
+        local clickTime, alwaysOurs, stateDriven = ClassifyKey(bindingArray, hasKeySnippet);
+
+        if (settled and settled.type == Constants.COMMAND) then
+            _commandCount = _commandCount + 1;
+            _commandKeys[_commandCount] = key;
+            _commandValues[_commandCount] = settled.value;
+        end
 
         local first = true;
 
-        if (hasClickCast or hasKeyRecord) then
+        if (hasClickCast or hasKeySnippet) then
             for i = 1, #bindingArray do
                 local binding = bindingArray[i];
                 local isClickCast = hasClickCast and binding.isClickCast;
-                local holdsKey = hasKeyRecord and binding.holdsKey;
+                local holdsKey = hasKeySnippet and binding.holdsKey;
 
                 if (isClickCast or holdsKey) then
                     local record = BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs,
@@ -1820,7 +1899,7 @@ function UpdateBindingsMap()
         --
         -- 빈 목록은 뜻이 맞다: 쓸 수 있는 레코드가 없는 키이므로 매치 루프가 아무것도 못
         -- 고르고 키는 안 걸린다.
-        if (first and (hasClickCast or hasKeyRecord)) then
+        if (first and (hasClickCast or hasKeySnippet)) then
             first = false;
             AppendBindingsList(key, stateDriven);
         end
@@ -1885,7 +1964,7 @@ function UpdateBindingsMap()
         -- 이 값이 참이라 물어볼 것이 없어졌다. `alwaysOurs`와 같은 자리다(§2-2): 진짜는 어느
         -- 표에 들어 있느냐이고 이 필드는 그 사본이라, 이걸로 판정하는 코드를 새로 쓰면 안 된다.
         -- 남기는 이유도 같다 - `bindings` 하나만 보고 갈래를 알 수 있어야 인게임에서 확인이 된다.
-        if (hasKeyRecord) then
+        if (hasKeySnippet) then
             appendLine("bindings.hasKeyRecord=true");
         end
 

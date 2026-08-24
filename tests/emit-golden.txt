@@ -283,6 +283,7 @@ SetAttribute DebindClickButton *macro-deb119 = nil
 SetAttribute DebindClickButton *macrotext-deb119 =
   | /cancelform [form:1/2/5/6,nocombat]
   | /script C_MountJournal.SummonByID(7)
+SetOverrideBinding DebindBindingDriver F10 "TOGGLEWORLDMAP"
 Execute DebindBindingDriver
   | local bindings,t,u
   | -- ALT-F1
@@ -576,14 +577,6 @@ Execute DebindBindingDriver
   | ClickTimeKeys["@F1"]=bindings
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"F1",DefaultClickFrameName,"@F1")
-  | -- F10
-  | bindings=newtable();StateDrivenBindings["F10"]=bindings
-  | t=newtable();tinsert(bindings,t)
-  | t["command"]="TOGGLEWORLDMAP"
-  | t.holdsKey=true
-  | bindings.hasKeyRecord=true
-  | ClickTimeKeys["@F10"]=bindings
-  | bindings.clickTimeButton="@F10"
   | -- F11
   | bindings=newtable()
   | t=newtable();tinsert(bindings,t)

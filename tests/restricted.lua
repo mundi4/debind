@@ -363,6 +363,13 @@ function Interp:replay(entries)
                 --- this rebuild stopped mentioning keeps the binding the last one gave it, and
                 --- every "and then the key goes away again" reads as a pass.
                 ClearOverrideBindings(entry.frame);
+            elseif (entry.kind == "SetOverrideBinding") then
+                --- **The insecure side sets as well as clears now**, for the keys a rebuild has
+                --- settled on a command (`ApplyBindingPlan`). That call already wrote the override
+                --- when it crossed, which is what the game does; here it has to be put back in its
+                --- place in the order, because the prologue's clear above it is replayed and would
+                --- otherwise land on top of a binding that was filed before it.
+                SetOverrideBinding(entry.frame, true, entry.name, entry.body);
             end
         end
     end

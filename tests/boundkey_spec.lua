@@ -418,5 +418,86 @@ return function(DebindPrivate)
             "a dead condition bound against a living player: " .. Bound("F2"));
     end);
 
+    ---------------------------------------------------------------------------
+    -- Keys the state loop has nothing to decide
+    ---------------------------------------------------------------------------
+
+    local function command(t)
+        t.type = Constants.COMMAND;
+        t.value = t.value or "TOGGLEWORLDMAP";
+        t.seq = t.seq or 1;
+        return t;
+    end
+
+    --- A rebuild starting from a known world. **The interpreter is shared and its state is not
+    --- reset between cases**, so a case that leaves combat on hands the next one a player in
+    --- combat and nothing in the pass says so. The cases below turn it on deliberately, which is
+    --- exactly the way to leave that behind.
+    local function BindOutOfCombat(actions)
+        Bind(actions, {});
+        interp.state.combat = false;
+        interp:pollStates();
+        return interp;
+    end
+
+    --- Was the key left out of the loop that re-decides keys every pass?
+    local function CheckNotStateDriven(key)
+        check(interp.env.StateDrivenBindings[key] == nil,
+            key .. " is still state-driven, and nothing about it can change");
+        check(interp:recordsFor(key) == nil,
+            key .. " registered a click-time button that nothing can reach");
+    end
+
+    -- **A command with no condition is settled before any state is read.** It is the third kind of
+    -- key the loop has nothing to decide for, beside the two `AppendBindingsList` already leaves
+    -- out, and it fell in only because `stateDriven` is written as `not alwaysOurs` and
+    -- `alwaysOurs` means fixed **to our click frame**.
+    --
+    -- **What the key answers must not move**, which is the whole of what this pair asks. Where it
+    -- is decided changed; the answer did not.
+    test("an unconditional command binds without the state loop", function()
+        Bind({ command({ key = "F4" }) }, {});
+        check(Bound("F4") == "TOGGLEWORLDMAP", "the command did not reach the key: " .. Bound("F4"));
+        CheckNotStateDriven("F4");
+    end);
+
+    -- **Unused is the same answer with nothing to do.** The rebuild's prologue already cleared
+    -- every override the driver owned, so releasing a key it never took again is a call that
+    -- cannot change anything.
+    test("an unconditional unused leaves the key alone without the state loop", function()
+        Bind({ { type = Constants.UNUSED, key = "F4", seq = 1 } }, {});
+        check(Bound("F4") == "", "unused left something on the key: " .. Bound("F4"));
+        CheckNotStateDriven("F4");
+    end);
+
+    -- **A command that a state can lose is not settled.** Out of combat nothing matches, and the
+    -- key has to go back to the game -- which is the loop's job and nobody else's.
+    test("a command behind a condition stays with the state loop", function()
+        BindOutOfCombat({ command({ key = "F4", conditions = { combat = true } }) });
+        CheckStateDriven("F4");
+        check(Bound("F4") == "", "a combat command bound out of combat: " .. Bound("F4"));
+
+        interp.state.combat = true;
+        interp:pollStates();
+        check(Bound("F4") == "TOGGLEWORLDMAP",
+            "a combat command did not bind in combat: " .. Bound("F4"));
+    end);
+
+    -- **Nor is one a higher priority action can take the key from.** The command is unconditional
+    -- and still not the answer, because in combat the spell above it wins.
+    test("a command under a conditional action stays with the state loop", function()
+        BindOutOfCombat({
+            spell({ key = "F4", conditions = { combat = true } }),
+            command({ key = "F4", seq = 2 }),
+        });
+        CheckStateDriven("F4");
+        check(Bound("F4") == "TOGGLEWORLDMAP",
+            "the command did not win out of combat: " .. Bound("F4"));
+
+        interp.state.combat = true;
+        interp:pollStates();
+        check(IsLive("F4"), "the spell did not take the key in combat: " .. Bound("F4"));
+    end);
+
     return T;
 end
