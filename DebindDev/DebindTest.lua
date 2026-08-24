@@ -5139,6 +5139,10 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
 -- whether that write goes through**: inside the wrapper it sets an attribute on a protected
 -- frame, and the game reads the same name a moment later. If it does not go through, nothing
 -- raises and the old body fires.
+--- Raised once per run of the test below, so the body it binds is one no earlier run has bound.
+--- Why that matters is on the line that uses it.
+local macroBodySeq = 0
+
 RegisterTest("Click bakes the deferred macro body", {
     description = "@hover 매크로 본문을 클릭이 굽는지 (제한 환경의 SetAttribute가 통하는지)",
     run = function()
@@ -5156,7 +5160,17 @@ RegisterTest("Click bakes the deferred macro body", {
             return Fail(NAME, "테스트 프레임 등록이 거절됐다: " .. tostring(why))
         end
 
-        InsertAction({ type = Constants.MACROTEXT, value = "/cast [@hover] Debind", key = KEY })
+        -- **A body no run has used before, and that is what makes the check below mean anything.**
+        -- `BindingAttrsCache` is keyed by (type, body) and never cleared, and a hit means
+        -- `StampBinding` writes no attribute at all (`UpdateBindings.lua`). The click further down
+        -- bakes `*macrotext-` itself, so on a second run in one session the same body would come
+        -- back to a button still carrying what the first run's click baked -- and the assertion
+        -- would read that instead of what `StampBinding` wrote. In play nothing is wrong with
+        -- that: every press composes the body afresh before running it.
+        macroBodySeq = macroBodySeq + 1
+        local body = format("/cast [@hover] Debind%d", macroBodySeq)
+
+        InsertAction({ type = Constants.MACROTEXT, value = body, key = KEY })
         ApplyBindings()
 
         local binding = GetNthBinding(KEY, 1)
