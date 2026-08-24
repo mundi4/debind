@@ -123,6 +123,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	RebindOnHoverFrame = false
 
+
+
+
+
+
+
+
+	PollEveryFrame = false
+
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()
