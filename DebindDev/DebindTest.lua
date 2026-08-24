@@ -56,8 +56,8 @@
 -- so `BuildConstantTables` below carries them over to the same moment.
 local DebindPrivate
 local Constants
--- 메뉴 항목을 문구로 찾는 테스트가 있어서 필요하다. 자리로 찾으면 항목이 하나 끼어드는 날
--- 조용히 다른 것을 누른다.
+-- Some tests find a menu entry by its wording, which is what this is for. Found by position
+-- instead, they quietly press something else the day one more entry appears.
 local LLL
 local DebindUI
 local band, bor = bit.band, bit.bor
@@ -448,15 +448,15 @@ local function SetIsolated(isolated)
     end
 end
 
---- 조건을 `action.conditions` 안으로 옮긴다.
+--- Moves the conditions into `action.conditions`.
 ---
---- 테스트는 조건을 평평하게 적는다 - `InsertAction({ ..., combat = true })`. 저장 모양은
---- 중첩이라(`devdocs/action-and-binding-shapes.md`), 평평하게 심으면 그 조건이 바인딩까지
---- 안 가고 **테스트가 걸었다고 믿는 조건 없이** 도는 액션이 된다. 조건이 빠진 액션은
---- 넓어지는 쪽이라 대개 초록으로 지나간다.
+--- Tests write conditions flat: `InsertAction({ ..., combat = true })`. The stored shape is
+--- nested (`devdocs/action-and-binding-shapes.md`), so planting one flat leaves the condition
+--- short of the binding and the action runs **without the condition the test believes it set**.
+--- An action missing a condition is the wider one, so it usually goes green.
 ---
---- **무엇이 조건인지는 여기서 안 정한다.** `Constants.IsConditionField`가 프로덕션과 같은
---- 답을 낸다.
+--- **What counts as a condition is not decided here.** `Constants.IsConditionField` answers it
+--- the same way production does.
 local function NestConditions(action)
     local conditions = action.conditions
     for k, v in pairs(action) do
@@ -473,8 +473,9 @@ end
 local function InsertAction(action)
     local layer = GetTestLayer()
     layer:Insert(NestConditions(action))
-    -- 순서 번호는 레이어가 준다. 안 주면 같은 조건끼리 seq가 전부 nil이라 발동 순서가
-    -- 정해지지 않고, 삽입 순서를 기대하는 테스트가 정렬 구현에 따라 흔들린다.
+    -- The layer is what hands out the order number. Without one, actions sharing a condition all
+    -- carry a nil `seq`, nothing settles which fires first, and a test expecting insertion order
+    -- moves with whatever the sort happens to do.
     layer:PlaceInKeyGroup(action)
     return action
 end
@@ -507,13 +508,13 @@ local function ApplyBindings()
     WaitForIdle()
 end
 
--- KeyMap에서 특정 키에 바인딩된 정보 찾기
+-- What `KeyMap` holds for one key.
 local function GetKeyBindings(key)
     local keyMap = DebindPrivate.KeyMap
     return keyMap[key]
 end
 
--- KeyMap에서 특정 키의 N번째 바인딩 정보
+-- The nth binding on one key, out of `KeyMap`.
 local function GetNthBinding(key, n)
     local bindings = GetKeyBindings(key)
     return bindings and bindings[n]
@@ -1016,7 +1017,7 @@ local function KeyMapOrder(key)
 end
 
 RegisterTest("Renumber: the arrows' order reaches the solver", {
-    description = "↑↓로 두 레코드의 차례를 바꾸면 넓은 쪽이 좁은 쪽을 덮어 KeyMap에서 빠지는지",
+    description = "Swapping two records with the arrows lets the wider one cover the narrower, which then leaves KeyMap",
     run = function()
         local NAME = "Arrow order"
         local KEY = "CTRL-ALT-F1"
@@ -1064,7 +1065,7 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
     end,
 })
 RegisterTest("Key group: the conflict popup's second answer runs", {
-    description = "차 있는 키에 [덮어쓰기]를 눌렀을 때 점유자가 실제로 키를 잃는지",
+    description = "[Overwrite] on an occupied key really does take the key off the occupant",
     run = function()
         local NAME = "Conflict overwrite"
         local KEY = "CTRL-ALT-F7"
@@ -1113,11 +1114,11 @@ RegisterTest("Key group: the conflict popup's second answer runs", {
 -- be impossible are now ordinary: **two groups on one key**, and **accepting putting a key live**.
 -- Each is answered by a question the reader is asked, and a question is exactly the kind of thing
 -- that can be wired up wrong in silence -- the popup opens, a button does nothing, and only someone
--- who pressed it finds out (`devdocs/building-export-import.md` 12절).
+-- who pressed it finds out (section 12 of `devdocs/building-export-import.md`).
 -----------------------------------------------------------
 
 RegisterTest("Unbind: a set is not scattered without asking", {
-    description = "여러 개짜리 그룹의 [단축키 해제]가 확인창을 세우고, 확인해야 흩어지는가",
+    description = "[Unbind] on a group of several raises a confirmation, and only confirming scatters them",
     run = function()
         local NAME = "Unbind scatters"
         local KEY = "CTRL-ALT-F11"
@@ -1156,12 +1157,13 @@ RegisterTest("Unbind: a set is not scattered without asking", {
 })
 
 RegisterTest("Unbind: one action is not asked about", {
-    description = "혼자인 액션의 [단축키 해제]는 확인창 없이 바로 풀리는가",
+    description = "[Unbind] on an action that is alone releases it outright, with nothing to confirm",
     run = function()
         local NAME = "Unbind single"
         local KEY = "CTRL-ALT-F12"
 
-        -- **혼자면 잃을 세트가 없다.** 여기에 확인창이 서면 흔한 조작마다 상자가 뜬다.
+        -- **Alone, there is no set to lose.** A confirmation here would put a box in front of an
+        -- ordinary move.
         local only = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
         ApplyBindings()
 
@@ -1180,7 +1182,7 @@ RegisterTest("Unbind: one action is not asked about", {
 })
 
 RegisterTest("Accept all: an occupied key is asked about, and all three answers run", {
-    description = "도착 키가 내가 쓰는 키면 확인창이 서고, 답 셋이 각각 실제로 도는가",
+    description = "An arrival on a key I use raises the confirmation, and each of its three answers really runs",
     run = function()
         local NAME = "Accept all occupied"
         local KEY = "CTRL-ALT-F5"
@@ -1188,19 +1190,23 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
 
         AddTeardown(function() StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED") end)
 
-        --- 세 답을 한 자리에서 재려면 매번 같은 판을 다시 세워야 한다. 내 것 하나, 같은 키로
-        --- 도착한 것 하나, 그리고 **아무도 안 쓰는 키로 도착한 것 하나** - 마지막 것이 세 답
-        --- 어디서도 안 밀려나야 한다는 것이 이 창에서 제일 조용히 틀릴 자리다.
+        --- Measuring all three answers in one place means standing the same board up again each
+        --- time: one of mine, one arrival on the same key, and **one arrival on a key nobody
+        --- uses**. That last one must not be pushed aside by any of the three answers, and it is
+        --- the quietest place in this window to get wrong.
         ---
-        --- **둘 다 조건을 하나씩 지고, 축이 다르다.** 축이 달라야 솔버가 둘 다 남기고, **둘 다
-        --- 조건부여야** 비교자가 `seq`까지 내려온다 - `isConditional`이 3단계고 `seq`는
-        --- 6단계라(`Ordering.lua`), 한쪽만 조건부면 병합 차례는 도착분이 뒤에 서는지와 아무
-        --- 상관없이 그쪽이 앞선다. 한쪽 조건을 지우면 이 테스트는 맞는 코드에 대고 빨개진다.
+        --- **Both carry one condition, on different axes.** Different axes are what make the
+        --- solver keep both, and **both being conditional** is what takes the comparator down as
+        --- far as `seq`: `isConditional` is step 3 and `seq` is step 6 (`Ordering.lua`), so with
+        --- only one of them conditional that one leads at the merge regardless of whether the
+        --- arrival stands behind. Drop either condition and this test goes red against correct
+        --- code.
         ---
-        --- **판마다 레이어를 비운다.** 이 키트는 테스트 사이에 안 비우고, 이 테스트는 한 키를 세
-        --- 번 다시 쓴다 - 안 비우면 세 번째 판의 차례는 그 판의 둘이 아니라 앞 두 판이 남긴
-        --- 것까지 섞인 더미를 재게 되고, 겹치는 것을 솔버가 떨어낸 결과가 답으로 나온다.
-        --- 끝나고 한 번 더 비우는 것은 뒤에 오는 테스트 몫이다.
+        --- **The layer is emptied for every board.** The kit does not empty it between tests and
+        --- this one reuses a single key three times, so without that the third board's order is
+        --- measured over a heap that carries what the first two left behind, and the answer comes
+        --- out as whatever the solver dropped for overlapping. Emptying once more at the end is
+        --- the next test's business.
         AddTeardown(CleanupActions)
 
         local mine, arrived, free
@@ -1235,14 +1241,14 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
             return nil
         end
 
-        -- **전제: 배지가 붙어 있는 동안은 실키를 들고도 안 선다.** 이게 무너지면 아래 셋은
-        -- 무엇을 재는지 알 수 없다.
+        -- **The premise: while the badge is on, a real key on it still does not stand.** With that
+        -- gone there is no telling what the three below measure.
         Setup(1)
         if KeyMapOrder(KEY) ~= "1" then
             return Fail(NAME, format("배지 달린 것이 이미 섰다: %s", KeyMapOrder(KEY)))
         end
 
-        -- 1. [Keep Existing]. 내 키는 그대로, 겹친 도착분은 키 없이 앉는다.
+        -- 1. [Keep Existing]. My key stays as it is and the arrival that clashed sits down with none.
         local err = Answer(1, "Keep Existing")
         if err then return Fail(NAME, err) end
         if mine.key ~= KEY then
@@ -1255,7 +1261,7 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
             return Fail(NAME, format("내 키가 달라졌다: %s", KeyMapOrder(KEY)))
         end
 
-        -- 2. [Take Incoming]. 점유자가 키를 잃고, 지워지지는 않는다.
+        -- 2. [Take Incoming]. The occupant loses the key and is not deleted.
         Setup(2)
         err = Answer(2, "Take Incoming")
         if err then return Fail(NAME, err) end
@@ -1266,7 +1272,7 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
             return Fail(NAME, "도착분이 키를 못 받았거나 배지가 남았다")
         end
 
-        -- 3. [Merge]. 둘 다 그 키에 남고 도착분이 뒤에 선다.
+        -- 3. [Merge]. Both stay on the key and the arrival stands behind.
         Setup(3)
         err = Answer(3, "Merge")
         if err then return Fail(NAME, err) end
@@ -1291,14 +1297,14 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
 })
 
 RegisterTest("Accept all: a free key is not asked about", {
-    description = "도착 키가 내가 안 쓰는 키면 확인창 없이 바로 서는가",
+    description = "An arrival on a key I do not use lands outright, with nothing to confirm",
     run = function()
         local NAME = "Accept all free"
         local KEY = "CTRL-ALT-F6"
 
         AddTeardown(function() StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED") end)
 
-        -- **흔한 경우다.** 여기에 상자가 서면 배지가 안전장치가 아니라 숙제가 된다.
+        -- **This is the common case.** A box here turns the badge from a safeguard into homework.
         local arrived = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, arrivalID = 1 })
         ApplyBindings()
 
@@ -1321,27 +1327,28 @@ RegisterTest("Accept all: a free key is not asked about", {
 -----------------------------------------------------------
 -- Test Cases: The heading's right-click menu
 --
--- 우클릭 하나가 세 조각을 지난다: 템플릿의 `registerForClicks`, `OnClick`의 오른쪽 갈래,
--- 그리고 왼쪽 열이 머리글 elementData에 실어 보내는 `rows`. **어느 하나가 빠져도 아무 일도 안
--- 일어난다** - 오류도 없고, 눌러본 사람만 안다. 셋 다 게임 안에서만 있는 것이라 이 층 말고는
--- 볼 데가 없다.
+-- One right-click passes through three pieces: the template's `registerForClicks`, the right-hand
+-- branch of `OnClick`, and the `rows` the left column loads onto the heading's elementData.
+-- **Any one of them missing and nothing happens at all**: no error either, and only someone who
+-- pressed it finds out. All three exist only inside the game, so this layer is the only place they
+-- can be looked at.
 -----------------------------------------------------------
 
 RegisterTest("Key group: the heading's right-click arms the whole group", {
-    description = "머리글을 우클릭해 연 메뉴의 항목이 그룹 전부를 실은 캡처 창을 여는가",
+    description = "The entry on the heading's right-click menu opens a capture window carrying the whole group",
     run = function()
         local NAME = "Key group heading menu"
         local KEY = "CTRL-ALT-F8"
 
-        -- **둘, 그리고 조건으로 갈린 둘.** 하나짜리로는 "그룹째"를 못 잰다 - 겨눈 것이 행
-        -- 하나여도 통과한다.
+        -- **Two, and two split by a condition.** One on its own cannot measure "the whole group":
+        -- it passes even where what was aimed at is a single row.
         local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
         local second = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
         ApplyBindings()
 
-        -- **머리글에 실리는 elementData는 왼쪽 열이 지은 그 물건이다.** 손으로 지어 넣으면
-        -- `rows`를 안 싣게 된 날에도 이 테스트가 통과하는데, 메뉴가 그룹을 찾아가는 근거가
-        -- 그 필드다. 창을 띄우지는 않는다 - 데이터는 프레임이 하나도 없어도 지어진다.
+        -- **The elementData on the heading is the thing the left column built.** Built by hand
+        -- here, this test would pass on the day `rows` stopped being loaded, and that field is how
+        -- the menu finds the group. The window is not shown: the data is built with no frame at all.
         DebindResultPanel:RefreshKeyboard()
 
         local elementData
@@ -1364,12 +1371,13 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
         end)
         header:Init(elementData)
 
-        -- **눌러서 연다.** `OpenKeyGroupMenu`를 직접 부르면 그 함수만 재고, 우클릭이 거기까지
-        -- 닿는지는 안 잰 채로 통과한다 - 위 대화상자 테스트가 버튼을 직접 누르는 것과 같은
-        -- 이유다.
+        -- **Opened by pressing.** Calling `OpenKeyGroupMenu` outright measures that function
+        -- alone and passes without ever measuring whether a right-click reaches it, which is why
+        -- the dialog tests above press the button itself.
         --
-        -- **이것이 못 재는 것 하나:** `registerForClicks`가 진짜 우클릭을 받는지. `Click()`은
-        -- 등록과 무관하게 핸들러를 부를 수 있고, 등록을 되읽는 API는 없다.
+        -- **One thing this cannot measure:** whether `registerForClicks` really takes a
+        -- right-click. `Click()` can call the handler regardless of what is registered, and there
+        -- is no API that reads the registration back.
         header:Click("RightButton")
 
         local menu = Menu.GetManager():GetOpenMenu()
@@ -1377,11 +1385,12 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
             return Fail(NAME, "우클릭에 메뉴가 안 떴다")
         end
 
-        -- **문구로 찾는다.** 한동안은 "고를 수 있는 것이 하나뿐"으로 짚었는데, 그건 항목이
-        -- 하나이던 시절의 편법이었고 [단축키 해제]가 서면서 곧바로 빨개졌다 - 재려던 것은
-        -- 항목 **개수**가 아니라 그 항목이 무엇을 겨누느냐였는데 개수에 매여 있었다.
+        -- **Found by its wording.** For a while it was found as "the only thing selectable", which
+        -- was a shortcut from the days of a single entry and went red the moment [Unbind] joined
+        -- it. What this measures is what the entry aims at, not how **many** entries there are,
+        -- and it was tied to the count.
         --
-        -- 이 물음은 행 쪽 테스트와 같아졌으므로 찾는 방법도 같다.
+        -- The question is now the same one the row test asks, so it is found the same way.
         local item
         menu:EnumerateElementDescriptions(function(_, description)
             if MenuUtil.GetElementText(description) == LLL["KEY_HEADER_SET_KEY"] then
@@ -1398,7 +1407,8 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
             return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
         end
 
-        -- 창이 겨눈 것이 그룹 전부인가. 하나만 실려 있으면 누른 키가 한 액션에만 간다.
+        -- Is what the window aims at the whole group? Carrying only one, the key that gets pressed
+        -- reaches a single action.
         local armed = DebindKeyCaptureFrame.actions or {}
         local seen = {}
         for _, action in ipairs(armed) do
@@ -1412,20 +1422,22 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
     end,
 })
 
---- 같은 창을 여는 항목이 행에도 서는데, **거기서는 그 행 하나만** 실려야 한다. 머리글 것과 낱말이
---- 같아서(둘 다 「단축키 지정」) 눈으로는 안 갈리고, 틀려도 조용하다 - 창이 뜨고 키도 받는다.
+--- The entry that opens the same window stands on a row too, and **there it must carry that row
+--- alone**. It reads the same as the heading's (both say [Assign a key]), so the eye cannot tell
+--- them apart, and getting it wrong is quiet: the window opens and takes a key either way.
 ---
---- **이것이 안 재는 것:** 우클릭이 메뉴까지 닿는지. 그건 위 테스트가 재고, 여기서 재려면
---- 스크롤박스에서 나온 행 프레임이 있어야 한다(`DebindOrderLineMixin`은 `GetElementData`를
---- 읽으므로 손으로 만든 프레임으로는 못 연다). 그래서 메뉴 생성기를 진짜 메뉴 틀에 태우되
---- 클릭은 건너뛴다.
+--- **What this does not measure:** whether a right-click reaches the menu. The test above measures
+--- that, and measuring it here would need a row frame that came out of the scroll box
+--- (`DebindOrderLineMixin` reads `GetElementData`, so a hand-made frame cannot open it). So the
+--- menu generator runs on a real menu frame and the click is skipped.
 RegisterTest("Assign a key: a row's item takes that row alone", {
-    description = "오버뷰 행 메뉴의 [단축키 지정]이 그 행 하나만 실은 캡처 창을 여는가",
+    description = "[Assign a key] on an overview row's menu opens a capture window carrying that row alone",
     run = function()
         local NAME = "Row assign key"
         local KEY = "CTRL-ALT-F9"
 
-        -- **한 키에 둘.** 하나만 실리는지가 이 테스트의 전부라, 딸린 것이 있어야 잰다.
+        -- **Two on one key.** Whether only one is carried is the whole of this test, so there has
+        -- to be something beside it to measure against.
         local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
         InsertAction({ type = Constants.SPELL, value = 2, key = KEY, stealth = true })
         ApplyBindings()
@@ -1441,8 +1453,8 @@ RegisterTest("Assign a key: a row's item takes that row alone", {
             return Fail(NAME, "메뉴가 안 떴다")
         end
 
-        -- 여기서는 문구로 찾는다. 이 메뉴에는 고를 수 있는 항목이 여럿이라(순서 두 개) 머리글
-        -- 쪽처럼 "하나뿐"으로는 못 짚는다.
+        -- Found by its wording here. This menu has several selectable entries (the two ordering
+        -- ones), so it cannot be found as "the only one" the way the heading's is.
         local item
         menu:EnumerateElementDescriptions(function(_, description)
             if MenuUtil.GetElementText(description) == LLL["ACTION_SET_KEY"] then
@@ -1477,12 +1489,12 @@ RegisterTest("Assign a key: a row's item takes that row alone", {
 --- is `SetKeyForActions`' own rule with its own coverage. What is measured here is that the item
 --- stands and that it aims at this row alone.
 RegisterTest("Assign a key: a badged row is offered one too", {
-    description = "아직 안 받은 행의 메뉴에도 [단축키 지정]이 서고 그 행 하나만 실리는가",
+    description = "A row not yet accepted is offered [Assign a key] too, and carries that row alone",
     run = function()
         local NAME = "Imported row assign key"
 
-        -- **키를 들고 도착한 것.** 실키와 배지가 짝이다 - 도착분은 보낸 사람의 키를 그대로 들고
-        -- 오고, 붙잡아 두는 것은 배지 하나다.
+        -- **An arrival carrying a key.** The real key and the badge come as a pair: an arrival
+        -- brings the sender's key exactly as it was, and the one thing holding it back is the badge.
         local action = InsertAction({
             type = Constants.SPELL,
             value = 1,
@@ -1532,7 +1544,7 @@ RegisterTest("Assign a key: a badged row is offered one too", {
     end,
 })
 
---- **Both answers in that window are the reader deciding the key** (2026-08-23, 소유자), and
+--- **Both answers in that window are the reader deciding the key** (2026-08-23, the owner), and
 --- deciding the key is what accepting an arrival is (`DebindFrameMixin:SetActionKey`). The item that
 --- opened it says so on its face, so pressing the button on the window it opened has to keep the
 --- promise: [Unbind Key] used to leave the arrival with no key **and** still waiting, which is
@@ -1541,7 +1553,7 @@ RegisterTest("Assign a key: a badged row is offered one too", {
 --- The menu's own [Unbind] is not this and does not accept - it is aimed at a row rather than opened
 --- over a question, and one function serves both, so nothing but the flag tells them apart.
 RegisterTest("Assign a key: unbinding from that window accepts too", {
-    description = "[Assign a key & Accept]로 연 창에서 [단축키 해제]를 눌러도 승인되는가",
+    description = "[Unbind] in a window opened by [Assign a key & Accept] still accepts",
     run = function()
         local NAME = "Imported row unbind accepts"
 
@@ -1566,7 +1578,7 @@ RegisterTest("Assign a key: unbinding from that window accepts too", {
             return Fail(NAME, "실키를 들고 왔는데 [단축키 해제]가 꺼져 있다")
         end
 
-        -- 그 버튼이 하는 일 그대로다: 답을 nil로 넘긴다.
+        -- Exactly what that button does: it hands the answer over as nil.
         DebindKeyCaptureFrame:Commit(nil)
 
         if action.key ~= nil then
@@ -1588,13 +1600,13 @@ RegisterTest("Assign a key: unbinding from that window accepts too", {
 --- [Unbind] beside it goes dead when nothing in the selection holds a key at all. Lit over rows that
 --- are all keyless it offers to take off a key none of them has, and pressing it does nothing.
 RegisterTest("Bulk menu: the key pair aims at the whole selection", {
-    description = "여럿 고른 메뉴의 [단축키 지정]이 고른 것 전부를 실은 창을 열고, [단축키 해제]가 키 없는 것만 골랐을 때 꺼지는가",
+    description = "[Assign a key] on a multiple selection opens a window carrying all of it, and [Unbind] goes dark when nothing picked has a key",
     run = function()
         local NAME = "Bulk key items"
         local KEY = "CTRL-ALT-F10"
 
-        -- **서로 다른 키에 걸린 둘.** 키 그룹으로는 못 만드는 상태이고, 벌크가 그 상태를
-        -- 창까지 나르는지가 이 테스트의 절반이다.
+        -- **Two on keys of their own.** A key group cannot produce this state, and whether the bulk
+        -- path carries it as far as the window is half of this test.
         local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
         local second = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F11" })
         ApplyBindings()
@@ -1651,8 +1663,8 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
         end
         DebindKeyCaptureFrame:Hide()
 
-        -- **키가 아예 없는 것만 든 선택.** 여기서 [단축키 해제]가 살아 있으면 뗄 것이 없는데 뗄
-        -- 수 있다고 말하는 것이고, 눌러도 아무 일이 안 일어난다.
+        -- **A selection holding only things with no key at all.** [Unbind] alive here says a key
+        -- can be taken off where there is none to take, and pressing it does nothing.
         local keyless = InsertAction({
             type = Constants.SPELL,
             value = 3,
@@ -1687,12 +1699,12 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
 --- **This does not measure what `RegisterForClicks` receives.** `Click()` reaches `OnClick`
 --- whatever the registration says (the same limit the key group popup test writes down).
 RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
-    description = "포트레잇 줄의 토글을 누르면 모드가 켜지고 키보드와 켜진 표시가 따라오는가",
+    description = "The toggle on the portrait row turns the mode on, and the keyboard and the lit state follow",
     run = function()
         local NAME = "Bind mode toggle"
 
-        -- 창이 떠 있어야 한다. 포트레잇은 첫 `OnShow`에서 스스로를 세우고(`DebindPortraitMixin`),
-        -- 그 전에는 툴팁 필드도 텍스처도 붙지 않은 상태다.
+        -- The window has to be up. The portrait builds itself on its first `OnShow`
+        -- (`DebindPortraitMixin`), and before that neither the tooltip fields nor the textures are on it.
         DebindFrame:Show()
         AddTeardown(function()
             DebindFrame:SetBindingMode(false)
@@ -1715,7 +1727,8 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
         if not toggle:IsKeyboardEnabled() then
             return Fail(NAME, "모드는 켜졌는데 이 버튼이 키보드를 안 듣는다")
         end
-        -- 켜진 표시는 테두리다(`SetSelectedState`): 채도가 돌아오고 그 위의 어두운 판이 내려간다.
+        -- The lit state is the border (`SetSelectedState`): the colour comes back and the dark plate
+        -- over it goes down.
         if toggle.Frame:IsDesaturated() or toggle.UnselectedFrame:IsShown() then
             return Fail(NAME, "켜졌는데 테두리가 꺼진 모양 그대로다")
         end
@@ -1756,8 +1769,8 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
 -- is what the profile keeps and what the next build reads.
 -----------------------------------------------------------
 
---- 무엇이 무엇 위에 그려지는가. 게임이 답하는 것은 이 둘뿐이라 순서도 이 둘로 잰다 -
---- `toplevel`이 하는 일도 결국 같은 층 안에서 둘째 값을 올리는 것이다.
+--- What is drawn over what. These two are all the game answers with, so the order is measured with
+--- them: what `toplevel` does in the end is raise the second of them within one layer.
 local STRATA_RANK = {
     BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4,
     DIALOG = 5, FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8,
@@ -1772,12 +1785,13 @@ local function DrawsAbove(a, b)
     return a:GetFrameLevel() > b:GetFrameLevel()
 end
 
---- 편집칸에 글자를 넣는다. **`SetText`만으로는 `OnTextChanged`가 안 돈다.** 사람이 치면 도는
---- 그 스크립트가 이 창에서 [취소]를 켜고 끄는 자리이고 검색 상자에서는 검색어를 세우는 자리라,
---- 안 태우면 여기서 재는 것이 전부 사람이 하는 것과 다른 일이 된다.
+--- Puts text into an edit box. **`SetText` alone does not run `OnTextChanged`.** That script, which
+--- does run when a person types, is what turns [Cancel] on and off in this window and what sets the
+--- search term in the search box, so skipping it makes everything measured here a different act
+--- from the one a person performs.
 ---
---- **스크립트가 없으면 실패로 돌아온다.** 조용히 건너뛰면 XML의 배선이 빠진 날 이 테스트들이
---- 초록으로 지나간다.
+--- **A missing script comes back as a failure.** Skipped quietly, these tests would go green on the
+--- day the wiring fell out of the XML.
 local function TypeInto(editBox, text)
     editBox:SetText(text)
     local script = editBox:GetScript("OnTextChanged")
@@ -1788,10 +1802,11 @@ local function TypeInto(editBox, text)
     return true
 end
 
---- 창을 띄우고 매크로텍스트 액션 하나를 심어 편집 창을 연다. 되돌려 놓는 일은 러너가 한다.
+--- Shows the window, plants one macrotext action and opens the editor on it. Putting things back is
+--- the runner's job.
 ---
---- **아이콘을 넣는다.** 아이콘 없는 액션은 이 애드온이 만들 수 없는 모양이고([새 사용자 지정
---- 매크로]는 아이콘 선택기를 지난다), 그런 액션은 이름·아이콘 팝업이 빈 칸으로 열린다.
+--- **An icon goes in.** An action with no icon is a shape this addon cannot make ([New Custom
+--- Macro] goes through the icon selector), and on one of those the name/icon popup opens blank.
 local function OpenMacroEditor(body, cancelFunc)
     DebindFrame:Show()
     AddTeardown(function()
@@ -1808,20 +1823,21 @@ local function OpenMacroEditor(body, cancelFunc)
     return action, DebindMacroFrame.Editor.ScrollFrame.EditBox
 end
 
---- **이 테스트가 지키는 것은 아이콘 목록이 아니라 편집모드다.**
+--- **What this test protects is edit mode, not the icon list.**
 ---
---- 블리자드의 `IconDataProvider`는 파일 로컬 `BaseIconFilenames`를 **처음 쓰는 쪽이 만들고
---- 마지막에 놓는 쪽이 지운다.** 그 자리를 우리가 밟으면 그 변수의 주인이 Debind가 되고,
---- 편집모드는 진입할 때 샘플 오라 아이콘을 뽑느라 그 값을 읽는다
---- (`EditModeAuraDataProvider.lua`의 `GetSampleAuraIcon` -> `GetNumIcons`). 그 한 번의 읽기로
---- 편집모드 진입 실행 전체가 물들고, 같은 실행이 이어서 파티 체력바를 갱신하다 secret 비교에
---- 막힌다. 이름/아이콘 창을 한 번 연 세션은 편집모드에 들어갈 때마다 파티 체력바가 죽었다.
+--- Blizzard's `IconDataProvider` has the file-local `BaseIconFilenames` **built by whoever uses it
+--- first and released by whoever puts it down last.** Stepping into that place makes Debind the
+--- owner of that variable, and edit mode reads its value on the way in to pull a sample aura icon
+--- (`GetSampleAuraIcon` -> `GetNumIcons` in `EditModeAuraDataProvider.lua`). That single read taints
+--- the whole execution that enters edit mode, and the same execution goes on to update the party
+--- health bars and is stopped at a secret comparison. In a session that had opened the name/icon
+--- window once, the party health bars died every time edit mode was entered.
 ---
---- **그 증상은 인게임에서도 못 재는 종류다** - 오염은 Lua에서 안 보이고, 편집모드 진입을
---- 테스트가 대신 눌러줄 수도 없다. 그래서 재는 것은 그 원인을 만드는 **구조**다. 우리 제공자가
---- 블리자드 것 그대로면 실패한다.
+--- **That symptom is not something even an in-game test can measure**: taint is invisible from Lua,
+--- and a test cannot press its way into edit mode. So what is measured is the **structure** that
+--- produces the cause. It fails if our provider is Blizzard's own.
 RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
-    description = "블리자드 공용 IconDataProvider를 우리가 만들거나 지우지 않는가",
+    description = "We neither create nor release Blizzard's shared IconDataProvider",
     run = function()
         local NAME = "Icon provider"
 
@@ -1836,7 +1852,7 @@ RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
             return Fail(NAME, "제공자가 없다")
         end
 
-        -- 목록을 만드는 쪽과 지우는 쪽, 둘 다 우리 것이어야 한다.
+        -- Both the side that builds the list and the side that releases it have to be ours.
         if provider.GetNumIcons == IconDataProviderMixin.GetNumIcons then
             return Fail(NAME, "GetNumIcons가 블리자드 것이다 - 공용 BaseIconFilenames를 읽는다")
         end
@@ -1844,7 +1860,7 @@ RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
             return Fail(NAME, "Release가 블리자드 것이다 - 공용 BaseIconFilenames를 지운다")
         end
 
-        -- 그러고도 목록이 실제로 서야 한다. 물음표 한 칸 + 스펠북 + 기본 목록.
+        -- And the list still has to stand: one question mark, the spell book, and the base list.
         local numIcons = provider:GetNumIcons()
         if numIcons < 2 then
             return Fail(NAME, format("아이콘이 %d개뿐이다 - 목록이 안 채워졌다", numIcons))
@@ -1855,13 +1871,15 @@ RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
             return Fail(NAME, format("1번 칸이 물음표가 아니다: %s", tostring(questionMark)))
         end
 
-        -- 마지막 칸까지 실제 아이콘이 나와야 한다. 경계를 잘못 세면 여기서 nil이 나온다.
+        -- A real icon has to come back for every slot including the last. Set the boundary wrong and
+        -- this is where nil appears.
         local last = provider:GetIconByIndex(numIcons)
         if last == nil then
             return Fail(NAME, format("마지막 칸(%d)이 비었다 - 종류별 목록 경계가 어긋났다", numIcons))
         end
 
-        -- 되찾기. 같은 아이콘이 여러 번 나올 수 있으므로 번호가 아니라 아이콘으로 견준다.
+        -- Getting it back. The same icon can appear more than once, so this compares icons rather
+        -- than indices.
         local found = provider:GetIndexOfIcon(last)
         if not found or provider:GetIconByIndex(found) ~= last then
             return Fail(NAME, format("GetIndexOfIcon이 %s를 못 찾는다", tostring(last)))
@@ -1872,7 +1890,7 @@ RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
 })
 
 RegisterTest("Macro editor: the body reaches the profile when the window closes", {
-    description = "닫아야 저장되고, 이름·아이콘 팝업을 다녀오는 것으로는 저장되지 않는가",
+    description = "Closing is what saves; a trip through the name/icon popup does not",
     run = function()
         local NAME = "Macro commit"
 
@@ -1891,8 +1909,9 @@ RegisterTest("Macro editor: the body reaches the profile when the window closes"
             return Fail(NAME, "치는 동안 이미 저장됐다 - 창이 열려 있는데 프로필이 움직였다")
         end
 
-        -- 이름·아이콘 편집기로 갔다 온다. 기본 매크로 창은 이 자리에서 저장하고 우리는 안 한다:
-        -- 저장하면 [취소]가 돌아갈 자리가, 본문을 건드리지도 않은 나들이에 밀린다.
+        -- A trip out to the name/icon editor and back. The default macro window saves at this point
+        -- and we do not: saving would push the place [Cancel] returns to along, over an outing that
+        -- never touched the body.
         DebindMacroFrame:EditNameIcon_OnClick()
         if not DebindIconSelectorFrame:IsShown() then
             return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
@@ -1909,7 +1928,7 @@ RegisterTest("Macro editor: the body reaches the profile when the window closes"
             return Fail(NAME, format("돌아왔더니 본문이 달라졌다: %q", box:GetText()))
         end
 
-        -- [닫기]. 이 버튼은 창을 닫는 것 말고 아무것도 하지 않고, 저장은 그 닫힘이 한다.
+        -- [Close]. This button does nothing but close the window, and the closing is what saves.
         DebindMacroFrame.Editor.CloseButton:Click()
         if DebindMacroFrame:IsShown() then
             return Fail(NAME, "[닫기]를 눌렀는데 안 닫혔다")
@@ -1923,7 +1942,7 @@ RegisterTest("Macro editor: the body reaches the profile when the window closes"
 })
 
 RegisterTest("Macro editor: [Cancel] lights up only when there is something to put back", {
-    description = "고친 것이 없으면 꺼져 있고, 누르면 편집칸만 돌아오고 프로필은 안 움직이는가",
+    description = "Dark while nothing has been edited, and pressing it restores the box alone without moving the profile",
     run = function()
         local NAME = "Macro cancel"
 
@@ -1955,7 +1974,7 @@ RegisterTest("Macro editor: [Cancel] lights up only when there is something to p
         if button:IsEnabled() then
             return Fail(NAME, "되돌린 뒤에도 버튼이 켜져 있다")
         end
-        -- **닫지 않는다.** 되돌린 본문을 눈앞에 두고 다시 고칠 수 있어야 한다.
+        -- **It does not close.** The reverted body has to be there to be edited again.
         if not DebindMacroFrame:IsShown() then
             return Fail(NAME, "[취소]가 창까지 닫았다")
         end
@@ -1965,7 +1984,7 @@ RegisterTest("Macro editor: [Cancel] lights up only when there is something to p
 })
 
 RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
-    description = "변환으로 열렸으면 라벨이 REVERT가 되고, 눌렀을 때 되돌리는 함수가 도는가",
+    description = "Opened by a conversion, the label reads REVERT and pressing it runs the function that undoes it",
     run = function()
         local NAME = "Macro revert"
 
@@ -1976,7 +1995,8 @@ RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
         if button:GetText() ~= REVERT then
             return Fail(NAME, format("라벨이 REVERT가 아니다: %q", tostring(button:GetText())))
         end
-        -- 되돌릴 것은 이미 일어난 변환이라, 아무것도 안 쳤어도 켜져 있어야 한다.
+        -- What there is to revert is a conversion that already happened, so it has to be lit even
+        -- with nothing typed.
         if not button:IsEnabled() then
             return Fail(NAME, "변환으로 열렸는데 버튼이 꺼져 있다")
         end
@@ -1990,7 +2010,7 @@ RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
         if not reverted then
             return Fail(NAME, "눌렀는데 되돌리는 함수가 안 돌았다")
         end
-        -- 되돌린 액션 위에 방금 버린 본문이 다시 저장되면 안 된다.
+        -- The body just thrown away must not be saved back over the reverted action.
         if action.value ~= "/cast Fireball" then
             return Fail(NAME, format("버린 본문이 저장됐다: %q", action.value))
         end
@@ -2000,7 +2020,7 @@ RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
 })
 
 RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then the window", {
-    description = "ESC 한 번에 한 칸씩 물러나는가, 그리고 편집 창을 닫은 ESC가 본문을 남기는가",
+    description = "One ESC steps back one place, and the ESC that closes the editor leaves the body behind",
     run = function()
         local NAME = "Macro escape"
 
@@ -2027,7 +2047,7 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
         if not DebindFrame:IsShown() then
             return Fail(NAME, "둘째 ESC가 메인 창까지 닫았다 - 사다리에 이 칸이 없나")
         end
-        -- 닫는 것이 저장하는 것이다. ESC로 나가도 본문은 남는다.
+        -- Closing is what saves. Leaving by ESC still leaves the body behind.
         if action.value ~= "/say two" then
             return Fail(NAME, format("ESC로 닫혔는데 본문이 안 남았다: %q", action.value))
         end
@@ -2042,7 +2062,7 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
 })
 
 RegisterTest("Macro editor: the name/icon popup stays over the editor", {
-    description = "편집 창을 앞으로 끌어올려도 그 위에 뜬 팝업이 뒤로 가지 않는가",
+    description = "Raising the editor to the front does not put the popup above it behind",
     run = function()
         local NAME = "Macro popup order"
 
@@ -2062,7 +2082,8 @@ RegisterTest("Macro editor: the name/icon popup stays over the editor", {
             return Fail(NAME, format("열자마자 아래다: %s", Where()))
         end
 
-        -- 편집 창을 클릭하면 일어나는 일. 둘이 같은 층에 있으면 이 한 줄이 순서를 뒤집는다.
+        -- What happens when the editor is clicked. With the two on one layer, this single line is
+        -- what turns the order around.
         DebindMacroFrame:Raise()
 
         if not DrawsAbove(DebindIconSelectorFrame, DebindMacroFrame) then
@@ -2074,19 +2095,19 @@ RegisterTest("Macro editor: the name/icon popup stays over the editor", {
 })
 
 RegisterTest("Macro editor: a row filtered out of the bin takes its editor with it", {
-    description = "검색어에 안 걸려 행이 사라지면 편집 창이 닫히는가, 그리고 본문은 저장되는가",
+    description = "A row filtered out by the search closes its editor, and the body is saved",
     run = function()
         local NAME = "Macro filtered out"
 
         local action, box = OpenMacroEditor("/say one")
         local searchBox = DebindFrame.OverviewPanel.SearchBox
-        -- 여기서도 스크립트를 태운다. 안 그러면 중간에 실패한 날 검색어가 살아남아,
-        -- 뒤따르는 테스트가 전부 텅 빈 통을 보게 된다.
+        -- The script runs here too. Without it, a search term survives the day this fails partway
+        -- through and every test after it looks into an empty bin.
         AddTeardown(function() TypeInto(searchBox, "") end)
 
         TypeInto(box, "/say two")
 
-        -- 이 액션의 이름과 겹칠 수 없는 글자. 검색은 이름을 보고 거른다.
+        -- Text that cannot collide with this action's name. The search filters on the name.
         if not TypeInto(searchBox, "qqzzxx") then
             return Fail(NAME, "검색 상자에 OnTextChanged가 안 걸려 있다")
         end
@@ -2101,7 +2122,8 @@ RegisterTest("Macro editor: a row filtered out of the bin takes its editor with 
             return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
         end
 
-        -- 검색어를 지우면 행은 돌아온다. 편집 창은 안 돌아온다 - 여는 것은 사용자가 한다.
+        -- Clearing the search brings the row back. It does not bring the editor back: opening that
+        -- is the user's move.
         TypeInto(searchBox, "")
         if DebindMacroFrame:IsShown() then
             return Fail(NAME, "검색어를 지웠더니 편집 창이 혼자 다시 열렸다")
@@ -2112,7 +2134,7 @@ RegisterTest("Macro editor: a row filtered out of the bin takes its editor with 
 })
 
 RegisterTest("Macro editor: opening the spell picker closes it", {
-    description = "주문 선택 창이 뜨면 그 아래 깔릴 편집 창과 팝업이 먼저 닫히는가",
+    description = "The spell picker opening closes the editor and popup that would sit under it first",
     run = function()
         local NAME = "Macro picker"
 
@@ -2208,9 +2230,9 @@ local STORAGE_PANEL_ID = 3
 --- what adding it back would put in the profile. The tick set feeds all three (`FilterPayload`,
 --- `PlanArrival`), so a filter read in one place and not another is silent everywhere else: the
 --- window says 12, the string carries 9, and nobody sees the difference until somebody else opens
---- it (12절 of `devdocs/building-export-import.md`).
+--- it (section 12 of `devdocs/building-export-import.md`).
 RegisterTest("Storage: the preview, the string and the add all count the same", {
-    description = "미리보기가 센 수와 문자열이 나른 수와 Add가 놓을 수가 같은지, 배지는 빠지는지",
+    description = "What the preview counts, what the string carries and what Add places are one number, and the badge is left out",
     run = function()
         local NAME = "Export counts"
 
@@ -2316,7 +2338,7 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
     end,
 })
 
---- **The two verbs grey out, they do not leave** (2026-08-23, 소유자). A control that disappears
+--- **The two verbs grey out, they do not leave** (2026-08-23, the owner). A control that disappears
 --- takes with it the answer to "what can I do here", and the screen where nothing is picked is
 --- exactly where the reader is asking. The heading check is the other way round - it heads a list,
 --- so with no list under it there is nothing for it to head.
@@ -2325,7 +2347,7 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
 --- so the three can only be held together from in here. One of them going missing altogether raises
 --- for a different reason: `parentKey` is what these are found by, and a renamed one answers nil.
 RegisterTest("Storage: the verbs grey out when nothing is picked", {
-    description = "고른 엔트리가 없을 때 두 버튼이 사라지지 않고 회색이 되는가",
+    description = "With no entry picked the two buttons grey out rather than disappear",
     run = function()
         local NAME = "Storage verbs"
 
@@ -2352,8 +2374,8 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
             DebindPrivate.Store.DeleteEntry(entry.id)
         end)
 
-        -- **켜지는 쪽을 먼저 본다.** 이것이 없으면 아래의 통과가 "둘 다 원래 꺼져 있다"로도
-        -- 똑같이 설명된다.
+        -- **The lit state is checked first.** Without it, the pass below is explained just as well
+        -- by "both were dark to begin with".
         panel:SelectEntry(entry)
         if #panel:EnumerateListedActions() == 0 then
             return Fail(NAME, "전제가 깨졌다 - 방금 만든 엔트리에 액션이 하나도 없다")
@@ -2384,7 +2406,7 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
     end,
 })
 
---- **The second door to the same outcome asks the same question** (2026-08-23, 소유자). [Add and
+--- **The second door to the same outcome asks the same question** (2026-08-23, the owner). [Add and
 --- Accept] used to reach down into the plan and leave the badge off, which put the arrivals live on
 --- the sender's keys with nothing asked - and on a key the reader already uses, that is a merge
 --- they never chose. It lands badged now and runs the approval, so the prompt [Accept all] raises
@@ -2395,14 +2417,15 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
 ---
 --- `StaticPopup_Show` is the game's, so nothing outside it can see this.
 RegisterTest("Storage: adding and accepting asks about a key I am using", {
-    description = "[Add and Accept]이 겹치는 키에 대해 일괄 승인 확인창을 띄우는가",
+    description = "[Add and Accept] raises the bulk approval confirmation for a key that clashes",
     run = function()
         local NAME = "Storage add and accept"
         local KEY = "CTRL-ALT-F4"
 
         AddTeardown(function() StaticPopup_Hide("DEBIND_APPROVE_ALL_OCCUPIED") end)
 
-        -- 내 것이 그 키에 이미 서 있다. 페이로드는 프로필에서 뜨므로 같은 키를 들고 돌아온다.
+        -- One of mine already stands on that key. The payload is lifted from the profile, so it
+        -- comes back carrying the same key.
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
@@ -2430,16 +2453,18 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
             return Fail(NAME, "내가 쓰는 키로 들어왔는데 아무것도 안 물었다")
         end
 
-        -- **창이 들고 있는 것을 읽는다.** `CollectArrivedActions`로는 못 본다 - 페이로드는 이 판이
-        -- 만든 레이어의 주소를 못 실어서(`ImportAddress`) 도착분이 **진짜** 클래스 레이어로
-        -- 내려앉는데, 키트는 열거 셋을 갈아끼워 그쪽을 안 보여준다. 게임에서는 같은 것을 보고,
-        -- 여기서는 이 목록이 그 자리다.
+        -- **What the window is holding is what gets read.** `CollectArrivedActions` cannot see it:
+        -- the payload cannot carry the address of a layer this board made (`ImportAddress`), so the
+        -- arrivals settle into the **real** class layer, and the kit swaps the three enumerators out
+        -- and does not show that one. In the game they are the same thing, and here this list is
+        -- where it is.
         local pending = dialog.data and dialog.data.arrivals or {}
         if #pending == 0 then
             return Fail(NAME, "확인창이 아무것도 안 들고 섰다")
         end
 
-        -- **묻는 동안은 대기 상태다.** 배지가 떨어져 있으면 창은 이미 지나간 일을 묻는 것이 된다.
+        -- **They are pending for as long as the question stands.** With the badge already off, the
+        -- window would be asking about something that has already happened.
         for _, action in ipairs(pending) do
             if action.arrivalID == nil then
                 return Fail(NAME, "확인창이 떠 있는데 배지가 떨어진 것이 있다")
@@ -2453,7 +2478,7 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
     end,
 })
 
---- **Leaving the tab is not the same as picking a different entry** (2026-08-23, 소유자). What is
+--- **Leaving the tab is not the same as picking a different entry** (2026-08-23, the owner). What is
 --- ticked and which layers are open are the reader's answers, and `OnShow` used to throw both away
 --- and start the entry over - so a glance at Overview undid however many clicks they had spent
 --- setting up what to bring.
@@ -2463,7 +2488,7 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
 --- replacing them (`GetEntryPayload`, `MigrateLayer`). Nothing headless can see that, because what
 --- is being asked is what two frame scripts do in sequence.
 RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
-    description = "탭을 떠났다 돌아오면 틱과 펼침이 그대로 남는가",
+    description = "Leaving the tab and coming back keeps what is ticked and what is open",
     run = function()
         local NAME = "Storage view state"
 
@@ -2475,9 +2500,9 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
             return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
         end
 
-        -- **창을 세우고 시작한다.** 패널 `OnShow`가 창의 콜백 버스에 등록하는데, 그 버스는
-        -- `DebindFrameMixin:OnLoad`가 만들고 그것을 부르는 것은 창의 첫 `OnShow`다. 안 세우고
-        -- 부르면 `DebindFrame.Event`가 nil이다.
+        -- **The window is stood up first.** The panel's `OnShow` registers on the window's callback
+        -- bus, that bus is made by `DebindFrameMixin:OnLoad`, and what calls that is the window's
+        -- first `OnShow`. Called without standing it up, `DebindFrame.Event` is nil.
         DebindFrame:Show()
 
         local entry = DebindPrivate.Store.CreateEntry()
@@ -2498,7 +2523,8 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
                 #listed, tostring(layer and layer.key)))
         end
 
-        -- 고른 직후는 전부 틱에 전부 접힘이다. 읽는 사람이 손댈 만한 것을 하나씩 뒤집는다.
+        -- Straight after picking, everything is ticked and everything is collapsed. This turns over
+        -- one of each of the things a reader would touch.
         local untickedAction = listed[1]
         panel:ToggleAction(untickedAction)
         panel:ToggleLayerCollapsed(layer.key)
@@ -2506,7 +2532,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
             return Fail(NAME, "전제가 깨졌다 - 손댄 것이 그 자리에서 안 뒤집혔다")
         end
 
-        -- 탭을 떠났다가 돌아온다. 창이 패널을 갈아끼울 때 도는 것이 이 둘이다.
+        -- Leaves the tab and comes back. These two are what run when the window swaps panels.
         panel:OnHide()
         panel:OnShow()
 
@@ -2520,7 +2546,8 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
             return Fail(NAME, "펴둔 레이어가 다시 접혔다")
         end
 
-        -- 나머지가 그대로 남았는지까지 본다. 위의 둘만 보면 "전부 꺼졌다"도 통과한다.
+        -- It also checks that the rest stayed as they were. On the two above alone, "everything went
+        -- off" passes too.
         local stillTicked = 0
         for _, action in ipairs(panel:EnumerateListedActions()) do
             if panel.selected[action] then
@@ -2562,7 +2589,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
 local OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID = 1, 2
 
 RegisterTest("Panels: every tab resolves to a panel of its own", {
-    description = "탭 셋이 각자 자기 패널로 풀리는가 - 하나로 몰리거나 MissingPanel로 떨어지지 않는가",
+    description = "All three tabs resolve to a panel of their own, neither collapsing onto one nor falling through to MissingPanel",
     run = function()
         local NAME = "Panels resolve"
 
@@ -2596,7 +2623,7 @@ RegisterTest("Panels: every tab resolves to a panel of its own", {
 -- every tab would quietly settle on one size. Turning the KeyValue back into a `<Size>` restores
 -- exactly that failure, with no error anywhere.
 RegisterTest("Panels: the window takes each tab's own width", {
-    description = "탭을 옮기면 창 폭이 그 패널이 요구한 값으로 실제로 바뀌는가",
+    description = "Moving tabs really does take the window to the width that panel asked for",
     run = function()
         local NAME = "Panel width"
 
@@ -2652,7 +2679,7 @@ RegisterTest("Panels: the window takes each tab's own width", {
 -- `StartMoving` leaves behind, the centre anchor, and everything after that is the window's own
 -- `OnDragStop`.
 RegisterTest("Panels: a dragged window keeps its left edge across a tab change", {
-    description = "끌어다 놓은 창이 탭을 옮겨 폭이 바뀌어도 왼쪽 변이 그대로인가",
+    description = "A window that was dragged keeps its left edge when a tab change moves its width",
     run = function()
         local NAME = "Left edge"
 
@@ -2717,7 +2744,7 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
 -- `IsAddOnLoaded` reads as the natural thing to write (it was, first), and it turns this fallback
 -- into an error on the tab.
 RegisterTest("Panels: no store means no panel, not an error", {
-    description = "Store를 못 얻으면 ResolvePanel이 nil을 내서 MissingPanel이 서는가",
+    description = "With no Store to be had, ResolvePanel answers nil and MissingPanel stands",
     run = function()
         local NAME = "Store missing"
 
@@ -2753,7 +2780,7 @@ RegisterTest("Panels: no store means no panel, not an error", {
 --- press is what keeps that promise from resting on a cached answer. Gate the two on different
 --- walks and a lit button starts answering `REMOVE_DUPLICATES_NONE`.
 RegisterTest("Duplicates: the clean up button is lit only where there is something to remove", {
-    description = "중복이 있을 때만 청소 버튼이 켜지고, 누르면 확인창이 뜨는가",
+    description = "The clean up button lights only where there is a duplicate, and pressing it raises the confirmation",
     run = function()
         local NAME = "Duplicates clean up"
         local KEY = "CTRL-ALT-F7"
@@ -2829,7 +2856,7 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
 --- (`SetIsolated`), so a second one here would be a stand-in of my own making, measured against the
 --- same walk the spec already measures against a profile that really has two.
 RegisterTest("Duplicates: the press takes the copy that never fires", {
-    description = "청소를 확인까지 하면 무엇이 지워지고 무엇이 남는가",
+    description = "What the clean up removes and what it leaves, once confirmed",
     run = function()
         local NAME = "Duplicates removal"
         local KEY = "CTRL-ALT-F8"
@@ -2895,8 +2922,9 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
             return nil
         end
 
-        -- 1. 내 그룹 안의 중복 하나와, 같은 키에 앉은 도착분 그룹 안의 중복 하나. 한 번에 둘 다
-        --    잡히고, 지운 뒤 두 그룹이 서로의 번호에 손대지 않아야 한다.
+        -- 1. One duplicate inside my group, and one inside the arrival group sitting on the same
+        --    key. Both have to be caught at once, and afterwards neither group may have touched the
+        --    other's numbers.
         CleanupActions()
         local keeper = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, stealth = true })
         local twinA = InsertAction({ type = Constants.SPELL, value = 2, key = KEY, combat = true })
@@ -2907,7 +2935,8 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
             arrivalID = 7, combat = true })
         ApplyBindings()
 
-        -- **전제: 두 그룹이 각자 1부터다.** 이게 아니면 아래 번호 검사가 무엇을 재는지 알 수 없다.
+        -- **The premise: each group starts at 1 of its own.** Without that there is no telling what
+        -- the number checks below measure.
         if GroupSeqs(nil) ~= "1 2 3" or GroupSeqs(7) ~= "1 2" then
             return Fail(NAME, format("판이 안 섰다. 내 것 [%s], 도착분 [%s]",
                 GroupSeqs(nil), GroupSeqs(7)))
@@ -2929,8 +2958,8 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         if not Living(badgedA) or Living(badgedB) then
             return Fail(NAME, "도착분 그룹 안의 중복이 안 잡혔거나 엉뚱한 쪽이 잡혔다")
         end
-        -- **각 그룹이 자기 안에서 다시 1..n이다.** 둘을 섞어 번호를 매기면 도착분이 3을 들고
-        -- 내 그룹이 1..3을 채운다.
+        -- **Each group is 1..n again within itself.** Numbered across the two together, the arrival
+        -- carries 3 and my group fills 1..3.
         if GroupSeqs(nil) ~= "1 2" then
             return Fail(NAME, format("지운 뒤 내 그룹의 번호가 안 이어진다: [%s]", GroupSeqs(nil)))
         end
@@ -2941,10 +2970,10 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
             return Fail(NAME, format("지운 뒤 그 키가 하던 일이 달라졌다: [%s]", KeyMapOrder(KEY)))
         end
 
-        -- 2. 도착분이 내 액션의 정확한 사본으로 왔을 때. **배지가 붙어 있는 동안 그것은 어느
-        --    키에도 안 닿으므로**(`BuildKeyMap`), 그쪽을 남기고 내 것을 지우면 키가 하던 일이
-        --    하나 사라진다. 두 그룹이 각자 1부터 매기는 탓에 도착분의 `seq`가 내 것보다 작을 수
-        --    있고, `seq`만으로 줄을 세우면 정확히 그렇게 진다.
+        -- 2. An arrival that came as an exact copy of one of mine. **While the badge is on it
+        --    reaches no key at all** (`BuildKeyMap`), so keeping that one and deleting mine takes
+        --    away something the key was doing. Because each group numbers from 1, the arrival's
+        --    `seq` can be lower than mine, and ordering on `seq` alone loses in exactly that way.
         CleanupActions()
         local first = InsertAction({ type = Constants.SPELL, value = 1, key = KEY, stealth = true })
         local mine = InsertAction({ type = Constants.SPELL, value = 4, key = KEY, combat = true })
@@ -2974,8 +3003,8 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
                 KeyMapOrder(KEY)))
         end
 
-        -- 3. 하나도 없을 때. **단추는 이 갈래에 못 닿으므로**(회색이다) 직접 부른다. 회색인 것
-        --    자체는 위 케이스가 잰다.
+        -- 3. When there is none at all. **The button cannot reach this branch** (it is greyed), so
+        --    it is called outright. That it is greyed is what the case above measures.
         CleanupActions()
         InsertAction({ type = Constants.SPELL, value = 1, key = KEY, combat = true })
         ApplyBindings()
@@ -3068,7 +3097,7 @@ local function OpenSwitchesTab()
 end
 
 RegisterTest("Switches tab: the toggle on a row moves the key", {
-    description = "목록의 켜기/끄기 단추가 실제로 그 스위치를 건 키를 붙였다 뗐다 하는가",
+    description = "The on/off button on a row really does bind and release the key that switch stands on",
     run = function()
         local NAME = "Switch row toggle"
         local KEY = "CTRL-SHIFT-F7"
@@ -3138,7 +3167,7 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
 --
 -- The rename box goes through the same function, so this covers both.
 RegisterTest("Switches tab: the expression box opens on the expression", {
-    description = "식 편집 상자가 지금 식을 들고 열리는가",
+    description = "The expression box opens holding the expression as it stands",
     run = function()
         local NAME = "Switch input box"
         local SWITCH = "$boxopen"
@@ -3188,7 +3217,7 @@ RegisterTest("Switches tab: the expression box opens on the expression", {
 -- whose XML lost the `OnClick`, and `SetText` without the box's own accept path passes on a dialog
 -- whose button does nothing. Both of those are the wiring this test is here for.
 RegisterTest("Switches tab: the New switch button makes one", {
-    description = "목록 아래 단추가 상자를 띄우고, 적어 넣은 이름으로 스위치가 생기는가",
+    description = "The button under the list raises a box, and the name typed into it makes a switch",
     run = function()
         local NAME = "New switch button"
         local SWITCH = "$madehere"
@@ -3270,20 +3299,21 @@ RegisterTest("Switches tab: the New switch button makes one", {
     end,
 })
 
--- **만드는 자리 셋 중 둘은 만든 이름을 곧바로 액션에 적는다** - 조건 키와 켜기/끄기/전환의
--- 대상이다(`DropDownMenus.lua`). 둘 다 `ShowNewSwitchBox`가 넘겨주는 이름을 받아 적으므로,
--- 적어 넣은 철자와 실제로 앉은 이름이 갈리면 그 액션이 정의 없는 이름을 가리킨 채로 만들어지고
--- 그 자리에서 빨개진다. 이름은 만들 때 소문자로 접힌다(`CreateSwitch`).
+-- **Two of the three places that make one write the new name straight onto an action**: the
+-- condition key, and the target of on/off/toggle (`DropDownMenus.lua`). Both write down the name
+-- `ShowNewSwitchBox` hands them, so if the spelling typed in and the name it actually sits under
+-- come apart, that action is made pointing at a name with no definition and goes red on the spot.
+-- Names are folded to lower case when they are made (`CreateSwitch`).
 --
--- **위 단추 테스트는 이 자리를 안 지난다.** 저쪽은 콜백 없이 열어서 스위치가 생겼는지만 본다.
--- 넘겨받는 이름이 무엇이냐는 콜백을 걸고 여는 쪽에서만 답이 나오고, 그렇게 여는 두 자리는
--- 메뉴다.
+-- **The button test above does not pass through here.** That one opens with no callback and looks
+-- only at whether a switch appeared. What name comes back is answered only where it is opened with
+-- a callback, and the two places that open it that way are menus.
 --
--- 헤드리스는 `CreateSwitch`의 반환값까지 본다(`tests/switch_spec.lua`의 "만든 이름을 부른 쪽에
--- 알려준다"). 여기서만 답할 수 있는 것은 상자를 실제로 치고 [완료]를 눌렀을 때 그 값이 부른
--- 쪽까지 내려오는가다.
+-- Headless goes as far as `CreateSwitch`'s return value ("tells the caller the name it made" in
+-- `tests/switch_spec.lua`). What only this layer can answer is whether that value reaches the caller
+-- when the box is really typed into and [Done] is really pressed.
 RegisterTest("Switches tab: a name typed in capitals reaches the caller folded", {
-    description = "대문자로 적어 만든 스위치가 부른 쪽에는 실제로 앉은 이름으로 내려오는가",
+    description = "A switch made from a name typed in capitals reaches the caller under the name it actually sits on",
     run = function()
         local NAME = "New switch name folds"
         local TYPED = "ZzKit"
@@ -3311,9 +3341,9 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
             return Fail(NAME, "전제가 깨졌다. 그 이름의 스위치가 이미 있다")
         end
 
-        -- **부른 쪽 자리에 선다.** 두 메뉴가 이 함수에 넘기는 것이 정확히 이 모양의 콜백이고,
-        -- 그 안에서 하는 일이 받은 이름을 `action.conditions[name]` 이나 `action.value`에
-        -- 적는 것이다.
+        -- **Standing where the caller stands.** What the two menus hand this function is a callback
+        -- of exactly this shape, and what they do inside it is write the name they were given into
+        -- `action.conditions[name]` or `action.value`.
         local called, handed
         DebindUI.ShowNewSwitchBox(function(name)
             called = true
@@ -3331,8 +3361,8 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
         if not TypeInto(editBox, TYPED) then
             return Fail(NAME, "편집칸에 OnTextChanged가 없다")
         end
-        -- [완료]를 누른다. 콜백은 그 단추에 걸려 있고, 직접 부르면 상자를 지나는 길이 아니라
-        -- 우리가 넘긴 함수만 재게 된다.
+        -- Presses [Done]. The callback hangs off that button, and calling it outright measures the
+        -- function we handed over rather than the path through the box.
         local accept = dialog:GetButton1()
         if not accept:IsEnabled() then
             return Fail(NAME, "이름을 적었는데 [완료]가 비활성이다")
@@ -3376,7 +3406,7 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
 -- The XML is measured too: `Check` is a `parentKey` on the template, and a texture that lost its
 -- key leaves `SetShown` reaching nil.
 RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
-    description = "오버라이드 행들이 그려지고, 읽는 액션이 있을 때 이기는 행에만 표시가 붙는가",
+    description = "The override rows are drawn, and where an action reads the switch only the winning row is marked",
     run = function()
         local NAME = "Switch layer rows"
         local SWITCH = "$rowlayers"
@@ -3465,19 +3495,21 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
     end,
 })
 
--- **다섯 번째 자리, 그리고 액션이 아닌 유일한 자리.** 스위치의 답이 `[식]`이면 그 식은 매크로
--- 조건문이라 다른 스위치를 부를 수 있는데, 그 이름은 정의 안에 살아서 `GetUndefinedSwitch`가
--- 볼 일이 없다. 지운 스위치의 참조를 그 자리에 남겨두는 것은 설계고(`DeleteSwitch`), 그 설계는
--- 남은 것이 빨개질 때만 성립한다. 안 빨개지면 코드젠이 그 이름을 `known:0`으로 굽고
--- (`EmitMacroTextArg`) 계산되는 스위치가 조용히 다른 것이 된다.
+-- **The fifth place, and the only one that is not an action.** Where a switch answers with `[expr]`
+-- that expression is a macro conditional and can name another switch, but that name lives inside a
+-- definition, where `GetUndefinedSwitch` never looks. Leaving a deleted switch's reference standing
+-- there is by design (`DeleteSwitch`), and that design only holds while what is left goes red.
+-- Without the red, codegen bakes the name as `known:0` (`EmitMacroTextArg`) and the switch being
+-- computed quietly becomes a different one.
 --
--- 헤드리스는 답하는 함수까지 본다(`tests/issue_spec.lua`). 여기서만 답할 수 있는 것은 **행이
--- 실제로 빨개지는가**다: 색은 `Update`가 칠하고, 지우기는 목록을 통째로 다시 세우며, 다시 선
--- 행이 같은 답을 들고 있어야 한다.
+-- Headless goes as far as the function that answers (`tests/issue_spec.lua`). What only this layer
+-- can answer is **whether the row really goes red**: the colour is painted by `Update`, deleting
+-- stands the whole list up again, and the row that comes back has to be holding the same answer.
 --
--- **지우기 전을 먼저 읽는다.** 처음부터 빨간 행이면 "빨개졌다"가 아무 말도 아니다.
+-- **What it was before the delete is read first.** On a row that was red from the start, "it went
+-- red" says nothing.
 RegisterTest("Switches tab: an expression left naming a deleted switch goes red", {
-    description = "지운 스위치를 부르는 계산식이 남았을 때 그 행이 빨개지는가",
+    description = "A row goes red where an expression left behind still names a deleted switch",
     run = function()
         local NAME = "Expression names a dead switch"
         local MODES = Constants.SWITCH_MODES
@@ -3495,15 +3527,15 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
                 DebindPrivate.UpdateBindings()
             end
         end)
-        -- **`value`는 안 쓴다.** 그건 파생 필드고 설정은 `resetValue`다. 여기서 필요한 것은
-        -- "직접 켜고 끄는 스위치가 하나 있다"뿐이라 모드만 적는다.
+        -- **`value` is not used.** That is a derived field and the setting is `resetValue`. All this
+        -- needs is "there is one switch turned on and off by hand", so only the mode is written.
         DebindPrivate.Switches[SOURCE] = { mode = MODES.MANUAL }
         DebindPrivate.Switches[DERIVED] = {
             mode = MODES.EXPR,
             expr = format("[%s] [combat]", SOURCE),
         }
 
-        --- 계정 전체 행. 오버라이드를 안 얹었으므로 이 스위치의 행은 이것 하나다.
+        --- The account-wide row. With no override on top, this is the only row this switch has.
         local function RootRow(panel)
             for _, row in ipairs(SwitchLayerRows(panel, DERIVED)) do
                 if row.layerKey == nil then
@@ -3512,8 +3544,8 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
             end
         end
 
-        --- **애드온 자신의 빨강과 대는 것이 "빨갛다"의 뜻이다.** 이기는 행은 강조색, 지는 행은
-        --- 회색이라 셋 중 어느 것인지는 값으로만 갈린다.
+        --- **"Red" means measured against the addon's own red.** The winning row is the highlight
+        --- colour and a losing row is grey, so which of the three it is comes apart on the value alone.
         local function IsRed(fontString)
             local r, g, b = fontString:GetTextColor()
             local er, eg, eb = ERROR_COLOR:GetRGB()
@@ -3535,8 +3567,8 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
 
         DebindPrivate.DeleteSwitch(SOURCE)
 
-        -- 지우기가 `OnSwitchesChanged`를 쏘고 목록이 다시 선다. 프레임은 재활용되므로 위에서
-        -- 잡아둔 것을 다시 읽지 않고 다시 찾는다.
+        -- Deleting fires `OnSwitchesChanged` and the list stands up again. Frames are recycled, so
+        -- this finds the row again rather than reading back what was held above.
         local reddened = WaitUntil(function()
             local found = RootRow(panel)
             if found and found.Setting and IsRed(found.Setting) then
@@ -3568,13 +3600,13 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
 --- (`DebindStoragePanelMixin:OnHide`). One press has to move one rung.
 ---
 --- **There were three.** The bring dialog asked which layers to take, and went with the question
---- when the tick moved onto the action (`devdocs/building-export-import.md` 12절).
+--- when the tick moved onto the action (section 12 of `devdocs/building-export-import.md`).
 ---
 --- **`HandleEscape` rather than a key.** A run unbinds the game's own bindings, so a real ESCAPE
 --- measures the runner as much as the window; and this function is split out from the key plumbing
 --- to be the order on its own, which is exactly what is being asked here.
 RegisterTest("Escape: the sharing dialogs close before the window", {
-    description = "공유 다이얼로그가 떠 있으면 ESC가 창 대신 그 다이얼로그부터 한 칸씩 닫는가",
+    description = "With a sharing dialog up, ESC closes that first and one at a time, rather than the window",
     run = function()
         local NAME = "Escape ladder"
 
@@ -3587,7 +3619,7 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
             DebindFrame:Hide()
         end)
 
-        -- 둘 다 세운다.
+        -- Both are stood up.
         DebindCopyFrame:ShowText("DEBIND-TEST")
         DebindPasteFrame:Open()
 
@@ -3608,11 +3640,12 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
             if step.frame:IsShown() then
                 return Fail(NAME, format("ESC %d번째가 %s을 안 닫았다", i, step.name))
             end
-            -- **여기서 창이 닫히면 그게 이 테스트가 지키는 버그다.** 다이얼로그만 주인 없이 남는다.
+            -- **The window closing here is the bug this test holds off.** The dialog would be left
+            -- standing with nothing under it.
             if not DebindFrame:IsShown() then
                 return Fail(NAME, format("%s을 닫아야 할 ESC가 창을 닫았다", step.name))
             end
-            -- 한 번에 한 칸. 아직 차례가 아닌 것까지 데려가면 한 번 누르고 두 개가 사라진다.
+            -- One rung at a time. Taking one whose turn has not come yet makes a single press remove two.
             for j = i + 1, #steps do
                 if not steps[j].frame:IsShown() then
                     return Fail(NAME, format("%s을 닫는 ESC가 %s까지 데려갔다", step.name, steps[j].name))
@@ -3620,8 +3653,8 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
             end
         end
 
-        -- 그리고 셋이 없어진 **뒤에야** 창이 닫힌다. 이 줄이 없으면 위의 통과는 "ESC가 아무것도
-        -- 안 한다"로도 똑같이 설명된다.
+        -- And the window closes only **after** all three are gone. Without this line, the pass above
+        -- is explained just as well by "ESC does nothing".
         if not DebindFrame:HandleEscape() then
             return Fail(NAME, "다이얼로그가 다 닫힌 뒤의 ESC를 아무도 안 먹었다")
         end
@@ -3649,7 +3682,7 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
 -- What it does not prove: that a real keypress arrives. The test above asks that, with
 -- `GetBindingAction`.
 RegisterTest("Custom state toggle flips the value", {
-    description = "전환이 States와 창이 읽는 값을 함께 뒤집는지 (연속 두 번)",
+    description = "The toggle flips States and what the window reads together, twice running",
     run = function()
         local NAME = "Custom state toggle"
         local KEY = "ALT-F7"
@@ -3712,20 +3745,22 @@ RegisterTest("Custom state toggle flips the value", {
     end,
 })
 
--- **이름이 `$state1`~`$state5`를 벗어난 첫 자리.** 코드젠이 `SWITCH_INDICES`에 없는 이름을
--- 문 앞에서 돌려보냈고, 그래서 조건에 그런 이름이 있어도 굽히는 것이 아무것도 없었다. 문이
--- 사라진 뒤에 이름을 가르는 것은 정의가 있느냐 하나뿐이다.
+-- **The first place a name goes outside `$state1`..`$state5`.** Codegen turned back any name not in
+-- `SWITCH_INDICES` at the door, so a condition naming one baked nothing at all. With the door gone,
+-- the only thing that tells names apart is whether there is a definition.
 --
--- 셋을 한 자리에서 본다. 켜짐이 없으면 꺼짐은 "원래 아무것도 안 걸린다"와 구분이 안 되고,
--- 꺼짐이 없으면 켜짐은 "조건을 아예 안 본다"와 구분이 안 된다.
+-- All three are looked at in one place. Without the on case, the off case cannot be told from
+-- "nothing was ever bound"; without the off case, the on case cannot be told from "the condition is
+-- never looked at".
 --
--- **여기 남는 이유는 그 셋이 아니라 마지막 한 줄이다.** 셋은 `tests/boundkey_spec.lua`가 볼
--- 수 있다. 못 보는 것은 **전투 중에 밟는 길**이다: `SwitchesUpdaterFrame`에 속성을 쓰면
--- 클라이언트가 `_onattributechanged`를 부르고 거기서 키가 다시 걸리는데, 하네스는 속성을
--- 저장만 하고 그 핸들러를 안 부른다. 스펙이 본문을 손으로 부르면 재는 것이 "본문이 맞느냐"로
--- 바뀌고, 여기서 묻는 것은 **쓰기가 핸들러를 부르느냐**다.
+-- **What keeps this here is not those three but the last line.** `tests/boundkey_spec.lua` can see
+-- the three. What it cannot see is **the path walked in combat**: writing an attribute on
+-- `SwitchesUpdaterFrame` has the client call `_onattributechanged`, and the key is rebound in there,
+-- while the harness stores the attribute and never calls that handler. A spec calling the body by
+-- hand changes what is measured into "is the body right", and what is asked here is **whether the
+-- write calls the handler**.
 RegisterTest("Switch condition on a name outside the five", {
-    description = "$state1~5 밖의 이름이 조건으로 서는지, 정의가 없으면 안 나가는지",
+    description = "A name outside $state1..5 stands as a condition, and nothing goes out where there is no definition",
     run = function()
         local NAME = "Free switch name"
         local KEY = "CTRL-SHIFT-F10"
@@ -3736,8 +3771,8 @@ RegisterTest("Switch condition on a name outside the five", {
             return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
         end
 
-        -- 슬롯만 갈아끼우는 이유는 위 `Undefined $state inside a state's own expression`의
-        -- 주석에 있다. `$burst`는 사용자 프로필에 있을 리 없지만, 있어도 되돌아간다.
+        -- Why only the slot is swapped is in the comment on `Undefined $state inside a state's own
+        -- expression` above. `$burst` will not be in a user's profile, and is put back even if it is.
         local saved = DebindPrivate.Switches["$burst"]
         local savedStored = DebindPrivate.db.char.switches["$burst"]
         AddTeardown(function()
@@ -3773,28 +3808,29 @@ RegisterTest("Switch condition on a name outside the five", {
                 "$burst가 꺼졌는데 키가 %q로 남았다 - 이름은 갔는데 값이 안 비교된다", whenOff))
         end
 
-        -- 정의가 없는 이름. 조건을 통째로 떨어뜨리면 그 액션은 **넓어져서** 나가므로,
-        -- 여기서 나는 실패는 "안 걸린다"가 아니라 "조건 없이 걸린다"다.
+        -- A name with no definition. Dropping the condition outright sends that action out
+        -- **wider**, so a failure here reads as "bound with no condition", not "not bound".
         local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
         if whenUndefined ~= "" then
             return Fail(NAME, format(
                 "정의 없는 이름을 건 액션이 %q로 나갔다 - 조건이 사라져 상시 발동한다", whenUndefined))
         end
 
-        -- **막는 겹이 둘이다.** 마커가 그 액션을 `KeyMap`에서 빼고(행이 빨개지고 툴팁이 이름을
-        -- 적는다), 그 아래에서 코드젠이 조건을 거짓으로 굽는다. 위 한 줄은 둘 중 하나만 살아
-        -- 있어도 초록이고, **어느 쪽이 막았는지는 여기서 물을 일이 아니다** - 마커가 무엇을
-        -- 답하는지는 순수 함수라 `tests/issue_spec.lua`가 본다. 여기가 답하는 것은 그 답이
-        -- 실제로 키를 안 걸게 하느냐다(`BuildKeyMap`의 게이트).
+        -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row goes
+        -- red and the tooltip writes the name), and under it codegen bakes the condition as false.
+        -- The line above is green with either one alive, and **which of the two held it is not a
+        -- question for here**: what the marker answers is a pure function, so `tests/issue_spec.lua`
+        -- looks at that. What this answers is whether that answer really keeps the key from being
+        -- bound (the gate in `BuildKeyMap`).
 
-        -- **전투 중에 밟는 길.** 위 둘은 `ApplyBindings()`가 도는 비보안 리빌드인데, 전투
-        -- 중에는 그것이 미뤄지므로 값이 바뀌었을 때 키를 다시 정하는 것은 제한 환경 쪽이다:
-        -- `SetSwitch` -> `DirtyFlags` -> `state-unitexists` -> 제한 환경의 `UpdateBindings`.
-        -- 그 길이 이 이름을 알려면 코드젠이 `bindings.updateFlags`에 이름을 실었어야 하고,
-        -- 안 실렸으면 전투가 끝날 때까지 키가 안 살아난다.
+        -- **The path walked in combat.** The two above are the insecure rebuild `ApplyBindings()`
+        -- runs, and in combat that is deferred, so what settles the key again when a value moves is
+        -- the restricted side: `SetSwitch` -> `DirtyFlags` -> `state-unitexists` -> the restricted
+        -- `UpdateBindings`. For that path to know this name, codegen has to have loaded it into
+        -- `bindings.updateFlags`; unloaded, the key does not come back until the fight ends.
         --
-        -- 기다리지 않는다. `SetAttribute`가 핸들러를 그 자리에서 돌리고 제한 환경의
-        -- `SetBindingClick`은 즉시 건다(`devdocs/reading-back-what-you-just-set.md`).
+        -- Nothing is waited on. `SetAttribute` runs the handler on the spot and the restricted
+        -- `SetBindingClick` binds immediately (`devdocs/reading-back-what-you-just-set.md`).
         DebindPrivate.SwitchesUpdaterFrame:SetAttribute("$burst", true)
 
         local afterToggle = GetBindingAction(KEY, true) or ""
@@ -3807,24 +3843,25 @@ RegisterTest("Switch condition on a name outside the five", {
     end,
 })
 
--- Test Cases: 레이어 오버라이드 (§4-6 ~ §4-9)
+-- Test Cases: layer overrides (§4-6 to §4-9)
 --
--- 정의는 계정 것이고 **동작만 레이어에서 덮인다.** 어느 답이 이기는지는 `tests/switch_spec.lua`가
--- 표를 되읽어서 보고, 그 답이 실제로 키까지 가느냐는 `tests/boundkey_spec.lua`가 본다 -
--- `ApplySwitchResets`가 값을 다시 걸고, 코드젠이 이긴 행의 `mode`와 `expr`을 굽고, 상태 루프가
--- 그 키를 잡는 사슬 전체다.
+-- The definition is the account's and **only the behaviour is covered over by a layer.** Which
+-- answer wins is read back off the table by `tests/switch_spec.lua`, and whether that answer really
+-- reaches the key is `tests/boundkey_spec.lua`: the whole chain of `ApplySwitchResets` setting the
+-- value again, codegen baking the winning row's `mode` and `expr`, and the state loop taking the key.
 --
--- **여기 남는 것은 하나뿐이다.** 아래를 보라.
+-- **Only one thing is left for here.** See below.
 -----------------------------------------------------------
 
--- **오버라이드가 어느 이름 아래 쌓이느냐.** 캐릭터 레이어의 키에 이 캐릭터가 안 들어 있으면
--- 다음 캐릭터가 남의 답을 자기 것으로 읽는다.
+-- **Which name an override piles up under.** With this character missing from the character
+-- layer's key, the next character reads somebody else's answer as its own.
 --
--- **헤드리스가 이것만 못 본다.** 같은 문자열을 `tests/switch_spec.lua`가 보지만 그쪽 GUID는
--- shim이 지어낸 것이라, 스펙이 확인하는 것은 자기가 심은 값이 돌아왔다는 것뿐이다. 진짜
--- `UnitGUID`로 지은 키가 맞는지는 클라이언트만 답한다.
+-- **This one thing is what headless cannot see.** `tests/switch_spec.lua` looks at the same string,
+-- but the GUID over there is one the shim made up, so what the spec confirms is only that the value
+-- it planted came back. Whether a key built from a real `UnitGUID` is right is answered by the
+-- client alone.
 RegisterTest("Switch override: the layer key carries this character", {
-    description = "이 캐릭터·이 전문화의 오버라이드 키에 진짜 GUID가 들어 있는가",
+    description = "The override key for this character and this spec carries the real GUID",
     run = function()
         local NAME = "Switch override layer key"
 
@@ -3841,9 +3878,9 @@ RegisterTest("Switch override: the layer key carries this character", {
                 layerKey, guid))
         end
 
-        -- **반쪽 대조.** 직업 레이어의 키에는 캐릭터가 들어 있으면 안 된다. 없으면 위 한 줄은
-        -- "모든 레이어 키에 GUID가 붙는다"와 구분이 안 되고, 그러면 같은 직업의 다른 캐릭터가
-        -- 공유해야 할 답을 못 읽는다.
+        -- **The other half of the comparison.** The class layer's key must not carry the character.
+        -- Without this, the line above cannot be told from "every layer key carries a GUID", and
+        -- then another character of the same class cannot read the answer they are meant to share.
         local classKey = DebindPrivate.GetSwitchLayerKey(
             DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), false))
         if classKey and classKey:find(guid, 1, true) then
@@ -3882,7 +3919,7 @@ RegisterTest("Switch override: the layer key carries this character", {
 -- globals in the wrong table. So the one thing this measures is the one thing that harness declines
 -- to have an opinion about.
 RegisterTest("Custom target survives a rebuild", {
-    description = "지정한 @custom1이 리빌드 뒤에도 남는지",
+    description = "An @custom1 that was set is still there after a rebuild",
     run = function()
         local NAME = "Custom target survives"
         local KEY = "CTRL-F6"
@@ -3935,11 +3972,12 @@ RegisterTest("Custom target survives a rebuild", {
 -- Test Cases: Secure Handler Health
 -----------------------------------------------------------
 
--- 재빌드가 시큐어 환경까지 실제로 도달했는지. 이게 끊기면 아무것도 안 터지고, 바인딩이
--- 마지막에 적용된 상태로 얼어붙는다 - 키는 계속 뭔가 나가고 상태 전환만 멈추므로
--- 유저는 "가끔 안 먹혀요"라고밖에 말할 수 없다. 조용한 고장을 시끄럽게 만드는 것이 목적.
+-- Whether a rebuild really reaches the secure environment. Cut, nothing raises and the bindings
+-- freeze in the state last applied: the keys keep sending something out and only the state changes
+-- stop, so the user has no words for it beyond "sometimes it does not work". The point is to make a
+-- silent fault loud.
 RegisterTest("Secure update path", {
-    description = "UpdateBindings가 시큐어 핸들러까지 도달하는지 (state-unitexists를 핸들러가 소비했는가)",
+    description = "UpdateBindings reaches the secure handler, measured by the handler having consumed state-unitexists",
     run = function()
         if InCombatLockdown() then
             return Fail("Secure update path", "전투 중에는 UpdateBindings가 미뤄지므로 판정 불가")
@@ -3950,9 +3988,10 @@ RegisterTest("Secure update path", {
 
         ApplyBindings()
 
-        -- UpdateBindings의 마지막 동작이 state-unitexists=1이고, 시큐어 _onattributechanged가
-        -- 첫 동작으로 0으로 되돌린다. 핸들러는 동기적으로 도니까 여기까지 왔는데도 0이 아니면
-        -- 핸들러가 아예 안 돈 것이다. 대기 상태의 0과 헷갈릴 일이 없다 - 방금 1을 넣었으므로.
+        -- The last thing UpdateBindings does is state-unitexists=1, and the first thing the secure
+        -- _onattributechanged does is put it back to 0. The handler runs synchronously, so anything
+        -- other than 0 by the time we are here means the handler never ran at all. There is no
+        -- confusing it with a resting 0, since 1 was just written.
         local value = driver:GetAttribute("state-unitexists")
         if value ~= 0 then
             return Fail("Secure update path", format(
@@ -3977,7 +4016,7 @@ RegisterTest("Secure update path", {
 -- a fixed-wiring key is bound once by the rebuild snippet and owes the poll nothing -- and
 -- without checking that, the test would see the registration go and not see the key die with it.
 RegisterTest("State poll follows what is measured", {
-    description = "잴 것이 없으면 0.2초 박자를 놓고, 조건 하나가 다시 걸게 하는지",
+    description = "With nothing to measure the 0.2s beat is dropped, and one condition puts it back",
     run = function()
         local NAME = "State poll registration"
         local PLAIN = "CTRL-SHIFT-F10"
@@ -4037,16 +4076,16 @@ RegisterTest("State poll follows what is measured", {
 --
 -- No mocks are involved. The test picks the unit token, so reality supplies both answers --
 -- `player` exists, an unrecognised token does not.
--- 리빌드는 `States`를 통째로 새로 채우는데, `unitframe`만은 enter/leave 이벤트로만 서는 값이라
--- 다시 채워줄 사람이 없다. 지우면 커서가 프레임 위에 그대로 있는데도 hover가 죽고, 마우스를
--- 뺐다 다시 올려야 살아난다. 조건 하나만 바뀌어도 리빌드는 돌므로 - 전투 진입, 자세 변경 -
--- 실사용에서 밟힌다.
+-- A rebuild fills `States` afresh, and `unitframe` alone is a value that only enter and leave set,
+-- so nobody fills it back in. Cleared, hover dies with the cursor still sitting on the frame and
+-- only comes back if the mouse leaves and returns. One condition changing is enough to run a
+-- rebuild, entering combat or changing form among them, so this is walked in real use.
 --
--- **`GetHoverUnit()`만 봐서는 못 잡는다.** 짝이 되는 `UnitAliasMap["hover"]`는 리빌드가 안 지우니
--- 버그가 있어도 "player"로 남는다. 그래서 leave로 본다: 슬롯이 날아갔으면 leave가 지울 것을
--- 못 찾고 그냥 나가므로, hover가 안 지워진 채로 남는다.
+-- **`GetHoverUnit()` alone cannot catch it.** Its counterpart `UnitAliasMap["hover"]` is not cleared
+-- by a rebuild, so it stays "player" even where the bug is. Hence looking at leave: with the slot
+-- gone, leave finds nothing to clear and simply goes out, and hover is left standing.
 RegisterTest("Hover slot: survives a rebuild under a still cursor", {
-    description = "hover 중에 리빌드가 돌아도 hover 슬롯이 살아남는가",
+    description = "The hover slot survives a rebuild that runs while hovering",
     run = function()
         local NAME = "Hover survives rebuild"
 
@@ -4086,7 +4125,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
             return Fail(NAME, format("리빌드 뒤 hover=%s, 아직 player여야 한다", tostring(GetHoverUnit())))
         end
 
-        -- 슬롯이 살아 있는지는 여기서 갈린다. 날아갔으면 leave가 지울 것을 못 찾는다.
+        -- Whether the slot is alive comes apart here. Gone, leave finds nothing to clear.
         HoverLeave(frame)
 
         if GetHoverUnit() ~= nil then
@@ -4100,7 +4139,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 })
 
 RegisterTest("Hover slot: unit disappears under a still cursor", {
-    description = "커서가 멈춘 채 유닛만 사라졌을 때 hover 슬롯이 비는가, 돌아오면 다시 차는가",
+    description = "The hover slot empties when the unit alone disappears under a still cursor, and fills again when it comes back",
     run = function()
         local NAME = "Hover slot"
 
@@ -4159,21 +4198,23 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
     end,
 })
 
--- 등록이 풀린 프레임에 커서가 들어갔을 때.
+-- When the cursor enters a frame whose registration has been dropped.
 --
--- 해제는 래퍼를 떼지 않는다 (`FrameRegistry.lua`의 `_hoverWrapped`). 뗄 수 있는 것은 맨 위
--- 래퍼뿐이고 그것이 우리 것이라는 보장이 없어서인데, 그래서 등록이 풀린 프레임에서도 우리
--- `setup_onenter`가 계속 돈다. 거기서 무엇을 하느냐가 해제의 실체다.
+-- Dropping it does not take the wrapper off (`_hoverWrapped` in `FrameRegistry.lua`). Only the
+-- topmost wrapper can be taken off and there is no guarantee that one is ours, so our
+-- `setup_onenter` goes on running even on a frame that is no longer registered. What it does in
+-- there is what dropping the registration actually amounts to.
 --
--- 그냥 물러나면 안 된다. 마우스 포커스는 한 번에 하나이므로 **추적 안 하는 프레임 안에 커서가
--- 있다는 것 자체가 우리가 마지막으로 적어둔 프레임 안에는 없다는 증거다.** 그래서 슬롯을
--- 비운다. `OnLeave` 유실의 청소이기도 하다.
+-- Simply standing back will not do. Mouse focus is one at a time, so **the cursor being inside a
+-- frame we do not track is itself proof that it is not inside the frame we last wrote down.** So the
+-- slot is emptied. It is also the clean-up for a lost `OnLeave`.
 --
--- **여기 남는 이유.** 값 쪽은 `tests/hover_spec.lua`가 같은 두 스니펫을 돌려 이미 본다. 이
--- 테스트가 더 보는 것은 하나다: 감싼 스크립트 안에서 `RunAttribute`로 다른 본문을 부르는 것을
--- **진짜 샌드박스가 받아주는가.** 안 받아주면 오류도 로그도 없이 그 갈래만 죽는다.
+-- **Why this stays here.** The value side is already seen by `tests/hover_spec.lua`, which runs the
+-- same two snippets. What this test sees on top of that is one thing: whether **the real sandbox
+-- allows** calling another body with `RunAttribute` from inside a wrapped script. Where it does not,
+-- that branch dies with no error and no log.
 RegisterTest("Hover slot: a deregistered frame stands the slot down", {
-    description = "등록이 풀린 프레임에 들어가면 hover 슬롯이 비는가",
+    description = "Entering a frame whose registration has been dropped empties the hover slot",
     run = function()
         local NAME = "Deregistered frame"
 
@@ -4181,7 +4222,8 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
             return Fail(NAME, "전투 중에는 프레임 등록과 해제가 막힌다")
         end
 
-        -- hover 조건이 있어야 hover 축이 측정되고 이 슬롯이 읽을 값을 갖는다.
+        -- The hover axis is measured only where there is a hover condition, and that is what gives
+        -- this slot a value to read.
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
             units = { hover = {} },
@@ -4207,11 +4249,11 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
             return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
         end
 
-        -- 래퍼가 그대로 붙어 있으므로 여기도 우리 본문이 돈다.
+        -- The wrapper is still on, so our body runs here too.
         --
-        -- **기다리지 않는다.** `SecureHandlerExecute`는 본문을 돌리고 나서 돌아오고, 슬롯이
-        -- 안 비는 것이 바로 이 테스트가 찾는 결함이다. 기다리면 폴링이 정리한 값을 읽고
-        -- 통과할 수 있다.
+        -- **Nothing is waited on.** `SecureHandlerExecute` returns after running the body, and the
+        -- slot not emptying is exactly the fault this test is looking for. Waiting could read a
+        -- value the poll has since tidied and pass.
         HoverEnter(dropped)
 
         if GetHoverUnit() ~= nil then
@@ -4258,7 +4300,7 @@ end
 --
 -- No click needed; it only reads.
 RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
-    description = "등록된 프레임의 type1/2/3에 우리가 쓴 것이 없는가 (블리자드 프레임 포함)",
+    description = "Nothing of ours is written to type1/2/3 on a registered frame, Blizzard's own included",
     run = function()
         local NAME = "Click-cast non-invasion"
 
@@ -4332,7 +4374,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 -- no getter). Shadowing the method on our own frame leaves every other frame alone, and the real
 -- one is still called.
 RegisterTest("Click-cast: a registered frame carries both click edges", {
-    description = "등록한 프레임이 누를 때와 뗄 때 엣지를 다 갖는가",
+    description = "A registered frame carries both the press edge and the release edge",
     run = function()
         local NAME = "Click edges"
 
@@ -4383,7 +4425,7 @@ RegisterTest("Click-cast: a registered frame carries both click edges", {
 })
 
 RegisterTest("Click-cast: the frame's wrapper picks a winner", {
-    description = "유닛 프레임 클릭이 래퍼까지 닿아 조건에 맞는 레코드를 고르는가 (우리 프레임 + 블리자드 프레임)",
+    description = "A unit frame click reaches the wrapper and picks the record the condition matches, on our frame and on Blizzard's",
     run = function()
         local NAME = "Click-cast winner"
 
@@ -4442,7 +4484,7 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
 -- assertion has to sit next to it: widen the gate back and the registration returns while the
 -- judgement half goes on passing, so on its own it would not notice.
 RegisterTest("Click-cast only: judged at the press with nothing measured for it", {
-    description = "클릭캐스팅 전용 키가 상태 루프 표에서 빠지고도 조건 판정은 그대로인가",
+    description = "A click-cast only key drops out of the state loop's table and still judges its conditions",
     run = function()
         local NAME = "Click-cast only"
         local KEY = "BUTTON3"
@@ -4468,7 +4510,8 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
         local m = WaitForMembership()
         if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
 
-        -- 긍정 쪽을 먼저 본다. "상태 구동이 아님"은 레코드가 아예 안 나간 키도 참이다.
+        -- The positive side is checked first. "Not state driven" is true of a key whose records
+        -- never went out at all.
         if not m.clickCast then
             return Fail(NAME, "ClickCastKeys에 없다 - 빠진 게 아니라 레코드가 안 나갔다")
         end
@@ -4481,8 +4524,8 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
         if not targets then return Fail(NAME, terr) end
         local target = targets[1]
 
-        -- 레코드가 호버를 조건으로 들고 있고 클릭캐스팅 경로는 그것을 캐시가 아니라 프레임에서
-        -- 읽으므로, 커서가 실제로 그 위에 있어야 한다.
+        -- The record carries hover as a condition and the click-cast path reads that off the frame
+        -- rather than a cache, so the cursor really has to be on it.
         HoverEnter(target.frame)
         AddTeardown(function() HoverLeave(target.frame) end)
         WaitForHoverSlot(true)
@@ -4517,7 +4560,7 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
 -- On the old path the frame's own `type` had been overwritten, so a click that matched nothing
 -- did nothing at all -- silently, which is the shape of fault this addon keeps running into.
 RegisterTest("Click-cast: a click that matches nothing falls through", {
-    description = "조건이 안 맞으면 프레임 자신의 동작이 그대로 나가는가 (동적 폴백)",
+    description = "Where nothing matches, the frame's own action goes out untouched: the dynamic fallback",
     run = function()
         local NAME = "Click-cast fallback"
 
@@ -4525,9 +4568,10 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
             return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
         end
 
-        -- **프로브를 켜야 `LastWinner()`가 답을 한다.** 배포 갈래에서 `PROBE.Winner`는 통째로
-        -- 지워지므로, 안 켜면 이 테스트의 "아무것도 안 골랐나" 검사가 언제나 nil을 보고 통과한다
-        -- - 조건 목이 빠져서 엉뚱한 레코드를 골라도 조용하다.
+        -- **`LastWinner()` answers only with the probes on.** `PROBE.Winner` is removed outright on
+        -- the release branch, so without them this test's "did it pick nothing" check reads nil every
+        -- time and passes: it stays quiet even where a missing condition makes it pick the wrong
+        -- record.
         local probesOk, probesErr = EnableProbes()
         if not probesOk then
             return Fail(NAME, "프로브 켜기 실패: " .. tostring(probesErr))
@@ -4613,7 +4657,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
 -- override binding, and `GetBindingAction` reads back what the key is bound to. Nothing about the
 -- verdict is inferred from the injection.
 RegisterTest("State injection: combat-only binding", {
-    description = "전투 중이라고 주입하면 전투 전용 바인딩이 실제로 걸리는가",
+    description = "Injecting combat really does bind the combat-only binding",
     run = function()
         local NAME = "Combat injection"
         local KEY = "CTRL-SHIFT-F9"
@@ -4662,7 +4706,7 @@ RegisterTest("State injection: combat-only binding", {
 -- doing nothing, so what is checked is not that the rebake returned, but that the same judgement
 -- still runs afterwards.
 RegisterTest("Snippet probes: rebaked snippets still decide", {
-    description = "프로브를 켜고 스니펫을 다시 구워도 조건 판정이 그대로 도는가",
+    description = "Turning the probes on and rebaking the snippets leaves the condition judging as it was",
     run = function()
         local NAME = "Probe rebake"
         local KEY = "CTRL-SHIFT-F8"
@@ -4718,7 +4762,7 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
 -- point `combat` is -- right after the snippet measures it, before it stores it -- so the update
 -- loop runs its real path and only the value it lands on differs.
 RegisterTest("State injection: dead flips a binding", {
-    description = "죽었다고 주입하면 죽음 조건 바인딩이 실제로 걸리는가",
+    description = "Injecting dead really does bind the binding conditioned on it",
     run = function()
         local NAME = "Dead injection"
         local KEY = "CTRL-SHIFT-F10"
@@ -4748,7 +4792,8 @@ RegisterTest("State injection: dead flips a binding", {
             return Fail(NAME, format("dead=true 인데 %q, CLICK 이어야 한다", whenDead))
         end
 
-        -- 되돌려서 사라지는 것까지 본다. 없으면 내내 걸려 있던 키에도 통과한다.
+        -- It also checks that putting it back makes the binding go. Without that, a key that was
+        -- bound the whole time passes too.
         SetMockState("player-dead", false)
         local again = GetBindingAction(KEY, true) or ""
 
@@ -4765,7 +4810,7 @@ RegisterTest("State injection: dead flips a binding", {
 -- keyboard key is ours only while the cursor is on a matching frame, and that judgement is made
 -- by the update loop before the key is ever pressed.
 RegisterTest("Hover condition owns the key through the unit column", {
-    description = "호버 조건이 유닛 컬럼으로 옮겨간 뒤에도 키를 잡았다 놓는가",
+    description = "The hover condition still takes and releases the key now that it lives in the unit column",
     run = function()
         local NAME = "Hover ownership"
         local KEY = "CTRL-SHIFT-F7"
@@ -4823,7 +4868,7 @@ RegisterTest("Hover condition owns the key through the unit column", {
 -- that used to stand in front of it -- it carries its own "is there a frame at all" guard now.
 -- What this pins is that the guard narrows: a frame of the wrong kind must not hand the key over.
 RegisterTest("Hover frame types still narrow on their own", {
-    description = "프레임 종류 제한이 제 존재 검사를 들고도 좁히는가",
+    description = "A frame type limit narrows even while carrying its own existence check",
     run = function()
         local NAME = "Hover frame types"
         local KEY = "CTRL-SHIFT-F7"
@@ -4839,7 +4884,8 @@ RegisterTest("Hover frame types still narrow on their own", {
         })
         ApplyBindings()
 
-        -- 조건은 boss인데 올리는 것은 group이다. 유닛은 있고 종류만 어긋난다.
+        -- The condition says boss and what is put up is group. The unit is there and only the type
+        -- fails to match.
         local frame, err = CreateTestUnitFrame("player", "group")
         if not frame then return Fail(NAME, err) end
 
@@ -4871,7 +4917,7 @@ RegisterTest("Hover frame types still narrow on their own", {
 -- through the header before it styles the child came out a group frame, while one that styles first
 -- kept the `unknown` the styling pass had left behind.
 RegisterTest("Header registration takes a frame back from the click-cast table", {
-    description = "ClickCastFrames가 먼저 잡은 프레임을 헤더 등록이 되찾는가",
+    description = "Header registration takes back a frame ClickCastFrames got to first",
     run = function()
         local NAME = "Header takeover"
 
@@ -4930,7 +4976,7 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 -- throws away everything taken so far, and the `nil` another addon writes to reclaim a frame then
 -- reaches nothing.
 RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
-    description = "남이 ClickCastFrames를 가져갔을 때 되찾는가, 되찾은 뒤 두 번 불러도 되는가",
+    description = "We take ClickCastFrames back when someone else has it, and calling twice after that is not twice",
     run = function()
         local NAME = "ClickCastFrames reclaim"
 
@@ -4991,7 +5037,7 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
 -- `hooksecurefunc` on the frame's own method takes at all, and whether the call that puts it back
 -- is refused for taint.
 RegisterTest("Click-cast: another addon narrowing the frame is put back", {
-    description = "남이 RegisterForClicks/EnableMouseWheel을 좁혔을 때 우리가 되돌리는가",
+    description = "We put RegisterForClicks and EnableMouseWheel back where someone else narrowed them",
     run = function()
         local NAME = "Click input reasserted"
 
@@ -5050,7 +5096,7 @@ RegisterTest("Click-cast: another addon narrowing the frame is put back", {
 -- so what this adds is the two things it cannot reach: a body the sandbox really compiled, and
 -- `GetBindingAction` agreeing that the key arrives under the name we bound.
 RegisterTest("Click-time key: the press picks the record the state matches", {
-    description = "배선이 고정된 키에서 누르는 순간의 상태가 승자를 가르는가",
+    description = "On a key whose wiring is fixed, the state at the press is what picks the winner",
     run = function()
         local NAME = "Click-time winner"
         local KEY = "CTRL-SHIFT-F6"
@@ -5070,21 +5116,23 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             key = KEY, name = "peace", combat = false })
         ApplyBindings()
 
-        -- 양쪽을 다 본다. 한쪽만 보면 조건을 아예 안 보고 늘 같은 것을 고르는 구현도 통과한다.
+        -- Both sides are checked. On one alone, an implementation that never looks at the condition
+        -- and always picks the same record passes.
         local picked = {}
         for _, want in ipairs({ true, false }) do
             SetMockState("combat", want)
 
-            -- **매번 다시 읽는다.** `SetMockState`가 끝에 리빌드를 돌리므로 KeyMap 배열이
-            -- 갈린다. 루프 밖에서 한 번 잡아두면 두 번째 바퀴가 죽은 표를 본다.
+            -- **Read again every time.** `SetMockState` runs a rebuild at the end, which replaces
+            -- the KeyMap array. Held once outside the loop, the second pass reads a dead table.
             local records = GetKeyBindings(KEY)
             if not records or #records ~= 2 then
                 return Fail(NAME, format("레코드가 2개여야 한다, 지금 %d개",
                     records and #records or 0))
             end
 
-            -- 걸려 있는지부터 본다. 이 대조가 없으면 평가만 맞고 실제로는 아무 키에도 안 걸린
-            -- 상태가 통과한다 - 평가를 클릭 없이 부르는 대가로 생기는 구멍이고, 여기서 막는다.
+            -- Whether it is bound comes first. Without this comparison, a state where the evaluation
+            -- is right and nothing is bound to any key passes. That hole is the price of calling the
+            -- evaluation without a click, and this is where it is closed.
             local bound = GetBindingAction(KEY, true) or ""
             local want1 = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
                 .. ":" .. tostring(DebindPrivate.ClickTimeKeys[KEY])
@@ -5102,9 +5150,10 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
                     "combat=%s: 평가는 돌았는데 맞는 레코드가 없다", tostring(want)))
             end
 
-            -- 승자 색인은 **방출된** 레코드 안에서의 자리다. 걸 수단이 없거나 도달 불가라
-            -- 떨어져 나간 것이 있으면 KeyMap 배열과 어긋나는데, 위에서 2개를 확인했고 둘 다
-            -- 매크로텍스트라 떨어질 이유가 없다.
+            -- The winner index is a place within the records that were **emitted**. Anything dropped
+            -- for having no way to be bound, or for being unreachable, puts it out of step with the
+            -- KeyMap array; two were confirmed above and both are macrotext, so there is nothing to
+            -- drop them for.
             local got = records[idx]
             if not got then
                 return Fail(NAME, format("combat=%s 에서 색인 %d, 그 자리에 레코드가 없다",
@@ -5117,11 +5166,12 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             picked[#picked + 1] = idx
         end
 
-        -- **음성 대조.** 위 두 검사는 `records[idx].combat`을 보는데, 방출부가 `combat=false`를
-        -- 안 실어 보내면 그 레코드가 무조건 매치가 되고 색인은 양쪽 바퀴에서 같아진다 - 그때도
-        -- 두 검사가 다 통과할 수 있다(첫 바퀴에서 combat 레코드가 먼저 맞고, 둘째 바퀴에서도
-        -- 같은 것이 맞는데 KeyMap 쪽 `.combat`은 여전히 false로 남아 있는 경우). 색인이 실제로
-        -- 갈렸는지가 "조건을 보고 골랐다"의 유일한 직접 증거다.
+        -- **The negative comparison.** The two checks above read `records[idx].combat`, and if the
+        -- emitter does not carry `combat=false` across, that record matches unconditionally and the
+        -- index comes out the same on both passes -- and both checks can still go green (the combat
+        -- record matches first on the first pass, the same one matches on the second, and KeyMap's
+        -- `.combat` is still false). Whether the index really moved is the only direct evidence of
+        -- "it picked by looking at the condition".
         if picked[1] == picked[2] then
             return Fail(NAME, format(
                 "양쪽 다 %d번을 골랐다 - 조건을 안 보고 늘 같은 것을 고르고 있다", picked[1]))
@@ -5144,7 +5194,7 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
 local macroBodySeq = 0
 
 RegisterTest("Click bakes the deferred macro body", {
-    description = "@hover 매크로 본문을 클릭이 굽는지 (제한 환경의 SetAttribute가 통하는지)",
+    description = "The click bakes an @hover macro body, which is also whether SetAttribute carries in the restricted environment",
     run = function()
         local NAME = "Deferred macrotext"
         local KEY = "CTRL-SHIFT-F9"
@@ -5308,7 +5358,7 @@ local function ToSweepAction(record, key)
         for group in pairs(cond.groups) do mask = bor(mask, group) end
         action.groups = mask
     end
-    -- 평평하게 적고 한 자리에서 옮긴다. `InsertAction`이 하는 것과 같은 함수다.
+    -- Written flat and moved in one place. The same function `InsertAction` uses.
     return NestConditions(action)
 end
 
@@ -5417,7 +5467,7 @@ end
 -- environment and the real one would part, and there is no other way to find out that they
 -- have (`going-headless-outside-the-ui.md` §9).
 RegisterTest("Multi-axis: the press picks the exact record out of seven", {
-    description = "네 축의 조합을 전부 훑어, 일곱 레코드가 물린 키에서 매번 정확히 그 레코드가 이기는지",
+    description = "Sweeping every combination of four axes, exactly the right one of seven records wins each time",
     -- The runner's ceiling is a guard against a hung coroutine, not a budget. This one drives a
     -- rebuild per state change, thirty-six combinations over, and none of that is the test being
     -- slow in the sense the ceiling is watching for. It is kept where it is rather than trimmed
@@ -5457,16 +5507,17 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
                     ComboLabel(state)))
             end
 
-            -- **매번 다시 읽는다.** 상태를 세울 때마다 리빌드가 돌아 표가 갈린다. 개수가
-            -- 어긋나면 색인이 가리키는 자리가 달라지므로, 승자를 묻기 전에 여기서 끊는다.
+            -- **Read again every time.** Standing a state up runs a rebuild and replaces the table.
+            -- A count out of step moves what the index points at, so this stops here before asking
+            -- who won.
             local emitted = GetKeyBindings(KEY)
             if not emitted or #emitted ~= #CLICKTIME_SWEEP then
                 return Fail(NAME, format("%s: 리빌드 뒤 레코드가 %d개 - 색인이 뜻을 잃었다",
                     ComboLabel(state), emitted and #emitted or 0))
             end
 
-            -- 걸려 있는지부터 본다. 평가는 클릭 없이도 도니까, 이 대조가 없으면 판정만 맞고
-            -- 실제로는 어느 키에도 안 걸린 상태가 통과한다.
+            -- Whether it is bound comes first. The evaluation runs without a click, so without this
+            -- comparison a state where the judgement is right and nothing is bound to any key passes.
             local bound = GetBindingAction(KEY, true) or ""
             local wantBound = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":" .. button
             if bound ~= wantBound then
@@ -5527,7 +5578,7 @@ end
 -- **Both places, deliberately.** The second anchor (§9). The headless twin is in
 -- `tests/eval_spec.lua`; keeping this one is what would show the two sides parting.
 RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
-    description = "조건에 구멍이 있는 키에서, 잡고 놓는 판정과 누가 이기는지가 서로 어긋나지 않는지",
+    description = "On a key whose conditions have a gap, taking and releasing it never contradicts which record wins",
     timeout = 120,
     run = function()
         local NAME = "Multi-axis poll vs press"
@@ -5550,9 +5601,9 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
             return Fail(NAME, "클릭 시점 키가 아니다 - 누가 이겼는지를 물을 데가 없다")
         end
 
-        -- 구멍이 남아 있어야 상태 루프가 이 키를 계속 정한다. 무조건 레코드를 뺀 것이
-        -- 실제로 그 효과를 냈는지 여기서 확인한다 - 안 그러면 아래 "놓아야 한다" 쪽이
-        -- 한 번도 안 돈 채로 통과한다.
+        -- The gap has to survive for the state loop to keep settling this key. This is where
+        -- dropping the unconditional record is confirmed to have had that effect; without it the
+        -- "has to be released" side below passes without ever running.
         ReadKeyMembership(KEY)
         local membership = WaitForMembership()
         if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
@@ -5602,8 +5653,8 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
             end
         end
 
-        -- 구멍이 실제로 밟혔는가. 안 밟혔으면 "놓아야 한다" 쪽은 한 줄도 안 돈 것이고,
-        -- 이 테스트는 앞의 것과 같은 것을 두 번 잰 셈이 된다.
+        -- Was the gap actually walked into? If not, not a line of the "has to be released" side ran,
+        -- and this test measured the same thing as the one before it twice.
         if released == 0 then
             return Fail(NAME, format("%d개 조합 중 아무 데서도 안 놓았다 - 구멍을 못 밟았다", #combos))
         end
@@ -5636,7 +5687,7 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 --
 -- Deleting it belongs to the runner, so it goes however this ends.
 RegisterTest("Macro store: creating the missing macro revives the key", {
-    description = "없는 매크로를 만들면 리로드 없이 그 키가 살아나는가",
+    description = "Creating the missing macro revives the key with no reload",
     run = function()
         local NAME = "Macro revive"
         local KEY = "CTRL-SHIFT-F6"
@@ -5710,7 +5761,7 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
 -- instead is the two things that would make the second step reachable by accident: that the first
 -- step deletes nothing, and that the command does not exist at all outside this state.
 RegisterTest("Stood down: the window refuses and the reset asks twice", {
-    description = "자기보다 새 프로필 앞에서 창이 안 열리고, /deb reset 1단계가 아무것도 안 지우는가",
+    description = "In front of a profile newer than itself the window refuses to open, and the first step of /deb reset erases nothing",
     run = function()
         local NAME = "Stand down"
 
@@ -5774,7 +5825,7 @@ RegisterTest("Stood down: the window refuses and the reset asks twice", {
 --
 -- Opt-in (`/debtest reload`), because a plain run should not end someone's session.
 RegisterTest("Run survives /reload", {
-    description = "런이 /reload를 건너 이어지는가, 단계와 스크래치가 그대로 오는가",
+    description = "The run carries across a /reload, and the phase and the scratch come with it",
     crossesReload = true,
     run = function(phase)
         local NAME = "Reload round trip"
@@ -6052,14 +6103,14 @@ local function Step()
             return false
         end
 
-        -- **예약된 리빌드가 없을 때까지 시작하지 않는다.**
+        -- **Nothing starts while a rebuild is still scheduled.**
         --
-        -- 셋업이 유발한 리빌드는 다음 프레임에 터지고, 리빌드는 `States`를 통째로 새로
-        -- 채운다. 테스트가 그 전에 시작하면 자기가 세워둔 상태가 도중에 지워지고, 증상은
-        -- "아무 이유 없이 값이 사라졌다"로 나온다 - hover 슬롯이 그렇게 죽었다.
+        -- A rebuild the setup provoked goes off on the next frame, and a rebuild fills `States`
+        -- afresh. A test starting before that has the state it stood up wiped out from under it, and
+        -- the symptom reads as "the value disappeared for no reason". The hover slot died that way.
         --
-        -- 큐가 빈 뒤에도 한 프레임을 더 준다. `updateBindingsQueued`는 타이머 콜백이 **리빌드를
-        -- 부르기 전에** 지우므로, 비었다는 것이 그 리빌드가 끝났다는 뜻은 아니다.
+        -- One more frame is given after the queue empties. `updateBindingsQueued` is cleared by the
+        -- timer callback **before it calls the rebuild**, so empty does not mean that rebuild is done.
         if (DebindPrivate.IsUpdateBindingsQueued()) then
             run.settle = true
             return false
@@ -6115,9 +6166,9 @@ local function Step()
             RunTeardowns()
             run.co, run.wait = nil, nil
             run.index = run.index + 1
-            -- 다음 테스트가 남의 phase로 시작하지 않게. 이 값을 지우는 것이 정상 종료
-            -- 갈래에만 있어서, 리로드를 건넌 테스트가 중간에 죽으면 그 phase가 다음
-            -- 테스트로 넘어갔다 - 받는 쪽은 준비 단계를 통째로 건너뛴다.
+            -- So the next test does not start on somebody else's phase. Clearing this used to be on
+            -- the normal-exit branch alone, so a test that died partway across a reload handed its
+            -- phase to the next one, and the receiver skipped its whole setup stage.
             run.phase = nil
             Persist()
             return true
