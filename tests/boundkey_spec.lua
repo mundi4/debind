@@ -483,6 +483,44 @@ return function(DebindPrivate)
             "a combat command did not bind in combat: " .. Bound("F4"));
     end);
 
+    -- **A conditional `UNUSED` is the dangerous half of this predicate.** Settle it by mistake and
+    -- the key is released for good: the action below it never gets its turn, and there is nothing
+    -- to see. Both directions are asked, because a key that was never bound would read as a pass on
+    -- the release half alone.
+    test("an unused behind a condition stays with the state loop", function()
+        BindOutOfCombat({
+            { type = Constants.UNUSED, key = "F4", seq = 1, conditions = { combat = true } },
+            spell({ key = "F4", seq = 2 }),
+        });
+        CheckStateDriven("F4");
+        check(IsLive("F4"),
+            "the action under a combat-only unused did not take the key: " .. Bound("F4"));
+
+        interp.state.combat = true;
+        interp:pollStates();
+        check(Bound("F4") == "", "the unused did not release the key in combat: " .. Bound("F4"));
+    end);
+
+    -- **The two directions of the same edit**, which is where a build-time decision that outlives
+    -- its rebuild shows. Settling a key files an override from outside the restricted environment,
+    -- and nothing but the next rebuild's prologue takes it off again; letting a key settle hands it
+    -- over from a loop that was holding it.
+    test("a key crossing into and out of settled follows the edit", function()
+        Bind({ command({ key = "F4" }) }, {});
+        check(Bound("F4") == "TOGGLEWORLDMAP", "settled: " .. Bound("F4"));
+        CheckNotStateDriven("F4");
+
+        BindOutOfCombat({ command({ key = "F4", conditions = { combat = true } }) });
+        CheckStateDriven("F4");
+        check(Bound("F4") == "",
+            "the override outlived the rebuild that stopped settling the key: " .. Bound("F4"));
+
+        Bind({ command({ key = "F4" }) }, {});
+        check(Bound("F4") == "TOGGLEWORLDMAP",
+            "the key did not settle again: " .. Bound("F4"));
+        CheckNotStateDriven("F4");
+    end);
+
     -- **Settling the key side settles the key side and nothing else.** A mouse button carries two
     -- roles at once: what the key does, and what a click arriving from a unit frame does. They are
     -- judged apart, kept in different tables, and only the first of them is what `GetSettledBinding`
