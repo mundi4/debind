@@ -199,7 +199,7 @@ local function RequestReload(phase)
     coroutine.yield(RELOAD_REQUEST, phase or "after-reload")
     -- Unreachable: the runner reloads instead of resuming. Erroring here beats returning to a
     -- test that believes a reload happened when none did.
-    error("RequestReload: 리로드가 일어나지 않았다")
+    error("RequestReload: the reload never happened")
 end
 
 -- Undo registered by whatever needs undoing. **The runner calls these, not the test.** A test
@@ -244,7 +244,7 @@ local testLayer
 
 local function GetTestLayer()
     if not testLayer then
-        local real = assert(DebindPrivate.GetProfileLayer(1), "프로필이 아직 안 올라왔다")
+        local real = assert(DebindPrivate.GetProfileLayer(1), "the profile is not up yet")
         testLayer = setmetatable({
             -- Past every real layer id, so ordering can never mistake it for a saved one.
             layerID = 100,
@@ -316,7 +316,7 @@ end
 local function BlackoutGameBindings()
     if blackedOut then return 0 end
     if InCombatLockdown() then
-        return nil, "전투 중에는 바인딩을 건드릴 수 없다"
+        return nil, "bindings cannot be touched in combat"
     end
 
     if not restoreWatcher then
@@ -381,12 +381,12 @@ local function SetIsolated(isolated)
         if not skipBlackout then
             local ok, cleared, err = pcall(BlackoutGameBindings)
             if not ok then
-                print(format("|cffff8800[DebindTest]|r 기존 바인딩 끄기가 터졌다: %s. 그대로 진행한다.",
+                print(format("|cffff8800[DebindTest]|r clearing the existing bindings raised: %s. Carrying on regardless.",
                     tostring(cleared)))
             elseif not cleared then
-                print(format("|cffff8800[DebindTest]|r 기존 바인딩을 못 껐다: %s. 테스터의 키가 깔려 있는 채로 돈다.", err))
+                print(format("|cffff8800[DebindTest]|r could not clear the existing bindings: %s. The run goes ahead with the tester's own keys in place.", err))
             elseif cleared > 0 then
-                print(format("|cff00ccff[DebindTest]|r 기존 바인딩 %d개를 껐다. 런이 끝나면 되돌린다.", cleared))
+                print(format("|cff00ccff[DebindTest]|r cleared %d existing binding(s). They go back when the run ends.", cleared))
             end
         end
 
@@ -717,7 +717,7 @@ end
 local function EvalClickTimeKey(key)
     local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[key]
     if not button then
-        return false, format("%s 는 클릭 시점 키가 아니다 (ClickTimeKeys에 없음)", key)
+        return false, format("%s is not a click-time key (not in ClickTimeKeys)", key)
     end
 
     wipe(probeReports)
@@ -741,7 +741,7 @@ local lastEvalAnswered
 --- else would quietly test the other branch.
 local function EvalClickCast(frame, n, mod)
     if type(DebindPrivate.ccframes[frame]) ~= "table" then
-        return false, "등록된 프레임이 아니다 (ccframes에 없음)"
+        return false, "not a registered frame (not in ccframes)"
     end
 
     wipe(probeReports)
@@ -929,7 +929,7 @@ local function CreateTestUnitFrame(unit, frameType)
     -- report whatever the empty hover slot happened to say.
     local registered = DebindPrivate.ccframes[frame]
     if type(registered) ~= "table" then
-        return nil, format("RegisterFrame이 %s를 안 받았다 (ccframes=%s)", name, tostring(registered))
+        return nil, format("RegisterFrame did not take %s (ccframes=%s)", name, tostring(registered))
     end
 
     return frame
@@ -1041,7 +1041,7 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         ApplyBindings()
 
         if KeyMapOrder(KEY) ~= "116 585" then
-            return Fail(NAME, format("좁은 쪽이 앞인데: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("the narrower one is in front: %s", KeyMapOrder(KEY)))
         end
 
         -- The function the arrow buttons and the right-click menu both go through. It swaps the two
@@ -1050,7 +1050,7 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         ApplyBindings()
 
         if KeyMapOrder(KEY) ~= "585" then
-            return Fail(NAME, format("넓은 쪽이 앞인데: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("the wider one is in front: %s", KeyMapOrder(KEY)))
         end
 
         -- **Swapping back, and watching it come alive again.** Without this the test also passes on
@@ -1059,7 +1059,7 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         ApplyBindings()
 
         if KeyMapOrder(KEY) ~= "116 585" then
-            return Fail(NAME, format("되돌아오지 않았다: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("it did not come back: %s", KeyMapOrder(KEY)))
         end
         return Pass(NAME, "116 585 -> 585 -> 116 585")
     end,
@@ -1087,23 +1087,23 @@ RegisterTest("Key group: the conflict popup's second answer runs", {
             label = "test",
         })
         if not dialog then
-            return Fail(NAME, "대화상자가 안 떴다")
+            return Fail(NAME, "the dialog did not come up")
         end
         AddTeardown(function() StaticPopup_Hide("DEBIND_KEY_GROUP_CONFLICT") end)
 
         local button = dialog.GetButton and dialog:GetButton(2)
         if not button then
-            return Fail(NAME, "2번 버튼을 못 얻었다 - 클라이언트의 대화상자 모양이 바뀌었나")
+            return Fail(NAME, "could not get button 2, has the client's dialog shape changed")
         end
         button:Click()
 
         if occupant.key ~= nil then
-            return Fail(NAME, format("점유자가 키를 그대로 들고 있다: %s", tostring(occupant.key)))
+            return Fail(NAME, format("the occupant is still holding the key: %s", tostring(occupant.key)))
         end
         if mover.key ~= KEY then
-            return Fail(NAME, format("옮긴 쪽이 키를 못 받았다: %s", tostring(mover.key)))
+            return Fail(NAME, format("the one that moved did not get the key: %s", tostring(mover.key)))
         end
-        return Pass(NAME, "점유자가 비켰고 그룹이 키를 받았다")
+        return Pass(NAME, "the occupant stood aside and the group took the key")
     end,
 })
 
@@ -1135,24 +1135,24 @@ RegisterTest("Unbind: a set is not scattered without asking", {
         -- that is the whole of what the box buys, and a call that acts and then asks would pass
         -- every check written about the popup itself.
         if first.key ~= KEY or second.key ~= KEY then
-            return Fail(NAME, "묻기도 전에 키가 풀렸다")
+            return Fail(NAME, "the key was released before anything was asked")
         end
         local dialog = StaticPopup_FindVisible("DEBIND_UNBIND_SCATTERS")
         if not dialog then
-            return Fail(NAME, "확인창이 안 떴다")
+            return Fail(NAME, "the confirmation did not come up")
         end
 
         local button = dialog.GetButton and dialog:GetButton(1)
         if not button then
-            return Fail(NAME, "1번 버튼을 못 얻었다 - 클라이언트의 대화상자 모양이 바뀌었나")
+            return Fail(NAME, "could not get button 1, has the client's dialog shape changed")
         end
         button:Click()
 
         if first.key ~= nil or second.key ~= nil then
-            return Fail(NAME, format("확인했는데 키가 남았다: %s %s",
+            return Fail(NAME, format("confirmed and the key is still there: %s %s",
                 tostring(first.key), tostring(second.key)))
         end
-        return Pass(NAME, "묻고 나서 흩어졌다")
+        return Pass(NAME, "asked first, then scattered")
     end,
 })
 
@@ -1172,12 +1172,12 @@ RegisterTest("Unbind: one action is not asked about", {
         DebindUI.UnbindActions({ only })
 
         if StaticPopup_FindVisible("DEBIND_UNBIND_SCATTERS") then
-            return Fail(NAME, "하나뿐인데 확인창이 떴다")
+            return Fail(NAME, "only one of them and a confirmation came up")
         end
         if only.key ~= nil then
-            return Fail(NAME, format("키가 안 풀렸다: %s", tostring(only.key)))
+            return Fail(NAME, format("the key was not released: %s", tostring(only.key)))
         end
-        return Pass(NAME, "안 묻고 바로 풀렸다")
+        return Pass(NAME, "released outright, nothing asked")
     end,
 })
 
@@ -1223,20 +1223,20 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
         local function Answer(index, label)
             DebindFrame:ApproveAllImported()
             if arrived.arrivalID == nil then
-                return format("[%s] 묻기도 전에 배지가 떨어졌다", label)
+                return format("[%s] the badge came off before anything was asked", label)
             end
             local dialog = StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED")
             if not dialog then
-                return format("[%s] 확인창이 안 떴다", label)
+                return format("[%s] the confirmation did not come up", label)
             end
             local button = dialog.GetButton and dialog:GetButton(index)
             if not button then
-                return format("[%s] %d번 버튼을 못 얻었다 - 대화상자 모양이 바뀌었나", label, index)
+                return format("[%s] could not get button %d, has the dialog shape changed", label, index)
             end
             button:Click()
             ApplyBindings()
             if free.key ~= FREE or free.arrivalID ~= nil then
-                return format("[%s] 안 겹치는 키로 온 것이 휩쓸렸다: %s", label, tostring(free.key))
+                return format("[%s] the one on a key that does not clash was swept up: %s", label, tostring(free.key))
             end
             return nil
         end
@@ -1245,20 +1245,20 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
         -- gone there is no telling what the three below measure.
         Setup(1)
         if KeyMapOrder(KEY) ~= "1" then
-            return Fail(NAME, format("배지 달린 것이 이미 섰다: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("the badged one is already standing: %s", KeyMapOrder(KEY)))
         end
 
         -- 1. [Keep Existing]. My key stays as it is and the arrival that clashed sits down with none.
         local err = Answer(1, "Keep Existing")
         if err then return Fail(NAME, err) end
         if mine.key ~= KEY then
-            return Fail(NAME, format("[Keep Existing]인데 내 키가 풀렸다: %s", tostring(mine.key)))
+            return Fail(NAME, format("[Keep Existing] and my key was released: %s", tostring(mine.key)))
         end
         if arrived.key ~= nil or arrived.arrivalID ~= nil or arrived.seq ~= nil then
-            return Fail(NAME, format("겹친 도착분이 키 없이 안 앉았다: %s", tostring(arrived.key)))
+            return Fail(NAME, format("the arrival that clashed did not sit down without a key: %s", tostring(arrived.key)))
         end
         if KeyMapOrder(KEY) ~= "1" then
-            return Fail(NAME, format("내 키가 달라졌다: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("my key changed: %s", KeyMapOrder(KEY)))
         end
 
         -- 2. [Take Incoming]. The occupant loses the key and is not deleted.
@@ -1266,10 +1266,10 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
         err = Answer(2, "Take Incoming")
         if err then return Fail(NAME, err) end
         if mine.key ~= nil then
-            return Fail(NAME, format("[Take Incoming]인데 내 키가 남았다: %s", tostring(mine.key)))
+            return Fail(NAME, format("[Take Incoming] and my key is still there: %s", tostring(mine.key)))
         end
         if arrived.key ~= KEY or arrived.arrivalID ~= nil then
-            return Fail(NAME, "도착분이 키를 못 받았거나 배지가 남았다")
+            return Fail(NAME, "the arrival did not take the key, or the badge is still on")
         end
 
         -- 3. [Merge]. Both stay on the key and the arrival stands behind.
@@ -1277,12 +1277,12 @@ RegisterTest("Accept all: an occupied key is asked about, and all three answers 
         err = Answer(3, "Merge")
         if err then return Fail(NAME, err) end
         if mine.key ~= KEY then
-            return Fail(NAME, format("[Merge]인데 내 키가 풀렸다: %s", tostring(mine.key)))
+            return Fail(NAME, format("[Merge] and my key was released: %s", tostring(mine.key)))
         end
         if KeyMapOrder(KEY) ~= "1 2" then
-            return Fail(NAME, format("병합 차례가 아니다: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("not the merge order: %s", KeyMapOrder(KEY)))
         end
-        return Pass(NAME, "묻고, 셋이 각각 돌고, 안 겹치는 키는 셋 다에서 그대로였다")
+        return Pass(NAME, "asked, all three answers ran, and the key that does not clash was untouched in all three")
     end,
 
 
@@ -1311,16 +1311,16 @@ RegisterTest("Accept all: a free key is not asked about", {
         DebindFrame:ApproveAllImported()
 
         if StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED") then
-            return Fail(NAME, "빈 키인데 확인창이 떴다")
+            return Fail(NAME, "a free key and a confirmation came up")
         end
         if arrived.arrivalID ~= nil then
-            return Fail(NAME, "배지가 안 떨어졌다")
+            return Fail(NAME, "the badge did not come off")
         end
         ApplyBindings()
         if KeyMapOrder(KEY) ~= "1" then
-            return Fail(NAME, format("승인했는데 안 섰다: %s", KeyMapOrder(KEY)))
+            return Fail(NAME, format("accepted and it is not standing: %s", KeyMapOrder(KEY)))
         end
-        return Pass(NAME, "안 묻고 바로 섰다")
+        return Pass(NAME, "stood outright, nothing asked")
     end,
 })
 
@@ -1358,7 +1358,7 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
             end
         end
         if not elementData then
-            return Fail(NAME, format("%s의 머리글이 왼쪽 열에 없다 - 검색어나 필터가 걸려 있나", KEY))
+            return Fail(NAME, format("no heading for %s in the left column, is a search term or filter on", KEY))
         end
 
         local header = CreateFrame("Button", nil, UIParent, "DebindKeyHeaderTemplate")
@@ -1382,7 +1382,7 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
 
         local menu = Menu.GetManager():GetOpenMenu()
         if not menu then
-            return Fail(NAME, "우클릭에 메뉴가 안 떴다")
+            return Fail(NAME, "the right-click brought up no menu")
         end
 
         -- **Found by its wording.** For a while it was found as "the only thing selectable", which
@@ -1398,13 +1398,13 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
             end
         end)
         if not item then
-            return Fail(NAME, format("[%s] 항목이 없다", LLL["KEY_HEADER_SET_KEY"]))
+            return Fail(NAME, format("no [%s] entry", LLL["KEY_HEADER_SET_KEY"]))
         end
 
         item:Pick(MenuInputContext.MouseButton, "LeftButton")
 
         if not DebindKeyCaptureFrame:IsShown() then
-            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+            return Fail(NAME, "pressed the entry and no capture window came up")
         end
 
         -- Is what the window aims at the whole group? Carrying only one, the key that gets pressed
@@ -1415,10 +1415,10 @@ RegisterTest("Key group: the heading's right-click arms the whole group", {
             seen[action] = true
         end
         if #armed ~= 2 or not seen[first] or not seen[second] then
-            return Fail(NAME, format("겨눈 것이 그룹이 아니다 - %d개", #armed))
+            return Fail(NAME, format("what it aims at is not the group: %d", #armed))
         end
 
-        return Pass(NAME, format("우클릭 -> 메뉴 -> 캡처 창에 %d개", #armed))
+        return Pass(NAME, format("right-click -> menu -> %d in the capture window", #armed))
     end,
 })
 
@@ -1450,7 +1450,7 @@ RegisterTest("Assign a key: a row's item takes that row alone", {
         MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupOrderDropdownMenu, first)
         local menu = Menu.GetManager():GetOpenMenu()
         if not menu then
-            return Fail(NAME, "메뉴가 안 떴다")
+            return Fail(NAME, "the menu did not come up")
         end
 
         -- Found by its wording here. This menu has several selectable entries (the two ordering
@@ -1462,21 +1462,21 @@ RegisterTest("Assign a key: a row's item takes that row alone", {
             end
         end)
         if not item then
-            return Fail(NAME, format("[%s] 항목이 없다", LLL["ACTION_SET_KEY"]))
+            return Fail(NAME, format("no [%s] entry", LLL["ACTION_SET_KEY"]))
         end
 
         item:Pick(MenuInputContext.MouseButton, "LeftButton")
 
         if not DebindKeyCaptureFrame:IsShown() then
-            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+            return Fail(NAME, "pressed the entry and no capture window came up")
         end
 
         local armed = DebindKeyCaptureFrame.actions or {}
         if #armed ~= 1 or armed[1] ~= first then
-            return Fail(NAME, format("겨눈 것이 이 행 하나가 아니다 - %d개", #armed))
+            return Fail(NAME, format("what it aims at is not this row alone: %d", #armed))
         end
 
-        return Pass(NAME, "행 하나만 실렸다")
+        return Pass(NAME, "one row alone was carried")
     end,
 })
 
@@ -1511,7 +1511,7 @@ RegisterTest("Assign a key: a badged row is offered one too", {
         MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupOrderDropdownMenu, action)
         local menu = Menu.GetManager():GetOpenMenu()
         if not menu then
-            return Fail(NAME, "메뉴가 안 떴다")
+            return Fail(NAME, "the menu did not come up")
         end
 
         -- **The badged row's own label**, which is the plain one with the other half spelled out:
@@ -1526,21 +1526,21 @@ RegisterTest("Assign a key: a badged row is offered one too", {
             end
         end)
         if not item then
-            return Fail(NAME, format("[%s] 항목이 없다", wanted))
+            return Fail(NAME, format("no [%s] entry", wanted))
         end
 
         item:Pick(MenuInputContext.MouseButton, "LeftButton")
 
         if not DebindKeyCaptureFrame:IsShown() then
-            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+            return Fail(NAME, "pressed the entry and no capture window came up")
         end
 
         local armed = DebindKeyCaptureFrame.actions or {}
         if #armed ~= 1 or armed[1] ~= action then
-            return Fail(NAME, format("겨눈 것이 이 행 하나가 아니다 - %d개", #armed))
+            return Fail(NAME, format("what it aims at is not this row alone: %d", #armed))
         end
 
-        return Pass(NAME, "배지가 붙은 행에도 항목이 서고, 그 행 하나만 실렸다")
+        return Pass(NAME, "the entry stands on a badged row too, and carried that row alone")
     end,
 })
 
@@ -1572,24 +1572,24 @@ RegisterTest("Assign a key: unbinding from that window accepts too", {
 
         DebindUI.BeginKeyCapture({ action })
         if not DebindKeyCaptureFrame:IsShown() then
-            return Fail(NAME, "캡처 창이 안 떴다")
+            return Fail(NAME, "the capture window did not come up")
         end
         if not DebindKeyCaptureFrame.UnbindButton:IsEnabled() then
-            return Fail(NAME, "실키를 들고 왔는데 [단축키 해제]가 꺼져 있다")
+            return Fail(NAME, "it came carrying a real key and [Unbind] is dark")
         end
 
         -- Exactly what that button does: it hands the answer over as nil.
         DebindKeyCaptureFrame:Commit(nil)
 
         if action.key ~= nil then
-            return Fail(NAME, format("키가 안 떨어졌다: %s", tostring(action.key)))
+            return Fail(NAME, format("the key did not come off: %s", tostring(action.key)))
         end
         if action.arrivalID ~= nil then
-            return Fail(NAME, format("승인이 안 됐다 - 배지가 %s로 남았다",
+            return Fail(NAME, format("it was not accepted, the badge is still %s",
                 tostring(action.arrivalID)))
         end
 
-        return Pass(NAME, "키가 떨어지고 배지도 같이 떨어졌다")
+        return Pass(NAME, "the key came off and the badge came off with it")
     end,
 })
 
@@ -1634,23 +1634,23 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
 
         local menu = OpenBulkMenu({ first, second })
         if not menu then
-            return Fail(NAME, "메뉴가 안 떴다")
+            return Fail(NAME, "the menu did not come up")
         end
 
         local unbind = FindItem(menu, LLL["UNBIND"])
         if not unbind or not unbind:IsEnabled() then
-            return Fail(NAME, "진짜 키를 든 선택인데 [단축키 해제]가 꺼져 있다")
+            return Fail(NAME, "a selection holding a real key and [Unbind] is dark")
         end
 
         local item = FindItem(menu, LLL["ACTION_SET_KEY"])
         if not item then
-            return Fail(NAME, format("[%s] 항목이 없다", LLL["ACTION_SET_KEY"]))
+            return Fail(NAME, format("no [%s] entry", LLL["ACTION_SET_KEY"]))
         end
 
         item:Pick(MenuInputContext.MouseButton, "LeftButton")
 
         if not DebindKeyCaptureFrame:IsShown() then
-            return Fail(NAME, "항목을 눌렀는데 캡처 창이 안 떴다")
+            return Fail(NAME, "pressed the entry and no capture window came up")
         end
 
         local armed = DebindKeyCaptureFrame.actions or {}
@@ -1659,7 +1659,7 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
             seen[action] = true
         end
         if #armed ~= 2 or not seen[first] or not seen[second] then
-            return Fail(NAME, format("고른 것 전부가 안 실렸다 - %d개", #armed))
+            return Fail(NAME, format("not everything picked was carried: %d", #armed))
         end
         DebindKeyCaptureFrame:Hide()
 
@@ -1673,17 +1673,17 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
 
         menu = OpenBulkMenu({ keyless })
         if not menu then
-            return Fail(NAME, "두 번째 메뉴가 안 떴다")
+            return Fail(NAME, "the second menu did not come up")
         end
         unbind = FindItem(menu, LLL["UNBIND"])
         if not unbind then
-            return Fail(NAME, format("[%s] 항목이 없다", LLL["UNBIND"]))
+            return Fail(NAME, format("no [%s] entry", LLL["UNBIND"]))
         end
         if unbind:IsEnabled() then
-            return Fail(NAME, "키가 없는 것뿐인데 [단축키 해제]가 켜져 있다")
+            return Fail(NAME, "nothing picked has a key and [Unbind] is lit")
         end
 
-        return Pass(NAME, "고른 둘이 창에 실렸고, 키 없는 것만 골랐을 때 해제가 꺼졌다")
+        return Pass(NAME, "both picked were carried into the window, and [Unbind] went dark where nothing picked had a key")
     end,
 })
 
@@ -1713,46 +1713,46 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
 
         local toggle = DebindFrame.OverviewPanel.BindModePortrait
         if not toggle then
-            return Fail(NAME, "BindModePortrait이 없다 - XML의 parentKey가 바뀌었나")
+            return Fail(NAME, "no BindModePortrait, has the parentKey in the XML changed")
         end
         if DebindFrame:IsCapturingKey() then
-            return Fail(NAME, "시작부터 모드가 켜져 있다")
+            return Fail(NAME, "the mode was on from the start")
         end
 
         toggle:Click()
 
         if not DebindFrame:IsCapturingKey() then
-            return Fail(NAME, "눌렀는데 모드가 안 켜졌다")
+            return Fail(NAME, "pressed it and the mode did not come on")
         end
         if not toggle:IsKeyboardEnabled() then
-            return Fail(NAME, "모드는 켜졌는데 이 버튼이 키보드를 안 듣는다")
+            return Fail(NAME, "the mode is on and this button is not listening to the keyboard")
         end
         -- The lit state is the border (`SetSelectedState`): the colour comes back and the dark plate
         -- over it goes down.
         if toggle.Frame:IsDesaturated() or toggle.UnselectedFrame:IsShown() then
-            return Fail(NAME, "켜졌는데 테두리가 꺼진 모양 그대로다")
+            return Fail(NAME, "it is on and the border is still in its dark shape")
         end
         if toggle.TooltipTitle ~= LLL["BIND_MODE_STOP"] then
-            return Fail(NAME, format("툴팁 제목이 안 바뀌었다: %s", tostring(toggle.TooltipTitle)))
+            return Fail(NAME, format("the tooltip title did not change: %s", tostring(toggle.TooltipTitle)))
         end
 
         toggle:Click()
 
         if DebindFrame:IsCapturingKey() then
-            return Fail(NAME, "다시 눌렀는데 모드가 안 꺼졌다")
+            return Fail(NAME, "pressed again and the mode did not go off")
         end
         if toggle:IsKeyboardEnabled() then
-            return Fail(NAME, "모드가 꺼졌는데 키보드를 계속 듣는다")
+            return Fail(NAME, "the mode is off and it is still listening to the keyboard")
         end
         if not toggle.Frame:IsDesaturated() or not toggle.UnselectedFrame:IsShown() then
-            return Fail(NAME, "꺼졌는데 켜진 표시가 남아 있다")
+            return Fail(NAME, "it is off and the lit state is still on it")
         end
         if toggle.TooltipTitle ~= LLL["BIND_MODE"] or toggle.TooltipText ~= LLL["BIND_MODE_DESC"] then
-            return Fail(NAME, format("툴팁이 안 돌아왔다: %s / %s",
+            return Fail(NAME, format("the tooltip did not come back: %s / %s",
                 tostring(toggle.TooltipTitle), tostring(toggle.TooltipText)))
         end
 
-        return Pass(NAME, "토글 한 번에 모드·키보드·테두리·툴팁이 함께 움직였다")
+        return Pass(NAME, "one toggle moved the mode, the keyboard, the border and the tooltip together")
     end,
 })
 
@@ -1849,43 +1849,43 @@ RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
 
         local provider = DebindFrame:RefreshIconDataProvider()
         if not provider then
-            return Fail(NAME, "제공자가 없다")
+            return Fail(NAME, "no provider")
         end
 
         -- Both the side that builds the list and the side that releases it have to be ours.
         if provider.GetNumIcons == IconDataProviderMixin.GetNumIcons then
-            return Fail(NAME, "GetNumIcons가 블리자드 것이다 - 공용 BaseIconFilenames를 읽는다")
+            return Fail(NAME, "GetNumIcons is Blizzard's, it reads the shared BaseIconFilenames")
         end
         if provider.Release == IconDataProviderMixin.Release then
-            return Fail(NAME, "Release가 블리자드 것이다 - 공용 BaseIconFilenames를 지운다")
+            return Fail(NAME, "Release is Blizzard's, it releases the shared BaseIconFilenames")
         end
 
         -- And the list still has to stand: one question mark, the spell book, and the base list.
         local numIcons = provider:GetNumIcons()
         if numIcons < 2 then
-            return Fail(NAME, format("아이콘이 %d개뿐이다 - 목록이 안 채워졌다", numIcons))
+            return Fail(NAME, format("only %d icons, the list was never filled", numIcons))
         end
 
         local questionMark = provider:GetIconByIndex(1)
         if questionMark ~= [[INTERFACE\ICONS\INV_MISC_QUESTIONMARK]] then
-            return Fail(NAME, format("1번 칸이 물음표가 아니다: %s", tostring(questionMark)))
+            return Fail(NAME, format("slot 1 is not the question mark: %s", tostring(questionMark)))
         end
 
         -- A real icon has to come back for every slot including the last. Set the boundary wrong and
         -- this is where nil appears.
         local last = provider:GetIconByIndex(numIcons)
         if last == nil then
-            return Fail(NAME, format("마지막 칸(%d)이 비었다 - 종류별 목록 경계가 어긋났다", numIcons))
+            return Fail(NAME, format("the last slot (%d) is empty, the per-type list boundary is out of step", numIcons))
         end
 
         -- Getting it back. The same icon can appear more than once, so this compares icons rather
         -- than indices.
         local found = provider:GetIndexOfIcon(last)
         if not found or provider:GetIconByIndex(found) ~= last then
-            return Fail(NAME, format("GetIndexOfIcon이 %s를 못 찾는다", tostring(last)))
+            return Fail(NAME, format("GetIndexOfIcon cannot find %s", tostring(last)))
         end
 
-        return Pass(NAME, format("우리 제공자, 아이콘 %d개", numIcons))
+        return Pass(NAME, format("our provider, %d icons", numIcons))
     end,
 })
 
@@ -1896,17 +1896,17 @@ RegisterTest("Macro editor: the body reaches the profile when the window closes"
 
         local action, box = OpenMacroEditor("/say one")
         if not DebindMacroFrame:IsShown() then
-            return Fail(NAME, "열리지 않았다")
+            return Fail(NAME, "it did not open")
         end
         if box:GetText() ~= "/say one" then
-            return Fail(NAME, format("본문이 안 올라왔다: %q", box:GetText()))
+            return Fail(NAME, format("the body did not come up: %q", box:GetText()))
         end
 
         if not TypeInto(box, "/say two") then
-            return Fail(NAME, "편집칸에 OnTextChanged가 안 걸려 있다")
+            return Fail(NAME, "the edit box has no OnTextChanged on it")
         end
         if action.value ~= "/say one" then
-            return Fail(NAME, "치는 동안 이미 저장됐다 - 창이 열려 있는데 프로필이 움직였다")
+            return Fail(NAME, "it saved while typing, the profile moved with the window still open")
         end
 
         -- A trip out to the name/icon editor and back. The default macro window saves at this point
@@ -1914,30 +1914,30 @@ RegisterTest("Macro editor: the body reaches the profile when the window closes"
         -- never touched the body.
         DebindMacroFrame:EditNameIcon_OnClick()
         if not DebindIconSelectorFrame:IsShown() then
-            return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
+            return Fail(NAME, "the name/icon popup did not open")
         end
         if action.value ~= "/say one" then
-            return Fail(NAME, format("팝업을 여는 것이 저장했다: %q", action.value))
+            return Fail(NAME, format("opening the popup saved: %q", action.value))
         end
 
         DebindIconSelectorFrame:Close(true)
         if not DebindMacroFrame:IsShown() then
-            return Fail(NAME, "팝업이 닫히면서 편집 창까지 데려갔다")
+            return Fail(NAME, "the popup closing took the editor with it")
         end
         if box:GetText() ~= "/say two" then
-            return Fail(NAME, format("돌아왔더니 본문이 달라졌다: %q", box:GetText()))
+            return Fail(NAME, format("the body changed while we were away: %q", box:GetText()))
         end
 
         -- [Close]. This button does nothing but close the window, and the closing is what saves.
         DebindMacroFrame.Editor.CloseButton:Click()
         if DebindMacroFrame:IsShown() then
-            return Fail(NAME, "[닫기]를 눌렀는데 안 닫혔다")
+            return Fail(NAME, "pressed [Close] and it did not close")
         end
         if action.value ~= "/say two" then
-            return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
+            return Fail(NAME, format("it closed and nothing was saved: %q", action.value))
         end
 
-        return Pass(NAME, "팝업 나들이는 안 썼고, 닫힘이 썼다")
+        return Pass(NAME, "the trip to the popup wrote nothing, the closing wrote")
     end,
 })
 
@@ -1950,36 +1950,36 @@ RegisterTest("Macro editor: [Cancel] lights up only when there is something to p
         local button = DebindMacroFrame.Editor.RevertButton
 
         if button:IsEnabled() then
-            return Fail(NAME, "연 직후인데 되돌릴 것이 있다고 한다")
+            return Fail(NAME, "just opened and it says there is something to put back")
         end
         if button:GetText() ~= CANCEL then
-            return Fail(NAME, format("라벨이 [취소]가 아니다: %q", tostring(button:GetText())))
+            return Fail(NAME, format("the label is not [Cancel]: %q", tostring(button:GetText())))
         end
 
         if not TypeInto(box, "/say two") then
-            return Fail(NAME, "편집칸에 OnTextChanged가 안 걸려 있다")
+            return Fail(NAME, "the edit box has no OnTextChanged on it")
         end
         if not button:IsEnabled() then
-            return Fail(NAME, "본문을 고쳤는데 버튼이 꺼져 있다")
+            return Fail(NAME, "the body was edited and the button is dark")
         end
 
         button:Click()
 
         if box:GetText() ~= "/say one" then
-            return Fail(NAME, format("편집칸이 안 돌아왔다: %q", box:GetText()))
+            return Fail(NAME, format("the edit box did not come back: %q", box:GetText()))
         end
         if action.value ~= "/say one" then
-            return Fail(NAME, format("프로필이 움직였다: %q", action.value))
+            return Fail(NAME, format("the profile moved: %q", action.value))
         end
         if button:IsEnabled() then
-            return Fail(NAME, "되돌린 뒤에도 버튼이 켜져 있다")
+            return Fail(NAME, "the button is still lit after putting it back")
         end
         -- **It does not close.** The reverted body has to be there to be edited again.
         if not DebindMacroFrame:IsShown() then
-            return Fail(NAME, "[취소]가 창까지 닫았다")
+            return Fail(NAME, "[Cancel] closed the window too")
         end
 
-        return Pass(NAME, "꺼짐 -> 켜짐 -> 되돌리고 다시 꺼짐")
+        return Pass(NAME, "dark -> lit -> put back and dark again")
     end,
 })
 
@@ -1993,29 +1993,29 @@ RegisterTest("Macro editor: [Revert] gives the conversion its action back", {
         local button = DebindMacroFrame.Editor.RevertButton
 
         if button:GetText() ~= REVERT then
-            return Fail(NAME, format("라벨이 REVERT가 아니다: %q", tostring(button:GetText())))
+            return Fail(NAME, format("the label is not REVERT: %q", tostring(button:GetText())))
         end
         -- What there is to revert is a conversion that already happened, so it has to be lit even
         -- with nothing typed.
         if not button:IsEnabled() then
-            return Fail(NAME, "변환으로 열렸는데 버튼이 꺼져 있다")
+            return Fail(NAME, "opened by a conversion and the button is dark")
         end
         if not DebindMacroFrame.macroCancelFunc then
-            return Fail(NAME, "cancelFunc이 안 걸렸다 - Refresh가 지우고 아무도 다시 안 걸었나")
+            return Fail(NAME, "no cancelFunc on it, did Refresh clear it with nobody putting it back")
         end
 
         TypeInto(box, "/cast Frostbolt")
         button:Click()
 
         if not reverted then
-            return Fail(NAME, "눌렀는데 되돌리는 함수가 안 돌았다")
+            return Fail(NAME, "pressed it and the function that puts it back never ran")
         end
         -- The body just thrown away must not be saved back over the reverted action.
         if action.value ~= "/cast Fireball" then
-            return Fail(NAME, format("버린 본문이 저장됐다: %q", action.value))
+            return Fail(NAME, format("the body that was thrown away got saved: %q", action.value))
         end
 
-        return Pass(NAME, "REVERT가 걸리고, 눌러서 되돌렸고, 본문은 안 새어나갔다")
+        return Pass(NAME, "REVERT stood, pressing it put things back, and the body did not leak")
     end,
 })
 
@@ -2028,36 +2028,36 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
 
         DebindMacroFrame:EditNameIcon_OnClick()
         if not DebindIconSelectorFrame:IsShown() then
-            return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
+            return Fail(NAME, "the name/icon popup did not open")
         end
 
         DebindFrame:HandleEscape()
         if DebindIconSelectorFrame:IsShown() then
-            return Fail(NAME, "첫 ESC가 팝업을 안 닫았다")
+            return Fail(NAME, "the first ESC did not close the popup")
         end
         if not DebindMacroFrame:IsShown() then
-            return Fail(NAME, "첫 ESC가 편집 창까지 데려갔다")
+            return Fail(NAME, "the first ESC took the editor with it")
         end
 
         TypeInto(box, "/say two")
         DebindFrame:HandleEscape()
         if DebindMacroFrame:IsShown() then
-            return Fail(NAME, "둘째 ESC가 편집 창을 안 닫았다")
+            return Fail(NAME, "the second ESC did not close the editor")
         end
         if not DebindFrame:IsShown() then
-            return Fail(NAME, "둘째 ESC가 메인 창까지 닫았다 - 사다리에 이 칸이 없나")
+            return Fail(NAME, "the second ESC closed the main window too, is this rung missing from the ladder")
         end
         -- Closing is what saves. Leaving by ESC still leaves the body behind.
         if action.value ~= "/say two" then
-            return Fail(NAME, format("ESC로 닫혔는데 본문이 안 남았다: %q", action.value))
+            return Fail(NAME, format("closed by ESC and the body was not kept: %q", action.value))
         end
 
         DebindFrame:HandleEscape()
         if DebindFrame:IsShown() then
-            return Fail(NAME, "셋째 ESC가 메인 창을 안 닫았다")
+            return Fail(NAME, "the third ESC did not close the main window")
         end
 
-        return Pass(NAME, "팝업 -> 편집 창 -> 메인 창, 본문은 남았다")
+        return Pass(NAME, "popup -> editor -> main window, and the body was kept")
     end,
 })
 
@@ -2069,7 +2069,7 @@ RegisterTest("Macro editor: the name/icon popup stays over the editor", {
         OpenMacroEditor("/say one")
         DebindMacroFrame:EditNameIcon_OnClick()
         if not DebindIconSelectorFrame:IsShown() then
-            return Fail(NAME, "이름·아이콘 팝업이 안 열렸다")
+            return Fail(NAME, "the name/icon popup did not open")
         end
 
         local function Where()
@@ -2079,7 +2079,7 @@ RegisterTest("Macro editor: the name/icon popup stays over the editor", {
         end
 
         if not DrawsAbove(DebindIconSelectorFrame, DebindMacroFrame) then
-            return Fail(NAME, format("열자마자 아래다: %s", Where()))
+            return Fail(NAME, format("it is underneath as soon as it opens: %s", Where()))
         end
 
         -- What happens when the editor is clicked. With the two on one layer, this single line is
@@ -2087,7 +2087,7 @@ RegisterTest("Macro editor: the name/icon popup stays over the editor", {
         DebindMacroFrame:Raise()
 
         if not DrawsAbove(DebindIconSelectorFrame, DebindMacroFrame) then
-            return Fail(NAME, format("편집 창을 올렸더니 팝업이 뒤로 갔다: %s", Where()))
+            return Fail(NAME, format("raising the editor put the popup behind: %s", Where()))
         end
 
         return Pass(NAME, Where())
@@ -2109,27 +2109,27 @@ RegisterTest("Macro editor: a row filtered out of the bin takes its editor with 
 
         -- Text that cannot collide with this action's name. The search filters on the name.
         if not TypeInto(searchBox, "qqzzxx") then
-            return Fail(NAME, "검색 상자에 OnTextChanged가 안 걸려 있다")
+            return Fail(NAME, "the search box has no OnTextChanged on it")
         end
 
         if DebindMacroFrame:IsShown() then
-            return Fail(NAME, "행이 걸러졌는데 편집 창이 남아 있다")
+            return Fail(NAME, "the row was filtered out and the editor is still there")
         end
         if not DebindFrame:IsShown() then
-            return Fail(NAME, "메인 창까지 닫혔다")
+            return Fail(NAME, "the main window closed too")
         end
         if action.value ~= "/say two" then
-            return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
+            return Fail(NAME, format("it closed and nothing was saved: %q", action.value))
         end
 
         -- Clearing the search brings the row back. It does not bring the editor back: opening that
         -- is the user's move.
         TypeInto(searchBox, "")
         if DebindMacroFrame:IsShown() then
-            return Fail(NAME, "검색어를 지웠더니 편집 창이 혼자 다시 열렸다")
+            return Fail(NAME, "clearing the search opened the editor again on its own")
         end
 
-        return Pass(NAME, "걸러지면서 닫혔고, 본문은 저장됐고, 혼자 안 돌아왔다")
+        return Pass(NAME, "closed as it was filtered out, the body was saved, and it did not come back on its own")
     end,
 })
 
@@ -2147,16 +2147,16 @@ RegisterTest("Macro editor: opening the spell picker closes it", {
         DebindSpellPickerFrame:Show()
 
         if DebindIconSelectorFrame:IsShown() then
-            return Fail(NAME, "이름·아이콘 팝업이 남아 있다")
+            return Fail(NAME, "the name/icon popup is still there")
         end
         if DebindMacroFrame:IsShown() then
-            return Fail(NAME, "편집 창이 남아 있다 - 주문 선택 창이 그 아래에 깔린다")
+            return Fail(NAME, "the editor is still there, the spell picker sits on top of it")
         end
         if action.value ~= "/say two" then
-            return Fail(NAME, format("닫혔는데 저장이 안 됐다: %q", action.value))
+            return Fail(NAME, format("it closed and nothing was saved: %q", action.value))
         end
 
-        return Pass(NAME, "둘 다 닫혔고 본문은 남았다")
+        return Pass(NAME, "both closed and the body was kept")
     end,
 })
 
@@ -2177,23 +2177,23 @@ RegisterTest("Macro editor: opening the spell picker closes it", {
 local function DecodeExportedString(str)
     local body = type(str) == "string" and str:match("^DEB1:(.+)$")
     if not body then
-        return nil, format("봉투가 아니다: %s", tostring(str and str:sub(1, 12)))
+        return nil, format("not an envelope: %s", tostring(str and str:sub(1, 12)))
     end
 
     local LibSerialize, LibDeflate = LibStub("LibSerialize", true), LibStub("LibDeflate", true)
     if not LibSerialize or not LibDeflate then
-        return nil, "라이브러리가 없다"
+        return nil, "no library"
     end
 
     local compressed = LibDeflate:DecodeForPrint(body)
     local serialized = compressed and LibDeflate:DecompressDeflate(compressed)
     if not serialized then
-        return nil, "못 푼다"
+        return nil, "cannot decompress"
     end
 
     local ok, payload = LibSerialize:Deserialize(serialized)
     if not ok or type(payload) ~= "table" then
-        return nil, "역직렬화 실패"
+        return nil, "deserialisation failed"
     end
     return payload
 end
@@ -2254,7 +2254,7 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
         -- with no character flag and no spec under the class block -- an address every client has.
         local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
         if not panel or not panel.SelectEntry then
-            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
         end
 
         -- **The entry is real and it stays until teardown.** Making one is the only way into the
@@ -2283,12 +2283,12 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
             headerTotal = headerTotal + #layer.actions
         end
         if headerTotal ~= #listed then
-            return Fail(NAME, format("머리글 합 %d, 전체 목록 %d", headerTotal, #listed))
+            return Fail(NAME, format("headings total %d, whole list %d", headerTotal, #listed))
         end
 
         for _, action in ipairs(listed) do
             if action == badged then
-                return Fail(NAME, "격리 중인 액션이 목록에 있다")
+                return Fail(NAME, "an isolated action is in the list")
             end
         end
 
@@ -2298,16 +2298,16 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
         panel:OnCopyClicked()
         local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
         if not payload then
-            return Fail(NAME, format("문자열을 못 읽었다: %s", why))
+            return Fail(NAME, format("could not read the string: %s", why))
         end
 
         local sent = PayloadActions(payload)
         if #sent ~= #listed then
-            return Fail(NAME, format("창은 %d개라 해놓고 %d개를 보냈다", #listed, #sent))
+            return Fail(NAME, format("the window said %d and it sent %d", #listed, #sent))
         end
         for _, action in ipairs(sent) do
             if action.value == badged.value then
-                return Fail(NAME, "격리 중인 액션이 문자열에 실렸다")
+                return Fail(NAME, "an isolated action was carried into the string")
             end
         end
 
@@ -2323,18 +2323,18 @@ RegisterTest("Storage: the preview, the string and the add all count the same", 
         -- (`GetEntryPayload`).
         local stored = DebindPrivate.Store.GetEntryPayload(entry)
         if not stored then
-            return Fail(NAME, "엔트리 페이로드를 못 열었다")
+            return Fail(NAME, "could not open the entry payload")
         end
 
         local planned, skipped = DebindPrivate.Store.PlanArrival(stored, { selection = panel.selected })
         if #planned ~= #listed then
-            return Fail(NAME, format("창은 %d개라 해놓고 %d개를 놓는다", #listed, #planned))
+            return Fail(NAME, format("the window said %d and it places %d", #listed, #planned))
         end
         if skipped ~= 0 then
-            return Fail(NAME, format("갈 데 없는 것이 %d개 나왔다 - 이 판이 만든 주소다", skipped))
+            return Fail(NAME, format("%d came back with nowhere to go, those are addresses this board made", skipped))
         end
 
-        return Pass(NAME, format("%d개 = %d개 = %d개, 배지는 안 나감", #listed, #sent, #planned))
+        return Pass(NAME, format("%d = %d = %d, and the badge did not go out", #listed, #sent, #planned))
     end,
 })
 
@@ -2355,7 +2355,7 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
 
         local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
         if not panel or not panel.SelectEntry then
-            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
         end
 
         local verbs = {
@@ -2364,7 +2364,7 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
         }
         for _, verb in ipairs(verbs) do
             if not verb.button then
-                return Fail(NAME, format("%s 버튼이 없다 - XML의 parentKey를 볼 것", verb.name))
+                return Fail(NAME, format("no %s button, check the parentKey in the XML", verb.name))
             end
         end
 
@@ -2378,31 +2378,31 @@ RegisterTest("Storage: the verbs grey out when nothing is picked", {
         -- by "both were dark to begin with".
         panel:SelectEntry(entry)
         if #panel:EnumerateListedActions() == 0 then
-            return Fail(NAME, "전제가 깨졌다 - 방금 만든 엔트리에 액션이 하나도 없다")
+            return Fail(NAME, "the premise is gone: the entry just made holds no action at all")
         end
         if not panel.Preview.SelectAllCheck:IsShown() then
-            return Fail(NAME, "액션이 있는 엔트리를 골랐는데 [select all]이 없다")
+            return Fail(NAME, "picked an entry that has actions and there is no [select all]")
         end
         for _, verb in ipairs(verbs) do
             if not verb.button:IsEnabled() then
-                return Fail(NAME, format("전부 틱된 엔트리를 골랐는데 %s이 회색이다", verb.name))
+                return Fail(NAME, format("picked a fully ticked entry and %s is grey", verb.name))
             end
         end
 
         panel:SelectEntry(nil)
         if panel.Preview.SelectAllCheck:IsShown() then
-            return Fail(NAME, "아무것도 안 골랐는데 [select all]이 서 있다")
+            return Fail(NAME, "nothing is picked and [select all] is standing")
         end
         for _, verb in ipairs(verbs) do
             if not verb.button:IsShown() then
-                return Fail(NAME, format("%s이 없어졌다 - 회색이 되어야 한다", verb.name))
+                return Fail(NAME, format("%s disappeared, it should have gone grey", verb.name))
             end
             if verb.button:IsEnabled() then
-                return Fail(NAME, format("아무것도 안 골랐는데 %s을 누를 수 있다", verb.name))
+                return Fail(NAME, format("nothing is picked and %s can still be pressed", verb.name))
             end
         end
 
-        return Pass(NAME, "고르면 둘 다 켜지고, 놓으면 선 채로 회색이 된다")
+        return Pass(NAME, "both light up when something is picked, and go grey in place when nothing is")
     end,
 })
 
@@ -2431,7 +2431,7 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
 
         local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
         if not panel or not panel.SelectEntry then
-            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
         end
 
         local entry = DebindPrivate.Store.CreateEntry()
@@ -2443,14 +2443,14 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
         panel:SelectEntry(entry)
         local listed = panel:EnumerateListedActions()
         if #listed == 0 then
-            return Fail(NAME, "전제가 깨졌다 - 엔트리에 액션이 하나도 없다")
+            return Fail(NAME, "the premise is gone: the entry holds no action at all")
         end
 
         panel:OnAddClicked(true)
 
         local dialog = StaticPopup_FindVisible("DEBIND_APPROVE_ALL_OCCUPIED")
         if not dialog then
-            return Fail(NAME, "내가 쓰는 키로 들어왔는데 아무것도 안 물었다")
+            return Fail(NAME, "it came in on a key I use and nothing was asked")
         end
 
         -- **What the window is holding is what gets read.** `CollectArrivedActions` cannot see it:
@@ -2460,21 +2460,21 @@ RegisterTest("Storage: adding and accepting asks about a key I am using", {
         -- where it is.
         local pending = dialog.data and dialog.data.arrivals or {}
         if #pending == 0 then
-            return Fail(NAME, "확인창이 아무것도 안 들고 섰다")
+            return Fail(NAME, "the confirmation stood holding nothing")
         end
 
         -- **They are pending for as long as the question stands.** With the badge already off, the
         -- window would be asking about something that has already happened.
         for _, action in ipairs(pending) do
             if action.arrivalID == nil then
-                return Fail(NAME, "확인창이 떠 있는데 배지가 떨어진 것이 있다")
+                return Fail(NAME, "the confirmation is up and something has already lost its badge")
             end
             if action.key ~= KEY then
-                return Fail(NAME, format("도착분이 보낸 키를 잃었다: %s", tostring(action.key)))
+                return Fail(NAME, format("the arrival lost the key it was sent on: %s", tostring(action.key)))
             end
         end
 
-        return Pass(NAME, format("확인창이 섰고 %d개가 대기 중이다", #pending))
+        return Pass(NAME, format("the confirmation stood and %d are pending", #pending))
     end,
 })
 
@@ -2497,7 +2497,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
 
         local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
         if not panel or not panel.SelectEntry then
-            return Fail(NAME, "보관함 패널을 못 얻었다 - 탭 번호나 LoadAddOn을 볼 것")
+            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
         end
 
         -- **The window is stood up first.** The panel's `OnShow` registers on the window's callback
@@ -2519,7 +2519,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
         local listed = panel:EnumerateListedActions()
         local layer = (panel.previewLayers or {})[1]
         if #listed < 2 or not layer then
-            return Fail(NAME, format("전제가 깨졌다 - 액션 %d개, 레이어 %s",
+            return Fail(NAME, format("the premise is gone: %d action(s), layer %s",
                 #listed, tostring(layer and layer.key)))
         end
 
@@ -2529,7 +2529,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
         panel:ToggleAction(untickedAction)
         panel:ToggleLayerCollapsed(layer.key)
         if panel.selected[untickedAction] or panel:IsLayerCollapsed(layer.key) then
-            return Fail(NAME, "전제가 깨졌다 - 손댄 것이 그 자리에서 안 뒤집혔다")
+            return Fail(NAME, "the premise is gone: what was touched did not turn over on the spot")
         end
 
         -- Leaves the tab and comes back. These two are what run when the window swaps panels.
@@ -2537,13 +2537,13 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
         panel:OnShow()
 
         if panel:GetSelectedEntry() ~= entry then
-            return Fail(NAME, "돌아왔더니 고른 엔트리가 바뀌었다")
+            return Fail(NAME, "the picked entry changed while we were away")
         end
         if panel.selected[untickedAction] then
-            return Fail(NAME, "풀어둔 틱이 다시 켜져 있다")
+            return Fail(NAME, "a tick that was cleared is back on")
         end
         if panel:IsLayerCollapsed(layer.key) then
-            return Fail(NAME, "펴둔 레이어가 다시 접혔다")
+            return Fail(NAME, "a layer that was opened is collapsed again")
         end
 
         -- It also checks that the rest stayed as they were. On the two above alone, "everything went
@@ -2555,10 +2555,10 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
             end
         end
         if stillTicked ~= #listed - 1 then
-            return Fail(NAME, format("틱이 %d개 남아야 하는데 %d개다", #listed - 1, stillTicked))
+            return Fail(NAME, format("%d ticks should be left and there are %d", #listed - 1, stillTicked))
         end
 
-        return Pass(NAME, format("틱 %d개와 펼친 레이어가 탭을 건너서 남았다", stillTicked))
+        return Pass(NAME, format("%d ticks and the open layer survived the tab change", stillTicked))
     end,
 })
 
@@ -2597,23 +2597,23 @@ RegisterTest("Panels: every tab resolves to a panel of its own", {
         for _, id in ipairs({ OVERVIEW_PANEL_ID, SWITCHES_PANEL_ID, STORAGE_PANEL_ID }) do
             local panel = DebindFrame:ResolvePanel(id)
             if not panel then
-                return Fail(NAME, format("%d번 탭이 패널을 못 얻었다 - PANELS의 panelKey나 TOC를 볼 것", id))
+                return Fail(NAME, format("tab %d got no panel, check panelKey in PANELS or the TOC", id))
             end
             if panel == DebindFrame.MissingPanel then
-                return Fail(NAME, format("%d번 탭이 MissingPanel로 떨어졌다", id))
+                return Fail(NAME, format("tab %d fell through to MissingPanel", id))
             end
             -- The whole point of the move: they are the frame's children rather than something
             -- reparented on the first press.
             if panel:GetParent() ~= DebindFrame then
-                return Fail(NAME, format("%d번 패널의 부모가 창이 아니다", id))
+                return Fail(NAME, format("panel %d's parent is not the window", id))
             end
             if seen[panel] then
-                return Fail(NAME, format("%d번 탭이 %d번과 같은 패널을 준다", id, seen[panel]))
+                return Fail(NAME, format("tab %d gives the same panel as tab %d", id, seen[panel]))
             end
             seen[panel] = id
         end
 
-        return Pass(NAME, "탭 4개가 서로 다른 패널 4개로")
+        return Pass(NAME, "4 tabs onto 4 panels of their own")
     end,
 })
 
@@ -2633,15 +2633,15 @@ RegisterTest("Panels: the window takes each tab's own width", {
         local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
         local narrow = DebindFrame:ResolvePanel(SWITCHES_PANEL_ID)
         if not overview or not narrow then
-            return Fail(NAME, "패널을 못 얻었다")
+            return Fail(NAME, "could not get the panel")
         end
         if not overview.preferredWidth or not narrow.preferredWidth then
-            return Fail(NAME, format("폭을 안 들고 있다 (overview=%s, switches=%s)",
+            return Fail(NAME, format("it is not holding a width (overview=%s, switches=%s)",
                 tostring(overview.preferredWidth), tostring(narrow.preferredWidth)))
         end
         if overview.preferredWidth == narrow.preferredWidth then
             return Fail(NAME, format(
-                "두 패널이 같은 폭(%d)을 요구한다 - 창 폭을 되읽고 있을 수 있다",
+                "both panels ask for the same width (%d), they may be reading the window's width back",
                 overview.preferredWidth))
         end
 
@@ -2661,7 +2661,7 @@ RegisterTest("Panels: the window takes each tab's own width", {
         -- the panel at all, which an exact compare answers wrongly rather than more strictly.
         local function Off(got, want) return math.abs(got - want) > 1 end
         if Off(narrowWidth, narrow.preferredWidth) or Off(overviewWidth, overview.preferredWidth) then
-            return Fail(NAME, format("창이 안 따라간다 - switches %d(기대 %d), overview %d(기대 %d)",
+            return Fail(NAME, format("the window does not follow: switches %d (wanted %d), overview %d (wanted %d)",
                 narrowWidth, narrow.preferredWidth, overviewWidth, overview.preferredWidth))
         end
 
@@ -2686,12 +2686,12 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         local overview = DebindFrame:ResolvePanel(OVERVIEW_PANEL_ID)
         local narrow = DebindFrame:ResolvePanel(SWITCHES_PANEL_ID)
         if not overview or not narrow then
-            return Fail(NAME, "패널을 못 얻었다")
+            return Fail(NAME, "could not get the panel")
         end
         -- Two tabs of the same width would leave nothing to measure, and this would pass on any
         -- anchor at all. **Switches is the narrow one**; the storage tab asks for Overview's width.
         if overview.preferredWidth == narrow.preferredWidth then
-            return Fail(NAME, format("두 탭이 같은 폭(%s)을 요구한다", tostring(overview.preferredWidth)))
+            return Fail(NAME, format("both tabs ask for the same width (%s)", tostring(overview.preferredWidth)))
         end
 
         if not DebindFrame:IsShown() then
@@ -2717,7 +2717,7 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
 
         local dragStop = DebindFrame:GetScript("OnDragStop")
         if not dragStop then
-            return Fail(NAME, "OnDragStop이 없다 - 창이 끌리지 않는다")
+            return Fail(NAME, "no OnDragStop, the window cannot be dragged")
         end
         dragStop(DebindFrame)
 
@@ -2725,15 +2725,15 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
         DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
         local after = DebindFrame:GetLeft()
         if not before or not after then
-            return Fail(NAME, "창의 왼쪽 변을 못 읽었다")
+            return Fail(NAME, "could not read the window's left edge")
         end
         -- Within a pixel: `GetLeft` reads back what the frame ended up at, and the UI scale is in
         -- the middle of that (the tab width test above says the same thing).
         if math.abs(after - before) > 1 then
-            return Fail(NAME, format("왼쪽 변이 %.0f에서 %.0f로 움직였다", before, after))
+            return Fail(NAME, format("the left edge moved from %.0f to %.0f", before, after))
         end
 
-        return Pass(NAME, format("%.0f 그대로 (폭 %d -> %d)",
+        return Pass(NAME, format("%.0f unmoved (width %d -> %d)",
             before, overview.preferredWidth, narrow.preferredWidth))
     end,
 })
@@ -2750,7 +2750,7 @@ RegisterTest("Panels: no store means no panel, not an error", {
 
         local saved = DebindPrivate.Store
         if not saved then
-            return Fail(NAME, "시작부터 Store가 없다 - 이 테스트가 잴 것이 없다")
+            return Fail(NAME, "there is no Store to begin with, this test has nothing to measure")
         end
         AddTeardown(function() DebindPrivate.Store = saved end)
 
@@ -2760,14 +2760,14 @@ RegisterTest("Panels: no store means no panel, not an error", {
         DebindPrivate.Store = saved
 
         if storagePanel ~= nil then
-            return Fail(NAME, "Store가 없는데 보관함 패널을 내줬다 - 그 뒤에서 nil을 인덱싱한다")
+            return Fail(NAME, "no Store and it handed over the storage panel, which indexes nil behind that")
         end
         -- Overview reads none of it, so it must not be dragged down with them.
         if overviewPanel == nil then
-            return Fail(NAME, "Store와 무관한 오버뷰까지 막혔다")
+            return Fail(NAME, "the overview, which has nothing to do with Store, was blocked too")
         end
 
-        return Pass(NAME, "임포트는 막히고 오버뷰는 선다")
+        return Pass(NAME, "import is blocked and the overview stands")
     end,
 })
 
@@ -2801,11 +2801,11 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
         local cleanUp = DebindFrame.OverviewPanel.CleanUpPortrait
         DebindFrame:Update()
         if cleanUp:IsEnabled() then
-            return Fail(NAME, "중복이 하나도 없는데 청소 버튼이 켜져 있다")
+            return Fail(NAME, "there is no duplicate at all and the clean up button is lit")
         end
         -- Grey with no reason on the tooltip is a button that cannot say why.
         if cleanUp.disabledReason ~= LLL["REMOVE_DUPLICATES_NONE"] then
-            return Fail(NAME, "꺼진 버튼이 이유를 안 들고 있다")
+            return Fail(NAME, "the dark button is not holding a reason")
         end
 
         -- Two actions a signature cannot tell apart, in one layer. That is the whole of what the
@@ -2816,15 +2816,15 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
 
         DebindFrame:Update()
         if not cleanUp:IsEnabled() then
-            return Fail(NAME, "중복이 있는데 청소 버튼이 꺼져 있다")
+            return Fail(NAME, "there is a duplicate and the clean up button is dark")
         end
         if cleanUp.disabledReason ~= nil then
-            return Fail(NAME, "켜진 버튼이 꺼진 이유를 아직 들고 있다")
+            return Fail(NAME, "the lit button is still holding the reason it was dark")
         end
 
         local onClick = cleanUp:GetScript("OnClick")
         if not onClick then
-            return Fail(NAME, "청소 버튼에 OnClick이 안 걸려 있다")
+            return Fail(NAME, "the clean up button has no OnClick on it")
         end
         onClick(cleanUp)
 
@@ -2832,10 +2832,10 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
         -- promise: the button lighting up says the walk found something, and this says the press
         -- walked again and agreed.
         if not StaticPopup_IsCustomGenericConfirmationShown("DebindDeleteConfirmation") then
-            return Fail(NAME, "버튼은 켜져 있는데 눌러도 확인창이 안 떴다 - 두 쪽 검출이 갈렸다")
+            return Fail(NAME, "the button is lit and pressing it brought up no confirmation, the two detections have come apart")
         end
 
-        return Pass(NAME, "없으면 꺼지고 있으면 켜지며, 눌러서 확인창까지 간다")
+        return Pass(NAME, "dark where there is none, lit where there is, and pressing it reaches the confirmation")
     end,
 })
 
@@ -2906,16 +2906,16 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         local function SweepAndAccept()
             DebindFrame:Update()
             if not cleanUp:IsEnabled() then
-                return "중복을 세웠는데 청소 단추가 꺼져 있다"
+                return "a duplicate was stood up and the clean up button is dark"
             end
             cleanUp:Click()
             if not StaticPopup_IsCustomGenericConfirmationShown("DebindDeleteConfirmation") then
-                return "눌러도 확인창이 안 떴다"
+                return "pressing it brought up no confirmation"
             end
             local _, dialog = StaticPopup_Visible("GENERIC_CONFIRMATION")
             if not dialog or not dialog.data
                 or dialog.data.referenceKey ~= "DebindDeleteConfirmation" then
-                return "우리 것이 아닌 확인창이 앞에 서 있다"
+                return "a confirmation that is not ours is standing in front"
             end
             dialog:GetButton1():Click()
             ApplyBindings()
@@ -2938,7 +2938,7 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         -- **The premise: each group starts at 1 of its own.** Without that there is no telling what
         -- the number checks below measure.
         if GroupSeqs(nil) ~= "1 2 3" or GroupSeqs(7) ~= "1 2" then
-            return Fail(NAME, format("판이 안 섰다. 내 것 [%s], 도착분 [%s]",
+            return Fail(NAME, format("the board did not stand. mine [%s], arrival [%s]",
                 GroupSeqs(nil), GroupSeqs(7)))
         end
         local loser, winner = twinB, twinA
@@ -2950,24 +2950,24 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         if err then return Fail(NAME, err) end
 
         if Living(loser) then
-            return Fail(NAME, "seq가 큰 쪽이 안 지워졌다")
+            return Fail(NAME, "the one with the higher seq was not deleted")
         end
         if not Living(winner) or not Living(keeper) then
-            return Fail(NAME, "먼저 나가는 쪽이 지워졌다")
+            return Fail(NAME, "the one that fires first was deleted")
         end
         if not Living(badgedA) or Living(badgedB) then
-            return Fail(NAME, "도착분 그룹 안의 중복이 안 잡혔거나 엉뚱한 쪽이 잡혔다")
+            return Fail(NAME, "the duplicate inside the arrival group was missed, or the wrong one was caught")
         end
         -- **Each group is 1..n again within itself.** Numbered across the two together, the arrival
         -- carries 3 and my group fills 1..3.
         if GroupSeqs(nil) ~= "1 2" then
-            return Fail(NAME, format("지운 뒤 내 그룹의 번호가 안 이어진다: [%s]", GroupSeqs(nil)))
+            return Fail(NAME, format("my group's numbers do not run on after the delete: [%s]", GroupSeqs(nil)))
         end
         if GroupSeqs(7) ~= "1" then
-            return Fail(NAME, format("도착분이 내 그룹과 섞여 번호를 받았다: [%s]", GroupSeqs(7)))
+            return Fail(NAME, format("the arrival was numbered mixed in with my group: [%s]", GroupSeqs(7)))
         end
         if KeyMapOrder(KEY) ~= "1 2" then
-            return Fail(NAME, format("지운 뒤 그 키가 하던 일이 달라졌다: [%s]", KeyMapOrder(KEY)))
+            return Fail(NAME, format("what that key did changed after the delete: [%s]", KeyMapOrder(KEY)))
         end
 
         -- 2. An arrival that came as an exact copy of one of mine. **While the badge is on it
@@ -2982,10 +2982,10 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         ApplyBindings()
 
         if KeyMapOrder(KEY) ~= "1 4" then
-            return Fail(NAME, format("판이 안 섰다. 키가 [%s]", KeyMapOrder(KEY)))
+            return Fail(NAME, format("the board did not stand. the key is [%s]", KeyMapOrder(KEY)))
         end
         if not (badged.seq and mine.seq and badged.seq < mine.seq) then
-            return Fail(NAME, format("도착분 %s, 내 것 %s. 이 판이 재려던 것이 아니다",
+            return Fail(NAME, format("arrival %s, mine %s. not what this board set out to measure",
                 tostring(badged.seq), tostring(mine.seq)))
         end
 
@@ -2993,13 +2993,13 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         if err then return Fail(NAME, err) end
 
         if not Living(mine) or not Living(first) then
-            return Fail(NAME, "배지 달린 사본이 남고 내 액션이 지워졌다")
+            return Fail(NAME, "the badged copy was kept and my action was deleted")
         end
         if Living(badged) then
-            return Fail(NAME, "도착분 사본이 안 지워졌다")
+            return Fail(NAME, "the arrival's copy was not deleted")
         end
         if KeyMapOrder(KEY) ~= "1 4" then
-            return Fail(NAME, format("확인창은 키가 안 바뀐다고 했는데 바뀌었다: [%s]",
+            return Fail(NAME, format("the confirmation said no key would change and one did: [%s]",
                 KeyMapOrder(KEY)))
         end
 
@@ -3010,7 +3010,7 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         ApplyBindings()
         DebindFrame:Update()
         if cleanUp:IsEnabled() then
-            return Fail(NAME, "중복이 없는데 청소 단추가 켜져 있다")
+            return Fail(NAME, "there is no duplicate and the clean up button is lit")
         end
 
         local said
@@ -3019,16 +3019,16 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
         local ok, thrown = pcall(DebindUI.RemoveDuplicateActions)
         DebindPrivate.DisplayMessage = realDisplay
         if not ok then
-            return Fail(NAME, format("빈 갈래에서 터졌다: %s", tostring(thrown)))
+            return Fail(NAME, format("it raised on the empty branch: %s", tostring(thrown)))
         end
         if said ~= LLL["REMOVE_DUPLICATES_NONE"] then
-            return Fail(NAME, format("없다고 말하지 않았다: %s", tostring(said)))
+            return Fail(NAME, format("it did not say there was none: %s", tostring(said)))
         end
         if StaticPopup_IsCustomGenericConfirmationShown("DebindDeleteConfirmation") then
-            return Fail(NAME, "지울 것이 없는데 확인창이 떴다")
+            return Fail(NAME, "there is nothing to delete and a confirmation came up")
         end
 
-        return Pass(NAME, "먼저 나가는 쪽이 남고, 그룹끼리 번호가 안 섞이며, 없으면 한 줄로 답한다")
+        return Pass(NAME, "the one that fires first is kept, the groups do not mix numbers, and with none it answers in one line")
     end,
 })
 
@@ -3104,7 +3104,7 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
         local SWITCH = "$rowtoggle"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 이 단추가 비활성이라 판정이 안 선다")
+            return Fail(NAME, "this button is disabled in combat, so nothing can be judged")
         end
 
         local saved = DebindPrivate.Switches[SWITCH]
@@ -3132,10 +3132,10 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
             -- What the list did hold, because "no row" has two very different causes: the name
             -- never reached `GetSwitchNames`, or it did and no frame was built for it.
             local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
-            return Fail(NAME, format("목록에 그 스위치의 행이 없다. 이름들: [%s]", names))
+            return Fail(NAME, format("no row for that switch in the list. names: [%s]", names))
         end
         if not row.ToggleButton:IsEnabled() then
-            return Fail(NAME, "직접 켜고 끄는 스위치인데 단추가 비활성이다")
+            return Fail(NAME, "a switch turned on and off by hand and the button is disabled")
         end
 
         -- **Pressed, not called.** `OnToggleClick` reached directly would pass on a row whose XML
@@ -3144,17 +3144,17 @@ RegisterTest("Switches tab: the toggle on a row moves the key", {
 
         local whenOn = GetBindingAction(KEY, true) or ""
         if whenOn:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("켰는데 키가 %q다 - 값이 코드젠까지 안 갔다", whenOn))
+            return Fail(NAME, format("turned on and the key is %q, the value never reached codegen", whenOn))
         end
 
         row.ToggleButton:Click()
 
         local whenOff = GetBindingAction(KEY, true) or ""
         if whenOff ~= "" then
-            return Fail(NAME, format("껐는데 키가 %q로 남았다", whenOff))
+            return Fail(NAME, format("turned off and the key is still %q", whenOff))
         end
 
-        return Pass(NAME, "눌러서 켜짐 -> 걸림 / 다시 눌러 꺼짐 -> 빠짐")
+        return Pass(NAME, "pressed on -> bound / pressed off -> released")
     end,
 })
 
@@ -3193,15 +3193,15 @@ RegisterTest("Switches tab: the expression box opens on the expression", {
 
         local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
         if not dialog then
-            return Fail(NAME, "상자가 안 떴다")
+            return Fail(NAME, "the box did not come up")
         end
         local editBox = dialog:GetEditBox()
         if not editBox then
-            return Fail(NAME, "상자에 편집칸이 없다 - 클라이언트가 이름을 또 바꿨다")
+            return Fail(NAME, "the box has no edit field, the client has renamed it again")
         end
         local text = editBox:GetText()
         if text ~= EXPR then
-            return Fail(NAME, format("상자가 %q를 들고 열렸다 - 적어둔 식이 안 실렸다", text))
+            return Fail(NAME, format("the box opened holding %q, the expression on record was not carried", text))
         end
 
         return Pass(NAME, format("%q", text))
@@ -3241,61 +3241,61 @@ RegisterTest("Switches tab: the New switch button makes one", {
         end)
 
         if DebindPrivate.Switches[SWITCH] then
-            return Fail(NAME, "전제가 깨졌다. 그 이름의 스위치가 이미 있다")
+            return Fail(NAME, "the premise is gone: a switch of that name already exists")
         end
 
         local panel = OpenSwitchesTab()
         if not panel.NewButton then
-            return Fail(NAME, "패널에 NewButton이 없다. XML이 안 실렸다")
+            return Fail(NAME, "no NewButton on the panel, the XML was not loaded")
         end
         if not panel.NewButton:IsEnabled() then
-            return Fail(NAME, "단추가 비활성이다")
+            return Fail(NAME, "the button is disabled")
         end
 
         panel.NewButton:Click()
 
         local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
         if not dialog then
-            return Fail(NAME, "단추를 눌렀는데 상자가 안 떴다")
+            return Fail(NAME, "pressed the button and the box did not come up")
         end
         local editBox = dialog:GetEditBox()
         if not editBox then
-            return Fail(NAME, "상자에 편집칸이 없다. 클라이언트가 이름을 또 바꿨다")
+            return Fail(NAME, "the box has no edit field. the client has renamed it again")
         end
         -- **The box opens empty, and `$` is drawn beside it.** The sigil is furniture now: it
         -- cannot be typed over, deleted or doubled, and what the reader types is joined to it by
         -- the caller. So the box holding anything at all is the failure, and the switch coming out
         -- named `$madehere` below is what says the two were joined.
         if editBox:GetText() ~= "" then
-            return Fail(NAME, format("상자가 %q를 들고 열렸다. 빈 채로 열려야 한다",
+            return Fail(NAME, format("the box opened holding %q. it should open empty",
                 editBox:GetText()))
         end
 
         if not TypeInto(editBox, strsub(SWITCH, 2)) then
-            return Fail(NAME, "편집칸에 OnTextChanged가 없다")
+            return Fail(NAME, "the edit box has no OnTextChanged")
         end
         -- **[Done] is pressed, not the callback called.** The button stays disabled until the box
         -- has text in it (`StaticPopup_StandardNonEmptyTextHandler`), so pressing it is also what
         -- says `TypeInto` reached the handler a hand would have.
         local accept = dialog:GetButton1()
         if not accept:IsEnabled() then
-            return Fail(NAME, "이름을 적었는데 [완료]가 비활성이다")
+            return Fail(NAME, "a name was typed and [Done] is disabled")
         end
         accept:Click()
 
         if not DebindPrivate.Switches[SWITCH] then
             local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
-            return Fail(NAME, format("스위치가 안 생겼다. 있는 것: [%s]", names))
+            return Fail(NAME, format("no switch was made. what is there: [%s]", names))
         end
 
         -- The list has to have heard about it. Making one fires `OnSwitchesChanged` and the panel
         -- rebuilds off that, so a row missing here is that callback not reaching an open tab.
         local row = WaitUntil(function() return SwitchRow(panel, SWITCH) end, 2)
         if not row then
-            return Fail(NAME, "스위치는 생겼는데 목록에 행이 안 섰다")
+            return Fail(NAME, "the switch was made and no row stood in the list")
         end
 
-        return Pass(NAME, SWITCH .. " 생성 + 목록에 행")
+        return Pass(NAME, SWITCH .. " made, with a row in the list")
     end,
 })
 
@@ -3338,7 +3338,7 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
         end)
 
         if DebindPrivate.Switches[STORED] then
-            return Fail(NAME, "전제가 깨졌다. 그 이름의 스위치가 이미 있다")
+            return Fail(NAME, "the premise is gone: a switch of that name already exists")
         end
 
         -- **Standing where the caller stands.** What the two menus hand this function is a callback
@@ -3352,37 +3352,37 @@ RegisterTest("Switches tab: a name typed in capitals reaches the caller folded",
 
         local _, dialog = StaticPopup_Visible("GENERIC_INPUT_BOX")
         if not dialog then
-            return Fail(NAME, "상자가 안 떴다")
+            return Fail(NAME, "the box did not come up")
         end
         local editBox = dialog:GetEditBox()
         if not editBox then
-            return Fail(NAME, "상자에 편집칸이 없다. 클라이언트가 이름을 또 바꿨다")
+            return Fail(NAME, "the box has no edit field. the client has renamed it again")
         end
         if not TypeInto(editBox, TYPED) then
-            return Fail(NAME, "편집칸에 OnTextChanged가 없다")
+            return Fail(NAME, "the edit box has no OnTextChanged")
         end
         -- Presses [Done]. The callback hangs off that button, and calling it outright measures the
         -- function we handed over rather than the path through the box.
         local accept = dialog:GetButton1()
         if not accept:IsEnabled() then
-            return Fail(NAME, "이름을 적었는데 [완료]가 비활성이다")
+            return Fail(NAME, "a name was typed and [Done] is disabled")
         end
         accept:Click()
 
         if not DebindPrivate.Switches[STORED] then
             local names = table.concat(DebindPrivate.GetSwitchNames(), " ")
-            return Fail(NAME, format("%s로 안 앉았다. 있는 것: [%s]", STORED, names))
+            return Fail(NAME, format("it did not sit down as %s. what is there: [%s]", STORED, names))
         end
         if not called then
-            return Fail(NAME, "스위치는 생겼는데 부른 쪽이 안 불렸다. 메뉴에서 만들면 조건이 안 걸린다")
+            return Fail(NAME, "the switch was made and the caller was never called. made from a menu, the condition never lands")
         end
         if handed ~= STORED then
             return Fail(NAME, format(
-                "부른 쪽이 %s를 받았다. 이것을 조건이나 켜기 대상으로 적으면 그 액션이 빨개진다",
+                "the caller was handed %s. written down as a condition or an on-target, that action goes red",
                 tostring(handed)))
         end
         if not DebindPrivate.ResolveSwitchDefinition(handed) then
-            return Fail(NAME, format("%s로는 정의가 안 열린다", tostring(handed)))
+            return Fail(NAME, format("the definition does not open under %s", tostring(handed)))
         end
 
         return Pass(NAME, format("%s -> %s", TYPED, handed))
@@ -3426,7 +3426,7 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
         local layerKey = DebindPrivate.GetSwitchLayerKey(
             DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
         if not layerKey then
-            return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
+            return Fail(NAME, "no layer key for this character and this spec")
         end
         DebindPrivate.SetSwitchAnswer(SWITCH, layerKey, MODES.MANUAL, true)
 
@@ -3438,7 +3438,7 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
         if not rows then
             local drawn = #SwitchLayerRows(panel, SWITCH)
             return Fail(NAME, format(
-                "행이 %d개다 - 얹은 오버라이드 하나와 계정 전체 하나, 둘이 나와야 한다", drawn))
+                "%d rows, there should be two: the one override put on top and the account-wide one", drawn))
         end
 
         -- Nothing binds `$rowlayers` yet, so it is outside the compile and no row is the live
@@ -3447,7 +3447,7 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
             local marked, unmarked = {}, {}
             for _, row in ipairs(rows) do
                 if not row.Check then
-                    return nil, "행에 Check가 없다 - 템플릿이 parentKey를 잃었다"
+                    return nil, "the row has no Check, the template lost its parentKey"
                 end
                 local list = row.Check:IsShown() and marked or unmarked
                 list[#list + 1] = row.layerKey or "(account)"
@@ -3461,8 +3461,8 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
         end
         if #marked ~= 0 then
             return Fail(NAME, format(
-                "아무 액션도 안 읽는 스위치인데 %d행에 표시가 붙었다 [%s] - 이길 자리는 있어도 "
-                .. "그 값을 걷어가는 곳이 없다", #marked, table.concat(marked, " ")))
+                "no action reads this switch and row %d is marked [%s]. there is a place to win, but "
+                .. "nowhere takes that value away", #marked, table.concat(marked, " ")))
         end
 
         -- Now one action reads it, which is what puts the name in front of the restricted side.
@@ -3480,18 +3480,18 @@ RegisterTest("Switches tab: the rows under a switch mark the one that wins", {
         end
 
         if #marked ~= 1 then
-            return Fail(NAME, format("표시된 행이 %d개다 [%s] - 이기는 행은 언제나 하나다",
+            return Fail(NAME, format("%d rows are marked [%s], the winning row is always one",
                 #marked, table.concat(marked, " ")))
         end
         if marked[1] ~= layerKey then
             return Fail(NAME, format(
-                "%q에 표시가 붙었다 - 이기는 것은 %q인데 목록이 반대로 말한다", marked[1], layerKey))
+                "%q is marked, %q is the one that wins and the list says otherwise", marked[1], layerKey))
         end
         if #unmarked == 0 then
-            return Fail(NAME, "안 이기는 행이 하나도 안 그려졌다 - 어디가 다른지 볼 수가 없다")
+            return Fail(NAME, "not one losing row was drawn, there is no seeing what is different")
         end
 
-        return Pass(NAME, format("%d행, 안 읽힐 때 표시 없음 -> 읽히면 %s", #rows, marked[1]))
+        return Pass(NAME, format("%d rows, unmarked while unread -> %s once read", #rows, marked[1]))
     end,
 })
 
@@ -3556,13 +3556,13 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         local panel = OpenSwitchesTab()
         local row = WaitUntil(function() return RootRow(panel) end, 2)
         if not row then
-            return Fail(NAME, format("%s의 계정 전체 행이 안 섰다", DERIVED))
+            return Fail(NAME, format("%s's account-wide row did not stand", DERIVED))
         end
         if not row.Setting then
-            return Fail(NAME, "행에 Setting이 없다. 템플릿이 parentKey를 잃었다")
+            return Fail(NAME, "the row has no Setting. the template lost its parentKey")
         end
         if IsRed(row.Setting) then
-            return Fail(NAME, format("전제가 깨졌다. %s가 아직 있는데 행이 벌써 빨갛다", SOURCE))
+            return Fail(NAME, format("the premise is gone: %s is still there and the row is already red", SOURCE))
         end
 
         DebindPrivate.DeleteSwitch(SOURCE)
@@ -3577,15 +3577,15 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
         end, 2)
         if not reddened then
             if not RootRow(panel) then
-                return Fail(NAME, format("%s의 행이 목록에서 사라졌다", DERIVED))
+                return Fail(NAME, format("%s's row disappeared from the list", DERIVED))
             end
             local expr = DebindPrivate.Switches[DERIVED].expr
             return Fail(NAME, format(
-                "식이 %s인데 행이 안 빨개졌다 (끊긴 이름: %s). 지운 참조를 찾아갈 자리가 없다",
+                "the expression is %s and the row did not go red (broken name: %s). there is nowhere to find the deleted reference",
                 expr, tostring(DebindPrivate.GetUndefinedSwitchInExpr(expr, DERIVED))))
         end
 
-        return Pass(NAME, format("%s 삭제 -> %s의 행이 빨강", SOURCE, DERIVED))
+        return Pass(NAME, format("deleted %s -> %s's row is red", SOURCE, DERIVED))
     end,
 })
 
@@ -3624,31 +3624,31 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         DebindPasteFrame:Open()
 
         local steps = {
-            { frame = DebindPasteFrame, name = "붙여넣기 창" },
-            { frame = DebindCopyFrame,  name = "복사 창" },
+            { frame = DebindPasteFrame, name = "the paste dialog" },
+            { frame = DebindCopyFrame,  name = "the copy dialog" },
         }
         for _, step in ipairs(steps) do
             if not step.frame:IsShown() then
-                return Fail(NAME, format("%s을 세우지도 못했다", step.name))
+                return Fail(NAME, format("could not even stand %s up", step.name))
             end
         end
 
         for i, step in ipairs(steps) do
             if not DebindFrame:HandleEscape() then
-                return Fail(NAME, format("%d번째 ESC를 아무도 안 먹었다", i))
+                return Fail(NAME, format("nobody took ESC number %d", i))
             end
             if step.frame:IsShown() then
-                return Fail(NAME, format("ESC %d번째가 %s을 안 닫았다", i, step.name))
+                return Fail(NAME, format("ESC number %d did not close %s", i, step.name))
             end
             -- **The window closing here is the bug this test holds off.** The dialog would be left
             -- standing with nothing under it.
             if not DebindFrame:IsShown() then
-                return Fail(NAME, format("%s을 닫아야 할 ESC가 창을 닫았다", step.name))
+                return Fail(NAME, format("the ESC that should have closed %s closed the window", step.name))
             end
             -- One rung at a time. Taking one whose turn has not come yet makes a single press remove two.
             for j = i + 1, #steps do
                 if not steps[j].frame:IsShown() then
-                    return Fail(NAME, format("%s을 닫는 ESC가 %s까지 데려갔다", step.name, steps[j].name))
+                    return Fail(NAME, format("the ESC that closes %s took %s with it", step.name, steps[j].name))
                 end
             end
         end
@@ -3656,13 +3656,13 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         -- And the window closes only **after** all three are gone. Without this line, the pass above
         -- is explained just as well by "ESC does nothing".
         if not DebindFrame:HandleEscape() then
-            return Fail(NAME, "다이얼로그가 다 닫힌 뒤의 ESC를 아무도 안 먹었다")
+            return Fail(NAME, "nobody took the ESC after every dialog had closed")
         end
         if DebindFrame:IsShown() then
-            return Fail(NAME, "다이얼로그가 다 닫혔는데 창이 ESC에 안 닫힌다")
+            return Fail(NAME, "every dialog has closed and the window does not close on ESC")
         end
 
-        return Pass(NAME, "가져오기, 붙여넣기, 복사, 그다음 창 순으로 한 칸씩 물러났다")
+        return Pass(NAME, "stepped back one at a time: import, paste, copy, then the window")
     end,
 })
 
@@ -3689,7 +3689,7 @@ RegisterTest("Custom state toggle flips the value", {
         local MODES = Constants.SWITCH_MODES
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+            return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
         end
 
         local saved = DebindPrivate.Switches["$state4"]
@@ -3714,23 +3714,23 @@ RegisterTest("Custom state toggle flips the value", {
 
         local st = ReadSecureState("$state4")
         if not (st and st.present) then
-            return Fail(NAME, "전제가 깨졌다 - 조건으로 쓴 상태도 States에 없다")
+            return Fail(NAME, "the premise is gone: the state used as the condition is not in States either")
         end
         if st.value ~= false then
-            return Fail(NAME, format("전제가 깨졌다 - 저장값은 꺼짐인데 States는 %s다", tostring(st.value)))
+            return Fail(NAME, format("the premise is gone: the stored value is off and States says %s", tostring(st.value)))
         end
 
         local frame = DebindPrivate.SwitchesUpdaterFrame
         frame:SetAttribute("$state4", "toggle")
         st = ReadSecureState("$state4")
         if not (st and st.value == true) then
-            return Fail(NAME, "첫 전환이 States를 안 뒤집었다")
+            return Fail(NAME, "the first toggle did not turn States over")
         end
 
         frame:SetAttribute("$state4", "toggle")
         st = ReadSecureState("$state4")
         if not (st and st.value == false) then
-            return Fail(NAME, "두 번째 전환이 안 먹었다 - 같은 속성값을 다시 쓴 것이 안 통한다")
+            return Fail(NAME, "the second toggle did not take, writing the same attribute value again does not carry")
         end
 
         -- The mirror arrives on `C_Timer.After(0)` (`OnSwitchChanged`, `Misc.lua`). It is what
@@ -3738,10 +3738,10 @@ RegisterTest("Custom state toggle flips the value", {
         -- the screen lying.
         coroutine.yield(0)
         if options.value ~= false then
-            return Fail(NAME, format("창이 읽는 값이 안 따라왔다 (options.value=%s)", tostring(options.value)))
+            return Fail(NAME, format("what the window reads did not follow (options.value=%s)", tostring(options.value)))
         end
 
-        return Pass(NAME, "꺼짐 -> 켜짐 -> 꺼짐, 미러까지")
+        return Pass(NAME, "off -> on -> off, mirror included")
     end,
 })
 
@@ -3768,7 +3768,7 @@ RegisterTest("Switch condition on a name outside the five", {
         local MODES = Constants.SWITCH_MODES
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+            return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
         end
 
         -- Why only the slot is swapped is in the comment on `Undefined $state inside a state's own
@@ -3796,7 +3796,7 @@ RegisterTest("Switch condition on a name outside the five", {
         local whenOn = GetBindingAction(KEY, true) or ""
         if whenOn:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
-                "정의해둔 $burst가 켜져 있는데 %q - 다섯 밖의 이름이 코드젠까지 안 갔다", whenOn))
+                "$burst is defined and on and the key is %q, a name outside the five never reached codegen", whenOn))
         end
 
         DebindPrivate.SetSwitchValue("$burst", false)
@@ -3805,7 +3805,7 @@ RegisterTest("Switch condition on a name outside the five", {
         local whenOff = GetBindingAction(KEY, true) or ""
         if whenOff ~= "" then
             return Fail(NAME, format(
-                "$burst가 꺼졌는데 키가 %q로 남았다 - 이름은 갔는데 값이 안 비교된다", whenOff))
+                "$burst went off and the key is still %q, the name got through and the value is not compared", whenOff))
         end
 
         -- A name with no definition. Dropping the condition outright sends that action out
@@ -3813,7 +3813,7 @@ RegisterTest("Switch condition on a name outside the five", {
         local whenUndefined = GetBindingAction(UNDEFINED_KEY, true) or ""
         if whenUndefined ~= "" then
             return Fail(NAME, format(
-                "정의 없는 이름을 건 액션이 %q로 나갔다 - 조건이 사라져 상시 발동한다", whenUndefined))
+                "an action on an undefined name went out as %q, the condition is gone and it fires always", whenUndefined))
         end
 
         -- **Two layers hold it back.** The marker takes that action out of `KeyMap` (the row goes
@@ -3836,10 +3836,10 @@ RegisterTest("Switch condition on a name outside the five", {
         local afterToggle = GetBindingAction(KEY, true) or ""
         if afterToggle:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
-                "리빌드 없이 켰는데 키가 %q다 - 전투 중이면 안 살아난다", afterToggle))
+                "turned on with no rebuild and the key is %q, in combat it would never come back", afterToggle))
         end
 
-        return Pass(NAME, "$burst 켜짐 -> 걸림 / 꺼짐 -> 빠짐 / 미정의 -> 마커 붙고 빠짐 / 리빌드 없이 켜짐")
+        return Pass(NAME, "$burst on -> bound / off -> released / undefined -> marked and released / on with no rebuild")
     end,
 })
 
@@ -3868,13 +3868,13 @@ RegisterTest("Switch override: the layer key carries this character", {
         local layerKey = DebindPrivate.GetSwitchLayerKey(
             DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), true))
         if not layerKey then
-            return Fail(NAME, "이 캐릭터 이 전문화의 레이어 키가 안 나온다")
+            return Fail(NAME, "no layer key for this character and this spec")
         end
 
         local guid = UnitGUID("player")
         if not layerKey:find(guid, 1, true) then
             return Fail(NAME, format(
-                "캐릭터 레이어의 키가 %q다 - %q가 없으면 다음 캐릭터가 남의 답을 읽는다",
+                "the character layer's key is %q, without %q the next character reads somebody else's answer",
                 layerKey, guid))
         end
 
@@ -3885,7 +3885,7 @@ RegisterTest("Switch override: the layer key carries this character", {
             DebindPrivate.GetLayerID(C_SpecializationInfo.GetSpecialization(), false))
         if classKey and classKey:find(guid, 1, true) then
             return Fail(NAME, format(
-                "직업 레이어의 키가 %q다 - 캐릭터가 들어가면 같은 직업끼리 답을 못 나눈다",
+                "the class layer's key is %q, with the character in it the same class cannot share an answer",
                 classKey))
         end
 
@@ -3925,7 +3925,7 @@ RegisterTest("Custom target survives a rebuild", {
         local KEY = "CTRL-F6"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 지정도 리빌드도 미뤄져서 판정이 안 선다")
+            return Fail(NAME, "both setting it and rebuilding are deferred in combat, so nothing can be judged")
         end
 
         local previous = DebindPrivate.Units and DebindPrivate.Units.custom1
@@ -3943,28 +3943,28 @@ RegisterTest("Custom target survives a rebuild", {
 
         local action = GetBindingAction(KEY, true) or ""
         if action:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("전제가 깨졌다 - 대상 지정 액션이 키에 안 걸렸다 (%q)", action))
+            return Fail(NAME, format("the premise is gone: the targeting action never bound to the key (%q)", action))
         end
 
         DebindPrivate.UnitWatch:SetAttribute("custom1", "player")
         local u = ReadSecureUnit("custom1")
         if not (u and u.value == "player") then
-            return Fail(NAME, format("전제가 깨졌다 - 지정이 UnitAliasMap에 안 들어갔다 (%s)",
-                u and format("%q", u.value) or "답 없음"))
+            return Fail(NAME, format("the premise is gone: what was set never went into UnitAliasMap (%s)",
+                u and format("%q", u.value) or "no answer"))
         end
 
         ApplyBindings()
 
         u = ReadSecureUnit("custom1")
         if not u then
-            return Fail(NAME, "보안 환경이 답을 안 줬다")
+            return Fail(NAME, "the secure environment gave no answer")
         end
         if u.value ~= "player" then
-            return Fail(NAME, format("리빌드가 지정한 대상을 지웠다 (%q) - 지정 액션은 별칭을 등록시키지 않는다",
+            return Fail(NAME, format("the rebuild cleared what was set (%q), a targeting action does not register the alias",
                 u.value))
         end
 
-        return Pass(NAME, "리빌드 뒤에도 custom1 = player")
+        return Pass(NAME, "custom1 = player after the rebuild too")
     end,
 })
 
@@ -3980,11 +3980,11 @@ RegisterTest("Secure update path", {
     description = "UpdateBindings reaches the secure handler, measured by the handler having consumed state-unitexists",
     run = function()
         if InCombatLockdown() then
-            return Fail("Secure update path", "전투 중에는 UpdateBindings가 미뤄지므로 판정 불가")
+            return Fail("Secure update path", "UpdateBindings is deferred in combat, so nothing can be judged")
         end
 
         local driver = DebindPrivate.BindingDriver
-        if not driver then return Fail("Secure update path", "BindingDriver가 없다") end
+        if not driver then return Fail("Secure update path", "no BindingDriver") end
 
         ApplyBindings()
 
@@ -3995,11 +3995,11 @@ RegisterTest("Secure update path", {
         local value = driver:GetAttribute("state-unitexists")
         if value ~= 0 then
             return Fail("Secure update path", format(
-                "state-unitexists=%s, 0이어야 한다. 시큐어 핸들러가 돌지 않았다 - 바인딩이 갱신을 멈춘 상태다",
+                "state-unitexists=%s, it should be 0. the secure handler never ran, the bindings have stopped updating",
                 tostring(value)))
         end
 
-        return Pass("Secure update path", "핸들러가 소비함")
+        return Pass("Secure update path", "the handler consumed it")
     end,
 })
 
@@ -4023,11 +4023,11 @@ RegisterTest("State poll follows what is measured", {
         local CONDITIONAL = "CTRL-SHIFT-F11"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+            return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
         end
 
         local driver = DebindPrivate.BindingDriver
-        if not driver then return Fail(NAME, "BindingDriver가 없다") end
+        if not driver then return Fail(NAME, "no BindingDriver") end
 
         -- One conditional action left behind by an earlier test and the beat is registered for
         -- reasons of its own. An empty layer is this test's premise, and it leaves one behind.
@@ -4038,12 +4038,12 @@ RegisterTest("State poll follows what is measured", {
         ApplyBindings()
 
         if UnitWatchRegistered(driver) then
-            return Fail(NAME, "조건이 하나도 없는 프로필인데 0.2초 박자가 걸려 있다")
+            return Fail(NAME, "a profile with no condition at all and the 0.2s beat is on")
         end
 
         local bound = GetBindingAction(PLAIN, true) or ""
         if bound:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("박자를 놓았더니 키가 안 걸렸다 (%q)", bound))
+            return Fail(NAME, format("the beat was dropped and the key did not bind (%q)", bound))
         end
 
         -- **A different key.** Put on the same one, the unconditional action already covers the
@@ -4054,10 +4054,10 @@ RegisterTest("State poll follows what is measured", {
         ApplyBindings()
 
         if not UnitWatchRegistered(driver) then
-            return Fail(NAME, "전투 조건을 넣었는데 0.2초 박자가 안 돌아왔다")
+            return Fail(NAME, "a combat condition went in and the 0.2s beat did not come back")
         end
 
-        return Pass(NAME, "잴 것에 따라 등록이 붙었다 떨어진다")
+        return Pass(NAME, "the registration comes and goes with what there is to measure")
     end,
 })
 
@@ -4090,7 +4090,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
         local NAME = "Hover survives rebuild"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 리빌드가 막힌다")
+            return Fail(NAME, "registering a frame and rebuilding are both blocked in combat")
         end
 
         InsertAction({
@@ -4108,7 +4108,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
         WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+            return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
         -- The cursor stays where it is. Only the rebuild runs.
@@ -4122,7 +4122,7 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
         DebindPrivate.UpdateBindings()
 
         if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("리빌드 뒤 hover=%s, 아직 player여야 한다", tostring(GetHoverUnit())))
+            return Fail(NAME, format("hover=%s after the rebuild, it should still be player", tostring(GetHoverUnit())))
         end
 
         -- Whether the slot is alive comes apart here. Gone, leave finds nothing to clear.
@@ -4130,11 +4130,11 @@ RegisterTest("Hover slot: survives a rebuild under a still cursor", {
 
         if GetHoverUnit() ~= nil then
             return Fail(NAME, format(
-                "leave 뒤에도 hover=%s. 리빌드가 hover 슬롯을 지웠다는 뜻이다",
+                "hover=%s even after leave. that means the rebuild cleared the hover slot",
                 tostring(GetHoverUnit())))
         end
 
-        return Pass(NAME, "리빌드를 건너 살아남고, leave가 제대로 지운다")
+        return Pass(NAME, "survives the rebuild, and leave clears it properly")
     end,
 })
 
@@ -4144,7 +4144,7 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         local NAME = "Hover slot"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 속성 쓰기가 막힌다")
+            return Fail(NAME, "registering a frame and writing attributes are both blocked in combat")
         end
 
         -- A hover binding has to exist, or the hover axis is never measured at all and the slot
@@ -4164,7 +4164,7 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
         WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+            return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
         -- The cursor has not moved. Only the attribute changed, which is exactly the shape of a
@@ -4179,7 +4179,7 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
 
         if GetHoverUnit() ~= nil then
             return Fail(NAME, format(
-                "유닛이 사라졌는데 hover=%s. 고치기 전에는 반응이 계속 남아 있었다",
+                "the unit is gone and hover=%s. before the fix the reaction stayed behind",
                 tostring(GetHoverUnit())))
         end
 
@@ -4190,11 +4190,11 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
 
         if GetHoverUnit() ~= "player" then
             return Fail(NAME, format(
-                "유닛이 돌아왔는데 hover=%s. 폴링이 프레임을 버렸다는 뜻이다",
+                "the unit came back and hover=%s. that means the poll threw the frame away",
                 tostring(GetHoverUnit())))
         end
 
-        return Pass(NAME, "사라짐 -> 비고, 돌아옴 -> 다시 참")
+        return Pass(NAME, "gone -> empty, back -> filled again")
     end,
 })
 
@@ -4219,7 +4219,7 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
         local NAME = "Deregistered frame"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 해제가 막힌다")
+            return Fail(NAME, "registering and unregistering a frame are both blocked in combat")
         end
 
         -- The hover axis is measured only where there is a hover condition, and that is what gives
@@ -4238,7 +4238,7 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
 
         DebindPrivate.UnregisterFrame(dropped)
         if DebindPrivate.ccframes[dropped] ~= nil then
-            return Fail(NAME, "전제가 깨졌다. UnregisterFrame이 행을 안 지웠다")
+            return Fail(NAME, "the premise is gone: UnregisterFrame did not remove the row")
         end
 
         HoverEnter(tracked)
@@ -4246,7 +4246,7 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
         WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+            return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
         -- The wrapper is still on, so our body runs here too.
@@ -4258,11 +4258,11 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
 
         if GetHoverUnit() ~= nil then
             return Fail(NAME, format(
-                "추적 안 하는 프레임에 들어갔는데 hover=%s. 옛 프레임이 슬롯에 남았다",
+                "entered a frame we do not track and hover=%s. the old frame is still in the slot",
                 tostring(GetHoverUnit())))
         end
 
-        return Pass(NAME, "등록이 풀린 프레임 진입이 슬롯을 비운다")
+        return Pass(NAME, "entering a frame whose registration was dropped empties the slot")
     end,
 })
 
@@ -4280,7 +4280,7 @@ local function ClickCastTargets()
 
     local frame, err = CreateTestUnitFrame("player", "group")
     if not frame then return nil, err end
-    targets[#targets + 1] = { label = "우리 프레임", frame = frame }
+    targets[#targets + 1] = { label = "our frame", frame = frame }
 
     if PlayerFrame and type(DebindPrivate.ccframes[PlayerFrame]) == "table" then
         -- Asked for where it already is. Moving or resizing one of Blizzard's frames to make it
@@ -4305,7 +4305,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
         local NAME = "Click-cast non-invasion"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+            return Fail(NAME, "registering a frame is blocked in combat")
         end
 
         InsertAction({
@@ -4324,7 +4324,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
 
             -- Ours is a suffix nobody else uses, and it is what carries the click to us.
             if frame:GetAttribute("*type-debind1") ~= "click" then
-                return Fail(NAME, format("%s: *type-debind1=%s, click 이어야 한다",
+                return Fail(NAME, format("%s: *type-debind1=%s, it should be click",
                     target.label, tostring(frame:GetAttribute("*type-debind1"))))
             end
 
@@ -4334,7 +4334,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
                 for _, attr in ipairs({ "*type" .. i, "type" .. i }) do
                     if frame:GetAttribute(attr) == "click" then
                         return Fail(NAME, format(
-                            "%s: %s 에 click 이 남아 있다. 옛 라우팅이 아직 그 자리를 쓴다",
+                            "%s: click is still on %s. the old routing still writes to that slot",
                             target.label, attr))
                     end
                 end
@@ -4342,7 +4342,7 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
             checked[#checked + 1] = target.label
         end
 
-        return Pass(NAME, table.concat(checked, ", ") .. " — 남의 자리 비어 있음")
+        return Pass(NAME, table.concat(checked, ", ") .. ", and the slots that are not ours are empty")
     end,
 })
 
@@ -4379,7 +4379,7 @@ RegisterTest("Click-cast: a registered frame carries both click edges", {
         local NAME = "Click edges"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 RegisterForClicks가 막힌다")
+            return Fail(NAME, "registering a frame and RegisterForClicks are both blocked in combat")
         end
 
         local frame, err = CreateTestUnitFrame("player", "group")
@@ -4396,7 +4396,7 @@ RegisterTest("Click-cast: a registered frame carries both click edges", {
         DebindPrivate.UpdateRegisteredClicks(frame)
 
         if not captured then
-            return Fail(NAME, "등록 자체가 안 돌았다")
+            return Fail(NAME, "the registration itself never ran")
         end
 
         local function Registered(want)
@@ -4410,14 +4410,14 @@ RegisterTest("Click-cast: a registered frame carries both click edges", {
 
         if not Registered("AnyUp") then
             return Fail(NAME, format(
-                "[%s] 에 떼는 엣지가 없다. 유닛 메뉴가 도는 자리가 그 엣지뿐이라 메뉴가 걸린 "
-                .. "버튼이 죽고, 시전 시점을 뗄 때로 둔 사람은 클릭이 아예 안 온다", seen))
+                "[%s] has no release edge. that edge is the only place the unit menu runs, so a button "
+                .. "carrying the menu goes dead, and anyone casting on release gets no click at all", seen))
         end
 
         if not Registered("AnyDown") then
             return Fail(NAME, format(
-                "[%s] 에 누르는 엣지가 없다. 시전 시점을 누를 때로 둔 사람에게 클릭이 아예 "
-                .. "안 온다", seen))
+                "[%s] has no press edge. anyone casting on press gets no click "
+                .. "at all", seen))
         end
 
         return Pass(NAME, seen)
@@ -4430,12 +4430,12 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
         local NAME = "Click-cast winner"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
+            return Fail(NAME, "registering a frame and wrapping are both blocked in combat")
         end
 
         local ok, err = EnableProbes()
         if not ok then
-            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+            return Fail(NAME, "rebake failed: " .. tostring(err))
         end
 
         InsertAction({
@@ -4461,8 +4461,8 @@ RegisterTest("Click-cast: the frame's wrapper picks a winner", {
             WaitForEvalAnswer()
 
             if LastWinner() == nil then
-                return Fail(NAME, format("%s: 아무것도 안 골랐다 - 조건이 안 맞았거나 "
-                    .. "그 버튼·수식어로 등록된 키가 없다", target.label))
+                return Fail(NAME, format("%s: it picked nothing, either nothing matched or "
+                    .. "no key is registered for that button and modifier", target.label))
             end
             seen[#seen + 1] = format("%s=%d", target.label, LastWinner())
 
@@ -4490,12 +4490,12 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
         local KEY = "BUTTON3"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
+            return Fail(NAME, "registering a frame and wrapping are both blocked in combat")
         end
 
         local ok, err = EnableProbes()
         if not ok then
-            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+            return Fail(NAME, "rebake failed: " .. tostring(err))
         end
 
         InsertAction({
@@ -4508,16 +4508,16 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
 
         ReadKeyMembership(KEY)
         local m = WaitForMembership()
-        if not m then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+        if not m then return Fail(NAME, "the restricted environment sent no answer") end
 
         -- The positive side is checked first. "Not state driven" is true of a key whose records
         -- never went out at all.
         if not m.clickCast then
-            return Fail(NAME, "ClickCastKeys에 없다 - 빠진 게 아니라 레코드가 안 나갔다")
+            return Fail(NAME, "not in ClickCastKeys, and not because it was dropped: no record went out")
         end
         if m.stateDriven then
-            return Fail(NAME, "StateDrivenBindings에 들어 있다 - 키를 잡는 레코드가 하나도 "
-                .. "없는데 상태 루프가 매 틱 훑는다")
+            return Fail(NAME, "it is in StateDrivenBindings, and with not one record taking the key "
+                .. "the state loop still sweeps it every tick")
         end
 
         local targets, terr = ClickCastTargets()
@@ -4541,17 +4541,17 @@ RegisterTest("Click-cast only: judged at the press with nothing measured for it"
         local ran, hit = judge(true)
         if not ran then return Fail(NAME, tostring(hit)) end
         if hit == nil then
-            return Fail(NAME, "전투로 두고도 안 골랐다 - 등록을 끊으면서 판정까지 끊겼다")
+            return Fail(NAME, "set to combat and it still picked nothing, cutting the registration cut the judging with it")
         end
 
         local ran2, miss = judge(false)
         if not ran2 then return Fail(NAME, tostring(miss)) end
         if miss ~= nil then
-            return Fail(NAME, format("비전투인데 %s를 골랐다 - combat 조건을 안 보고 있다",
+            return Fail(NAME, format("out of combat and it picked %s, the combat condition is not being looked at",
                 tostring(miss)))
         end
 
-        return Pass(NAME, format("clickCast만, 전투에서 %s / 비전투에서 없음", tostring(hit)))
+        return Pass(NAME, format("click-cast only: %s in combat, nothing out of it", tostring(hit)))
     end,
 })
 
@@ -4565,7 +4565,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         local NAME = "Click-cast fallback"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록과 래핑이 막힌다")
+            return Fail(NAME, "registering a frame and wrapping are both blocked in combat")
         end
 
         -- **`LastWinner()` answers only with the probes on.** `PROBE.Winner` is removed outright on
@@ -4574,7 +4574,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
         -- record.
         local probesOk, probesErr = EnableProbes()
         if not probesOk then
-            return Fail(NAME, "프로브 켜기 실패: " .. tostring(probesErr))
+            return Fail(NAME, "turning the probes on failed: " .. tostring(probesErr))
         end
 
         -- **The left button, because that is where falling through means something.** A unit
@@ -4619,14 +4619,14 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
 
                 if LastWinner() ~= nil then
                     return Fail(NAME, format(
-                        "%s: 조건이 안 맞는데 %d번을 골랐다. combat 목이 안 걸렸을 수 있다",
+                        "%s: nothing matched and it picked #%d. the combat check may not be in place",
                         target.label, LastWinner()))
                 end
 
                 if LastEvalAnswer() ~= nil then
                     return Fail(NAME, format(
-                        "%s: 고른 것이 없는데 %q를 반환했다. 그러면 버튼 이름이 바뀌어 프레임 "
-                        .. "자신의 동작이 안 나간다",
+                        "%s: it picked nothing and returned %q. that changes the button name, so the frame's "
+                        .. "own action never goes out",
                         target.label, tostring(LastEvalAnswer())))
                 end
 
@@ -4635,7 +4635,7 @@ RegisterTest("Click-cast: a click that matches nothing falls through", {
             end
         end
 
-        return Pass(NAME, "안 맞음 -> 고르지 않고 이름도 안 바꿈 (프레임 쪽으로 넘어간다)")
+        return Pass(NAME, "no match -> picks nothing and changes no name (it falls through to the frame)")
     end,
 })
 
@@ -4663,7 +4663,7 @@ RegisterTest("State injection: combat-only binding", {
         local KEY = "CTRL-SHIFT-F9"
 
         if InCombatLockdown() then
-            return Fail(NAME, "진짜 전투 중에는 주입 결과와 실제가 구분되지 않는다")
+            return Fail(NAME, "in real combat there is no telling the injected result from the real one")
         end
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
@@ -4679,12 +4679,12 @@ RegisterTest("State injection: combat-only binding", {
 
         if inCombat == atPeace then
             return Fail(NAME, format(
-                "combat을 뒤집었는데 바인딩이 그대로다 (%q). 주입이 스니펫까지 안 닿았다",
+                "combat was turned over and the binding is unchanged (%q). the injection never reached the snippet",
                 inCombat))
         end
 
         if inCombat:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("combat=true 인데 %q, CLICK 이어야 한다", inCombat))
+            return Fail(NAME, format("combat=true and it is %q, it should be CLICK", inCombat))
         end
 
         -- Back to peace: the binding has to go away again. Without this the test would pass on a
@@ -4693,10 +4693,10 @@ RegisterTest("State injection: combat-only binding", {
         local again = GetBindingAction(KEY, true) or ""
 
         if again ~= atPeace then
-            return Fail(NAME, format("combat을 되돌렸는데 %q, %q 여야 한다", again, atPeace))
+            return Fail(NAME, format("combat was put back and it is %q, it should be %q", again, atPeace))
         end
 
-        return Pass(NAME, format("전투 밖에서 전투 경로를 구동함 (%s)", inCombat))
+        return Pass(NAME, format("drove the combat path from outside combat (%s)", inCombat))
     end,
 })
 
@@ -4712,12 +4712,12 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
         local KEY = "CTRL-SHIFT-F8"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+            return Fail(NAME, "nothing can be rebaked in combat")
         end
 
         local ok, err = EnableProbes()
         if not ok then
-            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+            return Fail(NAME, "rebake failed: " .. tostring(err))
         end
 
         InsertAction({
@@ -4735,14 +4735,14 @@ RegisterTest("Snippet probes: rebaked snippets still decide", {
         local inCombat = GetBindingAction(KEY, true) or ""
 
         if inCombat == atPeace then
-            return Fail(NAME, format("다시 구운 뒤 조건이 안 먹는다 (%q 그대로)", inCombat))
+            return Fail(NAME, format("the condition does not take after the rebake (still %q)", inCombat))
         end
 
         if inCombat:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("다시 구운 뒤 %q, CLICK 이어야 한다", inCombat))
+            return Fail(NAME, format("%q after the rebake, it should be CLICK", inCombat))
         end
 
-        return Pass(NAME, "프로브 켠 채로도 판정이 그대로")
+        return Pass(NAME, "judging is unchanged with the probes on")
     end,
 })
 
@@ -4768,7 +4768,7 @@ RegisterTest("State injection: dead flips a binding", {
         local KEY = "CTRL-SHIFT-F10"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 주입 결과와 실제가 구분되지 않는다")
+            return Fail(NAME, "in combat there is no telling the injected result from the real one")
         end
 
         InsertAction({
@@ -4785,11 +4785,11 @@ RegisterTest("State injection: dead flips a binding", {
 
         if whenDead == whenAlive then
             return Fail(NAME, format(
-                "생사를 뒤집었는데 바인딩이 그대로다 (%q). 주입이 스니펫까지 안 닿았다", whenDead))
+                "alive/dead was turned over and the binding is unchanged (%q). the injection never reached the snippet", whenDead))
         end
 
         if whenDead:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("dead=true 인데 %q, CLICK 이어야 한다", whenDead))
+            return Fail(NAME, format("dead=true and it is %q, it should be CLICK", whenDead))
         end
 
         -- It also checks that putting it back makes the binding go. Without that, a key that was
@@ -4798,10 +4798,10 @@ RegisterTest("State injection: dead flips a binding", {
         local again = GetBindingAction(KEY, true) or ""
 
         if again ~= whenAlive then
-            return Fail(NAME, format("되돌렸는데 %q, %q 여야 한다", again, whenAlive))
+            return Fail(NAME, format("it was put back and it is %q, it should be %q", again, whenAlive))
         end
 
-        return Pass(NAME, format("죽음 주입으로 키를 잡음 (%s)", whenDead))
+        return Pass(NAME, format("took the key by injecting dead (%s)", whenDead))
     end,
 })
 
@@ -4816,7 +4816,7 @@ RegisterTest("Hover condition owns the key through the unit column", {
         local KEY = "CTRL-SHIFT-F7"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+            return Fail(NAME, "registering a frame is blocked in combat")
         end
 
         InsertAction({
@@ -4835,7 +4835,7 @@ RegisterTest("Hover condition owns the key through the unit column", {
         local before = GetBindingAction(KEY, true) or ""
         if before:sub(1, 6) == "CLICK " then
             return Fail(NAME, format(
-                "호버 전인데 %q가 걸려 있다. 호버 조건이 방출에서 빠졌을 수 있다", before))
+                "%q is bound before any hover. the hover condition may have been left out of the emission", before))
         end
 
         HoverEnter(frame)
@@ -4843,13 +4843,13 @@ RegisterTest("Hover condition owns the key through the unit column", {
         WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+            return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
         local hovering = GetBindingAction(KEY, true) or ""
         if hovering:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
-                "아군 프레임에 올렸는데 %q. t.units[\"hover\"]가 안 맞은 것이다", hovering))
+                "put on a friendly frame and it is %q. t.units[\"hover\"] did not match", hovering))
         end
 
         HoverLeave(frame)
@@ -4857,10 +4857,10 @@ RegisterTest("Hover condition owns the key through the unit column", {
 
         local after = GetBindingAction(KEY, true) or ""
         if after ~= before then
-            return Fail(NAME, format("leave 뒤에도 %q, %q 여야 한다", after, before))
+            return Fail(NAME, format("%q even after leave, it should be %q", after, before))
         end
 
-        return Pass(NAME, format("호버 -> %s, 벗어남 -> 놓음", hovering))
+        return Pass(NAME, format("hover -> %s, leave -> released", hovering))
     end,
 })
 
@@ -4874,7 +4874,7 @@ RegisterTest("Hover frame types still narrow on their own", {
         local KEY = "CTRL-SHIFT-F7"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+            return Fail(NAME, "registering a frame is blocked in combat")
         end
 
         InsertAction({
@@ -4894,16 +4894,16 @@ RegisterTest("Hover frame types still narrow on their own", {
         WaitForHoverSlot(true)
 
         if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("진입 후 hover=%s, player여야 한다", tostring(GetHoverUnit())))
+            return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
         end
 
         local wrongType = GetBindingAction(KEY, true) or ""
         if wrongType:sub(1, 6) == "CLICK " then
             return Fail(NAME, format(
-                "boss 제한인데 group 프레임에서 %q가 걸렸다. frameTypes가 안 걸린 것이다", wrongType))
+                "limited to boss and %q bound on a group frame. frameTypes did not take", wrongType))
         end
 
-        return Pass(NAME, format("종류가 어긋나면 안 잡음 (%q)", wrongType))
+        return Pass(NAME, format("does not take where the type fails to match (%q)", wrongType))
     end,
 })
 
@@ -4922,7 +4922,7 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
         local NAME = "Header takeover"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+            return Fail(NAME, "registering a frame is blocked in combat")
         end
 
         -- `true` is what unit frame addons actually put in `ClickCastFrames`, and it is not one of
@@ -4932,7 +4932,7 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 
         local before = DebindPrivate.ccframes[frame]
         if before.frameType ~= Constants.FRAMETYPE_UNKNOWN then
-            return Fail(NAME, format("첫 등록이 unknown이어야 하는데 %s였다", tostring(before.frameType)))
+            return Fail(NAME, format("the first registration should be unknown and it was %s", tostring(before.frameType)))
         end
 
         -- Exactly what a header does: hand the button over on the driver and run the body.
@@ -4953,16 +4953,16 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 
         local after = DebindPrivate.ccframes[frame]
         if type(after) ~= "table" then
-            return Fail(NAME, format("헤더 등록 후 행이 사라졌다 (%s)", tostring(after)))
+            return Fail(NAME, format("the row disappeared after the header registration (%s)", tostring(after)))
         end
         if not after.hd then
-            return Fail(NAME, "헤더 등록이 물러났다. hd가 안 켜졌다")
+            return Fail(NAME, "the header registration stood down. hd never came on")
         end
         if after.frameType ~= Constants.FRAMETYPE_GROUP then
-            return Fail(NAME, format("unknown을 못 덮었다. frameType=%s", tostring(after.frameType)))
+            return Fail(NAME, format("unknown was not covered over. frameType=%s", tostring(after.frameType)))
         end
 
-        return Pass(NAME, "unknown 행을 헤더가 group으로 되찾음")
+        return Pass(NAME, "the header took an unknown row back as group")
     end,
 })
 
@@ -4981,15 +4981,15 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
         local NAME = "ClickCastFrames reclaim"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 프레임 등록이 막힌다")
+            return Fail(NAME, "registering a frame is blocked in combat")
         end
         if not DebindPrivate.ReclaimClickCastFrames then
-            return Fail(NAME, "DebindCliqueFake가 안 올라왔다 - 이 판에는 되찾을 이름이 없다")
+            return Fail(NAME, "DebindCliqueFake did not come up, there is no name to take back on this board")
         end
 
         local ours = _G.ClickCastFrames
         if type(ours) ~= "table" then
-            return Fail(NAME, format("ClickCastFrames가 표가 아니다 (%s)", type(ours)))
+            return Fail(NAME, format("ClickCastFrames is not a table (%s)", type(ours)))
         end
         AddTeardown(function() _G.ClickCastFrames = ours end)
 
@@ -4999,7 +4999,7 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
         if not frame then return Fail(NAME, err) end
         _G.ClickCastFrames[frame] = true
         if not _G.ClickCastFrames[frame] then
-            return Fail(NAME, "표에 넣은 프레임이 되읽히지 않는다 - 남의 회수 루프가 우리를 못 지난다")
+            return Fail(NAME, "a frame put into the table does not read back, somebody else's sweep cannot pass through us")
         end
 
         -- Somebody puts their own proxy over it, in the shape the real one has: a fresh table, a
@@ -5013,22 +5013,22 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
         DebindPrivate.ReclaimClickCastFrames()
         local reclaimed = _G.ClickCastFrames
         if reclaimed == theirs then
-            return Fail(NAME, "이름을 못 되찾았다 - 이후 등록이 전부 남의 표로 간다")
+            return Fail(NAME, "the name was not taken back, every registration after this goes into somebody else's table")
         end
         if not reclaimed[frame] then
-            return Fail(NAME, "되찾은 표가 뺏기기 전에 받아둔 프레임을 잊었다")
+            return Fail(NAME, "the table we took back forgot the frames taken in before it was lost")
         end
 
         -- And on a name that is already ours, nothing at all should happen.
         DebindPrivate.ReclaimClickCastFrames()
         if _G.ClickCastFrames ~= reclaimed then
-            return Fail(NAME, "이미 우리 것인 이름에 표를 또 얹었다 - 받아둔 목록이 날아간다")
+            return Fail(NAME, "a table was put on a name that is already ours, which throws away the list taken in")
         end
         if not _G.ClickCastFrames[frame] then
-            return Fail(NAME, "두 번째 회수가 받아둔 프레임을 지웠다")
+            return Fail(NAME, "the second reclaim cleared the frames taken in")
         end
 
-        return Pass(NAME, "되찾았고, 받아둔 것이 남았고, 두 번째는 no-op")
+        return Pass(NAME, "taken back, what was taken in was kept, and the second time is a no-op")
     end,
 })
 
@@ -5042,7 +5042,7 @@ RegisterTest("Click-cast: another addon narrowing the frame is put back", {
         local NAME = "Click input reasserted"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 RegisterForClicks가 막힌다")
+            return Fail(NAME, "RegisterForClicks is blocked in combat")
         end
 
         local frame, err = CreateTestUnitFrame("player", "group")
@@ -5062,10 +5062,10 @@ RegisterTest("Click-cast: another addon narrowing the frame is put back", {
         -- the original returns, so this one line has to drag our own reassert along with it.
         frame:RegisterForClicks("AnyUp")
         if not seen then
-            return Fail(NAME, "우리 훅이 안 돌았다 - 좁혀진 프레임이 그대로 남는다")
+            return Fail(NAME, "our hook never ran, the narrowed frame stays as it is")
         end
         if not (strfind(seen, "AnyUp", 1, true) and strfind(seen, "AnyDown", 1, true)) then
-            return Fail(NAME, format("되돌린 값이 [%s]다 - 한쪽 엣지가 안 온다", seen))
+            return Fail(NAME, format("what was put back is [%s], one edge does not arrive", seen))
         end
 
         -- And the wheel. That addon turns it off in the **line after** the one that narrows the
@@ -5073,7 +5073,7 @@ RegisterTest("Click-cast: another addon narrowing the frame is put back", {
         seen = nil
         frame:EnableMouseWheel(false)
         if not seen then
-            return Fail(NAME, "휠을 끈 호출이 되돌리기를 안 불렀다")
+            return Fail(NAME, "the call that turned the wheel off never called the restore")
         end
 
         return Pass(NAME, seen)
@@ -5102,12 +5102,12 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
         local KEY = "CTRL-SHIFT-F6"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+            return Fail(NAME, "nothing can be rebaked in combat")
         end
 
         local ok, err = EnableProbes()
         if not ok then
-            return Fail(NAME, "다시 굽기 실패: " .. tostring(err))
+            return Fail(NAME, "rebake failed: " .. tostring(err))
         end
 
         InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "combat"',
@@ -5126,7 +5126,7 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             -- the KeyMap array. Held once outside the loop, the second pass reads a dead table.
             local records = GetKeyBindings(KEY)
             if not records or #records ~= 2 then
-                return Fail(NAME, format("레코드가 2개여야 한다, 지금 %d개",
+                return Fail(NAME, format("there should be 2 records, there are %d",
                     records and #records or 0))
             end
 
@@ -5137,7 +5137,7 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             local want1 = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName()
                 .. ":" .. tostring(DebindPrivate.ClickTimeKeys[KEY])
             if bound ~= want1 then
-                return Fail(NAME, format("combat=%s: %q, %q여야 한다",
+                return Fail(NAME, format("combat=%s: %q, it should be %q",
                     tostring(want), bound, want1))
             end
 
@@ -5147,7 +5147,7 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             local idx = WaitForWinner()
             if idx == nil then
                 return Fail(NAME, format(
-                    "combat=%s: 평가는 돌았는데 맞는 레코드가 없다", tostring(want)))
+                    "combat=%s: the evaluation ran and no record matched", tostring(want)))
             end
 
             -- The winner index is a place within the records that were **emitted**. Anything dropped
@@ -5156,11 +5156,11 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
             -- drop them for.
             local got = records[idx]
             if not got then
-                return Fail(NAME, format("combat=%s 에서 색인 %d, 그 자리에 레코드가 없다",
+                return Fail(NAME, format("combat=%s gave index %d and there is no record in that place",
                     tostring(want), idx))
             end
             if got.conditions.combat ~= want then
-                return Fail(NAME, format("combat=%s 인데 combat=%s 레코드(%d번)를 골랐다",
+                return Fail(NAME, format("combat=%s and it picked the combat=%s record (#%d)",
                     tostring(want), tostring(got.conditions.combat), idx))
             end
             picked[#picked + 1] = idx
@@ -5174,10 +5174,10 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
         -- "it picked by looking at the condition".
         if picked[1] == picked[2] then
             return Fail(NAME, format(
-                "양쪽 다 %d번을 골랐다 - 조건을 안 보고 늘 같은 것을 고르고 있다", picked[1]))
+                "both picked #%d, it is picking the same one every time without looking at the condition", picked[1]))
         end
 
-        return Pass(NAME, format("전투=%d번, 비전투=%d번", picked[1], picked[2]))
+        return Pass(NAME, format("in combat #%d, out of combat #%d", picked[1], picked[2]))
     end,
 })
 
@@ -5200,14 +5200,14 @@ RegisterTest("Click bakes the deferred macro body", {
         local KEY = "CTRL-SHIFT-F9"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 리빌드가 미뤄져서 판정이 안 선다")
+            return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
         end
 
         AddTeardown(CleanupActions)
 
         local frame, why = CreateTestUnitFrame("player", "unit")
         if not frame then
-            return Fail(NAME, "테스트 프레임 등록이 거절됐다: " .. tostring(why))
+            return Fail(NAME, "the test frame registration was refused: " .. tostring(why))
         end
 
         -- **A body no run has used before, and that is what makes the check below mean anything.**
@@ -5226,7 +5226,7 @@ RegisterTest("Click bakes the deferred macro body", {
         local binding = GetNthBinding(KEY, 1)
         local button = binding and binding.clickbutton
         if not button then
-            return Fail(NAME, "전제가 깨졌다 - 이 액션에 클릭 버튼 이름이 안 붙었다")
+            return Fail(NAME, "the premise is gone: this action has no click button name on it")
         end
 
         SetFrameUnit(frame, "player")
@@ -5237,7 +5237,7 @@ RegisterTest("Click bakes the deferred macro body", {
         -- `@hover` still standing in it is the proof that the poll does not touch this body.
         local raw = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
         if not (raw and raw:find("@hover", 1, true)) then
-            return Fail(NAME, format("전제가 깨졌다 - 클릭 전에 본문이 벌써 %q다", tostring(raw)))
+            return Fail(NAME, format("the premise is gone: the body is already %q before any click", tostring(raw)))
         end
 
         local ok, evalWhy = EvalClickTimeKey(KEY)
@@ -5248,7 +5248,7 @@ RegisterTest("Click bakes the deferred macro body", {
 
         local baked = DebindPrivate.DefaultClickFrame:GetAttribute("*macrotext-" .. button)
         if not (baked and baked:find("@player", 1, true)) then
-            return Fail(NAME, format("클릭이 본문을 안 구웠다 (%q)", tostring(baked)))
+            return Fail(NAME, format("the click did not bake the body (%q)", tostring(baked)))
         end
 
         return Pass(NAME, baked)
@@ -5390,7 +5390,7 @@ local function SetUpSweepKey(records, key)
 
     local emitted = GetKeyBindings(key)
     if not emitted or #emitted ~= #records then
-        return nil, format("레코드가 %d개여야 한다, 지금 %d개 - 솔버가 떨궜거나 걸 수단이 없어 빠졌다",
+        return nil, format("there should be %d records, there are %d, either the solver dropped one or one had no way to be bound",
             #records, emitted and #emitted or 0)
     end
     return true
@@ -5407,7 +5407,7 @@ local function UnreachedRecords(records, wins)
     for i = 1, #records do
         if not wins[i] then
             missing = missing or {}
-            missing[#missing + 1] = format("%d번(%s)", i, records[i].label)
+            missing[#missing + 1] = format("#%d (%s)", i, records[i].label)
         end
     end
     return missing
@@ -5479,12 +5479,12 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
         local KEY = "CTRL-SHIFT-F1"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+            return Fail(NAME, "nothing can be rebaked in combat")
         end
 
         local probesOk, probesErr = EnableProbes()
         if not probesOk then
-            return Fail(NAME, "다시 굽기 실패: " .. tostring(probesErr))
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         local ok, err = SetUpSweepKey(CLICKTIME_SWEEP, KEY)
@@ -5492,7 +5492,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
         local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
         if not button then
-            return Fail(NAME, "클릭 시점 키가 아니다 - 이 테스트가 재려는 경로를 안 탄다")
+            return Fail(NAME, "not a click-time key, it does not walk the path this test measures")
         end
 
         local combos = BuildCombos()
@@ -5503,7 +5503,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
             local want = SweepWinner(CLICKTIME_SWEEP, state)
             if not want then
-                return Fail(NAME, format("%s: 기대 승자가 없다 - 마지막이 무조건인데 그럴 수 없다",
+                return Fail(NAME, format("%s: no expected winner, and the last one is unconditional so there has to be one",
                     ComboLabel(state)))
             end
 
@@ -5512,7 +5512,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
             -- who won.
             local emitted = GetKeyBindings(KEY)
             if not emitted or #emitted ~= #CLICKTIME_SWEEP then
-                return Fail(NAME, format("%s: 리빌드 뒤 레코드가 %d개 - 색인이 뜻을 잃었다",
+                return Fail(NAME, format("%s: %d records after the rebuild, the index has lost its meaning",
                     ComboLabel(state), emitted and #emitted or 0))
             end
 
@@ -5521,7 +5521,7 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
             local bound = GetBindingAction(KEY, true) or ""
             local wantBound = "CLICK " .. DebindPrivate.DefaultClickFrame:GetName() .. ":" .. button
             if bound ~= wantBound then
-                return Fail(NAME, format("%s: 키가 %q, %q여야 한다",
+                return Fail(NAME, format("%s: the key is %q, it should be %q",
                     ComboLabel(state), bound, wantBound))
             end
 
@@ -5530,10 +5530,10 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
             local got = WaitForWinner()
             if got ~= want then
-                return Fail(NAME, format("%s: %d번(%s)이 이겨야 하는데 %s",
+                return Fail(NAME, format("%s: #%d (%s) should have won and it was %s",
                     ComboLabel(state), want, CLICKTIME_SWEEP[want].label,
-                    got and format("%d번(%s)", got, CLICKTIME_SWEEP[got] and CLICKTIME_SWEEP[got].label or "?")
-                        or "아무도 안 이겼다"))
+                    got and format("#%d (%s)", got, CLICKTIME_SWEEP[got] and CLICKTIME_SWEEP[got].label or "?")
+                        or "nobody won"))
             end
 
             wins[got] = (wins[got] or 0) + 1
@@ -5541,11 +5541,11 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 
         local missing = UnreachedRecords(CLICKTIME_SWEEP, wins)
         if missing then
-            return Fail(NAME, format("%d개 조합 어디서도 안 이긴 레코드: %s - 훑는 축이 그 자리를 못 만든다",
+            return Fail(NAME, format("records that won in none of the %d combinations: %s. the swept axes cannot produce that place",
                 #combos, table.concat(missing, ", ")))
         end
 
-        return Pass(NAME, format("%d개 조합 전부 정확히 맞음, 레코드 %d개가 모두 한 번 이상 이김",
+        return Pass(NAME, format("all %d combinations exactly right, and all %d records won at least once",
             #combos, #CLICKTIME_SWEEP))
     end,
 })
@@ -5585,12 +5585,12 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
         local KEY = "CTRL-SHIFT-F5"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 다시 구울 수 없다")
+            return Fail(NAME, "nothing can be rebaked in combat")
         end
 
         local probesOk, probesErr = EnableProbes()
         if not probesOk then
-            return Fail(NAME, "다시 굽기 실패: " .. tostring(probesErr))
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
         end
 
         local ok, err = SetUpSweepKey(GAPPED_SWEEP, KEY)
@@ -5598,7 +5598,7 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 
         local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
         if not button then
-            return Fail(NAME, "클릭 시점 키가 아니다 - 누가 이겼는지를 물을 데가 없다")
+            return Fail(NAME, "not a click-time key, there is nowhere to ask who won")
         end
 
         -- The gap has to survive for the state loop to keep settling this key. This is where
@@ -5606,12 +5606,12 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
         -- "has to be released" side below passes without ever running.
         ReadKeyMembership(KEY)
         local membership = WaitForMembership()
-        if not membership then return Fail(NAME, "제한 환경이 답을 안 보냈다") end
+        if not membership then return Fail(NAME, "the restricted environment sent no answer") end
         if not membership.stateDriven then
-            return Fail(NAME, "상태 구동 키가 아니다 - 조건 공간에 구멍이 없다는 뜻이다")
+            return Fail(NAME, "not a state-driven key, which means the condition space has no gap")
         end
         if not membership.clickTime then
-            return Fail(NAME, "클릭 시점 표에도 없다 - 누가 이겼는지를 물을 데가 없다")
+            return Fail(NAME, "not in the click-time table either, there is nowhere to ask who won")
         end
 
         local combos = BuildCombos()
@@ -5626,11 +5626,11 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 
             if want then
                 if bound ~= wantBound then
-                    return Fail(NAME, format("%s: %d번(%s)이 맞는데 키가 %q - 잡았어야 한다",
+                    return Fail(NAME, format("%s: #%d (%s) matches and the key is %q, it should have been taken",
                         ComboLabel(state), want, GAPPED_SWEEP[want].label, bound))
                 end
             elseif bound ~= "" then
-                return Fail(NAME, format("%s: 맞는 레코드가 없는데 키가 %q - 놓았어야 한다",
+                return Fail(NAME, format("%s: no record matches and the key is %q, it should have been released",
                     ComboLabel(state), bound))
             end
 
@@ -5639,11 +5639,11 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
 
             local got = WaitForWinner()
             if got ~= want then
-                return Fail(NAME, format("%s: 누름이 %s를 골랐다, %s여야 한다",
+                return Fail(NAME, format("%s: the press picked %s, it should be %s",
                     ComboLabel(state),
-                    got and format("%d번(%s)", got, GAPPED_SWEEP[got] and GAPPED_SWEEP[got].label or "?")
-                        or "아무도 안",
-                    want and format("%d번(%s)", want, GAPPED_SWEEP[want].label) or "아무도 안"))
+                    got and format("#%d (%s)", got, GAPPED_SWEEP[got] and GAPPED_SWEEP[got].label or "?")
+                        or "nobody",
+                    want and format("#%d (%s)", want, GAPPED_SWEEP[want].label) or "nobody"))
             end
 
             if want then
@@ -5656,15 +5656,15 @@ RegisterTest("Multi-axis: poll and press agree on a key with a gap", {
         -- Was the gap actually walked into? If not, not a line of the "has to be released" side ran,
         -- and this test measured the same thing as the one before it twice.
         if released == 0 then
-            return Fail(NAME, format("%d개 조합 중 아무 데서도 안 놓았다 - 구멍을 못 밟았다", #combos))
+            return Fail(NAME, format("it released in none of the %d combinations, the gap was never walked into", #combos))
         end
 
         local missing = UnreachedRecords(GAPPED_SWEEP, wins)
         if missing then
-            return Fail(NAME, format("%d개 조합 어디서도 안 이긴 레코드: %s", #combos, table.concat(missing, ", ")))
+            return Fail(NAME, format("records that won in none of the %d combinations: %s", #combos, table.concat(missing, ", ")))
         end
 
-        return Pass(NAME, format("%d개 조합에서 폴과 누름이 일치, 그중 %d개는 키를 놓음",
+        return Pass(NAME, format("the poll and the press agreed in %d combinations, and %d of those released the key",
             #combos, released))
     end,
 })
@@ -5694,7 +5694,7 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
         local MACRO = "DebindTestRevive"
 
         if InCombatLockdown() then
-            return Fail(NAME, "전투 중에는 매크로를 만들 수 없다")
+            return Fail(NAME, "a macro cannot be created in combat")
         end
 
         AddTeardown(function()
@@ -5714,7 +5714,7 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
         -- and this test would go green on a build where the issue never drops anything.
         local before = GetBindingAction(KEY, true) or ""
         if before ~= "" then
-            return Fail(NAME, format("매크로가 없는데 키가 이미 잡혀 있다: %q", before))
+            return Fail(NAME, format("the macro does not exist and the key is already taken: %q", before))
         end
 
         -- **Asked of the store, not of the return value.** `CreateMacro` raises when there is no
@@ -5722,7 +5722,7 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
         -- the answer wanted here is whether the macro is now there.
         pcall(CreateMacro, MACRO, 132219, "/say debtest")
         if GetMacroIndexByName(MACRO) == 0 then
-            return Fail(NAME, "매크로를 못 만들었다 - 매크로 칸이 다 찼을 수 있다")
+            return Fail(NAME, "the macro could not be created, the macro slots may be full")
         end
 
         -- **Waiting on the binding is right here only because the line above proved it was not
@@ -5736,7 +5736,7 @@ RegisterTest("Macro store: creating the missing macro revives the key", {
         local after = GetBindingAction(KEY, true) or ""
         if after:sub(1, 6) ~= "CLICK " then
             return Fail(NAME, format(
-                "매크로를 만들었는데 키가 아직 죽어 있다 (%q) - UPDATE_MACROS를 아무도 안 듣는다",
+                "the macro was created and the key is still dead (%q), nobody is listening to UPDATE_MACROS",
                 after))
         end
 
@@ -5769,7 +5769,7 @@ RegisterTest("Stood down: the window refuses and the reset asks twice", {
         -- window, not wipe the account, and asking before the flag is up is the only way to see
         -- that the guard inside the handler is the thing answering.
         if DebindPrivate.HandleNewerProfileReset({ "reset" }) then
-            return Fail(NAME, "물러선 상태가 아닌데 /deb reset이 먹혔다. 상시 초기화 명령이 돼 있다")
+            return Fail(NAME, "/deb reset took while not stood down. it has become an always-available wipe command")
         end
 
         local restore = DebindPrivate.profileIsNewer
@@ -5784,31 +5784,31 @@ RegisterTest("Stood down: the window refuses and the reset asks twice", {
         -- closed. Opening it would hand the user a window whose every edit is thrown away.
         DebindPublic:ToggleUI()
         if DebindFrame:IsShown() then
-            return Fail(NAME, "물러선 상태에서 창이 열렸다. 여기서 넣는 바인딩은 저장이 안 된다")
+            return Fail(NAME, "the window opened while stood down. a binding put in here is never saved")
         end
 
         -- The compartment button is a second door into the same call, and it is the one a user
         -- reaches for when a slash command looks broken.
         Debind_CompartmentFunc()
         if DebindFrame:IsShown() then
-            return Fail(NAME, "구획 버튼으로는 창이 열렸다")
+            return Fail(NAME, "the window opened from the compartment button")
         end
 
         local before = _G.DebindVars
         if not DebindPrivate.HandleNewerProfileReset({ "reset" }) then
-            return Fail(NAME, "물러선 상태인데 /deb reset을 아무도 안 받았다")
+            return Fail(NAME, "stood down and nobody took /deb reset")
         end
         if _G.DebindVars ~= before then
-            return Fail(NAME, "1단계가 저장된 표를 갈아치웠다. 확인을 묻기도 전에 지워진다")
+            return Fail(NAME, "the first step replaced the stored table. it wipes before anything is confirmed")
         end
 
         -- A word that is not the token must not count as one. `confirm` is the only second word,
         -- and anything else has to land back on the first step.
         if not DebindPrivate.HandleNewerProfileReset({ "reset", "yes" }) then
-            return Fail(NAME, "두 번째 낱말이 다르니 명령 자체가 안 받아졌다")
+            return Fail(NAME, "the second word differs, so the command was not taken at all")
         end
         if _G.DebindVars ~= before then
-            return Fail(NAME, "confirm이 아닌 낱말에도 지워졌다")
+            return Fail(NAME, "it wiped on a word that is not confirm")
         end
 
         return Pass(NAME)
@@ -5840,11 +5840,11 @@ RegisterTest("Run survives /reload", {
         -- Anything wrong here means the runner picked the wrong test, the wrong phase, or a run
         -- that was not the one it stored.
         if phase ~= "second-half" then
-            return Fail(NAME, format("phase=%s, second-half여야 한다", tostring(phase)))
+            return Fail(NAME, format("phase=%s, it should be second-half", tostring(phase)))
         end
 
         if not scratch.token or scratch.token:sub(1, 7) ~= "before-" then
-            return Fail(NAME, format("스크래치가 안 넘어왔다 (token=%s)", tostring(scratch.token)))
+            return Fail(NAME, format("the scratch did not come across (token=%s)", tostring(scratch.token)))
         end
 
         -- The run's own tally has to come back too. It is what the report is built from, and a
@@ -5852,7 +5852,7 @@ RegisterTest("Run survives /reload", {
         local kept = scratch.token
         scratch.token, scratch.index = nil, nil
 
-        return Pass(NAME, format("리로드 뒤 %s 로 이어짐 (%s)", phase, kept))
+        return Pass(NAME, format("carried on into %s after the reload (%s)", phase, kept))
     end,
 })
 
@@ -5970,7 +5970,7 @@ local function FailuresText(summary, source)
     end
 
     if #lines == 0 then
-        return "실패 없음.\n\n" .. summary
+        return "No failures.\n\n" .. summary
     end
 
     tinsert(lines, "")
@@ -6042,7 +6042,7 @@ local MAX_RELOADS = 4
 -- on the way past, and declining has to mean something, so it stops the run rather than leaving
 -- a stored one to surprise the next login.
 StaticPopupDialogs["DEBINDTEST_RELOAD"] = {
-    text = "DebindTest: %s\n\n이 테스트는 /reload를 건너야 한다. 리로드하면 이어서 계속한다.",
+    text = "DebindTest: %s\n\nThis test has to cross a /reload. Reloading carries the run on from here.",
     button1 = RELOAD_UI or "Reload UI",
     button2 = CANCEL or "Cancel",
     OnAccept = function() ReloadUI() end,
@@ -6052,7 +6052,7 @@ StaticPopupDialogs["DEBINDTEST_RELOAD"] = {
         -- have to come back. The reload path does not need this: the swap is only in memory.
         SetIsolated(false)
         UI.SetRunning(false)
-        print("|cffff8800[DebindTest]|r 리로드를 취소해서 런을 중단했다.")
+        print("|cffff8800[DebindTest]|r the reload was cancelled, so the run was stopped.")
     end,
     timeout = 0,
     whileDead = true,
@@ -6091,7 +6091,7 @@ local function DoReload(phase)
     run = nil
     runner:Hide()
 
-    print(format("|cff00ccff[DebindTest]|r %s -> /reload 대기 (%s)", name, phase))
+    print(format("|cff00ccff[DebindTest]|r %s -> waiting for /reload (%s)", name, phase))
     StaticPopup_Show("DEBINDTEST_RELOAD", name)
 end
 
@@ -6131,7 +6131,7 @@ local function Step()
         -- `/debtest` should do to someone who only wanted to see the list go green.
         if test.crossesReload and not run.crossReloads then
             run.skip = run.skip + 1
-            Record(run.name, "skip", format("SKIP %s: /debtest reload 로 실행", run.name), "ff888888")
+            Record(run.name, "skip", format("SKIP %s: run it with /debtest reload", run.name), "ff888888")
             run.index = run.index + 1
             Persist()
             return true
@@ -6162,7 +6162,7 @@ local function Step()
         if run.reloads >= MAX_RELOADS then
             run.err = run.err + 1
             Record(run.name, "error",
-                format("ERROR %s: 리로드를 %d번 넘게 요청했다", run.name, MAX_RELOADS), "ffff8800")
+                format("ERROR %s: asked for more than %d reloads", run.name, MAX_RELOADS), "ffff8800")
             RunTeardowns()
             run.co, run.wait = nil, nil
             run.index = run.index + 1
@@ -6264,14 +6264,14 @@ local function ResumeStoredRun()
     if not pending.expectReload then
         DB().pending = nil
         local name = testOrder[pending.index] or "?"
-        print(format("|cffff8800[DebindTest]|r 이전 실행이 %s 에서 끊겼다 (리로드 요청 없음). 이어가지 않는다.",
+        print(format("|cffff8800[DebindTest]|r the previous run was cut off at %s (no reload was asked for). It is not carried on.",
             name))
-        local died = format("DIED %s: 세션이 이 테스트 도중에 끝났다", name)
+        local died = format("DIED %s: the session ended partway through this test", name)
         tinsert(pending.lines, died)
         lastResultText = table.concat(pending.lines, "\n")
         DB().last = lastResultText
         -- **The failure list is rewritten too, or it answers for the run before this one.** A
-        -- reader who presses [실패만 복사] after a run died would otherwise be handed a stale list
+        -- reader who presses [Copy failures] after a run died would otherwise be handed a stale list
         -- with nothing saying so, and the death itself -- the one thing worth reading -- would not
         -- be in it.
         lastFailureText = FailuresText(died, pending.results)
@@ -6292,7 +6292,7 @@ local function ResumeStoredRun()
         crossReloads = pending.crossReloads,
     }
 
-    print(format("|cff00ccff[DebindTest]|r 리로드 뒤 이어서 실행: %s (%s)",
+    print(format("|cff00ccff[DebindTest]|r carrying on after the reload: %s (%s)",
         testOrder[run.index] or "?", tostring(run.phase)))
 
     local ok, err = pcall(function()
@@ -6308,7 +6308,7 @@ local function ResumeStoredRun()
     if not ok then
         run = nil
         runner:Hide()
-        print(format("|cffff0000[DebindTest]|r 이어받기가 터졌다: %s", tostring(err)))
+        print(format("|cffff0000[DebindTest]|r picking the run back up raised: %s", tostring(err)))
         local failed = format("RESUME FAILED %s: %s", testOrder[pending.index] or "?", tostring(err))
         tinsert(pending.lines, failed)
         lastResultText = table.concat(pending.lines, "\n")
@@ -6359,7 +6359,7 @@ local function StartRequestedRun()
     -- afterwards would leave the box unticked while the run behind it honoured the tick.
     skipBlackout = request.skipBlackout and true or false
 
-    print("|cff00ccff[DebindTest]|r 리로드 뒤 처음부터 실행한다.")
+    print("|cff00ccff[DebindTest]|r running from the top after the reload.")
     UI.Open()
     RunAllTests()
 end
@@ -6448,7 +6448,7 @@ end
 --- session that resumes one. Counting the rows means the line is right in all four.
 ---
 --- Zero counts are left out rather than shown as zero. A row of red zeroes reads as a report; the
---- absence of the word 실패 is the report.
+--- absence of the word Fail is the report.
 local function UpdateSummary()
     if not TestFrame then return end
 
@@ -6469,13 +6469,13 @@ local function UpdateSummary()
     end
 
     local total = #testOrder
-    local parts = { format("|cffcccccc전체 %d|r", total), format("|cff00ff00통과 %d|r", pass) }
-    if fail > 0 then parts[#parts + 1] = format("|cffff4444실패 %d|r", fail) end
-    if err > 0 then parts[#parts + 1] = format("|cffff8800오류 %d|r", err) end
-    if skip > 0 then parts[#parts + 1] = format("|cff888888건너뜀 %d|r", skip) end
+    local parts = { format("|cffccccccTotal %d|r", total), format("|cff00ff00Pass %d|r", pass) }
+    if fail > 0 then parts[#parts + 1] = format("|cffff4444Fail %d|r", fail) end
+    if err > 0 then parts[#parts + 1] = format("|cffff8800Error %d|r", err) end
+    if skip > 0 then parts[#parts + 1] = format("|cff888888Skip %d|r", skip) end
 
     local left = total - (pass + fail + err + skip)
-    if left > 0 then parts[#parts + 1] = format("|cff666666남음 %d|r", left) end
+    if left > 0 then parts[#parts + 1] = format("|cff666666Left %d|r", left) end
 
     TestFrame.summary:SetText(table.concat(parts, "   "))
 end
@@ -6579,7 +6579,7 @@ local function BuildRows(content)
     -- **Built is not painted.** The row frames existed from the first open, but nothing filled
     -- them in until the runner reached that test -- so the window came up as a stack of blank
     -- lines and the suite only became visible by running it. The list is meant to be readable
-    -- before anyone presses 실행.
+    -- before anyone presses Run.
     PaintAllRows()
 end
 
@@ -6603,7 +6603,7 @@ local function CreateTestUI()
     f.runBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.runBtn:SetSize(100, 24)
     f.runBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -30)
-    f.runBtn:SetText("실행")
+    f.runBtn:SetText("Run")
     f.runBtn:SetScript("OnClick", function()
         RunAllTests()
     end)
@@ -6614,17 +6614,17 @@ local function CreateTestUI()
     f.reloadBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.reloadBtn:SetSize(120, 24)
     f.reloadBtn:SetPoint("RIGHT", f.runBtn, "LEFT", -6, 0)
-    f.reloadBtn:SetText("리로드 포함")
+    f.reloadBtn:SetText("With reload")
     -- No `onDone`. **Finishing does not open the copy window** -- the results are in this list and
-    -- the 복사 button is right here. A popup that covers the list the moment it becomes worth
+    -- the Copy button is right here. A popup that covers the list the moment it becomes worth
     -- reading is the opposite of the one-window shape.
     f.reloadBtn:SetScript("OnClick", function()
         RunAllTests(nil, true)
     end)
     f.reloadBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine("리로드 포함 실행", 1, 1, 1)
-        GameTooltip:AddLine("/reload을 건너야 하는 테스트까지 돈다. 그 자리에서 세션이 한 번 끊긴다.",
+        GameTooltip:AddLine("Run including reload", 1, 1, 1)
+        GameTooltip:AddLine("Runs the tests that have to cross a /reload as well. The session is cut once, at that point.",
             nil, nil, nil, true)
         GameTooltip:Show()
     end)
@@ -6636,17 +6636,17 @@ local function CreateTestUI()
     f.freshBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.freshBtn:SetSize(130, 24)
     f.freshBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, -58)
-    f.freshBtn:SetText("리로드 후 실행")
+    f.freshBtn:SetText("Reload, then run")
     f.freshBtn:SetScript("OnClick", function()
         RequestFreshRun()
     end)
     f.freshBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine("리로드 후 실행", 1, 1, 1)
+        GameTooltip:AddLine("Reload, then run", 1, 1, 1)
         GameTooltip:AddLine(
-            "지금 /reload 하고, 돌아오면 창을 열어 처음부터 돈다. 지금 세션이 굴러온 상태 위에서가 아니라 "
-            .. "갓 로그인한 세션에서 재는 것이 목적이다. |cffffff00실행|r 과 같은 범위라 "
-            .. "/reload을 건너야 하는 테스트는 건너뛴다.",
+            "Reloads now, and on the way back opens the window and runs from the top. The point is to measure on a "
+            .. "freshly logged in session rather than on whatever this one has accumulated. Same scope as |cffffff00Run|r, so "
+            .. "the tests that have to cross a /reload are skipped.",
             nil, nil, nil, true)
         GameTooltip:Show()
     end)
@@ -6655,13 +6655,13 @@ local function CreateTestUI()
     f.copyBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.copyBtn:SetSize(100, 24)
     f.copyBtn:SetPoint("RIGHT", f.reloadBtn, "LEFT", -6, 0)
-    f.copyBtn:SetText("복사")
+    f.copyBtn:SetText("Copy")
     f.copyBtn:SetScript("OnClick", function()
         if lastResultText ~= "" then
             ShowCopyableText(lastResultText)
         else
             local stored = DB().last
-            ShowCopyableText(stored or "아직 실행한 적이 없다.")
+            ShowCopyableText(stored or "Nothing has been run yet.")
         end
     end)
 
@@ -6669,29 +6669,29 @@ local function CreateTestUI()
     -- two failures somewhere in it, and the first thing anyone does with it is search. This hands
     -- over the two.
     --
-    -- Beside [복사] rather than instead of it: the whole report is what to keep when the question is
+    -- Beside [Copy] rather than instead of it: the whole report is what to keep when the question is
     -- "what did this build do", and that is a different question from "what do I fix now".
     f.copyFailBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.copyFailBtn:SetSize(100, 24)
-    -- **Under [복사] rather than beside it.** The top row already reaches within 290 of the left
+    -- **Under [Copy] rather than beside it.** The top row already reaches within 290 of the left
     -- edge and the tally sits there; one more button on it would run into the numbers. Under it the
-    -- pair reads as a pair, and the second row has nothing between here and [리로드 후 실행].
+    -- pair reads as a pair, and the second row has nothing between here and [Reload, then run].
     f.copyFailBtn:SetPoint("TOP", f.copyBtn, "BOTTOM", 0, -4)
-    f.copyFailBtn:SetText("실패만 복사")
+    f.copyFailBtn:SetText("Copy failures")
     f.copyFailBtn:SetScript("OnClick", function()
         if lastFailureText ~= "" then
             ShowCopyableText(lastFailureText)
         else
             local stored = DB().lastFailures
-            ShowCopyableText(stored or "아직 실행한 적이 없다.")
+            ShowCopyableText(stored or "Nothing has been run yet.")
         end
     end)
     f.copyFailBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine("실패만 복사", 1, 1, 1)
+        GameTooltip:AddLine("Copy failures", 1, 1, 1)
         GameTooltip:AddLine(
-            "마지막 런에서 실패하거나 오류가 난 것만 모아서 연다. 건너뛴 것은 안 들어간다 - "
-            .. "잘못된 것이 없으니까. 아래에 전체 집계가 같이 붙는다.",
+            "Opens just the failures and errors from the last run. Skipped ones are left out, "
+            .. "since nothing was wrong with them. The whole tally comes along underneath.",
             nil, nil, nil, true)
         GameTooltip:Show()
     end)
@@ -6708,17 +6708,17 @@ local function CreateTestUI()
     f.keepBindings = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
     f.keepBindings:SetSize(24, 24)
     f.keepBindings:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -58)
-    f.keepBindings.text:SetText("기존 바인딩 남겨두기")
+    f.keepBindings.text:SetText("Keep existing bindings")
     f.keepBindings:SetChecked(skipBlackout)
     f.keepBindings:SetScript("OnClick", function(self)
         skipBlackout = self:GetChecked() and true or false
     end)
     f.keepBindings:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("기존 바인딩 남겨두기", 1, 1, 1)
+        GameTooltip:AddLine("Keep existing bindings", 1, 1, 1)
         GameTooltip:AddLine(
-            "평소에는 런 동안 게임의 기존 바인딩을 전부 끈다 - 그래야 어느 기계에서 돌려도 같은 답이 나온다. "
-            .. "체크하면 그대로 두고 돈다. 어떤 실패가 그 조치 탓인지 가리려고 있는 것이지 설정이 아니다.",
+            "Normally every existing game binding is cleared for the length of a run, which is what makes the answer the same on any machine. "
+            .. "Ticked, the run leaves them alone. It is here to tell which failures that clearing caused, not as a setting.",
             nil, nil, nil, true)
         GameTooltip:Show()
     end)
@@ -6778,7 +6778,7 @@ end
 function UI.SetRunning(running)
     if TestFrame then
         TestFrame.runBtn:SetEnabled(not running)
-        TestFrame.runBtn:SetText(running and "실행 중" or "실행")
+        TestFrame.runBtn:SetText(running and "Running" or "Run")
         TestFrame.reloadBtn:SetEnabled(not running)
         TestFrame.freshBtn:SetEnabled(not running)
     end
@@ -6802,7 +6802,7 @@ function UI.ShowClickTarget(frame, text)
     f.clickSlot.label:SetText(text)
     f.clickSlot:Show()
 
-    -- **A frame we leave alone is not in here**, so the box that says "여기" would be pointing at
+    -- **A frame we leave alone is not in here**, so the box that says "here" would be pointing at
     -- itself. The overlay shrinks to the line of text and the text is what says where to go.
     f.clickSlot.target:SetShown(not frame.debindTestLeaveAlone)
     if frame.debindTestLeaveAlone then
@@ -6823,7 +6823,7 @@ function UI.ShowClickTarget(frame, text)
             frame.debindTestSkin:SetColorTexture(0.15, 0.35, 0.55, 1)
             frame.debindTestSkinText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
             frame.debindTestSkinText:SetPoint("CENTER")
-            frame.debindTestSkinText:SetText("여기")
+            frame.debindTestSkinText:SetText("here")
         end
         frame:Show()
     end
@@ -6853,14 +6853,14 @@ SlashCmdList["DEBINDTEST"] = function(msg)
         if lastResultText ~= "" then
             ShowCopyableText(lastResultText)
         else
-            print("|cff00ccff[DebindTest]|r 아직 결과가 없다. |cffffff00/debtest|r 창의 |cffffff00실행|r 부터.")
+            print("|cff00ccff[DebindTest]|r no results yet. Start with |cffffff00Run|r in the |cffffff00/debtest|r window.")
         end
     elseif msg == "last" then
         local stored = DB().last
         if stored then
             ShowCopyableText(stored)
         else
-            print("|cff00ccff[DebindTest]|r 저장된 결과가 없다.")
+            print("|cff00ccff[DebindTest]|r no stored results.")
         end
     else
         -- **Opening does not run.** These tests cast, and one of them stops to ask for a click;
@@ -6870,4 +6870,4 @@ SlashCmdList["DEBINDTEST"] = function(msg)
     end
 end
 
-print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = 목록 창. 실행은 창 안의 |cffffff00실행|r / |cffffff00리로드 포함|r / |cffffff00리로드 후 실행|r 버튼. |cffffff00/debtest last|r = 지난 결과.")
+print("|cff00ccff[DebindTest]|r Loaded. |cffffff00/debtest|r = the list window. Run it from the |cffffff00Run|r / |cffffff00With reload|r / |cffffff00Reload, then run|r buttons inside it. |cffffff00/debtest last|r = the previous results.")
