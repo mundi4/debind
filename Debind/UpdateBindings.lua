@@ -1418,23 +1418,6 @@ local function PrepareKeyBindings(key, bindingArray)
     return hasClickCast, hasKeyRecord;
 end
 
---- The three answers a key gets before any of its records is built.
----
---- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
----
----   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
----   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
----
---- `IsKeyAlwaysOurs`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이 거짓이면 두
---- 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가 이미 적어둔
---- 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히 클릭 시점에 정한다."
----
---- **`PrepareKeyBindings` 뒤에만 부를 수 있다.** `holdsKey`가 거기서 정해지고, 걸 수단이 없어
---- 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지 않는데
---- 회귀는 안 나므로 알아채기 어렵다.
----
---- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
---- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
 --- The binding a key is settled on before any state is read, when it is one that goes out without
 --- a click. **nil for every other key**, which is nearly all of them.
 ---
@@ -1467,6 +1450,27 @@ local function GetSettledBinding(bindingArray)
     end
 end
 
+--- The three answers a key gets before any of its records is built.
+---
+--- **두 결정은 원래 분리된다.** 한 플래그로 묶여 있던 것을 여기서 가른다.
+---
+---   이 키를 어떻게 걸 것인가   상태에 의존한다. 클릭이 도착하기 전에 정해져 있어야 한다
+---   어느 액션이 나갈 것인가     클릭 순간에 정하면 된다
+---
+--- `IsKeyAlwaysOurs`는 **첫 번째**에만 답한다(`click-time-eval.md` §6). 그 답이 거짓이면 두
+--- 번째까지 옛 방식에 남길 이유가 없는데 2단계가 그렇게 두었다. 같은 문서가 이미 적어둔
+--- 결론이다 - "그 판정만 지금 방식으로 추적한다. 어느 액션인지는 여전히 클릭 시점에 정한다."
+---
+--- **`PrepareKeyBindings` 뒤에만 부를 수 있다.** `holdsKey`가 거기서 정해지고, 걸 수단이 없어
+--- 떨궈진 항목도 거기서 걸러진다. 먼저 부르면 전부 nil이라 아무 키도 라우팅되지 않는데
+--- 회귀는 안 나므로 알아채기 어렵다.
+---
+--- **The key it is asked about may already be settled**, and then the caller hands in `false` for
+--- `hasKeyRecord` -- the key side is out of the snippet, so there is no click-time button to
+--- register and nothing for the state loop to walk (`UpdateBindingsMap`).
+---
+--- 나중에 이 앞에 tier 1이 들어온다 - 조건을 매크로 본문에 직접 구워 게임이 시전 순간에
+--- 판정하게 하는 것. 되는 키는 클릭당 우리 비용이 0이라 래퍼를 태우는 것보다 싸다.
 local function ClassifyKey(bindingArray, hasKeyRecord)
     -- 어느 액션인가를 클릭 시점에 정한다. 키를 잡는 레코드가 하나라도 있으면 된다.
     local clickTime = Constants.CLICK_TIME_EVAL and hasKeyRecord and true or false;

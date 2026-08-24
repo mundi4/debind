@@ -4757,9 +4757,9 @@ RegisterTest("State injection: combat-only binding", {
 -- this addon puts out goes through a frame handle, and `SetOverrideBinding` called from our own
 -- Lua is a path nothing here had walked before.
 --
--- The state loop is also asked, and asked the way a reader could: the key answers with the command
--- and keeps answering after a state that nothing on this key mentions has been turned over. A key
--- the loop was still re-deciding would be indistinguishable on the first read alone.
+-- The state loop is also asked, and asked with the one driver that carries no rebuild: a `forceAll`
+-- pass poked straight at the driver. Anything that runs a rebuild files the override again, so a
+-- key the loop had taken away would read as one that was never touched.
 RegisterTest("Settled command: filed from outside the restricted environment", {
     description = "An unconditional command reaches the key without the update loop",
     run = function()
@@ -4786,12 +4786,21 @@ RegisterTest("Settled command: filed from outside the restricted environment", {
             return Fail(NAME, "the key got a click-time button that no click can arrive under")
         end
 
-        -- A pass of the state loop, driven the way every other case here drives one. The key is
-        -- not in the table it walks, so what this proves is that nothing takes the binding away.
-        SetMockState("combat", true)
-        local afterPass = GetBindingAction(KEY, true) or ""
-        SetMockState("combat", false)
+        -- A pass of the state loop **without a rebuild behind it**, which is the only way this
+        -- read means anything: every helper that pokes a state here ends in `ApplyBindings`, and a
+        -- rebuild files the override again, so the key would answer with the command whatever the
+        -- loop did to it in between.
+        --
+        -- `forceAll` and the `1` are the pair `ApplyBindingPlan` closes a rebuild with, minus the
+        -- rebuild. It is the widest pass there is: every key in `StateDrivenBindings` is re-decided
+        -- and the ones with no matching record are handed back with `ClearBinding`. This key is not
+        -- in that table, so what this asks is that the pass leaves an override it never filed alone.
+        SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+            DirtyFlags.forceAll = true
+            self:SetAttribute("state-unitexists", 1)
+        ]])
 
+        local afterPass = GetBindingAction(KEY, true) or ""
         if afterPass ~= COMMAND then
             return Fail(NAME, format("a state pass left the key at %q", afterPass))
         end
