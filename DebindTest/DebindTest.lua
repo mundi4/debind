@@ -122,8 +122,8 @@ end
 -- The runner still understands a duration -- `coroutine.yield(seconds)` -- so the door is there;
 -- what is gone is the helper that made walking through it look routine. A number here means
 -- "I could not name what I am waiting for", and every one that was here turned out to be waiting
--- for something that had already happened. `devdocs/when-a-change-takes-effect.md` has the whole
--- map, including the two traps in writing a condition to wait on.
+-- for something that had already happened. `devdocs/reading-back-what-you-just-set.md` has the
+-- whole map, including the two traps in writing a condition to wait on.
 --
 -- **Tests that never yield are unaffected.** A coroutine that runs straight through finishes on
 -- its first resume, and the runner steps to the next one without giving up the frame, so a suite
@@ -3794,7 +3794,7 @@ RegisterTest("Switch condition on a name outside the five", {
         -- 안 실렸으면 전투가 끝날 때까지 키가 안 살아난다.
         --
         -- 기다리지 않는다. `SetAttribute`가 핸들러를 그 자리에서 돌리고 제한 환경의
-        -- `SetBindingClick`은 즉시 건다(`devdocs/when-a-change-takes-effect.md`).
+        -- `SetBindingClick`은 즉시 건다(`devdocs/reading-back-what-you-just-set.md`).
         DebindPrivate.SwitchesUpdaterFrame:SetAttribute("$burst", true)
 
         local afterToggle = GetBindingAction(KEY, true) or ""

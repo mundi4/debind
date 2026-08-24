@@ -222,7 +222,8 @@ section used to say the opposite — that nothing lands in the frame you asked f
 doubt spend 0.4s — and it was wrong on three of its four counts. `CallMethod` is called rather
 than queued, restricted `SetBindingClick` binds the key on the spot, and a direct
 `UpdateBindings()` runs its own state pass before it returns. The full map is
-[when-a-change-takes-effect.md](when-a-change-takes-effect.md); read it before adding a wait.
+[reading-back-what-you-just-set.md](reading-back-what-you-just-set.md); read it before adding a
+wait.
 
 What is left waits on a named event and stops the moment it happens, so a passing run pays what it
 actually costs rather than a flat sum:

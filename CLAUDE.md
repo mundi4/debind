@@ -135,7 +135,7 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
   topic (`testing.md` read as the test suite; `release.md` read as the release notes).
   - **Standing documents** are the rules, and they stay put: `dev-setup.md`,
     `testing-a-change.md`, `cutting-a-release.md`, `restricted-environment.md`,
-    `writing-user-facing-text.md`, `when-a-change-takes-effect.md`.
+    `writing-user-facing-text.md`, `reading-back-what-you-just-set.md`.
   - **Work documents** are a design, a plan, an implementation order, a status writeup. **A new one
     of those is written here**, opening with a status header (`> 상태: …`). When the whole thing has
     been implemented the file moves to `devdocs/legacy/`, so a work document still at the top level

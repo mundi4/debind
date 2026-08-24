@@ -1,8 +1,12 @@
-# When a change takes effect — what runs before the call returns, and what waits for a later frame
+# Reading back what you just set: what is true before the call returns, and what waits for a later frame
 
 Written while cutting the fixed waits out of `/debtest`, but it is not about the tests. It is
 about **when a thing you just did becomes true**, which is the question behind "I set it and read
 back the old value" in a test, in the UI, and at a `/dump` in the game.
+
+This is not the question of when an option the user changed reaches the game. That one is about
+rebuilds and combat lockdown, and it is answered in `testing-a-change.md` and in the code around
+`QueueUpdateBindings`. This file is about a single call and the frame it runs in.
 
 The short answer is that almost all of it is synchronous, including the parts that look like they
 could not be. Two things are not.
@@ -50,8 +54,11 @@ Direct `DebindPrivate.UpdateBindings()` does not go through this. Only `QueueUpd
 **Blizzard's state driver poll — the only genuine clock in the system.**
 `SecureStateDriverManager` (`Blizzard_FrameXML/SecureStateDriver.lua`) runs on an OnUpdate throttled
 to `STATE_DRIVER_UPDATE_THROTTLE`, default `0.2`, settable through its `updatetime` attribute —
-which Debind writes (`ApplyOptions("stateDriverUpdateThrottle")`, clamped to at most 0.2, and only
-lowered while a hover/mouseover axis is actually measured).
+which Debind writes. Two places write it, and the later one usually wins:
+`FinishBindingUpdate` writes what the rebuild planned, then `ApplyOptions("stateDriverUpdateThrottle")`
+writes the window slider's option over it. Both clamp to 0.2 at the top, so nothing Debind does can
+make the poll slower than Blizzard's own default, only faster. Nothing conditions the rate on which
+axes are measured: the slider is a user setting and it applies whatever the profile holds.
 
 Two things about it are worth knowing:
 
@@ -71,30 +78,9 @@ nothing can shorten it.
 
 ---
 
-## What this means for `/debtest`
+## Where the test side of this lives
 
-There is **no fixed-duration wait left in `DebindTest.lua`**, and it is worth keeping it that way.
-Every one that used to be there (thirty-odd `Wait(0.4)`) was waiting for something that had already
-happened; the file's header comment justified them with four claims about asynchrony, three of
-which were wrong. The sweep tests alone were spending ~15s each on it.
-
-The helpers, and what each is actually for:
-
-| | waits for |
-|---|---|
-| `WaitUntil(pred, limit)` | the primitive — asks `pred` **before** the first yield, so an already-true condition costs nothing |
-| `WaitForIdle()` | a queued rebuild, plus one frame for the one that just ran |
-| `WaitForMembership()` / `WaitForWinner()` / `WaitForEvalAnswer()` | a snippet's answer. Already there in practice; the wait is what makes "no answer at all" cost the limit instead of hanging |
-| `WaitForHoverSlot(filled)` | the hover mirror. Free after `HoverEnter`/`HoverLeave`; a real wait after `SetFrameUnit`, where only the poll notices |
-
-Two traps to keep in mind when writing one of these:
-
-**Do not wait for the thing you are about to assert.** `WaitUntil(binding == expected)` followed by
-`if binding ~= expected then Fail` still fails correctly, but it can only fail by timing out, and
-where the expected value is also the *current* value the wait returns instantly and the assertion
-proves nothing. `WaitForHoverSlot` asks whether the slot is filled and deliberately not *which
-unit*, for exactly this reason.
-
-**Waiting can be the weaker test.** In "hover slot survives a rebuild", the poll picks a wiped slot
-back up within a tick — so giving the test any time at all lets it read the recovered value and
-pass over the bug. That assertion runs with no yield between the rebuild and the read.
+`devdocs/testing-a-change.md` owns what `/debtest` does about it: the wait helpers, what each one
+waits on, and the two ways a wait makes a test weaker. It used to be repeated here as well, and two
+copies of one table is one copy too many. Read this file for what is true when, and that one before
+adding a wait.
