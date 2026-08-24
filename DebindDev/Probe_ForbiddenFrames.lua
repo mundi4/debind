@@ -3,7 +3,7 @@
 -- 결론이 나면 파일째로 지우고 TOC에서 한 줄 빼면 된다.
 --
 -- 사용법:
---   /debforbid         배터리 실행 (전투 밖). 결과는 채팅 + DebindTestDB에 저장
+--   /debforbid         배터리 실행 (전투 밖). 결과는 채팅 + DebindDevDB에 저장
 --   /debforbid arena   아레나 프레임을 직접 생성·갱신해서 제보의 크래시 경로를 재현
 --                      (아레나 프레임이 taint되므로 확인 후 /reload 권장)
 --   /debforbid last    지난 실행 결과 다시 출력
@@ -19,10 +19,19 @@
 -- SetPropagateMouseMotion calls already happened at registration), and the private-aura
 -- probe parents Blizzard's reserved frames under a frame this file owns.
 
-local DebindPrivate = _G.DebindPrivate
-if (not DebindPrivate) then
-    return
-end
+--- Taken at `ADDON_LOADED`, because this addon loads ahead of Debind (`DebindDev.toc`). Left nil
+--- when Debind never sets the global -- a release build does not -- and then `/debforbid` is the
+--- only thing that would reach it, which is not something a release build has either.
+local DebindPrivate
+local reader = CreateFrame("Frame")
+reader:RegisterEvent("ADDON_LOADED")
+reader:SetScript("OnEvent", function(self, _, addonName)
+    if (addonName ~= "Debind") then
+        return
+    end
+    self:UnregisterEvent("ADDON_LOADED")
+    DebindPrivate = _G.DebindPrivate
+end)
 
 local out = {}
 
@@ -365,8 +374,8 @@ local function ResolveTargetAuras()
 end
 
 local function Finish()
-    DebindTestDB = DebindTestDB or {}
-    DebindTestDB.forbiddenProbe = { at = date("%Y-%m-%d %H:%M:%S"), lines = out }
+    DebindDevDB = DebindDevDB or {}
+    DebindDevDB.forbiddenProbe = { at = date("%Y-%m-%d %H:%M:%S"), lines = out }
     Emit("끝. /debforbid last 로 다시 볼 수 있다")
 end
 
@@ -438,7 +447,7 @@ local function Run()
         Emit("  %s", diag[i])
     end
     if (#diag > DIAG_CAP) then
-        Emit("  ...외 %d건 (전체는 DebindTestDB에 저장됨)", #diag - DIAG_CAP)
+        Emit("  ...외 %d건 (전체는 DebindDevDB에 저장됨)", #diag - DIAG_CAP)
         for i = DIAG_CAP + 1, #diag do
             tinsert(out, "  " .. diag[i])
         end
@@ -516,7 +525,7 @@ local function RunArenaProbe()
 end
 
 local function PrintLast()
-    local saved = DebindTestDB and DebindTestDB.forbiddenProbe
+    local saved = DebindDevDB and DebindDevDB.forbiddenProbe
     if (not saved) then
         print("|cffff9900[Forbid]|r 저장된 결과 없음")
         return
@@ -529,6 +538,10 @@ end
 
 SLASH_DEBFORBID1 = "/debforbid"
 SlashCmdList["DEBFORBID"] = function(msg)
+    if (not DebindPrivate) then
+        print("|cffff0000[DebindTest]|r DebindPrivate not found. Enable DEBUG mode in Constants.lua.")
+        return
+    end
     msg = strtrim(msg or "")
     if (msg == "last") then
         PrintLast()

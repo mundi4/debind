@@ -30,7 +30,7 @@ externals:
 # (`copy_directory_tree` in release.sh), so `.github` and `.claude` are never copy candidates in
 # the first place. That is also why the `.luacheckrc` line below is not doing anything.
 ignore:
-  - DebindTest
+  - DebindDev
   - docs
   - devdocs
   - tests
@@ -43,10 +43,6 @@ ignore:
   # Gitignored, so it is not in the checkout the packager sees to begin with. Listed anyway, so
   # that "this one never goes to a user" is stated where the shipping list is decided.
   - Debind/DevStamp.lua
-  # **Committed source, unlike the line above, so this listing is what actually keeps it out.**
-  # Its TOC line is inside a debug block and goes away on its own, but a file in the tree is copied
-  # whether or not anything names it.
-  - Debind/DevSeed.lua
 
 move-folders:
   # 값이 곧 게임이 보는 폴더 이름이고, **SavedVariables 파일 이름이 여기서 나온다.**

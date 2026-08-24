@@ -4,7 +4,10 @@ codes = true
 exclude_files = {
 	"**/Libs",
 	"reference/**",
-	"DebindTest/**",
+	-- The test kit only. `DebindDev/DevSeed.lua` sits in the same folder and stays linted: it
+	-- was linted while it lived in `Debind/`, and moving an addon is no reason to stop.
+	"DebindDev/DebindTest.lua",
+	"DebindDev/Probe_*.lua",
 	"tests/**",
 	"node_modules/**",
 }

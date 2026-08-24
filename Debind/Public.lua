@@ -147,14 +147,6 @@ SlashCmdList["DEBIND"] = function(msg)
 		return;
 	end
 
-	--@debug@
-	-- Plants the development seed and reloads (`DevSeed.lua`). No `SLASH_` global of its own: this
-	-- is the addon's command and the branch is one more word on it.
-	if (DebindPrivate.HandleDevSeedCommand(chunks)) then
-		return;
-	end
-	--@end-debug@
-
 	if (chunks[1] == "custom1" or chunks[1] == "custom2") then
 		DebindPublic:SetCustomTarget(chunks[1], chunks[2]);
 		return;

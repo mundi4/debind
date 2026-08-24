@@ -119,7 +119,7 @@ differently the same state answers two ways and nothing below them can tell whic
 wrong. It was a load-time `assert` under `Constants.DEBUG` until 2026-08-20, which meant the only
 thing that ever ran it was logging in on a development client.
 
-## 3. In-game tests — `DebindTest`
+## 3. In-game tests — `DebindDev`
 
 Needs `Constants.DEBUG` on, since the kit reaches the addon through `_G.DebindPrivate`.
 

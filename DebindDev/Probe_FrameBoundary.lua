@@ -10,11 +10,6 @@
 -- 다르면 그 사이에서 프레임이 넘어간 것이다. `GetTimePreciseSec()`은 부를 때마다 달라서
 -- 이걸 못 가른다.
 
-local DebindPrivate = _G.DebindPrivate
-if (not DebindPrivate) then
-    return
-end
-
 local on = false
 local seq = 0
 local lastGetTime = nil

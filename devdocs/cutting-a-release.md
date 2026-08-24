@@ -63,7 +63,7 @@ git switch main && git merge hotfix-3.1.7
 **Merge it back.** The branch exists to reach an older state, not to become a second line — leaving
 it unmerged is what turns `main` and the releases into histories that can no longer be reconciled.
 
-Two things do not work on a worktree checked out at an old tag: `DebindTest` needs the matching
+Two things do not work on a worktree checked out at an old tag: `DebindDev` needs the matching
 `Debind` internals, so in-game verification is unavailable there (use `npm run check` plus a manual
 smoke test), and SavedVariables written by newer local code will not downgrade — move them aside
 first.

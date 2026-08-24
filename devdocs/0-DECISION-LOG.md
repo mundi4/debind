@@ -1878,3 +1878,29 @@ useOnKeyDown)`으로 이미 하나를 고른다. 배달(`RegisterForClicks`)과 
 옮기면 그 둘이 갈린다. 그것이 이 변경이 사는 값이고, 속도는 처음부터 근거가 아니었다.
 
 `legacy/trimming-the-restricted-hot-paths.md` ⑤
+
+### 개발 전용은 개발 전용 애드온으로 나갔다. 먼저 로드되는 것이 의존보다 강하다
+
+> **소유자** — *"debind보다 먼저 로드가 된다면 debind가 로드되는 시점은 반드시 알 수 있다.
+> dependency가 로드순서 이외에 주는것이 없고 debind가 로드된 이후에 코드를 실행하는데에
+> 어려움이 전혀 없는데"*
+
+내 자리는 옮기지 않는 쪽이었다. `.toc`의 SavedVariables 한 쌍은 개발용 플래그 하나를 배포되는
+자료구조 밖에 두려고 서 있었고, 그 값이 실패 모드에 비해 싸지 않다는 것까지는 나도 인정했다.
+그래서 낸 답이 `DebindVars.seedPending` 네 줄이었다.
+
+거기서 더 나가지 못한 이유가 매번 로드 순서였다. `DebindTestDB`는 Debind 뒤에 올라와서 못
+쓴다, 의존 방향은 못 뒤집는다, `Dependencies`를 걸면 릴리스가 안 켜진다. **셋 다 지금 코드의
+모양이었지 제약이 아니었다.** 소유자가 매번 한 줄로 걷어냈고, 마지막에 남은 것이 위 문장이다.
+
+먼저 로드되는 쪽은 `ADDON_LOADED`로 뒤 시점을 전부 잡는다. 그러니 의존은 순서를 얻는 수단일
+뿐이고, 순서를 이미 가진 쪽에는 줄 것이 없다. 그래서 **의존 선언은 `Debind.toc` 한 줄
+(`OptionalDeps: DebindDev`)로 끝난다.** 나머지 셋은 Debind에 의존하니 그것으로 이미 덮인다는
+것도 소유자가 짚었다.
+
+**뒤집힌 것**: `.toc`의 `#@non-debug@` / `#@debug@` SavedVariables 한 쌍과 `# ##` strip 기제.
+개발 전용이 출시 애드온 안에 있는 한 필요했던 것이고, 밖으로 나가자 근거째 없어졌다. 같이
+없어진 것이 `Profile.lua`와 `Public.lua`의 `--@debug@` 블록, `.pkgmeta`의 `DevSeed.lua` 줄이다.
+출시되는 Debind에 개발용 줄이 하나도 남지 않는다.
+
+`CLAUDE.md`의 애드온 표, `DebindDev/DebindDev.toc` 머리말

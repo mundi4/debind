@@ -68,7 +68,7 @@ is gone by the next change; a test in the kit is there for every one after it.
 | `DebindStorage/` | what sharing keeps: the strings, and the batches received ones wait in. No UI, no locale strings. **LoadOnDemand** — compression libs and those batches are never read on login. Debind reaches it as `DebindPrivate.Store` |
 | `Debounce/` | code-less dummy. The only path that reads pre-rename SavedVariables. Removing it orphans every existing user's config (`Debind/Legacy.lua`) |
 | `DebindCliqueFake/` | stands in for Clique so unit-frame addons wire up to us |
-| `DebindTest/` | in-game test kit, not shipped (`.pkgmeta` ignore) |
+| `DebindDev/` | everything development only, not shipped (`.pkgmeta` ignore): the in-game test kit, the written dev profile (`DevSeed.lua`), one-shot probes. **Loads ahead of Debind**, because `Debind.toc` names it in `OptionalDeps` and it declares no dependency of its own |
 
 `.pkgmeta` has long comments on why the folder names are what they are. Read them before renaming
 anything there — SavedVariables file names come out of `move-folders`.

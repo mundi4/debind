@@ -49,17 +49,17 @@
 -- store, a reload. **Each of those carries a line above it saying which of the three it is and
 -- why**, so the next reader does not have to work out again why this one is still here.
 
-local DebindPrivate = _G.DebindPrivate
-if not DebindPrivate then
-    print("|cffff0000[DebindTest]|r DebindPrivate not found. Enable DEBUG mode in Constants.lua.")
-    return
-end
-
-local Constants = DebindPrivate.Constants
+-- **Filled at `ADDON_LOADED`, not here.** This addon loads ahead of Debind (`DebindDev.toc` says
+-- why), so at the time this file runs there is no `DebindPrivate` to read. Everything below that
+-- touches these is inside a function that runs at `PLAYER_LOGIN` or later, with the four tables
+-- near the click-time sweep as the exception -- those are built at load time out of `Constants`,
+-- so `BuildConstantTables` below carries them over to the same moment.
+local DebindPrivate
+local Constants
 -- 메뉴 항목을 문구로 찾는 테스트가 있어서 필요하다. 자리로 찾으면 항목이 하나 끼어드는 날
 -- 조용히 다른 것을 누른다.
-local LLL = DebindPrivate.L
-local DebindUI = DebindPrivate.DebindUI
+local LLL
+local DebindUI
 local band, bor = bit.band, bit.bor
 
 -----------------------------------------------------------
@@ -161,8 +161,8 @@ local awaitingHuman = false
 -- Saved variables are not in place while this file runs -- they arrive between then and
 -- ADDON_LOADED -- so the table is never assumed, only ensured.
 local function DB()
-    DebindTestDB = DebindTestDB or {}
-    return DebindTestDB
+    DebindDevDB = DebindDevDB or {}
+    return DebindDevDB
 end
 
 --- Somewhere a test may leave things for a later phase of itself.
@@ -5219,20 +5219,9 @@ RegisterTest("Click bakes the deferred macro body", {
 --- rather than read (so no unit axis, no `known`, no custom state -- see `SetMockState`).
 local SWEEP_ORDER = { "combat", "stealth", "form", "group" }
 
-local SWEEP_VALUES = {
-    combat  = { false, true },
-    stealth = { false, true },
-    -- 0 is "no form". The masks below name form numbers, not bits, and only `ToSweepAction`
-    -- turns them into bits -- so the whole test speaks the same language the mock does.
-    form    = { 0, 1, 2 },
-    group   = { Constants.GROUP_NONE, Constants.GROUP_PARTY, Constants.GROUP_RAID },
-}
-
-local GROUP_LABEL = {
-    [Constants.GROUP_NONE]  = "solo",
-    [Constants.GROUP_PARTY] = "party",
-    [Constants.GROUP_RAID]  = "raid",
-}
+--- Both read `Constants`, so both are built by `BuildConstantTables` rather than here.
+local SWEEP_VALUES
+local GROUP_LABEL
 
 --- Every combination of every swept axis, as a list of plain state tables.
 local function BuildCombos()
@@ -5366,25 +5355,47 @@ end
 --
 -- Every record is a macrotext so that all seven are clickable and none can be dropped for having
 -- no way to be bound.
-local CLICKTIME_SWEEP = {
-    { label = "combat+form1|2", cond = { combat = true, forms = { [1] = true, [2] = true } } },
-    { label = "combat+raid",    cond = { combat = true, groups = { [Constants.GROUP_RAID] = true } } },
-    { label = "stealth+form0",  cond = { stealth = true, forms = { [0] = true } } },
-    { label = "peace+grouped",  cond = { combat = false, stealth = false,
-                                         groups = { [Constants.GROUP_PARTY] = true,
-                                                    [Constants.GROUP_RAID] = true } } },
-    { label = "form2",          cond = { forms = { [2] = true } } },
-    { label = "combat",         cond = { combat = true } },
-    { label = "fallback",       cond = {} },
-}
+local CLICKTIME_SWEEP
 
-for i = 1, #CLICKTIME_SWEEP do
-    local record = CLICKTIME_SWEEP[i]
-    record.action = {
-        type = Constants.MACROTEXT,
-        value = format('/run local _ = "%s"', record.label),
-        name = record.label,
+--- The three tables above read `Constants`, which is not there when this file loads: this addon
+--- is ahead of Debind in the load order (`DebindDev.toc`). So they are built here instead, from
+--- the `ADDON_LOADED` handler at the tail, which is still long before any test runs.
+local function BuildConstantTables()
+    SWEEP_VALUES = {
+        combat  = { false, true },
+        stealth = { false, true },
+        -- 0 is "no form". The masks below name form numbers, not bits, and only `ToSweepAction`
+        -- turns them into bits -- so the whole test speaks the same language the mock does.
+        form    = { 0, 1, 2 },
+        group   = { Constants.GROUP_NONE, Constants.GROUP_PARTY, Constants.GROUP_RAID },
     }
+
+    GROUP_LABEL = {
+        [Constants.GROUP_NONE]  = "solo",
+        [Constants.GROUP_PARTY] = "party",
+        [Constants.GROUP_RAID]  = "raid",
+    }
+
+    CLICKTIME_SWEEP = {
+        { label = "combat+form1|2", cond = { combat = true, forms = { [1] = true, [2] = true } } },
+        { label = "combat+raid",    cond = { combat = true, groups = { [Constants.GROUP_RAID] = true } } },
+        { label = "stealth+form0",  cond = { stealth = true, forms = { [0] = true } } },
+        { label = "peace+grouped",  cond = { combat = false, stealth = false,
+                                             groups = { [Constants.GROUP_PARTY] = true,
+                                                        [Constants.GROUP_RAID] = true } } },
+        { label = "form2",          cond = { forms = { [2] = true } } },
+        { label = "combat",         cond = { combat = true } },
+        { label = "fallback",       cond = {} },
+    }
+
+    for i = 1, #CLICKTIME_SWEEP do
+        local record = CLICKTIME_SWEEP[i]
+        record.action = {
+            type = Constants.MACROTEXT,
+            value = format('/run local _ = "%s"', record.label),
+            name = record.label,
+        }
+    end
 end
 
 -- **Both places, deliberately.** The same sweep runs headless (`tests/eval_spec.lua`), and this
@@ -5489,9 +5500,14 @@ RegisterTest("Multi-axis: the press picks the exact record out of seven", {
 --
 -- Half of this would pass on a key that was simply bound the whole time; the other half would
 -- pass on a snippet that always answered the first record. Together they do not.
+--- **The table is made here and filled later.** What it is cut from, `CLICKTIME_SWEEP`, does not
+--- exist until `ADDON_LOADED` (`BuildConstantTables`), and the tests below hold this table itself
+--- rather than a copy, so it has to be the same one they were given.
 local GAPPED_SWEEP = {}
-for i = 1, #CLICKTIME_SWEEP - 1 do
-    GAPPED_SWEEP[i] = CLICKTIME_SWEEP[i]
+local function BuildGappedSweep()
+    for i = 1, #CLICKTIME_SWEEP - 1 do
+        GAPPED_SWEEP[i] = CLICKTIME_SWEEP[i]
+    end
 end
 
 -- **Both places, deliberately.** The second anchor (§9). The headless twin is in
@@ -6284,9 +6300,31 @@ local function StartRequestedRun()
 end
 
 local loader = CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
 loader:RegisterEvent("PLAYER_LOGIN")
-loader:SetScript("OnEvent", function(self)
+loader:SetScript("OnEvent", function(self, event, addonName)
+    if event == "ADDON_LOADED" then
+        if addonName ~= "Debind" then return end
+        self:UnregisterEvent("ADDON_LOADED")
+
+        -- Everything this file reads off Debind, taken at the first moment it exists. A release
+        -- build never sets the global at all (`Debind.lua` parks it under `DEBUG`), and then the
+        -- kit stays inert rather than erroring: nothing below runs before `PLAYER_LOGIN`.
+        DebindPrivate = _G.DebindPrivate
+        if not DebindPrivate then
+            print("|cffff0000[DebindTest]|r DebindPrivate not found. Enable DEBUG mode in Constants.lua.")
+            return
+        end
+        Constants = DebindPrivate.Constants
+        LLL = DebindPrivate.L
+        DebindUI = DebindPrivate.DebindUI
+        BuildConstantTables()
+        BuildGappedSweep()
+        return
+    end
+
     self:UnregisterAllEvents()
+    if not DebindPrivate then return end
 
     DB()
 

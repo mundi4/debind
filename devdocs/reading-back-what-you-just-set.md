@@ -22,7 +22,7 @@ could not be. Two things are not.
 (`Blizzard_RestrictedAddOnEnvironment/RestrictedFrames.lua`) is `securecall(pcall, ...)` straight
 onto the method — the Blizzard comment above it says it exists to avoid the overhead of hooking
 `OnAttributeChanged`. So anything a snippet mirrors out to the insecure side (`OnSpecialUnitChanged`
--> `DebindPrivate.Units`, `OnSwitchChanged`, the DebindTest probes) has landed by the time the
+-> `DebindPrivate.Units`, `OnSwitchChanged`, the DebindDev probes) has landed by the time the
 `SecureHandlerExecute` that ran the snippet returns.
 
 **Attribute writes fire `_onattributechanged` inline.** A `self:SetAttribute(...)` from inside a

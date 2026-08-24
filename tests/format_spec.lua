@@ -4,7 +4,7 @@
 -- raises `invalid conversion '%1$' to 'format'` on a string the game formats fine. The shim aliased
 -- `format` straight to `string.format` for as long as it existed, which means **every spec that
 -- reached one of these strings would have died on the format call rather than on what it measured.**
--- There are 122 of them across `Debind/`, `DebindStorage/` and `DebindTest/`, and the locale files
+-- There are 122 of them across `Debind/`, `DebindStorage/` and `DebindDev/`, and the locale files
 -- are three of the six that carry them.
 --
 -- The rule the game follows, from its own documentation

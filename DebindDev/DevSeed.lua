@@ -1,5 +1,8 @@
-local _, DebindPrivate = ...;
-local Constants        = DebindPrivate.Constants;
+--- **Both are taken at `ADDON_LOADED`, not here.** This addon loads ahead of Debind
+--- (`DebindDev.toc` says why), so when this file runs neither the private table nor `Constants`
+--- exists yet. `Debind.lua` parks the table on `_G` under `DEBUG`, which is also why a release
+--- build has nothing for this file to reach even if it were shipped.
+local DebindPrivate, Constants;
 
 --- **A file that only exists in a development build.** Its TOC line sits inside `#@debug@` and
 --- `.pkgmeta`'s `ignore` list keeps the file itself out of the staging copy. `DevStamp.lua` stands
@@ -532,7 +535,7 @@ end;
 --- The profile for one `dbver`, built from code. **Built rather than read**, because the case this
 --- has to stand up in is a client whose saved profile cannot be touched and whose disk holds
 --- nothing else we could use.
-function DebindPrivate.MakeSeed(dbver)
+local function MakeSeed(dbver)
     local build = SEEDS[dbver];
     if (not build) then
         error(format("DevSeed: no seed written for dbver %s", tostring(dbver)));
@@ -540,26 +543,32 @@ function DebindPrivate.MakeSeed(dbver)
     return build(UnitGUID("player"));
 end
 
---- Called at the head of `InitDB`, and it answers three things at once. Returns the table to carry
---- on with, which is the one it was handed unless a seed went in.
+--- Run from `ADDON_LOADED` for Debind, ahead of Debind's own handler, and it answers three things
+--- at once.
 ---
 --- **The forced case is the one that matters.** With the addon at `dbver` 5 and the client's
 --- profile at 6 there is no command to type, because typing one means being logged in and that
 --- login is the problem. So the decision is made at load time, and it has to stand up with nothing
 --- on disk at all.
 ---
---- **No reload needed.** This is load time: `_G.DebindVars` is what came off disk and nobody has
---- taken hold of it yet, so replacing it here means `MigrateDB` through `CleanUpDB` run as though
---- this had always been the data. That is exactly why the command below reloads instead of
---- planting the seed where it was typed.
+--- **No reload needed.** `_G.DebindVars` is what came off disk and `InitDB` has not run yet, so
+--- replacing it here means `MigrateDB` through `CleanUpDB` run as though this had always been the
+--- data. That is exactly why the command below reloads instead of planting the seed where it was
+--- typed.
 ---
 --- **The displaced profile is not parked anywhere.** The seed lives in code and comes back on
 --- demand, so there is nothing to lose by dropping it.
-function DebindPrivate.ApplyDevSeed(db)
-    local dev = _G.DebindDevVars;
+local function ApplyDevSeed()
+    local db = _G.DebindVars;
+    if (not db) then
+        db = {};
+        _G.DebindVars = db;
+    end
+
+    local dev = _G.DebindDevDB;
     if (not dev) then
         dev = {};
-        _G.DebindDevVars = dev;
+        _G.DebindDevDB = dev;
     end
 
     local reason, dbver;
@@ -576,14 +585,12 @@ function DebindPrivate.ApplyDevSeed(db)
     elseif (db.dbver > Constants.DB_VERSION) then
         reason = "what is saved is newer than this build";
     else
-        return db;
+        return;
     end
 
-    db = DebindPrivate.MakeSeed(dbver or Constants.DB_VERSION);
-    _G.DebindVars = db;
+    _G.DebindVars = MakeSeed(dbver or Constants.DB_VERSION);
     -- A plain literal, not `L[...]`. Locale files are shipped and this sentence is not.
     DebindPrivate.DisplayMessage(format("Development seed planted (%s).", reason));
-    return db;
 end
 
 --- The `dbver`s this file has a builder for, low to high, as text for a message.
@@ -607,8 +614,8 @@ end
 --- in the copy of this file it carries.
 ---
 --- **So the number is not clamped to what this build can read.** Both directions are the point,
---- and planting the current one is the way back out of either. `/deb seed` is reachable while
---- stood down, since `HandleNewerProfileReset` only takes `reset`.
+--- and planting the current one is the way back out of either. This command is reachable while
+--- Debind has stood down, because it is this addon's own and nothing in Debind gates it.
 ---
 --- **The number is checked here rather than on the next login.** What is typed wrong is typed at
 --- a prompt that can answer; the same mistake read back at load time comes out as an `error`
@@ -616,29 +623,25 @@ end
 ---
 --- **The confirmation comes before the flag is set**, because that is the step that cannot be
 --- taken back: what the flag costs on the next login is whatever the client had.
-function DebindPrivate.HandleDevSeedCommand(chunks)
-    if (chunks[1] ~= "seed") then
-        return false;
-    end
-
+local function HandleDevSeedCommand(arg)
     local dbver = Constants.DB_VERSION;
-    if (chunks[2]) then
-        dbver = tonumber(chunks[2]);
+    if (arg and arg ~= "") then
+        dbver = tonumber(arg);
         if (not dbver or not SEEDS[dbver]) then
             -- Plain literals throughout, not `L[...]`. Locale files are shipped and this is not.
             DebindPrivate.DisplayMessage(format("No seed written for dbver %s. Have: %s.",
-                chunks[2], SeededVersions()));
-            return true;
+                arg, SeededVersions()));
+            return;
         end
     end
 
     StaticPopup_ShowCustomGenericConfirmation({
         text = format("Replace this account's Debind settings with the development seed for dbver %d?|n|nWhat is there now is deleted and cannot be brought back.", dbver),
         callback = function()
-            local dev = _G.DebindDevVars;
+            local dev = _G.DebindDevDB;
             if (not dev) then
                 dev = {};
-                _G.DebindDevVars = dev;
+                _G.DebindDevDB = dev;
             end
             dev.seedPending = dbver;
             ReloadUI();
@@ -648,5 +651,34 @@ function DebindPrivate.HandleDevSeedCommand(chunks)
         showAlert = true,
         referenceKey = "DebindDevSeed",
     });
-    return true;
 end
+
+--- **This has to beat Debind's own `ADDON_LOADED` handler, and registration order is how.** WoW
+--- calls handlers in the order their frames registered, this addon is ahead of Debind in the load
+--- order (`DebindDev.toc`), and Debind registers its frame while its files run. So by the time the
+--- event for Debind arrives, this frame has been listening since before Debind existed and is
+--- called first -- which is the whole window, because Debind's handler is what runs `InitDB`.
+---
+--- If that order ever came out the other way it would not be quiet: `InitDB` would build the
+--- profile from what was on disk and the seeded one would never appear.
+local loader = CreateFrame("Frame");
+loader:RegisterEvent("ADDON_LOADED");
+loader:SetScript("OnEvent", function(self, _, addonName)
+    if (addonName ~= "Debind") then
+        return;
+    end
+    self:UnregisterEvent("ADDON_LOADED");
+
+    -- Absent with `Constants.DEBUG` off, and then there is nothing to seed onto and no command
+    -- worth registering: the same answer a release build gets, which never has this addon.
+    DebindPrivate = _G.DebindPrivate;
+    if (not DebindPrivate) then
+        return;
+    end
+    Constants = DebindPrivate.Constants;
+
+    SLASH_DEBINDSEED1 = "/debseed";
+    SlashCmdList["DEBINDSEED"] = HandleDevSeedCommand;
+
+    ApplyDevSeed();
+end);

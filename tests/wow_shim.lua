@@ -115,7 +115,7 @@ local rawformat, strfind, strsub, strmatch = string.format, string.find, string.
 --- stock interpreter raises `invalid option '%$'` on a string the game formats fine, so this is
 --- not a difference that quietly changes an answer: a spec that reaches one of those strings dies
 --- on the format call rather than on what it measures. There are 122 of them across `Debind/`,
---- `DebindStorage/` and `DebindTest/`, and every locale file carries some.
+--- `DebindStorage/` and `DebindDev/`, and every locale file carries some.
 ---
 --- **A positional specifier moves the implicit counter.** The client's own documentation
 --- (`https://wowpedia.fandom.com/wiki/API_format`) is

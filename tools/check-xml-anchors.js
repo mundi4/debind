@@ -25,7 +25,7 @@ const roots = [
     // unchecked without a word.
     path.join(__dirname, "..", "DebindStorage"),
     path.join(__dirname, "..", "DebindCliqueFake"),
-    path.join(__dirname, "..", "DebindTest"),
+    path.join(__dirname, "..", "DebindDev"),
 ];
 
 /** 여는 태그 / 닫는 태그 / 자기완결 태그. 주석과 CDATA는 미리 지운다. */

@@ -15,11 +15,6 @@
 -- 프레임 번호를 같이 찍는 이유는 그것이 3번을 답하는 유일한 값이기 때문이다. 타임스탬프는
 -- 같은 프레임 안에서도 다르게 나올 수 있고, 다른 프레임인데 붙어 있을 수도 있다.
 
-local DebindPrivate = _G.DebindPrivate
-if (not DebindPrivate) then
-    return
-end
-
 --- 로그인 순서를 이루는 이벤트들. RegisterAllEvents로 받는 것 중 이 목록에 있는 것만 적는다.
 --- 나머지는 전투 로그처럼 초당 수십 번 오는 것들이라 적으면 기록이 그것만으로 찬다.
 local INIT_EVENTS = {
@@ -119,8 +114,8 @@ probe:RegisterAllEvents()
 local saver = CreateFrame("Frame")
 saver:RegisterEvent("PLAYER_LOGOUT")
 saver:SetScript("OnEvent", function()
-    DebindTestDB = DebindTestDB or {}
-    DebindTestDB.loginTiming = log
+    DebindDevDB = DebindDevDB or {}
+    DebindDevDB.loginTiming = log
 end)
 
 local function Dump(entries, label)
@@ -148,12 +143,12 @@ SlashCmdList["DEBLOGIN"] = function(msg)
     msg = strlower(strtrim(msg or ""))
 
     if (msg == "wipe") then
-        DebindTestDB = DebindTestDB or {}
-        DebindTestDB.loginTiming = nil
+        DebindDevDB = DebindDevDB or {}
+        DebindDevDB.loginTiming = nil
         print("|cffff9900[LoginTiming]|r 지난 기록을 지웠다. 다음 로그인부터 다시 잰다.")
         return
     end
 
-    Dump(DebindTestDB and DebindTestDB.loginTiming, "지난 세션")
+    Dump(DebindDevDB and DebindDevDB.loginTiming, "지난 세션")
     Dump(log, "이번 세션")
 end

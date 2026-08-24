@@ -7,25 +7,8 @@
 ##   ZamestoTV – Russian localization (ruRU)
 ## IconTexture: 133015
 ## Group: Debind
-# **A pair, of which exactly one line is ever alive.** A development build carries a second
-# SavedVariables file holding the seed flag (`DevSeed.lua`); a release carries only the one. The
-# packager deletes the debug block outright and strips the leading "# " off what is in the other,
-# so a release ends up with the plain line and a development checkout, where the packager never
-# runs, keeps that one commented out and uses the debug line instead.
-#
-# The space in "# ##" is the whole of that mechanism. Without it the strip leaves the line still
-# commented, and a release ships with no SavedVariables line at all. A development checkout cannot
-# show that, because there the line is a comment either way.
-#
-# **Nothing else goes inside either block.** Every line in the non-debug one loses its leading
-# "# " in a release, so a comment parked in there comes out as a TOC line every user gets.
-#@non-debug@
-# ## SavedVariables: DebindVars
-#@end-non-debug@
-#@debug@
-## SavedVariables: DebindVars, DebindDevVars
-#@end-debug@
-## OptionalDeps: Clique, Grid2, DevTool, ViragDevTool
+## SavedVariables: DebindVars
+## OptionalDeps: DebindDev, Clique, Grid2, DevTool, ViragDevTool
 ## AddonCompartmentFunc: Debind_CompartmentFunc
 ## AddonCompartmentFuncOnEnter: Debind_CompartmentOnEnter
 ## AddonCompartmentFuncOnLeave: Debind_CompartmentOnLeave
@@ -51,17 +34,6 @@ DevStamp.lua
 #@end-debug@
 
 Debind.xml
-
-#@debug@
-# The written development profile and the command that plants it, for a client that has none or
-# one this build cannot read. **Two things keep it out of a release, and both are needed**: the
-# packager deletes this block, and `.pkgmeta`'s ignore list keeps the file out of the staging copy.
-# Unlike `DevStamp.lua` above, this one is committed source, so with only the TOC line removed the
-# file itself would still be copied into the addon folder.
-#
-# After `Debind.xml` because it reads `Constants` when it loads.
-DevSeed.lua
-#@end-debug@
 
 DebindUI.xml
 StorageUI.xml

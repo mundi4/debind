@@ -41,12 +41,13 @@ if (!fs.existsSync(binPath)) {
     if (process.platform !== "win32") fs.chmodSync(binPath, 0o755);
 }
 
-// Folders `.luacheckrc` excludes, and the reason they are excluded is the same for both: they run
+// Folders holding what `.luacheckrc` excludes, and the reason is the same for both: they run
 // against a client (or a shim) that hands them globals the config does not list, so a full pass is
-// 78 lines of "undefined variable" and nothing else.
+// 78 lines of "undefined variable" and nothing else. In `DebindDev/` that is the test kit and the
+// probes rather than the whole folder -- `DevSeed.lua` sits there too and is linted in full.
 //
 // **A syntax error is not that.** It is an error rather than a warning, it needs no globals to find,
-// and in `DebindTest/` nothing else in `npm run check` would ever find it: no check loads that
+// and in `DebindDev/` nothing else in `npm run check` would ever find it: no check loads that
 // folder, so the first reader is the client at login and what comes back is one `LUA_WARNING` line
 // on somebody's screen. A kit that does not parse runs no test at all, which is the most expensive
 // silent failure this repo has. `tests/` is cheaper - the spec runner reads it - and it is in here
@@ -54,7 +55,7 @@ if (!fs.existsSync(binPath)) {
 //
 // `--no-config` is what reaches them: `exclude_files` applies even to a file named on the command
 // line, so the second pass has to leave the config behind and restate `--std`.
-const SYNTAX_ONLY_DIRS = ["DebindTest", "tests"];
+const SYNTAX_ONLY_DIRS = ["DebindDev", "tests"];
 
 function runLuacheck(args) {
     const run = spawnSync(binPath, args, { cwd: repoRoot, stdio: "inherit" });
@@ -69,7 +70,7 @@ function runLuacheck(args) {
 // It cost a red CI on the v3.3 tag: two files had carried a mark since the rename, and nothing
 // noticed until the harness started loading them (`tests/run.lua`). An editor writing one back is
 // a keystroke, so the answer is a check rather than a fixed file.
-const BOM_DIRS = ["Debind", "DebindStorage", "DebindTest", "DebindCliqueFake", "tests", "tools"];
+const BOM_DIRS = ["Debind", "DebindStorage", "DebindDev", "DebindCliqueFake", "tests", "tools"];
 
 function luaFiles(dir, out) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

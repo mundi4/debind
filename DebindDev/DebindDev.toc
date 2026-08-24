@@ -1,0 +1,21 @@
+## Interface: 120000, 120001, 120005, 120007, 120100
+
+## Title: Debind Dev
+## Notes: Development-only addon for Debind: the in-game test kit, the written development profile, and one-shot probes.
+## Author: mundi4
+## Group: Debind
+## SavedVariables: DebindDevDB
+
+# **No dependency on Debind, and that is what makes this addon work.** Debind names this one in
+# `OptionalDeps`, so this one loads first, and the rest of the group hard-depends on Debind, so it
+# is in front of all of them. `DevSeed.lua` has to reach `_G.DebindVars` before Debind's own
+# `ADDON_LOADED` runs `InitDB`, and only an addon ahead of Debind can. Declaring a dependency here
+# would move this behind Debind and buy nothing back: the moment Debind loads is already reachable
+# from `ADDON_LOADED`.
+DevSeed.lua
+
+DebindTest.lua
+Probe_BindingContext.lua
+Probe_ForbiddenFrames.lua
+Probe_LoginTiming.lua
+Probe_FrameBoundary.lua

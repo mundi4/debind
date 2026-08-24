@@ -1978,27 +1978,6 @@ function DebindPrivate.InitDB()
         _G.DebindVars = db;
     end
 
-    --@debug@
-    -- The other answer to the same condition, and it stands in the same place: a development build
-    -- swaps a seed in and carries on where a release stands down. It also answers the empty client
-    -- and the `/deb seed` command, which is why the call is not inside the branch below.
-    --
-    -- **What the seed lands on is decided here and nowhere else.** `/deb seed <dbver>` can plant
-    -- any version `DevSeed.lua` has a builder for, so the table coming back is read the same way a
-    -- profile off disk is: an older one falls through to `MigrateDB` and migrates, a newer one
-    -- trips the branch below and this build stands down. Planting one of each is how both of those
-    -- paths are reached on purpose.
-    -- `devdocs/legacy/setting-up-a-dev-profile.md`.
-    --
-    -- Asked for rather than called outright, because the headless harness loads a hand written list
-    -- of files and `DevSeed.lua` is not on it (`tests/run.lua`). It must not be either, or every
-    -- spec starting from an empty profile would be handed the seed instead. In the game the halves
-    -- are never apart: the TOC line and this block are removed by the same packager pass.
-    if (DebindPrivate.ApplyDevSeed) then
-        db = DebindPrivate.ApplyDevSeed(db);
-    end
-    --@end-debug@
-
     -- **"already current" and "came from the future" are different answers.** `MigrateDB` ties them
     -- to one `return`, which is right for it, since either way there is no migration to run. That
     -- is not the same as being safe to walk past. Everything below here edits the stored table: the

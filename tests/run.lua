@@ -86,8 +86,8 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---   `Public.lua` is **not** UI and is **not** here. It is in the TOC after `DebindUI.xml`
 ---     rather than in this XML, and nothing in the pipeline calls it - it is what other addons
 ---     call
----   `DevSeed.lua` has to stay out: it plants a profile, and every spec that starts from an
----     empty one would be handed the seed instead (`Profile.lua`, `InitDB`)
+---   `DevSeed.lua` is not Debind's at all any more - it is `DebindDev/`, a separate addon that
+---     loads ahead of Debind in the game and is on no list here
 --- One addon, loaded fresh. **Every spec gets its own**, which is what keeps module level
 --- state from crossing between them: `BindingAttrsCache`, `KeyMap`, the switch table and the
 --- counter the button names come off all start where the game starts them
