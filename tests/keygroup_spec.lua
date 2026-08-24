@@ -364,7 +364,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- **오프스펙 레이어는 범위 안이다.** 그 액션들은 이제 왼쪽 열에 그려지고, 지금 안 돈다는
-    -- 것만 사유 칸이 말한다(`devdocs/showing-off-spec-actions.md`).
+    -- 것만 사유 칸이 말한다(`devdocs/legacy/showing-off-spec-actions.md`).
     test("그룹도 점유자도 오프스펙 레이어까지 모은다", function()
         ResetProfile({
             class = {

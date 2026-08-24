@@ -2960,7 +2960,7 @@ end
 ---
 --- **The eleven layers this character has, which is more than what is in play.** Off-spec layers
 --- are in, and they have to be: those actions are drawn in the overview now
---- (`devdocs/showing-off-spec-actions.md`), so a reader looking at a key sees them, and a set that
+--- (`devdocs/legacy/showing-off-spec-actions.md`), so a reader looking at a key sees them, and a set that
 --- crosses specs is one set.
 ---
 --- **Another class's layers are out.** An arrival lands there readily (`ImportAddress`), so a group

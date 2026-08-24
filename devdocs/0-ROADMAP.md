@@ -10,7 +10,7 @@
 | | 트랙 | 문서 |
 |---|---|---|
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
-| **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`showing-off-spec-actions.md` |
+| **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`legacy/showing-off-spec-actions.md` |
 | **3.2.1 · 3.2.2** | 나갔다 (2026-08-21, 08-22). 무관한 핫픽스 둘 | `CHANGELOG.md` |
 | **다음 (3.3)** | 커스텀 상태 재설계. **스위치 바는 빼고 나간다 (2026-08-24, 소유자)** | `redesigning-custom-states.md` |
 | **3.3에 같이** | ~~액션 마이그레이션을 한 벌로~~ **들어갔다 (2026-08-21)** | `legacy/unifying-action-migration.md` |
