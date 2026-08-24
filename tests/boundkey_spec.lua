@@ -483,6 +483,56 @@ return function(DebindPrivate)
             "a combat command did not bind in combat: " .. Bound("F4"));
     end);
 
+    -- **Settling the key side settles the key side and nothing else.** A mouse button carries two
+    -- roles at once: what the key does, and what a click arriving from a unit frame does. They are
+    -- judged apart, kept in different tables, and only the first of them is what `GetSettledBinding`
+    -- answers about -- so taking the key half out of the snippet has to leave the other half whole.
+    --
+    -- **Missing this reads as "click-casting stopped working on that button"** and nothing else.
+    -- The key would still answer with the command, so every check above would pass.
+    test("a settled key keeps its click-cast side", function()
+        Bind({
+            command({ key = "BUTTON4" }),
+            spell({ key = "BUTTON4", seq = 2, unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+        }, {});
+        check(Bound("BUTTON4") == "TOGGLEWORLDMAP",
+            "the command did not reach the key: " .. Bound("BUTTON4"));
+        CheckNotStateDriven("BUTTON4");
+
+        local byMod = interp.env.ClickCastKeys[4];
+        local bindings = byMod and byMod[0];
+        check(bindings ~= nil, "the click-cast half went out with the key half");
+        check(bindings[1] and bindings[1].isClickCast,
+            "the click-cast list is there and holds no click-cast record");
+    end);
+
+    -- **The command keys a rebuild files live in arrays the module keeps and a count it resets.**
+    -- A rebuild with fewer of them than the last one reads less of the array; read the whole array
+    -- instead and the key the reader just deleted comes back, filed from a leftover.
+    --
+    -- The release itself is the prologue's, which clears every override the driver owns. So what
+    -- this asks is that nothing files it again afterwards.
+    --
+    -- **The key that goes is the one further down the array, and that is the whole test.** Keys are
+    -- filled in sorted order, so dropping `F4` leaves `F5` written over the slot `F4` had and the
+    -- leftover is a key that is still in the profile -- which a reader past the count would file
+    -- again to no effect. Dropping `F5` is the case where the leftover is the deleted one.
+    test("a command key the profile drops is released", function()
+        Bind({
+            command({ key = "F4" }),
+            command({ key = "F5", value = "TOGGLECHARACTER", seq = 2 }),
+        }, {});
+        check(Bound("F4") == "TOGGLEWORLDMAP", "F4: " .. Bound("F4"));
+        check(Bound("F5") == "TOGGLECHARACTER", "F5: " .. Bound("F5"));
+
+        Bind({ command({ key = "F4" }) }, {});
+        check(Bound("F5") == "",
+            "a dropped command came back from a leftover: " .. Bound("F5"));
+        check(Bound("F4") == "TOGGLEWORLDMAP",
+            "the command that stayed did not: " .. Bound("F4"));
+    end);
+
     -- **Nor is one a higher priority action can take the key from.** The command is unconditional
     -- and still not the answer, because in combat the spell above it wins.
     test("a command under a conditional action stays with the state loop", function()
