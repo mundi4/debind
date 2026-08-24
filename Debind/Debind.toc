@@ -59,31 +59,15 @@ Debind.xml
 # Unlike `DevStamp.lua` above, this one is committed source, so with only the TOC line removed the
 # file itself would still be copied into the addon folder.
 #
-# **Do not write this block's own opening or closing marker inside a comment here**, for the reason
-# spelled out on the block above.
-#
 # After `Debind.xml` because it reads `Constants` when it loads.
 DevSeed.lua
 #@end-debug@
 
 DebindUI.xml
-# The sharing tab. **After `DebindUI.xml`, because it is declared as a child of `DebindFrame`**
-# (`parent=` + `parentKey=`), and a parent named before it exists is a frame with no parent. It came
-# over from `DebindStorage` with the addon boundary: the UI is Debind's and what stays over there is
-# the strings and the store (`devdocs/building-export-import.md`).
-#
-# **It was two files and two tabs.** Making a string and taking one in are the same list now, so
-# `ExportUI.*` is gone and this pair holds the one panel (12절).
 StorageUI.xml
 
-# The Switches tab, a child of `DebindFrame` for the same reason and with the same requirement:
-# after `DebindUI.xml`. It is not a sharing panel and reads nothing from the load-on-demand addon -
-# what it draws is the switch definitions, which are ordinary profile data.
 SwitchesUI.xml
 
-# Also after `DebindUI.xml`, but for the other reason: it wears `DebindDialogTemplate`, and a
-# template named before it is declared is an inherit that finds nothing. It is not a child of
-# `DebindFrame` - it stands over whatever asked for a key.
 KeyCapture.xml
 
 SpellPicker.xml
