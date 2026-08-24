@@ -1982,7 +1982,7 @@ local _changedStates = {};
 --- **Nothing is broadcast any more.** `SWITCH_CHANGED` went on 2026-08-22. A listener on it
 --- meant every switch value had to be right the moment it moved, and that reachability is what
 --- kept a computed switch from being worked out lazily
---- (`devdocs/trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
+--- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`). The Switches tab reads `definition.value`,
 --- which `SetSwitchValue` above still fills in, so what it lost was a reason to redraw rather
 --- than the value to draw.
 local function SwitchesChangedCallback()

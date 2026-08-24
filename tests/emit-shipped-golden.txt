@@ -715,6 +715,11 @@ Execute <Frame#3>
   | t.args[3].state="$intent"
   | t.args[3].reverse=true
   | DeferredMacroTexts["deb113"]=t
+Execute <Frame#3>
+  | UnitStates["focus"]=newtable()
+  | UnitStates["hover"]=newtable()
+  | UnitStates["pet"]=newtable()
+  | UnitStates["target"]=newtable()
 SetAttribute <Frame#3> _onattributechanged =
   | if (name == "state-unitexists") then
   |     if (value == 0) then return end
@@ -766,24 +771,24 @@ SetAttribute <Frame#3> _onattributechanged =
   | if (States["specialbar"] ~= stateValue) then States["specialbar"]=stateValue;DirtyFlags["specialbar"]=true; end
   | stateValue=IsStealthed()
   | if (States["stealth"] ~= stateValue) then States["stealth"]=stateValue;DirtyFlags["stealth"]=true; end
-  | u=UnitStates["focus"];if (not u) then u=newtable();UnitStates["focus"]=u end
+  | u=UnitStates["focus"]
   | stateValue=UnitExists("focus") and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["focus-exists"]=true end
   | if (u.exists) then
   | stateValue=(PlayerCanAssist("focus") and "help") or (PlayerCanAttack("focus") and "harm") or "other"
   | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["focus-exists"]=true end
   | end
-  | u=UnitStates["hover"];if (not u) then u=newtable();UnitStates["hover"]=u end
+  | u=UnitStates["hover"]
   | stateValue=UnitAliasMap["hover"] and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["hover-exists"]=true end
   | if (u.exists) then
   | stateValue=(PlayerCanAssist(UnitAliasMap["hover"]) and "help") or (PlayerCanAttack(UnitAliasMap["hover"]) and "harm") or "other"
   | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["hover-exists"]=true end
   | end
-  | u=UnitStates["pet"];if (not u) then u=newtable();UnitStates["pet"]=u end
+  | u=UnitStates["pet"]
   | stateValue=UnitExists("pet") and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["pet-exists"]=true end
-  | u=UnitStates["target"];if (not u) then u=newtable();UnitStates["target"]=u end
+  | u=UnitStates["target"]
   | stateValue=UnitExists("target") and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["target-exists"]=true end
   | if (u.exists) then

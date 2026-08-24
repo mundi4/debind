@@ -17,7 +17,7 @@
 | **3.3에 같이** | 보관함 개편. **탭 통합까지만 나간다 (2026-08-24, 소유자)** | `building-export-import.md` |
 | **3.3에 같이** | 되돌린 버전이 프로필을 깎는 것 막기 | `legacy/guarding-against-a-downgrade.md` |
 | **3.3에 같이** | 남의 애드온이 그리는 유닛 프레임을 우리가 찾아간다 | `.zzz/unit-frame-discovery.md` |
-| **3.3에 같이** | 제한 환경 핫패스에서 뺄 것들 | `trimming-the-restricted-hot-paths.md` |
+| **3.3에 같이** | ~~제한 환경 핫패스에서 뺄 것들~~ **들어갔다 (2026-08-24)** | `legacy/trimming-the-restricted-hot-paths.md` |
 | **그 뒤** | 스위치 바 (`redesigning-custom-states.md` 5단계), 보관함의 남은 다섯 | `redesigning-custom-states.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 

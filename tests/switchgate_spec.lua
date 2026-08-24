@@ -3,7 +3,7 @@
 --
 -- The state loop used to parse every computed switch on every pass. It cannot have moved unless
 -- something it reads moved, so the emitted lines now sit behind the dirty flags of the states the
--- conditional names (`devdocs/trimming-the-restricted-hot-paths.md` 4).
+-- conditional names (`devdocs/legacy/trimming-the-restricted-hot-paths.md` 4).
 --
 -- **The gate is invisible in every value the pass leaves behind** -- a switch whose answer did not
 -- move reads the same whether the loop worked it out again or let it stand. So the skip itself is

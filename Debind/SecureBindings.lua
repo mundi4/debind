@@ -344,6 +344,9 @@ BindingDriver:SetAttribute("SetUnit", [[
 			delegateFrame:SetAttribute("unit", unit or "raid41")
 		end
 
+		-- **The row's existence is how a snippet asks "is this alias measured".** A rebuild wipes
+		-- `UnitStates` and puts a row back for every unit in `_measuredUnitAxes`, so there is one
+		-- here exactly when moving this alias can change what a key answers.
 		if (UnitStates[alias] ~= nil) then
 			dirty = true
 		end

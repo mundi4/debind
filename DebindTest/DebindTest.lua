@@ -3965,7 +3965,7 @@ RegisterTest("Secure update path", {
 })
 
 -- **The 0.2s beat runs only where there is something to measure**
--- (`devdocs/trimming-the-restricted-hot-paths.md`, item 3). A profile with no conditions at all
+-- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 3). A profile with no conditions at all
 -- lets `RegisterUnitWatch` go, and one condition brings it back.
 --
 -- Headless can see **the decision only** (`plan.statePoll`, `tests/plan_spec.lua`). The
@@ -5131,7 +5131,7 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
     end,
 })
 
--- **The click bakes the macro body** (`devdocs/trimming-the-restricted-hot-paths.md`, item 2).
+-- **The click bakes the macro body** (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 2).
 -- A body that goes on a button is baked by nobody when a state moves, and by the click that
 -- picks that button.
 --

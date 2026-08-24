@@ -60,6 +60,11 @@ local addMacrotextBinding;
 local GetModifierIndex   = DebindPrivate.GetModifierIndex;
 
 local _strArr            = {};
+
+--- The second buffer `UpdateAttrChangedHandler` fills. One line per measured unit, and it is a
+--- buffer of its own because the two land in different places: this one runs once per rebuild,
+--- `_strArr` becomes the handler that runs on every tick.
+local _unitRowArr        = {};
 local _macrotexts        = {};
 local _macrotextBindings = {};
 local _switches          = {};
@@ -329,6 +334,10 @@ local function appendLine(str, ...)
     else
         _strArr[#_strArr + 1] = str or "";
     end
+end
+
+local function appendUnitRowLine(str, ...)
+    _unitRowArr[#_unitRowArr + 1] = format(str, ...);
 end
 
 --- Compiles a generated snippet before it is handed over, in DEBUG builds only.
@@ -636,7 +645,7 @@ local function BuildBindingPlan(ctx)
 
     plan.bindingsMapSnippet = UpdateBindingsMap();
     plan.macroTextsSnippet = UpdateMacroTextsMap();
-    plan.attrChangedSnippet = UpdateAttrChangedHandler();
+    plan.attrChangedSnippet, plan.unitRowsSnippet = UpdateAttrChangedHandler();
     plan.switchesSnippet = BuildSwitchesSnippet();
 
     CollectWatchedUnits(plan.units);
@@ -683,6 +692,13 @@ local function ApplyBindingPlan(plan)
 
     SecureHandlerExecute(driver, plan.bindingsMapSnippet);
     SecureHandlerExecute(driver, plan.macroTextsSnippet);
+
+    -- **Before the handler that reads them.** `ClearPreviousBindings` wiped `UnitStates` on the way
+    -- in, so this is what puts the rows back, and every read below expects them to be there.
+    if (plan.unitRowsSnippet) then
+        SecureHandlerExecute(driver, plan.unitRowsSnippet);
+    end
+
     driver:SetAttribute("_onattributechanged", plan.attrChangedSnippet);
 
     if (plan.switchesSnippet) then
@@ -2064,6 +2080,12 @@ end
 --- destroy change detection: a new table never equals the old one, so every tick would look like
 --- a change and rebind.
 ---
+--- **Creating it is a rebuild's job, not a tick's** -- `appendUnitRowLine` puts that line in the
+--- snippet `ApplyBindingPlan` runs after `wipe(UnitStates)`. So a row exists from the moment a
+--- rebuild ends, and `UnitStates[unit] ~= nil` answers *"this unit is measured"* and nothing else.
+--- Two places read it that way (`SetUnit` and the matcher in `SecureBindings.lua`); while the tick
+--- created the row, both were also answering *"and a tick has been round"*.
+---
 --- Axes that were not registered emit nothing and leave no field behind. Nothing can ask about
 --- them, so the absence is never compared against.
 ---
@@ -2077,7 +2099,8 @@ end
 local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOverride)
     local dirty = format([[DirtyFlags["%s-exists"]=true]], unit);
 
-    appendLine("u=UnitStates[%1$q];if (not u) then u=newtable();UnitStates[%1$q]=u end", unit);
+    appendUnitRowLine("UnitStates[%q]=newtable()", unit);
+    appendLine("u=UnitStates[%q]", unit);
     appendLine("stateValue=%s and true or false", existsExpr);
     -- **계산 뒤, 비교 앞.** 이 줄이 계산보다 위에 있던 동안 `stateValue`가 바로 덮어써져서
     -- 존재 축 주입이 조용히 아무것도 안 했다.
@@ -2319,9 +2342,18 @@ end
     local snippet = table.concat(_strArr, "\n");
     AssertSnippetCompiles(snippet, "_onattributechanged");
 
+    -- Nil rather than an empty string when nothing is measured, so the caller has something to
+    -- test -- the same shape `BuildSwitchesSnippet` already returns.
+    local rowsSnippet;
+    if (#_unitRowArr > 0) then
+        rowsSnippet = table.concat(_unitRowArr, "\n");
+        AssertSnippetCompiles(rowsSnippet, "UnitStates rows");
+    end
+
     if (DEBUG) then
         dump("_onattributechanged", { CopyTable(_strArr), snippet:len() });
     end
     wipe(_strArr);
-    return snippet;
+    wipe(_unitRowArr);
+    return snippet, rowsSnippet;
 end

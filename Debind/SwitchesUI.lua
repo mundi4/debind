@@ -750,7 +750,7 @@ function DebindSwitchesPanelMixin:OnShow()
     -- **The first two are pulled and the third is pushed.** A value moving used to arrive as
     -- `SWITCH_CHANGED`; that event is gone, because anything listening to it made every switch
     -- value have to be current the instant it moved
-    -- (`devdocs/trimming-the-restricted-hot-paths.md`). The set of switches changing is a different
+    -- (`devdocs/legacy/trimming-the-restricted-hot-paths.md`). The set of switches changing is a different
     -- question, it is rare, and it still arrives.
     self.seenSerial = DebindPrivate.switchValueSerial;
     DebindPrivate.RegisterCallback(self, "OnSwitchesChanged");
