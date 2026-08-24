@@ -543,9 +543,15 @@ local function CollectDriverEvents(events)
         events[#events + 1] = { name = name, register = register and true or false };
     end
 
-    -- **묻는 것은 "hover를 재나"다.** 이 등록의 목적이 호버 dangling 감지이므로, 답은 hover
-    -- 축을 측정하는 유닛이 있느냐에 있다. 예전 술어의 `_measuredStates.reaction` 항은 잉여였다 -
-    -- 반응 조건은 유닛 조건의 일부라 `_measuredUnitAxes`가 이미 덮는다.
+    -- **The question is "is hover measured".** The old predicate carried a
+    -- `_measuredStates.reaction` term as well, and it was redundant: a reaction condition is part
+    -- of a unit condition, so `_measuredUnitAxes` already covers it.
+    --
+    -- **This event only fires when a mouseover unit appears, never when one goes away**, so it
+    -- covers the cursor moving from one unit to another and not the cursor leaving a unit for
+    -- empty space. That second half is the state poll's, in the `elseif (unitframe.reaction)`
+    -- branch of the hover block (`UpdateAttrChangedHandler`). Registering this is worth doing
+    -- anyway, and reading it as the whole of hover dangling detection is not.
     want("UPDATE_MOUSEOVER_UNIT", _measuredUnitAxes.hover or _measuredUnitAxes.mouseover);
 
     -- 반응 축을 재는 유닛이 하나라도 있으면 등록한다. 예전 술어(`_measuredStates.reaction`)는 어느
