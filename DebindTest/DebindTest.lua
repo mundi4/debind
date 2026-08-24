@@ -3180,7 +3180,7 @@ RegisterTest("Switches tab: the expression box opens on the expression", {
 })
 
 -- **The button that replaced the portrait's dropdown** (3c, §6-C of
--- `devdocs/redesigning-custom-states.md`). Making a switch was a menu on the window's title bar
+-- `devdocs/legacy/redesigning-custom-states.md`). Making a switch was a menu on the window's title bar
 -- until now; it is this button, the condition menu and an on/off/toggle action's own menu, and all
 -- three go through `DebindUI.ShowNewSwitchBox`.
 --

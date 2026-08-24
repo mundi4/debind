@@ -15,7 +15,7 @@ local LAYER_ROW_HEIGHT = 20;
 
 --- The root's own layer, which is `GetLayerID(nil, false)`. It is drawn like the overrides and
 --- edited like them, and it is the one row that is always there and cannot be taken away (§4-6 of
---- `devdocs/redesigning-custom-states.md`): the definition itself is that answer, which is why it
+--- `devdocs/legacy/redesigning-custom-states.md`): the definition itself is that answer, which is why it
 --- is the one layer `GetSwitchLayerKey` gives no key for.
 local ROOT_LAYER_ID    = 1;
 
@@ -25,7 +25,7 @@ local ROOT_LAYER_ID    = 1;
 --- two fields, manual or an expression, and what a manual one resets to. But those two are a
 --- single question to the person reading: *what is this switch when I log in, and can I press it?*
 --- Splitting them put "Set Manually" on screen with the answer to the second half two levels down
---- (§4-6 of `devdocs/redesigning-custom-states.md`).
+--- (§4-6 of `devdocs/legacy/redesigning-custom-states.md`).
 ---
 --- `resetValue = nil` is an answer and not an absence: it means "come back the way this character
 --- left it", which is why `key` exists at all: a table cannot hold a nil to compare against.
@@ -592,7 +592,7 @@ do
     --- **Three places open this box**: the button under this list, the condition menu, and an
     --- on/off/toggle action's own menu (`DropDownMenus.lua`). That is the whole point of stage
     --- 3c: making a switch belongs wherever the reader turns out to need one, not on a trip to a
-    --- tab they have to know about first (§6-2 of `devdocs/redesigning-custom-states.md`).
+    --- tab they have to know about first (§6-2 of `devdocs/legacy/redesigning-custom-states.md`).
     ---
     --- It reads like `ShowRenameBox` on purpose, down to saying no in chat rather than in a second
     --- dialog: the two are one gesture, and `CreateSwitch` and `RenameSwitch` answer with the same

@@ -301,7 +301,7 @@ local function NameAndIconForAction(action)
 		-- ones a macro body has to say (§6-B).
 		--
 		-- **A row with no switch picked yet fills the same sentence rather than replacing it.** One
-		-- is added that way (§6-C of `devdocs/redesigning-custom-states.md`), and all three
+		-- is added that way (§6-C of `devdocs/legacy/redesigning-custom-states.md`), and all three
 		-- sentences have a `%s` that raises on nil. What goes in is the word, not the instruction:
 		-- a name says what the action is, and telling the reader to go pick one is the job of the
 		-- red the row is already wearing and of `BINDING_ERROR_SWITCH_NONE_SELECTED` beside it.

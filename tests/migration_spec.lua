@@ -872,7 +872,7 @@ return function(DebindPrivate)
     -- dbver 6: SETSTATE가 타입 셋과 이름으로 갈린다
     --
     -- 저장은 `mode | index` 비트팩 하나였다. 모드가 `type`으로 올라가고 대상이 이름이 된다
-    -- (`devdocs/redesigning-custom-states.md` §9-1).
+    -- (`devdocs/legacy/redesigning-custom-states.md` §9-1).
     --
     -- **틀리면 조용하다.** 모드를 잘못 읽으면 켜는 키가 끄는 키가 되고, 이름을 잘못 읽으면
     -- 남의 스위치를 켠다. 둘 다 화면에는 멀쩡한 줄로 그려진다.
@@ -1580,7 +1580,7 @@ return function(DebindPrivate)
     -- **저장되는 값은 하나뿐이다.** 계산식 스위치는 파생값이라 저장할 것이 없고, 남는 것은
     -- 수동 + "기억하기"(`resetValue == nil`)의 `savedValue` 하나다. 그것이 계정에 앉아 있는
     -- 동안 "기억하기"는 **마지막에 로그아웃한 캐릭터가 남긴 값 기억하기**였다
-    -- (`devdocs/redesigning-custom-states.md` §5).
+    -- (`devdocs/legacy/redesigning-custom-states.md` §5).
     --
     -- **`db.characters`는 계정 파일 안에 있고 전부 한꺼번에 메모리에 올라온다.** 그래서
     -- "캐릭터마다 자기 첫 로그인에 알아서 마이그레이션된다"가 여기서는 성립하지 않는다 -

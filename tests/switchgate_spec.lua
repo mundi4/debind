@@ -226,7 +226,7 @@ return function(DebindPrivate)
         end);
 
     -- **The echo of a reset must not become a memory** (§4-9 of
-    -- `devdocs/redesigning-custom-states.md`). The insecure side writes a switch's starting value and
+    -- `devdocs/legacy/redesigning-custom-states.md`). The insecure side writes a switch's starting value and
     -- pushes it in; the restricted side reports that same value straight back out (`SetSwitch` ->
     -- `OnSwitchChanged`), and taking the report as a person having moved the switch overwrites the
     -- memory **on one login** -- which is the value the character goes back to when it leaves a

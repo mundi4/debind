@@ -66,7 +66,7 @@ Constants.SETCUSTOM                       = "setcustom";
 --- **On, off and toggle are three verbs, not one verb with a parameter.** Every other type has a
 --- verb in `type` and an object in `value`; this one folded the verb into the value as a
 --- `mode | index` bitpack. With the mode moved up, `value` carries one switch name and nothing else
---- (`devdocs/redesigning-custom-states.md` §9-1).
+--- (`devdocs/legacy/redesigning-custom-states.md` §9-1).
 ---
 --- **Three types rather than a `mode` field, because that adds no surface to validate.** A mode
 --- nothing wrote is simply an unknown type, and what to do about an unknown type is a question that
@@ -164,7 +164,7 @@ end
 --- The pattern is `ParseMacroText`'s, and it is the same pattern for a reason that is not tidiness:
 --- a name outside it cannot be written into a macro body at all. The parser drops the token and
 --- the condition goes to the game as literal text. So a name this refuses is one the user could
---- never type where the list tells them to (§6-B of `devdocs/redesigning-custom-states.md`).
+--- never type where the list tells them to (§6-B of `devdocs/legacy/redesigning-custom-states.md`).
 function Constants.IsValidSwitchName(name)
     return type(name) == "string" and strmatch(name, "^%$[a-zA-Z0-9_]+$") ~= nil;
 end
@@ -182,7 +182,7 @@ end
 --- there. A binding's conditions and the definitions that exist are what get walked, so a name
 --- outside this list reaches the solver and codegen like any other. Stage 3c took the last count
 --- off the creating end as well, so there is no upper bound anywhere any more
---- (`devdocs/redesigning-custom-states.md` §6-C).
+--- (`devdocs/legacy/redesigning-custom-states.md` §6-C).
 ---
 --- **Storage does not use this.** A definition is filed under its own name, so a number is no
 --- longer an identity a switch has. §6-B's list took that away and the `dbver` 6 step moved the
@@ -338,7 +338,7 @@ Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
--- own menu afterwards (§6-C of `devdocs/redesigning-custom-states.md`).
+-- own menu afterwards (§6-C of `devdocs/legacy/redesigning-custom-states.md`).
 --
 -- **A fourth `*_NONE_SELECTED`, not a variant of the code above.** "You have not picked one" and
 -- "the one you picked is gone" send the reader to two different places, and the three existing

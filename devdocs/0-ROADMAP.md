@@ -12,13 +12,13 @@
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
 | **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`legacy/showing-off-spec-actions.md` |
 | **3.2.1 · 3.2.2** | 나갔다 (2026-08-21, 08-22). 무관한 핫픽스 둘 | `CHANGELOG.md` |
-| **다음 (3.3)** | 커스텀 상태 재설계. **스위치 바는 빼고 나간다 (2026-08-24, 소유자)** | `redesigning-custom-states.md` |
+| **다음 (3.3)** | 커스텀 상태 재설계. **스위치 바는 빼고 나간다 (2026-08-24, 소유자)** | `legacy/redesigning-custom-states.md` |
 | **3.3에 같이** | ~~액션 마이그레이션을 한 벌로~~ **들어갔다 (2026-08-21)** | `legacy/unifying-action-migration.md` |
 | **3.3에 같이** | 보관함 개편. **탭 통합까지만 나간다 (2026-08-24, 소유자)** | `building-export-import.md` |
 | **3.3에 같이** | 되돌린 버전이 프로필을 깎는 것 막기 | `legacy/guarding-against-a-downgrade.md` |
 | **3.3에 같이** | 남의 애드온이 그리는 유닛 프레임을 우리가 찾아간다 | `.zzz/unit-frame-discovery.md` |
 | **3.3에 같이** | ~~제한 환경 핫패스에서 뺄 것들~~ **들어갔다 (2026-08-24)** | `legacy/trimming-the-restricted-hot-paths.md` |
-| **그 뒤** | 스위치 바 (`redesigning-custom-states.md` 5단계), 보관함의 남은 다섯 | `redesigning-custom-states.md`<br>`building-export-import.md` |
+| **그 뒤** | 스위치 바, 보관함의 남은 다섯 | `switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 
 **버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 3.3은 기능 추가라 마이너를
@@ -54,7 +54,7 @@
 **`conditions`는 3.3을 안 기다렸다 (2026-08-20).** 한 칸으로 묶어둔 근거는 "커스텀 상태
 재설계가 `$state1..5`를 이름으로 갈고 `conditions`가 같은 필드를 또 옮긴다"였는데, **그 전제가
 틀렸다.** 재설계는 저 다섯을 개명하지 않는다. 그냥 유효한 이름으로 남기고 임의 이름을 추가로
-허용한다(`redesigning-custom-states.md` §3). 조건 키는 한 번만 움직인다.
+허용한다(`legacy/redesigning-custom-states.md` §3). 조건 키는 한 번만 움직인다.
 
 그 문서는 전부 나가서 `legacy/`로 갔고, 결론은 `action-and-binding-shapes.md`가 든다.
 

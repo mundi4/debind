@@ -130,7 +130,7 @@ return function(DebindPrivate)
 
     -- **One row, whatever the profile holds.** The special tab offered three per defined switch
     -- until 3c; it offers one that names no switch, and which switch is chosen in the action's own
-    -- menu afterwards (§6-C of `devdocs/redesigning-custom-states.md`).
+    -- menu afterwards (§6-C of `devdocs/legacy/redesigning-custom-states.md`).
     --
     -- **The name is asked for, because a row that cannot be named is not drawn at all.**
     -- `NameAndIconForAction` formats the switch name into the label, and a target-less row has none

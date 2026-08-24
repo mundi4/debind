@@ -8,7 +8,7 @@
 
 		**The name is drawn with its `$`**, which is the one thing on this row that is not a
 		setting: it is the text the user types into a macro body, so the list is where those glyphs
-		get learned (§6-B of `devdocs/redesigning-custom-states.md`).
+		get learned (§6-B of `devdocs/legacy/redesigning-custom-states.md`).
 
 		**What it comes up as is not here.** It was, while there was one answer; since stage 4 there
 		is one per layer and they are drawn on the rows underneath. Leaving a copy of the winning
@@ -75,9 +75,9 @@
 						<!--
 				**A plain button, deliberately.** Making it a secure one would put a protected
 				frame inside the window, and the reason this window can stay open in combat is
-				that it holds none (F-3 of `devdocs/redesigning-custom-states.md`). So it is
+				that it holds none (F-3 of `.zzz/TODO.md`). So it is
 				disabled in combat, and turning a switch on mid-fight is the switch bar's job
-				(§6-A) or a key carrying an on/off/toggle action.
+				(`devdocs/switch-bar.md`) or a key carrying an on/off/toggle action.
 
 				`motionScriptsWhileDisabled` so the tooltip can say why it is greyed.
 			-->

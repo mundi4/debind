@@ -1896,7 +1896,7 @@ do
     --- Renaming a switch has to rewrite five kinds of reference and this is the one that cannot be
     --- done by moving a key: a condition, an on/off/toggle target and another switch's expression
     --- each hold the name whole, while a macro body holds it inside a sentence
-    --- (`devdocs/redesigning-custom-states.md` §3).
+    --- (`devdocs/legacy/redesigning-custom-states.md` §3).
     function DebindPrivate.RenameSwitchInMacroText(str, from, to)
         if (not str) then
             return str;
@@ -1964,14 +1964,14 @@ local _changedStates = {};
 ---
 --- **A name nothing defines is left alone rather than defined.** There is no row to write the
 --- value into and making one here would be the load-time repair §9-3 of
---- `devdocs/redesigning-custom-states.md` rules out. The switch still works for this session: the
+--- `devdocs/legacy/redesigning-custom-states.md` rules out. The switch still works for this session: the
 --- value lives in the restricted environment's `States`, and what is missing is only the memory of
 --- it across a reload.
 ---
 --- **The remembered value goes on the character, the live one on the definition**, and both are
 --- `SetSwitchValue`'s to write (`Profile.lua`). The definition is account-wide, and while the
 --- memory sat there too "remember" meant "remember what the character who logged out last left"
---- (§5 of `devdocs/redesigning-custom-states.md`). **Which of these reports becomes a memory is
+--- (§5 of `devdocs/legacy/redesigning-custom-states.md`). **Which of these reports becomes a memory is
 --- decided there and not here**: a report carrying the value the definition already holds is a
 --- reset this side pushed a moment ago coming back round, and it is the one that must not be
 --- remembered (§4-9).

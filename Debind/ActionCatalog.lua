@@ -1009,7 +1009,7 @@ local function BuildSpecialActions(entries)
 	end
 
 	-- Setting a switch. **One row, and it names no switch** (§6-C of
-	-- `devdocs/redesigning-custom-states.md`).
+	-- `devdocs/legacy/redesigning-custom-states.md`).
 	--
 	-- It was three rows per switch, one each for on, off and toggle, which came to fifteen of this
 	-- tab's twenty while a profile could hold five. Lifting that count turned the number into

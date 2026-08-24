@@ -133,7 +133,7 @@ local ACTION_FIELDS      = {
 ---
 --- **A `$`-prefixed name passes unlisted, as a boolean.** Custom state conditions are stored
 --- under their own name and the redesign turns the five slots into arbitrary ones
---- (`devdocs/redesigning-custom-states.md`); listing five and stopping there would drop every
+--- (`devdocs/legacy/redesigning-custom-states.md`); listing five and stopping there would drop every
 --- named state the day it lands.
 local CONDITION_TYPES    = {
     -- Bit masks.
@@ -167,7 +167,7 @@ DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 --- runtime reading as if it were a setting.
 ---
 --- **The remembered value is not on this list and does not belong on it.** It lives on the
---- character now (`devdocs/redesigning-custom-states.md` §5), and it is one character's on or off
+--- character now (`devdocs/legacy/redesigning-custom-states.md` §5), and it is one character's on or off
 --- rather than a setting: the person reading the string is not that character. A v1 payload
 --- carries a `savedValue` and nothing reads it.
 ---
@@ -175,7 +175,7 @@ DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 --- under an absolute key naming *this* installation's characters and classes
 --- (`GetSwitchLayerKey`), so `Player-1329-0004AB27:2` addresses somebody the receiver has never
 --- had. What travels is the answer everything falls back to, which is the one a definition always
---- has. §4-6 of `devdocs/redesigning-custom-states.md`.
+--- has. §4-6 of `devdocs/legacy/redesigning-custom-states.md`.
 ---
 --- ⚠ **Nothing checks this table.** `check:export-fields` compares `ACTION_FIELDS` and the
 --- condition table and never looks here, so a definition field added without a line here simply
@@ -320,7 +320,7 @@ end
 
 --- Every custom state the exported actions name, by name.
 ---
---- Four places hold a reference (`devdocs/redesigning-custom-states.md` §3-4) and three of them are
+--- Four places hold a reference (`devdocs/legacy/redesigning-custom-states.md` §3-4) and three of them are
 --- reachable from an action: the condition fields on the action itself, an on/off/toggle action's
 --- `value`, and names typed into macro text. The fourth is a state's own `expr` naming another
 --- state, which is why this closes transitively rather than doing one pass.

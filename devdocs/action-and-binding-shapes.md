@@ -84,7 +84,7 @@ action.conditions
 **어느 이름이 조건인지는 `Constants.IsConditionField` 하나가 답한다.** 목록을 다시 적지 말 것.
 그 함수는 `CONDITION_FIELDS`에 없어도 **`$`로 시작하면 조건**이라고 답하는데, 커스텀 상태가 그
 이름으로 저장되고 재설계가 슬롯 다섯을 임의 이름으로 풀기 때문이다
-(`redesigning-custom-states.md`).
+(`legacy/redesigning-custom-states.md`).
 
 **빈 표는 안 남긴다.** 저장 쪽은 `CleanUpDB`가, 편집 쪽은 `DropDownMenus.lua`의
 `PruneConditions`가 지운다. 표가 있느냐를 게이트로 쓰는 자리가 있어서, 빈 표는 조건이 하나도

@@ -1,6 +1,6 @@
 # 액션 마이그레이션을 한 벌로
 
-> **상태: 전부 들어갔다 (2026-08-21).** `redesigning-custom-states.md` §9-1과 한 편집이었고, 그
+> **상태: 전부 들어갔다 (2026-08-21).** `legacy/redesigning-custom-states.md` §9-1과 한 편집이었고, 그
 > 문서의 3a다. 3절 넷이 전부 코드에 있다. 배정은 3.3이고 `0-ROADMAP.md`가 든다.
 >
 > **아래 4절의 순서는 한 번 갈렸다.** *"1과 2는 §9-1과 독립이라 지금 해도 된다"* 고 적혀 있던
@@ -8,13 +8,13 @@
 > 어댑터가 `setstate_toggle`을 뱉어야 해서 넷이 나뉘지 않는다.
 >
 > 결론이 사는 곳: 전송 포맷은 `building-export-import.md`, 저장 표현은
-> `redesigning-custom-states.md` §9-1.
+> `legacy/redesigning-custom-states.md` §9-1.
 >
 > **소유자가 정한 것.** *"내보내기에 들어가는 action도 우리가 savedvars에 저장하는 액션 모양을
 > '그대로' 따라가게 바꿀 거니까, 내보내기용 새로운 모양을 발명하지 말고 기존에 있던 setstate
 > 쿼크들도 제거해야 한다. 페이로드 포맷 범프하고."* 아래 3절이 그 내용이다.
 >
-> **3.3과 엮인다.** 3.3이 SETSTATE의 저장 표현을 바꾸는데(`redesigning-custom-states.md` §9-1),
+> **3.3과 엮인다.** 3.3이 SETSTATE의 저장 표현을 바꾸는데(`legacy/redesigning-custom-states.md` §9-1),
 > 그 마이그레이션을 지금 모양대로 짜면 **같은 변환의 코드가 두 벌 선다.** 이 문서는 그 둘이 한
 > 벌이 되게 하는 것만 다룬다.
 >

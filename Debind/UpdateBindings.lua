@@ -246,7 +246,7 @@ end
 --- **The name is not checked against a list any more.** It used to have to be one of the numbered
 --- five, and a name outside them was answered `false` without so much as asking whether it was
 --- defined. So a definition could never be found under any other name, which is what §10's 1b-2
---- lifts (`devdocs/redesigning-custom-states.md`). What decides now is the same thing that decides
+--- lifts (`devdocs/legacy/redesigning-custom-states.md`). What decides now is the same thing that decides
 --- everywhere else: whether `ResolveSwitchDefinition` has an answer.
 ---
 --- **How it behaves is asked of the layers, whether it exists is asked of the definition** (§4-6).
@@ -415,7 +415,7 @@ end
 --- seam is what makes it possible to move.
 local function CollectBindingContext()
     -- **Where a specialization change reaches a switch** (§4-8 of
-    -- `devdocs/redesigning-custom-states.md`). An override saying "always on in this
+    -- `devdocs/legacy/redesigning-custom-states.md`). An override saying "always on in this
     -- specialization" has to be applied on the way *into* that specialization, not only at login,
     -- and a specialization change is a rebuild - this one. It is below the guard above on purpose:
     -- which answer wins depends on the specialization, so asking before it is known would resolve

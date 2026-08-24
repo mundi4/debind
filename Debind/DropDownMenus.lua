@@ -75,7 +75,7 @@ end
 --------------------------------------------------------------------------------
 -- The switches menu that used to hang off the portrait
 --------------------------------------------------------------------------------
---- **It is gone, and the tab is where it went** (stage 3c, `devdocs/redesigning-custom-states.md`
+--- **It is gone, and the tab is where it went** (stage 3c, `devdocs/legacy/redesigning-custom-states.md`
 --- §6-B). `SetupSwitchesDropdownMenu` stood here and edited `mode`, `resetValue`, `expr` and
 --- `displayMessage` on five offered names, which is the whole of what a row's menu on the
 --- `Switches` tab does now, only over however many switches the reader has made, with renaming
@@ -747,7 +747,7 @@ do
 
     --- Which switch an on/off/toggle action works, and what it does to it.
     ---
-    --- **This is what the picker stopped asking** (§6-C of `devdocs/redesigning-custom-states.md`).
+    --- **This is what the picker stopped asking** (§6-C of `devdocs/legacy/redesigning-custom-states.md`).
     --- The special tab offered three rows per switch, so choosing one there was the only way to
     --- say which, and changing your mind afterwards meant deleting the action and adding another.
     --- It had to be here regardless: deleting a switch leaves every action that named it pointing

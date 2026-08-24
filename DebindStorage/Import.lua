@@ -279,7 +279,7 @@ local VALUE_SHAPES = {
     --
     -- **Or nothing at all**, which is a shape this addon started producing at stage 3c: the picker
     -- adds one row with no target and the switch is picked in the action's own menu afterwards
-    -- (`devdocs/redesigning-custom-states.md` §6-C). A reader can export a layer before getting
+    -- (`devdocs/legacy/redesigning-custom-states.md` §6-C). A reader can export a layer before getting
     -- round to that, and this table is asked whether the addon *could* have made the action. So
     -- refusing it here would turn away the whole string over a half-finished row, which is the one
     -- thing the receiving side is built not to do. It lands, it is red

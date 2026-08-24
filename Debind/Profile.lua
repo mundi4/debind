@@ -862,7 +862,7 @@ DebindPrivate.ForEachStoredAction = ForEachStoredAction;
 ---
 --- **Conditions and `SETSTATE` targets, and nothing else.** Those two are the places a switch is
 --- named by picking it out of a menu, so a name cannot get in by being mistyped. A macro body's
---- `[$burst]` is typed by hand and is deliberately left out (`devdocs/redesigning-custom-states.md`
+--- `[$burst]` is typed by hand and is deliberately left out (`devdocs/legacy/redesigning-custom-states.md`
 --- §9-3): read as a use, one typo would keep a definition alive and take away the red mark that is
 --- how the user finds out about the typo at all.
 ---
@@ -1038,7 +1038,7 @@ local function MigrateSwitches(db, dbver, charEntry)
             --
             -- **한 번이지 매 로드 수리가 아니다.** 참조를 훑어 정의를 되살리거나 지우는 것이
             -- 로그인마다 돈다면, 사용자가 지운 스위치가 참조 때문에 돌아오거나 아직 아무 데도
-            -- 안 건 새 스위치가 사라진다 (`devdocs/redesigning-custom-states.md` §9-3).
+            -- 안 건 새 스위치가 사라진다 (`devdocs/legacy/redesigning-custom-states.md` §9-3).
             --
             -- 지우는 것은 **손댄 적도 없고, 참조도 없고, 어느 캐릭터도 값을 기억하지 않는**
             -- 것뿐이다. 셋 중 하나라도 있으면 남는다: 설정을 해뒀는데 아직 아무 액션에도 안 건
@@ -1075,7 +1075,7 @@ local function MigrateSwitches(db, dbver, charEntry)
             -- place left where a switch had a second identity. Renaming is what could not be built
             -- on top of that: the name would have had to be a field beside the number, and then
             -- two things would say which switch this is (§6-B of
-            -- `devdocs/redesigning-custom-states.md`).
+            -- `devdocs/legacy/redesigning-custom-states.md`).
             --
             -- **Only number keys move.** A table that has already been through here is keyed by
             -- name, and the pre-rename share `Legacy.lua` lays on top arrives numbered and comes
@@ -1199,7 +1199,7 @@ end
 --- **Everything a character can hold has to be listed here**, and the one that is missing is
 --- silent: `CleanUpDB` detaches the whole entry on the way out, so a character whose only content
 --- this does not recognise loses it at logout rather than at the write, with nothing said either
---- time (`devdocs/redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
+--- time (`devdocs/legacy/redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
 local function HasCharContent(entry)
     if (entry.CustomTargets and next(entry.CustomTargets) ~= nil) then
         return true;
@@ -1234,7 +1234,7 @@ DebindPrivate.SWITCH_DEFAULTS = SWITCH_DEFAULTS;
 --- **The only door to a definition.** Every caller used to reach into the stored table itself, and
 --- half of them had to know that a definition is filed by index while a condition names it by
 --- string. Going through here is what lets that stop being true in one place: §4-6 of
---- `devdocs/redesigning-custom-states.md` puts the answer behind a layer cascade, and this function
+--- `devdocs/legacy/redesigning-custom-states.md` puts the answer behind a layer cascade, and this function
 --- is the whole of what changes.
 ---
 --- **nil is an ordinary answer, not a mistake.** Names are free -- the parser takes any
@@ -1256,7 +1256,7 @@ end
 --- definitions are account-wide, so filing one under the layer's own number would have the next
 --- character to log in read this one's setting, and write over it. The key has to say *which*
 --- character, the way `characters[guid]` already does
---- (`devdocs/redesigning-custom-states.md` §4-7-3).
+--- (`devdocs/legacy/redesigning-custom-states.md` §4-7-3).
 ---
 --- **Layer 1 has no key, and that is not a gap.** `GENERAL` is the root answer; it lives on the
 --- definition itself and cannot be missing, which is what the whole cascade stands on (§4-6).
@@ -1580,7 +1580,7 @@ end
 --- **Creating is a user's doing, and this is the only place it happens.** Nothing is planted at
 --- load (`BindDerivedTables`), so a row on disk means somebody made it. The alternative, making
 --- one wherever a reference to the name turns up, is what §9-3 of
---- `devdocs/redesigning-custom-states.md` rules out: a switch the user deleted would come back on
+--- `devdocs/legacy/redesigning-custom-states.md` rules out: a switch the user deleted would come back on
 --- the next login and the red references to it would go quiet, which is the deletion being undone
 --- by the thing that was supposed to report it.
 ---
@@ -1720,7 +1720,7 @@ end
 ---
 --- **The rename is the five rewrites.** The definition moving is the easy part; a name is written
 --- down in five other kinds of place, and one missed leaves a condition that never matches or a
---- macro clause that quietly stopped being a clause (`devdocs/redesigning-custom-states.md` §3):
+--- macro clause that quietly stopped being a clause (`devdocs/legacy/redesigning-custom-states.md` §3):
 ---
 ---   * a condition key, `action.conditions["$burst"]`
 ---   * an on/off/toggle action's target, `action.value`
@@ -1820,7 +1820,7 @@ end
 --- in no action at all and is marked on the Switches tab instead
 --- (`GetUndefinedSwitchInExpr`, `SwitchesUI.lua`).
 --- Rewriting them here would delete parts of actions the user never asked to lose, and doing it
---- silently would be worse than the red (§9-3 of `devdocs/redesigning-custom-states.md` turns the
+--- silently would be worse than the red (§9-3 of `devdocs/legacy/redesigning-custom-states.md` turns the
 --- same argument the other way round: a reference must not resurrect a definition either).
 ---
 --- **The remembered values go**, because they are this switch's and nothing else's. Leaving them
@@ -1860,13 +1860,13 @@ end
 --- **The remembered value comes off this character, not off the definition.** The definition is
 --- account-wide and a name raises an expectation of scope that a number never did, so "remember"
 --- used to mean "remember what the character who logged out last left" (§5 of
---- `devdocs/redesigning-custom-states.md`). Keyed by name because that is what everything asking
+--- `devdocs/legacy/redesigning-custom-states.md`). Keyed by name because that is what everything asking
 --- for a switch says, and because the five numbers stopped being the whole list.
 ---
 --- **Nothing is created.** A row is a switch somebody made; five empty ones were being planted on
 --- every load, which put a row under a name the user never touched and would have filled §6-B's
 --- list with blanks for people who have never used the feature
---- (`devdocs/redesigning-custom-states.md` §9-3). A definition is made by a reader naming one
+--- (`devdocs/legacy/redesigning-custom-states.md` §9-3). A definition is made by a reader naming one
 --- (`CreateSwitch`), and `MigrateSwitches` cleared out the untouched ones once.
 function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
@@ -2158,7 +2158,7 @@ function DebindPrivate.CleanUpDB()
             -- 그대로 두면 `$`로 시작하기만 하면 무엇이든 최상단에 눌러앉는다.
             --
             -- 여기서 묻는 것은 `IsConditionField`이므로 재설계가 임의 이름을 풀어도
-            -- (`devdocs/redesigning-custom-states.md`) 이 줄은 안 바뀐다.
+            -- (`devdocs/legacy/redesigning-custom-states.md`) 이 줄은 안 바뀐다.
             local conditions = action.conditions;
             if (conditions) then
                 for k in pairs(conditions) do

@@ -8,7 +8,7 @@
 -- Two of those are the whole reason the format is shaped the way it is:
 --
 --   * a `SETSTATE` value is a switch **name**, on the wire and in the profile alike (§9-1 of
---     `devdocs/redesigning-custom-states.md`). What still has to be rebuilt is v1's `setstate`
+--     `devdocs/legacy/redesigning-custom-states.md`). What still has to be rebuilt is v1's `setstate`
 --     subtable, and that happens at the door rather than here.
 --   * a `MACRO` carries a **name**, and only a name. A slot index would resolve on any install and
 --     point at some other macro; the body no longer travels at all, so nothing can arrive carrying
@@ -577,7 +577,7 @@ return function(DebindPrivate, DebindStorage)
     -- SETSTATE: v1's subtable, and the shape it lands in
     --
     -- **The rebuild left this file.** The profile stores a type and a name now (§9-1 of
-    -- `devdocs/redesigning-custom-states.md`), so a current payload lands as it arrived and
+    -- `devdocs/legacy/redesigning-custom-states.md`), so a current payload lands as it arrived and
     -- `BuildAction` has nothing to do with it. What v1 spelled as a `setstate` subtable is a
     -- version step like any other, and it stands one door earlier - `BringPayloadForward`.
     ---------------------------------------------------------------------------

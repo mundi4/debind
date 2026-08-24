@@ -480,7 +480,7 @@ SEEDS[6] = function(guid)
                 --- **The remembered switch value, and it belongs to this character alone.** An alt
                 --- on the same account comes up with `$state3` off, which is the whole point of it
                 --- living here rather than next to the definition (§5 of
-                --- `devdocs/redesigning-custom-states.md`).
+                --- `devdocs/legacy/redesigning-custom-states.md`).
                 switches = { ["$state3"] = true },
             },
         },
