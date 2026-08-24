@@ -525,6 +525,29 @@ return function(DebindPrivate, _, ctx)
             "the beat did not measure it either, so the check above proves nothing");
     end);
 
+
+    -- **The slider moves without a rebuild.** `DebindStateDriverUpdateThrottleSliderMixin` writes
+    -- the option and calls `ApplyOptions`, and that is the whole of it -- no rebuild is queued. So
+    -- whatever says "the beat comes every frame" has to be written by the same hand that writes the
+    -- throttle, or a reader who was at zero and raised the slider keeps having every hover crossing
+    -- and every switch toggle dropped until something else happens to rebuild.
+    test("raising the slider brings the crossings back with no rebuild", function()
+        local i = BindOneOfEach();
+        RebuildWithThrottle(0);
+
+        DebindPrivate.Options.stateDriverUpdateThrottle =
+            Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
+        local mark = frames.mark();
+        DebindPrivate.ApplyOptions("stateDriverUpdateThrottle");
+        i:replay(frames.since(mark));
+        DebindPrivate.Options.stateDriverUpdateThrottle = nil;
+
+        shim.world.units.target = nil;
+        crossTo("party2");
+        check(i.env.UnitStates.target.exists == false,
+            "the slider went up and crossings are still being dropped");
+    end);
+
     -- The other side of the same switch: at the throttle the reader gets by default, a crossing is
     -- the only thing that carries the change until the next tick, and it does.
     test("a crossing still carries the change at the ordinary throttle", function()

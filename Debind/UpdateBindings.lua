@@ -623,7 +623,7 @@ end
 --- macro body can read it and `displayMessage` can announce it.
 ---
 --- **A state-driven key is not asked about, and does not need to be.** What wakes such a key is
---- `bindings.updateFlags`, and every flag that can be in there comes from something this already
+--- its place in `DirtyKeys`, and every flag it can be filed under comes from something this already
 --- covers: `unitframe` needs `binding.hover` and so `_unitsSeen.hover`, `<unit>-exists` is written
 --- in the same branch that fills `_measuredUnitAxes`, and a state or switch name lands in
 --- `_measuredStates`. A key with no flags at all is a real shape rather than a hole -- a mouse
@@ -706,25 +706,17 @@ local function BuildBindingPlan(ctx)
     -- from that only by accident: it read `Options.updatetime`, a key left behind when the slider
     -- was built around `stateDriverUpdateThrottle` (2024-08-24) and never written since, so the
     -- clamp always came out at the default and this fallback could not carry what the reader chose.
+    --
+    -- **Clamped the way `ApplyOptions` clamps, floor included.** A stored negative used to come
+    -- out at the default here and at zero there, and the second one runs last -- so the manager
+    -- would sweep every frame while this side believed it was throttled.
     local updatetime = ctx.updatetime;
-    if (type(updatetime) ~= "number" or updatetime < 0
-            or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
+    if (type(updatetime) ~= "number") then
         updatetime = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
+    else
+        updatetime = max(0, min(updatetime, Constants.STATE_DRIVER_UPDATETIME_DEFAULT));
     end
     plan.updatetime = updatetime;
-
-    -- **Both halves, and the second is not a formality.** At zero the beat comes every frame and a
-    -- wake of ours is always second, which is what lets `_onattributechanged` drop one. With the
-    -- beat unregistered there is no beat to be second to, and dropping our wakes would leave a
-    -- switch toggle waiting for a rebuild that nobody is going to run.
-    --
-    -- **The value is a snapshot of a global we share.** `SecureStateDriverManager` is Blizzard's,
-    -- `updatetime` is one attribute on it, and any addon may write it. `ApplyOptions` puts ours
-    -- back on every rebuild, so this is right at the moment it is baked and can go stale between
-    -- rebuilds if somebody else writes in the gap. What that costs is hover latency falling back
-    -- to whatever they asked for, which is the same thing the reader would have got by moving the
-    -- slider themselves.
-    plan.pollEveryFrame = plan.statePoll and updatetime == 0;
 
     return plan;
 end
@@ -777,8 +769,11 @@ local function ApplyBindingPlan(plan)
         end
     end
 
-    SecureHandlerExecute(driver, format("RebindOnHoverFrame=%s\nPollEveryFrame=%s",
-        tostring(plan.rebindOnHoverFrame), tostring(plan.pollEveryFrame)));
+    -- `PollEveryFrame` is not written here beside it, and the two look alike enough that it wants
+    -- saying. That one describes the throttle, and the throttle moves without a rebuild -- the
+    -- slider writes the option and calls `ApplyOptions`, which is where it is written from
+    -- (`Misc.lua`). `FinishBindingUpdate` calls that too, so a rebuild covers it.
+    SecureHandlerExecute(driver, format("RebindOnHoverFrame=%s", tostring(plan.rebindOnHoverFrame)));
 
     for i = 1, #plan.events do
         local entry = plan.events[i];
@@ -1926,8 +1921,8 @@ function UpdateBindingsMap()
         end
 
         -- **아무 레코드도 안 나갔으면 빈 목록이라도 세운다.** 아래로 이어지는 것들은
-        -- (`bindings.updateFlags`, `ClickCastKeys`, `bindings.hasKeyRecord`, `alwaysOurs`)
-        -- `hasClickCast`/`hasKeyRecord`을 보고 도는데, 그 둘은 위 루프가 레코드를 하나도 안
+        -- (`DirtyKeys` 등록, `ClickCastKeys`, `bindings.hasKeyRecord`, `alwaysOurs`)
+        -- `hasClickCast`/`hasKeySnippet`을 보고 도는데, 그 둘은 위 루프가 레코드를 하나도 안
         -- 내보낼 수 있다는 것을 모른 채 앞에서 정해졌다. 그러면 `bindings`는 **직전 키의
         -- 목록**을 가리킨 채로 남고, 이 키의 표시가 남의 목록에 붙는다.
         --
@@ -1974,8 +1969,8 @@ function UpdateBindingsMap()
                 _rebindOnHoverFrame = true;
             end
 
-            -- **Filed under the flags rather than carrying them.** The list used to hold its own
-            -- `updateFlags` and the loop asked every key whether it cared about anything that had
+            -- **Filed under the flags rather than carrying them.** The list used to hold its own set of
+            -- them and the loop asked every key whether it cared about anything that had
             -- moved, so a pass cost one walk over `DirtyFlags` per key whether or not that key was
             -- ever going to be looked at. Indexed this way the pass reaches only the lists the
             -- flags that actually moved point at.

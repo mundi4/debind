@@ -82,9 +82,9 @@ SecureHandlerExecute(BindingDriver, [[
 	-- and the `forceAll` pass walks that one. This is only the index that turns "which flags moved"
 	-- into "which keys have to be looked at" without asking every key whether it cares.
 	--
-	-- A state-driven key that registers no flag at all is in neither of the lists here, and that is
-	-- the same answer it always got: with `bindings.updateFlags` nil the old check fell through to
-	-- `forceAll` too.
+	-- A state-driven key that registers no flag at all is in none of the lists here, and that is the
+	-- same answer it always got. The check this replaced fell through to `forceAll` for such a key
+	-- as well, so a rebuild is what has always decided it.
 	DirtyKeys = newtable()
 
 	-- The lists above, flattened for one pass. **Made once and cut with a count**, never wiped and

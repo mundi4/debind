@@ -2080,11 +2080,36 @@ function DebindPrivate.ApplyOptions(option)
         end
     end
 
+    --- **The throttle and the flag that reads it move together or not at all.**
+    ---
+    --- `PollEveryFrame` says the beat already comes every frame, and the restricted side turns a
+    --- wake of its own straight round on it (`UpdateAttrChangedHandler`). The slider writes the
+    --- option and calls this, and **that is the whole of what it does** -- no rebuild is queued. So
+    --- a rebuild is the wrong hand to write the flag with: a reader who was at zero and raised the
+    --- slider would keep having every hover crossing and every switch toggle dropped until
+    --- something else happened to rebuild.
+    ---
+    --- `UnitWatchRegistered` rather than a value carried from the rebuild, for the same reason. It
+    --- is what is true now, and a rebuild reaches here through `FinishBindingUpdate`, which runs
+    --- after `ApplyBindingPlan` has registered or unregistered the watch.
+    ---
+    --- **That term is a backstop, and no spec here could make it the difference.** What a
+    --- state-driven key registers is also what `WantsStatePoll` asks about, so a profile with an
+    --- unregistered beat and a key for the loop to decide is a shape none of them could build. It
+    --- stays because the claim the flag makes is "the beat is coming", and reading that off a beat
+    --- nobody asked for would be false on its face.
+    ---
+    --- **A lockdown blocks both doors at once**, which is what makes leaving them is safe: the
+    --- manager is a `SecureFrameTemplate` and protected, so the throttle cannot move during a
+    --- fight either, and a flag that describes a throttle that cannot move cannot go stale.
     if (option == nil or option == "stateDriverUpdateThrottle") then
         local value = DebindPrivate.Options.stateDriverUpdateThrottle or STATE_DRIVER_UPDATE_THROTTLE_DEFAULT;
-        if (type(value) == "number") then
+        if (type(value) == "number" and not InCombatLockdown()) then
             value = max(0, min(value, STATE_DRIVER_UPDATE_THROTTLE_DEFAULT));
             SecureStateDriverManager:SetAttribute("updatetime", value);
+            SecureHandlerExecute(DebindPrivate.BindingDriver, format("PollEveryFrame=%s",
+                tostring(value == 0 and UnitWatchRegistered(DebindPrivate.BindingDriver) and true
+                    or false)));
         end
     end
 end

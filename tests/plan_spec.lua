@@ -494,36 +494,16 @@ return function(DebindPrivate)
     -- `ApplyOptions`'s `type(value) == "number"` in front of it. A hand-edited string used to be
     -- unreachable here because the key was dead; pointing this at the live one puts it in range of
     -- a `<` against a number, which raises rather than falling back.
+    --
+    -- **A number out of range is clamped and not refused**, floor as well as ceiling, because
+    -- `ApplyOptions` clamps and runs last. The two landing on different numbers is what left the
+    -- manager sweeping every frame on a stored negative while this side believed it was throttled.
     test("a throttle that is not a usable number falls back to the default", function()
         local default = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
         check(PlanWithThrottle("0.05").updatetime == default, "a string did not fall back");
         check(PlanWithThrottle(nil).updatetime == default, "nil did not fall back");
-        check(PlanWithThrottle(-1).updatetime == default, "a negative did not fall back");
-        check(PlanWithThrottle(5).updatetime == default, "a value past the ceiling did not fall back");
-    end);
-
-    -- **Both halves of the claim, and the second is where it could kill a profile.** At zero the
-    -- beat comes every frame and a wake of ours is always second to it, which is what lets the
-    -- handler drop one. With nothing measured there is no beat registered at all, so there is
-    -- nothing to be second to, and dropping our wakes would leave a switch toggle waiting for a
-    -- rebuild nobody is going to run.
-    test("the every-frame beat is claimed only where there is a beat", function()
-        Profile({ spell({ key = "F1", conditions = { combat = true } }) });
-        DebindPrivate.Options.stateDriverUpdateThrottle = 0;
-        local plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
-        check(plan.statePoll == true, "a combat condition did not ask for the beat");
-        check(plan.pollEveryFrame == true, "the beat is on and at zero and the claim is not made");
-
-        Profile({ spell({ key = "F1" }) });
-        DebindPrivate.Options.stateDriverUpdateThrottle = 0;
-        plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
-        check(plan.statePoll == false, "전제가 깨졌다. 잴 것이 없는데 박자를 부른다");
-        check(plan.pollEveryFrame == false,
-            "the claim was made with no beat registered, so our own wakes would be dropped too");
-
-        Profile({ spell({ key = "F1", conditions = { combat = true } }) });
-        plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
-        check(plan.pollEveryFrame == false, "the default throttle claimed an every-frame beat");
+        check(PlanWithThrottle(-1).updatetime == 0, "a negative did not clamp to the floor");
+        check(PlanWithThrottle(5).updatetime == default, "a value past the ceiling did not clamp");
     end);
 
     ---------------------------------------------------------------------------

@@ -968,7 +968,6 @@ WrapScript <Frame#58> OnHide =
   | 
 Execute <Frame#3>
   | RebindOnHoverFrame=true
-  | PollEveryFrame=false
 RegisterEvent SecureStateDriverManager UPDATE_MOUSEOVER_UNIT
 RegisterEvent SecureStateDriverManager UNIT_FACTION
 RegisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR
@@ -985,3 +984,5 @@ Execute <Frame#3>
   |         self:SetAttribute("state-unitexists", 1)
   |     
 SetAttribute SecureStateDriverManager updatetime = 0.2
+Execute <Frame#3>
+  | PollEveryFrame=false

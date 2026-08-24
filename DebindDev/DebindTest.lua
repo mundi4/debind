@@ -3826,8 +3826,8 @@ RegisterTest("Switch condition on a name outside the five", {
         -- **The path walked in combat.** The two above are the insecure rebuild `ApplyBindings()`
         -- runs, and in combat that is deferred, so what settles the key again when a value moves is
         -- the restricted side: `SetSwitch` -> `DirtyFlags` -> `state-unitexists` -> the restricted
-        -- `UpdateBindings`. For that path to know this name, codegen has to have loaded it into
-        -- `bindings.updateFlags`; unloaded, the key does not come back until the fight ends.
+        -- `UpdateBindings`. For that path to know this name, codegen has to have filed the key under
+        -- it in `DirtyKeys`; unfiled, the key does not come back until the fight ends.
         --
         -- Nothing is waited on. `SetAttribute` runs the handler on the spot and the restricted
         -- `SetBindingClick` binds immediately (`devdocs/reading-back-what-you-just-set.md`).
