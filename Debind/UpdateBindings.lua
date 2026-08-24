@@ -432,7 +432,7 @@ local function CollectBindingContext()
 
     local ctx = _ctx;
     ctx.keyMap = DebindPrivate.KeyMap;
-    ctx.updatetime = DebindPrivate.Options.updatetime;
+    ctx.updatetime = DebindPrivate.Options.stateDriverUpdateThrottle;
     return ctx;
 end
 
@@ -663,21 +663,24 @@ local function BuildBindingPlan(ctx)
     CollectDriverEvents(plan.events);
 
     -- **The throttle this rebuild asks for, and it is the fallback rather than the answer.**
-    -- `FinishBindingUpdate` writes `updatetime` again from the option the window's slider sets
-    -- (`ApplyOptions`), and that one usually wins.
+    -- `FinishBindingUpdate` writes `updatetime` again from the same option (`ApplyOptions`), and
+    -- that one usually wins.
     --
     -- **Usually, not always.** `ApplyOptions` only writes when the stored option is a number, and
-    -- nothing type-checks `db.options` -- so a hand-edited SavedVariables holding a string skips it
-    -- entirely, and then what the state driver runs on is the value decided here. Do not delete
-    -- this write on the grounds that the other one covers it: `STATE_DRIVER_UPDATE_THROTTLE` is
+    -- nothing type-checks `db.options`, so a hand-edited SavedVariables holding a string skips it
+    -- entirely and what the state driver runs on is the value decided here. Do not delete this
+    -- write on the grounds that the other one covers it. `STATE_DRIVER_UPDATE_THROTTLE` is
     -- Blizzard's own, shared with every addon, and leaving nobody to write it means whatever was
     -- there last stays (`.zzz/refactor-candidates.md` 33).
     --
-    -- `Options.updatetime` is a key nothing in the repository writes, so the clamp below comes out
-    -- at the default today. It is also the only place a profile that polls for a mouseover unit
-    -- could ever ask for a rate of its own -- which `ApplyOptions` running afterwards takes away.
+    -- **`type` rather than `not`, because this is the branch that receives what `ApplyOptions`
+    -- refused.** A string reaching `<` raises, and the rebuild dies with it. The old code was safe
+    -- from that only by accident: it read `Options.updatetime`, a key left behind when the slider
+    -- was built around `stateDriverUpdateThrottle` (2024-08-24) and never written since, so the
+    -- clamp always came out at the default and this fallback could not carry what the reader chose.
     local updatetime = ctx.updatetime;
-    if (not updatetime or updatetime < 0 or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
+    if (type(updatetime) ~= "number" or updatetime < 0
+            or updatetime > Constants.STATE_DRIVER_UPDATETIME_DEFAULT) then
         updatetime = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
     end
     plan.updatetime = updatetime;

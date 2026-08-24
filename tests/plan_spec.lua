@@ -469,6 +469,40 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- The state driver throttle
+    ---------------------------------------------------------------------------
+
+    --- Builds a plan with one option value stored, so the throttle can be asked about on its own.
+    local function PlanWithThrottle(value)
+        Profile({ spell({ key = "F1" }) });
+        DebindPrivate.Options.stateDriverUpdateThrottle = value;
+        return DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
+    end
+
+    -- **The rebuild's write is the fallback for the slider's, so it has to be reading the same
+    -- key.** It was reading `Options.updatetime`, a key left behind when the slider was built
+    -- around `stateDriverUpdateThrottle` (2024-08-24), and nothing has written it since. So the
+    -- fallback always came out at the default and could never carry what the reader chose --
+    -- which is only invisible because `ApplyOptions` overwrites it a moment later on every path
+    -- where the stored value is a number.
+    test("the throttle the reader chose reaches the plan", function()
+        check(PlanWithThrottle(0.05).updatetime == 0.05, "the stored throttle did not reach the plan");
+        check(PlanWithThrottle(0).updatetime == 0, "zero was not carried; the slider goes there");
+    end);
+
+    -- **Nothing type-checks `db.options`**, and this is the one path that reads the key without
+    -- `ApplyOptions`'s `type(value) == "number"` in front of it. A hand-edited string used to be
+    -- unreachable here because the key was dead; pointing this at the live one puts it in range of
+    -- a `<` against a number, which raises rather than falling back.
+    test("a throttle that is not a usable number falls back to the default", function()
+        local default = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
+        check(PlanWithThrottle("0.05").updatetime == default, "a string did not fall back");
+        check(PlanWithThrottle(nil).updatetime == default, "nil did not fall back");
+        check(PlanWithThrottle(-1).updatetime == default, "a negative did not fall back");
+        check(PlanWithThrottle(5).updatetime == default, "a value past the ceiling did not fall back");
+    end);
+
+    ---------------------------------------------------------------------------
     -- The plan is a decision and nothing more
     ---------------------------------------------------------------------------
 

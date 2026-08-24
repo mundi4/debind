@@ -12,7 +12,10 @@ local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
 local GetSpellSubtext         = C_Spell.GetSpellSubtext;
 
 
-local STATE_DRIVER_UPDATE_THROTTLE_DEFAULT = 0.2;
+-- One ceiling for two clamps. `BuildBindingPlan` clamps the same option against
+-- `Constants.STATE_DRIVER_UPDATETIME_DEFAULT`, and a second copy of the number here is a way for
+-- the two to drift apart without anything saying so.
+local STATE_DRIVER_UPDATE_THROTTLE_DEFAULT = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
 
 function DebindPrivate.GetSpellNameAndIconID(spellId)
     local spellInfo = C_Spell.GetSpellInfo(spellId);
