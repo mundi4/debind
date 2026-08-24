@@ -443,8 +443,13 @@ end
 
 --- Runs one pass of the state loop, the way the 0.2s poll does. Whatever it decides to bind lands
 --- in `interp.bindings`.
+--- **`true`, because that is what the poll writes.** `SecureStateDriverManager_UpdateUnitWatch`
+--- hands the driver `exists or false`, and the driver carries `unit = "player"`, so every tick
+--- arrives as `true`. The handler reads that value now to decide how much to measure
+--- (`UpdateAttrChangedHandler`), so a stand-in that wrote a number would be driving the wrong half
+--- of the pass and every case here would be measuring it.
 function Interp:pollStates()
-    self.driverHandle:SetAttribute("state-unitexists", 1);
+    self.driverHandle:SetAttribute("state-unitexists", true);
 end
 --- How many times the restricted `UpdateBindings` has run.
 ---

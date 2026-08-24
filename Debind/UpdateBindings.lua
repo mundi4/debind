@@ -2232,6 +2232,40 @@ if (name == "state-unitexists") then
     self:SetAttribute("state-unitexists", 0)
 ]]);
 
+    -- **The value says who woke us, and that is what decides how much gets measured.**
+    --
+    --   `true` / `false`   Blizzard's poll. It knows nothing, so everything is measured
+    --   `"unitframe"`      `setup_onenter` / `setup_onleave`. The cursor moved and nothing else
+    --   a switch name      `SetSwitch`. That switch moved and nothing else
+    --   `1`                the block that closes a rebuild, which runs on `forceAll` anyway
+    --
+    -- The driver carries `unit = "player"`, so what the poll writes is `true` and the check below
+    -- is the poll and nothing else. Our own writers are a string or a number by construction.
+    --
+    -- **Only the axes with no way of announcing themselves are measured on our wakes.** Everything
+    -- inside the guard has an event registered on the manager, and an event puts `timer` to 0, so
+    -- the next pass arrives the following frame whether or not a cursor crossed a frame. Measuring
+    -- them again here buys nothing. The unit rows below are the other kind: nothing fires when a
+    -- target dies or a pet stops existing, so a wake we got for free is a sampling chance and it
+    -- is taken.
+    --
+    -- **The hover block is inside the guard for a second reason of its own.** On a `"unitframe"`
+    -- wake `setup_onenter` has just made those same client calls and written the answer into
+    -- `unitframe.unit` and `unitframe.reaction`; the block would spend them again to learn nothing.
+    -- What it is *for* is the case where the cursor never moved and the unit went away, and that
+    -- is a poll's case by definition.
+    --
+    -- **The one thing this gives up** is that a base axis which changed since the last poll stays
+    -- stale for the wakes in between. The event that announced it has already pulled the next pass
+    -- to the following frame, so the window is a frame rather than the 0.2s the contract allows.
+    -- `u` holds the `UnitStates` row being refreshed. Declared here rather than assigned as a
+    -- global: every snippet shares one environment, so a stray global would collide across them.
+    -- **Above the guard**, because the unit rows below it are the half that always runs.
+    appendLine("local stateValue,u");
+
+    local gateAt = #_strArr + 1;
+    appendLine("if (DirtyFlags.forceAll or value == true or value == false) then");
+
     -- **The block below is what costs a tick while the cursor rests on a unit frame**, and a
     -- profile where nothing names hover pays it for an answer nobody reads. `_unitsSeen.hover` is
     -- what decides, and it is a superset of every reader rather than a list of them:
@@ -2296,11 +2330,6 @@ end
 ]], Constants.REACTION_HELP, Constants.REACTION_HARM, Constants.REACTION_OTHER);
     end
 
-    -- Update States
-    -- `u` holds the `UnitStates` row being refreshed. Declared here rather than assigned as a
-    -- global: every snippet shares one environment, so a stray global would collide across them.
-    appendLine("local stateValue,u")
-
     -- Update Basic States
     local stateArray = {};
     for state in pairs(_measuredStates) do
@@ -2353,6 +2382,15 @@ end
         elseif (DEBUG) then
             DebindPrivate.log("Unhandled State: " .. state);
         end
+    end
+
+    -- **Nothing to gate, so no gate.** A profile that measures no base axis and does not name hover
+    -- would otherwise carry an `if ... then end` around nothing on every pass. The opening line is
+    -- still the last one in the buffer exactly when that happened.
+    if (#_strArr == gateAt) then
+        _strArr[gateAt] = nil;
+    else
+        appendLine("end");
     end
 
     -- Update Unit States

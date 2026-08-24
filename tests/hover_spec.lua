@@ -364,5 +364,83 @@ return function(DebindPrivate, _, ctx)
                 tostring(i.env.UnitAliasMap.hover)));
     end);
 
+    ---------------------------------------------------------------------------
+    -- How much a wake measures
+    ---------------------------------------------------------------------------
+
+    --- A profile that measures one of each kind: the hover row, so a crossing wakes the pass at
+    --- all; a base axis, which has an event of its own; and another unit's row, which has none.
+    local function BindOneOfEach()
+        twoParty();
+        shim.world.units.target = { id = "t", reaction = "harm" };
+        Bind({
+            action({ key = "F1", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_HELP } } } }),
+            action({ key = "F2", conditions = { combat = true } }),
+            action({ key = "F3", conditions = { units = { target = { reaction = Constants.REACTION_HARM } } } }),
+        });
+        unitFrame:SetAttribute("unit", "party1");
+        interp:hoverEnter(unitFrame);
+        interp:pollStates();
+        return interp;
+    end
+
+    --- Moves the cursor to the other frame, which is a `"unitframe"` wake and nothing else.
+    local function crossTo(unit)
+        unitFrame:SetAttribute("unit", unit);
+        interp:hoverEnter(unitFrame);
+    end
+
+    -- **A crossing does not re-measure an axis that can announce itself.** `combat` has
+    -- `PLAYER_REGEN_DISABLED` on the manager, and an event puts the manager's timer to 0, so the
+    -- pass that picks it up is already coming. Spending the client calls on every frame boundary
+    -- the cursor crosses buys the same answer sooner by less than the frame the event costs.
+    --
+    -- **The second half is what makes the first mean anything.** Without it a gate that was simply
+    -- never opening would pass.
+    test("a hover crossing leaves the axes that have an event to the poll", function()
+        local i = BindOneOfEach();
+        check(i.env.States.combat == false, "전제가 깨졌다. 시작부터 combat이 참이다");
+
+        i.state.combat = true;
+        crossTo("party2");
+        check(i.env.States.combat == false,
+            "a hover crossing re-measured combat, which has an event of its own");
+
+        i:pollStates();
+        check(i.env.States.combat == true, "the poll did not pick combat up either");
+    end);
+
+    -- **A unit row is the other kind and a crossing does take it.** Nothing fires when a target
+    -- stops existing, so the only way anyone finds out is a pass that asks -- and a wake we were
+    -- handed for free is one of those.
+    test("a hover crossing still measures the rows nothing announces", function()
+        local i = BindOneOfEach();
+        check(i.env.UnitStates.target.exists == true,
+            "전제가 깨졌다. 대상이 처음부터 없다");
+
+        shim.world.units.target = nil;
+        crossTo("party2");
+        check(i.env.UnitStates.target.exists == false,
+            "a hover crossing skipped the unit rows, which nothing else would have caught");
+    end);
+
+    -- **A rebuild's own pass measures everything, and it is not the value that says so.** It wakes
+    -- with a number rather than the poll's `true`, and it wakes onto a `States` the prologue has
+    -- just wiped, so the term that opens the gate for it is `DirtyFlags.forceAll`. Drop that term
+    -- and every base axis stays nil until the next poll, with the first 0.2s of every rebuild
+    -- deciding keys on nothing.
+    test("a rebuild's own pass measures every axis", function()
+        BindOneOfEach();
+        interp.state.combat = true;
+
+        local mark = frames.mark();
+        check(DebindPrivate.UpdateBindings() == true, "리빌드가 거절됐다");
+        interp:replay(frames.since(mark));
+
+        check(interp.env.States.combat == true,
+            "the rebuild's pass left combat at " .. tostring(interp.env.States.combat));
+    end);
+
     return T;
 end

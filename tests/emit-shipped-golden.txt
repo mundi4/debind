@@ -719,6 +719,8 @@ SetAttribute <Frame#3> _onattributechanged =
   |     if (value == 0) then return end
   |     self:SetAttribute("state-unitexists", 0)
   | 
+  | local stateValue,u
+  | if (DirtyFlags.forceAll or value == true or value == false) then
   | if (States.unitframe) then
   |     local unitframe = States.unitframe
   |     local unit = unitframe.frame:GetEffectiveAttribute("unit");
@@ -748,7 +750,6 @@ SetAttribute <Frame#3> _onattributechanged =
   |     end
   | end
   | 
-  | local stateValue,u
   | stateValue=SecureCmdOptionParse("[known:8936]") and true or false
   | if (States["[known:8936]"] ~= stateValue) then States["[known:8936]"]=stateValue;DirtyFlags["[known:8936]"]=true; end
   | stateValue=GetBonusBarOffset()
@@ -765,6 +766,7 @@ SetAttribute <Frame#3> _onattributechanged =
   | if (States["specialbar"] ~= stateValue) then States["specialbar"]=stateValue;DirtyFlags["specialbar"]=true; end
   | stateValue=IsStealthed()
   | if (States["stealth"] ~= stateValue) then States["stealth"]=stateValue;DirtyFlags["stealth"]=true; end
+  | end
   | u=UnitStates["focus"]
   | stateValue=UnitExists("focus") and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["focus-exists"]=true end

@@ -4061,6 +4061,56 @@ RegisterTest("State poll follows what is measured", {
     end,
 })
 
+-- **The state pass measures a base axis only when the poll is the one asking**, and what tells the
+-- two apart is the value written to `state-unitexists`. Blizzard's poll writes `exists or false`,
+-- and the driver carries `unit = "player"`, so it writes `true`; our own wakes write a string or a
+-- number. `UpdateAttrChangedHandler` reads that.
+--
+-- **That reading is the one thing the harness models rather than observes.** `tests/hover_spec.lua`
+-- drives the same handler with the same values, but it is a stand-in writing `true` because this
+-- comment says the client does. If the client ever wrote something else, every base axis would
+-- quietly stop being measured between rebuilds, and nothing anywhere would say so.
+--
+-- So this asks the client. A wrong answer is written straight into `States` and the beat is given
+-- its chance to put it back. Only the block behind the gate can, and no rebuild is run in between:
+-- the rebuild's own pass opens the gate on `DirtyFlags.forceAll` and would answer for the wrong
+-- reason.
+RegisterTest("State pass: the beat re-measures what a wake does not", {
+    description = "A value written under States is corrected by the 0.2s beat and not by a rebuild",
+    run = function()
+        local NAME = "Poll gate"
+        local KEY = "CTRL-SHIFT-F2"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "combat is what would be measured, and it would be measured true")
+        end
+
+        -- Something has to name `combat`, or it is not a measured axis and there is no line to
+        -- correct it. This is also what keeps the beat registered (`WantsStatePoll`).
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        ApplyBindings()
+
+        SecureHandlerExecute(DebindPrivate.BindingDriver, [[States["combat"] = true]])
+
+        local wrong = ReadSecureState("combat")
+        if not (wrong and wrong.value == true) then
+            return Fail(NAME, "the wrong value did not go in, so nothing below is being measured")
+        end
+
+        local corrected = WaitUntil(function()
+            local st = ReadSecureState("combat")
+            return st and st.present and st.value == false
+        end, 1)
+
+        if not corrected then
+            return Fail(NAME,
+                "a second went by and States.combat is still the value written under it, so the beat never measured it")
+        end
+
+        return Pass(NAME, "the beat put combat back, so the poll opens the gate")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Hover Slot (live)
 -----------------------------------------------------------
