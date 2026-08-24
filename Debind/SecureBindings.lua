@@ -146,6 +146,15 @@ SecureHandlerExecute(BindingDriver, [[
 	-- as long as the unit under it stays the same.
 	RebindOnHoverFrame = false
 
+	-- Does Blizzard's beat already come every frame? `UpdateBindings` bakes this on every rebuild
+	-- from the throttle the reader's slider asked for, and it is true only at zero and only while
+	-- the beat is registered at all.
+	--
+	-- Where it is true, a wake of our own can never be earlier than the beat, so
+	-- `_onattributechanged` turns straight round on one. Where it is false, our wakes are the only
+	-- thing that carries a hover crossing or a switch before the next tick.
+	PollEveryFrame = false
+
 	OldStates = newtable()
 
 	_macrotextsSeen = newtable()

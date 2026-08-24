@@ -701,6 +701,19 @@ local function BuildBindingPlan(ctx)
     end
     plan.updatetime = updatetime;
 
+    -- **Both halves, and the second is not a formality.** At zero the beat comes every frame and a
+    -- wake of ours is always second, which is what lets `_onattributechanged` drop one. With the
+    -- beat unregistered there is no beat to be second to, and dropping our wakes would leave a
+    -- switch toggle waiting for a rebuild that nobody is going to run.
+    --
+    -- **The value is a snapshot of a global we share.** `SecureStateDriverManager` is Blizzard's,
+    -- `updatetime` is one attribute on it, and any addon may write it. `ApplyOptions` puts ours
+    -- back on every rebuild, so this is right at the moment it is baked and can go stale between
+    -- rebuilds if somebody else writes in the gap. What that costs is hover latency falling back
+    -- to whatever they asked for, which is the same thing the reader would have got by moving the
+    -- slider themselves.
+    plan.pollEveryFrame = plan.statePoll and updatetime == 0;
+
     return plan;
 end
 
@@ -752,7 +765,8 @@ local function ApplyBindingPlan(plan)
         end
     end
 
-    SecureHandlerExecute(driver, format("RebindOnHoverFrame=%s", tostring(plan.rebindOnHoverFrame)));
+    SecureHandlerExecute(driver, format("RebindOnHoverFrame=%s\nPollEveryFrame=%s",
+        tostring(plan.rebindOnHoverFrame), tostring(plan.pollEveryFrame)));
 
     for i = 1, #plan.events do
         local entry = plan.events[i];
@@ -2229,6 +2243,8 @@ function UpdateAttrChangedHandler()
     appendLine([[
 if (name == "state-unitexists") then
     if (value == 0) then return end
+    local full = DirtyFlags.forceAll or value == true or value == false
+    if (PollEveryFrame and not full) then return end
     self:SetAttribute("state-unitexists", 0)
 ]]);
 
@@ -2258,13 +2274,19 @@ if (name == "state-unitexists") then
     -- **The one thing this gives up** is that a base axis which changed since the last poll stays
     -- stale for the wakes in between. The event that announced it has already pulled the next pass
     -- to the following frame, so the window is a frame rather than the 0.2s the contract allows.
+    --
+    -- **`PollEveryFrame` takes the same answer one step further.** With the throttle at zero the
+    -- beat arrives every frame, so a wake of ours cannot be earlier than it and there is nothing
+    -- left for the pass to do; the handler turns round before it even puts the attribute back to
+    -- `0`. It is false wherever the beat is not registered, because then our wakes are the only
+    -- thing that carries a hover crossing or a switch at all (`BuildBindingPlan`).
     -- `u` holds the `UnitStates` row being refreshed. Declared here rather than assigned as a
     -- global: every snippet shares one environment, so a stray global would collide across them.
     -- **Above the guard**, because the unit rows below it are the half that always runs.
     appendLine("local stateValue,u");
 
     local gateAt = #_strArr + 1;
-    appendLine("if (DirtyFlags.forceAll or value == true or value == false) then");
+    appendLine("if (full) then");
 
     -- **The block below is what costs a tick while the cursor rests on a unit frame**, and a
     -- profile where nothing names hover pays it for an answer nobody reads. `_unitsSeen.hover` is

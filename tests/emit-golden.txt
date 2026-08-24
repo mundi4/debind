@@ -753,10 +753,12 @@ Execute DebindBindingDriver
 SetAttribute DebindBindingDriver _onattributechanged =
   | if (name == "state-unitexists") then
   |     if (value == 0) then return end
+  |     local full = DirtyFlags.forceAll or value == true or value == false
+  |     if (PollEveryFrame and not full) then return end
   |     self:SetAttribute("state-unitexists", 0)
   | 
   | local stateValue,u
-  | if (DirtyFlags.forceAll or value == true or value == false) then
+  | if (full) then
   | if (States.unitframe) then
   |     local unitframe = States.unitframe
   |     local unit = unitframe.frame:GetEffectiveAttribute("unit");
@@ -996,6 +998,7 @@ WrapScript <Frame#58> OnHide =
   | 
 Execute DebindBindingDriver
   | RebindOnHoverFrame=true
+  | PollEveryFrame=false
 RegisterEvent SecureStateDriverManager UPDATE_MOUSEOVER_UNIT
 RegisterEvent SecureStateDriverManager UNIT_FACTION
 RegisterEvent SecureStateDriverManager UPDATE_OVERRIDE_ACTIONBAR

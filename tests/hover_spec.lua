@@ -442,5 +442,52 @@ return function(DebindPrivate, _, ctx)
             "the rebuild's pass left combat at " .. tostring(interp.env.States.combat));
     end);
 
+    --- Rebuilds the profile that is already loaded with the throttle set to `value`, and puts the
+    --- option back so nothing after this reads it.
+    local function RebuildWithThrottle(value)
+        DebindPrivate.Options.stateDriverUpdateThrottle = value;
+        local mark = frames.mark();
+        check(DebindPrivate.UpdateBindings() == true, "리빌드가 거절됐다");
+        interp:replay(frames.since(mark));
+        DebindPrivate.Options.stateDriverUpdateThrottle = nil;
+    end
+
+    -- **At zero the beat is every frame, so a wake of ours is always second to it.** There is
+    -- nothing left for the pass to do and the handler turns round before it puts the attribute
+    -- back. Asked of the unit row, because that is the half a crossing does measure otherwise --
+    -- a base axis would read the same whether the pass was dropped or merely gated.
+    --
+    -- **The last half is what keeps this from passing on a dead profile.** A crossing that changed
+    -- nothing and a beat that measures nothing look alike from one read.
+    test("a crossing turns straight round while the beat comes every frame", function()
+        local i = BindOneOfEach();
+        RebuildWithThrottle(0);
+
+        local before = i:rebuildCount();
+        shim.world.units.target = nil;
+        crossTo("party2");
+
+        check(i:rebuildCount() == before,
+            "a crossing ran the pass while the beat was already coming every frame");
+        check(i.env.UnitStates.target.exists == true,
+            "the pass ran far enough to measure a unit row");
+
+        i:pollStates();
+        check(i.env.UnitStates.target.exists == false,
+            "the beat did not measure it either, so the check above proves nothing");
+    end);
+
+    -- The other side of the same switch: at the throttle the reader gets by default, a crossing is
+    -- the only thing that carries the change until the next tick, and it does.
+    test("a crossing still carries the change at the ordinary throttle", function()
+        local i = BindOneOfEach();
+        RebuildWithThrottle(Constants.STATE_DRIVER_UPDATETIME_DEFAULT);
+
+        shim.world.units.target = nil;
+        crossTo("party2");
+        check(i.env.UnitStates.target.exists == false,
+            "a crossing was dropped at a throttle that is not zero");
+    end);
+
     return T;
 end
