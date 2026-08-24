@@ -521,8 +521,10 @@ u=UnitStates["hover"];if (not u) then u=newtable();UnitStates["hover"]=u end
 
 **순서 제약이 하나 생긴다.** 행 만들기는 `wipe(UnitStates)`보다 뒤여야 한다. 그 wipe이 든
 `ClearPreviousBindings`는 자기 주석대로 언젠가 `ApplyBindingPlan` 안으로 들어가므로, 그때 이
-순서를 같이 끌고 가야 한다. 헤드리스가 지킨다 — 실행을 빼고 돌려 `eval`·`boundkey`·`hover`
-다섯이 `attempt to index a nil value (local 'u')`로 빨개지는 것을 보고 넣었다.
+순서를 같이 끌고 가야 한다. **지키는 것은 `plan_spec`의 "the rebuild builds a row for each
+measured unit and the tick builds none"이다.** 리빌드가 행을 안 만들면 `eval`·`boundkey`·
+`hover` 다섯도 같이 빨개지지만 그쪽은 `attempt to index a nil value (local 'u')`라 무엇이
+깨졌는지를 말하지 않고, 리빌드와 틱 양쪽에서 만드는 코드는 그 다섯을 전부 통과한다.
 
 **처음에 이 항목을 접었던 근거는 틀렸다.** *"만드는 스니펫과 쓰는 스니펫이 갈라져서 어느
 리빌드 경로가 빠뜨리면 조용히 죽는다"* 고 적었는데, 빠뜨릴 두 번째 리빌드 경로가 없고
