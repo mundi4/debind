@@ -144,5 +144,89 @@ return function(DebindPrivate)
         check(#out == 1, ("%d개"):format(#out));
     end);
 
+    ---------------------------------------------------------------------------
+    -- 무효화가 어디까지 번지나
+    ---------------------------------------------------------------------------
+
+    --- **게으른 구축의 취지가 여기서 지켜지거나 깨진다.** 파일 머리주석이 *"주문 탭만 보고 닫는
+    --- 사람이 탈것 값을 치르면 안 된다"* 고 적어뒀는데, dirty가 하나뿐이던 동안은 장난감 하나가
+    --- 들어와도 탈것이 같이 낡았다. 그 뒤 탈것 탭을 처음 누르는 순간 저널을 다시 통째로 훑는다.
+    ---
+    --- 정확성 문제였던 적은 없다. 목록은 언제나 맞고, 이 검사가 보는 것은 **안 지어도 되는 것을
+    --- 짓지 않느냐**뿐이다. 그래서 세는 것이 `Build` 호출 횟수다.
+    local function fakeSource(key)
+        local built = 0;
+        return {
+            key = key,
+            categories = {
+                {
+                    key = key,
+                    name = key,
+                    Build = function() built = built + 1; end,
+                },
+            },
+            -- 스펙이 읽을 계수기. 소스 표에 얹어도 카탈로그는 안 본다.
+            count = function() return built; end,
+        };
+    end
+
+    local left, right = fakeSource("spec-left"), fakeSource("spec-right");
+    ActionCatalog.RegisterSource(left);
+    ActionCatalog.RegisterSource(right);
+
+    local function categoryOf(source)
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.source == source.key) then
+                return category;
+            end
+        end
+    end
+
+    local leftCategory, rightCategory = categoryOf(left), categoryOf(right);
+
+    local function buildBoth()
+        ActionCatalog.GetEntries(leftCategory);
+        ActionCatalog.GetEntries(rightCategory);
+    end
+
+    test("소스 하나를 더럽히면 그 소스만 다시 짓는다", function()
+        buildBoth();
+        local wasLeft, wasRight = left.count(), right.count();
+
+        ActionCatalog.Invalidate(left.key);
+        buildBoth();
+
+        check(left.count() == wasLeft + 1,
+            ("더럽힌 소스가 안 지어졌다: %d -> %d"):format(wasLeft, left.count()));
+        check(right.count() == wasRight,
+            ("남의 이벤트에 %d번 더 지어졌다"):format(right.count() - wasRight));
+    end);
+
+    --- 반쪽만 있으면 **아무것도 안 짓는 게이트**도 통과한다. 이쪽이 그것을 가른다.
+    test("이름 없이 부르면 전부 다시 짓는다", function()
+        buildBoth();
+        local wasLeft, wasRight = left.count(), right.count();
+
+        ActionCatalog.Invalidate();
+        buildBoth();
+
+        check(left.count() == wasLeft + 1, "왼쪽이 안 지어졌다");
+        check(right.count() == wasRight + 1, "오른쪽이 안 지어졌다");
+    end);
+
+    --- **전부와 하나가 겹치면 전부가 이긴다.** 창을 여는 무인자 호출과 이벤트 하나가 같은
+    --- 프레임에 오는 일이 실제로 있고, 거기서 좁은 쪽이 이기면 창이 낡은 목록을 연다.
+    test("전부를 더럽힌 뒤 하나를 더럽혀도 전부가 지어진다", function()
+        buildBoth();
+        local wasLeft, wasRight = left.count(), right.count();
+
+        ActionCatalog.Invalidate();
+        ActionCatalog.Invalidate(left.key);
+        buildBoth();
+
+        check(left.count() == wasLeft + 1, "왼쪽이 안 지어졌다");
+        check(right.count() == wasRight + 1, "좁은 무효화가 전부를 덮어썼다");
+    end);
+
     return T;
 end

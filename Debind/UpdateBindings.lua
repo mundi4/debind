@@ -996,6 +996,17 @@ local function DescribeBinding(type, value, unit, facts, out)
     -- value for its own attribute. It used to be read after, and only the item branch rewrites --
     -- so an item binding was looked up under `6948` and filed under `"item:6948"`, which is a
     -- cache that never hits and a button allocated afresh on every rebuild, for the whole session.
+    --
+    -- **`unit` is not in the key, and a new action type has to be checked against that.** A cache
+    -- hit means the attributes below were not written at all (`StampBinding`), so two bindings that
+    -- share a type and a value share a button -- which is only sound while the unit lives on the
+    -- delegate frame rather than in an attribute. Bake the target into an attribute and the second
+    -- binding silently gets the first one's target, and the symptom is "it aims at the wrong unit
+    -- sometimes", a long way from here.
+    --
+    -- Pet commands are the one type that breaks the premise, and they dodge it above rather than
+    -- here: the target goes into the macro body and the body becomes the value, so it is in the key
+    -- after all. A type that cannot do that needs the key widened instead.
     out.cacheKey = value or NIL;
 
     if (type == Constants.SPELL) then

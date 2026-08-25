@@ -732,5 +732,72 @@ return function(DebindPrivate)
         check(GetBindingIssue(action) == nil, "issue: " .. tostring(GetBindingIssue(action)));
     end);
 
+    ---------------------------------------------------------------------------
+    -- A role unit that only fires while solo
+    ---------------------------------------------------------------------------
+
+    --- **The four role units do not exist while the reader is alone.** Their headers all carry
+    --- `showSolo = false` (`UnitWatch.lua`'s `UNITWATCH_HEADER_PROPS`), so a binding that requires
+    --- one of them to be there and is also restricted to being alone can never fire. It presses and
+    --- does nothing, with the two halves sitting in different menus.
+    ---
+    --- **Party and raid are not split, and that took measuring.** Main tank and main assist are
+    --- assigned in a raid, but the assignment survives converting the group down -- in a party
+    --- `GetPartyAssignment("MAINTANK", "party1")` still answers true. Calling them raid-only would
+    --- have put `CONDITIONS_NEVER` on a binding that fires, and an action carrying an issue is left
+    --- out of `KeyMap` entirely (`Debind.lua`): the key would have died rather than gone yellow.
+    local ROLE_UNITS = { "tank", "healer", "maintank", "mainassist" };
+
+    local function soloAction(unit, value)
+        return { type = Constants.SPELL, value = 585, key = "T", conditions = {
+            groups = Constants.GROUP_NONE,
+            units = { [unit] = value == nil and {} or value },
+        } };
+    end
+
+    test("solo only, plus a role unit that has to be there, is reported", function()
+        for i = 1, #ROLE_UNITS do
+            local unit = ROLE_UNITS[i];
+            local issue = GetBindingIssue(soloAction(unit));
+            check(issue == NEVER,
+                unit .. " while solo was not reported: " .. tostring(issue));
+        end
+    end);
+
+    --- **Both menus that can undo it go red.** The reader can drop the group restriction or drop
+    --- the unit condition, and whichever one they opened has to show them something -- the same
+    --- rule the `specialbar`/`petbattle` pair keeps.
+    test("both the groups menu and the units menu are told", function()
+        local action = soloAction("tank");
+        check(GetBindingIssue(action, "groups") == NEVER, "the groups menu was not told");
+        check(GetBindingIssue(action, "units") == NEVER, "the units menu was not told");
+    end);
+
+    --- The three ways out, and none of them may be reported.
+    test("what must not be reported", function()
+        -- Party or raid allowed: the unit can be there.
+        local inParty = soloAction("tank");
+        inParty.conditions.groups = Constants.GROUP_NONE + Constants.GROUP_PARTY;
+        check(GetBindingIssue(inParty) == nil,
+            "a party was allowed and it was still reported: " .. tostring(GetBindingIssue(inParty)));
+
+        -- No group condition at all is no restriction.
+        local anywhere = soloAction("tank");
+        anywhere.conditions.groups = nil;
+        check(GetBindingIssue(anywhere) == nil,
+            "no group condition was read as solo: " .. tostring(GetBindingIssue(anywhere)));
+
+        -- **The condition allows the unit to be absent.** [When there is no tank] while solo is
+        -- exactly true, and this is the case the whole check has to step around.
+        local absent = soloAction("tank", false);
+        check(GetBindingIssue(absent) == nil,
+            "a condition that wants the unit gone was reported: " .. tostring(GetBindingIssue(absent)));
+
+        -- An ordinary unit is not a role unit. `target` is there whether or not anyone is grouped.
+        local ordinary = soloAction("target");
+        check(GetBindingIssue(ordinary) == nil,
+            "an ordinary unit was read as a role unit: " .. tostring(GetBindingIssue(ordinary)));
+    end);
+
     return T;
 end

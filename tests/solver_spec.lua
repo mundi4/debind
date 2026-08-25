@@ -906,6 +906,56 @@ return function(DebindPrivate)
         }, "open");
     end);
 
+    --- **A unit condition this build cannot read must not delete the binding under it.**
+    ---
+    --- The value arrives from a payload built by a newer version: `Import.lua` checks that `units`
+    --- is a table and copies what is inside it as it stands, and `CleanUpDB` sweeps the condition
+    --- **keys** without looking at their values. So a name we do not know sits in a real profile.
+    ---
+    --- Reading it as the absent point is not a narrow answer, it is a **different** one: the absent
+    --- point is smaller than "exists" but it is not inside it. A higher-priority binding carrying
+    --- that reading covers the binding that really is [when there is none], and the solver deletes
+    --- a condition the reader set, with nothing on screen to say so -- the mask is
+    --- `UNITSTATE_NONE` rather than 0, so `CONDITIONS_NEVER` does not fire either.
+    ---
+    --- `Solver.lua`'s header wrote the answer down before the case turned up: a condition that
+    --- cannot be placed on an axis makes the binding opaque, out of both roles, rather than being
+    --- ignored.
+    test("이 빌드가 못 읽는 유닛 조건은 아래 바인딩을 안 지운다", function()
+        local built = {};
+        for _, spec in ipairs({
+            { name = "unreadable", units = { target = "from-a-newer-build" } },
+            { name = "absent",     units = { target = false } },
+        }) do
+            local binding = DebindPrivate.GetBindingInfoForAction(
+                { type = Constants.SPELL, value = 585, key = "T",
+                  conditions = { units = spec.units } });
+            built[#built + 1] = { name = spec.name, binding = binding };
+        end
+
+        check(built[1].binding.unitStatesOpaque,
+            "못 읽는 값이 두 역할에서 안 빠졌다 - 전제가 깨졌다");
+
+        -- **순서가 곧 우선순위다.** 못 읽는 값이 위, [없을 때]가 아래 - 항목이 적어둔 그 배치다.
+        local bindings = {};
+        for i = 1, #built do
+            local b = built[i].binding;
+            b.name = built[i].name;
+            bindings[i] = b;
+        end
+
+        ClearUnreachableBindingCache();
+        CheckUnreachableBindings(bindings);
+
+        -- 살아남은 것만 배열에 남는다(`survivors`와 같은 읽기).
+        local survived = {};
+        for i = 1, #bindings do
+            survived[bindings[i].name] = true;
+        end
+
+        check(survived["absent"],
+            "[없을 때] 바인딩이 못 읽는 값에 덮여 지워졌다");
+    end);
 
     return T;
 end

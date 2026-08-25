@@ -690,5 +690,42 @@ return function(DebindPrivate)
         check(mode(7) == "absent", "모르는 숫자가 없을 때로 안 떨어짐");
     end);
 
+    --- **모르는 값은 축에 못 올린다. 좁게 읽는 것이 아니라 다른 자리로 읽는 것이라서다.**
+    ---
+    --- 없음 점은 크기가 작을 뿐 "있을 때"의 부분집합이 아니다. 모르는 값을 없음 점으로 읽으면
+    --- 그 바인딩이 **진짜 "없을 때" 바인딩을 통째로 덮고**, solver가 그것을 지운다. 사용자가 건
+    --- 조건이 소리 없이 사라지고 이슈도 안 뜬다 - 마스크가 0이 아니라 `UNITSTATE_NONE`이라
+    --- `CONDITIONS_NEVER`에 안 걸린다.
+    ---
+    --- `Solver.lua` 머리 주석이 이 경우의 답을 적어놨다: 축에 못 놓는 조건은 무시하는 것이 아니라
+    --- **바인딩을 `_opaque`로 만들어 두 역할에서 뺀다.** 덮지도 않고 덮이지도 않는다.
+    ---
+    --- **닿는 길은 가져오기다.** `Import.lua`는 `units`가 표라는 것만 보고 안에 든 값은
+    --- `CopyTable`로 그대로 들여온다. 즉 더 새로운 버전이 만든 값이 이쪽으로 온다.
+    local function opaqueFor(value)
+        local b = normalize(nest({
+            type = Constants.SPELL, value = 585, key = "T",
+            units = { target = value },
+        }), true);
+        return b.unitStatesOpaque and true or false;
+    end
+
+    test("모르는 유닛 조건 값은 바인딩을 두 역할에서 뺀다", function()
+        check(opaqueFor("mostly"), "모르는 문자열이 축에 올라갔다");
+        check(opaqueFor(7), "모르는 숫자가 축에 올라갔다");
+    end);
+
+    --- 아는 값 전부가 그대로여야 한다. 이 쪽이 안 서면 위 검사는 **모든 유닛 조건을 판정에서
+    --- 빼버린 것**과 구별이 안 된다.
+    test("아는 유닛 조건 값은 그대로 축에 오른다", function()
+        check(not opaqueFor(true), "true가 빠졌다");
+        check(not opaqueFor(false), "false가 빠졌다");
+        check(not opaqueFor("help"), "help가 빠졌다");
+        check(not opaqueFor("harm"), "harm이 빠졌다");
+        check(not opaqueFor({}), "빈 표가 빠졌다");
+        check(not opaqueFor({ exists = false }), "exists=false가 빠졌다");
+        check(not opaqueFor({ reaction = Constants.REACTION_HELP }), "반응 표가 빠졌다");
+    end);
+
     return T;
 end

@@ -369,7 +369,6 @@ local UNIT_SCALAR_TO_STATE = {
     [false]   = Constants.UNITSTATE_NONE,
     ["help"]  = Constants.UNITSTATE_HELP,
     ["harm"]  = Constants.UNITSTATE_HARM,
-    ["never"] = 0,
 };
 
 local REACTION_TO_UNIT_STATE = {
@@ -414,9 +413,16 @@ local function UnitConditionForBinding(value)
         return { reaction = Constants.REACTION_HARM };
     elseif (type(value) ~= "table") then
         -- 모르는 스칼라. **떨어뜨리지 않는다** - 옛 버전이 쓴 값을 우리가 모를 수 있고, 조건이
-        -- 조용히 사라지면 그 바인딩이 걸어둔 것보다 넓어져 남의 키를 가져간다. 없음 점으로
-        -- 읽는 것이 좁은 쪽이고, 스칼라 시절에도 같은 답이었다.
-        return false;
+        -- 조용히 사라지면 그 바인딩이 걸어둔 것보다 넓어져 남의 키를 가져간다.
+        --
+        -- **없을 때로 읽지만, 둘째 반환값이 그게 읽어낸 값이 아니라고 말한다.** 없음 점은 크기가
+        -- 작을 뿐 "있을 때"의 부분집합이 아니라서, 좁게 틀리는 것이 아니라 **다른 자리로** 틀린다.
+        -- 그대로 축에 올리면 이 바인딩이 진짜 [없을 때] 바인딩을 통째로 덮고 solver가 그것을
+        -- 지운다. `GetBindingInfoForAction`이 둘째 값을 받아 바인딩을 두 역할에서 뺀다.
+        --
+        -- 첫째 값은 그대로 두는 것이 이 함수의 나머지 독자들 때문이다 - 툴팁과 조건 메뉴는
+        -- 라디오 셋 중 하나를 골라야 하고, 넷째 자리가 없다.
+        return false, true;
     end
 
     if (value.off) then
@@ -489,6 +495,9 @@ local function UnitConditionToState(value)
     if (type(value) ~= "table") then
         -- 아직 안 옮겨진 값. `MigrateLayer`가 올려주지만, 가져오기 도중이거나 손으로 고친
         -- 프로필이면 여기로 온다.
+        --
+        -- **모르는 값이 여기까지 오면 이미 없음 점이다.** `UnitConditionForBinding`이 먼저
+        -- 돌면서 `false`로 바꾸고, 못 읽었다는 사실은 그쪽 둘째 반환값이 따로 나른다.
         return UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE;
     end
 
@@ -576,7 +585,14 @@ end
 local function BuildUnitStates(binding)
     DeriveHoverFields(binding);
 
-    local states, opaque;
+    local states;
+
+    -- **A value this build cannot read makes the binding opaque before any axis is touched.**
+    -- `GetBindingInfoForAction` sets the flag while turning the stored table into the binding one;
+    -- what it means is the same thing `"@"` with nowhere to go means below, so it lands in the same
+    -- field. Reading such a value as the absent point would cover the bindings that really are
+    -- [when there is none] and delete them.
+    local opaque = binding.unitConditionUnreadable or nil;
 
     local function narrow(unit, mask)
         states = states or {};
@@ -698,7 +714,12 @@ do
             or rawget(action, "checkedUnits");
         if (storedUnits) then
             for unit, value in pairs(storedUnits) do
-                local condition = UnitConditionForBinding(value);
+                local condition, unreadable = UnitConditionForBinding(value);
+                if (unreadable) then
+                    -- 이 빌드가 못 읽는 값이 하나라도 있으면 바인딩을 판정에서 뺀다
+                    -- (`BuildUnitStates`가 이 표시를 `unitStatesOpaque`로 바꾼다).
+                    binding.unitConditionUnreadable = true;
+                end
                 if (condition ~= nil) then
                     conditions.units = conditions.units or {};
                     conditions.units[unit] = condition;
@@ -1388,6 +1409,32 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
                     issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
                     break;
                 end
+            end
+        end
+    end
+
+    -- **A unit that needs a group, set against being alone.** The four role aliases are empty while
+    -- the reader is solo (`UNITS_ABSENT_WHEN_SOLO`, read off the headers that declare it), so a
+    -- binding that both requires one to be there and is restricted to `GROUP_NONE` presses and does
+    -- nothing. The two halves live in different menus, which is why neither one looks wrong on its
+    -- own and why both are told below.
+    --
+    -- **The mask is what says "has to be there", not the presence of a condition.** [When there is
+    -- no tank] while solo is exactly true, and reading it as a contradiction would kill a working
+    -- binding. `UNITSTATE_NONE` still being in the mask is that unit being allowed to be absent.
+    --
+    -- A zero mask is not this: that is a unit with no state left at all and the branch above has
+    -- already reported it. `groups == 0` likewise belongs to `GROUPS_NONE_SELECTED`, which runs
+    -- first for the same reason -- an axis with nothing ticked is a different sentence.
+    if (not issue and binding.unitStates and conditions.groups
+            and (not category or category == "groups" or category == "units")
+            and notCategory ~= "groups" and notCategory ~= "units"
+            and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
+        for unit, mask in pairs(binding.unitStates) do
+            if (DebindPrivate.UNITS_ABSENT_WHEN_SOLO[unit] and mask ~= 0
+                    and band(mask, Constants.UNITSTATE_NONE) == 0) then
+                issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+                break;
             end
         end
     end

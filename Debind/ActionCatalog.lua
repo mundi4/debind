@@ -61,6 +61,14 @@ ActionCatalog.Filters = {
 --- 탭을 세울지 말지는 `IsAvailable()`이 답한다. **그 판정은 목록을 짓지 않고 나와야 한다.**
 local _categories = {};
 local _sourceKeys = {};
+
+--- Which sources owe a rebuild. `true` means every one of them.
+---
+--- **It was a single flag, and that made one source's event cost every source's build.** A toy
+--- arriving dirtied the mounts as well, so the next click on the Mounts tab walked the journal
+--- again -- thousands of calls to answer a question nothing had asked. The file's own header says
+--- what that breaks: somebody who opens the Spells tab and closes the window must not pay for
+--- mounts.
 local _dirty      = true;
 
 --- 소스 하나를 등록한다.
@@ -94,8 +102,19 @@ end
 --- 다음 `GetEntries()`에서 다시 짓게 한다. 여기서 바로 짓지 않는 이유는 둘이다 - 이걸
 --- 부르는 쪽(주문서 이벤트)이 창이 닫혀 있을 때도 오고, 보고 있지도 않은 카테고리를
 --- 지을 이유가 없다.
-function ActionCatalog.Invalidate()
-	_dirty = true;
+---
+--- **소스 이름을 주면 그 소스만 더럽힌다.** 이름이 없으면 전부다 - 창을 여는 자리가 그것을
+--- 쓴다(닫혀 있는 동안 놓친 것이 무엇인지 모르므로 전부 갚는다). 이름을 주는 자리는 이벤트
+--- 쪽이고, 어느 이벤트가 어느 소스를 건드리는지는 `SpellPicker.lua`가 안다.
+function ActionCatalog.Invalidate(source)
+	if (source == nil) then
+		_dirty = true;
+		return;
+	end
+	if (_dirty ~= true) then
+		_dirty = _dirty or {};
+		_dirty[source] = true;
+	end
 end
 
 --- 카테고리 목록. **짓지 않는다.**
@@ -119,7 +138,9 @@ end
 function ActionCatalog.GetEntries(category)
 	if (_dirty) then
 		for _, other in ipairs(_categories) do
-			other.built = false;
+			if (_dirty == true or _dirty[other.source]) then
+				other.built = false;
+			end
 		end
 		_dirty = false;
 	end
