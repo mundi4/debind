@@ -628,6 +628,12 @@ function M.install()
 
     _G.SLASH_SCRIPT1 = "/script";
     _G.SLASH_CANCELFORM1 = "/cancelform";
+    -- **`ConvertToMacroText` writes the body with these**, and an absent one does not raise here:
+    -- `%s` in Lua 5.4 takes any value and prints `nil`, so the body came out reading `nil Regrowth`
+    -- and the check looking for the spell name still found it. `lua5.1` -- which is what CI runs --
+    -- refuses a nil for `%s`, so the same run was green locally and red there.
+    _G.SLASH_CAST1 = "/cast";
+    _G.SLASH_USE1 = "/use";
     -- A pet command that has a slash command, so `GetPetActionMacroText` answers for it. The
     -- commands that have none are the ones the addon refuses to bind, and reaching that branch is
     -- a matter of naming one that is not here.

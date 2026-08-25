@@ -105,16 +105,18 @@ return function(DebindPrivate)
         return action.value;
     end
 
+    --- **The whole body, not a substring of it.** `find` alone let a body reading
+    --- `nil Regrowth(Restoration)` pass: `SLASH_CAST1` was missing from the shim, `%s` in Lua 5.4
+    --- prints a nil rather than refusing it, and the name the check looked for was still in there.
+    --- CI runs lua5.1, which does refuse it, so the same run was green here and red there.
     test("a macro body names the spell by the same string", function()
         installWorld();
 
-        local subtexted = convert(8936);
-        check(subtexted:find("Regrowth(Restoration)", 1, true),
-            "the macro body lost the subtext: " .. subtexted);
+        check(convert(8936) == "/cast Regrowth(Restoration)",
+            "the macro body is not what it should be: " .. convert(8936));
 
-        local overridden = convert(17116);
-        check(overridden:find(CastName(774), 1, true),
-            "the macro body did not resolve the override to its base name: " .. overridden);
+        check(convert(17116) == "/cast " .. CastName(774),
+            "the macro body did not resolve the override to its base name: " .. convert(17116));
     end);
 
     --- The third, reached the way `DescribeBinding` reaches it: with the two halves already in hand
