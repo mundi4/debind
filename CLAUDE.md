@@ -118,13 +118,23 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
 
 ## Comments
 
+**First rule, above every other one here: a comment carries only what the code cannot show.**
+
+- **What the code already states gets no comment.** If the line below says it, the comment is
+  deleted, not shortened.
+- **Write one only to keep the reason for the implementation alive**: a workaround and the client
+  bug behind it, a hack and what forces it, why this order and not the obvious one, what breaks if
+  the condition goes, which version it started with.
+- Neither of those, no comment.
+- **Existing comments are held to this too, in the code you have read.** Having read it is what
+  makes the call, and what lets you write the reason the comment should have carried instead. A
+  comment you merely walked past you have not understood: leave it alone.
+
+The rest:
+
 - **Write every new comment in English.**
 - Do not bulk-translate the Korean ones. But **a comment you are editing anyway gets rewritten
   whole, in English** — never half-edited into two languages.
-- Rewriting it must not summarise away the reasoning it held. A shorter comment is not the goal.
-- **Write only what the code does not already show.** Why this order, what it works around, what
-  breaks if the condition goes, which version it started with. The line below already says what it
-  does.
 
 ## Repo conventions
 
