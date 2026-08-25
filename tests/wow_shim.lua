@@ -634,6 +634,18 @@ function M.install()
     -- refuses a nil for `%s`, so the same run was green locally and red there.
     _G.SLASH_CAST1 = "/cast";
     _G.SLASH_USE1 = "/use";
+
+    --- **`"%s-%s"` in every locale, and `Misc.lua` caches it into a file local at load.** A nil
+    --- there does not fall back to anything -- `FULL_PLAYER_NAME:format(...)` indexes it -- so the
+    --- specs were one step away from the same fault `SLASH_CAST1` had, and only stayed clear of it
+    --- because nothing reached that path.
+    _G.FULL_PLAYER_NAME = "%s-%s";
+
+    --- **One binding command that resolves.** `ActionDisplay` asks `_G["BINDING_NAME_" .. value]`
+    --- and falls back to the command code, so without a single one defined every spec walked the
+    --- fallback and a command action was named by its code -- which is what a reader sees when the
+    --- client has no name for it, not what they see for a real one.
+    _G.BINDING_NAME_TOGGLEGAMEMENU = "Game Menu";
     -- A pet command that has a slash command, so `GetPetActionMacroText` answers for it. The
     -- commands that have none are the ones the addon refuses to bind, and reaching that branch is
     -- a matter of naming one that is not here.
@@ -745,6 +757,99 @@ function M.loadAddon(root, files, addon, opts)
         chunk("Debind", addon);
     end
     return addon;
+end
+
+
+--------------------------------------------------------------------------------
+-- Globals this stand-in never answered
+--------------------------------------------------------------------------------
+
+--- **A global the shim forgot reads as `nil`, and nothing about that is loud.** `SLASH_CAST1` was
+--- missing, so `ConvertToMacroText` built its body around a nil, and the spec that looked for the
+--- spell name inside that body found it and passed. What eventually said so was CI running lua5.1,
+--- where `%s` refuses a nil -- which is luck rather than a check. Had the value flowed anywhere
+--- other than a `format`, the specs would still be certifying a body the game would never produce.
+---
+--- So every read of a name nothing defined is recorded here and the runner fails on the list.
+---
+--- **The read itself is left alone.** Asking whether a global is there is an ordinary thing for an
+--- addon to do, and an `__index` that raised would turn feature detection into a crash.
+---
+--- **Each exemption is a signature saying the specs are meant to run without that value.** A name
+--- added here without a reason beside it is the hole this whole mechanism exists to close.
+local ALLOWED_ABSENT = {
+    -- Set by the addon itself while it loads, so they read nil right up until they do not. Every
+    -- one is reached back through `_G` by another of our own files.
+    DebindPublic = true, DebindPrivate = true, DebindVars = true, DebindVarsPerChar = true,
+    DebindDevDB = true, DebindStorageVars = true, DebouncePublic = true, DebounceVars = true,
+    DebounceVarsPerChar = true, Debounce_CompartmentFunc = true, DebindStorage = true,
+
+    -- Asked as "is that addon installed". No is the answer these specs want.
+    Clique = true, Grid2 = true, Grid2Options = true, ClickCastFrames = true,
+    DevTool = true, ViragDevTool_AddData = true, LibStub = true,
+
+    -- **Blizzard's own unit frames, and there are none here.** `FrameRegistry` names them to
+    -- register click-casting on; a spec that wants a unit frame builds its own.
+    PlayerFrame = true, TargetFrame = true, TargetFrameToT = true,
+    FocusFrame = true, FocusFrameToT = true, PetFrame = true,
+    Boss1TargetFrame = true, Boss2TargetFrame = true, Boss3TargetFrame = true,
+    Boss4TargetFrame = true, Boss5TargetFrame = true,
+    CompactUnitFrame_SetUpFrame = true,
+
+    -- **Absent is one of the two answers, and the addon asks.** `issecretvalue` arrived in 12.1
+    -- and every read of it is behind `if (issecretvalue and ...)`; `EventRegistry` is asked with
+    -- `~= nil` before the house-editor callback goes on. Running without them is running the
+    -- older-client branch, which is a shape worth being in.
+    issecretvalue = true, EventRegistry = true,
+
+    -- **Which interpreter this is, asked by presence.** `_ENV` arrived in 5.2 and `setfenv` left
+    -- with it, so exactly one of the two is missing on any run and `restricted.lua` picks its way
+    -- of giving a chunk an environment off that. The game is 5.1; the specs also run under fengari
+    -- (5.3) and whatever local `lua` is, so both answers have to be allowed.
+    _ENV = true, setfenv = true,
+
+    -- Reached only from paths no spec runs: a reload the migration asks for, and the runner's own
+    -- file helpers, which are read before `run.js` has written them.
+    ReloadUI = true, __hostReadFile = true, __hostWriteFile = true,
+
+    -- **A fixture, and the one name here that is meant to be missing.** `describe_spec` and the
+    -- emission fixture both bind `PETNOSUCHCOMMAND` on purpose: a pet command the client has no
+    -- slash command for is the case `SetBindingAttributes` has to refuse, and the way to be in it
+    -- is to name one that does not exist.
+    --
+    -- **Exempted by its exact name and not by an `^SLASH_` prefix.** A prefix would have covered
+    -- `SLASH_CAST1` too, which is the very miss this whole mechanism was built for -- the guard
+    -- would have been shaped so that it could not catch the thing that made it necessary. Only one
+    -- name is built by concatenation in practice, so there is nothing a prefix buys.
+    SLASH_PETNOSUCHCOMMAND1 = true,
+};
+
+local _absent = {};
+
+--- Starts recording. The runner calls it straight after `install()`.
+function M.watchGlobals()
+    local previous = getmetatable(_G);
+    setmetatable(_G, {
+        __index = function(_, key)
+            if (type(key) == "string" and not ALLOWED_ABSENT[key]) then
+                _absent[key] = true;
+            end
+            if (previous and previous.__index) then
+                return previous.__index(_G, key);
+            end
+            return nil;
+        end,
+    });
+end
+
+--- The names that were read while nothing defined them, sorted. Empty is the passing answer.
+function M.absentGlobals()
+    local names = {};
+    for name in pairs(_absent) do
+        names[#names + 1] = name;
+    end
+    table.sort(names);
+    return names;
 end
 
 return M;

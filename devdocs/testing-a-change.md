@@ -38,6 +38,24 @@ What stands in for the client is three things:
 | `tests/wow_frames.lua` | the frame shell, a recorder that keeps **everything** the addon hands to the secure side in order, the override bindings in force, the timer queue, and `fireEvent` to deliver a client event |
 | `tests/restricted.lua` | the restricted environment. It replays that recording, so the tables the click path reads are the ones the game would have built, and then runs `EVAL_SNIPPET` — which is how "which action does this key fire" has a headless answer at all |
 
+**A global the shim never defined is a failed run, not a quiet nil.** `wow_shim.lua` puts an
+`__index` on `_G` that records every read of a name nothing answered, and the runner turns that list
+into failures at the end. Reads are not blocked — asking whether a global is there is an ordinary
+thing for an addon to do — so what closes a report is either defining the value or writing the name
+into `ALLOWED_ABSENT` **with the reason it may be missing**. That exemption list is the whole of the
+guarantee; a name added to it without a reason is the hole reopened.
+
+It exists because of one that got through. `SLASH_CAST1` was absent, so `ConvertToMacroText` built
+its macro body around a nil, and the spec that looked for the spell name **inside** that body found
+it and passed — a body reading `nil Regrowth(Restoration)` certified as correct. What eventually
+said so was CI on lua5.1, where `%s` refuses a nil while 5.4 prints it; had the value flowed
+anywhere but a `format`, nothing would have said anything. **Two faults, and the assertion was the
+worse one** — `find` for a substring passes output that is visibly wrong. Ask for the whole value.
+
+**One name is exempted by its exact spelling for that reason: `SLASH_PETNOSUCHCOMMAND1`.** An
+`^SLASH_` prefix would have covered `SLASH_CAST1` as well, which is the miss the mechanism was built
+for — a guard shaped so it cannot catch what made it necessary.
+
 **One table is not a recording, and it is the one that moved the boundary.** An override is state —
 put on by one rebuild and taken off by the next — so recording the calls could never answer *what is
 in force now*. `wow_frames.lua` keeps it: the restricted `SetBindingClick` writes it, a rebuild's

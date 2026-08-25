@@ -9,6 +9,9 @@ package.path = root .. "/?.lua;" .. package.path;
 
 local shim = require("wow_shim");
 shim.install();
+-- **From here on, a global nothing defined is remembered rather than silently nil.** The run fails
+-- on the list at the end; `wow_shim.lua`'s `ALLOWED_ABSENT` says what may be missing and why.
+shim.watchGlobals();
 
 --- Reading and writing a whole file, whichever interpreter this is.
 ---
@@ -207,6 +210,17 @@ for _, spec in ipairs(specs) do
     for _, f in ipairs(result.failures) do
         totalFailures[#totalFailures + 1] = spec.name .. " / " .. f;
     end
+end
+
+-- **A global nothing answered is a failure of the run, not of one spec.** Which spec touched it is
+-- not the useful question -- the value was nil for every one of them, and what each of those then
+-- certified was the addon running against a client that does not exist. `SLASH_CAST1` is the case
+-- this came from: the macro body read `nil /cast`-less and a spec passed it.
+local absent = shim.absentGlobals();
+for i = 1, #absent do
+    totalFailures[#totalFailures + 1] =
+        "shim / nothing defined `" .. absent[i] .. "`, so every spec read it as nil"
+        .. " (define it in `wow_shim.lua`, or say why it may be absent in `ALLOWED_ABSENT`)";
 end
 
 for _, f in ipairs(totalFailures) do
