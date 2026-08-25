@@ -451,13 +451,18 @@ end
 --- so a reset deferred to the apply would land on top of what the build had already put out.
 --- Stage 2 of `devdocs/legacy/going-headless-outside-the-ui.md` takes the stamping out of the build, and
 --- this moves in with it.
+---
+--- **`UnitAliasMap` is not among what goes, and that is deliberate.** It outlives the rebuild, which
+--- is why an action that targets a custom unit does not have to register the alias itself;
+--- `/debtest`'s `Custom target survives a rebuild` is what holds it. The body called
+--- `ClearUnitAttributes` here for a long time, an attribute whose own body had been empty since
+--- before the rename, so nothing changed when the call went.
 local function ClearPreviousBindings()
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
 wipe(OldStates)
 for k, v in pairs(States) do
     OldStates[k] = v
 end
-self:RunAttribute("ClearUnitAttributes")
 wipe(StateDrivenBindings)
 wipe(ClickTimeKeys)
 for _, byMod in pairs(ClickCastKeys) do

@@ -411,9 +411,6 @@ BindingDriver:SetAttribute("UpdateAllUnits", [[
 	self:RunAttribute("SetUnit", "hover", UnitAliasMap["hover"], true)
 ]]);
 
-BindingDriver:SetAttribute("ClearUnitAttributes", [==[
-]==]);
-
 --- How many keys this pass is about to decide. **DEBUG only** -- in a shipped build the string is
 --- empty and the line is not in the snippet at all.
 ---

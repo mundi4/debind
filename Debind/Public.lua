@@ -1,5 +1,6 @@
 local _, DebindPrivate = ...
 local BindingDriver      = DebindPrivate.BindingDriver;
+local Constants          = DebindPrivate.Constants;
 local LLL                = DebindPrivate.L;
 
 DebindPublic           = {};
@@ -364,7 +365,7 @@ if (_G.Grid2) then
 		for i = 1, #aliases do
 			local theAlias = aliases[i];
 			local statusKey = "debounce_" .. theAlias;
-			Grid2Options:RegisterStatusOptions(statusKey, nil, nil, { titleIcon = 133015 });
+			Grid2Options:RegisterStatusOptions(statusKey, nil, nil, { titleIcon = Constants.ADDON_ICON });
 			Grid2Options.L[statusKey] = format("%s: %s", LLL["ADDON_NAME"], LLL["UNIT_" .. strupper(theAlias)]);
 		end
 		return true;

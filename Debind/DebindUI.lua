@@ -31,7 +31,6 @@ local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
 local IsIssueMinor           = DebindPrivate.IsIssueMinor;
-local GetSpellTabNameAndIcon = DebindPrivate.GetSpellTabNameAndIcon;
 
 -- Three files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
 -- the blue an imported one wears, `LayerDisplay.lua` owns what a layer is called and the icon beside
@@ -1897,15 +1896,16 @@ end
 DebindLayerPanelMixin = {};
 DebindFrameMixin = {};
 
+--- **Nothing here names the tab.** The label on screen comes from `GetSideTabLabel`, and
+--- `DebindSideTabMixin:OnEnter` builds the tooltip out of that. This used to park a second name
+--- beside it in `tab.tooltip` -- read by nobody, and off the spellbook skill lines rather than off
+--- our own labels, so the two could drift without anything showing it.
 function DebindLayerPanelMixin:InitializeSideTabs()
 	self.SideTabs = self.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
-		local name;
 		if (i == 1) then
-			name = GetSpellTabNameAndIcon(1);
 			tab.spec = nil;
 		elseif (i == 2) then
-			name = GetSpellTabNameAndIcon(2);
 			tab.spec = 0;
 		else
 			local spec = i - 2;
@@ -1915,10 +1915,8 @@ function DebindLayerPanelMixin:InitializeSideTabs()
 				tab:Hide();
 				break;
 			end
-			name = select(2, C_SpecializationInfo.GetSpecializationInfo(spec));
 		end
 		tab:SetNormalTexture(GetSideTabIcon(i));
-		tab.tooltip = name;
 		tab:Show();
 	end
 end
@@ -1930,7 +1928,6 @@ end
 --- 떠날 때 보던 사이드탭으로 돌아와야 한다.
 function DebindLayerPanelMixin:UpdateSideTabs()
 	local currentSpec = C_SpecializationInfo.GetSpecialization();
-	self.currentSpec = currentSpec;
 
 	local tabOrders = { 1, 2 };
 	if (currentSpec and currentSpec <= NUM_SPECS) then
@@ -2517,7 +2514,7 @@ function DebindFrameMixin:OnLoad()
 	--- 블리자드 자기 코드도 같은 이벤트를 같은 목적으로 쓴다(`Blizzard_HousingInspectModeUI.lua:26`).
 	EventRegistry:RegisterCallback("GameMenuFrame.Shown", self.Hide, self);
 
-	self:SetPortraitToAsset(133015);
+	self:SetPortraitToAsset(Constants.ADDON_ICON);
 
 	-- The window's contents live in containers (`.zzz/main-frame-containers.md`). Two convenience
 	-- references rather than an alias per widget; everything else goes through these.
@@ -6071,7 +6068,13 @@ function DebindStateDriverUpdateThrottleSliderMixin:UpdateVisibleState()
 	self.Slider:UpdateVisibleState();
 end
 
--- temp
+--- The whole of what other files reach into this one for. **Almost all of it is the row menus**
+--- (`DropDownMenus.lua`) -- the menu decides and this file acts, so every answer a menu offers on a
+--- row arrives back here. `ShowInputBox` belongs to the switches tab (`SwitchesUI.lua`), and
+--- `GetLayerID` answers "which tab is open" for anyone who asks.
+---
+--- It was marked `-- temp` from the day it went in and none of it turned out to be. Kept as one
+--- block rather than assigned beside each definition, so the size of the surface can be read at once.
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;

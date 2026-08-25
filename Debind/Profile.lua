@@ -347,7 +347,7 @@ end
 
 local ProfileLayerProto = {};
 
-function ProfileLayerProto:Insert(action, insertIndex, keepId)
+function ProfileLayerProto:Insert(action, insertIndex)
     ArmAction(action);
     if (insertIndex == nil) then
         insertIndex = #self.actions + 1;
@@ -2332,48 +2332,6 @@ function DebindPrivate.EnumerateAllProfileLayers(spec)
     end
 
     return Enumerator, nil, 0;
-end
-
--- 현재 호출자 없음. BuildKeyMap은 (layerRank, index)가 필요해서 EnumerateProfileLayers를
--- 직접 훑는다. 여기 ordinal은 그 두 값을 평탄화한 것과 같은 순서다.
-function DebindPrivate.EnumerateActionsInActiveLayers()
-    local spec = C_SpecializationInfo.GetSpecialization();
-    local layerIdArray = {};
-
-    if (spec > 0 and spec <= NUM_SPECS) then
-        tinsert(layerIdArray, DebindPrivate.GetLayerID(spec, true));
-    end
-
-    tinsert(layerIdArray, DebindPrivate.GetLayerID(0, true));
-
-    if (spec > 0 and spec <= NUM_SPECS) then
-        tinsert(layerIdArray, DebindPrivate.GetLayerID(spec, false));
-    end
-
-    tinsert(layerIdArray, DebindPrivate.GetLayerID(0, false));
-    tinsert(layerIdArray, DebindPrivate.GetLayerID(nil, false));
-
-    local layerIndex = 1;
-    local actionIndex = 0;
-    local layer = DebindPrivate.GetProfileLayer(layerIdArray[layerIndex]);
-    local numActions = layer:GetNumActions();
-
-    local function Enumerator(tbl, index)
-        index = index + 1;
-        while (actionIndex >= numActions) do
-            layerIndex = layerIndex + 1;
-            layer = DebindPrivate.GetProfileLayer(tbl[layerIndex]);
-            if (not layer) then
-                return nil, nil;
-            end
-            numActions = layer:GetNumActions();
-            actionIndex = 0;
-        end
-        actionIndex = actionIndex + 1;
-        return index, layer:GetAction(actionIndex);
-    end
-
-    return Enumerator, layerIdArray, 0;
 end
 
 -- Defined below, between the two collectors that share it. Forward-declared so both can be read

@@ -13,6 +13,15 @@ Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
 Constants.PLAYER_CLASS                    = select(2, UnitClass("player"));
 
+--- The addon's own picture. Both windows wear it as their portrait, and Grid2 gets it beside the
+--- statuses we register there (`Public.lua`) so a line in somebody else's options is recognisable
+--- as ours.
+---
+--- **`Debind.toc`'s `## IconTexture` is the same number and cannot read this one.** The client
+--- parses the toc before any of our Lua runs, so changing the picture is two edits, and the toc is
+--- the one that shows in the addon list.
+Constants.ADDON_ICON                      = 133015;
+
 --- Every class this client has: `classFile` (`"DRUID"`) -> `classID`.
 ---
 --- **The one enumeration.** The loop stood written out in three places -- the pre-rename import,

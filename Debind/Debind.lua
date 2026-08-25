@@ -146,8 +146,10 @@ do
 		wipe(BindingInfoToActionMap);
 		DebindPrivate.ClearUnreachableBindingCache();
 
-		-- EnumerateActionsInActiveLayers와 같은 순서를 돌지만, 통짜 ordinal 대신
-		-- layerRank를 따로 알아야 해서 레이어를 직접 훑는다.
+		-- **Both numbers are wanted, which is why the layers are walked here.** `layerRank` goes
+		-- to the order record and the flat `ordinal` to `ActiveActions`; an enumerator handing
+		-- over one count with the rank already folded into it would have to be undone at the
+		-- comparator.
 		local ordinal = 0;
 		for layerRank, layer in DebindPrivate.EnumerateProfileLayers() do
 			for _, action in layer:Enumerate() do

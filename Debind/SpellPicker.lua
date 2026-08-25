@@ -236,14 +236,14 @@ function DebindSpellPickerFrameMixin:OnLoad()
 
 	self:SetTitle(LLL["SPELL_PICKER_TITLE"]);
 
-	-- **메인 창과 같은 초상화다**(`DebindFrameMixin:OnLoad`의 133015). 한때 주문서 아이콘을
-	-- 썼는데, 그건 이 창에 주문밖에 없던 시절의 것이다 - 지금은 매크로·탈것·장난감·명령·특수가
-	-- 같이 있어서 주문서가 목록을 대표하지 못한다.
+	-- **The main window's portrait, and the same constant it reads.** This used to be the spellbook
+	-- icon, from when the window held nothing but spells -- macros, mounts, toys, commands and
+	-- specials stand beside them now, and a spellbook does not speak for that list.
 	--
-	-- 탭마다 아이콘을 바꾸는 길도 있지만 안 간다. 여섯 개를 고르는 일이 되고, 그때마다
-	-- 초상화가 바뀌면 **창이 바뀐 것처럼 보인다** - 탭은 같은 창 안의 이동이다.
-	-- 메인 창 것을 그대로 쓰면 "이건 저 창에 넣는 물건"이라는 말도 같이 된다.
-	self:SetPortraitToAsset(133015);
+	-- There is a road where the icon follows the tab, and it is not taken. It becomes six pictures
+	-- to choose, and a portrait that changes **reads as a different window** -- a tab is a move
+	-- inside one. Wearing the main window's says "this is a thing you put in there" as well.
+	self:SetPortraitToAsset(Constants.ADDON_ICON);
 
 	self:RegisterForDrag("LeftButton");
 	self:SetScript("OnDragStart", function()

@@ -3,7 +3,6 @@ Execute <Frame#3>
   | for k, v in pairs(States) do
   |     OldStates[k] = v
   | end
-  | self:RunAttribute("ClearUnitAttributes")
   | wipe(StateDrivenBindings)
   | wipe(ClickTimeKeys)
   | for _, byMod in pairs(ClickCastKeys) do
