@@ -371,7 +371,7 @@ L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIG
 --- **Only then, because most of the time it is not true**, and a dialog that warns about other
 --- characters every time teaches the reader to stop reading it. The test is the layer's own
 --- `isCharacterSpecific`, the same one the importance menu asks before it warns
---- (`PRIORITY_SHARED_WARNING`).
+--- (`IMPORTANCE_SHARED_WARNING`).
 ---
 --- **It does not name the button.** Spelling out what [Overwrite] says leaves this sentence pointing
 --- at something that is not there the day that word changes, and a line here has already died that
@@ -554,14 +554,14 @@ L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- 세로 탭(사이드탭) 툴팁의 설명 줄. 다섯 레이어에 하나씩이고, 세 마디로 고정한다:
 -- **누가 쓰는가**, **무엇보다 우선하는가**, 그리고 **언제 그 말이 안 맞는가.**
 --
--- 셋째 마디를 빼면 **거짓말이 된다.** 레이어는 실행 순서의 네 번째 축이라(PRIORITY_DESC:
+-- 셋째 마디를 빼면 **거짓말이 된다.** 레이어는 실행 순서의 네 번째 축이라(IMPORTANCE_DESC:
 -- 중요도 → 마우스 올림 → 조건 → 탭 → 순서), 조건이 붙은 공유/일반 액션은 조건 없는
 -- 공유/야성 액션보다 먼저 실행된다. 중요도를 건드렸으면 더 그렇다. 툴팁은 일부러 불러서
 -- 읽는 글이라 이 길이가 부담이 아니고, 탭마다 반복돼도 한 번에 하나만 보인다.
 --
 -- **마우스 올림은 절에 안 적는다.** 그것도 탭을 이기는 축이 맞지만, 그 액션을 만든 사람은
 -- 자기가 만든 줄 알고 있다 - 조건과 중요도처럼 나중에 잊고 부딪히는 것이 아니다. 넷을 다
--- 적으면 절이 문장보다 길어진다. 전부 알고 싶은 사람은 PRIORITY_DESC가 다섯 축을 순서대로
+-- 적으면 절이 문장보다 길어진다. 전부 알고 싶은 사람은 IMPORTANCE_DESC가 다섯 축을 순서대로
 -- 적어 둔다.
 --
 -- 지는 쪽은 **레이어 이름 전체**로 부른다("Shared / Druid"). 툴팁 제목이 그 형식이라 참조도
@@ -641,7 +641,7 @@ L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action and edit it there."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
-L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
+L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
 -- 끝의 이유절에 **주어를 세웠다.** 원래는 "their own bindings are not loaded this session"이라
 -- 누가 안 불러왔는지가 없었는데, 3.1 전까지는 읽을 갈래가 하나뿐이라 그래도 됐다 - 캐릭터
 -- 전용 지정이 진짜 캐릭터별 SavedVariables(`DebounceVarsPerChar`)에 있어서, 그 캐릭터로
@@ -657,7 +657,7 @@ L["PRIORITY_DESC"] = "The same key can be assigned to more than one action. When
 -- 부캐 지정이 다 들어 있는 것을 나중에 본 사람에게 그 안심은 얼버무린 것이 된다.
 --
 -- 낱말은 그대로 "load"를 쓴다. 갈라진 것은 낱말이 아니라 빠진 주어였다.
-L["PRIORITY_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
+L["IMPORTANCE_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
 L["OVERVIEW"] = "Overview"
 -- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 이 열의 규칙을 말할 자리가 여기밖에 없다.
 --
@@ -716,7 +716,7 @@ L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 L["ORDER_BLOCKED_CONDITIONAL"] = "It cannot pass the action next to it -- only one of the two has conditions, and that is compared before the order on this key."
 L["ORDER_BLOCKED_HOVER"] = "It cannot pass the action next to it -- only one of the two runs while hovering a unit frame, and that is compared before the order on this key."
 L["ORDER_BLOCKED_LAYER"] = "It cannot pass the action next to it -- they are in different scopes, and scope is compared before the order on this key."
-L["ORDER_BLOCKED_PRIORITY"] = "It cannot pass the action next to it -- they have different importance, and importance is compared first."
+L["ORDER_BLOCKED_IMPORTANCE"] = "It cannot pass the action next to it -- they have different importance, and importance is compared first."
 -- **The one of the four that is not about a rule the reader could change.** The other three name a
 -- property either action could be given; this one says the two never run in the same world, so
 -- there is no order between them to settle. The order on this key is only ever compared inside one
@@ -728,7 +728,7 @@ L["ORDER_BLOCKED_PRIORITY"] = "It cannot pass the action next to it -- they have
 -- and a reader who has met it once should not have to learn it twice.
 L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a string, and it reaches no key until you accept it."
 L["ORDER_BLOCKED_SPEC"] = "It cannot pass the action next to it -- they belong to different specializations, and only one specialization is active at a time."
-L["ORDER_WHY_PRIORITY"] = "Importance: %s"
+L["ORDER_WHY_IMPORTANCE"] = "Importance: %s"
 -- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
 -- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
 L["ORDER_WHY_HOVER"] = "Unit frame rule"
@@ -745,17 +745,17 @@ L["ORDER_WHY_LAYER"] = "%1$s over %2$s"
 -- goes on every row but the group's last.
 --
 -- What is left true is "the four did not split, so the order itself decides". The step is named the
--- way PRIORITY_DESC's fourth line names it, so the ladder the tooltip teaches and this column mesh
+-- way IMPORTANCE_DESC's fourth line names it, so the ladder the tooltip teaches and this column mesh
 -- on the same words.
 L["ORDER_WHY_SEQ"] = "Order on this key"
-L["PRIORITY"] = "Importance"
-L["PRIORITY1"] = "Very High"
-L["PRIORITY2"] = "High"
+L["IMPORTANCE"] = "Importance"
+L["IMPORTANCE1"] = "Very High"
+L["IMPORTANCE2"] = "High"
 -- 순서 목록의 모든 행이 이 낱말을 쓰므로 짧아야 한다. 다섯 중 가운데라 메뉴에서도
 -- 기본값이라는 게 자리로 읽힌다 - "(Default)"를 뒤에 달던 것을 뗐다.
-L["PRIORITY3"] = "Normal"
-L["PRIORITY4"] = "Low"
-L["PRIORITY5"] = "Very Low"
+L["IMPORTANCE3"] = "Normal"
+L["IMPORTANCE4"] = "Low"
+L["IMPORTANCE5"] = "Very Low"
 L["REACTION_ALL"] = "All"
 L["REACTION_HARM"] = "Enemy"
 L["REACTION_HELP"] = "Friendly"
@@ -851,7 +851,7 @@ L["SWITCH_ANSWER_REMEMBER_DESC"] = "Starts on if you left it on. Every character
 -- is "Legion Artifact Override" / "군단 유물 덮어쓰기", `TRANSMOG_SLOT_DISPLAY_TYPE_UNASSIGNED_ARTIFACT`
 -- is "Ignore Override" / "덮어쓰기 무시".
 --
--- ⚠ **Not "tab", which is what this said first.** PRIORITY_DESC calls a layer a tab, and it is right
+-- ⚠ **Not "tab", which is what this said first.** IMPORTANCE_DESC calls a layer a tab, and it is right
 -- to: that line compares two actions by *where they were put*. This list answers *when does this
 -- apply*, the Switches tab has no side tabs to point at, and an override does not live in the tab it
 -- names -- copying a tab copies actions and leaves the override behind (§4-7-1). Naming the tab
@@ -949,7 +949,7 @@ L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "|cnHIGHLIGHT_FONT_COLOR:%d|r overrides g
 -- sentence points at a control the reader is meant to find by its glyphs.
 L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below makes one."
 -- 아래 탭 둘의 툴팁 설명 줄. 사이드탭 쪽(LAYER_DESC_*)과 같은 마디로 적되, 여기는
--- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 우선순위에 붙는 단서도
+-- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
 L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Shared, unless conditions or Importance say otherwise."

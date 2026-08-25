@@ -1360,29 +1360,29 @@ do
     --- 화면 어디에도 안 적혀 있고, 하필 이 목록에 온 사람의 머릿속은 "이 키의 순서"에 가
     --- 있어서 정확히 어긋나는 자리다. 그래서 고르는 손이 라디오 위에 있는 순간 읽히도록
     --- 항목 툴팁에 붙인다.
-    local function CreatePriorityMenu(rootDescription)
+    local function CreateImportanceMenu(rootDescription)
         -- `rawget`이라 없으면 nil이다(로케일 표의 __index를 건너뛴다). 이어붙이기 전에
         -- 갈라서 둔다 - 번역본 한 줄이 빠졌다고 메뉴가 통째로 터지면 안 된다.
-        local instruction = rawget(LLL, "PRIORITY_DESC");
+        local instruction = rawget(LLL, "IMPORTANCE_DESC");
         local layer = _elementData.layer and DebindPrivate.GetProfileLayer(_elementData.layer);
         if (layer and not layer.isCharacterSpecific) then
-            local warning = LLL["PRIORITY_SHARED_WARNING"];
+            local warning = LLL["IMPORTANCE_SHARED_WARNING"];
             instruction = instruction and (instruction .. "|n|n" .. warning) or warning;
         end
 
-        local description = CreateActionMenuItemGroup(rootDescription, "PRIORITY", "priority",
+        local description = CreateActionMenuItemGroup(rootDescription, "IMPORTANCE", "priority",
             -- isActive
             function()
-                return _action.priority ~= nil and _action.priority ~= Constants.DEFAULT_PRIORITY;
+                return _action.priority ~= nil and _action.priority ~= Constants.DEFAULT_IMPORTANCE;
             end,
             nil, instruction
         );
 
-        for i = Constants.MIN_PRIORITY, Constants.MAX_PRIORITY do
+        for i = Constants.MIN_IMPORTANCE, Constants.MAX_IMPORTANCE do
             -- 저장할 값으로 바꾸는 것은 Ordering.lua 한 군데다. 기본값을 nil로 접는 규칙이
             -- 여기에도 손으로 적혀 있었는데, 같은 규칙이 두 군데 있으면 한쪽만 바뀐다.
-            local value = DebindPrivate.PriorityToStored(i);
-            description:CreateRadio(LLL["PRIORITY" .. i],
+            local value = DebindPrivate.ImportanceToStored(i);
+            description:CreateRadio(LLL["IMPORTANCE" .. i],
                 function()
                     return _action.priority == value or _action.priority == i;
                 end,
@@ -1568,7 +1568,7 @@ do
         -- window, so a colour spent on it says the same thing on nearly every menu that opens, and a
         -- mark that is always on marks nothing. Where a shared layer actually costs something is the
         -- one entry that reaches every character on the account, and that entry carries the warning
-        -- in words (`PRIORITY_SHARED_WARNING`).
+        -- in words (`IMPORTANCE_SHARED_WARNING`).
         --
         -- The blue is a state and not a property, which is why it keeps the slot. It is on for as
         -- long as the reader has not answered, it comes off the moment they do, and it is the same
@@ -1669,7 +1669,7 @@ do
 
         CreateKeepInBindingContextMenuItem(rootDescription);
 
-        CreatePriorityMenu(rootDescription);
+        CreateImportanceMenu(rootDescription);
 
         CreateMoveCopyMenu(rootDescription, false, _elementData.layer, function(destLayerID, isCopy)
             DebindUI.MoveAction(_elementData, destLayerID, isCopy);
@@ -1920,7 +1920,7 @@ do
     ---
     --- 단일 메뉴의 나머지(키·조건·중요도)는 여기 안 넣는다. 그 값들은 한꺼번에 걸 수 있는
     --- 것이 아니다 - 조건은 액션마다 뜻이 다르고, 중요도는 이 액션이 걸린 **모든 키**와 공유
-    --- 레이어면 이 계정의 **모든 캐릭터**까지 건드린다(`PRIORITY_SHARED_WARNING`). 그런 것을
+    --- 레이어면 이 계정의 **모든 캐릭터**까지 건드린다(`IMPORTANCE_SHARED_WARNING`). 그런 것을
     --- 열 줄에 한 번에 거는 통로는 되돌릴 수도 없다.
     ---
     --- 고른 것은 전부 **같은 레이어**에 있다. 오른쪽 목록이 한 레이어만 담기 때문이고

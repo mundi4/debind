@@ -225,7 +225,7 @@ end
 ---
 --- 문장은 세 마디다: **누가 쓰는가**, **무엇보다 우선하는가**, 그리고 **언제 그 말이 안
 --- 맞는가.** 셋째가 없으면 앞의 둘이 거짓말이 된다 - 레이어는 실행 순서의 네 번째 축이라
---- (`PRIORITY_DESC`: 중요도 → 마우스 올림 → 조건 → 탭 → 순서), 조건이 붙은 공유/일반 액션이
+--- (`IMPORTANCE_DESC`: 중요도 → 마우스 올림 → 조건 → 탭 → 순서), 조건이 붙은 공유/일반 액션이
 --- 조건 없는 공유/야성 액션보다 먼저 실행된다. 중요도를 건드렸으면 더 그렇다.
 ---
 --- 그 절이 왜 조건과 중요도만 세는지, 왜 이 길이를 받아들이는지는 로케일 쪽 주석에 있다
@@ -1896,10 +1896,6 @@ end
 DebindLayerPanelMixin = {};
 DebindFrameMixin = {};
 
---- **Nothing here names the tab.** The label on screen comes from `GetSideTabLabel`, and
---- `DebindSideTabMixin:OnEnter` builds the tooltip out of that. This used to park a second name
---- beside it in `tab.tooltip` -- read by nobody, and off the spellbook skill lines rather than off
---- our own labels, so the two could drift without anything showing it.
 function DebindLayerPanelMixin:InitializeSideTabs()
 	self.SideTabs = self.SideTabsFrame.Tabs;
 	for i, tab in ipairs(self.SideTabs) do
@@ -3364,20 +3360,14 @@ function DebindLayerPanelMixin:ScrollActionIntoView(action)
 	return elementData;
 end
 
---- 순서 목록이 가리키는 액션으로 화면을 옮긴다. 그 액션이 사는 탭을 열고, 왼쪽 목록에서
---- 골라 상세 패널까지 그 액션의 것으로 바꾼다.
+--- **Why the order list carries the reader over instead of editing in place.** Editing an action
+--- needs its context: its tab, its neighbours, its own order list. Someone who came to change an
+--- order and changes a layer they are not looking at, through a popup that says nothing about where
+--- that layer is, is the accident this screen invites most.
 ---
---- 순서 목록이 남의 액션을 여기서 고치지 않고 데려다 주는 이유는, 고치려면 그 액션의
---- 맥락 - 자기 탭, 자기 이웃, 자기 순서 목록 - 이 필요하기 때문이다. 순서만 만지려던
---- 사람이 보고 있지도 않은 레이어를 팝업 하나로 바꾸는 것이 이 화면에서 가장 나기 쉬운
---- 사고고, 그 팝업에는 그게 어디 것인지 말해주는 게 아무것도 없다.
----
---- 돌아오는 길은 대개 열려 있다. 같은 키의 순서 목록이라 방금 떠나온 액션도 거기 들어
---- 있다. (다른 특성의 레이어로 건너뛰면 그쪽 목록은 현재 특성 기준으로 계산되므로 안
---- 보일 수 있다.)
---- **오버뷰 탭에서는 탭을 안 옮긴다.** 그 목록에는 활성 레이어가 전부 있으므로 찾아갈
---- 액션이 이미 화면에 있고, 그런데도 레이어 탭으로 보내면 데려다 준 것이 아니라 보던
---- 것을 빼앗은 것이 된다. 목록에 없으면(문제 필터가 걸러낸 행) 평소대로 옮긴다.
+--- The way back is usually open, because the order list of the same key holds the action just left.
+--- Crossing to another specialization's layer can close it, since that list is computed against the
+--- current specialization.
 function DebindFrameMixin:GoToAction(action, layerID)
 	if (not TryCloseAnyDialog()) then
 		return;
@@ -3725,9 +3715,11 @@ function DebindFrameMixin:SetTab(id)
 	self:Update();
 end
 
---- elementData를 주면 버튼 대신 그것으로 연다. 순서 목록이 자기 행 대신 **왼쪽 목록이
---- 만든** elementData를 넘기기 위한 통로다 - 메뉴가 읽는 layer/index는 저쪽 소유의 값이라
---- 모양을 흉내내면 저쪽이 바뀔 때 조용히 어긋난다.
+--- **The `elementData` parameter is there because the button's own can be stale by now.** The
+--- right-click path closes dialogs before opening the menu, and a macro body saved on the way out
+--- rebuilds the list, so it refetches and passes the fresh table
+--- (`CloseDialogsAndRefetchElementData`). The menu reads layer and index off whatever it is handed,
+--- and a stale one points at somebody else's seat.
 function DebindFrameMixin:ShowEditDropdown(button, elementData)
 	elementData = elementData or button:GetElementData();
 	local action = elementData.action;
@@ -3758,7 +3750,7 @@ end
 ---
 --- `ShowEditDropdown`과 갈라 둔 이유는 겨누는 것이 다르기 때문이다. 저쪽은 elementData
 --- 하나를 들고 그 액션의 조건·중요도·키까지 만지는데, 그 값들은 여럿에 한꺼번에 걸 수 있는
---- 것이 아니다(중요도는 이 계정의 모든 캐릭터에 걸친다 - `PRIORITY_SHARED_WARNING`).
+--- 것이 아니다(중요도는 이 계정의 모든 캐릭터에 걸친다 - `IMPORTANCE_SHARED_WARNING`).
 --- 여기는 이동·복사·삭제 셋뿐이라 액션 목록만 있으면 된다.
 ---
 --- `contextMenuAction`은 안 세운다. 그건 "이 행의 메뉴가 떠 있다"는 표시로 행 강조에
@@ -4733,8 +4725,8 @@ function BuildKeyboardElements()
 			end
 			if (next) then
 				reason = DebindPrivate.GetDecidingOrderAxis(row, next) or "SEQ";
-				if (reason == "PRIORITY") then
-					argA = LLL["PRIORITY" .. row.priority];
+				if (reason == "IMPORTANCE") then
+					argA = LLL["IMPORTANCE" .. row.priority];
 				elseif (reason == "LAYER") then
 					argA, argB = GetLayerShortName(row.layerID), GetLayerShortName(next.layerID);
 				end
@@ -5579,7 +5571,7 @@ end
 --- Is any of what already holds the key **shared with other characters**.
 ---
 --- The layer's own `isCharacterSpecific`, which is the same question the importance menu asks before
---- it warns (`PRIORITY_SHARED_WARNING`). Two of the eleven layers belong to the class and one to the
+--- it warns (`IMPORTANCE_SHARED_WARNING`). Two of the eleven layers belong to the class and one to the
 --- account, so "take the key from them" can reach every character the reader has - and the count in
 --- the prompt above cannot show that on its own.
 local function AnySharedOccupant(occupants)
@@ -6068,13 +6060,6 @@ function DebindStateDriverUpdateThrottleSliderMixin:UpdateVisibleState()
 	self.Slider:UpdateVisibleState();
 end
 
---- The whole of what other files reach into this one for. **Almost all of it is the row menus**
---- (`DropDownMenus.lua`) -- the menu decides and this file acts, so every answer a menu offers on a
---- row arrives back here. `ShowInputBox` belongs to the switches tab (`SwitchesUI.lua`), and
---- `GetLayerID` answers "which tab is open" for anyone who asks.
----
---- It was marked `-- temp` from the day it went in and none of it turned out to be. Kept as one
---- block rather than assigned beside each definition, so the size of the surface can be read at once.
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.MoveAction = MoveAction;
 DebindUI.MoveActions = MoveActions;

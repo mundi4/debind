@@ -2152,7 +2152,7 @@ function DebindPrivate.CleanUpDB()
                     action.conditions = nil;
                 end
             end
-            if (action.priority == Constants.DEFAULT_PRIORITY) then
+            if (action.priority == Constants.DEFAULT_IMPORTANCE) then
                 action.priority = nil;
             end
 

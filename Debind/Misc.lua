@@ -833,7 +833,7 @@ end
 function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     local binding = GetBindingInfoForAction(action);
     dest = dest or {};
-    dest.priority = action.priority or Constants.DEFAULT_PRIORITY;
+    dest.priority = action.priority or Constants.DEFAULT_IMPORTANCE;
     dest.hover = binding.hover;
     dest.isConditional = DebindPrivate.IsConditionalBinding(binding);
     dest.layerRank = layerRank;

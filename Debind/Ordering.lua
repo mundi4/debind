@@ -1,7 +1,7 @@
 local _, DebindPrivate = ...;
 local Constants          = DebindPrivate.Constants;
 
-local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
+local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 
 -- 순서 규칙만 모아둔 파일. **WoW API를 부르지 말 것** - 헤드리스 테스트
 -- (tests/ordering_spec.lua)가 이 파일을 그대로 로드한다.
@@ -15,7 +15,7 @@ local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
 --- one (`BuildKeyMap`, `MakeRow`, `RenumberKeyGroup`) and none of them spells the fields out.
 ---
 --- Record fields: priority, hover, isConditional, layerRank, specRank, seq
----   priority      - `Constants.DEFAULT_PRIORITY` when nil
+---   priority      - `Constants.DEFAULT_IMPORTANCE` when nil
 ---   hover         - **the raw value.** false and nil mean different things (false is a condition
 ---                   that says "not hovering" out loud, so it counts as one). Do not fold it to a
 ---                   boolean on the way in
@@ -41,10 +41,10 @@ local DEFAULT_PRIORITY   = Constants.DEFAULT_PRIORITY;
 --- write. Do not touch it. specRank slipping in does not break that rule - everything that actually
 --- fires is in an active layer, so that step is always a tie for them.
 function DebindPrivate.CompareActionOrder(lhs, rhs)
-    local lhsPriority = lhs.priority or DEFAULT_PRIORITY;
-    local rhsPriority = rhs.priority or DEFAULT_PRIORITY;
-    if (lhsPriority ~= rhsPriority) then
-        return lhsPriority < rhsPriority;
+    local lhsImportance = lhs.priority or DEFAULT_IMPORTANCE;
+    local rhsImportance = rhs.priority or DEFAULT_IMPORTANCE;
+    if (lhsImportance ~= rhsImportance) then
+        return lhsImportance < rhsImportance;
     end
 
     if (lhs.hover ~= nil and rhs.hover == nil) then
@@ -92,8 +92,8 @@ end
 
 --- 저장할 priority 값. 기본값이면 nil이다 - CleanUpDB가 어차피 지운다
 --- (Profile.lua:286-287). UI가 저장하기 전에 반드시 이걸 거친다.
-function DebindPrivate.PriorityToStored(priority)
-    if (priority == nil or priority == DEFAULT_PRIORITY) then
+function DebindPrivate.ImportanceToStored(priority)
+    if (priority == nil or priority == DEFAULT_IMPORTANCE) then
         return nil;
     end
     return priority;
@@ -103,12 +103,12 @@ end
 --- 동률이면) nil이다. CompareActionOrder와 판정이 한 글자도 어긋나면 안 된다.
 ---
 --- 순서 UI가 이걸 쓰는 이유: 비교자의 각 단계는 그 자체로 뜻이 있는 속성이고, 각각 자기
---- 뜻이 사는 자리에서 바뀐다(우선순위 메뉴 / 조건 편집 / 레이어 이동). 그 넷 중 아무것도
+--- 뜻이 사는 자리에서 바뀐다(중요도 메뉴 / 조건 편집 / 레이어 이동). 그 넷 중 아무것도
 --- 안 갈렸을 때 남는 것이 seq이고, 정렬 버튼이 만지는 것도 그것뿐이다. 나머지에서 갈렸다면
 --- 버튼은 손을 떼고 **어느 속성이 정하고 있는지**만 말해야 한다.
 function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
-    if ((lhs.priority or DEFAULT_PRIORITY) ~= (rhs.priority or DEFAULT_PRIORITY)) then
-        return "PRIORITY";
+    if ((lhs.priority or DEFAULT_IMPORTANCE) ~= (rhs.priority or DEFAULT_IMPORTANCE)) then
+        return "IMPORTANCE";
     end
 
     -- hover는 false와 nil이 다른 뜻이다. 비교자와 같은 기준으로 본다.
@@ -159,7 +159,7 @@ end
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
 ---   "IMPORTED" | "SPEC" - 대상이 이 키의 순서에 없다(`IsRowInOrder`)
----   "PRIORITY" | "HOVER" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
+---   "IMPORTANCE" | "HOVER" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
 --- 일이 없지만, 이 함수는 "못 하면 이유를 돌려준다"고 약속해 놓고 대신 터지면 안 된다.

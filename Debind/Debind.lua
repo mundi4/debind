@@ -146,10 +146,10 @@ do
 		wipe(BindingInfoToActionMap);
 		DebindPrivate.ClearUnreachableBindingCache();
 
-		-- **Both numbers are wanted, which is why the layers are walked here.** `layerRank` goes
-		-- to the order record and the flat `ordinal` to `ActiveActions`; an enumerator handing
-		-- over one count with the rank already folded into it would have to be undone at the
-		-- comparator.
+		-- **The layers are walked here rather than through an enumerator because both numbers are
+		-- wanted.** `layerRank` goes to the order record and the flat `ordinal` to `ActiveActions`,
+		-- and anything handing over one count with the rank folded in would have to be undone at
+		-- the comparator.
 		local ordinal = 0;
 		for layerRank, layer in DebindPrivate.EnumerateProfileLayers() do
 			for _, action in layer:Enumerate() do

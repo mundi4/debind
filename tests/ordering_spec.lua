@@ -442,8 +442,8 @@ return function(DebindPrivate)
         check(reason == axis, axis .. ": 이유가 " .. axis .. "여야 함, 받은 값: " .. tostring(reason));
     end
 
-    test("막힘 - 밴드가 다르면 PRIORITY", function()
-        expectBlocked(rec({ name = "t" }), rec({ name = "n", priority = 2 }), "PRIORITY");
+    test("막힘 - 밴드가 다르면 IMPORTANCE", function()
+        expectBlocked(rec({ name = "t" }), rec({ name = "n", priority = 2 }), "IMPORTANCE");
     end);
 
     test("막힘 - hover 여부가 다르면 HOVER", function()
@@ -485,8 +485,8 @@ return function(DebindPrivate)
         check(reason == "SPEC", "위로 갈 때 이유가 " .. tostring(reason));
     end);
 
-    test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 PRIORITY)", function()
-        expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", priority = 2, layerRank = 1 }), "PRIORITY");
+    test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 IMPORTANCE)", function()
+        expectBlocked(rec({ name = "t", layerRank = 2 }), rec({ name = "n", priority = 2, layerRank = 1 }), "IMPORTANCE");
     end);
 
     test("GetDecidingOrderAxis - 전부 같으면 nil", function()
@@ -494,11 +494,11 @@ return function(DebindPrivate)
         check(axis == nil, "nil이어야 함, 받은 값: " .. tostring(axis));
     end);
 
-    test("PriorityToStored - 기본값은 저장하지 않는다", function()
-        check(DebindPrivate.PriorityToStored(3) == nil, "3은 nil로");
-        check(DebindPrivate.PriorityToStored(nil) == nil, "nil은 nil로");
-        check(DebindPrivate.PriorityToStored(1) == 1, "1은 그대로");
-        check(DebindPrivate.PriorityToStored(5) == 5, "5는 그대로");
+    test("ImportanceToStored - 기본값은 저장하지 않는다", function()
+        check(DebindPrivate.ImportanceToStored(3) == nil, "3은 nil로");
+        check(DebindPrivate.ImportanceToStored(nil) == nil, "nil은 nil로");
+        check(DebindPrivate.ImportanceToStored(1) == 1, "1은 그대로");
+        check(DebindPrivate.ImportanceToStored(5) == 5, "5는 그대로");
     end);
 
     ---------------------------------------------------------------------------

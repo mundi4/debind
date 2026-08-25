@@ -1149,8 +1149,13 @@ function DebindStoragePanelMixin:OnAddClicked(accept)
         selection = self.selected,
     });
 
+    -- **The second return is a reason code while the first is nil, and a count once it is not.**
+    -- `CommitEntry` answers a failure the way the rest of `Import.lua` does (`nil, reason`), so one
+    -- slot carries both and `placed` is the only thing telling them apart. This early return is what
+    -- keeps a reason code out of the count below.
     if (not placed) then
-        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[skipped] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
+        local reason = skipped;
+        DebindPrivate.DisplayMessage(LLL[REASON_TEXT[reason] or "IMPORT_FAILED_DAMAGED"], 1, 0, 0);
         return;
     end
 

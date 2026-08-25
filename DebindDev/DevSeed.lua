@@ -122,7 +122,7 @@ SEEDS[5] = function(guid)
                 -- Enough conditions on one action that its tooltip has to lay several out at once.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
                     combat = true, groups = Constants.GROUP_PARTY,
-                    priority = Constants.MAX_PRIORITY, ["$state1"] = true },
+                    priority = Constants.MAX_IMPORTANCE, ["$state1"] = true },
                 --- **The target, which is `action.unit` and not a condition.** Without one of
                 --- these the row's `@unit` suffix, the tooltip's target line and the target menu
                 --- are all unreachable in a seeded profile. `TARGET` is used because it takes a
@@ -360,7 +360,7 @@ SEEDS[6] = function(guid)
                         units = { hover = { reaction = Constants.REACTION_HELP, dead = false } } } },
                 -- Enough conditions on one action that its tooltip has to lay several out at once.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
-                    priority = Constants.MAX_PRIORITY,
+                    priority = Constants.MAX_IMPORTANCE,
                     conditions = { combat = true, groups = Constants.GROUP_PARTY,
                         ["$state1"] = true } },
                 --- **The target, which is `action.unit` and not a condition.** It stays at the

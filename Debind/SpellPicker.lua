@@ -236,13 +236,10 @@ function DebindSpellPickerFrameMixin:OnLoad()
 
 	self:SetTitle(LLL["SPELL_PICKER_TITLE"]);
 
-	-- **The main window's portrait, and the same constant it reads.** This used to be the spellbook
-	-- icon, from when the window held nothing but spells -- macros, mounts, toys, commands and
-	-- specials stand beside them now, and a spellbook does not speak for that list.
-	--
-	-- There is a road where the icon follows the tab, and it is not taken. It becomes six pictures
-	-- to choose, and a portrait that changes **reads as a different window** -- a tab is a move
-	-- inside one. Wearing the main window's says "this is a thing you put in there" as well.
+	-- **Not the spellbook icon, and not one per tab.** The spellbook spoke for this window when it
+	-- held nothing but spells, and macros, mounts, toys, commands and specials stand beside them
+	-- now. Following the tab would mean six pictures to choose, and a portrait that changes reads as
+	-- a different window when a tab is a move inside one.
 	self:SetPortraitToAsset(Constants.ADDON_ICON);
 
 	self:RegisterForDrag("LeftButton");

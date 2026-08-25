@@ -32,7 +32,7 @@ action
     unit                겨누는 대상. `UNIT_INFO`의 키. **조건이 아니다** (§2)
     seq                 자기 키 그룹 안에서의 자리, 1..n. 그룹이 바뀔 때마다 다시 매겨진다
                         (`Profile.lua`의 `RenumberKeyGroup`)
-    priority            숫자. 없으면 `Constants.DEFAULT_PRIORITY`
+    priority            숫자. 없으면 `Constants.DEFAULT_IMPORTANCE`
     imported            도착한 키. **이게 있는 동안 이 액션은 격리된다.** 프로필에 있고,
                         그려지고, 아무 키에도 안 걸린다 (`BuildKeyMap`)
     keepInBindingContext

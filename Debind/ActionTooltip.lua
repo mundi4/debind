@@ -503,9 +503,9 @@ do
 			end
 		end
 
-		if (action.priority and action.priority ~= Constants.DEFAULT_PRIORITY) then
-			addLabelLine(tooltip, LLL["PRIORITY"]);
-			addValueLine(tooltip, LLL["PRIORITY" .. action.priority]);
+		if (action.priority and action.priority ~= Constants.DEFAULT_IMPORTANCE) then
+			addLabelLine(tooltip, LLL["IMPORTANCE"]);
+			addValueLine(tooltip, LLL["IMPORTANCE" .. action.priority]);
 		end
 
 		-- 중요도 바로 밑에 둔다. 둘 다 순서를 정하는 값이고, 조건들과는 성질이 다르다.
