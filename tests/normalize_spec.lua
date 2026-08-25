@@ -649,5 +649,46 @@ return function(DebindPrivate)
         check(action.units["@"] == true, "액션의 \"@\"가 지워짐");
     end);
 
+    --- **This one classification answers for three readers now**, so it is pinned over its whole
+    --- domain rather than through whichever caller happens to be under test.
+    ---
+    --- It decides what a binding means, what the tooltip says, and -- since the second copy in
+    --- `DropDownMenus.lua`'s `UnitConditionMode` was taken out -- which radio the menu shows. That
+    --- copy is why this exists: two readings of "is this [when there is one] or [when there is
+    --- not]" could part, and the symptom would be a screen that disagrees with the key, which is
+    --- the hardest kind to notice. The menu asks `off` for itself before coming here; nothing else
+    --- is left over there.
+    local function mode(stored)
+        local answer = DebindPrivate.UnitConditionForBinding(stored);
+        if (answer == nil) then
+            return "none";
+        elseif (answer == false) then
+            return "absent";
+        end
+        return "exists";
+    end
+
+    test("유닛 조건 읽기 - 정의역 전체", function()
+        check(mode(nil) == "none", "조건 없음이 없음으로 안 읽힘");
+        check(mode(true) == "exists", "true가 있을 때로 안 읽힘");
+        check(mode(false) == "absent", "false가 없을 때로 안 읽힘");
+        check(mode("help") == "exists", "help가 있을 때로 안 읽힘");
+        check(mode("harm") == "exists", "harm이 있을 때로 안 읽힘");
+        check(mode({}) == "exists", "빈 표가 있을 때로 안 읽힘");
+        check(mode({ reaction = Constants.REACTION_HELP }) == "exists", "반응 표가 있을 때로 안 읽힘");
+        check(mode({ dead = true }) == "exists", "생사 표가 있을 때로 안 읽힘");
+        check(mode({ exists = false }) == "absent", "exists=false가 없을 때로 안 읽힘");
+        check(mode({ off = true }) == "none", "꺼진 축이 없음으로 안 읽힘");
+        -- `off`가 먼저다. 껐다가 되돌릴 때 골라둔 값이 그대로 있어야 하므로 둘이 같이 선다.
+        check(mode({ off = true, exists = false }) == "none", "꺼진 축보다 exists가 먼저 읽힘");
+    end);
+
+    --- **모르는 값을 떨어뜨리면 그 바인딩이 걸어둔 것보다 넓어진다.** 옛 버전이 쓴 스칼라를
+    --- 우리가 모를 수 있고, 조건이 조용히 사라진 바인딩은 남의 키를 가져간다.
+    test("유닛 조건 읽기 - 모르는 스칼라는 좁은 쪽으로", function()
+        check(mode("mostly") == "absent", "모르는 문자열이 없을 때로 안 떨어짐");
+        check(mode(7) == "absent", "모르는 숫자가 없을 때로 안 떨어짐");
+    end);
+
     return T;
 end

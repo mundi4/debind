@@ -26,6 +26,40 @@ end
 
 local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
 
+--- The value a spell goes on a secure button under. **A name and not an id**, because spells share
+--- names across ids (a specialization's own version of a shapeshift), and an id bound here does not
+--- fire for the other one. The subtext is what tells two same-named spells apart, so it comes along
+--- in the client's own parenthesised form.
+---
+--- **Pure, and separate from `GetSpellCastName` for one reason**: `DescribeBinding` has to spell the
+--- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
+--- holds every call in that path). It arrives here with the two halves already in hand.
+---
+--- Nil name in, nil out. The callers fall back to the id, which at least fires for the reader who
+--- is on the specialization that has it.
+function DebindPrivate.ComposeSpellCastName(name, subtext)
+    if (not name) then
+        return nil;
+    end
+    if (subtext and subtext ~= "") then
+        return name .. "(" .. subtext .. ")";
+    end
+    return name;
+end
+
+local ComposeSpellCastName = DebindPrivate.ComposeSpellCastName;
+
+--- The same value, asked of the client. **The id is taken as given**: each caller resolves its own,
+--- and they do not resolve it alike. A stored action holds whatever id the reader picked and needs
+--- `FindBaseSpellByID` first; a flyout slot is handed its base id and its override as two separate
+--- returns, so resolving again there would be asking a question already answered.
+function DebindPrivate.GetSpellCastName(spellID)
+    local name = GetSpellNameAndIconID(spellID);
+    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID));
+end
+
+local GetSpellCastName = DebindPrivate.GetSpellCastName;
+
 --- 야수 소환 플라이아웃의 **빈 칸**인가.
 ---
 --- 야수 소환은 슬롯 수가 마구간 칸 수로 고정돼 있어서, 그 자리에 야수가 없어도 슬롯은
@@ -153,14 +187,14 @@ function DebindPrivate.GetFlyoutNameAndIcon(flyoutID, isOffSpec)
 end
 
 
---- 플라이아웃 안에서 **실제로 나갈 수 있는** 슬롯들. 시전에 쓸 값까지 같이 낸다.
+--- The slots of a flyout that can actually fire, with the value to cast each by.
 ---
---- 값이 주문 **이름**인 것은 `UpdateBindings.lua`의 `Constants.SPELL` 갈래와 같은 이유다 -
---- id는 다른데 이름이 같은 주문이 있고(특성별 변신 등), id로 걸면 다른 특성에서 안 나간다.
---- 이름을 못 풀 때만 id로 떨어진다.
+--- **Off-spec slots are refused here**, unlike the list that draws them. These go on a button, and
+--- a spell the reader has not learned does nothing when pressed.
 ---
---- **오프스펙은 여기서 안 받는다.** 목록에 그리는 것과 달리 이건 버튼에 올릴 값이고,
---- 안 배운 주문을 올리면 눌러도 아무 일이 없다.
+--- **Two icons and they are not the same question.** `icon` comes from the slot's own spell so a
+--- slot always has one, `displayIcon` from whatever is overriding it right now, which is the picture
+--- the spellbook draws. Casting still goes by the base spell's name.
 function DebindPrivate.GetFlyoutCastableSlots(flyoutID, out)
     out = out or {};
     wipe(out);
@@ -173,13 +207,8 @@ function DebindPrivate.GetFlyoutCastableSlots(flyoutID, out)
     for slot = 1, numSlots do
         local spellID, overrideSpellID, isKnown, spellName = GetFlyoutSlotInfo(flyoutID, slot);
         if (spellID and isKnown and not IsEmptyCallPetSlot(spellID)) then
-            local castName, icon = GetSpellNameAndIconID(spellID);
-            if (castName) then
-                local subName = GetSpellSubtext(spellID);
-                if (subName and subName ~= "") then
-                    castName = castName .. "(" .. subName .. ")";
-                end
-            end
+            local castName = GetSpellCastName(spellID);
+            local _, icon = GetSpellNameAndIconID(spellID);
 
             local _, displayIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
             tinsert(out, {
@@ -1478,13 +1507,9 @@ function DebindPrivate.ConvertToMacroText(action)
         if (action.type == Constants.SPELL) then
             slashCommand = SLASH_CAST1;
             local spellID = C_SpellBook.FindBaseSpellByID(action.value) or action.value;
-            spellOrItemName, icon = GetSpellNameAndIconID(spellID);
-            if (spellOrItemName) then
-                local subSpellName = GetSpellSubtext(spellID);
-                if (subSpellName and subSpellName ~= "") then
-                    spellOrItemName = spellOrItemName .. "(" .. subSpellName .. ")";
-                end
-            end
+            local _, spellIcon = GetSpellNameAndIconID(spellID);
+            icon = spellIcon;
+            spellOrItemName = GetSpellCastName(spellID);
             name = spellOrItemName;
         else
             slashCommand = SLASH_USE1;

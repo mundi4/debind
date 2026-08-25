@@ -42,15 +42,7 @@ DebindSpellPickerRowMixin = {};
 function DebindSpellPickerRowMixin:Init(elementData)
 	self.entry = elementData;
 
-	-- 아이콘은 파일·ID **또는 아틀라스**다. `"A:"`로 시작하면 아틀라스라는 것이 이 애드온의
-	-- 규약이고(`NameAndIconForAction`), 명령처럼 아이콘 파일이 없는 타입이 그걸 쓴다.
-	-- 왼쪽 목록의 행도 같은 분기를 갖고 있다 - 여기만 빼먹으면 그 줄만 아이콘이 빈다.
-	local icon = elementData.icon;
-	if (type(icon) == "string" and icon:sub(1, 2) == "A:") then
-		self.Icon:SetAtlas(icon:sub(3));
-	else
-		self.Icon:SetTexture(icon);
-	end
+	DebindUI.SetActionIcon(self.Icon, elementData.icon);
 
 	self.Name:SetText(elementData.name);
 

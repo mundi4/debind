@@ -472,26 +472,33 @@ do
         return value.reaction;
     end
 
-    --- 위쪽 라디오 셋 중 어느 것이 켜져 있는가. 조건을 만든 적이 없으면 `nil`.
-    --- 표시가 없는 표는 "있을 때"다 - `Misc.UnitConditionForBinding`의 기본값과 같아야 한다.
+    --- Which of the three radios above is on, `nil` where no condition was ever made.
+    ---
+    --- **The reading is `UnitConditionForBinding`'s and not a second one.** This used to spell the
+    --- same fork out again -- scalars first, then `off`, then `exists == false` -- with a comment
+    --- saying the two had to agree, which nothing could check: that function is reached by the
+    --- headless specs and this file is not (`tests/run.lua`). The day they parted, the screen would
+    --- have said [when there is one] while the binding meant [when there is not], and only somebody
+    --- pressing the key would have found out. `ActionTooltip.lua` reads unit conditions the same
+    --- way, for the same reason.
+    ---
+    --- **`off` is the one thing that function cannot answer.** It folds a turned-off condition and
+    --- an absent one both to `nil`, which is right for a binding and wrong for a menu: this screen
+    --- has to keep showing the axes a reader turned off but did not throw away. So it is asked here,
+    --- ahead of the shared reading.
     local function UnitConditionMode(unit)
-        local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
+        local units = UnitConditionsOf(_action);
+        local value = units and units[unit];
         if (value == nil) then
             return nil;
         end
-        if (type(value) ~= "table") then
-            -- 아직 안 옮겨진 스칼라. 메뉴에서 무엇이든 고르면 표로 올라간다.
-            -- **`UnitConditionForBinding`과 같은 답을 내야 한다** - 모르는 값까지 포함해서.
-            -- 한쪽이 "있을 때", 다른 쪽이 "없을 때"로 읽으면 화면과 판정이 갈린다.
-            if (value == true or value == "help" or value == "harm") then
-                return "exists";
-            end
-            return "absent";
-        end
-        if (value.off) then
+        if (type(value) == "table" and value.off) then
             return "off";
         end
-        return value.exists == false and "absent" or "exists";
+        if (DebindPrivate.UnitConditionForBinding(value) == false) then
+            return "absent";
+        end
+        return "exists";
     end
 
     local function UnitConditionIsExists(unit)

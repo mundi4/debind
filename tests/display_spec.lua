@@ -174,5 +174,49 @@ return function(DebindPrivate)
                 "picking a switch was not enough to make the action bind");
         end);
 
+    --- **An icon is a file id or an atlas name, and the `A:` prefix is the only thing telling them
+    --- apart.** Handing an atlas to `SetTexture` draws nothing and raises nothing, so a caller that
+    --- misses the fork leaves one blank square on one screen and says so nowhere.
+    ---
+    --- Seven callers draw an action's icon and they all go through `SetActionIcon` now, which is
+    --- what makes the convention worth pinning here: with one reader left, the way to break it is to
+    --- change what the writers emit, and those two lines sit in the same file.
+    local function drawnBy(icon)
+        local drawn;
+        local texture = {
+            SetAtlas = function(_, atlas) drawn = { how = "atlas", value = atlas }; end,
+            SetTexture = function(_, tex) drawn = { how = "texture", value = tex }; end,
+        };
+        DebindPrivate.DebindUI.SetActionIcon(texture, icon);
+        return drawn;
+    end
+
+    test("an atlas icon is drawn as an atlas, a file id as a texture", function()
+        local atlas = drawnBy("A:common-icon-undo");
+        check(atlas.how == "atlas", "an A: icon went to SetTexture");
+        check(atlas.value == "common-icon-undo", "the A: prefix was not taken off");
+
+        local file = drawnBy(135953);
+        check(file.how == "texture", "a file id went to SetAtlas");
+        check(file.value == 135953, "the file id was altered on the way");
+
+        -- A nil clears the texture rather than being skipped, which is what makes a row that lost
+        -- its action go blank instead of keeping the last one's picture.
+        check(drawnBy(nil).how == "texture", "a nil icon did not reach SetTexture");
+    end);
+
+    --- The two types with no icon file of their own. **If either stops emitting `A:`**, the fork
+    --- above is still correct and the picture is still wrong, so what they emit is asked here.
+    test("the two iconless types come back with an atlas", function()
+        local _, command = DebindPrivate.DebindUI.NameAndIconForAction(
+            { type = Constants.COMMAND, value = "TOGGLEGAMEMENU" });
+        check(type(command) == "string" and command:sub(1, 2) == "A:",
+            "a binding command's icon is not an atlas: " .. tostring(command));
+
+        local _, unused = DebindPrivate.DebindUI.NameAndIconForAction({ type = Constants.UNUSED });
+        check(type(unused) == "string" and unused:sub(1, 2) == "A:",
+            "an unused action's icon is not an atlas: " .. tostring(unused));
+    end);
+
     return T;
 end

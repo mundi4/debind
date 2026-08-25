@@ -367,8 +367,11 @@ end
 --- atlas name behind an `A:` prefix, and `SetTexture` on one of those draws nothing and raises
 --- nothing - the icon is simply blank, which is only ever noticed by someone looking at that row.
 ---
---- One function because three lists now draw actions: the layer list, the order list, and the
---- sharing window in `DebindStorage`. It is exported for that last one.
+--- **One function, and the whole convention lives in this file.** The only two places that put an
+--- `A:` on an icon are a few lines above; this is the only place that takes one off. Seven callers
+--- across five files draw an action's icon, and the branch was written out by hand in several of
+--- them at one point -- the drag portrait was missing it, so dragging a command action carried a
+--- blank square around while every list showed the picture correctly.
 local function SetActionIcon(texture, icon)
 	if (luatype(icon) == "string" and icon:sub(1, 2) == "A:") then
 		texture:SetAtlas(icon:sub(3));

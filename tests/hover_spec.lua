@@ -560,5 +560,76 @@ return function(DebindPrivate, _, ctx)
             "a crossing was dropped at a throttle that is not zero");
     end);
 
+    ---------------------------------------------------------------------------
+    -- The two ladders that turn a hovered unit into a reaction
+    ---------------------------------------------------------------------------
+
+    --- **Two snippets answer this and they are written out separately**: `setup_onenter` in
+    --- `SecureBindings.lua` when the cursor arrives, and the hover block the rebuild generates in
+    --- `UpdateBindings.lua` for a unit that changes under a cursor that never moves. Neither can go
+    --- -- the poll is blind to a crossing until its next beat, and enter never fires for a raid
+    --- frame that re-sorts under a still cursor.
+    ---
+    --- **They cannot be made one piece of text, which is why they are held together here instead.**
+    --- The first is baked and carries `CONSTANTS.REACTION_*` tokens; the second is built at runtime,
+    --- never reaches `BakeSnippet`, and formats the numbers in itself. Splicing one fragment into
+    --- both takes the ladder out of `check:snippets` (the extractor resolves `_SNIPPET` locals in
+    --- the same file, not a call), and folding the constants for the runtime half puts `2^0` through
+    --- `tostring` -- which is `1` under lua5.1 and `1.0` under fengari, so a golden would say
+    --- something different depending on which one ran it.
+    ---
+    --- **They parted once.** The poll's last branch said `REACTION_NONE`, a bit outside
+    --- `REACTION_ALL` (`Solver.lua`) that no mask a reader can build ever matches. Every hover
+    --- binding carrying a reaction restriction was right the instant the cursor arrived and went
+    --- dead on the first poll tick, on exactly the targets that fall to the last branch: friendly
+    --- NPCs, corpses, totems.
+    local function reactionOnArrival(unit)
+        Bind({
+            action({ value = 585, key = "F1", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+        });
+        unitFrame:SetAttribute("unit", unit);
+        interp:hoverEnter(unitFrame);
+        return interp.env.States.unitframe and interp.env.States.unitframe.reaction;
+    end
+
+    --- Wipes what the arrival wrote and lets the poll fill it back in. **The frame is left in the
+    --- slot** because that is the state the poll is for: cursor still, unit changed under it.
+    local function reactionOnPoll()
+        local unitframe = interp.env.States.unitframe;
+        check(unitframe, "전제가 깨졌다. 폴링을 돌리기 전에 호버 슬롯이 비어 있다");
+        unitframe.unit = nil;
+        unitframe.reaction = nil;
+        interp:pollStates();
+        return unitframe.reaction;
+    end
+
+    local REACTIONS = {
+        { name = "help", world = "help", expected = Constants.REACTION_HELP },
+        { name = "harm", world = "harm", expected = Constants.REACTION_HARM },
+        -- Neither helpable nor attackable: the branch the divergence killed.
+        { name = "other", world = "neutral", expected = Constants.REACTION_OTHER },
+    };
+
+    test("arrival and the poll read the same reaction off the same unit", function()
+        for i = 1, #REACTIONS do
+            local case = REACTIONS[i];
+            shim.world.spells[585] = { name = "Renew" };
+            shim.world.units = {
+                party1 = { id = "p1", reaction = case.world, inParty = true },
+            };
+
+            local onArrival = reactionOnArrival("party1");
+            check(onArrival == case.expected,
+                ("arrival read %s for a %s unit, not %s"):format(
+                    tostring(onArrival), case.name, tostring(case.expected)));
+
+            local onPoll = reactionOnPoll();
+            check(onPoll == onArrival,
+                ("the poll read %s for a %s unit where arrival read %s"):format(
+                    tostring(onPoll), case.name, tostring(onArrival)));
+        end
+    end);
+
     return T;
 end

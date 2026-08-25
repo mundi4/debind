@@ -23,6 +23,12 @@ local InCombatLockdown                   = InCombatLockdown;
 local FindBaseSpellByID                  = C_SpellBook.FindBaseSpellByID;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
+--- The pure half of `Misc.lua`'s pair. **The other half asks the client and cannot be used here**:
+--- `DescribeBinding` is reached with a world already collected, and a spec hands it plain values.
+-- The pure half of the pair in `Misc.lua`. **The other half asks the client and may not be used
+-- here**: `DescribeBinding` is reached with the world already collected, and a spec hands it plain
+-- values rather than standing an API up.
+local ComposeSpellCastName               = DebindPrivate.ComposeSpellCastName;
 local IsPressHoldReleaseSpell            = C_Spell.IsPressHoldReleaseSpell;
 local GetMountInfoByID                   = C_MountJournal.GetMountInfoByID;
 
@@ -336,8 +342,11 @@ function addMacrotextBinding(buttonOrStateName, macrotext)
     _macrotextBindings[buttonOrStateName] = addMacrotext(macrotext)
 end
 
+-- **`> 0`, because `select("#")` answers `0` and `0` is true in Lua.** The guard never held, so a
+-- string with no arguments still went through `format` -- which is only survivable while every such
+-- string is free of `%`. One that is not would raise from inside a rebuild.
 local function appendLine(str, ...)
-    if (select("#", ...)) then
+    if (select("#", ...) > 0) then
         _strArr[#_strArr + 1] = format(str, ...);
     else
         _strArr[#_strArr + 1] = str or "";
@@ -991,15 +1000,8 @@ local function DescribeBinding(type, value, unit, facts, out)
 
     if (type == Constants.SPELL) then
         attr(out, "*type-", "spell");
-        if (facts.spellName) then
-            local spellName = facts.spellName;
-            if (facts.spellSubtext and facts.spellSubtext ~= "") then
-                spellName = spellName .. "(" .. facts.spellSubtext .. ")";
-            end
-            attr(out, "*spell-", spellName);
-        else
-            attr(out, "*spell-", facts.spellID);
-        end
+        attr(out, "*spell-",
+            ComposeSpellCastName(facts.spellName, facts.spellSubtext) or facts.spellID);
 
         -- what if 'IsPressHoldReleaseSpell' value is changed by a talent or something? is there a such situation?
         --
