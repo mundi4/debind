@@ -233,8 +233,17 @@ end
 --
 -- The retry branch below is the only thing that can break that guarantee, and it does not fire at
 -- max level - `GetSpecialization()` already answers when the addon's files load, earlier than
--- ADDON_LOADED. What is **unverified** is the branch having no upper bound: what happens on a
--- character whose spec never arrives. See `.zzz/refactor-candidates.md` 24.
+-- ADDON_LOADED.
+--
+-- **It has no upper bound on purpose.** What it waits for is the login window before the
+-- character's specialization data has been built, and a client where that never arrives is one
+-- where tens of thousands of addons have stopped too - so there is no failure here worth trading
+-- for. A bound would only turn "the bindings came up a little late" into "the bindings never came
+-- up".
+--
+-- Nothing else reaches this branch. A character who has not chosen a specialization yet is on the
+-- initial one rather than on none, so `GetSpecialization()` answers for them as well; Blizzard asks
+-- `IsPlayerInitialSpec()` for that state and never a nil from here.
 function Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED()
     local spec = C_SpecializationInfo.GetSpecialization();
     if (not spec) then

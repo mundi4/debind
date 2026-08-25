@@ -482,10 +482,10 @@ do
     --- pressing the key would have found out. `ActionTooltip.lua` reads unit conditions the same
     --- way, for the same reason.
     ---
-    --- **`off` is the one thing that function cannot answer.** It folds a turned-off condition and
-    --- an absent one both to `nil`, which is right for a binding and wrong for a menu: this screen
-    --- has to keep showing the axes a reader turned off but did not throw away. So it is asked here,
-    --- ahead of the shared reading.
+    --- **`off` is the one thing that function cannot answer.** It conflates a turned-off condition
+    --- with an absent one, answering `nil` for both, which is right for a binding and wrong for a
+    --- menu: this screen has to keep showing the axes a reader turned off but did not throw away.
+    --- So it is asked here, ahead of the shared reading.
     local function UnitConditionMode(unit)
         local units = UnitConditionsOf(_action);
         local value = units and units[unit];
