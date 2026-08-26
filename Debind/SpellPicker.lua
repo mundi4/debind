@@ -10,6 +10,19 @@ local DebindUI           = DebindPrivate.DebindUI;
 --- (0.45로 뒀다가 너무 흐려서 올렸다.)
 local INACTIVE_ALPHA     = 0.75;
 
+--- Which group headings are shut, for this session. A view state and nothing else, which is why
+--- it is neither saved nor per profile: the overview and the storage preview keep theirs the same
+--- way.
+---
+--- **Filed under the category too.** Group names are the category's own words and two of them
+--- collide readily ("일반" is in the spellbook and in the macros), so a name on its own would fold
+--- a tab the reader never touched.
+local _collapsedGroups   = {};
+
+local function CollapseKeyFor(categoryKey, groupName)
+	return (categoryKey or "?") .. "\0" .. groupName;
+end
+
 --- 주문 선택 창.
 ---
 --- **끌어놓기를 없애려고 만든 창이다.** 요즘 주문서(`PlayerSpellsFrame`)는 화면을 거의
@@ -162,12 +175,38 @@ end
 
 DebindSpellPickerHeaderMixin = {};
 
---- 머리글은 격자 때문에 행과 **같은 크기**의 칸을 쓴다(240×38). 글자는 그 칸의 **세로
---- 가운데**에 둔다 - 위나 아래로 붙이면 남는 자리가 한쪽에 몰려서 그쪽만 구멍처럼 보인다.
---- 위에 붙였다가 첫 머리글 아래가 비었고, 아래에 붙였다가 첫 머리글 위가 비었다.
---- 칸 크기를 못 줄이는 이상 없앨 수 있는 여백이 아니라, 양쪽으로 나누는 게 제일 낫다.
+--- One colour for both states, as the storage preview's layer bars do. The bar's own HIGHLIGHT
+--- layer answers the mouse, and a title changing colour alongside it would be a second answer to
+--- the one question.
+---
+--- **The whole bar is the fold button**, the same as the overview's key headings: this template
+--- carries no control of its own and the end cap is the indicator, so letting only that piece be
+--- pressed would part what is visible from what is clickable. The handler goes on through
+--- `SetClickHandler` because the template already holds `OnClick` and hands this out for it.
+function DebindSpellPickerHeaderMixin:OnLoad()
+	self.Bar:SetTitleColor(false, NORMAL_FONT_COLOR);
+	self.Bar:SetTitleColor(true, NORMAL_FONT_COLOR);
+
+	self.Bar:SetClickHandler(function()
+		self:ToggleCollapsed();
+	end);
+end
+
 function DebindSpellPickerHeaderMixin:Init(elementData)
-	self.Label:SetText(elementData.name);
+	self.elementData = elementData;
+	self.Bar:SetHeaderText(elementData.name);
+	self.Bar:UpdateCollapsedState(elementData.collapsed);
+end
+
+--- The list is rebuilt rather than the rows hidden, because the grid takes a heading for one cell
+--- and pads the rest of its line with spacers. A hidden row would leave its cell standing, and
+--- the next group would start halfway across a line.
+function DebindSpellPickerHeaderMixin:ToggleCollapsed()
+	local groupKey = CollapseKeyFor(self.elementData.categoryKey, self.elementData.name);
+	_collapsedGroups[groupKey] = not _collapsedGroups[groupKey] or nil;
+
+	local retainScrollPosition = true;
+	DebindSpellPickerFrame:RefreshList(retainScrollPosition);
 end
 
 --------------------------------------------------------------------------------
@@ -605,7 +644,11 @@ end
 ---
 --- 그룹의 순서는 **처음 나온 순서**이고 그룹 안의 순서는 원본 그대로다. 그래서 이미 뭉쳐서
 --- 오는 소스(주문서의 일반 -> 직업 -> 특성)는 결과가 예전과 똑같다.
-local function BuildDisplayList(entries, out, stride)
+---
+--- **A folded group keeps its heading and drops its entries**, which is how the overview folds
+--- too. A search does not open one: what a fold hides stays hidden until the reader opens it, and
+--- a filter reaching in to undo that would take the state away from the one who set it.
+local function BuildDisplayList(entries, out, stride, categoryKey)
 	wipe(out);
 
 	local order, buckets = {}, {};
@@ -622,7 +665,10 @@ local function BuildDisplayList(entries, out, stride)
 	end
 
 	for _, key in ipairs(order) do
+		local collapsed = false;
 		if (key ~= "") then
+			collapsed = _collapsedGroups[CollapseKeyFor(categoryKey, key)] == true;
+
 			-- **머리글은 언제나 줄 첫 칸이다.** 격자에는 "한 줄 차지"가 없어서
 			-- (`AnchorUtil.GridLayout`은 stride를 고정으로 두고 셀 크기를 하나로 쓴다)
 			-- 자리를 실제로 먹는 빈 칸으로 민다: 줄 가운데면 앞을 채우고, 머리글 뒤에도
@@ -630,15 +676,23 @@ local function BuildDisplayList(entries, out, stride)
 			while (#out % stride ~= 0) do
 				out[#out + 1] = { isSpacer = true };
 			end
-			out[#out + 1] = { isHeader = true, name = key };
+			out[#out + 1] = {
+				isHeader = true,
+				name = key,
+				-- Which tab this heading belongs to, so a click can file the fold under it.
+				categoryKey = categoryKey,
+				collapsed = collapsed,
+			};
 			for _ = 2, stride do
 				out[#out + 1] = { isSpacer = true };
 			end
 		end
 
-		local bucket = buckets[key];
-		for i = 1, #bucket do
-			out[#out + 1] = bucket[i];
+		if (not collapsed) then
+			local bucket = buckets[key];
+			for i = 1, #bucket do
+				out[#out + 1] = bucket[i];
+			end
 		end
 	end
 
@@ -646,7 +700,7 @@ local function BuildDisplayList(entries, out, stride)
 end
 
 --- 목록을 다시 짓는다. 카탈로그가 dirty면 **보고 있는 카테고리만** 여기서 갚는다.
-function DebindSpellPickerFrameMixin:RefreshList()
+function DebindSpellPickerFrameMixin:RefreshList(retainScrollPosition)
 	local categories = ActionCatalog.GetCategories();
 
 	-- 없는 카테고리는 탭을 숨긴다. 소환수 없는 직업에서 빈 탭이 하나 서 있으면 "여기 뭔가
@@ -718,10 +772,16 @@ function DebindSpellPickerFrameMixin:RefreshList()
 		favoritesOnly = options.favoritesOnly,
 	}, self.filteredEntries);
 
-	BuildDisplayList(self.filteredEntries, self.displayList, 2);
+	BuildDisplayList(self.filteredEntries, self.displayList, 2, category and category.key or nil);
 
 	local dataProvider = CreateDataProvider(self.displayList);
-	self.ScrollBox:SetDataProvider(dataProvider, ScrollBoxConstants.DiscardScrollPosition);
+
+	-- **Only a fold keeps the place.** Everything above the folded heading is still there and in
+	-- the same order, so the list only has to shrink in front of the reader. Jumping to the top
+	-- would make them hunt back down for the heading they just pressed. A tab or a search is the
+	-- other case: the list is a different one, and the position left over points at nothing.
+	self.ScrollBox:SetDataProvider(dataProvider,
+		retainScrollPosition and ScrollBoxConstants.RetainScrollPosition or ScrollBoxConstants.DiscardScrollPosition);
 
 	self:UpdateEmptyText();
 end

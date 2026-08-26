@@ -66,39 +66,52 @@
 	</Button>
 
 	<!--
-		목록의 머리글(일반 / 직업 / 특성 / 즐겨찾기 …).
+		A group heading in the list (General / Class / Spec / Favourites …).
 
-		**격자는 이 프레임을 반 칸으로 안다.** `AnchorUtil.GridLayout`은 stride를 고정으로
-		두고 `frames[1]`에서 셀 크기를 한 번 가져다 전부 같은 크기로 놓는다 - 한 줄을 통째로
-		차지하게 만드는 스위치가 없다. 그래서 크기는 행과 **똑같아야** 한다(240×38).
-		안 그러면 이 아래 전부가 어긋난다.
+		**The grid counts this frame as half a row.** `AnchorUtil.GridLayout` holds the stride
+		fixed and reads one cell size out of `frames[1]` for everything, and there is no switch for
+		taking a whole row. So the size has to be exactly a row's (240×38), or everything below it
+		shifts.
 
-		머리글이 오른쪽 칸에 서는 일은 없다. 데이터를 만들 때 앞뒤로 빈 칸을 채워
-		언제나 줄 첫 칸에 오게 한다(SpellPicker.lua의 BuildDisplayList).
+		A heading never stands in the right column. The display list pads spacers before and after
+		it so it always lands in the first cell of a line (`BuildDisplayList` in SpellPicker.lua).
 
-		글자와 구분선은 자기 칸 밖으로 나간다. 프레임 경계는 그리기를 자르지 않으므로
-		(스크롤 자식이 아니다) 오른쪽 칸까지 뻗어서 폭 484짜리 머리글처럼 보인다.
-		아트는 상세 패널의 구역 제목(DebindSectionHeaderTemplate)과 같은 것을 쓴다.
+		**The cell holds the bar instead of being it.** Every piece of
+		`ListHeaderThreeSliceTemplate` hangs off its own frame's corners, and so does the mouse
+		region, so the template only comes out right where the frame is exactly the bar. Inherited
+		onto the cell it would take the cell's 240×38 and the bar would answer the mouse across
+		half of what it draws. This is the shape Blizzard's own grid of groups uses
+		(`HousingBlueprintCollectionGroupTemplate`), and it leaves nothing here to re-anchor.
+
+		x="484" is the two columns: a row's 240 twice, plus the grid's horizontal spacing of 4.
+		Drawing past the cell is fine because frame bounds do not clip a draw and this is not a
+		scroll child; the reader gets one bar across the whole line.
+
+		The art is the bar the overview's key groups and the storage preview's layers already use.
+		Two lists in one addon do not get to look like two different things.
+
+		**It folds, because the bar's end cap is a fold indicator.** That piece is the whole of
+		what this template offers past the art, and a list showing the reader a +/- that answers
+		nothing is worse off than the plain rule it replaced.
 	-->
 	<Frame name="DebindSpellPickerHeaderTemplate" mixin="DebindSpellPickerHeaderMixin" virtual="true">
 		<Size x="240" y="38"/>
-		<Layers>
-			<Layer level="ARTWORK">
-				<FontString parentKey="Label" inherits="GameFontNormalSmall" justifyH="LEFT" maxLines="1">
-					<Anchors>
-						<Anchor point="LEFT" x="4" y="0"/>
-					</Anchors>
-				</FontString>
-				<!-- x="244"가 옆 칸을 건너뛰는 값이다: 행 240 + 가로 간격 4. -->
-				<Texture parentKey="Divider" atlas="Options_HorizontalDivider">
-					<Size y="1"/>
-					<Anchors>
-						<Anchor point="LEFT" relativeKey="$parent.Label" relativePoint="RIGHT" x="8" y="0"/>
-						<Anchor point="RIGHT" x="244" y="0"/>
-					</Anchors>
-				</Texture>
-			</Layer>
-		</Layers>
+		<Frames>
+			<!--
+				Centred rather than pinned to an edge: pinned, the whole 12 piles up on one side
+				and that side reads as a hole. Tried the top (the space under the first heading
+				opened up) and the bottom (the space above it did).
+			-->
+			<Button parentKey="Bar" inherits="ListHeaderThreeSliceTemplate" registerForClicks="LeftButtonUp">
+				<Size x="484" y="26"/>
+				<Anchors>
+					<Anchor point="LEFT"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+		</Scripts>
 	</Frame>
 
 	<!--
