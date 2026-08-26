@@ -97,7 +97,9 @@ local KNOWN_ANY = KNOWN_YES + KNOWN_NO;
 -- Right today, with the margins written down so this does not get re-derived:
 --   forms 10      -- `GetNumShapeshiftForms()`. Druid has the most and is nowhere near it;
 --                    Blizzard's own edit-mode placeholder is 10 (`StanceBar.lua:32`).
---   bonusbars 5   -- vehicle/possess/override bars, a fixed set.
+--   bonusbars 5   -- `GetBonusBarOffset()`, a fixed set. Shapeshift and stance bars plus
+--                    skyriding at 5, which `DropDownMenus.lua` names from flyout 229.
+--                    Not the vehicle/possess/override bars -- those are `specialbar`.
 --   groups 2      -- none/party/raid. Cannot grow.
 --   frameTypes 6  -- ours, not the game's (`FrameRegistry.lua`). Grows only if we grow it,
 --                    and `FRAMETYPE_ALL` is checked against the spec's point space.
