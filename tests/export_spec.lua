@@ -528,17 +528,8 @@ return function(DebindPrivate, DebindStorage)
     ---------------------------------------------------------------------------
     -- The string round trip
     --
-    -- The libraries are stood up for real. Both are pure Lua, so in principle all three runtimes
-    -- see the same code.
-    --
-    -- WARNING: **LibDeflate cannot decompress under fengari.** Real lua 5.1 (luajit) and 5.4 both
-    -- round-trip; only `node tests/run.js` fails inside `DecompressDeflate`. It is neither the
-    -- library nor our code but fengari, and WoW is 5.1 so the game never reaches it.
-    --
-    -- So this splits in two. **Whether our format survives** is checked everywhere using
-    -- LibSerialize alone, and the full trip with compression and encoding runs only on an
-    -- interpreter that can do it. Which one ran is always printed: passing quietly without having
-    -- run would make this file a liar.
+    -- The libraries are stood up for real, both of them pure Lua, so what runs here is what the
+    -- game runs.
     ---------------------------------------------------------------------------
 
     local repoRoot = (arg and arg[0] or ""):match("^(.*)[/\\]tests[/\\]run%.lua$") or ".";
@@ -549,14 +540,6 @@ return function(DebindPrivate, DebindStorage)
     }) do
         assert(loadfile(repoRoot .. path), "라이브러리를 못 읽었다: " .. path)();
     end
-
-    local LibDeflate = LibStub("LibDeflate");
-
-    --- **Ask with a sample long enough to actually compress.** A short input becomes a stored
-    --- block instead, and that path round-trips fine even under fengari - asking with one gets a
-    --- "yes" and then blows up on the real payload.
-    local probe = ("debind "):rep(64);
-    local deflateWorks = LibDeflate:DecompressDeflate(LibDeflate:CompressDeflate(probe)) == probe;
 
     --- Built once and read by both checks below.
     local function SamplePayload()
@@ -599,19 +582,13 @@ return function(DebindPrivate, DebindStorage)
         check(not str:find("%s"), "공백이 섞이면 채팅으로 못 나른다");
     end);
 
-    if (deflateWorks) then
-        test("문자열로 나갔다 그대로 돌아온다", function()
-            SamplePayload();
-            local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
-            local payload, err = DebindStorage.DecodeExportString(str);
-            check(payload, "디코드 실패: " .. tostring(err));
-            CheckSurvived(payload);
-        end);
-    end
-
-    io.write(deflateWorks
-        and "  export: 압축까지 붙은 전체 왕복을 검사했다\n"
-        or "  export: fengari라 압축 왕복은 못 돌았다 (직렬화 왕복만 검사). 실제 lua로 돌릴 것\n");
+    test("문자열로 나갔다 그대로 돌아온다", function()
+        SamplePayload();
+        local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
+        local payload, err = DebindStorage.DecodeExportString(str);
+        check(payload, "디코드 실패: " .. tostring(err));
+        CheckSurvived(payload);
+    end);
 
     ---------------------------------------------------------------------------
     -- 보관함에 앉는 것
@@ -656,21 +633,16 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
-    -- 붙여넣기는 문자열을 지나야 하고 그 길은 압축을 지난다. **fengari에서는 안 돈다**(위
-    -- WARNING), 그래서 이것만 위의 전체 왕복과 같은 편에 선다. 조건 없이 세워두면 node에서
-    -- 아무것도 안 재고 초록으로 지나간다.
-    if (deflateWorks) then
-        test("붙여넣은 것에는 그 셋이 없다", function()
-            ResetStore();
-            ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+    test("붙여넣은 것에는 그 셋이 없다", function()
+        ResetStore();
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
 
-            local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
-            local entry = DebindStorage.ImportEntry(str, "받은 것");
-            check(entry, "받아들여지지 않았다");
-            check(entry.character == nil and entry.realm == nil and entry.guid == nil,
-                "받은 것에 신원이 붙었다");
-        end);
-    end
+        local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
+        local entry = DebindStorage.ImportEntry(str, "받은 것");
+        check(entry, "받아들여지지 않았다");
+        check(entry.character == nil and entry.realm == nil and entry.guid == nil,
+            "받은 것에 신원이 붙었다");
+    end);
 
     ---------------------------------------------------------------------------
     -- 고른 것만 나간다
@@ -825,25 +797,21 @@ return function(DebindPrivate, DebindStorage)
     -- **모르는 스키마는 두 방향이 있고, 할 수 있는 일이 반대다.** 하나로 묶여 있던 동안 사유가
     -- 하나였고 그 문구가 "더 새 버전에서 만들었으니 업데이트하라"였다 - 스키마를 처음 올리는 날
     -- 서랍에 이미 들어 있던 배치가 전부 그 문장을 달고 못 읽히게 된다. 업데이트는 이미 했는데.
-    -- **압축을 지나야 스키마 번호에 닿는다**, 그래서 위의 전체 왕복과 같은 편에 선다. 짧은
-    -- 페이로드면 stored block이 되어 fengari도 통과할 줄 알았는데 `level = 9`에서는 아니었다.
-    if (deflateWorks) then
-        test("옛 스키마와 새 스키마를 갈라서 답한다", function()
-            local function DecodeWithVersion(v)
-                local _, reason = DebindStorage.DecodeExportString(
-                    DebindStorage.EncodeExportPayload({ v = v, class = CLASS }));
-                return reason;
-            end
+    test("옛 스키마와 새 스키마를 갈라서 답한다", function()
+        local function DecodeWithVersion(v)
+            local _, reason = DebindStorage.DecodeExportString(
+                DebindStorage.EncodeExportPayload({ v = v, class = CLASS }));
+            return reason;
+        end
 
-            check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1) == "UNSUPPORTED_SCHEMA",
-                "더 새 것");
-            -- v1은 사다리가 받는다. 거절이 아니다.
-            check(DecodeWithVersion(1) == nil, "v1을 거절했다");
-            -- 사다리에 단계가 없는 판은 여전히 거절이다. 추측으로 읽으면 조건이 조용히
-            -- 편을 바꾼다.
-            check(DecodeWithVersion(0) == "SCHEMA_TOO_OLD", "단계 없는 옛 판");
-        end);
-    end
+        check(DecodeWithVersion(DebindStorage.EXPORT_SCHEMA_VERSION + 1) == "UNSUPPORTED_SCHEMA",
+            "더 새 것");
+        -- v1은 사다리가 받는다. 거절이 아니다.
+        check(DecodeWithVersion(1) == nil, "v1을 거절했다");
+        -- 사다리에 단계가 없는 판은 여전히 거절이다. 추측으로 읽으면 조건이 조용히
+        -- 편을 바꾼다.
+        check(DecodeWithVersion(0) == "SCHEMA_TOO_OLD", "단계 없는 옛 판");
+    end);
 
     -- **v1 매니페스트도 같은 단계가 받는다.** 3.2가 이 표를 실어 보냈으므로 v1 문자열이
     -- 남의 노트에 옛 모양으로 앉아 있다. 아직 매니페스트를 읽는 쪽은 없지만 단계는 한 번

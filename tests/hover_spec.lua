@@ -574,9 +574,7 @@ return function(DebindPrivate, _, ctx)
     --- The first is baked and carries `CONSTANTS.REACTION_*` tokens; the second is built at runtime,
     --- never reaches `BakeSnippet`, and formats the numbers in itself. Splicing one fragment into
     --- both takes the ladder out of `check:snippets` (the extractor resolves `_SNIPPET` locals in
-    --- the same file, not a call), and folding the constants for the runtime half puts `2^0` through
-    --- `tostring` -- which is `1` under lua5.1 and `1.0` under fengari, so a golden would say
-    --- something different depending on which one ran it.
+    --- the same file, not a call).
     ---
     --- **They parted once.** The poll's last branch said `REACTION_NONE`, a bit outside
     --- `REACTION_ALL` (`Solver.lua`) that no mask a reader can build ever matches. Every hover

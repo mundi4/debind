@@ -1,6 +1,14 @@
 -- 헤드리스 테스트 진입점.
---   lua tests/run.lua            (저장소 루트에서)
---   node tests/run.js            (lua 바이너리가 없을 때)
+--   lua5.1 tests/run.lua         (저장소 루트에서)
+
+-- **5.1, and nothing newer.** The client is 5.1 and so is CI. What a newer interpreter answers
+-- differently lands in places nothing else guards: a bare `%f` printed one way here and another
+-- there, `2 ^ 2` rendered as "4.0" into bytes a golden locks, `loadstring` gone. Every one of
+-- those cost a compensation in this harness while the specs also ran on 5.3. LuaJIT says 5.1 and
+-- is welcome.
+if (_VERSION ~= "Lua 5.1") then
+    error("이 스펙은 Lua 5.1에서만 돈다 (지금 " .. tostring(_VERSION) .. "). lua5.1로 돌릴 것.", 0);
+end
 
 local root = arg and arg[0] and arg[0]:match("^(.*)[/\\]run%.lua$") or "tests";
 local repoRoot = root:match("^(.*)[/\\][^/\\]+$") or ".";
@@ -13,29 +21,18 @@ shim.install();
 -- on the list at the end; `wow_shim.lua`'s `ALLOWED_ABSENT` says what may be missing and why.
 shim.watchGlobals();
 
---- Reading and writing a whole file, whichever interpreter this is.
----
---- **fengari has no `io.open`.** It offers `io.write` and nothing that opens a file, so the two
---- fall back on functions `run.js` installs. A real interpreter never reaches them.
 local function readFile(path)
-    if (io.open) then
-        local file = io.open(path, "rb");
-        if (not file) then return nil, path .. " could not be opened"; end
-        local contents = file:read("*a");
-        file:close();
-        return contents;
-    end
-    return _G.__hostReadFile(path);
+    local file = io.open(path, "rb");
+    if (not file) then return nil, path .. " could not be opened"; end
+    local contents = file:read("*a");
+    file:close();
+    return contents;
 end
 
 local function writeFile(path, contents)
-    if (io.open) then
-        local file = assert(io.open(path, "wb"));
-        file:write(contents);
-        file:close();
-        return;
-    end
-    _G.__hostWriteFile(path, contents);
+    local file = assert(io.open(path, "wb"));
+    file:write(contents);
+    file:close();
 end
 
 local bench = false;

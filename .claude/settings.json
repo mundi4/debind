@@ -12,7 +12,7 @@
       "Bash(npm run check:snippets)",
       "Bash(npm run check:snippet-golden)",
       "Bash(npm run check:export-fields)",
-      "Bash(node tests/run.js)",
+      "Bash(lua5.1 tests/run.lua)",
       "Bash(node tools/luacheck.js)",
       "Bash(node tools/check-locales.js)",
       "Bash(node tools/check-templates.js)",

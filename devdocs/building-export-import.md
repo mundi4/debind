@@ -258,9 +258,8 @@ v1은 `dbver`를 안 든다. 판 번호가 곧 답이라 어댑터가 5로 찍�
 ⚠ **스펙은 액션 타입 다섯 개만 왕복시킨다**(SPELL·MACRO·MACROTEXT·SETSTATE·SETCUSTOM).
 나머지 열 개는 실물로 한 번 확인했을 뿐 `tests/export_spec.lua`에 안 걸려 있다.
 
-⚠ **LibDeflate는 fengari에서 압축을 못 푼다.** 실제 lua 5.1(luajit)·5.4에서는 왕복하는데
-`node tests/run.js`에서만 실패한다. 라이브러리도 우리 코드도 아니고 와우는 5.1이라 게임에서는
-안 닿는다. 스펙이 두 겹으로 갈라져 있고 어느 쪽이 돌았는지 매번 찍는다.
+압축까지 붙은 전체 왕복은 이제 조건 없이 돈다. 스펙을 두 겹으로 갈라놨던 것은 fengari가
+`DecompressDeflate`에서 죽어서였고, 그 인터프리터는 리포에서 나갔다(2026-08-26).
 
 ---
 

@@ -1,9 +1,9 @@
 {
   "name": "debind-tests",
   "private": true,
-  "description": "Local test runner for the Debind addon (no WoW / lua binary required)",
+  "description": "Local test runner and static checks for the Debind addon (needs lua5.1 on PATH)",
   "scripts": {
-    "test": "node tests/run.js && node tests/run.js --shipped",
+    "test": "lua5.1 tests/run.lua && lua5.1 tests/run.lua --shipped",
     "lint": "node tools/luacheck.js",
     "check:templates": "node tools/check-templates.js",
     "check:locales": "node tools/check-locales.js",
@@ -21,8 +21,5 @@
     "ui-source": "node tools/wow-ui-source.js",
     "check:xml-anchors": "node tools/check-xml-anchors.js",
     "check:dbver": "node tools/check-dbver.js"
-  },
-  "devDependencies": {
-    "fengari": "^0.1.4"
   }
 }

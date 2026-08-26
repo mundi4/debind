@@ -203,7 +203,7 @@ M.newFrame = newFrame;
 function frameMethods:GetName() return self.__name; end
 function frameMethods:GetObjectType() return self.__frameType; end
 function frameMethods:GetParent() return self.__parent; end
-function frameMethods:GetChildren() return (table.unpack or unpack)(self.__children); end
+function frameMethods:GetChildren() return unpack(self.__children); end
 function frameMethods:IsForbidden() return false; end
 function frameMethods:IsProtected() return true, true; end
 function frameMethods:IsAnchoringRestricted() return false; end

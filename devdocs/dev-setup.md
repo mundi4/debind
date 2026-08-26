@@ -3,11 +3,25 @@
 Windows, since the game is.
 
 ```
-npm install
 npm run stamp:install      # installs the post-checkout hook (see below)
 npm run link               # lists WoW clients and worktrees
 npm run link -- ptr .      # points _ptr_'s AddOns at this worktree
 ```
+
+There is no `npm install` step: nothing here has a dependency outside node's own library.
+
+## `lua5.1` on PATH
+
+**The specs and the snippet checks need it, and it has to be 5.1.** The client is 5.1, CI installs
+5.1, and what a newer interpreter answers differently lands where nothing else would catch it: a
+bare `%f` printed to six places or to one, `2 ^ 2` rendered as `4.0` into bytes `snippet-golden.txt`
+locks. `tests/run.lua` refuses anything newer rather than letting that pass quietly. LuaJIT reports
+5.1 and is accepted.
+
+Windows has no installer for it. Take the `Tools Executables` zip for 5.1.5 from
+[LuaBinaries](https://sourceforge.net/projects/luabinaries/files/5.1.5/), unpack it somewhere under
+`%LOCALAPPDATA%\Programs`, and put that folder on the user PATH. The executable is named `lua5.1.exe`
+already, which is the name everything here calls. A `lua` 5.4 next to it is harmless.
 
 ## `reference/` — the client's own code and strings
 
@@ -74,17 +88,14 @@ package nor a user. Without the hook there is no file and the label reads `dev`.
 
 ## Worktrees
 
-`node_modules` is not created in a new worktree and is not linked automatically. Make the junction
-by hand after `git worktree add`, or none of the tooling runs there.
-
-**`reference/` needs the same treatment, and it is two junctions rather than one.** It is
-gitignored, so a new worktree has nothing there: `reference/globalstrings` (what
+**`reference/` needs a junction, and it is two rather than one.** It is gitignored, so a new
+worktree has nothing there: `reference/globalstrings` (what
 `npm run globalstrings` fetched) and `reference/wow-ui-source` (itself a junction to the shallow
 clone kept outside the project) both have to be pointed at the same places the main worktree points
 at. `npm run check` passes without them, which is exactly why this is easy to miss — what breaks is
 reading Blizzard's own code and strings, and that failure looks like "the file is not there" rather
 than like a setup step nobody did.
 
-**Before removing a worktree, break that junction first.** `git worktree remove` — and anything
-else that deletes the directory recursively — walks through the junction and takes the main repo's
-`node_modules` with it.
+**Before removing a worktree, break those junctions first.** `git worktree remove`, and anything
+else that deletes the directory recursively, walks through a junction and takes what it points at
+with it. That is the shallow clone of Blizzard's interface code, shared by every worktree.

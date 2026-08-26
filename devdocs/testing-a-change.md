@@ -68,13 +68,13 @@ Two of the specs are worth knowing about before adding one:
 - **`emit_spec.lua` is the emission golden.** One rebuild against a fixed profile, every string it
   hands to the secure side, held byte for byte against `tests/emit-golden.txt`. It is a net for
   refactoring and **not a specification**: when the emission is meant to move, run
-  `node tests/run.js --update-golden` and read the diff.
+  `lua5.1 tests/run.lua --update-golden` and read the diff.
 - **Every spec gets its own addon and its own client**, loaded and reset a moment before it runs.
   Nothing one leaves behind reaches the next, so the order of the list is readability and nothing
   else — reversing it is a run that has to pass.
 
 `npm test` runs the suite **twice**: once as the working tree reads, once as
-`node tests/run.js --shipped`, which cuts the `--@debug@` blocks out the way the packager does.
+`lua5.1 tests/run.lua --shipped`, which cuts the `--@debug@` blocks out the way the packager does.
 That second pass is the only place the shape a user actually gets is ever run. It emits different
 bytes and has its own recording (`tests/emit-shipped-golden.txt`), because `Constants.DEBUG` being
 false takes the DEBUG-only lines out of what a rebuild emits and leaves the driver frame unnamed.
@@ -87,7 +87,9 @@ Add a spec by dropping a file in `tests/` and registering it in the `specs` list
 `tests/run.lua`. A spec is a function taking `DebindPrivate` and returning
 `{ passed = n, failures = {...} }`; copy the harness at the top of any existing one.
 
-Run: `npm test`, or `node tests/run.js` if there is no `lua` binary.
+Run: `npm test`. It needs `lua5.1` on PATH and refuses a newer interpreter. The client is 5.1,
+and what a newer one answers differently (a bare `%f`, `2 ^ 2` rendered as "4.0") lands in bytes
+the goldens lock. LuaJIT reports 5.1 and is accepted.
 
 ## 2. Static checks — `npm run check`
 

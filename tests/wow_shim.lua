@@ -1,5 +1,5 @@
 -- 게임 없이 애드온 파일을 로드하기 위한 최소 WoW 환경.
--- 순수 Lua 5.1/5.3 양쪽에서 돌아야 함 (CI의 lua 바이너리 + 로컬 fengari).
+-- Plain Lua 5.1, which is what the client and CI run. `run.lua` refuses anything newer.
 
 local M = {};
 
@@ -132,51 +132,7 @@ local rawformat, strfind, strsub, strmatch = string.format, string.find, string.
 ---
 --- Strings with no `%N$` in them never enter this path at all; they go to the real
 --- `string.format` untouched, so everything else it can do still works.
-local positionalFormat;   -- defined below, after the float fixup it calls
-
---- **fengari's bare `%f` is not C's.** `string.format("%f", 0.5)` answers `0.5` there and
---- `0.500000` under every real interpreter, the client's 5.1 included. `Flyout.lua` bakes a
---- threshold into a snippet body with a bare `%f`, so the same rebuild produced two different
---- snippets depending on which interpreter ran it -- and the emission golden, which is compared
---- byte for byte, could then only ever hold for one of them.
----
---- C's default precision is 6 and this writes it in. **Only a bare `%f` moves**: a precision that
---- was spelled out (`%.2f`, `%5.1f`) already answers the same both ways.
-local function normalizeBareFloat(fmt)
-    if (not strfind(fmt, "f", 1, true)) then
-        return fmt;
-    end
-
-    local out, i = {}, 1;
-    while (true) do
-        local at = strfind(fmt, "%", i, true);
-        if (not at) then
-            out[#out + 1] = strsub(fmt, i);
-            break;
-        end
-        out[#out + 1] = strsub(fmt, i, at - 1);
-
-        if (strsub(fmt, at + 1, at + 1) == "%") then
-            out[#out + 1] = "%%";
-            i = at + 2;
-        else
-            local spec, after = strmatch(fmt, "^%%([-+ #0]*%d*%.?%d*)()", at);
-            local conv = strsub(fmt, after, after);
-            if ((conv == "f" or conv == "F") and not strfind(spec, ".", 1, true)) then
-                out[#out + 1] = "%" .. spec .. ".6" .. conv;
-            else
-                out[#out + 1] = "%" .. spec .. conv;
-            end
-            i = after + 1;
-        end
-    end
-    return table.concat(out);
-end
-
-function positionalFormat(fmt, ...)
-    if (type(fmt) == "string") then
-        fmt = normalizeBareFloat(fmt);
-    end
+local function positionalFormat(fmt, ...)
     if (type(fmt) ~= "string" or not strfind(fmt, "%%%d+%$")) then
         return rawformat(fmt, ...);
     end
@@ -214,7 +170,7 @@ function positionalFormat(fmt, ...)
         i = after;
     end
 
-    return rawformat(table.concat(out), (table.unpack or unpack)(ordered, 1, count));
+    return rawformat(table.concat(out), unpack(ordered, 1, count));
 end
 
 function M.install()
@@ -278,16 +234,8 @@ function M.install()
             end
         end
         out[#out + 1] = table.concat(cur);
-        return (table.unpack or unpack)(out, 1, #out);
+        return unpack(out, 1, #out);
     end
-    -- The client runs Lua 5.1, where `unpack` is a global. fengari answers 5.3 and only has
-    -- `table.unpack`, so a file that calls the bare name loads under a real 5.1 and dies here --
-    -- a difference that would show up as one interpreter finding a fault the other cannot.
-    _G.unpack = unpack or table.unpack;
-    -- 5.1 has `loadstring`; 5.3 and 5.4 renamed it to `load`. `AssertSnippetCompiles` reaches for
-    -- it on every generated snippet in a DEBUG build, so the harness gets the real thing rather
-    -- than a stand-in -- the compile it runs is a check worth having here too.
-    _G.loadstring = loadstring or load;
     _G.securecall = function(fn, ...) return fn(...); end
     _G.securecallfunction = function(fn, ...) return fn(...); end
     _G.floor = math.floor;
@@ -393,13 +341,13 @@ function M.install()
         local entry = M.world.bindings[index];
         if (not entry) then return; end
         return entry.action, entry.category,
-            (table.unpack or unpack)(entry.keys or {}, 1, #(entry.keys or {}));
+            unpack(entry.keys or {}, 1, #(entry.keys or {}));
     end
     _G.GetBindingKey = function(action)
         for i = 1, #M.world.bindings do
             local entry = M.world.bindings[i];
             if (entry.action == action) then
-                return (table.unpack or unpack)(entry.keys or {}, 1, #(entry.keys or {}));
+                return unpack(entry.keys or {}, 1, #(entry.keys or {}));
             end
         end
     end
@@ -723,8 +671,7 @@ end
 --- passes it in here.
 ---
 --- `opts.shipped` reads the shape a user gets rather than the one in the working tree, and
---- `opts.readFile` is how it gets the bytes -- fengari has no `io.open`, so the runner hands its
---- own reader down (`run.lua`).
+--- `opts.readFile` is how it gets the bytes (`run.lua`).
 function M.loadAddon(root, files, addon, opts)
     addon = addon or { L = setmetatable({}, { __index = function(_, k) return k; end }) };
     opts = opts or {};
@@ -736,18 +683,7 @@ function M.loadAddon(root, files, addon, opts)
             if (not src) then
                 error("failed to read " .. path, 0);
             end
-            -- **`loadstring` wherever there is one.** 5.1's `load` takes a reader function and
-            -- refuses a string outright; 5.2 folded the two together, so fengari (`npm test`) and
-            -- any 5.3 or 5.4 here take this line and the reference 5.1 that CI runs does not. The
-            -- shipped pass is the only one that compiles from a string rather than a path, which
-            -- is why that reader died here and nowhere else. `restricted.lua` says the same thing
-            -- about `setfenv`.
-            local source = stripDebugBlocks(src);
-            if (_G.loadstring) then
-                chunk, err = _G.loadstring(source, "@" .. path);
-            else
-                chunk, err = load(source, "@" .. path);
-            end
+            chunk, err = loadstring(stripDebugBlocks(src), "@" .. path);
         else
             chunk, err = loadfile(path);
         end
@@ -802,15 +738,12 @@ local ALLOWED_ABSENT = {
     -- older-client branch, which is a shape worth being in.
     issecretvalue = true, EventRegistry = true,
 
-    -- **Which interpreter this is, asked by presence.** `_ENV` arrived in 5.2 and `setfenv` left
-    -- with it, so exactly one of the two is missing on any run and `restricted.lua` picks its way
-    -- of giving a chunk an environment off that. The game is 5.1; the specs also run under fengari
-    -- (5.3) and whatever local `lua` is, so both answers have to be allowed.
-    _ENV = true, setfenv = true,
+    -- `_ENV` is 5.2's and this runs on 5.1, so it is absent here the way it is absent in the
+    -- game. `restricted.lua` asks for it by presence before it reaches for `setfenv`.
+    _ENV = true,
 
-    -- Reached only from paths no spec runs: a reload the migration asks for, and the runner's own
-    -- file helpers, which are read before `run.js` has written them.
-    ReloadUI = true, __hostReadFile = true, __hostWriteFile = true,
+    -- Reached only from a path no spec runs: the reload the migration asks for.
+    ReloadUI = true,
 
     -- **A fixture, and the one name here that is meant to be missing.** `describe_spec` and the
     -- emission fixture both bind `PETNOSUCHCOMMAND` on purpose: a pet command the client has no

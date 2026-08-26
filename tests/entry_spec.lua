@@ -208,9 +208,7 @@ return function(DebindPrivate, DebindStorage)
     --
     -- **The decoder is stubbed here on purpose.** Whether a real string survives the trip is
     -- `export_spec`'s question and it answers it against the real libraries; this file's question
-    -- is what the drawer does with an answer once it has one. Stubbing also keeps these cases
-    -- running under fengari, where LibDeflate cannot decompress - gated on the real decoder they
-    -- would be skipped by `npm test` and only ever run by hand.
+    -- is what the drawer does with an answer once it has one.
     ---------------------------------------------------------------------------
 
     local realDecode = DebindStorage.DecodeExportString;

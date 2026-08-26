@@ -22,16 +22,11 @@ local M = {};
 
 local frames = require("wow_frames");
 
---- Compiles one body with the signature the game would give it. `setfenv` is 5.1's way and the
---- `load` environment argument is 5.3's; the harness runs on both.
+--- Compiles one body with the signature the game would give it.
 local function compile(body, signature, env)
     local source = "return function(" .. signature .. ") " .. body .. "\nend";
-    if (_G.setfenv) then
-        local chunk = assert(loadstring(source));
-        _G.setfenv(chunk, env);
-        return chunk();
-    end
-    local chunk = assert(load(source, "snippet", "t", env));
+    local chunk = assert(loadstring(source));
+    setfenv(chunk, env);
     return chunk();
 end
 
@@ -247,7 +242,7 @@ local function buildEnv(interp)
     env.tostring = tostring;
     env.tonumber = tonumber;
     env.select = select;
-    env.unpack = _G.unpack or table.unpack;
+    env.unpack = _G.unpack;
     env.tinsert = table.insert;
     env.tremove = table.remove;
     env.format = string.format;

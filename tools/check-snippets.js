@@ -8,9 +8,9 @@
 // 본문을 떼어내는 부분은 `lib/snippets.js`에, 굽는 부분은 `lib/bake.js`에 있다 - 구워진
 // 결과를 잠그는 `check-snippet-golden.js`와 같은 것을 봐야 한다.
 const path = require("path");
-const { lua, lauxlib, lualib, to_luastring } = require("fengari");
 const { blankNonCode, forEachSnippet } = require("./lib/snippets");
 const { bakeLive } = require("./lib/bake");
+const { runLuaDriver } = require("./lib/lua51");
 
 const root = path.join(__dirname, "..");
 const srcDir = path.join(root, "Debind");
@@ -32,10 +32,11 @@ function fillPlaceholders(body) {
         .replace(/%(?:\d+\$)?([dioxXqs])/g, (_, conv) => FORMAT_FILL[conv]);
 }
 
-// **와우는 Lua 5.1이고 이 도구의 파서(fengari)는 5.3이다.** 5.2/5.3에서 들어온 문법은
-// 여기서는 멀쩡히 파싱되고 게임에서만 깨진다 - 증상은 "그 스니펫이 통째로 안 걸린다"라
-// 진단이 어렵다. 특히 제한 환경에는 `bit` 라이브러리가 없어서(기존 코드가 나머지 연산으로
-// 비트를 흉내내는 이유다) 비트 연산자로 손이 가기 쉽다.
+// **The parser above is the game's 5.1, so it already refuses every one of these.** What it says
+// is `unexpected symbol near '&'`, which names the character and stops there. These lines are for
+// the message: which version the syntax arrived in, and -- for the bit operators, the ones a hand
+// reaches for -- that the restricted environment has no `bit` library, which is why the code
+// around them fakes bits with modulo.
 const LUA51_FORBIDDEN = [
     [/(^|[^\w.:])goto[\s(]/, "goto (5.2+)"],
     [/::\s*[A-Za-z_]\w*\s*::/, "라벨 :: :: (5.2+)"],
@@ -104,19 +105,11 @@ function trailingComment(body) {
     return null;
 }
 
-const L = lauxlib.luaL_newstate();
-lualib.luaL_openlibs(L);
+const syntaxDriver = path.join(__dirname, "lib", "syntax.lua");
 
 /** 구문만 본다. 실행하지 않는다. */
 function syntaxError(source, name) {
-    const status = lauxlib.luaL_loadbuffer(L, to_luastring(source), null, to_luastring("@" + name));
-    if (status === lua.LUA_OK) {
-        lua.lua_pop(L, 1);
-        return null;
-    }
-    const err = lua.lua_tojsstring(L, -1);
-    lua.lua_pop(L, 1);
-    return err;
+    return runLuaDriver(syntaxDriver, name, source) || null;
 }
 
 // **원문과 구운 본문을 둘 다 본다.** 어느 한쪽만으로는 부족하다.

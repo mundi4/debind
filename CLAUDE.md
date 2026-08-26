@@ -33,13 +33,15 @@ key covers. WoW's own keybindings are never touched — see `README.md` for the 
 ## Commands
 
 ```
-npm test                      # headless Lua specs (fengari; no lua binary needed)
-node tests/run.js             # same
-lua5.1 tests/run.lua          # same, with a real lua5.1 (what CI runs)
+npm test                      # headless Lua specs, twice: the working tree, then --shipped
+lua5.1 tests/run.lua          # one of those passes on its own (CI runs both)
 lua5.1 tests/run.lua --bench  # solver benchmark
 npm run lint                  # luacheck
 npm run check                 # lint + test + every static check (run this before reporting done)
 ```
+
+**`lua5.1` has to be on PATH** (`devdocs/dev-setup.md`). The specs refuse a newer interpreter, and
+the checks that bake a snippet body run `Snippets.lua` under the same 5.1 the game does.
 
 Individual static checks: `check:locales`, `check:templates`, `check:xml`, `check:xml-methods`,
 `check:xml-anchors`, `check:snippets`, `check:snippet-golden`, `check:state-eval`,
@@ -91,7 +93,7 @@ The pipeline, roughly:
 4. **`UpdateBindings.lua`** — the insecure side. Builds attributes, `SetBindingAttributes`.
 5. **`SecureBindings.lua`** + **`Snippets.lua`** — the restricted side. Snippet bodies are Lua
    source strings baked (`BakeSnippet`) before being handed to `SecureHandlerExecute` /
-   `SecureHandlerWrapScript`. `tools/lib/bake.js` runs `Snippets.lua` itself through fengari so the
+   `SecureHandlerWrapScript`. `tools/lib/bake.js` runs `Snippets.lua` itself under lua5.1 so the
    checks bake exactly what ships; `tools/snippet-golden.txt` locks those bytes.
    **Read `devdocs/restricted-environment.md` before touching a snippet body** — which paths are
    hot, and how far a comment may go inside one. Getting it wrong raises nothing and leaves one key

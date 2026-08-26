@@ -100,7 +100,7 @@ end
 --- than one line would otherwise spill out of the comment it landed in and become code.
 ---
 --- Exposed rather than local because `tools/check-snippet-golden.js` calls this exact function
---- through fengari. That tool locks what the game receives, so a second copy of this rule in
+--- (`tools/lib/bake.lua`). That tool locks what the game receives, so a second copy of this rule in
 --- JavaScript would be a copy that can drift -- and it would drift silently, since the tool
 --- would then be guarding something other than what gets baked.
 function DebindPrivate.StripSnippetComments(str)

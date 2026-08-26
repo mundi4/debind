@@ -63,9 +63,9 @@ function runLuacheck(args) {
 }
 
 // A byte order mark on a Lua file, which **only the reference implementation refuses**. The game
-// loads such a file, luacheck parses it, and fengari (`npm test`) parses it, so every check this
-// repo runs on Windows goes green while `lua5.1 tests/run.lua` dies on line 1 of it. That is what
-// CI runs, and it is the one reader that cannot be reproduced here.
+// loads such a file and luacheck parses it, so a mark says nothing until something compiles the
+// file under lua5.1 -- and then it dies on line 1, naming the file and no reason a reader would
+// connect to a mark.
 //
 // It cost a red CI on the v3.3 tag: two files had carried a mark since the rename, and nothing
 // noticed until the harness started loading them (`tests/run.lua`). An editor writing one back is
