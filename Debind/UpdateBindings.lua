@@ -169,6 +169,11 @@ end
 local SWITCH_GATE_STATES = {
     combat    = "combat",
     stealth   = "stealth",
+    mounted   = "mounted",
+    -- **`outdoors` is not the pair of this one.** `States.indoors` is `IsIndoors()` alone, and the
+    -- two are not each other's complement: during a dungeon loading screen both answer false
+    -- (measured 2026-08-26). So a gate built on this flag would not follow `[outdoors]`.
+    indoors   = "indoors",
     form      = "form",
     stance    = "form",
     bonusbar  = "bonusbar",
@@ -228,7 +233,7 @@ end
 --- here is that something, named as the flags the same pass has already set by the time the switch
 --- lines run.
 ---
---- **One word it cannot place and the whole expression is ungatable.** `[mounted]` is not measured
+--- **One word it cannot place and the whole expression is ungatable.** `[outdoors]` is not measured
 --- here, so a gate built out of the rest of that expression would freeze the switch on whatever it
 --- answered last, and nothing anywhere would say so.
 ---

@@ -164,25 +164,64 @@ return function(DebindPrivate)
         end);
 
     test("a conditional naming a state nobody measures is parsed on every pass", function()
-        -- `[mounted]` is a real macro conditional and this addon measures nothing that answers it.
-        -- A gate would have to be built out of nothing and would never open.
+        -- **`[outdoors]` is the word with no state behind it, and `[indoors]` is not its pair.**
+        -- `States.indoors` is `IsIndoors()` alone, and the two are not complements: during a
+        -- dungeon loading screen both answer false. So nothing here can gate on `[outdoors]`, a
+        -- gate would have to be built out of nothing, and it would never open.
+        --
+        -- This case used to be `[mounted]`, which stopped being true the day `mounted` became a
+        -- measured state. The positive below is where that word went.
         local i = Bind(GatedKey(), {
-            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[outdoors]" },
         });
 
-        local before = i:parseCount("[mounted]");
+        local before = i:parseCount("[outdoors]");
         i:pollStates();
-        check(i:parseCount("[mounted]") > before, "the conditional was skipped on a pass");
+        check(i:parseCount("[outdoors]") > before, "the conditional was skipped on a pass");
 
-        i.state.mounted = true;
+        i.state.outdoors = true;
         i:pollStates();
-        check(i.env.States["$state1"] == true, "the switch did not follow mounted going on");
+        check(i.env.States["$state1"] == true, "the switch did not follow outdoors going on");
         check(i.bindings["F1"], "the key hanging off the switch was not bound");
 
-        i.state.mounted = false;
+        i.state.outdoors = false;
         i:pollStates();
-        check(i.env.States["$state1"] == false, "the switch did not follow mounted going off");
+        check(i.env.States["$state1"] == false, "the switch did not follow outdoors going off");
         check(i.bindings["F1"] == nil, "the key was not let go");
+    end);
+
+    --- **The words that moved from the case above to this one.** `IsMounted` and `IsIndoors` are
+    --- in Blizzard's `DIRECT_MACRO_CONDITIONAL_NAMES`, so `[mounted]` and `[indoors]` read the
+    --- same functions our states do and a gate on them holds.
+    ---
+    --- The register happens here and nowhere else: nothing in this profile asks about either axis
+    --- except the switch, so if the gate did not register what it gates on, the flag would never
+    --- be set and the switch would sit on its first answer for good.
+    test("mounted and indoors gate the parse, and the gate still opens", function()
+        for _, axis in ipairs({ "mounted", "indoors" }) do
+            local expr = "[" .. axis .. "]";
+            local i = Bind(GatedKey(), {
+                ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = expr },
+            });
+
+            local before = i:parseCount(expr);
+            i:pollStates();
+            check(i:parseCount(expr) == before,
+                axis .. ": a pass where nothing moved parsed the conditional anyway");
+
+            check(i.env.States[axis] == false,
+                axis .. " was not measured, so the flag the gate opens on never gets set");
+
+            i.state[axis] = true;
+            i:pollStates();
+            check(i.env.States["$state1"] == true, axis .. ": the switch did not follow it going on");
+            check(i.bindings["F1"], axis .. ": the key hanging off the switch was not bound");
+
+            i.state[axis] = false;
+            i:pollStates();
+            check(i.env.States["$state1"] == false, axis .. ": the switch did not follow it going off");
+            check(i.bindings["F1"] == nil, axis .. ": the key was not let go");
+        end
     end);
 
     test("a conditional aimed at a unit is parsed on every pass", function()

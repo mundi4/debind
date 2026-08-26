@@ -82,6 +82,8 @@ local function parseCondition(interp, expr)
                 value = interp.state.mounted;
             elseif (name == "indoors") then
                 value = interp.state.indoors;
+            elseif (name == "outdoors") then
+                value = interp.state.outdoors;
             elseif (name == "group") then
                 value = interp.state.group ~= "none";
             elseif (name == "known") then
@@ -515,6 +517,7 @@ function M.new(DebindPrivate, world)
         shapeshiftbar = false,
         mounted = false,
         indoors = false,
+        outdoors = false,
         channeling = false,
         form = 0,
         bonusbar = 0,
