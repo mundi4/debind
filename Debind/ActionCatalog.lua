@@ -1055,17 +1055,32 @@ local function BuildBindingCommands(entries)
 		local action, cat = GetBinding(bindingIndex);
 
 		-- `HEADER_*`는 명령이 아니라 목록 안의 구분선이다. 걸어봐야 아무 일도 안 난다.
-		--
-		-- `ADDONS`도 뺀다. 드롭다운과 같은 선택이다 - 저기 서 있는 것은 **다른 애드온이**
-		-- 자기 창에서 쓰려고 올려둔 명령이라, 우리가 조건을 붙여 눌러주는 것이 그 애드온이
-		-- 기대하는 동작이라는 보장이 없다. 그리고 우리 것도 저기 있다.
-		if (action and strsub(action, 1, 6) ~= "HEADER" and cat ~= "ADDONS") then
+		if (action and strsub(action, 1, 6) ~= "HEADER") then
 			-- **이름이 없는 명령은 안 올린다.** `NameAndIconForAction`은 이름을 못 찾으면
 			-- 명령 문자열을 그대로 돌려주므로(`"MOVEFORWARD"`) 가드가 안 걸린다 - 그 함수는
 			-- 이미 걸어둔 액션을 **그리는** 쪽이라 그게 맞는 답이지만, 고르는 쪽에서는
 			-- 대문자 덩어리가 적힌 줄을 만들 뿐이다.
 			if (_G["BINDING_NAME_" .. action]) then
-				local group = (cat and (_G[cat] or cat)) or BINDING_HEADER_OTHER;
+				-- **The heading is resolved the way the client's own keybinding panel resolves
+				-- it** (`GetBindingCategoryName` in
+				-- `Blizzard_SettingsDefinitions_Frame/Keybindings.lua`): the category names a
+				-- global, that global's string is the heading, and where it does not answer with
+				-- one the category stands as the heading itself. An addon that declares no
+				-- category is filed by the client under its own folder name, which is what the
+				-- reader sees in that panel, so it is what they see here.
+				--
+				-- `type` rather than a truth test, because the name holds whatever its owner put
+				-- there. An addon shipping its namespace table under its own name is how this was
+				-- found: the table came back and was handed on as a heading.
+				local group;
+				if (not cat) then
+					group = BINDING_HEADER_OTHER;
+				elseif (type(_G[cat]) == "string") then
+					group = _G[cat];
+				else
+					group = cat;
+				end
+
 				local bucket = Bucket(group);
 				bucket[#bucket + 1] = {
 					type = Constants.COMMAND,
