@@ -26,6 +26,10 @@
 action
     type value          필수. `Constants.SPELL` 계열. value는 타입에 따라 주문/아이템 id,
                         매크로 본문, 펫 명령 ...
+                        **`EQUIPSLOT`의 value는 `INVSLOT_*` 칸 번호다.** `ITEM`에 칸 번호를
+                        넣지 않고 타입을 나눈 것은 13이 멀쩡한 아이템 id이기도 해서다. 저장된
+                        값만 봐서는 둘이 구별이 안 되고, 구별할 수 없는 값은 나중에
+                        마이그레이션도 못 한다. 게임에 나갈 때는 둘 다 `*type-="item"`이다
     key                 걸린 키. 없으면 이 액션은 아무 데도 안 걸린다.
                         **숫자는 아직 키를 안 정한 키 그룹이다** (`NextSyntheticKey`)
     name icon           표시 전용. 솔버도 런타임도 안 읽는다
@@ -73,8 +77,18 @@ action.conditions
     frameTypes          `FRAMETYPE_*` 마스크. **유닛이 아니라 프레임**을 말한다.
                         호버 조건이 없으면 뜻이 없다
     groups              `GROUP_*`      forms      `FORM_*`      bonusbars  `BONUSBAR_*`
-    combat stealth pet petbattle specialbar extrabar
+    combat stealth pet petbattle specialbar extrabar mounted indoors skyriding
                         true | false | nil
+    skyriding           위 불리언 중 **혼자 남의 값을 읽는다.** `bonusbars`와 같은
+                        `GetBonusBarOffset()`을 보고 그 값이 `BONUSBAR_SKYRIDING`이냐를 묻는다.
+                        축을 따로 둔 것은 모델이 아니라 메뉴 때문이다. "날 때"를 찾는 사람이
+                        행동 단축바 설정 아래를 뒤지지는 않는다.
+                        값이 겹치는 만큼 **둘을 같이 걸면 성립 안 하는 쌍이 나오고**, 그건
+                        §7의 검사가 잡는다. 솔버는 이 겹침을 문제로 안 본다
+                        (`Solver.lua` 머리 주석의 "Across columns")
+    indoors             `IsIndoors()` 하나만 읽는다. **거짓이 "실외"는 아니다.**
+                        `IsOutdoors()`도 있지만 둘은 여집합이 아니라서(던전 로딩 화면에서 둘 다
+                        거짓이다) 한 함수를 불리언으로 읽는 쪽만 컬럼 분할이 성립한다
     known               true | nil, 그리고 주문일 때만. **다른 것들과 달리 세 번째 값이 없다.**
                         자기 주문에 대해 묻는 것이라 `false`는 "안 배웠을 때만 시전"이 되고
                         그런 상태는 없다
@@ -167,6 +181,11 @@ placement (`MakeOrderRecord`)
 셋은 그 이름의 액션 필드가 아예 없다. `hover`와 `reactions`는 저장에서 접혔고, `macro`는
 "매크로 이름이 가리키는 것이 없다"를 뜻한다. 거꾸로 조건인데 갈래가 없는 것도 있다. `combat`이나
 `known`에는 모순을 잡는 검사가 아직 없다.
+
+**갈래 하나가 두 필드를 대조하는 경우가 둘 있다.** `specialbar`와 `petbattle`이 하나,
+`skyriding`과 `bonusbars`가 다른 하나다. 둘 다 **양쪽 갈래로 똑같이 보고된다.** 두 절반이
+서로 다른 메뉴에 살기 때문에, 어느 쪽을 열었든 그 사람에게 무언가가 보여야 한다. 어느 한쪽만
+칠하면 나머지 메뉴는 멀쩡해 보이고 그쪽으로 푸는 길이 화면에서 사라진다.
 
 **없는 이름으로 물으면 모든 갈래가 비켜가 nil이 나오고, 그건 "문제 없음"과 생김새가 같다.**
 그래서 `GetBindingIssue`가 DEBUG에서 그 물음을 세운다. 목록 행이 그렇게 죽은 갈래 넷을 묻고
