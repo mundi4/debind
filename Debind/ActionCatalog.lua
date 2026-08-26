@@ -715,6 +715,98 @@ ActionCatalog.RegisterSource({
 });
 
 --------------------------------------------------------------------------------
+-- 소스: 아이템
+--------------------------------------------------------------------------------
+
+--- 착용 칸 하나하나. **그 칸에 낀 것을 쓴다**는 액션이라 아이템이 아니라 칸이 저장된다.
+---
+--- 이름도 아이콘도 여기서 안 채운다. `AddEntry`가 `NameAndIconForAction`에 물어보고, 그쪽이
+--- 매번 다시 푼다 - 장신구를 갈아끼우면 목록의 그림도 따라가는 것이 이 그룹의 요점이다.
+---
+--- **비어 있는 칸도 낸다.** 지금 안 낀 것이지 못 거는 것이 아니다. 겉옷을 안 걸친 사람이
+--- 겉옷 칸에 키를 걸어두고 나중에 걸치는 것이 정상 사용이고, 그때 목록에 없으면 걸 길이 없다.
+local function BuildEquipSlots(entries, seen)
+	local group = LLL["SPELL_PICKER_GROUP_EQUIPPED"];
+	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+		AddEntry(entries, seen, {
+			type = Constants.EQUIPSLOT,
+			value = slot,
+			group = group,
+			tooltipText = LLL["TYPE_EQUIPSLOT_DESC"],
+		});
+	end
+end
+
+--- 가방에 있는 것 중 **눌러서 쓰는 것**.
+---
+--- 판정은 두 호출이다. `GetItemSpell`이 아이템에 딸린 주문을 내고, 그중 패시브가 아닌 것만
+--- 남긴다. 착용 효과와 발동 효과가 패시브 쪽이라 여기서 빠진다.
+---
+--- **`GetItemSpell`만으로는 안 된다.** 그 함수는 "주문이 딸려 있나"에 답하지 "눌러 쓸 수
+--- 있나"에 답하지 않는다 - 제조법은 배울 주문을, 장비는 착용 효과를 내놓는다.
+---
+--- **툴팁 쪽이 더 정확하고 더 비싸다.** `C_TooltipInfo.GetItemByID`가 주는 줄에는
+--- `Enum.TooltipDataLineType.ItemSpellTriggerOnUse`가 붙어 있어서 게임이 직접 갈라준다.
+--- 가방 아이템마다 툴팁을 한 번씩 세워야 해서 안 쓴다. **착용 효과가 정말 패시브로 잡히는지는
+--- 아직 안 쟀다** - 어긋나는 아이템이 나오면 그 줄 종류가 답이다.
+local function BuildBagItems(entries, seen)
+	local group = LLL["SPELL_PICKER_GROUP_INVENTORY"];
+	local collected = {};
+	local counted = {};
+
+	-- 배낭부터 시약 가방까지. 은행은 안 본다 - 은행에 있는 것은 지금 못 쓴다.
+	for bag = Enum.BagIndex.Backpack, Enum.BagIndex.ReagentBag do
+		for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+			local itemID = C_Container.GetContainerItemID(bag, slot);
+			-- **같은 아이템이 여러 칸에 있어도 한 줄이다.** 물약 세 뭉치가 세 줄이 되면
+			-- 목록이 자리 수만큼 길어지는데, 걸리는 액션은 셋 다 같은 것이다.
+			if (itemID and not counted[itemID]) then
+				counted[itemID] = true;
+				local _, spellID = C_Item.GetItemSpell(itemID);
+				if (spellID and not C_Spell.IsSpellPassive(spellID)) then
+					local name = C_Item.GetItemNameByID(itemID);
+					if (name) then
+						collected[#collected + 1] = {
+							type = Constants.ITEM,
+							value = itemID,
+							name = name,
+							icon = C_Item.GetItemIconByID(itemID),
+							group = group,
+						};
+					end
+				end
+			end
+		end
+	end
+
+	-- 가방 순서에는 뜻이 없다. 사용자가 아이템을 옮기면 목록 순서가 따라 바뀌는데, 그건
+	-- 읽는 사람이 못 예측하는 순서다.
+	sort(collected, function(a, b) return a.name < b.name; end);
+
+	for i = 1, #collected do
+		AddEntry(entries, seen, collected[i]);
+	end
+end
+
+local function BuildItems(entries)
+	local seen = {};
+	BuildEquipSlots(entries, seen);
+	BuildBagItems(entries, seen);
+end
+
+ActionCatalog.RegisterSource({
+	key = "item",
+	categories = {
+		{
+			key = "item",
+			name = LLL["SPELL_PICKER_TAB_ITEM"],
+			-- 착용 칸 열아홉은 캐릭터와 무관하게 언제나 있다. 가방이 비어도 탭은 선다.
+			Build = BuildItems,
+		},
+	},
+});
+
+--------------------------------------------------------------------------------
 -- 소스: 수집품 (탈것 + 장난감)
 --------------------------------------------------------------------------------
 
@@ -833,98 +925,6 @@ ActionCatalog.RegisterSource({
 			-- 이제 그 판정이 참이어도 장난감이 남아 있을 수 있다.
 			IsAvailable = function() return true; end,
 			Build = BuildCollectibles,
-		},
-	},
-});
-
---------------------------------------------------------------------------------
--- 소스: 아이템
---------------------------------------------------------------------------------
-
---- 착용 칸 하나하나. **그 칸에 낀 것을 쓴다**는 액션이라 아이템이 아니라 칸이 저장된다.
----
---- 이름도 아이콘도 여기서 안 채운다. `AddEntry`가 `NameAndIconForAction`에 물어보고, 그쪽이
---- 매번 다시 푼다 - 장신구를 갈아끼우면 목록의 그림도 따라가는 것이 이 그룹의 요점이다.
----
---- **비어 있는 칸도 낸다.** 지금 안 낀 것이지 못 거는 것이 아니다. 겉옷을 안 걸친 사람이
---- 겉옷 칸에 키를 걸어두고 나중에 걸치는 것이 정상 사용이고, 그때 목록에 없으면 걸 길이 없다.
-local function BuildEquipSlots(entries, seen)
-	local group = LLL["SPELL_PICKER_GROUP_EQUIPPED"];
-	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
-		AddEntry(entries, seen, {
-			type = Constants.EQUIPSLOT,
-			value = slot,
-			group = group,
-			tooltipText = LLL["TYPE_EQUIPSLOT_DESC"],
-		});
-	end
-end
-
---- 가방에 있는 것 중 **눌러서 쓰는 것**.
----
---- 판정은 두 호출이다. `GetItemSpell`이 아이템에 딸린 주문을 내고, 그중 패시브가 아닌 것만
---- 남긴다. 착용 효과와 발동 효과가 패시브 쪽이라 여기서 빠진다.
----
---- **`GetItemSpell`만으로는 안 된다.** 그 함수는 "주문이 딸려 있나"에 답하지 "눌러 쓸 수
---- 있나"에 답하지 않는다 - 제조법은 배울 주문을, 장비는 착용 효과를 내놓는다.
----
---- **툴팁 쪽이 더 정확하고 더 비싸다.** `C_TooltipInfo.GetItemByID`가 주는 줄에는
---- `Enum.TooltipDataLineType.ItemSpellTriggerOnUse`가 붙어 있어서 게임이 직접 갈라준다.
---- 가방 아이템마다 툴팁을 한 번씩 세워야 해서 안 쓴다. **착용 효과가 정말 패시브로 잡히는지는
---- 아직 안 쟀다** - 어긋나는 아이템이 나오면 그 줄 종류가 답이다.
-local function BuildBagItems(entries, seen)
-	local group = LLL["SPELL_PICKER_GROUP_INVENTORY"];
-	local collected = {};
-	local counted = {};
-
-	-- 배낭부터 시약 가방까지. 은행은 안 본다 - 은행에 있는 것은 지금 못 쓴다.
-	for bag = Enum.BagIndex.Backpack, Enum.BagIndex.ReagentBag do
-		for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
-			local itemID = C_Container.GetContainerItemID(bag, slot);
-			-- **같은 아이템이 여러 칸에 있어도 한 줄이다.** 물약 세 뭉치가 세 줄이 되면
-			-- 목록이 자리 수만큼 길어지는데, 걸리는 액션은 셋 다 같은 것이다.
-			if (itemID and not counted[itemID]) then
-				counted[itemID] = true;
-				local _, spellID = C_Item.GetItemSpell(itemID);
-				if (spellID and not C_Spell.IsSpellPassive(spellID)) then
-					local name = C_Item.GetItemNameByID(itemID);
-					if (name) then
-						collected[#collected + 1] = {
-							type = Constants.ITEM,
-							value = itemID,
-							name = name,
-							icon = C_Item.GetItemIconByID(itemID),
-							group = group,
-						};
-					end
-				end
-			end
-		end
-	end
-
-	-- 가방 순서에는 뜻이 없다. 사용자가 아이템을 옮기면 목록 순서가 따라 바뀌는데, 그건
-	-- 읽는 사람이 못 예측하는 순서다.
-	sort(collected, function(a, b) return a.name < b.name; end);
-
-	for i = 1, #collected do
-		AddEntry(entries, seen, collected[i]);
-	end
-end
-
-local function BuildItems(entries)
-	local seen = {};
-	BuildEquipSlots(entries, seen);
-	BuildBagItems(entries, seen);
-end
-
-ActionCatalog.RegisterSource({
-	key = "item",
-	categories = {
-		{
-			key = "item",
-			name = LLL["SPELL_PICKER_TAB_ITEM"],
-			-- 착용 칸 열아홉은 캐릭터와 무관하게 언제나 있다. 가방이 비어도 탭은 선다.
-			Build = BuildItems,
 		},
 	},
 });

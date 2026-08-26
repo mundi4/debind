@@ -235,6 +235,9 @@ return function(DebindPrivate)
     --- **탈것과 장난감이 한 탭인 것이 이 줄의 요점이다.** 둘은 각자 탭이었고, 탭 자리가 모자라
     --- `collectible` 하나로 합쳤다. 다시 갈라지면 여기가 빨개진다.
     ---
+    --- **순서도 같이 고정된다.** 탭 순서는 `RegisterSource`를 부른 순서라 파일 안에서 절을
+    --- 옮기면 조용히 바뀐다. `item`이 `collectible` 앞이다 (2026-08-27, 소유자).
+    ---
     --- 위에서 등록한 가짜 소스는 걸러낸다. 그것들이 목록에 남아 있어야 하는 검사들이 있어서
     --- 지울 수가 없고, 등록 순서에 이 검사를 매달면 스펙 안에서 순서 의존이 생긴다.
     test("실제 탭 목록", function()
@@ -246,7 +249,7 @@ return function(DebindPrivate)
         end
 
         local got = table.concat(keys, ",");
-        local want = "spell,macro,collectible,item,command,special";
+        local want = "spell,macro,item,collectible,command,special";
         check(got == want, ("탭이 %q, 있어야 할 것은 %q"):format(got, want));
     end);
 
