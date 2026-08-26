@@ -12,17 +12,24 @@
 | **3.1.6** | 나갔다 (2026-08-13) | `CHANGELOG.md` |
 | **3.2** | 나갔다 (2026-08-20). 익스포트 / 임포트 | `CHANGELOG.md`<br>`building-export-import.md`<br>`legacy/showing-off-spec-actions.md` |
 | **3.2.1 · 3.2.2** | 나갔다 (2026-08-21, 08-22). 무관한 핫픽스 둘 | `CHANGELOG.md` |
-| **다음 (3.3)** | 커스텀 상태 재설계. **스위치 바는 빼고 나간다 (2026-08-24, 소유자)** | `legacy/redesigning-custom-states.md` |
+| **3.3** | 나갔다 (2026-08-24). 커스텀 상태 재설계. **스위치 바는 빼고 나갔다 (2026-08-24, 소유자)** | `legacy/redesigning-custom-states.md` |
 | **3.3에 같이** | ~~액션 마이그레이션을 한 벌로~~ **들어갔다 (2026-08-21)** | `legacy/unifying-action-migration.md` |
 | **3.3에 같이** | 보관함 개편. **탭 통합까지만 나간다 (2026-08-24, 소유자)** | `building-export-import.md` |
 | **3.3에 같이** | 되돌린 버전이 프로필을 깎는 것 막기 | `legacy/guarding-against-a-downgrade.md` |
 | **3.3에 같이** | 남의 애드온이 그리는 유닛 프레임을 우리가 찾아간다 | `.zzz/unit-frame-discovery.md` |
-| **3.3에 같이** | ~~제한 환경 핫패스에서 뺄 것들~~ **들어갔다 (2026-08-24)** | `legacy/trimming-the-restricted-hot-paths.md` |
+| **다음 (3.4)** | ~~제한 환경 핫패스에서 뺄 것들~~ **들어갔다 (2026-08-24). 3.3 태그가 그날 05:53이고 이 커밋들은 22시대라, 3.3이 아니라 여기로 나간다** | `legacy/trimming-the-restricted-hot-paths.md` |
+| **3.4에 같이** | 픽커에 Items 탭(장비칸 · 가방)과 Collections 탭(탈것 + 장난감). 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
+| **3.4에 같이** | `mounted` · `indoors` · `skyriding` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
 | **그 뒤** | 스위치 바, 보관함의 남은 다섯 | `switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 
-**버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`). 3.3은 기능 추가라 마이너를
-올리는 자리로 보고 적어둔 것이지 확정된 태그가 아니다.
+**버전 번호는 낼 때 소유자가 정한다**(`cutting-a-release.md`).
+
+**3.4는 마이너다 (2026-08-27, 소유자).** 이 판의 기능은 자잘하고, 그 기준으로만 보면 패치
+자리다. 마이너를 산 것은 크기가 아니라 **호환 경계**다. `EQUIPSLOT`이 3.3의
+`VALUE_SHAPES`에 없어서 그 타입을 담은 공유 코드를 3.3이 통째로 거절하고, 이 리포의 패치
+번호는 지금까지 그 선을 한 번도 안 넘었다(3.2.1과 3.2.2는 순수 수정이었다). 근거는
+`0-DECISION-LOG.md` 2026-08-27.
 
 **~~3.2.x가 3.3 앞이다. 이것만은 순서가 아니라 조건이다.~~ 그 조건이 깨졌다 (2026-08-22,
 소유자).** 서 있던 것은 이랬다. 되돌림 방어는 되돌려 **받는 쪽** 코드에 있어야 값이 있으니

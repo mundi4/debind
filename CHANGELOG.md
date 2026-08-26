@@ -1,3 +1,27 @@
+# 3.4
+
+**Two new tabs in the picker, and three new conditions.**
+
+**Items.** A key can now follow an equipment slot rather than an item. Bind your trinket slot and swapping the trinket changes what the key fires, with the icon following it. The other group is whatever you are carrying that has a use effect. A slot binding takes a target the same way an item bound by its own name does.
+
+**Collections** holds mounts and toys together, favourites first and named by kind so the two halves of the list cannot be read as one. It used to be two tabs, and the Mounts one hid itself when you had no mounts, taking the tab space with it while your toys were still in reach elsewhere.
+
+**While Mounted, While Indoors and While Skyriding** join the condition list, and the conditions too small to hold a row each now sit in one **Miscellaneous** submenu. A switch expression can read `[mounted]` and `[indoors]` as well.
+
+**Group headings in the picker fold**, and they wear the bar the overview's key groups already wear.
+
+Also in this one:
+
+- The Commands tab could come up dead. Another addon putting a table into the global namespace under its own name was enough to do it. An addon's bindings are now listed under its folder name, which is what the game's own keybinding panel shows.
+- A binding that only runs while you are alone and aims at a role unit is now marked. Those units are empty when you are alone, so it could never have fired.
+- A unit condition this build cannot read no longer counts as "when there is none". A higher binding reading it that way was enough for Debind to drop the binding underneath it without saying so.
+- The throttle slider in the state driver options reached nothing on a rebuild, which always used the default instead.
+- An **Unused** action carrying conditions could release its key for good, leaving whatever was under it on that key dead with nothing on screen to say why.
+- A nameplate keeps targeting on a click while Debind is watching it.
+- A toy arriving no longer sends the mount list off to be built again.
+
+**A share code made here still opens in 3.3, with two exceptions.** One that binds an equipment slot is turned away whole rather than read in part, which is the answer this addon gives to anything it could not have made itself. One that uses **While Mounted**, **While Indoors** or **While Skyriding** opens there with that condition missing, and nothing on that end says it went, so the action ends up running in places you had ruled out. Both stop the moment the other side updates. The other direction is unchanged: a code from 3.3 or 3.2 opens here exactly as before.
+
 # 3.3
 
 **Custom states are switches now, and there is no longer a fixed five of them.**

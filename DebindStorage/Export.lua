@@ -45,9 +45,18 @@ local luatype            = type;
 --- (`devdocs/legacy/unifying-action-migration.md` §3-3) -- which is what lets the two ladders be
 --- one.
 ---
---- **That rides on 2 as well.** v3.2 sent 1; 2 has not gone out. Splitting a number nothing is
---- holding makes a step for a version that never existed, and that step stays forever without ever
---- meeting a string.
+--- **That rides on 2 as well.** v3.2 sent 1, and 2 had not gone out when this was decided.
+--- Splitting a number nothing was holding would have made a step for a version that never existed,
+--- and that step stays forever without ever meeting a string.
+---
+--- **3.4 added three condition names and one action type, and did not bump (2026-08-27, owner).**
+--- The case for bumping was that a 3.3 reader drops an unknown condition in silence, which is the
+--- failure the v1 to v2 bump was cut for. What that missed is that this number has no granularity.
+--- A 3.3 reader already turns away a code carrying `equipslot` on its own, because an unknown
+--- action type refuses the whole string. So the bump would buy only the codes that use a new
+--- condition and no equipment slot, and it would cost every code that uses neither, which is most
+--- of them. And 2 is out in the field now, unlike when v1 was raised, so a bump is no longer free.
+--- `devdocs/0-DECISION-LOG.md` 2026-08-27.
 ---
 --- So there are two versions, and what separates them is **whether the payload carries its own
 --- `dbver`**. v1 does not: its version number is the answer, and the branch below stamps 5.
