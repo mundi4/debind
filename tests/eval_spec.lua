@@ -123,6 +123,7 @@ return function(DebindPrivate, _, ctx)
             action({ type = Constants.MACROTEXT, value = "/cast Renew", key = "F3" }),
             action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F4" }),
             action({ type = Constants.TARGET, key = "F5", unit = "focus" }),
+            action({ type = Constants.EQUIPSLOT, value = 13, key = "F6" }),
         });
 
         local clickFrame = DebindPrivate.DefaultClickFrame;
@@ -140,6 +141,13 @@ return function(DebindPrivate, _, ctx)
 
         local itemType, itemValue = attributesOf("F2");
         check(itemType == "item" and itemValue == "item:6948", "item: " .. tostring(itemValue));
+
+        -- **An equipment slot is the same attribute with a different shape of value**, and the
+        -- shape is the whole of it: `SecureCmdItemParse` reads a bare number as an inventory slot
+        -- and `item:13` as an item id. Getting this wrong fires item 13 instead of the trinket,
+        -- and nothing anywhere says so.
+        local slotType, slotValue = attributesOf("F6");
+        check(slotType == "item" and slotValue == "13", "equipslot: " .. tostring(slotValue));
 
         local textType, textValue = attributesOf("F3");
         check(textType == "macro" and textValue == "/cast Renew", "macrotext: " .. tostring(textValue));

@@ -488,6 +488,7 @@ function DebindSpellPickerFrameMixin:OnShow()
 	-- 재구축이 한 번 더 도는 것뿐이고, 디바운스가 연타를 접는다.
 	self:RegisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED");
 	self:RegisterEvent("TOYS_UPDATED");
+	self:RegisterEvent("BAG_UPDATE_DELAYED");
 	-- 소환수 주문·명령은 **주문서 소환수 은행**에서 읽는다(`AddSpellBookItem`). 그쪽은
 	-- `SPELLS_CHANGED`가 이미 덮으므로 따로 들을 것이 없다. 한때 `PET_BAR_UPDATE`를 걸어뒀는데
 	-- 두 가지가 틀렸다: (1) 그때도 목록은 펫 바가 아니라 주문서에서 왔다 (2) 이 이벤트는 펫이
@@ -533,24 +534,13 @@ function DebindSpellPickerFrameMixin:ApplyPosition()
 	end
 end
 
---- 어느 이벤트가 어느 소스를 낡게 만드는가. **여기 없는 이벤트는 전부를 낡게 만든다** -
---- 모르는 이벤트에 아무것도 안 짓는 것보다 남는 것을 짓는 편이 안전한 쪽이다.
----
---- **`command`와 `special`은 어디에도 안 나온다.** 둘 다 손으로 적은 고정 열거라 게임에서
---- 오는 어떤 소식으로도 안 바뀐다. 창을 열 때의 무인자 `Invalidate()`가 그 둘을 덮는다.
-local EVENT_SOURCES = {
-	SPELLS_CHANGED             = "spellbook",
-	ACTIVE_TALENT_GROUP_CHANGED = "spellbook",
-	TRAIT_CONFIG_UPDATED       = "spellbook",
-	UPDATE_MACROS              = "macro",
-	NEW_MOUNT_ADDED            = "mount",
-	MOUNT_JOURNAL_SEARCH_UPDATED = "mount",
-	NEW_TOY_ADDED              = "toy",
-	TOYS_UPDATED               = "toy",
-};
+local EVENT_SOURCES = ActionCatalog.EVENT_SOURCES;
 
 function DebindSpellPickerFrameMixin:OnEvent(event)
-	if (event == "SPELLS_CHANGED" or event == "UPDATE_MACROS" or event == "NEW_MOUNT_ADDED" or event == "NEW_TOY_ADDED" or event == "MOUNT_JOURNAL_SEARCH_UPDATED" or event == "TOYS_UPDATED") then
+	-- **The two slow ones are named, not the six fast ones.** It was the other way round, and every
+	-- event added since had to be remembered into that list or it silently took the one second
+	-- debounce meant for the spell book catching up asynchronously.
+	if (event ~= "ACTIVE_TALENT_GROUP_CHANGED" and event ~= "TRAIT_CONFIG_UPDATED") then
 		self:ScheduleRebuild(0.1, EVENT_SOURCES[event]);
 	else
 		-- 특성 변경은 주문서를 **비동기로** 갱신한다. 짧은 디바운스로는 아직 안 채워진

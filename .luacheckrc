@@ -68,12 +68,14 @@ globals = {
 	-- WoW core API
 	"Enum",
 	"C_AddOns",
+	"C_Container",
 	"C_AssistedCombat",
 	"C_ClassTalents",
 	"C_CreatureInfo",
 	"C_Item",
 	"C_KeyBindings",
 	"C_MountJournal",
+	"C_PaperDollInfo",
 	"C_Spell",
 	"C_ToyBox",
 	"C_SpellBook",
@@ -83,6 +85,10 @@ globals = {
 	-- that is not this character's has no other route, and the namespaced spelling raised in the
 	-- game while luacheck saw an ordinary field read on a known table.
 	"GetSpecializationInfoForClassID",
+	"SecureCmdItemParse",
+	"GetInventoryItemTexture",
+	"INVSLOT_FIRST_EQUIPPED",
+	"INVSLOT_LAST_EQUIPPED",
 	"C_Timer",
 	"EventRegistry",
 	"C_TradeSkillUI",

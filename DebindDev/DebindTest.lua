@@ -5189,6 +5189,49 @@ RegisterTest("Click-cast: another addon narrowing the frame is put back", {
     end,
 })
 
+-- **`EQUIPSLOT` reaches the game as an item, and the shape of the value is the whole of it.**
+-- `tests/eval_spec.lua` already holds the emitted attribute byte for byte, so what is left for the
+-- game is the half no headless run can see: that `SecureCmdItemParse` really reads a bare number
+-- as an inventory slot rather than an item id. Getting that wrong fires item 13 -- a real item,
+-- with a real effect -- instead of the trinket, and nothing raises.
+RegisterTest("Equipment slot: the attribute names a slot, not an item", {
+    description = "슬롯 액션이 게임 쪽 파서에 슬롯으로 읽히는지",
+    run = function()
+        local NAME = "Equip slot attribute"
+        local KEY = "CTRL-SHIFT-F8"
+        local SLOT = 13
+
+        InsertAction({ type = Constants.EQUIPSLOT, value = SLOT, key = KEY })
+        ApplyBindings()
+
+        local binding = GetNthBinding(KEY, 1)
+        local button = binding and binding.clickbutton
+        if not button then
+            return Fail(NAME, "the action got no click button name")
+        end
+
+        local attr = DebindPrivate.DefaultClickFrame:GetAttribute("*item-" .. button)
+        if attr ~= tostring(SLOT) then
+            return Fail(NAME, format("*item- is %q, it should be %q", tostring(attr), tostring(SLOT)))
+        end
+
+        -- **The game's own parser, asked directly.** This is the claim the whole type rests on and
+        -- the only place it can be checked: `name` comes back as the link of what is worn in that
+        -- slot, `bag` as nil, and `slot` as the number we passed. An item id would answer the
+        -- other way round.
+        local name, bag, slot = SecureCmdItemParse(attr)
+        if bag ~= nil or tostring(slot) ~= tostring(SLOT) then
+            return Fail(NAME, format("parsed as bag=%s slot=%s, it should be bag=nil slot=%d",
+                tostring(bag), tostring(slot), SLOT))
+        end
+
+        -- `name` is nil when nothing is worn there, and that is not a fault -- the binding is still
+        -- correct, it just has nothing to fire today. Reported so a run in an empty slot reads as
+        -- what it is rather than as a pass that measured nothing.
+        return Pass(NAME, format("slot %d, worn=%s", SLOT, tostring(name)))
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Click-time keys (what the press decides)
 -----------------------------------------------------------

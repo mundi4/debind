@@ -246,8 +246,34 @@ return function(DebindPrivate)
         end
 
         local got = table.concat(keys, ",");
-        local want = "spell,macro,collectible,command,special";
+        local want = "spell,macro,collectible,item,command,special";
         check(got == want, ("탭이 %q, 있어야 할 것은 %q"):format(got, want));
+    end);
+
+    --- **없는 소스를 무효화하면 아무 일도 안 일어난다.** `Invalidate(source)`는 그 이름을 가진
+    --- 카테고리가 없어도 조용히 통과하고, 그 탭은 창을 다시 열 때까지 옛 목록을 보여준다.
+    --- 로그도 오류도 없다.
+    ---
+    --- 탈것과 장난감을 한 소스로 합칠 때 이 표가 `"mount"`와 `"toy"`를 계속 부르고 있었다.
+    --- 새 탈것을 얻어도 목록이 안 바뀌는 것이 증상이고, 창을 닫았다 열면 고쳐지므로 재현도
+    --- 안 된다.
+    test("선택 창의 이벤트 표가 부르는 소스는 전부 실재한다", function()
+        local sources = {};
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            sources[category.source] = true;
+        end
+
+        local eventSources = ActionCatalog.EVENT_SOURCES;
+        check(eventSources ~= nil, "이벤트 표가 없다");
+
+        local bad = {};
+        for event, source in pairs(eventSources) do
+            if (not sources[source]) then
+                bad[#bad + 1] = event .. "=" .. tostring(source);
+            end
+        end
+        table.sort(bad);
+        check(#bad == 0, "없는 소스를 부른다: " .. table.concat(bad, ", "));
     end);
 
     return T;

@@ -1044,6 +1044,13 @@ local function DescribeBinding(type, value, unit, facts, out)
     elseif (type == Constants.ITEM) then
         attr(out, "*type-", "item");
         attr(out, "*item-", format("item:%d", value));
+    elseif (type == Constants.EQUIPSLOT) then
+        -- **A bare number, and that is what makes it a slot.** `SecureCmdItemParse` reads two
+        -- numbers as a bag pair and one as an inventory slot, so `"13"` reaches
+        -- `UseInventoryItem(13)` -- the same call `/use 13` makes. `item:%d` here would name an
+        -- item id instead.
+        attr(out, "*type-", "item");
+        attr(out, "*item-", tostring(value));
     elseif (type == Constants.MACRO) then
         attr(out, "*type-", "macro");
         attr(out, "*macro-", value);

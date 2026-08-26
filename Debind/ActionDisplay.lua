@@ -24,6 +24,7 @@ local luatype                = type;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
 local IsIssueMinor           = DebindPrivate.IsIssueMinor;
 local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
+local EquipSlotFacts         = DebindPrivate.EquipSlotFacts;
 local InCombatLockdown       = InCombatLockdown;
 
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
@@ -113,6 +114,7 @@ end
 local BINDING_TYPE_NAMES   = {
 	[Constants.SPELL] = LLL["TYPE_SPELL"],
 	[Constants.ITEM] = LLL["TYPE_ITEM"],
+	[Constants.EQUIPSLOT] = LLL["TYPE_EQUIPSLOT"],
 	[Constants.MACRO] = LLL["TYPE_MACRO"],
 	[Constants.MACROTEXT] = LLL["TYPE_MACROTEXT"],
 	[Constants.MOUNT] = LLL["TYPE_MOUNT"],
@@ -276,6 +278,17 @@ local function NameAndIconForAction(action)
 		local icon = C_Item.GetItemIconByID(value);
 		actionName = name;
 		actionIcon = icon;
+	elseif (type == Constants.EQUIPSLOT) then
+		-- **Resolved every draw, never stored.** The whole point of binding a slot rather than an
+		-- item is that swapping the trinket changes what the key fires -- so the icon has to
+		-- follow it. A baked one would show yesterday's trinket forever.
+		--
+		-- The empty slot is not a fault. Nothing is worn there *today*; the binding is still the
+		-- one the reader made, and the character frame's own placeholder is what that looks like
+		-- everywhere else in this game.
+		local slotName, slotTexture = EquipSlotFacts(value);
+		actionName = slotName;
+		actionIcon = GetInventoryItemTexture("player", value) or slotTexture;
 	elseif (type == Constants.MOUNT) then
 		local name, icon;
 		if (value == 0 or value == 268435455) then

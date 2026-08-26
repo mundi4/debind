@@ -77,6 +77,62 @@ end
 
 local IsEmptyCallPetSlot = DebindPrivate.IsEmptyCallPetSlot;
 
+--- 착용 슬롯 하나의 **표시 이름과 빈 칸 그림**. `INVSLOT_HEAD`..`INVSLOT_TABARD`.
+---
+--- 이름은 게임의 것이다. `GetInventorySlotInfoForInvSlot`이 프레임 이름("HeadSlot")을 주고,
+--- 그걸 대문자로 올린 전역이 그 언어의 표시 이름이다(`HEADSLOT` = "머리"). 캐릭터 창이
+--- 자기 칸에 이름을 붙이는 방식 그대로다.
+---
+--- **같은 이름을 쓰는 칸이 있어서 번호를 붙인다.** `TRINKET0SLOT`과 `TRINKET1SLOT`이 둘 다
+--- "장신구"고 손가락 둘도 그렇다. 캐릭터 창에서는 자리가 그 둘을 갈라주는데 **목록에서는
+--- 갈라줄 것이 없다** - 똑같은 줄이 둘 서면 어느 쪽이 어느 칸인지 알 길이 없다. 게임에
+--- 번호가 붙은 문자열이 따로 없어서 우리가 붙인다.
+---
+--- 번호는 **겹치는 것에만** 붙는다. 목록을 한 번 만들어보고 이름이 두 번 나온 것만 번호를
+--- 얻으므로, 게임이 언젠가 둘을 다른 이름으로 갈라 부르면 번호가 저절로 사라진다.
+local EquipSlotFacts;
+do
+    local facts;
+
+    local function build()
+        facts = {};
+        local nameCount = {};
+
+        for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+            local _, texture, _, frameName = C_PaperDollInfo.GetInventorySlotInfoForInvSlot(slot);
+            local name = frameName and _G[strupper(frameName)];
+            facts[slot] = { name = name, texture = texture };
+            if (name) then
+                nameCount[name] = (nameCount[name] or 0) + 1;
+            end
+        end
+
+        local numbered = {};
+        for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
+            local entry = facts[slot];
+            local name = entry.name;
+            if (name and nameCount[name] > 1) then
+                numbered[name] = (numbered[name] or 0) + 1;
+                entry.name = format(L["EQUIPSLOT_NUMBERED"], name, numbered[name]);
+            end
+        end
+    end
+
+    --- **처음 물을 때 짓는다.** 파일이 읽히는 시점에는 `_G["HEADSLOT"]`이 아직 없을 수 있고,
+    --- 없는 채로 지어진 표는 이름이 통째로 nil인 채 살아남는다.
+    function EquipSlotFacts(slot)
+        if (not facts) then
+            build();
+        end
+        local entry = facts[slot];
+        if (not entry) then
+            return nil, nil;
+        end
+        return entry.name, entry.texture;
+    end
+end
+DebindPrivate.EquipSlotFacts = EquipSlotFacts;
+
 --- 플라이아웃 **자기 아이콘**. flyoutID -> iconID.
 ---
 --- 게임에는 플라이아웃 자기 아이콘이 있다 - 주문책이 "야수 소환" 칸에 그리는 그 그림이고,

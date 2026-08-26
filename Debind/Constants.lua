@@ -56,6 +56,16 @@ Constants.CLICKTIME_BUTTON_PREFIX         = "@";
 -- Action Types
 Constants.SPELL                           = "spell";
 Constants.ITEM                            = "item";
+--- Use whatever is worn in one equipment slot. `value` is the slot number (`INVSLOT_*`).
+---
+--- **Not `ITEM` with a slot number in `value`.** That field carries an item id there, and 13 is a
+--- perfectly good item id -- stored, the two would be indistinguishable, and nothing could migrate
+--- them apart later.
+---
+--- What goes to the game is still an item: `*type-` is `"item"` and `*item-` is the bare number,
+--- which `SecureCmdItemParse` reads as an inventory slot rather than a bag pair
+--- (`ChatFrameUtil.lua`). The split is in our storage vocabulary, not in the attributes.
+Constants.EQUIPSLOT                       = "equipslot";
 Constants.MACRO                           = "macro";
 Constants.MACROTEXT                       = "macrotext";
 Constants.MOUNT                           = "mount";
