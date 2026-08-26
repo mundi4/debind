@@ -107,6 +107,13 @@ Constants.UNUSED                          = "unused";
 Constants.TYPES_WITH_UNIT                 = {
     [Constants.SPELL] = true,
     [Constants.ITEM] = true,
+    -- **Same execution path as `ITEM`, so the same answer.** `SECURE_ACTIONS.item` hands its
+    -- `unit` to `SecureCmdUseItem`, which passes it into `UseInventoryItem(slot, target)`. A
+    -- healing trinket bound to a slot aims the way the item bound by id does.
+    -- **Same execution path as `ITEM`, so the same answer.** `SECURE_ACTIONS.item` hands its
+    -- `unit` to `SecureCmdUseItem`, which passes it into `UseInventoryItem(slot, target)`. A
+    -- healing trinket bound to a slot aims the way the item bound by id does.
+    [Constants.EQUIPSLOT] = true,
     [Constants.PETACTION] = true,
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,

@@ -149,6 +149,16 @@ return function(DebindPrivate, _, ctx)
         local slotType, slotValue = attributesOf("F6");
         check(slotType == "item" and slotValue == "13", "equipslot: " .. tostring(slotValue));
 
+        -- **And it keeps a target, because the game hands one on.** `SECURE_ACTIONS.item` passes
+        -- its `unit` down to `UseInventoryItem(slot, target)`, so a slot aims exactly the way an
+        -- item id does. A type left out of `TYPES_WITH_UNIT` has its unit wiped on the way to the
+        -- binding while the window still shows the one that was picked -- the fault that list was
+        -- made single for.
+        local targeted = DebindPrivate.GetBindingInfoForAction(
+            { type = Constants.EQUIPSLOT, value = 13, key = "F7", unit = "focus" });
+        check(targeted.unit == "focus",
+            "equipslot lost its unit: " .. tostring(targeted.unit));
+
         local textType, textValue = attributesOf("F3");
         check(textType == "macro" and textValue == "/cast Renew", "macrotext: " .. tostring(textValue));
 
