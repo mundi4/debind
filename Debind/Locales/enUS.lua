@@ -801,7 +801,11 @@ L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = "Account Macros"
 L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = "Character Macros"
 -- The two groups of the Items tab. The first names what the key follows -- the slot, not the item
 -- in it today -- because that is the whole difference between the two groups.
-L["SPELL_PICKER_GROUP_CARRIED"] = "Carried"
+--
+-- The second is the client's own word for the bags taken together (`INVENTORY_TOOLTIP`, which
+-- Korean answers with the same string as `BACKPACK_TOOLTIP`). It was "Carried", coined here for
+-- the contrast with wearing something, which is the coinage this file exists to prevent.
+L["SPELL_PICKER_GROUP_INVENTORY"] = "Inventory"
 L["SPELL_PICKER_GROUP_EQUIPPED"] = "Use Equipped Item"
 -- **종류를 이름에 넣는다.** 탈것과 장난감이 한 탭에 살아서, 둘 다 "Favorites"를 달면 같은
 -- 머리글이 한 목록에 두 번 서고 두 번째가 첫 번째의 이어짐으로 읽힌다.
@@ -999,7 +1003,7 @@ L["EQUIPSLOT_NUMBERED"] = "%s %d"
 L["TYPE_EQUIPSLOT"] = "Equipment Slot"
 -- Says what the key follows, because that is what a reader is choosing between here: this row and
 -- the item itself sitting in the Carried group below it.
-L["TYPE_EQUIPSLOT_DESC"] = "Uses whatever you are wearing in this slot. Swap the item and the key follows it."
+L["TYPE_EQUIPSLOT_DESC"] = "Uses whatever you are wearing in this slot."
 L["TYPE_ITEM"] = "Item"
 L["TYPE_MACRO"] = "Macro"
 L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read your switches, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"

@@ -873,7 +873,7 @@ end
 --- 가방 아이템마다 툴팁을 한 번씩 세워야 해서 안 쓴다. **착용 효과가 정말 패시브로 잡히는지는
 --- 아직 안 쟀다** - 어긋나는 아이템이 나오면 그 줄 종류가 답이다.
 local function BuildBagItems(entries, seen)
-	local group = LLL["SPELL_PICKER_GROUP_CARRIED"];
+	local group = LLL["SPELL_PICKER_GROUP_INVENTORY"];
 	local collected = {};
 	local counted = {};
 
