@@ -20,4 +20,3 @@ Probe_ForbiddenFrames.lua
 Probe_LoginTiming.lua
 Probe_FrameBoundary.lua
 Probe_NamePlates.lua
-Probe_Indoors.lua
