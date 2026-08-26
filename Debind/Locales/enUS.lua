@@ -799,8 +799,13 @@ L["SPELL_PICKER_ADD_TO"] = "Add to..."
 L["SPELL_PICKER_EMPTY"] = "Nothing here."
 L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = "Account Macros"
 L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = "Character Macros"
-L["SPELL_PICKER_GROUP_FAVORITES"] = "Favorites"
+-- **종류를 이름에 넣는다.** 탈것과 장난감이 한 탭에 살아서, 둘 다 "Favorites"를 달면 같은
+-- 머리글이 한 목록에 두 번 서고 두 번째가 첫 번째의 이어짐으로 읽힌다.
+L["SPELL_PICKER_GROUP_FAVORITE_MOUNTS"] = "Favorite Mounts"
+L["SPELL_PICKER_GROUP_FAVORITE_TOYS"] = "Favorite Toys"
+L["SPELL_PICKER_GROUP_MOUNTS"] = "Mounts"
 L["SPELL_PICKER_GROUP_OTHERS"] = "Everything Else"
+L["SPELL_PICKER_GROUP_TOYS"] = "Toys"
 -- 행 툴팁의 안내 줄 둘(이 줄과 SPELL_PICKER_RIGHT_CLICK_TO_ADD). **왼쪽/오른쪽을 부르는 말은
 -- 왼쪽 목록 행 툴팁의 것을 그대로 쓴다**("Left click to ..." / "Right click ..." -
 -- LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2). 같은 애드온의 두 목록이 같은 조작을 다르게 부르면
@@ -825,12 +830,14 @@ L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another tab."
 -- Same thing the overview's `ORDER_FLAG_OFFSPEC` names, so it has to be the same word: two names
 -- for one thing in one window is how a reader ends up thinking there are two things.
 L["SPELL_PICKER_SHOW_OFFSPEC"] = "Inactive specializations"
+-- The client calls the window that holds mounts, toys, pets and heirlooms Collections
+-- (`COLLECTIONS_MICRO_BUTTON_SPEC_TUTORIAL` names those four). Only two of them can carry a
+-- key, so the tab takes the word rather than the client's full "Warband Collections".
+L["SPELL_PICKER_TAB_COLLECTIBLE"] = "Collections"
 L["SPELL_PICKER_TAB_COMMAND"] = "Commands"
 L["SPELL_PICKER_TAB_MACRO"] = "Macros"
-L["SPELL_PICKER_TAB_MOUNT"] = "Mounts"
 L["SPELL_PICKER_TAB_SPECIAL"] = "Special"
 L["SPELL_PICKER_TAB_SPELL"] = "Spells"
-L["SPELL_PICKER_TAB_TOY"] = "Toys"
 -- 창 제목이자 그 창을 여는 [+] 버튼의 툴팁 제목이다(DebindUI.xml의 AddPortrait).
 -- 버튼 쪽은 "Add..."라는 따로 놀던 낱말을 쓰고 있었는데, 눌러서 열리는 창이 다른 이름을
 -- 달고 있으면 같은 것인지 알 수가 없다.

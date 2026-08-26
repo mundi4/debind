@@ -688,15 +688,35 @@ ActionCatalog.RegisterSource({
 });
 
 --------------------------------------------------------------------------------
--- 소스: 탈것
+-- 소스: 수집품 (탈것 + 장난감)
 --------------------------------------------------------------------------------
+
+--- 모아둔 것을 즐겨찾기 먼저로 정렬해 머리글 둘로 내보낸다.
+---
+--- **머리글 이름을 부르는 쪽이 넘긴다.** 탈것과 장난감이 한 탭에 살게 되면서 둘 다
+--- "즐겨찾기"라는 머리글을 달면 같은 이름이 한 목록에 두 번 서고, 읽는 사람은 두 번째
+--- 것을 첫 번째의 이어짐으로 읽는다. 종류를 이름에 넣는 것이 그걸 막는다.
+local function EmitCollected(entries, seen, collected, favoriteGroup, otherGroup)
+	sort(collected, function(a, b)
+		if (a.isFavorite ~= b.isFavorite) then
+			return a.isFavorite;
+		end
+		return a.name < b.name;
+	end);
+
+	for i = 1, #collected do
+		local entry = collected[i];
+		entry.group = entry.isFavorite and favoriteGroup or otherGroup;
+		AddEntry(entries, seen, entry);
+	end
+end
 
 --- **수집한 것 전부** 넣는다. 수백 개여도 상관없다 - ScrollBox가 가상화되어 있어 보이는
 --- 만큼만 프레임을 잡고, 찾는 일은 검색창이 한다. 즐겨찾기는 걸러내는 조건이 아니라
 --- 위로 올리는 머리글이고, "즐겨찾기만"은 필터에 따로 있다.
 ---
---- 정렬은 여기서 한다. 주문서와 달리 `GetMountIDs`가 주는 순서에는 뜻이 없다.
-local function BuildMounts(entries)
+--- 정렬은 `EmitCollected`가 한다. 주문서와 달리 `GetMountIDs`가 주는 순서에는 뜻이 없다.
+local function BuildMounts(entries, seen)
 	local mountIDs = C_MountJournal.GetMountIDs();
 	if (not mountIDs) then
 		return;
@@ -720,34 +740,9 @@ local function BuildMounts(entries)
 		end
 	end
 
-	sort(collected, function(a, b)
-		if (a.isFavorite ~= b.isFavorite) then
-			return a.isFavorite;
-		end
-		return a.name < b.name;
-	end);
-
-	local seen = {};
-	for i = 1, #collected do
-		local entry = collected[i];
-		entry.group = entry.isFavorite and LLL["SPELL_PICKER_GROUP_FAVORITES"]
-			or LLL["SPELL_PICKER_GROUP_OTHERS"];
-		AddEntry(entries, seen, entry);
-	end
+	EmitCollected(entries, seen, collected,
+		LLL["SPELL_PICKER_GROUP_FAVORITE_MOUNTS"], LLL["SPELL_PICKER_GROUP_MOUNTS"]);
 end
-
-ActionCatalog.RegisterSource({
-	key = "mount",
-	categories = {
-		{
-			key = "mount",
-			name = LLL["SPELL_PICKER_TAB_MOUNT"],
-			filters = { "favorites" },
-			IsAvailable = function() return (C_MountJournal.GetNumMounts() or 0) > 0; end,
-			Build = BuildMounts,
-		},
-	},
-});
 
 --------------------------------------------------------------------------------
 -- 소스: 장난감
@@ -760,7 +755,7 @@ ActionCatalog.RegisterSource({
 --- 걸어놨으면 여기 목록도 같이 줄어든다. 그걸 우회하려면 필터를 껐다 켜야 하는데,
 --- **그건 블리자드 상태를 건드리는 것**이라 안 한다(이 애드온이 서 있는 자리가 그 반대다).
 --- 대신 목록이 왜 짧은지는 검증 목록에 적어뒀다.
-local function BuildToys(entries)
+local function BuildToys(entries, seen)
 	local collected = {};
 
 	for index = 1, (C_ToyBox.GetNumFilteredToys() or 0) do
@@ -779,30 +774,26 @@ local function BuildToys(entries)
 		end
 	end
 
-	sort(collected, function(a, b)
-		if (a.isFavorite ~= b.isFavorite) then
-			return a.isFavorite;
-		end
-		return a.name < b.name;
-	end);
+	EmitCollected(entries, seen, collected,
+		LLL["SPELL_PICKER_GROUP_FAVORITE_TOYS"], LLL["SPELL_PICKER_GROUP_TOYS"]);
+end
 
+--- **한 `seen`을 둘이 나눠 쓴다.** 탈것은 `Constants.MOUNT`, 장난감은 `Constants.ITEM`이라
+--- 부딪칠 값이 없지만, 한 목록에 들어가는 이상 중복 제거도 한 번에 하는 것이 맞다.
+local function BuildCollectibles(entries)
 	local seen = {};
-	for i = 1, #collected do
-		local entry = collected[i];
-		entry.group = entry.isFavorite and LLL["SPELL_PICKER_GROUP_FAVORITES"]
-			or LLL["SPELL_PICKER_GROUP_OTHERS"];
-		AddEntry(entries, seen, entry);
-	end
+	BuildMounts(entries, seen);
+	BuildToys(entries, seen);
 end
 
 ActionCatalog.RegisterSource({
-	key = "toy",
+	key = "collectible",
 	categories = {
 		{
-			key = "toy",
-			name = LLL["SPELL_PICKER_TAB_TOY"],
+			key = "collectible",
+			name = LLL["SPELL_PICKER_TAB_COLLECTIBLE"],
 			filters = { "favorites" },
-			-- **탭을 숨기지 않는다.** 쓸 수 있는 개수 API가 전부 블리자드 장난감 상자
+			-- **탭을 숨기지 않는다.** 장난감 쪽 개수 API가 전부 블리자드 장난감 상자
 			-- 필터를 탄 값이라(`GetNumLearnedDisplayedToys`는 그쪽 "수집/표시" 진행도
 			-- 카운터다) 사용자가 거기서 "미수집만" 같은 필터를 걸어두면 0이 나온다.
 			-- 그걸로 탭을 숨기면 자기 장난감에 닿을 길이 아예 없어진다 - 우리 창에는 남의
@@ -810,8 +801,11 @@ ActionCatalog.RegisterSource({
 			--
 			-- 목록이 그 필터를 타는 것은 남는 비용이다(빈 목록이면 안내문이 뜬다).
 			-- 탭이 사라지는 것과 달리 되돌릴 길이 사용자에게 보인다.
+			--
+			-- **탈것 개수는 이제 안 묻는다.** 합치기 전에는 탈것이 없으면 탭을 숨겼는데,
+			-- 이제 그 판정이 참이어도 장난감이 남아 있을 수 있다.
 			IsAvailable = function() return true; end,
-			Build = BuildToys,
+			Build = BuildCollectibles,
 		},
 	},
 });

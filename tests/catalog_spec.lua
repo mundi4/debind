@@ -228,5 +228,27 @@ return function(DebindPrivate)
         check(right.count() == wasRight + 1, "좁은 무효화가 전부를 덮어썼다");
     end);
 
+    --- **탭 목록 자체를 고정한다.** 여기 있는 다른 검사들은 전부 가짜 소스로 도는데, 그러면
+    --- 실제로 어떤 탭이 서는지는 아무도 안 본다. 이 스펙이 도는 자리에서는 목록을 짓지 않고도
+    --- 카테고리를 셀 수 있으므로(`GetCategories`가 `Build`를 안 부른다), 값이 싼 검사다.
+    ---
+    --- **탈것과 장난감이 한 탭인 것이 이 줄의 요점이다.** 둘은 각자 탭이었고, 탭 자리가 모자라
+    --- `collectible` 하나로 합쳤다. 다시 갈라지면 여기가 빨개진다.
+    ---
+    --- 위에서 등록한 가짜 소스는 걸러낸다. 그것들이 목록에 남아 있어야 하는 검사들이 있어서
+    --- 지울 수가 없고, 등록 순서에 이 검사를 매달면 스펙 안에서 순서 의존이 생긴다.
+    test("실제 탭 목록", function()
+        local keys = {};
+        for _, category in ipairs(ActionCatalog.GetCategories()) do
+            if (category.source:sub(1, 5) ~= "spec-") then
+                keys[#keys + 1] = category.key;
+            end
+        end
+
+        local got = table.concat(keys, ",");
+        local want = "spell,macro,collectible,command,special";
+        check(got == want, ("탭이 %q, 있어야 할 것은 %q"):format(got, want));
+    end);
+
     return T;
 end
