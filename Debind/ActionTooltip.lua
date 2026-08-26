@@ -401,6 +401,9 @@ do
 
 		addBooleanCondition("combat");
 		addBooleanCondition("stealth");
+		addBooleanCondition("mounted");
+		addBooleanCondition("skyriding");
+		addBooleanCondition("indoors");
 
 		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
 		-- menu toggles `known` between true and nil rather than inverting it, so there is no

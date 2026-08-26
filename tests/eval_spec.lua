@@ -205,6 +205,14 @@ return function(DebindPrivate, _, ctx)
         -- the two sides used to be able to disagree about.
         { name = "forms", conditions = { forms = 4 }, on = function(s) s.form = 2; end },
         { name = "bonusbars", conditions = { bonusbars = 8 }, on = function(s) s.bonusbar = 3; end },
+        { name = "mounted", conditions = { mounted = true }, on = function(s) s.mounted = true; end },
+        { name = "indoors", conditions = { indoors = true }, on = function(s) s.indoors = true; end },
+        -- **The one axis here whose world is a number rather than a flag.** `skyriding` reads the
+        -- same `GetBonusBarOffset()` that `bonusbars` above reads, so what turns it on is that
+        -- offset landing on `BONUSBAR_SKYRIDING` -- and a press that read the offset as a bit, or
+        -- compared against the wrong number, fails here rather than in the game.
+        { name = "skyriding", conditions = { skyriding = true },
+            on = function(s) s.bonusbar = Constants.BONUSBAR_SKYRIDING; end },
     };
 
     test("every axis decides the press, both ways", function()

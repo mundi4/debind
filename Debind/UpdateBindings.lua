@@ -583,6 +583,18 @@ local function CollectDriverEvents(events)
 
     want("UPDATE_EXTRA_ACTIONBAR", _measuredStates.extrabar);
 
+    -- **`skyriding` is not here, and it is not an omission.** It reads `GetBonusBarOffset()`, and
+    -- `SecureStateDriverManager` registers `UPDATE_BONUS_ACTIONBAR` when Blizzard builds it
+    -- (`SecureStateDriver.lua`). Everything named in this function is a state whose event that
+    -- baseline does **not** already carry -- which is also why `combat`, `stealth`, `group` and
+    -- `pet` are absent.
+    want("PLAYER_MOUNT_DISPLAY_CHANGED", _measuredStates.mounted);
+
+    -- Both, because the pair is what the client splits the move into: `ZONE_CHANGED_INDOORS` is
+    -- the doorway and `ZONE_CHANGED` the rest.
+    want("ZONE_CHANGED", _measuredStates.indoors);
+    want("ZONE_CHANGED_INDOORS", _measuredStates.indoors);
+
     -- specialbar folds [petbattle] into its own value, so it needs these too
     want("PET_BATTLE_OPENING_START", _measuredStates.petbattle or _measuredStates.specialbar);
     want("PET_BATTLE_CLOSE", _measuredStates.petbattle or _measuredStates.specialbar);
@@ -1342,6 +1354,9 @@ local FIELD_FLAGS        = {
     groups     = "group",
     combat     = "combat",
     stealth    = "stealth",
+    mounted    = "mounted",
+    indoors    = "indoors",
+    skyriding  = "skyriding",
     known      = true,
     forms      = "form",
     bonusbars  = "bonusbar",
@@ -1360,6 +1375,9 @@ local CONDITION_AXES     = {
     { field = "groups",     allValue = Constants.GROUP_ALL },
     { field = "combat" },
     { field = "stealth" },
+    { field = "mounted" },
+    { field = "indoors" },
+    { field = "skyriding" },
     { field = "known",      derived = true },
     { field = "forms",      allValue = Constants.FORM_ALL },
     { field = "bonusbars",  allValue = Constants.BONUSBAR_ALL },

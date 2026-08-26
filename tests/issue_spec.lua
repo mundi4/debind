@@ -799,5 +799,67 @@ return function(DebindPrivate)
             "an ordinary unit was read as a role unit: " .. tostring(GetBindingIssue(ordinary)));
     end);
 
+    ---------------------------------------------------------------------------
+    -- skyriding against the bar offsets it reads
+    ---------------------------------------------------------------------------
+
+    --- **The pair `skyriding` costs, and the only reason it is worth a check.** It and `bonusbars`
+    --- both come off `GetBonusBarOffset()`, so a reader can set one in the Misc menu and the other
+    --- in the Action Bars menu and end with a pair no runtime state satisfies. Neither half looks
+    --- wrong where it was set, which is what makes it this check's job rather than the reader's.
+    ---
+    --- A false negative here is a binding that presses and does nothing for good. A false positive
+    --- is worse: an action carrying an issue is left out of `KeyMap` entirely (`Debind.lua`), so
+    --- the key dies rather than going yellow.
+    local SKY = 2 ^ Constants.BONUSBAR_SKYRIDING;
+
+    local function barAction(skyriding, bonusbars)
+        return { type = Constants.SPELL, value = 585, key = "T", conditions = {
+            skyriding = skyriding,
+            bonusbars = bonusbars,
+        } };
+    end
+
+    test("skyriding set against an offset that excludes it is reported", function()
+        local issue = GetBindingIssue(barAction(true, 1));
+        check(issue == NEVER, "skyriding with offset 0 only was not reported: " .. tostring(issue));
+    end);
+
+    test("not skyriding, set against the skyriding offset alone, is reported", function()
+        local issue = GetBindingIssue(barAction(false, SKY));
+        check(issue == NEVER, "not-skyriding with offset 5 only was not reported: " .. tostring(issue));
+    end);
+
+    --- Both menus that can undo it go red, the same rule the `specialbar`/`petbattle` pair keeps.
+    test("both the skyriding menu and the bonusbars menu are told", function()
+        local action = barAction(true, 1);
+        check(GetBindingIssue(action, "skyriding") == NEVER, "the skyriding menu was not told");
+        check(GetBindingIssue(action, "bonusbars") == NEVER, "the bonusbars menu was not told");
+    end);
+
+    test("what must not be reported for the skyriding pair", function()
+        -- The offset the condition names is in the mask. Nothing disagrees.
+        local agreeing = barAction(true, SKY);
+        check(GetBindingIssue(agreeing) == nil,
+            "an agreeing pair was reported: " .. tostring(GetBindingIssue(agreeing)));
+
+        -- **Not skyriding, with the skyriding offset among others.** The binding still has the
+        -- other offsets to fire on, so this is not a contradiction -- asking "is bit 5 present"
+        -- rather than "is bit 5 all there is" would kill it.
+        local alsoOthers = barAction(false, SKY + 1);
+        check(GetBindingIssue(alsoOthers) == nil,
+            "not-skyriding beside another offset was reported: " .. tostring(GetBindingIssue(alsoOthers)));
+
+        -- Either side missing is no pair at all.
+        check(GetBindingIssue(barAction(true, nil)) == nil, "skyriding alone was reported");
+        check(GetBindingIssue(barAction(nil, 1)) == nil, "an offset alone was reported");
+
+        -- **A zero mask belongs to `BONUSBARS_NONE_SELECTED`**, which runs further up and says a
+        -- different sentence. It must not come back as this one.
+        local empty = barAction(true, 0);
+        check(GetBindingIssue(empty) == Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED,
+            "an empty offset mask came back as the pair: " .. tostring(GetBindingIssue(empty)));
+    end);
+
     return T;
 end

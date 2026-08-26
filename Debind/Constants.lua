@@ -122,6 +122,13 @@ Constants.CONDITION_FIELDS = {
     known = true,
     pet = true,
     petbattle = true,
+    mounted = true,
+    indoors = true,
+    -- **Reads the same value as `bonusbars`**, and that is deliberate rather than a duplicate.
+    -- Nobody looking for "while flying" finds it behind a bar offset, so the one offset worth
+    -- naming gets its own axis. The pair a user can set that never holds is what
+    -- `GetBindingIssue` reports (`Misc.lua`).
+    skyriding = true,
 };
 
 --- 이슈 갈래의 이름들. **어느 컨트롤을 빨갛게 칠할지의 이름이지 필드 이름이 아니다.**
@@ -137,6 +144,7 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     bonusbars = true,
     specialbar = true,
     petbattle = true,
+    skyriding = true,
     frameTypes = true,
     units = true,
     -- 필드 이름이 아닌 셋.
@@ -256,6 +264,11 @@ Constants.FORM_ALL                   = 2 ^ 11 - 1;
 -- above was made single for, in the same file.
 Constants.MAX_BONUSBAR_OFFSET        = 5;
 Constants.BONUSBAR_ALL               = 2 ^ (Constants.MAX_BONUSBAR_OFFSET + 1) - 1;
+
+-- Which offset the skyriding bar comes up on. `DropDownMenus.lua` was already naming this one
+-- from flyout 229 while every other offset it names sits behind a class check, so the number was
+-- being relied on before it had a name.
+Constants.BONUSBAR_SKYRIDING         = 5;
 
 
 -- Unit Frame Reactions
@@ -630,8 +643,17 @@ Constants.STATE_EVAL_EXPRESSIONS = {
         Constants.GROUP_NONE),
     combat = "PlayerInCombat()",
     stealth = "IsStealthed()",
+    mounted = "IsMounted()",
+    -- `IsOutdoors()` is whitelisted too and is not read here. One function read as a boolean
+    -- partitions on its own; asking both would leave a runtime state that lights neither bit, and
+    -- `Solver.lua`'s column invariant has no room for one.
+    indoors = "IsIndoors()",
     form = "GetShapeshiftForm()",
     bonusbar = "GetBonusBarOffset()",
+    -- Not derived from `bonusbar` above. `EVAL_SNIPPET` spells every measurement out as a literal
+    -- and `check:state-eval` matches these strings against it, so an expression built out of
+    -- another entry is one that check cannot find.
+    skyriding = format("GetBonusBarOffset() == %d", Constants.BONUSBAR_SKYRIDING),
     specialbar = "HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false",
     extrabar = "HasExtraActionBar()",
     pet = "PlayerPetSummary() and true or false",

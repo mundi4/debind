@@ -383,11 +383,18 @@ return function(DebindPrivate, DebindStorage)
         extrabar = true,
         pet = true,
         petbattle = true,
+        mounted = true,
+        indoors = true,
+        skyriding = true,
         -- 비트 마스크. `Misc.lua`가 `== 0`으로 비교한다.
         forms = 6,
         groups = 3,
         frameTypes = 1,
-        bonusbars = 2,
+        -- **하늘비행 오프셋 비트를 같이 켜둔다.** `skyriding`과 `bonusbars`는 같은
+        -- `GetBonusBarOffset()`을 읽어서, 5번 비트가 빠진 마스크와 `skyriding = true`를 같이
+        -- 두면 `GetBindingIssue`가 모순으로 잡는다(`Misc.lua`). 이 표본이 물어보는 건 타입이
+        -- 통과하느냐지 모순이 잡히느냐가 아니고, 그쪽은 `issue_spec`이 따로 본다.
+        bonusbars = 2 + 2 ^ Constants.BONUSBAR_SKYRIDING,
         units = { target = {} },
         ["$state1"] = true,
         ["$state2"] = true,

@@ -5290,6 +5290,93 @@ RegisterTest("Click-time key: the press picks the record the state matches", {
     end,
 })
 
+-- **The three axes added in 3.4, at the press.** Which record wins is headless
+-- (`tests/eval_spec.lua`'s axis table), so what is answerable only here is the half that is
+-- silent: `IsMounted`, `IsIndoors` and `GetBonusBarOffset` have to be **callable inside the
+-- restricted environment**. A name that is not on Blizzard's whitelist raises nothing anybody can
+-- see -- the body fails to compile, the snippet never attaches, and the key stops working.
+--
+-- `SetMockState` overrides the value the press lands on but not the call that produced it: the
+-- probe sits after the measurement, so the real function still runs and a missing one still
+-- fails here.
+RegisterTest("Click-time key: mounted, indoors and skyriding decide the press", {
+    description = "세 축이 제한 환경에서 실제로 읽히고, 누른 순간의 값이 승자를 고른다",
+    run = function()
+        local NAME = "New axes at the press"
+        local KEY = "CTRL-SHIFT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "nothing can be rebaked in combat")
+        end
+
+        local ok, err = EnableProbes()
+        if not ok then
+            return Fail(NAME, "rebake failed: " .. tostring(err))
+        end
+
+        local seen = {}
+        for _, axis in ipairs({ "mounted", "indoors", "skyriding" }) do
+            CleanupActions()
+
+            InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "on"',
+                key = KEY, name = axis .. " on", [axis] = true })
+            InsertAction({ type = Constants.MACROTEXT, value = '/run local _ = "off"',
+                key = KEY, name = axis .. " off", [axis] = false })
+            ApplyBindings()
+
+            -- Both sides, for the reason the combat test above gives: on one alone, an
+            -- implementation that never reads the condition also passes.
+            local picked = {}
+            for _, want in ipairs({ true, false }) do
+                SetMockState(axis, want)
+
+                -- Read again every pass. `SetMockState` ends in a rebuild, which replaces the
+                -- KeyMap array.
+                local records = GetKeyBindings(KEY)
+                if not records or #records ~= 2 then
+                    return Fail(NAME, format("%s: there should be 2 records, there are %d",
+                        axis, records and #records or 0))
+                end
+
+                local ran, rerr = EvalClickTimeKey(KEY)
+                if not ran then return Fail(NAME, axis .. ": " .. tostring(rerr)) end
+
+                -- **This is where a missing whitelist entry lands.** The body would not have
+                -- compiled, so nothing answers rather than something answering wrong.
+                local idx = WaitForWinner()
+                if idx == nil then
+                    return Fail(NAME, format(
+                        "%s=%s: the evaluation ran and no record matched -- if the body did not "
+                        .. "compile, that function is not readable in the restricted environment",
+                        axis, tostring(want)))
+                end
+
+                local got = records[idx]
+                if not got then
+                    return Fail(NAME, format("%s=%s gave index %d and there is no record there",
+                        axis, tostring(want), idx))
+                end
+                if got.conditions[axis] ~= want then
+                    return Fail(NAME, format("%s=%s and it picked the %s=%s record (#%d)",
+                        axis, tostring(want), axis, tostring(got.conditions[axis]), idx))
+                end
+                picked[#picked + 1] = idx
+
+                SetMockState(axis, nil)
+            end
+
+            if picked[1] == picked[2] then
+                return Fail(NAME, format(
+                    "%s: both picked #%d, it is picking the same one without reading the condition",
+                    axis, picked[1]))
+            end
+            seen[#seen + 1] = format("%s #%d/#%d", axis, picked[1], picked[2])
+        end
+
+        return Pass(NAME, table.concat(seen, ", "))
+    end,
+})
+
 -- **The click bakes the macro body** (`devdocs/legacy/trimming-the-restricted-hot-paths.md`, item 2).
 -- A body that goes on a button is baked by nobody when a state moves, and by the click that
 -- picks that button.

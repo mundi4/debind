@@ -1451,6 +1451,28 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         end
     end
 
+    -- **The one pair `skyriding` costs.** It and `bonusbars` read the same `GetBonusBarOffset()`,
+    -- so a user who sets both can write a pair no runtime state satisfies -- and the two halves
+    -- live in different menus, which is why neither looks wrong on its own. Same shape as the
+    -- `specialbar`/`petbattle` pair above, and told under both names for the same reason.
+    --
+    -- **A zero mask is not this.** `BONUSBARS_NONE_SELECTED` runs further up and says a different
+    -- sentence: an axis with nothing ticked, rather than two axes that disagree.
+    if (not issue and conditions.skyriding ~= nil and conditions.bonusbars
+            and conditions.bonusbars ~= 0
+            and (not category or category == "skyriding" or category == "bonusbars")
+            and notCategory ~= "skyriding" and notCategory ~= "bonusbars") then
+        local skyridingBit = 2 ^ Constants.BONUSBAR_SKYRIDING;
+        local hasSkyridingBar = band(conditions.bonusbars, skyridingBit) ~= 0;
+        -- Asked as "is the offset **only** 5", not "is bit 5 in there": with any other offset also
+        -- ticked the binding still has somewhere to fire while not skyriding.
+        local onlySkyridingBar = conditions.bonusbars == skyridingBit;
+        if ((conditions.skyriding and not hasSkyridingBar)
+                or (conditions.skyriding == false and onlySkyridingBar)) then
+            issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+        end
+    end
+
     return issue;
 end
 

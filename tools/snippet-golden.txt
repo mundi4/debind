@@ -421,6 +421,9 @@ DelegateFrameNames[frame] = frame:GetName()
 	local bonusbar = 2 ^ (States.bonusbar or 0)
 	local combat = States.combat
 	local stealth = States.stealth
+	local mounted = States.mounted
+	local indoors = States.indoors
+	local skyriding = States.skyriding
 	local specialbar = States.specialbar
 	local extrabar = States.extrabar
 	local pet = States.pet
@@ -501,6 +504,9 @@ DelegateFrameNames[frame] = frame:GetName()
 				(t.specialbar ~= nil and t.specialbar ~= specialbar) or
 				(t.extrabar ~= nil and t.extrabar ~= extrabar) or
 				(t.stealth ~= nil and t.stealth ~= stealth) or
+				(t.mounted ~= nil and t.mounted ~= mounted) or
+				(t.indoors ~= nil and t.indoors ~= indoors) or
+				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
 				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
 				(t.pet ~= nil and t.pet ~= pet)
 			)) then
@@ -777,6 +783,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -837,6 +844,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
@@ -1218,6 +1255,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -1278,6 +1316,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
@@ -1743,6 +1811,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -1803,6 +1872,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
@@ -2180,6 +2279,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -2240,6 +2340,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
@@ -2521,6 +2651,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -2581,6 +2712,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
@@ -2865,6 +3026,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -2925,6 +3087,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
@@ -3210,6 +3402,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -3270,6 +3463,36 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end

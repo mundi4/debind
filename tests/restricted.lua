@@ -80,6 +80,8 @@ local function parseCondition(interp, expr)
                 value = interp.state.petbattle;
             elseif (name == "mounted") then
                 value = interp.state.mounted;
+            elseif (name == "indoors") then
+                value = interp.state.indoors;
             elseif (name == "group") then
                 value = interp.state.group ~= "none";
             elseif (name == "known") then
@@ -283,6 +285,8 @@ local function buildEnv(interp)
     --- the reason the click path could not be measured from outside the game.
     env.PlayerInCombat = function() return state.combat; end
     env.IsStealthed = function() return state.stealth; end
+    env.IsMounted = function() return state.mounted; end
+    env.IsIndoors = function() return state.indoors; end
     env.PlayerPetSummary = function() return state.pet; end
     env.HasExtraActionBar = function() return state.extrabar; end
     env.HasVehicleActionBar = function() return state.vehiclebar; end
@@ -510,6 +514,7 @@ function M.new(DebindPrivate, world)
         overridebar = false,
         shapeshiftbar = false,
         mounted = false,
+        indoors = false,
         channeling = false,
         form = 0,
         bonusbar = 0,

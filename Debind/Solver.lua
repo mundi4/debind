@@ -190,6 +190,29 @@ local FIXED_COLUMNS = {
             return boolToConditionFlags(binding.conditions.petbattle);
         end
     },
+    {
+        name = "mounted",
+        make = function(binding)
+            return boolToConditionFlags(binding.conditions.mounted);
+        end
+    },
+    {
+        name = "indoors",
+        make = function(binding)
+            return boolToConditionFlags(binding.conditions.indoors);
+        end
+    },
+    -- **Correlated with `bonusbars`, and left that way on purpose.** Both read
+    -- `GetBonusBarOffset()`, so the product space holds points the game cannot reach -- skyriding
+    -- true beside an offset that is not 5. That is the direction the header calls safe: an
+    -- unreachable point goes uncovered and keeps a binding rather than deleting one. Do not merge
+    -- the two into a column.
+    {
+        name = "skyriding",
+        make = function(binding)
+            return boolToConditionFlags(binding.conditions.skyriding);
+        end
+    },
 };
 
 -- **컬럼의 인자가 이름이다.** 다섯 번호를 도는 루프였고 컬럼마다 번호를 들고 있었다. 스위치

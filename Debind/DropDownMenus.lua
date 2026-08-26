@@ -375,6 +375,26 @@ do
         end
     end
 
+    --- An `error` for a group that holds other groups: **the first issue any child has.**
+    ---
+    --- A submenu carries its own key and reddens itself, but the row that opens it carries none,
+    --- so a problem two levels down was invisible until the reader opened the right branch. It cost
+    --- nothing while `specialbar` and `petbattle` sat in different menus -- one of the pair was
+    --- always a top-level row -- and stopped being free the moment both went inside one.
+    ---
+    --- **Only names `BINDING_ISSUE_CATEGORIES` knows.** Half the keys these menus use have no check
+    --- of that name, and asking for one that does not exist raises under DEBUG.
+    local function FirstChildIssue(categories)
+        return function()
+            for i = 1, #categories do
+                local issue = DebindPrivate.GetBindingIssue(_action, categories[i]);
+                if (issue) then
+                    return issue;
+                end
+            end
+        end
+    end
+
     local function CreateActionMenuItemGroup(parentDescription, text, key, isActive, error, instruction, skipTitle)
         local txt = rawget(LLL, text);
         if (txt) then
@@ -1194,9 +1214,36 @@ do
         AppendDisableYesNo(description, "CONDITION_PET", "pet");
     end
 
-    local function CreatePetBattleConditionMenu(rootDescription)
-        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_PETBATTLE", "petbattle");
-        AppendDisableYesNo(description, "CONDITION_PETBATTLE", "petbattle");
+    --- **The four that were not worth a row each.** `petbattle` was one of the top level's own rows
+    --- until `mounted` and `indoors` arrived and the list ran past what an eye reads down.
+    ---
+    --- **`skyriding` is here rather than beside the bar offsets it reads**, and that is the whole
+    --- reason it is an axis of its own: nobody who wants "while flying" goes looking for it under
+    --- an action bar setting. Reusing `bonusbars` bit 5 would have cost no new field and would
+    --- have written the negative as `[bonusbar:0/1/2/3/4]` in the tooltip.
+    local function CreateMiscConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_MISC", nil,
+            -- isActive
+            function()
+                local c = _action.conditions;
+                return c ~= nil and (c.mounted ~= nil or c.skyriding ~= nil
+                    or c.indoors ~= nil or c.petbattle ~= nil);
+            end,
+            -- error. `mounted` and `indoors` are not asked: there is no check of either name.
+            FirstChildIssue({ "skyriding", "petbattle" })
+        );
+
+        local mountedDescription = CreateActionMenuItemGroup(description, "CONDITION_MOUNTED", "mounted");
+        AppendDisableYesNo(mountedDescription, "CONDITION_MOUNTED", "mounted");
+
+        local skyridingDescription = CreateActionMenuItemGroup(description, "CONDITION_SKYRIDING", "skyriding");
+        AppendDisableYesNo(skyridingDescription, "CONDITION_SKYRIDING", "skyriding");
+
+        local indoorsDescription = CreateActionMenuItemGroup(description, "CONDITION_INDOORS", "indoors");
+        AppendDisableYesNo(indoorsDescription, "CONDITION_INDOORS", "indoors");
+
+        local petbattleDescription = CreateActionMenuItemGroup(description, "CONDITION_PETBATTLE", "petbattle");
+        AppendDisableYesNo(petbattleDescription, "CONDITION_PETBATTLE", "petbattle");
     end
 
     local function CreateActionbarConditionMenu(rootDescription)
@@ -1221,7 +1268,9 @@ do
                 -- 이 절은 죽어 있었고, 나머지 셋이 같은 답을 낸다.
                 local c = _action.conditions;
                 return c ~= nil and (c.bonusbars ~= nil or c.specialbar ~= nil or c.extrabar ~= nil);
-            end
+            end,
+            -- error. `extrabar` is not asked: there is no check of that name.
+            FirstChildIssue({ "bonusbars", "specialbar" })
         );
 
         local bonusbarDescription = CreateActionMenuItemGroup(description, "CONDITION_BONUSBAR", "bonusbars");
@@ -1662,9 +1711,9 @@ do
 
         CreatePetConditionMenu(rootDescription);
 
-        CreatePetBattleConditionMenu(rootDescription);
-
         CreateActionbarConditionMenu(rootDescription);
+
+        CreateMiscConditionMenu(rootDescription);
 
         CreateSwitchConditionMenu(rootDescription);
 

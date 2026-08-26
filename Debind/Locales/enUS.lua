@@ -120,8 +120,23 @@ L["CONDITION_GROUP"] = "Group";
 L["CONDITION_HOVER_NO"] = "When Not Hovered Over"
 L["CONDITION_HOVER_YES"] = "When Hovered Over"
 L["CONDITION_HOVER"] = "Hovering Over Unit Frame"
+-- The negative is "Not Indoors" and deliberately not "Outdoors". The condition reads `IsIndoors()`
+-- alone, so its false half is everything that is not indoors, which is a wider thing than the
+-- client's Outdoors. Calling it Outdoors would be a claim the measurement does not make.
+L["CONDITION_INDOORS_NO"] = "While Not Indoors"
+L["CONDITION_INDOORS_YES"] = "While Indoors"
+L["CONDITION_INDOORS"] = "Indoors"
 L["CONDITION_KNOWN"] = "Known"
 L["CONDITION_KNOWN_YES"] = "Only When Spell Known"
+-- The submenu that holds the four conditions too small to hold a row of the main list each. It
+-- names no rule of its own, so it stays the plain word rather than trying to describe what is
+-- inside it.
+L["CONDITION_MISC"] = "Miscellaneous"
+-- `MOUNTS` in the client's own strings, singular here because the condition is about being on one
+-- rather than about the collection.
+L["CONDITION_MOUNTED_NO"] = "While Not Mounted"
+L["CONDITION_MOUNTED_YES"] = "While Mounted"
+L["CONDITION_MOUNTED"] = "Mount"
 L["CONDITION_PET_NO"] = "While Without a Pet"
 L["CONDITION_PET_YES"] = "While With a Pet"
 L["CONDITION_PET"] = "Pet"
@@ -130,7 +145,13 @@ L["CONDITION_PETBATTLE_YES"] = "In a Pet Battle"
 L["CONDITION_PETBATTLE"] = "Pet Battle"
 L["CONDITION_REACTIONS"] = "Reactions"
 L["CONDITION_SHAPESHIFT"] = "Shapeshift"
-L["CONDITION_SPECIALBAR_DESC"] = "Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
+-- The client's own word for the flight style (`ACCESSIBILITY_ADV_FLY_LABEL`,
+-- `MOUNT_JOURNAL_FILTER_DRAGONRIDING`). Dragonriding is what it used to be called and is not what
+-- a player reads today.
+L["CONDITION_SKYRIDING_NO"] = "While Not Skyriding"
+L["CONDITION_SKYRIDING_YES"] = "While Skyriding"
+L["CONDITION_SKYRIDING"] = "Skyriding"
+L["CONDITION_SPECIALBAR_DESC"] ="Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
 L["CONDITION_SPECIALBAR_NO"] = "While a Special Bar Is Not Active"
 L["CONDITION_SPECIALBAR_YES"] = "While a Special Bar Is Active"
 L["CONDITION_SPECIALBAR"] = "Special Bar"

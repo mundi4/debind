@@ -455,6 +455,9 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local bonusbar = 2 ^ (States.bonusbar or 0)
 	local combat = States.combat
 	local stealth = States.stealth
+	local mounted = States.mounted
+	local indoors = States.indoors
+	local skyriding = States.skyriding
 	local specialbar = States.specialbar
 	local extrabar = States.extrabar
 	local pet = States.pet
@@ -536,6 +539,9 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				(t.specialbar ~= nil and t.specialbar ~= specialbar) or
 				(t.extrabar ~= nil and t.extrabar ~= extrabar) or
 				(t.stealth ~= nil and t.stealth ~= stealth) or
+				(t.mounted ~= nil and t.mounted ~= mounted) or
+				(t.indoors ~= nil and t.indoors ~= indoors) or
+				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
 				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
 				(t.pet ~= nil and t.pet ~= pet)
 			)) then
@@ -891,6 +897,7 @@ local EVAL_SNIPPET = [==[
 	-- 측정된 값은 절대 nil이 아니므로(불리언·숫자) 이 표시가 값과 겹치지 않는다.
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local mounted, indoors, skyriding
 
 	local memoReady = false
 
@@ -951,6 +958,36 @@ local EVAL_SNIPPET = [==[
 					PROBE.MockState(stealth)
 				end
 				if (t.stealth ~= stealth) then
+					match = false
+				end
+			end
+
+			if (match and t.mounted ~= nil) then
+				if (mounted == nil) then
+					mounted = IsMounted()
+					PROBE.MockState(mounted)
+				end
+				if (t.mounted ~= mounted) then
+					match = false
+				end
+			end
+
+			if (match and t.indoors ~= nil) then
+				if (indoors == nil) then
+					indoors = IsIndoors()
+					PROBE.MockState(indoors)
+				end
+				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.skyriding ~= nil) then
+				if (skyriding == nil) then
+					skyriding = GetBonusBarOffset() == 5
+					PROBE.MockState(skyriding)
+				end
+				if (t.skyriding ~= skyriding) then
 					match = false
 				end
 			end
