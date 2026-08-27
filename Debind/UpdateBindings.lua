@@ -114,6 +114,9 @@ local _commandCount      = 0;
 --- Accumulated where the axes are worked out rather than derived by walking `_measuredUnitAxes` later,
 --- because the axis constants are declared further down this file than the registration runs.
 local _measuresReaction = false;
+--- Does any action ask about the hovered unit's role? It is what turns the three role headers
+--- on, and they are the only thing that fills `UnitRoles`.
+local _readsRole = false;
 
 --- Scratch arrays for `sortedKeys`. Three, because the walks nest: a key's units are sorted inside
 --- the walk over keys, and one unit's reactions inside the walk over units.
@@ -157,6 +160,7 @@ local function ResetContext()
     wipe(_unitsSeen);
     _rebindOnHoverFrame = false;
     _measuresReaction = false;
+    _readsRole = false;
     _commandCount = 0;
 end
 
@@ -630,10 +634,18 @@ end
 ---
 --- `custom1` and `custom2` are set by an action rather than measured, so they are not this
 --- function's to turn on or off.
+--- `slots` is how many units the header has to be able to hold. Two is enough to tell one tank
+--- from more than one, which is all `@tank` asks; the role map needs the whole group.
 local function CollectWatchedUnits(units)
+    local roleSlots = _readsRole and Constants.MAX_ROLE_SLOTS or nil;
     for _, unit in ipairs(sortedKeys(SPECIAL_UNITS, _sortedA)) do
         if (unit ~= "custom1" and unit ~= "custom2") then
-            units[#units + 1] = { alias = unit, watch = _unitsSeen[unit] and true or false };
+            local forRole = roleSlots and DebindPrivate.ROLE_HEADER_BITS[unit];
+            units[#units + 1] = {
+                alias = unit,
+                watch = (_unitsSeen[unit] or forRole) and true or false,
+                slots = forRole and roleSlots or nil,
+            };
         end
     end
     return units;
@@ -716,6 +728,11 @@ local function BuildBindingPlan(ctx)
     -- 자리가 셋 있고, 넓은 쪽이 켜져 있으면 좁은 쪽 판정이 아무 의미가 없었다.
     plan.rebindOnHoverFrame = _rebindOnHoverFrame and true or false;
 
+    --- `damager` is not in `plan.units` because it is not an alias -- nothing can aim at it, and
+    --- `CollectWatchedUnits` walks the units a binding can name. It exists so that a unit off the
+    --- map means "role unknown" instead of "we only looked for two of the three".
+    plan.roleMap = _readsRole and true or false;
+
     -- **Filled by `UpdateBindingsMap` on its way past**, the way `_rebindOnHoverFrame` is. The
     -- arrays are the module's and outlive the plan; `commandCount` is what says how much of them
     -- this rebuild filled, so a rebuild with fewer command keys than the last one does not read
@@ -796,15 +813,47 @@ local function ApplyBindingPlan(plan)
         SecureHandlerExecute(driver, plan.switchesSnippet);
     end
 
+    --- **헤더를 켜기 전에 선다.** 켜는 순간 배치가 돌고 그것이 `SetRoleUnits`를 부르는데,
+    --- 표가 아직 없으면 그 패스가 그냥 돌아간다. 다음 로스터 변화까지 맵이 비어 있게 된다.
+    if (plan.roleMap) then
+        SecureHandlerExecute(driver, [[
+            if (not UnitRoles) then
+                UnitRoles = newtable()
+                RoleOwners = newtable()
+            end
+        ]]);
+    end
+
     for i = 1, #plan.units do
         local entry = plan.units[i];
         if (entry.watch) then
-            DebindPrivate.EnableUnitWatch(entry.alias);
+            DebindPrivate.EnableUnitWatch(entry.alias, entry.slots);
         else
             DebindPrivate.DisableUnitWatch(entry.alias);
             SecureHandlerExecute(driver,
                 format([[self:RunAttribute("SetUnit", %q, nil)]], entry.alias));
         end
+    end
+
+    --- **표가 있다는 것이 곧 세 헤더가 다 서 있다는 뜻이다.** `"unknown"`은 셋이 다 보고도
+    --- 아무도 데려가지 않았다는 답이라, 하나라도 빠지면 낼 수 없다. 탱커 헤더만 켜진 채로
+    --- 답을 내면 딜러가 전부 `"unknown"`이 되고, [탱커]와 [알 수 없음]을 고른 사용자에게
+    --- 딜러까지 걸린다.
+    ---
+    --- 그래서 세우고 내리는 자리는 **셋을 켜기로 정한 리빌드 하나**다. 헤더가 저마다 세우면
+    --- 반쪽 맵이 유효해 보인다. `SetRoleUnits`는 표가 있을 때만 채운다.
+    if (plan.roleMap) then
+        DebindPrivate.EnableUnitWatch("damager", Constants.MAX_ROLE_SLOTS);
+    else
+        DebindPrivate.DisableUnitWatch("damager");
+        SecureHandlerExecute(driver, [[
+            UnitRoles = false
+            RoleOwners = false
+            local unitframe = States.unitframe
+            if (unitframe) then
+                unitframe.role = nil
+            end
+        ]]);
     end
 
     -- `PollEveryFrame` is not written here beside it, and the two look alike enough that it wants
@@ -1243,6 +1292,16 @@ local REACTION_NAMES = {
     [Constants.REACTION_OTHER] = "other",
 };
 
+--- **The names are the role headers' aliases**, which is what `UnitRoles` stores, so nothing
+--- translates between the two sides. `unknown` has no header, and cannot: it is the answer for a
+--- unit no header claimed.
+local ROLE_NAMES = {
+    [Constants.ROLE_TANK]    = "tank",
+    [Constants.ROLE_HEALER]  = "healer",
+    [Constants.ROLE_DAMAGER] = "damager",
+    [Constants.ROLE_UNKNOWN] = "unknown",
+};
+
 ---
 --- 같은 유닛에 조건이 두 번 걸렸을 때 하나로 합친다.
 ---
@@ -1319,7 +1378,17 @@ local function mergeUnitConditions(a, b)
         return NEVER;
     end
 
-    return { reaction = reaction, dead = dead };
+    local role = a.role;
+    if (role == nil) then
+        role = b.role;
+    elseif (b.role ~= nil) then
+        role = band(role, b.role);
+        if (role == 0) then
+            return NEVER;
+        end
+    end
+
+    return { reaction = reaction, dead = dead, role = role };
 end
 
 --- Emits the line that creates a key's record list, and puts it in `StateDrivenBindings` only when
@@ -1788,6 +1857,13 @@ local function CollectRecordAxes(record, stateDriven)
             if (condition.dead ~= nil) then
                 axes = bor(axes, UNITAXIS_DEAD);
             end
+            -- **Not one of the axes above.** Those say how precisely the state loop measures a
+            -- unit; role is not measured on a unit at all. It rides the hover slot, filled where
+            -- the frame is in hand (`SecureBindings.lua`'s `setup_onenter` and the hover poll
+            -- below), so all this decides is whether the headers that fill `UnitRoles` run.
+            if (unit == "hover" and condition.role) then
+                _readsRole = true;
+            end
         end
 
         -- 별칭 해석은 어느 갈래든 필요하다. `_unitsSeen`가 `EnableUnitWatch`를 몰고, 그게
@@ -1869,6 +1945,18 @@ local function EmitRecord(record)
             end
             if (condition.dead ~= nil) then
                 appendLine("u.dead=%s", tostring(condition.dead));
+            end
+            -- **hover에만 나간다**, `Misc.BuildUnitStates`가 hover에만 축을 세우는 것과 같은
+            -- 이유로. 다른 유닛에도 내보내면 재는 쪽이 그 행을 안 채워서 `cond.role[nil]`이 되고
+            -- 그 키가 조용히 죽는다. 게다가 솔버는 그 조건을 무시하므로 둘이 갈린다.
+            -- 메뉴로는 못 만드는 모양이지만 손으로 고친 프로필과 옛 문자열이 이리로 온다.
+            if (unit == "hover" and condition.role) then
+                appendLine("u.role=newtable()");
+                for _, bit in ipairs(sortedKeys(ROLE_NAMES, _sortedC)) do
+                    if (band(condition.role, bit) ~= 0) then
+                        appendLine("u.role.%s=true", ROLE_NAMES[bit]);
+                    end
+                end
             end
         end
     end
@@ -2426,6 +2514,7 @@ if (States.unitframe) then
     elseif (unitframe.reaction) then
         unitframe.unit = nil
         unitframe.reaction = nil
+        unitframe.role = nil
         if (self:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
             DirtyFlags.unitframe = true
         end

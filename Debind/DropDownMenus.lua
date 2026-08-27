@@ -31,6 +31,27 @@ local LIFE_ITEMS            = {
     { text = LLL["LIFE_DEAD"],  value = true },
 };
 
+--- 역할 확인란. **[알 수 없음]도 고를 수 있는 값이다** - 파티/공격대 개체창이 아닌 곳을
+--- 가리켰거나 아무 역할도 지정 안 된 그룹이면 그리로 떨어지고, 그때만 나가는 바인딩을 걸 수
+--- 있어야 한다.
+--- 프레임 종류 확인란의 기본값, 곧 **아무것도 안 정했을 때 켜져 있는 것**. 확인란과 그것을
+--- 읽는 쪽이 같은 값을 봐야 해서 이름을 붙였다 - 한쪽만 `FRAMETYPE_ALL`로 읽으면 비트가 하나
+--- 늘어나는 날 두 답이 갈린다.
+local FRAMETYPE_DEFAULT     = Constants.FRAMETYPE_PLAYER
+                            + Constants.FRAMETYPE_PET
+                            + Constants.FRAMETYPE_GROUP
+                            + Constants.FRAMETYPE_TARGET
+                            + Constants.FRAMETYPE_BOSS
+                            + Constants.FRAMETYPE_ARENA
+                            + Constants.FRAMETYPE_UNKNOWN;
+
+local ROLE_ITEMS            = {
+    { text = LLL["ROLE_TANK"],    value = Constants.ROLE_TANK },
+    { text = LLL["ROLE_HEALER"],  value = Constants.ROLE_HEALER },
+    { text = LLL["ROLE_DAMAGER"], value = Constants.ROLE_DAMAGER },
+    { text = LLL["ROLE_UNKNOWN"], value = Constants.ROLE_UNKNOWN },
+};
+
 
 local BONUSBAR_NAMES;
 local TAB_LIST;
@@ -540,6 +561,14 @@ do
         return value.dead;
     end
 
+    local function GetUnitConditionRole(unit)
+        local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
+        if (type(value) ~= "table") then
+            return nil;
+        end
+        return value.role;
+    end
+
     --- 위쪽 라디오 셋이 쓰는 것. **`exists`만 바꾸고 축은 건드리지 않는다** - [사용 안 함]으로
     --- 옮겼다가 되돌리면 골라둔 반응·생사가 그대로 있어야 한다. 무시하는 것은
     --- `Misc.UnitConditionForBinding`이 한다.
@@ -562,7 +591,7 @@ do
             cond.exists = nil;
         end
 
-        if (mode == "off" and cond.reaction == nil and cond.dead == nil) then
+        if (mode == "off" and cond.reaction == nil and cond.dead == nil and cond.role == nil) then
             -- 기억할 축이 하나도 없다. 빈 표를 남기면 아무것도 안 고른 유닛이 프로필에 쌓인다.
             if (units) then
                 units[unit] = nil;
@@ -614,6 +643,32 @@ do
             mask = nil;
         end
         return SetUnitConditionAxis(unit, "reaction", mask);
+    end
+
+    --- 프레임 종류 확인란 하나가 켜져 있는가. **`AppendCheckboxes`의 `_hasBit`과 같은 답을
+    --- 내야 한다** - 그쪽은 값이 없으면 기본 마스크로 읽으므로, 여기만 0으로 읽으면 아무것도
+    --- 안 정한 액션에서 전부 꺼진 것으로 보인다.
+    local function HoverFrameTypeChecked(value)
+        local conditions = _action and _action.conditions;
+        local current = (conditions and conditions.frameTypes) or FRAMETYPE_DEFAULT;
+        return bit.band(current, value) == value;
+    end
+
+    --- The role boxes. Same rule as the reaction ones above: all-on is never written, and 0 is.
+    local function UnitConditionRoleChecked(unit, value)
+        local role = GetUnitConditionRole(unit);
+        if (role == nil) then
+            return true;
+        end
+        return bit.band(role, value) == value;
+    end
+
+    local function ToggleUnitConditionRole(unit, value)
+        local mask = bit.bxor(GetUnitConditionRole(unit) or Constants.ROLE_ALL, value);
+        if (mask == Constants.ROLE_ALL) then
+            mask = nil;
+        end
+        return SetUnitConditionAxis(unit, "role", mask);
     end
 
     local function CreateUnitConditionSubmenu(parentDescription, label, unit)
@@ -1049,21 +1104,41 @@ do
         AppendCheckboxes(description, "frameTypes", {
                 { text = LLL["FRAMETYPE_PLAYER"],  value = Constants["FRAMETYPE_PLAYER"] },
                 { text = LLL["FRAMETYPE_PET"],     value = Constants["FRAMETYPE_PET"] },
-                { text = LLL["FRAMETYPE_GROUP"],   value = Constants["FRAMETYPE_GROUP"] },
+                -- 새로 들어온 것을 가리키는 표시. **목록에서 이미 쓰는 것과 같은 아틀라스다**
+                -- (`DebindUI.xml`의 `NewDot`, 도착한 액션 위에 붙는 그것). 게임의 새 기능
+                -- 라벨은 텍스처 위에 글씨를 얹는 프레임이라 메뉴 줄 안에서는 못 흉내낸다.
+                { text = format("%s %s", LLL["FRAMETYPE_GROUP"],
+                    CreateAtlasMarkup("plunderstorm-new-dot-lg", 25, 25)),
+                    value = Constants["FRAMETYPE_GROUP"] },
                 { text = LLL["FRAMETYPE_TARGET"],  value = Constants["FRAMETYPE_TARGET"] },
                 { text = LLL["FRAMETYPE_BOSS"],    value = Constants["FRAMETYPE_BOSS"] },
                 { text = LLL["FRAMETYPE_ARENA"],   value = Constants["FRAMETYPE_ARENA"] },
                 { text = LLL["FRAMETYPE_UNKNOWN"], value = Constants["FRAMETYPE_UNKNOWN"] },
-            }, function(elementDescription)
+            }, function(elementDescription, item)
                 elementDescription:SetEnabled(hoverConditionIsOn);
+
+                --- **역할은 파티/공대 개체창 아래에 산다.** 맵의 키가 그룹 유닛 토큰이라 그
+                --- 종류의 개체창만 답을 낼 수 있고(`Constants.lua`), 자리가 그것을 말한다.
+                --- 그 줄을 안 켰으면 물을 것이 없으므로 하위 항목도 같이 잠근다.
+                if (item.value == Constants.FRAMETYPE_GROUP) then
+                    elementDescription:CreateTitle(LLL["CONDITION_ROLE"]);
+                    for _, role in ipairs(ROLE_ITEMS) do
+                        local roleDescription = elementDescription:CreateCheckbox(role.text,
+                            function()
+                                return UnitConditionRoleChecked("hover", role.value);
+                            end,
+                            function()
+                                return ToggleUnitConditionRole("hover", role.value);
+                            end
+                        );
+                        SetInstructionTooltip(roleDescription, LLL["CONDITION_ROLE_DESC"]);
+                        roleDescription:SetEnabled(function()
+                            return hoverConditionIsOn() and HoverFrameTypeChecked(Constants.FRAMETYPE_GROUP);
+                        end);
+                    end
+                end
             end,
-            (Constants["FRAMETYPE_PLAYER"]
-                + Constants["FRAMETYPE_PET"]
-                + Constants["FRAMETYPE_GROUP"]
-                + Constants["FRAMETYPE_TARGET"]
-                + Constants["FRAMETYPE_BOSS"]
-                + Constants["FRAMETYPE_ARENA"]
-                + Constants["FRAMETYPE_UNKNOWN"])
+            FRAMETYPE_DEFAULT
         );
 
         description:CreateDivider();

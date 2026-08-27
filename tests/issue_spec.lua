@@ -773,6 +773,25 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "units") == NEVER, "the units menu was not told");
     end);
 
+    --- **유닛 하나를 짚어 물으면 그 유닛만 답한다.** `units` 서브메뉴가 유닛마다 하나씩
+    --- `GetBindingIssue(action, "units", nil, unit)`로 자기 색을 묻는데, 짚은 것을 안 보고
+    --- 아무 유닛이나 모순이면 답하면 **한 유닛의 문제로 서브메뉴가 전부 빨개진다.** 그러면
+    --- 어느 것을 고쳐야 하는지가 화면에서 사라진다.
+    ---
+    --- 0 마스크를 보는 위쪽 갈래는 이미 `arg`를 본다. 이쪽만 안 보고 있었다.
+    test("asking about one unit answers about that unit only", function()
+        local action = soloAction("healer");
+        action.conditions.units.target = {};
+
+        check(GetBindingIssue(action, "units", nil, "healer") == NEVER,
+            "the offending unit was not told");
+        check(GetBindingIssue(action, "units", nil, "target") == nil,
+            "an innocent unit was told too: "
+                .. tostring(GetBindingIssue(action, "units", nil, "target")));
+        check(GetBindingIssue(action, "units") == NEVER,
+            "the group as a whole was not told");
+    end);
+
     --- The three ways out, and none of them may be reported.
     test("what must not be reported", function()
         -- Party or raid allowed: the unit can be there.

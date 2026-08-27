@@ -158,6 +158,14 @@ L["CONDITION_PETBATTLE_NO"] = "Not in a Pet Battle"
 L["CONDITION_PETBATTLE_YES"] = "In a Pet Battle"
 L["CONDITION_PETBATTLE"] = "Pet Battle"
 L["CONDITION_REACTIONS"] = "Reactions"
+-- 게임의 낱말 그대로다: ROLE / TANK / HEALER / DAMAGER, 그리고 알 수 없을 때가 UNKNOWN.
+-- 우리가 붙인 이름이 하나도 없어야 하는 자리다.
+L["CONDITION_ROLE"] = "Role"
+L["CONDITION_ROLE_DESC"] = "Only party and raid frames can tell you a role. Over any other frame this does not hold the action back."
+L["ROLE_TANK"] = "Tank"
+L["ROLE_HEALER"] = "Healer"
+L["ROLE_DAMAGER"] = "Damage"
+L["ROLE_UNKNOWN"] = "Unknown"
 L["CONDITION_SHAPESHIFT"] = "Shapeshift"
 -- The client's own word for the flight style (`ACCESSIBILITY_ADV_FLY_LABEL`,
 -- `MOUNT_JOURNAL_FILTER_DRAGONRIDING`). Dragonriding is what it used to be called and is not what

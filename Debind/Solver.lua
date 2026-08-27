@@ -254,6 +254,15 @@ local function makeUnitFlags(binding, unit)
     return mask;
 end
 
+--- **A column of its own rather than another factor in the unit product.** `Constants.lua` says
+--- why over `UNITSTATE_NONE`: the product belongs to a key and widening the enumeration makes
+--- every key pay for an axis it never asked about. It correlates with the hover unit's column --
+--- an absent unit is always of unknown role -- and a correlation across columns is the safe
+--- direction (see "Across columns" above), so it is left alone.
+local function makeRoleFlags(binding)
+    return binding.unitRole or Constants.ROLE_ALL;
+end
+
 local function makeKnownFlags(binding, spellValue)
     local known = binding.conditions.known;
     if (known ~= nil and binding.type == Constants.SPELL and binding.value == spellValue) then
@@ -271,6 +280,7 @@ local _numColumns = 0;
 local _unitSeen = {};
 local _knownSeen = {};
 local _stateSeen = {};
+local _roleSeen = false;
 local _opaque = {};
 local _conditionsMap = {};
 local _keepCols = {};
@@ -328,6 +338,7 @@ local function buildLayout(bindings)
     wipe(_unitSeen);
     wipe(_knownSeen);
     wipe(_stateSeen);
+    _roleSeen = false;
     wipe(_opaque);
 
     for i = 1, #FIXED_COLUMNS do
@@ -355,6 +366,13 @@ local function buildLayout(bindings)
                     _colArg[_numColumns] = unit;
                 end
             end
+        end
+
+        if (binding.unitRole and not _roleSeen) then
+            _roleSeen = true;
+            _numColumns = _numColumns + 1;
+            _colMake[_numColumns] = makeRoleFlags;
+            _colArg[_numColumns] = nil;
         end
 
         local conditions = binding.conditions;

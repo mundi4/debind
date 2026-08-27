@@ -363,6 +363,31 @@ Constants.UNITSTATE_EXISTS = Constants.UNITSTATE_ALIVE + Constants.UNITSTATE_DEA
 Constants.UNITSTATE_ALL    = Constants.UNITSTATE_EXISTS + Constants.UNITSTATE_NONE;
 
 
+-- The group role of the hovered frame's unit. **Its own column, not a wider product above** --
+-- the paragraph over `UNITSTATE_NONE` says why, and this is the axis it was written for.
+--
+-- **Only the hovered frame's unit can answer.** The map that backs this is keyed by group unit
+-- tokens (`UnitWatch.lua`), and a group frame is the only thing that hands us one: the same person
+-- reached as `target` arrives under a token the map has never heard of. `player` is not a way
+-- round it either -- in a raid the client enumerates the reader as `raidN`, so that token is in
+-- the map in a party and missing in a raid.
+--
+-- `UNKNOWN` is a value on the axis and not the absence of one. A unit off the map is one we
+-- cannot answer for, and a reader who asks for it is asking for exactly that case.
+Constants.ROLE_TANK    = 2 ^ 0;
+Constants.ROLE_HEALER  = 2 ^ 1;
+Constants.ROLE_DAMAGER = 2 ^ 2;
+Constants.ROLE_UNKNOWN = 2 ^ 3;
+
+Constants.ROLE_ALL     = Constants.ROLE_TANK + Constants.ROLE_HEALER
+                       + Constants.ROLE_DAMAGER + Constants.ROLE_UNKNOWN;
+
+-- How many slots a role header gets while the map is on. A raid holds forty, and
+-- `SecureGroupHeaders` truncates at `maxColumns * unitsPerColumn` anyway, so this is the whole
+-- group and there is no case above it.
+Constants.MAX_ROLE_SLOTS   = MAX_RAID_MEMBERS;
+
+
 -- Binding Issues
 Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
 Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";

@@ -32,6 +32,15 @@ local UNIT_FRAME_REACTIONS = {
 	"OTHER",
 };
 
+--- **`Constants.ROLE_*`의 비트 차례 그대로.** `FlagNames`가 목록의 순서를 1비트, 2비트로
+--- 읽으므로, 상수 쪽 차례가 바뀌면 여기도 같이 바뀌어야 한다.
+local UNIT_ROLES           = {
+	"TANK",
+	"HEALER",
+	"DAMAGER",
+	"UNKNOWN",
+};
+
 local UNIT_FRAME_TYPES     = {
 	"PLAYER",
 	"PET",
@@ -323,6 +332,12 @@ do
 				if (hoverCondition.dead ~= nil) then
 					addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
 						hoverCondition.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]),
+						error and true or false, true);
+				end
+
+				if (hoverCondition.role ~= nil and hoverCondition.role ~= Constants.ROLE_ALL) then
+					addValueLine(tooltip, LabelledValue("CONDITION_ROLE",
+						FlagNames(hoverCondition.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL)),
 						error and true or false, true);
 				end
 

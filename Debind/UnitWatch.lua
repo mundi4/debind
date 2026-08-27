@@ -28,6 +28,18 @@ end
 DebindPrivate.UnitWatch             = UnitWatch;
 DebindPrivate.UnitWatchHeaders      = {};
 
+--- Every group header this file makes, keyed by the header itself.
+---
+--- **`FrameRegistry.lua` needs to tell ours from everyone else's and cannot.** It hooks
+--- `SecureGroupHeader_Update` to catch a header's children as the group gains them, and that hook
+--- is handed whichever header the client just laid out -- ours included, because these are
+--- `SecureGroupHeaderTemplate` too. Their children pass every gate `RegisterFrame` has, so without
+--- this they register as click-cast frames.
+---
+--- Keyed by the frame rather than the alias because that is the question being asked, and because
+--- the roster watcher below has no alias.
+DebindPrivate.OwnGroupHeaders       = {};
+
 
 SecureHandlerSetFrameRef(UnitWatch, "debind_driver", BindingDriver);
 SecureHandlerExecute(UnitWatch, [=[
@@ -99,46 +111,144 @@ end
 
 local CreateUnitWatchHeader;
 do
+    --- **Wrapped onto the header's last child, not onto a spare one that only ever hides.**
+    ---
+    --- `configureChildren` writes `unit` on every child it has -- a token to the ones it filled,
+    --- `nil` to the rest -- and the last child is the last of those writes either way, so this
+    --- runs once per layout with the final arrangement already in place. It leans on an unchanged
+    --- write still raising the event, which is documented nowhere; that was measured in game on
+    --- 2026-08-28 and `/debtest`'s "Unchanged attribute writes" case is what holds it.
+    ---
+    --- **Nothing may be added after the last child.** The mechanism is "the highest index is
+    --- written last", so a child past this one would take the hook's place silently.
+    ---
+    --- `isRole` is false on a header that only answers an alias, and `hasAlias` is false on
+    --- `damager` -- there is no `@damager` for a lone one to be, so the search for it is not run.
     local CheckUnits = [=[
-local alias, matchedUnit, tooMany = %q
+if (name ~= "unit") then
+    return
+end
+
+local alias, numFrames, isRole, hasAlias = %q, %d, %s, %s
 local header = UnitwatchHeaders[alias]
 if (not header:IsShown()) then
     return
 end
 
-for i = 1, %d do
-    local child = ChildFrames[alias][i]
-    local unit = child:GetAttribute("unit")
-    if (unit) then
+if (isRole) then
+    debind_driver:RunAttribute("SetRoleUnits", alias, numFrames)
+end
+
+if (hasAlias) then
+    local matchedUnit, tooMany
+    for i = 1, numFrames do
+        local unit = ChildFrames[alias][i]:GetAttribute("unit")
+        if (not unit) then
+            break
+        end
         if (matchedUnit) then
             matchedUnit = nil
             tooMany = true
             break
-        else
-            matchedUnit = unit
         end
-    else
-        break
+        matchedUnit = unit
     end
-end
 
-if (unitMap[alias] ~= matchedUnit) then
-    unitMap[alias] = matchedUnit
-    if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
-        debind_driver:RunAttribute("UpdateBindings")
-    end
-    if (tooMany) then
-        unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
-    else
-        unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
+    if (unitMap[alias] ~= matchedUnit) then
+        unitMap[alias] = matchedUnit
+        if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
+            debind_driver:RunAttribute("UpdateBindings")
+        end
+        if (tooMany) then
+            unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
+        else
+            unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
+        end
     end
 end
-self:Show()
 ]=];
+
+    --- Which headers feed the role map, and the bit each one stands for on the condition side.
+    ---
+    --- **The alias is the role name**, which is what the restricted side stores: `UnitRoles`
+    --- holds `"tank"` / `"healer"` / `"damager"` and nothing has to translate.
+    ---
+    --- `damager` is here and nowhere else: it is not a unit anyone can aim at, it exists so that
+    --- **off the map means the role is unknown** rather than "we only looked for two of the
+    --- three". Without it a plain party, where nobody is assigned anything, would read as all
+    --- damage.
+    local ROLE_HEADER_BITS = {
+        tank = Constants.ROLE_TANK,
+        healer = Constants.ROLE_HEALER,
+        damager = Constants.ROLE_DAMAGER,
+    };
+    DebindPrivate.ROLE_HEADER_BITS = ROLE_HEADER_BITS;
+
+    --- How many child slots each header has right now, which is not the same as how many the
+    --- layout is allowed to fill (`unitsPerColumn`).
+    local _slots = {};
+
+    local function WireHeader(alias, header, from, to)
+        for i = from, to do
+            local childFrame = CreateFrame("Button", nil, header, "SecureFrameTemplate");
+            header:SetAttribute("child" .. i, childFrame);
+            SecureHandlerSetFrameRef(header, "child" .. i, childFrame);
+        end
+
+        SecureHandlerSetFrameRef(UnitWatch, "unitwatch_header", header);
+        SecureHandlerExecute(UnitWatch, ([=[
+            local alias, from, to = %q, %d, %d
+            local header = self:GetFrameRef("unitwatch_header")
+            UnitwatchHeaders[alias] = header
+            ChildFrames[alias] = ChildFrames[alias] or newtable()
+            for i = from, to do
+                ChildFrames[alias][i] = header:GetFrameRef("child"..i)
+            end
+        ]=]):format(alias, from, to));
+
+        -- The driver reaches the header through this rather than through an argument: a frame
+        -- handle passed to `RunAttribute` arrives nil on the other side (measured in game,
+        -- 2026-08-28), and `SetRoleUnits` has to walk these children from the environment the map
+        -- lives in.
+        if (ROLE_HEADER_BITS[alias]) then
+            SecureHandlerSetFrameRef(BindingDriver, "rolehdr_" .. alias, header);
+        end
+
+        SecureHandlerWrapScript(header:GetAttribute("child" .. to), "OnAttributeChanged",
+            UnitWatch, CheckUnits:format(alias, to,
+                tostring(ROLE_HEADER_BITS[alias] ~= nil), tostring(alias ~= "damager")));
+        _slots[alias] = to;
+    end
+
+    --- Gives a header enough slots to hold `slots` units, and lets the layout fill that many.
+    ---
+    --- **It only ever grows.** A frame cannot be destroyed, so coming back down would mean moving
+    --- the hook onto a child the layout can fill, where it would run part way through an
+    --- arrangement instead of after it. Turning the role map off lowers `unitsPerColumn` and
+    --- leaves the slots; the hook's child is still the last thing `configureChildren` touches,
+    --- because the tidy loop walks every child that exists.
+    ---
+    --- **Out of combat only.** `SecureHandlerSetFrameRef` and `SecureHandlerWrapScript` both go
+    --- through the API frame, which raises during combat -- which is also why the slots have to
+    --- be there before the fight rather than when the roster grows.
+    function DebindPrivate.SetUnitWatchSlots(alias, slots)
+        local header = DebindPrivate.UnitWatchHeaders[alias];
+        if (not header or InCombatLockdown()) then
+            return;
+        end
+
+        local have = _slots[alias] or 0;
+        if (slots > have) then
+            SecureHandlerUnwrapScript(header:GetAttribute("child" .. have), "OnAttributeChanged");
+            WireHeader(alias, header, have + 1, slots);
+        end
+        header:SetAttribute("unitsPerColumn", slots);
+    end
 
     function CreateUnitWatchHeader(alias, numFrames, ...)
         local header = CreateFrame("Button", nil, nil, "SecureGroupHeaderTemplate");
         DebindPrivate.UnitWatchHeaders[alias] = header;
+        DebindPrivate.OwnGroupHeaders[header] = true;
         header:Hide();
 
         header:SetAttribute("alias", alias);
@@ -163,26 +273,7 @@ self:Show()
             header:SetAttribute(select(i, ...), select(i + 1, ...));
         end
 
-        for i = 1, numFrames do
-            local childFrame = CreateFrame("Button", nil, header, "SecureFrameTemplate");
-            header:SetAttribute("child" .. i, childFrame);
-            SecureHandlerSetFrameRef(header, "child" .. i, childFrame);
-        end
-
-        SecureHandlerSetFrameRef(UnitWatch, "unitwatch_header", header);
-        SecureHandlerExecute(UnitWatch, ([=[
-            local alias, numFrames = %q, %d
-            local header = self:GetFrameRef("unitwatch_header")
-            UnitwatchHeaders[alias] = header
-            ChildFrames[alias] = newtable()
-            for i = 1, numFrames do
-                ChildFrames[alias][i] = header:GetFrameRef("child"..i)
-            end
-        ]=]):format(alias, numFrames));
-
-        local lastChildFrame = CreateFrame("Frame", nil, header, "SecureFrameTemplate");
-        header:SetAttribute("child" .. (numFrames + 1), lastChildFrame);
-        SecureHandlerWrapScript(lastChildFrame, "OnHide", UnitWatch, CheckUnits:format(alias, numFrames));
+        WireHeader(alias, header, 1, numFrames);
 
         return header;
     end
@@ -224,6 +315,7 @@ UnitWatch:SetAttribute("OnGroupRosterChanged", [==[
 
 do
     local header = CreateFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
+    DebindPrivate.OwnGroupHeaders[header] = true;
     header:SetAttribute("showParty", true);
     header:SetAttribute("showRaid", true);
     header:SetAttribute("showSolo", true);
@@ -237,14 +329,13 @@ do
     header:SetAttribute("child1", childFrame);
     SecureHandlerSetFrameRef(header, "child1", childFrame);
 
-    local lastChildFrame = CreateFrame("Frame", nil, header, "SecureFrameTemplate");
-    header:SetAttribute("child2", lastChildFrame);
-
-    SecureHandlerWrapScript(lastChildFrame, "OnHide", UnitWatch, [==[
+    SecureHandlerWrapScript(childFrame, "OnAttributeChanged", UnitWatch, [==[
+        if (name ~= "unit") then
+            return
+        end
         unitwatch:SetAttribute("grouproster_uptodate", false)
         unitwatch:RunAttribute("OnGroupRosterChanged", false)
         unitwatch:CallMethod("UpdateGroupRoster")
-		self:Show()
     ]==]);
 
     header:Show()
@@ -254,6 +345,10 @@ do
     local UNITWATCH_HEADER_PROPS = {
         tank = { 2, "roleFilter", "TANK", "showSolo", false },
         healer = { 2, "roleFilter", "HEALER", "showSolo", false },
+        --- **Born at its full size.** The other role headers start narrow because `@tank` and
+        --- `@healer` only ever need to tell one from more than one; this one answers nothing but
+        --- the role map, so it is either holding the whole group or hidden.
+        damager = { Constants.MAX_ROLE_SLOTS, "roleFilter", "DAMAGER", "showSolo", false },
         maintank = { 2, "roleFilter", "MAINTANK", "showSolo", false },
         mainassist = { 2, "roleFilter", "MAINASSIST", "showSolo", false },
         custom1 = { 1, "nameList", "" },
@@ -290,7 +385,9 @@ do
         return header;
     end
 
-    function DebindPrivate.EnableUnitWatch(unit, ...)
+    --- `slots` is how many units this rebuild needs the header to hold. Absent leaves it where it
+    --- is, which is what every caller that only wants the alias means.
+    function DebindPrivate.EnableUnitWatch(unit, slots)
         local header = DebindPrivate.UnitWatchHeaders[unit];
         if (not header) then
             if (not UNITWATCH_HEADER_PROPS[unit]) then
@@ -299,22 +396,26 @@ do
             header = CreateUnitWatchHeader(unit, unpack(UNITWATCH_HEADER_PROPS[unit]));
         end
 
-        local n = select("#", ...);
-        if (n > 0) then
-            for i = 1, 2, 2 do
-                header:SetAttribute(select(i, ...), select(i + 1, ...));
-            end
+        if (slots) then
+            DebindPrivate.SetUnitWatchSlots(unit, slots);
         end
 
         header:Show();
         return header;
     end
 
-    function DebindPrivate.DisableUnitWatch(unit, ...)
+    function DebindPrivate.DisableUnitWatch(unit)
         local header = DebindPrivate.UnitWatchHeaders[unit];
         if (header and header:IsShown()) then
             header:Hide();
             SecureHandlerExecute(UnitWatch, format("unitMap[%q] = nil", unit));
+            -- **A hidden header runs no tidy pass of its own.** `CheckUnits` leaves at
+            -- `header:IsShown()`, and `SecureGroupHeader_Update` will not even reach it, so the
+            -- rows this header put on the map have to be taken off from here or they outlive it.
+            if (DebindPrivate.ROLE_HEADER_BITS[unit]) then
+                SecureHandlerExecute(BindingDriver,
+                    format([[self:RunAttribute("ClearRoleUnits", %q)]], unit));
+            end
             UnitWatch:OnSpecialUnitChanging(unit, nil);
         end
     end

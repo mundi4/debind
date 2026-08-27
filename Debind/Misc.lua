@@ -486,7 +486,7 @@ local function UnitConditionForBinding(value)
     elseif (value.exists == false) then
         return false;
     end
-    return { reaction = value.reaction, dead = value.dead };
+    return { reaction = value.reaction, dead = value.dead, role = value.role };
 end
 
 --- The old `hover` / `reactions` pair -> the unit condition they became.
@@ -660,6 +660,19 @@ local function BuildUnitStates(binding)
         end
     end
 
+    --- **Its own column, and only the hovered frame's unit rides it.** The map behind it is keyed
+    --- by group unit tokens, and a group frame is the only thing that hands us one
+    --- (`Constants.lua`). Two sources can name that unit -- `units.hover` and a `"@"` that
+    --- resolves to it -- so this narrows the same way `narrow` does.
+    local role;
+    local function narrowRole(mask)
+        if (role == nil) then
+            role = mask;
+        else
+            role = band(role, mask);
+        end
+    end
+
     -- The hover condition itself is not read here any more -- it lives in `units["hover"]`
     -- and the loop below folds it like any other unit. What is left is the one thing the **key**
     -- says: a mouse button reaches the not-hovering point and nothing else, because the click
@@ -691,12 +704,18 @@ local function BuildUnitStates(binding)
             end
             if (unit) then
                 narrow(unit, UnitConditionToState(value));
+                -- `value` is `false` for [when there is none], and role is remembered rather than
+                -- applied there -- the menu's rule for every axis under a mode it does not use.
+                if (unit == "hover" and type(value) == "table" and value.role) then
+                    narrowRole(value.role);
+                end
             end
         end
     end
 
     binding.unitStates = states;
     binding.unitStatesOpaque = opaque;
+    binding.unitRole = role;
 end
 
 DebindPrivate.BuildUnitStates = BuildUnitStates;
@@ -1469,6 +1488,13 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         end
     end
 
+    -- 역할을 하나도 안 고른 것. 유닛 축의 0과 같은 뜻인데 컬럼이 달라서 위 순회가 못 본다.
+    -- **hover 묶음에서만 칠한다** - 이 축은 거기서만 걸 수 있다.
+    if (not issue and binding.unitRole == 0 and notCategory ~= "units"
+            and (not category or category == "hover")) then
+        issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
+    end
+
     -- **A unit that needs a group, set against being alone.** The four role aliases are empty while
     -- the reader is solo (`UNITS_ABSENT_WHEN_SOLO`, read off the headers that declare it), so a
     -- binding that both requires one to be there and is restricted to `GROUP_NONE` presses and does
@@ -1486,13 +1512,39 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             and (not category or category == "groups" or category == "units")
             and notCategory ~= "groups" and notCategory ~= "units"
             and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
+        -- **짚어 물었으면 그 유닛만 답한다.** 유닛 서브메뉴는 유닛마다 자기 색을 따로 묻는데,
+        -- 여기가 `arg`를 안 보는 동안 한 유닛의 모순으로 **서브메뉴가 전부 빨개졌다.** 그러면
+        -- 어느 것을 고쳐야 하는지가 화면에서 사라진다. 0 마스크를 보는 위쪽 갈래는 처음부터
+        -- `arg`를 봤고, 이쪽만 안 보고 있었다.
+        local target = arg;
+        if (target == "@") then
+            target = binding.unit;
+        end
         for unit, mask in pairs(binding.unitStates) do
-            if (DebindPrivate.UNITS_ABSENT_WHEN_SOLO[unit] and mask ~= 0
+            if ((target == nil or target == unit)
+                    and DebindPrivate.UNITS_ABSENT_WHEN_SOLO[unit] and mask ~= 0
                     and band(mask, Constants.UNITSTATE_NONE) == 0) then
                 issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
                 break;
             end
         end
+    end
+
+    -- **A real role asked for, set against being alone.** The three headers that fill the role map
+    -- all carry `showSolo = false` (`UnitWatch.lua`), so while the reader is solo nobody is on it
+    -- and every unit reads `unknown`. Asking for tank, healer or damage there presses and does
+    -- nothing, and the two halves live in different menus.
+    --
+    -- **`unknown` still being in the mask is what makes it satisfiable**, the same way
+    -- `UNITSTATE_NONE` is above: [unknown] while solo is exactly true.
+    --
+    -- A zero mask is not this; the branch further up already reported it.
+    if (not issue and binding.unitRole and binding.unitRole ~= 0 and conditions.groups
+            and (not category or category == "groups" or category == "hover")
+            and notCategory ~= "groups" and notCategory ~= "units"
+            and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0
+            and band(binding.unitRole, Constants.ROLE_UNKNOWN) == 0) then
+        issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
     end
 
     if (not issue and (not category or category == "specialbar") and notCategory ~= "specialbar") then

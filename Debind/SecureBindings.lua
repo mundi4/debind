@@ -152,6 +152,27 @@ SecureHandlerExecute(BindingDriver, [[
 	DeferredMacroTexts = newtable()
 
 	UnitAliasMap = newtable()
+
+	-- 그룹 유닛 토큰 -> 역할 헤더의 별칭(`"tank"` / `"healer"` / `"damager"`), 곧 역할 이름
+	-- 그대로다. 행이 없는 그룹원은 `"unknown"`이고, 그것도 축 위의 값이다(`Constants.lua`).
+	--
+	-- **반응 축과 같은 모양이다**: 런타임은 값 하나를 들고 조건은 이름으로 켠 집합이라,
+	-- 비교가 `cond.role[role]` 한 번이다.
+	--
+	-- **표가 없으면 `false`이고, 그것이 "답할 수 없다"는 뜻이다.** 이름은 늘 서 있고 값만 오간다. `"unknown"`은 세 헤더가 다 보고도
+	-- 아무도 데려가지 않았다는 답이라, 셋 중 하나라도 안 서 있으면 낼 수 없다. 탱커 헤더만
+	-- 켜진 채로 답을 내면 딜러가 전부 `"unknown"`이 되고, [탱커]와 [알 수 없음]을 고른 사용자에게
+	-- 딜러까지 걸린다. 그래서 표를 세우고 내리는 자리는 **셋을 켜기로 정하는 리빌드 하나**다.
+	--
+	-- 리빌드가 `ClearPreviousBindings`에서 안 건드린다. 로스터가 채우는 표라서, 켜져 있는 동안
+	-- 리빌드가 지우면 헤더가 다음에 재배치될 때까지 전원이 미상으로 보인다.
+	UnitRoles = false
+
+	-- 각 역할 헤더가 마지막으로 `UnitRoles`에 써넣은 토큰들. 헤더가 다시 배치될 때 자기 몫만
+	-- 지우고 다시 채우려고 든다. 평평한 표를 훑어 값으로 골라내는 것보다 정확하고, 읽는 쪽은
+	-- 조회 하나로 남는다.
+	RoleOwners = false
+
 	UnitStates = newtable()
 	States = newtable()
 	DirtyFlags = newtable()
@@ -401,6 +422,76 @@ BindingDriver:SetAttribute("SetUnit", [[
 	return dirty;
 ]]);
 
+--- 역할 헤더 하나가 방금 배치한 결과를 `UnitRoles`에 옮긴다.
+---
+--- 부르는 쪽(`UnitWatch.lua`의 `CheckUnits`)은 UnitWatch의 환경에서 돌고 `UnitRoles`는 여기
+--- 드라이버 환경에 있다. 토큰을 마흔 개까지 인자로 넘기는 대신 여기서 자식을 직접 읽으면,
+--- 걷는 일이 표가 있는 쪽에서 끝난다.
+---
+--- **헤더는 인자가 아니라 frameref로 온다.** 프레임 핸들을 `RunAttribute`의 인자로 넘기면
+--- 저쪽에 nil로 도착한다(2026-08-28 게임에서 확인). 블리자드도 프레임을 다른 환경에 건네는
+--- 자리는 `RunFor`의 `self`뿐이고, 핸들을 가변 인자로 흘리는 코드는 클라이언트에 없다.
+--- `UnitWatch.lua`가 헤더를 배선할 때 `rolehdr_<별칭>`으로 붙여둔다.
+---
+--- 유닛이 없는 칸에서 멈춘다. 헤더는 채운 칸을 앞에서부터 쓰고 남은 칸을 비우므로, 첫 빈 칸이
+--- 곧 끝이다.
+BindingDriver:SetAttribute("SetRoleUnits", BakeSnippet([==[
+	local alias, numFrames = ...
+	if (not UnitRoles) then
+		return
+	end
+	local header = self:GetFrameRef("rolehdr_"..alias)
+	if (not header) then
+		return
+	end
+
+	local owned = RoleOwners[alias]
+	if (not owned) then
+		owned = newtable()
+		RoleOwners[alias] = owned
+	end
+	for i = 1, #owned do
+		UnitRoles[owned[i]] = nil
+		owned[i] = nil
+	end
+
+	for i = 1, numFrames do
+		local unit = header:GetFrameRef("child"..i):GetAttribute("unit")
+		if (not unit) then
+			break
+		end
+		UnitRoles[unit] = alias
+		owned[i] = unit
+	end
+
+	-- **역할이 바뀌는 사건은 이 자리 하나뿐이다.** 슬롯의 유닛은 그대로인데 그 사람의 역할만
+	-- 바뀌는 것도 여기서만 생기므로, 폴링이 비트마다 다시 잴 이유가 없다. 슬롯을 들고 있으면
+	-- 여기서 한 번 맞춰주고, 달라졌을 때만 깨운다.
+	local unitframe = States.unitframe
+	if (unitframe and unitframe.unit) then
+		local role
+		if (unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
+			role = UnitRoles[unitframe.unit] or "unknown"
+		end
+		if (unitframe.role ~= role) then
+			unitframe.role = role
+			DirtyFlags.unitframe = true
+			self:SetAttribute("state-unitexists", "unitframe")
+		end
+	end
+]==]));
+
+BindingDriver:SetAttribute("ClearRoleUnits", [==[
+	local alias = ...
+	local owned = RoleOwners[alias]
+	if (owned) then
+		for i = 1, #owned do
+			UnitRoles[owned[i]] = nil
+			owned[i] = nil
+		end
+	end
+]==]);
+
 BindingDriver:SetAttribute("UpdateAllUnits", [[
 	self:RunAttribute("SetUnit", "tank", UnitAliasMap["tank"], true)
 	self:RunAttribute("SetUnit", "healer", UnitAliasMap["healer"], true)
@@ -450,7 +541,12 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local forceAll = DirtyFlags.forceAll
 	local unitframe = States.unitframe
 	if (unitframe and not unitframe.reaction) then unitframe = nil end
-	local group = States.group
+	-- **Defaulted like `form` and `bonusbar` below, and for the same reason.** `States` is filled
+	-- by the state pass, which a rebuild registers *after* it has shown the unit-watch headers --
+	-- and showing one lays it out, which runs `CheckUnits`, which can land back in here. On the
+	-- first rebuild of a session there has been no pass yet, so this is nil and `group + group`
+	-- raises. The pass that follows writes the real value a moment later.
+	local group = States.group or CONSTANTS.GROUP_NONE
 	local form = 2 ^ (States.form or 0)
 	local bonusbar = 2 ^ (States.bonusbar or 0)
 	local combat = States.combat
@@ -563,9 +659,17 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 			if (match and t.units) then
 				for checkedUnit, cond in pairs(t.units) do
 					local s = UnitStates[checkedUnit]
+					-- **역할만 유닛 행이 아니라 호버 슬롯에서 읽는다.** 가리킨 프레임에 대해서만
+					-- 답이 나오는 축이고, 그 값은 슬롯을 채우는 자리에서 이미 잘려 있다.
+					-- `cond.role`은 hover 항목에만 실린다.
+					--
+					-- **슬롯의 값이 nil이면 이 축은 아예 안 선다.** 답할 수 없다는 뜻이라
+					-- 조건을 걸어서 떨어뜨리면 그 키가 조용히 죽는다.
+					local role = unitframe and unitframe.role
 					if (not s or cond.exists ~= s.exists
 							or (cond.reaction and not cond.reaction[s.reaction])
-							or (cond.dead ~= nil and cond.dead ~= s.dead)) then
+							or (cond.dead ~= nil and cond.dead ~= s.dead)
+							or (role and cond.role and not cond.role[role])) then
 						match = false
 						break
 					end
@@ -704,6 +808,7 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
 	end
 
 	local reaction
+	local role
 	if (unit and UnitExists(unit)) then
 		if (PlayerCanAssist(unit)) then
 			reaction = CONSTANTS.REACTION_HELP
@@ -712,14 +817,25 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
 		else
 			reaction = CONSTANTS.REACTION_OTHER
 		end
+		-- **nil이 "답할 수 없다"다**, `reaction`이 nil로 "호버 아님"을 말하는 것과 같은 모양.
+		-- 판정하는 쪽은 nil이면 그냥 지나가므로 두 경우를 가릴 필요가 없다.
+		--
+		-- 표가 없으면 세 헤더가 다 서 있지 않다는 뜻이라 `"unknown"`조차 낼 수 없다. 그리고
+		-- 파티/공대 개체창이 아니면 토큰을 안 본다. 맵의 키가 그룹 유닛 토큰이라, 플레이어
+		-- 프레임의 `player`는 파티에서는 맵에 있고 공대에서는 없다.
+		if (UnitRoles and unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
+			role = UnitRoles[unit] or "unknown"
+		end
 	else
 		unit = nil
 	end
 
 	local unitChanged = unitframe.unit ~= unit or unitframe.reaction ~= reaction
+			or unitframe.role ~= role
 	if (States.unitframe ~= unitframe or unitChanged) then
 		unitframe.unit = unit
 		unitframe.reaction = reaction
+		unitframe.role = role
 		States.unitframe = unitframe
 		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
 			DirtyFlags.unitframe = true
@@ -882,10 +998,16 @@ local EVAL_SNIPPET = [==[
 	-- 캐시를 볼 이유가 없다.
 	local unitframe = evalFrame
 	local hoverFrameType
+	local hoverRole
 	if (unitframe) then
 		hoverUnit = unitframe.frame:GetEffectiveAttribute("unit")
 		if (hoverUnit and UnitExists(hoverUnit)) then
 			hoverFrameType = unitframe.frameType
+			-- 역할도 클릭당 한 번. **nil이 "답할 수 없다"다.** 표가 없으면 세 헤더가 다 서
+			-- 있지 않다는 뜻이고, 파티/공대 개체창이 아니면 토큰이 맵의 키와 다르다.
+			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
+				hoverRole = UnitRoles[hoverUnit] or "unknown"
+			end
 		else
 			unitframe = nil
 			hoverUnit = nil
@@ -1150,6 +1272,12 @@ local EVAL_SNIPPET = [==[
 							-- 캐시라 여기서만 그걸 보면 hover 조건과 다른 유닛을 판정하게
 							-- 된다. 대상도 같은 값을 쓴다(아래 SetAttribute).
 							unit = hoverUnit
+							-- **역할은 이 갈래에만 있다.** 가리킨 프레임에 대해서만 답이 나오는
+							-- 축이라, 유닛 공통 자리에 두면 다른 유닛마다 헛도는 검사가 된다.
+							-- `hoverRole`이 nil이면 답할 수 없다는 뜻이라 이 축은 안 선다.
+							if (hoverRole and cond.role and not cond.role[hoverRole]) then
+								ok = false
+							end
 						else
 							-- **한 번만 조회한다.** nil이면 별칭이 아니고, 아니면 그 값이
 							-- 곧 답이다. false가 답인 별칭이 있으므로 `~= nil`로 가른다.
@@ -1210,6 +1338,7 @@ local EVAL_SNIPPET = [==[
 									ok = false
 								end
 							end
+
 						end
 					end
 

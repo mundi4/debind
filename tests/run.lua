@@ -183,6 +183,8 @@ local specs = {
     { name = "boundkey", path = root .. "/boundkey_spec.lua" },
     { name = "display", path = root .. "/display_spec.lua" },
     { name = "hover", path = root .. "/hover_spec.lua" },
+    { name = "unitwatch", path = root .. "/unitwatch_spec.lua" },
+    { name = "role", path = root .. "/role_spec.lua" },
 };
 
 --- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is

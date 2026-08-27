@@ -579,6 +579,14 @@ end
 --- the frame is. The pet headers are here for the same answer: what someone reading "pet frame"
 --- pictures is their own pet's frame, not a grid of other people's pets.
 local function CollectHeaderChildren(header)
+    -- **Ours are group headers too, and the hook below cannot tell.** `UnitWatch.lua` builds its
+    -- role watchers out of `SecureGroupHeaderTemplate`, so they come through here like anyone
+    -- else's, and their children pass every gate `RegisterFrame` has. Registering them wires
+    -- click-casting onto frames that have no size and are never on screen.
+    if (DebindPrivate.OwnGroupHeaders[header]) then
+        return;
+    end
+
     local i = 1;
     while (true) do
         local child = header:GetAttribute("child" .. i);

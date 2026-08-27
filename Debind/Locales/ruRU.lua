@@ -66,6 +66,13 @@ L["CONDITION_PETBATTLE_NO"] = "Не в битве питомцев"
 L["CONDITION_PETBATTLE_YES"] = "В битве питомцев"
 L["CONDITION_PETBATTLE"] = "Битва питомцев"
 L["CONDITION_REACTIONS"] = "Реакции"
+-- 클라이언트 낱말 그대로. ROLE / TANK / HEALER / DAMAGER / UNKNOWN.
+-- `CONDITION_ROLE_DESC`는 문장이라 안 옮긴다 - 옮길 때까지 enUS로 나간다.
+L["CONDITION_ROLE"] = "Роль"
+L["ROLE_TANK"] = "Танк"
+L["ROLE_HEALER"] = "Лекарь"
+L["ROLE_DAMAGER"] = "Боец"
+L["ROLE_UNKNOWN"] = "Неизвестно"
 L["CONDITION_SHAPESHIFT"] = "Перевоплощение"
 L["CONDITION_SPECIALBAR_DESC"] = "Условие, вызванное заменой основной панели действий, например, при управлении транспортом, одержимости и т.д."
 L["CONDITION_SPECIALBAR_NO"] = "Когда специальная панель не активна"

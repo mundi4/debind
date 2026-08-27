@@ -57,13 +57,13 @@ Execute <Frame#3>
   | 
 SetAttribute DebindClickButton *type-deb101 = "spell"
 SetAttribute DebindClickButton *spell-deb101 = "Regrowth(Restoration)"
-CreateFrame <Frame#22> SecureHandlerBaseTemplate
-CreateFrame <Frame#23>
-CreateFrame <Texture#24>
-CreateFrame <Texture#25>
-CreateFrame <Texture#26>
-CreateFrame <Button#27> SecureHandlerClickTemplate
-SetAttribute <Button#27> _onclick =
+CreateFrame <Frame#19> SecureHandlerBaseTemplate
+CreateFrame <Frame#20>
+CreateFrame <Texture#21>
+CreateFrame <Texture#22>
+CreateFrame <Texture#23>
+CreateFrame <Button#24> SecureHandlerClickTemplate
+SetAttribute <Button#24> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -98,32 +98,32 @@ SetAttribute <Button#27> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#27> screen "<Frame#5>"
-CreateFrame <Button#28> SecureActionButtonTemplate
-SetAttribute <Button#28> type = "spell"
-SetAttribute <Button#28> useOnKeyDown = false
+SetFrameRef <Button#24> screen "<Frame#5>"
+CreateFrame <Button#25> SecureActionButtonTemplate
+SetAttribute <Button#25> type = "spell"
+SetAttribute <Button#25> useOnKeyDown = false
+CreateFrame <Texture#26>
+CreateFrame <Texture#27>
+CreateFrame <Texture#28>
 CreateFrame <Texture#29>
 CreateFrame <Texture#30>
-CreateFrame <Texture#31>
+WrapScript <Button#25> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#25> OnClick = " owner:Hide() "
+SetAttribute <Button#25> spell = "Call Pet 1"
+CreateFrame <Button#31> SecureActionButtonTemplate
+SetAttribute <Button#31> type = "spell"
+SetAttribute <Button#31> useOnKeyDown = false
 CreateFrame <Texture#32>
 CreateFrame <Texture#33>
-WrapScript <Button#28> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#28> OnClick = " owner:Hide() "
-SetAttribute <Button#28> spell = "Call Pet 1"
-CreateFrame <Button#34> SecureActionButtonTemplate
-SetAttribute <Button#34> type = "spell"
-SetAttribute <Button#34> useOnKeyDown = false
+CreateFrame <Texture#34>
 CreateFrame <Texture#35>
 CreateFrame <Texture#36>
-CreateFrame <Texture#37>
-CreateFrame <Texture#38>
-CreateFrame <Texture#39>
-WrapScript <Button#34> OnClick = " return nil, \"close\" "
-WrapScriptPost <Button#34> OnClick = " owner:Hide() "
-SetAttribute <Button#34> spell = "Call Pet 2"
-SetFrameRef <Button#27> holder "<Frame#22>"
+WrapScript <Button#31> OnClick = " return nil, \"close\" "
+WrapScriptPost <Button#31> OnClick = " owner:Hide() "
+SetAttribute <Button#31> spell = "Call Pet 2"
+SetFrameRef <Button#24> holder "<Frame#19>"
 SetAttribute DebindClickButton *type-deb102 = "click"
-SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#27>>
+SetAttribute DebindClickButton *clickbutton-deb102 = <frame <Button#24>>
 SetAttribute DebindClickButton *type-deb103 = "macro"
 SetAttribute DebindClickButton *macro-deb103 = nil
 SetAttribute DebindClickButton *macrotext-deb103 = "/petattack"
@@ -156,13 +156,13 @@ Execute <Frame#3>
   | DelegateFrames[frame:GetName()] = frame
   | DelegateFrameNames[frame] = frame:GetName()
   | 
-CreateFrame <Frame#41> SecureHandlerBaseTemplate
-CreateFrame <Frame#42>
-CreateFrame <Texture#43>
-CreateFrame <Texture#44>
-CreateFrame <Texture#45>
-CreateFrame <Button#46> SecureHandlerClickTemplate
-SetAttribute <Button#46> _onclick =
+CreateFrame <Frame#38> SecureHandlerBaseTemplate
+CreateFrame <Frame#39>
+CreateFrame <Texture#40>
+CreateFrame <Texture#41>
+CreateFrame <Texture#42>
+CreateFrame <Button#43> SecureHandlerClickTemplate
+SetAttribute <Button#43> _onclick =
   | 	local holder = self:GetFrameRef("holder")
   | 	if (not holder) then
   | 		return
@@ -197,8 +197,8 @@ SetAttribute <Button#46> _onclick =
   | 	-- 얽힐 이유가 없다.
   | 	holder:RegisterAutoHide(0.750000)
   | 
-SetFrameRef <Button#46> screen "<Frame#5>"
-SetAttribute <Button#46> frameref-holder = nil
+SetFrameRef <Button#43> screen "<Frame#5>"
+SetAttribute <Button#43> frameref-holder = nil
 CreateFrame DebindClickButton_healer SecureActionButtonTemplate
 SetAttribute DebindClickButton_healer alias = "healer"
 SetAttribute DebindClickButton_healer unit = "raid41"
@@ -751,6 +751,7 @@ SetAttribute <Frame#3> _onattributechanged =
   |     elseif (unitframe.reaction) then
   |         unitframe.unit = nil
   |         unitframe.reaction = nil
+  |         unitframe.role = nil
   |         if (self:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
   |             DirtyFlags.unitframe = true
   |         end
@@ -825,8 +826,86 @@ Execute <Frame#3>
   | self:RunAttribute("SetSwitch", "$echo", false, true)
   | self:RunAttribute("SetSwitch", "$intent", false, true)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
+CreateFrame <Button#48> SecureGroupHeaderTemplate
+SetAttribute <Button#48> alias = "healer"
+SetAttribute <Button#48> showParty = true
+SetAttribute <Button#48> showRaid = true
+SetAttribute <Button#48> showPlayer = true
+SetAttribute <Button#48> showSolo = true
+SetAttribute <Button#48> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#48> sortMethod = "NAME"
+SetAttribute <Button#48> maxColumns = 1
+SetAttribute <Button#48> unitsPerColumn = 2
+SetAttribute <Button#48> template = ""
+SetAttribute <Button#48> templateType = "Frame"
+SetAttribute <Button#48> roleFilter = "HEALER"
+SetAttribute <Button#48> showSolo = false
+CreateFrame <Button#49> SecureFrameTemplate
+SetAttribute <Button#48> child1 = <frame <Button#49>>
+SetFrameRef <Button#48> child1 "<Button#49>"
+CreateFrame <Button#50> SecureFrameTemplate
+SetAttribute <Button#48> child2 = <frame <Button#50>>
+SetFrameRef <Button#48> child2 "<Button#50>"
+SetFrameRef <Frame#8> unitwatch_header "<Button#48>"
+Execute <Frame#8>
+  |             local alias, from, to = "healer", 1, 2
+  |             local header = self:GetFrameRef("unitwatch_header")
+  |             UnitwatchHeaders[alias] = header
+  |             ChildFrames[alias] = ChildFrames[alias] or newtable()
+  |             for i = from, to do
+  |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
+  |             end
+  |         
+SetFrameRef <Frame#3> rolehdr_healer "<Button#48>"
+WrapScript <Button#50> OnAttributeChanged =
+  | if (name ~= "unit") then
+  |     return
+  | end
+  | 
+  | local alias, numFrames, isRole, hasAlias = "healer", 2, true, true
+  | local header = UnitwatchHeaders[alias]
+  | if (not header:IsShown()) then
+  |     return
+  | end
+  | 
+  | if (isRole) then
+  |     debind_driver:RunAttribute("SetRoleUnits", alias, numFrames)
+  | end
+  | 
+  | if (hasAlias) then
+  |     local matchedUnit, tooMany
+  |     for i = 1, numFrames do
+  |         local unit = ChildFrames[alias][i]:GetAttribute("unit")
+  |         if (not unit) then
+  |             break
+  |         end
+  |         if (matchedUnit) then
+  |             matchedUnit = nil
+  |             tooMany = true
+  |             break
+  |         end
+  |         matchedUnit = unit
+  |     end
+  | 
+  |     if (unitMap[alias] ~= matchedUnit) then
+  |         unitMap[alias] = matchedUnit
+  |         if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
+  |             debind_driver:RunAttribute("UpdateBindings")
+  |         end
+  |         if (tooMany) then
+  |             unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
+  |         else
+  |             unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
+  |         end
+  |     end
+  | end
+  | 
+Execute <Frame#3>
+  | self:RunAttribute("SetUnit", "mainassist", nil)
+Execute <Frame#3>
+  | self:RunAttribute("SetUnit", "maintank", nil)
 CreateFrame <Button#51> SecureGroupHeaderTemplate
-SetAttribute <Button#51> alias = "healer"
+SetAttribute <Button#51> alias = "tank"
 SetAttribute <Button#51> showParty = true
 SetAttribute <Button#51> showRaid = true
 SetAttribute <Button#51> showPlayer = true
@@ -837,7 +916,7 @@ SetAttribute <Button#51> maxColumns = 1
 SetAttribute <Button#51> unitsPerColumn = 2
 SetAttribute <Button#51> template = ""
 SetAttribute <Button#51> templateType = "Frame"
-SetAttribute <Button#51> roleFilter = "HEALER"
+SetAttribute <Button#51> roleFilter = "TANK"
 SetAttribute <Button#51> showSolo = false
 CreateFrame <Button#52> SecureFrameTemplate
 SetAttribute <Button#51> child1 = <frame <Button#52>>
@@ -847,124 +926,66 @@ SetAttribute <Button#51> child2 = <frame <Button#53>>
 SetFrameRef <Button#51> child2 "<Button#53>"
 SetFrameRef <Frame#8> unitwatch_header "<Button#51>"
 Execute <Frame#8>
-  |             local alias, numFrames = "healer", 2
+  |             local alias, from, to = "tank", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
   |             UnitwatchHeaders[alias] = header
-  |             ChildFrames[alias] = newtable()
-  |             for i = 1, numFrames do
+  |             ChildFrames[alias] = ChildFrames[alias] or newtable()
+  |             for i = from, to do
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-CreateFrame <Frame#54> SecureFrameTemplate
-SetAttribute <Button#51> child3 = <frame <Frame#54>>
-WrapScript <Frame#54> OnHide =
-  | local alias, matchedUnit, tooMany = "healer"
+SetFrameRef <Frame#3> rolehdr_tank "<Button#51>"
+WrapScript <Button#53> OnAttributeChanged =
+  | if (name ~= "unit") then
+  |     return
+  | end
+  | 
+  | local alias, numFrames, isRole, hasAlias = "tank", 2, true, true
   | local header = UnitwatchHeaders[alias]
   | if (not header:IsShown()) then
   |     return
   | end
   | 
-  | for i = 1, 2 do
-  |     local child = ChildFrames[alias][i]
-  |     local unit = child:GetAttribute("unit")
-  |     if (unit) then
+  | if (isRole) then
+  |     debind_driver:RunAttribute("SetRoleUnits", alias, numFrames)
+  | end
+  | 
+  | if (hasAlias) then
+  |     local matchedUnit, tooMany
+  |     for i = 1, numFrames do
+  |         local unit = ChildFrames[alias][i]:GetAttribute("unit")
+  |         if (not unit) then
+  |             break
+  |         end
   |         if (matchedUnit) then
   |             matchedUnit = nil
   |             tooMany = true
   |             break
-  |         else
-  |             matchedUnit = unit
   |         end
-  |     else
-  |         break
+  |         matchedUnit = unit
+  |     end
+  | 
+  |     if (unitMap[alias] ~= matchedUnit) then
+  |         unitMap[alias] = matchedUnit
+  |         if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
+  |             debind_driver:RunAttribute("UpdateBindings")
+  |         end
+  |         if (tooMany) then
+  |             unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
+  |         else
+  |             unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
+  |         end
   |     end
   | end
   | 
-  | if (unitMap[alias] ~= matchedUnit) then
-  |     unitMap[alias] = matchedUnit
-  |     if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
-  |         debind_driver:RunAttribute("UpdateBindings")
-  |     end
-  |     if (tooMany) then
-  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
-  |     else
-  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
-  |     end
-  | end
-  | self:Show()
-  | 
 Execute <Frame#3>
-  | self:RunAttribute("SetUnit", "mainassist", nil)
-Execute <Frame#3>
-  | self:RunAttribute("SetUnit", "maintank", nil)
-CreateFrame <Button#55> SecureGroupHeaderTemplate
-SetAttribute <Button#55> alias = "tank"
-SetAttribute <Button#55> showParty = true
-SetAttribute <Button#55> showRaid = true
-SetAttribute <Button#55> showPlayer = true
-SetAttribute <Button#55> showSolo = true
-SetAttribute <Button#55> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#55> sortMethod = "NAME"
-SetAttribute <Button#55> maxColumns = 1
-SetAttribute <Button#55> unitsPerColumn = 2
-SetAttribute <Button#55> template = ""
-SetAttribute <Button#55> templateType = "Frame"
-SetAttribute <Button#55> roleFilter = "TANK"
-SetAttribute <Button#55> showSolo = false
-CreateFrame <Button#56> SecureFrameTemplate
-SetAttribute <Button#55> child1 = <frame <Button#56>>
-SetFrameRef <Button#55> child1 "<Button#56>"
-CreateFrame <Button#57> SecureFrameTemplate
-SetAttribute <Button#55> child2 = <frame <Button#57>>
-SetFrameRef <Button#55> child2 "<Button#57>"
-SetFrameRef <Frame#8> unitwatch_header "<Button#55>"
-Execute <Frame#8>
-  |             local alias, numFrames = "tank", 2
-  |             local header = self:GetFrameRef("unitwatch_header")
-  |             UnitwatchHeaders[alias] = header
-  |             ChildFrames[alias] = newtable()
-  |             for i = 1, numFrames do
-  |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
+  |             UnitRoles = false
+  |             RoleOwners = false
+  |             local unitframe = States.unitframe
+  |             if (unitframe) then
+  |                 unitframe.role = nil
   |             end
   |         
-CreateFrame <Frame#58> SecureFrameTemplate
-SetAttribute <Button#55> child3 = <frame <Frame#58>>
-WrapScript <Frame#58> OnHide =
-  | local alias, matchedUnit, tooMany = "tank"
-  | local header = UnitwatchHeaders[alias]
-  | if (not header:IsShown()) then
-  |     return
-  | end
-  | 
-  | for i = 1, 2 do
-  |     local child = ChildFrames[alias][i]
-  |     local unit = child:GetAttribute("unit")
-  |     if (unit) then
-  |         if (matchedUnit) then
-  |             matchedUnit = nil
-  |             tooMany = true
-  |             break
-  |         else
-  |             matchedUnit = unit
-  |         end
-  |     else
-  |         break
-  |     end
-  | end
-  | 
-  | if (unitMap[alias] ~= matchedUnit) then
-  |     unitMap[alias] = matchedUnit
-  |     if (debind_driver:RunAttribute("SetUnit", alias, matchedUnit)) then
-  |         debind_driver:RunAttribute("UpdateBindings")
-  |     end
-  |     if (tooMany) then
-  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, false)
-  |     else
-  |         unitwatch:CallMethod("OnSpecialUnitChanging", alias, matchedUnit)
-  |     end
-  | end
-  | self:Show()
-  | 
 Execute <Frame#3>
   | RebindOnHoverFrame=true
 RegisterEvent SecureStateDriverManager UPDATE_MOUSEOVER_UNIT
