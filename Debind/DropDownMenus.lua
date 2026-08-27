@@ -1227,6 +1227,7 @@ do
             function()
                 local c = _action.conditions;
                 return c ~= nil and (c.mounted ~= nil or c.skyriding ~= nil
+                    or c.flyable ~= nil or c.advflyable ~= nil
                     or c.indoors ~= nil or c.petbattle ~= nil);
             end,
             -- error. `mounted` and `indoors` are not asked: there is no check of either name.
@@ -1238,6 +1239,12 @@ do
 
         local skyridingDescription = CreateActionMenuItemGroup(description, "CONDITION_SKYRIDING", "skyriding");
         AppendDisableYesNo(skyridingDescription, "CONDITION_SKYRIDING", "skyriding");
+
+        local flyableDescription = CreateActionMenuItemGroup(description, "CONDITION_FLYABLE", "flyable");
+        AppendDisableYesNo(flyableDescription, "CONDITION_FLYABLE", "flyable");
+
+        local advflyableDescription = CreateActionMenuItemGroup(description, "CONDITION_ADVFLYABLE", "advflyable");
+        AppendDisableYesNo(advflyableDescription, "CONDITION_ADVFLYABLE", "advflyable");
 
         local indoorsDescription = CreateActionMenuItemGroup(description, "CONDITION_INDOORS", "indoors");
         AppendDisableYesNo(indoorsDescription, "CONDITION_INDOORS", "indoors");

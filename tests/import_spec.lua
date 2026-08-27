@@ -385,6 +385,8 @@ return function(DebindPrivate, DebindStorage)
         petbattle = true,
         mounted = true,
         indoors = true,
+        flyable = true,
+        advflyable = true,
         skyriding = true,
         -- 비트 마스크. `Misc.lua`가 `== 0`으로 비교한다.
         forms = 6,

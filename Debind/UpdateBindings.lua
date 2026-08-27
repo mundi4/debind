@@ -174,6 +174,8 @@ local SWITCH_GATE_STATES = {
     -- two are not each other's complement: during a dungeon loading screen both answer false
     -- (measured 2026-08-26). So a gate built on this flag would not follow `[outdoors]`.
     indoors   = "indoors",
+    flyable   = "flyable",
+    advflyable = "advflyable",
     form      = "form",
     stance    = "form",
     bonusbar  = "bonusbar",
@@ -597,8 +599,14 @@ local function CollectDriverEvents(events)
 
     -- Both, because the pair is what the client splits the move into: `ZONE_CHANGED_INDOORS` is
     -- the doorway and `ZONE_CHANGED` the rest.
-    want("ZONE_CHANGED", _measuredStates.indoors);
+    -- **`flyable` and `advflyable` ride these too, and nothing more.** What a zone allows lags
+    -- the world by design: stepping outdoors does not make mounting legal on the same frame, and
+    -- crossing the other way leaves a player mounted for some distance. Every mount macro answers
+    -- off that same delay, so there is nothing here to chase.
+    local zone = _measuredStates.indoors or _measuredStates.flyable or _measuredStates.advflyable;
+    want("ZONE_CHANGED", zone);
     want("ZONE_CHANGED_INDOORS", _measuredStates.indoors);
+    want("ZONE_CHANGED_NEW_AREA", _measuredStates.flyable or _measuredStates.advflyable);
 
     -- specialbar folds [petbattle] into its own value, so it needs these too
     want("PET_BATTLE_OPENING_START", _measuredStates.petbattle or _measuredStates.specialbar);
@@ -1368,6 +1376,8 @@ local FIELD_FLAGS        = {
     stealth    = "stealth",
     mounted    = "mounted",
     indoors    = "indoors",
+    flyable    = "flyable",
+    advflyable = "advflyable",
     skyriding  = "skyriding",
     known      = true,
     forms      = "form",
@@ -1389,6 +1399,8 @@ local CONDITION_AXES     = {
     { field = "stealth" },
     { field = "mounted" },
     { field = "indoors" },
+    { field = "flyable" },
+    { field = "advflyable" },
     { field = "skyriding" },
     { field = "known",      derived = true },
     { field = "forms",      allValue = Constants.FORM_ALL },

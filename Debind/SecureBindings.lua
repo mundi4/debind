@@ -457,6 +457,8 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local stealth = States.stealth
 	local mounted = States.mounted
 	local indoors = States.indoors
+	local flyable = States.flyable
+	local advflyable = States.advflyable
 	local skyriding = States.skyriding
 	local specialbar = States.specialbar
 	local extrabar = States.extrabar
@@ -541,6 +543,8 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				(t.stealth ~= nil and t.stealth ~= stealth) or
 				(t.mounted ~= nil and t.mounted ~= mounted) or
 				(t.indoors ~= nil and t.indoors ~= indoors) or
+				(t.flyable ~= nil and t.flyable ~= flyable) or
+				(t.advflyable ~= nil and t.advflyable ~= advflyable) or
 				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
 				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
 				(t.pet ~= nil and t.pet ~= pet)
@@ -898,6 +902,7 @@ local EVAL_SNIPPET = [==[
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
+	local flyable, advflyable
 
 	local memoReady = false
 
@@ -978,6 +983,26 @@ local EVAL_SNIPPET = [==[
 					PROBE.MockState(indoors)
 				end
 				if (t.indoors ~= indoors) then
+					match = false
+				end
+			end
+
+			if (match and t.flyable ~= nil) then
+				if (flyable == nil) then
+					flyable = IsFlyableArea()
+					PROBE.MockState(flyable)
+				end
+				if (t.flyable ~= flyable) then
+					match = false
+				end
+			end
+
+			if (match and t.advflyable ~= nil) then
+				if (advflyable == nil) then
+					advflyable = IsAdvancedFlyableArea()
+					PROBE.MockState(advflyable)
+				end
+				if (t.advflyable ~= advflyable) then
 					match = false
 				end
 			end

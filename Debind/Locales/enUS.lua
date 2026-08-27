@@ -104,6 +104,12 @@ L["BLIZZARD_UNIT_FRAMES"] = "Blizzard unit frames"
 L["CANNOT_OPEN_IN_COMBAT"] = "Cannot open in combat."
 L["CANNOT_OPEN_WITH_GAME_MENU"] = "Close the game menu first."
 L["COMPARTMENT_TOOLTIP_LEFT_CLICK"] = "Click to open Debind. The bindings overview is the left column."
+-- The client's own two words for the flight styles: `MOUNT_JOURNAL_FILTER_FLYING` and
+-- `MOUNT_JOURNAL_FILTER_DRAGONRIDING` (which reads "Skyriding" today). Both say what the **area**
+-- allows, not what the reader is doing, so the values below say "Where" rather than "While".
+L["CONDITION_ADVFLYABLE_NO"] = "Where Skyriding Is Not Allowed"
+L["CONDITION_ADVFLYABLE_YES"] = "Where Skyriding Is Allowed"
+L["CONDITION_ADVFLYABLE"] = "Skyriding Allowed"
 L["CONDITION_ACTIONBARS"] = "Action Bars"
 L["CONDITION_BONUSBAR"] = "Stance-based Action Bar"
 L["CONDITION_COMBAT_NO"] = "While Not in Combat"
@@ -115,6 +121,9 @@ L["CONDITION_CUSTOM_STATE_YES"] = "When the Switch Is On"
 L["CONDITION_EXTRABAR_NO"] = "When the Extra Action Button Is Not Present"
 L["CONDITION_EXTRABAR_YES"] = "When the Extra Action Button Is Present"
 L["CONDITION_EXTRABAR"] = "Extra Action Button"
+L["CONDITION_FLYABLE_NO"] = "Where Flying Is Not Allowed"
+L["CONDITION_FLYABLE_YES"] = "Where Flying Is Allowed"
+L["CONDITION_FLYABLE"] = "Flying Allowed"
 L["CONDITION_FRAMETYPES"] = "Unit Frame Types"
 L["CONDITION_GROUP"] = "Group";
 L["CONDITION_HOVER_NO"] = "When Not Hovered Over"

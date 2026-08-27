@@ -82,6 +82,10 @@ local function parseCondition(interp, expr)
                 value = interp.state.mounted;
             elseif (name == "indoors") then
                 value = interp.state.indoors;
+            elseif (name == "flyable") then
+                value = interp.state.flyable;
+            elseif (name == "advflyable") then
+                value = interp.state.advflyable;
             elseif (name == "outdoors") then
                 value = interp.state.outdoors;
             elseif (name == "group") then
@@ -289,6 +293,8 @@ local function buildEnv(interp)
     env.IsStealthed = function() return state.stealth; end
     env.IsMounted = function() return state.mounted; end
     env.IsIndoors = function() return state.indoors; end
+    env.IsFlyableArea = function() return state.flyable; end
+    env.IsAdvancedFlyableArea = function() return state.advflyable; end
     env.PlayerPetSummary = function() return state.pet; end
     env.HasExtraActionBar = function() return state.extrabar; end
     env.HasVehicleActionBar = function() return state.vehiclebar; end
@@ -518,6 +524,8 @@ function M.new(DebindPrivate, world)
         mounted = false,
         indoors = false,
         outdoors = false,
+        flyable = false,
+        advflyable = false,
         channeling = false,
         form = 0,
         bonusbar = 0,

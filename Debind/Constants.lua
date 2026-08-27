@@ -138,6 +138,11 @@ Constants.CONDITION_FIELDS = {
     petbattle = true,
     mounted = true,
     indoors = true,
+    -- **지역이 무엇을 허락하는가지 내가 무엇을 하고 있는가가 아니다.** 나머지 불리언들과
+    -- 결이 다른데, 탈것 액션 여럿을 한 키에 얹어 자리에 맞는 것이 나가게 하려면 이 둘이
+    -- 있어야 갈라진다. 그게 이 축들이 있는 이유다.
+    flyable = true,
+    advflyable = true,
     -- **Reads the same value as `bonusbars`**, and that is deliberate rather than a duplicate.
     -- Nobody looking for "while flying" finds it behind a bar offset, so the one offset worth
     -- naming gets its own axis. The pair a user can set that never holds is what
@@ -662,6 +667,12 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     -- partitions on its own; asking both would leave a runtime state that lights neither bit, and
     -- `Solver.lua`'s column invariant has no room for one.
     indoors = "IsIndoors()",
+    -- **These two lag the world and that is the game, not us.** Stepping outdoors does not make
+    -- mounting legal on the same frame, and a player crossing the other way can run some distance
+    -- still mounted. Every mount macro ever written has answered off the same delay, so matching
+    -- the poll to it is not worth an event nobody else registers.
+    flyable = "IsFlyableArea()",
+    advflyable = "IsAdvancedFlyableArea()",
     form = "GetShapeshiftForm()",
     bonusbar = "GetBonusBarOffset()",
     -- Not derived from `bonusbar` above. `EVAL_SNIPPET` spells every measurement out as a literal

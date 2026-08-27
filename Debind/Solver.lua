@@ -202,6 +202,18 @@ local FIXED_COLUMNS = {
             return boolToConditionFlags(binding.conditions.indoors);
         end
     },
+    {
+        name = "flyable",
+        make = function(binding)
+            return boolToConditionFlags(binding.conditions.flyable);
+        end
+    },
+    {
+        name = "advflyable",
+        make = function(binding)
+            return boolToConditionFlags(binding.conditions.advflyable);
+        end
+    },
     -- **Correlated with `bonusbars`, and left that way on purpose.** Both read
     -- `GetBonusBarOffset()`, so the product space holds points the game cannot reach -- skyriding
     -- true beside an offset that is not 5. That is the direction the header calls safe: an

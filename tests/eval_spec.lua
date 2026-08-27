@@ -231,6 +231,13 @@ return function(DebindPrivate, _, ctx)
         -- compared against the wrong number, fails here rather than in the game.
         { name = "skyriding", conditions = { skyriding = true },
             on = function(s) s.bonusbar = Constants.BONUSBAR_SKYRIDING; end },
+        -- **Area predicates, not state.** They answer what the zone allows rather than what the
+        -- reader is doing, which is what lets several mounts on one key pick themselves. Both
+        -- also read a function whose name is one word off the other's, so the pair is here as
+        -- much to catch a swap as to check the wiring.
+        { name = "flyable", conditions = { flyable = true }, on = function(s) s.flyable = true; end },
+        { name = "advflyable", conditions = { advflyable = true },
+            on = function(s) s.advflyable = true; end },
     };
 
     test("every axis decides the press, both ways", function()

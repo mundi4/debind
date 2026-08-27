@@ -403,6 +403,8 @@ do
 		addBooleanCondition("stealth");
 		addBooleanCondition("mounted");
 		addBooleanCondition("skyriding");
+		addBooleanCondition("flyable");
+		addBooleanCondition("advflyable");
 		addBooleanCondition("indoors");
 
 		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
