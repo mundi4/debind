@@ -23,6 +23,7 @@ M.world = {
     bindingContexts = {},
     activeBindingContexts = {},
     macros = {},
+    equipped = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -476,6 +477,43 @@ function M.install()
             return mount.name, mount.spellID;
         end,
     };
+
+    --- 착용 칸. `EquipSlotFacts`가 이 셋을 같이 읽는다 - 칸 번호 범위, 칸마다의 프레임 이름,
+    --- 그리고 그 이름을 대문자로 올린 전역이 드는 사람이 읽을 말.
+    ---
+    --- **장신구 둘과 손가락 둘이 같은 말을 쓰는 것이 요점이다.** 겹치는 이름에만 번호를 붙이는
+    --- 갈래가 그 넷에서만 돌고, 겹침을 안 만든 표는 그 갈래를 통째로 못 밟는다.
+    _G.INVSLOT_FIRST_EQUIPPED = 1;
+    _G.INVSLOT_LAST_EQUIPPED = 19;
+    local SLOT_FRAME_NAMES = {
+        "HeadSlot", "NeckSlot", "ShoulderSlot", "ShirtSlot", "ChestSlot", "WaistSlot",
+        "LegsSlot", "FeetSlot", "WristSlot", "HandsSlot", "Finger0Slot", "Finger1Slot",
+        "Trinket0Slot", "Trinket1Slot", "BackSlot", "MainHandSlot", "SecondaryHandSlot",
+        "RangedSlot", "TabardSlot",
+    };
+    for slot = 1, #SLOT_FRAME_NAMES do
+        local key = string.upper(SLOT_FRAME_NAMES[slot]);
+        if (key == "FINGER0SLOT" or key == "FINGER1SLOT") then
+            _G[key] = "Finger";
+        elseif (key == "TRINKET0SLOT" or key == "TRINKET1SLOT") then
+            _G[key] = "Trinket";
+        else
+            _G[key] = SLOT_FRAME_NAMES[slot]:gsub("Slot$", "");
+        end
+    end
+    _G.C_PaperDollInfo = {
+        GetInventorySlotInfoForInvSlot = function(slot)
+            local frameName = SLOT_FRAME_NAMES[slot];
+            if (not frameName) then return; end
+            return slot, 1000 + slot, false, frameName;
+        end,
+    };
+    --- 그 칸에 지금 차고 있는 것의 그림. **비어 있는 것이 기본**이고, 그리는 쪽은 그때 칸
+    --- 자체의 그림으로 물러선다(`ActionDisplay.lua`).
+    _G.GetInventoryItemTexture = function(_, slot)
+        local worn = M.world.equipped[slot];
+        return worn and worn.texture or nil;
+    end;
     _G.C_Spell = {
         GetSpellInfo = function(spellID) return M.world.spells[spellID]; end,
         GetSpellSubtext = function(spellID)

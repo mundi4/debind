@@ -1600,14 +1600,140 @@ end
 --- this name).
 local SWITCH_CLICK_TARGET = "DebindStates";
 
+--- The unit key a live `"@"` has to become, or nil where there is no live one.
+---
+--- **The binding is the judge, not the action.** `"@"` means the unit the action aims at, and
+--- `GetBindingInfoForAction` has already dropped it wherever there was nothing to aim at: a type
+--- that carries no unit, a pet command that takes none, the field left empty. Asking the action
+--- again would resurrect a condition that was not reaching the key -- and reading the field alone
+--- would move it onto the **hovered** unit for an action that aims there by derivation, which is
+--- the exact swap that check is ordered before the hover fill-in to prevent.
+---
+--- Which also means `binding.unit` is still the unit `"@"` meant: the fill-in only writes where
+--- that field was empty, and where it was empty `"@"` is already gone.
+local function AimedUnitKeyForMacroText(binding)
+    local units = binding.conditions.units;
+    if (units == nil or units["@"] == nil) then
+        return nil;
+    end
+    return binding.unit;
+end
+
+--- Two stored conditions about one unit, folded onto the one key that can hold them.
+---
+--- **This has to land on the mask `BuildUnitStates` would have built.** That one narrows a unit
+--- with `band` when two keys speak about it, and an intersection of a reaction subset with a life
+--- half is itself one of each, so the stored shape can always say the answer.
+---
+--- `{ reaction = 0 }` is the empty one: exists, and in none of the three reactions, which no unit
+--- satisfies. Not a new marker -- `HoverConditionFromLegacy` writes the same value where its two
+--- sides do not overlap, and `GetBindingIssue` already reads a zero mask that way.
+---
+--- **What the discarded side remembered is gone.** Storage keeps the axes of a condition switched
+--- off so the menu can offer them back, and one key cannot hold two sets of them.
+---
+--- Both sides are tables. `ConditionsSurviveMacroText` refuses the conversion where either is a
+--- value this build cannot read, because folding one would drop the mark that says so
+--- (`binding.unitConditionUnreadable`).
+local function IntersectStoredUnitConditions(a, b)
+    if (a == nil or a.off) then
+        return b;
+    end
+    if (b == nil or b.off) then
+        return a;
+    end
+
+    local aAbsent = a.exists == false;
+    local bAbsent = b.exists == false;
+    if (aAbsent or bAbsent) then
+        if (aAbsent and bAbsent) then
+            return a;
+        end
+        return { reaction = 0 };
+    end
+
+    local reaction;
+    if (a.reaction == nil) then
+        reaction = b.reaction;
+    elseif (b.reaction == nil) then
+        reaction = a.reaction;
+    else
+        reaction = band(a.reaction, b.reaction);
+    end
+
+    local dead;
+    if (a.dead == nil) then
+        dead = b.dead;
+    elseif (b.dead == nil) then
+        dead = a.dead;
+    elseif (a.dead ~= b.dead) then
+        return { reaction = 0 };
+    else
+        dead = a.dead;
+    end
+
+    return { reaction = reaction, dead = dead };
+end
+
+--- Whether the conditions this action carries can come along into a macro body.
+---
+--- Two of them are about the action itself rather than about the world, and a body has nowhere to
+--- put either. **Both are dropped by `GetBindingInfoForAction` the moment the type stops being what
+--- they are about**, and dropped there is invisible: the row keeps drawing the condition out of
+--- storage while the key fires without it.
+---
+--- `known` asks about this action's own spell, and the id it asks about is `value` itself
+--- (`UpdateBindings` bakes `[known:<value>]`). A body sitting in `value` leaves nothing to ask.
+---
+--- `"@"` points at the unit the action aims at, and `MACROTEXT` carries no unit
+--- (`TYPES_WITH_UNIT`), so the key has to become the unit's own name. That name is also the only
+--- way a macro body's action can say anything about that unit at all: the target menu does not
+--- open for one. Where the name is already taken the two fold into it
+--- (`IntersectStoredUnitConditions`), which is the same fold `BuildUnitStates` was doing across
+--- the two keys -- **except when a value cannot be read**. Folding one of those would drop the
+--- mark that says it was not read, and that mark is what keeps the binding out of two roles it
+--- would otherwise take by looking narrower than it is.
+local function ConditionsSurviveMacroText(action)
+    local conditions = action.conditions;
+    if (not conditions) then
+        return true;
+    end
+
+    if (conditions.known and action.type == Constants.SPELL) then
+        return false;
+    end
+
+    local unit = AimedUnitKeyForMacroText(GetBindingInfoForAction(action));
+    local units = conditions.units;
+    if (unit) then
+        local taken = units[unit];
+        if (taken == nil) then
+            return true;
+        end
+        return type(units["@"]) == "table" and type(taken) == "table";
+    end
+
+    return true;
+end
+
 --- Whether the menu stands [Convert to macro text] on this action.
 ---
 --- **What enables it and what carries it out must not part company.** `ConvertToMacroText` does
 --- nothing at all when it cannot build a body, and a menu item that does nothing when pressed says
---- why nowhere. A `MACRO` not holding a name is that case.
+--- why nowhere. A `MACRO` naming one that is not there is that case, and so is one holding no name.
+---
+--- **`WORLDMARKER` is absent on purpose.** The action places or takes back, because the binding
+--- leaves `*action-` unwritten and the client's default is `toggle` (`SECURE_ACTIONS.worldmarker`).
+--- `/wm` only places (`SlashCommands.lua`), taking back is `/cwm`, no conditional tells the two
+--- apart, and `PlaceRaidMarker` / `ClearRaidMarker` both carry `HasRestrictions` so `/run` cannot
+--- reach them either. Every body that can be written here does half of what the key did.
 function DebindPrivate.CanConvertToMacroText(action)
+    if (not ConditionsSurviveMacroText(action)) then
+        return false;
+    end
+
     if (action.type == Constants.MACRO) then
-        return type(action.value) == "string";
+        return type(action.value) == "string" and GetMacroInfo(action.value) ~= nil;
     end
 
     -- An on/off/toggle action that has not been told which switch yet is the same case: the body
@@ -1618,14 +1744,33 @@ function DebindPrivate.CanConvertToMacroText(action)
 
     return action.type == Constants.SPELL
         or action.type == Constants.ITEM
+        or action.type == Constants.EQUIPSLOT
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
-        or action.type == Constants.SETCUSTOM
-        or action.type == Constants.WORLDMARKER;
+        or action.type == Constants.SETCUSTOM;
 end
 
 function DebindPrivate.ConvertToMacroText(action)
     local macrotext, name, icon;
+
+    --- **Where the action aims, which is not always the field.** A hover condition with no target
+    --- chosen aims at the hovered unit, and that is derived rather than stored
+    --- (`GetBindingInfoForAction`). Read from the field, such an action converts to a body with no
+    --- target in it at all -- and a macro body is the only place a `MACROTEXT` can carry one, since
+    --- `SECURE_ACTIONS.macro` never looks at the button's unit. The aiming would simply be gone.
+    ---
+    --- The derived answer also carries the two refusals: `""` where the reader turned hover
+    --- targeting off, and nil for a pet command that takes no target.
+    ---
+    --- **Aiming and the `"@"` condition are two questions off one table**, and they part company on
+    --- exactly the derived case (`AimedUnitKeyForMacroText`). Both are read here, before anything
+    --- else asks for a binding: the table comes out of a cache and is refilled in place.
+    local binding = GetBindingInfoForAction(action);
+    local unit = binding.unit;
+    local atUnit = AimedUnitKeyForMacroText(binding);
+    if (unit == "") then
+        unit = nil;
+    end
 
     if (action.type == Constants.SPELL or action.type == Constants.ITEM) then
         local slashCommand, spellOrItemName;
@@ -1644,16 +1789,33 @@ function DebindPrivate.ConvertToMacroText(action)
         end
 
         if (spellOrItemName) then
-            if (action.unit) then
-                macrotext = format("%s [@%s] %s", slashCommand, action.unit, spellOrItemName);
+            if (unit) then
+                macrotext = format("%s [@%s] %s", slashCommand, unit, spellOrItemName);
             else
-                macrotext = format("%1$s %3$s", slashCommand, action.unit, spellOrItemName);
+                macrotext = format("%s %s", slashCommand, spellOrItemName);
             end
         end
+    elseif (action.type == Constants.EQUIPSLOT) then
+        -- **The slot number is the whole body.** `SecureCmdItemParse` reads one bare number as an
+        -- inventory slot, which is the same reading the binding's `*item-` gets
+        -- (`UpdateBindings.lua`).
+        --
+        -- Name and icon come from where the row draws them (`ActionDisplay.lua`), because a
+        -- macro body's are read out of storage rather than resolved again -- so what is worn
+        -- there today is what this row keeps showing.
+        local slotName, slotTexture = EquipSlotFacts(action.value);
+        if (unit) then
+            macrotext = format("%s [@%s] %d", SLASH_USE1, unit, action.value);
+        else
+            macrotext = format("%s %d", SLASH_USE1, action.value);
+        end
+        name = slotName;
+        icon = GetInventoryItemTexture("player", action.value) or slotTexture;
     elseif (action.type == Constants.MACRO) then
         -- Asked only when the value is a name. Anything else is the shape `GetMissingMacroName`
         -- reports, and `GetMacroInfo(nil)` raises. Leaving it unanswered is the whole handling
-        -- needed: the tail below already treats a nil body as "nothing to convert".
+        -- needed: the tail below already treats a nil body as "nothing to convert", which is also
+        -- the answer for a name whose macro has since been deleted.
         if (type(action.value) == "string") then
             name, icon, macrotext = GetMacroInfo(action.value);
         end
@@ -1678,7 +1840,7 @@ function DebindPrivate.ConvertToMacroText(action)
     elseif (action.type == Constants.PETACTION) then
         -- 이건 이미 매크로텍스트다 - 바인딩이 나갈 때와 **같은 함수로** 본문을 만든다.
         -- 이름과 아이콘은 액션이 들고 있는 것을 그대로 옮긴다(펫이 없으면 다시 못 푼다).
-        macrotext = DebindPrivate.GetPetActionMacroText(action.value, action.unit);
+        macrotext = DebindPrivate.GetPetActionMacroText(action.value, unit);
         name = action.name;
         icon = action.icon;
     elseif (action.type == Constants.SETCUSTOM) then
@@ -1693,13 +1855,18 @@ function DebindPrivate.ConvertToMacroText(action)
             Constants.SETSTATE_MODES[action.type]);
         name = format(L["TYPE_" .. strupper(action.type)], action.value);
         icon = 254885;
-    elseif (action.type == Constants.WORLDMARKER) then
-        macrotext = format("/wm %d", action.value);
-        name = _G["WORLD_MARKER" .. action.value];
-        icon = 4238933;
     end
 
     if (macrotext) then
+        -- **`"@"` names the same unit this body now spells out**, and a `MACROTEXT` has no field
+        -- for it to keep pointing at, so it moves to that unit's own key -- folding into whatever
+        -- that key already says about it.
+        local units = action.conditions and action.conditions.units;
+        if (atUnit) then
+            units[atUnit] = IntersectStoredUnitConditions(units[atUnit], units["@"]);
+            units["@"] = nil;
+        end
+
         action.type = Constants.MACROTEXT;
         action.value = macrotext;
         action.name = name;

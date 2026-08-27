@@ -174,6 +174,7 @@ local specs = {
     { name = "plan", path = root .. "/plan_spec.lua" },
     { name = "describe", path = root .. "/describe_spec.lua" },
     { name = "castname", path = root .. "/castname_spec.lua" },
+    { name = "convert", path = root .. "/convert_spec.lua" },
     { name = "record", path = root .. "/record_spec.lua" },
     { name = "context", path = root .. "/context_spec.lua" },
     { name = "frames", path = root .. "/frames_spec.lua" },
