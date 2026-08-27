@@ -124,6 +124,11 @@ L["CONDITION_EXTRABAR"] = "Extra Action Button"
 L["CONDITION_FLYABLE_NO"] = "Where Flying Is Not Allowed"
 L["CONDITION_FLYABLE_YES"] = "Where Flying Is Allowed"
 L["CONDITION_FLYABLE"] = "Flying Allowed"
+-- **The pair of `CONDITION_FLYABLE`, and the words have to keep them apart.** That one is about
+-- the place and this one is about the reader, so it says "While" where the other says "Where".
+L["CONDITION_FLYING_NO"] = "While Not Airborne"
+L["CONDITION_FLYING_YES"] = "While Airborne"
+L["CONDITION_FLYING"] = "Airborne"
 L["CONDITION_FRAMETYPES"] = "Unit Frame Types"
 L["CONDITION_GROUP"] = "Group";
 L["CONDITION_HOVER_NO"] = "When Not Hovered Over"

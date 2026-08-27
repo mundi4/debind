@@ -238,6 +238,9 @@ return function(DebindPrivate, _, ctx)
         { name = "flyable", conditions = { flyable = true }, on = function(s) s.flyable = true; end },
         { name = "advflyable", conditions = { advflyable = true },
             on = function(s) s.advflyable = true; end },
+        -- The pair of `flyable` above, and the one that is not about the zone: whether the reader
+        -- is off the ground. Their functions differ by one word too.
+        { name = "flying", conditions = { flying = true }, on = function(s) s.flying = true; end },
     };
 
     test("every axis decides the press, both ways", function()

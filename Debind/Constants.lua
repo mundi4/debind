@@ -143,6 +143,9 @@ Constants.CONDITION_FIELDS = {
     -- 있어야 갈라진다. 그게 이 축들이 있는 이유다.
     flyable = true,
     advflyable = true,
+    -- **`flyable` asks what the zone allows; this asks whether the reader is off the ground.**
+    -- One is the choice a mount key makes and the other is what happened after it.
+    flying = true,
     -- **Reads the same value as `bonusbars`**, and that is deliberate rather than a duplicate.
     -- Nobody looking for "while flying" finds it behind a bar offset, so the one offset worth
     -- naming gets its own axis. The pair a user can set that never holds is what
@@ -673,6 +676,10 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     -- the poll to it is not worth an event nobody else registers.
     flyable = "IsFlyableArea()",
     advflyable = "IsAdvancedFlyableArea()",
+    -- **No event carries this one and none is wanted.** Nothing fires when a mount leaves the
+    -- ground, so it rides the beat, which is the same 0.2s every mount macro has always answered
+    -- off. Gating it on anything would be gating it on a trigger list that does not exist.
+    flying = "IsFlying()",
     form = "GetShapeshiftForm()",
     bonusbar = "GetBonusBarOffset()",
     -- Not derived from `bonusbar` above. `EVAL_SNIPPET` spells every measurement out as a literal

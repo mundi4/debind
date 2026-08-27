@@ -86,6 +86,8 @@ local function parseCondition(interp, expr)
                 value = interp.state.flyable;
             elseif (name == "advflyable") then
                 value = interp.state.advflyable;
+            elseif (name == "flying") then
+                value = interp.state.flying;
             elseif (name == "outdoors") then
                 value = interp.state.outdoors;
             elseif (name == "group") then
@@ -295,6 +297,7 @@ local function buildEnv(interp)
     env.IsIndoors = function() return state.indoors; end
     env.IsFlyableArea = function() return state.flyable; end
     env.IsAdvancedFlyableArea = function() return state.advflyable; end
+    env.IsFlying = function() return state.flying; end
     env.PlayerPetSummary = function() return state.pet; end
     env.HasExtraActionBar = function() return state.extrabar; end
     env.HasVehicleActionBar = function() return state.vehiclebar; end
@@ -526,6 +529,7 @@ function M.new(DebindPrivate, world)
         outdoors = false,
         flyable = false,
         advflyable = false,
+        flying = false,
         channeling = false,
         form = 0,
         bonusbar = 0,

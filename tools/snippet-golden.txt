@@ -425,6 +425,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local indoors = States.indoors
 	local flyable = States.flyable
 	local advflyable = States.advflyable
+	local flying = States.flying
 	local skyriding = States.skyriding
 	local specialbar = States.specialbar
 	local extrabar = States.extrabar
@@ -510,6 +511,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				(t.indoors ~= nil and t.indoors ~= indoors) or
 				(t.flyable ~= nil and t.flyable ~= flyable) or
 				(t.advflyable ~= nil and t.advflyable ~= advflyable) or
+				(t.flying ~= nil and t.flying ~= flying) or
 				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
 				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
 				(t.pet ~= nil and t.pet ~= pet)
@@ -788,7 +790,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -889,6 +891,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end
@@ -1281,7 +1293,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -1382,6 +1394,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end
@@ -1858,7 +1880,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -1959,6 +1981,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end
@@ -2347,7 +2379,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -2448,6 +2480,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end
@@ -2740,7 +2782,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -2841,6 +2883,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end
@@ -3136,7 +3188,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -3237,6 +3289,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end
@@ -3533,7 +3595,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local group, form, bonusbar
 	local combat, stealth, specialbar, extrabar, pet, petbattle
 	local mounted, indoors, skyriding
-	local flyable, advflyable
+	local flyable, advflyable, flying
 
 	local memoReady = false
 
@@ -3634,6 +3696,16 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.advflyable ~= advflyable) then
+					match = false
+				end
+			end
+
+			if (match and t.flying ~= nil) then
+				if (flying == nil) then
+					flying = IsFlying()
+					
+				end
+				if (t.flying ~= flying) then
 					match = false
 				end
 			end

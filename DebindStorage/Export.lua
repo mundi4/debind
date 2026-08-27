@@ -161,6 +161,7 @@ local CONDITION_TYPES    = {
     indoors = "boolean",
     flyable = "boolean",
     advflyable = "boolean",
+    flying = "boolean",
     skyriding = "boolean",
     units = "table",
     ["$state1"] = "boolean",

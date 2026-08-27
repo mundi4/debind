@@ -387,6 +387,7 @@ return function(DebindPrivate, DebindStorage)
         indoors = true,
         flyable = true,
         advflyable = true,
+        flying = true,
         skyriding = true,
         -- 비트 마스크. `Misc.lua`가 `== 0`으로 비교한다.
         forms = 6,

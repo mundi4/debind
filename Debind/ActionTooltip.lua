@@ -405,6 +405,7 @@ do
 		addBooleanCondition("skyriding");
 		addBooleanCondition("flyable");
 		addBooleanCondition("advflyable");
+		addBooleanCondition("flying");
 		addBooleanCondition("indoors");
 
 		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
