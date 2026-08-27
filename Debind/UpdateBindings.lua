@@ -2476,6 +2476,19 @@ end
             appendStateStore(state);
         elseif (state:sub(1, 7) == "[known:") then
             -- 이름이 곧 조건문이다(대괄호 포함). 클릭 경로가 같은 문자열을 그대로 파싱한다.
+            --
+            -- **게이트가 없다.** 스위치는 `DirtyFlags`로 감싸는데(아래 "Update Switches") 이쪽은
+            -- 매 비트 판다. 그러려면 "`SPELLS_CHANGED` 말고는 답이 안 움직인다"를 짊어져야 하고,
+            -- 전투 중에 임시 주문을 받는 경우가 그 문장을 깨뜨릴 자리였다.
+            --
+            -- **인게임 확인함 (2026-08-27).** 셋 다 `[known:<id>]`가 거짓이다 - 탈것 바 주문,
+            -- 지배 바 주문, 특별 행동 버튼. 임시 주문은 주문서를 안 거치므로 `IsPlayerSpell`이
+            -- 안 뒤집힌다. 남은 계기(주문 습득, 특성·전문화 변경)는 전부 전투 밖이고 전부
+            -- `SPELLS_CHANGED`를 낸다.
+            --
+            -- 그래도 아직 안 감쌌다. 위의 셋이 아닌 계기가 없다는 것까지는 확인이 아니고,
+            -- 게이트를 다는 순간 매 비트 재기가 주던 안전망(어떤 계기를 놓쳐도 0.2초 안에 회복)이
+            -- 사라진다.
             appendLine([[stateValue=SecureCmdOptionParse(%q) and true or false]], state);
             appendStateStore(state);
 
