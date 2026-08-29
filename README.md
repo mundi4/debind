@@ -189,3 +189,9 @@ Debind was called Debounce until 3.0. Same addon, same author, same settings —
 - [CurseForge](https://www.curseforge.com/wow/addons/debind)
 - [GitHub issues](https://github.com/mundi4/debind/issues) — bugs and requests
 - Oreo-Durotan (KR), Alliance · mundi4@gmail.com
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+The libraries under `Debind/Libs` and `DebindStorage/Libs` are not mine and keep the licenses they came with: LibStub is public domain, CallbackHandler-1.0 is Ace3's, LibDeflate is zlib, LibSerialize is MIT.
