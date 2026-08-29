@@ -31,9 +31,9 @@ local LIFE_ITEMS            = {
     { text = LLL["LIFE_DEAD"],  value = true },
 };
 
---- 역할 확인란. **[알 수 없음]도 고를 수 있는 값이다** - 파티/공격대 개체창이 아닌 곳을
---- 가리켰거나 아무 역할도 지정 안 된 그룹이면 그리로 떨어지고, 그때만 나가는 바인딩을 걸 수
---- 있어야 한다.
+--- 역할 확인란. **[역할 없음]도 고를 수 있는 값이다** - 역할이 지정 안 된 유닛에 대한 답이지
+--- 못 알아냈다는 뜻이 아니다. 세 헤더가 다 서 있으면 애드온은 언제나 답을 내므로, 그 답만
+--- 골라 나가는 바인딩을 걸 수 있어야 한다.
 --- 프레임 종류 확인란의 기본값, 곧 **아무것도 안 정했을 때 켜져 있는 것**. 확인란과 그것을
 --- 읽는 쪽이 같은 값을 봐야 해서 이름을 붙였다 - 한쪽만 `FRAMETYPE_ALL`로 읽으면 비트가 하나
 --- 늘어나는 날 두 답이 갈린다.
@@ -49,7 +49,7 @@ local ROLE_ITEMS            = {
     { text = LLL["ROLE_TANK"],    value = Constants.ROLE_TANK },
     { text = LLL["ROLE_HEALER"],  value = Constants.ROLE_HEALER },
     { text = LLL["ROLE_DAMAGER"], value = Constants.ROLE_DAMAGER },
-    { text = LLL["ROLE_UNKNOWN"], value = Constants.ROLE_UNKNOWN },
+    { text = LLL["ROLE_NONE"],    value = Constants.ROLE_NONE },
 };
 
 

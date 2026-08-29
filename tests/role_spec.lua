@@ -269,7 +269,7 @@ return function(DebindPrivate)
     --- **`unknown`이 마스크에 남아 있으면 성립한다.** 혼자일 때 모두가 역할 미상이므로,
     --- 그 조합은 참이 되는 순간이 실제로 있다. 위 검사가 그것까지 잡으면 멀쩡한 바인딩이 죽는다.
     test("unknown while solo is not a contradiction", function()
-        local action = roleAction(Constants.ROLE_TANK + Constants.ROLE_UNKNOWN,
+        local action = roleAction(Constants.ROLE_TANK + Constants.ROLE_NONE,
             { groups = Constants.GROUP_NONE });
         Profile({ action });
         check(DebindPrivate.GetBindingIssue(action) == nil,

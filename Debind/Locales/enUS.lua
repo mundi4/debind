@@ -165,7 +165,12 @@ L["CONDITION_ROLE_DESC"] = "Only party and raid frames can tell you a role. Over
 L["ROLE_TANK"] = "Tank"
 L["ROLE_HEALER"] = "Healer"
 L["ROLE_DAMAGER"] = "Damage"
-L["ROLE_UNKNOWN"] = "Unknown"
+-- **The client's own `NO_ROLE`**, and the fourth role rather than a failure to read one. It was
+-- "Unknown", which says something about us: the addon always has the answer once the three headers
+-- are up, so there is no unit it looked at and could not tell. What it names is a unit nobody has
+-- assigned a role to. A frame that cannot be asked at all is a separate thing and never reaches
+-- this value (`CONDITION_ROLE_DESC`).
+L["ROLE_NONE"] = "No Role"
 L["CONDITION_SHAPESHIFT"] = "Shapeshift"
 -- The client's own word for the flight style (`ACCESSIBILITY_ADV_FLY_LABEL`,
 -- `MOUNT_JOURNAL_FILTER_DRAGONRIDING`). Dragonriding is what it used to be called and is not what

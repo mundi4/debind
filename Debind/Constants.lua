@@ -377,10 +377,10 @@ Constants.UNITSTATE_ALL    = Constants.UNITSTATE_EXISTS + Constants.UNITSTATE_NO
 Constants.ROLE_TANK    = 2 ^ 0;
 Constants.ROLE_HEALER  = 2 ^ 1;
 Constants.ROLE_DAMAGER = 2 ^ 2;
-Constants.ROLE_UNKNOWN = 2 ^ 3;
+Constants.ROLE_NONE    = 2 ^ 3;
 
 Constants.ROLE_ALL     = Constants.ROLE_TANK + Constants.ROLE_HEALER
-                       + Constants.ROLE_DAMAGER + Constants.ROLE_UNKNOWN;
+                       + Constants.ROLE_DAMAGER + Constants.ROLE_NONE;
 
 -- How many slots a role header gets while the map is on. A raid holds forty, and
 -- `SecureGroupHeaders` truncates at `maxColumns * unitsPerColumn` anyway, so this is the whole

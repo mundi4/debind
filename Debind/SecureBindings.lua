@@ -154,15 +154,15 @@ SecureHandlerExecute(BindingDriver, [[
 	UnitAliasMap = newtable()
 
 	-- 그룹 유닛 토큰 -> 역할 헤더의 별칭(`"tank"` / `"healer"` / `"damager"`), 곧 역할 이름
-	-- 그대로다. 행이 없는 그룹원은 `"unknown"`이고, 그것도 축 위의 값이다(`Constants.lua`).
+	-- 그대로다. 행이 없는 그룹원은 `"norole"`이고, 그것도 축 위의 값이다(`Constants.lua`).
 	--
 	-- **반응 축과 같은 모양이다**: 런타임은 값 하나를 들고 조건은 이름으로 켠 집합이라,
 	-- 비교가 `cond.role[role]` 한 번이다.
 	--
-	-- **표가 없으면 `false`이고, 그것이 "답할 수 없다"는 뜻이다.** 이름은 늘 서 있고 값만 오간다. `"unknown"`은 세 헤더가 다 보고도
-	-- 아무도 데려가지 않았다는 답이라, 셋 중 하나라도 안 서 있으면 낼 수 없다. 탱커 헤더만
-	-- 켜진 채로 답을 내면 딜러가 전부 `"unknown"`이 되고, [탱커]와 [알 수 없음]을 고른 사용자에게
-	-- 딜러까지 걸린다. 그래서 표를 세우고 내리는 자리는 **셋을 켜기로 정하는 리빌드 하나**다.
+	-- **표가 없으면 `false`이고, 그것이 "답할 수 없다"는 뜻이다.** 이름은 늘 서 있고 값만 오간다. `"norole"`은 세 헤더가
+	-- 다 보고도 아무도 데려가지 않았다는 답이라, 셋 중 하나라도 안 서 있으면 낼 수 없다. 탱커
+	-- 헤더만 켜진 채로 답을 내면 딜러가 전부 `"norole"`이 되고, [탱커]와 [역할 없음]을 고른
+	-- 사용자에게 딜러까지 걸린다. 그래서 표를 세우고 내리는 자리는 **셋을 켜기로 정하는 리빌드 하나**다.
 	--
 	-- 리빌드가 `ClearPreviousBindings`에서 안 건드린다. 로스터가 채우는 표라서, 켜져 있는 동안
 	-- 리빌드가 지우면 헤더가 다음에 재배치될 때까지 전원이 미상으로 보인다.
@@ -471,7 +471,7 @@ BindingDriver:SetAttribute("SetRoleUnits", BakeSnippet([==[
 	if (unitframe and unitframe.unit) then
 		local role
 		if (unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
-			role = UnitRoles[unitframe.unit] or "unknown"
+			role = UnitRoles[unitframe.unit] or "norole"
 		end
 		if (unitframe.role ~= role) then
 			unitframe.role = role
@@ -820,11 +820,11 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
 		-- **nil이 "답할 수 없다"다**, `reaction`이 nil로 "호버 아님"을 말하는 것과 같은 모양.
 		-- 판정하는 쪽은 nil이면 그냥 지나가므로 두 경우를 가릴 필요가 없다.
 		--
-		-- 표가 없으면 세 헤더가 다 서 있지 않다는 뜻이라 `"unknown"`조차 낼 수 없다. 그리고
+		-- 표가 없으면 세 헤더가 다 서 있지 않다는 뜻이라 `"norole"`조차 낼 수 없다. 그리고
 		-- 파티/공대 개체창이 아니면 토큰을 안 본다. 맵의 키가 그룹 유닛 토큰이라, 플레이어
 		-- 프레임의 `player`는 파티에서는 맵에 있고 공대에서는 없다.
 		if (UnitRoles and unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
-			role = UnitRoles[unit] or "unknown"
+			role = UnitRoles[unit] or "norole"
 		end
 	else
 		unit = nil
@@ -1006,7 +1006,7 @@ local EVAL_SNIPPET = [==[
 			-- 역할도 클릭당 한 번. **nil이 "답할 수 없다"다.** 표가 없으면 세 헤더가 다 서
 			-- 있지 않다는 뜻이고, 파티/공대 개체창이 아니면 토큰이 맵의 키와 다르다.
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil

@@ -102,13 +102,13 @@ L["CONDITION_PETBATTLE_YES"] = "애완동물 대전 중일 때"
 L["CONDITION_PETBATTLE"] = "애완동물 대전"
 L["CONDITION_REACTIONS"] = "반응"
 -- 넷 다 클라이언트 낱말이다: ROLE = 역할, TANK = 방어 전담, HEALER = 치유 전담,
--- DAMAGER = 공격 전담, UNKNOWN = 알 수 없음. 개체창은 UNITFRAME_LABEL 그대로 쓴다.
+-- DAMAGER = 공격 전담, NO_ROLE = 역할 없음. 개체창은 UNITFRAME_LABEL 그대로 쓴다.
 L["CONDITION_ROLE"] = "역할"
 L["CONDITION_ROLE_DESC"] = "역할을 알 수 있는 것은 파티/공격대 개체창뿐입니다. 다른 개체창에서는 이 조건이 막지 않습니다."
 L["ROLE_TANK"] = "방어 전담"
 L["ROLE_HEALER"] = "치유 전담"
 L["ROLE_DAMAGER"] = "공격 전담"
-L["ROLE_UNKNOWN"] = "알 수 없음"
+L["ROLE_NONE"] = "역할 없음"
 L["CONDITION_SHAPESHIFT"] = "변신"
 L["CONDITION_SKYRIDING_NO"] = "하늘비행 중이 아닐 때"
 L["CONDITION_SKYRIDING_YES"] = "하늘비행 중일 때"

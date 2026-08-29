@@ -1543,7 +1543,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             and (not category or category == "groups" or category == "hover")
             and notCategory ~= "groups" and notCategory ~= "units"
             and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0
-            and band(binding.unitRole, Constants.ROLE_UNKNOWN) == 0) then
+            and band(binding.unitRole, Constants.ROLE_NONE) == 0) then
         issue = Constants.BINDING_ISSUE_CONDITIONS_NEVER;
     end
 

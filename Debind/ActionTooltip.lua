@@ -38,7 +38,7 @@ local UNIT_ROLES           = {
 	"TANK",
 	"HEALER",
 	"DAMAGER",
-	"UNKNOWN",
+	"NONE",
 };
 
 local UNIT_FRAME_TYPES     = {

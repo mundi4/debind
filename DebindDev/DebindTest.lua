@@ -6338,7 +6338,7 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
 
         InsertAction({
             type = Constants.SPELL, value = 585, key = "BUTTON3",
-            units = { hover = { role = Constants.ROLE_UNKNOWN } },
+            units = { hover = { role = Constants.ROLE_NONE } },
             frameTypes = Constants.FRAMETYPE_ALL,
         })
         InsertAction({

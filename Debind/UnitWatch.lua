@@ -174,7 +174,7 @@ end
     --- holds `"tank"` / `"healer"` / `"damager"` and nothing has to translate.
     ---
     --- `damager` is here and nowhere else: it is not a unit anyone can aim at, it exists so that
-    --- **off the map means the role is unknown** rather than "we only looked for two of the
+    --- **off the map means no role is assigned** rather than "we only looked for two of the
     --- three". Without it a plain party, where nobody is assigned anything, would read as all
     --- damage.
     local ROLE_HEADER_BITS = {

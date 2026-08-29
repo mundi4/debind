@@ -434,7 +434,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	if (unitframe and unitframe.unit) then
 		local role
 		if (unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
-			role = UnitRoles[unitframe.unit] or "unknown"
+			role = UnitRoles[unitframe.unit] or "norole"
 		end
 		if (unitframe.role ~= role) then
 			unitframe.role = role
@@ -743,7 +743,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 		if (UnitRoles and unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
-			role = UnitRoles[unit] or "unknown"
+			role = UnitRoles[unit] or "norole"
 		end
 	else
 		unit = nil
@@ -879,7 +879,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil
@@ -1395,7 +1395,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil
@@ -1995,7 +1995,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil
@@ -2507,7 +2507,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil
@@ -2923,7 +2923,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil
@@ -3342,7 +3342,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil
@@ -3762,7 +3762,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (UnitRoles and hoverFrameType == CONSTANTS.FRAMETYPE_GROUP) then
-				hoverRole = UnitRoles[hoverUnit] or "unknown"
+				hoverRole = UnitRoles[hoverUnit] or "norole"
 			end
 		else
 			unitframe = nil

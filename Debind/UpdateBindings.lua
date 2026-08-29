@@ -835,9 +835,9 @@ local function ApplyBindingPlan(plan)
         end
     end
 
-    --- **표가 있다는 것이 곧 세 헤더가 다 서 있다는 뜻이다.** `"unknown"`은 셋이 다 보고도
+    --- **표가 있다는 것이 곧 세 헤더가 다 서 있다는 뜻이다.** `"norole"`은 셋이 다 보고도
     --- 아무도 데려가지 않았다는 답이라, 하나라도 빠지면 낼 수 없다. 탱커 헤더만 켜진 채로
-    --- 답을 내면 딜러가 전부 `"unknown"`이 되고, [탱커]와 [알 수 없음]을 고른 사용자에게
+    --- 답을 내면 딜러가 전부 `"norole"`이 되고, [탱커]와 [역할 없음]을 고른 사용자에게
     --- 딜러까지 걸린다.
     ---
     --- 그래서 세우고 내리는 자리는 **셋을 켜기로 정한 리빌드 하나**다. 헤더가 저마다 세우면
@@ -1299,7 +1299,7 @@ local ROLE_NAMES = {
     [Constants.ROLE_TANK]    = "tank",
     [Constants.ROLE_HEALER]  = "healer",
     [Constants.ROLE_DAMAGER] = "damager",
-    [Constants.ROLE_UNKNOWN] = "unknown",
+    [Constants.ROLE_NONE] = "norole",
 };
 
 ---
