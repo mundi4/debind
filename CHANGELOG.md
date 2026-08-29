@@ -1,3 +1,25 @@
+# 3.5
+
+**Four new conditions, and a key on a unit frame can ask what the person does.**
+
+**A mount key can hold more than one mount now.** **Flying Allowed** and **Skyriding Allowed** ask what the place you are standing in permits, which is the question a mount key asks before it picks. Put a ground mount, a flying mount and a skyriding mount on one key, each with the condition that suits it, and the key picks. Reaching for that used to mean dropping to a custom macro.
+
+**Airborne** is the other half of it, and it asks about you rather than about the ground: whether you are off it right now. Both have to exist, or a key cannot tell "I could fly here" from "I am flying".
+
+The two about the place lag the world a little, the way every mount macro ever written has. Stepping outdoors does not make mounting legal on the same frame, and crossing the other way leaves you mounted for some distance.
+
+**Role.** A binding that runs while you are hovering a unit frame can ask whether that person is a tank, a healer or damage, the way it can already ask about their reaction or whether they are dead. One key can hold a save for the tank and a dispel for the healer and pick by who you are pointing at. **Unknown** is the fourth, for a unit that has no role assigned.
+
+Only party and raid frames can answer at all, so over any other frame the condition does not hold the action back.
+
+**Converting an action to a Custom Macro no longer changes what the key does.** It rewrote the action in place and quietly took things with it on the way. Five of those:
+
+- An equipment slot can be converted now. It could not be before, though `/use` with the slot number is exactly what its binding already sends.
+- An action keeps its aim. One aiming at a unit Debind worked out for you, rather than one you picked yourself, came out as a body with no target in it at all.
+- A world marker is no longer offered. The key both places a marker and takes it back, `/wm` only places, and nothing in a macro tells the two apart.
+- A macro name whose macro you have since deleted is no longer offered.
+- An action with **Only When Spell Known** is no longer offered. That condition asks about the action's own spell, and a macro body takes that spell's place, so the converted action would have read as carrying no conditions at all and the next action on that key would never have fired.
+
 # 3.4
 
 **Two new tabs in the picker, and three new conditions.**
