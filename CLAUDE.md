@@ -62,6 +62,26 @@ failures are silent.
 that can regress gets registered there. A procedure written out in chat is carried out once and
 is gone by the next change; a test in the kit is there for every one after it.
 
+**Registering the test is the whole of your job.** There is exactly one moment to mention
+`/debtest`: **once, in conversation, when the implementation is finished** and the kit is the next
+thing that would run. Say it there and let it go.
+
+**Never leave it anywhere.** Not in a document, not in a status header, not as an open item or a
+blocker or a remaining task, not in a commit message, not in a new "check this on screen" list.
+The commit message is an instance of **Commit messages** below rather than a rule of its own.
+
+**Do not follow up and do not ask.** I run it myself, and **silence means it passed.** Copying the
+state out of a document you just read is the same violation as writing it yourself, and so is
+asking whether something looks right on screen. If there is a problem I will raise it first.
+
+**The pull here is self-insurance, not diligence.** Writing "not verified in game" protects you
+from a later "you said it was fine"; it does nothing for me, and it converts what you cannot do
+into a task for me. State what your verification covered and stop there.
+
+**Coverage is a different thing and does belong in the document**: which cases the kit holds, and
+what it cannot reach in principle and why. That is a description of the tests, not a list of things
+for a person to do, and it does not go stale the moment somebody runs them.
+
 ## Shipped addons
 
 | Folder | |
@@ -137,6 +157,29 @@ The rest:
 - **Write every new comment in English.**
 - Do not bulk-translate the Korean ones. But **a comment you are editing anyway gets rewritten
   whole, in English** — never half-edited into two languages.
+
+## Commit messages
+
+**A commit message is fixed the moment it is written and nothing can correct it later.** So it may
+record **what happened**, and may not record **what is currently so.**
+
+The test: **could somebody else's next action make this sentence false?** If it could, it should
+never have gone in.
+
+- *"Measured today: a vehicle bar spell, a possess bar spell and an extra action button spell all
+  answer `[known:<id>]` false"* is an event. Nobody can make it untrue, and a later regression does
+  not touch it either, because what it says is that an observation happened.
+- *"The four `/debtest` cases registered here have not been run yet"* is a state. Running them once
+  makes it false, and the commit goes on saying otherwise for good.
+
+That rules out every transient, not just that one: a TODO, "will fix in a follow up", "temporary
+until X lands", "pending", "known broken on". Each of those is a value that has to stay current,
+and this is the one piece of prose in the repo that can never be updated. **Anything that has to
+stay current belongs where it can be changed, and only one place may hold it** or there are two
+answers and no way to tell which is stale.
+
+Being true when written is not enough on its own. The question is whether it stays true with nobody
+maintaining it.
 
 ## Repo conventions
 
