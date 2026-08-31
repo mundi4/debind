@@ -1652,23 +1652,35 @@ end
 --- this name).
 local SWITCH_CLICK_TARGET = "DebindStates";
 
---- The unit key a live `"@"` has to become, or nil where there is no live one.
+--- The unit key a live `"@"` has to become, and **the stored table it has to be rewritten in**.
+--- Nil where no live one exists; a unit with no table where there is one this cannot rewrite.
 ---
---- **The binding is the judge, not the action.** `"@"` means the unit the action aims at, and
---- `GetBindingInfoForAction` has already dropped it wherever there was nothing to aim at: a type
---- that carries no unit, a pet command that takes none, the field left empty. Asking the action
---- again would resurrect a condition that was not reaching the key -- and reading the field alone
---- would move it onto the **hovered** unit for an action that aims there by derivation, which is
---- the exact swap that check is ordered before the hover fill-in to prevent.
+--- **The binding is the judge of live, not the action.** `"@"` means the unit the action aims at,
+--- and `GetBindingInfoForAction` has already dropped it wherever there was nothing to aim at: a
+--- type that carries no unit, a pet command that takes none, the field left empty. Asking the
+--- action again would resurrect a condition that was not reaching the key -- and reading the field
+--- alone would move it onto the **hovered** unit for an action that aims there by derivation,
+--- which is the exact swap that check is ordered before the hover fill-in to prevent.
 ---
 --- Which also means `binding.unit` is still the unit `"@"` meant: the fill-in only writes where
 --- that field was empty, and where it was empty `"@"` is already gone.
-local function AimedUnitKeyForMacroText(binding)
-    local units = binding.conditions.units;
-    if (units == nil or units["@"] == nil) then
+---
+--- **But the binding reads units from two places and only one of them can be written back to.**
+--- Where `conditions.units` is absent it falls back to the flat pre-`dbver` 6 `checkedUnits`, so a
+--- live `"@"` can sit somewhere `conditions.units` has never heard of. Reaching into that shape
+--- here would make this the second place that knows the old one; the caller refuses the conversion
+--- instead, and it comes back once migration has run.
+local function AimedUnitKeyForMacroText(action, binding)
+    local live = binding.conditions.units;
+    if (live == nil or live["@"] == nil) then
         return nil;
     end
-    return binding.unit;
+
+    local stored = action.conditions and action.conditions.units;
+    if (stored == nil or stored["@"] == nil) then
+        return binding.unit, nil;
+    end
+    return binding.unit, stored;
 end
 
 --- Two stored conditions about one unit, folded onto the one key that can hold them.
@@ -1746,18 +1758,20 @@ end
 --- mark that says it was not read, and that mark is what keeps the binding out of two roles it
 --- would otherwise take by looking narrower than it is.
 local function ConditionsSurviveMacroText(action)
-    local conditions = action.conditions;
-    if (not conditions) then
-        return true;
-    end
+    local binding = GetBindingInfoForAction(action);
 
-    if (conditions.known and action.type == Constants.SPELL) then
+    -- **The binding's copy, because it is the normalized one.** A `known` that reaches nothing is
+    -- already nil here (`false`, or any type but `SPELL`), and refusing over one of those would
+    -- turn away a conversion that changes nothing.
+    if (binding.conditions.known) then
         return false;
     end
 
-    local unit = AimedUnitKeyForMacroText(GetBindingInfoForAction(action));
-    local units = conditions.units;
+    local unit, units = AimedUnitKeyForMacroText(action, binding);
     if (unit) then
+        if (units == nil) then
+            return false;
+        end
         local taken = units[unit];
         if (taken == nil) then
             return true;
@@ -1819,7 +1833,7 @@ function DebindPrivate.ConvertToMacroText(action)
     --- else asks for a binding: the table comes out of a cache and is refilled in place.
     local binding = GetBindingInfoForAction(action);
     local unit = binding.unit;
-    local atUnit = AimedUnitKeyForMacroText(binding);
+    local atUnit, atUnits = AimedUnitKeyForMacroText(action, binding);
     if (unit == "") then
         unit = nil;
     end
@@ -1913,10 +1927,9 @@ function DebindPrivate.ConvertToMacroText(action)
         -- **`"@"` names the same unit this body now spells out**, and a `MACROTEXT` has no field
         -- for it to keep pointing at, so it moves to that unit's own key -- folding into whatever
         -- that key already says about it.
-        local units = action.conditions and action.conditions.units;
-        if (atUnit) then
-            units[atUnit] = IntersectStoredUnitConditions(units[atUnit], units["@"]);
-            units["@"] = nil;
+        if (atUnit and atUnits) then
+            atUnits[atUnit] = IntersectStoredUnitConditions(atUnits[atUnit], atUnits["@"]);
+            atUnits["@"] = nil;
         end
 
         action.type = Constants.MACROTEXT;

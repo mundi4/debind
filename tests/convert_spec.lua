@@ -252,6 +252,27 @@ return function(DebindPrivate)
             .. tostring(after) .. "로 움직였다");
     end);
 
+    --- **바인딩이 유닛 조건을 읽는 자리는 둘이다.** `conditions.units`가 없으면 마이그레이션
+    --- 전의 평평한 `checkedUnits`를 본다(`GetBindingInfoForAction`). 그래서 바인딩에는 살아 있는
+    --- `"@"`가 있는데 `conditions.units`는 그 이름을 모르는 액션이 성립한다.
+    ---
+    --- 옮겨 적을 자리가 그쪽이면 이 파일이 옛 저장 모양을 두 번째로 배우는 것이 된다. 그 자리를
+    --- 일부러 보는 곳은 하나로 두고, 여기서는 변환을 안 내준다. 마이그레이션이 지나가면 돌아온다.
+    test("마이그레이션 전 모양은 못 바꾼다", function()
+        installWorld();
+        local at = { ["@"] = { reaction = Constants.REACTION_HARM } };
+
+        local bare = { type = Constants.SPELL, value = 774, unit = "focus", checkedUnits = at };
+        check(DebindPrivate.GetBindingInfoForAction(bare).conditions.units["@"] ~= nil,
+            "이 액션은 살아 있는 `@`를 안 들고 있다");
+        check(not Can(bare), "옮겨 적을 자리를 모르는데 변환이 선다");
+
+        -- 조건 표는 있는데 유닛만 옛 자리에 있는 모양. 같은 갈래다.
+        local mixed = { type = Constants.SPELL, value = 774, unit = "focus",
+            conditions = { combat = true }, checkedUnits = at };
+        check(not Can(mixed), "옮겨 적을 자리를 모르는데 변환이 선다");
+    end);
+
     --- 이 빌드가 못 읽는 값. `UnitConditionForBinding`이 그것을 없음 점으로 읽으면서 **읽어낸
     --- 값이 아니라는 표시를 따로 낸다**(`binding.unitConditionUnreadable`). 접을 수 없는 값을
     --- 접은 척하면 그 표시가 사라지므로, 그 경우만 변환을 안 내준다.
