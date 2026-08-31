@@ -336,6 +336,13 @@ function M.install()
         record("SetFrameRef", label(frame), refName, ref and label(ref) or nil, frame, ref);
     end
 
+    --- **Two the addon only ever hooks.** Neither is called from anywhere in the addon, and in the
+    --- game neither is compulsory for a unit frame -- which is the reason `FrameRegistry` listens
+    --- on both rather than on one. They stand here so the hook resolves and a spec can knock on
+    --- that door; a `nil` global would leave the branch that installs it untaken and untested.
+    _G.SecureUnitButton_OnLoad = function() end
+    _G.UnitFrame_Initialize = function() end
+
     --- The unit existence watch, as a set of registered frames.
     ---
     --- **The membership is kept, not only recorded.** `ApplyBindingPlan` asks
@@ -358,6 +365,8 @@ function M.install()
     _G.UnregisterStateDriver = function(frame, state)
         record("UnregisterStateDriver", label(frame), state);
     end
+    --- The addon only ever hooks this one; it stands here so the hook resolves.
+    _G.RegisterAttributeDriver = function() end
 
     --- **The frame goes in the frame slot on all three.** It used to be left out on the clear and
     --- to be the mouse button on the click, which nothing noticed because the golden renders

@@ -562,6 +562,107 @@ function DebindPrivate.CollectOUFFrames()
     end
 end
 
+--- **The frames a pack keeps to itself, listed by name.**
+---
+--- Every door above needs the frame to arrive as something: a write into the Clique table, a
+--- header's child, an entry in a library's list. A pack that runs click casting of its own puts
+--- its frames through none of those - it wires them up itself - so the only ones we ever saw were
+--- the ones that happened to be a group header's children. These are its unit frames that are not:
+---
+--- - a party block's self slot. A header with five slots hands the fifth `player`, and a pack that
+---   wants the player to hold a fixed slot cannot let the header do that, because the header
+---   reorders. So the slot is a standalone button with `unit` fixed, beside the header rather than
+---   under it. Four slots answered and the fifth did not.
+--- - the boss frames and the duplicates of chosen raid members, both standalone for the same
+---   reason: their units are picked rather than rostered.
+---
+--- **Patterns, and anchored.** Two of these are numbered and one of those has no fixed count - it
+--- is capped by a value in the pack's own file, and spelling the names out would mean keeping that
+--- number in step with a file we do not control, one it can raise without anything here going red.
+--- They are patterns rather than prefixes because this list is
+--- not one pack's: the next one to need a row may number in the middle of its names or carry the
+--- reader's own words in them, and a prefix would have to be widened to the point of matching
+--- whatever else that pack made. Anchoring keeps each row narrower than a prefix would be.
+---
+--- **Names and not a rule about frames in general.** What would have to be read to find such a
+--- frame in the open is every secure frame an addon wraps, and the filter that would sort those is
+--- one we cannot check against addons we have never seen. A name is wrong about nothing else, and
+--- when a pack renames one, nothing matches and we are back where we already stood.
+---
+--- **The kind is named here rather than read, because reading it does not work.** The duplicates
+--- are styled - and so wired up, and so seen by us - two lines after they are made, and the unit
+--- goes on them later when a slot is handed out; the pack wraps each frame once, so the pass that
+--- could read one is the pass that has nothing to read. And when there is a unit it is the raid
+--- member filling that slot right now, which is the reason a header's children are not read either.
+---
+--- **The one carrying a boss unit is a group frame all the same.** An encounter puts the friendly
+--- NPC you are meant to keep alive on a boss token, and the frame drawn for it sits in the raid
+--- block for the healer to reach. Reading the unit would answer boss, and what somebody choosing
+--- the boss frames pictures is the enemy's bar off to the side. Same call as the pet headers.
+local NAMED_UNIT_FRAMES            = {
+    { "^ERFPartySelfButton$", "group" },
+    { "^ERFFriendlyBoss%d+$", "group" },
+    { "^ERFExtraFrame%d+$",   "group" },
+};
+
+local function NameOf(frame)
+    return frame:GetName();
+end
+
+local function TakeNamedFrame(frame)
+    -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
+    -- `IsForbidden` false is no longer proof that touching it will not raise. `GetName` in
+    -- particular is the call this file was already burnt by (see `DeriveFrameType`).
+    local ok, name = pcall(NameOf, frame);
+    if (not ok or type(name) ~= "string") then
+        return;
+    end
+
+    for i = 1, #NAMED_UNIT_FRAMES do
+        if (strmatch(name, NAMED_UNIT_FRAMES[i][1])) then
+            pcall(DebindPrivate.RegisterFrame, frame, NAMED_UNIT_FRAMES[i][2]);
+            return;
+        end
+    end
+end
+
+--- **Caught as the pack wires the frame up, because that is the only moment there is.** These are
+--- built when they are first needed and not at login - a boss frame when the reader turns it on or
+--- changes spec, a duplicate when they add somebody to the list - so a look on any event of ours
+--- finds only whatever happened to exist by then. `SecureUnitButtonTemplate` carries no `OnLoad`
+--- and a global appearing announces nothing, so what is left is the calls a frame passes on its way
+--- into somebody's click casting.
+---
+--- **Several doors, because none of them is compulsory.** A pack is free to skip any one of these -
+--- nothing in the game makes a unit frame call `SecureUnitButton_OnLoad` or `RegisterUnitWatch` -
+--- so listening on one would be betting on a habit. Listening on all of them costs nothing: a frame
+--- already registered leaves `RegisterFrame` on the row it has, before any of the checks, and one
+--- that does not match a prefix never gets that far.
+---
+--- **The hook only decides when, and the list decides what.** Everything arriving at these is an
+--- addon's doing, which is exactly why no test on the frame itself would do - it would have to be
+--- right about addons we have never seen. The name is asked instead.
+---
+--- **A wrap of our own is not a discovery.** `RegisterFrame` wraps through `BindingDriver` on the
+--- very frames this list matches, and the row it is about to write is not there yet.
+local function OnSecureWrap(frame, _, header)
+    if (header == BindingDriver or header == DebindPrivate.UnitWatch) then
+        return;
+    end
+    TakeNamedFrame(frame);
+end
+
+--- The frame here is the third argument: the one being handed to a secure header, rather than the
+--- header doing the handing.
+local function OnSecureFrameRef(header, _, frame)
+    if (header == BindingDriver or header == DebindPrivate.UnitWatch) then
+        return;
+    end
+    if (frame) then
+        TakeNamedFrame(frame);
+    end
+end
+
 --- **The children of a group header, taken off the header itself.**
 ---
 --- Every other way we hear about one of these depends on its addon connecting to us. The header
@@ -618,6 +719,23 @@ if (not DebindPrivate.CliqueDetected) then
     hooksecurefunc("SecureGroupHeader_Update", CollectHeaderChildren);
     hooksecurefunc("SecureGroupPetHeader_OnLoad", CollectHeaderChildren);
     hooksecurefunc("SecureGroupPetHeader_Update", CollectHeaderChildren);
+
+    hooksecurefunc("SecureHandlerWrapScript", OnSecureWrap);
+    hooksecurefunc("SecureHandlerSetFrameRef", OnSecureFrameRef);
+    hooksecurefunc("RegisterStateDriver", TakeNamedFrame);
+    hooksecurefunc("RegisterAttributeDriver", TakeNamedFrame);
+    -- **Each one asked for, because a global that is not there raises.** These live in addons the
+    -- client loads at startup rather than in the frame code proper, and a build that ships without
+    -- one would take the whole file down on load.
+    if (SecureUnitButton_OnLoad) then
+        hooksecurefunc("SecureUnitButton_OnLoad", TakeNamedFrame);
+    end
+    if (RegisterUnitWatch) then
+        hooksecurefunc("RegisterUnitWatch", TakeNamedFrame);
+    end
+    if (UnitFrame_Initialize) then
+        hooksecurefunc("UnitFrame_Initialize", TakeNamedFrame);
+    end
 end
 
 local function registerBlizzardFrame(frame, category)

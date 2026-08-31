@@ -155,6 +155,8 @@ globals = {
 	"SecureGroupHeader_Update",
 	"SecureGroupPetHeader_OnLoad",
 	"SecureGroupPetHeader_Update",
+	"SecureUnitButton_OnLoad",
+	"UnitFrame_Initialize",
 	"GetCVarBool",
 	"ACTION_BUTTON_USE_KEY_DOWN",
 	"GetTime",

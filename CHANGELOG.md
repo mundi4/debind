@@ -20,6 +20,10 @@ Only party and raid frames can answer at all, so over any other frame the condit
 - A macro name whose macro you have since deleted is no longer offered.
 - An action with **Only When Spell Known** is no longer offered. That condition asks about the action's own spell, and a macro body takes that spell's place, so the converted action would have read as carrying no conditions at all and the next action on that key would never have fired.
 
+Also in this one:
+
+- Some unit frames drawn by other addons were never reached, EllesmereUI's among them. The slot in its party frames that holds you is one, and so are the frames it puts beside your raid frames: the friendly units an encounter wants kept alive, and the copies it makes of raid members you pick out. Every other slot in the same party block worked, which made it look like the one frame was broken rather than never registered. Debind now catches these as the addon wires them up, and treats all of them as party and raid frames, which is where they are drawn and what a binding scoped to those should reach.
+
 # 3.4
 
 **Two new tabs in the picker, and three new conditions.**

@@ -313,6 +313,92 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- The frames a pack keeps to itself, taken by name
+    ---------------------------------------------------------------------------
+
+    --- The secure header another addon runs its own click casting through.
+    local function ForeignHeader()
+        return frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
+    end
+
+    -- **These arrive through no protocol at all.** A pack running its own click casting registers
+    -- its frames nowhere, and these are not a group header's children either: a party block's self
+    -- slot, the boss frames and the duplicates of chosen raid members are all standalone, because
+    -- their units are fixed or picked rather than rostered. So the moment a pack wires one up is
+    -- what is listened for, and the name decides whether to take it.
+    --
+    -- **The kind comes from the list and not from the frame.** A duplicate is wired up two lines
+    -- after it is made and gets its unit later, so the pass that could read one has nothing to
+    -- read -- and the pack wraps each frame once, so there is no second pass.
+    test("a pack's own frames are taken by name as it wires them up", function()
+        local CASES = {
+            { "ERFPartySelfButton", "player", Constants.FRAMETYPE_GROUP },
+            -- **Carries a boss unit and is not a boss frame.** The friendly NPC an encounter puts
+            -- on a boss token is drawn in the raid block to be healed, so reading the unit would
+            -- answer with the enemy's bar off to the side. The list overrules it.
+            { "ERFFriendlyBoss3", "boss3", Constants.FRAMETYPE_GROUP },
+            { "ERFExtraFrame7", nil, Constants.FRAMETYPE_GROUP },
+        };
+        for i = 1, #CASES do
+            local frame = ForeignFrame(CASES[i][1], CASES[i][2]);
+            SecureHandlerWrapScript(frame, "OnEnter", ForeignHeader(), "-- theirs");
+            local info = DebindPrivate.ccframes[frame];
+            check(type(info) == "table",
+                CASES[i][1] .. " never arrived: " .. tostring(info));
+            check(info.frameType == CASES[i][3],
+                CASES[i][1] .. " frameType: " .. tostring(info.frameType));
+        end
+    end);
+
+    -- **Several doors, because none of them is compulsory.** Nothing in the game makes a unit frame
+    -- call any one of these, so listening on one would be betting on a habit.
+    test("the other doors take the same frames", function()
+        local DOORS = {
+            { "SecureUnitButton_OnLoad", SecureUnitButton_OnLoad },
+            { "RegisterUnitWatch", RegisterUnitWatch },
+            { "UnitFrame_Initialize", UnitFrame_Initialize },
+            { "RegisterStateDriver", RegisterStateDriver },
+            { "RegisterAttributeDriver", RegisterAttributeDriver },
+        };
+        for i = 1, #DOORS do
+            local frame = ForeignFrame("ERFExtraFrame" .. i, nil);
+            DOORS[i][2](frame);
+            check(DebindPrivate.ccframes[frame], DOORS[i][1] .. " did not take the frame");
+        end
+
+        -- The odd one out: the frame being handed over is the third argument, not the first.
+        local referenced = ForeignFrame("ERFFriendlyBoss2", "boss2");
+        SecureHandlerSetFrameRef(ForeignHeader(), "theirs", referenced);
+        check(DebindPrivate.ccframes[referenced],
+            "SecureHandlerSetFrameRef did not take the frame");
+    end);
+
+    -- **A name nobody listed goes nowhere.** Everything arriving at these doors is an addon's
+    -- doing, so a frame that is not on the list has to leave without a row -- otherwise the
+    -- reader's window fills with secure frames they can neither see nor hover.
+    test("a frame the list does not name is left alone", function()
+        local frame = ForeignFrame("SomeUIActionButton1", "player");
+        SecureHandlerWrapScript(frame, "OnClick", ForeignHeader(), "-- theirs");
+        check(DebindPrivate.ccframes[frame] == nil,
+            "a frame nobody listed was taken: " .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
+    -- **Our own wrapping is not somebody else's frame arriving.** `RegisterFrame` wraps enter and
+    -- leave on the very frames this list matches, before the row it is about to write is there.
+    test("our own wrapping does not come back through the door", function()
+        local frame = ForeignFrame("ERFPartySelfButton", "player");
+        local seen = 0;
+        local realRegister = DebindPrivate.RegisterFrame;
+        DebindPrivate.RegisterFrame = function(...)
+            seen = seen + 1;
+            return realRegister(...);
+        end
+        SecureHandlerWrapScript(frame, "OnEnter", ForeignHeader(), "-- theirs");
+        DebindPrivate.RegisterFrame = realRegister;
+        check(seen == 1, "registration re-entered " .. seen .. " times");
+    end);
+
+    ---------------------------------------------------------------------------
     -- Holding on to the click input
     ---------------------------------------------------------------------------
 
