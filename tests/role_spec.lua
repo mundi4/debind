@@ -198,6 +198,31 @@ return function(DebindPrivate)
             "a unit row still measures the role");
     end);
 
+    --- **역할 조건을 한 번도 안 쓴 사람도 이 길을 지나간다.** `@tank` 바인딩을 지우면
+    --- `DisableUnitWatch("tank")`가 도는데, `tank`는 역할 헤더이기도 해서 `ClearRoleUnits`가
+    --- 같이 불린다. 그때 `RoleOwners`는 로드 이후 한 번도 안 선 `false`다.
+    ---
+    --- 제한 환경에서 나는 에러는 `SecureHandlerExecute` 밖으로 나와서 **리빌드의 나머지를
+    --- 통째로 중단시킨다.** 그 뒤 줄들이 하는 일(상태 드라이버 등록, 폴링 켜기)이 통째로 안 된다.
+    test("dropping @tank with no role map does not raise", function()
+        local shim = require("wow_shim");
+        local frames = require("wow_frames");
+        local restricted = require("restricted");
+
+        Profile({ spell({ key = "CTRL-SHIFT-F9", unit = "tank" }) });
+        check(DebindPrivate.UpdateBindings() == true, "the first rebuild declined");
+        local interp = restricted.new(DebindPrivate, shim.world);
+
+        local mark = frames.mark();
+        Profile({ spell({ key = "CTRL-SHIFT-F9" }) });
+        check(DebindPrivate.UpdateBindings() == true, "the second rebuild declined");
+
+        local ok, err = pcall(function()
+            interp:replay(frames.since(mark));
+        end);
+        check(ok, "the restricted environment raised: " .. tostring(err));
+    end);
+
     ---------------------------------------------------------------------------
     -- 솔버
     ---------------------------------------------------------------------------

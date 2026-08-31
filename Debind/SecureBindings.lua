@@ -481,8 +481,14 @@ BindingDriver:SetAttribute("SetRoleUnits", BakeSnippet([==[
 	end
 ]==]));
 
+--- **역할 조건을 한 번도 안 쓴 사람도 여기로 온다.** `tank`와 `healer`는 별칭이면서 역할
+--- 헤더라, `@tank` 바인딩을 지우는 것만으로 `DisableUnitWatch`가 이것을 부른다. 그때 표는 로드
+--- 이후 한 번도 안 선 `false`이므로, `SetRoleUnits`와 같은 가드가 여기도 있어야 한다.
 BindingDriver:SetAttribute("ClearRoleUnits", [==[
 	local alias = ...
+	if (not RoleOwners) then
+		return
+	end
 	local owned = RoleOwners[alias]
 	if (owned) then
 		for i = 1, #owned do

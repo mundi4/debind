@@ -446,6 +446,9 @@ DelegateFrameNames[frame] = frame:GetName()
 
 ### SecureBindings.lua #8 SetAttribute
 	local alias = ...
+	if (not RoleOwners) then
+		return
+	end
 	local owned = RoleOwners[alias]
 	if (owned) then
 		for i = 1, #owned do
