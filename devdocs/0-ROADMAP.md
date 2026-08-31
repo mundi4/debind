@@ -20,7 +20,7 @@
 | **3.4** | 나갔다 (2026-08-27). ~~제한 환경 핫패스에서 뺄 것들~~ **들어갔다 (2026-08-24). 3.3 태그가 그날 05:53이고 이 커밋들은 22시대라, 3.3이 아니라 여기로 나갔다** | `legacy/trimming-the-restricted-hot-paths.md` |
 | **3.4에 같이** | 픽커에 Items 탭(장비칸 · 가방)과 Collections 탭(탈것 + 장난감). 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
 | **3.4에 같이** | `mounted` · `indoors` · `skyriding` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
-| **다음 (3.5)** | `flyable` · `advflyable` · `flying` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
+| **3.5** | 나갔다 (2026-08-31). `flyable` · `advflyable` · `flying` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
 | **3.5에 같이** | 가리킨 그룹 프레임 사람의 역할을 조건으로 묻는다 | `legacy/adding-a-role-condition.md` |
 | **3.5에 같이** | 커스텀 매크로 변환이 키가 하던 일을 바꾸던 것 | `CHANGELOG.md` |
 | **그 뒤** | 스위치 바, 보관함의 남은 다섯 | `switch-bar.md`<br>`building-export-import.md` |
