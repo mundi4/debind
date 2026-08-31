@@ -279,8 +279,26 @@ L["GENERAL"] = "General"
 L["GROUP_NONE"] = "When Not In Group";
 L["GROUP_PARTY"] = "When In Party";
 L["GROUP_RAID"] = "When In Raid";
-L["IGNORE_HOVER_UNIT_DESC"] = "When selected, the action ignores the unit frame's unit."
-L["IGNORE_HOVER_UNIT"] = "Ignore hover unit"
+-- The checkbox at the bottom of the hover menu, and a line of its own in the action tooltip.
+-- What it turns off is a unit nobody picked: leave the target empty and the hovered frame's unit
+-- fills it, so the label has to name that unit and say the action is not used on it. "Ignore"
+-- named neither half, and every shorter phrasing collapses into the other half, the action not
+-- running at all, which is the one that stays.
+--
+-- **Frame's unit, not the frame and not "that unit".** An action is not used on a frame, and
+-- nothing on the open menu is a unit for a pronoun to point at: the title names the frame and the
+-- entries above are reactions and frame types.
+--
+-- The first sentence carries "unless you assign a target of your own" because the box does nothing
+-- for someone who has, `GetBindingInfoForAction` filling the unit only where none is set, and the
+-- menu leaves the box enabled either way.
+--
+-- **The last sentence names both landing places.** With no unit assigned the game decides, which
+-- is the current target for one action and the player for another (auto self cast); naming one
+-- makes the other a lie. It cannot be phrased as what would happen with no frame under the cursor
+-- either, since the action does not run at all then.
+L["IGNORE_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit unless you assign a target of your own. Check this and the action is not used on that unit: hovering decides whether the action runs, not where it goes. With no unit assigned, the action lands where it normally would, on your current target or on you."
+L["IGNORE_HOVER_UNIT"] = "Don't use the action on the hovered frame's unit"
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.
