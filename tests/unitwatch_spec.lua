@@ -6,7 +6,7 @@
 -- 그중 마지막**이므로, 훅이 그 자식에 있어야 배치가 끝난 상태를 본다. 그보다 낮은 자식에
 -- 있으면 절반쯤 놓인 배치를 읽고, 그것은 조용히 틀린다.
 --
--- 게임에서 도는지는 `/debtest`가 본다 (`devdocs/adding-a-role-condition.md` §7).
+-- 게임에서 도는지는 `/debtest`가 본다 (`devdocs/legacy/adding-a-role-condition.md` §7).
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;

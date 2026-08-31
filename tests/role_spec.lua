@@ -5,7 +5,7 @@
 -- 이슈가 되는가. 전부 값에 대한 물음이라 게임이 필요 없다.
 --
 -- 헤더가 실제로 채워져서 `UnitRoles`에 행이 생기는지는 여기서 못 본다. 그것은
--- `/debtest`가 본다 (`devdocs/adding-a-role-condition.md` §7).
+-- `/debtest`가 본다 (`devdocs/legacy/adding-a-role-condition.md` §7).
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
