@@ -8,7 +8,7 @@
 
 The two about the place lag the world a little, the way every mount macro ever written has. Stepping outdoors does not make mounting legal on the same frame, and crossing the other way leaves you mounted for some distance.
 
-**Role.** A binding that runs while you are hovering a unit frame can ask whether that person is a tank, a healer or damage, the way it can already ask about their reaction or whether they are dead. One key can hold a save for the tank and a dispel for the healer and pick by who you are pointing at. **Unknown** is the fourth, for a unit that has no role assigned.
+**Role.** A binding that runs while you are hovering a unit frame can ask whether that person is a tank, a healer or damage, the way it can already ask about their reaction or whether they are dead. One key can hold a save for the tank and a dispel for the healer and pick by who you are pointing at. **No Role** is the fourth, for a unit that has none assigned.
 
 Only party and raid frames can answer at all, so over any other frame the condition does not hold the action back.
 
@@ -23,6 +23,8 @@ Only party and raid frames can answer at all, so over any other frame the condit
 Also in this one:
 
 - Some unit frames drawn by other addons were never reached, EllesmereUI's among them. The slot in its party frames that holds you is one, and so are the frames it puts beside your raid frames: the friendly units an encounter wants kept alive, and the copies it makes of raid members you pick out. Every other slot in the same party block worked, which made it look like the one frame was broken rather than never registered. Debind now catches these as the addon wires them up, and treats all of them as party and raid frames, which is where they are drawn and what a binding scoped to those should reach.
+
+**A share code made here still opens in 3.4, and nothing in it is turned away.** One that uses **Flying Allowed**, **Skyriding Allowed** or **Airborne** opens there with that condition missing, and so does one that asks about **Role**. Nothing on that end says it went, so the action ends up running in places you had ruled out, or on whoever you are pointing at rather than the role you picked. It stops the moment the other side updates. The other direction is unchanged: a code from 3.4, 3.3 or 3.2 opens here exactly as before.
 
 # 3.4
 
