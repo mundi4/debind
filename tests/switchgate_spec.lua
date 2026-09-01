@@ -328,5 +328,38 @@ return function(DebindPrivate)
         check(i.bindings["F1"] == nil, "the key was not let go");
     end);
 
+    --- Two computed links deep, and **the far one is emitted first.** The state loop walks the
+    --- switches in name order, so the line that works out `$state1` stands above the line that
+    --- moves the `$state3` it reads. Read on its own that says the far link is left a pass behind,
+    --- and it is not: the recompose that composes a switch's text also parses it and sets the
+    --- switch (`UpdateMacroTexts`), and the chain is walked from there rather than by the loop.
+    ---
+    --- **The whole chain has to land inside the toggle**, because the next thing the person does
+    --- is press the key that hangs off it. So what this asks about is the click and not the beat
+    --- after it -- no `pollStates` between the toggle and the checks.
+    test("a toggle carries two computed links and the key in the one click", function()
+        local i = Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { ["$state1"] = true } },
+        }, {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state3]" },
+            ["$state3"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[$state2]" },
+            ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
+        });
+
+        check(i.env.States["$state1"] == false, "the far link did not start off");
+        check(i.bindings["F1"] == nil, "the key was bound before anything went on");
+
+        i.driverHandle:RunAttribute("ToggleSwitch", "$state2");
+        check(i.env.States["$state3"] == true, "the near link did not follow the toggle");
+        check(i.env.States["$state1"] == true, "the far link is a pass behind: "
+            .. tostring(i.env.States["$state1"]));
+        check(i.bindings["F1"], "the key was not bound inside the click that toggled the switch");
+
+        i.driverHandle:RunAttribute("ToggleSwitch", "$state2");
+        check(i.env.States["$state1"] == false, "the far link did not follow it back off");
+        check(i.bindings["F1"] == nil, "the key was not let go");
+    end);
+
     return T;
 end
