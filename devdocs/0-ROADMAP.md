@@ -23,7 +23,7 @@
 | **3.5** | 나갔다 (2026-08-31). `flyable` · `advflyable` · `flying` 세 축. 배정된 문서 없이 들어갔다 | `CHANGELOG.md` |
 | **3.5에 같이** | 가리킨 그룹 프레임 사람의 역할을 조건으로 묻는다 | `legacy/adding-a-role-condition.md` |
 | **3.5에 같이** | 커스텀 매크로 변환이 키가 하던 일을 바꾸던 것 | `CHANGELOG.md` |
-| **그 뒤** | 스위치 바, 보관함의 남은 넷 | `switch-bar.md`<br>`building-export-import.md` |
+| **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, 보관함의 남은 넷 | `switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | **다음 `dbver` 범프에** | `equipslot` 타입 이름을 갈아엎는다 (2026-08-28, 소유자) | `action-and-binding-shapes.md` |
 
