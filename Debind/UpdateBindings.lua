@@ -2516,7 +2516,7 @@ if (name == "state-unitexists") then
     -- **The whole slot goes, not the reaction.** The branch below keeps the frame so the poll can
     -- pick a unit back up under a cursor that never moved; here the cursor is what moved, and this
     -- is `setup_onleave` arriving late.
-    --- **Published because the login warning has to know whether anybody reads hover.** The gate
+    --- **Published because `WarnWrappedOver` has to know whether anybody reads hover.** The gate
     --- below is the same question and the only place it is worked out, and a reader whose bindings
     --- never look at the hovered frame loses nothing to another addon answering the cursor first.
     DebindPrivate.hoverIsRead = _unitsSeen.hover and true or false;
