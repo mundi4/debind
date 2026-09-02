@@ -1,3 +1,9 @@
+# 3.5.1
+
+**EllesmereUI's unit frames answer again.** Its latest update builds them on an engine of its own rather than on the frame library it used before, and that library was how Debind found them: from that update, a key you had bound over its player, target, focus, pet, target of target, focus target or boss frame did nothing there. Its party and raid frames were never affected, which is why only some of your frames went quiet.
+
+Nothing else changed in this one.
+
 # 3.5
 
 **Four new conditions, and a key on a unit frame can ask what the person does.**
