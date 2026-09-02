@@ -5174,6 +5174,201 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
     end,
 })
 
+-----------------------------------------------------------
+-- Another pack's unit frames
+-----------------------------------------------------------
+
+-- **Only a board with that pack installed can answer this**, which is the whole reason these are
+-- here. `tests/frames_spec.lua` covers what the doors do with a frame handed to them; what no
+-- harness can say is whether the pack still calls a door we listen on, still names its frames what
+-- the list says, and still builds them by the time a run happens. Those three are the only ways
+-- this can break, and all three are somebody else's file.
+--
+-- **The pack is asked for by addon name and the frames by their own names**, because a name is the
+-- only handle these frames have -- there is no protocol behind them (`FrameRegistry.lua`).
+local EUI_UNITFRAMES_ADDON         = "EllesmereUIUnitFrames";
+local EUI_RAIDFRAMES_ADDON         = "EllesmereUIRaidFrames";
+
+local function EllesmereLoaded(addon)
+    return function()
+        if (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon)) then
+            return true;
+        end
+        return false, addon .. " is not loaded on this board";
+    end
+end
+
+--- One frame, checked the whole way through registration.
+---
+--- **The attribute is checked beside the row.** The row is what the insecure side kept and the
+--- attribute is what the secure side reads back when the cursor arrives, and a registration that
+--- wrote one without the other leaves a frame that answers one kind to the reader's conditions and
+--- another to the window.
+---
+--- **The routing is checked because registration is not what puts it there.** `ApplyDebindRouting`
+--- runs from `UpdateRegisteredClicks`, which is refused in combat and queued, so a frame can hold
+--- a row and still send its clicks nowhere.
+local function CheckWiredFrame(frame, name, expected)
+    local row = DebindPrivate.ccframes[frame];
+    if (row == false) then
+        return format("%s was refused outright (unprotected, forbidden, anchored, or takes no click)", name);
+    end
+    if (type(row) ~= "table") then
+        return format("%s is not registered (ccframes=%s)", name, tostring(row));
+    end
+    if (row.frameType ~= expected) then
+        return format("%s registered as frameType %s, expected %s",
+            name, tostring(row.frameType), tostring(expected));
+    end
+    if (frame:GetAttribute("debind_frametype") ~= expected) then
+        return format("%s carries debind_frametype %s while its row says %s",
+            name, tostring(frame:GetAttribute("debind_frametype")), tostring(expected));
+    end
+    if (frame:GetAttribute("*type-debind1") ~= "click") then
+        return format("%s has no click routing (*type-debind1=%s)",
+            name, tostring(frame:GetAttribute("*type-debind1")));
+    end
+    if (frame:GetAttribute("*clickbutton-debind1") ~= DebindPrivate.DefaultClickFrame) then
+        return format("%s routes its click somewhere that is not ours", name);
+    end
+    return nil;
+end
+
+--- Walks a list of `{ globalName, expectedFrameType }` and reports what it found.
+---
+--- **A frame that is not there is not a failure**, and it is not a pass either. The pack builds
+--- most of these only once the reader turns them on -- a boss frame when the encounter option is
+--- set, a duplicate when somebody is picked -- so a board without them is an ordinary board. What
+--- is reported instead is the count, and finding **none at all** is the failure: that is what a
+--- door coming off looks like.
+local function CheckNamedFrames(NAME, entries)
+    local checked, missing, faults = {}, {}, {};
+    for i = 1, #entries do
+        local frameName, expected = entries[i][1], entries[i][2];
+        local frame = _G[frameName];
+        if (frame) then
+            local fault = CheckWiredFrame(frame, frameName, expected);
+            if (fault) then
+                faults[#faults + 1] = fault;
+            else
+                checked[#checked + 1] = frameName;
+            end
+        else
+            missing[#missing + 1] = frameName;
+        end
+    end
+
+    if (#faults > 0) then
+        return Fail(NAME, table.concat(faults, " | "));
+    end
+    if (#checked == 0) then
+        return Fail(NAME, format("not one of these frames is registered, so no door reached them: %s",
+            table.concat(missing, ", ")));
+    end
+    local detail = format("%d wired: %s", #checked, table.concat(checked, ", "));
+    if (#missing > 0) then
+        detail = detail .. format(" (%d not built on this board: %s)", #missing, table.concat(missing, ", "));
+    end
+    return Pass(NAME, detail);
+end
+
+-- **The kind is read off these**, because each stands for one unit and carries it before anything
+-- else touches it. So this pins the reading as much as the registration: a player frame that came
+-- out a group frame would take the reader's party bindings.
+RegisterTest("EllesmereUI: the single unit frames are wired, and read for what they are", {
+    description = "EUI 개체창이 종류대로 등록되어 있다",
+    applies = EllesmereLoaded(EUI_UNITFRAMES_ADDON),
+    run = function()
+        return CheckNamedFrames("EUI unit frames", {
+            { "EllesmereUIUnitFrames_Player",       Constants.FRAMETYPE_PLAYER },
+            { "EllesmereUIUnitFrames_Pet",          Constants.FRAMETYPE_PET },
+            { "EllesmereUIUnitFrames_Target",       Constants.FRAMETYPE_TARGET },
+            { "EllesmereUIUnitFrames_Focus",        Constants.FRAMETYPE_TARGET },
+            { "EllesmereUIUnitFrames_TargetTarget", Constants.FRAMETYPE_TARGET },
+            { "EllesmereUIUnitFrames_FocusTarget",  Constants.FRAMETYPE_TARGET },
+            { "EllesmereUIUnitFrames_Boss1",        Constants.FRAMETYPE_BOSS },
+            { "EllesmereUIUnitFrames_Boss2",        Constants.FRAMETYPE_BOSS },
+            { "EllesmereUIUnitFrames_Boss3",        Constants.FRAMETYPE_BOSS },
+            { "EllesmereUIUnitFrames_Boss4",        Constants.FRAMETYPE_BOSS },
+            { "EllesmereUIUnitFrames_Boss5",        Constants.FRAMETYPE_BOSS },
+        });
+    end,
+})
+
+-- **The kind is declared for these**, so what this pins is the declaration reaching the frame. Two
+-- of them would read as something else: the self slot holds `player` and the friendly-NPC frames
+-- hold a boss token, and both are drawn in the party or raid block.
+RegisterTest("EllesmereUI: the standalone party and raid frames are wired as group frames", {
+    description = "EUI 파티 내 칸·아군 NPC 칸·복제본이 그룹 프레임으로 등록되어 있다",
+    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
+    run = function()
+        local entries = {
+            { "ERFPartySelfButton", Constants.FRAMETYPE_GROUP },
+        };
+        for i = 1, 5 do
+            entries[#entries + 1] = { "ERFFriendlyBoss" .. i, Constants.FRAMETYPE_GROUP };
+        end
+        -- The duplicates are capped in the pack's own file and that number is not ours to keep, so
+        -- this walks until the names run out rather than up to a count written down here.
+        local i = 1;
+        while (_G["ERFExtraFrame" .. i]) do
+            entries[#entries + 1] = { "ERFExtraFrame" .. i, Constants.FRAMETYPE_GROUP };
+            i = i + 1;
+        end
+        return CheckNamedFrames("EUI standalone group frames", entries);
+    end,
+})
+
+-- **The header children, which arrive through a different door entirely** -- the hook on
+-- `SecureGroupHeader_Update`. They are here beside the standalone frames because the reader cannot
+-- tell the two apart on screen: four slots of a party block come through the header and the fifth
+-- does not, and that is exactly the shape of the fault that started all of this.
+RegisterTest("EllesmereUI: the header's own children are wired as group frames", {
+    description = "EUI 파티·공대 헤더 자식이 그룹 프레임으로 등록되어 있다",
+    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
+    run = function()
+        local NAME = "EUI header children";
+        local HEADERS = { "ERFPartyHeader", "ERFFlatHeader",
+            "ERFGroupHeader1", "ERFGroupHeader2", "ERFGroupHeader3", "ERFGroupHeader4",
+            "ERFGroupHeader5", "ERFGroupHeader6", "ERFGroupHeader7", "ERFGroupHeader8" };
+
+        local checked, faults, headersSeen = 0, {}, {};
+        for h = 1, #HEADERS do
+            local header = _G[HEADERS[h]];
+            if (header and header.GetAttribute) then
+                headersSeen[#headersSeen + 1] = HEADERS[h];
+                local i = 1;
+                while (true) do
+                    local child = header:GetAttribute("child" .. i);
+                    if (not child) then
+                        break;
+                    end
+                    local fault = CheckWiredFrame(child, HEADERS[h] .. " child" .. i,
+                        Constants.FRAMETYPE_GROUP);
+                    if (fault) then
+                        faults[#faults + 1] = fault;
+                    else
+                        checked = checked + 1;
+                    end
+                    i = i + 1;
+                end
+            end
+        end
+
+        if (#headersSeen == 0) then
+            return Fail(NAME, "the pack's headers are not there under the names this test knows");
+        end
+        if (#faults > 0) then
+            return Fail(NAME, table.concat(faults, " | "));
+        end
+        if (checked == 0) then
+            return Fail(NAME, format("%d header(s) stood up and not one child is registered: %s",
+                #headersSeen, table.concat(headersSeen, ", ")));
+        end
+        return Pass(NAME, format("%d children wired across %s", checked, table.concat(headersSeen, ", ")));
+    end,
+})
+
 -- **Does the hook stand on a real secure frame.** What the harness sees is the rule: narrowed, we
 -- put it back (`tests/frames_spec.lua`). What only the game answers is whether hanging
 -- `hooksecurefunc` on the frame's own method takes at all, and whether the call that puts it back
@@ -6648,6 +6843,23 @@ local function Step()
             run.index = run.index + 1
             Persist()
             return true
+        end
+
+        -- **A test about somebody else's addon, on a board that does not have it.** Asked here and
+        -- not at load time: what the answer depends on is whether that addon's frames are up, and
+        -- registration happens on the login this file is loaded before.
+        --
+        -- **A skip, not a pass.** Such a test has nothing to assert without the other addon, and
+        -- one written to go green anyway is one that goes green on the day it should not.
+        if test.applies then
+            local ok, why = test.applies();
+            if not ok then
+                run.skip = run.skip + 1
+                Record(run.name, "skip", format("SKIP %s: %s", run.name, why or "does not apply here"), "ff888888")
+                run.index = run.index + 1
+                Persist()
+                return true
+            end
         end
 
 

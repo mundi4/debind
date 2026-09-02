@@ -229,6 +229,14 @@ RegisterTest("what it checks", {
 | `EvalClickCast(frame, n, mod)` + `WaitForEvalAnswer()` | the same for a unit-frame click. Wait on the **answer**, not on a winner — declining is a legitimate outcome and there is no winner to wait for; then read `LastWinner()` / `LastEvalAnswer()` |
 | `ReadKeyMembership(key)` + `WaitForMembership()` | which tables the key's record list landed in: `stateDriven`, `clickTime`, `clickCast`, any combination or none. **Always assert a positive one too** — on its own, "not state-driven" also describes a key that never emitted |
 | `RequestReload(phase)` + `crossesReload = true` | end the session and resume in the same test. `Scratch()` is what survives |
+| `applies = function() ... end` | asked by the runner just before the test; return `false, why` and it is **skipped with that reason** instead of run |
+
+`applies` exists for the tests about another addon's frames. Those can assert nothing on a board
+that does not have it, and a test written to go green anyway is a test that goes green on the day
+it should not — so they skip, and the skip says which addon was missing. **It is asked at run time
+and not at load time**, because what it depends on is whether that addon's frames are up, and this
+file loads before the login that builds them.
+
 
 A test that legitimately takes a while — sweeping a cross product drives a rebuild at every point
 — raises its own ceiling with `timeout = <seconds>` in the registration. The
