@@ -467,6 +467,7 @@ L["UNITFRAME_OPTIONS"] = "개체창 설정"
 L["UNNAMED_ACTION"] = "(이름 없음)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique를 쓰고 있어서 여기 걸어둔 개체창 지정이 동작하지 않습니다."
+L["WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE"] = "다른 애드온이 일부 유닛 프레임을 제어하고 있어서 그 위에서는 지정이 제대로 안 먹을 수 있습니다."
 -- 물러섰다고 말하는 한 줄. 순서와 근거는 enUS 쪽 주석에.
 L["NEWER_PROFILE_MESSAGE"] = "단축키가 하나도 동작하지 않습니다. 저장된 설정이 이 버전보다 새로워서 읽지 못합니다. 아무것도 바뀌지 않았으니 새 버전을 다시 설치하면 그대로 돌아옵니다. 지우고 새로 시작하려면 |cnHIGHLIGHT_FONT_COLOR:/deb reset|r을 입력해 주세요."
 L["NEWER_PROFILE_RESET_PROMPT"] = "이 계정의 모든 캐릭터에서 Debind가 저장한 것이 전부 지워지고 되돌릴 수 없습니다. 지우려면 다음을 입력해 주세요. |cnHIGHLIGHT_FONT_COLOR:/deb reset confirm|r"

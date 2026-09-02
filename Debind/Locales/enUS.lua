@@ -1129,6 +1129,7 @@ L["UNNAMED_ACTION"] = "(Unnamed)"
 -- **One chat line.** This lands in the same frame as loot and quest text, so it says the one thing
 -- and stops; the addon name is already on the front of it (`_MESSAGE_PREFIX`).
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique is installed, so unit frame bindings here do not fire."
+L["WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE"] = "Another addon drives some of your unit frames, so bindings may not work correctly there."
 -- **The addon has stood down from settings written by a newer version of itself**, and will not
 -- read or write one byte of them (`Profile.lua`). It goes out at login, and again every time
 -- somebody tries to open the window, and it keeps going out on every login until the reader does

@@ -2489,26 +2489,65 @@ if (name == "state-unitexists") then
     -- vendors and guards, corpses, totems. `setup_onenter` has used `OTHER` from the start, so the
     -- symptom was a binding that was right the moment the cursor arrived and went out on the first
     -- poll tick.
+    --
+    -- **Asked inside the branch where the unit is still there, and that placement is the whole of
+    -- it.** With no unit, `mouseover` is gone too, and the two cases the poll would then be
+    -- choosing between -- the cursor left, and the unit died under a cursor that never moved --
+    -- read identically. The second one is what the `elseif` below was written for and it must keep
+    -- the frame, so the cursor is only ever ruled out where the unit says the frame is still live.
+    --
+    -- **The `hoverLeaveTaken` branch is the cursor leaving, on a frame that will not tell us.**
+    -- Somebody wrapping leave after we did puts us underneath, and the client runs only the
+    -- outermost leave body (`FrameRegistry.lua` says why we stand aside rather than take the top),
+    -- so on those frames nothing at all fires when the cursor goes. Neither does the branch below
+    -- it: the unit is still there, so the frame reads exactly as it did while hovered.
+    --
+    -- **`mouseover` is a poor stand-in and it is the one there is.** The restricted environment has
+    -- no way to ask what the cursor is on -- no mouse focus, and the geometric answer is a hit
+    -- rectangle rather than the frame. So this reads the one thing the client keeps for us, and it
+    -- is wrong wherever the cursor lands on another unit: leaving a frame for a mob in the world
+    -- keeps a `mouseover`, and the slot stays until that goes too.
+    --
+    -- **Which is why it is asked only where it is needed.** The mark is per frame and set at the
+    -- moment somebody wraps over us, so a reader whose frames we are outermost on -- Blizzard's,
+    -- and every pack that hands its frames over rather than wrapping them -- never reaches this
+    -- line, and the ones who do reach it only while the cursor rests on such a frame.
+    --
+    -- **The whole slot goes, not the reaction.** The branch below keeps the frame so the poll can
+    -- pick a unit back up under a cursor that never moved; here the cursor is what moved, and this
+    -- is `setup_onleave` arriving late.
+    --- **Published because the login warning has to know whether anybody reads hover.** The gate
+    --- below is the same question and the only place it is worked out, and a reader whose bindings
+    --- never look at the hovered frame loses nothing to another addon answering the cursor first.
+    DebindPrivate.hoverIsRead = _unitsSeen.hover and true or false;
+
     if (_unitsSeen.hover) then
         appendLine([[
 if (States.unitframe) then
     local unitframe = States.unitframe
     local unit = unitframe.frame:GetEffectiveAttribute("unit");
     if (UnitExists(unit)) then
-        local reaction
-        if (PlayerCanAssist(unit)) then
-            reaction = %d
-        elseif (PlayerCanAttack(unit)) then
-            reaction = %d
-        else
-            reaction = %d
-        end
-
-        if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
-            unitframe.unit = unit
-            unitframe.reaction = reaction
-            if (self:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+        if (unitframe.hoverLeaveTaken and not UnitExists("mouseover")) then
+            States.unitframe = nil
+            if (self:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
                 DirtyFlags.unitframe = true
+            end
+        else
+            local reaction
+            if (PlayerCanAssist(unit)) then
+                reaction = %d
+            elseif (PlayerCanAttack(unit)) then
+                reaction = %d
+            else
+                reaction = %d
+            end
+
+            if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
+                unitframe.unit = unit
+                unitframe.reaction = reaction
+                if (self:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+                    DirtyFlags.unitframe = true
+                end
             end
         end
     elseif (unitframe.reaction) then

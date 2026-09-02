@@ -273,6 +273,12 @@ function DebindPrivate.RegisterFrame(button, type)
     end
 
     DebindPrivate.ccframes[button] = { type = type, frameType = frameType };
+    -- **The row is new, and what somebody else's wrapper did to this frame is not.** A second
+    -- registration drops the old row and builds this one, so a mark set before it has to be put
+    -- back or the frame silently loses the fallback it had.
+    if (DebindPrivate.RestoreHoverLeaveTaken) then
+        DebindPrivate.RestoreHoverLeaveTaken(button);
+    end
     DebindPrivate.UpdateRegisteredClicks(button);
 end
 
@@ -657,10 +663,113 @@ end
 ---
 --- **A wrap of our own is not a discovery.** `RegisterFrame` wraps through `BindingDriver` on the
 --- very frames this list matches, and the row it is about to write is not there yet.
-local function OnSecureWrap(frame, _, header)
+---
+--- **The frames whose `OnLeave` will not reach us, marked as it happens.**
+---
+--- `Wrapped_OnLeave` clears `_wrapentered` before it descends the chain, and every wrapper below
+--- reads that flag to decide whether to run its body at all. So on a frame wrapped twice, **only
+--- the outermost leave body runs** and the rest are skipped in silence. `Wrapped_OnEnter` has no
+--- such gate, which is why enter still reaches everyone and only leave goes missing.
+---
+--- **Wrapping second is what puts us underneath**, so this is exactly the case where somebody
+--- wraps leave on a frame we had already wrapped. The other order needs no mark: we wrapped last,
+--- we are outermost, our leave arrives - and the frame is not in `ccframes` yet at that moment, so
+--- nothing here fires for it either. The two line up without a test for which happened.
+---
+--- **We are not stuck underneath - we are standing aside.** Unwrapping hands back the header and
+--- the bodies it removed (`SecureHandlerUnwrapScript`), so we could take the top and call theirs
+--- from ours. Three things say not to. It is their frame and their wiring, and rebuilding somebody
+--- else's is not ours to do; the body we would have to put back cannot be replayed identically
+--- forever, since a `_wrapentered` we cannot write means their leave would be the one skipped; and
+--- an addon doing the same thing back would trade the top with us on every pass, nesting bodies
+--- without end. What is given up instead is ours alone: our own leave, on their frames.
+---
+--- **So the slot has to be able to go stale, and the mark is what says where.** It rides the row
+--- rather than a list of its own, because the only frame anything asks about is the one the cursor
+--- is on. It is never taken off: somebody removing their wrapper later does not tell us, and a
+--- mark left standing costs a check while a mark wrongly cleared costs a wrong answer.
+---
+--- **Not asked about combat, because it cannot be in combat.** Installing a wrapper writes through
+--- the API frame, which is protected, so an addon's wrap is refused under lockdown the same way
+--- our own registration is - this hook has no way to run there.
+local _hoverLeaveTaken             = setmetatable({}, { __mode = "k" });
+
+--- **The three scripts we put a wrapper on**, which are also the three where standing underneath
+--- costs something. Leave is the one that breaks outright; the other two can be cut short by the
+--- wrapper above us: `Wrapped_Click` stops the chain when the body over ours answers `false`, and
+--- an enter body may reasonably do the same. So the reader is told about all three and the
+--- `mouseover` fallback is switched on for the one it can answer for.
+local OURS_WRAPPED                 = { OnClick = true, OnEnter = true, OnLeave = true };
+
+--- Frames somebody else wrapped after us, on any of those three.
+local _wrappedOver                 = setmetatable({}, { __mode = "k" });
+
+--- How many frames another addon has put its own wrapper over ours on.
+---
+--- **Kept for the one line at login and nothing else.** Every decision that acts on this reads the
+--- mark off the frame's own row in the restricted environment, where the answer is about the frame
+--- the cursor is on; this is the whole board at once, which is a question only the warning asks.
+function DebindPrivate.CountFramesWrappedOver()
+    local n = 0;
+    for _ in pairs(_wrappedOver) do
+        n = n + 1;
+    end
+    return n;
+end
+
+--- Writes the mark into the row the restricted side reads.
+---
+--- **Set after the write and not before.** The caller is under `pcall`, so a raise here would be
+--- swallowed with the flag already down and nothing would ever try again.
+local function WriteHoverLeaveTaken(frame)
+    SecureHandlerSetFrameRef(BindingDriver, "clickcast_button", frame);
+    SecureHandlerExecute(BindingDriver, [=[
+		local button = self:GetFrameRef("clickcast_button")
+		local info = ccframes[button]
+		if (info) then
+			info.hoverLeaveTaken = true
+		end
+	]=]);
+    _hoverLeaveTaken[frame] = true;
+end
+
+--- **Re-registration throws the mark away, so the frame is the record and this is the copy.**
+--- `DeinitFrame` drops the whole row (`ccframes[button] = nil`), and `RegisterFrame` reaches it
+--- whenever a second registration is let through - which is exactly what an `unknown` row invites.
+--- The row that comes back has no mark on it, so a flag that only remembered "already told" would
+--- leave the frame quietly back on the unguarded path.
+---
+--- So the answer is kept here and put back rather than only being written once. `RegisterFrame`
+--- calls this after it has rebuilt the row.
+function DebindPrivate.RestoreHoverLeaveTaken(frame)
+    if (_hoverLeaveTaken[frame]) then
+        pcall(WriteHoverLeaveTaken, frame);
+    end
+end
+
+local function MarkWrappedOver(frame, script)
+    if (not OURS_WRAPPED[script]) then
+        return;
+    end
+    -- A row means we registered the frame, and registering is what put our wrapper on it. Without
+    -- one this is somebody wrapping a frame of their own, which is no news.
+    if (type(DebindPrivate.ccframes[frame]) ~= "table") then
+        return;
+    end
+
+    _wrappedOver[frame] = true;
+
+    if (script ~= "OnLeave" or _hoverLeaveTaken[frame]) then
+        return;
+    end
+    WriteHoverLeaveTaken(frame);
+end
+
+local function OnSecureWrap(frame, script, header)
     if (header == BindingDriver or header == DebindPrivate.UnitWatch) then
         return;
     end
+    pcall(MarkWrappedOver, frame, script);
     TakeNamedFrame(frame);
 end
 
