@@ -1,3 +1,13 @@
+# 3.5.2
+
+**A key bound to hovering over a unit frame no longer keeps firing on a frame you have already left.** Some addons hook the same unit frames Debind does, and when one of them gets there after us, the game tells only that addon that the cursor has left. Debind never heard it, so the frame the cursor moved off stayed the answer, and the action kept landing on that frame's unit. Only the frames that addon had hooked were affected, and only bindings that hover.
+
+On those frames Debind now asks the game where the cursor is instead, and lets the frame go as soon as the cursor is over nothing. The one case it cannot see is the cursor going straight from such a frame onto another unit, and even that clears the moment the cursor is over nothing again.
+
+**A line at login says when this is happening to you.** It only goes out when another addon has got there after us and your bindings hover at all.
+
+Nothing else changed in this one.
+
 # 3.5.1
 
 **EllesmereUI's unit frames answer again.** Its latest update builds them on an engine of its own rather than on the frame library it used before, and that library was how Debind found them: from that update, a key you had bound over its player, target, focus, pet, target of target, focus target or boss frame did nothing there. Its party and raid frames were never affected, which is why only some of your frames went quiet.
