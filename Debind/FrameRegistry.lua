@@ -701,20 +701,22 @@ local _hoverLeaveTaken             = setmetatable({}, { __mode = "k" });
 --- `mouseover` fallback is switched on for the one it can answer for.
 local OURS_WRAPPED                 = { OnClick = true, OnEnter = true, OnLeave = true };
 
---- Frames somebody else wrapped after us, on any of those three.
-local _wrappedOver                 = setmetatable({}, { __mode = "k" });
-
---- How many frames another addon has put its own wrapper over ours on.
+--- **Said the moment it becomes true, not at the next loading screen.** An addon can wrap over us
+--- long after login: the reader switches its click casting on, or a frame it only builds for a
+--- raid appears. Asking on an event of ours meant the reader was told at the next zone change or
+--- not at all, while the frames were already answering somebody else.
 ---
---- **Kept for the one line at login and nothing else.** Every decision that acts on this reads the
---- mark off the frame's own row in the restricted environment, where the answer is about the frame
---- the cursor is on; this is the whole board at once, which is a question only the warning asks.
-function DebindPrivate.CountFramesWrappedOver()
-    local n = 0;
-    for _ in pairs(_wrappedOver) do
-        n = n + 1;
+--- Once for the session, which is what the answer is worth: it cannot go back, and a second line
+--- would be the same news about a different frame.
+local _warnedWrappedOver           = false;
+
+local function WarnWrappedOver()
+    if (_warnedWrappedOver or not DebindPrivate.hoverIsRead) then
+        return;
     end
-    return n;
+    _warnedWrappedOver = true;
+    DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE"],
+        WARNING_FONT_COLOR:GetRGBA());
 end
 
 --- Writes the mark into the row the restricted side reads.
@@ -757,7 +759,7 @@ local function MarkWrappedOver(frame, script)
         return;
     end
 
-    _wrappedOver[frame] = true;
+    WarnWrappedOver();
 
     if (script ~= "OnLeave" or _hoverLeaveTaken[frame]) then
         return;

@@ -4,7 +4,7 @@
 
 On those frames Debind now asks the game where the cursor is instead, and lets the frame go as soon as the cursor is over nothing. The one case it cannot see is the cursor going straight from such a frame onto another unit, and even that clears the moment the cursor is over nothing again.
 
-**A line at login says when this is happening to you.** It only goes out when another addon has got there after us and your bindings hover at all.
+**A line says when this is happening to you**, the moment it starts rather than at the next loading screen, since an addon can reach those frames long after you log in. Once for the session, and only when your bindings hover at all.
 
 Nothing else changed in this one.
 

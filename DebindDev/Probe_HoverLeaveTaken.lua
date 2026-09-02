@@ -5,12 +5,12 @@
 -- What it prints, once, a moment after login:
 --   1. whether that pack is loaded at all
 --   2. whether its own click casting is switched on, which is what makes it wrap our frames
---   3. how many frames we registered, and how many of those carry `hoverLeaveTaken`
+--   3. how many frames we hold, and how many we turned away
 --
--- **The third line is the only measured one and it is the one that matters.** The first two are
--- what we expect to lead to it; the third is what happened. They can disagree -- a pack can be on
--- and wrap nothing we hold, or wrap frames we never registered -- and the disagreement is the
--- finding.
+-- **Whether anybody actually wrapped over us is not here**, because the addon says so itself the
+-- moment it happens: one line to the reader, at the moment the first frame is taken over. This is
+-- the surrounding picture -- what was loaded, what it was set to, how many frames we ended up
+-- holding -- which is what the line alone cannot say.
 
 local ADDONS = { "EllesmereUI", "EllesmereUIUnitFrames", "EllesmereUIRaidFrames" };
 
@@ -78,15 +78,8 @@ local function Report()
         end
     end
 
-    -- **The count comes from `FrameRegistry` and not from a row.** `hoverLeaveTaken` is written
-    -- into the restricted environment's copy of `ccframes`, which is a different table from the
-    -- one above -- an insecure row holds `type` and `frameType` and nothing else, so reading the
-    -- mark off it answers nil for every frame however many are marked.
-    local marked = DebindPrivate.CountFramesWrappedOver
-        and DebindPrivate.CountFramesWrappedOver() or 0;
-
-    print(format("|cff88ccff[Debind/probe]|r frames: %d registered, %d refused, %d wrapped over us",
-        rows, refused, marked));
+    print(format("|cff88ccff[Debind/probe]|r frames: %d registered, %d refused",
+        rows, refused));
 end
 
 --- **`PLAYER_ENTERING_WORLD` and then a tick**, because the count is the point: that pack wires its

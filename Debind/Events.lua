@@ -139,31 +139,6 @@ function Events.PLAYER_LOGIN()
     end
 end
 
---- Said once, and here rather than at `PLAYER_LOGIN`, because the answer does not exist yet there:
---- an addon wires its frames from its own login handler and our doors fire inside those calls, so
---- the count is only settled by the time this event arrives. This event also comes on every zone
---- change, hence the latch.
-local _hoverLeaveWarned = false;
-
---- **Only when it is actually costing them something**, the same gate the Clique line carries. Two
---- halves: somebody has to be answering the cursor ahead of us on at least one frame, and the
---- reader's bindings have to look at the hovered frame at all. Either one alone is no news.
----
---- What it costs them is a moment, not the binding: the frame the cursor left stays the answer
---- until the poll or the next press notices, which is why the wording is about timing rather than
---- about anything stopping.
-local function WarnIfHoverLeaveTaken()
-    if (_hoverLeaveWarned or not DebindPrivate.hoverIsRead) then
-        return;
-    end
-    if (not DebindPrivate.CountFramesWrappedOver or DebindPrivate.CountFramesWrappedOver() == 0) then
-        return;
-    end
-    _hoverLeaveWarned = true;
-    DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE"],
-        WARNING_FONT_COLOR:GetRGBA());
-end
-
 --- Registered from `PLAYER_LOGIN` above, so the first one to arrive is the login's own. Also comes
 --- on every zone change, which costs a table read while the name is already ours.
 ---
@@ -176,7 +151,6 @@ function Events.PLAYER_ENTERING_WORLD()
         DebindPrivate.ReclaimClickCastFrames();
     end
     DebindPrivate.CollectOUFFrames();
-    WarnIfHoverLeaveTaken();
 end
 
 function Events.PLAYER_LOGOUT()
