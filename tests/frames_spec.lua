@@ -338,6 +338,12 @@ return function(DebindPrivate)
             -- answer with the enemy's bar off to the side. The list overrules it.
             { "ERFFriendlyBoss3", "boss3", Constants.FRAMETYPE_GROUP },
             { "ERFExtraFrame7", nil, Constants.FRAMETYPE_GROUP },
+            -- **Read, not declared.** A frame standing for one unit and no other carries it
+            -- before anything else touches it, and it cannot move, so a row saying the kind
+            -- would only be a second place to keep the same answer.
+            { "EllesmereUIUnitFrames_Player", "player", Constants.FRAMETYPE_PLAYER },
+            { "EllesmereUIUnitFrames_Boss2", "boss2", Constants.FRAMETYPE_BOSS },
+            { "EllesmereUIUnitFrames_TargetTarget", "targettarget", Constants.FRAMETYPE_TARGET },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);

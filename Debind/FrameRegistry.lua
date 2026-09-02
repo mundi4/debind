@@ -575,6 +575,11 @@ end
 ---   under it. Four slots answered and the fifth did not.
 --- - the boss frames and the duplicates of chosen raid members, both standalone for the same
 ---   reason: their units are picked rather than rostered.
+--- - its single unit frames, since it stopped building them on a frame library (2026-09-03). The
+---   library was the door they came through, and asking it is the one recovery there was for a
+---   write that landed in somebody else's table; a pack with an engine of its own has nothing to
+---   ask. It writes them into the Clique table exactly as before, and by then its own raid module
+---   is holding that name.
 ---
 --- **Patterns, and anchored.** Two of these are numbered and one of those has no fixed count - it
 --- is capped by a value in the pack's own file, and spelling the names out would mean keeping that
@@ -589,20 +594,27 @@ end
 --- one we cannot check against addons we have never seen. A name is wrong about nothing else, and
 --- when a pack renames one, nothing matches and we are back where we already stood.
 ---
---- **The kind is named here rather than read, because reading it does not work.** The duplicates
---- are styled - and so wired up, and so seen by us - two lines after they are made, and the unit
---- goes on them later when a slot is handed out; the pack wraps each frame once, so the pass that
---- could read one is the pass that has nothing to read. And when there is a unit it is the raid
---- member filling that slot right now, which is the reason a header's children are not read either.
+--- **A row says the kind only where reading it does not work**, and hands the frame over the way
+--- the Clique protocol does otherwise, leaving `DeriveFrameType` to read it. Which one a row wants
+--- is a property of how that frame is built, not a preference:
 ---
---- **The one carrying a boss unit is a group frame all the same.** An encounter puts the friendly
---- NPC you are meant to keep alive on a boss token, and the frame drawn for it sits in the raid
---- block for the healer to reach. Reading the unit would answer boss, and what somebody choosing
---- the boss frames pictures is the enemy's bar off to the side. Same call as the pet headers.
+--- - a slot in a set cannot be read. The duplicates are wired up - and so seen by us - two lines
+---   after they are made, and the unit goes on when a slot is handed out; the pack wires each
+---   frame once, so the pass that could read one is the pass that has nothing to read. And when
+---   there is a unit it is the raid member filling that slot right now, which is the reason a
+---   header's children are not read either.
+--- - the frame carrying a boss token is a group frame all the same. An encounter puts the friendly
+---   NPC you are meant to keep alive on a boss token, and the frame drawn for it sits in the raid
+---   block for the healer to reach. Reading it answers boss, and what somebody choosing the boss
+---   frames pictures is the enemy's bar off to the side. Same call as the pet headers.
+--- - a frame standing for one unit and no other is read, because the unit is on it before anything
+---   else happens to it and cannot move. Saying the kind for one of those would only be a second
+---   place to keep the same answer, and the pack adding a unit would find this list silent.
 local NAMED_UNIT_FRAMES            = {
     { "^ERFPartySelfButton$", "group" },
     { "^ERFFriendlyBoss%d+$", "group" },
     { "^ERFExtraFrame%d+$",   "group" },
+    { "^EllesmereUIUnitFrames_", true },
 };
 
 local function NameOf(frame)
