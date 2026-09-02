@@ -30,6 +30,14 @@ DelegateFrameNames[frame] = frame:GetName()
 			self:RunFor(button, self:GetAttribute("DeinitFrame"))
 		
 
+### FrameRegistry.lua #3 SecureHandlerExecute
+		local button = self:GetFrameRef("clickcast_button")
+		local info = ccframes[button]
+		if (info) then
+			info.hoverLeaveTaken = true
+		end
+	
+
 ### SecureBindings.lua #1 SecureHandlerExecute
 
 	debind_driver = self
@@ -795,7 +803,14 @@ DelegateFrameNames[frame] = frame:GetName()
 	
 
 ### SecureBindings.lua #19 SetAttribute
-		return States.unitframe and States.unitframe.unit or nil
+		local unitframe = States.unitframe
+		if (not unitframe) then
+			return nil
+		end
+		if (unitframe.hoverLeaveTaken and not UnitExists("mouseover")) then
+			return nil
+		end
+		return unitframe.unit
 	
 
 ### SecureBindings.lua #20 SetAttribute
@@ -1381,7 +1396,12 @@ DelegateFrameNames[frame] = frame:GetName()
 		HandoffHoverUnit = nil
 	else
 
+
+
 	local evalFrame = States.unitframe
+	if (evalFrame and evalFrame.hoverLeaveTaken and not UnitExists("mouseover")) then
+		evalFrame = nil
+	end
 
 
 
@@ -1981,7 +2001,12 @@ DelegateFrameNames[frame] = frame:GetName()
 		HandoffHoverUnit = nil
 	else
 
+
+
 	local evalFrame = States.unitframe
+	if (evalFrame and evalFrame.hoverLeaveTaken and not UnitExists("mouseover")) then
+		evalFrame = nil
+	end
 
 
 
@@ -2493,7 +2518,12 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		local clickCast = false
 		local winner, hoverUnit
+
+
 		local evalFrame = States.unitframe
+		if (evalFrame and evalFrame.hoverLeaveTaken and not UnitExists("mouseover")) then
+			evalFrame = nil
+		end
 
 
 
@@ -2909,7 +2939,12 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		local clickCast = false
 		local winner, hoverUnit
+
+
 		local evalFrame = States.unitframe
+		if (evalFrame and evalFrame.hoverLeaveTaken and not UnitExists("mouseover")) then
+			evalFrame = nil
+		end
 
 
 
