@@ -279,211 +279,49 @@ end;
 --- `dbver` 6. 위 판과 둘이 다르다 - 조건이 `conditions` 안으로 내려갔고, 스위치 정의가
 --- `switches`라는 이름 아래 문자열 `mode`와 `resetValue`로 앉는다.
 SEEDS[6] = function(guid)
-    local CLASS = Constants.PLAYER_CLASS;
-    local HEARTHSTONE = 6948;
+    --- **One row per frame type, all on one mouse button.** The frame-type column is read only
+    --- while a hover condition is on (`GetBindingInfoForAction` drops it outright otherwise), so
+    --- every row carries one and the rows differ in nothing else: what the cursor is over is what
+    --- decides which of them fires.
+    ---
+    --- A mouse button rather than a keyboard key, because that is the path click casting takes
+    --- (`UpdateBindings.lua`'s `isClickCast`), and `hover = {}` is the condition at its widest --
+    --- no reaction, life or role axis narrowing it, so the frame type is the only thing left.
+    local function Hover(seq, frameType, name)
+        return {
+            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+            value = format("/script print(\"hover-%s\")", name), name = "Hover " .. name,
+            key = "ALT-BUTTON1", seq = seq,
+            conditions = { frameTypes = frameType, units = { hover = {} } },
+        };
+    end
 
     return {
         dbver = 6,
 
-        --- **Above every `arrivalID` planted below.** `NextArrivalID` reads this and nothing else:
-        --- it stopped walking the store for the highest number in use the day that number moved out
-        --- of `key`, because the migration writes the counter itself. Left out here, the first real
-        --- arrival would be handed 1 and land inside the seeded set.
-        nextArrivalID = 2,
-
         shared = {
-            --- **The account layer is where the coverage lives**, and it is filled by walking three
-            --- lists rather than by taste: every action type the picker can hand out, every field in
-            --- `KEYS_TO_SAVE`, and every name `Constants.IsConditionField` answers yes to. A row
-            --- goes in for anything none of the rows above it already reaches.
-            ---
-            --- Four of those are left out on purpose and each has a reason that is not "forgot":
-            ---
-            ---   * `SPELL`, `FLYOUT`, `PETACTION` name something a class has. Seeded, they come up
-            ---     as red rows on every character that is not that class, which is the one thing
-            ---     this seed exists to avoid.
-            ---   * `known` is dropped on anything that is not a `SPELL` (`Misc.lua`), so it cannot
-            ---     be reached from here at all while `SPELL` is out.
             GENERAL = {
-                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F1", seq = 1 },
-                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say account", name = "Say account",
-                    key = "SHIFT-F2", seq = 1 },
-                -- Two on one key, so the overview has a group to order and the ordering menu has
-                -- something to move.
-                { type = Constants.WORLDMARKER, value = 1, key = "SHIFT-F3", seq = 1 },
-                { type = Constants.WORLDMARKER, value = 2, key = "SHIFT-F3", seq = 2 },
-                -- The issue badge: a `MACRO` naming one that does not exist is left out of the
-                -- build entirely and the row says so (`Events.lua`'s UPDATE_MACROS comment).
-                { type = Constants.MACRO, value = "DebindNoSuchMacro", key = "SHIFT-F4", seq = 1 },
-                --- **An arrival, and it sits on the key it was sent on.** What holds it back is the
-                --- badge, `arrivalID`, and with `key` that pair is also which group it belongs to
-                --- (`devdocs/building-export-import.md` 12절). A number in `key` is a shape no path
-                --- produces any more.
-                ---
-                --- **On `SHIFT-F3`, which the account layer already uses.** That collision is the
-                --- state the pair exists for and no other row here reaches it: the column stands two
-                --- headings on one key, one live and one waiting, and neither is drawn into the
-                --- other. Landing it on a free key would seed a screen that looks the same whether
-                --- the grouping is right or wrong.
-                ---
-                --- Two of them on the one arrival, because what the heading names is a **set**.
-                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F3", seq = 1,
-                    arrivalID = 1 },
-                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say arrived", name = "Say arrived", key = "SHIFT-F3", seq = 2,
-                    arrivalID = 1 },
-                --- The other arrival shape: the sender had it on no key, so it lands on none.
-                --- **No key, no group and no `seq`** - it goes to the unbound pile wearing a badge,
-                --- rather than under a heading of its own.
-                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say unplaced", name = "Say unplaced", arrivalID = 1 },
-                { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
-                --- Click casting, so the frame menu and the hover half of the tooltip have a row.
-                --- Three fields ride along here because this is the only row they can sit on: the
-                --- menu enables `ignoreHoverUnit` and the frame-type boxes only while a hover
-                --- condition is on (`DropDownMenus.lua`), and `GetBindingInfoForAction` drops
-                --- both outright on a binding that does not hover.
-                ---
-                --- `frameTypes` is short of every bit on purpose - all-on is normalised back to
-                --- nil, so a full mask would draw no line at all. `dead` is the life axis, and
-                --- `false` is its "alive" answer.
-                ---
-                --- **`ignoreHoverUnit` stays at the top of the action while `frameTypes` moves
-                --- down**: only the second one is a condition. That is the one place these two
-                --- seeds are not a straight copy of each other.
-                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say hovered", name = "Say hovered",
-                    key = "SHIFT-F7", seq = 1, ignoreHoverUnit = true,
-                    conditions = {
-                        frameTypes = Constants.FRAMETYPE_PLAYER + Constants.FRAMETYPE_GROUP,
-                        units = { hover = { reaction = Constants.REACTION_HELP, dead = false } } } },
-                -- Enough conditions on one action that its tooltip has to lay several out at once.
-                { type = Constants.ITEM, value = HEARTHSTONE, key = "SHIFT-F8", seq = 1,
-                    priority = Constants.MAX_IMPORTANCE,
-                    conditions = { combat = true, groups = Constants.GROUP_PARTY,
-                        ["$state1"] = true } },
-                --- **The target, which is `action.unit` and not a condition.** It stays at the
-                --- top of the action on this version too, which is why the two seeds carry this
-                --- row identically. Without one of these the row's `@unit` suffix, the tooltip's
-                --- target line and the target menu are all unreachable in a seeded profile.
-                --- `TARGET` is used because it takes a unit and names no spell, so it stays class
-                --- independent like everything else here.
-                { type = Constants.TARGET, unit = "focus", key = "SHIFT-F9", seq = 1 },
-                --- Target and the `"@"` unit condition on one action, which is a tooltip line of
-                --- its own: `"@"` is drawn as `SELECTED_TARGET_UNIT` and that branch asks for
-                --- `action.unit` (`ActionTooltip.lua`), so neither row above can reach it alone. The
-                --- unit has to be one that can be absent, since `"@"` is dropped again on `none`
-                --- and on `player` (`Misc.lua`).
-                { type = Constants.ITEM, value = HEARTHSTONE, unit = "target",
-                    key = "SHIFT-F10", seq = 1,
-                    conditions = { units = { ["@"] = {} } } },
-                -- The binding-context exception: this key stays bound while an editor holds it
-                -- (`Debind.lua`'s `IsKeyYielded`).
-                { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/say kept", name = "Say kept",
-                    key = "SHIFT-F11", seq = 1, keepInBindingContext = true },
-                --- Mount, on the one value that resolves for every character alive: `0` is the
-                --- random favourite, drawn from a spell rather than the journal
-                --- (`ActionDisplay.lua`), so a client with nothing collected still gets a name and an
-                --- icon. A real `mountID` would be a red row on any character that has not
-                --- learned it.
-                { type = Constants.MOUNT, value = 0, key = "SHIFT-F12", seq = 1 },
-                --- The remaining two types that take a unit. Both come off the command tab with
-                --- no `value` and only `props = { unit = ... }` (`ActionCatalog.lua`), which is why
-                --- these rows carry a unit and nothing else. The unit is not free either:
-                --- `UNIT_INFO` bars `focus` from `FOCUS` and `mouseover` from `TOGGLEMENU`.
-                { type = Constants.FOCUS, unit = "target", key = "CTRL-F1", seq = 1 },
-                { type = Constants.TOGGLEMENU, unit = "player", key = "CTRL-F2", seq = 1 },
-                --- The game's own keybinding commands, whose stored value is the command string.
-                --- Only commands with a `BINDING_NAME_*` reach the picker, so the seed uses one
-                --- that has had one for as long as the game has.
-                { type = Constants.COMMAND, value = "TOGGLEBACKPACK", key = "CTRL-F3", seq = 1 },
-                --- Switch flipping. The mode is the type and the target is the switch name
-                --- (`ActionCatalog.lua` builds it the same way), and `$state2` is one the seed
-                --- actually defines below.
-                { type = Constants.SETSTATE_TOGGLE, value = "$state2",
-                    key = "CTRL-F4", seq = 1 },
-                --- [Unused], which carries no value at all: the key is handed back to the game's
-                --- own binding rather than taken.
-                { type = Constants.UNUSED, key = "CTRL-F5", seq = 1 },
-                --- The role units, which is the whole `UnitWatch.lua` half. Nothing else in the
-                --- seed reaches it: a role unit is neither a basic unit nor a condition, it is
-                --- what the addon resolves at the click.
-                { type = Constants.ITEM, value = HEARTHSTONE, unit = "healer",
-                    key = "CTRL-F6", seq = 1 },
-                --- Unit conditions on units other than the hovered one and the aimed one, which
-                --- is the third of the three menus that write `units` and the only one
-                --- with no row until now. `exists = false` is the "not there" answer, the one
-                --- shape `"@"` is locked out of.
-                { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F7", seq = 1,
-                    conditions = { units = { tank = {}, custom1 = { exists = false } } } },
-                --- The three yes/no conditions with no row. `false` is here on purpose: the
-                --- menu writes it for [No] and the tooltip has a whole second sentence for it, so
-                --- a seed of nothing but `true` leaves half of every one of them unseen.
-                ---
-                --- **`petbattle` and `specialbar` cannot share an action** - the second is
-                --- dropped when both are set (`Misc.lua`), so the bar row below is a row of its
-                --- own rather than more fields on this one.
-                { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F8", seq = 1,
-                    conditions = { stealth = true, pet = false, petbattle = true } },
-                --- Shapeshift and the action bars. Both masks are one bit rather than several,
-                --- and it is the bit that means the same thing on every class: `[form:0]` is "not
-                --- shifted" and bonus bar `0` is the default bar. A mask naming a druid form
-                --- would be a row nobody else can read.
-                { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F9", seq = 1,
-                    conditions = { forms = 1, bonusbars = 1, specialbar = true,
-                        extrabar = true } },
-            },
-
-            --- The class tiers. `SHIFT-F1` is deliberately the account layer's key as well, so the
-            --- overview has a row where a narrower layer wins and the wider one is shown losing.
-            classes = {
-                [CLASS] = {
-                    [0] = {
-                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                            value = "/say class", name = "Say class",
-                            key = "SHIFT-F1", seq = 1 },
-                    },
-                    -- Specs 1 and 2 only: every class has at least two, and no class has the same
-                    -- number as every other.
-                    [1] = {
-                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                            value = "/say spec one", name = "Say spec one",
-                            key = "SHIFT-F2", seq = 1 },
-                    },
-                    [2] = {
-                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                            value = "/say spec two", name = "Say spec two",
-                            key = "SHIFT-F2", seq = 1 },
-                    },
-                },
+                Hover(1, Constants.FRAMETYPE_UNKNOWN, "unknown"),
+                Hover(2, Constants.FRAMETYPE_PLAYER, "player"),
+                Hover(3, Constants.FRAMETYPE_PET, "pet"),
+                Hover(4, Constants.FRAMETYPE_GROUP, "group"),
+                Hover(5, Constants.FRAMETYPE_TARGET, "target"),
+                Hover(6, Constants.FRAMETYPE_BOSS, "boss"),
+                Hover(7, Constants.FRAMETYPE_ARENA, "arena"),
             },
         },
 
         --- **The GUID is read when the seed is planted, never carried in the file.** ptr and xptr
         --- hold different characters with different GUIDs and either can be deleted without anyone
         --- being surprised, so a GUID written into a seed would only ever sit there unreachable.
-        --- Planting is inside the addon, where the GUID is available, so the two character tiers
-        --- can be filled after all.
+        --- Planting is inside the addon, where the GUID is available.
+        ---
+        --- **The remembered switch value, and it belongs to this character alone.** An alt on the
+        --- same account comes up with `$state3` off, which is the whole point of it living here
+        --- rather than next to the definition (§5 of
+        --- `devdocs/legacy/redesigning-custom-states.md`).
         characters = {
             [guid] = {
-                layers = {
-                    [0] = {
-                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                            value = "/say character",
-                            name = "Say character", key = "SHIFT-F3", seq = 1 },
-                    },
-                    [1] = {
-                        { type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                            value = "/say character spec one",
-                            name = "Say character spec one", key = "SHIFT-F4", seq = 1 },
-                    },
-                },
-                --- **The remembered switch value, and it belongs to this character alone.** An alt
-                --- on the same account comes up with `$state3` off, which is the whole point of it
-                --- living here rather than next to the definition (§5 of
-                --- `devdocs/legacy/redesigning-custom-states.md`).
                 switches = { ["$state3"] = true },
             },
         },
@@ -498,18 +336,18 @@ SEEDS[6] = function(guid)
             blizzframes = {},
         },
 
-        --- Three of the five set up differently, so the switches screen has both modes on it and
-        --- `$state1` above has something to point at. **The other two are simply absent** - a
-        --- definition is a switch somebody made, and nothing plants empty ones
-        --- (`BindDerivedTables`).
+        --- Three of the five set up differently, so the switches screen has both modes on it.
+        --- **The other two are simply absent** - a definition is a switch somebody made, and
+        --- nothing plants empty ones (`BindDerivedTables`).
         ---
         --- **`$state3` looks like an empty definition and is not one.** It remembers rather than
-        --- resetting (`resetValue` absent), and everything that says somebody used it is the value
-        --- on the character above. That split is what the seed above turns into when it migrates.
+        --- resetting (`resetValue` absent), and what says somebody used it is the value on the
+        --- character above.
         ---
         --- **Filed by name, which is what `dbver` 6 stores.** The numbers this held are the shape
-        --- the seed above carries, and the step between the two is the one that moves them
+        --- `SEEDS[5]` carries, and the step between the two is the one that moves them
         --- (`MigrateSwitches`).
+        ---
         --- **One of them answers differently on one tab**, so the Switches list has a switch with
         --- more than the account-wide row under it and the tick has somewhere to move to. It is on
         --- the class tab for specialization 1, which makes changing specialization the thing that
@@ -531,6 +369,7 @@ SEEDS[6] = function(guid)
         },
     };
 end;
+
 
 --- The profile for one `dbver`, built from code. **Built rather than read**, because the case this
 --- has to stand up in is a client whose saved profile cannot be touched and whose disk holds
