@@ -198,35 +198,18 @@ maintaining it.
   - **Meta documents are the third kind: they are about the project rather than about a task**,
     they are never finished and never moved, and their names carry a `0-` prefix so they sort above
     everything else. The prefix marks the kind and not a rank — a third one would take `0-` too, so
-    leave it that way. `0-DECISION-LOG.md` is named first here because **the owner values it above
-    every other file in the repo.**
-    - **`0-DECISION-LOG.md` — the day's arguments and decisions by date, appended.** The rest of
-      `devdocs/` holds conclusions; this holds **how they moved and who moved them**.
-      - **Its purpose is to make the owner's judgement visible.** The three tests below are the sieve,
-        not the purpose: something can pass one and still not belong, and implementation-level detail
-        is the usual case — that goes in the document that owns the decision.
-      - **Three things earn a line, and nothing else does.** A decision reached without friction does
-        not go here. Neither do code changes — git has those.
-        - **We clashed** — the owner and I argued different positions. **Write both, as positions**:
-          mine with the reason I held it, theirs in their own words, then which won and why. Mine
-          stated weakly is a strawman, and a log of strawmen is worth nothing.
-          **Being corrected is not a clash.** Where I broke a rule that was already written down, or
-          got a fact wrong, I held no position for the owner to argue against — the entry would
-          record my mistake and nothing about their judgement. That is not what this file is.
-        - **The reasoning came from outside the frame** — the thing that settled it was an angle
-          nobody in the argument was looking from ("decide this from the UI", "who reads this
-          format?", the intent nobody had written down).
-        - **A standing decision was overturned outright** — not narrowed or amended. Record what it
-          was, since the document it lived in will have moved on.
-      - **The line goes in the same commit as the decision.** Catching up later makes it a second
-        source of truth, which is the one thing this repo will not carry.
-      - **One line and a pointer.** The reasoning stays in the document that owns it, named **without
-        a path or a line number** (work documents move to `legacy/`, line numbers rot).
-      - **An entry opening with a quote is the owner's; one without is mine.** That rule alone shows
-        who steered, so never launder an override into "we decided", never soften the line where my
-        position lost, and never invent a reversal where the owner simply agreed.
-      - It is not mine to tidy. A decision made outside my view gets its line from whoever made it —
-        writing it myself would be reconstruction.
+    leave it that way. `0-DIARY.md` is named first here because **the owner values it above every
+    other file in the repo.**
+    - **`0-DIARY.md` is my diary of the day's arguments with the owner**, by date, appended. The
+      rest of `devdocs/` holds conclusions; this holds **how they moved and who moved them**, how
+      logical or stubborn the owner was, and what I made of losing or winning. **Its own header
+      carries the rules** (what earns an entry, both positions at full strength, the grumbling that
+      is allowed and the facts it has to stay tied to). Read that header before writing an entry.
+      One rule is repeated here because it binds the commit, not the file: **the day's entry goes
+      in the same commit as the decision.** Catching up later makes it a second source of truth,
+      which is the one thing this repo will not carry.
+    - `0-DECISION-LOG.md` is the diary's predecessor, **frozen** at 2026-09-02. Documents still
+      point into its dated entries and those pointers stay valid. Never append to it.
     - **`0-ROADMAP.md` — which version a track is aimed at, and what forces the order.** Those two
       are written nowhere else. **How far along a track is does not go here**: that is what its own
       document's status header answers, and the open-work list is the top level of `devdocs/`
