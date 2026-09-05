@@ -1,16 +1,18 @@
 # 3.6
 
-**Debind no longer goes looking for unit frames that no addon handed over.** Earlier versions found them anyway, by walking frame libraries, by matching frame names, and by reading a group header's children off the header. A frame that was never registered belongs to its addon, and taking it was not our place.
+**Debind now respects what your unit frame addon decides about click casting.** Earlier versions went and found unit frames on their own, whether or not the addon drawing them had opened them to click casting. Those frames were never ours to take, so Debind no longer does. If the addon lets Clique work on its frames, Debind works there in Clique's place, with no need for Clique itself. If the addon keeps its frames for a hover cast feature of its own, Debind stays out of the way. That feature may cover the game's own frames and other addons' frames as well; its settings usually say which. Wherever it does, Debind stays off them too.
 
-So the hover condition and mouse button bindings on unit frames now work on the game's own unit frames, and on unit frame addons that register their frames through Clique support. Two things make that happen. Most unit frame addons register through Clique support only while their own hover cast feature is turned off, so if yours has one, turn it off. And if Clique itself is installed, disable it, since Debind answers in Clique's place and steps aside while Clique is running.
+That is the one thing to know if a key you use over unit frames has gone quiet: most unit frame addons open their frames to Clique only while their own hover cast feature (or whatever they call it) is turned off, and take effect after a reload. And while Clique itself is running, Debind leaves unit frames to it. A window says as much once at login.
 
-**Set Custom Target while hovering still works on any unit frame out of combat.** It falls back to the unit the game says your cursor is on. In combat it works only on frames registered as above, and only on the player, pet, party, raid, boss and arena frames among them.
+**Set Custom Target on a keyboard key works while hovering any unit frame out of combat**, from the unit the game says your cursor is on. On a mouse button, and in combat on either, it works only where your other Debind keys work, and only over the player, pet, party, raid, boss and arena frames.
 
-**Another addon holding the `ClickCastFrames` name keeps it.** Debind used to take that name back, which lost the frames already written into the other table and left that addon writing where nobody reads. It now stands behind whoever holds it and takes only the frames that addon files and does not use.
+**When another addon takes over click casting for everyone, Debind no longer takes it back.** It used to, which lost the frames that addon had already collected and left it writing where nobody was reading. Debind now stands behind it and picks up only the frames it collects and then does nothing with.
 
-**What 3.5.2 added is gone with the rest.** Answering with `mouseover` on frames another addon had wrapped, and the line that said so at login, were both about frames Debind should not have been holding.
+**What 3.5.2 added is gone with the rest.** Answering with `mouseover` on frames another addon had hooked, and the line that said so at login, were both about frames Debind should not have been holding in the first place.
 
-**Unticking a Blizzard unit frame box no longer unwires the frame.** The box decides what Debind registers from the next login, and it says so.
+**Unticking a Blizzard unit frame box takes effect at the next login**, and the box says so. Debind no longer pulls a frame back out from under itself mid-session.
+
+Nearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues.
 
 # 3.5.2
 
