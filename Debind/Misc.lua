@@ -996,12 +996,19 @@ end
 --- that window (`UpdateBindings.lua`), so this is reached only by a caller that builds the key map
 --- on its own, and the safe answer there is the one that binds nothing, since the alternative is
 --- a key that fires the wrong action for as long as the window lasts.
-function DebindPrivate.SpecConditionHolds(binding)
+---
+--- **`spec` is the world being asked about, and the rebuild is not the only caller.** The window
+--- draws another specialization's order on request (`Profile.lua`'s `MakeRow`), and asking there
+--- with the index the character happens to be on would mark the rows of the very specialization
+--- the reader opened.
+function DebindPrivate.SpecConditionHolds(binding, spec)
     local specs = binding.conditions and binding.conditions.specs;
     if (specs == nil) then
         return true;
     end
-    local spec = C_SpecializationInfo.GetSpecialization();
+    if (spec == nil) then
+        spec = C_SpecializationInfo.GetSpecialization();
+    end
     if (spec == nil or spec < 1 or spec > Constants.MAX_SPEC_INDEX) then
         return false;
     end

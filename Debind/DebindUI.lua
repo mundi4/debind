@@ -365,15 +365,16 @@ end
 --- 저 함수들이라 여기서는 이름만 세워둔다.
 local BuildKeyboardElements, CollectVisibleActions;
 
---- 이 액션 하나가 필터를 통과하나. **두 축을 모두** 통과해야 한다(`_filters`).
+--- 이 행 하나가 필터를 통과하나. **두 축을 모두** 통과해야 한다(`_filters`).
 ---
---- `specRank`는 0이면 지금 도는 세계의 것이다 - 활성 특성과 특성 없는 레이어가 여기 든다.
---- 값을 내는 곳은 `EnumerateAllProfileLayers`고, 부르는 쪽이 이미 손에 들고 있다.
+--- 전문화 축은 `IsRowOffSpec`이 답한다. 다른 전문화의 레이어에 있는 것과 자기 조건이 지금
+--- 번호를 빼는 것 둘 다 여기서는 한 가지다 - 어느 쪽이든 지금 안 돈다.
 ---
 --- 키 축은 셋 중 하나로만 떨어진다. 배지를 먼저 보는 것이 순서인데, 배지가 붙은 것은 언제나
 --- 합성 번호 위에 있어서(`_filters` 주석) 아래 두 갈래와 다툴 일이 없기 때문이다.
-local function ActionPassesFilters(action, specRank)
-	if ((specRank or 0) == 0) then
+local function ActionPassesFilters(row)
+	local action = row.action;
+	if (not DebindPrivate.IsRowOffSpec(row)) then
 		if (not _filters.activeSpec) then
 			return false;
 		end
@@ -4233,7 +4234,7 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	-- order on one key, and this row is not on that key in this specialization - the reader would be
 	-- moving something they cannot see the effect of. The slot stays empty and the reason column
 	-- says which specialization it belongs to.
-	local offSpec = (elementData.row.specRank or 0) ~= 0;
+	local offSpec = DebindPrivate.IsRowOffSpec(elementData.row);
 
 	if (arrived or offSpec or not elementData.isCurrent or live < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
@@ -4395,7 +4396,12 @@ local function GetOrderReasonText(elementData)
 	-- has no way to tell it apart from what is running right now. It comes before the problem codes
 	-- for the same reason those come before the ordering sentence: a more specific thing to say
 	-- wins the one slot.
-	elseif ((row.specRank or 0) ~= 0) then
+	--
+	-- **A row kept out by its own specialization condition says the same thing** (`IsRowOffSpec`).
+	-- Without it that row got the ordering sentence, which claims it beat the row below it: it
+	-- beats nothing in this specialization, so the one line the slot held was false rather than
+	-- missing.
+	elseif (DebindPrivate.IsRowOffSpec(row)) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_OFFSPEC"]);
 	elseif (row.unreachable) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
@@ -4569,7 +4575,7 @@ end
 local function KeyGroupPasses(rows, key)
 	local any = false;
 	for i = 1, #rows do
-		if (ActionPassesFilters(rows[i].action, rows[i].specRank)) then
+		if (ActionPassesFilters(rows[i])) then
 			any = true;
 			break;
 		end
@@ -4764,7 +4770,7 @@ function BuildKeyboardElements()
 	do
 		local kept = {};
 		for _, row in ipairs(rows) do
-			if (ActionPassesFilters(row.action, row.specRank)
+			if (ActionPassesFilters(row)
 				and NameMatchesSearch(NameAndIconForAction(row.action))) then
 				kept[#kept + 1] = row;
 				visible[row.action] = true;

@@ -143,7 +143,24 @@ end
 --- (both in `DebindUI.lua`). It was inline at each of them, and the guard had only half of it -
 --- so a badged row refused the arrows and accepted the same move from its right-click menu.
 function DebindPrivate.IsRowInOrder(row)
-    return not row.arrivalID and (row.specRank or 0) == 0;
+    return not row.arrivalID and not DebindPrivate.IsRowOffSpec(row);
+end
+
+--- Is this row for a specialization other than the one being drawn?
+---
+--- **Two ways to be, and the reader is told the same thing about both.** The row's layer belongs
+--- to another specialization (`specRank`), or the action's own condition leaves this one out
+--- (`specExcluded`, from `Profile.lua`'s `MakeRow`). Either way it does not fire in the world on
+--- screen, so it takes no part in the order, gets no arrows, and its reason column says which
+--- specialization it belongs to.
+---
+--- **Only one of the two is in the comparator above, and that is not an oversight.** A row out by
+--- its layer sits where it would sit if that layer were live, which is what `specRank` puts it
+--- behind the active rows for. A row out by its condition is in a layer that **is** live and
+--- takes a real place among its neighbours, so moving it would be this list lying about where the
+--- action stands the moment that specialization comes round.
+function DebindPrivate.IsRowOffSpec(row)
+    return (row.specRank or 0) ~= 0 or row.specExcluded == true;
 end
 
 --- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을

@@ -228,5 +228,69 @@ return function(DebindPrivate)
         check(Values("F1") == "<none>", "the converted action reached the key: " .. Values("F1"));
     end);
 
+    ---------------------------------------------------------------------------
+    -- What the overview's list makes of it
+    ---------------------------------------------------------------------------
+
+    -- **Marked like an off-spec layer row, and moved not at all.** The two halves are one case
+    -- because the second is what a fold into `specRank` would have cost: that field is a step of
+    -- the comparator, and this action is in a layer that is live, so pushing it behind the active
+    -- rows would make the list say it stands somewhere it does not.
+    --
+    -- **Both rows carry a condition** so that the step above `specRank` cannot be what orders
+    -- them. With one of them unconditional, `isConditional` settles it first and the row would
+    -- come out in front whether or not anything below that step ran.
+    test("a row the condition leaves out is off-spec and keeps its place", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { specs = Flag(2) } },
+            { type = Constants.SPELL, value = 774, key = "F1", seq = 2,
+                conditions = { combat = true } },
+        }, 1);
+
+        local rows = DebindPrivate.CollectActionsForKey("F1");
+        check(#rows == 2, "row count " .. #rows);
+        check(rows[1].action.value == 585,
+            "the excluded row moved, and it is in a live layer: " .. tostring(rows[1].action.value));
+        check((rows[1].specRank or 0) == 0, "it was given a specRank, which the comparator reads");
+        check(DebindPrivate.IsRowOffSpec(rows[1]), "it is not marked off-spec");
+        check(not DebindPrivate.IsRowInOrder(rows[1]), "it still counts as part of the order");
+        check(not DebindPrivate.IsRowOffSpec(rows[2]), "the row beside it was marked too");
+    end);
+
+    test("a row whose set holds this index is an ordinary row", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { specs = bor(Flag(1), Flag(2)) } },
+        }, 1);
+
+        local rows = DebindPrivate.CollectActionsForKey("F1");
+        check(not DebindPrivate.IsRowOffSpec(rows[1]), "a set holding this index was marked");
+        check(DebindPrivate.IsRowInOrder(rows[1]), "it was taken out of the order");
+    end);
+
+    -- **The window can ask for another specialization's order**, and the answer has to be about
+    -- that one. Asked with the index the character happens to be on, this would mark the rows of
+    -- the very specialization whose tab the reader opened, and leave the ones that do run there
+    -- looking like the live ones.
+    test("another specialization's order marks what that world leaves out", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { specs = Flag(1) } },
+            { type = Constants.SPELL, value = 774, key = "F1", seq = 2,
+                conditions = { specs = Flag(2) } },
+        }, 1);
+
+        local here = DebindPrivate.CollectActionsForKey("F1");
+        check(not DebindPrivate.IsRowOffSpec(here[1]), "the row for this index was marked");
+        check(DebindPrivate.IsRowOffSpec(here[2]), "the row for the other index was not marked");
+
+        local there = DebindPrivate.CollectActionsForKey("F1", 2);
+        check(DebindPrivate.IsRowOffSpec(there[1]),
+            "asked about index 2, the row for index 1 was not marked");
+        check(not DebindPrivate.IsRowOffSpec(there[2]),
+            "asked about index 2, the row for index 2 was marked");
+    end);
+
     return T;
 end

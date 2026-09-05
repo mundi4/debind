@@ -2367,12 +2367,14 @@ function DebindPrivate.CollectActionsForKey(key, spec, arrivalID)
     -- 빼는 것은 **도달 불가뿐이다.** 한때 `notCategory = "key"`로 갈래째 껐는데, 그 갈래에는
     -- 특성과 무관한 키 유효성 검사도 같이 있어서 (`IsKeyInvalidForAction`) 다른 특성 탭에서
     -- 보면 진짜 잘못된 키에도 ⚠가 안 떴다. 같은 데이터가 보는 특성에 따라 달라 보이면 안 된다.
-    local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
+    local currentSpec = C_SpecializationInfo.GetSpecialization();
+    local simulated = spec ~= nil and spec ~= currentSpec;
+    local worldSpec = spec or currentSpec;
 
     for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(spec) do
         for index, action in layer:Enumerate() do
             if (action.key == key and action.arrivalID == arrivalID) then
-                rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank);
+                rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank, worldSpec);
             end
         end
     end
@@ -2396,12 +2398,14 @@ end
 --- is which action it is (`BuildKeyboardElements`).
 function DebindPrivate.CollectKeylessActionRows(spec)
     local rows = {};
-    local simulated = spec ~= nil and spec ~= C_SpecializationInfo.GetSpecialization();
+    local currentSpec = C_SpecializationInfo.GetSpecialization();
+    local simulated = spec ~= nil and spec ~= currentSpec;
+    local worldSpec = spec or currentSpec;
 
     for _, layer, scopeRank, specRank in DebindPrivate.EnumerateAllProfileLayers(spec) do
         for index, action in layer:Enumerate() do
             if (action.key == nil) then
-                rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank);
+                rows[#rows + 1] = MakeRow(action, layer, scopeRank, index, simulated, specRank, worldSpec);
             end
         end
     end
@@ -2425,7 +2429,7 @@ end
 --- `specRank == 0` -- it matches what was asked about -- while the whole view is still outside the
 --- live world. `simulated` is the caller's half, `specRank` is the row's, and only the two
 --- together answer the question the tooltip asks.
-function MakeRow(action, layer, layerRank, index, simulated, specRank)
+function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec)
     local offWorld = simulated or (specRank ~= nil and specRank ~= 0) or nil;
 
     -- 순서를 정하는 여섯 필드는 `Misc.lua`의 `MakeOrderRecord`가 채운다. 그 위에 얹는 것이
@@ -2450,6 +2454,16 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank)
     -- on. The row's tooltip passes it straight through (`ActionTooltip.lua`),
     -- which is what keeps the row and its tooltip from disagreeing.
     row.offWorld = offWorld;
+    -- **The other way a row belongs to a specialization that is not the one on screen.** The layer
+    -- answers for `specRank`; this is the action's own condition, answered the way the rebuild
+    -- answers it when it keeps the action off the key (`Misc.lua`'s `SpecConditionHolds`).
+    --
+    -- **It is deliberately not folded into `specRank`.** That field is a step of the comparator
+    -- (`Ordering.lua`), and this action sits in a layer that is live: the place it takes among its
+    -- neighbours is the place it really takes when that specialization comes round. What reads the
+    -- two together is `IsRowOffSpec`, which is drawing rather than ordering.
+    row.specExcluded = not DebindPrivate.SpecConditionHolds(
+        DebindPrivate.GetBindingInfoForAction(action), worldSpec) or nil;
 
     return row;
 end
