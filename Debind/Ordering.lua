@@ -143,22 +143,24 @@ end
 --- (both in `DebindUI.lua`). It was inline at each of them, and the guard had only half of it -
 --- so a badged row refused the arrows and accepted the same move from its right-click menu.
 function DebindPrivate.IsRowInOrder(row)
-    return not row.arrivalID and not DebindPrivate.IsRowOffSpec(row);
+    return not row.arrivalID and (row.specRank or 0) == 0;
 end
 
---- Is this row for a specialization other than the one being drawn?
+--- Is this row for a specialization other than the one being drawn? **A question about the words
+--- on the row, not about the order**, which is the whole difference from `IsRowInOrder` above.
 ---
---- **Two ways to be, and the reader is told the same thing about both.** The row's layer belongs
---- to another specialization (`specRank`), or the action's own condition leaves this one out
+--- Two ways to be, and the reader is told the same thing about both: the row's layer belongs to
+--- another specialization (`specRank`), or the action's own condition leaves this one out
 --- (`specExcluded`, from `Profile.lua`'s `MakeRow`). Either way it does not fire in the world on
---- screen, so it takes no part in the order, gets no arrows, and its reason column says which
---- specialization it belongs to.
+--- screen, so the reason column says which specialization it belongs to and the filter files it
+--- with the rest of them.
 ---
---- **Only one of the two is in the comparator above, and that is not an oversight.** A row out by
---- its layer sits where it would sit if that layer were live, which is what `specRank` puts it
---- behind the active rows for. A row out by its condition is in a layer that **is** live and
---- takes a real place among its neighbours, so moving it would be this list lying about where the
---- action stands the moment that specialization comes round.
+--- **The second one is still in this key's order, and that is why the two questions parted.** It
+--- is in a layer that is live, so `specRank` ties and `seq` alone settles it against the rows
+--- either side: it is the neighbour their arrows swap with, and moving it moves it one place on
+--- screen. Answering the order with this function let an arrow step over it and move the pressed
+--- row two. A row out by its **layer** is the opposite case, since `specRank` decides that pair
+--- before `seq` is ever reached and swapping numbers with it settles nothing.
 function DebindPrivate.IsRowOffSpec(row)
     return (row.specRank or 0) ~= 0 or row.specExcluded == true;
 end

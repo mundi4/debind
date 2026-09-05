@@ -2462,8 +2462,16 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- (`Ordering.lua`), and this action sits in a layer that is live: the place it takes among its
     -- neighbours is the place it really takes when that specialization comes round. What reads the
     -- two together is `IsRowOffSpec`, which is drawing rather than ordering.
-    row.specExcluded = not DebindPrivate.SpecConditionHolds(
-        DebindPrivate.GetBindingInfoForAction(action), worldSpec) or nil;
+    --
+    -- **An empty set is not another specialization's row.** No index satisfies it, so the row that
+    -- carries one is not waiting for a specialization to come round, it is wrong -- and it already
+    -- has a word for that (`BINDING_ISSUE_SPECS_NONE_SELECTED`). Marked here, the flag would take
+    -- the slot that word prints in and the filter would hide the row with the other
+    -- specializations, which is the silence the check was added to break.
+    local binding = DebindPrivate.GetBindingInfoForAction(action);
+    local specs = binding.conditions.specs;
+    row.specExcluded = (specs ~= nil and specs ~= 0
+        and not DebindPrivate.SpecConditionHolds(binding, worldSpec)) or nil;
 
     return row;
 end

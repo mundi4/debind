@@ -254,7 +254,10 @@ return function(DebindPrivate)
             "the excluded row moved, and it is in a live layer: " .. tostring(rows[1].action.value));
         check((rows[1].specRank or 0) == 0, "it was given a specRank, which the comparator reads");
         check(DebindPrivate.IsRowOffSpec(rows[1]), "it is not marked off-spec");
-        check(not DebindPrivate.IsRowInOrder(rows[1]), "it still counts as part of the order");
+        -- **Marked and still in the order**, which is the pair of answers this row needs. The flag
+        -- is about the words on it; `seq` is still what settles it against the row below, so it is
+        -- that row's arrow neighbour (the swap case below).
+        check(DebindPrivate.IsRowInOrder(rows[1]), "it was taken out of the key's order as well");
         check(not DebindPrivate.IsRowOffSpec(rows[2]), "the row beside it was marked too");
     end);
 
@@ -290,6 +293,48 @@ return function(DebindPrivate)
             "asked about index 2, the row for index 1 was not marked");
         check(not DebindPrivate.IsRowOffSpec(there[2]),
             "asked about index 2, the row for index 2 was marked");
+    end);
+
+    -- **The arrows still promise one place, and this row is one place.** `seq` is a single number
+    -- space shared by every specialization on the key, and this row stands in it: the row above it
+    -- and the row below it are ordered against it by `seq` alone. So it is the neighbour an arrow
+    -- swaps with. Skipping over it would move the pressed row two places on screen and settle the
+    -- pair either side of it, which is a gesture that says one thing and does another.
+    test("an arrow swaps with the row beside it, one this specialization leaves out included",
+        function()
+            Bind({
+                { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                    conditions = { combat = true } },
+                { type = Constants.SPELL, value = 774, key = "F1", seq = 2,
+                    conditions = { specs = Flag(2) } },
+                { type = Constants.SPELL, value = 116, key = "F1", seq = 3,
+                    conditions = { stealth = true } },
+            }, 1);
+
+            local rows = DebindPrivate.CollectActionsForKey("F1");
+            check(#rows == 3, "row count " .. #rows);
+            check(rows[2].action.value == 774, "the excluded row is not in the middle");
+
+            local neighbor, reason = DebindPrivate.ComputeOrderSwap(rows, 3, -1);
+            check(neighbor == rows[2], "the arrow reached past it to "
+                .. tostring(neighbor and neighbor.action.value) .. " (" .. tostring(reason) .. ")");
+        end);
+
+    -- **An empty set is nobody's specialization.** No index satisfies it, so calling the row
+    -- "inactive specialization" sends the reader off to change specialization, which can never
+    -- help. It is a mistake, the row already has a word for it, and that word has to be the one
+    -- that survives: the flag would take the slot the problem code prints in, and the filter would
+    -- file the row under a specialization that is not this one and hide it with the rest.
+    test("an empty set is a mistake rather than another specialization", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { specs = 0 } },
+        }, 1);
+
+        local rows = DebindPrivate.CollectActionsForKey("F1");
+        check(not DebindPrivate.IsRowOffSpec(rows[1]), "the empty set was filed as another spec");
+        check(rows[1].issue == Constants.BINDING_ISSUE_SPECS_NONE_SELECTED,
+            "the row's problem is " .. tostring(rows[1].issue));
     end);
 
     return T;

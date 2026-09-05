@@ -4230,13 +4230,21 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 		end
 	end
 
-	-- **An off-spec row gets no arrows and no accept button either.** What the arrows settle is the
-	-- order on one key, and this row is not on that key in this specialization - the reader would be
-	-- moving something they cannot see the effect of. The slot stays empty and the reason column
-	-- says which specialization it belongs to.
-	local offSpec = DebindPrivate.IsRowOffSpec(elementData.row);
-
-	if (arrived or offSpec or not elementData.isCurrent or live < 2) then
+	-- **A row that is not in this key's order gets no arrows.** What the arrows settle is which of
+	-- the things on one key goes first, and a row whose layer belongs to another specialization is
+	-- not on that key here: the reader would be moving something they cannot see the effect of. The
+	-- slot stays empty and the reason column says which specialization it belongs to.
+	--
+	-- **A row its own specialization condition leaves out is not one of those.** It stands in this
+	-- key's `seq` space beside its neighbours, so moving it moves it one place on this very list
+	-- (`Ordering.lua`'s `IsRowOffSpec` says why the two questions parted). It keeps its arrows and
+	-- gets the flag in the reason column.
+	--
+	-- **One test for the arrows and for the menu**, which asks `ComputeOrderSwap` the same way.
+	-- They used to have half of it each, and the row that refused the arrows accepted the same
+	-- move from its own right-click menu.
+	if (not DebindPrivate.IsRowInOrder(elementData.row)
+			or not elementData.isCurrent or live < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
 		up:Hide();
 		down:Hide();
@@ -4722,6 +4730,11 @@ function BuildKeyboardElements()
 			-- specialization's key map, so a sentence measured against one would describe a
 			-- contest that does not happen - and its own slot says which specialization it
 			-- belongs to instead.
+			--
+			-- **A row its own specialization condition leaves out is measured against**, unlike
+			-- those two: `seq` is what settles it against the row above it, so the sentence names
+			-- the step that really decided the pair (`Ordering.lua`'s `IsRowOffSpec`). Its own
+			-- slot still says which specialization it belongs to.
 			local next;
 			for j = i + 1, #rows do
 				if (DebindPrivate.IsRowInOrder(rows[j])) then
