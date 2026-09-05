@@ -3876,6 +3876,58 @@ RegisterTest("Switch condition on a name outside the five", {
     end,
 })
 
+-- **The specialization index condition, at the key.** It never reaches the restricted side:
+-- `BuildKeyMap` reads the index and leaves the bindings it rules out of the key map
+-- (`Misc.lua`'s `SpecConditionHolds`).
+--
+-- **What the client answers here the harness cannot.** `tests/specindex_spec.lua` runs the whole
+-- set of cases against an index the shim was told to report; the index read here is the one the
+-- game hands out for the character being played, and the fifth of them, the initial
+-- specialization no class names, exists nowhere but in a client.
+--
+-- A specialization cannot be changed from a test, so the change of index and the rebuild it pulls
+-- are the spec's. What is left is the pair: the set holding this index binds, the set leaving it
+-- out does not. **Both halves, because on its own "not bound" also describes a key nothing was
+-- ever put on.**
+RegisterTest("Spec condition: the index the character is on decides the key", {
+    description = "A binding whose specialization set holds this index is bound, one whose set leaves it out is not",
+    run = function()
+        local NAME = "Spec condition"
+        local INSIDE = "CTRL-SHIFT-F6"
+        local OUTSIDE = "CTRL-SHIFT-F7"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "rebuilds are deferred in combat, so nothing can be judged")
+        end
+
+        local spec = C_SpecializationInfo.GetSpecialization()
+        if not spec then
+            return Fail(NAME, "the client has not settled a specialization index yet")
+        end
+
+        local mine = Constants.SpecIndexFlag(spec)
+        -- Every index but this one, so the second key differs from the first by which bits are set
+        -- and by nothing else.
+        local others = bit.bxor(Constants.SPEC_ALL, mine)
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = INSIDE, specs = mine })
+        InsertAction({ type = Constants.SPELL, value = 585, key = OUTSIDE, specs = others })
+        ApplyBindings()
+
+        local inside = GetBindingAction(INSIDE, true) or ""
+        if inside:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("the set holds index %d and the key is %q", spec, inside))
+        end
+
+        local outside = GetBindingAction(OUTSIDE, true) or ""
+        if outside ~= "" then
+            return Fail(NAME, format("the set leaves index %d out and the key is %q", spec, outside))
+        end
+
+        return Pass(NAME, format("index %d: bound / left out: released", spec))
+    end,
+})
+
 -- Test Cases: layer overrides (§4-6 to §4-9)
 --
 -- The definition is the account's and **only the behaviour is covered over by a layer.** Which

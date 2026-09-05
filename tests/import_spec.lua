@@ -399,6 +399,7 @@ return function(DebindPrivate, DebindStorage)
         -- 통과하느냐지 모순이 잡히느냐가 아니고, 그쪽은 `issue_spec`이 따로 본다.
         bonusbars = 2 + 2 ^ Constants.BONUSBAR_SKYRIDING,
         units = { target = {} },
+        specs = 1 + 4,
         ["$state1"] = true,
         ["$state2"] = true,
         ["$state3"] = true,

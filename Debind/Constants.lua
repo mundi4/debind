@@ -127,6 +127,10 @@ Constants.CONDITION_FIELDS = {
     units = true,
     frameTypes = true,
     groups = true,
+    -- **Numbers, never names.** An action moves between tabs and can sit in General, so a
+    -- specialization's name written beside it is false the moment it moves to another class's
+    -- tab. The index means the same thing wherever the action is.
+    specs = true,
     forms = true,
     bonusbars = true,
     specialbar = true,
@@ -162,6 +166,7 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     key = true,
     -- 조건 묶음. 메뉴가 자기 키를 그대로 넘긴다(`DropDownMenus.lua`).
     groups = true,
+    specs = true,
     forms = true,
     bonusbars = true,
     specialbar = true,
@@ -277,6 +282,24 @@ Constants.GROUP_RAID                 = 2 ^ 2;
 Constants.GROUP_ALL                  = 2 ^ 3 - 1;
 
 Constants.FORM_ALL                   = 2 ^ 11 - 1;
+
+-- Which specialization index a binding is for, as a set of the five the game can hand out.
+--
+-- **Five, because the fifth is the initial specialization.** Every class has it, it carries no
+-- name, and `C_SpecializationInfo.GetSpecialization()` answers 5 on a character sitting in it
+-- (measured 2026-09-05: an Evoker has specializations at 1..3, nothing at 4, and id 1465 with no
+-- name at 5). A mask of four would leave those characters unable to say "here".
+--
+-- **This axis is filtered out before the solver and never reaches the restricted environment**
+-- (`Debind.lua`'s `BuildKeyMap`). It is the one condition that cannot change while the reader is
+-- in combat, and the change fires `ACTIVE_PLAYER_SPECIALIZATION_CHANGED`, which rebuilds.
+Constants.MAX_SPEC_INDEX             = 5;
+Constants.SPEC_ALL                   = 2 ^ Constants.MAX_SPEC_INDEX - 1;
+
+--- The bit that stands for one specialization index, 1..`MAX_SPEC_INDEX`.
+function Constants.SpecIndexFlag(index)
+    return 2 ^ (index - 1);
+end
 
 -- **The one place this number is written.** It was two: this, and a
 -- `MAX_BONUS_ACTIONBAR_OFFSET` that the window and the condition menu drew their checkboxes
@@ -398,6 +421,7 @@ Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE      = "CANNOT_USE_HOVER_WI
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
+Constants.BINDING_ISSUE_SPECS_NONE_SELECTED               = "SPECS_NONE_SELECTED";
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
@@ -442,6 +466,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_SPECS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,

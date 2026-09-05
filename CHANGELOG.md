@@ -12,6 +12,8 @@ That is the one thing to know if a key you use over unit frames has gone quiet: 
 
 **Unticking a Blizzard unit frame box takes effect at the next login**, and the box says so. Debind no longer pulls a frame back out from under itself mid-session.
 
+**A key can now be limited to certain specializations.** The new Specialization condition takes any of the five numbered specializations, and the action runs only while you are in one of them. The numbers follow the order the game lists your specializations in. They are numbers rather than names because the same action can sit on a tab several classes share, and there each class gives the same number to a different specialization. Number 5 is the starting specialization a character has before choosing one.
+
 Nearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues.
 
 # 3.5.2

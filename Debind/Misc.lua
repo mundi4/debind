@@ -862,6 +862,10 @@ do
             conditions.groups = Constants.GROUP_ALL;
         end
 
+        if (conditions.specs and band(conditions.specs, Constants.SPEC_ALL) == Constants.SPEC_ALL) then
+            conditions.specs = Constants.SPEC_ALL;
+        end
+
         if (conditions.forms and band(conditions.forms, Constants.FORM_ALL) == Constants.FORM_ALL) then
             conditions.forms = Constants.FORM_ALL;
         end
@@ -980,6 +984,30 @@ end
 --- **표에 든 것은 전부 조건이다.** 이 애드온이 쓰는 이름 밖의 것은 여기까지 오는 길이 없다.
 --- 저장 쪽은 `CleanUpDB`가 걷어내고, 가져오기는 그런 이름을 실은 문자열을 통째로 거절한다
 --- (`Import.lua`의 `IsUsableAction`). 손으로 고친 SavedVariables는 방어하지 않는다.
+--- Whether this binding's specialization-index condition holds for the character right now.
+---
+--- **The one condition answered out here instead of on the restricted side.** A specialization
+--- cannot change in combat and the change rebuilds everything
+--- (`Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED`), so a binding that fails this is left out of
+--- the build rather than given a state driver, a solver column and a snippet line
+--- (`.zzz/clique-savedvars.md`, the `sets.specN` row).
+---
+--- **A nil index takes the binding out, not in.** `CanBuildBindings` refuses to build at all in
+--- that window (`UpdateBindings.lua`), so this is reached only by a caller that builds the key map
+--- on its own, and the safe answer there is the one that binds nothing, since the alternative is
+--- a key that fires the wrong action for as long as the window lasts.
+function DebindPrivate.SpecConditionHolds(binding)
+    local specs = binding.conditions and binding.conditions.specs;
+    if (specs == nil) then
+        return true;
+    end
+    local spec = C_SpecializationInfo.GetSpecialization();
+    if (spec == nil or spec < 1 or spec > Constants.MAX_SPEC_INDEX) then
+        return false;
+    end
+    return band(specs, Constants.SpecIndexFlag(spec)) ~= 0;
+end
+
 function DebindPrivate.IsConditionalBinding(binding)
     local conditions = binding.conditions;
     return conditions ~= nil and next(conditions) ~= nil;
@@ -1289,7 +1317,7 @@ end
 ---   the binding, necessarily: `frameTypes` is nil'd for a non-hover binding there and only
 ---     there, `hover` has no action field at all any more, `unit` is the one the macro will aim
 ---     at rather than the one the user picked, and `unitStates` exists nowhere else
----   the binding, by choice: `groups`, `forms`, `bonusbars`. Normalizing only folds the
+---   the binding, by choice: `groups`, `specs`, `forms`, `bonusbars`. Normalizing only folds the
 ---     all-bits case to `_ALL`, so a zero reads the same either way. They come off the binding
 ---     so that this function speaks one shape
 ---   the action, necessarily: `key`, and the two checks that ask whether a name points at
@@ -1327,6 +1355,12 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     if (not issue and (not category or category == "groups") and notCategory ~= "groups") then
         if (conditions.groups == 0) then
             issue = Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED;
+        end
+    end
+
+    if (not issue and (not category or category == "specs") and notCategory ~= "specs") then
+        if (conditions.specs == 0) then
+            issue = Constants.BINDING_ISSUE_SPECS_NONE_SELECTED;
         end
     end
 

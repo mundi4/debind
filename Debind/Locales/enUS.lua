@@ -59,6 +59,7 @@ L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected."
+L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- The fourth of the *_NONE_SELECTED family, and the only one that is not about a condition: the
 -- action itself has not been told which switch it works. Kept apart from the line below on
 -- purpose. "You have not picked one" and "the one you picked is gone" send the reader to two
@@ -178,6 +179,16 @@ L["CONDITION_SHAPESHIFT"] = "Shapeshift"
 L["CONDITION_SKYRIDING_NO"] = "While Not Skyriding"
 L["CONDITION_SKYRIDING_YES"] = "While Skyriding"
 L["CONDITION_SKYRIDING"] = "Skyriding"
+-- **Numbers rather than names, and the tooltip has to say why.** An action can be moved to a tab
+-- several classes share, and there the same number belongs to a different specialization on each
+-- of them, so a name printed here would be true on one class and false on the next. The client's
+-- own word for the thing is `SPECIALIZATION`.
+--
+-- The fifth is the specialization a character has before choosing one. It has no name in any
+-- class, which is the other half of why this list counts instead of naming.
+L["CONDITION_SPEC"] = "Specialization"
+L["CONDITION_SPEC_N"] = "Specialization %d"
+L["CONDITION_SPEC_DESC"] = "Numbered the way the game lists your specializations. Numbers rather than names, because an action can sit on a tab that several classes share, and there each class gives the same number to a different specialization. Number 5 is the starting specialization a character has before choosing one."
 L["CONDITION_SPECIALBAR_DESC"] = "Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
 L["CONDITION_SPECIALBAR_NO"] = "While a Special Bar Is Not Active"
 L["CONDITION_SPECIALBAR_YES"] = "While a Special Bar Is Active"

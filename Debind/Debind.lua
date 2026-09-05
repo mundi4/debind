@@ -170,8 +170,22 @@ do
 				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
 				-- accepting is the moment a key starts working, where it used to leave the set
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
+				local binding;
 				if (action.key and not action.arrivalID) then
-					local binding = DebindPrivate.GetBindingInfoForAction(action);
+					binding = DebindPrivate.GetBindingInfoForAction(action);
+				end
+
+				-- **The specialization index is filtered here and nowhere below.** It is the only
+				-- condition the insecure side settles by itself: it cannot change in combat, and a
+				-- change rebuilds everything, so the world this build is made for has one answer to
+				-- it (`Misc.lua`'s `SpecConditionHolds`).
+				--
+				-- **Which is also why the solver needs no column for it.** Every binding that gets
+				-- past this line satisfies its own specialization condition, so the condition is
+				-- true across the whole space the solver reasons over, and a box that spans the
+				-- space is what "no condition" already means there. An axis that told the two
+				-- apart would be an axis with one reachable value.
+				if (binding and DebindPrivate.SpecConditionHolds(binding)) then
 					BindingInfoToActionMap[binding] = action;
 
 					-- 활성 레이어만 도므로 전문화 순위는 언제나 동률이다. 다른 전문화의 순서를

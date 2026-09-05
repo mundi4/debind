@@ -231,6 +231,10 @@ local FIXED_COLUMNS = {
             return boolToConditionFlags(binding.conditions.skyriding);
         end
     },
+    -- **`specs` has no column here and must not be given one.** Nothing that fails it reaches this
+    -- file: `BuildKeyMap` leaves those bindings out of the key map altogether, and the comment
+    -- there is where that reasoning lives. What arrives is a set of bindings whose specialization
+    -- condition is true everywhere in this space, and the full mask is how that is spelled.
 };
 
 -- **컬럼의 인자가 이름이다.** 다섯 번호를 도는 루프였고 컬럼마다 번호를 들고 있었다. 스위치

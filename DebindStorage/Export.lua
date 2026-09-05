@@ -148,6 +148,7 @@ local CONDITION_TYPES    = {
     -- Bit masks.
     frameTypes = "number",
     groups = "number",
+    specs = "number",
     forms = "number",
     bonusbars = "number",
     known = "boolean",

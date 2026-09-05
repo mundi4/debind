@@ -414,6 +414,24 @@ do
 			end
 		end
 
+		if (conditions.specs ~= nil) then
+			addLabelLine(tooltip, LLL["CONDITION_SPEC"]);
+
+			if (conditions.specs == 0) then
+				addValueLine(tooltip, LLL["BINDING_ERROR_SPECS_NONE_SELECTED"], true);
+			else
+				wipe(_lines);
+				local error = hasIssues and GetIssue("specs");
+				for i = 1, Constants.MAX_SPEC_INDEX do
+					local flag = Constants.SpecIndexFlag(i);
+					if (bit.band(conditions.specs, flag) ~= 0) then
+						tinsert(_lines, format(LLL["CONDITION_SPEC_N"], i));
+					end
+				end
+				addValueLines(tooltip, _lines, error);
+			end
+		end
+
 		addBooleanCondition("combat");
 		addBooleanCondition("stealth");
 		addBooleanCondition("mounted");

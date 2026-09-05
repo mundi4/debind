@@ -1237,6 +1237,23 @@ do
         });
     end
 
+    --- **Five boxes and no names.** The label is the number because an action carries its
+    --- conditions between tabs, General included, and a specialization's name is only true of
+    --- one class. The fifth is the initial specialization every class has and no class names
+    --- (`Constants.MAX_SPEC_INDEX`).
+    local function CreateSpecConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_SPEC", "specs");
+        AppendDisable(description, "CONDITION_SPEC", "specs");
+        local items = {};
+        for index = 1, Constants.MAX_SPEC_INDEX do
+            items[index] = {
+                text = format(LLL["CONDITION_SPEC_N"], index),
+                value = Constants.SpecIndexFlag(index),
+            };
+        end
+        AppendCheckboxes(description, "specs", items);
+    end
+
     local function CreateIsKnownConditionMenu(rootDescription)
         if (_action.type ~= Constants.SPELL) then
             return;
@@ -1790,6 +1807,8 @@ do
         CreateUnitConditionMenu(rootDescription);
 
         CreateGroupConditionMenu(rootDescription);
+
+        CreateSpecConditionMenu(rootDescription);
 
         CreateIsKnownConditionMenu(rootDescription);
 
