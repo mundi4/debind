@@ -6,10 +6,12 @@
 -- would have built. Writing the setup out here instead would be a second copy of it, and a second
 -- copy is the one thing that can drift (`devdocs/legacy/going-headless-outside-the-ui.md` §5).
 --
--- **Only the binding driver's environment.** In the game each header frame gets its own managed
--- environment, and the click path lives entirely in the driver's -- what `UnitWatch` and the
--- flyout screen do reaches it through `SetUnit`, which is a driver attribute like any other. So
--- bodies executed on other frames are not replayed, and the boundary is the game's own.
+-- **The binding driver's environment and `UnitWatch`'s, kept apart.** In the game each header
+-- frame gets its own managed environment, and the click path lives entirely in the driver's --
+-- what the flyout screen does reaches it through `SetUnit`, which is a driver attribute like any
+-- other. `UnitWatch` is replayed alongside it because deciding a custom target happens there and
+-- nowhere else, and it reaches the driver only as the unit it settled on. Every other frame's
+-- bodies are not replayed, and the boundary is the game's own.
 --
 -- **This does not stand in for the sandbox.** What it cannot see is exactly §8's list: whether
 -- `BuildRestrictedClosure` would accept the body at all (`check:snippets` and the golden watch
@@ -175,7 +177,7 @@ function handleMethods:SetAttribute(name, value)
     end
     local body = frame:GetAttribute("_onattributechanged");
     if (body) then
-        self.__interp:run(body, self, "self,name,value", name, value);
+        self.__interp:run(body, self, "self,name,value", self.__interp:envFor(frame), name, value);
     end
 end
 
@@ -191,11 +193,11 @@ function handleMethods:RunAttribute(name, ...)
     if (name == "UpdateBindings") then
         self.__interp.rebuilds = self.__interp.rebuilds + 1;
     end
-    return self.__interp:run(body, self, "self,...", ...);
+    return self.__interp:run(body, self, "self,...", self.__interp:envFor(self.__frame), ...);
 end
 
 function handleMethods:RunFor(other, body, ...)
-    return self.__interp:run(body, other, "self,...", ...);
+    return self.__interp:run(body, other, "self,...", self.__interp:envFor(self.__frame), ...);
 end
 
 --- The one door out of the restricted environment, and the addon uses it for reporting only.
@@ -257,6 +259,7 @@ local function buildEnv(interp)
     env.tremove = table.remove;
     env.format = string.format;
     env.strsub = string.sub;
+    env.strtrim = function(s) return (s:gsub("^%s*(.-)%s*$", "%1")); end;
     env.strfind = string.find;
     env.strmatch = string.match;
     env.strlen = string.len;
@@ -343,31 +346,59 @@ end
 local Interp = {};
 Interp.__index = Interp;
 
+--- The managed environment a frame's own bodies run in. The driver's is `self.env`, and every
+--- other frame gets one of its own -- which is the game's shape, and the reason a body cannot see
+--- another frame's globals.
+function Interp:envFor(frame)
+    if (frame == self.driver) then
+        return self.env;
+    end
+    local env = self.envs[frame];
+    if (not env) then
+        env = buildEnv(self);
+        self.envs[frame] = env;
+    end
+    return env;
+end
+
 --- Runs one body. `signature` is the game's, per caller: `self,...` for an execute or an attribute
 --- and `self,name,value` for the attribute-changed handler.
-function Interp:run(body, selfHandle, signature, ...)
+---
+--- **`env` is the body's owner's, not `selfHandle`'s.** `RunFor` hands one frame's body another
+--- frame as `self` and the globals stay the owner's, so the caller says which environment this is
+--- rather than it being read off the handle. Absent means the driver's.
+function Interp:run(body, selfHandle, signature, env, ...)
+    env = env or self.env;
+    local perEnv = self.closures[env];
+    if (not perEnv) then
+        perEnv = {};
+        self.closures[env] = perEnv;
+    end
     local key = signature .. "\0" .. body;
-    local closure = self.closures[key];
+    local closure = perEnv[key];
     if (not closure) then
-        closure = compile(body, signature, self.env);
-        self.closures[key] = closure;
+        closure = compile(body, signature, env);
+        perEnv[key] = closure;
     end
     return closure(selfHandle, ...);
 end
 
---- Replays everything the driver was handed, in order.
+--- Replays everything the driver and `UnitWatch` were handed, in order.
 ---
---- **Only the driver's own.** Every other frame has its own managed environment in the game, so
---- replaying its bodies here would put their globals in the wrong table.
+--- **Those two and nothing else.** Every frame has its own managed environment in the game, so a
+--- body replayed into the wrong table would see globals it could not see there. `UnitWatch` earns
+--- one because its `_onattributechanged` is where a custom target is decided, and that decision
+--- reaches the driver only as the unit it settled on.
 function Interp:replay(entries)
-    local driver = self.driver;
+    local replayed = self.replayFrames;
     for i = 1, #entries do
         local entry = entries[i];
-        if (entry.frame == driver) then
+        if (replayed[entry.frame]) then
+            local handle = handleFor(self, entry.frame);
             if (entry.kind == "Execute") then
-                self:run(entry.body, self.driverHandle, "self,...");
+                self:run(entry.body, handle, "self,...", self:envFor(entry.frame));
             elseif (entry.kind == "SetFrameRef") then
-                self.driverHandle.__refs[entry.name] = handleFor(self, entry.ref);
+                handle.__refs[entry.name] = handleFor(self, entry.ref);
             elseif (entry.kind == "ClearOverrideBindings") then
                 --- **A rebuild's prologue, replayed in its place in the order.** Without it a key
                 --- this rebuild stopped mentioning keeps the binding the last one gave it, and
@@ -447,7 +478,7 @@ end
 --- frame's state rather than ours, so getting that wrong leaves a key that raises nothing and does
 --- nothing. `UnitFrameClickPre` is the baked body itself, kept where the re-wrap can reach it.
 function Interp:clickFrame(frame, button, down)
-    return self:run(self.Private.UnitFrameClickPre, handleFor(self, frame), "self, button, down",
+    return self:run(self.Private.UnitFrameClickPre, handleFor(self, frame), "self, button, down", nil,
         button, down);
 end
 
@@ -496,6 +527,16 @@ function Interp:hoverLeave(frame)
         self.driver:GetAttribute("setup_onleave"));
 end
 
+--- Writes a custom target the way the insecure side does, and answers the unit `UnitWatch` settled
+--- on -- nil where it settled on none.
+---
+--- **The attribute, not the handler**, so the value goes through the same `_onattributechanged`
+--- the game runs: trimming, the hover lookup, and the resolve that turns a name into a token.
+function Interp:setCustomTarget(alias, value)
+    self.unitWatchHandle:SetAttribute(alias, value);
+    return self.env.UnitAliasMap[alias];
+end
+
 --- Stands an interpreter up on everything recorded so far.
 ---
 --- `world` is the shim's, so the units the insecure side sees are the ones in here. `state` is the
@@ -541,8 +582,12 @@ function M.new(DebindPrivate, world)
     };
 
     interp.driver = DebindPrivate.BindingDriver;
+    interp.envs = {};
     interp.env = buildEnv(interp);
     interp.driverHandle = handleFor(interp, interp.driver);
+    interp.unitWatch = DebindPrivate.UnitWatch;
+    interp.unitWatchHandle = handleFor(interp, interp.unitWatch);
+    interp.replayFrames = { [interp.driver] = true, [interp.unitWatch] = true };
 
     interp:replay(frames.all());
 

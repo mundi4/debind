@@ -23,7 +23,7 @@ So the binds have to be layered, and one key has to be able to mean more than on
 - **Layers, not profiles.** account → class → spec → this character → that character's spec. The narrowest layer holding that key wins; the rest keep every other key. Nothing to switch by hand — the layers follow your character and spec.
 - **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
 - **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
-- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it.
+- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it, as long as Clique itself is turned off.
 - **Flip what a key does mid-fight.** Switches of your own, usable in combat, without spending a real modifier.
 
 **Debind is for the keys where the answer isn't "all of them."** Put in the ones you want now — every other key goes on working exactly as it did.
@@ -118,7 +118,7 @@ The same **Target** submenu also has **No Target**, which is none of the above: 
 
 ### Custom targets
 
-Two more slots that behave like extra focus targets, and don't cost you the real one. Bind **Set Custom Target**, then press it while hovering a frame. Works from the player, pet, party, raid, boss and arena frames, and there's an entry on the unit right-click menu too.
+Two more slots that behave like extra focus targets, and don't cost you the real one. Bind **Set Custom Target**, then press it while hovering a frame. Out of combat it works over any unit frame. In combat it works over the frames Debind is wired to, and only the player, pet, party, raid, boss and arena frames among them.
 
 A custom target follows the person, not their spot in the raid frames — shuffle the group and it goes with them.
 
@@ -160,7 +160,7 @@ It's not one switch, either. You pick which frames count — player, pet, party 
 
 ![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which frame types count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
 
-Unit frame addons that support Clique register with Debind the same way they register with Clique. And you can run Clique itself alongside this. Debind leaves unit frames to Clique and everything else works as usual — what stops is the hover condition and any action aimed at `@hover`. Both are marked in the list, and Debind says so when you log in.
+Unit frame addons that support Clique register with Debind the same way they register with Clique. Most of them do that only while their own hover cast feature is switched off; with it on they keep their frames for themselves, and a frame nobody hands over is one Debind stays off. And you can run Clique itself alongside this. Debind leaves unit frames to Clique and everything else works as usual — what stops is the hover condition and any action aimed at `@hover`. Both are marked in the list, and Debind says so when you log in.
 
 ## A few things worth knowing
 

@@ -518,8 +518,8 @@ local function RunArenaProbe()
             Emit("  err: %s", line)
         end
     end
-    Emit("arena: RegisterQueue=%d RegisterClickQueue=%d",
-        #(DebindPrivate.RegisterQueue or {}), #(DebindPrivate.RegisterClickQueue or {}))
+    Emit("arena: FrameQueue=%d RegisterClickQueue=%d",
+        #(DebindPrivate.FrameQueue or {}), #(DebindPrivate.RegisterClickQueue or {}))
     Emit("주의: 아레나 프레임이 taint됐다 - 확인 끝나면 /reload")
     Finish()
 end

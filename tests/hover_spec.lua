@@ -629,5 +629,33 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
+    ---------------------------------------------------------------------------
+    -- 등록되지 않은 개체창 위의 custom target
+    ---------------------------------------------------------------------------
+
+    --- **호버 슬롯은 넘겨받은 프레임만 채운다.** 그 밖의 개체창 위에서는 비어 있고, 그 자리에서
+    --- `mouseover`로 떨어지는 것이 등록 없이 남는 유일한 길이다. `hover`를 다시 쓰기 전에 `none`을
+    --- 거치는 것은 `_onattributechanged`가 값이 실제로 바뀔 때만 돌기 때문이다.
+    local function customFromHover(units)
+        Bind({ action({ value = 585, key = "F1", unit = "custom1" }) });
+        shim.world.units = units;
+        interp:hoverLeave();
+        interp.unitWatchHandle:SetAttribute("custom1", "none");
+        return interp:setCustomTarget("custom1", "hover");
+    end
+
+    test("호버 슬롯이 비어 있으면 mouseover가 서 있는 토큰으로 지정된다", function()
+        local unit = customFromHover({
+            player = { id = "me" },
+            mouseover = { id = "me" },
+        });
+        check(unit == "player", "custom1: " .. tostring(unit));
+    end);
+
+    test("mouseover도 없으면 아무것도 지정되지 않는다", function()
+        local unit = customFromHover({ player = { id = "me" } });
+        check(unit == nil, "custom1: " .. tostring(unit));
+    end);
+
     return T;
 end

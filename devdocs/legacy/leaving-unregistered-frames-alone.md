@@ -1,8 +1,7 @@
 # 등록되지 않은 개체창은 건드리지 않는다
 
-> 상태: 계획 확정, 착수 전 (2026-09-05). 다른 세션이 이어받아도 되게 썼다. 근거는 `0-DIARY.md`
-> 2026-09-05에 있고 여기엔
-> 결론과 순서만 둔다.
+> 상태: 전부 구현됨 (2026-09-05). 근거는 `0-DIARY.md` 2026-09-05에 있고 여기엔 결론과 순서,
+> 그리고 각 단계에서 계획과 갈린 것만 둔다.
 
 ## 무엇을 하는가
 
@@ -74,11 +73,16 @@ diff를 읽는다(`node tools/check-snippet-golden.js --update`, `lua5.1 tests/r
   (`secret-reads-must-stay-guarded`). `CUSTOM_TARGET_HELP_MESSAGE_*`는 "개체창에 마우스를 올린 채로
   해 보십시오"인데, 이 경우는 이미 개체창 위에서 나온 것이라 말이 안 맞는다.
   `originalValue == "hover"`이고 값이 `mouseover`인 경우엔 도움말을 붙이지 않는다.
-- 헤드리스: `tests/frames_spec.lua`의 "a unit that exists resolves to the token it is standing in"과
-  "nothing is resolved in combat" 옆에, `hover`가 비었을 때 `mouseover`로 떨어지는 경우와 `mouseover`도
-  없을 때 아무것도 안 하는 경우를 더한다. **고치기 전에 빨간 것을 본다.**
-- `/debtest`: 등록하지 않은 `SecureUnitButtonTemplate` 프레임(`CreateTestUnitFrame`을 등록 없이 쓰는
-  변형) 위에서 `SETCUSTOM` 키를 눌러 비전투에 지정되는 것, 전투 중엔 실패 메시지가 나가는 것.
+- 헤드리스: `frames_spec.lua`가 아니라 `tests/hover_spec.lua`에 넣었다. 떨어지는 자리가 스니펫
+  본문이고 `frames_spec`엔 제한 환경 인터프리터가 없어서, 인터프리터와 호버 슬롯을 이미 들고 있는
+  쪽에 붙는다. 두 케이스: 호버 슬롯이 비었을 때 `mouseover`가 서 있는 토큰으로 지정되는 것(고치기
+  전에 빨갛다), `mouseover`도 없을 때 아무것도 지정되지 않는 것(폴백이 무조건 걸리는 것을 막는 쪽).
+  그러려면 `tests/restricted.lua`가 `UnitWatch` 본문도 재생해야 해서, 프레임마다 환경을 따로 두고
+  드라이버와 `UnitWatch` 둘만 재생하도록 넓혔다. `Interp:setCustomTarget`이 그 문이다.
+- `/debtest`: 세우지 않았다. `mouseover`는 실제 커서가 개체창 위에 있을 때만 게임이 세우고 킷은
+  커서를 못 옮기니, 어느 갈래가 나올지가 킷 밖 상태에 달린다. 그런 케이스는 무엇을 먹여도 통과한다.
+  `UnitExists("mouseover")`가 제한 환경에서 되는지는 `GetHoveredUnit`이 이미 같은 호출을 하고 있어
+  따로 물을 것이 없다.
 
 ### 2. 찾아내서 집는 문 셋을 없앤다
 
@@ -111,15 +115,21 @@ diff를 읽는다(`node tools/check-snippet-golden.js --update`, `lua5.1 tests/r
   "a party frame holding the player is still a party frame", "a frame named for the player is the
   player frame", "an addon named for a group frame does not make all its frames group frames",
   "a frame that could not be read is asked again". 이건 Clique 문에도 필요한 종류 읽기다.
-  `tests/wow_shim.lua`, `tests/wow_frames.lua`의 `SecureGroupHeader_*`, `SecureUnitButton_OnLoad`,
-  `UnitFrame_Initialize`, `RegisterUnitWatch`, `GetAddOnMetadata` 심은 다른 스펙이 안 쓰면 뺀다.
+  `tests/wow_shim.lua`의 `SecureGroupHeader_*` 넷과 `tests/wow_frames.lua`의
+  `SecureUnitButton_OnLoad`, `UnitFrame_Initialize` 심을 뺐다. `RegisterUnitWatch`,
+  `GetAddOnMetadata`는 다른 곳이 쓰고 있어 남겼다.
 - `/debtest`: `DebindDev/DebindTest.lua`의 EllesmereUI 케이스 셋("the single unit frames are wired,
   and read for what they are", "the standalone party and raid frames are wired as group frames",
   "the header's own children are wired as group frames")은 이름 목록과 헤더 쓸어담기를 전제하니
-  지운다. 대신 하나를 세운다. **HoverCast가 꺼진 EUI**는 단일 개체창과 공격대 프레임을
-  `ClickCastFrames[frame] = true`로 넘기므로(`EUI_RaidFrames_ClickCast.lua`의 `AddFrameToClickCast`,
-  `EllesmereUIUnitFrames.lua`의 `SetupUnitMenu`), 그 문으로 온 행이 있고 종류가 유닛에서 읽혀
-  있는지 본다. `applies`는 EUI가 로드됐고 `_G._ERF_IsHoverCastEnabled()`가 거짓일 때.
+  지웠다. 대신 단일 개체창 하나만 세웠다("the single unit frames arrive through the Clique door",
+  `applies`는 EUI가 로드됐고 `_G._ERF_IsHoverCastEnabled()`가 거짓일 때). 공격대 프레임은
+  `AddFrameToClickCast`로 넘어오는 것까지는 확인했지만 프레임 이름을 모르고, 이름 없이 걷으면
+  무엇을 먹여도 통과하는 케이스가 되어 안 넣었다. 이름을 확인하면 같은 자리에 붙는다.
+- 계획에 없던 것 둘. `tests/unitwatch_spec.lua`의 "our own headers are not collected as click-cast
+  frames"와 "a foreign group header still yields its children"도 헤더 쓸어담기를 전제하니 같이
+  지웠다. `Debind/FrameRegistry.lua`의 `UNIT_FRAMETYPES` 위 주석 중 "헤더 문이 이 읽기를
+  이긴다"고 하던 문단과 `RegisterFrame`의 `told` 위 문단은 헤더 문을 근거로 삼고 있었으니 다시
+  썼다.
 - `0-DIARY.md`의 2026-09-05 치는 이 문서와 함께 착수 전 문서 커밋에 이미 들어가 있다. 여기서 더 쓸 것은 없다.
 
 ### 3. `hoverLeaveTaken` 장치를 걷어낸다
@@ -127,109 +137,113 @@ diff를 읽는다(`node tools/check-snippet-golden.js --update`, `lua5.1 tests/r
 `07867c6`과 `680fc91`이 넣은 것 전부. `git show 07867c6 680fc91 --stat`으로 대조한다.
 
 - `Debind/FrameRegistry.lua`: `_hoverLeaveTaken`, `WriteHoverLeaveTaken`,
-  `DebindPrivate.RestoreHoverLeaveTaken`, `MarkWrappedOver`(`OnSecureWrap`은 4단계의 트리거로 남기고 그 안의 `MarkWrappedOver` 호출만 뺀다), `OURS_WRAPPED`,
+  `DebindPrivate.RestoreHoverLeaveTaken`, `MarkWrappedOver`, `OURS_WRAPPED`,
   `_warnedWrappedOver`, `WarnWrappedOver`, `RegisterFrame` 끝의
-  `RestoreHoverLeaveTaken` 호출과 그 주석, `_hoverWrapped` 위 주석 중 이 장치를 가리키는 부분.
+  `RestoreHoverLeaveTaken` 호출과 그 주석. `OnSecureWrap`과 그 훅도 같이 뺐다. 계획은 4단계의
+  트리거로 남기라고 했지만 4단계의 트리거는 `DebindCliqueFake`에 서는 것이라, 여기 남기면
+  아무것도 안 하는 훅이 한 단계 동안 서 있게 된다.
 - `Debind/SecureBindings.lua`: `GetHoveredUnit`(Clique 아닌 쪽)의 `hoverLeaveTaken` 분기와
   `mouseover` 폴백, 그 위 주석. `EvalClickCastFrame`과 클릭 pre 본문의
   `evalFrame.hoverLeaveTaken` 분기 둘. 남는 본문이 `States.unitframe.unit`만 돌려주는 꼴이 된다.
 - `Debind/UpdateBindings.lua`: 폴링 스니펫의 `unitframe.hoverLeaveTaken and not UnitExists("mouseover")`
   분기와 그 위 주석 블록. `DebindPrivate.hoverIsRead`는 `WarnWrappedOver`만 읽으니 같이 뺀다.
-- `Debind/Locales/enUS.lua`, `koKR.lua`: `WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE`.
+- `Debind/Locales/enUS.lua`, `koKR.lua`: `WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE`. ruRU에는
+  없었다.
 - `DebindDev/Probe_HoverLeaveTaken.lua` 파일 삭제(TOC엔 이미 없다).
-- 골든 둘 다시 뜨기. `tools/snippet-golden.txt`에 `hoverLeaveTaken`이 여섯 군데 있으니 diff에서
-  그것만 사라졌는지 본다.
+- 골든 셋 다시 떴다. `tools/snippet-golden.txt`의 여섯 군데만 사라졌고, `tests/emit-golden.txt`와
+  `tests/emit-shipped-golden.txt`는 그 분기가 빠지면서 남은 몸이 한 단 왼쪽으로 온 것뿐이다.
+  shipped 쪽은 `lua5.1 tests/run.lua --shipped --update-golden`으로 따로 떠야 한다.
 - `CHANGELOG.md`의 3.5.2 문단은 이미 나간 버전의 기록이라 손대지 않는다. 새 노트(6단계)에서
   되돌렸다고 쓴다.
 
 ### 4. 되찾기를 "홀더의 프록시에 훅"으로 바꾼다
 
-전부 `DebindCliqueFake/DebindCliqueFake.lua`다.
+거의 전부 `DebindCliqueFake/DebindCliqueFake.lua`다.
 
-- **`Claim()`을 둘로 가른다.** 전역이 없거나 메타테이블이 없는 표면 지금처럼 우리 프록시를 세우고
-  `Adopt`한다. 메타테이블이 있고 우리 것이 아니면 `Hook(previous)`로 간다. 로드 때와
-  `PLAYER_ENTERING_WORLD`, `PLAYER_REGEN_ENABLED`에서 같은 함수를 부르되, 이름은
-  `ReclaimClickCastFrames`에서 `AttachClickCastFrames` 같은 것으로 바꾼다. 되찾는 일이 없어졌으니
-  이름이 거짓말을 하면 안 된다.
-- **`Hook(proxy)`.** `getmetatable(proxy)`가 `nil`이면(`__metatable`로 잠김) 아무것도 안 하고 돌아간다.
-  이미 감싼 메타테이블이면(약한 표에 표시) 돌아간다. 아니면 `mt.__newindex`를 우리 함수로 바꾼다.
-  우리 함수는 원래 `__newindex(t, frame, value)`를 먼저 부르고, `value`가 `nil`/`false`면
-  `DebindPublic:UnregisterFrame(frame)`, 아니면 `proxy[frame]`(원래 `__index`)을 읽어 `true`면
-  `deferred[frame] = true`로 적고 물러나고, `nil`이면 `DebindPublic:RegisterFrame(frame, value)`.
-  `__index`는 건드리지 않는다. 원래 `__newindex`가 없는 프록시(순수 `__index`만 있는 것)는 쓰기가
-  rawset으로 떨어지니 감쌀 것이 없고, 그 표는 평범한 표처럼 `Adopt`한다.
-- **되묻기.** `deferred`는 약한 키 표. `PLAYER_ENTERING_WORLD`와 `PLAYER_REGEN_ENABLED`에서 프록시가
-  우리 것이 아니면, `deferred`의 프레임과 `ccframes`에 행이 있으면서 `hd`가 아닌 프레임에 대해
-  `proxy[frame]`을 다시 읽는다. `deferred`에 있는데 `nil`이 됐으면 등록하고 `deferred`에서 뺀다.
-  행이 있는데 `true`가 됐으면 해제하고 `deferred`에 넣는다. 전투 중엔 어차피 이 자리에 안 온다.
-- **트리거.** 홀더가 프레임을 잡고 놓는 순간을 블리자드 함수로 듣는다. 전역
-  `SecureHandlerWrapScript`와 `SecureHandlerUnwrapScript`에 `hooksecurefunc`를 건다(메서드 꼴
-  `header:WrapScript`도 `SecureHandlers.lua`의 `SecureHandlerMethod_WrapScript`가 호출 시점에 전역
-  이름으로 부르니 같이 잡힌다). 훅에서는 프레임이 우리가 아는 것(`ccframes` 행 또는 `deferred`)이고
-  헤더가 `BindingDriver`가 아닐 때만, `C_Timer.After(0)`으로 그 프레임 하나의 되묻기를 건다. 그
-  되묻기 앞에서 전역의 메타테이블이 바뀌었으면 `Hook`을 먼저 붙인다. 이 훅은 3단계에서 나가는
-  `OnSecureWrap`과 자리가 같지만 하는 일이 다르다(표시가 아니라 되묻기). 전투 중이면 걸지 않고
-  `PLAYER_REGEN_ENABLED`의 되묻기에 맡긴다. 애드온 이름도 프레임 이름도 안 본다.
-- **홀더가 놓을 때 `UnwrapScript`를 부르는 것이 "잡힌 등록은 물러난다"를 필수로 만든다.** EUI의
-  `DoUnregisterFrame`은 `header:UnwrapScript(frame, "OnEnter"/"OnLeave")`를 부르고, 그건 맨 위
-  래퍼를 뗀다. 우리가 그 위에 감싸 있었다면 우리 래퍼가 떨어지고 `_hoverWrapped`는 여전히 감싼
-  줄 안다. 홀더가 잡은 프레임에 우리가 올라가지 않는 것이 그 사고를 막는 유일한 길이다.
-- `Debind/Events.lua`: 두 이벤트의 호출을 새 이름으로. 주석은 "이름을 되찾는다"가 아니라 "홀더가
-  버린 등록을 받는다"로 다시 쓴다.
-- **남기는 것.** 로드 때 `Claim()`, `Adopt`, `ccframesMeta`, `registered`.
-- 헤드리스 `tests/`: `ReclaimClickCastFrames`를 부르는 스펙을 새 이름으로 바꾸고, 다음을 더한다.
-  메타테이블이 걸린 표를 만나면 갈아 끼우지 않는 것, 그 프록시에 `true`를 쓰면 홀더의 `__index`가
-  `true`를 줄 때는 행이 안 생기고 `nil`을 줄 때는 생기는 것, `nil` 쓰기가 행을 지우는 것,
-  `__metatable`이 잠긴 표엔 손대지 않는 것, 되묻기가 `true`에서 `nil`로 바뀐 프레임을 등록하는 것.
-  그리고 `SecureHandlerWrapScript`/`UnwrapScript`를 남의 헤더로 직접 불렀을 때 다음 틱에 그 프레임이
-  되물어지는 것. 첫 셋은 지금 코드에서 **빨갛게 나와야 한다**(지금은 갈아 끼운다).
-- `/debtest`: EUI가 로드됐고 HoverCast가 켜져 있을 때(`_G._ERF_IsHoverCastEnabled()`), 전역의
-  메타테이블이 우리 것이 아닌 채로 남아 있는 것과, 테스트 프레임을 `ClickCastFrames[f] = true`로
-  넣었을 때 EUI가 안 잡으면 우리 행이 생기고 잡으면 안 생기는 것.
+- **`Claim()`이 `AttachClickCastFrames`가 됐다.** 전역이 없거나 메타테이블이 없는 표면 지금처럼
+  우리 프록시를 세우고 `Adopt`한다. 메타테이블이 있으면 `Hook(previous)`로 가고 전역은 그대로 둔다.
+  `__metatable`로 잠긴 표는 `getmetatable`이 표를 안 주므로 아무것도 안 하고 돌아간다.
+- **`Hook(proxy)`.** 이미 감싼 메타테이블이면(약한 표 `hooked`) 돌아간다. 아니면 `__newindex`를
+  우리 함수로 바꾼다. 우리 함수는 원래 것을 먼저 부르고(함수면 호출, 표면 그 표에 쓰기, 없으면
+  `rawset`), `nil`/`false`면 우리 해제로 흘리고, 아니면 `offered[frame]`에 적고 `AskHolder`로 간다.
+  `__index`는 안 건드린다.
+- **`AskHolder(frame)`.** `holder[frame]`이 참이면 그쪽이 잡은 것이라 `deferred`에 적고 물러난다.
+  `nil`이면 적어만 두고 버린 것이라 `offered[frame]`으로 등록한다.
+- **계획과 갈린 것 하나.** 계획은 `__newindex`가 없는 프록시를 "평범한 표처럼 `Adopt`"하라고 했다.
+  대신 `Hook`이 그런 표도 받아서 `__newindex`를 새로 얹고(원래 자리는 `rawset`), 표 안에 이미 있던
+  행은 `pairs`로 돌며 `AskHolder`에 넣는다. 규칙이 하나로 서고, 새 키 쓰기를 우리가 듣게 된다.
+  `Adopt`를 그대로 쓰면 홀더가 잡은 프레임까지 우리가 가져간다.
+- **되묻기 `AskHolderAgain`.** `deferred`의 프레임과 `ccframes`의 `hd` 아닌 행을 전부 `AskHolder`에
+  다시 넣는다. 전투 중이면 통째로 물러난다.
+- **트리거 `OnHolderWrap`.** 전역 `SecureHandlerWrapScript`와 `SecureHandlerUnwrapScript`에
+  `hooksecurefunc`. 우리가 아는 프레임(`offered`·`deferred`·`ccframes`)이고 헤더가 우리 것이
+  아닐 때만 `C_Timer.After(0)`으로 그 프레임 하나를 되묻는다. 되묻기 앞에서
+  `AttachClickCastFrames`를 먼저 불러 세션 중에 전역이 바뀐 경우를 잡는다. 전투 중엔 안 건다.
+  참고: `SecureHandlerUnwrapScript`는 인자가 둘이라 헤더가 `nil`로 온다. 우리 헤더 판정은 wrap
+  쪽에서만 걸린다.
+- `Debind/Events.lua`: 세 자리의 호출을 새 이름으로. `PLAYER_ENTERING_WORLD`와
+  `PLAYER_REGEN_ENABLED`에는 `AskHolderAgain()`을 붙였다. `PLAYER_LOGIN` 쪽은 아직 아무도 프레임을
+  안 준 시점이라 붙이지 않았다.
+- **남긴 것.** 로드 때 `AttachClickCastFrames()`, `Adopt`, `ccframesMeta`, `registered`.
+- 헤드리스: 새 파일 `tests/holder_spec.lua`. `tests/run.lua`가 이 스펙에만 `Public.lua`와
+  `DebindCliqueFake`를 얹는다(`cliqueFake = true`). 둘을 매 스펙에 얹으면 `SecureHandlerWrapScript`
+  훅이 상관없는 스펙 앞에 서게 된다. `tests/wow_shim.lua`에 `SlashCmdList`를 심었다. `Public.lua`가
+  로드 때 거기에 쓴다. 열두 케이스이고, 그중 여덟이 옛 규칙(전역을 무조건 갈아 끼우기)에서
+  빨갛게 나오는 것을 확인했다.
+- `/debtest`: "Click-cast table: the name comes back, and twice is not twice"를 "the holder keeps
+  the name and we take what it drops"로 갈아 썼다. 이름을 안 되찾는 것, 홀더가 잡은 프레임엔 행이
+  안 생기는 것, 버린 프레임엔 생기는 것, `nil` 쓰기가 행을 지우는 것. 그리고 EUI용으로 "HoverCast
+  on leaves the name with the pack"을 세웠다.
 
 ### 5. 내부 해제 호출 정리와 큐 하나로 합치기
 
 - `Debind/FrameRegistry.lua` `RegisterFrame`: `if (DebindPrivate.ccframes[button]) then
-  UnregisterFrame(button) end`를 뺀다. 행은 그 아래에서 어차피 새로 쓴다. 보안 쪽 `InitFrame`은
-  `ccframes[button] = ccframes[button] or newtable()`이라 기존 행을 재사용하고 `frameType`을
-  덮어쓴다. `hd` 행에는 이 자리까지 오지 않는다(`seen.hd`면 위에서 돌아간다).
-- `registerBlizzardFrame`: `else DebindPrivate.UnregisterFrame(frame)` 분기를 뺀다. 체크를 끄면 다음
+  UnregisterFrame(button) end`를 뺐다. 행은 그 아래에서 어차피 새로 쓴다.
+- `registerBlizzardFrame`: `else DebindPrivate.UnregisterFrame(frame)` 분기를 뺐다. 체크를 끄면 다음
   로그인부터 등록하지 않는다.
-- `Debind/DropDownMenus.lua` 블리자드 개체창 체크박스 일곱 개: `SetInstructionTooltip`으로 클라이언트
-  문자열 `REQUIRES_RELOAD`("다시 불러오기 필요")를 단다. 우리 문자열을 새로 만들지 않는다.
-  체크박스 콜백의 `UpdateBlizzardFrames()` 호출은 켤 때 즉시 등록되게 그대로 둔다.
-- **큐를 하나로.** `Debind/Events.lua` `PLAYER_REGEN_ENABLED`가 `RegisterQueue`를 다 비우고 나서
-  `UnregisterQueue`를 비우므로, 전투 중에 해제 뒤 재등록이 오면 등록이 먼저 처리되고(행이 있어
-  그대로 통과) 해제가 나중에 처리되어 결국 행이 사라진다. `FrameRegistry.lua`의 두 큐를
-  `{ op, button, type }` 항목 하나의 큐로 합치고 들어온 차례대로 처리한다. `RegisterClickQueue`는
-  별개라 그대로.
-- 헤드리스: "a frame offered in combat is queued rather than written off" 옆에, 전투 중 "해제 뒤
-  등록"과 "등록 뒤 해제"가 각각 마지막 말대로 끝나는지 두 케이스. 첫 것은 지금 코드에서
-  **빨갛게 나와야 한다.**
-- `/debtest`: 같은 두 순서를 실제 락다운 없이 `InCombatLockdown`을 흉내 낼 수 없으니 헤드리스에
-  맡기고, 킷에는 블리자드 토글을 껐다 켰을 때 행이 생기는 것만 둔다.
+- `Debind/DropDownMenus.lua`: 블리자드 개체창 항목에 `SetInstructionTooltip`으로 클라이언트 문자열
+  `REQUIRES_RELOAD`를 달았다. 체크박스 일곱 개마다가 아니라 그 일곱을 담은 항목 하나에 단다.
+  드롭다운 체크박스는 툴팁 자리를 안 받고, 일곱 번 같은 말을 다는 것도 아니다.
+- **큐를 하나로.** `RegisterQueue`와 `UnregisterQueue`가 `FrameQueue` 하나가 됐다. 항목은
+  `{ op, button, type }`이고 들어온 차례대로 처리한다. `RegisterClickQueue`는 별개라 그대로.
+- **계획이 못 본 것.** 순서만 합쳐서는 안 됐다. 전투 중에는 행(`ccframes`)이 의도를 안 담는다.
+  해제는 행을 남긴 채 큐에만 들어가므로 뒤이은 등록이 "행이 이미 있다"며 조용히 돌아갔고, 등록은
+  행을 안 만드니 뒤이은 해제가 "행이 없다"며 아무것도 안 했다. 그래서 프레임마다 마지막으로 큐에
+  들어간 말을 `_queued`(약한 키)에 들고, 그 두 관문이 행보다 이것을 먼저 읽는다. 큐를 비울 때
+  같이 비운다. 두 케이스 다 이 장치 없이는 빨갛게 나오는 것을 봤다.
+- 헤드리스 `tests/frames_spec.lua`: "a frame offered in combat is queued rather than written off"를
+  `FrameQueue`로 고치고, 전투 중 "해제 뒤 등록"과 "등록 뒤 해제"를 더했다. `throughCombat` 헬퍼가
+  `PLAYER_LOGIN`을 먼저 쏜다. `PLAYER_REGEN_ENABLED` 등록이 로그인 핸들러 안에 있어서, 안 쏘면
+  큐가 안 비워지고 두 케이스가 아무것도 안 재고 초록으로 나온다. 그래서 헬퍼가 끝에 큐가 비었는지도
+  본다.
+- `/debtest`: "Blizzard frames: unticking a box leaves the frame wired until the next login". 껐을 때
+  행이 남는 것과 다시 켰을 때 행이 있는 것. 전투 중 두 순서는 락다운을 흉내 낼 수 없어 헤드리스에
+  맡긴다.
 
 ### 6. 팝업과 릴리스 노트
 
-- `Debind/DebindUI.lua`의 `StaticPopupDialogs["DEBIND_APPROVE_ALL_OCCUPIED"]` 모양을 따라
-  `DEBIND_UNIT_FRAME_NOTICE`를 만든다. `button1 = OKAY`(클라이언트 문자열), `button2`는 "다시 보지
-  않기"인데 클라이언트에 그 말이 있으면 그것을 쓴다(`reference/globalstrings/`에서 `NEVER_SHOW`,
-  `DONT_SHOW` 계열을 먼저 찾는다). `wide = 1`.
-- 본문은 `Locales/enUS.lua`에만 넣는다(`check:locales`는 빠진 키를 enUS로 채우니 실패하지 않는다).
-  문안은 아래 §팝업 문안 그대로.
-- **기존 사용자에게만.** `Debind/Profile.lua` `InitDB`에서 `_G.DebindVars`가 없어 새로 만드는 경우
-  `db.unitFrameNoticeSeen = true`를 같이 쓴다. 그 밖에는 필드가 없으니 `PLAYER_LOGIN`(`Events.lua`,
-  `profileIsNewer` 검사 뒤)에서 `not db.unitFrameNoticeSeen`이면 띄운다. "다시 보지 않기"만 그
-  필드를 `true`로 쓰고, 확인은 닫기만 한다.
-- `README.md`: 26행 "Unit frame addons that support Clique already work with it"에 Clique 자체는
-  꺼져 있어야 한다는 말을 붙인다. 121행 "there's an entry on the unit right-click menu too"는
-  `5ab917c` 이후 거짓이니 뺀다. 163행 문단은 "Debind leaves unit frames to Clique"가 지금도 맞으니
-  두되, 팩이 자체 hover cast를 켜면 프레임을 가져간다는 문장을 더한다.
-- `CHANGELOG.md` 맨 위에 새 버전 문단. 내용은 §팝업 문안과 같은 사실을 노트 어투로. 3.5.2가 넣은
-  "다른 애드온이 감싼 프레임에서 mouseover로 답한다"가 되돌아갔다는 것도 한 줄.
-- `.zzz/unit-frame-discovery.md` 상태 줄에 "2026-09-05 뒤집힘, `devdocs/leaving-unregistered-frames-alone.md`"를
-  붙인다. 본문은 그대로(조사 기록).
-- 이 문서를 `devdocs/legacy/`로 옮긴다.
+- `Debind/DebindUI.lua`에 `DEBIND_UNIT_FRAME_NOTICE`. `button1 = OKAY`,
+  `button2 = CONFIRM_POPUP_DONT_SHOW_AGAIN`(둘 다 클라이언트 문자열), `wide = 1`.
+  [확인]은 닫기만 하고 다음 로그인에 다시 뜬다. 필드를 쓰는 것은 두 번째 버튼뿐이다.
+- 본문은 `Locales/enUS.lua`에만. `UNIT_FRAME_NOTICE_TITLE`과 `UNIT_FRAME_NOTICE` 둘로 나눠 넣고
+  팝업이 `|n|n`으로 잇는다. §팝업 문안의 글머리표 두 개는 문단 둘로 폈다. 게임에는 목록이 없고,
+  줄 앞의 `-`는 대시다.
+- **기존 사용자에게만.** `Debind/Profile.lua` `InitDB`에서 `_G.DebindVars`가 없어 새로 만드는
+  경우에만 `db.unitFrameNoticeSeen = true`. 필드가 없는 프로필이 이 판 이전의 프로필이다.
+  `Events.lua`의 `PLAYER_LOGIN`이 `profileIsNewer` 검사 뒤에서 읽는다. 읽는 자리는
+  `DebindPrivate.db.global`이다. `DebindPrivate.db`는 `{ global, char }` 두 칸이라 계정 파일
+  최상단 필드는 `db.global` 밑에 있다.
+- 헤드리스 `tests/migration_spec.lua`에 둘: 없던 프로필을 새로 만들면 표시가 붙는 것(고치기 전에
+  빨갛다), 이미 있던 프로필은 안 붙는 것. `tests/wow_shim.lua`에 `StaticPopup_Show` 심을 넣었다.
+  띄운 것을 `world.popups`에 적기만 한다. `DebindUI.lua`가 헤드리스에 없어서 대화상자 자체는
+  못 본다.
+- `README.md`: 26행에 Clique 자체는 꺼야 한다는 말을 붙였다. 121행의 우클릭 메뉴 문장은 지우고
+  비전투/전투 차이로 갈아 썼다. 163행에는 팩이 자체 hover cast를 켜면 프레임을 가져간다는 문장을
+  더했다.
+- `CHANGELOG.md` 맨 위에 새 문단. **버전 번호는 소유자가 낼 때 정한다**(`cutting-a-release.md`).
+  지금 머리말은 `# 3.6`으로 적어 뒀고, 소유자가 다른 번호를 고르면 그 한 줄만 고치면 된다.
+- `.zzz/unit-frame-discovery.md` 상태 줄에 뒤집힘 표시를 붙였다. 본문은 그대로.
+- 이 문서를 `devdocs/legacy/`로 옮겼다.
 
 ## 팝업 문안
 
@@ -255,15 +269,22 @@ diff를 읽는다(`node tools/check-snippet-golden.js --update`, `lua5.1 tests/r
 
 ## 커버리지
 
-헤드리스가 드는 것: 종류 읽기(Clique 문의 `unknown` 행), 전투 중 큐 순서, `mouseover` 폴백의 값
-쪽, 래퍼를 안 떼는 것(`hover_spec` "등록을 풀어도 OnEnter/OnLeave 래퍼는 안 뗀다"), 스니펫 골든.
+헤드리스가 드는 것: 종류 읽기(Clique 문의 `unknown` 행), 전투 중 큐 순서와 마지막 말이 서는 것,
+`mouseover` 폴백의 두 갈래, 홀더의 프록시를 다루는 열두 가지(`holder_spec`), 팝업 표시가 기존
+프로필에만 없는 것, 래퍼를 안 떼는 것(`hover_spec` "등록을 풀어도 OnEnter/OnLeave 래퍼는 안
+뗀다"), 스니펫 골든.
 
-`/debtest`가 드는 것: HoverCast가 꺼진 EUI 프레임이 Clique 문으로 오는 것, 등록 안 된 프레임 위의
-비전투 custom target 지정과 전투 중 실패 메시지, 블리자드 토글을 켰을 때의 등록.
+`/debtest`가 드는 것: HoverCast가 꺼진 EUI 프레임이 Clique 문으로 오는 것, HoverCast를 켠 EUI가
+이름을 쥐고 있는 것, 남의 프록시 뒤에 서서 버린 프레임만 받는 것, 블리자드 토글을 껐다 켰을 때
+행이 남고 다시 서는 것.
 
 닿지 못하는 것: 세션 중에 EUI의 HoverCast나 `allFrames`를 껐다 켜는 전환. 킷은 EUI 설정을 바꾸지
 않으니, 그 전환을 듣는 훅과 되묻기는 헤드리스에서 `SecureHandlerWrapScript`를 직접 불러 잡는
-것까지다. 팝업이 기존 사용자에게만 뜨는 것도 새 계정 SavedVariables가 있어야 보여서 킷 밖이다.
+것까지다. 팝업이 화면에 그려지는 것도 킷 밖이다. `DebindUI.lua`가 헤드리스에 없어 헤드리스는
+띄우기로 한 결정까지만 보고, 킷에는 대화상자를 띄웠다 닫는 케이스를 안 세웠다. 전투 중 큐의 두
+순서도 락다운을 흉내 낼 수 없어 헤드리스에 남는다.
+`mouseover` 폴백이 실제 커서 아래에서 도는 것도 킷 밖이다. 킷은 커서를 못 옮기고, 게임이 세워 준
+`mouseover` 없이는 어느 갈래가 나올지가 킷 밖 상태에 달린다.
 
 ## EllesmereUI 9.1.6에서 확인한 것 (2026-09-05)
 

@@ -28,18 +28,6 @@ end
 DebindPrivate.UnitWatch             = UnitWatch;
 DebindPrivate.UnitWatchHeaders      = {};
 
---- Every group header this file makes, keyed by the header itself.
----
---- **`FrameRegistry.lua` needs to tell ours from everyone else's and cannot.** It hooks
---- `SecureGroupHeader_Update` to catch a header's children as the group gains them, and that hook
---- is handed whichever header the client just laid out -- ours included, because these are
---- `SecureGroupHeaderTemplate` too. Their children pass every gate `RegisterFrame` has, so without
---- this they register as click-cast frames.
----
---- Keyed by the frame rather than the alias because that is the question being asked, and because
---- the roster watcher below has no alias.
-DebindPrivate.OwnGroupHeaders       = {};
-
 
 SecureHandlerSetFrameRef(UnitWatch, "debind_driver", BindingDriver);
 SecureHandlerExecute(UnitWatch, [=[
@@ -248,7 +236,6 @@ end
     function CreateUnitWatchHeader(alias, numFrames, ...)
         local header = CreateFrame("Button", nil, nil, "SecureGroupHeaderTemplate");
         DebindPrivate.UnitWatchHeaders[alias] = header;
-        DebindPrivate.OwnGroupHeaders[header] = true;
         header:Hide();
 
         header:SetAttribute("alias", alias);
@@ -315,7 +302,6 @@ UnitWatch:SetAttribute("OnGroupRosterChanged", [==[
 
 do
     local header = CreateFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
-    DebindPrivate.OwnGroupHeaders[header] = true;
     header:SetAttribute("showParty", true);
     header:SetAttribute("showRaid", true);
     header:SetAttribute("showSolo", true);
@@ -445,7 +431,10 @@ local function DoResolveUnitToken(value)
         end
 
         -- target focus targettarget focustarget mouseover etc etc
-        local raidID = UnitInRaid(value);
+        --- `UnitInRaid` is marked SecretWhenUnitIdentityRestricted, and `mouseover` over a frame
+        --- we do not own in combat is exactly that: an index we cannot read is treated as not in
+        --- the raid rather than concatenated into a token.
+        local raidID = PlainOrNil(UnitInRaid(value));
         if (raidID) then
             return "raid" .. raidID, "group";
         elseif (UnitInParty(value)) then
@@ -612,21 +601,31 @@ do
         _changedAliases[alias].invalidating = value == false;
     end
 
+    --- Three causes wearing one failure, and the reader can act on a different thing in each.
+    ---
+    --- `value` is `mouseover` only where the hover slot was empty, which is a unit frame whose
+    --- addon kept it (the `_onattributechanged` body).
     function UnitWatch:OnSetCustomTargetFailed(alias, value, originalValue)
-        local resolvedUnit, unitType = DoResolveUnitToken(value);
-        if (resolvedUnit == false) then
-            DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT"], LLL["UNIT_" .. strupper(alias)], DebindPrivate.GetUnitFullName(value) or value));
-        else
-            if (InCombatLockdown()) then
-                local helpMessage;
-                if ((originalValue == "hover" or originalValue == "mouseover") and unitType) then
-                    helpMessage = rawget(LLL, "CUSTOM_TARGET_HELP_MESSAGE_" .. unitType:upper());
-                end
-                helpMessage = helpMessage or "";
-                DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"], LLL["UNIT_" .. strupper(alias)], value, helpMessage));
+        --- **Combat decides before anything is looked up, because in combat the lookup is not what
+        --- failed.** `DoResolveUnitToken` still answers under lockdown; what cannot happen is
+        --- handing that answer back, since writing `resolvedUnit` on a protected frame is refused.
+        --- So a unit it resolves perfectly well came out as "failed to set", naming a cause the
+        --- reader could do nothing about.
+        if (InCombatLockdown()) then
+            if (originalValue == "hover" and value == "mouseover") then
+                DebindPrivate.DisplayMessage(LLL["CUSTOM_TARGET_FRAME_NOT_OURS_IN_COMBAT"]);
             else
-                DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_FAILED"], LLL["UNIT_" .. strupper(alias)], value));
+                DebindPrivate.DisplayMessage(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"]);
             end
+            return;
+        end
+
+        --- `false` means the unit exists and no token points at it.
+        local resolvedUnit = DoResolveUnitToken(value);
+        if (resolvedUnit == false) then
+            DebindPrivate.DisplayMessage(LLL["CUSTOM_TARGET_UNSUPPORTED_UNIT"]);
+        else
+            DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_FAILED"], LLL["UNIT_" .. strupper(alias)], value));
         end
     end
 end
@@ -640,6 +639,13 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
                 unit = nil
 			elseif (unit == "hover") then
                 unit = debind_driver:RunAttribute("GetHoveredUnit")
+                -- The hover slot is filled by frames that were handed over; on every other unit
+                -- frame it stays empty. Out of combat ResolveUnitToken turns mouseover into a
+                -- token, so those frames still answer. In combat it cannot, and the value falls
+                -- through to OnSetCustomTargetFailed below.
+                if (not unit and UnitExists("mouseover")) then
+                    unit = "mouseover"
+                end
             end
 		end
 

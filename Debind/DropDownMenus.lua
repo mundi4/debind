@@ -147,6 +147,11 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
         unitframeDescription:CreateDivider();
 
         local framesDescription = unitframeDescription:CreateButton(LLL["BLIZZARD_UNIT_FRAMES"]);
+        --- **Turning one off takes effect at the next login, and the box has to say so.** A frame
+        --- is deregistered when its owner asks for it back, and Blizzard never asks; unticking a
+        --- box stops us registering that set from the next login rather than handing back what is
+        --- already wired. `REQUIRES_RELOAD` is the client's own words for that.
+        SetInstructionTooltip(framesDescription, REQUIRES_RELOAD);
         for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
             framesDescription:CreateCheckbox(LLL["BLIZZARD_UNIT_FRAMES_" .. strupper(frameType)], function()
                 return DebindPrivate.Options.blizzframes[frameType] ~= false;

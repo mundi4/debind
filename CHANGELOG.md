@@ -1,3 +1,17 @@
+# 3.6
+
+**Debind no longer goes looking for unit frames that no addon handed over.** Earlier versions found them anyway, by walking frame libraries, by matching frame names, and by reading a group header's children off the header. A frame that was never registered belongs to its addon, and taking it was not our place.
+
+So the hover condition and mouse button bindings on unit frames now work on the game's own unit frames, and on unit frame addons that register their frames through Clique support. Two things make that happen. Most unit frame addons register through Clique support only while their own hover cast feature is turned off, so if yours has one, turn it off. And if Clique itself is installed, disable it, since Debind answers in Clique's place and steps aside while Clique is running.
+
+**Set Custom Target while hovering still works on any unit frame out of combat.** It falls back to the unit the game says your cursor is on. In combat it works only on frames registered as above, and only on the player, pet, party, raid, boss and arena frames among them.
+
+**Another addon holding the `ClickCastFrames` name keeps it.** Debind used to take that name back, which lost the frames already written into the other table and left that addon writing where nobody reads. It now stands behind whoever holds it and takes only the frames that addon files and does not use.
+
+**What 3.5.2 added is gone with the rest.** Answering with `mouseover` on frames another addon had wrapped, and the line that said so at login, were both about frames Debind should not have been holding.
+
+**Unticking a Blizzard unit frame box no longer unwires the frame.** The box decides what Debind registers from the next login, and it says so.
+
 # 3.5.2
 
 **A key bound to hovering over a unit frame no longer keeps firing on a frame you have already left.** Some addons hook the same unit frames Debind does, and when one of them gets there after us, the game tells only that addon that the cursor has left. Debind never heard it, so the frame the cursor moved off stayed the answer, and the action kept landing on that frame's unit. Only the frames that addon had hooked were affected, and only bindings that hover.

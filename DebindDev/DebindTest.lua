@@ -3946,11 +3946,9 @@ RegisterTest("Switch override: the layer key carries this character", {
 -- pressing the key is the same door the action goes through (`*attribute-frame` is UnitWatch,
 -- `*attribute-name` is `custom1`).
 --
--- **And that door is why this stays.** The write lands on the UnitWatch header, and
--- `tests/restricted.lua` replays **only the driver's** bodies -- every other header has its own
--- managed environment in the game, and replaying its bodies into the driver's would put their
--- globals in the wrong table. So the one thing this measures is the one thing that harness declines
--- to have an opinion about.
+-- **What this holds that the harness does not** is the real rebuild. `tests/restricted.lua` replays
+-- UnitWatch's bodies too now, in an environment of their own, so what a custom target settles on is
+-- answered there -- but on a recording of the prologue rather than on the game running it.
 RegisterTest("Custom target survives a rebuild", {
     description = "An @custom1 that was set is still there after a rebuild",
     run = function()
@@ -4346,6 +4344,52 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
         end
 
         return Pass(NAME, "entering a frame whose registration was dropped empties the slot")
+    end,
+})
+
+-- **Unticking a Blizzard unit frame box does not hand the frame back.** Deregistering is the
+-- frame owner's to ask for, and Blizzard never asks; the box decides what we register from the
+-- next login, which is what `REQUIRES_RELOAD` on it says. The harness cannot answer this: the
+-- option table and the fixed frame list are both the running client's.
+RegisterTest("Blizzard frames: unticking a box leaves the frame wired until the next login", {
+    description = "블리자드 개체창 체크를 꺼도 이미 걸린 프레임은 그대로 있다",
+    run = function()
+        local NAME = "Blizzard frame toggle"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "registering a frame is blocked in combat")
+        end
+        if not PlayerFrame then
+            return Fail(NAME, "there is no PlayerFrame on this board")
+        end
+        if type(DebindPrivate.ccframes[PlayerFrame]) ~= "table" then
+            return Fail(NAME, format("the premise is gone: PlayerFrame is not registered (ccframes=%s)",
+                tostring(DebindPrivate.ccframes[PlayerFrame])))
+        end
+
+        local previous = DebindPrivate.Options.blizzframes.player
+        AddTeardown(function()
+            DebindPrivate.Options.blizzframes.player = previous
+            if not InCombatLockdown() then
+                DebindPrivate.UpdateBlizzardFrames()
+            end
+        end)
+
+        DebindPrivate.Options.blizzframes.player = false
+        DebindPrivate.UpdateBlizzardFrames()
+        if type(DebindPrivate.ccframes[PlayerFrame]) ~= "table" then
+            return Fail(NAME, "unticking the box took the frame back, which is not ours to do")
+        end
+
+        -- And ticking it again is what registers, so a board that starts with one off comes right
+        -- the moment the reader turns it on.
+        DebindPrivate.Options.blizzframes.player = true
+        DebindPrivate.UpdateBlizzardFrames()
+        if type(DebindPrivate.ccframes[PlayerFrame]) ~= "table" then
+            return Fail(NAME, "ticking the box back left the frame unregistered")
+        end
+
+        return Pass(NAME, "the frame stayed wired through both flips")
     end,
 })
 
@@ -5108,25 +5152,24 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
     end,
 })
 
--- **Another addon takes the name `ClickCastFrames`, and we take it back.** The harness cannot see
--- this: that table is stood up by `DebindCliqueFake`, which is only read once `DebindPublic` is
+-- **Another addon holds the name `ClickCastFrames`, and we stand behind it.** The harness cannot
+-- see this: that table is stood up by `DebindCliqueFake`, which is only read once `DebindPublic` is
 -- there, and the runner loads neither.
 --
--- Three questions. Does the name come back; does a frame handed over **before** the theft still
--- answer afterwards (which is why the store lives outside the table); and is a second reclaim
--- harmless. The last one is the quiet one: putting a fresh table over a name that is already ours
--- throws away everything taken so far, and the `nil` another addon writes to reclaim a frame then
--- reaches nothing.
-RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
-    description = "We take ClickCastFrames back when someone else has it, and calling twice after that is not twice",
+-- Three questions, and they are the three the rule turns on. Is the holder's table left where it
+-- is; does a write it keeps for itself leave us with no row; and does a write it files and drops
+-- reach us. The last is the whole point: a frame the holder wrote down and attached nothing to has
+-- nobody answering its clicks, and that is the one that is ours to take.
+RegisterTest("Click-cast table: the holder keeps the name and we take what it drops", {
+    description = "We hook someone else's ClickCastFrames instead of taking it back, and register only what they leave",
     run = function()
-        local NAME = "ClickCastFrames reclaim"
+        local NAME = "ClickCastFrames holder"
 
         if InCombatLockdown() then
             return Fail(NAME, "registering a frame is blocked in combat")
         end
-        if not DebindPrivate.ReclaimClickCastFrames then
-            return Fail(NAME, "DebindCliqueFake did not come up, there is no name to take back on this board")
+        if not DebindPrivate.AttachClickCastFrames then
+            return Fail(NAME, "DebindCliqueFake did not come up, there is no name to stand behind on this board")
         end
 
         local ours = _G.ClickCastFrames
@@ -5135,42 +5178,48 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
         end
         AddTeardown(function() _G.ClickCastFrames = ours end)
 
-        -- One frame in through our door before the theft. `CreateTestUnitFrame` calls
-        -- `RegisterFrame` outright, so the write below is what goes through the table.
-        local frame, err = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
-        if not frame then return Fail(NAME, err) end
-        _G.ClickCastFrames[frame] = true
-        if not _G.ClickCastFrames[frame] then
-            return Fail(NAME, "a frame put into the table does not read back, somebody else's sweep cannot pass through us")
-        end
-
-        -- Somebody puts their own proxy over it, in the shape the real one has: a fresh table, a
-        -- store of its own in an upvalue, no chaining.
+        -- A holder in the shape the real ones have: a store of its own in an upvalue, and an
+        -- `__index` that answers for the frames it decided to keep.
+        local kept = {}
         local theirs = setmetatable({}, {
-            __index = function() return nil end,
+            __index = function(_, frame) return kept[frame] end,
             __newindex = function() end,
         })
         _G.ClickCastFrames = theirs
 
-        DebindPrivate.ReclaimClickCastFrames()
-        local reclaimed = _G.ClickCastFrames
-        if reclaimed == theirs then
-            return Fail(NAME, "the name was not taken back, every registration after this goes into somebody else's table")
-        end
-        if not reclaimed[frame] then
-            return Fail(NAME, "the table we took back forgot the frames taken in before it was lost")
+        DebindPrivate.AttachClickCastFrames()
+        if _G.ClickCastFrames ~= theirs then
+            return Fail(NAME, "the holder's table was replaced, which loses every frame already written into it")
         end
 
-        -- And on a name that is already ours, nothing at all should happen.
-        DebindPrivate.ReclaimClickCastFrames()
-        if _G.ClickCastFrames ~= reclaimed then
-            return Fail(NAME, "a table was put on a name that is already ours, which throws away the list taken in")
-        end
-        if not _G.ClickCastFrames[frame] then
-            return Fail(NAME, "the second reclaim cleared the frames taken in")
+        -- The frame the holder keeps. `kept` is what its `__index` answers out of, so writing it
+        -- there first is that addon deciding before the write comes back to us.
+        local mine, err1 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        if not mine then return Fail(NAME, err1) end
+        DebindPrivate.UnregisterFrame(mine)
+        kept[mine] = true
+        _G.ClickCastFrames[mine] = true
+        if DebindPrivate.ccframes[mine] then
+            return Fail(NAME, "we took a frame the holder answers for, so both engines fire on one click")
         end
 
-        return Pass(NAME, "taken back, what was taken in was kept, and the second time is a no-op")
+        -- And the frame it filed and dropped.
+        local dropped, err2 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        if not dropped then return Fail(NAME, err2) end
+        DebindPrivate.UnregisterFrame(dropped)
+        _G.ClickCastFrames[dropped] = true
+        if type(DebindPrivate.ccframes[dropped]) ~= "table" then
+            return Fail(NAME, format("a frame the holder dropped never reached us (ccframes=%s)",
+                tostring(DebindPrivate.ccframes[dropped])))
+        end
+
+        -- A deregistration is honoured wherever it comes from.
+        _G.ClickCastFrames[dropped] = nil
+        if DebindPrivate.ccframes[dropped] then
+            return Fail(NAME, "a nil write did not take the frame back off us")
+        end
+
+        return Pass(NAME, "the name was left alone, the kept frame stayed theirs and the dropped one came to us")
     end,
 })
 
@@ -5178,16 +5227,14 @@ RegisterTest("Click-cast table: the name comes back, and twice is not twice", {
 -- Another pack's unit frames
 -----------------------------------------------------------
 
--- **Only a board with that pack installed can answer this**, which is the whole reason these are
--- here. `tests/frames_spec.lua` covers what the doors do with a frame handed to them; what no
--- harness can say is whether the pack still calls a door we listen on, still names its frames what
--- the list says, and still builds them by the time a run happens. Those three are the only ways
--- this can break, and all three are somebody else's file.
+-- **Only a board with that pack installed can answer this**, which is the whole reason it is here.
+-- `tests/frames_spec.lua` covers what the Clique door does with a frame handed to it; what no
+-- harness can say is whether the pack still hands its frames over with its own hover casting off,
+-- and still builds them by the time a run happens. Both are somebody else's file.
 --
--- **The pack is asked for by addon name and the frames by their own names**, because a name is the
--- only handle these frames have -- there is no protocol behind them (`FrameRegistry.lua`).
+-- **The pack is asked for by addon name and the frames by their own names**, because the frames
+-- come through a door that carries no kind, so a name is what pins which frame answered what.
 local EUI_UNITFRAMES_ADDON         = "EllesmereUIUnitFrames";
-local EUI_RAIDFRAMES_ADDON         = "EllesmereUIRaidFrames";
 
 local function EllesmereLoaded(addon)
     return function()
@@ -5237,10 +5284,9 @@ end
 --- Walks a list of `{ globalName, expectedFrameType }` and reports what it found.
 ---
 --- **A frame that is not there is not a failure**, and it is not a pass either. The pack builds
---- most of these only once the reader turns them on -- a boss frame when the encounter option is
---- set, a duplicate when somebody is picked -- so a board without them is an ordinary board. What
---- is reported instead is the count, and finding **none at all** is the failure: that is what a
---- door coming off looks like.
+--- some of these only once the reader turns them on -- a boss frame when the encounter option is
+--- set -- so a board without them is an ordinary board. What is reported instead is the count, and
+--- finding **none at all** is the failure: that is what the door coming off looks like.
 local function CheckNamedFrames(NAME, entries)
     local checked, missing, faults = {}, {}, {};
     for i = 1, #entries do
@@ -5272,12 +5318,27 @@ local function CheckNamedFrames(NAME, entries)
     return Pass(NAME, detail);
 end
 
--- **The kind is read off these**, because each stands for one unit and carries it before anything
--- else touches it. So this pins the reading as much as the registration: a player frame that came
--- out a group frame would take the reader's party bindings.
-RegisterTest("EllesmereUI: the single unit frames are wired, and read for what they are", {
-    description = "EUI 개체창이 종류대로 등록되어 있다",
-    applies = EllesmereLoaded(EUI_UNITFRAMES_ADDON),
+-- **HoverCast off is what makes the pack hand frames over.** With its own hover casting turned
+-- off, EUI registers its single unit frames through the Clique shape (`SetupUnitMenu` in
+-- `EllesmereUIUnitFrames.lua`), which is a door with no field for the kind -- so this pins the
+-- reading as much as the arrival: a player frame that came out a group frame would take the
+-- reader's party bindings. With HoverCast on, the pack keeps its frames and there is nothing here
+-- to check, which is why the switch is in `applies` rather than in the run.
+RegisterTest("EllesmereUI: the single unit frames arrive through the Clique door", {
+    description = "HoverCast를 끈 EUI 개체창이 Clique 문으로 들어와 종류대로 읽혀 있다",
+    applies = function()
+        local ok, why = EllesmereLoaded(EUI_UNITFRAMES_ADDON)();
+        if (not ok) then
+            return false, why;
+        end
+        if (type(_G._ERF_IsHoverCastEnabled) ~= "function") then
+            return false, "the pack does not answer _ERF_IsHoverCastEnabled on this board";
+        end
+        if (_G._ERF_IsHoverCastEnabled()) then
+            return false, "HoverCast is on, so the pack keeps its frames and hands over none";
+        end
+        return true;
+    end,
     run = function()
         return CheckNamedFrames("EUI unit frames", {
             { "EllesmereUIUnitFrames_Player",       Constants.FRAMETYPE_PLAYER },
@@ -5295,79 +5356,66 @@ RegisterTest("EllesmereUI: the single unit frames are wired, and read for what t
     end,
 })
 
--- **The kind is declared for these**, so what this pins is the declaration reaching the frame. Two
--- of them would read as something else: the self slot holds `player` and the friendly-NPC frames
--- hold a boss token, and both are drawn in the party or raid block.
-RegisterTest("EllesmereUI: the standalone party and raid frames are wired as group frames", {
-    description = "EUI 파티 내 칸·아군 NPC 칸·복제본이 그룹 프레임으로 등록되어 있다",
-    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
-    run = function()
-        local entries = {
-            { "ERFPartySelfButton", Constants.FRAMETYPE_GROUP },
-        };
-        for i = 1, 5 do
-            entries[#entries + 1] = { "ERFFriendlyBoss" .. i, Constants.FRAMETYPE_GROUP };
+-- **The same rule against the pack that actually does this.** EUI puts its own proxy over the name
+-- when its hover casting is on, and from then on it decides frame by frame. What only a board can
+-- answer is whether that proxy still answers `__index` at all -- a table locked with `__metatable`,
+-- or one that files nothing, would leave every one of its frames reading as dropped.
+RegisterTest("EllesmereUI: HoverCast on leaves the name with the pack", {
+    description = "HoverCast를 켠 EUI가 ClickCastFrames를 쥐고 있고, 우리는 그 뒤에 선다",
+    applies = function()
+        local ok, why = EllesmereLoaded(EUI_UNITFRAMES_ADDON)();
+        if (not ok) then
+            return false, why;
         end
-        -- The duplicates are capped in the pack's own file and that number is not ours to keep, so
-        -- this walks until the names run out rather than up to a count written down here.
-        local i = 1;
-        while (_G["ERFExtraFrame" .. i]) do
-            entries[#entries + 1] = { "ERFExtraFrame" .. i, Constants.FRAMETYPE_GROUP };
-            i = i + 1;
+        if (type(_G._ERF_IsHoverCastEnabled) ~= "function") then
+            return false, "the pack does not answer _ERF_IsHoverCastEnabled on this board";
         end
-        return CheckNamedFrames("EUI standalone group frames", entries);
+        if (not _G._ERF_IsHoverCastEnabled()) then
+            return false, "HoverCast is off, so the pack hands its frames over and never takes the name";
+        end
+        return true;
     end,
-})
-
--- **The header children, which arrive through a different door entirely** -- the hook on
--- `SecureGroupHeader_Update`. They are here beside the standalone frames because the reader cannot
--- tell the two apart on screen: four slots of a party block come through the header and the fifth
--- does not, and that is exactly the shape of the fault that started all of this.
-RegisterTest("EllesmereUI: the header's own children are wired as group frames", {
-    description = "EUI 파티·공대 헤더 자식이 그룹 프레임으로 등록되어 있다",
-    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
     run = function()
-        local NAME = "EUI header children";
-        local HEADERS = { "ERFPartyHeader", "ERFFlatHeader",
-            "ERFGroupHeader1", "ERFGroupHeader2", "ERFGroupHeader3", "ERFGroupHeader4",
-            "ERFGroupHeader5", "ERFGroupHeader6", "ERFGroupHeader7", "ERFGroupHeader8" };
+        local NAME = "EUI holds ClickCastFrames"
 
-        local checked, faults, headersSeen = 0, {}, {};
-        for h = 1, #HEADERS do
-            local header = _G[HEADERS[h]];
-            if (header and header.GetAttribute) then
-                headersSeen[#headersSeen + 1] = HEADERS[h];
-                local i = 1;
-                while (true) do
-                    local child = header:GetAttribute("child" .. i);
-                    if (not child) then
-                        break;
-                    end
-                    local fault = CheckWiredFrame(child, HEADERS[h] .. " child" .. i,
-                        Constants.FRAMETYPE_GROUP);
-                    if (fault) then
-                        faults[#faults + 1] = fault;
-                    else
-                        checked = checked + 1;
-                    end
-                    i = i + 1;
-                end
+        if InCombatLockdown() then
+            return Fail(NAME, "registering a frame is blocked in combat")
+        end
+
+        local held = _G.ClickCastFrames
+        if type(held) ~= "table" then
+            return Fail(NAME, format("ClickCastFrames is not a table (%s)", type(held)))
+        end
+        if getmetatable(held) == nil then
+            return Fail(NAME, "the name carries a plain table, so the pack is not holding it and this case is standing in the wrong place")
+        end
+
+        local frame, err = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        if not frame then return Fail(NAME, err) end
+        DebindPrivate.UnregisterFrame(frame)
+
+        _G.ClickCastFrames[frame] = true
+        local answered = held[frame]
+        local row = DebindPrivate.ccframes[frame]
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                _G.ClickCastFrames[frame] = nil
             end
+        end)
+
+        if answered and row then
+            return Fail(NAME, "the pack took the frame and we took it too, so both engines fire on one click")
+        end
+        if not answered and type(row) ~= "table" then
+            return Fail(NAME, format("the pack dropped the frame and nobody picked it up (ccframes=%s)", tostring(row)))
         end
 
-        if (#headersSeen == 0) then
-            return Fail(NAME, "the pack's headers are not there under the names this test knows");
-        end
-        if (#faults > 0) then
-            return Fail(NAME, table.concat(faults, " | "));
-        end
-        if (checked == 0) then
-            return Fail(NAME, format("%d header(s) stood up and not one child is registered: %s",
-                #headersSeen, table.concat(headersSeen, ", ")));
-        end
-        return Pass(NAME, format("%d children wired across %s", checked, table.concat(headersSeen, ", ")));
+        return Pass(NAME, answered
+            and "the pack took the test frame and we stood down"
+            or "the pack dropped the test frame and we took it")
     end,
 })
+
 
 -- **Does the hook stand on a real secure frame.** What the harness sees is the rule: narrowed, we
 -- put it back (`tests/frames_spec.lua`). What only the game answers is whether hanging

@@ -66,26 +66,202 @@ local function Adopt(previous)
     end
 end
 
---- **Taking the global back.** The name belongs to whoever is answering for Clique, and a unit
---- frame addon that puts its own table over it is not Clique, and the ones that do it do it from
---- their own login handler. From then on every registration goes there and never reaches here,
---- theirs and every other addon's alike.
+---------------------------------------------------------------------------
+-- Somebody else holding the name
+---------------------------------------------------------------------------
+
+--- What was written for a frame, kept whether or not we ended up taking it. A re-ask that finds
+--- the holder has let go registers with the value the frame's owner offered rather than with a
+--- stand-in for it.
+local offered = setmetatable({}, { __mode = "k" });
+
+--- The frames the holder answered for, so we stood down. These are what a re-ask walks: a holder
+--- can let one go later (its own setting moves, its engine is turned off) and nothing tells us.
+local deferred = setmetatable({}, { __mode = "k" });
+
+--- The metatables whose `__newindex` we have already put ourselves after, so a second pass over
+--- the same proxy does not stack a second wrapper on it.
+local hooked = setmetatable({}, { __mode = "k" });
+
+--- The foreign table under the name, or nil while the name is ours.
+local holder;
+
+--- **The holder answers and we take what it did not.** `__index` is the question every addon
+--- already asks of this table, so asking it back is asking the holder what it decided rather than
+--- guessing from its name or its settings. Truthy is "mine": we stand down, and remember the frame
+--- so a later pass can ask again. Nil is a write it filed and dropped, which leaves the frame with
+--- nobody answering its clicks, and that is the one we take.
+local function AskHolder(frame)
+    if (not holder) then
+        return;
+    end
+    if (holder[frame]) then
+        deferred[frame] = true;
+        DebindPublic:UnregisterFrame(frame);
+    else
+        deferred[frame] = nil;
+        DebindPublic:RegisterFrame(frame, offered[frame] or true);
+    end
+end
+
+--- **After the holder, never instead of it.** The original runs first and gets the value
+--- untouched, so whatever the holder does with a registration it still does; the question is only
+--- asked of what it left behind.
 ---
---- **The sweep only ever finds anything on the first call.** A table someone else is holding is
---- their proxy, and a proxy keeps its frames in its own upvalues, so `pairs` over it yields
---- nothing. Real entries exist only in the plain table that was sitting under the name when this
---- file loaded, which is out of combat by definition. So no call after the first has protected
---- work to do, and there is nothing about lockdown for this to handle.
-local function Claim()
+--- A `nil` or `false` write is a deregistration, and one is honoured wherever it comes from -- the
+--- frame's owner is asking for it back and we have no claim on it.
+---
+--- **Only ever wrapped where there was a `__newindex` to wrap** (`Hook`), so the original always
+--- has somewhere to put the write and we never put one in the table ourselves. Doing that once
+--- meant the read below found our own value sitting there and every frame came back "theirs".
+local function WrapNewIndex(mt)
+    local original = mt.__newindex;
+    mt.__newindex = function(t, frame, value)
+        if (type(original) == "function") then
+            original(t, frame, value);
+        else
+            original[frame] = value;
+        end
+
+        if (value == nil or value == false) then
+            offered[frame] = nil;
+            deferred[frame] = nil;
+            DebindPublic:UnregisterFrame(frame);
+            return;
+        end
+
+        offered[frame] = value;
+        AskHolder(frame);
+    end;
+end
+
+--- **A proxy is not taken back, it is listened to.** The name belongs to whoever is answering for
+--- Clique, and a unit frame addon that puts its own table over it has said it is answering. Taking
+--- the name back does not bring the frames already written into the other table with it, and it
+--- leaves that addon writing into a table nobody reads -- so both engines end up on the same frame
+--- or neither does.
+local function Hook(previous)
+    local mt = getmetatable(previous);
+    if (type(mt) ~= "table") then
+        return;
+    end
+
+    -- **Set before the wrapped-already check, because the table can be replaced under one
+    -- metatable.** A holder that rebuilds its store hands us a new table on the same `mt`, and
+    -- returning early with `holder` left on the dead one asks a table nobody writes to any more.
+    holder = previous;
+    if (hooked[mt]) then
+        return;
+    end
+    hooked[mt] = true;
+    WrapNewIndex(mt);
+
+    -- Rows already in the table, put through the same question as a fresh write. A proxy that
+    -- keeps its store in an upvalue yields nothing here; one that files its writes in the table
+    -- itself yields the registrations that arrived before we were listening.
+    for frame in pairs(previous) do
+        AskHolder(frame);
+    end
+end
+
+--- **The name is taken only where nobody is holding it.** A plain table under the name is what
+--- Clique itself would have left, or nothing at all, and there is no other engine behind it to
+--- disagree with.
+---
+--- **A `__newindex` is what says somebody is holding it**, not a metatable. A table that carries
+--- one is intercepting every registration and therefore deciding about it, which is the thing
+--- `Hook` asks. A metatable without one intercepts nothing, so its writes were landing in the
+--- table anyway and there is no opinion to ask for: it is taken over like the plain table it
+--- behaves as.
+---
+--- **What `Adopt` sweeps is only ever a plain table.** A proxy keeps its frames in its own
+--- upvalues, so `pairs` over it yields nothing; real entries exist only in the table that was
+--- sitting under the name when this file loaded, which is out of combat by definition.
+local function AttachClickCastFrames()
     local previous = _G.ClickCastFrames;
     if (getmetatable(previous) == ccframesMeta) then
         return;
     end
 
+    -- **A table locked with `__metatable` is left entirely alone.** Its metamethods cannot be read,
+    -- and replacing what we cannot read is the reclaim under another name.
+    -- `and/or` cannot carry this: a table locked with `__metatable = false` answers `false`, and
+    -- `x and false or nil` is `nil`, which reads as "no metatable at all" and takes the name.
+    local mt;
+    if (type(previous) == "table") then
+        mt = getmetatable(previous);
+    end
+    if (mt ~= nil and type(mt) ~= "table") then
+        return;
+    end
+
+    if (type(mt) == "table" and mt.__newindex ~= nil) then
+        Hook(previous);
+        return;
+    end
+
+    holder = nil;
     _G.ClickCastFrames = setmetatable({}, ccframesMeta);
     Adopt(previous);
 end
 
-Claim();
+--- **Every frame we have an answer for, asked again.** A holder's decision can move without a
+--- write coming through: its own hover casting is switched on or off, or a frame it had passed on
+--- is picked up when the reader changes a setting. So the frames we stood down on and the frames
+--- we took are both put back to the holder.
+---
+--- **Out of combat only, and both callers are.** Registering and deregistering write through the
+--- API frame, which is protected; a re-ask under lockdown would queue every frame it touched.
+local function AskHolderAgain()
+    if (not holder or InCombatLockdown()) then
+        return;
+    end
+    for frame in pairs(deferred) do
+        AskHolder(frame);
+    end
+    for frame, row in pairs(DebindPrivate.ccframes) do
+        if (type(row) == "table" and not row.hd) then
+            AskHolder(frame);
+        end
+    end
+end
 
-DebindPrivate.ReclaimClickCastFrames = Claim;
+--- **Wrapping a script is the holder taking a frame, and unwrapping it is the holder letting go.**
+--- Those two calls are how any click-casting engine attaches and detaches, so hooking them is
+--- hearing the moment a decision moves without reading anybody's settings or any frame's name.
+--- The method form (`header:WrapScript`) reaches the same globals: `SecureHandlerMethod_WrapScript`
+--- calls them by name at the call (`SecureHandlers.lua`).
+---
+--- **A tick later, because the holder is mid-call.** The hook runs before the holder has finished
+--- deciding, so the answer read now is the one it is still writing.
+---
+--- **Combat is asked twice, once at each of those two moments.** The fight can start inside that
+--- one frame, and the re-ask would then queue the registration and put out "cannot register a unit
+--- frame in combat" over something the reader never did. Standing down loses nothing:
+--- `PLAYER_REGEN_ENABLED` asks about that frame again.
+local function OnHolderWrap(frame, _, header)
+    if (header == DebindPublic.header) then
+        return;
+    end
+    if (not (offered[frame] or deferred[frame] or DebindPrivate.ccframes[frame])) then
+        return;
+    end
+    if (InCombatLockdown()) then
+        return;
+    end
+    C_Timer.After(0, function()
+        if (InCombatLockdown()) then
+            return;
+        end
+        AttachClickCastFrames();
+        AskHolder(frame);
+    end);
+end
+
+hooksecurefunc("SecureHandlerWrapScript", OnHolderWrap);
+hooksecurefunc("SecureHandlerUnwrapScript", OnHolderWrap);
+
+AttachClickCastFrames();
+
+DebindPrivate.AttachClickCastFrames = AttachClickCastFrames;
+DebindPrivate.AskHolderAgain = AskHolderAgain;

@@ -5682,6 +5682,52 @@ StaticPopupDialogs["DEBIND_UNBIND_SCATTERS"] = {
 	whileDead = 1,
 };
 
+--------------------------------------------------------------------------------
+-- 개체창 안내창
+--------------------------------------------------------------------------------
+
+--- 이 판에서 바뀐 것을 로그인에 한 번 말하는 창. 자기 프레임인 이유와 버튼이 셋이 아닌 이유는
+--- XML에.
+DebindUnitFrameNoticeMixin = {};
+
+function DebindUnitFrameNoticeMixin:OnLoad()
+	-- `BasicFrameTemplate`이라 초상화가 없다. 제목도 `SetTitle`이 아니라 `TitleText`다.
+	self.TitleText:SetText(LLL["ADDON_NAME"]);
+	self:RegisterForDrag("LeftButton");
+	self:SetScript("OnDragStart", function() self:StartMoving(); end);
+	self:SetScript("OnDragStop", function() self:StopMovingOrSizing(); end);
+
+	self.Title:SetText(LLL["UNIT_FRAME_NOTICE_TITLE"]);
+	self.Body:SetText(format(LLL["UNIT_FRAME_NOTICE"], LLL["TYPE_SETCUSTOM"]));
+
+	self.OkayButton:SetText(OKAY);
+	self.OkayButton:SetScript("OnClick", function() self:Hide(); end);
+
+	self.DismissButton:SetText(CONFIRM_POPUP_DONT_SHOW_AGAIN);
+	self.DismissButton:SetScript("OnClick", function()
+		DebindPrivate.db.global.unitFrameNoticeSeen = true;
+		self:Hide();
+	end);
+end
+
+--- **Measured on show rather than fixed in the XML.** The body is long and every locale's is a
+--- different length, so a height written down here is one that clips the text in some language and
+--- leaves a gap in another. The font strings wrap at a fixed width, so their height is the answer.
+function DebindUnitFrameNoticeMixin:OnShow()
+	self:SetHeight(38 + self.Title:GetHeight() + 14 + self.Body:GetHeight() + 60);
+
+	-- **Where it was dragged to is not kept.** It can be moved out of the way of whatever is under
+	-- it, and that is all the dragging is for; the next login opens it where it opens, because a
+	-- window that comes back in the corner somebody shoved it into is a window they will miss.
+	self:ClearAllPoints();
+	self:SetPoint("CENTER", UIParent, "CENTER", 0, 120);
+end
+
+--- Called from `PLAYER_LOGIN`, and from nowhere else.
+function DebindPrivate.ShowUnitFrameNotice()
+	DebindUnitFrameNotice:Show();
+end
+
 --- Asked once for the whole batch, when accepting everything would take keys the reader is using.
 ---
 --- **Three answers and each names a winner**, which is what lets the reader read the set rather than

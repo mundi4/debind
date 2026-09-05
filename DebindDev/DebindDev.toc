@@ -1,4 +1,4 @@
-## Interface: 120000, 120001, 120005, 120007, 120100
+## Interface: 120000, 120001, 120005, 120007, 120100, 120105
 
 ## Title: Debind Dev
 ## Notes: Development-only addon for Debind: the in-game test kit, the written development profile, and one-shot probes.

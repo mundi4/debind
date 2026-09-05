@@ -732,27 +732,20 @@ SetAttribute <Frame#3> _onattributechanged =
   |     local unitframe = States.unitframe
   |     local unit = unitframe.frame:GetEffectiveAttribute("unit");
   |     if (UnitExists(unit)) then
-  |         if (unitframe.hoverLeaveTaken and not UnitExists("mouseover")) then
-  |             States.unitframe = nil
-  |             if (self:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
-  |                 DirtyFlags.unitframe = true
-  |             end
+  |         local reaction
+  |         if (PlayerCanAssist(unit)) then
+  |             reaction = 1
+  |         elseif (PlayerCanAttack(unit)) then
+  |             reaction = 2
   |         else
-  |             local reaction
-  |             if (PlayerCanAssist(unit)) then
-  |                 reaction = 1
-  |             elseif (PlayerCanAttack(unit)) then
-  |                 reaction = 2
-  |             else
-  |                 reaction = 4
-  |             end
+  |             reaction = 4
+  |         end
   | 
-  |             if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
-  |                 unitframe.unit = unit
-  |                 unitframe.reaction = reaction
-  |                 if (self:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
-  |                     DirtyFlags.unitframe = true
-  |                 end
+  |         if (unitframe.unit ~= unit or unitframe.reaction ~= reaction) then
+  |             unitframe.unit = unit
+  |             unitframe.reaction = reaction
+  |             if (self:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+  |                 DirtyFlags.unitframe = true
   |             end
   |         end
   |     elseif (unitframe.reaction) then

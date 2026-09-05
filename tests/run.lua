@@ -93,7 +93,7 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 --- counter the button names come off all start where the game starts them
 --- (`devdocs/legacy/going-headless-outside-the-ui.md` §10-1). A load is 9ms, so the whole list costs
 --- a fraction of one spec.
-local function loadAddons()
+local function loadAddons(withCliqueFake)
     local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
     "Snippets.lua",
@@ -128,6 +128,24 @@ local function loadAddons()
     --- above, because the shim has no `LoadAddOn` for it to run inside, so the half that points
     --- Debind back at the store is done here.
     DebindPrivate.Store = DebindStorage;
+
+    --- `Public.lua` and `DebindCliqueFake`, for the one spec that measures the door between them.
+    ---
+    --- **Asked for rather than always loaded.** `Public.lua` is in the TOC after `DebindUI.xml`
+    --- and nothing in the pipeline calls it; the fake is a separate LoadOnDemand addon Debind
+    --- opens only when Clique is absent. Loading both for every spec would put a `hooksecurefunc`
+    --- on `SecureHandlerWrapScript` in front of specs that have no reason to carry one.
+    ---
+    --- **The private table is parked on `_G` for the length of the load**, which is what
+    --- `Public.lua` itself does around its `LoadAddOn` call: the fake reads the global at its top.
+    if (withCliqueFake) then
+        shim.loadAddon(repoRoot .. "/Debind", { "Public.lua" }, DebindPrivate, loadOpts);
+        local previous = _G.DebindPrivate;
+        _G.DebindPrivate = DebindPrivate;
+        shim.loadAddon(repoRoot .. "/DebindCliqueFake", { "DebindCliqueFake.lua" }, {}, loadOpts);
+        _G.DebindPrivate = previous;
+    end
+
     return DebindPrivate, DebindStorage;
 end
 
@@ -185,6 +203,7 @@ local specs = {
     { name = "hover", path = root .. "/hover_spec.lua" },
     { name = "unitwatch", path = root .. "/unitwatch_spec.lua" },
     { name = "role", path = root .. "/role_spec.lua" },
+    { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
 };
 
 --- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is
@@ -204,7 +223,7 @@ for _, spec in ipairs(specs) do
     local chunk = assert(loadfile(spec.path));
     shim.resetWorld();
     require("wow_frames").reset();
-    local DebindPrivate, DebindStorage = loadAddons();
+    local DebindPrivate, DebindStorage = loadAddons(spec.cliqueFake);
     local result = chunk()(DebindPrivate, DebindStorage, ctx);
     totalPassed = totalPassed + result.passed;
     for _, f in ipairs(result.failures) do

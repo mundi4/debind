@@ -117,6 +117,12 @@ function Events.PLAYER_LOGIN()
     -- 사람에게만 보이는 안내가 된다.
     DebindPrivate.ShowMigrationDialogIfPending();
 
+    -- **Every login until they say otherwise.** Only the window's own dismiss button writes the
+    -- field, so closing it is "not now" and the notice keeps its one chance to be read.
+    if (not DebindPrivate.db.global.unitFrameNoticeSeen) then
+        DebindPrivate.ShowUnitFrameNotice();
+    end
+
     --- **In this tick, never on a timer.** A unit frame addon that runs its own click casting can
     --- put its own table over `ClickCastFrames`, and the ones that do it do it from their own
     --- handler for this same event. From then on every registration goes there instead of here,
@@ -133,24 +139,24 @@ function Events.PLAYER_LOGIN()
     ---
     --- **`PLAYER_ENTERING_WORLD` catches what this one is too early for.** It is a separate event,
     --- so it is dispatched after every addon's handler for this one, and it measured 156ms later
-    --- and still out of lockdown. Claiming in both places is the whole of the window.
-    if (DebindPrivate.ReclaimClickCastFrames) then
-        DebindPrivate.ReclaimClickCastFrames();
+    --- and still out of lockdown. Attaching in both places is the whole of the window.
+    if (DebindPrivate.AttachClickCastFrames) then
+        DebindPrivate.AttachClickCastFrames();
     end
 end
 
 --- Registered from `PLAYER_LOGIN` above, so the first one to arrive is the login's own. Also comes
 --- on every zone change, which costs a table read while the name is already ours.
 ---
---- **This is the moment all of these need.** Every addon's login handler has run, so the frames
+--- **This is the moment it needs.** Every addon's login handler has run, so the frames
 --- exist and whoever was going to take `ClickCastFrames` has taken it, and combat has not been
 --- re-applied yet, so a frame can still be wired. It is also the last such moment: after this the
 --- next one out of lockdown is `PLAYER_REGEN_ENABLED`, which is a fight away.
 function Events.PLAYER_ENTERING_WORLD()
-    if (DebindPrivate.ReclaimClickCastFrames) then
-        DebindPrivate.ReclaimClickCastFrames();
+    if (DebindPrivate.AttachClickCastFrames) then
+        DebindPrivate.AttachClickCastFrames();
+        DebindPrivate.AskHolderAgain();
     end
-    DebindPrivate.CollectOUFFrames();
 end
 
 function Events.PLAYER_LOGOUT()
@@ -168,25 +174,28 @@ function Events.PLAYER_PVP_TALENT_UPDATE()
 end
 
 function Events.PLAYER_REGEN_ENABLED()
-    --- **Before the queues, because it decides what is in them next time.** The login claim only
-    --- covers an addon that had taken `ClickCastFrames` by then; one that takes it later, or that
-    --- the user switches on mid-session, is caught here. Costs a table read and a metatable
-    --- comparison when the name is already ours, which is every other fight.
-    if (DebindPrivate.ReclaimClickCastFrames) then
-        DebindPrivate.ReclaimClickCastFrames();
+    --- **Before the queues, because it decides what is in them next time.** The login pass only
+    --- covers an addon that was holding `ClickCastFrames` by then; one that takes it later, or that
+    --- the user switches on mid-session, is caught here. The re-ask beside it is for the holder
+    --- that let a frame go without a write coming through, which its own setting moving does.
+    if (DebindPrivate.AttachClickCastFrames) then
+        DebindPrivate.AttachClickCastFrames();
+        DebindPrivate.AskHolderAgain();
     end
 
-    if (#DebindPrivate.RegisterQueue > 0) then
-        for i = 1, #DebindPrivate.RegisterQueue do
-            DebindPrivate.RegisterFrame(DebindPrivate.RegisterQueue[i][1], DebindPrivate.RegisterQueue[i][2]);
+    --- **In the order they arrived, which is why they share a queue.** A frame taken back and
+    --- offered again during one fight has two entries, and the last one is what its owner meant.
+    if (#DebindPrivate.FrameQueue > 0) then
+        for i = 1, #DebindPrivate.FrameQueue do
+            local entry = DebindPrivate.FrameQueue[i];
+            if (entry[1] == "register") then
+                DebindPrivate.RegisterFrame(entry[2], entry[3]);
+            else
+                DebindPrivate.UnregisterFrame(entry[2]);
+            end
         end
-        wipe(DebindPrivate.RegisterQueue);
-    end
-    if (#DebindPrivate.UnregisterQueue > 0) then
-        for i = 1, #DebindPrivate.UnregisterQueue do
-            DebindPrivate.UnregisterFrame(DebindPrivate.UnregisterQueue[i]);
-        end
-        wipe(DebindPrivate.UnregisterQueue);
+        wipe(DebindPrivate.FrameQueue);
+        wipe(DebindPrivate.QueuedFrameOp);
     end
     if (#DebindPrivate.RegisterClickQueue > 0) then
         for i = 1, #DebindPrivate.RegisterClickQueue do

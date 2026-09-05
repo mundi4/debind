@@ -886,26 +886,9 @@ if (DebindPrivate.CliqueDetected) then
 
 	BindingDriver:SetAttribute("clickcast_unregister", "");
 else
-	--- **The slot can be stale here, and only on the frames that say so.** A frame somebody wrapped
-	--- leave on after we did never sends us one (`FrameRegistry.lua`), so what it left behind
-	--- outlives the cursor. `hoverLeaveTaken` marks exactly those, and `mouseover` is the one thing
-	--- the restricted environment can ask about the cursor at all -- wrong wherever it lands on
-	--- another unit, right where it lands on nothing, which is the case that was going unanswered.
-	---
-	--- **Measured here rather than trusted from the poll**, because the poll's answer is up to
-	--- 0.2s old and a key pressed inside that window would fire on a frame the cursor has left.
-	---
-	--- **Nothing is written back.** This is the click path; the slot is the poll's to clear, and a
-	--- write here would put one into every press.
 	BindingDriver:SetAttribute("GetHoveredUnit", [==[
 		local unitframe = States.unitframe
-		if (not unitframe) then
-			return nil
-		end
-		if (unitframe.hoverLeaveTaken and not UnitExists("mouseover")) then
-			return nil
-		end
-		return unitframe.unit
+		return unitframe and unitframe.unit
 	]==]);
 
 	--- **A row already here is not a reason to stand down.** An addon can reach us through both
@@ -1604,12 +1587,7 @@ end, [==[
 		HandoffHoverUnit = nil
 	else
 	-- 키로 들어온 클릭이라 hover는 캐시에서 온다.
-	-- **On the frames that cache can outlive, it is measured here** - see the note above
-	-- `GetHoveredUnit`.
 	local evalFrame = States.unitframe
-	if (evalFrame and evalFrame.hoverLeaveTaken and not UnitExists("mouseover")) then
-		evalFrame = nil
-	end
 ]==] .. EVAL_SNIPPET .. [==[
 	end
 
@@ -1741,12 +1719,7 @@ if (DebindPrivate.DEBUG) then
 		-- hover는 enter/leave가 남긴 캐시에서 온다.
 		local clickCast = false
 		local winner, hoverUnit
-		-- **On the frames that cache can outlive, it is measured here** - see the note above
-		-- `GetHoveredUnit`.
 		local evalFrame = States.unitframe
-		if (evalFrame and evalFrame.hoverLeaveTaken and not UnitExists("mouseover")) then
-			evalFrame = nil
-		end
 ]==] .. EVAL_SNIPPET .. [==[
 		if (not winner or not winner.clickbutton) then
 			return

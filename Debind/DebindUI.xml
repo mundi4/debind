@@ -1934,4 +1934,68 @@
 		</Scripts>
 	</Frame>
 
+	<!--
+		이 판에서 바뀐 것을 로그인에 한 번 말하는 창. 마이그레이션 안내창과 같은 자리에 같은
+		이유로 선다: 겪는 것이 "잘 되던 단축키가 개체창 위에서만 안 먹는다"이고, 그 상태에서
+		애드온 창을 열어볼 이유가 없다.
+
+		**`StaticPopup`이 아닌 이유는 제목 칸이다.** 그쪽에는 이름을 붙일 자리가 없어서 본문
+		첫 줄로 밀어 넣게 되고, 사용자가 아무것도 안 눌렀는데 뜨는 창에서 누가 하는 말인지가
+		본문에 섞인다. 나머지 `StaticPopup`들은 전부 메인 창에서 무엇을 누른 결과라 그 문제가
+		없다.
+
+		**높이는 본문이 정한다.** 문안이 길고 번역마다 길이가 달라서, 고정 높이는 어느 언어에선가
+		글자가 잘리거나 빈 칸이 남는다. `OnShow`가 재는 것이 그 둘을 한꺼번에 없앤다.
+	-->
+	<Frame name="DebindUnitFrameNotice" inherits="BasicFrameTemplate" parent="UIParent" toplevel="true"
+		frameStrata="DIALOG" enableMouse="true" hidden="true" movable="true" clampedToScreen="true"
+		mixin="DebindUnitFrameNoticeMixin">
+		<Size x="480" y="360"/>
+		<Anchors>
+			<Anchor point="CENTER" x="0" y="120"/>
+		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="Title" inherits="GameFontHighlightLarge" justifyH="CENTER" wordwrap="true">
+					<Size x="420" y="0"/>
+					<Anchors>
+						<Anchor point="TOP" x="0" y="-38"/>
+					</Anchors>
+				</FontString>
+				<!--
+					**`GameFontNormal`이라 본문이 금색이다.** `GameFontHighlight`를 쓰면 본문의 기본색이
+					`HIGHLIGHT_FONT_COLOR`와 같아서, 본문 안에서 그 색으로 강조한 것이 아무것도 안 뜬다.
+				-->
+				<FontString parentKey="Body" inherits="GameFontNormal" justifyH="LEFT" wordwrap="true">
+					<Size x="420" y="0"/>
+					<Anchors>
+						<Anchor point="TOP" relativeKey="$parent.Title" relativePoint="BOTTOM" x="0" y="-14"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<!--
+				**[확인]은 영구가 아닌 답이다.** 아직 안 읽은 사람이 창을 치우는 흔한 방법이라,
+				그것이 "다시 보지 않기"를 뜻하면 안 된다. 필드를 쓰는 것은 아래 버튼뿐이다.
+			-->
+			<Button parentKey="OkayButton" inherits="UIPanelButtonTemplate">
+				<Size x="140" y="24"/>
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOM" x="-6" y="16"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="DismissButton" inherits="UIPanelButtonTemplate">
+				<Size x="200" y="24"/>
+				<Anchors>
+					<Anchor point="BOTTOMLEFT" relativePoint="BOTTOM" x="6" y="16"/>
+				</Anchors>
+			</Button>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
+
 </Ui>

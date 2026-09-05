@@ -212,15 +212,19 @@ L["CUSTOM_STATE_ON"] = "On"
 L["CUSTOM_STATES_DESC"] = "These are ON/OFF switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these switches on or off at any time, or you can set them as macro conditionals themselves."
 L["CUSTOM_STATES"] = "Switches"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
-L["CUSTOM_TARGET_HELP_MESSAGE_ARENA"] = "Try while hovering over arena frames."
-L["CUSTOM_TARGET_HELP_MESSAGE_BOSS"] = "Try while hovering over boss frames."
-L["CUSTOM_TARGET_HELP_MESSAGE_GROUP"] = "Try while hovering over party/raid frames."
-L["CUSTOM_TARGET_HELP_MESSAGE_PET"] = "Try while hovering over the pet frame."
-L["CUSTOM_TARGET_HELP_MESSAGE_PLAYER"] = "Try while hovering over the player frame or party/raid frames."
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cleared|r - it was held by group slot, not by name, and the group changed. Set it again."
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
-L["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Cannot be set from '%2$s' in combat|r"
-L["CUSTOM_TARGET_UNSUPPORTED_UNIT"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Not supported unit: %2$s|r"
+-- The three lines a Set Custom Target press can fail with. `UnitWatch.lua` says which is which.
+--
+-- **None of them names a unit token.** `hover` and `mouseover` are values the addon writes for
+-- itself; the reader chose neither and has never seen either.
+--
+-- **Two of them are one cause split by combat**, because the limit is not the same one. In combat
+-- the answer is bounded by which frames Debind is wired to; out of combat any frame resolves, and
+-- what is left is a unit with no token to point at it again.
+L["CUSTOM_TARGET_FRAME_NOT_OURS_IN_COMBAT"] = "|cnHIGHLIGHT_FONT_COLOR:Another addon|r|cnRED_FONT_COLOR: drives this unit frame, so a custom target cannot be set on it in combat|r"
+L["CUSTOM_TARGET_UNSUPPORTED_UNIT_IN_COMBAT"] = "|cnRED_FONT_COLOR:In combat a custom target can only be set over the Player, Pet, Party/Raid, Boss and Arena unit frames|r"
+L["CUSTOM_TARGET_UNSUPPORTED_UNIT"] = "|cnRED_FONT_COLOR:A custom target can only hold yourself, your pet, someone in your party or raid, an encounter boss, or an arena opponent|r"
 L["DEFAULT"] = "Default"
 L["DELETE_CONFIRM_MESSAGE"] = "Are you sure you want to delete |cnHIGHLIGHT_FONT_COLOR:%s|r?"
 -- 여럿을 한꺼번에 지울 때. **이름 대신 개수로 묻는다** - 열몇 개를 나열하면 팝업이 화면을
@@ -1121,6 +1125,11 @@ L["UNITFRAME_CLICK_EDGE_DOWN"] = "Mouse down"
 L["UNITFRAME_CLICK_EDGE_GAME"] = "Whatever the game does"
 L["UNITFRAME_CLICK_EDGE_UP"] = "Mouse up"
 L["UNITFRAME_OPTIONS"] = "Unit frame options"
+L["UNIT_FRAME_NOTICE_TITLE"] = "A note about unit frames"
+-- **`%s` is the action's own name (`TYPE_SETCUSTOM`), not a copy of it.** Spelling the label out
+-- here would leave the sentence pointing at a button that no longer says that, the day it is
+-- renamed.
+L["UNIT_FRAME_NOTICE"] = "Debind now respects what your unit frame addon decides about click casting. If the addon lets Clique work on its frames, Debind works there in Clique's place, with no need for Clique itself. If the addon has a hover cast feature of its own (or something similarly named) and it is turned on, it keeps those frames to itself, and |cnRED_FONT_COLOR:your Debind keys may not work on that addon's unit frames|r. They work there only while that feature is off, after a reload.|n|nLikewise, while Clique itself is running, Debind leaves unit frames to it.|n|n|cnHIGHLIGHT_FONT_COLOR:%s|r on a keyboard key works while hovering any unit frame out of combat. On a mouse button, and in combat on either, it works only where your other Debind keys work, and only over the player, pet, party, raid, boss and arena frames.|n|nNearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues."
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once at login, and only when something is actually stopped
 -- (`HasBindingBlockedByClique`). It used to go out on the mere presence of Clique, which is why it
@@ -1129,7 +1138,6 @@ L["UNNAMED_ACTION"] = "(Unnamed)"
 -- **One chat line.** This lands in the same frame as loot and quest text, so it says the one thing
 -- and stops; the addon name is already on the front of it (`_MESSAGE_PREFIX`).
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique is installed, so unit frame bindings here do not fire."
-L["WARNING_MESSAGE_HOVER_ANSWERED_ELSEWHERE"] = "Another addon drives some of your unit frames, so bindings may not work correctly there."
 -- **The addon has stood down from settings written by a newer version of itself**, and will not
 -- read or write one byte of them (`Profile.lua`). It goes out at login, and again every time
 -- somebody tries to open the window, and it keeps going out on every login until the reader does

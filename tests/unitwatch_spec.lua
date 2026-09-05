@@ -128,34 +128,5 @@ return function(DebindPrivate)
             "children: " .. ChildCount(header));
     end);
 
-    --- `CollectHeaderChildren`은 `SecureGroupHeader_Update`에 걸려 있고 그 함수가 누구 헤더로
-    --- 불렸는지 안 가린다. 우리 헤더도 `SecureGroupHeaderTemplate`이라 같은 길을 타므로, 거기
-    --- 자식들이 클릭캐스팅 프레임으로 등록되면 역할 맵이 켜질 때 헤더당 마흔 건이 붙는다.
-    test("our own headers are not collected as click-cast frames", function()
-        local header = DebindPrivate.EnableUnitWatch("healer");
-        check(header ~= nil, "no header");
-
-        _G.SecureGroupHeader_Update(header);
-
-        local count = ChildCount(header);
-        check(count > 0, "the header had no children to check");
-        for i = 1, count do
-            local child = header:GetAttribute("child" .. i);
-            check(DebindPrivate.ccframes[child] == nil,
-                "child" .. i .. " registered: " .. tostring(DebindPrivate.ccframes[child]));
-        end
-    end);
-
-    --- **거르는 쪽이 너무 넓지 않은가.** 남의 그룹 헤더는 그대로 걷어와야 한다.
-    test("a foreign group header still yields its children", function()
-        local foreign = CreateFrame("Frame", nil, nil, "SecureFrameTemplate");
-        local child = CreateFrame("Button", nil, foreign, "SecureFrameTemplate");
-        foreign:SetAttribute("child1", child);
-
-        _G.SecureGroupHeader_Update(foreign);
-
-        check(DebindPrivate.ccframes[child] ~= nil, "the child was not registered");
-    end);
-
     return T;
 end
