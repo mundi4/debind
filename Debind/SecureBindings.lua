@@ -945,6 +945,7 @@ else
 			local button = _G[buttonName];
 			if (button) then
 				DebindPrivate.ccframes[button] = { hd = true, type = "group", frameType = DebindPrivate.Constants.FRAMETYPE_GROUP };
+				DebindPrivate.hccframes[buttonName] = button;
 				DebindPrivate.UpdateRegisteredClicks(button);
 			end
 		end
@@ -959,6 +960,7 @@ else
 				-- 자리는 이 한 곳뿐이다. 안 부르면 그 프레임의 클릭이 계속 우리에게 온다.
 				--
 				DebindPrivate.ccframes[button] = nil;
+				DebindPrivate.hccframes[buttonName] = nil;
 			end
 		end
 	end

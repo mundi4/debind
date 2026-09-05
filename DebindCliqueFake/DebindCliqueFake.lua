@@ -6,6 +6,7 @@ local DebindPrivate = DebindPrivate;
 -- because some of those addons check for it before they call anything at all.
 _G.Clique = setmetatable({
     ccframes = DebindPrivate.ccframes,
+    hccframes = DebindPrivate.hccframes,
 
     RegisterUnitFrame = function(_, button)
         DebindPrivate.RegisterFrame(button);

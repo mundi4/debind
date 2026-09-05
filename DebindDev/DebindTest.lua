@@ -5147,6 +5147,10 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
         if after.frameType ~= Constants.FRAMETYPE_GROUP then
             return Fail(NAME, format("unknown was not covered over. frameType=%s", tostring(after.frameType)))
         end
+        -- What Clique exposes as `hccframes`: the header-registered frames by name.
+        if DebindPrivate.hccframes[frame:GetName()] ~= frame then
+            return Fail(NAME, "hccframes does not list the frame the header registered")
+        end
 
         return Pass(NAME, "the header took an unknown row back as group")
     end,

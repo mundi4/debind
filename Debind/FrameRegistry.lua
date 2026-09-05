@@ -4,6 +4,11 @@ local BindingDriver                = DebindPrivate.BindingDriver;
 local L                            = DebindPrivate.L;
 
 DebindPrivate.ccframes           = {};
+--- The header door's registrations by frame name, mirrored for `Clique.hccframes` (`DebindCliqueFake`):
+--- Clique keeps the frames that arrived through `clickcast_register` in a second list keyed by
+--- name, since a name is what the restricted side can hand out, and addons walking Clique's
+--- registrations read both. Ours are the `hd` rows of `ccframes`; this is the same set in that shape.
+DebindPrivate.hccframes          = {};
 DebindPrivate.blizzardFrames     = {};
 --- Registrations and deregistrations that arrived under lockdown, in the order they arrived.
 ---

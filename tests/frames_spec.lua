@@ -396,6 +396,24 @@ return function(DebindPrivate)
             "the header's row was taken away: " .. tostring(row and row.hd or row));
     end);
 
+
+    -- **`Clique.hccframes` is the other half of Clique's registration list.** `ccframes` holds what
+    -- came in from the insecure side and `hccframes` what came in through the header protocol,
+    -- keyed by name because that is what the restricted side can hand out. An addon walking either
+    -- to touch every click-casting frame finds the header's children only in the second.
+    test("a header registration is listed in hccframes by name, and taken out with it", function()
+        local frame = frames.newFrame("Button", "DebindSpecHeaderChild", nil, "SecureUnitButtonTemplate");
+        _G.DebindSpecHeaderChild = frame;
+
+        DebindPrivate.BindingDriver:OnClickCastRegister("DebindSpecHeaderChild");
+        check(DebindPrivate.hccframes and DebindPrivate.hccframes.DebindSpecHeaderChild == frame,
+            "hccframes did not list the header's child");
+
+        DebindPrivate.BindingDriver:OnClickCastUnregister("DebindSpecHeaderChild");
+        check(DebindPrivate.hccframes.DebindSpecHeaderChild == nil,
+            "hccframes kept the child after the header let it go");
+        _G.DebindSpecHeaderChild = nil;
+    end);
     ---------------------------------------------------------------------------
     -- Resolving a custom target
     ---------------------------------------------------------------------------
