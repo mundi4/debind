@@ -299,6 +299,20 @@ function M.install()
         local unit = M.world.units[token];
         return (unit and unit.inParty) and true or false;
     end
+    --- **소환수까지 참인 쪽이라 위 둘보다 넓다** (`macro-conditionals.md` 3.1절). 제한 환경이
+    --- 가진 것이 이쪽이고, 유닛 소속 축이 두 경로에서 부르는 것도 이쪽이다.
+    ---
+    --- 두 값이 겹치는 것을 세계가 그대로 들고 있어야 한다. 공대에서 같은 소그룹인 유닛은
+    --- **둘 다 참**이다(2026-09-07 인게임 확인). 스텁이 하나를 거짓으로 만들면 그 칸을
+    --- 가르는 스펙이 무엇을 넣어도 통과한다.
+    _G.UnitPlayerOrPetInParty = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.inParty) and true or false;
+    end
+    _G.UnitPlayerOrPetInRaid = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.inRaid) and true or false;
+    end
 
     --- The world the non-secure side asks about while it rebuilds. Every one of these is a value
     --- returning query, the cheap side to mock (§4 of

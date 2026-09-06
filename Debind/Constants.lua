@@ -369,13 +369,13 @@ Constants.FRAMETYPE_ALL     = 2 ^ 7 - 1;
 -- column of {alive} would drop half of that condition and the box would come out narrower than
 -- the condition it stands for. Narrow boxes get deleted for reasons they never asked for.
 --
--- **The next per-unit condition should not just widen this enumeration** -- party/raid is the
--- one asked for. A product taken over every axis the addon has runs out of room quickly: the
--- ceiling is 31 bits, since `bit.bnot` returns a signed 32-bit value and bit 31 turns a mask
--- negative. The product belongs to a key, not to the codebase -- `Solver.lua` builds its columns
--- per key already, so it only has to span the axes that key's bindings actually constrain, and
--- storage keeps one mask per axis instead of one packed value. A key that never asks about
--- membership then pays nothing for membership existing.
+-- **A per-unit condition does not widen this enumeration**, and the group axis is the one that
+-- settled it (`UNITGROUP_*` below). A product taken over every axis the addon has runs out of
+-- room quickly: the ceiling is 31 bits, since `bit.bnot` returns a signed 32-bit value and bit 31
+-- turns a mask negative. The product belongs to a key, not to the codebase -- `Solver.lua` builds
+-- its columns per key already, so it only has to span the axes that key's bindings actually
+-- constrain, and storage keeps one mask per axis instead of one packed value. A key that never
+-- asks where a unit stands in the group pays nothing for that axis existing.
 --
 -- Only the solver sees the product. The runtime keeps one field per axis and compares them
 -- separately, because it never has to reason about coverage -- it only asks whether the unit's
@@ -429,6 +429,54 @@ Constants.ROLE_ALL     = Constants.ROLE_TANK + Constants.ROLE_HEALER
 Constants.MAX_ROLE_SLOTS   = MAX_RAID_MEMBERS;
 
 
+-- Where a unit stands in the reader's own group.
+--
+-- **`GROUP_*` above is a different axis.** That one asks about the reader and lives in
+-- `conditions.groups`; this asks about a named unit and lives in `conditions.units[unit].group`.
+-- The prefix is what keeps them apart, and `UNITSTATE_*` set the precedent for naming the unit
+-- side that way.
+--
+-- **These three overlap, which is what parts them from every other mask here.** A raid member in
+-- the reader's own subgroup answers true to both `UnitPlayerOrPetInParty` and
+-- `UnitPlayerOrPetInRaid` (measured 2026-09-07). So they are not a partition and cannot be a
+-- solver column: what the solver gets is `UNITGROUPCELL_*` below, and `Misc.BuildUnitStates` is
+-- the seam.
+--
+-- That overlap is the whole point of the axis. Ticking `PARTY` alone still reaches the people
+-- beside you once the party becomes a raid, which an exclusive three-value axis could not say.
+Constants.UNITGROUP_NONE  = 2 ^ 0;
+Constants.UNITGROUP_PARTY = 2 ^ 1;
+Constants.UNITGROUP_RAID  = 2 ^ 2;
+Constants.UNITGROUP_ALL   = 2 ^ 3 - 1;
+
+-- The same axis as a partition, for `Solver.lua` and nothing else. **Never on screen**: the last
+-- two would have to be explained in terms of subgroups, and the checkbox the reader ticks is the
+-- overlapping form above.
+--
+-- Named for which of the two predicates hold, because that is all they are. A name that tried to
+-- carry "in the raid but not in my subgroup" in one word did not read.
+--
+--   NEITHER  not in the reader's group at all
+--   PARTY    in the party, which is not a raid
+--   RAID     in the raid, in another subgroup
+--   BOTH     in the raid, in the reader's own subgroup
+--
+-- **No chain makes these exclusive**; both predicates are read and the pair picks the cell. So
+-- this axis is not on `Solver.lua`'s list of columns that a reordering would quietly break.
+Constants.UNITGROUPCELL_NEITHER = 2 ^ 0;
+Constants.UNITGROUPCELL_PARTY   = 2 ^ 1;
+Constants.UNITGROUPCELL_RAID    = 2 ^ 2;
+Constants.UNITGROUPCELL_BOTH    = 2 ^ 3;
+Constants.UNITGROUPCELL_ALL     = 2 ^ 4 - 1;
+
+-- Which cells one ticked box covers. The overlap lives here and nowhere else.
+Constants.UNITGROUP_TO_CELLS = {
+    [Constants.UNITGROUP_NONE]  = Constants.UNITGROUPCELL_NEITHER,
+    [Constants.UNITGROUP_PARTY] = Constants.UNITGROUPCELL_PARTY + Constants.UNITGROUPCELL_BOTH,
+    [Constants.UNITGROUP_RAID]  = Constants.UNITGROUPCELL_RAID + Constants.UNITGROUPCELL_BOTH,
+};
+
+
 -- Binding Issues
 Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEMENU_KEY";
 Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";
@@ -440,6 +488,15 @@ Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELE
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_SPECS_NONE_SELECTED               = "SPECS_NONE_SELECTED";
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
+-- No box ticked in a unit's group block. **Its own code, on the same categories the unit's other
+-- axes use.** The category picks which control goes red and the block lives in those menus, so it
+-- is the right one; what a shared code would get wrong is the sentence, because a zero here is one
+-- axis empty rather than the unit having no state left at all.
+--
+-- A zero reaction mask does not need this: reactions are a factor of `unitStates`, so emptying
+-- them empties that mask and the traversal above finds it. Group is its own column, exactly like
+-- role, and its own column is why neither is visible from there.
+Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED          = "UNITGROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_UNDEFINED_STATE                   = "UNDEFINED_STATE";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
@@ -497,6 +554,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SPECS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED]          = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,

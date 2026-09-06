@@ -32,6 +32,13 @@ local UNIT_FRAME_REACTIONS = {
 	"OTHER",
 };
 
+--- `Constants.UNITGROUP_*`의 비트 차례 그대로.
+local UNIT_GROUPS          = {
+	"NONE",
+	"PARTY",
+	"RAID",
+};
+
 --- **`Constants.ROLE_*`의 비트 차례 그대로.** `FlagNames`가 목록의 순서를 1비트, 2비트로
 --- 읽으므로, 상수 쪽 차례가 바뀌면 여기도 같이 바뀌어야 한다.
 local UNIT_ROLES           = {
@@ -210,6 +217,14 @@ do
 		if (value.dead ~= nil) then
 			local life = value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"];
 			s = s and (s .. ", " .. life) or life;
+		end
+		if (value.group ~= nil and value.group ~= Constants.UNITGROUP_ALL) then
+			-- 0이면 `FlagNames`가 nil을 내고 이 줄은 안 나간다. 그 경우가 이슈이고,
+			-- 문장은 조건 묶음이 제 자리에서 낸다.
+			local groups = FlagNames(value.group, UNIT_GROUPS, "UNITGROUP_", Constants.UNITGROUP_ALL);
+			if (groups) then
+				s = s and (s .. ", " .. groups) or groups;
+			end
 		end
 		return s;
 	end

@@ -137,6 +137,7 @@ SecureHandlerExecute(BindingDriver, [[
 	ClickUnitExists = newtable()
 	ClickUnitReaction = newtable()
 	ClickUnitDead = newtable()
+	ClickUnitGroup = newtable()
 
 	MacroTextsMap = newtable()
 
@@ -675,6 +676,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					if (not s or cond.exists ~= s.exists
 							or (cond.reaction and not cond.reaction[s.reaction])
 							or (cond.dead ~= nil and cond.dead ~= s.dead)
+							or (cond.group and not cond.group[s.group])
 							or (role and cond.role and not cond.role[role])) then
 						match = false
 						break
@@ -1266,6 +1268,7 @@ local EVAL_SNIPPET = [==[
 					wipe(ClickUnitExists)
 					wipe(ClickUnitReaction)
 					wipe(ClickUnitDead)
+					wipe(ClickUnitGroup)
 				end
 
 				-- **The cache is not trusted here; every value is measured again.** `UnitStates`
@@ -1344,6 +1347,24 @@ local EVAL_SNIPPET = [==[
 									ClickUnitDead[unit] = dead
 								end
 								if (cond.dead ~= dead) then
+									ok = false
+								end
+							end
+
+							-- 조건은 네 칸으로 구워져 있고(`UpdateBindings.lua`), 그 칸은 두
+							-- 답이 다 있어야 나온다. 겹치는 술어라 하나만 물어서는 "공대이면서
+							-- 같은 소그룹"을 이웃 칸과 못 가른다.
+							if (ok and cond.group) then
+								local group = ClickUnitGroup[unit]
+								if (group == nil) then
+									local raid = UnitPlayerOrPetInRaid(unit)
+									local party = UnitPlayerOrPetInParty(unit)
+									group = (raid and (party and "both" or "raid"))
+											or (party and "party")
+											or "neither"
+									ClickUnitGroup[unit] = group
+								end
+								if (not cond.group[group]) then
 									ok = false
 								end
 							end

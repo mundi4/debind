@@ -406,7 +406,17 @@ Execute DebindBindingDriver
   | t["clickbutton"]="deb107"
   | t["combat"]=true
   | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t.units=newtable()
+  | u=newtable();t.units["target"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.both=true
+  | t.holdsKey=true
   | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
+  | DirtyKeys["target-exists"]=DirtyKeys["target-exists"] or newtable();tinsert(DirtyKeys["target-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F8"]=bindings
   | bindings.clickTimeButton="@ALT-F8"
@@ -417,7 +427,18 @@ Execute DebindBindingDriver
   | t["clickbutton"]="deb107"
   | t["combat"]=true
   | t.holdsKey=true
+  | t=newtable();tinsert(bindings,t)
+  | t["clickbutton"]="deb104"
+  | t.units=newtable()
+  | u=newtable();t.units["focus"]=u
+  | u.exists=true
+  | u.group=newtable()
+  | u.group.party=true
+  | u.group.raid=true
+  | u.group.both=true
+  | t.holdsKey=true
   | DirtyKeys["combat"]=DirtyKeys["combat"] or newtable();tinsert(DirtyKeys["combat"],bindings)
+  | DirtyKeys["focus-exists"]=DirtyKeys["focus-exists"] or newtable();tinsert(DirtyKeys["focus-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@ALT-F9"]=bindings
   | bindings.clickTimeButton="@ALT-F9"
@@ -817,6 +838,8 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | if (u.exists) then
   | stateValue=(PlayerCanAssist("focus") and "help") or (PlayerCanAttack("focus") and "harm") or "other"
   | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["focus-exists"]=true end
+  | stateValue=(UnitPlayerOrPetInRaid("focus") and (UnitPlayerOrPetInParty("focus") and "both" or "raid")) or (UnitPlayerOrPetInParty("focus") and "party") or "neither"
+  | if (u.group ~= stateValue) then u.group=stateValue;DirtyFlags["focus-exists"]=true end
   | end
   | u=UnitStates["hover"]
   | stateValue=UnitAliasMap["hover"] and true or false
@@ -836,6 +859,8 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["target-exists"]=true end
   | stateValue=(UnitIsDead("target") or UnitIsGhost("target")) and true or false
   | if (u.dead ~= stateValue) then u.dead=stateValue;DirtyFlags["target-exists"]=true end
+  | stateValue=(UnitPlayerOrPetInRaid("target") and (UnitPlayerOrPetInParty("target") and "both" or "raid")) or (UnitPlayerOrPetInParty("target") and "party") or "neither"
+  | if (u.group ~= stateValue) then u.group=stateValue;DirtyFlags["target-exists"]=true end
   | end
   | stateValue=SecureCmdOptionParse(SwitchExpressions["$echo"] or "") and true or false
   | if (States["$echo"] ~= stateValue) then self:RunAttribute("SetSwitch", "$echo", stateValue, true) end

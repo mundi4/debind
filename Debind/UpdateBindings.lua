@@ -23,6 +23,7 @@ local InCombatLockdown                   = InCombatLockdown;
 local FindBaseSpellByID                  = C_SpellBook.FindBaseSpellByID;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
+local UnitGroupToCells                   = DebindPrivate.UnitGroupToCells;
 --- The pure half of `Misc.lua`'s pair. **The other half asks the client and cannot be used here**:
 --- `DescribeBinding` is reached with a world already collected, and a spec hands it plain values.
 -- The pure half of the pair in `Misc.lua`. **The other half asks the client and may not be used
@@ -1285,6 +1286,10 @@ local UNITAXIS_REACTION = 2;
 --- `UnitIsGhost`). Both have to be asked, because a ghost is not dead by `UnitIsDead` and the
 --- macro `[dead]` this mirrors counts it as dead. Reading a ghost as alive sends heals at a corpse.
 local UNITAXIS_DEAD     = 4;
+--- Where the unit stands in the reader's group. Two C calls, and unlike life the pair is not one
+--- question asked twice: the two predicates overlap, and which of the four cells a unit is in
+--- takes both answers (`Constants.lua`'s `UNITGROUPCELL_*`).
+local UNITAXIS_GROUP    = 8;
 
 local REACTION_NAMES = {
     [Constants.REACTION_HELP]  = "help",
@@ -1295,6 +1300,15 @@ local REACTION_NAMES = {
 --- **The names are the role headers' aliases**, which is what `UnitRoles` stores, so nothing
 --- translates between the two sides. `unknown` has no header, and cannot: it is the answer for a
 --- unit no header claimed.
+--- The four cells, as the names both sides speak. **Not the three boxes a user ticks**: those
+--- overlap and so cannot name the one thing a unit is (`Constants.lua`'s `UNITGROUPCELL_*`).
+local UNITGROUPCELL_NAMES = {
+    [Constants.UNITGROUPCELL_NEITHER] = "neither",
+    [Constants.UNITGROUPCELL_PARTY]   = "party",
+    [Constants.UNITGROUPCELL_RAID]    = "raid",
+    [Constants.UNITGROUPCELL_BOTH]    = "both",
+};
+
 local ROLE_NAMES = {
     [Constants.ROLE_TANK]    = "tank",
     [Constants.ROLE_HEALER]  = "healer",
@@ -1389,7 +1403,17 @@ local function mergeUnitConditions(a, b)
         end
     end
 
-    return { reaction = reaction, dead = dead, role = role };
+    local group = a.group;
+    if (group == nil) then
+        group = b.group;
+    elseif (b.group ~= nil) then
+        group = band(group, b.group);
+        if (group == 0) then
+            return NEVER;
+        end
+    end
+
+    return { reaction = reaction, dead = dead, role = role, group = group };
 end
 
 --- Emits the line that creates a key's record list, and puts it in `StateDrivenBindings` only when
@@ -1649,6 +1673,22 @@ local function MergeKeyUnitConditions(binding, out)
         -- A "@" with no unit to point at has no axis to land on. Normalization should have
         -- dropped it, so drop it quietly.
         if (k ~= nil) then
+            -- **저장은 겹치는 세 상자, 여기서부터는 네 칸이다.** 세 상자는 교집합에 안 닫혀
+            -- 있다: {파티}와 {공대}가 만나는 곳은 "공대이면서 같은 소그룹" 한 칸인데 그 칸만
+            -- 가리키는 상자 조합이 없다. 상자끼리 `band`를 걸면 그 교집합이 0으로 나와
+            -- **발동할 수 있는 바인딩이 통째로 빠진다.** 솔버도 같은 칸을 쓰므로
+            -- (`Misc.BuildUnitStates`) 두 쪽이 한 어휘가 된다.
+            --
+            -- 조건 표의 값을 그대로 고칠 수는 없어서 새 표를 만든다. 소속을 건 유닛에만,
+            -- 리빌드 한 번에 한 번이다.
+            if (type(v) == "table" and v.group) then
+                v = {
+                    reaction = v.reaction,
+                    dead = v.dead,
+                    role = v.role,
+                    group = UnitGroupToCells(v.group),
+                };
+            end
             v = mergeUnitConditions(out[k], v);
             if (v == NEVER) then
                 return nil;
@@ -1858,6 +1898,9 @@ local function CollectRecordAxes(record, stateDriven)
             if (condition.dead ~= nil) then
                 axes = bor(axes, UNITAXIS_DEAD);
             end
+            if (condition.group) then
+                axes = bor(axes, UNITAXIS_GROUP);
+            end
             -- **Not one of the axes above.** Those say how precisely the state loop measures a
             -- unit; role is not measured on a unit at all. It rides the hover slot, filled where
             -- the frame is in hand (`SecureBindings.lua`'s `setup_onenter` and the hover poll
@@ -1946,6 +1989,16 @@ local function EmitRecord(record)
             end
             if (condition.dead ~= nil) then
                 appendLine("u.dead=%s", tostring(condition.dead));
+            end
+            -- 칸으로 나간다. 상자로 내보내면 검사가 세 갈래가 되고, 무엇보다 `%q` 셋이
+            -- 교집합을 못 나타낸다 - `MergeKeyUnitConditions`의 주석에 그 이유가 있다.
+            if (condition.group) then
+                appendLine("u.group=newtable()");
+                for _, bit in ipairs(sortedKeys(UNITGROUPCELL_NAMES, _sortedC)) do
+                    if (band(condition.group, bit) ~= 0) then
+                        appendLine("u.group.%s=true", UNITGROUPCELL_NAMES[bit]);
+                    end
+                end
             end
             -- **hover에만 나간다**, `Misc.BuildUnitStates`가 hover에만 축을 세우는 것과 같은
             -- 이유로. 다른 유닛에도 내보내면 재는 쪽이 그 행을 안 채워서 `cond.role[nil]`이 되고
@@ -2378,10 +2431,11 @@ local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOver
 
     local wantsReaction = band(axes, UNITAXIS_REACTION) ~= 0;
     local wantsDead = band(axes, UNITAXIS_DEAD) ~= 0;
+    local wantsGroup = band(axes, UNITAXIS_GROUP) ~= 0;
 
-    -- Both axes share one existence test. They are asked the same question -- "does this unit have
+    -- The axes share one existence test. They are asked the same question -- "does this unit have
     -- a value on the axis at all" -- and the answer was just computed above.
-    if (wantsReaction or wantsDead) then
+    if (wantsReaction or wantsDead or wantsGroup) then
         appendLine("if (u.exists) then");
 
         if (wantsReaction) then
@@ -2401,6 +2455,18 @@ local function appendUnitStateUpdate(unit, axes, unitExpr, existsExpr, stateOver
                 appendLine(stateOverride, unit .. "-dead");
             end
             appendLine("if (u.dead ~= stateValue) then u.dead=stateValue;%s end", dirty);
+        end
+
+        if (wantsGroup) then
+            -- **둘 다 묻는다. 체인이 아니다.** 두 술어가 겹치므로 (공대이면서 같은 소그룹)이
+            -- 제 칸을 갖고, 그 칸은 두 답이 다 있어야 나온다. 하나만 묻고 갈래를 세우면 그
+            -- 칸이 이웃 칸으로 접혀서 "같은 파티"가 공대에서 안 걸린다.
+            appendLine([[stateValue=(UnitPlayerOrPetInRaid(%1$s) and (UnitPlayerOrPetInParty(%1$s) and "both" or "raid")) or (UnitPlayerOrPetInParty(%1$s) and "party") or "neither"]],
+                unitExpr);
+            if (stateOverride) then
+                appendLine(stateOverride, unit .. "-group");
+            end
+            appendLine("if (u.group ~= stateValue) then u.group=stateValue;%s end", dirty);
         end
 
         appendLine("end");

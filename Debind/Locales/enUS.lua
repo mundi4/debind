@@ -58,6 +58,7 @@ L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected."
+L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
 L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- The fourth of the *_NONE_SELECTED family, and the only one that is not about a condition: the
 -- action itself has not been told which switch it works. Kept apart from the line below on
@@ -203,6 +204,7 @@ L["CONDITION_STEALTH"] = "Stealth"
 L["CONDITION_UNIT_DOES_NOT_EXIST"] = "When the unit doesn't exist"
 L["CONDITION_UNIT_EXISTS"] = "When the unit exists"
 L["CONDITION_LIFE"] = "Alive or Dead"
+L["CONDITION_UNIT_GROUP"] = "Group"
 L["CONDITION_UNITS"] = "Units"
 L["CONFIRM_CURRENT_CHANGE_FIRST"] = "Confirm current change first."
 L["CONVERT_TO_MACRO_TEXT"] = "Convert to a |cnLIGHTBLUE_FONT_COLOR:Custom Macro|r"
@@ -624,6 +626,9 @@ L["KEY_HEADER_SET_KEY_DESC"] = "Sets one key for every action under this heading
 L["KEY_HEADER_SET_KEY_ACCEPT_DESC"] = "Sets one key for every action under this heading and takes them all, in one go - including any in specializations you are not in."
 L["LIFE_ALIVE"] = "Alive"
 L["LIFE_DEAD"] = "Dead"
+L["UNITGROUP_NONE"] = "Not in my group"
+L["UNITGROUP_PARTY"] = "In my party"
+L["UNITGROUP_RAID"] = "In my raid"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.

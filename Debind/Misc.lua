@@ -6,6 +6,7 @@ local SPECIAL_UNITS           = Constants.SPECIAL_UNITS;
 
 local dump                    = DebindPrivate.dump;
 local band                    = bit.band;
+local bor                     = bit.bor;
 local tinsert, wipe           = tinsert, wipe;
 local pairs, ipairs           = pairs, ipairs;
 local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
@@ -486,7 +487,7 @@ local function UnitConditionForBinding(value)
     elseif (value.exists == false) then
         return false;
     end
-    return { reaction = value.reaction, dead = value.dead, role = value.role };
+    return { reaction = value.reaction, dead = value.dead, role = value.role, group = value.group };
 end
 
 --- The old `hover` / `reactions` pair -> the unit condition they became.
@@ -638,6 +639,26 @@ local function HoverReactionMask(binding)
     return condition.reaction;
 end
 
+--- 저장된 세 상자 -> 그것이 덮는 네 칸.
+---
+--- **`bor`인 것이 요지다.** `PARTY`와 `RAID`가 둘 다 `BOTH`를 덮으므로 더하면 그 칸을 두 번
+--- 센다. 겹치는 것이 이 축의 성질이고, 겹침을 여기서 푸는 것이 컬럼을 분할로 만든다
+--- (`Constants.lua`의 `UNITGROUPCELL_*`).
+local function UnitGroupToCells(mask)
+    if (mask == nil) then
+        return Constants.UNITGROUPCELL_ALL;
+    end
+    local cells = 0;
+    for flag, covered in pairs(Constants.UNITGROUP_TO_CELLS) do
+        if (band(mask, flag) ~= 0) then
+            cells = bor(cells, covered);
+        end
+    end
+    return cells;
+end
+
+DebindPrivate.UnitGroupToCells = UnitGroupToCells;
+
 local function BuildUnitStates(binding)
     DeriveHoverFields(binding);
 
@@ -670,6 +691,19 @@ local function BuildUnitStates(binding)
             role = mask;
         else
             role = band(role, mask);
+        end
+    end
+
+    --- 소속도 자기 컬럼이고, 역할과 달리 **유닛마다** 선다. 어느 유닛에나 물을 수 있는
+    --- 축이라 hover 슬롯에 얹을 이유가 없다.
+    local groups;
+    local function narrowGroup(unit, mask)
+        groups = groups or {};
+        local prev = groups[unit];
+        if (prev == nil) then
+            groups[unit] = mask;
+        else
+            groups[unit] = band(prev, mask);
         end
     end
 
@@ -709,6 +743,9 @@ local function BuildUnitStates(binding)
                 if (unit == "hover" and type(value) == "table" and value.role) then
                     narrowRole(value.role);
                 end
+                if (type(value) == "table" and value.group) then
+                    narrowGroup(unit, UnitGroupToCells(value.group));
+                end
             end
         end
     end
@@ -716,6 +753,7 @@ local function BuildUnitStates(binding)
     binding.unitStates = states;
     binding.unitStatesOpaque = opaque;
     binding.unitRole = role;
+    binding.unitGroups = groups;
 end
 
 DebindPrivate.BuildUnitStates = BuildUnitStates;
@@ -1699,6 +1737,36 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
                     issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
                     break;
                 end
+            end
+        end
+    end
+
+    -- 소속을 하나도 안 고른 것. 역할과 같은 이유로 위 순회가 못 본다 - 컬럼이 다르다.
+    -- 역할과 달리 **유닛마다** 서므로, 짚어 물었으면 그 유닛만 답한다. 안 그러면 한 유닛의
+    -- 빈 묶음으로 서브메뉴가 전부 빨개져서 어느 것을 고쳐야 하는지가 화면에서 사라진다.
+    if (LookingForWorse(issue) and binding.unitGroups and notCategory ~= "units"
+            and (not category or category == "units" or category == "hover"
+                or category == "unit")) then
+        local target = arg;
+        if (target == "@") then
+            target = binding.unit;
+        end
+        for unit, mask in pairs(binding.unitGroups) do
+            local mine;
+            if (target ~= nil) then
+                mine = target == unit;
+            elseif (category == "hover") then
+                mine = unit == "hover";
+            elseif (category == "units") then
+                mine = unit ~= "hover";
+            elseif (category == "unit") then
+                mine = unit == binding.unit;
+            else
+                mine = true;
+            end
+            if (mask == 0 and mine) then
+                issue = TakeIssue(issue, Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED);
+                break;
             end
         end
     end

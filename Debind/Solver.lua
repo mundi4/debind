@@ -267,6 +267,22 @@ local function makeRoleFlags(binding)
     return binding.unitRole or Constants.ROLE_ALL;
 end
 
+--- **Its own column per unit**, for the same reason the role one is its own: `Constants.lua` over
+--- `UNITSTATE_NONE` says why a per-unit axis does not widen that product.
+---
+--- What arrives here is already the four-cell partition. The three boxes a user ticks overlap --
+--- a raid member in their own subgroup is in both -- and `Misc.BuildUnitStates` is where that
+--- overlap is resolved. **A mask of the stored three would not be a partition**, and the set
+--- algebra below has no way to notice that.
+local function makeUnitGroupFlags(binding, unit)
+    local groups = binding.unitGroups;
+    local mask = groups and groups[unit];
+    if (mask == nil) then
+        return Constants.UNITGROUPCELL_ALL;
+    end
+    return mask;
+end
+
 local function makeKnownFlags(binding, spellValue)
     local known = binding.conditions.known;
     if (known ~= nil and binding.type == Constants.SPELL and binding.value == spellValue) then
@@ -282,6 +298,7 @@ local _colArg = {};
 local _numColumns = 0;
 
 local _unitSeen = {};
+local _unitGroupSeen = {};
 local _knownSeen = {};
 local _stateSeen = {};
 local _roleSeen = false;
@@ -340,6 +357,7 @@ end
 local function buildLayout(bindings)
     _numColumns = 0;
     wipe(_unitSeen);
+    wipe(_unitGroupSeen);
     wipe(_knownSeen);
     wipe(_stateSeen);
     _roleSeen = false;
@@ -367,6 +385,18 @@ local function buildLayout(bindings)
                     _unitSeen[unit] = true;
                     _numColumns = _numColumns + 1;
                     _colMake[_numColumns] = makeUnitFlags;
+                    _colArg[_numColumns] = unit;
+                end
+            end
+        end
+
+        local unitGroups = binding.unitGroups;
+        if (unitGroups) then
+            for unit in pairs(unitGroups) do
+                if (not _unitGroupSeen[unit]) then
+                    _unitGroupSeen[unit] = true;
+                    _numColumns = _numColumns + 1;
+                    _colMake[_numColumns] = makeUnitGroupFlags;
                     _colArg[_numColumns] = unit;
                 end
             end

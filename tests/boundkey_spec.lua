@@ -421,6 +421,48 @@ return function(DebindPrivate)
             "a dead condition bound against a living player: " .. Bound("F2"));
     end);
 
+    -- **The whole reason this axis is three overlapping boxes and not three exclusive values.**
+    -- A raid member in the reader's own subgroup answers true to both predicates, so [in my party]
+    -- has to keep reaching them once the party becomes a raid. An ordered chain -- ask raid first,
+    -- take the first true -- gives that unit the raid answer only, and the key goes dead.
+    --
+    -- The second key is what stops this passing on a stub that answers true to everything.
+    test("in my party still reaches a raid member in my own subgroup, at the key", function()
+        shim.world.units.party1 = { id = "party1", inParty = true, inRaid = true };
+        shim.world.units.raid7 = { id = "raid7", inParty = false, inRaid = true };
+        Bind({
+            spell({ key = "F1",
+                conditions = { units = { party1 = { group = Constants.UNITGROUP_PARTY } } } }),
+            spell({ key = "F2", seq = 2,
+                conditions = { units = { raid7 = { group = Constants.UNITGROUP_PARTY } } } }),
+        }, {});
+        CheckStateDriven("F1");
+        CheckStateDriven("F2");
+
+        check(IsLive("F1"),
+            "a party condition missed a raid member in my own subgroup: " .. Bound("F1"));
+        check(Bound("F2") == "",
+            "a party condition caught a raid member in another subgroup: " .. Bound("F2"));
+    end);
+
+    test("not in my group splits an outsider from a group member, at the key", function()
+        shim.world.units.target = { id = "target" };
+        shim.world.units.focus = { id = "focus", inParty = true };
+        Bind({
+            spell({ key = "F1",
+                conditions = { units = { target = { group = Constants.UNITGROUP_NONE } } } }),
+            spell({ key = "F2", seq = 2,
+                conditions = { units = { focus = { group = Constants.UNITGROUP_NONE } } } }),
+        }, {});
+        CheckStateDriven("F1");
+        CheckStateDriven("F2");
+
+        check(IsLive("F1"),
+            "an outsider failed a [not in my group] condition: " .. Bound("F1"));
+        check(Bound("F2") == "",
+            "a party member passed a [not in my group] condition: " .. Bound("F2"));
+    end);
+
     ---------------------------------------------------------------------------
     -- Keys the state loop has nothing to decide
     ---------------------------------------------------------------------------

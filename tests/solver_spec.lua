@@ -155,6 +155,41 @@ return function(DebindPrivate)
         }, "tankmode");
     end);
 
+    -- 유닛 소속 축. **저장은 겹치는 세 상자이고 컬럼은 배타 네 칸이라**, 그 사이를 펴는
+    -- `Misc.UnitGroupToCells`가 이 컬럼이 분할이냐를 혼자 정한다.
+    --
+    -- [파티]와 [공대]가 같이 덮는 칸이 하나 있다(공대이면서 같은 소그룹). 펴는 쪽이 그 칸을
+    -- 두 번 세면 마스크가 축 밖으로 넘치면서 **정작 그 칸의 비트가 꺼진다** - 겹치는 축에서
+    -- `bor` 대신 `+`를 쓰면 나는 일이다. 그러면 아래 셋이 전체를 안 덮고 `always`가 남는다.
+    local UNITGROUP_PARTY = Constants.UNITGROUP_PARTY;
+    local UNITGROUP_RAID = Constants.UNITGROUP_RAID;
+    local UNITGROUP_NONE = Constants.UNITGROUP_NONE;
+
+    test("소속 세 상자가 합쳐서 유닛 축 전체를 덮는다", function()
+        expectRemoved({
+            { name = "grouped", units = { target = { group = UNITGROUP_PARTY + UNITGROUP_RAID } } },
+            { name = "alone",   units = { target = { group = UNITGROUP_NONE } } },
+            { name = "always",  units = { target = {} } },
+        }, "always");
+    end);
+
+    -- 겹치는 두 상자가 **서로를 못 덮는다.** [파티]는 공대의 다른 소그룹을 안 담고 [공대]는
+    -- 공대가 아닌 파티를 안 담는다. 칸으로 안 펴고 상자 비트를 그대로 컬럼에 넣으면 두 상자가
+    -- 분리로 보여서 이쪽은 통과하지만, 위 테스트가 그때 깨진다.
+    test("소속 [파티]와 [공대]는 서로를 못 덮는다", function()
+        expectSurvives({
+            { name = "party", units = { target = { group = UNITGROUP_PARTY } } },
+            { name = "raid",  units = { target = { group = UNITGROUP_RAID } } },
+        }, "raid");
+    end);
+
+    test("소속 상자 둘을 켠 조건이 하나만 켠 조건을 덮는다", function()
+        expectRemoved({
+            { name = "grouped", units = { target = { group = UNITGROUP_PARTY + UNITGROUP_RAID } } },
+            { name = "party",   units = { target = { group = UNITGROUP_PARTY } } },
+        }, "party");
+    end);
+
     -- **개수 제한이 풀린 뒤에도 컬럼이 이름마다 선다** (3c). 위 둘은 다섯 밖의 이름 **하나**를
     -- 보고, 여기는 그 이름이 **몇 개든** 저마다 축을 받는지를 본다. 컬럼이 어딘가에서 워드
     -- 하나나 다섯 칸으로 접히면 여섯째부터 남의 축에 얹혀서 서로를 덮기 시작한다.

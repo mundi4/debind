@@ -354,6 +354,83 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
+    -- **The overlap, at the press.** The two predicates are not exclusive: a raid member in the
+    -- reader's own subgroup answers true to both. So [in my party] has to keep reaching the people
+    -- beside the reader once the party becomes a raid, which is the whole reason this axis is
+    -- three overlapping boxes rather than three values picked by an ordered chain.
+    --
+    -- The third world is what stops this passing on a stub that answers true to everything.
+    test("in my party reaches a raid member in my own subgroup", function()
+        Bind({
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { group = Constants.UNITGROUP_PARTY } } } }),
+            action({ value = 774, key = "F1" }),
+        });
+
+        shim.world.units = { target = { id = "mate", inParty = true } };
+        check(winner("F1") == 1, "a party condition missed a plain party member");
+
+        shim.world.units = { target = { id = "mate", inParty = true, inRaid = true } };
+        check(winner("F1") == 1,
+            "a party condition missed a raid member in my own subgroup");
+
+        shim.world.units = { target = { id = "other", inRaid = true } };
+        check(winner("F1") == 2,
+            "a party condition caught a raid member in another subgroup");
+
+        shim.world.units = { target = { id = "stranger" } };
+        check(winner("F1") == 2, "a party condition caught an outsider");
+
+        shim.world.units = {};
+    end);
+
+    -- **Two group conditions on one unit, which is the case the three boxes cannot represent.**
+    -- `"@"` and an explicit condition on the same unit are merged before anything is emitted, and
+    -- [in my party] meeting [in my raid] leaves exactly one cell: in the raid, in my own subgroup.
+    -- No combination of the three boxes says that, so intersecting the stored bits answers zero,
+    -- the record is dropped as unsatisfiable, and the key quietly does nothing.
+    test("in my party and in my raid on one unit leave the shared cell", function()
+        Bind({
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = {
+                    ["@"] = { group = Constants.UNITGROUP_PARTY },
+                    target = { group = Constants.UNITGROUP_RAID },
+                } } }),
+            action({ value = 774, key = "F1" }),
+        });
+
+        shim.world.units = { target = { id = "mate", inParty = true, inRaid = true } };
+        check(winner("F1") == 1,
+            "the intersection lost the raid member in my own subgroup");
+
+        shim.world.units = { target = { id = "mate", inParty = true } };
+        check(winner("F1") == 2, "a plain party member passed both conditions");
+
+        shim.world.units = { target = { id = "other", inRaid = true } };
+        check(winner("F1") == 2, "a raid member in another subgroup passed both conditions");
+
+        shim.world.units = {};
+    end);
+
+    test("not in my group is the outsider and nobody else", function()
+        Bind({
+            action({ value = 585, key = "F1", unit = "target",
+                conditions = { units = { ["@"] = { group = Constants.UNITGROUP_NONE } } } }),
+            action({ value = 774, key = "F1" }),
+        });
+
+        shim.world.units = { target = { id = "stranger" } };
+        check(winner("F1") == 1, "an outsider failed [not in my group]");
+
+        shim.world.units = { target = { id = "mate", inParty = true } };
+        check(winner("F1") == 2, "a party member passed [not in my group]");
+
+        shim.world.units = { target = { id = "other", inRaid = true } };
+        check(winner("F1") == 2, "a raid member passed [not in my group]");
+
+        shim.world.units = {};
+    end);
+
     -- **The case that shipped unverified.** One key asks whether the focus exists; another asks
     -- whether it is friendly. Under the old encoding, *registering* the reaction axis changed what
     -- the measured value **meant** -- with nobody asking about reaction a friendly unit came back

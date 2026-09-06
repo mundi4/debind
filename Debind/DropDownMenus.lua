@@ -31,6 +31,13 @@ local LIFE_ITEMS            = {
     { text = LLL["LIFE_DEAD"],  value = true },
 };
 
+--- 소속 확인란. hover 조건과 유닛 조건이 이 하나를 나눠 쓴다.
+local UNITGROUP_ITEMS       = {
+    { text = LLL["UNITGROUP_NONE"],  value = Constants.UNITGROUP_NONE },
+    { text = LLL["UNITGROUP_PARTY"], value = Constants.UNITGROUP_PARTY },
+    { text = LLL["UNITGROUP_RAID"],  value = Constants.UNITGROUP_RAID },
+};
+
 --- 역할 확인란. **[역할 없음]도 고를 수 있는 값이다** - 역할이 지정 안 된 유닛에 대한 답이지
 --- 못 알아냈다는 뜻이 아니다. 세 헤더가 다 서 있으면 애드온은 언제나 답을 내므로, 그 답만
 --- 골라 나가는 바인딩을 걸 수 있어야 한다.
@@ -581,6 +588,14 @@ do
         return value.dead;
     end
 
+    local function GetUnitConditionGroup(unit)
+        local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
+        if (type(value) ~= "table") then
+            return nil;
+        end
+        return value.group;
+    end
+
     local function GetUnitConditionRole(unit)
         local value = UnitConditionsOf(_action) and UnitConditionsOf(_action)[unit];
         if (type(value) ~= "table") then
@@ -663,6 +678,25 @@ do
             mask = nil;
         end
         return SetUnitConditionAxis(unit, "reaction", mask);
+    end
+
+    --- 소속 확인란. **셋이 서로 겹친다** - 공대에서 같은 소그룹인 사람은 [파티]와 [공대]에
+    --- 다 든다. 그래서 [파티]만 켜도 파티가 공대가 된 뒤에 옆자리 사람에게 계속 걸린다.
+    --- 반응·역할과 같은 규칙: 전부 켠 값은 안 쓰고, 0은 쓴다.
+    local function UnitConditionGroupChecked(unit, value)
+        local group = GetUnitConditionGroup(unit);
+        if (group == nil) then
+            return true;
+        end
+        return bit.band(group, value) == value;
+    end
+
+    local function ToggleUnitConditionGroup(unit, value)
+        local mask = bit.bxor(GetUnitConditionGroup(unit) or Constants.UNITGROUP_ALL, value);
+        if (mask == Constants.UNITGROUP_ALL) then
+            mask = nil;
+        end
+        return SetUnitConditionAxis(unit, "group", mask);
     end
 
     --- 프레임 종류 확인란 하나가 켜져 있는가. **`AppendCheckboxes`의 `_hasBit`과 같은 답을
@@ -797,6 +831,21 @@ do
                 end
             );
             lifeDescription:SetEnabled(axisIsEnabled);
+        end
+
+        optionsDescription:CreateDivider();
+        optionsDescription:CreateTitle(LLL["CONDITION_UNIT_GROUP"]);
+
+        for _, item in ipairs(UNITGROUP_ITEMS) do
+            local groupDescription = optionsDescription:CreateCheckbox(item.text,
+                function()
+                    return UnitConditionGroupChecked(unit, item.value);
+                end,
+                function()
+                    return ToggleUnitConditionGroup(unit, item.value);
+                end
+            );
+            groupDescription:SetEnabled(axisIsEnabled);
         end
 
         return optionsDescription;
@@ -1163,6 +1212,21 @@ do
                 end
             );
             lifeDescription:SetEnabled(hoverConditionIsOn);
+        end
+
+        description:CreateDivider();
+        description:CreateTitle(LLL["CONDITION_UNIT_GROUP"]);
+
+        for _, item in ipairs(UNITGROUP_ITEMS) do
+            local groupDescription = description:CreateCheckbox(item.text,
+                function()
+                    return UnitConditionGroupChecked("hover", item.value);
+                end,
+                function()
+                    return ToggleUnitConditionGroup("hover", item.value);
+                end
+            );
+            groupDescription:SetEnabled(hoverConditionIsOn);
         end
 
         description:CreateDivider();

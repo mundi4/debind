@@ -173,6 +173,16 @@ return function(DebindPrivate, shim)
                 conditions = { units = { focus = { reaction = Constants.REACTION_HARM } } } }),
             action({ type = Constants.SPELL, value = 774, key = "CTRL-F11",
                 conditions = { units = { pet = false } } }),
+            --- The group axis. **Stored as the three overlapping boxes and emitted as the four
+            --- cells**, so the golden is where that translation is pinned. The second one is the
+            --- pair that has no single box: `PARTY` and `RAID` share the "in the raid, in my own
+            --- subgroup" cell, and adding the two covered sets instead of or-ing them drops it.
+            action({ type = Constants.SPELL, value = 774, key = "ALT-F8",
+                conditions = { units = { target = { group = Constants.UNITGROUP_PARTY } } } }),
+            action({ type = Constants.SPELL, value = 774, key = "ALT-F9",
+                conditions = { units = {
+                    focus = { group = Constants.UNITGROUP_PARTY + Constants.UNITGROUP_RAID },
+                } } }),
             --- A role unit. Registering it is what turns the unit watch on.
             action({ type = Constants.SPELL, value = 8936, key = "CTRL-F12", unit = "healer" }),
         };

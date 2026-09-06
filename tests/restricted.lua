@@ -309,8 +309,23 @@ local function buildEnv(interp)
     env.GetShapeshiftForm = function() return state.form; end
     env.GetBonusBarOffset = function() return state.bonusbar; end
     env.PlayerIsChanneling = function() return state.channeling; end
-    env.UnitPlayerOrPetInRaid = function() return state.group == "raid"; end
-    env.UnitPlayerOrPetInParty = function() return state.group == "party"; end
+    --- **인자에 따라 다른 자리에서 답한다.** `conditions.groups`는 이 둘을 `"player"`로
+    --- 물어서 읽는 자리라 인터프리터가 들고 있는 플레이어의 그룹 상태가 답이고, 유닛 소속
+    --- 축은 남에 대해 묻는 것이라 세계가 답한다. 인자를 무시하던 동안은 후자를 가르는 스펙이
+    --- 무엇을 넣어도 통과했다.
+    env.UnitPlayerOrPetInRaid = function(unit)
+        if (unit == nil or unit == "player") then
+            return state.group == "raid";
+        end
+        return _G.UnitPlayerOrPetInRaid(unit);
+    end
+    env.UnitPlayerOrPetInParty = function(unit)
+        if (unit == nil or unit == "player") then
+            -- 공대에 있으면 자기 소그룹에도 있다. 남에 대해 참인 것과 같은 이유다.
+            return state.group == "party" or state.group == "raid";
+        end
+        return _G.UnitPlayerOrPetInParty(unit);
+    end
     env.IsAltKeyDown = function() return state.alt; end
     env.IsControlKeyDown = function() return state.ctrl; end
     env.IsShiftKeyDown = function() return state.shift; end

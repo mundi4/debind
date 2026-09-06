@@ -5043,6 +5043,62 @@ RegisterTest("State injection: dead flips a binding", {
     end,
 })
 
+-- **Kept here for the same reason as the one above.** The cells themselves are headless
+-- (`tests/eval_spec.lua` and `tests/boundkey_spec.lua` both split the shared cell), but a session
+-- can only be in one group at a time, and the cell that matters -- in the raid, in the reader's
+-- own subgroup -- takes a raid to reach. `player-group` is injected where `player-dead` is.
+--
+-- **The value injected is a cell name, not a ticked box.** The three boxes overlap and the four
+-- cells partition; the update loop measures the cell and the condition holds the boxes it covers
+-- (`Constants.lua`'s `UNITGROUPCELL_*`). Injecting `"both"` against a `[in my party]` condition
+-- is what asks whether the overlap survived to the snippet: a chain that took the raid answer and
+-- stopped would leave this key unbound.
+RegisterTest("State injection: the party cell reaches a raid subgroup", {
+    description = "A unit condition of [in my party] binds while the injected cell is raid+party",
+    run = function()
+        local NAME = "Group cell injection"
+        local KEY = "CTRL-SHIFT-F11"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "in combat there is no telling the injected result from the real one")
+        end
+
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            units = { player = { group = Constants.UNITGROUP_PARTY } },
+        })
+        ApplyBindings()
+
+        SetMockState("player-group", "neither")
+        local whenAlone = GetBindingAction(KEY, true) or ""
+
+        SetMockState("player-group", "both")
+        local whenBoth = GetBindingAction(KEY, true) or ""
+
+        if whenBoth == whenAlone then
+            return Fail(NAME, format(
+                "the cell was turned over and the binding is unchanged (%q). the injection never reached the snippet", whenBoth))
+        end
+
+        if whenBoth:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("cell=both and it is %q, it should be CLICK", whenBoth))
+        end
+
+        -- The cell [in my raid] alone is the other subgroup, which [in my party] does not cover.
+        -- Without this the test passes on a snippet that ignores the condition entirely.
+        SetMockState("player-group", "raid")
+        local whenRaidOnly = GetBindingAction(KEY, true) or ""
+
+        if whenRaidOnly ~= whenAlone then
+            return Fail(NAME, format(
+                "cell=raid is another subgroup and it is %q, it should be %q", whenRaidOnly, whenAlone))
+        end
+
+        SetMockState("player-group", nil)
+        return Pass(NAME, format("the party condition took the key on the shared cell (%s)", whenBoth))
+    end,
+})
+
 -- The hover condition now rides the unit column (`t.units["hover"]`) instead of its own pair of
 -- record fields. What that has to keep doing is decide **key ownership**: a hover-conditioned
 -- keyboard key is ours only while the cursor is on a matching frame, and that judgement is made

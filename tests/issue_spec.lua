@@ -221,6 +221,39 @@ return function(DebindPrivate)
         check(GetBindingIssue(action, "hover") ~= nil, "hover 묶음은 잡아야 한다");
     end);
 
+    -- 소속을 하나도 안 고른 것. **유닛 마스크는 멀쩡하다** - 소속은 유닛 곱에 안 들어가고
+    -- 자기 컬럼으로 서므로, 유닛의 0을 보는 순회는 이걸 못 본다. 역할이 자기 갈래를 따로
+    -- 가진 것과 같은 사정이고, 그래서 이 갈래가 없으면 아무 표시 없이 안 나가는 키가 된다.
+    local UNITGROUPS_NONE = Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
+
+    test("소속을 하나도 안 고르면 그 유닛 묶음이 잡는다", function()
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
+            units = { focus = { group = 0 } } });
+        check(GetBindingIssue(action, "units", nil, "focus") == UNITGROUPS_NONE,
+            "빈 소속 묶음을 안 잡는다: " .. tostring(GetBindingIssue(action, "units", nil, "focus")));
+        check(GetBindingIssue(action) == UNITGROUPS_NONE,
+            "액션 전체로 물어도 잡아야 한다");
+    end);
+
+    -- 짚어 물었으면 그 유닛만 답한다. 안 그러면 한 유닛의 빈 묶음으로 서브메뉴가 전부
+    -- 빨개져서 어느 것을 고쳐야 하는지가 화면에서 사라진다.
+    test("한 유닛의 빈 소속이 남의 서브메뉴를 안 칠한다", function()
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
+            units = { focus = { group = 0 }, target = {} } });
+        check(GetBindingIssue(action, "units", nil, "target") == nil,
+            "남의 유닛 서브메뉴가 빨개졌다");
+    end);
+
+    -- hover의 빈 소속은 hover 묶음의 문제다. `Units`는 `"hover"`를 줄로 갖고 있지 않다.
+    test("hover의 빈 소속은 hover 묶음만 칠한다", function()
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
+            units = { hover = { group = 0 } } });
+        check(GetBindingIssue(action, "hover") == UNITGROUPS_NONE,
+            "hover 묶음이 안 잡는다");
+        check(GetBindingIssue(action, "units") == nil,
+            "Units 묶음이 hover의 빈 소속으로 빨개졌다");
+    end);
+
     -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 그때 이 서브메뉴는 **아무것도 안 묻는
     -- 것**이지 "전부 묻는 것"이 아니다.
     test("대상이 없으면 \"@\" 서브메뉴가 남의 모순을 안 보여준다", function()
