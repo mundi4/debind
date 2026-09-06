@@ -1357,6 +1357,71 @@ do
         end
     end
 
+    --- 읽는 이 자신의 생사. **저장은 `units.player.dead`이고, 새 조건이 아니다.**
+    ---
+    --- 그 축은 이미 끝까지 서 있다 - 솔버 컬럼, 방출, 상태 루프, 클릭 경로가 다른 유닛과
+    --- 똑같이 `player`를 잰다. 없던 것은 그 값을 만들 자리뿐이었다: `Units` 묶음이 `player`를
+    --- 목록에서 빼기 때문에(자기 자신에는 존재/부재 라디오가 걸 것이 없다) 손으로 고친
+    --- 프로필로만 들어왔다.
+    ---
+    --- 최상위 조건 `conditions.dead`를 새로 두는 안은 안 잡았다. 같은 물음이 두 형태로
+    --- 저장되면 솔버가 다른 상자로 보고, 컬럼과 방출과 두 경로를 한 벌씩 더 쓰게 된다.
+    ---
+    --- **`Units` 묶음에는 `player`를 넣지 않는다.** 넣으면 한 값을 두 메뉴가 편집한다.
+    --- 여기가 `Group`과 나란한 것도 그래서다. 둘 다 읽는 이 자신을 묻는다.
+    local function CreateSelfLifeConditionMenu(rootDescription)
+        local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_LIFE", nil,
+            function()
+                return GetUnitConditionDead("player") ~= nil;
+            end);
+
+        --- 다른 축의 setter를 못 쓴다. 그쪽은 `exists` 라디오가 표를 세워둔 뒤에만 불리는데
+        --- 여기는 그 라디오가 없어서 첫 클릭이 표를 만든다. 지울 때도 같다 - 축 하나짜리
+        --- 자리라 그 값을 비우면 남는 것이 없고, 빈 표를 남기면 아무것도 안 고른 유닛이
+        --- 프로필에 쌓인다(`SetUnitConditionMode`가 끄는 자리에서 하는 것과 같은 정리다).
+        local function SetPlayerLife(value)
+            local units = UnitConditionsOf(_action);
+            if (value == nil) then
+                local cond = units and units.player;
+                if (type(cond) == "table") then
+                    cond.dead = nil;
+                    if (next(cond) == nil) then
+                        units.player = nil;
+                        if (not next(units)) then
+                            _action.conditions.units = nil;
+                            PruneConditions(_action);
+                        end
+                    end
+                end
+            else
+                if (units == nil) then
+                    units = {};
+                    TableFor(_action, "units", true).units = units;
+                end
+                local cond = units.player;
+                if (type(cond) ~= "table") then
+                    cond = {};
+                    units.player = cond;
+                end
+                cond.dead = value;
+            end
+
+            onActionValueChanged();
+            return MenuResponse.Refresh;
+        end
+
+        for _, item in ipairs(LIFE_ITEMS) do
+            description:CreateRadio(item.text,
+                function()
+                    return GetUnitConditionDead("player") == item.value;
+                end,
+                function()
+                    return SetPlayerLife(item.value);
+                end
+            );
+        end
+    end
+
     local function CreateGroupConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_GROUP", "groups");
         AppendDisable(description, "CONDITION_GROUP", "groups");
@@ -1944,6 +2009,8 @@ do
         CreateUnitConditionMenu(rootDescription);
 
         CreateGroupConditionMenu(rootDescription);
+
+        CreateSelfLifeConditionMenu(rootDescription);
 
         CreateSpecConditionMenu(rootDescription);
 

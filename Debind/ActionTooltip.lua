@@ -496,7 +496,12 @@ do
 				local value = DebindPrivate.UnitConditionForBinding(stored);
 				-- `"hover"` is drawn by the block above and `"@"` by the `Target` block, each beside
 				-- the thing it qualifies. What is left is the units the reader picked by name.
-				if (value ~= nil and checkedUnit ~= "hover" and checkedUnit ~= "@") then
+				-- `"player"` joins them: its own menu sits beside `Group` and asks about the
+				-- reader rather than about a unit they picked, so its line goes beside that one
+				-- too. Skipped whole rather than only where life is set, so a hand-edited axis
+				-- there is drawn once rather than in both places.
+				if (value ~= nil and checkedUnit ~= "hover" and checkedUnit ~= "@"
+						and checkedUnit ~= "player") then
 					if (first) then
 						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 						first = false;
@@ -521,6 +526,21 @@ do
 							.. (summary or LLL["CONDITION_UNIT_EXISTS"]), error);
 					end
 				end
+			end
+		end
+
+		-- 읽는 이 자신에 대한 조건. **`Units` 묶음이 아니라 `Group` 옆이다** - 편집하는 자리가
+		-- 거기고, 화면 둘이 다른 자리를 가리키면 고칠 곳을 찾는 사람이 헤맨다.
+		--
+		-- 이 유닛에는 존재 조건이 설 자리가 없다. 자기 자신은 늘 있으므로 `false`가 왔다면
+		-- 손으로 고친 프로필이고, `UnitConditionSummary`가 그 경우 nil을 내므로 줄이 안 나간다.
+		local selfCondition = DebindPrivate.UnitConditionForBinding(
+			conditions.units and conditions.units.player);
+		if (selfCondition) then
+			local summary = UnitConditionSummary(selfCondition);
+			if (summary) then
+				addLabelLine(tooltip, LLL["CONDITION_LIFE"]);
+				addValueLine(tooltip, summary, hasIssues and GetIssue("units") and true or false);
 			end
 		end
 

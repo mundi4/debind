@@ -66,6 +66,45 @@ return function(DebindPrivate)
     end
 
     ---------------------------------------------------------------------------
+    -- The reader's own condition rows
+    ---------------------------------------------------------------------------
+
+    -- **Edited beside `Group`, so it is drawn beside `Group`.** The value lives in
+    -- `units.player`, which would put it under the `Units` label with the units the reader picked
+    -- by name -- and then the menu they change it in and the line they read it on are two
+    -- different places. `hover` and `"@"` are skipped there for the same reason.
+    --- **라벨이 아니라 값의 모양으로 잰다.** `addLabelLine`이 라벨을 서식 문자열에 넣어
+    --- 내보내므로 툴팁 텍스트에는 라벨 키가 안 남는다. 대신 `Units` 묶음은 값 앞에
+    --- 유닛 이름을 붙이고 제 줄은 안 붙이므로, 그 접두사가 있느냐가 곧 어느 묶음이냐다.
+    test("the reader's own life is drawn on its own line, not under Units", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { units = { player = { dead = false } } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        local text = Tooltip(row);
+        check(text:find(LLL["LIFE_ALIVE"], 1, true),
+            "the condition is not drawn at all: " .. text);
+        check(not text:find(LLL["UNIT_PLAYER"] .. " - ", 1, true),
+            "it came out under the Units label: " .. text);
+    end);
+
+    -- 이름으로 고른 유닛은 그대로 `Units` 아래다. 위 갈래가 그 묶음까지 가져가면 안 된다.
+    test("a unit the reader picked by name is still drawn under Units", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { units = { focus = { dead = false } } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        local text = Tooltip(row);
+        check(text:find(LLL["UNIT_FOCUS"] .. " - " .. LLL["LIFE_ALIVE"], 1, true),
+            "the named unit lost its own block: " .. text);
+    end);
+
+    ---------------------------------------------------------------------------
     -- Unreachable, and the row that covers it
     ---------------------------------------------------------------------------
 
