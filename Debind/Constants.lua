@@ -7,7 +7,7 @@ Constants.DEBUG                           = false;
 Constants.DEBUG                           = true;
 --@end-debug@
 Constants.NIL                             = "\0";
-Constants.DB_VERSION                      = 6;
+Constants.DB_VERSION                      = 7;
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
@@ -65,7 +65,7 @@ Constants.ITEM                            = "item";
 --- What goes to the game is still an item: `*type-` is `"item"` and `*item-` is the bare number,
 --- which `SecureCmdItemParse` reads as an inventory slot rather than a bag pair
 --- (`ChatFrameUtil.lua`). The split is in our storage vocabulary, not in the attributes.
-Constants.EQUIPSLOT                       = "equipslot";
+Constants.USESLOT                         = "useslot";
 Constants.MACRO                           = "macro";
 Constants.MACROTEXT                       = "macrotext";
 Constants.MOUNT                           = "mount";
@@ -110,7 +110,7 @@ Constants.TYPES_WITH_UNIT                 = {
     -- **Same execution path as `ITEM`, so the same answer.** `SECURE_ACTIONS.item` hands its
     -- `unit` to `SecureCmdUseItem`, which passes it into `UseInventoryItem(slot, target)`. A
     -- healing trinket bound to a slot aims the way the item bound by id does.
-    [Constants.EQUIPSLOT] = true,
+    [Constants.USESLOT] = true,
     [Constants.PETACTION] = true,
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,
@@ -124,7 +124,7 @@ Constants.TYPES_WITH_UNIT                 = {
 Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
     [Constants.SPELL] = true,
     [Constants.ITEM] = true,
-    [Constants.EQUIPSLOT] = true,
+    [Constants.USESLOT] = true,
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,
     [Constants.TOGGLEMENU] = true,

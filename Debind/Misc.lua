@@ -113,7 +113,7 @@ do
             local name = entry.name;
             if (name and nameCount[name] > 1) then
                 numbered[name] = (numbered[name] or 0) + 1;
-                entry.name = format(L["EQUIPSLOT_NUMBERED"], name, numbered[name]);
+                entry.name = format(L["USESLOT_NUMBERED"], name, numbered[name]);
             end
         end
     end
@@ -1954,7 +1954,7 @@ function DebindPrivate.CanConvertToMacroText(action)
 
     return action.type == Constants.SPELL
         or action.type == Constants.ITEM
-        or action.type == Constants.EQUIPSLOT
+        or action.type == Constants.USESLOT
         or action.type == Constants.MOUNT
         or action.type == Constants.PETACTION
         or action.type == Constants.SETCUSTOM;
@@ -2005,7 +2005,7 @@ function DebindPrivate.ConvertToMacroText(action)
                 macrotext = format("%s %s", slashCommand, spellOrItemName);
             end
         end
-    elseif (action.type == Constants.EQUIPSLOT) then
+    elseif (action.type == Constants.USESLOT) then
         -- **The slot number is the whole body.** `SecureCmdItemParse` reads one bare number as an
         -- inventory slot, which is the same reading the binding's `*item-` gets
         -- (`UpdateBindings.lua`).

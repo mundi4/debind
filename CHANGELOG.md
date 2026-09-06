@@ -14,6 +14,8 @@ That is the one thing to know if a key you use over unit frames has gone quiet: 
 
 **A key can now be limited to certain specializations.** The new Specialization condition takes any of the five numbered specializations, and the action runs only while you are in one of them. The numbers follow the order the game lists your specializations in. They are numbers rather than names because the same action can sit on a tab several classes share, and there each class gives the same number to a different specialization. Number 5 is the starting specialization a character has before choosing one.
 
+**An action can now use the hovered frame's unit without a hover condition.** Tick "Use the action on the hovered frame's unit" in the action's hover menu and the key works as before everywhere, except that over a unit frame it goes to that frame's unit. It keeps its place in the key's order; to have something else win over unit frames, put a hover-conditioned action above it as usual. Any unit condition on the action's target is asked of the frame's unit while hovering. While Clique is running the box is locked and the action simply keeps its own target.
+
 Nearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues.
 
 # 3.5.2

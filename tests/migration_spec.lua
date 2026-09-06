@@ -543,6 +543,34 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 7: `equipslot` becomes `useslot`. The stored string is the type, so the rename is a
+    -- migration step and not a constant edit (`devdocs/0-ROADMAP.md`, 2026-08-28).
+    ---------------------------------------------------------------------------
+
+    test("dbver 7 renames the equipslot type", function()
+        local layer = { { key = "A", type = "equipslot", value = 13 } };
+        MigrateLayer(layer, 6);
+        check(layer[1].type == Constants.USESLOT, "타입이 " .. tostring(layer[1].type));
+        check(layer[1].value == 13, "값이 따라 바뀌었다");
+    end);
+
+    test("dbver 7 leaves every other type alone", function()
+        local layer = {
+            { key = "A", type = Constants.SPELL, value = 13 },
+            { key = "B", type = Constants.ITEM, value = 13 },
+        };
+        MigrateLayer(layer, 6);
+        check(layer[1].type == Constants.SPELL and layer[2].type == Constants.ITEM, "다른 타입이 바뀌었다");
+    end);
+
+    test("dbver 7 is safe to run twice", function()
+        local layer = { { key = "A", type = "equipslot", value = 13 } };
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        check(layer[1].type == Constants.USESLOT, "두 번째에 뭉개짐: " .. tostring(layer[1].type));
+    end);
+
+    ---------------------------------------------------------------------------
     -- dbver 5의 핵심 불변식: **표현만 바꾸고 뜻은 안 바꾼다**
     --
     -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다.

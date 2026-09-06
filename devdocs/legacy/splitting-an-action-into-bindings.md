@@ -123,7 +123,7 @@ KeyMap[key] = { 원본1의 파생..., 원본1, 원본2의 파생..., 원본2, ..
 묻는데, 쌍둥이만 죽은 액션은 원래 대상으로 여전히 나가니 그 액션이 죽었다고 하면 거짓말이다.
 `row.unreachable`(`MakeRow`)과 툴팁(`GetBindingIssue`의 `UNREACHABLE`)이 둘 다 이 함수를 보므로
 한 자리만 고치면 둘이 같이 맞는다. 일부만 죽은 경우를 무엇으로 보일지는 옵션 문서의 것이다
-(`adding-a-hover-unit-option.md`, MINOR 등급 하나).
+(`adding-a-hover-unit-option.md`, MINOR 등급 코드 둘).
 
 ### 3-2. 방출
 

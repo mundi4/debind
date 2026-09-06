@@ -26,7 +26,7 @@
 action
     type value          필수. `Constants.SPELL` 계열. value는 타입에 따라 주문/아이템 id,
                         매크로 본문, 펫 명령 ...
-                        **`EQUIPSLOT`의 value는 `INVSLOT_*` 칸 번호다.** `ITEM`에 칸 번호를
+                        **`USESLOT`의 value는 `INVSLOT_*` 칸 번호다.** `ITEM`에 칸 번호를
                         넣지 않고 타입을 나눈 것은 13이 멀쩡한 아이템 id이기도 해서다. 저장된
                         값만 봐서는 둘이 구별이 안 되고, 구별할 수 없는 값은 나중에
                         마이그레이션도 못 한다. 게임에 나갈 때는 둘 다 `*type-="item"`이다

@@ -114,7 +114,7 @@ end
 local BINDING_TYPE_NAMES   = {
 	[Constants.SPELL] = LLL["TYPE_SPELL"],
 	[Constants.ITEM] = LLL["TYPE_ITEM"],
-	[Constants.EQUIPSLOT] = LLL["TYPE_EQUIPSLOT"],
+	[Constants.USESLOT] = LLL["TYPE_USESLOT"],
 	[Constants.MACRO] = LLL["TYPE_MACRO"],
 	[Constants.MACROTEXT] = LLL["TYPE_MACROTEXT"],
 	[Constants.MOUNT] = LLL["TYPE_MOUNT"],
@@ -278,7 +278,7 @@ local function NameAndIconForAction(action)
 		local icon = C_Item.GetItemIconByID(value);
 		actionName = name;
 		actionIcon = icon;
-	elseif (type == Constants.EQUIPSLOT) then
+	elseif (type == Constants.USESLOT) then
 		-- **Resolved every draw, never stored.** The whole point of binding a slot rather than an
 		-- item is that swapping the trinket changes what the key fires -- so the icon has to
 		-- follow it. A baked one would show yesterday's trinket forever.

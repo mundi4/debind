@@ -648,10 +648,9 @@ local function MigrateLayer(layerTbl, dbver)
     end
 
     if (dbver <= 5) then
-        -- **아직 안 나간 단계다. 다음 저장 형식 변경도 7을 새로 열지 말고 여기 얹는다.**
-        -- 나간 적 없는 번호를 둘로 쪼개면 세상에 없는 중간 상태를 위한 단계가 생기고, 그
-        -- 단계는 아무 데이터도 안 만나면서 영원히 남는다. 6이 한 번 나가고 나면 그때부터
-        -- 7이다.
+        -- Shipped in 3.3. **An unshipped step takes every storage change until it ships**, rather
+        -- than opening the next number: splitting a number nobody has met makes a step for an
+        -- intermediate shape that never existed, and that step meets no data forever.
         --
         -- 조건을 액션 최상단에서 `conditions` 안으로 내리고, 옮기는 김에 이름도 간다.
         --
@@ -769,6 +768,23 @@ local function MigrateLayer(layerTbl, dbver)
             end
             if (action.key == nil) then
                 action.seq = nil;
+            end
+        end
+    end
+
+    if (dbver <= 6) then
+        -- `equipslot` becomes `useslot`. The action uses what is worn in a slot and equips nothing,
+        -- and the game's own `/equipslot 13 <item>` means the opposite (`0-ROADMAP.md`,
+        -- 2026-08-28). **The step holds the old string itself**: the constant is gone, and a dead
+        -- name left in `Constants.lua` would sit beside the live ones forever.
+        --
+        -- Safe to run again: nothing carries the old string once this has passed. **Payloads ride
+        -- this too** (`Export.lua`'s `BringPayloadDataForward`), which is what lets a string from
+        -- 3.5 or earlier arrive under the new name.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            if (action.type == "equipslot") then
+                action.type = Constants.USESLOT;
             end
         end
     end

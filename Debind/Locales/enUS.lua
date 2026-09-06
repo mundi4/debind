@@ -1069,11 +1069,11 @@ L["TYPE_FOCUS"] = "Set Focus Target"
 -- **Numbers the two slots the client calls by one name.** `TRINKET0SLOT` and `TRINKET1SLOT` are
 -- both "Trinket" and the two finger slots are both "Finger"; the character sheet tells them apart
 -- by where they sit, and a list has nothing to tell them apart with.
-L["EQUIPSLOT_NUMBERED"] = "%s %d"
-L["TYPE_EQUIPSLOT"] = "Equipment Slot"
+L["USESLOT_NUMBERED"] = "%s %d"
+L["TYPE_USESLOT"] = "Equipment Slot"
 -- Says what the key follows, because that is what a reader is choosing between here: this row and
 -- the item itself sitting in the Carried group below it.
-L["TYPE_EQUIPSLOT_DESC"] = "Uses whatever you are wearing in this slot."
+L["TYPE_USESLOT_DESC"] = "Uses whatever you are wearing in this slot."
 L["TYPE_ITEM"] = "Item"
 L["TYPE_MACRO"] = "Macro"
 L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read your switches, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"

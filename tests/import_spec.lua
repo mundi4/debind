@@ -644,6 +644,24 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
+    -- 3.5 이하가 내보낸 문자열에는 `equipslot`이 그대로 실려 온다. 페이로드는 프로필과 같은
+    -- 사다리를 타므로(`Export.lua`의 `BringPayloadDataForward`) 도착하는 것은 새 이름이어야 한다.
+    test("dbver 6 페이로드의 equipslot은 useslot으로 들어온다", function()
+        ResetProfile();
+        local old = General({ { type = "equipslot", value = 13, key = "F", seq = 1 } });
+        old.v = DebindStorage.EXPORT_SCHEMA_VERSION;
+        old.dbver = 6;
+        local action = PlanOne(Forwarded(old));
+        check(action.type == Constants.USESLOT, "타입이 " .. tostring(action.type));
+        check(action.value == 13, "값이 " .. tostring(action.value));
+    end);
+
+    test("dbver 없는 v1 페이로드의 equipslot도 useslot으로 들어온다", function()
+        ResetProfile();
+        local action = PlanOne(Forwarded(General({ { type = "equipslot", value = 13, key = "F", seq = 1 } })));
+        check(action.type == Constants.USESLOT, "타입이 " .. tostring(action.type));
+    end);
+
     -- **모르는 모드는 옛 타입인 채로 남는다.** 무엇을 하려던 액션인지 알 수 없으니 셋 중
     -- 아무거나 고르면 켜기가 끄기가 된다. 남은 `"setstate"`는 이 판이 모르는 타입이라
     -- `IsUsableAction`이 걸러내고, 문자열 전체가 거절된다 - 아래 그 자리에서 다시 본다.

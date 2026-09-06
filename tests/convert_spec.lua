@@ -82,7 +82,7 @@ return function(DebindPrivate)
     --- 줄로 남는다.
     test("착용 칸은 /use <칸>이 된다", function()
         installWorld();
-        local action = { type = Constants.EQUIPSLOT, value = 13 };
+        local action = { type = Constants.USESLOT, value = 13 };
         check(Can(action), "착용 칸에 변환이 안 선다");
         check(Convert(action), "변환이 거절됐다");
         check(action.type == Constants.MACROTEXT, "타입이 안 바뀌었다: " .. tostring(action.type));
@@ -96,7 +96,7 @@ return function(DebindPrivate)
     --- 안 갖는 타입이라 필드로는 못 따라간다.
     test("착용 칸의 대상은 본문에 들어간다", function()
         installWorld();
-        local action = { type = Constants.EQUIPSLOT, value = 13, unit = "focus" };
+        local action = { type = Constants.USESLOT, value = 13, unit = "focus" };
         check(Convert(action), "변환이 거절됐다");
         check(action.value == "/use [@focus] 13", "본문이 " .. tostring(action.value) .. "다");
         check(action.unit == nil, "대상 필드가 남았다");

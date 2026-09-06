@@ -1,12 +1,12 @@
 # 개체창 위에서는 그 개체에게. 그리고 `equipslot`이 `useslot`이 된다
 
-> 상태: **커밋 1(옵션)이 들어갔다 (2026-09-06). 남은 것은 커밋 2, `useslot`과 `dbver` 7.** 다른 세션이 이어받아도 되게 썼다. 근거는 `0-DIARY.md`
+> 상태: **전부 들어갔다 (2026-09-06).** 근거는 `0-DIARY.md`
 > 2026-09-06에 있고 여기엔 결론과 순서만 둔다. 시작 전에 CLAUDE.md, `testing-a-change.md`,
 > `writing-user-facing-text.md`, `action-and-binding-shapes.md`, `restricted-environment.md`를 읽을 것.
 >
 > **같은 날 옵션의 실체가 바뀌었다.** 처음에는 유닛 풀이 한 줄이었는데, `units["@"]`가 따라오면 그
 > 길이 교집합이 되어 엉뚱한 개체에 나간다. 그래서 옵션은 **액션 하나에서 바인딩 둘을 파생하는 것**이
-> 되었고, 가르는 장치는 `legacy/splitting-an-action-into-bindings.md`가 든다. **그 문서가 먼저다.** 옵션의
+> 되었고, 가르는 장치는 `splitting-an-action-into-bindings.md`가 든다. **그 문서가 먼저다.** 옵션의
 > 필드(`preferHoverUnit`)와 쌍둥이 바인딩과 헤드리스의 구조 쪽 테스트는 거기 커밋에 들어가고, 여기
 > 커밋 1에 남는 것은 메뉴·문구·이슈 등급·매크로 변환이다.
 
@@ -21,7 +21,7 @@
 새 옵션은 켜진 액션을 **바인딩 둘로 가른다.** 개체창 위에서는 그 개체창의 개체를 겨누는 hover
 쌍둥이가, 밖에서는 원래 대상을 겨누는 원본이 답한다. `[@mouseover][@원래대상]`과 같은 뜻이고,
 `units["@"]` 조건은 각자 자기가 겨누는 개체에게 묻는다. 가르는 장치와 쌍둥이의 모양은
-`legacy/splitting-an-action-into-bindings.md` §2.
+`splitting-an-action-into-bindings.md` §2.
 
 - **순서에서는 hover 조건 없는 액션 그대로다.** hover 유닛 조건(반응·죽음·역할)도 없다. 개체창
   위에서 가려 받고 싶으면 그 앞에 hover 조건 액션을 얹는다. 지금 규칙과 같다. 쌍둥이는 hover 층에
@@ -60,7 +60,7 @@
 
 ### 커밋 1. 옵션
 
-- **필드와 쌍둥이는 이미 들어와 있다** (`legacy/splitting-an-action-into-bindings.md`). `SecureBindings.lua`와
+- **필드와 쌍둥이는 이미 들어와 있다** (`splitting-an-action-into-bindings.md`). `SecureBindings.lua`와
   `UpdateBindings.lua`는 이 커밋에서 손대지 않고, 골든도 안 바뀐다. 쌍둥이는 hover 조건이 켜진 평범한
   바인딩이라 스니펫이 이미 아는 모양이다.
 - **도달 불가의 일부.** `IsUnreachableAction`은 둘 다 죽었을 때만 참이다(구조 문서 §3-1). 쌍둥이만

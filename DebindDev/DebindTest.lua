@@ -5533,7 +5533,7 @@ RegisterTest("Equipment slot: the attribute names a slot, not an item", {
         local KEY = "CTRL-SHIFT-F8"
         local SLOT = 13
 
-        InsertAction({ type = Constants.EQUIPSLOT, value = SLOT, key = KEY })
+        InsertAction({ type = Constants.USESLOT, value = SLOT, key = KEY })
         ApplyBindings()
 
         local binding = GetNthBinding(KEY, 1)

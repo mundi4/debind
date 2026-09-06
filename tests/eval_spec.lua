@@ -123,7 +123,7 @@ return function(DebindPrivate, _, ctx)
             action({ type = Constants.MACROTEXT, value = "/cast Renew", key = "F3" }),
             action({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", key = "F4" }),
             action({ type = Constants.TARGET, key = "F5", unit = "focus" }),
-            action({ type = Constants.EQUIPSLOT, value = 13, key = "F6" }),
+            action({ type = Constants.USESLOT, value = 13, key = "F6" }),
         });
 
         local clickFrame = DebindPrivate.DefaultClickFrame;
@@ -155,7 +155,7 @@ return function(DebindPrivate, _, ctx)
         -- binding while the window still shows the one that was picked -- the fault that list was
         -- made single for.
         local targeted = DebindPrivate.GetBindingInfoForAction(
-            { type = Constants.EQUIPSLOT, value = 13, key = "F7", unit = "focus" });
+            { type = Constants.USESLOT, value = 13, key = "F7", unit = "focus" });
         check(targeted.unit == "focus",
             "equipslot lost its unit: " .. tostring(targeted.unit));
 

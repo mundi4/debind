@@ -272,7 +272,7 @@ local VALUE_SHAPES = {
     [Constants.ITEM]        = "number",
     -- An `INVSLOT_*` number, which reaches the `*item-` attribute as a bare string and is read
     -- there as an inventory slot rather than an item id (`UpdateBindings.lua`).
-    [Constants.EQUIPSLOT]   = "number",
+    [Constants.USESLOT]   = "number",
     [Constants.MOUNT]       = "number",
     [Constants.FLYOUT]      = "number",
     [Constants.WORLDMARKER] = "number",

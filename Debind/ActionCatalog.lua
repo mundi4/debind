@@ -729,10 +729,10 @@ local function BuildEquipSlots(entries, seen)
 	local group = LLL["SPELL_PICKER_GROUP_EQUIPPED"];
 	for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
 		AddEntry(entries, seen, {
-			type = Constants.EQUIPSLOT,
+			type = Constants.USESLOT,
 			value = slot,
 			group = group,
-			tooltipText = LLL["TYPE_EQUIPSLOT_DESC"],
+			tooltipText = LLL["TYPE_USESLOT_DESC"],
 		});
 	end
 end
