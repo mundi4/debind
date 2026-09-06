@@ -2488,9 +2488,11 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- has a word for that (`BINDING_ISSUE_SPECS_NONE_SELECTED`). Marked here, the flag would take
     -- the slot that word prints in and the filter would hide the row with the other
     -- specializations, which is the silence the check was added to break.
+    --
+    -- **That is `SpecConditionHolds`'s answer now, not a guard of this caller's.** Written here it
+    -- was one of three callers asking the same question, and the other two got it wrong.
     local binding = DebindPrivate.GetBindingInfoForAction(action);
-    local specs = binding.conditions.specs;
-    row.specExcluded = (specs ~= nil and specs ~= 0
+    row.specExcluded = (binding.conditions.specs ~= nil
         and not DebindPrivate.SpecConditionHolds(binding, worldSpec)) or nil;
 
     return row;

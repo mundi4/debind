@@ -626,7 +626,11 @@ do
             cond.exists = nil;
         end
 
-        if (mode == "off" and cond.reaction == nil and cond.dead == nil and cond.role == nil) then
+        -- **축이 하나 늘 때마다 여기 항이 하나 는다.** 빠뜨리면 그 축만 걸어둔 유닛이
+        -- [사용 안 함]으로 옮기는 순간 기억되는 대신 지워진다 - 바로 위가 약속하는 것의
+        -- 반대다. 소속을 넣을 때 실제로 그렇게 빠졌다.
+        if (mode == "off" and cond.reaction == nil and cond.dead == nil and cond.role == nil
+                and cond.group == nil) then
             -- 기억할 축이 하나도 없다. 빈 표를 남기면 아무것도 안 고른 유닛이 프로필에 쌓인다.
             if (units) then
                 units[unit] = nil;

@@ -247,6 +247,50 @@ return function(DebindPrivate)
         end
     end);
 
+    --- **유닛 축 밖의 축들.** 위 테스트가 `unitStates`를 재는데, 소속과 역할은 그 마스크에
+    --- 안 접히고 제 컬럼으로 산다(`binding.unitGroups`, `binding.unitRole`). 그래서 접는 쪽이
+    --- 그 필드를 빠뜨려도 위 테스트는 초록으로 남고, 사라진 조건은 **바인딩이 넓어지는**
+    --- 방향이라 그 키가 걸리면 안 될 때 걸린다.
+    test("소속과 역할도 접힌 값에 남는다", function()
+        installWorld();
+
+        local PARTY = Constants.UNITGROUP_PARTY;
+        local RAID = Constants.UNITGROUP_RAID;
+
+        -- `"@"`만 소속을 들고 있다. 옮길 곳의 필드가 비어 있어도 옮겨야 한다.
+        local action = { type = Constants.SPELL, value = 774, unit = "focus",
+            conditions = { units = {
+                ["@"] = { group = PARTY },
+                focus = { dead = false },
+            } } };
+        check(Convert(action), "변환이 거절됐다");
+        check(action.conditions.units.focus.group == PARTY,
+            "`@`의 소속이 사라졌다: " .. tostring(action.conditions.units.focus.group));
+
+        -- 양쪽이 다 들고 있으면 교집합이다. 겹치는 축이라 이 둘은 **하나로 안 접힌다** -
+        -- 저장은 상자를 그대로 들고 파생이 칸으로 편다(`Misc.UnitGroupToCells`).
+        action = { type = Constants.SPELL, value = 774, unit = "focus",
+            conditions = { units = {
+                ["@"] = { group = PARTY + RAID },
+                focus = { group = PARTY },
+            } } };
+        check(Convert(action), "변환이 거절됐다");
+        check(action.conditions.units.focus.group == PARTY,
+            "소속 교집합이 틀렸다: " .. tostring(action.conditions.units.focus.group));
+
+        -- 역할은 hover에만 실리므로 `"@"`가 hover를 가리킬 때만 만난다.
+        action = { type = Constants.SPELL, value = 774, unit = "hover",
+            conditions = { units = {
+                ["@"] = { role = Constants.ROLE_TANK },
+                hover = { dead = false },
+            } } };
+        if (Can(action)) then
+            check(Convert(action), "변환이 거절됐다");
+            check(action.conditions.units.hover.role == Constants.ROLE_TANK,
+                "`@`의 역할이 사라졌다: " .. tostring(action.conditions.units.hover.role));
+        end
+    end);
+
     --- 꺼둔 `"@"`는 조건이 아니다. 저장은 끈 축을 기억하지만 그것은 메뉴가 되돌려주려고 드는
     --- 것이고, 바인딩에는 애초에 안 닿는다. **변환이 건드리는 것은 닿는 것뿐이다** - 옮겨서
     --- 접으면 기억이 살아 있는 조건으로 바뀐다.

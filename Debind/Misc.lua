@@ -1157,6 +1157,23 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     if (specs == nil) then
         return true;
     end
+    -- **An empty set is not another specialization's.** No index satisfies it, so a reader waiting
+    -- for the right specialization to come round will wait forever: the action is wrong, and it
+    -- already has a word for that (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
+    --
+    -- Every caller here is asking the same question, "does this belong to a world other than the
+    -- one on screen", and for an empty set the answer is no. Answering `false` instead put it in
+    -- the same bucket as an off-specialization action three times over: `BuildKeyMap` left it out
+    -- of `ActiveActions`, so the key heading -- which asks only active rows whether one is broken
+    -- -- drew plain over a dead key while the row under it showed the error; and the tooltip added
+    -- "not the one being played" beside a line already saying nothing was chosen. `Profile.lua`
+    -- was the one caller that guarded it, with its own `specs ~= 0`.
+    --
+    -- **The error gate is what keeps it off the key**, the same gate every other ERROR goes
+    -- through (`Debind.lua`). Nothing is lost by letting it past this one.
+    if (specs == 0) then
+        return true;
+    end
     if (spec == nil) then
         spec = C_SpecializationInfo.GetSpecialization();
     end
@@ -2019,7 +2036,34 @@ local function IntersectStoredUnitConditions(a, b)
         dead = a.dead;
     end
 
-    return { reaction = reaction, dead = dead };
+    -- **Every axis a unit condition can carry has to be listed here.** This is the third place one
+    -- axis is intersected -- `BuildUnitStates` folds for the solver and `mergeUnitConditions` folds
+    -- for the snippet -- and it is the only one that writes the answer back into storage. An axis
+    -- left out of the other two makes a binding look wrong; left out of this one it is **deleted
+    -- from the profile**, and the conversion replaces the action in place.
+    --
+    -- Neither of the two below is on `unitStates`, which is what let them go missing quietly:
+    -- group and role have columns of their own, so the spec that compares that mask before and
+    -- after the fold stays green while the field is gone.
+    local group;
+    if (a.group == nil) then
+        group = b.group;
+    elseif (b.group == nil) then
+        group = a.group;
+    else
+        group = band(a.group, b.group);
+    end
+
+    local role;
+    if (a.role == nil) then
+        role = b.role;
+    elseif (b.role == nil) then
+        role = a.role;
+    else
+        role = band(a.role, b.role);
+    end
+
+    return { reaction = reaction, dead = dead, group = group, role = role };
 end
 
 --- Whether the conditions this action carries can come along into a macro body.

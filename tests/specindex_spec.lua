@@ -148,6 +148,17 @@ return function(DebindPrivate)
         check(DebindPrivate.GetBindingIssue(stored, "specs")
             == Constants.BINDING_ISSUE_SPECS_NONE_SELECTED, "the empty set was not reported");
         check(Values("F1") == "<none>", "the key came out with " .. Values("F1"));
+
+        -- **And it stays active, unlike the test above.** The two look alike on the key and are
+        -- opposite in the window. Another specialization's action is inactive because there is
+        -- nothing to fix -- it works when that specialization comes round -- while this one is
+        -- work waiting, and the row is where the reader goes to do it.
+        --
+        -- What reads this is the key heading (`DebindUI.lua`), which asks only active rows
+        -- whether any of them is broken. Filtered out here, the heading draws plain over a dead
+        -- key while the row under it shows the error, and the two say different things.
+        check(not DebindPrivate.IsInactiveAction(stored),
+            "the empty set was filtered out as if it belonged to another specialization");
     end);
 
     -- **A specialization that is not known yet takes the conditioned action out, not in.**

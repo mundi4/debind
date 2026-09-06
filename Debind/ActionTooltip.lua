@@ -219,8 +219,6 @@ do
 			s = s and (s .. ", " .. life) or life;
 		end
 		if (value.group ~= nil and value.group ~= Constants.UNITGROUP_ALL) then
-			-- 0이면 `FlagNames`가 nil을 내고 이 줄은 안 나간다. 그 경우가 이슈이고,
-			-- 문장은 조건 묶음이 제 자리에서 낸다.
 			local groups = FlagNames(value.group, UNIT_GROUPS, "UNITGROUP_", Constants.UNITGROUP_ALL);
 			if (groups) then
 				s = s and (s .. ", " .. groups) or groups;
