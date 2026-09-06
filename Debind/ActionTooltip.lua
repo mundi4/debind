@@ -86,6 +86,15 @@ do
 	--- `addValueLines` 안에서 비워지며 돌기 때문이다.
 	local _switchNames = {};
 	local LEFT_OFFSET = 10;
+	-- **One step in, for a line that belongs to the line above it.** Two things use it. The reason a
+	-- value is red, which is red itself because the sentence is about a fault and gold would read as
+	-- a second value, so the step is the only thing left to tell the setting from the explanation.
+	-- And the axes one unit condition narrows, which would otherwise stand level with the units
+	-- themselves and stop saying whose they are.
+	--
+	-- The reason used to be bracketed instead, which put one sentence in two shapes: a reason that
+	-- belongs to a whole block goes up under the label with no bracket.
+	local INDENT_STEP = 10;
 
 	--- Stands in for a caller that passes nothing, so the reads below need no guard. Never
 	--- written to: the entry point only reads fields off it.
@@ -112,38 +121,48 @@ do
 		end
 	end
 
+	--- **Red on the value only where the value is the whole of the problem.** `error` as `true`
+	--- says exactly that -- nothing is selected, and there is no separate sentence to print, so the
+	--- value has to carry the colour itself. A code instead means the sentence goes up underneath,
+	--- and then the value is a setting the reader chose with nothing wrong in it.
 	local function addValueLine(tooltip, value, error, wrap, leftOffset)
-		if (error) then
+		if (error == true) then
 			GameTooltip_AddErrorLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		else
 			GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(tooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddErrorLine(tooltip, LLL["BINDING_ERROR_" .. error], wrap or false,
+				(leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
 	local function addValueLines(tooltip, lines, error, wrap, leftOffset)
-		local fn = error and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
+		local fn = error == true and GameTooltip_AddErrorLine or GameTooltip_AddNormalLine;
 		for i = 1, #lines do
 			fn(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(tooltip, "(" .. LLL["BINDING_ERROR_" .. error] .. ")", wrap or false, leftOffset or LEFT_OFFSET);
+			GameTooltip_AddErrorLine(tooltip, LLL["BINDING_ERROR_" .. error], wrap or false,
+				(leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
 	--- The names a mask has switched on, comma-joined onto one line.
 	---
-	--- **The full mask and the empty one get a word instead of a list.** Naming every reaction is
-	--- longer than "all" and says less, and an empty mask is not a list of nothing: it is the one
+	--- **The empty mask gets a word instead of a list.** It is not a list of nothing: it is the one
 	--- state nothing can satisfy, so it gets a word a reader can catch.
 	---
 	--- One `prefix` addresses both tables -- the flag is `Constants[prefix .. name]` and the word
 	--- is `LLL[prefix .. name]` -- which holds because the two are keyed alike by construction.
 	local function FlagNames(mask, names, prefix, all)
+		-- **Nil for the full mask, so the caller drops the line.** All of them on filters nothing
+		-- out, which is the same condition as the axis being unset: `FillBinding` folds the one
+		-- into the other before a binding is built (`Misc.lua`), and `frameTypes` is not written
+		-- as an attribute either (`UpdateBindings.lua`). A line for it says a condition is at work
+		-- where none is.
 		if (mask == all) then
-			return LLL["ALL"];
+			return nil;
 		elseif (mask == 0) then
 			return LLL["NOT_SELECTED"];
 		end
@@ -168,6 +187,31 @@ do
 	--- that one opens a block and this one is inside it.
 	local function LabelledValue(labelKey, value)
 		return format("|cnWHITE_FONT_COLOR:%s:|r %s", LLL[labelKey], value);
+	end
+
+	--- What one unit condition narrows, joined onto the unit's own line: "Focus - Enemy, Alive".
+	--- Nil where it narrows nothing, and the caller writes "when the unit exists" instead.
+	---
+	--- **No label on either part, and no line of its own.** Anything after the unit's name is a
+	--- restriction on that unit and nothing else can be there, so the position says what a label
+	--- would; on separate lines they stood level with the units themselves and stopped saying whose
+	--- they were.
+	---
+	--- **The existence is not written where an axis is.** An axis can only be read off a unit that
+	--- is there, so a reaction or a life state already carries it.
+	local function UnitConditionSummary(value)
+		if (type(value) ~= "table") then
+			return nil;
+		end
+		local s;
+		if (value.reaction ~= nil and value.reaction ~= Constants.REACTION_ALL) then
+			s = FlagNames(value.reaction, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL);
+		end
+		if (value.dead ~= nil) then
+			local life = value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"];
+			s = s and (s .. ", " .. life) or life;
+		end
+		return s;
 	end
 
 	--- Everything one action has to say, written into a tooltip somebody else owns.
@@ -219,14 +263,22 @@ do
 		--- **조건 이름을 그대로 넘기는 호출자가 있어서 갈래인지 먼저 본다.** 조건 열여덟 중
 		--- 검사가 있는 것은 절반이고, 없는 이름으로 물으면 언제나 nil이라 답은 같다. 다른 것은
 		--- DEBUG에서 그 물음이 걸린다는 것뿐이다.
-		local function GetIssue(category)
+		--- `unit` narrows the answer to one unit token, which is what keeps a contradiction on one
+		--- unit off the lines of the units beside it.
+		local function GetIssue(category, unit)
 			if (category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
 				return nil;
 			end
-			return GetBindingIssue(action, category);
+			return GetBindingIssue(action, category, nil, unit);
 		end
 
-		local isInactive = not suppressInactive and DebindPrivate.IsInactiveAction(action);
+		-- **The three tests the row's name uses** (`LayerDisplay.lua`'s `IsActionLive`), and not
+		-- `IsInactiveAction`. That one also drops an action whose specialization condition is false
+		-- right now, which greyed the key for a condition the reader set like any other one. A
+		-- condition belongs to the line that carries it. `offWorld` is the layer half of that test,
+		-- already answered by the caller, and a keyless action never reaches this value.
+		local isInactive = not suppressInactive
+			and (action.arrivalID ~= nil or opts.offWorld == true);
 		local hasIssues = GetIssue() ~= nil;
 		-- 조건은 액션 최상단이 아니라 이 표 안이다(`Constants.CONDITION_FIELDS`). 표가 없으면
 		-- 그릴 조건이 하나도 없다는 뜻이라, 아래 갈래들이 전부 저절로 비켜간다.
@@ -306,8 +358,29 @@ do
 
 		if (action.unit ~= nil) then
 			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
-			local error = hasIssues and GetIssue("unit");
+			-- **`"@"` is what this menu wrote, so that is what it is asked about.** Without it the
+			-- answer covers every unit the action names and this line reports a contradiction the
+			-- reader made somewhere else.
+			local error = hasIssues and GetIssue("unit", "@");
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
+
+			-- **The condition on the aimed unit belongs here, not in `Units`.** `units["@"]` is what
+			-- the reader set in this menu, on this target; over there it stood among units they had
+			-- picked by name, under a heading that said nothing about which one it qualified.
+			--
+			-- It joins the target's own line, the shape `Units` uses after a unit name. `none` is the
+			-- one target that is not a unit, so there is nothing for a condition to be about.
+			local aimed;
+			if (action.unit ~= "none" and conditions.units) then
+				aimed = DebindPrivate.UnitConditionForBinding(conditions.units["@"]);
+			end
+			if (aimed == false) then
+				unitStr = unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"];
+			elseif (aimed ~= nil) then
+				unitStr = unitStr .. " - "
+					.. (UnitConditionSummary(aimed) or LLL["CONDITION_UNIT_EXISTS"]);
+			end
+
 			addValueLine(tooltip, unitStr, error);
 		end
 
@@ -326,7 +399,8 @@ do
 			-- One call. `addValueLine` colours the value and prints the code's sentence under it,
 			-- which is exactly the shape this line wants -- what is wrong is the box, and the
 			-- sentence says why.
-			addValueLine(tooltip, LLL["PREFER_HOVER_UNIT"],
+			addValueLine(tooltip, action.unit == nil and LLL["LINE_TOOLTIP_PREFER_HOVER_UNIT"]
+					or LLL["LINE_TOOLTIP_PREFER_HOVER_UNIT_INSTEAD"],
 				hasIssues and GetIssue("preferHoverUnit") or nil);
 		end
 
@@ -338,38 +412,61 @@ do
 		if (hoverCondition ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
 			local error = hasIssues and GetIssue("hover");
+			-- **Under the label, ahead of the values, and the only red line in the block.** What is
+			-- wrong here is the condition itself rather than any one value: the reader picked those
+			-- and there is nothing wrong with them. Painting them too left two red lines at one
+			-- margin reading as one sentence, with no way to tell the fault from the setting. The
+			-- reaction and frame type lines keep their own colour, because those carry issues of
+			-- their own.
+			if (error) then
+				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
+			end
 			if (hoverCondition) then
-				local reactions = hoverCondition.reaction or Constants.REACTION_ALL;
 				local frameTypes = conditions.frameTypes or Constants.FRAMETYPE_ALL;
+				-- **The block cannot end up as a bare label.** Every line under it narrows the
+				-- condition, and an unnarrowed one has none to draw, so the plain "over a unit
+				-- frame" goes up instead. The negative branch below has said that much all along.
+				local wroteValue = false;
 
-				addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
-					FlagNames(reactions, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
-					hasIssues and GetIssue("reactions") and true or false, true);
+				-- **The two axes a unit carries anywhere go on one unlabelled line**, the same
+				-- shape the `Units` block writes after a unit's name. The two below stay labelled:
+				-- they belong to the frame rather than to the unit on it, and their values are
+				-- long enough that a joined line would wrap somewhere arbitrary.
+				local summary = UnitConditionSummary(hoverCondition);
+				if (summary) then
+					wroteValue = true;
+					addValueLine(tooltip, summary,
+						hasIssues and GetIssue("reactions") and true or false, true);
+				end
 
-				addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES",
-					FlagNames(frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_", Constants.FRAMETYPE_ALL)),
-					hasIssues and GetIssue("frameTypes") and true or false, true);
-
-				if (hoverCondition.dead ~= nil) then
-					addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
-						hoverCondition.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]),
-						error and true or false, true);
+				local frameTypeNames = FlagNames(frameTypes, UNIT_FRAME_TYPES, "FRAMETYPE_",
+					Constants.FRAMETYPE_ALL);
+				if (frameTypeNames) then
+					wroteValue = true;
+					addValueLine(tooltip, LabelledValue("CONDITION_FRAMETYPES", frameTypeNames),
+						hasIssues and GetIssue("frameTypes") and true or false, true);
 				end
 
 				if (hoverCondition.role ~= nil and hoverCondition.role ~= Constants.ROLE_ALL) then
+					wroteValue = true;
 					addValueLine(tooltip, LabelledValue("CONDITION_ROLE",
 						FlagNames(hoverCondition.role, UNIT_ROLES, "ROLE_", Constants.ROLE_ALL)),
-						error and true or false, true);
+						nil, true);
 				end
 
-				if (action.ignoreHoverUnit) then
-					addValueLine(tooltip, LLL["IGNORE_HOVER_UNIT"]);
+				-- **Only where the box is doing something.** `FillBinding` reads it under
+				-- `binding.unit == nil` (`Misc.lua`), so with a target set the action was never
+				-- going to the hovered unit and a line saying so reads as a setting at work.
+				if (action.ignoreHoverUnit and action.unit == nil) then
+					wroteValue = true;
+					addValueLine(tooltip, LLL["LINE_TOOLTIP_IGNORE_HOVER_UNIT"]);
+				end
+
+				if (not wroteValue) then
+					addValueLine(tooltip, LLL["CONDITION_HOVER_YES"]);
 				end
 			else
-				addValueLine(tooltip, LLL["CONDITION_HOVER_NO"], error);
-			end
-			if (error) then
-				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
+				addValueLine(tooltip, LLL["CONDITION_HOVER_NO"]);
 			end
 		end
 
@@ -378,20 +475,21 @@ do
 			for checkedUnit, stored in pairs(conditions.units) do
 				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다. `"hover"`는 위 호버 묶음이 그렸다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
-				if (value ~= nil and checkedUnit ~= "hover"
-						and (checkedUnit ~= "@" or (action.unit and action.unit ~= "none"))) then
+				-- `"hover"` is drawn by the block above and `"@"` by the `Target` block, each beside
+				-- the thing it qualifies. What is left is the units the reader picked by name.
+				if (value ~= nil and checkedUnit ~= "hover" and checkedUnit ~= "@") then
 					if (first) then
 						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 						first = false;
 					end
 
-					local error = hasIssues and GetIssue("units");
-					local unitStr;
-					if (checkedUnit == "@") then
-						unitStr = format(LLL["SELECTED_TARGET_UNIT"], UNIT_INFO[action.unit].name);
-					else
-						unitStr = UNIT_INFO[checkedUnit].name;
-					end
+					-- **Asked of this unit, not of the block.** One `GetIssue("units")` for the whole
+					-- loop put one unit's contradiction on every line under the heading, so a unit
+					-- that had nothing to do with it read as broken and the sentence repeated once
+					-- per row. The fourth argument is what narrows the answer to one unit; the unit
+					-- submenus have always asked that way (`Misc.lua`).
+					local error = hasIssues and GetIssue("units", checkedUnit);
+					local unitStr = UNIT_INFO[checkedUnit].name;
 					-- Storage keeps one field per axis (`Profile.lua`'s `dbver <= 4` step). One
 					-- line says whether the unit has to be there, and each constrained axis adds
 					-- a line below it in the shape the hover block already uses. A new axis is
@@ -399,25 +497,20 @@ do
 					if (value == false) then
 						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], error);
 					else
-						addValueLine(tooltip, unitStr .. " - " .. LLL["CONDITION_UNIT_EXISTS"], error);
-
-						local reaction = type(value) == "table" and value.reaction or nil;
-						if (reaction ~= nil and reaction ~= Constants.REACTION_ALL) then
-							addValueLine(tooltip, LabelledValue("CONDITION_REACTIONS",
-								FlagNames(reaction, UNIT_FRAME_REACTIONS, "REACTION_", Constants.REACTION_ALL)),
-								error, true);
-						end
-
-						if (type(value) == "table" and value.dead ~= nil) then
-							addValueLine(tooltip, LabelledValue("CONDITION_LIFE",
-								value.dead and LLL["LIFE_DEAD"] or LLL["LIFE_ALIVE"]), error, true);
-						end
+						local summary = UnitConditionSummary(value);
+						addValueLine(tooltip, unitStr .. " - "
+							.. (summary or LLL["CONDITION_UNIT_EXISTS"]), error);
 					end
 				end
 			end
 		end
 
-		if (conditions.groups ~= nil) then
+		-- **A full mask is not drawn at all, label and values both.** Every one of them on rules
+		-- nothing out, which is the state the axis is in when it was never set: the emitter drops
+		-- it against `allValue` (`UpdateBindings.lua`), and the specialization index is answered
+		-- true for it before a binding is built (`Misc.lua`'s `SpecConditionHolds`). Drawing it
+		-- would name a condition that holds nothing back.
+		if (conditions.groups ~= nil and conditions.groups ~= Constants.GROUP_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
 			if (conditions.groups == 0) then
@@ -435,21 +528,35 @@ do
 			end
 		end
 
-		if (conditions.specs ~= nil) then
-			addLabelLine(tooltip, LLL["CONDITION_SPEC"]);
+		if (conditions.specs ~= nil and conditions.specs ~= Constants.SPEC_ALL) then
+			addLabelLine(tooltip, LLL["CONDITION_SPECS"]);
 
 			if (conditions.specs == 0) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_SPECS_NONE_SELECTED"], true);
 			else
-				wipe(_lines);
-				local error = hasIssues and GetIssue("specs");
+				-- **One line of numbers, not a line each.** Every row would repeat the word the
+				-- label above already said, and five of them push the conditions under it off
+				-- the screen. The reactions and frame types above are joined the same way.
+				local s = "";
 				for i = 1, Constants.MAX_SPEC_INDEX do
 					local flag = Constants.SpecIndexFlag(i);
 					if (bit.band(conditions.specs, flag) ~= 0) then
-						tinsert(_lines, format(LLL["CONDITION_SPEC_N"], i));
+						if (s ~= "") then
+							s = s .. ", ";
+						end
+						s = s .. i;
 					end
 				end
-				addValueLines(tooltip, _lines, error);
+				addValueLine(tooltip, s, hasIssues and GetIssue("specs"));
+				-- **Under the numbers, not on them.** The numbers are what the reader chose and
+				-- none of them is wrong; what this adds is that none is the one being played.
+				-- Held back where the layer is another specialization's, for the reason
+				-- `unreachable` is: the reader opened that world on purpose and the answer here
+				-- is about the one they are standing in.
+				if (not opts.offWorld and not DebindPrivate.SpecConditionHolds(action)) then
+					addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
+						"(" .. LLL["LINE_TOOLTIP_SPEC_INACTIVE"] .. ")"));
+				end
 			end
 		end
 
@@ -471,34 +578,28 @@ do
 			addValueLine(tooltip, LLL["CONDITION_KNOWN_YES"], error);
 		end
 
-		if (conditions.forms ~= nil) then
+		if (conditions.forms ~= nil and conditions.forms ~= Constants.FORM_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_SHAPESHIFT"]);
 			if (conditions.forms == 0) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_FORMS_NONE_SELECTED"], true);
 			else
-				wipe(_lines);
-				local error = hasIssues and GetIssue("forms");
+				-- **Numbers on one line, the way the specializations above are drawn.** A name
+				-- each would be eleven rows of a word the label already said, and most of them
+				-- have no name on this class anyway. The menu is where the names live.
+				local s = "";
 				for i = 0, 10 do
-					local flag = 2 ^ i;
-					if (bit.band(conditions.forms, flag) ~= 0) then
-						if (i == 0) then
-							tinsert(_lines, format("[form:%d] (%s)", i, LLL["NO_SHAPESHIFT"]));
-						else
-							local _, _, _, spellID = GetShapeshiftFormInfo(i);
-							local spellName = spellID and GetSpellNameAndIconID(spellID);
-							if (spellName) then
-								tinsert(_lines, format("[form:%d] (%s)", i, spellName));
-							else
-								tinsert(_lines, format("[form:%d]", i));
-							end
+					if (bit.band(conditions.forms, 2 ^ i) ~= 0) then
+						if (s ~= "") then
+							s = s .. ", ";
 						end
+						s = s .. i;
 					end
 				end
-				addValueLines(tooltip, _lines, error);
+				addValueLine(tooltip, s, hasIssues and GetIssue("forms"));
 			end
 		end
 
-		if (conditions.bonusbars ~= nil) then
+		if (conditions.bonusbars ~= nil and conditions.bonusbars ~= Constants.BONUSBAR_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_BONUSBAR"]);
 			if (conditions.bonusbars == 0) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_BONUSBARS_NONE_SELECTED"], true);
