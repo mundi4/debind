@@ -155,9 +155,6 @@ L["NO_SEARCH_RESULTS"] = "Здесь нет ничего, что соответ�
 L["NO_SHAPESHIFT"] = "Без перевоплощения"
 L["NOT_SELECTED"] = "Не выбрано"
 L["OPTIONS"] = "Настройки"
--- %s는 특성 이름이다(사이드탭 3 이상에서만 이 문장이 뜬다).
--- 문제마다 하나씩 있던 짧은 문구는 걷어냈다. 근거는 enUS 쪽 주석에 있다.
-L["ORDER_FLAG_ISSUE"] = "Есть проблема"
 L["ORDER_FLAG_UNREACHABLE"] = "Не срабатывает"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"

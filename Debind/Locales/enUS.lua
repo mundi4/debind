@@ -731,7 +731,13 @@ L["OPTIONS"] = "Options"
 -- and a problem pitched several levels finer made one slot talk at two resolutions. **The detail was
 -- not lost, it was gathered** -- `BINDING_ERROR_*` says it in full, under the very condition it is
 -- about, on the surface the reader opens on purpose.
-L["ORDER_FLAG_ISSUE"] = "Has a problem"
+L["ORDER_FLAG_ISSUE"] = "Needs fixing"
+-- The other half of the line above, for the grade where the key works and one thing it was told to
+-- do does not. **The two share their first word on purpose**: this column is scanned rather than
+-- read, and a pair that differs in one place can be told apart with one of them on screen. Before,
+-- both grades printed the line above and only the colour parted them, which needs both at once and
+-- reaches a colour-blind reader not at all.
+L["ORDER_FLAG_ISSUE_MINOR"] = "Needs checking"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- **The row stands where it would stand if that specialization were the active one**, so this line
 -- is the only thing on screen telling it apart from what is running right now. Which one it is comes

@@ -1417,6 +1417,15 @@ function DebindPrivate.IsIssueMinor(issue)
     return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_MINOR;
 end
 
+--- Does the key fire while something it was told to do is missing?
+---
+--- Not the complement of either of the two around it: `IsIssueMinor` is false here and so is
+--- `IssueKeepsKey`'s negation, which is why the callers that want exactly this grade cannot get it
+--- from them.
+function DebindPrivate.IsIssueWarning(issue)
+    return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_WARNING;
+end
+
 --- Does the key still fire with this problem on it? Everything but an ERROR does.
 ---
 --- `BuildKeyMap`'s gate, and the reason the two grades below it are not interchangeable there: a

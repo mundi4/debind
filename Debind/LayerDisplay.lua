@@ -156,10 +156,7 @@ end
 --- bin list can be sitting on one**: its side tabs reach every specialization's layer, not only
 --- the current one, so what it draws there is not what the solver was answering about.
 ---
---- Nothing visibly depends on this yet. `IsUnreachableAction` is a lookup in a cache the solver
---- fills, and an off-specialization action was never in it, so the answer comes back empty either
---- way. That is an accident of how the verdict is stored rather than a decision, and the day it
---- becomes a computation this is what keeps the tooltip from starting to lie.
+--- `IsActionLive` below is what reads it, so this is the test that greys a row out.
 ---
 --- **Asked of the layer, not rebuilt from the tab coordinates.** The layer carries the number it
 --- was loaded for (`Profile.lua`'s `LoadLayer`); a side tab is a drawing position that happens to
@@ -168,6 +165,26 @@ local function IsLayerOffWorld(layerID)
 	local layer = layerID and DebindPrivate.GetProfileLayer(layerID);
 	local spec = layer and layer.spec;
 	return spec ~= nil and spec > 0 and spec ~= C_SpecializationInfo.GetSpecialization();
+end
+
+--- Would this action be part of what the key does, for a reader looking at this layer?
+---
+--- **Three things and no more.** The layer has to be one this character is in, the action has to
+--- have a key, and it must not still be waiting to be accepted. A condition on the action is not
+--- one of them, and that is the whole point of the function: the reader put every condition in the
+--- same place, so the window cannot single one of them out. The specialization condition is the
+--- only one this side can answer at all, and answering it here would draw that row differently
+--- from the row beside it that is waiting on combat.
+---
+--- **Not `IsInactiveAction`.** That one reads the set the rebuild fills, which is narrower on
+--- purpose: it also drops an action whose specialization condition is false right now, because
+--- that action really is off the key. Which is the right answer for the order list, where the
+--- question is what this key does, and the wrong one for a layer's own list, where the question is
+--- what the reader put there.
+local function IsActionLive(action, layerID)
+	return action.key ~= nil
+		and action.arrivalID == nil
+		and not IsLayerOffWorld(layerID);
 end
 
 --- 사이드탭 아이콘. 사이드탭 줄과 순서 목록의 행이 **같은 그림**을 써야 하므로 한 군데서
@@ -192,4 +209,5 @@ DebindUI.GetLayerShortName = GetLayerShortName;
 DebindUI.GetLayerLabel = GetLayerLabel;
 DebindUI.GetLayerIDForAddress = GetLayerIDForAddress;
 DebindUI.IsLayerOffWorld = IsLayerOffWorld;
+DebindUI.IsActionLive = IsActionLive;
 DebindUI.GetSideTabIcon = GetSideTabIcon;

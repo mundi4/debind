@@ -21,8 +21,6 @@ local LLL                    = DebindPrivate.L;
 local DebindUI               = DebindPrivate.DebindUI;
 
 local luatype                = type;
-local GetBindingIssue        = DebindPrivate.GetBindingIssue;
-local GetIssueColor          = DebindPrivate.GetIssueColor;
 local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 local EquipSlotFacts         = DebindPrivate.EquipSlotFacts;
 local InCombatLockdown       = InCombatLockdown;
@@ -392,29 +390,25 @@ local function SetActionIcon(texture, icon)
 		texture:SetTexture(icon);
 	end
 end
---- skipCategory는 **그 행이 스스로 보여주는** 이슈 계열이다. 이름은 다른 데서 안 보이는
-
---- 문제만 물들인다 - 단축키 칸이 이미 빨간데 이름까지 빨개지면 행 전체가 잘못된 것으로
---- 읽힌다. 도달불가는 이 행의 잘못이 아니라 다른 행 때문에 생기는 것이라 더 그렇다.
---- 단축키를 따로 안 보여주는 쪽(오버뷰, 툴팁 제목)은 안 넘기면 예전 그대로다.
-local function ColoredNameAndIconForAction(action, skipCategory)
+--- **A problem does not reach the name.** The name is what the reader is looking for when they
+--- scan a list, and a colour on it is read as a colour on the whole row -- which one of the two
+--- was wrong then has to be worked out from somewhere else. Every list that draws a problem has a
+--- place of its own for it: the shortcut cell, the reason column, the mark on the group heading.
+---
+--- What is left here says whether the action is running at all, which the name has to carry
+--- because nothing else in the row does.
+local function ColoredNameAndIconForAction(action, layerID)
 	local name, icon = NameAndIconForAction(action);
 	if (action.arrivalID) then
 		-- **회색 자리를 가져간다.** 가져온 액션은 빌드에 안 들어가므로 어차피 회색이 될
 		-- 것인데, 그러면 "키가 없다"와 구별이 안 된다. 파랑이 그 자리에 서면 "안 나간다"와
 		-- "왜"를 한 색이 같이 말한다. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
 		name = IMPORTED_FONT_COLOR:WrapTextInColorCode(name);
-	elseif (action.key == nil or DebindPrivate.IsInactiveAction(action)) then
+	-- **Reached through the table rather than as a local.** This file loads before the one that
+	-- defines it, so a local taken at load time would be nil (`DebindUI.xml` names the order and
+	-- says why it is what it is).
+	elseif (not DebindUI.IsActionLive(action, layerID)) then
 		name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
-	else
-		-- **The grade picks the colour, not the code** (`Misc.lua`'s `GetIssueColor`). Grey lands on
-		-- the same colour the branch above uses and that is the point rather than a collision: both
-		-- say this action is not running. Red waits on the reader. Orange is the row that runs with
-		-- one thing missing, and it must not wear either of the others.
-		local issueColor = GetIssueColor(GetBindingIssue(action, nil, skipCategory));
-		if (issueColor) then
-			name = issueColor:WrapTextInColorCode(name);
-		end
 	end
 	return name, icon;
 end

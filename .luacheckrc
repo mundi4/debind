@@ -203,6 +203,7 @@ globals = {
 	"CreateAndInitFromMixin",
 	"CreateFromMixins",
 	"TextureKitConstants",
+	"PixelUtil",
 
 	-- FrameXML: panels, tooltips, menus
 	"GameFontHighlightSmall",

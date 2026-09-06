@@ -42,6 +42,11 @@ local NameAndIconForAction           = DebindUI.NameAndIconForAction;
 local ColoredNameAndIconForAction    = DebindUI.ColoredNameAndIconForAction;
 local SetActionIcon                  = DebindUI.SetActionIcon;
 
+-- The two marks a problem wears, wherever one is drawn. Named here because the row and the group
+-- heading have to pick the same picture for the same grade.
+local ISSUE_ICON_ERROR               = "icons_16x16_deadly";
+local ISSUE_ICON_WARNING             = "icons_16x16_important";
+
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
 local GetTabLabel                    = DebindUI.GetTabLabel;
 local GetSideTabLabel               = DebindUI.GetSideTabLabel;
@@ -915,7 +920,7 @@ function DebindLineMixin:Update()
 	local isInactive = DebindPrivate.IsInactiveAction(action);
 	local issue = not isInactive and GetBindingIssue(action) or nil;
 
-	local name, icon = ColoredNameAndIconForAction(action, "key");
+	local name, icon = ColoredNameAndIconForAction(action, elementData.layer);
 	self.Name:SetText(name);
 
 	SetActionIcon(self.Icon, icon);
@@ -949,13 +954,11 @@ function DebindLineMixin:Update()
 	-- 말해주지 못한다. BindingText는 폭이 고정된 칸이라 오른쪽 끝에 걸면 글자에서 한참
 	-- 떨어지므로 글자 길이를 재서 바로 뒤에 붙인다.
 	--
-	-- **A minor problem keeps the mark and loses its colour.** Dropping it would leave the row
-	-- saying nothing at all about the key, and the reason this mark exists in the first place is
-	-- that colour alone does not reach a colour-blind reader. Desaturating is how the question mark
-	-- a few lines down already steps back.
-	self.KeyWarning:SetShown(keyIssue ~= nil);
-	if (keyIssue) then
-		self.KeyWarning:SetDesaturated(keyIssueIsMinor);
+	-- **A minor problem gets no mark.** What it means is that every neighbour on this key covers
+	-- this row, which is not something wrong with the key: the reason column says it in words, and
+	-- a mark next to the key sends the reader to look for a fault that is not there.
+	self.KeyWarning:SetShown(keyIssue ~= nil and not keyIssueIsMinor);
+	if (keyIssue and not keyIssueIsMinor) then
 		self.KeyWarning:ClearAllPoints();
 		self.KeyWarning:SetPoint("LEFT", self.BindingText, "LEFT", self.BindingText:GetStringWidth() + 4, 0);
 	end
@@ -977,21 +980,13 @@ function DebindLineMixin:Update()
 	end
 
 	if (DebindPrivate.IsConditionalAction(action)) then
+		-- **It says the action is conditional and nothing else.** Whether one of those conditions is
+		-- wrong is a second thing about the same row, and the mark beside it is what carries that
+		-- now -- red here made one picture answer two questions, and the reader had to know which
+		-- one it was answering before the colour meant anything.
 		if (isInactive) then
 			self.QuestionMark:SetVertexColor(INACTIVE_COLOR:GetRGBA());
 			self.QuestionMark:SetDesaturated(true);
-		-- **`combat`/`known`/`stealth`/`pet`은 여기 있었고 없는 갈래였다.** `GetBindingIssue`에
-		-- 그 이름의 검사가 없어서 네 번 다 nil이었고, 남은 여섯이 같은 판단을 이미 내리고 있어
-		-- 증상이 없었다. 읽는 사람만 그 조건들에 모순 검사가 있다고 읽었다.
-		elseif (issue and (GetBindingIssue(action, "hover")
-				or GetBindingIssue(action, "groups")
-				or GetBindingIssue(action, "forms")
-				or GetBindingIssue(action, "bonusbars")
-				or GetBindingIssue(action, "specialbar")
-				or GetBindingIssue(action, "petbattle"))
-			) then
-			self.QuestionMark:SetVertexColor(ERROR_COLOR:GetRGBA());
-			self.QuestionMark:SetDesaturated(false);
 		else
 			self.QuestionMark:SetVertexColor(1, 1, 1);
 			self.QuestionMark:SetDesaturated(false);
@@ -999,6 +994,31 @@ function DebindLineMixin:Update()
 		self.QuestionMark:Show();
 	else
 		self.QuestionMark:Hide();
+	end
+
+	-- The same two marks the group heading carries, on the row they came from. The heading is a
+	-- summary and cannot say which row it meant, least of all while folded.
+	local issueAtlas;
+	if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
+		issueAtlas = ISSUE_ICON_ERROR;
+	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
+		issueAtlas = ISSUE_ICON_WARNING;
+	end
+
+	if (issueAtlas) then
+		self.IssueIcon:SetAtlas(issueAtlas);
+		-- **The corner belongs to whichever of the two is up.** Anchored to the question mark
+		-- outright, a row with no conditions kept that mark's width as empty space and stopped
+		-- lining up with the rows around it.
+		self.IssueIcon:ClearAllPoints();
+		if (self.QuestionMark:IsShown()) then
+			self.IssueIcon:SetPoint("RIGHT", self.QuestionMark, "LEFT", -2, 0);
+		else
+			self.IssueIcon:SetPoint("BOTTOMRIGHT", -2, 7);
+		end
+		self.IssueIcon:Show();
+	else
+		self.IssueIcon:Hide();
 	end
 
 	local professionQuality = action.type == Constants.ITEM and C_TradeSkillUI.GetItemReagentQualityByItemInfo(action.value);
@@ -1178,6 +1198,7 @@ end
 --- 목록 첫 줄에서는 그 여백이 인셋 위에 뚫린 구멍이 됐다. 여백이 아니라 띠가 서는 지금은
 --- 첫 줄도 가를 것이 없기는 마찬가지고, 구멍도 나지 않는다.
 local KEY_HEADER_HEIGHT = 26;
+local ISSUE_ICON_SIZE = 15;
 -- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;
@@ -1255,6 +1276,11 @@ function DebindKeyHeaderMixin:OnLoad()
 	-- 이 칸은 높이가 한 줄이다. 끄면 `…`로 잘리고, 덤으로 템플릿에 이미 달려 있는 잘림 툴팁이
 	-- 살아난다(`ListHeaderMixin:CheckUpdateTooltip`이 `IsTruncated`를 본다).
 	self.ActionName:SetWordWrap(false);
+
+	-- Under the atlas's own 16, so the mark reads as a mark on the bar rather than as a second
+	-- thing to press beside the end cap. Set here because it does not change with the group; the
+	-- atlas goes on in `Init` without `useAtlasSize`, which would put the 16 back.
+	self.IssueIcon:SetSize(ISSUE_ICON_SIZE, ISSUE_ICON_SIZE);
 end
 
 --- 뷰가 프레임 폭을 잡는 것은 `Init` **뒤**일 수 있다. 폭을 재서 쓰는 계산이라 그때 다시 한다.
@@ -1290,6 +1316,9 @@ function DebindKeyHeaderMixin:LayoutSummary()
 	-- 그리고 키와 이름 사이 4(`ActionName`의 앵커).
 	local available = self:GetWidth() - self.Right:GetWidth() - 10 - 4
 		- self.Name:GetUnboundedStringWidth() - 4;
+	if (self.IssueIcon:IsShown()) then
+		available = available - self.IssueIcon:GetWidth() - 2 - 4;
+	end
 
 	local count = self.ExtraCount;
 	if (count:IsShown()) then
@@ -1416,6 +1445,8 @@ end
 function DebindKeyHeaderMixin:Init(elementData)
 	self.elementData = elementData;
 	self:UpdateCollapsedState(elementData.collapsed == true);
+	-- Pooled frame: the previous group may have shown it.
+	self.IssueIcon:Hide();
 
 	if (elementData.arrivalID ~= nil) then
 		-- **An arrival, waiting to be taken.** It is on the key it was sent on, so the key is what
@@ -1428,27 +1459,24 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- waiting on the reader, which is work.
 		self:SetHeaderText(IMPORTED_FONT_COLOR:WrapTextInColorCode(KeyGroupLabel(elementData.key)));
 	elseif (elementData.key) then
-		-- **키는 걸려 있는데 지금 아무것도 안 나가는 그룹은 흐리다.** 멤버가 전부 다른 특성
-		-- 것이면 그렇게 된다 - 이 열은 오프스펙도 그리므로 그런 그룹이 실제로 서 있고, 색이
-		-- 없으면 눌리는 키와 안 눌리는 키가 같은 무게로 읽힌다. 행이 같은 사유로 자기 이름을
-		-- 흐리게 하는 것과 한 규칙이다(`ColoredNameAndIconForAction`).
+		-- **The key keeps its own colour, whatever the group holds.** What is written here is the
+		-- name of a key, and a reader scanning this column is looking for the one they pressed --
+		-- painting it says something about the group instead, and the name stops being findable at
+		-- a glance. Colour is left to the one heading that is not a key of theirs at all, the
+		-- arrival above.
 		--
-		-- **Red where something in it is waiting to be fixed.** The two cannot both be true - a
-		-- broken row is still in the build, so a group holding one is not all-inactive - and they
-		-- are saying different things about the group: grey is "nothing here runs, and that is
-		-- fine", red is "something here would run and does not".
-		--
-		-- **Blue wins over both, and does so by never meeting them**: an arrival is its own group
-		-- (`arrivalID`), so it takes the branch above even when it sits on this very key. That is the
-		-- order the reason column already keeps - accepting comes before fixing, since what arrived
-		-- is not ours to fix until it is taken.
-		local label = KeyGroupLabel(elementData.key);
+		-- **The mark carries the problem instead**, and it carries the worst one: an error where
+		-- the key does not fire, a warning where it fires with one thing missing. A folded group
+		-- summarises only its first action, so without this a problem further down says nothing at
+		-- all while folded.
 		if (elementData.hasError) then
-			label = ERROR_COLOR:WrapTextInColorCode(label);
-		elseif (elementData.allInactive) then
-			label = DISABLED_FONT_COLOR:WrapTextInColorCode(label);
+			self.IssueIcon:SetAtlas(ISSUE_ICON_ERROR);
+			self.IssueIcon:Show();
+		elseif (elementData.hasWarning) then
+			self.IssueIcon:SetAtlas(ISSUE_ICON_WARNING);
+			self.IssueIcon:Show();
 		end
-		self:SetHeaderText(label);
+		self:SetHeaderText(KeyGroupLabel(elementData.key));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
 		--
@@ -2578,9 +2606,16 @@ function DebindFrameMixin:OnLoad()
 	-- tab names its own width (`SelectPanel`), and the frame is resized under whatever anchor it
 	-- happens to be standing on. Anchored by its centre it keeps half of the width difference on
 	-- each side, so changing tabs walks the window sideways.
+	--
+	-- **The corner lands on a whole device pixel**, which is what `PixelUtil` is for. Neither
+	-- number reaching here is one: the first opening halves a width difference, and a drag stores
+	-- whatever `GetLeft` gave, which is then re-anchored on every login. Half a unit on the window
+	-- moves every edge inside it by the same half, and the piece that shows it is a texture drawn
+	-- at its atlas size -- a list heading's end cap resamples and reads as a seam against the
+	-- stretched middle beside it, with or without the highlight.
 	local function AnchorTopLeft(x, y)
 		self:ClearAllPoints();
-		self:SetPoint("TOPLEFT", "UIParent", "BOTTOMLEFT", x, y);
+		PixelUtil.SetPoint(self, "TOPLEFT", UIParent, "BOTTOMLEFT", x, y);
 	end
 
 	self:RegisterForDrag("LeftButton");
@@ -3131,10 +3166,60 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	-- The version hangs off the name for the same reason it is on the login line: so a bug report
 	-- can carry it. Dimmed, because it is there to be found rather than read every time.
 	DebindFrame:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
+	if (DebindPrivate.DEBUG) then
+		DebindPrivate.PrintEncounterJournalIcons();
+	end
 	self:UpdateActionCounts(visible);
 	DebindFrame:UpdateEmptyText();
 end
 
+
+--- **A one-off probe, DEBUG only.** The Encounter Journal's flag icons, printed once when the
+--- window opens so they can be compared at the size they would be used at. The list is
+--- `EncounterJournalFlagIconAtlases` in `Blizzard_EncounterJournal.lua`.
+---
+--- Delete this and the `PrintEncounterJournalIcons()` call in the rebuild once an icon is chosen.
+do
+    local EJ_ICONS = {
+        "icons_16x16_deadly",
+        "icons_16x16_important",
+        "icons_16x16_heroic",
+        "icons_16x16_mythic",
+        "icons_16x16_enrage",
+        "icons_16x16_interrupt",
+        "icons_16x16_magic",
+        "icons_16x16_curse",
+        "icons_16x16_poison",
+        "icons_16x16_disease",
+        "icons_16x16_bleed",
+        "icons_16x16_tank",
+        "icons_16x16_heal",
+        "icons_16x16_damage",
+        "communities-icon-lock",
+    };
+
+    --- Texture files rather than atlases, so these always resolve; a name that is not an atlas
+    --- simply draws nothing.
+    local EJ_FILES = {
+        [[Interface\Common\Icon-NoLoot]],
+        [[Interface\PVPFrame\bg-down-on]],
+        [[Interface\QuestFrame\UI-Quest-BulletPoint]],
+    };
+
+    local printed = false;
+    function DebindPrivate.PrintEncounterJournalIcons()
+        if (printed) then
+            return;
+        end
+        printed = true;
+        for i = 1, #EJ_ICONS do
+            print(format("|A:%s:16:16|a  %d. %s", EJ_ICONS[i], i, EJ_ICONS[i]));
+        end
+        for i = 1, #EJ_FILES do
+            print(format("|T%s:16|t  %d. %s", EJ_FILES[i], #EJ_ICONS + i, EJ_FILES[i]));
+        end
+    end
+end
 
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
 ---
@@ -4415,11 +4500,14 @@ local function GetOrderReasonText(elementData)
 	elseif (row.unreachable) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
-		-- **The grade picks the colour here too.** A row that runs with one thing missing wears
-		-- orange: red would send the reader looking for something to fix on a key that works, and
-		-- grey is what this column says about a row that never fires at all -- the two branches
-		-- above it.
-		return DebindPrivate.GetIssueColor(row.issue):WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
+		-- **The grade picks the words as well as the colour.** One line for both said the same thing
+		-- about a key that does not fire and a key that does, and the only thing telling them apart
+		-- was orange against red -- which needs the two to be on screen together to be read at all,
+		-- and is nothing to a reader who cannot separate the two colours.
+		local color = DebindPrivate.GetIssueColor(row.issue);
+		local flag = DebindPrivate.IsIssueWarning(row.issue) and LLL["ORDER_FLAG_ISSUE_MINOR"]
+			or LLL["ORDER_FLAG_ISSUE"];
+		return color:WrapTextInColorCode(flag);
 	end
 
 	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
@@ -4463,7 +4551,7 @@ function DebindOrderLineMixin:Update()
 	self:UpdateMoveButtons(elementData);
 
 	-- 왼쪽 목록과 같은 색 규칙: 문제 있으면 빨강, 비활성이면 회색.
-	local name, icon = ColoredNameAndIconForAction(row.action);
+	local name, icon = ColoredNameAndIconForAction(row.action, row.layerID);
 	self.Name:SetText(name);
 	SetActionIcon(self.Icon, icon);
 
@@ -4679,6 +4767,7 @@ function BuildKeyboardElements()
 		-- leave a group with one bad row saying nothing at all while folded.
 		local allInactive = true;
 		local hasError = false;
+		local hasWarning = false;
 		for i = 1, #rows do
 			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
 				allInactive = false;
@@ -4688,10 +4777,15 @@ function BuildKeyboardElements()
 				-- press does what it says. `IsIssueMinor` was the test and it answered false for
 				-- those, since it asks whether the action runs at all rather than whether the key
 				-- does.
+				-- The mark beside the fold says the lesser one instead, so it is collected here
+				-- rather than left to the rows. **Without a `break`**: an error further down still
+				-- has to be found, since it is the one that decides the colour.
 				local issue = rows[i].issue;
 				if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
 					hasError = true;
 					break;
+				elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
+					hasWarning = true;
 				end
 			end
 		end
@@ -4711,6 +4805,7 @@ function BuildKeyboardElements()
 				rows = rows,
 				allInactive = allInactive,
 				hasError = hasError,
+				hasWarning = hasWarning,
 				-- Which arrival this group is, or nil for the reader own. The heading reads it to
 				-- know whether to tint, and the collapse state and the menu are filed under it.
 				arrivalID = arrivalID,
