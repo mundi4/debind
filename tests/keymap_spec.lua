@@ -250,5 +250,45 @@ return function(DebindPrivate)
             "the original does not hold the key");
     end);
 
+
+    -- **A minor problem still binds, and until `HOVER_UNIT_WITH_CLIQUE` nothing had ever tested
+    -- that.** The grade means "the key still fires and something around it is off"
+    -- (`Constants.BINDING_ISSUE_GRADES`), but `UNREACHABLE` was the only minor code and its cache is
+    -- wiped a few lines above the loop that asks, so the gate here answered nil every time. The
+    -- first minor code raised from the action's own fields drops the key with nothing saying so.
+    --
+    -- Measured: with Clique loaded and this gate reading `not issue`, `KeyMap["F1"]` came out nil --
+    -- the action fires on no unit at all, where losing the aiming over frames was the whole cost.
+    --
+    -- `CliqueDetected` is read when `Debind.lua` loads and the addon list cannot change without a
+    -- reload, so the harness has no such world; it is stood up here and put back.
+    test("an action whose hover twin Clique took still binds on its own target", function()
+        local saved = DebindPrivate.CliqueDetected;
+        DebindPrivate.CliqueDetected = true;
+        local ok, err = pcall(function()
+            Bind({
+                { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                    unit = "focus", preferHoverUnit = true },
+            });
+
+            local action = { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                unit = "focus", preferHoverUnit = true };
+            local issue = DebindPrivate.GetBindingIssue(action);
+            check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE,
+                "the premise is gone -- the issue is " .. tostring(issue));
+            check(DebindPrivate.IsIssueMinor(issue), "that code is not minor");
+
+            local records = Records("F1");
+            check(records ~= nil, "the key came out with no records at all");
+            check(#records == 1, "F1 came out with " .. #records .. " records, not the original alone");
+            check(records[1].unit == "focus",
+                "the record aims at " .. tostring(records[1].unit) .. ", not its own target");
+        end);
+        DebindPrivate.CliqueDetected = saved;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     return T;
 end
