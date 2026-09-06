@@ -69,10 +69,14 @@ return function(DebindPrivate)
     -- The reader's own condition rows
     ---------------------------------------------------------------------------
 
-    -- **Edited beside `Group`, so it is drawn beside `Group`.** The value lives in
-    -- `units.player`, which would put it under the `Units` label with the units the reader picked
-    -- by name -- and then the menu they change it in and the line they read it on are two
-    -- different places. `hover` and `"@"` are skipped there for the same reason.
+    -- **Edited under `Group`, so it is drawn under `Group`.** The value lives in `units.player`,
+    -- which would put it under the `Units` label with the units the reader picked by name -- and
+    -- then the menu they change it in and the line they read it on are two different places.
+    -- `hover` and `"@"` are skipped there for the same reason.
+    --
+    -- **Its label carries no subject**, so whichever rows it sits between say whose life it is.
+    -- Among the reader's own conditions it reads as the reader's; among the units they named it
+    -- reads as theirs. That is what fixes the order, in both places, to the same one.
     --- **라벨이 아니라 값의 모양으로 잰다.** `addLabelLine`이 라벨을 서식 문자열에 넣어
     --- 내보내므로 툴팁 텍스트에는 라벨 키가 안 남는다. 대신 `Units` 묶음은 값 앞에
     --- 유닛 이름을 붙이고 제 줄은 안 붙이므로, 그 접두사가 있느냐가 곧 어느 묶음이냐다.
@@ -89,6 +93,22 @@ return function(DebindPrivate)
             "the condition is not drawn at all: " .. text);
         check(not text:find(LLL["UNIT_PLAYER"] .. " - ", 1, true),
             "it came out under the Units label: " .. text);
+    end);
+
+    -- 순서까지 잰다. 위 테스트는 `Units` 묶음에서 빠졌다는 것만 말하는데, 이 줄의 뜻은
+    -- **어느 줄들 사이에 있느냐**로 정해지므로 그것만으로는 모자란다.
+    test("the reader's own life is drawn after the group line", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { groups = Constants.GROUP_PARTY,
+                    units = { player = { dead = false } } } },
+        }, {});
+
+        local text = Tooltip(DebindPrivate.CollectActionsForKey("F1")[1]);
+        local groupAt = text:find(LLL["GROUP_PARTY"], 1, true);
+        local lifeAt = text:find(LLL["LIFE_ALIVE"], 1, true);
+        check(groupAt and lifeAt, "one of the two lines is missing: " .. text);
+        check(groupAt < lifeAt, "the life line came out above the group line: " .. text);
     end);
 
     -- 이름으로 고른 유닛은 그대로 `Units` 아래다. 위 갈래가 그 묶음까지 가져가면 안 된다.

@@ -532,18 +532,6 @@ do
 		-- 읽는 이 자신에 대한 조건. **`Units` 묶음이 아니라 `Group` 옆이다** - 편집하는 자리가
 		-- 거기고, 화면 둘이 다른 자리를 가리키면 고칠 곳을 찾는 사람이 헤맨다.
 		--
-		-- 이 유닛에는 존재 조건이 설 자리가 없다. 자기 자신은 늘 있으므로 `false`가 왔다면
-		-- 손으로 고친 프로필이고, `UnitConditionSummary`가 그 경우 nil을 내므로 줄이 안 나간다.
-		local selfCondition = DebindPrivate.UnitConditionForBinding(
-			conditions.units and conditions.units.player);
-		if (selfCondition) then
-			local summary = UnitConditionSummary(selfCondition);
-			if (summary) then
-				addLabelLine(tooltip, LLL["CONDITION_LIFE"]);
-				addValueLine(tooltip, summary, hasIssues and GetIssue("units") and true or false);
-			end
-		end
-
 		-- **A full mask is not drawn at all, label and values both.** Every one of them on rules
 		-- nothing out, which is the state the axis is in when it was never set: the emitter drops
 		-- it against `allValue` (`UpdateBindings.lua`), and the specialization index is answered
@@ -564,6 +552,25 @@ do
 				end
 				local error = hasIssues and GetIssue("groups");
 				addValueLines(tooltip, _lines, error);
+			end
+		end
+
+		-- 읽는 이 자신의 생사. 저장은 `units.player`인데 **`Units` 묶음이 아니라 여기다.**
+		--
+		-- 이유 둘이 같은 방향을 가리킨다. 고치는 자리가 조건 메뉴의 `Group` 바로 아래라
+		-- 읽는 줄도 그 옆이어야 하고, **라벨에 주어가 없어서 이웃이 주어를 준다** - 이름으로
+		-- 고른 유닛들 사이에 두면 그 유닛들의 생사로 읽힌다. 메뉴 쪽 순서와 한 벌이므로
+		-- 한쪽을 옮기면 다른 쪽도 옮긴다.
+		--
+		-- 이 유닛에는 존재 조건이 설 자리가 없다. 자기 자신은 늘 있으므로 `false`가 왔다면
+		-- 손으로 고친 프로필이고, `UnitConditionSummary`가 그 경우 nil을 내므로 줄이 안 나간다.
+		local selfCondition = DebindPrivate.UnitConditionForBinding(
+			conditions.units and conditions.units.player);
+		if (selfCondition) then
+			local summary = UnitConditionSummary(selfCondition);
+			if (summary) then
+				addLabelLine(tooltip, LLL["CONDITION_LIFE"]);
+				addValueLine(tooltip, summary, hasIssues and GetIssue("units") and true or false);
 			end
 		end
 
