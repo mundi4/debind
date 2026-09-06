@@ -1299,17 +1299,24 @@ do
         });
     end
 
-    --- **Five boxes and no names.** The label is the number because an action carries its
-    --- conditions between tabs, General included, and a specialization's name is only true of
-    --- one class. The fifth is the initial specialization every class has and no class names
-    --- (`Constants.MAX_SPEC_INDEX`).
+    --- **The number is the label and the name is a hint on it.** An action carries its conditions
+    --- between tabs, General included, so the box has to stand for a number that means a different
+    --- specialization on every class; the name in brackets is only this character's class, which
+    --- is what `CONDITION_SPEC_DESC` says. The last index is the initial specialization every class
+    --- has and no class names, so it takes ours (`Constants.MAX_SPEC_INDEX`).
     local function CreateSpecConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_SPEC", "specs");
         AppendDisable(description, "CONDITION_SPEC", "specs");
         local items = {};
         for index = 1, Constants.MAX_SPEC_INDEX do
+            local specName;
+            if (index == Constants.MAX_SPEC_INDEX) then
+                specName = LLL["NO_SPECIALIZATION"];
+            else
+                specName = select(2, C_SpecializationInfo.GetSpecializationInfo(index));
+            end
             items[index] = {
-                text = format(LLL["CONDITION_SPEC_N"], index),
+                text = specName and format("%d (%s)", index, specName) or tostring(index),
                 value = Constants.SpecIndexFlag(index),
             };
         end
@@ -1355,7 +1362,7 @@ do
                 local _, _, _, spellID = GetShapeshiftFormInfo(formId);
                 shapeshiftName = spellID and GetSpellNameAndIconID(spellID) or nil;
             end
-            local label = format("[form:%d]", formId);
+            local label = format(LLL["CONDITION_FORM_N"], formId);
             if (shapeshiftName) then
                 label = format("%s (%s)", label, shapeshiftName);
             end

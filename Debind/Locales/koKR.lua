@@ -17,7 +17,6 @@ if (GetLocale() ~= "koKR") then return end
 
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
-L["ALL"] = "전체"
 -- 근거는 enUS 쪽 주석에.
 L["BULK_MENU_TITLE"] = "%d개 선택됨"
 L["BULK_SELECTED_COUNT"] = "%d개 선택됨"
@@ -116,7 +115,6 @@ L["CONDITION_SKYRIDING_NO"] = "하늘비행 중이 아닐 때"
 L["CONDITION_SKYRIDING_YES"] = "하늘비행 중일 때"
 L["CONDITION_SKYRIDING"] = "하늘비행"
 L["CONDITION_SPEC"] = "전문화"
-L["CONDITION_SPEC_N"] = "%d번 전문화"
 L["CONDITION_SPEC_DESC"] = "게임이 전문화를 늘어놓는 차례 그대로의 번호입니다. 이름이 아니라 번호인 것은 이 행동이 여러 직업이 함께 쓰는 탭에 놓일 수 있어서입니다. 그런 자리에서는 같은 번호가 직업마다 다른 전문화를 가리킵니다. 5번은 전문화를 고르기 전의 시작 전문화입니다."
 L["CONDITION_SPECIALBAR_DESC"] = "차량이나 조종 상태처럼 무언가가 기본 행동 단축바를 대신하고 있는 동안 활성화됩니다."
 L["CONDITION_SPECIALBAR_NO"] = "특수 단축바가 활성화되지 않았을 때"

@@ -8,7 +8,6 @@ local L = addon.L;
 -- 문자열마다 다른 빨강이었다.
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
-L["ALL"] = "All"
 -- 여럿을 고른 채로 연 우클릭 메뉴의 제목. 이름을 나열하지 않는 이유는 DELETE_CONFIRM_MESSAGE_MULTIPLE
 -- 쪽 주석에 있다. 아래 카운트와 낱말을 맞춘다 - 한 화면에서 같은 것을 두 가지로 부르지 않는다.
 L["BULK_MENU_TITLE"] = "%d selected"
@@ -66,8 +65,8 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- different places, and the second names a switch while this one has none to name.
 L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No switch is picked. Until one is, this binding does not fire at all."
 L["BINDING_ERROR_NOT_SUPPORTED_GAMEMENU_KEY"] = "The key assigned for |cnHIGHLIGHT_FONT_COLOR:Toggle Game Menu|r cannot be used."
-L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "Mouse buttons cannot be used for Binding Command that uses the hover condition."
-L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used with the hover condition."
+L["BINDING_ERROR_NOT_SUPPORTED_HOVER_CLICK_COMMAND"] = "A Binding Command cannot use a mouse button over a unit frame."
+L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button without modifier keys can only be used by an action that runs over a unit frame."
 -- %s is the name the action carries: written into a macro body, or picked as what an on/off/toggle
 -- action sets. **This line and the macro one below are the only errors that take an argument** --
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
@@ -109,55 +108,56 @@ L["COMPARTMENT_TOOLTIP_LEFT_CLICK"] = "Click to open Debind. The bindings overvi
 -- The client's own two words for the flight styles: `MOUNT_JOURNAL_FILTER_FLYING` and
 -- `MOUNT_JOURNAL_FILTER_DRAGONRIDING` (which reads "Skyriding" today). Both say what the **area**
 -- allows, not what the reader is doing, so the values below say "Where" rather than "While".
-L["CONDITION_ADVFLYABLE_NO"] = "Where Skyriding Is Not Allowed"
-L["CONDITION_ADVFLYABLE_YES"] = "Where Skyriding Is Allowed"
+L["CONDITION_ADVFLYABLE_NO"] = "Where skyriding is not allowed"
+L["CONDITION_ADVFLYABLE_YES"] = "Where skyriding is allowed"
 L["CONDITION_ADVFLYABLE"] = "Skyriding Allowed"
 L["CONDITION_ACTIONBARS"] = "Action Bars"
-L["CONDITION_BONUSBAR"] = "Stance-based Action Bar"
-L["CONDITION_COMBAT_NO"] = "While Not in Combat"
-L["CONDITION_COMBAT_YES"] = "While in Combat"
+L["CONDITION_BONUSBAR"] = "Stance Bar"
+L["CONDITION_COMBAT_NO"] = "While not in combat"
+L["CONDITION_COMBAT_YES"] = "While in combat"
 L["CONDITION_COMBAT"] = "Combat"
 L["CONDITION_CUSTOM_STATES"] = "Switches"
-L["CONDITION_CUSTOM_STATE_NO"] = "When the Switch Is Off"
-L["CONDITION_CUSTOM_STATE_YES"] = "When the Switch Is On"
-L["CONDITION_EXTRABAR_NO"] = "When the Extra Action Button Is Not Present"
-L["CONDITION_EXTRABAR_YES"] = "When the Extra Action Button Is Present"
+L["CONDITION_CUSTOM_STATE_NO"] = "When the switch is off"
+L["CONDITION_CUSTOM_STATE_YES"] = "When the switch is on"
+L["CONDITION_EXTRABAR_NO"] = "When the Extra Action Button is not present"
+L["CONDITION_EXTRABAR_YES"] = "When the Extra Action Button is present"
 L["CONDITION_EXTRABAR"] = "Extra Action Button"
-L["CONDITION_FLYABLE_NO"] = "Where Flying Is Not Allowed"
-L["CONDITION_FLYABLE_YES"] = "Where Flying Is Allowed"
+L["CONDITION_FLYABLE_NO"] = "Where flying is not allowed"
+L["CONDITION_FLYABLE_YES"] = "Where flying is allowed"
 L["CONDITION_FLYABLE"] = "Flying Allowed"
 -- **The pair of `CONDITION_FLYABLE`, and the words have to keep them apart.** That one is about
 -- the place and this one is about the reader, so it says "While" where the other says "Where".
-L["CONDITION_FLYING_NO"] = "While Not Airborne"
-L["CONDITION_FLYING_YES"] = "While Airborne"
+L["CONDITION_FLYING_NO"] = "While not airborne"
+L["CONDITION_FLYING_YES"] = "While airborne"
 L["CONDITION_FLYING"] = "Airborne"
-L["CONDITION_FRAMETYPES"] = "Unit Frame Types"
+L["CONDITION_FORM_N"] = "Form %d"
+L["CONDITION_FRAMETYPES"] = "Frame Type"
 L["CONDITION_GROUP"] = "Group";
-L["CONDITION_HOVER_NO"] = "When Not Hovered Over"
-L["CONDITION_HOVER_YES"] = "When Hovered Over"
-L["CONDITION_HOVER"] = "Hovering Over Unit Frame"
+L["CONDITION_HOVER_NO"] = "When not over a unit frame"
+L["CONDITION_HOVER_YES"] = "When over a unit frame"
+L["CONDITION_HOVER"] = "Unit Frame"
 -- The negative is "Not Indoors" and deliberately not "Outdoors". The condition reads `IsIndoors()`
 -- alone, so its false half is everything that is not indoors, which is a wider thing than the
 -- client's Outdoors. Calling it Outdoors would be a claim the measurement does not make.
-L["CONDITION_INDOORS_NO"] = "While Not Indoors"
-L["CONDITION_INDOORS_YES"] = "While Indoors"
+L["CONDITION_INDOORS_NO"] = "While not indoors"
+L["CONDITION_INDOORS_YES"] = "While indoors"
 L["CONDITION_INDOORS"] = "Indoors"
-L["CONDITION_KNOWN"] = "Known"
-L["CONDITION_KNOWN_YES"] = "Only When Spell Known"
+L["CONDITION_KNOWN"] = "Spell Known"
+L["CONDITION_KNOWN_YES"] = "While you know the spell"
 -- The submenu that holds the four conditions too small to hold a row of the main list each. It
 -- names no rule of its own, so it stays the plain word rather than trying to describe what is
 -- inside it.
 L["CONDITION_MISC"] = "Miscellaneous"
--- `MOUNTS` in the client's own strings, singular here because the condition is about being on one
--- rather than about the collection.
-L["CONDITION_MOUNTED_NO"] = "While Not Mounted"
-L["CONDITION_MOUNTED_YES"] = "While Mounted"
-L["CONDITION_MOUNTED"] = "Mount"
-L["CONDITION_PET_NO"] = "While Without a Pet"
-L["CONDITION_PET_YES"] = "While With a Pet"
+-- Not the client's `MOUNTS`. That word names the collection, and a menu titled with it reads as
+-- a choice of which mount to summon; what this asks is whether the reader is on one.
+L["CONDITION_MOUNTED_NO"] = "While not mounted"
+L["CONDITION_MOUNTED_YES"] = "While mounted"
+L["CONDITION_MOUNTED"] = "Mounted"
+L["CONDITION_PET_NO"] = "While you have no pet"
+L["CONDITION_PET_YES"] = "While you have a pet"
 L["CONDITION_PET"] = "Pet"
-L["CONDITION_PETBATTLE_NO"] = "Not in a Pet Battle"
-L["CONDITION_PETBATTLE_YES"] = "In a Pet Battle"
+L["CONDITION_PETBATTLE_NO"] = "While not in a pet battle"
+L["CONDITION_PETBATTLE_YES"] = "While in a pet battle"
 L["CONDITION_PETBATTLE"] = "Pet Battle"
 L["CONDITION_REACTIONS"] = "Reactions"
 -- 게임의 낱말 그대로다: ROLE / TANK / HEALER / DAMAGER, 그리고 알 수 없을 때가 UNKNOWN.
@@ -174,28 +174,31 @@ L["ROLE_DAMAGER"] = "Damage"
 -- this value (`CONDITION_ROLE_DESC`).
 L["ROLE_NONE"] = "No Role"
 L["CONDITION_SHAPESHIFT"] = "Shapeshift"
+L["CONDITION_SHAPESHIFT_DESC"] = "The name beside each number is what that number means for this character's class. On another class the same number is a different form, and a number with no name is one this class does not have."
 -- The client's own word for the flight style (`ACCESSIBILITY_ADV_FLY_LABEL`,
 -- `MOUNT_JOURNAL_FILTER_DRAGONRIDING`). Dragonriding is what it used to be called and is not what
 -- a player reads today.
-L["CONDITION_SKYRIDING_NO"] = "While Not Skyriding"
-L["CONDITION_SKYRIDING_YES"] = "While Skyriding"
+L["CONDITION_SKYRIDING_NO"] = "While not skyriding"
+L["CONDITION_SKYRIDING_YES"] = "While skyriding"
 L["CONDITION_SKYRIDING"] = "Skyriding"
--- **Numbers rather than names, and the tooltip has to say why.** An action can be moved to a tab
+-- **The number is the label and the name is a hint on it.** An action can be moved to a tab
 -- several classes share, and there the same number belongs to a different specialization on each
--- of them, so a name printed here would be true on one class and false on the next. The client's
--- own word for the thing is `SPECIALIZATION`.
+-- of them, so a name alone would be true on one class and false on the next. The client's own word
+-- for the thing is `SPECIALIZATION`.
 --
--- The fifth is the specialization a character has before choosing one. It has no name in any
--- class, which is the other half of why this list counts instead of naming.
+-- The fifth has no name in any class, so `NO_SPECIALIZATION` fills that bracket instead. It is the
+-- specialization a character has before choosing one.
 L["CONDITION_SPEC"] = "Specialization"
-L["CONDITION_SPEC_N"] = "Specialization %d"
-L["CONDITION_SPEC_DESC"] = "Numbered the way the game lists your specializations. Numbers rather than names, because an action can sit on a tab that several classes share, and there each class gives the same number to a different specialization. Number 5 is the starting specialization a character has before choosing one."
+-- The tooltip lists several at once, where the menu row names the one thing it opens. The client
+-- heads its own list the same way (`CLUB_FINDER_SPECIALIZATIONS`).
+L["CONDITION_SPECS"] = "Specializations"
+L["CONDITION_SPEC_DESC"] = "The name beside each number is what that number means for this character's class. On another class the same number is a different specialization."
 L["CONDITION_SPECIALBAR_DESC"] = "Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
-L["CONDITION_SPECIALBAR_NO"] = "While a Special Bar Is Not Active"
-L["CONDITION_SPECIALBAR_YES"] = "While a Special Bar Is Active"
-L["CONDITION_SPECIALBAR"] = "Special Bar"
-L["CONDITION_STEALTH_NO"] = "While Not Stealthed"
-L["CONDITION_STEALTH_YES"] = "While Stealthed"
+L["CONDITION_SPECIALBAR_NO"] = "While your action bar is not replaced"
+L["CONDITION_SPECIALBAR_YES"] = "While your action bar is replaced"
+L["CONDITION_SPECIALBAR"] = "Replaced Action Bar"
+L["CONDITION_STEALTH_NO"] = "While not stealthed"
+L["CONDITION_STEALTH_YES"] = "While stealthed"
 L["CONDITION_STEALTH"] = "Stealth"
 L["CONDITION_UNIT_DOES_NOT_EXIST"] = "When the unit doesn't exist"
 L["CONDITION_UNIT_EXISTS"] = "When the unit exists"
@@ -292,9 +295,9 @@ L["GENERAL"] = "General"
 -- 한때 hover가 빠져 있었는데, 그건 중요도 바로 다음에 오는 축이고 이 애드온에서 제일
 -- 자주 순서를 가르는 것이기도 하다. 어디서 보는지는 **화면에 있는 그대로** 적는다 -
 -- 한때 "Key & Order 탭"이었고 그 탭이 없어졌다. 없는 것을 부르면 찾다가 못 찾는다.
-L["GROUP_NONE"] = "When Not In Group";
-L["GROUP_PARTY"] = "When In Party";
-L["GROUP_RAID"] = "When In Raid";
+L["GROUP_NONE"] = "When not in a group";
+L["GROUP_PARTY"] = "When in a party";
+L["GROUP_RAID"] = "When in a raid";
 -- The checkbox at the bottom of the hover menu, and a line of its own in the action tooltip.
 -- What it turns off is a unit nobody picked: leave the target empty and the hovered frame's unit
 -- fills it, so the label has to name that unit and say the action is not used on it. "Ignore"
@@ -325,7 +328,7 @@ L["IGNORE_HOVER_UNIT"] = "Don't use the action on the hovered frame's unit"
 -- there -- which is what a hover condition does, and is the one thing this box exists to avoid.
 -- What is ticked is a preference over the target picked above it: taken when a frame is there,
 -- dropped when it is not.
-L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit instead. Anywhere else the target above decides where it goes. Hovering changes where the action goes, not whether it runs. To run it only over unit frames, use the hover condition instead."
+L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit instead. Anywhere else the target above decides where it goes. Hovering changes where the action goes, not whether it runs. To run it only over unit frames, turn on the unit frame condition instead."
 L["PREFER_HOVER_UNIT"] = "Prefer the hovered frame's unit"
 -- **What a locked box says about itself.** A control greyed out with no sentence leaves the reader
 -- guessing which of the things they set is holding it, and the three below are each undone in a
@@ -333,10 +336,10 @@ L["PREFER_HOVER_UNIT"] = "Prefer the hovered frame's unit"
 -- instructions: what to change follows from the fact, and this box is not the only way out of any
 -- of them.
 --
--- Nothing here names a control. The reader is inside the menu that holds the target, and the hover
--- condition is a thing rather than a label -- the client has no word for either, so the plainest
--- description of the state is the whole of the sentence.
-L["PREFER_HOVER_UNIT_LOCKED_HOVER"] = "This action has a hover condition, which already settles what it does over a unit frame."
+-- Nothing here names a control. The reader is inside the menu that holds the target, and every
+-- one of the three is undone in a menu they are not looking at, so a name would send them hunting
+-- for it. The plainest description of the state is the whole of the sentence.
+L["PREFER_HOVER_UNIT_LOCKED_HOVER"] = "This action already runs only over a unit frame, which settles what it does there."
 L["PREFER_HOVER_UNIT_LOCKED_TARGET_HOVER"] = "This action already goes to the hovered frame's unit."
 L["PREFER_HOVER_UNIT_LOCKED_TARGET_NONE"] = "This action asks you for a target when it runs, so there is nothing here to redirect."
 -- The last line on a spec tab that is not the one being played. The line above it states the
@@ -632,6 +635,7 @@ L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
 -- reading `DebindStorage`'s saved variables, and that addon is load-on-demand - a tooltip that says
 -- where a string came from only after some other window has been opened is worse than one that
 -- never claims to.
+L["LINE_TOOLTIP_IGNORE_HOVER_UNIT"] = "The frame's unit is not taken as the target."
 L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you accept it."
 -- 한때 "and set its key"가 붙어 있었다. 그 시절에는 행을 고르면 왼쪽 열이 그 액션의 상세
 -- 패널이 되고 거기서 키를 걸었다. 지금 왼쪽 열은 키보드 사영이라 보여주기만 하고, 키는
@@ -654,6 +658,14 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold
 -- 이 줄을 읽는 사람은 이미 가리키는 중이라 그 문장이 할 일이 없다. 남은 물음은 하나다.
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key or mouse button to give it to this action."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
+-- **The same box, said twice, because the line above it changes what it has to say.** Where the
+-- reader set no target this line is the target, and where they set one it sits under that value
+-- and has to say it is pushed aside; either sentence in the other place is a lie.
+L["LINE_TOOLTIP_PREFER_HOVER_UNIT"] = "The hovered frame's unit"
+L["LINE_TOOLTIP_PREFER_HOVER_UNIT_INSTEAD"] = "Over a unit frame, that frame's unit instead"
+-- Under the numbers, the way the unreachable line sits under the key: the action is set up right
+-- and this says only that the world is not the one it asked for.
+L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebindUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
@@ -714,6 +726,7 @@ L["NO_ACTIONS_IN_THIS_TAB"] = "There are no actions in this tab. You can add a n
 -- 맞아서 빈 것뿐이면 할 일이 그게 아니다.
 L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
+L["NO_SPECIALIZATION"] = "None chosen"
 L["NOT_SELECTED"] = "Not Selected"
 L["ONLY_IF"] = "Only if..."
 L["OPTIONS"] = "Options"
@@ -753,7 +766,7 @@ L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action and edit it there."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
-L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Hover -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
+L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Unit frame -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
 -- 끝의 이유절에 **주어를 세웠다.** 원래는 "their own bindings are not loaded this session"이라
 -- 누가 안 불러왔는지가 없었는데, 3.1 전까지는 읽을 갈래가 하나뿐이라 그래도 됐다 - 캐릭터
 -- 전용 지정이 진짜 캐릭터별 SavedVariables(`DebounceVarsPerChar`)에 있어서, 그 캐릭터로
@@ -1081,7 +1094,7 @@ L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below make
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
 L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Shared, unless conditions or Importance say otherwise."
-L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it -- even when the hover condition is in play."
+L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it, even over a unit frame."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
@@ -1147,8 +1160,8 @@ L["UNIT_HOVER"] = "Unit Frame"
 L["UNIT_MAINASSIST"] = "Main Assist"
 L["UNIT_MAINTANK"] = "Main Tank"
 L["UNIT_MOUSEOVER"] = "Mouseover"
-L["UNIT_NONE_DESC"] = "When selected, you can select a new target, even if a currently selected target exists. It also ignores auto self cast."
-L["UNIT_NONE"] = "No Target"
+L["UNIT_NONE_DESC"] = "Turns the cursor into the targeting cursor even when you already have a target. Auto self cast is ignored."
+L["UNIT_NONE"] = "Always Ask"
 L["UNIT_PET"] = "Pet"
 L["UNIT_PLAYER"] = "Player"
 -- 하나보다 많으면 풀린다(SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY). 예전 문장은 "only one
