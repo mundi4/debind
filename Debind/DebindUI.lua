@@ -965,14 +965,8 @@ function DebindLineMixin:Update()
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
-		-- **A minor one leaves this text alone.** The target written here is the one the reader
-		-- picked and the action still aims at it; a minor problem in this category says that
-		-- something else about the aiming did not take, and the tooltip carries that.
-		elseif (issue) then
-			local unitIssue = GetBindingIssue(action, "unit");
-			if (unitIssue and not IsIssueMinor(unitIssue)) then
-				color = ERROR_COLOR;
-			end
+		elseif (issue and GetBindingIssue(action, "unit")) then
+			color = ERROR_COLOR;
 		end
 		if (color) then
 			s = color:WrapTextInColorCode(s);
@@ -3141,6 +3135,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	DebindFrame:UpdateEmptyText();
 end
 
+
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
 ---
 --- 예전에는 패널이 저장 안 된 변경을 들고 거부할 수 있어서 false와 force가 있었다. 지금
@@ -4420,7 +4415,11 @@ local function GetOrderReasonText(elementData)
 	elseif (row.unreachable) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_UNREACHABLE"]);
 	elseif (row.issue) then
-		return ERROR_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
+		-- **The grade picks the colour here too.** A row that runs with one thing missing wears
+		-- orange: red would send the reader looking for something to fix on a key that works, and
+		-- grey is what this column says about a row that never fires at all -- the two branches
+		-- above it.
+		return DebindPrivate.GetIssueColor(row.issue):WrapTextInColorCode(LLL["ORDER_FLAG_ISSUE"]);
 	end
 
 	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
@@ -4683,8 +4682,14 @@ function BuildKeyboardElements()
 		for i = 1, #rows do
 			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
 				allInactive = false;
+				-- **Only what stops the key counts as work waiting here.** A row that fires with
+				-- one thing missing is not something to go and fix on this key -- the key works --
+				-- and reddening its heading sends the reader hunting through a group where every
+				-- press does what it says. `IsIssueMinor` was the test and it answered false for
+				-- those, since it asks whether the action runs at all rather than whether the key
+				-- does.
 				local issue = rows[i].issue;
-				if (issue and not DebindPrivate.IsIssueMinor(issue)) then
+				if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
 					hasError = true;
 					break;
 				end

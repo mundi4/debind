@@ -191,6 +191,11 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     hover = true,
     reactions = true,
     unit = true,
+    -- **대상 상자 옆의 체크박스이지 대상 자체가 아니다.** 이것이 `unit`에 얹혀 있던 동안,
+    -- 대상 줄과 대상 메뉴 제목이 자기 갈래에서 코드가 하나 나온 것을 보고 **자기 값이
+    -- 잘못됐다고 읽어** 빨갛게 칠하고 남의 문장까지 밑에 달았다. 사용자가 고른 대상에는
+    -- 아무 문제가 없다. 갈래는 필드가 아니라 **칠할 컨트롤**의 이름이다(§7).
+    preferHoverUnit = true,
     -- 매크로 이름이 가리키는 것이 없다. 조건이 아니라 액션 자체가 틀린 경우라 짚어 묻는
     -- 호출자가 없고, 갈래를 끄기 위한 이름으로만 쓰인다.
     macro = true,
@@ -465,21 +470,35 @@ Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE            = "HOVER_UNIT_WITH_CLI
 -- paints one (`devdocs/legacy/grading-binding-issues.md`).
 Constants.ISSUE_GRADE_ERROR = 1;
 Constants.ISSUE_GRADE_MINOR = 2;
+--- **The action runs; something around it does not.** Orange, between the two above (2026-09-06,
+--- owner).
+---
+--- The split from MINOR is what the reader sees rather than a shade of severity. **Grey is the
+--- colour of an action that is not running** -- a specialization layer out of play, a key not
+--- chosen, a row every neighbour covers -- so wearing it says "nothing here is happening", and for
+--- a key that fires on every press but one that is a lie. Red is the other end: something is
+--- waiting on the reader. This grade is neither. The key works, one thing it was told to do does
+--- not, and there may be nothing to fix (another addon owns the frames).
+Constants.ISSUE_GRADE_WARNING = 3;
 
---- Which grade each code carries. **Judged from this row alone -> ERROR, judged from its neighbours
---- -> MINOR.**
+--- Which grade each code carries, and the question each one answers is **what the reader sees**:
 ---
---- The three `UNREACHABLE*` codes are MINOR and the split is not a matter of taste: every other
---- code comes out of the action's own fields, while those need the whole sorted key map
---- (`CheckUnreachableBindings`). The remedy sits across two rows too -- change this row's key, or
---- narrow the neighbour, or delete it -- so painting this row red points at half of it. The same
---- line falls out of `BuildKeyMap`: an ERROR keeps the action out of `KeyMap` entirely, a MINOR one
---- got in and lost the sort, which means the key itself still fires. `HOVER_UNIT_WITH_CLIQUE` is
---- MINOR for the same reason from the other side: the action fires, another addon took the frames.
+---   ERROR    the key does not work and it is waiting on the reader
+---   MINOR    the action never runs, and not through any fault of this row
+---   WARNING  the action runs; one thing it was told to do does not
 ---
---- **A code with no row here is treated as ERROR**: `IsIssueMinor` answers false for it, and that is
---- the only function that reads this table. Failing loud is the safe direction in a keybinding addon
---- -- a grade nobody wrote would otherwise quietly grey out a binding that does not run.
+--- `UNREACHABLE` is MINOR because every neighbour covers it: it never fires, which is what grey
+--- says everywhere else in this window. Its two frame-sided cousins are WARNING instead -- only one
+--- of the action's bindings is covered, so the key still fires, over frames or off them.
+--- `HOVER_UNIT_WITH_CLIQUE` is WARNING for the same reason from another direction: the action goes
+--- out on its own target and only the aiming over frames is gone.
+---
+--- `BuildKeyMap` reads the same line: an ERROR keeps the action out of `KeyMap` entirely, and
+--- anything else goes in.
+---
+--- **A code with no row here is treated as ERROR** (`IsIssueMinor` and `GetIssueColor` are the only
+--- readers, and both fall that way). Failing loud is the safe direction in a keybinding addon -- a
+--- grade nobody wrote would otherwise quietly grey out a binding that does not run.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,
@@ -495,9 +514,9 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES]           = Constants.ISSUE_GRADE_MINOR,
-    [Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES]            = Constants.ISSUE_GRADE_MINOR,
-    [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE]            = Constants.ISSUE_GRADE_MINOR,
+    [Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES]           = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES]            = Constants.ISSUE_GRADE_WARNING,
+    [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE]            = Constants.ISSUE_GRADE_WARNING,
 };
 
 

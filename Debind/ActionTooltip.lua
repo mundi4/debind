@@ -304,13 +304,7 @@ do
 
 		if (action.unit ~= nil) then
 			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
-			local error = hasIssues and GetIssue("unit") or nil;
-			-- **A minor problem in this category is not about the unit named here.** It belongs to
-			-- the box below, which says so on its own line. Reddening this one points at a target
-			-- the reader chose and nothing is wrong with.
-			if (error and IsIssueMinor(error)) then
-				error = nil;
-			end
+			local error = hasIssues and GetIssue("unit");
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
 			addValueLine(tooltip, unitStr, error);
 		end
@@ -318,20 +312,20 @@ do
 		-- **Under the target, because it is the target this qualifies**, and it stands up its own
 		-- label where none was chosen: the fallback is a target too, the one the game picks.
 		--
-		-- The only problem it can carry is the Clique one, which is minor, so it takes the shape
-		-- the key line above uses for one -- the value plain, the sentence on a grey line of its
-		-- own. Handing it to `addValueLine` would colour both, and the box is not the thing that is
-		-- wrong: another addon took the frames.
-		if (action.preferHoverUnit and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
+		-- **Its own issue category, so the line above stays out of it.** What a problem here says
+		-- is that the box did not take; the target beside it is one the reader chose and the
+		-- action is still going to it. While the two shared `unit`, the target line asked first,
+		-- coloured a perfectly good target and printed this line's sentence under it -- and then
+		-- this line printed the same sentence again.
+		if (DebindPrivate.PrefersHoverUnit(action)) then
 			if (action.unit == nil) then
 				addLabelLine(tooltip, LLL["TARGET_UNIT"]);
 			end
-			addValueLine(tooltip, LLL["PREFER_HOVER_UNIT"]);
-			local boxIssue = hasIssues and GetIssue("unit") or nil;
-			if (boxIssue) then
-				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
-					"(" .. LLL["BINDING_ERROR_" .. boxIssue] .. ")"));
-			end
+			-- One call. `addValueLine` colours the value and prints the code's sentence under it,
+			-- which is exactly the shape this line wants -- what is wrong is the box, and the
+			-- sentence says why.
+			addValueLine(tooltip, LLL["PREFER_HOVER_UNIT"],
+				hasIssues and GetIssue("preferHoverUnit") or nil);
 		end
 
 		-- 호버 조건은 `units["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛

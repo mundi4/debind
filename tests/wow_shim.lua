@@ -577,6 +577,7 @@ function M.install()
     _G.ERROR_COLOR = color("ffff2020");
     _G.INACTIVE_COLOR = color("ff7f7f7f");
     _G.BRIGHTBLUE_FONT_COLOR = color("ff00b0ff");
+    _G.ORANGE_FONT_COLOR = color("ffff7f3f");
 
     --- **The tooltip is an argument, not a screen.** `ActionTooltip.lua` takes the frame it writes
     --- to and knows nothing else about the client, so what it needs from here is the free functions

@@ -22,7 +22,7 @@ local DebindUI               = DebindPrivate.DebindUI;
 
 local luatype                = type;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
-local IsIssueMinor           = DebindPrivate.IsIssueMinor;
+local GetIssueColor          = DebindPrivate.GetIssueColor;
 local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 local EquipSlotFacts         = DebindPrivate.EquipSlotFacts;
 local InCombatLockdown       = InCombatLockdown;
@@ -407,16 +407,13 @@ local function ColoredNameAndIconForAction(action, skipCategory)
 	elseif (action.key == nil or DebindPrivate.IsInactiveAction(action)) then
 		name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
 	else
-		local issue = GetBindingIssue(action, nil, skipCategory);
-		if (issue) then
-			-- **The grade picks the colour, not the code.** A minor one lands on the same grey the
-			-- branch above uses, and that is the point rather than a collision: both say there is
-			-- nothing here to go and fix. Red is for the rows that are waiting on the reader.
-			if (IsIssueMinor(issue)) then
-				name = DISABLED_FONT_COLOR:WrapTextInColorCode(name);
-			else
-				name = ERROR_COLOR:WrapTextInColorCode(name);
-			end
+		-- **The grade picks the colour, not the code** (`Misc.lua`'s `GetIssueColor`). Grey lands on
+		-- the same colour the branch above uses and that is the point rather than a collision: both
+		-- say this action is not running. Red waits on the reader. Orange is the row that runs with
+		-- one thing missing, and it must not wear either of the others.
+		local issueColor = GetIssueColor(GetBindingIssue(action, nil, skipCategory));
+		if (issueColor) then
+			name = issueColor:WrapTextInColorCode(name);
 		end
 	end
 	return name, icon;

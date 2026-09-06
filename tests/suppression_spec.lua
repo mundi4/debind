@@ -147,7 +147,7 @@ return function(DebindPrivate)
         return subject;
     end
 
-    --- 반은 죽은 액션은 빨갛지 않다. 원본이든 쌍둥이든 하나는 나가므로 이웃 탓의 회색 문장
+    --- 반은 죽은 액션은 빨갛지도 회색이지도 않다. 원본이든 쌍둥이든 하나는 나가므로 주황 문장
     --- 하나가 남고, 어느 쪽이 죽었느냐로 문장이 갈린다.
     test("쌍둥이만 덮인 액션은 도달 불가가 아니라 개체창 위 문장이다", function()
         local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "T",
@@ -155,7 +155,7 @@ return function(DebindPrivate)
         check(not DebindPrivate.IsUnreachableAction(subject), "원본이 살아 있는데 액션이 죽었다");
         local issue = GetBindingIssue(subject);
         check(issue == Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES, "나온 것: " .. tostring(issue));
-        check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
+        check(DebindPrivate.GetIssueColor(issue) == _G.ORANGE_FONT_COLOR, "주황이 아니다");
         check(GetBindingIssue(subject, nil, "unreachable") == nil, "억제했는데 나왔다");
     end);
 
@@ -167,7 +167,7 @@ return function(DebindPrivate)
         check(not DebindPrivate.IsUnreachableAction(subject), "쌍둥이가 살아 있는데 액션이 죽었다");
         local issue = GetBindingIssue(subject);
         check(issue == Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES, "나온 것: " .. tostring(issue));
-        check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
+        check(DebindPrivate.GetIssueColor(issue) == _G.ORANGE_FONT_COLOR, "주황이 아니다");
     end);
 
     test("둘 다 덮이면 도달 불가다", function()
@@ -188,16 +188,18 @@ return function(DebindPrivate)
         if (not ok) then error(err, 0); end
     end
 
-    test("Clique가 있으면 옵션 켠 액션은 회색 문장 하나다", function()
+    test("Clique가 있으면 옵션 켠 액션은 주황 문장 하나다", function()
         withClique(function()
             local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true };
             local issue = GetBindingIssue(action);
             check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE, "나온 것: " .. tostring(issue));
-            check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
-            -- **갈래는 `unit`이다.** 상자가 대상 메뉴에 있으므로 색이 칠해져야 하는 묶음도
-            -- 거기다. `hover`로 나가면 아무 문제 없는 메뉴가 칠해지고 상자가 있는 메뉴는
-            -- 멀쩡해 보인다.
-            check(GetBindingIssue(action, "unit") == issue, "대상 갈래로 물으니 안 나온다");
+            check(DebindPrivate.GetIssueColor(issue) == _G.ORANGE_FONT_COLOR, "주황이 아니다");
+            -- **갈래는 상자 제 것이다.** 잘못된 것은 체크박스이지 그 옆의 대상이 아니다 -
+            -- 사용자가 고른 대상은 멀쩡하고 액션도 거기로 나간다. `unit`에 얹으면 그 대상 줄이
+            -- 빨개지면서 남의 문장을 밑에 달고, `hover`에 얹으면 상관없는 조건 메뉴가 칠해진다.
+            check(GetBindingIssue(action, "preferHoverUnit") == issue,
+                "상자 갈래로 물으니 안 나온다");
+            check(GetBindingIssue(action, "unit") == nil, "대상 갈래가 이 문제를 들고 있다");
             check(GetBindingIssue(action, "hover") == nil, "hover 갈래가 이 문제를 들고 있다");
         end);
     end);
@@ -215,7 +217,7 @@ return function(DebindPrivate)
 
         -- 대상 `none`은 Clique와 아무 상관이 없으므로 할 말이 없어야 한다. 대상 `hover`는
         -- 다르다 - 그건 옵션과 무관하게 Clique가 정말로 못 쓰게 만드는 겨눔이라, 원래의
-        -- 빨강이 그대로 나와야 한다. 옵션의 회색이 그것을 밀어내면 안 된다.
+        -- 빨강이 그대로 나와야 한다. 옵션의 주황이 그것을 밀어내면 안 된다.
         withClique(function()
             local none = { type = Constants.SPELL, value = 585, key = "T",
                 unit = "none", preferHoverUnit = true };
@@ -225,8 +227,19 @@ return function(DebindPrivate)
             local hover = { type = Constants.SPELL, value = 585, key = "T",
                 unit = "hover", preferHoverUnit = true };
             check(GetBindingIssue(hover) == Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE,
-                "대상 hover의 빨강이 옵션의 회색에 밀렸다: " .. tostring(GetBindingIssue(hover)));
+                "대상 hover의 빨강이 옵션의 주황에 밀렸다: " .. tostring(GetBindingIssue(hover)));
         end);
+    end);
+
+    -- **hover 조건이 [안 올렸을 때]여도 쌍둥이는 없다** (2026-09-06, 소유자). 그 액션은 개체창
+    -- 위에서 아예 발동하지 않으므로 개체창의 개체로 나갈 가능성이 0이다. 메뉴도 같은 이유로
+    -- 상자를 잠근다 - 여기서 재는 것은 그 짝의 실행 쪽이고, 잠금 자체는 화면에서만 보인다.
+    test("hover 조건이 안 올렸을 때여도 쌍둥이가 없다", function()
+        local action = { type = Constants.SPELL, value = 585, key = "T",
+            unit = "focus", preferHoverUnit = true,
+            conditions = { units = { hover = false } } };
+        check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+            "개체창 위에서 안 도는 액션에 쌍둥이가 생겼다");
     end);
 
     -- 반대쪽. 없으면 위 테스트는 "언제나 쌍둥이가 없다"로도 통과한다.
@@ -243,7 +256,7 @@ return function(DebindPrivate)
             local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true,
                 conditions = { units = { hover = {} } } };
             check(GetBindingIssue(action) == Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE,
-                "hover 조건의 빨강이 옵션의 회색에 밀렸다");
+                "hover 조건의 빨강이 옵션의 주황에 밀렸다");
         end);
     end);
 

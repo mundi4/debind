@@ -331,6 +331,18 @@ L["IGNORE_HOVER_UNIT"] = "Don't use the action on the hovered frame's unit"
 -- dropped when it is not.
 L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit instead. Anywhere else the target above decides where it goes. Hovering changes where the action goes, not whether it runs. To run it only over unit frames, use the hover condition instead."
 L["PREFER_HOVER_UNIT"] = "Prefer the hovered frame's unit"
+-- **What a locked box says about itself.** A control greyed out with no sentence leaves the reader
+-- guessing which of the things they set is holding it, and the three below are each undone in a
+-- different place. Written as statements of what the action already does rather than as
+-- instructions: what to change follows from the fact, and this box is not the only way out of any
+-- of them.
+--
+-- Nothing here names a control. The reader is inside the menu that holds the target, and the hover
+-- condition is a thing rather than a label -- the client has no word for either, so the plainest
+-- description of the state is the whole of the sentence.
+L["PREFER_HOVER_UNIT_LOCKED_HOVER"] = "This action has a hover condition, which already settles what it does over a unit frame."
+L["PREFER_HOVER_UNIT_LOCKED_TARGET_HOVER"] = "This action already goes to the hovered frame's unit."
+L["PREFER_HOVER_UNIT_LOCKED_TARGET_NONE"] = "This action asks you for a target when it runs, so there is nothing here to redirect."
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.

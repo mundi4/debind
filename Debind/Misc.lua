@@ -977,9 +977,18 @@ do
         return HoverTwinWanted(action, original) and not DebindPrivate.CliqueDetected;
     end
 
+    --- Is the box on this action doing anything at all -- Clique aside?
+    ---
+    --- **The one answer three surfaces need.** The menu locks the box on exactly this, the tooltip
+    --- draws its line on exactly this, and the derivation makes the twin on exactly this (plus
+    --- Clique). Asked separately, the tooltip announced a preference on an action whose hover
+    --- condition had already settled the matter.
+    function DebindPrivate.PrefersHoverUnit(action)
+        return HoverTwinWanted(action, DebindPrivate.GetBindingInfoForAction(action)) and true or false;
+    end
+
     function DebindPrivate.IsHoverTwinBlockedByClique(action)
-        return DebindPrivate.CliqueDetected
-            and HoverTwinWanted(action, DebindPrivate.GetBindingInfoForAction(action));
+        return DebindPrivate.CliqueDetected and DebindPrivate.PrefersHoverUnit(action);
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
@@ -1396,16 +1405,47 @@ function DebindPrivate.GetMissingMacroName(action)
     return value;
 end
 
---- Is this problem one that the row it sits on is **not** at fault for?
+--- Is this problem one the action does **not** run because of, through no fault of this row?
 ---
---- The one place that reads `BINDING_ISSUE_GRADES`, so that "what does a code with no grade mean"
---- is answered once. It answers false, which puts an ungraded code in with the loud ones -- see the
---- table's header for why that is the safe direction.
+--- Narrower than "not an ERROR" since the third grade arrived: a WARNING answers **false** here,
+--- because the action it sits on is running. The callers that ask are the ones deciding whether to
+--- say the row does nothing.
 ---
 --- Takes the code rather than the action because the callers have already asked for one, often for
 --- a single category, and asking again would run the whole of `GetBindingIssue` a second time.
 function DebindPrivate.IsIssueMinor(issue)
     return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_MINOR;
+end
+
+--- Does the key still fire with this problem on it? Everything but an ERROR does.
+---
+--- `BuildKeyMap`'s gate, and the reason the two grades below it are not interchangeable there: a
+--- MINOR row is in the key map and loses the sort, a WARNING row is in it and wins.
+function DebindPrivate.IssueKeepsKey(issue)
+    return Constants.BINDING_ISSUE_GRADES[issue] ~= Constants.ISSUE_GRADE_ERROR;
+end
+
+--- What colour a problem is drawn in. **The grade picks it, never the code** -- that is the whole
+--- of `devdocs/legacy/grading-binding-issues.md`, and it is why a new issue needs one row in
+--- `BINDING_ISSUE_GRADES` and no edit anywhere that paints.
+---
+--- Grey is the colour of an action that is not running, and the window uses it for a keyless row
+--- and an off-specialization one as well; red is what waits on the reader; orange is the key
+--- working with one thing it was told to do missing (2026-09-06, owner).
+---
+--- **nil for no issue**, so a caller can write `color = GetIssueColor(issue)` and leave the
+--- no-problem case to whatever it already had.
+function DebindPrivate.GetIssueColor(issue)
+    if (issue == nil) then
+        return nil;
+    end
+    local grade = Constants.BINDING_ISSUE_GRADES[issue];
+    if (grade == Constants.ISSUE_GRADE_MINOR) then
+        return DISABLED_FONT_COLOR;
+    elseif (grade == Constants.ISSUE_GRADE_WARNING) then
+        return ORANGE_FONT_COLOR;
+    end
+    return ERROR_COLOR;
 end
 
 --- **Which of the two shapes each check reads is not a free choice, so it is made once here.**
@@ -1556,10 +1596,16 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     if (not issue and (not category or category == "unit") and notCategory ~= "unit") then
         if (binding.unit == "hover" and DebindPrivate.CliqueDetected) then
             issue = Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE;
-        elseif (DebindPrivate.IsHoverTwinBlockedByClique(action)) then
-            -- **This category and not `hover`, because the box sits in the Target menu.** It says
-            -- where the action goes; the hover menu says when it fires. Reported there, the menu
-            -- with nothing wrong in it goes coloured and the one holding the box looks clean.
+        end
+    end
+
+    -- **The box's own category, and nothing else reads it.** What is wrong belongs to the
+    -- checkbox: the target beside it is a target the reader chose, it is valid, and the action is
+    -- still going to it. On `unit` this coloured that target and printed this sentence under it;
+    -- on `hover` it coloured a condition menu that has nothing to do with the box.
+    if (not issue and (not category or category == "preferHoverUnit")
+            and notCategory ~= "preferHoverUnit") then
+        if (DebindPrivate.IsHoverTwinBlockedByClique(action)) then
             issue = Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE;
         end
     end

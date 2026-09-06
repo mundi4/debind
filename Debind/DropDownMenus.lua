@@ -77,10 +77,19 @@ end
 --- Shared out because the Switches tab builds a menu of its own with the same items in it
 --- (`SwitchesUI.lua`), and two copies of this would be two answers to "what does a menu item's
 --- tooltip look like" in one window.
-function DebindUI.SetInstructionTooltip(description, text)
+--- `lockReason` is optional and is **a function, asked as the tooltip is drawn**. A locked control
+--- has to say what is locking it, and what that is moves while the menu is open: picking a target
+--- two rows up locks or frees the box below without the description being rebuilt. A string caught
+--- here would be the answer from whenever the menu was assembled.
+function DebindUI.SetInstructionTooltip(description, text, lockReason)
     description:SetTooltip(function(tooltip, elementDescription)
         GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
         GameTooltip_AddInstructionLine(tooltip, text);
+        local reason = lockReason and lockReason();
+        if (reason) then
+            GameTooltip_AddBlankLineToTooltip(tooltip);
+            GameTooltip_AddDisabledLine(tooltip, reason);
+        end
     end);
 end
 local SetInstructionTooltip = DebindUI.SetInstructionTooltip;
@@ -450,13 +459,13 @@ do
             end
 
             if (err) then
-                -- **등급이 색을 고른다.** 회색은 "이 묶음에서 고칠 것은 없다"이고, 그런 문제까지
-                -- 빨갛게 칠하면 열어 본 사람이 고칠 것을 찾다가 못 찾는다. 문장은 어느 쪽이든
-                -- 툴팁에 그대로 나간다 - 왜 안 먹는지는 말해줘야 한다.
+                -- **등급이 색을 고른다** (`Misc.lua`의 `GetIssueColor`). Clique가 개체창을
+                -- 가져간 것처럼 **이 묶음에서 고칠 것이 없는** 문제까지 빨갛게 칠하면, 열어 본
+                -- 사람이 고칠 것을 찾다가 못 찾는다. 문장은 어느 색이든 툴팁에 그대로 나간다.
                 --
                 -- 완성된 문장으로 넘어온 것(`error`)은 등급이 없으므로 빨강이다. 그것을 넘기는
                 -- 자리는 전부 "이건 못 쓴다"를 말하고 있다.
-                color = DebindPrivate.IsIssueMinor(err) and DISABLED_FONT_COLOR or ERROR_COLOR;
+                color = DebindPrivate.GetIssueColor(err) or ERROR_COLOR;
                 -- **마지막 폴백은 `err`이지 `error`가 아니다.** 이슈 코드로 온 것은 위 두
                 -- 조회가 문장으로 바꿔주는데, 이미 완성된 문장으로 온 것은 둘 다 못 찾는다.
                 -- 거기서 `error`로 떨어지면 **함수를 넘긴 호출자에게 함수가 그대로 나간다** -
@@ -793,6 +802,30 @@ do
         return optionsDescription;
     end
 
+    --- 왜 "개체창 위에서는 그 개체를 우선"을 지금 못 켜는가. 켤 수 있으면 nil.
+    ---
+    --- **잠그는 이유와 파생이 거절하는 이유는 같은 목록이어야 한다** (`Misc.lua`의
+    --- `GetBindingsForAction`). 공유 프로필은 이 메뉴를 안 지나므로, 갈리면 잠긴 상자가
+    --- 동작하거나 켠 상자가 아무 일도 안 한다.
+    ---
+    --- **하나씩 문장을 돌려주는 것은 잠긴 상자가 이유를 말해야 하기 때문이다** (2026-09-06,
+    --- 소유자). 회색으로 굳어 있기만 하면 읽는 사람은 자기가 무엇을 되돌려야 켜지는지 모른다.
+    ---
+    --- **hover 조건은 [안 올렸을 때]도 잠근다.** 그 액션은 개체창 위에서 아예 발동하지 않으므로
+    --- 개체창의 개체로 나갈 가능성이 0이다. 켜져 있으면 켤 수 있는 것처럼 보이는데 그 상자가
+    --- 할 수 있는 일이 없다.
+    local function PreferHoverUnitLockReason()
+        if (DebindPrivate.CliqueDetected) then
+            return LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"];
+        elseif (UnitConditionIsOn("hover")) then
+            return LLL["PREFER_HOVER_UNIT_LOCKED_HOVER"];
+        elseif (_action.unit == "hover") then
+            return LLL["PREFER_HOVER_UNIT_LOCKED_TARGET_HOVER"];
+        elseif (_action.unit == "none") then
+            return LLL["PREFER_HOVER_UNIT_LOCKED_TARGET_NONE"];
+        end
+    end
+
     local function hoverConditionIsOn()
         if (DebindPrivate.CliqueDetected) then
             return false;
@@ -1029,14 +1062,10 @@ do
             local preferHoverUnit = description:CreateCheckbox(LLL["PREFER_HOVER_UNIT"],
                 actionValueEquals, setActionValue,
                 { key = "preferHoverUnit", value = USE_CHECKED_VALUE });
-            SetInstructionTooltip(preferHoverUnit, DebindPrivate.CliqueDetected
-                and (LLL["PREFER_HOVER_UNIT_DESC"] .. "|n|n" .. LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"])
-                or LLL["PREFER_HOVER_UNIT_DESC"]);
+            SetInstructionTooltip(preferHoverUnit, LLL["PREFER_HOVER_UNIT_DESC"],
+                PreferHoverUnitLockReason);
             preferHoverUnit:SetEnabled(function()
-                return _action.unit ~= "hover"
-                    and _action.unit ~= "none"
-                    and not UnitConditionIsExists("hover")
-                    and not DebindPrivate.CliqueDetected;
+                return PreferHoverUnitLockReason() == nil;
             end);
         end
 

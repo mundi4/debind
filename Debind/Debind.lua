@@ -231,14 +231,14 @@ do
 					-- keepInBindingContext를 켠 액션은 예외로 그대로 건다. 편집기가 자기 버튼에
 					-- 그 키를 표시한 채로 안 먹게 되므로, 유저가 알고 켜는 것이어야 한다.
 					local yielded = DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext;
-					-- **A minor problem still binds.** That is the whole of what the grade means
-					-- (`Constants.BINDING_ISSUE_GRADES`), and nothing had ever tested it: the only
-					-- minor code was `UNREACHABLE`, whose cache is wiped a few lines above this
-					-- loop, so it answered nil right here every time. The first minor code raised
-					-- from the action's own fields dropped the key instead, with nothing saying so
-					-- -- `HOVER_UNIT_WITH_CLIQUE` was that code, and the action it marks loses the
-					-- aiming over frames and nothing else.
-					if ((not issue or DebindPrivate.IsIssueMinor(issue)) and not yielded) then
+					-- **Only an ERROR keeps the action off its key.** That is what the grades mean
+					-- (`Constants.BINDING_ISSUE_GRADES`), and nothing had ever tested it: while
+					-- `UNREACHABLE` was the only code below ERROR, its cache is wiped a few lines
+					-- above this loop, so it answered nil right here every time. The first such
+					-- code raised from an action's own fields dropped the key instead, with
+					-- nothing saying so -- `HOVER_UNIT_WITH_CLIQUE` was that code, and the action
+					-- it marks loses the aiming over frames and nothing else.
+					if ((not issue or DebindPrivate.IssueKeepsKey(issue)) and not yielded) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};
 							local button, buttonPrefix = DebindPrivate.GetMouseButtonAndPrefix(key);

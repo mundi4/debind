@@ -276,7 +276,7 @@ return function(DebindPrivate)
             local issue = DebindPrivate.GetBindingIssue(action);
             check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE,
                 "the premise is gone -- the issue is " .. tostring(issue));
-            check(DebindPrivate.IsIssueMinor(issue), "that code is not minor");
+            check(DebindPrivate.IssueKeepsKey(issue), "that code takes the key away");
 
             local records = Records("F1");
             check(records ~= nil, "the key came out with no records at all");
