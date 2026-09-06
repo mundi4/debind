@@ -659,10 +659,15 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key or mouse button to give it to this action."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
 -- **The same box, said twice, because the line above it changes what it has to say.** Where the
--- reader set no target this line is the target, and where they set one it sits under that value
--- and has to say it is pushed aside; either sentence in the other place is a lie.
-L["LINE_TOOLTIP_PREFER_HOVER_UNIT"] = "The hovered frame's unit"
-L["LINE_TOOLTIP_PREFER_HOVER_UNIT_INSTEAD"] = "Over a unit frame, that frame's unit instead"
+-- reader set one, this sits under that value and says it is pushed aside. Where they set none,
+-- there is no line above and nothing on screen for the times the cursor is somewhere else, so this
+-- one carries both: the game decides then, and the answer has no name to print (current target for
+-- one action, the player for another under auto self cast).
+L["LINE_TOOLTIP_PREFER_HOVER_UNIT"] = "Over a unit frame, that frame's unit instead"
+-- The value the line above pushes aside, where the reader chose no target of their own. It names
+-- the rule and not an outcome: the game answers this with the current target for one action and
+-- with the player for another under auto self cast, and naming one makes the other a lie.
+L["LINE_TOOLTIP_TARGET_NORMAL"] = "Where it normally goes"
 -- Under the numbers, the way the unreachable line sits under the key: the action is set up right
 -- and this says only that the world is not the one it asked for.
 L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."

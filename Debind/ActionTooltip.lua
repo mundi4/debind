@@ -393,14 +393,20 @@ do
 		-- coloured a perfectly good target and printed this line's sentence under it -- and then
 		-- this line printed the same sentence again.
 		if (DebindPrivate.PrefersHoverUnit(action)) then
+			-- **The fallback is written out where no target was chosen**, so this line has a value
+			-- above it either way. Without one it was the only line under the label and read as
+			-- where the action always goes, with nothing on screen for the times the cursor is
+			-- somewhere else. What happens then has no name to print: the game decides, and the
+			-- answer is the current target for one action and the player for another under auto
+			-- self cast, so the line points at the rule rather than at either outcome.
 			if (action.unit == nil) then
 				addLabelLine(tooltip, LLL["TARGET_UNIT"]);
+				addValueLine(tooltip, LLL["LINE_TOOLTIP_TARGET_NORMAL"]);
 			end
 			-- One call. `addValueLine` colours the value and prints the code's sentence under it,
 			-- which is exactly the shape this line wants -- what is wrong is the box, and the
 			-- sentence says why.
-			addValueLine(tooltip, action.unit == nil and LLL["LINE_TOOLTIP_PREFER_HOVER_UNIT"]
-					or LLL["LINE_TOOLTIP_PREFER_HOVER_UNIT_INSTEAD"],
+			addValueLine(tooltip, LLL["LINE_TOOLTIP_PREFER_HOVER_UNIT"],
 				hasIssues and GetIssue("preferHoverUnit") or nil);
 		end
 
