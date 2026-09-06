@@ -93,10 +93,6 @@ L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_CO
 -- "No matter what" is what the sentence turns on. Every action but the first is preceded by others,
 -- which is what this line said before, and it was true of the healthy rows just as much.
 L["BINDING_ERROR_UNREACHABLE"] = "This action never runs. No matter what, another action on this key gets there first."
--- The two halves of an action set to use the hovered frame's unit. Each sentence says where the
--- action still runs, because the row is not red and the reader has to see why.
-L["BINDING_ERROR_UNREACHABLE_OVER_FRAMES"] = "Over a unit frame this action never runs: another action on this key gets there first. Anywhere else it runs as usual."
-L["BINDING_ERROR_UNREACHABLE_OFF_FRAMES"] = "Away from unit frames this action never runs: another action on this key gets there first. Over a unit frame it runs as usual."
 L["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"] = "Clique is handling unit frames, so this action is not used on the hovered frame's unit. It still runs on its own target."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
@@ -737,7 +733,7 @@ L["ORDER_FLAG_ISSUE"] = "Needs fixing"
 -- read, and a pair that differs in one place can be told apart with one of them on screen. Before,
 -- both grades printed the line above and only the colour parted them, which needs both at once and
 -- reaches a colour-blind reader not at all.
-L["ORDER_FLAG_ISSUE_MINOR"] = "Needs checking"
+L["ORDER_FLAG_ISSUE_WARNING"] = "Needs checking"
 L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- **The row stands where it would stand if that specialization were the active one**, so this line
 -- is the only thing on screen telling it apart from what is running right now. Which one it is comes

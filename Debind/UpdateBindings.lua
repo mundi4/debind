@@ -1322,7 +1322,8 @@ local ROLE_NAMES = {
 --- ============================================================================================
 ---
 --- Every way this function can return `NEVER` is a zero mask in `binding.unitStates`, and a zero
---- mask is an issue, and an action with an issue never enters `KeyMap`:
+--- mask is `CONDITIONS_NEVER`, which is an ERROR -- the one grade `BuildKeyMap` keeps out of
+--- `KeyMap` entirely:
 ---
 ---   absent vs a constrained axis   `band(UNITSTATE_NONE, ...)`  == 0
 ---   reactions do not overlap       `band(reaction, reaction)`   == 0

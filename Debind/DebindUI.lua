@@ -30,7 +30,6 @@ local INACTIVE_COLOR         = _G.INACTIVE_COLOR;
 
 local dump                   = DebindPrivate.dump;
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
-local IsIssueMinor           = DebindPrivate.IsIssueMinor;
 
 -- Three files above this one, taken once each. `ActionDisplay.lua` owns what an action is called and
 -- the blue an imported one wears, `LayerDisplay.lua` owns what a layer is called and the icon beside
@@ -44,8 +43,35 @@ local SetActionIcon                  = DebindUI.SetActionIcon;
 
 -- The two marks a problem wears, wherever one is drawn. Named here because the row and the group
 -- heading have to pick the same picture for the same grade.
-local ISSUE_ICON_ERROR               = "icons_16x16_deadly";
+--
+-- **One is a file and the other is an atlas**, so `SetIssueIcon` below is the only thing that puts
+-- either of them on.
+local ISSUE_ICON_ERROR               = "Interface\\HelpFrame\\HelpIcon-Bug";
 local ISSUE_ICON_WARNING             = "icons_16x16_important";
+
+-- One box for both marks, and the inset is what keeps them reading at the same weight: the bug
+-- file's art sits inside padding, so it is cropped to its middle rather than given a bigger box.
+local ISSUE_ICON_SIZE                = 15;
+local ISSUE_ICON_ERROR_INSET         = 0.2;
+
+--- **Whatever one branch sets, the other sets back.** These textures come out of a pool, so a
+--- frame starts with what the last group left on it. The coords are the one that bites: nothing
+--- clears them on its own, so the mark that does not crop has to say so.
+local function SetIssueIcon(texture, icon)
+	texture:SetSize(ISSUE_ICON_SIZE, ISSUE_ICON_SIZE);
+	if (icon == ISSUE_ICON_ERROR) then
+		local inset = ISSUE_ICON_ERROR_INSET;
+		texture:SetTexture(icon);
+		texture:SetTexCoord(inset, 1 - inset, inset, 1 - inset);
+		texture:SetDesaturated(true);
+		texture:SetVertexColor(1, 0, 0);
+	else
+		texture:SetAtlas(icon);
+		texture:SetTexCoord(0, 1, 0, 1);
+		texture:SetDesaturated(false);
+		texture:SetVertexColor(1, 1, 1);
+	end
+end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
 local GetTabLabel                    = DebindUI.GetTabLabel;
@@ -933,13 +959,12 @@ function DebindLineMixin:Update()
 	self.NewDot:SetShown(action.arrivalID ~= nil);
 
 	local keyIssue = issue and GetBindingIssue(action, "key") or nil;
-	local keyIssueIsMinor = keyIssue ~= nil and IsIssueMinor(keyIssue);
 	if (action.key) then
 		local s = DebindPrivate.GetKeyDisplayText(action.key);
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
-		elseif (keyIssue and not keyIssueIsMinor) then
+		elseif (keyIssue) then
 			color = ERROR_COLOR;
 		end
 		if (color) then
@@ -953,12 +978,8 @@ function DebindLineMixin:Update()
 	-- 단축키 문제는 단축키 옆에서 말한다. 색만으로는 색맹에 안 걸리고, 어느 칸이 문제인지도
 	-- 말해주지 못한다. BindingText는 폭이 고정된 칸이라 오른쪽 끝에 걸면 글자에서 한참
 	-- 떨어지므로 글자 길이를 재서 바로 뒤에 붙인다.
-	--
-	-- **A minor problem gets no mark.** What it means is that every neighbour on this key covers
-	-- this row, which is not something wrong with the key: the reason column says it in words, and
-	-- a mark next to the key sends the reader to look for a fault that is not there.
-	self.KeyWarning:SetShown(keyIssue ~= nil and not keyIssueIsMinor);
-	if (keyIssue and not keyIssueIsMinor) then
+	self.KeyWarning:SetShown(keyIssue ~= nil);
+	if (keyIssue) then
 		self.KeyWarning:ClearAllPoints();
 		self.KeyWarning:SetPoint("LEFT", self.BindingText, "LEFT", self.BindingText:GetStringWidth() + 4, 0);
 	end
@@ -998,15 +1019,15 @@ function DebindLineMixin:Update()
 
 	-- The same two marks the group heading carries, on the row they came from. The heading is a
 	-- summary and cannot say which row it meant, least of all while folded.
-	local issueAtlas;
+	local issueIcon;
 	if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
-		issueAtlas = ISSUE_ICON_ERROR;
+		issueIcon = ISSUE_ICON_ERROR;
 	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
-		issueAtlas = ISSUE_ICON_WARNING;
+		issueIcon = ISSUE_ICON_WARNING;
 	end
 
-	if (issueAtlas) then
-		self.IssueIcon:SetAtlas(issueAtlas);
+	if (issueIcon) then
+		SetIssueIcon(self.IssueIcon, issueIcon);
 		-- **The corner belongs to whichever of the two is up.** Anchored to the question mark
 		-- outright, a row with no conditions kept that mark's width as empty space and stopped
 		-- lining up with the rows around it.
@@ -1198,7 +1219,6 @@ end
 --- 목록 첫 줄에서는 그 여백이 인셋 위에 뚫린 구멍이 됐다. 여백이 아니라 띠가 서는 지금은
 --- 첫 줄도 가를 것이 없기는 마찬가지고, 구멍도 나지 않는다.
 local KEY_HEADER_HEIGHT = 26;
-local ISSUE_ICON_SIZE = 15;
 -- 각 목록의 행 높이. 뷰가 프레임을 만들기 전에 자리부터 잡으므로 XML의 Size를 대신 여기
 -- 적어둔다 - 어긋나면 스크롤 길이가 틀어진다.
 local LINE_HEIGHT = 46;
@@ -1276,11 +1296,6 @@ function DebindKeyHeaderMixin:OnLoad()
 	-- 이 칸은 높이가 한 줄이다. 끄면 `…`로 잘리고, 덤으로 템플릿에 이미 달려 있는 잘림 툴팁이
 	-- 살아난다(`ListHeaderMixin:CheckUpdateTooltip`이 `IsTruncated`를 본다).
 	self.ActionName:SetWordWrap(false);
-
-	-- Under the atlas's own 16, so the mark reads as a mark on the bar rather than as a second
-	-- thing to press beside the end cap. Set here because it does not change with the group; the
-	-- atlas goes on in `Init` without `useAtlasSize`, which would put the 16 back.
-	self.IssueIcon:SetSize(ISSUE_ICON_SIZE, ISSUE_ICON_SIZE);
 end
 
 --- 뷰가 프레임 폭을 잡는 것은 `Init` **뒤**일 수 있다. 폭을 재서 쓰는 계산이라 그때 다시 한다.
@@ -1470,10 +1485,10 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- summarises only its first action, so without this a problem further down says nothing at
 		-- all while folded.
 		if (elementData.hasError) then
-			self.IssueIcon:SetAtlas(ISSUE_ICON_ERROR);
+			SetIssueIcon(self.IssueIcon, ISSUE_ICON_ERROR);
 			self.IssueIcon:Show();
 		elseif (elementData.hasWarning) then
-			self.IssueIcon:SetAtlas(ISSUE_ICON_WARNING);
+			SetIssueIcon(self.IssueIcon, ISSUE_ICON_WARNING);
 			self.IssueIcon:Show();
 		end
 		self:SetHeaderText(KeyGroupLabel(elementData.key));
@@ -3166,60 +3181,10 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 	-- The version hangs off the name for the same reason it is on the login line: so a bug report
 	-- can carry it. Dimmed, because it is there to be found rather than read every time.
 	DebindFrame:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
-	if (DebindPrivate.DEBUG) then
-		DebindPrivate.PrintEncounterJournalIcons();
-	end
 	self:UpdateActionCounts(visible);
 	DebindFrame:UpdateEmptyText();
 end
 
-
---- **A one-off probe, DEBUG only.** The Encounter Journal's flag icons, printed once when the
---- window opens so they can be compared at the size they would be used at. The list is
---- `EncounterJournalFlagIconAtlases` in `Blizzard_EncounterJournal.lua`.
----
---- Delete this and the `PrintEncounterJournalIcons()` call in the rebuild once an icon is chosen.
-do
-    local EJ_ICONS = {
-        "icons_16x16_deadly",
-        "icons_16x16_important",
-        "icons_16x16_heroic",
-        "icons_16x16_mythic",
-        "icons_16x16_enrage",
-        "icons_16x16_interrupt",
-        "icons_16x16_magic",
-        "icons_16x16_curse",
-        "icons_16x16_poison",
-        "icons_16x16_disease",
-        "icons_16x16_bleed",
-        "icons_16x16_tank",
-        "icons_16x16_heal",
-        "icons_16x16_damage",
-        "communities-icon-lock",
-    };
-
-    --- Texture files rather than atlases, so these always resolve; a name that is not an atlas
-    --- simply draws nothing.
-    local EJ_FILES = {
-        [[Interface\Common\Icon-NoLoot]],
-        [[Interface\PVPFrame\bg-down-on]],
-        [[Interface\QuestFrame\UI-Quest-BulletPoint]],
-    };
-
-    local printed = false;
-    function DebindPrivate.PrintEncounterJournalIcons()
-        if (printed) then
-            return;
-        end
-        printed = true;
-        for i = 1, #EJ_ICONS do
-            print(format("|A:%s:16:16|a  %d. %s", EJ_ICONS[i], i, EJ_ICONS[i]));
-        end
-        for i = 1, #EJ_FILES do
-            print(format("|T%s:16|t  %d. %s", EJ_FILES[i], #EJ_ICONS + i, EJ_FILES[i]));
-        end
-    end
-end
 
 --- 상세 패널이 보여줄 액션을 바꾼다. 언제나 성공한다.
 ---
@@ -4461,8 +4426,9 @@ end
 --- 바인딩에게는 그게 물어볼 값어치가 없는 질문이다. 고칠 것이 있으면 그것부터 말하고
 --- 순서 이야기는 접는다 - 둘 다 적으면 한 줄에 안 들어가고, 빨강이 회색 옆에서 힘을 잃는다.
 ---
---- 도달불가와 이슈를 함께 적지 않는 이유는 `GetBindingIssue`가 도달불가도 이슈로 치기
---- 때문이다(Misc.lua). 더 구체적인 쪽만 쓴다.
+--- **넷 다 이 칸의 말이고, 한 번에 하나만 선다.** 안 나가는 사유(다른 전문화, 이웃에 덮임)와
+--- 액션 자신의 잘못(오류, 경고)은 서로 다른 축이라 한 행에 같이 설 수 있는데, 칸이 하나뿐이라
+--- 더 구체적인 쪽을 쓴다. 나가지도 않는 액션에게 무엇이 잘못됐는지는 나중 물음이다.
 ---
 --- **The problem codes arrive here as one word, and that is deliberate.** They used to be spelled
 --- out per code -- "No group selected", "Unknown state name" -- and in a list you scan that reads as
@@ -4471,18 +4437,17 @@ end
 --- to the one surface the reader opens on purpose. `BINDING_ERROR_*` under the condition it belongs
 --- to is where it now lives, and only there.
 ---
---- Which leaves this column two words for a problem, matching the two grades exactly: the minor one
---- keeps its own sentence because "never runs" is the more specific thing to say, and everything
---- else is red and generic.
+--- Which leaves this column one word per grade, and both are generic. The one sentence that is not
+--- is "never runs", which belongs to the other axis and is the more specific thing to say when it
+--- applies.
 local function GetOrderReasonText(elementData)
 	local row = elementData.row;
 	-- **A badged row says nothing here, because the slot is the button's.** What this column
 	-- normally holds is why this row beat the one below it, and for a row that does not fire that
 	-- sentence is beside the point - it describes an ordering it takes no part in. The problem
-	-- codes go quiet for the same span: accepting comes before fixing, since a problem already
-	-- keeps an action out of the key map (`BuildKeyMap` takes only `not issue`), so taking the
-	-- badge off something broken changes nothing about what any key does. Both come back the
-	-- moment it is accepted, which is when either one starts to matter.
+	-- codes go quiet for the same span: a badge already keeps an action out of the key map
+	-- (`BuildKeyMap` skips it), so taking the badge off is what any of this starts to matter after.
+	-- Both come back the moment it is accepted.
 	if (row.action.arrivalID) then
 		return "";
 	-- **Which specialization it belongs to, in the slot the contest would have used.** The row sits
@@ -4505,7 +4470,7 @@ local function GetOrderReasonText(elementData)
 		-- was orange against red -- which needs the two to be on screen together to be read at all,
 		-- and is nothing to a reader who cannot separate the two colours.
 		local color = DebindPrivate.GetIssueColor(row.issue);
-		local flag = DebindPrivate.IsIssueWarning(row.issue) and LLL["ORDER_FLAG_ISSUE_MINOR"]
+		local flag = DebindPrivate.IsIssueWarning(row.issue) and LLL["ORDER_FLAG_ISSUE_WARNING"]
 			or LLL["ORDER_FLAG_ISSUE"];
 		return color:WrapTextInColorCode(flag);
 	end
@@ -4771,15 +4736,12 @@ function BuildKeyboardElements()
 		for i = 1, #rows do
 			if (not DebindPrivate.IsInactiveAction(rows[i].action)) then
 				allInactive = false;
-				-- **Only what stops the key counts as work waiting here.** A row that fires with
-				-- one thing missing is not something to go and fix on this key -- the key works --
-				-- and reddening its heading sends the reader hunting through a group where every
-				-- press does what it says. `IsIssueMinor` was the test and it answered false for
-				-- those, since it asks whether the action runs at all rather than whether the key
-				-- does.
-				-- The mark beside the fold says the lesser one instead, so it is collected here
-				-- rather than left to the rows. **Without a `break`**: an error further down still
-				-- has to be found, since it is the one that decides the colour.
+				-- **Only what stops the key is the loud one.** A row that fires with one thing
+				-- missing is not something to go and fix on this key -- the key works -- so it
+				-- gets the quieter mark rather than the same one a dead key gets.
+				--
+				-- **Without a `break` on the warning**: an error further down still has to be
+				-- found, since it is the one that decides which mark goes up.
 				local issue = rows[i].issue;
 				if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
 					hasError = true;

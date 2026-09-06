@@ -251,13 +251,12 @@ return function(DebindPrivate)
     end);
 
 
-    -- **A minor problem still binds, and until `HOVER_UNIT_WITH_CLIQUE` nothing had ever tested
-    -- that.** The grade means "the key still fires and something around it is off"
-    -- (`Constants.BINDING_ISSUE_GRADES`), but `UNREACHABLE` was the only minor code and its cache is
-    -- wiped a few lines above the loop that asks, so the gate here answered nil every time. The
-    -- first minor code raised from the action's own fields drops the key with nothing saying so.
+    -- **A warning still binds, and until `HOVER_UNIT_WITH_CLIQUE` nothing had ever tested that.**
+    -- The grade means "the key still fires and something around it is off"
+    -- (`Constants.BINDING_ISSUE_GRADES`), and it is the only code carrying it, so before it there
+    -- was no code at all that this gate had to let past.
     --
-    -- Measured: with Clique loaded and this gate reading `not issue`, `KeyMap["F1"]` came out nil --
+    -- Measured: with Clique loaded and the gate reading `not issue`, `KeyMap["F1"]` came out nil --
     -- the action fires on no unit at all, where losing the aiming over frames was the whole cost.
     --
     -- `CliqueDetected` is read when `Debind.lua` loads and the addon list cannot change without a

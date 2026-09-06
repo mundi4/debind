@@ -434,7 +434,6 @@ Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEM
 Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";
 Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND = "NOT_SUPPORTED_HOVER_CLICK_COMMAND";
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
-Constants.BINDING_ISSUE_UNREACHABLE                       = "UNREACHABLE";
 Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE      = "CANNOT_USE_HOVER_WITH_CLIQUE";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
@@ -453,12 +452,6 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
--- A `preferHoverUnit` action is two bindings (`Misc.lua`'s `GetBindingsForAction`), and these are
--- the two ways it can lose exactly one of them to a neighbour. **Two codes rather than one with two
--- sentences**: the tooltip prints `BINDING_ERROR_<code>` and nothing else, so the sentence has to
--- be the code. Both halves leave the action firing somewhere, hence the grade below.
-Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES           = "UNREACHABLE_OVER_FRAMES";
-Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES            = "UNREACHABLE_OFF_FRAMES";
 -- The option is set and Clique holds the frames, so the twin is not derived. The action still
 -- runs on its own target; only the aim over a frame is gone, which is why this is not the ERROR
 -- a hover **condition** under Clique gets.
@@ -469,42 +462,35 @@ Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE            = "HOVER_UNIT_WITH_CLI
 -- colour of a new issue is decided by adding a row below rather than by touching every place that
 -- paints one (`devdocs/legacy/grading-binding-issues.md`).
 Constants.ISSUE_GRADE_ERROR = 1;
-Constants.ISSUE_GRADE_MINOR = 2;
---- **The action runs; something around it does not.** Orange, between the two above (2026-09-06,
---- owner).
----
---- The split from MINOR is what the reader sees rather than a shade of severity. **Grey is the
---- colour of an action that is not running** -- a specialization layer out of play, a key not
---- chosen, a row every neighbour covers -- so wearing it says "nothing here is happening", and for
---- a key that fires on every press but one that is a lie. Red is the other end: something is
---- waiting on the reader. This grade is neither. The key works, one thing it was told to do does
---- not, and there may be nothing to fix (another addon owns the frames).
-Constants.ISSUE_GRADE_WARNING = 3;
+--- **The action runs; something around it does not.** Orange rather than red (2026-09-06, owner).
+--- The key works, one thing it was told to do does not, and there may be nothing to fix at all
+--- (another addon owns the frames), so a colour that says work is waiting would be a lie.
+Constants.ISSUE_GRADE_WARNING = 2;
 
 --- Which grade each code carries, and the question each one answers is **what the reader sees**:
 ---
 ---   ERROR    the key does not work and it is waiting on the reader
----   MINOR    the action never runs, and not through any fault of this row
 ---   WARNING  the action runs; one thing it was told to do does not
 ---
---- `UNREACHABLE` is MINOR because every neighbour covers it: it never fires, which is what grey
---- says everywhere else in this window. Its two frame-sided cousins are WARNING instead -- only one
---- of the action's bindings is covered, so the key still fires, over frames or off them.
---- `HOVER_UNIT_WITH_CLIQUE` is WARNING for the same reason from another direction: the action goes
---- out on its own target and only the aiming over frames is gone.
+--- **Every code in here is a fault of the action itself, and why an action is not firing right now
+--- is a separate axis that is deliberately not written in this table** (2026-09-06, owner). Being
+--- covered by a neighbour on the same key (`Solver.lua`'s `IsUnreachableAction`) and having a
+--- specialization condition that does not hold (`Ordering.lua`'s `IsRowOffSpec`) are each answered
+--- on their own, so that neither can take the slot the other needs. While the first of them was a
+--- code in here, a covered action reported that instead of its own warning and the warning left
+--- the screen.
 ---
 --- `BuildKeyMap` reads the same line: an ERROR keeps the action out of `KeyMap` entirely, and
 --- anything else goes in.
 ---
---- **A code with no row here is treated as ERROR** (`IsIssueMinor` and `GetIssueColor` are the only
---- readers, and both fall that way). Failing loud is the safe direction in a keybinding addon -- a
---- grade nobody wrote would otherwise quietly grey out a binding that does not run.
+--- **A code with no row here is treated as ERROR** (`GetIssueColor` and `IssueKeepsKey` are the
+--- only readers, and both fall that way). Failing loud is the safe direction in a keybinding addon
+--- -- a grade nobody wrote would otherwise leave a binding that does not work looking fine.
 Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND] = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNREACHABLE]                       = Constants.ISSUE_GRADE_MINOR,
     [Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE]      = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
@@ -514,8 +500,6 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES]           = Constants.ISSUE_GRADE_WARNING,
-    [Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES]            = Constants.ISSUE_GRADE_WARNING,
     [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE]            = Constants.ISSUE_GRADE_WARNING,
 };
 

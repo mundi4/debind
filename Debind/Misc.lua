@@ -828,7 +828,14 @@ do
         -- 이 자리가 안 바뀐다.
 
         -- 의미 없는 조건들을 nil로 만듬.
-        if (binding.hover) then
+        if (hoverCondition ~= nil) then
+            -- 쌍둥이는 개체창을 안 가린다(`HOVER_ANY_FRAME`). **액션에 남아 있는 마스크를
+            -- 물려받으면 안 된다**: hover 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는 것과
+            -- 지우는 것은 다르다 - `Profile.lua`), 조건을 꺼야 비로소 쌍둥이가 생기므로
+            -- 물려받는 값은 언제나 죽은 조건의 것이다. 원본은 아래 `else`에서 지워지고
+            -- 쌍둥이만 옛 마스크로 좁혀졌다.
+            conditions.frameTypes = nil;
+        elseif (binding.hover) then
             if (conditions.frameTypes and band(conditions.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
                 conditions.frameTypes = nil;
             end
@@ -1405,31 +1412,20 @@ function DebindPrivate.GetMissingMacroName(action)
     return value;
 end
 
---- Is this problem one the action does **not** run because of, through no fault of this row?
+--- Does the key fire while something it was told to do is missing?
 ---
---- Narrower than "not an ERROR" since the third grade arrived: a WARNING answers **false** here,
---- because the action it sits on is running. The callers that ask are the ones deciding whether to
---- say the row does nothing.
+--- Not the complement of the one below it: `IssueKeepsKey`'s negation is the ERROR grade, and a
+--- caller that wants exactly this one cannot get it from there.
 ---
 --- Takes the code rather than the action because the callers have already asked for one, often for
 --- a single category, and asking again would run the whole of `GetBindingIssue` a second time.
-function DebindPrivate.IsIssueMinor(issue)
-    return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_MINOR;
-end
-
---- Does the key fire while something it was told to do is missing?
----
---- Not the complement of either of the two around it: `IsIssueMinor` is false here and so is
---- `IssueKeepsKey`'s negation, which is why the callers that want exactly this grade cannot get it
---- from them.
 function DebindPrivate.IsIssueWarning(issue)
     return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_WARNING;
 end
 
 --- Does the key still fire with this problem on it? Everything but an ERROR does.
 ---
---- `BuildKeyMap`'s gate, and the reason the two grades below it are not interchangeable there: a
---- MINOR row is in the key map and loses the sort, a WARNING row is in it and wins.
+--- `BuildKeyMap`'s gate.
 function DebindPrivate.IssueKeepsKey(issue)
     return Constants.BINDING_ISSUE_GRADES[issue] ~= Constants.ISSUE_GRADE_ERROR;
 end
@@ -1438,9 +1434,10 @@ end
 --- of `devdocs/legacy/grading-binding-issues.md`, and it is why a new issue needs one row in
 --- `BINDING_ISSUE_GRADES` and no edit anywhere that paints.
 ---
---- Grey is the colour of an action that is not running, and the window uses it for a keyless row
---- and an off-specialization one as well; red is what waits on the reader; orange is the key
---- working with one thing it was told to do missing (2026-09-06, owner).
+--- Red is what waits on the reader; orange is the key working with one thing it was told to do
+--- missing (2026-09-06, owner). **Grey is not one of these**: it says an action is not running,
+--- which is the other axis, and the window paints it from there (a keyless row, an
+--- off-specialization one, one every neighbour covers).
 ---
 --- **nil for no issue**, so a caller can write `color = GetIssueColor(issue)` and leave the
 --- no-problem case to whatever it already had.
@@ -1448,10 +1445,7 @@ function DebindPrivate.GetIssueColor(issue)
     if (issue == nil) then
         return nil;
     end
-    local grade = Constants.BINDING_ISSUE_GRADES[issue];
-    if (grade == Constants.ISSUE_GRADE_MINOR) then
-        return DISABLED_FONT_COLOR;
-    elseif (grade == Constants.ISSUE_GRADE_WARNING) then
+    if (Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_WARNING) then
         return ORANGE_FONT_COLOR;
     end
     return ERROR_COLOR;
@@ -1483,31 +1477,13 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     local binding = DebindPrivate.GetBindingInfoForAction(action);
     local conditions = binding.conditions;
 
-    -- `notCategory = "unreachable"`은 이 갈래 **안의 도달불가 검사만** 끈다.
-    --
-    -- 다른 특성의 세계를 물어본 쪽(`Profile.lua`의 `CollectActionsForKey`)이 필요로 하는 것이
-    -- 딱 그거다. 도달불가는 지금 이 특성으로 만든 키 맵에서 나오므로 그 세계에서는 참이 아닌데,
-    -- **키 유효성은 특성과 무관하다.** 예전처럼 `notCategory = "key"`로 갈래째 끄면 그것까지
-    -- 같이 꺼져서, 같은 저장 데이터가 보는 특성에 따라 ⚠를 달았다 뗐다 했다.
+    -- **이 갈래는 키 자체만 본다.** 이웃에 덮였는지는 여기서 안 묻는다 - 그건 이 액션의 잘못이
+    -- 아니라 같은 키에 무엇이 더 걸려 있는가이고, 답을 내는 자리가 따로 있다
+    -- (`Solver.lua`의 `IsUnreachableAction`). 여기 있던 동안에는 덮인 액션이 자기 경고 대신
+    -- 그걸 냈고, 경고가 화면에서 사라졌다.
     if (not issue and (not category or category == "key") and notCategory ~= "key") then
         if (action.key) then
             issue = DebindPrivate.IsKeyInvalidForAction(action, action.key);
-            if (not issue and notCategory ~= "unreachable") then
-                if (DebindPrivate.IsUnreachableAction(action)) then
-                    issue = Constants.BINDING_ISSUE_UNREACHABLE;
-                else
-                    -- Half of a two-binding action gone. `[1]` is the original, `[2]` the hover
-                    -- twin (`GetBindingsForAction`); which half is dead is which sentence.
-                    local list = DebindPrivate.PeekBindingsForAction(action);
-                    if (list and list[2]) then
-                        if (DebindPrivate.IsUnreachableBinding(list[2])) then
-                            issue = Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES;
-                        elseif (DebindPrivate.IsUnreachableBinding(list[1])) then
-                            issue = Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES;
-                        end
-                    end
-                end
-            end
         end
     end
 

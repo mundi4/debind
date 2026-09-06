@@ -1,10 +1,9 @@
 -- 문제 코드의 등급(`Constants.BINDING_ISSUE_GRADES`)과 Clique 경고가 나가는 조건.
 -- 와우 클라이언트 불필요.
 --
--- **등급이 틀리면 화면이 조용히 거짓말한다.** 빨강이어야 할 것이 회색이 되면 안 도는 바인딩이
--- "활성이 없어서 없는 셈 쳐도 되는 것"으로 그려지고, 사용자는 고칠 것이 있다는 말을 어디서도
--- 못 듣는다. 반대 방향은 시끄럽기만 하다. `npm run check`가 색은 못 보므로 색을 정하는 값을
--- 여기서 잡는다.
+-- **등급이 틀리면 화면이 조용히 거짓말한다.** 빨강이어야 할 것이 주황이 되면 키가 안 도는데도
+-- "눌리기는 한다"로 그려지고, 사용자는 고칠 것이 있다는 말을 어디서도 못 듣는다. 반대 방향은
+-- 시끄럽기만 하다. `npm run check`가 색은 못 보므로 색을 정하는 값을 여기서 잡는다.
 --
 -- Clique 쪽은 성격이 다르다. 그 줄은 **로그인당 한 번**만 나가므로(`Events.lua`) 조건이 좁으면
 -- 다음 기회가 다음 로그인이다. 어느 레이어까지 세는지가 그래서 조건의 일부다 - 오프스펙만
@@ -12,7 +11,6 @@
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
-    local IsIssueMinor = DebindPrivate.IsIssueMinor;
     local GetIssueColor = DebindPrivate.GetIssueColor;
 
     local T = { passed = 0, failures = {} };
@@ -50,38 +48,19 @@ return function(DebindPrivate)
     -- 등급
     ---------------------------------------------------------------------------
 
-    --- **회색은 "이 액션은 안 돈다"이다** (2026-09-06, 소유자). 창의 다른 회색들과 같은 뜻이라야
-    --- 한다 - 키를 안 정한 행도, 다른 전문화의 행도 회색이다. 도는 액션에 그 색을 입히면 화면이
-    --- 조용히 거짓말한다.
-    ---
-    --- 그래서 회색은 도달불가 하나뿐이다. 나머지 둘은 바인딩 **하나**만 덮인 것이라 그 키는
-    --- 개체창 위든 밖이든 한쪽에서 여전히 나가고, Clique 쪽도 액션은 제 대상으로 나간다.
-    local MINOR = {
-        [Constants.BINDING_ISSUE_UNREACHABLE] = true,
-    };
-
     --- 주황: 키는 도는데 시킨 것 하나가 안 된다.
+    ---
+    --- **이 표에 안 나가는 사유는 없다** (2026-09-06, 소유자). 이웃에 덮인 것도 다른 전문화의
+    --- 것도 문제 코드가 아니라 다른 축이고, 답을 내는 자리가 따로 있다.
     local WARNING = {
-        [Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES] = true,
-        [Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES] = true,
         [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE] = true,
     };
-
-    test("안 도는 것만 회색이다", function()
-        for code in pairs(MINOR) do
-            check(IsIssueMinor(code), tostring(code) .. "가 회색이 아니다");
-            check(GetIssueColor(code) == _G.DISABLED_FONT_COLOR,
-                tostring(code) .. "의 색이 회색이 아니다");
-        end
-    end);
 
     test("도는데 하나가 빠진 것은 주황이다", function()
         for code in pairs(WARNING) do
             check(GetIssueColor(code) == _G.ORANGE_FONT_COLOR,
                 tostring(code) .. "가 주황이 아니다");
-            -- **주황은 회색이 아니다.** `IsIssueMinor`를 읽는 자리들은 "이 행은 안 돈다"를
-            -- 묻는 것이라, 주황이 거기 걸리면 도는 액션이 안 도는 것으로 그려진다.
-            check(not IsIssueMinor(code), tostring(code) .. "가 회색으로도 답한다");
+            check(DebindPrivate.IsIssueWarning(code), tostring(code) .. "가 경고로 안 답한다");
             check(DebindPrivate.IssueKeepsKey(code), tostring(code) .. "가 키를 뺏는다");
         end
     end);
@@ -89,21 +68,22 @@ return function(DebindPrivate)
     -- 나머지가 하나라도 빨강을 벗으면 고칠 것이 있는 키가 조용히 넘어간다.
     test("나머지 코드는 전부 빨강이다", function()
         ForEachIssueCode(function(name, code)
-            if (not MINOR[code] and not WARNING[code]) then
+            if (not WARNING[code]) then
                 check(GetIssueColor(code) == _G.ERROR_COLOR, name .. "이 빨강이 아니다");
+                check(not DebindPrivate.IsIssueWarning(code), name .. "이 경고로도 답한다");
                 check(not DebindPrivate.IssueKeepsKey(code), name .. "이 키를 그대로 건다");
             end
         end);
     end);
 
-    -- **표에 없는 코드는 빨강으로 떨어져야 한다.** 회색이나 주황이 기본값이면 등급을 안 적은 새
-    -- 코드가 조용히 흐려진다 - 시끄러운 쪽으로 틀리는 것이 이 애드온에서 안전한 방향이다.
+    -- **표에 없는 코드는 빨강으로 떨어져야 한다.** 주황이 기본값이면 등급을 안 적은 새 코드가
+    -- 조용히 넘어간다 - 시끄러운 쪽으로 틀리는 것이 이 애드온에서 안전한 방향이다.
     test("모르는 코드는 빨강이고, nil은 색이 없다", function()
-        check(not IsIssueMinor("NO_SUCH_ISSUE_CODE"), "모르는 코드가 회색이다");
         check(GetIssueColor("NO_SUCH_ISSUE_CODE") == _G.ERROR_COLOR, "모르는 코드가 빨강이 아니다");
-        check(not IsIssueMinor(nil), "nil이 회색이다");
+        check(not DebindPrivate.IsIssueWarning("NO_SUCH_ISSUE_CODE"), "모르는 코드가 경고다");
         -- 문제가 없으면 칠할 색도 없다. 부르는 쪽이 `if (color)`로 가른다.
         check(GetIssueColor(nil) == nil, "문제가 없는데 색이 나온다");
+        check(not DebindPrivate.IsIssueWarning(nil), "nil이 경고다");
     end);
 
     -- 위 기본값은 안전하지만 **의도한 등급인지는 아무에게도 안 물어본다.** 코드를 늘리면서

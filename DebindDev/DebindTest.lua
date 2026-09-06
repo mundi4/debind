@@ -1066,7 +1066,7 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         -- **The order is the only difference.** Both are conditional, at the same importance, in
         -- one layer, so they share a band and nothing but `seq` can split them. With the narrow one
         -- (combat+stealth) in front both survive; with the broad one (combat) in front the narrow
-        -- one sits entirely inside it and leaves as UNREACHABLE. So what this measures is not "the
+        -- one sits entirely inside it and the solver drops it. So what this measures is not "the
         -- numbers changed" but **that the numbers reached the solver**.
         local narrow = InsertAction({ type = Constants.SPELL, value = 116, key = KEY,
             combat = true, stealth = true })

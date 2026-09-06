@@ -2357,8 +2357,8 @@ local MakeRow;
 
 --- 주어진 키에 걸린 액션을 활성 레이어에서 직접 모아 실제 발동 순서로 정렬해 돌려준다.
 ---
---- GetKeyMap()을 쓰지 않는 이유: 그쪽은 이슈가 있는 액션과 도달불가 액션이 빠져 있는데,
---- 순서 UI에서는 **그것들이야말로** 보여줘야 할 대상이다.
+--- 키 맵을 안 읽고 레이어를 다시 도는 이유: 그쪽에는 오류 등급을 단 액션이 빠져 있는데
+--- (`Debind.lua`의 `BuildKeyMap`), 순서 UI에서는 **그것들이야말로** 보여줘야 할 대상이다.
 ---
 --- spec을 주면 **그 특성이었을 때의** 순서를 돌려준다. 다른 특성 탭을 보고 있어도 답을
 --- 낼 수 있는 이유는 순서를 정하는 다섯 가지(중요도/호버/조건/레이어/자리)가 전부 저장된
@@ -2465,11 +2465,14 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- in the order either, and swapping numbers with it would move a row on screen without
     -- changing what the key does.
     row.arrivalID = action.arrivalID;
-    row.issue = DebindPrivate.GetBindingIssue(action, nil, offWorld and "unreachable" or nil);
+    -- **The two are separate axes and neither hides the other.** This one is what is wrong with
+    -- the action itself; the one below is why it is not firing right now, which is a fact about
+    -- its neighbours on the key rather than about it.
+    row.issue = DebindPrivate.GetBindingIssue(action);
     row.unreachable = (not offWorld) and DebindPrivate.IsUnreachableAction(action) or nil;
-    -- Carried so that whoever draws this row asks on the same terms the two above were answered
-    -- on. The row's tooltip passes it straight through (`ActionTooltip.lua`),
-    -- which is what keeps the row and its tooltip from disagreeing.
+    -- Carried so that whoever draws this row asks on the same terms the one above was answered on.
+    -- The row's tooltip passes it straight through (`ActionTooltip.lua`), which is what keeps the
+    -- row and its tooltip from disagreeing.
     row.offWorld = offWorld;
     -- **The other way a row belongs to a specialization that is not the one on screen.** The layer
     -- answers for `specRank`; this is the action's own condition, answered the way the rebuild

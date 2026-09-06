@@ -141,7 +141,12 @@ do
 	--- Only originals are sorted -- a derived binding has no placement -- and the list is unrolled
 	--- into the key **after** the sort, derived first, original last. That is what keeps one
 	--- action's bindings adjacent: nothing else can land between entries of one list.
-	local Lists = setmetatable({}, { __mode = "k" });
+	---
+	--- **Wiped each rebuild rather than made weak like `Placements` above.** The value here is the
+	--- list whose `[1]` is the key, and Lua 5.1 marks a weak-keyed table's values strongly -- so
+	--- the entry would keep its own key reachable and never be collected (ephemerons are 5.2).
+	--- Nothing is allocated by the wipe: the lists themselves are `Misc.lua`'s to keep.
+	local Lists = {};
 	local _unroll = {};
 
 	local function UnrollDerivedBindings(bindings)
@@ -174,6 +179,7 @@ do
 	function DebindPrivate.BuildKeyMap()
 		wipe(KeyMap);
 		wipe(ActiveActions);
+		wipe(Lists);
 		DebindPrivate.ClearUnreachableBindingCache();
 
 		-- **The layers are walked here rather than through an enumerator because both numbers are
@@ -232,12 +238,10 @@ do
 					-- 그 키를 표시한 채로 안 먹게 되므로, 유저가 알고 켜는 것이어야 한다.
 					local yielded = DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext;
 					-- **Only an ERROR keeps the action off its key.** That is what the grades mean
-					-- (`Constants.BINDING_ISSUE_GRADES`), and nothing had ever tested it: while
-					-- `UNREACHABLE` was the only code below ERROR, its cache is wiped a few lines
-					-- above this loop, so it answered nil right here every time. The first such
-					-- code raised from an action's own fields dropped the key instead, with
-					-- nothing saying so -- `HOVER_UNIT_WITH_CLIQUE` was that code, and the action
-					-- it marks loses the aiming over frames and nothing else.
+					-- (`Constants.BINDING_ISSUE_GRADES`), and this gate read `not issue` until
+					-- `HOVER_UNIT_WITH_CLIQUE` arrived: measured then, `KeyMap` came out with no
+					-- record for that key at all, so an action that was to lose the aiming over
+					-- frames and nothing else fired on no unit whatever (`tests/keymap_spec.lua`).
 					if ((not issue or DebindPrivate.IssueKeepsKey(issue)) and not yielded) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};

@@ -7,7 +7,7 @@
 -- the words a reader sees are a value like any other.
 --
 -- **What is asked here is what the reader ends up looking at**, not which flag was set. The flags
--- have their own coverage (`issue_spec.lua`, `suppression_spec.lua`); what those cannot see is a
+-- have their own coverage (`issue_spec.lua`, `hovertwin_spec.lua`); what those cannot see is a
 -- reason that is computed correctly and then not written down, or written down on the wrong row.
 
 return function(DebindPrivate)

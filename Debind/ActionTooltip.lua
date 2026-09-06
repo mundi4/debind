@@ -16,7 +16,7 @@ local LLL                    = DebindPrivate.L;
 local DebindUI               = DebindPrivate.DebindUI;
 
 local GetBindingIssue        = DebindPrivate.GetBindingIssue;
-local IsIssueMinor           = DebindPrivate.IsIssueMinor;
+local IsUnreachableAction    = DebindPrivate.IsUnreachableAction;
 local GetSpellNameAndIconID  = DebindPrivate.GetSpellNameAndIconID;
 
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
@@ -184,9 +184,10 @@ do
 	--- `opts`:
 	---
 	---   offWorld          this action is not from the world the live key map was built for, so
-	---                     **unreachable is dropped and nothing else is.** That verdict comes out
-	---                     of the key map built for the specialization in play, and is not true
-	---                     over there. Key validity has no specialization in it and stays.
+	---                     **it is not called unreachable.** That verdict comes out of the key map
+	---                     built for the specialization in play, and is not true over there.
+	---                     Nothing else is dropped: what is wrong with the action itself has no
+	---                     specialization in it and stays.
 	---   suppressInactive  "inactive means nothing in this list". The order list's other
 	---                     specialization view is that case: everything is active over there, so
 	---                     greying a row would be a lie. Independent of `offWorld` -- that list
@@ -206,15 +207,14 @@ do
 		local instructionKeys = opts.instructionKeys;
 		local layerLabel = opts.layerLabel;
 
-		local suppressedCategory = opts.offWorld and "unreachable" or nil;
+		--- **Answered here on the same terms the row was answered on** (`Profile.lua`'s `MakeRow`).
+		--- It comes out of the key map built for the specialization in play, so it is not true of a
+		--- row read from another one. The tooltip used to ask from scratch, which left **no mark on
+		--- the row and its own tooltip calling the binding unreachable**. One set of data must not
+		--- say two things on one screen.
+		local unreachable = not opts.offWorld and IsUnreachableAction(action);
 
 		--- The only issue lookup this tooltip makes.
-		---
-		--- **Another specialization's order drops one thing: unreachable.** That verdict comes out
-		--- of the key map built for the specialization in play, so it is not true over there. The
-		--- row is already computed that way (`CollectActionsForKey`) while the tooltip asked again
-		--- from scratch, which left **no warning on the row and its own tooltip calling the
-		--- binding unreachable in red**. One set of data must not say two things on one screen.
 		---
 		--- **조건 이름을 그대로 넘기는 호출자가 있어서 갈래인지 먼저 본다.** 조건 열여덟 중
 		--- 검사가 있는 것은 절반이고, 없는 이름으로 물으면 언제나 nil이라 답은 같다. 다른 것은
@@ -223,7 +223,7 @@ do
 			if (category ~= nil and not Constants.BINDING_ISSUE_CATEGORIES[category]) then
 				return nil;
 			end
-			return GetBindingIssue(action, category, suppressedCategory);
+			return GetBindingIssue(action, category);
 		end
 
 		local isInactive = not suppressInactive and DebindPrivate.IsInactiveAction(action);
@@ -273,16 +273,18 @@ do
 				else
 					error = hasIssues and GetIssue("key") or nil;
 				end
-				-- **A minor problem is stated here, not shouted.** The key itself is a valid one and
-				-- the sentence under it describes a neighbour, so neither half goes red.
-				-- `addValueLine`'s error argument colours both at once, which is why the sentence is
-				-- put up separately instead of being handed to it.
-				if (error and IsIssueMinor(error)) then
-					addValueLine(tooltip, keyText);
+				addValueLine(tooltip, keyText, error);
+				-- **Stated here, not shouted, and under the key rather than on it.** The key itself
+				-- is a valid one and the sentence describes a neighbour on it, so neither half goes
+				-- red. `addValueLine`'s error argument colours both at once, which is why this is
+				-- put up as a line of its own instead of being handed to it.
+				--
+				-- **A second line beside whatever the key already said**, since the two are
+				-- separate axes: an action can be covered by a neighbour and be carrying a fault of
+				-- its own at the same time, and saying only one of them loses the other.
+				if (unreachable) then
 					addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
-						"(" .. LLL["BINDING_ERROR_" .. error] .. ")"));
-				else
-					addValueLine(tooltip, keyText, error);
+						"(" .. LLL["BINDING_ERROR_UNREACHABLE"] .. ")"));
 				end
 			else
 				-- 행의 단축키 칸과 같은 말을 쓴다. 한때 여기만 따로 번역된 키를

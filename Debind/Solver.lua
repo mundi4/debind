@@ -794,10 +794,6 @@ function DebindPrivate.IsUnreachableAction(action)
     return true;
 end
 
-function DebindPrivate.IsUnreachableBinding(binding)
-    return UnreachableBindingCache[binding] and true or false;
-end
-
 function DebindPrivate.ClearUnreachableBindingCache()
     wipe(UnreachableBindingCache);
 end

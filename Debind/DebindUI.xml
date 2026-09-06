@@ -206,7 +206,7 @@
 					</Anchors>
 				</FontString>
 				<!--
-					The worst problem in the group, as a mark (`Init` picks the atlas). One texture and
+					The worst problem in the group, as a mark (`Init` picks which). One texture and
 					not two, because a heading has one of these at a time and both would want this spot.
 					A folded group shows only its first action, so the problem below it has nothing else
 					on the bar to say it is there.
@@ -311,7 +311,7 @@
 					</Anchors>
 				</Texture>
 				<!--
-					What grade of problem this row has, if any (`Update` picks the atlas). The question
+					What grade of problem this row has, if any (`Update` picks which). The question
 					mark beside it says the action is conditional, a different thing about the same
 					row, and an action is routinely both.
 
@@ -319,9 +319,7 @@
 					so whichever is rightmost has to sit on the corner or the row grows a margin that
 					depends on what it happens to be saying.
 				-->
-				<Texture parentKey="IssueIcon" hidden="true">
-					<Size x="14" y="14"/>
-				</Texture>
+				<Texture parentKey="IssueIcon" hidden="true"/>
 				<FontString parentKey="InfoText2" inherits="GameFontNormalSmall" justifyH="RIGHT">
 					<Size x="430" y="0"/>
 					<Anchors>
