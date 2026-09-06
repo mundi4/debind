@@ -3,6 +3,12 @@
 > 상태: 계획 확정, 착수 전 (2026-09-06). 다른 세션이 이어받아도 되게 썼다. 근거는 `0-DIARY.md`
 > 2026-09-06에 있고 여기엔 결론과 순서만 둔다. 시작 전에 CLAUDE.md, `testing-a-change.md`,
 > `writing-user-facing-text.md`, `action-and-binding-shapes.md`, `restricted-environment.md`를 읽을 것.
+>
+> **같은 날 옵션의 실체가 바뀌었다.** 처음에는 유닛 풀이 한 줄이었는데, `units["@"]`가 따라오면 그
+> 길이 교집합이 되어 엉뚱한 개체에 나간다. 그래서 옵션은 **액션 하나에서 바인딩 둘을 파생하는 것**이
+> 되었고, 가르는 장치는 `legacy/splitting-an-action-into-bindings.md`가 든다. **그 문서가 먼저다.** 옵션의
+> 필드(`preferHoverUnit`)와 쌍둥이 바인딩과 헤드리스의 구조 쪽 테스트는 거기 커밋에 들어가고, 여기
+> 커밋 1에 남는 것은 메뉴·문구·이슈 등급·매크로 변환이다.
 
 ## 무엇을 하는가
 
@@ -12,12 +18,14 @@
 만들어야 한다. `@hover`가 엄격해서다. 개체창 밖에서는 유닛이 `raid41`(없는 유닛)로 박혀 시전이
 실패한다(`SecureBindings.lua`의 `SetUnit`, `COMPOSE_MACROTEXT_SNIPPET`).
 
-새 옵션은 **유닛 풀이 한 줄만 바꾼다.** 켜진 액션은 개체창 위에서는 그 개체창의 개체를, 밖에서는
-액션의 원래 대상을 겨눈다. `[@mouseover][@원래대상]`과 같은 뜻.
+새 옵션은 켜진 액션을 **바인딩 둘로 가른다.** 개체창 위에서는 그 개체창의 개체를 겨누는 hover
+쌍둥이가, 밖에서는 원래 대상을 겨누는 원본이 답한다. `[@mouseover][@원래대상]`과 같은 뜻이고,
+`units["@"]` 조건은 각자 자기가 겨누는 개체에게 묻는다. 가르는 장치와 쌍둥이의 모양은
+`legacy/splitting-an-action-into-bindings.md` §2.
 
 - **순서에서는 hover 조건 없는 액션 그대로다.** hover 유닛 조건(반응·죽음·역할)도 없다. 개체창
-  위에서 가려 받고 싶으면 그 앞에 hover 조건 액션을 얹는다. 지금 규칙과 같다. 솔버가 볼 것이 새로
-  없고, 유닛만 실행 시점에 갈린다.
+  위에서 가려 받고 싶으면 그 앞에 hover 조건 액션을 얹는다. 지금 규칙과 같다. 쌍둥이는 hover 층에
+  안 올라가고 원본 바로 앞에 붙어 선다(같은 문서 §2-3).
 - **hover 조건이 켜진 액션에서는 무시한다.** 그 액션은 개체창 위에서만 실행되고 그때 유닛은 이미 그
   개체다. 결과가 같으니 값은 남기고 읽지 않는다("옵션을 끄면 값은 남긴다"). 메뉴에서는 hover 조건이
   없을 때만 켤 수 있다.
@@ -26,7 +34,8 @@
   이 자리를 맡고 있다고 말한다. **액션은 빨갛게 되지 않는다.** 액션은 여전히 원래 대상으로 실행되고 개체창
   위 겨눔만 빠지는 것이라 사용 불가(`ISSUE_GRADE_ERROR`, hover 조건이 Clique에 막힐 때의 등급)가 아니다.
   `ISSUE_GRADE_MINOR` 등급의 문제 하나(`BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE` 같은 이름)를 새로 두어
-  주황이나 경고 표시로 목록에 보이게 한다. 값은 남기고 실행에서만 무시.
+  주황이나 경고 표시로 목록에 보이게 한다. 값은 남기고 실행에서만 무시. 실행에서 무시한다는 것은
+  쌍둥이를 안 만든다는 뜻이다(구조 문서 §2-2의 넷째 조건).
 - **대상을 받는 타입에만.** `SPELL`, `ITEM`(장난감 포함), `USESLOT`(아래 2), `TARGET`, `FOCUS`,
   `TOGGLEMENU`. `SETCUSTOM`은 hover 전용이라 제외, `MACROTEXT`는 본문이 `@hover`를 이미 쓸 수 있어
   제외, 나머지는 대상이 없다.
@@ -51,29 +60,29 @@
 
 ### 커밋 1. 옵션
 
-- **필드.** `action-and-binding-shapes.md`를 읽고 액션 필드 하나를 정한다. 이름은 코드 안에서 정하되
-  "hover 유닛으로 겨눈다"가 읽히는 것. `true`/`nil`. `ignoreHoverUnit`이 어떻게 저장·전송·정규화되는지
-  따라가서 같은 길을 탄다. `npm run check:export-fields`가 페이로드에 실리는지 잡는다.
-- **유닛 풀이.** `SecureBindings.lua`의 두 자리. `COMPOSE_MACROTEXT_SNIPPET`에서 `arg.unit == "hover"`일
-  때 `hoverAlias or "raid41"`인 것을, 이 옵션이 켜진 바인딩은 `hoverAlias or 원래 대상`으로. `SetUnit`의
-  delegate `unit or "raid41"`도 같은 갈래. **"원래 대상"은 바인딩의 `unit`이고 `none`이면 유닛 속성을
-  비운다**(게임의 기본 대상 지정). 옵션을 어떻게 스니펫에 넘기는지는 `ignoreHoverUnit`이 넘어가는 길을
-  본다. 스니펫 본문이 바뀌니 골든 둘을 다시 뜨고(`node tools/check-snippet-golden.js --update`,
-  `lua5.1 tests/run.lua --update-golden`) diff에서 그 갈래만 바뀌었는지 읽는다.
-- **바인딩 준비.** `UpdateBindings.lua`에서 옵션이 켜진 액션은 hover 유닛을 읽는 바인딩으로 표시한다
-  (`readsHoverUnit`이 `SETCUSTOM`에 하는 것과 같은 이유. hover 슬롯이 채워져야 풀 유닛이 있다). hover
-  조건이 켜져 있으면 표시하지 않는다(무시 규칙).
+- **필드와 쌍둥이는 이미 들어와 있다** (`legacy/splitting-an-action-into-bindings.md`). `SecureBindings.lua`와
+  `UpdateBindings.lua`는 이 커밋에서 손대지 않고, 골든도 안 바뀐다. 쌍둥이는 hover 조건이 켜진 평범한
+  바인딩이라 스니펫이 이미 아는 모양이다.
+- **도달 불가의 일부.** `IsUnreachableAction`은 둘 다 죽었을 때만 참이다(구조 문서 §3-1). 쌍둥이만
+  죽은 액션(앞의 hover 액션이 개체창을 다 덮은 것)과 원본만 죽은 액션(개체창 위에서만 나가게 된 것)은
+  액션이 여전히 어딘가에서 나가므로 빨갛지 않다. `ISSUE_GRADE_MINOR` 하나를 두고 문장 둘로 갈라
+  툴팁에 "개체창 위에서는 앞의 항목이 받는다" 또는 "개체창 밖에서는 앞의 항목이 받는다". Clique 잠금과
+  같은 등급인 것은 둘 다 "옵션이 여기선 뜻이 없고 액션은 나간다"이기 때문이다. `GetBindingIssue`의
+  `unreachable` 갈래에서 목록을 돌아 답한다.
+- **매크로 변환.** `ConditionsSurviveMacroText`가 옵션이 켜진 액션을 `known`과 같이 거절한다. 옵션은
+  매크로 본문으로 옮겨가지 않고, 조용히 떨어뜨리면 변환된 매크로가 개체창 위에서 다른 개체에게 나간다.
+  거절이 맞다.
 - **메뉴.** `DropDownMenus.lua`. `IGNORE_HOVER_UNIT` 체크박스 옆. 활성 조건은 셋: 타입이 위 여섯 중
   하나, hover 조건 꺼짐, Clique 꺼짐. 안 맞으면 `SetEnabled(false)`, 값은 지우지 않는다.
 - **로케일.** `enUS.lua`, `koKR.lua`. 말은 `writing-user-facing-text.md`대로 클라이언트 것 우선.
   개체창은 "개체창", 유닛은 "개체". 툴팁 한 줄에 "개체창 위에서는 그 개체창의 개체에게, 밖에서는 원래
   대상에게"가 들어가면 된다.
-- **헤드리스 (`tests/hover_spec.lua`).** 옵션 켠 `SPELL`이 hover 중엔 hover 유닛으로, 아니면 원래
-  대상으로 풀리는 것(대상 `none`과 대상 `focus` 둘 다). hover 조건이 켜진 액션에서는 옵션이 값이
-  있어도 유닛이 달라지지 않는 것. `MACROTEXT`·`SETCUSTOM`에는 옵션이 있어도 풀이가 안 바뀌는 것.
-  익스포트·임포트 왕복에 필드가 남는 것.
-- **`/debtest`.** 옵션 켠 액션을 등록된 테스트 프레임 위에서 hover 상태로 두고 유닛 속성이 그
-  프레임의 유닛인지, hover를 풀면 원래 대상인지. 등록만 하고 언급하지 않는다.
+- **헤드리스.** 구조 쪽(목록, 인접, 왕복)은 구조 문서의 커밋이 들었다. 여기서는 `issue_spec.lua`와
+  `grade_spec.lua`에 쌍둥이만 죽은 액션과 원본만 죽은 액션이 MINOR 문장 각각을 내고 빨갛지 않은 것,
+  둘 다 죽으면 `UNREACHABLE`인 것. `macrotext_spec.lua`에 옵션 켠 액션의 변환이 거절되는 것.
+  `MACROTEXT`·`SETCUSTOM`에 옵션이 있어도 쌍둥이가 안 생기는 것은 타입 제한이 메뉴에만 있으면 안
+  되므로 파생 조건에도 있어야 하고, 그것은 `normalize_spec.lua`에.
+- **`/debtest`.** 구조 문서의 커밋에 등록돼 있다. 여기서 더할 것은 없다.
 
 ### 커밋 2. `useslot`과 `dbver` 7
 
@@ -111,9 +120,10 @@
 
 ## 커버리지
 
-헤드리스가 드는 것: 유닛 풀이 세 갈래(hover 중, hover 아님, hover 조건 켜짐), 타입 제한, 왕복, 6→7
-마이그레이션과 옛 페이로드 수용, 골든.
+헤드리스가 드는 것: 도달 불가의 세 갈래(쌍둥이만, 원본만, 둘 다)와 그 등급, 매크로 변환 거절, 타입
+제한, 6에서 7로의 마이그레이션과 옛 페이로드 수용. 목록·인접·왕복·마우스 버튼 갈림은 구조 문서의
+커밋이 든다.
 
-`/debtest`가 드는 것: 실제 프레임 위에서 유닛 속성이 갈리는 것.
+`/debtest`가 드는 것: 실제 프레임 위에서 유닛 속성이 갈리는 것(구조 문서의 커밋에 등록).
 
 닿지 못하는 것: Clique가 켜진 화면에서 체크박스가 잠기고 툴팁이 이유를 말하는 것. 킷은 Clique 없이 돈다.

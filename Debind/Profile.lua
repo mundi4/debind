@@ -36,6 +36,7 @@ local KEYS_TO_SAVE       = {
     arrivalID = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
+    preferHoverUnit = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.

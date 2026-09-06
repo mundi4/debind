@@ -126,6 +126,7 @@ local ACTION_FIELDS      = {
     priority = "number",
     keepInBindingContext = "boolean",
     ignoreHoverUnit = "boolean",
+    preferHoverUnit = "boolean",
     -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
     -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
     conditions = "table",

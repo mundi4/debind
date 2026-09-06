@@ -5826,6 +5826,74 @@ RegisterTest("Click bakes the deferred macro body", {
     end,
 })
 
+-- **Needs the game.** The headless keymap spec sees the two records one `preferHoverUnit` action
+-- puts on its key; which of them a real press over a real registered frame reaches is decided by
+-- the click path reading the frame under the cursor, and only the client has one.
+RegisterTest("Hover twin: over a frame the key picks the twin, off it the original", {
+    description = "preferHoverUnit이 켜진 액션은 개체창 위에서 쌍둥이가, 밖에서는 원본이 받는다",
+    run = function()
+        local NAME = "Hover twin"
+        local KEY = "CTRL-ALT-F6"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "registering a frame and rebuilding are both blocked in combat")
+        end
+
+        local probesOk, perr = EnableProbes()
+        if not probesOk then return Fail(NAME, perr) end
+
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, preferHoverUnit = true })
+        ApplyBindings()
+
+        local records = GetKeyBindings(KEY)
+        if not records or #records ~= 2 then
+            return Fail(NAME, format("the premise is gone: %d record(s) on the key, there should be 2",
+                records and #records or 0))
+        end
+        if not (records[1].unit == "hover" and records[2].unit == nil) then
+            return Fail(NAME, format("the premise is gone: units are %s / %s, the twin should be first",
+                tostring(records[1].unit), tostring(records[2].unit)))
+        end
+
+        local bound = GetBindingAction(KEY, true) or ""
+        if bound:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("the key is %q, it never reached codegen", bound))
+        end
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        WaitForHoverSlot(true)
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("hover=%s after entering, it should be player", tostring(GetHoverUnit())))
+        end
+
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local over = WaitForWinner()
+        if over ~= 1 then
+            return Fail(NAME, format("over the frame the winner is %s, it should be 1 (the twin)", tostring(over)))
+        end
+
+        -- **The other half.** Without it a key that always picks the twin passes.
+        HoverLeave(frame)
+        if GetHoverUnit() ~= nil then
+            return Fail(NAME, format("hover=%s after leaving, the slot did not clear", tostring(GetHoverUnit())))
+        end
+
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local off = WaitForWinner()
+        if off ~= 2 then
+            return Fail(NAME, format("off the frame the winner is %s, it should be 2 (the original)", tostring(off)))
+        end
+
+        return Pass(NAME, "over the frame: 1 (twin) / off it: 2 (original)")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: Many records on one key, many axes at once
 -----------------------------------------------------------

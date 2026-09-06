@@ -411,6 +411,7 @@ return function(DebindPrivate, DebindStorage)
         -- `setActionValue`의 체크박스 갈래. 둘 다 조건이 아니라 액션 최상단이다.
         keepInBindingContext = true,
         ignoreHoverUnit = true,
+        preferHoverUnit = true,
         -- `Constants.SPELL`은 문자열이다("spell").
         type = Constants.SPELL,
         value = 774,

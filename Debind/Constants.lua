@@ -117,6 +117,19 @@ Constants.TYPES_WITH_UNIT                 = {
     [Constants.TOGGLEMENU] = true,
 };
 
+--- Which types `preferHoverUnit` may be set on. `TYPES_WITH_UNIT` minus the pet command, whose
+--- target is decided by the command rather than the type. Read by the derivation
+--- (`Misc.lua`'s `GetBindingsForAction`) and by the menu; a shared profile skips the menu, so the
+--- derivation cannot rely on the menu having refused.
+Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
+    [Constants.SPELL] = true,
+    [Constants.ITEM] = true,
+    [Constants.EQUIPSLOT] = true,
+    [Constants.TARGET] = true,
+    [Constants.FOCUS] = true,
+    [Constants.TOGGLEMENU] = true,
+};
+
 
 --- 액션의 어느 필드가 **조건**인가. 조건은 `action.conditions` 안에 살고, 밖에 남은 것들이
 --- 왜 조건이 아닌지는 `devdocs/action-and-binding-shapes.md` §2에 있다.

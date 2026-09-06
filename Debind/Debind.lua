@@ -88,7 +88,6 @@ end
 
 DebindPrivate.KeyMap                 = {};
 DebindPrivate.ActiveActions          = {};
-DebindPrivate.BindingInfoToActionMap = {};
 
 --- 액션 선택을 클릭 시점에 하는 키. `키 -> 클릭 프레임에 건 버튼 이름`.
 --- 보안 쪽 `ClickTimeKeys`는 같은 것을 버튼 이름으로 색인한 것이다(래퍼가 그 방향으로 찾는다).
@@ -116,11 +115,9 @@ dump("StateDrivenKeys", DebindPrivate.StateDrivenKeys);
 do
 	local KeyMap = DebindPrivate.KeyMap;
 	local ActiveActions = DebindPrivate.ActiveActions;
-	local BindingInfoToActionMap = DebindPrivate.BindingInfoToActionMap;
 
 	dump("KeyMap", KeyMap);
 	dump("ActiveActions", ActiveActions);
-	dump("BindingInfoToActionMap", BindingInfoToActionMap);
 
 	--- 어느 바인딩이 이 키에서 몇 번째로 서는지. `Misc.lua`의 `MakeOrderRecord`가 채우고,
 	--- 규칙 자체는 `Ordering.lua`에 있다.
@@ -140,10 +137,43 @@ do
 		return CompareActionOrder(Placements[lhs], Placements[rhs]);
 	end
 
+	--- The full list an original binding stands for (`Misc.lua`'s `GetBindingsForAction`).
+	--- Only originals are sorted -- a derived binding has no placement -- and the list is unrolled
+	--- into the key **after** the sort, derived first, original last. That is what keeps one
+	--- action's bindings adjacent: nothing else can land between entries of one list.
+	local Lists = setmetatable({}, { __mode = "k" });
+	local _unroll = {};
+
+	local function UnrollDerivedBindings(bindings)
+		local count = #bindings;
+		local grown = false;
+		for i = 1, count do
+			if (#Lists[bindings[i]] > 1) then
+				grown = true;
+				break;
+			end
+		end
+		if (not grown) then
+			return;
+		end
+
+		for i = 1, count do
+			_unroll[i] = bindings[i];
+		end
+		local out = 0;
+		for i = 1, count do
+			local list = Lists[_unroll[i]];
+			for j = #list, 1, -1 do
+				out = out + 1;
+				bindings[out] = list[j];
+			end
+		end
+		wipe(_unroll);
+	end
+
 	function DebindPrivate.BuildKeyMap()
 		wipe(KeyMap);
 		wipe(ActiveActions);
-		wipe(BindingInfoToActionMap);
 		DebindPrivate.ClearUnreachableBindingCache();
 
 		-- **The layers are walked here rather than through an enumerator because both numbers are
@@ -170,9 +200,10 @@ do
 				-- that shape is gone (`devdocs/building-export-import.md` 12절). Which also means
 				-- accepting is the moment a key starts working, where it used to leave the set
 				-- parked; the prompt on [Accept all] is where that difference is paid for.
-				local binding;
+				local binding, list;
 				if (action.key and not action.arrivalID) then
-					binding = DebindPrivate.GetBindingInfoForAction(action);
+					list = DebindPrivate.GetBindingsForAction(action);
+					binding = list[1];
 				end
 
 				-- **The specialization index is filtered here and nowhere below.** It is the only
@@ -186,7 +217,7 @@ do
 				-- space is what "no condition" already means there. An axis that told the two
 				-- apart would be an axis with one reachable value.
 				if (binding and DebindPrivate.SpecConditionHolds(binding)) then
-					BindingInfoToActionMap[binding] = action;
+					Lists[binding] = list;
 
 					-- 활성 레이어만 도므로 전문화 순위는 언제나 동률이다. 다른 전문화의 순서를
 					-- 묻는 것은 창 쪽이고, 그쪽은 `CollectActionsForKey`로 간다.
@@ -219,21 +250,12 @@ do
 		for _, bindings in pairs(KeyMap) do
 			if (#bindings > 1) then
 				sort(bindings, BindingSortComparison);
+			end
+			UnrollDerivedBindings(bindings);
+			if (#bindings > 1) then
 				DebindPrivate.CheckUnreachableBindings(bindings);
 			end
 		end
-	end
-
-	function DebindPrivate.GetKeyMap()
-		local ret = {};
-		for key, bindingArr in pairs(KeyMap) do
-			local actionArr = {};
-			for i = 1, #bindingArr do
-				actionArr[i] = BindingInfoToActionMap[bindingArr[i]];
-			end
-			ret[key] = actionArr;
-		end
-		return ret;
 	end
 end
 

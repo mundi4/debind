@@ -42,6 +42,7 @@ action
     keepInBindingContext
                         게임이 가져간 키에도 그래도 걸 것이냐. 조건이 아니라 예외다
     ignoreHoverUnit     겨누는 것을 바꾼다 (§2)
+    preferHoverUnit     개체창 위에서는 그 개체를 겨눈다. 바인딩을 둘로 가른다 (§4)
     conditions          **언제 발동하느냐. 전부 이 안에 있다** (§3)
 ```
 
@@ -65,6 +66,9 @@ action
 
 **`ignoreHoverUnit`은 조건이 아니다.** `binding.unit`을 빈 문자열로 두느냐 `"hover"`로
 채우느냐를 가른다. 겨누는 것을 바꾸지 언제 나가는지를 바꾸지 않는다.
+
+**`preferHoverUnit`도 조건이 아니다.** hover 조건 없는 액션이 개체창 위에서는 그 개체를 겨누게
+한다. 겨눔이 둘이라 바인딩도 둘이고(§4), 순서에서는 hover 조건 없는 액션 그대로다.
 
 ---
 
@@ -113,7 +117,9 @@ action.conditions
 
 ## 4. binding
 
-액션 하나의 순수 파생이다. `GetBindingInfoForAction`이 리빌드마다 **제자리에서** 다시 채운다.
+액션 하나의 순수 파생이다. **하나가 아니라 목록이다.** `GetBindingsForAction`이 액션당 배열 하나를
+내고, `[1]`이 **원본**, 그 뒤가 **파생**이다. 원본은 `GetBindingInfoForAction`이 내는 표 그대로이고
+둘 다 리빌드마다 **제자리에서** 다시 채운다.
 
 ```
 binding
@@ -122,6 +128,24 @@ binding
     hover                                   true | false | nil
     unitStates unitStatesOpaque             솔버가 유닛에 대해 읽는 전부
 ```
+
+**액션의 답은 원본의 답이다.** 이슈 검사, 순서 레코드, 매크로 변환, 툴팁이 전부 원본에 묻는다.
+목록을 받는 것은 `BuildKeyMap` 하나이고, `IsUnreachableAction`만 목록 전부를 본다(전부 죽어야
+액션이 죽은 것이다).
+
+**파생은 원본을 복사하지 않고 액션에서 다시 채운다.** 아래 `"@"` 정리가 `unit`을 보고 지우므로,
+원본을 채운 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다. 그래서 채우기 함수 하나가
+처음에 놓을 `unit`과 `units["hover"]`에 얹을 조건을 인자로 받고, 원본과 파생이 다른 인자로 부른다.
+
+**파생은 placement가 없다.** `BuildKeyMap`은 원본만 정렬하고, 정렬이 끝난 뒤 각 원본을 자기
+목록으로 펼친다(파생이 앞, 원본이 뒤). 그래서 한 액션의 바인딩은 언제나 인접하고, 파생이 hover
+조건을 들고 있어도 hover 층에 올라가지 않는다. **암묵적으로 hover 조건을 가진 것은 hover 조건이
+아니다.** 왜 이 모양인지는 `legacy/splitting-an-action-into-bindings.md`.
+
+지금 있는 파생은 하나, `preferHoverUnit`의 **hover 쌍둥이**다. `unit`이 `"hover"`, `units["hover"]`가
+빈 조건(모든 개체창, 모든 반응), 나머지는 액션 것 그대로. 액션의 `"@"`는 원본에서는 원래 대상을,
+쌍둥이에서는 hover 개체를 가리킨다. 만들지 않는 경우 넷: 옵션이 꺼짐, 원본에 hover 조건이 있음,
+타입이 `TYPES_WITH_HOVER_UNIT_OPTION` 밖, Clique가 켜져 있음.
 
 **`binding.unit`은 `action.unit`이 아니다.** 매크로가 실제로 겨눌 유닛이다. 대상을 못 갖는
 타입이면 지워지고, 호버 액션이 자기 대상이 없으면 **호버한 유닛으로 채워진다.** "사용자가

@@ -214,5 +214,41 @@ return function(DebindPrivate)
             "the row is drawn as though nothing were wrong with it");
     end);
 
+    ---------------------------------------------------------------------------
+    -- One action, two records (`devdocs/splitting-an-action-into-bindings.md`)
+    ---------------------------------------------------------------------------
+
+    -- **The twin is not a hover record for ordering purposes.** It stands right before its own
+    -- original and nowhere else: a hover record placed earlier stays ahead of it, and so does a
+    -- plain record placed earlier. Only the original is sorted; the twin rides along.
+    test("a hover twin stands right before its original and behind everything placed earlier", function()
+        Bind({
+            { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
+                conditions = { units = { hover = {} }, combat = true } },
+            { type = Constants.SPELL, value = 2, key = "F1", seq = 2, conditions = { combat = true } },
+            { type = Constants.SPELL, value = 3, key = "F1", seq = 3, preferHoverUnit = true },
+        });
+
+        check(Values("F1") == "1 2 3 3", "F1 came out as " .. Values("F1"));
+        local records = Records("F1");
+        check(records[3].hover == true and records[3].unit == "hover", "the third record is not the twin");
+        check(records[4].hover == nil, "the fourth record is not the original");
+    end);
+
+    -- On a mouse button the two split the way a hover record and a plain one always have: the twin
+    -- is a click on the frame, the original holds the key.
+    test("on a mouse button the twin is the click-cast and the original holds the key", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1, preferHoverUnit = true },
+        });
+
+        local records = Records("BUTTON3");
+        check(records and #records == 2, "BUTTON3 came out with " .. tostring(records and #records));
+        check(records[1].isClickCast == true and records[1].holdsKey == false,
+            "the twin is not the click-cast");
+        check(records[2].isClickCast == false and records[2].holdsKey == true,
+            "the original does not hold the key");
+    end);
+
     return T;
 end

@@ -328,6 +328,12 @@ return function(DebindPrivate, DebindStorage)
         check(action.conditions.combat == true, "combat이 빠졌다");
     end);
 
+    test("preferHoverUnit이 실린다", function()
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F", preferHoverUnit = true } } });
+        local action = OneOn(DebindStorage.BuildExportPayload(), "F");
+        check(action.preferHoverUnit == true, "preferHoverUnit이 빠졌다");
+    end);
+
     test("페이로드는 사본이라 고쳐도 프로필이 안 바뀐다", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F",

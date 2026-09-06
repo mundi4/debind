@@ -131,5 +131,34 @@ return function(DebindPrivate)
             "도달 불가를 끄면서 groups 검사까지 같이 껐다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 4. 바인딩이 둘인 액션은 둘 다 죽어야 도달 불가다
+    -- (`devdocs/splitting-an-action-into-bindings.md` §3-1)
+    ---------------------------------------------------------------------------
+
+    --- 옵션 켠 액션을 `cover` 뒤에 세운다. `KeyMap`과 같은 순서로(쌍둥이가 원본 앞).
+    local function coveredPair(cover)
+        local subject = { type = Constants.SPELL, value = 586, key = "T", preferHoverUnit = true };
+        local list = DebindPrivate.GetBindingsForAction(subject);
+        check(#list == 2, "쌍둥이가 안 생겼다");
+        local bindings = { GetBindingInfoForAction(cover), list[2], list[1] };
+        ClearUnreachableBindingCache();
+        CheckUnreachableBindings(bindings);
+        return subject;
+    end
+
+    test("쌍둥이만 덮인 액션은 도달 불가가 아니다", function()
+        local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "T",
+            conditions = { units = { hover = {} } } });
+        check(not DebindPrivate.IsUnreachableAction(subject), "원본이 살아 있는데 액션이 죽었다");
+        check(GetBindingIssue(subject) == nil, "도달 불가가 나왔다");
+    end);
+
+    test("둘 다 덮이면 도달 불가다", function()
+        local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "T" });
+        check(DebindPrivate.IsUnreachableAction(subject), "둘 다 덮였는데 액션이 살아 있다");
+        check(GetBindingIssue(subject) == Constants.BINDING_ISSUE_UNREACHABLE, "도달 불가가 안 나왔다");
+    end);
+
     return T;
 end

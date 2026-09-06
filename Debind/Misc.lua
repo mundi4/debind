@@ -736,17 +736,20 @@ do
     ---
     --- **순서 필드는 여기 없다.** 어느 액션이 먼저 발동하느냐는 액션 하나로 답이 안 나오는
     --- 유일한 것이라, 그쪽은 `MakeOrderRecord`가 따로 든다.
-    function DebindPrivate.GetBindingInfoForAction(action)
-        local binding = _ActionToBindingCache[action];
-
-        if (not binding) then
-            binding = {};
-            _ActionToBindingCache[action] = binding;
-        end
-
+    ---
+    --- `unit`과 `hoverCondition`은 원본과 파생이 갈리는 두 자리다. 원본은 액션의 `unit`과 hover
+    --- 조건 없음으로 부르고, hover 쌍둥이는 `"hover"`와 빈 hover 조건으로 부른다(`GetBindingsForAction`).
+    --- **`unit`이 처음부터 들어와야 한다**: 아래 `"@"` 정리가 `unit`을 보고 지우므로, 원본을 채운
+    --- 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다.
+    local function FillBinding(binding, action, aimedUnit, hoverCondition)
         binding.type, binding.value = action.type, action.value;
-        binding.ignoreHoverUnit = action.ignoreHoverUnit;
-        binding.unit = action.unit;
+        -- 쌍둥이는 hover 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
+        if (hoverCondition == nil) then
+            binding.ignoreHoverUnit = action.ignoreHoverUnit;
+        else
+            binding.ignoreHoverUnit = nil;
+        end
+        binding.unit = aimedUnit;
         binding.key = action.key;
 
         -- **조건은 한 표를 통째로 옮긴다.** 예전에는 열두 줄이 손으로 적혀 있었고, 축이
@@ -809,6 +812,11 @@ do
             conditions.units = conditions.units or {};
             conditions.units.hover = HoverConditionFromLegacy(
                 action.hover, action.reactions, conditions.units.hover);
+        end
+
+        if (hoverCondition ~= nil) then
+            conditions.units = conditions.units or {};
+            conditions.units.hover = hoverCondition;
         end
 
         -- Everything below this line reads `binding.hover`, so it has to be derived here and
@@ -924,6 +932,64 @@ do
         BuildUnitStates(binding);
 
         return binding;
+    end
+
+    function DebindPrivate.GetBindingInfoForAction(action)
+        local binding = _ActionToBindingCache[action];
+
+        if (not binding) then
+            binding = {};
+            _ActionToBindingCache[action] = binding;
+        end
+
+        return FillBinding(binding, action, action.unit, nil);
+    end
+
+    local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
+    local _ActionToHoverTwinCache = setmetatable({}, { __mode = "kv" });
+
+    -- The stored shape of "over any frame, any unit" is an empty table (`false` is [when there is
+    -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
+    local HOVER_ANY_FRAME = {};
+
+    --- Whether `preferHoverUnit` gets its twin. The type list is shared with the menu; the other
+    --- three are answered here alone.
+    ---
+    --- **Clique makes the twin a hover click-cast record on a frame Clique owns**, and the issue
+    --- checks only ever read the original, so nothing would say so on screen. Not deriving it is
+    --- the only honest answer while Clique is loaded.
+    local function WantsHoverTwin(action, original)
+        return action.preferHoverUnit and original.hover == nil
+            and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]
+            and not DebindPrivate.CliqueDetected;
+    end
+
+    --- Every binding one action puts on its key, in place: `[1]` is the original
+    --- (`GetBindingInfoForAction`'s table) and what follows is derived. `BuildKeyMap` sorts the
+    --- originals and unrolls each list after the sort, derived first, so a derived binding never has
+    --- a placement of its own (`devdocs/splitting-an-action-into-bindings.md`).
+    function DebindPrivate.GetBindingsForAction(action)
+        local list = _ActionToBindingsCache[action];
+        if (not list) then
+            list = {};
+            _ActionToBindingsCache[action] = list;
+        end
+
+        local original = DebindPrivate.GetBindingInfoForAction(action);
+        list[1] = original;
+
+        if (WantsHoverTwin(action, original)) then
+            local twin = _ActionToHoverTwinCache[action];
+            if (not twin) then
+                twin = {};
+                _ActionToHoverTwinCache[action] = twin;
+            end
+            list[2] = FillBinding(twin, action, "hover", HOVER_ANY_FRAME);
+        else
+            list[2] = nil;
+        end
+
+        return list;
     end
 end
 

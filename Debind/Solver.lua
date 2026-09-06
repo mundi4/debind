@@ -776,9 +776,17 @@ function DebindPrivate.IsKeyAlwaysOurs(bindings)
     return answer;
 end
 
+--- True only when **every** binding the action puts on its key was dropped. An action whose hover
+--- twin alone is covered still fires everywhere but over a frame, and calling that unreachable
+--- would paint a working action red.
 function DebindPrivate.IsUnreachableAction(action)
-    local binding = DebindPrivate.GetBindingInfoForAction(action);
-    return UnreachableBindingCache[binding];
+    local list = DebindPrivate.GetBindingsForAction(action);
+    for i = 1, #list do
+        if (not UnreachableBindingCache[list[i]]) then
+            return false;
+        end
+    end
+    return true;
 end
 
 function DebindPrivate.ClearUnreachableBindingCache()
