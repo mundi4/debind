@@ -1,6 +1,6 @@
 # 개체창 위에서는 그 개체에게. 그리고 `equipslot`이 `useslot`이 된다
 
-> 상태: 계획 확정, 착수 전 (2026-09-06). 다른 세션이 이어받아도 되게 썼다. 근거는 `0-DIARY.md`
+> 상태: **커밋 1(옵션)이 들어갔다 (2026-09-06). 남은 것은 커밋 2, `useslot`과 `dbver` 7.** 다른 세션이 이어받아도 되게 썼다. 근거는 `0-DIARY.md`
 > 2026-09-06에 있고 여기엔 결론과 순서만 둔다. 시작 전에 CLAUDE.md, `testing-a-change.md`,
 > `writing-user-facing-text.md`, `action-and-binding-shapes.md`, `restricted-environment.md`를 읽을 것.
 >
@@ -65,10 +65,13 @@
   바인딩이라 스니펫이 이미 아는 모양이다.
 - **도달 불가의 일부.** `IsUnreachableAction`은 둘 다 죽었을 때만 참이다(구조 문서 §3-1). 쌍둥이만
   죽은 액션(앞의 hover 액션이 개체창을 다 덮은 것)과 원본만 죽은 액션(개체창 위에서만 나가게 된 것)은
-  액션이 여전히 어딘가에서 나가므로 빨갛지 않다. `ISSUE_GRADE_MINOR` 하나를 두고 문장 둘로 갈라
-  툴팁에 "개체창 위에서는 앞의 항목이 받는다" 또는 "개체창 밖에서는 앞의 항목이 받는다". Clique 잠금과
-  같은 등급인 것은 둘 다 "옵션이 여기선 뜻이 없고 액션은 나간다"이기 때문이다. `GetBindingIssue`의
-  `unreachable` 갈래에서 목록을 돌아 답한다.
+  액션이 여전히 어딘가에서 나가므로 빨갛지 않다. `ISSUE_GRADE_MINOR` 코드 둘
+  (`UNREACHABLE_OVER_FRAMES`, `UNREACHABLE_OFF_FRAMES`)로 툴팁에 "개체창 위에서는 앞의 항목이
+  받는다" 또는 "개체창 밖에서는 앞의 항목이 받는다". 문장 하나에 코드 하나인 것은 툴팁이
+  `BINDING_ERROR_<코드>`만 찍기 때문이다. Clique 잠금과 같은 등급인 것은 셋 다 "옵션이 여기선 뜻이
+  없고 액션은 나간다"이기 때문이다. `GetBindingIssue`의 `unreachable` 갈래에서 목록을 돌아 답한다.
+  원본만 죽는 것은 마우스 버튼에서만 생긴다. 키보드 키에서는 원본이 제일 넓은 상자라 그걸 덮는 것은
+  쌍둥이도 덮는다.
 - **매크로 변환.** `ConditionsSurviveMacroText`가 옵션이 켜진 액션을 `known`과 같이 거절한다. 옵션은
   매크로 본문으로 옮겨가지 않고, 조용히 떨어뜨리면 변환된 매크로가 개체창 위에서 다른 개체에게 나간다.
   거절이 맞다.

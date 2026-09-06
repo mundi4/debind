@@ -1150,6 +1150,21 @@ do
         local ignoreHoverUnit = description:CreateCheckbox(LLL["IGNORE_HOVER_UNIT"], actionValueEquals, setActionValue, { key = "ignoreHoverUnit", value = USE_CHECKED_VALUE });
         SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
         ignoreHoverUnit:SetEnabled(hoverConditionIsOn);
+
+        -- The mirror of the box above, for an action **without** a hover condition. Locked rather
+        -- than hidden under Clique: hidden, a reader whose aim over frames stopped working has no
+        -- way to learn that Clique took it, so the box stays, keeps its value, and its tooltip says
+        -- who has the frames. The derivation refuses the same three things (`Misc.lua`'s
+        -- `GetBindingsForAction`), because a shared profile never passes through this menu.
+        local preferHoverUnit = description:CreateCheckbox(LLL["PREFER_HOVER_UNIT"], actionValueEquals, setActionValue, { key = "preferHoverUnit", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(preferHoverUnit, DebindPrivate.CliqueDetected
+            and (LLL["PREFER_HOVER_UNIT_DESC"] .. "|n|n" .. LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"])
+            or LLL["PREFER_HOVER_UNIT_DESC"]);
+        preferHoverUnit:SetEnabled(function()
+            return Constants.TYPES_WITH_HOVER_UNIT_OPTION[_action.type] ~= nil
+                and not UnitConditionIsExists("hover")
+                and not DebindPrivate.CliqueDetected;
+        end);
     end
 
     local function CreateUnitConditionMenu(rootDescription)

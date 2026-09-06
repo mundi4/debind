@@ -448,6 +448,16 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
+-- A `preferHoverUnit` action is two bindings (`Misc.lua`'s `GetBindingsForAction`), and these are
+-- the two ways it can lose exactly one of them to a neighbour. **Two codes rather than one with two
+-- sentences**: the tooltip prints `BINDING_ERROR_<code>` and nothing else, so the sentence has to
+-- be the code. Both halves leave the action firing somewhere, hence the grade below.
+Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES           = "UNREACHABLE_OVER_FRAMES";
+Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES            = "UNREACHABLE_OFF_FRAMES";
+-- The option is set and Clique holds the frames, so the twin is not derived. The action still
+-- runs on its own target; only the aim over a frame is gone, which is why this is not the ERROR
+-- a hover **condition** under Clique gets.
+Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE            = "HOVER_UNIT_WITH_CLIQUE";
 
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
@@ -459,12 +469,13 @@ Constants.ISSUE_GRADE_MINOR = 2;
 --- Which grade each code carries. **Judged from this row alone -> ERROR, judged from its neighbours
 --- -> MINOR.**
 ---
---- `UNREACHABLE` is the only MINOR one and the split is not a matter of taste: every other code
---- comes out of the action's own fields, while that one needs the whole sorted key map
+--- The three `UNREACHABLE*` codes are MINOR and the split is not a matter of taste: every other
+--- code comes out of the action's own fields, while those need the whole sorted key map
 --- (`CheckUnreachableBindings`). The remedy sits across two rows too -- change this row's key, or
 --- narrow the neighbour, or delete it -- so painting this row red points at half of it. The same
 --- line falls out of `BuildKeyMap`: an ERROR keeps the action out of `KeyMap` entirely, a MINOR one
---- got in and lost the sort, which means the key itself still fires.
+--- got in and lost the sort, which means the key itself still fires. `HOVER_UNIT_WITH_CLIQUE` is
+--- MINOR for the same reason from the other side: the action fires, another addon took the frames.
 ---
 --- **A code with no row here is treated as ERROR**: `IsIssueMinor` answers false for it, and that is
 --- the only function that reads this table. Failing loud is the safe direction in a keybinding addon
@@ -484,6 +495,9 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES]           = Constants.ISSUE_GRADE_MINOR,
+    [Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES]            = Constants.ISSUE_GRADE_MINOR,
+    [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE]            = Constants.ISSUE_GRADE_MINOR,
 };
 
 

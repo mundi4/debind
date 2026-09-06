@@ -49,15 +49,25 @@ return function(DebindPrivate)
     -- 등급
     ---------------------------------------------------------------------------
 
-    test("도달불가는 회색이다", function()
-        check(IsIssueMinor(Constants.BINDING_ISSUE_UNREACHABLE), "도달불가가 회색이 아니다");
+    -- 회색은 "이 행의 잘못이 아니다"이다. 도달불가 셋은 이웃이 정한 것이고, Clique 잠금은 다른
+    -- 애드온이 정한 것이다. 넷 다 액션은 여전히 어딘가에서 나간다.
+    local MINOR = {
+        [Constants.BINDING_ISSUE_UNREACHABLE] = true,
+        [Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES] = true,
+        [Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES] = true,
+        [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE] = true,
+    };
+
+    test("이웃이 정한 넷은 회색이다", function()
+        for code in pairs(MINOR) do
+            check(IsIssueMinor(code), tostring(code) .. "가 회색이 아니다");
+        end
     end);
 
-    -- 회색은 "이 행의 잘못이 아니다"이고, 그 판정에 이웃이 필요한 코드는 도달불가뿐이다.
     -- 나머지가 하나라도 회색이 되면 그 키는 안 도는데 화면은 흐린 글씨로 넘어간다.
     test("나머지 코드는 전부 빨강이다", function()
         ForEachIssueCode(function(name, code)
-            if (code ~= Constants.BINDING_ISSUE_UNREACHABLE) then
+            if (not MINOR[code]) then
                 check(not IsIssueMinor(code), name .. "이 회색이다");
             end
         end);

@@ -93,6 +93,11 @@ L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_CO
 -- "No matter what" is what the sentence turns on. Every action but the first is preceded by others,
 -- which is what this line said before, and it was true of the healthy rows just as much.
 L["BINDING_ERROR_UNREACHABLE"] = "This action never runs. No matter what, another action on this key gets there first."
+-- The two halves of an action set to use the hovered frame's unit. Each sentence says where the
+-- action still runs, because the row is not red and the reader has to see why.
+L["BINDING_ERROR_UNREACHABLE_OVER_FRAMES"] = "Over a unit frame this action never runs: another action on this key gets there first. Anywhere else it runs as usual."
+L["BINDING_ERROR_UNREACHABLE_OFF_FRAMES"] = "Away from unit frames this action never runs: another action on this key gets there first. Over a unit frame it runs as usual."
+L["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"] = "Clique is handling unit frames, so this action is not used on the hovered frame's unit. It still runs on its own target."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
 L["BLIZZARD_UNIT_FRAMES_BOSS"] = "Boss Frames"
@@ -314,6 +319,11 @@ L["GROUP_RAID"] = "When In Raid";
 -- either, since the action does not run at all then.
 L["IGNORE_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit unless you assign a target of your own. Check this and the action is not used on that unit: hovering decides whether the action runs, not where it goes. With no unit assigned, the action lands where it normally would, on your current target or on you."
 L["IGNORE_HOVER_UNIT"] = "Don't use the action on the hovered frame's unit"
+-- The mirror of the pair above, for an action with no hover condition: hovering changes where the
+-- action goes and never whether it runs. The last sentence points at the condition for the reader
+-- who wanted the other thing, since the two checkboxes sit in the same menu.
+L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit. Anywhere else it is used where it normally would be: on the target you assigned, or with none assigned, on your current target or on you. Hovering decides where the action goes, not whether it runs. To run it only over unit frames, use the hover condition instead."
+L["PREFER_HOVER_UNIT"] = "Use the action on the hovered frame's unit"
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.

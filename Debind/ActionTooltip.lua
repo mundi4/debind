@@ -350,6 +350,17 @@ do
 			if (error) then
 				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
 			end
+		elseif (action.preferHoverUnit and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
+			-- Drawn under the hover heading although it is not a condition: it is the other thing a
+			-- frame under the cursor does to an action, and the menu keeps the two boxes together.
+			-- The only issue this can carry is the Clique one, which is MINOR and so goes grey.
+			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
+			addValueLine(tooltip, LLL["PREFER_HOVER_UNIT"]);
+			local error = hasIssues and GetIssue("hover");
+			if (error and IsIssueMinor(error)) then
+				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
+					"(" .. LLL["BINDING_ERROR_" .. error] .. ")"));
+			end
 		end
 
 		if (conditions.units) then

@@ -952,16 +952,24 @@ do
     -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
     local HOVER_ANY_FRAME = {};
 
-    --- Whether `preferHoverUnit` gets its twin. The type list is shared with the menu; the other
-    --- three are answered here alone.
-    ---
+    --- Whether `preferHoverUnit` asks for a twin at all: set, on a type that takes it, and with no
+    --- hover condition of its own (over a frame such an action already aims at the frame's unit).
+    --- The type list is shared with the menu.
+    local function HoverTwinWanted(action, original)
+        return action.preferHoverUnit and original.hover == nil
+            and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type] or false;
+    end
+
     --- **Clique makes the twin a hover click-cast record on a frame Clique owns**, and the issue
     --- checks only ever read the original, so nothing would say so on screen. Not deriving it is
-    --- the only honest answer while Clique is loaded.
+    --- the only honest answer while Clique is loaded; `GetBindingIssue` reports the loss instead.
     local function WantsHoverTwin(action, original)
-        return action.preferHoverUnit and original.hover == nil
-            and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]
-            and not DebindPrivate.CliqueDetected;
+        return HoverTwinWanted(action, original) and not DebindPrivate.CliqueDetected;
+    end
+
+    function DebindPrivate.IsHoverTwinBlockedByClique(action)
+        return DebindPrivate.CliqueDetected
+            and HoverTwinWanted(action, DebindPrivate.GetBindingInfoForAction(action));
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
@@ -990,6 +998,14 @@ do
         end
 
         return list;
+    end
+
+    --- The list as the last `GetBindingsForAction` left it, without refilling. For readers that
+    --- only need the tables as keys (`Solver.lua`'s unreachable cache, filled by the last
+    --- `BuildKeyMap` from these same tables): refilling would cost a full normalization per call
+    --- and change nothing they read. nil for an action never derived, which is one no key map holds.
+    function DebindPrivate.PeekBindingsForAction(action)
+        return _ActionToBindingsCache[action];
     end
 end
 
@@ -1420,6 +1436,17 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             if (not issue and notCategory ~= "unreachable") then
                 if (DebindPrivate.IsUnreachableAction(action)) then
                     issue = Constants.BINDING_ISSUE_UNREACHABLE;
+                else
+                    -- Half of a two-binding action gone. `[1]` is the original, `[2]` the hover
+                    -- twin (`GetBindingsForAction`); which half is dead is which sentence.
+                    local list = DebindPrivate.PeekBindingsForAction(action);
+                    if (list and list[2]) then
+                        if (DebindPrivate.IsUnreachableBinding(list[2])) then
+                            issue = Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES;
+                        elseif (DebindPrivate.IsUnreachableBinding(list[1])) then
+                            issue = Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES;
+                        end
+                    end
                 end
             end
         end
@@ -1497,6 +1524,8 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             elseif (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
                 issue = Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
             end
+        elseif (DebindPrivate.IsHoverTwinBlockedByClique(action)) then
+            issue = Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE;
         end
     end
 
@@ -1871,6 +1900,14 @@ local function ConditionsSurviveMacroText(action)
     -- already nil here (`false`, or any type but `SPELL`), and refusing over one of those would
     -- turn away a conversion that changes nothing.
     if (binding.conditions.known) then
+        return false;
+    end
+
+    -- `preferHoverUnit` has no macro-text form here, and dropping it would send the converted body
+    -- at a different unit over a frame. Asked of the list rather than the field, so an option that
+    -- is set but inert (hover condition on, wrong type) does not turn away a conversion that
+    -- changes nothing -- the same line `known` draws above.
+    if (DebindPrivate.GetBindingsForAction(action)[2] ~= nil) then
         return false;
     end
 

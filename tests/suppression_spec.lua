@@ -138,7 +138,7 @@ return function(DebindPrivate)
 
     --- 옵션 켠 액션을 `cover` 뒤에 세운다. `KeyMap`과 같은 순서로(쌍둥이가 원본 앞).
     local function coveredPair(cover)
-        local subject = { type = Constants.SPELL, value = 586, key = "T", preferHoverUnit = true };
+        local subject = { type = Constants.SPELL, value = 586, key = cover.key, preferHoverUnit = true };
         local list = DebindPrivate.GetBindingsForAction(subject);
         check(#list == 2, "쌍둥이가 안 생겼다");
         local bindings = { GetBindingInfoForAction(cover), list[2], list[1] };
@@ -147,17 +147,71 @@ return function(DebindPrivate)
         return subject;
     end
 
-    test("쌍둥이만 덮인 액션은 도달 불가가 아니다", function()
+    --- 반은 죽은 액션은 빨갛지 않다. 원본이든 쌍둥이든 하나는 나가므로 이웃 탓의 회색 문장
+    --- 하나가 남고, 어느 쪽이 죽었느냐로 문장이 갈린다.
+    test("쌍둥이만 덮인 액션은 도달 불가가 아니라 개체창 위 문장이다", function()
         local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "T",
             conditions = { units = { hover = {} } } });
         check(not DebindPrivate.IsUnreachableAction(subject), "원본이 살아 있는데 액션이 죽었다");
-        check(GetBindingIssue(subject) == nil, "도달 불가가 나왔다");
+        local issue = GetBindingIssue(subject);
+        check(issue == Constants.BINDING_ISSUE_UNREACHABLE_OVER_FRAMES, "나온 것: " .. tostring(issue));
+        check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
+        check(GetBindingIssue(subject, nil, "unreachable") == nil, "억제했는데 나왔다");
+    end);
+
+    --- 원본만 죽는 것은 마우스 버튼에서만 생긴다. 키보드 키에서는 원본이 제일 넓은 상자라
+    --- 그걸 덮는 것은 쌍둥이도 덮는다. 마우스 버튼은 hover 없는 원본이 "hover 없음"으로 좁혀져
+    --- 있어서(`BuildUnitStates`), 같은 버튼의 hover 없는 이웃이 원본만 덮는다.
+    test("원본만 덮인 액션은 개체창 밖 문장이다", function()
+        local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "BUTTON3" });
+        check(not DebindPrivate.IsUnreachableAction(subject), "쌍둥이가 살아 있는데 액션이 죽었다");
+        local issue = GetBindingIssue(subject);
+        check(issue == Constants.BINDING_ISSUE_UNREACHABLE_OFF_FRAMES, "나온 것: " .. tostring(issue));
+        check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
     end);
 
     test("둘 다 덮이면 도달 불가다", function()
         local subject = coveredPair({ type = Constants.SPELL, value = 585, key = "T" });
         check(DebindPrivate.IsUnreachableAction(subject), "둘 다 덮였는데 액션이 살아 있다");
         check(GetBindingIssue(subject) == Constants.BINDING_ISSUE_UNREACHABLE, "도달 불가가 안 나왔다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 5. Clique가 있으면 옵션은 잠기고, 액션은 빨갛지 않다
+    ---------------------------------------------------------------------------
+
+    local function withClique(fn)
+        local was = DebindPrivate.CliqueDetected;
+        DebindPrivate.CliqueDetected = true;
+        local ok, err = pcall(fn);
+        DebindPrivate.CliqueDetected = was;
+        if (not ok) then error(err, 0); end
+    end
+
+    test("Clique가 있으면 옵션 켠 액션은 회색 문장 하나다", function()
+        withClique(function()
+            local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true };
+            local issue = GetBindingIssue(action);
+            check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE, "나온 것: " .. tostring(issue));
+            check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
+            check(GetBindingIssue(action, "hover") == issue, "hover 갈래로 물으니 안 나온다");
+        end);
+    end);
+
+    test("Clique가 있어도 hover 조건이 켜진 액션의 답은 그대로 빨강이다", function()
+        withClique(function()
+            local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true,
+                conditions = { units = { hover = {} } } };
+            check(GetBindingIssue(action) == Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE,
+                "hover 조건의 빨강이 옵션의 회색에 밀렸다");
+        end);
+    end);
+
+    test("Clique가 있어도 옵션을 못 받는 타입은 아무 말이 없다", function()
+        withClique(function()
+            local action = { type = Constants.MACROTEXT, value = "/cast x", key = "T", preferHoverUnit = true };
+            check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
+        end);
     end);
 
     return T;

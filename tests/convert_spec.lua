@@ -178,6 +178,18 @@ return function(DebindPrivate)
             "조건이 없는데 변환이 안 선다");
     end);
 
+    --- `preferHoverUnit`은 매크로 본문으로 안 옮겨간다. 조용히 떨어뜨리면 변환된 매크로가 개체창
+    --- 위에서 다른 개체에게 나가므로, 쌍둥이가 실제로 서는 액션은 못 바꾼다. 쌍둥이가 안 서는
+    --- 액션(hover 조건이 켜진 것)은 옵션이 아무 일도 안 하니 변환이 아무것도 안 잃는다.
+    test("개체창 위 겨눔 옵션이 실제로 서는 액션은 못 바꾼다", function()
+        installWorld();
+        check(not Can({ type = Constants.SPELL, value = 774, preferHoverUnit = true }),
+            "옵션을 잃는 변환이 선다");
+        check(Can({ type = Constants.SPELL, value = 774, preferHoverUnit = true,
+                conditions = { units = { hover = {} } } }),
+            "옵션이 무시되는 액션인데 변환이 안 선다");
+    end);
+
     --- `"@"`는 **이 액션이 겨누는 대상**을 가리키는 키다. 매크로텍스트는 대상 필드를 안 가지므로
     --- (`TYPES_WITH_UNIT`) 변환 뒤에는 가리킬 것이 없어져서 `GetBindingInfoForAction`이 그 조건을
     --- 지운다. 본문의 `[@focus]`는 남으니 **겨누기는 하는데 그 유닛에 걸어둔 조건만 사라진다.**
