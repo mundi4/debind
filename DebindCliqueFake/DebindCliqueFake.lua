@@ -186,14 +186,19 @@ local function AttachClickCastFrames()
 
     -- **A table locked with `__metatable` is left entirely alone.** Its metamethods cannot be read,
     -- and replacing what we cannot read is the reclaim under another name.
-    -- `and/or` cannot carry this: a table locked with `__metatable = false` answers `false`, and
-    -- `x and false or nil` is `nil`, which reads as "no metatable at all" and takes the name.
+    --
+    -- **The lock is probed, not recognised by the shape of what `getmetatable` hands back.** That
+    -- value is whatever `__metatable` was set to, so a holder that locks with a table (`{}` is as
+    -- valid a sentinel as `false`) read as an ordinary metatable with no `__newindex` in it, and
+    -- the branch below took the name out from under a live engine. `setmetatable` is the one thing
+    -- that can tell: it raises on a locked table and is a no-op on an unlocked one, since what goes
+    -- back is what was already there.
     local mt;
     if (type(previous) == "table") then
+        if (not pcall(setmetatable, previous, getmetatable(previous))) then
+            return;
+        end
         mt = getmetatable(previous);
-    end
-    if (mt ~= nil and type(mt) ~= "table") then
-        return;
     end
 
     if (type(mt) == "table" and mt.__newindex ~= nil) then
