@@ -79,6 +79,7 @@ local GetSideTabLabel               = DebindUI.GetSideTabLabel;
 local GetLayerShortName              = DebindUI.GetLayerShortName;
 local GetLayerLabel                  = DebindUI.GetLayerLabel;
 local IsLayerOffWorld                = DebindUI.IsLayerOffWorld;
+local IsActionLive                   = DebindUI.IsActionLive;
 local GetSideTabIcon                 = DebindUI.GetSideTabIcon;
 
 local AddActionToTooltip             = DebindPrivate.AddActionToTooltip;
@@ -943,7 +944,12 @@ function DebindLineMixin:Update()
 	local elementData = self:GetElementData();
 	local action = elementData.action;
 
-	local isInactive = DebindPrivate.IsInactiveAction(action);
+	-- **The same test as the name beside it** (`LayerDisplay.lua`'s `IsActionLive`), and not
+	-- `IsInactiveAction`. That one also drops an action whose specialization condition is false
+	-- right now, which greyed four things at once for a condition the reader set like any other:
+	-- the key, the target, the question mark that says conditions exist, and the problem lookup
+	-- below. The question mark was the worst of them, dimmed by the very condition it announces.
+	local isInactive = not IsActionLive(action, elementData.layer);
 	local issue = not isInactive and GetBindingIssue(action) or nil;
 
 	local name, icon = ColoredNameAndIconForAction(action, elementData.layer);
@@ -986,14 +992,11 @@ function DebindLineMixin:Update()
 
 	if (action.unit) then
 		local s = format("@%s", UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit]);
-		local color;
+		-- **It names the target and nothing else**, the way the question mark below says only that
+		-- conditions exist. A fault on this axis is a second thing about the same row and the mark
+		-- in the corner carries it; red here made one word answer two questions.
 		if (isInactive) then
-			color = INACTIVE_COLOR;
-		elseif (issue and GetBindingIssue(action, "unit")) then
-			color = ERROR_COLOR;
-		end
-		if (color) then
-			s = color:WrapTextInColorCode(s);
+			s = INACTIVE_COLOR:WrapTextInColorCode(s);
 		end
 		self.InfoText:SetText(s);
 	else
@@ -4718,7 +4721,9 @@ function BuildKeyboardElements()
 		--
 		-- 판정은 빌드에 들어갔는지 하나다(`ActiveActions`). "오프스펙인가"로 물으면 같은
 		-- 답을 내는 다른 사유들 - 배지가 붙었다, 키가 번호다 - 을 따로 다시 세게 된다.
-		-- 행이 자기 이름을 흐리게 할 때 보는 것도 같은 함수다.
+		-- 행 쪽은 `IsActionLive`라 조건을 안 본다. 그래서 멤버가 전부 조건에 막힌 키는
+		-- 머리글만 흐려지고 행들은 제 색으로 남는다 - 머리글이 말하는 것이 "지금 눌러도
+		-- 안 나간다"이고 행이 말하는 것은 "네가 여기 둔 것"이라 서로 다른 물음이다.
 		--
 		-- **Is one of the ones that would run broken?** Only rows that got into the build are asked,
 		-- which is what keeps this from reddening over things the reader cannot act on now: an

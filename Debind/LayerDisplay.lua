@@ -177,10 +177,10 @@ end
 --- from the row beside it that is waiting on combat.
 ---
 --- **Not `IsInactiveAction`.** That one reads the set the rebuild fills, which is narrower on
---- purpose: it also drops an action whose specialization condition is false right now, because
---- that action really is off the key. Which is the right answer for the order list, where the
---- question is what this key does, and the wrong one for a layer's own list, where the question is
---- what the reader put there.
+--- purpose: it also drops an action whose specialization condition is false right now. That is the
+--- answer a key heading wants, where the question is whether pressing the key sends anything at all
+--- (`DebindUI.lua`'s `BuildKeyboardElements`), and the wrong one for a row, where the question is
+--- what the reader put there. A row draws itself and every cell in it from this function.
 local function IsActionLive(action, layerID)
 	return action.key ~= nil
 		and action.arrivalID == nil
