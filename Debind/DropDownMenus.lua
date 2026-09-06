@@ -450,7 +450,13 @@ do
             end
 
             if (err) then
-                color = ERROR_COLOR;
+                -- **등급이 색을 고른다.** 회색은 "이 묶음에서 고칠 것은 없다"이고, 그런 문제까지
+                -- 빨갛게 칠하면 열어 본 사람이 고칠 것을 찾다가 못 찾는다. 문장은 어느 쪽이든
+                -- 툴팁에 그대로 나간다 - 왜 안 먹는지는 말해줘야 한다.
+                --
+                -- 완성된 문장으로 넘어온 것(`error`)은 등급이 없으므로 빨강이다. 그것을 넘기는
+                -- 자리는 전부 "이건 못 쓴다"를 말하고 있다.
+                color = DebindPrivate.IsIssueMinor(err) and DISABLED_FONT_COLOR or ERROR_COLOR;
                 -- **마지막 폴백은 `err`이지 `error`가 아니다.** 이슈 코드로 온 것은 위 두
                 -- 조회가 문장으로 바꿔주는데, 이미 완성된 문장으로 온 것은 둘 다 못 찾는다.
                 -- 거기서 `error`로 떨어지면 **함수를 넘긴 호출자에게 함수가 그대로 나간다** -
@@ -1007,6 +1013,33 @@ do
         description:CreateDivider();
         CreateUnitConditionSubmenu(description, "ONLY_IF", "@");
 
+        -- **여기지 hover 메뉴가 아니다 (2026-09-06, 소유자).** 저 메뉴가 드는 것은 **언제
+        -- 발동하느냐**이고 이 상자는 언제를 안 건드린다 - 위에서 고른 대상을 개체창 위에서만
+        -- 그 개체창의 개체로 바꾼다. 조건이 아닌 것을 조건 묶음에 두면 안 된다
+        -- (`devdocs/action-and-binding-shapes.md` §2).
+        --
+        -- **잠그는 넷은 파생이 거절하는 넷과 같아야 한다** (`Misc.lua`의 `GetBindingsForAction`).
+        -- 갈리면 잠긴 상자가 동작하거나 켠 상자가 아무 일도 안 한다. 대상 `hover`는 이미 그
+        -- 개체를 겨누고, 대상 `none`은 대상 입력을 받는 시전이라 겨눔을 가로챌 자리가 아니다.
+        --
+        -- **Clique에서는 숨기지 않고 잠근다.** 숨기면 개체창 위 겨눔이 안 되는 사람이 Clique
+        -- 때문인 줄을 알 길이 없다. 값도 그대로 두고, 툴팁이 누가 프레임을 맡고 있는지 말한다.
+        if (Constants.TYPES_WITH_HOVER_UNIT_OPTION[_action.type]) then
+            description:CreateDivider();
+            local preferHoverUnit = description:CreateCheckbox(LLL["PREFER_HOVER_UNIT"],
+                actionValueEquals, setActionValue,
+                { key = "preferHoverUnit", value = USE_CHECKED_VALUE });
+            SetInstructionTooltip(preferHoverUnit, DebindPrivate.CliqueDetected
+                and (LLL["PREFER_HOVER_UNIT_DESC"] .. "|n|n" .. LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"])
+                or LLL["PREFER_HOVER_UNIT_DESC"]);
+            preferHoverUnit:SetEnabled(function()
+                return _action.unit ~= "hover"
+                    and _action.unit ~= "none"
+                    and not UnitConditionIsExists("hover")
+                    and not DebindPrivate.CliqueDetected;
+            end);
+        end
+
         return description;
     end
 
@@ -1150,21 +1183,6 @@ do
         local ignoreHoverUnit = description:CreateCheckbox(LLL["IGNORE_HOVER_UNIT"], actionValueEquals, setActionValue, { key = "ignoreHoverUnit", value = USE_CHECKED_VALUE });
         SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
         ignoreHoverUnit:SetEnabled(hoverConditionIsOn);
-
-        -- The mirror of the box above, for an action **without** a hover condition. Locked rather
-        -- than hidden under Clique: hidden, a reader whose aim over frames stopped working has no
-        -- way to learn that Clique took it, so the box stays, keeps its value, and its tooltip says
-        -- who has the frames. The derivation refuses the same three things (`Misc.lua`'s
-        -- `GetBindingsForAction`), because a shared profile never passes through this menu.
-        local preferHoverUnit = description:CreateCheckbox(LLL["PREFER_HOVER_UNIT"], actionValueEquals, setActionValue, { key = "preferHoverUnit", value = USE_CHECKED_VALUE });
-        SetInstructionTooltip(preferHoverUnit, DebindPrivate.CliqueDetected
-            and (LLL["PREFER_HOVER_UNIT_DESC"] .. "|n|n" .. LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"])
-            or LLL["PREFER_HOVER_UNIT_DESC"]);
-        preferHoverUnit:SetEnabled(function()
-            return Constants.TYPES_WITH_HOVER_UNIT_OPTION[_action.type] ~= nil
-                and not UnitConditionIsExists("hover")
-                and not DebindPrivate.CliqueDetected;
-        end);
     end
 
     local function CreateUnitConditionMenu(rootDescription)

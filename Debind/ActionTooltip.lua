@@ -304,9 +304,34 @@ do
 
 		if (action.unit ~= nil) then
 			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
-			local error = hasIssues and GetIssue("unit");
+			local error = hasIssues and GetIssue("unit") or nil;
+			-- **A minor problem in this category is not about the unit named here.** It belongs to
+			-- the box below, which says so on its own line. Reddening this one points at a target
+			-- the reader chose and nothing is wrong with.
+			if (error and IsIssueMinor(error)) then
+				error = nil;
+			end
 			local unitStr = UNIT_INFO[action.unit] and UNIT_INFO[action.unit].name or LLL[action.unit];
 			addValueLine(tooltip, unitStr, error);
+		end
+
+		-- **Under the target, because it is the target this qualifies**, and it stands up its own
+		-- label where none was chosen: the fallback is a target too, the one the game picks.
+		--
+		-- The only problem it can carry is the Clique one, which is minor, so it takes the shape
+		-- the key line above uses for one -- the value plain, the sentence on a grey line of its
+		-- own. Handing it to `addValueLine` would colour both, and the box is not the thing that is
+		-- wrong: another addon took the frames.
+		if (action.preferHoverUnit and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
+			if (action.unit == nil) then
+				addLabelLine(tooltip, LLL["TARGET_UNIT"]);
+			end
+			addValueLine(tooltip, LLL["PREFER_HOVER_UNIT"]);
+			local boxIssue = hasIssues and GetIssue("unit") or nil;
+			if (boxIssue) then
+				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
+					"(" .. LLL["BINDING_ERROR_" .. boxIssue] .. ")"));
+			end
 		end
 
 		-- 호버 조건은 `units["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
@@ -349,17 +374,6 @@ do
 			end
 			if (error) then
 				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
-			end
-		elseif (action.preferHoverUnit and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
-			-- Drawn under the hover heading although it is not a condition: it is the other thing a
-			-- frame under the cursor does to an action, and the menu keeps the two boxes together.
-			-- The only issue this can carry is the Clique one, which is MINOR and so goes grey.
-			addLabelLine(tooltip, LLL["CONDITION_HOVER"]);
-			addValueLine(tooltip, LLL["PREFER_HOVER_UNIT"]);
-			local error = hasIssues and GetIssue("hover");
-			if (error and IsIssueMinor(error)) then
-				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(
-					"(" .. LLL["BINDING_ERROR_" .. error] .. ")"));
 			end
 		end
 

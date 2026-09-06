@@ -952,11 +952,21 @@ do
     -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
     local HOVER_ANY_FRAME = {};
 
-    --- Whether `preferHoverUnit` asks for a twin at all: set, on a type that takes it, and with no
-    --- hover condition of its own (over a frame such an action already aims at the frame's unit).
-    --- The type list is shared with the menu.
+    --- Whether `preferHoverUnit` asks for a twin at all: set, on a type that takes it, with no
+    --- hover condition of its own (over a frame such an action already aims at the frame's unit),
+    --- and aimed at something a twin could change.
+    ---
+    --- **The four are the four the menu locks the box on** (`CreateTargetUnitMenuItem`). They have
+    --- to be the same four: a shared profile never passes through that menu, and a box that is
+    --- locked while the derivation still runs -- or ticked while it does not -- is a screen saying
+    --- one thing and a key doing another.
+    ---
+    --- `hover` is already the hovered unit. `none` is not "no target" but a cast that asks for one
+    --- (`ActionDisplay.lua`'s `UNIT_INFO`, measured in game 2026-08-05), and the owner's call is
+    --- that a target the player is about to point at is not one for a twin to take (2026-09-06).
     local function HoverTwinWanted(action, original)
         return action.preferHoverUnit and original.hover == nil
+            and original.unit ~= "hover" and original.unit ~= "none"
             and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type] or false;
     end
 
@@ -1524,8 +1534,6 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             elseif (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
                 issue = Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
             end
-        elseif (DebindPrivate.IsHoverTwinBlockedByClique(action)) then
-            issue = Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE;
         end
     end
 
@@ -1548,6 +1556,11 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     if (not issue and (not category or category == "unit") and notCategory ~= "unit") then
         if (binding.unit == "hover" and DebindPrivate.CliqueDetected) then
             issue = Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE;
+        elseif (DebindPrivate.IsHoverTwinBlockedByClique(action)) then
+            -- **This category and not `hover`, because the box sits in the Target menu.** It says
+            -- where the action goes; the hover menu says when it fires. Reported there, the menu
+            -- with nothing wrong in it goes coloured and the one holding the box looks clean.
+            issue = Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE;
         end
     end
 

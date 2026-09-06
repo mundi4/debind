@@ -320,10 +320,17 @@ L["GROUP_RAID"] = "When In Raid";
 L["IGNORE_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit unless you assign a target of your own. Check this and the action is not used on that unit: hovering decides whether the action runs, not where it goes. With no unit assigned, the action lands where it normally would, on your current target or on you."
 L["IGNORE_HOVER_UNIT"] = "Don't use the action on the hovered frame's unit"
 -- The mirror of the pair above, for an action with no hover condition: hovering changes where the
--- action goes and never whether it runs. The last sentence points at the condition for the reader
--- who wanted the other thing, since the two checkboxes sit in the same menu.
-L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit. Anywhere else it is used where it normally would be: on the target you assigned, or with none assigned, on your current target or on you. Hovering decides where the action goes, not whether it runs. To run it only over unit frames, use the hover condition instead."
-L["PREFER_HOVER_UNIT"] = "Use the action on the hovered frame's unit"
+-- action goes and never whether it runs. It lives in the Target menu rather than beside its mirror,
+-- because it moves the target and its mirror belongs to a condition, so the last sentence has to
+-- name the condition rather than point at a box a row away.
+--
+-- **"Prefer" is the word that has to be in the label, and it was not.** It read "Use the action on
+-- the hovered frame's unit", which states no condition at all and so says the action always goes
+-- there -- which is what a hover condition does, and is the one thing this box exists to avoid.
+-- What is ticked is a preference over the target picked above it: taken when a frame is there,
+-- dropped when it is not.
+L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit instead. Anywhere else the target above decides where it goes. Hovering changes where the action goes, not whether it runs. To run it only over unit frames, use the hover condition instead."
+L["PREFER_HOVER_UNIT"] = "Prefer the hovered frame's unit"
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.

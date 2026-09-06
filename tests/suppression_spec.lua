@@ -194,8 +194,48 @@ return function(DebindPrivate)
             local issue = GetBindingIssue(action);
             check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE, "나온 것: " .. tostring(issue));
             check(DebindPrivate.IsIssueMinor(issue), "회색이 아니다");
-            check(GetBindingIssue(action, "hover") == issue, "hover 갈래로 물으니 안 나온다");
+            -- **갈래는 `unit`이다.** 상자가 대상 메뉴에 있으므로 색이 칠해져야 하는 묶음도
+            -- 거기다. `hover`로 나가면 아무 문제 없는 메뉴가 칠해지고 상자가 있는 메뉴는
+            -- 멀쩡해 보인다.
+            check(GetBindingIssue(action, "unit") == issue, "대상 갈래로 물으니 안 나온다");
+            check(GetBindingIssue(action, "hover") == nil, "hover 갈래가 이 문제를 들고 있다");
         end);
+    end);
+
+    -- **대상 `none`과 `hover`에서는 쌍둥이를 안 만든다** (2026-09-06, 소유자). `hover`는 이미
+    -- 그 개체를 겨누고, `none`은 대상 입력을 받는 시전이라 겨눔을 가로챌 자리가 아니다.
+    -- 만드는 쪽이 안 만들므로 Clique가 뺏을 것도 없고, 그래서 할 말도 없다.
+    test("대상이 none이나 hover면 옵션이 켜져 있어도 쌍둥이가 없다", function()
+        for _, unit in ipairs({ "none", "hover" }) do
+            local action = { type = Constants.SPELL, value = 585, key = "T",
+                unit = unit, preferHoverUnit = true };
+            check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+                "대상 " .. unit .. "인데 쌍둥이가 생겼다");
+        end
+
+        -- 대상 `none`은 Clique와 아무 상관이 없으므로 할 말이 없어야 한다. 대상 `hover`는
+        -- 다르다 - 그건 옵션과 무관하게 Clique가 정말로 못 쓰게 만드는 겨눔이라, 원래의
+        -- 빨강이 그대로 나와야 한다. 옵션의 회색이 그것을 밀어내면 안 된다.
+        withClique(function()
+            local none = { type = Constants.SPELL, value = 585, key = "T",
+                unit = "none", preferHoverUnit = true };
+            check(GetBindingIssue(none) == nil,
+                "대상 none에 문장이 붙었다: " .. tostring(GetBindingIssue(none)));
+
+            local hover = { type = Constants.SPELL, value = 585, key = "T",
+                unit = "hover", preferHoverUnit = true };
+            check(GetBindingIssue(hover) == Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE,
+                "대상 hover의 빨강이 옵션의 회색에 밀렸다: " .. tostring(GetBindingIssue(hover)));
+        end);
+    end);
+
+    -- 반대쪽. 없으면 위 테스트는 "언제나 쌍둥이가 없다"로도 통과한다.
+    test("평범한 대상에는 쌍둥이가 생긴다", function()
+        local action = { type = Constants.SPELL, value = 585, key = "T",
+            unit = "focus", preferHoverUnit = true };
+        local bindings = DebindPrivate.GetBindingsForAction(action);
+        check(bindings[2] ~= nil, "대상 focus인데 쌍둥이가 없다");
+        check(bindings[2].unit == "hover", "쌍둥이가 겨누는 것: " .. tostring(bindings[2].unit));
     end);
 
     test("Clique가 있어도 hover 조건이 켜진 액션의 답은 그대로 빨강이다", function()

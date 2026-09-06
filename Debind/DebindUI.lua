@@ -965,8 +965,14 @@ function DebindLineMixin:Update()
 		local color;
 		if (isInactive) then
 			color = INACTIVE_COLOR;
-		elseif (issue and GetBindingIssue(action, "unit")) then
-			color = ERROR_COLOR;
+		-- **A minor one leaves this text alone.** The target written here is the one the reader
+		-- picked and the action still aims at it; a minor problem in this category says that
+		-- something else about the aiming did not take, and the tooltip carries that.
+		elseif (issue) then
+			local unitIssue = GetBindingIssue(action, "unit");
+			if (unitIssue and not IsIssueMinor(unitIssue)) then
+				color = ERROR_COLOR;
+			end
 		end
 		if (color) then
 			s = color:WrapTextInColorCode(s);
