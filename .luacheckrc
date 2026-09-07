@@ -276,6 +276,8 @@ globals = {
 	"PartyFrame",
 	"SecureStateDriverManager",
 	"CompactUnitFrame_SetUpFrame",
+	"SecureGroupHeader_OnEvent",
+	"SecureGroupPetHeader_OnEvent",
 	"ScrollingEdit_OnTextChanged",
 
 	-- WoW constants

@@ -119,6 +119,34 @@ end
 --- The words that name a slot in a group frame set. Asked of `player` and of nothing else.
 local GROUP_NAME_WORDS             = { "party", "raid" };
 
+--- Whether the frame is a slot in a `SecureGroupHeaderTemplate` header.
+---
+--- **Asked before the unit, because the unit on a header child answers only sometimes.** The
+--- header writes the slot's unit and takes it away again (`SecureGroupHeaders.lua` clears every
+--- slot it is not showing), so a child handed over while the header is showing nobody carries no
+--- unit at all -- which is exactly when a unit frame addon registers it, from its own styling
+--- pass. Reading the unit there gave `unknown` and nothing came back to ask again.
+---
+--- **The parent's script is the test.** Blizzard's own `OnEvent` is what makes a header a header,
+--- and it is one value that no other frame in the client shares. An addon's header carries it
+--- because the template it inherits does, so this recognises a pack's own group header as well as
+--- the client's own.
+---
+--- **A pet header's children are group frames too**, which is what the header door
+--- (`clickcast_register`) already calls every child that arrives through it. Every slot either
+--- header can hold is a group unit or a group member's pet, so there is no slot here that another
+--- category would fit better.
+local function IsGroupHeaderChild(button)
+    local parent = button.GetParent and button:GetParent();
+    if (not parent or not parent.GetScript) then
+        return false;
+    end
+
+    local onEvent = parent:GetScript("OnEvent");
+    return onEvent ~= nil
+        and (onEvent == SecureGroupHeader_OnEvent or onEvent == SecureGroupPetHeader_OnEvent);
+end
+
 --- **`player` is the one unit that does not settle it.** Every other token here is the frame:
 --- something showing `target` is the target frame and cannot turn into a boss frame. `player` is
 --- also what a party frame set gives its own slot, since such a set has five slots and there are
@@ -142,6 +170,10 @@ local GROUP_NAME_WORDS             = { "party", "raid" };
 --- such a frame sees no unit at all. That is why an `unknown` answer is never treated as settled -
 --- see `RegisterFrame`.
 local function ReadFrameType(button)
+    if (IsGroupHeaderChild(button)) then
+        return Constants.FRAMETYPE_GROUP;
+    end
+
     local unit = button:GetAttribute("unit");
     if (type(unit) ~= "string") then
         return;

@@ -171,6 +171,48 @@ return function(DebindPrivate)
             "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
     end);
 
+    --- A child of a `SecureGroupHeaderTemplate` header, handed over the way a unit frame addon
+    --- does it: from the addon's own styling pass, with the header holding no unit for that slot.
+    local function HeaderChild(name, unit, onEvent)
+        local header = frames.newFrame("Frame", "SomeUIPartyHeader", nil, "SecureGroupHeaderTemplate");
+        header:SetScript("OnEvent", onEvent or SecureGroupHeader_OnEvent);
+        local frame = frames.newFrame("Button", name, header, "SecureUnitButtonTemplate");
+        if (unit) then
+            frame:SetAttribute("unit", unit);
+        end
+        return frame;
+    end
+
+    -- **The header takes the unit away and gives it back**, so an empty slot says nothing about
+    -- the frame. A header that is showing nobody has just written nil over every slot it owns,
+    -- and that is the state the addon's styling pass hands the child over in.
+    test("a header child with no unit is a group frame", function()
+        local frame = HeaderChild("SomeUIPartyHeaderUnitButton1", nil);
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_GROUP,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
+    -- A pet header's children are group frames too, which is what the header door already calls
+    -- every child that arrives through it.
+    test("a pet header child is a group frame", function()
+        local frame = HeaderChild(nil, nil, SecureGroupPetHeader_OnEvent);
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_GROUP,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
+    -- **Being parented to something is not being a header child.** A pack anchors its frames to
+    -- its own container, and that container answers none of Blizzard's scripts.
+    test("a frame parented to an ordinary frame is read off its own unit", function()
+        local container = frames.newFrame("Frame", "SomeUIPartyContainer");
+        local frame = frames.newFrame("Button", "SomeUIPartyTarget", container, "SecureUnitButtonTemplate");
+        frame:SetAttribute("unit", "target");
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_TARGET,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
+    end);
+
     -- **`unknown` closes nothing.** A frame library can write the unit attribute *after* the
     -- styling pass that registers the frame, so the first call has nothing to read, and the addon
     -- on top of it registers the finished frame a second time. Standing down on the type matching

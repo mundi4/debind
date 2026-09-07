@@ -317,6 +317,12 @@ function M.install()
     _G.PartyFrame = {};
     _G.MAX_BOSS_FRAMES = 5;
 
+    --- **Identity is all these two are for.** `FrameRegistry` compares a frame's parent's `OnEvent`
+    --- against them to tell a group header from any other parent, so what matters is that each is
+    --- one distinct value that nothing else in the shell shares. The client's own bodies drive the
+    --- header, which nothing headless does.
+    _G.SecureGroupHeader_OnEvent = function() end
+    _G.SecureGroupPetHeader_OnEvent = function() end
     _G.SecureHandlerExecute = function(frame, body)
         record("Execute", label(frame), nil, body, frame);
     end
