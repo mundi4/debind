@@ -412,6 +412,9 @@ L["SWITCHES_EMPTY"] = "아직 만든 스위치가 없습니다.\n아래의 |cnHI
 -- 아래 탭 둘의 툴팁 설명 줄. 근거는 enUS 쪽 주석에.
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
 L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선합니다."
+-- 개체창 메뉴의 체크박스 하나. 근거는 enUS 쪽 주석에.
+L["TAKE_UNREGISTERED_UNIT_FRAMES"] = "다른 애드온이 내주지 않는 개체창도 사용"
+L["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] = "일부 개체창 애드온은 자체 마우스 올림 시전을 쓰면서 개체창을 다른 애드온에 내주지 않습니다(Clique 연동도 포함해서). 켜 두면 Debind가 그런 개체창에서도 동작하고, 그 애드온도 거기서 그대로 동작합니다. 끄면 게임 기본 개체창과 내주는 개체창만 씁니다."
 L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에게 행동을 사용합니다 -- 마우스 올림 조건이 걸려 있어도 마찬가지입니다."
 L["TARGET_UNIT"] = "대상"
 L["TYPE_COMMAND"] = "단축키 명령"

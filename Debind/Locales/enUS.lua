@@ -1104,6 +1104,20 @@ L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below make
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
 L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Shared, unless conditions or Importance say otherwise."
+-- The unit frame menu's one box, beside the Blizzard unit frame list.
+--
+-- **The label says what is used, not how it is reached.** What the reader has is a screen full of
+-- unit frames, some of which their own addon never offers to anything else; whether one was
+-- registered or found is our word and means nothing to them.
+--
+-- **The description says what the other addon gets, because that is what they would worry about.**
+-- The whole reason this can be on by default is that the other addon keeps working, so the sentence
+-- that says so is the one carrying the decision.
+--
+-- **"Clique support" is the game's phrase for the thing here, not ours.** Every unit frame addon's
+-- own options use it, so a reader who has one has seen it.
+L["TAKE_UNREGISTERED_UNIT_FRAMES"] = "Use unit frames addons keep to themselves"
+L["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] = "Some unit frame addons run hover casting of their own and offer their frames to nobody, Clique support included. Ticked, Debind works on those frames as well, and that addon goes on working there too. Unticked, Debind uses the game's own unit frames and the frames an addon does offer."
 L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it, even over a unit frame."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"

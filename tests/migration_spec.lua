@@ -1673,5 +1673,25 @@ return function(DebindPrivate)
         check(entry.switches["$state1"] == true, "항목은 붙었는데 값이 없다");
     end);
 
+    ---------------------------------------------------------------------------
+    -- 넘겨받지 않은 개체창까지 집을지
+    ---------------------------------------------------------------------------
+
+    --- **없는 것은 켬이다.** 이 옵션이 생기기 전에 쓰던 프로필은 물어본 적이 없는 사람의 것이고,
+    --- 그 사람이 쓰던 것은 넓은 쪽이다. 여기서 `false`로 읽히면 리로드 한 번에 개체창 절반이
+    --- 조용히 사라진다.
+    test("a profile with no answer takes unregistered frames", function()
+        InitWith({});
+        check(DebindPrivate.TakesUnregisteredFrames() == true,
+            "필드가 없는 프로필이 꺼짐으로 읽혔다");
+    end);
+
+    --- 반대쪽. 없이는 위 케이스가 "언제나 참"에도 초록으로 나온다.
+    test("a profile that says no does not", function()
+        InitWith({ takeUnregisteredFrames = false });
+        check(DebindPrivate.TakesUnregisteredFrames() == false,
+            "꺼둔 프로필이 켜짐으로 읽혔다");
+    end);
+
     return T;
 end

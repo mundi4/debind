@@ -5619,10 +5619,16 @@ local EUI_RAIDFRAMES_ADDON         = "EllesmereUIRaidFrames";
 
 local function EllesmereLoaded(addon)
     return function()
-        if (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon)) then
-            return true;
+        if (not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon))) then
+            return false, addon .. " is not loaded on this board";
         end
-        return false, addon .. " is not loaded on this board";
+        --- **The frames below reach us through the three doors and nothing else**, and those stand
+        --- behind the option (`FrameRegistry.lua`). Turned off, none of them is registered and the
+        --- case would be measuring the reader's setting.
+        if (not DebindPrivate.TakesUnregisteredFrames()) then
+            return false, "frames nobody hands over are turned off in this profile";
+        end
+        return true;
     end
 end
 

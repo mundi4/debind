@@ -177,6 +177,27 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
                 return MenuResponse.Refresh;
             end);
         end
+
+        --- **Ticked is the wider behaviour and the default.** Some unit frame addons run hover
+        --- casting of their own and hand their frames to nobody; ticked, Debind works on those too
+        --- and that addon goes on working there as well.
+        ---
+        --- **The tooltip carries the reload sentence itself**, because this box is not in a submenu
+        --- of its own and there is no parent item that means only this. `REQUIRES_RELOAD` is the
+        --- client's own words, the same ones the Blizzard frame boxes above carry, and the rule is
+        --- the same: what is already wired stays wired, and the answer moves at the next login.
+        local takeDescription = unitframeDescription:CreateCheckbox(
+            LLL["TAKE_UNREGISTERED_UNIT_FRAMES"],
+            function()
+                return DebindPrivate.db.global.takeUnregisteredFrames ~= false;
+            end,
+            function()
+                DebindPrivate.db.global.takeUnregisteredFrames =
+                    not (DebindPrivate.db.global.takeUnregisteredFrames ~= false);
+                return MenuResponse.Refresh;
+            end);
+        SetInstructionTooltip(takeDescription,
+            LLL["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
     end
 
     do

@@ -875,6 +875,11 @@ end
 -- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. A pack running click casting of its own
 -- registers nothing with anybody, so these are the ways a frame reaches us without its owner
 -- offering it. Standing on top of whatever that pack wraps is what makes taking one of them safe.
+--
+-- **All three stand behind one option**, and the hooks go on either way. Which frames get picked up
+-- is decided as each one is built, so the value is read once at login (`Profile.lua`) and the three
+-- entry points below ask it rather than the installation deciding: a hook that was never put on
+-- could not come back without a reload, which is the same answer with a worse failure.
 ---------------------------------------------------------------------------
 
 --- The libraries to ask, keyed by the global each publishes itself under, valued by how far into
@@ -909,7 +914,7 @@ end
 local _oufLibraries;
 
 function DebindPrivate.CollectOUFFrames()
-    if (DebindPrivate.CliqueDetected) then
+    if (DebindPrivate.CliqueDetected or not DebindPrivate.TakesUnregisteredFrames()) then
         return;
     end
 
@@ -1023,6 +1028,9 @@ end
 --- **A wrap of our own is not a discovery.** `RegisterFrame` wraps through `BindingDriver` on the
 --- very frames this list matches, and the row it is about to write is not there yet.
 function TakeNamedFrame(frame)
+    if (not DebindPrivate.TakesUnregisteredFrames()) then
+        return;
+    end
     -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
     -- `IsForbidden` false is no longer proof that touching it will not raise. `GetName` in
     -- particular is the call this file was already burnt by (see `DeriveFrameType`).
@@ -1067,6 +1075,9 @@ end
 --- the frame is. The pet headers are here for the same answer: what someone reading "pet frame"
 --- pictures is their own pet's frame, not a grid of other people's pets.
 local function CollectHeaderChildren(header)
+    if (not DebindPrivate.TakesUnregisteredFrames()) then
+        return;
+    end
     -- **Ours are group headers too, and the hook below cannot tell.** `UnitWatch.lua` builds its
     -- role watchers out of `SecureGroupHeaderTemplate`, so they come through here like anyone
     -- else's, and their children pass every gate `RegisterFrame` has. Registering them wires
