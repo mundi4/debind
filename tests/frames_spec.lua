@@ -412,6 +412,9 @@ return function(DebindPrivate)
             { "EllesmereUIUnitFrames_Player", "player", Constants.FRAMETYPE_PLAYER },
             { "EllesmereUIUnitFrames_Boss2", "boss2", Constants.FRAMETYPE_BOSS },
             { "EllesmereUIUnitFrames_TargetTarget", "targettarget", Constants.FRAMETYPE_TARGET },
+            -- Two more rows, one of each kind: one declared and one left to the reading.
+            { "Vd1H1Tg", "raid3target", Constants.FRAMETYPE_GROUP },
+            { "Grid2LayoutHeader1UnitButton3", "raid5", Constants.FRAMETYPE_GROUP },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);
@@ -422,6 +425,16 @@ return function(DebindPrivate)
             check(info.frameType == CASES[i][3],
                 CASES[i][1] .. " frameType: " .. tostring(info.frameType));
         end
+    end);
+
+    -- **A row's kind is the frame's kind whichever door it came through.** These same frames also
+    -- arrive through the Clique shape, which carries no kind, and reading one there answered with
+    -- the unit -- so a frame came out group or boss depending on which call reached it first.
+    test("a named frame's kind does not depend on the door", function()
+        local frame = ForeignFrame("ERFFriendlyBoss1", "boss1");
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_GROUP,
+            "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
     end);
 
     -- **Several doors, because none of them is compulsory.** Nothing in the game makes a unit frame

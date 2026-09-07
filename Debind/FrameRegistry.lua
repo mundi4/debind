@@ -120,23 +120,48 @@ for i = 1, MAX_ARENA_ENEMIES do
     UNIT_FRAMETYPES["arena" .. i] = Constants.FRAMETYPE_ARENA;
 end
 
---- Names that answer group whatever the frame is holding at the time.
+--- The unit frame packs we know by name. A row is `{ name pattern, addon, kind }`.
 ---
---- **This is one pack's naming, and it is here because that pack's frames carry nothing else.**
---- VuhDo hands its panel buttons over as `Vd<panel>H<button>`, with `Tg` and `Tot` appended for the
---- two extra columns, and the name says nothing about what the panel shows. The unit does not
---- settle it either: a slot holds `player` in a party panel, a pet token in a pet panel, and
---- `<unit>target` in the target column, so reading the unit called one panel three different
---- things. Every button in a VuhDo panel is a slot in a group display, which is the same answer
---- the header door gives every child that arrives through it.
+--- **Being on this list is the answer to "is this a unit frame".** What would otherwise have to be
+--- read is every secure frame an addon wraps, and the filter that would sort those cannot be
+--- checked against addons we have never seen. A name is wrong about nothing else, and when a pack
+--- renames one, nothing matches and we are back where we already stood.
 ---
---- **Anchored and shaped, not a word searched for.** A substring would be the misread that
---- `GROUP_NAME_WORDS` below is kept away from: a pack's own prefix sits in every name it makes.
---- Matching from the start with the digits spelled out is the pack saying which of its frames this
---- is, rather than us guessing from a word.
-local GROUP_NAME_PATTERNS          = {
-    "^vd%d+h%d+",
+--- **Lowercase and anchored.** The name is lowercased before it is matched, so a row is written
+--- that way. Anchoring is what keeps a row from being a word search: a pack's own prefix sits in
+--- every name it makes, so an unanchored pattern would take its action bars along with its unit
+--- frames. Patterns rather than prefixes because a numbered name has no fixed count, and the
+--- number lives in a file we do not control.
+---
+--- **The addon is the folder name `C_AddOns.IsAddOnLoaded` takes.**
+---
+--- **The kind is only for a frame whose unit cannot answer**, and a row that carries one holds it
+--- whichever door the frame arrives through. Left empty, the kind is read off the frame
+--- (`ReadFrameType`). Reading works for a frame standing for one unit and no other, since the unit
+--- is on it before anything else happens to it and cannot move; it does not work for a slot,
+--- because the token on a slot says what is filling it this second.
+local KNOWN_PACK_FRAMES            = {
+    { "^vd%d+h%d+",                         "VuhDo",                 "group" }, -- a panel slot is a group display whatever fills it
+    { "^erfpartyselfbutton$",               "EllesmereUIRaidFrames", "group" }, -- a party block's self slot, standalone so the header cannot reorder it
+    { "^erffriendlyboss%d+$",               "EllesmereUIRaidFrames", "group" }, -- drawn in the raid block; its boss token would read boss
+    { "^erfextraframe%d+$",                 "EllesmereUIRaidFrames", "group" }, -- wired up before it is given a unit
+    { "^ellesmereuiunitframes_",            "EllesmereUIUnitFrames" },
+    { "^grid2layoutheader%d+unitbutton%d+", "Grid2" },                          -- a header child, so the header door answers group
 };
+
+--- Which pack a frame's name belongs to, or nothing for a name no row covers.
+function DebindPrivate.PackAddonForFrameName(name)
+    if (type(name) ~= "string") then
+        return;
+    end
+
+    name = strlower(name);
+    for i = 1, #KNOWN_PACK_FRAMES do
+        if (strfind(name, KNOWN_PACK_FRAMES[i][1])) then
+            return KNOWN_PACK_FRAMES[i][2];
+        end
+    end
+end
 
 --- The words that name a slot in a group frame set. Asked of `player` and of nothing else.
 local GROUP_NAME_WORDS             = { "party", "raid" };
@@ -222,9 +247,10 @@ local function ReadFrameType(button)
     name = type(name) == "string" and strlower(name) or nil;
 
     if (name) then
-        for i = 1, #GROUP_NAME_PATTERNS do
-            if (strfind(name, GROUP_NAME_PATTERNS[i])) then
-                return Constants.FRAMETYPE_GROUP;
+        for i = 1, #KNOWN_PACK_FRAMES do
+            local row = KNOWN_PACK_FRAMES[i];
+            if (row[3] and strfind(name, row[1])) then
+                return UNITFRAME_TYPES[row[3]];
             end
         end
     end
@@ -949,68 +975,12 @@ function DebindPrivate.CollectOUFFrames()
     end
 end
 
---- **The frames a pack keeps to itself, listed by name.**
----
---- Every other door needs the frame to arrive as something: a write into the Clique table, a
---- header's child, an entry in a library's list. A pack that runs click casting of its own puts
---- its frames through none of those - it wires them up itself - so the only ones we ever saw were
---- the ones that happened to be a group header's children. These are its unit frames that are not:
----
---- - a party block's self slot. A header with five slots hands the fifth `player`, and a pack that
----   wants the player to hold a fixed slot cannot let the header do that, because the header
----   reorders. So the slot is a standalone button with `unit` fixed, beside the header rather than
----   under it. Four slots answered and the fifth did not.
---- - the boss frames and the duplicates of chosen raid members, both standalone for the same
----   reason: their units are picked rather than rostered.
---- - its single unit frames, since it stopped building them on a frame library (2026-09-03). The
----   library was the door they came through, and asking it is the one recovery there was for a
----   write that landed in somebody else's table; a pack with an engine of its own has nothing to
----   ask. It writes them into the Clique table exactly as before, and by then its own raid module
----   is holding that name.
----
---- **Patterns, and anchored.** Two of these are numbered and one of those has no fixed count - it
---- is capped by a value in the pack's own file, and spelling the names out would mean keeping that
---- number in step with a file we do not control, one it can raise without anything here going red.
---- They are patterns rather than prefixes because this list is not one pack's: the next one to need
---- a row may number in the middle of its names or carry the reader's own words in them, and a
---- prefix would have to be widened to the point of matching whatever else that pack made. Anchoring
---- keeps each row narrower than a prefix would be.
----
---- **Names and not a rule about frames in general.** What would have to be read to find such a
---- frame in the open is every secure frame an addon wraps, and the filter that would sort those is
---- one we cannot check against addons we have never seen. A name is wrong about nothing else, and
---- when a pack renames one, nothing matches and we are back where we already stood.
----
---- **A row says the kind only where reading it does not work**, and hands the frame over the way
---- the Clique protocol does otherwise, leaving `DeriveFrameType` to read it. Which one a row wants
---- is a property of how that frame is built, not a preference:
----
---- - a slot in a set cannot be read. The duplicates are wired up - and so seen by us - two lines
----   after they are made, and the unit goes on when a slot is handed out; the pack wires each
----   frame once, so the pass that could read one is the pass that has nothing to read. And when
----   there is a unit it is the raid member filling that slot right now, which is the reason a
----   header's children are not read either.
---- - the frame carrying a boss token is a group frame all the same. An encounter puts the friendly
----   NPC you are meant to keep alive on a boss token, and the frame drawn for it sits in the raid
----   block for the healer to reach. Reading it answers boss, and what somebody choosing the boss
----   frames pictures is the enemy's bar off to the side. Same call as the pet headers.
---- - a frame standing for one unit and no other is read, because the unit is on it before anything
----   else happens to it and cannot move. Saying the kind for one of those would only be a second
----   place to keep the same answer, and the pack adding a unit would find this list silent.
-local NAMED_UNIT_FRAMES            = {
-    { "^ERFPartySelfButton$", "group" },
-    { "^ERFFriendlyBoss%d+$", "group" },
-    { "^ERFExtraFrame%d+$",   "group" },
-    { "^EllesmereUIUnitFrames_", true },
-};
-
 local function NameOf(frame)
     return frame:GetName();
 end
 
---- **Caught as the pack wires the frame up, because that is the only moment there is.** These are
---- built when they are first needed and not at login - a boss frame when the reader turns it on or
---- changes spec, a duplicate when they add somebody to the list - so a look on any event of ours
+--- **Caught as the pack wires the frame up, because that is the only moment there is.** A pack
+--- builds these when they are first needed rather than at login, so a look on any event of ours
 --- finds only whatever happened to exist by then. `SecureUnitButtonTemplate` carries no `OnLoad`
 --- and a global appearing announces nothing, so what is left is the calls a frame passes on its way
 --- into somebody's click casting.
@@ -1018,15 +988,15 @@ end
 --- **Several doors, because none of them is compulsory.** A pack is free to skip any one of these -
 --- nothing in the game makes a unit frame call `SecureUnitButton_OnLoad` or `RegisterUnitWatch` -
 --- so listening on one would be betting on a habit. Listening on all of them costs nothing: a frame
---- already registered leaves `RegisterFrame` on the row it has, before any of the checks, and one
---- that does not match a prefix never gets that far.
+--- already registered leaves `RegisterFrame` on the row it has, before any of the checks, and a
+--- name no row covers never gets that far.
 ---
---- **The hook only decides when, and the list decides what.** Everything arriving at these is an
---- addon's doing, which is exactly why no test on the frame itself would do - it would have to be
---- right about addons we have never seen. The name is asked instead.
+--- **The hook only decides when, and `KNOWN_PACK_FRAMES` decides what.** Everything arriving at
+--- these is an addon's doing, which is exactly why no test on the frame itself would do - it would
+--- have to be right about addons we have never seen. The name is asked instead.
 ---
 --- **A wrap of our own is not a discovery.** `RegisterFrame` wraps through `BindingDriver` on the
---- very frames this list matches, and the row it is about to write is not there yet.
+--- very frames the table matches, and the row it is about to write is not there yet.
 function TakeNamedFrame(frame)
     if (not DebindPrivate.TakesUnregisteredFrames()) then
         return;
@@ -1039,9 +1009,11 @@ function TakeNamedFrame(frame)
         return;
     end
 
-    for i = 1, #NAMED_UNIT_FRAMES do
-        if (strmatch(name, NAMED_UNIT_FRAMES[i][1])) then
-            pcall(DebindPrivate.RegisterFrame, frame, NAMED_UNIT_FRAMES[i][2]);
+    name = strlower(name);
+    for i = 1, #KNOWN_PACK_FRAMES do
+        local row = KNOWN_PACK_FRAMES[i];
+        if (strfind(name, row[1])) then
+            pcall(DebindPrivate.RegisterFrame, frame, row[3] or true);
             return;
         end
     end

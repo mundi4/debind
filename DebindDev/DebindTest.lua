@@ -5724,13 +5724,18 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
 -- harness can say is whether the pack still hands its frames over with its own hover casting off,
 -- and still builds them by the time a run happens. Both are somebody else's file.
 --
--- **The pack is asked for by addon name and the frames by their own names**, because the frames
--- come through a door that carries no kind, so a name is what pins which frame answered what.
-local EUI_UNITFRAMES_ADDON         = "EllesmereUIUnitFrames";
-local EUI_RAIDFRAMES_ADDON         = "EllesmereUIRaidFrames";
+-- **The addon name comes out of `KNOWN_PACK_FRAMES`, asked for with one of the frame names the
+-- case checks.** That table is what decides whether these frames are taken at all, so a row edited
+-- away leaves the case skipping with a reason instead of asking for an addon nothing reads.
+local EUI_UNITFRAMES_FRAME         = "EllesmereUIUnitFrames_Player";
+local EUI_RAIDFRAMES_FRAME         = "ERFPartySelfButton";
 
-local function EllesmereLoaded(addon)
+local function EllesmereLoaded(frameName)
     return function()
+        local addon = DebindPrivate.PackAddonForFrameName(frameName);
+        if (not addon) then
+            return false, frameName .. " is not on the known pack list";
+        end
         if (not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon))) then
             return false, addon .. " is not loaded on this board";
         end
@@ -5826,7 +5831,7 @@ end
 -- standing on top of whatever it wrapped either way.
 RegisterTest("EllesmereUI: the single unit frames are wired, and read for what they are", {
     description = "EUI 개체창이 종류대로 등록되어 있다",
-    applies = EllesmereLoaded(EUI_UNITFRAMES_ADDON),
+    applies = EllesmereLoaded(EUI_UNITFRAMES_FRAME),
     run = function()
         return CheckNamedFrames("EUI unit frames", {
             { "EllesmereUIUnitFrames_Player",       Constants.FRAMETYPE_PLAYER },
@@ -5849,7 +5854,7 @@ RegisterTest("EllesmereUI: the single unit frames are wired, and read for what t
 -- hold a boss token, and both are drawn in the party or raid block.
 RegisterTest("EllesmereUI: the standalone party and raid frames are wired as group frames", {
     description = "EUI 파티 내 칸·아군 NPC 칸·복제본이 그룹 프레임으로 등록되어 있다",
-    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
+    applies = EllesmereLoaded(EUI_RAIDFRAMES_FRAME),
     run = function()
         local entries = {
             { "ERFPartySelfButton", Constants.FRAMETYPE_GROUP },
@@ -5874,7 +5879,7 @@ RegisterTest("EllesmereUI: the standalone party and raid frames are wired as gro
 -- does not, and that is exactly the shape of the fault that started all of this.
 RegisterTest("EllesmereUI: the header's own children are wired as group frames", {
     description = "EUI 파티·공대 헤더 자식이 그룹 프레임으로 등록되어 있다",
-    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
+    applies = EllesmereLoaded(EUI_RAIDFRAMES_FRAME),
     run = function()
         local NAME = "EUI header children";
         local HEADERS = { "ERFPartyHeader", "ERFFlatHeader",
@@ -5929,7 +5934,7 @@ RegisterTest("EllesmereUI: the header's own children are wired as group frames",
 RegisterTest("EllesmereUI: HoverCast on leaves the name with the pack", {
     description = "HoverCast를 켠 EUI가 ClickCastFrames를 쥐고 있고, 프레임은 우리에게도 온다",
     applies = function()
-        local ok, why = EllesmereLoaded(EUI_UNITFRAMES_ADDON)();
+        local ok, why = EllesmereLoaded(EUI_UNITFRAMES_FRAME)();
         if (not ok) then
             return false, why;
         end
