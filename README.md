@@ -160,7 +160,7 @@ It's not one switch, either. You pick which frames count — player, pet, party 
 
 ![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which frame types count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
 
-Unit frame addons that support Clique register with Debind the same way they register with Clique. Most of them do that only while their own hover cast feature is switched off; with it on they keep their frames for themselves, and a frame nobody hands over is one Debind stays off. And you can run Clique itself alongside this. Debind leaves unit frames to Clique and everything else works as usual — what stops is the hover condition and any action aimed at `@hover`. Both are marked in the list, and Debind says so when you log in.
+Unit frame addons that support Clique register with Debind the same way they register with Clique. Most of them do that only while their own hover cast feature is switched off — with it on they keep their frames, and Debind works on those frames anyway, without stopping anything that addon does there. If you would rather it left them alone, there is a box for that under Unit frame options. And you can run Clique itself alongside this. Debind leaves unit frames to Clique and everything else works as usual — what stops is the hover condition and any action aimed at `@hover`. Both are marked in the list, and Debind says so when you log in.
 
 ## A few things worth knowing
 

@@ -377,9 +377,6 @@ return function(DebindPrivate)
         -- pipeline, which is what is wanted here.
         DebindPrivate.ShowMigrationDialogIfPending =
             DebindPrivate.ShowMigrationDialogIfPending or function() end;
-        -- Both live in `DebindUI.lua`, which is not on the headless load list (`run.lua`).
-        DebindPrivate.ShowUnitFrameNotice =
-            DebindPrivate.ShowUnitFrameNotice or function() end;
         check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
         _G.CreateMacro("Revive", 132219, "/say hello");
 

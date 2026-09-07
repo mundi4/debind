@@ -200,8 +200,6 @@ return function(DebindPrivate)
         -- the login's last lines call them.
         DebindPrivate.ShowMigrationDialogIfPending =
             DebindPrivate.ShowMigrationDialogIfPending or function() end;
-        DebindPrivate.ShowUnitFrameNotice =
-            DebindPrivate.ShowUnitFrameNotice or function() end;
         check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
 
         check(Values("F1") == "585", "before the change the key held " .. Values("F1"));

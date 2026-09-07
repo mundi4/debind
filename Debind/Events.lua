@@ -117,12 +117,6 @@ function Events.PLAYER_LOGIN()
     -- 사람에게만 보이는 안내가 된다.
     DebindPrivate.ShowMigrationDialogIfPending();
 
-    -- **Every login until they say otherwise.** Only the window's own dismiss button writes the
-    -- field, so closing it is "not now" and the notice keeps its one chance to be read.
-    if (not DebindPrivate.db.global.unitFrameNoticeSeen) then
-        DebindPrivate.ShowUnitFrameNotice();
-    end
-
     --- **In this tick, never on a timer.** A unit frame addon that runs its own click casting can
     --- put its own table over `ClickCastFrames`, and the ones that do it do it from their own
     --- handler for this same event. From then on every registration goes there instead of here,

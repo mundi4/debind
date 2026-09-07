@@ -1204,11 +1204,6 @@ L["UNITFRAME_CLICK_EDGE_DOWN"] = "Mouse down"
 L["UNITFRAME_CLICK_EDGE_GAME"] = "Whatever the game does"
 L["UNITFRAME_CLICK_EDGE_UP"] = "Mouse up"
 L["UNITFRAME_OPTIONS"] = "Unit frame options"
-L["UNIT_FRAME_NOTICE_TITLE"] = "A note about unit frames"
--- **`%s` is the action's own name (`TYPE_SETCUSTOM`), not a copy of it.** Spelling the label out
--- here would leave the sentence pointing at a button that no longer says that, the day it is
--- renamed.
-L["UNIT_FRAME_NOTICE"] = "Debind now respects what your unit frame addon decides about click casting. If the addon lets Clique work on its frames, Debind works there in Clique's place, with no need for Clique itself. If the addon has a hover cast feature of its own (or something similarly named) and it is turned on, it keeps those frames to itself, and |cnRED_FONT_COLOR:your Debind keys may not work on that addon's unit frames|r. That feature may cover the game's own frames and other addons' frames as well; its settings usually say which. Wherever it does, Debind stays off them too. They work there only while that feature is off, after a reload.|n|nLikewise, while Clique itself is running, Debind leaves unit frames to it.|n|n|cnHIGHLIGHT_FONT_COLOR:%s|r on a keyboard key works while hovering any unit frame out of combat. On a mouse button, and in combat on either, it works only where your other Debind keys work, and only over the player, pet, party, raid, boss and arena frames.|n|nNearly everything Clique or an addon's own hover cast can do, Debind can do as well, usually as a condition rather than a macro. If you find something it cannot, or cannot work out how to set it up, leave a comment on CurseForge or at github.com/mundi4/debind/issues."
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once at login, and only when something is actually stopped
 -- (`HasBindingBlockedByClique`). It used to go out on the mere presence of Clique, which is why it

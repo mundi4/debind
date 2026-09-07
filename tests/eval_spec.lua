@@ -722,9 +722,6 @@ return function(DebindPrivate, _, ctx)
     local function SetClickEdgeInCombat(apply)
         DebindPrivate.ShowMigrationDialogIfPending =
             DebindPrivate.ShowMigrationDialogIfPending or function() end;
-        -- Both live in `DebindUI.lua`, which is not on the headless load list (`run.lua`).
-        DebindPrivate.ShowUnitFrameNotice =
-            DebindPrivate.ShowUnitFrameNotice or function() end;
         check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
 
         shim.world.inCombat = true;

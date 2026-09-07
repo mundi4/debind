@@ -677,10 +677,7 @@ return function(DebindPrivate)
         end
         DebindPrivate.ShowMigrationDialogIfPending =
             DebindPrivate.ShowMigrationDialogIfPending or function() end;
-             -- Both live in `DebindUI.lua`, which is not on the headless load list (`run.lua`).
-            DebindPrivate.ShowUnitFrameNotice =
-                DebindPrivate.ShowUnitFrameNotice or function() end;
-        -- The login handler reads the profile, and the migration it runs indexes `db` outright.
+         -- The login handler reads the profile, and the migration it runs indexes `db` outright.
         _G.DebindVars = _G.DebindVars or {
             dbver = Constants.DB_VERSION,
             shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
