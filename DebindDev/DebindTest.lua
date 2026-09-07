@@ -5610,6 +5610,7 @@ RegisterTest("Click-cast table: the holder keeps the name and we take what it dr
 -- **The pack is asked for by addon name and the frames by their own names**, because the frames
 -- come through a door that carries no kind, so a name is what pins which frame answered what.
 local EUI_UNITFRAMES_ADDON         = "EllesmereUIUnitFrames";
+local EUI_RAIDFRAMES_ADDON         = "EllesmereUIRaidFrames";
 
 local function EllesmereLoaded(addon)
     return function()
@@ -5693,27 +5694,16 @@ local function CheckNamedFrames(NAME, entries)
     return Pass(NAME, detail);
 end
 
--- **HoverCast off is what makes the pack hand frames over.** With its own hover casting turned
--- off, EUI registers its single unit frames through the Clique shape (`SetupUnitMenu` in
--- `EllesmereUIUnitFrames.lua`), which is a door with no field for the kind -- so this pins the
--- reading as much as the arrival: a player frame that came out a group frame would take the
--- reader's party bindings. With HoverCast on, the pack keeps its frames and there is nothing here
--- to check, which is why the switch is in `applies` rather than in the run.
-RegisterTest("EllesmereUI: the single unit frames arrive through the Clique door", {
-    description = "HoverCast를 끈 EUI 개체창이 Clique 문으로 들어와 종류대로 읽혀 있다",
-    applies = function()
-        local ok, why = EllesmereLoaded(EUI_UNITFRAMES_ADDON)();
-        if (not ok) then
-            return false, why;
-        end
-        if (type(_G._ERF_IsHoverCastEnabled) ~= "function") then
-            return false, "the pack does not answer _ERF_IsHoverCastEnabled on this board";
-        end
-        if (_G._ERF_IsHoverCastEnabled()) then
-            return false, "HoverCast is on, so the pack keeps its frames and hands over none";
-        end
-        return true;
-    end,
+-- **The kind is read off these**, because each stands for one unit and carries it before anything
+-- else touches it. So this pins the reading as much as the registration: a player frame that came
+-- out a group frame would take the reader's party bindings.
+--
+-- **HoverCast is not a condition any more.** Whichever way the pack has it set, its frames reach us
+-- -- through the Clique shape while it is off, and through the name door while it is on, with us
+-- standing on top of whatever it wrapped either way.
+RegisterTest("EllesmereUI: the single unit frames are wired, and read for what they are", {
+    description = "EUI 개체창이 종류대로 등록되어 있다",
+    applies = EllesmereLoaded(EUI_UNITFRAMES_ADDON),
     run = function()
         return CheckNamedFrames("EUI unit frames", {
             { "EllesmereUIUnitFrames_Player",       Constants.FRAMETYPE_PLAYER },
@@ -5728,6 +5718,80 @@ RegisterTest("EllesmereUI: the single unit frames arrive through the Clique door
             { "EllesmereUIUnitFrames_Boss4",        Constants.FRAMETYPE_BOSS },
             { "EllesmereUIUnitFrames_Boss5",        Constants.FRAMETYPE_BOSS },
         });
+    end,
+})
+
+-- **The kind is declared for these**, so what this pins is the declaration reaching the frame. Two
+-- of them would read as something else: the self slot holds `player` and the friendly-NPC frames
+-- hold a boss token, and both are drawn in the party or raid block.
+RegisterTest("EllesmereUI: the standalone party and raid frames are wired as group frames", {
+    description = "EUI 파티 내 칸·아군 NPC 칸·복제본이 그룹 프레임으로 등록되어 있다",
+    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
+    run = function()
+        local entries = {
+            { "ERFPartySelfButton", Constants.FRAMETYPE_GROUP },
+        };
+        for i = 1, 5 do
+            entries[#entries + 1] = { "ERFFriendlyBoss" .. i, Constants.FRAMETYPE_GROUP };
+        end
+        -- The duplicates are capped in the pack's own file and that number is not ours to keep, so
+        -- this walks until the names run out rather than up to a count written down here.
+        local i = 1;
+        while (_G["ERFExtraFrame" .. i]) do
+            entries[#entries + 1] = { "ERFExtraFrame" .. i, Constants.FRAMETYPE_GROUP };
+            i = i + 1;
+        end
+        return CheckNamedFrames("EUI standalone group frames", entries);
+    end,
+})
+
+-- **The header children, which arrive through a different door entirely** -- the hook on
+-- `SecureGroupHeader_Update`. They are here beside the standalone frames because the reader cannot
+-- tell the two apart on screen: four slots of a party block come through the header and the fifth
+-- does not, and that is exactly the shape of the fault that started all of this.
+RegisterTest("EllesmereUI: the header's own children are wired as group frames", {
+    description = "EUI 파티·공대 헤더 자식이 그룹 프레임으로 등록되어 있다",
+    applies = EllesmereLoaded(EUI_RAIDFRAMES_ADDON),
+    run = function()
+        local NAME = "EUI header children";
+        local HEADERS = { "ERFPartyHeader", "ERFFlatHeader",
+            "ERFGroupHeader1", "ERFGroupHeader2", "ERFGroupHeader3", "ERFGroupHeader4",
+            "ERFGroupHeader5", "ERFGroupHeader6", "ERFGroupHeader7", "ERFGroupHeader8" };
+
+        local checked, faults, headersSeen = 0, {}, {};
+        for h = 1, #HEADERS do
+            local header = _G[HEADERS[h]];
+            if (header and header.GetAttribute) then
+                headersSeen[#headersSeen + 1] = HEADERS[h];
+                local i = 1;
+                while (true) do
+                    local child = header:GetAttribute("child" .. i);
+                    if (not child) then
+                        break;
+                    end
+                    local fault = CheckWiredFrame(child, HEADERS[h] .. " child" .. i,
+                        Constants.FRAMETYPE_GROUP);
+                    if (fault) then
+                        faults[#faults + 1] = fault;
+                    else
+                        checked = checked + 1;
+                    end
+                    i = i + 1;
+                end
+            end
+        end
+
+        if (#headersSeen == 0) then
+            return Fail(NAME, "the pack's headers are not there under the names this test knows");
+        end
+        if (#faults > 0) then
+            return Fail(NAME, table.concat(faults, " | "));
+        end
+        if (checked == 0) then
+            return Fail(NAME, format("%d header(s) stood up and not one child is registered: %s",
+                #headersSeen, table.concat(headersSeen, ", ")));
+        end
+        return Pass(NAME, format("%d children wired across %s", checked, table.concat(headersSeen, ", ")));
     end,
 })
 

@@ -157,6 +157,7 @@ function Events.PLAYER_ENTERING_WORLD()
         DebindPrivate.AttachClickCastFrames();
         DebindPrivate.AskHolderAgain();
     end
+    DebindPrivate.CollectOUFFrames();
 end
 
 function Events.PLAYER_LOGOUT()

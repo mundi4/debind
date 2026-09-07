@@ -203,6 +203,19 @@ enter, leave, click 핫패스에 얹히는 것이라 목록이 비었을 때 표
   `git show v3.5.2:DebindDev/DebindTest.lua`에서 되살린다. `applies`는 EUI가 로드됐고 옵션이 켜져
   있을 때. HoverCast 상태는 이제 조건이 아니다.
 
+#### 계획과 갈린 것
+
+- **`SecureHandlerWrapScript` 훅은 1단계 것 하나로 남았다.** 3.5.2에는 `OnSecureWrap`이 따로
+  있었는데, 1단계의 `OnForeignWrap`이 같은 전역에 같은 헤더 검사로 서 있으므로 거기에
+  `TakeNamedFrame` 한 줄을 얹었다. 훅 둘이 같은 조건을 두 번 쓰는 꼴을 만들지 않았다.
+- **`applies`에 옵션은 아직 안 들어갔다.** 옵션이 4단계에 생기므로 지금은 EUI가 로드됐는지만
+  본다. 4단계에서 그 줄을 더한다.
+- `UNIT_FRAMETYPES` 위 주석과 `RegisterFrame`의 `told` 위 주석은 9월 5일에 헤더 문을 근거에서
+  뺐던 것이라 다시 넣었고, 9월 6일에 들어간 `IsGroupHeaderChild`와 어느 쪽이 이기는지를
+  `_headerChildren` 주석에 적었다. 들은 것이 읽은 것을 이긴다.
+- 되살린 아홉 케이스가 문을 다시 끊었을 때 빨갛게 나오는 것을 봤다. 열 번째인 "a frame the list
+  does not name is left alone"은 없음을 재는 케이스라 어느 쪽에서도 초록이다.
+
 ### 3. 홀더에 물러나지 않는다
 
 `DebindCliqueFake/DebindCliqueFake.lua`.

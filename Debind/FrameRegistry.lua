@@ -86,6 +86,10 @@ local UNITFRAME_TYPES              = {
 --- child read on the wrong pass still comes out a group frame. A token that could move a frame
 --- from one category to another has no business in this table.
 ---
+--- **A header's own child never reaches this reading at all.** The header door says group for one
+--- (`_headerChildren`) and `RegisterFrame` prefers what it was told to what it can read, so the
+--- tokens above only ever answer for a frame nobody described.
+---
 --- **So every `<owner>pet` spelling is out, `playerpet` with the rest.** A pet frame carries `pet`,
 --- which is what Blizzard's own pet header gives the slot for your own pet (`GetPetUnit` in
 --- `SecureGroupHeaders.lua`) and what `playerpet` never appears as anywhere in the game's code. A
@@ -136,6 +140,28 @@ local GROUP_NAME_PATTERNS          = {
 
 --- The words that name a slot in a group frame set. Asked of `player` and of nothing else.
 local GROUP_NAME_WORDS             = { "party", "raid" };
+
+--- The frames a group header has told us are its children.
+---
+--- **Being a header's child is what the frame is, so it outranks every other answer.** A header
+--- hands a child whichever unit it is filling and takes it back, so reading that child gives the
+--- slot it holds this second: `player` in the self slot of a party block, and nothing at all in a
+--- spare the header has emptied. Neither is what the frame is.
+---
+--- **The other doors reach these same frames and cannot say so.** oUF writes every object it builds
+--- into `ClickCastFrames`, header children included, and `CollectOUFFrames` fetches the ones that
+--- write never reached - both through the Clique shape, which has no field for the kind. So the
+--- header's answer has to survive them rather than be the most recent one.
+---
+--- **`IsGroupHeaderChild` below is the same answer arrived at without being told**, for a frame
+--- that reaches us through some other door before its header has laid out. This table wins where
+--- both can answer, because being told is not a guess.
+---
+--- **Never emptied, and weak so a frame can still go.** Registration is taken away and given back
+--- while the frame stays what it is: an addon reclaiming a frame writes `nil` into
+--- `ClickCastFrames` and adds it again later, and between those two the row this would otherwise
+--- live on is gone.
+local _headerChildren              = setmetatable({}, { __mode = "k" });
 
 --- Whether the frame is a slot in a `SecureGroupHeaderTemplate` header.
 ---
@@ -347,6 +373,10 @@ local OVER_POST_PROLOGUE = "local message, button, down = ...\n";
 
 local Reassemble;
 
+--- Declared here and written further down, with the other two doors that go and find a frame
+--- nobody handed over. The wrap hook below is one of the moments it listens on.
+local TakeNamedFrame;
+
 --- Our own pre and post for one script.
 local function OurBodies(script)
 	if (script == "OnClick") then
@@ -477,8 +507,18 @@ end
 
 --- Somebody wrapped one of the three scripts on a frame we are on, so we are no longer the
 --- outermost. Take the top back and carry what they left.
+--- **Two jobs on one hook, and they are about different frames.** A wrap is also one of the
+--- moments a pack's own frame passes on its way into its own click casting, which is the only
+--- moment the name door has to catch one (`TakeNamedFrame`). Ours is not a discovery, so that half
+--- sits under the same header test.
 local function OnForeignWrap(frame, script, header)
-	if (header == BindingDriver or not REASSEMBLED_SCRIPTS[script]) then
+	if (header == BindingDriver or header == DebindPrivate.UnitWatch) then
+		return;
+	end
+
+	TakeNamedFrame(frame);
+
+	if (not REASSEMBLED_SCRIPTS[script]) then
 		return;
 	end
 	if (not DebindPrivate.ccframes[frame] or not WrappedByUs(frame, script)) then
@@ -540,14 +580,15 @@ function DebindPrivate.RegisterFrame(button, type)
     --- already given up on.
     ---
     --- **And what is compared is the answer, not the argument the caller happened to pass.** The
-    --- same frame arrives under different arguments from different doors - `"group"` off our own
-    --- Blizzard registration, `true` through the Clique shape - and comparing those re-registered
-    --- it on every pass that reached it.
+    --- same frame arrives under different arguments from different doors - `"group"` off its
+    --- header, `true` through the Clique shape - and comparing those had a header's child
+    --- re-registered on every pass that reached it, with the frame read afresh each time
+    --- (`_headerChildren` says why that reading is wrong).
     --- **`hd` is outside what a queued word can override.** A header owns those rows and takes them
     --- back itself; a deregistration queued before the header wrote one would otherwise let this
     --- rebuild the row and the drain tear it down after.
     local seen = DebindPrivate.ccframes[button];
-    local told = UNITFRAME_TYPES[type];
+    local told = _headerChildren[button] and Constants.FRAMETYPE_GROUP or UNITFRAME_TYPES[type];
     if (seen and (seen.hd or (_queued[button] ~= "unregister"
             and seen.frameType ~= Constants.FRAMETYPE_UNKNOWN
             and (told == nil or told == seen.frameType)))) then
@@ -825,6 +866,261 @@ function DebindPrivate.UpdateRegisteredClicks(button)
     if (Constants.DEBUG and _walkRefused > 0) then
         print(format("[Debind] SetPropagate: %d refused frame(s) under %s",
             _walkRefused, button:GetName() or tostring(button)));
+    end
+end
+
+---------------------------------------------------------------------------
+-- The three doors nobody hands a frame through
+--
+-- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. A pack running click casting of its own
+-- registers nothing with anybody, so these are the ways a frame reaches us without its owner
+-- offering it. Standing on top of whatever that pack wraps is what makes taking one of them safe.
+---------------------------------------------------------------------------
+
+--- The libraries to ask, keyed by the global each publishes itself under, valued by how far into
+--- its list we have got. `{ ["oUF_Foo"] = 12 }`.
+---
+--- **Built once, because the answer cannot change.** `X-oUF` is read out of the `.toc`, which the
+--- client parses for every addon at startup whether it loads it or not - the addon list draws icons
+--- and categories for disabled addons off the same call. So the walk over `GetNumAddOns()` happens
+--- on the first pass and never again, and what is left after it is one or two entries.
+---
+--- Keyed by the name and not by the library, because an addon that has not loaded yet has no
+--- global at all. Its entry sits here reading nil until it does.
+---
+--- **The number is a mark and not a "have we run yet" flag.** `objects` is appended to for as long
+--- as the session lasts - a header gets more children as the roster grows, and a frame spawned
+--- later lands on the end - so a pass that ran once would only ever see what existed at that
+--- moment. Starting from the mark means every pass takes the new tail and leaves the frames already
+--- offered alone, which is what makes running this on every `PLAYER_ENTERING_WORLD` cost nothing.
+--- One mark each, because two addons carrying their own copy of oUF are two separate lists.
+---
+--- **`X-oUF` is oUF's own contract and not an addon name.** An addon shipping the library declares
+--- the global it wants the library under, and the library reads that field and installs itself
+--- there (`local global = C_AddOns.GetAddOnMetadata(parent, "X-oUF")`, then `_G[global] = oUF`).
+--- Asking every loaded addon the same question is asking oUF where it is, whoever is carrying it,
+--- so no UI pack's name is written down here.
+---
+--- **`objects` is all of them, whatever its own comment says.** oUF documents the field as the
+--- frames `Spawn` made, and `initObject` appends to it before the branch that separates a spawned
+--- frame from a header's child, so a header's children are in there too. Which is what we want:
+--- the header hands its children over itself only if its addon speaks a protocol, and this reaches
+--- them either way. `headers` is left alone for that reason - it holds nothing `objects` does not.
+local _oufLibraries;
+
+function DebindPrivate.CollectOUFFrames()
+    if (DebindPrivate.CliqueDetected) then
+        return;
+    end
+
+    if (not _oufLibraries) then
+        _oufLibraries = {};
+        for i = 1, C_AddOns.GetNumAddOns() do
+            local global = C_AddOns.GetAddOnMetadata(i, "X-oUF");
+            if (type(global) == "string" and global ~= "") then
+                _oufLibraries[global] = 0;
+            end
+        end
+    end
+
+    for global, seen in pairs(_oufLibraries) do
+        local library = _G[global];
+        local objects = type(library) == "table" and library.objects;
+
+        if (type(objects) == "table") then
+            for j = seen + 1, #objects do
+                -- Handed over the way the Clique protocol hands one over, since that is the door
+                -- these frames were aimed at. Everything a frame can be turned away for is
+                -- `RegisterFrame`'s: a refusal it already recorded, unprotected, forbidden,
+                -- anchor-tied, or unable to take a click.
+                --
+                -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
+                -- `IsForbidden` false is no longer proof that touching it will not raise. A frame
+                -- that cannot be looked at is left where it already stood.
+                pcall(DebindPrivate.RegisterFrame, objects[j], true);
+            end
+            _oufLibraries[global] = #objects;
+        end
+    end
+end
+
+--- **The frames a pack keeps to itself, listed by name.**
+---
+--- Every other door needs the frame to arrive as something: a write into the Clique table, a
+--- header's child, an entry in a library's list. A pack that runs click casting of its own puts
+--- its frames through none of those - it wires them up itself - so the only ones we ever saw were
+--- the ones that happened to be a group header's children. These are its unit frames that are not:
+---
+--- - a party block's self slot. A header with five slots hands the fifth `player`, and a pack that
+---   wants the player to hold a fixed slot cannot let the header do that, because the header
+---   reorders. So the slot is a standalone button with `unit` fixed, beside the header rather than
+---   under it. Four slots answered and the fifth did not.
+--- - the boss frames and the duplicates of chosen raid members, both standalone for the same
+---   reason: their units are picked rather than rostered.
+--- - its single unit frames, since it stopped building them on a frame library (2026-09-03). The
+---   library was the door they came through, and asking it is the one recovery there was for a
+---   write that landed in somebody else's table; a pack with an engine of its own has nothing to
+---   ask. It writes them into the Clique table exactly as before, and by then its own raid module
+---   is holding that name.
+---
+--- **Patterns, and anchored.** Two of these are numbered and one of those has no fixed count - it
+--- is capped by a value in the pack's own file, and spelling the names out would mean keeping that
+--- number in step with a file we do not control, one it can raise without anything here going red.
+--- They are patterns rather than prefixes because this list is not one pack's: the next one to need
+--- a row may number in the middle of its names or carry the reader's own words in them, and a
+--- prefix would have to be widened to the point of matching whatever else that pack made. Anchoring
+--- keeps each row narrower than a prefix would be.
+---
+--- **Names and not a rule about frames in general.** What would have to be read to find such a
+--- frame in the open is every secure frame an addon wraps, and the filter that would sort those is
+--- one we cannot check against addons we have never seen. A name is wrong about nothing else, and
+--- when a pack renames one, nothing matches and we are back where we already stood.
+---
+--- **A row says the kind only where reading it does not work**, and hands the frame over the way
+--- the Clique protocol does otherwise, leaving `DeriveFrameType` to read it. Which one a row wants
+--- is a property of how that frame is built, not a preference:
+---
+--- - a slot in a set cannot be read. The duplicates are wired up - and so seen by us - two lines
+---   after they are made, and the unit goes on when a slot is handed out; the pack wires each
+---   frame once, so the pass that could read one is the pass that has nothing to read. And when
+---   there is a unit it is the raid member filling that slot right now, which is the reason a
+---   header's children are not read either.
+--- - the frame carrying a boss token is a group frame all the same. An encounter puts the friendly
+---   NPC you are meant to keep alive on a boss token, and the frame drawn for it sits in the raid
+---   block for the healer to reach. Reading it answers boss, and what somebody choosing the boss
+---   frames pictures is the enemy's bar off to the side. Same call as the pet headers.
+--- - a frame standing for one unit and no other is read, because the unit is on it before anything
+---   else happens to it and cannot move. Saying the kind for one of those would only be a second
+---   place to keep the same answer, and the pack adding a unit would find this list silent.
+local NAMED_UNIT_FRAMES            = {
+    { "^ERFPartySelfButton$", "group" },
+    { "^ERFFriendlyBoss%d+$", "group" },
+    { "^ERFExtraFrame%d+$",   "group" },
+    { "^EllesmereUIUnitFrames_", true },
+};
+
+local function NameOf(frame)
+    return frame:GetName();
+end
+
+--- **Caught as the pack wires the frame up, because that is the only moment there is.** These are
+--- built when they are first needed and not at login - a boss frame when the reader turns it on or
+--- changes spec, a duplicate when they add somebody to the list - so a look on any event of ours
+--- finds only whatever happened to exist by then. `SecureUnitButtonTemplate` carries no `OnLoad`
+--- and a global appearing announces nothing, so what is left is the calls a frame passes on its way
+--- into somebody's click casting.
+---
+--- **Several doors, because none of them is compulsory.** A pack is free to skip any one of these -
+--- nothing in the game makes a unit frame call `SecureUnitButton_OnLoad` or `RegisterUnitWatch` -
+--- so listening on one would be betting on a habit. Listening on all of them costs nothing: a frame
+--- already registered leaves `RegisterFrame` on the row it has, before any of the checks, and one
+--- that does not match a prefix never gets that far.
+---
+--- **The hook only decides when, and the list decides what.** Everything arriving at these is an
+--- addon's doing, which is exactly why no test on the frame itself would do - it would have to be
+--- right about addons we have never seen. The name is asked instead.
+---
+--- **A wrap of our own is not a discovery.** `RegisterFrame` wraps through `BindingDriver` on the
+--- very frames this list matches, and the row it is about to write is not there yet.
+function TakeNamedFrame(frame)
+    -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
+    -- `IsForbidden` false is no longer proof that touching it will not raise. `GetName` in
+    -- particular is the call this file was already burnt by (see `DeriveFrameType`).
+    local ok, name = pcall(NameOf, frame);
+    if (not ok or type(name) ~= "string") then
+        return;
+    end
+
+    for i = 1, #NAMED_UNIT_FRAMES do
+        if (strmatch(name, NAMED_UNIT_FRAMES[i][1])) then
+            pcall(DebindPrivate.RegisterFrame, frame, NAMED_UNIT_FRAMES[i][2]);
+            return;
+        end
+    end
+end
+
+--- The frame here is the third argument: the one being handed to a secure header, rather than the
+--- header doing the handing.
+local function OnSecureFrameRef(header, _, frame)
+    if (header == BindingDriver or header == DebindPrivate.UnitWatch) then
+        return;
+    end
+    if (frame) then
+        TakeNamedFrame(frame);
+    end
+end
+
+--- **The children of a group header, taken off the header itself.**
+---
+--- Every other way we hear about one of these depends on its addon connecting to us. The header
+--- protocol connection is made once, when the header is built, by reading a global we have to be
+--- standing in at that moment (`Public.lua`); a header built before that, or one whose addon does
+--- not speak the protocol at all, is never joined and none of its children ever arrive. The table
+--- is no better: whoever holds its name at the time gets the writes.
+---
+--- **A header knows its children exactly.** `configureChildren` puts each unit button in a `child<i>`
+--- attribute as it makes it (`SecureGroupHeaders.lua`), so the attributes enumerate the unit buttons
+--- and nothing else. `GetChildren()` would hand back the backgrounds and textures with them.
+---
+--- **They are group frames, all of them.** A header hands its children whichever unit they are
+--- filling right now and takes it back, so the token on a child says which slot it is and not what
+--- the frame is. The pet headers are here for the same answer: what someone reading "pet frame"
+--- pictures is their own pet's frame, not a grid of other people's pets.
+local function CollectHeaderChildren(header)
+    -- **Ours are group headers too, and the hook below cannot tell.** `UnitWatch.lua` builds its
+    -- role watchers out of `SecureGroupHeaderTemplate`, so they come through here like anyone
+    -- else's, and their children pass every gate `RegisterFrame` has. Registering them wires
+    -- click-casting onto frames that have no size and are never on screen.
+    if (DebindPrivate.OwnGroupHeaders[header]) then
+        return;
+    end
+
+    local i = 1;
+    while (true) do
+        local child = header:GetAttribute("child" .. i);
+        if (not child) then
+            return;
+        end
+        -- **Marked before it is offered, and the mark stays.** This is the only door that knows
+        -- these frames are a header's, and the answer has to hold for the doors that do not
+        -- (`_headerChildren`).
+        _headerChildren[child] = true;
+        -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
+        -- `IsForbidden` false is no longer proof that touching it will not raise.
+        pcall(DebindPrivate.RegisterFrame, child, "group");
+        i = i + 1;
+    end
+end
+
+--- **Two hooks per header kind, because one of them may never fire.** `OnLoad` is the earliest a
+--- header can be caught and the only one that catches a header that is never shown, but the
+--- template names it in XML and what that binds is not ours to see. `SecureGroupHeader_Update` is
+--- named from Lua by `SecureGroupHeader_OnEvent` and `_OnAttributeChanged`, so hooking it resolves
+--- at the call and is certain. It is also where the children are made, which makes it the re-walk:
+--- a header gains children as the group does, and this runs the moment after it did.
+---
+--- Both are cheap to run twice. A child already registered leaves `RegisterFrame` on the row it
+--- already has, before any of the checks.
+if (not DebindPrivate.CliqueDetected) then
+    hooksecurefunc("SecureGroupHeader_OnLoad", CollectHeaderChildren);
+    hooksecurefunc("SecureGroupHeader_Update", CollectHeaderChildren);
+    hooksecurefunc("SecureGroupPetHeader_OnLoad", CollectHeaderChildren);
+    hooksecurefunc("SecureGroupPetHeader_Update", CollectHeaderChildren);
+
+    hooksecurefunc("SecureHandlerSetFrameRef", OnSecureFrameRef);
+    hooksecurefunc("RegisterStateDriver", TakeNamedFrame);
+    hooksecurefunc("RegisterAttributeDriver", TakeNamedFrame);
+    -- **Each one asked for, because a global that is not there raises.** These live in addons the
+    -- client loads at startup rather than in the frame code proper, and a build that ships without
+    -- one would take the whole file down on load.
+    if (SecureUnitButton_OnLoad) then
+        hooksecurefunc("SecureUnitButton_OnLoad", TakeNamedFrame);
+    end
+    if (RegisterUnitWatch) then
+        hooksecurefunc("RegisterUnitWatch", TakeNamedFrame);
+    end
+    if (UnitFrame_Initialize) then
+        hooksecurefunc("UnitFrame_Initialize", TakeNamedFrame);
     end
 end
 

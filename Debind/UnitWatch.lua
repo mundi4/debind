@@ -28,6 +28,16 @@ end
 DebindPrivate.UnitWatch             = UnitWatch;
 DebindPrivate.UnitWatchHeaders      = {};
 
+--- The group headers this file builds, so `FrameRegistry`'s header door can leave them alone.
+--- `SecureGroupHeader_OnLoad` and `_Update` are hooked globally there, and the hook is handed
+--- whichever header the client just laid out -- ours included, because these are
+--- `SecureGroupHeaderTemplate` too. Their children pass every gate `RegisterFrame` has, so without
+--- this they register as click-cast frames.
+---
+--- Keyed by the frame rather than the alias because that is the question being asked, and because
+--- the roster watcher below has no alias.
+DebindPrivate.OwnGroupHeaders       = {};
+
 
 SecureHandlerSetFrameRef(UnitWatch, "debind_driver", BindingDriver);
 SecureHandlerExecute(UnitWatch, [=[
@@ -236,6 +246,7 @@ end
     function CreateUnitWatchHeader(alias, numFrames, ...)
         local header = CreateFrame("Button", nil, nil, "SecureGroupHeaderTemplate");
         DebindPrivate.UnitWatchHeaders[alias] = header;
+        DebindPrivate.OwnGroupHeaders[header] = true;
         header:Hide();
 
         header:SetAttribute("alias", alias);
@@ -302,6 +313,7 @@ UnitWatch:SetAttribute("OnGroupRosterChanged", [==[
 
 do
     local header = CreateFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
+    DebindPrivate.OwnGroupHeaders[header] = true;
     header:SetAttribute("showParty", true);
     header:SetAttribute("showRaid", true);
     header:SetAttribute("showSolo", true);
