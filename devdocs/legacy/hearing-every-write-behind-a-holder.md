@@ -1,7 +1,8 @@
 # 홀더 뒤에서 쓰기를 하나도 놓치지 않는다
 
-> 상태: 계획, 착수 전 (2026-09-07). `legacy/standing-on-top-of-foreign-wrappers.md` 3단계의
-> 후속이다. 다툼 없이 정해져서 `0-DIARY.md`에는 없다.
+> 상태: 전부 구현됨 (2026-09-07), 한 커밋으로. `legacy/standing-on-top-of-foreign-wrappers.md`
+> 3단계의 후속이다. 다툼 없이 정해져서 `0-DIARY.md`에는 없다. 각 항목 밑에 계획과 갈린 것을
+> 적었다.
 
 ## 무엇을 하는가
 
@@ -31,6 +32,10 @@
 - `registered`는 비우지 않는다. 우리가 이름을 들고 있을 때만 읽히는 것이고, 홀더가 떠나는 길은
   없다.
 
+#### 계획과 갈린 것
+
+계획대로다.
+
 ### 2. 모르는 프레임의 wrap에도 이름을 다시 확인한다
 
 `OnHolderWrap`은 우리가 아는 프레임(`offered`, `deferred`, `ccframes`)일 때만 한 틱 뒤에
@@ -48,6 +53,19 @@
 - 지금 있는 케이스 "a wrap on a frame we know nothing about queues nothing"은 절반이 뒤집힌다.
   되묻기는 여전히 없고, 이름 확인은 생긴다.
 
+#### 계획과 갈린 것
+
+- **이름 확인을 건너뛰는 조건은 모르는 프레임 쪽에만 걸었다.** 계획의 "예약 전에
+  `_G.ClickCastFrames`가 우리 프록시거나 `holder`와 같으면 아무것도 안 한다"를 아는 프레임에까지
+  적용하면, 지금 돌고 있는 되묻기(`AttachClickCastFrames` + `AskHolder(frame)`)가 홀더가 그대로
+  있는 흔한 경우에 통째로 사라진다. 그 되묻기가 이 훅의 원래 일이라 아는 프레임 길은 그대로 두고,
+  새 예약 표시(`nameCheckQueued`)와 그 비교는 모르는 프레임 길에만 세웠다. 전투 검사만 두 길
+  앞으로 끌어올렸다.
+- **뒤집힌다던 케이스는 두 쪽 다 초록이라 이름만 고쳤다**(`a wrap on a frame we know nothing
+  about re-asks nothing`). 그 케이스의 홀더는 이미 우리가 뒤에 서 있는 표라
+  `current == holder`에서 예약이 서지 않는다. 이름 확인이 생기는 것은 새 케이스(`still checks the
+  name`)가 잰다.
+
 ### 3. 홀더가 버린 프레임을 우리가 받았으면 그 주인이 되찾을 수 있게 답한다
 
 프레임 주인이 되찾는 문장은 `if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end`다.
@@ -64,6 +82,17 @@
   프레임이 "홀더가 잡았다"로 읽혀서, 옵션을 끈 사용자의 되묻기가 자기가 받은 프레임을 도로
   내놓는다. `WrapNewIndex`처럼 원래 것을 지역에 잡아 두고 `AskHolder`가 그것으로 읽는다.
 - `deferred`의 프레임은 건드리지 않는다. 홀더가 잡은 것은 홀더의 `__index`가 이미 참을 답한다.
+
+#### 계획과 갈린 것
+
+- **감싸기 전의 `__index`는 지역 하나가 아니라 `hooked`의 값이 들었다.** 계획은
+  `WrapNewIndex`처럼 지역에 잡아 두라고 했는데, `hooked`는 메타테이블별이고 `holder`는 표별이라
+  홀더가 둘 이상 번갈아 서면 지역 하나가 엉뚱한 것을 든다. `hooked[mt]`를 `true` 대신
+  `{ index = <감싸기 전 __index> }`로 두고, `Hook`이 그 표를 `holderHook`에 물린다. 이미 감싼
+  메타테이블을 다시 만나는 길(표만 갈아 끼운 홀더)에서도 그 자리에서 다시 물린다.
+- **`HolderAnswer`는 `rawget`을 먼저 본다.** 평범한 읽기가 표 안을 먼저 보고 없을 때만
+  `__index`로 가므로, 그 순서를 그대로 낸다. 프록시는 표가 비어 있어 실제로는 늘 `__index`로
+  가지만, "감싸기 전과 같은 답"이 되려면 두 단계가 다 있어야 한다.
 
 ## 하지 않는 것
 
@@ -99,6 +128,15 @@
   붙인다. 가짜 홀더가 거기 이미 있다. 2번은 실제 틱을 기다려야 하니 킷의 다음 틱 헬퍼를 쓴다.
 - `.zzz/eui-hovercast-savedvars.md`나 legacy 문서는 손대지 않는다. 끝나면 이 문서를
   `devdocs/legacy/`로 옮기고 `0-ROADMAP.md`의 줄을 맞춘다.
+
+### 계획과 갈린 것
+
+- **한 커밋에 넣었다.** 셋이 `Hook`과 `AttachClickCastFrames` 같은 자리를 함께 고치고, 3번의
+  음성 케이스가 1번과 2번이 쓰는 되묻기 길을 같이 재기 때문이다.
+- **새 케이스 넷 중 셋이 고치기 전 코드에서 빨갛게 나오는 것을 봤다.** 3번의 음성
+  (`a re-ask reads past our own answer and keeps the frame`)은 감싼 `__index`가 없는 옛 코드에서는
+  초록이라, `AskHolder`를 도로 `holder[frame]`으로 돌려 빨간 것을 확인했다. 그때 기존 되묻기
+  케이스 셋도 같이 빨개졌다.
 
 ## 커버리지
 

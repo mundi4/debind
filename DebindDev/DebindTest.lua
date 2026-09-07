@@ -5536,7 +5536,7 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 -- files and drops reach us. A frame it kept reaches us as well now, because standing on top of
 -- whatever it wrapped means both engines work there.
 RegisterTest("Click-cast table: the holder keeps the name and we stand on top of it", {
-    description = "남의 ClickCastFrames를 되찾지 않고 그 뒤에 서되, 그쪽이 잡은 프레임도 우리가 받는다",
+    description = "남의 ClickCastFrames를 되찾지 않고 그 뒤에 서서, 우리가 들고 있던 행을 건네주고 쓰기와 읽기를 다 듣는다",
     run = function()
         local NAME = "ClickCastFrames holder"
 
@@ -5551,20 +5551,48 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
         if type(ours) ~= "table" then
             return Fail(NAME, format("ClickCastFrames is not a table (%s)", type(ours)))
         end
-        AddTeardown(function() _G.ClickCastFrames = ours end)
+        local handed
+        AddTeardown(function()
+            _G.ClickCastFrames = ours
+            if handed then
+                ours[handed] = nil
+            end
+        end)
 
-        -- A holder in the shape the real ones have: a store of its own in an upvalue, and an
-        -- `__index` that answers for the frames it decided to keep.
-        local kept = {}
+        -- A frame registered while the name is still ours, so the holder below arrives after it.
+        -- Our rows sit beside the table rather than in it, so the `pairs` walk a holder builds its
+        -- store from yields nothing -- and this is the frame that walk would have found had a plain
+        -- table been sitting there.
+        local err0
+        handed, err0 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        if not handed then return Fail(NAME, err0) end
+        DebindPrivate.UnregisterFrame(handed)
+        _G.ClickCastFrames[handed] = true
+        local handedRow = DebindPrivate.ccframes[handed]
+        if type(handedRow) ~= "table" then
+            return Fail(NAME, format("the premise is gone: the frame never registered with us (ccframes=%s)",
+                tostring(handedRow)))
+        end
+
+        -- A holder in the shape the real ones have: a store of its own in an upvalue, an `__index`
+        -- that answers for the frames it decided to keep, and a `__newindex` that files every write.
+        local kept, filed = {}, {}
         local theirs = setmetatable({}, {
             __index = function(_, frame) return kept[frame] end,
-            __newindex = function() end,
+            __newindex = function(_, frame, value) filed[frame] = value end,
         })
         _G.ClickCastFrames = theirs
 
         DebindPrivate.AttachClickCastFrames()
         if _G.ClickCastFrames ~= theirs then
             return Fail(NAME, "the holder's table was replaced, which loses every frame already written into it")
+        end
+        if filed[handed] ~= true then
+            return Fail(NAME, format("the holder never heard about the frame we were already holding (filed=%s)",
+                tostring(filed[handed])))
+        end
+        if DebindPrivate.ccframes[handed] ~= handedRow then
+            return Fail(NAME, "handing that frame over registered it a second time")
         end
 
         -- The frame the holder keeps. `kept` is what its `__index` answers out of, so writing it
@@ -5593,13 +5621,56 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
                 tostring(DebindPrivate.ccframes[dropped])))
         end
 
+        -- **The owner takes a frame back by reading the table first**
+        -- (`if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end`), and the holder
+        -- answers nil for a frame it never kept -- so unless that read answers, the reclaim below
+        -- never happens and we go on routing a frame its owner asked for back.
+        if not _G.ClickCastFrames[dropped] then
+            return Fail(NAME, "reading the table back said nobody was answering for a frame we had taken")
+        end
+
         -- A deregistration is honoured wherever it comes from.
         _G.ClickCastFrames[dropped] = nil
         if DebindPrivate.ccframes[dropped] then
             return Fail(NAME, "a nil write did not take the frame back off us")
         end
 
-        return Pass(NAME, "the name was left alone, and the kept frame and the dropped one both came to us")
+        -- **A holder puts its proxy up and then wraps its own frames, and we know nothing about any
+        -- of them** -- so none of those wraps was a reason to look at the name, and a registration a
+        -- third addon wrote into that proxy meanwhile was heard by nobody. A proxy keeps its store
+        -- in an upvalue, so no later pass can find it either.
+        local later = setmetatable({}, {
+            __index = function() end,
+            __newindex = function() end,
+        })
+        _G.ClickCastFrames = later
+        local beforeWrap = getmetatable(later).__newindex
+
+        local stranger = _G.DebindTestHolderStranger
+            or CreateFrame("Button", "DebindTestHolderStranger", UIParent, "SecureUnitButtonTemplate")
+        if DebindPrivate.ccframes[stranger] then
+            return Fail(NAME, "the premise is gone: the stranger frame is one we already know about")
+        end
+        SecureHandlerWrapScript(stranger, "OnEnter", FakeHeader(), "-- theirs")
+        AddTeardown(function() SecureHandlerUnwrapScript(stranger, "OnEnter") end)
+
+        -- Waits for the tick the check is booked on, which is **not** what is asserted after it:
+        -- the assertion is whether a write into that proxy then reaches us at all.
+        local stood = WaitUntil(function() return getmetatable(later).__newindex ~= beforeWrap end, 2)
+        if not stood then
+            return Fail(NAME, "a foreign wrap never sent us back to look at the name")
+        end
+
+        local third, err3 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        if not third then return Fail(NAME, err3) end
+        DebindPrivate.UnregisterFrame(third)
+        later[third] = true
+        if type(DebindPrivate.ccframes[third]) ~= "table" then
+            return Fail(NAME, format("a registration written into the holder's proxy was never heard (ccframes=%s)",
+                tostring(DebindPrivate.ccframes[third])))
+        end
+
+        return Pass(NAME, "the name was left alone, the frame we already had went over, the kept and dropped ones both came to us, and a later proxy was heard")
     end,
 })
 

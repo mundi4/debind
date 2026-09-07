@@ -24,7 +24,7 @@
 | **3.5에 같이** | 가리킨 그룹 프레임 사람의 역할을 조건으로 묻는다 | `legacy/adding-a-role-condition.md` |
 | **3.5에 같이** | 커스텀 매크로 변환이 키가 하던 일을 바꾸던 것 | `CHANGELOG.md` |
 | **다음 릴리스** | 남의 래퍼 위에 서서 그쪽 본문을 대신 돌린다. 3.5.2가 집던 프레임을 옵션(기본 켬) 뒤에 되살렸고, ~~등록되지 않은 개체창은 건드리지 않는다~~는 그것으로 뒤집혔다(2026-09-07, 소유자). **번호는 낼 때 소유자가 정한다**, `CHANGELOG.md` 머리말은 `3.6`으로 적어 뒀다 | `legacy/standing-on-top-of-foreign-wrappers.md`<br>`legacy/leaving-unregistered-frames-alone.md` |
-| **다음 릴리스에 같이** | 홀더 뒤에서 쓰기를 하나도 놓치지 않는다. 위 줄의 3단계가 남긴 셋. 이름을 되찾지 않는 판단은 그대로다 | `hearing-every-write-behind-a-holder.md` |
+| **다음 릴리스에 같이** | 홀더 뒤에서 쓰기를 하나도 놓치지 않는다. 위 줄의 3단계가 남긴 셋. 이름을 되찾지 않는 판단은 그대로다 | `legacy/hearing-every-write-behind-a-holder.md` |
 | **다음 릴리스에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, 순서를 강제하는 것은 그 가져오기 트랙이다 | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, 보관함의 남은 넷 | `switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |

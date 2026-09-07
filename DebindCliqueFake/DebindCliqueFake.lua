@@ -80,12 +80,35 @@ local offered = setmetatable({}, { __mode = "k" });
 --- can let one go later (its own setting moves, its engine is turned off) and nothing tells us.
 local deferred = setmetatable({}, { __mode = "k" });
 
---- The metatables whose `__newindex` we have already put ourselves after, so a second pass over
---- the same proxy does not stack a second wrapper on it.
+--- The metatables we have already put ourselves after, so a second pass over the same proxy does
+--- not stack a second wrapper on it. Each entry keeps that metatable's `__index` as it was before
+--- we wrapped it, which is the only thing that can still say what the holder decided.
 local hooked = setmetatable({}, { __mode = "k" });
 
 --- The foreign table under the name, or nil while the name is ours.
 local holder;
+
+--- The `hooked` entry for the metatable `holder` is under.
+local holderHook;
+
+--- **What the holder alone answers, read the way the table read before we wrapped it.** Our own
+--- `__index` wrapper answers for frames we took, so asking through it would report every one of
+--- them as the holder's -- and a re-ask with the option off would hand each one straight back.
+local function HolderAnswer(frame)
+    if (not holder) then
+        return nil;
+    end
+    local value = rawget(holder, frame);
+    if (value ~= nil) then
+        return value;
+    end
+    local index = holderHook and holderHook.index;
+    if (type(index) == "function") then
+        return index(holder, frame);
+    elseif (index ~= nil) then
+        return index[frame];
+    end
+end
 
 --- **The holder answers and we take what it did not.** `__index` is the question every addon
 --- already asks of this table, so asking it back is asking the holder what it decided rather than
@@ -105,7 +128,7 @@ local function AskHolder(frame)
     if (not holder) then
         return;
     end
-    if (holder[frame] and not DebindPrivate.TakesUnregisteredFrames()) then
+    if (HolderAnswer(frame) and not DebindPrivate.TakesUnregisteredFrames()) then
         deferred[frame] = true;
         DebindPublic:UnregisterFrame(frame);
     else
@@ -145,6 +168,49 @@ local function WrapNewIndex(mt)
     end;
 end
 
+--- **A frame we took has to read back as taken, behind a holder too.** The owner of a frame takes
+--- it back with `if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end`, and a holder
+--- answers nil for a frame it never kept -- so against a holder that reclaim never wrote anything,
+--- no `__newindex` ran, and we went on routing a frame its owner had asked for back. That is the
+--- fault `registered` was put beside our own table for, reappearing one layer up.
+---
+--- **The holder answers first and is never contradicted.** Only its nil is filled in, and only for
+--- a frame it dropped and we then took; a frame it kept is its own answer, which is already true.
+local function WrapIndex(mt, record)
+    mt.__index = function(t, frame)
+        local original = record.index;
+        local answer;
+        if (type(original) == "function") then
+            answer = original(t, frame);
+        elseif (original ~= nil) then
+            answer = original[frame];
+        end
+
+        if ((answer == nil or answer == false)
+                and offered[frame] ~= nil
+                and type(DebindPrivate.ccframes[frame]) == "table") then
+            return offered[frame];
+        end
+        return answer;
+    end;
+end
+
+--- **The rows we were holding, handed to the holder that arrived after them.** A holder builds its
+--- store by walking the table it finds under the name, and ours yields nothing to `pairs` because
+--- the rows sit beside the table rather than in it -- so those frames, which any plain table would
+--- have passed on, were the ones its store never learned about.
+---
+--- **Written as ordinary registrations, after `Hook`.** The write runs the holder's `__newindex`
+--- and then ours, so the holder files it and the frame comes back through `AskHolder`; written
+--- before the wrapper is on, our side would never hear it again and a later drop by the holder
+--- would not reach us. `RegisterFrame` returns the row a frame already has, so nothing registers
+--- twice.
+local function HandOver(target)
+    for frame, value in pairs(registered) do
+        target[frame] = value;
+    end
+end
+
 --- **A proxy is not taken back, it is listened to.** The name belongs to whoever is answering for
 --- Clique, and a unit frame addon that puts its own table over it has said it is answering. Taking
 --- the name back does not bring the frames already written into the other table with it, and it
@@ -160,10 +226,15 @@ local function Hook(previous)
     -- metatable.** A holder that rebuilds its store hands us a new table on the same `mt`, and
     -- returning early with `holder` left on the dead one asks a table nobody writes to any more.
     holder = previous;
-    if (hooked[mt]) then
+    local record = hooked[mt];
+    if (record) then
+        holderHook = record;
         return;
     end
-    hooked[mt] = true;
+    record = { index = mt.__index };
+    hooked[mt] = record;
+    holderHook = record;
+    WrapIndex(mt, record);
     WrapNewIndex(mt);
 
     -- Rows already in the table, put through the same question as a fresh write. A proxy that
@@ -211,11 +282,19 @@ local function AttachClickCastFrames()
     end
 
     if (type(mt) == "table" and mt.__newindex ~= nil) then
+        -- **"The first time we meet this table", not this metatable.** A holder that rebuilds its
+        -- store hands us a new table on the same `mt`, and the new one knows nothing of the old
+        -- one's rows either.
+        local fresh = (holder ~= previous);
         Hook(previous);
+        if (fresh) then
+            HandOver(previous);
+        end
         return;
     end
 
     holder = nil;
+    holderHook = nil;
     _G.ClickCastFrames = setmetatable({}, ccframesMeta);
     Adopt(previous);
 end
@@ -259,14 +338,40 @@ end
 --- below sees nil on every unwrap and the self-filter does nothing there. The flag is what stands
 --- in: our own unwrapping says so before it starts (`FrameRegistry.RewrapUnitFrames`), because
 --- nothing in the arguments can say it.
+--- **A holder puts its proxy up and then wraps its own frames, and every one of those is a frame
+--- we know nothing about.** So none of them was a reason to look at the name, and a registration a
+--- third addon wrote into that proxy in the meantime was never heard -- a proxy keeps its store in
+--- an upvalue, so no later pass can find it either. Looking at the name on any foreign wrap is what
+--- shortens that window to one tick.
+---
+--- **One check per tick.** A holder wraps its frames dozens at a time and every one of them would
+--- otherwise book its own.
+local nameCheckQueued;
+
+local function QueueNameCheck()
+    local current = _G.ClickCastFrames;
+    if (nameCheckQueued or current == holder or getmetatable(current) == ccframesMeta) then
+        return;
+    end
+    nameCheckQueued = true;
+    C_Timer.After(0, function()
+        nameCheckQueued = false;
+        if (InCombatLockdown()) then
+            return;
+        end
+        AttachClickCastFrames();
+    end);
+end
+
 local function OnHolderWrap(frame, _, header)
     if (header == DebindPublic.header or DebindPrivate.unwrappingOwnScripts) then
         return;
     end
-    if (not (offered[frame] or deferred[frame] or DebindPrivate.ccframes[frame])) then
+    if (InCombatLockdown()) then
         return;
     end
-    if (InCombatLockdown()) then
+    if (not (offered[frame] or deferred[frame] or DebindPrivate.ccframes[frame])) then
+        QueueNameCheck();
         return;
     end
     C_Timer.After(0, function()
