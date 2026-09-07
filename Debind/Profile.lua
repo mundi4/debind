@@ -2046,6 +2046,16 @@ function DebindPrivate.InitDB()
     --- asked, and what they had is the wider behaviour.
     DebindPrivate.takeUnregisteredFrames = db.takeUnregisteredFrames ~= false;
 
+    --- **Copied, and for the same reason.** The box writes into `db.packFrames` and the doors read
+    --- this, so what the reader ticks reaches the frames at the next login and not halfway through
+    --- this one. Only `false` is ever written; a pack that is absent from it is on.
+    DebindPrivate.packFrames = {};
+    if (type(db.packFrames) == "table") then
+        for addon, taken in pairs(db.packFrames) do
+            DebindPrivate.packFrames[addon] = taken;
+        end
+    end
+
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
     DebindPrivate.CleanUpDB()
@@ -2056,6 +2066,13 @@ end
 --- scope), and the reader could not have turned it off in that window anyway.
 function DebindPrivate.TakesUnregisteredFrames()
     return DebindPrivate.takeUnregisteredFrames ~= false;
+end
+
+--- Whether a known pack's frames are ours to take. **Answered true before `InitDB` has run**, for
+--- the reason above.
+function DebindPrivate.TakesPackFrames(addon)
+    local packs = DebindPrivate.packFrames;
+    return packs == nil or packs[addon] ~= false;
 end
 
 --- Says out loud that the addon stood down. Once at login (`Events.lua`), and again every time

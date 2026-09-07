@@ -5822,6 +5822,75 @@ local function CheckNamedFrames(NAME, entries)
     return Pass(NAME, detail);
 end
 
+-- **Needs the game, and needs no pack.** What a client alone can answer is whether a frame the
+-- switch turned away really goes without the routing and the frametype attribute the secure side
+-- reads at the press -- the row is only half of that. The kit adds its own row to
+-- `KNOWN_PACK_FRAMES` and takes it back, so this runs on every board rather than on the one that
+-- happens to have EllesmereUI installed.
+RegisterTest("a pack that is turned off is not wired at all", {
+    description = "꺼둔 팩의 개체창은 등록도 배선도 안 된다",
+    run = function()
+        local NAME = "pack switch";
+        local PACK = "DebindPackSwitchTest";
+        local FRAME_NAME = "DebindPackSwitchTestFrame";
+
+        if (InCombatLockdown()) then
+            return Fail(NAME, "registering a frame is blocked in combat");
+        end
+
+        AddTeardown(DebindPrivate.AddKnownPackFrameRow("^debindpackswitchtestframe%d+$",
+            PACK, "group"));
+
+        local saved = DebindPrivate.packFrames[PACK];
+        AddTeardown(function()
+            DebindPrivate.packFrames[PACK] = saved;
+        end);
+
+        --- Reused by name across runs the way `CreateTestUnitFrame` does, and for the same reason:
+        --- a frame the client made once cannot be made again.
+        local function PackFrame(n)
+            local name = FRAME_NAME .. n;
+            local frame = _G[name]
+                or CreateFrame("Button", name, UIParent, "SecureUnitButtonTemplate");
+            frame:SetAttribute("unit", "player");
+            DebindPrivate.ccframes[frame] = nil;
+            frame:Show();
+            AddTeardown(function()
+                DebindPrivate.UnregisterFrame(frame);
+                frame:Hide();
+            end);
+            return frame;
+        end
+
+        DebindPrivate.packFrames[PACK] = false;
+        local off = PackFrame(1);
+        DebindPrivate.RegisterFrame(off, "group");
+
+        if (DebindPrivate.ccframes[off] ~= nil) then
+            return Fail(NAME, format("the switch is off and the frame still has a row (%s)",
+                tostring(DebindPrivate.ccframes[off])));
+        end
+        if (off:GetAttribute("debind_frametype") ~= nil) then
+            return Fail(NAME, format("the switch is off and the frame carries debind_frametype %s",
+                tostring(off:GetAttribute("debind_frametype"))));
+        end
+        if (off:GetAttribute("*type-debind1") ~= nil) then
+            return Fail(NAME, "the switch is off and the frame's clicks are still routed to us");
+        end
+
+        -- The other half: with the same row on, a frame with the same name gets everything.
+        DebindPrivate.packFrames[PACK] = nil;
+        local on = PackFrame(2);
+        DebindPrivate.RegisterFrame(on, "group");
+
+        local fault = CheckWiredFrame(on, FRAME_NAME .. "2", Constants.FRAMETYPE_GROUP);
+        if (fault) then
+            return Fail(NAME, "the switch is on and " .. fault);
+        end
+        return Pass(NAME, "off: no row, no frametype, no routing; on: wired");
+    end,
+})
+
 -- **The kind is read off these**, because each stands for one unit and carries it before anything
 -- else touches it. So this pins the reading as much as the registration: a player frame that came
 -- out a group frame would take the reader's party bindings.

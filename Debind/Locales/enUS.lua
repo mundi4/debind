@@ -8,6 +8,10 @@ local L = addon.L;
 -- 문자열마다 다른 빨강이었다.
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
+-- The sibling of BLIZZARD_UNIT_FRAMES, and worded to match it: one submenu per source of unit
+-- frames. What is listed under it is the addon's own Title, so nothing here names somebody else's
+-- addon in words they do not use themselves.
+L["ADDON_UNIT_FRAMES"] = "Unit frame addons"
 -- 여럿을 고른 채로 연 우클릭 메뉴의 제목. 이름을 나열하지 않는 이유는 DELETE_CONFIRM_MESSAGE_MULTIPLE
 -- 쪽 주석에 있다. 아래 카운트와 낱말을 맞춘다 - 한 화면에서 같은 것을 두 가지로 부르지 않는다.
 L["BULK_MENU_TITLE"] = "%d selected"

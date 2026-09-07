@@ -163,6 +163,62 @@ function DebindPrivate.PackAddonForFrameName(name)
     end
 end
 
+--- The packs on the list that are installed on this board, in the table's order, as
+--- `{ addon, title }`. What the option menu offers a box for.
+---
+--- **The title is the addon's own `Title`.** A name we made up for somebody else's addon is a name
+--- the reader has seen nowhere else, and the one they know is the one in their addon list.
+function DebindPrivate.LoadedKnownPacks()
+    local packs, seen = {}, {};
+    for i = 1, #KNOWN_PACK_FRAMES do
+        local addon = KNOWN_PACK_FRAMES[i][2];
+        if (not seen[addon]) then
+            seen[addon] = true;
+            if (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon)) then
+                local title = C_AddOns.GetAddOnMetadata
+                    and C_AddOns.GetAddOnMetadata(addon, "Title");
+                packs[#packs + 1] = { addon, (title and title ~= "") and title or addon };
+            end
+        end
+    end
+    return packs;
+end
+
+--@debug@
+--- **A row the test kit adds and takes back.** The pack switch is a gate every registration
+--- passes, and a case about it that needed one of these packs installed could only ever run on a
+--- board that has it. Returns the call that takes the row off again.
+function DebindPrivate.AddKnownPackFrameRow(pattern, addon, frameType)
+    local row = { pattern, addon, frameType };
+    KNOWN_PACK_FRAMES[#KNOWN_PACK_FRAMES + 1] = row;
+    return function()
+        for i = #KNOWN_PACK_FRAMES, 1, -1 do
+            if (KNOWN_PACK_FRAMES[i] == row) then
+                tremove(KNOWN_PACK_FRAMES, i);
+                return;
+            end
+        end
+    end;
+end
+--@end-debug@
+
+local function NameOf(frame)
+    return frame:GetName();
+end
+
+--- The same question asked of a frame.
+---
+--- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering `IsForbidden`
+--- false is no longer proof that touching it will not raise. `GetName` in particular is the call
+--- this file was already burnt by (see `DeriveFrameType`).
+local function PackAddonForFrame(frame)
+    local ok, name = pcall(NameOf, frame);
+    if (not ok) then
+        return;
+    end
+    return DebindPrivate.PackAddonForFrameName(name);
+end
+
 --- The words that name a slot in a group frame set. Asked of `player` and of nothing else.
 local GROUP_NAME_WORDS             = { "party", "raid" };
 
@@ -594,6 +650,17 @@ function DebindPrivate.RegisterFrame(button, type)
         return;
     end
 
+    --- **The pack switch is asked here and nowhere else, because every door comes through here.**
+    --- A frame the reader has turned off gets no row, so nothing wraps it and nothing reassembles
+    --- it, whether it arrived through the Clique table, a header, a library list or the name door.
+    ---
+    --- **A name no row covers is not a pack's**, and what decides those is the wider option each
+    --- door already asks (`TakesUnregisteredFrames`). The two do not overlap.
+    local pack = PackAddonForFrame(button);
+    if (pack and not DebindPrivate.TakesPackFrames(pack)) then
+        return;
+    end
+
     if (DebindPrivate.ccframes[button] == false) then
         return;
     end
@@ -973,10 +1040,6 @@ function DebindPrivate.CollectOUFFrames()
             _oufLibraries[global] = #objects;
         end
     end
-end
-
-local function NameOf(frame)
-    return frame:GetName();
 end
 
 --- **Caught as the pack wires the frame up, because that is the only moment there is.** A pack

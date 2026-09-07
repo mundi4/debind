@@ -17,6 +17,7 @@ if (GetLocale() ~= "koKR") then return end
 
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
+L["ADDON_UNIT_FRAMES"] = "개체창 애드온"
 -- 근거는 enUS 쪽 주석에.
 L["BULK_MENU_TITLE"] = "%d개 선택됨"
 L["BULK_SELECTED_COUNT"] = "%d개 선택됨"

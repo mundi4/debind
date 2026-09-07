@@ -437,6 +437,65 @@ return function(DebindPrivate)
             "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
     end);
 
+    --- Runs `fn` with the pack list standing at `packs`, and puts back whatever was there.
+    local function withPacks(packs, fn)
+        local saved = DebindPrivate.packFrames;
+        DebindPrivate.packFrames = packs;
+        local ok, err = pcall(fn);
+        DebindPrivate.packFrames = saved;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    -- **A pack turned off is turned off at every door**, because the switch is asked where all of
+    -- them meet. Half an answer is worse than either: a frame with no row still carrying our
+    -- wrapper runs a body that then declines, on every hover.
+    test("a pack that is turned off arrives through no door", function()
+        local clique = ForeignFrame("ERFFriendlyBoss4", "boss4");
+        local named = ForeignFrame("ERFExtraFrame9", nil);
+        local other = ForeignFrame("EllesmereUIUnitFrames_Target", "target");
+
+        withPacks({ EllesmereUIRaidFrames = false }, function()
+            DebindPrivate.RegisterFrame(clique, true);
+            SecureHandlerWrapScript(named, "OnEnter", ForeignHeader(), "-- theirs");
+            SecureHandlerWrapScript(other, "OnEnter", ForeignHeader(), "-- theirs");
+        end);
+
+        check(DebindPrivate.ccframes[clique] == nil,
+            "the Clique door registered a pack that is off: "
+            .. tostring(DebindPrivate.ccframes[clique]));
+        check(DebindPrivate.ccframes[named] == nil,
+            "the name door registered a pack that is off: "
+            .. tostring(DebindPrivate.ccframes[named]));
+        -- **The switch is one pack's**, and the rows carry the addon so that it can be.
+        check(type(DebindPrivate.ccframes[other]) == "table",
+            "turning one pack off took another one with it");
+    end);
+
+    -- **The two switches do not overlap.** A name no row covers is nobody's pack, so what decides
+    -- it is the wider option each door already asks and nothing a pack box says.
+    test("a name no row covers is left to the wider option", function()
+        local unlisted = ForeignFrame("SomeUIUnitFrame1", "target");
+        local refused = ForeignFrame("SomeUIUnitFrame2", "target");
+
+        withPacks({ EllesmereUIRaidFrames = false, EllesmereUIUnitFrames = false, VuhDo = false },
+            function()
+                DebindPrivate.RegisterFrame(unlisted, true);
+
+                DebindPrivate.takeUnregisteredFrames = false;
+                SecureHandlerWrapScript(refused, "OnEnter", ForeignHeader(), "-- theirs");
+                DebindPrivate.takeUnregisteredFrames = nil;
+            end);
+
+        check(type(DebindPrivate.ccframes[unlisted]) == "table",
+            "a pack box turned away a frame that is not that pack's: "
+            .. tostring(DebindPrivate.ccframes[unlisted]));
+        check(DebindPrivate.ccframes[refused] == nil,
+            "the wider option was off and the name door took the frame anyway: "
+            .. tostring(DebindPrivate.ccframes[refused]));
+    end);
+
     -- **Several doors, because none of them is compulsory.** Nothing in the game makes a unit frame
     -- call any one of these, so listening on one would be betting on a habit.
     test("the other doors take the same frames", function()

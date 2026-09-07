@@ -178,6 +178,38 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             end);
         end
 
+        --- **Only the packs that are installed.** A box for an addon the reader does not have says
+        --- nothing they can act on, and an empty submenu says less than no submenu at all.
+        ---
+        --- **The same reload rule as the boxes above**, and for the same reason: what is already
+        --- wired stays wired, and the answer moves at the next login.
+        local packs = DebindPrivate.LoadedKnownPacks();
+        if (#packs > 0) then
+            local packsDescription = unitframeDescription:CreateButton(LLL["ADDON_UNIT_FRAMES"]);
+            SetInstructionTooltip(packsDescription, REQUIRES_RELOAD);
+            for i = 1, #packs do
+                local addon = packs[i][1];
+                packsDescription:CreateCheckbox(packs[i][2], function()
+                    local stored = DebindPrivate.db.global.packFrames;
+                    return stored == nil or stored[addon] ~= false;
+                end, function()
+                    local stored = DebindPrivate.db.global.packFrames;
+                    if (not stored) then
+                        stored = {};
+                        DebindPrivate.db.global.packFrames = stored;
+                    end
+                    --- Off is `false` and on is the key gone, so a pack the reader never touched
+                    --- and one they turned back on are the same row: absent.
+                    if (stored[addon] == false) then
+                        stored[addon] = nil;
+                    else
+                        stored[addon] = false;
+                    end
+                    return MenuResponse.Refresh;
+                end);
+            end
+        end
+
         --- **Ticked is the wider behaviour and the default.** Some unit frame addons run hover
         --- casting of their own and hand their frames to nobody; ticked, Debind works on those too
         --- and that addon goes on working there as well.
