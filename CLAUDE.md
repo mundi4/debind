@@ -214,6 +214,10 @@ maintaining it.
       are written nowhere else. **How far along a track is does not go here**: that is what its own
       document's status header answers, and the open-work list is the top level of `devdocs/`
       itself.
+    - **`0-IDEAS.md` — what was floated and not taken up.** Each entry says what it is, why not
+      now, and what would reopen it. It is not a plan and not a promise; when an entry grows into a
+      work document it leaves here, and when it is dropped the reason stays so nobody proposes it
+      twice. Its header carries the rules.
   - A work document is a proposal, not an order — read its status header first.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
