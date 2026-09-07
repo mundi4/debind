@@ -4408,32 +4408,58 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
 -- from inside its own body still reaches the binding table through ours, and that two engines
 -- fighting for the top stop rather than filling the C stack.
 --
+-- **What is not here is the client calling our wrapper.** The chain runs on a real cursor crossing
+-- a real frame and on nothing else (`RunWrappedEnter` says why), so what these drive is our own
+-- wrapper body rather than Blizzard's descent into it. The order of the chain and the leave gate
+-- are the shim's to hold; this side holds everything inside the body.
+--
 -- **The other addon is one fake header and nothing else.** Standing a real unit frame pack up
 -- would make the run depend on which pack is installed, and every call it would make is one of
 -- these four.
 -----------------------------------------------------------
 
---- Fires a wrapped script the way the client's mouse handling does. `motion` is the argument
---- `Wrapped_OnEnter` and `Wrapped_OnLeave` gate on.
+--- Runs the body a wrapped `OnEnter` would run on this frame, and its post body after it.
 ---
---- **Through `securecall`, because the chain refuses a tainted caller.** Every body in it reaches
---- `CallRestrictedClosure`, which raises "Cannot call restricted closure from insecure code" on
---- `issecure()` -- and reading a frame's managed environment raises its own on the same test
---- (`RestrictedExecution.lua`, `RestrictedInfrastructure.lua`). The client fires these handlers
---- from C and is secure there; a call written out in this file is not, so the taint has to be left
---- behind at the door. **`IsWrapEligible` is not what lets this through** -- it is
---- `(not InCombatLockdown()) or frame:IsProtected()` and says nothing about who called
---- (`SecureHandlers.lua`).
+--- **The wrapped script itself cannot be fired from here, and that is settled rather than
+--- suspected.** Every pre body in the chain reaches `CallRestrictedClosure`, which carries
+--- `if (not issecure()) then error("Cannot call restricted closure from insecure code") end`
+--- (`RestrictedExecution.lua`). `issecure()` is true only where the client called the handler from
+--- C, which for these scripts means a real cursor crossing a real frame. `IsWrapEligible` is not
+--- the gate -- it is `(not InCombatLockdown()) or frame:IsProtected()` and says nothing about who
+--- called. **`securecall` cannot lift it and never could**: it keeps a callee's taint off the
+--- caller, and clearing the caller's taint on the way in is the one thing it must not do, or the
+--- whole idea of taint would be one call away from nothing. It is not an error trap either --
+--- Blizzard writes `securecall(pcall, ...)` wherever it wants one.
 ---
---- **This is the whole reason these cases are in the kit.** `HoverEnter` above runs our own body
---- and nothing else; this runs the chain, so what it measures is where in the chain we ended up.
-local function FireScript(frame, script, ...)
-    local handler = frame:GetScript(script)
-    if not handler then
-        return false
-    end
-    securecall(handler, frame, ...)
-    return true
+--- **So this goes in through the door the rest of the kit already uses.** A snippet reached by
+--- `SecureHandlerExecute` runs secure, because the client invokes the attribute handler itself, and
+--- from inside it `RunFor` is as secure as the wrapper would have been. What runs is
+--- `setup_onenter_wrap`, the same text the wrapper carries, so the replay, the foreign bodies and
+--- their environments are all the real thing.
+---
+--- **The two return values are honoured** rather than the post being called unconditionally. The
+--- client runs a post body only where the pre answered a second value, and one of the cases below
+--- exists to catch us failing to answer with one.
+local function RunWrappedEnter(frame)
+    SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
+    SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+        local button = self:GetFrameRef("debindtest_hover")
+        local allow, message = self:RunFor(button, self:GetAttribute("setup_onenter_wrap"))
+        if (allow ~= false and message ~= nil) then
+            self:RunFor(button, self:GetAttribute("setup_onenter_post"), message)
+        end
+    ]])
+end
+
+local function RunWrappedLeave(frame)
+    SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
+    SecureHandlerExecute(DebindPrivate.BindingDriver, [[
+        local button = self:GetFrameRef("debindtest_hover")
+        local allow, message = self:RunFor(button, self:GetAttribute("setup_onleave_wrap"))
+        if (allow ~= false and message ~= nil) then
+            self:RunFor(button, self:GetAttribute("setup_onleave_post"), message)
+        end
+    ]])
 end
 
 --- The other addon's header. Its pre bodies bind a key of its own and write a global into its own
@@ -4506,11 +4532,9 @@ RegisterTest("Foreign wrappers: their key and our hover both work on one frame",
         local header = FakeHeader()
         SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
         SecureHandlerWrapScript(frame, "OnLeave", header, FAKE_LEAVE)
-        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+        AddTeardown(function() RunWrappedLeave(frame) end)
 
-        if not FireScript(frame, "OnEnter", true) then
-            return Fail(NAME, "the frame has no OnEnter script to fire")
-        end
+        RunWrappedEnter(frame)
 
         local bound = GetBindingAction("SHIFT-F", true) or ""
         if bound:sub(1, 6) ~= "CLICK " then
@@ -4525,10 +4549,13 @@ RegisterTest("Foreign wrappers: their key and our hover both work on one frame",
                 tostring(GetHoverUnit())))
         end
 
-        FireScript(frame, "OnLeave", true)
+        RunWrappedLeave(frame)
 
-        bound = GetBindingAction("SHIFT-F", true)
-        if bound then
+        -- **`or ""`, like every other reader of this in the file.** A key nothing holds answers
+        -- with the empty string and not with nil, and the empty string is true in Lua -- so a bare
+        -- `if bound then` reads "released" as "still bound".
+        bound = GetBindingAction("SHIFT-F", true) or ""
+        if bound ~= "" then
             return Fail(NAME, format("their body did not drop SHIFT-F (still %q)", bound))
         end
         if GetHoverUnit() ~= nil then
@@ -4561,9 +4588,9 @@ RegisterTest("Foreign wrappers: their post body is handed their own message", {
         ]], [[
             fake_post = message
         ]])
-        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+        AddTeardown(function() RunWrappedLeave(frame) end)
 
-        FireScript(frame, "OnEnter", true)
+        RunWrappedEnter(frame)
 
         header.__post = nil
         SecureHandlerExecute(header, [[
@@ -4595,9 +4622,9 @@ RegisterTest("Foreign wrappers: after they unwrap we are back on top", {
         local header = FakeHeader()
         SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
         SecureHandlerUnwrapScript(frame, "OnEnter")
-        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+        AddTeardown(function() RunWrappedLeave(frame) end)
 
-        FireScript(frame, "OnEnter", true)
+        RunWrappedEnter(frame)
 
         if FakeHovered() ~= nil then
             return Fail(NAME, format(
@@ -4651,7 +4678,7 @@ RegisterTest("Foreign wrappers: a frame another engine keeps taking back is give
         end)
 
         SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
-        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+        AddTeardown(function() RunWrappedLeave(frame) end)
 
         if depth > 3 then
             return Fail(NAME, format("the two of us traded the top %d times before stopping", depth))
@@ -4661,7 +4688,7 @@ RegisterTest("Foreign wrappers: a frame another engine keeps taking back is give
         end
 
         -- And it still works for them, which is the whole reason for standing down.
-        FireScript(frame, "OnEnter", true)
+        RunWrappedEnter(frame)
         if FakeHovered() ~= frame:GetName() then
             return Fail(NAME, "we stood down and took their body with us")
         end
