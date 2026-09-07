@@ -1016,6 +1016,16 @@ local function AddOwnCommands(Bucket)
 		end
 	end
 
+	-- The three types the class and specialization resolve (`SpecSpells.lua`). No value to
+	-- store; the row's icon is today's spell and is drawn by `NameAndIconForAction`.
+	local specBucket = Bucket(LLL["TYPE_SPEC_RESOLVED_HEADER"]);
+	for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
+		specBucket[#specBucket + 1] = {
+			type = actionType,
+			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"],
+		};
+	end
+
 	-- 공격대 표적. 게임의 `BINDING_HEADER_RAID_TARGET`과는 다른 물건이라 머리글을 따로 둔다 -
 	-- 저쪽은 대상에 아이콘을 찍는 것이고 이건 바닥에 놓는 표식이다.
 	local markerBucket = Bucket(typeNames[Constants.WORLDMARKER]);

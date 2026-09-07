@@ -127,6 +127,13 @@ local ACTION_FIELDS      = {
     keepInBindingContext = "boolean",
     ignoreHoverUnit = "boolean",
     preferHoverUnit = "boolean",
+    -- Smart Cast: the mode and its four branches (`Profile.lua`'s `KEYS_TO_SAVE`).
+    smartCast = "string",
+    smartCastRez = "boolean",
+    smartCastBattleRez = "boolean",
+    smartCastDispel = "boolean",
+    smartCastBuff = "boolean",
+    smartCastRezWithBattleRez = "boolean",
     -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
     -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
     conditions = "table",

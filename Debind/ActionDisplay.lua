@@ -121,6 +121,9 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.TARGET] = LLL["TYPE_TARGET"],
 	[Constants.FOCUS] = LLL["TYPE_FOCUS"],
 	[Constants.TOGGLEMENU] = LLL["TYPE_TOGGLEMENU"],
+	[Constants.DISPEL] = LLL["TYPE_DISPEL"],
+	[Constants.EXTERNAL] = LLL["TYPE_EXTERNAL"],
+	[Constants.RAIDBUFF] = LLL["TYPE_RAIDBUFF"],
 	[Constants.COMMAND] = LLL["TYPE_COMMAND"],
 	[Constants.WORLDMARKER] = LLL["TYPE_WORLDMARKER"],
 	[Constants.SETCUSTOM] = LLL["TYPE_SETCUSTOM"],
@@ -335,6 +338,19 @@ local function NameAndIconForAction(action)
 		actionName = LLL["TYPE_TOGGLEMENU"];
 		actionIcon = 134331;
 		skipTypeName = true;
+	elseif (Constants.SPEC_RESOLVED_TYPES[type]) then
+		-- The name is the kind, since that is what the action is; the icon is today's spell,
+		-- which is the one thing about the row that changes with the specialization. A
+		-- specialization with nothing to cast gets the question mark, the same answer an unknown
+		-- spell gets below.
+		actionName = BINDING_TYPE_NAMES[type];
+		skipTypeName = true;
+		local spellID = DebindPrivate.SpecSpells.SpellForType(type);
+		local icon;
+		if (spellID) then
+			_, icon = GetSpellNameAndIconID(spellID);
+		end
+		actionIcon = icon or QUESTION_MARK_ICON_NUM;
 	elseif (type == Constants.WORLDMARKER) then
 		actionName = _G["WORLD_MARKER" .. value];
 		actionIcon = 4238933;

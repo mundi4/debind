@@ -283,9 +283,22 @@ local function makeUnitGroupFlags(binding, unit)
     return mask;
 end
 
+--- The spell a `known` condition asks about: the value of a `SPELL`, and the resolved spell of the
+--- three spec-resolved types (`binding.spell`, `SpecSpells.lua`). nil for everything else, and for
+--- a spec-resolved type with no spell in this specialization.
+local function KnownSpellOf(binding)
+    if (binding.type == Constants.SPELL) then
+        return binding.value;
+    end
+    if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
+        return binding.spell;
+    end
+    return nil;
+end
+
 local function makeKnownFlags(binding, spellValue)
     local known = binding.conditions.known;
-    if (known ~= nil and binding.type == Constants.SPELL and binding.value == spellValue) then
+    if (known ~= nil and KnownSpellOf(binding) == spellValue) then
         return known and KNOWN_YES or KNOWN_NO;
     end
     return KNOWN_ANY;
@@ -378,6 +391,13 @@ local function buildLayout(bindings)
             _opaque[binding] = true;
         end
 
+        -- A spellbook-gated binding (`spellbook`, `SpecSpells.lua`) is decided at the press by a
+        -- question no column here can hold, so it covers nothing. Left as a box it would be an
+        -- unconditional one and delete the original standing behind it.
+        if (binding.spellbook) then
+            _opaque[binding] = true;
+        end
+
         local states = binding.unitStates;
         if (states) then
             for unit in pairs(states) do
@@ -421,12 +441,13 @@ local function buildLayout(bindings)
         end
 
         if (conditions.known ~= nil) then
-            if (binding.type == Constants.SPELL and binding.value ~= nil) then
-                if (not _knownSeen[binding.value]) then
-                    _knownSeen[binding.value] = true;
+            local knownSpell = KnownSpellOf(binding);
+            if (knownSpell ~= nil) then
+                if (not _knownSeen[knownSpell]) then
+                    _knownSeen[knownSpell] = true;
                     _numColumns = _numColumns + 1;
                     _colMake[_numColumns] = makeKnownFlags;
-                    _colArg[_numColumns] = binding.value;
+                    _colArg[_numColumns] = knownSpell;
                 end
             else
                 _opaque[binding] = true;

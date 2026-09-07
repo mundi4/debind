@@ -37,6 +37,18 @@ local KEYS_TO_SAVE       = {
     keepInBindingContext = true,
     ignoreHoverUnit = true,
     preferHoverUnit = true,
+    -- **Smart Cast** (`devdocs/adding-spec-resolved-actions.md` §10). `smartCast` is the mode:
+    -- nil, `"global"` (the four branches follow the account-wide defaults) or `"custom"` (the four
+    -- booleans below decide). The four keep their values across mode changes, the same as every
+    -- other option that is turned off rather than cleared.
+    smartCast = true,
+    smartCastRez = true,
+    smartCastBattleRez = true,
+    smartCastDispel = true,
+    smartCastBuff = true,
+    -- Not a fifth branch: it lets the resurrection branch reach for the battle resurrection where
+    -- the class has no other one (§10-7 of that document).
+    smartCastRezWithBattleRez = true,
 };
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.

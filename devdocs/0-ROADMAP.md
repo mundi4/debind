@@ -27,6 +27,7 @@
 | **다음 릴리스에 같이** | 홀더 뒤에서 쓰기를 하나도 놓치지 않는다. 위 줄의 3단계가 남긴 셋. 이름을 되찾지 않는 판단은 그대로다 | `legacy/hearing-every-write-behind-a-holder.md` |
 | **다음 릴리스에 같이** | 알려진 팩의 이름을 표 하나로 들고 팩별로 켜고 끈다 | `legacy/keeping-one-table-of-known-packs.md` |
 | **다음 릴리스에 같이** | 전문화 번호 조건. 클리크 프로필의 `sets.specN`이 갈 곳이 없어서 세운 축이라, 순서를 강제하는 것은 그 가져오기 트랙이다 | `legacy/adding-a-spec-index-condition.md`<br>`.zzz/clique-savedvars.md` |
+| **다음 릴리스에 같이** | 전문화가 주문을 정하는 타입 셋(`Dispel`, `External`, `Raid Buff`)과 Smart Cast 옵션. EUI의 `dispel`·`external`·`dynamicrez`·`smartRez`가 갈 곳이라 순서를 강제하는 것은 그 가져오기 트랙이다 | `adding-spec-resolved-actions.md`<br>`.zzz/eui-hovercast-savedvars.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, 보관함의 남은 넷 | `switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | ~~**다음 `dbver` 범프에**~~ **3.6에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |

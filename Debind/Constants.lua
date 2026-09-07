@@ -74,6 +74,11 @@ Constants.FLYOUT                          = "flyout";
 Constants.TARGET                          = "target";
 Constants.FOCUS                           = "focus";
 Constants.TOGGLEMENU                      = "togglemenu";
+--- Three types that carry no value: the spell is decided by the class and specialization at
+--- rebuild time (`SpecSpells.lua`, `devdocs/adding-spec-resolved-actions.md`).
+Constants.DISPEL                          = "dispel";
+Constants.EXTERNAL                        = "external";
+Constants.RAIDBUFF                        = "raidbuff";
 Constants.COMMAND                         = "command";
 Constants.WORLDMARKER                     = "worldmarker";
 Constants.SETCUSTOM                       = "setcustom";
@@ -115,6 +120,17 @@ Constants.TYPES_WITH_UNIT                 = {
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,
     [Constants.TOGGLEMENU] = true,
+    [Constants.DISPEL] = true,
+    [Constants.EXTERNAL] = true,
+    [Constants.RAIDBUFF] = true,
+};
+
+--- The three types whose spell the class and specialization decide (`SpecSpells.lua`). They
+--- resolve to a `SPELL` at rebuild time and carry no value of their own.
+Constants.SPEC_RESOLVED_TYPES             = {
+    [Constants.DISPEL] = true,
+    [Constants.EXTERNAL] = true,
+    [Constants.RAIDBUFF] = true,
 };
 
 --- Which types `preferHoverUnit` may be set on. `TYPES_WITH_UNIT` minus the pet command, whose
@@ -128,6 +144,9 @@ Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
     [Constants.TARGET] = true,
     [Constants.FOCUS] = true,
     [Constants.TOGGLEMENU] = true,
+    [Constants.DISPEL] = true,
+    [Constants.EXTERNAL] = true,
+    [Constants.RAIDBUFF] = true,
 };
 
 

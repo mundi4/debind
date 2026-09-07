@@ -12,6 +12,8 @@ M.frames = frames;
 M.world = {
     cvars = {},
     spells = {},
+    spellbook = {},
+    auras = {},
     baseSpells = {},
     overrideSpells = {},
     mounts = {},
@@ -41,6 +43,7 @@ function M.resetWorld()
         end
     end
     M.world.inCombat = false;
+    M.world.specIndex = nil;
     M.install();
 end
 
@@ -339,6 +342,32 @@ function M.install()
         local unit = M.world.units[token];
         return (unit and unit.reaction == "harm") and true or false;
     end
+
+    --- The aura list, for the Smart Cast answer (`BindingDriver:AnswerAura`). `M.world.auras[token]`
+    --- is a list of `{ name = , harmful = , dispellable = }`, and the two reads the addon makes
+    --- answer out of it the way the client's do: one walks the harmful ones, the other looks a
+    --- helpful one up by name.
+    _G.AuraUtil = {
+        ForEachAura = function(token, filter, _, func)
+            for _, aura in ipairs(M.world.auras[token] or {}) do
+                if ((filter == "HARMFUL") == (aura.harmful == true)) then
+                    if (func({ name = aura.name, canActivePlayerDispel = aura.dispellable == true })) then
+                        return;
+                    end
+                end
+            end
+        end,
+    };
+    _G.C_UnitAuras = {
+        GetAuraDataBySpellName = function(token, name, filter)
+            for _, aura in ipairs(M.world.auras[token] or {}) do
+                if (aura.name == name and (filter == "HARMFUL") == (aura.harmful == true)) then
+                    return { name = aura.name };
+                end
+            end
+            return nil;
+        end,
+    };
     _G.GetShapeshiftForm = function() return 0; end
     _G.GetBonusBarOffset = function() return 0; end
     _G.IsStealthed = function() return false; end
@@ -428,8 +457,20 @@ function M.install()
 
     _G.C_SpecializationInfo = {
         GetNumSpecializationsForClassID = function() return 4; end,
-        GetSpecialization = function() return 1; end,
+        GetSpecialization = function() return M.world.specIndex or 1; end,
+        --- The druid's four, in the client's order, so index 1 is Balance and 4 is Restoration.
+        --- `SpecSpells.lua` keys its tables by these ids.
+        GetSpecializationInfo = function(index)
+            local ids = { 102, 103, 104, 105 };
+            return ids[index];
+        end,
     };
+
+    --- The spellbook as the restricted environment's `FindSpellBookSlotBySpellID` sees it: a set
+    --- of ids, and a slot for any id in it.
+    _G.FindSpellBookSlotBySpellID = function(spellID)
+        return M.world.spellbook[spellID] and 1 or nil;
+    end
 
     -- `MAGE` is here because the sharing specs need **a class that is not ours**: a string from one
     -- keeps its own class and spec on the way in, and the import refuses a class name no client

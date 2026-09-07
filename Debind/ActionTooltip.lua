@@ -379,6 +379,48 @@ do
 			end
 		end
 
+		-- Smart Cast, as the branches that actually stand on this character: the defaults are
+		-- resolved here rather than named, since what the reader wants to know is what the key
+		-- does, and a branch this specialization has no spell for is left out for the same reason.
+		local branches = DebindPrivate.SmartCastBranches(action);
+		if (branches) then
+			local spells = DebindPrivate.SpecSpells.Resolve();
+			local names = {};
+			if (branches.rez and (spells.rez or spells.massrez
+					or (branches.rezWithBattleRez and spells.battlerez))) then
+				names[#names + 1] = LLL["SMART_CAST_REZ"];
+			end
+			if (branches.battleRez and spells.battlerez) then
+				names[#names + 1] = LLL["SMART_CAST_BATTLE_REZ"];
+			end
+			if (branches.dispel and spells.dispel) then
+				names[#names + 1] = LLL["SMART_CAST_DISPEL"];
+			end
+			if (branches.buff and spells.raidbuff) then
+				names[#names + 1] = LLL["SMART_CAST_BUFF"];
+			end
+			addLabelLine(tooltip, LLL["SMART_CAST"]);
+			if (#names > 0) then
+				addValueLine(tooltip, table.concat(names, ", "));
+			else
+				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_SMART_CAST_NONE"]));
+			end
+		end
+
+		-- **What this character casts, first.** The three spec-resolved types are the only actions
+		-- whose value is not on the row, so the tooltip is where the spell is named -- and where a
+		-- specialization with nothing to cast is told so, since the key still takes the press.
+		if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
+			addLabelLine(tooltip, LLL["LINE_TOOLTIP_SPEC_SPELL"]);
+			local spellID = DebindPrivate.SpecSpells.SpellForType(action.type);
+			local name = spellID and DebindPrivate.GetSpellNameAndIconID(spellID);
+			if (name) then
+				addValueLine(tooltip, name);
+			else
+				addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_SPEC_SPELL_NONE"]));
+			end
+		end
+
 		if (action.unit ~= nil) then
 			addLabelLine(tooltip, LLL["TARGET_UNIT"]);
 			-- **`"@"` is what this menu wrote, so that is what it is asked about.** Without it the

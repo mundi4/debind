@@ -337,6 +337,7 @@ local function buildEnv(interp)
     env.UnitExists = function(unit) return _G.UnitExists(unit); end
     env.UnitIsUnit = function(a, b) return _G.UnitIsUnit(a, b); end
     env.UnitIsDead = function(unit) return _G.UnitIsDead(unit); end
+    env.FindSpellBookSlotBySpellID = function(spellID) return _G.FindSpellBookSlotBySpellID(spellID); end
     env.UnitIsGhost = function(unit) return _G.UnitIsGhost(unit); end
     env.PlayerCanAssist = function(unit) return _G.PlayerCanAssist(unit); end
     env.PlayerCanAttack = function(unit) return _G.PlayerCanAttack(unit); end

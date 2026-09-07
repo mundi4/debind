@@ -781,6 +781,21 @@ do
     --- 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다.
     local function FillBinding(binding, action, aimedUnit, hoverCondition)
         binding.type, binding.value = action.type, action.value;
+        -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
+        -- action stores is the kind; which spell that is today is this specialization's answer
+        -- (`SpecSpells.lua`), and every reader of the binding that wants a spell id reads this
+        -- field ahead of `value`. `spellbook` is the derived-binding probe and is set by the
+        -- derivation, never here.
+        binding.spellbook = nil;
+        if (Constants.SPEC_RESOLVED_TYPES[action.type]) then
+            binding.spell = DebindPrivate.SpecSpells.SpellForType(action.type);
+        else
+            binding.spell = nil;
+        end
+        -- Which Smart Cast branches this action carries, or nil. Not a condition: the reader's
+        -- conditions decide whether the action wins, and this only decides what it fires once it
+        -- has (`devdocs/adding-spec-resolved-actions.md` §10).
+        binding.smart = DebindPrivate.SmartCastBranches(action);
         -- 쌍둥이는 hover 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
         if (hoverCondition == nil) then
             binding.ignoreHoverUnit = action.ignoreHoverUnit;
@@ -892,7 +907,8 @@ do
         -- below: nothing here writes `false`, but a shared profile can carry one, and left in
         -- place it reaches `UpdateBindings`, which bakes the same `[known:<value>]` a `true`
         -- would. It then fires on exactly the state it was asked to stay off.
-        if (conditions.known == false or (conditions.known ~= nil and binding.type ~= Constants.SPELL)) then
+        if (conditions.known == false or (conditions.known ~= nil and binding.type ~= Constants.SPELL
+                and not Constants.SPEC_RESOLVED_TYPES[binding.type])) then
             conditions.known = nil;
         end
 
@@ -990,8 +1006,63 @@ do
         return FillBinding(binding, action, action.unit, nil);
     end
 
+    --- The account-wide answer to which Smart Cast branches are on where an action says "the
+    --- defaults" (`smartCast == "global"`). Battle resurrection is off unless asked for: it is the
+    --- one branch with a cost the reader has to accept (§6 of the design), the other three only
+    --- ever fire where the host would have been refused anyway.
+    --- `rezWithBattleRez` is stored and defaulted the same way but is not one of the four: it says
+    --- what the `rez` branch may reach for where the class has no resurrection outside combat
+    --- (§10-7 of the design), so it never turns Smart Cast on by itself.
+    local SMART_CAST_DEFAULTS = {
+        rez = true, battleRez = false, dispel = true, buff = true, rezWithBattleRez = false,
+    };
+    local SMART_CAST_BRANCHES = { "rez", "battleRez", "dispel", "buff" };
+    DebindPrivate.SMART_CAST_BRANCHES = SMART_CAST_BRANCHES;
+
+    function DebindPrivate.SmartCastDefault(branch)
+        local options = DebindPrivate.Options;
+        local stored = options and options.smartCast;
+        local value = stored and stored[branch];
+        if (value == nil) then
+            return SMART_CAST_DEFAULTS[branch];
+        end
+        return value;
+    end
+
+    --- The branches an action's Smart Cast turns on, as a fresh table, or nil where the option is
+    --- off or the type cannot carry it. `COMMAND` and `UNUSED` are the two that never reach the
+    --- click wrapper, so there is nowhere for a branch to be chosen.
+    function DebindPrivate.SmartCastBranches(action)
+        local mode = action.smartCast;
+        if (mode ~= "global" and mode ~= "custom") then
+            return nil;
+        end
+        if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
+            return nil;
+        end
+        local function chosen(branch)
+            if (mode == "custom") then
+                return action["smartCast" .. strupper(strsub(branch, 1, 1)) .. strsub(branch, 2)] and true or false;
+            end
+            return DebindPrivate.SmartCastDefault(branch) and true or false;
+        end
+
+        local out = {};
+        local any = false;
+        for i = 1, #SMART_CAST_BRANCHES do
+            local branch = SMART_CAST_BRANCHES[i];
+            local on = chosen(branch);
+            out[branch] = on;
+            any = any or on;
+        end
+        out.rezWithBattleRez = chosen("rezWithBattleRez");
+        return any and out or nil;
+    end
+
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
     local _ActionToHoverTwinCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToProbeCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToProbeTwinCache = setmetatable({}, { __mode = "kv" });
 
     -- The stored shape of "over any frame, any unit" is an empty table (`false` is [when there is
     -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
@@ -1049,16 +1120,48 @@ do
 
         local original = DebindPrivate.GetBindingInfoForAction(action);
         list[1] = original;
+        local n = 1;
 
-        if (WantsHoverTwin(action, original)) then
-            local twin = _ActionToHoverTwinCache[action];
-            if (not twin) then
-                twin = {};
-                _ActionToHoverTwinCache[action] = twin;
+        -- **The warlock's dispel is two bindings.** The original casts the player's own Singe Magic
+        -- and a derived one casts the pet's through Command Demon, gated at the press by
+        -- `FindSpellBookSlotBySpellID` (`SpecSpells.lua`). The probe binding sits ahead of the
+        -- original, and where a hover twin is wanted the twin gets its own probe ahead of it.
+        --
+        -- **The list is filled back to front.** `UnrollDerivedBindings` (`Debind.lua`) walks a list
+        -- from its last entry down to the original, so the key order probe-twin, twin, probe,
+        -- original is written here as original, probe, twin, probe-twin.
+        local probe;
+        if (original.spell ~= nil) then
+            probe = select(2, DebindPrivate.SpecSpells.SpellForType(action.type));
+        end
+
+        local function fill(cache, aimedUnit, hoverCondition, spell)
+            local binding = cache[action];
+            if (not binding) then
+                binding = {};
+                cache[action] = binding;
             end
-            list[2] = FillBinding(twin, action, "hover", HOVER_ANY_FRAME);
-        else
-            list[2] = nil;
+            FillBinding(binding, action, aimedUnit, hoverCondition);
+            if (spell) then
+                binding.spell = spell;
+                binding.spellbook = spell;
+            end
+            n = n + 1;
+            list[n] = binding;
+        end
+
+        if (probe) then
+            fill(_ActionToProbeCache, action.unit, nil, probe);
+        end
+        if (WantsHoverTwin(action, original)) then
+            fill(_ActionToHoverTwinCache, "hover", HOVER_ANY_FRAME, nil);
+            if (probe) then
+                fill(_ActionToProbeTwinCache, "hover", HOVER_ANY_FRAME, probe);
+            end
+        end
+
+        for i = n + 1, #list do
+            list[i] = nil;
         end
 
         return list;

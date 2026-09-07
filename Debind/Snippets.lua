@@ -155,9 +155,11 @@ DebindPrivate.SNIPPET_PROBES_LIVE = {
 	PlayerCanAttack = "PlayerCanAttack(%s)",
 	PlayerIsChanneling = "PlayerIsChanneling(%s)",
 	SecureCmdOptionParse = "SecureCmdOptionParse(%s)",
+	FindSpellBookSlotBySpellID = "FindSpellBookSlotBySpellID(%s)",
 
 	-- Reporting only. Nothing is computed from it, so there is nothing to keep.
 	Winner = false,
+	SmartBranch = false,
 
 	-- Injection only. The click path measures its own axes now, and a test that wants to say
 	-- "you are in combat" has to reach the value between the measurement and the comparison --

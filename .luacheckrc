@@ -77,6 +77,8 @@ globals = {
 	"C_MountJournal",
 	"C_PaperDollInfo",
 	"C_Spell",
+	"C_UnitAuras",
+	"AuraUtil",
 	"C_ToyBox",
 	"C_SpellBook",
 	"C_SpecializationInfo",

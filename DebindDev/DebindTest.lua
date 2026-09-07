@@ -640,6 +640,10 @@ end
 -- reading an empty table, it is the snippet a real user runs, rebuilt from the same source.
 local probeReports = {}
 local probesOn = false
+--- What the Smart Cast block last reported (`PROBE.SmartBranch`). Declared here, above
+--- `EnableProbes`, which is what writes them.
+local lastSmartBranch
+local lastSmartBranchReported
 
 --- What `PROBE.Winner(i)` becomes while probing. `debind_driver` rather than `self`, because the
 --- wrapper runs with the click frame as `self` and the method lives on the driver.
@@ -651,6 +655,7 @@ local probesOn = false
 --- would fall straight through an `and`/`or` to the measured one.
 local PROBE_DEV = {
     Winner = [[debind_driver:CallMethod("DebindTestWinner", %s)]],
+    SmartBranch = [[debind_driver:CallMethod("DebindTestSmartBranch", %s)]],
     MockState = [[if (MockStatesMap["%1$s"] ~= nil) then %1$s = MockStatesMap["%1$s"] end]],
 }
 
@@ -677,6 +682,9 @@ local function EnableProbes()
 
     DebindPrivate.BindingDriver.DebindTestWinner = function(_, index)
         probeReports[#probeReports + 1] = index
+    end
+    DebindPrivate.BindingDriver.DebindTestSmartBranch = function(_, button)
+        lastSmartBranch, lastSmartBranchReported = button, true
     end
 
     DebindPrivate.SnippetProbes = DebindPrivate.SnippetProbes or {}
@@ -777,6 +785,17 @@ end
 --- The record index the snippet last reported as the winner, or nil if it reported none.
 local function LastWinner()
     return probeReports[#probeReports]
+end
+
+--- What the Smart Cast block last chose: a branch button name, or nil where the host itself is
+--- what fires. The second value says whether the block reported at all, since nil is one of its
+--- two real answers.
+local function LastSmartBranch()
+    return lastSmartBranch, lastSmartBranchReported
+end
+
+local function ClearSmartBranch()
+    lastSmartBranch, lastSmartBranchReported = nil, false
 end
 
 --- Waits for the winner report to arrive and answers with it.
@@ -5586,18 +5605,34 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
         if type(ours) ~= "table" then
             return Fail(NAME, format("ClickCastFrames is not a table (%s)", type(ours)))
         end
-        local handed
+        -- **The name is stood back up as ours first, and that is the precondition rather than a
+        -- convenience.** Our rows only fill while we are holding the name, so on a board where a
+        -- pack is already holding it there is nothing for the hand-over below to hand over and the
+        -- case would measure an empty table. Taking the pointer for the length of one test does not
+        -- touch what that pack has in its own store.
+        local handed, mine
         AddTeardown(function()
-            _G.ClickCastFrames = ours
-            if handed then
-                ours[handed] = nil
+            if mine then
+                _G.ClickCastFrames = mine
+                if handed then
+                    mine[handed] = nil
+                end
             end
+            _G.ClickCastFrames = ours
+            DebindPrivate.AttachClickCastFrames()
         end)
 
-        -- A frame registered while the name is still ours, so the holder below arrives after it.
-        -- Our rows sit beside the table rather than in it, so the `pairs` walk a holder builds its
-        -- store from yields nothing -- and this is the frame that walk would have found had a plain
-        -- table been sitting there.
+        _G.ClickCastFrames = {}
+        DebindPrivate.AttachClickCastFrames()
+        mine = _G.ClickCastFrames
+        if mine == ours then
+            return Fail(NAME, "the name was not taken back, so there is nothing to hand a holder")
+        end
+
+        -- A frame registered while the name is ours, so the holder below arrives after it. Our rows
+        -- sit beside the table rather than in it, so the `pairs` walk a holder builds its store from
+        -- yields nothing -- and this is the frame that walk would have found had a plain table been
+        -- sitting there.
         --
         -- **A unit the frame type can be read off, and not the absent token the rest of this file
         -- uses.** `RegisterFrame` leaves an already-registered frame on the row it has, but an
@@ -5608,7 +5643,7 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
         handed, err0 = CreateTestUnitFrame("player", "player")
         if not handed then return Fail(NAME, err0) end
         DebindPrivate.UnregisterFrame(handed)
-        _G.ClickCastFrames[handed] = true
+        mine[handed] = true
         local handedRow = DebindPrivate.ccframes[handed]
         if type(handedRow) ~= "table" then
             return Fail(NAME, format("the premise is gone: the frame never registered with us (ccframes=%s)",
@@ -7318,6 +7353,129 @@ RegisterTest("Role at the press: a unit off the map reads as unknown", {
         end
 
         return Pass(NAME, format("record %d took it", winner))
+    end,
+})
+
+-- **Needs the game.** `tests/smartcast_spec.lua` runs the same answer against a stand-in aura
+-- list; what only the client can show is that the real aura API answers for a real unit and that
+-- an insecure write lands on the protected click frame where the snippet reads it back.
+RegisterTest("Smart Cast: the aura answer round-trips through the click frame", {
+    description = "AnswerAura reads the player's real auras and leaves the mask on the click frame",
+    run = function()
+        local NAME = "Smart Cast aura answer"
+        if InCombatLockdown() then
+            return Fail(NAME, "the click frame cannot be written in combat")
+        end
+
+        -- A spell with a name, so the buff half has something to look for. The class's own raid
+        -- buff where there is one; otherwise Battle Shout, which every client can name.
+        local spellID = DebindPrivate.SpecSpells.Resolve().raidbuff or 6673
+        local spellName = DebindPrivate.GetSpellNameAndIconID(spellID)
+        if not spellName then
+            return Fail(NAME, format("spell %d has no name on this client", spellID))
+        end
+
+        -- What the client says, asked the same way the addon asks, so the comparison is about
+        -- the round trip and not about what happens to be on the tester.
+        local wantDispel = false
+        AuraUtil.ForEachAura("player", "HARMFUL", nil, function(aura)
+            if aura and aura.canActivePlayerDispel == true then
+                wantDispel = true
+                return true
+            end
+        end, true)
+        local wantBuff = C_UnitAuras.GetAuraDataBySpellName("player", spellName, "HELPFUL") == nil
+        local want = (wantDispel and 1 or 0) + (wantBuff and 2 or 0)
+
+        local clickFrame = DebindPrivate.DefaultClickFrame
+        clickFrame:SetAttribute("debind-aura", nil)
+        AddTeardown(function() clickFrame:SetAttribute("debind-aura", nil) end)
+
+        DebindPrivate.BindingDriver:AnswerAura("player", spellID)
+
+        local got = clickFrame:GetAttribute("debind-aura")
+        if got ~= want then
+            return Fail(NAME, format("mask %s, the client says %d (dispel=%s, buff missing=%s)",
+                tostring(got), want, tostring(wantDispel), tostring(wantBuff)))
+        end
+        return Pass(NAME, format("mask %d (%s)", got, spellName))
+    end,
+})
+
+-- **Needs the game.** The headless spec picks the same branches from the same block; what it
+-- cannot see is the block compiling in the sandbox with `CallMethod` and `FindSpellBookSlotBySpellID`
+-- in it, the call crossing into insecure code from a running snippet, and the attribute written
+-- there being visible to the snippet that is still running.
+RegisterTest("Smart Cast: the press asks the insecure side and acts on its answer", {
+    description = "A living friendly unit at the press gets the aura question, and the branch follows the mask",
+    applies = function()
+        local spells = DebindPrivate.SpecSpells.Resolve()
+        if not (spells.dispel or spells.raidbuff) then
+            return false, "this class has neither a dispel nor a raid buff, so there is no living branch to take"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Smart Cast press"
+        local KEY = "CTRL-SHIFT-F9"
+        if InCombatLockdown() then
+            return Fail(NAME, "nothing can be rebaked in combat")
+        end
+
+        local ok, err = EnableProbes()
+        if not ok then
+            return Fail(NAME, "rebake failed: " .. tostring(err))
+        end
+
+        -- Aimed at the player: alive, friendly, and always there.
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, unit = "player",
+            smartCast = "custom", smartCastDispel = true, smartCastBuff = true })
+        ApplyBindings()
+
+        local records = GetKeyBindings(KEY)
+        local binding = records and records[1]
+        if not binding or not binding.smartButtons then
+            return Fail(NAME, "the binding carries no branch buttons")
+        end
+        local buttons = binding.smartButtons
+
+        local clickFrame = DebindPrivate.DefaultClickFrame
+        clickFrame:SetAttribute("debind-aura", nil)
+        AddTeardown(function() clickFrame:SetAttribute("debind-aura", nil) end)
+        ClearSmartBranch()
+
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if WaitForWinner() == nil then
+            return Fail(NAME, "the evaluation ran and no record matched")
+        end
+
+        -- The attribute is what says the call crossed over: nothing but `AnswerAura` writes it,
+        -- and the block clears it before asking.
+        local mask = clickFrame:GetAttribute("debind-aura")
+        if type(mask) ~= "number" then
+            return Fail(NAME, "the press did not reach AnswerAura: mask is " .. tostring(mask))
+        end
+
+        local branch, reported = LastSmartBranch()
+        if not reported then
+            return Fail(NAME, "the block did not report which branch it took")
+        end
+
+        local want
+        if buttons.dispel and mask % 2 == 1 then
+            want = buttons.dispel
+            if buttons.dispelPet and FindSpellBookSlotBySpellID(buttons.dispelPetID) then
+                want = buttons.dispelPet
+            end
+        elseif buttons.buff and mask >= 2 then
+            want = buttons.buff
+        end
+        if branch ~= want then
+            return Fail(NAME, format("mask %d, branch %s, it should be %s",
+                mask, tostring(branch), tostring(want)))
+        end
+        return Pass(NAME, format("mask %d, %s fires", mask, tostring(branch or "the host")))
     end,
 })
 

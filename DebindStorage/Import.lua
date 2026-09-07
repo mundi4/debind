@@ -298,6 +298,11 @@ local VALUE_SHAPES = {
     [Constants.FOCUS]       = false,
     [Constants.TOGGLEMENU]  = false,
     [Constants.UNUSED]      = false,
+    -- The three spec-resolved types store no value: the spell is the receiving character's
+    -- class and specialization's to decide (`SpecSpells.lua`).
+    [Constants.DISPEL]      = false,
+    [Constants.EXTERNAL]    = false,
+    [Constants.RAIDBUFF]    = false,
 };
 
 --- Is this a shape **this addon could have produced**? Asked of the built action, not of the wire

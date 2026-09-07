@@ -18,6 +18,7 @@ local function PlainOrNil(value)
     end
     return value;
 end
+DebindPrivate.PlainOrNil = PlainOrNil;
 
 --- `UnitIsUnit` is marked ConditionalSecret: an identity we cannot confirm is treated as
 --- "not the same unit" rather than an error.

@@ -365,6 +365,83 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 	end
 ]==];
 
+--- The unit the winner is cast at, as `unit`. Spliced into the click wrapper and into the DEBUG
+--- eval hook, so the Smart Cast block below judges the same unit the cast goes to.
+local RESOLVE_UNIT_SNIPPET = [==[
+	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["hover"]는 enter와 폴링이
+	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
+	-- 캐시에서 가져오면 **판정한 유닛과 시전 대상이 갈린다** - 우호로 판정해 놓고 옛 유닛에
+	-- 쏘는 것이다. 옛 경로는 둘 다 캐시라 적어도 일관됐으니 그보다 나빠진다.
+	--
+	-- 우호/적대로 효과가 갈리는 주문(참회 같은)에서는 이게 "액션이 안 나감"이 아니라
+	-- **"다른 액션이 나감"**이고 되돌릴 수 없다. 반드시 같은 유닛이어야 한다.
+	local unit
+	if (winner.unit) then
+		unit = winner.unit
+	elseif (winner.unitAlias) then
+		if (winner.unitAlias == "hover") then
+			unit = hoverUnit
+		else
+			unit = UnitAliasMap[winner.unitAlias]
+		end
+
+		-- **안 풀리면 존재하지 않는 유닛을 넣는다.** nil로 두면 대상이 없는 것이 되어
+		-- `checkselfcast`류가 끼어들거나 현재 대상에 그냥 나간다 - `@tank`를 걸어둔 채
+		-- 혼자 있을 때 엉뚱한 데 시전된다.
+		--
+		-- 옛 경로는 delegate가 `unit or "raid41"`을 들고 있어서(`SetUnit`) 게임이
+		-- `GetConvertedButtonUnitAndActionType`의 `UnitExists` 검사에서 중단했다.
+		-- 아무 일도 일어나지 않는 것이 맞는 동작이고, 같은 자리를 지킨다.
+		unit = unit or "raid41"
+	end
+]==];
+
+--- Smart Cast (`devdocs/adding-spec-resolved-actions.md` §10). Runs after the reader's own
+--- conditions have chosen the winner and only where the winner carries a branch table; it decides
+--- which of that winner's buttons goes out and nothing else, so the solver never sees any of
+--- this. Answers with `smartButton`, nil where the host itself is what fires.
+---
+--- Needs `winner` and `unit` (`RESOLVE_UNIT_SNIPPET`) declared by the caller.
+---
+--- The dead branches use what the loop above already asks the client; the living ones ask the
+--- insecure side once (`AnswerAura`) and only out of combat, because the answer can only come
+--- back through an attribute and that write is refused in combat. Clearing the attribute first
+--- is what keeps a previous press's answer from standing in when the method raises: the call is
+--- pcall'd on the client's side and the snippet carries on either way.
+local SMART_CAST_SNIPPET = [==[
+	local smartButton
+	local smart = winner.smart
+	if (smart) then
+		local su = unit or "target"
+		-- No `UnitExists` ahead of it: an absent unit answers false here already, the same fact the
+		-- reaction axis above rests on.
+		if (PlayerCanAssist(su)) then
+			if (UnitIsDead(su) or UnitIsGhost(su)) then
+				if (PlayerInCombat()) then
+					smartButton = smart.battleRez
+				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+					smartButton = smart.massRez
+				else
+					smartButton = smart.rez
+				end
+			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
+				DefaultClickFrame:SetAttribute("debind-aura", nil)
+				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
+				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
+				if (smart.dispel and (mask % 2) == 1) then
+					smartButton = smart.dispel
+					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
+						smartButton = smart.dispelPet
+					end
+				elseif (smart.buff and mask >= 2) then
+					smartButton = smart.buff
+				end
+			end
+		end
+		PROBE.SmartBranch(smartButton)
+	end
+]==];
+
 BindingDriver:SetAttribute("SetSwitch", [[
 	local name, value, skipUpdate = ...
 	if (States[name] ~= value) then
@@ -1136,6 +1213,48 @@ function BindingDriver:OnSwitchChanged(name, value)
 	DebindPrivate.OnSwitchChanged(name, value);
 end
 
+--- The one question the press cannot answer inside the restricted environment: what is on the
+--- unit's aura list (`devdocs/adding-spec-resolved-actions.md` §10-4). The Smart Cast block asks
+--- out of combat only, and the answer goes back through one attribute on the click frame, which
+--- is the only road from here into a snippet -- an insecure write to a protected frame is refused
+--- in combat, which is why the block never asks then. Bit 1: a harmful aura this character can
+--- dispel. Bit 2: `buffSpellID` was given and no helpful aura of that name is on the unit.
+---
+--- 12.1 answers aura reads with secrets under encounter, challenge mode and PvP restrictions,
+--- and a secret cannot be tested or compared. Every value read here goes through `PlainOrNil`,
+--- and a read that raises is caught: either way the answer is "no", the branch is not taken and
+--- the host fires, which is what the design asks for where the client will not say (§10-2).
+function BindingDriver:AnswerAura(unit, buffSpellID)
+	if (InCombatLockdown()) then
+		return;
+	end
+	local PlainOrNil = DebindPrivate.PlainOrNil;
+	local mask = 0;
+
+	local dispellable = false;
+	local ok = pcall(AuraUtil.ForEachAura, unit, "HARMFUL", nil, function(aura)
+		if (aura and PlainOrNil(aura.canActivePlayerDispel) == true) then
+			dispellable = true;
+			return true;
+		end
+	end, true);
+	if (ok and dispellable) then
+		mask = mask + 1;
+	end
+
+	if (buffSpellID) then
+		local name = DebindPrivate.GetSpellNameAndIconID(buffSpellID);
+		if (name) then
+			local found, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, name, "HELPFUL");
+			if (found and aura == nil) then
+				mask = mask + 2;
+			end
+		end
+	end
+
+	DebindPrivate.DefaultClickFrame:SetAttribute("debind-aura", mask);
+end
+
 --- The condition evaluation, kept as its own string so more than one wrapper can carry it.
 ---
 --- It is spliced in textually rather than called, which is what lets the locals it declares
@@ -1408,6 +1527,13 @@ local EVAL_SNIPPET = [==[
 			-- `t.known`은 대괄호까지 포함해 구워둔다. 여기서 결합하면 클릭마다 문자열이
 			-- 하나씩 나고, 이 판은 할당을 안 하는 판이다.
 			if (match and t.known ~= nil and not PROBE.SecureCmdOptionParse(t.known)) then
+				match = false
+			end
+
+			-- The spellbook gate, for the one spell `[known:]` cannot see: the warlock's pet dispel is
+			-- in the spellbook only while the imp is out, and by name it answers true without one
+			-- (`SpecSpells.lua`). Right under `known` for the same reason: a per-record check, cheaper than units.
+			if (match and t.spellbook ~= nil and not PROBE.FindSpellBookSlotBySpellID(t.spellbook)) then
 				match = false
 			end
 
@@ -1846,33 +1972,7 @@ end, [==[
 ]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
 
 	-- 대상을 맨이름으로 넣는다. 새 경로는 delegate 프레임을 쓰지 않는다.
-	--
-	-- **hover는 조건을 판정한 그 유닛에 그대로 쏜다.** UnitAliasMap["hover"]는 enter와 폴링이
-	-- 채우는 캐시라 프레임의 유닛이 바뀌면 늦게 따라온다. 조건은 live로 읽어놓고 대상만
-	-- 캐시에서 가져오면 **판정한 유닛과 시전 대상이 갈린다** - 우호로 판정해 놓고 옛 유닛에
-	-- 쏘는 것이다. 옛 경로는 둘 다 캐시라 적어도 일관됐으니 그보다 나빠진다.
-	--
-	-- 우호/적대로 효과가 갈리는 주문(참회 같은)에서는 이게 "액션이 안 나감"이 아니라
-	-- **"다른 액션이 나감"**이고 되돌릴 수 없다. 반드시 같은 유닛이어야 한다.
-	local unit
-	if (winner.unit) then
-		unit = winner.unit
-	elseif (winner.unitAlias) then
-		if (winner.unitAlias == "hover") then
-			unit = hoverUnit
-		else
-			unit = UnitAliasMap[winner.unitAlias]
-		end
-
-		-- **안 풀리면 존재하지 않는 유닛을 넣는다.** nil로 두면 대상이 없는 것이 되어
-		-- `checkselfcast`류가 끼어들거나 현재 대상에 그냥 나간다 - `@tank`를 걸어둔 채
-		-- 혼자 있을 때 엉뚱한 데 시전된다.
-		--
-		-- 옛 경로는 delegate가 `unit or "raid41"`을 들고 있어서(`SetUnit`) 게임이
-		-- `GetConvertedButtonUnitAndActionType`의 `UnitExists` 검사에서 중단했다.
-		-- 아무 일도 안 일어나는 것이 맞는 동작이고, 같은 자리를 지킨다.
-		unit = unit or "raid41"
-	end
+]==] .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET .. [==[
 	self:SetAttribute("unit", unit)
 
 	-- **B-11.** 게이트는 이 값을 맨이름으로만 읽는다(SecureTemplates.lua:812). 버튼별로
@@ -1885,8 +1985,10 @@ end, [==[
 	-- **down에서만 켠다.** up에서 다시 골라 나온 승자가 press-hold라고 여기서 켜면,
 	-- 게이트가 `clickAction`을 거짓으로 만들고 `releasePressAndHoldAction`으로 넘어가
 	-- **누른 적 없는 주문의 `typerelease`가 나간다.** 놓기는 위의 캐리 자리에서만 켠다.
+
+	-- A Smart Cast branch is a plain spell and never press-and-hold, whatever the host is.
 	if (down) then
-		self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		self:SetAttribute("pressAndHoldAction", (not smartButton) and winner.pressAndHold or nil)
 	end
 
 	-- 위 "놓는 엣지"가 재사용할 자리. **down에서 반드시 확정한다. 조건부로 기록만 하면
@@ -1894,7 +1996,7 @@ end, [==[
 	-- 돌거나, 바인딩이 바뀌면 안 온다. 그러면 앞의 기록이 남고, 다음에 press-hold가 아닌
 	-- 액션을 눌렀다 뗄 때 그 낡은 것이 재사용된다. 맨이름 속성과 같은 규칙이다.
 	if (down) then
-		if (winner.pressAndHold) then
+		if (winner.pressAndHold and not smartButton) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -1903,7 +2005,7 @@ end, [==[
 		end
 	end
 
-	return winner.clickbutton
+	return smartButton or winner.clickbutton
 ]==], [==[
 	-- 클릭이 끝난 뒤. **맨이름 `pressAndHoldAction`을 반드시 지운다.**
 	--
@@ -1955,8 +2057,8 @@ if (DebindPrivate.DEBUG) then
 		if (not winner or not winner.clickbutton) then
 			return
 		end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
-		return winner.clickbutton
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET .. [==[
+		return smartButton or winner.clickbutton
 	]==]);
 
 	--- The same door for the click-cast side. Run it **for the unit frame** (`RunFor`), which is

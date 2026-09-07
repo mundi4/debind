@@ -1358,6 +1358,13 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
+				match = false
+			end
+
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
@@ -1906,6 +1913,13 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
+				match = false
+			end
+
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
@@ -2094,7 +2108,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local unit
 	if (winner.unit) then
 		unit = winner.unit
@@ -2114,6 +2127,37 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		unit = unit or "raid41"
 	end
+	local smartButton
+	local smart = winner.smart
+	if (smart) then
+		local su = unit or "target"
+
+
+		if (PlayerCanAssist(su)) then
+			if (UnitIsDead(su) or UnitIsGhost(su)) then
+				if (PlayerInCombat()) then
+					smartButton = smart.battleRez
+				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+					smartButton = smart.massRez
+				else
+					smartButton = smart.rez
+				end
+			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
+				DefaultClickFrame:SetAttribute("debind-aura", nil)
+				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
+				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
+				if (smart.dispel and (mask % 2) == 1) then
+					smartButton = smart.dispel
+					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
+						smartButton = smart.dispelPet
+					end
+				elseif (smart.buff and mask >= 2) then
+					smartButton = smart.buff
+				end
+			end
+		end
+		
+	end
 	self:SetAttribute("unit", unit)
 
 
@@ -2126,8 +2170,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
 	if (down) then
-		self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		self:SetAttribute("pressAndHoldAction", (not smartButton) and winner.pressAndHold or nil)
 	end
 
 
@@ -2135,7 +2181,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		if (winner.pressAndHold) then
+		if (winner.pressAndHold and not smartButton) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -2144,7 +2190,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	return winner.clickbutton
+	return smartButton or winner.clickbutton
 
 
 ### SecureBindings.lua #29 InstallSnippet (DEBUG=off)
@@ -2525,6 +2571,13 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
+				match = false
+			end
+
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
@@ -2712,7 +2765,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
 	local unit
 	if (winner.unit) then
 		unit = winner.unit
@@ -2732,6 +2784,37 @@ DelegateFrameNames[frame] = frame:GetName()
 
 		unit = unit or "raid41"
 	end
+	local smartButton
+	local smart = winner.smart
+	if (smart) then
+		local su = unit or "target"
+
+
+		if (PlayerCanAssist(su)) then
+			if (UnitIsDead(su) or UnitIsGhost(su)) then
+				if (PlayerInCombat()) then
+					smartButton = smart.battleRez
+				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+					smartButton = smart.massRez
+				else
+					smartButton = smart.rez
+				end
+			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
+				DefaultClickFrame:SetAttribute("debind-aura", nil)
+				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
+				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
+				if (smart.dispel and (mask % 2) == 1) then
+					smartButton = smart.dispel
+					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
+						smartButton = smart.dispelPet
+					end
+				elseif (smart.buff and mask >= 2) then
+					smartButton = smart.buff
+				end
+			end
+		end
+		
+	end
 	self:SetAttribute("unit", unit)
 
 
@@ -2744,8 +2827,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+
+
 	if (down) then
-		self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		self:SetAttribute("pressAndHoldAction", (not smartButton) and winner.pressAndHold or nil)
 	end
 
 
@@ -2753,7 +2838,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		if (winner.pressAndHold) then
+		if (winner.pressAndHold and not smartButton) then
 			HeldButtons[button] = winner
 			HeldUnits[button] = unit
 		else
@@ -2762,7 +2847,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	return winner.clickbutton
+	return smartButton or winner.clickbutton
 
 
 ### SecureBindings.lua #30 InstallSnippet
@@ -3056,6 +3141,13 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
+				match = false
+			end
+
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
@@ -3215,7 +3307,64 @@ DelegateFrameNames[frame] = frame:GetName()
 		debind_driver:CallMethod("printMacroText", entry.attr, s)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
 	end
-		return winner.clickbutton
+
+
+
+
+
+
+
+	local unit
+	if (winner.unit) then
+		unit = winner.unit
+	elseif (winner.unitAlias) then
+		if (winner.unitAlias == "hover") then
+			unit = hoverUnit
+		else
+			unit = UnitAliasMap[winner.unitAlias]
+		end
+
+
+
+
+
+
+
+
+		unit = unit or "raid41"
+	end
+	local smartButton
+	local smart = winner.smart
+	if (smart) then
+		local su = unit or "target"
+
+
+		if (PlayerCanAssist(su)) then
+			if (UnitIsDead(su) or UnitIsGhost(su)) then
+				if (PlayerInCombat()) then
+					smartButton = smart.battleRez
+				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+					smartButton = smart.massRez
+				else
+					smartButton = smart.rez
+				end
+			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
+				DefaultClickFrame:SetAttribute("debind-aura", nil)
+				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
+				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
+				if (smart.dispel and (mask % 2) == 1) then
+					smartButton = smart.dispel
+					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
+						smartButton = smart.dispelPet
+					end
+				elseif (smart.buff and mask >= 2) then
+					smartButton = smart.buff
+				end
+			end
+		end
+		
+	end
+		return smartButton or winner.clickbutton
 	
 
 ### SecureBindings.lua #32 InstallSnippet (DEBUG=off)
@@ -3491,6 +3640,13 @@ DelegateFrameNames[frame] = frame:GetName()
 				match = false
 			end
 
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
+				match = false
+			end
+
 			if (match and t.units) then
 				if (not memoReady) then
 					memoReady = true
@@ -3649,7 +3805,64 @@ DelegateFrameNames[frame] = frame:GetName()
 	s = table.concat(entry.fragments)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
 	end
-		return winner.clickbutton
+
+
+
+
+
+
+
+	local unit
+	if (winner.unit) then
+		unit = winner.unit
+	elseif (winner.unitAlias) then
+		if (winner.unitAlias == "hover") then
+			unit = hoverUnit
+		else
+			unit = UnitAliasMap[winner.unitAlias]
+		end
+
+
+
+
+
+
+
+
+		unit = unit or "raid41"
+	end
+	local smartButton
+	local smart = winner.smart
+	if (smart) then
+		local su = unit or "target"
+
+
+		if (PlayerCanAssist(su)) then
+			if (UnitIsDead(su) or UnitIsGhost(su)) then
+				if (PlayerInCombat()) then
+					smartButton = smart.battleRez
+				elseif (smart.massRez and (UnitPlayerOrPetInRaid(su) or UnitPlayerOrPetInParty(su))) then
+					smartButton = smart.massRez
+				else
+					smartButton = smart.rez
+				end
+			elseif ((smart.dispel or smart.buff) and not PlayerInCombat()) then
+				DefaultClickFrame:SetAttribute("debind-aura", nil)
+				debind_driver:CallMethod("AnswerAura", su, smart.buffSpell)
+				local mask = DefaultClickFrame:GetAttribute("debind-aura") or 0
+				if (smart.dispel and (mask % 2) == 1) then
+					smartButton = smart.dispel
+					if (smart.dispelPet and FindSpellBookSlotBySpellID(smart.dispelPetID)) then
+						smartButton = smart.dispelPet
+					end
+				elseif (smart.buff and mask >= 2) then
+					smartButton = smart.buff
+				end
+			end
+		end
+		
+	end
+		return smartButton or winner.clickbutton
 	
 
 ### SecureBindings.lua #33 InstallSnippet (DEBUG=on)
@@ -3926,6 +4139,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
+				match = false
+			end
+
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
 				match = false
 			end
 
@@ -4365,6 +4585,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 			if (match and t.known ~= nil and not SecureCmdOptionParse(t.known)) then
+				match = false
+			end
+
+
+
+
+			if (match and t.spellbook ~= nil and not FindSpellBookSlotBySpellID(t.spellbook)) then
 				match = false
 			end
 

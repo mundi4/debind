@@ -990,6 +990,11 @@ end
 local function CollectBindingFacts(type, value, unit, facts)
     wipe(facts);
 
+    -- A resolved spec type is a spell from here on; one that resolved to nothing asks nothing.
+    if (Constants.SPEC_RESOLVED_TYPES[type] and value ~= nil) then
+        type = Constants.SPELL;
+    end
+
     if (type == Constants.PETACTION) then
         facts.petMacrotext = DebindPrivate.GetPetActionMacroText(value, unit);
     elseif (type == Constants.FLYOUT) then
@@ -1062,6 +1067,22 @@ local function DescribeBinding(type, value, unit, facts, out)
             return nil, "unknown-pet-action";
         end
         type, value, unit = Constants.MACROTEXT, facts.petMacrotext, nil;
+    end
+
+    -- **A spec-resolved type with no spell writes no attribute at all, and is not a refusal.** A
+    -- refusal eats the whole key (below); what the design asks for is a key that stays ours and a
+    -- press that does nothing, and a button with no `*type-` on it is exactly that. One such
+    -- button per type: the cache files it under the type with a nil value.
+    if (Constants.SPEC_RESOLVED_TYPES[type]) then
+        if (value == nil) then
+            out.type = type;
+            out.value = nil;
+            out.unit = nil;
+            out.cacheKey = NIL;
+            out.pressAndHold = false;
+            return out;
+        end
+        type = Constants.SPELL;
     end
 
     out.type = type;
@@ -1523,7 +1544,77 @@ local _record            = {
     fieldCount = 0,
     units = {},
     switches = {},
+    smart = nil,
 };
+
+local _specSpells        = {};
+
+--- Stamps a button for every Smart Cast branch this specialization can fill, and answers the
+--- table of names the record carries -- or nil where no branch resolved to a spell, so the option
+--- is simply not there on this character.
+---
+--- What the four checkboxes become (`devdocs/adding-spec-resolved-actions.md` §10-3):
+---
+---   battleRez    the combat resurrection, chosen on a dead friend in combat
+---   rez          the resurrection outside combat; for a class with none of its own (death
+---                knight, warlock) it is the battle resurrection instead, but only where
+---                `rezWithBattleRez` asked for it, since that charge is the group's (§10-7 of the
+---                design)
+---   massRez      the mass resurrection, chosen ahead of `rez` where the dead friend is in the
+---                reader's group
+---   dispel       the friendly dispel; `dispelPet` and `dispelPetID` are the warlock's imp route,
+---                chosen over `dispel` when the spellbook answers for `dispelPetID`
+---   buff         the raid buff, with `buffSpell` the id the insecure side looks for on the unit
+---
+--- **The table is the binding's own and is refilled**, the same as every other per-binding table
+--- a rebuild reuses.
+local function StampSmartCastButtons(branches, binding)
+    local spells = DebindPrivate.SpecSpells.Resolve(_specSpells);
+    local out = binding._smartButtons;
+    if (not out) then
+        out = {};
+        binding._smartButtons = out;
+    else
+        wipe(out);
+    end
+
+    local any = false;
+    local function stamp(name, spellID)
+        if (spellID) then
+            local _, button = SetBindingAttributes(Constants.SPELL, spellID, nil);
+            if (button) then
+                out[name] = button;
+                any = true;
+            end
+        end
+    end
+
+    if (branches.battleRez) then
+        stamp("battleRez", spells.battlerez);
+    end
+    if (branches.rez) then
+        stamp("rez", spells.rez);
+        stamp("massRez", spells.massrez);
+        if (not out.rez and branches.rezWithBattleRez) then
+            stamp("rez", spells.battlerez);
+        end
+    end
+    if (branches.dispel) then
+        stamp("dispel", spells.dispel);
+        if (spells.dispelPet) then
+            stamp("dispelPet", spells.dispelPet);
+            out.dispelPetID = spells.dispelPet;
+        end
+    end
+    if (branches.buff) then
+        stamp("buff", spells.raidbuff);
+        if (out.buff) then
+            out.buffSpell = spells.raidbuff;
+        end
+    end
+
+    return any and out or nil;
+end
 
 local function field(record, name, value)
     local count = record.fieldCount + 1;
@@ -1554,13 +1645,25 @@ local function PrepareKeyBindings(key, bindingArray)
             (binding.hover or binding.type == Constants.SETCUSTOM or binding.unit == "hover") and
             true or false;
         binding.holdsKey = (button == nil or not binding.hover) and true or false;
+        -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
+        -- there is a specialization with nothing to cast: the button is still handed out, with no
+        -- action on it, so the key is taken and the press does nothing (§4 of the design).
         binding.clickframe, binding.clickbutton, binding.pressAndHold =
-            SetBindingAttributes(binding.type, binding.value, binding.unit);
+            SetBindingAttributes(binding.type,
+                Constants.SPEC_RESOLVED_TYPES[binding.type] and binding.spell or binding.value,
+                binding.unit);
 
         -- Read here rather than where the record is built, so that nothing below this line needs
         -- a frame at all. `DefaultClickFrame` is the one the record leaves out.
         binding.clickframeName = (binding.clickframe and binding.clickframe ~= DefaultClickFrame)
             and binding.clickframe:GetName() or nil;
+
+        -- The Smart Cast branches are buttons of their own on the click frame, stamped the way any
+        -- spell is, and the record carries their names for the press to choose between.
+        binding.smartButtons = nil;
+        if (binding.smart and binding.clickbutton) then
+            binding.smartButtons = StampSmartCastButtons(binding.smart, binding);
+        end
 
         if (binding.type ~= Constants.UNUSED and binding.type ~= Constants.COMMAND
                 and not (binding.clickframe and binding.clickbutton)) then
@@ -1808,11 +1911,25 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
                 -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
                 -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을 `States`의
                 -- 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이 두 군데 적힌다.
-                value = "[known:" .. binding.value .. "]";
+                -- A spec-resolved type asks about the spell it resolved to, and one that resolved
+                -- to nothing asks a conditional that is always false (`known:0` is the fixed
+                -- false elsewhere in this file too).
+                local spell = binding.spell or binding.value;
+                value = spell and ("[known:" .. spell .. "]") or "[known:0]";
             end
             field(out, axis.field, value);
         end
     end
+
+    -- The learned check `[known:]` cannot make (`SpecSpells.lua`): the press asks the spellbook.
+    if (binding.spellbook) then
+        field(out, "spellbook", binding.spellbook);
+    end
+
+    -- Smart Cast's branch buttons, on the key record and the click-cast record alike. A unit-frame
+    -- click hands **this very record** to the key-side wrapper as the winner, so the click-cast
+    -- record is the one the branch is read off there.
+    out.smart = binding.smartButtons;
 
     -- **A switch is used by acting on it too, not only by being a condition.** An on/off/toggle
     -- action names its switch in `value`, so the condition loop below never sees it, and
@@ -2022,6 +2139,18 @@ local function EmitRecord(record)
             switchesTblCreated = true;
         end
         appendLine([[t.switches[%q]=%s]], state, record.switches[state] and "true" or "false");
+    end
+
+    if (record.smart) then
+        appendLine("t.smart=newtable()");
+        for _, name in ipairs(sortedKeys(record.smart, _sortedB)) do
+            local value = record.smart[name];
+            if (luatype(value) == "string") then
+                appendLine("t.smart.%s=%q", name, value);
+            else
+                appendLine("t.smart.%s=%d", name, value);
+            end
+        end
     end
 
     -- **유닛 프레임은 매크로를 거치지 않는다.**

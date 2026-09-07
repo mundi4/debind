@@ -232,6 +232,48 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             LLL["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
     end
 
+    --- What an action set to "the defaults" gets (`SmartCastBranches`). Stored under
+    --- `Options.smartCast` by branch name, absent meaning the built-in default, and a change is a
+    --- rebuild since the branch buttons are stamped there.
+    do
+        local defaultsDescription = rootDescription:CreateButton(LLL["SMART_CAST_DEFAULTS"]);
+        SetInstructionTooltip(defaultsDescription, LLL["SMART_CAST_DEFAULTS_DESC"]);
+        local labels = {
+            rez = LLL["SMART_CAST_REZ"],
+            battleRez = LLL["SMART_CAST_BATTLE_REZ"],
+            dispel = LLL["SMART_CAST_DISPEL"],
+            buff = LLL["SMART_CAST_BUFF"],
+        };
+        local function createDefaultCheckbox(branch, label)
+            return defaultsDescription:CreateCheckbox(label, function()
+                return DebindPrivate.SmartCastDefault(branch) and true or false;
+            end, function()
+                local stored = DebindPrivate.Options.smartCast;
+                if (not stored) then
+                    stored = {};
+                    DebindPrivate.Options.smartCast = stored;
+                end
+                stored[branch] = not DebindPrivate.SmartCastDefault(branch);
+                DebindPrivate.QueueUpdateBindings();
+                return MenuResponse.Refresh;
+            end);
+        end
+
+        for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
+            createDefaultCheckbox(branch, labels[branch]);
+            -- The same box, in the same place under Resurrect, as the one on an action
+            -- (`CreateSmartCastMenuItem`), locked by the same answer.
+            if (branch == "rez") then
+                local withBattleRez = createDefaultCheckbox("rezWithBattleRez",
+                    LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"]);
+                SetInstructionTooltip(withBattleRez, LLL["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
+                withBattleRez:SetEnabled(function()
+                    return DebindPrivate.SmartCastDefault("rez") and true or false;
+                end);
+            end
+        end
+    end
+
     do
         local specialUnitsDescription = rootDescription:CreateButton(LLL["SPECIAL_UNITS"]);
         local excludePlayerDescription = specialUnitsDescription:CreateButton(LLL["EXCLUDE_PLAYER"]);
@@ -937,6 +979,67 @@ do
             return false;
         end
         return UnitConditionIsExists("hover");
+    end
+
+    --- Smart Cast (`devdocs/adding-spec-resolved-actions.md` §10). One mode radio -- off, the
+    --- account-wide defaults, or chosen here -- and the four branches under it, which only mean
+    --- something in the third mode and are locked otherwise. The values stay when the mode
+    --- changes; turning off is not clearing.
+    ---
+    --- `COMMAND` and `UNUSED` do not get the item at all: neither reaches the click wrapper where a
+    --- branch is chosen, and a box that can never do anything is worse than no box.
+    local function CreateSmartCastMenuItem(parentDescription)
+        if (_action.type == Constants.COMMAND or _action.type == Constants.UNUSED) then
+            return;
+        end
+
+        local description = CreateActionMenuItemGroup(parentDescription, "SMART_CAST", "smartCast",
+            function()
+                return _action.smartCast ~= nil;
+            end);
+
+        description:CreateRadio(LLL["DISABLE"], actionValueEquals, setActionValue,
+            { key = "smartCast", value = nil });
+        description:CreateRadio(LLL["SMART_CAST_GLOBAL"], actionValueEquals, setActionValue,
+            { key = "smartCast", value = "global" });
+        description:CreateRadio(LLL["SMART_CAST_CUSTOM"], actionValueEquals, setActionValue,
+            { key = "smartCast", value = "custom" });
+
+        description:CreateDivider();
+
+        local function customOnly()
+            return _action.smartCast == "custom";
+        end
+
+        local rez = description:CreateCheckbox(LLL["SMART_CAST_REZ"], actionValueEquals, setActionValue,
+            { key = "smartCastRez", value = USE_CHECKED_VALUE });
+        rez:SetEnabled(customOnly);
+
+        -- Under Resurrect and not under Battle Resurrection: what it widens is what the
+        -- resurrection branch may cast, and a box under Battle Resurrection saying "out of combat
+        -- as well" would contradict its own name (§10-7 of the design).
+        local rezWithBattleRez = description:CreateCheckbox(LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],
+            actionValueEquals, setActionValue,
+            { key = "smartCastRezWithBattleRez", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(rezWithBattleRez, LLL["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
+        rezWithBattleRez:SetEnabled(function()
+            return customOnly() and _action.smartCastRez and true or false;
+        end);
+
+        local battleRez = description:CreateCheckbox(LLL["SMART_CAST_BATTLE_REZ"], actionValueEquals,
+            setActionValue, { key = "smartCastBattleRez", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(battleRez, LLL["SMART_CAST_BATTLE_REZ_DESC"]);
+        battleRez:SetEnabled(customOnly);
+
+        local dispel = description:CreateCheckbox(LLL["SMART_CAST_DISPEL"], actionValueEquals,
+            setActionValue, { key = "smartCastDispel", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(dispel, LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
+        dispel:SetEnabled(customOnly);
+
+        local buff = description:CreateCheckbox(LLL["SMART_CAST_BUFF"], actionValueEquals,
+            setActionValue, { key = "smartCastBuff", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(buff, LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
+        buff:SetEnabled(customOnly);
     end
 
     local function CreateConvertToMacroTextMenuItem(parentDescription)
@@ -2063,6 +2166,8 @@ do
         CreateUnbindMenuItem(rootDescription);
 
         CreateTargetUnitMenuItem(rootDescription);
+
+        CreateSmartCastMenuItem(rootDescription);
 
         --
         -- Special Conditions
