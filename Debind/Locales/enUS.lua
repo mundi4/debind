@@ -1165,20 +1165,67 @@ L["TYPE_EXTERNAL_DESC"] = "Casts your specialization's damage reduction or absor
 L["TYPE_RAIDBUFF"] = "Raid Buff"
 L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect. On a class that has none, the key does nothing."
 L["SMART_CAST"] = "Smart Cast"
-L["SMART_CAST_DESC"] = "Before the action goes out, look at the unit it is aimed at: a dead friend is resurrected, and out of combat a dispellable friend is dispelled and one missing your raid buff gets it. When none of that applies the action itself is used."
-L["SMART_CAST_GLOBAL"] = "Use the defaults"
+-- **Both menus say this, on purpose.** The account-wide list is not where most readers meet Smart
+-- Cast: they find the option on an action without ever opening the options button, so the
+-- explanation has to stand there too. The defaults menu appends `SMART_CAST_DEFAULTS_DESC` for the
+-- half that is only true there. One key for the shared half is what keeps the two from drifting
+-- into two descriptions of one feature.
+--
+-- The last sentence has to read true in both positions, so it says "an action turns it on" rather
+-- than naming where: in the action's menu that is the radio below it, and in the defaults menu it
+-- is somewhere else entirely.
+L["SMART_CAST_DESC"] = "Smart Cast looks at the unit the action is aimed at and casts what that unit calls for instead: a dead friend is resurrected, and out of combat a friend you can dispel is dispelled and one missing your raid buff gets it. When none of that fits, the action itself goes out. It is off until an action turns it on."
+-- **"the account setting", not "the defaults".** The client spends the word "default" on factory
+-- values it can reset to (`SETTINGS_DEFAULTS`, `CONFIRM_RESET_SETTINGS`, "None (Default)") and
+-- never on a value the reader set that something else inherits. This one is the reader's own, and
+-- it holds built-in values of its own inside it, so "defaults" would name two things on one
+-- screen. "account wide" is the client's phrase for the scope (`RPE_TURNSTRAFE_AFFECT_ACCOUNT`).
+L["SMART_CAST_GLOBAL"] = "Use the account setting"
 L["SMART_CAST_CUSTOM"] = "Choose here"
 L["SMART_CAST_REZ"] = "Resurrect"
-L["SMART_CAST_REZ_WITH_BATTLE_REZ"] = "Use Battle Resurrection too"
-L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"] = "A death knight or a warlock has no resurrection other than the battle one, and without this a dead friend out of combat gets nothing. It spends one of the battle resurrections your group has for the fight, so ask for it only where you mean to. A class with a resurrection of its own is unaffected."
+L["SMART_CAST_REZ_DESC"] = "Out of combat, a dead friend gets your resurrection. Where your specialization has a mass resurrection and the dead friend is in your group, that one goes out instead."
+-- **The label stands on its own.** The box sits below a divider rather than under Resurrect (a
+-- dropdown has no indentation), so nothing beside it says which branch it belongs to and "Use
+-- Battle Resurrection too" read as a sentence with its subject missing. Naming the spell and the
+-- moment is what a reader can act on; the condition that makes it do anything is the tooltip's.
+--
+-- **"Allow", because the box widens a permission rather than adding a branch.** Every other box in
+-- the menu turns one of the four on; this one lets the resurrection branch reach for a spell it
+-- otherwise would not, and the verb is what carries that difference.
+L["SMART_CAST_REZ_WITH_BATTLE_REZ"] = "Allow Battle Resurrection out of combat"
+L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"] = "Where your class has no resurrection other than the battle one, a dead friend out of combat gets that instead of nothing. A class with a resurrection of its own is unaffected."
 L["SMART_CAST_BATTLE_REZ"] = "Battle Resurrection"
-L["SMART_CAST_BATTLE_REZ_DESC"] = "In combat, a dead friend gets your battle resurrection whether or not you have a charge left; the game refuses the cast when you do not."
+L["SMART_CAST_BATTLE_REZ_DESC"] = "In combat, a dead friend gets your battle resurrection. It goes out whether or not a charge is left; the game refuses the cast when it is not."
 L["SMART_CAST_DISPEL"] = "Dispel"
+L["SMART_CAST_DISPEL_DESC"] = "Out of combat, a friend carrying something your specialization can remove gets dispelled."
 L["SMART_CAST_BUFF"] = "Raid Buff"
-L["SMART_CAST_OUT_OF_COMBAT_DESC"] = "Dispel and Raid Buff work out of combat only, and not in a keystone dungeon, a raid encounter or a rated match, where the game keeps aura data from addons."
-L["SMART_CAST_DEFAULTS"] = "Smart Cast defaults"
-L["SMART_CAST_DEFAULTS_DESC"] = "Which of the four an action uses when its Smart Cast is set to the defaults."
+L["SMART_CAST_BUFF_DESC"] = "Out of combat, a friend missing your class's raid buff gets it."
+-- **Appended to the two above, never shown alone** (`DropDownMenus.lua`). Both branches ask the
+-- game what auras a unit carries, and both go quiet in the same places for the same reason, so the
+-- sentence is written once instead of twice.
+L["SMART_CAST_OUT_OF_COMBAT_DESC"] = "Out of combat only, and not in a keystone dungeon, a raid encounter or a rated match: the game keeps aura data from addons there, so the action itself goes out instead."
+-- **Appended to `SMART_CAST_DESC`, never shown alone** (`DropDownMenus.lua`). Nothing in the label
+-- says these boxes are a fallback rather than a setting every action obeys, so this paragraph is
+-- the only place that does.
+--
+-- It sits on the button that opens the submenu, and the boxes are inside that submenu rather than
+-- under the button, so the sentence points into the menu and never says "below".
+L["SMART_CAST_DEFAULTS"] = "Smart Cast"
+-- **The switch, and the one thing it has to say that clearing the four boxes would not.** Those
+-- four reach only an action that follows the account setting; an action that chose its own is
+-- untouched by them and is exactly what this switch is for. Without the second sentence the two
+-- gestures look interchangeable and the reader picks the one that leaves half their keys casting.
+--
+-- "Enable <thing>" is the client's own shape for a checkbox that switches a whole feature
+-- (`CAA_ENABLE_COMBAT_AUDIO_ALERTS`, `COMBAT_WARNINGS_ENABLE_LABEL`, `ALTERNATE_SCREEN_EFFECTS`),
+-- and it stays positive like the four boxes under it, so unchecking it reads as "everything below
+-- stops" instead of having to be turned around first.
+L["SMART_CAST_ENABLED"] = "Enable Smart Cast"
+L["SMART_CAST_ENABLED_DESC"] = "Turn this off and no key uses Smart Cast, including every action that chose its own branches. Clearing the boxes below does less: an action that chose its own goes on casting. Nothing you have set is lost either way, and turning this back on brings it all back."
+L["SMART_CAST_DEFAULTS_DESC"] = "This menu holds the account setting. An action that follows it does this; an action can choose its own instead."
+L["SMART_CAST_DISABLED_ACCOUNT_WIDE"] = "Smart Cast is turned off for every character, under the options button. What is set here is kept and does nothing until it is turned back on."
 L["LINE_TOOLTIP_SMART_CAST_NONE"] = "Nothing. This character has none of the chosen spells"
+L["LINE_TOOLTIP_SMART_CAST_OFF"] = "Nothing. Smart Cast is turned off for every character"
 L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
 L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
 L["TYPE_UNUSED_DESC"] = "Hands the key back to WoW for the situations you pick. The key then does whatever your WoW key bindings say, and nothing at all if WoW has no binding on it."

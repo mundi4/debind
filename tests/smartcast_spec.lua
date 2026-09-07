@@ -52,9 +52,10 @@ return function(DebindPrivate, _, ctx)
         return t;
     end
 
-    local function Bind(actions)
+    local function Bind(actions, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
+            options = options,
             shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
             characters = { [GUID] = { layers = {}, switches = {} } },
             migrated = {},
@@ -121,6 +122,15 @@ return function(DebindPrivate, _, ctx)
 
         local command = DebindPrivate.SmartCastBranches({ type = Constants.COMMAND, value = "TOGGLEWORLDMAP", smartCast = "global" });
         check(command == nil, "a command carries branches");
+
+        local target = DebindPrivate.SmartCastBranches({ type = Constants.TARGET, value = "focus", smartCast = "global" });
+        check(target == nil, "a target action carries branches");
+
+        local switch = DebindPrivate.SmartCastBranches({ type = Constants.SETSTATE_TOGGLE, value = "$state1", smartCast = "global" });
+        check(switch == nil, "a switch action carries branches");
+
+        local pet = DebindPrivate.SmartCastBranches({ type = Constants.PETACTION, value = 1, smartCast = "global" });
+        check(pet and pet.rez == true, "a pet action lost its branches");
     end);
 
     test("the account-wide default can be changed", function()
@@ -308,15 +318,43 @@ return function(DebindPrivate, _, ctx)
         check(records[2].holdsKey and records[2].smart ~= nil, "the key record carries no branches");
     end);
 
-    -- A press with the option on and no branch resolving anywhere is a press like any other.
-    test("a type with no branches leaves the record alone", function()
+    test("a type outside the allow list keeps the option off the record", function()
         world();
         Bind({
             action({ type = Constants.TARGET, key = "F1", unit = "focus", smartCast = "global" }),
         });
-        -- A druid resolves rez, dispel and buff, so the branch table is there on a target action
-        -- too: the option is about the aimed unit, not the host's type.
-        check(record("F1", 1).smart ~= nil, "a target action lost its branches");
+        -- A druid resolves rez, dispel and buff, so the branches would stand here if the type
+        -- were allowed to carry them (`Constants.TYPES_WITH_SMART_CAST`).
+        check(record("F1", 1).smart == nil, "a target action carries branches");
+    end);
+
+
+    test("the account-wide master switch ignores every action's option", function()
+        world();
+        Bind({
+            action({ value = 585, key = "F1", unit = "focus", smartCast = "global" }),
+        });
+        check(record("F1", 1).smart ~= nil, "the record has no branches to begin with");
+
+        local OFF = { smartCast = { enabled = false } };
+        DebindPrivate.Options.smartCast = OFF.smartCast;
+        check(DebindPrivate.SmartCastBranches({ type = Constants.SPELL, value = 585, smartCast = "global" }) == nil,
+            "an action following the defaults kept its branches");
+        check(DebindPrivate.SmartCastBranches({
+            type = Constants.SPELL, value = 585, smartCast = "custom", smartCastRez = true,
+        }) == nil, "an action that chose its own kept its branches");
+
+        Bind({
+            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom", smartCastRez = true }),
+        }, OFF);
+        check(record("F1", 1).smart == nil, "the record still carries a branch table");
+
+        -- Off is not cleared: the action's own values are still there when the switch comes back.
+        Bind({
+            action({ value = 585, key = "F1", unit = "focus", smartCast = "custom", smartCastRez = true }),
+        });
+        local back = record("F1", 1).smart;
+        check(back and back.rez ~= nil, "the branches did not come back");
     end);
 
     return T;

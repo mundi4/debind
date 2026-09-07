@@ -1016,8 +1016,20 @@ do
     local SMART_CAST_DEFAULTS = {
         rez = true, battleRez = false, dispel = true, buff = true, rezWithBattleRez = false,
     };
-    local SMART_CAST_BRANCHES = { "rez", "battleRez", "dispel", "buff" };
+    -- In the order the snippet tries them (`SMART_CAST_SNIPPET`), because the menus list the four
+    -- from this table and the list is what tells the reader which branch wins.
+    local SMART_CAST_BRANCHES = { "battleRez", "rez", "dispel", "buff" };
     DebindPrivate.SMART_CAST_BRANCHES = SMART_CAST_BRANCHES;
+
+    --- The account-wide master switch. Off ignores every action's option, whichever mode it is in,
+    --- and that is what separates it from clearing the four boxes: an action that chose its own
+    --- branches is unreachable from those. Stored beside them and absent means on, so a profile
+    --- written before the switch existed reads as on.
+    function DebindPrivate.SmartCastEnabled()
+        local options = DebindPrivate.Options;
+        local stored = options and options.smartCast;
+        return not (stored and stored.enabled == false);
+    end
 
     function DebindPrivate.SmartCastDefault(branch)
         local options = DebindPrivate.Options;
@@ -1030,14 +1042,18 @@ do
     end
 
     --- The branches an action's Smart Cast turns on, as a fresh table, or nil where the option is
-    --- off or the type cannot carry it. `COMMAND` and `UNUSED` are the two that never reach the
-    --- click wrapper, so there is nowhere for a branch to be chosen.
+    --- off or the type is not one Smart Cast may be set on
+    --- (`Constants.TYPES_WITH_SMART_CAST`). A shared profile skips the menu, so the field can
+    --- arrive on a type the menu would never have offered it for.
     function DebindPrivate.SmartCastBranches(action)
         local mode = action.smartCast;
         if (mode ~= "global" and mode ~= "custom") then
             return nil;
         end
-        if (action.type == Constants.COMMAND or action.type == Constants.UNUSED) then
+        if (not DebindPrivate.SmartCastEnabled()) then
+            return nil;
+        end
+        if (not Constants.TYPES_WITH_SMART_CAST[action.type]) then
             return nil;
         end
         local function chosen(branch)

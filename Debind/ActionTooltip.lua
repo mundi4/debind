@@ -382,16 +382,25 @@ do
 		-- Smart Cast, as the branches that actually stand on this character: the defaults are
 		-- resolved here rather than named, since what the reader wants to know is what the key
 		-- does, and a branch this specialization has no spell for is left out for the same reason.
+		-- Listed in the order the snippet tries them (`SMART_CAST_SNIPPET`), so the line reads as
+		-- the sequence the press walks.
+		-- **The account-wide switch leaves the line standing and empties it.** `SmartCastBranches`
+		-- answers nil while the switch is off, so the reader who set the option here would otherwise
+		-- see no trace of it and nothing telling them where it went.
 		local branches = DebindPrivate.SmartCastBranches(action);
-		if (branches) then
+		if (not branches and action.smartCast and Constants.TYPES_WITH_SMART_CAST[action.type]
+				and not DebindPrivate.SmartCastEnabled()) then
+			addLabelLine(tooltip, LLL["SMART_CAST"]);
+			addValueLine(tooltip, DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["LINE_TOOLTIP_SMART_CAST_OFF"]));
+		elseif (branches) then
 			local spells = DebindPrivate.SpecSpells.Resolve();
 			local names = {};
+			if (branches.battleRez and spells.battlerez) then
+				names[#names + 1] = LLL["SMART_CAST_BATTLE_REZ"];
+			end
 			if (branches.rez and (spells.rez or spells.massrez
 					or (branches.rezWithBattleRez and spells.battlerez))) then
 				names[#names + 1] = LLL["SMART_CAST_REZ"];
-			end
-			if (branches.battleRez and spells.battlerez) then
-				names[#names + 1] = LLL["SMART_CAST_BATTLE_REZ"];
 			end
 			if (branches.dispel and spells.dispel) then
 				names[#names + 1] = LLL["SMART_CAST_DISPEL"];

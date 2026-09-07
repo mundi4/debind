@@ -101,6 +101,14 @@ function DebindUI.SetInstructionTooltip(description, text, lockReason)
 end
 local SetInstructionTooltip = DebindUI.SetInstructionTooltip;
 
+--- Marks a menu label as newly arrived. **The same atlas the list already uses** (`DebindUI.xml`'s
+--- `NewDot`, the one on an arrived action). The game's own new-feature label
+--- (`MenuTemplates.AttachNewFeatureFrame`) is a frame with text over a texture and cannot be put
+--- inside a menu row's own string.
+local function NewFeatureLabel(text)
+    return format("%s %s", text, CreateAtlasMarkup("plunderstorm-new-dot-lg", 25, 25));
+end
+
 local function SetErrorTooltip(description, text)
     description:SetTooltip(function(tooltip, elementDescription)
         GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
@@ -236,13 +244,40 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
     --- `Options.smartCast` by branch name, absent meaning the built-in default, and a change is a
     --- rebuild since the branch buttons are stamped there.
     do
-        local defaultsDescription = rootDescription:CreateButton(LLL["SMART_CAST_DEFAULTS"]);
-        SetInstructionTooltip(defaultsDescription, LLL["SMART_CAST_DEFAULTS_DESC"]);
+        local defaultsDescription = rootDescription:CreateButton(NewFeatureLabel(LLL["SMART_CAST_DEFAULTS"]));
+        SetInstructionTooltip(defaultsDescription,
+            LLL["SMART_CAST_DESC"] .. "|n|n" .. LLL["SMART_CAST_DEFAULTS_DESC"]);
+        -- **The master switch first, then the account setting the four boxes hold.** Off ignores
+        -- every action's option rather than clearing anything, so it is not one of the four and
+        -- does not sit among them.
+        local enabled = defaultsDescription:CreateCheckbox(LLL["SMART_CAST_ENABLED"], function()
+            return DebindPrivate.SmartCastEnabled();
+        end, function()
+            local stored = DebindPrivate.Options.smartCast;
+            if (not stored) then
+                stored = {};
+                DebindPrivate.Options.smartCast = stored;
+            end
+            stored.enabled = not DebindPrivate.SmartCastEnabled();
+            DebindPrivate.QueueUpdateBindings();
+            return MenuResponse.Refresh;
+        end);
+        SetInstructionTooltip(enabled, LLL["SMART_CAST_ENABLED_DESC"]);
+        defaultsDescription:CreateDivider();
+
         local labels = {
             rez = LLL["SMART_CAST_REZ"],
             battleRez = LLL["SMART_CAST_BATTLE_REZ"],
             dispel = LLL["SMART_CAST_DISPEL"],
             buff = LLL["SMART_CAST_BUFF"],
+        };
+        -- The same tooltips as on an action (`CreateSmartCastMenuItem`), because the box means the
+        -- same thing in both places. The two aura branches carry the shared caveat behind them.
+        local instructions = {
+            rez = LLL["SMART_CAST_REZ_DESC"],
+            battleRez = LLL["SMART_CAST_BATTLE_REZ_DESC"],
+            dispel = LLL["SMART_CAST_DISPEL_DESC"] .. "|n|n" .. LLL["SMART_CAST_OUT_OF_COMBAT_DESC"],
+            buff = LLL["SMART_CAST_BUFF_DESC"] .. "|n|n" .. LLL["SMART_CAST_OUT_OF_COMBAT_DESC"],
         };
         local function createDefaultCheckbox(branch, label)
             return defaultsDescription:CreateCheckbox(label, function()
@@ -259,19 +294,24 @@ function DebindUI.SetupOptionsDropdownMenu(dropdown, rootDescription)
             end);
         end
 
+        -- Locked while the switch above is off. They would still write, and the account setting they
+        -- write is still what an action following it gets back the moment Smart Cast returns -- but
+        -- a live box over a dead feature is read as the feature being alive.
         for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
-            createDefaultCheckbox(branch, labels[branch]);
-            -- The same box, in the same place under Resurrect, as the one on an action
-            -- (`CreateSmartCastMenuItem`), locked by the same answer.
-            if (branch == "rez") then
-                local withBattleRez = createDefaultCheckbox("rezWithBattleRez",
-                    LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"]);
-                SetInstructionTooltip(withBattleRez, LLL["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
-                withBattleRez:SetEnabled(function()
-                    return DebindPrivate.SmartCastDefault("rez") and true or false;
-                end);
-            end
+            local box = createDefaultCheckbox(branch, labels[branch]);
+            SetInstructionTooltip(box, instructions[branch]);
+            box:SetEnabled(DebindPrivate.SmartCastEnabled);
         end
+
+        -- The same shape as the box on an action (`CreateSmartCastMenuItem`): below the four,
+        -- behind a divider, locked by the same answer.
+        defaultsDescription:CreateDivider();
+        local withBattleRez = createDefaultCheckbox("rezWithBattleRez",
+            LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"]);
+        SetInstructionTooltip(withBattleRez, LLL["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
+        withBattleRez:SetEnabled(function()
+            return DebindPrivate.SmartCastEnabled() and DebindPrivate.SmartCastDefault("rez") and true or false;
+        end);
     end
 
     do
@@ -986,60 +1026,105 @@ do
     --- something in the third mode and are locked otherwise. The values stay when the mode
     --- changes; turning off is not clearing.
     ---
-    --- `COMMAND` and `UNUSED` do not get the item at all: neither reaches the click wrapper where a
-    --- branch is chosen, and a box that can never do anything is worse than no box.
+    --- Only the types Smart Cast may be set on get the item at all
+    --- (`Constants.TYPES_WITH_SMART_CAST`).
     local function CreateSmartCastMenuItem(parentDescription)
-        if (_action.type == Constants.COMMAND or _action.type == Constants.UNUSED) then
+        if (not Constants.TYPES_WITH_SMART_CAST[_action.type]) then
             return;
         end
 
-        local description = CreateActionMenuItemGroup(parentDescription, "SMART_CAST", "smartCast",
+        -- The label is composed here rather than looked up, so the instruction has to be passed:
+        -- the helper finds it from the key it was given, and the key is now a finished string.
+        local description = CreateActionMenuItemGroup(parentDescription,
+            NewFeatureLabel(LLL["SMART_CAST"]), "smartCast",
             function()
                 return _action.smartCast ~= nil;
-            end);
+            end, nil, LLL["SMART_CAST_DESC"]);
 
-        description:CreateRadio(LLL["DISABLE"], actionValueEquals, setActionValue,
+        -- **The account-wide switch locks the whole submenu without emptying it.** The action keeps
+        -- what it chose (§10-1 of the design), so the items stay and stop answering; the tooltip is
+        -- the only thing that can say why, and it is set from an initializer because the group's
+        -- own runs at open and would overwrite one set here.
+        local function masterOn()
+            return DebindPrivate.SmartCastEnabled();
+        end
+        if (not masterOn()) then
+            description:AddInitializer(function(button, elementDescription)
+                SetInstructionTooltip(elementDescription, LLL["SMART_CAST_DESC"], function()
+                    return LLL["SMART_CAST_DISABLED_ACCOUNT_WIDE"];
+                end);
+            end);
+        end
+
+        local off = description:CreateRadio(LLL["DISABLE"], actionValueEquals, setActionValue,
             { key = "smartCast", value = nil });
-        description:CreateRadio(LLL["SMART_CAST_GLOBAL"], actionValueEquals, setActionValue,
+        off:SetEnabled(masterOn);
+        local global = description:CreateRadio(LLL["SMART_CAST_GLOBAL"], actionValueEquals, setActionValue,
             { key = "smartCast", value = "global" });
-        description:CreateRadio(LLL["SMART_CAST_CUSTOM"], actionValueEquals, setActionValue,
+        global:SetEnabled(masterOn);
+        local custom = description:CreateRadio(LLL["SMART_CAST_CUSTOM"], actionValueEquals, setActionValue,
             { key = "smartCast", value = "custom" });
+        custom:SetEnabled(masterOn);
 
         description:CreateDivider();
 
         local function customOnly()
-            return _action.smartCast == "custom";
+            return masterOn() and _action.smartCast == "custom";
         end
 
-        local rez = description:CreateCheckbox(LLL["SMART_CAST_REZ"], actionValueEquals, setActionValue,
+        -- **Following the defaults shows the defaults, not what this action last chose.** The
+        -- boxes are locked in that mode, and a locked box that disagrees with what the key does is
+        -- read as the answer. The action's own values stay stored and come back the moment the
+        -- mode does (§10-1 of the design: turning off is not clearing).
+        local function branchChecked(branch)
+            return function(args)
+                if (_action.smartCast == "global") then
+                    return DebindPrivate.SmartCastDefault(branch) and true or false;
+                end
+                return actionValueEquals(args);
+            end;
+        end
+
+        -- The four in the order the snippet tries them (`SMART_CAST_SNIPPET`): the first branch
+        -- that fits the aimed unit is the one that goes out, so the list reads top to bottom the
+        -- way the press does.
+        local battleRez = description:CreateCheckbox(LLL["SMART_CAST_BATTLE_REZ"], branchChecked("battleRez"),
+            setActionValue, { key = "smartCastBattleRez", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(battleRez, LLL["SMART_CAST_BATTLE_REZ_DESC"]);
+        battleRez:SetEnabled(customOnly);
+
+        local rez = description:CreateCheckbox(LLL["SMART_CAST_REZ"], branchChecked("rez"), setActionValue,
             { key = "smartCastRez", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(rez, LLL["SMART_CAST_REZ_DESC"]);
         rez:SetEnabled(customOnly);
 
-        -- Under Resurrect and not under Battle Resurrection: what it widens is what the
-        -- resurrection branch may cast, and a box under Battle Resurrection saying "out of combat
-        -- as well" would contradict its own name (§10-7 of the design).
+        local dispel = description:CreateCheckbox(LLL["SMART_CAST_DISPEL"], branchChecked("dispel"),
+            setActionValue, { key = "smartCastDispel", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(dispel,
+            LLL["SMART_CAST_DISPEL_DESC"] .. "|n|n" .. LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
+        dispel:SetEnabled(customOnly);
+
+        local buff = description:CreateCheckbox(LLL["SMART_CAST_BUFF"], branchChecked("buff"),
+            setActionValue, { key = "smartCastBuff", value = USE_CHECKED_VALUE });
+        SetInstructionTooltip(buff,
+            LLL["SMART_CAST_BUFF_DESC"] .. "|n|n" .. LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
+        buff:SetEnabled(customOnly);
+
+        -- **Below the four, behind a divider, rather than under Resurrect.** It belongs to the
+        -- resurrection branch (§10-7 of the design) but it is not one of the four the list above
+        -- ranks, and a dropdown has no indentation to say so with: the menu system's only grouping
+        -- device is the divider (Blizzard indents dependent options in the settings panel only,
+        -- `initializer:Indent()`). Sitting under Resurrect unindented, it would read as a fifth
+        -- branch.
+        description:CreateDivider();
+
         local rezWithBattleRez = description:CreateCheckbox(LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],
-            actionValueEquals, setActionValue,
+            branchChecked("rezWithBattleRez"), setActionValue,
             { key = "smartCastRezWithBattleRez", value = USE_CHECKED_VALUE });
         SetInstructionTooltip(rezWithBattleRez, LLL["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
         rezWithBattleRez:SetEnabled(function()
             return customOnly() and _action.smartCastRez and true or false;
         end);
-
-        local battleRez = description:CreateCheckbox(LLL["SMART_CAST_BATTLE_REZ"], actionValueEquals,
-            setActionValue, { key = "smartCastBattleRez", value = USE_CHECKED_VALUE });
-        SetInstructionTooltip(battleRez, LLL["SMART_CAST_BATTLE_REZ_DESC"]);
-        battleRez:SetEnabled(customOnly);
-
-        local dispel = description:CreateCheckbox(LLL["SMART_CAST_DISPEL"], actionValueEquals,
-            setActionValue, { key = "smartCastDispel", value = USE_CHECKED_VALUE });
-        SetInstructionTooltip(dispel, LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
-        dispel:SetEnabled(customOnly);
-
-        local buff = description:CreateCheckbox(LLL["SMART_CAST_BUFF"], actionValueEquals,
-            setActionValue, { key = "smartCastBuff", value = USE_CHECKED_VALUE });
-        SetInstructionTooltip(buff, LLL["SMART_CAST_OUT_OF_COMBAT_DESC"]);
-        buff:SetEnabled(customOnly);
     end
 
     local function CreateConvertToMacroTextMenuItem(parentDescription)
@@ -1395,11 +1480,8 @@ do
         AppendCheckboxes(description, "frameTypes", {
                 { text = LLL["FRAMETYPE_PLAYER"],  value = Constants["FRAMETYPE_PLAYER"] },
                 { text = LLL["FRAMETYPE_PET"],     value = Constants["FRAMETYPE_PET"] },
-                -- 새로 들어온 것을 가리키는 표시. **목록에서 이미 쓰는 것과 같은 아틀라스다**
-                -- (`DebindUI.xml`의 `NewDot`, 도착한 액션 위에 붙는 그것). 게임의 새 기능
-                -- 라벨은 텍스처 위에 글씨를 얹는 프레임이라 메뉴 줄 안에서는 못 흉내낸다.
-                { text = format("%s %s", LLL["FRAMETYPE_GROUP"],
-                    CreateAtlasMarkup("plunderstorm-new-dot-lg", 25, 25)),
+                -- The role items under it are what is new here.
+                { text = NewFeatureLabel(LLL["FRAMETYPE_GROUP"]),
                     value = Constants["FRAMETYPE_GROUP"] },
                 { text = LLL["FRAMETYPE_TARGET"],  value = Constants["FRAMETYPE_TARGET"] },
                 { text = LLL["FRAMETYPE_BOSS"],    value = Constants["FRAMETYPE_BOSS"] },
