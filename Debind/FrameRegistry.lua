@@ -148,6 +148,9 @@ local KNOWN_PACK_FRAMES            = {
     { "^ellesmereuiunitframes_",            "EllesmereUIUnitFrames" },
     { "^grid2layoutheader%d+unitbutton%d+", "Grid2" },                          -- a header child, so the header door answers group
     { "^elvuf_",                            "ElvUI" },                          -- every frame the pack spawns, headers and their children with them
+    { "^sufunit",                           "ShadowedUnitFrames" },             -- one frame per unit, read off the unit it holds
+    { "^sufheader",                         "ShadowedUnitFrames" },             -- a header's children, and the zone buttons that carry a boss or arena token
+    { "^sufchild",                          "ShadowedUnitFrames" },             -- a slot's pet or target, on `useparent-unit` so there is nothing to read
 };
 
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.

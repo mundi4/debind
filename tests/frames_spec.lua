@@ -416,6 +416,8 @@ return function(DebindPrivate)
             { "Vd1H1Tg", "raid3target", Constants.FRAMETYPE_GROUP },
             { "Grid2LayoutHeader1UnitButton3", "raid5", Constants.FRAMETYPE_GROUP },
             { "ElvUF_Focus", "focus", Constants.FRAMETYPE_TARGET },
+            { "SUFUnitfocus", "focus", Constants.FRAMETYPE_TARGET },
+            { "SUFHeaderbossUnitButton2", "boss2", Constants.FRAMETYPE_BOSS },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);
