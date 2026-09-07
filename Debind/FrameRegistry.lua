@@ -252,6 +252,277 @@ end
 --- 마지막으로 적어둔 프레임 안에는 없다는 뜻이라, 그 빈 자리가 곧 맞는 답이다.
 local _hoverWrapped = setmetatable({}, { __mode = "k" });
 
+--- 이미 `OnClick`을 감싼 프레임. **`ccframes` 엔트리로는 못 센다** - 우리는 래퍼를 떼지 않는데
+--- 해제 때 그 엔트리는 사라지므로, 다시 등록되면 두 번 감싸게 된다.
+local _wrapped = setmetatable({}, { __mode = "k" });
+
+---------------------------------------------------------------------------
+-- Standing on top of another addon's wrappers
+--
+-- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`.
+---------------------------------------------------------------------------
+
+--- The three scripts we wrap, and the only ones the hooks below answer for.
+local REASSEMBLED_SCRIPTS = { OnEnter = true, OnLeave = true, OnClick = true };
+
+--- How many times one frame may be reassembled in a session before we conclude somebody is
+--- fighting us for the top rather than merely wiring their frame up.
+---
+--- **Ordinary use spends one per script.** A pack wraps as it registers, and again when its own
+--- click casting is switched on or off; each of those is one pass here. What this catches is the
+--- other shape -- an addon that re-wraps because we wrapped, which comes back every time.
+local REASSEMBLE_LIMIT = 8;
+
+--- The frame a reassembly is in the middle of. **Read before anything else in the hooks**, and set
+--- and cleared synchronously: two engines that both re-wrap on being wrapped over pile up on the
+--- call stack rather than over time, so deferring the judgement to a timer leaves the stack to grow
+--- in between. Measured without a guard: 198 frames deep and a C stack overflow.
+local _reassembling = setmetatable({}, { __mode = "k" });
+local _reassembleCount = setmetatable({}, { __mode = "k" });
+local _warnedContested = false;
+
+--- Hands the restricted side everything this pass took off the frame, replacing that frame's list
+--- for that script whole.
+---
+--- **The entries are read out of numbered slots on the driver** rather than passed as arguments: a
+--- frame handle arrives nil through `RunAttribute`'s varargs (measured 2026-08-28), and a header is
+--- a frame. `SecureHandlerSetFrameRef` is the one door for one.
+---
+--- **What this pass took goes in front of what earlier passes took**, because that is where it was
+--- on the frame: they wrapped on top of us, and we were on top of everything we had already taken.
+--- Replacing the list instead would drop an addon's first wrapper the moment it added a second.
+---
+--- `over_replace` is the other case, and it is not an optimisation. A leave list holds one entry
+--- because the client runs one leave body, so a newer one buries whatever was there. And where our
+--- own wrapper was taken off by somebody else, what is left on the frame is the whole truth again.
+---
+--- Emptying is the case that has to leave nothing behind, because the three hot paths read
+--- `Overs[button]` first and a row that exists costs them a second lookup for nothing.
+local STORE_OVERS_SNIPPET = [=[
+	local button = self:GetFrameRef("clickcast_button")
+	local script = self:GetAttribute("over_script")
+	local n = self:GetAttribute("over_count")
+	local byScript = Overs[button]
+	local kept = byScript and byScript[script]
+	if (self:GetAttribute("over_replace")) then
+		kept = nil
+	end
+
+	if (n == 0 and not kept) then
+		if (byScript) then
+			byScript[script] = nil
+			if (next(byScript) == nil) then
+				Overs[button] = nil
+			end
+		end
+		return
+	end
+
+	if (not byScript) then
+		byScript = newtable()
+		Overs[button] = byScript
+	end
+
+	local list = newtable()
+	byScript[script] = list
+	for i = 1, n do
+		local over = newtable()
+		over.handle = self:GetFrameRef("over_"..i)
+		over.pre = self:GetAttribute("over_pre_"..i)
+		over.post = self:GetAttribute("over_post_"..i)
+		list[i] = over
+	end
+	if (kept) then
+		for i = 1, #kept do
+			list[n + i] = kept[i]
+		end
+	end
+]=];
+
+--- What a wrapped post body is given. The client compiles one as `self,message` for the motion
+--- scripts and `self,message,button,down` for a click; running it through `RunFor` gives it
+--- `self,...` instead, so the names it expects are declared for it here. One line covers all three
+--- -- a motion body never mentions the two it did not ask for.
+local OVER_POST_PROLOGUE = "local message, button, down = ...\n";
+
+local Reassemble;
+
+--- Our own pre and post for one script.
+local function OurBodies(script)
+	if (script == "OnClick") then
+		return DebindPrivate.UnitFrameClickPre, DebindPrivate.UnitFrameClickPost;
+	end
+	if (script == "OnEnter") then
+		return BindingDriver:GetAttribute("setup_onenter_wrap"),
+			BindingDriver:GetAttribute("setup_onenter_post");
+	end
+	return BindingDriver:GetAttribute("setup_onleave_wrap"),
+		BindingDriver:GetAttribute("setup_onleave_post");
+end
+
+--- Whether this script on this frame is one we put a wrapper on. A frame that arrived through the
+--- header door has a row and no wrapper of ours on the motion scripts -- it carries
+--- `clickcast_onenter` instead -- so the row alone is not the question.
+local function WrappedByUs(button, script)
+	if (script == "OnClick") then
+		return _wrapped[button] and true or false;
+	end
+	return _hoverWrapped[button] and true or false;
+end
+
+--- **Steps off a frame rather than trading the top with another engine forever.**
+---
+--- Taking the row away is what makes it stick: every gate below reads it, so nothing reassembles
+--- this frame again. The wrapper stays where it is, as every wrapper of ours does, and the body it
+--- runs stands down on its own once the restricted row is gone. What we took off the frame is
+--- **not** given back and not thrown away -- it is still in `Overs` and still replayed, because
+--- stopping it is the one thing that would break the addon we stood down for.
+local function StandDown(button)
+	local row = DebindPrivate.ccframes[button];
+	DebindPrivate.ccframes[button] = nil;
+	if (row and row.hd) then
+		local name = button.GetName and button:GetName();
+		if (name) then
+			DebindPrivate.hccframes[name] = nil;
+		end
+	end
+
+	if (row and not InCombatLockdown()) then
+		SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clickcast_button", button);
+		SecureHandlerExecute(DebindPrivate.BindingDriver, [=[
+			local button = self:GetFrameRef("clickcast_button")
+			self:RunFor(button, self:GetAttribute("DeinitFrame"))
+		]=]);
+	end
+
+	if (not _warnedContested) then
+		_warnedContested = true;
+		DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_UNIT_FRAME_CONTESTED"]);
+	end
+end
+
+--- Takes every wrapper another addon has on this script, hands the bodies to the restricted side,
+--- and puts ours back on top.
+---
+--- **The walk stops at our own header, and our own has already come off by then** -- the call that
+--- reported it is the call that removed it. Reaching nil instead means nothing of ours was on this
+--- script yet, which is the first registration.
+---
+--- **What comes back is only what was above us.** Anything below stays in the chain and goes on
+--- running there, which is what it did before we arrived: the enter and click bodies down there
+--- still run, and the leave ones still do not, because the client runs only the outermost leave
+--- body and that was never them.
+---
+--- **`leave` keeps one and only one.** Blizzard's `Wrapped_OnLeave` clears `_wrapentered` before it
+--- descends, so of everything that was above us exactly the first entry ever ran. Replaying the
+--- rest would be inventing behaviour that never existed on this frame.
+function Reassemble(button, script, fromUnwrap)
+	local pre, post = OurBodies(script);
+	if (type(pre) ~= "string") then
+		return;
+	end
+
+	_reassembling[button] = true;
+	-- **Every unwrap below is ours**, and `DebindCliqueFake` listens on the same global to hear the
+	-- holder let a frame go. It cannot tell from the arguments -- an unwrap carries no header -- so
+	-- the flag is what says so, the same way `RewrapUnitFrames` says it. Restored rather than
+	-- cleared, because that function is one of the callers that reaches here with it already up.
+	local wasUnwrappingOwn = DebindPrivate.unwrappingOwnScripts;
+	DebindPrivate.unwrappingOwnScripts = true;
+
+	local taken = 0;
+	while (true) do
+		local header, tookPre, tookPost = SecureHandlerUnwrapScript(button, script);
+		if (not header or header == BindingDriver) then
+			break;
+		end
+		if (script ~= "OnLeave" or taken == 0) then
+			taken = taken + 1;
+			SecureHandlerSetFrameRef(BindingDriver, "over_" .. taken, header);
+			BindingDriver:SetAttribute("over_pre_" .. taken, tookPre);
+			BindingDriver:SetAttribute("over_post_" .. taken,
+				tookPost and (OVER_POST_PROLOGUE .. tookPost) or nil);
+		end
+	end
+
+	DebindPrivate.unwrappingOwnScripts = wasUnwrappingOwn;
+
+	BindingDriver:SetAttribute("over_script", script);
+	BindingDriver:SetAttribute("over_count", taken);
+	BindingDriver:SetAttribute("over_replace", fromUnwrap or script == "OnLeave");
+	SecureHandlerSetFrameRef(BindingDriver, "clickcast_button", button);
+	SecureHandlerExecute(BindingDriver, STORE_OVERS_SNIPPET);
+
+	SecureHandlerWrapScript(button, script, BindingDriver, pre, post);
+
+	_reassembling[button] = nil;
+end
+
+--- Whether this pass is one more than the frame should have needed, and steps off if it is.
+local function ContestedNow(button)
+	if (_reassembling[button]) then
+		StandDown(button);
+		return true;
+	end
+
+	local count = (_reassembleCount[button] or 0) + 1;
+	_reassembleCount[button] = count;
+	if (count > REASSEMBLE_LIMIT) then
+		StandDown(button);
+		return true;
+	end
+
+	return false;
+end
+
+--- Somebody wrapped one of the three scripts on a frame we are on, so we are no longer the
+--- outermost. Take the top back and carry what they left.
+local function OnForeignWrap(frame, script, header)
+	if (header == BindingDriver or not REASSEMBLED_SCRIPTS[script]) then
+		return;
+	end
+	if (not DebindPrivate.ccframes[frame] or not WrappedByUs(frame, script)) then
+		return;
+	end
+	if (InCombatLockdown()) then
+		return;
+	end
+	if (ContestedNow(frame)) then
+		return;
+	end
+	Reassemble(frame, script, false);
+end
+
+--- Somebody unwrapped one, and the top was ours, so what came off was ours.
+---
+--- **Which addon asked cannot be known** -- `SecureHandlerUnwrapScript(frame, script)` carries no
+--- header. So this reassembles from whatever is left, and what is left is whatever they still have
+--- on the frame. Where they had only the one wrapper, the list comes out empty and their bodies
+--- stop running, which is what they asked for.
+local function OnForeignUnwrap(frame, script)
+	if (DebindPrivate.unwrappingOwnScripts or _reassembling[frame]) then
+		return;
+	end
+	if (not REASSEMBLED_SCRIPTS[script]) then
+		return;
+	end
+	if (not DebindPrivate.ccframes[frame] or not WrappedByUs(frame, script)) then
+		return;
+	end
+	if (InCombatLockdown()) then
+		return;
+	end
+	if (ContestedNow(frame)) then
+		return;
+	end
+	Reassemble(frame, script, true);
+end
+
+if (not DebindPrivate.CliqueDetected) then
+	hooksecurefunc("SecureHandlerWrapScript", OnForeignWrap);
+	hooksecurefunc("SecureHandlerUnwrapScript", OnForeignUnwrap);
+end
+
 function DebindPrivate.RegisterFrame(button, type)
     if (DebindPrivate.CliqueDetected) then
         return;
@@ -324,8 +595,8 @@ function DebindPrivate.RegisterFrame(button, type)
 
     if (not DebindPrivate.CliqueDetected and not _hoverWrapped[button]) then
         _hoverWrapped[button] = true;
-        SecureHandlerWrapScript(button, "OnEnter", BindingDriver, BindingDriver:GetAttribute("setup_onenter"));
-        SecureHandlerWrapScript(button, "OnLeave", BindingDriver, BindingDriver:GetAttribute("setup_onleave"));
+        Reassemble(button, "OnEnter");
+        Reassemble(button, "OnLeave");
     end
 
     DebindPrivate.ccframes[button] = { type = type, frameType = frameType };
@@ -414,14 +685,6 @@ function SetPropagate(...)
     end
 end
 
---- 이미 `OnClick`을 감싼 프레임. **`ccframes` 엔트리로는 못 센다** - 우리는 래퍼를 떼지 않는데
---- 해제 때 그 엔트리는 사라지므로, 다시 등록되면 두 번 감싸게 된다.
----
---- 떼지 않는 이유는 `SecureHandlerUnwrapScript`이 **맨 위 것**을 뗀다는 데 있다. 우리가 감싼 뒤
---- 남이 또 감쌌으면 우리가 부르는 그 호출이 **남의 것을 떼고 우리 것은 남긴다.**
---- (`click-time-phase3.md` §4-3)
-local _wrapped = setmetatable({}, { __mode = "k" });
-
 --- 우리 자리를 프레임에 얹는다.
 ---
 --- **남의 자리를 안 건드리는 것이 요점이다.** 접미사가 `-debind1`이라 블리자드의 `type1`/`type2`와
@@ -436,7 +699,7 @@ local function ApplyDebindRouting(button)
 
     if (not _wrapped[button] and DebindPrivate.UnitFrameClickPre) then
         _wrapped[button] = true;
-        SecureHandlerWrapScript(button, "OnClick", BindingDriver, DebindPrivate.UnitFrameClickPre);
+        Reassemble(button, "OnClick");
     end
 end
 

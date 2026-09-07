@@ -69,6 +69,24 @@ M.record = record;
 local overrides = {};
 M.overrides = overrides;
 
+--- The wrapper chains standing on each frame's scripts, **outermost first**.
+---
+--- **State, like `overrides` above, and for the same reason.** The recording says a wrap once
+--- crossed; what a leave has to know is which wrappers are on the frame *now*, after everything
+--- that has been unwrapped since. `SecureHandlerWrapScript` pushes onto the front and
+--- `SecureHandlerUnwrapScript` takes the front off, which is the client's own order.
+---
+--- Recording the calls was enough for as long as nothing here ran one. It stopped being enough
+--- with the reassembly: a body that takes another addon's wrappers off and replays them can only
+--- be measured against a chain that behaves like the client's.
+local wrappers = setmetatable({}, { __mode = "k" });
+
+--- The chain on one script, outermost first, or nil where nothing has wrapped it.
+function M.wrapperChain(frame, script)
+    local byScript = wrappers[frame];
+    return byScript and byScript[script];
+end
+
 --- What the game reports the key is bound to, or `nil` where no override holds it. The two shapes
 --- are the two calls that make one: a click override answers `CLICK <button>:<mousebutton>`, and a
 --- command override answers the command verbatim.
@@ -90,6 +108,7 @@ end
 function M.reset()
     recorder.entries = {};
     for key in pairs(overrides) do overrides[key] = nil; end
+    for frame in pairs(wrappers) do wrappers[frame] = nil; end
     M.__clearTimers();
     M.__clearListeners();
     M.__resetAnon();
@@ -334,9 +353,30 @@ function M.install()
         if (postBody) then
             record("WrapScriptPost", label(frame), script, postBody, frame, header);
         end
+        local byScript = wrappers[frame];
+        if (not byScript) then
+            byScript = {};
+            wrappers[frame] = byScript;
+        end
+        local chain = byScript[script];
+        if (not chain) then
+            chain = {};
+            byScript[script] = chain;
+        end
+        table.insert(chain, 1, { header = header, pre = preBody, post = postBody });
     end
+    --- **The top one, whoever put it there.** The call takes no header, so the client cannot tell
+    --- one caller's wrapper from another's and neither can this -- which is the fact the whole
+    --- reassembly rests on.
     _G.SecureHandlerUnwrapScript = function(frame, script)
         record("UnwrapScript", label(frame), script, nil, frame);
+        local byScript = wrappers[frame];
+        local chain = byScript and byScript[script];
+        local entry = chain and table.remove(chain, 1);
+        if (not entry) then
+            return nil, nil, nil;
+        end
+        return entry.header, entry.pre, entry.post;
     end
     _G.SecureHandlerSetFrameRef = function(frame, refName, ref)
         record("SetFrameRef", label(frame), refName, ref and label(ref) or nil, frame, ref);

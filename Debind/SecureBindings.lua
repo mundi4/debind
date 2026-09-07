@@ -58,6 +58,15 @@ SecureHandlerExecute(BindingDriver, [[
 	debind_driver = self
 	ccframes = newtable()
 
+	-- 남의 래퍼에서 걷어와 우리가 대신 돌리는 본문들. `프레임 -> 스크립트 이름 -> 목록`이고
+	-- 목록의 1번이 맨 바깥이었던 것이다. 각 항목은 `handle`(그쪽 헤더), `pre`, `post`,
+	-- 그리고 이번 실행에서 pre가 낸 `message`를 든다.
+	--
+	-- **비어 있는 프레임은 행 자체가 없다.** enter/leave/click 세 핫패스가 전부 여기를
+	-- 먼저 보므로, 걷어온 것이 없는 프레임에서 조회가 하나로 끝나야 한다. 그래서 목록이
+	-- 비면 스크립트 칸을 지우고, 칸이 다 비면 프레임 행을 지운다.
+	Overs = newtable()
+
 	MacroMap = newtable()
 	
 	DefaultClickFrame = self:GetFrameRef("clickFrame")
@@ -806,14 +815,26 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 --
 -- `reaction == nil` is the marker. Every reader gates on it rather than on the frame being
 -- present, which is what the click path was already doing on its own.
-BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
+--- **The two halves are written as fragments because two attributes carry each of them.**
+--- `setup_onenter` / `setup_onleave` are the plain bodies -- what the header door's
+--- `clickcast_onenter` runs, and what `setup_onenter` itself falls to when the frame has no row.
+--- `setup_onenter_wrap` / `setup_onleave_wrap` are the same text with the reassembly prologue and
+--- epilogue spliced around it, and those are what actually go on a frame's wrapped script.
+---
+--- **Spliced and not called.** The wrapped bodies are the hover hot path, and a `RunAttribute`
+--- between the prologue and the body would be paid on every frame boundary the cursor crosses.
+--- One source, two attributes, no drift.
+---
+--- **Neither fragment may end in a `return` that leaves the body.** The epilogue after it is what
+--- tells Blizzard whether our post body has anything to run, so an early exit here would skip it.
+--- That is why the "no row" case below is an `if/else` rather than a return.
+local SETUP_ONENTER_SNIPPET = [==[
 	local unit = self:GetEffectiveAttribute("unit")
 
 	local unitframe = ccframes[self]
 	if (not unitframe) then
 		debind_driver:RunAttribute("setup_onleave")
-		return
-	end
+	else
 
 	local reaction
 	local role
@@ -850,18 +871,146 @@ BindingDriver:SetAttribute("setup_onenter", BakeSnippet([==[
 			debind_driver:SetAttribute("state-unitexists", "unitframe")
 		end
 	end
-]==]));
 
-
-BindingDriver:SetAttribute("setup_onleave", [==[
-	local unitframe = States.unitframe
-	if (not unitframe) then return end
-	States.unitframe = nil
-	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
-		DirtyFlags.unitframe = true
-		debind_driver:SetAttribute("state-unitexists", "unitframe")
 	end
-]==]);
+]==];
+
+local SETUP_ONLEAVE_SNIPPET = [==[
+	local unitframe = States.unitframe
+	if (unitframe) then
+		States.unitframe = nil
+		if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+			DirtyFlags.unitframe = true
+			debind_driver:SetAttribute("state-unitexists", "unitframe")
+		end
+	end
+]==];
+
+BindingDriver:SetAttribute("setup_onenter", BakeSnippet(SETUP_ONENTER_SNIPPET));
+
+BindingDriver:SetAttribute("setup_onleave", SETUP_ONLEAVE_SNIPPET);
+
+--- The bodies another addon had on this script before we took the top, run here in its own
+--- header's environment (`FrameRegistry.lua`, `Reassemble`).
+---
+--- **Written out once per script rather than shared through a call.** All three sit on a hot path
+--- and the script name has to be a constant in the text -- a body cannot ask which script it is.
+---
+--- **The empty case costs one lookup**, which is what the whole `Overs` shape is arranged for: a
+--- frame nobody else wrapped has no row at all, so `Overs[self]` is nil and the block is skipped.
+---
+--- **The order is the client's own.** `Wrapped_OnEnter` runs the outermost pre first and descends,
+--- so entry 1 goes first; a `false` back from one stops the descent, which here means stopping the
+--- walk. The entries **above** the one that refused have already had their pre run and their post
+--- is owed to them, so those run on the way out -- in reverse, the way the client unwinds -- and
+--- the one that refused gets none, which is what `Wrapped_OnEnter` does when it returns early.
+---
+--- `over.message` is what that entry's pre answered with a moment ago. The client runs a post body
+--- only where there was one (`message ~= nil`), and `overMessage` is how that fact reaches our own
+--- post body: Blizzard will not call it at all unless our pre answers with something.
+local OVERS_ENTER_PRE_SNIPPET = [==[
+	local overs = Overs[self]
+	overs = overs and overs.OnEnter
+	local overMessage
+	if (overs) then
+		local refused
+		for i = 1, #overs do
+			local over = overs[i]
+			local allow, message = over.handle:RunFor(self, over.pre)
+			over.message = message
+			if (message ~= nil) then
+				overMessage = "m"
+			end
+			if (allow == false) then
+				refused = i
+				break
+			end
+		end
+		if (refused) then
+			for i = refused - 1, 1, -1 do
+				local over = overs[i]
+				if (over.post and over.message ~= nil) then
+					over.handle:RunFor(self, over.post, over.message)
+				end
+			end
+			return false
+		end
+	end
+]==];
+
+local OVERS_LEAVE_PRE_SNIPPET = [==[
+	local overs = Overs[self]
+	overs = overs and overs.OnLeave
+	local overMessage
+	if (overs) then
+		local refused
+		for i = 1, #overs do
+			local over = overs[i]
+			local allow, message = over.handle:RunFor(self, over.pre)
+			over.message = message
+			if (message ~= nil) then
+				overMessage = "m"
+			end
+			if (allow == false) then
+				refused = i
+				break
+			end
+		end
+		if (refused) then
+			for i = refused - 1, 1, -1 do
+				local over = overs[i]
+				if (over.post and over.message ~= nil) then
+					over.handle:RunFor(self, over.post, over.message)
+				end
+			end
+			return false
+		end
+	end
+]==];
+
+--- **`nil` and not `false`.** The first value is what `Wrapped_OnEnter` reads to decide whether the
+--- frame's own handler runs, and the frame's handler is not ours to cancel. The second is the only
+--- thing that gets our post body called at all, and it is set only where an entry above us left a
+--- post owed -- so a frame nobody else wrapped pays for no post body.
+local OVERS_RETURN_SNIPPET = [==[
+	return nil, overMessage
+]==];
+
+--- The other half, after the frame's own handler has run. The client unwinds outermost-last, so
+--- these go in reverse.
+local OVERS_ENTER_POST_SNIPPET = [==[
+	local overs = Overs[self]
+	overs = overs and overs.OnEnter
+	if (overs) then
+		for i = #overs, 1, -1 do
+			local over = overs[i]
+			if (over.post and over.message ~= nil) then
+				over.handle:RunFor(self, over.post, over.message)
+			end
+		end
+	end
+]==];
+
+local OVERS_LEAVE_POST_SNIPPET = [==[
+	local overs = Overs[self]
+	overs = overs and overs.OnLeave
+	if (overs) then
+		for i = #overs, 1, -1 do
+			local over = overs[i]
+			if (over.post and over.message ~= nil) then
+				over.handle:RunFor(self, over.post, over.message)
+			end
+		end
+	end
+]==];
+
+BindingDriver:SetAttribute("setup_onenter_wrap",
+	BakeSnippet(OVERS_ENTER_PRE_SNIPPET .. SETUP_ONENTER_SNIPPET .. OVERS_RETURN_SNIPPET));
+BindingDriver:SetAttribute("setup_onenter_post", BakeSnippet(OVERS_ENTER_POST_SNIPPET));
+
+BindingDriver:SetAttribute("setup_onleave_wrap",
+	BakeSnippet(OVERS_LEAVE_PRE_SNIPPET .. SETUP_ONLEAVE_SNIPPET .. OVERS_RETURN_SNIPPET));
+BindingDriver:SetAttribute("setup_onleave_post", BakeSnippet(OVERS_LEAVE_POST_SNIPPET));
 
 BindingDriver:SetAttribute("clickcast_onenter", [==[
 	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
@@ -1413,17 +1562,76 @@ local EVAL_SNIPPET = [==[
 ---
 --- Nothing is stored anywhere the frame can see; the winner is handed to the wrapper on our own
 --- button through the restricted environment both share.
-DebindPrivate.InstallSnippet(function(pre)
+--- The click side of the same replay. Two things are its own.
+---
+--- **A click pre body may rename the button**, and the client passes the new name to everything
+--- below it (`Wrapped_Click`). So a name one of these answers with becomes the `button` our own
+--- judging reads, and it is what we hand back where we have no name of our own -- the entries below
+--- us in the chain are gone, and returning nil would put the original name back for the frame's own
+--- handler.
+---
+--- **Only a name somebody actually gave is carried.** Handing back `button` unchanged would answer
+--- the same thing, and it would also make every click on every frame answer with a name where it
+--- used to answer with nothing. `overButton` stays nil unless a body set it.
+local OVERS_CLICK_PRE_SNIPPET = [==[
+	local overs = Overs[self]
+	overs = overs and overs.OnClick
+	local overButton, overMessage
+	if (overs) then
+		local refused
+		for i = 1, #overs do
+			local over = overs[i]
+			local newbutton, message = over.handle:RunFor(self, over.pre, button, down)
+			over.message = message
+			if (message ~= nil) then
+				overMessage = "m"
+			end
+			if (newbutton == false) then
+				refused = i
+				break
+			end
+			if (newbutton) then
+				overButton = tostring(newbutton)
+				button = overButton
+			end
+		end
+		if (refused) then
+			for i = refused - 1, 1, -1 do
+				local over = overs[i]
+				if (over.post and over.message ~= nil) then
+					over.handle:RunFor(self, over.post, over.message, button, down)
+				end
+			end
+			return false
+		end
+	end
+]==];
+
+local OVERS_CLICK_POST_SNIPPET = [==[
+	local overs = Overs[self]
+	overs = overs and overs.OnClick
+	if (overs) then
+		for i = #overs, 1, -1 do
+			local over = overs[i]
+			if (over.post and over.message ~= nil) then
+				over.handle:RunFor(self, over.post, over.message, button, down)
+			end
+		end
+	end
+]==];
+
+DebindPrivate.InstallSnippet(function(pre, post)
 	DebindPrivate.UnitFrameClickPre = pre;
+	DebindPrivate.UnitFrameClickPost = post;
 	-- 처음 구울 때는 아직 아무것도 안 감쌌고 `FrameRegistry`도 안 올라왔다. 재베이크에서만
 	-- 할 일이 있다.
 	if (DebindPrivate.RewrapUnitFrames) then
 		DebindPrivate.RewrapUnitFrames();
 	end
-end, [==[
+end, OVERS_CLICK_PRE_SNIPPET .. [==[
 	local info = ccframes[self]
 	if (not info) then
-		return
+		return overButton, overMessage
 	end
 
 	local bindings
@@ -1445,7 +1653,7 @@ end, [==[
 	end
 
 	if (not bindings) then
-		return
+		return overButton, overMessage
 	end
 
 	local clickCast = true
@@ -1454,7 +1662,7 @@ end, [==[
 ]==] .. EVAL_SNIPPET .. [==[
 
 	if (not winner or not winner.clickbutton) then
-		return
+		return overButton, overMessage
 	end
 
 	-- **The edge we do not act on is swallowed.** Both edges are registered because
@@ -1473,14 +1681,14 @@ end, [==[
 	-- edges, and `SecureActionButton_OnClick` gates the frame's own action to one of them by
 	-- itself: `clickAction = (down and useOnKeyDown) or (not down and not useOnKeyDown)`.
 	if ((down and true or false) ~= ClickCastOnMouseDown) then
-		return "debindnull"
+		return "debindnull", overMessage
 	end
 
 	HandoffBindings = bindings
 	HandoffWinner = winner
 	HandoffHoverUnit = hoverUnit
-	return "debind1"
-]==]);
+	return "debind1", overMessage
+]==], OVERS_CLICK_POST_SNIPPET);
 
 --- **이 판에서는 할당을 하지 않는다.** `newtable()`도 문자열 결합도 없다 - 클릭 경로의
 --- GC 스파이크는 평균 비용보다 훨씬 아프게 나타난다. 메모는 미리 만들어 둔 테이블을 쓴다.

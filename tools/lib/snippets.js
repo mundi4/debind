@@ -269,7 +269,12 @@ function forEachSnippet(srcDir, cb) {
             const line = src.slice(0, m.index).split("\n").length;
 
             for (const parts of collectBodies(src, openParen, snippetLocals)) {
-                if (!parts.some((p) => p.literal !== undefined)) continue;
+                // **An argument that is nothing but a piece's name is a body.** This used to
+                // require at least one literal, which was true of every call on the day it was
+                // written and stopped being true the moment a body was assembled entirely out of
+                // pieces: six of them left every check at once, and the only sign was the count.
+                // That is the exact failure this file's header exists for.
+                if (!parts.length) continue;
 
                 // 게이트가 붙은 참조가 하나라도 있을 때만 두 형상이 존재한다. 무조건 들어가는
                 // 조각은 어느 쪽에서도 본문 그대로다.

@@ -20,12 +20,58 @@ DelegateFrameNames[frame] = frame:GetName()
  owner:Hide() 
 
 ### FrameRegistry.lua #1 SecureHandlerExecute
+			local button = self:GetFrameRef("clickcast_button")
+			self:RunFor(button, self:GetAttribute("DeinitFrame"))
+		
+
+### FrameRegistry.lua #2 SecureHandlerExecute
+	local button = self:GetFrameRef("clickcast_button")
+	local script = self:GetAttribute("over_script")
+	local n = self:GetAttribute("over_count")
+	local byScript = Overs[button]
+	local kept = byScript and byScript[script]
+	if (self:GetAttribute("over_replace")) then
+		kept = nil
+	end
+
+	if (n == 0 and not kept) then
+		if (byScript) then
+			byScript[script] = nil
+			if (next(byScript) == nil) then
+				Overs[button] = nil
+			end
+		end
+		return
+	end
+
+	if (not byScript) then
+		byScript = newtable()
+		Overs[button] = byScript
+	end
+
+	local list = newtable()
+	byScript[script] = list
+	for i = 1, n do
+		local over = newtable()
+		over.handle = self:GetFrameRef("over_"..i)
+		over.pre = self:GetAttribute("over_pre_"..i)
+		over.post = self:GetAttribute("over_post_"..i)
+		list[i] = over
+	end
+	if (kept) then
+		for i = 1, #kept do
+			list[n + i] = kept[i]
+		end
+	end
+
+
+### FrameRegistry.lua #3 SecureHandlerExecute
 		local button = self:GetFrameRef("clickcast_button")
 		self:RunFor(button, self:GetAttribute("InitFrame"))
 		ccframes[button].frameType = button:GetAttribute("debind_frametype")
 	
 
-### FrameRegistry.lua #2 SecureHandlerExecute
+### FrameRegistry.lua #4 SecureHandlerExecute
 			local button = self:GetFrameRef("clickcast_button")
 			self:RunFor(button, self:GetAttribute("DeinitFrame"))
 		
@@ -34,6 +80,15 @@ DelegateFrameNames[frame] = frame:GetName()
 
 	debind_driver = self
 	ccframes = newtable()
+
+
+
+
+
+
+
+
+	Overs = newtable()
 
 	MacroMap = newtable()
 	
@@ -728,8 +783,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	local unitframe = ccframes[self]
 	if (not unitframe) then
 		debind_driver:RunAttribute("setup_onleave")
-		return
-	end
+	else
 
 	local reaction
 	local role
@@ -767,41 +821,184 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
+	end
+
 
 ### SecureBindings.lua #14 SetAttribute
 	local unitframe = States.unitframe
-	if (not unitframe) then return end
-	States.unitframe = nil
-	if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
-		DirtyFlags.unitframe = true
-		debind_driver:SetAttribute("state-unitexists", "unitframe")
+	if (unitframe) then
+		States.unitframe = nil
+		if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+			DirtyFlags.unitframe = true
+			debind_driver:SetAttribute("state-unitexists", "unitframe")
+		end
 	end
 
 
 ### SecureBindings.lua #15 SetAttribute
-	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
+	local overs = Overs[self]
+	overs = overs and overs.OnEnter
+	local overMessage
+	if (overs) then
+		local refused
+		for i = 1, #overs do
+			local over = overs[i]
+			local allow, message = over.handle:RunFor(self, over.pre)
+			over.message = message
+			if (message ~= nil) then
+				overMessage = "m"
+			end
+			if (allow == false) then
+				refused = i
+				break
+			end
+		end
+		if (refused) then
+			for i = refused - 1, 1, -1 do
+				local over = overs[i]
+				if (over.post and over.message ~= nil) then
+					over.handle:RunFor(self, over.post, over.message)
+				end
+			end
+			return false
+		end
+	end
+	local unit = self:GetEffectiveAttribute("unit")
+
+	local unitframe = ccframes[self]
+	if (not unitframe) then
+		debind_driver:RunAttribute("setup_onleave")
+	else
+
+	local reaction
+	local role
+	if (unit and UnitExists(unit)) then
+		if (PlayerCanAssist(unit)) then
+			reaction = CONSTANTS.REACTION_HELP
+		elseif (PlayerCanAttack(unit)) then
+			reaction = CONSTANTS.REACTION_HARM
+		else
+			reaction = CONSTANTS.REACTION_OTHER
+		end
+
+
+
+
+
+
+		if (UnitRoles and unitframe.frameType == CONSTANTS.FRAMETYPE_GROUP) then
+			role = UnitRoles[unit] or "norole"
+		end
+	else
+		unit = nil
+	end
+
+	local unitChanged = unitframe.unit ~= unit or unitframe.reaction ~= reaction
+			or unitframe.role ~= role
+	if (States.unitframe ~= unitframe or unitChanged) then
+		unitframe.unit = unit
+		unitframe.reaction = reaction
+		unitframe.role = role
+		States.unitframe = unitframe
+		if (debind_driver:RunAttribute("SetUnit", "hover", unit) or RebindOnHoverFrame) then
+			DirtyFlags.unitframe = true
+			debind_driver:SetAttribute("state-unitexists", "unitframe")
+		end
+	end
+
+	end
+	return nil, overMessage
 
 
 ### SecureBindings.lua #16 SetAttribute
-	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onleave"))
+	local overs = Overs[self]
+	overs = overs and overs.OnEnter
+	if (overs) then
+		for i = #overs, 1, -1 do
+			local over = overs[i]
+			if (over.post and over.message ~= nil) then
+				over.handle:RunFor(self, over.post, over.message)
+			end
+		end
+	end
 
 
 ### SecureBindings.lua #17 SetAttribute
+	local overs = Overs[self]
+	overs = overs and overs.OnLeave
+	local overMessage
+	if (overs) then
+		local refused
+		for i = 1, #overs do
+			local over = overs[i]
+			local allow, message = over.handle:RunFor(self, over.pre)
+			over.message = message
+			if (message ~= nil) then
+				overMessage = "m"
+			end
+			if (allow == false) then
+				refused = i
+				break
+			end
+		end
+		if (refused) then
+			for i = refused - 1, 1, -1 do
+				local over = overs[i]
+				if (over.post and over.message ~= nil) then
+					over.handle:RunFor(self, over.post, over.message)
+				end
+			end
+			return false
+		end
+	end
+	local unitframe = States.unitframe
+	if (unitframe) then
+		States.unitframe = nil
+		if (debind_driver:RunAttribute("SetUnit", "hover", nil) or RebindOnHoverFrame) then
+			DirtyFlags.unitframe = true
+			debind_driver:SetAttribute("state-unitexists", "unitframe")
+		end
+	end
+	return nil, overMessage
+
+
+### SecureBindings.lua #18 SetAttribute
+	local overs = Overs[self]
+	overs = overs and overs.OnLeave
+	if (overs) then
+		for i = #overs, 1, -1 do
+			local over = overs[i]
+			if (over.post and over.message ~= nil) then
+				over.handle:RunFor(self, over.post, over.message)
+			end
+		end
+	end
+
+
+### SecureBindings.lua #19 SetAttribute
+	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
+
+
+### SecureBindings.lua #20 SetAttribute
+	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onleave"))
+
+
+### SecureBindings.lua #21 SetAttribute
 		return danglingButton and danglingButton:GetAttribute("unit") or nil
 	
 
-### SecureBindings.lua #18 SetAttribute
+### SecureBindings.lua #22 SetAttribute
 		local clique_header = self:GetFrameRef("clique_header")
 		local unit = clique_header:RunAttribute("debind_gethoverunit")
 		return unit
 	
 
-### SecureBindings.lua #19 SetAttribute
+### SecureBindings.lua #23 SetAttribute
 		local unitframe = States.unitframe
 		return unitframe and unitframe.unit
 	
 
-### SecureBindings.lua #20 SetAttribute
+### SecureBindings.lua #24 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
 		local info = ccframes[button]
 		if (info and info.hd) then
@@ -825,7 +1022,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		self:CallMethod("OnClickCastRegister", button:GetName())
 	
 
-### SecureBindings.lua #21 SetAttribute
+### SecureBindings.lua #25 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
 		if (ccframes[button]) then
 			self:RunFor(button, self:GetAttribute("DeinitFrame"))
@@ -838,10 +1035,41 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	
 
-### SecureBindings.lua #22 InstallSnippet
+### SecureBindings.lua #26 InstallSnippet
+	local overs = Overs[self]
+	overs = overs and overs.OnClick
+	local overButton, overMessage
+	if (overs) then
+		local refused
+		for i = 1, #overs do
+			local over = overs[i]
+			local newbutton, message = over.handle:RunFor(self, over.pre, button, down)
+			over.message = message
+			if (message ~= nil) then
+				overMessage = "m"
+			end
+			if (newbutton == false) then
+				refused = i
+				break
+			end
+			if (newbutton) then
+				overButton = tostring(newbutton)
+				button = overButton
+			end
+		end
+		if (refused) then
+			for i = refused - 1, 1, -1 do
+				local over = overs[i]
+				if (over.post and over.message ~= nil) then
+					over.handle:RunFor(self, over.post, over.message, button, down)
+				end
+			end
+			return false
+		end
+	end
 	local info = ccframes[self]
 	if (not info) then
-		return
+		return overButton, overMessage
 	end
 
 	local bindings
@@ -863,7 +1091,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	if (not bindings) then
-		return
+		return overButton, overMessage
 	end
 
 	local clickCast = true
@@ -1256,7 +1484,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 	if (not winner or not winner.clickbutton) then
-		return
+		return overButton, overMessage
 	end
 
 
@@ -1275,16 +1503,29 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if ((down and true or false) ~= ClickCastOnMouseDown) then
-		return "debindnull"
+		return "debindnull", overMessage
 	end
 
 	HandoffBindings = bindings
 	HandoffWinner = winner
 	HandoffHoverUnit = hoverUnit
-	return "debind1"
+	return "debind1", overMessage
 
 
-### SecureBindings.lua #23 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #27 InstallSnippet
+	local overs = Overs[self]
+	overs = overs and overs.OnClick
+	if (overs) then
+		for i = #overs, 1, -1 do
+			local over = overs[i]
+			if (over.post and over.message ~= nil) then
+				over.handle:RunFor(self, over.post, over.message, button, down)
+			end
+		end
+	end
+
+
+### SecureBindings.lua #28 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -1906,7 +2147,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return winner.clickbutton
 
 
-### SecureBindings.lua #24 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #29 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -2524,7 +2765,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return winner.clickbutton
 
 
-### SecureBindings.lua #25 InstallSnippet
+### SecureBindings.lua #30 InstallSnippet
 
 
 
@@ -2542,7 +2783,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("useOnKeyDown", nil)
 
 
-### SecureBindings.lua #26 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #31 InstallSnippet (DEBUG=on)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -2977,7 +3218,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return winner.clickbutton
 	
 
-### SecureBindings.lua #27 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #32 InstallSnippet (DEBUG=off)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -3411,7 +3652,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return winner.clickbutton
 	
 
-### SecureBindings.lua #28 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #33 InstallSnippet (DEBUG=on)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
@@ -3850,7 +4091,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return winner.clickbutton
 	
 
-### SecureBindings.lua #29 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #34 InstallSnippet (DEBUG=off)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then

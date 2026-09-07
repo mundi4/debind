@@ -202,6 +202,7 @@ local specs = {
     { name = "boundkey", path = root .. "/boundkey_spec.lua" },
     { name = "display", path = root .. "/display_spec.lua" },
     { name = "hover", path = root .. "/hover_spec.lua" },
+    { name = "reassemble", path = root .. "/reassemble_spec.lua" },
     { name = "unitwatch", path = root .. "/unitwatch_spec.lua" },
     { name = "role", path = root .. "/role_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },

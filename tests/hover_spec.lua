@@ -639,7 +639,7 @@ return function(DebindPrivate, _, ctx)
     local function customFromHover(units)
         Bind({ action({ value = 585, key = "F1", unit = "custom1" }) });
         shim.world.units = units;
-        interp:hoverLeave();
+        interp:clearHoverSlot();
         interp.unitWatchHandle:SetAttribute("custom1", "none");
         return interp:setCustomTarget("custom1", "hover");
     end

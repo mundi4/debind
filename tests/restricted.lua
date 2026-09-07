@@ -526,19 +526,98 @@ function Interp:parseCount(expr)
     return self.parses[expr] or 0;
 end
 
---- Drives the real `setup_onenter` for a frame, the way the wrapped `OnEnter` script does.
+--- Runs one frame's wrapped script the way `SecureHandlers.lua` does: every wrapper on it, in
+--- order, outermost first, with the frame's own handler at the bottom.
+---
+--- **Three rules of the client's, and the leave one is why this exists at all.**
+---
+---   `OnEnter`   sets `_wrapentered` on the frame, then runs the pre body. `false` back from one
+---               stops the descent and that wrapper's own post with it
+---   `OnLeave`   runs the pre body **only while `_wrapentered` stands**, and clears it first. So
+---               the outermost leave wrapper is the only one whose body runs, and everything
+---               under it is dead the moment somebody wraps on top
+---   `OnClick`   no flag. `false` cancels, and any other value returned replaces the button name
+---               for everything below
+---
+--- A post body runs only where the pre answered with a second value, which is the client's
+--- `message ~= nil`.
+---
+--- **The frame's own handler is not called.** A shell has none that does anything, and the
+--- question every case here asks is which bodies ran and in what order.
+function Interp:runWrapped(frame, script, ...)
+    local chain = frames.wrapperChain(frame, script);
+    local n = chain and #chain or 0;
+    local handle = handleFor(self, frame);
+
+    local function descend(i, button, down)
+        if (i > n) then
+            return;
+        end
+        local entry = chain[i];
+        local allow, message;
+
+        if (script == "OnClick") then
+            allow, message = self:run(entry.pre, handle, "self,button,down",
+                self:envFor(entry.header), button, down);
+            if (allow == false) then
+                return;
+            end
+            if (allow) then
+                button = tostring(allow);
+            end
+        else
+            local run = script == "OnEnter";
+            if (run) then
+                -- **Written past the handle on purpose.** The client sets this from its own C
+                -- side; going through `SetAttribute` here would file it in the recording, where
+                -- it is not something the addon ever wrote.
+                frame.__attributes["_wrapentered"] = true;
+            elseif (frame.__attributes["_wrapentered"]) then
+                frame.__attributes["_wrapentered"] = nil;
+                run = true;
+            end
+            if (run) then
+                allow, message = self:run(entry.pre, handle, "self", self:envFor(entry.header));
+                if (allow == false) then
+                    return;
+                end
+            end
+        end
+
+        descend(i + 1, button, down);
+
+        if (entry.post and message ~= nil) then
+            if (script == "OnClick") then
+                self:run(entry.post, handle, "self,message,button,down",
+                    self:envFor(entry.header), message, button, down);
+            else
+                self:run(entry.post, handle, "self,message", self:envFor(entry.header), message);
+            end
+        end
+    end
+
+    descend(1, ...);
+end
+
+--- The cursor arriving on a frame. **Through the wrappers**, so what a spec measures is what the
+--- client would have run and not the body we happen to have written.
 ---
 --- The frame has to be one `RegisterFrame` took, or `ccframes` has no row for it and the body
 --- has nothing to fill in.
 function Interp:hoverEnter(frame)
-    return self.driverHandle:RunFor(handleFor(self, frame),
-        self.driver:GetAttribute("setup_onenter"));
+    return self:runWrapped(frame, "OnEnter");
 end
 
---- The other half. Takes no frame: `setup_onleave` clears whatever is in the hover slot, which
---- is what makes it the cleanup for an `OnLeave` that never arrived.
+--- The cursor leaving it.
 function Interp:hoverLeave(frame)
-    return self.driverHandle:RunFor(handleFor(self, frame),
+    return self:runWrapped(frame, "OnLeave");
+end
+
+--- Empties the hover slot without a cursor. **The body, not the chain**: this is a spec putting
+--- the world back between cases, and `setup_onleave` clears whatever is in the slot whichever
+--- frame it is asked on -- which is what makes it the cleanup for an `OnLeave` that never came.
+function Interp:clearHoverSlot()
+    return self.driverHandle:RunFor(self.driverHandle,
         self.driver:GetAttribute("setup_onleave"));
 end
 

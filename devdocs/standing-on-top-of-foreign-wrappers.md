@@ -136,6 +136,48 @@ enter, leave, click 핫패스에 얹히는 것이라 목록이 비었을 때 표
   빼고), 2, 4, 5g, 그리고 post 본문을 둔 F. 프로브 파일은 그때 지운다. TOC 줄도.
 - 골든 셋 다시 뜬다.
 
+#### 계획과 갈린 것
+
+- **`setup_onenter`/`setup_onleave`가 둘로 갈렸다.** 계획은 순회를 그 본문 앞에 넣으라고 했는데,
+  `setup_onenter`가 행이 없을 때 `setup_onleave`를 부르므로 진입 한 번에 leave 목록까지 돌게
+  된다. 헤더 문의 `clickcast_onenter`도 같은 본문을 쓰는데 그쪽은 걷어온 것이 없다. 그래서
+  본문은 `SETUP_ONENTER_SNIPPET` 하나로 두고, 순회를 앞뒤에 **글자로 이어 붙인** 것을
+  `setup_onenter_wrap`/`setup_onleave_wrap`으로 따로 두었다. 래퍼에 올라가는 것은 `_wrap` 쪽이다.
+  부르지 않고 이어 붙인 이유는 그 사이에 `RunAttribute`가 들어가면 커서가 넘는 프레임마다
+  치르게 되기 때문이다.
+- **우리도 post 본문을 갖게 됐다.** 계획에 없던 것인데, 블리자드는 pre가 **두 번째 값을 냈을
+  때만** post를 부른다(`Wrapped_OnEnter`의 `message ~= nil`). 그래서 걷어온 post가 하나라도
+  있을 때만 우리 pre가 `nil, "m"`을 돌려주고, 그 경우에만 우리 post가 불려서 그쪽 post를 돌린다.
+  걷어온 것이 없는 프레임은 post 호출을 한 번도 안 치른다.
+- **`false`는 순회를 끊는다.** 계획은 "하나라도 `false`를 돌리면 우리 몫을 마친 뒤 우리도
+  `false`를 돌린다"였는데, 그러면 원래 안 돌았을 아래 것들이 돈다. 블리자드는 `false`를 만나면
+  내려가지 않으므로 거기서 끊고, **끊은 것보다 위에 있던 것들의 post는 그 자리에서 돌린다** -
+  원래 그 자리에서 돌았기 때문이다. 끊은 자기 것은 안 돈다.
+- **보관은 갈아 쓰기가 아니라 앞에 붙이기다.** 계획의 "목록을 통째로 갈아 쓴다"로는 한 애드온이
+  래퍼를 둘째로 얹는 순간 첫째가 사라졌다. 이번에 걷은 것이 앞(더 바깥)이고 전에 걷은 것이
+  뒤다. 갈아 쓰기는 두 자리에만 남겼다: `OnLeave`(원래 하나만 도는 자리라 새 것이 옛 것을 묻는다)와
+  남이 unwrap한 뒤(그때는 프레임에 남은 것이 전부다).
+- **걷어온 post 앞에 붙이는 줄은 `local message, button, down = ...`다.** 계획은 `local message`
+  하나였는데, 클릭 post는 블리자드가 셋을 넘긴다. 한 줄이 셋 다 덮으므로 스크립트마다 다른 줄을
+  두지 않았다.
+- **`Reassemble`이 부르는 unwrap은 `unwrappingOwnScripts`를 세운다.** `DebindCliqueFake`가 같은
+  전역을 듣고 있고 인자로는 우리 호출을 못 가른다. 이걸 안 세우면 재조립할 때마다 홀더가 놓았다고
+  듣고 프레임을 되묻는다. `holder_spec`이 잡았다.
+- **`tools/lib/snippets.js`가 조각 참조만으로 된 본문을 검사에서 빼고 있었다.** `SetAttribute(이름,
+  BakeSnippet(A_SNIPPET))`처럼 문자열 리터럴이 하나도 없는 인자를 통째로 건너뛴다. 이번에 그런
+  본문이 여섯 생겼고 전부 조용히 검사 밖으로 나갔다. 그 파일 머리말이 막으려던 실패 그 자체라
+  게이트를 걷었다. 스니펫 수가 43개에서 58개가 됐다.
+- **헤드리스는 새 파일 `tests/reassemble_spec.lua`다.** 그리고 심이 래퍼 사슬을 진짜로 들게
+  됐다(`wow_frames.lua`의 `wrappers`/`M.wrapperChain`, `restricted.lua`의 `Interp:runWrapped`).
+  `hoverEnter`/`hoverLeave`가 이제 그 사슬을 지나가므로 기존 호버 케이스도 클라이언트와 같은
+  순서를 지난다. 커서 없이 슬롯만 비우던 자리는 `Interp:clearHoverSlot`으로 갈랐다.
+  여섯 케이스가 고치기 전 코드에서 빨갛게 나오는 것을 봤고, post의 `message` 케이스는 옛 코드에서는
+  초록이라 `overMessage` 전달을 빼서 빨간 것을 확인했다.
+- **`/debtest`에 전투 중 케이스는 안 세웠다.** 킷은 락다운을 흉내 낼 수 없고, 보호된 프레임을
+  전투 중에 감싸는 것은 클라이언트가 거절하므로 몰 것 자체가 없다. 대신 네 케이스가
+  `frame:GetScript("OnEnter")(frame, true)`로 **래퍼 사슬을 진짜로 돌린다** -
+  `IsWrapEligible`이 보호된 프레임에는 비보안 호출도 통과시킨다(`SecureHandlers.lua`).
+
 ### 2. 문 셋을 되살린다
 
 `git show v3.5.2:Debind/FrameRegistry.lua`가 원본이다. 9월 5일 문서의 2단계가 뺀 것을 되돌린다.

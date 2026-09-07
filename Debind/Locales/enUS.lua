@@ -1203,6 +1203,16 @@ L["UNNAMED_ACTION"] = "(Unnamed)"
 -- **One chat line.** This lands in the same frame as loot and quest text, so it says the one thing
 -- and stops; the addon name is already on the front of it (`_MESSAGE_PREFIX`).
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique is installed, so unit frame bindings here do not fire."
+-- Printed once a session, when another addon keeps taking a unit frame back the moment Debind
+-- takes it. Debind gives that frame up; the addon that wanted it keeps working there.
+--
+-- **What the reader can act on is the second half.** They cannot see who is doing it and there is
+-- nothing to switch, so the useful sentence is which of their keys will not work and where. "Some
+-- of your unit frames" rather than a name, because the frame that lost is not one they can point
+-- at either.
+--
+-- **One chat line**, like everything else this addon says there.
+L["WARNING_MESSAGE_UNIT_FRAME_CONTESTED"] = "Another addon keeps claiming some of your unit frames, so Debind's keys do not work on them."
 -- **The addon has stood down from settings written by a newer version of itself**, and will not
 -- read or write one byte of them (`Profile.lua`). It goes out at login, and again every time
 -- somebody tries to open the window, and it keeps going out on every login until the reader does

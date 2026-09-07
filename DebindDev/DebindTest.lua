@@ -4399,6 +4399,269 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
     end,
 })
 
+-----------------------------------------------------------
+-- Test Cases: standing on top of another addon's wrappers
+--
+-- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. The rules of the replay are headless
+-- (`tests/reassemble_spec.lua`); what needs the client is everything the shim cannot be: that the
+-- sandbox accepts `RunFor` onto another header's handle at all, that a key another engine binds
+-- from inside its own body still reaches the binding table through ours, and that two engines
+-- fighting for the top stop rather than filling the C stack.
+--
+-- **The other addon is one fake header and nothing else.** Standing a real unit frame pack up
+-- would make the run depend on which pack is installed, and every call it would make is one of
+-- these four.
+-----------------------------------------------------------
+
+--- Fires a wrapped script the way the client's mouse handling does. `motion` is the argument
+--- `Wrapped_OnEnter` and `Wrapped_OnLeave` gate on, and `IsWrapEligible` lets an insecure caller
+--- through on a protected frame, which every frame here is.
+---
+--- **This is the whole reason these cases are in the kit.** `HoverEnter` above runs our own body
+--- and nothing else; this runs the chain, so what it measures is where in the chain we ended up.
+local function FireScript(frame, script, ...)
+    local handler = frame:GetScript(script)
+    if not handler then
+        return false
+    end
+    handler(frame, ...)
+    return true
+end
+
+--- The other addon's header. Its pre bodies bind a key of its own and write a global into its own
+--- managed environment, which is the pair of things a replay could get wrong: the key says the
+--- body ran, and the environment says it ran in the right one.
+local FAKE_ENTER = [[
+    fake_hovered = self
+    control:SetBindingClick(true, "SHIFT-F", self:GetName(), "fake")
+]]
+
+local FAKE_LEAVE = [[
+    fake_hovered = nil
+    control:ClearBinding("SHIFT-F")
+]]
+
+local fakeHeader
+
+local function FakeHeader()
+    if not fakeHeader then
+        fakeHeader = _G.DebindTestFakeHeader
+            or CreateFrame("Frame", "DebindTestFakeHeader", UIParent, "SecureHandlerBaseTemplate")
+        function fakeHeader:ReportHovered(value)
+            fakeHeader.__hovered = value
+        end
+        function fakeHeader:ReportPost(value)
+            fakeHeader.__post = value
+        end
+    end
+    return fakeHeader
+end
+
+--- Reads `fake_hovered` out of the fake header's **own** environment. Asked there rather than of
+--- anything of ours: a value in one of our tables would not say whose environment ran the body,
+--- and that is the half `RunFor` on their handle is there to buy.
+local function FakeHovered()
+    local header = FakeHeader()
+    header.__hovered = nil
+    SecureHandlerExecute(header, [[
+        self:CallMethod("ReportHovered", fake_hovered and fake_hovered:GetName() or nil)
+    ]])
+    return header.__hovered
+end
+
+--- A frame with a hover binding on it, so filling and emptying the slot is something to look at.
+local function HoverBoundFrame()
+    InsertAction({
+        type = Constants.SPELL, value = 585, key = "BUTTON3",
+        units = { hover = {} },
+    })
+    ApplyBindings()
+    return CreateTestUnitFrame("player", "group")
+end
+
+-- **Both engines work on one frame.** Their body binds their key on the way in and drops it on the
+-- way out, and ours fills and empties the hover slot -- and the leave half is the one that could
+-- not be had before: the client runs one leave body, so whoever is outermost takes it, and it was
+-- them.
+RegisterTest("Foreign wrappers: their key and our hover both work on one frame", {
+    description = "남이 위에 감싸도 그쪽 키와 우리 호버가 같이 동작한다",
+    run = function()
+        local NAME = "Both engines on one frame"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "wrapping a protected frame is blocked in combat")
+        end
+
+        local frame, err = HoverBoundFrame()
+        if not frame then return Fail(NAME, err) end
+
+        local header = FakeHeader()
+        SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
+        SecureHandlerWrapScript(frame, "OnLeave", header, FAKE_LEAVE)
+        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+
+        if not FireScript(frame, "OnEnter", true) then
+            return Fail(NAME, "the frame has no OnEnter script to fire")
+        end
+
+        local bound = GetBindingAction("SHIFT-F", true) or ""
+        if bound:sub(1, 6) ~= "CLICK " then
+            return Fail(NAME, format("their body did not bind SHIFT-F (got %q)", bound))
+        end
+        if FakeHovered() ~= frame:GetName() then
+            return Fail(NAME, format("their body ran somewhere else: fake_hovered=%s",
+                tostring(FakeHovered())))
+        end
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("our own enter did not fill the slot (hover=%s)",
+                tostring(GetHoverUnit())))
+        end
+
+        FireScript(frame, "OnLeave", true)
+
+        bound = GetBindingAction("SHIFT-F", true)
+        if bound then
+            return Fail(NAME, format("their body did not drop SHIFT-F (still %q)", bound))
+        end
+        if GetHoverUnit() ~= nil then
+            return Fail(NAME, format("the cursor left and the slot still holds %s",
+                tostring(GetHoverUnit())))
+        end
+
+        return Pass(NAME, "their key went on and off, and so did our hover slot")
+    end,
+})
+
+-- **A post body runs on what its own pre answered with.** Ours is the wrapper the client calls
+-- now, so a message theirs produced has to be carried across our own pre and handed back in our
+-- post -- three places it could be dropped, none of which raises anything.
+RegisterTest("Foreign wrappers: their post body is handed their own message", {
+    description = "걷어온 post 본문이 자기 pre가 낸 message를 받는다",
+    run = function()
+        local NAME = "Foreign post body"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "wrapping a protected frame is blocked in combat")
+        end
+
+        local frame, err = HoverBoundFrame()
+        if not frame then return Fail(NAME, err) end
+
+        local header = FakeHeader()
+        SecureHandlerWrapScript(frame, "OnEnter", header, [[
+            return nil, "carried"
+        ]], [[
+            fake_post = message
+        ]])
+        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+
+        FireScript(frame, "OnEnter", true)
+
+        header.__post = nil
+        SecureHandlerExecute(header, [[
+            self:CallMethod("ReportPost", fake_post)
+        ]])
+        if header.__post ~= "carried" then
+            return Fail(NAME, format("their post body saw %s", tostring(header.__post)))
+        end
+
+        return Pass(NAME, "their post body was handed its own message")
+    end,
+})
+
+-- **An unwrap says nothing about who asked**, so when the top comes off a frame of ours all we
+-- know is that the top was ours. We go back on whatever is left -- which is nothing here, so their
+-- body stops, which is what turning their wrapping off is supposed to do.
+RegisterTest("Foreign wrappers: after they unwrap we are back on top", {
+    description = "남이 unwrap한 뒤 우리가 다시 맨 위다",
+    run = function()
+        local NAME = "Foreign unwrap"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "wrapping a protected frame is blocked in combat")
+        end
+
+        local frame, err = HoverBoundFrame()
+        if not frame then return Fail(NAME, err) end
+
+        local header = FakeHeader()
+        SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
+        SecureHandlerUnwrapScript(frame, "OnEnter")
+        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+
+        FireScript(frame, "OnEnter", true)
+
+        if FakeHovered() ~= nil then
+            return Fail(NAME, format(
+                "they turned their wrapping off and their body still ran (fake_hovered=%s)",
+                tostring(FakeHovered())))
+        end
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("our own enter stopped working too (hover=%s)",
+                tostring(GetHoverUnit())))
+        end
+
+        return Pass(NAME, "their body stopped and ours is still the outermost")
+    end,
+})
+
+-- **Two engines that both re-wrap on being wrapped over pile up on the call stack**, not over
+-- time, so nothing that defers the judgement can help: measured without a guard it reached 198
+-- frames and overflowed the C stack. The guard is read first and set synchronously, and the frame
+-- is given up on the spot.
+--
+-- **The client is the only place this can be asked.** A stack overflow is not something the
+-- headless harness would reproduce -- it would simply recurse in Lua and answer the same way.
+RegisterTest("Foreign wrappers: a frame another engine keeps taking back is given up", {
+    description = "되받아치는 엔진이 있으면 그 프레임에서 물러난다",
+    run = function()
+        local NAME = "Contested frame"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "wrapping a protected frame is blocked in combat")
+        end
+
+        local frame, err = HoverBoundFrame()
+        if not frame then return Fail(NAME, err) end
+
+        local header = FakeHeader()
+        local depth, watching = 0, true
+        AddTeardown(function() watching = false end)
+
+        -- **A hook cannot be taken off**, so it is switched off by teardown instead and answers
+        -- for this one frame only. It behaves the way a competing engine does: it wraps again the
+        -- moment somebody else's header goes on the frame.
+        hooksecurefunc("SecureHandlerWrapScript", function(wrapped, script, wrappedBy)
+            if not watching or wrapped ~= frame or script ~= "OnEnter" or wrappedBy == header then
+                return
+            end
+            depth = depth + 1
+            if depth > 20 then
+                return
+            end
+            SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
+        end)
+
+        SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
+        AddTeardown(function() FireScript(frame, "OnLeave", true) end)
+
+        if depth > 3 then
+            return Fail(NAME, format("the two of us traded the top %d times before stopping", depth))
+        end
+        if DebindPrivate.ccframes[frame] ~= nil then
+            return Fail(NAME, "we kept a frame another engine keeps taking back")
+        end
+
+        -- And it still works for them, which is the whole reason for standing down.
+        FireScript(frame, "OnEnter", true)
+        if FakeHovered() ~= frame:GetName() then
+            return Fail(NAME, "we stood down and took their body with us")
+        end
+
+        return Pass(NAME, format("gave the frame up after %d passes", depth))
+    end,
+})
+
 -- **Unticking a Blizzard unit frame box does not hand the frame back.** Deregistering is the
 -- frame owner's to ask for, and Blizzard never asks; the box decides what we register from the
 -- next login, which is what `REQUIRES_RELOAD` on it says. The harness cannot answer this: the
