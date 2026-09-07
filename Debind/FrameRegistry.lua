@@ -155,6 +155,13 @@ local KNOWN_PACK_FRAMES            = {
     { "^pitbull4_groups_",                  "PitBull4" },                       -- a header's children, answered group by the header door
     { "^pitbull4_petgroups_",               "PitBull4" },                       -- the same, off a pet header
     { "^pitbull4_enemygroups_",             "PitBull4" },                       -- not a real header, and its buttons carry arena and boss tokens
+    { "^cellpartyframeheader",              "Cell" },                           -- a header's children, and the pet button hung off each of them
+    { "^cellraidframeheader",               "Cell" },                           -- the same, off the combined and per-group headers
+    { "^cellpetframeheader",                "Cell" },                           -- the same, off a pet header
+    { "^cellsoloframe",                     "Cell" },                           -- the two buttons the pack shows while solo
+    { "^cellspotlightframeunitbutton%d+$",  "Cell" },                           -- the chosen units, duplicated out of the block
+    { "^cellnpcframebutton%d+$",            "Cell" },                           -- the encounter's friendly NPCs
+    { "^cellarenapet%d+$",                  "Cell" },                           -- the arena enemies' pets
 };
 
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.
