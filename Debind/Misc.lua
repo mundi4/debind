@@ -1117,19 +1117,6 @@ function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     return dest;
 end
 
---- 이 바인딩에 조건이 하나라도 걸려 있나. 발동 순서의 세 번째 단계가 이걸 읽는다
---- (`Ordering.lua`).
----
---- 축마다 `nil` 검사를 쓴 열두 갈래가 여기 있었다. 축이 하나 늘 때마다 갈래를 잊으면 그 조건이
---- 걸린 바인딩이 무조건짜리로 분류돼 **발동 순서가 조용히 바뀌었고**, 그 잘못은 화면에
---- 아무것도 안 남긴다.
----
---- **바인딩 쪽 표는 비어 있을 수 있다.** 리빌드마다 제자리에서 다시 채우느라 늘 존재하기
---- 때문이다(`GetBindingInfoForAction`). 저장 쪽은 반대로 빈 표를 안 남긴다(`CleanUpDB`).
----
---- **표에 든 것은 전부 조건이다.** 이 애드온이 쓰는 이름 밖의 것은 여기까지 오는 길이 없다.
---- 저장 쪽은 `CleanUpDB`가 걷어내고, 가져오기는 그런 이름을 실은 문자열을 통째로 거절한다
---- (`Import.lua`의 `IsUsableAction`). 손으로 고친 SavedVariables는 방어하지 않는다.
 --- Whether this binding's specialization-index condition holds for the character right now.
 ---
 --- **The one condition answered out here instead of on the restricted side.** A specialization
@@ -1183,6 +1170,19 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     return band(specs, Constants.SpecIndexFlag(spec)) ~= 0;
 end
 
+--- 이 바인딩에 조건이 하나라도 걸려 있나. 발동 순서의 세 번째 단계가 이걸 읽는다
+--- (`Ordering.lua`).
+---
+--- 축마다 `nil` 검사를 쓴 열두 갈래가 여기 있었다. 축이 하나 늘 때마다 갈래를 잊으면 그 조건이
+--- 걸린 바인딩이 무조건짜리로 분류돼 **발동 순서가 조용히 바뀌었고**, 그 잘못은 화면에
+--- 아무것도 안 남긴다.
+---
+--- **바인딩 쪽 표는 비어 있을 수 있다.** 리빌드마다 제자리에서 다시 채우느라 늘 존재하기
+--- 때문이다(`GetBindingInfoForAction`). 저장 쪽은 반대로 빈 표를 안 남긴다(`CleanUpDB`).
+---
+--- **표에 든 것은 전부 조건이다.** 이 애드온이 쓰는 이름 밖의 것은 여기까지 오는 길이 없다.
+--- 저장 쪽은 `CleanUpDB`가 걷어내고, 가져오기는 그런 이름을 실은 문자열을 통째로 거절한다
+--- (`Import.lua`의 `IsUsableAction`). 손으로 고친 SavedVariables는 방어하지 않는다.
 function DebindPrivate.IsConditionalBinding(binding)
     local conditions = binding.conditions;
     return conditions ~= nil and next(conditions) ~= nil;

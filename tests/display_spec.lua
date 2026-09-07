@@ -124,6 +124,65 @@ return function(DebindPrivate)
             "the named unit lost its own block: " .. text);
     end);
 
+    --- The kind of line one piece of text came out on, so a spec can tell "the reason is written"
+    --- from "the reason is written in the colour that says the key is dead".
+    local function LineKind(row, text)
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddActionToTooltip(tooltip, row.action, {
+            offWorld = row.offWorld,
+            suppressInactive = true,
+        });
+        for i = 1, #tooltip.lines do
+            if (tooltip.lines[i].text and tooltip.lines[i].text:find(text, 1, true)) then
+                return tooltip.lines[i].kind, tooltip.lines[i].color;
+            end
+        end
+    end
+
+    --- **A contradiction belongs to the unit that carries it.** The reader's own life line asks the
+    --- same `units` category as the units they picked by name, so an un-narrowed question puts one
+    --- unit's contradiction on a line about somebody else -- and the reader goes and edits a
+    --- condition that was never wrong.
+    test("another unit's contradiction leaves the reader's own life line alone", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
+                conditions = { units = { player = { dead = false }, focus = { reaction = 0 } } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        local kind, color = LineKind(row, LLL["BINDING_ERROR_CONDITIONS_NEVER"]);
+        check(kind == "colored" and color == ERROR_COLOR,
+            "the unit that carries the contradiction was not reported: " .. Tooltip(row));
+        check(LineKind(row, LLL["LIFE_ALIVE"]) == "normal",
+            "the reader's own life line was marked for another unit's contradiction");
+    end);
+
+    --- **The grade picks the colour, everywhere it is painted.** `HOVER_UNIT_WITH_CLIQUE` is the
+    --- one WARNING: the key still works and one thing it was told to do is missing. The row mark,
+    --- the group heading and the order flag all draw it orange off `GetIssueColor`, and the tooltip
+    --- printed the same sentence in the red that says the key is dead.
+    test("a warning prints in the warning colour", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, preferHoverUnit = true },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+
+        local saved = DebindPrivate.CliqueDetected;
+        DebindPrivate.CliqueDetected = true;
+        local ok, kind, color = pcall(LineKind, row, LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"]);
+        DebindPrivate.CliqueDetected = saved;
+        if (not ok) then
+            error(kind, 0);
+        end
+
+        check(kind == "colored", "the sentence came out on a " .. tostring(kind) .. " line");
+        check(color == ORANGE_FONT_COLOR, "it was not painted in the warning colour");
+    end);
+
+
     ---------------------------------------------------------------------------
     -- Unreachable, and the row that covers it
     ---------------------------------------------------------------------------

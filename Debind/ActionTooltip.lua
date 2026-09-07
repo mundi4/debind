@@ -128,6 +128,18 @@ do
 		end
 	end
 
+	--- The sentence a code prints, in the colour its grade asks for.
+	---
+	--- **The grade paints, never the code** (`Misc.lua`'s `GetIssueColor`). This drew every sentence
+	--- red, which is the colour that says the key is dead, and the one WARNING says the opposite:
+	--- the key works and one thing it was told to do is missing. The row mark, the group heading and
+	--- the order flag were already asking the grade, so the tooltip was the one surface saying
+	--- something else about the same state.
+	local function addIssueLine(tooltip, code, wrap, leftOffset)
+		GameTooltip_AddColoredLine(tooltip, LLL["BINDING_ERROR_" .. code],
+			DebindPrivate.GetIssueColor(code), wrap or false, leftOffset or LEFT_OFFSET);
+	end
+
 	--- **Red on the value only where the value is the whole of the problem.** `error` as `true`
 	--- says exactly that -- nothing is selected, and there is no separate sentence to print, so the
 	--- value has to carry the colour itself. A code instead means the sentence goes up underneath,
@@ -139,8 +151,7 @@ do
 			GameTooltip_AddNormalLine(tooltip, value, wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(tooltip, LLL["BINDING_ERROR_" .. error], wrap or false,
-				(leftOffset or LEFT_OFFSET) + INDENT_STEP);
+			addIssueLine(tooltip, error, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
@@ -150,8 +161,7 @@ do
 			fn(tooltip, lines[i], wrap or false, leftOffset or LEFT_OFFSET);
 		end
 		if (type(error) == "string") then
-			GameTooltip_AddErrorLine(tooltip, LLL["BINDING_ERROR_" .. error], wrap or false,
-				(leftOffset or LEFT_OFFSET) + INDENT_STEP);
+			addIssueLine(tooltip, error, wrap, (leftOffset or LEFT_OFFSET) + INDENT_STEP);
 		end
 	end
 
@@ -438,7 +448,7 @@ do
 			-- reaction and frame type lines keep their own colour, because those carry issues of
 			-- their own.
 			if (error) then
-				addErrorLine(tooltip, LLL["BINDING_ERROR_" .. error]);
+				addIssueLine(tooltip, error);
 			end
 			if (hoverCondition) then
 				local frameTypes = conditions.frameTypes or Constants.FRAMETYPE_ALL;
@@ -570,7 +580,8 @@ do
 			local summary = UnitConditionSummary(selfCondition);
 			if (summary) then
 				addLabelLine(tooltip, LLL["CONDITION_LIFE"]);
-				addValueLine(tooltip, summary, hasIssues and GetIssue("units") and true or false);
+				addValueLine(tooltip, summary,
+					hasIssues and GetIssue("units", "player") and true or false);
 			end
 		end
 
