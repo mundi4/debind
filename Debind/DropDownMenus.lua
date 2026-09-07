@@ -1282,14 +1282,24 @@ do
         ignoreHoverUnit:SetEnabled(hoverConditionIsOn);
     end
 
+    --- 이 메뉴가 답할 수 있는 유닛인가. `"@"`는 대상 메뉴가, `"hover"`는 hover 메뉴가,
+    --- `"player"`는 `Group` 아래 생사 메뉴가 편집한다 - 여기서 건드리면 **안 보여주는 조건이
+    --- 여기서 바뀐다.** 실제로 `"player"`가 빠져 있는 동안 [전부 사용 안 함]이 읽는 이의 생사
+    --- 조건을 꺼버렸고, 그 메뉴에는 그것을 되살릴 줄이 없었다.
+    ---
+    --- **묶음 밖에 있다.** 안에 두면 `isActive` 클로저가 만들어지는 시점에 아직 없는 이름을
+    --- 잡아서 런타임에 nil이 된다.
+    local function isListedUnit(unit)
+        return unit ~= "@" and unit ~= "hover" and unit ~= "player";
+    end
+
     local function CreateUnitConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_UNITS", "units",
-            -- isActive. `"@"`와 `"hover"`는 제 메뉴가 따로 있어서 여기서 안 센다 - 이 묶음이
-            -- 안 보여주는 조건 때문에 파랗게 뜨면 어디를 고쳐야 하는지가 안 보인다.
+            -- isActive. 위 `isListedUnit`이 무엇을 세는지 정한다.
             function()
                 if (UnitConditionsOf(_action)) then
                     for unit, value in pairs(UnitConditionsOf(_action)) do
-                        if (unit ~= "@" and unit ~= "hover" and UnitConditionIsOn(unit)) then
+                        if (isListedUnit(unit) and UnitConditionIsOn(unit)) then
                             return true;
                         end
                     end
@@ -1297,12 +1307,6 @@ do
                 return false;
             end
         );
-
-        --- 이 메뉴가 답할 수 있는 유닛인가. `"@"`는 대상 메뉴가, `"hover"`는 hover 메뉴가
-        --- 편집한다 - 여기서 건드리면 **안 보여주는 조건이 여기서 바뀐다.**
-        local function isListedUnit(unit)
-            return unit ~= "@" and unit ~= "hover";
-        end
 
         local function listedUnitsWithCondition()
             local units;
@@ -1348,7 +1352,10 @@ do
             -- the one that stays because `frameTypes` and `ignoreHoverUnit` only fit there --
             -- those describe the frame, not the unit on it. Two rows onto one key would be two
             -- ways to say one thing again, which is what the fold just removed.
-            if (not (unit == "player" or unit == "none" or unit == "hover")) then
+            -- **그리는 줄과 세는 유닛이 같은 목록이어야 한다.** `isListedUnit`이 그 목록이고,
+            -- 갈리면 이 메뉴가 안 그리는 조건으로 파래지거나 빨개진다. `"none"`만 여기 더 있다 -
+            -- 그건 유닛이 아니라 대상 없음이라 조건이 붙을 자리가 아예 없다.
+            if (isListedUnit(unit) and unit ~= "none") then
                 local unitInfo = DebindUI.UNIT_INFO[unit];
                 if (unitInfo.checkedUnit ~= false) then
                     CreateUnitConditionSubmenu(description, unitInfo.name, unit);
@@ -1372,7 +1379,8 @@ do
     local function CreateSelfLifeConditionMenu(rootDescription)
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_LIFE", nil,
             function()
-                return GetUnitConditionDead("player") ~= nil;
+                local cond = UnitConditionsOf(_action) and UnitConditionsOf(_action).player;
+                return type(cond) == "table" and not cond.off and cond.dead ~= nil;
             end);
 
         --- 다른 축의 setter를 못 쓴다. 그쪽은 `exists` 라디오가 표를 세워둔 뒤에만 불리는데
@@ -1403,6 +1411,11 @@ do
                     cond = {};
                     units.player = cond;
                 end
+                -- **끈 표시도 같이 지운다.** 이 메뉴에는 `off`를 세우는 줄이 없지만 공유
+                -- 프로필과 손으로 고친 것이 들고 올 수 있고, 남아 있으면
+                -- `UnitConditionForBinding`이 조건을 통째로 무시하는 동안 라디오는 켜진 채로
+                -- 그려진다 - 되살릴 줄이 없는 값이 된다.
+                cond.off = nil;
                 cond.dead = value;
             end
 

@@ -386,10 +386,22 @@ end
 --- 여기서는 떼도 된다. **재베이크는 테스트 세션에서만 도는 길이고** 전투 밖이다. 실제 플레이에
 --- 이 함수가 도달하는 경로는 없다.
 function DebindPrivate.RewrapUnitFrames()
+    -- **우리 호출을 남의 것으로 듣지 않게 하는 표시.** `DebindCliqueFake`가 wrap과 unwrap을
+    -- 다 후킹해서 홀더가 프레임을 잡고 놓는 순간을 듣는데, **unwrap 쪽은 인자에 헤더가
+    -- 없다**(`SecureHandlers.lua`의 `SecureHandlerUnwrapScript(frame, script)`). wrap 쪽에서
+    -- 우리 것을 걸러내는 헤더 비교가 거기서는 언제나 nil을 보므로 아무 일도 안 한다.
+    --
+    -- 그러면 아래 루프가 우리 프레임마다 "홀더가 놓았다"를 한 번씩 내보내고, 다음 틱에
+    -- 전부 다시 물어보게 된다. 인자로는 못 가르니 부르는 쪽이 말해준다.
+    -- 아래 `_reassertingClicks`가 같은 이유로 있는 같은 수법이다.
+    DebindPrivate.unwrappingOwnScripts = true;
+
     for button in pairs(_wrapped) do
         _wrapped[button] = nil;
         SecureHandlerUnwrapScript(button, "OnClick");
     end
+
+    DebindPrivate.unwrappingOwnScripts = nil;
 
     for button, entry in pairs(DebindPrivate.ccframes) do
         if (entry) then

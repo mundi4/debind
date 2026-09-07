@@ -81,6 +81,11 @@ return function(DebindPrivate)
     test("모르는 코드는 빨강이고, nil은 색이 없다", function()
         check(GetIssueColor("NO_SUCH_ISSUE_CODE") == _G.ERROR_COLOR, "모르는 코드가 빨강이 아니다");
         check(not DebindPrivate.IsIssueWarning("NO_SUCH_ISSUE_CODE"), "모르는 코드가 경고다");
+        -- **이것도 같은 기본값이어야 한다.** 같은 표를 읽는데 위 둘은 없으면 ERROR로 읽고
+        -- 이쪽만 없으면 "키를 지킨다"로 읽으면, 등급을 안 붙인 코드가 생기는 날 그 액션은
+        -- `BuildKeyMap`의 게이트를 통과해 솔버까지 가면서 화면에는 아무 표시도 안 뜬다.
+        check(not DebindPrivate.IssueKeepsKey("NO_SUCH_ISSUE_CODE"),
+            "모르는 코드가 키를 지킨다");
         -- 문제가 없으면 칠할 색도 없다. 부르는 쪽이 `if (color)`로 가른다.
         check(GetIssueColor(nil) == nil, "문제가 없는데 색이 나온다");
         check(not DebindPrivate.IsIssueWarning(nil), "nil이 경고다");

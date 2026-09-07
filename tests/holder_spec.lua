@@ -211,6 +211,32 @@ return function(DebindPrivate)
             "we kept a frame the holder has taken: " .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
+    -- **Our own unwrap is not the holder letting go.** `RewrapUnitFrames` unwraps every button we
+    -- wrapped and puts the routing back, and each of those calls reaches the same hook. The wrap
+    -- side tells us apart by the header it is handed; **the unwrap side is handed no header at
+    -- all** (`SecureHandlers.lua`), so nothing in the arguments says who called. Heard as the
+    -- holder moving, it re-asks every one of our frames a tick later.
+    test("our own rewrap is not heard as the holder letting go", function()
+        local _, kept = Holder(true);
+        local frame = UnitFrame();
+        _G.ClickCastFrames[frame] = true;
+
+        -- 우리가 잡고 있는 프레임이어야 한다. 홀더가 놓아준 뒤 우리가 가져간 상태.
+        kept[frame] = nil;
+        _G.SecureHandlerUnwrapScript(frame, "OnEnter");
+        frames.drainTimers();
+        check(type(DebindPrivate.ccframes[frame]) == "table", "the premise is gone: we do not hold it");
+
+        -- 이제 홀더가 도로 가져갔다고 해두고, **우리 쪽 호출만** 낸다. 이것을 홀더가 움직인
+        -- 것으로 들으면 다음 틱에 다시 물어보고 프레임을 내준다.
+        kept[frame] = true;
+        DebindPrivate.RewrapUnitFrames();
+        frames.drainTimers();
+        check(type(DebindPrivate.ccframes[frame]) == "table",
+            "our own unwrap was heard as the holder taking the frame: "
+                .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
     -- **Wrapping and unwrapping a script is how any engine attaches and detaches**, so those two
     -- calls are what says a decision may have moved -- no addon name and no frame name read.
     test("the holder wrapping a script re-asks that frame on the next tick", function()
@@ -220,8 +246,7 @@ return function(DebindPrivate)
         check(DebindPrivate.ccframes[frame] == nil, "the premise is gone: we took it the first time");
 
         kept[frame] = nil;
-        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
-        _G.SecureHandlerUnwrapScript(frame, "OnEnter", header);
+        _G.SecureHandlerUnwrapScript(frame, "OnEnter");
         check(DebindPrivate.ccframes[frame] == nil,
             "the re-ask ran inside the call rather than on the next tick");
 
@@ -240,8 +265,7 @@ return function(DebindPrivate)
         _G.ClickCastFrames[frame] = true;
         kept[frame] = nil;
 
-        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
-        _G.SecureHandlerUnwrapScript(frame, "OnEnter", header);
+        _G.SecureHandlerUnwrapScript(frame, "OnEnter");
 
         local queued = #DebindPrivate.FrameQueue;
         shim.world.inCombat = true;
@@ -262,9 +286,9 @@ return function(DebindPrivate)
     test("a wrap on a frame we know nothing about queues nothing", function()
         Holder(true);
         local stranger = UnitFrame();
-        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
         frames.drainTimers();
 
+        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
         _G.SecureHandlerWrapScript(stranger, "OnEnter", header, "-- theirs");
         frames.drainTimers();
         check(DebindPrivate.ccframes[stranger] == nil,

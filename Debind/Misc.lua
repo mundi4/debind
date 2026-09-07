@@ -1483,11 +1483,21 @@ function DebindPrivate.IsIssueWarning(issue)
     return Constants.BINDING_ISSUE_GRADES[issue] == Constants.ISSUE_GRADE_WARNING;
 end
 
+--- An issue code's grade, defaulting to ERROR: a code with no row in `BINDING_ISSUE_GRADES` is a
+--- code nobody graded, and the safe reading of that is the one that keeps the key off.
+local function IssueGrade(code)
+    return Constants.BINDING_ISSUE_GRADES[code] or Constants.ISSUE_GRADE_ERROR;
+end
+
 --- Does the key still fire with this problem on it? Everything but an ERROR does.
 ---
 --- `BuildKeyMap`'s gate.
 function DebindPrivate.IssueKeepsKey(issue)
-    return Constants.BINDING_ISSUE_GRADES[issue] ~= Constants.ISSUE_GRADE_ERROR;
+    -- **없는 등급은 ERROR다**, `IssueGrade`와 `GetIssueColor`가 이미 그렇게 읽는다. 표를
+    -- 그대로 비교하던 동안 이 함수만 반대로 답했다: 등급을 안 붙인 코드가 하나 생기면 그
+    -- 액션이 `BuildKeyMap`의 게이트를 통과해 솔버와 `UpdateBindings`까지 가는데, 화면에는
+    -- 아무 표시도 안 뜬다. **한 표를 읽는 세 함수가 다른 기본값을 쓰면 안 된다.**
+    return IssueGrade(issue) ~= Constants.ISSUE_GRADE_ERROR;
 end
 
 --- What colour a problem is drawn in. **The grade picks it, never the code** -- that is the whole
@@ -1525,12 +1535,6 @@ end
 ---   the action, necessarily: `key`, and the two checks that ask whether a name points at
 ---     something (`GetUndefinedSwitch`, `GetMissingMacroName`). None of the three is a
 ---     condition and none survives onto the binding
---- An issue code's grade, defaulting to ERROR: a code with no row in `BINDING_ISSUE_GRADES` is a
---- code nobody graded, and the safe reading of that is the one that keeps the key off.
-local function IssueGrade(code)
-    return Constants.BINDING_ISSUE_GRADES[code] or Constants.ISSUE_GRADE_ERROR;
-end
-
 --- Of the issue already found and one a branch just raised, the one that is reported. **A tie goes
 --- to the one already there**, so branches keep the order they are written in among equals.
 local function TakeIssue(current, candidate)

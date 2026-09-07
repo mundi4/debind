@@ -245,8 +245,13 @@ end
 --- one frame, and the re-ask would then queue the registration and put out "cannot register a unit
 --- frame in combat" over something the reader never did. Standing down loses nothing:
 --- `PLAYER_REGEN_ENABLED` asks about that frame again.
+--- **`header` is the wrap hook's argument and the unwrap hook has none.**
+--- `SecureHandlerUnwrapScript(frame, script)` takes two (`SecureHandlers.lua`), so the comparison
+--- below sees nil on every unwrap and the self-filter does nothing there. The flag is what stands
+--- in: our own unwrapping says so before it starts (`FrameRegistry.RewrapUnitFrames`), because
+--- nothing in the arguments can say it.
 local function OnHolderWrap(frame, _, header)
-    if (header == DebindPublic.header) then
+    if (header == DebindPublic.header or DebindPrivate.unwrappingOwnScripts) then
         return;
     end
     if (not (offered[frame] or deferred[frame] or DebindPrivate.ccframes[frame])) then
