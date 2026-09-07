@@ -116,6 +116,24 @@ for i = 1, MAX_ARENA_ENEMIES do
     UNIT_FRAMETYPES["arena" .. i] = Constants.FRAMETYPE_ARENA;
 end
 
+--- Names that answer group whatever the frame is holding at the time.
+---
+--- **This is one pack's naming, and it is here because that pack's frames carry nothing else.**
+--- VuhDo hands its panel buttons over as `Vd<panel>H<button>`, with `Tg` and `Tot` appended for the
+--- two extra columns, and the name says nothing about what the panel shows. The unit does not
+--- settle it either: a slot holds `player` in a party panel, a pet token in a pet panel, and
+--- `<unit>target` in the target column, so reading the unit called one panel three different
+--- things. Every button in a VuhDo panel is a slot in a group display, which is the same answer
+--- the header door gives every child that arrives through it.
+---
+--- **Anchored and shaped, not a word searched for.** A substring would be the misread that
+--- `GROUP_NAME_WORDS` below is kept away from: a pack's own prefix sits in every name it makes.
+--- Matching from the start with the digits spelled out is the pack saying which of its frames this
+--- is, rather than us guessing from a word.
+local GROUP_NAME_PATTERNS          = {
+    "^vd%d+h%d+",
+};
+
 --- The words that name a slot in a group frame set. Asked of `player` and of nothing else.
 local GROUP_NAME_WORDS             = { "party", "raid" };
 
@@ -174,6 +192,17 @@ local function ReadFrameType(button)
         return Constants.FRAMETYPE_GROUP;
     end
 
+    local name = button.GetName and button:GetName();
+    name = type(name) == "string" and strlower(name) or nil;
+
+    if (name) then
+        for i = 1, #GROUP_NAME_PATTERNS do
+            if (strfind(name, GROUP_NAME_PATTERNS[i])) then
+                return Constants.FRAMETYPE_GROUP;
+            end
+        end
+    end
+
     local unit = button:GetAttribute("unit");
     if (type(unit) ~= "string") then
         return;
@@ -184,9 +213,7 @@ local function ReadFrameType(button)
         return UNIT_FRAMETYPES[unit];
     end
 
-    local name = button.GetName and button:GetName();
-    if (type(name) == "string") then
-        name = strlower(name);
+    if (name) then
         for i = 1, #GROUP_NAME_WORDS do
             if (strfind(name, GROUP_NAME_WORDS[i], 1, true)) then
                 return Constants.FRAMETYPE_GROUP;

@@ -213,6 +213,33 @@ return function(DebindPrivate)
             "frameType: " .. tostring(DebindPrivate.ccframes[frame].frameType));
     end);
 
+    --- **A pack whose frames say what they are in the name, whatever unit they are holding.**
+    --- VuhDo's panels are group frames; a panel can be filled with pets or with the targets of the
+    --- people in it, and every button in one is still a slot in a group display.
+    local function VuhDoButton(name, unit)
+        local frame = frames.newFrame("Button", name, nil, "VuhDoButtonSecureTemplate");
+        frame:SetAttribute("unit", unit);
+        return frame;
+    end
+
+    test("every button of a VuhDo panel is a group frame", function()
+        local CASES = {
+            { "Vd1H1", "player" },
+            { "Vd10H51", "raid7" },
+            { "Vd4H2", "partypet1" },
+            { "Vd4H3", "raidpet12" },
+            { "Vd1H1Tg", "raid3target" },
+            { "Vd1H1Tot", "raid3targettarget" },
+        };
+        for i = 1, #CASES do
+            local frame = VuhDoButton(CASES[i][1], CASES[i][2]);
+            DebindPrivate.RegisterFrame(frame, true);
+            check(DebindPrivate.ccframes[frame].frameType == Constants.FRAMETYPE_GROUP,
+                CASES[i][1] .. " (" .. CASES[i][2] .. "): "
+                .. tostring(DebindPrivate.ccframes[frame].frameType));
+        end
+    end);
+
     -- **`unknown` closes nothing.** A frame library can write the unit attribute *after* the
     -- styling pass that registers the frame, so the first call has nothing to read, and the addon
     -- on top of it registers the finished frame a second time. Standing down on the type matching
