@@ -4414,8 +4414,16 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
 -----------------------------------------------------------
 
 --- Fires a wrapped script the way the client's mouse handling does. `motion` is the argument
---- `Wrapped_OnEnter` and `Wrapped_OnLeave` gate on, and `IsWrapEligible` lets an insecure caller
---- through on a protected frame, which every frame here is.
+--- `Wrapped_OnEnter` and `Wrapped_OnLeave` gate on.
+---
+--- **Through `securecall`, because the chain refuses a tainted caller.** Every body in it reaches
+--- `CallRestrictedClosure`, which raises "Cannot call restricted closure from insecure code" on
+--- `issecure()` -- and reading a frame's managed environment raises its own on the same test
+--- (`RestrictedExecution.lua`, `RestrictedInfrastructure.lua`). The client fires these handlers
+--- from C and is secure there; a call written out in this file is not, so the taint has to be left
+--- behind at the door. **`IsWrapEligible` is not what lets this through** -- it is
+--- `(not InCombatLockdown()) or frame:IsProtected()` and says nothing about who called
+--- (`SecureHandlers.lua`).
 ---
 --- **This is the whole reason these cases are in the kit.** `HoverEnter` above runs our own body
 --- and nothing else; this runs the chain, so what it measures is where in the chain we ended up.
@@ -4424,7 +4432,7 @@ local function FireScript(frame, script, ...)
     if not handler then
         return false
     end
-    handler(frame, ...)
+    securecall(handler, frame, ...)
     return true
 end
 
@@ -5563,8 +5571,14 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
         -- Our rows sit beside the table rather than in it, so the `pairs` walk a holder builds its
         -- store from yields nothing -- and this is the frame that walk would have found had a plain
         -- table been sitting there.
+        --
+        -- **A unit the frame type can be read off, and not the absent token the rest of this file
+        -- uses.** `RegisterFrame` leaves an already-registered frame on the row it has, but an
+        -- `unknown` frameType deliberately does not close that question -- so on the absent token
+        -- the hand-over below rebuilds the row for a reason that has nothing to do with what is
+        -- being measured here.
         local err0
-        handed, err0 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
+        handed, err0 = CreateTestUnitFrame("player", "player")
         if not handed then return Fail(NAME, err0) end
         DebindPrivate.UnregisterFrame(handed)
         _G.ClickCastFrames[handed] = true

@@ -176,8 +176,17 @@ enter, leave, click 핫패스에 얹히는 것이라 목록이 비었을 때 표
   초록이라 `overMessage` 전달을 빼서 빨간 것을 확인했다.
 - **`/debtest`에 전투 중 케이스는 안 세웠다.** 킷은 락다운을 흉내 낼 수 없고, 보호된 프레임을
   전투 중에 감싸는 것은 클라이언트가 거절하므로 몰 것 자체가 없다. 대신 네 케이스가
-  `frame:GetScript("OnEnter")(frame, true)`로 **래퍼 사슬을 진짜로 돌린다** -
-  `IsWrapEligible`이 보호된 프레임에는 비보안 호출도 통과시킨다(`SecureHandlers.lua`).
+  `frame:GetScript("OnEnter")`를 직접 불러 **래퍼 사슬을 진짜로 돌린다.**
+  - **그 호출은 `securecall`로 나가야 한다 (2026-09-07에 고쳤다).** 처음에는 맨 호출로 썼고
+    근거를 `IsWrapEligible`이 보호된 프레임에는 비보안 호출도 통과시킨다는 것으로 적었는데,
+    **그 함수는 `(not InCombatLockdown()) or frame:IsProtected()`이고 누가 불렀는지는 보지
+    않는다**(`SecureHandlers.lua`). 실제로 막는 것은 `CallRestrictedClosure`의 `issecure()`
+    (`RestrictedExecution.lua`)와 관리 환경 읽기의 같은 검사
+    (`RestrictedInfrastructure.lua`)라, 네 케이스가 전부 "Cannot call restricted closure from
+    insecure code"와 "Invalid access of managed environments table"로 터졌다. 클라이언트는 이
+    핸들러를 C에서 부르니 그 자리가 깨끗한 것이고, 이 파일에 적은 호출은 아니다. 래퍼 클로저
+    자체는 `SecureHandlerWrapScript`가 API 프레임 속성으로 넘겨 만든 것이라 깨끗해서,
+    `securecall`이 우리 오염을 문 앞에 두고 들어간다.
 
 ### 2. 문 셋을 되살린다
 
