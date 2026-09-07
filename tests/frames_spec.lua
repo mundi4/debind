@@ -418,6 +418,8 @@ return function(DebindPrivate)
             { "ElvUF_Focus", "focus", Constants.FRAMETYPE_TARGET },
             { "SUFUnitfocus", "focus", Constants.FRAMETYPE_TARGET },
             { "SUFHeaderbossUnitButton2", "boss2", Constants.FRAMETYPE_BOSS },
+            { "PitBull4_Frames_Focus", "focus", Constants.FRAMETYPE_TARGET },
+            { "PitBull4_EnemyGroups_arena1UnitButton1", "arena1", Constants.FRAMETYPE_ARENA },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);

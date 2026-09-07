@@ -151,6 +151,10 @@ local KNOWN_PACK_FRAMES            = {
     { "^sufunit",                           "ShadowedUnitFrames" },             -- one frame per unit, read off the unit it holds
     { "^sufheader",                         "ShadowedUnitFrames" },             -- a header's children, and the zone buttons that carry a boss or arena token
     { "^sufchild",                          "ShadowedUnitFrames" },             -- a slot's pet or target, on `useparent-unit` so there is nothing to read
+    { "^pitbull4_frames_",                  "PitBull4" },                       -- one frame per classification, read off the unit it holds
+    { "^pitbull4_groups_",                  "PitBull4" },                       -- a header's children, answered group by the header door
+    { "^pitbull4_petgroups_",               "PitBull4" },                       -- the same, off a pet header
+    { "^pitbull4_enemygroups_",             "PitBull4" },                       -- not a real header, and its buttons carry arena and boss tokens
 };
 
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.
