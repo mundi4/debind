@@ -231,6 +231,20 @@ enter, leave, click 핫패스에 얹히는 것이라 목록이 비었을 때 표
   "HoverCast on leaves the name with the pack"은 이름이 그쪽에 남는 것은 여전히 맞고 프레임은
   우리에게도 오니 그렇게 고친다.
 
+#### 계획과 갈린 것
+
+- **읽는 함수는 `Public.lua`가 아니라 `Profile.lua`에 뒀다.** 계획이 `Public.lua`를 고른 이유는
+  로드 순서인데, `DebindCliqueFake`는 이미 `DebindPrivate`를 통째로 들고 있고(`ccframes`,
+  `unwrappingOwnScripts`를 그렇게 읽는다) `Public.lua`가 그 애드온을 부르는 쪽이다. 그래서
+  `DebindPrivate.TakesUnregisteredFrames()`로 뒀다. `DebindPublic`에 함수를 하나 더 다는 것은
+  남들에게 공개 API를 하나 더 주는 일이라 그 값어치가 없다.
+- **필드를 읽어 세우는 자리는 4단계가 아니라 여기다.** 3단계의 헤드리스가 옵션 양쪽을 다 재려면
+  필드가 있어야 한다. `InitDB`가 로그인 때 한 번 `DebindPrivate.takeUnregisteredFrames`에
+  적고, 그 뒤로는 아무도 다시 안 쓴다. 4단계는 체크박스만 얹는다.
+- `holder_spec`은 옵션을 끈 케이스 일곱(옛 규칙 그대로)과 켠 케이스 둘로 갈렸다. 켠 쪽 하나가
+  고치기 전 코드에서 빨갛게 나오는 것을 봤고, 나머지 하나("그쪽도 계속 들고 있다")는 어느 쪽에서도
+  참이라 음성 절반으로 남긴다.
+
 ### 4. 옵션
 
 - `db.global`에 필드 하나. 이름은 코드 쪽 것이라 자유다(예: `takeUnregisteredFrames`). 없으면

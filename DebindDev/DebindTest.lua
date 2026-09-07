@@ -5532,11 +5532,11 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 -- there, and the runner loads neither.
 --
 -- Three questions, and they are the three the rule turns on. Is the holder's table left where it
--- is; does a write it keeps for itself leave us with no row; and does a write it files and drops
--- reach us. The last is the whole point: a frame the holder wrote down and attached nothing to has
--- nobody answering its clicks, and that is the one that is ours to take.
-RegisterTest("Click-cast table: the holder keeps the name and we take what it drops", {
-    description = "We hook someone else's ClickCastFrames instead of taking it back, and register only what they leave",
+-- is; does a write it keeps for itself still leave it holding that frame; and does a write it
+-- files and drops reach us. A frame it kept reaches us as well now, because standing on top of
+-- whatever it wrapped means both engines work there.
+RegisterTest("Click-cast table: the holder keeps the name and we stand on top of it", {
+    description = "남의 ClickCastFrames를 되찾지 않고 그 뒤에 서되, 그쪽이 잡은 프레임도 우리가 받는다",
     run = function()
         local NAME = "ClickCastFrames holder"
 
@@ -5568,14 +5568,19 @@ RegisterTest("Click-cast table: the holder keeps the name and we take what it dr
         end
 
         -- The frame the holder keeps. `kept` is what its `__index` answers out of, so writing it
-        -- there first is that addon deciding before the write comes back to us.
+        -- there first is that addon deciding before the write comes back to us. It stays theirs
+        -- and it is ours as well.
         local mine, err1 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
         if not mine then return Fail(NAME, err1) end
         DebindPrivate.UnregisterFrame(mine)
         kept[mine] = true
         _G.ClickCastFrames[mine] = true
-        if DebindPrivate.ccframes[mine] then
-            return Fail(NAME, "we took a frame the holder answers for, so both engines fire on one click")
+        if type(DebindPrivate.ccframes[mine]) ~= "table" then
+            return Fail(NAME, format("a frame the holder kept never reached us (ccframes=%s)",
+                tostring(DebindPrivate.ccframes[mine])))
+        end
+        if kept[mine] ~= true then
+            return Fail(NAME, "the holder lost the frame it had kept")
         end
 
         -- And the frame it filed and dropped.
@@ -5594,7 +5599,7 @@ RegisterTest("Click-cast table: the holder keeps the name and we take what it dr
             return Fail(NAME, "a nil write did not take the frame back off us")
         end
 
-        return Pass(NAME, "the name was left alone, the kept frame stayed theirs and the dropped one came to us")
+        return Pass(NAME, "the name was left alone, and the kept frame and the dropped one both came to us")
     end,
 })
 
@@ -5796,11 +5801,15 @@ RegisterTest("EllesmereUI: the header's own children are wired as group frames",
 })
 
 -- **The same rule against the pack that actually does this.** EUI puts its own proxy over the name
--- when its hover casting is on, and from then on it decides frame by frame. What only a board can
--- answer is whether that proxy still answers `__index` at all -- a table locked with `__metatable`,
--- or one that files nothing, would leave every one of its frames reading as dropped.
+-- when its hover casting is on, and from then on it decides frame by frame. The name stays theirs
+-- and the writes keep landing there; what a board answers that no harness can is whether the proxy
+-- is one we can stand behind at all -- a table locked with `__metatable` would be left alone
+-- entirely, and this case would then be measuring a frame nobody wired.
+--
+-- **The frame comes to us whichever way the pack decided.** That is the change: keeping a frame
+-- used to be the pack saying it was not ours, and now it only says the pack is on it too.
 RegisterTest("EllesmereUI: HoverCast on leaves the name with the pack", {
-    description = "HoverCast를 켠 EUI가 ClickCastFrames를 쥐고 있고, 우리는 그 뒤에 선다",
+    description = "HoverCast를 켠 EUI가 ClickCastFrames를 쥐고 있고, 프레임은 우리에게도 온다",
     applies = function()
         local ok, why = EllesmereLoaded(EUI_UNITFRAMES_ADDON)();
         if (not ok) then
@@ -5842,15 +5851,16 @@ RegisterTest("EllesmereUI: HoverCast on leaves the name with the pack", {
             end
         end)
 
-        if answered and row then
-            return Fail(NAME, "the pack took the frame and we took it too, so both engines fire on one click")
+        if _G.ClickCastFrames ~= held then
+            return Fail(NAME, "the pack's table was replaced, which loses every frame already written into it")
         end
-        if not answered and type(row) ~= "table" then
-            return Fail(NAME, format("the pack dropped the frame and nobody picked it up (ccframes=%s)", tostring(row)))
+        if type(row) ~= "table" then
+            return Fail(NAME, format("the frame never reached us (ccframes=%s, the pack answered %s)",
+                tostring(row), tostring(answered)))
         end
 
         return Pass(NAME, answered
-            and "the pack took the test frame and we stood down"
+            and "the pack kept the test frame, the name stayed theirs, and we took it as well"
             or "the pack dropped the test frame and we took it")
     end,
 })

@@ -62,6 +62,17 @@ return function(DebindPrivate)
         return proxy, kept, filed;
     end
 
+    --- The option that decides whether a frame the holder kept is ours as well (`Profile.lua`).
+    --- Written straight, because what is measured here is the rule rather than where the value came
+    --- from -- `frames_spec` covers a profile with no field in it reading as on.
+    ---
+    --- **Most of the cases below turn it off**, and that is the point rather than convenience:
+    --- standing down is exactly what a reader who turns it off still gets, so those cases are the
+    --- coverage of that half. The two named for the option cover the other.
+    local function Option(on)
+        DebindPrivate.takeUnregisteredFrames = on;
+    end
+
     -- **The name is not taken back.** Taking it does not bring the frames already written into the
     -- other table with it, and it leaves that addon writing where nobody reads -- so the frames it
     -- is still holding would end up with both engines on them or neither.
@@ -72,7 +83,8 @@ return function(DebindPrivate)
     end);
 
     -- The two answers, off the same write.
-    test("the holder keeps a frame and we stand down", function()
+    test("the holder keeps a frame and we stand down while the option is off", function()
+        Option(false);
         Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -80,7 +92,33 @@ return function(DebindPrivate)
             "we took a frame the holder answers for: " .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
+    -- **The default, and the reason the track was reopened.** Standing down was for one fault:
+    -- whoever wrapped a frame last took its `OnLeave` and the other engine's hover died. We take
+    -- the top and replay what was above us now, so both engines work on the frame and there is
+    -- nothing left to stand down for.
+    test("the holder keeps a frame and we take it too while the option is on", function()
+        Option(true);
+        Holder(true);
+        local frame = UnitFrame();
+        _G.ClickCastFrames[frame] = true;
+        check(type(DebindPrivate.ccframes[frame]) == "table",
+            "a frame the holder kept never reached us: "
+                .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
+    -- **And the holder still has it.** The name stays theirs and the write they filed is theirs;
+    -- what changed is only that we no longer step off the frame because of it.
+    test("taking a frame the holder kept leaves the holder holding it", function()
+        Option(true);
+        local proxy, kept = Holder(true);
+        local frame = UnitFrame();
+        _G.ClickCastFrames[frame] = true;
+        check(_G.ClickCastFrames == proxy, "the holder's table was replaced");
+        check(kept[frame] == true, "the holder lost the frame it kept");
+    end);
+
     test("the holder drops a frame and we take it", function()
+        Option(true);
         Holder(false);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -131,6 +169,7 @@ return function(DebindPrivate)
     -- and used to return with the old, dead table still recorded as the holder -- and every frame
     -- it was driving then read as dropped.
     test("a holder that swaps its table under the same metatable is still the holder", function()
+        Option(false);
         --- **A store per table, reached from the table.** `Holder` above closes over one store for
         --- the life of its metatable, so a stale table would answer out of the same place and the
         --- fault would be invisible. Here the two tables answer out of two stores, which is what a
@@ -187,6 +226,7 @@ return function(DebindPrivate)
     -- **A holder can let a frame go without a write coming through** -- its own setting moves, or
     -- its engine is switched off -- so the frames we stood down on are asked again.
     test("a re-ask picks up a frame the holder has since let go", function()
+        Option(false);
         local _, kept = Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -200,6 +240,7 @@ return function(DebindPrivate)
 
     -- And the other direction: a frame we hold that the holder has since taken.
     test("a re-ask stands down on a frame the holder has since taken", function()
+        Option(false);
         local _, kept = Holder(false);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -217,6 +258,7 @@ return function(DebindPrivate)
     -- all** (`SecureHandlers.lua`), so nothing in the arguments says who called. Heard as the
     -- holder moving, it re-asks every one of our frames a tick later.
     test("our own rewrap is not heard as the holder letting go", function()
+        Option(false);
         local _, kept = Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -240,6 +282,7 @@ return function(DebindPrivate)
     -- **Wrapping and unwrapping a script is how any engine attaches and detaches**, so those two
     -- calls are what says a decision may have moved -- no addon name and no frame name read.
     test("the holder wrapping a script re-asks that frame on the next tick", function()
+        Option(false);
         local _, kept = Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -260,6 +303,7 @@ return function(DebindPrivate)
     -- unit frame in combat" over something the reader never did. Standing down costs nothing:
     -- `PLAYER_REGEN_ENABLED` asks about that frame again.
     test("a re-ask that lands in combat stands down instead of queuing", function()
+        Option(false);
         local _, kept = Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -299,6 +343,7 @@ return function(DebindPrivate)
     -- the API frame, which is protected, so a pass under lockdown would queue every frame it
     -- touched; `PLAYER_REGEN_ENABLED` is where it belongs and that is out of combat by definition.
     test("nothing is re-asked in combat", function()
+        Option(false);
         local _, kept = Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;

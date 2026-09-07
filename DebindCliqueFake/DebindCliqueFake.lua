@@ -92,11 +92,20 @@ local holder;
 --- guessing from its name or its settings. Truthy is "mine": we stand down, and remember the frame
 --- so a later pass can ask again. Nil is a write it filed and dropped, which leaves the frame with
 --- nobody answering its clicks, and that is the one we take.
+--- **A frame the holder kept is registered too, while the option is on.** Standing down was for
+--- one fault: two engines on one frame meant whoever wrapped last took the leave and the other's
+--- hover died. That is gone -- we take the top and replay what was above us
+--- (`FrameRegistry.Reassemble`) -- so both engines work on the frame and there is nothing left to
+--- stand down for. Turned off, this is the narrower behaviour again: the holder's frames are its
+--- own and only what it dropped comes to us.
+---
+--- The `deferred` row is still written while the option is off, because that is what a later
+--- re-ask walks.
 local function AskHolder(frame)
     if (not holder) then
         return;
     end
-    if (holder[frame]) then
+    if (holder[frame] and not DebindPrivate.TakesUnregisteredFrames()) then
         deferred[frame] = true;
         DebindPublic:UnregisterFrame(frame);
     else

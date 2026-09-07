@@ -2037,9 +2037,25 @@ function DebindPrivate.InitDB()
         char = charEntry,
     };
 
+    --- **Read once, here, and never again while the client is running.** Which unit frames get
+    --- picked up is decided as each one is built, and a frame already wired stays wired -- so a
+    --- value re-read later would leave half the screen on one answer and half on the other. Same
+    --- rule the Blizzard unit frame boxes carry, and they say so with `REQUIRES_RELOAD`.
+    ---
+    --- Absent is on. A profile written before this option existed is a reader who has never been
+    --- asked, and what they had is the wider behaviour.
+    DebindPrivate.takeUnregisteredFrames = db.takeUnregisteredFrames ~= false;
+
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
     DebindPrivate.CleanUpDB()
+end
+
+--- Whether frames nobody handed over are ours to take. **Answered true before `InitDB` has run**,
+--- which is what the doors that fire during the load see (`DebindCliqueFake` attaches at file
+--- scope), and the reader could not have turned it off in that window anyway.
+function DebindPrivate.TakesUnregisteredFrames()
+    return DebindPrivate.takeUnregisteredFrames ~= false;
 end
 
 --- Says out loud that the addon stood down. Once at login (`Events.lua`), and again every time
