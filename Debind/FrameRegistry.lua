@@ -162,6 +162,7 @@ local KNOWN_PACK_FRAMES            = {
     { "^cellspotlightframeunitbutton%d+$",  "Cell" },                           -- the chosen units, duplicated out of the block
     { "^cellnpcframebutton%d+$",            "Cell" },                           -- the encounter's friendly NPCs
     { "^cellarenapet%d+$",                  "Cell" },                           -- the arena enemies' pets
+    { "^nugraid%d+unitbutton%d+",           "Aptechka" },                       -- a header's children; the header itself is a Button and must not match
 };
 
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.

@@ -422,6 +422,7 @@ return function(DebindPrivate)
             { "PitBull4_EnemyGroups_arena1UnitButton1", "arena1", Constants.FRAMETYPE_ARENA },
             { "CellSoloFramePlayer", "player", Constants.FRAMETYPE_PLAYER },
             { "CellRaidFrameHeader1UnitButton2", "raid3", Constants.FRAMETYPE_GROUP },
+            { "NugRaid3UnitButton4", "raid9", Constants.FRAMETYPE_GROUP },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);
