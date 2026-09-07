@@ -147,6 +147,7 @@ local KNOWN_PACK_FRAMES            = {
     { "^erfextraframe%d+$",                 "EllesmereUIRaidFrames", "group" }, -- wired up before it is given a unit
     { "^ellesmereuiunitframes_",            "EllesmereUIUnitFrames" },
     { "^grid2layoutheader%d+unitbutton%d+", "Grid2" },                          -- a header child, so the header door answers group
+    { "^elvuf_",                            "ElvUI" },                          -- every frame the pack spawns, headers and their children with them
 };
 
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.

@@ -415,6 +415,7 @@ return function(DebindPrivate)
             -- Two more rows, one of each kind: one declared and one left to the reading.
             { "Vd1H1Tg", "raid3target", Constants.FRAMETYPE_GROUP },
             { "Grid2LayoutHeader1UnitButton3", "raid5", Constants.FRAMETYPE_GROUP },
+            { "ElvUF_Focus", "focus", Constants.FRAMETYPE_TARGET },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);
