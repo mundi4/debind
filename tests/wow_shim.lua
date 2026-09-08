@@ -907,6 +907,9 @@ function M.install()
     _G.ACTION_BUTTON_USE_KEY_DOWN = "Use Key Down";
     -- The client's own words for "this takes effect at the next login", on the unit frame boxes.
     _G.REQUIRES_RELOAD = "Requires UI reload";
+    -- The client's own name for the thing, taken straight as the first unit frame section header
+    -- rather than given a key of ours (`Options.lua`).
+    _G.UNITFRAME_LABEL = "Unit Frames";
 end
 
 --- A tooltip to draw into, and the lines it ends up holding.

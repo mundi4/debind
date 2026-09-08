@@ -260,6 +260,50 @@ local GROUP_NAME_WORDS             = { "party", "raid" };
 --- live on is gone.
 local _headerChildren              = setmetatable({}, { __mode = "k" });
 
+--- The frames a group header handed over itself, through the Clique header protocol.
+---
+--- **A mark on the frame rather than an argument, because a registration can be queued.** The
+--- header door reaches `RegisterFrame` like every other door now, so a child offered during a
+--- fight goes into `FrameQueue` and is registered when it ends -- and the queue carries the
+--- arguments the call had, not who made it. `_headerChildren` above solves the same problem the
+--- same way.
+---
+--- What it becomes on the row is `hd`, which is what keeps `UnregisterFrame` off it: the header
+--- owns its children and takes them back through its own door.
+local _headerOwned                 = setmetatable({}, { __mode = "k" });
+
+--- Said before the frame is offered, the way `CollectHeaderChildren` marks a child before it
+--- offers one. Group is what the header knows and the frame cannot say: a child holds whichever
+--- unit it is filling right now.
+function DebindPrivate.MarkHeaderOwned(button)
+    _headerOwned[button] = true;
+    _headerChildren[button] = true;
+end
+
+--- Puts the mark on the row, and the row's name in the list Clique exposes as `hccframes`.
+---
+--- **Called from every place `RegisterFrame` can leave with a row standing**, the early return
+--- included. A frame another door had already registered as a group frame stops at that return,
+--- and stopping there used to mean the header's own claim never reached the row: an ordinary
+--- deregistration then tore down a frame the header owns, and the header's own withdrawal did
+--- nothing because it reads `hd` to find its frames.
+local function ClaimForHeader(button, row)
+    if (type(row) ~= "table" or not _headerOwned[button]) then
+        return;
+    end
+    row.hd = true;
+    local name = button.GetName and button:GetName();
+    if (name) then
+        DebindPrivate.hccframes[name] = button;
+    end
+end
+
+--- **Taken off before the row is torn down, never after.** `UnregisterFrame` skips a row that
+--- still carries `hd`, so a teardown that cleared this afterwards would leave the row standing.
+function DebindPrivate.ClearHeaderOwned(button)
+    _headerOwned[button] = nil;
+end
+
 --- Whether the frame is a slot in a `SecureGroupHeaderTemplate` header.
 ---
 --- **Asked before the unit, because the unit on a header child answers only sometimes.** The
@@ -488,9 +532,11 @@ local function OurBodies(script)
 		BindingDriver:GetAttribute("setup_onleave_post");
 end
 
---- Whether this script on this frame is one we put a wrapper on. A frame that arrived through the
---- header door has a row and no wrapper of ours on the motion scripts -- it carries
---- `clickcast_onenter` instead -- so the row alone is not the question.
+--- Whether this script on this frame is one we put a wrapper on.
+---
+--- **The row is not the question.** A frame gets its motion wrappers and its click wrapper at
+--- different moments -- `RegisterFrame` does the first pair, `ApplyDebindRouting` the second, and
+--- a frame that was refused a click wrapper still has a row.
 local function WrappedByUs(button, script)
 	if (script == "OnClick") then
 		return _wrapped[button] and true or false;
@@ -670,6 +716,12 @@ function DebindPrivate.RegisterFrame(button, type)
     --- A frame the reader has turned off gets no row, so nothing wraps it and nothing reassembles
     --- it, whether it arrived through the Clique table, a header, a library list or the name door.
     ---
+    --- **That sentence was false until the header door was folded in.** `clickcast_register` used
+    --- to register from inside the restricted environment and write our row from `CallMethod`, so
+    --- it never passed this gate and a pack the reader had turned off went on registering through
+    --- its group headers. What the box did depended on which layout that reader had picked
+    --- (`devdocs/legacy/drawing-the-unit-frame-option-boundary.md`).
+    ---
     --- **A name no row covers is not a pack's**, and what decides those is the wider option each
     --- door already asks (`TakesUnregisteredFrames`). The two do not overlap.
     local pack = PackAddonForFrame(button);
@@ -696,11 +748,16 @@ function DebindPrivate.RegisterFrame(button, type)
     --- **`hd` is outside what a queued word can override.** A header owns those rows and takes them
     --- back itself; a deregistration queued before the header wrote one would otherwise let this
     --- rebuild the row and the drain tear it down after.
+    ---
+    --- What `seen.hd` says is that the header door registered this frame, which is the same
+    --- sentence it always said -- only the writer moved. It used to be the snippet's word for
+    --- "I have been here"; now it is this function's.
     local seen = DebindPrivate.ccframes[button];
     local told = _headerChildren[button] and Constants.FRAMETYPE_GROUP or UNITFRAME_TYPES[type];
     if (seen and (seen.hd or (_queued[button] ~= "unregister"
             and seen.frameType ~= Constants.FRAMETYPE_UNKNOWN
             and (told == nil or told == seen.frameType)))) then
+        ClaimForHeader(button, seen);
         return;
     end
 
@@ -749,7 +806,9 @@ function DebindPrivate.RegisterFrame(button, type)
         Reassemble(button, "OnLeave");
     end
 
-    DebindPrivate.ccframes[button] = { type = type, frameType = frameType };
+    local row = { type = type, frameType = frameType };
+    DebindPrivate.ccframes[button] = row;
+    ClaimForHeader(button, row);
     DebindPrivate.UpdateRegisteredClicks(button);
 end
 

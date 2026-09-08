@@ -87,6 +87,67 @@ return function(DebindPrivate)
         end
     end);
 
+    --- Every row from the first unit frame header up to the one before Smart Cast, as
+    --- `{ kind, name }`. A header carries its words in `data.name` the same way a box does.
+    local function unitFrameRows()
+        local out, taking = {}, false;
+        for _, row in ipairs(shim.world.settingsRows) do
+            local name = row.data.name;
+            if (name == UNITFRAME_LABEL) then
+                taking = true;
+            elseif (name == DebindPrivate.L["SMART_CAST_DEFAULTS"]) then
+                break;
+            end
+            if (taking) then
+                out[#out + 1] = { row.kind, name };
+            end
+        end
+        return out;
+    end
+
+    --- **Three headed groups, and the first header is the client's own word for the thing.**
+    --- Grouping is what says which boxes belong together at this depth, and taking
+    --- `UNITFRAME_LABEL` rather than a key of ours is what keeps the window and the game from
+    --- calling one thing two things.
+    test("the unit frame rows stand in three headed groups", function()
+        local L = DebindPrivate.L;
+        local expected = {
+            { "header", UNITFRAME_LABEL },
+            { "dropdown", L["UNITFRAME_CLICK_EDGE"] },
+            { "header", L["BLIZZARD_UNIT_FRAMES"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_PLAYER"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_PET"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_TARGET"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_PARTY"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_RAID"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_BOSS"] },
+            { "checkbox", L["BLIZZARD_UNIT_FRAMES_ARENA"] },
+            -- No pack is installed under the shim, so this group is its header and the wider box.
+            { "header", L["ADDON_UNIT_FRAMES"] },
+            { "checkbox", L["TAKE_UNREGISTERED_UNIT_FRAMES"] },
+        };
+        local rows = unitFrameRows();
+        check(#rows == #expected, "the section holds " .. #rows .. " rows, not " .. #expected);
+        for i = 1, #expected do
+            check(rows[i][1] == expected[i][1] and rows[i][2] == expected[i][2],
+                i .. ": " .. tostring(rows[i][1]) .. " " .. tostring(rows[i][2]));
+        end
+    end);
+
+    --- **No box here is the parent of another, and a parent is what indentation would say.** Every
+    --- one of them only takes something away, so two being off at once needs no explaining; a
+    --- nesting would claim the child means nothing while the parent is off, which is not true of
+    --- any pair here. Asserting the flatness is what keeps somebody from reaching for a parent box
+    --- later without reading why it was left out.
+    test("no unit frame row is indented under another", function()
+        for _, row in ipairs(shim.world.settingsRows) do
+            local variable = row.data.setting and row.data.setting.variable;
+            if (variable and strfind(variable, "UNIT_FRAMES", 1, true)) then
+                check(row:GetIndent() == 0, variable .. " is indented");
+            end
+        end
+    end);
+
     ---------------------------------------------------------------------------
     -- What a setter writes, and that the default clears the cell
     ---------------------------------------------------------------------------

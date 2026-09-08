@@ -254,100 +254,71 @@ local function GetTestLayer()
     return testLayer
 end
 
+
 -----------------------------------------------------------
 -- Test Helpers: The game's own bindings
 -----------------------------------------------------------
 
--- Isolating the profile layer was only half of it. **The game's own binding table is still under
--- everything**, and it belongs to whoever is running the test.
+-- **Nothing here writes to the game's binding table, and nothing may.**
 --
--- What that costs: `GetBindingAction(KEY)` on a key the test did not bind answers with the
--- tester's action rather than nothing, so every "and now it goes away again" assertion is really
--- "and now it says something else" -- true on a machine where that key is free and quietly
--- meaningless on one where it is not. A test key that fires the tester's spell is the same fault
--- wearing a louder coat. The suite is supposed to give the same answer on every machine.
+-- The kit used to unbind every key the tester had at the start of a run and put them back at the
+-- end with `LoadBindings`. That destroyed a tester's keybindings on 2026-09-08: the settings panel
+-- tests open `SettingsPanel`, and `SettingsPanelMixin:OnHide` calls `SaveBindings` unconditionally
+-- (`Blizzard_SettingsPanel.lua`), so closing it wrote the emptied set to disk and the restore
+-- afterwards faithfully read that emptied set back. The comment justifying the blackout said
+-- "nothing is written to disk until someone calls `SaveBindings`, and this addon never does" --
+-- true of us and never true of the client.
 --
--- **Only the in-memory set is touched.** `SetBinding` writes there; nothing is written to disk
--- until someone calls `SaveBindings`, and this addon never does. `LoadBindings` reads the saved
--- set back over it, which is exactly how Blizzard's own quick-keybind cancels
--- (`QuickKeybind.lua:180`). So restoring is one call and it restores the truth, not a copy we
--- remembered.
+-- **The reason it was there does not survive reading either.** It said a test key could fire the
+-- tester's own spell. Addon code cannot press a key or click a secure action button at all, and no
+-- test tries: what the kit does is run `EVAL_SNIPPET` and read the winner. The only place the
+-- tester's table can be seen is `GetBindingAction(KEY, true)`, and while our override stands it is
+-- our override that answers -- so a stray binding of theirs can make an assertion fail where it
+-- should have passed, and can never make one pass where it should have failed.
 --
--- The danger is the session ending while they are off, so every exit is covered: the runner
--- restores when the run finishes, when a reload is asked for, when the reload popup is declined,
--- and on `PLAYER_LOGOUT`. A crash writes no config at all, so it needs no cover.
+-- So the collision is reported and nothing is touched. A run on a board that binds one of these is
+-- a run that says so.
 
---- Left bound, so a run that wedges is still recoverable.
+--- The keys the kit binds, as shapes. A modifier plus a function key covers most of them, and
+--- `BUTTON1`/`BUTTON3` are the mouse buttons the click-cast tests use.
 ---
---- **Not a softening of "turn them all off" -- an escape hatch.** Without a menu key and a way to
---- open chat, a tester whose run hangs cannot type `/reload`, and the way out of a test kit is
---- Alt+F4. Two commands is the smallest list that keeps that from being true.
-local KEEP_BOUND = {
-    TOGGLEGAMEMENU = true,
-    OPENCHAT = true,
-    OPENCHATSLASH = true,
-}
-
---- The window's one checkbox, off by default. A probe rather than a setting: it exists so "is
---- this failure the blackout's doing" is answered by one run instead of by argument.
-local skipBlackout = false
-
-local blackedOut = false
-local restoreWatcher
-
---- Puts the tester's bindings back. Safe to call when they were never taken away.
-local function RestoreGameBindings()
-    if not blackedOut then return end
-
-    -- `LoadBindings` is refused in combat. Rather than dropping the restore, the watcher is left
-    -- armed and does it when the fight ends -- `blackedOut` stays true so nothing thinks it ran.
-    if InCombatLockdown() then
-        if restoreWatcher then restoreWatcher:RegisterEvent("PLAYER_REGEN_ENABLED") end
-        return
+--- **This is a list, and it goes stale.** An earlier version of this comment claimed the shape was
+--- derived so a test reaching for a new key would be covered for free; it was not true the day it
+--- was written, since `BUTTON3` was already in use. What being wrong costs is one missing line of
+--- warning, so it stays cheap rather than exact.
+local function LooksLikeATestKey(key)
+    if (type(key) ~= "string") then
+        return false;
     end
-
-    blackedOut = false
-    if restoreWatcher then restoreWatcher:UnregisterAllEvents() end
-    LoadBindings(GetCurrentBindingSet())
+    if (strfind(key, "BUTTON%d+$")) then
+        return true;
+    end
+    return strfind(key, "F%d+$") ~= nil
+        and (strfind(key, "^CTRL%-") or strfind(key, "^ALT%-")) ~= nil;
 end
 
---- Unbinds everything the game currently has bound. Returns how many keys went, or nil plus a
---- reason if it could not.
-local function BlackoutGameBindings()
-    if blackedOut then return 0 end
-    if InCombatLockdown() then
-        return nil, "bindings cannot be touched in combat"
-    end
-
-    if not restoreWatcher then
-        restoreWatcher = CreateFrame("Frame")
-        restoreWatcher:SetScript("OnEvent", function() RestoreGameBindings() end)
-    end
-    restoreWatcher:RegisterEvent("PLAYER_LOGOUT")
-
-    -- Collected before anything is cleared. `GetBindingKey` answers from the table being
-    -- rewritten, so reading and clearing in the same pass drops keys.
-    local doomed = {}
+--- Says which of the tester's own keys could be read by a test, once per run.
+---
+--- **Read only.** `GetBindingKey` and `GetBinding` answer from the table; nothing here writes.
+local function ReportOverlappingBindings()
+    local clashes = {}
     for i = 1, GetNumBindings() do
         local command = GetBinding(i)
-        -- Header rows have no command, and a command may have no key at all.
-        if command and not KEEP_BOUND[command] then
+        if command then
             for j = 1, select("#", GetBindingKey(command)) do
                 local key = select(j, GetBindingKey(command))
-                if key then
-                    doomed[#doomed + 1] = key
+                if LooksLikeATestKey(key) then
+                    clashes[#clashes + 1] = format("%s (%s)", key, command)
                 end
             end
         end
     end
 
-    -- Set before the first `SetBinding`, so a restore is owed even if the loop throws partway.
-    blackedOut = true
-    for i = 1, #doomed do
-        SetBinding(doomed[i])
+    if #clashes > 0 then
+        print(format("|cffff8800[DebindTest]|r %d of your own binding(s) sit on keys this kit reads: %s. Nothing was changed; an assertion that expects one of these to be unbound will fail.",
+            #clashes, table.concat(clashes, ", ")))
     end
-
-    return #doomed
+    return #clashes
 end
 
 --- Swaps the addon's layer enumeration for one that yields only the test layer, and takes the
@@ -375,20 +346,9 @@ local realFindLayerID
 
 local function SetIsolated(isolated)
     if isolated then
-        -- **Wrapped, because this is a convenience and the run is not.** Blacking the tester's
-        -- keys out makes the suite reproducible; a run that cannot start because that failed
-        -- would be the tail wagging the dog. Say so and carry on.
-        if not skipBlackout then
-            local ok, cleared, err = pcall(BlackoutGameBindings)
-            if not ok then
-                print(format("|cffff8800[DebindTest]|r clearing the existing bindings raised: %s. Carrying on regardless.",
-                    tostring(cleared)))
-            elseif not cleared then
-                print(format("|cffff8800[DebindTest]|r could not clear the existing bindings: %s. The run goes ahead with the tester's own keys in place.", err))
-            elseif cleared > 0 then
-                print(format("|cff00ccff[DebindTest]|r cleared %d existing binding(s). They go back when the run ends.", cleared))
-            end
-        end
+        -- **Wrapped, because this is a report and the run is not.** It only reads, but a run that
+        -- could not start because a report raised would be the tail wagging the dog.
+        pcall(ReportOverlappingBindings)
 
         if not realEnumerate then
             realEnumerate = DebindPrivate.EnumerateProfileLayers
@@ -432,7 +392,6 @@ local function SetIsolated(isolated)
             end
         end
     else
-        pcall(RestoreGameBindings)
         if realEnumerate then
             DebindPrivate.EnumerateProfileLayers = realEnumerate
             DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
@@ -5518,15 +5477,20 @@ RegisterTest("Hover frame types still narrow on their own", {
     end,
 })
 
--- **Only the game runs this one.** `clickcast_register` is a snippet body, and the takeover it
--- performs happens inside the restricted environment on tables the headless harness never builds.
--- `tests/frames_spec.lua` covers the other half -- what `RegisterFrame` works the type out to.
+-- **Only the game runs this one.** `clickcast_register` is a snippet body, and what it does now is
+-- carry a name out of the restricted environment with `CallMethod`. The headless harness never
+-- builds those tables, so nothing there can say whether the round trip happens at all -- it drives
+-- `OnClickCastRegister` directly instead (`tests/frames_spec.lua`), which is the far side of the
+-- trip and not the trip.
 --
--- What is pinned: an addon reaching us through both doors gets the same answer whichever order it
--- uses them in. It did not. `ClickCastFrames` writes `unknown` because the Clique protocol carries
--- no kind, and this body used to stand down on finding any row at all -- so an addon that registers
--- through the header before it styles the child came out a group frame, while one that styles first
--- kept the `unknown` the styling pass had left behind.
+-- What is pinned: an addon reaching us through both doors ends on the header's answer whichever
+-- order it uses them in. It did not. `ClickCastFrames` writes `unknown` because the Clique protocol
+-- carries no kind, and the frame came out group or unknown depending on which call reached it
+-- first. The header is the one that knows: its children hold whichever slot they are filling.
+--
+-- **And the hover wrappers, which moved.** The header door used to hang `clickcast_onenter` on the
+-- child instead of wrapping its motion scripts. Now every door leaves the same wrappers, and
+-- nothing but the game can say the wrap took.
 RegisterTest("Header registration takes a frame back from the click-cast table", {
     description = "Header registration takes back a frame ClickCastFrames got to first",
     run = function()
@@ -5540,6 +5504,7 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
         -- our category names -- so this is the door that yields `unknown`.
         local frame, err = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, true)
         if not frame then return Fail(NAME, err) end
+        local frameName = frame:GetName()
 
         local before = DebindPrivate.ccframes[frame]
         if before.frameType ~= Constants.FRAMETYPE_UNKNOWN then
@@ -5562,22 +5527,41 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
             ]])
         end)
 
+        -- **The registration is a tick behind the body**, which is the whole point of the signal:
+        -- the callback lands while the header is still configuring the child, so it puts the work
+        -- off rather than re-entering on a frame that is not finished.
+        local arrived = WaitUntil(function()
+            local row = DebindPrivate.ccframes[frame]
+            return type(row) == "table" and row.hd
+        end)
+        if not arrived then
+            return Fail(NAME, format("the header's signal never came back out (ccframes=%s)",
+                tostring(DebindPrivate.ccframes[frame])))
+        end
+
+        -- Written out rather than handed to `CheckWiredFrame`, which is declared further down this
+        -- file and is not in scope here.
         local after = DebindPrivate.ccframes[frame]
-        if type(after) ~= "table" then
-            return Fail(NAME, format("the row disappeared after the header registration (%s)", tostring(after)))
-        end
-        if not after.hd then
-            return Fail(NAME, "the header registration stood down. hd never came on")
-        end
         if after.frameType ~= Constants.FRAMETYPE_GROUP then
             return Fail(NAME, format("unknown was not covered over. frameType=%s", tostring(after.frameType)))
         end
+        if frame:GetAttribute("debind_frametype") ~= Constants.FRAMETYPE_GROUP then
+            return Fail(NAME, format("the frame carries debind_frametype %s while its row says group",
+                tostring(frame:GetAttribute("debind_frametype"))))
+        end
+        if frame:GetAttribute("*type-debind1") ~= "click" then
+            return Fail(NAME, format("the header's child has no click routing (*type-debind1=%s)",
+                tostring(frame:GetAttribute("*type-debind1"))))
+        end
+        if frame:GetAttribute("*clickbutton-debind1") ~= DebindPrivate.DefaultClickFrame then
+            return Fail(NAME, "the header's child routes its click somewhere that is not ours")
+        end
         -- What Clique exposes as `hccframes`: the header-registered frames by name.
-        if DebindPrivate.hccframes[frame:GetName()] ~= frame then
+        if DebindPrivate.hccframes[frameName] ~= frame then
             return Fail(NAME, "hccframes does not list the frame the header registered")
         end
 
-        return Pass(NAME, "the header took an unknown row back as group")
+        return Pass(NAME, "the header took an unknown row back as a wired group frame")
     end,
 })
 
@@ -7508,12 +7492,17 @@ local function OpenOurSettings()
         return nil, "the panel did not open"
     end
 
-    local category = Settings.GetCategory(LLL["ADDON_NAME"])
+    -- **Asked of the panel, not of `Settings.GetCategory`.** That function's parameter is called
+    -- `name` and it is not one: the lookup under it compares `category:GetID()`, which is a number
+    -- out of `CreateCounter` (`Blizzard_CategoryList.lua`, `Blizzard_Category.lua`). Handing it our
+    -- addon's name matched nothing and every test here reported "no category named Debind",
+    -- whatever the panel was actually showing.
+    local category = SettingsPanel:GetCurrentCategory()
     if not category then
-        return nil, "no category named " .. LLL["ADDON_NAME"]
+        return nil, "the panel opened on no category at all"
     end
-    if SettingsPanel:GetCurrentCategory() ~= category then
-        return nil, "the panel opened somewhere else"
+    if category:GetName() ~= LLL["ADDON_NAME"] then
+        return nil, format("the panel opened on %q", tostring(category:GetName()))
     end
 
     local names = {}
@@ -7551,10 +7540,12 @@ RegisterTest("Settings: our category draws the rows we registered", {
         --- One of each control type, plus a row from every section. A template the panel refuses
         --- leaves its row out and nothing is raised, so what is asked is that the row is there.
         local wanted = {
-            LLL["UNITFRAME_OPTIONS"],
+            UNITFRAME_LABEL,
             LLL["UNITFRAME_CLICK_EDGE"],
+            LLL["BLIZZARD_UNIT_FRAMES"],
             LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
             LLL["BLIZZARD_UNIT_FRAMES_ARENA"],
+            LLL["ADDON_UNIT_FRAMES"],
             LLL["TAKE_UNREGISTERED_UNIT_FRAMES"],
             LLL["SMART_CAST_DEFAULTS"],
             LLL["SMART_CAST_ENABLED"],
@@ -7608,8 +7599,11 @@ RegisterTest("Settings: the gear opens the panel and leaves our window standing"
         if not SettingsPanel:IsShown() then
             return Fail(NAME, "pressing the gear opened nothing")
         end
-        if SettingsPanel:GetCurrentCategory() ~= Settings.GetCategory(LLL["ADDON_NAME"]) then
-            return Fail(NAME, "the gear opened somebody else's category")
+        -- By name off the panel's own answer, for the reason `OpenOurSettings` gives.
+        local opened = SettingsPanel:GetCurrentCategory()
+        if not opened or opened:GetName() ~= LLL["ADDON_NAME"] then
+            return Fail(NAME, format("the gear opened %q",
+                tostring(opened and opened:GetName())))
         end
         if not DebindFrame:IsShown() then
             return Fail(NAME, "the gear closed our window, which it must not do")
@@ -7960,11 +7954,8 @@ local function DoReload(phase)
     -- than continuing it. Persisting first costs nothing and removes the whole class.
     Persist()
 
-    -- **The layer swap is not restored here and the bindings are** -- the two are not the same
-    -- kind of thing. The swap lives only in memory and dies with the session; the tester's
-    -- bindings are the game's own table, and the session is about to end while they are missing.
-    -- The resumed run blacks them out again on the other side.
-    pcall(RestoreGameBindings)
+    -- **The layer swap is not restored here.** It lives only in memory and dies with the session,
+    -- and the run on the other side puts its own back up.
 
     -- The runner stops here either way. Everything it would need is stored, so the run continues
     -- from saved variables if the reload happens and is dropped by OnCancel if it does not.
@@ -8237,9 +8228,7 @@ local function RequestFreshRun()
     -- than continued.
     DB().pending = nil
 
-    -- The checkbox lives in memory and the session is about to end. Carried across, because the
-    -- run on the other side is the one the tester set it for.
-    DB().autorun = { skipBlackout = skipBlackout }
+    DB().autorun = {}
 
     ReloadUI()
 end
@@ -8252,10 +8241,6 @@ local function StartRequestedRun()
     local request = DB().autorun
     if not request then return end
     DB().autorun = nil
-
-    -- Set before the window is built -- the checkbox reads this when it is created, so writing it
-    -- afterwards would leave the box unticked while the run behind it honoured the tick.
-    skipBlackout = request.skipBlackout and true or false
 
     print("|cff00ccff[DebindTest]|r running from the top after the reload.")
     UI.Open()
@@ -8600,27 +8585,6 @@ local function CreateTestUI()
     f.summary = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     f.summary:SetPoint("LEFT", f, "TOPLEFT", 16, -42)
     f.summary:SetJustifyH("LEFT")
-
-    -- Second row, out of the tally's way. It changes what pressing the buttons does, so it stays
-    -- with them rather than going somewhere quieter.
-    f.keepBindings = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
-    f.keepBindings:SetSize(24, 24)
-    f.keepBindings:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -58)
-    f.keepBindings.text:SetText("Keep existing bindings")
-    f.keepBindings:SetChecked(skipBlackout)
-    f.keepBindings:SetScript("OnClick", function(self)
-        skipBlackout = self:GetChecked() and true or false
-    end)
-    f.keepBindings:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Keep existing bindings", 1, 1, 1)
-        GameTooltip:AddLine(
-            "Normally every existing game binding is cleared for the length of a run, which is what makes the answer the same on any machine. "
-            .. "Ticked, the run leaves them alone. It is here to tell which failures that clearing caused, not as a setting.",
-            nil, nil, nil, true)
-        GameTooltip:Show()
-    end)
-    f.keepBindings:SetScript("OnLeave", GameTooltip_Hide)
 
     local scrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -86)

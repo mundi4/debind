@@ -51,6 +51,8 @@ L["BINDING_ERROR_UNDEFINED_STATE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 스위�
 L["BINDING_ERROR_UNREACHABLE"] = "이 행동은 실행되지 않습니다. 어떤 경우에도 이 키의 다른 행동이 먼저 실행됩니다."
 L["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"] = "Clique가 개체창을 맡고 있어서 마우스 올린 개체에게는 사용하지 않습니다. 행동은 원래 대상에게 그대로 실행됩니다."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
+L["BLIZZARD_UNIT_FRAMES"] = "블리자드 개체창"
+L["ADDON_UNIT_FRAMES"] = "개체창 애드온"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "투기장 개체창"
 L["BLIZZARD_UNIT_FRAMES_BOSS"] = "우두머리 개체창"
 L["BLIZZARD_UNIT_FRAMES_PARTY"] = "파티 개체창"
@@ -412,7 +414,8 @@ L["SWITCHES_EMPTY"] = "아직 만든 스위치가 없습니다.\n아래의 |cnHI
 L["TAB_DESC_SHARED"] = "계정 내 모든 캐릭터가 사용합니다."
 L["TAB_DESC_CHARACTER"] = "이 캐릭터만 사용합니다. 조건과 중요도가 같다면 여기 있는 키가 공유의 같은 키보다 우선합니다."
 -- 개체창 메뉴의 체크박스 하나. 근거는 enUS 쪽 주석에.
-L["TAKE_UNREGISTERED_UNIT_FRAMES"] = "다른 애드온이 내주지 않는 개체창도 사용"
+L["PACK_FRAMES_DESC"] = "끄면 Debind가 이 애드온의 개체창에 손대지 않습니다. 그 애드온 자체의 클릭 처리는 그대로입니다."
+L["TAKE_UNREGISTERED_UNIT_FRAMES"] ="다른 애드온이 내주지 않는 개체창도 사용"
 L["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] = "일부 개체창 애드온은 자체 마우스 올림 시전을 쓰면서 개체창을 다른 애드온에 내주지 않습니다(Clique 연동도 포함해서). 켜 두면 Debind가 그런 개체창에서도 동작하고, 그 애드온도 거기서 그대로 동작합니다. 끄면 게임 기본 개체창과 내주는 개체창만 씁니다."
 L["TARGET_UNIT_DESC"] = "그 개체를 대상으로 잡지 않고 그 개체에게 행동을 사용합니다 -- 마우스 올림 조건이 걸려 있어도 마찬가지입니다."
 L["TARGET_UNIT"] = "대상"
@@ -476,7 +479,6 @@ L["UNITFRAME_CLICK_EDGE_DESC"] = "블리자드 개체창은 마우스 버튼을 
 L["UNITFRAME_CLICK_EDGE_DOWN"] = "누를 때"
 L["UNITFRAME_CLICK_EDGE_GAME"] = "게임이 하는 대로"
 L["UNITFRAME_CLICK_EDGE_UP"] = "뗄 때"
-L["UNITFRAME_OPTIONS"] = "개체창 설정"
 L["UNNAMED_ACTION"] = "(이름 없음)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
 L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique를 쓰고 있어서 여기 걸어둔 개체창 지정이 동작하지 않습니다."

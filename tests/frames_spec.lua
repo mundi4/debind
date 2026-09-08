@@ -807,44 +807,165 @@ return function(DebindPrivate)
             "the frame came out registered: " .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
-    -- **A header's row is the header's, and a queued word does not overrule it.** The secure side
-    -- writes an `hd` row when a group header registers a child through the protocol, and it takes
-    -- those back itself. A registration queued before that row appeared used to let the drain
-    -- rebuild the row as an ordinary one and then tear it down, leaving the header's own child
-    -- unwired with nothing to say so.
-    test("a header's row survives a register and unregister queued around it", function()
-        local frame = UnitFrame();
+    --- A header's child the way the header door offers one: a named frame the driver is handed
+    --- the name of. **The tick is not optional** -- the callback is made from inside the header's
+    --- `initialConfigFunction`, so it puts the registration off by one frame rather than
+    --- re-entering the restricted environment on a child that is still being configured.
+    local function HeaderDoorFrame(name)
+        local frame = frames.newFrame("Button", name, nil, "SecureUnitButtonTemplate");
+        _G[name] = frame;
+        return frame;
+    end
+
+    local function HeaderRegister(name)
+        DebindPrivate.BindingDriver:OnClickCastRegister(name);
+        frames.drainTimers();
+    end
+
+    local function HeaderUnregister(name)
+        DebindPrivate.BindingDriver:OnClickCastUnregister(name);
+        frames.drainTimers();
+    end
+
+    -- **A header's row is the header's, and nothing else takes it back.** The header hands its
+    -- children over and reclaims them itself; a `ClickCastFrames[frame] = nil` from anywhere else
+    -- would otherwise leave the header's own child unwired with nothing to say so.
+    test("a header's row is not taken back by an ordinary deregistration", function()
+        local frame = HeaderDoorFrame("DebindSpecHeaderOwned");
+
+        HeaderRegister("DebindSpecHeaderOwned");
+        local row = DebindPrivate.ccframes[frame];
+        check(type(row) == "table" and row.hd, "the header door left no hd row: " .. tostring(row));
+        check(row.frameType == Constants.FRAMETYPE_GROUP,
+            "the header's own answer was lost: " .. tostring(row.frameType));
+
+        DebindPrivate.UnregisterFrame(frame);
+        check(DebindPrivate.ccframes[frame] == row, "an ordinary deregistration took the row");
+
+        HeaderUnregister("DebindSpecHeaderOwned");
+        check(DebindPrivate.ccframes[frame] == nil,
+            "the header's own door did not take it back: "
+            .. tostring(DebindPrivate.ccframes[frame]));
+        _G.DebindSpecHeaderOwned = nil;
+    end);
+
+    -- **The header door is a door like the others now, so the combat queue holds it too.** It used
+    -- to register from inside the restricted environment, which a fight does not block, and the
+    -- half that a fight *did* block was queued separately. One queue is what makes the last word
+    -- the answer.
+    test("a header registration during a fight waits for the queue", function()
+        local frame = HeaderDoorFrame("DebindSpecHeaderQueued");
 
         throughCombat(function()
-            DebindPrivate.RegisterFrame(frame, "group");
-            -- The header protocol arriving mid-fight, which is what `clickcast_register` leaves.
-            DebindPrivate.ccframes[frame] =
-                { hd = true, type = "group", frameType = Constants.FRAMETYPE_GROUP };
-            DebindPrivate.UnregisterFrame(frame);
+            HeaderRegister("DebindSpecHeaderQueued");
+            check(DebindPrivate.ccframes[frame] == nil,
+                "the header door registered during a fight: "
+                .. tostring(DebindPrivate.ccframes[frame]));
         end);
 
         local row = DebindPrivate.ccframes[frame];
-        check(type(row) == "table" and row.hd,
-            "the header's row was taken away: " .. tostring(row and row.hd or row));
+        check(type(row) == "table", "the drain did not register it: " .. tostring(row));
+        -- **The mark is on the frame and not in the queue entry**, which is the whole reason it is
+        -- a mark: the entry carries the arguments the call had, not who made it.
+        check(row.hd, "the drain registered it as an ordinary row");
+        -- The list Clique exposes is written where the row is, so the queue carries it too. It
+        -- used to be written beside the registration, which read an empty row during the fight.
+        check(DebindPrivate.hccframes.DebindSpecHeaderQueued == frame,
+            "the queued registration never reached hccframes");
+        _G.DebindSpecHeaderQueued = nil;
     end);
 
+    -- **A withdrawal during a fight has to cancel the registration queued next to it.** Nothing
+    -- else queues the word that cancels one: the drain replays what it was handed, so a header
+    -- that offered a child and took it back inside one fight had the child wired afterwards, with
+    -- no row saying it was the header's.
+    test("a header withdrawal during a fight cancels the queued registration", function()
+        local frame = HeaderDoorFrame("DebindSpecHeaderRecalled");
+
+        throughCombat(function()
+            HeaderRegister("DebindSpecHeaderRecalled");
+            HeaderUnregister("DebindSpecHeaderRecalled");
+        end);
+
+        check(DebindPrivate.ccframes[frame] == nil,
+            "the drain wired a frame the header had already taken back: "
+            .. tostring(DebindPrivate.ccframes[frame]));
+        _G.DebindSpecHeaderRecalled = nil;
+    end);
+
+    -- **The header's claim has to reach a row another door already wrote.** `RegisterFrame` stands
+    -- down when the row it finds already says what it was about to say, and standing down there
+    -- used to mean the claim never landed: an ordinary deregistration then took a frame the header
+    -- owns, and the header's own withdrawal did nothing because it looks for `hd`.
+    test("a frame another door registered still becomes the header's", function()
+        local frame = HeaderDoorFrame("DebindSpecHeaderSecond");
+        frame:SetAttribute("unit", "party2");
+
+        DebindPrivate.RegisterFrame(frame, true);
+        local first = DebindPrivate.ccframes[frame];
+        check(type(first) == "table" and first.frameType == Constants.FRAMETYPE_GROUP,
+            "the other door did not register it as a group frame first");
+        check(not first.hd, "it was the header's before the header said so");
+
+        HeaderRegister("DebindSpecHeaderSecond");
+        check(DebindPrivate.ccframes[frame].hd,
+            "the header's claim never reached the row that was already there");
+        check(DebindPrivate.hccframes.DebindSpecHeaderSecond == frame,
+            "the claim did not reach hccframes either");
+
+        DebindPrivate.UnregisterFrame(frame);
+        check(DebindPrivate.ccframes[frame] ~= nil,
+            "an ordinary deregistration took a frame the header owns");
+
+        HeaderUnregister("DebindSpecHeaderSecond");
+        check(DebindPrivate.ccframes[frame] == nil, "the header could not take its own frame back");
+        check(DebindPrivate.hccframes.DebindSpecHeaderSecond == nil, "hccframes kept the frame");
+        _G.DebindSpecHeaderSecond = nil;
+    end);
 
     -- **`Clique.hccframes` is the other half of Clique's registration list.** `ccframes` holds what
     -- came in from the insecure side and `hccframes` what came in through the header protocol,
     -- keyed by name because that is what the restricted side can hand out. An addon walking either
     -- to touch every click-casting frame finds the header's children only in the second.
     test("a header registration is listed in hccframes by name, and taken out with it", function()
-        local frame = frames.newFrame("Button", "DebindSpecHeaderChild", nil, "SecureUnitButtonTemplate");
-        _G.DebindSpecHeaderChild = frame;
+        local frame = HeaderDoorFrame("DebindSpecHeaderChild");
 
-        DebindPrivate.BindingDriver:OnClickCastRegister("DebindSpecHeaderChild");
+        HeaderRegister("DebindSpecHeaderChild");
         check(DebindPrivate.hccframes and DebindPrivate.hccframes.DebindSpecHeaderChild == frame,
             "hccframes did not list the header's child");
 
-        DebindPrivate.BindingDriver:OnClickCastUnregister("DebindSpecHeaderChild");
+        HeaderUnregister("DebindSpecHeaderChild");
         check(DebindPrivate.hccframes.DebindSpecHeaderChild == nil,
             "hccframes kept the child after the header let it go");
         _G.DebindSpecHeaderChild = nil;
+    end);
+
+    -- **The pack switch reaches the header door too, and this is the change that made it.** That
+    -- door used to register from inside the restricted environment and write our row from
+    -- `CallMethod`, so it never passed the gate: a pack the reader had turned off went on
+    -- registering through its group headers, and what the box did depended on which layout that
+    -- reader had picked.
+    test("a pack that is turned off is refused at the header door", function()
+        local off = HeaderDoorFrame("ERFExtraFrame7");
+        local other = HeaderDoorFrame("EllesmereUIUnitFrames_Focus");
+
+        withPacks({ EllesmereUIRaidFrames = false }, function()
+            HeaderRegister("ERFExtraFrame7");
+            HeaderRegister("EllesmereUIUnitFrames_Focus");
+        end);
+
+        check(DebindPrivate.ccframes[off] == nil,
+            "the header door registered a pack that is off: "
+            .. tostring(DebindPrivate.ccframes[off]));
+        check(DebindPrivate.hccframes.ERFExtraFrame7 == nil,
+            "a pack that is off was still listed in hccframes");
+        -- **The switch is one pack's**, and it must not take another pack's frames with it.
+        check(type(DebindPrivate.ccframes[other]) == "table",
+            "turning one pack off took another one with it: "
+            .. tostring(DebindPrivate.ccframes[other]));
+
+        _G.ERFExtraFrame7 = nil;
+        _G.EllesmereUIUnitFrames_Focus = nil;
     end);
     ---------------------------------------------------------------------------
     -- Resolving a custom target

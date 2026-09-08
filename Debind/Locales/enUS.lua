@@ -95,13 +95,22 @@ L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_CO
 L["BINDING_ERROR_UNREACHABLE"] = "This action never runs. No matter what, another action on this key gets there first."
 L["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"] = "Clique is handling unit frames, so this action is not used on the hovered frame's unit. It still runs on its own target."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
+-- **The two section names, in the client's own case.** Blizzard lifts the principal words and
+-- leaves articles and short prepositions down (`SHOW_PINGS_ON_RAID_FRAMES = "Show Pings on Raid
+-- Frames"`), which is why "and" and "to" stay lowercase here and in
+-- `TAKE_UNREGISTERED_UNIT_FRAMES`.
+--
+-- The third of the three headers is the client's own `UNITFRAME_LABEL`, read in `Options.lua`
+-- rather than copied to a key here: every locale carries it already.
+L["BLIZZARD_UNIT_FRAMES"] = "Blizzard Unit Frames"
+L["ADDON_UNIT_FRAMES"] = "Unit Frame Addons"
 L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
 L["BLIZZARD_UNIT_FRAMES_BOSS"] = "Boss Frames"
 L["BLIZZARD_UNIT_FRAMES_PARTY"] = "Party Frames"
 L["BLIZZARD_UNIT_FRAMES_PET"] = "Pet Frame"
 L["BLIZZARD_UNIT_FRAMES_PLAYER"] = "Player Frame"
 L["BLIZZARD_UNIT_FRAMES_RAID"] = "Raid Frames"
-L["BLIZZARD_UNIT_FRAMES_TARGET"] = "Target And Focus"
+L["BLIZZARD_UNIT_FRAMES_TARGET"] = "Target and Focus"
 L["CANNOT_OPEN_IN_COMBAT"] = "Cannot open in combat."
 L["CANNOT_OPEN_WITH_GAME_MENU"] = "Close the game menu first."
 L["COMPARTMENT_TOOLTIP_LEFT_CLICK"] = "Click to open Debind. The bindings overview is the left column."
@@ -1131,9 +1140,16 @@ L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in
 --
 -- **"Clique support" is the game's phrase for the thing here, not ours.** Every unit frame addon's
 -- own options use it, so a reader who has one has seen it.
-L["TAKE_UNREGISTERED_UNIT_FRAMES"] = "Use unit frames addons keep to themselves"
+L["TAKE_UNREGISTERED_UNIT_FRAMES"] = "Use Unit Frames Addons Keep to Themselves"
 L["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] = "Some unit frame addons run hover casting of their own and offer their frames to nobody, Clique support included. Ticked, Debind works on those frames as well, and that addon goes on working there too. Unticked, Debind uses the game's own unit frames and the frames an addon does offer."
-L["TARGET_UNIT_DESC"] = "The action is used on that unit without targeting it, even over a unit frame."
+-- **The box is named by the addon's own Title**, so this is the whole of what it has to say.
+--
+-- **Nothing here about the addon offering its frames.** Unticked, Debind stays off that addon's
+-- unit frames whichever way they would have reached it, and offering is the vocabulary of someone
+-- who knows the Clique API. The second sentence carries the decision: what a reader worries about
+-- when turning this off is whether it breaks the addon they turned it off for.
+L["PACK_FRAMES_DESC"] = "Unticked, Debind leaves this addon's unit frames alone. The addon's own click handling is unaffected."
+L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
@@ -1286,13 +1302,12 @@ L["UNIT_TARGET"] = "Target"
 -- keybinds (`ACTION_BUTTON_USE_KEY_DOWN`), so the entry names the game rather than the key
 -- setting: a reader who has never opened that setting still knows what "the game" means, and one
 -- who has will find the wording again in the tooltip.
-L["UNITFRAME_CLICK_EDGE"] = "Clicking a unit frame casts on"
+L["UNITFRAME_CLICK_EDGE"] = "Clicking a Unit Frame Casts On"
 -- `%s` is the game's own wording for its keybind setting, put in where it is shown.
 L["UNITFRAME_CLICK_EDGE_DESC"] = "Blizzard's own unit frames cast when the mouse button comes back up.|n|nWhatever the game does follows |cnHIGHLIGHT_FONT_COLOR:%s|r in the game's own settings, which is the setting your keys already follow."
 L["UNITFRAME_CLICK_EDGE_DOWN"] = "Mouse down"
 L["UNITFRAME_CLICK_EDGE_GAME"] = "Whatever the game does"
 L["UNITFRAME_CLICK_EDGE_UP"] = "Mouse up"
-L["UNITFRAME_OPTIONS"] = "Unit frame options"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once at login, and only when something is actually stopped
 -- (`HasBindingBlockedByClique`). It used to go out on the mere presence of Clique, which is why it

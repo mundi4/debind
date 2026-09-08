@@ -976,11 +976,13 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### SecureBindings.lua #19 SetAttribute
-	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onenter"))
+	local header = self:GetParent():GetFrameRef("clickcast_header")
+	header:RunFor(self, header:GetAttribute("setup_onenter"))
 
 
 ### SecureBindings.lua #20 SetAttribute
-	debind_driver:RunFor(self, debind_driver:GetAttribute("setup_onleave"))
+	local header = self:GetParent():GetFrameRef("clickcast_header")
+	header:RunFor(self, header:GetAttribute("setup_onleave"))
 
 
 ### SecureBindings.lua #21 SetAttribute
@@ -1000,39 +1002,12 @@ DelegateFrameNames[frame] = frame:GetName()
 
 ### SecureBindings.lua #24 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
-		local info = ccframes[button]
-		if (info and info.hd) then
-			return
-		end
-
-		if (not info) then
-			self:RunFor(button, self:GetAttribute("InitFrame"))
-			info = ccframes[button]
-		end
-		info.hd = true
-		info.frameType = CONSTANTS.FRAMETYPE_GROUP
-		button:SetAttribute("useparent-clickbutton", true)
-		
-		button:Run([[debind_driver = self:GetParent():GetFrameRef("clickcast_header")]])
-		if (not clique_header) then
-			button:SetAttribute("clickcast_onenter", self:GetAttribute("clickcast_onenter"))
-			button:SetAttribute("clickcast_onleave", self:GetAttribute("clickcast_onleave"))
-		end
-
 		self:CallMethod("OnClickCastRegister", button:GetName())
 	
 
 ### SecureBindings.lua #25 SetAttribute
 		local button = self:GetAttribute("clickcast_button")
-		if (ccframes[button]) then
-			self:RunFor(button, self:GetAttribute("DeinitFrame"))
-			if (not clique_header) then
-				button:SetAttribute("clickcast_onenter", nil)
-				button:SetAttribute("clickcast_onleave", nil)
-			end
-			button:Run([[debind_driver = nil]])
-			self:CallMethod("OnClickCastUnregister", button:GetName())
-		end
+		self:CallMethod("OnClickCastUnregister", button:GetName())
 	
 
 ### SecureBindings.lua #26 InstallSnippet

@@ -92,7 +92,19 @@ function DebindPrivate.RegisterOptionsCategory()
     -- Unit frames
     --------------------------------------------------------------------------
 
-    Header(L["UNITFRAME_OPTIONS"]);
+    --- **Three headed groups, and no box is the parent of another.** Every box in these three
+    --- only ever takes something away -- one pack, the frames nobody handed over, one of the
+    --- client's own windows -- so what is left is what the unticked boxes have not removed, and
+    --- two of them being off at once needs no explaining. A parent box would say the opposite,
+    --- that the children mean nothing while it is off, and none of these stands in that relation
+    --- to another. Grouping is what a section header is for and it is what the client uses at this
+    --- depth; the list has only one step of indentation to offer anyway
+    --- (`Blizzard_SettingControls.lua`).
+    ---
+    --- **The client's own words for the first one.** Every locale already carries
+    --- `UNITFRAME_LABEL`, so there is nothing to translate and the game changing its wording
+    --- carries us along.
+    Header(UNITFRAME_LABEL);
 
     --- Clique drives the unit frames while it is installed and we stand aside, so every row in
     --- this section is greyed and carries the sentence saying which addon has them.
@@ -157,6 +169,8 @@ function DebindPrivate.RegisterOptionsCategory()
         UnitFrameTooltip(format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN)))
         :AddModifyPredicate(NotClique);
 
+    Header(L["BLIZZARD_UNIT_FRAMES"]);
+
     --- **Turning one off takes effect at the next login, and the box has to say so.** A frame is
     --- deregistered when its owner asks for it back and Blizzard never asks; unticking stops us
     --- registering that set from the next login rather than handing back what is already wired.
@@ -177,9 +191,18 @@ function DebindPrivate.RegisterOptionsCategory()
             end), UnitFrameTooltip(REQUIRES_RELOAD));
     end
 
+    --- **Stands even with no pack installed**, because the row at the end of it always does and
+    --- that row is about somebody else's unit frames too.
+    Header(L["ADDON_UNIT_FRAMES"]);
+
     --- **Only the packs that are installed.** A row for an addon the reader does not have says
     --- nothing they can act on. Off is `false` and on is the key gone, so a pack nobody touched and
     --- one turned back on are the same row: absent.
+    ---
+    --- **Unticked, that addon is not touched at all**, whichever way its frames would have reached
+    --- us, the ones it hands over included. Which is why the tooltip says nothing about handing
+    --- over: that is the vocabulary of somebody who knows the Clique API, and the answer here does
+    --- not depend on it.
     local packs = DebindPrivate.LoadedKnownPacks();
     for i = 1, #packs do
         local addon = packs[i][1];
@@ -202,7 +225,7 @@ function DebindPrivate.RegisterOptionsCategory()
                     DebindPrivate.db.global.packFrames = stored;
                 end
                 stored[addon] = false;
-            end), UnitFrameTooltip(REQUIRES_RELOAD));
+            end), UnitFrameTooltip(L["PACK_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD));
     end
 
     --- **Ticked is the wider behaviour and the default.** Some unit frame addons run hover casting

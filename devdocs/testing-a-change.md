@@ -168,27 +168,28 @@ and there is no other way to find out that they have.
 /debtest          the list window. Everything a run needs is in it:
                     [실행]                  everything that does not end the session
                     [리로드 포함]            also the tests that cross a /reload
-                    [기존 바인딩 남겨두기]     skip the blackout below, to tell its faults from the addon's
 /debtest last     the stored result from a previous run
 ```
 
 ### What a run does to the session
 
-For the length of a run the tester's world is put aside, so the suite answers the same on every
-machine:
+**The profile is put aside and nothing else is.** For the length of a run the layer walk yields
+only the test's layer, so a record a test looks up cannot be one of the tester's. That swap lives
+in memory, dies with the session, and is the **runner's** to undo rather than a test's.
 
-- **the profile is one layer, and it is the test's.** A test key carrying the tester's own actions
-  means the record a test looks up could be someone else's
-- **the game's own bindings are unbound.** In-memory only — `SetBinding` never reaches disk, and
-  `LoadBindings(GetCurrentBindingSet())` puts the saved set back, which is how Blizzard's own
-  quick-keybind cancels. `TOGGLEGAMEMENU` and the two chat keys are left alone so a wedged run is
-  still recoverable by typing `/reload`
-- both are the **runner's** to undo, not a test's, and every exit is covered — finish, the reload
-  request, declining the reload popup, `PLAYER_LOGOUT`, and a restore deferred past combat
+**The game's own binding table is never written to.** A run reads it once and says which of the
+tester's keys sit on the shapes the kit uses (a modifier and a function key), then leaves them
+alone. `GetBindingAction(KEY, true)` answers with our override while one stands, so a stray binding
+of theirs can only make an assertion fail where it should have passed — never pass where it should
+have failed.
 
-So `GetBindingAction(KEY)` on a key the test did not bind answers with nothing. Before this it
-answered with whatever the tester had there, which made every "and now it goes away again"
-assertion true only on a machine where that key happened to be free.
+**That rule is written in blood.** The kit used to unbind every key at the start of a run and put
+them back with `LoadBindings`, on the grounds that nothing writes bindings to disk until somebody
+calls `SaveBindings`. `SettingsPanelMixin:OnHide` calls it unconditionally, so the settings panel
+tests — which open that panel and close it — wrote the emptied set over a tester's real one, and
+the restore afterwards faithfully read the emptied set back. **A test may not write to any table
+that is the game's, and the settings panel is a reminder that closing a window can write one for
+you** (2026-09-08).
 
 ### Writing one
 
