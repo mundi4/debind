@@ -4784,13 +4784,19 @@ RegisterTest("Click-cast: the frame's own slots stay ours to not touch", {
             end
 
             -- And nothing of ours in the slots that belong to the frame. "click" is the value the
-            -- old routing wrote; a frame of its own may legitimately hold other types.
+            -- old routing wrote, but it is not ours alone: Clique's proxy build writes `click`
+            -- into `*type1`/`*type2` on every Blizzard frame it holds and points the matching
+            -- `clickbutton` at its proxy (`Clique/core/proxy_frames.lua`, measured 2026-09-08
+            -- on this board). So what is asked is where the click goes, and only a slot aimed at
+            -- our own frame is ours.
             for i = 1, 5 do
-                for _, attr in ipairs({ "*type" .. i, "type" .. i }) do
-                    if frame:GetAttribute(attr) == "click" then
+                for _, prefix in ipairs({ "*", "" }) do
+                    if frame:GetAttribute(prefix .. "type" .. i) == "click"
+                            and frame:GetAttribute(prefix .. "clickbutton" .. i)
+                                == DebindPrivate.DefaultClickFrame then
                         return Fail(NAME, format(
-                            "%s: click is still on %s. the old routing still writes to that slot",
-                            target.label, attr))
+                            "%s: click on %stype%d goes to our frame. the old routing still writes to that slot",
+                            target.label, prefix, i))
                     end
                 end
             end
@@ -5565,6 +5571,58 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
     end,
 })
 
+-- **The real Clique is installed and we did not take anything of its.** This is the one thing no
+-- headless spec can reach: the specs stand up a hand-made holder, and what this asks is whether the
+-- real addon's own three globals are still the real addon's after we have loaded beside it.
+--
+-- **A board without Clique passes and says so.** There is nothing here that a board can be made to
+-- have; installing it is outside the game.
+--
+-- The three are the three ways this could go wrong, and each of them is silent. Taking
+-- `ClickCastFrames` leaves Clique writing into a table nobody reads. Taking `Clique` or
+-- `ClickCastHeader` puts our stand-in over the real addon, and every unit frame addon that asks for
+-- Clique gets us instead. That is the whole reason `DebindCliqueFake` may not load here, since
+-- its XML would also raise on `ClickCastUnitTemplate`.
+RegisterTest("Clique: the real addon keeps every name that is its own", {
+    description = "Clique가 깔린 판에서 ClickCastFrames, Clique, ClickCastHeader 셋 다 저쪽 것으로 남아 있는지",
+    run = function()
+        local NAME = "Clique names"
+
+        if not DebindPrivate.CliqueDetected then
+            return Pass(NAME, "Clique가 안 깔린 판이라 잴 것이 없다")
+        end
+
+        if DebindPrivate.AttachClickCastFrames == nil then
+            return Fail(NAME, "the click-cast table code did not load at all")
+        end
+
+        local ours = DebindPublic and DebindPublic.header
+        if _G.ClickCastHeader == ours then
+            return Fail(NAME, "ClickCastHeader is ours, so Clique's header protocol is cut off")
+        end
+        if type(_G.Clique) ~= "table" or _G.Clique.header == ours then
+            return Fail(NAME, "the Clique global is ours, so addons asking for Clique reach us instead")
+        end
+        if type(_G.ClickCastFrames) ~= "table" then
+            return Fail(NAME, format("ClickCastFrames is not a table (%s)", type(_G.ClickCastFrames)))
+        end
+        -- **Ours answers for a frame it was never told about, and Clique's does not.** That is the
+        -- one difference readable from outside: our table keeps its rows beside itself behind an
+        -- `__index`, and Clique's proxy carries no `__index` at all. **Readable only while standing
+        -- aside**: working alongside, `ClickCastTable.lua` wraps Clique's metatable and puts an
+        -- `__index` of ours on it without taking the table, so the read would report the wrong
+        -- fault there (code review, 2026-09-08).
+        local mt = getmetatable(_G.ClickCastFrames)
+        if DebindPrivate.StandsAsideForClique() and type(mt) == "table" and mt.__index then
+            return Fail(NAME, "ClickCastFrames is ours, so Clique is writing into a table nobody reads")
+        end
+
+        local alongside = not DebindPrivate.StandsAsideForClique()
+        return Pass(NAME, alongside and "나란히 서는 중이고 셋 다 Clique 것이다"
+            or "물러서 있고 셋 다 Clique 것이다")
+    end,
+})
+
 -- **Another addon holds the name `ClickCastFrames`, and we stand behind it.** The harness cannot
 -- see this: that table is stood up by `DebindCliqueFake`, which is only read once `DebindPublic` is
 -- there, and the runner loads neither.
@@ -5758,11 +5816,12 @@ local function EllesmereLoaded(frameName)
         if (not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon))) then
             return false, addon .. " is not loaded on this board";
         end
-        --- **The frames below reach us through the three doors and nothing else**, and those stand
-        --- behind the option (`FrameRegistry.lua`). Turned off, none of them is registered and the
-        --- case would be measuring the reader's setting.
-        if (not DebindPrivate.TakesUnregisteredFrames()) then
-            return false, "frames nobody hands over are turned off in this profile";
+        --- **The frames below reach us through the three doors and nothing else**, and a listed
+        --- pack's frames stand behind that pack's box at every one of them
+        --- (`legacy/making-the-pack-box-own-its-addon.md`). Turned off, none of them is registered
+        --- and the case would be measuring the reader's setting.
+        if (not DebindPrivate.TakesPackFrames(addon)) then
+            return false, addon .. " is turned off in this profile";
         end
         return true;
     end
@@ -5857,12 +5916,23 @@ RegisterTest("a pack that is turned off is not wired at all", {
             return Fail(NAME, "registering a frame is blocked in combat");
         end
 
-        AddTeardown(DebindPrivate.AddKnownPackFrameRow("^debindpackswitchtestframe%d+$",
-            PACK, "group"));
+        local removeRow = DebindPrivate.AddKnownPackFrameRow("^debindpackswitchtestframe%d+$",
+            PACK, "group");
 
+        --- **The switch is turned off before the frames are let go, and the row comes off last.**
+        --- `UnregisterFrame` keeps a frame whose pack is on, so a teardown that let go first would
+        --- leave the "on" frame wired for the rest of the session. Teardowns run newest first, and
+        --- the frames register theirs after this one, so this is one function rather than three.
         local saved = DebindPrivate.packFrames[PACK];
+        local made = {};
         AddTeardown(function()
+            DebindPrivate.packFrames[PACK] = false;
+            for i = 1, #made do
+                DebindPrivate.UnregisterFrame(made[i]);
+                made[i]:Hide();
+            end
             DebindPrivate.packFrames[PACK] = saved;
+            removeRow();
         end);
 
         --- Reused by name across runs the way `CreateTestUnitFrame` does, and for the same reason:
@@ -5874,10 +5944,7 @@ RegisterTest("a pack that is turned off is not wired at all", {
             frame:SetAttribute("unit", "player");
             DebindPrivate.ccframes[frame] = nil;
             frame:Show();
-            AddTeardown(function()
-                DebindPrivate.UnregisterFrame(frame);
-                frame:Hide();
-            end);
+            made[#made + 1] = frame;
             return frame;
         end
 

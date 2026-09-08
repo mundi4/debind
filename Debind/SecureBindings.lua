@@ -1110,116 +1110,147 @@ BindingDriver:SetAttribute("clickcast_onleave", [==[
 	header:RunFor(self, header:GetAttribute("setup_onleave"))
 ]==]);
 
-if (DebindPrivate.CliqueDetected) then
-	SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clique_header", _G.Clique.header);
+--- **What the restricted side does instead, while Clique has the unit frames.** Not run at file
+--- scope, because what decides it is an option and `InitDB` is the first moment one can be read
+--- (`Profile.StandsAsideForClique`); the attributes written below stand until then and nothing is
+--- bound that early.
+---
+--- `GetHoveredUnit` answers from our own row first, since Blizzard's own unit frames are registered
+--- whatever Clique does (`legacy/coexisting-with-clique.md` §5) and a hover over one of those fills
+--- `States.unitframe` the ordinary way. Only a frame we hold no row for falls through to Clique's
+--- own hovered button, which is a unit token and nothing else: no `frameType`, no reaction and no
+--- role come with it, so a record carrying any of those still fails to match there.
+---
+--- **`Clique.header` is Clique's own field and was never promised to us**, so its absence is a case
+--- and not an impossibility. Reaching it used to raise at file scope, which took the whole addon
+--- down on load; from `InitDB` it would take the profile with it instead. Left alone, the body
+--- written below stands and answers nil, which is what a hover binding gets on a frame we do not
+--- hold anyway.
+function DebindPrivate.ApplyStandAsideForClique()
+	local clique = _G.Clique;
+	local header = type(clique) == "table" and clique.header;
+	if (not header) then
+		return;
+	end
 
-	_G.Clique.header:SetAttribute("debind_gethoverunit", [[
+	SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clique_header", header);
+
+	header:SetAttribute("debind_gethoverunit", [[
 		return danglingButton and danglingButton:GetAttribute("unit") or nil
 	]]);
 
 	BindingDriver:SetAttribute("GetHoveredUnit", [==[
+		local unitframe = States.unitframe
+		if (unitframe and unitframe.unit) then
+			return unitframe.unit
+		end
 		local clique_header = self:GetFrameRef("clique_header")
-		local unit = clique_header:RunAttribute("debind_gethoverunit")
-		return unit
+		return clique_header:RunAttribute("debind_gethoverunit")
 	]==]);
 
 	BindingDriver:SetAttribute("clickcast_register", "");
 
 	BindingDriver:SetAttribute("clickcast_unregister", "");
-else
-	BindingDriver:SetAttribute("GetHoveredUnit", [==[
-		local unitframe = States.unitframe
-		return unitframe and unitframe.unit
-	]==]);
+end
 
-	--- **The header door hands out a name and registers nothing.** It used to set the frame up
-	--- from in here and write our row from `CallMethod`, which was always half the job: what wires
-	--- a frame for us is `SecureHandlerWrapScript` on its `OnClick` and the routing attributes
-	--- beside it (`FrameRegistry.ApplyDebindRouting`), and both of those are insecure calls that a
-	--- fight blocks. A child registered here mid-fight had its restricted half done and its clicks
-	--- sitting in `RegisterClickQueue` until the fight ended.
-	---
-	--- What signalling buys is **one gate instead of two**. The pack switch, the refusals a frame
-	--- is written off for, the combat queue and the kind are asked once, in `RegisterFrame`, for
-	--- every door. The pack switch is the one that never got a second copy written: a pack the
-	--- reader had turned off went on registering through its group headers, and what the box did
-	--- depended on which layout that reader had picked.
-	---
-	--- **What it costs.** This body runs in the restricted environment, so it ran during a fight
-	--- and the `clickcast_onenter` it used to hang on the child filled the hover slot there. Now a
-	--- child first created mid-fight waits for the queue like every other frame. It is only ever
-	--- first creation -- a header runs `initialConfigFunction` once per child, and makes new ones
-	--- only when the group outgrows the largest size it has laid out this session.
-	---
-	--- **The name is all that can cross.** `CallMethod` scrubs its arguments down to strings,
-	--- numbers and booleans (`RestrictedFrames.lua`), so a header whose own name is nil hands its
-	--- children names that are nil too (`SecureGroupHeaders.lua` builds them as
-	--- `name and (name.."UnitButton"..i)`) and they cannot come through here. Clique is in the
-	--- same position and answers it the same way. `CollectHeaderChildren` reaches those frames by
-	--- object and needs no name.
-	BindingDriver:SetAttribute("clickcast_register", [==[
-		local button = self:GetAttribute("clickcast_button")
-		self:CallMethod("OnClickCastRegister", button:GetName())
-	]==]);
+BindingDriver:SetAttribute("GetHoveredUnit", [==[
+	local unitframe = States.unitframe
+	return unitframe and unitframe.unit
+]==]);
 
-	BindingDriver:SetAttribute("clickcast_unregister", [==[
-		local button = self:GetAttribute("clickcast_button")
-		self:CallMethod("OnClickCastUnregister", button:GetName())
-	]==]);
+--- **The header door hands out a name and registers nothing.** It used to set the frame up
+--- from in here and write our row from `CallMethod`, which was always half the job: what wires
+--- a frame for us is `SecureHandlerWrapScript` on its `OnClick` and the routing attributes
+--- beside it (`FrameRegistry.ApplyDebindRouting`), and both of those are insecure calls that a
+--- fight blocks. A child registered here mid-fight had its restricted half done and its clicks
+--- sitting in `RegisterClickQueue` until the fight ended.
+---
+--- What signalling buys is **one gate instead of two**. The pack switch, the refusals a frame
+--- is written off for, the combat queue and the kind are asked once, in `RegisterFrame`, for
+--- every door. The pack switch is the one that never got a second copy written: a pack the
+--- reader had turned off went on registering through its group headers, and what the box did
+--- depended on which layout that reader had picked.
+---
+--- **What it costs.** This body runs in the restricted environment, so it ran during a fight
+--- and the `clickcast_onenter` it used to hang on the child filled the hover slot there. Now a
+--- child first created mid-fight waits for the queue like every other frame. It is only ever
+--- first creation -- a header runs `initialConfigFunction` once per child, and makes new ones
+--- only when the group outgrows the largest size it has laid out this session.
+---
+--- **The name is all that can cross.** `CallMethod` scrubs its arguments down to strings,
+--- numbers and booleans (`RestrictedFrames.lua`), so a header whose own name is nil hands its
+--- children names that are nil too (`SecureGroupHeaders.lua` builds them as
+--- `name and (name.."UnitButton"..i)`) and they cannot come through here. Clique is in the
+--- same position and answers it the same way. `CollectHeaderChildren` reaches those frames by
+--- object and needs no name.
+BindingDriver:SetAttribute("clickcast_register", [==[
+	local button = self:GetAttribute("clickcast_button")
+	self:CallMethod("OnClickCastRegister", button:GetName())
+]==]);
 
-	--- **A tick later, because the header is still building the child.** This is called from the
-	--- header's `initialConfigFunction`, inside the restricted environment, and registering runs
-	--- `InitFrame` straight back in through `SecureHandlerExecute`. Nothing here is urgent enough
-	--- to re-enter on a frame its own header has not finished configuring.
-	---
-	--- **Told group, never read.** A header hands its children whichever unit they are filling
-	--- right now, so the token on one says which slot it is and not what the frame is.
-	function BindingDriver:OnClickCastRegister(buttonName)
-		if (not buttonName) then
+BindingDriver:SetAttribute("clickcast_unregister", [==[
+	local button = self:GetAttribute("clickcast_button")
+	self:CallMethod("OnClickCastUnregister", button:GetName())
+]==]);
+
+--- **A tick later, because the header is still building the child.** This is called from the
+--- header's `initialConfigFunction`, inside the restricted environment, and registering runs
+--- `InitFrame` straight back in through `SecureHandlerExecute`. Nothing here is urgent enough
+--- to re-enter on a frame its own header has not finished configuring.
+---
+--- **Told group, never read.** A header hands its children whichever unit they are filling
+--- right now, so the token on one says which slot it is and not what the frame is.
+function BindingDriver:OnClickCastRegister(buttonName)
+	if (not buttonName) then
+		return;
+	end
+	C_Timer.After(0, function()
+		local button = _G[buttonName];
+		if (not button) then
 			return;
 		end
-		C_Timer.After(0, function()
-			local button = _G[buttonName];
-			if (not button) then
-				return;
-			end
-			-- **The mark goes on before the offer and `RegisterFrame` does the rest of it**,
-			-- `hccframes` included. Writing that list here instead read the row at a moment when
-			-- a fight had put the registration in the queue and there was none, so a child first
-			-- created mid-fight went missing from the list Clique exposes.
-			DebindPrivate.MarkHeaderOwned(button);
-			DebindPrivate.RegisterFrame(button, "group");
-		end);
-	end
+		-- **The mark goes on before the offer and `RegisterFrame` does the rest of it**,
+		-- `hccframes` included. Writing that list here instead read the row at a moment when
+		-- a fight had put the registration in the queue and there was none, so a child first
+		-- created mid-fight went missing from the list Clique exposes.
+		DebindPrivate.MarkHeaderOwned(button);
+		DebindPrivate.RegisterFrame(button, "group");
+	end);
+end
 
-	--- **여기서 되돌리지 않으면 영영 못 되돌린다.** `UnregisterFrame`은 `hd` 행을 건너뛰므로
-	--- (`FrameRegistry.lua`) 헤더로 들어온 프레임이 되돌아가는 자리는 이 한 곳뿐이다. 안 부르면
-	--- 그 프레임의 클릭이 계속 우리에게 온다. 그래서 표시를 먼저 걷고 행을 지운다.
-	function BindingDriver:OnClickCastUnregister(buttonName)
-		if (not buttonName) then
+--- **여기서 되돌리지 않으면 영영 못 되돌린다.** `UnregisterFrame`은 `hd` 행을 건너뛰므로
+--- (`FrameRegistry.lua`) 헤더로 들어온 프레임이 되돌아가는 자리는 이 한 곳뿐이다. 안 부르면
+--- 그 프레임의 클릭이 계속 우리에게 온다. 그래서 표시를 먼저 걷고 행을 지운다.
+function BindingDriver:OnClickCastUnregister(buttonName)
+	if (not buttonName) then
+		return;
+	end
+	C_Timer.After(0, function()
+		local button = _G[buttonName];
+		if (not button) then
 			return;
 		end
-		C_Timer.After(0, function()
-			local button = _G[buttonName];
-			if (not button) then
-				return;
-			end
-			local row = DebindPrivate.ccframes[button];
-			-- **A frame with no row still has to reach `UnregisterFrame`.** A fight puts the
-			-- registration in the queue rather than on the frame, and the only thing that queues
-			-- the word cancelling it is that call. Returning here because there was nothing to
-			-- take back left the drain to wire a frame the header had already reclaimed.
-			if (type(row) == "table" and not row.hd) then
-				return;
-			end
-			DebindPrivate.ClearHeaderOwned(button);
-			if (type(row) == "table") then
-				row.hd = nil;
-			end
-			DebindPrivate.UnregisterFrame(button);
-			DebindPrivate.hccframes[buttonName] = nil;
-		end);
-	end
+		-- **Asked before the header's mark comes off.** `UnregisterFrame` refuses the same frame a
+		-- step later, and stripping `hd` and the `hccframes` entry first left a frame that was
+		-- still wired but read as an ordinary row, one this door could never reach again.
+		if (DebindPrivate.KeepsFrameOnRelease(button)) then
+			return;
+		end
+		local row = DebindPrivate.ccframes[button];
+		-- **A frame with no row still has to reach `UnregisterFrame`.** A fight puts the
+		-- registration in the queue rather than on the frame, and the only thing that queues
+		-- the word cancelling it is that call. Returning here because there was nothing to
+		-- take back left the drain to wire a frame the header had already reclaimed.
+		if (type(row) == "table" and not row.hd) then
+			return;
+		end
+		DebindPrivate.ClearHeaderOwned(button);
+		if (type(row) == "table") then
+			row.hd = nil;
+		end
+		DebindPrivate.UnregisterFrame(button);
+		DebindPrivate.hccframes[buttonName] = nil;
+	end);
 end
 
 --- 클릭캐스팅 클릭이 우리 프레임에 도착했다. DEBUG 빌드에서만 불린다.

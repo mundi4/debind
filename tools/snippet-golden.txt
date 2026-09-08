@@ -990,25 +990,28 @@ DelegateFrameNames[frame] = frame:GetName()
 	
 
 ### SecureBindings.lua #22 SetAttribute
+		local unitframe = States.unitframe
+		if (unitframe and unitframe.unit) then
+			return unitframe.unit
+		end
 		local clique_header = self:GetFrameRef("clique_header")
-		local unit = clique_header:RunAttribute("debind_gethoverunit")
-		return unit
+		return clique_header:RunAttribute("debind_gethoverunit")
 	
 
 ### SecureBindings.lua #23 SetAttribute
-		local unitframe = States.unitframe
-		return unitframe and unitframe.unit
-	
+	local unitframe = States.unitframe
+	return unitframe and unitframe.unit
+
 
 ### SecureBindings.lua #24 SetAttribute
-		local button = self:GetAttribute("clickcast_button")
-		self:CallMethod("OnClickCastRegister", button:GetName())
-	
+	local button = self:GetAttribute("clickcast_button")
+	self:CallMethod("OnClickCastRegister", button:GetName())
+
 
 ### SecureBindings.lua #25 SetAttribute
-		local button = self:GetAttribute("clickcast_button")
-		self:CallMethod("OnClickCastUnregister", button:GetName())
-	
+	local button = self:GetAttribute("clickcast_button")
+	self:CallMethod("OnClickCastUnregister", button:GetName())
+
 
 ### SecureBindings.lua #26 InstallSnippet
 	local overs = Overs[self]

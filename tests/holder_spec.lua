@@ -106,6 +106,20 @@ return function(DebindPrivate)
                 .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
+    -- **A frame the holder kept is ours regardless when its pack box is on.** The option above
+    -- decides the frames no row can name; a frame whose addon the reader ticked by name is theirs
+    -- to us whoever else is standing on it (`devdocs/legacy/making-the-pack-box-own-its-addon.md`).
+    -- `ERFExtraFrame` is an `EllesmereUIRaidFrames` row, and no pack box is off here.
+    test("the holder keeps a frame whose pack is on and we take it with the option off", function()
+        Option(false);
+        Holder(true);
+        local frame = frames.newFrame("Button", "ERFExtraFrame51", nil, "SecureUnitButtonTemplate");
+        _G.ClickCastFrames[frame] = true;
+        check(type(DebindPrivate.ccframes[frame]) == "table",
+            "a listed pack's frame was left to the holder because the option is off: "
+                .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
     -- **And the holder still has it.** The name stays theirs and the write they filed is theirs;
     -- what changed is only that we no longer step off the frame because of it.
     test("taking a frame the holder kept leaves the holder holding it", function()
@@ -135,8 +149,10 @@ return function(DebindPrivate)
         check(filed[frame] == true, "the holder never saw the write: " .. tostring(filed[frame]));
     end);
 
-    -- A deregistration is honoured wherever it comes from: the frame's owner is asking for it back.
+    -- A deregistration is honoured wherever it comes from while the option is off: the frame's
+    -- owner is asking for it back, and nothing says the frames it keeps are ours.
     test("a nil write takes the frame back off us", function()
+        Option(false);
         Holder(false);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;

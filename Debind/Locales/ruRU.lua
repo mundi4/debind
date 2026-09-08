@@ -281,7 +281,6 @@ L["UNIT_TANK"] = "Танк"
 L["UNIT_TARGET"] = "Цель"
 L["UNNAMED_ACTION"] = "(Без названия)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
-L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique установлен, поэтому привязки к фреймам юнитов здесь не работают."
 -- [needs review] 아래 셋은 기여자 번역이 아니라 개명 작업 중에 채워 넣은 것이다. 뜻이 틀리지
 -- 않는 선을 노렸을 뿐이라, ZamestoTV가 손보면 그대로 받을 것.
 L["MIGRATION_DIALOG_HEADER"] = "Debind"

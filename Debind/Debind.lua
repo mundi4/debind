@@ -238,10 +238,11 @@ do
 					-- 그 키를 표시한 채로 안 먹게 되므로, 유저가 알고 켜는 것이어야 한다.
 					local yielded = DebindPrivate.IsKeyYielded(key) and not action.keepInBindingContext;
 					-- **Only an ERROR keeps the action off its key.** That is what the grades mean
-					-- (`Constants.BINDING_ISSUE_GRADES`), and this gate read `not issue` until
-					-- `HOVER_UNIT_WITH_CLIQUE` arrived: measured then, `KeyMap` came out with no
-					-- record for that key at all, so an action that was to lose the aiming over
-					-- frames and nothing else fired on no unit whatever (`tests/keymap_spec.lua`).
+					-- (`Constants.BINDING_ISSUE_GRADES`), and this gate read `not issue` until the
+					-- first WARNING code arrived (the hover twin lost to Clique, since retired):
+					-- measured then, `KeyMap` came out with no record for that key at all, so an
+					-- action that was to lose the aiming over frames and nothing else fired on no
+					-- unit whatever.
 					if ((not issue or DebindPrivate.IssueKeepsKey(issue)) and not yielded) then
 						if (not KeyMap[key]) then
 							KeyMap[key] = {};

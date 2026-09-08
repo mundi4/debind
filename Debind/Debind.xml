@@ -16,6 +16,7 @@
     <Script file="Events.lua"/>
     <Script file="UnitWatch.lua"/>
     <Script file="FrameRegistry.lua"/>
+    <Script file="ClickCastTable.lua"/>
     <Script file="UpdateBindings.lua"/>
     <Script file="Switches.lua"/>
     <Script file="Options.lua"/>

@@ -26,7 +26,6 @@ local EquipSlotFacts         = DebindPrivate.EquipSlotFacts;
 local InCombatLockdown       = InCombatLockdown;
 
 local DISABLED_FONT_COLOR    = _G.DISABLED_FONT_COLOR;
-local ERROR_COLOR            = _G.ERROR_COLOR;
 --- 가져왔지만 아직 승인 안 된 액션의 이름. dot과 같은 파랑이라 둘이 한 표시로 읽힌다.
 --- **뜻이 하나다** - 이 창은 이름 색으로 이미 셋을 말한다(회색·빨강·이 파랑). 넷째를 얹지 말 것.
 ---
@@ -193,7 +192,6 @@ local UNIT_INFO            = {
 		-- spell = false,
 		-- item = false,
 		tooltipTitle = LLL["UNIT_HOVER_DESC"],
-		tooltipWarning = DebindPrivate.CliqueDetected and ERROR_COLOR:WrapTextInColorCode(LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"]) or nil,
 		unitexists = false,
 	},
 	none = {

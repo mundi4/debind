@@ -775,9 +775,7 @@ do
     --- 개체창의 개체로 나갈 가능성이 0이다. 켜져 있으면 켤 수 있는 것처럼 보이는데 그 상자가
     --- 할 수 있는 일이 없다.
     local function PreferHoverUnitLockReason()
-        if (DebindPrivate.CliqueDetected) then
-            return LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"];
-        elseif (UnitConditionIsOn("hover")) then
+        if (UnitConditionIsOn("hover")) then
             return LLL["PREFER_HOVER_UNIT_LOCKED_HOVER"];
         elseif (_action.unit == "hover") then
             return LLL["PREFER_HOVER_UNIT_LOCKED_TARGET_HOVER"];
@@ -787,7 +785,7 @@ do
     end
 
     local function hoverConditionIsOn()
-        if (DebindPrivate.CliqueDetected) then
+        if (DebindPrivate.StandsAsideForClique()) then
             return false;
         end
         return UnitConditionIsExists("hover");
@@ -1149,21 +1147,7 @@ do
             function()
                 return UnitConditionIsOn("hover");
             end,
-            DebindPrivate.CliqueDetected and LLL["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"] or nil);
-
-        -- Clique를 켜 두면 hover 조건은 어차피 동작하지 않는다. 그래도 메뉴를 잠그지는
-        -- 않는다 - 이미 켜 둔 값을 [사용 안 함]으로 지우러 들어갈 수 있어야 하기 때문이다.
-        -- 대신 값이 있느냐로 색을 가른다: **값이 남아 있으면 고쳐야 할 것**이라 빨강(위에서
-        -- 칠한 ERROR_COLOR 그대로)이고, 값이 없으면 지금 고를 수 없는 항목일 뿐이라
-        -- 회색이다 - 켠 적도 없는 조건을 오류로 붉히면 고칠 것이 있는 줄 알게 된다.
-        -- 그룹이 제 초기화에서 색을 칠하므로 그 뒤에 덧칠하는 초기화를 하나 더 건다.
-        if (DebindPrivate.CliqueDetected) then
-            description:AddInitializer(function(button)
-                if (not UnitConditionIsOn("hover")) then
-                    button.fontString:SetTextColor(DISABLED_FONT_COLOR:GetRGB());
-                end
-            end);
-        end
+            nil);
 
         -- 유닛 서브메뉴의 라디오 셋과 같은 세 상태다. 글자만 이 자리의 말로 쓴다 -
         -- 여기서는 "존재"가 곧 "마우스를 올리고 있음"이다.
@@ -1195,7 +1179,7 @@ do
             end
         );
 
-        if (DebindPrivate.CliqueDetected) then
+        if (DebindPrivate.StandsAsideForClique()) then
             yes:SetEnabled(false);
             no:SetEnabled(false);
         end

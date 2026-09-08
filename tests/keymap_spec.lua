@@ -251,43 +251,5 @@ return function(DebindPrivate)
     end);
 
 
-    -- **A warning still binds, and until `HOVER_UNIT_WITH_CLIQUE` nothing had ever tested that.**
-    -- The grade means "the key still fires and something around it is off"
-    -- (`Constants.BINDING_ISSUE_GRADES`), and it is the only code carrying it, so before it there
-    -- was no code at all that this gate had to let past.
-    --
-    -- Measured: with Clique loaded and the gate reading `not issue`, `KeyMap["F1"]` came out nil --
-    -- the action fires on no unit at all, where losing the aiming over frames was the whole cost.
-    --
-    -- `CliqueDetected` is read when `Debind.lua` loads and the addon list cannot change without a
-    -- reload, so the harness has no such world; it is stood up here and put back.
-    test("an action whose hover twin Clique took still binds on its own target", function()
-        local saved = DebindPrivate.CliqueDetected;
-        DebindPrivate.CliqueDetected = true;
-        local ok, err = pcall(function()
-            Bind({
-                { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                    unit = "focus", preferHoverUnit = true },
-            });
-
-            local action = { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                unit = "focus", preferHoverUnit = true };
-            local issue = DebindPrivate.GetBindingIssue(action);
-            check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE,
-                "the premise is gone -- the issue is " .. tostring(issue));
-            check(DebindPrivate.IssueKeepsKey(issue), "that code takes the key away");
-
-            local records = Records("F1");
-            check(records ~= nil, "the key came out with no records at all");
-            check(#records == 1, "F1 came out with " .. #records .. " records, not the original alone");
-            check(records[1].unit == "focus",
-                "the record aims at " .. tostring(records[1].unit) .. ", not its own target");
-        end);
-        DebindPrivate.CliqueDetected = saved;
-        if (not ok) then
-            error(err, 0);
-        end
-    end);
-
     return T;
 end

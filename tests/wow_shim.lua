@@ -49,6 +49,10 @@ function M.resetWorld()
     M.world.inCombat = false;
     M.world.specIndex = nil;
     M.world.settingsCategory = nil;
+    --- **The one global an addon instance leaves behind.** `ClickCastTable.lua` puts its own table
+    --- under this name at file scope, and the next instance would meet it as a foreign holder and
+    --- wrap its metatable, one more layer per spec (code review, 2026-09-08).
+    _G.ClickCastFrames = nil;
     M.install();
 end
 

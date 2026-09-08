@@ -778,12 +778,15 @@ return function(DebindPrivate)
         check(#list == 1, "길이 " .. #list);
     end);
 
-    test("Clique가 있으면 쌍둥이를 안 낸다", function()
+    -- Clique가 있어도 쌍둥이는 나온다 (코드 리뷰, 2026-09-08). 블리자드 개체창은 Clique와 무관하게
+    -- 우리가 등록하고, 물러난 상태의 `GetHoveredUnit`은 우리 행에서 먼저, 없으면 Clique의 hover
+    -- 버튼에서 답하니 쌍둥이가 겨눌 개체가 있다.
+    test("Clique가 있어도 쌍둥이를 낸다", function()
         local was = DebindPrivate.CliqueDetected;
         DebindPrivate.CliqueDetected = true;
         local ok, err = pcall(function()
             local list = listFor({ preferHoverUnit = true });
-            check(#list == 1, "길이 " .. #list);
+            check(#list == 2, "길이 " .. #list);
         end);
         DebindPrivate.CliqueDetected = was;
         if (not ok) then error(err, 0); end

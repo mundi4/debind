@@ -521,7 +521,6 @@ Constants.BINDING_ISSUE_NOT_SUPPORTED_GAMEMENU_KEY        = "NOT_SUPPORTED_GAMEM
 Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON        = "NOT_SUPPORTED_MOUSE_BUTTON";
 Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND = "NOT_SUPPORTED_HOVER_CLICK_COMMAND";
 Constants.BINDING_ISSUE_CONDITIONS_NEVER                  = "CONDITIONS_NEVER";
-Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE      = "CANNOT_USE_HOVER_WITH_CLIQUE";
 Constants.BINDING_ISSUE_FORMS_NONE_SELECTED               = "FORMS_NONE_SELECTED";
 Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELECTED";
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
@@ -551,7 +550,6 @@ Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- The option is set and Clique holds the frames, so the twin is not derived. The action still
 -- runs on its own target; only the aim over a frame is gone, which is why this is not the ERROR
 -- a hover **condition** under Clique gets.
-Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE            = "HOVER_UNIT_WITH_CLIQUE";
 
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
@@ -587,7 +585,6 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_MOUSE_BUTTON]        = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_NOT_SUPPORTED_HOVER_CLICK_COMMAND] = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_CONDITIONS_NEVER]                  = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE]      = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED]           = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
@@ -597,7 +594,6 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_MISSING_MACRO]                     = Constants.ISSUE_GRADE_ERROR,
-    [Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE]            = Constants.ISSUE_GRADE_WARNING,
 };
 
 

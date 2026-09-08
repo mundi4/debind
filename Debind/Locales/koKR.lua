@@ -49,7 +49,6 @@ L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "조합 키 없는 마우스 왼
 L["BINDING_ERROR_MISSING_MACRO"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 매크로가 이 계정에도 이 캐릭터에도 없습니다. 이름이 바뀌었거나 지워졌거나, 남의 설정에서 온 것일 수 있습니다."
 L["BINDING_ERROR_UNDEFINED_STATE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r라는 스위치가 없습니다. 이름을 고치기 전까지 이 지정은 아예 발동하지 않습니다."
 L["BINDING_ERROR_UNREACHABLE"] = "이 행동은 실행되지 않습니다. 어떤 경우에도 이 키의 다른 행동이 먼저 실행됩니다."
-L["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"] = "Clique가 개체창을 맡고 있어서 마우스 올린 개체에게는 사용하지 않습니다. 행동은 원래 대상에게 그대로 실행됩니다."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 L["BLIZZARD_UNIT_FRAMES"] = "블리자드 개체창"
 L["ADDON_UNIT_FRAMES"] = "개체창 애드온"
@@ -481,7 +480,6 @@ L["UNITFRAME_CLICK_EDGE_GAME"] = "게임이 하는 대로"
 L["UNITFRAME_CLICK_EDGE_UP"] = "뗄 때"
 L["UNNAMED_ACTION"] = "(이름 없음)"
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
-L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique를 쓰고 있어서 여기 걸어둔 개체창 지정이 동작하지 않습니다."
 -- 한 줄로 끝낸다. 근거는 enUS 쪽 주석에.
 L["WARNING_MESSAGE_UNIT_FRAME_CONTESTED"] = "다른 애드온이 개체창 일부를 계속 가져가서, 그 개체창에서는 Debind 단축키가 동작하지 않습니다."
 -- 물러섰다고 말하는 한 줄. 순서와 근거는 enUS 쪽 주석에.

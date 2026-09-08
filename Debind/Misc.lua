@@ -1106,25 +1106,21 @@ do
             and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type] or false;
     end
 
-    --- **Clique makes the twin a hover click-cast record on a frame Clique owns**, and the issue
-    --- checks only ever read the original, so nothing would say so on screen. Not deriving it is
-    --- the only honest answer while Clique is loaded; `GetBindingIssue` reports the loss instead.
-    local function WantsHoverTwin(action, original)
-        return HoverTwinWanted(action, original) and not DebindPrivate.CliqueDetected;
-    end
+    --- **Derived whatever Clique does.** The twin needs only the hovered unit, and standing aside
+    --- `GetHoveredUnit` still answers: from our own row over Blizzard's frames, and from Clique's
+    --- hovered button over the frames Clique holds (`SecureBindings.ApplyStandAsideForClique`).
+    --- Withholding it and printing a warning instead was from before Blizzard's frames stayed ours
+    --- (code review, 2026-09-08).
+    local WantsHoverTwin = HoverTwinWanted;
 
-    --- Is the box on this action doing anything at all -- Clique aside?
+    --- Is the box on this action doing anything at all?
     ---
     --- **The one answer three surfaces need.** The menu locks the box on exactly this, the tooltip
-    --- draws its line on exactly this, and the derivation makes the twin on exactly this (plus
-    --- Clique). Asked separately, the tooltip announced a preference on an action whose hover
-    --- condition had already settled the matter.
+    --- draws its line on exactly this, and the derivation makes the twin on exactly this. Asked
+    --- separately, the tooltip announced a preference on an action whose hover condition had
+    --- already settled the matter.
     function DebindPrivate.PrefersHoverUnit(action)
         return HoverTwinWanted(action, DebindPrivate.GetBindingInfoForAction(action)) and true or false;
-    end
-
-    function DebindPrivate.IsHoverTwinBlockedByClique(action)
-        return DebindPrivate.CliqueDetected and DebindPrivate.PrefersHoverUnit(action);
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
@@ -1771,9 +1767,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
 
     if (LookingForWorse(issue) and (not category or category == "hover") and notCategory ~= "hover") then
         if (binding.hover ~= nil) then
-            if (DebindPrivate.CliqueDetected) then
-                issue = TakeIssue(issue, Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE);
-            elseif (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
+            if (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
                 issue = TakeIssue(issue, Constants.BINDING_ISSUE_HOVER_NONE_SELECTED);
             end
         end
@@ -1792,23 +1786,6 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             if (conditions.frameTypes == 0) then
                 issue = TakeIssue(issue, Constants.BINDING_ISSUE_HOVER_NONE_SELECTED);
             end
-        end
-    end
-
-    if (LookingForWorse(issue) and (not category or category == "unit") and notCategory ~= "unit") then
-        if (binding.unit == "hover" and DebindPrivate.CliqueDetected) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE);
-        end
-    end
-
-    -- **The box's own category, and nothing else reads it.** What is wrong belongs to the
-    -- checkbox: the target beside it is a target the reader chose, it is valid, and the action is
-    -- still going to it. On `unit` this coloured that target and printed this sentence under it;
-    -- on `hover` it coloured a condition menu that has nothing to do with the box.
-    if (LookingForWorse(issue) and (not category or category == "preferHoverUnit")
-            and notCategory ~= "preferHoverUnit") then
-        if (DebindPrivate.IsHoverTwinBlockedByClique(action)) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE);
         end
     end
 
@@ -2012,48 +1989,6 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
 end
 
 
-
---- Is anything in the profile stopped by Clique being installed?
----
---- **What the login warning is gated on.** Saying it whenever Clique is loaded means saying it to
---- people who never bound anything to a unit frame, and a line that is noise on most logins is not
---- read on the one where it matters.
----
---- No count comes back. What the reader needs is whether to go and look, and this is a chat line
---- that scrolls past -- the window is where the affected rows are already red.
----
---- Asked once, from `PLAYER_LOGIN`. It is safe to ask there even though the key map has not been
---- built yet: `CliqueDetected` is read when the file loads and the addon list cannot change without
---- a reload, and the two branches below need nothing but the action itself.
----
---- Every layer, not just the live ones. The conflict is a property of the setup rather than of the
---- specialization being played, and switching spec does not come back here.
-function DebindPrivate.HasBindingBlockedByClique()
-    -- A shortcut, not the guard: `GetBindingIssue` raises this code only when the flag is set, so
-    -- the answer is the same either way. What it buys is that everyone without Clique -- nearly
-    -- everyone -- skips a walk over every action on the profile at login.
-    if (not DebindPrivate.CliqueDetected) then
-        return false;
-    end
-
-    local blocked = Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE;
-    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
-        for _, action in layer:Enumerate() do
-            -- The same gate `BuildKeyMap` uses. A number stands in for a key not chosen yet and a
-            -- badged action is quarantined -- neither was going to fire, so neither lost anything
-            -- to Clique.
-            if (type(action.key) == "string" and not action.arrivalID) then
-                -- Two branches raise this code and the second is not reachable through the first:
-                -- an action aimed at `hover` can carry the conflict with no hover condition set.
-                if (DebindPrivate.GetBindingIssue(action, "hover") == blocked
-                        or DebindPrivate.GetBindingIssue(action, "unit") == blocked) then
-                    return true;
-                end
-            end
-        end
-    end
-    return false;
-end
 
 
 -- 행동단축바 끌어다 놓은 탈것을 클릭하면 필요한 경우 자동으로 변신이 해제되지만 C_MountJournal.SummonByID를 사용하는 경우 자동으로 변신이 해제되지 않음.

@@ -2058,9 +2058,20 @@ function DebindPrivate.InitDB()
     --- asked, and what they had is the wider behaviour.
     DebindPrivate.takeUnregisteredFrames = db.takeUnregisteredFrames ~= false;
 
+    --- **Read here for the same reason, and absent is off.** Every reader who already runs Clique
+    --- has a screen that works the way it works today, and turning this on is a change to it that
+    --- nobody asked for. `takeUnregisteredFrames` above defaults the other way because absent
+    --- there is a reader who was never asked about behaviour they already had.
+    DebindPrivate.workAlongsideClique = db.workAlongsideClique == true;
+
     --- **Copied, and for the same reason.** The box writes into `db.packFrames` and the doors read
     --- this, so what the reader ticks reaches the frames at the next login and not halfway through
     --- this one. Only `false` is ever written; a pack that is absent from it is on.
+    ---
+    --- **Before the Clique header is attached below**, because attaching sweeps what Clique's
+    --- header already holds into `RegisterFrame`, and that gate reads this table: with it still
+    --- nil every pack answered "on" and a box the reader had unticked was wired for the session
+    --- (code review, 2026-09-08).
     DebindPrivate.packFrames = {};
     if (type(db.packFrames) == "table") then
         for addon, taken in pairs(db.packFrames) do
@@ -2068,14 +2079,51 @@ function DebindPrivate.InitDB()
         end
     end
 
+    --- **The first moment the answer above exists, so the restricted side is told here.** Its two
+    --- shapes are written at file scope and this is the only thing that swaps them
+    --- (`SecureBindings.lua`).
+    if (DebindPrivate.StandsAsideForClique()) then
+        DebindPrivate.ApplyStandAsideForClique();
+    elseif (DebindPrivate.CliqueDetected) then
+        --- **The header door, which is Clique's while Clique is there.** Ours hands out a name from
+        --- `clickcast_register` and cannot be reached at all when another addon holds
+        --- `ClickCastHeader`; Clique publishes the same registrations on its own header and this
+        --- reads them from there (`ClickCastTable.lua`).
+        ---
+        --- **The table door in the same breath.** Its file-scope pass answered "stand aside"
+        --- because this option was not readable yet, and its next chance was `PLAYER_LOGIN`;
+        --- everything an addon wrote into Clique's table in between reached Clique alone
+        --- (code review, 2026-09-08). The header attach below sweeps what Clique already holds.
+        DebindPrivate.RememberCliqueTable();
+        DebindPrivate.AttachClickCastFrames();
+        DebindPrivate.AttachCliqueHeader();
+    end
+
     DebindPrivate.BindDerivedTables();
     DebindPrivate.LoadProfile();
     DebindPrivate.CleanUpDB()
 end
 
---- Whether frames nobody handed over are ours to take. **Answered true before `InitDB` has run**,
---- which is what the doors that fire during the load see (`DebindCliqueFake` attaches at file
---- scope), and the reader could not have turned it off in that window anyway.
+--- Whether Clique has the unit frames and we are off them entirely.
+---
+--- **One name for what `CliqueDetected` used to be asked for directly.** The flag says an addon is
+--- installed; every gate that read it was asking something narrower, and the two stopped being the
+--- same question once the reader could be given a say in it.
+--- **Answered "stand aside" before `InitDB` has run**, which is the narrower of the two and is what
+--- this reader had before the option existed. The doors that fire in that window are the ones
+--- `ClickCastTable.lua` opens at file scope, and they are asked again from `PLAYER_LOGIN` and
+--- `PLAYER_ENTERING_WORLD` (`Events.lua`), both of which are after it.
+function DebindPrivate.StandsAsideForClique()
+    if (not DebindPrivate.CliqueDetected) then
+        return false;
+    end
+    return not DebindPrivate.workAlongsideClique;
+end
+
+--- Whether frames nobody handed over and no pack box answers for are ours to take; a listed
+--- pack's frames are its box's (`FrameRegistry.TakesUnofferedFrame`). **Answered true before
+--- `InitDB` has run**, which is what the doors that fire during the load see (`ClickCastTable.lua`
+--- attaches at file scope), and the reader could not have turned it off in that window anyway.
 function DebindPrivate.TakesUnregisteredFrames()
     return DebindPrivate.takeUnregisteredFrames ~= false;
 end

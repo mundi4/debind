@@ -304,27 +304,42 @@ return function(DebindPrivate)
         setting("SMART_CAST_REZ"):SetValue(true);
     end);
 
-    --- Every unit frame row, and not only the first: Clique takes the whole section, and a row
-    --- that missed the predicate would be one live control over a feature that is not running.
-    test("Clique takes every unit frame row", function()
-        local rows = {
-            "UNITFRAME_CLICK_EDGE", "TAKE_UNREGISTERED_UNIT_FRAMES",
+    --- **Standing aside closes the doors other addons' frames come through, and nothing else.**
+    --- Blizzard's own unit frames are registered either way (`legacy/coexisting-with-clique.md`
+    --- §5), so their seven boxes and the click edge that applies to them stay live; what greys is
+    --- the row about frames nobody hands over. A greyed box over a frame we are wiring would be a
+    --- control the reader cannot reach for a thing that is running.
+    test("Clique greys the addon frame rows and leaves Blizzard's own live", function()
+        local ours = {
+            "UNITFRAME_CLICK_EDGE",
             "BLIZZARD_UNIT_FRAMES_PLAYER", "BLIZZARD_UNIT_FRAMES_PET",
             "BLIZZARD_UNIT_FRAMES_TARGET", "BLIZZARD_UNIT_FRAMES_PARTY",
             "BLIZZARD_UNIT_FRAMES_RAID", "BLIZZARD_UNIT_FRAMES_BOSS",
             "BLIZZARD_UNIT_FRAMES_ARENA",
         };
-        for i = 1, #rows do
-            check(rowFor(rows[i]):IsModifiable(), rows[i] .. " is dead without Clique");
+        local theirs = { "TAKE_UNREGISTERED_UNIT_FRAMES" };
+        for i = 1, #ours do
+            check(rowFor(ours[i]):IsModifiable(), ours[i] .. " is dead without Clique");
+        end
+        for i = 1, #theirs do
+            check(rowFor(theirs[i]):IsModifiable(), theirs[i] .. " is dead without Clique");
         end
 
         DebindPrivate.CliqueDetected = true;
-        for i = 1, #rows do
-            check(not rowFor(rows[i]):IsModifiable(), rows[i] .. " is still live under Clique");
-        end
-        check(rowFor("SMART_CAST_REZ"):IsModifiable(),
-            "Clique reached a row outside the unit frame section");
+        local ok, err = pcall(function()
+            for i = 1, #theirs do
+                check(not rowFor(theirs[i]):IsModifiable(), theirs[i] .. " is still live under Clique");
+            end
+            for i = 1, #ours do
+                check(rowFor(ours[i]):IsModifiable(), ours[i] .. " was greyed under Clique");
+            end
+            check(rowFor("SMART_CAST_REZ"):IsModifiable(),
+                "Clique reached a row outside the unit frame section");
+        end);
         DebindPrivate.CliqueDetected = nil;
+        if (not ok) then
+            error(err, 0);
+        end
     end);
 
     --- **No row may carry a shown predicate.** `ShouldShow` is read by the panel's `Display` and

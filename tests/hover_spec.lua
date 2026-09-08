@@ -113,9 +113,18 @@ return function(DebindPrivate, _, ctx)
 
     --- 등록을 풀고, 그 해제를 제한 환경에도 먹인다. `DeinitFrame`은 `SecureHandlerExecute`로
     --- 나가므로 replay 전에는 인터프리터의 `ccframes`에 행이 그대로 있다.
+    --- **With the wider option off**, because that is the state in which a deregistration is
+    --- honoured at all: on, a frame its owner reclaims is one it keeps to itself and stays ours
+    --- (`FrameRegistry.KeepsFrameOnRelease`). What is measured here is what a release does to the
+    --- wrappers and the hover slot, which needs the release to happen.
     local function unregister(frame)
         local mark = frames.mark();
-        DebindPrivate.UnregisterFrame(frame);
+        DebindPrivate.takeUnregisteredFrames = false;
+        local ok, err = pcall(DebindPrivate.UnregisterFrame, frame);
+        DebindPrivate.takeUnregisteredFrames = nil;
+        if (not ok) then
+            error(err, 0);
+        end
         local entries = frames.since(mark);
         interp:replay(entries);
         return entries;

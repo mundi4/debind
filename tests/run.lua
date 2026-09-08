@@ -113,6 +113,7 @@ local function loadAddons(withCliqueFake)
     "Events.lua",
     "UnitWatch.lua",
     "FrameRegistry.lua",
+    "ClickCastTable.lua",
     "UpdateBindings.lua",
     "Switches.lua",
     "Options.lua",

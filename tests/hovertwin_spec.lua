@@ -1,8 +1,7 @@
--- 옵션(`preferHoverUnit`)이 만드는 **쌍둥이 바인딩**과, Clique가 그것을 가져갔을 때 나오는
--- 말. 와우 클라이언트 불필요.
+-- 옵션(`preferHoverUnit`)이 만드는 **쌍둥이 바인딩**. 와우 클라이언트 불필요.
 --
 -- 액션 하나가 바인딩 둘일 수 있다는 것이 여기서 재는 전부다: 둘 다 덮여야 도달 불가이고,
--- 쌍둥이가 아예 안 만들어지는 대상들이 있고, Clique가 있으면 만들지 못한다.
+-- 쌍둥이가 아예 안 만들어지는 대상들이 있고, Clique가 있어도 만들어진다.
 --
 -- 툴팁이 이 답을 실제로 그리는지는 여기서 못 본다. 그건 `GameTooltip`의 줄이라
 -- `tests/display_spec.lua`와 `/debtest`의 `Tooltip:` 둘이 본다.
@@ -103,7 +102,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 2. Clique가 있으면 옵션은 잠기고, 액션은 빨갛지 않다
+    -- 2. Clique가 있어도 옵션은 그대로 돌고, 액션은 빨갛지 않다
     ---------------------------------------------------------------------------
 
     local function withClique(fn)
@@ -114,19 +113,17 @@ return function(DebindPrivate)
         if (not ok) then error(err, 0); end
     end
 
-    test("Clique가 있으면 옵션 켠 액션은 주황 문장 하나다", function()
+    -- **Clique가 있어도 쌍둥이는 그대로 만들어진다** (코드 리뷰, 2026-09-08). 쌍둥이에게 필요한
+    -- 것은 마우스 올린 개체 하나뿐이고, 물러난 상태에서도 `GetHoveredUnit`은 답한다. 블리자드
+    -- 개체창은 우리 행에서, Clique가 쥔 프레임은 Clique의 hover 버튼에서. 옵션을 켰다고 주황
+    -- 문장을 달던 것은 블리자드 개체창을 통째로 내려놓던 시절의 말이다.
+    test("Clique가 있어도 옵션 켠 액션은 쌍둥이를 갖고 문장이 없다", function()
         withClique(function()
             local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true };
-            local issue = GetBindingIssue(action);
-            check(issue == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE, "나온 것: " .. tostring(issue));
-            check(DebindPrivate.GetIssueColor(issue) == _G.ORANGE_FONT_COLOR, "주황이 아니다");
-            -- **갈래는 상자 제 것이다.** 잘못된 것은 체크박스이지 그 옆의 대상이 아니다 -
-            -- 사용자가 고른 대상은 멀쩡하고 액션도 거기로 나간다. `unit`에 얹으면 그 대상 줄이
-            -- 빨개지면서 남의 문장을 밑에 달고, `hover`에 얹으면 상관없는 조건 메뉴가 칠해진다.
-            check(GetBindingIssue(action, "preferHoverUnit") == issue,
-                "상자 갈래로 물으니 안 나온다");
-            check(GetBindingIssue(action, "unit") == nil, "대상 갈래가 이 문제를 들고 있다");
-            check(GetBindingIssue(action, "hover") == nil, "hover 갈래가 이 문제를 들고 있다");
+            check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
+            local bindings = DebindPrivate.GetBindingsForAction(action);
+            check(bindings[2] ~= nil and bindings[2].unit == "hover",
+                "Clique가 있다고 쌍둥이를 안 만들었다");
         end);
     end);
 
@@ -141,19 +138,15 @@ return function(DebindPrivate)
                 "대상 " .. unit .. "인데 쌍둥이가 생겼다");
         end
 
-        -- 대상 `none`은 Clique와 아무 상관이 없으므로 할 말이 없어야 한다. 대상 `hover`는
-        -- 다르다 - 그건 옵션과 무관하게 Clique가 정말로 못 쓰게 만드는 겨눔이라, 원래의
-        -- 빨강이 그대로 나와야 한다. 옵션의 주황이 그것을 밀어내면 안 된다.
+        -- Clique가 있어도 둘 다 할 말이 없다. 대상 `hover`는 물러난 상태에서도 `GetHoveredUnit`이
+        -- 답하는 겨눔이라 빨강이 아니다 (코드 리뷰, 2026-09-08).
         withClique(function()
-            local none = { type = Constants.SPELL, value = 585, key = "T",
-                unit = "none", preferHoverUnit = true };
-            check(GetBindingIssue(none) == nil,
-                "대상 none에 문장이 붙었다: " .. tostring(GetBindingIssue(none)));
-
-            local hover = { type = Constants.SPELL, value = 585, key = "T",
-                unit = "hover", preferHoverUnit = true };
-            check(GetBindingIssue(hover) == Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE,
-                "대상 hover의 빨강이 옵션의 주황에 밀렸다: " .. tostring(GetBindingIssue(hover)));
+            for _, unit in ipairs({ "none", "hover" }) do
+                local action = { type = Constants.SPELL, value = 585, key = "T",
+                    unit = unit, preferHoverUnit = true };
+                check(GetBindingIssue(action) == nil,
+                    "대상 " .. unit .. "에 문장이 붙었다: " .. tostring(GetBindingIssue(action)));
+            end
         end);
     end);
 
@@ -177,36 +170,13 @@ return function(DebindPrivate)
         check(bindings[2].unit == "hover", "쌍둥이가 겨누는 것: " .. tostring(bindings[2].unit));
     end);
 
-    test("Clique가 있어도 hover 조건이 켜진 액션의 답은 그대로 빨강이다", function()
+    -- hover 조건은 우리가 등록한 프레임 위에서 도는 것이고, 블리자드 개체창은 Clique가 있어도
+    -- 우리가 등록한다. 그러니 Clique가 있다는 것만으로 붙는 문장은 없다.
+    test("Clique가 있어도 hover 조건이 켜진 액션에 Clique 때문에 붙는 문장은 없다", function()
         withClique(function()
             local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true,
                 conditions = { units = { hover = {} } } };
-            check(GetBindingIssue(action) == Constants.BINDING_ISSUE_CANNOT_USE_HOVER_WITH_CLIQUE,
-                "hover 조건의 빨강이 옵션의 주황에 밀렸다");
-        end);
-    end);
-
-    --- **덮인 액션도 자기 경고를 그대로 낸다** (2026-09-06, 소유자). 이웃에 덮였다는 것은 액션
-    --- 자신의 잘못이 아니라 같은 키에 무엇이 더 걸려 있는가이고, 축이 다르므로 서로를 가리지
-    --- 않는다. 둘이 한 칸에 있던 동안에는 덮인 쪽이 잡혀서 이 경고가 화면에서 사라졌고,
-    --- 오른쪽 레이어 패널의 표시까지 같이 없어졌다.
-    ---
-    --- 오류는 이렇게 못 만든다 - 등급 때문에 `KeyMap`에서 빠져 솔버에 안 들어가므로 덮일 일이
-    --- 없다. 그래서 이 조합을 만드는 코드는 경고 하나뿐이다.
-    test("이웃에 덮여도 Clique 경고는 그대로 나온다", function()
-        withClique(function()
-            local cover = { type = Constants.SPELL, value = 585, key = "T" };
-            local subject = { type = Constants.SPELL, value = 586, key = "T", preferHoverUnit = true };
-            check(#DebindPrivate.GetBindingsForAction(subject) == 1,
-                "Clique를 켰는데 쌍둥이가 생겼다");
-
-            ClearUnreachableBindingCache();
-            CheckUnreachableBindings({
-                GetBindingInfoForAction(cover), GetBindingInfoForAction(subject) });
-            check(DebindPrivate.IsUnreachableAction(subject), "솔버가 덮인 쪽을 안 떨궜다");
-
-            check(GetBindingIssue(subject) == Constants.BINDING_ISSUE_HOVER_UNIT_WITH_CLIQUE,
-                "나온 것: " .. tostring(GetBindingIssue(subject)));
+            check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
         end);
     end);
 

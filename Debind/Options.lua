@@ -109,12 +109,12 @@ function DebindPrivate.RegisterOptionsCategory()
     --- Clique drives the unit frames while it is installed and we stand aside, so every row in
     --- this section is greyed and carries the sentence saying which addon has them.
     local function NotClique()
-        return not DebindPrivate.CliqueDetected;
+        return not DebindPrivate.StandsAsideForClique();
     end
 
     local function UnitFrameTooltip(text)
         return function()
-            if (not DebindPrivate.CliqueDetected) then
+            if (not DebindPrivate.StandsAsideForClique()) then
                 return text;
             end
             if (not text) then
@@ -128,6 +128,23 @@ function DebindPrivate.RegisterOptionsCategory()
         local initializer = Settings.CreateCheckbox(category, setting, tooltip);
         initializer:AddModifyPredicate(NotClique);
         return initializer;
+    end
+
+    --- **Only built where Clique is installed, and it is the one row here `NotClique` does not
+    --- grey.** Everything else in this section is greyed while we stand aside, and this is the
+    --- switch that decides whether we do; greying it would leave the reader looking at the reason
+    --- with no way to answer it. Where Clique is absent it answers nothing, which is why it is not
+    --- there at all rather than there and ticked.
+    if (DebindPrivate.CliqueDetected) then
+        Settings.CreateCheckbox(category, Proxy("WORK_ALONGSIDE_CLIQUE", Settings.VarType.Boolean,
+            L["WORK_ALONGSIDE_CLIQUE"], false,
+            function()
+                return DebindPrivate.db.global.workAlongsideClique == true;
+            end,
+            function(value)
+                DebindPrivate.db.global.workAlongsideClique = value or nil;
+            end),
+            L["WORK_ALONGSIDE_CLIQUE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
     end
 
     --- **A dropdown value cannot be `nil`, and one of the three answers is.** So the three are
@@ -165,9 +182,12 @@ function DebindPrivate.RegisterOptionsCategory()
 
     local clickEdge = Proxy("UNITFRAME_CLICK_EDGE", Settings.VarType.String,
         L["UNITFRAME_CLICK_EDGE"], "game", GetClickEdge, SetClickEdge);
+    --- **Live whatever Clique does.** Blizzard's own unit frames are ours while we stand aside
+    --- (`legacy/coexisting-with-clique.md` §5), so the click edge that applies to them and the
+    --- seven boxes below stay in the reader's hands; a greyed control over a frame we are wiring
+    --- would be one they cannot reach for a thing that is running (code review, 2026-09-08).
     Settings.CreateDropdown(category, clickEdge, ClickEdgeOptions,
-        UnitFrameTooltip(format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN)))
-        :AddModifyPredicate(NotClique);
+        format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN));
 
     Header(L["BLIZZARD_UNIT_FRAMES"]);
 
@@ -177,7 +197,7 @@ function DebindPrivate.RegisterOptionsCategory()
     --- `REQUIRES_RELOAD` is the client's own words for that.
     for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
         local key = "BLIZZARD_UNIT_FRAMES_" .. strupper(frameType);
-        UnitFrameCheckbox(Proxy(key, Settings.VarType.Boolean, L[key], true,
+        Settings.CreateCheckbox(category, Proxy(key, Settings.VarType.Boolean, L[key], true,
             function()
                 return DebindPrivate.Options.blizzframes[frameType] ~= false;
             end,
@@ -188,7 +208,7 @@ function DebindPrivate.RegisterOptionsCategory()
                     DebindPrivate.Options.blizzframes[frameType] = false;
                 end
                 DebindPrivate.QueueUpdateBindings();
-            end), UnitFrameTooltip(REQUIRES_RELOAD));
+            end), REQUIRES_RELOAD);
     end
 
     --- **Stands even with no pack installed**, because the row at the end of it always does and

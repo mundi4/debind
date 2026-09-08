@@ -93,7 +93,6 @@ L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_CO
 -- "No matter what" is what the sentence turns on. Every action but the first is preceded by others,
 -- which is what this line said before, and it was true of the healthy rows just as much.
 L["BINDING_ERROR_UNREACHABLE"] = "This action never runs. No matter what, another action on this key gets there first."
-L["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"] = "Clique is handling unit frames, so this action is not used on the hovered frame's unit. It still runs on its own target."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
 -- **The two section names, in the client's own case.** Blizzard lifts the principal words and
 -- leaves articles and short prepositions down (`SHOW_PINGS_ON_RAID_FRAMES = "Show Pings on Raid
@@ -1309,13 +1308,6 @@ L["UNITFRAME_CLICK_EDGE_DOWN"] = "Mouse down"
 L["UNITFRAME_CLICK_EDGE_GAME"] = "Whatever the game does"
 L["UNITFRAME_CLICK_EDGE_UP"] = "Mouse up"
 L["UNNAMED_ACTION"] = "(Unnamed)"
--- Printed once at login, and only when something is actually stopped
--- (`HasBindingBlockedByClique`). It used to go out on the mere presence of Clique, which is why it
--- could only say "some features" -- now it can name what stopped.
---
--- **One chat line.** This lands in the same frame as loot and quest text, so it says the one thing
--- and stops; the addon name is already on the front of it (`_MESSAGE_PREFIX`).
-L["WARNING_MESSAGE_CLIQUE_DETECTED"] = "Clique is installed, so unit frame bindings here do not fire."
 -- Printed once a session, when another addon keeps taking a unit frame back the moment Debind
 -- takes it. Debind gives that frame up; the addon that wanted it keeps working there.
 --
@@ -1384,6 +1376,20 @@ L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Mi
 L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "This character starts with no bindings, and is never asked again.|n|nOther characters are unaffected - they will still be offered their settings.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "Debind stops offering old settings to |cnHIGHLIGHT_FONT_COLOR:every character on this account|r, including ones you have not logged in on and ones you make later.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this addon is still installed and is setting keybinds alongside Debind, so the two are fighting over your keys. Reinstalling or updating Debind replaces that folder with the small |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r companion. Do not just delete the folder - characters you have not logged in on since updating still have their settings in it."
+-- **The one row in the unit frame section that is not greyed while Clique has the frames**, and the
+-- switch that decides whether they are greyed at all (`Options.lua`).
+--
+-- **"Should" and not "does" in the third sentence.** Two engines on one frame is the design and not
+-- a guarantee: where they contest one, Debind is what steps off it
+-- (`FrameRegistry.lua`'s `StandDown`), and a sentence promising Clique is untouched would be a
+-- promise this addon cannot keep.
+--
+-- **The last sentence is not a spare.** Blizzard's own unit frames are registered whether this is
+-- ticked or not, because Blizzard handed them to nobody and Clique picks them up itself
+-- (`devdocs/legacy/coexisting-with-clique.md` §5). Without it the title reads as the whole of unit frame
+-- support. If that decision is ever reversed, this sentence changes in the same edit.
+L["WORK_ALONGSIDE_CLIQUE"] = "Use Alongside Clique"
+L["WORK_ALONGSIDE_CLIQUE_DESC"] = "Debind and Clique can both work on the same unit frame. Ticked, Debind's bindings run on the unit frames addons give Clique, and anything Debind has not bound should still go to Clique. Unticked, Debind leaves those frames to Clique. Either way Debind uses the game's own unit frames."
 
 -- The sharing window. The tooltips are long because both choices it offers - what to send, and
 -- whether the keys ride along - leave for somewhere you cannot reach: a string handed to someone

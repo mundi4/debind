@@ -158,30 +158,6 @@ return function(DebindPrivate)
             "the reader's own life line was marked for another unit's contradiction");
     end);
 
-    --- **The grade picks the colour, everywhere it is painted.** `HOVER_UNIT_WITH_CLIQUE` is the
-    --- one WARNING: the key still works and one thing it was told to do is missing. The row mark,
-    --- the group heading and the order flag all draw it orange off `GetIssueColor`, and the tooltip
-    --- printed the same sentence in the red that says the key is dead.
-    test("a warning prints in the warning colour", function()
-        Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, preferHoverUnit = true },
-        }, {});
-
-        local row = DebindPrivate.CollectActionsForKey("F1")[1];
-        check(row, "the action is not on the key");
-
-        local saved = DebindPrivate.CliqueDetected;
-        DebindPrivate.CliqueDetected = true;
-        local ok, kind, color = pcall(LineKind, row, LLL["BINDING_ERROR_HOVER_UNIT_WITH_CLIQUE"]);
-        DebindPrivate.CliqueDetected = saved;
-        if (not ok) then
-            error(kind, 0);
-        end
-
-        check(kind == "colored", "the sentence came out on a " .. tostring(kind) .. " line");
-        check(color == ORANGE_FONT_COLOR, "it was not painted in the warning colour");
-    end);
-
 
     ---------------------------------------------------------------------------
     -- Unreachable, and the row that covers it
