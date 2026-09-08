@@ -1,3 +1,35 @@
+```
+Unit Frames => 유닛프레임보다는 유닛프레임 관련이라고 명확히 해줄 것 (섹션헤더)
+  - clicking a unit frame cast on =>  더 간결하고 명확한 표현 제시
+  - clique와 양립
+  - [ ] 블리자드 유닛 프레임 => 이게 뭔지 툴팁. 끄면 어떻게 되늕;
+    - [ ] player frame
+    - [ ] pet frame
+    - [ ] ...
+  - [ ] known addons's unit frames => 마찬가지
+    - [ ] vuhdo 
+  - unknown addons's unit frames < [콤보박스] >
+    - 콤보1: always
+    - 콤보3: never
+    - 콤보2: 해당 애드온이 clique를 지원하는 경우 => 툴팁에 clique가 필요하지는 않다고 알리기.
+  - smart cast
+    - ...
+  - Exclude self from special unit detection
+    - [ ] tank
+    - [ ] healer
+    - [ ] maintank
+    - [ ] mainassist
+  - 기타
+    - STATE DRIVER UPDATE THROTTLE (슬라이더)
+    
+```
+
+일반 항목이 체크박스가 아닌 단순 라벨일 수 있는지 아닌지 조사해줄것.
+확인되면 위의 구조가 달라질 수 있음
+
+---
+
+
 # 전역 설정을 게임 설정창의 애드온 탭으로 (2026-09-08 설계)
 
 > 상태 (2026-09-08): **닫혔다. §5의 1번부터 7번까지 다 들어갔다.** 항목은 대응표 그대로 하나도
