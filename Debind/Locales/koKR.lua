@@ -17,7 +17,6 @@ if (GetLocale() ~= "koKR") then return end
 
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
-L["ADDON_UNIT_FRAMES"] = "개체창 애드온"
 -- 근거는 enUS 쪽 주석에.
 L["BULK_MENU_TITLE"] = "%d개 선택됨"
 L["BULK_SELECTED_COUNT"] = "%d개 선택됨"
@@ -59,7 +58,6 @@ L["BLIZZARD_UNIT_FRAMES_PET"] = "소환수 개체창"
 L["BLIZZARD_UNIT_FRAMES_PLAYER"] = "플레이어 개체창"
 L["BLIZZARD_UNIT_FRAMES_RAID"] = "공격대 개체창"
 L["BLIZZARD_UNIT_FRAMES_TARGET"] = "대상 및 주시 대상"
-L["BLIZZARD_UNIT_FRAMES"] = "블리자드 기본 개체창"
 L["CANNOT_OPEN_IN_COMBAT"] = "전투 중에는 열 수 없습니다."
 L["CANNOT_OPEN_WITH_GAME_MENU"] = "게임 메뉴를 먼저 닫으십시오."
 L["COMPARTMENT_TOOLTIP_LEFT_CLICK"] = "클릭하면 Debind가 열립니다. 왼쪽 열이 단축키 개요입니다."

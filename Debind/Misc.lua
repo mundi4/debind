@@ -1020,6 +1020,10 @@ do
     -- from this table and the list is what tells the reader which branch wins.
     local SMART_CAST_BRANCHES = { "battleRez", "rez", "dispel", "buff" };
     DebindPrivate.SMART_CAST_BRANCHES = SMART_CAST_BRANCHES;
+    --- Shared out because the settings panel needs the built-in answer on its own, which
+    --- `SmartCastDefault` cannot give: that one reads what is stored first, and a setter has to
+    --- know whether the value it was handed is the one that clears the cell (`Options.lua`).
+    DebindPrivate.SMART_CAST_DEFAULTS = SMART_CAST_DEFAULTS;
 
     --- The account-wide master switch. Off ignores every action's option, whichever mode it is in,
     --- and that is what separates it from clearing the four boxes: an action that chose its own
@@ -2887,6 +2891,15 @@ function DebindPrivate.DisplayMessage(message, r, g, b)
     end
 end
 
+--- Every option whose answer reaches a secure frame is applied from here, and **nothing else
+--- applies one**. The settings panel is open during a fight and every control in it is pressable
+--- there, so a setter that wrote its own answer through would raise inside the panel's own click
+--- handler. A setter writes the stored value and asks for a rebuild instead; `FinishBindingUpdate`
+--- calls this with no argument, and a rebuild that could not run during the fight is replayed at
+--- `PLAYER_REGEN_ENABLED` (`Events.lua`).
+---
+--- **The stored value is read here rather than carried in.** Two changes during one fight leave
+--- two queued rebuilds and one answer, and it has to be the second one.
 function DebindPrivate.ApplyOptions(option)
     if (option == nil or option == "unitframeUseMouseDown") then
         --- **Three answers folded into one boolean before it crosses.** The restricted side
@@ -2920,14 +2933,42 @@ function DebindPrivate.ApplyOptions(option)
         end
     end
 
+    --- **Out of combat only, because `RegisterFrame` says so out loud.** It queues a frame it
+    --- cannot claim during a fight and prints a line the first time it does, and this branch runs
+    --- on every rebuild -- so reaching it under lockdown would put frames in that queue twice over
+    --- for an answer that has not moved.
+    ---
+    --- Turning a box off takes nothing back. `registerBlizzardFrame` reads the option, and what is
+    --- already wired stays wired until the next login (`FrameRegistry.lua`).
+    if (option == nil or option == "blizzframes") then
+        if (not InCombatLockdown()) then
+            DebindPrivate.UpdateBlizzardFrames();
+        end
+    end
+
+    --- **A unit watch header is a `SecureGroupHeaderTemplate`, so the attribute cannot be written
+    --- during a fight.** A header built later reads the same option for itself
+    --- (`CreateUnitWatchHeader`), so what is left here is the ones that already exist.
+    if (option == nil or option == "excludePlayer") then
+        if (not InCombatLockdown()) then
+            local excluded = DebindPrivate.Options.excludePlayer;
+            local units = DebindPrivate.EXCLUDE_PLAYER_UNITS;
+            for i = 1, #units do
+                local header = DebindPrivate.GetUnitWatchHeader(units[i]);
+                if (header) then
+                    header:SetAttribute("showPlayer", not (excluded and excluded[units[i]]));
+                end
+            end
+        end
+    end
+
     --- **The throttle and the flag that reads it move together or not at all.**
     ---
     --- `PollEveryFrame` says the beat already comes every frame, and the restricted side turns a
-    --- wake of its own straight round on it (`UpdateAttrChangedHandler`). The slider writes the
-    --- option and calls this, and **that is the whole of what it does** -- no rebuild is queued. So
-    --- a rebuild is the wrong hand to write the flag with: a reader who was at zero and raised the
-    --- slider would keep having every hover crossing and every switch toggle dropped until
-    --- something else happened to rebuild.
+    --- wake of its own straight round on it (`UpdateAttrChangedHandler`). Writing the flag anywhere
+    --- but here would leave a reader who was at zero and raised the slider with every hover
+    --- crossing and every switch toggle dropped until the two happened to be written together
+    --- again.
     ---
     --- `UnitWatchRegistered` rather than a value carried from the rebuild, for the same reason. It
     --- is what is true now, and a rebuild reaches here through `FinishBindingUpdate`, which runs

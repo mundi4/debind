@@ -115,6 +115,7 @@ local function loadAddons(withCliqueFake)
     "FrameRegistry.lua",
     "UpdateBindings.lua",
     "Switches.lua",
+    "Options.lua",
     }, nil, loadOpts);
 
     --- `DebindStorage` is a separate addon (LoadOnDemand; see its TOC). The game gives it its own addon
@@ -208,6 +209,7 @@ local specs = {
     { name = "reassemble", path = root .. "/reassemble_spec.lua" },
     { name = "unitwatch", path = root .. "/unitwatch_spec.lua" },
     { name = "role", path = root .. "/role_spec.lua" },
+    { name = "options", path = root .. "/options_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
 };
 

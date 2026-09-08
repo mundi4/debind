@@ -364,6 +364,11 @@ do
     --- down: in a party `GetPartyAssignment("MAINTANK", "party1")` still answers true. Calling them
     --- raid-only would put an issue on a binding that fires, and an action carrying an issue is left
     --- out of `KeyMap` entirely -- the key dies rather than going yellow.
+    --- The aliases a reader may keep themselves out of. `damager` is not one: it answers the role
+    --- map rather than a `@unit`, so leaving yourself out of it would leave your own role unknown
+    --- to every binding that reads that map.
+    DebindPrivate.EXCLUDE_PLAYER_UNITS = { "tank", "healer", "maintank", "mainassist" };
+
     DebindPrivate.UNITS_ABSENT_WHEN_SOLO = {};
     for alias, props in pairs(UNITWATCH_HEADER_PROPS) do
         for i = 2, #props - 1 do

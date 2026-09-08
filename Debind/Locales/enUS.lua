@@ -8,10 +8,6 @@ local L = addon.L;
 -- 문자열마다 다른 빨강이었다.
 L["_MESSAGE_PREFIX"] = "|cff3b9de3[Debind]|r "
 L["ADDON_NAME"] = "Debind"
--- The sibling of BLIZZARD_UNIT_FRAMES, and worded to match it: one submenu per source of unit
--- frames. What is listed under it is the addon's own Title, so nothing here names somebody else's
--- addon in words they do not use themselves.
-L["ADDON_UNIT_FRAMES"] = "Unit frame addons"
 -- 여럿을 고른 채로 연 우클릭 메뉴의 제목. 이름을 나열하지 않는 이유는 DELETE_CONFIRM_MESSAGE_MULTIPLE
 -- 쪽 주석에 있다. 아래 카운트와 낱말을 맞춘다 - 한 화면에서 같은 것을 두 가지로 부르지 않는다.
 L["BULK_MENU_TITLE"] = "%d selected"
@@ -106,7 +102,6 @@ L["BLIZZARD_UNIT_FRAMES_PET"] = "Pet Frame"
 L["BLIZZARD_UNIT_FRAMES_PLAYER"] = "Player Frame"
 L["BLIZZARD_UNIT_FRAMES_RAID"] = "Raid Frames"
 L["BLIZZARD_UNIT_FRAMES_TARGET"] = "Target And Focus"
-L["BLIZZARD_UNIT_FRAMES"] = "Blizzard unit frames"
 L["CANNOT_OPEN_IN_COMBAT"] = "Cannot open in combat."
 L["CANNOT_OPEN_WITH_GAME_MENU"] = "Close the game menu first."
 L["COMPARTMENT_TOOLTIP_LEFT_CLICK"] = "Click to open Debind. The bindings overview is the left column."
@@ -743,7 +738,23 @@ L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NO_SPECIALIZATION"] = "None chosen"
 L["NOT_SELECTED"] = "Not Selected"
 L["ONLY_IF"] = "Only if..."
+-- The button that opens our own window, from the settings window's AddOns tab. **It names the
+-- window the way the window names itself** (`DebindFrame:SetTitle`), so a reader who has seen one
+-- knows what the other is.
+L["OPEN_ADDON_WINDOW"] = "Open Debind"
 L["OPTIONS"] = "Options"
+-- The line at the top of our settings list. **Nothing there is refused during a fight** -- the
+-- value is taken and the game catches up when it ends (`Options.lua`) -- so this says when, and
+-- never that something failed.
+--
+-- **It names which changes wait, because it stands whether there is a fight on or not.** The row
+-- cannot come and go with combat (`Options.lua` says why), and out of a fight nothing waits at
+-- all -- so "changes are applied when combat is over" would be a plain lie for most of the time
+-- it is on screen.
+--
+-- "when combat is over" is the wording `UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT` already uses for
+-- the same wait, and one screen does not need two ways of saying it.
+L["SETTINGS_APPLIED_AFTER_COMBAT"] = "Settings changed during combat are applied when combat is over."
 -- What the overview's reason column says instead of an ordering sentence when the row has something
 -- wrong with it. **Two words for the whole set of problems, one per grade** -- red for a row that is
 -- waiting on the reader, grey for one that is merely outranked.
@@ -1204,12 +1215,12 @@ L["SMART_CAST_BUFF_DESC"] = "Out of combat, a friend missing your class's raid b
 -- game what auras a unit carries, and both go quiet in the same places for the same reason, so the
 -- sentence is written once instead of twice.
 L["SMART_CAST_OUT_OF_COMBAT_DESC"] = "Out of combat only, and not in a keystone dungeon, a raid encounter or a rated match: the game keeps aura data from addons there, so the action itself goes out instead."
--- **Appended to `SMART_CAST_DESC`, never shown alone** (`DropDownMenus.lua`). Nothing in the label
--- says these boxes are a fallback rather than a setting every action obeys, so this paragraph is
--- the only place that does.
+-- **Appended to `SMART_CAST_DESC`, never shown alone** (`Options.lua`). Nothing in the label says
+-- these boxes are a fallback rather than a setting every action obeys, so this paragraph is the
+-- only place that does.
 --
--- It sits on the button that opens the submenu, and the boxes are inside that submenu rather than
--- under the button, so the sentence points into the menu and never says "below".
+-- It sits on the section heading and the boxes are the rows under it, so the sentence may point at
+-- them and say where they are.
 L["SMART_CAST_DEFAULTS"] = "Smart Cast"
 -- **The switch, and the one thing it has to say that clearing the four boxes would not.** Those
 -- four reach only an action that follows the account setting; an action that chose its own is
@@ -1222,8 +1233,11 @@ L["SMART_CAST_DEFAULTS"] = "Smart Cast"
 -- stops" instead of having to be turned around first.
 L["SMART_CAST_ENABLED"] = "Enable Smart Cast"
 L["SMART_CAST_ENABLED_DESC"] = "Turn this off and no key uses Smart Cast, including every action that chose its own branches. Clearing the boxes below does less: an action that chose its own goes on casting. Nothing you have set is lost either way, and turning this back on brings it all back."
-L["SMART_CAST_DEFAULTS_DESC"] = "This menu holds the account setting. An action that follows it does this; an action can choose its own instead."
-L["SMART_CAST_DISABLED_ACCOUNT_WIDE"] = "Smart Cast is turned off for every character, under the options button. What is set here is kept and does nothing until it is turned back on."
+L["SMART_CAST_DEFAULTS_DESC"] = "The boxes below hold the account setting. An action that follows it does this; an action can choose its own instead."
+-- **It says where to go and not which button to press.** The line has to survive that door moving
+-- again, and it already moved once: this used to name the options button on the window's title bar,
+-- which now opens the settings window rather than holding the switch itself.
+L["SMART_CAST_DISABLED_ACCOUNT_WIDE"] = "Smart Cast is turned off for every character, in the game's settings under AddOns. What is set here is kept and does nothing until it is turned back on."
 L["LINE_TOOLTIP_SMART_CAST_NONE"] = "Nothing. This character has none of the chosen spells"
 L["LINE_TOOLTIP_SMART_CAST_OFF"] = "Nothing. Smart Cast is turned off for every character"
 L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"

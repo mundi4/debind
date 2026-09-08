@@ -1797,16 +1797,16 @@ function DebindSideTabMixin:IsActive()
 end
 
 --- The title bar's gear. **Everything it draws is `UIPanelIconDropdownButtonTemplate`'s**, so what
---- is left here is the three things that template has no opinion about: which menu it opens, what
---- it says under the cursor, and going grey while the window is locked down.
+--- is left here is the three things that template has no opinion about: what it opens, what it
+--- says under the cursor, and going grey while the icon selector is up.
 ---
---- **The same two KeyValues as `DebindPortraitMixin`, read the same way**, because the portrait row
---- is where this button came from and one convention for "which menu, which tooltip" is worth more
---- than a second one that happens to be shorter.
+--- **The `TooltipTitle` KeyValue is read the way `DebindPortraitMixin` reads it**, because the
+--- portrait row is where this button came from and one convention for "which tooltip" is worth
+--- more than a second one that happens to be shorter.
 DebindOptionsButtonMixin = {};
 
---- Deferred to the first `OnShow` for the reason the portrait row defers: `DebindUI` is filled in as
---- this file runs and the XML is loaded before it, so `MenuFunc` cannot be resolved at load time.
+--- Deferred to the first `OnShow` for the reason the portrait row defers: the locale table is
+--- reached through this file's upvalue, and the XML is loaded before it.
 function DebindOptionsButtonMixin:OnShow()
 	if (self.initialized) then
 		return;
@@ -1817,8 +1817,14 @@ function DebindOptionsButtonMixin:OnShow()
 		self.TooltipTitle = rawget(LLL, self.TooltipTitle) or _G[self.TooltipTitle] or self.TooltipTitle;
 		self.TooltipText = rawget(LLL, self.TooltipText) or self.TooltipText;
 	end
-	if (self.MenuFunc) then
-		self:SetupMenu(DebindUI[self.MenuFunc]);
+end
+
+--- **The window stays where it is.** Two panels the reader can see at once is what was wanted
+--- here: ours can be dragged aside, and the settings window is a centre panel that takes Escape
+--- first anyway (`BlizzardOwnsEscape`).
+function DebindOptionsButtonMixin:OpenSettings(_, upInside)
+	if (upInside and self:IsEnabled()) then
+		DebindPrivate.OpenOptionsCategory();
 	end
 end
 
@@ -6128,29 +6134,9 @@ function DebindUI.GetSelectedSideTab()
 	return _selectedSideTab;
 end
 
-DebindStateDriverUpdateThrottleSliderMixin = {};
-
-function DebindStateDriverUpdateThrottleSliderMixin:OnLoad()
-	self.Slider:SetAccessorFunction(function()
-		return DebindPrivate.Options.stateDriverUpdateThrottle or 0.2;
-	end);
-
-	self.Slider:SetMutatorFunction(function(value)
-		value = floor(value * 1000 + 1) / 1000;
-		DebindPrivate.Options.stateDriverUpdateThrottle = value;
-		DebindPrivate.ApplyOptions("stateDriverUpdateThrottle");
-	end);
-
-	self.Slider:RegisterPropertyChangeHandler("OnValueChanged", function(slider, value, isMouse)
-		self.ValueText.Text:SetText(format("%.2f", value):gsub("%.?0+$", ""));
-	end);
-
-	self.Slider:UpdateVisibleState();
-end
-
-function DebindStateDriverUpdateThrottleSliderMixin:UpdateVisibleState()
-	self.Slider:UpdateVisibleState();
-end
+--- **The state driver throttle's slider stood here and is gone.** It was a frame template wedged
+--- into the options dropdown, which is the whole reason it had to exist; the settings window has
+--- a slider of its own (`Settings.CreateSlider` in `Options.lua`).
 
 DebindUI.GetLayerID = GetLayerID;
 DebindUI.MoveAction = MoveAction;

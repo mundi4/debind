@@ -81,6 +81,16 @@ function Events.PLAYER_LOGIN()
     DebindPrivate.UpdateBlizzardFrames(true);
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
 
+    --- **Here and not at `ADDON_LOADED`, because of one row.** The unit frame pack boxes are the
+    --- packs that are installed (`LoadedKnownPacks`), and at our own `ADDON_LOADED` an addon that
+    --- loads after us has not answered `IsAddOnLoaded` yet -- so half the boxes would be missing
+    --- on a board that has those addons. Everything else here would have been happy earlier.
+    ---
+    --- **After the bindings are up.** Nothing in this login path may come between
+    --- `PLAYER_LOGIN` and the keys being bound (see the comment above), and registering a
+    --- settings category is not the thing to spend that window on.
+    DebindPrivate.RegisterOptionsCategory();
+
     -- The version rides on the front of a line that was already printed, rather than taking a line
     -- of its own. It is here so that a bug report can carry it without anyone having to ask.
     --

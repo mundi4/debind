@@ -7480,6 +7480,264 @@ RegisterTest("Smart Cast: the press asks the insecure side and acts on its answe
 })
 
 -----------------------------------------------------------
+-- The settings window
+-----------------------------------------------------------
+
+--- **What is left once `tests/options_spec.lua` has run.** That spec asks every question about
+--- values -- which settings exist, what a setter writes, which rows are greyed, whether the combat
+--- notice's predicate answers -- against a stand-in with no panel in it. What only the client can
+--- answer is whether the panel accepts what we registered and draws it, and whether the two doors
+--- between the two windows work.
+---
+--- **Out of reach here as well:** the combat notice coming and going on screen. `InCombatLockdown`
+--- is the client's and cannot be forced, and a run that starts a fight to look at one line is not
+--- a trade worth making. The frame's own answer to the two regen events is the headless spec's.
+
+--- The panel, opened to our category, and the rows it drew. Returns `nil, reason`.
+local function OpenOurSettings()
+    if InCombatLockdown() then
+        return nil, "the settings panel is a protected panel and this run is in combat"
+    end
+    if not DebindPrivate.OpenOptionsCategory then
+        return nil, "the addon registered no settings category"
+    end
+
+    DebindPrivate.OpenOptionsCategory()
+
+    if not SettingsPanel:IsShown() then
+        return nil, "the panel did not open"
+    end
+
+    local category = Settings.GetCategory(LLL["ADDON_NAME"])
+    if not category then
+        return nil, "no category named " .. LLL["ADDON_NAME"]
+    end
+    if SettingsPanel:GetCurrentCategory() ~= category then
+        return nil, "the panel opened somewhere else"
+    end
+
+    local names = {}
+    local dataProvider = SettingsPanel:GetSettingsList().ScrollBox:GetDataProvider()
+    if not dataProvider then
+        return nil, "the list has no data provider"
+    end
+    for _, initializer in dataProvider:Enumerate() do
+        local name = initializer.GetName and initializer:GetName()
+        if name then
+            names[name] = true
+        end
+    end
+
+    return { category = category, names = names, rows = dataProvider:GetSize() }
+end
+
+RegisterTest("Settings: our category draws the rows we registered", {
+    description = "설정창 애드온 탭에서 우리 카테고리가 열리고 등록한 줄이 다 그려진다",
+    run = function()
+        local NAME = "settings rows"
+
+        local wasShown = SettingsPanel:IsShown()
+        AddTeardown(function()
+            if not wasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
+                HideUIPanel(SettingsPanel)
+            end
+        end)
+
+        local opened, why = OpenOurSettings()
+        if not opened then
+            return Fail(NAME, why)
+        end
+
+        --- One of each control type, plus a row from every section. A template the panel refuses
+        --- leaves its row out and nothing is raised, so what is asked is that the row is there.
+        local wanted = {
+            LLL["UNITFRAME_OPTIONS"],
+            LLL["UNITFRAME_CLICK_EDGE"],
+            LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
+            LLL["BLIZZARD_UNIT_FRAMES_ARENA"],
+            LLL["TAKE_UNREGISTERED_UNIT_FRAMES"],
+            LLL["SMART_CAST_DEFAULTS"],
+            LLL["SMART_CAST_ENABLED"],
+            LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],
+            LLL["SPECIAL_UNITS"],
+            LLL["STATE_DRIVER_UPDATE_THROTTLE"],
+        }
+        for i = 1, #wanted do
+            if not opened.names[wanted[i]] then
+                return Fail(NAME, format("the list has no row called %q", wanted[i]))
+            end
+        end
+
+        return Pass(NAME, format("%d rows", opened.rows))
+    end,
+})
+
+RegisterTest("Settings: the gear opens the panel and leaves our window standing", {
+    description = "제목줄 톱니바퀴가 설정창을 열고, 우리 창은 그대로 있다",
+    run = function()
+        local NAME = "the gear"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "this run is in combat and neither window opens there")
+        end
+
+        local frameWasShown = DebindFrame:IsShown()
+        local panelWasShown = SettingsPanel:IsShown()
+        AddTeardown(function()
+            if not panelWasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
+                HideUIPanel(SettingsPanel)
+            end
+            if not frameWasShown and DebindFrame:IsShown() then
+                DebindFrame:Hide()
+            end
+        end)
+
+        if not DebindFrame:IsShown() then
+            DebindFrame:Show()
+        end
+
+        -- **Its own script, the way a hand presses it.** Calling `OpenOptionsCategory` here would
+        -- prove the function works and say nothing about the button being wired to it.
+        local button = DebindFrame.OptionsButton
+        local script = button:GetScript("OnMouseUp")
+        if not script then
+            return Fail(NAME, "the gear has no OnMouseUp, so the XML wiring is gone")
+        end
+        script(button, "LeftButton", true)
+
+        if not SettingsPanel:IsShown() then
+            return Fail(NAME, "pressing the gear opened nothing")
+        end
+        if SettingsPanel:GetCurrentCategory() ~= Settings.GetCategory(LLL["ADDON_NAME"]) then
+            return Fail(NAME, "the gear opened somebody else's category")
+        end
+        if not DebindFrame:IsShown() then
+            return Fail(NAME, "the gear closed our window, which it must not do")
+        end
+
+        return Pass(NAME, "the panel opened on our category and our window stayed up")
+    end,
+})
+
+RegisterTest("Settings: the button in the list opens our window", {
+    description = "설정창의 버튼 줄이 우리 창을 연다",
+    run = function()
+        local NAME = "the open button"
+
+        local frameWasShown = DebindFrame:IsShown()
+        local panelWasShown = SettingsPanel:IsShown()
+        AddTeardown(function()
+            if not panelWasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
+                HideUIPanel(SettingsPanel)
+            end
+            if not frameWasShown and DebindFrame:IsShown() then
+                DebindFrame:Hide()
+            elseif frameWasShown and not DebindFrame:IsShown() and not InCombatLockdown() then
+                DebindFrame:Show()
+            end
+        end)
+
+        local opened, why = OpenOurSettings()
+        if not opened then
+            return Fail(NAME, why)
+        end
+
+        if DebindFrame:IsShown() then
+            DebindFrame:Hide()
+        end
+
+        local pressed
+        SettingsPanel:GetSettingsList().ScrollBox:ForEachFrame(function(frame)
+            if not pressed and frame.Button and frame.Button.GetText
+                    and frame.Button:GetText() == LLL["OPEN_ADDON_WINDOW"] then
+                pressed = frame.Button
+            end
+        end)
+        if not pressed then
+            return Fail(NAME, format("no button in the list says %q", LLL["OPEN_ADDON_WINDOW"]))
+        end
+
+        pressed:Click()
+
+        if not DebindFrame:IsShown() then
+            return Fail(NAME, "the button did not open our window")
+        end
+        if not SettingsPanel:IsShown() then
+            return Fail(NAME, "the button closed the settings window, which it must not do")
+        end
+
+        -- **And pressing it again does not close what it just opened.** The toggle behind it
+        -- would; the button says "open" and may only open (`Options.lua`).
+        pressed:Click()
+        if not DebindFrame:IsShown() then
+            return Fail(NAME, "pressing it a second time closed our window")
+        end
+
+        return Pass(NAME, "our window opened, stayed open on a second press, and the panel stayed up")
+    end,
+})
+
+--- **Showing our category must leave the list's scroll state secure.** The panel builds the list
+--- in `Display` and reads each row's `ShouldShow` bare before it hands the data provider over; a
+--- predicate we had stored on the combat notice made that read taint the pass, and every number
+--- the scroll box wrote from then on carried it -- the next wheel scroll in combat was
+--- `Frame:SetHeight()` blocked (2026-09-08). `issecurevariable` is the client's own answer to
+--- "did that happen", and it is the one thing about this bug that can be asked out of combat.
+---
+--- The three slots are the ones `Display` is bound to write: the view's data provider, the range
+--- it decided to show, and the scroll box's pan extent.
+RegisterTest("Settings: showing our category leaves the list's scroll state secure", {
+    description = "우리 카테고리를 열어도 설정창 목록의 스크롤 상태가 오염되지 않는다",
+    run = function()
+        local NAME = "scroll state"
+
+        local panelWasShown = SettingsPanel:IsShown()
+        AddTeardown(function()
+            if not panelWasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
+                HideUIPanel(SettingsPanel)
+            end
+        end)
+
+        local opened, why = OpenOurSettings()
+        if not opened then
+            return Fail(NAME, why)
+        end
+
+        local scrollBox = SettingsPanel:GetSettingsList().ScrollBox
+        local view = scrollBox:GetView()
+        local tainted = {}
+        local function ask(tbl, key, label)
+            local secure, source = issecurevariable(tbl, key)
+            if not secure then
+                tainted[#tainted + 1] = format("%s (by %s)", label, tostring(source))
+            end
+        end
+        ask(view, "dataProvider", "view.dataProvider")
+        ask(view, "dataIndexBegin", "view.dataIndexBegin")
+        ask(scrollBox, "panExtentPercentage", "ScrollBox.panExtentPercentage")
+
+        --- What the blocked call was about, read off the frame it named. Reported rather than
+        --- asserted: the shipped XML declares no protection anywhere on this chain and the
+        --- answer is the client's to give (the design document's §8).
+        local target = scrollBox:GetScrollTarget()
+        local okProtected, isProtected, explicitly = pcall(target.IsProtected, target)
+        local okRestricted, isRestricted = pcall(target.IsAnchoringRestricted, target)
+        local about = format("ScrollTarget IsProtected=%s (explicit=%s) IsAnchoringRestricted=%s",
+            okProtected and tostring(isProtected) or "error",
+            okProtected and tostring(explicitly) or "error",
+            okRestricted and tostring(isRestricted) or "error")
+
+        if #tainted > 0 then
+            return Fail(NAME, "tainted after showing our category: "
+                .. table.concat(tainted, ", ") .. "; " .. about)
+        end
+
+        return Pass(NAME, format("%d rows shown and the scroll state is secure; %s",
+            opened.rows, about))
+    end,
+})
+
+-----------------------------------------------------------
 -- Copyable Output Popup
 -----------------------------------------------------------
 

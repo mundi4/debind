@@ -18,5 +18,6 @@
     <Script file="FrameRegistry.lua"/>
     <Script file="UpdateBindings.lua"/>
     <Script file="Switches.lua"/>
+    <Script file="Options.lua"/>
 
 </Ui>

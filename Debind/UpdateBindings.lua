@@ -903,11 +903,15 @@ local function ApplyBindingPlan(plan)
 end
 
 --- What is left once the bindings are up: drop what this rebuild made stale, put the reader's own
---- throttle back, and say that it happened.
+--- options back, and say that it happened.
+---
+--- **All of them, not the throttle alone.** No option setter reaches a secure frame itself
+--- (`ApplyOptions`), so this is the one hand that writes what a setter asked for -- and a rebuild
+--- refused during a fight is replayed once it ends, which is what defers them.
 local function FinishBindingUpdate()
     DebindPrivate.ClearMacroTextCache(_macrotexts);
 
-    DebindPrivate.ApplyOptions("stateDriverUpdateThrottle");
+    DebindPrivate.ApplyOptions();
 
     DebindPrivate.callbacks:Fire("OnBindingsUpdated");
 

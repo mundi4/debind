@@ -526,12 +526,13 @@ return function(DebindPrivate, _, ctx)
     end);
 
 
-    -- **The slider moves without a rebuild.** `DebindStateDriverUpdateThrottleSliderMixin` writes
-    -- the option and calls `ApplyOptions`, and that is the whole of it -- no rebuild is queued. So
-    -- whatever says "the beat comes every frame" has to be written by the same hand that writes the
-    -- throttle, or a reader who was at zero and raised the slider keeps having every hover crossing
-    -- and every switch toggle dropped until something else happens to rebuild.
-    test("raising the slider brings the crossings back with no rebuild", function()
+    -- **The throttle and the flag that reads it are one write.** Whatever says "the beat comes
+    -- every frame" has to be written by the same hand that writes the throttle, or a reader who
+    -- was at zero and raised the slider keeps having every hover crossing and every switch toggle
+    -- dropped until the two happen to be written together again. `ApplyOptions` is that hand, and
+    -- this drives it directly rather than through the settings row that asks for it
+    -- (`Options.lua`), because what is being measured is the write and not who asked.
+    test("raising the throttle brings the crossings back with no rebuild", function()
         local i = BindOneOfEach();
         RebuildWithThrottle(0);
 

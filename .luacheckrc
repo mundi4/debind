@@ -245,6 +245,14 @@ globals = {
 	"ScrollUtil",
 	"ScrollBoxConstants",
 
+	-- Settings API (`Blizzard_Settings_Shared`)
+	"Settings",
+	"SettingsPanel",
+	"SettingsListSectionHeaderMixin",
+	"CreateSettingsButtonInitializer",
+	"CreateSettingsListSectionHeaderInitializer",
+	"MinimalSliderWithSteppersMixin",
+
 	-- Menu API
 	"Menu",
 	"MenuUtil",
@@ -369,6 +377,7 @@ globals = {
 	"DebindPanelTabMixin",
 	"DebindSideTabMixin",
 	"DebindOptionsButtonMixin",
+	"DebindSettingsNoticeMixin",
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
 	"DebindMigrationDialogMixin",
@@ -376,7 +385,6 @@ globals = {
 	"DebindResultPanelMixin",
 	"DebindMacroFrameMixin",
 	"DebindIconSelectorFrameMixin",
-	"DebindStateDriverUpdateThrottleSliderMixin",
 	"DebindSpellPickerFrameMixin",
 	-- Blizzard's, mixed into `DebindFrame` (`SharedUIPanelTemplates.lua`).
 	"CallbackRegistryMixin",

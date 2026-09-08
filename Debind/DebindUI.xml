@@ -781,13 +781,22 @@
 				(`UIPanelCloseButtonNoScripts`), and it is the title bar's band:
 				`TitleContainer` is 510 too.
 
-				`motionScriptsWhileDisabled` so the tooltip still answers while the window is locked
-				down - `UpdateButtons` greys this out in combat and the reason belongs on the button.
+				`motionScriptsWhileDisabled` so the tooltip still answers while the icon selector
+				holds an action - `UpdateButtons` greys this out there and the reason belongs on
+				the button.
+
+				**It opens no menu of its own any more** - the settings window's AddOns tab holds
+				what that menu held (`Options.lua`). It stays a `DropdownButton` for the artwork,
+				and with no menu generator set `OnMouseDown_Intrinsic` finds no description and
+				returns, so the press is ours to answer on the way back up.
+
+				**`OpenSettings` rather than `OnMouseUp`, and appended.** The template already
+				scripts `OnMouseUp` at its own mixin's method of that name, and a method of the
+				same name here would replace it - the icon would stay pushed in.
 			-->
 			<DropdownButton parentKey="OptionsButton" inherits="UIPanelIconDropdownButtonTemplate" mixin="DebindOptionsButtonMixin" motionScriptsWhileDisabled="true" frameLevel="510">
 				<KeyValues>
 					<KeyValue key="TooltipTitle" value="OPTIONS" type="string"/>
-					<KeyValue key="MenuFunc" value="SetupOptionsDropdownMenu" type="string"/>
 				</KeyValues>
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.CloseButton" relativePoint="LEFT" x="-4" y="-1"/>
@@ -798,6 +807,7 @@
 					<OnLeave method="OnLeave"/>
 					<OnEnable method="OnEnable"/>
 					<OnDisable method="OnDisable"/>
+					<OnMouseUp method="OpenSettings" inherit="append"/>
 				</Scripts>
 			</DropdownButton>
 			<!--
@@ -1857,32 +1867,6 @@
 	</Frame>
 
 
-	<Frame name="DebindStateDriverUpdateThrottleSliderTemplate" mixin="DebindStateDriverUpdateThrottleSliderMixin" virtual="true">
-		<Size x="200" y="16"/>
-		<Frames>
-			<Frame parentKey="ValueText" name="ValueText" inherits="PropertyFontStringTemplate">
-				<Size x="32" y="0"/>
-				<Anchors>
-					<Anchor point="TOPRIGHT"/>
-					<Anchor point="BOTTOMRIGHT"/>
-				</Anchors>
-			</Frame>
-			<Slider parentKey="Slider" name="Slider" minValue="0" maxValue="0.2" valueStep="0.01" obeyStepOnDrag="true" inherits="PropertySliderTemplate">
-				<Size x="0" y="17"/>
-				<Anchors>
-					<Anchor point="LEFT" />
-					<Anchor point="RIGHT" relativeKey="$parent.ValueText" relativePoint="LEFT" x="-5" y="0"/>
-				</Anchors>
-				<Scripts>
-					<!-- <OnLoad method="OnLoad" inherit="append"/> -->
-				</Scripts>
-			</Slider>
-		</Frames>
-		<Scripts>
-			<OnLoad method="OnLoad" />
-		</Scripts>
-	</Frame>
-
 	<!--
 		3.0 이전에 저장된 설정을 아직 못 가져왔을 때 뜨는 창.
 
@@ -1953,6 +1937,32 @@
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 		</Scripts>
+	</Frame>
+
+	<!--
+		The line at the top of our settings list (`Options.lua`).
+
+		**Ours rather than one of the panel's, because none of them can carry a sentence.**
+		`SettingsListSectionHeaderTemplate` is 45 tall in `GameFontHighlightLarge` and sizes itself
+		to the text - a heading, and a sentence in it shouts and pushes the width. A button row's
+		label is clipped at the panel's centre and does not wrap. `SettingsAddOnDisabledLabelTemplate`
+		is the right shape but its text is baked into its own XML and it has no mixin to change it.
+
+		`x="37"` is where every row's own label starts (`SettingsListElementMixin:Init`), so this
+		line begins on the same edge as the settings under it. The right anchor is what lets it wrap.
+	-->
+	<Frame name="DebindSettingsNoticeTemplate" mixin="DebindSettingsNoticeMixin" virtual="true">
+		<Size y="30"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT" justifyV="TOP">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="37" y="-4"/>
+						<Anchor point="RIGHT" x="-40"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 	</Frame>
 
 </Ui>
