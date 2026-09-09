@@ -135,24 +135,33 @@ local KNOWN_PACK_FRAMES            = {
     { "^erffriendlyboss%d+$",               "EllesmereUIRaidFrames", "group" }, -- drawn in the raid block; its boss token would read boss
     { "^erfextraframe%d+$",                 "EllesmereUIRaidFrames", "group" }, -- wired up before it is given a unit
     { "^ellesmereuiunitframes_",            "EllesmereUIUnitFrames" },
-    { "^grid2layoutheader%d+unitbutton%d+", "Grid2" },                          -- a header child, so the header door answers group
+    { "^grid2layoutheader%d+unitbutton%d+", "Grid2", "group" },                 -- a layout slot, and the ones no secure header spawns read unknown without this
     { "^elvuf_",                            "ElvUI" },                          -- every frame the pack spawns, headers and their children with them
-    { "^sufunit",                           "ShadowedUnitFrames" },             -- one frame per unit, read off the unit it holds
-    { "^sufheader",                         "ShadowedUnitFrames" },             -- a header's children, and the zone buttons that carry a boss or arena token
-    { "^sufchild",                          "ShadowedUnitFrames" },             -- a slot's pet or target, on `useparent-unit` so there is nothing to read
-    { "^pitbull4_frames_",                  "PitBull4" },                       -- one frame per classification, read off the unit it holds
-    { "^pitbull4_groups_",                  "PitBull4" },                       -- a header's children, answered group by the header door
-    { "^pitbull4_petgroups_",               "PitBull4" },                       -- the same, off a pet header
-    { "^pitbull4_enemygroups_",             "PitBull4" },                       -- not a real header, and its buttons carry arena and boss tokens
-    { "^cellpartyframeheader",              "Cell" },                           -- a header's children, and the pet button hung off each of them
-    { "^cellraidframeheader",               "Cell" },                           -- the same, off the combined and per-group headers
-    { "^cellpetframeheader",                "Cell" },                           -- the same, off a pet header
-    { "^cellsoloframe",                     "Cell" },                           -- the two buttons the pack shows while solo
-    { "^cellspotlightframeunitbutton%d+$",  "Cell" },                           -- the chosen units, duplicated out of the block
-    { "^cellnpcframebutton%d+$",            "Cell" },                           -- the encounter's friendly NPCs
-    { "^cellarenapet%d+$",                  "Cell" },                           -- the arena enemies' pets
-    { "^nugraid%d+unitbutton%d+",           "Aptechka" },                       -- a header's children; the header itself is a Button and must not match
 };
+
+--- HealBot's rows, built rather than written out, because it makes two names per prefix and the
+--- pair is not spelled the same way. `HealBot_Action_CreateNewButton` names the heal button
+--- `<prefix>HealUnit<n>` and its emergency twin `<prefix>EmergUnit<n>`, and on the way to the
+--- second it swaps `HealBot_` for `HB_` and leaves every other prefix as it is.
+---
+--- **`hbTest_` is left out, and this list is the only thing that leaves it out.** Those are the
+--- bars the options panel shows while somebody is arranging the display. They are made by the same
+--- call and carry the same shape, so nothing about a frame tells them apart -- only the name does.
+---
+--- Pinned to `group` for VuhDo's reason: a HealBot button is a slot the panel fills and empties as
+--- the roster moves, so the token on it says what it is holding this second.
+local HEALBOT_PREFIXES             = {
+    "healbot_", "hbpet_", "hbvehicle_", "hbprivtar_", "hbunittar_", "hbenemy_", "hbextra_",
+};
+
+for i = 1, #HEALBOT_PREFIXES do
+    local prefix = HEALBOT_PREFIXES[i];
+    local emergency = (prefix == "healbot_") and "hb_" or prefix;
+    KNOWN_PACK_FRAMES[#KNOWN_PACK_FRAMES + 1] =
+        { "^" .. prefix .. "healunit%d+$", "HealBot", "group" };
+    KNOWN_PACK_FRAMES[#KNOWN_PACK_FRAMES + 1] =
+        { "^" .. emergency .. "emergunit%d+$", "HealBot", "group" };
+end
 
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.
 function DebindPrivate.PackAddonForFrameName(name)
@@ -1208,6 +1217,46 @@ if (RegisterUnitWatch) then
 end
 if (UnitFrame_Initialize) then
     hooksecurefunc("UnitFrame_Initialize", TakeNamedFrame);
+end
+
+--- **The one door named after a single addon, because HealBot shuts every other one.** It writes
+--- nothing into `ClickCastFrames`, speaks no header protocol, hangs its buttons off a plain
+--- `SecureFrameTemplate` frame rather than a group header, and ships no oUF. Its buttons are
+--- reachable only through its own code (`devdocs/how-unit-frames-reach-us.md` §6).
+---
+--- **`HealBot_Action_RegisterUnitEvents` is the call, because it is the moment a button becomes a
+--- unit frame.** HealBot writes the unit attribute and then registers that button's unit events in
+--- the same pass, so the frame arrives here already carrying what `ReadFrameType` would read. It is
+--- also what keeps the test bars out on their own: they are handed a plain field instead of a unit
+--- and never reach this call.
+---
+--- **The emergency button is fetched rather than waited for.** HealBot builds the pair together and
+--- gives both the same unit, but registers events on the heal button alone -- so its twin would
+--- never come through this door. `HealBot_Emerg_Button` is keyed by the id HealBot stamps on both.
+---
+--- **Nothing here was promised to us**, which is the difference between this door and the oUF one:
+--- `objects` is a field oUF publishes for whoever wants it, and this is a function name inside
+--- somebody's addon. A rename leaves the hook uninstalled, takes no frame of theirs, and raises
+--- nothing -- and no check of ours can see it (§8).
+local function TakeHealBotButton(button)
+    TakeNamedFrame(button);
+
+    local pair = type(button) == "table" and button.id
+        and HealBot_Emerg_Button and HealBot_Emerg_Button[button.id];
+    if (pair) then
+        TakeNamedFrame(pair);
+    end
+end
+
+--- **Asked for at login rather than at file scope, because the global is somebody else's.** Load
+--- order between two addons that declare no dependency on each other is not ours to know, so this
+--- waits for `PLAYER_LOGIN`, by which every addon the client loads at startup has run its files.
+--- HealBot's first button comes later still: it is built on a refresh its own timers drive, and
+--- that refresh cannot have run before the roster events that raise its flag.
+function DebindPrivate.AttachPackHooks()
+    if (HealBot_Action_RegisterUnitEvents) then
+        hooksecurefunc("HealBot_Action_RegisterUnitEvents", TakeHealBotButton);
+    end
 end
 
 --- **Ticking a box does not take the frame back.** A ticked box is a set we do not register from

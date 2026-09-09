@@ -96,63 +96,71 @@ function DebindPrivate.RegisterOptionsCategory()
     -- The window
     --------------------------------------------------------------------------
 
-    --- **It stands whether there is a fight on or not, and that is what lets it stand at all.**
-    --- A row that comes and goes with combat is the panel adding and dropping a row, which is the
-    --- one thing this file may not ask for (see the top). Unconditional, it is also the only
-    --- wording that is true at every moment: out of a fight nothing waits, so the sentence has to
-    --- say which changes wait rather than that changes wait.
-    Settings.RegisterInitializer(category, Settings.CreateElementInitializer(
-        "DebindSettingsNoticeTemplate", { name = L["SETTINGS_APPLIED_AFTER_COMBAT"] }));
-
-    --- **The window's own toggle, and only in the direction the label promises.** That toggle
-    --- already turns down a fight, the game menu and a profile from a newer build and says which
-    --- it was (`Public.lua`), so there is no second answer to give here -- but it also closes a
-    --- window that is up, and a button that says "open" may not do that. What is left for the
-    --- press to do when the window is already open is bring it in front of this one.
-    ---
-    --- Out of the search index, the way the client keeps its own open-something-else buttons out
-    --- of it (`AdvancedOptions.lua`).
-    local addSearchTags = false;
-    Settings.RegisterInitializer(category, CreateSettingsButtonInitializer("",
-        L["OPEN_ADDON_WINDOW"], function()
-            if (DebindFrame:IsShown()) then
-                DebindFrame:Raise();
-                return;
-            end
-            DebindPublic:ToggleUI();
-        end, nil, addSearchTags));
-
-    --- **The row always stands and only the button greys.** Showing it when a reload is owed and
-    --- hiding it otherwise is `ShouldShow`, which is the panel adding and dropping a row -- the one
-    --- thing this file may not ask for (see the top).
+    --- **The predicate is read here, so the setting has to stand before either header does.** Its
+    --- getter is `IsReloadRequired()` and its setter does nothing: what moves the value is the
+    --- option somebody just wrote (`NotifyReloadRequired`).
     ---
     --- **A modify predicate on its own would never be read again.** `EvaluateState` is what reads
     --- it, and it runs on four axes: the row's `Init`, a parent setting's value moving, a frame
     --- event the row asked for, and a CVar (`Blizzard_SettingControls.lua`). Ticking one of our
     --- boxes is none of them, so the button would sit grey until the row happened to be built
-    --- again by a scroll.
-    ---
-    --- **So the parent setting is the answer itself.** Its getter is the predicate, and
-    --- `NotifyReloadRequired` pushes it whenever a box that needs a reload is written;
-    --- `SettingMixin:ApplyValue` fires the value-changed event whether or not the value moved
-    --- (`Blizzard_Setting.lua`), which is what the row is listening on. One thing does both jobs,
-    --- so there is no second copy of the answer to keep in step.
-    ---
-    --- **Its initializer is never registered**, which is what `CreateCheckboxInitializer` is for
-    --- (`Blizzard_Settings.lua` makes one without laying it out). `IsParentInitializerInLayout`
-    --- then answers false, so the button is neither indented nor put in the smaller font -- a
-    --- parent outside the layout is a shape Blizzard writes for.
-    ---
-    --- **The predicate does not ask about combat.** `SetButtonState` is `Button:SetEnabled` on a
-    --- `UIPanelButtonTemplate` (`Blizzard_SettingControls.lua`), which no lockdown blocks, and
-    --- `ReloadUI` is the reader's to press whenever they like.
+    --- again by a scroll. `SettingMixin:ApplyValue` fires the value-changed event whether or not
+    --- the value moved (`Blizzard_Setting.lua`), which is what the row is listening on.
     _reloadRequired = Proxy(category, "RELOAD_REQUIRED", Settings.VarType.Boolean, RELOADUI, false,
         DebindPrivate.IsReloadRequired, function() end);
 
-    local reloadButton = CreateSettingsButtonInitializer("", RELOADUI, ReloadUI, nil, addSearchTags);
-    reloadButton:SetParentInitializer(Settings.CreateCheckboxInitializer(_reloadRequired),
-        DebindPrivate.IsReloadRequired);
-    Settings.RegisterInitializer(category, reloadButton);
+    --- Out of the search index, the way the client keeps its own open-something-else buttons out
+    --- of it (`AdvancedOptions.lua`).
+    local addSearchTags = false;
+
+    --- The three rows that head every one of our lists.
+    ---
+    --- **On each list rather than on the first**, because a list in the left column is a page of
+    --- its own and the reader may never see another: every option that needs a reload is on the
+    --- unit frame list, so a Reload button only on the top one is on the page that does not need
+    --- it. The same goes for the combat notice, which is about the row the reader is looking at.
+    local function WindowHeader(owner)
+        --- **It stands whether there is a fight on or not, and that is what lets it stand at all.**
+        --- A row that comes and goes with combat is the panel adding and dropping a row, which is
+        --- the one thing this file may not ask for (see the top). Unconditional, it is also the
+        --- only wording that is true at every moment: out of a fight nothing waits, so the sentence
+        --- has to say which changes wait rather than that changes wait.
+        Settings.RegisterInitializer(owner, Settings.CreateElementInitializer(
+            "DebindSettingsNoticeTemplate", { name = L["SETTINGS_APPLIED_AFTER_COMBAT"] }));
+
+        --- **The window's own toggle, and only in the direction the label promises.** That toggle
+        --- already turns down a fight, the game menu and a profile from a newer build and says
+        --- which it was (`Public.lua`), so there is no second answer to give here -- but it also
+        --- closes a window that is up, and a button that says "open" may not do that. What is left
+        --- for the press to do when the window is already open is bring it in front of this one.
+        Settings.RegisterInitializer(owner, CreateSettingsButtonInitializer("",
+            L["OPEN_ADDON_WINDOW"], function()
+                if (DebindFrame:IsShown()) then
+                    DebindFrame:Raise();
+                    return;
+                end
+                DebindPublic:ToggleUI();
+            end, nil, addSearchTags));
+
+        --- **The row always stands and only the button greys.** Showing it when a reload is owed
+        --- and hiding it otherwise is `ShouldShow`, which is the panel adding and dropping a row.
+        ---
+        --- **A parent initializer of its own per list.** It is never registered, which is what
+        --- `CreateCheckboxInitializer` is for (`Blizzard_Settings.lua` makes one without laying it
+        --- out), so `IsParentInitializerInLayout` answers false and the button is neither indented
+        --- nor put in the smaller font. Both wrap the one setting, so both buttons move together.
+        ---
+        --- **The predicate does not ask about combat.** `SetButtonState` is `Button:SetEnabled` on
+        --- a `UIPanelButtonTemplate` (`Blizzard_SettingControls.lua`), which no lockdown blocks,
+        --- and `ReloadUI` is the reader's to press whenever they like.
+        local reloadButton = CreateSettingsButtonInitializer("", RELOADUI, ReloadUI, nil,
+            addSearchTags);
+        reloadButton:SetParentInitializer(Settings.CreateCheckboxInitializer(_reloadRequired),
+            DebindPrivate.IsReloadRequired);
+        Settings.RegisterInitializer(owner, reloadButton);
+    end
+
+    WindowHeader(category);
 
     --------------------------------------------------------------------------
     -- Smart Cast
@@ -340,6 +348,8 @@ function DebindPrivate.RegisterOptionsCategory()
     --- **The subcategory needs no `RegisterAddOnCategory` of its own**: it is created on the parent
     --- (`PrivateSettingsCategoryMixin.CreateSubcategory`) and goes into the panel with it.
     local unitFrames = Settings.RegisterVerticalLayoutSubcategory(category, L["UNIT_FRAME_SUPPORT"]);
+
+    WindowHeader(unitFrames);
 
     --- **No header over this row.** It is the only one that is not part of the blacklist, and the
     --- category's own name in the left column already says what the page is about; a header over a

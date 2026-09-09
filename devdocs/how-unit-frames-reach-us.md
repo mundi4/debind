@@ -6,12 +6,13 @@ one blacklist that decides which frames they leave alone.
 
 It describes the code as it stands in the working tree on 2026-09-09, which includes taking every
 unit frame with one blacklist (`legacy/taking-every-unit-frame-with-one-blacklist.md`). Everything
-said here about somebody else's addon was read out of that addon's own source on 2026-09-08, at
-whatever version is installed on this board, and none of it is a promise anybody made us.
+said here about somebody else's addon was read out of that addon's own source on 2026-09-08 --
+HealBot on 2026-09-09, at version 26.09.07 -- at whatever version is installed on this board, and
+none of it is a promise anybody made us.
 
 ---
 
-## 1. One funnel, seven doors
+## 1. One funnel, eight doors
 
 Every frame ends up in `DebindPrivate.RegisterFrame` (`FrameRegistry.lua`). Nothing else writes a
 row in `ccframes`, and nothing else wraps a frame. **No door asks anything of its own**: the
@@ -27,11 +28,17 @@ found.
 | **Header children** | `FrameRegistry.CollectHeaderChildren` | a `SecureGroupHeaderTemplate` header lays out, and its `child<i>` attributes are walked |
 | **oUF** | `FrameRegistry.CollectOUFFrames` | any addon declaring `X-oUF` in its TOC has an `objects` list, and its tail is taken on every `PLAYER_ENTERING_WORLD` |
 | **Blizzard's own** | `FrameRegistry.UpdateBlizzardFrames`, the `CompactUnitFrame_SetUpFrame` hook | the client's own unit frames and compact frames, behind the seven boxes |
+| **HealBot** | `FrameRegistry.AttachPackHooks` | a `hooksecurefunc` on `HealBot_Action_RegisterUnitEvents`, which is that addon's own function, installed at `PLAYER_LOGIN` if the global is there |
 
 The hooks that feed the name door are `SecureHandlerWrapScript`, `SecureHandlerSetFrameRef`,
 `RegisterStateDriver`, `RegisterAttributeDriver`, `SecureUnitButton_OnLoad`, `RegisterUnitWatch`
 and `UnitFrame_Initialize`. The last three are installed only if the global exists. A pack is free
 to skip any single one of them, which is why there are seven.
+
+**The eighth door is a different kind of thing, and is meant to stay the only one of its kind.**
+Everything above is either the client's own call or a protocol somebody published; that one is a
+function name inside another addon, hooked because HealBot leaves nothing else to reach. What that
+costs is under HealBot in §6, and §8 says which layer can see it go wrong.
 
 **Every hook in both files is installed at file scope**, before any profile can be read.
 
@@ -292,6 +299,40 @@ writes the child into `export_register` and its own `OnAttributeChanged` picks i
 and the proxy shape are internal to that addon. If either changes, that door goes quiet with
 nothing raised, and Clique's frames reach us only through the three doors nobody hands one through.
 
+### HealBot
+
+**Every other door is shut, and none of it is rudeness.** It writes nothing into `ClickCastFrames`
+and holds no name; it speaks no header protocol; its buttons hang off `f1..f10_HealBot_Action`,
+which are plain `SecureFrameTemplate` frames rather than group headers; it ships no oUF; and it
+calls none of the seven functions the name door listens on -- `SecureUnitButtonTemplate` carries no
+`OnLoad`, and HealBot's own template replaces it. It runs its own click casting engine and offers
+nothing through it, which is §5.2.
+
+So the door is a `hooksecurefunc` on `HealBot_Action_RegisterUnitEvents`, that addon's own function.
+
+- **That call is the moment a button becomes a unit frame.** HealBot writes the `unit` attribute and
+  registers that button's unit events in the same pass, so the frame arrives carrying what
+  `ReadFrameType` would read. HealBot's own companion addon hooks the same function for the same
+  reason.
+- **The emergency twin is fetched rather than waited for.** The pair is built together and given the
+  same unit, but only the heal button is announced. It is `HealBot_Emerg_Button[button.id]`.
+- **Installed at `PLAYER_LOGIN`**, because load order between two addons that declare no dependency
+  on each other is not ours to know. The first button comes later still: it is built on a refresh
+  HealBot's own timers drive, which cannot run before the roster events that raise its flag.
+- **The names are `<prefix>HealUnit<n>` and `<prefix>EmergUnit<n>`** over seven prefixes, with
+  `HealBot_` becoming `HB_` on the emergency half alone. All fourteen rows are pinned to `group` for
+  VuhDo's reason: a panel slot holds whatever the roster puts in it.
+- **`hbTest_` is off the list, and the list is the only thing that keeps it off.** Those are the
+  bars the options panel shows while somebody arranges the display; they are made by the same call
+  and carry the same shape, and nothing about the frame tells them apart.
+
+**What this costs, plainly.** `objects` is a field oUF publishes for whoever wants it; this is a
+function name inside somebody's addon that nobody offered. If HealBot renames it, the hook never
+installs, no frame of theirs is taken, and nothing raises -- and no check of ours can see that (§8).
+The frames themselves do not collide: HealBot's click attributes are `type1`, `type-heal1`,
+`spell-heal1` and `macrotext1`, ours are `*type-debind1` and `*clickbutton-debind1`, and HealBot
+wraps no script securely, so §7-11 does not apply here.
+
 ### An addon we have never seen
 
 It reaches us if it does any one of: writing into `ClickCastFrames`, speaking the header protocol,
@@ -332,9 +373,16 @@ Each of these is understood and none of them raises anything.
    reaches those by object and needs no name.
 10. **A pack that runs its own engine, offers nothing, uses no secure group header and no oUF, and
     whose names we do not know, is unreachable.** No hook can be made to answer for it: the test
-    would have to be right about an addon we have never seen.
+    would have to be right about an addon we have never seen. **Once its source has been read it
+    stops being one of these** and becomes a door named after it, the way HealBot did -- which is
+    hole 12 rather than a way out of this one.
 11. **Two engines on one frame is an intent, not a guarantee.** A pack that re-wraps inside our own
     wrap is a fight, and we step off that frame, once with a chat line.
+12. **A door named after one addon goes quiet when that addon renames what it names.** The HealBot
+    door hooks a function nobody published, so a rename leaves the hook uninstalled, takes none of
+    that addon's frames, and raises nothing. Every layer is blind to it: none of that addon's source
+    is in this repo for a static check to read, the headless spec stands the function up itself, and
+    the in-game case skips on a board that does not have the addon.
 
 ## 8. What holds this true
 
@@ -345,9 +393,14 @@ against a proxy of every shape above, the hand over, and the Clique header door 
 already in `hccframes` at attach time. `tests/options_spec.lua` carries the one list and its
 polarity; `tests/migration_spec.lua` carries the two orphaned keys being swept out.
 
+The HealBot door is there too: the pair coming in together off one announcement, the row pinning
+them to `group` over what their unit would read, the pack box shutting that door with the rest, and
+the test bars staying out.
+
 What only the game can answer: whether the holder machinery attaches to the real Clique proxy,
-whether the `export_register` hook actually fires, and whether the frames Clique holds carry our
-wiring as well. Those are in `/debtest`.
+whether the `export_register` hook actually fires, whether the frames Clique holds carry our wiring
+as well, and whether `hooksecurefunc` on HealBot's own function takes at all on a board that has it.
+Those are in `/debtest`.
 
 What neither can see: another addon changing the shape we read. Every third party detail in §6 is
 that addon's internal wiring, and none of it was promised to us.

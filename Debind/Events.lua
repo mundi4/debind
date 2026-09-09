@@ -83,6 +83,10 @@ function Events.PLAYER_LOGIN()
     EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
     DebindPrivate.ApplyOptions();
     DebindPrivate.UpdateBlizzardFrames(true);
+
+    --- Here for the reason the pack boxes below are here: the globals it asks for belong to another
+    --- addon, and at our own `ADDON_LOADED` one that loads after us has not run its files yet.
+    DebindPrivate.AttachPackHooks();
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
 
     --- **Here and not at `ADDON_LOADED`, because of one row.** The unit frame pack boxes are the

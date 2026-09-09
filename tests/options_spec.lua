@@ -103,11 +103,17 @@ return function(DebindPrivate)
 
     --- The rows of one category, in the order they were registered, as `{ kind, name }`. A header
     --- and a label carry their words in `data.name` the same way a box does.
+    --- A button's own words are its `buttonText`; `name` is the label to its left and ours are all
+    --- empty, which is what anchors the button at the row's own edge.
     local function rowsOf(owner)
         local out = {};
         for _, row in ipairs(shim.world.settingsRows) do
             if (row.owner == owner) then
-                out[#out + 1] = { row.kind, row.data.name };
+                local name = row.data.name;
+                if (name == "" and row.data.buttonText) then
+                    name = row.data.buttonText;
+                end
+                out[#out + 1] = { row.kind, name };
             end
         end
         return out;
@@ -133,6 +139,9 @@ return function(DebindPrivate)
             "the subcategory did not go under ours");
 
         local expected = {
+            { "element", L["SETTINGS_APPLIED_AFTER_COMBAT"] },
+            { "button", L["OPEN_ADDON_WINDOW"] },
+            { "button", RELOADUI },
             { "dropdown", L["UNITFRAME_CLICK_EDGE"] },
             { "header", L["FRAME_BLACKLIST"] },
             { "element", L["FRAME_BLACKLIST_BLIZZARD"] },
@@ -435,19 +444,25 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **The notice stands first and says the same thing at every moment.** A row that came and
-    --- went with combat would be the panel adding and dropping a row, which is the shape the
-    --- predicate check above exists for -- so this asks that it is unconditional as well as that
-    --- it is there.
+    --- **The notice stands first on every list and says the same thing at every moment.** A list in
+    --- the left column is a page of its own and the reader may never open another, so a line about
+    --- what the row in front of them does has to be on that page. A row that came and went with
+    --- combat would be the panel adding and dropping a row, which is the shape the predicate check
+    --- above exists for -- so this asks that it is unconditional as well as that it is there.
     test("the notice is the first row and reads the same in a fight as out of one", function()
         local notice;
-        for _, row in ipairs(shim.world.settingsRows) do
-            if (row.template == "DebindSettingsNoticeTemplate") then
-                notice = row;
+        local lists = { shim.world.settingsCategory, unitFrameCategory() };
+        for _, owner in ipairs(lists) do
+            local first;
+            for _, row in ipairs(shim.world.settingsRows) do
+                if (row.owner == owner and first == nil) then
+                    first = row;
+                end
             end
+            check(first ~= nil and first.template == "DebindSettingsNoticeTemplate",
+                tostring(owner and owner.name) .. " does not open with the notice");
+            notice = first;
         end
-        check(notice ~= nil, "no row uses the notice template");
-        check(notice == shim.world.settingsRows[1], "the notice is not the first row");
         check(notice.shownPredicates == nil, "the notice carries a shown predicate");
 
         local frame = shim.newSettingsNoticeFrame();
@@ -606,29 +621,50 @@ return function(DebindPrivate)
     -- 리로드 버튼
     ---------------------------------------------------------------------------
 
-    local function reloadButton()
+    --- **Every list has one**, because every list is a page the reader may be standing on alone,
+    --- and the options that owe a reload are not on the same page as the top one.
+    local function reloadButtons()
+        local out = {};
         for _, row in ipairs(shim.world.settingsRows) do
             if (row.kind == "button" and row.data.buttonText == RELOADUI) then
-                return row;
+                out[#out + 1] = row;
             end
         end
+        return out;
+    end
+
+    local function reloadButton()
+        return reloadButtons()[1];
     end
 
     --- **행은 언제나 서고 버튼만 회색이 된다.** 필요할 때만 세우는 것은 `ShouldShow`고, 그것이
     --- 패널이 행을 넣었다 뺐다 하는 것이라 이 파일이 못 하는 하나다(`Options.lua` 머리 주석).
     --- 여기서 재는 것은 그 행이 언제나 있다는 것과, 눌리는지를 술어가 가른다는 것 둘이다.
     test("the Reload button always stands and is greyed until a reload is owed", function()
-        local row = reloadButton();
-        check(row ~= nil, "리로드 버튼 행이 없다");
-        check(row.shownPredicates == nil, "리로드 버튼이 shown predicate를 달고 있다");
-        check(row.data.buttonClick == ReloadUI, "누르면 리로드하는 것이 아니다");
-        check(row:IsModifiable() == false, "리로드가 필요 없는데 버튼이 눌린다");
+        local rows = reloadButtons();
+        check(#rows == 2, "리로드 버튼이 " .. #rows .. "개다 - 목록마다 하나여야 한다");
+
+        local owners = {};
+        for _, row in ipairs(rows) do
+            check(row.shownPredicates == nil, "리로드 버튼이 shown predicate를 달고 있다");
+            check(row.data.buttonClick == ReloadUI, "누르면 리로드하는 것이 아니다");
+            check(row:IsModifiable() == false, "리로드가 필요 없는데 버튼이 눌린다");
+            check(owners[row.owner] == nil, "한 목록에 리로드 버튼이 둘이다");
+            owners[row.owner] = true;
+        end
+        check(owners[shim.world.settingsCategory], "상위 목록에 리로드 버튼이 없다");
+        check(owners[unitFrameCategory()],
+            "리로드가 필요한 옵션이 있는 목록에 정작 리로드 버튼이 없다");
 
         setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(true);
-        check(row:IsModifiable() == true, "리로드가 필요해졌는데 버튼이 회색이다");
+        for _, row in ipairs(rows) do
+            check(row:IsModifiable() == true, "리로드가 필요해졌는데 버튼이 회색이다");
+        end
 
         setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(false);
-        check(row:IsModifiable() == false, "값을 되돌렸는데 버튼이 켜진 채로 남았다");
+        for _, row in ipairs(rows) do
+            check(row:IsModifiable() == false, "값을 되돌렸는데 버튼이 켜진 채로 남았다");
+        end
     end);
 
     --- **술어만으로는 다시 안 읽힌다.** `EvaluateState`가 도는 축은 넷뿐이고 상자를 체크하는 것은

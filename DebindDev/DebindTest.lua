@@ -6453,6 +6453,74 @@ RegisterTest("EllesmereUI: HoverCast on leaves the name with the pack", {
     end,
 })
 
+--- HealBot's button names, built the way `HealBot_Action_CreateNewButton` builds them so that a
+--- board can be asked which of them exist. `hbTest_` is left out here for the same reason it is
+--- left off `KNOWN_PACK_FRAMES`, and the case below asks about it separately.
+local HEALBOT_PREFIXES = {
+    "HealBot_", "hbPet_", "hbVehicle_", "hbPrivTar_", "hbUnitTar_", "hbEnemy_", "hbExtra_",
+};
+
+--- Every HealBot button standing on this board, as `CheckNamedFrames` entries.
+---
+--- **Walked by name rather than read out of HealBot's own tables**, because what is being measured
+--- is whether our door reached the frames a reader can actually hover, and a name is what the
+--- reader's screen and our row list have in common. The ids are HealBot's: real buttons run from 1
+--- and stop below 500, which is where its test bars start (`HealBot_ButtonSeq`).
+local function HealBotFrames()
+    local entries = {};
+    for i = 1, #HEALBOT_PREFIXES do
+        local prefix = HEALBOT_PREFIXES[i];
+        local emergency = (prefix == "HealBot_") and "HB_" or prefix;
+        for id = 1, 499 do
+            if (_G[prefix .. "HealUnit" .. id]) then
+                entries[#entries + 1] = { prefix .. "HealUnit" .. id, Constants.FRAMETYPE_GROUP };
+                entries[#entries + 1] = { emergency .. "EmergUnit" .. id, Constants.FRAMETYPE_GROUP };
+            end
+        end
+    end
+    return entries;
+end
+
+--- **Only a board with HealBot can answer this, and it is the one pack no other door reaches.**
+--- HealBot writes nothing into `ClickCastFrames`, speaks no header protocol, hangs its buttons off
+--- a plain frame and ships no oUF -- so what the headless spec proves is that the door works when
+--- it is called, and what only the game says is whether `hooksecurefunc` on that addon's own
+--- function takes at all, and whether the name it is asked for is still the name that addon uses.
+---
+--- **A board with no buttons built yet is not an answer.** HealBot makes them on a refresh its own
+--- timers drive, so `applies` asks for one rather than letting the case pass on an empty walk.
+RegisterTest("HealBot: its buttons come in through its own door", {
+    description = "힐봇 버튼과 짝인 비상 버튼이 우리 배선을 달고 있다",
+    applies = function()
+        if (not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("HealBot"))) then
+            return false, "HealBot is not loaded on this board";
+        end
+        if (not DebindPrivate.TakesPackFrames("HealBot")) then
+            return false, "HealBot is turned off in this profile";
+        end
+        if (#HealBotFrames() == 0) then
+            return false, "HealBot has not built a button yet on this board";
+        end
+        return true;
+    end,
+    run = function()
+        local NAME = "HealBot door";
+
+        --- **The bars the options panel shows while somebody arranges the display.** They are made
+        --- by the same call and carry the same shape as a real button, so only the name keeps them
+        --- out -- and a board with none of them up says nothing either way.
+        for id = 500, 997 do
+            local bar = _G["hbTest_HealUnit" .. id];
+            if (bar and DebindPrivate.ccframes[bar] ~= nil) then
+                return Fail(NAME, format("hbTest_HealUnit%d was taken for a unit frame (ccframes=%s)",
+                    id, tostring(DebindPrivate.ccframes[bar])));
+            end
+        end
+
+        return CheckNamedFrames(NAME, HealBotFrames());
+    end,
+})
+
 
 -- **Does the hook stand on a real secure frame.** What the harness sees is the rule: narrowed, we
 -- put it back (`tests/frames_spec.lua`). What only the game answers is whether hanging
@@ -7867,6 +7935,13 @@ local function DrawnRowNames()
         if name then
             names[name] = true
         end
+        --- **A button's own words are its `buttonText`.** `GetName` answers the label to its left
+        --- and ours are all empty, which is what anchors the button at the row's own edge
+        --- (`SettingsButtonControlMixin:Init`), so asking by name alone finds no button at all.
+        local data = initializer.GetData and initializer:GetData()
+        if data and type(data.buttonText) == "string" then
+            names[data.buttonText] = true
+        end
     end
     return names, dataProvider:GetSize()
 end
@@ -8009,7 +8084,12 @@ RegisterTest("Settings: the unit frame list draws its header, both labels and ev
             return Fail(NAME, rows)
         end
 
+        --- **The header is on this list too**, and it has to be: every option that owes a reload is
+        --- here, so a Reload button only on the top list is on the page that does not need it.
         local wanted = {
+            LLL["SETTINGS_APPLIED_AFTER_COMBAT"],
+            LLL["OPEN_ADDON_WINDOW"],
+            RELOADUI,
             LLL["UNITFRAME_CLICK_EDGE"],
             LLL["FRAME_BLACKLIST"],
             LLL["FRAME_BLACKLIST_BLIZZARD"],

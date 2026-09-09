@@ -416,13 +416,6 @@ return function(DebindPrivate)
             { "Vd1H1Tg", "raid3target", Constants.FRAMETYPE_GROUP },
             { "Grid2LayoutHeader1UnitButton3", "raid5", Constants.FRAMETYPE_GROUP },
             { "ElvUF_Focus", "focus", Constants.FRAMETYPE_TARGET },
-            { "SUFUnitfocus", "focus", Constants.FRAMETYPE_TARGET },
-            { "SUFHeaderbossUnitButton2", "boss2", Constants.FRAMETYPE_BOSS },
-            { "PitBull4_Frames_Focus", "focus", Constants.FRAMETYPE_TARGET },
-            { "PitBull4_EnemyGroups_arena1UnitButton1", "arena1", Constants.FRAMETYPE_ARENA },
-            { "CellSoloFramePlayer", "player", Constants.FRAMETYPE_PLAYER },
-            { "CellRaidFrameHeader1UnitButton2", "raid3", Constants.FRAMETYPE_GROUP },
-            { "NugRaid3UnitButton4", "raid9", Constants.FRAMETYPE_GROUP },
         };
         for i = 1, #CASES do
             local frame = ForeignFrame(CASES[i][1], CASES[i][2]);
@@ -627,6 +620,77 @@ return function(DebindPrivate)
         SecureHandlerSetFrameRef(ForeignHeader(), "theirs", referenced);
         check(DebindPrivate.ccframes[referenced],
             "SecureHandlerSetFrameRef did not take the frame");
+    end);
+
+    --- HealBot's door needs that addon standing there, since what it hooks is its own function.
+    --- Stands the two globals up and installs the hook once: a second `AttachPackHooks` would wrap
+    --- the wrapper and run the door twice for every button.
+    local healbotEmerg = {};
+    local healbotAttached = false;
+    local function withHealBot()
+        if (healbotAttached) then
+            return;
+        end
+        healbotAttached = true;
+        _G.HealBot_Emerg_Button = healbotEmerg;
+        _G.HealBot_Action_RegisterUnitEvents = function() end;
+        DebindPrivate.AttachPackHooks();
+    end
+
+    --- One of HealBot's buttons the way HealBot makes them: a heal button and an emergency twin
+    --- sharing an id, reachable from each other only through `HealBot_Emerg_Button`.
+    local function HealBotPair(prefix, id, unit)
+        local heal = ForeignFrame(prefix .. "HealUnit" .. id, unit);
+        local twin = prefix == "HealBot_" and "HB_" or prefix;
+        local emerg = ForeignFrame(twin .. "EmergUnit" .. id, unit);
+        heal.id = id;
+        healbotEmerg[id] = emerg;
+        return heal, emerg;
+    end
+
+    -- **The one door aimed at a single addon, and the only way in for it.** HealBot offers nothing,
+    -- speaks no protocol, hangs its buttons off a plain frame and ships no oUF, so without this
+    -- hook nothing of theirs is reached at all rather than reached late.
+    --
+    -- **The test bar is driven through the same call on purpose.** HealBot never announces one --
+    -- they are given a plain field instead of a unit -- so nothing about the frame tells them
+    -- apart, and the name list is the only thing that does. Handing one to the door is what asks
+    -- that list the question.
+    test("the HealBot door takes the pair and leaves the test bars", function()
+        withHealBot();
+        local heal, emerg = HealBotPair("HealBot_", 3, "target");
+        local bar = HealBotPair("hbTest_", 501, "target");
+
+        HealBot_Action_RegisterUnitEvents(heal);
+        HealBot_Action_RegisterUnitEvents(bar);
+
+        check(type(DebindPrivate.ccframes[heal]) == "table",
+            "the heal button was refused: " .. tostring(DebindPrivate.ccframes[heal]));
+        check(type(DebindPrivate.ccframes[emerg]) == "table",
+            "the emergency twin was left behind: " .. tostring(DebindPrivate.ccframes[emerg]));
+        -- Pinned by the row rather than read: a panel slot holds `target` this second and a raid
+        -- token the next, and it is a group display either way.
+        check(DebindPrivate.ccframes[heal].frameType == Constants.FRAMETYPE_GROUP,
+            "frameType: " .. tostring(DebindPrivate.ccframes[heal].frameType));
+        check(DebindPrivate.ccframes[bar] == nil,
+            "a test bar was taken for a unit frame: " .. tostring(DebindPrivate.ccframes[bar]));
+    end);
+
+    -- The box is asked where every door meets, so HealBot's frames pass the same gate the rest do.
+    test("the HealBot box shuts the HealBot door", function()
+        withHealBot();
+        local heal, emerg = HealBotPair("HealBot_", 4, "target");
+
+        withPacks({ HealBot = false }, function()
+            HealBot_Action_RegisterUnitEvents(heal);
+        end);
+
+        check(DebindPrivate.ccframes[heal] == nil,
+            "the HealBot door registered a pack that is off: "
+            .. tostring(DebindPrivate.ccframes[heal]));
+        check(DebindPrivate.ccframes[emerg] == nil,
+            "the emergency twin came in while the box was off: "
+            .. tostring(DebindPrivate.ccframes[emerg]));
     end);
 
     -- **A name nobody listed goes nowhere.** Everything arriving at these doors is an addon's

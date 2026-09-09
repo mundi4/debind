@@ -1113,6 +1113,11 @@ local ALLOWED_ABSENT = {
     Clique = true, Grid2 = true, Grid2Options = true, ClickCastFrames = true,
     DevTool = true, ViragDevTool_AddData = true, LibStub = true,
 
+    -- The same question in HealBot's shape. It offers no table to hold, so what
+    -- `AttachPackHooks` asks for is the function it hooks, and the spec that exercises that door
+    -- stands both of these up itself.
+    HealBot_Action_RegisterUnitEvents = true, HealBot_Emerg_Button = true,
+
     -- **Blizzard's own unit frames, and there are none here.** `FrameRegistry` names them to
     -- register click-casting on; a spec that wants a unit frame builds its own.
     PlayerFrame = true, TargetFrame = true, TargetFrameToT = true,
