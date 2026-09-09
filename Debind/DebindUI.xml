@@ -409,6 +409,8 @@
 			<OnClick method="OnClick"/>
 			<!-- 지정 모드가 켜진 동안에만 산다(DebindLineMixin:Update의 EnableMouseWheel). -->
 			<OnMouseWheel method="OnMouseWheel"/>
+			<!-- 모드가 켜져 있고 커서가 이 행 위에 있는 동안만 산다(같은 Update). -->
+			<OnKeyDown method="OnKeyDown"/>
 			<!-- OnDragStart은 없다. 행은 끌 수 없고 받기만 한다(DebindLineMixin 참고). -->
 			<OnReceiveDrag method="OnReceiveDrag"/>
 		</Scripts>
@@ -766,9 +768,15 @@
 			<KeyValue key="scrollBarBottomY" value="5" type="number"/>
 		</KeyValues>
 	</ScrollFrame>
-	<!-- ESC는 이 창이 직접 받는다(enableKeyboard). 블리자드가 내주는 두 자리 - UISpecialFrames와
-	     RegisterGameMenuEscHandler - 를 둘 다 안 쓰는 이유가 DebindFrameMixin:OnLoad에 있다. -->
-	<Frame name="DebindFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="CallbackRegistryMixin,DebindFrameMixin" movable="true" clampedToScreen="true" enableKeyboard="true">
+	<!-- The keyboard is enabled to stamp the frame Escape was pressed on, not to consume it. This
+	     window eats no key at all (propagateKeyboardInput), and Escape itself belongs to
+	     UISpecialFrames. DebindFrameMixin:OnLoad carries the reasons for all three.
+
+	     Propagation is an attribute rather than a call because combat refuses
+	     SetPropagateKeyboardInput, and there is no moment in this window's life that is reliably
+	     out of combat: DebindFrameMixin:OnLoad runs off the first OnShow, and a frame OnLoad runs
+	     during a /reload that can itself happen mid-fight. -->
+	<Frame name="DebindFrame" inherits="PortraitFrameTemplate" parent="UIParent" toplevel="true" frameStrata="MEDIUM" enableMouse="true" hidden="true" mixin="CallbackRegistryMixin,DebindFrameMixin" movable="true" clampedToScreen="true" enableKeyboard="true" propagateKeyboardInput="true">
 		<Size x="440" y="620"/>
 		<Anchors>
 			<Anchor point="CENTER"/>
@@ -1380,19 +1388,28 @@
 							<Anchor point="RIGHT" relativeKey="$parent.CleanUpPortrait" relativePoint="LEFT" x="-5" y="0"/>
 						</Anchors>
 						<Scripts>
+							<!--
+								This button answers `IsKeyboardEnabled()` true from the moment it is
+								built, and `enableKeyboard="false"` on the frame does not change
+								that. A keyboard-enabled frame keeps what it receives, and this one
+								has no key of its own to take: while the mode is on the keys belong
+								to the row under the cursor (`DebindLineMixin:OnKeyDown`).
+
+								**The mode is not turned off here either.** An OnHide on this button
+								fires whenever anything sweeps the window out of `UISpecialFrames`,
+								and opening the spellbook is one of those - that ended the mode and
+								threw away its undo list. Closing the window is what closes the mode,
+								and `DebindFrameMixin:OnHide` is where that is known.
+							-->
+							<OnLoad>
+								self:EnableKeyboard(false);
+							</OnLoad>
 							<OnClick>
 								DebindFrame:ToggleBindMode();
 							</OnClick>
-							<OnKeyDown>
-								DebindFrame:BindMode_OnKeyDown(self, key);
-							</OnKeyDown>
 							<OnGamePadButtonUp>
 								DebindFrame:BindMode_OnInput(button);
 							</OnGamePadButtonUp>
-							<!-- 창이 닫히면(전투 진입 포함) 모드도 닫힌다. 안 그러면 다음에 열 때 켜진 채다. -->
-							<OnHide>
-								DebindFrame:SetBindingMode(false);
-							</OnHide>
 						</Scripts>
 					</Button>
 
@@ -1571,23 +1588,6 @@
 
 
 		</Frames>
-		<Layers>
-			<Layer level="ARTWORK">
-				<FontString parentKey="CombatText" inherits="GameFontRed" justifyH="LEFT">
-					<Anchors>
-						<Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="60" y="-30"/>
-					</Anchors>
-				</FontString>
-			</Layer>
-			<Layer level="OVERLAY">
-				<FontString parentKey="UnboundText" inherits="GameFontRed">
-					<Anchors>
-						<Anchor point="CENTER" relativePoint="BOTTOM" x="0" y="40"/>
-					</Anchors>
-				</FontString>
-
-			</Layer>
-		</Layers>
 		<Scripts>
 			<OnShow method="OnShow"/>
 			<OnHide method="OnHide"/>
@@ -1617,7 +1617,7 @@
 		전환하시겠습니까" 화면이 있었는데, 창을 띄워둔 채 아무것도 편집할 수 없는 상태를 하나
 		만드는 값에 비해 얻는 것이 없었다 - 전환은 우클릭 메뉴에 이미 있다.
 	-->
-	<Frame name="DebindMacroFrame" mixin="DebindMacroFrameMixin" toplevel="true" frameStrata="HIGH" parent="UIParent" hidden="true" enableMouse="true">
+	<Frame name="DebindMacroFrame" mixin="DebindMacroFrameMixin" toplevel="true" frameStrata="MEDIUM" parent="UIParent" hidden="true" enableMouse="true">
 		<Size x="338" y="410"/>
 		<!--
 			Why parent="UIParent": see the comment on DebindIconSelectorFrame. This window was
@@ -1865,7 +1865,7 @@
 		closed this frame explicitly back when it was a child, so dropping the parent leaks
 		nothing.
 	-->
-	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="DIALOG" parent="UIParent" enableMouse="true" hidden="true">
+	<Frame name="DebindIconSelectorFrame" mixin="DebindIconSelectorFrameMixin" inherits="IconSelectorPopupFrameTemplate" toplevel="true" frameStrata="MEDIUM" parent="UIParent" enableMouse="true" hidden="true">
 		<!--
 			The template anchors TOPLEFT to TOPRIGHT with no relativeTo, which means the parent.
 			That resolved to the main window for free while we were its child; with UIParent as

@@ -557,10 +557,6 @@ function DebindUI.SetupSpellPickerDropdownMenu(dropdown, rootDescription, entry)
     local currentLayerID = DebindUI.GetLayerID();
 
     local func = function(args)
-        -- The row's own click carries this guard too: combat can start while the menu stands.
-        if (InCombatLockdown()) then
-            return;
-        end
         DebindFrame:AddNewAction(entry.type, entry.value, nil, nil, entry.props, args[1]);
     end
 

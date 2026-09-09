@@ -138,7 +138,9 @@ end
 --- **What it comes up as is not on this row any more.** That answer belongs to a layer since stage
 --- 4 and there can be several, so it is drawn once per layer on the rows underneath. What is left
 --- here is the switch itself: its name, and what it is right now.
-function DebindSwitchRowMixin:Update()
+--- `inCombat` arrives only from the regen dispatch, which is the one place the flag cannot answer
+--- (`DebindSwitchesPanelMixin:OnEvent`). Nil means "ask".
+function DebindSwitchRowMixin:Update(inCombat)
     local name = self.switchName;
     local definition = DebindPrivate.ResolveSwitchDefinition(name);
     if (not definition) then
@@ -187,7 +189,10 @@ function DebindSwitchRowMixin:Update()
     -- **Asked of the answer in effect**, not of the root: a switch computed on this specialization
     -- and pressed on every other one is exactly what an override is for.
     local mode = DebindPrivate.ResolveSwitchAnswer(name);
-    self.ToggleButton:SetEnabled(mode ~= Constants.SWITCH_MODES.EXPR and not InCombatLockdown());
+    if (inCombat == nil) then
+        inCombat = InCombatLockdown();
+    end
+    self.ToggleButton:SetEnabled(mode ~= Constants.SWITCH_MODES.EXPR and not inCombat);
 end
 
 function DebindSwitchRowMixin:OnClick(button)
@@ -733,9 +738,11 @@ function DebindSwitchesPanelMixin:RefreshRows()
 end
 
 --- Redraws the rows that are up, without rebuilding the list. What a value change needs.
-function DebindSwitchesPanelMixin:UpdateRows()
+--- `inCombat` is given only from the regen dispatch, where the flag cannot be asked (`OnEvent`).
+--- Everywhere else it is nil and each row asks for itself.
+function DebindSwitchesPanelMixin:UpdateRows(inCombat)
     self.ScrollBox:ForEachFrame(function(frame)
-        frame:Update();
+        frame:Update(inCombat);
     end);
 end
 
@@ -774,11 +781,17 @@ end
 --- Combat is one of the two things this panel watches the game for, and it watches it for one
 --- widget: the toggle is a plain button, so it stands down for the fight (§6-B). The other is a
 --- specialization change, which redraws rather than merely updating - the answer in effect moves.
+---
+--- **The event says whether a fight is on, and `InCombatLockdown()` answers a different question.**
+--- The lockdown has not begun when `PLAYER_REGEN_DISABLED` arrives: the flag answers false and a
+--- protected write still lands (`devdocs/reading-back-what-you-just-set.md`). A row reading the
+--- flag from inside this dispatch drew the toggle enabled at the moment it had to go dead, so the
+--- answer is carried down instead. `DebindSettingsNoticeMixin` fell into the same hole.
 function DebindSwitchesPanelMixin:OnEvent(event)
     if (event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED") then
         self:RefreshRows();
     else
-        self:UpdateRows();
+        self:UpdateRows(event == "PLAYER_REGEN_DISABLED");
     end
 end
 

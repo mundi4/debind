@@ -225,6 +225,28 @@ local function RunTeardowns()
     wipe(teardowns)
 end
 
+--- ESCAPE as the main window actually meets it, in the four steps the client takes.
+---
+--- **A real key press is not available here.** A run unbinds the game's own bindings, so pressing
+--- ESCAPE would measure the runner as much as the window. Calling `CloseSpecialWindows` is not it
+--- either -- it would carry off every registered frame in the client, Blizzard's included.
+---
+--- So the sweep is spelled out for our own frames only, and that is what makes this worth more
+--- than calling `HandleEscape`: the plain `Hide` calls carry no stamp, which is exactly the shape
+--- `CloseSpecialWindows` leaves behind, and each frame's `OnHide` has to recognise it as somebody
+--- else's close and put itself back (`DebindDialogMixin:OnDialogHide`,
+--- `DebindFrameMixin:OnHide`). The dialogs go first because `pairs` over `UISpecialFrames` gives
+--- no order and this is the half where the window is still up when a dialog is swept.
+---
+--- `GetTime()` holds still for the whole frame, so the stamp `OnKeyDown` leaves is still current
+--- by the time the window's `OnHide` reads it.
+local function PressEscape()
+    DebindFrame:OnKeyDown("ESCAPE")
+    DebindPasteFrame:Hide()
+    DebindCopyFrame:Hide()
+    DebindFrame:Hide()
+end
+
 -----------------------------------------------------------
 -- Test Helpers: Setup & Teardown
 -----------------------------------------------------------
@@ -1092,7 +1114,7 @@ RegisterTest("Renumber: the arrows' order reaches the solver", {
         -- for it. Nothing here is worth guarding against in `Refresh`: the arrows and the
         -- right-click menu both live on a row, so there is no way to reach it with the window shut.
         DebindFrame:Show()
-        AddTeardown(function() DebindFrame:Hide() end)
+        AddTeardown(function() DebindFrame:CloseWindow() end)
 
         -- **The order is the only difference.** Both are conditional, at the same importance, in
         -- one layer, so they share a band and nothing but `seq` can split them. With the narrow one
@@ -1910,9 +1932,9 @@ RegisterTest("Unit condition: each mode writes a value of its own", {
 
 --- The mode's own way in. **Four things have to line up for one press, and three of them are silent
 --- when they do not**: the widget key the frame reaches for (`BindModePortrait` -- a wrong one is a
---- nil index, but only when someone presses it), the XML `OnClick`, the keyboard being switched on
---- at that button (without it the mode is on and nothing hears a key), and the lit ring that is the
---- only thing on screen saying selecting and the menu have stopped.
+--- nil index, but only when someone presses it), the XML `OnClick`, the keyboard staying off this
+--- button (it holds one from birth, and the mode's keys belong to the row under the cursor), and
+--- the lit ring that is the only thing on screen saying selecting and the menu have stopped.
 ---
 --- All four moved on the same day the toggle became a portrait: it used to be a labelled button
 --- above the left column, wearing a square silver texture and carrying its state in its text.
@@ -1929,7 +1951,7 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
         DebindFrame:Show()
         AddTeardown(function()
             DebindFrame:SetBindingMode(false)
-            DebindFrame:Hide()
+            DebindFrame:CloseWindow()
         end)
 
         local toggle = DebindFrame.OverviewPanel.BindModePortrait
@@ -1945,8 +1967,13 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
         if not DebindFrame:IsCapturingKey() then
             return Fail(NAME, "pressed it and the mode did not come on")
         end
-        if not toggle:IsKeyboardEnabled() then
-            return Fail(NAME, "the mode is on and this button is not listening to the keyboard")
+        -- **The keyboard is not this button's, on or off.** It belongs to the row under the cursor
+        -- while the mode is on (`DebindLineMixin:Update`), because a key pressed off a row has no
+        -- row to land on and eating it there costs the reader every key in the game. This button
+        -- holds the keyboard from the moment it is built, so the assertion is that it was taken
+        -- away and stays away (`DebindUI.xml`).
+        if toggle:IsKeyboardEnabled() then
+            return Fail(NAME, "the mode is on and this button is eating the keys instead of the row")
         end
         -- The lit state is the border (`SetSelectedState`): the colour comes back and the dark plate
         -- over it goes down.
@@ -1963,7 +1990,7 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
             return Fail(NAME, "pressed again and the mode did not go off")
         end
         if toggle:IsKeyboardEnabled() then
-            return Fail(NAME, "the mode is off and it is still listening to the keyboard")
+            return Fail(NAME, "the mode is off and this button is listening to the keyboard again")
         end
         if not toggle.Frame:IsDesaturated() or not toggle.UnselectedFrame:IsShown() then
             return Fail(NAME, "it is off and the lit state is still on it")
@@ -1973,7 +2000,7 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
                 tostring(toggle.TooltipTitle), tostring(toggle.TooltipText)))
         end
 
-        return Pass(NAME, "one toggle moved the mode, the keyboard, the border and the tooltip together")
+        return Pass(NAME, "one toggle moved the mode, the border and the tooltip, and left the keyboard alone")
     end,
 })
 
@@ -2033,7 +2060,7 @@ local function OpenMacroEditor(body, cancelFunc)
     AddTeardown(function()
         DebindIconSelectorFrame:Hide()
         DebindMacroFrame:Hide()
-        DebindFrame:Hide()
+        DebindFrame:CloseWindow()
     end)
 
     local action = InsertAction({ type = Constants.MACROTEXT, value = body,
@@ -2065,7 +2092,7 @@ RegisterTest("Icon picker: the icon list is ours, not Blizzard's shared one", {
         DebindFrame:Show()
         AddTeardown(function()
             DebindIconSelectorFrame:Hide()
-            DebindFrame:Hide()
+            DebindFrame:CloseWindow()
         end)
 
         local provider = DebindFrame:RefreshIconDataProvider()
@@ -2252,7 +2279,7 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
             return Fail(NAME, "the name/icon popup did not open")
         end
 
-        DebindFrame:HandleEscape()
+        PressEscape()
         if DebindIconSelectorFrame:IsShown() then
             return Fail(NAME, "the first ESC did not close the popup")
         end
@@ -2261,7 +2288,7 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
         end
 
         TypeInto(box, "/say two")
-        DebindFrame:HandleEscape()
+        PressEscape()
         if DebindMacroFrame:IsShown() then
             return Fail(NAME, "the second ESC did not close the editor")
         end
@@ -2273,7 +2300,7 @@ RegisterTest("Macro editor: ESC steps out of the popup, then the editor, then th
             return Fail(NAME, format("closed by ESC and the body was not kept: %q", action.value))
         end
 
-        DebindFrame:HandleEscape()
+        PressEscape()
         if DebindFrame:IsShown() then
             return Fail(NAME, "the third ESC did not close the main window")
         end
@@ -2735,7 +2762,7 @@ RegisterTest("Storage: a tab change keeps what is ticked and what is open", {
             panel:SelectEntry(nil)
             panel:OnHide()
             DebindPrivate.Store.DeleteEntry(entry.id)
-            DebindFrame:Hide()
+            DebindFrame:CloseWindow()
         end)
 
         panel:OnShow()
@@ -2921,7 +2948,7 @@ RegisterTest("Panels: a dragged window keeps its left edge across a tab change",
 
         if not DebindFrame:IsShown() then
             DebindFrame:Show()
-            AddTeardown(function() DebindFrame:Hide() end)
+            AddTeardown(function() DebindFrame:CloseWindow() end)
         end
 
         -- Where the tester had the window, and what they had saved. `OnDragStop` writes both.
@@ -3012,7 +3039,7 @@ RegisterTest("Duplicates: the clean up button is lit only where there is somethi
 
         if not DebindFrame:IsShown() then
             DebindFrame:Show()
-            AddTeardown(function() DebindFrame:Hide() end)
+            AddTeardown(function() DebindFrame:CloseWindow() end)
         end
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
 
@@ -3088,7 +3115,7 @@ RegisterTest("Duplicates: the press takes the copy that never fires", {
 
         if not DebindFrame:IsShown() then
             DebindFrame:Show()
-            AddTeardown(function() DebindFrame:Hide() end)
+            AddTeardown(function() DebindFrame:CloseWindow() end)
         end
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
 
@@ -3312,7 +3339,7 @@ local function OpenSwitchesTab()
     DebindFrame:Show()
     AddTeardown(function()
         DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
-        DebindFrame:Hide()
+        DebindFrame:CloseWindow()
     end)
     DebindFrame:SelectPanel(SWITCHES_PANEL_ID)
 
@@ -3814,22 +3841,19 @@ RegisterTest("Switches tab: an expression left naming a deleted switch goes red"
     end,
 })
 
---- **ESC is this window's ladder, not the game's net.** The two sharing dialogs are in
---- `UISpecialFrames` as well, but that table is read by the ESCAPE *binding*, and the window takes
---- ESCAPE before any binding runs (`DebindFrameMixin:OnKeyDown`). Neither enables the keyboard, so
---- nothing hands it back to them either. Take their rungs off `HandleEscape` and one press hides
---- the window and leaves the dialog standing over nothing, which is the first thing below.
+--- **One press is one rung, and everything registered in `UISpecialFrames` goes down together.**
+--- The window and both sharing dialogs are all in that table, so the sweep behind one ESCAPE hides
+--- all three at once; what puts two of them back and closes exactly one is the pair
+--- `DebindDialogMixin:OnDialogHide` and `DebindFrameMixin:OnHide`. Break either and one press takes
+--- the dialog and the window together, or leaves a dialog standing over nothing.
 ---
---- The rest is the order, and it is the half that cannot be read off one dialog: both can stand at
---- once, since the copy dialog outlives the tab it came from on purpose
---- (`DebindStoragePanelMixin:OnHide`). One press has to move one rung.
+--- The order is the half that cannot be read off one dialog: both can stand at once, since the copy
+--- dialog outlives the tab it came from on purpose (`DebindStoragePanelMixin:OnHide`).
 ---
 --- **There were three.** The bring dialog asked which layers to take, and went with the question
 --- when the tick moved onto the action (section 12 of `devdocs/building-export-import.md`).
 ---
---- **`HandleEscape` rather than a key.** A run unbinds the game's own bindings, so a real ESCAPE
---- measures the runner as much as the window; and this function is split out from the key plumbing
---- to be the order on its own, which is exactly what is being asked here.
+--- `PressEscape` is why this is not a real key press; its comment carries that.
 RegisterTest("Escape: the sharing dialogs close before the window", {
     description = "With a sharing dialog up, ESC closes that first and one at a time, rather than the window",
     run = function()
@@ -3839,9 +3863,9 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         AddTeardown(function()
             DebindCopyFrame.Output.EditBox:ClearFocus()
             DebindPasteFrame.Input.EditBox:ClearFocus()
-            DebindPasteFrame:Hide()
-            DebindCopyFrame:Hide()
-            DebindFrame:Hide()
+            DebindPasteFrame:CloseDialog()
+            DebindCopyFrame:CloseDialog()
+            DebindFrame:CloseWindow()
         end)
 
         -- Both are stood up.
@@ -3859,9 +3883,7 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
         end
 
         for i, step in ipairs(steps) do
-            if not DebindFrame:HandleEscape() then
-                return Fail(NAME, format("nobody took ESC number %d", i))
-            end
+            PressEscape()
             if step.frame:IsShown() then
                 return Fail(NAME, format("ESC number %d did not close %s", i, step.name))
             end
@@ -3880,14 +3902,94 @@ RegisterTest("Escape: the sharing dialogs close before the window", {
 
         -- And the window closes only **after** all three are gone. Without this line, the pass above
         -- is explained just as well by "ESC does nothing".
-        if not DebindFrame:HandleEscape() then
-            return Fail(NAME, "nobody took the ESC after every dialog had closed")
-        end
+        PressEscape()
         if DebindFrame:IsShown() then
             return Fail(NAME, "every dialog has closed and the window does not close on ESC")
         end
 
         return Pass(NAME, "stepped back one at a time: import, paste, copy, then the window")
+    end,
+})
+
+--- **Being in `UISpecialFrames` costs the window every close it did not ask for.** That table is
+--- not an ESCAPE-only net: `ShowUIPanel` goes through `CloseWindows` too, so opening the spellbook
+--- with P sweeps this window out -- and the spellbook is the very thing a reader opens to drag a
+--- spell in here. What holds that off is `DebindFrameMixin:OnHide` recognising an unmarked close
+--- and putting the window straight back.
+---
+--- **The sweep, not `ShowUIPanel`.** Opening a real panel would measure the panel manager and take
+--- whatever else the reader had up; the bare `Hide` is the one thing `CloseSpecialWindows` does to
+--- this frame.
+---
+--- Both halves are here because either alone passes for the wrong reason: a window that comes back
+--- from everything can never be closed, and one that stays down is the bug.
+RegisterTest("Escape: a close the window did not ask for is undone", {
+    description = "Opening a panel sweeps UISpecialFrames; the window comes back, and its own close still closes",
+    run = function()
+        local NAME = "Foreign close"
+
+        DebindFrame:Show()
+        AddTeardown(function()
+            DebindPasteFrame:CloseDialog()
+            DebindFrame:CloseWindow()
+        end)
+
+        -- **What the sweep must not take with it.** Every descendant's `OnHide` fires on it, so any
+        -- of them treating "hidden" as "the reader left" loses something for a keypress that was
+        -- meant for the spellbook. Bind mode did (and `SetBindingMode(false)` is the commit path,
+        -- so its undo list went too); the paste box did; the list scroll did.
+        DebindFrame:ToggleBindMode()
+        AddTeardown(function() DebindFrame:SetBindingMode(false) end)
+
+        DebindFrame:Hide()
+        if not DebindFrame:IsCapturingKey() then
+            return Fail(NAME, "the sweep ended bind mode, which throws away its undo list")
+        end
+
+        if not DebindFrame:IsShown() then
+            return Fail(NAME, "swept out by somebody else's CloseSpecialWindows and stayed down")
+        end
+
+        -- **A dialog is swept by the same call and comes back the same way**, and what it has to
+        -- bring back with it is what the reader typed: the reset moved to `Open` for this
+        -- (`DebindPasteFrameMixin:Open`).
+        DebindPasteFrame:Open()
+        DebindPasteFrame.Input.EditBox:SetText("DEBIND-TEST")
+        DebindPasteFrame:Hide()
+        if not DebindPasteFrame:IsShown() then
+            return Fail(NAME, "the paste dialog was swept out and stayed down")
+        end
+        if DebindPasteFrame.Input.EditBox:GetText() ~= "DEBIND-TEST" then
+            return Fail(NAME, "the paste dialog came back empty, so a sweep throws away what was typed")
+        end
+        -- **The tab it belongs to is a second way to lose it.** `DebindStoragePanelMixin:OnHide`
+        -- drops the paste box, and that script runs for a sweep as well, so the drop had to move
+        -- to the two moments that mean it. Leaving the tab is one of them; this checks the other
+        -- side of that move.
+        DebindFrame:SelectPanel(STORAGE_PANEL_ID)
+        AddTeardown(function() DebindFrame:SelectPanel(OVERVIEW_PANEL_ID) end)
+        DebindFrame:Hide()
+        if DebindPasteFrame.Input.EditBox:GetText() ~= "DEBIND-TEST" then
+            return Fail(NAME, "a sweep with the Sharing tab up threw away what was typed")
+        end
+
+        DebindFrame:SelectPanel(OVERVIEW_PANEL_ID)
+        if DebindPasteFrame:IsShown() then
+            return Fail(NAME, "leaving the tab left the paste box up")
+        end
+
+        DebindPasteFrame.Input.EditBox:ClearFocus()
+        DebindPasteFrame:CloseDialog()
+        if DebindPasteFrame:IsShown() then
+            return Fail(NAME, "the dialog's own close did not close it")
+        end
+
+        DebindFrame:CloseWindow()
+        if DebindFrame:IsShown() then
+            return Fail(NAME, "the window's own close did not close it")
+        end
+
+        return Pass(NAME, "somebody else's close is undone, our own close stands")
     end,
 })
 
@@ -7474,8 +7576,8 @@ RegisterTest("Stood down: the window refuses and the reset asks twice", {
         local restore = DebindPrivate.profileIsNewer
         AddTeardown(function() DebindPrivate.profileIsNewer = restore end)
 
-        DebindFrame:Hide()
-        AddTeardown(function() DebindFrame:Hide() end)
+        DebindFrame:CloseWindow()
+        AddTeardown(function() DebindFrame:CloseWindow() end)
 
         DebindPrivate.profileIsNewer = true
 
@@ -8135,7 +8237,7 @@ RegisterTest("Settings: the gear opens the panel and leaves our window standing"
                 HideUIPanel(SettingsPanel)
             end
             if not frameWasShown and DebindFrame:IsShown() then
-                DebindFrame:Hide()
+                DebindFrame:CloseWindow()
             end
         end)
 
@@ -8181,7 +8283,7 @@ RegisterTest("Settings: the button in the list opens our window", {
                 HideUIPanel(SettingsPanel)
             end
             if not frameWasShown and DebindFrame:IsShown() then
-                DebindFrame:Hide()
+                DebindFrame:CloseWindow()
             elseif frameWasShown and not DebindFrame:IsShown() and not InCombatLockdown() then
                 DebindFrame:Show()
             end
@@ -8193,7 +8295,7 @@ RegisterTest("Settings: the button in the list opens our window", {
         end
 
         if DebindFrame:IsShown() then
-            DebindFrame:Hide()
+            DebindFrame:CloseWindow()
         end
 
         local pressed

@@ -92,14 +92,6 @@ local _selectedSideTab       = 1;
 -- all". Like them it lives for the session only and is not saved - close and reopen and you are
 -- on the tab you left.
 local _selectedPanel         = 1;
--- 이 창의 행은 끌 수 없다. 목록 안 재배치도(Phase 3), 탭에 떨궈 레이어를 옮기는 것도
--- 없앴다 - 후자는 우클릭 `Move to`가 더 잘 하고, 드래그는 행을 집게 해놓고 목록은 안
--- 받으니 매번 창을 덮어 "여기 아니다"라고 말해야 했다.
---
--- 남은 것은 하나, **게임이 커서에 집어준 것**을 받는 길이다. 주문책·액션바·가방에서 끌어온
--- 것을 목록이나 탭에 떨구면 그 레이어 맨 뒤에 붙는다. 아이템처럼 스펠 선택 창에 없는
--- 타입은 이 길로만 들어온다.
-local _pickedupInfo;
 -- **앵커.** SHIFT가 범위를 재는 기준점이고, 동시에 왼쪽 열이 짚는 행(`isCurrent`)이자 순서
 -- ↑↓가 붙는 행이자 매크로 창이 여는 액션이다.
 --
@@ -1082,6 +1074,15 @@ function DebindLineMixin:Update()
 	-- 여기서 매번 맞춘다. 모드를 켜고 끌 때 목록 전체가 Update를 받는다(SetBindingMode).
 	self:EnableMouseWheel(DebindFrame:IsCapturingKey());
 
+	-- **The keyboard is the row's only while the cursor is on it**, which the wheel gets from the
+	-- mouse for free and a key does not: a keyboard-enabled frame hears every key wherever the
+	-- cursor is, and a key pressed off a row has no row to land on. Off the row it has to reach the
+	-- game instead, and the only other way to arrange that is to propagate per key -- the one call
+	-- combat refuses (`DebindFrameMixin:OnLoad`).
+	--
+	-- Set here as well as on the hover edges because rows come out of a pool.
+	self:EnableKeyboard(DebindFrame:IsCapturingKey() and self:IsMouseMotionFocus());
+
 	self:SetAlpha(1);
 end
 
@@ -1106,6 +1107,13 @@ function DebindLineMixin:OnEnter()
 		instructionKeys = DebindFrame:IsCapturingKey() and BIND_MODE_INSTRUCTIONS or nil,
 	});
 	GameTooltip:Show();
+	self:EnableKeyboard(DebindFrame:IsCapturingKey());
+end
+
+--- 모드가 켜진 동안 이 행 위에서 누른 키가 이 행의 단축키가 된다. 행이 직접 받으므로 커서
+--- 밑을 다시 찾을 일이 없고, 행 밖에서 누른 키는 아무도 안 먹어 게임으로 간다.
+function DebindLineMixin:OnKeyDown(key)
+	DebindFrame:BindMode_OnKeyDown(key, self);
 end
 
 --- 휠. 모드가 켜진 동안에만 이 스크립트가 살아 있다(Update의 EnableMouseWheel).
@@ -1118,6 +1126,7 @@ end
 
 function DebindLineMixin:OnLeave()
 	HideActionTooltip(GameTooltip);
+	self:EnableKeyboard(false);
 end
 
 function DebindLineMixin:OnClick(buttonName)
@@ -1239,15 +1248,18 @@ DebindDialogMixin = {};
 --- dragging and pressing the left mouse button are the same gesture (`KeyCapture.xml`).
 ---
 --- **ESC through `UISpecialFrames`, which is the game's net and not ours.** What reads that table is
---- `CloseSpecialWindows`, and the ESCAPE **binding** is what calls it. So this covers exactly the
---- case where nothing is standing in front of the binding: a dialog still up with the main window
---- gone, which the copy dialog is built to be (`DebindExportPanelMixin:OnHide`). While that window
---- is up it takes ESCAPE before any binding runs and closes these itself, one rung each
---- (`DebindFrameMixin:HandleEscape`). The key capture dialog needs neither, being the one that
---- enables the keyboard and answers its own ESC.
+--- `CloseSpecialWindows`, and that sweep is what carries a dialog off when the main window is gone
+--- -- which the copy dialog is built to outlive (`DebindStoragePanelMixin:OnHide`). The key capture
+--- dialog needs no help from it either way, being the one that enables the keyboard and answers its
+--- own ESC.
 ---
---- One of them used to hand-roll this with `SetPropagateKeyboardInput`, which is taint in combat
---- and needed a guard for a frame that cannot be up in combat anyway.
+--- **The sweep hits every registered frame at once, and one ESC is one step back.** The main window
+--- is in the same table now (`DebindFrameMixin:OnLoad`), so a press with both up would take the
+--- dialog and the window together. `OnDialogHide` puts a dialog swept out from under a live main
+--- window straight back, and the window's own ladder then closes exactly one thing
+--- (`DebindFrameMixin:HandleEscape`).
+---
+--- One of them used to hand-roll ESC with `SetPropagateKeyboardInput`, which combat refuses.
 ---
 --- Registered once per dialog and they are never destroyed, so nothing has to come back out.
 function DebindDialogMixin:InitDialog(title)
@@ -1262,6 +1274,22 @@ function DebindDialogMixin:InitDialog(title)
 	end
 
 	tinsert(UISpecialFrames, self:GetName());
+end
+
+--- The one deliberate close, stamped the way `DebindFrameMixin:CloseWindow` is stamped and for the
+--- reason given there.
+function DebindDialogMixin:CloseDialog()
+	self.closeAt = GetTime();
+	self:Hide();
+end
+
+--- An unstamped close is `CloseSpecialWindows` sweeping. While the main window is up, which rung
+--- that press means is the window's ladder to decide, so this one comes back and leaves the choice
+--- there (`DebindFrameMixin:HandleEscape`).
+function DebindDialogMixin:OnDialogHide()
+	if (self.closeAt ~= GetTime() and DebindFrame:IsShown()) then
+		self:Show();
+	end
 end
 
 DebindKeyHeaderMixin = {};
@@ -1820,8 +1848,8 @@ function DebindOptionsButtonMixin:OnShow()
 end
 
 --- **The window stays where it is.** Two panels the reader can see at once is what was wanted
---- here: ours can be dragged aside, and the settings window is a centre panel that takes Escape
---- first anyway (`BlizzardOwnsEscape`).
+--- here: ours can be dragged aside, and `SettingsPanel_EscapePressed` sits at `Framework` priority,
+--- well above the `AddOnPost` rung that reaches this window at all (`DebindFrameMixin:OnLoad`).
 function DebindOptionsButtonMixin:OpenSettings(_, upInside)
 	if (upInside and self:IsEnabled()) then
 		DebindPrivate.OpenOptionsCategory();
@@ -2462,11 +2490,6 @@ end
 
 
 --- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
----
---- 예전에는 물어볼 일이 없었다 - 우리 창이 UISpecialFrames에 있어서 area가 "center"/"full"인
---- 패널이 열리는 순간 이미 닫혔으니까. 이제는 거기서 빠졌으므로 공존하고, 여기서 안
---- 물러나면 마이크로 버튼으로 연 게임메뉴가 ESC로 안 닫힌다(우리 창이 키를 먼저 먹는다).
---- 게임메뉴는 `area="center"` 패널이다(UIPanelWindows.lua:4).
 local function BlizzardOwnsEscape()
 	-- **A dialog standing on top counts too, and it is not a UI panel** - `GetUIPanel` never sees a
 	-- `StaticPopup`, so without this line the two above answer no while a question is on screen
@@ -2474,10 +2497,10 @@ local function BlizzardOwnsEscape()
 	-- and **closes itself**: the dialog stays up and the window behind it disappears, which is not
 	-- what anybody pressed Escape for.
 	--
-	-- Stepping back is the whole fix. The game keeps its own handler for this
-	-- (`RegisterGameMenuEscHandler` at `GameMenuEscPriority.Dialog` -> `StaticPopup_EscapePressed`),
-	-- and that one reads each dialog's `hideOnEscape` - including other addons', which is the same
-	-- reason this is asked about **any** dialog rather than about ours.
+	-- The game keeps its own handler for this (`RegisterGameMenuEscHandler` at
+	-- `GameMenuEscPriority.Dialog` -> `StaticPopup_EscapePressed`), and that one reads each dialog's
+	-- `hideOnEscape` - including other addons', which is the same reason this is asked about **any**
+	-- dialog rather than about ours.
 	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil
 		or StaticPopup_IsAnyDialogShown();
 end
@@ -2514,21 +2537,23 @@ function DebindFrameMixin:OnLoad()
 	CallbackRegistryMixin.OnLoad(self);
 	self:GenerateCallbackEvents(FRAME_EVENTS);
 
-	--- ESC는 이 창이 직접 받는다(XML의 enableKeyboard). 블리자드가 내주는 두 자리를
-	--- **둘 다 안 쓴다.**
+	--- **Propagation is not set here**, and the XML says why. This function is reached from the
+	--- first `OnShow` rather than at load, and `SetPropagateKeyboardInput` is refused in combat.
+	--- The rest of the keyboard arrangement is below: the window hears every key and eats none.
 	---
-	--- `UISpecialFrames`: 그물이 ESC 전용이 아니다. `CloseSpecialWindows`를 태우는 게 ESC만이
-	--- 아니라서 - area="center" 패널을 여는 것만으로도 ShowUIPanel -> CloseWindows ->
-	--- CloseSpecialWindows를 지나간다 - P로 주문서를 열면 우리 창이 같이 닫혔다. 하필
-	--- 주문을 끌어다 바인딩하려고 여는 창이다.
+	--- **ESCAPE belongs to `UISpecialFrames`.** The binding runs `ToggleGameMenu`, whose handlers
+	--- go by priority and only reach `CloseAllWindows` at `AddOnPost`
+	--- (`Blizzard_GameMenuEsc.lua`, `UIParentPanelManager.lua:1106`), so a static popup, a cast in
+	--- progress, the settings panel and edit mode each take the press ahead of this window and
+	--- standing aside for them costs nothing here. `CloseSpecialWindows` then hides this window and
+	--- reports `found`, which is what keeps the game menu from opening on the same press.
 	---
-	--- `RegisterGameMenuEscHandler`(12.1): ESC 전용이라 그 문제는 없는데, **등록하는 것만으로
-	--- 블리자드의 ESC 경로가 우리 taint를 뒤집어쓴다.** 그 함수가 하는 일이
-	--- `table.insert(handlers, …)` + `table.sort(handlers, …)`이고 둘 다 우리 실행 경로에서
-	--- 돈다(Blizzard_GameMenuEsc.lua:76-97). 그러면 `handlers`의 모든 칸이 더러워지고,
-	--- `TryHandleGameMenuEsc`가 그걸 `securecallfunction` **바깥에서** 읽는다(:100-101) -
-	--- 읽는 순간 ToggleGameMenu 자신의 경로가 더러워진다. 그 뒤 `Casting`(4) 우선순위의
-	--- 블리자드 핸들러가 부르는 `SpellStopCasting()`이 보호된 함수라 막힌다:
+	--- `RegisterGameMenuEscHandler` (12.1) is ESCAPE-only and would have fit, but **registering
+	--- alone drags our taint onto Blizzard's ESCAPE path.** It runs `table.insert(handlers, …)` and
+	--- `table.sort(handlers, …)` on our execution path (`Blizzard_GameMenuEsc.lua:76-97`), and
+	--- `TryHandleGameMenuEsc` then reads that table **outside** `securecallfunction` (:100-101).
+	--- From that read on, `SpellStopCasting()` in Blizzard's own `Casting` handler is blocked for
+	--- the rest of the session, with no function of ours anywhere on the stack:
 	---
 	---     [ADDON_ACTION_FORBIDDEN] AddOn 'Debind' tried to call 'SpellStopCasting()'
 	---     [C]: in function 'SpellStopCasting'
@@ -2536,32 +2561,39 @@ function DebindFrameMixin:OnLoad()
 	---     [C]: in function 'securecallfunction'
 	---     [Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua]:101 -> :110 ToggleGameMenu
 	---
-	--- 스택에 우리 함수가 하나도 없고 터지는 것도 블리자드 자기 핸들러다. 우리가 한 일은
-	--- 목록에 줄 하나 넣은 것뿐인데 **그 세션 내내** ESC가 시전을 못 끊는다 - 창을 닫아도,
-	--- 전투 중이라 창이 스스로 숨은 뒤에도 그대로다. UISpecialFrames가 20년째 안전한 이유가
-	--- 여기서 갈린다: 저쪽은 더러워진 테이블을 `securecall("CloseSpecialWindows")`
-	--- **안에서** 읽는다(UIParentPanelManager.lua:1084).
+	--- `UISpecialFrames` reads its own tainted table **inside** `securecall("CloseSpecialWindows")`
+	--- (`UIParentPanelManager.lua:1084`), which is where the two part company.
 	---
-	--- 그래서 키보드다. 창이 떠 있는 동안만 ESC를 받고 블리자드 자료구조에는 아무것도 안
-	--- 쓴다. 딸린 이득: UISpecialFrames에 없으니 P로 주문서를 열어도 이 창은 그대로다.
-	--- 딸린 비용: 게임메뉴가 이 창과 공존하게 되므로 그때는 물러나야 한다(OnKeyDown, 그리고
-	--- 바로 아래 GameMenuFrame.Shown).
-	self:SetPropagateKeyboardInput(true);
+	--- **What that table costs is that it is not an ESCAPE-only net.** `ShowUIPanel` passes through
+	--- `CloseWindows` as well, so opening the spellbook with P hides this window -- and the
+	--- spellbook is the very thing a reader opens to drag a spell in here. `OnHide` tells the two
+	--- apart by the stamp `OnKeyDown` leaves, and puts the window back up when the close was not
+	--- ours.
+	tinsert(UISpecialFrames, self:GetName());
 
-	--- 게임메뉴와는 **공존하지 않는다.** 반대 방향은 이미 막혀 있었다 - 메뉴가 떠 있으면
-	--- 이 창이 안 열리고, 왜 안 열리는지 말까지 해준다(`Public.lua:83`). 이쪽만 비어 있어서
-	--- 마이크로 버튼으로 메뉴를 열면 창이 남았다. 한쪽만 막은 규칙은 규칙이 아니다.
+	--- The X button. Going through `CloseWindow` is what marks the close as ours, and returning
+	--- false is what stops `UIPanelCloseButton_OnClick` hiding the window a second time
+	--- (`SharedUIPanelTemplates.lua:144`).
+	self.onCloseCallback = function()
+		self:CloseWindow();
+		return false;
+	end;
+
+	--- **No coexisting with the game menu.** The other direction was already closed: the window
+	--- refuses to open over the menu and says why (`Public.lua`), and a rule kept in one direction
+	--- only is not a rule.
 	---
-	--- UISpecialFrames로 되돌리면 이것도 닫히지만 **그물이 너무 넓다** - P로 주문서를 여는
-	--- 것까지 같이 닫는다(E-5). 여기서 필요한 건 "게임메뉴 하나"이고, 반대 방향 가드도
-	--- `GameMenuFrame:IsShown()` 하나를 본다. 좁은 규칙에는 좁은 신호로 답한다.
+	--- `UISpecialFrames` above does not cover it. Opening the game menu is a `ShowUIPanel` too, so
+	--- that close lands on the side `OnHide` undoes -- and this closes the window it just put back.
 	---
-	--- **EventRegistry는 애드온이 써도 되게 지어져 있다** - `RegisterGameMenuEscHandler`와
-	--- 갈리는 지점이 여기다(위 문단). 콜백 테이블을 `secureexecuterange`로 돌고 콜백마다
-	--- `securecallfunction`을 씌운다(`CallbackRegistry.lua:198-214`). 등록으로 더러워진 칸을
-	--- 읽는 것도, 우리 콜백이 도는 것도 전부 secure 경계 **안**이라 부른 쪽 경로가 안 더러워진다.
-	--- 블리자드 자기 코드도 같은 이벤트를 같은 목적으로 쓴다(`Blizzard_HousingInspectModeUI.lua:26`).
-	EventRegistry:RegisterCallback("GameMenuFrame.Shown", self.Hide, self);
+	--- **`EventRegistry` is built for addons to use**, which is where it parts from
+	--- `RegisterGameMenuEscHandler` (paragraph above). It walks the callback table with
+	--- `secureexecuterange` and wraps each callback in `securecallfunction`
+	--- (`CallbackRegistry.lua:198-214`), so both the read of a slot our registration dirtied and the
+	--- run of our callback are inside the secure boundary and the caller's path stays clean.
+	--- Blizzard's own code uses this event for the same purpose
+	--- (`Blizzard_HousingInspectModeUI.lua:26`).
+	EventRegistry:RegisterCallback("GameMenuFrame.Shown", self.CloseWindow, self);
 
 	self:SetPortraitToAsset(Constants.ADDON_ICON);
 
@@ -2807,34 +2839,79 @@ function DebindFrameMixin:OnShow()
 		self:OnLoad();
 	end
 
+	--- **A restore is not an open.** `OnHide` puts the window straight back when somebody else's
+	--- `CloseSpecialWindows` took it (`closeAt` there), and nothing changed in between - the
+	--- registrations below were never undone, because that branch returns before they are.
+	---
+	--- Doing the open's work anyway is what a reader sees: the rebuild discards where they had
+	--- scrolled, and it closes the macro editor whenever the action being edited is not a drawn
+	--- row (`DebindLayerPanelMixin:Refresh`). Opening the spellbook did both.
+	if (self.reopenAt == GetTime()) then
+		return;
+	end
+
 	self.LayerPanel:Refresh();
 	-- **`Update`까지 와야 왼쪽 열이 그려진다.** `Refresh`는 오른쪽 목록만 다시 짓고, 왼쪽은
 	-- 선택이 아니라 프로필 전체를 보므로 여기서 같이 깨워야 한다. 예전에는 선택이 없으면
 	-- 왼쪽이 접혀 있어서 이 줄이 없어도 티가 안 났다.
 	self:Update();
 	self.LayerPanel:UpdateSideTabs();
+	-- Crossing either way redraws. The title carries whether a rebuild is waiting (`UpdateTitle`),
+	-- and leaving combat is also where macrotext icons can be resolved again (`ActionDisplay.lua`).
 	self:RegisterEvent("PLAYER_REGEN_DISABLED");
+	self:RegisterEvent("PLAYER_REGEN_ENABLED");
 	self:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 	self:RegisterEvent("CURSOR_CHANGED");
 
 	DebindPrivate.RegisterCallback(self, "OnBindingsUpdated");
 
-	local type, value = GetActionTypeAndValueFromCursorInfo();
-	if (type) then
-		_pickedupInfo = { type = type, value = value };
+	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:OnPickup();
 	end
 end
 
+--- The one deliberate close, and this stamp is the whole of what tells `OnHide` the close was ours.
+--- An unstamped one is somebody else's `CloseSpecialWindows`, which `OnHide` undoes.
+---
+--- **A time, not a flag.** The question is "did we ask to close on this press", which is a
+--- per-frame question: the ladder closes the window from inside `OnHide`, so a flag set here and
+--- cleared on the next line is already gone when the `OnHide` that has to read it arrives.
+--- `GetTime()` holds still for the whole frame and needs no clearing.
+function DebindFrameMixin:CloseWindow()
+	self.closeAt = GetTime();
+	self:Hide();
+end
+
 function DebindFrameMixin:OnHide()
+	--- **A close we did not ask for is undone.** `UISpecialFrames` is not an Escape-only net
+	--- (`OnLoad`), so opening the spellbook is enough to take this window down.
+	---
+	--- The window goes back up before the ladder walks because every rung answers about a world
+	--- with this window in it.
+	if (self.closeAt ~= GetTime()) then
+		self.reopenAt = GetTime();
+		self:Show();
+		if (self.escAt == GetTime() and not BlizzardOwnsEscape() and not Menu.GetManager():HandleESC()) then
+			self:HandleEscape();
+		end
+		return;
+	end
+
 	PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE);
 
 	HideDeleteConfirmationPopup();
 
-	-- 주문 선택 창의 수명은 여기 묶여 있다. X 버튼도, ESC도, 전투 진입(OnEnterCombat이
-	-- self:Hide()로 끝난다)도 전부 이 경로로 오므로 한 줄이 셋을 다 덮는다.
+	-- 주문 선택 창의 수명은 여기 묶여 있다. X 버튼도, ESC도, 게임메뉴가 여는 길도 전부 이
+	-- 경로로 오므로 한 줄이 셋을 다 덮는다.
 	-- 반대 방향은 없다 - 그 창을 닫아도 이 창은 남는다.
 	DebindSpellPickerFrame:Hide();
+
+	-- **Two more that belong to the window rather than to the frame that owns them**, and for one
+	-- reason: their own hide runs on a sweep the window comes straight back from, which is not the
+	-- reader leaving. Bind mode ended and took `bindEdits` with it (`DebindUI.xml`), and the paste
+	-- box threw away a half-typed string (`DebindStoragePanelMixin:OnHide`).
+	self:SetBindingMode(false);
+	DebindPasteFrame:CloseDialog();
 
 	-- **The sharing window is not on this line.** It is opened from here but it is a window of its
 	-- own: nothing it does needs this one to be up, and closing the thing you exported from should
@@ -2850,8 +2927,6 @@ function DebindFrameMixin:OnHide()
 	-- cleared onAccepted in that window, reopening brought the popup straight back (New mode has
 	-- no OnShow guard), and confirming there produced a nameless, bodyless action with no editor.
 	--
-	-- 전투 진입은 `OnEnterCombat`이 따로 취소하고 있었지만, 게임 메뉴가 열려서 이 창이
-	-- 숨는 길(`GameMenuFrame.Shown`)은 그 자리를 지나지 않는다. 여기서 한 번에 덮는다.
 	DebindIconSelectorFrame:Close(true);
 
 	-- 창이 닫히는 것도 "떠나는" 것이다. 기본 매크로 창의 OnHide와 같이, 편집 중이던
@@ -2867,17 +2942,13 @@ function DebindFrameMixin:OnHide()
 	end
 
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED");
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED");
 	self:UnregisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED");
 	self:UnregisterEvent("CURSOR_CHANGED");
 	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
 
 	DebindPrivate.UnregisterCallback(self, "OnBindingsUpdated");
 
-	_pickedupInfo = nil;
-	-- 글로우는 위 상태를 보고 켜지는데, 그걸 지웠다고 저절로 꺼지지는 않는다. 여기서
-	-- 안 끄면 다음에 창을 열 때 목록이 빛나고 있다 - 창을 닫는 것도, 전투에 끌려들어가는
-	-- 것도 커서에 뭘 든 채로 일어난다.
-	self:UpdateDropHighlight();
 	DebindUI.ClearMacrotextIconCache();
 end
 
@@ -2890,28 +2961,25 @@ function DebindFrameMixin:OnEvent(event, arg1)
 			end
 		end
 	elseif (event == "CURSOR_CHANGED") then
-		local type, value = GetActionTypeAndValueFromCursorInfo();
-		if (type) then
-			_pickedupInfo = { type = type, value = value };
+		if (GetActionTypeAndValueFromCursorInfo()) then
 			self:OnPickup();
-		elseif (_pickedupInfo) then
-			_pickedupInfo = nil;
+		-- "The cursor is empty" arrives while nothing was ever picked up either. The registration
+		-- `OnPickup` made is what says we were holding something, so it gates the putting-down.
+		elseif (self:IsEventRegistered("GLOBAL_MOUSE_DOWN")) then
 			self:ClearMouse();
 		end
-	elseif (event == "PLAYER_REGEN_DISABLED") then
-		self:OnEnterCombat();
-	elseif (event == "PLAYER_REGEN_ENABLED") then
-		self:OnLeaveCombat();
+	elseif (event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED") then
+		self:Update();
 	elseif (event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED") then
 		self:Update();
 		self.LayerPanel:UpdateSideTabs();
 	end
 end
 
---- ESC 한 번에 한 칸씩 물러난다. 소비했으면 true.
+--- One Escape steps back one place. True if it was consumed.
 ---
---- 부르는 곳은 아래 OnKeyDown 하나뿐인데 따로 빼둔 건 **이 순서가 이 창의 계약**이기
---- 때문이다 - 전파 처리와 섞여 있으면 어느 줄이 순서고 어느 줄이 키 배관인지 안 보인다.
+--- The only caller is `OnHide`; it is split out because **this order is the window's contract** and
+--- nothing about the key plumbing belongs in the middle of it.
 function DebindFrameMixin:HandleEscape()
 	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:ClearMouse();
@@ -2970,13 +3038,10 @@ function DebindFrameMixin:HandleEscape()
 		return true;
 	end
 
-	-- **The two sharing dialogs.** They are in `UISpecialFrames` as well (`InitDialog`), but that
-	-- table is only read by `CloseSpecialWindows`, which the ESCAPE **binding** calls. This window
-	-- gets ESCAPE first and neither of them enables the keyboard, so `BlizzardOwnsEscape` does not
-	-- stand aside for them and the binding never runs. Take these rungs away and one press hides
-	-- this window while the dialog stays up over nothing. The registration is still what closes
-	-- them when this window is already gone, which the copy dialog is built to outlive
-	-- (`DebindStoragePanelMixin:OnHide`).
+	-- **The two sharing dialogs.** They are in `UISpecialFrames` as well, so the same sweep that
+	-- brought this ladder here took them down too -- and `DebindDialogMixin:OnDialogHide` is what
+	-- put them straight back, precisely so the choice of which one the press means is made here.
+	-- Take these rungs away and one press hides this window while a dialog stays up over nothing.
 	--
 	-- **Two rungs and not one.** ESC is one step back. One rung would either close both, which is
 	-- two windows for one press, or pick one anyway, and picking is what an ordered ladder already
@@ -2993,75 +3058,31 @@ function DebindFrameMixin:HandleEscape()
 	-- action when the preview column arrived -- there is nothing left for it to ask
 	-- (`devdocs/building-export-import.md` 12절).
 	if (DebindPasteFrame:IsShown()) then
-		DebindPasteFrame:Hide();
+		DebindPasteFrame:CloseDialog();
 		return true;
 	end
 
 	if (DebindCopyFrame:IsShown()) then
-		DebindCopyFrame:Hide();
+		DebindCopyFrame:CloseDialog();
 		return true;
 	end
 
 	-- **선택 해제 칸은 없다.** 한때 여기서 ESC 한 번이 선택을 풀었는데, 그건 선택이 상세
 	-- 패널을 펴고 접던 시절의 칸이다 - 물러날 화면이 실제로 있었다. 지금 선택이 하는 일은
 	-- 행 강조와 왼쪽 열이 짚는 자리뿐이라, 그 칸은 **창을 닫으려는 ESC를 한 번 먹기만 한다.**
-	self:Hide();
+	self:CloseWindow();
 	return true;
 end
 
---- ESC가 들어오는 유일한 자리. 블리자드 쪽에 아무것도 등록하지 않는 대가로 전파를 손수
---- 여닫는다(OnLoad 참고).
+--- Every key passes through and this window eats none (`DebindUI.xml`). All this does is stamp the
+--- frame Escape was pressed on, which is how `OnHide` tells an Escape apart from `ShowUIPanel`.
+---
+--- **This script runs before the ESCAPE binding**, which the old behaviour proves: the window
+--- consumed Escape here and the game menu never opened behind it.
 function DebindFrameMixin:OnKeyDown(input)
-	-- 전투 중 `SetPropagateKeyboardInput`은 taint다. 전투에 들어가면 `OnEnterCombat`이 창을
-	-- 숨기므로 보통은 여기까지 오지 않지만, **전투가 시작된 그 프레임에 눌린 키는
-	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다.** `BindMode_OnKeyDown`이 막는 것과
-	-- 같은 한 프레임이고, 같은 방식으로 막는다 - 아무것도 안 하고 물러난다. 그 키를 먹게
-	-- 되지만 창은 바로 다음 프레임에 사라진다.
-	if (InCombatLockdown()) then
-		return;
-	end
-
 	if (input == "ESCAPE") then
-		-- 블리자드 패널이 떠 있으면 여기서 물러난다. 우리 창은 키보드를 켜둔 채라 ESC를
-		-- 언제나 먼저 받는데, 그걸 그대로 먹으면 마이크로 버튼으로 연 게임메뉴를 ESC로
-		-- 닫을 수 없다. 물러나면 블리자드가 자기 순서대로 처리한다.
-		if (BlizzardOwnsEscape()) then
-			self:SetPropagateKeyboardInput(true);
-			return;
-		end
-
-		self:SetPropagateKeyboardInput(false);
-
-		-- 12.1에서는 블리자드가 Menu 우선순위에서 먼저 해준다. 12.0에는 그 자리가 없다.
-		if (Menu.GetManager():HandleESC()) then
-			return;
-		end
-
-		self:HandleEscape();
-		return;
+		self.escAt = GetTime();
 	end
-
-	self:SetPropagateKeyboardInput(true);
-end
-
-function DebindFrameMixin:OnEnterCombat()
-	-- 캡처 중이면 접는다. 전투 중에는 SetPropagateKeyboardInput이 taint라 키를 받을 수 없다.
-	-- 선택은 그대로 둔다 - 전투가 끝나고 창이 다시 뜨면 보던 액션이 그대로 있어야 한다.
-	DebindFrame:CancelKeyCapture();
-
-	if (DebindIconSelectorFrame:IsShown()) then
-		DebindIconSelectorFrame:CancelButton_OnClick();
-	end
-
-	-- 매크로 본문은 아래 Hide()가 OnHide를 태우면서 저장된다.
-
-	self:RegisterEvent("PLAYER_REGEN_ENABLED");
-	self:Hide();
-end
-
-function DebindFrameMixin:OnLeaveCombat()
-	self:UnregisterEvent("PLAYER_REGEN_ENABLED");
-	self:Show();
 end
 
 --- 목록은 키순으로 묶여 있으므로 키가 바뀌면 **다시 짜야** 한다. Update는 있는 줄을 그
@@ -3181,15 +3202,7 @@ function DebindLayerPanelMixin:Refresh(retainScrollPosition, visible)
 		DebindMacroFrame:Close();
 	end
 
-	-- **제목은 창의 이름이다. 탭 좌표가 아니다.**
-	--
-	-- 한때 "Debind [공유 - 일반]"처럼 지금 보는 탭을 낱말로 다시 말했다. 그 좌표는 이미
-	-- 화면에 두 번 있다 - 통 아래의 탭과 오른쪽의 사이드탭이 각자 켜진 채로 서 있다.
-	-- 세 번째로 적으면서 얻는 것은 없고, 탭을 누를 때마다 창 이름이 바뀌어서 **같은 창이
-	-- 아닌 것처럼** 보이는 값은 치른다.
-	-- The version hangs off the name for the same reason it is on the login line: so a bug report
-	-- can carry it. Dimmed, because it is there to be found rather than read every time.
-	DebindFrame:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
+	DebindFrame:UpdateTitle();
 	self:UpdateActionCounts(visible);
 	DebindFrame:UpdateEmptyText();
 end
@@ -3541,6 +3554,7 @@ function DebindFrameMixin:Update()
 	self:UpdateEmptyText();
 
 	self:UpdateDropHighlight();
+	self:UpdateTitle();
 end
 
 --- Something outside the overview put actions in the profile or took them out.
@@ -3636,9 +3650,33 @@ function DebindFrameMixin:UpdatePendingImports()
 	button:SetEnabled(not self:IsCapturingKey() and not IsEditingAction());
 end
 
+--- **제목은 창의 이름이다. 탭 좌표가 아니다.**
+---
+--- 한때 "Debind [공유 - 일반]"처럼 지금 보는 탭을 낱말로 다시 말했다. 그 좌표는 이미 화면에
+--- 두 번 있다 - 통 아래의 탭과 오른쪽의 사이드탭이 각자 켜진 채로 서 있다. 세 번째로 적으면서
+--- 얻는 것은 없고, 탭을 누를 때마다 창 이름이 바뀌어서 **같은 창이 아닌 것처럼** 보이는 값은
+--- 치른다.
+---
+--- The version hangs off the name for the same reason it is on the login line: so a bug report can
+--- carry it. Dimmed, because it is there to be found rather than read every time.
+---
+--- The waiting rebuild rides on the title string rather than standing beside it: the title is
+--- centred in `TitleContainer`, so anything anchored off its right edge moves with the string and
+--- runs into the gear and the close button once it is long enough.
+function DebindFrameMixin:UpdateTitle()
+	local title = format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel());
+	if (DebindPrivate.updateBindingsSuspended) then
+		title = title .. RED_FONT_COLOR:WrapTextInColorCode(" " .. LLL["CHANGES_APPLY_AFTER_COMBAT"]);
+	end
+	self:SetTitle(title);
+end
+
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
+---
+--- **The cursor is asked each time.** A copy kept beside it can drift, and drawing off the drifted
+--- one gives a window saying "nothing held" that will still take a spell dropped on the list.
 function DebindFrameMixin:UpdateDropHighlight()
-	self.LayerPanel.ScrollBoxBackground.Highlight:SetShown(_pickedupInfo ~= nil);
+	self.LayerPanel.ScrollBoxBackground.Highlight:SetShown(GetActionTypeAndValueFromCursorInfo() ~= nil);
 end
 
 --- 아이콘 선택기가 떠 있는 동안 잠기는 것들.
@@ -3732,6 +3770,10 @@ function DebindFrameMixin:SelectPanel(id, force)
 
 	if (self.shownPanel ~= panel) then
 		if (self.shownPanel) then
+			-- Half-typed input does not follow the reader to another tab. It cannot live on the
+			-- panel's own `OnHide`, which also runs for a sweep the window comes straight back
+			-- from (`DebindStoragePanelMixin:OnHide`).
+			DebindPasteFrame:CloseDialog();
 			self.shownPanel:Hide();
 		end
 		self.shownPanel = panel;
@@ -3840,8 +3882,7 @@ function DebindFrameMixin:OnPickup()
 end
 
 function DebindFrameMixin:ClearMouse()
-	if (_pickedupInfo) then
-		_pickedupInfo = nil;
+	if (GetActionTypeAndValueFromCursorInfo()) then
 		ClearCursor();
 	end
 
@@ -5108,8 +5149,10 @@ function DebindFrameMixin:SetBindingMode(active, button)
 	-- (`SetSelectedState`). 여기 있던 것은 블리자드 단축키 버튼의 사각 텍스처를 버튼 전체에
 	-- 덮는 방식이었고(CustomBindingButtonTemplate), 31x31 원형 위에서는 그 사각형이 그대로
 	-- 비어져 나온다. 옆의 두 포트레잇이 메뉴를 연 동안 켜는 표시와도 이제 같은 것이다.
+	-- The keyboard is not switched here. It belongs to the row under the cursor while the mode is
+	-- on, and `Update` below is what hands it over (`DebindLineMixin:Update`) -- including for a row
+	-- the cursor is already sitting on when the mode comes on, which sees no `OnEnter`.
 	button:SetSelectedState(active);
-	button:EnableKeyboard(active);
 	button:EnableMouseWheel(active);
 	if (button.EnableGamePadButton) then
 		button:EnableGamePadButton(active);
@@ -5146,9 +5189,6 @@ function DebindFrameMixin:SetBindingMode(active, button)
 		-- 없는 우클릭 입구가 **첫 번째 모드를 끝낸 뒤부터** 생긴다 - 그 뒤로는 토글을
 		-- 우클릭해도 모드가 켜진다.
 		button:RegisterForClicks("LeftButtonUp");
-		-- 여기서 SetPropagateKeyboardInput(true)로 되돌리면 안 된다. ESC로 빠져나오는 그
-		-- 순간에 다시 켜지면서 **같은 ESC가 프레임까지 흘러가 창을 닫는다.** 키보드 자체를
-		-- 끄므로 이 값은 어차피 다음에 들을 때까지 아무 일도 하지 않는다.
 	end
 
 	DebindResultPanel:Refresh();
@@ -5183,16 +5223,15 @@ end
 --- 커서 밑의 행. **들고 있지 않고 그때그때 찾는다.**
 ---
 --- 행은 풀에서 돌아가므로 "지금 호버된 행"을 변수로 들고 있으면 스크롤 한 번에 그 포인터가
---- 남의 행을 가리킨다. 보이는 행은 많아야 열 몇이고 묻는 것은 키를 누를 때뿐이라, 그때
---- 훑는 편이 상태를 맞춰 두는 것보다 싸고 틀릴 데가 없다.
+--- 남의 행을 가리킨다. 보이는 행은 많아야 열 몇이고 묻는 자리도 하나뿐이라, 그때 훑는 편이
+--- 상태를 맞춰 두는 것보다 싸고 틀릴 데가 없다.
 ---
 --- **`IsMouseOver`가 아니라 `IsMouseMotionFocus`다.** 앞의 것은 프레임 사각형만 보는 기하
---- 판정이라 ScrollBox가 잘라낸 행에도 참이 된다 - 목록 위쪽 바깥에서 ESC를 누르면 취소가
---- 아니라 **화면에 없는 행의 키를 지우는** 갈래로 들어갔다(아래 ESCAPE 처리).
+--- 판정이라 ScrollBox가 잘라낸 행에도 참이 된다 - 화면에 없는 행이 대상으로 잡힌다.
 ---
 --- 뒤의 것은 `OnEnter`/`OnLeave`가 걸리는 바로 그 조건이라, 판정이 강조 표시와 언제나 같다.
 --- 행 템플릿에 마우스를 먹는 자식이 없어서(XML의 DebindLineTemplate) 자식에게 포커스를
---- 빼앗길 일도 없다.
+--- 빼앗길 일도 없다. `DebindLineMixin:Update`가 키보드를 넘길 때 보는 조건도 이것이다.
 local function GetHoveredLine()
 	local hovered;
 	DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
@@ -5205,10 +5244,11 @@ end
 
 --- 키보드·마우스·휠·게임패드가 모두 지나는 길목.
 ---
---- **대상은 커서 밑의 행이다.** 클릭과 휠은 그 행이 직접 불러서 자기를 넘기고(누가
---- 받았는지 이미 알고 있다), 키보드는 프레임 하나로 들어오므로 여기서 찾는다.
+--- **The target is the row under the cursor, and it arrives already named.** Click, wheel and key
+--- are all the row's own scripts, so each hands itself over. The gamepad is the one that does not:
+--- it comes in on the toggle button, which is why the hover lookup is still here.
 ---
---- **넣고 나서도 모드는 켜진 채다.** 그게 모드인 이유다 - 열 개를 걸 사람이 열 번 들어갔다
+--- **모드는 넣고 나서도 켜진 채다.** 그게 모드인 이유다 - 열 개를 걸 사람이 열 번 들어갔다
 --- 나오지 않아도 된다. 나가는 길은 토글과 ESC 둘뿐이고, 둘 다 목록 밖의 동작이다.
 function DebindFrameMixin:BindMode_OnInput(input, line)
 	if (not self:IsCapturingKey()) then
@@ -5231,18 +5271,19 @@ function DebindFrameMixin:BindMode_OnInput(input, line)
 end
 
 --- 모드가 켜진 동안 키보드는 **토글 버튼 하나로** 들어온다. 커서가 어디에 있든 그렇다.
-function DebindFrameMixin:BindMode_OnKeyDown(button, key)
+---
+--- **Propagation is never touched.** What the mode wants is one answer throughout, "eat the key",
+--- and that is the frame default, so there is nothing to call -- and not calling is what lets the
+--- mode run in combat, since `SetPropagateKeyboardInput` is the call combat refuses.
+---
+--- **The keyboard is the only switch, and it has to be switched off to start with.** This button
+--- carries the keyboard from the moment it is built (`DebindUI.xml`), so a key arriving here with
+--- the mode off is the ordinary case rather than an impossible one, and returning is what hands it
+--- on.
+function DebindFrameMixin:BindMode_OnKeyDown(key, line)
 	if (not self:IsCapturingKey()) then
-		button:SetPropagateKeyboardInput(true);
 		return;
 	end
-	-- 전투 중 SetPropagateKeyboardInput은 taint다. 전투에 들어가면 창이 숨고 OnHide가
-	-- 모드를 끄므로 보통은 여기까지 오지 않지만, 전투가 시작된 바로 그 프레임에 눌린 키는
-	-- PLAYER_REGEN_DISABLED보다 먼저 들어올 수 있다. 그 한 프레임을 여기서 막는다.
-	if (InCombatLockdown()) then
-		return;
-	end
-	button:SetPropagateKeyboardInput(false);
 
 	-- **ESC는 가리킨 것이 있으면 지우개, 없으면 취소다.** 둘 다 와우가 하는 그대로다:
 	-- 빠른 키 지정 모드에서 과녁을 가리키는 중이면 ESC가 그 바인딩을 지우고
@@ -5258,18 +5299,19 @@ function DebindFrameMixin:BindMode_OnKeyDown(button, key)
 	-- 우리만의 규칙을 하나 더 만드는 것보다 낫다. 되돌린 것을 되살릴 길은 없다.
 	--
 	-- 두 갈래를 오버레이의 둘째 줄이 말한다(`BIND_MODE_UNBIND_HINT`).
+	--
+	-- **취소 쪽으로 오는 ESC는 여기까지 오지 않는다.** 이 함수는 커서 밑의 행이 부르는 것이라
+	-- 행이 없으면 애초에 안 불린다. 행 밖의 ESC는 아무도 안 먹어서 바인딩으로 가고, 창의
+	-- `OnHide` 사다리가 그것을 취소로 받는다(`HandleEscape`).
 	if (key == "ESCAPE") then
-		local line = GetHoveredLine();
-		local elementData = line and line:GetElementData();
+		local elementData = line:GetElementData();
 		local action = elementData and elementData.action;
 		if (action) then
 			self:SetActionKey(action, nil);
-		else
-			self:CancelBindMode();
 		end
 		return;
 	end
-	self:BindMode_OnInput(key);
+	self:BindMode_OnInput(key, line);
 end
 
 --- **모드에 들어온 뒤 바뀐 키를 전부 되돌리고 나간다.** 직전 하나가 아니다.

@@ -82,11 +82,7 @@ function DebindPublic:ToggleUI()
 		return
 	end
 	if (DebindFrame:IsShown()) then
-		DebindFrame:Hide();
-		return
-	end
-	if (InCombatLockdown()) then
-		DebindPrivate.DisplayMessage(LLL["CANNOT_OPEN_IN_COMBAT"], 1, 0, 0)
+		DebindFrame:CloseWindow();
 		return
 	end
 	-- 게임 메뉴 위에는 얹히지 않는다.
@@ -96,7 +92,7 @@ function DebindPublic:ToggleUI()
 	-- 메뉴를 띄운다 - 우리 창이 떠 있으면 그 ESC가 우리 창을 닫고 메뉴는 안 뜬다.
 	-- 그래서 이 분기가 실제로 걸리는 건 컴파트먼트 버튼 같은 다른 입구뿐이다.)
 	--
-	-- 조용히 돌아서지 않는다. 위의 전투 분기와 같다 - 버튼을 눌렀는데 아무 일도 안
+	-- 조용히 돌아서지 않는다. 위 분기와 같다 - 버튼을 눌렀는데 아무 일도 안
 	-- 일어나면 그건 고장으로 읽힌다.
 	if (GameMenuFrame:IsShown()) then
 		DebindPrivate.DisplayMessage(LLL["CANNOT_OPEN_WITH_GAME_MENU"], 1, 0, 0)

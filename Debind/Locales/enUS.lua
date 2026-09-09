@@ -141,7 +141,6 @@ L["LEAVE_UNIT_FRAMES_ALONE_DESC"] = "Ticked, Debind leaves this unit frame alone
 -- frames whichever way they would have reached it, and offering is the vocabulary of someone who
 -- knows the Clique API.
 L["LEAVE_PACK_FRAMES_ALONE_DESC"] = "Ticked, Debind leaves this addon's unit frames alone. The addon's own click handling is unaffected."
-L["CANNOT_OPEN_IN_COMBAT"] = "Cannot open in combat."
 L["CANNOT_OPEN_WITH_GAME_MENU"] = "Close the game menu first."
 L["COMPARTMENT_TOOLTIP_LEFT_CLICK"] = "Click to open Debind. The bindings overview is the left column."
 -- The client's own two words for the flight styles: `MOUNT_JOURNAL_FILTER_FLYING` and
@@ -801,6 +800,11 @@ L["OPTIONS"] = "Options"
 -- "when combat is over" is the wording `UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT` already uses for
 -- the same wait, and one screen does not need two ways of saying it.
 L["SETTINGS_APPLIED_AFTER_COMBAT"] = "Settings changed during combat are applied when combat is over."
+
+--- The main window's title bar, and **only while the fight is on**. Being on screen is what says
+--- "in combat", so the sentence does not say it again -- unlike the line above, which is a standing
+--- rule shown whatever the state.
+L["CHANGES_APPLY_AFTER_COMBAT"] = "Changes take effect when combat ends."
 -- What the overview's reason column says instead of an ordering sentence when the row has something
 -- wrong with it. **Two words for the whole set of problems, one per grade** -- red for a row that is
 -- waiting on the reader, grey for one that is merely outranked.

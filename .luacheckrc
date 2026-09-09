@@ -10,6 +10,10 @@ exclude_files = {
 	"DebindDev/Probe_*.lua",
 	"tests/**",
 	"node_modules/**",
+	-- A worktree of this same repo, checked out **inside** it. Without this line `luacheck .`
+	-- walks in and lints a second copy of everything under that copy's own rules, so a branch
+	-- parked there fails the lint of whoever is working here.
+	".claude/**",
 }
 ignore = {
 	"112", -- mutating non-standard global (Mixin method assignments)

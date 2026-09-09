@@ -1025,7 +1025,7 @@ end
 --- about what would go out -- dropping the string there would contradict the rule the collapse
 --- makes two functions away.
 local function DropStaleString()
-    DebindCopyFrame:Hide();
+    DebindCopyFrame:CloseDialog();
 end
 --- Cuts a set of actions out of the entry that is showing, and draws what is left.
 ---
@@ -1246,10 +1246,11 @@ function DebindStoragePanelMixin:OnHide()
     -- which of it is ticked and which layers are open are answers worth the same until the reader
     -- picks a different entry. Only a `/reload` ends them, since they live on the panel.
     --
-    -- The paste box does go. It is half-typed input, and unlike a finished string what it holds is
-    -- not yet worth anything to anybody: a string outliving its tab is useful, an unfinished paste
-    -- floating over Overview is not.
-    DebindPasteFrame:Hide();
+    -- **The paste box does go, but not from here.** This script also runs when something sweeps the
+    -- window out of `UISpecialFrames` and it goes straight back up, and dropping a half-typed
+    -- string because the reader opened their spellbook is the thing that sweep must not do. Leaving
+    -- the tab and closing the window are the two that mean it, and each says so where it happens
+    -- (`DebindFrameMixin:SelectPanel`, `DebindFrameMixin:OnHide`).
 
     -- **Through the pair, because a row's tooltip sets a minimum width.** This is for the case
     -- where a row's own `OnLeave` does not run -- the panel going away under the cursor -- and that
@@ -1300,23 +1301,23 @@ function DebindPasteFrameMixin:OnLoad()
     end);
     editBox:SetScript("OnEscapePressed", function()
         editBox:ClearFocus();
-        self:Hide();
+        self:CloseDialog();
     end);
 
     self.AcceptButton:SetScript("OnClick", function() self:Accept(); end);
-    self.CancelButton:SetScript("OnClick", function() self:Hide(); end);
+    self.CancelButton:SetScript("OnClick", function() self:CloseDialog(); end);
 end
 
+--- **Clearing belongs to opening, not to showing.** In `OnShow` it throws away a half-typed string
+--- every time `CloseSpecialWindows` sweeps this dialog and `DebindDialogMixin:OnDialogHide` puts it
+--- back. This is the only way the dialog opens, so the move covers the same ground.
 function DebindPasteFrameMixin:Open()
-    self:Show();
-    self.Input.EditBox:SetFocus();
-end
-
-function DebindPasteFrameMixin:OnShow()
     self.Input.EditBox:SetText("");
     self.NameBox:SetText("");
     self.ErrorHolder.Text:SetText("");
     self.AcceptButton:SetEnabled(false);
+    self:Show();
+    self.Input.EditBox:SetFocus();
 end
 
 --- **A refusal stays in this dialog.** The string is someone else's input and every step of reading
@@ -1333,7 +1334,7 @@ function DebindPasteFrameMixin:Accept()
         return;
     end
 
-    self:Hide();
+    self:CloseDialog();
 
     -- **Through the bus, and then landed on.** The list is the same list every other way in feeds,
     -- and the row would be easy to miss at the top of one the reader is already looking at.
@@ -1350,7 +1351,7 @@ DebindCopyFrameMixin = {};
 
 function DebindCopyFrameMixin:OnLoad()
     self:InitDialog(LLL["EXPORT_COPY_TITLE"]);
-    self.CloseDialogButton:SetScript("OnClick", function() self:Hide(); end);
+    self.CloseDialogButton:SetScript("OnClick", function() self:CloseDialog(); end);
 
     local editBox = self.Output.EditBox;
     editBox:SetFontObject(ChatFontNormal);
@@ -1362,7 +1363,7 @@ function DebindCopyFrameMixin:OnLoad()
     -- away, and this is a text box the reader is allowed to treat as a text box.
     editBox:SetScript("OnEscapePressed", function()
         editBox:ClearFocus();
-        self:Hide();
+        self:CloseDialog();
     end);
 end
 

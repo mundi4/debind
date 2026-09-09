@@ -422,9 +422,9 @@ end
 ---
 --- Nothing here calls `SetPropagateKeyboardInput`. A frame with the keyboard enabled keeps what it
 --- receives, which is exactly what is wanted - pressing `1` here must not also fire the first action
---- bar slot - and the call is taint in combat, so the branch that would have to guard it does not
---- exist either. The main window has to make the opposite arrangement and says why
---- (`DebindFrameMixin:OnKeyDown`).
+--- bar slot - and not calling it is also what lets this dialog work in combat, since combat refuses
+--- that call. The main window wants the opposite answer and says how it reaches it without the call
+--- either (`DebindFrameMixin:OnLoad`).
 ---
 --- **Escape is cancel, not the eraser.** In the mode it erases the row being pointed at, because in
 --- a mode that never closes there is no other input left to mean "take this key away" - every

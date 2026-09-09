@@ -153,7 +153,7 @@ end
 --- (`NameAndIconForAction`). 여기서 지금 보이는 값을 박으면 낡은 채로 남는다.
 function DebindSpellPickerRowMixin:OnClick(button)
 	local entry = self.entry;
-	if (not entry or InCombatLockdown()) then
+	if (not entry) then
 		return;
 	end
 
@@ -437,9 +437,6 @@ function DebindSpellPickerFrameMixin:InitializeNewMacroButton()
 	end
 
 	button:SetScript("OnClick", function()
-		if (InCombatLockdown()) then
-			return;
-		end
 		DebindIconSelectorFrame:OpenForNewMacro(function(elementData)
 			DebindMacroFrame:Open(elementData.action);
 		end);
