@@ -21,3 +21,4 @@ Probe_LoginTiming.lua
 Probe_FrameBoundary.lua
 Probe_NamePlates.lua
 
+# Probe_CombatUI.lua
