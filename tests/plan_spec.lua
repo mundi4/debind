@@ -219,6 +219,24 @@ return function(DebindPrivate)
         drops(bare, "SPELLS_CHANGED");
     end);
 
+    -- **The registration follows the axis, so settling the axis takes it with it.** A `known`
+    -- whose answer cannot move before the next rebuild is baked rather than emitted
+    -- (`devdocs/baking-the-known-condition.md` §5), and then there is no `[known:` in
+    -- `_measuredStates` for the predicate above to find. This is the consequence that pays for
+    -- the whole optimization -- the 0.2s parse goes with it.
+    --
+    -- The world is stood up before the first plan, because `KnownSpells` builds its table once.
+    test("a known that is settled at the rebuild registers nothing", function()
+        shim.world.spellbook[1000] = true;
+        shim.world.spells[1000] = { name = "Fixed", levelLearned = 10 };
+        shim.world.knownSpells[1000] = true;
+
+        local plan = PlanFor({
+            spell({ key = "F1", value = 1000, conditions = { known = true } }),
+        });
+        drops(plan, "SPELLS_CHANGED");
+    end);
+
     ---------------------------------------------------------------------------
     -- Every axis a record carries is an axis the loop measures
     ---------------------------------------------------------------------------

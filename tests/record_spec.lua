@@ -16,6 +16,7 @@
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
+    local shim = require("wow_shim");
 
     local T = { passed = 0, failures = {} };
 
@@ -171,6 +172,23 @@ return function(DebindPrivate)
             { fieldNames = {}, fieldValues = {}, fieldCount = 0, units = {}, switches = {} });
     end
 
+    --- The spells the `known` tests below read, **stood up before the first record is built.**
+    --- `KnownSpells` builds its table once per specialization, so the first record to carry a
+    --- `known` condition is what settles the table for the rest of the file.
+    ---
+    --- `levelLearned` is the level the book dates the spell at, against a character the shim puts
+    --- at 80; `knownSpells` is what `[known:]` itself answers.
+    for spellID, spell in pairs({
+        [1000] = { levelLearned = 10, known = true },
+        [1001] = { levelLearned = 10, known = false },
+        [1002] = { levelLearned = 90, known = false },
+    }) do
+        shim.world.spellbook[spellID] = true;
+        shim.world.spells[spellID] = { name = "Spell " .. spellID,
+            levelLearned = spell.levelLearned };
+        shim.world.knownSpells[spellID] = spell.known or nil;
+    end
+
     -- A binding whose units fold to nothing gets **no record at all**, rather than one marked
     -- unreachable. Carrying it would cost three times over: the match loop walks and rejects it on
     -- every re-selection, its units get registered so the poll prices them every tick, and every
@@ -235,6 +253,47 @@ return function(DebindPrivate)
         check(fieldOf(record, "known") == "[known:8936]",
             "known: " .. tostring(fieldOf(record, "known")));
     end);
+
+    ---------------------------------------------------------------------------
+    -- A `known` whose answer cannot move before the next rebuild
+    ---------------------------------------------------------------------------
+
+    -- The three branches of `devdocs/baking-the-known-condition.md` §5. The table says only that
+    -- the answer is fixed; what it *is* gets measured here with the same string the snippet would
+    -- have used, so the two cannot part.
+    --
+    -- **Fixed is the spellbook's answer and not the character's knowledge.** A spell the book
+    -- dates at or below the character's level cannot be forgotten, so it is settled at the
+    -- rebuild; one dated above it is still one level-up away from flipping and stays an axis.
+
+    local function knownRecord(spellID)
+        return recordFor({
+            type = Constants.SPELL, value = spellID,
+            clickframe = true, clickbutton = "deb1",
+            conditions = { known = true },
+        }, false, true, false, true);
+    end
+
+    test("a fixed known that holds carries no axis at all", function()
+        local record = knownRecord(1000);
+        check(record ~= nil, "the record was dropped");
+        local value, named = fieldOf(record, "known");
+        check(not named, "known was carried anyway: " .. tostring(value));
+    end);
+
+    test("a fixed known that does not hold drops the record", function()
+        check(knownRecord(1001) == nil, "the record survived");
+    end);
+
+    test("a known the book dates above the character stays an axis", function()
+        local record = knownRecord(1002);
+        check(record ~= nil, "the record was dropped");
+        check(fieldOf(record, "known") == "[known:1002]",
+            "known: " .. tostring(fieldOf(record, "known")));
+    end);
+
+    -- A spell the book does not carry at all is the third case, and the test above at "a known
+    -- condition bakes the conditional it will be parsed as" is it: 8936 is in no world here.
 
     -- An axis set to "no restriction" is not carried. It would be a comparison that is always true
     -- on a path that runs at every press.

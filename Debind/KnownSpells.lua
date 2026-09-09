@@ -135,18 +135,37 @@ local cached, cachedSpec;
 --- cannot either: the question is whether a spell comes from the tree at all, which is a property
 --- of the tree. `GetActiveConfigID` answers for the active specialization only, and reaching
 --- another one means switching to it, which is a specialization this cache has not met yet.
+--- **An empty table is not kept.** Every character has spells, so nothing in it means the client
+--- had not answered yet rather than that there is nothing to hold, and keeping that would settle
+--- the answer for the rest of the specialization. Walking again next rebuild costs one walk in a
+--- case that should not happen.
 function KnownSpells.GetTable()
     local spec = C_SpecializationInfo.GetSpecialization() or 0;
     if (cached == nil or cachedSpec ~= spec) then
-        cached = KnownSpells.Build(LiveAPI());
+        local built = KnownSpells.Build(LiveAPI());
+        if (next(built) == nil) then
+            return built;
+        end
+        cached = built;
         cachedSpec = spec;
     end
     return cached;
 end
 
---- Whether this spell's `[known:]` answer holds for the rest of this rebuild. False also covers
---- "in the table but not learned yet", which a level-up flips with no rebuild behind it.
-function KnownSpells.IsFixed(spellID)
+--- Whether this spell's `[known:]` answer can still move before the next rebuild. A spell in the
+--- table but below its level is **not** fixed: a level-up flips it with no rebuild behind it.
+local function IsFixed(spellID)
     local level = spellID and KnownSpells.GetTable()[spellID];
     return level ~= nil and level <= (UnitLevel("player") or 0);
+end
+
+--- What `[known:<spell>]` answers for the rest of this rebuild: `true` if it holds, `false` if it
+--- cannot, and **nil where the answer can still move**, which is the axis staying as it was.
+---
+--- **Measured with the string the snippet itself would have used**, so the two cannot part.
+function KnownSpells.Settle(spellID)
+    if (not IsFixed(spellID)) then
+        return nil;
+    end
+    return SecureCmdOptionParse("[known:" .. spellID .. "]") and true or false;
 end

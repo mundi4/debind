@@ -16,6 +16,13 @@ M.world = {
     auras = {},
     baseSpells = {},
     overrideSpells = {},
+    --- Which spell ids `[known:<id>]` answers true for. Empty is a character who knows none of
+    --- them, which is what a spec that never mentions one gets.
+    knownSpells = {},
+    --- The talent configuration, empty for a character who has none.
+    traits = {},
+    pvpTalentSlots = {},
+    pvpTalents = {},
     mounts = {},
     callPetSlots = {},
     flyouts = {},
@@ -408,7 +415,17 @@ function M.install()
     _G.IsInGroup = function() return false; end
     _G.IsInRaid = function() return false; end
     _G.GetNumGroupMembers = function() return 0; end
-    _G.SecureCmdOptionParse = function() return ""; end
+    --- **The insecure side's copy, and it answers only `[known:]`.** That is the one conditional
+    --- a rebuild hands this global (`UpdateBindings.lua` settles a fixed `known` here); the
+    --- restricted environment has its own reader with the whole grammar (`tests/restricted.lua`).
+    --- Everything else keeps answering the empty string, which is a match.
+    _G.SecureCmdOptionParse = function(expr)
+        local spellID = expr and expr:match("^%[known:(%d+)%]$");
+        if (spellID) then
+            return M.world.knownSpells[tonumber(spellID)] and "" or nil;
+        end
+        return "";
+    end
 
     --- The game's own binding table, which the addon reads and never writes: `RefreshGameMenuKeys`
     --- asks what `TOGGLEGAMEMENU` sits on, and `BindingContexts.lua` walks the whole table to find
@@ -562,6 +579,41 @@ function M.install()
         return M.world.spellbook[spellID] and 1 or nil;
     end
 
+    --- That same set as an ordered list, which is what a slot number indexes.
+    local function BookSlots()
+        local ids = {};
+        for spellID in pairs(M.world.spellbook) do
+            ids[#ids + 1] = spellID;
+        end
+        table.sort(ids);
+        return ids;
+    end
+
+    --- The talent tree, flat. `M.world.traits` is `{ configID =, treeIDs =, trees =, nodes =,
+    --- entries =, definitions = }`; empty is a character with no configuration, which is what
+    --- every spec that does not care about talents gets.
+    _G.C_ClassTalents = {
+        GetActiveConfigID = function() return M.world.traits.configID; end,
+    };
+    _G.C_Traits = {
+        GetConfigInfo = function(configID)
+            if (configID ~= M.world.traits.configID) then return nil; end
+            return { treeIDs = M.world.traits.treeIDs };
+        end,
+        GetTreeNodes = function(treeID) return (M.world.traits.trees or {})[treeID]; end,
+        GetNodeInfo = function(_, nodeID) return (M.world.traits.nodes or {})[nodeID]; end,
+        GetEntryInfo = function(_, entryID) return (M.world.traits.entries or {})[entryID]; end,
+        GetDefinitionInfo = function(definitionID)
+            return (M.world.traits.definitions or {})[definitionID];
+        end,
+    };
+    _G.C_SpecializationInfo.GetPvpTalentSlotInfo = function(slot)
+        return M.world.pvpTalentSlots[slot];
+    end
+    _G.C_SpecializationInfo.GetPvpTalentInfo = function(talentID)
+        return M.world.pvpTalents[talentID];
+    end
+
     -- `MAGE` is here because the sharing specs need **a class that is not ours**: a string from one
     -- keeps its own class and spec on the way in, and the import refuses a class name no client
     -- has (`ImportAddress`). Without it those cases would measure the refusal instead.
@@ -694,6 +746,30 @@ function M.install()
         --- which the client answers as the id itself.
         FindSpellOverrideByID = function(spellID)
             return M.world.overrideSpells[spellID] or spellID;
+        end,
+        --- `M.world.spellbook` again, this time as the **skill-line walk** sees it: one
+        --- player-bank line holding every id in it, in id order so a slot number means the same
+        --- thing on two reads. What a spell is learned at comes off
+        --- `M.world.spells[id].levelLearned`, and an id without one answers no level at all --
+        --- the shape `KnownSpells` reads as a spell the book cannot date.
+        GetNumSpellBookSkillLines = function() return 1; end,
+        GetSpellBookSkillLineInfo = function(index)
+            if (index ~= 1) then return nil; end
+            return { itemIndexOffset = 0, numSpellBookItems = #BookSlots() };
+        end,
+        GetSpellBookItemInfo = function(slot, bank)
+            local spellID = bank == Enum.SpellBookSpellBank.Player and BookSlots()[slot];
+            if (not spellID) then return nil; end
+            return {
+                spellID = spellID,
+                actionID = spellID,
+                itemType = Enum.SpellBookItemType.Spell,
+            };
+        end,
+        GetSpellBookItemLevelLearned = function(slot, bank)
+            local spellID = bank == Enum.SpellBookSpellBank.Player and BookSlots()[slot];
+            local spell = spellID and M.world.spells[spellID];
+            return spell and spell.levelLearned;
         end,
     };
     --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a

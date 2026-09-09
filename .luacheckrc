@@ -129,6 +129,7 @@ globals = {
 	"UnitInParty",
 	"UnitSelectionColor",
 	"InCombatLockdown",
+	"SecureCmdOptionParse",
 	"IsInRaid",
 	"IsInGroup",
 	-- 12.1 secret-value probe; nil on older clients, callers must guard
