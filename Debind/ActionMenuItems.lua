@@ -2,6 +2,7 @@ local _, DebindPrivate      = ...;
 local Constants             = DebindPrivate.Constants;
 local LLL                   = DebindPrivate.L;
 local DebindUI              = DebindPrivate.DebindUI;
+local MenuKit               = DebindPrivate.MenuKit;
 
 local dump                  = DebindPrivate.dump
 
@@ -35,12 +36,9 @@ local function CreateSmartCastMenuItem(parentDescription, ctx)
         return;
     end
 
-    -- The label is composed here rather than looked up, so the instruction has to be given:
-    -- a node finds its own from the key it was named with, and this one is a finished string.
     local description = ActionMenus:BuildNode(parentDescription, {
-        label = ActionMenus:MarkNew("SMART_CAST", LLL["SMART_CAST"]),
+        label = "SMART_CAST",
         key = "smartCast",
-        instruction = LLL["SMART_CAST_DESC"],
         isActive = function()
             return ctx.action.smartCast ~= nil;
         end,
@@ -130,6 +128,8 @@ local function CreateSmartCastMenuItem(parentDescription, ctx)
     rezWithBattleRez:SetEnabled(function()
         return customOnly() and ctx.action.smartCastRez and true or false;
     end);
+
+    ActionMenus:MarkNew("SMART_CAST", description);
 end
 
 local function CreateConvertToMacroTextMenuItem(parentDescription, ctx)
@@ -251,7 +251,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     end
 
     description:CreateDivider();
-    description:CreateTitle(LLL["SWITCH_ACTION_TITLE"]);
+    MenuKit.CreateTitle(description, LLL["SWITCH_ACTION_TITLE"]);
 
     for _, verb in ipairs(SETSTATE_VERBS) do
         description:CreateRadio(LLL[verb.label], function()
@@ -523,7 +523,7 @@ end
 --- 실제로 옮긴다.
 local function CreateMoveCopyMenu(rootDescription, isCopy, fromLayerID, applyFunc)
     local optionsDescription = rootDescription:CreateButton(isCopy and LLL["COPY_TO"] or LLL["MOVE_TO"]);
-    optionsDescription:CreateTitle(MenuUtil.GetElementText(optionsDescription));
+    MenuKit.CreateTitle(optionsDescription, MenuUtil.GetElementText(optionsDescription));
 
     local func = function(args)
         applyFunc(args[1], isCopy);

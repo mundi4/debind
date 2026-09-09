@@ -994,6 +994,25 @@ function M.install()
             { name = name, buttonText = buttonText, buttonClick = buttonClick, tooltip = tooltip });
     end
 
+    --- 메뉴 설명자를 만드는 것 중 **커널이 스스로 부르는 하나**(`MenuKit.QueueTitle`). 다른
+    --- 행은 모두 부모 설명자가 만들어 주므로 스펙이 자기 대역을 넘긴다.
+    local function newTitleDescription(text)
+        local initializers = {};
+        return {
+            text = text,
+            initializers = initializers,
+            AddInitializer = function(_, fn)
+                initializers[#initializers + 1] = fn;
+            end,
+        };
+    end
+
+    _G.MenuUtil = {
+        GetElementText = function(description) return description.text; end,
+        SetElementText = function(description, text) description.text = text; end,
+        CreateTitle = newTitleDescription,
+    };
+
     _G.MinimalSliderWithSteppersMixin = { Label = { Left = 1, Right = 2, Top = 3, Min = 4, Max = 5 } };
 
     _G.Settings = {

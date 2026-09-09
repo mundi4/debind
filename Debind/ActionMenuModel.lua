@@ -278,9 +278,6 @@ local ActionMenus = MenuKit.NewRegistry({
     accessor = ActionValues,
 
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
-    ---
-    --- `ROLE` marks the [Party/Raid] row rather than the role boxes it opens: what is new is
-    --- inside, and a door with no mark on it is a door nobody opens.
     newFeatures = { "SMART_CAST", "ROLE" },
 
     -- **묶음 키가 곧 이슈 갈래인 것은 아니다.** 이 메뉴가 쓰는 키 중 절반은 그 이름의

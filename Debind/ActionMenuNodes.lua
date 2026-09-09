@@ -124,7 +124,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         end,
     }, ctx);
 
-    local titleDescription = optionsDescription:CreateTitle(MenuUtil.GetElementText(optionsDescription));
+    local titleDescription = MenuKit.CreateTitle(optionsDescription, MenuUtil.GetElementText(optionsDescription));
     if (unit == "@") then
         -- 여는 줄은 `Only if...`로 두고, **어느 유닛에 거는 조건인지는 안쪽 제목이 말한다.**
         -- 바깥 줄까지 대상 이름으로 바꾸면 바로 위 라디오 목록이 방금 고른 그 이름을 한 번
@@ -196,7 +196,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     for _, block in ipairs(UNIT_CONDITION_AXES) do
         if (axes == nil or axes[block.axis] ~= false) then
             optionsDescription:CreateDivider();
-            optionsDescription:CreateTitle(LLL[block.title]);
+            MenuKit.CreateTitle(optionsDescription, LLL[block.title]);
             block.append(optionsDescription, ctx, unit, axisIsEnabled);
         end
     end
@@ -252,7 +252,7 @@ local function BuildHoverMenu(kit, ctx)
 
 
     description:CreateDivider();
-    description:CreateTitle(LLL["CONDITION_REACTIONS"]);
+    MenuKit.CreateTitle(description, LLL["CONDITION_REACTIONS"]);
 
     for _, item in ipairs(REACTION_ITEMS) do
         local reactionDescription = description:CreateCheckbox(item.text,
@@ -267,7 +267,7 @@ local function BuildHoverMenu(kit, ctx)
     end
 
     description:CreateDivider();
-    description:CreateTitle(LLL["CONDITION_LIFE"]);
+    MenuKit.CreateTitle(description, LLL["CONDITION_LIFE"]);
 
     for _, item in ipairs(LIFE_ITEMS) do
         local lifeDescription = description:CreateRadio(item.text,
@@ -282,7 +282,7 @@ local function BuildHoverMenu(kit, ctx)
     end
 
     description:CreateDivider();
-    description:CreateTitle(LLL["CONDITION_UNIT_GROUP"]);
+    MenuKit.CreateTitle(description, LLL["CONDITION_UNIT_GROUP"]);
 
     for _, item in ipairs(UNITGROUP_ITEMS) do
         local groupDescription = description:CreateCheckbox(item.text,
@@ -297,13 +297,12 @@ local function BuildHoverMenu(kit, ctx)
     end
 
     description:CreateDivider();
-    description:CreateTitle(LLL["CONDITION_FRAMETYPES"]);
+    MenuKit.CreateTitle(description, LLL["CONDITION_FRAMETYPES"]);
 
     kit:Checkboxes("frameTypes", {
             { text = LLL["FRAMETYPE_PLAYER"],  value = Constants["FRAMETYPE_PLAYER"] },
             { text = LLL["FRAMETYPE_PET"],     value = Constants["FRAMETYPE_PET"] },
-            { text = ActionMenus:MarkNew("ROLE", LLL["FRAMETYPE_GROUP"]),
-                value = Constants["FRAMETYPE_GROUP"] },
+            { text = LLL["FRAMETYPE_GROUP"],   value = Constants["FRAMETYPE_GROUP"] },
             { text = LLL["FRAMETYPE_TARGET"],  value = Constants["FRAMETYPE_TARGET"] },
             { text = LLL["FRAMETYPE_BOSS"],    value = Constants["FRAMETYPE_BOSS"] },
             { text = LLL["FRAMETYPE_ARENA"],   value = Constants["FRAMETYPE_ARENA"] },
@@ -315,7 +314,7 @@ local function BuildHoverMenu(kit, ctx)
             --- 종류의 개체창만 답을 낼 수 있고(`Constants.lua`), 자리가 그것을 말한다.
             --- 그 줄을 안 켰으면 물을 것이 없으므로 하위 항목도 같이 잠근다.
             if (item.value == Constants.FRAMETYPE_GROUP) then
-                elementDescription:CreateTitle(LLL["CONDITION_ROLE"]);
+                MenuKit.CreateTitle(elementDescription, LLL["CONDITION_ROLE"]);
                 for _, role in ipairs(ROLE_ITEMS) do
                     local roleDescription = elementDescription:CreateCheckbox(role.text,
                         function()
@@ -330,6 +329,7 @@ local function BuildHoverMenu(kit, ctx)
                         return hoverConditionIsOn(ctx) and HoverFrameTypeChecked(ctx, Constants.FRAMETYPE_GROUP);
                     end);
                 end
+                ActionMenus:MarkNew("ROLE", elementDescription);
             end
         end,
         FRAMETYPE_DEFAULT

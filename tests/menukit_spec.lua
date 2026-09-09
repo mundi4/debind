@@ -235,7 +235,6 @@ return function(DebindPrivate)
                 return fake;
             end,
             AddInitializer = function() end,
-            QueueTitle = function() end,
         };
         return fake;
     end
@@ -295,28 +294,145 @@ return function(DebindPrivate)
     -- MarkNew
     --------------------------------------------------------------------------
 
+    --- 행 하나. 커널이 부르는 것만 받아 적는다.
+    local Row;
+    function Row(text)
+        local row = { text = text, initializers = {}, children = {} };
+
+        function row:AddInitializer(fn)
+            self.initializers[#self.initializers + 1] = fn;
+        end
+
+        function row:CreateButton(label)
+            local child = Row(label);
+            self.children[#self.children + 1] = child;
+            return child;
+        end
+
+        function row:CreateTitle(label)
+            local child = Row(label);
+            self.children[#self.children + 1] = child;
+            return child;
+        end
+
+        function row:AddQueuedDescription(description)
+            table.insert(self.children, 1, description);
+        end
+
+        function row:HasElements()
+            return #self.children > 0;
+        end
+
+        function row:SetTooltip() end
+
+        return row;
+    end
+
+    local function NewFeatureRegistry(tags)
+        local registry = MenuKit.NewRegistry({
+            accessor = Accessor(),
+            newFeatures = tags,
+            resolveIssue = function(issue) return issue, nil; end,
+        });
+        registry:Define("OUTER", { label = "밖", children = { "INNER" } });
+        registry:Define("INNER", {
+            label = "안",
+            build = function(kit)
+                registry:MarkNew("NEW_THING", kit.description);
+            end,
+        });
+        return registry;
+    end
+
+    --- 이 행이 화면에 낼 글자. **`text` 필드가 아니다** - 행이 실제로 그리는 것은 초기화
+    --- 함수들이 남기는 것이라(`MarkRowNew`), 그것들을 차례로 태워 봐야 답이 나온다. 템플릿이
+    --- 자기 초기화 함수에서 놓고 가는 글자가 그 시작이다.
+    local function drawn(description)
+        local text = description.text;
+        local frame = {
+            fontString = {
+                GetText = function() return text; end,
+                SetTextToFit = function(_, value) text = value; end,
+                SetTextColor = function() end,
+            },
+        };
+        for _, fn in ipairs(description.initializers) do
+            fn(frame, description);
+        end
+        return text;
+    end
+
+    local function hasDot(text)
+        return text:find("|A:", 1, true) ~= nil;
+    end
+
+    --- 태그가 가리킨 줄과, 그 줄에 닿기까지 열어야 하는 줄.
+    local function BuildMarked(tags)
+        local root = Row();
+        NewFeatureRegistry(tags):Build(root, "OUTER", Ctx());
+        local outer = root.children[1];
+        return outer.children[2], outer;
+    end
+
     --- 점을 끄는 것은 목록에서 태그를 빼는 것 하나다. 릴리스가 하는 일이 그것이다.
     test("only the tags in the list get a dot", function()
-        local registry = MenuKit.NewRegistry({
-            accessor = Accessor(),
-            newFeatures = { "SMART_CAST" },
-            resolveIssue = function(issue) return issue, nil; end,
-        });
-
-        local marked = registry:MarkNew("SMART_CAST", "스마트캐스트");
-        check(marked ~= "스마트캐스트", "목록에 있는 태그는 글자가 달라진다");
-        check(marked:find("스마트캐스트", 1, true) == 1, "원래 글자가 앞에 그대로 남는다");
-
-        check(registry:MarkNew("ROLE", "역할") == "역할", "목록에 없으면 손대지 않는다");
+        check(hasDot(drawn(BuildMarked({ "NEW_THING" }))), "목록에 있는 태그는 점이 붙는다");
+        check(not hasDot(drawn(BuildMarked({ "SOMETHING_ELSE" }))), "목록에 없으면 손대지 않는다");
+        check(not hasDot(drawn(BuildMarked(nil))), "목록을 안 주면 아무것도 안 붙는다");
     end);
 
-    test("an empty list marks nothing", function()
+    test("the mark carries the original label with it", function()
+        check(drawn(BuildMarked({ "NEW_THING" })):find("안", 1, true) == 1,
+            "원래 글자가 앞에 그대로 남는다");
+    end);
+
+    --- 새것이 하위 메뉴 안에 있으면, 그 안까지 열어 본 사람만 점을 보게 된다.
+    test("every row that has to be opened to reach it is marked too", function()
+        local inner, outer = BuildMarked({ "NEW_THING" });
+
+        check(hasDot(drawn(inner)), "태그가 가리킨 줄에 붙는다");
+        check(hasDot(drawn(outer)), "여는 줄에도 붙는다");
+
+        -- 하위 메뉴의 첫 줄은 그 줄 자신의 이름을 다시 적은 제목이다(`skipTitle`).
+        check(hasDot(drawn(inner.children[1])), "태그가 가리킨 줄이 여는 제목에도 붙는다");
+        check(not hasDot(drawn(outer.children[1])), "지나온 줄의 제목에는 안 붙는다");
+    end);
+
+    --- 제목이 그 메뉴의 머리일 때만 표시가 간다. 중간에 낀 제목은 그 아래 묶음의 이름이라
+    --- 위에서 붙은 표시와 상관이 없다.
+    local function BuildTitledRow(first)
         local registry = MenuKit.NewRegistry({
             accessor = Accessor(),
+            newFeatures = { "NEW_THING" },
             resolveIssue = function(issue) return issue, nil; end,
         });
-        check(registry:MarkNew("SMART_CAST", "스마트캐스트") == "스마트캐스트",
-            "목록을 안 주면 아무것도 안 붙는다");
+        registry:Define("PLAIN", {
+            label = "밖",
+            skipTitle = true,
+            build = function(kit)
+                if (not first) then
+                    kit.description:CreateButton("먼저 선 줄");
+                end
+                kit:Title("제목");
+                registry:MarkNew("NEW_THING", kit.description);
+            end,
+        });
+
+        local root = Row();
+        registry:Build(root, "PLAIN", Ctx());
+        return root.children[1];
+    end
+
+    test("the title a family puts at the top of the menu is marked with it", function()
+        local row = BuildTitledRow(true);
+        check(hasDot(drawn(row)), "표시한 줄에는 붙는다");
+        check(hasDot(drawn(row.children[1])), "그 메뉴의 첫 줄인 제목에 붙는다");
+    end);
+
+    test("a title further down the menu is left alone", function()
+        local row = BuildTitledRow(false);
+        check(hasDot(drawn(row)), "표시한 줄에는 붙는다");
+        check(not hasDot(drawn(row.children[2])), "첫 줄이 아닌 제목에는 안 붙는다");
     end);
 
     --------------------------------------------------------------------------

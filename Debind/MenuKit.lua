@@ -59,11 +59,60 @@ end
 --- `NewDot`, the one on an arrived action). The game's own new-feature label
 --- (`MenuTemplates.AttachNewFeatureFrame`) is a frame with text over a texture and cannot be put
 --- inside a menu row's own string.
----
---- **The row it goes on is the door, not the thing.** What is new is often a block inside a
---- submenu, and a reader who is not told at the row that opens it never goes in to find out.
 function MenuKit.NewFeatureLabel(text)
     return format("%s %s", text, CreateAtlasMarkup("plunderstorm-new-dot-lg", 25, 25));
+end
+
+--- Puts the dot on a row that is already built.
+---
+--- **The string a row draws is not its `text` field.** Every template catches a copy in its own
+--- initializer (`MenuTemplates.CreateTitle`, `MenuVariants.CreateCheckbox`), so writing the field
+--- afterwards changes nothing on screen. Ours runs after theirs and re-fits what they left in
+--- `fontString`, which is where all of them park it.
+local function MarkRowNew(description)
+    if (description.debindNewFeature) then
+        return;
+    end
+    description.debindNewFeature = true;
+
+    description:AddInitializer(function(frame)
+        frame.fontString:SetTextToFit(MenuKit.NewFeatureLabel(frame.fontString:GetText()));
+    end);
+end
+
+--- The title that opens the menu this row leads to, **made here so the mark can reach it.**
+---
+--- A row cannot be asked what it is: the template it was made from is caught in a closure
+--- (`MenuTemplates.CreateMenuElementDescription`), and the one thing that would have told a title
+--- from a button, having no sound, cannot be asked either -- `GetSoundKit` calls what it holds
+--- rather than answering nil. So the family's titles are made through here and the ones that open
+--- a menu remember where they are.
+local function RememberTitle(description, title)
+    if (description.debindTitle == nil) then
+        description.debindTitle = title;
+    end
+    return title;
+end
+
+--- The submenu's own name at the top of it.
+---
+--- `QueueTitle` would do the same and hand back nothing (`MenuUtil`'s wrapper drops it), and a
+--- queued row cannot be found afterwards either: the queue is flushed into the submenu on the
+--- first insert, which has not happened while the tree is still being built.
+function MenuKit.QueueTitle(description, text)
+    local title = MenuUtil.CreateTitle(text);
+    description:AddQueuedDescription(title);
+    return RememberTitle(description, title);
+end
+
+--- A title inside the menu, where the family builds its own rows.
+function MenuKit.CreateTitle(description, text)
+    local first = not description:HasElements();
+    local title = description:CreateTitle(text);
+    if (first) then
+        RememberTitle(description, title);
+    end
+    return title;
 end
 
 --------------------------------------------------------------------------------
@@ -123,6 +172,10 @@ end
 
 local Appender = {};
 Appender.__index = Appender;
+
+function Appender:Title(text)
+    return MenuKit.CreateTitle(self.description, text);
+end
 
 --- The row every axis opens with. It says `Disable`, which is this axis constraining nothing
 --- rather than a third value to pick from.
@@ -202,22 +255,43 @@ function MenuKit.NewRegistry(config)
         nodes = {},
         handlers = {},
         newFeatures = newFeatures,
+        --- The rows between the root and whatever is being built right now, outermost first.
+        openRows = {},
         config = config,
     }, Registry);
 end
 
---- `text` with a new-feature dot on it while `tag` is in the family's `newFeatures`, and plain
---- once it is not.
+--- A new-feature dot on the row `tag` names, **and on every row that has to be opened to reach
+--- it**, while `tag` is in the family's `newFeatures`.
 ---
 --- **The list is the whole of it.** A release takes the marks off by emptying that one list, and
 --- what is marked is readable in a single place rather than spread over the rows that carry it.
 --- A tag left in too long shows a dot that should be gone, which somebody sees; the other way
 --- round -- a mark that quietly never appears -- is what putting the decision at each row costs.
-function Registry:MarkNew(tag, text)
-    if (self.newFeatures[tag]) then
-        return MenuKit.NewFeatureLabel(text);
+---
+--- **What is new is usually a block inside a submenu**, and a reader who is not told at the row
+--- that opens it never goes in to find out. Which rows those are is what `openRows` answers, so
+--- the door list is not written out beside the thing and cannot go stale when the tree moves --
+--- the same reason `IssueOf` asks the tree instead of being told.
+---
+--- **The title at the top of the new thing's own menu is part of it and wears the mark; the ones
+--- above are not.** A door's menu opens by repeating the door's name, and a dot there reads as
+--- "everything in here is new" rather than "there is something new further in".
+---
+--- Call it once the row is built and once its own title stands, since both of those are what the
+--- mark spreads to.
+function Registry:MarkNew(tag, description)
+    if (not self.newFeatures[tag]) then
+        return description;
     end
-    return text;
+    MarkRowNew(description);
+    if (description.debindTitle) then
+        MarkRowNew(description.debindTitle);
+    end
+    for i = 1, #self.openRows do
+        MarkRowNew(self.openRows[i]);
+    end
+    return description;
 end
 
 function Registry:Define(name, node)
@@ -350,8 +424,11 @@ function Registry:BuildNode(parentDescription, node, ctx)
     end);
 
     if (not node.skipTitle) then
-        description:QueueTitle(MenuUtil.GetElementText(description));
+        MenuKit.QueueTitle(description, MenuUtil.GetElementText(description));
     end
+
+    local openRows = self.openRows;
+    openRows[#openRows + 1] = description;
 
     if (node.build) then
         -- `kit` carries the description and the ctx as fields, so a node that needs the raw
@@ -370,6 +447,8 @@ function Registry:BuildNode(parentDescription, node, ctx)
             self:Build(description, children[i], ctx);
         end
     end
+
+    openRows[#openRows] = nil;
 
     return description;
 end
