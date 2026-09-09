@@ -496,6 +496,76 @@ return function(DebindPrivate)
             .. tostring(DebindPrivate.ccframes[unlisted]));
     end);
 
+    --- Runs `fn` with the `Any Other Addon` box standing at `taken`, and puts back what was there.
+    local function withOtherAddons(taken, fn)
+        local blacklist = DebindPrivate.optionsAtLogin.frameBlacklist;
+        local other;
+        if (not taken) then
+            other = false;
+        end
+        DebindPrivate.optionsAtLogin.frameBlacklist =
+            { blizzard = {}, addons = {}, other = other };
+        local ok, err = pcall(fn);
+        DebindPrivate.optionsAtLogin.frameBlacklist = blacklist;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    --- **`Any Other Addon` takes every name no row covers**, which is the last way out for somebody
+    --- whose frames are broken by an addon we have never seen. Without it the only answer is to wait
+    --- for that name to reach `KNOWN_PACK_FRAMES`, which is our way out and not theirs.
+    ---
+    --- **The addon that hands its frames over goes with the rest**, and that is the decision rather
+    --- than an oversight: "handed over" is the Clique API's vocabulary and no tooltip can draw the
+    --- line, so the last resort is blunt on purpose. The Clique door is what this drives for that
+    --- reason.
+    --- **One door is enough to drive because there is one gate.** `RegisterFrame` is where every
+    --- door meets and where the question is asked, which the pack box's own tests already pin; the
+    --- name door cannot even be used here, since a name no row covers never reaches it.
+    test("Any Other Addon turns away every name no row covers", function()
+        local offered = ForeignFrame("SomeUIUnitFrame42", "target");
+
+        withOtherAddons(false, function()
+            DebindPrivate.RegisterFrame(offered, true);
+        end);
+
+        check(DebindPrivate.ccframes[offered] == nil,
+            "an addon that handed its frame over was taken anyway: "
+            .. tostring(DebindPrivate.ccframes[offered]));
+
+        --- 반대쪽 절반. 상자를 안 켰을 때 같은 프레임이 우리 것이어야, 위가 "언제나 거절"이 아닌
+        --- 것이 된다.
+        local taken = ForeignFrame("SomeUIUnitFrame43", "target");
+        withOtherAddons(true, function()
+            DebindPrivate.RegisterFrame(taken, true);
+        end);
+        check(type(DebindPrivate.ccframes[taken]) == "table",
+            "the box is off and an unknown addon's frame was still turned away: "
+            .. tostring(DebindPrivate.ccframes[taken]));
+    end);
+
+    --- 반대쪽. 없이는 위 케이스가 "언제나 거절"에도 초록으로 나온다.
+    test("a known pack and Blizzard's own are not what Any Other Addon covers", function()
+        local pack = ForeignFrame("ERFExtraFrame41", nil);
+        local blizzard = ForeignFrame("SomeBlizzardLikeFrame41", "target");
+
+        withOtherAddons(false, function()
+            --- **Blizzard's are exempt by being in `blizzardFrames`**, which is the only list that
+            --- says a frame came through that door. Their own seven boxes are what takes them out.
+            DebindPrivate.blizzardFrames[blizzard] = "target";
+            DebindPrivate.RegisterFrame(pack, true);
+            DebindPrivate.RegisterFrame(blizzard, "target");
+            DebindPrivate.blizzardFrames[blizzard] = nil;
+        end);
+
+        check(type(DebindPrivate.ccframes[pack]) == "table",
+            "a known pack went out with the unknown ones: " .. tostring(DebindPrivate.ccframes[pack]));
+        check(type(DebindPrivate.ccframes[blizzard]) == "table",
+            "one of the client's own frames went out with the unknown ones: "
+            .. tostring(DebindPrivate.ccframes[blizzard]));
+    end);
+
     -- **Every door takes what nobody named, which is the whole decision.** The frames a pack keeps
     -- to itself used to sit behind an option, and the option is gone
     -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-3): a listed name and a

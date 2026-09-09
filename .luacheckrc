@@ -378,6 +378,7 @@ globals = {
 	"DebindSideTabMixin",
 	"DebindOptionsButtonMixin",
 	"DebindSettingsNoticeMixin",
+	"DebindSettingsLabelMixin",
 	"DebindPortraitMixin",
 	"DebindFrameMixin",
 	"DebindMigrationDialogMixin",

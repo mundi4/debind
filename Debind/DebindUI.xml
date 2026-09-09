@@ -1979,4 +1979,26 @@
 		</Layers>
 	</Frame>
 
+	<!--
+		Names the group of boxes under it, one step in from the section header above them.
+
+		The notice row's shape, for the reason the notice row has it: a font string and nothing
+		else, a height that does not move, and no script the panel would read outside its own
+		secure call (`Options.lua`'s head comment).
+
+	-->
+	<Frame name="DebindSettingsLabelTemplate" mixin="DebindSettingsLabelMixin" virtual="true">
+		<Size y="24"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT" justifyV="MIDDLE">
+					<Anchors>
+						<Anchor point="LEFT" x="37"/>
+						<Anchor point="RIGHT" x="-40"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+	</Frame>
+
 </Ui>

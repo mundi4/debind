@@ -46,6 +46,16 @@ with the frame type of the same name:
 |---|---|---|---|
 | `frameBlacklist.blizzard[category]` | the client's seven windows, one box each | `registerBlizzardFrame` | ours |
 | `TakesPackFrames(addon)` | `frameBlacklist.addons[addon]`, one box per installed known pack | asked once inside `RegisterFrame` | ours |
+| `TakesOtherAddonFrames()` | `frameBlacklist.other`, the one `Any Other Addon` box | asked in `RegisterFrame` where no pack row covers the name | ours |
+
+**`Any Other Addon` takes every addon we do not know by name**, the ones that hand their frames over
+included. It is the last way out for somebody whose unit frames are broken by an addon we have never
+seen, and refusing only the frames nobody offered would be a line no tooltip can draw - "offered" is
+the Clique API's vocabulary. Blizzard's own are exempt because they are in `blizzardFrames`, which is
+what says a frame came through that door; their seven boxes are what takes them out.
+
+Its cell sits beside the two tables rather than inside `addons`, because a name reserved in there is
+a name some addon's folder may have.
 
 Both store `false` for "leave alone" and nothing at all for "ours", and both say `REQUIRES_RELOAD`:
 which frames get picked up is decided as each one is built, so the values are read once at login

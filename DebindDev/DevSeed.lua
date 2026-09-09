@@ -418,6 +418,18 @@ SEEDS[7] = function(guid)
         };
     end
 
+    --- 위 판의 일곱 줄을 그대로 든다. **찍히는 것이 어느 프레임 종류로 걸렸느냐다** - 커서가
+    --- 어느 개체창 위에 있느냐로 어느 줄이 이겼는지가 화면에 나오고, 프레임 종류 컬럼이
+    --- 도는지를 게임에서 재는 자리가 여기뿐이다. 한 줄로 줄이면 그 답이 사라진다.
+    local function Hover(seq, frameType, name)
+        return {
+            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+            value = format("/script print(\"hover-%s\")", name), name = "Hover " .. name,
+            key = "ALT-BUTTON1", seq = seq,
+            conditions = { frameTypes = frameType, units = { hover = { exists = true } } },
+        };
+    end
+
     return {
         dbver = 7,
 
@@ -432,14 +444,13 @@ SEEDS[7] = function(guid)
                 UnitCondition(4, "off", { disabled = true, reaction = Constants.REACTION_HARM,
                     group = Constants.UNITGROUP_PARTY }),
 
-                --- 호버 조건도 같은 표를 쓴다.
-                {
-                    type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
-                    value = "/script print(\"hover\")", name = "Hover",
-                    key = "ALT-BUTTON1", seq = 1,
-                    conditions = { frameTypes = Constants.FRAMETYPE_GROUP,
-                        units = { hover = { exists = true } } },
-                },
+                Hover(1, Constants.FRAMETYPE_UNKNOWN, "unknown"),
+                Hover(2, Constants.FRAMETYPE_PLAYER, "player"),
+                Hover(3, Constants.FRAMETYPE_PET, "pet"),
+                Hover(4, Constants.FRAMETYPE_GROUP, "group"),
+                Hover(5, Constants.FRAMETYPE_TARGET, "target"),
+                Hover(6, Constants.FRAMETYPE_BOSS, "boss"),
+                Hover(7, Constants.FRAMETYPE_ARENA, "arena"),
 
                 --- 위 판에서 올라온 뒤의 이름. 이 판에는 `equipslot`이 없다.
                 {

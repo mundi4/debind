@@ -100,16 +100,36 @@ L["BLIZZARD_UNIT_FRAMES_PET"] = "Pet Frame"
 L["BLIZZARD_UNIT_FRAMES_PLAYER"] = "Player Frame"
 L["BLIZZARD_UNIT_FRAMES_RAID"] = "Raid Frames"
 L["BLIZZARD_UNIT_FRAMES_TARGET"] = "Target and Focus"
+-- **The name in the panel's left-hand list**, so it names a subject and not an action. What is
+-- under it is every unit frame decision the addon has, the blacklist included, and not only the
+-- taking away - which is why `Frame Blacklist` is the header inside and not this.
+L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
+-- **One word, because whoever reads it already knows it.** Somebody in this window has installed a
+-- click-casting addon, and a blacklist is a list of what is left out - the polarity comes with the
+-- word and needs no sentence under it. `Unit Frame` is not repeated: the category above already
+-- said it.
+--
 -- **The section name, in the client's own case.** Blizzard lifts the principal words and leaves
 -- articles and short prepositions down (`SHOW_PINGS_ON_RAID_FRAMES = "Show Pings on Raid Frames"`).
+L["FRAME_BLACKLIST"] = "Blacklist"
+-- The two groups under it, and **the one place the word "frame" appears** - `Blacklist` above has
+-- dropped it, so it has to be said once and this is where.
 --
--- The other header above it is the client's own `UNITFRAME_LABEL`, read in `Options.lua` rather
--- than copied to a key here: every locale carries it already.
+-- **Not `Blizzard's`.** A possessive wants a noun behind it, and `Blizzard's Frames` reads as the
+-- frames belonging to a company rather than as the ones the game ships.
+L["FRAME_BLACKLIST_BLIZZARD"] = "Blizzard Frames"
+L["FRAME_BLACKLIST_ADDONS"] = "Addon Frames"
+-- **A name, because the rows above it are names.** It stands under `Grid2` and `VuhDo`, so it takes
+-- the same shape they do; `Addons Not Listed Above` reads as a description in that column and
+-- breaks the run.
+L["LEAVE_OTHER_ADDON_FRAMES"] = "Any Other Addon"
+-- **Every addon we do not know, and not only the frames nobody handed us.** This is the last way
+-- out for somebody whose unit frames are already broken by an addon we have never seen, so it is
+-- deliberately blunt: an addon that hands its frames over politely goes with the rest.
 --
--- **Negative, because every box under it takes something away.** A reader who has ticked nothing
--- has every unit frame in the game, so the list can only name what to stay off, and the client
--- words its own boxes the same way at this depth ("Hide ..." and its kin).
-L["LEAVE_UNIT_FRAMES_ALONE"] = "Leave These Unit Frames Alone"
+-- Nothing here about handing over. That distinction is the vocabulary of somebody who knows the
+-- Clique API, and a tooltip cannot teach it.
+L["LEAVE_OTHER_ADDON_FRAMES_DESC"] = "Ticked, Debind leaves the unit frames of every addon not listed above alone."
 -- **One sentence, because the box is named by the frames it covers.**
 --
 -- **The second sentence carries the decision**: what a reader worries about when ticking one of
@@ -939,7 +959,11 @@ L["SPECIAL_CONDITIONS"] = "Special Conditions"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared (More than one unit detected)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared|r"
-L["SPECIAL_UNITS"] = "Special units"
+-- **What the four boxes do, said once over them.** "Special units" named a category the reader has
+-- no way to know the membership of, and it was the one header in the window in sentence case. Each
+-- box turns off one role's search finding the reader, so the header can carry the whole sentence
+-- and the rows are left as the four role names.
+L["SPECIAL_UNITS"] = "Don't Count Myself As"
 -- Title over the right-click menu's list. The list itself is tab names, so this line is what
 -- says which question they answer. Shaped like the move and copy menus' "Move to... / Copy to..."
 -- on purpose: three menus showing the same list should not each name it differently.
@@ -1002,8 +1026,12 @@ L["SPELL_PICKER_TITLE"] = "Add an Action"
 L["STATE_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
 L["STATE_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
 L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
-L["STATE_DRIVER_UPDATE_THROTTLE"] = "State driver update throttle"
-L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Some states, such as those related to mouseover, may not be updated immediately. By changing this value, you can adjust the update frequency for these states. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
+-- **"State driver" is Blizzard's name for the machinery and the code's, not the reader's.** What
+-- the reader has in front of them is a list of conditions they wrote, and what this moves is how
+-- often those are worked out again. The key keeps the old name because the option it sets is the
+-- state driver's `updatetime` and the code has to go on saying so.
+L["STATE_DRIVER_UPDATE_THROTTLE"] = "Condition Update Interval"
+L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between condition updates. Some conditions, such as those about what the mouse is over, may not be updated immediately. The lower the value, the more often they are worked out again (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
 -- The Switches tab. Everything below is read on that tab and nowhere else.
 --
@@ -1291,12 +1319,16 @@ L["UNIT_TARGET"] = "Target"
 -- keybinds (`ACTION_BUTTON_USE_KEY_DOWN`), so the entry names the game rather than the key
 -- setting: a reader who has never opened that setting still knows what "the game" means, and one
 -- who has will find the wording again in the tooltip.
-L["UNITFRAME_CLICK_EDGE"] = "Clicking a Unit Frame Casts On"
+-- **The label and the value are one sentence, so the value has to be able to finish it.** The label
+-- was a sentence opening and the three values were nouns, so nothing joined up: "Clicking a Unit
+-- Frame Casts On / Mouse down". Read as a dropdown reads - label, then the chosen value - this one
+-- closes.
+L["UNITFRAME_CLICK_EDGE"] = "Cast When the Mouse Button Is"
 -- `%s` is the game's own wording for its keybind setting, put in where it is shown.
-L["UNITFRAME_CLICK_EDGE_DESC"] = "Blizzard's own unit frames cast when the mouse button comes back up.|n|nWhatever the game does follows |cnHIGHLIGHT_FONT_COLOR:%s|r in the game's own settings, which is the setting your keys already follow."
-L["UNITFRAME_CLICK_EDGE_DOWN"] = "Mouse down"
-L["UNITFRAME_CLICK_EDGE_GAME"] = "Whatever the game does"
-L["UNITFRAME_CLICK_EDGE_UP"] = "Mouse up"
+L["UNITFRAME_CLICK_EDGE_DESC"] = "Blizzard's own unit frames cast when the mouse button comes back up.|n|nThe game's own setting is |cnHIGHLIGHT_FONT_COLOR:%s|r, which is the setting your keys already follow."
+L["UNITFRAME_CLICK_EDGE_DOWN"] = "Pressed"
+L["UNITFRAME_CLICK_EDGE_GAME"] = "Same as the game's setting"
+L["UNITFRAME_CLICK_EDGE_UP"] = "Released"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once a session, when another addon keeps taking a unit frame back the moment Debind
 -- takes it. Debind gives that frame up; the addon that wanted it keeps working there.

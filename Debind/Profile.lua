@@ -2244,6 +2244,14 @@ function DebindPrivate.TakesPackFrames(addon)
     return blacklist == nil or blacklist.addons[addon] ~= false;
 end
 
+--- Whether the frames of an addon we know no name for are ours to take. **One cell beside the two
+--- tables and not a row inside `addons`**, because a name reserved there is a name some addon's
+--- folder may have.
+function DebindPrivate.TakesOtherAddonFrames()
+    local blacklist = DebindPrivate.optionsAtLogin.frameBlacklist;
+    return blacklist == nil or blacklist.other ~= false;
+end
+
 --- Says out loud that the addon stood down. Once at login (`Events.lua`), and again every time
 --- somebody tries to open the window (`Public.lua`).
 ---

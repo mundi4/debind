@@ -101,36 +101,41 @@ return function(DebindPrivate)
         end
     end);
 
-    --- Every row from the first unit frame header up to the one before Smart Cast, as
-    --- `{ kind, name }`. A header carries its words in `data.name` the same way a box does.
-    local function unitFrameRows()
-        local out, taking = {}, false;
+    --- The rows of one category, in the order they were registered, as `{ kind, name }`. A header
+    --- and a label carry their words in `data.name` the same way a box does.
+    local function rowsOf(owner)
+        local out = {};
         for _, row in ipairs(shim.world.settingsRows) do
-            local name = row.data.name;
-            if (name == UNITFRAME_LABEL) then
-                taking = true;
-            elseif (name == DebindPrivate.L["SMART_CAST_DEFAULTS"]) then
-                break;
-            end
-            if (taking) then
-                out[#out + 1] = { row.kind, name };
+            if (row.owner == owner) then
+                out[#out + 1] = { row.kind, row.data.name };
             end
         end
         return out;
     end
 
-    --- **Two headers and one list of boxes under the second.** Grouping is what says which rows
-    --- belong together at this depth, and taking `UNITFRAME_LABEL` rather than a key of ours is
-    --- what keeps the window and the game from calling one thing two things.
+    local function unitFrameCategory()
+        return shim.world.settingsSubcategories[1];
+    end
+
+    --- **The unit frame rows are a list of their own in the left column**, and the whole of what is
+    --- on that list is asserted here: one row that is not a removal, then the blacklist under one
+    --- header, in two named groups.
     ---
-    --- **The client's seven always stand, so the blacklist header never stands empty.** The pack
-    --- rows come after them and only for what is installed, which is Grid2 alone here.
-    test("the unit frame rows stand in two headed groups", function()
+    --- **The client's seven always stand, so `Blizzard Frames` never names an empty group**, and
+    --- `Any Other Addon` is unconditional, so `Addon Frames` does not either - the Grid2 row is the
+    --- only one on this board that depends on what is installed.
+    test("the unit frame rows are their own category, headed and grouped", function()
         local L = DebindPrivate.L;
+        local subcategory = unitFrameCategory();
+        check(subcategory ~= nil, "no subcategory was made");
+        check(subcategory.name == L["UNIT_FRAME_SUPPORT"], "named " .. tostring(subcategory.name));
+        check(subcategory.parentCategory == shim.world.settingsCategory,
+            "the subcategory did not go under ours");
+
         local expected = {
-            { "header", UNITFRAME_LABEL },
             { "dropdown", L["UNITFRAME_CLICK_EDGE"] },
-            { "header", L["LEAVE_UNIT_FRAMES_ALONE"] },
+            { "header", L["FRAME_BLACKLIST"] },
+            { "element", L["FRAME_BLACKLIST_BLIZZARD"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_PLAYER"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_PET"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_TARGET"] },
@@ -138,28 +143,75 @@ return function(DebindPrivate)
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_RAID"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_BOSS"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_ARENA"] },
+            { "element", L["FRAME_BLACKLIST_ADDONS"] },
             { "checkbox", "Grid2 |cff00ff00Raid Frames|r" },
+            { "checkbox", L["LEAVE_OTHER_ADDON_FRAMES"] },
         };
-        local rows = unitFrameRows();
-        check(#rows == #expected, "the section holds " .. #rows .. " rows, not " .. #expected);
+        local rows = rowsOf(subcategory);
+        check(#rows == #expected, "the category holds " .. #rows .. " rows, not " .. #expected);
         for i = 1, #expected do
             check(rows[i][1] == expected[i][1] and rows[i][2] == expected[i][2],
                 i .. ": " .. tostring(rows[i][1]) .. " " .. tostring(rows[i][2]));
         end
     end);
 
-    --- **No box here is the parent of another, and a parent is what indentation would say.** Every
-    --- one of them only takes something away, so two being off at once needs no explaining; a
-    --- nesting would claim the child means nothing while the parent is off, which is not true of
-    --- any pair here. Asserting the flatness is what keeps somebody from reaching for a parent box
-    --- later without reading why it was left out.
-    test("no unit frame row is indented under another", function()
-        for _, row in ipairs(shim.world.settingsRows) do
-            local variable = row.data.setting and row.data.setting.variable;
-            if (variable and strfind(variable, "UNIT_FRAMES", 1, true)) then
-                check(row:GetIndent() == 0, variable .. " is indented");
+    --- **No unit frame row is on the top category any more.** Moving the group and leaving one row
+    --- behind is the mistake this asks about, and on screen it reads as a stray box under the
+    --- slider rather than as anything missing.
+    test("no unit frame row was left on the top category", function()
+        for _, row in ipairs(rowsOf(shim.world.settingsCategory)) do
+            local name = row[2];
+            check(name ~= UNITFRAME_LABEL, "the old unit frame header is still on the top list");
+            check(name ~= DebindPrivate.L["FRAME_BLACKLIST"], "the blacklist header is on the top list");
+        end
+        for variable in pairs(shim.world.settings) do
+            local row;
+            for _, r in ipairs(shim.world.settingsRows) do
+                if (r.data.setting and r.data.setting.variable == variable) then row = r; end
+            end
+            if (row and (strfind(variable, "UNIT_FRAMES", 1, true)
+                    or strfind(variable, "PACK_FRAMES", 1, true))) then
+                check(row.owner == unitFrameCategory(), variable .. " is not in the subcategory");
             end
         end
+    end);
+
+    --- **A blacklist box is one step in under the label naming its group, and no further.** The two
+    --- labels are what say which run a box belongs to, and a box left flush with them reads as a
+    --- third group name rather than as a member of one.
+    ---
+    --- **No box here is the parent of another.** Every one of them only takes something away, so two
+    --- being ticked at once needs no explaining; a nesting would claim the child means nothing while
+    --- the parent is off, which is true of no pair here. What indents these is the label above them,
+    --- and the label is not a control.
+    test("every blacklist box is indented one step and none is parented", function()
+        local step;
+        for _, row in ipairs(shim.world.settingsRows) do
+            local variable = row.data.setting and row.data.setting.variable;
+            if (variable and (strfind(variable, "UNIT_FRAMES", 1, true)
+                    or strfind(variable, "PACK_FRAMES", 1, true)
+                    or strfind(variable, "LEAVE_OTHER_ADDON_FRAMES", 1, true))) then
+                local indent = row:GetIndent();
+                check(indent > 0, variable .. " is flush with the label naming its group");
+                step = step or indent;
+                check(indent == step, variable .. " is indented " .. indent .. ", not " .. step);
+                check(row.parentInitializer == nil, variable .. " was given a parent box");
+            end
+        end
+        check(step ~= nil, "no blacklist box was found at all");
+    end);
+
+    --- **The click edge is not one of them.** It is the row above the header that takes nothing
+    --- away, so an indent on it would file it under a group it is not in.
+    test("the click edge row is not indented", function()
+        for _, row in ipairs(shim.world.settingsRows) do
+            local variable = row.data.setting and row.data.setting.variable;
+            if (variable == "DEBIND_UNITFRAME_CLICK_EDGE") then
+                check(row:GetIndent() == 0, "the click edge row was indented into the blacklist");
+                return;
+            end
+        end
+        check(false, "there is no click edge row");
     end);
 
     ---------------------------------------------------------------------------
@@ -547,6 +599,85 @@ return function(DebindPrivate)
         setting("SMART_CAST_ENABLED"):SetValue(false);
         check(DebindPrivate.IsReloadRequired() == false,
             "그 자리에서 반영되는 옵션이 리로드를 요구했다");
+        setting("SMART_CAST_ENABLED"):SetValue(true);
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 리로드 버튼
+    ---------------------------------------------------------------------------
+
+    local function reloadButton()
+        for _, row in ipairs(shim.world.settingsRows) do
+            if (row.kind == "button" and row.data.buttonText == RELOADUI) then
+                return row;
+            end
+        end
+    end
+
+    --- **행은 언제나 서고 버튼만 회색이 된다.** 필요할 때만 세우는 것은 `ShouldShow`고, 그것이
+    --- 패널이 행을 넣었다 뺐다 하는 것이라 이 파일이 못 하는 하나다(`Options.lua` 머리 주석).
+    --- 여기서 재는 것은 그 행이 언제나 있다는 것과, 눌리는지를 술어가 가른다는 것 둘이다.
+    test("the Reload button always stands and is greyed until a reload is owed", function()
+        local row = reloadButton();
+        check(row ~= nil, "리로드 버튼 행이 없다");
+        check(row.shownPredicates == nil, "리로드 버튼이 shown predicate를 달고 있다");
+        check(row.data.buttonClick == ReloadUI, "누르면 리로드하는 것이 아니다");
+        check(row:IsModifiable() == false, "리로드가 필요 없는데 버튼이 눌린다");
+
+        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(true);
+        check(row:IsModifiable() == true, "리로드가 필요해졌는데 버튼이 회색이다");
+
+        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(false);
+        check(row:IsModifiable() == false, "값을 되돌렸는데 버튼이 켜진 채로 남았다");
+    end);
+
+    --- **술어만으로는 다시 안 읽힌다.** `EvaluateState`가 도는 축은 넷뿐이고 상자를 체크하는 것은
+    --- 그중 아무것도 아니라(`Blizzard_SettingControls.lua`), 부모 setting의 값 변경이 우리가 쓸 수
+    --- 있는 유일한 방아쇠다. 그 연결이 끊기면 버튼은 회색인 채로 있다가 스크롤에나 켜지고, 아무
+    --- 에러도 안 난다.
+    test("the Reload button's parent setting is the answer itself", function()
+        local row = reloadButton();
+        local parent = row.parentInitializer;
+        check(parent ~= nil, "부모 이니셜라이저가 없다 - 재평가 방아쇠가 없다는 뜻이다");
+
+        local parentSetting = parent:GetSetting();
+        check(parentSetting ~= nil, "부모에 setting이 없다 - 행이 걸 이벤트가 없다");
+        check(parentSetting:GetValue() == DebindPrivate.IsReloadRequired(),
+            "부모 setting의 값이 술어와 다른 것을 답한다");
+
+        --- **부모는 레이아웃에 안 들어간다.** 들어가면 `IsParentInitializerInLayout`이 참이 되어
+        --- 버튼이 들여쓰기되고 작은 글씨가 된다. 안 그린 행이 목록에 서는 것은 덤이다.
+        for _, other in ipairs(shim.world.settingsRows) do
+            check(other ~= parent, "부모 체크박스가 행으로 등록됐다");
+        end
+    end);
+
+    --- **쓰는 쪽.** 술어는 그 자리에서 계산되니 값을 읽어보는 것으로는 이걸 못 잰다 - 상자 setter가
+    --- 부모를 안 밀어도 `GetValue()`는 맞는 답을 낸다. 재야 하는 것은 **밀었느냐**다. 안 밀면 행이
+    --- 듣는 이벤트가 안 나가고 버튼은 회색인 채로 남으며, 아무 에러도 안 난다.
+    test("every box that needs a reload pushes the parent setting", function()
+        local variable = reloadButton().parentInitializer:GetSetting():GetVariable();
+
+        local function pushedBy(key, value)
+            local pushes = shim.world.settingPushes;
+            for i = #pushes, 1, -1 do pushes[i] = nil; end
+            setting(key):SetValue(value);
+            for i = 1, #pushes do
+                if (pushes[i] == variable) then return true; end
+            end
+            return false;
+        end
+
+        check(pushedBy("BLIZZARD_UNIT_FRAMES_PARTY", true), "블리자드 상자가 부모를 안 밀었다");
+        check(pushedBy("BLIZZARD_UNIT_FRAMES_PARTY", false), "되돌릴 때도 밀어야 한다");
+        check(pushedBy("PACK_FRAMES_GRID2", true), "팩 상자가 부모를 안 밀었다");
+        check(pushedBy("PACK_FRAMES_GRID2", false), "되돌릴 때도 밀어야 한다");
+        check(pushedBy("LEAVE_OTHER_ADDON_FRAMES", true), "그 밖의 애드온 상자가 부모를 안 밀었다");
+        check(pushedBy("LEAVE_OTHER_ADDON_FRAMES", false), "되돌릴 때도 밀어야 한다");
+
+        --- 반대쪽. 없이는 "언제나 민다"로 고쳐놔도 초록이 나온다.
+        check(not pushedBy("SMART_CAST_ENABLED", false),
+            "리로드가 필요 없는 옵션까지 부모를 밀고 있다");
         setting("SMART_CAST_ENABLED"):SetValue(true);
     end);
 

@@ -30,6 +30,19 @@ local VAR = "DEBIND_";
 
 local _category;
 
+--- The hidden setting the Reload button hangs off. Its value is `IsReloadRequired()` and its setter
+--- does nothing: what moves it is the option somebody just wrote, not this.
+local _reloadRequired;
+
+--- Says a reload-needing option has been written. **Called by those setters and nowhere else** --
+--- the value is worked out on the spot, so what this carries is the fact that the answer may have
+--- moved, not the answer.
+function DebindPrivate.NotifyReloadRequired()
+    if (_reloadRequired) then
+        _reloadRequired:SetValue(DebindPrivate.IsReloadRequired());
+    end
+end
+
 --- What the gear on the title bar does (`DebindUI.lua`). Our own window is left where it is.
 function DebindPrivate.OpenOptionsCategory()
     if (not _category) then
@@ -49,15 +62,34 @@ function DebindPrivate.RegisterOptionsCategory()
     local category = Settings.RegisterVerticalLayoutCategory(L["ADDON_NAME"]);
     _category = category;
 
-    local function Proxy(variable, varType, name, default, get, set)
-        return Settings.RegisterProxySetting(category, VAR .. variable, varType, name, default,
+    --- **The owner is passed rather than closed over, because there are two of them now.** The unit
+    --- frame rows live in a subcategory of their own and everything else stays on this one; a
+    --- helper that remembered which was current would put a row in the wrong list the day somebody
+    --- moves one, and say nothing about it.
+    local function Proxy(owner, variable, varType, name, default, get, set)
+        return Settings.RegisterProxySetting(owner, VAR .. variable, varType, name, default,
             get, set);
     end
 
-    local function Header(name, tooltip)
+    local function Header(owner, name, tooltip)
         local initializer = CreateSettingsListSectionHeaderInitializer(name, tooltip);
-        Settings.RegisterInitializer(category, initializer);
+        Settings.RegisterInitializer(owner, initializer);
         return initializer;
+    end
+
+    --- A row that is a word and nothing else, for naming the group of boxes under it.
+    ---
+    --- **A second section header would not have shown a level.** Headers do not nest: one under
+    --- `Blacklist` would stand in the same weight beside it and read as a third heading rather than
+    --- as its child. `SettingsExpandableSectionTemplate` is the only thing in the client that
+    --- groups, and expanding is adding and dropping rows, which this file may not ask for (see the
+    --- top) - on top of `OnExpandedChanged` and `GetExtent` being ours to write.
+    ---
+    --- So it is the shape the notice row already proved: our own template, one font string, a fixed
+    --- height, and nothing hung on the initializer that the panel reads bare.
+    local function Label(owner, name)
+        Settings.RegisterInitializer(owner, Settings.CreateElementInitializer(
+            "DebindSettingsLabelTemplate", { name = name }));
     end
 
     --------------------------------------------------------------------------
@@ -90,116 +122,43 @@ function DebindPrivate.RegisterOptionsCategory()
             DebindPublic:ToggleUI();
         end, nil, addSearchTags));
 
-    --------------------------------------------------------------------------
-    -- Unit frames
-    --------------------------------------------------------------------------
-
-    --- **The client's own words for the section.** Every locale already carries `UNITFRAME_LABEL`,
-    --- so there is nothing to translate and the game changing its wording carries us along.
-    Header(UNITFRAME_LABEL);
-
-    --- **A dropdown value cannot be `nil`, and one of the three answers is.** So the three are
-    --- folded onto three strings here and unfolded on the way back in. `nil` is not the absence of
-    --- an answer: it is "whatever the game does", which `ApplyOptions` resolves off the CVar.
-    local function GetClickEdge()
-        local stored = DebindPrivate.Options.unitframeUseMouseDown;
-        if (stored == nil) then
-            return "game";
-        end
-        if (stored) then
-            return "down";
-        end
-        return "up";
-    end
-
-    local function SetClickEdge(value)
-        local stored;
-        if (value == "down") then
-            stored = true;
-        elseif (value == "up") then
-            stored = false;
-        end
-        DebindPrivate.Options.unitframeUseMouseDown = stored;
-        DebindPrivate.QueueUpdateBindings();
-    end
-
-    local function ClickEdgeOptions()
-        local container = Settings.CreateControlTextContainer();
-        container:Add("game", L["UNITFRAME_CLICK_EDGE_GAME"]);
-        container:Add("down", L["UNITFRAME_CLICK_EDGE_DOWN"]);
-        container:Add("up", L["UNITFRAME_CLICK_EDGE_UP"]);
-        return container:GetData();
-    end
-
-    local clickEdge = Proxy("UNITFRAME_CLICK_EDGE", Settings.VarType.String,
-        L["UNITFRAME_CLICK_EDGE"], "game", GetClickEdge, SetClickEdge);
-    Settings.CreateDropdown(category, clickEdge, ClickEdgeOptions,
-        format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN));
-
-    --- **One list, and every box in it takes something away.** Every unit frame in the game is
-    --- ours and the reader's only lever is naming one to leave alone
-    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`), so a reader who has
-    --- touched nothing sees every box empty and that is what "all of them" looks like. A negative
-    --- box is the client's own vocabulary at this depth ("Hide ..." and its kin).
+    --- **The row always stands and only the button greys.** Showing it when a reload is owed and
+    --- hiding it otherwise is `ShouldShow`, which is the panel adding and dropping a row -- the one
+    --- thing this file may not ask for (see the top).
     ---
-    --- **The client's seven windows always stand, so the header always has rows under it.** The
-    --- pack rows come and go with what is installed, and a header with nothing under it would be
-    --- left standing on a board with no pack at all.
-    Header(L["LEAVE_UNIT_FRAMES_ALONE"]);
-
-    --- **Ticking one takes effect at the next login, and the box has to say so.** A frame already
-    --- wired stays wired; ticking stops us registering that set from the next login rather than
-    --- handing back what is on screen. `REQUIRES_RELOAD` is the client's own words for that.
+    --- **A modify predicate on its own would never be read again.** `EvaluateState` is what reads
+    --- it, and it runs on four axes: the row's `Init`, a parent setting's value moving, a frame
+    --- event the row asked for, and a CVar (`Blizzard_SettingControls.lua`). Ticking one of our
+    --- boxes is none of them, so the button would sit grey until the row happened to be built
+    --- again by a scroll.
     ---
-    --- **Storage keeps the polarity it already had.** `false` is "leave alone" and the key gone is
-    --- "ours", which is what these two tables have always held; only the box reads the other way
-    --- round.
-    for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
-        local key = "BLIZZARD_UNIT_FRAMES_" .. strupper(frameType);
-        Settings.CreateCheckbox(category, Proxy(key, Settings.VarType.Boolean, L[key], false,
-            function()
-                return DebindPrivate.Options.frameBlacklist.blizzard[frameType] == false;
-            end,
-            function(value)
-                if (value) then
-                    DebindPrivate.Options.frameBlacklist.blizzard[frameType] = false;
-                else
-                    DebindPrivate.Options.frameBlacklist.blizzard[frameType] = nil;
-                end
-                DebindPrivate.QueueUpdateBindings();
-            end), L["LEAVE_UNIT_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
-    end
-
-    --- **Only the packs that are installed.** A row for an addon the reader does not have says
-    --- nothing they can act on. Left alone is `false` and ours is the key gone, so a pack nobody
-    --- touched and one handed back to us are the same row: absent.
+    --- **So the parent setting is the answer itself.** Its getter is the predicate, and
+    --- `NotifyReloadRequired` pushes it whenever a box that needs a reload is written;
+    --- `SettingMixin:ApplyValue` fires the value-changed event whether or not the value moved
+    --- (`Blizzard_Setting.lua`), which is what the row is listening on. One thing does both jobs,
+    --- so there is no second copy of the answer to keep in step.
     ---
-    --- **Ticked, that addon is not touched at all**, whichever way its frames would have reached
-    --- us, the ones it hands over included. Which is why the tooltip says nothing about handing
-    --- over: that is the vocabulary of somebody who knows the Clique API, and the answer here does
-    --- not depend on it.
-    local packs = DebindPrivate.LoadedKnownPacks();
-    for i = 1, #packs do
-        local addon = packs[i][1];
-        Settings.CreateCheckbox(category, Proxy("PACK_FRAMES_" .. strupper(addon),
-            Settings.VarType.Boolean, packs[i][2], false,
-            function()
-                return DebindPrivate.Options.frameBlacklist.addons[addon] == false;
-            end,
-            function(value)
-                if (value) then
-                    DebindPrivate.Options.frameBlacklist.addons[addon] = false;
-                else
-                    DebindPrivate.Options.frameBlacklist.addons[addon] = nil;
-                end
-            end), L["LEAVE_PACK_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
-    end
+    --- **Its initializer is never registered**, which is what `CreateCheckboxInitializer` is for
+    --- (`Blizzard_Settings.lua` makes one without laying it out). `IsParentInitializerInLayout`
+    --- then answers false, so the button is neither indented nor put in the smaller font -- a
+    --- parent outside the layout is a shape Blizzard writes for.
+    ---
+    --- **The predicate does not ask about combat.** `SetButtonState` is `Button:SetEnabled` on a
+    --- `UIPanelButtonTemplate` (`Blizzard_SettingControls.lua`), which no lockdown blocks, and
+    --- `ReloadUI` is the reader's to press whenever they like.
+    _reloadRequired = Proxy(category, "RELOAD_REQUIRED", Settings.VarType.Boolean, RELOADUI, false,
+        DebindPrivate.IsReloadRequired, function() end);
+
+    local reloadButton = CreateSettingsButtonInitializer("", RELOADUI, ReloadUI, nil, addSearchTags);
+    reloadButton:SetParentInitializer(Settings.CreateCheckboxInitializer(_reloadRequired),
+        DebindPrivate.IsReloadRequired);
+    Settings.RegisterInitializer(category, reloadButton);
 
     --------------------------------------------------------------------------
     -- Smart Cast
     --------------------------------------------------------------------------
 
-    Header(L["SMART_CAST_DEFAULTS"],
+    Header(category, L["SMART_CAST_DEFAULTS"],
         L["SMART_CAST_DESC"] .. "|n|n" .. L["SMART_CAST_DEFAULTS_DESC"]);
 
     --- **The table is made only when something has to be written into it.** Coming back to the
@@ -224,7 +183,7 @@ function DebindPrivate.RegisterOptionsCategory()
     -- **The master switch first, then the account setting the four boxes hold.** Off ignores every
     -- action's option rather than clearing anything, so it is not one of the four.
     local enabled = Settings.CreateCheckbox(category,
-        Proxy("SMART_CAST_ENABLED", Settings.VarType.Boolean, L["SMART_CAST_ENABLED"], true,
+        Proxy(category, "SMART_CAST_ENABLED", Settings.VarType.Boolean, L["SMART_CAST_ENABLED"], true,
             DebindPrivate.SmartCastEnabled,
             function(value)
                 SetSmartCast("enabled", value, true);
@@ -248,7 +207,7 @@ function DebindPrivate.RegisterOptionsCategory()
 
     local function SmartCastCheckbox(key, label, tooltip)
         return Settings.CreateCheckbox(category,
-            Proxy("SMART_CAST_" .. strupper(key), Settings.VarType.Boolean, label,
+            Proxy(category, "SMART_CAST_" .. strupper(key), Settings.VarType.Boolean, label,
                 DebindPrivate.SMART_CAST_DEFAULTS[key] and true or false,
                 function()
                     return DebindPrivate.SmartCastDefault(key) and true or false;
@@ -297,15 +256,18 @@ function DebindPrivate.RegisterOptionsCategory()
     end
 
     --------------------------------------------------------------------------
-    -- Special units
+    -- Don't Count Myself As
     --------------------------------------------------------------------------
 
-    Header(L["SPECIAL_UNITS"]);
+    --- **The sentence is on the header and the four rows are just the role names.** Every box says
+    --- the same thing about a different role, so repeating it four times is four copies of one
+    --- line; on the header it is read once, over the rows it covers.
+    Header(category, L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
 
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;
     for _, unit in ipairs(DebindPrivate.EXCLUDE_PLAYER_UNITS) do
         Settings.CreateCheckbox(category,
-            Proxy("EXCLUDE_PLAYER_" .. strupper(unit), Settings.VarType.Boolean,
+            Proxy(category, "EXCLUDE_PLAYER_" .. strupper(unit), Settings.VarType.Boolean,
                 UNIT_INFO[unit].name, false,
                 function()
                     local excluded = DebindPrivate.Options.excludePlayer;
@@ -323,16 +285,19 @@ function DebindPrivate.RegisterOptionsCategory()
                         excluded[unit] = nil;
                     end
                     DebindPrivate.QueueUpdateBindings();
-                end),
-            L["EXCLUDE_PLAYER_DESC"]);
+                end));
     end
 
     --------------------------------------------------------------------------
-    -- The state driver
+    -- Miscellaneous
     --------------------------------------------------------------------------
 
+    --- **The client's own word.** One row is not a subject, and whatever else ends up here will be
+    --- the same kind of leftover, so the game's own heading for that is the one to use.
+    Header(category, MISCELLANEOUS);
+
     local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-    local throttle = Proxy("STATE_DRIVER_UPDATE_THROTTLE", Settings.VarType.Number,
+    local throttle = Proxy(category, "STATE_DRIVER_UPDATE_THROTTLE", Settings.VarType.Number,
         L["STATE_DRIVER_UPDATE_THROTTLE"], defaultThrottle,
         function()
             return DebindPrivate.Options.stateDriverUpdateThrottle or defaultThrottle;
@@ -359,6 +324,165 @@ function DebindPrivate.RegisterOptionsCategory()
         return L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] .. "|n|n"
             .. "|cnRED_FONT_COLOR:" .. L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] .. "|r";
     end);
+
+    --------------------------------------------------------------------------
+    -- Unit Frame Support
+    --------------------------------------------------------------------------
+
+    --- **A list of its own in the panel's left column.** What belongs here is every decision about
+    --- somebody else's unit frames, and that had grown past one section header on a page of
+    --- unrelated things.
+    ---
+    --- **Named for the subject and not for the blacklist**, even though the blacklist is most of the
+    --- rows. The click edge takes nothing away, and a list called `Frame Blacklist` has no room for
+    --- a row that is not a removal.
+    ---
+    --- **The subcategory needs no `RegisterAddOnCategory` of its own**: it is created on the parent
+    --- (`PrivateSettingsCategoryMixin.CreateSubcategory`) and goes into the panel with it.
+    local unitFrames = Settings.RegisterVerticalLayoutSubcategory(category, L["UNIT_FRAME_SUPPORT"]);
+
+    --- **No header over this row.** It is the only one that is not part of the blacklist, and the
+    --- category's own name in the left column already says what the page is about; a header over a
+    --- single dropdown names a group of one.
+    ---
+    --- **A dropdown value cannot be `nil`, and one of the three answers is.** So the three are
+    --- folded onto three strings here and unfolded on the way back in. `nil` is not the absence of
+    --- an answer: it is "whatever the game does", which `ApplyOptions` resolves off the CVar.
+    local function GetClickEdge()
+        local stored = DebindPrivate.Options.unitframeUseMouseDown;
+        if (stored == nil) then
+            return "game";
+        end
+        if (stored) then
+            return "down";
+        end
+        return "up";
+    end
+
+    local function SetClickEdge(value)
+        local stored;
+        if (value == "down") then
+            stored = true;
+        elseif (value == "up") then
+            stored = false;
+        end
+        DebindPrivate.Options.unitframeUseMouseDown = stored;
+        DebindPrivate.QueueUpdateBindings();
+    end
+
+    local function ClickEdgeOptions()
+        local container = Settings.CreateControlTextContainer();
+        container:Add("game", L["UNITFRAME_CLICK_EDGE_GAME"]);
+        container:Add("down", L["UNITFRAME_CLICK_EDGE_DOWN"]);
+        container:Add("up", L["UNITFRAME_CLICK_EDGE_UP"]);
+        return container:GetData();
+    end
+
+    local clickEdge = Proxy(unitFrames, "UNITFRAME_CLICK_EDGE", Settings.VarType.String,
+        L["UNITFRAME_CLICK_EDGE"], "game", GetClickEdge, SetClickEdge);
+    Settings.CreateDropdown(unitFrames, clickEdge, ClickEdgeOptions,
+        format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN));
+
+    --- **One list, and every box in it takes something away.** Every unit frame in the game is
+    --- ours and the reader's only lever is naming one to leave alone
+    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`), so a reader who has
+    --- touched nothing sees every box empty and that is what "all of them" looks like.
+    ---
+    --- **The word carries the polarity, so no sentence has to.** Somebody who has installed a
+    --- click-casting addon knows what a blacklist is, and knows a ticked row is one that is out.
+    Header(unitFrames, L["FRAME_BLACKLIST"]);
+
+    --- **The two groups are label rows and not headers**, because a header under a header stands in
+    --- the same weight beside it and shows no level. See `Label` above.
+    Label(unitFrames, L["FRAME_BLACKLIST_BLIZZARD"]);
+
+    --- **Ticking one takes effect at the next login, and the box has to say so.** A frame already
+    --- wired stays wired; ticking stops us registering that set from the next login rather than
+    --- handing back what is on screen. `REQUIRES_RELOAD` is the client's own words for that, and
+    --- the gate reads the login snapshot so unticking waits the same way (`Profile.lua`).
+    ---
+    --- **Storage keeps the polarity it already had.** `false` is "leave alone" and the key gone is
+    --- "ours", which is what these two tables have always held; only the box reads the other way
+    --- round.
+    ---
+    --- **No rebuild is asked for.** Nothing a rebuild does reads the blacklist any more, so what
+    --- the write owes is the Reload button and nothing else.
+    for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
+        local key = "BLIZZARD_UNIT_FRAMES_" .. strupper(frameType);
+        Settings.CreateCheckbox(unitFrames,
+            Proxy(unitFrames, key, Settings.VarType.Boolean, L[key], false,
+                function()
+                    return DebindPrivate.Options.frameBlacklist.blizzard[frameType] == false;
+                end,
+                function(value)
+                    if (value) then
+                        DebindPrivate.Options.frameBlacklist.blizzard[frameType] = false;
+                    else
+                        DebindPrivate.Options.frameBlacklist.blizzard[frameType] = nil;
+                    end
+                    DebindPrivate.NotifyReloadRequired();
+                end),
+            L["LEAVE_UNIT_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
+    end
+
+    Label(unitFrames, L["FRAME_BLACKLIST_ADDONS"]);
+
+    --- **Only the packs that are installed.** A row for an addon the reader does not have says
+    --- nothing they can act on. Left alone is `false` and ours is the key gone, so a pack nobody
+    --- touched and one handed back to us are the same row: absent.
+    ---
+    --- **Ticked, that addon is not touched at all**, whichever way its frames would have reached
+    --- us, the ones it hands over included. Which is why the tooltip says nothing about handing
+    --- over: that is the vocabulary of somebody who knows the Clique API, and the answer here does
+    --- not depend on it.
+    local packs = DebindPrivate.LoadedKnownPacks();
+    for i = 1, #packs do
+        local addon = packs[i][1];
+        Settings.CreateCheckbox(unitFrames,
+            Proxy(unitFrames, "PACK_FRAMES_" .. strupper(addon),
+                Settings.VarType.Boolean, packs[i][2], false,
+                function()
+                    return DebindPrivate.Options.frameBlacklist.addons[addon] == false;
+                end,
+                function(value)
+                    if (value) then
+                        DebindPrivate.Options.frameBlacklist.addons[addon] = false;
+                    else
+                        DebindPrivate.Options.frameBlacklist.addons[addon] = nil;
+                    end
+                    DebindPrivate.NotifyReloadRequired();
+                end),
+            L["LEAVE_PACK_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
+    end
+
+    --- **The last row, and the last way out.** Everything above names something we know; this names
+    --- everything we do not, so somebody whose frames are broken by an addon we have never heard of
+    --- has an answer today instead of waiting for its name to reach `KNOWN_PACK_FRAMES`.
+    ---
+    --- **Deliberately blunt.** It takes an addon that hands its frames over politely with the rest,
+    --- which is a loss - but whoever ticks this already has something broken, and a last resort
+    --- that has to be aimed is not one.
+    ---
+    --- **Its cell sits beside `addons` and not inside it.** A reserved name in that table is a name
+    --- some addon's folder may have, and the two would answer as one with nothing said.
+    ---
+    --- **The row always stands**, so `Addon Frames` above never has an empty group under it and
+    --- there is no board with no packs to draw differently.
+    Settings.CreateCheckbox(unitFrames,
+        Proxy(unitFrames, "LEAVE_OTHER_ADDON_FRAMES", Settings.VarType.Boolean,
+            L["LEAVE_OTHER_ADDON_FRAMES"], false,
+            function()
+                return DebindPrivate.Options.frameBlacklist.other == false;
+            end,
+            function(value)
+                if (value) then
+                    DebindPrivate.Options.frameBlacklist.other = false;
+                else
+                    DebindPrivate.Options.frameBlacklist.other = nil;
+                end
+                DebindPrivate.NotifyReloadRequired();
+            end),
+        L["LEAVE_OTHER_ADDON_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
 
     Settings.RegisterAddOnCategory(category);
 end
@@ -410,4 +534,12 @@ function DebindSettingsNoticeMixin:Init(initializer)
     _noticeFrame = self;
     self.Text:SetText(initializer:GetName());
     self.Text:SetTextColor(NoticeColor():GetRGB());
+end
+
+--- The group name over a run of boxes. **Its whole job is one `SetText`**: no colour, no events and
+--- no state, which is what keeps it inside the rule the notice row above had to argue for.
+DebindSettingsLabelMixin = {};
+
+function DebindSettingsLabelMixin:Init(initializer)
+    self.Text:SetText(initializer:GetName());
 end

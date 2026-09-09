@@ -714,12 +714,24 @@ function DebindPrivate.RegisterFrame(button, type)
     --- group headers. What the box did depended on which layout that reader had picked
     --- (`devdocs/legacy/drawing-the-unit-frame-option-boundary.md`).
     ---
-    --- **A name no row covers is nobody's to leave alone**, which is the whole of the decision
-    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`): the seven client windows
-    --- and the installed packs are the only things the reader can take out, and Blizzard's seven
-    --- are asked one door earlier (`registerBlizzardFrame`).
+    --- **A name no row covers is answered by the last box instead of by nobody**
+    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` decided the first half; the
+    --- second is `Any Other Addon`). Blizzard's seven are asked one door earlier
+    --- (`registerBlizzardFrame`) and are exempt here for that reason: `blizzardFrames` holds every
+    --- frame that door has seen, `false` in it meaning a compact frame it could not sort, which is
+    --- still not somebody else's addon.
+    ---
+    --- **It takes every addon we do not know by name, the ones that hand their frames over
+    --- included.** Refusing only the frames nobody offered would be a line no tooltip can draw:
+    --- "offered" is the vocabulary of the Clique API, and a reader ticking this has something
+    --- broken and needs the blunt answer.
     local pack = PackAddonForFrame(button);
-    if (pack and not DebindPrivate.TakesPackFrames(pack)) then
+    if (pack) then
+        if (not DebindPrivate.TakesPackFrames(pack)) then
+            return;
+        end
+    elseif (DebindPrivate.blizzardFrames[button] == nil
+            and not DebindPrivate.TakesOtherAddonFrames()) then
         return;
     end
 

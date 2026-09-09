@@ -32,6 +32,11 @@ M.world = {
     --- category and the rows in the order they were added (`settingsCategory`, `settingsRows`).
     settings = {},
     settingsRows = {},
+    --- The lists in the panel's left column under ours, in the order they were made.
+    settingsSubcategories = {},
+    --- Every `SetValue` that reached a setting, by variable name and in order, whether or not the
+    --- value moved. What the client fires from there is what wakes a row watching a parent setting.
+    settingPushes = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -848,11 +853,37 @@ function M.install()
         return category;
     end
 
+    --- **The second list in the panel's left column**, and the client returns the layout beside it
+    --- (`Blizzard_SettingsInbound.lua`). A subcategory takes no `RegisterAddOnCategory` of its own.
+    function Settings.RegisterVerticalLayoutSubcategory(parentCategory, name)
+        assert(parentCategory ~= nil and type(name) == "string");
+        local subcategory = { name = name, id = name, parentCategory = parentCategory };
+        function subcategory:GetID() return self.id; end
+        M.world.settingsSubcategories[#M.world.settingsSubcategories + 1] = subcategory;
+        return subcategory, {};
+    end
+
+    --- **An initializer without a row**, which is the whole point of it: the Reload button hangs off
+    --- one as a parent, and it is never registered into a layout.
+    function Settings.CreateCheckboxInitializer(setting, options, tooltip)
+        assert(setting:GetVariableType() == "boolean");
+        local initializer = newInitializer("checkbox",
+            { setting = setting, options = options, tooltip = tooltip });
+        --- The row it would have made was counted the moment it was built, and it is not a row.
+        --- Left in, every spec that walks the list finds one nothing draws.
+        M.world.settingsRows[#M.world.settingsRows] = nil;
+        initializer.inLayout = false;
+        return initializer;
+    end
+
     function Settings.RegisterAddOnCategory(category)
         category.registered = true;
     end
 
-    function Settings.RegisterInitializer(_, initializer)
+    --- **Which list the row went into is kept**, because there are two of them now and a row landing
+    --- on the wrong one is exactly what a spec has to be able to see.
+    function Settings.RegisterInitializer(owner, initializer)
+        initializer.owner = owner;
         return initializer;
     end
 
@@ -867,10 +898,17 @@ function M.install()
             defaultValue = defaultValue,
         };
         function setting:GetVariable() return self.variable; end
+        function setting:GetVariableType() return self.variableType; end
         function setting:GetName() return self.name; end
         function setting:GetDefaultValue() return self.defaultValue; end
         function setting:GetValue() return getValue(); end
+        --- **The write and the event are two things, and only the write is conditional.**
+        --- `SettingMixin:ApplyValue` calls `SetValueDerived` only where the value moved but fires
+        --- `TriggerValueChanged` either way (`Blizzard_Setting.lua`), and that unconditional event
+        --- is what a row listening on a parent setting is woken by. A stand-in that skipped it
+        --- would have the Reload button's whole trigger path passing on nothing.
         function setting:SetValue(value)
+            M.world.settingPushes[#M.world.settingPushes + 1] = self.variable;
             if (getValue() == value) then
                 return;
             end
@@ -904,21 +942,31 @@ function M.install()
         return options;
     end
 
-    function Settings.CreateCheckbox(_, setting, tooltip)
+    --- **The owner is kept on these too**, and not only on `RegisterInitializer`'s rows: a control
+    --- goes into whichever category it was handed, so which list a box is on is a thing a spec has
+    --- to be able to read off it.
+    function Settings.CreateCheckbox(owner, setting, tooltip)
         assert(setting.variableType == "boolean");
-        return newInitializer("checkbox", { setting = setting, name = setting:GetName(), tooltip = tooltip });
+        local initializer = newInitializer("checkbox",
+            { setting = setting, name = setting:GetName(), tooltip = tooltip });
+        initializer.owner = owner;
+        return initializer;
     end
 
-    function Settings.CreateDropdown(_, setting, options, tooltip)
+    function Settings.CreateDropdown(owner, setting, options, tooltip)
         assert(options ~= nil);
-        return newInitializer("dropdown",
+        local initializer = newInitializer("dropdown",
             { setting = setting, name = setting:GetName(), options = options, tooltip = tooltip });
+        initializer.owner = owner;
+        return initializer;
     end
 
-    function Settings.CreateSlider(_, setting, options, tooltip)
+    function Settings.CreateSlider(owner, setting, options, tooltip)
         assert(options ~= nil);
-        return newInitializer("slider",
+        local initializer = newInitializer("slider",
             { setting = setting, name = setting:GetName(), options = options, tooltip = tooltip });
+        initializer.owner = owner;
+        return initializer;
     end
 
     function Settings.OpenToCategory(categoryID)
@@ -933,6 +981,12 @@ function M.install()
     -- The client's own name for the thing, taken straight as the first unit frame section header
     -- rather than given a key of ours (`Options.lua`).
     _G.UNITFRAME_LABEL = "Unit Frames";
+    -- The client's own words for the Reload button and for the leftovers header.
+    _G.RELOADUI = "Reload UI";
+    _G.MISCELLANEOUS = "Miscellaneous";
+    --- **A stand-in and not an absence**, because the Reload button is handed this at registration.
+    --- Left nil, the row would carry nothing and a spec asserting it reloads would pass on air.
+    _G.ReloadUI = function() M.world.reloadedUI = true; end;
 end
 
 --- A tooltip to draw into, and the lines it ends up holding.
@@ -1077,8 +1131,6 @@ local ALLOWED_ABSENT = {
     -- game. `restricted.lua` asks for it by presence before it reaches for `setfenv`.
     _ENV = true,
 
-    -- Reached only from a path no spec runs: the reload the migration asks for.
-    ReloadUI = true,
 
     -- **A fixture, and the one name here that is meant to be missing.** `describe_spec` and the
     -- emission fixture both bind `PETNOSUCHCOMMAND` on purpose: a pet command the client has no

@@ -7854,6 +7854,23 @@ RegisterTest("Smart Cast: the press asks the insecure side and acts on its answe
 --- is the client's and cannot be forced, and a run that starts a fight to look at one line is not
 --- a trade worth making. The frame's own answer to the two regen events is the headless spec's.
 
+--- The rows the panel is drawing right now, by name. Returns `nil, reason`.
+local function DrawnRowNames()
+    local dataProvider = SettingsPanel:GetSettingsList().ScrollBox:GetDataProvider()
+    if not dataProvider then
+        return nil, "the list has no data provider"
+    end
+
+    local names = {}
+    for _, initializer in dataProvider:Enumerate() do
+        local name = initializer.GetName and initializer:GetName()
+        if name then
+            names[name] = true
+        end
+    end
+    return names, dataProvider:GetSize()
+end
+
 --- The panel, opened to our category, and the rows it drew. Returns `nil, reason`.
 local function OpenOurSettings()
     if InCombatLockdown() then
@@ -7882,19 +7899,33 @@ local function OpenOurSettings()
         return nil, format("the panel opened on %q", tostring(category:GetName()))
     end
 
-    local names = {}
-    local dataProvider = SettingsPanel:GetSettingsList().ScrollBox:GetDataProvider()
-    if not dataProvider then
-        return nil, "the list has no data provider"
-    end
-    for _, initializer in dataProvider:Enumerate() do
-        local name = initializer.GetName and initializer:GetName()
-        if name then
-            names[name] = true
-        end
+    local names, rows = DrawnRowNames()
+    if not names then
+        return nil, rows
     end
 
-    return { category = category, names = names, rows = dataProvider:GetSize() }
+    return { category = category, names = names, rows = rows }
+end
+
+--- The unit frame subcategory opened, and the rows it drew. Returns `nil, reason`.
+---
+--- **Found through the parent rather than remembered by the addon.** `CreateSubcategory` files it
+--- on the category (`Blizzard_Category.lua`), which is the same place the panel's own left-hand
+--- list reads it from -- so this asks the question the reader's click asks.
+local function OpenUnitFrameSettings(parentCategory)
+    for _, subcategory in ipairs(parentCategory:GetSubcategories()) do
+        if subcategory:GetName() == LLL["UNIT_FRAME_SUPPORT"] then
+            Settings.OpenToCategory(subcategory:GetID())
+            local current = SettingsPanel:GetCurrentCategory()
+            if current ~= subcategory then
+                return nil, format("the panel opened on %q instead",
+                    tostring(current and current:GetName()))
+            end
+            return DrawnRowNames()
+        end
+    end
+    return nil, format("%q has no unit frame subcategory under it",
+        tostring(parentCategory:GetName()))
 end
 
 RegisterTest("Settings: our category draws the rows we registered", {
@@ -7917,15 +7948,12 @@ RegisterTest("Settings: our category draws the rows we registered", {
         --- One of each control type, plus a row from every section. A template the panel refuses
         --- leaves its row out and nothing is raised, so what is asked is that the row is there.
         local wanted = {
-            UNITFRAME_LABEL,
-            LLL["UNITFRAME_CLICK_EDGE"],
-            LLL["LEAVE_UNIT_FRAMES_ALONE"],
-            LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
-            LLL["BLIZZARD_UNIT_FRAMES_ARENA"],
+            RELOADUI,
             LLL["SMART_CAST_DEFAULTS"],
             LLL["SMART_CAST_ENABLED"],
             LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],
             LLL["SPECIAL_UNITS"],
+            MISCELLANEOUS,
             LLL["STATE_DRIVER_UPDATE_THROTTLE"],
         }
         for i = 1, #wanted do
@@ -7934,7 +7962,69 @@ RegisterTest("Settings: our category draws the rows we registered", {
             end
         end
 
+        --- **The unit frame rows are on a list of their own and must not be on this one.** Moving
+        --- the group and leaving one row behind draws a stray box under the slider, which is a
+        --- thing to see rather than a thing that raises.
+        local strays = {
+            UNITFRAME_LABEL,
+            LLL["UNITFRAME_CLICK_EDGE"],
+            LLL["FRAME_BLACKLIST"],
+            LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
+            LLL["LEAVE_OTHER_ADDON_FRAMES"],
+        }
+        for i = 1, #strays do
+            if opened.names[strays[i]] then
+                return Fail(NAME, format("%q is still on the top list", strays[i]))
+            end
+        end
+
         return Pass(NAME, format("%d rows", opened.rows))
+    end,
+})
+
+--- **The second list, and the label rows are why it is asked for separately.** `Blizzard Frames`
+--- and `Addon Frames` are drawn from a template of ours (`DebindSettingsLabelTemplate`), and a
+--- template the panel cannot make leaves its row out **with nothing raised** -- the boxes below it
+--- then read as belonging to whatever header is above. The headless spec can only see that the
+--- initializer was registered.
+RegisterTest("Settings: the unit frame list draws its header, both labels and every box", {
+    description = "개체창 하위 항목이 머리글과 라벨 둘, 상자를 다 그린다",
+    run = function()
+        local NAME = "unit frame settings rows"
+
+        local wasShown = SettingsPanel:IsShown()
+        AddTeardown(function()
+            if not wasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
+                HideUIPanel(SettingsPanel)
+            end
+        end)
+
+        local opened, why = OpenOurSettings()
+        if not opened then
+            return Fail(NAME, why)
+        end
+
+        local names, rows = OpenUnitFrameSettings(opened.category)
+        if not names then
+            return Fail(NAME, rows)
+        end
+
+        local wanted = {
+            LLL["UNITFRAME_CLICK_EDGE"],
+            LLL["FRAME_BLACKLIST"],
+            LLL["FRAME_BLACKLIST_BLIZZARD"],
+            LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
+            LLL["BLIZZARD_UNIT_FRAMES_ARENA"],
+            LLL["FRAME_BLACKLIST_ADDONS"],
+            LLL["LEAVE_OTHER_ADDON_FRAMES"],
+        }
+        for i = 1, #wanted do
+            if not names[wanted[i]] then
+                return Fail(NAME, format("the list has no row called %q", wanted[i]))
+            end
+        end
+
+        return Pass(NAME, format("%d rows", rows))
     end,
 })
 
