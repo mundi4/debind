@@ -356,14 +356,14 @@ return function(DebindPrivate)
         local TARGET_VALUES = { false, "help", "harm", true };
         for _, combat in ipairs({ true, false }) do
             for _, stealth in ipairs({ true, false }) do
-                for _, pet in ipairs({ true, false }) do
+                for _, mounted in ipairs({ true, false }) do
                     for _, s1 in ipairs({ true, false }) do
                         for _, s2 in ipairs({ true, false }) do
                             for _, target in ipairs(TARGET_VALUES) do
                                 for _, k100 in ipairs({ true, false }) do
                                     for _, k200 in ipairs({ true, false }) do
                                         POINTS[#POINTS + 1] = {
-                                            combat = combat, stealth = stealth, pet = pet,
+                                            combat = combat, stealth = stealth, mounted = mounted,
                                             s1 = s1, s2 = s2, target = target,
                                             k100 = k100, k200 = k200,
                                         };
@@ -380,7 +380,7 @@ return function(DebindPrivate)
     local function matchesPoint(b, p)
         if (b.combat ~= nil and b.combat ~= p.combat) then return false; end
         if (b.stealth ~= nil and b.stealth ~= p.stealth) then return false; end
-        if (b.pet ~= nil and b.pet ~= p.pet) then return false; end
+        if (b.mounted ~= nil and b.mounted ~= p.mounted) then return false; end
         if (b["$state1"] ~= nil and (b["$state1"] and true or false) ~= p.s1) then return false; end
         if (b["$state2"] ~= nil and (b["$state2"] and true or false) ~= p.s2) then return false; end
 
@@ -437,7 +437,7 @@ return function(DebindPrivate)
 
     local function describe(b)
         local parts = {};
-        for _, key in ipairs({ "combat", "stealth", "pet", "$state1", "$state2" }) do
+        for _, key in ipairs({ "combat", "stealth", "mounted", "$state1", "$state2" }) do
             if (b[key] ~= nil) then
                 parts[#parts + 1] = key .. "=" .. tostring(b[key]);
             end
@@ -494,7 +494,7 @@ return function(DebindPrivate)
 
     local function randomBinding(name)
         local b = { name = name, type = Constants.SPELL, value = pick(KNOWN_SPELLS) };
-        for _, key in ipairs({ "combat", "stealth", "pet", "$state1", "$state2" }) do
+        for _, key in ipairs({ "combat", "stealth", "mounted", "$state1", "$state2" }) do
             local v = pick(TRI);
             if (v ~= "nil") then b[key] = v; end
         end
@@ -525,8 +525,8 @@ return function(DebindPrivate)
         local cells = {};
         for _, combat in ipairs({ true, false }) do
             for _, stealth in ipairs({ true, false }) do
-                for _, pet in ipairs({ true, false }) do
-                    cells[#cells + 1] = { combat = combat, stealth = stealth, pet = pet };
+                for _, mounted in ipairs({ true, false }) do
+                    cells[#cells + 1] = { combat = combat, stealth = stealth, mounted = mounted };
                 end
             end
         end
@@ -540,7 +540,7 @@ return function(DebindPrivate)
                             name = "c" .. i,
                             combat = cells[i].combat,
                             stealth = cells[i].stealth,
-                            pet = cells[i].pet,
+                            mounted = cells[i].mounted,
                         };
                     end
                 end
@@ -558,17 +558,17 @@ return function(DebindPrivate)
     end);
 
     -- §1-4의 구체적 증거. §1-2만 고친 구버전에서 fuzz로 찾은 실제 false positive.
-    -- (combat=false, stealth=false, pet=false) 칸이 아무에게도 안 덮이는데도
+    -- (combat=false, stealth=false, mounted=false) 칸이 아무에게도 안 덮이는데도
     -- 배열 압축 누락 때문에 잔여 집합이 비어버려 b7이 조용히 삭제됐다.
     test("§1-4 회귀 - 안 덮인 칸이 남아있으면 삭제되면 안 됨", function()
         expectSurvives({
             { name = "b1", combat = false, stealth = true },
-            { name = "b2", combat = true,  stealth = true,  pet = false },
+            { name = "b2", combat = true,  stealth = true,  mounted = false },
             { name = "b3", combat = true },
-            { name = "b4", combat = false, stealth = false, pet = true },
-            { name = "b5", combat = true,  stealth = true,  pet = false },
-            { name = "b6", combat = true,  pet = false },
-            { name = "b7", pet = false },
+            { name = "b4", combat = false, stealth = false, mounted = true },
+            { name = "b5", combat = true,  stealth = true,  mounted = false },
+            { name = "b6", combat = true,  mounted = false },
+            { name = "b7", mounted = false },
         }, "b7");
     end);
 
@@ -576,10 +576,10 @@ return function(DebindPrivate)
         local covers = {};
         for _, combat in ipairs({ true, false }) do
             for _, stealth in ipairs({ true, false }) do
-                for _, pet in ipairs({ true, false }) do
+                for _, mounted in ipairs({ true, false }) do
                     covers[#covers + 1] = {
                         name = "c" .. #covers,
-                        combat = combat, stealth = stealth, pet = pet,
+                        combat = combat, stealth = stealth, mounted = mounted,
                     };
                 end
             end

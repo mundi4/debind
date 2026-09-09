@@ -652,7 +652,6 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 	local skyriding = States.skyriding
 	local specialbar = States.specialbar
 	local extrabar = States.extrabar
-	local pet = States.pet
 	local petbattle = States.petbattle
 
 	-- **어느 키를 볼지 고르는 것과 그 키를 정하는 것을 가른다.** 아래 판정은 한 벌이고 두 갈래가
@@ -737,8 +736,7 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 				(t.advflyable ~= nil and t.advflyable ~= advflyable) or
 				(t.flying ~= nil and t.flying ~= flying) or
 				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
-				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
-				(t.pet ~= nil and t.pet ~= pet)
+				(t.petbattle ~= nil and t.petbattle ~= petbattle)
 			)) then
 				match = false
 			end
@@ -1296,7 +1294,7 @@ local EVAL_SNIPPET = [==[
 	-- 끝날 때까지 그 값을 쓴다. 아무 레코드도 안 묻는 축은 C 호출이 아예 안 나간다.
 	-- 측정된 값은 절대 nil이 아니므로(불리언·숫자) 이 표시가 값과 겹치지 않는다.
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -1419,16 +1417,6 @@ local EVAL_SNIPPET = [==[
 					PROBE.MockState(skyriding)
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					PROBE.MockState(pet)
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end

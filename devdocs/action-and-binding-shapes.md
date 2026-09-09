@@ -111,7 +111,6 @@ action
 | `extrabar` | 같음 | `CONDITION_ACTIONBARS` | `HasExtraActionBar()` |
 | `combat` | 같음 | `CONDITION_COMBAT` | `PlayerInCombat()` |
 | `stealth` | 같음 | `CONDITION_STEALTH` | `IsStealthed()` |
-| `pet` | 같음 | `CONDITION_PET` | `PlayerPetSummary()`를 불리언으로 |
 | `petbattle` | 같음 | `CONDITION_MISC` | `SecureCmdOptionParse("[petbattle]")` |
 | `mounted` | 같음 | `CONDITION_MISC` | `IsMounted()` |
 | `indoors` | 같음 | `CONDITION_MISC` | `IsIndoors()` |
@@ -213,12 +212,15 @@ conditions.units[유닛]
 | `"@"` | `TARGET_UNIT` 아래 `ONLY_IF` (`CreateTargetUnitMenuItem`) | 반응·생사·소속. [없을 때]는 잠겨 있다 |
 | `player` | `CONDITION_LIFE` (`CreateSelfLifeConditionMenu`) | **`dead` 하나** |
 | `target` `focus` `mouseover` `tank` `healer` `maintank` `mainassist` `custom1` `custom2` | `CONDITION_UNITS` (`CreateUnitConditionMenu`) | 반응·생사·소속 |
-| `pet` | 없음 | 없음 |
+| `pet` | `CONDITION_UNITS` (`CreateUnitConditionMenu`) | **존재와 생사 둘** |
 | `none` | 없음 | 없음 |
 
-`pet`이 어느 메뉴에도 없는 것은 `UNIT_INFO.pet.checkedUnit = false` 때문이다. 소환수가 있느냐는
-`pet` 불리언이 답한다. `none`은 유닛이 아니라 **대상 입력을 받게 하는 것**이라 조건이 붙을
-자리가 아예 없다.
+`pet`에 반응과 소속이 없는 것은 `UNIT_INFO.pet.conditionAxes`가 그 둘을 닫아서다. 자기 소환수는
+언제나 도울 수 있고 소속도 답이 하나라, 고를 것이 있는 축은 존재와 생사뿐이다. **소환수가
+있느냐를 묻는 자리는 여기 하나다.** 같은 것을 묻던 `pet` 조건 축은 없어졌고, 스위치 정의식의
+`[pet]`도 이 행에 걸린다(`UpdateBindings.lua`의 `SWITCH_GATE_UNITS`).
+
+`none`은 유닛이 아니라 **대상 입력을 받게 하는 것**이라 조건이 붙을 자리가 아예 없다.
 
 **`"@"`는 `unit`을 가리키는 포인터다.** 가리킬 것이 없으면 정규화가 지우고, 대상이 `none`이거나
 `player`일 때도 지운다. 앞의 둘은 겨눌 유닛이 없고, `player`는 자기 자신이라 존재를 물을 것이
@@ -382,7 +384,7 @@ placement (`MakeOrderRecord`)
 "매크로 이름이 가리키는 것이 없다", `states`는 "액션이 정의 없는 스위치를 가리킨다"를 뜻한다.
 거꾸로 조건인데 갈래가 없는 것이 더 많다. 아무것도 안 고른 0을 잡는 것은 `groups` `specs`
 `forms` `bonusbars` 넷과 유닛 쪽 마스크(반응·프레임 종류·유닛 상태·역할)뿐이고, `combat`
-`stealth` `pet` `known` `mounted` `indoors` `flyable` `advflyable` `flying` `extrabar`에는
+`stealth` `known` `mounted` `indoors` `flyable` `advflyable` `flying` `extrabar`에는
 모순을 잡는 검사가 아직 없다.
 
 **갈래 하나가 두 필드를 대조하는 경우가 넷 있다.** `specialbar`와 `petbattle`, `skyriding`과

@@ -392,7 +392,7 @@ return function(DebindPrivate)
                 { type = Constants.SPELL, value = 2, key = "F", priority = 1, seq = 20,
                     conditions = { stealth = true } },
                 { type = Constants.SPELL, value = 3, key = "F", seq = 2,
-                    conditions = { pet = true } },
+                    conditions = { mounted = true } },
                 { type = Constants.SPELL, value = 4, key = "F", seq = 15,
                     conditions = { petbattle = true } },
             },

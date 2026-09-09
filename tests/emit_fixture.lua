@@ -149,7 +149,7 @@ return function(DebindPrivate, shim)
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F4",
                 conditions = { extrabar = true } }),
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F5",
-                conditions = { pet = true } }),
+                conditions = { units = { pet = { exists = true } } } }),
             --- `known` bakes the whole macro conditional, brackets and all, and the value it names
             --- is the action's own.
             action({ type = Constants.SPELL, value = 8936, key = "CTRL-F6",

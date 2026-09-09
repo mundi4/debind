@@ -94,6 +94,11 @@ local function parseCondition(interp, expr)
                 value = interp.state.outdoors;
             elseif (name == "group") then
                 value = interp.state.group ~= "none";
+            -- **The world's pet, not a state of its own.** The gate behind `[pet]` is the pet
+            -- unit's row, so answering this from anywhere else would let a case pass with the two
+            -- disagreeing.
+            elseif (name == "pet") then
+                value = _G.UnitExists("pet") and true or false;
             elseif (name == "known") then
                 value = interp.state.known[tonumber(argument) or argument] and true or false;
             elseif (name == "form") then
@@ -292,8 +297,8 @@ local function buildEnv(interp)
     local state = interp.state;
 
     --- **The restricted environment's own names for what the world is.** These are not the
-    --- insecure API: `PlayerInCombat` and `PlayerPetSummary` exist only in here, which is half
-    --- the reason the click path could not be measured from outside the game.
+    --- insecure API: `PlayerInCombat` exists only in here, which is half the reason the click
+    --- path could not be measured from outside the game.
     env.PlayerInCombat = function() return state.combat; end
     env.IsStealthed = function() return state.stealth; end
     env.IsMounted = function() return state.mounted; end
@@ -301,7 +306,6 @@ local function buildEnv(interp)
     env.IsFlyableArea = function() return state.flyable; end
     env.IsAdvancedFlyableArea = function() return state.advflyable; end
     env.IsFlying = function() return state.flying; end
-    env.PlayerPetSummary = function() return state.pet; end
     env.HasExtraActionBar = function() return state.extrabar; end
     env.HasVehicleActionBar = function() return state.vehiclebar; end
     env.HasOverrideActionBar = function() return state.overridebar; end
@@ -654,7 +658,6 @@ function M.new(DebindPrivate, world)
     interp.state = {
         combat = false,
         stealth = false,
-        pet = false,
         petbattle = false,
         extrabar = false,
         vehiclebar = false,

@@ -669,6 +669,95 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 7: 소환수 조건이 소환수 유닛의 행이 된다.
+    --
+    -- 둘 다 "소환수가 있느냐"를 물었고 유닛 행 쪽은 생사까지 든다. 좁은 쪽이 남을 이유가 없다.
+    ---------------------------------------------------------------------------
+
+    test("dbver 7 folds the pet condition into the pet unit row", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { pet = true } } };
+        MigrateLayer(layer, 6);
+        local c = layer[1].conditions;
+        check(c.pet == nil, "옛 축이 남았다: " .. tostring(c.pet));
+        check(c.units and c.units.pet and c.units.pet.exists == true,
+            "행이 안 섰다: " .. tostring(c.units and c.units.pet and c.units.pet.exists));
+    end);
+
+    test("dbver 7 folds [when you have no pet] the same way", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { pet = false } } };
+        MigrateLayer(layer, 6);
+        local c = layer[1].conditions;
+        check(c.pet == nil, "옛 축이 남았다");
+        check(c.units.pet.exists == false, "exists가 " .. tostring(c.units.pet.exists));
+    end);
+
+    -- 한 행이 두 답을 들 수 없다. 서 있던 행이 이기고 축은 버려진다.
+    test("dbver 7 keeps a pet row that was already there", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { pet = true, units = { pet = { exists = false, dead = true } } } } };
+        MigrateLayer(layer, 6);
+        local c = layer[1].conditions;
+        check(c.pet == nil, "옛 축이 남았다");
+        check(c.units.pet.exists == false and c.units.pet.dead == true, "서 있던 행이 뭉개졌다");
+    end);
+
+    test("dbver 7 leaves the other unit rows alone while folding", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { pet = true, units = { target = { exists = true } } } } };
+        MigrateLayer(layer, 6);
+        local units = layer[1].conditions.units;
+        check(units.target.exists == true, "다른 행이 바뀌었다");
+        check(units.pet.exists == true, "행이 안 섰다");
+    end);
+
+    -- **사다리를 아래 칸부터 탄 프로필.** `pet`은 저장에서 조건 이름이 아니게 됐는데, 최상단
+    -- 조건을 `conditions` 안으로 내리는 것은 `dbver <= 5`이고 그 단계가 무엇이 조건인지를
+    -- `IsConditionField`에 묻는다. 이름이 표에서 빠지면 그 액션의 `pet`은 최상단에 남고,
+    -- 접는 단계는 `conditions.pet`만 보므로 만나지 못한다. 그 뒤 `CleanUpDB`가 지운다.
+    test("a pet condition from before conditions moved still folds", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1, pet = true } };
+        MigrateLayer(layer, 5);
+        check(layer[1].pet == nil, "최상단에 남았다: " .. tostring(layer[1].pet));
+        local units = layer[1].conditions and layer[1].conditions.units;
+        check(units and units.pet and units.pet.exists == true,
+            "행이 안 섰다: " .. tostring(units and units.pet and units.pet.exists));
+    end);
+
+    -- 같은 값이 더 아래에서 올라오는 길. `dbver <= 1`이 옛 `checkedUnits["pet"]`을 최상단
+    -- `action.pet`으로 만든다.
+    test("the oldest pet shape rides the whole ladder into the row", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            checkedUnits = { pet = false } } };
+        MigrateLayer(layer, 1);
+        local units = layer[1].conditions and layer[1].conditions.units;
+        check(units and units.pet and units.pet.exists == false,
+            "행이 안 섰다: " .. tostring(units and units.pet and units.pet.exists));
+    end);
+
+    -- **꺼진 행은 반대 답이 아니라 답이 없는 것이다.** 옛 축이 걸어둔 조건을 그 행에 넘기지
+    -- 않으면 액션이 조건을 통째로 잃는다.
+    test("a disabled pet row does not swallow the axis", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { pet = true, units = { pet = { disabled = true, dead = true } } } } };
+        MigrateLayer(layer, 6);
+        local cond = layer[1].conditions.units.pet;
+        check(layer[1].conditions.pet == nil, "옛 축이 남았다");
+        check(cond.exists == true, "조건이 사라졌다: exists가 " .. tostring(cond.exists));
+        check(cond.disabled == nil, "끈 표시가 남았다");
+        check(cond.dead == true, "기억한 축이 사라졌다");
+    end);
+
+    test("dbver 7 pet fold is safe to run twice", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { pet = false } } };
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.units.pet.exists == false, "두 번째에 뭉개짐");
+    end);
+
+    ---------------------------------------------------------------------------
     -- dbver 5의 핵심 불변식: **표현만 바꾸고 뜻은 안 바꾼다**
     --
     -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다.

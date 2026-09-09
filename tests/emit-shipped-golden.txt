@@ -510,9 +510,11 @@ Execute <Frame#3>
   | bindings.key="CTRL-F5"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb107"
-  | t["pet"]=true
+  | t.units=newtable()
+  | u=newtable();t.units["pet"]=u
+  | u.exists=true
   | t.holdsKey=true
-  | DirtyKeys["pet"]=DirtyKeys["pet"] or newtable();tinsert(DirtyKeys["pet"],bindings)
+  | DirtyKeys["pet-exists"]=DirtyKeys["pet-exists"] or newtable();tinsert(DirtyKeys["pet-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F5"]=bindings
   | bindings.clickTimeButton="@CTRL-F5"
@@ -789,8 +791,6 @@ SetAttribute <Frame#3> _onattributechanged =
   | if (States["extrabar"] ~= stateValue) then States["extrabar"]=stateValue;DirtyFlags["extrabar"]=true; end
   | stateValue=GetShapeshiftForm()
   | if (States["form"] ~= stateValue) then States["form"]=stateValue;DirtyFlags["form"]=true; end
-  | stateValue=PlayerPetSummary() and true or false
-  | if (States["pet"] ~= stateValue) then States["pet"]=stateValue;DirtyFlags["pet"]=true; end
   | stateValue=(HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false) or (SecureCmdOptionParse("[petbattle]") and true or false)
   | if (States["specialbar"] ~= stateValue) then States["specialbar"]=stateValue;DirtyFlags["specialbar"]=true; end
   | stateValue=IsStealthed()

@@ -108,7 +108,7 @@ return function(DebindPrivate)
                     combat = true,
                     groups = Constants.GROUP_RAID,
                     stealth = false,
-                    pet = true,
+                    mounted = true,
                     ["$state2"] = true,
                 } },
         }, { ["$state2"] = { mode = Constants.SWITCH_MODES.MANUAL } });
@@ -120,7 +120,7 @@ return function(DebindPrivate)
         check(c.groups == Constants.GROUP_RAID, "groups: " .. tostring(c.groups));
         -- `false` is "when there is not", which is a point on the axis and not an absence.
         check(c.stealth == false, "stealth: " .. tostring(c.stealth));
-        check(c.pet == true, "pet: " .. tostring(c.pet));
+        check(c.mounted == true, "mounted: " .. tostring(c.mounted));
         check(c["$state2"] == true, "$state2: " .. tostring(c["$state2"]));
     end);
 
@@ -177,7 +177,7 @@ return function(DebindPrivate)
         local first = { type = Constants.SPELL, value = 1, key = "F4", arrivalID = 1, seq = 1,
             conditions = { stealth = true } };
         local second = { type = Constants.SPELL, value = 2, key = "F4", arrivalID = 1, seq = 2,
-            conditions = { pet = true } };
+            conditions = { mounted = true } };
         Bind({ third, first, second });
 
         check(Records("F4") == nil, "a badged set stood on the key it arrived on");

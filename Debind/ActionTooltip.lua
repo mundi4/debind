@@ -716,7 +716,6 @@ do
 
 		addBooleanCondition("specialbar");
 		addBooleanCondition("extrabar");
-		addBooleanCondition("pet");
 		addBooleanCondition("petbattle");
 
 		-- **조건 표에 있는 이름을 그린다.** 다섯 번호를 돌던 자리라 그 밖의 이름이 걸린 액션은

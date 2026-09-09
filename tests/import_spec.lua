@@ -381,7 +381,6 @@ return function(DebindPrivate, DebindStorage)
         stealth = true,
         specialbar = true,
         extrabar = true,
-        pet = true,
         petbattle = true,
         mounted = true,
         indoors = true,

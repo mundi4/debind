@@ -566,7 +566,6 @@ DelegateFrameNames[frame] = frame:GetName()
 	local skyriding = States.skyriding
 	local specialbar = States.specialbar
 	local extrabar = States.extrabar
-	local pet = States.pet
 	local petbattle = States.petbattle
 
 
@@ -650,8 +649,7 @@ DelegateFrameNames[frame] = frame:GetName()
 				(t.advflyable ~= nil and t.advflyable ~= advflyable) or
 				(t.flying ~= nil and t.flying ~= flying) or
 				(t.skyriding ~= nil and t.skyriding ~= skyriding) or
-				(t.petbattle ~= nil and t.petbattle ~= petbattle) or
-				(t.pet ~= nil and t.pet ~= pet)
+				(t.petbattle ~= nil and t.petbattle ~= petbattle)
 			)) then
 				match = false
 			end
@@ -1086,7 +1084,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -1209,16 +1207,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end
@@ -1641,7 +1629,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -1764,16 +1752,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end
@@ -2303,7 +2281,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -2426,16 +2404,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end
@@ -2877,7 +2845,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -3000,16 +2968,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end
@@ -3376,7 +3334,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -3499,16 +3457,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end
@@ -3878,7 +3826,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -4001,16 +3949,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end
@@ -4324,7 +4262,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	local group, form, bonusbar
-	local combat, stealth, specialbar, extrabar, pet, petbattle
+	local combat, stealth, specialbar, extrabar, petbattle
 	local mounted, indoors, skyriding
 	local flyable, advflyable, flying
 
@@ -4447,16 +4385,6 @@ DelegateFrameNames[frame] = frame:GetName()
 					
 				end
 				if (t.skyriding ~= skyriding) then
-					match = false
-				end
-			end
-
-			if (match and t.pet ~= nil) then
-				if (pet == nil) then
-					pet = PlayerPetSummary() and true or false
-					
-				end
-				if (t.pet ~= pet) then
 					match = false
 				end
 			end

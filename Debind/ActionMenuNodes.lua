@@ -629,7 +629,6 @@ ActionMenus:Define("KNOWN", {
 for _, axis in ipairs({
     { name = "COMBAT",  label = "CONDITION_COMBAT",  key = "combat" },
     { name = "STEALTH", label = "CONDITION_STEALTH", key = "stealth" },
-    { name = "PET",     label = "CONDITION_PET",     key = "pet" },
     { name = "MOUNTED",    label = "CONDITION_MOUNTED",    key = "mounted" },
     { name = "SKYRIDING",  label = "CONDITION_SKYRIDING",  key = "skyriding" },
     { name = "FLYABLE",    label = "CONDITION_FLYABLE",    key = "flyable" },

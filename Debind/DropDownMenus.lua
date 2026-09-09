@@ -158,7 +158,7 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     --- a group is moving its name here. Whether a node stands at all is its own `shown`.
     local conditionNodes = {
         "HOVER", "UNITS", "GROUP", "SELFLIFE", "SPEC", "KNOWN",
-        "COMBAT", "SHAPESHIFT", "STEALTH", "PET", "ACTIONBAR", "MISC", "SWITCHES",
+        "COMBAT", "SHAPESHIFT", "STEALTH", "ACTIONBAR", "MISC", "SWITCHES",
     };
     for i = 1, #conditionNodes do
         ActionMenus:Build(rootDescription, conditionNodes[i], ctx);

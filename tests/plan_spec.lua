@@ -259,7 +259,6 @@ return function(DebindPrivate)
             { conditions = { bonusbars = 5 }, state = "bonusbar" },
             { conditions = { specialbar = true }, state = "specialbar" },
             { conditions = { extrabar = true }, state = "extrabar" },
-            { conditions = { pet = true }, state = "pet" },
             { conditions = { petbattle = true }, state = "petbattle" },
         };
 

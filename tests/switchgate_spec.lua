@@ -224,6 +224,36 @@ return function(DebindPrivate)
         end
     end);
 
+    --- **`[pet]` is gated by a unit row rather than a state.** Nothing else measures a pet: the
+    --- condition side asks `units["pet"]`, so a second measurement here would be a second answer
+    --- with nothing to choose between them.
+    ---
+    --- The row is what the register has to produce. Ask only whether the switch follows and a
+    --- profile whose flag never fires still passes on the value the rebuild left behind.
+    test("a pet conditional gates on the pet unit row", function()
+        shim.world.units = { pet = { id = "pet" } };
+
+        local i = Bind(GatedKey(), {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[pet]" },
+        });
+
+        local row = i.env.UnitStates["pet"];
+        check(row, "the gate did not register the pet row");
+        check(row.exists == true, "the row says exists=" .. tostring(row.exists));
+        check(i.env.States["$state1"] == true, "the switch did not follow the pet being there");
+        check(i.bindings["F1"], "the key hanging off the switch was not bound");
+
+        local before = i:parseCount("[pet]");
+        i:pollStates();
+        check(i:parseCount("[pet]") == before,
+            "a pass where nothing moved parsed the conditional anyway");
+
+        shim.world.units = {};
+        i:pollStates();
+        check(i.env.States["$state1"] == false, "the switch did not follow the pet going away");
+        check(i.bindings["F1"] == nil, "the key was not let go");
+    end);
+
     test("a conditional aimed at a unit is parsed on every pass", function()
         -- Who `target` is, and what is true of them, moves without any flag this pass can read.
         local i = Bind(GatedKey(), {

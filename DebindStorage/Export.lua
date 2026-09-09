@@ -169,7 +169,6 @@ local CONDITION_TYPES    = {
     stealth = "boolean",
     specialbar = "boolean",
     extrabar = "boolean",
-    pet = "boolean",
     petbattle = "boolean",
     mounted = "boolean",
     indoors = "boolean",

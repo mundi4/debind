@@ -179,12 +179,6 @@ local FIXED_COLUMNS = {
         end
     },
     {
-        name = "pet",
-        make = function(binding)
-            return boolToConditionFlags(binding.conditions.pet);
-        end
-    },
-    {
         name = "petbattle",
         make = function(binding)
             return boolToConditionFlags(binding.conditions.petbattle);

@@ -208,7 +208,6 @@ Constants.CONDITION_FIELDS = {
     combat = true,
     stealth = true,
     known = true,
-    pet = true,
     petbattle = true,
     mounted = true,
     indoors = true,
@@ -877,7 +876,6 @@ Constants.STATE_EVAL_EXPRESSIONS = {
     skyriding = format("GetBonusBarOffset() == %d", Constants.BONUSBAR_SKYRIDING),
     specialbar = "HasVehicleActionBar() or HasOverrideActionBar() or HasTempShapeshiftActionBar() or false",
     extrabar = "HasExtraActionBar()",
-    pet = "PlayerPetSummary() and true or false",
     -- **The one parse in here.** `specialbar` folds it in, so a profile asking about special bars
     -- pays for this whether or not anything asks about pet battles.
     --

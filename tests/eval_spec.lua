@@ -211,7 +211,6 @@ return function(DebindPrivate, _, ctx)
     local AXES = {
         { name = "combat", conditions = { combat = true }, on = function(s) s.combat = true; end },
         { name = "stealth", conditions = { stealth = true }, on = function(s) s.stealth = true; end },
-        { name = "pet", conditions = { pet = true }, on = function(s) s.pet = true; end },
         { name = "extrabar", conditions = { extrabar = true }, on = function(s) s.extrabar = true; end },
         { name = "petbattle", conditions = { petbattle = true }, on = function(s) s.petbattle = true; end },
         { name = "specialbar", conditions = { specialbar = true },

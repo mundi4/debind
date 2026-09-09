@@ -186,7 +186,7 @@ SEEDS[5] = function(guid)
                 --- dropped when both are set (`Misc.lua`), so the bar row below is a row of its
                 --- own rather than more fields on this one.
                 { type = Constants.ITEM, value = HEARTHSTONE, key = "CTRL-F8", seq = 1,
-                    stealth = true, pet = false, petbattle = true },
+                    stealth = true, petbattle = true },
                 --- Shapeshift and the action bars. Both masks are one bit rather than several,
                 --- and it is the bit that means the same thing on every class: `[form:0]` is "not
                 --- shifted" and bonus bar `0` is the default bar. A mask naming a druid form

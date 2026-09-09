@@ -64,6 +64,7 @@ local UpdateAttrChangedHandler;
 local addSwitch;
 local addMacrotext;
 local addMacrotextBinding;
+local MeasureUnitExists;
 
 local GetModifierIndex   = DebindPrivate.GetModifierIndex;
 
@@ -187,17 +188,24 @@ local SWITCH_GATE_STATES = {
     stance    = "form",
     bonusbar  = "bonusbar",
     group     = "group",
-    pet       = "pet",
     petbattle = "petbattle",
     extrabar  = "extrabar",
 };
 
+--- The same claim for words a **unit row** answers rather than a base axis.
+---
+--- The flag is that row's, `<unit>-exists`, and registering it registers the row (`addSwitch`).
+--- `[pet]` is here rather than in the table above because nothing else measures a pet any more:
+--- the condition side asks `units["pet"]` and a second measurement of the same fact would be a
+--- second answer nobody could choose between.
+local SWITCH_GATE_UNITS = { pet = "pet" };
+
 --- Words whose argument can move the answer on its own.
 ---
---- `States.pet` is `PlayerPetSummary()` boiled down to a boolean, so trading one pet for another
---- leaves it standing while `[pet:Imp]` flips. The bare word is answered by the state, the argument
---- form is not. Every other word in the table above is answered whole: `GetShapeshiftForm()` covers
---- every `form:` argument, `GetBonusBarOffset()` every `bonusbar:`, and the group partition every
+--- The row behind `[pet]` holds whether a pet is there, so trading one pet for another leaves it
+--- standing while `[pet:Imp]` flips. The bare word is answered by the row, the argument form is
+--- not. Every other word in the tables above is answered whole: `GetShapeshiftForm()` covers every
+--- `form:` argument, `GetBonusBarOffset()` every `bonusbar:`, and the group partition every
 --- `group:`.
 local SWITCH_GATE_ARG_MOVES = { pet = true };
 
@@ -225,7 +233,8 @@ local function SwitchGateFlag(token)
     end
 
     local word, rest = strmatch(token, "^(%a+)(.*)$");
-    local state = word and SWITCH_GATE_STATES[word];
+    local unit = word and SWITCH_GATE_UNITS[word];
+    local state = unit and (unit .. "-exists") or (word and SWITCH_GATE_STATES[word]);
     if (not state) then
         return nil;
     end
@@ -313,7 +322,14 @@ function addSwitch(stateName)
                         local flag = info.gate[i];
                         -- A switch name is not measured. Its flag comes from `SetSwitch`.
                         if (strsub(flag, 1, 1) ~= "$") then
-                            _measuredStates[flag] = true;
+                            -- **A unit row raises its own flag**, so a word answered by one
+                            -- registers the row rather than a state (`SWITCH_GATE_UNITS`).
+                            local unit = strmatch(flag, "^(.+)%-exists$");
+                            if (unit) then
+                                MeasureUnitExists(unit);
+                            else
+                                _measuredStates[flag] = true;
+                            end
                         end
                     end
                 end
@@ -600,8 +616,8 @@ local function CollectDriverEvents(events)
     -- **`skyriding` is not here, and it is not an omission.** It reads `GetBonusBarOffset()`, and
     -- `SecureStateDriverManager` registers `UPDATE_BONUS_ACTIONBAR` when Blizzard builds it
     -- (`SecureStateDriver.lua`). Everything named in this function is a state whose event that
-    -- baseline does **not** already carry -- which is also why `combat`, `stealth`, `group` and
-    -- `pet` are absent.
+    -- baseline does **not** already carry -- which is also why `combat`, `stealth` and `group`
+    -- are absent.
     want("PLAYER_MOUNT_DISPLAY_CHANGED", _measuredStates.mounted);
 
     -- Both, because the pair is what the client splits the move into: `ZONE_CHANGED_INDOORS` is
@@ -1317,6 +1333,15 @@ local UNITAXIS_DEAD     = 4;
 --- takes both answers (`Constants.lua`'s `UNITGROUPCELL_*`).
 local UNITAXIS_GROUP    = 8;
 
+--- Registers a unit's existence axis, for the callers that are not walking a record.
+---
+--- `_unitsSeen` goes with it because that is what resolves an alias, and a row for an alias nobody
+--- resolved would measure whether `UnitAliasMap` has an entry that nothing fills.
+function MeasureUnitExists(unit)
+    _measuredUnitAxes[unit] = bor(_measuredUnitAxes[unit] or 0, UNITAXIS_EXISTS);
+    _unitsSeen[unit] = true;
+end
+
 local REACTION_NAMES = {
     [Constants.REACTION_HELP]  = "help",
     [Constants.REACTION_HARM]  = "harm",
@@ -1506,7 +1531,6 @@ local FIELD_FLAGS        = {
     bonusbars  = "bonusbar",
     specialbar = "specialbar",
     extrabar   = "extrabar",
-    pet        = "pet",
     petbattle  = "petbattle",
 };
 
@@ -1530,7 +1554,6 @@ local CONDITION_AXES     = {
     { field = "bonusbars",  allValue = Constants.BONUSBAR_ALL },
     { field = "specialbar" },
     { field = "extrabar" },
-    { field = "pet" },
     { field = "petbattle" },
 };
 

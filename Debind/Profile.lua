@@ -847,6 +847,54 @@ local function MigrateLayer(layerTbl, dbver)
                 end
             end
         end
+
+        -- The pet condition becomes the pet unit's row. Both asked whether a pet is there, and the
+        -- row asks it of `UnitExists("pet")` where the axis asked `PlayerPetSummary()`; the two
+        -- part only on a pet with no creature family, and every pet has one
+        -- (`RestrictedEnvironment.lua` answers the summary with `UnitCreatureFamily("pet")`).
+        --
+        -- **A row already answering wins and the axis is dropped.** One row cannot hold two
+        -- answers, and an action that carried both an axis and a row disagreeing with it could not
+        -- fire either way. **A disabled row is not such an answer** -- it is a mode meaning "no
+        -- unit condition here", with the axes beside it kept only to hand back -- so the axis takes
+        -- that slot and the mode goes with it. Leaving it disabled would drop the condition
+        -- entirely, which widens the binding.
+        --
+        -- **The axis is read from the top level as well.** Conditions moved inside `conditions` in
+        -- the `dbver <= 5` step and that step asks `Constants.IsConditionField`, which no longer
+        -- answers for `pet`. A profile riding the ladder from below that step arrives here with the
+        -- value still at the top, and `CleanUpDB` deletes what this does not take.
+        --
+        -- Running twice is safe: the second pass finds no `pet`.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local value = action.pet;
+            local conditions = action.conditions;
+            if (value == nil and conditions) then
+                value = conditions.pet;
+            end
+
+            if (value ~= nil) then
+                if (conditions == nil) then
+                    conditions = {};
+                    action.conditions = conditions;
+                end
+                local units = conditions.units;
+                if (units == nil) then
+                    units = {};
+                    conditions.units = units;
+                end
+                local row = units.pet;
+                if (row == nil) then
+                    units.pet = { exists = value and true or false };
+                elseif (luatype(row) == "table" and row.disabled) then
+                    row.disabled = nil;
+                    row.exists = value and true or false;
+                end
+                conditions.pet = nil;
+                action.pet = nil;
+            end
+        end
     end
 
 end
