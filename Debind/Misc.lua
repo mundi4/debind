@@ -1313,6 +1313,25 @@ function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     return band(specs, Constants.SpecIndexFlag(spec)) ~= 0;
 end
 
+--- Does this binding's `known` condition have a spell to ask about? **The second condition the
+--- insecure side settles by itself**, for the same reason as the one above: a spec-resolved type
+--- asks about the spell this specialization resolves to (`binding.spell`), a specialization that
+--- has none leaves the condition false for every press in this build, and a specialization change
+--- rebuilds everything.
+---
+--- Only those three types can answer no. Every other type asks about a value the action stores,
+--- which is there or the action would not have been built.
+function DebindPrivate.KnownConditionCanHold(binding)
+    local conditions = binding.conditions;
+    if (conditions == nil or conditions.known == nil) then
+        return true;
+    end
+    if (not Constants.SPEC_RESOLVED_TYPES[binding.type]) then
+        return true;
+    end
+    return binding.spell ~= nil;
+end
+
 --- 이 바인딩에 조건이 하나라도 걸려 있나. 발동 순서의 세 번째 단계가 이걸 읽는다
 --- (`Ordering.lua`).
 ---

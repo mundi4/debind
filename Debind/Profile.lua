@@ -2726,6 +2726,19 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     row.specExcluded = (binding.conditions.specs ~= nil
         and not DebindPrivate.SpecConditionHolds(binding, worldSpec)) or nil;
 
+    -- **The other way a row does not fire in this world: `known` with no spell to ask about.**
+    -- Same answer the rebuild gives when it leaves the action out of the key map
+    -- (`Misc.lua`'s `KnownConditionCanHold`). It rides with the specialization rows in the filter
+    -- because a specialization change is what can bring it back, but it gets a word of its own in
+    -- the reason column: some classes have no such spell in any specialization, and
+    -- "Inactive specialization" would promise one.
+    --
+    -- **Not asked outside the live world.** The spell comes from the specialization being played
+    -- (`SpecSpells.lua`), so on a row drawn for another one the answer would be this character's,
+    -- not that row's.
+    row.noSpell = (not offWorld)
+        and not DebindPrivate.KnownConditionCanHold(binding) or nil;
+
     return row;
 end
 

@@ -822,6 +822,14 @@ L["ORDER_FLAG_UNREACHABLE"] = "Never runs"
 -- of the pair is already spelled. "Other specialization" was ours and said the wrong thing besides:
 -- it reads as "some specialization elsewhere" when what matters is that this one is switched off.
 L["ORDER_FLAG_OFFSPEC"] = "Inactive specialization"
+-- **No specialization is named, on purpose.** The row is filed with the inactive-specialization
+-- rows because a specialization change can bring it back, but some classes have no such spell in
+-- any of their specializations (a Restoration shaman and the external), and naming one would
+-- promise a specialization that does not exist.
+--
+-- The tooltip is where the reader learns which spell is missing: `LINE_TOOLTIP_SPEC_SPELL_NONE`
+-- already stands at the top of it.
+L["ORDER_FLAG_NO_SPELL"] = "No spell"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_GOTO_ACTION"] = "Go to it in %s"

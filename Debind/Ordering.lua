@@ -149,20 +149,23 @@ end
 --- Is this row for a specialization other than the one being drawn? **A question about the words
 --- on the row, not about the order**, which is the whole difference from `IsRowInOrder` above.
 ---
---- Two ways to be, and the reader is told the same thing about both: the row's layer belongs to
---- another specialization (`specRank`), or the action's own condition leaves this one out
---- (`specExcluded`, from `Profile.lua`'s `MakeRow`). Either way it does not fire in the world on
---- screen, so the reason column says which specialization it belongs to and the filter files it
---- with the rest of them.
+--- Three ways to be, and the filter files all three with the rest of them, since a specialization
+--- change is what brings any of them back: the row's layer belongs to another specialization
+--- (`specRank`), the action's own condition leaves this one out (`specExcluded`), or its `known`
+--- has no spell to ask about here (`noSpell`) -- both of the latter from `Profile.lua`'s `MakeRow`.
 ---
---- **The second one is still in this key's order, and that is why the two questions parted.** It
---- is in a layer that is live, so `specRank` ties and `seq` alone settles it against the rows
---- either side: it is the neighbour their arrows swap with, and moving it moves it one place on
---- screen. Answering the order with this function let an arrow step over it and move the pressed
---- row two. A row out by its **layer** is the opposite case, since `specRank` decides that pair
---- before `seq` is ever reached and swapping numbers with it settles nothing.
+--- **The reason column does not say the same thing about all three.** The first two belong to
+--- another specialization and it names which; `noSpell` gets its own word, because a class can
+--- lack the spell in every specialization it has.
+---
+--- **The second and third are still in this key's order, and that is why the two questions
+--- parted.** They are in a layer that is live, so `specRank` ties and `seq` alone settles them
+--- against the rows either side: such a row is the neighbour their arrows swap with, and moving it
+--- moves it one place on screen. Answering the order with this function let an arrow step over it
+--- and move the pressed row two. A row out by its **layer** is the opposite case, since `specRank`
+--- decides that pair before `seq` is ever reached and swapping numbers with it settles nothing.
 function DebindPrivate.IsRowOffSpec(row)
-    return (row.specRank or 0) ~= 0 or row.specExcluded == true;
+    return (row.specRank or 0) ~= 0 or row.specExcluded == true or row.noSpell == true;
 end
 
 --- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을

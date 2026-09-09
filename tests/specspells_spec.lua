@@ -144,28 +144,64 @@ return function(DebindPrivate, _, ctx)
     -- Through a rebuild
     ---------------------------------------------------------------------------
 
-    -- `known` bakes the resolved spell, and a specialization with none bakes the fixed false.
+    -- `known` bakes the resolved spell.
     test("known is baked from the resolved spell", function()
         shim.world.specIndex = 1;
         shim.world.spells[2782] = { name = "Remove Corruption" };
         Bind({
             action({ type = Constants.DISPEL, key = "F1", conditions = { known = true } }),
-            action({ type = Constants.EXTERNAL, key = "F2", conditions = { known = true } }),
         });
         check(recordField("F1", 1, "known") == "[known:2782]",
             "dispel known: " .. tostring(recordField("F1", 1, "known")));
-        check(recordField("F2", 1, "known") == "[known:0]",
-            "external known: " .. tostring(recordField("F2", 1, "known")));
-
-        -- And the record still has a button to press, on both.
         check(recordField("F1", 1, "clickbutton") ~= nil, "dispel has no button");
-        check(recordField("F2", 1, "clickbutton") ~= nil, "an external with no spell lost its button");
 
         if (not shipped) then
             interp.state.known[2782] = true;
             check(interp:evalKey("F1") == 1, "the dispel did not fire with its spell known");
-            check(interp:evalKey("F2") == nil, "an external with no spell fired with known on");
         end
+        shim.world.specIndex = nil;
+    end);
+
+    -- **A `known` this specialization has no spell for never reaches the build.** The condition is
+    -- false for every press this build will see, so the rebuild leaves the action out the way it
+    -- leaves out an action for another specialization (`Misc.lua`'s `KnownConditionCanHold`).
+    test("a known with no spell is left out of the build", function()
+        shim.world.specIndex = 1;
+        Bind({
+            action({ type = Constants.EXTERNAL, key = "F2", conditions = { known = true } }),
+        });
+        check(interp:recordsFor("F2") == nil, "the key was bound anyway");
+        shim.world.specIndex = nil;
+    end);
+
+    -- And the key goes to whatever stands behind it, which is the whole point of leaving it out.
+    test("the action behind it takes the key", function()
+        shim.world.specIndex = 1;
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ type = Constants.EXTERNAL, key = "F3", conditions = { known = true } }),
+            action({ type = Constants.SPELL, key = "F3", value = 774 }),
+        });
+        local records = interp:recordsFor("F3");
+        check(records and #records == 1, "records on F3: " .. tostring(records and #records));
+        check(recordField("F3", 1, "known") == nil,
+            "the spell row carries a known: " .. tostring(recordField("F3", 1, "known")));
+        if (not shipped) then
+            check(interp:evalKey("F3") == 1, "the spell behind it did not fire");
+        end
+        shim.world.specIndex = nil;
+    end);
+
+    -- Without `known` the action stays, and the key stays ours with nothing to press: that is the
+    -- reader not having asked for anything (§4).
+    test("no known keeps the action on the key", function()
+        shim.world.specIndex = 1;
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        Bind({
+            action({ type = Constants.EXTERNAL, key = "F4" }),
+            action({ type = Constants.SPELL, key = "F4", value = 774 }),
+        });
+        check(recordField("F4", 1, "clickbutton") ~= nil, "the external lost its button");
         shim.world.specIndex = nil;
     end);
 

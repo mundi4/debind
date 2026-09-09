@@ -4469,6 +4469,12 @@ local function GetOrderReasonText(elementData)
 	-- Without it that row got the ordering sentence, which claims it beat the row below it: it
 	-- beats nothing in this specialization, so the one line the slot held was false rather than
 	-- missing.
+	--
+	-- **`noSpell` is the one of the three that names no specialization.** It is filed with them
+	-- because a specialization change can bring it back, but for a class that has no such spell in
+	-- any of its specializations there is none to come round, and naming one would promise it.
+	elseif (row.noSpell) then
+		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_NO_SPELL"]);
 	elseif (DebindPrivate.IsRowOffSpec(row)) then
 		return DISABLED_FONT_COLOR:WrapTextInColorCode(LLL["ORDER_FLAG_OFFSPEC"]);
 	elseif (row.unreachable) then

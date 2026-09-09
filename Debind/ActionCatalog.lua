@@ -1016,16 +1016,6 @@ local function AddOwnCommands(Bucket)
 		end
 	end
 
-	-- The three types the class and specialization resolve (`SpecSpells.lua`). No value to
-	-- store; the row's icon is today's spell and is drawn by `NameAndIconForAction`.
-	local specBucket = Bucket(LLL["TYPE_SPEC_RESOLVED_HEADER"]);
-	for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
-		specBucket[#specBucket + 1] = {
-			type = actionType,
-			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"],
-		};
-	end
-
 	-- 공격대 표적. 게임의 `BINDING_HEADER_RAID_TARGET`과는 다른 물건이라 머리글을 따로 둔다 -
 	-- 저쪽은 대상에 아이콘을 찍는 것이고 이건 바닥에 놓는 표식이다.
 	local markerBucket = Bucket(typeNames[Constants.WORLDMARKER]);
@@ -1127,7 +1117,8 @@ ActionCatalog.RegisterSource({
 --------------------------------------------------------------------------------
 
 --- **이 애드온에만 있는 개념들.** 게임에 대응하는 물건이 없어서 여기 말고 갈 데가 없다 -
---- 지정 대상, 사용자 상태, 사용 안 함. 손으로 적은 열거이고 개수가 고정이다.
+--- 지정 대상, 사용자 상태, 직업·전문화가 정하는 셋, 사용 안 함. 손으로 적은 열거이고
+--- 개수가 고정이다.
 ---
 --- **"기타"가 아니다.** 이름이 정체성을 정하는 자리라 한 번 짚어둔다. 여기 안 들어가는
 --- 것 둘이 그 경계를 보여준다:
@@ -1137,9 +1128,11 @@ ActionCatalog.RegisterSource({
 ---   대상 지정 · 표적   게임에도 같은 성격의 단축키가 있어서(`BINDING_HEADER_TARGETING`,
 ---                      `BINDING_HEADER_RAID_TARGET`) 명령 탭으로 간다(`AddOwnCommands`)
 ---
---- 남는 셋은 전부 "레이어와 조건이 있는 애드온"이라야 뜻이 통하는 것들이다. 그래서 이
---- 탭은 항목이 네 줄뿐이어도 자기 자리를 갖는다. 여기 처음 온 사람이 **이 애드온이
---- 무엇을 더 할 수 있는지**를 보는 자리이기도 하다.
+--- 지정 대상·사용자 상태·사용 안 함 셋은 "레이어와 조건이 있는 애드온"이라야 뜻이 통한다.
+--- 직업·전문화가 정하는 셋은 주문을 쏘지만 **저장할 값이 없다.** 주문 탭의 줄은 하나가
+--- 주문 하나를 가리키는데 이쪽은 무엇을 쏠지가 누를 때 정해지므로 그 탭에는 못 실린다.
+--- 그래서 이 탭은 항목이 일곱 줄뿐이어도 자기 자리를 갖는다. 여기 처음 온 사람이
+--- **이 애드온이 무엇을 더 할 수 있는지**를 보는 자리이기도 하다.
 ---
 --- 스무 줄이었다. 열다섯이 스위치 셋 × 다섯이었고, 개수 제한이 풀리면서 그 자리가 한 줄이
 --- 됐다(§6-C). **줄어든 것이 아니라 목록에서 빠진 것이다.** 개념은 그대로 한 줄로 서 있고,
@@ -1190,6 +1183,19 @@ local function BuildSpecialActions(entries)
 		group = typeNames[Constants.SETSTATE_TOGGLE],
 		tooltipText = LLL["TYPE_SETSTATE_DESC"],
 	});
+
+	-- The three types the class and specialization resolve (`SpecSpells.lua`). One heading for
+	-- the three, because what they share is the whole of what a row says: the addon picks the
+	-- spell, not the reader. No value to store; the row's icon is today's spell and is drawn by
+	-- `NameAndIconForAction`.
+	local specGroup = LLL["TYPE_SPEC_RESOLVED_HEADER"];
+	for _, actionType in ipairs({ Constants.DISPEL, Constants.EXTERNAL, Constants.RAIDBUFF }) do
+		AddEntry(entries, seen, {
+			type = actionType,
+			group = specGroup,
+			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"],
+		});
+	end
 
 	-- 사용 안 함. **혼자여도 머리글을 준다.**
 	--

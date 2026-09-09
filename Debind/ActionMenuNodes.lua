@@ -557,12 +557,15 @@ ActionMenus:Define("SPEC", {
     end,
 });
 
---- **Spells only.** An item or a macro is not something you can fail to know.
+--- **Spells only.** An item or a macro is not something you can fail to know. The three
+--- spec-resolved types are spells too, and what the condition asks about is the spell this
+--- specialization resolves to (`SpecSpells.lua`).
 ActionMenus:Define("KNOWN", {
     label = "CONDITION_KNOWN",
     key = "known",
     shown = function(ctx)
-        return ctx.action.type == Constants.SPELL;
+        return ctx.action.type == Constants.SPELL
+            or Constants.SPEC_RESOLVED_TYPES[ctx.action.type] == true;
     end,
     build = function(kit)
         kit:ClearingCheckbox(LLL["CONDITION_KNOWN_YES"], "known", true);

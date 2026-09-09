@@ -222,7 +222,13 @@ do
 				-- true across the whole space the solver reasons over, and a box that spans the
 				-- space is what "no condition" already means there. An axis that told the two
 				-- apart would be an axis with one reachable value.
-				if (binding and DebindPrivate.SpecConditionHolds(binding)) then
+				--
+				-- **A `known` with nothing to ask about is filtered here for the same reason**
+				-- (`KnownConditionCanHold`). Left in, the binding would take the key from the
+				-- actions behind it and put a conditional that is false for the life of this
+				-- build into the state loop to be measured every tick.
+				if (binding and DebindPrivate.SpecConditionHolds(binding)
+						and DebindPrivate.KnownConditionCanHold(binding)) then
 					Lists[binding] = list;
 
 					-- 활성 레이어만 도므로 전문화 순위는 언제나 동률이다. 다른 전문화의 순서를
