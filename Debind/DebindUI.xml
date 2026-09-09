@@ -1850,16 +1850,19 @@
 		because it only ever has to beat its own parent - nothing else competes with MacroFrame.
 		The picker is exactly that missing third window, so their arrangement does not carry over.
 
-		With all of them top-level, strata alone decides: main window and picker settle MEDIUM
-		between themselves via toplevel, the macro editor sits above at HIGH, and this frame
-		above that at DIALOG. No frame level is set by hand anywhere, which is what keeps a
-		fourth window from turning this into arithmetic.
+		**MEDIUM, the same as the other three, and raising any of them above it is what breaks.**
+		A window of ours above MEDIUM clears the client's own big panels as well, so opening the
+		talent frame leaves the main window behind it while this one floats over it - our windows
+		split across somebody else's frame. Sharing one strata is what keeps the set moving
+		together.
 
-		**DIALOG rather than HIGH, which is where this frame used to be with the editor.**
-		toplevel only reorders inside one strata, so sharing HIGH meant a click on the editor
-		raised it over the popup it had opened - a popup that locks everything under it while it
-		is up, over an editor that stays up behind it on purpose. A strata apart is what fixes
-		that order instead of leaving it to whichever was clicked last.
+		With all four top-level and on that one strata, toplevel decides between them and no
+		frame level is set by hand anywhere, which is what keeps a fifth window from turning this
+		into arithmetic.
+
+		**No Raise() anywhere either.** A click on the editor can bring it in front of this popup,
+		and a Raise would settle that - but measured on screen the order the four fall into is
+		already right, and a hand-placed raise is the arithmetic above (owner, 2026-09-09).
 
 		Lifetime still belongs to the main window (DebindFrameMixin:OnHide). That path already
 		closed this frame explicitly back when it was a child, so dropping the parent leaks

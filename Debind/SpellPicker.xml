@@ -140,10 +140,9 @@
 	<!--
 		독립창이다. `parent="UIParent"` - 자리도 따로 저장한다.
 
-		Draw order is why it stays top-level: this window and the main window both sit at MEDIUM
-		with toplevel, so whichever was clicked last comes forward, and the HIGH popups hanging
-		off neither of them stay above both. Whether it follows the main window when that moves
-		is the anchor's business, not the parent's - see `ApplyPosition`.
+		Draw order is why it stays top-level: our windows all sit at MEDIUM with toplevel, so
+		whichever was clicked last comes forward. Whether it follows the main window when that
+		moves is the anchor's business, not the parent's - see `ApplyPosition`.
 
 		**Its lifetime still belongs to the main window.** `DebindFrameMixin:OnHide` takes it down,
 		and the X button and Escape both arrive that way. There is no reverse: closing this one

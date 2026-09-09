@@ -2489,22 +2489,6 @@ function DebindFrameMixin:ShowPendingImportsDropdown(button)
 end
 
 
---- 블리자드 패널이 가운데나 전체를 차지하고 있으면 ESC는 그쪽 것이다.
-local function BlizzardOwnsEscape()
-	-- **A dialog standing on top counts too, and it is not a UI panel** - `GetUIPanel` never sees a
-	-- `StaticPopup`, so without this line the two above answer no while a question is on screen
-	-- waiting to be answered. This window then eats that Escape, walks `HandleEscape` to the bottom
-	-- and **closes itself**: the dialog stays up and the window behind it disappears, which is not
-	-- what anybody pressed Escape for.
-	--
-	-- The game keeps its own handler for this (`RegisterGameMenuEscHandler` at
-	-- `GameMenuEscPriority.Dialog` -> `StaticPopup_EscapePressed`), and that one reads each dialog's
-	-- `hideOnEscape` - including other addons', which is the same reason this is asked about **any**
-	-- dialog rather than about ours.
-	return GetUIPanel("center") ~= nil or GetUIPanel("fullscreen") ~= nil
-		or StaticPopup_IsAnyDialogShown();
-end
-
 --- What the window announces to the panels sitting in it.
 ---
 --- **Blizzard's own registry, kept private to this frame.** `EventRegistry` is a global instance of
@@ -2891,7 +2875,7 @@ function DebindFrameMixin:OnHide()
 	if (self.closeAt ~= GetTime()) then
 		self.reopenAt = GetTime();
 		self:Show();
-		if (self.escAt == GetTime() and not BlizzardOwnsEscape() and not Menu.GetManager():HandleESC()) then
+		if (self.escAt == GetTime() and not Menu.GetManager():HandleESC()) then
 			self:HandleEscape();
 		end
 		return;
@@ -3079,6 +3063,15 @@ end
 ---
 --- **This script runs before the ESCAPE binding**, which the old behaviour proves: the window
 --- consumed Escape here and the game menu never opened behind it.
+---
+--- **Nothing else is asked, and standing aside for a Blizzard panel is what stopped being asked.**
+--- That test read the panel registry -- a center or fullscreen panel meant Escape was theirs --
+--- and the registry answers about which slot is filled, never about which window is in front. The
+--- two part the moment a click brings this window over the panel, and they never meet again: the
+--- window the reader just raised would go on losing every Escape to the frame behind it. Tracking
+--- the front instead is not open to us either, since we see our own clicks and not theirs. So the
+--- window steps back on its own ladder and the panel closes on the same press, which is what two
+--- of the client's own panels do (owner, 2026-09-09).
 function DebindFrameMixin:OnKeyDown(input)
 	if (input == "ESCAPE") then
 		self.escAt = GetTime();

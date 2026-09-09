@@ -249,7 +249,6 @@ globals = {
 	"StaticPopup_ShowCustomGenericInputBox",
 	"StaticPopup_FindVisible",
 	"StaticPopup_Hide",
-	"StaticPopup_IsAnyDialogShown",
 	"StaticPopup_IsCustomGenericConfirmationShown",
 	"PanelTemplates_SelectTab",
 	"PanelTemplates_TabResize",
@@ -294,7 +293,6 @@ globals = {
 	"UISpecialFrames",
 	"RegisterGameMenuEscHandler", -- 12.1+
 	"GameMenuEscPriority",        -- 12.1+
-	"GetUIPanel",
 	"GameMenuFrame",
 	"MacroFrame",
 	"PlayerFrame",
