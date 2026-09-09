@@ -1,5 +1,6 @@
 local _, DebindPrivate      = ...;
 local Constants               = DebindPrivate.Constants;
+local KnownSpells             = DebindPrivate.KnownSpells;
 local BindingDriver           = DebindPrivate.BindingDriver;
 local DefaultClickFrame       = DebindPrivate.DefaultClickFrame;
 
@@ -1911,6 +1912,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
         local axis = CONDITION_AXES[i];
         local value = conditions[axis.field];
         if (value ~= nil and value ~= axis.allValue) then
+            local omit = false;
             if (axis.derived) then
                 -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
                 -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을 `States`의
@@ -1919,9 +1921,21 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
                 -- to nothing asks a conditional that is always false (`known:0` is the fixed
                 -- false elsewhere in this file too).
                 local spell = binding.spell or binding.value;
+                -- A spell whose answer cannot move before the next rebuild is settled here
+                -- instead of going out as an axis (`devdocs/baking-the-known-condition.md`): the
+                -- state loop stops parsing it every tick, and so does the press.
+                local settled = spell and KnownSpells.Settle(spell);
+                if (settled == false) then
+                    -- No state can bring this record back for the rest of the rebuild. Dropping
+                    -- it reaches what the click path reaches by skipping it at the press.
+                    return nil;
+                end
+                omit = settled == true;
                 value = spell and ("[known:" .. spell .. "]") or "[known:0]";
             end
-            field(out, axis.field, value);
+            if (not omit) then
+                field(out, axis.field, value);
+            end
         end
     end
 

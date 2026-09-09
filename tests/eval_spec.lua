@@ -292,6 +292,40 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
+    -- **The same two outcomes, reached at the rebuild instead of at the press.** A `known` the
+    -- rebuild can settle carries no axis at all, or takes its record out of the key
+    -- (`devdocs/baking-the-known-condition.md` §5) -- and the press has to land where it lands
+    -- today either way. That is the whole claim the optimization rests on, and the restricted
+    -- side is the only thing that can check it.
+    --
+    -- **The restricted side is never told about either spell.** A record that still carried the
+    -- axis would ask `[known:]` here and lose, so the settled-true action winning is what says
+    -- the axis is really gone rather than merely quiet.
+    test("a known settled at the rebuild lands where a measured one does", function()
+        for spellID, learned in pairs({ [1000] = true, [1001] = false }) do
+            shim.world.spellbook[spellID] = true;
+            shim.world.spells[spellID] = { name = "Spell " .. spellID, levelLearned = 10 };
+            shim.world.knownSpells[spellID] = learned or nil;
+        end
+
+        Bind({
+            action({ value = 1000, key = "F1", conditions = { known = true } }),
+            action({ value = 774, key = "F1" }),
+            action({ value = 1001, key = "F2", conditions = { known = true } }),
+            action({ value = 774, key = "F2" }),
+        });
+
+        check(winner("F1") == 1, "the settled-true action did not win");
+
+        -- **The record count, not only the winner.** With the dropped record still emitted, the
+        -- fallback would sit at index 2 and this key would answer 2; asserting the count is what
+        -- keeps "it was dropped" apart from "it lost".
+        local f2 = interp.env.ClickTimeKeys[Constants.CLICKTIME_BUTTON_PREFIX .. "F2"];
+        check(#f2 == 1, "the settled-false record was emitted: " .. #f2);
+        check(winner("F2") == 1, "the fallback did not win the key");
+        interp:resetState();
+    end);
+
     -- A switch is the one axis the press does **not** measure: there is nothing to measure, the
     -- stored value is the original, so it is read straight out of `States`.
     test("a switch condition is read out of the shared state", function()

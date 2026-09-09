@@ -2743,8 +2743,17 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- **Not asked outside the live world.** The spell comes from the specialization being played
     -- (`SpecSpells.lua`), so on a row drawn for another one the answer would be this character's,
     -- not that row's.
+    --
+    -- **The second way, and it is a different question.** Above is "there is no spell to ask
+    -- about"; here the spell exists and the answer is already settled false for this rebuild
+    -- (`devdocs/baking-the-known-condition.md` §6-1), which is what takes the binding out of the
+    -- key. A reader sees one thing either way -- that spell is not there -- so both take the same
+    -- word.
     row.noSpell = (not offWorld)
-        and not DebindPrivate.KnownConditionCanHold(binding) or nil;
+        and (not DebindPrivate.KnownConditionCanHold(binding)
+            or (binding.conditions.known ~= nil
+                and DebindPrivate.KnownSpells.Settle(binding.spell or binding.value) == false))
+        or nil;
 
     return row;
 end

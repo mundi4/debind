@@ -299,6 +299,43 @@ return function(DebindPrivate)
         check(drawnBy(nil).how == "texture", "a nil icon did not reach SetTexture");
     end);
 
+    ---------------------------------------------------------------------------
+    -- A `known` the rebuild has already settled
+    ---------------------------------------------------------------------------
+
+    -- **A binding the rebuild drops has to say why on the row.** A `known` whose answer is settled
+    -- false for this rebuild takes the binding out of the key entirely
+    -- (`devdocs/baking-the-known-condition.md` §6-1), and with nothing on the row a reader is
+    -- looking at a binding that is simply not firing and no word about it.
+    --
+    -- It takes `noSpell`, the flag that already means "that spell is not there", and rides with
+    -- the specialization rows in the filter because a talent change is what brings it back.
+    --
+    -- The world is stood up before the first rebuild: `KnownSpells` builds its table once.
+    test("a known settled false marks the row, and one settled true does not", function()
+        for spellID, learned in pairs({ [1000] = true, [1001] = false }) do
+            shim.world.spellbook[spellID] = true;
+            shim.world.spells[spellID] = { name = "Spell " .. spellID, levelLearned = 10 };
+            shim.world.knownSpells[spellID] = learned or nil;
+        end
+
+        Bind({
+            { type = Constants.SPELL, value = 1001, key = "F1", seq = 1,
+                conditions = { known = true } },
+            { type = Constants.SPELL, value = 1000, key = "F2", seq = 1,
+                conditions = { known = true } },
+        }, {});
+
+        local dropped = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(dropped.noSpell == true,
+            "the settled-false row was not marked: " .. tostring(dropped.noSpell));
+        check(DebindPrivate.IsRowOffSpec(dropped), "it was not filed with the spec rows");
+
+        local held = DebindPrivate.CollectActionsForKey("F2")[1];
+        check(held.noSpell == nil,
+            "the settled-true row was marked: " .. tostring(held.noSpell));
+    end);
+
     --- The two types with no icon file of their own. **If either stops emitting `A:`**, the fork
     --- above is still correct and the picture is still wrong, so what they emit is asked here.
     test("the two iconless types come back with an atlas", function()

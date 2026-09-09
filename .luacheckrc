@@ -81,6 +81,7 @@ globals = {
 	"C_MountJournal",
 	"C_PaperDollInfo",
 	"C_Spell",
+	"C_Traits",
 	"C_UnitAuras",
 	"AuraUtil",
 	"C_ToyBox",
@@ -132,6 +133,7 @@ globals = {
 	"UnitInParty",
 	"UnitSelectionColor",
 	"InCombatLockdown",
+	"SecureCmdOptionParse",
 	"IsInRaid",
 	"IsInGroup",
 	-- 12.1 secret-value probe; nil on older clients, callers must guard
