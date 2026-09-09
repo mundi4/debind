@@ -784,6 +784,8 @@ local function MigrateLayer(layerTbl, dbver)
         end
     end
 
+    --- **The unreleased step.** Everything raised here landed after the last tag, so it is one
+    --- step rather than a rung each, and unrelated jobs share it (`Constants.DB_VERSION`).
     if (dbver <= 6) then
         -- `equipslot` becomes `useslot`. The action uses what is worn in a slot and equips nothing,
         -- and the game's own `/equipslot 13 <item>` means the opposite (`0-ROADMAP.md`,
@@ -799,9 +801,7 @@ local function MigrateLayer(layerTbl, dbver)
                 action.type = Constants.USESLOT;
             end
         end
-    end
 
-    if (dbver <= 7) then
         -- 유닛 조건의 세 모드가 저마다 자기 값을 든다.
         --
         --   있을 때   `{}`                 -> `{ exists = true }`
@@ -841,6 +841,7 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
     end
+
 end
 
 --- Raises one whole per-spec table (`{[0]=…, [1]=…}`). Class entries and character entries have
@@ -1189,6 +1190,33 @@ DebindPrivate.MigrateSwitches  = MigrateSwitches;
 --- The paths that join late (pre-rename SavedVariables, someone else's export file) **arrive
 --- carrying their own version and are raised to the current one before being attached**
 --- (`Legacy.lua`). Once attached, everything is on the same version.
+--- The excluded frames, gathered into `options.frameBlacklist`.
+---
+--- **Named and public because two paths reach it.** The ladder below runs it for a stored profile,
+--- and `Legacy.lua` runs it by hand for a pre-rename one: that import copies `options` verbatim at
+--- PLAYER_LOGIN, long after the ladder stamped `db.dbver`, so an old shape arriving that way meets
+--- no step at all. `MigrateSwitches` is hand-called from the same place for the same reason.
+---
+--- **`db.packFrames` moves along although no tag has ever carried it.** It was written outside
+--- `options` by mistake and only a worktree can hold one, but a worktree is a profile somebody is
+--- using and there is nothing gained by dropping it.
+---
+--- Safe to run again: the second time there is nothing under either old name.
+function DebindPrivate.MigrateOptions(db)
+    local options = db.options or {};
+    local blacklist = options.frameBlacklist or {};
+    if (type(options.blizzframes) == "table") then
+        blacklist.blizzard = options.blizzframes;
+    end
+    options.blizzframes = nil;
+    if (type(db.packFrames) == "table") then
+        blacklist.addons = db.packFrames;
+    end
+    db.packFrames = nil;
+    options.frameBlacklist = blacklist;
+    db.options = options;
+end
+
 local function MigrateDB(db, charEntry)
     local dbver = db.dbver;
     if (dbver >= Constants.DB_VERSION) then
@@ -1211,6 +1239,11 @@ local function MigrateDB(db, charEntry)
         -- arrivals. Left behind it is a field nothing reads sitting in SavedVariables forever.
         db.nextArrivalID = 2;
         db.nextSyntheticKey = nil;
+    end
+
+    --- The unreleased step; see `MigrateLayer`'s comment on the same one.
+    if (dbver <= 6) then
+        DebindPrivate.MigrateOptions(db);
     end
 
     db.dbver = Constants.DB_VERSION;
@@ -1912,6 +1945,92 @@ function DebindPrivate.DeleteSwitch(name)
     return true;
 end
 
+--- The two tables under `frameBlacklist`, planted so nothing reading one has to ask whether it is
+--- there. **Its own function because `InitDB` needs the shape before `BindDerivedTables` runs**:
+--- the login snapshot is taken in front of the Clique attach and reads these.
+---
+--- **One cell for the blacklist, with a table under it per kind of name.** The Blizzard side is
+--- keyed by frame type and the addon side by folder name, and nothing stops an addon folder from
+--- being called `raid`: flattened into one table those two collide and a row goes wrong with
+--- nothing said. `other` sits beside them rather than inside `addons` for the same reason - a name
+--- reserved in there is a name an addon may have.
+local function EnsureOptionsShape(options)
+    local blacklist = options.frameBlacklist or {};
+    blacklist.blizzard = blacklist.blizzard or {};
+    blacklist.addons = blacklist.addons or {};
+    options.frameBlacklist = blacklist;
+end
+
+--- The options whose answer this build reads once at login and never re-reads, so a change to one
+--- means nothing until the client is reloaded. **Naming one here is the whole of declaring that.**
+--- `InitDB` takes the snapshot off this list and `IsReloadRequired` compares against the same list,
+--- so an option joining them needs no code of its own.
+---
+--- **`check:reload-options` reads it too**, and goes red if a name here also turns up in a branch of
+--- `ApplyOptions`. Both at once is a box that says it needs a reload and half applies without one,
+--- which is what `blizzframes` was doing: ticking one needed the reload and unticking took effect
+--- on the spot, under one tooltip that promised the same thing for both.
+local RELOAD_REQUIRED_OPTIONS = {
+    "frameBlacklist",
+};
+
+--- What those options held at login, and **what every gate that reads one reads.** The stored table
+--- moves the moment a box is ticked and a frame already wired stays wired, so a gate on the live
+--- value would leave half the screen on one answer and half on the other.
+---
+--- Empty until `InitDB` fills it, which is what the doors firing during the load see
+--- (`ClickCastTable.lua` attaches at file scope) - and the reader could not have ticked a box in
+--- that window anyway.
+DebindPrivate.optionsAtLogin = {};
+
+--- **Also taken again after the pre-rename import** (`Legacy.lua`), which swaps `options` out at
+--- PLAYER_LOGIN. Without that the session runs on the snapshot of an empty table and every gate
+--- reading it answers "ours" for frames the reader had taken out.
+function DebindPrivate.TakeOptionsSnapshot(options)
+    local snapshot = {};
+    for _, name in ipairs(RELOAD_REQUIRED_OPTIONS) do
+        local value = options[name];
+        if (type(value) == "table") then
+            value = CopyTable(value);
+        end
+        snapshot[name] = value;
+    end
+    DebindPrivate.optionsAtLogin = snapshot;
+end
+
+local function SameValue(a, b)
+    if (a == b) then
+        return true;
+    end
+    if (type(a) ~= "table" or type(b) ~= "table") then
+        return false;
+    end
+    for key, value in pairs(a) do
+        if (not SameValue(value, b[key])) then
+            return false;
+        end
+    end
+    for key in pairs(b) do
+        if (a[key] == nil) then
+            return false;
+        end
+    end
+    return true;
+end
+
+--- Whether something read once at login has moved since. **Compared rather than flagged**, so
+--- setting a box back the way it was answers no, and so does a Defaults press on a profile that was
+--- already at the defaults.
+function DebindPrivate.IsReloadRequired()
+    local options = DebindPrivate.Options;
+    for _, name in ipairs(RELOAD_REQUIRED_OPTIONS) do
+        if (not SameValue(DebindPrivate.optionsAtLogin[name], options and options[name])) then
+            return true;
+        end
+    end
+    return false;
+end
+
 --- Fills in defaults for `options` / `switches` and **hands those tables to `DebindPrivate`**.
 ---
 --- It is a separate function because what gets handed over is a **reference**. The pre-rename
@@ -1942,7 +2061,7 @@ function DebindPrivate.BindDerivedTables()
     local db = DebindPrivate.db.global;
 
     db.options = db.options or {};
-    db.options.blizzframes = db.options.blizzframes or {};
+    EnsureOptionsShape(db.options);
     DebindPrivate.Options = db.options;
 
     db.switches = db.switches or {};
@@ -2090,24 +2209,16 @@ function DebindPrivate.InitDB()
         char = charEntry,
     };
 
-    --- **Copied and read once, here, and never again while the client is running.** Which unit
-    --- frames get picked up is decided as each one is built, and a frame already wired stays wired
-    --- -- so a value re-read later would leave half the screen on one answer and half on the other.
-    --- Same rule the Blizzard unit frame boxes carry, and they say so with `REQUIRES_RELOAD`.
-    ---
-    --- The box writes into `db.packFrames` and the doors read this. Only `false` is ever written;
-    --- a pack that is absent from it is ours.
-    ---
     --- **Before the Clique header is attached below**, because attaching sweeps what Clique's
-    --- header already holds into `RegisterFrame`, and that gate reads this table: with it still
-    --- nil every pack answered "ours" and a box the reader had ticked was wired for the session
+    --- header already holds into `RegisterFrame`, and that gate reads the snapshot: with it still
+    --- empty every pack answered "ours" and a box the reader had ticked was wired for the session
     --- (code review, 2026-09-08).
-    DebindPrivate.packFrames = {};
-    if (type(db.packFrames) == "table") then
-        for addon, taken in pairs(db.packFrames) do
-            DebindPrivate.packFrames[addon] = taken;
-        end
-    end
+    ---
+    --- **Shaped here rather than waiting for `BindDerivedTables`**, which runs below for the same
+    --- reason: the snapshot is read as a shape and not asked whether it has one.
+    db.options = db.options or {};
+    EnsureOptionsShape(db.options);
+    DebindPrivate.TakeOptionsSnapshot(db.options);
 
     if (DebindPrivate.CliqueDetected) then
         --- **The header door, which is Clique's while Clique is there.** Ours hands out a name from
@@ -2126,12 +2237,11 @@ function DebindPrivate.InitDB()
     DebindPrivate.CleanUpDB()
 end
 
---- Whether a known pack's frames are ours to take. **Answered true before `InitDB` has run**,
---- which is what the doors that fire during the load see (`ClickCastTable.lua` attaches at file
---- scope), and the reader could not have ticked the box in that window anyway.
+--- Whether a known pack's frames are ours to take. Read off the login snapshot, and answered true
+--- before `InitDB` has taken one. Only `false` is ever stored; a pack absent from the table is ours.
 function DebindPrivate.TakesPackFrames(addon)
-    local packs = DebindPrivate.packFrames;
-    return packs == nil or packs[addon] ~= false;
+    local blacklist = DebindPrivate.optionsAtLogin.frameBlacklist;
+    return blacklist == nil or blacklist.addons[addon] ~= false;
 end
 
 --- Says out loud that the addon stood down. Once at login (`Events.lua`), and again every time

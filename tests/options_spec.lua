@@ -193,10 +193,10 @@ return function(DebindPrivate)
         check(s:GetValue() == false, "unset reads as left alone");
 
         s:SetValue(true);
-        check(DebindPrivate.Options.blizzframes.party == false, "ticked did not store false");
+        check(DebindPrivate.Options.frameBlacklist.blizzard.party == false, "ticked did not store false");
 
         s:SetValue(false);
-        check(DebindPrivate.Options.blizzframes.party == nil,
+        check(DebindPrivate.Options.frameBlacklist.blizzard.party == nil,
             "unticking left the default in the profile");
     end);
 
@@ -364,10 +364,10 @@ return function(DebindPrivate)
         check(s:GetValue() == false, "unset reads as left alone");
 
         s:SetValue(true);
-        check(DebindPrivate.db.global.packFrames.Grid2 == false, "ticked did not store false");
+        check(DebindPrivate.Options.frameBlacklist.addons.Grid2 == false, "ticked did not store false");
 
         s:SetValue(false);
-        check(DebindPrivate.db.global.packFrames.Grid2 == nil,
+        check(DebindPrivate.Options.frameBlacklist.addons.Grid2 == nil,
             "unticking left the default in the profile");
     end);
 
@@ -497,23 +497,57 @@ return function(DebindPrivate)
         setting("EXCLUDE_PLAYER_HEALER"):SetValue(false);
     end);
 
-    --- `UpdateBlizzardFrames` has no frames to claim in this client, so what is checked is that
-    --- `ApplyOptions` reaches it at all -- the frames themselves are `/debtest`'s.
-    test("ApplyOptions reaches the Blizzard frame registration", function()
+    --- **The blacklist is read once at login, so a rebuild may not carry it anywhere.** It used to,
+    --- and only in one direction: ticking a box could not take a wired frame back and so really did
+    --- need the reload its tooltip promises, while unticking one reached `UpdateBlizzardFrames`
+    --- from here and registered on the spot. `check:reload-options` asks the same thing of the
+    --- source; this asks it of what runs.
+    test("a rebuild does not carry the frame blacklist anywhere", function()
         local reached = false;
         local real = DebindPrivate.UpdateBlizzardFrames;
         DebindPrivate.UpdateBlizzardFrames = function() reached = true; end;
 
+        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(true);
         DebindPrivate.ApplyOptions();
-        check(reached, "a rebuild no longer registers the Blizzard frames");
-
-        reached = false;
-        shim.world.inCombat = true;
+        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(false);
         DebindPrivate.ApplyOptions();
-        shim.world.inCombat = false;
-        check(not reached, "frames were claimed during a fight");
 
         DebindPrivate.UpdateBlizzardFrames = real;
+        check(not reached, "a rebuild still registers the Blizzard frames");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 리로드가 필요해졌는가
+    ---------------------------------------------------------------------------
+
+    --- **비교지 깃발이 아니다.** 켰다 다시 끄면 로그인 때와 같은 값이고, 그 사람에게 리로드를
+    --- 시키는 것은 아무것도 아닌 일로 화면을 날리는 것이다.
+    test("IsReloadRequired follows the value and comes back down", function()
+        check(DebindPrivate.IsReloadRequired() == false, "아무것도 안 건드렸는데 참이다");
+
+        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(true);
+        check(DebindPrivate.IsReloadRequired() == true, "블랙리스트가 움직였는데 거짓이다");
+
+        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(false);
+        check(DebindPrivate.IsReloadRequired() == false,
+            "값을 되돌렸는데도 리로드가 필요하다고 한다");
+    end);
+
+    --- 팩 칸도 같은 목록 하나로 들어온다. 없이는 위 케이스가 블리자드 칸만 재고 있어도 초록이다.
+    test("IsReloadRequired sees the addon side of the blacklist too", function()
+        setting("PACK_FRAMES_GRID2"):SetValue(true);
+        check(DebindPrivate.IsReloadRequired() == true, "팩 칸은 안 세고 있다");
+        setting("PACK_FRAMES_GRID2"):SetValue(false);
+        check(DebindPrivate.IsReloadRequired() == false, "되돌렸는데 참으로 남았다");
+    end);
+
+    --- 리로드 목록에 없는 옵션은 그 자리에서 반영되니 이 물음의 답이 아니다. 옵션 이름이 아니라
+    --- `options` 전체를 재기 시작하면 스마트 캐스트 상자 하나에 리로드 버튼이 켜진다.
+    test("an option that applies at once does not ask for a reload", function()
+        setting("SMART_CAST_ENABLED"):SetValue(false);
+        check(DebindPrivate.IsReloadRequired() == false,
+            "그 자리에서 반영되는 옵션이 리로드를 요구했다");
+        setting("SMART_CAST_ENABLED"):SetValue(true);
     end);
 
     return T;

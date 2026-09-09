@@ -91,6 +91,20 @@ local function bor(a, b)
     return res;
 end
 
+local function bxor(a, b)
+    a, b = norm(a), norm(b);
+    local res, bitval = 0, 1;
+    while a > 0 or b > 0 do
+        if (a % 2 ~= b % 2) then
+            res = res + bitval;
+        end
+        a = (a - a % 2) / 2;
+        b = (b - b % 2) / 2;
+        bitval = bitval * 2;
+    end
+    return res;
+end
+
 -- WoW의 bit.bnot은 부호 있는 32비트를 돌려주지만, 이 코드베이스에서 bnot은
 -- 항상 band의 인자로만 쓰이므로 부호 없는 보수로 동치.
 local function bnot(a)
@@ -189,7 +203,7 @@ local function positionalFormat(fmt, ...)
 end
 
 function M.install()
-    _G.bit = { band = band, bor = bor, bnot = bnot, lshift = lshift, rshift = rshift };
+    _G.bit = { band = band, bor = bor, bxor = bxor, bnot = bnot, lshift = lshift, rshift = rshift };
 
     _G.wipe = function(t)
         for k in pairs(t) do t[k] = nil; end
@@ -236,6 +250,11 @@ function M.install()
     _G.strlower = string.lower;
     _G.strupper = string.upper;
     _G.strtrim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")); end
+    -- 클라이언트가 내는 것과 같은 이스케이프. 무엇이 그려지는지는 화면에서만 보이고, 스펙이
+    -- 재는 것은 글자가 붙었느냐다.
+    _G.CreateAtlasMarkup = function(name, height, width)
+        return format("|A:%s:%d:%d|a", name, height or 0, width or 0);
+    end
     -- 와우의 strsplit: 첫 인자의 **각 문자**가 개별 구분자. 빈 필드도 그대로 남는다.
     _G.strsplit = function(delims, s)
         local out, cur = {}, {};

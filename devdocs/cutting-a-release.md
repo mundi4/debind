@@ -29,6 +29,23 @@ the `v` — do not copy them.
 **Never bump a version by hand.** The TOCs carry `## Version: @project-version@` and the packager
 substitutes it from the tag. A number typed into a TOC is a number that will disagree with the tag.
 
+**`DB_VERSION`을 올리기 전에 마지막 태그의 값부터 본다.** `git show v<태그>:Debind/Constants.lua`
+가 답한다. 그 값보다 위는 **아무도 저장한 적 없는 번호**다 - 그 판을 들고 있는 것은 이 저장소를
+직접 도는 우리뿐이고, 사용자는 마지막으로 나간 판에서 다음 릴리스로 한 번에 올라온다.
+
+그래서 **미출시 구간은 계단이 아니라 한 칸이다.** 저장 모양을 바꾸는 변경이 그 사이에 셋 붙으면
+셋 다 그 한 칸 안에 들어간다. 서로 무관한 일이 한 단계에 같이 있는 것은 어긋난 것이 아니다 -
+단계가 뜻하는 것은 "이 판에서 저 판으로"이지 "이 변경 하나"가 아니다.
+
+**변경마다 하나씩 올리면 아무도 안 지나는 단계가 영원히 남는다.** 2026-09-09에 6 위로 7·8·9가
+그렇게 쌓였다가 7 하나로 접혔다. 사다리 끝을 보고 하나 더 붙이는 것은 판단이 아니고, 그때 물어야
+하는 것은 "마지막 계단이 몇이냐"가 아니라 **"나간 판이 몇이냐"**다.
+
+접을 때 같이 움직이는 것들: `Constants.DB_VERSION`, 각 사다리의 `dbver <= N`, 그 번호를 본문에
+적어둔 주석과 문서, `tests/migration_spec.lua`의 진입 판과 제목, `DebindDev/DevSeed.lua`의
+`SEEDS[N]`. **현재 판의 씨앗은 결과를 든다** - `/deb seed`를 인자 없이 치면 그것이 서므로, 그
+판이 저장하는 모양 그대로여야 한다. 그 아래 판의 씨앗이 입력이다.
+
 **`CHANGELOG.md` is written, not generated.** `.pkgmeta` sets `manual-changelog`, so whatever is in
 that file becomes the release notes on CurseForge. Without it the packager scrapes commit subjects.
 

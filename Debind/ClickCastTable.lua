@@ -45,12 +45,19 @@ local ccframesMeta = {
 };
 
 --- Clique adopts what was registered before it loaded instead of dropping it; do the same.
+---
+--- **Filed as well as registered, which is what `__newindex` does for every later write.** Without
+--- the row, `ClickCastFrames[frame]` reads nil for an adopted frame, so the addon's own
+--- `if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end` never fires and its
+--- bookkeeping stays on the frame -- the exact failure the header above says was fixed. `HandOver`
+--- walks the same table, so a holder installing later would not learn about them either.
 local function Adopt(previous)
     if (type(previous) ~= "table") then
         return;
     end
     for frame, options in pairs(previous) do
         if (options ~= false) then
+            registered[frame] = options;
             DebindPrivate.RegisterFrame(frame, options);
         end
     end
@@ -331,10 +338,15 @@ function DebindPrivate.AttachCliqueHeader()
     --- Clique's proxy went through Clique's `__newindex` into `Clique.ccframes` and nowhere else:
     --- the proxy never holds a row of its own, so the walk that adopts a plain table finds nothing
     --- there. Handed over the way the table hands one over (code review, 2026-09-08).
+    --- **Each one behind a `pcall`, as every other sweep is** (`FrameRegistry.lua`'s three).
+    --- `RegisterFrame` touches `IsProtected`/`IsForbidden`, which on 12.1 can raise even where
+    --- `IsForbidden` answered false, and this loop runs inside `InitDB` -- one such frame in
+    --- Clique's table would abort the login before `BindDerivedTables` and `LoadProfile`, leaving
+    --- the addon with no profile bound at all.
     if (type(clique.ccframes) == "table") then
         for button in pairs(clique.ccframes) do
             if (type(button) == "table") then
-                DebindPrivate.RegisterFrame(button, true);
+                pcall(DebindPrivate.RegisterFrame, button, true);
             end
         end
     end

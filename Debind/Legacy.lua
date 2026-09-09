@@ -180,6 +180,12 @@ local function ImportAccount(db, old)
     -- **This character's entry goes with it**, because the step moves the remembered switch values
     -- onto the characters and the account share is where the old ones ride in.
     DebindPrivate.MigrateSwitches(db, dbver, DebindPrivate.db.char);
+
+    -- **`options` rides the loop above and a copy is all it does either**, so the same hole is
+    -- here: the excluded Blizzard unit frames arrive under the name the ladder folds away, and no
+    -- ladder will ever come round to fold them. Left alone, a reader who had taken those frames
+    -- out gets them taken over instead, and nothing on screen says why.
+    DebindPrivate.MigrateOptions(db);
 end
 
 --- This character's share: `DebounceVarsPerChar` -> `DebindVars.characters[guid]`.

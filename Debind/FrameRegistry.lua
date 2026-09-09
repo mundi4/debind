@@ -530,14 +530,19 @@ end
 
 --- **Steps off a frame rather than trading the top with another engine forever.**
 ---
---- Taking the row away is what makes it stick: every gate below reads it, so nothing reassembles
---- this frame again. The wrapper stays where it is, as every wrapper of ours does, and the body it
---- runs stands down on its own once the restricted row is gone. What we took off the frame is
---- **not** given back and not thrown away -- it is still in `Overs` and still replayed, because
---- stopping it is the one thing that would break the addon we stood down for.
+--- **The refusal sentinel is what makes it stick, and `nil` is not one.** `RegisterFrame` reads
+--- `== false` for a frame it has already refused; clearing the row instead leaves it looking like a
+--- frame nobody has met, so the next header update, `TakeNamedFrame` or `ClickCastFrames` write
+--- registers it again, re-arms the same contest, and stands down again -- with `DeinitFrame` firing
+--- each round and the warning suppressed after the first.
+---
+--- The wrapper stays where it is, as every wrapper of ours does, and the body it runs stands down on
+--- its own once the restricted row is gone. What we took off the frame is **not** given back and not
+--- thrown away -- it is still in `Overs` and still replayed, because stopping it is the one thing
+--- that would break the addon we stood down for.
 local function StandDown(button)
 	local row = DebindPrivate.ccframes[button];
-	DebindPrivate.ccframes[button] = nil;
+	DebindPrivate.ccframes[button] = false;
 	if (row and row.hd) then
 		local name = button.GetName and button:GetName();
 		if (name) then
@@ -668,8 +673,14 @@ end
 --- header. So this reassembles from whatever is left, and what is left is whatever they still have
 --- on the frame. Where they had only the one wrapper, the list comes out empty and their bodies
 --- stop running, which is what they asked for.
+--- **`_reassembling` is not one of the tests here, and that is the whole difference from what it
+--- used to be.** Every unwrap of ours is bracketed by `unwrappingOwnScripts`, so the only unwrap
+--- that can arrive while our reassembly is on the stack is somebody else's answer to it -- a fight,
+--- which is `ContestedNow`'s to name. Testing it up here returned first and left that call
+--- unreachable, so an engine that answers a wrap by taking the top back was ignored: our new
+--- wrapper was gone from the frame while `WrappedByUs` went on saying it was there.
 local function OnForeignUnwrap(frame, script)
-	if (DebindPrivate.unwrappingOwnScripts or _reassembling[frame]) then
+	if (DebindPrivate.unwrappingOwnScripts) then
 		return;
 	end
 	if (not REASSEMBLED_SCRIPTS[script]) then
@@ -778,16 +789,28 @@ function DebindPrivate.RegisterFrame(button, type)
 		ccframes[button].frameType = button:GetAttribute("debind_frametype")
 	]=]);
 
+    --- **The row goes down before the first wrap, not after.** `OnForeignWrap` opens with
+    --- `not ccframes[frame]`, so an engine that answers our wrap by wrapping over it -- the very
+    --- behaviour the contest handling exists for -- was rejected at that gate when it happened
+    --- during registration. `ContestedNow` was never asked, nothing was said, and we were left
+    --- underneath their `OnLeave` with the hover slot never cleared. `OnClick` never had the
+    --- problem because `UpdateRegisteredClicks` runs after this line.
+    local row = { type = type, frameType = frameType };
+    DebindPrivate.ccframes[button] = row;
+
     if (not _hoverWrapped[button]) then
         _hoverWrapped[button] = true;
         Reassemble(button, "OnEnter");
         Reassemble(button, "OnLeave");
     end
 
-    local row = { type = type, frameType = frameType };
-    DebindPrivate.ccframes[button] = row;
-    ClaimForHeader(button, row);
-    DebindPrivate.UpdateRegisteredClicks(button);
+    --- **The contest can fire from inside those two now that the row is down first**, and standing
+    --- down puts the refusal sentinel in its place. Going on to claim would write the header name
+    --- back for a frame we just stepped off.
+    if (DebindPrivate.ccframes[button] == row) then
+        ClaimForHeader(button, row);
+        DebindPrivate.UpdateRegisteredClicks(button);
+    end
 end
 
 --- A forbidden object errors on **any** method call from addon-tainted code, so the whole branch
@@ -1177,9 +1200,15 @@ end
 
 --- **Ticking a box does not take the frame back.** A ticked box is a set we do not register from
 --- next login rather than one we hand back now. The boxes say so themselves (`REQUIRES_RELOAD` in
---- `DropDownMenus.lua`).
+--- `Options.lua`), and reading the login snapshot rather than the stored table is what makes that
+--- true in both directions - unticking used to register on the spot under the same tooltip.
+--- **The snapshot may have no shape at all**, which is why the table is asked for rather than
+--- walked through. `StandDown` hands out an empty profile and never takes a snapshot, but it does
+--- call `BindDerivedTables`, so `DebindPrivate.Options` stands and the `CompactUnitFrame_SetUpFrame`
+--- hook's gate on it passes. `TakesPackFrames` guards the same way.
 local function registerBlizzardFrame(frame, category)
-    if (DebindPrivate.Options.blizzframes[category] ~= false) then
+    local blacklist = DebindPrivate.optionsAtLogin.frameBlacklist;
+    if (blacklist == nil or blacklist.blizzard[category] ~= false) then
         local options = BLIZZARD_UNITFRAME_OPTIONS[category];
         DebindPrivate.RegisterFrame(frame, options and options.type);
     end

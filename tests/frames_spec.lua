@@ -447,10 +447,10 @@ return function(DebindPrivate)
 
     --- Runs `fn` with the pack list standing at `packs`, and puts back whatever was there.
     local function withPacks(packs, fn)
-        local saved = DebindPrivate.packFrames;
-        DebindPrivate.packFrames = packs;
+        local saved = DebindPrivate.optionsAtLogin.frameBlacklist;
+        DebindPrivate.optionsAtLogin.frameBlacklist = { blizzard = {}, addons = packs };
         local ok, err = pcall(fn);
-        DebindPrivate.packFrames = saved;
+        DebindPrivate.optionsAtLogin.frameBlacklist = saved;
         if (not ok) then
             error(err, 0);
         end
@@ -712,6 +712,19 @@ return function(DebindPrivate)
         fighting = false;
     end
 
+    --- **물러난 것이 굳는가.** 행을 지우기만 하면 다음 헤더 갱신이나 `ClickCastFrames` 쓰기가
+    --- `RegisterFrame`을 다시 부르고, 그쪽은 만난 적 없는 프레임으로 보고 다시 등록한다. 그러면
+    --- 같은 싸움이 다시 붙고 `DeinitFrame`이 매번 돈다. 거절 표시가 그것을 막는 유일한 값이다.
+    test("standing down survives a later registration", function()
+        local frame = ForeignFrame(nil, "party3");
+        DebindPrivate.RegisterFrame(frame, true);
+        StandDown(frame);
+
+        DebindPrivate.RegisterFrame(frame, true);
+        check(DebindPrivate.ccframes[frame] == false,
+            "물러난 프레임이 다시 등록됐다: " .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
     -- **And a frame we stepped off is stepped off.** The hook cannot be taken off a frame, so what
     -- stops it is the row being gone: putting the input back on a frame the addon is no longer
     -- watching would be holding on to somebody else's.
@@ -719,7 +732,7 @@ return function(DebindPrivate)
         local frame = ForeignFrame(nil, "party1");
         DebindPrivate.RegisterFrame(frame, true);
         StandDown(frame);
-        check(DebindPrivate.ccframes[frame] == nil, "setup: the fight did not stand us down");
+        check(DebindPrivate.ccframes[frame] == false, "setup: the fight did not stand us down");
 
         frame:RegisterForClicks("AnyDown");
         frame:EnableMouseWheel(false);
@@ -901,7 +914,7 @@ return function(DebindPrivate)
 
         SecureHandlerWrapScript(fought, "OnEnter", theirs, "-- theirs");
 
-        check(DebindPrivate.ccframes[fought] == nil,
+        check(DebindPrivate.ccframes[fought] == false,
             "an addon wrapping over us inside our own wrap did not stand us down: "
             .. tostring(DebindPrivate.ccframes[fought]));
         check(rounds < 3, "the fight went " .. rounds .. " rounds before we stepped off");

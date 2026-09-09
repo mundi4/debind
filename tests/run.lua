@@ -77,6 +77,9 @@ shim.loadLibs(repoRoot .. "/Debind/Libs", {
 ---     client's `GameTooltip_Add…` functions. Everything drawn anywhere reads through them, so
 ---     leaving them out put the words a reader sees out of reach of every spec -- and put
 ---     `ActionCatalog` out of reach too, since it asks the first one to name a row
+---   `MenuKit.lua` is `DebindUI.xml`'s too, and only its drawing half needs a frame. The value
+---     handlers and the issue rollup are asked about tables, which is what `menukit_spec.lua`
+---     reaches; `Registry:Build` makes rows on a description and is out of reach here
 ---   `Flyout.lua` is UI and is here anyway. `SetBindingAttributes` asks it for a flyout opener
 ---     and that opener is a frame, so by that rule it sits on the in-game side; the file comes
 ---     along because the pipeline calls into it
@@ -106,6 +109,7 @@ local function loadAddons(withCliqueFake)
     "Debind.lua",
     "ActionDisplay.lua",
     "ActionTooltip.lua",
+    "MenuKit.lua",
     "Flyout.lua",
     "Profile.lua",
     "Legacy.lua",
@@ -211,6 +215,8 @@ local specs = {
     { name = "unitwatch", path = root .. "/unitwatch_spec.lua" },
     { name = "role", path = root .. "/role_spec.lua" },
     { name = "options", path = root .. "/options_spec.lua" },
+    { name = "menukit", path = root .. "/menukit_spec.lua" },
+    { name = "pet", path = root .. "/pet_spec.lua" },
     { name = "holder", path = root .. "/holder_spec.lua", cliqueFake = true },
 };
 

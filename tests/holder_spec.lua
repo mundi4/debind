@@ -117,10 +117,11 @@ return function(DebindPrivate)
     -- `EllesmereUIRaidFrames` row.
     test("a frame whose pack is on the blacklist is refused behind a holder", function()
         Holder(false);
-        DebindPrivate.packFrames = { EllesmereUIRaidFrames = false };
+        DebindPrivate.optionsAtLogin.frameBlacklist =
+            { blizzard = {}, addons = { EllesmereUIRaidFrames = false } };
         local frame = frames.newFrame("Button", "ERFExtraFrame51", nil, "SecureUnitButtonTemplate");
         _G.ClickCastFrames[frame] = true;
-        DebindPrivate.packFrames = {};
+        DebindPrivate.optionsAtLogin.frameBlacklist = nil;
         check(DebindPrivate.ccframes[frame] == nil,
             "a pack the reader ticked was taken: " .. tostring(DebindPrivate.ccframes[frame]));
     end);

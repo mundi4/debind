@@ -342,7 +342,7 @@ return function(DebindPrivate, _, ctx)
         Bind({ action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }) });
 
         local entries = standDown(spare);
-        check(DebindPrivate.ccframes[spare] == nil, "싸움에서 물러났는데 ccframes 행이 남았다");
+        check(DebindPrivate.ccframes[spare] == false, "싸움에서 물러났는데 ccframes 행이 남았다");
 
         local unwrappedAfter;
         local rowGone = false;

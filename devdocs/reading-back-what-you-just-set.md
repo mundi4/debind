@@ -72,6 +72,27 @@ Two things about it are worth knowing:
   (`false` here) and Debind's `_onattributechanged` writes `0` back, so the two never agree and the
   handler fires every single tick.
 
+**The lockdown itself, after `PLAYER_REGEN_DISABLED`.** The event arrives first and **the lockdown
+has not begun when it does** — this is not the flag lagging behind the restriction, the two move
+together. Measured 2026-09-09 with a one-shot probe: in the handler
+`InCombatLockdown()` answers false *and* a `SetAttribute` on a secure action button still lands; at
+the next `OnUpdate` the flag answers true and the same write is refused. Logging in during a fight
+is the same shape from the other side — 160ms and no frame at all between the event and the first
+one that answers true (`Events.lua`, `PLAYER_LOGIN`).
+
+Two things follow.
+
+* **A handler for that event may not ask the flag whether a fight is on.** It gets a truthful "not
+  locked", which is a different question, and that painted the settings notice row white at the
+  moment it had to go red (`Options.lua`, `NoticeWatcher`). The event is the answer. Blizzard reads
+  the flag inside no regen handler of its own.
+* **Protected work started from that handler still lands.** The window is real, not a race won by
+  luck: the restriction is measurably off for the whole of the dispatch.
+
+**A refused protected call does not raise.** It fires `ADDON_ACTION_BLOCKED` and the call quietly
+does nothing, so `pcall` around one answers "ok" either way. Writing a value and reading it straight
+back is the only oracle.
+
 So: anything that is only noticed by that poll — a unit appearing or going away under a cursor that
 never moved, a real world state changing with no event behind it — costs up to `updatetime` and
 nothing can shorten it.

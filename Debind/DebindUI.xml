@@ -15,6 +15,20 @@
 	<Script file="LayerDisplay.lua" />
 	<Script file="ActionTooltip.lua" />
 	<Script file="DebindUI.lua" />
+	<!--
+		**These five are one order and it is load-bearing.** Each takes its names off
+		`DebindPrivate.ActionMenu` as it is read, so a file read before the one that puts a name
+		there binds nil and fails much later, somewhere else.
+
+		`MenuKit.lua` reads nothing out of `DebindUI` and could stand higher still; it is here
+		because every file that uses it draws menus. `ActionMenuNodes.lua` before
+		`ActionMenuItems.lua` is for one name only, the unit condition submenu the target menu also
+		opens (`putting-the-menus-on-a-kit.md`).
+	-->
+	<Script file="MenuKit.lua" />
+	<Script file="ActionMenuModel.lua" />
+	<Script file="ActionMenuNodes.lua" />
+	<Script file="ActionMenuItems.lua" />
 	<Script file="DropDownMenus.lua" />
 
 	<!--

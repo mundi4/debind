@@ -141,9 +141,12 @@ local UNIT_INFO            = {
 		name = LLL["UNIT_PLAYER"],
 		unitexists = false,
 	},
+	--- **Two axes have only one answer on your own pet.** It is always something you can help, and
+	--- asking which group it is in has one answer. What is left is whether it is there and whether
+	--- it is dead, which is what a revive is hung on.
 	pet = {
 		name = LLL["UNIT_PET"],
-		checkedUnit = false,
+		conditionAxes = { reaction = false, group = false },
 	},
 	target = {
 		name = LLL["UNIT_TARGET"],

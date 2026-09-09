@@ -1231,8 +1231,15 @@ function BindingDriver:AnswerAura(unit, buffSpellID)
 	if (buffSpellID) then
 		local name = DebindPrivate.GetSpellNameAndIconID(buffSpellID);
 		if (name) then
+			--- **The aura itself can be a secret**, and the `pcall` covers only the call: comparing
+			--- one raises where it stands. `GetAuraDataBySpellName` is
+			--- `SecretWhenUnitAuraRestricted`, which is on in battlegrounds, arenas and encounters
+			--- -- out of combat included, which is when this branch runs.
+			---
+			--- **Asked, not folded to nil.** This bit says the buff is missing, and a unit we are
+			--- not allowed to read has not said that.
 			local found, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, name, "HELPFUL");
-			if (found and aura == nil) then
+			if (found and not (issecretvalue and issecretvalue(aura)) and aura == nil) then
 				mask = mask + 2;
 			end
 		end

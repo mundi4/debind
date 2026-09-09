@@ -447,7 +447,7 @@ local REACTION_TO_UNIT_STATE = {
 ---     { exists = false, ... }      없을 때. 축은 기억만 한다
 ---     { disabled = true, ... }     이 유닛에 조건 없음. 축은 기억만 한다
 ---
---- **표시가 하나도 없는 표는 옛 값이고, "있을 때"로 읽는다.** `dbver <= 7` 단계가 그것을
+--- **표시가 하나도 없는 표는 옛 값이고, "있을 때"로 읽는다.** `dbver <= 6` 단계가 그것을
 --- `exists = true`로 올리므로 저장에는 안 남는다. 아직 안 옮겨진 프로필과 페이로드가 그
 --- 모양으로 오는데, 그것을 "조건 없음"으로 읽으면 걸어둔 조건이 조용히 사라져 바인딩이 제 것
 --- 아닌 키까지 가져간다. 좁아지는 쪽이 안전하다.
@@ -482,7 +482,7 @@ local function UnitConditionForBinding(value)
         return false, true;
     end
 
-    -- **옛 이름 `off`도 여기서 받는다**, 옛 스칼라를 받는 것과 같은 이유로. `dbver <= 7`이
+    -- **옛 이름 `off`도 여기서 받는다**, 옛 스칼라를 받는 것과 같은 이유로. `dbver <= 6`이
     -- 저장을 올리지만, 그 사다리를 아직 안 탄 값이 이리로 온다 - 페이로드가 대표적이고, 그것을
     -- "있을 때 + 기억한 축"으로 읽으면 **보낸 사람이 꺼둔 조건이 켜진 채로 살아난다.**
     if (value.disabled or value.off) then
@@ -662,6 +662,22 @@ end
 
 DebindPrivate.UnitGroupToCells = UnitGroupToCells;
 
+--- The stored box mask naming exactly this cell set, or nil where none does.
+---
+--- **The three boxes are not closed under intersection.** [In my party] and [In my raid] meet on
+--- "in a raid and in my subgroup" alone, and no box or combination of boxes names that one cell.
+--- So a fold that has to be written back into a profile has to ask first whether its answer can be
+--- written at all; `band` on the boxes themselves returns 0 there, which is not that answer but
+--- "no box chosen", and a binding that can fire becomes one that carries an error forever.
+local function CellsToUnitGroup(cells)
+    for mask = 0, Constants.UNITGROUP_ALL do
+        if (UnitGroupToCells(mask) == cells) then
+            return mask;
+        end
+    end
+end
+DebindPrivate.CellsToUnitGroup = CellsToUnitGroup;
+
 local function BuildUnitStates(binding)
     DeriveHoverFields(binding);
 
@@ -814,6 +830,13 @@ do
         --
         -- 표는 **재사용한다.** 아래 정규화가 제자리에서 nil을 쓰므로 액션 쪽 표를 그대로
         -- 가리키면 사용자가 건 조건을 지우게 된다.
+        -- **The refill has to clear this too.** It is set from the conditions below and the table
+        -- is reused, so a binding once marked opaque stayed opaque for the life of the action --
+        -- the reader fixes the condition the menu could not read and the binding still covers
+        -- nothing and is covered by nothing. Reachable only by luck before `_ActionToBindingsCache`
+        -- held strong values; now the table never goes away.
+        binding.unitConditionUnreadable = nil;
+
         local conditions = binding.conditions;
         if (conditions == nil) then
             conditions = {};
@@ -2108,13 +2131,16 @@ local function IntersectStoredUnitConditions(a, b)
     -- Neither of the two below is on `unitStates`, which is what let them go missing quietly:
     -- group and role have columns of their own, so the spec that compares that mask before and
     -- after the fold stays green while the field is gone.
+    --- **Folded in cells and brought back**, because the boxes do not intersect as boxes
+    --- (`CellsToUnitGroup`). `ConditionsSurviveMacroText` turns away the conversion where the
+    --- answer names no box, so what comes back here is never nil.
     local group;
     if (a.group == nil) then
         group = b.group;
     elseif (b.group == nil) then
         group = a.group;
     else
-        group = band(a.group, b.group);
+        group = CellsToUnitGroup(band(UnitGroupToCells(a.group), UnitGroupToCells(b.group)));
     end
 
     local role;
@@ -2174,7 +2200,26 @@ local function ConditionsSurviveMacroText(action)
         if (taken == nil) then
             return true;
         end
-        return type(units["@"]) == "table" and type(taken) == "table";
+        local at = units["@"];
+        if (type(at) ~= "table" or type(taken) ~= "table") then
+            return false;
+        end
+        -- **The one fold whose answer may not be storable.** Two group masks whose cells meet on
+        -- "in a raid and in my subgroup" name a condition no box combination writes, and every
+        -- value that could be written instead is a different condition. The sides the intersection
+        -- short-circuits on are asked the same way it asks them, so a conversion it would have
+        -- folded cleanly is not turned away.
+        --
+        -- The `dead` fork is one of them: two sides that disagree there never reach the group
+        -- axis at all, so refusing over it would turn away a conversion that folds cleanly.
+        local deadConflict = at.dead ~= nil and taken.dead ~= nil and at.dead ~= taken.dead;
+        if (at.group and taken.group and not deadConflict
+                and not at.disabled and not taken.disabled
+                and at.exists ~= false and taken.exists ~= false) then
+            local cells = band(UnitGroupToCells(at.group), UnitGroupToCells(taken.group));
+            return DebindPrivate.CellsToUnitGroup(cells) ~= nil;
+        end
+        return true;
     end
 
     return true;
@@ -2866,19 +2911,6 @@ function DebindPrivate.ApplyOptions(option)
             DebindPrivate.clickEdgeSuspended = nil;
             SecureHandlerExecute(DebindPrivate.BindingDriver,
                 format("ClickCastOnMouseDown=%s", tostring(onMouseDown)));
-        end
-    end
-
-    --- **Out of combat only, because `RegisterFrame` says so out loud.** It queues a frame it
-    --- cannot claim during a fight and prints a line the first time it does, and this branch runs
-    --- on every rebuild -- so reaching it under lockdown would put frames in that queue twice over
-    --- for an answer that has not moved.
-    ---
-    --- Turning a box off takes nothing back. `registerBlizzardFrame` reads the option, and what is
-    --- already wired stays wired until the next login (`FrameRegistry.lua`).
-    if (option == nil or option == "blizzframes") then
-        if (not InCombatLockdown()) then
-            DebindPrivate.UpdateBlizzardFrames();
         end
     end
 

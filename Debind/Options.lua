@@ -153,18 +153,18 @@ function DebindPrivate.RegisterOptionsCategory()
     ---
     --- **Storage keeps the polarity it already had.** `false` is "leave alone" and the key gone is
     --- "ours", which is what these two tables have always held; only the box reads the other way
-    --- round now, so nothing has to be migrated.
+    --- round.
     for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
         local key = "BLIZZARD_UNIT_FRAMES_" .. strupper(frameType);
         Settings.CreateCheckbox(category, Proxy(key, Settings.VarType.Boolean, L[key], false,
             function()
-                return DebindPrivate.Options.blizzframes[frameType] == false;
+                return DebindPrivate.Options.frameBlacklist.blizzard[frameType] == false;
             end,
             function(value)
                 if (value) then
-                    DebindPrivate.Options.blizzframes[frameType] = false;
+                    DebindPrivate.Options.frameBlacklist.blizzard[frameType] = false;
                 else
-                    DebindPrivate.Options.blizzframes[frameType] = nil;
+                    DebindPrivate.Options.frameBlacklist.blizzard[frameType] = nil;
                 end
                 DebindPrivate.QueueUpdateBindings();
             end), L["LEAVE_UNIT_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
@@ -184,22 +184,14 @@ function DebindPrivate.RegisterOptionsCategory()
         Settings.CreateCheckbox(category, Proxy("PACK_FRAMES_" .. strupper(addon),
             Settings.VarType.Boolean, packs[i][2], false,
             function()
-                local stored = DebindPrivate.db.global.packFrames;
-                return stored ~= nil and stored[addon] == false;
+                return DebindPrivate.Options.frameBlacklist.addons[addon] == false;
             end,
             function(value)
-                local stored = DebindPrivate.db.global.packFrames;
-                if (not value) then
-                    if (stored) then
-                        stored[addon] = nil;
-                    end
-                    return;
+                if (value) then
+                    DebindPrivate.Options.frameBlacklist.addons[addon] = false;
+                else
+                    DebindPrivate.Options.frameBlacklist.addons[addon] = nil;
                 end
-                if (not stored) then
-                    stored = {};
-                    DebindPrivate.db.global.packFrames = stored;
-                end
-                stored[addon] = false;
             end), L["LEAVE_PACK_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
     end
 
@@ -394,17 +386,23 @@ end
 local _noticeFrame;
 
 --- **The events are on a frame of ours, not on the row's.** The row's own `OnLoad` did not reach
---- us in the game: the mixin was there -- `Init` ran and coloured the line, which is why scrolling
---- the row back into view showed the fight's colour -- but no `PLAYER_REGEN_DISABLED` ever
---- arrived. Nothing in the client's own source says why; the panel's pool creates the frame with a
---- plain `CreateFrame` and that should run the script (measured 2026-09-08). So the registration is
---- made here, where it is not in doubt, and the row is reached through `Init` instead.
+--- us in the game (measured 2026-09-08), and the panel's pool creating the frame with a plain
+--- `CreateFrame` should have run the script. So the registration is made here, where it is not in
+--- doubt, and the row is reached through `Init` instead.
 local NoticeWatcher = CreateFrame("Frame");
 NoticeWatcher:RegisterEvent("PLAYER_REGEN_DISABLED");
 NoticeWatcher:RegisterEvent("PLAYER_REGEN_ENABLED");
-NoticeWatcher:SetScript("OnEvent", function()
+
+--- **The line says a fight is on, and `InCombatLockdown()` answers a different question.** The
+--- lockdown has not begun when `PLAYER_REGEN_DISABLED` arrives: the flag answers false and a
+--- protected write still lands, and both turn over before the next `OnUpdate` (measured
+--- 2026-09-09; `devdocs/reading-back-what-you-just-set.md`). So asking it here is not the flag lying, it
+--- is the wrong question, and it painted the line white at the moment it had to go red. The event
+--- is the answer. `NoticeColor` is left for `Init`, which is a cold read at any other moment.
+NoticeWatcher:SetScript("OnEvent", function(_, event)
     if (_noticeFrame) then
-        _noticeFrame.Text:SetTextColor(NoticeColor():GetRGB());
+        local color = (event == "PLAYER_REGEN_DISABLED") and RED_FONT_COLOR or HIGHLIGHT_FONT_COLOR;
+        _noticeFrame.Text:SetTextColor(color:GetRGB());
     end
 end);
 

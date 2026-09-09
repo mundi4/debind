@@ -38,16 +38,25 @@ to skip any single one of them, which is why there are seven.
 ## 2. The blacklist
 
 **Every unit frame is ours.** The reader's only lever is naming one to be left alone, and there are
-two lists of names to do it with:
+two lists of names to do it with. Both live under one option, `Options.frameBlacklist`, because one
+is keyed by frame type and the other by addon folder name and a folder called `raid` would collide
+with the frame type of the same name:
 
 | Box | Written | Read | Absent means |
 |---|---|---|---|
-| `Options.blizzframes[category]` | the client's seven windows, one box each | `registerBlizzardFrame` | ours |
-| `TakesPackFrames(addon)` | `db.packFrames[addon]`, one box per installed known pack | asked once inside `RegisterFrame` | ours |
+| `frameBlacklist.blizzard[category]` | the client's seven windows, one box each | `registerBlizzardFrame` | ours |
+| `TakesPackFrames(addon)` | `frameBlacklist.addons[addon]`, one box per installed known pack | asked once inside `RegisterFrame` | ours |
 
 Both store `false` for "leave alone" and nothing at all for "ours", and both say `REQUIRES_RELOAD`:
 which frames get picked up is decided as each one is built, so the values are read once at login
 (`InitDB`) and a frame already wired stays wired.
+
+**Both gates read `DebindPrivate.optionsAtLogin`, not the stored table.** That is what makes the
+promise true in both directions: ticking a box cannot take a wired frame back, and until this went
+in, unticking one reached `UpdateBlizzardFrames` through `ApplyOptions` and registered on the spot
+under the same tooltip. `RELOAD_REQUIRED_OPTIONS` in `Profile.lua` names the options read this way,
+the login snapshot and `IsReloadRequired` are both built from that list, and `check:reload-options`
+goes red if a name on it also appears in a branch of `ApplyOptions`.
 
 **The pack box is asked in `RegisterFrame` and nowhere else**, so it covers every door at once, the
 header door included. A frame whose name matches no row in `KNOWN_PACK_FRAMES` is not any pack's and

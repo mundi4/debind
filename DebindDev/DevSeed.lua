@@ -296,7 +296,7 @@ SEEDS[6] = function(guid)
         };
     end
 
-    --- 유닛 조건의 옛 모양을 그대로 든 행. **`dbver <= 7`이 만나는 입력이 이것이다.**
+    --- 유닛 조건의 옛 모양을 그대로 든 행. **`dbver <= 6`이 만나는 입력이 이것이다.**
     ---
     --- 씨앗 하나는 자기 다음 단계가 **실제로 만나는 데이터**를 들고 있어야 한다. 안 그러면
     --- `/deb seed 6`으로 올라와도 그 단계는 아무것도 안 만난 채 지나가고, 게임에서 재는 것이
@@ -401,17 +401,15 @@ SEEDS[6] = function(guid)
 end;
 
 
---- `dbver` 7. 위 판과 다른 것은 둘뿐이다 - `equipslot`이 `useslot`이 됐고, 스탬프가 7이다.
---- 유닛 조건은 그대로다: 그 모양을 바꾸는 것이 `dbver <= 7` 단계이고, 이 판은 그 단계의
---- **입력**이다.
+--- `dbver` 7, the current version. `/deb seed` with no argument stands this one up.
 ---
---- **6과 7을 둘 다 두는 것은 경로가 둘이기 때문이다.** 6에서 올라오면 두 단계가 잇달아 돌고,
---- 7에서 올라오면 새 단계 하나만 돈다. 갈라지는 자리가 있으면 앞의 경로에서만 보인다.
+--- The seed above is that step's **input** and this one is its **result**, which is why the same
+--- rows carry the new shape.
 SEEDS[7] = function(guid)
-    --- 위 판과 같은 행이다. **같은 값을 두 번 적는 것이 이 파일의 규칙이다** - 씨앗은 그
-    --- `dbver`가 저장하던 모양을 통째로 든다. 위를 참조하면 6을 고칠 때 7이 따라 움직이고,
-    --- 그러면 두 판이 하나가 된다.
-    local function OldUnitCondition(seq, name, condition)
+    --- 위 판과 같은 행이지만 값이 다르다. **같은 값을 두 번 적는 것이 이 파일의 규칙이다** -
+    --- 씨앗은 그 `dbver`가 저장하던 모양을 통째로 든다. 위를 참조하면 6을 고칠 때 7이 따라
+    --- 움직이고, 그러면 두 판이 하나가 된다.
+    local function UnitCondition(seq, name, condition)
         return {
             type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
             value = format("/script print(\"unit-%s\")", name), name = "Unit " .. name,
@@ -425,19 +423,22 @@ SEEDS[7] = function(guid)
 
         shared = {
             GENERAL = {
-                OldUnitCondition(1, "exists", {}),
-                OldUnitCondition(2, "axis only", { reaction = Constants.REACTION_HELP }),
-                OldUnitCondition(3, "absent", { exists = false, dead = true }),
-                OldUnitCondition(4, "off", { off = true, reaction = Constants.REACTION_HARM,
+                UnitCondition(1, "exists", { exists = true }),
+                UnitCondition(2, "axis only", { exists = true,
+                    reaction = Constants.REACTION_HELP }),
+                UnitCondition(3, "absent", { exists = false, dead = true }),
+                --- 끈 조건에는 모드를 안 얹는다. 옆의 축들은 되돌렸을 때 돌려주려고 기억만
+                --- 하는 값이다.
+                UnitCondition(4, "off", { disabled = true, reaction = Constants.REACTION_HARM,
                     group = Constants.UNITGROUP_PARTY }),
 
-                --- 호버 조건도 같은 표를 쓴다. 올라오고 나면 이쪽도 `exists`를 든다.
+                --- 호버 조건도 같은 표를 쓴다.
                 {
                     type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
                     value = "/script print(\"hover\")", name = "Hover",
                     key = "ALT-BUTTON1", seq = 1,
                     conditions = { frameTypes = Constants.FRAMETYPE_GROUP,
-                        units = { hover = {} } },
+                        units = { hover = { exists = true } } },
                 },
 
                 --- 위 판에서 올라온 뒤의 이름. 이 판에는 `equipslot`이 없다.
@@ -456,8 +457,10 @@ SEEDS[7] = function(guid)
         migrated = { [guid] = true },
         legacyNeeded = false,
 
+        --- **The shape after the fold.** A profile seeded at the current version never rides the
+        --- ladder (`MigrateDB` returns at once), so an old name left here would never be raised.
         options = {
-            blizzframes = {},
+            frameBlacklist = { blizzard = {}, addons = {} },
         },
 
         switches = {

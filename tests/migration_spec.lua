@@ -55,7 +55,9 @@ return function(DebindPrivate)
                 [0] = { { type = "spell", value = 2, key = "F2", seq = 1 } },
                 [1] = {},
             },
-            options = { stateDriverUpdateThrottle = 0.25 },
+            -- **The excluded Blizzard frames as the old build stored them.** `options` rides in
+            -- verbatim, so this is the shape the ladder folds and this path has to fold too.
+            options = { stateDriverUpdateThrottle = 0.25, blizzframes = { player = false } },
             ui = { anchorPos = { x = 100, y = 200 } },
             spellPickerUI = { pos = { x = 300, y = 400 } },
             overviewui = { pos = { x = 500, y = 600 } },
@@ -129,6 +131,21 @@ return function(DebindPrivate)
         db.spellPicker.spell.showOffSpec = false;
         check(_G.DebounceVars.spellPicker.spell.showOffSpec == true,
             "a carried-over key was copied shallowly");
+    end);
+
+    --- **가져오기는 사다리를 안 탄다.** `MigrateDB`가 이미 `db.dbver`를 찍은 뒤 PLAYER_LOGIN에서
+    --- 도는 경로라, 옛 이름으로 들어온 값은 어느 단계도 안 만난다. 안 접으면 읽는 쪽이 빈
+    --- `frameBlacklist`를 보고 빼둔 개체창을 전부 가져간다.
+    test("the excluded Blizzard frames are folded on the way in", function()
+        FreshInit();
+        _G.DebounceVars = LegacyAccount();
+        DebindPrivate.RunLegacyMigration();
+
+        local options = _G.DebindVars.options;
+        check(options.blizzframes == nil, "옛 칸이 남았다");
+        check(options.frameBlacklist and options.frameBlacklist.blizzard.player == false,
+            "빼둔 블리자드 개체창이 안 옮겨졌다");
+        check(options.stateDriverUpdateThrottle == 0.25, "옆 옵션이 같이 날아갔다");
     end);
 
     test("class keys go only to shared.classes and do not leak to the top level", function()
@@ -571,7 +588,7 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- dbver 8: 유닛 조건의 세 모드가 저마다 자기 값을 든다.
+    -- dbver 7: 유닛 조건의 세 모드가 저마다 자기 값을 든다.
     --
     -- **빈 표가 "있을 때"를 뜻하던 것이 이 단계가 없애는 것이다.** 리포의 나머지는 빈 표를
     -- 아무것도 아닌 것으로 접는다 - `ActionSignature`가 그렇게 접는 바람에 유닛 조건 하나만
@@ -586,32 +603,32 @@ return function(DebindPrivate)
             conditions = { units = { target = value } } } };
     end
 
-    test("dbver 8 stamps exists on a condition that carried no marker", function()
+    test("dbver 7 stamps exists on a condition that carried no marker", function()
         local layer = unitCond({});
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         local cond = layer[1].conditions.units.target;
         check(cond.exists == true, "exists가 " .. tostring(cond.exists));
     end);
 
-    test("dbver 8 stamps exists beside the axes a condition remembered", function()
+    test("dbver 7 stamps exists beside the axes a condition remembered", function()
         local layer = unitCond({ reaction = Constants.REACTION_HELP, dead = false });
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         local cond = layer[1].conditions.units.target;
         check(cond.exists == true, "exists가 " .. tostring(cond.exists));
         check(cond.reaction == Constants.REACTION_HELP and cond.dead == false, "축이 바뀌었다");
     end);
 
-    test("dbver 8 leaves [when there is none] alone", function()
+    test("dbver 7 leaves [when there is none] alone", function()
         local layer = unitCond({ exists = false, dead = true });
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         local cond = layer[1].conditions.units.target;
         check(cond.exists == false, "exists가 " .. tostring(cond.exists));
         check(cond.dead == true, "기억한 축이 사라졌다");
     end);
 
-    test("dbver 8 renames off to disabled and stamps no exists on it", function()
+    test("dbver 7 renames off to disabled and stamps no exists on it", function()
         local layer = unitCond({ off = true, reaction = Constants.REACTION_HARM });
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         local cond = layer[1].conditions.units.target;
         check(cond.disabled == true, "disabled가 " .. tostring(cond.disabled));
         check(cond.off == nil, "옛 이름이 남았다");
@@ -619,35 +636,35 @@ return function(DebindPrivate)
         check(cond.reaction == Constants.REACTION_HARM, "기억한 축이 사라졌다");
     end);
 
-    test("dbver 8 walks every unit key, hover and @ included", function()
+    test("dbver 7 walks every unit key, hover and @ included", function()
         local layer = { { key = "A", type = Constants.SPELL, value = 1, unit = "focus",
             conditions = { units = { hover = {}, ["@"] = { reaction = Constants.REACTION_HELP } } } } };
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         local units = layer[1].conditions.units;
         check(units.hover.exists == true, "hover가 " .. tostring(units.hover.exists));
         check(units["@"].exists == true, "@가 " .. tostring(units["@"].exists));
     end);
 
-    test("dbver 8 leaves an action with no unit conditions alone", function()
+    test("dbver 7 leaves an action with no unit conditions alone", function()
         local layer = { { key = "A", type = Constants.SPELL, value = 1,
             conditions = { combat = true } } };
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         check(layer[1].conditions.units == nil, "없던 표가 생김");
         check(layer[1].conditions.combat == true, "다른 조건이 바뀌었다");
     end);
 
-    test("dbver 8 is safe to run twice", function()
+    test("dbver 7 is safe to run twice", function()
         local layer = unitCond({ off = true, dead = true });
-        MigrateLayer(layer, 7);
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
         local cond = layer[1].conditions.units.target;
         check(cond.disabled == true and cond.off == nil and cond.exists == nil,
             "두 번째에 뭉개짐");
     end);
 
-    test("dbver 8 leaves a scalar it cannot read alone", function()
+    test("dbver 7 leaves a scalar it cannot read alone", function()
         local layer = unitCond("help");
-        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 6);
         check(layer[1].conditions.units.target == "help", "스칼라를 건드렸다");
     end);
 
@@ -723,7 +740,7 @@ return function(DebindPrivate)
         -- 끈 조건. 기억한 축을 들고 있어도 바인딩에는 안 실린다.
         { "{disabled=true,reaction=HELP}", { disabled = true, reaction = Constants.REACTION_HELP },
             nil, nil },
-        -- `dbver <= 7` 앞의 이름. 사다리를 아직 안 탄 값이 이리로 오므로 같은 답을 내야 한다.
+        -- `dbver <= 6` 앞의 이름. 사다리를 아직 안 탄 값이 이리로 오므로 같은 답을 내야 한다.
         { "{off=true,reaction=HELP}", { off = true, reaction = Constants.REACTION_HELP },
             nil, nil },
         -- "없을 때"도 축을 기억한다. 기억은 메뉴 것이고 판정에는 안 따라온다.
@@ -1771,11 +1788,40 @@ return function(DebindPrivate)
 
     --- 반대쪽. 없이는 위 케이스가 "언제나 참"에도 초록으로 나온다.
     test("a profile that names a pack leaves it alone", function()
-        InitWith({ packFrames = { Grid2 = false } });
+        InitWith({ options = { frameBlacklist = { addons = { Grid2 = false } } } });
         check(DebindPrivate.TakesPackFrames("Grid2") == false,
             "블랙리스트에 든 팩이 우리 것으로 읽혔다");
         check(DebindPrivate.TakesPackFrames("VuhDo") == true,
             "한 팩을 뺐더니 다른 팩까지 따라 나갔다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 블랙리스트 한 칸으로 모으기
+    ---------------------------------------------------------------------------
+
+    --- **`blizzframes`는 이미 나간 칸이다.** 안 옮기면 옛 프로필의 답이 아무 데서도 안 읽히고,
+    --- 빼둔 블리자드 개체창이 리로드 한 번에 전부 우리 것으로 돌아온다. 조용하다.
+    test("dbver 7 folds blizzframes into the one blacklist cell", function()
+        local db = InitWith({
+            dbver = 6,
+            options = { blizzframes = { player = false }, stateDriverUpdateThrottle = 0.25 },
+        });
+        check(db.options.blizzframes == nil,
+            "옛 칸이 남았다 - 읽는 쪽이 없으니 로그아웃마다 죽은 표가 같이 저장된다");
+        check(db.options.frameBlacklist.blizzard.player == false,
+            "빼둔 블리자드 개체창이 안 옮겨졌다");
+        check(db.options.stateDriverUpdateThrottle == 0.25,
+            "옆 옵션이 같이 날아갔다");
+    end);
+
+    --- 워크트리 프로필만 갖고 있는 칸이라 어느 태그도 안 실어 날랐지만, 워크트리도 누가 쓰는
+    --- 프로필이다.
+    test("dbver 7 moves packFrames in beside it", function()
+        local db = InitWith({ dbver = 6, packFrames = { Grid2 = false } });
+        check(db.packFrames == nil, "옛 칸이 남았다");
+        check(db.options.frameBlacklist.addons.Grid2 == false, "꺼둔 팩이 안 옮겨졌다");
+        check(DebindPrivate.TakesPackFrames("Grid2") == false,
+            "옮겨는 놨는데 관문이 못 읽는다");
     end);
 
     ---------------------------------------------------------------------------

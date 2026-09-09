@@ -134,7 +134,7 @@ function readKeys(file) {
 // in the file is checked, which is most of them and was the one that got through.
 //
 // Whole-line Lua comments are dropped first: commented-out code names keys that were deliberately
-// retired, and the one in `DropDownMenus.lua` would be reported forever.
+// retired, and one of those would be reported forever.
 const LOOKUP = /\bL{1,3}\["([A-Z0-9_]+)"\]/g;
 
 function usedKeys(dir, into) {

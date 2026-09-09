@@ -7,7 +7,11 @@ Constants.DEBUG                           = false;
 Constants.DEBUG                           = true;
 --@end-debug@
 Constants.NIL                             = "\0";
-Constants.DB_VERSION                      = 8;
+--- **Read the last tag's value before raising this** (`git show v<tag>:Debind/Constants.lua`).
+--- Anything above it is a number nobody has ever stored, so **the unreleased span is one step, not
+--- a ladder**: every change to the stored shape that lands in it goes into that one step. What has
+--- to move together when a change joins it is in `devdocs/cutting-a-release.md`.
+Constants.DB_VERSION                      = 7;
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;

@@ -338,7 +338,7 @@ return function(DebindPrivate)
         _G.SecureHandlerWrapScript(contestedFrame, "OnEnter", theirs, say("R"));
         interp:replay(frames.since(mark));
 
-        check(DebindPrivate.ccframes[contestedFrame] == nil,
+        check(DebindPrivate.ccframes[contestedFrame] == false,
             "we kept fighting for a frame another engine keeps taking back");
 
         --- **And the frame still works for them**, which is the whole reason for standing down

@@ -65,6 +65,10 @@ function Events.PLAYER_LOGIN()
         -- rebind the references **first**, then re-read the layers.
         DebindPrivate.BindDerivedTables();
         DebindPrivate.LoadProfile();
+        -- **The snapshot was taken in `InitDB`, before any of this arrived.** The gates that decide
+        -- which frames are ours read it and not the live table, so without this the whole session
+        -- runs on what an account with no profile at all had.
+        DebindPrivate.TakeOptionsSnapshot(DebindPrivate.db.global.options);
     end
     RefreshIdentity();
 

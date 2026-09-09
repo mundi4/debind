@@ -151,6 +151,8 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
 - **Existing comments are held to this too, in the code you have read.** Having read it is what
   makes the call, and what lets you write the reason the comment should have carried instead. A
   comment you merely walked past you have not understood: leave it alone.
+- **A comment is not a diary.** State the constraint and stop. What was attempted on which date and
+  turned out wrong goes in `devdocs/0-DIARY.md`.
 
 The rest:
 

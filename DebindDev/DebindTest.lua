@@ -4562,7 +4562,7 @@ RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
         if not dropped then return Fail(NAME, droppedErr) end
 
         StandDownTestFrame(dropped)
-        if DebindPrivate.ccframes[dropped] ~= nil then
+        if DebindPrivate.ccframes[dropped] ~= false then
             return Fail(NAME, "the premise is gone: the fight did not stand us down")
         end
 
@@ -4875,7 +4875,7 @@ RegisterTest("Foreign wrappers: a frame another engine keeps taking back is give
         if depth > 3 then
             return Fail(NAME, format("the two of us traded the top %d times before stopping", depth))
         end
-        if DebindPrivate.ccframes[frame] ~= nil then
+        if DebindPrivate.ccframes[frame] ~= false then
             return Fail(NAME, "we kept a frame another engine keeps taking back")
         end
 
@@ -4889,12 +4889,16 @@ RegisterTest("Foreign wrappers: a frame another engine keeps taking back is give
     end,
 })
 
--- **Unticking a Blizzard unit frame box does not hand the frame back.** Deregistering is the
--- frame owner's to ask for, and Blizzard never asks; the box decides what we register from the
--- next login, which is what `REQUIRES_RELOAD` on it says. The harness cannot answer this: the
--- option table and the fixed frame list are both the running client's.
-RegisterTest("Blizzard frames: unticking a box leaves the frame wired until the next login", {
-    description = "블리자드 개체창 체크를 꺼도 이미 걸린 프레임은 그대로 있다",
+-- **Moving a Blizzard unit frame box does nothing at all until the next login.** Deregistering is
+-- the frame owner's to ask for and Blizzard never asks, so ticking one cannot take the frame back;
+-- and the gate reads the login snapshot rather than the stored table, so unticking one cannot
+-- register on the spot either. Both halves are what `REQUIRES_RELOAD` on the box promises, and the
+-- second half is the one that used to be false.
+--
+-- The harness cannot answer this: the option table and the fixed frame list are both the running
+-- client's.
+RegisterTest("Blizzard frames: moving a box changes nothing until the next login", {
+    description = "블리자드 개체창 체크를 움직여도 리로드 전에는 아무 일도 없다",
     run = function()
         local NAME = "Blizzard frame toggle"
 
@@ -4909,29 +4913,51 @@ RegisterTest("Blizzard frames: unticking a box leaves the frame wired until the 
                 tostring(DebindPrivate.ccframes[PlayerFrame])))
         end
 
-        local previous = DebindPrivate.Options.blizzframes.player
+        local stored = DebindPrivate.Options.frameBlacklist.blizzard
+        local snapshot = DebindPrivate.optionsAtLogin.frameBlacklist.blizzard
+        local previousStored = stored.player
+        local previousSnapshot = snapshot.player
         AddTeardown(function()
-            DebindPrivate.Options.blizzframes.player = previous
+            stored.player = previousStored
+            snapshot.player = previousSnapshot
             if not InCombatLockdown() then
                 DebindPrivate.UpdateBlizzardFrames()
             end
         end)
 
-        DebindPrivate.Options.blizzframes.player = false
+        stored.player = false
         DebindPrivate.UpdateBlizzardFrames()
         if type(DebindPrivate.ccframes[PlayerFrame]) ~= "table" then
-            return Fail(NAME, "unticking the box took the frame back, which is not ours to do")
+            return Fail(NAME, "ticking the box took the frame back, which is not ours to do")
         end
 
-        -- And ticking it again is what registers, so a board that starts with one off comes right
-        -- the moment the reader turns it on.
-        DebindPrivate.Options.blizzframes.player = true
+        --- **The other direction, which is the one the snapshot fixed**, driven on a frame of ours
+        --- rather than on `PlayerFrame`. What has to be seen is a frame going from unregistered to
+        --- registered, and clearing the client's own frame's row to arrange that would re-wire a
+        --- frame that is already wired.
+        local ours = MakeTestUnitFrame("player")
+        DebindPrivate.blizzardFrames[ours] = "player"
+        AddTeardown(function()
+            DebindPrivate.blizzardFrames[ours] = nil
+        end)
+
+        snapshot.player = false
+        stored.player = nil
         DebindPrivate.UpdateBlizzardFrames()
-        if type(DebindPrivate.ccframes[PlayerFrame]) ~= "table" then
-            return Fail(NAME, "ticking the box back left the frame unregistered")
+        if DebindPrivate.ccframes[ours] ~= nil then
+            return Fail(NAME, format("unticking the box registered a frame before a reload (%s)",
+                tostring(DebindPrivate.ccframes[ours])))
         end
 
-        return Pass(NAME, "the frame stayed wired through both flips")
+        -- And the login answer is what does register, so the same frame comes through on the flip.
+        snapshot.player = nil
+        DebindPrivate.UpdateBlizzardFrames()
+        if type(DebindPrivate.ccframes[ours]) ~= "table" then
+            return Fail(NAME, format("the login answer says ours and the frame got no row (%s)",
+                tostring(DebindPrivate.ccframes[ours])))
+        end
+
+        return Pass(NAME, "neither direction reached a frame; the login answer is what did")
     end,
 })
 
@@ -4943,7 +4969,7 @@ RegisterTest("Blizzard frames: unticking a box leaves the frame wired until the 
 --- says nothing about them.
 ---
 --- Blizzard's is skipped rather than failed when it is not registered: that is a user option
---- (`Options.blizzframes`), not a fault.
+--- (`Options.frameBlacklist.blizzard`), not a fault.
 local function ClickCastTargets()
     local targets = {}
 
@@ -6209,14 +6235,14 @@ RegisterTest("a pack that is turned off is not wired at all", {
         --- what `PackAddonForFrame` answers from, and the frames below keep their names for the rest
         --- of the session. One function rather than three, because teardowns run newest first and
         --- the frames make theirs after this one.
-        local saved = DebindPrivate.packFrames[PACK];
+        local saved = DebindPrivate.optionsAtLogin.frameBlacklist.addons[PACK];
         local made = {};
         AddTeardown(function()
             for i = 1, #made do
                 StandDownTestFrame(made[i]);
                 made[i]:Hide();
             end
-            DebindPrivate.packFrames[PACK] = saved;
+            DebindPrivate.optionsAtLogin.frameBlacklist.addons[PACK] = saved;
             removeRow();
         end);
 
@@ -6233,7 +6259,7 @@ RegisterTest("a pack that is turned off is not wired at all", {
             return frame;
         end
 
-        DebindPrivate.packFrames[PACK] = false;
+        DebindPrivate.optionsAtLogin.frameBlacklist.addons[PACK] = false;
         local off = PackFrame(1);
         DebindPrivate.RegisterFrame(off, "group");
 
@@ -6250,7 +6276,7 @@ RegisterTest("a pack that is turned off is not wired at all", {
         end
 
         -- The other half: with the same row on, a frame with the same name gets everything.
-        DebindPrivate.packFrames[PACK] = nil;
+        DebindPrivate.optionsAtLogin.frameBlacklist.addons[PACK] = nil;
         local on = PackFrame(2);
         DebindPrivate.RegisterFrame(on, "group");
 
