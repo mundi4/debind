@@ -100,7 +100,7 @@ end
 --- client does not have never reaches a screen (`PayloadIsImpossible`).
 local function GetSideLabelForClass(class, spec)
 	if (spec == 0) then
-		return LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class] or class;
+		return Constants.CLASS_NAMES[class] or class;
 	end
 	local classID = Constants.CLASS_IDS[class];
 	if (not classID) then

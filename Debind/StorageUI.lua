@@ -2,6 +2,7 @@ local _, DebindPrivate = ...;
 
 local LLL           = DebindPrivate.L;
 local DebindUI      = DebindPrivate.DebindUI;
+local Constants     = DebindPrivate.Constants;
 
 --- The addon that keeps the store, parked here when it loads (`EnsureStore` in `DebindUI.lua`).
 ---
@@ -210,7 +211,7 @@ end
 --- nobody has cannot be opened (`PayloadIsImpossible`), but its row is still drawn: deleting it is
 --- the only thing left to do with it and the delete button is on the row.
 local function ClassIcon(class)
-    if (not (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class])) then
+    if (not Constants.CLASS_NAMES[class]) then
         return nil;
     end
     return CreateAtlasMarkup(GetClassAtlas(strlower(class)), 16, 16);
@@ -243,8 +244,8 @@ local function EntrySender(entry)
         text = format(FULL_PLAYER_NAME, entry.character, entry.realm);
     elseif (entry.character) then
         text = entry.character;
-    elseif (class and LOCALIZED_CLASS_NAMES_MALE) then
-        text = LOCALIZED_CLASS_NAMES_MALE[class];
+    elseif (class) then
+        text = Constants.CLASS_NAMES[class];
     end
 
     if (not text) then

@@ -156,9 +156,14 @@ local CONDITION_TYPES    = {
     -- Bit masks.
     frameTypes = "number",
     groups = "number",
-    specs = "number",
     forms = "number",
     bonusbars = "number",
+    -- A set of specialization ids, keyed by id. **What is inside is not filtered**, the way
+    -- `units` is not: an id this client has never heard of can only fail to match the
+    -- specialization being played, which makes the condition true less often, and the direction a
+    -- keybinding addon must not fail in is the other one. The tooltip walks the client's own
+    -- classes rather than the set, so a junk key has nothing to print itself into.
+    specs = "table",
     known = "boolean",
     combat = "boolean",
     stealth = "boolean",

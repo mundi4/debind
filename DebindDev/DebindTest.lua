@@ -4068,21 +4068,21 @@ RegisterTest("Switch condition on a name outside the five", {
     end,
 })
 
--- **The specialization index condition, at the key.** It never reaches the restricted side:
--- `BuildKeyMap` reads the index and leaves the bindings it rules out of the key map
--- (`Misc.lua`'s `SpecConditionHolds`).
+-- **The specialization condition, at the key.** It never reaches the restricted side:
+-- `BuildKeyMap` reads the specialization being played and leaves the bindings it rules out of the
+-- key map (`Misc.lua`'s `SpecConditionHolds`).
 --
--- **What the client answers here the harness cannot.** `tests/specindex_spec.lua` runs the whole
--- set of cases against an index the shim was told to report; the index read here is the one the
--- game hands out for the character being played, and the fifth of them, the initial
--- specialization no class names, exists nowhere but in a client.
+-- **What the client answers here the harness cannot.** `tests/specid_spec.lua` runs the whole set
+-- of cases against ids the shim was told to report; the ids read here are the ones the game hands
+-- out for the character being played, including the initial specialization's, which carries an id
+-- of its own that no class names and that exists nowhere but in a client.
 --
--- A specialization cannot be changed from a test, so the change of index and the rebuild it pulls
--- are the spec's. What is left is the pair: the set holding this index binds, the set leaving it
+-- A specialization cannot be changed from a test, so the change and the rebuild it pulls are the
+-- spec's. What is left is the pair: the set holding this specialization binds, the set leaving it
 -- out does not. **Both halves, because on its own "not bound" also describes a key nothing was
 -- ever put on.**
-RegisterTest("Spec condition: the index the character is on decides the key", {
-    description = "A binding whose specialization set holds this index is bound, one whose set leaves it out is not",
+RegisterTest("Spec condition: the specialization the character is on decides the key", {
+    description = "A binding whose specialization set holds this one is bound, one whose set leaves it out is not",
     run = function()
         local NAME = "Spec condition"
         local INSIDE = "CTRL-SHIFT-F6"
@@ -4093,30 +4093,41 @@ RegisterTest("Spec condition: the index the character is on decides the key", {
         end
 
         local spec = C_SpecializationInfo.GetSpecialization()
-        if not spec then
-            return Fail(NAME, "the client has not settled a specialization index yet")
+        local mineID = spec and DebindPrivate.SpecIDForIndex(spec)
+        if not mineID then
+            return Fail(NAME, "the client has not settled a specialization yet")
         end
 
-        local mine = Constants.SpecIndexFlag(spec)
-        -- Every index but this one, so the second key differs from the first by which bits are set
-        -- and by nothing else.
-        local others = bit.bxor(Constants.SPEC_ALL, mine)
+        -- Every specialization of this class but the one being played, so the second key differs
+        -- from the first by which ids are in the set and by nothing else. The whole class rather
+        -- than one other id, because a class sitting in its initial specialization has only the
+        -- named ones to leave it out.
+        local others = {};
+        local classSpecs = DebindPrivate.EnumerateClassSpecs(select(3, UnitClass("player")));
+        for i = 1, #classSpecs do
+            if (classSpecs[i].id ~= mineID) then
+                others[classSpecs[i].id] = true;
+            end
+        end
+        if not next(others) then
+            return Fail(NAME, "this class has no second specialization to leave this one out with")
+        end
 
-        InsertAction({ type = Constants.SPELL, value = 585, key = INSIDE, specs = mine })
+        InsertAction({ type = Constants.SPELL, value = 585, key = INSIDE, specs = { [mineID] = true } })
         InsertAction({ type = Constants.SPELL, value = 585, key = OUTSIDE, specs = others })
         ApplyBindings()
 
         local inside = GetBindingAction(INSIDE, true) or ""
         if inside:sub(1, 6) ~= "CLICK " then
-            return Fail(NAME, format("the set holds index %d and the key is %q", spec, inside))
+            return Fail(NAME, format("the set holds id %d and the key is %q", mineID, inside))
         end
 
         local outside = GetBindingAction(OUTSIDE, true) or ""
         if outside ~= "" then
-            return Fail(NAME, format("the set leaves index %d out and the key is %q", spec, outside))
+            return Fail(NAME, format("the set leaves id %d out and the key is %q", mineID, outside))
         end
 
-        return Pass(NAME, format("index %d: bound / left out: released", spec))
+        return Pass(NAME, format("id %d: bound / left out: released", mineID))
     end,
 })
 

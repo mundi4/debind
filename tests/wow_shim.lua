@@ -488,16 +488,73 @@ function M.install()
     _G.GetRealmName = function() return "Test Realm"; end
     _G.time = function() return 1770000000; end
 
+    --- The specializations of the classes below, by class id, as the client hands them out:
+    --- the named ones at 1.. and the nameless initial one at `INITIAL_SPEC_INDEX`, whatever the
+    --- count of the named ones is. **The gap is the point.** A class with fewer than four named
+    --- specializations still has its initial one at 5 and nothing at the indices in between, so
+    --- anything that walks a class by counting would come out wrong here and only here.
+    ---
+    --- The druid's four are in the client's order, so index 1 is Balance and 4 is Restoration.
+    --- `SpecSpells.lua` keys its tables by those ids.
+    local INITIAL_SPEC_INDEX = 5;
+    local SPECS_BY_CLASS = {
+        [1]  = { named = { { 71, "Arms" }, { 72, "Fury" }, { 73, "Protection" } }, initial = 1446 },
+        [2]  = { named = { { 65, "Holy" }, { 66, "Protection" }, { 70, "Retribution" } }, initial = 1451 },
+        [8]  = { named = { { 62, "Arcane" }, { 63, "Fire" }, { 64, "Frost" } }, initial = 1449 },
+        [11] = { named = { { 102, "Balance" }, { 103, "Feral" }, { 104, "Guardian" },
+                           { 105, "Restoration" } }, initial = 1447 },
+    };
+
+    --- One class's specialization at one index, as the two calls below both answer it.
+    local function SpecOfClass(classID, index)
+        local specs = SPECS_BY_CLASS[classID];
+        if (not specs) then
+            return nil;
+        end
+        if (index == INITIAL_SPEC_INDEX) then
+            return specs.initial;
+        end
+        local spec = specs.named[index];
+        if (not spec) then
+            return nil;
+        end
+        return spec[1], spec[2];
+    end
+
     _G.C_SpecializationInfo = {
-        GetNumSpecializationsForClassID = function() return 4; end,
+        --- **The named ones only.** The initial specialization sits past this count, which is what
+        --- `IsInitialSpec` means by an index greater than the number of specializations.
+        GetNumSpecializationsForClassID = function(classID)
+            local specs = SPECS_BY_CLASS[classID];
+            return specs and #specs.named or 0;
+        end,
         GetSpecialization = function() return M.world.specIndex or 1; end,
-        --- The druid's four, in the client's order, so index 1 is Balance and 4 is Restoration.
-        --- `SpecSpells.lua` keys its tables by these ids.
+        --- This character's class, which the shim plays as a druid.
         GetSpecializationInfo = function(index)
-            local ids = { 102, 103, 104, 105 };
-            return ids[index];
+            return SpecOfClass(11, index);
         end,
     };
+
+    --- A global rather than one of `C_SpecializationInfo`'s, the way the client has it.
+    _G.GetSpecializationInfoForClassID = SpecOfClass;
+
+    --- The playable classes, as the client lists them. **The argument is a position in that list
+    --- and not a class id**, and the ids here have gaps in them for the same reason the client's
+    --- do, so anything reading the index as an id comes out wrong.
+    local PLAYABLE_CLASSES = {
+        { "Warrior", "WARRIOR", 1 },
+        { "Paladin", "PALADIN", 2 },
+        { "Mage", "MAGE", 8 },
+        { "Druid", "DRUID", 11 },
+    };
+    _G.GetNumClasses = function() return #PLAYABLE_CLASSES; end
+    _G.GetClassInfo = function(index)
+        local class = PLAYABLE_CLASSES[index];
+        if (not class) then
+            return nil;
+        end
+        return class[1], class[2], class[3];
+    end
 
     --- The spellbook as the restricted environment's `FindSpellBookSlotBySpellID` sees it: a set
     --- of ids, and a slot for any id in it.
@@ -508,11 +565,21 @@ function M.install()
     -- `MAGE` is here because the sharing specs need **a class that is not ours**: a string from one
     -- keeps its own class and spec on the way in, and the import refuses a class name no client
     -- has (`ImportAddress`). Without it those cases would measure the refusal instead.
-    local CLASS_FILES = { [1] = "WARRIOR", [2] = "PALADIN", [8] = "MAGE", [11] = "DRUID" };
+    --- **The name rides with the token**, the way the client hands them over together: it is where
+    --- `Constants.CLASS_NAMES` comes from, and a screen naming a class reads that.
+    local CLASS_FILES = {
+        [1] = { "WARRIOR", "Warrior" },
+        [2] = { "PALADIN", "Paladin" },
+        [8] = { "MAGE", "Mage" },
+        [11] = { "DRUID", "Druid" },
+    };
     _G.C_CreatureInfo = {
         GetClassInfo = function(classId)
-            local classFile = CLASS_FILES[classId];
-            return classFile and { classFile = classFile } or nil;
+            local class = CLASS_FILES[classId];
+            if (not class) then
+                return nil;
+            end
+            return { classFile = class[1], className = class[2], classID = classId };
         end,
     };
 
@@ -677,6 +744,18 @@ function M.install()
     _G.INACTIVE_COLOR = color("ff7f7f7f");
     _G.BRIGHTBLUE_FONT_COLOR = color("ff00b0ff");
     _G.ORANGE_FONT_COLOR = color("ffff7f3f");
+    _G.NORMAL_FONT_COLOR = color("ffffd100");
+
+    --- **A colour per class, so a spec reading a line back can tell two of them apart.** The codes
+    --- are this file's own rather than the client's; what a case asks is which class a name was
+    --- painted with, and any two distinct codes answer that.
+    local CLASS_COLORS = {
+        WARRIOR = color("ffc79c6e"),
+        PALADIN = color("fff58cba"),
+        MAGE = color("ff69ccf0"),
+        DRUID = color("ffff7d0a"),
+    };
+    _G.GetClassColorObj = function(classFile) return CLASS_COLORS[classFile]; end
 
     --- **The tooltip is an argument, not a screen.** `ActionTooltip.lua` takes the frame it writes
     --- to and knows nothing else about the client, so what it needs from here is the free functions

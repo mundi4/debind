@@ -221,17 +221,19 @@ L["CONDITION_SKYRIDING_NO"] = "While not skyriding"
 L["CONDITION_SKYRIDING_YES"] = "While skyriding"
 L["CONDITION_SKYRIDING"] = "Skyriding"
 -- **The number is the label and the name is a hint on it.** An action can be moved to a tab
--- several classes share, and there the same number belongs to a different specialization on each
--- of them, so a name alone would be true on one class and false on the next. The client's own word
--- for the thing is `SPECIALIZATION`.
+-- several classes share, so every class is on the list and not only the one being played. Both
+-- halves are the client's own words (`CLASS`, `SPECIALIZATION`).
 --
--- The fifth has no name in any class, so `NO_SPECIALIZATION` fills that bracket instead. It is the
--- specialization a character has before choosing one.
-L["CONDITION_SPEC"] = "Specialization"
+-- **Singular, because the row names the one thing it opens** rather than counting what is behind
+-- it. `CONDITION_SPECS` below is the plural, and it heads a list.
+--
+-- One specialization of each class has no name, so `NO_SPECIALIZATION` fills that row instead. It
+-- is the specialization a character has before choosing one.
+L["CONDITION_SPEC"] = "Class/Specialization"
 -- The tooltip lists several at once, where the menu row names the one thing it opens. The client
 -- heads its own list the same way (`CLUB_FINDER_SPECIALIZATIONS`).
 L["CONDITION_SPECS"] = "Specializations"
-L["CONDITION_SPEC_DESC"] = "The name beside each number is what that number means for this character's class. On another class the same number is a different specialization."
+L["CONDITION_SPEC_DESC"] = "Pick the specializations this fires in. Every class is listed because an action can be shared with characters of another one."
 L["CONDITION_SPECIALBAR_DESC"] = "Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
 L["CONDITION_SPECIALBAR_NO"] = "While your action bar is not replaced"
 L["CONDITION_SPECIALBAR_YES"] = "While your action bar is replaced"
@@ -714,6 +716,11 @@ L["LINE_TOOLTIP_TARGET_NORMAL"] = "Where it normally goes"
 -- Under the numbers, the way the unreachable line sits under the key: the action is set up right
 -- and this says only that the world is not the one it asked for.
 L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."
+-- What fits named, and the rest left unnamed. **"and others" rather than "and 3 more"**: what the
+-- line names is specializations of this character's class and whole classes otherwise, so a number
+-- after it would be counting two different things at once. The client says it the same way where
+-- it has its own label baked in (`BOSS_INFO_STRING_MANY`, "Boss: %s and others").
+L["LINE_TOOLTIP_SPEC_OVERFLOW"] = "%s and others"
 L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebindUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.

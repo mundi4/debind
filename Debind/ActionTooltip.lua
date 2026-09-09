@@ -594,10 +594,9 @@ do
 		-- 거기고, 화면 둘이 다른 자리를 가리키면 고칠 곳을 찾는 사람이 헤맨다.
 		--
 		-- **A full mask is not drawn at all, label and values both.** Every one of them on rules
-		-- nothing out, which is the state the axis is in when it was never set: the emitter drops
-		-- it against `allValue` (`UpdateBindings.lua`), and the specialization index is answered
-		-- true for it before a binding is built (`Misc.lua`'s `SpecConditionHolds`). Drawing it
-		-- would name a condition that holds nothing back.
+		-- nothing out, which is the state the axis is in when it was never set, and the emitter
+		-- drops it against `allValue` (`UpdateBindings.lua`). Drawing it would name a condition
+		-- that holds nothing back.
 		if (conditions.groups ~= nil and conditions.groups ~= Constants.GROUP_ALL) then
 			addLabelLine(tooltip, LLL["CONDITION_GROUP"]);
 
@@ -636,27 +635,15 @@ do
 			end
 		end
 
-		if (conditions.specs ~= nil and conditions.specs ~= Constants.SPEC_ALL) then
+		if (conditions.specs ~= nil) then
 			addLabelLine(tooltip, LLL["CONDITION_SPECS"]);
 
-			if (conditions.specs == 0) then
+			if (next(conditions.specs) == nil) then
 				addValueLine(tooltip, LLL["BINDING_ERROR_SPECS_NONE_SELECTED"], true);
 			else
-				-- **One line of numbers, not a line each.** Every row would repeat the word the
-				-- label above already said, and five of them push the conditions under it off
-				-- the screen. The reactions and frame types above are joined the same way.
-				local s = "";
-				for i = 1, Constants.MAX_SPEC_INDEX do
-					local flag = Constants.SpecIndexFlag(i);
-					if (bit.band(conditions.specs, flag) ~= 0) then
-						if (s ~= "") then
-							s = s .. ", ";
-						end
-						s = s .. i;
-					end
-				end
-				addValueLine(tooltip, s, hasIssues and GetIssue("specs"));
-				-- **Under the numbers, not on them.** The numbers are what the reader chose and
+				addValueLine(tooltip, DebindPrivate.DescribeSpecCondition(conditions.specs),
+					hasIssues and GetIssue("specs"));
+				-- **Under the names, not on them.** The names are what the reader chose and
 				-- none of them is wrong; what this adds is that none is the one being played.
 				-- Held back where the layer is another specialization's, for the reason
 				-- `unreachable` is: the reader opened that world on purpose and the answer here

@@ -33,16 +33,28 @@ Constants.ADDON_ICON                      = 133015;
 --- something has to be named -- a specialization of a class that is not this character's has no
 --- other way in (`GetSpecializationInfoForClassID`, a global rather than one of `C_SpecializationInfo`'s).
 ---
---- **20 rather than a count the client hands out.** There is no "how many classes" call; the range
---- is walked and whatever answers is real. A class added by a patch lands inside it.
+--- **20 rather than a count the client hands out.** The range is walked and everything that
+--- answers is filed, which is more than the playable classes: `Adventurer` answers too. That is
+--- right for what this table is asked -- whether a name a profile or a payload carries is a class
+--- this client knows -- and wrong for a list somebody picks from, which walks `GetNumClasses`
+--- instead (`Misc.lua`'s `ClassSpecCatalog`).
 ---
 --- Here rather than beside any one caller because `Constants.lua` is the first file read
 --- (`Debind.xml`) and the load-on-demand addon reads this table too.
 Constants.CLASS_IDS                       = {};
+
+--- The same classes by the name a reader sees: `classFile` (`"DRUID"`) -> `"Druid"`.
+---
+--- **The one place a class is named.** The call above hands the name over with the id and it used
+--- to be thrown away, so three screens read `LOCALIZED_CLASS_NAMES_MALE` instead and each carried
+--- its own fallback for the day that global is not there -- a fallback that puts `DRUID` on screen.
+--- Taking what the call already returned leaves nothing to fall back from.
+Constants.CLASS_NAMES                     = {};
 for classID = 1, 20 do
     local classInfo = C_CreatureInfo.GetClassInfo(classID);
     if (classInfo and classInfo.classFile) then
         Constants.CLASS_IDS[classInfo.classFile] = classID;
+        Constants.CLASS_NAMES[classInfo.classFile] = classInfo.className;
     end
 end
 
@@ -183,9 +195,11 @@ Constants.CONDITION_FIELDS = {
     units = true,
     frameTypes = true,
     groups = true,
-    -- **Numbers, never names.** An action moves between tabs and can sit in General, so a
-    -- specialization's name written beside it is false the moment it moves to another class's
-    -- tab. The index means the same thing wherever the action is.
+    -- **A set of specialization ids, keyed by id.** It was a mask of indices, which meant the
+    -- same thing on every class and so followed an action to another class's tab. Ids do not,
+    -- and that is what buys the class condition: a class is exactly its own specialization ids,
+    -- so "while I am a warrior" needs no axis of its own
+    -- (`devdocs/moving-the-spec-condition-to-spec-ids.md`).
     specs = true,
     forms = true,
     bonusbars = true,
@@ -344,23 +358,19 @@ Constants.GROUP_ALL                  = 2 ^ 3 - 1;
 
 Constants.FORM_ALL                   = 2 ^ 11 - 1;
 
--- Which specialization index a binding is for, as a set of the five the game can hand out.
+-- **The index the initial specialization sits at, for every class.** It is not the count of a
+-- class's specializations and no loop may run to it: a class with two specializations has 1, 2 and
+-- 5, and nothing at 3 or 4 (measured 2026-09-09). A class's specializations are counted with
+-- `C_SpecializationInfo.GetNumSpecializationsForClassID` and this index is visited on top of that.
 --
--- **Five, because the fifth is the initial specialization.** Every class has it, it carries no
--- name, and `C_SpecializationInfo.GetSpecialization()` answers 5 on a character sitting in it
--- (measured 2026-09-05: an Evoker has specializations at 1..3, nothing at 4, and id 1465 with no
--- name at 5). A mask of four would leave those characters unable to say "here".
+-- The initial specialization carries no name, and it carries a real specialization id of its own
+-- that differs by class (the druid's is 1447 and the rogue's 1453, measured the same day).
+-- `C_SpecializationInfo.GetSpecialization()` answers 5 on a character sitting in one.
 --
 -- **This axis is filtered out before the solver and never reaches the restricted environment**
 -- (`Debind.lua`'s `BuildKeyMap`). It is the one condition that cannot change while the reader is
 -- in combat, and the change fires `ACTIVE_PLAYER_SPECIALIZATION_CHANGED`, which rebuilds.
-Constants.MAX_SPEC_INDEX             = 5;
-Constants.SPEC_ALL                   = 2 ^ Constants.MAX_SPEC_INDEX - 1;
-
---- The bit that stands for one specialization index, 1..`MAX_SPEC_INDEX`.
-function Constants.SpecIndexFlag(index)
-    return 2 ^ (index - 1);
-end
+Constants.INITIAL_SPEC_INDEX         = 5;
 
 -- **The one place this number is written.** It was two: this, and a
 -- `MAX_BONUS_ACTIONBAR_OFFSET` that the window and the condition menu drew their checkboxes

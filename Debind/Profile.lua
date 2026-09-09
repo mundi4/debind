@@ -96,6 +96,12 @@ local tconcat            = table.concat;
 --- places gate on the table existing. Two actions that differ only in which of those two shapes
 --- they are written in are the same action.
 ---
+--- **`conditions.specs` is the one field that means something by being empty**, and this rule
+--- reads it as absent all the same: an action nobody picked a specialization for signs like one
+--- carrying no specialization condition. It fires nowhere and the other fires everywhere, so an
+--- import holding the two against each other calls them the same and brings one. It stays that
+--- way because the rule above is the profile's and not this field's.
+---
 --- **Keys are sorted, and by type first.** `pairs` order is not the order anything was written in
 --- and is not stable across two tables holding the same thing.
 local function Canonical(value)
@@ -802,28 +808,29 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
 
-        -- 유닛 조건의 세 모드가 저마다 자기 값을 든다.
+        -- Each of a unit condition's three modes takes a value of its own.
         --
-        --   있을 때   `{}`                 -> `{ exists = true }`
-        --   없을 때   `{ exists = false }`    그대로
-        --   사용 안 함 `{ off = true }`     -> `{ disabled = true }`
+        --   when there is one    `{}`                 -> `{ exists = true }`
+        --   when there is not    `{ exists = false }`    unchanged
+        --   disabled             `{ off = true }`     -> `{ disabled = true }`
         --
-        -- **빈 표에 뜻을 실어둔 것이 이 단계가 없애는 것이다.** `dbver <= 4`가 스칼라를 표로
-        -- 풀 때 `true`에는 적을 축이 없어서 빈 표가 됐고, 그 뒤로 "표기 없음 = 있을 때"가
-        -- 규칙이 됐다. 리포의 나머지는 빈 표를 아무것도 아닌 것으로 접는다 -
-        -- `ActionSignature`가 그렇게 접는 바람에 유닛 조건 하나만 걸린 액션이 조건 없는 액션과
-        -- 같은 서명을 냈고, 중복 제거가 그 둘을 한 쌍으로 봤다.
+        -- **What this step ends is a meaning carried by an empty table.** When `dbver <= 4` spread
+        -- the scalars into tables, `true` had no axis to write and so became an empty one, and
+        -- "nothing written down means when there is one" became the rule from there. It was a rule
+        -- nothing else in the repo followed: an empty table read as an absent condition everywhere
+        -- it was gated on, and an action carrying one signed the same as an action carrying no
+        -- condition at all, so the duplicate check paired the two.
         --
-        -- `off`는 이름만 바뀐다. 같은 상태를 리포는 `disable`로 부른다(`AppendDisable`,
-        -- `disabledReason`, 라벨 `DISABLE`).
+        -- `off` only changes name. The repo calls that state `disable` (`AppendDisable`,
+        -- `disabledReason`, the label `DISABLE`).
         --
-        -- **끈 조건에는 모드를 안 얹는다.** `disabled`가 이미 모드이고, 옆의 축들은 되돌렸을
-        -- 때 돌려주려고 기억만 하는 값이다.
+        -- **A disabled condition takes no mode on top.** `disabled` is already the mode, and the
+        -- axes beside it are values kept only to hand back when it is turned on again.
         --
-        -- 표가 아닌 값은 그대로 둔다. 여기까지 스칼라가 오는 판은 없지만(`dbver <= 4`가
-        -- 풀었다), 손으로 고친 프로필과 페이로드가 이 사다리를 같이 탄다.
+        -- A value that is not a table is left alone. No build reaches here carrying a scalar
+        -- (`dbver <= 4` spread them), but a hand-edited profile and a payload ride this same ladder.
         --
-        -- 다시 돌아도 안전하다. 두 번째에는 `off`가 없고 `exists`가 이미 서 있다.
+        -- Running twice is safe. The second pass finds no `off` and an `exists` already standing.
         for i = 1, #layerTbl do
             local units = layerTbl[i].conditions and layerTbl[i].conditions.units;
             if (units) then

@@ -957,9 +957,10 @@ do
             conditions.groups = Constants.GROUP_ALL;
         end
 
-        if (conditions.specs and band(conditions.specs, Constants.SPEC_ALL) == Constants.SPEC_ALL) then
-            conditions.specs = Constants.SPEC_ALL;
-        end
+        -- **`specs` is not folded, unlike the masks around it.** Those fold an all-on mask to the
+        -- one value that says "every box ticked", so a condition constraining nothing has one
+        -- shape rather than two. A set of specialization ids has no such value: the ids of one
+        -- class are not an accident to normalize away, they are the class condition itself.
 
         if (conditions.forms and band(conditions.forms, Constants.FORM_ALL) == Constants.FORM_ALL) then
             conditions.forms = Constants.FORM_ALL;
@@ -1260,7 +1261,206 @@ function DebindPrivate.MakeOrderRecord(action, layerRank, specRank, dest)
     return dest;
 end
 
---- Whether this binding's specialization-index condition holds for the character right now.
+--- Every specialization one class has, in the client's order, as `{ id = , name = }`.
+---
+--- **The initial specialization is visited on top of the count, not inside it.** The count stops
+--- at the named ones, and a class with two of those has its initial one at index 5 all the same
+--- (`Constants.INITIAL_SPEC_INDEX`), so a loop that ran to the count would drop it and a loop that
+--- ran to 5 would ask for two specializations that do not exist.
+---
+--- **The initial one has an id and no name**, and its row carries `name = nil` rather than a word
+--- picked here. What a nameless specialization is called on screen is the drawing side's to say,
+--- and it says it twice already (`ActionMenuNodes.lua`, `ActionTooltip.lua`).
+---
+--- `GetSpecializationInfoForClassID` is a global rather than one of `C_SpecializationInfo`'s, and
+--- it is the only way to name a specialization of a class that is not this character's.
+function DebindPrivate.EnumerateClassSpecs(classID, out)
+    out = out or {};
+    local count = C_SpecializationInfo.GetNumSpecializationsForClassID(classID) or 0;
+    for index = 1, count do
+        local id, name = GetSpecializationInfoForClassID(classID, index);
+        if (id) then
+            out[#out + 1] = { id = id, name = name };
+        end
+    end
+    local initialID = GetSpecializationInfoForClassID(classID, Constants.INITIAL_SPEC_INDEX);
+    if (initialID) then
+        out[#out + 1] = { id = initialID };
+    end
+    return out;
+end
+
+local specCatalog, specsByClassID;
+local EMPTY_SPECS = {};
+
+--- Every class somebody can play, in the client's own order, each carrying its specializations
+--- (`EnumerateClassSpecs`). The one enumeration behind both places that draw specializations by
+--- name: the condition menu groups it and the tooltip flattens it.
+---
+--- **Not `Constants.CLASS_IDS`, which holds more than the playable classes.** That table is built
+--- from `C_CreatureInfo.GetClassInfo` over a range of ids, and ids nobody can play answer it too:
+--- `Adventurer` came out as a class of its own in the condition menu. `GetNumClasses` with
+--- `GetClassInfo` is what the client's own class menu walks (`Blizzard_ClassMenu`), and its index
+--- is a position in that list rather than a class id, so the id comes back as a return value.
+---
+--- **Built once and kept.** Nothing in it moves while the client is up, and both readers are on a
+--- path that runs per draw.
+---
+--- **The order is the client's own, and it is what makes a tooltip line stable.** Walking the
+--- stored set with `pairs` instead would name the same specializations in a different order on two
+--- draws of one action.
+function DebindPrivate.ClassSpecCatalog()
+    if (specCatalog) then
+        return specCatalog;
+    end
+    specCatalog = {};
+    specsByClassID = {};
+    for index = 1, GetNumClasses() do
+        local _, classFile, classID = GetClassInfo(index);
+        if (classFile and classID) then
+            local entry = {
+                id = classID,
+                classFile = classFile,
+                specs = DebindPrivate.EnumerateClassSpecs(classID),
+            };
+            specCatalog[#specCatalog + 1] = entry;
+            specsByClassID[classID] = entry.specs;
+        end
+    end
+    return specCatalog;
+end
+
+--- One class's specializations off the catalog, so the two below cost a table lookup rather than
+--- a walk of the client's specialization calls. **They are on paths that run per draw**: the
+--- whole-class checkbox asks the first of these every time the menu redraws, and the tooltip line
+--- asks it once per class per draw. Empty for a class nobody plays, which is a class the catalog
+--- does not carry.
+local function ClassSpecsOf(classID)
+    if (specsByClassID == nil) then
+        DebindPrivate.ClassSpecCatalog();
+    end
+    return specsByClassID[classID] or EMPTY_SPECS;
+end
+
+local SPEC_LINE_NAME_LIMIT = 3;
+
+--- Does this set hold **every** specialization of one class, which is what a class condition is.
+---
+--- **One answer for the two places that ask.** The menu's whole-class box is ticked by it and the
+--- line above folds a class to its name by it, so the box and the words cannot disagree about
+--- what a whole class is.
+function DebindPrivate.SpecSetHoldsClass(specs, classID)
+    if (specs == nil) then
+        return false;
+    end
+    local classSpecs = ClassSpecsOf(classID);
+    if (#classSpecs == 0) then
+        return false;
+    end
+    for i = 1, #classSpecs do
+        if (specs[classSpecs[i].id] == nil) then
+            return false;
+        end
+    end
+    return true;
+end
+
+--- Put one whole class into the set, or take it out. **The initial specialization goes in with
+--- the rest**: it is a state a character of that class can be sitting in, so leaving it out would
+--- make "while I am a druid" false in one of the worlds it names.
+function DebindPrivate.SetClassInSpecSet(specs, classID, turnOn)
+    local classSpecs = ClassSpecsOf(classID);
+    for i = 1, #classSpecs do
+        specs[classSpecs[i].id] = turnOn or nil;
+    end
+    return specs;
+end
+
+--- One `conditions.specs` set as a line to read, in one sentence: **this character's class is
+--- described by specialization and every other class by class.**
+---
+--- The reader plays one class, so those are the only specializations that can ever fire for them
+--- and the only ones worth a name. What the rest of the set answers is "who else is this for",
+--- which the class name says in a fraction of the room.
+---
+--- **A class picked whole is the class, not its specializations.** Ticking every box under one is
+--- what "while I am a priest" is, and spelling that out as four names takes four times the space
+--- to say something less. It is also what keeps the nameless initial specialization out of the
+--- middle of a list, where it would read as a specialization called "None chosen".
+---
+--- **This character's own are never dropped**, however many they run to: they are the half
+--- the reader can act on. What the overflow eats is other classes.
+---
+--- **Each name carries its class colour.** Specialization names repeat across classes -- Frost is
+--- a mage's and a death knight's, Holy is a priest's and a paladin's -- so a name on its own does
+--- not say which one was picked.
+---
+--- **No count on the overflow.** The named part is specializations on one side and classes on the
+--- other, so a number after it would be counting two different things at once.
+---
+--- **Walked class by class rather than over the set.** `pairs` over the ids would order the names
+--- differently between two draws of one action, an id this build cannot name would have nothing
+--- to print, and the class a colour comes from is not in the set at all.
+function DebindPrivate.DescribeSpecCondition(specs)
+    local mine, others = {}, {};
+    local catalog = DebindPrivate.ClassSpecCatalog();
+    for i = 1, #catalog do
+        local class = catalog[i];
+        local classSpecs = class.specs;
+        local color = GetClassColorObj(class.classFile) or NORMAL_FONT_COLOR;
+        local className = Constants.CLASS_NAMES[class.classFile];
+
+        local picked = {};
+        for j = 1, #classSpecs do
+            if (specs[classSpecs[j].id] ~= nil) then
+                picked[#picked + 1] = classSpecs[j].name or L["NO_SPECIALIZATION"];
+            end
+        end
+        local whole = DebindPrivate.SpecSetHoldsClass(specs, class.id);
+
+        if (#picked > 0) then
+            local out = (class.classFile == Constants.PLAYER_CLASS) and mine or others;
+            if (out == others or whole) then
+                out[#out + 1] = color:WrapTextInColorCode(className);
+            else
+                for j = 1, #picked do
+                    out[#out + 1] = color:WrapTextInColorCode(picked[j]);
+                end
+            end
+        end
+    end
+
+    local shown = {};
+    for i = 1, #mine do
+        shown[i] = mine[i];
+    end
+    -- **Only the other classes are counted against the limit.** This character's are all in
+    -- `shown` before the loop starts, so a class of five picked whole leaves the loop with nothing
+    -- to add rather than pushing one of them out.
+    for i = 1, #others do
+        if (#shown >= SPEC_LINE_NAME_LIMIT) then
+            break;
+        end
+        shown[#shown + 1] = others[i];
+    end
+
+    local line = table.concat(shown, ", ");
+    if (#shown < #mine + #others) then
+        return format(L["LINE_TOOLTIP_SPEC_OVERFLOW"], line);
+    end
+    return line;
+end
+
+--- The id of one of **this character's** specializations, by index. nil where the index names
+--- nothing, which is what a class with fewer specializations answers for the indices it skips.
+function DebindPrivate.SpecIDForIndex(index)
+    if (index == nil) then
+        return nil;
+    end
+    return (C_SpecializationInfo.GetSpecializationInfo(index));
+end
+
+--- Whether this binding's specialization condition holds for the character right now.
 ---
 --- **The one condition answered out here instead of on the restricted side.** A specialization
 --- cannot change in combat and the change rebuilds everything
@@ -1278,39 +1478,38 @@ end
 --- with the index the character happens to be on would mark the rows of the very specialization
 --- the reader opened.
 --- **An action answers this as well as a binding does.** What it reads is `conditions.specs`, and
---- `FillBinding` carries that field across untouched but for folding stray bits into `SPEC_ALL`,
---- which cannot change the answer. The tooltip has the action in hand and rebuilding a binding
---- there would cost one per row per draw (`GetBindingInfoForAction`).
+--- `FillBinding` carries that field across untouched. The tooltip has the action in hand and
+--- rebuilding a binding there would cost one per row per draw (`GetBindingInfoForAction`).
 function DebindPrivate.SpecConditionHolds(actionOrBinding, spec)
     local conditions = actionOrBinding.conditions;
     local specs = conditions and conditions.specs;
     if (specs == nil) then
         return true;
     end
-    -- **An empty set is not another specialization's.** No index satisfies it, so a reader waiting
-    -- for the right specialization to come round will wait forever: the action is wrong, and it
-    -- already has a word for that (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
+    -- **An empty set is not another specialization's.** No specialization satisfies it, so a
+    -- reader waiting for the right one to come round will wait forever: the action is wrong, and
+    -- it already has a word for that (`BINDING_ISSUE_SPECS_NONE_SELECTED`).
     --
     -- Every caller here is asking the same question, "does this belong to a world other than the
     -- one on screen", and for an empty set the answer is no. Answering `false` instead put it in
     -- the same bucket as an off-specialization action three times over: `BuildKeyMap` left it out
     -- of `ActiveActions`, so the key heading -- which asks only active rows whether one is broken
     -- -- drew plain over a dead key while the row under it showed the error; and the tooltip added
-    -- "not the one being played" beside a line already saying nothing was chosen. `Profile.lua`
-    -- was the one caller that guarded it, with its own `specs ~= 0`.
+    -- "not the one being played" beside a line already saying nothing was chosen.
     --
     -- **The error gate is what keeps it off the key**, the same gate every other ERROR goes
     -- through (`Debind.lua`). Nothing is lost by letting it past this one.
-    if (specs == 0) then
+    if (next(specs) == nil) then
         return true;
     end
     if (spec == nil) then
         spec = C_SpecializationInfo.GetSpecialization();
     end
-    if (spec == nil or spec < 1 or spec > Constants.MAX_SPEC_INDEX) then
+    local specID = DebindPrivate.SpecIDForIndex(spec);
+    if (specID == nil) then
         return false;
     end
-    return band(specs, Constants.SpecIndexFlag(spec)) ~= 0;
+    return specs[specID] ~= nil;
 end
 
 --- Does this binding's `known` condition have a spell to ask about? **The second condition the
@@ -1691,9 +1890,9 @@ end
 ---   the binding, necessarily: `frameTypes` is nil'd for a non-hover binding there and only
 ---     there, `hover` has no action field at all any more, `unit` is the one the macro will aim
 ---     at rather than the one the user picked, and `unitStates` exists nowhere else
----   the binding, by choice: `groups`, `specs`, `forms`, `bonusbars`. Normalizing only folds the
----     all-bits case to `_ALL`, so a zero reads the same either way. They come off the binding
----     so that this function speaks one shape
+---   the binding, by choice: `groups`, `specs`, `forms`, `bonusbars`. Normalizing folds only the
+---     all-bits case to `_ALL` and leaves `specs` alone entirely, so an empty one reads the same
+---     either way. They come off the binding so that this function speaks one shape
 ---   the action, necessarily: `key`, and the two checks that ask whether a name points at
 ---     something (`GetUndefinedSwitch`, `GetMissingMacroName`). None of the three is a
 ---     condition and none survives onto the binding
@@ -1750,7 +1949,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     end
 
     if (LookingForWorse(issue) and (not category or category == "specs") and notCategory ~= "specs") then
-        if (conditions.specs == 0) then
+        if (conditions.specs ~= nil and next(conditions.specs) == nil) then
             issue = TakeIssue(issue, Constants.BINDING_ISSUE_SPECS_NONE_SELECTED);
         end
     end

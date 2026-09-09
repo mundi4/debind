@@ -20,6 +20,11 @@ local OnActionValueChanged           = ActionMenu.OnActionValueChanged;
 local TableFor                       = ActionMenu.TableFor;
 local PruneConditions                = ActionMenu.PruneConditions;
 local UnitConditionsOf               = ActionMenu.UnitConditionsOf;
+local SpecConditionsOf               = ActionMenu.SpecConditionsOf;
+local SpecConditionHasID             = ActionMenu.SpecConditionHasID;
+local ToggleSpecConditionID          = ActionMenu.ToggleSpecConditionID;
+local ClassSpecsAllPicked            = ActionMenu.ClassSpecsAllPicked;
+local ToggleClassSpecs               = ActionMenu.ToggleClassSpecs;
 local UnitConditionMode              = ActionMenu.UnitConditionMode;
 local UnitConditionIsExists          = ActionMenu.UnitConditionIsExists;
 local UnitConditionIsOn              = ActionMenu.UnitConditionIsOn;
@@ -530,30 +535,78 @@ ActionMenus:Define("GROUP", {
     end,
 });
 
---- **The number is the label and the name is a hint on it.** An action carries its conditions
---- between tabs, General included, so the box has to stand for a number that means a different
---- specialization on every class; the name in brackets is only this character's class, which
---- is what `CONDITION_SPEC_DESC` says. The last index is the initial specialization every class
---- has and no class names, so it takes ours (`Constants.MAX_SPEC_INDEX`).
+--- Does anything under this class's row carry a tick. **That is the whole of the partial state.**
+--- A menu checkbox is on or off with nothing in between, so a class whose specializations are
+--- half picked cannot be drawn as a third kind of box; what says so is the row's own colour,
+--- which every node in this family already gets from `isActive` (`MenuKit.lua`).
+local function ClassSpecConditionIsOn(ctx, specs)
+    local conditions = SpecConditionsOf(ctx.action);
+    if (conditions == nil) then
+        return false;
+    end
+    for i = 1, #specs do
+        if (conditions[specs[i].id] ~= nil) then
+            return true;
+        end
+    end
+    return false;
+end
+
+--- **Names, one class at a time.** The condition stores specialization ids, so a row means the
+--- same specialization wherever the action sits and a class is exactly its own ids: ticking every
+--- box under one class is what "while I am a warrior" is
+--- (`devdocs/moving-the-spec-condition-to-spec-ids.md`).
+---
+--- **Every class is offered, not just this character's.** An action moves between tabs and can sit
+--- in General, where it is a character of another class that will press the key.
+---
+--- The nameless initial specialization sits under each class rather than in a row of its own at
+--- the bottom: its id differs by class, so one row for all of them could only tick every class's
+--- at once.
 ActionMenus:Define("SPEC", {
     label = "CONDITION_SPEC",
     key = "specs",
     build = function(kit)
         kit:Disable("CONDITION_SPEC", "specs");
-        local items = {};
-        for index = 1, Constants.MAX_SPEC_INDEX do
-            local specName;
-            if (index == Constants.MAX_SPEC_INDEX) then
-                specName = LLL["NO_SPECIALIZATION"];
-            else
-                specName = select(2, C_SpecializationInfo.GetSpecializationInfo(index));
+        local catalog = DebindPrivate.ClassSpecCatalog();
+        for i = 1, #catalog do
+            local class = catalog[i];
+            local specs = class.specs;
+            if (#specs > 0) then
+                local classDescription = ActionMenus:BuildNode(kit.description, {
+                    label = Constants.CLASS_NAMES[class.classFile],
+                    skipTitle = true,
+                    isActive = function(ctx)
+                        return ClassSpecConditionIsOn(ctx, specs);
+                    end,
+                }, kit.ctx);
+
+                -- **The whole class, from inside the submenu rather than from its row.** The
+                -- class row is the button that opens this, so an action on it would turn every
+                -- box under it over on the click that was meant to open it. The client puts the
+                -- same thing in the same place, one row above the specializations and in these
+                -- words (`ALL_SPECS`, `Blizzard_ClassMenu`).
+                local classID = class.id;
+                classDescription:CreateCheckbox(ALL_SPECS,
+                    function()
+                        return ClassSpecsAllPicked(kit.ctx, classID);
+                    end,
+                    function()
+                        return ToggleClassSpecs(kit.ctx, classID);
+                    end);
+
+                for j = 1, #specs do
+                    local specID = specs[j].id;
+                    classDescription:CreateCheckbox(specs[j].name or LLL["NO_SPECIALIZATION"],
+                        function()
+                            return SpecConditionHasID(kit.ctx, specID);
+                        end,
+                        function()
+                            return ToggleSpecConditionID(kit.ctx, specID);
+                        end);
+                end
             end
-            items[index] = {
-                text = specName and format("%d (%s)", index, specName) or tostring(index),
-                value = Constants.SpecIndexFlag(index),
-            };
         end
-        kit:Checkboxes("specs", items);
     end,
 });
 

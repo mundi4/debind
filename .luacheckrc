@@ -86,6 +86,9 @@ globals = {
 	-- way `Blizzard_ClassMenu` and the character create screen call it. Naming a spec of a class
 	-- that is not this character's has no other route, and the namespaced spelling raised in the
 	-- game while luacheck saw an ordinary field read on a known table.
+	"ALL_SPECS",
+	"GetNumClasses",
+	"GetClassInfo",
 	"GetSpecializationInfoForClassID",
 	"SecureCmdItemParse",
 	"GetInventoryItemTexture",
@@ -347,7 +350,6 @@ globals = {
 	"YES",
 	"NO",
 	-- Per-class localized names, for saying which class a received string came from.
-	"LOCALIZED_CLASS_NAMES_MALE",
 	-- The drawer's rows carry the date a string arrived. **The client owns the field order** -
 	-- enUS puts the month first and koKR the year, and both are in its own globals.
 	"FormatShortDate",

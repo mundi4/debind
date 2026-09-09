@@ -169,6 +169,62 @@ local function UnitConditionsOf(action)
     return action.conditions and action.conditions.units;
 end
 
+--- This action's set of specialization ids. nil where there is none, and none is made.
+local function SpecConditionsOf(action)
+    return action.conditions and action.conditions.specs;
+end
+
+--- Is this one specialization in the set.
+local function SpecConditionHasID(ctx, specID)
+    local specs = SpecConditionsOf(ctx.action);
+    return specs ~= nil and specs[specID] ~= nil;
+end
+
+--- **The empty set is written and kept**, the way the all-off masks beside it are. Picking no
+--- specialization is not the same as putting no condition on the action: it is an error the
+--- reader is meant to see (`BINDING_ISSUE_SPECS_NONE_SELECTED`), and the row that says so is the
+--- row this leaves behind. [Disable] at the top of the menu is what clears the key.
+---
+--- **The set is read off the action at click time.** It does not exist until the first box is
+--- ticked, so a reference taken while the menu was built is stale the moment one is.
+local function ToggleSpecConditionID(ctx, specID)
+    local conditions = TableFor(ctx.action, "specs", true);
+    local specs = conditions.specs;
+    if (specs == nil) then
+        specs = {};
+        conditions.specs = specs;
+    end
+    if (specs[specID] == nil) then
+        specs[specID] = true;
+    else
+        specs[specID] = nil;
+    end
+    return OnActionValueChanged(ctx.action);
+end
+
+--- Is every specialization of this class in the set. **The same question the tooltip line asks**
+--- before it writes the class name in place of the specializations
+--- (`Misc.lua`'s `DescribeSpecCondition`), so the box and the line cannot disagree about what a
+--- whole class is.
+local function ClassSpecsAllPicked(ctx, classID)
+    return DebindPrivate.SpecSetHoldsClass(SpecConditionsOf(ctx.action), classID);
+end
+
+--- **Half on goes to all on.** A checkbox is ticked or it is not, so a class with some of its
+--- specialization picked has no third state to draw, and "pressing it turns it on" is the only
+--- answer a reader can predict from what is on screen.
+local function ToggleClassSpecs(ctx, classID)
+    local turnOn = not ClassSpecsAllPicked(ctx, classID);
+    local conditions = TableFor(ctx.action, "specs", true);
+    local specs = conditions.specs;
+    if (specs == nil) then
+        specs = {};
+        conditions.specs = specs;
+    end
+    DebindPrivate.SetClassInSpecSet(specs, classID, turnOn);
+    return OnActionValueChanged(ctx.action);
+end
+
 --- 조건을 하나 지운 뒤. **빈 표는 안 남긴다** - 있느냐를 게이트로 쓰는 자리가 여럿이라
 --- (`IsConditionalBinding`, `CleanUpDB`) 조건이 없는 액션이 조건부가 된다.
 local function PruneConditions(action)
@@ -344,16 +400,17 @@ local function UnitConditionRemembersAxis(cond)
     return cond.reaction ~= nil or cond.dead ~= nil or cond.role ~= nil or cond.group ~= nil;
 end
 
---- 위쪽 라디오 셋이 쓰는 것. **모드만 바꾸고 축은 건드리지 않는다** - [사용 안 함]으로
---- 옮겼다가 되돌리면 골라둔 반응·생사가 그대로 있어야 한다. 무시하는 것은
---- `Misc.UnitConditionForBinding`이 한다.
+--- What the three radios at the top write. **It moves the mode and leaves the axes alone**: a
+--- reader who switches to [Disable] and back has to find the reaction and the life they picked
+--- still there. Ignoring them while the condition is off is `Misc.UnitConditionForBinding`'s job.
 ---
---- **모드 셋이 저마다 자기 값을 든다.** 빈 표가 [있을 때]를 뜻하던 시절에는 유닛 조건 하나만
---- 걸린 액션이 조건 없는 액션과 같은 서명을 냈고(`ActionSignature`가 빈 표를 접는다),
---- 중복 제거가 둘을 한 쌍으로 봤다. `dbver <= 6` 단계가 옛 값을 올린다.
+--- **Each of the three modes carries a value of its own.** While an empty table meant [when there
+--- is one], an action carrying a single unit condition signed the same as an action carrying no
+--- condition at all, and the duplicate check paired the two. The `dbver <= 6` step raises the old
+--- values.
 ---
---- 끈 자리에 기억할 축이 하나도 없으면 키를 지운다. 안 그러면 아무것도 안 고른 유닛의
---- 빈 표가 프로필에 쌓인다.
+--- A key with nothing left to remember is deleted rather than left as an empty table, or a unit
+--- nothing was ever picked for piles up in the profile.
 local function SetUnitConditionMode(ctx, unit, mode)
     local units = UnitConditionsOf(ctx.action);
     local cond = units and units[unit];
@@ -515,6 +572,11 @@ ActionMenu.OnActionValueChanged      = OnActionValueChanged;
 ActionMenu.TableFor                  = TableFor;
 ActionMenu.PruneConditions           = PruneConditions;
 ActionMenu.UnitConditionsOf          = UnitConditionsOf;
+ActionMenu.SpecConditionsOf          = SpecConditionsOf;
+ActionMenu.SpecConditionHasID        = SpecConditionHasID;
+ActionMenu.ToggleSpecConditionID     = ToggleSpecConditionID;
+ActionMenu.ClassSpecsAllPicked       = ClassSpecsAllPicked;
+ActionMenu.ToggleClassSpecs          = ToggleClassSpecs;
 ActionMenu.actionValueEquals         = actionValueEquals;
 ActionMenu.setActionValue            = setActionValue;
 
