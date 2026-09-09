@@ -100,6 +100,7 @@ local function loadAddons(withCliqueFake)
     local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
     "SpecSpells.lua",
+    "KnownSpells.lua",
     "Snippets.lua",
     "Ordering.lua",
     "Solver.lua",
@@ -182,6 +183,7 @@ local specs = {
     { name = "issue", path = root .. "/issue_spec.lua" },
     { name = "hovertwin", path = root .. "/hovertwin_spec.lua" },
     { name = "specspells", path = root .. "/specspells_spec.lua" },
+    { name = "knownspells", path = root .. "/knownspells_spec.lua" },
     { name = "smartcast", path = root .. "/smartcast_spec.lua" },
     { name = "grade", path = root .. "/grade_spec.lua" },
     { name = "overview", path = root .. "/overview_spec.lua" },

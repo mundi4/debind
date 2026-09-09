@@ -2,6 +2,7 @@
 
     <Script file="Constants.lua"/>
     <Script file="SpecSpells.lua"/>
+    <Script file="KnownSpells.lua"/>
     <Script file="Snippets.lua"/>
     <Script file="Ordering.lua"/>
     <Script file="Solver.lua"/>

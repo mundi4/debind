@@ -19,7 +19,10 @@ const fs = require("fs");
 const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const read = (f) => fs.readFileSync(path.join(repoRoot, f), "utf8");
+// Carriage returns come off on the way in. `core.autocrlf` writes them on checkout, and the body
+// match below anchors on line ends -- so with them left in, the check quietly found no body at all
+// and failed on a working tree that was fine.
+const read = (f) => fs.readFileSync(path.join(repoRoot, f), "utf8").replace(/\r/g, "");
 
 const profile = read("Debind/Profile.lua");
 
