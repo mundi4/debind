@@ -150,7 +150,6 @@ end
 function Events.PLAYER_ENTERING_WORLD()
     if (DebindPrivate.AttachClickCastFrames) then
         DebindPrivate.AttachClickCastFrames();
-        DebindPrivate.AskHolderAgain();
     end
     DebindPrivate.CollectOUFFrames();
 end
@@ -170,28 +169,19 @@ function Events.PLAYER_PVP_TALENT_UPDATE()
 end
 
 function Events.PLAYER_REGEN_ENABLED()
-    --- **Before the queues, because it decides what is in them next time.** The login pass only
-    --- covers an addon that was holding `ClickCastFrames` by then; one that takes it later, or that
-    --- the user switches on mid-session, is caught here. The re-ask beside it is for the holder
-    --- that let a frame go without a write coming through, which its own setting moving does.
+    --- **Before the queue, because it decides what is in it next time.** The login pass only
+    --- covers an addon that was holding `ClickCastFrames` by then; one that takes it later is
+    --- caught here.
     if (DebindPrivate.AttachClickCastFrames) then
         DebindPrivate.AttachClickCastFrames();
-        DebindPrivate.AskHolderAgain();
     end
 
-    --- **In the order they arrived, which is why they share a queue.** A frame taken back and
-    --- offered again during one fight has two entries, and the last one is what its owner meant.
     if (#DebindPrivate.FrameQueue > 0) then
         for i = 1, #DebindPrivate.FrameQueue do
             local entry = DebindPrivate.FrameQueue[i];
-            if (entry[1] == "register") then
-                DebindPrivate.RegisterFrame(entry[2], entry[3]);
-            else
-                DebindPrivate.UnregisterFrame(entry[2]);
-            end
+            DebindPrivate.RegisterFrame(entry[1], entry[2]);
         end
         wipe(DebindPrivate.FrameQueue);
-        wipe(DebindPrivate.QueuedFrameOp);
     end
     if (#DebindPrivate.RegisterClickQueue > 0) then
         for i = 1, #DebindPrivate.RegisterClickQueue do

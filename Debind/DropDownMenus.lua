@@ -467,8 +467,8 @@ do
         if (value == nil) then
             return nil;
         end
-        if (type(value) == "table" and value.off) then
-            return "off";
+        if (type(value) == "table" and value.disabled) then
+            return "disabled";
         end
         if (DebindPrivate.UnitConditionForBinding(value) == false) then
             return "absent";
@@ -511,9 +511,22 @@ do
         return value.role;
     end
 
-    --- 위쪽 라디오 셋이 쓰는 것. **`exists`만 바꾸고 축은 건드리지 않는다** - [사용 안 함]으로
+    --- 이 유닛 조건이 기억하고 있는 축이 하나라도 있는가.
+    ---
+    --- **축이 하나 늘 때마다 여기 항이 하나 는다.** 빠뜨리면 그 축만 걸어둔 유닛이 [사용 안
+    --- 함]으로 옮기는 순간 기억되는 대신 지워진다. 소속을 넣을 때 실제로 그렇게 빠졌다. 두
+    --- 자리가 같은 물음을 하므로 값이 하나여야 한다(`SetUnitConditionMode`, `SetPlayerLife`).
+    local function UnitConditionRemembersAxis(cond)
+        return cond.reaction ~= nil or cond.dead ~= nil or cond.role ~= nil or cond.group ~= nil;
+    end
+
+    --- 위쪽 라디오 셋이 쓰는 것. **모드만 바꾸고 축은 건드리지 않는다** - [사용 안 함]으로
     --- 옮겼다가 되돌리면 골라둔 반응·생사가 그대로 있어야 한다. 무시하는 것은
     --- `Misc.UnitConditionForBinding`이 한다.
+    ---
+    --- **모드 셋이 저마다 자기 값을 든다.** 빈 표가 [있을 때]를 뜻하던 시절에는 유닛 조건 하나만
+    --- 걸린 액션이 조건 없는 액션과 같은 서명을 냈고(`ActionSignature`가 빈 표를 접는다),
+    --- 중복 제거가 둘을 한 쌍으로 봤다. `dbver <= 7` 단계가 옛 값을 올린다.
     ---
     --- 끈 자리에 기억할 축이 하나도 없으면 키를 지운다. 안 그러면 아무것도 안 고른 유닛의
     --- 빈 표가 프로필에 쌓인다.
@@ -526,18 +539,16 @@ do
         -- **`and false or`로 쓰지 말 것.** 그 관용구는 `false`를 못 돌려준다 - 참일 때
         -- `true and false`가 `false`가 되고 그게 다시 `or`의 왼쪽이라 오른쪽이 나온다.
         -- 그렇게 쓴 동안 [없을 때]가 아무것도 안 적어서 [있을 때]와 같은 값이 됐다.
-        cond.off = (mode == "off") or nil;
+        cond.disabled = (mode == "disabled") or nil;
         if (mode == "absent") then
             cond.exists = false;
-        else
+        elseif (mode == "disabled") then
             cond.exists = nil;
+        else
+            cond.exists = true;
         end
 
-        -- **축이 하나 늘 때마다 여기 항이 하나 는다.** 빠뜨리면 그 축만 걸어둔 유닛이
-        -- [사용 안 함]으로 옮기는 순간 기억되는 대신 지워진다 - 바로 위가 약속하는 것의
-        -- 반대다. 소속을 넣을 때 실제로 그렇게 빠졌다.
-        if (mode == "off" and cond.reaction == nil and cond.dead == nil and cond.role == nil
-                and cond.group == nil) then
+        if (mode == "disabled" and not UnitConditionRemembersAxis(cond)) then
             -- 기억할 축이 하나도 없다. 빈 표를 남기면 아무것도 안 고른 유닛이 프로필에 쌓인다.
             if (units) then
                 units[unit] = nil;
@@ -671,10 +682,10 @@ do
         optionsDescription:CreateRadio(LLL["DISABLE"],
             function()
                 local mode = UnitConditionMode(unit);
-                return mode == nil or mode == "off";
+                return mode == nil or mode == "disabled";
             end,
             function()
-                return SetUnitConditionMode(unit, "off");
+                return SetUnitConditionMode(unit, "disabled");
             end
         );
 
@@ -785,9 +796,6 @@ do
     end
 
     local function hoverConditionIsOn()
-        if (DebindPrivate.StandsAsideForClique()) then
-            return false;
-        end
         return UnitConditionIsExists("hover");
     end
 
@@ -1154,14 +1162,14 @@ do
         description:CreateRadio(rawget(LLL, "CONDITION_HOVER_DISABLE") or LLL["DISABLE"],
             function()
                 local mode = UnitConditionMode("hover");
-                return mode == nil or mode == "off";
+                return mode == nil or mode == "disabled";
             end,
             function()
-                return SetUnitConditionMode("hover", "off");
+                return SetUnitConditionMode("hover", "disabled");
             end
         );
 
-        local yes = description:CreateRadio(LLL["CONDITION_HOVER_YES"],
+        description:CreateRadio(LLL["CONDITION_HOVER_YES"],
             function()
                 return UnitConditionIsExists("hover");
             end,
@@ -1170,7 +1178,7 @@ do
             end
         );
 
-        local no = description:CreateRadio(LLL["CONDITION_HOVER_NO"],
+        description:CreateRadio(LLL["CONDITION_HOVER_NO"],
             function()
                 return UnitConditionMode("hover") == "absent";
             end,
@@ -1178,11 +1186,6 @@ do
                 return SetUnitConditionMode("hover", "absent");
             end
         );
-
-        if (DebindPrivate.StandsAsideForClique()) then
-            yes:SetEnabled(false);
-            no:SetEnabled(false);
-        end
 
 
         description:CreateDivider();
@@ -1329,7 +1332,7 @@ do
                 local units = listedUnitsWithCondition();
                 if (units) then
                     for i = 1, #units do
-                        SetUnitConditionMode(units[i], "off");
+                        SetUnitConditionMode(units[i], "disabled");
                     end
                 end
                 onActionValueChanged();
@@ -1374,7 +1377,7 @@ do
         local description = CreateActionMenuItemGroup(rootDescription, "CONDITION_LIFE", nil,
             function()
                 local cond = UnitConditionsOf(_action) and UnitConditionsOf(_action).player;
-                return type(cond) == "table" and not cond.off and cond.dead ~= nil;
+                return type(cond) == "table" and not cond.disabled and cond.dead ~= nil;
             end);
 
         --- 다른 축의 setter를 못 쓴다. 그쪽은 `exists` 라디오가 표를 세워둔 뒤에만 불리는데
@@ -1387,7 +1390,10 @@ do
                 local cond = units and units.player;
                 if (type(cond) == "table") then
                     cond.dead = nil;
-                    if (next(cond) == nil) then
+                    -- 모드 표시 하나만 남은 표는 아무것도 안 고른 유닛이다. `exists == false`는
+                    -- 이 메뉴가 못 만들지만 공유 프로필이 들고 올 수 있어서 남긴다.
+                    if (not UnitConditionRemembersAxis(cond) and cond.exists ~= false
+                            and not cond.disabled) then
                         units.player = nil;
                         if (not next(units)) then
                             _action.conditions.units = nil;
@@ -1405,11 +1411,16 @@ do
                     cond = {};
                     units.player = cond;
                 end
-                -- **끈 표시도 같이 지운다.** 이 메뉴에는 `off`를 세우는 줄이 없지만 공유
+                -- **끈 표시도 같이 지운다.** 이 메뉴에는 `disabled`를 세우는 줄이 없지만 공유
                 -- 프로필과 손으로 고친 것이 들고 올 수 있고, 남아 있으면
                 -- `UnitConditionForBinding`이 조건을 통째로 무시하는 동안 라디오는 켜진 채로
                 -- 그려진다 - 되살릴 줄이 없는 값이 된다.
-                cond.off = nil;
+                cond.disabled = nil;
+                -- 읽는 이는 언제나 있으므로 모드는 하나뿐이다. 그래도 적는다: 모드 없는 표는
+                -- 옛 값이고, 저장에 새로 만들지 않는다.
+                if (cond.exists == nil) then
+                    cond.exists = true;
+                end
                 cond.dead = value;
             end
 

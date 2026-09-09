@@ -12,8 +12,9 @@ _G.Clique = setmetatable({
         DebindPrivate.RegisterFrame(button);
     end,
 
-    UnregisterUnitFrame = function(_, button)
-        DebindPrivate.UnregisterFrame(button);
+    -- The name stays and the call does nothing, for the reason `DebindPublic:UnregisterFrame`
+    -- gives.
+    UnregisterUnitFrame = function()
     end,
 }, { __index = DebindPublic, __newindex = function() end });
 

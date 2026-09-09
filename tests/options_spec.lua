@@ -37,7 +37,22 @@ return function(DebindPrivate)
         switches = {},
     };
     DebindPrivate.InitDB();
+
+    --- **One pack is installed while the list is built, and only while it is built.** The pack rows
+    --- are drawn from what is loaded (`LoadedKnownPacks`), which is read once here, so a spec with
+    --- nothing installed could only ever measure the seven client windows. Put back straight after,
+    --- because the addon list is the shim's and the specs after this one share it.
+    local savedLoaded = C_AddOns.IsAddOnLoaded;
+    local savedMetadata = C_AddOns.GetAddOnMetadata;
+    C_AddOns.IsAddOnLoaded = function(addon) return addon == "Grid2"; end;
+    C_AddOns.GetAddOnMetadata = function(addon, field)
+        if (addon == "Grid2" and field == "Title") then
+            return "Grid2 |cff00ff00Raid Frames|r";
+        end
+    end;
     DebindPrivate.RegisterOptionsCategory();
+    C_AddOns.IsAddOnLoaded = savedLoaded;
+    C_AddOns.GetAddOnMetadata = savedMetadata;
 
     local function setting(variable)
         local s = Settings.GetSetting("DEBIND_" .. variable);
@@ -73,7 +88,6 @@ return function(DebindPrivate)
             "BLIZZARD_UNIT_FRAMES_TARGET", "BLIZZARD_UNIT_FRAMES_PARTY",
             "BLIZZARD_UNIT_FRAMES_RAID", "BLIZZARD_UNIT_FRAMES_BOSS",
             "BLIZZARD_UNIT_FRAMES_ARENA",
-            "TAKE_UNREGISTERED_UNIT_FRAMES",
             "SMART_CAST_ENABLED",
             "SMART_CAST_BATTLEREZ", "SMART_CAST_REZ", "SMART_CAST_DISPEL", "SMART_CAST_BUFF",
             "SMART_CAST_REZWITHBATTLEREZ",
@@ -105,16 +119,18 @@ return function(DebindPrivate)
         return out;
     end
 
-    --- **Three headed groups, and the first header is the client's own word for the thing.**
-    --- Grouping is what says which boxes belong together at this depth, and taking
-    --- `UNITFRAME_LABEL` rather than a key of ours is what keeps the window and the game from
-    --- calling one thing two things.
-    test("the unit frame rows stand in three headed groups", function()
+    --- **Two headers and one list of boxes under the second.** Grouping is what says which rows
+    --- belong together at this depth, and taking `UNITFRAME_LABEL` rather than a key of ours is
+    --- what keeps the window and the game from calling one thing two things.
+    ---
+    --- **The client's seven always stand, so the blacklist header never stands empty.** The pack
+    --- rows come after them and only for what is installed, which is Grid2 alone here.
+    test("the unit frame rows stand in two headed groups", function()
         local L = DebindPrivate.L;
         local expected = {
             { "header", UNITFRAME_LABEL },
             { "dropdown", L["UNITFRAME_CLICK_EDGE"] },
-            { "header", L["BLIZZARD_UNIT_FRAMES"] },
+            { "header", L["LEAVE_UNIT_FRAMES_ALONE"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_PLAYER"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_PET"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_TARGET"] },
@@ -122,9 +138,7 @@ return function(DebindPrivate)
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_RAID"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_BOSS"] },
             { "checkbox", L["BLIZZARD_UNIT_FRAMES_ARENA"] },
-            -- No pack is installed under the shim, so this group is its header and the wider box.
-            { "header", L["ADDON_UNIT_FRAMES"] },
-            { "checkbox", L["TAKE_UNREGISTERED_UNIT_FRAMES"] },
+            { "checkbox", "Grid2 |cff00ff00Raid Frames|r" },
         };
         local rows = unitFrameRows();
         check(#rows == #expected, "the section holds " .. #rows .. " rows, not " .. #expected);
@@ -172,16 +186,18 @@ return function(DebindPrivate)
             "the game's own answer was stored as a value instead of clearing the cell");
     end);
 
+    --- **The box reads the other way round from the cell it writes.** Ticked is "leave alone" and
+    --- the stored value is still `false`, which is what makes the change need no migration.
     test("a Blizzard unit frame box stores false and clears back to absent", function()
         local s = setting("BLIZZARD_UNIT_FRAMES_PARTY");
-        check(s:GetValue() == true, "unset reads as off");
-
-        s:SetValue(false);
-        check(DebindPrivate.Options.blizzframes.party == false, "off did not store false");
+        check(s:GetValue() == false, "unset reads as left alone");
 
         s:SetValue(true);
+        check(DebindPrivate.Options.blizzframes.party == false, "ticked did not store false");
+
+        s:SetValue(false);
         check(DebindPrivate.Options.blizzframes.party == nil,
-            "back on left the default in the profile");
+            "unticking left the default in the profile");
     end);
 
     test("an exclusion stores true and clears back to absent", function()
@@ -304,42 +320,55 @@ return function(DebindPrivate)
         setting("SMART_CAST_REZ"):SetValue(true);
     end);
 
-    --- **Standing aside closes the doors other addons' frames come through, and nothing else.**
-    --- Blizzard's own unit frames are registered either way (`legacy/coexisting-with-clique.md`
-    --- §5), so their seven boxes and the click edge that applies to them stay live; what greys is
-    --- the row about frames nobody hands over. A greyed box over a frame we are wiring would be a
-    --- control the reader cannot reach for a thing that is running.
-    test("Clique greys the addon frame rows and leaves Blizzard's own live", function()
-        local ours = {
-            "UNITFRAME_CLICK_EDGE",
-            "BLIZZARD_UNIT_FRAMES_PLAYER", "BLIZZARD_UNIT_FRAMES_PET",
-            "BLIZZARD_UNIT_FRAMES_TARGET", "BLIZZARD_UNIT_FRAMES_PARTY",
-            "BLIZZARD_UNIT_FRAMES_RAID", "BLIZZARD_UNIT_FRAMES_BOSS",
-            "BLIZZARD_UNIT_FRAMES_ARENA",
-        };
-        local theirs = { "TAKE_UNREGISTERED_UNIT_FRAMES" };
-        for i = 1, #ours do
-            check(rowFor(ours[i]):IsModifiable(), ours[i] .. " is dead without Clique");
-        end
-        for i = 1, #theirs do
-            check(rowFor(theirs[i]):IsModifiable(), theirs[i] .. " is dead without Clique");
-        end
-
+    --- **Nothing in this section is ever greyed, Clique installed or not.** There is no state to
+    --- grey for any more: every unit frame is ours and the reader's only lever is the blacklist, so
+    --- a dead box here would be a control they cannot reach over a thing that is running.
+    test("no unit frame row carries a modify predicate", function()
         DebindPrivate.CliqueDetected = true;
         local ok, err = pcall(function()
-            for i = 1, #theirs do
-                check(not rowFor(theirs[i]):IsModifiable(), theirs[i] .. " is still live under Clique");
+            local rows = { "UNITFRAME_CLICK_EDGE",
+                "BLIZZARD_UNIT_FRAMES_PLAYER", "BLIZZARD_UNIT_FRAMES_PET",
+                "BLIZZARD_UNIT_FRAMES_TARGET", "BLIZZARD_UNIT_FRAMES_PARTY",
+                "BLIZZARD_UNIT_FRAMES_RAID", "BLIZZARD_UNIT_FRAMES_BOSS",
+                "BLIZZARD_UNIT_FRAMES_ARENA" };
+            for i = 1, #rows do
+                local row = rowFor(rows[i]);
+                check(row.modifyPredicates == nil, rows[i] .. " carries a modify predicate");
+                check(row:IsModifiable(), rows[i] .. " is dead");
             end
-            for i = 1, #ours do
-                check(rowFor(ours[i]):IsModifiable(), ours[i] .. " was greyed under Clique");
-            end
-            check(rowFor("SMART_CAST_REZ"):IsModifiable(),
-                "Clique reached a row outside the unit frame section");
         end);
         DebindPrivate.CliqueDetected = nil;
         if (not ok) then
             error(err, 0);
         end
+    end);
+
+    --- **A row for an addon the reader does not have says nothing they can act on**, so only the
+    --- installed ones are drawn -- one here, out of the twelve `KNOWN_PACK_FRAMES` names.
+    test("a pack row stands only for an installed pack, named by its own Title", function()
+        local packRows = {};
+        for _, row in ipairs(shim.world.settingsRows) do
+            local variable = row.data.setting and row.data.setting.variable;
+            if (variable and strfind(variable, "DEBIND_PACK_FRAMES_", 1, true)) then
+                packRows[#packRows + 1] = { variable, row.data.name };
+            end
+        end
+        check(#packRows == 1, "the list holds " .. #packRows .. " pack rows, not 1");
+        check(packRows[1][1] == "DEBIND_PACK_FRAMES_GRID2", packRows[1][1]);
+        check(packRows[1][2] == "Grid2 |cff00ff00Raid Frames|r",
+            "the row is not named by the addon's own Title: " .. tostring(packRows[1][2]));
+    end);
+
+    test("a pack box stores false and clears back to absent", function()
+        local s = setting("PACK_FRAMES_GRID2");
+        check(s:GetValue() == false, "unset reads as left alone");
+
+        s:SetValue(true);
+        check(DebindPrivate.db.global.packFrames.Grid2 == false, "ticked did not store false");
+
+        s:SetValue(false);
+        check(DebindPrivate.db.global.packFrames.Grid2 == nil,
+            "unticking left the default in the profile");
     end);
 
     --- **No row may carry a shown predicate.** `ShouldShow` is read by the panel's `Display` and

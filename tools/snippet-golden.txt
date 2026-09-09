@@ -71,11 +71,6 @@ DelegateFrameNames[frame] = frame:GetName()
 		ccframes[button].frameType = button:GetAttribute("debind_frametype")
 	
 
-### FrameRegistry.lua #4 SecureHandlerExecute
-			local button = self:GetFrameRef("clickcast_button")
-			self:RunFor(button, self:GetAttribute("DeinitFrame"))
-		
-
 ### SecureBindings.lua #1 SecureHandlerExecute
 
 	debind_driver = self
@@ -986,34 +981,16 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 ### SecureBindings.lua #21 SetAttribute
-		return danglingButton and danglingButton:GetAttribute("unit") or nil
-	
-
-### SecureBindings.lua #22 SetAttribute
-		local unitframe = States.unitframe
-		if (unitframe and unitframe.unit) then
-			return unitframe.unit
-		end
-		local clique_header = self:GetFrameRef("clique_header")
-		return clique_header:RunAttribute("debind_gethoverunit")
-	
-
-### SecureBindings.lua #23 SetAttribute
 	local unitframe = States.unitframe
 	return unitframe and unitframe.unit
 
 
-### SecureBindings.lua #24 SetAttribute
+### SecureBindings.lua #22 SetAttribute
 	local button = self:GetAttribute("clickcast_button")
 	self:CallMethod("OnClickCastRegister", button:GetName())
 
 
-### SecureBindings.lua #25 SetAttribute
-	local button = self:GetAttribute("clickcast_button")
-	self:CallMethod("OnClickCastUnregister", button:GetName())
-
-
-### SecureBindings.lua #26 InstallSnippet
+### SecureBindings.lua #23 InstallSnippet
 	local overs = Overs[self]
 	overs = overs and overs.OnClick
 	local overButton, overMessage
@@ -1497,7 +1474,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return "debind1", overMessage
 
 
-### SecureBindings.lua #27 InstallSnippet
+### SecureBindings.lua #24 InstallSnippet
 	local overs = Overs[self]
 	overs = overs and overs.OnClick
 	if (overs) then
@@ -1510,7 +1487,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	end
 
 
-### SecureBindings.lua #28 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #25 InstallSnippet (DEBUG=on)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -2151,7 +2128,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		self:SetAttribute("pressAndHoldAction", (not smartButton) and winner.pressAndHold or nil)
+		if (winner.pressAndHold and not smartButton) then
+			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		else
+			self:SetAttribute("pressAndHoldAction", nil)
+		end
 	end
 
 
@@ -2171,7 +2152,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return smartButton or winner.clickbutton
 
 
-### SecureBindings.lua #29 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
 	local bindings = ClickTimeKeys[button]
 
 
@@ -2808,7 +2789,11 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	if (down) then
-		self:SetAttribute("pressAndHoldAction", (not smartButton) and winner.pressAndHold or nil)
+		if (winner.pressAndHold and not smartButton) then
+			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		else
+			self:SetAttribute("pressAndHoldAction", nil)
+		end
 	end
 
 
@@ -2828,7 +2813,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	return smartButton or winner.clickbutton
 
 
-### SecureBindings.lua #30 InstallSnippet
+### SecureBindings.lua #27 InstallSnippet
 
 
 
@@ -2846,7 +2831,7 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("useOnKeyDown", nil)
 
 
-### SecureBindings.lua #31 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #28 InstallSnippet (DEBUG=on)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -3345,7 +3330,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return smartButton or winner.clickbutton
 	
 
-### SecureBindings.lua #32 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #29 InstallSnippet (DEBUG=off)
 		local button = ...
 		local bindings = ClickTimeKeys[button]
 		if (not bindings) then
@@ -3843,7 +3828,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return smartButton or winner.clickbutton
 	
 
-### SecureBindings.lua #33 InstallSnippet (DEBUG=on)
+### SecureBindings.lua #30 InstallSnippet (DEBUG=on)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then
@@ -4289,7 +4274,7 @@ DelegateFrameNames[frame] = frame:GetName()
 		return winner.clickbutton
 	
 
-### SecureBindings.lua #34 InstallSnippet (DEBUG=off)
+### SecureBindings.lua #31 InstallSnippet (DEBUG=off)
 		local n, mod = ...
 		local info = ccframes[self]
 		if (not info) then

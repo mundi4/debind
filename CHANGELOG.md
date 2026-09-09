@@ -1,8 +1,12 @@
 # 3.6
 
+**Remove Duplicate Actions no longer offers to delete an action that has a unit condition on it.** An action set to run only while a unit is there read as the same thing as one with no condition at all, so the two came up as a duplicate pair and the one carrying the condition was the one offered for deletion. A key holding a conditional action above a plain fallback is exactly that shape, and it is a common one. Nothing was deleted without the confirmation window, but on that window the two rows looked identical.
+
 **Debind works on unit frames whatever addon draws them, including the ones that run hover casting of their own.** Earlier versions left those frames alone, because taking one could stop that addon's own hover casting working there. Debind now takes the frame without taking anything away: whatever the addon had on it still runs, and Debind's keys run beside it. Where you have both of them on one key over a unit frame, Debind's is what fires.
 
-If you would rather Debind stayed off the frames your addon keeps to itself, untick "Use unit frames addons keep to themselves" under Unit frame options; it takes effect at the next login. And while Clique itself is running, Debind leaves unit frames to it entirely.
+**Debind now works alongside Clique instead of leaving unit frames to it.** Both run on the same frame: Clique keeps doing what you have set up there, and Debind's keys work there too. Where you have bound the same key in both, Debind's is what fires. If you had been running the two together, this changes what your unit frames do the first time you log in on this version.
+
+**One list says which unit frames to leave alone.** "Leave these unit frames alone" under Unit frame options lists the game's own seven windows and every unit frame addon Debind knows by name, and ticking one keeps Debind off those frames entirely; that addon's own click handling is unaffected. Everything is unticked to begin with, which is Debind working everywhere. A tick takes effect at the next login.
 
 **Set Custom Target on a keyboard key works while hovering any unit frame out of combat**, from the unit the game says your cursor is on. On a mouse button, and in combat on either, it works only where your other Debind keys work, and only over the player, pet, party, raid, boss and arena frames.
 
@@ -10,11 +14,11 @@ If you would rather Debind stayed off the frames your addon keeps to itself, unt
 
 **What 3.5.2 added is gone.** It answered with `mouseover` on frames another addon had hooked, because the game tells only the outermost hook when the cursor leaves a frame. Debind is that hook now and hears it directly, so there is nothing left to work around.
 
-**Unticking a Blizzard unit frame box takes effect at the next login**, and the box says so. Debind no longer pulls a frame back out from under itself mid-session.
+**Ticking one of those boxes takes effect at the next login**, and the box says so. Debind no longer pulls a frame back out from under itself mid-session.
 
 **A key can now be limited to certain specializations.** The new Specialization condition takes any of the five numbered specializations, and the action runs only while you are in one of them. The numbers follow the order the game lists your specializations in. They are numbers rather than names because the same action can sit on a tab several classes share, and there each class gives the same number to a different specialization. Number 5 is the starting specialization a character has before choosing one.
 
-**An action can now use the hovered frame's unit without a hover condition.** Tick "Prefer the hovered frame's unit" in the action's Target menu and the key works as before everywhere, except that over a unit frame it goes to that frame's unit. It keeps its place in the key's order; to have something else win over unit frames, put a hover-conditioned action above it as usual. Any unit condition on the action's target is asked of the frame's unit while hovering. While Clique is running the box is locked and the action simply keeps its own target.
+**An action can now use the hovered frame's unit without a hover condition.** Tick "Prefer the hovered frame's unit" in the action's Target menu and the key works as before everywhere, except that over a unit frame it goes to that frame's unit. It keeps its place in the key's order; to have something else win over unit frames, put a hover-conditioned action above it as usual. Any unit condition on the action's target is asked of the frame's unit while hovering.
 
 **Three actions that pick the spell for you: Dispel, External and Raid Buff.** Each one casts whatever your class and specialization have for that job -- Purify on a Holy priest, Nature's Cure on a Restoration druid, Pain Suppression, Ironbark, Power Word: Fortitude -- and changes with you when you change specialization, so one action on the account tab covers every character. Where a specialization has no such spell the key does nothing, and the tooltip says which spell it is on the character you are looking at. They are under "Class and Specialization" in the picker. A warlock's dispel goes through the imp while it is out and through Singe Magic under Grimoire of Sacrifice.
 

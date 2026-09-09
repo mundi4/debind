@@ -135,7 +135,7 @@ return function(DebindPrivate)
 
     test("꺼진 조건은 바인딩에 안 나온다", function()
         local b = spell({ units = {
-            target = { off = true, reaction = Constants.REACTION_HELP, dead = true },
+            target = { disabled = true, reaction = Constants.REACTION_HELP, dead = true },
         } });
         check(b.conditions.units == nil, "꺼진 조건이 바인딩까지 갔다");
         check(b.unitStates == nil or b.unitStates.target == nil, "축을 좁혔다");
@@ -158,7 +158,7 @@ return function(DebindPrivate)
 
     test("꺼진 조건만 있으면 조건부 액션이 아니다", function()
         local action = { type = Constants.SPELL, value = 100,
-            units = { target = { off = true, reaction = Constants.REACTION_HELP } } };
+            units = { target = { disabled = true, reaction = Constants.REACTION_HELP } } };
         check(not DebindPrivate.IsConditionalAction(action),
             "기억만 하는 값이 액션을 조건부로 만들었다");
     end);
@@ -678,9 +678,9 @@ return function(DebindPrivate)
         check(mode({ reaction = Constants.REACTION_HELP }) == "exists", "반응 표가 있을 때로 안 읽힘");
         check(mode({ dead = true }) == "exists", "생사 표가 있을 때로 안 읽힘");
         check(mode({ exists = false }) == "absent", "exists=false가 없을 때로 안 읽힘");
-        check(mode({ off = true }) == "none", "꺼진 축이 없음으로 안 읽힘");
+        check(mode({ disabled = true }) == "none", "꺼진 축이 없음으로 안 읽힘");
         -- `off`가 먼저다. 껐다가 되돌릴 때 골라둔 값이 그대로 있어야 하므로 둘이 같이 선다.
-        check(mode({ off = true, exists = false }) == "none", "꺼진 축보다 exists가 먼저 읽힘");
+        check(mode({ disabled = true, exists = false }) == "none", "꺼진 축보다 exists가 먼저 읽힘");
     end);
 
     --- **모르는 값을 떨어뜨리면 그 바인딩이 걸어둔 것보다 넓어진다.** 옛 버전이 쓴 스칼라를

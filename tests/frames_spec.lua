@@ -481,116 +481,59 @@ return function(DebindPrivate)
             "turning one pack off took another one with it");
     end);
 
-    -- **The two switches do not overlap.** A name no row covers is nobody's pack, so what decides
-    -- it is the wider option each door already asks and nothing a pack box says.
-    test("a name no row covers is left to the wider option", function()
+    -- **A pack box reaches its own pack and nothing else.** A name no row covers is nobody's to
+    -- leave alone, so the only thing that can turn one away is being on the blacklist by name.
+    test("a pack box reaches only the pack it names", function()
         local unlisted = ForeignFrame("SomeUIUnitFrame1", "target");
-        local refused = ForeignFrame("SomeUIUnitFrame2", "target");
 
         withPacks({ EllesmereUIRaidFrames = false, EllesmereUIUnitFrames = false, VuhDo = false },
             function()
                 DebindPrivate.RegisterFrame(unlisted, true);
-
-                DebindPrivate.takeUnregisteredFrames = false;
-                SecureHandlerWrapScript(refused, "OnEnter", ForeignHeader(), "-- theirs");
-                DebindPrivate.takeUnregisteredFrames = nil;
             end);
 
         check(type(DebindPrivate.ccframes[unlisted]) == "table",
             "a pack box turned away a frame that is not that pack's: "
             .. tostring(DebindPrivate.ccframes[unlisted]));
-        check(DebindPrivate.ccframes[refused] == nil,
-            "the wider option was off and the name door took the frame anyway: "
-            .. tostring(DebindPrivate.ccframes[refused]));
     end);
 
-    --- Runs `fn` with the wider option off, and puts it back whatever happens.
-    local function withWiderOptionOff(fn)
-        DebindPrivate.takeUnregisteredFrames = false;
-        local ok, err = pcall(fn);
-        DebindPrivate.takeUnregisteredFrames = nil;
-        if (not ok) then
-            error(err, 0);
-        end
-    end
-
-    -- **A pack box that is on is the whole answer for that pack.** The reader ticked the addon by
-    -- name, and what they expect is that its frames are ours whichever way they turn up. The wider
-    -- option decides only the frames no row can name; a listed frame standing behind it made a
-    -- ticked box do nothing for a reader who turned the wider option off
-    -- (`devdocs/legacy/making-the-pack-box-own-its-addon.md`).
-    test("a pack that is on arrives through every door while the wider option is off", function()
+    -- **Every door takes what nobody named, which is the whole decision.** The frames a pack keeps
+    -- to itself used to sit behind an option, and the option is gone
+    -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-3): a listed name and a
+    -- name no row covers arrive the same way at each of the three.
+    test("every door takes a listed name and a name no row covers alike", function()
         local named = ForeignFrame("ERFExtraFrame41", nil);
         local child = ForeignFrame("ERFExtraFrame42", "raid3");
         local strayChild = ForeignFrame("SomeUIHeaderUnitButton42", "raid4");
-        local spawned = ForeignFrame("EllesmereUIUnitFrames_Focus", "focus");
+        local spawned = ForeignFrame("EllesmereUIUnitFrames_Focus2", "focus");
         local straySpawned = ForeignFrame("SomeUIUnitFrame43", "focus");
 
-        withWiderOptionOff(function()
-            SecureHandlerWrapScript(named, "OnEnter", ForeignHeader(), "-- theirs");
+        SecureHandlerWrapScript(named, "OnEnter", ForeignHeader(), "-- theirs");
 
-            local header = frames.newFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
-            header:SetAttribute("child1", child);
-            header:SetAttribute("child2", strayChild);
-            SecureGroupHeader_Update(header);
+        local header = frames.newFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
+        header:SetAttribute("child1", child);
+        header:SetAttribute("child2", strayChild);
+        SecureGroupHeader_Update(header);
 
-            -- Appended to a library the collector already knows: its list of libraries is fixed
-            -- on the first pass (`DeclareOUFLibrary`), and the passes above have run.
-            local library = _G[oufAddons[1]];
-            check(library, "setup: no library was declared before the first pass");
-            library.objects[#library.objects + 1] = spawned;
-            library.objects[#library.objects + 1] = straySpawned;
-            CollectOUFFrames();
-        end);
+        -- Appended to a library the collector already knows: its list of libraries is fixed
+        -- on the first pass (`DeclareOUFLibrary`), and the passes above have run.
+        local library = _G[oufAddons[1]];
+        check(library, "setup: no library was declared before the first pass");
+        library.objects[#library.objects + 1] = spawned;
+        library.objects[#library.objects + 1] = straySpawned;
+        CollectOUFFrames();
 
         check(type(DebindPrivate.ccframes[spawned]) == "table",
-            "the library door left a pack that is on behind the wider option: "
-            .. tostring(DebindPrivate.ccframes[spawned]));
+            "the library door refused a listed name: " .. tostring(DebindPrivate.ccframes[spawned]));
         check(type(DebindPrivate.ccframes[child]) == "table",
-            "the header door left a pack that is on behind the wider option: "
-            .. tostring(DebindPrivate.ccframes[child]));
+            "the header door refused a listed name: " .. tostring(DebindPrivate.ccframes[child]));
         check(type(DebindPrivate.ccframes[named]) == "table",
-            "the name door left a pack that is on behind the wider option: "
-            .. tostring(DebindPrivate.ccframes[named]));
-        -- The wider option still decides what no row names, at the same two doors.
-        check(DebindPrivate.ccframes[strayChild] == nil,
-            "the header door took a frame no row names with the wider option off: "
+            "the name door refused a listed name: " .. tostring(DebindPrivate.ccframes[named]));
+        check(type(DebindPrivate.ccframes[strayChild]) == "table",
+            "the header door refused a frame no row names: "
             .. tostring(DebindPrivate.ccframes[strayChild]));
-        check(DebindPrivate.ccframes[straySpawned] == nil,
-            "the library door took a frame no row names with the wider option off: "
+        check(type(DebindPrivate.ccframes[straySpawned]) == "table",
+            "the library door refused a frame no row names: "
             .. tostring(DebindPrivate.ccframes[straySpawned]));
-    end);
-
-    -- **Taking a frame back means nothing for a pack that is on.** An addon that hands a frame
-    -- over and reclaims it has decided to run the frame itself, which is exactly the frame the
-    -- reader's tick says is ours as well. A frame no row names is the wider option's, and with
-    -- that off it is let go: its owner is the only one who ever spoke for it.
-    test("a deregistration of a frame whose pack is on leaves the row standing", function()
-        local kept = ForeignFrame("ERFExtraFrame44", nil);
-        local letGo = ForeignFrame("SomeUIUnitFrame44", "party2");
-        DebindPrivate.RegisterFrame(kept, true);
-        DebindPrivate.RegisterFrame(letGo, true);
-        check(DebindPrivate.ccframes[kept] and DebindPrivate.ccframes[letGo],
-            "setup: a frame was refused");
-
-        withWiderOptionOff(function()
-            DebindPrivate.UnregisterFrame(kept);
-            DebindPrivate.UnregisterFrame(letGo);
-        end);
-
-        check(type(DebindPrivate.ccframes[kept]) == "table",
-            "a pack that is on had its frame taken back: "
-            .. tostring(DebindPrivate.ccframes[kept]));
-        check(DebindPrivate.ccframes[letGo] == nil,
-            "a frame no row names was held on to: " .. tostring(DebindPrivate.ccframes[letGo]));
-
-        -- And the pack box turned off is still a real deregistration.
-        withPacks({ EllesmereUIRaidFrames = false }, function()
-            DebindPrivate.UnregisterFrame(kept);
-        end);
-        check(DebindPrivate.ccframes[kept] == nil,
-            "the pack was turned off and the frame stayed: "
-            .. tostring(DebindPrivate.ccframes[kept]));
     end);
 
     -- **Several doors, because none of them is compulsory.** Nothing in the game makes a unit frame
@@ -751,15 +694,32 @@ return function(DebindPrivate)
         check(frame.__mouseWheel == true, "the wheel was left off");
     end);
 
-    -- **And a frame we let go is let go.** The hook cannot be taken off a frame, so what stops it
-    -- is the row being gone: putting the input back on a frame the addon is no longer watching
-    -- would be holding on to somebody else's.
+    --- Makes the frame lose its row the one way that is left: a fight, which is another engine
+    --- wrapping over us **inside our own wrap** (`ContestedNow`). The hook stays on the global for
+    --- the rest of the session, which is why it answers for one frame only.
+    local function StandDown(frame)
+        local theirs = ForeignHeader();
+        local fighting = false;
+        hooksecurefunc("SecureHandlerWrapScript", function(wrapped, script, header)
+            if (wrapped == frame and script == "OnEnter" and fighting
+                    and header == DebindPrivate.BindingDriver) then
+                fighting = false;
+                SecureHandlerWrapScript(frame, "OnEnter", theirs, "-- theirs, on top again");
+            end
+        end);
+        fighting = true;
+        SecureHandlerWrapScript(frame, "OnEnter", theirs, "-- theirs");
+        fighting = false;
+    end
+
+    -- **And a frame we stepped off is stepped off.** The hook cannot be taken off a frame, so what
+    -- stops it is the row being gone: putting the input back on a frame the addon is no longer
+    -- watching would be holding on to somebody else's.
     test("a frame we stopped watching is left where the other addon put it", function()
         local frame = ForeignFrame(nil, "party1");
         DebindPrivate.RegisterFrame(frame, true);
-        withWiderOptionOff(function()
-            DebindPrivate.UnregisterFrame(frame);
-        end);
+        StandDown(frame);
+        check(DebindPrivate.ccframes[frame] == nil, "setup: the fight did not stand us down");
 
         frame:RegisterForClicks("AnyDown");
         frame:EnableMouseWheel(false);
@@ -868,38 +828,21 @@ return function(DebindPrivate)
             "the queue was not paid: " .. #DebindPrivate.FrameQueue);
     end
 
-    -- **The last word during a fight is the word that stands, and either order can be the last.**
-    -- Both calls are queued, so what decides is the order they are paid in; two queues drained one
-    -- after the other answered by which queue they were in instead, and "took it back, then offered
-    -- it again" came out unregistered.
-    test("an unregister then a register during one fight leaves the frame registered", function()
-        local frame = UnitFrame();
-        DebindPrivate.RegisterFrame(frame, "group");
-        check(DebindPrivate.ccframes[frame], "the premise is gone: the frame never registered");
+    -- **The queue holds registrations and nothing else**, so the drain is what the fight held back
+    -- and there is no second word for it to weigh against.
+    test("registrations offered during one fight are all paid at the end of it", function()
+        local first = UnitFrame();
+        local second = UnitFrame();
 
         throughCombat(function()
-            DebindPrivate.UnregisterFrame(frame);
-            DebindPrivate.RegisterFrame(frame, "group");
+            DebindPrivate.RegisterFrame(first, "group");
+            DebindPrivate.RegisterFrame(second, "group");
         end);
 
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the frame came out unregistered: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    test("a register then an unregister during one fight leaves the frame alone", function()
-        local frame = UnitFrame();
-
-        -- Turned off inside the fight, because `throughCombat` re-reads the profile first and
-        -- that puts the option back on; it has to stay off through the drain as well.
-        throughCombat(function()
-            DebindPrivate.takeUnregisteredFrames = false;
-            DebindPrivate.RegisterFrame(frame, "group");
-            DebindPrivate.UnregisterFrame(frame);
-        end);
-        DebindPrivate.takeUnregisteredFrames = nil;
-
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the frame came out registered: " .. tostring(DebindPrivate.ccframes[frame]));
+        check(type(DebindPrivate.ccframes[first]) == "table",
+            "the first came out unregistered: " .. tostring(DebindPrivate.ccframes[first]));
+        check(type(DebindPrivate.ccframes[second]) == "table",
+            "the second came out unregistered: " .. tostring(DebindPrivate.ccframes[second]));
     end);
 
     --- A header's child the way the header door offers one: a named frame the driver is handed
@@ -916,31 +859,6 @@ return function(DebindPrivate)
         DebindPrivate.BindingDriver:OnClickCastRegister(name);
         frames.drainTimers();
     end
-
-    local function HeaderUnregister(name)
-        DebindPrivate.BindingDriver:OnClickCastUnregister(name);
-        frames.drainTimers();
-    end
-
-    -- **The header's own take-back of a pack that is on changes nothing either**, and that has to
-    -- include the header's mark. The callback used to strip `hd` and the `hccframes` entry before
-    -- asking `UnregisterFrame`, which then refused: the frame stayed wired but read as an ordinary
-    -- row, and the header could never reach it again (code review, 2026-09-08).
-    -- `ERFExtraFrame` is an `EllesmereUIRaidFrames` row, and no pack box is off here.
-    test("a header taking back a frame whose pack is on leaves the header's row whole", function()
-        local frame = HeaderDoorFrame("ERFExtraFrame61");
-        HeaderRegister("ERFExtraFrame61");
-        local row = DebindPrivate.ccframes[frame];
-        check(type(row) == "table" and row.hd, "setup: the header door left no hd row");
-
-        HeaderUnregister("ERFExtraFrame61");
-
-        check(DebindPrivate.ccframes[frame] == row and row.hd == true,
-            "the row lost the header's mark: " .. tostring(DebindPrivate.ccframes[frame])
-            .. " hd=" .. tostring(row.hd));
-        check(DebindPrivate.hccframes["ERFExtraFrame61"] == frame,
-            "the header's list forgot a frame that is still registered");
-    end);
 
     -- **No number of wraps is a fight.** Clique unwraps and rewraps both hover scripts on every
     -- frame it holds on every loading screen, four hook calls per frame each time, and a budget
@@ -989,10 +907,9 @@ return function(DebindPrivate)
         check(rounds < 3, "the fight went " .. rounds .. " rounds before we stepped off");
     end);
 
-    -- **A header's row is the header's, and nothing else takes it back.** The header hands its
-    -- children over and reclaims them itself; a `ClickCastFrames[frame] = nil` from anywhere else
-    -- would otherwise leave the header's own child unwired with nothing to say so.
-    test("a header's row is not taken back by an ordinary deregistration", function()
+    -- **A header's row says which door wrote it, and that is what `hccframes` is keyed off.** The
+    -- kind is the header's own word, since a child carries whichever slot it is filling.
+    test("the header door leaves a row marked as the header's", function()
         local frame = HeaderDoorFrame("DebindSpecHeaderOwned");
 
         HeaderRegister("DebindSpecHeaderOwned");
@@ -1000,16 +917,8 @@ return function(DebindPrivate)
         check(type(row) == "table" and row.hd, "the header door left no hd row: " .. tostring(row));
         check(row.frameType == Constants.FRAMETYPE_GROUP,
             "the header's own answer was lost: " .. tostring(row.frameType));
-
-        DebindPrivate.UnregisterFrame(frame);
-        check(DebindPrivate.ccframes[frame] == row, "an ordinary deregistration took the row");
-
-        withWiderOptionOff(function()
-            HeaderUnregister("DebindSpecHeaderOwned");
-        end);
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the header's own door did not take it back: "
-            .. tostring(DebindPrivate.ccframes[frame]));
+        check(DebindPrivate.hccframes.DebindSpecHeaderOwned == frame,
+            "the header's list forgot its own child");
         _G.DebindSpecHeaderOwned = nil;
     end);
 
@@ -1039,31 +948,9 @@ return function(DebindPrivate)
         _G.DebindSpecHeaderQueued = nil;
     end);
 
-    -- **A withdrawal during a fight has to cancel the registration queued next to it.** Nothing
-    -- else queues the word that cancels one: the drain replays what it was handed, so a header
-    -- that offered a child and took it back inside one fight had the child wired afterwards, with
-    -- no row saying it was the header's.
-    test("a header withdrawal during a fight cancels the queued registration", function()
-        local frame = HeaderDoorFrame("DebindSpecHeaderRecalled");
-
-        -- Off inside the fight and through the drain, for the reason the case above gives.
-        throughCombat(function()
-            DebindPrivate.takeUnregisteredFrames = false;
-            HeaderRegister("DebindSpecHeaderRecalled");
-            HeaderUnregister("DebindSpecHeaderRecalled");
-        end);
-        DebindPrivate.takeUnregisteredFrames = nil;
-
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the drain wired a frame the header had already taken back: "
-            .. tostring(DebindPrivate.ccframes[frame]));
-        _G.DebindSpecHeaderRecalled = nil;
-    end);
-
     -- **The header's claim has to reach a row another door already wrote.** `RegisterFrame` stands
     -- down when the row it finds already says what it was about to say, and standing down there
-    -- used to mean the claim never landed: an ordinary deregistration then took a frame the header
-    -- owns, and the header's own withdrawal did nothing because it looks for `hd`.
+    -- used to mean the claim never landed, so the frame was missing from `hccframes`.
     test("a frame another door registered still becomes the header's", function()
         local frame = HeaderDoorFrame("DebindSpecHeaderSecond");
         frame:SetAttribute("unit", "party2");
@@ -1079,64 +966,7 @@ return function(DebindPrivate)
             "the header's claim never reached the row that was already there");
         check(DebindPrivate.hccframes.DebindSpecHeaderSecond == frame,
             "the claim did not reach hccframes either");
-
-        DebindPrivate.UnregisterFrame(frame);
-        check(DebindPrivate.ccframes[frame] ~= nil,
-            "an ordinary deregistration took a frame the header owns");
-
-        withWiderOptionOff(function()
-            HeaderUnregister("DebindSpecHeaderSecond");
-        end);
-        check(DebindPrivate.ccframes[frame] == nil, "the header could not take its own frame back");
-        check(DebindPrivate.hccframes.DebindSpecHeaderSecond == nil, "hccframes kept the frame");
         _G.DebindSpecHeaderSecond = nil;
-    end);
-
-    -- **`Clique.hccframes` is the other half of Clique's registration list.** `ccframes` holds what
-    -- came in from the insecure side and `hccframes` what came in through the header protocol,
-    -- keyed by name because that is what the restricted side can hand out. An addon walking either
-    -- to touch every click-casting frame finds the header's children only in the second.
-    test("a header registration is listed in hccframes by name, and taken out with it", function()
-        local frame = HeaderDoorFrame("DebindSpecHeaderChild");
-
-        HeaderRegister("DebindSpecHeaderChild");
-        check(DebindPrivate.hccframes and DebindPrivate.hccframes.DebindSpecHeaderChild == frame,
-            "hccframes did not list the header's child");
-
-        withWiderOptionOff(function()
-            HeaderUnregister("DebindSpecHeaderChild");
-        end);
-        check(DebindPrivate.hccframes.DebindSpecHeaderChild == nil,
-            "hccframes kept the child after the header let it go");
-        _G.DebindSpecHeaderChild = nil;
-    end);
-
-    -- **Letting go means nothing while the wider option is on, for a name no row covers either.**
-    -- A header that hands its child over and takes it back is keeping the child to itself from
-    -- then on, which is exactly what `Use Unit Frames Addons Keep to Themselves` says is ours; and
-    -- `CollectHeaderChildren` would have taken it back on the next update anyway, so dropping the
-    -- row only made the answer depend on whether a roster change happened to come
-    -- (code review, 2026-09-08). Off, the owner's word stands and the row goes.
-    test("a header letting a child go leaves the row while the wider option is on", function()
-        local frame = HeaderDoorFrame("DebindSpecHeaderKeptChild");
-        HeaderRegister("DebindSpecHeaderKeptChild");
-        local row = DebindPrivate.ccframes[frame];
-        check(type(row) == "table" and row.hd, "setup: the header door left no hd row");
-
-        HeaderUnregister("DebindSpecHeaderKeptChild");
-        check(DebindPrivate.ccframes[frame] == row and row.hd == true,
-            "the wider option is on and the header's take-back dropped the row: "
-            .. tostring(DebindPrivate.ccframes[frame]) .. " hd=" .. tostring(row.hd));
-        check(DebindPrivate.hccframes.DebindSpecHeaderKeptChild == frame,
-            "the header's list forgot a frame that is still registered");
-
-        withWiderOptionOff(function()
-            HeaderUnregister("DebindSpecHeaderKeptChild");
-        end);
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the wider option is off and the header's take-back was refused: "
-            .. tostring(DebindPrivate.ccframes[frame]));
-        _G.DebindSpecHeaderKeptChild = nil;
     end);
 
     -- **The pack switch reaches the header door too, and this is the change that made it.** That
@@ -1247,19 +1077,16 @@ return function(DebindPrivate)
 
 
     ---------------------------------------------------------------------------
-    -- Standing aside for Clique, and not standing aside
+    -- Standing beside Clique
     ---------------------------------------------------------------------------
 
-    --- The two flags the option folds into, set together the way `Debind.lua` and `InitDB` set
-    --- them. Neither can change without a reload in the game, so nothing reads them mid-pass.
-    local function withClique(alongside, fn)
+    --- Clique installed, which is the one flag left: there is no answer to it any more, so what
+    --- this covers is that nothing behind it shuts.
+    local function withClique(fn)
         local savedDetected = DebindPrivate.CliqueDetected;
-        local savedAlongside = DebindPrivate.workAlongsideClique;
         DebindPrivate.CliqueDetected = true;
-        DebindPrivate.workAlongsideClique = alongside;
         local ok, err = pcall(fn);
         DebindPrivate.CliqueDetected = savedDetected;
-        DebindPrivate.workAlongsideClique = savedAlongside;
         if (not ok) then
             error(err, 0);
         end
@@ -1273,30 +1100,19 @@ return function(DebindPrivate)
         return header, function() _G.Clique = saved; end
     end
 
-    -- **What the option turns off is a door, and this is the one an addon walked into Clique
-    -- through.** A pack that wires its own frames up hands them to whoever holds `ClickCastFrames`,
-    -- and while we stand aside that is Clique's to answer.
-    test("the name door is shut while we stand aside for Clique", function()
-        local frame = ForeignFrame("ERFFriendlyBoss2", "boss2");
-
-        withClique(false, function()
-            SecureHandlerWrapScript(frame, "OnEnter", ForeignHeader(), "-- theirs");
-        end);
-
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the name door took a frame while standing aside: "
-            .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    test("the name door is open while we work alongside Clique", function()
+    -- **Clique being there closes no door.** The switch that used to shut them is gone
+    -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1): a pack that wires its
+    -- own frames up hands them to whoever holds `ClickCastFrames`, and both engines end up on the
+    -- frame.
+    test("the name door is open while Clique is installed", function()
         local frame = ForeignFrame("ERFFriendlyBoss3", "boss3");
 
-        withClique(true, function()
+        withClique(function()
             SecureHandlerWrapScript(frame, "OnEnter", ForeignHeader(), "-- theirs");
         end);
 
         check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the option was on and the name door still refused the frame: "
+            "Clique being installed shut the name door: "
             .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
@@ -1308,7 +1124,7 @@ return function(DebindPrivate)
         child:SetAttribute("unit", "raid4");
         local header, restore = CliqueStandIn();
 
-        withClique(true, function()
+        withClique(function()
             DebindPrivate.AttachCliqueHeader();
             header:GetScript("OnAttributeChanged")(header, "export_register", child);
             check(DebindPrivate.ccframes[child] == nil,
@@ -1320,9 +1136,36 @@ return function(DebindPrivate)
         local row = DebindPrivate.ccframes[child];
         check(type(row) == "table" and row.hd,
             "the frame never arrived as the header's: " .. tostring(row and row.hd));
-
-        DebindPrivate.UnregisterFrame(child);
         _G.DebindSpecCliqueHeaderLater = nil;
+    end);
+
+    -- **`export_unregister` is one of the deregistrations that arrive from outside, and it means
+    -- nothing.** Clique's header taking a child back is that addon's bookkeeping; being ours is the
+    -- blacklist's answer (§1-5).
+    test("Clique's header taking a child back leaves the row standing", function()
+        local child = HeaderDoorFrame("DebindSpecCliqueHeaderKept");
+        child:SetAttribute("unit", "raid5");
+        local header, restore = CliqueStandIn();
+
+        local row;
+        withClique(function()
+            DebindPrivate.AttachCliqueHeader();
+            local handler = header:GetScript("OnAttributeChanged");
+            handler(header, "export_register", child);
+            frames.drainTimers();
+            row = DebindPrivate.ccframes[child];
+            check(type(row) == "table", "setup: the frame never registered");
+
+            handler(header, "export_unregister", child);
+            frames.drainTimers();
+        end);
+        restore();
+
+        check(DebindPrivate.ccframes[child] == row,
+            "Clique's own withdrawal took our row: " .. tostring(DebindPrivate.ccframes[child]));
+        check(DebindPrivate.hccframes.DebindSpecCliqueHeaderKept == child,
+            "the header's list forgot a frame that is still registered");
+        _G.DebindSpecCliqueHeaderKept = nil;
     end);
 
     -- **What an addon wrote into Clique's table before we were listening.** Clique files those in
@@ -1334,7 +1177,7 @@ return function(DebindPrivate)
         local _, restore = CliqueStandIn();
         _G.Clique.ccframes[early] = true;
 
-        withClique(true, function()
+        withClique(function()
             DebindPrivate.AttachCliqueHeader();
             frames.drainTimers();
         end);
@@ -1345,12 +1188,10 @@ return function(DebindPrivate)
             .. tostring(DebindPrivate.ccframes[early]));
     end);
 
-    -- **A frame handed to Clique was handed to somebody.** `Use Unit Frames Addons Keep to
-    -- Themselves` is about frames offered to nobody, so with Clique holding the name every frame
-    -- written into the table is ours as well, whatever Clique answers for it. It used to be taken
-    -- only because Clique's proxy answers nothing, which a Clique release that adds an `__index`
-    -- would have turned into standing down (code review, 2026-09-08).
-    test("a frame Clique keeps is ours too, whatever the wider option says", function()
+    -- **A frame written into Clique's own proxy is ours as well.** Both engines end up on it, and
+    -- the reassembly is what makes that safe; there is no answer of Clique's to read and none is
+    -- asked for.
+    test("a frame Clique keeps is ours too", function()
         local frame = ForeignFrame("DebindSpecCliqueKept", "party4");
         local kept = {};
         local previous = _G.ClickCastFrames;
@@ -1359,60 +1200,25 @@ return function(DebindPrivate)
             __newindex = function(_, f, value) kept[f] = value or nil; end,
         });
 
-        withClique(true, function()
-            withWiderOptionOff(function()
-                DebindPrivate.RememberCliqueTable();
-                DebindPrivate.AttachClickCastFrames();
-                _G.ClickCastFrames[frame] = true;
-            end);
+        withClique(function()
+            DebindPrivate.AttachClickCastFrames();
+            _G.ClickCastFrames[frame] = true;
         end);
         _G.ClickCastFrames = previous;
         DebindPrivate.AttachClickCastFrames();
 
         check(type(DebindPrivate.ccframes[frame]) == "table",
             "a frame Clique kept was left to Clique: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- **Clique is known by its table, not by being installed.** EllesmereUI's raid frames put their
-    -- own proxy over the name when their click casting was switched on before Clique arrived (the
-    -- switch is only greyed in their panel, `CC_Init` still runs it), and that holder is not
-    -- Clique: what it keeps is its own, and the wider option decides it as for any other holder.
-    -- The table under the name at `InitDB` is Clique's, since Clique loads and installs it at its
-    -- own `ADDON_LOADED`, ahead of ours, and the packs that wrap it load after us.
-    test("a holder that is not Clique's table is asked even while Clique is installed", function()
-        local frame = ForeignFrame("DebindSpecOtherHolderKept", "party5");
-        local previous = _G.ClickCastFrames;
-        local cliques = setmetatable({}, { __newindex = function() end });
-        local kept = {};
-        local other = setmetatable({}, {
-            __index = function(_, f) return kept[f]; end,
-            __newindex = function(_, f, value) kept[f] = value or nil; end,
-        });
-
-        withClique(true, function()
-            withWiderOptionOff(function()
-                _G.ClickCastFrames = cliques;
-                DebindPrivate.RememberCliqueTable();
-                _G.ClickCastFrames = other;
-                DebindPrivate.AttachClickCastFrames();
-                _G.ClickCastFrames[frame] = true;
-            end);
-        end);
-        _G.ClickCastFrames = previous;
-        DebindPrivate.AttachClickCastFrames();
-
-        check(DebindPrivate.ccframes[frame] == nil,
-            "a holder that is not Clique was taken for Clique: "
-            .. tostring(DebindPrivate.ccframes[frame]));
+        check(kept[frame] == true, "the holder lost the frame it kept");
     end);
 
     -- **`States.unitframe` is what a `frameTypes` record matches on, and registering is what fills
-    -- it.** This is the whole of what standing aside costs: not that those records are ignored, but
-    -- that they go false, with nothing said on screen.
-    test("working alongside Clique is what puts a frame type on the row", function()
+    -- it.** Clique being installed used to leave those records going false with nothing said on
+    -- screen; the row carries the kind now whoever else is on the frame.
+    test("a frame taken beside Clique carries its frame type", function()
         local frame = ForeignFrame("ERFExtraFrame3", "raid7");
 
-        withClique(true, function()
+        withClique(function()
             SecureHandlerWrapScript(frame, "OnEnter", ForeignHeader(), "-- theirs");
         end);
 
@@ -1421,22 +1227,21 @@ return function(DebindPrivate)
             "the row carries no frame type: " .. tostring(row and row.frameType));
     end);
 
-    -- **Blizzard's own unit frames are outside that door and stay ours either way.** Blizzard hands
-    -- them to nobody; Clique picks them up itself and so do we, and the two meeting inside
+    -- **Blizzard's own unit frames are ours whoever else is installed.** Blizzard hands them to
+    -- nobody; Clique picks them up itself and so do we, and the two meeting inside
     -- `ClickCastFrames` is Clique's implementation rather than a door the frame came in by
-    -- (`devdocs/legacy/coexisting-with-clique.md` §5). Standing aside used to take these seven with it,
-    -- which Clique had never asked for.
-    test("Blizzard's own unit frames are registered even while we stand aside", function()
+    -- (`devdocs/legacy/coexisting-with-clique.md` §5).
+    test("Blizzard's own unit frames are registered while Clique is installed", function()
         local frame = ForeignFrame(nil, "player");
 
-        withClique(false, function()
+        withClique(function()
             DebindPrivate.blizzardFrames[frame] = "player";
             DebindPrivate.UpdateBlizzardFrames();
             DebindPrivate.blizzardFrames[frame] = nil;
         end);
 
         check(type(DebindPrivate.ccframes[frame]) == "table",
-            "standing aside took Blizzard's own frame with it: "
+            "Clique being installed took Blizzard's own frame with it: "
             .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
@@ -1447,12 +1252,12 @@ return function(DebindPrivate)
     -- **The header protocol is a road no insecure hook stands on**, so what is read is the place
     -- Clique gets off it: its `clickcast_register` body writes the child into `export_register` and
     -- its own `OnAttributeChanged` picks it up. Hooking that script reads the same value.
-    test("a frame Clique's header door registers reaches us while we work alongside", function()
+    test("a frame Clique's header door registers reaches us", function()
         local child = HeaderDoorFrame("DebindSpecCliqueHeaderChild");
         child:SetAttribute("unit", "raid3");
         local header, restore = CliqueStandIn();
 
-        withClique(true, function()
+        withClique(function()
             DebindPrivate.AttachCliqueHeader();
             local handler = header:GetScript("OnAttributeChanged");
             check(handler, "the header was never hooked");
@@ -1465,7 +1270,6 @@ return function(DebindPrivate)
             "the header door's frame never reached us: "
             .. tostring(DebindPrivate.ccframes[child]));
 
-        DebindPrivate.UnregisterFrame(child);
         _G.DebindSpecCliqueHeaderChild = nil;
     end);
 
@@ -1477,7 +1281,7 @@ return function(DebindPrivate)
         early:SetAttribute("unit", "raid4");
         local _, restore = CliqueStandIn({ DebindSpecCliqueEarlyChild = early });
 
-        withClique(true, function()
+        withClique(function()
             DebindPrivate.AttachCliqueHeader();
             frames.drainTimers();
         end);
@@ -1487,7 +1291,6 @@ return function(DebindPrivate)
             "a frame Clique had already taken was never adopted: "
             .. tostring(DebindPrivate.ccframes[early]));
 
-        DebindPrivate.UnregisterFrame(early);
         _G.DebindSpecCliqueEarlyChild = nil;
     end);
     ---------------------------------------------------------------------------

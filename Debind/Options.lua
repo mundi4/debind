@@ -38,7 +38,9 @@ function DebindPrivate.OpenOptionsCategory()
     Settings.OpenToCategory(_category:GetID());
 end
 
---- Called once the profile stands, since every getter below reads it (`Events.ADDON_LOADED`).
+--- Called once the profile stands, since every getter below reads it. **From `PLAYER_LOGIN` and
+--- not earlier**, and the call site says why: the pack rows are the packs that are installed, and
+--- an addon loading after us has not answered `IsAddOnLoaded` at our own `ADDON_LOADED`.
 function DebindPrivate.RegisterOptionsCategory()
     if (_category) then
         return;
@@ -92,60 +94,9 @@ function DebindPrivate.RegisterOptionsCategory()
     -- Unit frames
     --------------------------------------------------------------------------
 
-    --- **Three headed groups, and no box is the parent of another.** Every box in these three
-    --- only ever takes something away -- one pack, the frames nobody handed over, one of the
-    --- client's own windows -- so what is left is what the unticked boxes have not removed, and
-    --- two of them being off at once needs no explaining. A parent box would say the opposite,
-    --- that the children mean nothing while it is off, and none of these stands in that relation
-    --- to another. Grouping is what a section header is for and it is what the client uses at this
-    --- depth; the list has only one step of indentation to offer anyway
-    --- (`Blizzard_SettingControls.lua`).
-    ---
-    --- **The client's own words for the first one.** Every locale already carries
-    --- `UNITFRAME_LABEL`, so there is nothing to translate and the game changing its wording
-    --- carries us along.
+    --- **The client's own words for the section.** Every locale already carries `UNITFRAME_LABEL`,
+    --- so there is nothing to translate and the game changing its wording carries us along.
     Header(UNITFRAME_LABEL);
-
-    --- Clique drives the unit frames while it is installed and we stand aside, so every row in
-    --- this section is greyed and carries the sentence saying which addon has them.
-    local function NotClique()
-        return not DebindPrivate.StandsAsideForClique();
-    end
-
-    local function UnitFrameTooltip(text)
-        return function()
-            if (not DebindPrivate.StandsAsideForClique()) then
-                return text;
-            end
-            if (not text) then
-                return L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"];
-            end
-            return text .. "|n|n" .. L["BINDING_ERROR_CANNOT_USE_HOVER_WITH_CLIQUE"];
-        end;
-    end
-
-    local function UnitFrameCheckbox(setting, tooltip)
-        local initializer = Settings.CreateCheckbox(category, setting, tooltip);
-        initializer:AddModifyPredicate(NotClique);
-        return initializer;
-    end
-
-    --- **Only built where Clique is installed, and it is the one row here `NotClique` does not
-    --- grey.** Everything else in this section is greyed while we stand aside, and this is the
-    --- switch that decides whether we do; greying it would leave the reader looking at the reason
-    --- with no way to answer it. Where Clique is absent it answers nothing, which is why it is not
-    --- there at all rather than there and ticked.
-    if (DebindPrivate.CliqueDetected) then
-        Settings.CreateCheckbox(category, Proxy("WORK_ALONGSIDE_CLIQUE", Settings.VarType.Boolean,
-            L["WORK_ALONGSIDE_CLIQUE"], false,
-            function()
-                return DebindPrivate.db.global.workAlongsideClique == true;
-            end,
-            function(value)
-                DebindPrivate.db.global.workAlongsideClique = value or nil;
-            end),
-            L["WORK_ALONGSIDE_CLIQUE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
-    end
 
     --- **A dropdown value cannot be `nil`, and one of the three answers is.** So the three are
     --- folded onto three strings here and unfolded on the way back in. `nil` is not the absence of
@@ -182,59 +133,63 @@ function DebindPrivate.RegisterOptionsCategory()
 
     local clickEdge = Proxy("UNITFRAME_CLICK_EDGE", Settings.VarType.String,
         L["UNITFRAME_CLICK_EDGE"], "game", GetClickEdge, SetClickEdge);
-    --- **Live whatever Clique does.** Blizzard's own unit frames are ours while we stand aside
-    --- (`legacy/coexisting-with-clique.md` §5), so the click edge that applies to them and the
-    --- seven boxes below stay in the reader's hands; a greyed control over a frame we are wiring
-    --- would be one they cannot reach for a thing that is running (code review, 2026-09-08).
     Settings.CreateDropdown(category, clickEdge, ClickEdgeOptions,
         format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN));
 
-    Header(L["BLIZZARD_UNIT_FRAMES"]);
+    --- **One list, and every box in it takes something away.** Every unit frame in the game is
+    --- ours and the reader's only lever is naming one to leave alone
+    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`), so a reader who has
+    --- touched nothing sees every box empty and that is what "all of them" looks like. A negative
+    --- box is the client's own vocabulary at this depth ("Hide ..." and its kin).
+    ---
+    --- **The client's seven windows always stand, so the header always has rows under it.** The
+    --- pack rows come and go with what is installed, and a header with nothing under it would be
+    --- left standing on a board with no pack at all.
+    Header(L["LEAVE_UNIT_FRAMES_ALONE"]);
 
-    --- **Turning one off takes effect at the next login, and the box has to say so.** A frame is
-    --- deregistered when its owner asks for it back and Blizzard never asks; unticking stops us
-    --- registering that set from the next login rather than handing back what is already wired.
-    --- `REQUIRES_RELOAD` is the client's own words for that.
+    --- **Ticking one takes effect at the next login, and the box has to say so.** A frame already
+    --- wired stays wired; ticking stops us registering that set from the next login rather than
+    --- handing back what is on screen. `REQUIRES_RELOAD` is the client's own words for that.
+    ---
+    --- **Storage keeps the polarity it already had.** `false` is "leave alone" and the key gone is
+    --- "ours", which is what these two tables have always held; only the box reads the other way
+    --- round now, so nothing has to be migrated.
     for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
         local key = "BLIZZARD_UNIT_FRAMES_" .. strupper(frameType);
-        Settings.CreateCheckbox(category, Proxy(key, Settings.VarType.Boolean, L[key], true,
+        Settings.CreateCheckbox(category, Proxy(key, Settings.VarType.Boolean, L[key], false,
             function()
-                return DebindPrivate.Options.blizzframes[frameType] ~= false;
+                return DebindPrivate.Options.blizzframes[frameType] == false;
             end,
             function(value)
                 if (value) then
-                    DebindPrivate.Options.blizzframes[frameType] = nil;
-                else
                     DebindPrivate.Options.blizzframes[frameType] = false;
+                else
+                    DebindPrivate.Options.blizzframes[frameType] = nil;
                 end
                 DebindPrivate.QueueUpdateBindings();
-            end), REQUIRES_RELOAD);
+            end), L["LEAVE_UNIT_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
     end
 
-    --- **Stands even with no pack installed**, because the row at the end of it always does and
-    --- that row is about somebody else's unit frames too.
-    Header(L["ADDON_UNIT_FRAMES"]);
-
     --- **Only the packs that are installed.** A row for an addon the reader does not have says
-    --- nothing they can act on. Off is `false` and on is the key gone, so a pack nobody touched and
-    --- one turned back on are the same row: absent.
+    --- nothing they can act on. Left alone is `false` and ours is the key gone, so a pack nobody
+    --- touched and one handed back to us are the same row: absent.
     ---
-    --- **Unticked, that addon is not touched at all**, whichever way its frames would have reached
+    --- **Ticked, that addon is not touched at all**, whichever way its frames would have reached
     --- us, the ones it hands over included. Which is why the tooltip says nothing about handing
     --- over: that is the vocabulary of somebody who knows the Clique API, and the answer here does
     --- not depend on it.
     local packs = DebindPrivate.LoadedKnownPacks();
     for i = 1, #packs do
         local addon = packs[i][1];
-        UnitFrameCheckbox(Proxy("PACK_FRAMES_" .. strupper(addon), Settings.VarType.Boolean,
-            packs[i][2], true,
+        Settings.CreateCheckbox(category, Proxy("PACK_FRAMES_" .. strupper(addon),
+            Settings.VarType.Boolean, packs[i][2], false,
             function()
                 local stored = DebindPrivate.db.global.packFrames;
-                return stored == nil or stored[addon] ~= false;
+                return stored ~= nil and stored[addon] == false;
             end,
             function(value)
                 local stored = DebindPrivate.db.global.packFrames;
-                if (value) then
+                if (not value) then
                     if (stored) then
                         stored[addon] = nil;
                     end
@@ -245,25 +200,8 @@ function DebindPrivate.RegisterOptionsCategory()
                     DebindPrivate.db.global.packFrames = stored;
                 end
                 stored[addon] = false;
-            end), UnitFrameTooltip(L["PACK_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD));
+            end), L["LEAVE_PACK_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD);
     end
-
-    --- **Ticked is the wider behaviour and the default.** Some unit frame addons run hover casting
-    --- of their own and hand their frames to nobody; ticked, Debind works on those too and that
-    --- addon goes on working there as well.
-    UnitFrameCheckbox(Proxy("TAKE_UNREGISTERED_UNIT_FRAMES", Settings.VarType.Boolean,
-        L["TAKE_UNREGISTERED_UNIT_FRAMES"], true,
-        function()
-            return DebindPrivate.db.global.takeUnregisteredFrames ~= false;
-        end,
-        function(value)
-            if (value) then
-                DebindPrivate.db.global.takeUnregisteredFrames = nil;
-            else
-                DebindPrivate.db.global.takeUnregisteredFrames = false;
-            end
-        end),
-        UnitFrameTooltip(L["TAKE_UNREGISTERED_UNIT_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD));
 
     --------------------------------------------------------------------------
     -- Smart Cast

@@ -1110,49 +1110,10 @@ BindingDriver:SetAttribute("clickcast_onleave", [==[
 	header:RunFor(self, header:GetAttribute("setup_onleave"))
 ]==]);
 
---- **What the restricted side does instead, while Clique has the unit frames.** Not run at file
---- scope, because what decides it is an option and `InitDB` is the first moment one can be read
---- (`Profile.StandsAsideForClique`); the attributes written below stand until then and nothing is
---- bound that early.
----
---- `GetHoveredUnit` answers from our own row first, since Blizzard's own unit frames are registered
---- whatever Clique does (`legacy/coexisting-with-clique.md` §5) and a hover over one of those fills
---- `States.unitframe` the ordinary way. Only a frame we hold no row for falls through to Clique's
---- own hovered button, which is a unit token and nothing else: no `frameType`, no reaction and no
---- role come with it, so a record carrying any of those still fails to match there.
----
---- **`Clique.header` is Clique's own field and was never promised to us**, so its absence is a case
---- and not an impossibility. Reaching it used to raise at file scope, which took the whole addon
---- down on load; from `InitDB` it would take the profile with it instead. Left alone, the body
---- written below stands and answers nil, which is what a hover binding gets on a frame we do not
---- hold anyway.
-function DebindPrivate.ApplyStandAsideForClique()
-	local clique = _G.Clique;
-	local header = type(clique) == "table" and clique.header;
-	if (not header) then
-		return;
-	end
-
-	SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "clique_header", header);
-
-	header:SetAttribute("debind_gethoverunit", [[
-		return danglingButton and danglingButton:GetAttribute("unit") or nil
-	]]);
-
-	BindingDriver:SetAttribute("GetHoveredUnit", [==[
-		local unitframe = States.unitframe
-		if (unitframe and unitframe.unit) then
-			return unitframe.unit
-		end
-		local clique_header = self:GetFrameRef("clique_header")
-		return clique_header:RunAttribute("debind_gethoverunit")
-	]==]);
-
-	BindingDriver:SetAttribute("clickcast_register", "");
-
-	BindingDriver:SetAttribute("clickcast_unregister", "");
-end
-
+--- **One body, whatever Clique is doing.** Every unit frame is ours, Clique's included, so a hover
+--- over any of them fills `States.unitframe` the ordinary way and there is no frame left for a
+--- second shape to answer for
+--- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1).
 BindingDriver:SetAttribute("GetHoveredUnit", [==[
 	local unitframe = States.unitframe
 	return unitframe and unitframe.unit
@@ -1188,10 +1149,11 @@ BindingDriver:SetAttribute("clickcast_register", [==[
 	self:CallMethod("OnClickCastRegister", button:GetName())
 ]==]);
 
-BindingDriver:SetAttribute("clickcast_unregister", [==[
-	local button = self:GetAttribute("clickcast_button")
-	self:CallMethod("OnClickCastUnregister", button:GetName())
-]==]);
+--- **Part of the `ClickCastHeader` shape and does nothing.** A header taking a child back is a
+--- deregistration arriving from outside, and one of those means nothing here
+--- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5). The attribute stays
+--- because a header calls it by name and a missing body raises where it is called from.
+BindingDriver:SetAttribute("clickcast_unregister", "");
 
 --- **A tick later, because the header is still building the child.** This is called from the
 --- header's `initialConfigFunction`, inside the restricted environment, and registering runs
@@ -1215,41 +1177,6 @@ function BindingDriver:OnClickCastRegister(buttonName)
 		-- created mid-fight went missing from the list Clique exposes.
 		DebindPrivate.MarkHeaderOwned(button);
 		DebindPrivate.RegisterFrame(button, "group");
-	end);
-end
-
---- **여기서 되돌리지 않으면 영영 못 되돌린다.** `UnregisterFrame`은 `hd` 행을 건너뛰므로
---- (`FrameRegistry.lua`) 헤더로 들어온 프레임이 되돌아가는 자리는 이 한 곳뿐이다. 안 부르면
---- 그 프레임의 클릭이 계속 우리에게 온다. 그래서 표시를 먼저 걷고 행을 지운다.
-function BindingDriver:OnClickCastUnregister(buttonName)
-	if (not buttonName) then
-		return;
-	end
-	C_Timer.After(0, function()
-		local button = _G[buttonName];
-		if (not button) then
-			return;
-		end
-		-- **Asked before the header's mark comes off.** `UnregisterFrame` refuses the same frame a
-		-- step later, and stripping `hd` and the `hccframes` entry first left a frame that was
-		-- still wired but read as an ordinary row, one this door could never reach again.
-		if (DebindPrivate.KeepsFrameOnRelease(button)) then
-			return;
-		end
-		local row = DebindPrivate.ccframes[button];
-		-- **A frame with no row still has to reach `UnregisterFrame`.** A fight puts the
-		-- registration in the queue rather than on the frame, and the only thing that queues
-		-- the word cancelling it is that call. Returning here because there was nothing to
-		-- take back left the drain to wire a frame the header had already reclaimed.
-		if (type(row) == "table" and not row.hd) then
-			return;
-		end
-		DebindPrivate.ClearHeaderOwned(button);
-		if (type(row) == "table") then
-			row.hd = nil;
-		end
-		DebindPrivate.UnregisterFrame(button);
-		DebindPrivate.hccframes[buttonName] = nil;
 	end);
 end
 
@@ -2047,7 +1974,11 @@ end, [==[
 
 	-- A Smart Cast branch is a plain spell and never press-and-hold, whatever the host is.
 	if (down) then
-		self:SetAttribute("pressAndHoldAction", (not smartButton) and winner.pressAndHold or nil)
+		if (winner.pressAndHold and not smartButton) then
+			self:SetAttribute("pressAndHoldAction", winner.pressAndHold)
+		else
+			self:SetAttribute("pressAndHoldAction", nil)
+		end
 	end
 
 	-- 위 "놓는 엣지"가 재사용할 자리. **down에서 반드시 확정한다. 조건부로 기록만 하면

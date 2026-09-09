@@ -229,7 +229,7 @@ return function(DebindPrivate)
             { at = { dead = true },        other = { dead = false } },
             { at = { exists = false },     other = {} },
             { at = { exists = false },     other = { exists = false } },
-            { at = { reaction = HELP },    other = { off = true, dead = true } },
+            { at = { reaction = HELP },    other = { disabled = true, dead = true } },
         };
 
         for i = 1, #cases do
@@ -297,7 +297,7 @@ return function(DebindPrivate)
     test("꺼둔 `@`는 옮기지 않는다", function()
         installWorld();
         local action = { type = Constants.SPELL, value = 774, unit = "focus",
-            conditions = { units = { ["@"] = { off = true, reaction = Constants.REACTION_HELP },
+            conditions = { units = { ["@"] = { disabled = true, reaction = Constants.REACTION_HELP },
                 focus = { reaction = Constants.REACTION_HARM } } } };
         local before = DebindPrivate.GetBindingInfoForAction(action).unitStates.focus;
         check(Convert(action), "변환이 거절됐다");

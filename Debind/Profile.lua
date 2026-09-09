@@ -800,6 +800,47 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
     end
+
+    if (dbver <= 7) then
+        -- 유닛 조건의 세 모드가 저마다 자기 값을 든다.
+        --
+        --   있을 때   `{}`                 -> `{ exists = true }`
+        --   없을 때   `{ exists = false }`    그대로
+        --   사용 안 함 `{ off = true }`     -> `{ disabled = true }`
+        --
+        -- **빈 표에 뜻을 실어둔 것이 이 단계가 없애는 것이다.** `dbver <= 4`가 스칼라를 표로
+        -- 풀 때 `true`에는 적을 축이 없어서 빈 표가 됐고, 그 뒤로 "표기 없음 = 있을 때"가
+        -- 규칙이 됐다. 리포의 나머지는 빈 표를 아무것도 아닌 것으로 접는다 -
+        -- `ActionSignature`가 그렇게 접는 바람에 유닛 조건 하나만 걸린 액션이 조건 없는 액션과
+        -- 같은 서명을 냈고, 중복 제거가 그 둘을 한 쌍으로 봤다.
+        --
+        -- `off`는 이름만 바뀐다. 같은 상태를 리포는 `disable`로 부른다(`AppendDisable`,
+        -- `disabledReason`, 라벨 `DISABLE`).
+        --
+        -- **끈 조건에는 모드를 안 얹는다.** `disabled`가 이미 모드이고, 옆의 축들은 되돌렸을
+        -- 때 돌려주려고 기억만 하는 값이다.
+        --
+        -- 표가 아닌 값은 그대로 둔다. 여기까지 스칼라가 오는 판은 없지만(`dbver <= 4`가
+        -- 풀었다), 손으로 고친 프로필과 페이로드가 이 사다리를 같이 탄다.
+        --
+        -- 다시 돌아도 안전하다. 두 번째에는 `off`가 없고 `exists`가 이미 서 있다.
+        for i = 1, #layerTbl do
+            local units = layerTbl[i].conditions and layerTbl[i].conditions.units;
+            if (units) then
+                for _, value in pairs(units) do
+                    if (luatype(value) == "table") then
+                        if (value.off ~= nil) then
+                            value.disabled = value.off and true or nil;
+                            value.off = nil;
+                        end
+                        if (not value.disabled and value.exists == nil) then
+                            value.exists = true;
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 
 --- Raises one whole per-spec table (`{[0]=…, [1]=…}`). Class entries and character entries have
@@ -2049,28 +2090,17 @@ function DebindPrivate.InitDB()
         char = charEntry,
     };
 
-    --- **Read once, here, and never again while the client is running.** Which unit frames get
-    --- picked up is decided as each one is built, and a frame already wired stays wired -- so a
-    --- value re-read later would leave half the screen on one answer and half on the other. Same
-    --- rule the Blizzard unit frame boxes carry, and they say so with `REQUIRES_RELOAD`.
+    --- **Copied and read once, here, and never again while the client is running.** Which unit
+    --- frames get picked up is decided as each one is built, and a frame already wired stays wired
+    --- -- so a value re-read later would leave half the screen on one answer and half on the other.
+    --- Same rule the Blizzard unit frame boxes carry, and they say so with `REQUIRES_RELOAD`.
     ---
-    --- Absent is on. A profile written before this option existed is a reader who has never been
-    --- asked, and what they had is the wider behaviour.
-    DebindPrivate.takeUnregisteredFrames = db.takeUnregisteredFrames ~= false;
-
-    --- **Read here for the same reason, and absent is off.** Every reader who already runs Clique
-    --- has a screen that works the way it works today, and turning this on is a change to it that
-    --- nobody asked for. `takeUnregisteredFrames` above defaults the other way because absent
-    --- there is a reader who was never asked about behaviour they already had.
-    DebindPrivate.workAlongsideClique = db.workAlongsideClique == true;
-
-    --- **Copied, and for the same reason.** The box writes into `db.packFrames` and the doors read
-    --- this, so what the reader ticks reaches the frames at the next login and not halfway through
-    --- this one. Only `false` is ever written; a pack that is absent from it is on.
+    --- The box writes into `db.packFrames` and the doors read this. Only `false` is ever written;
+    --- a pack that is absent from it is ours.
     ---
     --- **Before the Clique header is attached below**, because attaching sweeps what Clique's
     --- header already holds into `RegisterFrame`, and that gate reads this table: with it still
-    --- nil every pack answered "on" and a box the reader had unticked was wired for the session
+    --- nil every pack answered "ours" and a box the reader had ticked was wired for the session
     --- (code review, 2026-09-08).
     DebindPrivate.packFrames = {};
     if (type(db.packFrames) == "table") then
@@ -2079,22 +2109,14 @@ function DebindPrivate.InitDB()
         end
     end
 
-    --- **The first moment the answer above exists, so the restricted side is told here.** Its two
-    --- shapes are written at file scope and this is the only thing that swaps them
-    --- (`SecureBindings.lua`).
-    if (DebindPrivate.StandsAsideForClique()) then
-        DebindPrivate.ApplyStandAsideForClique();
-    elseif (DebindPrivate.CliqueDetected) then
+    if (DebindPrivate.CliqueDetected) then
         --- **The header door, which is Clique's while Clique is there.** Ours hands out a name from
         --- `clickcast_register` and cannot be reached at all when another addon holds
         --- `ClickCastHeader`; Clique publishes the same registrations on its own header and this
         --- reads them from there (`ClickCastTable.lua`).
         ---
-        --- **The table door in the same breath.** Its file-scope pass answered "stand aside"
-        --- because this option was not readable yet, and its next chance was `PLAYER_LOGIN`;
-        --- everything an addon wrote into Clique's table in between reached Clique alone
-        --- (code review, 2026-09-08). The header attach below sweeps what Clique already holds.
-        DebindPrivate.RememberCliqueTable();
+        --- **The table door in the same breath.** The header attach below sweeps what Clique
+        --- already holds, and the table attach reaches the proxy Clique put under the name.
         DebindPrivate.AttachClickCastFrames();
         DebindPrivate.AttachCliqueHeader();
     end
@@ -2104,32 +2126,9 @@ function DebindPrivate.InitDB()
     DebindPrivate.CleanUpDB()
 end
 
---- Whether Clique has the unit frames and we are off them entirely.
----
---- **One name for what `CliqueDetected` used to be asked for directly.** The flag says an addon is
---- installed; every gate that read it was asking something narrower, and the two stopped being the
---- same question once the reader could be given a say in it.
---- **Answered "stand aside" before `InitDB` has run**, which is the narrower of the two and is what
---- this reader had before the option existed. The doors that fire in that window are the ones
---- `ClickCastTable.lua` opens at file scope, and they are asked again from `PLAYER_LOGIN` and
---- `PLAYER_ENTERING_WORLD` (`Events.lua`), both of which are after it.
-function DebindPrivate.StandsAsideForClique()
-    if (not DebindPrivate.CliqueDetected) then
-        return false;
-    end
-    return not DebindPrivate.workAlongsideClique;
-end
-
---- Whether frames nobody handed over and no pack box answers for are ours to take; a listed
---- pack's frames are its box's (`FrameRegistry.TakesUnofferedFrame`). **Answered true before
---- `InitDB` has run**, which is what the doors that fire during the load see (`ClickCastTable.lua`
---- attaches at file scope), and the reader could not have turned it off in that window anyway.
-function DebindPrivate.TakesUnregisteredFrames()
-    return DebindPrivate.takeUnregisteredFrames ~= false;
-end
-
---- Whether a known pack's frames are ours to take. **Answered true before `InitDB` has run**, for
---- the reason above.
+--- Whether a known pack's frames are ours to take. **Answered true before `InitDB` has run**,
+--- which is what the doors that fire during the load see (`ClickCastTable.lua` attaches at file
+--- scope), and the reader could not have ticked the box in that window anyway.
 function DebindPrivate.TakesPackFrames(addon)
     local packs = DebindPrivate.packFrames;
     return packs == nil or packs[addon] ~= false;
@@ -2201,6 +2200,21 @@ end
 function DebindPrivate.GetProfileLayer(layerID)
     return LayerArray[layerID];
 end
+
+--- Account keys nothing reads any more.
+---
+--- **An option's value outliving the option is an orphan and not a setting turned off.** Turning a
+--- box off keeps its value because the box can be turned back on; a box that is gone cannot, so
+--- the value has nobody left to mean anything to and would sit in SavedVariables for good.
+---
+--- **Here rather than in a migration step**, because a step needs the profile to be behind and
+--- these two were written by a build that stamped the current `dbver`.
+local ORPHANED_GLOBAL_KEYS = {
+    -- The two switches the one blacklist replaced
+    -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`).
+    "workAlongsideClique",
+    "takeUnregisteredFrames",
+};
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
@@ -2320,6 +2334,12 @@ function DebindPrivate.CleanUpDB()
     -- contradict "never delete an entry that has content automatically" - these two together are
     -- what stops the account file from growing without bound.
     local db = DebindPrivate.db.global;
+    if (db) then
+        for i = 1, #ORPHANED_GLOBAL_KEYS do
+            db[ORPHANED_GLOBAL_KEYS[i]] = nil;
+        end
+    end
+
     local guid = DebindPrivate.playerGUID;
     if (db and guid) then
         if (HasCharContent(DebindPrivate.db.char)) then

@@ -29,8 +29,12 @@ function DebindPublic:RegisterFrame(button, ...)
 	DebindPrivate.RegisterFrame(button, ...);
 end
 
-function DebindPublic:UnregisterFrame(button)
-	DebindPrivate.UnregisterFrame(button);
+--- **The shape stays and the call does nothing.** An addon that hands a frame over and takes it
+--- back is answering a question we no longer ask: a unit frame is ours because the reader has not
+--- put it on the blacklist, and nobody else's word moves that
+--- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5). Removing the name would
+--- raise inside whoever calls it.
+function DebindPublic:UnregisterFrame()
 end
 
 function DebindPublic:UpdateRegisteredClicks(button)

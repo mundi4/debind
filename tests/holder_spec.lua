@@ -1,10 +1,10 @@
 -- `ClickCastFrames` when somebody else is holding the name. 와우 클라이언트 불필요.
 --
--- **The rule is one question asked of the holder.** Its `__index` is what every addon already asks
--- of this table, so asking it back says what that addon decided about one frame -- without reading
--- its settings, its addon name, or the frame's name, none of which we could be right about for a
--- pack we have never seen. Truthy is theirs and we stand down; nil is a write it filed and dropped,
--- which leaves the frame with nobody answering its clicks, and that one is ours.
+-- **The rule is that there is no question.** Every unit frame is ours whoever else is standing on
+-- it, so the holder is listened to rather than asked: its `__newindex` runs first and files the
+-- write, and the frame reaches `RegisterFrame` after it. What that leaves to measure here is that
+-- nothing behind a holder goes missing -- writes, the rows we already had, a table swapped under
+-- the same metatable -- and that a locked table is left where it is.
 --
 -- **This spec is the only one that loads `Public.lua` and `DebindCliqueFake`** (`run.lua`,
 -- `cliqueFake`). Everything below reaches the addon through the global the way a unit frame addon
@@ -45,7 +45,8 @@ return function(DebindPrivate)
     --- A holder in the shape the real ones have: its own store in an upvalue, an `__index` that
     --- answers for the frames it kept, and a `__newindex` that files every write.
     ---
-    --- `keep` decides what it does with one, which is the setting a pack would be reading.
+    --- `keep` decides what it does with one, which is the setting a pack would be reading. Both
+    --- answers reach us the same way now, and the cases below say so.
     local function Holder(keep)
         local filed, kept = {}, {};
         local proxy = setmetatable({}, {
@@ -62,17 +63,6 @@ return function(DebindPrivate)
         return proxy, kept, filed;
     end
 
-    --- The option that decides whether a frame the holder kept is ours as well (`Profile.lua`).
-    --- Written straight, because what is measured here is the rule rather than where the value came
-    --- from -- `frames_spec` covers a profile with no field in it reading as on.
-    ---
-    --- **Most of the cases below turn it off**, and that is the point rather than convenience:
-    --- standing down is exactly what a reader who turns it off still gets, so those cases are the
-    --- coverage of that half. The two named for the option cover the other.
-    local function Option(on)
-        DebindPrivate.takeUnregisteredFrames = on;
-    end
-
     -- **The name is not taken back.** Taking it does not bring the frames already written into the
     -- other table with it, and it leaves that addon writing where nobody reads -- so the frames it
     -- is still holding would end up with both engines on them or neither.
@@ -82,22 +72,11 @@ return function(DebindPrivate)
             "the holder's table was replaced: " .. tostring(_G.ClickCastFrames));
     end);
 
-    -- The two answers, off the same write.
-    test("the holder keeps a frame and we stand down while the option is off", function()
-        Option(false);
-        Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(DebindPrivate.ccframes[frame] == nil,
-            "we took a frame the holder answers for: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- **The default, and the reason the track was reopened.** Standing down was for one fault:
-    -- whoever wrapped a frame last took its `OnLeave` and the other engine's hover died. We take
-    -- the top and replay what was above us now, so both engines work on the frame and there is
-    -- nothing left to stand down for.
-    test("the holder keeps a frame and we take it too while the option is on", function()
-        Option(true);
+    -- **The two answers a holder can give, off the same write, and both frames are ours.** Standing
+    -- down was for one fault: whoever wrapped a frame last took its `OnLeave` and the other
+    -- engine's hover died. We take the top and replay what was above us now, so both engines work
+    -- on the frame and there is nothing left to stand down for.
+    test("a frame the holder keeps is ours", function()
         Holder(true);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -106,33 +85,7 @@ return function(DebindPrivate)
                 .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
-    -- **A frame the holder kept is ours regardless when its pack box is on.** The option above
-    -- decides the frames no row can name; a frame whose addon the reader ticked by name is theirs
-    -- to us whoever else is standing on it (`devdocs/legacy/making-the-pack-box-own-its-addon.md`).
-    -- `ERFExtraFrame` is an `EllesmereUIRaidFrames` row, and no pack box is off here.
-    test("the holder keeps a frame whose pack is on and we take it with the option off", function()
-        Option(false);
-        Holder(true);
-        local frame = frames.newFrame("Button", "ERFExtraFrame51", nil, "SecureUnitButtonTemplate");
-        _G.ClickCastFrames[frame] = true;
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "a listed pack's frame was left to the holder because the option is off: "
-                .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- **And the holder still has it.** The name stays theirs and the write they filed is theirs;
-    -- what changed is only that we no longer step off the frame because of it.
-    test("taking a frame the holder kept leaves the holder holding it", function()
-        Option(true);
-        local proxy, kept = Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(_G.ClickCastFrames == proxy, "the holder's table was replaced");
-        check(kept[frame] == true, "the holder lost the frame it kept");
-    end);
-
-    test("the holder drops a frame and we take it", function()
-        Option(true);
+    test("a frame the holder drops is ours", function()
         Holder(false);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
@@ -140,8 +93,18 @@ return function(DebindPrivate)
             "a dropped frame never reached us: " .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
+    -- **And the holder still has it.** The name stays theirs and the write they filed is theirs;
+    -- what changed is only that we no longer step off the frame because of it.
+    test("taking a frame the holder kept leaves the holder holding it", function()
+        local proxy, kept = Holder(true);
+        local frame = UnitFrame();
+        _G.ClickCastFrames[frame] = true;
+        check(_G.ClickCastFrames == proxy, "the holder's table was replaced");
+        check(kept[frame] == true, "the holder lost the frame it kept");
+    end);
+
     -- **The original still runs, and first.** Whatever the holder does with a registration it goes
-    -- on doing; only what it left behind is asked about.
+    -- on doing; we only hear that one arrived.
     test("the holder's own __newindex still sees every write", function()
         local _, _, filed = Holder(false);
         local frame = UnitFrame();
@@ -149,24 +112,62 @@ return function(DebindPrivate)
         check(filed[frame] == true, "the holder never saw the write: " .. tostring(filed[frame]));
     end);
 
-    -- A deregistration is honoured wherever it comes from while the option is off: the frame's
-    -- owner is asking for it back, and nothing says the frames it keeps are ours.
-    test("a nil write takes the frame back off us", function()
-        Option(false);
+    -- **A pack on the blacklist is left alone behind a holder as well.** The gate is
+    -- `RegisterFrame`'s and every door reaches it, this one included. `ERFExtraFrame` is an
+    -- `EllesmereUIRaidFrames` row.
+    test("a frame whose pack is on the blacklist is refused behind a holder", function()
+        Holder(false);
+        DebindPrivate.packFrames = { EllesmereUIRaidFrames = false };
+        local frame = frames.newFrame("Button", "ERFExtraFrame51", nil, "SecureUnitButtonTemplate");
+        _G.ClickCastFrames[frame] = true;
+        DebindPrivate.packFrames = {};
+        check(DebindPrivate.ccframes[frame] == nil,
+            "a pack the reader ticked was taken: " .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
+    -- **A deregistration arriving through the holder means nothing.** Being ours is the blacklist's
+    -- answer and not the frame owner's, so the write is the holder's to file and the row stays.
+    test("a nil write behind a holder leaves the row standing", function()
         Holder(false);
         local frame = UnitFrame();
         _G.ClickCastFrames[frame] = true;
-        check(DebindPrivate.ccframes[frame], "the premise is gone: the frame never registered");
+        local row = DebindPrivate.ccframes[frame];
+        check(type(row) == "table", "the premise is gone: the frame never registered");
 
         _G.ClickCastFrames[frame] = nil;
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the row survived a nil write: " .. tostring(DebindPrivate.ccframes[frame]));
+        check(DebindPrivate.ccframes[frame] == row,
+            "a nil write took the row: " .. tostring(DebindPrivate.ccframes[frame]));
+    end);
+
+    -- **The other three ways a deregistration arrives from outside**, all of them under our own
+    -- name rather than behind a holder. The two remaining paths are the header door's
+    -- `clickcast_unregister`, whose body is empty and locked by `check:snippet-golden`, and
+    -- Clique's `export_unregister`, which `frames_spec` covers.
+    test("a deregistration from outside leaves the row standing, whichever door it comes through", function()
+        _G.ClickCastFrames = {};
+        DebindPrivate.AttachClickCastFrames();
+
+        local CASES = {
+            { "the table's own nil write", function(frame) _G.ClickCastFrames[frame] = nil; end },
+            { "DebindPublic:UnregisterFrame",
+                function(frame) DebindPublic:UnregisterFrame(frame); end },
+            { "Clique:UnregisterUnitFrame",
+                function(frame) _G.Clique:UnregisterUnitFrame(frame); end },
+        };
+        for i = 1, #CASES do
+            local frame = UnitFrame();
+            _G.ClickCastFrames[frame] = true;
+            local row = DebindPrivate.ccframes[frame];
+            check(type(row) == "table", CASES[i][1] .. ": the frame never registered");
+
+            CASES[i][2](frame);
+            check(DebindPrivate.ccframes[frame] == row,
+                CASES[i][1] .. " took the row: " .. tostring(DebindPrivate.ccframes[frame]));
+        end
     end);
 
     -- **A metatable is not a holder; a `__newindex` is.** A table that does not intercept its
-    -- writes decides nothing about a registration, so there is no opinion to ask for and the write
-    -- was landing in the table anyway. Hooking one meant our own write sat in the table before we
-    -- read it back, `__index` never fired, and every frame came back reading as the holder's.
+    -- writes decides nothing about a registration, and the write was landing in the table anyway.
     test("a table that does not intercept its writes is taken over, not hooked", function()
         local frame = UnitFrame();
         local plainish = setmetatable({}, { __index = function() end });
@@ -182,10 +183,8 @@ return function(DebindPrivate)
 
     -- **A holder can rebuild its store on the metatable it already has.** Its `__newindex` is
     -- wrapped once and stays wrapped, so the pass that meets the new table has nothing to install
-    -- and used to return with the old, dead table still recorded as the holder -- and every frame
-    -- it was driving then read as dropped.
+    -- and used to return with the old, dead table still recorded as the holder.
     test("a holder that swaps its table under the same metatable is still the holder", function()
-        Option(false);
         --- **A store per table, reached from the table.** `Holder` above closes over one store for
         --- the life of its metatable, so a stale table would answer out of the same place and the
         --- fault would be invisible. Here the two tables answer out of two stores, which is what a
@@ -205,17 +204,21 @@ return function(DebindPrivate)
             return t;
         end
 
-        _G.ClickCastFrames = NewTable();
+        local first = NewTable();
+        _G.ClickCastFrames = first;
         DebindPrivate.AttachClickCastFrames();
 
         local rebuilt = NewTable();
         _G.ClickCastFrames = rebuilt;
         DebindPrivate.AttachClickCastFrames();
 
+        check(_G.ClickCastFrames == rebuilt, "the rebuilt table was replaced");
         local frame = UnitFrame();
         rebuilt[frame] = true;
-        check(DebindPrivate.ccframes[frame] == nil,
-            "we took a frame the holder answers for: " .. tostring(DebindPrivate.ccframes[frame]));
+        check(type(DebindPrivate.ccframes[frame]) == "table",
+            "a write into the rebuilt table was never heard: "
+                .. tostring(DebindPrivate.ccframes[frame]));
+        check(stores[first][frame] == nil, "the write landed in the dead table's store");
     end);
 
     -- **A table locked with `__metatable` is left entirely alone.** Its metamethods cannot be read,
@@ -239,143 +242,19 @@ return function(DebindPrivate)
         check(DebindPrivate.ccframes[frame], "what was already in the table was dropped");
     end);
 
-    -- **A holder can let a frame go without a write coming through** -- its own setting moves, or
-    -- its engine is switched off -- so the frames we stood down on are asked again.
-    test("a re-ask picks up a frame the holder has since let go", function()
-        Option(false);
-        local _, kept = Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(DebindPrivate.ccframes[frame] == nil, "the premise is gone: we took it the first time");
+    -- **The rows already in a proxy when we meet it.** One that files its writes in the table
+    -- itself carries the registrations that arrived before we were listening, and nothing else
+    -- would ever hand them over.
+    test("rows already in a holder's table are taken when we hook it", function()
+        local early = UnitFrame();
+        local proxy = setmetatable({}, { __newindex = rawset });
+        rawset(proxy, early, true);
+        _G.ClickCastFrames = proxy;
+        DebindPrivate.AttachClickCastFrames();
 
-        kept[frame] = nil;
-        DebindPrivate.AskHolderAgain();
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the re-ask left the frame with nobody: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- And the other direction: a frame we hold that the holder has since taken.
-    test("a re-ask stands down on a frame the holder has since taken", function()
-        Option(false);
-        local _, kept = Holder(false);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(DebindPrivate.ccframes[frame], "the premise is gone: the frame never registered");
-
-        kept[frame] = true;
-        DebindPrivate.AskHolderAgain();
-        check(DebindPrivate.ccframes[frame] == nil,
-            "we kept a frame the holder has taken: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- **Our own unwrap is not the holder letting go.** `RewrapUnitFrames` unwraps every button we
-    -- wrapped and puts the routing back, and each of those calls reaches the same hook. The wrap
-    -- side tells us apart by the header it is handed; **the unwrap side is handed no header at
-    -- all** (`SecureHandlers.lua`), so nothing in the arguments says who called. Heard as the
-    -- holder moving, it re-asks every one of our frames a tick later.
-    test("our own rewrap is not heard as the holder letting go", function()
-        Option(false);
-        local _, kept = Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-
-        -- 우리가 잡고 있는 프레임이어야 한다. 홀더가 놓아준 뒤 우리가 가져간 상태.
-        kept[frame] = nil;
-        _G.SecureHandlerUnwrapScript(frame, "OnEnter");
-        frames.drainTimers();
-        check(type(DebindPrivate.ccframes[frame]) == "table", "the premise is gone: we do not hold it");
-
-        -- 이제 홀더가 도로 가져갔다고 해두고, **우리 쪽 호출만** 낸다. 이것을 홀더가 움직인
-        -- 것으로 들으면 다음 틱에 다시 물어보고 프레임을 내준다.
-        kept[frame] = true;
-        DebindPrivate.RewrapUnitFrames();
-        frames.drainTimers();
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "our own unwrap was heard as the holder taking the frame: "
-                .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- **Wrapping and unwrapping a script is how any engine attaches and detaches**, so those two
-    -- calls are what says a decision may have moved -- no addon name and no frame name read.
-    test("the holder wrapping a script re-asks that frame on the next tick", function()
-        Option(false);
-        local _, kept = Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(DebindPrivate.ccframes[frame] == nil, "the premise is gone: we took it the first time");
-
-        kept[frame] = nil;
-        _G.SecureHandlerUnwrapScript(frame, "OnEnter");
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the re-ask ran inside the call rather than on the next tick");
-
-        frames.drainTimers();
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the tick after the unwrap never asked: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- **The fight can start inside that one frame.** The hook checked combat and the tick did not,
-    -- so a re-ask landing under lockdown queued the registration and put out "cannot register a
-    -- unit frame in combat" over something the reader never did. Standing down costs nothing:
-    -- `PLAYER_REGEN_ENABLED` asks about that frame again.
-    test("a re-ask that lands in combat stands down instead of queuing", function()
-        Option(false);
-        local _, kept = Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        kept[frame] = nil;
-
-        _G.SecureHandlerUnwrapScript(frame, "OnEnter");
-
-        local queued = #DebindPrivate.FrameQueue;
-        shim.world.inCombat = true;
-        frames.drainTimers();
-        shim.world.inCombat = false;
-        check(#DebindPrivate.FrameQueue == queued,
-            "the re-ask queued under lockdown: " .. (#DebindPrivate.FrameQueue - queued));
-        check(DebindPrivate.ccframes[frame] == nil,
-            "a row appeared under lockdown: " .. tostring(DebindPrivate.ccframes[frame]));
-
-        -- And the fight ending is what catches up, so nothing is lost by standing down.
-        DebindPrivate.AskHolderAgain();
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the frame never came back: " .. tostring(DebindPrivate.ccframes[frame]));
-    end);
-
-    -- A frame nobody has ever mentioned to us is not one to ask the holder about. The wrap is still
-    -- a reason to look at the name ("still checks the name" below), but the name here is already
-    -- the holder we are standing behind, so there is nothing to look at either.
-    test("a wrap on a frame we know nothing about re-asks nothing", function()
-        Holder(true);
-        local stranger = UnitFrame();
-        frames.drainTimers();
-
-        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
-        _G.SecureHandlerWrapScript(stranger, "OnEnter", header, "-- theirs");
-        frames.drainTimers();
-        check(DebindPrivate.ccframes[stranger] == nil,
-            "a frame nobody offered was taken: " .. tostring(DebindPrivate.ccframes[stranger]));
-    end);
-
-    -- **In combat the re-ask stands down entirely.** Registering and deregistering write through
-    -- the API frame, which is protected, so a pass under lockdown would queue every frame it
-    -- touched; `PLAYER_REGEN_ENABLED` is where it belongs and that is out of combat by definition.
-    test("nothing is re-asked in combat", function()
-        Option(false);
-        local _, kept = Holder(true);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        kept[frame] = nil;
-
-        shim.world.inCombat = true;
-        DebindPrivate.AskHolderAgain();
-        shim.world.inCombat = false;
-        check(DebindPrivate.ccframes[frame] == nil,
-            "a re-ask ran under lockdown: " .. tostring(DebindPrivate.ccframes[frame]));
-
-        DebindPrivate.AskHolderAgain();
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "and out of combat it never caught up: " .. tostring(DebindPrivate.ccframes[frame]));
+        check(type(DebindPrivate.ccframes[early]) == "table",
+            "a row already in the proxy was never taken: "
+                .. tostring(DebindPrivate.ccframes[early]));
     end);
 
     -- **A holder arriving later gets the rows we were already holding.** It builds its store by
@@ -384,7 +263,6 @@ return function(DebindPrivate)
     -- have been had we never been here. Writing them in as ordinary registrations is what a plain
     -- table would have handed over.
     test("a holder arriving later is handed the rows we already had", function()
-        Option(false);
         _G.ClickCastFrames = {};
         DebindPrivate.AttachClickCastFrames();
 
@@ -407,7 +285,6 @@ return function(DebindPrivate)
     -- meanwhile was never heard -- its store is an upvalue, so no later pass can find it either.
     -- Checking the name on any foreign wrap is what shortens that window to one tick.
     test("a wrap on a frame we know nothing about still checks the name", function()
-        Option(false);
         _G.ClickCastFrames = {};
         DebindPrivate.AttachClickCastFrames();
 
@@ -430,42 +307,61 @@ return function(DebindPrivate)
                 .. tostring(DebindPrivate.ccframes[third]));
     end);
 
-    -- **Reading the table back has to answer for a frame we took, behind a holder as much as under
-    -- our own name.** The owner takes a frame back with
-    -- `if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end`, and a holder answers nil
-    -- for a frame it never kept -- so that write never happened and we went on routing it.
-    test("a frame the holder dropped to us reads back, and a nil write takes it away", function()
-        Option(false);
-        Holder(false);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the premise is gone: the dropped frame never reached us");
+    -- **A tick later, and not inside the wrap.** The hook runs while the holder is still putting
+    -- itself up, so the table read there is the one it is mid-way through installing.
+    test("the name check waits for the next tick", function()
+        _G.ClickCastFrames = {};
+        DebindPrivate.AttachClickCastFrames();
 
-        check(_G.ClickCastFrames[frame],
-            "reading the table back said nobody was answering for the frame");
+        local proxy = setmetatable({}, { __newindex = function() end });
+        _G.ClickCastFrames = proxy;
 
-        _G.ClickCastFrames[frame] = nil;
-        check(DebindPrivate.ccframes[frame] == nil,
-            "the owner's reclaim left the row in place: "
-                .. tostring(DebindPrivate.ccframes[frame]));
+        local stranger = UnitFrame();
+        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
+        _G.SecureHandlerWrapScript(stranger, "OnEnter", header, "-- theirs");
+
+        local early = UnitFrame();
+        proxy[early] = true;
+        check(DebindPrivate.ccframes[early] == nil,
+            "the name check ran inside the wrap: " .. tostring(DebindPrivate.ccframes[early]));
+
+        frames.drainTimers();
+        local late = UnitFrame();
+        proxy[late] = true;
+        check(type(DebindPrivate.ccframes[late]) == "table",
+            "the tick after the wrap never looked: " .. tostring(DebindPrivate.ccframes[late]));
     end);
 
-    -- **And that answer is not one to ask ourselves.** A re-ask reads the holder's `__index` to
-    -- find out what it decided; read through the wrapper, our own answer comes back as the
-    -- holder's, and a reader with the option off has every frame we took handed straight back.
-    test("a re-ask reads past our own answer and keeps the frame", function()
-        Option(false);
-        Holder(false);
-        local frame = UnitFrame();
-        _G.ClickCastFrames[frame] = true;
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the premise is gone: the dropped frame never reached us");
+    -- **The fight can start inside that one tick.** Attaching registers whatever the proxy already
+    -- holds, and each of those would go to the queue and put out "cannot register a unit frame in
+    -- combat" over something the reader never did. Nothing is lost: `PLAYER_REGEN_ENABLED` attaches
+    -- again.
+    test("a name check that lands in combat stands down instead of queuing", function()
+        _G.ClickCastFrames = {};
+        DebindPrivate.AttachClickCastFrames();
 
-        DebindPrivate.AskHolderAgain();
-        check(type(DebindPrivate.ccframes[frame]) == "table",
-            "the re-ask read our own answer back as the holder's and gave the frame up: "
-                .. tostring(DebindPrivate.ccframes[frame]));
+        local early = UnitFrame();
+        local proxy = setmetatable({}, { __newindex = rawset });
+        rawset(proxy, early, true);
+        _G.ClickCastFrames = proxy;
+
+        local stranger = UnitFrame();
+        local header = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
+        _G.SecureHandlerWrapScript(stranger, "OnEnter", header, "-- theirs");
+
+        local queued = #DebindPrivate.FrameQueue;
+        shim.world.inCombat = true;
+        frames.drainTimers();
+        shim.world.inCombat = false;
+        check(#DebindPrivate.FrameQueue == queued,
+            "the name check queued under lockdown: " .. (#DebindPrivate.FrameQueue - queued));
+        check(DebindPrivate.ccframes[early] == nil,
+            "a row appeared under lockdown: " .. tostring(DebindPrivate.ccframes[early]));
+
+        -- And the fight ending is what catches up, so nothing is lost by standing down.
+        DebindPrivate.AttachClickCastFrames();
+        check(type(DebindPrivate.ccframes[early]) == "table",
+            "the frame never came back: " .. tostring(DebindPrivate.ccframes[early]));
     end);
 
     return T;

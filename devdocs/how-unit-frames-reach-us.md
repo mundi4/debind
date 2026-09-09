@@ -1,78 +1,75 @@
 # How a unit frame reaches us
 
-Read this before changing anything that picks up, refuses, or gives back a unit frame: the doors in
+Read this before changing anything that picks up or refuses a unit frame: the doors in
 `ClickCastTable.lua` and `FrameRegistry.lua`, the header protocol in `SecureBindings.lua`, and the
-three switches that decide which of them are open.
+one blacklist that decides which frames they leave alone.
 
-It describes the code as it stands in the working tree on 2026-09-08, which includes the Clique
-coexistence work (`legacy/coexisting-with-clique.md`). Everything said here about somebody else's
-addon was read out of that addon's own source on the same day, at whatever version is installed on
-this board, and none of it is a promise anybody made us.
+It describes the code as it stands in the working tree on 2026-09-09, which includes taking every
+unit frame with one blacklist (`legacy/taking-every-unit-frame-with-one-blacklist.md`). Everything
+said here about somebody else's addon was read out of that addon's own source on 2026-09-08, at
+whatever version is installed on this board, and none of it is a promise anybody made us.
 
 ---
 
 ## 1. One funnel, seven doors
 
 Every frame ends up in `DebindPrivate.RegisterFrame` (`FrameRegistry.lua`). Nothing else writes a
-row in `ccframes`, and nothing else wraps a frame. What differs between the doors is only how a
-frame is found and which switch that door asks first.
+row in `ccframes`, and nothing else wraps a frame. **No door asks anything of its own**: the
+blacklist is read once, inside the funnel, so what differs between the doors is only how a frame is
+found.
 
-| Door | Where | What opens it | Asks |
-|---|---|---|---|
-| **Table** | `ClickCastTable.lua` | an addon writes `ClickCastFrames[frame] = true` | stand aside |
-| **Our header** | `SecureBindings.lua` (`clickcast_register`) | an addon gives its group header our `ClickCastHeader` and the header registers each child from the restricted environment | nothing, but the attribute is blanked while we stand aside, and the global is ours only while Clique is absent |
-| **Clique's header** | `ClickCastTable.AttachCliqueHeader` | the same protocol, run against Clique's header; we read Clique's `export_register` attribute off its own frame | only attached when Clique is installed and we are not standing aside |
-| **Name** | `FrameRegistry.TakeNamedFrame` | a frame whose name matches `KNOWN_PACK_FRAMES` passes one of the calls a unit frame makes on its way into somebody's click casting | stand aside; the pack box answers at the funnel |
-| **Header children** | `FrameRegistry.CollectHeaderChildren` | a `SecureGroupHeaderTemplate` header lays out, and its `child<i>` attributes are walked | stand aside, then per child: its pack box for a listed name, take unregistered otherwise |
-| **oUF** | `FrameRegistry.CollectOUFFrames` | any addon declaring `X-oUF` in its TOC has an `objects` list, and its tail is taken on every `PLAYER_ENTERING_WORLD` | stand aside, then per frame: its pack box for a listed name, take unregistered otherwise |
-| **Blizzard's own** | `FrameRegistry.UpdateBlizzardFrames`, the `CompactUnitFrame_SetUpFrame` hook | the client's own unit frames and compact frames | nothing but the seven per frame boxes |
+| Door | Where | What opens it |
+|---|---|---|
+| **Table** | `ClickCastTable.lua` | an addon writes `ClickCastFrames[frame] = true` |
+| **Our header** | `SecureBindings.lua` (`clickcast_register`) | an addon gives its group header our `ClickCastHeader` and the header registers each child from the restricted environment. The global is ours only while Clique is absent |
+| **Clique's header** | `ClickCastTable.AttachCliqueHeader` | the same protocol, run against Clique's header; we read Clique's `export_register` attribute off its own frame. Attached whenever Clique is installed |
+| **Name** | `FrameRegistry.TakeNamedFrame` | a frame whose name matches `KNOWN_PACK_FRAMES` passes one of the calls a unit frame makes on its way into somebody's click casting |
+| **Header children** | `FrameRegistry.CollectHeaderChildren` | a `SecureGroupHeaderTemplate` header lays out, and its `child<i>` attributes are walked |
+| **oUF** | `FrameRegistry.CollectOUFFrames` | any addon declaring `X-oUF` in its TOC has an `objects` list, and its tail is taken on every `PLAYER_ENTERING_WORLD` |
+| **Blizzard's own** | `FrameRegistry.UpdateBlizzardFrames`, the `CompactUnitFrame_SetUpFrame` hook | the client's own unit frames and compact frames, behind the seven boxes |
 
 The hooks that feed the name door are `SecureHandlerWrapScript`, `SecureHandlerSetFrameRef`,
 `RegisterStateDriver`, `RegisterAttributeDriver`, `SecureUnitButton_OnLoad`, `RegisterUnitWatch`
 and `UnitFrame_Initialize`. The last three are installed only if the global exists. A pack is free
 to skip any single one of them, which is why there are seven.
 
-**Every hook in both files is installed at file scope, whatever the switches say.** The switches
-are only readable from `InitDB` onward, so a hook that was not installed at load could not be
-installed later without a reload. Each door asks at its own first line instead.
+**Every hook in both files is installed at file scope**, before any profile can be read.
 
-## 2. The switches
+## 2. The blacklist
 
-| Switch | Written | Read | Absent means |
+**Every unit frame is ours.** The reader's only lever is naming one to be left alone, and there are
+two lists of names to do it with:
+
+| Box | Written | Read | Absent means |
 |---|---|---|---|
-| `StandsAsideForClique()` | `db.workAlongsideClique`, option row `Use Alongside Clique`, `REQUIRES_RELOAD` | `Profile.lua`, copied in `InitDB` | Clique installed and the option unticked is "stand aside". Before `InitDB` the answer is "stand aside" |
-| `TakesUnregisteredFrames()` | `db.takeUnregisteredFrames`, `REQUIRES_RELOAD` | same | on. Before `InitDB` the answer is "take" |
-| `TakesPackFrames(addon)` | `db.packFrames[addon]`, one box per installed known pack | asked once inside `RegisterFrame` | on |
-| `Options.blizzframes[category]` | seven boxes | `registerBlizzardFrame` | on |
+| `Options.blizzframes[category]` | the client's seven windows, one box each | `registerBlizzardFrame` | ours |
+| `TakesPackFrames(addon)` | `db.packFrames[addon]`, one box per installed known pack | asked once inside `RegisterFrame` | ours |
 
-`StandsAsideForClique()` is false whenever Clique is not installed, whatever the option says.
-`CliqueDetected` itself is now asked in exactly two places: whether to load `DebindCliqueFake`
-(`Public.lua`) and whether to build the option row (`Options.lua`).
+Both store `false` for "leave alone" and nothing at all for "ours", and both say `REQUIRES_RELOAD`:
+which frames get picked up is decided as each one is built, so the values are read once at login
+(`InitDB`) and a frame already wired stays wired.
 
-**The pack switch is asked in `RegisterFrame` and nowhere else**, so it covers every door at once,
-the header door included. A frame whose name matches no row in `KNOWN_PACK_FRAMES` is not any
-pack's, and what decides those is `TakesUnregisteredFrames` at the door.
+**The pack box is asked in `RegisterFrame` and nowhere else**, so it covers every door at once, the
+header door included. A frame whose name matches no row in `KNOWN_PACK_FRAMES` is not any pack's and
+there is nothing left that could turn it away.
 
-**A pack box that is on is the whole answer for that pack** (`legacy/making-the-pack-box-own-its-addon.md`).
-The doors nobody hands a frame through, and the holder question in §4, ask
-`TakesUnofferedFrame(frame)` of each frame: a listed name is its pack box's whatever the wider option
-says, and only a name no row covers is the wider option's. So `Use Unit Frames Addons Keep to
-Themselves` decides the addons we cannot name, and nothing else.
+`CliqueDetected` is asked in exactly two places: whether to load `DebindCliqueFake` (`Public.lua`)
+and whether to attach to Clique's table and header (`InitDB`).
 
 ## 3. What the funnel does
 
 `RegisterFrame(button, type)`, in order:
 
-1. Pack switch. A frame belonging to a pack the reader turned off gets no row at all.
+1. The pack box. A frame belonging to a pack the reader ticked gets no row at all.
 2. `ccframes[button] == false` means we already wrote the frame off; return.
 3. An existing row settles it, unless the row's `frameType` is `unknown` or the caller can say
    something the row does not. `unknown` never closes the question, because a frame library
    commonly registers from its styling pass and writes the unit attribute after it.
 4. Refusals, each of which writes `false` and is remembered for the session: not protected,
    forbidden, anchoring restricted, no `RegisterForClicks`.
-5. Combat: the call goes into `FrameQueue` with its arguments, `QueuedFrameOp` records the last
-   word for that frame, and the first entry of a fight puts one line in chat. The queue drains in
-   arrival order at `PLAYER_REGEN_ENABLED`.
+5. Combat: the call goes into `FrameQueue` with its arguments, and the first entry of a fight puts
+   one line in chat. The queue drains in arrival order at `PLAYER_REGEN_ENABLED`. It holds
+   registrations and nothing else.
 6. The kind. Being told beats reading: a header child is `group` because its header said so
    (`_headerChildren`), then `KNOWN_PACK_FRAMES` rows that carry a kind, then the frame's `unit`
    attribute, and `player` alone gets a second question off the name. Failing everything, `unknown`.
@@ -89,12 +86,16 @@ unwraps and rewraps every frame it holds on every loading screen, and a count ca
 from a fight; a per-session budget of eight stood us down from every Blizzard frame on the third
 loading screen.
 
-`UnregisterFrame` honours a deregistration from anywhere, with two exceptions. An `hd` row is the
-header door's, and only the header takes it back. And a frame `TakesUnofferedFrame` answers yes
-for is not let go at all, whoever asks (`KeepsFrameOnRelease`): an addon reclaiming a frame has
-decided to run it itself, which is what a listed pack's box covers for that pack and what
-`Use Unit Frames Addons Keep to Themselves` covers for every other name. With that option off, a
-name no row covers is let go on its owner's word.
+**A deregistration arriving from outside means nothing, and there is no `UnregisterFrame`.** Being
+ours is the blacklist's answer and not the frame owner's, and the blacklist only changes with a
+reload, so nothing can turn "this frame is ours" into "it is not" inside a session. Five ways in
+still exist and all five are inert: a `nil` write into our own table, a `nil` write behind a holder,
+Clique's `export_unregister`, the header protocol's `clickcast_unregister` (an empty body kept
+because a header calls it by name), and `DebindPublic:UnregisterFrame` (an empty function kept for
+the same reason).
+
+**`StandDown` is the one thing that takes a row back**, and it is ours to call. `hd` on a row says
+the header door wrote it, which is what `hccframes` is the name-keyed shape of.
 
 ## 4. The table door, in detail
 
@@ -102,19 +103,17 @@ name no row covers is let go on its owner's word.
 are possible and `AttachClickCastFrames` decides between them on every pass:
 
 - **The name is free**, meaning the global is a plain table, absent, or carries a metatable with no
-  `__newindex`. We put our own table there, with `__newindex` registering and deregistering and
-  `__index` answering out of a store kept beside the table. Whatever was in the old table is
-  adopted. Answering reads back matters: an addon takes a frame back with
+  `__newindex`. We put our own table there, with `__newindex` registering and `__index` answering
+  out of a store kept beside the table. Whatever was in the old table is adopted. Answering reads
+  back still matters: an addon takes a frame back with
   `if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end`, and a table that answers nil
-  never sees that write.
-- **Somebody is holding it**, meaning a `__newindex` is already there. We do not take the name.
-  We wrap that metatable's `__newindex` and `__index`, run the holder's original first, and ask the
-  holder what it decided for each frame (`AskHolder`). A holder that answered for a frame is
-  standing on it; a holder that filed the write and dropped it left the frame with nobody on it.
-  A frame the holder kept is registered too when `TakesUnofferedFrame` says so: always for a
-  listed pack whose box is on, and otherwise while `Use Unit Frames Addons Keep to Themselves` is
-  on, since two engines on one frame is handled by `Reassemble`. Off, only what the holder dropped
-  and the listed packs come to us.
+  leaves that addon's own bookkeeping on the frame.
+- **Somebody is holding it**, meaning a `__newindex` is already there. We do not take the name. We
+  wrap that metatable's `__newindex` and nothing else, run the holder's original first, and register
+  whatever it was handed. **The holder is not asked what it decided**: every unit frame is ours
+  whoever else is standing on it, and `Reassemble` is what makes two engines on one frame safe. What
+  is already in that table when we meet it is walked once, for a proxy that files its writes in the
+  table itself.
   The rows we were already holding are written into the holder's table once (`HandOver`), because a
   holder builds its store by walking the table it finds and our store is beside the table, not in
   it, so `pairs` shows it nothing.
@@ -127,10 +126,6 @@ that takes the name does it from its own handler for that event), at `PLAYER_ENT
 `PLAYER_REGEN_ENABLED`, and one tick after any foreign `SecureHandlerWrapScript` or
 `SecureHandlerUnwrapScript` (`QueueNameCheck`, one check per tick). The last of those is what
 shortens the window where a holder puts up its proxy mid session.
-
-`AskHolderAgain` re-asks the holder about every frame we stood down on and every non `hd` row we
-hold, at `PLAYER_ENTERING_WORLD` and `PLAYER_REGEN_ENABLED`. That is the only thing that hears a
-holder's decision move without a write: its own hover casting being switched off, for instance.
 
 ## 5. The situations
 
@@ -150,8 +145,7 @@ it builds the header.
 ### 5.2 The addon has Clique support off, or runs its own engine and offers nothing
 
 Nothing is written anywhere, and no protocol is spoken. What reaches us is the three doors nobody
-hands a frame through. A frame on the name list is its pack box's at every one of them; a frame no
-row names stands behind `Use Unit Frames Addons Keep to Themselves`:
+hands a frame through, and the only thing that turns one of their frames away is a pack box:
 
 - the **name** door, if the frame's name matches a `KNOWN_PACK_FRAMES` row and the frame passes one
   of the seven hooked calls;
@@ -163,64 +157,41 @@ An addon that matches none of the three is invisible to us, and there is no four
 
 ### 5.3 The addon holds the Clique name and shows nothing through it
 
-Three sub cases, and they differ only in what `__index` answers:
+What its `__index` answers no longer matters, because nothing asks it. Two sub cases are left:
 
-- **A proxy that answers for its own frames.** `HolderAnswer` reads through the metatable's
-  original `__index`, never through our wrapper, so what comes back is the holder's own opinion. A
-  truthy answer is "this frame is mine".
-- **A proxy that answers nothing** (a `__newindex` and no `__index`). `HolderAnswer` returns nil
-  for every frame, so every frame that passes through the table reads as dropped and we take all
-  of them. Clique has this shape, but Clique is not asked at all (§5.5): its frames are ours by
-  rule, not by what its proxy happens to answer.
+- **A proxy with a `__newindex`,** whatever else it carries. We wrap that one metamethod, its
+  original runs first, and every write it is handed comes to us as a registration.
 - **A proxy locked with `__metatable`.** We never touch it. The table door is closed for that
   session and only the other doors can reach anything.
 
-In every one of the three, frames the holder keeps in an upvalue store and never puts in the table
-are invisible to `pairs`, so a frame registered into a foreign proxy before we wrapped it is heard
-only if a later write or a later `AskHolder` reaches it.
+In both, frames the holder keeps in an upvalue store and never puts in the table are invisible to
+`pairs`, so a frame registered into a foreign proxy before we wrapped it is heard only if a later
+write reaches it.
 
-### 5.4 Clique is installed and `Use Alongside Clique` is off
+### 5.4 Clique is installed
 
-This is the default, and it is what every Clique user had before the option existed.
+There is no other case: the switch that used to make one is gone.
 
-- `DebindCliqueFake` does not load. `_G.Clique`, `_G.ClickCastHeader` and `ClickCastUnitTemplate`
-  are Clique's.
-- Table door, name door, header children door and oUF door all return at their first line.
-- `ApplyStandAsideForClique` (`SecureBindings.lua`) blanks our `clickcast_register` and
-  `clickcast_unregister`, and gives `GetHoveredUnit` a fallback: our own `States.unitframe` first,
-  and only where we hold no row Clique's header `danglingButton`, which yields a unit token and
-  nothing else: no frame type, no reaction, no role.
-- **Blizzard's own frames are still ours.** Blizzard handed its unit frames to nobody; Clique picks
-  them up itself and so do we, and both of us going through `ClickCastFrames` on the way is
-  Clique's implementation rather than a door the frame came in by. So hover bindings, the hover
-  twin and `frameTypes` conditions all work over those seven, and nothing is graded as blocked by
-  Clique any more.
-- The UI follows the doors: the pack boxes and `Use Unit Frames Addons Keep to Themselves` are
-  greyed with `Cannot be used with Clique!`, while the seven Blizzard boxes, the click edge and
-  the `Use Alongside Clique` row itself stay live.
-
-### 5.5 Clique is installed and `Use Alongside Clique` is on
-
-- `DebindCliqueFake` still does not load, so the three Clique names stay Clique's. Our own header
-  door is therefore unreachable, and addons wiring a header to `Clique.header` wire it to Clique.
-- The **table door** attaches to Clique's proxy as a holder, from `InitDB` (the file-scope pass
-  answered "stand aside" because the option was not readable yet). Clique as the holder is not
-  asked what it kept: a frame written into Clique's table was handed to somebody, so every one of
-  them is ours as well whatever the wider option says (`AskHolder`). Clique is recognised by its
-  table, read off the global in `InitDB` (`RememberCliqueTable`): Clique installs it at its own
-  `ADDON_LOADED`, ahead of ours, and a pack that later puts its proxy over it is a different
-  holder and is asked like any other. Frames written before the attach sit in `Clique.ccframes`
-  and nowhere else, and `AttachCliqueHeader` sweeps that list.
+- `DebindCliqueFake` does not load, so `_G.Clique`, `_G.ClickCastHeader` and
+  `ClickCastUnitTemplate` stay Clique's. Our own header door is therefore unreachable, and addons
+  wiring a header to `Clique.header` wire it to Clique.
+- `GetHoveredUnit` has one shape and reads `States.unitframe`, because every frame Clique holds is
+  one we hold too.
+- **Blizzard's own frames are ours**, as they always were: Blizzard handed its unit frames to
+  nobody, Clique picks them up itself and so do we, and both of us going through `ClickCastFrames`
+  on the way is Clique's implementation rather than a door the frame came in by.
+- The **table door** attaches to Clique's proxy as a holder, from `InitDB`. Frames written before
+  the attach sit in `Clique.ccframes` and nowhere else, and `AttachCliqueHeader` sweeps that list.
 - The **Clique header door** replaces ours: `AttachCliqueHeader` hooks `OnAttributeChanged` on
-  Clique's header and reads `export_register` and `export_unregister`, which is how Clique itself
-  gets the registration out of the restricted environment, and hands the name to our own
-  `OnClickCastRegister`, so the row is the header's and is written a tick later. Frames already in
-  `Clique.hccframes` when we attach are taken then, since that is the window we were not
+  Clique's header and reads `export_register`, which is how Clique itself gets the registration out
+  of the restricted environment, and hands the name to our own `OnClickCastRegister`, so the row is
+  the header's and is written a tick later. `export_unregister` is not listened to. Frames already
+  in `Clique.hccframes` when we attach are taken then, since that is the window we were not
   listening in.
 - The name, header children and oUF doors are open.
 - Both engines end up on one frame. We take the top and replay what was above us, so Clique's
-  bodies still run. If we are pushed off repeatedly, `StandDown` leaves that frame to Clique. The
-  tooltip says "should still" for exactly that reason: it is the intent, not a guarantee.
+  bodies still run. If a fight over the top starts, `StandDown` leaves that frame to Clique: two
+  engines on one frame is the intent, not a guarantee.
 
 ## 6. Addon by addon
 
@@ -251,9 +222,8 @@ Two addons, and they behave differently.
   by the header children door: its group, flat and party headers are real
   `SecureGroupHeaderTemplate` frames. The standalone ones are on the name list already
   (`erfpartyselfbutton`, `erffriendlyboss%d+`, `erfextraframe%d+`), each pinned to `group` because
-  their own tokens would read as something else. The `nil` it writes for each frame on the way
-  into this state reaches `UnregisterFrame` and changes nothing while its pack box is on, so the
-  rows from the engine-off state simply stay.
+  their own tokens would read as something else. The `nil` it writes for each frame on the way into
+  this state means nothing to us, so the rows from the engine-off state simply stay.
 - Note that its adoption walk is `pairs(oldCCF)`, and our table yields nothing to `pairs`. What
   covers this is `HandOver`, which rewrites our rows into the new proxy the first time we meet it.
   Until that pass runs, EUI does not know about frames we were holding.
@@ -300,8 +270,8 @@ Its own shape, since we now stand next to it: `ClickCastFrames` becomes a `__new
 with no lock; the header is `CliqueHeaderFrame` under `ClickCastHeader`; `clickcast_register`
 writes the child into `export_register` and its own `OnAttributeChanged` picks it up into
 `hccframes`; Blizzard frames are picked up by writing them into its own table. `export_register`
-and the proxy shape are internal to that addon. If either changes, our door goes quiet with nothing
-raised, and what is left is the same board as the option being off.
+and the proxy shape are internal to that addon. If either changes, that door goes quiet with
+nothing raised, and Clique's frames reach us only through the three doors nobody hands one through.
 
 ### An addon we have never seen
 
@@ -316,8 +286,7 @@ Each of these is understood and none of them raises anything.
 
 1. **A holder that keeps its store in an upvalue and never writes into the table** hides every
    registration it received before we wrapped its metatable. `pairs` over such a proxy yields
-   nothing, so no later pass can recover them; only a fresh write or an `AskHolderAgain` sweep over
-   frames we already know about can reach one.
+   nothing, so no later pass can recover them; only a fresh write can reach one.
 2. **A name locked with `__metatable`** closes the table door for the session. Nothing retries,
    because there is nothing to retry against.
 3. **Between a holder installing its proxy and our next name check**, registrations go to a table
@@ -333,8 +302,10 @@ Each of these is understood and none of them raises anything.
 6. **`AttachClickCastFrames` itself has no combat guard.** Its own callers guard, but the three
    event paths do not; registering under lockdown queues the frame and puts one line in chat. That
    is the visible face of logging in during a fight.
-7. **A holder's decision moving is only heard at two events** plus a foreign wrap. Between them, a
-   frame the holder let go stays unregistered by us and a frame it took stays ours.
+7. **Stepping off a frame is not remembered.** `StandDown` writes `nil` rather than the `false` a
+   refusal writes, so the next door that reaches that frame registers it again. No new wrapper goes
+   on -- `_wrapped` and `_hoverWrapped` still say we wrapped it -- so no new fight starts either,
+   and what comes back is the row on the wrappers that were already there.
 8. **`export_register` is Clique's internal wiring.** A rename leaves the Clique header door silent.
 9. **`clickcast_register` cannot carry a nameless frame.** `CallMethod` scrubs its arguments to
    strings, numbers and booleans, so a header with no name of its own makes children with no names
@@ -343,19 +314,21 @@ Each of these is understood and none of them raises anything.
 10. **A pack that runs its own engine, offers nothing, uses no secure group header and no oUF, and
     whose names we do not know, is unreachable.** No hook can be made to answer for it: the test
     would have to be right about an addon we have never seen.
-11. **Two engines on one frame is an intent, not a guarantee.** A pack that re-wraps because it was
-    wrapped over spends the reassembly budget and we step off that frame, once with a chat line.
+11. **Two engines on one frame is an intent, not a guarantee.** A pack that re-wraps inside our own
+    wrap is a fight, and we step off that frame, once with a chat line.
 
 ## 8. What holds this true
 
-`tests/frames_spec.lua` and `tests/holder_spec.lua` carry the headless half: the doors opening and
-closing on each switch, the holder machinery against a proxy of every shape above, the read back
-through both our own table and a holder's, the hand over, the re-ask, and the Clique header door
-including what was already in `hccframes` at attach time.
+`tests/frames_spec.lua` and `tests/holder_spec.lua` carry the headless half: every door taking a
+listed name and a name no row covers alike, the pack box turning away its own pack at each of them,
+the five outside deregistrations leaving the row standing, the combat queue, the holder machinery
+against a proxy of every shape above, the hand over, and the Clique header door including what was
+already in `hccframes` at attach time. `tests/options_spec.lua` carries the one list and its
+polarity; `tests/migration_spec.lua` carries the two orphaned keys being swept out.
 
 What only the game can answer: whether the holder machinery attaches to the real Clique proxy,
-whether the `export_register` hook actually fires, and whether two engines both run on one frame.
-Those are in `/debtest`.
+whether the `export_register` hook actually fires, and whether the frames Clique holds carry our
+wiring as well. Those are in `/debtest`.
 
 What neither can see: another addon changing the shape we read. Every third party detail in §6 is
 that addon's internal wiring, and none of it was promised to us.

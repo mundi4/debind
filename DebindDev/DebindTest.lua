@@ -902,13 +902,60 @@ end
 -- set. Nothing is faked -- the attribute read, the registration, and the reaction lookup are the
 -- shipped ones.
 --
--- **Frames are never destroyed in WoW**, so they are reused by name across runs. Teardown
--- unregisters rather than disposing.
+-- **Frames are never destroyed in WoW**, so they are reused by name across runs. Teardown stands
+-- the addon down off the frame rather than disposing of it (`StandDownTestFrame`).
 local UNIT_TOKEN_ABSENT = "debindtest_absent"
 
 local testFrameCount = 0
 
-local function CreateTestUnitFrame(unit, frameType)
+--- The frames a stand-down is being staged for, and the header that is standing on them.
+---
+--- **One hook for all of them.** `hooksecurefunc` cannot be taken off, so booking one per call
+--- would pile a hook on the global for every frame the kit ever tears down.
+local standDownTargets = setmetatable({}, { __mode = "k" })
+local standDownHooked = false
+
+local standDownHeader
+
+--- Makes a frame lose its row, which is the whole of what a teardown has to undo.
+---
+--- **A fight is the only way left.** Nothing in the addon takes a row back any more
+--- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5), and `StandDown` is what
+--- is left: wrapping over us **inside our own wrap** is the definition of one, so that is what this
+--- stages. Writing `ccframes[frame] = nil` here instead would leave the restricted side holding a
+--- row for a frame the insecure side has forgotten.
+---
+--- **Leaving the row instead is not an option**, because frames are reused by name across runs: the
+--- next run's registration of the same frame would stop at the row this run left and measure the
+--- kind that run asked for.
+local function StandDownTestFrame(frame)
+    if InCombatLockdown() then
+        return
+    end
+
+    if not standDownHooked then
+        standDownHooked = true
+        hooksecurefunc("SecureHandlerWrapScript", function(wrapped, script, header)
+            local theirs = standDownTargets[wrapped]
+            if theirs and script == "OnEnter" and header == DebindPrivate.BindingDriver then
+                standDownTargets[wrapped] = nil
+                SecureHandlerWrapScript(wrapped, "OnEnter", theirs, "-- theirs, on top again")
+            end
+        end)
+    end
+
+    standDownHeader = standDownHeader or _G.DebindTestStandDownHeader
+        or CreateFrame("Frame", "DebindTestStandDownHeader", UIParent, "SecureHandlerBaseTemplate")
+
+    standDownTargets[frame] = standDownHeader
+    SecureHandlerWrapScript(frame, "OnEnter", standDownHeader, "-- theirs")
+    standDownTargets[frame] = nil
+end
+
+--- The frame on its own, with nothing of ours on it. **What the addon does to a frame is what
+--- several cases below are measuring**, so they need one it has never seen; the rest go through
+--- `CreateTestUnitFrame`, which is this plus the registration.
+local function MakeTestUnitFrame(unit)
     testFrameCount = testFrameCount + 1
 
     local name = "DebindTestUnitFrame" .. testFrameCount
@@ -928,12 +975,18 @@ local function CreateTestUnitFrame(unit, frameType)
     frame:SetAttribute("unit", unit)
     frame:Show()
 
-    DebindPrivate.RegisterFrame(frame, frameType or "group")
-
     AddTeardown(function()
-        DebindPrivate.UnregisterFrame(frame)
+        StandDownTestFrame(frame)
         frame:Hide()
     end)
+
+    return frame, name
+end
+
+local function CreateTestUnitFrame(unit, frameType)
+    local frame, name = MakeTestUnitFrame(unit)
+
+    DebindPrivate.RegisterFrame(frame, frameType or "group")
 
     -- `RegisterFrame` refuses quietly, and it records that refusal as `false` so the next attempt
     -- refuses too. Left unchecked the test would drive a frame the addon is not watching and
@@ -1698,6 +1751,163 @@ RegisterTest("Bulk menu: the key pair aims at the whole selection", {
     end,
 })
 
+--- **The three radios are the only thing that writes a unit condition's mode**, and the writer is
+--- a local inside the menu file. No spec can reach it: `DropDownMenus.lua` is not on the headless
+--- load list, so what gets stored when a reader presses one of these is only ever measured here.
+---
+--- What it is guarding is the shape rather than the wording. A mode that leaves no value behind
+--- rides on the table being empty, and the rest of the addon reads an empty table as nothing at
+--- all -- `ActionSignature` folds one away, which is what made a unit-conditioned action and an
+--- unconditional one come out as duplicates of each other
+--- (`devdocs/action-and-binding-shapes.md` §3-2).
+RegisterTest("Unit condition: each mode writes a value of its own", {
+    description = "[When it exists] stores exists, [Disable] stores disabled and keeps the axes, and a mode with nothing to remember leaves no table behind",
+    run = function()
+        local NAME = "Unit condition modes"
+
+        local action = InsertAction({ type = Constants.SPELL, value = 1, key = "CTRL-ALT-F7" })
+        ApplyBindings()
+
+        AddTeardown(CleanupActions)
+        AddTeardown(function()
+            Menu.GetManager():CloseMenus()
+        end)
+
+        --- 이름으로 자식 하나. **한 겹씩 좁혀 들어간다** - [사용 안 함]은 이 트리의 여러
+        --- 묶음에 있어서 통째로 뒤지면 남의 것을 누른다.
+        local function ChildByText(description, text)
+            for _, child in description:EnumerateElementDescriptions() do
+                if MenuUtil.GetElementText(child) == text then
+                    return child
+                end
+            end
+        end
+
+        --- 실패했을 때 무엇이 거기 있었는지. 이름으로 찾아 누르는 테스트라, 못 찾았는지
+        --- 눌렀는데 안 먹었는지가 갈려야 다음 판에서 고칠 자리가 나온다.
+        local function ChildTexts(description)
+            local names = {}
+            for _, child in description:EnumerateElementDescriptions() do
+                tinsert(names, tostring(MenuUtil.GetElementText(child)))
+            end
+            return table.concat(names, " | ")
+        end
+
+        local function StoredCondition()
+            local conditions = action.conditions
+            local units = conditions and conditions.units
+            return units and units.target
+        end
+
+        local function DescribeStored()
+            local cond = StoredCondition()
+            if type(cond) ~= "table" then
+                return tostring(cond)
+            end
+            return format("exists=%s disabled=%s reaction=%s",
+                tostring(cond.exists), tostring(cond.disabled), tostring(cond.reaction))
+        end
+
+        --- 메뉴를 새로 열고 `target` 유닛의 서브메뉴를 집는다. 누를 때마다 다시 여는 것은
+        --- 값이 바뀌면 라디오가 다시 그려지기 때문이다.
+        local function TargetSubmenu()
+            Menu.GetManager():CloseMenus()
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupEditDropdownMenu, { action = action })
+            local menu = Menu.GetManager():GetOpenMenu()
+            if not menu then
+                return nil, "the menu did not come up"
+            end
+            local units
+            menu:EnumerateElementDescriptions(function(_, description)
+                if MenuUtil.GetElementText(description) == LLL["CONDITION_UNITS"] then
+                    units = description
+                end
+            end)
+            if not units then
+                return nil, format("no [%s] group", LLL["CONDITION_UNITS"])
+            end
+            local target = ChildByText(units, DebindUI.UNIT_INFO.target.name)
+            if not target then
+                return nil, format("no [%s] row under it: %s",
+                    DebindUI.UNIT_INFO.target.name, ChildTexts(units))
+            end
+            return target
+        end
+
+        --- 하나 누르고, 그 자리에서 값이 움직였는지 본다. **`Pick`이 거짓을 돌려주는 것과 값이
+        --- 안 움직이는 것은 다른 고장이다** - 앞은 그 줄이 잠긴 것이고 뒤는 setter가 딴 값을
+        --- 쓴 것이라, 실패 문구가 둘을 갈라야 한다.
+        local function Press(text, settled)
+            local submenu, err = TargetSubmenu()
+            if not submenu then
+                return err
+            end
+            local item = ChildByText(submenu, text)
+            if not item then
+                return format("no [%s] entry: %s", text, ChildTexts(submenu))
+            end
+            local picked = item:Pick(MenuInputContext.MouseButton, "LeftButton")
+            if settled and not settled() then
+                return format("[%s] did not take (Pick said %s): %s",
+                    text, tostring(picked), DescribeStored())
+            end
+        end
+
+        local err = Press(LLL["CONDITION_UNIT_EXISTS"], function()
+            local cond = StoredCondition()
+            return type(cond) == "table" and cond.exists == true
+        end)
+        if err then
+            return Fail(NAME, err)
+        end
+
+        -- 축을 하나 골라둔다. 그래야 아래 [사용 안 함]이 기억하는 갈래로 간다.
+        err = Press(LLL["REACTION_HELP"], function()
+            local cond = StoredCondition()
+            return type(cond) == "table" and cond.reaction ~= nil
+        end)
+        if err then
+            return Fail(NAME, err)
+        end
+
+        err = Press(LLL["DISABLE"], function()
+            local cond = StoredCondition()
+            return type(cond) == "table" and cond.disabled == true and cond.exists == nil
+        end)
+        if err then
+            return Fail(NAME, err)
+        end
+        if StoredCondition().reaction == nil then
+            return Fail(NAME, "the axis it was told to remember is gone")
+        end
+
+        -- 기억할 축이 없는 조건을 끄면 그 유닛이 통째로 빠진다. 여기서 빈 표가 남으면 아무것도
+        -- 안 고른 유닛이 프로필에 쌓인다.
+        local kept = action
+        action = InsertAction({ type = Constants.SPELL, value = 2, key = "CTRL-ALT-F7" })
+        ApplyBindings()
+
+        err = Press(LLL["CONDITION_UNIT_EXISTS"], function()
+            local cond = StoredCondition()
+            return type(cond) == "table" and cond.exists == true
+        end)
+        if err then
+            action = kept
+            return Fail(NAME, err)
+        end
+        err = Press(LLL["DISABLE"], function()
+            return StoredCondition() == nil
+        end)
+        if err then
+            action = kept
+            return Fail(NAME, err)
+        end
+
+        action = kept
+        return Pass(NAME, "the modes wrote exists and disabled, the axes survived being turned off, and nothing was left behind where there was nothing to remember")
+    end,
+})
+
 --- The mode's own way in. **Four things have to line up for one press, and three of them are silent
 --- when they do not**: the widget key the frame reaches for (`BindModePortrait` -- a wrong one is a
 --- nil index, but only when someone presses it), the XML `OnClick`, the keyboard being switched on
@@ -2242,112 +2452,116 @@ local STORAGE_PANEL_ID = 3
 --- `PlanArrival`), so a filter read in one place and not another is silent everywhere else: the
 --- window says 12, the string carries 9, and nobody sees the difference until somebody else opens
 --- it (section 12 of `devdocs/building-export-import.md`).
-RegisterTest("Storage: the preview, the string and the add all count the same", {
-    description = "What the preview counts, what the string carries and what Add places are one number, and the badge is left out",
-    run = function()
-        local NAME = "Export counts"
-
-        -- Two the tester owns and one still quarantined. A key with both on it is the sharpest
-        -- case: the group goes out half, which is right, and a filter that worked per key rather
-        -- than per action would send three or one.
-        InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F5", combat = true })
-        InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F5" })
-        local badged = InsertAction({ type = Constants.SPELL, value = 6603, key = "CTRL-ALT-F6" })
-        badged.arrivalID = 99
-        ApplyBindings()
-
-        -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
-        -- `DebindStorage` in, and stopping there is enough: nothing below needs a frame on screen.
-        --
-        -- The run's own layer has an id past every real one (`GetTestLayer`), and that used to be a
-        -- reason not to build the list at all. It is not one any more: the preview names a layer by
-        -- the **payload's address** rather than by that id, and `BuildExportPayload` files a layer
-        -- with no character flag and no spec under the class block -- an address every client has.
-        local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
-        if not panel or not panel.SelectEntry then
-            return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
-        end
-
-        -- **The entry is real and it stays until teardown.** Making one is the only way into the
-        -- list, and a row the runner leaves behind is a row the tester finds later - so it goes,
-        -- along with the panel's own view state, which `OnHide` would normally clear and cannot on
-        -- a panel that was never shown.
-        --
-        -- The copy dialog goes too: it takes keyboard focus when it opens, which is what it is for,
-        -- and it must not hold it over whatever runs next.
-        local entry = DebindPrivate.Store.CreateEntry()
-        AddTeardown(function()
-            DebindCopyFrame.Output.EditBox:ClearFocus()
-            DebindCopyFrame:Hide()
-            panel:SelectEntry(nil)
-            DebindPrivate.Store.DeleteEntry(entry.id)
-        end)
-
-        -- What `OnShow` does: pick the row, which builds the preview and ticks all of it.
-        panel:SelectEntry(entry)
-
-        -- What the window says, counted twice the way the window counts it: the [select all] total
-        -- walks every listed action, and each header prints its own layer's length.
-        local listed = panel:EnumerateListedActions()
-        local headerTotal = 0
-        for _, layer in ipairs(panel.previewLayers or {}) do
-            headerTotal = headerTotal + #layer.actions
-        end
-        if headerTotal ~= #listed then
-            return Fail(NAME, format("headings total %d, whole list %d", headerTotal, #listed))
-        end
-
-        for _, action in ipairs(listed) do
-            if action == badged then
-                return Fail(NAME, "an isolated action is in the list")
-            end
-        end
-
-        -- And what leaves. `OnCopyClicked` is the button, and the box it fills is the one the
-        -- reader copies out of. **The dialog keeps no copy of the string beside that box**, so the
-        -- box is the only place to read it from (`ShowText`).
-        panel:OnCopyClicked()
-        local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
-        if not payload then
-            return Fail(NAME, format("could not read the string: %s", why))
-        end
-
-        local sent = PayloadActions(payload)
-        if #sent ~= #listed then
-            return Fail(NAME, format("the window said %d and it sent %d", #listed, #sent))
-        end
-        for _, action in ipairs(sent) do
-            if action.value == badged.value then
-                return Fail(NAME, "an isolated action was carried into the string")
-            end
-        end
-
-        -- **The third number.** Adding puts the same set into the profile and gets there through
-        -- `PlanArrival` rather than through the string, so this is what catches a tick set one of the
-        -- two reads and the other does not. Planned rather than placed: the count is what is being
-        -- asked, and placing would leave the run's layer holding a second copy of everything.
-        --
-        -- **The entry's own payload, not the one decoded above.** A tick is the action table
-        -- itself, so a payload built by decoding holds a second set of tables that nothing has
-        -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanArrival`
-        -- through `CommitEntry`, which opens the entry the same way the preview did
-        -- (`GetEntryPayload`).
-        local stored = DebindPrivate.Store.GetEntryPayload(entry)
-        if not stored then
-            return Fail(NAME, "could not open the entry payload")
-        end
-
-        local planned, skipped = DebindPrivate.Store.PlanArrival(stored, { selection = panel.selected })
-        if #planned ~= #listed then
-            return Fail(NAME, format("the window said %d and it places %d", #listed, #planned))
-        end
-        if skipped ~= 0 then
-            return Fail(NAME, format("%d came back with nowhere to go, those are addresses this board made", skipped))
-        end
-
-        return Pass(NAME, format("%d = %d = %d, and the badge did not go out", #listed, #sent, #planned))
-    end,
-})
+-- **꺼둔 케이스.** 이 테스트는 `LibSerialize`가 직렬화 도중 나눗셈에서 터진다
+-- (`LibSerialize.lua:1562`, division by zero). 터지는 자리가 우리 코드가 아니라 라이브러리
+-- 안이라 여기서 고칠 것이 없고, 켜두면 실행할 때마다 오류 하나가 선다. 소유자가 꺼두라고
+-- 했다 (2026-09-09).
+-- RegisterTest("Storage: the preview, the string and the add all count the same", {
+--     description = "What the preview counts, what the string carries and what Add places are one number, and the badge is left out",
+--     run = function()
+--         local NAME = "Export counts"
+-- 
+--         -- Two the tester owns and one still quarantined. A key with both on it is the sharpest
+--         -- case: the group goes out half, which is right, and a filter that worked per key rather
+--         -- than per action would send three or one.
+--         InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F5", combat = true })
+--         InsertAction({ type = Constants.SPELL, value = 589, key = "CTRL-ALT-F5" })
+--         local badged = InsertAction({ type = Constants.SPELL, value = 6603, key = "CTRL-ALT-F6" })
+--         badged.arrivalID = 99
+--         ApplyBindings()
+-- 
+--         -- **The panel is fetched, not opened.** `ResolvePanel` is what the tab calls to bring
+--         -- `DebindStorage` in, and stopping there is enough: nothing below needs a frame on screen.
+--         --
+--         -- The run's own layer has an id past every real one (`GetTestLayer`), and that used to be a
+--         -- reason not to build the list at all. It is not one any more: the preview names a layer by
+--         -- the **payload's address** rather than by that id, and `BuildExportPayload` files a layer
+--         -- with no character flag and no spec under the class block -- an address every client has.
+--         local panel = DebindFrame:ResolvePanel(STORAGE_PANEL_ID)
+--         if not panel or not panel.SelectEntry then
+--             return Fail(NAME, "could not get the storage panel, check the tab number or LoadAddOn")
+--         end
+-- 
+--         -- **The entry is real and it stays until teardown.** Making one is the only way into the
+--         -- list, and a row the runner leaves behind is a row the tester finds later - so it goes,
+--         -- along with the panel's own view state, which `OnHide` would normally clear and cannot on
+--         -- a panel that was never shown.
+--         --
+--         -- The copy dialog goes too: it takes keyboard focus when it opens, which is what it is for,
+--         -- and it must not hold it over whatever runs next.
+--         local entry = DebindPrivate.Store.CreateEntry()
+--         AddTeardown(function()
+--             DebindCopyFrame.Output.EditBox:ClearFocus()
+--             DebindCopyFrame:Hide()
+--             panel:SelectEntry(nil)
+--             DebindPrivate.Store.DeleteEntry(entry.id)
+--         end)
+-- 
+--         -- What `OnShow` does: pick the row, which builds the preview and ticks all of it.
+--         panel:SelectEntry(entry)
+-- 
+--         -- What the window says, counted twice the way the window counts it: the [select all] total
+--         -- walks every listed action, and each header prints its own layer's length.
+--         local listed = panel:EnumerateListedActions()
+--         local headerTotal = 0
+--         for _, layer in ipairs(panel.previewLayers or {}) do
+--             headerTotal = headerTotal + #layer.actions
+--         end
+--         if headerTotal ~= #listed then
+--             return Fail(NAME, format("headings total %d, whole list %d", headerTotal, #listed))
+--         end
+-- 
+--         for _, action in ipairs(listed) do
+--             if action == badged then
+--                 return Fail(NAME, "an isolated action is in the list")
+--             end
+--         end
+-- 
+--         -- And what leaves. `OnCopyClicked` is the button, and the box it fills is the one the
+--         -- reader copies out of. **The dialog keeps no copy of the string beside that box**, so the
+--         -- box is the only place to read it from (`ShowText`).
+--         panel:OnCopyClicked()
+--         local payload, why = DecodeExportedString(DebindCopyFrame.Output.EditBox:GetText())
+--         if not payload then
+--             return Fail(NAME, format("could not read the string: %s", why))
+--         end
+-- 
+--         local sent = PayloadActions(payload)
+--         if #sent ~= #listed then
+--             return Fail(NAME, format("the window said %d and it sent %d", #listed, #sent))
+--         end
+--         for _, action in ipairs(sent) do
+--             if action.value == badged.value then
+--                 return Fail(NAME, "an isolated action was carried into the string")
+--             end
+--         end
+-- 
+--         -- **The third number.** Adding puts the same set into the profile and gets there through
+--         -- `PlanArrival` rather than through the string, so this is what catches a tick set one of the
+--         -- two reads and the other does not. Planned rather than placed: the count is what is being
+--         -- asked, and placing would leave the run's layer holding a second copy of everything.
+--         --
+--         -- **The entry's own payload, not the one decoded above.** A tick is the action table
+--         -- itself, so a payload built by decoding holds a second set of tables that nothing has
+--         -- ticked, and planning against it places nothing. `OnAddClicked` reaches `PlanArrival`
+--         -- through `CommitEntry`, which opens the entry the same way the preview did
+--         -- (`GetEntryPayload`).
+--         local stored = DebindPrivate.Store.GetEntryPayload(entry)
+--         if not stored then
+--             return Fail(NAME, "could not open the entry payload")
+--         end
+-- 
+--         local planned, skipped = DebindPrivate.Store.PlanArrival(stored, { selection = panel.selected })
+--         if #planned ~= #listed then
+--             return Fail(NAME, format("the window said %d and it places %d", #listed, #planned))
+--         end
+--         if skipped ~= 0 then
+--             return Fail(NAME, format("%d came back with nowhere to go, those are addresses this board made", skipped))
+--         end
+-- 
+--         return Pass(NAME, format("%d = %d = %d, and the badge did not go out", #listed, #sent, #planned))
+--     end,
+-- })
 
 --- **The two verbs grey out, they do not leave** (2026-08-23, the owner). A control that disappears
 --- takes with it the answer to "what can I do here", and the screen where nothing is picked is
@@ -4324,13 +4538,13 @@ RegisterTest("Hover slot: unit disappears under a still cursor", {
 -- same two snippets. What this test sees on top of that is one thing: whether **the real sandbox
 -- allows** calling another body with `RunAttribute` from inside a wrapped script. Where it does not,
 -- that branch dies with no error and no log.
-RegisterTest("Hover slot: a deregistered frame stands the slot down", {
-    description = "Entering a frame whose registration has been dropped empties the hover slot",
+RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
+    description = "Entering a frame the addon has stepped off empties the hover slot",
     run = function()
-        local NAME = "Deregistered frame"
+        local NAME = "Frame stepped off"
 
         if InCombatLockdown() then
-            return Fail(NAME, "registering and unregistering a frame are both blocked in combat")
+            return Fail(NAME, "registering a frame and standing off one are both blocked in combat")
         end
 
         -- The hover axis is measured only where there is a hover condition, and that is what gives
@@ -4347,9 +4561,9 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
         local dropped, droppedErr = CreateTestUnitFrame("player", "group")
         if not dropped then return Fail(NAME, droppedErr) end
 
-        DebindPrivate.UnregisterFrame(dropped)
+        StandDownTestFrame(dropped)
         if DebindPrivate.ccframes[dropped] ~= nil then
-            return Fail(NAME, "the premise is gone: UnregisterFrame did not remove the row")
+            return Fail(NAME, "the premise is gone: the fight did not stand us down")
         end
 
         HoverEnter(tracked)
@@ -4373,7 +4587,7 @@ RegisterTest("Hover slot: a deregistered frame stands the slot down", {
                 tostring(GetHoverUnit())))
         end
 
-        return Pass(NAME, "entering a frame whose registration was dropped empties the slot")
+        return Pass(NAME, "entering a frame the addon stepped off empties the slot")
     end,
 })
 
@@ -5524,7 +5738,10 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
             self:RunAttribute("clickcast_register")
         ]])
 
-        -- `UnregisterFrame` skips `hd` rows, so the header's own door is the only way back out.
+        -- **The frame's own teardown is what takes the row**, and `clickcast_unregister` is not: a
+        -- header taking a child back is a deregistration from outside and those do nothing now
+        -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5). Run here anyway,
+        -- because the body still has to be reachable by name from a header that calls it.
         AddTeardown(function()
             SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_cc", frame)
             SecureHandlerExecute(DebindPrivate.BindingDriver, [[
@@ -5579,7 +5796,9 @@ RegisterTest("Header registration takes a frame back from the click-cast table",
 -- have; installing it is outside the game.
 --
 -- The three are the three ways this could go wrong, and each of them is silent. Taking
--- `ClickCastFrames` leaves Clique writing into a table nobody reads. Taking `Clique` or
+-- `ClickCastFrames` leaves whoever is answering for Clique writing into a table nobody reads --
+-- and that holder is not always Clique itself: with EllesmereUI's engine on, its proxy sits over
+-- Clique's table and is what we stand behind. Taking `Clique` or
 -- `ClickCastHeader` puts our stand-in over the real addon, and every unit frame addon that asks for
 -- Clique gets us instead. That is the whole reason `DebindCliqueFake` may not load here, since
 -- its XML would also raise on `ClickCastUnitTemplate`.
@@ -5606,20 +5825,24 @@ RegisterTest("Clique: the real addon keeps every name that is its own", {
         if type(_G.ClickCastFrames) ~= "table" then
             return Fail(NAME, format("ClickCastFrames is not a table (%s)", type(_G.ClickCastFrames)))
         end
-        -- **Ours answers for a frame it was never told about, and Clique's does not.** That is the
-        -- one difference readable from outside: our table keeps its rows beside itself behind an
-        -- `__index`, and Clique's proxy carries no `__index` at all. **Readable only while standing
-        -- aside**: working alongside, `ClickCastTable.lua` wraps Clique's metatable and puts an
-        -- `__index` of ours on it without taking the table, so the read would report the wrong
-        -- fault there (code review, 2026-09-08).
-        local mt = getmetatable(_G.ClickCastFrames)
-        if DebindPrivate.StandsAsideForClique() and type(mt) == "table" and mt.__index then
-            return Fail(NAME, "ClickCastFrames is ours, so Clique is writing into a table nobody reads")
+        -- **신원으로 묻는다. 모양으로는 못 가른다.** 여기서 `__index`가 달린 메타테이블을 우리
+        -- 것으로 읽던 자리인데, 그 전제는 "남의 프록시에는 `__index`가 없다" 하나에 걸려 있었다.
+        -- EllesmereUI의 엔진은 자기 `registeredFrames`에서 답하는 `__index`를 달고, Clique가
+        -- 깔린 판에서도 저장된 설정이 켜져 있으면 그 프록시가 Clique의 표 위에 앉는다
+        -- (`devdocs/how-unit-frames-reach-us.md`의 EllesmereUI 절). 그 판에서 이 검사는 남의
+        -- 프록시를 보고 우리를 탓했다. 지금 묻는 것은 우리가 누구 뒤에 서 있느냐이고, 그 답은
+        -- `ClickCastTable.lua` 안에서만 나온다.
+        local holder = DebindPrivate.ClickCastTableHolder and DebindPrivate.ClickCastTableHolder()
+        if holder == nil then
+            return Fail(NAME, "ClickCastFrames is ours, so whoever is answering for Clique is writing into a table nobody reads")
+        end
+        -- 들고 있는 표가 바뀌었는데 우리가 옛 표 뒤에 남아 있으면, 듣고 있는 곳이 아무도 안
+        -- 쓰는 표다. 이름 위의 것과 같은 표여야 한다.
+        if holder ~= _G.ClickCastFrames then
+            return Fail(NAME, "we are hooked onto a table that is no longer under the name")
         end
 
-        local alongside = not DebindPrivate.StandsAsideForClique()
-        return Pass(NAME, alongside and "나란히 서는 중이고 셋 다 Clique 것이다"
-            or "물러서 있고 셋 다 Clique 것이다")
+        return Pass(NAME, "나란히 서는 중이고, 이름은 우리 것이 아니며 우리는 그 표 뒤에 서 있다")
     end,
 })
 
@@ -5628,9 +5851,9 @@ RegisterTest("Clique: the real addon keeps every name that is its own", {
 -- there, and the runner loads neither.
 --
 -- Three questions, and they are the three the rule turns on. Is the holder's table left where it
--- is; does a write it keeps for itself still leave it holding that frame; and does a write it
--- files and drops reach us. A frame it kept reaches us as well now, because standing on top of
--- whatever it wrapped means both engines work there.
+-- is; does a write it keeps for itself still leave it holding that frame; and does every write
+-- reach us, whichever way it answered. Both answers are ours, because standing on top of whatever
+-- it wrapped means both engines work there.
 RegisterTest("Click-cast table: the holder keeps the name and we stand on top of it", {
     description = "남의 ClickCastFrames를 되찾지 않고 그 뒤에 서서, 우리가 들고 있던 행을 건네주고 쓰기와 읽기를 다 듣는다",
     run = function()
@@ -5684,7 +5907,6 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
         local err0
         handed, err0 = CreateTestUnitFrame("player", "player")
         if not handed then return Fail(NAME, err0) end
-        DebindPrivate.UnregisterFrame(handed)
         mine[handed] = true
         local handedRow = DebindPrivate.ccframes[handed]
         if type(handedRow) ~= "table" then
@@ -5715,42 +5937,35 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
 
         -- The frame the holder keeps. `kept` is what its `__index` answers out of, so writing it
         -- there first is that addon deciding before the write comes back to us. It stays theirs
-        -- and it is ours as well.
-        local mine, err1 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
-        if not mine then return Fail(NAME, err1) end
-        DebindPrivate.UnregisterFrame(mine)
-        kept[mine] = true
-        _G.ClickCastFrames[mine] = true
-        if type(DebindPrivate.ccframes[mine]) ~= "table" then
+        -- and it is ours as well. **Built without a registration**, so the write below is what
+        -- registers it and the frame is not one we were already holding.
+        local theirFrame = MakeTestUnitFrame(UNIT_TOKEN_ABSENT)
+        kept[theirFrame] = true
+        _G.ClickCastFrames[theirFrame] = true
+        if type(DebindPrivate.ccframes[theirFrame]) ~= "table" then
             return Fail(NAME, format("a frame the holder kept never reached us (ccframes=%s)",
-                tostring(DebindPrivate.ccframes[mine])))
+                tostring(DebindPrivate.ccframes[theirFrame])))
         end
-        if kept[mine] ~= true then
+        if kept[theirFrame] ~= true then
             return Fail(NAME, "the holder lost the frame it had kept")
         end
 
         -- And the frame it filed and dropped.
-        local dropped, err2 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
-        if not dropped then return Fail(NAME, err2) end
-        DebindPrivate.UnregisterFrame(dropped)
+        local dropped = MakeTestUnitFrame(UNIT_TOKEN_ABSENT)
         _G.ClickCastFrames[dropped] = true
-        if type(DebindPrivate.ccframes[dropped]) ~= "table" then
+        local droppedRow = DebindPrivate.ccframes[dropped]
+        if type(droppedRow) ~= "table" then
             return Fail(NAME, format("a frame the holder dropped never reached us (ccframes=%s)",
-                tostring(DebindPrivate.ccframes[dropped])))
+                tostring(droppedRow)))
         end
 
-        -- **The owner takes a frame back by reading the table first**
-        -- (`if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end`), and the holder
-        -- answers nil for a frame it never kept -- so unless that read answers, the reclaim below
-        -- never happens and we go on routing a frame its owner asked for back.
-        if not _G.ClickCastFrames[dropped] then
-            return Fail(NAME, "reading the table back said nobody was answering for a frame we had taken")
-        end
-
-        -- A deregistration is honoured wherever it comes from.
+        -- **A deregistration arriving from outside means nothing**, here as everywhere: being ours
+        -- is the blacklist's answer and not the frame owner's
+        -- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5).
         _G.ClickCastFrames[dropped] = nil
-        if DebindPrivate.ccframes[dropped] then
-            return Fail(NAME, "a nil write did not take the frame back off us")
+        if DebindPrivate.ccframes[dropped] ~= droppedRow then
+            return Fail(NAME, format("a nil write behind the holder took our row (ccframes=%s)",
+                tostring(DebindPrivate.ccframes[dropped])))
         end
 
         -- **A holder puts its proxy up and then wraps its own frames, and we know nothing about any
@@ -5779,16 +5994,14 @@ RegisterTest("Click-cast table: the holder keeps the name and we stand on top of
             return Fail(NAME, "a foreign wrap never sent us back to look at the name")
         end
 
-        local third, err3 = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
-        if not third then return Fail(NAME, err3) end
-        DebindPrivate.UnregisterFrame(third)
+        local third = MakeTestUnitFrame(UNIT_TOKEN_ABSENT)
         later[third] = true
         if type(DebindPrivate.ccframes[third]) ~= "table" then
             return Fail(NAME, format("a registration written into the holder's proxy was never heard (ccframes=%s)",
                 tostring(DebindPrivate.ccframes[third])))
         end
 
-        return Pass(NAME, "the name was left alone, the frame we already had went over, the kept and dropped ones both came to us, and a later proxy was heard")
+        return Pass(NAME, "the name was left alone, the frame we already had went over, the kept and dropped ones both came to us, a nil write took nothing back, and a later proxy was heard")
     end,
 })
 
@@ -5900,6 +6113,79 @@ local function CheckNamedFrames(NAME, entries)
     return Pass(NAME, detail);
 end
 
+-- **Only a board with the real Clique can answer this**, and the stand-in cannot: what is measured
+-- is that the frames Clique itself is holding carry our wiring as well, so the two engines are on
+-- one frame rather than one of them having quietly won
+-- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-1).
+--
+-- **Both of Clique's lists, because they are two doors.** `Clique.ccframes` is what came in from
+-- the insecure side and `Clique.hccframes` what its header protocol registered by name -- the
+-- second is the one `export_register` fills, and nothing but a real Clique drives it.
+--
+-- **The kind is not asserted.** These are somebody else's frames and what each one is depends on
+-- that board's layout; what a fault here looks like is a frame with no row or no routing at all.
+RegisterTest("Clique: the frames Clique holds are wired by us too", {
+    description = "진짜 Clique가 들고 있는 개체창에 우리 배선도 같이 걸려 있다",
+    applies = function()
+        if not DebindPrivate.CliqueDetected then
+            return false, "Clique is not installed on this board"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Clique alongside"
+
+        local clique = _G.Clique
+        if type(clique) ~= "table" then
+            return Fail(NAME, format("the Clique global is not a table (%s)", type(clique)))
+        end
+
+        local checked, faults = 0, {}
+        local function CheckOne(frame, label)
+            if type(frame) ~= "table" or not frame.GetAttribute then
+                return
+            end
+            local row = DebindPrivate.ccframes[frame]
+            if row == false then
+                -- A frame the addon wrote off (unprotected, forbidden, anchor-tied, no clicks) is
+                -- not a fault: those refusals are the same ones every door makes.
+                return
+            end
+            if type(row) ~= "table" then
+                faults[#faults + 1] = format("%s has no row of ours (ccframes=%s)",
+                    label, tostring(row))
+                return
+            end
+            if frame:GetAttribute("*type-debind1") ~= "click" then
+                faults[#faults + 1] = format("%s has a row but no click routing (*type-debind1=%s)",
+                    label, tostring(frame:GetAttribute("*type-debind1")))
+                return
+            end
+            checked = checked + 1
+        end
+
+        if type(clique.ccframes) == "table" then
+            for frame in pairs(clique.ccframes) do
+                CheckOne(frame, tostring(frame.GetName and frame:GetName() or frame))
+            end
+        end
+        if type(clique.hccframes) == "table" then
+            for name, frame in pairs(clique.hccframes) do
+                CheckOne(frame, tostring(name))
+            end
+        end
+
+        if #faults > 0 then
+            return Fail(NAME, table.concat(faults, " | "))
+        end
+        if checked == 0 then
+            return Fail(NAME,
+                "Clique is holding no frame we could look at, so nothing here was measured")
+        end
+        return Pass(NAME, format("%d of Clique's frames carry our row and our routing", checked))
+    end,
+})
+
 -- **Needs the game, and needs no pack.** What a client alone can answer is whether a frame the
 -- switch turned away really goes without the routing and the frametype attribute the secure side
 -- reads at the press -- the row is only half of that. The kit adds its own row to
@@ -5919,16 +6205,15 @@ RegisterTest("a pack that is turned off is not wired at all", {
         local removeRow = DebindPrivate.AddKnownPackFrameRow("^debindpackswitchtestframe%d+$",
             PACK, "group");
 
-        --- **The switch is turned off before the frames are let go, and the row comes off last.**
-        --- `UnregisterFrame` keeps a frame whose pack is on, so a teardown that let go first would
-        --- leave the "on" frame wired for the rest of the session. Teardowns run newest first, and
-        --- the frames register theirs after this one, so this is one function rather than three.
+        --- **The pack row comes off last**, after every frame it named has been stepped off: it is
+        --- what `PackAddonForFrame` answers from, and the frames below keep their names for the rest
+        --- of the session. One function rather than three, because teardowns run newest first and
+        --- the frames make theirs after this one.
         local saved = DebindPrivate.packFrames[PACK];
         local made = {};
         AddTeardown(function()
-            DebindPrivate.packFrames[PACK] = false;
             for i = 1, #made do
-                DebindPrivate.UnregisterFrame(made[i]);
+                StandDownTestFrame(made[i]);
                 made[i]:Hide();
             end
             DebindPrivate.packFrames[PACK] = saved;
@@ -6116,9 +6401,8 @@ RegisterTest("EllesmereUI: HoverCast on leaves the name with the pack", {
             return Fail(NAME, "the name carries a plain table, so the pack is not holding it and this case is standing in the wrong place")
         end
 
-        local frame, err = CreateTestUnitFrame(UNIT_TOKEN_ABSENT, "group")
-        if not frame then return Fail(NAME, err) end
-        DebindPrivate.UnregisterFrame(frame)
+        -- **Built without a registration**, so the write below is what registers it.
+        local frame = MakeTestUnitFrame(UNIT_TOKEN_ABSENT)
 
         _G.ClickCastFrames[frame] = true
         local answered = held[frame]
@@ -7609,11 +7893,9 @@ RegisterTest("Settings: our category draws the rows we registered", {
         local wanted = {
             UNITFRAME_LABEL,
             LLL["UNITFRAME_CLICK_EDGE"],
-            LLL["BLIZZARD_UNIT_FRAMES"],
+            LLL["LEAVE_UNIT_FRAMES_ALONE"],
             LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
             LLL["BLIZZARD_UNIT_FRAMES_ARENA"],
-            LLL["ADDON_UNIT_FRAMES"],
-            LLL["TAKE_UNREGISTERED_UNIT_FRAMES"],
             LLL["SMART_CAST_DEFAULTS"],
             LLL["SMART_CAST_ENABLED"],
             LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],

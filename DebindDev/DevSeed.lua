@@ -296,6 +296,20 @@ SEEDS[6] = function(guid)
         };
     end
 
+    --- 유닛 조건의 옛 모양을 그대로 든 행. **`dbver <= 7`이 만나는 입력이 이것이다.**
+    ---
+    --- 씨앗 하나는 자기 다음 단계가 **실제로 만나는 데이터**를 들고 있어야 한다. 안 그러면
+    --- `/deb seed 6`으로 올라와도 그 단계는 아무것도 안 만난 채 지나가고, 게임에서 재는 것이
+    --- 없다. 이 판은 두 단계를 잇달아 탄다.
+    local function OldUnitCondition(seq, name, condition)
+        return {
+            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+            value = format("/script print(\"unit-%s\")", name), name = "Unit " .. name,
+            key = "CTRL-F9", seq = seq,
+            conditions = { units = { target = condition } },
+        };
+    end
+
     return {
         dbver = 6,
 
@@ -308,6 +322,22 @@ SEEDS[6] = function(guid)
                 Hover(5, Constants.FRAMETYPE_TARGET, "target"),
                 Hover(6, Constants.FRAMETYPE_BOSS, "boss"),
                 Hover(7, Constants.FRAMETYPE_ARENA, "arena"),
+
+                --- 유닛 조건의 네 모양. 올라오고 나면 앞의 셋이 `exists`를 얻고 넷째가
+                --- `disabled`가 되어야 한다. 툴팁과 조건 메뉴가 넷을 다르게 그려야 하는 것도
+                --- 같이 보인다.
+                OldUnitCondition(1, "exists", {}),
+                OldUnitCondition(2, "axis only", { reaction = Constants.REACTION_HELP }),
+                OldUnitCondition(3, "absent", { exists = false, dead = true }),
+                OldUnitCondition(4, "off", { off = true, reaction = Constants.REACTION_HARM,
+                    group = Constants.UNITGROUP_PARTY }),
+
+                --- `dbver <= 6`이 만나는 하나. 올라오고 나면 `useslot`이고, 행에는 그 칸에
+                --- 낀 것이 그려진다. **타입 문자열을 그대로 적는다** - 상수는 없어졌고, 이
+                --- 파일이 드는 것은 옛 판이다.
+                {
+                    type = "equipslot", value = 13, key = "CTRL-F10", seq = 1,
+                },
             },
         },
 
@@ -356,6 +386,80 @@ SEEDS[6] = function(guid)
         --- **The key shape is `GetSwitchLayerKey`'s** and is written out here the way every other
         --- stored shape in this file is. A character tab's key would name a GUID, which is a
         --- character this seed cannot know; a class tab's key is the class of whoever plants it.
+        switches = {
+            ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
+                displayMessage = true,
+                overrides = {
+                    [Constants.PLAYER_CLASS .. ":1"] = {
+                        mode = Constants.SWITCH_MODES.MANUAL, resetValue = false },
+                },
+            },
+            ["$state2"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[combat]" },
+            ["$state3"] = { mode = Constants.SWITCH_MODES.MANUAL },
+        },
+    };
+end;
+
+
+--- `dbver` 7. 위 판과 다른 것은 둘뿐이다 - `equipslot`이 `useslot`이 됐고, 스탬프가 7이다.
+--- 유닛 조건은 그대로다: 그 모양을 바꾸는 것이 `dbver <= 7` 단계이고, 이 판은 그 단계의
+--- **입력**이다.
+---
+--- **6과 7을 둘 다 두는 것은 경로가 둘이기 때문이다.** 6에서 올라오면 두 단계가 잇달아 돌고,
+--- 7에서 올라오면 새 단계 하나만 돈다. 갈라지는 자리가 있으면 앞의 경로에서만 보인다.
+SEEDS[7] = function(guid)
+    --- 위 판과 같은 행이다. **같은 값을 두 번 적는 것이 이 파일의 규칙이다** - 씨앗은 그
+    --- `dbver`가 저장하던 모양을 통째로 든다. 위를 참조하면 6을 고칠 때 7이 따라 움직이고,
+    --- 그러면 두 판이 하나가 된다.
+    local function OldUnitCondition(seq, name, condition)
+        return {
+            type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+            value = format("/script print(\"unit-%s\")", name), name = "Unit " .. name,
+            key = "CTRL-F9", seq = seq,
+            conditions = { units = { target = condition } },
+        };
+    end
+
+    return {
+        dbver = 7,
+
+        shared = {
+            GENERAL = {
+                OldUnitCondition(1, "exists", {}),
+                OldUnitCondition(2, "axis only", { reaction = Constants.REACTION_HELP }),
+                OldUnitCondition(3, "absent", { exists = false, dead = true }),
+                OldUnitCondition(4, "off", { off = true, reaction = Constants.REACTION_HARM,
+                    group = Constants.UNITGROUP_PARTY }),
+
+                --- 호버 조건도 같은 표를 쓴다. 올라오고 나면 이쪽도 `exists`를 든다.
+                {
+                    type = Constants.MACROTEXT, icon = QUESTION_MARK_ICON,
+                    value = "/script print(\"hover\")", name = "Hover",
+                    key = "ALT-BUTTON1", seq = 1,
+                    conditions = { frameTypes = Constants.FRAMETYPE_GROUP,
+                        units = { hover = {} } },
+                },
+
+                --- 위 판에서 올라온 뒤의 이름. 이 판에는 `equipslot`이 없다.
+                {
+                    type = Constants.USESLOT, value = 13, key = "CTRL-F10", seq = 1,
+                },
+            },
+        },
+
+        characters = {
+            [guid] = {
+                switches = { ["$state3"] = true },
+            },
+        },
+
+        migrated = { [guid] = true },
+        legacyNeeded = false,
+
+        options = {
+            blizzframes = {},
+        },
+
         switches = {
             ["$state1"] = { mode = Constants.SWITCH_MODES.MANUAL, resetValue = true,
                 displayMessage = true,

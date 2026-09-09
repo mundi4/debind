@@ -23,7 +23,7 @@ So the binds have to be layered, and one key has to be able to mean more than on
 - **Layers, not profiles.** account → class → spec → this character → that character's spec. The narrowest layer holding that key wins; the rest keep every other key. Nothing to switch by hand — the layers follow your character and spec.
 - **`@healer` and `@tank` that actually work.** WoW has no idea what a healer is; Debind does. Pick **Healer** as an action's target and you're done — no macro. And where you do want one, `/cast [@healer,exists][] Innervate` is one line.
 - **Conditions on any key.** In combat, in a form, in a party or a raid, while some unit exists — re-checked as they change.
-- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons that support Clique already work with it, as long as Clique itself is turned off.
+- **Click casting built in.** Hovering a unit frame is a condition like any other, so one key can heal off the raid frames and stay a normal key everywhere else. Unit frame addons work with it whether or not they support Clique, and Clique itself can run alongside.
 - **Flip what a key does mid-fight.** Switches of your own, usable in combat, without spending a real modifier.
 
 **Debind is for the keys where the answer isn't "all of them."** Put in the ones you want now — every other key goes on working exactly as it did.
@@ -160,7 +160,9 @@ It's not one switch, either. You pick which frames count — player, pet, party 
 
 ![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which frame types count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
 
-Unit frame addons that support Clique register with Debind the same way they register with Clique. Most of them do that only while their own hover cast feature is switched off — with it on they keep their frames, and Debind works on those frames anyway, without stopping anything that addon does there. If you would rather it left them alone, there is a box for that under Unit frame options. And you can run Clique itself alongside this. Debind leaves unit frames to Clique and everything else works as usual — what stops is the hover condition and any action aimed at `@hover`. Both are marked in the list, and Debind says so when you log in.
+Debind works on unit frames whoever draws them. An addon that supports Clique registers with Debind the same way it registers with Clique; one that keeps its frames for its own hover casting is found anyway, and Debind works there without stopping anything that addon does. Clique itself can be installed and running at the same time, and both engines work on the frame — where you have bound the same key in both, Debind's is what fires.
+
+If you would rather Debind left some of them alone, "Leave these unit frames alone" under Unit frame options lists the game's own seven windows and every unit frame addon Debind knows by name. Tick one and Debind stays off those frames from the next login.
 
 ## A few things worth knowing
 

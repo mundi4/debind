@@ -9,8 +9,8 @@
 -- 걸려 있던 값으로 다시 정하는 리빌드는 바인딩을 안 바꾼다. 그래서 물어볼 수 있는 것은
 -- 돌았느냐뿐이고, `interp:rebuildCount()`가 그 답이다.
 --
--- 다른 하나는 등록이 풀린 프레임이다. 래퍼를 안 떼므로 그런 프레임에서도 우리 본문이 계속
--- 돌고, 거기 들어갔을 때 무엇을 하느냐가 해제의 실체다.
+-- 다른 하나는 우리가 물러난 프레임이다. 래퍼를 안 떼므로 그런 프레임에서도 우리 본문이 계속
+-- 돌고, 거기 들어갔을 때 무엇을 하느냐가 물러남의 실체다.
 
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
@@ -50,7 +50,7 @@ return function(DebindPrivate, _, ctx)
     local unitFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
     DebindPrivate.RegisterFrame(unitFrame, "group");
 
-    --- 등록을 풀 프레임 둘. 아래 두 테스트가 하나씩 쓴다.
+    --- 우리가 물러날 프레임 둘. 아래 두 테스트가 하나씩 쓴다.
     local spare = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
     DebindPrivate.RegisterFrame(spare, "group");
     local dropped = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
@@ -111,20 +111,30 @@ return function(DebindPrivate, _, ctx)
         return interp:rebuildCount();
     end
 
-    --- 등록을 풀고, 그 해제를 제한 환경에도 먹인다. `DeinitFrame`은 `SecureHandlerExecute`로
+    --- 행을 잃게 만들고, 그 해제를 제한 환경에도 먹인다. `DeinitFrame`은 `SecureHandlerExecute`로
     --- 나가므로 replay 전에는 인터프리터의 `ccframes`에 행이 그대로 있다.
-    --- **With the wider option off**, because that is the state in which a deregistration is
-    --- honoured at all: on, a frame its owner reclaims is one it keeps to itself and stays ours
-    --- (`FrameRegistry.KeepsFrameOnRelease`). What is measured here is what a release does to the
-    --- wrappers and the hover slot, which needs the release to happen.
-    local function unregister(frame)
+    ---
+    --- **싸움이 유일한 길이다.** 밖에서 들어오는 해제는 이제 아무것도 안 하고
+    --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §1-5), 행이 사라지는 자리는
+    --- `StandDown` 하나만 남았다. 싸움의 정의가 **우리가 감싸는 그 순간에 그 위에 다시 감는
+    --- 것**이라 여기서도 그렇게 만든다 - 우리 리어셈블리가 스택에 있는 동안 남의 래퍼를 얹으면
+    --- 그 프레임에서 물러난다.
+    local function standDown(frame)
+        local theirs = frames.newFrame("Frame", nil, nil, "SecureHandlerBaseTemplate");
+        local fighting = false;
+        hooksecurefunc("SecureHandlerWrapScript", function(wrapped, script, header)
+            if (wrapped == frame and script == "OnEnter" and fighting
+                    and header == DebindPrivate.BindingDriver) then
+                fighting = false;
+                SecureHandlerWrapScript(frame, "OnEnter", theirs, "-- theirs, on top again");
+            end
+        end);
+
         local mark = frames.mark();
-        DebindPrivate.takeUnregisteredFrames = false;
-        local ok, err = pcall(DebindPrivate.UnregisterFrame, frame);
-        DebindPrivate.takeUnregisteredFrames = nil;
-        if (not ok) then
-            error(err, 0);
-        end
+        fighting = true;
+        SecureHandlerWrapScript(frame, "OnEnter", theirs, "-- theirs");
+        fighting = false;
+
         local entries = frames.since(mark);
         interp:replay(entries);
         return entries;
@@ -314,35 +324,43 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- 등록을 놓은 프레임
+    -- 우리가 물러난 프레임
     ---------------------------------------------------------------------------
 
-    --- **등록을 풀 때 래퍼를 떼지 않는다.**
+    --- **프레임에서 물러날 때 래퍼를 떼지 않는다.**
     ---
     --- `SecureHandlerUnwrapScript`이 떼는 것은 맨 위 래퍼인데 (`SecureHandlers.lua`의
     --- `RemoveWrapper`가 `frame:GetScript`으로 지금 걸린 것을 잡는다), 그것이 우리 것이라는
     --- 보장이 없다. 남이 나중에 같은 스크립트를 감쌌으면 우리가 부르는 그 호출은 남의 것을
     --- 떼고 우리 것은 남긴다. 우리가 감싼 `OnClick`은 진작 안 뗐고 (`FrameRegistry.lua`의
     --- `_wrapped`), `OnEnter`/`OnLeave`만 안 그랬다.
-    test("등록을 풀어도 OnEnter/OnLeave 래퍼는 안 뗀다", function()
+    ---
+    --- 물러나는 쪽이 부르는 unwrap은 리어셈블리 자신의 것이라 여기서 안 센다 - 세는 것은
+    --- 행이 사라진 **뒤에** 떨어진 래퍼다.
+    test("프레임에서 물러나도 OnEnter/OnLeave 래퍼는 안 뗀다", function()
         twoParty();
         Bind({ action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }) });
 
-        local entries = unregister(spare);
+        local entries = standDown(spare);
+        check(DebindPrivate.ccframes[spare] == nil, "싸움에서 물러났는데 ccframes 행이 남았다");
 
-        local unwrapped;
+        local unwrappedAfter;
+        local rowGone = false;
         for i = 1, #entries do
-            if (entries[i].kind == "UnwrapScript") then
-                unwrapped = tostring(entries[i].name);
+            local entry = entries[i];
+            if (entry.kind == "Execute" and strfind(tostring(entry.body), "DeinitFrame", 1, true)) then
+                rowGone = true;
+            elseif (rowGone and entry.kind == "UnwrapScript") then
+                unwrappedAfter = tostring(entry.name);
             end
         end
-        check(unwrapped == nil,
-            ("해제가 %s 래퍼를 뗐다. 그 자리에 남의 것이 있으면 남의 것이 떨어진다")
-                :format(tostring(unwrapped)));
-        check(DebindPrivate.ccframes[spare] == nil, "해제가 ccframes 행을 안 지웠다");
+        check(rowGone, "전제가 깨졌다 - 물러나면서 DeinitFrame을 안 냈다");
+        check(unwrappedAfter == nil,
+            ("물러나면서 %s 래퍼를 뗐다. 그 자리에 남의 것이 있으면 남의 것이 떨어진다")
+                :format(tostring(unwrappedAfter)));
     end);
 
-    --- **그래서 해제는 본문이 한다.** 위가 남겨둔 래퍼는 등록이 풀린 프레임에서도 계속 돈다.
+    --- **그래서 청소는 본문이 한다.** 위가 남겨둔 래퍼는 우리가 물러난 프레임에서도 계속 돈다.
     --- 거기 들어갔을 때 그냥 물러나면 안 된다. 마우스 포커스는 한 번에 하나이므로 **추적 안
     --- 하는 프레임 안에 커서가 있다는 것 자체가 우리가 마지막으로 적어둔 프레임 안에는 없다는
     --- 증거이고**, 그래서 `setup_onleave`로 넘긴다. 그것이 `OnLeave` 유실의 청소이기도 하다.
@@ -359,7 +377,7 @@ return function(DebindPrivate, _, ctx)
         check(i.env.UnitAliasMap.hover == "party1",
             ("전제가 깨졌다. 진입 후 hover=%s"):format(tostring(i.env.UnitAliasMap.hover)));
 
-        unregister(dropped);
+        standDown(dropped);
         check(i.env.UnitAliasMap.hover == "party1",
             "전제가 깨졌다. 다른 프레임 해제가 호버 슬롯을 비웠다");
 

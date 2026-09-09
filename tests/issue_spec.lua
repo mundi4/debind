@@ -317,7 +317,7 @@ return function(DebindPrivate)
     test("끈 호버 조건은 왼쪽 버튼을 못 쓰게 한다", function()
         check(mouseKeyIssue({ units = { hover = { exists = false } } }) == MOUSE_ISSUE,
             "\"없을 때\"를 켜진 것으로 읽었다");
-        check(mouseKeyIssue({ units = { hover = { off = true,
+        check(mouseKeyIssue({ units = { hover = { disabled = true,
             reaction = Constants.REACTION_HELP } } }) == MOUSE_ISSUE,
             "기억만 하는 값을 켜진 것으로 읽었다");
     end);
@@ -337,7 +337,7 @@ return function(DebindPrivate)
         -- 구분되지 않는다.
         check(commandIssue({}) == HOVER_COMMAND, "전제가 깨졌다 - 켜진 호버는 걸려야 한다");
 
-        check(commandIssue({ off = true, reaction = Constants.REACTION_HELP }) ~= HOVER_COMMAND,
+        check(commandIssue({ disabled = true, reaction = Constants.REACTION_HELP }) ~= HOVER_COMMAND,
             "기억만 하는 값으로 호버-명령 검사가 걸렸다");
         check(commandIssue({ exists = false }) ~= HOVER_COMMAND,
             "\"없을 때\"로 호버-명령 검사가 걸렸다");

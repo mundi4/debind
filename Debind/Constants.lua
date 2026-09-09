@@ -7,7 +7,7 @@ Constants.DEBUG                           = false;
 Constants.DEBUG                           = true;
 --@end-debug@
 Constants.NIL                             = "\0";
-Constants.DB_VERSION                      = 7;
+Constants.DB_VERSION                      = 8;
 Constants.MAX_NUM_ACTIONS_PER_LAYER       = 1000;
 Constants.CLICKBINDING_NON_MOD_PREFIX     = ""; -- "" or "*"
 Constants.STATE_DRIVER_UPDATETIME_DEFAULT = 0.2;
@@ -547,9 +547,6 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- The action names a macro that is in neither this account's nor this character's macro store. The
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
--- The option is set and Clique holds the frames, so the twin is not derived. The action still
--- runs on its own target; only the aim over a frame is gone, which is why this is not the ERROR
--- a hover **condition** under Clique gets.
 
 
 -- How loudly a problem is drawn. The drawing code asks for the grade, never for the code, so the
@@ -559,6 +556,11 @@ Constants.ISSUE_GRADE_ERROR = 1;
 --- **The action runs; something around it does not.** Orange rather than red (2026-09-06, owner).
 --- The key works, one thing it was told to do does not, and there may be nothing to fix at all
 --- (another addon owns the frames), so a colour that says work is waiting would be a lie.
+---
+--- **The one code that carried this went with the Clique option it was about (2026-09-09), and the
+--- grade stays behind on purpose (owner).** What it buys is that the next issue of this kind picks
+--- its colour, its icon and its place in `BuildKeyMap` by adding one row to the table below --
+--- taking the grade out would mean building all of that again to put one code back.
 Constants.ISSUE_GRADE_WARNING = 2;
 
 --- Which grade each code carries, and the question each one answers is **what the reader sees**:

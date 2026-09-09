@@ -443,14 +443,14 @@ local REACTION_TO_UNIT_STATE = {
 --- **옵션을 끄는 것이지 지우는 것이 아니다** - `frameTypes`가 hover를 껐다 켜도 남아 있는 것과
 --- 같은 규칙이고, 이 메뉴만 예외일 이유가 없다.
 ---
----     { }                          있을 때 (표시가 없으면 이것)
----     { reaction = m, dead = b }   있을 때 + 축
+---     { exists = true, ... }       있을 때. 축이 붙으면 그만큼 좁아진다
 ---     { exists = false, ... }      없을 때. 축은 기억만 한다
----     { off = true, ... }          이 유닛에 조건 없음. 축은 기억만 한다
+---     { disabled = true, ... }     이 유닛에 조건 없음. 축은 기억만 한다
 ---
---- 두 표시가 다 **없는 것이 "있을 때"인 것**이 중요하다. 손으로 쓴 값이나 아직 안 옮겨진
---- 프로필이 그 모양으로 오는데, 그것을 "조건 없음"으로 읽으면 걸어둔 조건이 조용히 사라져
---- 바인딩이 제 것 아닌 키까지 가져간다. 좁아지는 쪽이 안전하다.
+--- **표시가 하나도 없는 표는 옛 값이고, "있을 때"로 읽는다.** `dbver <= 7` 단계가 그것을
+--- `exists = true`로 올리므로 저장에는 안 남는다. 아직 안 옮겨진 프로필과 페이로드가 그
+--- 모양으로 오는데, 그것을 "조건 없음"으로 읽으면 걸어둔 조건이 조용히 사라져 바인딩이 제 것
+--- 아닌 키까지 가져간다. 좁아지는 쪽이 안전하다.
 ---
 --- 바인딩은 판정에 쓰는 것이라 기억을 안 들고 간다. 그래야 `IsConditionalBinding`도, 이슈
 --- 검사도, 런타임 방출도 "꺼진 축"이라는 경우를 몰라도 된다.
@@ -482,7 +482,10 @@ local function UnitConditionForBinding(value)
         return false, true;
     end
 
-    if (value.off) then
+    -- **옛 이름 `off`도 여기서 받는다**, 옛 스칼라를 받는 것과 같은 이유로. `dbver <= 7`이
+    -- 저장을 올리지만, 그 사다리를 아직 안 탄 값이 이리로 온다 - 페이로드가 대표적이고, 그것을
+    -- "있을 때 + 기억한 축"으로 읽으면 **보낸 사람이 꺼둔 조건이 켜진 채로 살아난다.**
+    if (value.disabled or value.off) then
         return nil;
     elseif (value.exists == false) then
         return false;
@@ -1106,11 +1109,9 @@ do
             and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type] or false;
     end
 
-    --- **Derived whatever Clique does.** The twin needs only the hovered unit, and standing aside
-    --- `GetHoveredUnit` still answers: from our own row over Blizzard's frames, and from Clique's
-    --- hovered button over the frames Clique holds (`SecureBindings.ApplyStandAsideForClique`).
-    --- Withholding it and printing a warning instead was from before Blizzard's frames stayed ours
-    --- (code review, 2026-09-08).
+    --- **Derived whatever Clique does.** The twin needs only the hovered unit, and every unit frame
+    --- is ours, so `GetHoveredUnit` answers over all of them. Withholding it and printing a warning
+    --- instead was from before Blizzard's frames stayed ours (code review, 2026-09-08).
     local WantsHoverTwin = HoverTwinWanted;
 
     --- Is the box on this action doing anything at all?
@@ -1352,7 +1353,7 @@ local function ActionHoverIsOn(action)
     if (condition == nil) then
         return action.hover == true;
     end
-    -- **접어서 본다.** 저장 원문에는 끈 조건도 남아 있어서 `{ exists = false }`도 `{ off = true }`도
+    -- **접어서 본다.** 저장 원문에는 끈 조건도 남아 있어서 `{ exists = false }`도 `{ disabled = true }`도
     -- 표라는 이유만으로 "켜짐"이 된다. `DeriveHoverFields`와 정반대 답을 내면 왼/우클릭
     -- 유효성이 뒤집힌다.
     local folded = UnitConditionForBinding(condition);
@@ -2051,9 +2052,9 @@ end
 --- with `band` when two keys speak about it, and an intersection of a reaction subset with a life
 --- half is itself one of each, so the stored shape can always say the answer.
 ---
---- `{ reaction = 0 }` is the empty one: exists, and in none of the three reactions, which no unit
---- satisfies. Not a new marker -- `HoverConditionFromLegacy` writes the same value where its two
---- sides do not overlap, and `GetBindingIssue` already reads a zero mask that way.
+--- `{ exists = true, reaction = 0 }` is the empty one: exists, and in none of the three reactions,
+--- which no unit satisfies. Not a new marker -- `HoverConditionFromLegacy` writes the same zero
+--- mask where its two sides do not overlap, and `GetBindingIssue` already reads it that way.
 ---
 --- **What the discarded side remembered is gone.** Storage keeps the axes of a condition switched
 --- off so the menu can offer them back, and one key cannot hold two sets of them.
@@ -2062,10 +2063,10 @@ end
 --- value this build cannot read, because folding one would drop the mark that says so
 --- (`binding.unitConditionUnreadable`).
 local function IntersectStoredUnitConditions(a, b)
-    if (a == nil or a.off) then
+    if (a == nil or a.disabled) then
         return b;
     end
-    if (b == nil or b.off) then
+    if (b == nil or b.disabled) then
         return a;
     end
 
@@ -2075,7 +2076,7 @@ local function IntersectStoredUnitConditions(a, b)
         if (aAbsent and bAbsent) then
             return a;
         end
-        return { reaction = 0 };
+        return { exists = true, reaction = 0 };
     end
 
     local reaction;
@@ -2093,7 +2094,7 @@ local function IntersectStoredUnitConditions(a, b)
     elseif (b.dead == nil) then
         dead = a.dead;
     elseif (a.dead ~= b.dead) then
-        return { reaction = 0 };
+        return { exists = true, reaction = 0 };
     else
         dead = a.dead;
     end
@@ -2125,7 +2126,7 @@ local function IntersectStoredUnitConditions(a, b)
         role = band(a.role, b.role);
     end
 
-    return { reaction = reaction, dead = dead, group = group, role = role };
+    return { exists = true, reaction = reaction, dead = dead, group = group, role = role };
 end
 
 --- Whether the conditions this action carries can come along into a macro body.

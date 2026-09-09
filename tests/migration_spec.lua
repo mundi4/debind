@@ -571,6 +571,87 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
+    -- dbver 8: 유닛 조건의 세 모드가 저마다 자기 값을 든다.
+    --
+    -- **빈 표가 "있을 때"를 뜻하던 것이 이 단계가 없애는 것이다.** 리포의 나머지는 빈 표를
+    -- 아무것도 아닌 것으로 접는다 - `ActionSignature`가 그렇게 접는 바람에 유닛 조건 하나만
+    -- 걸린 액션이 조건 없는 액션과 같은 서명을 냈고, 중복 제거가 둘을 한 쌍으로 봤다.
+    --
+    -- `off`는 같은 상태를 가리키는 리포의 말(`AppendDisable`, `disabledReason`)과 갈라져
+    -- 있었다. 이름만 바꾸는 것이라 뜻은 그대로다.
+    ---------------------------------------------------------------------------
+
+    local function unitCond(value)
+        return { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { units = { target = value } } } };
+    end
+
+    test("dbver 8 stamps exists on a condition that carried no marker", function()
+        local layer = unitCond({});
+        MigrateLayer(layer, 7);
+        local cond = layer[1].conditions.units.target;
+        check(cond.exists == true, "exists가 " .. tostring(cond.exists));
+    end);
+
+    test("dbver 8 stamps exists beside the axes a condition remembered", function()
+        local layer = unitCond({ reaction = Constants.REACTION_HELP, dead = false });
+        MigrateLayer(layer, 7);
+        local cond = layer[1].conditions.units.target;
+        check(cond.exists == true, "exists가 " .. tostring(cond.exists));
+        check(cond.reaction == Constants.REACTION_HELP and cond.dead == false, "축이 바뀌었다");
+    end);
+
+    test("dbver 8 leaves [when there is none] alone", function()
+        local layer = unitCond({ exists = false, dead = true });
+        MigrateLayer(layer, 7);
+        local cond = layer[1].conditions.units.target;
+        check(cond.exists == false, "exists가 " .. tostring(cond.exists));
+        check(cond.dead == true, "기억한 축이 사라졌다");
+    end);
+
+    test("dbver 8 renames off to disabled and stamps no exists on it", function()
+        local layer = unitCond({ off = true, reaction = Constants.REACTION_HARM });
+        MigrateLayer(layer, 7);
+        local cond = layer[1].conditions.units.target;
+        check(cond.disabled == true, "disabled가 " .. tostring(cond.disabled));
+        check(cond.off == nil, "옛 이름이 남았다");
+        check(cond.exists == nil, "꺼진 조건에 모드가 얹혔다: " .. tostring(cond.exists));
+        check(cond.reaction == Constants.REACTION_HARM, "기억한 축이 사라졌다");
+    end);
+
+    test("dbver 8 walks every unit key, hover and @ included", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1, unit = "focus",
+            conditions = { units = { hover = {}, ["@"] = { reaction = Constants.REACTION_HELP } } } } };
+        MigrateLayer(layer, 7);
+        local units = layer[1].conditions.units;
+        check(units.hover.exists == true, "hover가 " .. tostring(units.hover.exists));
+        check(units["@"].exists == true, "@가 " .. tostring(units["@"].exists));
+    end);
+
+    test("dbver 8 leaves an action with no unit conditions alone", function()
+        local layer = { { key = "A", type = Constants.SPELL, value = 1,
+            conditions = { combat = true } } };
+        MigrateLayer(layer, 7);
+        check(layer[1].conditions.units == nil, "없던 표가 생김");
+        check(layer[1].conditions.combat == true, "다른 조건이 바뀌었다");
+    end);
+
+    test("dbver 8 is safe to run twice", function()
+        local layer = unitCond({ off = true, dead = true });
+        MigrateLayer(layer, 7);
+        MigrateLayer(layer, 7);
+        local cond = layer[1].conditions.units.target;
+        check(cond.disabled == true and cond.off == nil and cond.exists == nil,
+            "두 번째에 뭉개짐");
+    end);
+
+    test("dbver 8 leaves a scalar it cannot read alone", function()
+        local layer = unitCond("help");
+        MigrateLayer(layer, 7);
+        check(layer[1].conditions.units.target == "help", "스칼라를 건드렸다");
+    end);
+
+    ---------------------------------------------------------------------------
     -- dbver 5의 핵심 불변식: **표현만 바꾸고 뜻은 안 바꾼다**
     --
     -- 마이그레이션은 한 번 돌면 되돌릴 수 없고, 틀려도 화면에 아무 표시가 없다.
@@ -640,6 +721,9 @@ return function(DebindPrivate)
         { "{}", {}, Constants.UNITSTATE_EXISTS, {} },
         { "{exists=false}", { exists = false }, Constants.UNITSTATE_NONE, false },
         -- 끈 조건. 기억한 축을 들고 있어도 바인딩에는 안 실린다.
+        { "{disabled=true,reaction=HELP}", { disabled = true, reaction = Constants.REACTION_HELP },
+            nil, nil },
+        -- `dbver <= 7` 앞의 이름. 사다리를 아직 안 탄 값이 이리로 오므로 같은 답을 내야 한다.
         { "{off=true,reaction=HELP}", { off = true, reaction = Constants.REACTION_HELP },
             nil, nil },
         -- "없을 때"도 축을 기억한다. 기억은 메뉴 것이고 판정에는 안 따라온다.
@@ -1674,23 +1758,40 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 넘겨받지 않은 개체창까지 집을지
+    -- 어느 팩을 안 건드릴지
     ---------------------------------------------------------------------------
 
-    --- **없는 것은 켬이다.** 이 옵션이 생기기 전에 쓰던 프로필은 물어본 적이 없는 사람의 것이고,
-    --- 그 사람이 쓰던 것은 넓은 쪽이다. 여기서 `false`로 읽히면 리로드 한 번에 개체창 절반이
-    --- 조용히 사라진다.
-    test("a profile with no answer takes unregistered frames", function()
+    --- **없는 것은 우리 것이다.** 상자를 안 건드린 사람의 프로필에는 칸이 없고, 그 사람이 쓰던
+    --- 것은 넓은 쪽이다. 여기서 `false`로 읽히면 리로드 한 번에 개체창 절반이 조용히 사라진다.
+    test("a profile with no answer takes a known pack's frames", function()
         InitWith({});
-        check(DebindPrivate.TakesUnregisteredFrames() == true,
-            "필드가 없는 프로필이 꺼짐으로 읽혔다");
+        check(DebindPrivate.TakesPackFrames("Grid2") == true,
+            "칸이 없는 프로필이 꺼짐으로 읽혔다");
     end);
 
     --- 반대쪽. 없이는 위 케이스가 "언제나 참"에도 초록으로 나온다.
-    test("a profile that says no does not", function()
-        InitWith({ takeUnregisteredFrames = false });
-        check(DebindPrivate.TakesUnregisteredFrames() == false,
-            "꺼둔 프로필이 켜짐으로 읽혔다");
+    test("a profile that names a pack leaves it alone", function()
+        InitWith({ packFrames = { Grid2 = false } });
+        check(DebindPrivate.TakesPackFrames("Grid2") == false,
+            "블랙리스트에 든 팩이 우리 것으로 읽혔다");
+        check(DebindPrivate.TakesPackFrames("VuhDo") == true,
+            "한 팩을 뺐더니 다른 팩까지 따라 나갔다");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- 없어진 옵션의 값
+    ---------------------------------------------------------------------------
+
+    --- **끄는 것과 지우는 것은 다르다는 원칙은 옵션이 살아 있을 때의 것이다.** 상자가 없어지면
+    --- 다시 켤 길도 없으니 그 값은 아무에게도 뜻이 없는 고아고, 안 지우면 SavedVariables에
+    --- 영영 남는다 (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md` §3).
+    test("the two switches the blacklist replaced are swept out of the account file", function()
+        local db = InitWith({ workAlongsideClique = true, takeUnregisteredFrames = false });
+        DebindPrivate.CleanUpDB();
+        check(db.workAlongsideClique == nil,
+            "workAlongsideClique가 남았다: " .. tostring(db.workAlongsideClique));
+        check(db.takeUnregisteredFrames == nil,
+            "takeUnregisteredFrames가 남았다: " .. tostring(db.takeUnregisteredFrames));
     end);
 
     return T;

@@ -1,9 +1,9 @@
 # 유닛 프레임은 전부 잡고, 빼는 것은 블랙리스트 하나 (2026-09-09 설계)
 
-> 상태: 결론이 섰다. 구현은 아직 안 했다. §6이 코드에서 없어지는 것과 남는 것, §7이 무엇이 그것을
-> 지키는지다. `legacy/coexisting-with-clique.md`의 옵션과 `legacy/making-the-pack-box-own-its-addon.md`의
-> 상자 셋을 이 문서가 대신한다. 그 둘의 **기계**(Clique 곁에 서는 것, 팩 상자가 소유권인 것)는 그대로
-> 살고, 없어지는 것은 스위치다.
+> 상태: 구현됐다 (2026-09-09). §6이 코드에서 없어진 것과 남은 것, §7이 무엇이 그것을 지키는지다.
+> `coexisting-with-clique.md`의 옵션과 `making-the-pack-box-own-its-addon.md`의 상자 셋을 이 문서가
+> 대신한다. 그 둘의 **기계**(Clique 곁에 서는 것, 팩 상자가 소유권인 것)는 그대로 살고, 없어진 것은
+> 스위치다. 서 있는 코드의 설명은 `../how-unit-frames-reach-us.md`가 든다.
 
 ## 0. 어디서 나온 자리인가
 
@@ -33,7 +33,7 @@ Clique 이름을 우리가 쓴다(`DebindCliqueFake`). 물러나는 상태 자�
 
 **왜.** 그 스위치는 Clique 사용자의 판을 묻지 않고 바꾸지 않겠다는 배려였고, 누가 원해서 만든 것이
 아니다. 둘을 같이 깐 사람이 기대하는 것은 "둘 다 돈다"이고, 그것을 안전하게 만드는 것은 옵션이
-아니라 남의 래퍼 위에 서서 그쪽 본문을 대신 돌려 주는 기계다(`legacy/standing-on-top-of-foreign-wrappers.md`).
+아니라 남의 래퍼 위에 서서 그쪽 본문을 대신 돌려 주는 기계다(`standing-on-top-of-foreign-wrappers.md`).
 그 기계가 있는 이상 스위치가 지키는 것은 두려움뿐이다.
 
 **값.** Clique를 쓰는 모든 사람의 판이 업데이트로 바뀐다. 지금까지 그 사람에게 우리는 없는 것과
@@ -66,7 +66,7 @@ Clique 이름을 우리가 쓴다(`DebindCliqueFake`). 물러나는 상태 자�
 없어진다. 남는 것은 싸움에서 스스로 물러나는 `StandDown`과, API 모양으로 남기는 빈 함수
 (`DebindPublic:UnregisterFrame`, 헤더의 `clickcast_unregister`)뿐이다.
 
-`legacy/leaving-unregistered-frames-alone.md`의 "외부에서 들어오는 해제는 그대로 받는다"는 이것으로
+`leaving-unregistered-frames-alone.md`의 "외부에서 들어오는 해제는 그대로 받는다"는 이것으로
 닫힌다. 그 문장은 찾아내서 집는 문이 없던 때의 것이었다.
 
 ## 2. 화면
@@ -117,7 +117,7 @@ Leave These Unit Frames Alone                 (섹션 헤더)
 
 두 엔진이 한 프레임에 서는 기계(`Reassemble`, `Overs`, 재진입 가드)는 이 설계의 전제라 손대지 않는다.
 싸움의 정의도 그대로다. 우리가 얹는 도중에 그 위에 다시 얹는 것. 횟수는 세지 않는다.
-`.zzz/guarding-the-replay-against-another-replayer.md`의 미착수 건도 그대로다.
+`../../.zzz/guarding-the-replay-against-another-replayer.md`의 미착수 건도 그대로다.
 
 ## 6. 코드에서 무엇이 없어지고 무엇이 남나
 
@@ -152,18 +152,31 @@ Leave These Unit Frames Alone                 (섹션 헤더)
   읽는 애드온이 있어서다.
 - 전투 큐. 등록만 남으니 항목 하나짜리가 된다.
 
-## 7. 무엇이 무엇을 지킬 수 있나
+## 7. 무엇이 무엇을 지키나
 
-- **헤드리스 (`tests/frames_spec.lua`)** — 블랙리스트에 없는 프레임이 문 일곱 각각으로 들어오는 것.
-  블랙리스트의 팩과 블리자드 종류가 어느 문에서도 거절되는 것. 밖에서 온 해제 다섯 갈래가 행을
-  건드리지 않는 것. 전투 중 등록이 큐를 거쳐 서는 것. Clique 스탠드인에 대해 테이블과 헤더 둘 다에서
-  듣고, 붙을 때 이미 든 것을 쓸어 담는 것. 재진입 싸움에서 물러나고 되얹기에는 안 물러나는 것.
-- **헤드리스 (`tests/holder_spec.lua`)** — 남이 이름을 쥔 판에서 쓴 것이 전부 우리 것이 되는 것, 잠긴
-  테이블은 손대지 않는 것, `HandOver`.
-- **헤드리스 (`tests/options_spec.lua`)** — 헤더 셋과 줄의 차례, 팩 줄이 설치된 것만 서는 것, 체크가
-  `false`를 쓰고 해제가 칸을 지우는 것, 어느 줄도 회색 술어를 안 지는 것.
-- **정적** — `check:snippet-golden`이 `GetHoveredUnit`이 한 본문으로 돌아온 것과 두 헤더 스니펫을 잠근다.
-  `check:locales`가 지운 키와 새 키의 세 벌 일치를 본다.
-- **게임 안에서만 (`/debtest`)** — 진짜 Clique 곁에서 같은 프레임 위에 두 엔진이 도는 것, Clique의
-  `export_register`가 실제로 우리 행을 세우는 것, 설정창에 목록 하나가 그려지는 것.
-- **원리상 못 보는 것** — Clique와 EllesmereUI의 내부 배선이 바뀌는 것. 지금과 같다.
+- **헤드리스 (`tests/frames_spec.lua`)** — 이름이 목록에 있는 프레임과 아무 줄도 안 덮는 프레임이 문
+  셋 각각으로 똑같이 들어오는 것. 팩 상자가 자기 팩만 건드리는 것(테이블 문·헤더 문 양쪽). 전투 중
+  등록이 큐를 거쳐 한꺼번에 서는 것. 헤더 문이 `hd` 행과 `hccframes`를 남기는 것, 다른 문이 먼저 쓴
+  행에도 그 표시가 닿는 것. Clique 스탠드인에 대해 헤더에서 듣고, `export_unregister`가 행을 안
+  건드리는 것, 붙을 때 `ccframes`·`hccframes`에 이미 든 것을 쓸어 담는 것. Clique가 깔려 있어도 문이
+  안 닫히는 것, Clique가 쥔 프레임도 우리 것이 되는 것, 블리자드 일곱이 그대로인 것. 재진입 싸움에서
+  물러나고 되얹기에는 안 물러나는 것, 물러난 프레임의 클릭 입력을 안 되돌리는 것.
+- **헤드리스 (`tests/holder_spec.lua`)** — 남이 이름을 쥔 판에서 쥔 것도 놓은 것도 전부 우리 것이 되는
+  것, 그쪽 `__newindex`가 먼저 도는 것, 홀더 뒤의 블랙리스트, 잠긴 테이블은 손대지 않는 것, 같은
+  메타테이블에 테이블만 갈아끼운 홀더, `HandOver`, 프록시에 이미 들어 있던 행, 남의 wrap 뒤 한 틱에
+  이름을 다시 보는 것과 그것이 전투에 걸리면 물러나는 것. 밖에서 온 해제 네 갈래(테이블의 `nil` 쓰기,
+  홀더 뒤의 `nil` 쓰기, `DebindPublic:UnregisterFrame`, `Clique:UnregisterUnitFrame`)가 행을 안
+  건드리는 것. 다섯째인 `export_unregister`는 `frames_spec`이 든다.
+- **헤드리스 (`tests/options_spec.lua`)** — 헤더 둘과 줄의 차례, 팩 줄이 설치된 것만 그 애드온의
+  Title로 서는 것, 체크가 `false`를 쓰고 해제가 칸을 지우는 것, 어느 줄도 회색 술어를 안 지는 것.
+- **헤드리스 (`tests/migration_spec.lua`)** — 칸 없는 프로필이 팩을 우리 것으로 읽는 것, 블랙리스트에
+  든 팩만 빠지는 것, 없어진 옵션의 값 둘이 `CleanUpDB`에서 지워지는 것.
+- **헤드리스 (`tests/hover_spec.lua`)** — 물러난 프레임에서 래퍼를 안 떼는 것, 거기 들어갔을 때 호버
+  슬롯이 비는 것.
+- **정적** — `check:snippet-golden`이 `GetHoveredUnit`이 한 본문으로 돌아온 것과 없어진 본문 셋을
+  잠근다. `check:locales`가 지운 키와 새 키의 세 벌 일치를 본다.
+- **게임 안에서만 (`/debtest`)** — 진짜 Clique가 `ccframes`·`hccframes`에 들고 있는 프레임마다 우리 행과
+  클릭 라우팅이 같이 걸려 있는 것("Clique: the frames Clique holds are wired by us too"), 설정창에 목록
+  하나가 그려지는 것("Settings: our category draws the rows we registered").
+- **원리상 못 보는 것** — Clique와 EllesmereUI의 내부 배선이 바뀌는 것. 지금과 같다. 그리고 우리가
+  물러난 뒤 그 프레임에서 남의 엔진이 제대로 도는지는 그 애드온의 화면으로만 보인다.
