@@ -500,10 +500,27 @@ local STORE_OVERS_SNIPPET = [=[
 	end
 ]=];
 
---- What a wrapped post body is given. The client compiles one as `self,message` for the motion
---- scripts and `self,message,button,down` for a click; running it through `RunFor` gives it
---- `self,...` instead, so the names it expects are declared for it here. One line covers all three
---- -- a motion body never mentions the two it did not ask for.
+--- What a wrapped body is given. The client compiles a post as `self,message` for the motion
+--- scripts and `self,message,button,down` for a click, and a pre as `self,motion` and
+--- `self,button,down`; running either through `RunFor` gives it `self,...` instead, so the names it
+--- expects are declared for it here. One line covers each half -- a motion body never mentions the
+--- ones it did not ask for.
+---
+--- **The pre half is the one that decides.** A pre body is where a pack refuses a click or renames
+--- the button, so a name it cannot read there does not degrade its behaviour, it removes it: the
+--- branch never runs and that pack's click casting stops on every frame we hold, with nothing
+--- raised anywhere.
+---
+--- **The click only, and the two motion scripts are deliberately not in this table.** A post body
+--- opens with `message` whichever script it is on, which is what lets one line cover all three;
+--- a pre body does not, so each would need its own -- and what a motion pre is compiled with is
+--- something this repo cannot show. Our own click body reads `button` and `down` with nothing
+--- declaring them, which is the evidence for this line; there is no such line to point at for the
+--- motion pair, and `OVERS_ENTER_PRE_SNIPPET` hands them nothing to declare either. Naming an
+--- argument that is not there would put a body's own names one place out.
+local OVER_PRE_PROLOGUE = {
+	OnClick = "local button, down = ...\n",
+};
 local OVER_POST_PROLOGUE = "local message, button, down = ...\n";
 
 local Reassemble;
@@ -611,7 +628,9 @@ function Reassemble(button, script, fromUnwrap)
 		if (script ~= "OnLeave" or taken == 0) then
 			taken = taken + 1;
 			SecureHandlerSetFrameRef(BindingDriver, "over_" .. taken, header);
-			BindingDriver:SetAttribute("over_pre_" .. taken, tookPre);
+			local preProlog = OVER_PRE_PROLOGUE[script];
+			BindingDriver:SetAttribute("over_pre_" .. taken,
+				(tookPre and preProlog) and (preProlog .. tookPre) or tookPre);
 			BindingDriver:SetAttribute("over_post_" .. taken,
 				tookPost and (OVER_POST_PROLOGUE .. tookPost) or nil);
 		end
@@ -659,7 +678,16 @@ local function OnForeignWrap(frame, script, header)
 		return;
 	end
 
+	-- **Registering is itself a reassembly of every script**, so where the call above is what
+	-- takes the frame, this one is done and the rest of this function would be a second pass over
+	-- the same script. That second pass finds our own header on top and takes nothing, which on
+	-- `OnLeave` is the branch that clears the stored list -- it would throw away the very body the
+	-- wrap being reported brought.
+	local wasOurs = DebindPrivate.ccframes[frame] ~= nil;
 	TakeNamedFrame(frame);
+	if (not wasOurs and DebindPrivate.ccframes[frame] ~= nil) then
+		return;
+	end
 
 	if (not REASSEMBLED_SCRIPTS[script]) then
 		return;

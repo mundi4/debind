@@ -4877,6 +4877,60 @@ RegisterTest("Foreign wrappers: their key and our hover both work on one frame",
     end,
 })
 
+-- **A wrap is two things at once: a report, and the moment the name door first meets that frame.**
+-- Where the door is what registers it, registering has already reassembled every script, and
+-- reassembling the same one again finds our own header on top and takes nothing -- which on
+-- `OnLeave` is the branch that clears the stored list, throwing away the very body this wrap
+-- brought.
+--
+-- **Only a client can answer this.** `Interp:replay` does not replay `SetAttribute`, so the three
+-- `Reassemble` calls one registration makes all read the last pass's attributes there and the leave
+-- capture never happens at all -- the headless layer cannot tell the fault from its own limit.
+RegisterTest("Foreign wrappers: a frame the wrap itself registers keeps that body", {
+    description = "이름으로 처음 등록되는 프레임의 leave 본문이 등록 과정에서 안 지워진다",
+    run = function()
+        local NAME = "First wrap registers"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "wrapping a protected frame is blocked in combat")
+        end
+
+        -- A name the pack list answers, on a frame nothing has registered yet, so this wrap is
+        -- also its first registration.
+        local frame = _G.ElvUF_DebindTestFirstWrap
+            or CreateFrame("Button", "ElvUF_DebindTestFirstWrap", UIParent,
+                "SecureUnitButtonTemplate")
+        if DebindPrivate.ccframes[frame] then
+            return Fail(NAME, "it is already ours, so the door being measured is not the one taken")
+        end
+        frame:SetAttribute("unit", "player")
+
+        SecureHandlerWrapScript(frame, "OnLeave", FakeHeader(), [[
+            fake_hovered = self
+        ]])
+        -- **Cleared rather than left to another leave.** This body fills `fake_hovered` where
+        -- `FAKE_LEAVE` empties it, so running it again would hand the next test a frame this one
+        -- made -- which is what `Foreign unwrap` reads to answer its own question.
+        AddTeardown(function()
+            SecureHandlerExecute(FakeHeader(), [[ fake_hovered = nil ]])
+        end)
+
+        if type(DebindPrivate.ccframes[frame]) ~= "table" then
+            return Fail(NAME, "the name door did not take it, so nothing here is being measured")
+        end
+
+        RunWrappedEnter(frame)
+        RunWrappedLeave(frame)
+
+        if FakeHovered() ~= frame:GetName() then
+            return Fail(NAME, format("their leave body is gone: fake_hovered=%s",
+                tostring(FakeHovered())))
+        end
+
+        return Pass(NAME, "the body the registering wrap brought still runs")
+    end,
+})
+
 -- **A post body runs on what its own pre answered with.** Ours is the wrapper the client calls
 -- now, so a message theirs produced has to be carried across our own pre and handed back in our
 -- post -- three places it could be dropped, none of which raises anything.

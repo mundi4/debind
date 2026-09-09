@@ -77,9 +77,10 @@ return function(DebindPrivate)
     local messageFrame = newFrame();
     local unwrapFrame = newFrame();
     local contestedFrame = newFrame();
+    local clickFrame = newFrame();
 
     for _, frame in ipairs({ leaveFrame, envFrame, orderFrame, refuseFrame, messageFrame,
-            unwrapFrame, contestedFrame }) do
+            unwrapFrame, contestedFrame, clickFrame }) do
         if (type(DebindPrivate.ccframes[frame]) ~= "table") then
             T.failures[#T.failures + 1] = "setup: RegisterFrame did not take a test frame";
             return T;
@@ -345,6 +346,39 @@ return function(DebindPrivate)
         --- rather than for anything else. Ours is the side that gives up.
         i:hoverEnter(contestedFrame);
         check(theirLog() ~= "", "we stood down and took their body with us");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- What a replayed body is given
+    ---------------------------------------------------------------------------
+
+    -- **The client compiles a wrapped body with names and we replay it without them.** A click's
+    -- pre arrives as `self, button, down` -- which is why our own body in `SecureBindings.lua`
+    -- reads `button` with nothing declaring it -- and `RunFor` hands a body `self, ...` instead.
+    -- So every name it expects is declared for it on the way into storage
+    -- (`OVER_PRE_PROLOGUE`), the same thing `OVER_POST_PROLOGUE` has always done for the post
+    -- half.
+    --
+    -- **Nothing raises when this is wrong.** A pre body is where a pack refuses a click or renames
+    -- the button; reading a nil global there means the branch never runs, and their click casting
+    -- stops on every frame we hold with no error anywhere.
+    test("a replayed click pre body is given the button the client compiled it with", function()
+        local i = Bind();
+        resetLog();
+
+        theyWrap(clickFrame, "OnClick", [[
+            if (button == "RightButton") then their_log = their_log .. "R" end
+            if (down == false) then their_log = their_log .. "u" end
+        ]]);
+
+        i:clickFrame(clickFrame, "RightButton", false);
+        check(theirLog() == "Ru", "their body read: " .. theirLog());
+
+        -- The other button reaches them too, so what is measured above is the value and not
+        -- merely that something ran.
+        resetLog();
+        i:clickFrame(clickFrame, "LeftButton", false);
+        check(theirLog() == "u", "their body saw the wrong button: " .. theirLog());
     end);
 
     return T;
