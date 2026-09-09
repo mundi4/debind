@@ -3548,6 +3548,7 @@ function DebindFrameMixin:Update()
 
 	self:UpdateDropHighlight();
 	self:UpdateTitle();
+	self:UpdateCombatNotice();
 end
 
 --- Something outside the overview put actions in the profile or took them out.
@@ -3652,16 +3653,15 @@ end
 ---
 --- The version hangs off the name for the same reason it is on the login line: so a bug report can
 --- carry it. Dimmed, because it is there to be found rather than read every time.
----
---- The waiting rebuild rides on the title string rather than standing beside it: the title is
---- centred in `TitleContainer`, so anything anchored off its right edge moves with the string and
---- runs into the gear and the close button once it is long enough.
 function DebindFrameMixin:UpdateTitle()
-	local title = format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel());
-	if (DebindPrivate.updateBindingsSuspended) then
-		title = title .. RED_FONT_COLOR:WrapTextInColorCode(" " .. LLL["CHANGES_APPLY_AFTER_COMBAT"]);
-	end
-	self:SetTitle(title);
+	self:SetTitle(format("%s |cff9d9d9d%s|r", LLL["ADDON_NAME"], DebindPrivate.GetVersionLabel()));
+end
+
+--- 리빌드가 전투 끝을 기다리고 있다는 알림.
+function DebindFrameMixin:UpdateCombatNotice()
+	local notice = self.OverviewPanel.CombatNotice;
+	notice:SetText(LLL["CHANGES_APPLY_AFTER_COMBAT"]);
+	notice:Show();
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.

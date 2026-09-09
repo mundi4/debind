@@ -860,6 +860,15 @@
 				container that took a level of its own would silently reorder what draws over what.
 			-->
 			<Frame parentKey="OverviewPanel" useParentLevel="true" setAllPoints="true">
+				<Layers>
+					<Layer level="ARTWORK">
+						<FontString parentKey="CombatNotice" inherits="GameFontRed" justifyH="LEFT">
+							<Anchors>
+								<Anchor point="LEFT" relativePoint="TOPLEFT" x="60" y="-43"/>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
 				<Frames>
 					<!--
 						**The bin, plus the two axes that pick which bin.** The list, its search box, the
@@ -1444,12 +1453,6 @@
 						would nail a control to the window of somebody who never imports anything, and
 						it only means something while a badge is on.
 
-						**It stands on the row above the two columns.** What it reaches is the whole
-						profile rather than either column, so neither column's head is its place. The
-						bind mode toggle used to stand here too and has moved to the portrait row; this
-						stays because it is a labelled button with a count in it, which is not something
-						a 31px portrait can carry.
-
 						**The narrowing that used to live here is gone.** A [Only what came in] checkbox
 						stood to the left of it; it is a value of the left column's key axis now
 						(`_filters.pending`), so it is one of the filter dropdown's ticks and no longer
@@ -1458,10 +1461,9 @@
 						**It was two buttons** - [Accept all] and [Reject all] side by side - and both
 						are items in the menu this opens now. What that buys is a label that names the
 						**state** rather than one of the two answers to it: one control can carry both
-						answers, and the row above the columns spends one widget instead of two on
-						something most windows never show at all. The count stays here rather than
-						going into the menu with them, since this button is on screen for as long as
-						the menu is.
+						answers, and the row spends one widget instead of two. The count stays here
+						rather than going into the menu with them, since this button is on screen for
+						as long as the menu is.
 
 						**Both mouse buttons open the same menu.** There is no left-click act left for a
 						right-click to be the alternative to, so a right-click landing on nothing would
@@ -1481,13 +1483,7 @@
 						-->
 						<Size x="1" y="22"/>
 						<Anchors>
-							<!--
-								Where the bind mode toggle used to begin, on the line it used to sit on:
-								x=60 clears the portrait row's reach on the left, and y=-41 is that
-								button's centre (top -30, height 22). It hung off that button's right
-								side until the button left this row.
-							-->
-							<Anchor point="LEFT" relativePoint="TOPLEFT" x="60" y="-41"/>
+							<Anchor point="LEFT" relativeKey="$parent.FilterDropdown" relativePoint="RIGHT" x="6" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
