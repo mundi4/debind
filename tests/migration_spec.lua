@@ -740,9 +740,10 @@ return function(DebindPrivate)
         -- 끈 조건. 기억한 축을 들고 있어도 바인딩에는 안 실린다.
         { "{disabled=true,reaction=HELP}", { disabled = true, reaction = Constants.REACTION_HELP },
             nil, nil },
-        -- `dbver <= 6` 앞의 이름. 사다리를 아직 안 탄 값이 이리로 오므로 같은 답을 내야 한다.
-        { "{off=true,reaction=HELP}", { off = true, reaction = Constants.REACTION_HELP },
-            nil, nil },
+        -- `dbver <= 6` 앞의 이름(`off`)은 여기 없다. 그 단계가 프로필과 페이로드 양쪽에서
+        -- 이름을 올리므로 저장을 읽는 자리에는 `disabled`만 도착하고, 읽는 자리 둘 중 하나만
+        -- 옛 이름을 알면 같은 표가 두 가지로 읽힌다. 사다리가 그 이름을 지우는 것은 위쪽
+        -- `dbver <= 6` 케이스들이 잡는다.
         -- "없을 때"도 축을 기억한다. 기억은 메뉴 것이고 판정에는 안 따라온다.
         { "{exists=false,reaction=HELP}", { exists = false, reaction = Constants.REACTION_HELP },
             Constants.UNITSTATE_NONE, false },

@@ -482,10 +482,11 @@ local function UnitConditionForBinding(value)
         return false, true;
     end
 
-    -- **옛 이름 `off`도 여기서 받는다**, 옛 스칼라를 받는 것과 같은 이유로. `dbver <= 6`이
-    -- 저장을 올리지만, 그 사다리를 아직 안 탄 값이 이리로 온다 - 페이로드가 대표적이고, 그것을
-    -- "있을 때 + 기억한 축"으로 읽으면 **보낸 사람이 꺼둔 조건이 켜진 채로 살아난다.**
-    if (value.disabled or value.off) then
+    -- **옛 이름 `off`는 여기서 안 받는다.** 저장된 표를 읽는 자리가 둘인데
+    -- (`IntersectStoredUnitConditions`) 한쪽만 옛 이름을 알면 같은 표를 두 가지로 읽는다.
+    -- `dbver <= 6` 단계가 프로필과 페이로드 양쪽에서 이름을 올리고 - 페이로드도 `MigrateLayer`를
+    -- 지난다(`Export.lua`의 `BringPayloadDataForward`) - 그 아래로 내려갈 저장은 없다.
+    if (value.disabled) then
         return nil;
     elseif (value.exists == false) then
         return false;
@@ -2054,6 +2055,23 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- "impossible" answer as unreachable and skips the binding instead of representing it. That
     -- function's header spells out the reasoning; the two are one rule written twice, so **weaken
     -- this check and the runtime starts carrying conditions nothing can satisfy.**
+    --- 이 묶음이 그 0에 **거들었는가.** 안 거든 묶음을 칠하면 아무것도 안 고른 메뉴가
+    --- 빨개진다 - hover에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
+    ---
+    --- **두 순회가 같이 쓴다.** 소속은 유닛 곱에 안 들어가고 자기 컬럼으로 서느라 아래쪽
+    --- 순회를 따로 도는데, 거든 묶음만 칠한다는 규칙은 축과 무관하다. 유닛 마스크 순회 안에
+    --- 있던 동안 소속 쪽은 그 규칙 없이 `binding.unit`만 봤고, 그래서 hover에서 비운 소속이
+    --- `Target`을 칠했다.
+    local function contributed(unit)
+        if (not conditions.units) then
+            return false;
+        end
+        if (category == "unit") then
+            return conditions.units["@"] ~= nil and unit == binding.unit;
+        end
+        return conditions.units[unit] ~= nil;
+    end
+
     if (LookingForWorse(issue) and binding.unitStates and notCategory ~= "units"
             and (not category or category == "units" or category == "hover"
                 or category == "unit")) then
@@ -2064,18 +2082,6 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             -- "짚어 물었다"가 "전부 물었다"로 바뀌어 **남의 유닛 모순이 이 서브메뉴에 뜬다.**
             target = binding.unit;
             askedAboutNothing = target == nil;
-        end
-
-        --- 이 묶음이 그 0에 **거들었는가.** 안 거든 묶음을 칠하면 아무것도 안 고른 메뉴가
-        --- 빨개진다 - hover에서 반응을 하나도 안 고른 것만으로 `Target`이 붉어지던 것이 그것이다.
-        local function contributed(unit)
-            if (not conditions.units) then
-                return false;
-            end
-            if (category == "unit") then
-                return conditions.units["@"] ~= nil and unit == binding.unit;
-            end
-            return conditions.units[unit] ~= nil;
         end
 
         for unit, mask in pairs(binding.unitStates) do
@@ -2123,7 +2129,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             elseif (category == "units") then
                 mine = unit ~= "hover";
             elseif (category == "unit") then
-                mine = unit == binding.unit;
+                mine = contributed(unit);
             else
                 mine = true;
             end

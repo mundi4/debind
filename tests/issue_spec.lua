@@ -254,6 +254,17 @@ return function(DebindPrivate)
             "Units 묶음이 hover의 빈 소속으로 빨개졌다");
     end);
 
+    -- **반응과 같은 규칙이 소속에도 걸린다.** 위 "hover의 빈 반응만으로..."와 같은 액션이고
+    -- 축만 다르다. 유닛 마스크를 보는 순회는 `contributed`로 거든 묶음만 칠하는데, 소속은
+    -- 자기 컬럼으로 서느라 그 순회를 안 지나므로 같은 규칙을 따로 걸어야 한다.
+    test("hover의 빈 소속만으로 대상 묶음이 빨개지지 않는다", function()
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1", unit = "hover",
+            units = { hover = { group = 0 } } });
+        check(GetBindingIssue(action, "unit") == nil,
+            "안 거든 묶음을 칠했다: " .. tostring(GetBindingIssue(action, "unit")));
+        check(GetBindingIssue(action, "hover") == UNITGROUPS_NONE, "hover 묶음은 잡아야 한다");
+    end);
+
     -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 그때 이 서브메뉴는 **아무것도 안 묻는
     -- 것**이지 "전부 묻는 것"이 아니다.
     test("대상이 없으면 \"@\" 서브메뉴가 남의 모순을 안 보여준다", function()
