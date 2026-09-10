@@ -599,32 +599,14 @@
 				아트는 `UIPanelSquareButton`이다. 캐릭터 선택의 그 버튼은 전부 `glues-*`
 				아틀라스라 인게임에서는 안 나온다.
 
-				**둘 다 그리고 못 가는 쪽을 비활성으로 둔다.** 없앴다 만들면 같은 행에서 버튼이
-				한 칸씩 튀어서, 연타할 때 과녁이 흔들린다.
+				**Both are drawn, and the one that cannot go is disabled.** Taken down and put back,
+				the buttons shift a seat on the same row and the target moves under a repeated press.
 			-->
 			<Button parentKey="MoveDownButton" inherits="UIPanelSquareButton" motionScriptsWhileDisabled="true" hidden="true">
 				<Size x="22" y="22"/>
 				<Anchors>
 					<Anchor point="RIGHT" x="-4" y="0"/>
 				</Anchors>
-				<Layers>
-					<!--
-						**규칙이 막고 있을 때만 얹는다**(DebindUI.lua의 UpdateMoveButtons). 회색 화살표는
-						"지금은 안 됨"으로 흘려보게 되는데, 이 그림은 없던 것이라 눈이 걸리고 툴팁을
-						대 보게 만든다 - 무엇이 막는지는 거기에만 있다. 끝에 닿아서 죽은 화살표에는
-						안 얹는다: 설명할 것이 없는데 얹으면 자물쇠가 흔해져서 다시 안 읽힌다.
-
-						액션바가 레벨 잠금에 쓰는 그림 그대로다(ActionButtonTemplate.xml).
-					-->
-					<Layer level="OVERLAY">
-						<Texture parentKey="Lock" atlas="groupfinder-icon-lock" hidden="true">
-							<Size x="19" y="23"/>
-							<Anchors>
-								<Anchor point="CENTER"/>
-							</Anchors>
-						</Texture>
-					</Layer>
-				</Layers>
 				<Scripts>
 					<!-- 이 버튼들에는 믹스인이 없다. 상태는 행(부모)이 들고 있으므로 그리로 넘긴다. -->
 					<OnClick>
@@ -634,7 +616,7 @@
 						self:GetParent():OnMoveEnter(self);
 					</OnEnter>
 					<OnLeave>
-						GameTooltip:Hide();
+						self:GetParent():OnMoveLeave();
 					</OnLeave>
 				</Scripts>
 			</Button>
@@ -680,16 +662,6 @@
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.MoveDownButton" relativePoint="LEFT" x="-2" y="0"/>
 				</Anchors>
-				<Layers>
-					<Layer level="OVERLAY">
-						<Texture parentKey="Lock" atlas="groupfinder-icon-lock" hidden="true">
-							<Size x="19" y="23"/>
-							<Anchors>
-								<Anchor point="CENTER"/>
-							</Anchors>
-						</Texture>
-					</Layer>
-				</Layers>
 				<Scripts>
 					<!-- 이 버튼들에는 믹스인이 없다. 상태는 행(부모)이 들고 있으므로 그리로 넘긴다. -->
 					<OnClick>
@@ -699,7 +671,7 @@
 						self:GetParent():OnMoveEnter(self);
 					</OnEnter>
 					<OnLeave>
-						GameTooltip:Hide();
+						self:GetParent():OnMoveLeave();
 					</OnLeave>
 				</Scripts>
 			</Button>
@@ -1206,9 +1178,16 @@
 										여기 행은 남의 레이어 것일 수 있고, 이 목록은 사영이라 "어느 통에
 										넣을까"에 답이 없다.
 									-->
+									<!--
+										**The list starts under the header row.** The search box, the filter
+										and the (i) stand in the top of this inset (declared with the
+										container's other children below), the way the pet journal keeps its
+										search and filter inside the list inset, so the list scrolls under a
+										row that stays put.
+									-->
 									<Frame parentKey="OrderArea" hidden="true">
 										<Anchors>
-											<Anchor point="TOPLEFT" x="8" y="-8"/>
+											<Anchor point="TOPLEFT" x="8" y="-36"/>
 											<Anchor point="BOTTOMRIGHT" x="-8" y="6"/>
 										</Anchors>
 										<Frames>
@@ -1226,15 +1205,60 @@
 
 												+13은 인셋 안쪽 여백 8을 건너뛴 뒤의 +5다. 오른쪽과 같은 값이라
 												두 스크롤바가 각자 인셋에서 같은 거리에 선다.
+
+												**It runs up beside the header row, not from the list's top.** The list
+												starts 36 under the inset and the bar would start there with it, leaving a
+												stub of gutter above; the pet journal lifts its bar the same way to the
+												inset's top, and the two columns' bars then start on one line again.
 											-->
 											<EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
 												<Anchors>
-													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="13" y="0"/>
+													<Anchor point="TOPLEFT" relativeKey="$parent.ScrollBox" relativePoint="TOPRIGHT" x="13" y="31"/>
 													<Anchor point="BOTTOMLEFT" relativeKey="$parent.ScrollBox" relativePoint="BOTTOMRIGHT" x="13" y="0"/>
 												</Anchors>
 											</EventFrame>
 										</Frames>
 									</Frame>
+									<!--
+										**The ordering help, at the right end of the header row.** The rule
+										that decides a key's order shows itself in this column - the locks on
+										the arrows - so this is where its help is reached from. The title bar's
+										big (i) is not used: that seat is a whole window's help.
+
+										**The map's small (i)**, the one its help mode puts on the navigation
+										bar: `HelpPlateTile`'s `Button` in `Blizzard_HelpPlate.xml`. That button
+										is not a template, so its pieces are copied: the glyph filling the
+										button, and the ring glow as the highlight. Its pulse glow and slide
+										animation are the help mode's and are left there.
+									-->
+									<Button parentKey="HelpButton">
+										<Size x="36" y="36"/>
+										<Anchors>
+											<Anchor point="CENTER" relativePoint="TOPRIGHT" x="-20" y="-19"/>
+										</Anchors>
+										<Layers>
+											<Layer level="ARTWORK">
+												<Texture parentKey="HelpI" file="Interface\common\help-i"/>
+											</Layer>
+										</Layers>
+										<Scripts>
+											<OnClick>
+												DebindResultPanel:OnHelpClick();
+											</OnClick>
+											<OnEnter>
+												DebindResultPanel:ShowHelpTip();
+											</OnEnter>
+											<OnLeave>
+												DebindResultPanel:HideHelpTip();
+											</OnLeave>
+										</Scripts>
+										<HighlightTexture alphaMode="ADD" file="Interface\Minimap\UI-Minimap-ZoomButton-Highlight">
+											<Size x="36" y="36"/>
+											<Anchors>
+												<Anchor point="CENTER" x="-1" y="-1"/>
+											</Anchors>
+										</HighlightTexture>
+									</Button>
 								</Frames>
 							</Frame>
 							<!--
@@ -1355,42 +1379,48 @@
 					</Frame>
 
 					<!--
-						**좁히는 것은 전부 왼쪽 열 위에 선다.** 검색창은 오른쪽 목록 위에 있었는데,
-						지금은 둘 다 양쪽을 좁힌다 - 한쪽 위에 서면 그 한쪽만 좁히는 것으로 읽힌다.
-						판정이 키 그룹 단위이고 그룹이 사는 곳이 이 열이라, 규칙이 보이는 자리도
-						여기다. 오른쪽은 이 열에 남은 것을 자기 탭으로 한 번 더 자를 뿐이다.
+						**Everything that narrows stands over the left column.** The search box was over the
+						right-hand list once; both narrow both sides now, and standing over one side reads
+						as narrowing that side only. The rule is decided per key group and the groups live in
+						this column, so the rule's own controls stand here too. The right side only cuts what
+						is left of this column by its tab.
 
-						**XML 순서가 앵커 순서다.** 검색창이 인셋에 자리를 잡고 드롭다운이 거기
-						매달리므로 검색창이 먼저 선언돼야 한다. 주문 선택 창은 이 관계가 반대라
-						순서도 반대다(저쪽은 드롭다운이 인셋 오른쪽 끝에 서고 검색창이 매달린다).
-						앞을 가리키는 앵커는 `check:xml-anchors`가 잡는다.
+						**Inside the inset, not above it.** The pet journal keeps its search and filter in the
+						top of the list inset (`Blizzard_PetCollection.xml`: search at 15/-9, list from -36),
+						and this column does the same: the row is part of the panel, the list scrolls under
+						it, and the (i) that opens the ordering help closes the row at the right end
+						(`ContentArea.HelpButton`). The row is the pet journal's to the pixel: a 20-high box at -9,
+						an 18-high dropdown on its middle line, the first row at -36, and the scroll bar running up
+						beside the row to the inset's top.
 
-						**둘은 붙어 선다.** 열 양끝으로 갈라 세우면 가운데가 비고, 그 빈 자리가
-						둘을 서로 무관한 컨트롤로 읽히게 한다 - 실제로는 같은 일을 하는 한 쌍이다.
-						사이 6은 주문 선택 창이 같은 쌍에 쓰는 값이다.
+						**XML order is anchor order.** The search box takes its seat in the inset and the
+						dropdown hangs off it, so the search box is declared first. The spell picker has that
+						relation the other way round and its order is reversed to match. An anchor pointing
+						forward is caught by `check:xml-anchors`.
 
-						높이 22와 인셋 위로 4는 주문 선택 창의 검색창과 같은 값이다. 오른쪽 목록
-						인셋도 같은 선(-85)에서 출발하므로 두 열의 머리가 같은 높이에 앉는다.
+						**The two stand together.** Split to the column's two ends the middle goes empty, and
+						that gap reads them as unrelated controls; they are one pair doing one job. The 6
+						between them is what the spell picker uses for the same pair.
 
-						**폭 170도 그 창과 같고, 열 폭을 따라 늘이지 않는다.** 한때 왼쪽 끝과
-						드롭다운 사이를 꽉 채웠는데, 이 열에서는 그 길이가 검색어가 아니라 빈 상자로
-						읽혔다. 170은 블리자드 수집품 창들의 검색창과 같은 선이기도 하다.
+						**Width 170 is the spell picker's, and it does not grow with the column.** It once
+						filled from the left edge to the dropdown, and at that length it read as an empty box
+						rather than a search term. 170 is also the line Blizzard's collection windows put
+						their search boxes on.
 
-						**x가 7인 것은 테두리가 프레임 밖으로 나오기 때문이다.**
-						`InputBoxVisualTemplate`의 `Left` 텍스처가 EditBox 사각형보다 **5px 왼쪽**에서
-						시작한다(`LEFT, x="-5"`) - 오른쪽은 0이라 딱 맞는다. 그래서 2로 잡으면 보이는
-						테두리가 인셋보다 3px 튀어나온다. 7 = 2 + 5이고, 눈에 보이는 왼쪽 변이 인셋
-						왼쪽에서 2다.
+						**x is 13 because the border stands outside the frame.** `InputBoxVisualTemplate`'s
+						`Left` texture starts **5px left** of the EditBox rectangle (`LEFT, x="-5"`); the
+						right side is 0 and fits. 13 = 8 + 5: the visible left edge sits at the same 8 the
+						list below keeps from the inset (`OrderArea`).
 					-->
 					<EditBox parentKey="SearchBox" inherits="SearchBoxTemplate" letters="40">
-						<Size x="170" y="22"/>
+						<Size x="170" y="20"/>
 						<Anchors>
-							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ResultPanel" relativePoint="TOPLEFT" x="7" y="4"/>
+							<Anchor point="TOPLEFT" relativeKey="$parent.ResultPanel.ContentArea" relativePoint="TOPLEFT" x="13" y="-9"/>
 						</Anchors>
 					</EditBox>
 
 					<DropdownButton parentKey="FilterDropdown" inherits="WowStyle1FilterDropdownTemplate">
-						<Size x="97" y="22"/>
+						<Size x="97" y="18"/>
 						<Anchors>
 							<Anchor point="LEFT" relativeKey="$parent.SearchBox" relativePoint="RIGHT" x="6" y="0"/>
 						</Anchors>
@@ -1568,8 +1598,14 @@
 							`UpdatePendingImports` fits it to the text.
 						-->
 						<Size x="1" y="22"/>
+						<!--
+							**Above the inset, where the search box stood before it moved in.** It is not
+							part of the header row: that row narrows the list, and this answers what came
+							in for the whole profile. Standing outside also keeps the row's width fixed -
+							this label is fitted to its text and the row has the (i) at its right end.
+						-->
 						<Anchors>
-							<Anchor point="LEFT" relativeKey="$parent.FilterDropdown" relativePoint="RIGHT" x="6" y="0"/>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ResultPanel" relativePoint="TOPLEFT" x="2" y="4"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>

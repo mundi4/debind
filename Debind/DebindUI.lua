@@ -124,6 +124,32 @@ function DebindRowMarkMixin:OnLeave()
 	end
 end
 
+--- The sentence an issue code prints, in its grade's colour. The wording fallback is the menu's
+--- (`resolveIssue` in ActionMenuModel.lua), and the colour is the grade's (`GetIssueColor`).
+local function AddIssueLine(tooltip, code)
+	local text = rawget(LLL, code) or rawget(LLL, "BINDING_ERROR_" .. code) or code;
+	GameTooltip_AddColoredLine(tooltip, text, DebindPrivate.GetIssueColor(code), true);
+end
+
+--- The row's issue mark: the one problem on this row. `mark.issue` is set beside `SetKind`.
+local function IssueMarkTooltip(tooltip, mark)
+	AddIssueLine(tooltip, mark.issue);
+end
+
+--- The group heading's issue mark: every problem in the group, one line per code, so a folded
+--- group still says what is wrong further down. `mark.rows` is set beside `SetKind`.
+local function GroupIssueMarkTooltip(tooltip, mark)
+	local seen = {};
+	for i = 1, #mark.rows do
+		local row = mark.rows[i];
+		local issue = row.issue;
+		if (issue and not seen[issue] and not DebindPrivate.IsInactiveAction(row.action)) then
+			seen[issue] = true;
+			AddIssueLine(tooltip, issue);
+		end
+	end
+end
+
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
 local GetTabLabel                    = DebindUI.GetTabLabel;
 local GetSideTabLabel               = DebindUI.GetSideTabLabel;
@@ -1081,7 +1107,8 @@ function DebindLineMixin:Update()
 	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
 		grade = "warning";
 	end
-	self.Marks.Issue:SetKind(grade);
+	self.Marks.Issue.issue = issue;
+	self.Marks.Issue:SetKind(grade, IssueMarkTooltip);
 
 	if (isInactive) then
 		self.Marks.Hover:SetInactive(true);
@@ -1569,8 +1596,9 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- the key does not fire, a warning where it fires with one thing missing. A folded group
 		-- summarises only its first action, so without this a problem further down says nothing at
 		-- all while folded.
+		self.IssueIcon.rows = elementData.rows;
 		self.IssueIcon:SetKind(elementData.hasError and "error"
-			or elementData.hasWarning and "warning" or nil);
+			or elementData.hasWarning and "warning" or nil, GroupIssueMarkTooltip);
 		self:SetHeaderText(KeyGroupLabel(elementData.key));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
@@ -4286,6 +4314,33 @@ function DebindResultPanelMixin:OnLoad()
 	self:Refresh();
 end
 
+--- The callout on the (i): its own hover, and the cursor on a locked arrow. It is the (i)'s
+--- tooltip; nothing else is put on it.
+local ORDER_HELP_TIP = {
+	text = nil,
+	buttonStyle = HelpTip.ButtonStyle.Close,
+	targetPoint = HelpTip.Point.TopEdgeCenter,
+	alignment = HelpTip.Alignment.Left,
+};
+
+local function OrderHelpTipText()
+	return LLL["HELP_ORDERING_TITLE"] .. "|n|n" .. GREEN_FONT_COLOR:WrapTextInColorCode(CLICK_FOR_MORE_INFO);
+end
+
+function DebindResultPanelMixin:ShowHelpTip()
+	ORDER_HELP_TIP.text = OrderHelpTipText();
+	HelpTip:Show(self, ORDER_HELP_TIP, self.ContentArea.HelpButton);
+end
+
+function DebindResultPanelMixin:HideHelpTip()
+	HelpTip:Hide(self, OrderHelpTipText());
+end
+
+function DebindResultPanelMixin:OnHelpClick()
+	DebindUI.ToggleHelp("ordering");
+	self:HideHelpTip();
+end
+
 function DebindResultPanelMixin:Refresh()
 	if (not self.initialized) then
 		return;
@@ -4338,11 +4393,12 @@ local ORDER_REASON_WIDTH = 170;
 --- 버튼은 없앴다 만들지 않고 **늘 두 개**다. 비활성이 곧 "지금은 안 된다"이고, 나타났다
 --- 사라지면 연타할 때 과녁이 흔들린다.
 
---- 자물쇠를 얹고 빨갛게 쓸 죽음인가. **읽는 사람이 손댈 데가 있는 것만** 그렇다.
+--- Which dead arrows are written in red and get the callout on the (i): **only the ones a reader
+--- can do something about.**
 ---
---- 끝에 닿은 것과 다른 전문화의 것은 빠진다. 앞은 갈 데가 없다는 말이라 더 들을 것이 없고,
---- 뒤는 규칙이 막는 것이 아니라 겨룰 일이 없는 것이다. 여는 방법이 없는데 자물쇠를 얹으면 그
---- 그림이 거짓말이 되고, 잘못이 아닌 것을 빨갛게 칠하면 정말 빨개야 할 것이 묻힌다.
+--- One at the end of its group and one against another specialization's row are left out. The
+--- first has nowhere to go and nothing more to say; the second is not held by a rule, it has
+--- nothing to contend for. Painting what is not a fault red buries what is.
 local BLOCKED_WITH_NOTHING_TO_DO = {
 	ALREADY_FIRST = true,
 	ALREADY_LAST = true,
@@ -4360,9 +4416,10 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	-- 그 상태는 설명할 것도 없다("맨 위이자 맨 아래다"는 배울 것이 없는 말이다). 대부분의
 	-- 키가 여기 해당하므로, 안 세우는 것만으로 목록에서 버튼이 드물어진다.
 	--
-	-- **규칙 때문에 막힌 것은 다르다.** 그건 둘 이상이 같은 키를 두고 겨루는데 중요도나
-	-- 조건이 순서를 정하고 있다는 뜻이라, 죽은 버튼과 그 툴팁이 이 애드온에서 순서 규칙을
-	-- 가르치는 몇 안 되는 자리다. 그쪽은 그대로 세워 둔다.
+	-- **One held by a rule is different.** Two or more are contending for one key and Importance
+	-- or a condition is deciding it, and that dead arrow is the one place in the list where the
+	-- reader meets the rule: the tooltip says it, and the (i) lights and speaks up while the
+	-- cursor is there. Those stay up.
 	--
 	-- **A row that came in gets the accept button instead.** What the arrows decide is which of the
 	-- things on one key goes first, and a badged row does not go at all - up or down, nothing is
@@ -4413,8 +4470,6 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	down.titleKey, down.descKey = "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC";
 	up:SetEnabled(upNeighbor ~= nil);
 	down:SetEnabled(downNeighbor ~= nil);
-	up.Lock:SetShown(IsRuleBlocked(upReason));
-	down.Lock:SetShown(IsRuleBlocked(downReason));
 	up:Show();
 	down:Show();
 
@@ -4503,43 +4558,32 @@ function DebindOrderLineMixin:OnAcceptEnter(button)
 	GameTooltip:Show();
 end
 
---- 막은 축을 바꾸는 대신 **중요도로 가라**고 말해 줄 사유들. 나머지는 아무 말도 안 붙는다
---- (로케일의 `ORDER_BLOCKED_USE_IMPORTANCE` 위 주석에 어느 쪽이 왜 그런지가 있다).
-local ORDER_BLOCKED_WAY_OUT = {
-	ORDER_BLOCKED_CONDITIONAL = true,
-	ORDER_BLOCKED_HOVER = true,
-	ORDER_BLOCKED_LAYER = true,
-};
-
 --- 막힌 버튼은 **왜 막혔는지**를 말한다. 그 사유는 순서 규칙 자체라, 이 애드온에서 규칙을
 --- 가르치는 몇 안 되는 자리다.
 function DebindOrderLineMixin:OnMoveEnter(button)
+	-- The (i) lights while the cursor is on an arrow: the help is where the arrows are explained.
+	DebindResultPanel.ContentArea.HelpButton:LockHighlight();
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
 	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
 	GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
-	if (not button:IsEnabled() and button.reasonKey) then
+	if (button.reasonKey) then
 		GameTooltip_AddBlankLineToTooltip(GameTooltip);
-		-- **끝에 닿은 것은 잘못이 아니다.** 규칙이 막는 것과 같은 빨강으로 서면, 알아볼 것이
-		-- 있는 쪽과 볼 것 없는 쪽이 한 색이 되어 빨강이 힘을 잃는다. 자물쇠를 안 얹는 것과
-		-- 같은 갈래다(`IsRuleBlocked`).
+		-- An arrow at the end is not a fault. In the same red as one a rule holds, the two read as
+		-- one colour and the red says nothing (`IsRuleBlocked`).
 		if (IsRuleBlocked(button.reason)) then
 			GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
+			DebindResultPanel:ShowHelpTip();
 		else
 			GameTooltip_AddDisabledLine(GameTooltip, LLL[button.reasonKey]);
 		end
-		if (ORDER_BLOCKED_WAY_OUT[button.reasonKey]) then
-			GameTooltip_AddInstructionLine(GameTooltip, LLL["ORDER_BLOCKED_USE_IMPORTANCE"]);
-			-- **그 손잡이가 이 캐릭터 것이 아닐 수 있다.** 중요도로 가라고 해 놓고 그 말을 안
-			-- 하면, 부캐 전부의 순서를 바꾼 사람이 여기서 시킨 대로 했을 뿐이 된다. 판정은
-			-- 중요도 메뉴가 같은 경고를 붙일 때 쓰는 것과 같다(`CreateImportanceMenu`).
-			local layer = DebindPrivate.GetProfileLayer(self:GetElementData().row.layerID);
-			if (layer and not layer.isCharacterSpecific) then
-				GameTooltip_AddColoredLine(GameTooltip, LLL["IMPORTANCE_SHARED_WARNING"],
-					ORANGE_FONT_COLOR, true);
-			end
-		end
 	end
 	GameTooltip:Show();
+end
+
+function DebindOrderLineMixin:OnMoveLeave()
+	GameTooltip:Hide();
+	DebindResultPanel.ContentArea.HelpButton:UnlockHighlight();
+	DebindResultPanel:HideHelpTip();
 end
 
 --- 이 행의 이유 칸에 적을 글. 적을 것이 없으면 빈 문자열이다.
@@ -4710,9 +4754,7 @@ local ORDER_LINE_INDENT = 10;
 
 function DebindResultPanelMixin:InitializeOrderScrollBox()
 	local orderArea = self.ContentArea.OrderArea;
-	-- 행 사이는 띄우지 않는다(마지막 인자 0). 줄무늬가 경계를 그리므로 틈이 필요 없고,
-	-- 틈이 있으면 무늬가 끊겨서 오히려 줄이 안 세어진다. 경매장 목록도 붙여 놓는다.
-	local view = CreateScrollBoxListLinearView(4, 4, 2, 2, 3);
+	local view = CreateScrollBoxListLinearView(0, 0, 0, 0, 3);
 	-- 헤더와 행이 섞이므로 템플릿을 하나로 못 박지 못한다. 오른쪽 목록과 같은 방식이고,
 	-- 키 헤더도 **같은 템플릿**이다 - 한 창의 두 목록이 키를 다른 그림으로 가르면 안 된다.
 	view:SetElementFactory(function(factory, elementData)

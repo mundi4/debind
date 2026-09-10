@@ -244,6 +244,7 @@ globals = {
 	"GameTooltip_AddColoredLine",
 	"GameTooltip_AddColoredDoubleLine",
 	"GameTooltip_Hide",
+	"HelpTip",
 	"StaticPopup_Show",
 	"StaticPopup_ShowCustomGenericConfirmation",
 	"StaticPopup_ShowCustomGenericInputBox",

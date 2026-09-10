@@ -65,6 +65,17 @@ function DebindUI.ShowHelp(topic)
     end
 
     DebindMessageFrame:SetMessage(LLL[entry.title], LLL[entry.body]);
+    DebindMessageFrame.topic = topic;
     DebindMessageFrame:Show();
     DebindMessageFrame:Raise();
+end
+
+--- The (i)'s press: the same page closes, any other opens. Judged by the topic on the frame and
+--- not by whether it is shown, so a press while a different page is up swaps to this one.
+function DebindUI.ToggleHelp(topic)
+    if (DebindMessageFrame:IsShown() and DebindMessageFrame.topic == topic) then
+        DebindMessageFrame:Hide();
+        return;
+    end
+    DebindUI.ShowHelp(topic);
 end

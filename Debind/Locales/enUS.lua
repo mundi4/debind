@@ -942,26 +942,16 @@ L["ORDER_BLOCKED_LAYER"] = "This action cannot move past the one next to it -- t
 -- Importance는 메뉴 이름이라 대문자다(L["IMPORTANCE"]). 뒤는 "the higher one"으로 받는다 -
 -- **더 중요하다고는 안 한다.** 그건 사용자가 고른 값이지 우리가 매길 것이 아니다.
 L["ORDER_BLOCKED_IMPORTANCE"] = "This action cannot move past the one next to it -- they have different Importance, and the higher one is tried first."
--- 막힌 채로 두지 않는다. 위의 넷은 **무엇이 막고 있는지**까지 말하고 끝나는데, 읽는 사람에게는
--- 다음에 할 것이 남아 있다.
---
--- **그런데 길은 하나뿐이다.** 조건과 개체창은 그 액션이 언제 도는지를 정하는 것이고 레이어는
--- 누가 그 키를 갖는지를 정하는 것이라, 순서를 올리자고 셋 중 하나를 건드리면 순서 말고 다른
--- 것이 같이 바뀐다. 순서만 바꾸는 축은 중요도 하나이므로 셋 다 그리로 보낸다.
---
--- SPEC과 IMPORTED에는 아무 말도 안 붙는다. 둘은 순서 다툼 자체가 없는 자리라, 길이 없는데
--- 있는 척하면 그 길을 찾아 헤매게 된다.
-L["ORDER_BLOCKED_USE_IMPORTANCE"] = "To put this one first, raise its Importance -- or lower the other's. Importance is the only one of these you can change without changing what the action does."
 -- **Not the shape the rest of this family uses**, and it should not be: the others say why this
 -- action cannot pass the one beside it, and this one is not in the running at all. What came in a
 -- string reaches no key until it is accepted, so there is no order for it to have a place in.
 -- The second sentence is the one `LINE_TOOLTIP_IMPORTED` already says, because it is the same fact
 -- and a reader who has met it once should not have to learn it twice.
 L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a string, and it reaches no key until you accept it."
--- **막는 것이 아니라 겨룰 일이 없는 것이다.** 위의 넷은 축 하나가 갈려서 못 지나가는 것이라
--- 그 축을 바꾸면 지나가는데, 이 둘은 같은 목록에 같이 오를 때가 없다. 그래서 순서를 정해
--- 봐야 아무것도 안 정한다 - 죽은 화살표가 회색으로 서고 자물쇠도 안 얹는 갈래다
--- (DebindUI.lua의 BLOCKED_WITH_NOTHING_TO_DO).
+-- **Not held, just nothing to contend for.** The four above cannot pass because one step
+-- splits them, and changing that step lets them; these two are never on one list together, so
+-- an order between them settles nothing. That is the grey branch, with no red and no callout
+-- (BLOCKED_WITH_NOTHING_TO_DO in DebindUI.lua).
 --
 -- **run이 아니라 active를 쓴다.** 한 키에 걸린 것은 원래 하나만 도니, 안 같이 돈다고 하면
 -- 이 짝만의 특징인 것처럼 읽히고 다른 짝은 같이 도는 것이 된다. 같은 행의 사유 칸이 이미
@@ -983,7 +973,7 @@ L["ORDER_BLOCKED_SPEC"] = "This action and the one next to it are never active a
 -- 읽고 나서 갈 데가 없다. 그 줄이 우클릭 메뉴를 짚으므로, 거기 항목 이름이 바뀌면 이 문장도 같이
 -- 바뀌어야 한다.
 L["HELP_ORDERING_TITLE"] = "Which action a key runs"
-L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met -- one of them runs, never two.|n|nSo the order of that list matters, and it is not the order you added them in. Debind decides it by taking the actions two at a time and asking four questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.|n2. |cnHIGHLIGHT_FONT_COLOR:Unit Frame.|r An action with a Unit Frame condition, over or not over, is tried before one that has none.|n3. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.|n4. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.|n|nThe list on the Overview tab groups actions by key, and each group is in that order. When all four are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the four has already settled it, and the tooltip names which one.|n|nAll four are set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, the conditions, and |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer.|n|nStart with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. Importance is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.|n|nIf the action reaches other characters, whatever you change changes for them too."
+L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met -- one of them runs, never two.|n|nSo the order of that list matters, and it is not the order you added them in. Debind decides it by taking the actions two at a time and asking four questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.|n2. |cnHIGHLIGHT_FONT_COLOR:Unit Frame.|r An action with a Unit Frame condition, over or not over, is tried before one that has none.|n3. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.|n4. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.|n|nThe left column of the Overview tab groups actions by key, and each group is in that order. When all four are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the four has already settled it, and the tooltip names which one.|n|nAll four are set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, the conditions, and |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer.|n|nStart with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. Importance is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.|n|nIf the action reaches other characters, whatever you change changes for them too."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"

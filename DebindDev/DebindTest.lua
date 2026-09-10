@@ -2175,6 +2175,163 @@ RegisterTest("Order arrows: another specialization's rows reorder among themselv
     end,
 })
 
+-- The lines standing in GameTooltip right now, top to bottom. A test that wants to know what a
+-- tooltip says asks the tooltip, not the function that filled it.
+local function TooltipLines()
+    local lines = {}
+    for i = 1, GameTooltip:NumLines() do
+        local fontString = _G["GameTooltipTextLeft" .. i]
+        lines[i] = fontString and fontString:GetText() or ""
+    end
+    return lines
+end
+
+local function HasLine(lines, text)
+    for _, line in ipairs(lines) do
+        if line == text then
+            return true
+        end
+    end
+    return false
+end
+
+-- Two rows on one key in this layer, one with a condition. The conditions step settles their
+-- order, so the arrows between them are locked by a rule and the ones at the ends are not.
+local function PlantConditionLockedPair(key)
+    local first = InsertAction({ type = Constants.SPELL, value = 1, key = key, combat = true })
+    local second = InsertAction({ type = Constants.SPELL, value = 2, key = key })
+    ApplyBindings()
+
+    DebindFrame:Show()
+    AddTeardown(function() DebindFrame:CloseWindow() end)
+    DebindLayerPanel:SetSelectedAction(second)
+    DebindResultPanel:RefreshKeyboard()
+    return first, second, FindOrderLine(second)
+end
+
+-- What the game does: a click on a locked arrow, and on the (i), opens a window. These need the
+-- window, the tooltip and the real button scripts, none of which the headless run has.
+RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
+    description = "An arrow a rule holds is disabled; the cursor on it lights the (i) and puts its callout up, and leaving takes both down. One dead at the end lights the (i) and puts no callout up",
+    run = function()
+        local NAME = "Locked arrow"
+        local KEY = "CTRL-ALT-F11"
+
+        local _, _, line = PlantConditionLockedPair(KEY)
+        if not line then
+            return Fail(NAME, format("no row for %s in the left column, is a search term or filter on", KEY))
+        end
+        AddTeardown(function() line:OnMoveLeave() end)
+
+        local up, down = line.MoveUpButton, line.MoveDownButton
+        if up.reason ~= "CONDITIONAL" then
+            return Fail(NAME, format("setup: the upward arrow is not held by the conditions step: %s",
+                tostring(up.reason)))
+        end
+        if up:IsEnabled() then
+            return Fail(NAME, "the arrow a rule holds is live")
+        end
+
+        local help = DebindResultPanel.ContentArea.HelpButton
+        line:OnMoveEnter(up)
+        if not help:GetHighlightTexture():IsShown() then
+            return Fail(NAME, "the cursor on a locked arrow did not light the (i)")
+        end
+        if not HelpTip:IsShowingAny(DebindResultPanel) then
+            return Fail(NAME, "the cursor on a locked arrow put no callout on the (i)")
+        end
+        line:OnMoveLeave()
+        if help:GetHighlightTexture():IsShown() then
+            return Fail(NAME, "the (i) stayed lit after the cursor left")
+        end
+        if HelpTip:IsShowingAny(DebindResultPanel) then
+            return Fail(NAME, "the callout stayed up after the cursor left")
+        end
+
+        -- The negative: the arrow at the end of the group is dead too, but there is nothing to
+        -- learn from it, so the (i) lights and no callout comes up.
+        if down.reason ~= "ALREADY_LAST" then
+            return Fail(NAME, format("setup: the downward arrow is not at the end: %s", tostring(down.reason)))
+        end
+        if down:IsEnabled() then
+            return Fail(NAME, "an arrow at the end of its group is live")
+        end
+        line:OnMoveEnter(down)
+        if not help:GetHighlightTexture():IsShown() then
+            return Fail(NAME, "the cursor on the end arrow did not light the (i)")
+        end
+        if HelpTip:IsShowingAny(DebindResultPanel) then
+            return Fail(NAME, "the end arrow put a callout up with nothing to say")
+        end
+        line:OnMoveLeave()
+
+        return Pass(NAME, "the held arrow is dead and lights the (i) with its callout; the end arrow lights it alone")
+    end,
+})
+
+RegisterTest("Order arrows: the locked tooltip says the rule", {
+    description = "A locked arrow's tooltip carries the rule's sentence; an arrow at the end carries its own",
+    run = function()
+        local NAME = "Locked arrow tooltip"
+        local KEY = "CTRL-ALT-F12"
+
+        local _, _, line = PlantConditionLockedPair(KEY)
+        if not line then
+            return Fail(NAME, format("no row for %s in the left column, is a search term or filter on", KEY))
+        end
+        AddTeardown(function() line:OnMoveLeave() end)
+
+        line:OnMoveEnter(line.MoveUpButton)
+        local lines = TooltipLines()
+        if not HasLine(lines, LLL["ORDER_BLOCKED_CONDITIONAL"]) then
+            return Fail(NAME, format("the locked tooltip does not say the rule: %s", table.concat(lines, " | ")))
+        end
+        line:OnMoveLeave()
+
+        line:OnMoveEnter(line.MoveDownButton)
+        lines = TooltipLines()
+        if not HasLine(lines, LLL["ORDER_BLOCKED_ALREADY_LAST"]) then
+            return Fail(NAME, format("the end arrow's tooltip lost its sentence: %s", table.concat(lines, " | ")))
+        end
+        line:OnMoveLeave()
+
+        return Pass(NAME, "the rule on the lock; the end arrow's own sentence at the end")
+    end,
+})
+
+RegisterTest("Overview header: the (i) opens the ordering help", {
+    description = "The (i) at the right end of the search row is up; one press opens the ordering help and the next closes it",
+    run = function()
+        local NAME = "Header (i)"
+
+        DebindFrame:Show()
+        AddTeardown(function() DebindFrame:CloseWindow() end)
+        AddTeardown(function() DebindMessageFrame:Hide() end)
+        DebindMessageFrame:Hide()
+
+        local help = DebindResultPanel.ContentArea.HelpButton
+        if not help:IsVisible() then
+            return Fail(NAME, "the (i) is not on screen with the window open")
+        end
+
+        help:Click()
+        if not DebindMessageFrame:IsShown() then
+            return Fail(NAME, "the press on the (i) opened no help")
+        end
+        if DebindMessageFrame.Title:GetText() ~= LLL["HELP_ORDERING_TITLE"] then
+            return Fail(NAME, format("the help that opened is titled %q",
+                tostring(DebindMessageFrame.Title:GetText())))
+        end
+
+        help:Click()
+        if DebindMessageFrame:IsShown() then
+            return Fail(NAME, "a second press on the (i) left the help up")
+        end
+
+        return Pass(NAME, "the (i) opened the ordering help, and closed it again")
+    end,
+})
+
 -----------------------------------------------------------
 -- Test Cases: The macro editor commits by closing and by nothing else
 --
