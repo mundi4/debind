@@ -36,20 +36,20 @@ So the binds have to be layered, and one key has to be able to mean more than on
 |---|---|
 | Character / Specialization | this character, in this spec |
 | Character / General | this character |
-| Shared / Specialization | every Druid you own, while Balance |
-| Shared / Class | every Druid you own |
-| Shared / General | every character on the account |
+| Account / Specialization | every Druid you own, while Balance |
+| Account / Class | every Druid you own |
+| Account / General | every character on the account |
 | *WoW's own keybindings* | *whatever you already had. Debind doesn't touch it.* |
 
 **A layer holds only the keys you put in it — never a whole keyboard.** So the question is asked one key at a time: for *this* key, which rows have something to say?
 
 The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does — and to your WoW keybinding if none of them do. Nothing is switched off on the way: the rows below are still answering for every other key. (Put two actions on the same key and a couple of other things get checked before the layer does — *When a key holds several actions*, further down.)
 
-Say `R` is Rebirth, in Shared / Class. Every druid you have presses `R` for a battle rez, and so does the next one you roll. Then Balance wants `R` for Starfall — put Starfall in Shared / Specialization and you're done. **The narrow layer takes over there, the broad one keeps everything else.** Balance gets Starfall, every other druid still gets Rebirth. You didn't copy Rebirth anywhere, you didn't delete it, and it's still in one place when you want to change it.
+Say `R` is Rebirth, in Account / Class. Every druid you have presses `R` for a battle rez, and so does the next one you roll. Then Balance wants `R` for Starfall — put Starfall in Account / Specialization and you're done. **The narrow layer takes over there, the broad one keeps everything else.** Balance gets Starfall, every other druid still gets Rebirth. You didn't copy Rebirth anywhere, you didn't delete it, and it's still in one place when you want to change it.
 
 No profiles to pick. The layers follow your character and spec, and change when they do.
 
-![Two layer tabs and their tooltips: Shared / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
+![Two layer tabs and their tooltips: Account / Balance covers every Druid you own while Balance; Oreo / Balance covers this character in this spec.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/layer-tabs.png)
 
 **That last row stays out of it.** When nothing you put on a key applies, Debind's binding comes off and the game handles the press itself — Debind never runs your binding for you. A key you never gave to Debind was never involved at all.
 
@@ -59,7 +59,7 @@ WoW's keybinding window has an *account-wide* / *character-specific* switch. It 
 
 `/deb` opens the window. So does the addon compartment button by the minimap.
 
-The list you land on is the layer you're editing. The tabs along the bottom pick **Shared** or **this character**; the tabs down the side pick **General**, **Class**, or one specialization. Those two together are the five layers in that table — hover a tab and it says which one it is and who it covers. The number on a tab is how many actions are in it. Dragging an action onto another tab moves it there.
+The list you land on is the layer you're editing. The tabs along the bottom pick **Account** or **this character**; the tabs down the side pick **General**, **Class**, or one specialization. Those two together are the five layers in that table — hover a tab and it says which one it is and who it covers. The number on a tab is how many actions are in it. Dragging an action onto another tab moves it there.
 
 **Overview**, the tab at the bottom left, opens a second column beside it: every key you have bound, grouped by key, in the order Debind tries them, for the character and spec you're on. Read this one when you want to know what a key actually does — it covers every tab at once, not just the one you have open. Click a row and you land on that action in whichever layer it lives in.
 

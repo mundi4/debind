@@ -254,11 +254,7 @@ L["LAYER_DESC_CHARACTER_GENERAL"] = "이 캐릭터 전용. 조건과 중요도�
 -- 근거는 enUS 쪽 주석에.
 L["LAYER_DESC_CHARACTER_SPEC"] = "이 캐릭터가 %s일 때. 조건과 중요도가 같다면 여기 있는 키가 다른 모든 탭의 같은 키보다 우선합니다."
 -- 레이어의 짧은 이름. 근거는 enUS 쪽 주석에.
-L["LAYER_SHORT_ACCOUNT"] = "계정"
-L["LAYER_SHORT_CLASS"] = "직업"
-L["LAYER_SHORT_SPEC"] = "전문화"
 L["LAYER_SHORT_CHARACTER"] = "캐릭터"
-L["LAYER_SHORT_CHARACTER_SPEC"] = "캐릭터 전문화"
 L["MACRO_POPUP_TEXT"] = "매크로 이름 입력 (최대 %d자):"
 L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d자 사용"
 -- 근거는 enUS 쪽 주석에.
@@ -306,14 +302,9 @@ L["ORDER_BLOCKED_LAYER"] = "옆 행동을 앞지를 수 없습니다 -- 둘은 �
 L["ORDER_BLOCKED_IMPORTANCE"] = "옆 행동을 앞지를 수 없습니다 -- 둘은 중요도가 다르고, 중요도를 가장 먼저 비교합니다."
 L["ORDER_BLOCKED_IMPORTED"] = "이 행동은 아직 이 키의 순서에 없습니다. 문자열로 받아온 것이라, 받아들이기 전까지는 어떤 키에도 걸리지 않습니다."
 L["ORDER_BLOCKED_SPEC"] = "옆 행동을 앞지를 수 없습니다 -- 둘은 전문화가 다르고, 한 번에 한 전문화만 활성화되므로 둘 사이에는 정할 순서가 없습니다."
-L["ORDER_WHY_IMPORTANCE"] = "중요도: %s"
 -- 정렬은 hover가 설정됐는지만 본다. 근거는 enUS 쪽 주석에.
-L["ORDER_WHY_HOVER"] = "개체창 규칙"
-L["ORDER_WHY_CONDITIONAL"] = "조건 있음"
-L["ORDER_WHY_LAYER"] = "%1$s > %2$s"
 -- "직접 정한 순서"라고 쓰면 안 된다. 자리는 키를 걸 때 자동으로 받는 번호라 사용자가 고른
 -- 적이 없다. 근거는 enUS 쪽 주석에.
-L["ORDER_WHY_SEQ"] = "이 키에서의 순서"
 L["IMPORTANCE"] = "중요도"
 L["IMPORTANCE1"] = "매우 높음"
 L["IMPORTANCE2"] = "높음"

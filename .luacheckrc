@@ -383,6 +383,7 @@ globals = {
 	"DebindDialogMixin",
 	"DebindLineMixin",
 	"DebindKeyHeaderMixin",
+	"DebindRowMarkMixin",
 	"DebindOrderLineMixin",
 	"DebindTabMixin",
 	"DebindPanelTabMixin",

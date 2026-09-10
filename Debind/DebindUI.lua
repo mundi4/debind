@@ -41,42 +41,92 @@ local NameAndIconForAction           = DebindUI.NameAndIconForAction;
 local ColoredNameAndIconForAction    = DebindUI.ColoredNameAndIconForAction;
 local SetActionIcon                  = DebindUI.SetActionIcon;
 
--- The two marks a problem wears, wherever one is drawn. Named here because the row and the group
--- heading have to pick the same picture for the same grade.
---
--- **One is a file and the other is an atlas**, so `SetIssueIcon` below is the only thing that puts
--- either of them on.
-local ISSUE_ICON_ERROR               = "Interface\\HelpFrame\\HelpIcon-Bug";
-local ISSUE_ICON_WARNING             = "icons_16x16_important";
+-- 마크 하나가 갖는 상자. 크기가 하나인 것이 그 줄이 한 줄로 읽히게 하는 값이고, 그림마다
+-- 여백이 다른 것은 `inset`이 맞춘다 - 벌레 파일은 아트가 여백 안에 앉아 있어서 상자를 키우는
+-- 대신 가운데를 잘라낸다.
+local MARK_SIZE                      = 15;
 
--- One box for both marks, and the inset is what keeps them reading at the same weight: the bug
--- file's art sits inside padding, so it is cropped to its middle rather than given a bigger box.
-local ISSUE_ICON_SIZE                = 15;
-local ISSUE_ICON_ERROR_INSET         = 0.2;
+--- **어느 뜻이 어느 그림인지는 여기서만 정한다.** 같은 뜻이 목록마다 다른 그림으로 나가면
+--- 읽는 사람은 둘을 다른 것으로 안다.
+---
+--- `atlas`와 `file`이 갈리는 이유는 아트가 그렇게 있기 때문이고, 한쪽을 세우면 다른 쪽 흔적을
+--- 지워야 한다 - 이 프레임들은 풀에서 돌아오므로 앞 행이 남긴 것을 들고 온다. 좌표가 그중
+--- 물리는 것이라, 안 자르는 그림도 자기가 안 자른다고 말해야 한다.
+local MARK_KINDS = {
+	--- 개체창 위에서만 사는 액션. 비교자가 조건보다 먼저 보는 축이다(`Ordering.lua`).
+	hover       = { file = "Interface\\Cursor\\Point", offsetY = -1 },
+	--- 조건이 붙어 있다는 것만 말한다. 그 조건이 틀렸는지는 아래 두 마크가 말한다.
+	conditional = { atlas = "questlog-questtypeicon-quest" },
+	--- 키가 아예 안 먹는다.
+	error       = { file = "Interface\\HelpFrame\\HelpIcon-Bug", inset = 0.2, color = RED_FONT_COLOR },
+	--- 먹기는 하는데 뜻대로는 아니다.
+	warning     = { atlas = "icons_16x16_important" },
+};
 
---- **Whatever one branch sets, the other sets back.** These textures come out of a pool, so a
---- frame starts with what the last group left on it. The coords are the one that bites: nothing
---- clears them on its own, so the mark that does not crop has to say so.
-local function SetIssueIcon(texture, icon)
-	texture:SetSize(ISSUE_ICON_SIZE, ISSUE_ICON_SIZE);
-	if (icon == ISSUE_ICON_ERROR) then
-		local inset = ISSUE_ICON_ERROR_INSET;
-		texture:SetTexture(icon);
-		texture:SetTexCoord(inset, 1 - inset, inset, 1 - inset);
-		texture:SetDesaturated(true);
-		texture:SetVertexColor(1, 0, 0);
+DebindRowMarkMixin = {};
+
+--- 이 마크가 무엇을 말하는지. `kind`가 nil이면 마크가 내려간다.
+---
+--- `tooltipFunc(tooltip, self)`는 **그 마크만의 설명**을 쓴다. 종류마다 한 문장이 아니라 다는
+--- 쪽이 넘기는 이유는, 같은 벌레라도 왜 안 먹는지가 상황마다 다르기 때문이다.
+function DebindRowMarkMixin:SetKind(kind, tooltipFunc)
+	self.tooltipFunc = tooltipFunc;
+	local art = kind and MARK_KINDS[kind];
+	if (not art) then
+		self:Hide();
+		return;
+	end
+
+	local texture = self.Icon;
+	self:SetSize(MARK_SIZE, MARK_SIZE);
+	texture:SetSize(MARK_SIZE, MARK_SIZE);
+	-- 그림마다 아트가 상자 안에서 앉는 자리가 달라, 가운데를 맞춰도 눈에 보이는 높이가 어긋난다.
+	texture:ClearAllPoints();
+	texture:SetPoint("CENTER", 0, art.offsetY or 0);
+	if (art.file) then
+		texture:SetTexture(art.file);
 	else
-		texture:SetAtlas(icon);
-		texture:SetTexCoord(0, 1, 0, 1);
-		texture:SetDesaturated(false);
+		texture:SetAtlas(art.atlas);
+	end
+	local inset = art.inset or 0;
+	texture:SetTexCoord(inset, 1 - inset, inset, 1 - inset);
+	texture:SetDesaturated(art.color ~= nil);
+	if (art.color) then
+		texture:SetVertexColor(art.color:GetRGB());
+	else
 		texture:SetVertexColor(1, 1, 1);
+	end
+	self:Show();
+end
+
+--- 켜져 있지만 이 캐릭터에서는 안 사는 행에서 흐려진다. 마크가 또렷하면 그 행만 살아 있는
+--- 것으로 읽힌다.
+function DebindRowMarkMixin:SetInactive(inactive)
+	if (inactive) then
+		self.Icon:SetDesaturated(true);
+		self.Icon:SetVertexColor(INACTIVE_COLOR:GetRGBA());
+	end
+end
+
+function DebindRowMarkMixin:OnEnter()
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	if (self.tooltipFunc) then
+		self.tooltipFunc(GameTooltip, self);
+	else
+		GameTooltip_SetTitle(GameTooltip, "툴팁내용 들어갈자리");
+	end
+	GameTooltip:Show();
+end
+
+function DebindRowMarkMixin:OnLeave()
+	if (GameTooltip:GetOwner() == self) then
+		GameTooltip:Hide();
 	end
 end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
 local GetTabLabel                    = DebindUI.GetTabLabel;
 local GetSideTabLabel               = DebindUI.GetSideTabLabel;
-local GetLayerShortName              = DebindUI.GetLayerShortName;
 local GetLayerLabel                  = DebindUI.GetLayerLabel;
 local IsLayerOffWorld                = DebindUI.IsLayerOffWorld;
 local IsActionLive                   = DebindUI.IsActionLive;
@@ -257,7 +307,7 @@ end
 ---
 --- 지는 쪽은 **`GetLayerLabel`로 부른다** - 낱말 하나가 아니라 "공유 / 드루이드" 꼴이다.
 --- 툴팁 제목이 그 형식이라 참조도 같아야 화면에서 찾을 수 있다. 한때 "직업보다 우선"이라고
---- 적었는데, `LAYER_SHORT_CLASS`("직업"/"Class")는 **어느 탭에도 안 적혀 있는 이름**이다 -
+--- 적었는데, "직업"은 **어느 탭에도 안 적혀 있는 이름**이다 -
 --- 그 탭의 제목은 "공유 / 드루이드"다. 영어에서는 "Beats Druid."가 "드루이드를 이긴다"로도
 --- 읽혀서 더 나빴다. 그래서 이 함수가 `GetLayerLabel`을 부르지, 짧은 이름을 안 쓴다.
 ---
@@ -926,6 +976,24 @@ end
 
 DebindLineMixin = {};
 
+--- 커서가 이 행 위인가. **마크 위도 이 행 위다.**
+---
+--- 마크는 자기 툴팁을 가지려고 마우스를 먹으므로(`DebindRowMarkMixin`), 커서가 그리로 가면
+--- 행은 `OnLeave`를 받고 `IsMouseMotionFocus`도 거짓이 된다. 그런데 마크는 이 행의 자식이라
+--- 사람이 가리키고 있는 것은 여전히 이 행이고, 지정 모드에서 거기 대고 누른 키도 이 행의
+--- 것이어야 한다.
+---
+--- **`IsMouseOver`가 아닌 이유는 행과 같다** - 기하 판정이라 ScrollBox가 잘라낸 것에도 참이다.
+function DebindLineMixin:HasCursor()
+	if (self:IsMouseMotionFocus()) then
+		return true;
+	end
+	local marks = self.Marks;
+	return marks.Hover:IsMouseMotionFocus()
+		or marks.Conditional:IsMouseMotionFocus()
+		or marks.Issue:IsMouseMotionFocus();
+end
+
 function DebindLineMixin:Init(elementData)
 	self:RegisterForClicks("AnyUp");
 	--self:EnableMouseWheel(true);
@@ -995,47 +1063,31 @@ function DebindLineMixin:Update()
 		self.InfoText:SetText("");
 	end
 
-	if (DebindPrivate.IsConditionalAction(action)) then
-		-- **It says the action is conditional and nothing else.** Whether one of those conditions is
-		-- wrong is a second thing about the same row, and the mark beside it is what carries that
-		-- now -- red here made one picture answer two questions, and the reader had to know which
-		-- one it was answering before the colour meant anything.
-		if (isInactive) then
-			self.QuestionMark:SetVertexColor(INACTIVE_COLOR:GetRGBA());
-			self.QuestionMark:SetDesaturated(true);
-		else
-			self.QuestionMark:SetVertexColor(1, 1, 1);
-			self.QuestionMark:SetDesaturated(false);
-		end
-		self.QuestionMark:Show();
-	else
-		self.QuestionMark:Hide();
-	end
+	-- **비교자가 보는 순서 그대로다** (`Ordering.lua`): 개체창이 조건보다 먼저다. 두 축이 다
+	-- 화면에 서야 왜 이 행이 먼저 시도되는지가 목록에서 읽힌다.
+	--
+	-- **조건 마크는 조건이 있다는 것만 말한다.** 그중 하나가 틀렸는지는 세 번째 마크가 말한다
+	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이
+	-- 어느 쪽 답인지를 먼저 알아야 했다.
+	local binding = DebindPrivate.GetBindingInfoForAction(action);
+	self.Marks.Hover:SetKind(binding and binding.hover and "hover" or nil);
+	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil);
 
 	-- The same two marks the group heading carries, on the row they came from. The heading is a
 	-- summary and cannot say which row it meant, least of all while folded.
-	local issueIcon;
+	local grade;
 	if (issue and not DebindPrivate.IssueKeepsKey(issue)) then
-		issueIcon = ISSUE_ICON_ERROR;
+		grade = "error";
 	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
-		issueIcon = ISSUE_ICON_WARNING;
+		grade = "warning";
 	end
+	self.Marks.Issue:SetKind(grade);
 
-	if (issueIcon) then
-		SetIssueIcon(self.IssueIcon, issueIcon);
-		-- **The corner belongs to whichever of the two is up.** Anchored to the question mark
-		-- outright, a row with no conditions kept that mark's width as empty space and stopped
-		-- lining up with the rows around it.
-		self.IssueIcon:ClearAllPoints();
-		if (self.QuestionMark:IsShown()) then
-			self.IssueIcon:SetPoint("RIGHT", self.QuestionMark, "LEFT", -2, 0);
-		else
-			self.IssueIcon:SetPoint("BOTTOMRIGHT", -2, 7);
-		end
-		self.IssueIcon:Show();
-	else
-		self.IssueIcon:Hide();
+	if (isInactive) then
+		self.Marks.Hover:SetInactive(true);
+		self.Marks.Conditional:SetInactive(true);
 	end
+	self.Marks:Layout();
 
 	local professionQuality = action.type == Constants.ITEM and C_TradeSkillUI.GetItemReagentQualityByItemInfo(action.value);
 	if (professionQuality) then
@@ -1081,7 +1133,7 @@ function DebindLineMixin:Update()
 	-- combat refuses (`DebindFrameMixin:OnLoad`).
 	--
 	-- Set here as well as on the hover edges because rows come out of a pool.
-	self:EnableKeyboard(DebindFrame:IsCapturingKey() and self:IsMouseMotionFocus());
+	self:EnableKeyboard(DebindFrame:IsCapturingKey() and self:HasCursor());
 
 	self:SetAlpha(1);
 end
@@ -1126,7 +1178,9 @@ end
 
 function DebindLineMixin:OnLeave()
 	HideActionTooltip(GameTooltip);
-	self:EnableKeyboard(false);
+	-- **떠난 곳이 마크일 수 있다.** 그것도 이 행의 자식이라 커서는 여전히 이 행 위이고, 지정
+	-- 모드에서 거기 대고 누른 키는 이 행의 것이어야 한다.
+	self:EnableKeyboard(DebindFrame:IsCapturingKey() and self:HasCursor());
 end
 
 function DebindLineMixin:OnClick(buttonName)
@@ -1492,7 +1546,7 @@ function DebindKeyHeaderMixin:Init(elementData)
 	self.elementData = elementData;
 	self:UpdateCollapsedState(elementData.collapsed == true);
 	-- Pooled frame: the previous group may have shown it.
-	self.IssueIcon:Hide();
+	self.IssueIcon:SetKind(nil);
 
 	if (elementData.arrivalID ~= nil) then
 		-- **An arrival, waiting to be taken.** It is on the key it was sent on, so the key is what
@@ -1515,13 +1569,8 @@ function DebindKeyHeaderMixin:Init(elementData)
 		-- the key does not fire, a warning where it fires with one thing missing. A folded group
 		-- summarises only its first action, so without this a problem further down says nothing at
 		-- all while folded.
-		if (elementData.hasError) then
-			SetIssueIcon(self.IssueIcon, ISSUE_ICON_ERROR);
-			self.IssueIcon:Show();
-		elseif (elementData.hasWarning) then
-			SetIssueIcon(self.IssueIcon, ISSUE_ICON_WARNING);
-			self.IssueIcon:Show();
-		end
+		self.IssueIcon:SetKind(elementData.hasError and "error"
+			or elementData.hasWarning and "warning" or nil);
 		self:SetHeaderText(KeyGroupLabel(elementData.key));
 	else
 		-- 키가 없는 것은 키의 한 종류가 아니라 상태다. 그래서 낱말로 쓰고 흐리게 둔다.
@@ -3661,7 +3710,7 @@ end
 function DebindFrameMixin:UpdateCombatNotice()
 	local notice = self.OverviewPanel.CombatNotice;
 	notice:SetText(LLL["CHANGES_APPLY_AFTER_COMBAT"]);
-	notice:Show();
+	notice:SetShown(DebindPrivate.updateBindingsSuspended and true or false);
 end
 
 --- 커서에 뭔가 들려 있는 동안 목록 인셋이 빛난다 - "여기가 받는다". 생김새와 자리는 XML에.
@@ -4288,6 +4337,22 @@ local ORDER_REASON_WIDTH = 170;
 ---
 --- 버튼은 없앴다 만들지 않고 **늘 두 개**다. 비활성이 곧 "지금은 안 된다"이고, 나타났다
 --- 사라지면 연타할 때 과녁이 흔들린다.
+
+--- 자물쇠를 얹고 빨갛게 쓸 죽음인가. **읽는 사람이 손댈 데가 있는 것만** 그렇다.
+---
+--- 끝에 닿은 것과 다른 전문화의 것은 빠진다. 앞은 갈 데가 없다는 말이라 더 들을 것이 없고,
+--- 뒤는 규칙이 막는 것이 아니라 겨룰 일이 없는 것이다. 여는 방법이 없는데 자물쇠를 얹으면 그
+--- 그림이 거짓말이 되고, 잘못이 아닌 것을 빨갛게 칠하면 정말 빨개야 할 것이 묻힌다.
+local BLOCKED_WITH_NOTHING_TO_DO = {
+	ALREADY_FIRST = true,
+	ALREADY_LAST = true,
+	SPEC = true,
+};
+
+local function IsRuleBlocked(reason)
+	return reason ~= nil and not BLOCKED_WITH_NOTHING_TO_DO[reason];
+end
+
 function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	local up, down = self.MoveUpButton, self.MoveDownButton;
 
@@ -4340,6 +4405,7 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	if (not DebindPrivate.IsRowInOrder(elementData.row)
 			or not elementData.isCurrent or live < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
+		up.reason, down.reason = nil, nil;
 		up:Hide();
 		down:Hide();
 		self.ReasonText:ClearAllPoints();
@@ -4357,12 +4423,15 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 	local downNeighbor, downReason = DebindPrivate.ComputeOrderSwap(rows, elementData.index, 1);
 
 	self.moveUpNeighbor, self.moveDownNeighbor = upNeighbor, downNeighbor;
+	up.reason, down.reason = upReason, downReason;
 	up.reasonKey = upReason and ("ORDER_BLOCKED_" .. upReason) or nil;
 	down.reasonKey = downReason and ("ORDER_BLOCKED_" .. downReason) or nil;
 	up.titleKey, up.descKey = "ORDER_MOVE_UP", "ORDER_MOVE_UP_DESC";
 	down.titleKey, down.descKey = "ORDER_MOVE_DOWN", "ORDER_MOVE_DOWN_DESC";
 	up:SetEnabled(upNeighbor ~= nil);
 	down:SetEnabled(downNeighbor ~= nil);
+	up.Lock:SetShown(IsRuleBlocked(upReason));
+	down.Lock:SetShown(IsRuleBlocked(downReason));
 	up:Show();
 	down:Show();
 
@@ -4451,6 +4520,14 @@ function DebindOrderLineMixin:OnAcceptEnter(button)
 	GameTooltip:Show();
 end
 
+--- 막은 축을 바꾸는 대신 **중요도로 가라**고 말해 줄 사유들. 나머지는 아무 말도 안 붙는다
+--- (로케일의 `ORDER_BLOCKED_USE_IMPORTANCE` 위 주석에 어느 쪽이 왜 그런지가 있다).
+local ORDER_BLOCKED_WAY_OUT = {
+	ORDER_BLOCKED_CONDITIONAL = true,
+	ORDER_BLOCKED_HOVER = true,
+	ORDER_BLOCKED_LAYER = true,
+};
+
 --- 막힌 버튼은 **왜 막혔는지**를 말한다. 그 사유는 순서 규칙 자체라, 이 애드온에서 규칙을
 --- 가르치는 몇 안 되는 자리다.
 function DebindOrderLineMixin:OnMoveEnter(button)
@@ -4458,7 +4535,26 @@ function DebindOrderLineMixin:OnMoveEnter(button)
 	GameTooltip_SetTitle(GameTooltip, LLL[button.titleKey]);
 	GameTooltip_AddNormalLine(GameTooltip, LLL[button.descKey]);
 	if (not button:IsEnabled() and button.reasonKey) then
-		GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
+		GameTooltip_AddBlankLineToTooltip(GameTooltip);
+		-- **끝에 닿은 것은 잘못이 아니다.** 규칙이 막는 것과 같은 빨강으로 서면, 알아볼 것이
+		-- 있는 쪽과 볼 것 없는 쪽이 한 색이 되어 빨강이 힘을 잃는다. 자물쇠를 안 얹는 것과
+		-- 같은 갈래다(`IsRuleBlocked`).
+		if (IsRuleBlocked(button.reason)) then
+			GameTooltip_AddErrorLine(GameTooltip, LLL[button.reasonKey]);
+		else
+			GameTooltip_AddDisabledLine(GameTooltip, LLL[button.reasonKey]);
+		end
+		if (ORDER_BLOCKED_WAY_OUT[button.reasonKey]) then
+			GameTooltip_AddInstructionLine(GameTooltip, LLL["ORDER_BLOCKED_USE_IMPORTANCE"]);
+			-- **그 손잡이가 이 캐릭터 것이 아닐 수 있다.** 중요도로 가라고 해 놓고 그 말을 안
+			-- 하면, 부캐 전부의 순서를 바꾼 사람이 여기서 시킨 대로 했을 뿐이 된다. 판정은
+			-- 중요도 메뉴가 같은 경고를 붙일 때 쓰는 것과 같다(`CreateImportanceMenu`).
+			local layer = DebindPrivate.GetProfileLayer(self:GetElementData().row.layerID);
+			if (layer and not layer.isCharacterSpecific) then
+				GameTooltip_AddColoredLine(GameTooltip, LLL["IMPORTANCE_SHARED_WARNING"],
+					ORANGE_FONT_COLOR, true);
+			end
+		end
 	end
 	GameTooltip:Show();
 end
@@ -4524,16 +4620,7 @@ local function GetOrderReasonText(elementData)
 		return color:WrapTextInColorCode(flag);
 	end
 
-	-- 아래 행을 이긴 이유. 없으면(그룹의 마지막 행, 또는 혼자인 키) 빈칸이다.
-	local reason = elementData.reason;
-	if (not reason) then
-		return "";
-	elseif (elementData.reasonB) then
-		return format(LLL["ORDER_WHY_" .. reason], elementData.reasonA, elementData.reasonB);
-	elseif (elementData.reasonA) then
-		return format(LLL["ORDER_WHY_" .. reason], elementData.reasonA);
-	end
-	return LLL["ORDER_WHY_" .. reason];
+	return "";
 end
 
 --- 이유 줄은 **글자만큼만** 차지한다. 남는 폭은 이름이 가져간다 - 이름 칸의 오른쪽 변이
@@ -4835,46 +4922,9 @@ function BuildKeyboardElements()
 			rows = {};
 		end
 		for i, row in ipairs(rows) do
-			-- 이유마다 딸리는 값이 다르다. 중요도는 **어느 쪽이 높았는지**를 말해야 하고
-			-- (이름만 쓰면 방향을 모른다), 레이어는 규칙 이름보다 **실제 두 레이어**를 대는
-			-- 편이 읽힌다. 값은 여기서 뽑아둔다 - 그릴 때는 이웃 행이 손에 없다.
-			local reason, argA, argB;
-			-- **The next one that fires, not the next line.** A badged row is not in the order
-			-- (`ComputeOrderSwap` skips it for the same reason), so measuring against one would
-			-- describe a contest that does not happen. Rows that are themselves badged get no
-			-- sentence at all - `GetOrderReasonText` returns "" for them, and the slot is the
-			-- accept button's.
-			--
-			-- **An off-spec row is out of the running the same way.** It is not in this
-			-- specialization's key map, so a sentence measured against one would describe a
-			-- contest that does not happen - and its own slot says which specialization it
-			-- belongs to instead.
-			--
-			-- **A row its own specialization condition leaves out is measured against**, unlike
-			-- those two: `seq` is what settles it against the row above it, so the sentence names
-			-- the step that really decided the pair (`Ordering.lua`'s `IsRowOffSpec`). Its own
-			-- slot still says which specialization it belongs to.
-			local next;
-			for j = i + 1, #rows do
-				if (DebindPrivate.IsRowInOrder(rows[j])) then
-					next = rows[j];
-					break;
-				end
-			end
-			if (next) then
-				reason = DebindPrivate.GetDecidingOrderAxis(row, next) or "SEQ";
-				if (reason == "IMPORTANCE") then
-					argA = LLL["IMPORTANCE" .. row.priority];
-				elseif (reason == "LAYER") then
-					argA, argB = GetLayerShortName(row.layerID), GetLayerShortName(next.layerID);
-				end
-			end
 			elements[#elements + 1] = {
 				row = row,
 				isCurrent = row.action == _selectedAction,
-				reason = reason,
-				reasonA = argA,
-				reasonB = argB,
 				-- 이동 버튼이 `ComputeOrderSwap(rows, index, ±1)`을 물으려면 **그룹 전체와
 				-- 자기 자리**가 있어야 한다. 그릴 때는 이웃 행이 손에 없으므로 여기서 실어둔다.
 				rows = rows,
@@ -5219,16 +5269,11 @@ end
 --- 남의 행을 가리킨다. 보이는 행은 많아야 열 몇이고 묻는 자리도 하나뿐이라, 그때 훑는 편이
 --- 상태를 맞춰 두는 것보다 싸고 틀릴 데가 없다.
 ---
---- **`IsMouseOver`가 아니라 `IsMouseMotionFocus`다.** 앞의 것은 프레임 사각형만 보는 기하
---- 판정이라 ScrollBox가 잘라낸 행에도 참이 된다 - 화면에 없는 행이 대상으로 잡힌다.
----
---- 뒤의 것은 `OnEnter`/`OnLeave`가 걸리는 바로 그 조건이라, 판정이 강조 표시와 언제나 같다.
---- 행 템플릿에 마우스를 먹는 자식이 없어서(XML의 DebindLineTemplate) 자식에게 포커스를
---- 빼앗길 일도 없다. `DebindLineMixin:Update`가 키보드를 넘길 때 보는 조건도 이것이다.
+--- 판정은 `DebindLineMixin:HasCursor`이고, `Update`가 키보드를 넘길 때 보는 것도 그것이다.
 local function GetHoveredLine()
 	local hovered;
 	DebindLayerPanel.ScrollBox:ForEachFrame(function(frame)
-		if (not hovered and frame.GetElementData and frame:IsMouseMotionFocus()) then
+		if (not hovered and frame.HasCursor and frame:HasCursor()) then
 			hovered = frame;
 		end
 	end);

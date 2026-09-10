@@ -229,7 +229,7 @@ L["CONDITION_SPEC"] = "Class/Specialization"
 -- The tooltip lists several at once, where the menu row names the one thing it opens. The client
 -- heads its own list the same way (`CLUB_FINDER_SPECIALIZATIONS`).
 L["CONDITION_SPECS"] = "Specializations"
-L["CONDITION_SPEC_DESC"] = "Pick the specializations this fires in. Every class is listed because an action can be shared with characters of another one."
+L["CONDITION_SPEC_DESC"] = "Pick the specializations this fires in. Every class is listed because an action in the Account tab runs on characters of another one."
 L["CONDITION_SPECIALBAR_DESC"] = "Active while something has replaced your main action bar -- a vehicle, a possession, and the like."
 L["CONDITION_SPECIALBAR_NO"] = "While your action bar is not replaced"
 L["CONDITION_SPECIALBAR_YES"] = "While your action bar is replaced"
@@ -733,7 +733,7 @@ L["LOGIN_MESSAGE"] = "Run the /deb slash command to open the UI."
 -- 적으면 절이 문장보다 길어진다. 전부 알고 싶은 사람은 IMPORTANCE_DESC가 다섯 축을 순서대로
 -- 적어 둔다.
 --
--- 지는 쪽은 **레이어 이름 전체**로 부른다("Shared / Druid"). 툴팁 제목이 그 형식이라 참조도
+-- 지는 쪽은 **레이어 이름 전체**로 부른다("Account / Druid"). 툴팁 제목이 그 형식이라 참조도
 -- 같아야 화면에서 찾을 수 있다 - 근거는 GetSideTabDescription 주석에.
 --
 -- 영어는 README의 Layers 표 오른쪽 열과 **같은 말**로 적는다. 표를 읽고 온 사람과 툴팁만
@@ -744,23 +744,18 @@ L["LAYER_DESC_SHARED_CLASS"] = "Every %1$s you own. A key here beats the same ke
 -- %s 셋은 차례로 직업명, 전문화명, 지는 레이어의 이름.
 L["LAYER_DESC_SHARED_SPEC"] = "Every %1$s you own, while %2$s. A key here beats the same key in %3$s, unless conditions or Importance say otherwise."
 -- 여기만 지는 쪽이 레이어 하나가 아니라 공유 셋 전부라, 아래 탭 이름을 그대로 쓴다.
-L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Shared, unless conditions or Importance say otherwise."
+L["LAYER_DESC_CHARACTER_GENERAL"] = "This character. A key here beats the same key everywhere in Account, unless conditions or Importance say otherwise."
 -- **This is the narrowest layer, so it beats every other one** -- not the one directly below it.
 -- Naming a single loser here was wrong, and naming all four would be a list nobody reads, so it
--- says "everywhere else", the same move `LAYER_DESC_CHARACTER_GENERAL` makes with "in Shared".
+-- says "everywhere else", the same move `LAYER_DESC_CHARACTER_GENERAL` makes with "in Account".
 --
 -- That leaves English with no argument at all: the tooltip title already reads "Oreo / Balance",
 -- so "this spec" has something to point at. Korean still needs the spec name and takes it as the
 -- only `%s`. The two locales therefore disagree on format specifiers, which check-locales knows
 -- about through EXTRA_SPECS_OK.
 L["LAYER_DESC_CHARACTER_SPEC"] = "This character, in this spec. A key here beats the same key everywhere else, unless conditions or Importance say otherwise."
--- 레이어의 짧은 이름. "X over Y" 한 줄에 들어가는 값이라 한두 낱말이어야 한다.
--- Shared/General을 Account라 부르는 이유는 GetLayerShortName 주석에.
-L["LAYER_SHORT_ACCOUNT"] = "Account"
-L["LAYER_SHORT_CLASS"] = "Class"
-L["LAYER_SHORT_SPEC"] = "Spec"
+-- 남의 문자열에서 온 레이어의 캐릭터 자리. 이름이 없어서() 낱말로 대신한다.
 L["LAYER_SHORT_CHARACTER"] = "Character"
-L["LAYER_SHORT_CHARACTER_SPEC"] = "Character spec"
 L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
 -- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
 L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d Characters Used"
@@ -846,7 +841,7 @@ L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action and edit it there."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
-L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Unit frame -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to shared.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
+L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met -- only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Unit frame -- an action that only runs while the mouse is over a unit frame is tried first.|n2. Conditions -- an action with conditions is tried before one without.|n3. Tab -- the more specific tab is tried first, from this character and specialization down to Account.|n4. Order -- when everything above is equal, the action you bound to the key first is tried first. That is also the only step you can move an action within."
 -- 끝의 이유절에 **주어를 세웠다.** 원래는 "their own bindings are not loaded this session"이라
 -- 누가 안 불러왔는지가 없었는데, 3.1 전까지는 읽을 갈래가 하나뿐이라 그래도 됐다 - 캐릭터
 -- 전용 지정이 진짜 캐릭터별 SavedVariables(`DebounceVarsPerChar`)에 있어서, 그 캐릭터로
@@ -862,7 +857,7 @@ L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. Wh
 -- 부캐 지정이 다 들어 있는 것을 나중에 본 사람에게 그 안심은 얼버무린 것이 된다.
 --
 -- 낱말은 그대로 "load"를 쓴다. 갈라진 것은 낱말이 아니라 빠진 주어였다.
-L["IMPORTANCE_SHARED_WARNING"] = "This action is in a shared scope, so importance is shared too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
+L["IMPORTANCE_SHARED_WARNING"] = "This action lives in the Account tab, so its importance does too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
 L["OVERVIEW"] = "Overview"
 -- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 이 열의 규칙을 말할 자리가 여기밖에 없다.
 --
@@ -902,9 +897,9 @@ L["ORDER_ACCEPT_DESC"] = "This one starts working on the key it came in on."
 -- who wanted this working wants instead.
 L["ORDER_ACCEPT_NO_KEY_DESC"] = "This one came in with no key. Accepting takes it, but it does nothing until you give it one."
 L["ORDER_MOVE_UP"] = "Run Sooner"
-L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key. Nothing else about it changes."
+L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key."
 L["ORDER_MOVE_DOWN"] = "Run Later"
-L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key. Nothing else about it changes."
+L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key."
 L["ORDER_BLOCKED_ALREADY_FIRST"] = "This action already runs first on this key."
 L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 -- 아래 넷은 위의 ALREADY_* 둘과 **틀이 다르다.** 저 둘은 그 자체로 막는 이유이고 주어도
@@ -916,43 +911,37 @@ L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 -- 안 일어난다), **누구와 누구인지**, 그리고 **무엇이 순서를 정하고 있는지**. 마지막이 이
 -- 자리의 값어치다 - UpdateMoveButtons 주석대로 규칙을 가르치는 몇 안 되는 자리다.
 --
--- "the action next to it"이라고 부르는 이유는 위/아래 버튼이 이 문자열을 같이 쓰기 때문이다.
--- 위아래를 짚으면 방향마다 문자열을 따로 둬야 하고, 늘어난 만큼 로케일이 갈라진다.
-L["ORDER_BLOCKED_CONDITIONAL"] = "It cannot pass the action next to it -- only one of the two has conditions, and that is compared before the order on this key."
-L["ORDER_BLOCKED_HOVER"] = "It cannot pass the action next to it -- only one of the two runs while hovering a unit frame, and that is compared before the order on this key."
-L["ORDER_BLOCKED_LAYER"] = "It cannot pass the action next to it -- they are in different scopes, and scope is compared before the order on this key."
-L["ORDER_BLOCKED_IMPORTANCE"] = "It cannot pass the action next to it -- they have different importance, and importance is compared first."
--- **The one of the four that is not about a rule the reader could change.** The other three name a
--- property either action could be given; this one says the two never run in the same world, so
--- there is no order between them to settle. The order on this key is only ever compared inside one
--- specialization, because that is the only place the numbers mean the same thing.
+-- **방향을 안 짚는다.** 위/아래 버튼이 이 문자열을 같이 쓰므로, 위아래를 적으면 방향마다
+-- 문자열을 따로 둬야 하고 늘어난 만큼 로케일이 갈라진다. 어느 쪽인지는 누른 화살표가 말한다.
+L["ORDER_BLOCKED_CONDITIONAL"] = "This action cannot move past the one next to it -- only one of the two has conditions, and that is compared before the order on this key."
+L["ORDER_BLOCKED_HOVER"] = "This action cannot move past the one next to it -- only one of the two runs while hovering a unit frame, and that is compared before the order on this key."
+L["ORDER_BLOCKED_LAYER"] = "This action cannot move past the one next to it -- they are in different scopes, and scope is compared before the order on this key."
+L["ORDER_BLOCKED_IMPORTANCE"] = "This action cannot move past the one next to it -- they have different importance, and importance is compared first."
+-- 막힌 채로 두지 않는다. 위의 넷은 **무엇이 막고 있는지**까지 말하고 끝나는데, 읽는 사람에게는
+-- 다음에 할 것이 남아 있다.
+--
+-- **그런데 길은 하나뿐이다.** 조건과 개체창은 그 액션이 언제 도는지를 정하는 것이고 레이어는
+-- 누가 그 키를 갖는지를 정하는 것이라, 순서를 올리자고 셋 중 하나를 건드리면 순서 말고 다른
+-- 것이 같이 바뀐다. 순서만 바꾸는 축은 중요도 하나이므로 셋 다 그리로 보낸다.
+--
+-- SPEC과 IMPORTED에는 아무 말도 안 붙는다. 둘은 순서 다툼 자체가 없는 자리라, 길이 없는데
+-- 있는 척하면 그 길을 찾아 헤매게 된다.
+L["ORDER_BLOCKED_USE_IMPORTANCE"] = "To put this one first, raise its Importance -- or lower the other's. Importance is the only one of these you can change without changing what the action does."
 -- **Not the shape the rest of this family uses**, and it should not be: the others say why this
 -- action cannot pass the one beside it, and this one is not in the running at all. What came in a
 -- string reaches no key until it is accepted, so there is no order for it to have a place in.
 -- The second sentence is the one `LINE_TOOLTIP_IMPORTED` already says, because it is the same fact
 -- and a reader who has met it once should not have to learn it twice.
 L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a string, and it reaches no key until you accept it."
-L["ORDER_BLOCKED_SPEC"] = "It cannot pass the action next to it -- they belong to different specializations, and only one specialization is active at a time."
-L["ORDER_WHY_IMPORTANCE"] = "Importance: %s"
--- 정렬은 hover가 설정됐는지만 본다 - false("마우스오버가 아닐 때만")도 설정된 것이다.
--- 그래서 "hover"라고만 쓰면 false인 행에 거짓말이 된다. 어느 쪽인지는 툴팁이 말한다.
-L["ORDER_WHY_HOVER"] = "Unit frame rule"
-L["ORDER_WHY_CONDITIONAL"] = "Has conditions"
-L["ORDER_WHY_LAYER"] = "%1$s over %2$s"
--- The step that is left when the four above it are all tied. **It must not say "your order"** --
--- the place is handed out automatically, at the back of the group, when the key is given
--- (Profile.lua's PlaceInKeyGroup), and the reader never picked it. placement/put/set all turn false
--- for the same reason: to someone who has never pressed an arrow, it is not a place they put
--- anything.
+-- **막는 것이 아니라 겨룰 일이 없는 것이다.** 위의 넷은 축 하나가 갈려서 못 지나가는 것이라
+-- 그 축을 바꾸면 지나가는데, 이 둘은 같은 목록에 같이 오를 때가 없다. 그래서 순서를 정해
+-- 봐야 아무것도 안 정한다 - 죽은 화살표가 회색으로 서고 자물쇠도 안 얹는 갈래다
+-- (DebindUI.lua의 BLOCKED_WITH_NOTHING_TO_DO).
 --
--- An instruction ("move it with the arrows") is out too. This line **appears on rows with no
--- buttons** -- the buttons stand only on isCurrent rows (UpdateMoveButtons) while the reason line
--- goes on every row but the group's last.
---
--- What is left true is "the four did not split, so the order itself decides". The step is named the
--- way IMPORTANCE_DESC's fourth line names it, so the ladder the tooltip teaches and this column mesh
--- on the same words.
-L["ORDER_WHY_SEQ"] = "Order on this key"
+-- **run이 아니라 active를 쓴다.** 한 키에 걸린 것은 원래 하나만 도니, 안 같이 돈다고 하면
+-- 이 짝만의 특징인 것처럼 읽히고 다른 짝은 같이 도는 것이 된다. 같은 행의 사유 칸이 이미
+-- ORDER_FLAG_OFFSPEC("Inactive specialization")이라 낱말도 그쪽에 맞춘다.
+L["ORDER_BLOCKED_SPEC"] = "This action and the one next to it are never active at the same time, so their order settles nothing."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"
@@ -970,7 +959,7 @@ L["REACTION_OTHER"] = "Others"
 L["SCOPE"] = "Scope"
 L["SELECTED_TARGET_UNIT_EMPTY"] = "Assigned Target |cnDISABLED_FONT_COLOR:(None)|r"
 L["SELECTED_TARGET_UNIT"] = "Assigned Target |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
-L["SHARED_BINDINGS"] = "Shared"
+L["SHARED_BINDINGS"] = "Account"
 L["SPECIAL_CONDITIONS"] = "Special Conditions"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared (More than one unit detected)|r"
@@ -1181,7 +1170,7 @@ L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below make
 -- 사이드탭 셋을 통째로 덮는 자리라 전문화까지 내려가지 않는다. 중요도에 붙는 단서도
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
-L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Shared, unless conditions or Importance say otherwise."
+L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Account, unless conditions or Importance say otherwise."
 L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"
@@ -1409,7 +1398,7 @@ L["MIGRATION_DIALOG_DECLINE_ACCOUNT"] = "Start fresh on every character"
 L["MIGRATION_DIALOG_TITLE_MISSING"] = "The addon that holds your old settings is not installed."
 L["MIGRATION_DIALOG_BODY_MISSING"] = "|cnHIGHLIGHT_FONT_COLOR:Debind Migration|r ships with Debind and holds the settings saved by 3.0 and earlier. It is not in your AddOns folder, so it was either removed or the install did not finish.|n|nDownloading Debind again puts it back, and your old settings are still on disk in the meantime - nothing has been lost.|n|nYou can close this window and reinstall. It will ask again next time you log in.|n|nOnly answer below if you would rather start over without those settings."
 L["MIGRATION_DIALOG_TITLE_CHARACTER_ONLY"] ="This character's own bindings have not come across yet."
-L["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"] = "Your shared bindings are already here - they moved when you logged in on another character, which is why most of your keys work.|n|nWhat is still missing is anything you set up for |cnHIGHLIGHT_FONT_COLOR:this character alone|r: its own layers and its custom targets. Those live in a separate file, and the companion addon |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r is the only thing that can read it. Right now it is switched off.|n|n|cnGREEN_FONT_COLOR:Turning it on is still the right answer.|r If it turns out you never made character-specific bindings here, nothing happens and you are done. If you did, you get them back. Either way it stops asking.|n|nUntil you answer, Debind will not open. Closing this window asks again next time you log in."
+L["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"] = "Your account bindings are already here - they moved when you logged in on another character, which is why most of your keys work.|n|nWhat is still missing is anything you set up for |cnHIGHLIGHT_FONT_COLOR:this character alone|r: its own layers and its custom targets. Those live in a separate file, and the companion addon |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r is the only thing that can read it. Right now it is switched off.|n|n|cnGREEN_FONT_COLOR:Turning it on is still the right answer.|r If it turns out you never made character-specific bindings here, nothing happens and you are done. If you did, you get them back. Either way it stops asking.|n|nUntil you answer, Debind will not open. Closing this window asks again next time you log in."
 L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r for every character and reloads your interface.|n|nThis character's settings are back as soon as the reload finishes. Your other characters keep theirs until you next log in on them - each one brings its own across on its own first login, whenever that is. Nothing else to do."
 L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "This character starts with no bindings, and is never asked again.|n|nOther characters are unaffected - they will still be offered their settings.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "Debind stops offering old settings to |cnHIGHLIGHT_FONT_COLOR:every character on this account|r, including ones you have not logged in on and ones you make later.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."

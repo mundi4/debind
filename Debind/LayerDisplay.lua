@@ -51,21 +51,6 @@ local function GetSideTabLabel(sideTabID)
 	end
 end
 
---- 레이어의 **짧은 이름.** "X over Y"에 들어가는 값이라 한두 낱말이어야 한다 -
---- `GetLayerLabel`은 "공유 / 일반" 꼴이라 문장에 못 넣는다.
----
---- 공유/일반을 Account라 부른다. "Shared"는 무엇과 공유하는지를 안 말하는데 여기서 답은
---- 계정이고, 짧기까지 하다.
-local function GetLayerShortName(layerID)
-	local tab, sideTab = GetLayerTabs(layerID);
-	if (tab == 2) then
-		return LLL[sideTab == 1 and "LAYER_SHORT_CHARACTER" or "LAYER_SHORT_CHARACTER_SPEC"];
-	end
-	if (sideTab == 1) then
-		return LLL["LAYER_SHORT_ACCOUNT"];
-	end
-	return LLL[sideTab == 2 and "LAYER_SHORT_CLASS" or "LAYER_SHORT_SPEC"];
-end
 
 --- A payload's address as a `layerID`. `scope` is the `"general"` / `"class"` / `"character"` a
 --- payload is keyed by (`ForEachPayloadLayer`).
@@ -205,7 +190,6 @@ end
 DebindUI.GetLayerTabs = GetLayerTabs;
 DebindUI.GetTabLabel = GetTabLabel;
 DebindUI.GetSideTabLabel = GetSideTabLabel;
-DebindUI.GetLayerShortName = GetLayerShortName;
 DebindUI.GetLayerLabel = GetLayerLabel;
 DebindUI.GetLayerIDForAddress = GetLayerIDForAddress;
 DebindUI.IsLayerOffWorld = IsLayerOffWorld;

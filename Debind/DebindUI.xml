@@ -170,7 +170,72 @@
 			</Layer>
 		</Layers>
 	</Frame>
-	
+
+	<!--
+		**행이 자기에 대해 말하는 작은 그림 하나.** 어떤 종류가 있는지는 `MARK_KINDS`가 답한다
+		(DebindUI.lua) - 그 표가 그림 고르는 유일한 자리라, 같은 뜻이 목록마다 다른 그림으로
+		나가는 일이 없다.
+
+		**프레임인 이유는 자기 툴팁 때문이다.** 마크가 뜨면 사람은 그리로 마우스를 대 보는데,
+		거기서 행 툴팁이 서면 그 사람이 온 이유에는 아무도 답하지 않은 것이 된다 - 조건이 열
+		개면 스무 줄이고, 답은 그 안 어딘가다. 텍스처는 마우스를 못 받으므로 프레임이라야 한다.
+
+		**클릭도 키도 안 받는다.** `registerForClicks`가 없어 클릭은 행으로 가고, 키보드를 안
+		켜므로 지정 모드에서 이 마크 위에 커서를 둔 채 누른 키도 행의 것이 된다. 커서가 이리로
+		와도 행이 대상 자격을 안 잃게 하는 판정은 `DebindLineMixin:HasCursor`.
+	-->
+	<Frame name="DebindRowMarkTemplate" mixin="DebindRowMarkMixin" enableMouseMotion="true" hidden="true" virtual="true">
+		<Layers>
+			<Layer level="ARTWORK">
+				<Texture parentKey="Icon">
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Scripts>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+	</Frame>
+
+	<!--
+		**마크가 서는 줄.** 어느 것이 떠 있느냐에 따라 자리가 밀리는데, 그 계산을 행이 손으로
+		하고 있었다 - 마크가 둘일 때도 "물음표가 서 있으면 그 왼쪽, 아니면 모서리"였고, 셋이
+		되면 경우가 늘어난다. 숨은 자식을 건너뛰고 다시 세우는 일은 `HorizontalLayoutFrame`이
+		이미 한다.
+
+		**순서는 `layoutIndex`가 정하고, 그 순서는 비교자의 축 순서다** - 개체창, 조건, 그리고
+		그 액션이 먹느냐. 앞의 둘은 "왜 먼저 시도되는가"를, 마지막은 "먹느냐"를 말한다.
+
+		폭은 `Layout`이 자식을 재서 넣으므로, 이름이 쓸 수 있는 폭을 묻는 쪽은 이 줄 하나만
+		재면 된다(`DebindLineMixin:LayoutName`).
+	-->
+	<Frame name="DebindRowMarksTemplate" inherits="HorizontalLayoutFrame" virtual="true">
+		<KeyValues>
+			<KeyValue key="align" value="center" type="string"/>
+			<KeyValue key="spacing" value="2" type="number"/>
+		</KeyValues>
+		<Frames>
+			<Frame parentKey="Hover" inherits="DebindRowMarkTemplate">
+				<KeyValues>
+					<KeyValue key="layoutIndex" value="1" type="number"/>
+				</KeyValues>
+			</Frame>
+			<Frame parentKey="Conditional" inherits="DebindRowMarkTemplate">
+				<KeyValues>
+					<KeyValue key="layoutIndex" value="2" type="number"/>
+				</KeyValues>
+			</Frame>
+			<Frame parentKey="Issue" inherits="DebindRowMarkTemplate">
+				<KeyValues>
+					<KeyValue key="layoutIndex" value="3" type="number"/>
+				</KeyValues>
+			</Frame>
+		</Frames>
+	</Frame>
+
 	<!--
 		The line that goes in wherever the key changes in the shortcut ordering. The bar art comes
 		from Blizzard's `ListHeaderThreeSliceTemplate` - the one the cooldown manager's settings and
@@ -219,19 +284,21 @@
 						<Anchor point="LEFT" relativeKey="$parent.ActionName" relativePoint="RIGHT" x="4" y="0"/>
 					</Anchors>
 				</FontString>
-				<!--
-					The worst problem in the group, as a mark (`Init` picks which). One texture and
-					not two, because a heading has one of these at a time and both would want this spot.
-					A folded group shows only its first action, so the problem below it has nothing else
-					on the bar to say it is there.
-				-->
-				<Texture parentKey="IssueIcon" hidden="true">
-					<Anchors>
-						<Anchor point="RIGHT" relativeKey="$parent.Right" relativePoint="LEFT" x="-2" y="0"/>
-					</Anchors>
-				</Texture>
 			</Layer>
 		</Layers>
+		<Frames>
+			<!--
+				The worst problem in the group, as a mark (`Init` picks which). One of them and not
+				two, because a heading has one of these at a time and both would want this spot.
+				A folded group shows only its first action, so the problem below it has nothing else
+				on the bar to say it is there.
+			-->
+			<Frame parentKey="IssueIcon" inherits="DebindRowMarkTemplate">
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.Right" relativePoint="LEFT" x="-2" y="0"/>
+				</Anchors>
+			</Frame>
+		</Frames>
 		<Scripts>
 			<OnLoad method="OnLoad"/>
 			<OnClick method="OnClick"/>
@@ -308,9 +375,9 @@
 					</Anchors>
 				</FontString>
 				<!--
-					단축키에 문제가 있다는 표시. "?"(QuestionMark)는 **조건이 붙어 있다**는
-					뜻이라 자리를 뺏으면 안 된다 - 조건부이면서 단축키가 문제인 액션이 흔하다.
-					가로 위치는 단축키 글자 길이에 따라 달라지므로 Lua에서 잡는다.
+					단축키에 문제가 있다는 표시. **오른쪽 아래 마크 줄과 다른 자리다** - 저쪽은 그
+					액션에 대한 말이고 이것은 이 단축키에 대한 말이다. 가로 위치는 단축키 글자
+					길이에 따라 달라지므로 Lua에서 잡는다.
 				-->
 				<Texture parentKey="KeyWarning" atlas="transmog-icon-warning-small" hidden="true">
 					<Size x="14" y="14"/>
@@ -318,22 +385,6 @@
 						<Anchor point="LEFT" relativeKey="$parent.BindingText" relativePoint="LEFT"/>
 					</Anchors>
 				</Texture>
-				<Texture parentKey="QuestionMark" atlas="questlog-questtypeicon-quest" hidden="false">
-					<Size x="14" y="14"/>
-					<Anchors>
-						<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOMRIGHT" x="-2" y="7"/>
-					</Anchors>
-				</Texture>
-				<!--
-					What grade of problem this row has, if any (`Update` picks which). The question
-					mark beside it says the action is conditional, a different thing about the same
-					row, and an action is routinely both.
-
-					**Anchored in `Update`, not here.** Either of the two can be up without the other,
-					so whichever is rightmost has to sit on the corner or the row grows a margin that
-					depends on what it happens to be saying.
-				-->
-				<Texture parentKey="IssueIcon" hidden="true"/>
 				<FontString parentKey="InfoText2" inherits="GameFontNormalSmall" justifyH="RIGHT">
 					<Size x="430" y="0"/>
 					<Anchors>
@@ -403,6 +454,13 @@
 				</Texture>
 			</Layer>
 		</Layers>
+		<Frames>
+			<Frame parentKey="Marks" inherits="DebindRowMarksTemplate">
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-2" y="7"/>
+				</Anchors>
+			</Frame>
+		</Frames>
 		<Scripts>
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
@@ -549,6 +607,24 @@
 				<Anchors>
 					<Anchor point="RIGHT" x="-4" y="0"/>
 				</Anchors>
+				<Layers>
+					<!--
+						**규칙이 막고 있을 때만 얹는다**(DebindUI.lua의 UpdateMoveButtons). 회색 화살표는
+						"지금은 안 됨"으로 흘려보게 되는데, 이 그림은 없던 것이라 눈이 걸리고 툴팁을
+						대 보게 만든다 - 무엇이 막는지는 거기에만 있다. 끝에 닿아서 죽은 화살표에는
+						안 얹는다: 설명할 것이 없는데 얹으면 자물쇠가 흔해져서 다시 안 읽힌다.
+
+						액션바가 레벨 잠금에 쓰는 그림 그대로다(ActionButtonTemplate.xml).
+					-->
+					<Layer level="OVERLAY">
+						<Texture parentKey="Lock" atlas="groupfinder-icon-lock" hidden="true">
+							<Size x="19" y="23"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</Texture>
+					</Layer>
+				</Layers>
 				<Scripts>
 					<!-- 이 버튼들에는 믹스인이 없다. 상태는 행(부모)이 들고 있으므로 그리로 넘긴다. -->
 					<OnClick>
@@ -604,6 +680,16 @@
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.MoveDownButton" relativePoint="LEFT" x="-2" y="0"/>
 				</Anchors>
+				<Layers>
+					<Layer level="OVERLAY">
+						<Texture parentKey="Lock" atlas="groupfinder-icon-lock" hidden="true">
+							<Size x="19" y="23"/>
+							<Anchors>
+								<Anchor point="CENTER"/>
+							</Anchors>
+						</Texture>
+					</Layer>
+				</Layers>
 				<Scripts>
 					<!-- 이 버튼들에는 믹스인이 없다. 상태는 행(부모)이 들고 있으므로 그리로 넘긴다. -->
 					<OnClick>
