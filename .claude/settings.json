@@ -25,5 +25,18 @@
       "Bash(lua tests/run.lua)",
       "Bash(lua5.1 tests/run.lua)"
     ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/prompt-rules.js\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
   }
 }
