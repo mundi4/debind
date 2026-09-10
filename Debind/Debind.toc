@@ -36,6 +36,14 @@ DevStamp.lua
 Debind.xml
 
 DebindUI.xml
+
+# **The Lua first.** The XML's `mixin=` looks the table up as the frame is made, so the other order
+# leaves the frame without its methods and the client says "Unknown method OnLoad".
+#
+# **After `DebindUI.xml`**, whose `DebindScrollFrameTemplate` this frame inherits.
+DebindMessageFrame.lua
+DebindMessageFrame.xml
+
 StorageUI.xml
 
 SwitchesUI.xml

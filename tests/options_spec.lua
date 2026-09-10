@@ -164,6 +164,39 @@ return function(DebindPrivate)
         end
     end);
 
+    --- **The help page holds nothing but doors.** Every row on it opens a piece of writing and none
+    --- of them is a setting, which is why the three rows every other list is headed with are not
+    --- here: the combat notice would be false on a page that changes nothing, and a Reload button
+    --- that can never be owed anything is grey for good.
+    ---
+    --- **The press is asserted, not just the label.** A button whose click reaches nothing looks
+    --- exactly like one that works, and this is the only layer that can tell them apart -- the
+    --- window it opens is a frame and lives past this file.
+    test("the help page is doors and nothing else", function()
+        local L = DebindPrivate.L;
+        local subcategory = shim.world.settingsSubcategories[2];
+        check(subcategory ~= nil, "no help subcategory was made");
+        check(subcategory.name == L["HELP_TOPICS"], "named " .. tostring(subcategory.name));
+        check(subcategory.parentCategory == shim.world.settingsCategory,
+            "the help page did not go under ours");
+
+        local rows = rowsOf(subcategory);
+        check(#rows == 1, "the help page holds " .. #rows .. " rows, not 1");
+        check(rows[1][1] == "button" and rows[1][2] == L["HELP_ORDERING"],
+            "1: " .. tostring(rows[1][1]) .. " " .. tostring(rows[1][2]));
+
+        local opened;
+        local realShowHelp = DebindPrivate.DebindUI.ShowHelp;
+        DebindPrivate.DebindUI.ShowHelp = function(topic) opened = topic; end;
+        for _, row in ipairs(shim.world.settingsRows) do
+            if (row.owner == subcategory and row.data.buttonClick) then
+                row.data.buttonClick();
+            end
+        end
+        DebindPrivate.DebindUI.ShowHelp = realShowHelp;
+        check(opened == "ordering", "the press asked for " .. tostring(opened));
+    end);
+
     --- **No unit frame row is on the top category any more.** Moving the group and leaving one row
     --- behind is the mistake this asks about, and on screen it reads as a stray box under the
     --- slider rather than as anything missing.

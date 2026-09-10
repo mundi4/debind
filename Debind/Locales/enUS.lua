@@ -104,6 +104,12 @@ L["BLIZZARD_UNIT_FRAMES_TARGET"] = "Target and Focus"
 -- under it is every unit frame decision the addon has, the blacklist included, and not only the
 -- taking away - which is why `Frame Blacklist` is the header inside and not this.
 L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
+-- 옵션창 왼쪽 목록의 도움말 페이지 이름. **클라이언트의 `HELP_LABEL`을 안 쓴다** - 그쪽은
+-- 게임 메뉴의 고객지원으로 가는 항목이라 같은 낱말이 다른 곳을 가리킨다.
+L["HELP_TOPICS"] = "Help"
+-- 그 페이지의 버튼. 여는 창의 제목(`HELP_ORDERING_TITLE`)과 다른 말을 쓰면 누른 것과 열린
+-- 것이 달라 보이므로, 버튼이 물음이고 창이 그 답이 되게 맞춰 둔다.
+L["HELP_ORDERING"] = "Which action does a key run?"
 -- **One word, because whoever reads it already knows it.** Somebody in this window has installed a
 -- click-casting addon, and a blacklist is a list of what is left out - the polarity comes with the
 -- word and needs no sentence under it. `Unit Frame` is not repeated: the category above already
@@ -913,10 +919,29 @@ L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 --
 -- **방향을 안 짚는다.** 위/아래 버튼이 이 문자열을 같이 쓰므로, 위아래를 적으면 방향마다
 -- 문자열을 따로 둬야 하고 늘어난 만큼 로케일이 갈라진다. 어느 쪽인지는 누른 화살표가 말한다.
-L["ORDER_BLOCKED_CONDITIONAL"] = "This action cannot move past the one next to it -- only one of the two has conditions, and that is compared before the order on this key."
-L["ORDER_BLOCKED_HOVER"] = "This action cannot move past the one next to it -- only one of the two runs while hovering a unit frame, and that is compared before the order on this key."
-L["ORDER_BLOCKED_LAYER"] = "This action cannot move past the one next to it -- they are in different scopes, and scope is compared before the order on this key."
-L["ORDER_BLOCKED_IMPORTANCE"] = "This action cannot move past the one next to it -- they have different importance, and importance is compared first."
+--
+-- **뒷절은 규칙이지 비교 절차가 아니다.** 넷 다 "...is compared before the order on this key"로
+-- 끝났었는데, 사다리가 있다는 것 자체가 읽는 사람에게 없는 개념이라 그 문장은 물음에 답을
+-- 안 하고 우리가 무엇을 먼저 비교하는지만 말했다. 사다리 전체는 IMPORTANCE_DESC가 다섯
+-- 단계로 가르치고 같은 화면에서 닿는다.
+--
+-- **어느 것도 절대화하지 않는다.** IMPORTANCE 아래 셋은 전부 위에 다른 축이 있어서 "always"가
+-- 거짓이 된다. 제 축의 규칙만 말하고 멈춘다.
+L["ORDER_BLOCKED_CONDITIONAL"] = "This action cannot move past the one next to it -- only one of the two has conditions, and an action with conditions is tried before one without."
+-- **"runs while hovering"이라고 쓰면 안 된다.** 이 축은 `hover ~= nil`이라 "When not over a unit
+-- frame"을 고른 액션도 갖는다(`Misc.lua`의 `DeriveHoverFields`, `Ordering.lua`의 비교자). 그쪽은
+-- 호버 중에 **안** 도는데 먼저 시도되므로, 도느냐로 적으면 그 액션에 대고 거짓말이 된다.
+-- 갈리는 것은 개체창 여부를 따지느냐다.
+L["ORDER_BLOCKED_HOVER"] = "This action cannot move past the one next to it -- only one of the two has the Unit Frame condition, and an action that has it is tried before one that does not."
+-- **layer이고 scope가 아니다.** README가 "Layers, not profiles"로 가르치고 CurseForge 설명도
+-- layered bindings라 읽는 사람이 이미 만난 말이다. scope는 덮는다는 뜻을 안 나르고, tab은
+-- 누르는 컨트롤 이름이라 Import 탭·Storage 탭과 자리를 다툰다.
+--
+-- narrower는 README의 "The narrowest layer holding that key wins"에서 온 낱말이다.
+L["ORDER_BLOCKED_LAYER"] = "This action cannot move past the one next to it -- they are in different layers, and the narrower layer is tried first."
+-- Importance는 메뉴 이름이라 대문자다(L["IMPORTANCE"]). 뒤는 "the higher one"으로 받는다 -
+-- **더 중요하다고는 안 한다.** 그건 사용자가 고른 값이지 우리가 매길 것이 아니다.
+L["ORDER_BLOCKED_IMPORTANCE"] = "This action cannot move past the one next to it -- they have different Importance, and the higher one is tried first."
 -- 막힌 채로 두지 않는다. 위의 넷은 **무엇이 막고 있는지**까지 말하고 끝나는데, 읽는 사람에게는
 -- 다음에 할 것이 남아 있다.
 --
@@ -942,6 +967,23 @@ L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It cam
 -- 이 짝만의 특징인 것처럼 읽히고 다른 짝은 같이 도는 것이 된다. 같은 행의 사유 칸이 이미
 -- ORDER_FLAG_OFFSPEC("Inactive specialization")이라 낱말도 그쪽에 맞춘다.
 L["ORDER_BLOCKED_SPEC"] = "This action and the one next to it are never active at the same time, so their order settles nothing."
+-- 순서 도움말. 이 창까지 오는 사람은 **한 칸 옮기려다 막힌 사람**이라, 첫 문단이 답하는 것은
+-- "한 키에 여럿을 걸면 무슨 일이 일어나나"다. "순서는 다섯 단계로 정해진다"로 열면 외울 것이
+-- 있는 글이 되고, 그 순간 안 읽힌다.
+--
+-- **동률은 다음 단계로 넘어간다는 것을 빼면 안 된다.** 한때 중요도가 "아래 셋을 덮는다"로만
+-- 적혀 있었는데, 그러면 둘 다 Very High로 맞춰 놓고 왜 개체창 쪽이 앞에 서는지를 못 읽는다.
+-- 넷을 **물음**으로 적은 것이 그 답이다 - 답이 갈린 첫 물음이 정하고 나머지는 안 묻는다.
+--
+-- **마지막 문단이 이 창의 값어치다.** 넷 다 손잡이인데 각자 순서 말고 무엇을 같이 바꾸는지가
+-- 다르고, 그걸 나란히 놓을 수 있는 자리가 여기뿐이다. 툴팁은 눈앞의 짝이 어디서 갈렸는지만
+-- 답하고 길은 안 고른다 - 무엇을 하려던 것인지는 툴팁이 모른다.
+--
+-- **넷이 어디서 만져지는지까지 적는다.** 규칙만 알려주고 손잡이가 어느 메뉴에 있는지를 안 적으면
+-- 읽고 나서 갈 데가 없다. 그 줄이 우클릭 메뉴를 짚으므로, 거기 항목 이름이 바뀌면 이 문장도 같이
+-- 바뀌어야 한다.
+L["HELP_ORDERING_TITLE"] = "Which action a key runs"
+L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met -- one of them runs, never two.|n|nSo the order of that list matters, and it is not the order you added them in. Debind decides it by taking the actions two at a time and asking four questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.|n2. |cnHIGHLIGHT_FONT_COLOR:Unit Frame.|r An action with a Unit Frame condition, over or not over, is tried before one that has none.|n3. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.|n4. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.|n|nThe list on the Overview tab groups actions by key, and each group is in that order. When all four are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the four has already settled it, and the tooltip names which one.|n|nAll four are set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, the conditions, and |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer.|n|nStart with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. Importance is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.|n|nIf the action reaches other characters, whatever you change changes for them too."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"
@@ -955,7 +997,6 @@ L["REACTION_HARM"] = "Enemy"
 L["REACTION_HELP"] = "Friendly"
 L["REACTION_OTHER"] = "Others"
 -- 순서 목록의 행 툴팁에서 쓰는 이름표. 값은 ORDER_LAYER_LABEL이다.
--- ORDER_BLOCKED_LAYER("...they are in different scopes...")와 같은 낱말을 쓴다.
 L["SCOPE"] = "Scope"
 L["SELECTED_TARGET_UNIT_EMPTY"] = "Assigned Target |cnDISABLED_FONT_COLOR:(None)|r"
 L["SELECTED_TARGET_UNIT"] = "Assigned Target |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
@@ -1003,9 +1044,7 @@ L["SPELL_PICKER_GROUP_TOYS"] = "Toys"
 -- 나란히 서 있고 탭은 저쪽 창에만 있어서, 이 창의 툴팁이 "현재"라고 말하면 어느 창의 현재인지를
 -- 읽는 사람이 눈으로 찾아야 한다. 이름을 적으면 커서가 있는 자리에서 답이 끝난다.
 L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "Left click to add it to |cnHIGHLIGHT_FONT_COLOR:%s|r."
--- "layer"는 코드가 쓰는 말이고 화면에 나온 적이 없다. 사용자가 보는 것은 탭이므로
--- 탭이라고 쓴다(ORDER_BLOCKED_LAYER와 같은 낱말).
-L["SPELL_PICKER_MENU_DESC"] = "Browse what you already have -- spells, macros, mounts, toys, and the game's own binding commands. The window stays open, and each click adds to whichever tab you have open."
+L["SPELL_PICKER_MENU_DESC"] ="Browse what you already have -- spells, macros, mounts, toys, and the game's own binding commands. The window stays open, and each click adds to whichever tab you have open."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "New Custom Macro"
 L["SPELL_PICKER_NO_MATCH"] = "Nothing matches your search."
 L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"

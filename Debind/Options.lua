@@ -494,6 +494,31 @@ function DebindPrivate.RegisterOptionsCategory()
             end),
         L["LEAVE_OTHER_ADDON_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
 
+    --------------------------------------------------------------------------
+    -- Help
+    --------------------------------------------------------------------------
+
+    --- **A list of its own, because nothing here is a setting.** These rows change nothing; each
+    --- opens a piece of writing. Put among the checkboxes they would read as options somebody
+    --- forgot to give a value.
+    ---
+    --- **This is the door the reader can find.** What the ordering rules are cannot be taught by
+    --- the tooltip that reports one of them: that tooltip is read once and skimmed after, and it
+    --- knows only the pair under the cursor. A page in the panel's left column is somewhere a
+    --- reader arrives on purpose.
+    --- **No `WindowHeader` on this one.** Those three rows are about settings -- which changes wait
+    --- for a fight to end, and a reload owed by one of them -- and this page holds none. The combat
+    --- notice would be false here, and a Reload button on a page that can owe nothing is a button
+    --- that is grey for good.
+    local help = Settings.RegisterVerticalLayoutSubcategory(category, L["HELP_TOPICS"]);
+
+    --- **Out of the search index, like the other buttons that open something.** A search hit that
+    --- lands on a button whose only job is to open a window teaches nothing about the search term.
+    Settings.RegisterInitializer(help, CreateSettingsButtonInitializer("",
+        L["HELP_ORDERING"], function()
+            DebindPrivate.DebindUI.ShowHelp("ordering");
+        end, nil, addSearchTags));
+
     Settings.RegisterAddOnCategory(category);
 end
 
