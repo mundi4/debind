@@ -124,30 +124,25 @@ function DebindRowMarkMixin:OnLeave()
 	end
 end
 
---- The sentence an issue code prints, in its grade's colour. The wording fallback is the menu's
---- (`resolveIssue` in ActionMenuModel.lua), and the colour is the grade's (`GetIssueColor`).
-local function AddIssueLine(tooltip, code)
-	local text = rawget(LLL, code) or rawget(LLL, "BINDING_ERROR_" .. code) or code;
-	GameTooltip_AddColoredLine(tooltip, text, DebindPrivate.GetIssueColor(code), true);
+--- The hover mark: which side of the unit-frame axis this action is on.
+local function HoverMarkTooltip(tooltip, mark)
+	GameTooltip_AddNormalLine(tooltip,
+		mark.over and LLL["MARK_TOOLTIP_HOVER_OVER"] or LLL["MARK_TOOLTIP_HOVER_AWAY"], true);
 end
 
---- The row's issue mark: the one problem on this row. `mark.issue` is set beside `SetKind`.
+--- The conditional mark: that conditions exist. Which ones is the row's own tooltip.
+local function ConditionalMarkTooltip(tooltip)
+	GameTooltip_AddNormalLine(tooltip, LLL["MARK_TOOLTIP_CONDITIONAL"], true);
+end
+
+--- A mark hands its tooltip function itself; the tooltip knows only the action and the rows it
+--- came from (`ActionTooltip.lua`). These two lines are the change of shape.
 local function IssueMarkTooltip(tooltip, mark)
-	AddIssueLine(tooltip, mark.issue);
+	DebindPrivate.AddIssueMarkToTooltip(tooltip, mark.action);
 end
 
---- The group heading's issue mark: every problem in the group, one line per code, so a folded
---- group still says what is wrong further down. `mark.rows` is set beside `SetKind`.
 local function GroupIssueMarkTooltip(tooltip, mark)
-	local seen = {};
-	for i = 1, #mark.rows do
-		local row = mark.rows[i];
-		local issue = row.issue;
-		if (issue and not seen[issue] and not DebindPrivate.IsInactiveAction(row.action)) then
-			seen[issue] = true;
-			AddIssueLine(tooltip, issue);
-		end
-	end
+	DebindPrivate.AddGroupIssuesToTooltip(tooltip, mark.rows);
 end
 
 local GetLayerTabs                   = DebindUI.GetLayerTabs;
@@ -999,17 +994,16 @@ local function ApproveArrivedActions(actions, occupants, contested, answer)
 	DebindFrame:Update();
 end
 
-
 DebindLineMixin = {};
 
---- 커서가 이 행 위인가. **마크 위도 이 행 위다.**
+--- Is the cursor on this row? **A mark counts as this row.**
 ---
---- 마크는 자기 툴팁을 가지려고 마우스를 먹으므로(`DebindRowMarkMixin`), 커서가 그리로 가면
---- 행은 `OnLeave`를 받고 `IsMouseMotionFocus`도 거짓이 된다. 그런데 마크는 이 행의 자식이라
---- 사람이 가리키고 있는 것은 여전히 이 행이고, 지정 모드에서 거기 대고 누른 키도 이 행의
---- 것이어야 한다.
+--- A mark takes the mouse so it can carry its own tooltip (`DebindRowMarkMixin`), so the cursor
+--- moving onto one gives the row an `OnLeave` and turns `IsMouseMotionFocus` false. What the reader
+--- is pointing at is still this row, and in bind mode a key pressed there has to be this row's.
 ---
---- **`IsMouseOver`가 아닌 이유는 행과 같다** - 기하 판정이라 ScrollBox가 잘라낸 것에도 참이다.
+--- **`IsMouseOver` is not it**, for the row's own reason: it is geometry, and it answers true for a
+--- row the ScrollBox has clipped away.
 function DebindLineMixin:HasCursor()
 	if (self:IsMouseMotionFocus()) then
 		return true;
@@ -1018,6 +1012,23 @@ function DebindLineMixin:HasCursor()
 	return marks.Hover:IsMouseMotionFocus()
 		or marks.Conditional:IsMouseMotionFocus()
 		or marks.Issue:IsMouseMotionFocus();
+end
+
+--- Does this row hold the keyboard right now?
+---
+--- **`keyAt` carries it across the one frame a refresh empties the mouse focus in.** Binding a key
+--- rebuilds the list where it stands (`SetActionKey`), the row goes down and comes back up, and the
+--- focus goes with it. The mouse has not moved, so nothing refills it inside that same frame:
+--- `HasCursor` answered false and the keyboard went off. A second key arriving in that frame was
+--- eaten by nobody and reached the game (2026-09-10; pressing two keys at once reproduces it).
+---
+--- `GetTime()` holds one value for a whole frame, so this comparison is exactly "the frame the key
+--- arrived in" and expires by itself. From the next frame the focus is back and `HasCursor` answers.
+function DebindLineMixin:ShouldTakeKeyboard()
+	if (not DebindFrame:IsCapturingKey()) then
+		return false;
+	end
+	return self.keyAt == GetTime() or self:HasCursor();
 end
 
 function DebindLineMixin:Init(elementData)
@@ -1096,8 +1107,14 @@ function DebindLineMixin:Update()
 	-- - 한때 이 그림을 빨갛게 칠했는데, 그러면 한 그림이 두 물음에 답하게 되어 읽는 사람이
 	-- 어느 쪽 답인지를 먼저 알아야 했다.
 	local binding = DebindPrivate.GetBindingInfoForAction(action);
-	self.Marks.Hover:SetKind(binding and binding.hover and "hover" or nil);
-	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil);
+	-- **The axis is `hover ~= nil`, which is what the comparator reads** (`Ordering.lua`): "not over
+	-- a unit frame" is a condition said out loud and it stands on this axis too. While the mark went
+	-- up for the true half only, a row that was tried first for having this condition showed nothing
+	-- saying why.
+	self.Marks.Hover.over = binding and binding.hover;
+	self.Marks.Hover:SetKind(binding and binding.hover ~= nil and "hover" or nil, HoverMarkTooltip);
+	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
+		ConditionalMarkTooltip);
 
 	-- The same two marks the group heading carries, on the row they came from. The heading is a
 	-- summary and cannot say which row it meant, least of all while folded.
@@ -1107,7 +1124,7 @@ function DebindLineMixin:Update()
 	elseif (issue and DebindPrivate.IsIssueWarning(issue)) then
 		grade = "warning";
 	end
-	self.Marks.Issue.issue = issue;
+	self.Marks.Issue.action = action;
 	self.Marks.Issue:SetKind(grade, IssueMarkTooltip);
 
 	if (isInactive) then
@@ -1160,7 +1177,7 @@ function DebindLineMixin:Update()
 	-- combat refuses (`DebindFrameMixin:OnLoad`).
 	--
 	-- Set here as well as on the hover edges because rows come out of a pool.
-	self:EnableKeyboard(DebindFrame:IsCapturingKey() and self:HasCursor());
+	self:EnableKeyboard(self:ShouldTakeKeyboard());
 
 	self:SetAlpha(1);
 end
@@ -1192,6 +1209,7 @@ end
 --- 모드가 켜진 동안 이 행 위에서 누른 키가 이 행의 단축키가 된다. 행이 직접 받으므로 커서
 --- 밑을 다시 찾을 일이 없고, 행 밖에서 누른 키는 아무도 안 먹어 게임으로 간다.
 function DebindLineMixin:OnKeyDown(key)
+	self.keyAt = GetTime();
 	DebindFrame:BindMode_OnKeyDown(key, self);
 end
 
@@ -1207,7 +1225,7 @@ function DebindLineMixin:OnLeave()
 	HideActionTooltip(GameTooltip);
 	-- **떠난 곳이 마크일 수 있다.** 그것도 이 행의 자식이라 커서는 여전히 이 행 위이고, 지정
 	-- 모드에서 거기 대고 누른 키는 이 행의 것이어야 한다.
-	self:EnableKeyboard(DebindFrame:IsCapturingKey() and self:HasCursor());
+	self:EnableKeyboard(self:ShouldTakeKeyboard());
 end
 
 function DebindLineMixin:OnClick(buttonName)

@@ -72,14 +72,10 @@ L["BINDING_ERROR_NOT_SUPPORTED_MOUSE_BUTTON"] = "The left/right mouse button wit
 -- every other BINDING_ERROR_* is about a condition, and which condition is already visible in the
 -- box it belongs to. Neither of these two has a box, so without the name there is nothing on
 -- screen saying what to fix.
-L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT_COLOR:%s|r. Until the name is fixed this binding does not fire at all."
+L["BINDING_ERROR_UNDEFINED_STATE"] = "There is no switch named |cnHIGHLIGHT_FONT_COLOR:%s|r."
 -- The second line that takes an argument, for the reason above: a macro name also lives inside the
 -- action rather than in a condition control.
---
--- It goes on to name the two ways this happens. A macro name is something the user chose
--- themselves, so "there is no such macro" on its own reads as a typo -- while the common case, now
--- that bindings travel, is a binding that came from a machine where that macro did exist.
-L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character. It may have been renamed or deleted, or it may have come from someone else's setup."
+L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_COLOR:%s|r on this account or character."
 -- The only MINOR code, so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
 --
@@ -672,6 +668,24 @@ L["UNITGROUP_NONE"] = "Not in my group"
 L["UNITGROUP_PARTY"] = "In my party"
 L["UNITGROUP_RAID"] = "In my raid"
 L["LINE_TOOLTIP_CONDITION_LABEL"] = "%s:"
+-- Under the issue mark's title, which is the grade in words (`ORDER_FLAG_ISSUE*`). **The title says
+-- what the grade is called and this says what it costs the reader**, which is the thing a name
+-- alone cannot carry: an ERROR is not merely worse, it is the key not being there at all.
+L["MARK_TOOLTIP_ISSUE_DESC"] = "Debind ignores this action until the problem is fixed."
+-- The hover mark's tooltip, one line per side. **The mark stands for either side** -- the comparator
+-- reads this axis as `hover ~= nil` (`Ordering.lua`), so an action that runs only while the mouse is
+-- away from a unit frame is on the axis too and carries the mark. One drawing, two sentences: the
+-- client has no second cursor art, and the sentence is what tells the two apart.
+L["MARK_TOOLTIP_HOVER_OVER"] = "Runs only while the mouse is over a unit frame."
+L["MARK_TOOLTIP_HOVER_AWAY"] = "Runs only while the mouse is not over a unit frame."
+-- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
+-- own tooltip draws every condition with its value, and repeating one of them here would put the
+-- same setting on screen twice with nothing saying which is the whole list.
+L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
+-- The other grade. **The key works**, so what this has to say is which part of the action did not
+-- happen -- said as the action still running, because a reader who arrived at a red-looking mark
+-- needs to know first that nothing is dead.
+L["MARK_TOOLTIP_ISSUE_DESC_WARNING"] = "This action still runs, but one thing it was told to do does not."
 -- Sits directly under the key line, because the key is what it qualifies: that line says which key
 -- it has, this one says that key does nothing yet.
 --
@@ -991,7 +1005,7 @@ L["SCOPE"] = "Scope"
 L["SELECTED_TARGET_UNIT_EMPTY"] = "Assigned Target |cnDISABLED_FONT_COLOR:(None)|r"
 L["SELECTED_TARGET_UNIT"] = "Assigned Target |cnLIGHTBLUE_FONT_COLOR:(%s)|r"
 L["SHARED_BINDINGS"] = "Account"
-L["SPECIAL_CONDITIONS"] = "Special Conditions"
+L["CONDITIONS"] = "Conditions"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared (More than one unit detected)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared|r"

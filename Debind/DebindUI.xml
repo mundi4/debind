@@ -184,7 +184,7 @@
 		켜므로 지정 모드에서 이 마크 위에 커서를 둔 채 누른 키도 행의 것이 된다. 커서가 이리로
 		와도 행이 대상 자격을 안 잃게 하는 판정은 `DebindLineMixin:HasCursor`.
 	-->
-	<Frame name="DebindRowMarkTemplate" mixin="DebindRowMarkMixin" enableMouseMotion="true" hidden="true" virtual="true">
+	<Frame name="DebindRowMarkTemplate" mixin="DebindRowMarkMixin" enableMouse="true" propagateMouseInput="Clicks" hidden="true" virtual="true">
 		<Layers>
 			<Layer level="ARTWORK">
 				<Texture parentKey="Icon">

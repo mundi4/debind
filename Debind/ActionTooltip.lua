@@ -799,3 +799,180 @@ do
 	DebindPrivate.AddActionToTooltip = AddActionToTooltip;
 	DebindPrivate.HideActionTooltip = HideActionTooltip;
 end
+
+--- **The issue mark's tooltip**, on a row and on a group heading.
+---
+--- Here for the same reason the block above is: it takes the tooltip as an argument and knows
+--- nothing else about the screen. In `DebindUI.lua` it was out of reach of every headless spec,
+--- which is the rule §11 of `going-headless-outside-the-ui.md` decides by -- whether the function
+--- needs a frame, not whether the file is UI.
+do
+	--- How deep a problem's sentence sits under the name of the group that can fix it. The step the
+	--- block above indents a condition's own lines by.
+	local ISSUE_INDENT = 10;
+
+	--- **The order the problems are read in.** What raised them is the order the checks happen to
+	--- be written in (`GetBindingIssue`), which decided nothing while only the worst one was ever
+	--- shown and decides the reading order now that they are all listed.
+	---
+	--- Two rules make it. The action's own faults come first, because a key that points at nothing
+	--- is not a condition on anything. Then the condition groups, **in the order the right-click
+	--- menu draws them** (`DropDownMenus.lua`'s `conditionNodes`, and each group's own children
+	--- under it) -- the reader who goes to fix one opens that menu next, and finds the groups in
+	--- the order the tooltip just named them.
+	---
+	--- A label missing here sorts last rather than breaking the list. **It also means a group added
+	--- to the menu and not to this table reads in the wrong place**, which is the cost of the order
+	--- being written down twice; there is nowhere both files can see it, because this one is read
+	--- with no frames at all.
+	local ISSUE_ORDER = {};
+	for i, label in ipairs({
+		"TYPE_MACRO", "KEY",
+		"CONDITION_HOVER", "CONDITION_UNITS", "CONDITION_GROUP", "CONDITION_SPEC",
+		"CONDITION_SHAPESHIFT", "CONDITION_BONUSBAR", "CONDITION_SPECIALBAR",
+		"CONDITION_SKYRIDING", "CONDITION_PETBATTLE", "CONDITION_CUSTOM_STATES",
+	}) do
+		ISSUE_ORDER[label] = i;
+	end
+
+	--- **A sort that keeps ties where they were.** `table.sort` is not stable, and two problems in
+	--- one group would otherwise swap places between two draws of the same tooltip.
+	local function ByGroupOrder(issues)
+		local at = {};
+		for i = 1, #issues do
+			at[issues[i]] = i;
+		end
+		local LAST = #issues + 100;
+		table.sort(issues, function(a, b)
+			local rankA = ISSUE_ORDER[a.label] or LAST;
+			local rankB = ISSUE_ORDER[b.label] or LAST;
+			if (rankA ~= rankB) then
+				return rankA < rankB;
+			end
+			return at[a] < at[b];
+		end);
+	end
+
+	--- The sentence an issue code prints, in its grade's colour. The wording fallback is the menu's
+	--- (`resolveIssue` in ActionMenuModel.lua), and the colour is the grade's (`GetIssueColor`).
+	---
+	--- **Two of the sentences name something** -- the switch and the macro that were not found --
+	--- and the name comes with the code (`GetBindingIssues`). Without it the reader was handed a
+	--- raw `%s` where the name should have been.
+	local function AddIssueLine(tooltip, code, arg, leftOffset)
+		local text = rawget(LLL, code) or rawget(LLL, "BINDING_ERROR_" .. code) or code;
+		if (arg ~= nil) then
+			text = format(text, arg);
+		end
+		GameTooltip_AddColoredLine(tooltip, text, DebindPrivate.GetIssueColor(code), true, leftOffset or 0);
+	end
+
+	--- One grade's problems, written under the name of the group each one is fixed in. `done`
+	--- carries across the two calls, so no line stands under both grades.
+	---
+	--- **Names are written in the order they first appear and every sentence under a name is
+	--- gathered there.** Walking the list as it comes puts the same name up twice whenever one axis
+	--- is caught by two branches, which is the ordinary case rather than a rare one.
+	---
+	--- `titled` is the grade the tooltip's title already names, so that grade writes no heading of
+	--- its own -- the other one does, or the reader cannot tell the two apart once both are up.
+	local function AddIssueGroup(tooltip, issues, warning, done, titled)
+		local headed = warning == titled;
+		for i = 1, #issues do
+			local issue = issues[i];
+			if (not done[i] and DebindPrivate.IsIssueWarning(issue.code) == warning) then
+				if (not headed) then
+					headed = true;
+					GameTooltip_AddBlankLineToTooltip(tooltip);
+					GameTooltip_AddHighlightLine(tooltip,
+						warning and LLL["ORDER_FLAG_ISSUE_WARNING"] or LLL["ORDER_FLAG_ISSUE"]);
+					GameTooltip_AddNormalLine(tooltip,
+						warning and LLL["MARK_TOOLTIP_ISSUE_DESC_WARNING"]
+							or LLL["MARK_TOOLTIP_ISSUE_DESC"], true);
+				end
+				GameTooltip_AddBlankLineToTooltip(tooltip);
+				if (issue.label) then
+					GameTooltip_AddHighlightLine(tooltip,
+						format(LLL["LINE_TOOLTIP_CONDITION_LABEL"], LLL[issue.label]));
+				end
+				for j = i, #issues do
+					local other = issues[j];
+					if (not done[j] and other.label == issue.label
+							and DebindPrivate.IsIssueWarning(other.code) == warning) then
+						done[j] = true;
+						AddIssueLine(tooltip, other.code, other.arg,
+							issue.label and ISSUE_INDENT or 0);
+					end
+				end
+			end
+		end
+	end
+
+	--- The row's issue mark: every problem on this row, under the name of the group that can fix it.
+	---
+	--- **The title is the grade, in the same words the order flag uses** (`ORDER_FLAG_ISSUE*`), and
+	--- the line under it says what that grade costs. A list that only paints the two grades says
+	--- nothing to a reader who cannot part red from orange.
+	---
+	--- **The list is built here rather than on the row.** Only a hover needs it, and a row that is
+	--- rebuilt on every profile change would pay for it every time.
+	function DebindPrivate.AddIssueMarkToTooltip(tooltip, action)
+		local issues = DebindPrivate.GetBindingIssues(action);
+		ByGroupOrder(issues);
+
+		-- The title speaks for the worst grade in the list, which is the grade the mark itself is
+		-- drawn in (`SetKind`). Anything milder writes its own heading further down.
+		local warningIsWorst = true;
+		for i = 1, #issues do
+			if (not DebindPrivate.IsIssueWarning(issues[i].code)) then
+				warningIsWorst = false;
+				break;
+			end
+		end
+
+		GameTooltip_SetTitle(tooltip,
+			warningIsWorst and LLL["ORDER_FLAG_ISSUE_WARNING"] or LLL["ORDER_FLAG_ISSUE"]);
+		GameTooltip_AddNormalLine(tooltip,
+			warningIsWorst and LLL["MARK_TOOLTIP_ISSUE_DESC_WARNING"]
+				or LLL["MARK_TOOLTIP_ISSUE_DESC"], true);
+
+		local done = {};
+		AddIssueGroup(tooltip, issues, false, done, warningIsWorst);
+		AddIssueGroup(tooltip, issues, true, done, warningIsWorst);
+	end
+
+	--- The name a sentence with a `%s` in it prints, asked of the action that raised the code.
+	--- The row-mark tooltip gets this handed to it by `GetBindingIssues`; a group heading has only
+	--- the rows, so it asks the same two functions the branches ask.
+	local ISSUE_NAMES = {
+		[Constants.BINDING_ISSUE_MISSING_MACRO] = function(action)
+			return DebindPrivate.GetMissingMacroName(action);
+		end,
+		[Constants.BINDING_ISSUE_UNDEFINED_STATE] = function(action)
+			return DebindPrivate.GetUndefinedSwitch(action);
+		end,
+	};
+
+	--- The group heading's issue mark: every problem in the group, one line per sentence, so a
+	--- folded group still says what is wrong further down.
+	---
+	--- **A code that names something counts as one sentence per name.** Two rows missing two
+	--- different macros are two problems, and folding them on the code alone would print one of
+	--- the names and drop the other.
+	function DebindPrivate.AddGroupIssuesToTooltip(tooltip, rows)
+		local seen = {};
+		for i = 1, #rows do
+			local row = rows[i];
+			local issue = row.issue;
+			if (issue and not DebindPrivate.IsInactiveAction(row.action)) then
+				local named = ISSUE_NAMES[issue];
+				local arg = named and named(row.action);
+				local key = issue .. "\0" .. tostring(arg);
+				if (not seen[key]) then
+					seen[key] = true;
+					AddIssueLine(tooltip, issue, arg);
+				end
+			end
+		end
+	end
+end

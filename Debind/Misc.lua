@@ -1912,7 +1912,14 @@ local function LookingForWorse(issue)
     return issue == nil or IssueGrade(issue) > Constants.ISSUE_GRADE_ERROR;
 end
 
-function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
+--- The group a contradiction on one unit is fixed in. `hover` can only be set in its own group and
+--- every other unit lives under `Units`; both loops below have to answer this the same way, so it
+--- is answered once here.
+local function UnitLabel(unit)
+    return unit == "hover" and "CONDITION_HOVER" or "CONDITION_UNITS";
+end
+
+local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- **없는 갈래로 물으면 아래 `if`가 전부 비켜가 nil이 나온다**, 그리고 그건 "문제 없음"과
     -- 생김새가 같다. 목록 행이 그렇게 죽은 갈래 넷을 묻고 있었고, 증상이 없어서 읽는 사람만
     -- 그 조건들에 검사가 있다고 읽었다. DEBUG에서만 세운다 - 배포본에서 터뜨릴 잘못이 아니다.
@@ -1930,6 +1937,35 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     --- `TakeIssue` holds the tie rule and `LookingForWorse` is what the guards ask, so a branch
     --- stops being asked only once the worst grade there is has been found.
     local issue;
+
+    --- Where a branch hands in the code it raised. `label` names the group that problem is fixed
+    --- in, and a branch with no group to open passes none -- an action whose own value is wrong
+    --- has no menu behind it. `arg` is the name a sentence with a `%s` in it has to print.
+    ---
+    --- **Only a collecting call keeps a list.** The same code under the same group is kept once.
+    --- Under two different groups it stays two entries: one sentence under two names is a
+    --- contradiction that spans both menus, and either one of them undoes it.
+    local seen = collected and {};
+    local function Report(candidate, label, arg)
+        if (candidate == nil) then
+            return;
+        end
+        if (collected) then
+            local key = candidate .. "\0" .. (label or "");
+            if (not seen[key]) then
+                seen[key] = true;
+                collected[#collected + 1] = { code = candidate, label = label, arg = arg };
+            end
+        end
+        issue = TakeIssue(issue, candidate);
+    end
+
+    --- Is there any point asking another branch? **A collecting call always has one** -- only the
+    --- caller that folds to the worst one stops early, which is what `LookingForWorse` decides.
+    local function Looking()
+        return collected ~= nil or LookingForWorse(issue);
+
+    end
     local binding = DebindPrivate.GetBindingInfoForAction(action);
     local conditions = binding.conditions;
 
@@ -1937,33 +1973,33 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- 아니라 같은 키에 무엇이 더 걸려 있는가이고, 답을 내는 자리가 따로 있다
     -- (`Solver.lua`의 `IsUnreachableAction`). 여기 있던 동안에는 덮인 액션이 자기 경고 대신
     -- 그걸 냈고, 경고가 화면에서 사라졌다.
-    if (LookingForWorse(issue) and (not category or category == "key") and notCategory ~= "key") then
+    if (Looking() and (not category or category == "key") and notCategory ~= "key") then
         if (action.key) then
-            issue = TakeIssue(issue, DebindPrivate.IsKeyInvalidForAction(action, action.key));
+            Report(DebindPrivate.IsKeyInvalidForAction(action, action.key), "KEY");
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "groups") and notCategory ~= "groups") then
+    if (Looking() and (not category or category == "groups") and notCategory ~= "groups") then
         if (conditions.groups == 0) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED);
+            Report(Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED, "CONDITION_GROUP");
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "specs") and notCategory ~= "specs") then
+    if (Looking() and (not category or category == "specs") and notCategory ~= "specs") then
         if (conditions.specs ~= nil and next(conditions.specs) == nil) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_SPECS_NONE_SELECTED);
+            Report(Constants.BINDING_ISSUE_SPECS_NONE_SELECTED, "CONDITION_SPEC");
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "forms") and notCategory ~= "forms") then
+    if (Looking() and (not category or category == "forms") and notCategory ~= "forms") then
         if (conditions.forms == 0) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_FORMS_NONE_SELECTED);
+            Report(Constants.BINDING_ISSUE_FORMS_NONE_SELECTED, "CONDITION_SHAPESHIFT");
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "bonusbars") and notCategory ~= "bonusbars") then
+    if (Looking() and (not category or category == "bonusbars") and notCategory ~= "bonusbars") then
         if (conditions.bonusbars == 0) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED);
+            Report(Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED, "CONDITION_BONUSBAR");
         end
     end
 
@@ -1977,7 +2013,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     --
     -- The on/off/toggle target grew a box of its own in 3c (`CreateSetSwitchMenuItem`), and it
     -- colours itself the same way and for the same reason.
-    if (LookingForWorse(issue) and (not category or category == "states") and notCategory ~= "states") then
+    if (Looking() and (not category or category == "states") and notCategory ~= "states") then
         -- **Not chosen yet is asked first, because the other question cannot be asked of it.**
         -- An on/off/toggle action arrives from the picker with no target at all (§6-C), and
         -- "nothing defines nil" is a sentence with no name to print in it. `GetUndefinedSwitch`
@@ -1985,9 +2021,14 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         -- builder keeps (`UpdateBindings.lua`). The two have to agree, or an action drawn clean
         -- is one that turns back at the door with nothing said.
         if (Constants.SETSTATE_MODES[action.type] and type(action.value) ~= "string") then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED);
-        elseif (DebindPrivate.GetUndefinedSwitch(action)) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_UNDEFINED_STATE);
+            Report(Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED, "CONDITION_CUSTOM_STATES");
+        else
+            -- **The name goes with the code**: this sentence has a `%s` in it and the reader has
+            -- to be told which name is the wrong one.
+            local undefined = DebindPrivate.GetUndefinedSwitch(action);
+            if (undefined) then
+                Report(Constants.BINDING_ISSUE_UNDEFINED_STATE, "CONDITION_CUSTOM_STATES", undefined);
+            end
         end
     end
 
@@ -2002,32 +2043,33 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- An action reported here drops out of `KeyMap` entirely (`Debind.lua`). **Nothing is lost by
     -- that**: it is a binding that already pressed and did nothing, so the only thing that changes
     -- is that it becomes visible.
-    if (LookingForWorse(issue) and (not category or category == "macro") and notCategory ~= "macro") then
-        if (DebindPrivate.GetMissingMacroName(action)) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_MISSING_MACRO);
+    if (Looking() and (not category or category == "macro") and notCategory ~= "macro") then
+        local missing = DebindPrivate.GetMissingMacroName(action);
+        if (missing) then
+            Report(Constants.BINDING_ISSUE_MISSING_MACRO, "TYPE_MACRO", missing);
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "hover") and notCategory ~= "hover") then
+    if (Looking() and (not category or category == "hover") and notCategory ~= "hover") then
         if (binding.hover ~= nil) then
             if (binding.hover and (HoverReactionMask(binding) == 0 or conditions.frameTypes == 0)) then
-                issue = TakeIssue(issue, Constants.BINDING_ISSUE_HOVER_NONE_SELECTED);
+                Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
             end
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "reactions") and notCategory ~= "reactions") then
+    if (Looking() and (not category or category == "reactions") and notCategory ~= "reactions") then
         if (binding.hover) then
             if (HoverReactionMask(binding) == 0) then
-                issue = TakeIssue(issue, Constants.BINDING_ISSUE_HOVER_NONE_SELECTED);
+                Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
             end
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "frameTypes") and notCategory ~= "frameTypes") then
+    if (Looking() and (not category or category == "frameTypes") and notCategory ~= "frameTypes") then
         if (binding.hover) then
             if (conditions.frameTypes == 0) then
-                issue = TakeIssue(issue, Constants.BINDING_ISSUE_HOVER_NONE_SELECTED);
+                Report(Constants.BINDING_ISSUE_HOVER_NONE_SELECTED, "CONDITION_HOVER");
             end
         end
     end
@@ -2072,7 +2114,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         return conditions.units[unit] ~= nil;
     end
 
-    if (LookingForWorse(issue) and binding.unitStates and notCategory ~= "units"
+    if (Looking() and binding.unitStates and notCategory ~= "units"
             and (not category or category == "units" or category == "hover"
                 or category == "unit")) then
         local target = arg;
@@ -2103,8 +2145,10 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
                 end
 
                 if (mine) then
-                    issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
-                    break;
+                    Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, UnitLabel(unit));
+                    if (not collected) then
+                        break;
+                    end
                 end
             end
         end
@@ -2113,7 +2157,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- 소속을 하나도 안 고른 것. 역할과 같은 이유로 위 순회가 못 본다 - 컬럼이 다르다.
     -- 역할과 달리 **유닛마다** 서므로, 짚어 물었으면 그 유닛만 답한다. 안 그러면 한 유닛의
     -- 빈 묶음으로 서브메뉴가 전부 빨개져서 어느 것을 고쳐야 하는지가 화면에서 사라진다.
-    if (LookingForWorse(issue) and binding.unitGroups and notCategory ~= "units"
+    if (Looking() and binding.unitGroups and notCategory ~= "units"
             and (not category or category == "units" or category == "hover"
                 or category == "unit")) then
         local target = arg;
@@ -2134,17 +2178,19 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
                 mine = true;
             end
             if (mask == 0 and mine) then
-                issue = TakeIssue(issue, Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED);
-                break;
+                Report(Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, UnitLabel(unit));
+                if (not collected) then
+                    break;
+                end
             end
         end
     end
 
     -- 역할을 하나도 안 고른 것. 유닛 축의 0과 같은 뜻인데 컬럼이 달라서 위 순회가 못 본다.
     -- **hover 묶음에서만 칠한다** - 이 축은 거기서만 걸 수 있다.
-    if (LookingForWorse(issue) and binding.unitRole == 0 and notCategory ~= "units"
+    if (Looking() and binding.unitRole == 0 and notCategory ~= "units"
             and (not category or category == "hover")) then
-        issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
+        Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_HOVER");
     end
 
     -- **A unit that needs a group, set against being alone.** The four role aliases are empty while
@@ -2160,7 +2206,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- A zero mask is not this: that is a unit with no state left at all and the branch above has
     -- already reported it. `groups == 0` likewise belongs to `GROUPS_NONE_SELECTED`, which runs
     -- first for the same reason -- an axis with nothing ticked is a different sentence.
-    if (LookingForWorse(issue) and binding.unitStates and conditions.groups
+    if (Looking() and binding.unitStates and conditions.groups
             and (not category or category == "groups" or category == "units")
             and notCategory ~= "groups" and notCategory ~= "units"
             and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
@@ -2176,7 +2222,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
             if ((target == nil or target == unit)
                     and DebindPrivate.UNITS_ABSENT_WHEN_SOLO[unit] and mask ~= 0
                     and band(mask, Constants.UNITSTATE_NONE) == 0) then
-                issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
+                Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");
                 break;
             end
         end
@@ -2191,23 +2237,23 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     -- `UNITSTATE_NONE` is above: [unknown] while solo is exactly true.
     --
     -- A zero mask is not this; the branch further up already reported it.
-    if (LookingForWorse(issue) and binding.unitRole and binding.unitRole ~= 0 and conditions.groups
+    if (Looking() and binding.unitRole and binding.unitRole ~= 0 and conditions.groups
             and (not category or category == "groups" or category == "hover")
             and notCategory ~= "groups" and notCategory ~= "units"
             and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0
             and band(binding.unitRole, Constants.ROLE_NONE) == 0) then
-        issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
+        Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");
     end
 
-    if (LookingForWorse(issue) and (not category or category == "specialbar") and notCategory ~= "specialbar") then
+    if (Looking() and (not category or category == "specialbar") and notCategory ~= "specialbar") then
         if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
+            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_SPECIALBAR");
         end
     end
 
-    if (LookingForWorse(issue) and (not category or category == "petbattle") and notCategory ~= "petbattle") then
+    if (Looking() and (not category or category == "petbattle") and notCategory ~= "petbattle") then
         if ((conditions.specialbar and conditions.petbattle == false) or (conditions.petbattle and conditions.specialbar == false)) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
+            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_PETBATTLE");
         end
     end
 
@@ -2218,7 +2264,7 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
     --
     -- **A zero mask is not this.** `BONUSBARS_NONE_SELECTED` runs further up and says a different
     -- sentence: an axis with nothing ticked, rather than two axes that disagree.
-    if (LookingForWorse(issue) and conditions.skyriding ~= nil and conditions.bonusbars
+    if (Looking() and conditions.skyriding ~= nil and conditions.bonusbars
             and conditions.bonusbars ~= 0
             and (not category or category == "skyriding" or category == "bonusbars")
             and notCategory ~= "skyriding" and notCategory ~= "bonusbars") then
@@ -2229,11 +2275,30 @@ function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
         local onlySkyridingBar = conditions.bonusbars == skyridingBit;
         if ((conditions.skyriding and not hasSkyridingBar)
                 or (conditions.skyriding == false and onlySkyridingBar)) then
-            issue = TakeIssue(issue, Constants.BINDING_ISSUE_CONDITIONS_NEVER);
+            Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_SKYRIDING");
         end
     end
 
     return issue;
+end
+
+--- 이 액션의 문제 하나. **제일 심한 것**이고, 갈래를 짚어 물으면 그 갈래 안에서의 하나다.
+--- 색 하나, 마크 하나, 게이트 하나를 정하는 자리는 전부 이것을 쓴다.
+function DebindPrivate.GetBindingIssue(action, category, notCategory, arg)
+    return EvaluateIssues(action, category, notCategory, arg, nil);
+end
+
+--- 이 액션의 문제 **전부**. `{ code, label }`의 목록이고, 순서는 갈래가 쓰인 순서다.
+--- `label`은 그 문제를 고칠 수 있는 묶음의 로케일 키이며, 고칠 묶음이 없으면 nil이다.
+--- 문제가 없으면 빈 목록이다.
+---
+--- 하나로 접는 쪽과 나뉜 이유는 답의 모양이 아니라 묻는 사람이 다르기 때문이다: 색을 고르고
+--- 게이트를 여는 자리는 제일 심한 것 하나만 있으면 되고 그 하나를 찾는 즉시 멈추는 편이 싸다.
+--- 읽는 사람에게 무엇이 잘못됐는지 말하는 자리만 전부가 필요하다.
+function DebindPrivate.GetBindingIssues(action)
+    local collected = {};
+    EvaluateIssues(action, nil, nil, nil, collected);
+    return collected;
 end
 
 

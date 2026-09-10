@@ -149,10 +149,10 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     CreateSmartCastMenuItem(rootDescription, ctx);
 
     --
-    -- Special Conditions
+    -- Conditions
     --
     rootDescription:CreateDivider();
-    rootDescription:CreateTitle(LLL["SPECIAL_CONDITIONS"]);
+    rootDescription:CreateTitle(LLL["CONDITIONS"]);
 
     --- **This list is the order the condition groups are drawn in.** One name is one node; moving
     --- a group is moving its name here. Whether a node stands at all is its own `shown`.

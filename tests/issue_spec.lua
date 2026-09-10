@@ -924,5 +924,72 @@ return function(DebindPrivate)
             "an empty offset mask came back as the pair: " .. tostring(GetBindingIssue(empty)));
     end);
 
+
+    --- `GetBindingIssues`. **What folding to one cannot do**: that one stops asking the moment the
+    --- worst grade there is has been found, so an action carrying two faults reports one of them.
+    --- A tooltip handed that one sentence cannot say the rest.
+    local GetBindingIssues = DebindPrivate.GetBindingIssues;
+
+    --- The list keyed by code, each holding the label that came with it.
+    local function labelsByCode(issues)
+        local codes = {};
+        for i = 1, #issues do
+            codes[issues[i].code] = issues[i].label or true;
+        end
+        return codes;
+    end
+
+    --- Two faults on axes that know nothing of each other.
+    local function twoFaults()
+        return { type = Constants.SPELL, value = 585, key = "T", conditions = {
+            groups = 0,
+            forms = 0,
+        } };
+    end
+
+    test("both branches report, not just the first", function()
+        local action = twoFaults();
+        local one = GetBindingIssue(action);
+        check(one == Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED,
+            "the folded call did not report the first branch: " .. tostring(one));
+
+        local codes = labelsByCode(GetBindingIssues(action));
+        check(codes[Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED] ~= nil, "the group fault is missing");
+        check(codes[Constants.BINDING_ISSUE_FORMS_NONE_SELECTED] ~= nil, "the form fault is missing");
+    end);
+
+    --- Without the label the tooltip cannot say which menu to open.
+    test("each problem carries the group that can fix it", function()
+        local codes = labelsByCode(GetBindingIssues(twoFaults()));
+        check(codes[Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED] == "CONDITION_GROUP",
+            "wrong label on the group fault: "
+                .. tostring(codes[Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]));
+        check(codes[Constants.BINDING_ISSUE_FORMS_NONE_SELECTED] == "CONDITION_SHAPESHIFT",
+            "wrong label on the form fault: "
+                .. tostring(codes[Constants.BINDING_ISSUE_FORMS_NONE_SELECTED]));
+    end);
+
+    test("an action with nothing wrong comes back empty", function()
+        local clean = { type = Constants.SPELL, value = 585, key = "T" };
+        local issues = GetBindingIssues(clean);
+        check(#issues == 0, "a clean action reported: " .. tostring(issues[1] and issues[1].code));
+    end);
+
+    --- One code told under two names. Folding them to one line loses the other menu.
+    test("one code under two groups stands twice", function()
+        local action = { type = Constants.SPELL, value = 585, key = "T", conditions = {
+            specialbar = true,
+            petbattle = false,
+        } };
+        local labels = {};
+        local issues = GetBindingIssues(action);
+        for i = 1, #issues do
+            if (issues[i].code == NEVER) then
+                labels[issues[i].label] = true;
+            end
+        end
+        check(labels["CONDITION_SPECIALBAR"], "the special bar label is missing");
+        check(labels["CONDITION_PETBATTLE"], "the pet battle label is missing");
+    end);
     return T;
 end
