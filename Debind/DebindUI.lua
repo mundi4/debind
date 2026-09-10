@@ -4376,34 +4376,17 @@ function DebindOrderLineMixin:UpdateMoveButtons(elementData)
 		accept:SetWidth(max(60, accept:GetFontString():GetStringWidth() + 24));
 	end
 
-	-- **Only the live rows count.** Neither a badged row nor an off-spec one can be an opponent
-	-- (`ComputeOrderSwap`), so a key holding one live row and three of those is in the same
-	-- position as a key holding one: put the arrows up and both of them are dead.
+	-- **Drawn rows are what is counted, live ones are not.** Whether a row runs right now is not a
+	-- thing the reader can see in this slot, so counting it put arrows on a row for the reason that
+	-- a **different** row had been added above it, and took them off a row with a line drawn right
+	-- under it. The group is the drawn group (`BuildKeyboardElements` carries it), so two lines on
+	-- screen is two rows here.
 	local rows = elementData.rows;
-	local live = 0;
-	if (rows) then
-		for i = 1, #rows do
-			if (DebindPrivate.IsRowInOrder(rows[i])) then
-				live = live + 1;
-			end
-		end
-	end
+	local drawn = rows and #rows or 0;
 
-	-- **A row that is not in this key's order gets no arrows.** What the arrows settle is which of
-	-- the things on one key goes first, and a row whose layer belongs to another specialization is
-	-- not on that key here: the reader would be moving something they cannot see the effect of. The
-	-- slot stays empty and the reason column says which specialization it belongs to.
-	--
-	-- **A row its own specialization condition leaves out is not one of those.** It stands in this
-	-- key's `seq` space beside its neighbours, so moving it moves it one place on this very list
-	-- (`Ordering.lua`'s `IsRowOffSpec` says why the two questions parted). It keeps its arrows and
-	-- gets the flag in the reason column.
-	--
-	-- **One test for the arrows and for the menu**, which asks `ComputeOrderSwap` the same way.
-	-- They used to have half of it each, and the row that refused the arrows accepted the same
-	-- move from its own right-click menu.
-	if (not DebindPrivate.IsRowInOrder(elementData.row)
-			or not elementData.isCurrent or live < 2) then
+	-- 옆에 줄이 보이는데 못 옮기는 경우는 **죽은 화살표와 그 툴팁이 말한다.** 그래서 남는
+	-- 조건은 위 배지 하나뿐이다 - 그 행에는 받아들이기 버튼이 이 자리를 쓴다.
+	if (arrived or not elementData.isCurrent or drawn < 2) then
 		self.moveUpNeighbor, self.moveDownNeighbor = nil, nil;
 		up.reason, down.reason = nil, nil;
 		up:Hide();

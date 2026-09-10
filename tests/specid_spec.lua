@@ -311,10 +311,11 @@ return function(DebindPrivate)
             "the excluded row moved, and it is in a live layer: " .. tostring(rows[1].action.value));
         check((rows[1].specRank or 0) == 0, "it was given a specRank, which the comparator reads");
         check(DebindPrivate.IsRowOffSpec(rows[1]), "it is not marked off-spec");
-        -- **Marked and still in the order**, which is the pair of answers this row needs. The flag
-        -- is about the words on it; `seq` is still what settles it against the row below, so it is
-        -- that row's arrow neighbour (the swap case below).
-        check(DebindPrivate.IsRowInOrder(rows[1]), "it was taken out of the key's order as well");
+        -- **Marked and still settled by `seq`**, which is the pair of answers this row needs. The
+        -- flag is about the words on it; the comparator reaches `seq` against the row below either
+        -- way, so it is that row's arrow neighbour (the swap case below).
+        check(DebindPrivate.GetDecidingOrderAxis(rows[1], rows[2]) == nil,
+            "an axis above seq settles them: " .. tostring(DebindPrivate.GetDecidingOrderAxis(rows[1], rows[2])));
         check(not DebindPrivate.IsRowOffSpec(rows[2]), "the row beside it was marked too");
     end);
 
@@ -326,7 +327,7 @@ return function(DebindPrivate)
 
         local rows = DebindPrivate.CollectActionsForKey("F1");
         check(not DebindPrivate.IsRowOffSpec(rows[1]), "a set holding this index was marked");
-        check(DebindPrivate.IsRowInOrder(rows[1]), "it was taken out of the order");
+        check((rows[1].specRank or 0) == 0, "it was given a specRank, which the comparator reads");
     end);
 
     -- **The window can ask for another specialization's order**, and the answer has to be about

@@ -131,23 +131,8 @@ function DebindPrivate.GetDecidingOrderAxis(lhs, rhs)
     return nil;
 end
 
---- Is this row part of what the key does, and therefore part of its order?
----
---- **Two ways to be out, and everything that orders rows treats them the same.** A badged row is
---- not in the build until it is accepted (`BuildKeyMap` leaves it out), and an off-spec row is not
---- in this specialization's key map at all. Swapping numbers with either moves a row on screen and
---- settles nothing about the key, which is the most expensive kind of wrong this list can be.
----
---- **Written once because it is asked in four places**: the guard and the neighbour skip in
---- `ComputeOrderSwap`, the arrows' live count, and the search for the next row that actually fires
---- (both in `DebindUI.lua`). It was inline at each of them, and the guard had only half of it -
---- so a badged row refused the arrows and accepted the same move from its right-click menu.
-function DebindPrivate.IsRowInOrder(row)
-    return not row.arrivalID and (row.specRank or 0) == 0;
-end
-
 --- Is this row for a specialization other than the one being drawn? **A question about the words
---- on the row, not about the order**, which is the whole difference from `IsRowInOrder` above.
+--- on the row, and not about whether its arrows can move it.**
 ---
 --- Three ways to be, and the filter files all three with the rest of them, since a specialization
 --- change is what brings any of them back: the row's layer belongs to another specialization
@@ -158,12 +143,11 @@ end
 --- another specialization and it names which; `noSpell` gets its own word, because a class can
 --- lack the spell in every specialization it has.
 ---
---- **The second and third are still in this key's order, and that is why the two questions
---- parted.** They are in a layer that is live, so `specRank` ties and `seq` alone settles them
---- against the rows either side: such a row is the neighbour their arrows swap with, and moving it
---- moves it one place on screen. Answering the order with this function let an arrow step over it
---- and move the pressed row two. A row out by its **layer** is the opposite case, since `specRank`
---- decides that pair before `seq` is ever reached and swapping numbers with it settles nothing.
+--- **Never ask this about a swap.** The three do not answer alike there and the comparator already
+--- tells them apart: the second and third stand in a layer that is live, so `specRank` ties and
+--- `seq` alone settles them against the rows either side, while a row out by its **layer** is
+--- decided on `specRank` before `seq` is reached. Refusing all three together let an arrow refuse a
+--- move that the numbers underneath it could make.
 function DebindPrivate.IsRowOffSpec(row)
     return (row.specRank or 0) ~= 0 or row.specExcluded == true or row.noSpell == true;
 end
@@ -171,16 +155,24 @@ end
 --- rows(발동 순서로 정렬된 상태)의 targetIndex번째와 **순서 번호를 맞바꿀 이웃 행**을
 --- 돌려준다. direction은 -1(위로) / 1(아래로).
 ---
---- 순서를 가르는 게 seq뿐일 때만 가능하다. 그때는 layerRank가 같으므로 둘이 같은 레이어에
---- 있고, 번호를 맞바꾸면 정확히 한 칸만 움직인다. 밴드도 조건도 스코프도 건드리지 않는다.
+--- 순서를 가르는 게 seq뿐일 때만 가능하다. 그때는 layerRank도 specRank도 같아서 둘이 같은
+--- 레이어에 있고, 번호를 맞바꾸면 정확히 한 칸만 움직인다. 밴드도 조건도 스코프도 안 건드린다.
+---
+--- **그 레이어가 지금 도는 전문화의 것일 필요는 없다.** 다른 전문화의 레이어에 든 두 행도
+--- 같은 `seq` 공간에 있어서, 맞바꾸면 그 전문화가 돌아왔을 때 실제로 한 칸 움직인다. 그
+--- 레이어도 같은 프로필 파일에 있고 `RenumberKeyGroup`이 그 그룹을 1..n으로 닫는다.
 ---
 --- **맞바꿔도 다른 액션은 안 흔들린다.** seq는 같은 키의 행끼리만 비교되는 값이라(비교자가
 --- 그 전에 키로 갈라 놓은 목록이다), 두 번호 사이에 다른 키의 액션이 몇 개 끼어 있든 그쪽
 --- 순서에는 영향이 없다. 이웃은 이 키의 행 중 바로 옆이므로 한 칸이 맞다.
 ---
+--- **이웃은 rows에서 바로 옆이고, 건너뛰는 자리는 없다.** rows가 곧 화면에 그려진 목록이라
+--- (`BuildKeyboardElements`), 한때 순서에서 빠진 행을 건너뛰던 것이 아래에 줄이 보이는 행에
+--- "이미 맨 아래"라고 답하게 만들었다. 옆 행과 맞바꿀 수 없으면 그 사유를 대는 것이 맞다.
+---
 --- 못 하면 nil과 이유를 돌려준다:
 ---   "ALREADY_FIRST" | "ALREADY_LAST" - 끝이라 움직일 데가 없음
----   "IMPORTED" | "SPEC" - 대상이 이 키의 순서에 없다(`IsRowInOrder`)
+---   "IMPORTED" - 대상이 아직 받아들이지 않은 도착분이다
 ---   "IMPORTANCE" | "HOVER" | "CONDITIONAL" | "LAYER" | "SPEC" - 그 단계에서 갈려서 seq까지 안 내려옴
 ---
 --- 대상 자리도 범위 안이어야 한다. 지금 부르는 쪽은 rows를 돌면서 찾은 값을 주므로 그럴
@@ -190,23 +182,16 @@ function DebindPrivate.ComputeOrderSwap(rows, targetIndex, direction)
         return nil, direction < 0 and "ALREADY_FIRST" or "ALREADY_LAST";
     end
 
-    -- **Refused here rather than by the skip below.** The skip would catch it in the ordinary case,
-    -- since the neighbour it lands on comes out live, but only while some live row is left to land
-    -- on. On a key whose rows are all out of the order the loop runs off the end and the answer
-    -- comes back "already last", said about the first of several. Asking up front is both true and
-    -- shorter. Why these rows are out is on `IsRowInOrder`.
+    -- **A badged row is not on the key at all** (`BuildKeyMap` leaves it out), so a number swapped
+    -- with it moves a row on screen and settles nothing. Neither caller can reach this - the row
+    -- puts the accept button where the arrows go, and the menu offers accept and reject instead -
+    -- but both of those are drawing decisions, and this is the one place the swap itself is refused.
     local target = rows[targetIndex];
-    if (not DebindPrivate.IsRowInOrder(target)) then
-        return nil, target.arrivalID and "IMPORTED" or "SPEC";
+    if (target.arrivalID) then
+        return nil, "IMPORTED";
     end
 
-    -- Skipping past the end is the same answer as starting there, so the two branches below catch
-    -- it unchanged: nowhere to move to is nowhere to move to.
     local neighborIndex = targetIndex + direction;
-    while (rows[neighborIndex] and not DebindPrivate.IsRowInOrder(rows[neighborIndex])) do
-        neighborIndex = neighborIndex + direction;
-    end
-
     if (neighborIndex < 1) then
         return nil, "ALREADY_FIRST";
     elseif (neighborIndex > #rows) then

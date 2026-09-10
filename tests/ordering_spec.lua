@@ -325,7 +325,7 @@ return function(DebindPrivate)
 
     -- 배지 붙은 행은 빌드에 안 들어가므로 이 키의 순서에도 없다. 화살표 버튼은 그걸 이미
     -- 거부하고 있었는데 우클릭 메뉴는 같은 동작을 받아줬다 - 대상 가드가 `specRank`만 보고
-    -- `imported`를 안 봤다. 이웃 건너뛰기는 둘 다 보고 있었다.
+    -- `imported`를 안 봤다.
     test("seq 이동 - 배지 붙은 행은 대상이 될 수 없다", function()
         local rows = {
             { name = "live", priority = 1, layerRank = 1, seq = 1 },
@@ -337,18 +337,30 @@ return function(DebindPrivate)
         check(reason == "IMPORTED", "사유가 IMPORTED여야 함, 실제: " .. tostring(reason));
     end);
 
-    -- 위 가드가 이웃 건너뛰기까지 먹어버리면 안 된다. 대상이 살아 있으면 배지를 지나
-    -- 그 너머의 살아 있는 행과 맞바꾼다.
-    test("seq 이동 - 살아 있는 행은 배지를 건너뛰고 이웃을 찾는다", function()
+    -- 다른 전문화의 레이어에 든 두 행도 같은 레이어라 `seq` 공간이 하나다. 맞바꾸면 그
+    -- 전문화가 돌아왔을 때 실제로 한 칸 움직인다.
+    test("seq 이동 - 같은 오프스펙 레이어의 두 행끼리 맞바꾼다", function()
         local rows = {
-            { name = "live1", priority = 1, layerRank = 1, seq = 1 },
-            { name = "badged", priority = 1, layerRank = 1, seq = 2, arrivalID = 7 },
-            { name = "live2", priority = 1, layerRank = 1, seq = 3 },
+            { name = "off1", priority = 1, layerRank = 1, specRank = 2, seq = 1 },
+            { name = "off2", priority = 1, layerRank = 1, specRank = 2, seq = 2 },
         };
 
-        local neighbor, reason = ComputeOrderSwap(rows, 3, UP);
+        local neighbor, reason = ComputeOrderSwap(rows, 2, UP);
         check(reason == nil, "막히면 안 됨: " .. tostring(reason));
-        check(neighbor == rows[1], "배지를 건너뛴 살아 있는 이웃이어야 함");
+        check(neighbor == rows[1], "이웃이 위 행이어야 함");
+    end);
+
+    -- 이웃은 목록에서 바로 옆이다. 건너뛰면 화면에는 줄이 보이는데 "이미 맨 위"라고 답하게
+    -- 된다.
+    test("seq 이동 - 옆 행을 건너뛰지 않는다", function()
+        local rows = {
+            { name = "off", priority = 1, layerRank = 1, specRank = 2, seq = 1 },
+            { name = "live", priority = 1, layerRank = 1, seq = 2 },
+        };
+
+        local moved, reason = ComputeOrderSwap(rows, 2, UP);
+        check(moved == nil, "전문화가 다른데 움직였다");
+        check(reason == "SPEC", "사유가 SPEC이어야 함, 실제: " .. tostring(reason));
     end);
 
     test("seq 이동 - 끝에서는 움직일 데가 없다", function()
@@ -468,21 +480,19 @@ return function(DebindPrivate)
         expectBlocked(rec({ name = "t", specRank = 2 }), rec({ name = "n", specRank = 0 }), "SPEC");
     end);
 
-    -- **행이 전부 오프스펙인 키.** 이웃을 건너뛰는 고리가 목록 끝까지 달려나가고, 그러면
-    -- "끝이라 움직일 데가 없다"가 답으로 나온다 - 첫 번째 행에 대고 "이미 마지막입니다"라고
-    -- 말하는 셈이다. 건너뛰기가 SPEC을 대신 답해준다는 근거는 **살아 있는 행이 하나라도 있을
-    -- 때만** 성립하는데, 이 키에는 없다.
-    test("막힘 - 전부 오프스펙이면 끝이 아니라 SPEC", function()
+    -- **행이 전부 오프스펙인 키**에서도 같은 레이어끼리는 맞바꾼다. 위 3절의 두 행짜리와
+    -- 같은 일인데, 이쪽은 `makeLayer`가 번호를 매기고 `sorted`가 세운 목록으로 묻는다.
+    test("막힘 - 전부 오프스펙이어도 같은 레이어면 안 막힌다", function()
         local layer = makeLayer(rec({ name = "a", specRank = 2 }), rec({ name = "b", specRank = 2 }));
         local rows = sorted(layer);
 
-        local moved, reason = ComputeOrderSwap(rows, 1, DOWN);
-        check(moved == nil, "움직이면 안 됨");
-        check(reason == "SPEC", "이유가 " .. tostring(reason));
+        local neighbor, reason = ComputeOrderSwap(rows, 1, DOWN);
+        check(reason == nil, "막히면 안 됨: " .. tostring(reason));
+        check(neighbor == rows[2], "이웃이 아래 행이어야 함");
 
-        moved, reason = ComputeOrderSwap(rows, 2, UP);
-        check(moved == nil, "위로도 움직이면 안 됨");
-        check(reason == "SPEC", "위로 갈 때 이유가 " .. tostring(reason));
+        neighbor, reason = ComputeOrderSwap(rows, 2, UP);
+        check(reason == nil, "위로도 막히면 안 됨: " .. tostring(reason));
+        check(neighbor == rows[1], "위로 갈 때 이웃이 위 행이어야 함");
     end);
 
     test("막힘 - 앞선 단계가 우선한다 (밴드와 레이어가 둘 다 다르면 IMPORTANCE)", function()

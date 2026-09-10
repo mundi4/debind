@@ -263,6 +263,7 @@ end
 --- layer's metatable because the prototype is private to `Profile.lua` - the methods are what is
 --- wanted, not the storage.
 local testLayer
+local offSpecLayer
 
 local function GetTestLayer()
     if not testLayer then
@@ -274,6 +275,30 @@ local function GetTestLayer()
         }, getmetatable(real))
     end
     return testLayer
+end
+
+--- A second test layer, standing for **another specialization's**.
+---
+--- What makes a layer another specialization's is the `specRank` the all-layers walk hands out
+--- beside it, so the value rides on the layer here and the stand-in below reads it off
+--- (`Profile.lua`'s `EnumerateAllProfileLayers` computes the real one). The live walk never yields
+--- this layer at all, which is the other half of what "not this specialization" means.
+---
+--- **Off by default.** Every test that counts rows on a key counts what the walks yield, so a
+--- second layer standing in every run would change those counts from under tests that never asked
+--- for one. `UseOffSpecLayer` turns it on for the test that wants it and the teardown takes it out.
+local function GetOffSpecLayer()
+    if not offSpecLayer then
+        local real = assert(DebindPrivate.GetProfileLayer(1), "the profile is not up yet")
+        offSpecLayer = setmetatable({
+            layerID = 101,
+            actions = {},
+            -- Any non-zero index will do: what the comparator reads is whether it ties with the
+            -- rows around it, not which specialization it names.
+            testSpecRank = 2,
+        }, getmetatable(real))
+    end
+    return offSpecLayer
 end
 
 
@@ -366,6 +391,10 @@ local realEnumerate
 local realEnumerateAll
 local realFindLayerID
 
+--- The list the three stand-ins walk. Held here so a test can add the off-spec layer to it while
+--- the run is already isolated (`UseOffSpecLayer`).
+local isolatedLayers
+
 local function SetIsolated(isolated)
     if isolated then
         -- **Wrapped, because this is a report and the run is not.** It only reads, but a run that
@@ -375,24 +404,27 @@ local function SetIsolated(isolated)
         if not realEnumerate then
             realEnumerate = DebindPrivate.EnumerateProfileLayers
             realEnumerateAll = DebindPrivate.EnumerateAllProfileLayers
-            local only = { GetTestLayer() }
+            isolatedLayers = { GetTestLayer() }
+            local only = isolatedLayers
+            -- **The live walk yields the first layer alone**, whatever else is in the list. That is
+            -- what an off-spec layer is: stored, and not among what this specialization runs.
             DebindPrivate.EnumerateProfileLayers = function()
                 return function(tbl, index)
                     index = index + 1
-                    if tbl[index] then
+                    if index == 1 and tbl[index] then
                         return index, tbl[index]
                     end
                 end, only, 0
             end
-            -- Scope 5 and no specialization. **Neither value can decide anything** -- there is one
-            -- layer, so every row carries the same pair -- and 5 is what the layer it was cloned
-            -- from would answer (`GetTestLayer` takes the general layer's metatable). What matters
-            -- is that they are answered at all: a nil scope would reach the comparator.
+            -- Scope 5 for both, so the layer step can never decide a pair; the specialization comes
+            -- off the layer. 5 is what the layer they were cloned from would answer (`GetTestLayer`
+            -- takes the general layer's metatable). What matters is that they are answered at all:
+            -- a nil scope would reach the comparator.
             DebindPrivate.EnumerateAllProfileLayers = function()
                 return function(tbl, index)
                     index = index + 1
                     if tbl[index] then
-                        return index, tbl[index], 5, 0
+                        return index, tbl[index], 5, tbl[index].testSpecRank or 0
                     end
                 end, only, 0
             end
@@ -402,10 +434,11 @@ local function SetIsolated(isolated)
                 if action == nil then
                     return nil
                 end
-                local layer = only[1]
-                for _, candidate in layer:Enumerate() do
-                    if candidate == action then
-                        return layer.layerID, layer
+                for _, layer in ipairs(only) do
+                    for _, candidate in layer:Enumerate() do
+                        if candidate == action then
+                            return layer.layerID, layer
+                        end
                     end
                 end
                 -- Not the test layer's. Falls through to the real walk so a test that reaches for
@@ -421,6 +454,7 @@ local function SetIsolated(isolated)
             realEnumerate = nil
             realEnumerateAll = nil
             realFindLayerID = nil
+            isolatedLayers = nil
         end
     end
 
@@ -461,9 +495,32 @@ local function InsertAction(action)
     return action
 end
 
---- Empties the layer wholesale. Nothing else is in it, so there is nothing to be careful about.
+--- Puts the off-spec layer into the run, and hands back a second `InsertAction` that plants into
+--- it. Call it from a test's `run`; the teardown takes the layer back out.
+---
+--- The two layers tie on every ordering step above `specRank`, so a key holding rows from both is
+--- exactly the case the overview draws for another specialization: the rows stand together in one
+--- list and the comparator splits them on which specialization they belong to.
+local function UseOffSpecLayer()
+    local layer = GetOffSpecLayer()
+    isolatedLayers[#isolatedLayers + 1] = layer
+    AddTeardown(function()
+        wipe(layer.actions)
+        for i = #isolatedLayers, 2, -1 do
+            isolatedLayers[i] = nil
+        end
+    end)
+    return function(action)
+        layer:Insert(NestConditions(action))
+        layer:PlaceInKeyGroup(action)
+        return action
+    end
+end
+
+--- Empties the layers wholesale. Nothing else is in them, so there is nothing to be careful about.
 local function CleanupActions()
     wipe(GetTestLayer().actions)
+    wipe(GetOffSpecLayer().actions)
     if not InCombatLockdown() then
         DebindPrivate.UpdateBindings()
     end
@@ -2001,6 +2058,120 @@ RegisterTest("Bind mode: the portrait toggle turns the mode on and off", {
         end
 
         return Pass(NAME, "one toggle moved the mode, the border and the tooltip, and left the keyboard alone")
+    end,
+})
+
+-----------------------------------------------------------
+-- Test Cases: The order arrows on a key holding another specialization's row
+--
+-- **Both of these need a second layer that is stored and not live**, which is what an inactive
+-- specialization's layer is, and `UseOffSpecLayer` is the only way to stand one up. Everything
+-- measured here is a frame: which buttons the row put up, what a press on one wrote. The headless
+-- specs reach `ComputeOrderSwap` and stop there -- they cannot see the row deciding what to show,
+-- and they cannot see the swap reach a layer through `FindLayerID`.
+--
+-- **What they cannot reach in principle**: how any of it looks. That the reason column reads well
+-- beside a dead arrow, or that the button band sits where the name ends, is not a thing an
+-- assertion can hold.
+-----------------------------------------------------------
+
+--- The live row frame for one action, or nil. Read off the ScrollBox rather than built by hand:
+--- these tests are about what the list decided, and a frame built here would be answering for a
+--- list that never ran.
+local function FindOrderLine(action)
+    local found
+    DebindResultPanel.ContentArea.OrderArea.ScrollBox:ForEachFrame(function(frame)
+        local elementData = frame.GetElementData and frame:GetElementData()
+        if elementData and elementData.row and elementData.row.action == action then
+            found = frame
+        end
+    end)
+    return found
+end
+
+RegisterTest("Order arrows: a line drawn under the row is what puts them up", {
+    description = "A key holding one of this specialization's rows and one of another's shows the arrows on both, dead and saying which",
+    run = function()
+        local NAME = "Order arrows drawn count"
+        local KEY = "CTRL-ALT-F9"
+
+        -- **The counted number and the live number differ here, and only here.** With both rows
+        -- live the two agree and the test passes whichever one the row is counting.
+        local InsertOffSpec = UseOffSpecLayer()
+        local mine = InsertAction({ type = Constants.SPELL, value = 1, key = KEY })
+        InsertOffSpec({ type = Constants.SPELL, value = 2, key = KEY })
+        ApplyBindings()
+
+        DebindFrame:Show()
+        AddTeardown(function() DebindFrame:CloseWindow() end)
+        DebindLayerPanel:SetSelectedAction(mine)
+        DebindResultPanel:RefreshKeyboard()
+
+        local line = FindOrderLine(mine)
+        if not line then
+            return Fail(NAME, format("no row for %s in the left column, is a search term or filter on", KEY))
+        end
+
+        if not line.MoveDownButton:IsShown() then
+            return Fail(NAME, "a row with a line drawn under it put up no arrows")
+        end
+        if line.MoveDownButton:IsEnabled() then
+            return Fail(NAME, "the arrow toward another specialization's row is live")
+        end
+        if line.MoveDownButton.reason ~= "SPEC" then
+            return Fail(NAME, format("the dead arrow points at the wrong reason: %s",
+                tostring(line.MoveDownButton.reason)))
+        end
+        if line.MoveUpButton.reason ~= "ALREADY_FIRST" then
+            return Fail(NAME, format("the top row is not saying it is the top row: %s",
+                tostring(line.MoveUpButton.reason)))
+        end
+
+        return Pass(NAME, "the arrows stood, dead, and named the specialization step")
+    end,
+})
+
+RegisterTest("Order arrows: another specialization's rows reorder among themselves", {
+    description = "Pressing an arrow on a row in an inactive specialization's layer swaps the numbers in that layer",
+    run = function()
+        local NAME = "Order arrows off-spec swap"
+        local KEY = "CTRL-ALT-F10"
+
+        local InsertOffSpec = UseOffSpecLayer()
+        local first = InsertOffSpec({ type = Constants.SPELL, value = 1, key = KEY })
+        local second = InsertOffSpec({ type = Constants.SPELL, value = 2, key = KEY })
+        ApplyBindings()
+
+        if not (first.seq < second.seq) then
+            return Fail(NAME, format("setup: the numbers did not come out in order, %s then %s",
+                tostring(first.seq), tostring(second.seq)))
+        end
+
+        DebindFrame:Show()
+        AddTeardown(function() DebindFrame:CloseWindow() end)
+        DebindLayerPanel:SetSelectedAction(second)
+        DebindResultPanel:RefreshKeyboard()
+
+        local line = FindOrderLine(second)
+        if not line then
+            return Fail(NAME, format("no row for %s in the left column, is a search term or filter on", KEY))
+        end
+        if not line.MoveUpButton:IsEnabled() then
+            return Fail(NAME, format("the arrow is dead in its own layer: %s",
+                tostring(line.MoveUpButton.reason)))
+        end
+
+        -- **Pressed rather than calling `ApplyOrderSwap`.** What is being measured is that the
+        -- press reaches the layer at all: the swap finds it through `FindLayerID`, and a layer
+        -- that walk cannot see makes the whole gesture a silent no-op.
+        line.MoveUpButton:Click()
+
+        if not (second.seq < first.seq) then
+            return Fail(NAME, format("the press settled nothing, %s then %s",
+                tostring(first.seq), tostring(second.seq)))
+        end
+
+        return Pass(NAME, "the press moved a row inside a layer this specialization does not run")
     end,
 })
 
