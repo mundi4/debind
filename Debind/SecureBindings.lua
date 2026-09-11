@@ -1897,6 +1897,19 @@ end, [==[
 	self:SetAttribute("type", nil)
 	self:SetAttribute("macrotext", nil)
 
+	-- **The client's three cast modifiers do not reach a click on a unit frame**, so neither do
+	-- ours. On Blizzard's own path they cannot: `SecureButton_GetModifiedUnit` returns the frame's
+	-- bare `unit` on its first line and never reaches those branches. Our click-cast route ends on
+	-- this frame instead, and where the reader turned the hovered frame's unit off there is no
+	-- `unit` to stop at -- which would light up, for frame clicks only, a branch the client itself
+	-- never lets a frame click reach.
+	--
+	-- Pinned per click rather than once at login because the key path is the opposite answer and
+	-- both arrive on this frame. `checkmouseovercast` needs no line: it is off for every path
+	-- (`Debind.lua`).
+	self:SetAttribute("checkselfcast", not clickCast)
+	self:SetAttribute("checkfocuscast", not clickCast)
+
 	-- **클릭캐스팅은 언제나 `down=false`로 도착한다.** `SECURE_ACTIONS.click`이
 	-- `delegate:Click(button)`이라 엣지를 못 싣는다(`/click`은 세 번째 인자로 실었다).
 	--

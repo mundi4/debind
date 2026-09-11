@@ -107,7 +107,11 @@ L["HELP_TOPICS"] = "Help"
 -- 것이 달라 보이므로, 버튼이 물음이고 창이 그 답이 되게 맞춰 둔다.
 L["HELP_ORDERING"] = "Which action does a key run?"
 -- 두 번째 도움말 페이지의 버튼. 위와 같은 규칙으로 버튼이 물음이고 창이 답이다.
-L["HELP_TARGETING"] = "Where does an action go?"
+--
+-- **`Where` 로 열면 안 된다.** 이 목록은 전역 옵션창이라 액션이 어느 레이어에 있느냐로 읽힌다.
+-- 대상 메뉴 안에 붙어 있었으면 문맥이 받쳐 줬을 텐데 여기는 그게 없다. 유닛을 물어야 뜻이 하나로
+-- 선다. 위 항목과 같은 꼴로 맞춰 둔 것이기도 하다.
+L["HELP_TARGETING"] = "Which unit is an action used on?"
 -- **One word, because whoever reads it already knows it.** Somebody in this window has installed a
 -- click-casting addon, and a blacklist is a list of what is left out - the polarity comes with the
 -- word and needs no sentence under it. `Unit Frame` is not repeated: the category above already
@@ -1010,7 +1014,7 @@ L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Deb
 -- Two labels are quoted, the Target menu's own name and the checkbox's, because both are where the
 -- reader has to go and neither can be pointed at from here any other way. Renaming either one
 -- moves this sentence with it.
-L["HELP_TARGETING_TITLE"] = "Where an action goes"
+L["HELP_TARGETING_TITLE"] = "Which unit an action is used on"
 L["HELP_TARGETING_BODY"] = "WoW has four ways to send a spell somewhere other than your current target, and they are all in the same place in the game's own settings.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Self Cast Key.|r Hold it and a friendly spell goes to you.|n2. |cnHIGHLIGHT_FONT_COLOR:Focus Cast Key.|r Hold it and the spell goes to your focus.|n3. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast.|r The spell goes to the unit under your cursor.|n4. |cnHIGHLIGHT_FONT_COLOR:Auto Self Cast.|r A friendly spell you cast with an enemy targeted, or with nothing targeted, goes to you instead.|n|nThe first three are keys you hold: you decide, at the moment you press. The fourth is not a key at all -- it is the game quietly sending a cast to you that could not have gone where you aimed it. They sit on one row in the settings and read as one thing, and telling them apart is most of this page.|n|n|cnHIGHLIGHT_FONT_COLOR:You did not pick a target for the action.|r|n|nThe Self Cast Key, the Focus Cast Key and Auto Self Cast all work, exactly as they do on an action bar.|n|nMouseover Cast does not. It is the one part of this the game cannot answer for a Debind key, so it is switched off rather than left to give a wrong answer. To send an action to the unit under the cursor, set its target to |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, which does the same job and is yours to set per action.|n|n|cnHIGHLIGHT_FONT_COLOR:You picked a target for the action.|r|n|nThe action goes to that unit and nowhere else. None of the four apply: holding the Self Cast Key or the Focus Cast Key does nothing to it, and a friendly spell aimed at an enemy does not come back to you -- it simply does not go out.|n|nThat is what picking an entry in |cnHIGHLIGHT_FONT_COLOR:Target|r means. You named where the action goes, so nothing else gets to move it. |cnHIGHLIGHT_FONT_COLOR:Disable|r is the other answer: it leaves the decision to the game, which is the case above.|n|n|cnHIGHLIGHT_FONT_COLOR:The action is used on the unit frame you are pointing at.|r|n|nThe same. Pointing at a frame is picking a target, so the action goes to that frame's unit and the four stay out of it.|n|nTurn on |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the hovered frame's unit|r and you have taken that back: the action no longer goes to the frame's unit, and the game decides again, exactly as in the first case."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
@@ -1238,7 +1242,26 @@ L["SWITCHES_EMPTY"] = "No switches yet.\n|cnHIGHLIGHT_FONT_COLOR:%s|r below make
 -- 같다 - 같은 주장이면 같은 데서 틀린다.
 L["TAB_DESC_SHARED"] = "Every character on the account."
 L["TAB_DESC_CHARACTER"] = "This character only. A key here beats the same key in Account, unless conditions or Importance say otherwise."
-L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame."
+-- The instruction line on the `Target` row (`MenuKit`'s `<label>_DESC` rule).
+--
+-- **The second sentence is the surprising half.** Picking anything here does not only say where
+-- the action goes; it takes it out of every redirection the game would otherwise apply, and a
+-- reader who holds their self-cast key and sees nothing happen has no way to find out why. The
+-- four are named with the client's own labels so they can be matched against the game's own
+-- settings panel, where all four sit together.
+--
+-- **`Disable` is named because it is the way back**, it is the row directly above in this same
+-- menu, and its own label carries no hint that it is the one that hands the decision to the game.
+L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame.|n|nNothing moves it after that: while a target is picked here, the Self Cast Key, the Focus Cast Key, Mouseover Cast and Auto Self Cast are all left out. Disable hands the decision back to the game."
+-- Carried by every entry in the `Target` menu except `Disable`, appended to whatever that entry
+-- says for itself (`ActionMenuItems.lua`). The parent row says it too (`TARGET_UNIT_DESC`); this
+-- one exists because a reader can land on a single entry without passing the parent.
+--
+-- **The four are the client's own labels**, so the sentence can be matched against the game's
+-- settings panel, where they sit together. Naming all four and not only the ones a key is held
+-- for: Auto Self Cast is the one that fires with no key at all, so leaving it out would read as
+-- "that one still applies".
+L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here and nowhere else: the Self Cast Key, the Focus Cast Key, Mouseover Cast and Auto Self Cast are all left out. Disable hands the decision back to the game."
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
@@ -1378,7 +1401,10 @@ L["UNIT_HOVER"] = "Unit Frame"
 L["UNIT_MAINASSIST"] = "Main Assist"
 L["UNIT_MAINTANK"] = "Main Tank"
 L["UNIT_MOUSEOVER"] = "Mouseover"
-L["UNIT_NONE_DESC"] = "Turns the cursor into the targeting cursor even when you already have a target. Auto self cast is ignored."
+-- **Only what is true of this entry alone.** Auto Self Cast used to be named here; every entry in
+-- the menu now carries `TARGET_UNIT_FIXED`, which says it for all four, and saying it twice on one
+-- tooltip reads as two different facts.
+L["UNIT_NONE_DESC"] = "Turns the cursor into the targeting cursor even when you already have a target, and you pick where it lands."
 L["UNIT_NONE"] = "Always Ask"
 L["UNIT_PET"] = "Pet"
 L["UNIT_PLAYER"] = "Player"

@@ -1,5 +1,9 @@
 # 3.6
 
+**An action with a target picked no longer answers to the game's self-cast, focus-cast or mouseover-cast keys.** Picking anything in an action's Target menu says where that action goes, and nothing moves it after that: holding your Self Cast Key or your Focus Cast Key does not redirect it, and Auto Self Cast no longer sends a friendly spell back to you when the unit you picked cannot take it. Before this, the same action answered two ways -- it came back to you when the unit you picked was there and did nothing at all when it was not. Disable in that menu is how you leave the decision to the game, and the menu now says so on every entry.
+
+**A click on a unit frame never uses those keys either**, whether or not the action takes the frame's unit. That is what the game does with its own click casting. A key press with no target picked is unchanged: the Self Cast Key, the Focus Cast Key and Auto Self Cast all work there as they do on an action bar.
+
 **Remove Duplicate Actions no longer offers to delete an action that has a unit condition on it.** An action set to run only while a unit is there read as the same thing as one with no condition at all, so the two came up as a duplicate pair and the one carrying the condition was the one offered for deletion. A key holding a conditional action above a plain fallback is exactly that shape, and it is a common one. Nothing was deleted without the confirmation window, but on that window the two rows looked identical.
 
 **Debind works on unit frames whatever addon draws them, including the ones that run hover casting of their own.** Earlier versions left those frames alone, because taking one could stop that addon's own hover casting working there. Debind now takes the frame without taking anything away: whatever the addon had on it still runs, and Debind's keys run beside it. Where you have both of them on one key over a unit frame, Debind's is what fires.

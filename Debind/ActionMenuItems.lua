@@ -326,16 +326,13 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
         local unitInfo = DebindUI.UNIT_INFO[unit];
         if (unitInfo[ctx.action.type] ~= false) then
             local unitDescription = description:CreateRadio(unitInfo.name, actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = unit });
-
-            -- TODO locale 파일 업데이트 할 것.
-            -- local instructionTooltip = rawget(LLL, "TARGET_UNIT_" .. strupper(unit) .. "_DESC") or (unitInfo.type and "TARGET_UNIT_" .. strupper(unitInfo.type) .. "_DESC");
-            -- if (instructionTooltip) then
-            --     SetInstructionTooltip(optionDescription, instructionTooltip);
-            -- end
-
-            if (unitInfo.tooltipTitle) then
-                SetInstructionTooltip(unitDescription, unitInfo.tooltipTitle);
-            end
+            -- **Every entry here says it, not just the menu row above.** A reader can arrive on
+            -- one of these from the action's own tooltip without ever hovering the parent, and the
+            -- fact only bites once something is picked. It rides the entry's own sentence rather
+            -- than standing up a second instruction line, which is what costs a tooltip its shape.
+            local fixed = LLL["TARGET_UNIT_FIXED"];
+            SetInstructionTooltip(unitDescription,
+                unitInfo.tooltipTitle and (unitInfo.tooltipTitle .. "|n|n" .. fixed) or fixed);
         end
     end
 

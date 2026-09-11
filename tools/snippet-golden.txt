@@ -1548,6 +1548,19 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	self:SetAttribute("checkselfcast", not clickCast)
+	self:SetAttribute("checkfocuscast", not clickCast)
+
+
+
+
+
+
+
+
+
+
+
 
 	if (clickCast) then
 		self:SetAttribute("useOnKeyDown", false)
@@ -2197,6 +2210,19 @@ DelegateFrameNames[frame] = frame:GetName()
 	self:SetAttribute("useOnKeyDown", nil)
 	self:SetAttribute("type", nil)
 	self:SetAttribute("macrotext", nil)
+
+
+
+
+
+
+
+
+
+
+
+	self:SetAttribute("checkselfcast", not clickCast)
+	self:SetAttribute("checkfocuscast", not clickCast)
 
 
 

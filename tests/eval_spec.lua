@@ -692,6 +692,47 @@ return function(DebindPrivate, _, ctx)
         check(interp:evalClickCast(unitFrame, 2, 0) == nil, "an empty unit frame was taken");
     end);
 
+    -- **A click on a unit frame never gets the client's cast modifiers, a key press does.**
+    -- On Blizzard's own path a frame click cannot reach those branches at all: the frame carries a
+    -- bare `unit` and `SecureButton_GetModifiedUnit` stops there. Our route ends on the click frame
+    -- instead, so with the hovered frame's unit turned off there is nothing to stop at -- and
+    -- without these two lines a held self-cast key would redirect a frame click, which is
+    -- something the client never does.
+    --
+    -- **Both arrive on the same frame**, so this is per click rather than once at login.
+    test("the cast modifiers are for key presses only", function()
+        Bind({
+            action({ value = 585, key = "F1" }),
+            action({ value = 585, key = "BUTTON2", ignoreHoverUnit = true,
+                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+        });
+
+        local clickFrame = DebindPrivate.DefaultClickFrame;
+        shim.world.units = { party1 = { id = "friend", reaction = "help" } };
+
+        interp:runWrapped(clickFrame, "OnClick", Constants.CLICKTIME_BUTTON_PREFIX .. "F1", true);
+        check(clickFrame:GetAttribute("checkselfcast") == true
+            and clickFrame:GetAttribute("checkfocuscast") == true,
+            "a key press lost them: " .. tostring(clickFrame:GetAttribute("checkselfcast"))
+            .. "/" .. tostring(clickFrame:GetAttribute("checkfocuscast")));
+
+        -- The unit frame hands the click on under `debind1`, which is the name the click frame's
+        -- wrapper reads the handoff from.
+        interp:clickFrame(unitFrame, "RightButton", false);
+        interp:runWrapped(clickFrame, "OnClick", "debind1", false);
+        check(clickFrame:GetAttribute("checkselfcast") == false
+            and clickFrame:GetAttribute("checkfocuscast") == false,
+            "a frame click kept them: " .. tostring(clickFrame:GetAttribute("checkselfcast"))
+            .. "/" .. tostring(clickFrame:GetAttribute("checkfocuscast")));
+
+        -- **And the target really is empty there**, or the two lines above would be guarding
+        -- nothing: the branches only run when nothing stopped at `unit`.
+        check(clickFrame:GetAttribute("unit") == nil,
+            "the frame's unit was used anyway: " .. tostring(clickFrame:GetAttribute("unit")));
+
+        shim.world.units = {};
+    end);
+
     ---------------------------------------------------------------------------
     -- Which edge of the click we take
     ---------------------------------------------------------------------------
