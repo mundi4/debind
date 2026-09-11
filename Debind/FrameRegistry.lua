@@ -137,6 +137,15 @@ local KNOWN_PACK_FRAMES            = {
     { "^ellesmereuiunitframes_",            "EllesmereUIUnitFrames" },
     { "^grid2layoutheader%d+unitbutton%d+", "Grid2", "group" },                 -- a layout slot, and the ones no secure header spawns read unknown without this
     { "^elvuf_",                            "ElvUI" },                          -- every frame the pack spawns, headers and their children with them
+    -- Cell's rows. **Its group blocks already arrive as header children**, and these are for the
+    -- five sets it builds outside a header, which no other door reaches: it writes nothing into
+    -- `ClickCastFrames` (that code is commented out in `Core.lua`) and hands no header over. They
+    -- get this far because its click casting wraps `OnEnter` on every unit button it owns.
+    { "^cellsoloframeplayer$",              "Cell",                  "group" },
+    { "^cellsoloframepet$",                 "Cell",                  "group" },
+    { "^cellnpcframebutton%d+$",            "Cell",                  "group" },
+    { "^cellarenapet%d+$",                  "Cell",                  "group" },
+    { "^cell.*unitbutton%d+",               "Cell",                  "group" },
 };
 
 --- HealBot's rows, built rather than written out, because it makes two names per prefix and the
@@ -439,89 +448,54 @@ local REASSEMBLED_SCRIPTS = { OnEnter = true, OnLeave = true, OnClick = true };
 --- and cleared synchronously: two engines that both re-wrap on being wrapped over pile up on the
 --- call stack rather than over time, so deferring the judgement to a timer leaves the stack to grow
 --- in between. Measured without a guard: 198 frames deep and a C stack overflow.
+---
+--- **A depth and not a flag, so that an inner pass cannot lift an outer one's guard.** Zero is
+--- written back as `nil` rather than left as a number, because `ContestedNow` asks whether the row
+--- is there and a `0` answers yes.
 local _reassembling = setmetatable({}, { __mode = "k" });
 local _warnedContested = false;
 
---- Hands the restricted side everything this pass took off the frame, replacing that frame's list
---- for that script whole.
+--- Hands the restricted side the one leave body our own wrapper has to run for the frame, or
+--- clears it where there is none.
 ---
---- **The entries are read out of numbered slots on the driver** rather than passed as arguments: a
---- frame handle arrives nil through `RunAttribute`'s varargs (measured 2026-08-28), and a header is
---- a frame. `SecureHandlerSetFrameRef` is the one door for one.
+--- **`OnLeave` is the only script that needs this, and only because the client will not do it.**
+--- Everything this pass takes off goes straight back on, so `OnEnter` and `OnClick` run out of the
+--- chain the way they always did. `Wrapped_OnLeave` clears `_wrapentered` before it descends, so
+--- once we are outermost the body that used to be is never reached, and a handle restricted
+--- attributes refuse to write (`_` prefix) is what rules out putting the flag back.
 ---
---- **What this pass took goes in front of what earlier passes took**, because that is where it was
---- on the frame: they wrapped on top of us, and we were on top of everything we had already taken.
---- Replacing the list instead would drop an addon's first wrapper the moment it added a second.
+--- **The header arrives through a frame ref** rather than as an argument: a frame handle comes out
+--- nil through `RunAttribute`'s varargs (measured 2026-08-28), and a header is a frame.
+--- `over_leave_keep` is what says whether to read it, because a wrapper is free to carry no pre
+--- and `SecureHandlerSetFrameRef` has no way to hand over nothing.
 ---
---- `over_replace` is the other case, and it is not an optimisation. A leave list holds one entry
---- because the client runs one leave body, so a newer one buries whatever was there. And where our
---- own wrapper was taken off by somebody else, what is left on the frame is the whole truth again.
----
---- Emptying is the case that has to leave nothing behind, because the three hot paths read
---- `Overs[button]` first and a row that exists costs them a second lookup for nothing.
+--- Clearing has to leave nothing behind, because the leave path reads `Overs[button]` first and a
+--- row that exists costs it a second lookup for nothing.
 local STORE_OVERS_SNIPPET = [=[
 	local button = self:GetFrameRef("clickcast_button")
-	local script = self:GetAttribute("over_script")
-	local n = self:GetAttribute("over_count")
-	local byScript = Overs[button]
-	local kept = byScript and byScript[script]
-	if (self:GetAttribute("over_replace")) then
-		kept = nil
-	end
-
-	if (n == 0 and not kept) then
-		if (byScript) then
-			byScript[script] = nil
-			if (next(byScript) == nil) then
-				Overs[button] = nil
-			end
-		end
+	if (not self:GetAttribute("over_leave_keep")) then
+		Overs[button] = nil
 		return
 	end
 
-	if (not byScript) then
-		byScript = newtable()
-		Overs[button] = byScript
+	local over = Overs[button]
+	if (not over) then
+		over = newtable()
+		Overs[button] = over
 	end
-
-	local list = newtable()
-	byScript[script] = list
-	for i = 1, n do
-		local over = newtable()
-		over.handle = self:GetFrameRef("over_"..i)
-		over.pre = self:GetAttribute("over_pre_"..i)
-		over.post = self:GetAttribute("over_post_"..i)
-		list[i] = over
-	end
-	if (kept) then
-		for i = 1, #kept do
-			list[n + i] = kept[i]
-		end
-	end
+	over.handle = self:GetFrameRef("over_leave")
+	over.pre = self:GetAttribute("over_leave_pre")
+	over.post = self:GetAttribute("over_leave_post")
 ]=];
 
---- What a wrapped body is given. The client compiles a post as `self,message` for the motion
---- scripts and `self,message,button,down` for a click, and a pre as `self,motion` and
---- `self,button,down`; running either through `RunFor` gives it `self,...` instead, so the names it
---- expects are declared for it here. One line covers each half -- a motion body never mentions the
---- ones it did not ask for.
+--- What the leave body we run is given. The client compiles a motion post as `self,message`;
+--- running it through `RunFor` gives it `self,...` instead, so the name it expects is declared for
+--- it here.
 ---
---- **The pre half is the one that decides.** A pre body is where a pack refuses a click or renames
---- the button, so a name it cannot read there does not degrade its behaviour, it removes it: the
---- branch never runs and that pack's click casting stops on every frame we hold, with nothing
---- raised anywhere.
----
---- **The click only, and the two motion scripts are deliberately not in this table.** A post body
---- opens with `message` whichever script it is on, which is what lets one line cover all three;
---- a pre body does not, so each would need its own -- and what a motion pre is compiled with is
---- something this repo cannot show. Our own click body reads `button` and `down` with nothing
---- declaring them, which is the evidence for this line; there is no such line to point at for the
---- motion pair, and `OVERS_ENTER_PRE_SNIPPET` hands them nothing to declare either. Naming an
---- argument that is not there would put a body's own names one place out.
-local OVER_PRE_PROLOGUE = {
-	OnClick = "local button, down = ...\n",
-};
-local OVER_POST_PROLOGUE = "local message, button, down = ...\n";
+--- **The pre half needs none.** `Wrapped_OnLeave` compiles a pre with the signature `self` alone,
+--- so there is no argument to name, and inventing one would put that body's own names one place
+--- out.
+local OVER_POST_PROLOGUE = "local message = ...\n";
 
 local Reassemble;
 
@@ -529,14 +503,14 @@ local Reassemble;
 --- nobody handed over. The wrap hook below is one of the moments it listens on.
 local TakeNamedFrame;
 
---- Our own pre and post for one script.
+--- Our own pre and post for one script. **Only the leave pair has a post**, and it has one only to
+--- run the leave body the client will not reach (`STORE_OVERS_SNIPPET`).
 local function OurBodies(script)
 	if (script == "OnClick") then
-		return DebindPrivate.UnitFrameClickPre, DebindPrivate.UnitFrameClickPost;
+		return DebindPrivate.UnitFrameClickPre;
 	end
 	if (script == "OnEnter") then
-		return BindingDriver:GetAttribute("setup_onenter_wrap"),
-			BindingDriver:GetAttribute("setup_onenter_post");
+		return BindingDriver:GetAttribute("setup_onenter");
 	end
 	return BindingDriver:GetAttribute("setup_onleave_wrap"),
 		BindingDriver:GetAttribute("setup_onleave_post");
@@ -563,9 +537,10 @@ end
 --- each round and the warning suppressed after the first.
 ---
 --- The wrapper stays where it is, as every wrapper of ours does, and the body it runs stands down on
---- its own once the restricted row is gone. What we took off the frame is **not** given back and not
---- thrown away -- it is still in `Overs` and still replayed, because stopping it is the one thing
---- that would break the addon we stood down for.
+--- its own once the restricted row is gone. The other addon's wrappers are untouched, because every
+--- one of them was put back on the frame where it was; the leave body we hold a second copy of goes
+--- on being run too, since stopping it is the one thing that would break the addon we stood down
+--- for.
 local function StandDown(button)
 	local row = DebindPrivate.ccframes[button];
 	DebindPrivate.ccframes[button] = false;
@@ -590,63 +565,103 @@ local function StandDown(button)
 	end
 end
 
---- Takes every wrapper another addon has on this script, hands the bodies to the restricted side,
---- and puts ours back on top.
+--- Takes the wrappers another addon put on this script off, puts every one of them back where it
+--- was, and lays ours on top.
+---
+--- **The chain is left doing its own work.** `SecureHandlerWrapScript` stacks rather than replaces,
+--- so unwrapping down to our own header and wrapping the same bodies again in reverse order gives
+--- the frame back the chain it had, minus our wrapper, which then goes on top. Everything the
+--- client did -- running each pre outermost first, stopping the descent on `false`, unwinding the
+--- posts it owes, carrying a renamed click button down -- it goes on doing, because those bodies
+--- are still wrappers and not entries in a list of ours.
 ---
 --- **The walk stops at our own header, and our own has already come off by then** -- the call that
 --- reported it is the call that removed it. Reaching nil instead means nothing of ours was on this
---- script yet, which is the first registration.
+--- script, which is the first registration, or that somebody took our wrapper off.
 ---
---- **What comes back is only what was above us.** Anything below stays in the chain and goes on
---- running there, which is what it did before we arrived: the enter and click bodies down there
---- still run, and the leave ones still do not, because the client runs only the outermost leave
---- body and that was never them.
----
---- **`leave` keeps one and only one.** Blizzard's `Wrapped_OnLeave` clears `_wrapentered` before it
---- descends, so of everything that was above us exactly the first entry ever ran. Replaying the
---- rest would be inventing behaviour that never existed on this frame.
-function Reassemble(button, script, fromUnwrap)
+--- **`OnLeave` is the one that cannot be left to the chain**, and the reason is
+--- `STORE_OVERS_SNIPPET`. The body that was outermost is handed to the restricted side as well as
+--- put back, so our own leave body can run it; putting it back is what keeps it from being lost
+--- when a later pass finds a newer one above us.
+--- The body of one reassembly. **Split out so the guards around it come off whatever happens**:
+--- every call in here reaches the secure handler API, which raises on a frame the client has turned
+--- forbidden since we last looked, and a `movingOwnScripts` left standing would silence all three
+--- hooks for the rest of the session.
+local function ReassembleBody(button, script, pre, post)
+	local headers, pres, posts = {}, {}, {};
+	local taken, metOurs = 0, false;
+	while (true) do
+		local header, tookPre, tookPost = SecureHandlerUnwrapScript(button, script);
+		if (not header) then
+			break;
+		end
+		if (header == BindingDriver) then
+			metOurs = true;
+			break;
+		end
+		taken = taken + 1;
+		headers[taken], pres[taken], posts[taken] = header, tookPre, tookPost;
+	end
+
+	for i = taken, 1, -1 do
+		SecureHandlerWrapScript(button, script, headers[i], pres[i], posts[i]);
+	end
+
+	-- **What we hold stands until this pass finds a new outermost.** Taking nothing while our own
+	-- header was still there means the chain below us is the one we already answered for; taking
+	-- nothing without meeting ours means there is no leave body left to run at all.
+	if (script == "OnLeave" and (taken > 0 or not metOurs)) then
+		BindingDriver:SetAttribute("over_leave_keep", taken > 0);
+		if (taken > 0) then
+			SecureHandlerSetFrameRef(BindingDriver, "over_leave", headers[1]);
+			BindingDriver:SetAttribute("over_leave_pre", pres[1]);
+			BindingDriver:SetAttribute("over_leave_post",
+				posts[1] and (OVER_POST_PROLOGUE .. posts[1]) or nil);
+		end
+		SecureHandlerSetFrameRef(BindingDriver, "clickcast_button", button);
+		SecureHandlerExecute(BindingDriver, STORE_OVERS_SNIPPET);
+	end
+end
+
+function Reassemble(button, script)
 	local pre, post = OurBodies(script);
 	if (type(pre) ~= "string") then
 		return;
 	end
 
-	_reassembling[button] = true;
-	-- **Every unwrap below is ours**, and `ClickCastTable.lua` listens on the same global to hear the
-	-- holder let a frame go. It cannot tell from the arguments -- an unwrap carries no header -- so
-	-- the flag is what says so, the same way `RewrapUnitFrames` says it. Restored rather than
-	-- cleared, because that function is one of the callers that reaches here with it already up.
-	local wasUnwrappingOwn = DebindPrivate.unwrappingOwnScripts;
-	DebindPrivate.unwrappingOwnScripts = true;
+	_reassembling[button] = (_reassembling[button] or 0) + 1;
+	-- **Every wrap and unwrap in the body is ours.** `ClickCastTable.lua` listens on both globals to
+	-- hear a holder let a frame go, and `OnForeignWrap` would read our own re-attaching as an engine
+	-- wrapping over us and stand the frame down. Neither can tell from the arguments -- an unwrap
+	-- carries no header and a re-attached wrap carries the other addon's -- so the flag is what says
+	-- so, the same way `RewrapUnitFrames` says it. Restored rather than cleared, because that
+	-- function is one of the callers that reaches here with it already up.
+	local wasMovingOwn = DebindPrivate.movingOwnScripts;
+	DebindPrivate.movingOwnScripts = true;
 
-	local taken = 0;
-	while (true) do
-		local header, tookPre, tookPost = SecureHandlerUnwrapScript(button, script);
-		if (not header or header == BindingDriver) then
-			break;
-		end
-		if (script ~= "OnLeave" or taken == 0) then
-			taken = taken + 1;
-			SecureHandlerSetFrameRef(BindingDriver, "over_" .. taken, header);
-			local preProlog = OVER_PRE_PROLOGUE[script];
-			BindingDriver:SetAttribute("over_pre_" .. taken,
-				(tookPre and preProlog) and (preProlog .. tookPre) or tookPre);
-			BindingDriver:SetAttribute("over_post_" .. taken,
-				tookPost and (OVER_POST_PROLOGUE .. tookPost) or nil);
-		end
+	local ok, err = pcall(ReassembleBody, button, script, pre, post);
+
+	DebindPrivate.movingOwnScripts = wasMovingOwn;
+
+	-- **Nothing of ours goes back on a frame that raised.** What the body touches is the secure
+	-- handler API, so a frame it could not take apart is one this call would raise on again, and the
+	-- error goes on to the caller either way.
+	--
+	-- **The re-entry guard is still up for this one call**, because an engine that answers our wrap
+	-- with its own does it from inside it, and that is the whole definition `ContestedNow` reads.
+	local wrapOk, wrapErr = true, nil;
+	if (ok) then
+		wrapOk, wrapErr = pcall(SecureHandlerWrapScript, button, script, BindingDriver, pre, post);
 	end
 
-	DebindPrivate.unwrappingOwnScripts = wasUnwrappingOwn;
+	local depth = _reassembling[button] - 1;
+	_reassembling[button] = depth > 0 and depth or nil;
 
-	BindingDriver:SetAttribute("over_script", script);
-	BindingDriver:SetAttribute("over_count", taken);
-	BindingDriver:SetAttribute("over_replace", fromUnwrap or script == "OnLeave");
-	SecureHandlerSetFrameRef(BindingDriver, "clickcast_button", button);
-	SecureHandlerExecute(BindingDriver, STORE_OVERS_SNIPPET);
-
-	SecureHandlerWrapScript(button, script, BindingDriver, pre, post);
-
-	_reassembling[button] = nil;
+	if (not ok) then
+		error(err, 0);
+	elseif (not wrapOk) then
+		error(wrapErr, 0);
+	end
 end
 
 --- Whether this pass is somebody wrapping over us **because** we wrapped, and steps off if it is.
@@ -654,10 +669,11 @@ end
 --- **That is the whole definition of a fight, and it is synchronous by construction.** The hooks
 --- fire inside `SecureHandlerWrapScript`, so an engine that answers our wrap with its own does it
 --- while our reassembly of that frame is still on the stack. Nothing is counted: a count cannot
---- tell that engine from one re-laying its own wrapper on a schedule, and Clique does exactly
---- that, unwrapping and rewrapping both hover scripts on every frame it holds on every loading
---- screen. A budget of eight per session stood us down from every Blizzard frame on the third
---- loading screen (code review, 2026-09-08).
+--- tell that engine from one re-laying its own wrapper on a schedule, and Clique does exactly that
+--- -- `ApplyAttributes` unwraps and rewraps both hover scripts on every frame it holds, and the
+--- seven callers of it include entering and leaving combat, a party member doing either, and any
+--- profile or binding change (read from Clique v5.0.14, 2026-09-11). A budget of eight per session
+--- stood us down from every Blizzard frame on the third loading screen (code review, 2026-09-08).
 local function ContestedNow(button)
 	if (_reassembling[button]) then
 		StandDown(button);
@@ -678,11 +694,15 @@ local function OnForeignWrap(frame, script, header)
 		return;
 	end
 
-	-- **Registering is itself a reassembly of every script**, so where the call above is what
-	-- takes the frame, this one is done and the rest of this function would be a second pass over
-	-- the same script. That second pass finds our own header on top and takes nothing, which on
-	-- `OnLeave` is the branch that clears the stored list -- it would throw away the very body the
-	-- wrap being reported brought.
+	-- **Our own re-attaching carries their header**, so the test above cannot tell it from an
+	-- engine wrapping over us, and reading it that way would stand the frame down mid reassembly.
+	if (DebindPrivate.movingOwnScripts) then
+		return;
+	end
+
+	-- **Registering is itself a reassembly of every script**, and the wrapper being reported is
+	-- already on the frame when a hook fires, so the call above has dealt with it and the rest of
+	-- this function would be a second pass over the same script.
 	local wasOurs = DebindPrivate.ccframes[frame] ~= nil;
 	TakeNamedFrame(frame);
 	if (not wasOurs and DebindPrivate.ccframes[frame] ~= nil) then
@@ -701,23 +721,64 @@ local function OnForeignWrap(frame, script, header)
 	if (ContestedNow(frame)) then
 		return;
 	end
-	Reassemble(frame, script, false);
+	Reassemble(frame, script);
 end
 
---- Somebody unwrapped one, and the top was ours, so what came off was ours.
+--- The frames whose top has to be taken back on the next tick, by script.
 ---
---- **Which addon asked cannot be known** -- `SecureHandlerUnwrapScript(frame, script)` carries no
---- header. So this reassembles from whatever is left, and what is left is whatever they still have
---- on the frame. Where they had only the one wrapper, the list comes out empty and their bodies
---- stop running, which is what they asked for.
+--- **Nothing of ours is on those scripts while a row sits here.** An engine took our wrapper off and
+--- we have not put it back yet, so between the unwrap and the tick that frame's hover and click are
+--- the other addon's alone. `_hoverWrapped` and `_wrapped` go on saying we wrapped it, which is what
+--- lets the tick find it again and what keeps `RegisterFrame` from laying a second one.
+local _retop = setmetatable({}, { __mode = "k" });
+local _retopQueued;
+local RetopPending;
+
+--- **One pass per tick.** An engine re-lays every frame it holds in one go, and each of those would
+--- otherwise book its own.
+local function QueueRetop()
+	if (_retopQueued) then
+		return;
+	end
+	_retopQueued = true;
+	C_Timer.After(0, function()
+		_retopQueued = false;
+		RetopPending();
+	end);
+end
+
+--- Somebody unwrapped one. The top was ours, so what came off was ours, and **the wrapper that call
+--- meant to take is still on the frame.**
+---
+--- **So the call is passed on rather than read.** One more `SecureHandlerUnwrapScript` takes their
+--- outermost, which is exactly what that call would have taken had we never been on this frame, and
+--- then we go back on top. Nothing here asks who called or what they wanted: an unwrap carries no
+--- header (`SecureHandlerUnwrapScript(frame, script)`), so the only answer available is the one the
+--- game would have given without us.
+---
+--- **What that costs, and why it is the smaller cost.** Where the wrapper we pass the call on to
+--- belongs to a third addon rather than to the caller, it comes off for a call that was never about
+--- it. That is the same thing the game does on a frame we are not on, so it is a cost the reader
+--- already had; reading the call as "they are done with this frame" or as "they are replacing their
+--- own" instead would be a guess, and a guess is wrong on whichever of the two this call was not.
+--- The cases and what was measured are in `.zzz/answering-a-foreign-unwrap.md`.
+---
+--- **Going back on top is deferred by a tick, and that is not a tidiness.** An engine that unwraps
+--- in a loop until the chain is empty would never see it empty: every pass would take ours and we
+--- would put ours straight back. Deferred, that loop ends and we arrive after it.
+---
+--- **Combat cannot reach here.** `SecureHandlerUnwrapScript` works by writing attributes on
+--- `LOCAL_API_Frame`, which is protected, and `API_OnAttributeChanged` raises on
+--- `InCombatLockdown()` before doing anything (`SecureHandlers.lua`).
+---
 --- **`_reassembling` is not one of the tests here, and that is the whole difference from what it
---- used to be.** Every unwrap of ours is bracketed by `unwrappingOwnScripts`, so the only unwrap
+--- used to be.** Every unwrap of ours is bracketed by `movingOwnScripts`, so the only unwrap
 --- that can arrive while our reassembly is on the stack is somebody else's answer to it -- a fight,
 --- which is `ContestedNow`'s to name. Testing it up here returned first and left that call
 --- unreachable, so an engine that answers a wrap by taking the top back was ignored: our new
 --- wrapper was gone from the frame while `WrappedByUs` went on saying it was there.
 local function OnForeignUnwrap(frame, script)
-	if (DebindPrivate.unwrappingOwnScripts) then
+	if (DebindPrivate.movingOwnScripts) then
 		return;
 	end
 	if (not REASSEMBLED_SCRIPTS[script]) then
@@ -726,14 +787,59 @@ local function OnForeignUnwrap(frame, script)
 	if (not DebindPrivate.ccframes[frame] or not WrappedByUs(frame, script)) then
 		return;
 	end
-	if (InCombatLockdown()) then
-		return;
-	end
 	if (ContestedNow(frame)) then
 		return;
 	end
-	Reassemble(frame, script, true);
+
+	local wasMovingOwn = DebindPrivate.movingOwnScripts;
+	DebindPrivate.movingOwnScripts = true;
+	local ok, err = pcall(SecureHandlerUnwrapScript, frame, script);
+	DebindPrivate.movingOwnScripts = wasMovingOwn;
+	if (not ok) then
+		error(err, 0);
+	end
+
+	local scripts = _retop[frame];
+	if (not scripts) then
+		scripts = {};
+		_retop[frame] = scripts;
+	end
+	scripts[script] = true;
+	QueueRetop();
 end
+
+--- Takes the top back on every frame an unwrap passed through last tick.
+---
+--- **In combat the pass is kept rather than dropped.** A tick is long enough for a fight to start,
+--- and `Events.PLAYER_REGEN_ENABLED` calls this again.
+--- **The frames are taken out of the table before any of them is answered for.** Each reassembly
+--- wraps, every other addon hooking that global is called from inside it, and one that answers by
+--- unwrapping a frame of its own puts a new key in here -- which is what Lua 5.1 leaves `next`
+--- undefined for.
+function RetopPending()
+	if (InCombatLockdown()) then
+		return;
+	end
+
+	local pending = {};
+	local n = 0;
+	for frame, scripts in pairs(_retop) do
+		n = n + 1;
+		pending[n] = { frame, scripts };
+		_retop[frame] = nil;
+	end
+
+	for i = 1, n do
+		local frame, scripts = pending[i][1], pending[i][2];
+		for script in pairs(scripts) do
+			if (DebindPrivate.ccframes[frame] and WrappedByUs(frame, script)) then
+				Reassemble(frame, script);
+			end
+		end
+	end
+end
+
+DebindPrivate.RetopPending = RetopPending;
 
 --- **Hooked at file scope, ahead of any profile being readable, because both of these ask for a
 --- row before they act** and a frame we have no row for leaves them at their first check.
@@ -945,14 +1051,14 @@ function DebindPrivate.RewrapUnitFrames()
     -- 그러면 아래 루프가 우리 프레임마다 "홀더가 놓았다"를 한 번씩 내보내고, 다음 틱에
     -- 전부 다시 물어보게 된다. 인자로는 못 가르니 부르는 쪽이 말해준다.
     -- 아래 `_reassertingClicks`가 같은 이유로 있는 같은 수법이다.
-    DebindPrivate.unwrappingOwnScripts = true;
+    DebindPrivate.movingOwnScripts = true;
 
     for button in pairs(_wrapped) do
         _wrapped[button] = nil;
         SecureHandlerUnwrapScript(button, "OnClick");
     end
 
-    DebindPrivate.unwrappingOwnScripts = nil;
+    DebindPrivate.movingOwnScripts = nil;
 
     for button, entry in pairs(DebindPrivate.ccframes) do
         if (entry) then

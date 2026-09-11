@@ -24,6 +24,11 @@ function DebindMessageFrameMixin:OnLoad()
     self:SetScript("OnDragStop", self.StopMovingOrSizing);
 
     -- ESC는 게임의 그물에 맡긴다. 이유는 `DebindUI.lua`의 `DebindDialogMixin:InitDialog` 주석에.
+    --
+    -- **`HandleEscape`의 칸도 `OnDialogHide`도 일부러 없다.** 그 둘은 메인 창이 자기 아래 것의
+    -- 수명을 쥐는 장치인데 이 창은 메인 창 밖에 산다. 그래서 `CloseSpecialWindows`가 떠 있는
+    -- 것을 전부 닫는 탓에 ESC 한 번이 이 창과 메인 창을 같이 닫는데, 그것을 고치려면 둘을
+    -- 엮어야 하므로 안 한다. 끄는 길은 띄운 그 버튼이다 (code review, 2026-09-11).
     tinsert(UISpecialFrames, self:GetName());
 end
 

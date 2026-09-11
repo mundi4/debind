@@ -5040,23 +5040,24 @@ RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
 -----------------------------------------------------------
 -- Test Cases: standing on top of another addon's wrappers
 --
--- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. The rules of the replay are headless
--- (`tests/reassemble_spec.lua`); what needs the client is everything the shim cannot be: that the
--- sandbox accepts `RunFor` onto another header's handle at all, that a key another engine binds
--- from inside its own body still reaches the binding table through ours, and that two engines
--- fighting for the top stop rather than filling the C stack.
+-- `devdocs/legacy/standing-on-top-of-foreign-wrappers.md`. The order of the chain and what each
+-- script's gate does are headless (`tests/reassemble_spec.lua`); what needs the client is
+-- everything the shim cannot be: that the sandbox accepts `RunFor` onto another header's handle at
+-- all, that a key another engine binds from inside its own body still reaches the binding table,
+-- and that two engines fighting for the top stop rather than filling the C stack.
 --
--- **What is not here is the client calling our wrapper.** The chain runs on a real cursor crossing
--- a real frame and on nothing else (`RunWrappedEnter` says why), so what these drive is our own
--- wrapper body rather than Blizzard's descent into it. The order of the chain and the leave gate
--- are the shim's to hold; this side holds everything inside the body.
+-- **`OnLeave` is what these drive, and that is not a choice.** Everything `Reassemble` takes off a
+-- frame goes straight back on, so the enter and click chains are Blizzard's to walk and a real
+-- cursor crossing a real frame is the only thing that walks them (`RunWrappedEnter` says why). The
+-- one body we run ourselves is the leave body the client can no longer reach, and that one is
+-- reachable from here.
 --
 -- **The other addon is one fake header and nothing else.** Standing a real unit frame pack up
 -- would make the run depend on which pack is installed, and every call it would make is one of
 -- these four.
 -----------------------------------------------------------
 
---- Runs the body a wrapped `OnEnter` would run on this frame, and its post body after it.
+--- Runs our own body for one of the two hover scripts on this frame.
 ---
 --- **The wrapped script itself cannot be fired from here, and that is settled rather than
 --- suspected.** Every pre body in the chain reaches `CallRestrictedClosure`, which carries
@@ -5071,24 +5072,25 @@ RegisterTest("Hover slot: a frame we stepped off stands the slot down", {
 ---
 --- **So this goes in through the door the rest of the kit already uses.** A snippet reached by
 --- `SecureHandlerExecute` runs secure, because the client invokes the attribute handler itself, and
---- from inside it `RunFor` is as secure as the wrapper would have been. What runs is
---- `setup_onenter_wrap`, the same text the wrapper carries, so the replay, the foreign bodies and
---- their environments are all the real thing.
+--- from inside it `RunFor` is as secure as the wrapper would have been.
 ---
---- **The two return values are honoured** rather than the post being called unconditionally. The
---- client runs a post body only where the pre answered a second value, and one of the cases below
---- exists to catch us failing to answer with one.
+--- **Enter runs our body alone, because that is all our wrapper holds.** Anything another addon
+--- put on that script is a wrapper of its own further down the chain, and reaching it needs the
+--- cursor.
 local function RunWrappedEnter(frame)
     SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
         local button = self:GetFrameRef("debindtest_hover")
-        local allow, message = self:RunFor(button, self:GetAttribute("setup_onenter_wrap"))
-        if (allow ~= false and message ~= nil) then
-            self:RunFor(button, self:GetAttribute("setup_onenter_post"), message)
-        end
+        self:RunFor(button, self:GetAttribute("setup_onenter"))
     ]])
 end
 
+--- Leave runs what the wrapper carries, which is our body and then the one leave body the client
+--- can no longer reach.
+---
+--- **The two return values are honoured** rather than the post being called unconditionally. The
+--- client runs a post body only where the pre answered a second value, and one of the cases below
+--- exists to catch us failing to answer with one.
 local function RunWrappedLeave(frame)
     SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
@@ -5151,12 +5153,11 @@ local function HoverBoundFrame()
     return CreateTestUnitFrame("player", "group")
 end
 
--- **Both engines work on one frame.** Their body binds their key on the way in and drops it on the
--- way out, and ours fills and empties the hover slot -- and the leave half is the one that could
--- not be had before: the client runs one leave body, so whoever is outermost takes it, and it was
--- them.
-RegisterTest("Foreign wrappers: their key and our hover both work on one frame", {
-    description = "남이 위에 감싸도 그쪽 키와 우리 호버가 같이 동작한다",
+-- **Both engines work on one frame**, and the leave half is the one that could not be had before:
+-- the client runs one leave body, so whoever is outermost takes it, and it was them. Ours empties
+-- the hover slot on the way out and theirs binds their own key, in that order.
+RegisterTest("Foreign wrappers: their leave and our hover both work on one frame", {
+    description = "남이 위에 감싸도 그쪽 leave와 우리 호버가 같이 동작한다",
     run = function()
         local NAME = "Both engines on one frame"
 
@@ -5168,11 +5169,21 @@ RegisterTest("Foreign wrappers: their key and our hover both work on one frame",
         if not frame then return Fail(NAME, err) end
 
         local header = FakeHeader()
-        SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
-        SecureHandlerWrapScript(frame, "OnLeave", header, FAKE_LEAVE)
-        AddTeardown(function() RunWrappedLeave(frame) end)
+        SecureHandlerWrapScript(frame, "OnLeave", header, FAKE_ENTER)
+        AddTeardown(function()
+            SecureHandlerExecute(header, [[
+                fake_hovered = nil
+                self:ClearBinding("SHIFT-F")
+            ]])
+        end)
 
         RunWrappedEnter(frame)
+        if GetHoverUnit() ~= "player" then
+            return Fail(NAME, format("our own enter did not fill the slot (hover=%s)",
+                tostring(GetHoverUnit())))
+        end
+
+        RunWrappedLeave(frame)
 
         local bound = GetBindingAction("SHIFT-F", true) or ""
         if bound:sub(1, 6) ~= "CLICK " then
@@ -5182,34 +5193,20 @@ RegisterTest("Foreign wrappers: their key and our hover both work on one frame",
             return Fail(NAME, format("their body ran somewhere else: fake_hovered=%s",
                 tostring(FakeHovered())))
         end
-        if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("our own enter did not fill the slot (hover=%s)",
-                tostring(GetHoverUnit())))
-        end
-
-        RunWrappedLeave(frame)
-
-        -- **`or ""`, like every other reader of this in the file.** A key nothing holds answers
-        -- with the empty string and not with nil, and the empty string is true in Lua -- so a bare
-        -- `if bound then` reads "released" as "still bound".
-        bound = GetBindingAction("SHIFT-F", true) or ""
-        if bound ~= "" then
-            return Fail(NAME, format("their body did not drop SHIFT-F (still %q)", bound))
-        end
         if GetHoverUnit() ~= nil then
             return Fail(NAME, format("the cursor left and the slot still holds %s",
                 tostring(GetHoverUnit())))
         end
 
-        return Pass(NAME, "their key went on and off, and so did our hover slot")
+        return Pass(NAME, "their leave body ran in their own environment and our slot emptied")
     end,
 })
 
 -- **A wrap is two things at once: a report, and the moment the name door first meets that frame.**
 -- Where the door is what registers it, registering has already reassembled every script, and
 -- reassembling the same one again finds our own header on top and takes nothing -- which on
--- `OnLeave` is the branch that clears the stored list, throwing away the very body this wrap
--- brought.
+-- `OnLeave` is the branch that leaves what is held standing, so the body this wrap brought has to
+-- have been picked up by the registering pass itself.
 --
 -- **Only a client can answer this.** `Interp:replay` does not replay `SetAttribute`, so the three
 -- `Reassemble` calls one registration makes all read the last pass's attributes there and the leave
@@ -5259,11 +5256,12 @@ RegisterTest("Foreign wrappers: a frame the wrap itself registers keeps that bod
     end,
 })
 
--- **A post body runs on what its own pre answered with.** Ours is the wrapper the client calls
--- now, so a message theirs produced has to be carried across our own pre and handed back in our
--- post -- three places it could be dropped, none of which raises anything.
+-- **A post body runs on what its own pre answered with.** Ours is the wrapper the client calls now,
+-- so a message their leave body produced has to be carried out of our own pre, back in through the
+-- client, and handed on in our post -- three places it could be dropped, none of which raises
+-- anything.
 RegisterTest("Foreign wrappers: their post body is handed their own message", {
-    description = "걷어온 post 본문이 자기 pre가 낸 message를 받는다",
+    description = "우리가 대신 도는 leave의 post 본문이 자기 pre가 낸 message를 받는다",
     run = function()
         local NAME = "Foreign post body"
 
@@ -5275,14 +5273,14 @@ RegisterTest("Foreign wrappers: their post body is handed their own message", {
         if not frame then return Fail(NAME, err) end
 
         local header = FakeHeader()
-        SecureHandlerWrapScript(frame, "OnEnter", header, [[
+        SecureHandlerWrapScript(frame, "OnLeave", header, [[
             return nil, "carried"
         ]], [[
             fake_post = message
         ]])
-        AddTeardown(function() RunWrappedLeave(frame) end)
 
         RunWrappedEnter(frame)
+        RunWrappedLeave(frame)
 
         header.__post = nil
         SecureHandlerExecute(header, [[
@@ -5296,11 +5294,13 @@ RegisterTest("Foreign wrappers: their post body is handed their own message", {
     end,
 })
 
--- **An unwrap says nothing about who asked**, so when the top comes off a frame of ours all we
--- know is that the top was ours. We go back on whatever is left -- which is nothing here, so their
--- body stops, which is what turning their wrapping off is supposed to do.
-RegisterTest("Foreign wrappers: after they unwrap we are back on top", {
-    description = "남이 unwrap한 뒤 우리가 다시 맨 위다",
+-- **An unwrap says nothing about who asked**, so it is passed on rather than read. When the top
+-- comes off a frame of ours all we know is that the top was ours and that the wrapper the call
+-- meant to take is still there; taking their outermost as well is what that call would have done
+-- had we never been on this frame. Going back on top waits a tick, so an engine that unwraps in a
+-- loop can reach an empty chain.
+RegisterTest("Foreign wrappers: an unwrap nobody follows with a wrap stops their body", {
+    description = "남이 unwrap하고 다시 안 감으면 그쪽 본문이 멈춘다",
     run = function()
         local NAME = "Foreign unwrap"
 
@@ -5312,23 +5312,40 @@ RegisterTest("Foreign wrappers: after they unwrap we are back on top", {
         if not frame then return Fail(NAME, err) end
 
         local header = FakeHeader()
-        SecureHandlerWrapScript(frame, "OnEnter", header, FAKE_ENTER)
-        SecureHandlerUnwrapScript(frame, "OnEnter")
-        AddTeardown(function() RunWrappedLeave(frame) end)
+        SecureHandlerWrapScript(frame, "OnLeave", header, FAKE_ENTER)
+        AddTeardown(function()
+            SecureHandlerExecute(header, [[
+                fake_hovered = nil
+                self:ClearBinding("SHIFT-F")
+            ]])
+        end)
+
+        -- Their body has to be reachable first, or "it stopped" is not a measurement.
+        RunWrappedEnter(frame)
+        RunWrappedLeave(frame)
+        if FakeHovered() ~= frame:GetName() then
+            return Fail(NAME, format("the premise is gone: their body never ran (fake_hovered=%s)",
+                tostring(FakeHovered())))
+        end
+        SecureHandlerExecute(header, [[ fake_hovered = nil ]])
+
+        SecureHandlerUnwrapScript(frame, "OnLeave")
+        coroutine.yield(0)
 
         RunWrappedEnter(frame)
+        RunWrappedLeave(frame)
 
         if FakeHovered() ~= nil then
             return Fail(NAME, format(
-                "they turned their wrapping off and their body still ran (fake_hovered=%s)",
+                "they took their wrapper back and their body still ran (fake_hovered=%s)",
                 tostring(FakeHovered())))
         end
-        if GetHoverUnit() ~= "player" then
-            return Fail(NAME, format("our own enter stopped working too (hover=%s)",
+        if GetHoverUnit() ~= nil then
+            return Fail(NAME, format("our own leave stopped working too (hover=%s)",
                 tostring(GetHoverUnit())))
         end
 
-        return Pass(NAME, "their body stopped and ours is still the outermost")
+        return Pass(NAME, "their body stopped and our own leave still runs")
     end,
 })
 
@@ -5379,10 +5396,14 @@ RegisterTest("Foreign wrappers: a frame another engine keeps taking back is give
             return Fail(NAME, "we kept a frame another engine keeps taking back")
         end
 
-        -- And it still works for them, which is the whole reason for standing down.
-        RunWrappedEnter(frame)
-        if FakeHovered() ~= frame:GetName() then
-            return Fail(NAME, "we stood down and took their body with us")
+        -- **And their wrapper is still on the frame**, which is the whole reason for standing down.
+        -- Reading it back takes it off, so it goes straight back on.
+        local header2, pre2, post2 = SecureHandlerUnwrapScript(frame, "OnEnter")
+        if header2 then
+            SecureHandlerWrapScript(frame, "OnEnter", header2, pre2, post2)
+        end
+        if header2 ~= header then
+            return Fail(NAME, "we stood down and their wrapper is not the outermost")
         end
 
         return Pass(NAME, format("gave the frame up after %d passes", depth))

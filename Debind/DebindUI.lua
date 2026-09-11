@@ -109,12 +109,11 @@ function DebindRowMarkMixin:SetInactive(inactive)
 end
 
 function DebindRowMarkMixin:OnEnter()
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
-	if (self.tooltipFunc) then
-		self.tooltipFunc(GameTooltip, self);
-	else
-		GameTooltip_SetTitle(GameTooltip, "툴팁내용 들어갈자리");
+	if (not self.tooltipFunc) then
+		return;
 	end
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+	self.tooltipFunc(GameTooltip, self);
 	GameTooltip:Show();
 end
 

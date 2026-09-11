@@ -40,8 +40,17 @@ local function AddSpellBook(out, api)
                     -- Three keys because which one a binding carries is not fixed: the catalog
                     -- stores the base id (`ActionCatalog.lua:469`) and `binding.spell` arrives by
                     -- other routes.
+                    --
+                    -- **`actionID` is a spell id only on a row that is a spell.** On a flyout it
+                    -- is the flyout id and on a pet action the pet action id, and neither is
+                    -- caught by the guard above: `GetSpellBookItemLevelLearned` answers 0 for a
+                    -- row that is not a spell, and 0 is true in Lua. One of those filed as
+                    -- "level 0" is fixed for good, so a binding on a spell whose id it collides
+                    -- with has its `[known:]` answer nailed down for the rest of the rebuild.
                     Record(out, info.spellID, level);
-                    Record(out, info.actionID, level);
+                    if (info.itemType == Enum.SpellBookItemType.Spell) then
+                        Record(out, info.actionID, level);
+                    end
                     Record(out, info.spellID and api.FindBaseSpellByID(info.spellID), level);
                 end
             end

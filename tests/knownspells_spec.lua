@@ -66,7 +66,11 @@ return function(DebindPrivate)
             GetSpellBookItemInfo = function(slot, bank)
                 local entry = item(slot, bank);
                 if (not entry) then return nil; end
-                return { spellID = entry.spellID, actionID = entry.actionID };
+                return {
+                    spellID = entry.spellID,
+                    actionID = entry.actionID,
+                    itemType = entry.itemType or Enum.SpellBookItemType.Spell,
+                };
             end,
             GetSpellBookItemLevelLearned = function(slot, bank)
                 local entry = item(slot, bank);
@@ -140,6 +144,19 @@ return function(DebindPrivate)
         check(out[100] == 12, "spellID missing");
         check(out[101] == 12, "actionID missing");
         check(out[99] == 12, "base id missing");
+    end)
+
+    -- `actionID` is a flyout id on a flyout row, and `GetSpellBookItemLevelLearned` answers 0
+    -- there rather than nil. Filed, it would be fixed for good under a number that is not a spell.
+    test("spellbook: 플라이아웃 줄의 actionID는 안 들어간다", function()
+        local out = KnownSpells.Build(API({
+            book = { { items = { {
+                actionID = 101,
+                level = 0,
+                itemType = Enum.SpellBookItemType.Flyout,
+            } } } },
+        }));
+        check(out[101] == nil, "flyout id got in");
     end)
 
     test("spellbook: 스킬라인이 여럿이면 슬롯 범위가 안 겹친다", function()

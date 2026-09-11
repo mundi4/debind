@@ -276,6 +276,16 @@ return function(DebindPrivate)
             "\"@\"가 가리킬 유닛이 없는데 남의 유닛 모순이 떴다");
     end);
 
+    -- 같은 규칙이 소속 순회에도 걸린다. 그쪽은 자기 컬럼으로 서느라 위 순회를 안 지난다.
+    test("대상이 없으면 \"@\" 서브메뉴가 남의 빈 소속을 안 보여준다", function()
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F1",
+            units = {
+                focus = { group = 0 },
+            } });
+        check(GetBindingIssue(action, "units", nil, "@") == nil,
+            "\"@\"가 가리킬 유닛이 없는데 남의 빈 소속이 떴다");
+    end);
+
     test("\"@\" x 유닛 조건 모순은 양쪽 묶음을 다 칠한다", function()
         check(GetBindingIssue(targetUnitConflict(), "unit") == NEVER,
             "대상 메뉴가 안 빨개진다");

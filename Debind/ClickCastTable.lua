@@ -51,6 +51,17 @@ local ccframesMeta = {
 --- `if ClickCastFrames[frame] then ClickCastFrames[frame] = nil end` never fires and its
 --- bookkeeping stays on the frame -- the exact failure the header above says was fixed. `HandOver`
 --- walks the same table, so a holder installing later would not learn about them either.
+---
+--- **A `false` row is registered like any other.** What that row says is what the addon before us
+--- decided, and that is not the question this table answers: every unit frame is ours whoever
+--- else is standing on it, and the only thing that leaves one alone is the reader's blacklist
+--- (`devdocs/how-unit-frames-reach-us.md` §2 and §4). Skipping those rows handed a frame nobody
+--- ticked to the addon that had written the cell (code review, 2026-09-11).
+---
+--- **Filed as `nil` all the same**, which is what `__newindex` does with the same value. Two doors
+--- that answer differently for one cell is one answer too many, and `HandOver` writes what is
+--- filed straight into a holder's `__newindex` -- where a `false` reads as a frame being taken
+--- back.
 local function Adopt(previous)
     if (type(previous) ~= "table") then
         return;
@@ -58,8 +69,8 @@ local function Adopt(previous)
     for frame, options in pairs(previous) do
         if (options ~= false) then
             registered[frame] = options;
-            DebindPrivate.RegisterFrame(frame, options);
         end
+        pcall(DebindPrivate.RegisterFrame, frame, options);
     end
 end
 
@@ -141,8 +152,11 @@ local function Hook(previous)
     -- Rows already in the table, taken the way a fresh write is. A proxy that keeps its store in an
     -- upvalue yields nothing here; one that files its writes in the table itself yields the
     -- registrations that arrived before we were listening.
+    --
+    -- **The value goes through untouched, `false` included**, for the reason `Adopt` says: the
+    -- holder is not asked what it decided.
     for frame, value in pairs(previous) do
-        DebindPrivate.RegisterFrame(frame, value);
+        pcall(DebindPrivate.RegisterFrame, frame, value);
     end
 end
 
@@ -241,7 +255,7 @@ end
 --- in: our own unwrapping says so before it starts (`FrameRegistry.RewrapUnitFrames`), because
 --- nothing in the arguments can say it.
 local function OnHolderWrap(_, _, header)
-    if (header == DebindPrivate.BindingDriver or DebindPrivate.unwrappingOwnScripts) then
+    if (header == DebindPrivate.BindingDriver or DebindPrivate.movingOwnScripts) then
         return;
     end
     if (InCombatLockdown()) then
@@ -253,6 +267,10 @@ end
 hooksecurefunc("SecureHandlerWrapScript", OnHolderWrap);
 hooksecurefunc("SecureHandlerUnwrapScript", OnHolderWrap);
 
+--- **Nothing this reaches may raise, which is why both of its sweeps register behind a `pcall`.**
+--- This call is at file scope, so one frame that throws inside it takes the rest of the file with
+--- it -- the two assignments below included, and `InitDB` calls both of those without a guard
+--- (code review, 2026-09-11).
 AttachClickCastFrames();
 
 DebindPrivate.AttachClickCastFrames = AttachClickCastFrames;

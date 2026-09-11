@@ -2114,18 +2114,21 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
         return conditions.units[unit] ~= nil;
     end
 
+    -- 짚어 물은 유닛. 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 여기서 `target`을 nil로
+    -- 두면 "짚어 물었다"가 "전부 물었다"로 바뀌어 **남의 유닛 모순이 그 서브메뉴에 뜬다.**
+    --
+    -- **아래 두 순회가 같이 쓴다.** 둘이 같은 조건으로 열리고 같은 remap을 하는데 따로 세어
+    -- 두었더니 소속 순회에서 이 가드가 빠져 있었다 (code review, 2026-09-11).
+    local target = arg;
+    local askedAboutNothing;
+    if (target == "@") then
+        target = binding.unit;
+        askedAboutNothing = target == nil;
+    end
+
     if (Looking() and binding.unitStates and notCategory ~= "units"
             and (not category or category == "units" or category == "hover"
                 or category == "unit")) then
-        local target = arg;
-        local askedAboutNothing;
-        if (target == "@") then
-            -- 겨눌 대상이 없으면 `"@"`가 가리킬 유닛도 없다. 여기서 `target`을 nil로 두면
-            -- "짚어 물었다"가 "전부 물었다"로 바뀌어 **남의 유닛 모순이 이 서브메뉴에 뜬다.**
-            target = binding.unit;
-            askedAboutNothing = target == nil;
-        end
-
         for unit, mask in pairs(binding.unitStates) do
             if (mask == 0 and not askedAboutNothing) then
                 local mine;
@@ -2160,13 +2163,11 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     if (Looking() and binding.unitGroups and notCategory ~= "units"
             and (not category or category == "units" or category == "hover"
                 or category == "unit")) then
-        local target = arg;
-        if (target == "@") then
-            target = binding.unit;
-        end
         for unit, mask in pairs(binding.unitGroups) do
             local mine;
-            if (target ~= nil) then
+            if (askedAboutNothing) then
+                mine = false;
+            elseif (target ~= nil) then
                 mine = target == unit;
             elseif (category == "hover") then
                 mine = unit == "hover";
@@ -2212,14 +2213,9 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             and band(conditions.groups, Constants.GROUP_ALL - Constants.GROUP_NONE) == 0) then
         -- **짚어 물었으면 그 유닛만 답한다.** 유닛 서브메뉴는 유닛마다 자기 색을 따로 묻는데,
         -- 여기가 `arg`를 안 보는 동안 한 유닛의 모순으로 **서브메뉴가 전부 빨개졌다.** 그러면
-        -- 어느 것을 고쳐야 하는지가 화면에서 사라진다. 0 마스크를 보는 위쪽 갈래는 처음부터
-        -- `arg`를 봤고, 이쪽만 안 보고 있었다.
-        local target = arg;
-        if (target == "@") then
-            target = binding.unit;
-        end
+        -- 어느 것을 고쳐야 하는지가 화면에서 사라진다.
         for unit, mask in pairs(binding.unitStates) do
-            if ((target == nil or target == unit)
+            if (not askedAboutNothing and (target == nil or target == unit)
                     and DebindPrivate.UNITS_ABSENT_WHEN_SOLO[unit] and mask ~= 0
                     and band(mask, Constants.UNITSTATE_NONE) == 0) then
                 Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_GROUP");

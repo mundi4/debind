@@ -42,9 +42,10 @@ Where a line costs something every time:
 
 - **the state watch loop** — the update pass that runs whenever a watched state changes
 - **click-time eval** — `EVAL_SNIPPET` and the wrappers spliced from it (`SecureBindings.lua`)
-- **hover enter/leave** — `setup_onenter_wrap` / `setup_onleave_wrap`, which are what a registered
-  frame's wrapped motion scripts run, and the plain `setup_onenter` / `setup_onleave` inside them.
-  `clickcast_onenter` / `clickcast_onleave` reach the same two bodies for an addon that copies
+- **hover enter/leave** — `setup_onenter` and `setup_onleave_wrap`, which are what a registered
+  frame's wrapped motion scripts run. The leave one is `setup_onleave` with the one foreign leave
+  body the client can no longer reach spliced after it (`FrameRegistry.lua`, `Reassemble`).
+  `clickcast_onenter` / `clickcast_onleave` reach the two plain bodies for an addon that copies
   those attributes onto its own children
 
 Push work to build time here; a value carried into the restricted environment is paid for on every

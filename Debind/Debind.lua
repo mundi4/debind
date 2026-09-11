@@ -54,11 +54,22 @@ DebindPrivate.DefaultClickFrame = DefaultClickFrame;
 -- edge, so it always arrives as up, and with the CVar on the gate's `clickAction` would be false
 -- and the cast would go nowhere with nothing said (`SecureTemplates.lua`'s 795-814, the same trap
 -- the click-cast branch pins it for).
+--- **The action attributes are written here as well as on the click frame, and `useparent*` is not
+--- how this frame gets them.** It used to be a child of the click frame carrying `useparent*` with
+--- `useparent-unit` off, which reads back exactly right -- `GetEffectiveAttribute("*type-deb103")`
+--- answers `spell` and `SecureButton_GetModifiedUnit` answers the unit -- and casts nothing at all.
+--- Measured on 2026-09-11 across four runs: inherited, no cast; stamped on this frame, the cast
+--- goes out, with the frame a child either way. **So the parentage was never what broke it**, and
+--- reading an attribute back is not proof that the gate will find it.
+---
+--- **And with nothing left to inherit there is nothing left to be a child for.** The three
+--- `check*cast` attributes are the only ones the click frame carries that this frame would have
+--- wanted, and every one of them is a branch `SecureButton_GetModifiedUnit` reaches only where the
+--- button has no `unit` -- which this one always has, because the snippet that routes a click here
+--- writes it first (`SecureBindings.lua`, `SELFCAST_OFF_SNIPPET`).
 local CastFrameName                 = "DebindCastButton";
-local CastFrame                     = CreateFrame("Button", CastFrameName, DefaultClickFrame, "SecureActionButtonTemplate");
+local CastFrame                     = CreateFrame("Button", CastFrameName, nil, "SecureActionButtonTemplate");
 CastFrame:RegisterForClicks("AnyUp", "AnyDown");
-CastFrame:SetAttribute("useparent*", true);
-CastFrame:SetAttribute("useparent-unit", false);
 CastFrame:SetAttribute("useOnKeyDown", false);
 DebindPrivate.CastFrame = CastFrame;
 DebindPrivate.CastFrameName = CastFrameName;

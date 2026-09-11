@@ -184,6 +184,10 @@ function Events.PLAYER_REGEN_ENABLED()
         DebindPrivate.AttachClickCastFrames();
     end
 
+    --- A tick is long enough for a fight to start, and the pass that takes our top back is refused
+    --- in one (`FrameRegistry.lua`). It keeps what it could not do.
+    DebindPrivate.RetopPending();
+
     if (#DebindPrivate.FrameQueue > 0) then
         for i = 1, #DebindPrivate.FrameQueue do
             local entry = DebindPrivate.FrameQueue[i];

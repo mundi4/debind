@@ -104,8 +104,16 @@ and whether to attach to Clique's table and header (`InitDB`).
    plus the wheel, and `SetPropagateMouseMotion` down the children.
 
 Wrapping is always **on top of whatever is already there**: `Reassemble` unwraps down to our own
-header, hands what it took to the restricted side, and puts ours back outermost, so the other
-addon's bodies still run. If another wrap of that frame arrives while our reassembly of it is still
+header, puts every wrapper it took back where it was, and lays ours on top, so the other addon's
+bodies go on running out of the chain. The one exception is the outermost `OnLeave` body, which the
+client stops reaching once we are above it (`Wrapped_OnLeave` clears `_wrapentered` and descends);
+the restricted side is handed a copy of that one and our own leave body runs it.
+**An unwrap from outside is passed on rather than read.** `SecureHandlerUnwrapScript(frame, script)`
+takes the top wrapper and carries no header, so on a frame of ours it takes ours and leaves the one
+the caller meant to take standing. `OnForeignUnwrap` calls it once more, which takes their outermost
+and is exactly what that call would have done on a frame we were never on, and takes the top back a
+tick later. The tick is what lets an engine that unwraps in a loop reach an empty chain.
+If another wrap of that frame arrives while our reassembly of it is still
 on the stack, somebody is wrapping over us because we wrapped: `StandDown` drops our row for that
 frame and says so once in chat, and the other addon keeps the frame. Nothing is counted. Clique
 unwraps and rewraps every frame it holds on every loading screen, and a count cannot tell that
@@ -362,10 +370,10 @@ Each of these is understood and none of them raises anything.
 6. **`AttachClickCastFrames` itself has no combat guard.** Its own callers guard, but the three
    event paths do not; registering under lockdown queues the frame and puts one line in chat. That
    is the visible face of logging in during a fight.
-7. **Stepping off a frame is not remembered.** `StandDown` writes `nil` rather than the `false` a
-   refusal writes, so the next door that reaches that frame registers it again. No new wrapper goes
-   on -- `_wrapped` and `_hoverWrapped` still say we wrapped it -- so no new fight starts either,
-   and what comes back is the row on the wrappers that were already there.
+7. **Stepping off a frame is permanent for the session.** `StandDown` writes the same `false` a
+   refusal writes, so no later door registers that frame again and no second fight starts over it.
+   Our wrapper stays where it is, as every wrapper of ours does, and the body it runs stands down
+   on its own once the row is gone.
 8. **`export_register` is Clique's internal wiring.** A rename leaves the Clique header door silent.
 9. **`clickcast_register` cannot carry a nameless frame.** `CallMethod` scrubs its arguments to
    strings, numbers and booleans, so a header with no name of its own makes children with no names

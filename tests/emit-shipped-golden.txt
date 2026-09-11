@@ -62,6 +62,8 @@ SetAttribute DebindClickButton *macrotext-deb101-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb101
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb101 = "spell"
+SetAttribute DebindCastButton *spell-deb101 = "Regrowth(Restoration)"
 CreateFrame <Frame#21> SecureHandlerBaseTemplate
 CreateFrame <Frame#22>
 CreateFrame <Texture#23>
@@ -139,6 +141,8 @@ SetAttribute DebindClickButton *macrotext-deb104-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb104
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb104 = "spell"
+SetAttribute DebindCastButton *spell-deb104 = "Rejuvenation"
 SetAttribute DebindClickButton *type-deb105 = "spell"
 SetAttribute DebindClickButton *spell-deb105 = "Will of the Necropolis"
 SetAttribute DebindClickButton *typerelease-deb105 = "spell"
@@ -148,6 +152,10 @@ SetAttribute DebindClickButton *macrotext-deb105-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb105
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb105 = "spell"
+SetAttribute DebindCastButton *spell-deb105 = "Will of the Necropolis"
+SetAttribute DebindCastButton *typerelease-deb105 = "spell"
+SetAttribute DebindCastButton *pressAndHoldAction-deb105 = true
 SetAttribute DebindClickButton *type-deb106 = "spell"
 SetAttribute DebindClickButton *spell-deb106 = 5176
 SetAttribute DebindClickButton *type-deb106-nosc = "macro"
@@ -155,6 +163,8 @@ SetAttribute DebindClickButton *macrotext-deb106-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb106
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb106 = "spell"
+SetAttribute DebindCastButton *spell-deb106 = 5176
 SetAttribute DebindClickButton *type-deb107 = "spell"
 SetAttribute DebindClickButton *spell-deb107 = "Renew"
 SetAttribute DebindClickButton *type-deb107-nosc = "macro"
@@ -162,6 +172,8 @@ SetAttribute DebindClickButton *macrotext-deb107-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb107
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb107 = "spell"
+SetAttribute DebindCastButton *spell-deb107 = "Renew"
 SetAttribute DebindClickButton *type-deb108 = "attribute"
 SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#9>>
 SetAttribute DebindClickButton *attribute-name-deb108 = "custom1"
@@ -264,6 +276,8 @@ SetAttribute DebindClickButton *macrotext-deb111-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb111
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb111 = "item"
+SetAttribute DebindCastButton *item-deb111 = "item:6948"
 SetAttribute DebindClickButton *type-deb112 = "spell"
 SetAttribute DebindClickButton *spell-deb112 = "Rejuvenation"
 SetAttribute DebindClickButton *type-deb112-nosc = "macro"
@@ -271,6 +285,8 @@ SetAttribute DebindClickButton *macrotext-deb112-nosc =
   | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
   | /click DebindCastButton deb112
   | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
+SetAttribute DebindCastButton *type-deb112 = "spell"
+SetAttribute DebindCastButton *spell-deb112 = "Rejuvenation"
 SetAttribute DebindClickButton *type-deb113 = "macro"
 SetAttribute DebindClickButton *macro-deb113 = nil
 SetAttribute DebindClickButton *macrotext-deb113 =

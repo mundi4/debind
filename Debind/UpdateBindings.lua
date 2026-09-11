@@ -1292,12 +1292,23 @@ local function StampBinding(descriptor)
         --
         -- **Baked here rather than composed at the click** so the hot path neither builds a string
         -- nor writes an attribute, and so the body is a value a spec can read.
+        --
+        -- **The cast frame is given its own copy of the action, and inheriting one is not an
+        -- option.** It used to reach these through `useparent*`, which reads back correctly and
+        -- casts nothing (`Debind.lua`, where that frame is built, says what was measured). Only
+        -- the buttons that have a twin are copied, because the twin's body is the only thing that
+        -- ever clicks that frame.
         if (descriptor.castsAtUnit) then
             local wrapper = buttonname .. SELFCAST_OFF_SUFFIX;
             clickframe:SetAttribute("*type-" .. wrapper, "macro");
             clickframe:SetAttribute("*macrotext-" .. wrapper,
                 format(SELFCAST_OFF_BODY, DebindPrivate.CastFrameName, buttonname));
             _selfCastWrappers[buttonname] = wrapper;
+
+            local castframe = DebindPrivate.CastFrame;
+            for i = 1, descriptor.count do
+                castframe:SetAttribute(names[i] .. buttonname, values[i]);
+            end
         end
 
         if (unit and unit ~= "" and not delegate) then
@@ -1718,10 +1729,15 @@ local function PrepareKeyBindings(key, bindingArray)
         -- A spec-resolved type's spell is on the binding, not in `value` (`FillBinding`), and nil
         -- there is a specialization with nothing to cast: the button is still handed out, with no
         -- action on it, so the key is taken and the press does nothing (§4 of the design).
+        --
+        -- **`if`, not `and`/`or`.** The ternary shape falls through to `value` when the spell is
+        -- nil, which is the one answer this branch exists to produce.
+        local bindingValue = binding.value;
+        if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
+            bindingValue = binding.spell;
+        end
         binding.clickframe, binding.clickbutton, binding.pressAndHold =
-            SetBindingAttributes(binding.type,
-                Constants.SPEC_RESOLVED_TYPES[binding.type] and binding.spell or binding.value,
-                binding.unit);
+            SetBindingAttributes(binding.type, bindingValue, binding.unit);
 
         -- Read here rather than where the record is built, so that nothing below this line needs
         -- a frame at all. `DefaultClickFrame` is the one the record leaves out.
