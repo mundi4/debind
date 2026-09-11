@@ -173,7 +173,7 @@ return function(DebindPrivate)
     end
 
     --- The spells the `known` tests below read, **stood up before the first record is built.**
-    --- `KnownSpells` builds its table once per specialization, so the first record to carry a
+    --- `Spells` builds its table once per specialization, so the first record to carry a
     --- `known` condition is what settles the table for the rest of the file.
     ---
     --- `levelLearned` is the level the book dates the spell at, against a character the shim puts

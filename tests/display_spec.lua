@@ -311,7 +311,7 @@ return function(DebindPrivate)
     -- It takes `noSpell`, the flag that already means "that spell is not there", and rides with
     -- the specialization rows in the filter because a talent change is what brings it back.
     --
-    -- The world is stood up before the first rebuild: `KnownSpells` builds its table once.
+    -- The world is stood up before the first rebuild: `Spells` builds its table once.
     test("a known settled false marks the row, and one settled true does not", function()
         for spellID, learned in pairs({ [1000] = true, [1001] = false }) do
             shim.world.spellbook[spellID] = true;

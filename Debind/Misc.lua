@@ -10,7 +10,7 @@ local bor                     = bit.bor;
 local tinsert, wipe           = tinsert, wipe;
 local pairs, ipairs           = pairs, ipairs;
 local GetMountInfoByID        = C_MountJournal.GetMountInfoByID;
-local GetSpellSubtext         = C_Spell.GetSpellSubtext;
+local GetSpellCastName        = DebindPrivate.GetSpellCastName;
 
 
 -- One ceiling for two clamps. `BuildBindingPlan` clamps the same option against
@@ -26,40 +26,6 @@ function DebindPrivate.GetSpellNameAndIconID(spellId)
 end
 
 local GetSpellNameAndIconID = DebindPrivate.GetSpellNameAndIconID;
-
---- The value a spell goes on a secure button under. **A name and not an id**, because spells share
---- names across ids (a specialization's own version of a shapeshift), and an id bound here does not
---- fire for the other one. The subtext is what tells two same-named spells apart, so it comes along
---- in the client's own parenthesised form.
----
---- **Pure, and separate from `GetSpellCastName` for one reason**: `DescribeBinding` has to spell the
---- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
---- holds every call in that path). It arrives here with the two halves already in hand.
----
---- Nil name in, nil out. The callers fall back to the id, which at least fires for the reader who
---- is on the specialization that has it.
-function DebindPrivate.ComposeSpellCastName(name, subtext)
-    if (not name) then
-        return nil;
-    end
-    if (subtext and subtext ~= "") then
-        return name .. "(" .. subtext .. ")";
-    end
-    return name;
-end
-
-local ComposeSpellCastName = DebindPrivate.ComposeSpellCastName;
-
---- The same value, asked of the client. **The id is taken as given**: each caller resolves its own,
---- and they do not resolve it alike. A stored action holds whatever id the reader picked and needs
---- `FindBaseSpellByID` first; a flyout slot is handed its base id and its override as two separate
---- returns, so resolving again there would be asking a question already answered.
-function DebindPrivate.GetSpellCastName(spellID)
-    local name = GetSpellNameAndIconID(spellID);
-    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID));
-end
-
-local GetSpellCastName = DebindPrivate.GetSpellCastName;
 
 --- 야수 소환 플라이아웃의 **빈 칸**인가.
 ---

@@ -225,7 +225,7 @@ return function(DebindPrivate)
     -- `_measuredStates` for the predicate above to find. This is the consequence that pays for
     -- the whole optimization -- the 0.2s parse goes with it.
     --
-    -- The world is stood up before the first plan, because `KnownSpells` builds its table once.
+    -- The world is stood up before the first plan, because `Spells` builds its table once.
     test("a known that is settled at the rebuild registers nothing", function()
         shim.world.spellbook[1000] = true;
         shim.world.spells[1000] = { name = "Fixed", levelLearned = 10 };

@@ -1,4 +1,4 @@
--- `KnownSpells.Build` - which spells' `[known:]` answer cannot move before the next rebuild.
+-- `Spells.Build` - which spells' `[known:]` answer cannot move before the next rebuild.
 -- No client needed: the walk takes every call it makes in one table, and this spec hands it a
 -- world of its own.
 --
@@ -7,7 +7,7 @@
 -- (`devdocs/baking-the-known-condition.md` §7).
 
 return function(DebindPrivate)
-    local KnownSpells = DebindPrivate.KnownSpells;
+    local Spells = DebindPrivate.Spells;
 
     local T = { passed = 0, failures = {} };
 
@@ -98,7 +98,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("spellbook: 배우는 레벨이 값으로 들어간다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             book = { { items = { { spellID = 100, level = 12 } } } },
         }));
         check(out[100] == 12, "got " .. tostring(out[100]));
@@ -113,13 +113,13 @@ return function(DebindPrivate)
                 { spellID = 200, level = 70 },
             } } },
         };
-        local out = KnownSpells.Build(API(world));
+        local out = Spells.Build(API(world));
         check(out[200] == 70, "unlearned spell missing: " .. tostring(out[200]));
         check(out[100] == 12, "learned spell missing: " .. tostring(out[100]));
     end)
 
     test("spellbook: 펫 뱅크는 안 돈다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             book = { { items = {
                 { spellID = 100, level = 12 },
                 { spellID = 300, level = 10, bank = PET_BANK },
@@ -130,14 +130,14 @@ return function(DebindPrivate)
     end)
 
     test("spellbook: 레벨이 없는 항목은 안 들어간다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             book = { { items = { { spellID = 100 } } } },
         }));
         check(out[100] == nil, "levelless spell got in");
     end)
 
     test("spellbook: actionID와 base id도 같이 들어간다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             book = { { items = { { spellID = 100, actionID = 101, level = 12 } } } },
             baseSpells = { [100] = 99 },
         }));
@@ -149,7 +149,7 @@ return function(DebindPrivate)
     -- `actionID` is a flyout id on a flyout row, and `GetSpellBookItemLevelLearned` answers 0
     -- there rather than nil. Filed, it would be fixed for good under a number that is not a spell.
     test("spellbook: 플라이아웃 줄의 actionID는 안 들어간다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             book = { { items = { {
                 actionID = 101,
                 level = 0,
@@ -160,7 +160,7 @@ return function(DebindPrivate)
     end)
 
     test("spellbook: 스킬라인이 여럿이면 슬롯 범위가 안 겹친다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             book = {
                 { items = { { spellID = 100, level = 12 } } },
                 { items = { { spellID = 200, level = 30 }, { spellID = 201, level = 40 } } },
@@ -196,7 +196,7 @@ return function(DebindPrivate)
     end
 
     test("talent: 안 고른 쪽 주문도 표에 들어간다", function()
-        local out = KnownSpells.Build(API(selectionWorld()));
+        local out = Spells.Build(API(selectionWorld()));
         check(out[500] == 0, "picked entry missing: " .. tostring(out[500]));
         check(out[501] == 0, "unpicked entry missing: " .. tostring(out[501]));
     end)
@@ -204,7 +204,7 @@ return function(DebindPrivate)
     test("talent: overriddenSpellID도 들어간다", function()
         local world = selectionWorld();
         world.definitions[30] = { spellID = 500, overriddenSpellID = 400 };
-        local out = KnownSpells.Build(API(world));
+        local out = Spells.Build(API(world));
         check(out[400] == 0, "overridden spell missing: " .. tostring(out[400]));
     end)
 
@@ -216,7 +216,7 @@ return function(DebindPrivate)
         world.nodes[11] = { subTreeID = 3, subTreeActive = false, entryIDs = { 22 } };
         world.entries[22] = { definitionID = 32 };
         world.definitions[32] = { spellID = 600 };
-        local out = KnownSpells.Build(API(world));
+        local out = Spells.Build(API(world));
         check(out[600] == 0, "inactive subtree spell missing: " .. tostring(out[600]));
     end)
 
@@ -224,12 +224,12 @@ return function(DebindPrivate)
         local world = selectionWorld();
         world.nodes[10].entryIDs = { 20, 21, 23 };
         world.entries[23] = { subTreeID = 3 };
-        local out = KnownSpells.Build(API(world));
+        local out = Spells.Build(API(world));
         check(out[500] == 0 and out[501] == 0, "walk stopped early");
     end)
 
     test("talent: 활성 설정이 없으면 그냥 비어 있다", function()
-        local out = KnownSpells.Build(API({}));
+        local out = Spells.Build(API({}));
         check(next(out) == nil, "something got in");
     end)
 
@@ -238,7 +238,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     test("pvp: 슬롯을 nil에서 끊고 고를 수 있는 것을 전부 넣는다", function()
-        local out = KnownSpells.Build(API({
+        local out = Spells.Build(API({
             pvpSlots = {
                 { selectedTalentID = 40, availableTalentIDs = { 40, 41 } },
                 { selectedTalentID = 42, availableTalentIDs = { 42 } },
@@ -261,7 +261,7 @@ return function(DebindPrivate)
     test("merge: 두 갈래가 겹치면 높은 레벨이 남는다", function()
         local world = selectionWorld();
         world.book = { { items = { { spellID = 500, level = 70 } } } };
-        local out = KnownSpells.Build(API(world));
+        local out = Spells.Build(API(world));
         check(out[500] == 70, "got " .. tostring(out[500]));
     end)
 

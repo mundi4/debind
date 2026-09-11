@@ -1,6 +1,6 @@
 local _, DebindPrivate      = ...;
 local Constants               = DebindPrivate.Constants;
-local KnownSpells             = DebindPrivate.KnownSpells;
+local Spells                  = DebindPrivate.Spells;
 local BindingDriver           = DebindPrivate.BindingDriver;
 local DefaultClickFrame       = DebindPrivate.DefaultClickFrame;
 
@@ -25,11 +25,9 @@ local FindBaseSpellByID                  = C_SpellBook.FindBaseSpellByID;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
 local UnitGroupToCells                   = DebindPrivate.UnitGroupToCells;
---- The pure half of `Misc.lua`'s pair. **The other half asks the client and cannot be used here**:
---- `DescribeBinding` is reached with a world already collected, and a spec hands it plain values.
--- The pure half of the pair in `Misc.lua`. **The other half asks the client and may not be used
--- here**: `DescribeBinding` is reached with the world already collected, and a spec hands it plain
--- values rather than standing an API up.
+--- The pure half of the pair in `Spells.lua`. **The other half asks the client and may not be used
+--- here**: `DescribeBinding` is reached with the world already collected, and a spec hands it plain
+--- values rather than standing an API up.
 local ComposeSpellCastName               = DebindPrivate.ComposeSpellCastName;
 local IsPressHoldReleaseSpell            = C_Spell.IsPressHoldReleaseSpell;
 local GetMountInfoByID                   = C_MountJournal.GetMountInfoByID;
@@ -174,6 +172,7 @@ end
 
 local function ResetContext()
     wipe(DebindPrivate.ClickTimeKeys);
+    wipe(DebindPrivate.SpellFacts);
     wipe(_macrotexts);
     wipe(_macrotextBindings);
     wipe(_switches);
@@ -1012,6 +1011,14 @@ local _descriptor = { attrNames = {}, attrValues = {}, count = 0 };
 --- What the client answered for the binding being described. One table, refilled, same as above.
 local _facts = {};
 
+--- **DEBUG only.** One row per spell binding of this rebuild, filled at the stamp where the key is
+--- still in hand. `_facts` cannot show this: it is wiped per binding, so after a rebuild it holds
+--- the last one and nothing else.
+---
+--- **Do not reassign.** DevTool holds this reference; a rebuild wipes and refills it.
+DebindPrivate.SpellFacts = {};
+DebindPrivate.dump("SpellFacts", DebindPrivate.SpellFacts);
+
 --- Appends one attribute to a descriptor. **A nil value is meaningful** -- it clears the attribute
 --- -- and assigning nil into the reused array is what stops the previous descriptor's value from
 --- standing in for it.
@@ -1155,6 +1162,13 @@ local function DescribeBinding(type, value, unit, facts, out)
 
     if (type == Constants.SPELL) then
         attr(out, "*type-", "spell");
+        -- **A name and not an id**, and the id was tried (2026-09-12, owner, in the game). The
+        -- client files the same spell under a different id per specialization and the two are not
+        -- related: Starfire is 194153 on Balance and 197628 on Restoration, Starsurge 78674 and
+        -- 197626, Remove Corruption 2782 and 440015. Neither `FindBaseSpellByID` nor
+        -- `GetBaseSpell` walks from one to the other, so an id baked here dies the moment the
+        -- reader changes specialization. The subtext comes along because that is what tells two
+        -- same-named spells apart (`Spells.lua`'s `ComposeSpellCastName`).
         attr(out, "*spell-",
             ComposeSpellCastName(facts.spellName, facts.spellSubtext) or facts.spellID);
 
@@ -1345,6 +1359,7 @@ DebindPrivate.StampBinding = StampBinding;
 --- `devdocs/legacy/going-headless-outside-the-ui.md` is where the record loop learns to.
 function SetBindingAttributes(type, value, unit)
     local facts = CollectBindingFacts(type, value, unit, _facts);
+
     local descriptor, reason = DescribeBinding(type, value, unit, facts, _descriptor);
     if (not descriptor) then
         if (DEBUG and reason ~= "self-bound") then
@@ -1739,6 +1754,29 @@ local function PrepareKeyBindings(key, bindingArray)
         binding.clickframe, binding.clickbutton, binding.pressAndHold =
             SetBindingAttributes(binding.type, bindingValue, binding.unit);
 
+        -- **DEBUG only.** Which key ended up on which spell id, which nothing else records: the
+        -- action keeps the id the reader picked, `_facts` is wiped per binding, and the button name
+        -- says nothing about either. `base` is resolved the same way the bake resolves it, so the
+        -- row says what `*spell-`'s name was taken from.
+        --
+        -- **The base moves with the talent build.** Both resolvers read the tree rather than the
+        -- spell data: 390414 answers 194223 only while the three talents that make it
+        -- (`Celestial Alignment`, `Orbital Strike`, `Incarnation: Chosen of Elune`) are all taken,
+        -- and answers itself otherwise. So an action that stored 390414 cannot be traced back to
+        -- what it was once the build changes.
+        if (DEBUG and binding.type == Constants.SPELL) then
+            local base = FindBaseSpellByID(bindingValue) or bindingValue;
+            tinsert(DebindPrivate.SpellFacts, {
+                key = binding.key,
+                stored = bindingValue,
+                base = base,
+                baseName = GetSpellNameAndIconID(base),
+                subtext = GetSpellSubtext(base),
+                override = C_Spell.GetOverrideSpell and C_Spell.GetOverrideSpell(base, 0, true, 0),
+                button = binding.clickbutton,
+            });
+        end
+
         -- Read here rather than where the record is built, so that nothing below this line needs
         -- a frame at all. `DefaultClickFrame` is the one the record leaves out.
         binding.clickframeName = (binding.clickframe and binding.clickframe ~= DefaultClickFrame)
@@ -2005,7 +2043,7 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
                 -- A spell whose answer cannot move before the next rebuild is settled here
                 -- instead of going out as an axis (`devdocs/baking-the-known-condition.md`): the
                 -- state loop stops parsing it every tick, and so does the press.
-                local settled = spell and KnownSpells.Settle(spell);
+                local settled = spell and Spells.SettleKnown(spell);
                 if (settled == false) then
                     -- No state can bring this record back for the rest of the rebuild. Dropping
                     -- it reaches what the click path reaches by skipping it at the press.

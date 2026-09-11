@@ -100,7 +100,7 @@ local function loadAddons(withCliqueFake)
     local DebindPrivate = shim.loadAddon(repoRoot .. "/Debind", {
     "Constants.lua",
     "SpecSpells.lua",
-    "KnownSpells.lua",
+    "Spells.lua",
     "Snippets.lua",
     "Ordering.lua",
     "Solver.lua",

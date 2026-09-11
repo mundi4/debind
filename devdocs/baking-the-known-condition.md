@@ -45,7 +45,7 @@
 
 ## 3. 분류표
 
-새 파일 `Debind/KnownSpells.lua`. `Debind.xml`에서 `UpdateBindings.lua`보다 앞에 둔다.
+새 파일 `Debind/Spells.lua`. `Debind.xml`에서 `UpdateBindings.lua`보다 앞에 둔다.
 
 `spellID -> 레벨` 하나짜리 표다. 뜻은 "이 주문의 `known` 답은 캐릭터가 그 레벨에 이른 뒤로는 다음
 리빌드 전에 안 바뀐다"이고, 세 갈래를 한 표에 합친다. 특성과 PvP로 들어오는 주문은 레벨을 안
@@ -246,6 +246,6 @@
 
 ## 8. 순서
 
-1. `KnownSpells.lua`와 그 스펙. 여기까지는 굽는 쪽을 안 건드린다.
+1. `Spells.lua`와 그 스펙. 여기까지는 굽는 쪽을 안 건드린다.
 2. `UpdateBindings.lua`의 굽는 자리와 그 스펙.
 3. `noSpell` 확장과 솔버 확인 스펙.

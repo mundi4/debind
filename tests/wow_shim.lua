@@ -755,7 +755,7 @@ function M.install()
         --- player-bank line holding every id in it, in id order so a slot number means the same
         --- thing on two reads. What a spell is learned at comes off
         --- `M.world.spells[id].levelLearned`, and an id without one answers no level at all --
-        --- the shape `KnownSpells` reads as a spell the book cannot date.
+        --- the shape `Spells` reads as a spell the book cannot date.
         GetNumSpellBookSkillLines = function() return 1; end,
         GetSpellBookSkillLineInfo = function(index)
             if (index ~= 1) then return nil; end

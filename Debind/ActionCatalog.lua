@@ -2,6 +2,7 @@ local _, DebindPrivate = ...;
 
 local Constants          = DebindPrivate.Constants;
 local LLL                = DebindPrivate.L;
+local ResolveBaseSpell   = DebindPrivate.ResolveBaseSpell;
 
 --- 선택 창이 **무엇을 고를 수 있는지**를 만든다. 프레임은 모른다 - 그리는 일은
 --- `SpellPicker.lua`가 한다.
@@ -296,7 +297,7 @@ local function AddSpellEntry(entries, seen, spellID, group)
 
 	AddEntry(entries, seen, {
 		type = Constants.SPELL,
-		value = spellID,
+		value = ResolveBaseSpell(spellID),
 		name = spellInfo.name,
 		icon = spellInfo.iconID,
 		subName = C_Spell.GetSpellSubtext(spellID),
@@ -380,7 +381,7 @@ local function AddFlyoutEntries(entries, seen, flyoutID, isOffSpec, group)
 			if (spellInfo and not C_Spell.IsSpellPassive(displayID)) then
 				AddEntry(entries, seen, {
 					type = Constants.SPELL,
-					value = spellID,
+					value = ResolveBaseSpell(spellID),
 					name = spellInfo.name,
 					icon = spellInfo.iconID,
 					subName = C_Spell.GetSpellSubtext(displayID),
@@ -466,7 +467,7 @@ local function AddSpellBookItem(entries, seen, slotIndex, bank, isOffSpec, group
 			end
 			return;
 		end
-		value = C_SpellBook.FindBaseSpellByID(info.spellID) or info.spellID;
+		value = ResolveBaseSpell(info.spellID);
 	else
 		value = info.actionID;
 	end

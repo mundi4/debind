@@ -1,14 +1,9 @@
 local _, DebindPrivate = ...;
 
---- Which spells' `[known:]` answer cannot move before the next rebuild
---- (`devdocs/baking-the-known-condition.md`). `spellID -> level`: the answer is fixed once the
---- character has reached that level, and `0` is a spell whose answer never depended on level.
----
---- **The table says only that the answer is fixed, never what it is.** What it is gets measured
---- with `SecureCmdOptionParse` at the bake, against the same string the snippet would have used,
---- so nothing here re-implements `[known:]`.
-local KnownSpells = {};
-DebindPrivate.KnownSpells = KnownSpells;
+local GetSpellSubtext = C_Spell.GetSpellSubtext;
+
+local Spells = {};
+DebindPrivate.Spells = Spells;
 
 --- The higher level wins when two walks name the same spell, because a level the character has
 --- not reached yet is the one thing that can still flip the answer inside a fight. Merging the
@@ -109,8 +104,17 @@ local function AddPvpTalents(out, api)
     end
 end
 
---- Every client call this walk makes, in one table so a spec can hand it a world of its own.
-function KnownSpells.Build(api)
+--- Which spells' `[known:]` answer cannot move before the next rebuild
+--- (`devdocs/baking-the-known-condition.md`). `spellID -> level`: the answer is fixed once the
+--- character has reached that level, and `0` is a spell whose answer never depended on level.
+---
+--- **The table says only that the answer is fixed, never what it is.** What it is gets measured
+--- with `SecureCmdOptionParse` at the bake, against the same string the snippet would have used,
+--- so nothing here re-implements `[known:]`.
+---
+--- `api` holds every client call this walk makes, in one table so a spec can hand it a world of
+--- its own.
+function Spells.Build(api)
     local out = {};
     AddSpellBook(out, api);
     AddTraits(out, api);
@@ -148,10 +152,10 @@ local cached, cachedSpec;
 --- had not answered yet rather than that there is nothing to hold, and keeping that would settle
 --- the answer for the rest of the specialization. Walking again next rebuild costs one walk in a
 --- case that should not happen.
-function KnownSpells.GetTable()
+function Spells.GetTable()
     local spec = C_SpecializationInfo.GetSpecialization() or 0;
     if (cached == nil or cachedSpec ~= spec) then
-        local built = KnownSpells.Build(LiveAPI());
+        local built = Spells.Build(LiveAPI());
         if (next(built) == nil) then
             return built;
         end
@@ -164,7 +168,7 @@ end
 --- Whether this spell's `[known:]` answer can still move before the next rebuild. A spell in the
 --- table but below its level is **not** fixed: a level-up flips it with no rebuild behind it.
 local function IsFixed(spellID)
-    local level = spellID and KnownSpells.GetTable()[spellID];
+    local level = spellID and Spells.GetTable()[spellID];
     return level ~= nil and level <= (UnitLevel("player") or 0);
 end
 
@@ -172,9 +176,72 @@ end
 --- cannot, and **nil where the answer can still move**, which is the axis staying as it was.
 ---
 --- **Measured with the string the snippet itself would have used**, so the two cannot part.
-function KnownSpells.Settle(spellID)
+function Spells.SettleKnown(spellID)
     if (not IsFixed(spellID)) then
         return nil;
     end
     return SecureCmdOptionParse("[known:" .. spellID .. "]") and true or false;
+end
+
+--- The value a spell goes on a secure button under. **A name and not an id**, because spells share
+--- names across ids (a specialization's own version of a shapeshift), and an id bound here does not
+--- fire for the other one. The subtext is what tells two same-named spells apart, so it comes along
+--- in the client's own parenthesised form.
+---
+--- **Pure, and separate from `GetSpellCastName` for one reason**: `DescribeBinding` has to spell the
+--- same value and may not ask the client anything (`UpdateBindings.lua`'s `CollectBindingFacts`
+--- holds every call in that path). It arrives here with the two halves already in hand.
+---
+--- Nil name in, nil out. The callers fall back to the id, which at least fires for the reader who
+--- is on the specialization that has it.
+function DebindPrivate.ComposeSpellCastName(name, subtext)
+    if (not name) then
+        return nil;
+    end
+    if (subtext and subtext ~= "") then
+        return name .. "(" .. subtext .. ")";
+    end
+    return name;
+end
+
+local ComposeSpellCastName = DebindPrivate.ComposeSpellCastName;
+
+--- The same value, asked of the client. **The id is taken as given**: each caller resolves its own,
+--- and they do not resolve it alike. A stored action holds whatever id the reader picked and needs
+--- `FindBaseSpellByID` first; a flyout slot is handed its base id and its override as two separate
+--- returns, so resolving again there would be asking a question already answered.
+function DebindPrivate.GetSpellCastName(spellID)
+    -- Reached through `DebindPrivate` rather than an upvalue: `Misc.lua` defines it and loads
+    -- after this file (`Debind.xml`).
+    local name = DebindPrivate.GetSpellNameAndIconID(spellID);
+    return ComposeSpellCastName(name, name and GetSpellSubtext(spellID));
+end
+
+--- The id a spell should be **stored** under: the topmost base, resolved at the moment the reader
+--- adds it.
+---
+--- **The answer is only available while the build that produced the id stands.** Both resolvers
+--- read the talent tree rather than the spell data, so an id a talent combination created answers
+--- its base while those talents are taken and answers itself once they are not. 390414 is that:
+--- it comes back as 194223 only while `Celestial Alignment`, `Orbital Strike` and
+--- `Incarnation: Chosen of Elune` are all taken, and after a respec nothing in the client can say
+--- what it was. **So it has to be resolved on the way in, not on the way out.**
+---
+--- **A loop and not one call**, because one step is only known to reach one level and an id two
+--- levels down would keep the level between. `seen` is what stops a pair that answers each other
+--- from spinning; the cap is the same belt for a longer cycle.
+function DebindPrivate.ResolveBaseSpell(spellID)
+    local seen = {};
+    for _ = 1, 8 do
+        if (not spellID or seen[spellID]) then
+            return spellID;
+        end
+        seen[spellID] = true;
+        local base = C_SpellBook.FindBaseSpellByID(spellID);
+        if (not base or base == spellID) then
+            return spellID;
+        end
+        spellID = base;
+    end
+    return spellID;
 end

@@ -2800,7 +2800,7 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     row.noSpell = (not offWorld)
         and (not DebindPrivate.KnownConditionCanHold(binding)
             or (binding.conditions.known ~= nil
-                and DebindPrivate.KnownSpells.Settle(binding.spell or binding.value) == false))
+                and DebindPrivate.Spells.SettleKnown(binding.spell or binding.value) == false))
         or nil;
 
     return row;
