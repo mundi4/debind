@@ -154,6 +154,11 @@ Around that: `UnitWatch.lua` (`@healer`/`@tank` and friends), `FrameRegistry.lua
 - **A comment is not a diary.** State the constraint and stop. What was attempted on which date and
   turned out wrong goes in `devdocs/0-DIARY.md`.
 
+**A review finding is proof that one of the two is wrong.** If somebody reads code that does
+exactly what it should and calls it a defect, either the code is wrong or the comment failed to
+say why it is not. Settling it in conversation settles nothing: the next reader opens the same
+lines and raises it again, every time. Fix it in the file, on the spot, where it was misread.
+
 The rest:
 
 - **Write every new comment in English.**

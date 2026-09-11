@@ -49,6 +49,19 @@ local BLIZZARD_UNITFRAME_OPTIONS   = {
     },
 };
 
+--- The client's own unit frames that carry a name, lowercased. **The list `UpdateBlizzardFrames`
+--- walks is keyed by the frame**, and it is filled at login; the name door can reach one of these
+--- before that, so the names are what answers there. The compact frames and the boss frames are
+--- patterns rather than rows and are matched beside this.
+local BLIZZARD_FRAME_NAMES         = {
+    playerframe = true,
+    petframe = true,
+    targetframe = true,
+    targetframetot = true,
+    focusframe = true,
+    focusframetot = true,
+};
+
 local UNITFRAME_TYPES              = {
     player = Constants.FRAMETYPE_PLAYER,
     pet = Constants.FRAMETYPE_PET,
@@ -146,6 +159,17 @@ local KNOWN_PACK_FRAMES            = {
     { "^cellnpcframebutton%d+$",            "Cell",                  "group" },
     { "^cellarenapet%d+$",                  "Cell",                  "group" },
     { "^cell.*unitbutton%d+",               "Cell",                  "group" },
+    -- Danders Frames' rows. **It names a frame for what it draws**, so the row can carry a kind
+    -- without reading the unit off it: its group blocks are secure header children, and the four
+    -- sets it builds outside one say pet or boss in the name. `_TestPet_` is the options panel's
+    -- own preview, which is why the pet row is anchored rather than a prefix search.
+    { "^danders.*headerunitbutton%d+",      "DandersFrames",         "group" },
+    { "^dandersraidframe%d+$",              "DandersFrames",         "group" },
+    { "^dandersframes_player$",             "DandersFrames",         "group" }, -- the party block's own slot
+    { "^dandersframes_party%d+$",           "DandersFrames",         "group" },
+    { "^dandersframes_pet_",                "DandersFrames",         "pet" },
+    { "^dandersframes_arenapet_",           "DandersFrames",         "pet" },
+    { "^danderspinnedboss%d+%a+_%d+$",      "DandersFrames",         "boss" },
 };
 
 --- HealBot's rows, built rather than written out, because it makes two names per prefix and the
@@ -172,6 +196,17 @@ for i = 1, #HEALBOT_PREFIXES do
         { "^" .. emergency .. "emergunit%d+$", "HealBot", "group" };
 end
 
+--- Names that are a unit frame in every way a frame can be read and are still not one to hold a
+--- binding. **Only a name can say so**, which is why they are here rather than in a test on the
+--- frame: `hbTest_` bars are made by the call that makes the real ones (`HealBot_Action_-
+--- CreateNewButton`) and carry the same shape, and what they are is the picture the options panel
+--- draws while somebody arranges the display.
+---
+--- Read where a name is read, so nothing further down can take one of these.
+local NEVER_OURS_FRAMES            = {
+    "^hbtest_",
+};
+
 --- Which pack a frame's name belongs to, or nothing for a name no row covers.
 function DebindPrivate.PackAddonForFrameName(name)
     if (type(name) ~= "string") then
@@ -186,24 +221,53 @@ function DebindPrivate.PackAddonForFrameName(name)
     end
 end
 
---- The packs on the list that are installed on this board, in the table's order, as
---- `{ addon, title }`. What the option menu offers a box for.
+--- The packs on the list this board has a folder for, by folder name, as `{ addon, title }`. What
+--- the option menu offers a box for.
+---
+--- **Sorted here rather than in `KNOWN_PACK_FRAMES`.** Three readers walk that table from the top
+--- and stop at the first row that matches, so its order is which pattern wins where two cover one
+--- name -- `^cellspotlightframeunitbutton%d+$` sits under `^cell.*unitbutton%d+` for exactly that
+--- reason. Reordering it to tidy a menu would silently change which row answers.
+---
+--- **By the folder name and not by the title**, which is the same name the row above was found
+--- with. A title carries colour escapes and the client's language, so `|cff00ff00Grid2|r` sorts
+--- under the pipe and the same addon lands somewhere else on a different client.
+---
+--- **Installed, not loaded.** A reader who turns a pack off in the addon list still has a stored
+--- `false` for it, and asking whether it is loaded took the box away while the value stayed --
+--- so the next time they turned that pack back on, a decision they could no longer see came back
+--- with it. The client parses every addon's `.toc` at startup whether it loads it or not, which is
+--- what makes the question answerable for one that is off.
 ---
 --- **The title is the addon's own `Title`.** A name we made up for somebody else's addon is a name
 --- the reader has seen nowhere else, and the one they know is the one in their addon list.
-function DebindPrivate.LoadedKnownPacks()
+---
+--- Under `pcall`, and the name is tested rather than trusted: the documentation says every return
+--- here is non-nilable, and an addon the client has never heard of is the case that says otherwise.
+function DebindPrivate.InstalledKnownPacks()
     local packs, seen = {}, {};
+    if (not C_AddOns or not C_AddOns.GetAddOnInfo) then
+        return packs;
+    end
+
     for i = 1, #KNOWN_PACK_FRAMES do
         local addon = KNOWN_PACK_FRAMES[i][2];
         if (not seen[addon]) then
             seen[addon] = true;
-            if (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(addon)) then
-                local title = C_AddOns.GetAddOnMetadata
-                    and C_AddOns.GetAddOnMetadata(addon, "Title");
-                packs[#packs + 1] = { addon, (title and title ~= "") and title or addon };
+            local ok, folder, title = pcall(C_AddOns.GetAddOnInfo, addon);
+            if (ok and type(folder) == "string" and folder ~= "") then
+                packs[#packs + 1] = {
+                    addon,
+                    (type(title) == "string" and title ~= "") and title or addon,
+                    folder,
+                };
             end
         end
     end
+
+    sort(packs, function(a, b)
+        return a[3] < b[3];
+    end);
     return packs;
 end
 
@@ -1251,6 +1315,43 @@ end
 ---
 --- **A wrap of our own is not a discovery.** `RegisterFrame` wraps through `BindingDriver` on the
 --- very frames the table matches, and the row it is about to write is not there yet.
+--- Whether the frame was built from `SecureUnitButtonTemplate`.
+---
+--- **The template hangs the global function itself on `OnClick`**
+--- (`SecureTemplates.xml`: `<OnClick function="SecureUnitButton_OnClick"/>`), while
+--- `SecureActionButtonTemplate` carries an inline body, so a cast button's handler is a closure of
+--- its own and never this object. That is what makes the comparison answer "unit frame" rather
+--- than "secure button", which no other test on the frame can do -- a cast button is protected,
+--- takes clicks, and can carry a `unit` attribute of its own.
+---
+--- **A false answer here is always the safe direction.** An addon that replaced the script, or a
+--- wrapper already standing on it, reads as "not one of ours" and the frame is left alone.
+local function IsUnitButtonTemplate(frame)
+    if (not SecureUnitButton_OnClick or not frame.GetScript) then
+        return false;
+    end
+    local ok, handler = pcall(frame.GetScript, frame, "OnClick");
+    return ok and handler == SecureUnitButton_OnClick;
+end
+
+--- Whether the client's own door owns this frame.
+---
+--- Blizzard's unit frames carry the same template, so the test above says yes to all of them. They
+--- have their own door and their own seven boxes (`registerBlizzardFrame`), and a frame taken here
+--- instead would answer to `Any Other Addon` -- the reader would tick "Party Frames" and nothing
+--- would happen.
+---
+--- **`ignoreCUFNameRequirement` is Blizzard's own mark on the ones with no name**, the nameplate
+--- unit frame among them, and the compact hook already leaves on it for that reason.
+local function IsBlizzardsOwn(frame, name)
+    if (DebindPrivate.blizzardFrames[frame] ~= nil or frame.ignoreCUFNameRequirement) then
+        return true;
+    end
+    return strfind(name, "^compact") ~= nil
+        or strfind(name, "^boss%d+targetframe$") ~= nil
+        or BLIZZARD_FRAME_NAMES[name] == true;
+end
+
 function TakeNamedFrame(frame)
     -- Under `pcall` for the reason `SetPropagateOne` gives: on 12.1 a frame answering
     -- `IsForbidden` false is no longer proof that touching it will not raise. `GetName` in
@@ -1267,6 +1368,16 @@ function TakeNamedFrame(frame)
             pcall(DebindPrivate.RegisterFrame, frame, row[3] or true);
             return;
         end
+    end
+
+    for i = 1, #NEVER_OURS_FRAMES do
+        if (strfind(name, NEVER_OURS_FRAMES[i])) then
+            return;
+        end
+    end
+
+    if (IsUnitButtonTemplate(frame) and not IsBlizzardsOwn(frame, name)) then
+        pcall(DebindPrivate.RegisterFrame, frame, true);
     end
 end
 

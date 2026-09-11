@@ -538,6 +538,34 @@ return function(DebindPrivate)
             .. tostring(DebindPrivate.ccframes[taken]));
     end);
 
+    --- **이름 문이 이름을 모를 때 프레임 자신에게 묻는다.**
+    ---
+    --- `Any Other Addon`이 켜져 있으면 모르는 애드온의 개체창도 우리 것인데, 그 프레임에 닿는
+    --- 길이 이름 문뿐이고 그 문은 `KNOWN_PACK_FRAMES`에 든 이름만 통과시킨다. 그래서 약속과
+    --- 실제가 갈렸다: 모르는 애드온이라 상자가 덮는다면서, 모르는 이름이라 안 받았다.
+    ---
+    --- **`SecureUnitButtonTemplate`이 `OnClick`에 거는 것은 전역 함수 자신이고**
+    --- (`SecureTemplates.xml`의 `<OnClick function="SecureUnitButton_OnClick"/>`), 시전 버튼
+    --- 템플릿은 인라인 본문이라 프레임마다 다른 클로저가 걸린다. 그래서 이 비교는 시전 버튼을
+    --- 구조적으로 못 통과시킨다.
+    test("이름을 모르는 애드온의 개체창은 프레임 자신이 답한다", function()
+        local unitButton = ForeignFrame("SomeUIWeHaveNeverSeen1", "party1");
+        SecureHandlerWrapScript(unitButton, "OnEnter", unitButton, "-- theirs");
+
+        check(type(DebindPrivate.ccframes[unitButton]) == "table",
+            "이름 없는 개체창이 이름 문에서 그냥 돌아갔다: "
+            .. tostring(DebindPrivate.ccframes[unitButton]));
+
+        --- 반대쪽. 같은 문으로 도착하지만 개체창이 아닌 것은 안 받아야 한다. 없으면 위 케이스가
+        --- "무엇이든 받는다"에도 초록으로 나온다.
+        local castButton = frames.newFrame("Button", "SomeUICastButton1", nil,
+            "SecureActionButtonTemplate");
+        SecureHandlerWrapScript(castButton, "OnEnter", castButton, "-- theirs");
+
+        check(DebindPrivate.ccframes[castButton] == nil,
+            "시전 버튼이 개체창으로 잡혔다: " .. tostring(DebindPrivate.ccframes[castButton]));
+    end);
+
     --- 반대쪽. 없이는 위 케이스가 "언제나 거절"에도 초록으로 나온다.
     test("a known pack and Blizzard's own are not what Any Other Addon covers", function()
         local pack = ForeignFrame("ERFExtraFrame41", nil);
@@ -693,14 +721,18 @@ return function(DebindPrivate)
             .. tostring(DebindPrivate.ccframes[emerg]));
     end);
 
-    -- **A name nobody listed goes nowhere.** Everything arriving at these doors is an addon's
-    -- doing, so a frame that is not on the list has to leave without a row -- otherwise the
-    -- reader's window fills with secure frames they can neither see nor hover.
-    test("a frame the list does not name is left alone", function()
-        local frame = ForeignFrame("SomeUIActionButton1", "player");
+    -- **A name nobody listed is asked what it is.** Everything arriving at these doors is an
+    -- addon's doing, and most of it is not a unit frame at all -- an action bar wraps the same
+    -- scripts. What separates the two is the template the frame was built from, and a cast button
+    -- has to leave without a row, otherwise the reader's window fills with secure frames they can
+    -- neither see nor hover.
+    test("a frame the list does not name and is no unit button is left alone", function()
+        local frame = frames.newFrame("Button", "SomeUIActionButton1", nil,
+            "SecureActionButtonTemplate");
+        frame:SetAttribute("unit", "player");
         SecureHandlerWrapScript(frame, "OnClick", ForeignHeader(), "-- theirs");
         check(DebindPrivate.ccframes[frame] == nil,
-            "a frame nobody listed was taken: " .. tostring(DebindPrivate.ccframes[frame]));
+            "a cast button was taken: " .. tostring(DebindPrivate.ccframes[frame]));
     end);
 
     -- **Our own wrapping is not somebody else's frame arriving.** `RegisterFrame` wraps enter and

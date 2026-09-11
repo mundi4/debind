@@ -184,6 +184,26 @@ return function(DebindPrivate, _, ctx)
             "호버 조건이 걸린 프로필인데 폴링이 리빌드를 안 불렀다");
     end);
 
+    --- **커서가 옮겨가는 경로.** 위 둘은 커서가 멈춰 있는 동안 유닛이 바뀌는 경우라 폴링이
+    --- 답하는데, 실제로 사람이 하는 것은 프레임에서 프레임으로 옮기는 것이고 그쪽은 폴링을
+    --- 안 기다린다. `setup_onenter`가 그 자리에서 dirty를 세워야 한다.
+    test("프레임을 옮기면 폴링을 안 기다리고 다시 정한다", function()
+        twoParty();
+        local i = Bind({
+            action({ value = 585, key = "F1", conditions = { units = { hover = {} } } }),
+        });
+
+        settleOn("party1");
+        local before = i:rebuildCount();
+
+        interp:hoverLeave(unitFrame);
+        unitFrame:SetAttribute("unit", "party2");
+        interp:hoverEnter(unitFrame);
+
+        check(i:rebuildCount() > before,
+            "프레임을 옮겼는데 폴링 전까지 아무것도 다시 안 정했다");
+    end);
+
     ---------------------------------------------------------------------------
     -- What makes the poll emit the hover block
     ---------------------------------------------------------------------------
@@ -268,6 +288,27 @@ return function(DebindPrivate, _, ctx)
         text = macrotextOn("F1");
         check(text == "/cast [@party1]Renew",
             ("클릭이 본문을 안 구웠거나 잘못 구웠다 (%q)"):format(tostring(text)));
+    end);
+
+    --- **키보드 키에 걸린 호버 조건.** 마우스 버튼 쪽은 위아래로 여러 케이스가 들고 있는데,
+    --- 키가 그 조건을 들고 프레임 위에서 눌렸을 때는 어느 케이스도 안 묻고 있었다.
+    ---
+    --- 두 갈래가 한 케이스 안에 있다. 프레임 위에서는 승자가 나와야 하고, 프레임을 벗어나면
+    --- 그 키는 아무것도 안 내야 한다. 앞쪽만 물으면 조건을 아예 안 보는 구현도 통과한다.
+    test("호버 조건이 붙은 키는 프레임 위에서만 승자를 낸다", function()
+        twoParty();
+        local i = Bind({
+            action({ value = 585, key = "F1", unit = "hover",
+                conditions = { units = { hover = { reaction = Constants.REACTION_ALL } } } }),
+        });
+
+        settleOn("party1");
+        local won = i:evalKey("F1");
+        check(won ~= nil, "프레임 위인데 키가 아무 승자도 못 냈다");
+
+        interp:hoverLeave(unitFrame);
+        interp:pollStates();
+        check(i:evalKey("F1") == nil, "프레임을 벗어났는데 키가 여전히 승자를 낸다");
     end);
 
     --- **What the click bakes is the unit it judged, not the cache.**

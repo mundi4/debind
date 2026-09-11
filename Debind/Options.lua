@@ -445,7 +445,7 @@ function DebindPrivate.RegisterOptionsCategory()
     --- us, the ones it hands over included. Which is why the tooltip says nothing about handing
     --- over: that is the vocabulary of somebody who knows the Clique API, and the answer here does
     --- not depend on it.
-    local packs = DebindPrivate.LoadedKnownPacks();
+    local packs = DebindPrivate.InstalledKnownPacks();
     for i = 1, #packs do
         local addon = packs[i][1];
         Settings.CreateCheckbox(unitFrames,

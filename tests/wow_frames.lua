@@ -18,6 +18,7 @@ local M = {};
 -- here formats a client string, so the stock one is the right one and stays right whatever the
 -- shim does to `format` afterwards.
 local sformat = string.format;
+local sfind = string.find;
 
 ---------------------------------------------------------------------------
 -- The recorder
@@ -209,6 +210,11 @@ local function newFrame(frameType, name, parent, template)
     frame.__template = template;
     frame.__attributes = {};
     frame.__scripts = {};
+    -- The template hangs `SecureUnitButton_OnClick` on the frame in XML, and that identity is
+    -- how the registry tells a unit button from a cast button.
+    if (template and sfind(template, "SecureUnitButtonTemplate", 1, true)) then
+        frame.__scripts.OnClick = _G.SecureUnitButton_OnClick;
+    end
     frame.__events = {};
     frame.__children = {};
     if (parent and parent.__children) then
@@ -388,6 +394,14 @@ function M.install()
     --- that door; a `nil` global would leave the branch that installs it untaken and untested.
     _G.SecureUnitButton_OnLoad = function() end
     _G.UnitFrame_Initialize = function() end
+
+    --- **The identity of this one is what a test asks about, not what it does.**
+    --- `SecureTemplates.xml` hangs this very function on `SecureUnitButtonTemplate`'s `OnClick`
+    --- (`<OnClick function="SecureUnitButton_OnClick"/>`), while the action button template
+    --- carries an inline body instead, so the two never share a function object. `newFrame`
+    --- hangs it on anything built from that template, which is what makes the comparison
+    --- answerable here.
+    _G.SecureUnitButton_OnClick = function() end
 
     --- The unit existence watch, as a set of registered frames.
     ---

@@ -668,6 +668,10 @@ function M.install()
         --- an `@` in it or is missing. Answering with a made-up version would take that branch out
         --- of reach of every spec.
         GetAddOnMetadata = function() return nil; end,
+        --- **Nothing installed**, the same answer `GetNumAddOns` gives. A spec that wants a pack
+        --- row drawn stands its addon up here itself. The client answers this one for an addon
+        --- that is installed and turned off, which is what the pack rows are drawn from.
+        GetAddOnInfo = function() return nil; end,
     };
 
     -- Misc.lua가 파일 스코프에서 건드리는 것들. 매크로텍스트 파서와는 무관하지만

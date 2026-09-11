@@ -167,6 +167,7 @@ globals = {
 	"SecureGroupPetHeader_OnLoad",
 	"SecureGroupPetHeader_Update",
 	"SecureUnitButton_OnLoad",
+	"SecureUnitButton_OnClick",
 	"UnitFrame_Initialize",
 	-- HealBot's own, and the only names here that belong to another addon rather than to the
 	-- client. Both are asked for by presence before they are used (`FrameRegistry.lua`), because

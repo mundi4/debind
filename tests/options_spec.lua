@@ -39,20 +39,21 @@ return function(DebindPrivate)
     DebindPrivate.InitDB();
 
     --- **One pack is installed while the list is built, and only while it is built.** The pack rows
-    --- are drawn from what is loaded (`LoadedKnownPacks`), which is read once here, so a spec with
-    --- nothing installed could only ever measure the seven client windows. Put back straight after,
-    --- because the addon list is the shim's and the specs after this one share it.
-    local savedLoaded = C_AddOns.IsAddOnLoaded;
-    local savedMetadata = C_AddOns.GetAddOnMetadata;
-    C_AddOns.IsAddOnLoaded = function(addon) return addon == "Grid2"; end;
-    C_AddOns.GetAddOnMetadata = function(addon, field)
-        if (addon == "Grid2" and field == "Title") then
-            return "Grid2 |cff00ff00Raid Frames|r";
+    --- are drawn from what this board has a folder for (`InstalledKnownPacks`), which is read once
+    --- here, so a spec with nothing installed could only ever measure the seven client windows. Put
+    --- back straight after, because the addon list is the shim's and the specs after this one share
+    --- it.
+    ---
+    --- **It answers for a pack that is turned off**, which is the whole reason the rows are drawn
+    --- from this call rather than from `IsAddOnLoaded`. So the stand-in says nothing about loading.
+    local savedInfo = C_AddOns.GetAddOnInfo;
+    C_AddOns.GetAddOnInfo = function(addon)
+        if (addon == "Grid2") then
+            return "Grid2", "Grid2 |cff00ff00Raid Frames|r";
         end
     end;
     DebindPrivate.RegisterOptionsCategory();
-    C_AddOns.IsAddOnLoaded = savedLoaded;
-    C_AddOns.GetAddOnMetadata = savedMetadata;
+    C_AddOns.GetAddOnInfo = savedInfo;
 
     local function setting(variable)
         local s = Settings.GetSetting("DEBIND_" .. variable);

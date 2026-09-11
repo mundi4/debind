@@ -90,7 +90,7 @@ function Events.PLAYER_LOGIN()
     Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED();
 
     --- **Here and not at `ADDON_LOADED`, because of one row.** The unit frame pack boxes are the
-    --- packs that are installed (`LoadedKnownPacks`), and at our own `ADDON_LOADED` an addon that
+    --- packs that are installed (`InstalledKnownPacks`), and at our own `ADDON_LOADED` an addon that
     --- loads after us has not answered `IsAddOnLoaded` yet -- so half the boxes would be missing
     --- on a board that has those addons. Everything else here would have been happy earlier.
     ---
