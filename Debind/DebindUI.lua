@@ -2273,9 +2273,8 @@ end
 
 function DebindLayerPanelMixin:InitializeScrollBox()
 	local padding = 7;
-	local bottomPadding = 40;
 	local spacing = 4;
-	local view = CreateScrollBoxListLinearView(padding, bottomPadding, padding, padding, spacing);
+	local view = CreateScrollBoxListLinearView(0, 0, padding, padding, spacing);
 
 	-- 이 목록에는 행 한 종류뿐이다. 키 헤더는 왼쪽 열에만 있다 - 여기서 키로 묶는 것은
 	-- 없앴고, 발동 순서를 말하는 자리는 처음부터 저쪽 하나였다.
