@@ -83,7 +83,9 @@ return function(DebindPrivate, _, ctx)
 
     local clickFrame = DebindPrivate.DefaultClickFrame;
     local function spellOn(button)
-        return clickFrame:GetAttribute("*spell-" .. button);
+        -- **Through the real button**: a binding with a chosen target answers with the twin
+        -- that turns automatic self-cast off, and the spell is on the one it clicks.
+        return clickFrame:GetAttribute("*spell-" .. interp:actionButton(button));
     end
 
     local SPELLS = {

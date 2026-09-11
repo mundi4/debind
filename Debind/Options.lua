@@ -519,6 +519,11 @@ function DebindPrivate.RegisterOptionsCategory()
             DebindPrivate.DebindUI.ShowHelp("ordering");
         end, nil, addSearchTags));
 
+    Settings.RegisterInitializer(help, CreateSettingsButtonInitializer("",
+        L["HELP_TARGETING"], function()
+            DebindPrivate.DebindUI.ShowHelp("targeting");
+        end, nil, addSearchTags));
+
     Settings.RegisterAddOnCategory(category);
 end
 

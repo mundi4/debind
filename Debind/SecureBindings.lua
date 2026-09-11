@@ -53,6 +53,7 @@ end
 --- been computed yet and nothing matches -- reading it as "absent" would fire a binding on the
 --- strength of a state nobody looked at.
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);
+SecureHandlerSetFrameRef(BindingDriver, "castFrame", DebindPrivate.CastFrame);
 SecureHandlerExecute(BindingDriver, [[
 
 	debind_driver = self
@@ -71,6 +72,12 @@ SecureHandlerExecute(BindingDriver, [[
 	
 	DefaultClickFrame = self:GetFrameRef("clickFrame")
 	DefaultClickFrameName = DefaultClickFrame:GetName()
+	CastFrame = self:GetFrameRef("castFrame")
+
+	-- 자동 자가시전을 끄고 도는 쌍둥이 버튼. `진짜 버튼 이름 -> 쌍둥이 이름`이고 리빌드가
+	-- 통째로 다시 쓴다(`UpdateBindingsMap`). 클릭 경로에서 조회 하나로 끝나야 해서 표다 -
+	-- 이름을 결합하면 매 클릭 문자열이 생긴다.
+	SelfCastWrappers = newtable()
 	
 	SwitchExpressions = newtable()
 
@@ -439,6 +446,33 @@ local SMART_CAST_SNIPPET = [==[
 			end
 		end
 		PROBE.SmartBranch(smartButton)
+	end
+]==];
+
+--- The button a press actually ends at, as `castButton`. Spliced into the click wrapper and into
+--- the DEBUG eval hook, so what a test reads is what fires.
+---
+--- **A target the reader chose turns the engine's automatic self-cast off**, by going out through
+--- the twin button `StampBinding` baked -- a macro body that flips the CVar around the real
+--- button. Without it the same profile answers two ways: a chosen unit that exists casts and gets
+--- redirected to the caster, and one that does not exist is dropped by the client's `UnitExists`
+--- guard with nothing happening at all
+--- (`devdocs/matching-the-clients-cast-targeting.md` §2-2).
+---
+--- **Press-and-hold keeps the direct route.** The macro runs once, and the hold the gate starts on
+--- the down edge has no release to pair with inside one; wrapping it would trade a chosen target
+--- for a spell that never finishes. A Smart Cast branch is a plain spell whatever its host is, so
+--- it wraps even when the host is press-and-hold.
+---
+--- Needs `winner`, `smartButton` and `unit` declared by the caller.
+local SELFCAST_OFF_SNIPPET = [==[
+	local castButton = smartButton or winner.clickbutton
+	if (unit and not (winner.pressAndHold and not smartButton)) then
+		local wrapper = SelfCastWrappers[castButton]
+		if (wrapper) then
+			CastFrame:SetAttribute("unit", unit)
+			castButton = wrapper
+		end
 	end
 ]==];
 
@@ -1990,7 +2024,8 @@ end, [==[
 		end
 	end
 
-	return smartButton or winner.clickbutton
+]==] .. SELFCAST_OFF_SNIPPET .. [==[
+	return castButton
 ]==], [==[
 	-- 클릭이 끝난 뒤. **맨이름 `pressAndHoldAction`을 반드시 지운다.**
 	--
@@ -2042,8 +2077,9 @@ if (DebindPrivate.DEBUG) then
 		if (not winner or not winner.clickbutton) then
 			return
 		end
-]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET .. [==[
-		return smartButton or winner.clickbutton
+]==] .. BAKE_WINNER_MACROTEXT_SNIPPET .. RESOLVE_UNIT_SNIPPET .. SMART_CAST_SNIPPET
+		.. SELFCAST_OFF_SNIPPET .. [==[
+		return castButton
 	]==]);
 
 	--- The same door for the click-cast side. Run it **for the unit frame** (`RunFor`), which is

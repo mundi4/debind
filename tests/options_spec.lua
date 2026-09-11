@@ -181,20 +181,23 @@ return function(DebindPrivate)
             "the help page did not go under ours");
 
         local rows = rowsOf(subcategory);
-        check(#rows == 1, "the help page holds " .. #rows .. " rows, not 1");
+        check(#rows == 2, "the help page holds " .. #rows .. " rows, not 2");
         check(rows[1][1] == "button" and rows[1][2] == L["HELP_ORDERING"],
             "1: " .. tostring(rows[1][1]) .. " " .. tostring(rows[1][2]));
+        check(rows[2][1] == "button" and rows[2][2] == L["HELP_TARGETING"],
+            "2: " .. tostring(rows[2][1]) .. " " .. tostring(rows[2][2]));
 
-        local opened;
+        local opened = {};
         local realShowHelp = DebindPrivate.DebindUI.ShowHelp;
-        DebindPrivate.DebindUI.ShowHelp = function(topic) opened = topic; end;
+        DebindPrivate.DebindUI.ShowHelp = function(topic) opened[#opened + 1] = topic; end;
         for _, row in ipairs(shim.world.settingsRows) do
             if (row.owner == subcategory and row.data.buttonClick) then
                 row.data.buttonClick();
             end
         end
         DebindPrivate.DebindUI.ShowHelp = realShowHelp;
-        check(opened == "ordering", "the press asked for " .. tostring(opened));
+        check(table.concat(opened, ",") == "ordering,targeting",
+            "the presses asked for " .. table.concat(opened, ","));
     end);
 
     --- **No unit frame row is on the top category any more.** Moving the group and leaving one row

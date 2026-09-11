@@ -109,6 +109,80 @@ return function(DebindPrivate, _, ctx)
     end
 
     ---------------------------------------------------------------------------
+    -- The client's own targeting branches
+    ---------------------------------------------------------------------------
+
+    -- **`checkmouseovercast` cannot reach a right answer on our button, so it stays off.**
+    -- `SecureButton_GetModifiedUnit` asks `C_ActionBar.IsHelpfulAction(self:CalculateAction(...))`,
+    -- and `CalculateAction` answers `1` for a button with no `GetID()` and no `action` attribute --
+    -- ours has neither. So the branch judges every Debind key by whatever sits in action bar slot
+    -- 1, never by the spell the key fires. Filling the `action` attribute in is no way out: it
+    -- would need the helpful/harmful answer the branch is being asked for.
+    --
+    -- The other two do reach a right answer -- they read `IsModifiedClick` alone and never touch a
+    -- slot -- and are checked beside it so the three are not levelled to each other by someone
+    -- restoring the symmetry (`devdocs/matching-the-clients-cast-targeting.md` §2, §2-1).
+    test("mouseover cast is off and the other two are on", function()
+        local clickFrame = DebindPrivate.DefaultClickFrame;
+        check(clickFrame:GetAttribute("checkmouseovercast") == false,
+            "checkmouseovercast: " .. tostring(clickFrame:GetAttribute("checkmouseovercast")));
+        check(clickFrame:GetAttribute("checkselfcast") == true,
+            "checkselfcast: " .. tostring(clickFrame:GetAttribute("checkselfcast")));
+        check(clickFrame:GetAttribute("checkfocuscast") == true,
+            "checkfocuscast: " .. tostring(clickFrame:GetAttribute("checkfocuscast")));
+    end);
+
+
+    -- **A target the reader chose is the whole condition for the detour.** The press comes back
+    -- with a twin button whose body switches the engine's automatic self-cast off around the real
+    -- one, and the target goes on the cast frame rather than on the wrapped click frame -- the
+    -- wrapper's own prologue would wipe it off that one.
+    --
+    -- Without the detour the same profile answers two ways: a chosen unit that exists casts and
+    -- the engine redirects it to the caster, and one that does not exist is dropped by the
+    -- client's `UnitExists` guard with nothing happening at all.
+    test("a chosen target takes the self-cast-off route", function()
+        shim.world.spells[585] = { name = "Renew" };
+        shim.world.spells[774] = { name = "Rejuvenation" };
+        shim.world.spells[8936] = { name = "Regrowth", pressAndHold = true };
+        Bind({
+            action({ value = 585, key = "F1", unit = "focus" }),
+            action({ value = 774, key = "F2" }),
+            action({ value = 8936, key = "F3", unit = "focus" }),
+        });
+
+        local clickFrame = DebindPrivate.DefaultClickFrame;
+
+        local _, chosen = interp:evalKey("F1");
+        check(clickFrame:GetAttribute("*type-" .. chosen) == "macro",
+            "a chosen target did not reach the twin: " .. tostring(chosen));
+        check(clickFrame:GetAttribute("*macrotext-" .. chosen) ==
+            '/run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
+            .. '/click DebindCastButton ' .. interp:actionButton(chosen) .. '\n'
+            .. '/run SetCVar("autoSelfCast",DebindAutoSelfCast)',
+            "the twin's body: " .. tostring(clickFrame:GetAttribute("*macrotext-" .. chosen)));
+        check(clickFrame:GetAttribute("*spell-" .. interp:actionButton(chosen)) == "Renew",
+            "the twin clicks the wrong button: " .. tostring(interp:actionButton(chosen)));
+
+        -- **The target goes on the cast frame**, because that is the one the body clicks and the
+        -- only one nothing wipes between the decision and the cast.
+        check(DebindPrivate.CastFrame:GetAttribute("unit") == "focus",
+            "the cast frame's unit: " .. tostring(DebindPrivate.CastFrame:GetAttribute("unit")));
+
+        -- **No target chosen, no detour.** The game's own rules are what the reader gets, which is
+        -- both self-cast branches and the automatic one.
+        local _, plain = interp:evalKey("F2");
+        check(clickFrame:GetAttribute("*type-" .. plain) == "spell",
+            "an untargeted spell took the detour: " .. tostring(plain));
+
+        -- **Press-and-hold keeps the direct route even with a target chosen.** A macro runs once
+        -- and the hold the gate starts on the down edge has no release to pair with inside one.
+        local _, held = interp:evalKey("F3");
+        check(clickFrame:GetAttribute("*type-" .. held) == "spell",
+            "a press-and-hold spell took the detour: " .. tostring(held));
+    end);
+
+    ---------------------------------------------------------------------------
     -- The binding types
     ---------------------------------------------------------------------------
 
@@ -130,6 +204,7 @@ return function(DebindPrivate, _, ctx)
         local function attributesOf(key)
             local _, button = interp:evalKey(key);
             check(button, key .. " picked no action");
+            button = interp:actionButton(button);
             return clickFrame:GetAttribute("*type-" .. button),
                 clickFrame:GetAttribute("*spell-" .. button)
                 or clickFrame:GetAttribute("*item-" .. button)

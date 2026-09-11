@@ -89,6 +89,12 @@ DelegateFrameNames[frame] = frame:GetName()
 	
 	DefaultClickFrame = self:GetFrameRef("clickFrame")
 	DefaultClickFrameName = DefaultClickFrame:GetName()
+	CastFrame = self:GetFrameRef("castFrame")
+
+
+
+
+	SelfCastWrappers = newtable()
 	
 	SwitchExpressions = newtable()
 
@@ -2127,7 +2133,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	return smartButton or winner.clickbutton
+	local castButton = smartButton or winner.clickbutton
+	if (unit and not (winner.pressAndHold and not smartButton)) then
+		local wrapper = SelfCastWrappers[castButton]
+		if (wrapper) then
+			CastFrame:SetAttribute("unit", unit)
+			castButton = wrapper
+		end
+	end
+	return castButton
 
 
 ### SecureBindings.lua #26 InstallSnippet (DEBUG=off)
@@ -2778,7 +2792,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 	end
 
-	return smartButton or winner.clickbutton
+	local castButton = smartButton or winner.clickbutton
+	if (unit and not (winner.pressAndHold and not smartButton)) then
+		local wrapper = SelfCastWrappers[castButton]
+		if (wrapper) then
+			CastFrame:SetAttribute("unit", unit)
+			castButton = wrapper
+		end
+	end
+	return castButton
 
 
 ### SecureBindings.lua #27 InstallSnippet
@@ -3285,7 +3307,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 		
 	end
-		return smartButton or winner.clickbutton
+	local castButton = smartButton or winner.clickbutton
+	if (unit and not (winner.pressAndHold and not smartButton)) then
+		local wrapper = SelfCastWrappers[castButton]
+		if (wrapper) then
+			CastFrame:SetAttribute("unit", unit)
+			castButton = wrapper
+		end
+	end
+		return castButton
 	
 
 ### SecureBindings.lua #29 InstallSnippet (DEBUG=off)
@@ -3773,7 +3803,15 @@ DelegateFrameNames[frame] = frame:GetName()
 		end
 		
 	end
-		return smartButton or winner.clickbutton
+	local castButton = smartButton or winner.clickbutton
+	if (unit and not (winner.pressAndHold and not smartButton)) then
+		local wrapper = SelfCastWrappers[castButton]
+		if (wrapper) then
+			CastFrame:SetAttribute("unit", unit)
+			castButton = wrapper
+		end
+	end
+		return castButton
 	
 
 ### SecureBindings.lua #30 InstallSnippet (DEBUG=on)

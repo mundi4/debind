@@ -54,6 +54,7 @@ end
 --- 도움말 한 편. 값은 로케일 열쇠이고, 이름은 `debind:help:<이름>` 링크에 그대로 들어간다.
 local HELP_TOPICS = {
     ordering = { title = "HELP_ORDERING_TITLE", body = "HELP_ORDERING_BODY" },
+    targeting = { title = "HELP_TARGETING_TITLE", body = "HELP_TARGETING_BODY" },
 };
 
 --- 도움말을 띄운다. 모르는 이름이면 아무 일도 안 한다 - 링크는 번역된 본문 안에 있어서 오타가

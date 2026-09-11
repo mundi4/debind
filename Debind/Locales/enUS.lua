@@ -106,6 +106,8 @@ L["HELP_TOPICS"] = "Help"
 -- 그 페이지의 버튼. 여는 창의 제목(`HELP_ORDERING_TITLE`)과 다른 말을 쓰면 누른 것과 열린
 -- 것이 달라 보이므로, 버튼이 물음이고 창이 그 답이 되게 맞춰 둔다.
 L["HELP_ORDERING"] = "Which action does a key run?"
+-- 두 번째 도움말 페이지의 버튼. 위와 같은 규칙으로 버튼이 물음이고 창이 답이다.
+L["HELP_TARGETING"] = "Where does an action go?"
 -- **One word, because whoever reads it already knows it.** Somebody in this window has installed a
 -- click-casting addon, and a blacklist is a list of what is left out - the polarity comes with the
 -- word and needs no sentence under it. `Unit Frame` is not repeated: the category above already
@@ -988,6 +990,28 @@ L["ORDER_BLOCKED_SPEC"] = "This action and the one next to it are never active a
 -- 바뀌어야 한다.
 L["HELP_ORDERING_TITLE"] = "Which action a key runs"
 L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met -- one of them runs, never two.|n|nSo the order of that list matters, and it is not the order you added them in. Debind decides it by taking the actions two at a time and asking four questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.|n2. |cnHIGHLIGHT_FONT_COLOR:Unit Frame.|r An action with a Unit Frame condition, over or not over, is tried before one that has none.|n3. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.|n4. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.|n|nThe left column of the Overview tab groups actions by key, and each group is in that order. When all four are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the four has already settled it, and the tooltip names which one.|n|nAll four are set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, the conditions, and |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer.|n|nStart with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. Importance is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.|n|nIf the action reaches other characters, whatever you change changes for them too."
+-- **Why this page exists at all.** Whether the game's own redirection applies to a Debind key
+-- turns on one thing -- did the reader choose a target -- and nothing on screen says so. The
+-- people who built it spent a day getting it wrong from the code, so a reader has no chance.
+--
+-- **The two self-casts are split first**, because their names differ by one word and the client's
+-- own settings panel puts them on a single row with four states. A reader who has not separated
+-- "a key I hold" from "the game fixing a cast I could not have made" cannot use anything below.
+--
+-- **Mouseover Cast is named even though the answer is "no".** Leaving it out reads as "it works
+-- like the rest": it is one of the four rows in the same client panel, so a reader who has it on
+-- will otherwise conclude the key is broken. The line that follows points at what does the same
+-- job here, or the paragraph is only bad news.
+--
+-- **Written as what the reader did**, never as what the addon stores: chose a target, pointed at a
+-- frame, turned a box off. The three branches are the same rule seen from three places, and each
+-- one is said in full rather than folded into "as above" -- a reader arrives at one of them.
+--
+-- Two labels are quoted, the Target menu's own name and the checkbox's, because both are where the
+-- reader has to go and neither can be pointed at from here any other way. Renaming either one
+-- moves this sentence with it.
+L["HELP_TARGETING_TITLE"] = "Where an action goes"
+L["HELP_TARGETING_BODY"] = "WoW has four ways to send a spell somewhere other than your current target, and they are all in the same place in the game's own settings.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Self Cast Key.|r Hold it and a friendly spell goes to you.|n2. |cnHIGHLIGHT_FONT_COLOR:Focus Cast Key.|r Hold it and the spell goes to your focus.|n3. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast.|r The spell goes to the unit under your cursor.|n4. |cnHIGHLIGHT_FONT_COLOR:Auto Self Cast.|r A friendly spell you cast with an enemy targeted, or with nothing targeted, goes to you instead.|n|nThe first three are keys you hold: you decide, at the moment you press. The fourth is not a key at all -- it is the game quietly sending a cast to you that could not have gone where you aimed it. They sit on one row in the settings and read as one thing, and telling them apart is most of this page.|n|n|cnHIGHLIGHT_FONT_COLOR:You did not pick a target for the action.|r|n|nThe Self Cast Key, the Focus Cast Key and Auto Self Cast all work, exactly as they do on an action bar.|n|nMouseover Cast does not. It is the one part of this the game cannot answer for a Debind key, so it is switched off rather than left to give a wrong answer. To send an action to the unit under the cursor, set its target to |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, which does the same job and is yours to set per action.|n|n|cnHIGHLIGHT_FONT_COLOR:You picked a target for the action.|r|n|nThe action goes to that unit and nowhere else. None of the four apply: holding the Self Cast Key or the Focus Cast Key does nothing to it, and a friendly spell aimed at an enemy does not come back to you -- it simply does not go out.|n|nThat is what picking an entry in |cnHIGHLIGHT_FONT_COLOR:Target|r means. You named where the action goes, so nothing else gets to move it. |cnHIGHLIGHT_FONT_COLOR:Disable|r is the other answer: it leaves the decision to the game, which is the case above.|n|n|cnHIGHLIGHT_FONT_COLOR:The action is used on the unit frame you are pointing at.|r|n|nThe same. Pointing at a frame is picking a target, so the action goes to that frame's unit and the four stay out of it.|n|nTurn on |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the hovered frame's unit|r and you have taken that back: the action no longer goes to the frame's unit, and the game decides again, exactly as in the first case."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"

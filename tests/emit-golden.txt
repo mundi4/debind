@@ -57,11 +57,16 @@ Execute DebindBindingDriver
   | 
 SetAttribute DebindClickButton *type-deb101 = "spell"
 SetAttribute DebindClickButton *spell-deb101 = "Regrowth(Restoration)"
+SetAttribute DebindClickButton *type-deb101-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb101-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb101
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 CreateFrame DebindFlyout66 SecureHandlerBaseTemplate
-CreateFrame <Frame#21>
-CreateFrame <Texture#22>
+CreateFrame <Frame#22>
 CreateFrame <Texture#23>
 CreateFrame <Texture#24>
+CreateFrame <Texture#25>
 CreateFrame DebindFlyout66Opener SecureHandlerClickTemplate
 SetAttribute DebindFlyout66Opener _onclick =
   | 	local holder = self:GetFrameRef("holder")
@@ -102,22 +107,22 @@ SetFrameRef DebindFlyout66Opener screen "DebindFlyoutScreen"
 CreateFrame DebindFlyout66Button1 SecureActionButtonTemplate
 SetAttribute DebindFlyout66Button1 type = "spell"
 SetAttribute DebindFlyout66Button1 useOnKeyDown = false
-CreateFrame <Texture#27>
 CreateFrame <Texture#28>
 CreateFrame <Texture#29>
 CreateFrame <Texture#30>
 CreateFrame <Texture#31>
+CreateFrame <Texture#32>
 WrapScript DebindFlyout66Button1 OnClick = " return nil, \"close\" "
 WrapScriptPost DebindFlyout66Button1 OnClick = " owner:Hide() "
 SetAttribute DebindFlyout66Button1 spell = "Call Pet 1"
 CreateFrame DebindFlyout66Button2 SecureActionButtonTemplate
 SetAttribute DebindFlyout66Button2 type = "spell"
 SetAttribute DebindFlyout66Button2 useOnKeyDown = false
-CreateFrame <Texture#33>
 CreateFrame <Texture#34>
 CreateFrame <Texture#35>
 CreateFrame <Texture#36>
 CreateFrame <Texture#37>
+CreateFrame <Texture#38>
 WrapScript DebindFlyout66Button2 OnClick = " return nil, \"close\" "
 WrapScriptPost DebindFlyout66Button2 OnClick = " owner:Hide() "
 SetAttribute DebindFlyout66Button2 spell = "Call Pet 2"
@@ -129,16 +134,36 @@ SetAttribute DebindClickButton *macro-deb103 = nil
 SetAttribute DebindClickButton *macrotext-deb103 = "/petattack"
 SetAttribute DebindClickButton *type-deb104 = "spell"
 SetAttribute DebindClickButton *spell-deb104 = "Rejuvenation"
+SetAttribute DebindClickButton *type-deb104-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb104-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb104
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindClickButton *type-deb105 = "spell"
 SetAttribute DebindClickButton *spell-deb105 = "Will of the Necropolis"
 SetAttribute DebindClickButton *typerelease-deb105 = "spell"
 SetAttribute DebindClickButton *pressAndHoldAction-deb105 = true
+SetAttribute DebindClickButton *type-deb105-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb105-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb105
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindClickButton *type-deb106 = "spell"
 SetAttribute DebindClickButton *spell-deb106 = 5176
+SetAttribute DebindClickButton *type-deb106-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb106-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb106
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindClickButton *type-deb107 = "spell"
 SetAttribute DebindClickButton *spell-deb107 = "Renew"
+SetAttribute DebindClickButton *type-deb107-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb107-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb107
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindClickButton *type-deb108 = "attribute"
-SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#8>>
+SetAttribute DebindClickButton *attribute-frame-deb108 = <frame <Frame#9>>
 SetAttribute DebindClickButton *attribute-name-deb108 = "custom1"
 SetAttribute DebindClickButton *attribute-value-deb108 = "hover"
 CreateFrame DebindClickButton_custom1 SecureActionButtonTemplate
@@ -157,10 +182,10 @@ Execute DebindBindingDriver
   | DelegateFrameNames[frame] = frame:GetName()
   | 
 CreateFrame DebindFlyout900 SecureHandlerBaseTemplate
-CreateFrame <Frame#40>
-CreateFrame <Texture#41>
+CreateFrame <Frame#41>
 CreateFrame <Texture#42>
 CreateFrame <Texture#43>
+CreateFrame <Texture#44>
 CreateFrame DebindFlyout900Opener SecureHandlerClickTemplate
 SetAttribute DebindFlyout900Opener _onclick =
   | 	local holder = self:GetFrameRef("holder")
@@ -234,8 +259,18 @@ SetAttribute DebindClickButton *type-deb110 = "spell"
 SetAttribute DebindClickButton *spell-deb110 = "Brown Horse"
 SetAttribute DebindClickButton *type-deb111 = "item"
 SetAttribute DebindClickButton *item-deb111 = "item:6948"
+SetAttribute DebindClickButton *type-deb111-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb111-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb111
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindClickButton *type-deb112 = "spell"
 SetAttribute DebindClickButton *spell-deb112 = "Rejuvenation"
+SetAttribute DebindClickButton *type-deb112-nosc = "macro"
+SetAttribute DebindClickButton *macrotext-deb112-nosc =
+  | /run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")
+  | /click DebindCastButton deb112
+  | /run SetCVar("autoSelfCast",DebindAutoSelfCast)
 SetAttribute DebindClickButton *type-deb113 = "macro"
 SetAttribute DebindClickButton *macro-deb113 = nil
 SetAttribute DebindClickButton *macrotext-deb113 =
@@ -740,6 +775,13 @@ Execute DebindBindingDriver
   | ClickTimeKeys["@SHIFT-F12"]=bindings
   | bindings.alwaysOurs=true
   | self:SetBindingClick(true,"SHIFT-F12",DefaultClickFrameName,"@SHIFT-F12")
+  | SelfCastWrappers["deb101"]="deb101-nosc"
+  | SelfCastWrappers["deb104"]="deb104-nosc"
+  | SelfCastWrappers["deb105"]="deb105-nosc"
+  | SelfCastWrappers["deb106"]="deb106-nosc"
+  | SelfCastWrappers["deb107"]="deb107-nosc"
+  | SelfCastWrappers["deb111"]="deb111-nosc"
+  | SelfCastWrappers["deb112"]="deb112-nosc"
 Execute DebindBindingDriver
   | local t
   | t=newtable()
@@ -887,28 +929,28 @@ Execute DebindBindingDriver
   | self:RunAttribute("SetSwitch", "$echo", false, true)
   | self:RunAttribute("SetSwitch", "$intent", false, true)
   | SwitchExpressions["$intent"]="[combat,nostealth]"
-CreateFrame <Button#49> SecureGroupHeaderTemplate
-SetAttribute <Button#49> alias = "healer"
-SetAttribute <Button#49> showParty = true
-SetAttribute <Button#49> showRaid = true
-SetAttribute <Button#49> showPlayer = true
-SetAttribute <Button#49> showSolo = true
-SetAttribute <Button#49> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#49> sortMethod = "NAME"
-SetAttribute <Button#49> maxColumns = 1
-SetAttribute <Button#49> unitsPerColumn = 2
-SetAttribute <Button#49> template = ""
-SetAttribute <Button#49> templateType = "Frame"
-SetAttribute <Button#49> roleFilter = "HEALER"
-SetAttribute <Button#49> showSolo = false
-CreateFrame <Button#50> SecureFrameTemplate
-SetAttribute <Button#49> child1 = <frame <Button#50>>
-SetFrameRef <Button#49> child1 "<Button#50>"
+CreateFrame <Button#50> SecureGroupHeaderTemplate
+SetAttribute <Button#50> alias = "healer"
+SetAttribute <Button#50> showParty = true
+SetAttribute <Button#50> showRaid = true
+SetAttribute <Button#50> showPlayer = true
+SetAttribute <Button#50> showSolo = true
+SetAttribute <Button#50> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#50> sortMethod = "NAME"
+SetAttribute <Button#50> maxColumns = 1
+SetAttribute <Button#50> unitsPerColumn = 2
+SetAttribute <Button#50> template = ""
+SetAttribute <Button#50> templateType = "Frame"
+SetAttribute <Button#50> roleFilter = "HEALER"
+SetAttribute <Button#50> showSolo = false
 CreateFrame <Button#51> SecureFrameTemplate
-SetAttribute <Button#49> child2 = <frame <Button#51>>
-SetFrameRef <Button#49> child2 "<Button#51>"
-SetFrameRef <Frame#8> unitwatch_header "<Button#49>"
-Execute <Frame#8>
+SetAttribute <Button#50> child1 = <frame <Button#51>>
+SetFrameRef <Button#50> child1 "<Button#51>"
+CreateFrame <Button#52> SecureFrameTemplate
+SetAttribute <Button#50> child2 = <frame <Button#52>>
+SetFrameRef <Button#50> child2 "<Button#52>"
+SetFrameRef <Frame#9> unitwatch_header "<Button#50>"
+Execute <Frame#9>
   |             local alias, from, to = "healer", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
   |             UnitwatchHeaders[alias] = header
@@ -917,8 +959,8 @@ Execute <Frame#8>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef DebindBindingDriver rolehdr_healer "<Button#49>"
-WrapScript <Button#51> OnAttributeChanged =
+SetFrameRef DebindBindingDriver rolehdr_healer "<Button#50>"
+WrapScript <Button#52> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -965,28 +1007,28 @@ Execute DebindBindingDriver
   | self:RunAttribute("SetUnit", "mainassist", nil)
 Execute DebindBindingDriver
   | self:RunAttribute("SetUnit", "maintank", nil)
-CreateFrame <Button#52> SecureGroupHeaderTemplate
-SetAttribute <Button#52> alias = "tank"
-SetAttribute <Button#52> showParty = true
-SetAttribute <Button#52> showRaid = true
-SetAttribute <Button#52> showPlayer = true
-SetAttribute <Button#52> showSolo = true
-SetAttribute <Button#52> groupingOrder = "1,2,3,4,5,6,7,8"
-SetAttribute <Button#52> sortMethod = "NAME"
-SetAttribute <Button#52> maxColumns = 1
-SetAttribute <Button#52> unitsPerColumn = 2
-SetAttribute <Button#52> template = ""
-SetAttribute <Button#52> templateType = "Frame"
-SetAttribute <Button#52> roleFilter = "TANK"
-SetAttribute <Button#52> showSolo = false
-CreateFrame <Button#53> SecureFrameTemplate
-SetAttribute <Button#52> child1 = <frame <Button#53>>
-SetFrameRef <Button#52> child1 "<Button#53>"
+CreateFrame <Button#53> SecureGroupHeaderTemplate
+SetAttribute <Button#53> alias = "tank"
+SetAttribute <Button#53> showParty = true
+SetAttribute <Button#53> showRaid = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#53> showSolo = true
+SetAttribute <Button#53> groupingOrder = "1,2,3,4,5,6,7,8"
+SetAttribute <Button#53> sortMethod = "NAME"
+SetAttribute <Button#53> maxColumns = 1
+SetAttribute <Button#53> unitsPerColumn = 2
+SetAttribute <Button#53> template = ""
+SetAttribute <Button#53> templateType = "Frame"
+SetAttribute <Button#53> roleFilter = "TANK"
+SetAttribute <Button#53> showSolo = false
 CreateFrame <Button#54> SecureFrameTemplate
-SetAttribute <Button#52> child2 = <frame <Button#54>>
-SetFrameRef <Button#52> child2 "<Button#54>"
-SetFrameRef <Frame#8> unitwatch_header "<Button#52>"
-Execute <Frame#8>
+SetAttribute <Button#53> child1 = <frame <Button#54>>
+SetFrameRef <Button#53> child1 "<Button#54>"
+CreateFrame <Button#55> SecureFrameTemplate
+SetAttribute <Button#53> child2 = <frame <Button#55>>
+SetFrameRef <Button#53> child2 "<Button#55>"
+SetFrameRef <Frame#9> unitwatch_header "<Button#53>"
+Execute <Frame#9>
   |             local alias, from, to = "tank", 1, 2
   |             local header = self:GetFrameRef("unitwatch_header")
   |             UnitwatchHeaders[alias] = header
@@ -995,8 +1037,8 @@ Execute <Frame#8>
   |                 ChildFrames[alias][i] = header:GetFrameRef("child"..i)
   |             end
   |         
-SetFrameRef DebindBindingDriver rolehdr_tank "<Button#52>"
-WrapScript <Button#54> OnAttributeChanged =
+SetFrameRef DebindBindingDriver rolehdr_tank "<Button#53>"
+WrapScript <Button#55> OnAttributeChanged =
   | if (name ~= "unit") then
   |     return
   | end
@@ -1070,8 +1112,8 @@ Execute DebindBindingDriver
   |     
 Execute DebindBindingDriver
   | ClickCastOnMouseDown=false
-SetAttribute <Button#52> showPlayer = true
-SetAttribute <Button#49> showPlayer = true
+SetAttribute <Button#53> showPlayer = true
+SetAttribute <Button#50> showPlayer = true
 SetAttribute SecureStateDriverManager updatetime = 0.2
 Execute DebindBindingDriver
   | PollEveryFrame=false

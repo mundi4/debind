@@ -463,6 +463,24 @@ end
 --- This is `EvalClickTimeKey`, the same body `/debtest` drives -- the wrapper's prologue replaced
 --- by an argument, with `EVAL_SNIPPET` itself untouched. What it cannot answer is that a real
 --- press arrives and arrives under this button name; that half stays in the game (§8).
+--- The button whose attributes fire, for a name the click path answered with.
+---
+--- **A chosen target sends the press through a twin button** whose `*macrotext-` turns the
+--- engine's automatic self-cast off around the real one (`SecureBindings.lua`'s
+--- `SELFCAST_OFF_SNIPPET`). A spec asking "which spell went out" wants the real one; a spec asking
+--- "did the target route take" reads the name `evalKey` answered with, which is the twin.
+function Interp:actionButton(clickbutton)
+    if (not clickbutton) then
+        return nil;
+    end
+    for button, wrapper in pairs(self.env.SelfCastWrappers) do
+        if (wrapper == clickbutton) then
+            return button;
+        end
+    end
+    return clickbutton;
+end
+
 function Interp:evalKey(key)
     local button = self.Constants.CLICKTIME_BUTTON_PREFIX .. key;
     local clickbutton = self.driverHandle:RunAttribute("EvalClickTimeKey", button);
@@ -471,8 +489,9 @@ function Interp:evalKey(key)
     end
 
     local records = self.env.ClickTimeKeys[button];
+    local action = self:actionButton(clickbutton);
     for i = 1, #records do
-        if (records[i].holdsKey and records[i].clickbutton == clickbutton) then
+        if (records[i].holdsKey and records[i].clickbutton == action) then
             return i, clickbutton, records[i];
         end
     end

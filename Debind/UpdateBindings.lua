@@ -57,6 +57,25 @@ do
 end
 
 local SetBindingAttributes;
+
+--- The self-cast-off twin of a button, by the button's own name. One suffix so the pair is legible
+--- in a log and in `/click`, which reads the name as one whitespace-run token.
+local SELFCAST_OFF_SUFFIX = "-nosc";
+
+--- The body that twin carries: read the reader's setting, turn it off, fire the real button,
+--- put it back. **The value is read in the body and not baked in**, so a setting changed mid-fight
+--- is the one the next press restores (`devdocs/matching-the-clients-cast-targeting.md` §2-2).
+---
+--- The global is how the two `/run` lines reach each other -- a macro body has no other scope, and
+--- the cast frame is protected from where this runs.
+local SELFCAST_OFF_BODY =
+    '/run DebindAutoSelfCast=GetCVar("autoSelfCast");SetCVar("autoSelfCast","0")\n'
+    .. '/click %s %s\n'
+    .. '/run SetCVar("autoSelfCast",DebindAutoSelfCast)';
+
+--- Every button that has one, as `button name -> twin name`. Filled by `StampBinding` and emitted
+--- whole on each rebuild, the way the buttons themselves outlive one.
+local _selfCastWrappers = {};
 local UpdateBindingsMap;
 local UpdateMacroTextsMap;
 local UpdateAttrChangedHandler;
@@ -1100,6 +1119,7 @@ local function DescribeBinding(type, value, unit, facts, out)
             out.value = nil;
             out.unit = nil;
             out.cacheKey = NIL;
+            out.castsAtUnit = false;
             out.pressAndHold = false;
             return out;
         end
@@ -1126,6 +1146,12 @@ local function DescribeBinding(type, value, unit, facts, out)
     -- here: the target goes into the macro body and the body becomes the value, so it is in the key
     -- after all. A type that cannot do that needs the key widened instead.
     out.cacheKey = value or NIL;
+
+    -- **Which actions the engine's automatic self-cast can reach**, and equally which ones may be
+    -- fired from inside a macro body -- a `macro` type nested in one does not run. The three
+    -- spec-resolved types are already rewritten to `SPELL` above, so they are in.
+    out.castsAtUnit = type == Constants.SPELL or type == Constants.ITEM
+        or type == Constants.USESLOT;
 
     if (type == Constants.SPELL) then
         attr(out, "*type-", "spell");
@@ -1256,6 +1282,22 @@ local function StampBinding(descriptor)
 
         if (descriptor.pressAndHold) then
             BindingPressHoldCache[buttonname] = true;
+        end
+
+        -- **The same action again, with the engine's automatic self-cast switched off around it.**
+        -- Stamped for every spell and item, target or no target, because the button is shared by
+        -- every binding that names the same action and only some of them choose a target
+        -- (`descriptor.cacheKey` deliberately leaves the unit out). Which of the two a press ends
+        -- at is the click path's call.
+        --
+        -- **Baked here rather than composed at the click** so the hot path neither builds a string
+        -- nor writes an attribute, and so the body is a value a spec can read.
+        if (descriptor.castsAtUnit) then
+            local wrapper = buttonname .. SELFCAST_OFF_SUFFIX;
+            clickframe:SetAttribute("*type-" .. wrapper, "macro");
+            clickframe:SetAttribute("*macrotext-" .. wrapper,
+                format(SELFCAST_OFF_BODY, DebindPrivate.CastFrameName, buttonname));
+            _selfCastWrappers[buttonname] = wrapper;
         end
 
         if (unit and unit ~= "" and not delegate) then
@@ -2410,6 +2452,14 @@ function UpdateBindingsMap()
                 appendLine("bindings.clickTimeButton=%q", clickTimeButton);
             end
         end
+    end
+
+    -- **Emitted after the key loop, because that loop is what stamps them**, and emitted whole
+    -- rather than per key: a button outlives the rebuild that stamped it (`BindingAttrsCache`), so
+    -- the pairing belongs to the click frame and not to any one key's records. Per record it would
+    -- also miss the Smart Cast branches, which are buttons of their own.
+    for _, buttonname in ipairs(sortedKeys(_selfCastWrappers, _sortedA)) do
+        appendLine("SelfCastWrappers[%q]=%q", buttonname, _selfCastWrappers[buttonname]);
     end
 
     local snippet = table.concat(_strArr, "\n");

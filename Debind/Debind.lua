@@ -30,8 +30,38 @@ local DefaultClickFrame             = CreateFrame("Button", DefaultClickFrameNam
 DefaultClickFrame:RegisterForClicks("AnyUp", "AnyDown");
 DefaultClickFrame:SetAttribute("checkselfcast", true);
 DefaultClickFrame:SetAttribute("checkfocuscast", true);
-DefaultClickFrame:SetAttribute("checkmouseovercast", true);
+-- **Off, and not missing.** `SecureButton_GetModifiedUnit` decides this branch with
+-- `C_ActionBar.IsHelpfulAction(self:CalculateAction(button))`, and `CalculateAction` answers `1`
+-- for a button with no `GetID()` and no `action` attribute -- this one has neither, and never
+-- will. So the branch would judge every Debind key by whatever sits in action bar slot 1 instead
+-- of by the spell the key fires. There is no value of `action` that fixes it: filling one in
+-- needs the helpful/harmful answer the branch is being asked for.
+--
+-- The two above read `IsModifiedClick` alone and reach a right answer, which is why they differ.
+DefaultClickFrame:SetAttribute("checkmouseovercast", false);
 DebindPrivate.DefaultClickFrame = DefaultClickFrame;
+
+-- **Where a cast with a chosen target goes out.** A binding whose target the reader picked is
+-- fired through a macro body that turns `autoSelfCast` off around it, and that body clicks this
+-- frame rather than the one above (`devdocs/matching-the-clients-cast-targeting.md` §2-2).
+--
+-- **The click wrapper is on `DefaultClickFrame`, and its prologue wipes the bare `unit`.** Sending
+-- the inner click back to that frame would clear the target the wrapper had just settled, which is
+-- the very thing this route exists to keep. Nothing wraps this frame, so what is written here
+-- stands until the cast reads it.
+--
+-- `useOnKeyDown` is pinned rather than left to the reader's CVar: the inner `/click` carries no
+-- edge, so it always arrives as up, and with the CVar on the gate's `clickAction` would be false
+-- and the cast would go nowhere with nothing said (`SecureTemplates.lua`'s 795-814, the same trap
+-- the click-cast branch pins it for).
+local CastFrameName                 = "DebindCastButton";
+local CastFrame                     = CreateFrame("Button", CastFrameName, DefaultClickFrame, "SecureActionButtonTemplate");
+CastFrame:RegisterForClicks("AnyUp", "AnyDown");
+CastFrame:SetAttribute("useparent*", true);
+CastFrame:SetAttribute("useparent-unit", false);
+CastFrame:SetAttribute("useOnKeyDown", false);
+DebindPrivate.CastFrame = CastFrame;
+DebindPrivate.CastFrameName = CastFrameName;
 
 
 do
