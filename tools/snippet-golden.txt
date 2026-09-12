@@ -652,8 +652,6 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 					local role = unitframe and unitframe.role
-					if (checkedUnit == "hover") then
-					end
 					if (not s or cond.exists ~= s.exists
 							or (cond.reaction and not cond.reaction[s.reaction])
 							or (cond.dead ~= nil and cond.dead ~= s.dead)

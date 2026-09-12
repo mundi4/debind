@@ -866,6 +866,11 @@ do
         -- **Under the unit the twin aims at, not under a fixed name.** That is what narrows the
         -- twin's box to [the unit is there] on that unit's own axis (`BuildUnitStates`), which is
         -- what lets the original take the rest.
+        --
+        -- **This replaces rather than narrows, and may only do so because the derivation refuses
+        -- an action that already carries a condition on that unit** (`TwinUnitFor`). Narrowing
+        -- here instead would be the wrong answer anyway: a reader who wrote a condition about the
+        -- unit they are pointing at has already said what that unit is for.
         if (twinCondition ~= nil) then
             conditions.units = conditions.units or {};
             conditions.units[aimedUnit] = twinCondition;
@@ -1118,6 +1123,15 @@ do
     --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
     --- is what tells the two apart (2026-09-12, owner).
     ---
+    --- **A condition already on that unit refuses the twin, and it has to be asked of the unit the
+    --- twin aims at.** The twin's own condition is written under that name (`FillBinding`), so it
+    --- would **replace** the reader's rather than narrow into it: an action aimed at `target` that
+    --- runs [when the mouseover unit is hostile] came out with a twin saying [whenever there is a
+    --- mouseover unit], which is wider than the original on that axis, so the solver deleted the
+    --- original and the key fired at whatever the cursor was over, friendly or not (measured
+    --- 2026-09-12). `original.hover ~= nil` was the same rule when `hover` was the only unit a twin
+    --- could aim at.
+    ---
     --- `hover` and `mouseover` are already the pointed unit. `none` is not "no target" but a cast
     --- that asks for one (`ActionDisplay.lua`'s `UNIT_INFO`, measured in game 2026-08-05), and the
     --- owner's call is that a target the player is about to point at is not one for a twin to take
@@ -1132,7 +1146,8 @@ do
             return nil;
         end
 
-        if (action.ignoreHoverUnit or original.hover ~= nil
+        local units = original.conditions and original.conditions.units;
+        if (action.ignoreHoverUnit or (units and units[unit] ~= nil)
                 or original.unit == "hover" or original.unit == "mouseover"
                 or original.unit == "none"
                 or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then

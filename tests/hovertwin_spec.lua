@@ -271,6 +271,42 @@ return function(DebindPrivate)
         end
     end);
 
+    --- **겨누려는 유닛에 조건이 이미 걸려 있으면 안 세운다.** 쌍둥이의 조건이 그 이름 아래
+    --- 들어가므로(`FillBinding`), 세우면 사용자가 건 조건을 **좁히는 게 아니라 덮어쓴다.**
+    --- 재 봤다(2026-09-12): 대상이 `target`이고 [마우스 밑 개체가 적대일 때]가 걸린 액션의
+    --- 쌍둥이가 그 축에서 24(적대) 대신 126(있기만 하면)으로 나왔다. 원본보다 넓으니 솔버가
+    --- 원본을 지웠고, 그 키는 커서 밑이 아군이든 적이든 그쪽으로 나갔다.
+    ---
+    --- hover 쪽은 원래부터 이 규칙이었다. 쌍둥이가 겨눌 수 있는 유닛이 하나뿐이던 동안 그것이
+    --- `original.hover ~= nil`로 적혀 있었을 뿐이다.
+    test("겨누려는 유닛에 조건이 걸려 있으면 쌍둥이가 없다", function()
+        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", nil, true } }) do
+            local unit = case[1];
+            withSwitches(case[2], case[3], function()
+                local action = spell({ unit = "target", conditions = { units = {
+                    [unit] = { reaction = Constants.REACTION_HARM } } } });
+                local list = DebindPrivate.GetBindingsForAction(action);
+                check(list[2] == nil, unit .. ": 조건이 걸린 유닛에 쌍둥이가 생겼다");
+                check(list[1].unitStates[unit] == Constants.UNITSTATE_HARM,
+                    unit .. ": 원본의 조건이 " .. tostring(list[1].unitStates[unit]));
+            end);
+        end
+    end);
+
+    --- 반대쪽. **다른** 유닛에 걸린 조건은 쌍둥이를 막지 않고, 그대로 따라간다.
+    test("다른 유닛에 걸린 조건은 쌍둥이를 안 막는다", function()
+        withSwitches(true, nil, function()
+            local action = spell({ unit = "target", conditions = { units = {
+                mouseover = { reaction = Constants.REACTION_HARM } } } });
+            local twin = DebindPrivate.GetBindingsForAction(action)[2];
+            check(twin ~= nil, "hover 쌍둥이가 없다");
+            check(twin.unitStates.mouseover == Constants.UNITSTATE_HARM,
+                "mouseover 조건이 쌍둥이에서 " .. tostring(twin.unitStates.mouseover));
+            check(twin.unitStates.hover == Constants.UNITSTATE_EXISTS,
+                "쌍둥이가 hover 축에 안 섰다");
+        end);
+    end);
+
     --- **`ignoreHoverUnit`은 hover 조건이 없을 때 [이 액션은 빼라]가 된다** (2026-09-12, 소유자).
     --- 조건이 켜져 있을 때의 [그 개체창의 개체를 안 쓴다]와 같은 필드이고, 어느 역할인지는
     --- 액션의 `hover`가 정한다.

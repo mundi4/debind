@@ -390,6 +390,13 @@ end
 local realEnumerate
 local realEnumerateAll
 local realFindLayerID
+--- What the reader had Hover Cast and Mouseover Cast set to before the run.
+---
+--- **They are isolated for the same reason the layers are.** A switch that is on gives **every**
+--- eligible action a second binding (`Misc.lua`'s `TwinUnitFor`), so every case that counts the
+--- records on a key sees each of its own actions twice and fails on a setting the case never
+--- mentioned. Measured 2026-09-12: four cases went red on a profile with one of the two on.
+local realPointedUnitCast
 
 --- The list the three stand-ins walk. Held here so a test can add the off-spec layer to it while
 --- the run is already isolated (`UseOffSpecLayer`).
@@ -404,6 +411,12 @@ local function SetIsolated(isolated)
         if not realEnumerate then
             realEnumerate = DebindPrivate.EnumerateProfileLayers
             realEnumerateAll = DebindPrivate.EnumerateAllProfileLayers
+            realPointedUnitCast = {
+                hoverCast = DebindPrivate.Options.hoverCast,
+                mouseoverCast = DebindPrivate.Options.mouseoverCast,
+            }
+            DebindPrivate.Options.hoverCast = nil
+            DebindPrivate.Options.mouseoverCast = nil
             isolatedLayers = { GetTestLayer() }
             local only = isolatedLayers
             -- **The live walk yields the first layer alone**, whatever else is in the list. That is
@@ -451,9 +464,12 @@ local function SetIsolated(isolated)
             DebindPrivate.EnumerateProfileLayers = realEnumerate
             DebindPrivate.EnumerateAllProfileLayers = realEnumerateAll
             DebindPrivate.FindLayerID = realFindLayerID
+            DebindPrivate.Options.hoverCast = realPointedUnitCast.hoverCast
+            DebindPrivate.Options.mouseoverCast = realPointedUnitCast.mouseoverCast
             realEnumerate = nil
             realEnumerateAll = nil
             realFindLayerID = nil
+            realPointedUnitCast = nil
             isolatedLayers = nil
         end
     end

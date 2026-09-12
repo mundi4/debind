@@ -791,8 +791,6 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 					-- **슬롯의 값이 nil이면 이 축은 아예 안 선다.** 답할 수 없다는 뜻이라
 					-- 조건을 걸어서 떨어뜨리면 그 키가 조용히 죽는다.
 					local role = unitframe and unitframe.role
-					if (checkedUnit == "hover") then
-					end
 					if (not s or cond.exists ~= s.exists
 							or (cond.reaction and not cond.reaction[s.reaction])
 							or (cond.dead ~= nil and cond.dead ~= s.dead)
