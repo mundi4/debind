@@ -2232,16 +2232,19 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
             return Fail(NAME, "the arrow a rule holds is live")
         end
 
+        -- **The lock, not the highlight texture.** The texture answers to where the cursor
+        -- physically is as well, and nothing here can place that; the lock is the whole of what
+        -- `OnMoveEnter` and `OnMoveLeave` set.
         local help = DebindResultPanel.ContentArea.HelpButton
         line:OnMoveEnter(up)
-        if not help:GetHighlightTexture():IsShown() then
+        if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on a locked arrow did not light the (i)")
         end
         if not HelpTip:IsShowingAny(DebindResultPanel) then
             return Fail(NAME, "the cursor on a locked arrow put no callout on the (i)")
         end
         line:OnMoveLeave()
-        if help:GetHighlightTexture():IsShown() then
+        if help:IsHighlightLocked() then
             return Fail(NAME, "the (i) stayed lit after the cursor left")
         end
         if HelpTip:IsShowingAny(DebindResultPanel) then
@@ -2257,7 +2260,7 @@ RegisterTest("Order arrows: an arrow a rule holds is dead and lights the (i)", {
             return Fail(NAME, "an arrow at the end of its group is live")
         end
         line:OnMoveEnter(down)
-        if not help:GetHighlightTexture():IsShown() then
+        if not help:IsHighlightLocked() then
             return Fail(NAME, "the cursor on the end arrow did not light the (i)")
         end
         if HelpTip:IsShowingAny(DebindResultPanel) then
@@ -5091,13 +5094,18 @@ end
 --- **The two return values are honoured** rather than the post being called unconditionally. The
 --- client runs a post body only where the pre answered a second value, and one of the cases below
 --- exists to catch us failing to answer with one.
+---
+--- **`message` is named for our post the way the client names it.** `Wrapped_OnLeave` compiles a
+--- post with the signature `self,message`; `RunFor` compiles with `self,...`, so without the line
+--- in front our own body would read `message` as a global and hand the foreign post a nil. This is
+--- the same prologue `FrameRegistry.lua` puts in front of the foreign body for the same reason.
 local function RunWrappedLeave(frame)
     SecureHandlerSetFrameRef(DebindPrivate.BindingDriver, "debindtest_hover", frame)
     SecureHandlerExecute(DebindPrivate.BindingDriver, [[
         local button = self:GetFrameRef("debindtest_hover")
         local allow, message = self:RunFor(button, self:GetAttribute("setup_onleave_wrap"))
         if (allow ~= false and message ~= nil) then
-            self:RunFor(button, self:GetAttribute("setup_onleave_post"), message)
+            self:RunFor(button, "local message = ...\n" .. self:GetAttribute("setup_onleave_post"), message)
         end
     ]])
 end
