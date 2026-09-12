@@ -190,6 +190,7 @@ L["CONDITION_INDOORS_YES"] = "While indoors"
 L["CONDITION_INDOORS"] = "Indoors"
 L["CONDITION_KNOWN"] = "Spell Known"
 L["CONDITION_KNOWN_YES"] = "While you know the spell"
+L["CONDITION_KNOWN2"] = "Spell Known (which one)"
 -- The submenu that holds the four conditions too small to hold a row of the main list each. It
 -- names no rule of its own, so it stays the plain word rather than trying to describe what is
 -- inside it.

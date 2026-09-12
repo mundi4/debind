@@ -22,6 +22,7 @@ const FILES = [
     "Debind/MenuKit.lua",
     "Debind/ActionMenuModel.lua",
     "Debind/ActionMenuNodes.lua",
+    "Debind/ActionMenuProbe.lua",
     "Debind/ActionMenuItems.lua",
     "Debind/DropDownMenus.lua",
 ];

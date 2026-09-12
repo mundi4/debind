@@ -157,7 +157,7 @@ function DebindUI.SetupEditDropdownMenu(dropdown, rootDescription, elementData)
     --- **This list is the order the condition groups are drawn in.** One name is one node; moving
     --- a group is moving its name here. Whether a node stands at all is its own `shown`.
     local conditionNodes = {
-        "HOVER", "UNITS", "GROUP", "SELFLIFE", "SPEC", "KNOWN",
+        "HOVER", "UNITS", "GROUP", "SELFLIFE", "SPEC", "KNOWN", "KNOWN2",
         "COMBAT", "SHAPESHIFT", "STEALTH", "ACTIONBAR", "MISC", "SWITCHES",
     };
     for i = 1, #conditionNodes do
