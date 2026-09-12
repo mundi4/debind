@@ -335,7 +335,7 @@ L["DISABLE"] = "Disable"
 L["DISABLE_ALL"] = "Disable All"
 L["EDIT_MACRO"] = "Edit Macro"
 L["ERROR_MESSAGE_CANNOT_SET_CUSTOM_TARGET_IN_COMBAT"] = "Cannot set a custom target by command while in combat."
-L["EXCLUDE_PLAYER_DESC"] = "Exclude self from role-based unit detection."
+L["EXCLUDE_PLAYER_DESC"] = "An action aimed at Tank, Healer, Main Tank or Main Assist goes to whoever in your group holds it, and a ticked one never resolves to you. These targets stand only while exactly one member holds them, so excluding yourself is how a tank aims at the other tank."
 L["EXCLUDE_PLAYER"] = "Exclude self"
 L["FRAMETYPE_ARENA"] = "Arena Frames"
 L["FRAMETYPE_BOSS"] = "Boss Frames"
@@ -360,24 +360,24 @@ L["GROUP_RAID"] = "When in a raid";
 -- "Ignore" named neither half, and every shorter phrasing collapses into the other half, the action
 -- not running at all, which is the one that stays.
 --
--- **One box says both halves, because one box does both jobs.** With the unit frame condition on it
--- keeps the action off that frame's unit; with the condition off it keeps the action out of Hover
--- Cast and Mouseover Cast. Which one is in force is settled by the action's own condition, so the
--- label names what is being refused instead of which case the reader is in.
+-- **One box says both halves, because one box does both jobs.** It keeps the action off the unit
+-- of a frame its own condition named, and it keeps the action out of the account-wide setting. The
+-- two are not alternatives, since an action can be in both at once, so the label names what is
+-- being refused instead of which case the reader is in.
 --
--- **"The unit you are pointing at", not "the hovered frame's unit".** Mouseover Cast reaches
--- nameplates and units in the world as well, so naming the frame would describe half of what the
--- box refuses. It is a unit either way, never the frame: an action is not used on a frame.
+-- **"The unit you are pointing at", not "the hovered frame's unit".** The account-wide setting
+-- reaches nameplates and units in the world as well, so naming the frame would describe half of
+-- what the box refuses. It is a unit either way, never the frame: an action is not used on a frame.
 --
--- The first sentence carries "unless you assign a target of your own" because the box does nothing
--- for someone who has, `GetBindingInfoForAction` filling the unit only where none is set, and the
--- menu leaves the box enabled either way.
+-- **Not "unless you assign a target of your own".** That was true of the condition's own half
+-- alone; the account-wide setting stands on an action that has a target and aims the twin at the
+-- pointed unit anyway (`Misc.lua`'s `TwinUnitFor`).
 --
 -- **The last sentence names both landing places.** With no unit assigned the game decides, which
 -- is the current target for one action and the player for another (auto self cast); naming one
 -- makes the other a lie. It cannot be phrased as what would happen with nothing under the cursor
 -- either, since in the first case the action does not run at all then.
-L["IGNORE_HOVER_UNIT_DESC"] = "With the unit frame condition on, the action is used on that frame's unit unless you assign a target of your own. With that condition off, Hover Cast and Mouseover Cast send the action at whatever you are pointing at. Check this and neither happens: the action lands where it normally would, on your current target or on you."
+L["IGNORE_HOVER_UNIT_DESC"] = "The unit you point at is used for this action: from the account setting, and from a unit frame condition you put on the action when it has no target of its own. Check this and neither happens: the action lands where it normally would, on your current target or on you."
 L["IGNORE_HOVER_UNIT"] = "Don't use the action on the unit you are pointing at"
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
@@ -1023,11 +1023,10 @@ L["CONDITIONS"] = "Conditions"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s"
 L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared (More than one unit detected)|r"
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Cleared|r"
--- **What the four boxes do, said once over them.** "Special units" named a category the reader has
--- no way to know the membership of, and it was the one header in the window in sentence case. Each
--- box turns off one role's search finding the reader, so the header can carry the whole sentence
--- and the rows are left as the four role names.
-L["SPECIAL_UNITS"] = "Don't Count Myself As"
+-- **Names what you are excluded from, because nothing else in the section can** (2026-09-12,
+-- owner). The rows are four bare target names, and nothing on screen says `Tank` there is
+-- something an action is aimed at.
+L["SPECIAL_UNITS"] = "Exclude Self from Role Targets"
 -- Title over the right-click menu's list. The list itself is tab names, so this line is what
 -- says which question they answer. Shaped like the move and copy menus' "Move to... / Copy to..."
 -- on purpose: three menus showing the same list should not each name it differently.
@@ -1088,12 +1087,13 @@ L["SPELL_PICKER_TITLE"] = "Add an Action"
 L["STATE_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
 L["STATE_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
 L["STATE_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
--- **"State driver" is Blizzard's name for the machinery and the code's, not the reader's.** What
--- the reader has in front of them is a list of conditions they wrote, and what this moves is how
--- often those are worked out again. The key keeps the old name because the option it sets is the
--- state driver's `updatetime` and the code has to go on saying so.
-L["STATE_DRIVER_UPDATE_THROTTLE"] = "Condition Update Interval"
-L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between condition updates. Some conditions, such as those about what the mouse is over, may not be updated immediately. The lower the value, the more often they are worked out again (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
+-- **Blizzard's own name for the machinery, kept.** "Condition Update Interval" was tried and reads
+-- as the interval every condition the reader wrote is worked out on, which is not what this is: it
+-- is the one timer the state driver polls on, and the conditions that answer from an event do not
+-- wait for it (2026-09-12, owner). The tooltip is what says which states are the slow ones, and it
+-- says it in full.
+L["STATE_DRIVER_UPDATE_THROTTLE"] = "State Driver Update Interval"
+L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Some states, such as those related to mouseover, may not be updated immediately. By changing this value, you can adjust the update frequency for these states. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
 -- The Switches tab. Everything below is read on that tab and nowhere else.
 --
@@ -1346,40 +1346,41 @@ L["SMART_CAST_OUT_OF_COMBAT_DESC"] = "Out of combat only, and not in a keystone 
 -- It sits on the section heading and the boxes are the rows under it, so the sentence may point at
 -- them and say where they are.
 L["SMART_CAST_DEFAULTS"] = "Smart Cast"
--- **The switch, and the one thing it has to say that clearing the four boxes would not.** Those
--- four reach only an action that follows the account setting; an action that chose its own is
--- untouched by them and is exactly what this switch is for. Without the second sentence the two
--- gestures look interchangeable and the reader picks the one that leaves half their keys casting.
---
--- "Enable <thing>" is the client's own shape for a checkbox that switches a whole feature
--- (`CAA_ENABLE_COMBAT_AUDIO_ALERTS`, `COMBAT_WARNINGS_ENABLE_LABEL`, `ALTERNATE_SCREEN_EFFECTS`),
--- and it stays positive like the four boxes under it, so unchecking it reads as "everything below
--- stops" instead of having to be turned around first.
-L["SMART_CAST_ENABLED"] = "Enable Smart Cast"
-L["SMART_CAST_ENABLED_DESC"] = "Turn this off and no key uses Smart Cast, including every action that chose its own branches. Clearing the boxes below does less: an action that chose its own goes on casting. Nothing you have set is lost either way, and turning this back on brings it all back."
+-- **Negative, because stopping it is the only thing this box does.** "Enable Smart Cast" promised
+-- the opposite: an action is what puts a key on Smart Cast, so ticking it turned nothing on, and
+-- the tooltip had to open with a paragraph undoing the label (2026-09-12, owner).
+L["SMART_CAST_ENABLED"] = "Disable Smart Cast"
+-- **The one thing it has to say that clearing the four boxes would not.** Those four reach only an
+-- action that follows the account setting; an action that chose its own is untouched by them and is
+-- exactly what this box is for. Without that clause the two gestures look interchangeable and the
+-- reader picks the one that leaves half their keys casting.
+L["SMART_CAST_ENABLED_DESC"] = "No key uses Smart Cast while this is ticked, including every action that chose its own branches."
 L["SMART_CAST_DEFAULTS_DESC"] = "The boxes below hold the account setting. An action that follows it does this; an action can choose its own instead."
--- The section holding the two switches below, and the only place the two can be read side by side.
+-- The addon's own name, since the client has none for it: the game has no notion of a unit frame an
+-- addon happens to know about. A header that spelled the feature out instead of naming it was the
+-- worse of the two (2026-09-12, owner), so the row below repeats the name rather than dropping it.
+-- **Everything true of both reaches is here, and what each reach covers is on its own entry**
+-- (2026-09-12, owner). The row between them carries nothing: it was a third tooltip saying a third
+-- piece of one explanation.
 --
--- **Both caveats sit on the heading, because both are true of either box.** Repeating them in two
--- tooltips is two copies of one rule, and a reader who ticked one box and not the other would have
--- to hover the right one to meet them.
+-- **The friendly-or-harmful sentence is the whole reason this feature stops where it does.**
+-- Nothing in the client answers that question in a way a key could act on, so the unit goes out as
+-- it is and a wrong one is silent: the spell lands on the current target, or on you, or nowhere.
+L["POINTED_UNIT_CAST"] = "Hover Cast"
+L["POINTED_UNIT_CAST_DESC"] = "The unit under your cursor is used even when the action has a target of its own; point at nothing and the action goes where it normally would.|n|nThis reaches any action you can give a target of its own, apart from a pet command. A macro or a mount is left alone.|n|nThe unit is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters."
+L["POINTED_UNIT_CAST_MODE"] = "Hover Cast Mode"
+-- **Entry names are Title Case**, which is what the client's own lists use
+-- (`SELF_CAST_AUTO_AND_KEY_PRESS`, `SETTING_EMPOWERED_SPELL_INPUT_HOLD_OPTION`).
 --
--- **The second one is the whole reason this feature stops where it does.** Nothing in the client
--- answers whether a spell is friendly or harmful in a way a key could act on, so the unit goes out
--- as it is and a wrong one is silent: the spell lands on the current target, or on you, or nowhere.
--- Without this sentence the reader has no way to find out why an attack over a friend's frame did
--- nothing.
-L["POINTED_UNIT_CAST"] = "Casting on the unit you point at"
-L["POINTED_UNIT_CAST_DESC"] = "Both of these reach spells and items only. A macro, a mount or a pet command is left alone, and so is any action you gave a target of your own.|n|nThe unit you point at is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters."
--- The addon's own name for it, since the client has none: the game has no notion of a unit frame an
--- addon happens to know about, which is exactly what this box is scoped to (2026-09-11, owner).
-L["HOVER_CAST"] = "Hover Cast"
-L["HOVER_CAST_DESC"] = "An action with no target of its own is used on the unit of the unit frame under your cursor. Away from a unit frame it goes where it normally would."
--- **The client's own name, because it is the client's own feature.** `ENABLE_MOUSEOVER_CAST` is
+-- `UNITFRAME_LABEL` is the client's word for the frames. **No "only" on it**: a dropdown says that
+-- already, and the word would have to come off again the day a third entry lands between the two.
+L["POINTED_UNIT_CAST_FRAMES"] = "Unit Frames"
+L["POINTED_UNIT_CAST_FRAMES_DESC"] = "The unit of the unit frame under your cursor. Away from a unit frame nothing is pointed at."
+-- **The client's own word, because it is the client's own reach.** `ENABLE_MOUSEOVER_CAST` is
 -- what the game calls the thing in its settings, and a Debind key is the one place it cannot do it
 -- (`HELP_TARGETING_BODY`). A second name for one behaviour would leave the reader with two.
-L["MOUSEOVER_CAST"] = ENABLE_MOUSEOVER_CAST
-L["MOUSEOVER_CAST_DESC"] = "The same, for whatever the cursor is over: a unit frame, a nameplate, or the unit itself in the world.|n|nWith both boxes on, this is the one that runs. Over a unit frame the two name one unit, and this one answers away from frames as well."
+L["POINTED_UNIT_CAST_MOUSEOVER"] = "Mouseover"
+L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] = "A unit frame, a nameplate, or the unit itself in the world. This covers the unit frames as well."
 -- **It says where to go and not which button to press.** The line has to survive that door moving
 -- again, and it already moved once: this used to name the options button on the window's title bar,
 -- which now opens the settings window rather than holding the switch itself.
@@ -1442,7 +1443,10 @@ L["UNITFRAME_CLICK_EDGE"] = "Cast When the Mouse Button Is"
 -- `%s` is the game's own wording for its keybind setting, put in where it is shown.
 L["UNITFRAME_CLICK_EDGE_DESC"] = "Blizzard's own unit frames cast when the mouse button comes back up.|n|nThe game's own setting is |cnHIGHLIGHT_FONT_COLOR:%s|r, which is the setting your keys already follow."
 L["UNITFRAME_CLICK_EDGE_DOWN"] = "Pressed"
-L["UNITFRAME_CLICK_EDGE_GAME"] = "Same as the game's setting"
+-- Title Case like every other entry in a dropdown the client draws
+-- (`SELF_CAST_AUTO_AND_KEY_PRESS`, `INTERACT_ICONS_DEFAULT`), which the one-word entries around it
+-- could not show on their own.
+L["UNITFRAME_CLICK_EDGE_GAME"] = "Same as the Game's Setting"
 L["UNITFRAME_CLICK_EDGE_UP"] = "Released"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once a session, when another addon keeps taking a unit frame back the moment Debind

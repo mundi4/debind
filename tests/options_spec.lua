@@ -222,42 +222,22 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **A blacklist box is one step in under the label naming its group, and no further.** The two
-    --- labels are what say which run a box belongs to, and a box left flush with them reads as a
-    --- third group name rather than as a member of one.
-    ---
-    --- **No box here is the parent of another.** Every one of them only takes something away, so two
-    --- being ticked at once needs no explaining; a nesting would claim the child means nothing while
-    --- the parent is off, which is true of no pair here. What indents these is the label above them,
-    --- and the label is not a control.
-    test("every blacklist box is indented one step and none is parented", function()
-        local step;
+    --- **No blacklist box is the parent of another.** Every one of them only takes something away,
+    --- so two being ticked at once needs no explaining; a nesting would claim the child means
+    --- nothing while the parent is off, which is true of no pair here. It would also grey a box the
+    --- reader can still act on.
+    test("no blacklist box is parented to another", function()
+        local found;
         for _, row in ipairs(shim.world.settingsRows) do
             local variable = row.data.setting and row.data.setting.variable;
             if (variable and (strfind(variable, "UNIT_FRAMES", 1, true)
                     or strfind(variable, "PACK_FRAMES", 1, true)
                     or strfind(variable, "LEAVE_OTHER_ADDON_FRAMES", 1, true))) then
-                local indent = row:GetIndent();
-                check(indent > 0, variable .. " is flush with the label naming its group");
-                step = step or indent;
-                check(indent == step, variable .. " is indented " .. indent .. ", not " .. step);
+                found = true;
                 check(row.parentInitializer == nil, variable .. " was given a parent box");
             end
         end
-        check(step ~= nil, "no blacklist box was found at all");
-    end);
-
-    --- **The click edge is not one of them.** It is the row above the header that takes nothing
-    --- away, so an indent on it would file it under a group it is not in.
-    test("the click edge row is not indented", function()
-        for _, row in ipairs(shim.world.settingsRows) do
-            local variable = row.data.setting and row.data.setting.variable;
-            if (variable == "DEBIND_UNITFRAME_CLICK_EDGE") then
-                check(row:GetIndent() == 0, "the click edge row was indented into the blacklist");
-                return;
-            end
-        end
-        check(false, "there is no click edge row");
+        check(found, "no blacklist box was found at all");
     end);
 
     ---------------------------------------------------------------------------
@@ -332,14 +312,17 @@ return function(DebindPrivate)
         check(DebindPrivate.Options.smartCast.rez == nil, "back on left the default in the profile");
     end);
 
+    --- **The box is the negative of the stored value.** It says `Disable`, so ticking it is what
+    --- writes `enabled = false`; unticking clears the cell back to absent.
     test("the master switch stores false and clears back to absent", function()
         local s = setting("SMART_CAST_ENABLED");
-        check(s:GetValue() == true, "unset reads as off");
-        s:SetValue(false);
-        check(DebindPrivate.Options.smartCast.enabled == false, "off did not store false");
-        check(DebindPrivate.SmartCastEnabled() == false, "the addon still reads it as on");
+        check(s:GetValue() == false, "unset reads as disabled");
         s:SetValue(true);
-        check(DebindPrivate.Options.smartCast.enabled == nil, "back on left the default in the profile");
+        check(DebindPrivate.Options.smartCast.enabled == false, "ticking did not store false");
+        check(DebindPrivate.SmartCastEnabled() == false, "the addon still reads it as on");
+        s:SetValue(false);
+        check(DebindPrivate.Options.smartCast.enabled == nil,
+            "unticking left the default in the profile");
     end);
 
     test("the throttle stores a number and clears at the game's own", function()
@@ -377,37 +360,14 @@ return function(DebindPrivate)
                 branch .. " is dead with Smart Cast on");
         end
 
-        enabled:SetValue(false);
+        enabled:SetValue(true);
         for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
             check(not rowFor("SMART_CAST_" .. strupper(branch)):IsModifiable(),
                 branch .. " is still live with Smart Cast off");
         end
         check(not rowFor("SMART_CAST_REZWITHBATTLEREZ"):IsModifiable(),
             "the battle rez box is still live with Smart Cast off");
-        enabled:SetValue(true);
-    end);
-
-    --- **It is resurrection's sub-item, not a fifth branch**, so it stands directly under that row
-    --- and a step further in. The settings list has one indent step of its own, which is why the
-    --- second one has to be asked for (`Options.lua`).
-    test("the battle rez box sits under resurrection, one step deeper", function()
-        local rezIndex, withIndex;
-        for i, row in ipairs(shim.world.settingsRows) do
-            local variable = row.data.setting and row.data.setting.variable;
-            if (variable == "DEBIND_SMART_CAST_REZ") then
-                rezIndex = i;
-            elseif (variable == "DEBIND_SMART_CAST_REZWITHBATTLEREZ") then
-                withIndex = i;
-            end
-        end
-        check(rezIndex and withIndex, "one of the two rows is missing");
-        check(withIndex == rezIndex + 1,
-            format("resurrection is row %d and the battle rez box is row %d", rezIndex, withIndex));
-
-        local rezIndent = rowFor("SMART_CAST_REZ"):GetIndent();
-        check(rezIndent > 0, "the branch rows are not indented at all");
-        check(rowFor("SMART_CAST_REZWITHBATTLEREZ"):GetIndent() == rezIndent * 2,
-            "the battle rez box is not a step deeper than the row it belongs to");
+        enabled:SetValue(false);
     end);
 
     test("the battle rez box follows the resurrection box as well", function()

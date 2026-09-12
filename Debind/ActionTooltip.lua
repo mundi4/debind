@@ -508,10 +508,12 @@ do
 						nil, true);
 				end
 
-				-- **Only where the box is doing something.** `FillBinding` reads it under
-				-- `binding.unit == nil` (`Misc.lua`), so with a target set the action was never
-				-- going to the hovered unit and a line saying so reads as a setting at work.
-				if (action.ignoreHoverUnit and action.unit == nil) then
+				-- **Shown with a target set as well.** The box was read here under
+				-- `action.unit == nil`, on the grounds that `FillBinding` only fills the unit
+				-- where none is set. It refuses the account-wide twin too (`Misc.lua`'s
+				-- `TwinUnitFor`), and that one stands on an action that has a target, so the
+				-- line was missing exactly where the box was the only thing stopping it.
+				if (action.ignoreHoverUnit) then
 					wroteValue = true;
 					addValueLine(tooltip, LLL["LINE_TOOLTIP_IGNORE_HOVER_UNIT"]);
 				end

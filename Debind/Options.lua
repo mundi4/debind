@@ -163,6 +163,57 @@ function DebindPrivate.RegisterOptionsCategory()
     WindowHeader(category);
 
     --------------------------------------------------------------------------
+    -- Hover Cast
+    --------------------------------------------------------------------------
+
+    Header(category, L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"]);
+
+    --- **One row of three, not two boxes.** The wider reach contains the narrower one whole
+    --- (`Misc.lua`'s `TwinUnitFor`), so a pair of boxes offered a combination that was
+    --- indistinguishable from one of them being on alone.
+    ---
+    --- **Two cells behind it, and only one is ever written.** The stored shape stayed as it was;
+    --- what the reader picks is which of the two is set, and `TwinUnitFor` goes on resolving a
+    --- profile that carries both.
+    local function GetPointedUnitCast()
+        if (DebindPrivate.MouseoverCastEnabled()) then
+            return "mouseover";
+        end
+        if (DebindPrivate.HoverCastEnabled()) then
+            return "hover";
+        end
+        return "off";
+    end
+
+    --- **Absent is off and is what gets stored back**, the same shape every other row on this page
+    --- writes: picking the default clears the cell rather than writing `false`, so the Defaults
+    --- button leaves nothing behind.
+    local function SetPointedUnitCast(value)
+        local options = DebindPrivate.Options;
+        options.hoverCast = nil;
+        options.mouseoverCast = nil;
+        if (value == "hover") then
+            options.hoverCast = true;
+        elseif (value == "mouseover") then
+            options.mouseoverCast = true;
+        end
+        DebindPrivate.QueueUpdateBindings();
+    end
+
+    local function PointedUnitCastOptions()
+        local container = Settings.CreateControlTextContainer();
+        container:Add("off", OFF);
+        container:Add("hover", L["POINTED_UNIT_CAST_FRAMES"], L["POINTED_UNIT_CAST_FRAMES_DESC"]);
+        container:Add("mouseover", L["POINTED_UNIT_CAST_MOUSEOVER"],
+            L["POINTED_UNIT_CAST_MOUSEOVER_DESC"]);
+        return container:GetData();
+    end
+
+    local pointedUnitCast = Proxy(category, "POINTED_UNIT_CAST", Settings.VarType.String,
+        L["POINTED_UNIT_CAST_MODE"], "off", GetPointedUnitCast, SetPointedUnitCast);
+    Settings.CreateDropdown(category, pointedUnitCast, PointedUnitCastOptions);
+
+    --------------------------------------------------------------------------
     -- Smart Cast
     --------------------------------------------------------------------------
 
@@ -190,11 +241,31 @@ function DebindPrivate.RegisterOptionsCategory()
 
     -- **The master switch first, then the account setting the four boxes hold.** Off ignores every
     -- action's option rather than clearing anything, so it is not one of the four.
+    --
+    -- **The box is the negative of the stored value.** An "Enable" box here promised the thing it
+    -- could not do: an action is what puts a key on Smart Cast, so ticking this turned nothing on
+    -- and the tooltip had to open by saying so (2026-09-12, owner). What the reader can actually
+    -- do from here is stop it, and a box that says `Disable` needs no paragraph to explain itself.
+    --- **The battle resurrection row is re-evaluated by hand from here.** A row listens to one
+    --- setting, its parent's (`SettingsListElementMixin:Init`), and that row's parent is the
+    --- resurrection box rather than this one -- so flipping this left it live over a dead feature
+    --- until something else rebuilt the list, even though its predicate had asked about this
+    --- switch all along (2026-09-12, owner). Re-applying the resurrection setting fires its
+    --- value-changed whether or not the value moved (`SettingMixin:ApplyValue`), which is the
+    --- event that row is waiting on.
+    local rezSetting;
+
     local enabled = Settings.CreateCheckbox(category,
-        Proxy(category, "SMART_CAST_ENABLED", Settings.VarType.Boolean, L["SMART_CAST_ENABLED"], true,
-            DebindPrivate.SmartCastEnabled,
+        Proxy(category, "SMART_CAST_ENABLED", Settings.VarType.Boolean, L["SMART_CAST_ENABLED"],
+            false,
+            function()
+                return not DebindPrivate.SmartCastEnabled();
+            end,
             function(value)
-                SetSmartCast("enabled", value, true);
+                SetSmartCast("enabled", not value, true);
+                if (rezSetting) then
+                    rezSetting:SetValue(rezSetting:GetValue(), true);
+                end
             end),
         L["SMART_CAST_ENABLED_DESC"]);
 
@@ -236,13 +307,23 @@ function DebindPrivate.RegisterOptionsCategory()
     for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
         local initializer = SmartCastCheckbox(branch, branchLabels[branch], branchTooltips[branch]);
         initializer:SetParentInitializer(enabled, DebindPrivate.SmartCastEnabled);
-        initializer:Indent();
+
+        --- **The parent is here for the greying, not to make these sub-rows.** Being somebody's
+        --- child is what indents a row and shrinks its font, both off this one answer
+        --- (`Blizzard_SettingControls.lua`, `GetIndent` and `SettingsListElementMixin:Init`), so
+        --- saying no here is what leaves them level with the box above and in the same type.
+        --- Dropping the `Indent()` call moved neither, since `Indent()` was never what put them in.
+        initializer.IsParentInitializerInLayout = function()
+            return false;
+        end
 
         --- **Directly under resurrection and a step further in.** It is not a fifth branch: it
         --- says what the resurrection branch may reach for where the class has no resurrection out
         --- of combat, so it belongs to that row. It needs both that row and the switch above to be
         --- on, which is why the predicate asks for two things and not one.
         if (branch == "rez") then
+            rezSetting = initializer:GetSetting();
+
             local withBattleRez = SmartCastCheckbox("rezWithBattleRez",
                 L["SMART_CAST_REZ_WITH_BATTLE_REZ"], L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
             withBattleRez:SetParentInitializer(initializer, function()
@@ -250,59 +331,15 @@ function DebindPrivate.RegisterOptionsCategory()
                     and true or false;
             end);
             withBattleRez:Indent();
-
-            --- **The settings list has one indent step, and this row is the second one.**
-            --- `GetIndent` answers `indentSize` or `0` and nothing between
-            --- (`Blizzard_SettingControls.lua`), so a row two levels deep has to say so itself.
-            --- The step is read back off `Indent()` rather than written down here, so the day
-            --- Blizzard moves it this row moves with it.
-            local step = withBattleRez:GetData().indent;
-            withBattleRez.GetIndent = function()
-                return step * 2;
-            end
         end
     end
 
     --------------------------------------------------------------------------
-    -- Casting on the unit you point at
+    -- Exclude self from role targets
     --------------------------------------------------------------------------
 
-    Header(category, L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"]);
-
-    --- **Absent is off and is what gets stored back**, the same shape every other box on this page
-    --- writes: turning one off clears the cell rather than writing `false`, so the Defaults button
-    --- leaves nothing behind.
-    local function SetPointedUnitCast(key, value)
-        DebindPrivate.Options[key] = value or nil;
-        DebindPrivate.QueueUpdateBindings();
-    end
-
-    Settings.CreateCheckbox(category,
-        Proxy(category, "HOVER_CAST", Settings.VarType.Boolean, L["HOVER_CAST"], false,
-            DebindPrivate.HoverCastEnabled,
-            function(value)
-                SetPointedUnitCast("hoverCast", value);
-            end),
-        L["HOVER_CAST_DESC"]);
-
-    --- **Not locked while Hover Cast is off, and not indented under it.** The two are alternatives
-    --- rather than a switch and its branches: this one stands on its own, and where both are on it
-    --- is the one that runs (`Misc.lua`'s `TwinUnitFor`).
-    Settings.CreateCheckbox(category,
-        Proxy(category, "MOUSEOVER_CAST", Settings.VarType.Boolean, L["MOUSEOVER_CAST"], false,
-            DebindPrivate.MouseoverCastEnabled,
-            function(value)
-                SetPointedUnitCast("mouseoverCast", value);
-            end),
-        L["MOUSEOVER_CAST_DESC"]);
-
-    --------------------------------------------------------------------------
-    -- Don't Count Myself As
-    --------------------------------------------------------------------------
-
-    --- **The sentence is on the header and the four rows are just the role names.** Every box says
-    --- the same thing about a different role, so repeating it four times is four copies of one
-    --- line; on the header it is read once, over the rows it covers.
+    --- **The direction is on the header, not on each box.** Every box says the same thing about a
+    --- different target, so putting it on each is four copies of one line.
     Header(category, L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
 
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;

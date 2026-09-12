@@ -949,9 +949,7 @@ function M.install()
         end
         function initializer:AddSearchTags() end
         function initializer:GetData() return self.data; end
-        --- **`15` is `indentSize` in `Blizzard_SettingControls.lua`**, and the value matters here
-        --- rather than the fact: `Options.lua` reads it back off `Indent()` to put one row two
-        --- steps in, so a stand-in that stored `true` would hide a row landing in the wrong place.
+        --- `15` is `indentSize` in `Blizzard_SettingControls.lua`.
         function initializer:Indent() self.data.indent = 15; end
         function initializer:GetIndent()
             return self.data.indent and 15 or 0;

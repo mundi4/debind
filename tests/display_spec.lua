@@ -158,6 +158,23 @@ return function(DebindPrivate)
             "the reader's own life line was marked for another unit's contradiction");
     end);
 
+    --- **`ignoreHoverUnit` is drawn on an action that has a target of its own.** The line used to
+    --- be gated on the action having none, on the grounds that the box only kept a unit out of an
+    --- empty slot; it also refuses the account-wide twin (`Misc.lua`'s `TwinUnitFor`), which is a
+    --- thing it does exactly for an action that has a target. The reader saw no line on the one
+    --- action where the box was the only thing stopping the cast from following the cursor.
+    test("the ignore line is drawn on an action that has a target of its own", function()
+        Bind({
+            { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "focus",
+                ignoreHoverUnit = true, conditions = { units = { hover = {} } } },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row, "the action is not on the key");
+        check(Says(row, "LINE_TOOLTIP_IGNORE_HOVER_UNIT"),
+            "the box is on and nothing says so: " .. Tooltip(row));
+    end);
+
 
     ---------------------------------------------------------------------------
     -- Unreachable, and the row that covers it

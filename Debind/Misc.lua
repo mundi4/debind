@@ -1091,7 +1091,7 @@ do
         return any and out or nil;
     end
 
-    --- The two account-wide switches that send an action at whatever the reader is pointing at.
+    --- The two account-wide cells that send an action at whatever the reader is pointing at.
     --- Absent means off: this arrived after `v3.5.2` and nobody's profile carries a cell for it, so
     --- a profile written before it reads as off rather than as the feature turning itself on.
     function DebindPrivate.HoverCastEnabled()
@@ -1121,10 +1121,6 @@ do
 
     --- Which unit the derived binding aims at, or nil where none is wanted.
     ---
-    --- **Mouseover wins where both switches are on.** Over a unit frame the two name one unit, and
-    --- `mouseover` answers away from frames as well, so a second twin could only repeat the first
-    --- (2026-09-12, owner).
-    ---
     --- **`ignoreHoverUnit` on an action with no hover condition takes it out of the feature.** The
     --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
     --- is what tells the two apart (2026-09-12, owner).
@@ -1149,13 +1145,10 @@ do
     --- owner's call is that a target the player is about to point at is not one for a twin to take
     --- (2026-09-06).
     ---
-    --- **`ignoreHoverUnit` on an action with no hover condition takes it out of the feature.** The
-    --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
-    --- is what tells the two apart (2026-09-12, owner).
-    ---
-    --- **Mouseover wins where both switches are on.** Over a unit frame the two name one unit, and
-    --- `mouseover` answers away from frames as well, so a second twin could only repeat the first
-    --- (2026-09-12, owner).
+    --- **Mouseover wins where both cells are set.** The settings row is one choice of three and
+    --- writes only one of them (`Options.lua`), and this is why it can be: over a unit frame the
+    --- two name one unit, and `mouseover` answers away from frames as well, so a second twin could
+    --- only repeat the first (2026-09-12, owner).
     local function TwinUnitFor(action, original)
         local unit;
         if (DebindPrivate.MouseoverCastEnabled()) then
