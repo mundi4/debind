@@ -424,7 +424,7 @@ local function GetActionTypeAndValueFromCursorInfo()
 
 	if (cursorType) then
 		if (cursorType == "spell") then
-			type, value = Constants.SPELL, DebindPrivate.ResolveBaseSpell(cursorInfo3);
+			type, value = Constants.SPELL, DebindPrivate.ClimbBaseSpell(cursorInfo3);
 		elseif (cursorType == "macro") then
 			-- **The cursor carries a slot number, and an action may only carry a name**
 			-- (`GetMissingMacroName`). A number is a position in a name-ordered list, so

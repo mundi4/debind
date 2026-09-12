@@ -21,7 +21,6 @@ local wipe, ipairs, pairs, tinsert, sort = wipe, ipairs, pairs, tinsert, sort;
 local gmatch                             = string.gmatch;
 local band, bor                          = bit.band, bit.bor;
 local InCombatLockdown                   = InCombatLockdown;
-local FindBaseSpellByID                  = C_SpellBook.FindBaseSpellByID;
 local GetSpellNameAndIconID              = DebindPrivate.GetSpellNameAndIconID;
 local GetSpellSubtext                    = C_Spell.GetSpellSubtext;
 local UnitGroupToCells                   = DebindPrivate.UnitGroupToCells;
@@ -1047,10 +1046,15 @@ local function CollectBindingFacts(type, value, unit, facts)
     elseif (type == Constants.FLYOUT) then
         facts.flyoutOpener = DebindPrivate.GetFlyoutOpener(value);
     elseif (type == Constants.SPELL) then
-        -- id는 다르지만 이름은 같은 주문들이 있다.
-        -- 예: 조화 전문화의 달빛야수 변신과 회복 전문화의 달빛야수 변신
-        -- id로 바인딩하는 경우 다른 전문화의 주문은 실행되지 않음.
-        local spellID = FindBaseSpellByID(value) or value;
+        -- **The name comes off the base and not off the stored id.** A talent version's name only
+        -- exists while that talent is taken, so a button carrying it goes dead the moment the
+        -- reader drops the talent; the base's name casts the talent version when it is taken and
+        -- the plain one when it is not.
+        --
+        -- `ResolveBaseSpell` and not `FindBaseSpellByID`: the client places a stored id only while
+        -- the talent combination that created it still stands, and the name index is what reaches
+        -- the base after that (`Spells.lua`).
+        local spellID = DebindPrivate.ResolveBaseSpell(value);
         facts.spellID = spellID;
         facts.spellName = GetSpellNameAndIconID(spellID);
         if (facts.spellName) then
@@ -1759,13 +1763,14 @@ local function PrepareKeyBindings(key, bindingArray)
         -- says nothing about either. `base` is resolved the same way the bake resolves it, so the
         -- row says what `*spell-`'s name was taken from.
         --
-        -- **The base moves with the talent build.** Both resolvers read the tree rather than the
-        -- spell data: 390414 answers 194223 only while the three talents that make it
-        -- (`Celestial Alignment`, `Orbital Strike`, `Incarnation: Chosen of Elune`) are all taken,
-        -- and answers itself otherwise. So an action that stored 390414 cannot be traced back to
-        -- what it was once the build changes.
+        -- **`ResolveBaseSpell` and not a bare client call, so this row says what the bake used.**
+        -- The client places 390414 at 194223 only while the three talents that make it
+        -- (`Celestial Alignment`, `Orbital Strike`, `Incarnation: Chosen of Elune`) are all taken
+        -- and answers the id back otherwise; the name index is what carries it the rest of the way
+        -- (`Spells.lua`). A row showing the client's answer alone would disagree with the button
+        -- exactly where this dump is worth reading.
         if (DEBUG and binding.type == Constants.SPELL) then
-            local base = FindBaseSpellByID(bindingValue) or bindingValue;
+            local base = DebindPrivate.ResolveBaseSpell(bindingValue);
             tinsert(DebindPrivate.SpellFacts, {
                 key = binding.key,
                 stored = bindingValue,

@@ -729,6 +729,10 @@ function M.install()
     end;
     _G.C_Spell = {
         GetSpellInfo = function(spellID) return M.world.spells[spellID]; end,
+        GetSpellName = function(spellID)
+            local spell = M.world.spells[spellID];
+            return spell and spell.name;
+        end,
         GetSpellSubtext = function(spellID)
             local spell = M.world.spells[spellID];
             return spell and spell.subtext;

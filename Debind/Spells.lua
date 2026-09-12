@@ -5,17 +5,67 @@ local GetSpellSubtext = C_Spell.GetSpellSubtext;
 local Spells = {};
 DebindPrivate.Spells = Spells;
 
+--- The topmost spell this one replaces, and how many steps away it is. **A loop and not one
+--- call**, because one step is only known to reach one level and an id two levels down would keep
+--- the level between. `seen` is what stops a pair that answers each other from spinning; the cap
+--- is the same belt for a longer cycle.
+local function Climb(spellID, FindBaseSpellByID)
+    local seen = {};
+    for depth = 0, 8 do
+        if (seen[spellID]) then
+            return spellID, depth;
+        end
+        seen[spellID] = true;
+        local base = FindBaseSpellByID(spellID);
+        if (not base or base == spellID) then
+            return spellID, depth;
+        end
+        spellID = base;
+    end
+    return spellID, 8;
+end
+
+--- What one walk is filling in. Two indexes over the same set of ids -- every spell this
+--- specialization can obtain -- so the walk runs once and answers both questions.
+---
+---   learnLevelBySpellID   `spellID -> level`, for `[known:]` (below)
+---   obtainableIDsByName   `name -> { spellID, ... }`, for `ResolveBase` (below)
+---   nameAsked             ids already put to `GetSpellName`. `AddSpellBook` files one id under
+---                         three keys and the merge meets it again, so without this the same id
+---                         stands in a list twice and costs a client call each time.
+local function NewWalk()
+    return { learnLevelBySpellID = {}, obtainableIDsByName = {}, nameAsked = {} };
+end
+
+local function RecordName(out, api, spellID)
+    if (out.nameAsked[spellID]) then
+        return;
+    end
+    out.nameAsked[spellID] = true;
+    local name = api.GetSpellName(spellID);
+    if (not name) then
+        return;
+    end
+    local ids = out.obtainableIDsByName[name];
+    if (not ids) then
+        ids = {};
+        out.obtainableIDsByName[name] = ids;
+    end
+    ids[#ids + 1] = spellID;
+end
+
 --- The higher level wins when two walks name the same spell, because a level the character has
 --- not reached yet is the one thing that can still flip the answer inside a fight. Merging the
 --- other way would bake a `false` that a level-up undoes with no rebuild behind it.
-local function Record(out, spellID, level)
+local function Record(out, api, spellID, level)
     if (not spellID) then
         return;
     end
-    local existing = out[spellID];
+    local existing = out.learnLevelBySpellID[spellID];
     if (existing == nil or level > existing) then
-        out[spellID] = level;
+        out.learnLevelBySpellID[spellID] = level;
     end
+    RecordName(out, api, spellID);
 end
 
 --- Spells learned by levelling. Level does not go down, so one of these is unforgettable once it
@@ -42,11 +92,11 @@ local function AddSpellBook(out, api)
                     -- row that is not a spell, and 0 is true in Lua. One of those filed as
                     -- "level 0" is fixed for good, so a binding on a spell whose id it collides
                     -- with has its `[known:]` answer nailed down for the rest of the rebuild.
-                    Record(out, info.spellID, level);
+                    Record(out, api, info.spellID, level);
                     if (info.itemType == Enum.SpellBookItemType.Spell) then
-                        Record(out, info.actionID, level);
+                        Record(out, api, info.actionID, level);
                     end
-                    Record(out, info.spellID and api.FindBaseSpellByID(info.spellID), level);
+                    Record(out, api, info.spellID and api.FindBaseSpellByID(info.spellID), level);
                 end
             end
         end
@@ -76,9 +126,9 @@ local function AddTraits(out, api)
                 local definition = entry and entry.definitionID
                     and api.GetDefinitionInfo(entry.definitionID);
                 if (definition) then
-                    Record(out, definition.spellID, 0);
+                    Record(out, api, definition.spellID, 0);
                     -- The base spell this one replaces: taking the talent moves *its* answer.
-                    Record(out, definition.overriddenSpellID, 0);
+                    Record(out, api, definition.overriddenSpellID, 0);
                 end
             end
         end
@@ -97,29 +147,81 @@ local function AddPvpTalents(out, api)
         for i = 1, (available and #available or 0) do
             local talent = api.GetPvpTalentInfo(available[i]);
             if (talent) then
-                Record(out, talent.spellID, 0);
+                Record(out, api, talent.spellID, 0);
             end
         end
         slot = slot + 1;
     end
 end
 
---- Which spells' `[known:]` answer cannot move before the next rebuild
+--- One walk over every spell this specialization can obtain -- **learned or not**, since a talent
+--- nobody picked is exactly what moves once somebody picks it -- returning the two indexes over
+--- it.
+---
+--- First: which spells' `[known:]` answer cannot move before the next rebuild
 --- (`devdocs/baking-the-known-condition.md`). `spellID -> level`: the answer is fixed once the
 --- character has reached that level, and `0` is a spell whose answer never depended on level.
 ---
---- **The table says only that the answer is fixed, never what it is.** What it is gets measured
+--- **That table says only that the answer is fixed, never what it is.** What it is gets measured
 --- with `SecureCmdOptionParse` at the bake, against the same string the snippet would have used,
 --- so nothing here re-implements `[known:]`.
+---
+--- Second: `name -> { spellID, ... }`, what `ResolveBase` walks back through when the client can
+--- no longer place a stored id.
 ---
 --- `api` holds every client call this walk makes, in one table so a spec can hand it a world of
 --- its own.
 function Spells.Build(api)
-    local out = {};
+    local out = NewWalk();
     AddSpellBook(out, api);
     AddTraits(out, api);
     AddPvpTalents(out, api);
-    return out;
+    return out.learnLevelBySpellID, out.obtainableIDsByName;
+end
+
+--- The same walk, turned the other way up: `뿌리 spellID -> { spellID, ... }`, every spell this
+--- specialization can obtain grouped under the one it ultimately replaces. The root stands in its
+--- own list.
+---
+--- **What it is for is the `known` row's choices.** A reader who stored one branch has to be
+--- offered the whole family to pick a question from, and one stored id reaches all of it: up to
+--- the root with `ResolveBase`, then out through this table.
+---
+--- **Ordered root first and then by depth**, because the family is a chain and the rows should
+--- read as one. Equal depth falls back to the id, which is not meaningful in itself -- it is there
+--- so two walks of the same world cannot hand the reader the rows in a different order.
+---
+--- **Built on demand and not kept.** Only a menu asks, a menu opening is not a hot path, and a
+--- third cache would be a third thing to invalidate. Walking again also means a menu cannot
+--- inherit a half-filled walk from login (`EnsureWalked` turns away an empty one, not a short
+--- one).
+function Spells.BuildBranches(api)
+    local out = NewWalk();
+    AddSpellBook(out, api);
+    AddTraits(out, api);
+    AddPvpTalents(out, api);
+
+    local byRoot, depths = {}, {};
+    for spellID in pairs(out.learnLevelBySpellID) do
+        local root, depth = Climb(spellID, api.FindBaseSpellByID);
+        local list = byRoot[root];
+        if (not list) then
+            list = {};
+            byRoot[root] = list;
+        end
+        list[#list + 1] = spellID;
+        depths[spellID] = depth;
+    end
+
+    for _, list in pairs(byRoot) do
+        table.sort(list, function(a, b)
+            if (depths[a] ~= depths[b]) then
+                return depths[a] < depths[b];
+            end
+            return a < b;
+        end);
+    end
+    return byRoot;
 end
 
 local function LiveAPI()
@@ -138,37 +240,62 @@ local function LiveAPI()
         GetDefinitionInfo = C_Traits.GetDefinitionInfo,
         GetPvpTalentSlotInfo = C_SpecializationInfo.GetPvpTalentSlotInfo,
         GetPvpTalentInfo = C_SpecializationInfo.GetPvpTalentInfo,
+        GetSpellName = C_Spell.GetSpellName,
     };
 end
 
-local cached, cachedSpec;
+--- What `Spells.Build` last answered, and the specialization it was standing in when it did.
+--- **`walkedSpecIndex` is `GetSpecialization`'s index and not a specialization id**, which is what
+--- `SpecSpells.lua` keys its tables by; the two are different numbers for the same thing.
+local learnLevelBySpellID, obtainableIDsByName, walkedSpecIndex;
 
---- **Kept per specialization and not per level.** What the table holds is the level a spell is
---- learned at rather than whether it has been, so levelling cannot make it stale. Talent picks
+--- **Kept per specialization and not per level.** What the level table holds is the level a spell
+--- is learned at rather than whether it has been, so levelling cannot make it stale. Talent picks
 --- cannot either: the question is whether a spell comes from the tree at all, which is a property
 --- of the tree. `GetActiveConfigID` answers for the active specialization only, and reaching
 --- another one means switching to it, which is a specialization this cache has not met yet.
---- **An empty table is not kept.** Every character has spells, so nothing in it means the client
+--- **An empty walk is not kept.** Every character has spells, so nothing in it means the client
 --- had not answered yet rather than that there is nothing to hold, and keeping that would settle
 --- the answer for the rest of the specialization. Walking again next rebuild costs one walk in a
 --- case that should not happen.
-function Spells.GetTable()
-    local spec = C_SpecializationInfo.GetSpecialization() or 0;
-    if (cached == nil or cachedSpec ~= spec) then
-        local built = Spells.Build(LiveAPI());
-        if (next(built) == nil) then
-            return built;
+local function EnsureWalked()
+    local specIndex = C_SpecializationInfo.GetSpecialization() or 0;
+    if (learnLevelBySpellID == nil or walkedSpecIndex ~= specIndex) then
+        local levels, byName = Spells.Build(LiveAPI());
+        if (next(levels) == nil) then
+            return levels, byName;
         end
-        cached = built;
-        cachedSpec = spec;
+        learnLevelBySpellID = levels;
+        obtainableIDsByName = byName;
+        walkedSpecIndex = specIndex;
     end
-    return cached;
+    return learnLevelBySpellID, obtainableIDsByName;
+end
+
+--- `spellID -> the level it is learned at`, for every spell this specialization can obtain.
+function Spells.GetLearnLevels()
+    return (EnsureWalked());
+end
+
+--- `name -> { spellID, ... }`, for every spell this specialization can obtain. **One name holds
+--- several ids**: a talent version and the spell it replaces share theirs, which is the whole
+--- reason this index is worth keeping.
+function Spells.GetObtainableIDsByName()
+    local _, byName = EnsureWalked();
+    return byName;
+end
+
+--- `BuildBranches` against the client. **A fresh walk every call**, so it is for a menu and not
+--- for a rebuild. A stored id reaches its own family by way of `ResolveBaseSpell`, whose answer
+--- is the key into this.
+function Spells.GetBranches()
+    return Spells.BuildBranches(LiveAPI());
 end
 
 --- Whether this spell's `[known:]` answer can still move before the next rebuild. A spell in the
 --- table but below its level is **not** fixed: a level-up flips it with no rebuild behind it.
 local function IsFixed(spellID)
-    local level = spellID and Spells.GetTable()[spellID];
+    local level = spellID and Spells.GetLearnLevels()[spellID];
     return level ~= nil and level <= (UnitLevel("player") or 0);
 end
 
@@ -228,20 +355,90 @@ end
 --- what it was. **So it has to be resolved on the way in, not on the way out.**
 ---
 --- **A loop and not one call**, because one step is only known to reach one level and an id two
---- levels down would keep the level between. `seen` is what stops a pair that answers each other
---- from spinning; the cap is the same belt for a longer cycle.
-function DebindPrivate.ResolveBaseSpell(spellID)
-    local seen = {};
-    for _ = 1, 8 do
-        if (not spellID or seen[spellID]) then
+--- levels down would keep the level between. `Climb` is at the top of this file.
+
+--- **Measured in game, 2026-09-12, on 390414** (`Incarnation: Chosen of Elune` under
+--- `Celestial Alignment` + `Orbital Strike`): with `Orbital Strike` taken,
+--- `C_SpellBook.FindBaseSpellByID`, `C_Spell.GetBaseSpell` and the global `FindBaseSpellByID` all
+--- answer 194223; with it untaken all three answer 390414 back, and `GetOverrideSpell` answers
+--- 390414 in both. So the climb above resolves the id **only while the talent combination that
+--- created it still stands**, and a stored id outlives that.
+---
+--- **The name is what is left.** 390414 carries the same name as 102560, which the talent walk
+--- still puts in the index, and climbing from there reaches 194223.
+---
+--- **The climb answers the id back in two different situations and the client cannot tell them
+--- apart**: a spell that simply is its own root, and one whose build is gone. The index is what
+--- separates them. It holds every id this specialization can obtain, so an id **in** it that
+--- answers itself is the root and is left alone; one that is **not** in it is the orphan, and
+--- only that one goes looking under its name.
+---
+--- Without that split the detour fires on every ordinary spell, and any namesake in the index
+--- takes the binding over.
+---
+--- Among several ids under one name, the first that climbs anywhere wins. **Which one that is
+--- does not reach the cast**: they share a name and the name is what goes on the button
+--- (`ComposeSpellCastName`). It does reach `[known:]` and the icon, and neither has a rule saying
+--- which of them the reader meant -- see `devdocs/resolving-a-stored-spell-id.md`.
+---
+--- **The client's answer and nothing else.** For an id that is already standing this is the whole
+--- of the question, and it is what a caller holding a **fresh** id wants: one that just came out
+--- of the spellbook or off the cursor cannot have lost its build, so there is nothing for the
+--- detour below to repair.
+---
+--- **It is also the only safe call for an id the index does not cover.** `AddSpellBook` walks the
+--- player bank alone, so a pet ability and a flyout slot are missing from the index for a reason
+--- that has nothing to do with a lost talent -- and `ResolveBase` reads every absence as a lost
+--- talent. A warlock's imp casts `Singe Magic` and so does the player under Grimoire of Sacrifice
+--- (`SpecSpells.lua`); through `ResolveBase` the pet row comes back holding the player's id.
+function Spells.ClimbBase(spellID, api)
+    if (not spellID) then
+        return spellID;
+    end
+    return (Climb(spellID, api.FindBaseSpellByID));
+end
+
+--- `api` the way `Spells.Build` takes it, plus the index that walk made.
+function Spells.ResolveBase(spellID, api)
+    if (not spellID) then
+        return spellID;
+    end
+    local climbed = Climb(spellID, api.FindBaseSpellByID);
+    if (climbed ~= spellID) then
+        return climbed;
+    end
+    local name = api.GetSpellName(spellID);
+    local ids = name and api.obtainableIDsByName[name];
+    for i = 1, (ids and #ids or 0) do
+        if (ids[i] == spellID) then
             return spellID;
         end
-        seen[spellID] = true;
-        local base = C_SpellBook.FindBaseSpellByID(spellID);
-        if (not base or base == spellID) then
-            return spellID;
+    end
+    for i = 1, (ids and #ids or 0) do
+        local candidate = ids[i];
+        climbed = Climb(candidate, api.FindBaseSpellByID);
+        if (climbed ~= candidate) then
+            return climbed;
         end
-        spellID = base;
     end
     return spellID;
+end
+
+local _resolveAPI = {
+    FindBaseSpellByID = function(spellID) return C_SpellBook.FindBaseSpellByID(spellID); end,
+    GetSpellName = function(spellID) return C_Spell.GetSpellName(spellID); end,
+};
+
+--- **For a stored id**: one read back out of SavedVariables, which may have been written under a
+--- talent build that is gone. Walks the name index where the client has nothing left to say.
+function DebindPrivate.ResolveBaseSpell(spellID)
+    _resolveAPI.obtainableIDsByName = Spells.GetObtainableIDsByName();
+    return Spells.ResolveBase(spellID, _resolveAPI);
+end
+
+--- **For an id that just came from the client**: a spellbook row, a flyout slot, the cursor. It is
+--- standing by definition, so the climb is the whole answer and the name index is not consulted --
+--- which is what keeps a pet ability from being re-rooted onto a player spell of the same name.
+function DebindPrivate.ClimbBaseSpell(spellID)
+    return Spells.ClimbBase(spellID, _resolveAPI);
 end
