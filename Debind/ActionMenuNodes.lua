@@ -340,7 +340,16 @@ local function BuildHoverMenu(kit, ctx)
         kit.handlers.equals, kit.handlers.set,
         { ctx = ctx, key = "ignoreHoverUnit", value = MenuKit.TOGGLE });
     SetInstructionTooltip(ignoreHoverUnit, LLL["IGNORE_HOVER_UNIT_DESC"]);
-    ignoreHoverUnit:SetEnabled(hoverIsOn);
+    --- **One box, two jobs, and the radios above decide which** (2026-09-12, owner). With the
+    --- condition on it keeps the action off the frame's unit; with no condition at all it keeps the
+    --- action out of Hover Cast and Mouseover Cast (`Misc.lua`'s `TwinUnitFor`).
+    ---
+    --- **[안 올렸을 때] is the one that locks it.** That action does not run over a frame, so there
+    --- is no frame's unit to refuse -- and it is not left out of anything either, since no twin is
+    --- made for it in the first place.
+    ignoreHoverUnit:SetEnabled(function()
+        return UnitConditionMode(ctx, "hover") ~= "absent";
+    end);
 end
 
 ActionMenus:Define("HOVER", {

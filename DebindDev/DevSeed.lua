@@ -107,9 +107,9 @@ SEEDS[5] = function(guid)
                 { type = Constants.SETCUSTOM, value = 1, key = "SHIFT-F6", seq = 1 },
                 --- Click casting, so the frame menu and the hover half of the tooltip have a row.
                 --- Three fields ride along here because this is the only row they can sit on: the
-                --- menu enables `ignoreHoverUnit` and the frame-type boxes only while a hover
-                --- condition is on (`DropDownMenus.lua`), and `GetBindingInfoForAction` drops
-                --- both outright on a binding that does not hover.
+                --- menu enables the frame-type boxes only while a hover condition is on
+                --- (`ActionMenuNodes.lua`), and `GetBindingInfoForAction` drops them and
+                --- `ignoreHoverUnit` outright on a binding that does not hover.
                 ---
                 --- `frameTypes` is short of every bit on purpose - all-on is normalised back to
                 --- nil, so a full mask would draw no line at all. `dead` is the life axis, and

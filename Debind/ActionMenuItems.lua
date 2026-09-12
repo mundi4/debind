@@ -16,7 +16,6 @@ local OnActionValueChanged           = ActionMenu.OnActionValueChanged;
 local actionValueEquals              = ActionMenu.actionValueEquals;
 local setActionValue                 = ActionMenu.setActionValue;
 local CreateUnitConditionSubmenu     = ActionMenu.CreateUnitConditionSubmenu;
-local PreferHoverUnitLockReason      = ActionMenu.PreferHoverUnitLockReason;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local USE_CHECKED_VALUE              = ActionMenu.USE_CHECKED_VALUE;
 local GetTabList                     = ActionMenu.GetTabList;
@@ -341,31 +340,6 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     -- 네 줄씩 길어졌다. 서브메뉴로 접으면 대상 목록은 대상만 남는다.
     description:CreateDivider();
     CreateUnitConditionSubmenu(description, ctx, "ONLY_IF", "@");
-
-    -- **여기지 hover 메뉴가 아니다 (2026-09-06, 소유자).** 저 메뉴가 드는 것은 **언제
-    -- 발동하느냐**이고 이 상자는 언제를 안 건드린다 - 위에서 고른 대상을 개체창 위에서만
-    -- 그 개체창의 개체로 바꾼다. 조건이 아닌 것을 조건 묶음에 두면 안 된다
-    -- (`devdocs/action-and-binding-shapes.md` §2).
-    --
-    -- **잠그는 넷은 파생이 거절하는 넷과 같아야 한다** (`Misc.lua`의 `GetBindingsForAction`).
-    -- 갈리면 잠긴 상자가 동작하거나 켠 상자가 아무 일도 안 한다. 대상 `hover`는 이미 그
-    -- 개체를 겨누고, 대상 `none`은 대상 입력을 받는 시전이라 겨눔을 가로챌 자리가 아니다.
-    --
-    -- **Clique에서는 숨기지 않고 잠근다.** 숨기면 개체창 위 겨눔이 안 되는 사람이 Clique
-    -- 때문인 줄을 알 길이 없다. 값도 그대로 두고, 툴팁이 누가 프레임을 맡고 있는지 말한다.
-    if (Constants.TYPES_WITH_HOVER_UNIT_OPTION[ctx.action.type]) then
-        description:CreateDivider();
-        local preferHoverUnit = description:CreateCheckbox(LLL["PREFER_HOVER_UNIT"],
-            actionValueEquals, setActionValue,
-            { ctx = ctx, key = "preferHoverUnit", value = USE_CHECKED_VALUE });
-        local lockReason = function()
-            return PreferHoverUnitLockReason(ctx);
-        end;
-        SetInstructionTooltip(preferHoverUnit, LLL["PREFER_HOVER_UNIT_DESC"], lockReason);
-        preferHoverUnit:SetEnabled(function()
-            return lockReason() == nil;
-        end);
-    end
 
     return description;
 end

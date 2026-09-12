@@ -751,41 +751,54 @@ return function(DebindPrivate)
         return DebindPrivate.GetBindingsForAction(action), action;
     end
 
+    --- 쌍둥이를 세우는 것은 계정 스위치다. 프로필이 서야 `Options`를 읽을 수 있고, 스위치는
+    --- 재는 동안만 켠다 - 켜 둔 채로 두면 바로 위의 "옵션 없는 액션" 테스트가 쌍둥이를 받는다.
+    _G.DebindVars = {
+        dbver = Constants.DB_VERSION,
+        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        characters = {},
+        migrated = {},
+        switches = {},
+    };
+    DebindPrivate.InitDB();
+
+    local function withHoverCast(fn)
+        DebindPrivate.Options.hoverCast = true;
+        local ok, err = pcall(fn);
+        DebindPrivate.Options.hoverCast = nil;
+        if (not ok) then error(err, 0); end
+    end
+
     test("옵션 없는 액션의 목록은 원본 하나다", function()
         local list, action = listFor();
         check(#list == 1, "길이 " .. #list);
         check(list[1] == normalize(action), "[1]이 원본 표가 아니다");
     end);
 
-    test("preferHoverUnit이 켜지면 hover 쌍둥이가 따라온다", function()
-        local list, action = listFor({ preferHoverUnit = true, unit = "focus", units = { ["@"] = "help" } });
-        check(#list == 2, "길이 " .. #list);
-        check(list[1] == normalize(action), "[1]이 원본이 아니다");
-        local original, twin = list[1], list[2];
-        check(original.hover == nil, "원본 hover: " .. tostring(original.hover));
-        check(original.unit == "focus", "원본 unit: " .. tostring(original.unit));
-        check(twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
-        check(twin.hover == true, "쌍둥이 hover: " .. tostring(twin.hover));
-        check(twin.type == original.type and twin.value == original.value and twin.key == original.key,
-            "쌍둥이가 액션의 값을 잃었다");
-        -- `"@"`는 겨누는 개체를 가리키는 포인터라, 쌍둥이에서는 hover 개체에게 묻는다.
-        check(twin.unitStates and twin.unitStates.hover == original.unitStates.focus,
-            "쌍둥이의 hover 마스크가 원본의 @ 마스크와 다르다");
-        check(twin.unitStates.focus == nil, "쌍둥이가 focus 조건을 들고 있다");
-    end);
-
-    test("대상이 없는 액션의 쌍둥이도 hover 개체를 겨눈다", function()
-        local list = listFor({ preferHoverUnit = true, ignoreHoverUnit = true });
-        check(#list == 2, "길이 " .. #list);
-        local twin = list[2];
-        check(twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
-        check(twin.unitStates and twin.unitStates.hover ~= nil, "쌍둥이가 hover 축에 안 섰다");
-        check(twin.ignoreHoverUnit == nil, "ignoreHoverUnit이 쌍둥이로 따라왔다");
+    test("Hover Cast가 켜지면 hover 쌍둥이가 따라온다", function()
+        withHoverCast(function()
+            local list, action = listFor({ unit = "focus", units = { ["@"] = "help" } });
+            check(#list == 2, "길이 " .. #list);
+            check(list[1] == normalize(action), "[1]이 원본이 아니다");
+            local original, twin = list[1], list[2];
+            check(original.hover == nil, "원본 hover: " .. tostring(original.hover));
+            check(original.unit == "focus", "원본 unit: " .. tostring(original.unit));
+            check(twin.unit == "hover", "쌍둥이 unit: " .. tostring(twin.unit));
+            check(twin.hover == true, "쌍둥이 hover: " .. tostring(twin.hover));
+            check(twin.type == original.type and twin.value == original.value and twin.key == original.key,
+                "쌍둥이가 액션의 값을 잃었다");
+            -- `"@"`는 겨누는 개체를 가리키는 포인터라, 쌍둥이에서는 hover 개체에게 묻는다.
+            check(twin.unitStates and twin.unitStates.hover == original.unitStates.focus,
+                "쌍둥이의 hover 마스크가 원본의 @ 마스크와 다르다");
+            check(twin.unitStates.focus == nil, "쌍둥이가 focus 조건을 들고 있다");
+        end);
     end);
 
     test("hover 조건이 켜진 액션은 쌍둥이를 안 낸다", function()
-        local list = listFor({ preferHoverUnit = true, units = { hover = {} } });
-        check(#list == 1, "길이 " .. #list);
+        withHoverCast(function()
+            local list = listFor({ units = { hover = {} } });
+            check(#list == 1, "길이 " .. #list);
+        end);
     end);
 
     -- Clique가 있어도 쌍둥이는 나온다 (코드 리뷰, 2026-09-08). 블리자드 개체창은 Clique와 무관하게
@@ -795,29 +808,36 @@ return function(DebindPrivate)
         local was = DebindPrivate.CliqueDetected;
         DebindPrivate.CliqueDetected = true;
         local ok, err = pcall(function()
-            local list = listFor({ preferHoverUnit = true });
-            check(#list == 2, "길이 " .. #list);
+            withHoverCast(function()
+                local list = listFor();
+                check(#list == 2, "길이 " .. #list);
+            end);
         end);
         DebindPrivate.CliqueDetected = was;
         if (not ok) then error(err, 0); end
     end);
 
-    test("옵션을 못 받는 타입은 쌍둥이를 안 낸다", function()
-        local list = listFor({ preferHoverUnit = true, type = Constants.MACROTEXT, value = "/cast x" });
-        check(#list == 1, "MACROTEXT 길이 " .. #list);
-        list = listFor({ preferHoverUnit = true, type = Constants.SETCUSTOM, value = 1 });
-        check(#list == 1, "SETCUSTOM 길이 " .. #list);
+    test("스위치가 못 닿는 타입은 쌍둥이를 안 낸다", function()
+        withHoverCast(function()
+            local list = listFor({ type = Constants.MACROTEXT, value = "/cast x" });
+            check(#list == 1, "MACROTEXT 길이 " .. #list);
+            list = listFor({ type = Constants.SETCUSTOM, value = 1 });
+            check(#list == 1, "SETCUSTOM 길이 " .. #list);
+        end);
     end);
 
     test("목록은 리빌드마다 같은 표를 다시 채운다", function()
-        local action = nest({ type = Constants.SPELL, value = 100, key = "F", preferHoverUnit = true });
-        local first = DebindPrivate.GetBindingsForAction(action);
-        local a1, a2 = first[1], first[2];
-        local second = DebindPrivate.GetBindingsForAction(action);
-        check(second == first and second[1] == a1 and second[2] == a2, "표가 새로 만들어졌다");
-        action.preferHoverUnit = nil;
+        local action = nest({ type = Constants.SPELL, value = 100, key = "F" });
+        local first, a1, a2;
+        withHoverCast(function()
+            first = DebindPrivate.GetBindingsForAction(action);
+            a1, a2 = first[1], first[2];
+            local second = DebindPrivate.GetBindingsForAction(action);
+            check(second == first and second[1] == a1 and second[2] == a2, "표가 새로 만들어졌다");
+        end);
         local third = DebindPrivate.GetBindingsForAction(action);
-        check(#third == 1, "옵션을 껐는데 쌍둥이가 남았다");
+        check(third == first, "표가 새로 만들어졌다");
+        check(#third == 1, "스위치를 껐는데 쌍둥이가 남았다");
     end);
 
     return T;

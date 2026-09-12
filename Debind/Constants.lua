@@ -169,10 +169,9 @@ Constants.TYPES_WITH_SMART_CAST           = {
     [Constants.RAIDBUFF] = true,
 };
 
---- Which types `preferHoverUnit` may be set on. `TYPES_WITH_UNIT` minus the pet command, whose
---- target is decided by the command rather than the type. Read by the derivation
---- (`Misc.lua`'s `GetBindingsForAction`) and by the menu; a shared profile skips the menu, so the
---- derivation cannot rely on the menu having refused.
+--- Which types the account-wide Hover Cast and Mouseover Cast reach (`Misc.lua`'s `TwinUnitFor`).
+--- `TYPES_WITH_UNIT` minus the pet command, whose target is decided by the command rather than by
+--- the type.
 Constants.TYPES_WITH_HOVER_UNIT_OPTION    = {
     [Constants.SPELL] = true,
     [Constants.ITEM] = true,
@@ -247,11 +246,6 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     hover = true,
     reactions = true,
     unit = true,
-    -- **대상 상자 옆의 체크박스이지 대상 자체가 아니다.** 이것이 `unit`에 얹혀 있던 동안,
-    -- 대상 줄과 대상 메뉴 제목이 자기 갈래에서 코드가 하나 나온 것을 보고 **자기 값이
-    -- 잘못됐다고 읽어** 빨갛게 칠하고 남의 문장까지 밑에 달았다. 사용자가 고른 대상에는
-    -- 아무 문제가 없다. 갈래는 필드가 아니라 **칠할 컨트롤**의 이름이다(§7).
-    preferHoverUnit = true,
     -- 매크로 이름이 가리키는 것이 없다. 조건이 아니라 액션 자체가 틀린 경우라 짚어 묻는
     -- 호출자가 없고, 갈래를 끄기 위한 이름으로만 쓰인다.
     macro = true,

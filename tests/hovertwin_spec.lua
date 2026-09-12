@@ -1,4 +1,4 @@
--- 옵션(`preferHoverUnit`)이 만드는 **쌍둥이 바인딩**. 와우 클라이언트 불필요.
+-- 계정 스위치 Hover Cast와 Mouseover Cast가 만드는 **쌍둥이 바인딩**. 와우 클라이언트 불필요.
 --
 -- 액션 하나가 바인딩 둘일 수 있다는 것이 여기서 재는 전부다: 둘 다 덮여야 도달 불가이고,
 -- 쌍둥이가 아예 안 만들어지는 대상들이 있고, Clique가 있어도 만들어진다.
@@ -14,6 +14,20 @@ return function(DebindPrivate)
     local ClearUnreachableBindingCache = DebindPrivate.ClearUnreachableBindingCache;
 
     local T = { passed = 0, failures = {} };
+
+    --- 스위치가 계정 값이라 프로필이 있어야 읽힌다. 이 파일은 액션을 직접 만들어 쓰므로
+    --- 레이어는 비어 있어도 되고, 필요한 것은 `Options`가 서 있는 것뿐이다.
+    _G.DebindVars = {
+        dbver = Constants.DB_VERSION,
+        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        characters = {},
+        migrated = {},
+        switches = {},
+    };
+    DebindPrivate.InitDB();
+
+    --- 이 파일 대부분이 Hover Cast가 켜진 계정을 잰다.
+    DebindPrivate.Options.hoverCast = true;
 
     local function test(name, fn)
         local ok, err = pcall(fn);
@@ -40,7 +54,7 @@ return function(DebindPrivate)
     --- 액션에서 바인딩을 얻는 통로가 `GetBindingInfoForAction`이고 `IsUnreachableAction`도
     --- 같은 통로로 캐시를 조회하므로, 솔버에 넣는 테이블과 조회되는 테이블이 같은 것이다.
     local function coveredPair(cover)
-        local subject = { type = Constants.SPELL, value = 586, key = cover.key, preferHoverUnit = true };
+        local subject = { type = Constants.SPELL, value = 586, key = cover.key };
         local list = DebindPrivate.GetBindingsForAction(subject);
         check(#list == 2, "쌍둥이가 안 생겼다");
         local bindings = { GetBindingInfoForAction(cover), list[2], list[1] };
@@ -90,7 +104,7 @@ return function(DebindPrivate)
     test("쌍둥이는 꺼진 hover 조건이 남긴 frameTypes를 안 가져온다", function()
         for _, mask in ipairs({ Constants.FRAMETYPE_GROUP, 0 }) do
             local action = { type = Constants.SPELL, value = 585, key = "T", unit = "focus",
-                preferHoverUnit = true, conditions = { frameTypes = mask } };
+                conditions = { frameTypes = mask } };
             local list = DebindPrivate.GetBindingsForAction(action);
             check(list[1].conditions.frameTypes == nil,
                 "원본이 안 지워졌다: " .. tostring(list[1].conditions.frameTypes));
@@ -119,7 +133,7 @@ return function(DebindPrivate)
     -- 문장을 달던 것은 블리자드 개체창을 통째로 내려놓던 시절의 말이다.
     test("Clique가 있어도 옵션 켠 액션은 쌍둥이를 갖고 문장이 없다", function()
         withClique(function()
-            local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true };
+            local action = { type = Constants.SPELL, value = 585, key = "T" };
             check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
             local bindings = DebindPrivate.GetBindingsForAction(action);
             check(bindings[2] ~= nil and bindings[2].unit == "hover",
@@ -133,7 +147,7 @@ return function(DebindPrivate)
     test("대상이 none이나 hover면 옵션이 켜져 있어도 쌍둥이가 없다", function()
         for _, unit in ipairs({ "none", "hover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "T",
-                unit = unit, preferHoverUnit = true };
+                unit = unit };
             check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
                 "대상 " .. unit .. "인데 쌍둥이가 생겼다");
         end
@@ -143,7 +157,7 @@ return function(DebindPrivate)
         withClique(function()
             for _, unit in ipairs({ "none", "hover" }) do
                 local action = { type = Constants.SPELL, value = 585, key = "T",
-                    unit = unit, preferHoverUnit = true };
+                    unit = unit };
                 check(GetBindingIssue(action) == nil,
                     "대상 " .. unit .. "에 문장이 붙었다: " .. tostring(GetBindingIssue(action)));
             end
@@ -155,7 +169,7 @@ return function(DebindPrivate)
     -- 상자를 잠근다 - 여기서 재는 것은 그 짝의 실행 쪽이고, 잠금 자체는 화면에서만 보인다.
     test("hover 조건이 안 올렸을 때여도 쌍둥이가 없다", function()
         local action = { type = Constants.SPELL, value = 585, key = "T",
-            unit = "focus", preferHoverUnit = true,
+            unit = "focus",
             conditions = { units = { hover = false } } };
         check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
             "개체창 위에서 안 도는 액션에 쌍둥이가 생겼다");
@@ -164,7 +178,7 @@ return function(DebindPrivate)
     -- 반대쪽. 없으면 위 테스트는 "언제나 쌍둥이가 없다"로도 통과한다.
     test("평범한 대상에는 쌍둥이가 생긴다", function()
         local action = { type = Constants.SPELL, value = 585, key = "T",
-            unit = "focus", preferHoverUnit = true };
+            unit = "focus" };
         local bindings = DebindPrivate.GetBindingsForAction(action);
         check(bindings[2] ~= nil, "대상 focus인데 쌍둥이가 없다");
         check(bindings[2].unit == "hover", "쌍둥이가 겨누는 것: " .. tostring(bindings[2].unit));
@@ -174,7 +188,7 @@ return function(DebindPrivate)
     -- 우리가 등록한다. 그러니 Clique가 있다는 것만으로 붙는 문장은 없다.
     test("Clique가 있어도 hover 조건이 켜진 액션에 Clique 때문에 붙는 문장은 없다", function()
         withClique(function()
-            local action = { type = Constants.SPELL, value = 585, key = "T", preferHoverUnit = true,
+            local action = { type = Constants.SPELL, value = 585, key = "T",
                 conditions = { units = { hover = {} } } };
             check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
         end);
@@ -182,10 +196,104 @@ return function(DebindPrivate)
 
     test("Clique가 있어도 옵션을 못 받는 타입은 아무 말이 없다", function()
         withClique(function()
-            local action = { type = Constants.MACROTEXT, value = "/cast x", key = "T", preferHoverUnit = true };
+            local action = { type = Constants.MACROTEXT, value = "/cast x", key = "T" };
             check(GetBindingIssue(action) == nil, "나온 것: " .. tostring(GetBindingIssue(action)));
         end);
     end);
+
+    ---------------------------------------------------------------------------
+    -- 3. 스위치 둘, 그리고 쌍둥이가 딛고 서는 조건
+    ---------------------------------------------------------------------------
+
+    --- 스위치를 잠깐 이 값으로 놓고 돈다. 파일 전체가 Hover Cast 켜진 상태로 서 있으므로,
+    --- 끄는 쪽을 재려면 되돌려 놓을 자리가 있어야 한다.
+    local function withSwitches(hoverCast, mouseoverCast, fn)
+        local options = DebindPrivate.Options;
+        local wasHover, wasMouseover = options.hoverCast, options.mouseoverCast;
+        options.hoverCast, options.mouseoverCast = hoverCast, mouseoverCast;
+        local ok, err = pcall(fn);
+        options.hoverCast, options.mouseoverCast = wasHover, wasMouseover;
+        if (not ok) then error(err, 0); end
+    end
+
+    local function spell(fields)
+        local action = { type = Constants.SPELL, value = 585, key = "T" };
+        for k, v in pairs(fields or {}) do
+            action[k] = v;
+        end
+        return action;
+    end
+
+    test("스위치가 둘 다 꺼져 있으면 쌍둥이가 없다", function()
+        withSwitches(nil, nil, function()
+            check(DebindPrivate.GetBindingsForAction(spell())[2] == nil, "꺼졌는데 쌍둥이가 생겼다");
+        end);
+    end);
+
+    test("Mouseover Cast는 mouseover를 겨누는 쌍둥이를 낸다", function()
+        withSwitches(nil, true, function()
+            local twin = DebindPrivate.GetBindingsForAction(spell())[2];
+            check(twin ~= nil, "쌍둥이가 없다");
+            check(twin.unit == "mouseover", "겨누는 것: " .. tostring(twin.unit));
+        end);
+    end);
+
+    --- **둘 다 켜면 쌍둥이는 하나고 `mouseover`다** (2026-09-12, 소유자). 개체창 위에서는 두 값이
+    --- 같고 `mouseover`는 개체창이 아닌 곳에서도 서므로, hover 쌍둥이가 설 자리를 전부 덮는다.
+    test("둘 다 켜면 쌍둥이는 mouseover 하나뿐이다", function()
+        withSwitches(true, true, function()
+            local list = DebindPrivate.GetBindingsForAction(spell());
+            check(list[2] ~= nil and list[2].unit == "mouseover",
+                "겨누는 것: " .. tostring(list[2] and list[2].unit));
+            check(list[3] == nil, "쌍둥이가 둘 생겼다");
+        end);
+    end);
+
+    --- **쌍둥이는 자기가 겨누는 유닛의 축에서 좁아져야 한다.** 겨누는 유닛의 이름 아래
+    --- [그 개체가 있을 때]를 들고 서므로(`FillBinding`의 `UNIT_IS_THERE`), 상자가 그 축의
+    --- 절반이고 본체가 나머지를 받는다.
+    ---
+    --- 조건이 `hover`라는 이름에 박혀 있으면 `mouseover` 쌍둥이가 엉뚱한 축에서 좁아진다.
+    --- `mouseover`를 겨누면서 **개체창 위에서만** 서게 되고, Mouseover Cast가 개체창 밖에서
+    --- 아무 일도 안 한다.
+    test("쌍둥이의 조건은 자기가 겨누는 유닛 아래 선다", function()
+        for _, case in ipairs({ { "hover", true, nil }, { "mouseover", nil, true } }) do
+            local unit = case[1];
+            withSwitches(case[2], case[3], function()
+                local list = DebindPrivate.GetBindingsForAction(spell());
+                local twin = list[2];
+                check(twin ~= nil, unit .. ": 쌍둥이가 없다");
+                check(twin.conditions.units and twin.conditions.units[unit] ~= nil,
+                    unit .. ": 조건이 자기 유닛 아래 없다");
+                check(twin.unitStates and twin.unitStates[unit] == Constants.UNITSTATE_EXISTS,
+                    unit .. ": 좁혀진 상태가 " .. tostring(twin.unitStates and twin.unitStates[unit]));
+            end);
+        end
+    end);
+
+    --- **`ignoreHoverUnit`은 hover 조건이 없을 때 [이 액션은 빼라]가 된다** (2026-09-12, 소유자).
+    --- 조건이 켜져 있을 때의 [그 개체창의 개체를 안 쓴다]와 같은 필드이고, 어느 역할인지는
+    --- 액션의 `hover`가 정한다.
+    test("hover 조건 없이 켠 ignoreHoverUnit은 쌍둥이를 막는다", function()
+        for _, case in ipairs({ { true, nil }, { nil, true } }) do
+            withSwitches(case[1], case[2], function()
+                local action = spell({ ignoreHoverUnit = true });
+                check(DebindPrivate.GetBindingsForAction(action)[2] == nil,
+                    "빼라고 했는데 쌍둥이가 생겼다");
+            end);
+        end
+    end);
+
+    --- 반대쪽. hover 조건이 켜진 액션에서는 같은 필드가 겨눔을 비우는 일만 하고, 쌍둥이 판정에는
+    --- 애초에 닿지 않는다 - 그런 액션에는 쌍둥이가 없다.
+    test("hover 조건이 켜진 액션의 ignoreHoverUnit은 겨눔만 비운다", function()
+        local action = spell({ ignoreHoverUnit = true, conditions = { units = { hover = {} } } });
+        local list = DebindPrivate.GetBindingsForAction(action);
+        check(list[2] == nil, "hover 조건이 있는데 쌍둥이가 생겼다");
+        check(list[1].unit == "", "겨눔이 안 비었다: " .. tostring(list[1].unit));
+    end);
+
+
 
     return T;
 end

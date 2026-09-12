@@ -41,6 +41,17 @@ return function(DebindPrivate)
         shim.world.macros["Heal"] = { name = "Heal", icon = 4, body = "/cast Rejuvenation" };
     end
 
+    --- 쌍둥이를 세우는 계정 스위치를 읽으려면 프로필이 서 있어야 한다. 이 파일은 액션을 직접
+    --- 만들어 넘기므로 레이어는 비어 있어도 된다.
+    _G.DebindVars = {
+        dbver = Constants.DB_VERSION,
+        shared = { GENERAL = {}, classes = { [Constants.PLAYER_CLASS] = {} } },
+        characters = {},
+        migrated = {},
+        switches = {},
+    };
+    DebindPrivate.InitDB();
+
     ---------------------------------------------------------------------------
     -- 못 옮기는 것은 안 내준다
     ---------------------------------------------------------------------------
@@ -188,16 +199,21 @@ return function(DebindPrivate)
             "살릴 수 없는 조건을 들고도 변환이 선다");
     end);
 
-    --- `preferHoverUnit`은 매크로 본문으로 안 옮겨간다. 조용히 떨어뜨리면 변환된 매크로가 개체창
-    --- 위에서 다른 개체에게 나가므로, 쌍둥이가 실제로 서는 액션은 못 바꾼다. 쌍둥이가 안 서는
-    --- 액션(hover 조건이 켜진 것)은 옵션이 아무 일도 안 하니 변환이 아무것도 안 잃는다.
-    test("개체창 위 겨눔 옵션이 실제로 서는 액션은 못 바꾼다", function()
+    --- 쌍둥이는 매크로 본문으로 안 옮겨간다. 조용히 떨어뜨리면 변환된 매크로가 가리킨 개체 대신
+    --- 원래 대상에게 나가므로, 쌍둥이가 실제로 서는 액션은 못 바꾼다. 쌍둥이가 안 서는
+    --- 액션(hover 조건이 켜진 것)은 스위치가 아무 일도 안 하니 변환이 아무것도 안 잃는다.
+    test("쌍둥이가 실제로 서는 액션은 못 바꾼다", function()
         installWorld();
-        check(not Can({ type = Constants.SPELL, value = 774, preferHoverUnit = true }),
-            "옵션을 잃는 변환이 선다");
-        check(Can({ type = Constants.SPELL, value = 774, preferHoverUnit = true,
-                conditions = { units = { hover = {} } } }),
-            "옵션이 무시되는 액션인데 변환이 안 선다");
+        local was = DebindPrivate.Options.hoverCast;
+        DebindPrivate.Options.hoverCast = true;
+        local ok, err = pcall(function()
+            check(not Can({ type = Constants.SPELL, value = 774 }), "쌍둥이를 잃는 변환이 선다");
+            check(Can({ type = Constants.SPELL, value = 774,
+                    conditions = { units = { hover = {} } } }),
+                "쌍둥이가 안 서는 액션인데 변환이 안 선다");
+        end);
+        DebindPrivate.Options.hoverCast = was;
+        if (not ok) then error(err, 0); end
     end);
 
     --- `"@"`는 **이 액션이 겨누는 대상**을 가리키는 키다. 매크로텍스트는 대상 필드를 안 가지므로

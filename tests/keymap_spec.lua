@@ -32,7 +32,7 @@ return function(DebindPrivate)
 
     local ME = "Player-1-KEYMAP";
 
-    local function Bind(actions, switches)
+    local function Bind(actions, switches, options)
         _G.UnitGUID = function() return ME; end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
@@ -40,6 +40,7 @@ return function(DebindPrivate)
             characters = { [ME] = { layers = {}, switches = {} } },
             migrated = {},
             switches = switches or {},
+            options = options,
         };
         DebindPrivate.InitDB();
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
@@ -225,9 +226,12 @@ return function(DebindPrivate)
         Bind({
             { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
                 conditions = { units = { hover = {} }, combat = true } },
-            { type = Constants.SPELL, value = 2, key = "F1", seq = 2, conditions = { combat = true } },
-            { type = Constants.SPELL, value = 3, key = "F1", seq = 3, preferHoverUnit = true },
-        });
+            -- 이 액션은 스위치에서 빼 둔다. 재는 것은 쌍둥이 하나가 서는 자리이고, 여기도
+            -- 쌍둥이를 받으면 줄이 둘 늘어나 자리 검사가 흐려진다.
+            { type = Constants.SPELL, value = 2, key = "F1", seq = 2,
+                ignoreHoverUnit = true, conditions = { combat = true } },
+            { type = Constants.SPELL, value = 3, key = "F1", seq = 3 },
+        }, nil, { hoverCast = true });
 
         check(Values("F1") == "1 2 3 3", "F1 came out as " .. Values("F1"));
         local records = Records("F1");
@@ -239,8 +243,8 @@ return function(DebindPrivate)
     -- is a click on the frame, the original holds the key.
     test("on a mouse button the twin is the click-cast and the original holds the key", function()
         Bind({
-            { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1, preferHoverUnit = true },
-        });
+            { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1 },
+        }, nil, { hoverCast = true });
 
         local records = Records("BUTTON3");
         check(records and #records == 2, "BUTTON3 came out with " .. tostring(records and #records));

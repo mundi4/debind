@@ -458,32 +458,6 @@ do
 			addValueLine(tooltip, unitStr, error);
 		end
 
-		-- **Under the target, because it is the target this qualifies**, and it stands up its own
-		-- label where none was chosen: the fallback is a target too, the one the game picks.
-		--
-		-- **Its own issue category, so the line above stays out of it.** What a problem here says
-		-- is that the box did not take; the target beside it is one the reader chose and the
-		-- action is still going to it. While the two shared `unit`, the target line asked first,
-		-- coloured a perfectly good target and printed this line's sentence under it -- and then
-		-- this line printed the same sentence again.
-		if (DebindPrivate.PrefersHoverUnit(action)) then
-			-- **The fallback is written out where no target was chosen**, so this line has a value
-			-- above it either way. Without one it was the only line under the label and read as
-			-- where the action always goes, with nothing on screen for the times the cursor is
-			-- somewhere else. What happens then has no name to print: the game decides, and the
-			-- answer is the current target for one action and the player for another under auto
-			-- self cast, so the line points at the rule rather than at either outcome.
-			if (action.unit == nil) then
-				addLabelLine(tooltip, LLL["TARGET_UNIT"]);
-				addValueLine(tooltip, LLL["LINE_TOOLTIP_TARGET_NORMAL"]);
-			end
-			-- One call. `addValueLine` colours the value and prints the code's sentence under it,
-			-- which is exactly the shape this line wants -- what is wrong is the box, and the
-			-- sentence says why.
-			addValueLine(tooltip, LLL["LINE_TOOLTIP_PREFER_HOVER_UNIT"],
-				hasIssues and GetIssue("preferHoverUnit") or nil);
-		end
-
 		-- 호버 조건은 `units["hover"]`다(`Profile.lua`의 `dbver <= 4`). 아래 유닛
 		-- 묶음이 이 키를 건너뛰는 것도 그래서다 - 같은 조건을 두 번 그리게 된다.
 		-- 저장에는 끈 값이 남아 있다. 여기는 **걸린 조건**을 그리는 자리라 그걸 접고 본다.

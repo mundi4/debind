@@ -761,11 +761,14 @@ do
     --- **순서 필드는 여기 없다.** 어느 액션이 먼저 발동하느냐는 액션 하나로 답이 안 나오는
     --- 유일한 것이라, 그쪽은 `MakeOrderRecord`가 따로 든다.
     ---
-    --- `unit`과 `hoverCondition`은 원본과 파생이 갈리는 두 자리다. 원본은 액션의 `unit`과 hover
-    --- 조건 없음으로 부르고, hover 쌍둥이는 `"hover"`와 빈 hover 조건으로 부른다(`GetBindingsForAction`).
+    --- `aimedUnit` and `twinCondition` are the two places the original and a twin part company. The
+    --- original is called with the action's `unit` and no condition; a twin is called with the unit
+    --- it aims at and `UNIT_IS_THERE`, which lands under that unit's own name below
+    --- (`GetBindingsForAction`).
+    ---
     --- **`unit`이 처음부터 들어와야 한다**: 아래 `"@"` 정리가 `unit`을 보고 지우므로, 원본을 채운
     --- 뒤에 `unit`만 바꾸면 이미 지워진 `"@"`를 되살릴 길이 없다.
-    local function FillBinding(binding, action, aimedUnit, hoverCondition)
+    local function FillBinding(binding, action, aimedUnit, twinCondition)
         binding.type, binding.value = action.type, action.value;
         -- **The three spec-resolved types put their spell here and leave `value` alone.** What the
         -- action stores is the kind; which spell that is today is this specialization's answer
@@ -782,8 +785,8 @@ do
         -- conditions decide whether the action wins, and this only decides what it fires once it
         -- has (`devdocs/adding-spec-resolved-actions.md` §10).
         binding.smart = DebindPrivate.SmartCastBranches(action);
-        -- 쌍둥이는 hover 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
-        if (hoverCondition == nil) then
+        -- 쌍둥이는 가리킨 개체를 겨누는 것 자체가 목적이라, 액션에 남아 있는 값을 안 물려받는다.
+        if (twinCondition == nil) then
             binding.ignoreHoverUnit = action.ignoreHoverUnit;
         else
             binding.ignoreHoverUnit = nil;
@@ -860,9 +863,12 @@ do
                 action.hover, action.reactions, conditions.units.hover);
         end
 
-        if (hoverCondition ~= nil) then
+        -- **Under the unit the twin aims at, not under a fixed name.** That is what narrows the
+        -- twin's box to [the unit is there] on that unit's own axis (`BuildUnitStates`), which is
+        -- what lets the original take the rest.
+        if (twinCondition ~= nil) then
             conditions.units = conditions.units or {};
-            conditions.units.hover = hoverCondition;
+            conditions.units[aimedUnit] = twinCondition;
         end
 
         -- Everything below this line reads `binding.hover`, so it has to be derived here and
@@ -874,8 +880,8 @@ do
         -- 이 자리가 안 바뀐다.
 
         -- 의미 없는 조건들을 nil로 만듬.
-        if (hoverCondition ~= nil) then
-            -- 쌍둥이는 개체창을 안 가린다(`HOVER_ANY_FRAME`). **액션에 남아 있는 마스크를
+        if (twinCondition ~= nil) then
+            -- 쌍둥이는 개체창을 안 가린다(`UNIT_IS_THERE`). **액션에 남아 있는 마스크를
             -- 물려받으면 안 된다**: hover 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는 것과
             -- 지우는 것은 다르다 - `Profile.lua`), 조건을 꺼야 비로소 쌍둥이가 생기므로
             -- 물려받는 값은 언제나 죽은 조건의 것이다. 원본은 아래 `else`에서 지워지고
@@ -1074,46 +1080,66 @@ do
         return any and out or nil;
     end
 
+    --- The two account-wide switches that send an action at whatever the reader is pointing at.
+    --- Absent means off: this arrived after `v3.5.2` and nobody's profile carries a cell for it, so
+    --- a profile written before it reads as off rather than as the feature turning itself on.
+    function DebindPrivate.HoverCastEnabled()
+        local options = DebindPrivate.Options;
+        return (options and options.hoverCast) and true or false;
+    end
+
+    function DebindPrivate.MouseoverCastEnabled()
+        local options = DebindPrivate.Options;
+        return (options and options.mouseoverCast) and true or false;
+    end
+
     local _ActionToBindingsCache = setmetatable({}, { __mode = "k" });
-    local _ActionToHoverTwinCache = setmetatable({}, { __mode = "kv" });
+    local _ActionToTwinCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeCache = setmetatable({}, { __mode = "kv" });
     local _ActionToProbeTwinCache = setmetatable({}, { __mode = "kv" });
 
-    -- The stored shape of "over any frame, any unit" is an empty table (`false` is [when there is
+    -- The stored shape of "that unit, whatever it is" is an empty table (`false` is [when there is
     -- none]); the emitter indexes it, so it cannot be `true`. Read-only downstream, hence one table.
-    local HOVER_ANY_FRAME = {};
+    --
+    -- **This is what keeps the twin from deleting the original.** Empty reads as
+    -- `UNITSTATE_EXISTS` (`UnitConditionToState`), so the twin's box is the half of the axis where
+    -- the unit is there and the original still covers the other half. A twin standing with no
+    -- condition at all would cover the original, the solver would drop it, and the key would do
+    -- nothing at the moment nothing is pointed at.
+    local UNIT_IS_THERE = {};
 
-    --- Whether `preferHoverUnit` asks for a twin at all: set, on a type that takes it, with no
-    --- hover condition of its own (over a frame such an action already aims at the frame's unit),
-    --- and aimed at something a twin could change.
+    --- Which unit the derived binding aims at, or nil where none is wanted.
     ---
-    --- **The four are the four the menu locks the box on** (`CreateTargetUnitMenuItem`). They have
-    --- to be the same four: a shared profile never passes through that menu, and a box that is
-    --- locked while the derivation still runs -- or ticked while it does not -- is a screen saying
-    --- one thing and a key doing another.
+    --- **Mouseover wins where both switches are on.** Over a unit frame the two name one unit, and
+    --- `mouseover` answers away from frames as well, so a second twin could only repeat the first
+    --- (2026-09-12, owner).
     ---
-    --- `hover` is already the hovered unit. `none` is not "no target" but a cast that asks for one
-    --- (`ActionDisplay.lua`'s `UNIT_INFO`, measured in game 2026-08-05), and the owner's call is
-    --- that a target the player is about to point at is not one for a twin to take (2026-09-06).
-    local function HoverTwinWanted(action, original)
-        return action.preferHoverUnit and original.hover == nil
-            and original.unit ~= "hover" and original.unit ~= "none"
-            and Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type] or false;
-    end
+    --- **`ignoreHoverUnit` on an action with no hover condition takes it out of the feature.** The
+    --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
+    --- is what tells the two apart (2026-09-12, owner).
+    ---
+    --- `hover` and `mouseover` are already the pointed unit. `none` is not "no target" but a cast
+    --- that asks for one (`ActionDisplay.lua`'s `UNIT_INFO`, measured in game 2026-08-05), and the
+    --- owner's call is that a target the player is about to point at is not one for a twin to take
+    --- (2026-09-06).
+    local function TwinUnitFor(action, original)
+        local unit;
+        if (DebindPrivate.MouseoverCastEnabled()) then
+            unit = "mouseover";
+        elseif (DebindPrivate.HoverCastEnabled()) then
+            unit = "hover";
+        else
+            return nil;
+        end
 
-    --- **Derived whatever Clique does.** The twin needs only the hovered unit, and every unit frame
-    --- is ours, so `GetHoveredUnit` answers over all of them. Withholding it and printing a warning
-    --- instead was from before Blizzard's frames stayed ours (code review, 2026-09-08).
-    local WantsHoverTwin = HoverTwinWanted;
+        if (action.ignoreHoverUnit or original.hover ~= nil
+                or original.unit == "hover" or original.unit == "mouseover"
+                or original.unit == "none"
+                or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
+            return nil;
+        end
 
-    --- Is the box on this action doing anything at all?
-    ---
-    --- **The one answer three surfaces need.** The menu locks the box on exactly this, the tooltip
-    --- draws its line on exactly this, and the derivation makes the twin on exactly this. Asked
-    --- separately, the tooltip announced a preference on an action whose hover condition had
-    --- already settled the matter.
-    function DebindPrivate.PrefersHoverUnit(action)
-        return HoverTwinWanted(action, DebindPrivate.GetBindingInfoForAction(action)) and true or false;
+        return unit;
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
@@ -1134,7 +1160,7 @@ do
         -- **The warlock's dispel is two bindings.** The original casts the player's own Singe Magic
         -- and a derived one casts the pet's through Command Demon, gated at the press by
         -- `FindSpellBookSlotBySpellID` (`SpecSpells.lua`). The probe binding sits ahead of the
-        -- original, and where a hover twin is wanted the twin gets its own probe ahead of it.
+        -- original, and where a twin is wanted the twin gets its own probe ahead of it.
         --
         -- **The list is filled back to front.** `UnrollDerivedBindings` (`Debind.lua`) walks a list
         -- from its last entry down to the original, so the key order probe-twin, twin, probe,
@@ -1144,13 +1170,13 @@ do
             probe = select(2, DebindPrivate.SpecSpells.SpellForType(action.type));
         end
 
-        local function fill(cache, aimedUnit, hoverCondition, spell)
+        local function fill(cache, aimedUnit, twinCondition, spell)
             local binding = cache[action];
             if (not binding) then
                 binding = {};
                 cache[action] = binding;
             end
-            FillBinding(binding, action, aimedUnit, hoverCondition);
+            FillBinding(binding, action, aimedUnit, twinCondition);
             if (spell) then
                 binding.spell = spell;
                 binding.spellbook = spell;
@@ -1159,13 +1185,15 @@ do
             list[n] = binding;
         end
 
+        local twinUnit = TwinUnitFor(action, original);
+
         if (probe) then
             fill(_ActionToProbeCache, action.unit, nil, probe);
         end
-        if (WantsHoverTwin(action, original)) then
-            fill(_ActionToHoverTwinCache, "hover", HOVER_ANY_FRAME, nil);
+        if (twinUnit) then
+            fill(_ActionToTwinCache, twinUnit, UNIT_IS_THERE, nil);
             if (probe) then
-                fill(_ActionToProbeTwinCache, "hover", HOVER_ANY_FRAME, probe);
+                fill(_ActionToProbeTwinCache, twinUnit, UNIT_IS_THERE, probe);
             end
         end
 
@@ -2478,10 +2506,10 @@ local function ConditionsSurviveMacroText(action)
         return false;
     end
 
-    -- `preferHoverUnit` has no macro-text form here, and dropping it would send the converted body
-    -- at a different unit over a frame. Asked of the list rather than the field, so an option that
-    -- is set but inert (hover condition on, wrong type) does not turn away a conversion that
-    -- changes nothing -- the same line `known` draws above.
+    -- A twin has no macro-text form here, and dropping it would send the converted body at a
+    -- different unit than the key does. Asked of the list rather than of the switches, so an
+    -- account that has Hover Cast on does not lose the conversion on the actions the feature
+    -- never reaches -- the same line `known` draws above.
     if (DebindPrivate.GetBindingsForAction(action)[2] ~= nil) then
         return false;
     end

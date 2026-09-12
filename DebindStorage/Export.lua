@@ -126,7 +126,6 @@ local ACTION_FIELDS      = {
     priority = "number",
     keepInBindingContext = "boolean",
     ignoreHoverUnit = "boolean",
-    preferHoverUnit = "boolean",
     -- Smart Cast: the mode and its four branches (`Profile.lua`'s `KEYS_TO_SAVE`).
     smartCast = "string",
     smartCastRez = "boolean",

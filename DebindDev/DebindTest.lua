@@ -7404,11 +7404,23 @@ RegisterTest("Click bakes the deferred macro body", {
     end,
 })
 
--- **Needs the game.** The headless keymap spec sees the two records one `preferHoverUnit` action
--- puts on its key; which of them a real press over a real registered frame reaches is decided by
--- the click path reading the frame under the cursor, and only the client has one.
+--- Turns one of the two account switches on for the length of a test and puts it back after.
+--- **Absent is the stored shape of off** (`Options.lua`), so the teardown writes nil rather than
+--- false or the run leaves a cell behind that nothing on screen ever wrote.
+local function UsePointedUnitCast(name)
+    local was = DebindPrivate.Options[name]
+    DebindPrivate.Options[name] = true
+    AddTeardown(function()
+        DebindPrivate.Options[name] = was
+        DebindPrivate.UpdateBindings()
+    end)
+end
+
+-- **Needs the game.** The headless keymap spec sees the two records Hover Cast puts on a key;
+-- which of them a real press over a real registered frame reaches is decided by the click path
+-- reading the frame under the cursor, and only the client has one.
 RegisterTest("Hover twin: over a frame the key picks the twin, off it the original", {
-    description = "preferHoverUnit이 켜진 액션은 개체창 위에서 쌍둥이가, 밖에서는 원본이 받는다",
+    description = "Hover Cast가 켜지면 개체창 위에서 쌍둥이가, 밖에서는 원본이 받는다",
     run = function()
         local NAME = "Hover twin"
         local KEY = "CTRL-ALT-F6"
@@ -7420,7 +7432,8 @@ RegisterTest("Hover twin: over a frame the key picks the twin, off it the origin
         local probesOk, perr = EnableProbes()
         if not probesOk then return Fail(NAME, perr) end
 
-        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, preferHoverUnit = true })
+        UsePointedUnitCast("hoverCast")
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY })
         ApplyBindings()
 
         local records = GetKeyBindings(KEY)

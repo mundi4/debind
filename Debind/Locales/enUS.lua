@@ -355,14 +355,19 @@ L["GROUP_NONE"] = "When not in a group";
 L["GROUP_PARTY"] = "When in a party";
 L["GROUP_RAID"] = "When in a raid";
 -- The checkbox at the bottom of the hover menu, and a line of its own in the action tooltip.
--- What it turns off is a unit nobody picked: leave the target empty and the hovered frame's unit
--- fills it, so the label has to name that unit and say the action is not used on it. "Ignore"
--- named neither half, and every shorter phrasing collapses into the other half, the action not
--- running at all, which is the one that stays.
+-- What it turns off is a unit nobody picked: leave the target empty and the unit the reader is
+-- pointing at fills it, so the label has to name that unit and say the action is not used on it.
+-- "Ignore" named neither half, and every shorter phrasing collapses into the other half, the action
+-- not running at all, which is the one that stays.
 --
--- **Frame's unit, not the frame and not "that unit".** An action is not used on a frame, and
--- nothing on the open menu is a unit for a pronoun to point at: the title names the frame and the
--- entries above are reactions and frame types.
+-- **One box says both halves, because one box does both jobs.** With the unit frame condition on it
+-- keeps the action off that frame's unit; with the condition off it keeps the action out of Hover
+-- Cast and Mouseover Cast. Which one is in force is settled by the action's own condition, so the
+-- label names what is being refused instead of which case the reader is in.
+--
+-- **"The unit you are pointing at", not "the hovered frame's unit".** Mouseover Cast reaches
+-- nameplates and units in the world as well, so naming the frame would describe half of what the
+-- box refuses. It is a unit either way, never the frame: an action is not used on a frame.
 --
 -- The first sentence carries "unless you assign a target of your own" because the box does nothing
 -- for someone who has, `GetBindingInfoForAction` filling the unit only where none is set, and the
@@ -370,34 +375,10 @@ L["GROUP_RAID"] = "When in a raid";
 --
 -- **The last sentence names both landing places.** With no unit assigned the game decides, which
 -- is the current target for one action and the player for another (auto self cast); naming one
--- makes the other a lie. It cannot be phrased as what would happen with no frame under the cursor
--- either, since the action does not run at all then.
-L["IGNORE_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit unless you assign a target of your own. Check this and the action is not used on that unit: hovering decides whether the action runs, not where it goes. With no unit assigned, the action lands where it normally would, on your current target or on you."
-L["IGNORE_HOVER_UNIT"] = "Don't use the action on the hovered frame's unit"
--- The mirror of the pair above, for an action with no hover condition: hovering changes where the
--- action goes and never whether it runs. It lives in the Target menu rather than beside its mirror,
--- because it moves the target and its mirror belongs to a condition, so the last sentence has to
--- name the condition rather than point at a box a row away.
---
--- **"Prefer" is the word that has to be in the label, and it was not.** It read "Use the action on
--- the hovered frame's unit", which states no condition at all and so says the action always goes
--- there -- which is what a hover condition does, and is the one thing this box exists to avoid.
--- What is ticked is a preference over the target picked above it: taken when a frame is there,
--- dropped when it is not.
-L["PREFER_HOVER_UNIT_DESC"] = "While you hover a unit frame, the action is used on that frame's unit instead. Anywhere else the target above decides where it goes. Hovering changes where the action goes, not whether it runs. To run it only over unit frames, turn on the unit frame condition instead."
-L["PREFER_HOVER_UNIT"] = "Prefer the hovered frame's unit"
--- **What a locked box says about itself.** A control greyed out with no sentence leaves the reader
--- guessing which of the things they set is holding it, and the three below are each undone in a
--- different place. Written as statements of what the action already does rather than as
--- instructions: what to change follows from the fact, and this box is not the only way out of any
--- of them.
---
--- Nothing here names a control. The reader is inside the menu that holds the target, and every
--- one of the three is undone in a menu they are not looking at, so a name would send them hunting
--- for it. The plainest description of the state is the whole of the sentence.
-L["PREFER_HOVER_UNIT_LOCKED_HOVER"] = "This action already runs only over a unit frame, which settles what it does there."
-L["PREFER_HOVER_UNIT_LOCKED_TARGET_HOVER"] = "This action already goes to the hovered frame's unit."
-L["PREFER_HOVER_UNIT_LOCKED_TARGET_NONE"] = "This action asks you for a target when it runs, so there is nothing here to redirect."
+-- makes the other a lie. It cannot be phrased as what would happen with nothing under the cursor
+-- either, since in the first case the action does not run at all then.
+L["IGNORE_HOVER_UNIT_DESC"] = "With the unit frame condition on, the action is used on that frame's unit unless you assign a target of your own. With that condition off, Hover Cast and Mouseover Cast send the action at whatever you are pointing at. Check this and neither happens: the action lands where it normally would, on your current target or on you."
+L["IGNORE_HOVER_UNIT"] = "Don't use the action on the unit you are pointing at"
 -- The last line on a spec tab that is not the one being played. The line above it states the
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.
@@ -735,12 +716,6 @@ L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold
 -- 이 줄을 읽는 사람은 이미 가리키는 중이라 그 문장이 할 일이 없다. 남은 물음은 하나다.
 L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key or mouse button to give it to this action."
 L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
--- **The same box, said twice, because the line above it changes what it has to say.** Where the
--- reader set one, this sits under that value and says it is pushed aside. Where they set none,
--- there is no line above and nothing on screen for the times the cursor is somewhere else, so this
--- one carries both: the game decides then, and the answer has no name to print (current target for
--- one action, the player for another under auto self cast).
-L["LINE_TOOLTIP_PREFER_HOVER_UNIT"] = "Over a unit frame, that frame's unit instead"
 -- The value the line above pushes aside, where the reader chose no target of their own. It names
 -- the rule and not an outcome: the game answers this with the current target for one action and
 -- with the player for another under auto self cast, and naming one makes the other a lie.
@@ -1025,7 +1000,7 @@ L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Deb
 -- reader has to go and neither can be pointed at from here any other way. Renaming either one
 -- moves this sentence with it.
 L["HELP_TARGETING_TITLE"] = "Which unit an action is used on"
-L["HELP_TARGETING_BODY"] = "WoW has four ways to send a spell somewhere other than your current target, and they are all in the same place in the game's own settings.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Self Cast Key.|r Hold it and a friendly spell goes to you.|n2. |cnHIGHLIGHT_FONT_COLOR:Focus Cast Key.|r Hold it and the spell goes to your focus.|n3. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast.|r The spell goes to the unit under your cursor.|n4. |cnHIGHLIGHT_FONT_COLOR:Auto Self Cast.|r A friendly spell you cast with an enemy targeted, or with nothing targeted, goes to you instead.|n|nThe first three are keys you hold: you decide, at the moment you press. The fourth is not a key at all -- it is the game quietly sending a cast to you that could not have gone where you aimed it. They sit on one row in the settings and read as one thing, and telling them apart is most of this page.|n|n|cnHIGHLIGHT_FONT_COLOR:You did not pick a target for the action.|r|n|nThe Self Cast Key, the Focus Cast Key and Auto Self Cast all work, exactly as they do on an action bar.|n|nMouseover Cast does not. It is the one part of this the game cannot answer for a Debind key, so it is switched off rather than left to give a wrong answer. To send an action to the unit under the cursor, set its target to |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, which does the same job and is yours to set per action.|n|n|cnHIGHLIGHT_FONT_COLOR:You picked a target for the action.|r|n|nThe action goes to that unit and nowhere else. None of the four apply: holding the Self Cast Key or the Focus Cast Key does nothing to it, and a friendly spell aimed at an enemy does not come back to you -- it simply does not go out.|n|nThat is what picking an entry in |cnHIGHLIGHT_FONT_COLOR:Target|r means. You named where the action goes, so nothing else gets to move it. |cnHIGHLIGHT_FONT_COLOR:Disable|r is the other answer: it leaves the decision to the game, which is the case above.|n|n|cnHIGHLIGHT_FONT_COLOR:The action is used on the unit frame you are pointing at.|r|n|nThe same. Pointing at a frame is picking a target, so the action goes to that frame's unit and the four stay out of it.|n|nTurn on |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the hovered frame's unit|r and you have taken that back: the action no longer goes to the frame's unit, and the game decides again, exactly as in the first case."
+L["HELP_TARGETING_BODY"] = "WoW has four ways to send a spell somewhere other than your current target, and they are all in the same place in the game's own settings.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Self Cast Key.|r Hold it and a friendly spell goes to you.|n2. |cnHIGHLIGHT_FONT_COLOR:Focus Cast Key.|r Hold it and the spell goes to your focus.|n3. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast.|r The spell goes to the unit under your cursor.|n4. |cnHIGHLIGHT_FONT_COLOR:Auto Self Cast.|r A friendly spell you cast with an enemy targeted, or with nothing targeted, goes to you instead.|n|nThe first three are keys you hold: you decide, at the moment you press. The fourth is not a key at all -- it is the game quietly sending a cast to you that could not have gone where you aimed it. They sit on one row in the settings and read as one thing, and telling them apart is most of this page.|n|n|cnHIGHLIGHT_FONT_COLOR:You did not pick a target for the action.|r|n|nThe Self Cast Key, the Focus Cast Key and Auto Self Cast all work, exactly as they do on an action bar.|n|nThe game's own Mouseover Cast does not. It is the one part of this the game cannot answer for a Debind key, so it is switched off rather than left to give a wrong answer. Debind has its own in its place, in the addon's settings. |cnHIGHLIGHT_FONT_COLOR:Mouseover Cast|r there sends every spell and item action that has no target of its own to the unit under your cursor, and |cnHIGHLIGHT_FONT_COLOR:Hover Cast|r beside it does the same for the unit frames Debind knows. To send one action and no other, set its target to |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r.|n|n|cnHIGHLIGHT_FONT_COLOR:You picked a target for the action.|r|n|nThe action goes to that unit and nowhere else. None of the four apply: holding the Self Cast Key or the Focus Cast Key does nothing to it, and a friendly spell aimed at an enemy does not come back to you -- it simply does not go out.|n|nThat is what picking an entry in |cnHIGHLIGHT_FONT_COLOR:Target|r means. You named where the action goes, so nothing else gets to move it. |cnHIGHLIGHT_FONT_COLOR:Disable|r is the other answer: it leaves the decision to the game, which is the case above.|n|n|cnHIGHLIGHT_FONT_COLOR:The action is used on the unit frame you are pointing at.|r|n|nThe same. Pointing at a frame is picking a target, so the action goes to that frame's unit and the four stay out of it.|n|nTurn on |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the unit you are pointing at|r and you have taken that back: the action no longer goes to the frame's unit, and the game decides again, exactly as in the first case.|n|n|cnHIGHLIGHT_FONT_COLOR:Hover Cast and Mouseover Cast.|r|n|nThese two reach spells and items only. A macro, a mount or a pet command is left alone, and so is any action you gave a target of your own. The unit you point at is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters. The same box as above, |cnHIGHLIGHT_FONT_COLOR:Don't use the action on the unit you are pointing at|r, leaves one action out of both."
 L["IMPORTANCE"] = "Importance"
 L["IMPORTANCE1"] = "Very High"
 L["IMPORTANCE2"] = "High"
@@ -1372,6 +1347,28 @@ L["SMART_CAST_DEFAULTS"] = "Smart Cast"
 L["SMART_CAST_ENABLED"] = "Enable Smart Cast"
 L["SMART_CAST_ENABLED_DESC"] = "Turn this off and no key uses Smart Cast, including every action that chose its own branches. Clearing the boxes below does less: an action that chose its own goes on casting. Nothing you have set is lost either way, and turning this back on brings it all back."
 L["SMART_CAST_DEFAULTS_DESC"] = "The boxes below hold the account setting. An action that follows it does this; an action can choose its own instead."
+-- The section holding the two switches below, and the only place the two can be read side by side.
+--
+-- **Both caveats sit on the heading, because both are true of either box.** Repeating them in two
+-- tooltips is two copies of one rule, and a reader who ticked one box and not the other would have
+-- to hover the right one to meet them.
+--
+-- **The second one is the whole reason this feature stops where it does.** Nothing in the client
+-- answers whether a spell is friendly or harmful in a way a key could act on, so the unit goes out
+-- as it is and a wrong one is silent: the spell lands on the current target, or on you, or nowhere.
+-- Without this sentence the reader has no way to find out why an attack over a friend's frame did
+-- nothing.
+L["POINTED_UNIT_CAST"] = "Casting on the unit you point at"
+L["POINTED_UNIT_CAST_DESC"] = "Both of these reach spells and items only. A macro, a mount or a pet command is left alone, and so is any action you gave a target of your own.|n|nThe unit you point at is used as it is: Debind does not ask whether the spell is friendly or harmful, so an attack aimed at a party member goes nowhere. Put a condition on the action when that matters."
+-- The addon's own name for it, since the client has none: the game has no notion of a unit frame an
+-- addon happens to know about, which is exactly what this box is scoped to (2026-09-11, owner).
+L["HOVER_CAST"] = "Hover Cast"
+L["HOVER_CAST_DESC"] = "An action with no target of its own is used on the unit of the unit frame under your cursor. Away from a unit frame it goes where it normally would."
+-- **The client's own name, because it is the client's own feature.** `ENABLE_MOUSEOVER_CAST` is
+-- what the game calls the thing in its settings, and a Debind key is the one place it cannot do it
+-- (`HELP_TARGETING_BODY`). A second name for one behaviour would leave the reader with two.
+L["MOUSEOVER_CAST"] = ENABLE_MOUSEOVER_CAST
+L["MOUSEOVER_CAST_DESC"] = "The same, for whatever the cursor is over: a unit frame, a nameplate, or the unit itself in the world.|n|nWith both boxes on, this is the one that runs. Over a unit frame the two name one unit, and this one answers away from frames as well."
 -- **It says where to go and not which button to press.** The line has to survive that door moving
 -- again, and it already moved once: this used to name the options button on the window's title bar,
 -- which now opens the settings window rather than holding the switch itself.

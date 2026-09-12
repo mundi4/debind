@@ -42,13 +42,14 @@ return function(DebindPrivate, _, ctx)
         return t;
     end
 
-    local function Bind(actions)
+    local function Bind(actions, options)
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             shared = { GENERAL = actions, classes = { [Constants.PLAYER_CLASS] = {} } },
             characters = { [GUID] = { layers = {}, switches = {} } },
             migrated = {},
             switches = {},
+            options = options,
         };
         DebindPrivate.InitDB();
 
@@ -262,14 +263,15 @@ return function(DebindPrivate, _, ctx)
             -- With a hover twin as well, the twin gets a probe of its own ahead of it. The list is
             -- read back to front by the unroll, so the key order is probe-twin, twin, probe,
             -- original: over a frame with the imp out, the probe twin is the first record.
-            local twinned = action({ type = Constants.DISPEL, key = "F4", preferHoverUnit = true });
+            local twinned = action({ type = Constants.DISPEL, key = "F4" });
+            Bind({ twinned }, { hoverCast = true });
+
             local twinnedList = DebindPrivate.GetBindingsForAction(twinned);
             check(#twinnedList == 4, "twinned list length: " .. #twinnedList);
             check(twinnedList[2].unit == nil and twinnedList[2].spellbook == 119905, "probe");
             check(twinnedList[3].unit == "hover" and twinnedList[3].spellbook == nil, "twin");
             check(twinnedList[4].unit == "hover" and twinnedList[4].spellbook == 119905, "probe twin");
 
-            Bind({ twinned });
             local keyed = interp:recordsFor("F4");
             check(keyed and #keyed == 4, "F4 records: " .. tostring(keyed and #keyed));
             check(keyed[1].spellbook == 119905 and keyed[1].units and keyed[1].units.hover,

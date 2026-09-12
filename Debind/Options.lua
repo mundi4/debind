@@ -264,6 +264,39 @@ function DebindPrivate.RegisterOptionsCategory()
     end
 
     --------------------------------------------------------------------------
+    -- Casting on the unit you point at
+    --------------------------------------------------------------------------
+
+    Header(category, L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"]);
+
+    --- **Absent is off and is what gets stored back**, the same shape every other box on this page
+    --- writes: turning one off clears the cell rather than writing `false`, so the Defaults button
+    --- leaves nothing behind.
+    local function SetPointedUnitCast(key, value)
+        DebindPrivate.Options[key] = value or nil;
+        DebindPrivate.QueueUpdateBindings();
+    end
+
+    Settings.CreateCheckbox(category,
+        Proxy(category, "HOVER_CAST", Settings.VarType.Boolean, L["HOVER_CAST"], false,
+            DebindPrivate.HoverCastEnabled,
+            function(value)
+                SetPointedUnitCast("hoverCast", value);
+            end),
+        L["HOVER_CAST_DESC"]);
+
+    --- **Not locked while Hover Cast is off, and not indented under it.** The two are alternatives
+    --- rather than a switch and its branches: this one stands on its own, and where both are on it
+    --- is the one that runs (`Misc.lua`'s `TwinUnitFor`).
+    Settings.CreateCheckbox(category,
+        Proxy(category, "MOUSEOVER_CAST", Settings.VarType.Boolean, L["MOUSEOVER_CAST"], false,
+            DebindPrivate.MouseoverCastEnabled,
+            function(value)
+                SetPointedUnitCast("mouseoverCast", value);
+            end),
+        L["MOUSEOVER_CAST_DESC"]);
+
+    --------------------------------------------------------------------------
     -- Don't Count Myself As
     --------------------------------------------------------------------------
 

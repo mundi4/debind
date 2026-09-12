@@ -36,7 +36,6 @@ local KEYS_TO_SAVE       = {
     arrivalID = true,
     keepInBindingContext = true,
     ignoreHoverUnit = true,
-    preferHoverUnit = true,
     -- **Smart Cast** (`devdocs/adding-spec-resolved-actions.md` §10). `smartCast` is the mode:
     -- nil, `"global"` (the four branches follow the account-wide defaults) or `"custom"` (the four
     -- booleans below decide). The four keep their values across mode changes, the same as every

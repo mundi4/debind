@@ -524,28 +524,6 @@ local function ToggleUnitConditionRole(ctx, unit, value)
     end
     return SetUnitConditionAxis(ctx, unit, "role", mask);
 end
---- 왜 "개체창 위에서는 그 개체를 우선"을 지금 못 켜는가. 켤 수 있으면 nil.
----
---- **잠그는 이유와 파생이 거절하는 이유는 같은 목록이어야 한다** (`Misc.lua`의
---- `GetBindingsForAction`). 공유 프로필은 이 메뉴를 안 지나므로, 갈리면 잠긴 상자가
---- 동작하거나 켠 상자가 아무 일도 안 한다.
----
---- **하나씩 문장을 돌려주는 것은 잠긴 상자가 이유를 말해야 하기 때문이다** (2026-09-06,
---- 소유자). 회색으로 굳어 있기만 하면 읽는 사람은 자기가 무엇을 되돌려야 켜지는지 모른다.
----
---- **hover 조건은 [안 올렸을 때]도 잠근다.** 그 액션은 개체창 위에서 아예 발동하지 않으므로
---- 개체창의 개체로 나갈 가능성이 0이다. 켜져 있으면 켤 수 있는 것처럼 보이는데 그 상자가
---- 할 수 있는 일이 없다.
-local function PreferHoverUnitLockReason(ctx)
-    if (UnitConditionIsOn(ctx, "hover")) then
-        return LLL["PREFER_HOVER_UNIT_LOCKED_HOVER"];
-    elseif (ctx.action.unit == "hover") then
-        return LLL["PREFER_HOVER_UNIT_LOCKED_TARGET_HOVER"];
-    elseif (ctx.action.unit == "none") then
-        return LLL["PREFER_HOVER_UNIT_LOCKED_TARGET_NONE"];
-    end
-end
-
 local function hoverConditionIsOn(ctx)
     return UnitConditionIsExists(ctx, "hover");
 end
@@ -591,5 +569,4 @@ ActionMenu.UnitConditionRoleChecked  = UnitConditionRoleChecked;
 ActionMenu.ToggleUnitConditionRole   = ToggleUnitConditionRole;
 ActionMenu.UnitConditionRemembersAxis = UnitConditionRemembersAxis;
 ActionMenu.HoverFrameTypeChecked     = HoverFrameTypeChecked;
-ActionMenu.PreferHoverUnitLockReason = PreferHoverUnitLockReason;
 ActionMenu.hoverConditionIsOn        = hoverConditionIsOn;

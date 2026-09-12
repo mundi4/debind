@@ -307,8 +307,8 @@ return function(DebindPrivate, _, ctx)
     test("a click-cast record carries the branches", function()
         world();
         Bind({
-            action({ value = 585, key = "BUTTON3", preferHoverUnit = true, smartCast = "global" }),
-        });
+            action({ value = 585, key = "BUTTON3", smartCast = "global" }),
+        }, { hoverCast = true });
         -- A mouse button's list is filed under `ClickCastKeys[button][modifier]` rather than under
         -- a click-time button name.
         local records = interp.env.ClickCastKeys[3] and interp.env.ClickCastKeys[3][0];
