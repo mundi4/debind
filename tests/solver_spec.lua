@@ -361,6 +361,45 @@ return function(DebindPrivate)
         }, "fake");
     end);
 
+    -- The cursor being on a frame is the client's `mouseover` standing on that frame's unit, so a
+    -- `mouseover` action covers a hover one. `makeMouseoverFlags` is what folds that in, and a key
+    -- carrying both a hover cast and a mouseover cast is the shape it was written for.
+    test("mouseover=있음이 hover 조건을 덮는다", function()
+        expectRemoved({
+            { name = "mouseover", key = "SHIFT-Q", units = { mouseover = {} } },
+            { name = "hover",     key = "SHIFT-Q", units = { hover = {} } },
+        }, "hover");
+    end);
+
+    test("mouseover=있음이 hover=아군을 덮는다", function()
+        expectRemoved({
+            { name = "mouseover", key = "SHIFT-Q", units = { mouseover = {} } },
+            { name = "hover",     key = "SHIFT-Q",
+              units = { hover = { reaction = Constants.REACTION_HELP } } },
+        }, "hover");
+    end);
+
+    -- **Where that fold lives is decided by this case.** Folded into the mask `Misc.lua` builds,
+    -- the column stands on a key where nobody named `mouseover`, and then two bindings splitting
+    -- the hover axis between them stop covering an unconditional one -- the phantom point is
+    -- theirs to cover and neither reaches it. Measured against that placement, this went red.
+    test("hover 축을 쪼갠 둘은 여전히 무조건 바인딩을 덮는다", function()
+        expectRemoved({
+            { name = "nohover",  key = "SHIFT-Q", units = { hover = false } },
+            { name = "hovering", key = "SHIFT-Q", units = { hover = {} } },
+            { name = "always",   key = "SHIFT-Q" },
+        }, "always");
+    end);
+
+    -- Not the other way round: mousing over something in the world sets the token with no frame
+    -- anywhere.
+    test("hover 조건은 mouseover=있음을 못 덮는다", function()
+        expectSurvives({
+            { name = "hover",     key = "SHIFT-Q", units = { hover = {} } },
+            { name = "mouseover", key = "SHIFT-Q", units = { mouseover = {} } },
+        }, "mouseover");
+    end);
+
     ---------------------------------------------------------------------------
     -- 2. 무차별 대조
     ---------------------------------------------------------------------------

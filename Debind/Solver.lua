@@ -252,6 +252,34 @@ local function makeUnitFlags(binding, unit)
     return mask;
 end
 
+--- **The one correlation across columns that is folded in, and the only place it can be.** The
+--- cursor being on a frame is the client's `mouseover` standing on that frame's unit, so the
+--- product's (hovering, nothing moused over) point is one the game never produces. Left in, a
+--- `mouseover` action never covers a hover action it always beats to the press -- the shape a key
+--- with both casts on it has.
+---
+--- **Here rather than in the mask `Misc.lua` builds**, because narrowing it there would create
+--- this column on a key where nobody named `mouseover`, and then a pair of bindings splitting the
+--- hover axis between them would stop covering an unconditional one: the phantom point is theirs
+--- to cover and neither reaches it. Done at column-build time, the space only grows the axis when
+--- a binding really asks about it.
+---
+--- **Existence and nothing more, though it is the same unit.** Taking the hover mask outright
+--- would say [the moused-over unit is friendly] where the user said it of the hovered frame, and
+--- nobody here has measured the client on that.
+---
+--- **One direction.** Mousing over something in the world sets the token with no frame anywhere,
+--- so a hover condition says nothing about `mouseover` being absent.
+local function makeMouseoverFlags(binding)
+    local states = binding.unitStates;
+    local mask = (states and states.mouseover) or Constants.UNITSTATE_ALL;
+    local hover = states and states.hover;
+    if (hover and hover ~= 0 and band(hover, Constants.UNITSTATE_NONE) == 0) then
+        mask = band(mask, Constants.UNITSTATE_EXISTS);
+    end
+    return mask;
+end
+
 --- **A column of its own rather than another factor in the unit product.** `Constants.lua` says
 --- why over `UNITSTATE_NONE`: the product belongs to a key and widening the enumeration makes
 --- every key pay for an axis it never asked about. It correlates with the hover unit's column --
@@ -396,7 +424,8 @@ local function buildLayout(bindings)
                 if (not _unitSeen[unit]) then
                     _unitSeen[unit] = true;
                     _numColumns = _numColumns + 1;
-                    _colMake[_numColumns] = makeUnitFlags;
+                    _colMake[_numColumns] = unit == "mouseover" and makeMouseoverFlags
+                            or makeUnitFlags;
                     _colArg[_numColumns] = unit;
                 end
             end
