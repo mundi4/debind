@@ -178,6 +178,14 @@ return function(DebindPrivate)
             "조건이 없는데 변환이 안 선다");
     end);
 
+    --- **이름을 든 `known`은 따라온다.** 그 물음은 액션이 무엇을 시전하는가와 무관하고
+    --- (`devdocs/making-known-a-spell-name.md`), 본문이 된 뒤에도 같은 주문을 묻는다.
+    test("이름을 든 배웠을 때만 조건은 변환을 안 막는다", function()
+        installWorld();
+        check(Can({ type = Constants.SPELL, value = 774, conditions = { known = "Regrowth" } }),
+            "따라올 수 있는 조건인데 변환이 안 선다");
+    end);
+
     --- `preferHoverUnit`은 매크로 본문으로 안 옮겨간다. 조용히 떨어뜨리면 변환된 매크로가 개체창
     --- 위에서 다른 개체에게 나가므로, 쌍둥이가 실제로 서는 액션은 못 바꾼다. 쌍둥이가 안 서는
     --- 액션(hover 조건이 켜진 것)은 옵션이 아무 일도 안 하니 변환이 아무것도 안 잃는다.

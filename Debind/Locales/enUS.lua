@@ -58,6 +58,10 @@ L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No reaction or frame type is selected."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
+-- The reader cannot fix the spell's name, so the sentence says what to do instead: pick another
+-- row, or drop the condition. Neither half of the reason (macro conditionals, commas) is
+-- something the window has ever spoken about.
+L["BINDING_ERROR_KNOWN_NAME_UNPARSABLE"] = "This spell's name cannot be used in this condition. Pick another spell, or turn the condition off."
 L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- The fourth of the *_NONE_SELECTED family, and the only one that is not about a condition: the
 -- action itself has not been told which switch it works. Kept apart from the line below on
@@ -190,7 +194,9 @@ L["CONDITION_INDOORS_YES"] = "While indoors"
 L["CONDITION_INDOORS"] = "Indoors"
 L["CONDITION_KNOWN"] = "Spell Known"
 L["CONDITION_KNOWN_YES"] = "While you know the spell"
-L["CONDITION_KNOWN2"] = "Spell Known (which one)"
+-- The row names the spell it asks about, and the rows are a list to pick one from. A talent that
+-- replaces a spell is its own row, which is the whole point of naming them.
+L["CONDITION_KNOWN_VALUE"] = "While you know %s"
 -- The submenu that holds the four conditions too small to hold a row of the main list each. It
 -- names no rule of its own, so it stays the plain word rather than trying to describe what is
 -- inside it.

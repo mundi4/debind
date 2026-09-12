@@ -1,12 +1,12 @@
 # `known`을 주문 이름으로 바꾸기 (2026-09-12 시작)
 
-> 상태: **조사가 끝났고 코드는 없다.** 무엇을 어디에 고치는지는 아래 순서가 담는다. 안 정한 것은
-> §5에 둘, §4에 하나 있고 셋 다 3-2를 막지 않는다.
+> 상태: **3-1부터 3-7까지 전부 들어갔다.** 안 정한 것은 §5에 하나(부가 이름), §4에 하나(버프로
+> 대체되는 주문을 고정 판정에서 가르는 근거)가 남았고, 둘 다 지금 코드가 안전한 쪽으로 떨어진다.
 >
 > 코드를 훑고 게임에서 잰 값은 `.zzz/known-as-a-spell-name.md`가 든다. 여기는 그 조사에서
 > 나온 결론과 구현 차례만 담는다.
 
-액션의 `known` 조건을 `true | nil`에서 **`주문 이름 | 주문 id | nil`**로 바꾼다. 담기는 것은 굽는
+액션의 `known` 조건을 `true | nil`에서 **`주문 이름 | 주문 id | true | nil`**로 바꾼다. 담기는 것은 굽는
 문자열에 그대로 들어가는 값이고, 이름이 정상 갈래다. id는 마이그레이션이 이름을 못 얻은 줄에만
 남는다(§5).
 
@@ -49,8 +49,8 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 ### 3-1. 값 모양과 저장
 
 - `Constants.CONDITION_TYPES`의 `known`은 이름만 담으므로 안 건드린다.
-- `DebindStorage/Export.lua`의 와이어 스키마 `known = "boolean"`을 `"number|string"`으로 바꾼다.
-  필터가 타입 이름을 `strfind`로 찾으므로 한 칸에 둘을 적는 형식이 이미 있다(`value`, `icon`).
+- `DebindStorage/Export.lua`의 와이어 스키마 `known`은 `"boolean|number|string"`이다. 필터가 타입
+  이름을 `strfind`로 찾으므로 한 칸에 여럿을 적는 형식이 이미 있다(`value`, `icon`).
   **안 고치면 공유된 액션에서 `known`이 조용히 사라진다.** `Import.lua`의 `ConditionAllowed`가
   같은 표를 본다.
 - `SCHEMA_VERSION`은 안 올린다(`Export.lua:53-58`의 선례).
@@ -83,15 +83,16 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 
 ### 3-4. 파생 관계를 끊는 곳
 
-- `Misc.lua`의 정규화: `false` 갈래와 비주문 타입 제한이 둘 다 근거를 잃는다. 물음이 액션과
-  무관해지므로 매크로 액션에도 `known`이 설 수 있다.
-- `KnownConditionCanHold`(`Misc.lua`)와 그것을 쓰는 키맵 필터(`Debind.lua`): **물을 것이
-  없어진다.** 조건이 자기 이름을 들고 있으므로 이 전문화에 그 주문이 없다는 것은 답이 거짓인
-  것이지 물음이 없는 것이 아니다.
-- `ConditionsSurviveMacroText`(`Misc.lua`): 본문도 "이 주문을 배웠나"를 물을 수 있으므로 거부
-  근거가 사라진다.
-- `Profile.lua`의 `row.noSpell`: 첫째 갈래(`KnownConditionCanHold`)가 없어지고 둘째
-  (`SettleKnown(...) == false`)는 산다.
+넷 다 없어지는 것이 아니라 **`true` 갈래로 좁아진다.** 물음이 액션에 매인 것은 그 값 하나뿐이다.
+
+- `Misc.lua`의 정규화: 타입 제한이 `true`에만 걸린다. 이름을 든 `known`은 매크로 액션에도 선다.
+  `false`는 그대로 지운다.
+- `KnownConditionCanHold`(`Misc.lua`)와 그것을 쓰는 키맵 필터(`Debind.lua`): `true`만 "물을 것이
+  없다"를 답할 수 있다. 이름은 이 전문화에 그 주문이 없어도 물음이 서고, 답이 거짓일 뿐이다.
+- `ConditionsSurviveMacroText`(`Misc.lua`): `true`만 변환을 막는다.
+- `Profile.lua`의 `row.noSpell`: 두 갈래 다 살고, 둘째가 묻는 값이 `KnownSpellAsked`로 바뀐다.
+- 그 파생을 한 군데로 모은 것이 `DebindPrivate.KnownSpellAsked`(`Misc.lua`)다. 굽는 자리, 솔버
+  컬럼, 목록의 표시가 같은 답을 써야 해서 셋이 따로 적던 것을 합쳤다.
 
 ### 3-5. 솔버
 
@@ -102,10 +103,9 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 ### 3-6. 화면
 
 - 메뉴는 체크박스 하나에서 라디오 목록이 된다. **행 모양은 이미 서 있다.**
-  `Debind/ActionMenuProbe.lua`의 `KNOWN2`가 뿌리를 공유하는 주문을 한 줄씩 세우는 프로브이고,
-  저장도 판별도 안 한다. 이 작업이 그 자리를 가져가면 프로브는 지운다.
-- 툴팁(`ActionTooltip.lua`)은 값 줄에 이름이 들어가므로 `CONDITION_KNOWN_YES`가 서식 문자열이
-  된다.
+  프로브 `KNOWN2`가 그 모양을 먼저 세웠고, 이 단계가 그 자리를 가져가면서 프로브는 지웠다.
+- 툴팁(`ActionTooltip.lua`)은 값 줄에 이름이 들어간다. `CONDITION_KNOWN_YES`는 `true` 몫으로
+  남고, 이름을 그리는 서식은 `CONDITION_KNOWN_VALUE`다.
 - 목록이 어디서 오나: `Spells.GetBranches()`가 뿌리별 갈래를 낸다. 부를 때마다 walk를 다시 도니
   메뉴 열 때 한 번만 부른다.
 
@@ -126,9 +126,9 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 않는다. id로 몰래 갈아 굽는 길은 저장값과 구운 값이 갈리는 자리를 하나 더 만들고, 이름에서 id로
 내려가는 길이 nil을 내는 경우(§2의 "Void Volley")에 무엇을 구울지를 또 정해야 한다.
 
-`known`은 `BINDING_ISSUE_CATEGORIES`에 없으므로 갈래를 새로 등록해야 한다. 그 표에 이름이
-올라가면 메뉴 행과 툴팁이 그 자리를 빨갛게 칠하는 것은 이미 선다
-(`ActionMenuModel.lua`의 `issueForKey`, `ActionTooltip.lua`). 그런 이름이 실제로 있는지는 안 쟀다.
+`BINDING_ISSUE_KNOWN_NAME_UNPARSABLE`이 그 자리이고 등급은 ERROR다. 등급이 ERROR면
+`BuildKeyMap`이 그 바인딩을 안 담으므로 깨진 조건문이 나가지 않고, 메뉴 행과 툴팁이 빨개지는 것은
+`known`을 `BINDING_ISSUE_CATEGORIES`에 올린 것으로 선다. 그런 이름이 실제로 있는지는 안 쟀다.
 
 **버프로 대체되는 주문은 고정 판정 밖이다.** 사제의 보이드폼 주문 228260이 버프가 서 있는 동안
 1242173으로 덮이는데, 1분에 세 번 움직였다(`.zzz/known-as-a-spell-name.md` §3, §4). 그 주문이
@@ -145,17 +145,19 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 ("주문을 못 찾으면 nil"이 문서가 다는 유일한 조건), 창이 이미 그 호출로 다른 직업 탭 액션의
 이름을 그린다.
 
+**값을 안 가진 세 타입은 `true`를 그대로 쓴다**(2026-09-12, 소유자). `DISPEL` / `EXTERNAL` /
+`RAIDBUFF`는 전문화가 푸는 주문을 묻는 것이라(`SpecSpells.lua`) 묻는 이름이 전문화마다 다르고,
+하나를 박으면 그 타입을 쓰는 이유가 없어진다. `true`는 "액션 자신의 주문"이라는 뜻으로 남는다.
+그래서 파생 관계는 그 셋에서만 살고, 나머지는 전부 끊긴다.
+
+**그 셋은 지금처럼 id로 푼다**(2026-09-12, 소유자). 리빌드가 전문화의 주문을 집어 `[known:<id>]`을
+굽는 지금 모양 그대로다. 이름으로 한 번 더 내리는 안이 나왔다가 접혔다.
+
 **이름이 안 나오는 줄은 id를 그대로 둔다**(2026-09-12, 소유자). 그 자리는 거의 전부 데이터가 안
 올라온 주문이고, 모르는 주문의 `known`은 어차피 거짓으로 떨어진다. 그래서 `[known:<id>]`을 계속
 굽는 것이 답을 안 바꾼다. 값이 없는 `known`은 마이그레이션에 있을 수 없고, 있으면 지운다.
 
 ### 안 정한 것
-
-**값을 안 가진 세 타입의 `known`을 어떻게 하나.** `DISPEL` / `EXTERNAL` / `RAIDBUFF`는 전문화가
-푸는 주문을 묻는 것이라(`SpecSpells.lua`) 묻는 이름이 전문화마다 다르다. 마이그레이션이 넣을
-이름이 없고, 이름을 하나 박으면 그 타입을 쓰는 이유가 없어진다. `true`를 그대로 살려 "액션 자신의
-주문"이라는 뜻으로 계속 읽어서 값이 `string | true | nil`이 되게 하거나, 그 셋에서는 조건을
-지우거나다.
 
 **부가 이름을 붙이나.** §2의 규칙은 클라이언트 것이 있으니 그대로 쓰면 되고, 남은 것은
 `[known:이름(부가)]`이 실제로 서는지 한 번 재는 것이다.
@@ -166,6 +168,16 @@ id 쪽에서 같은 값을 얻는 것은 `C_Spell.GetSpellName`과 `C_Spell.GetS
 `tests/normalize_spec.lua`가 `false`와 타입 제한을, `tests/import_spec.lua`가 와이어를,
 `tests/emit_fixture.lua`와 `tests/emit-golden.txt`가 구운 문자열을, `tests/knownspells_spec.lua`가
 walk와 고정 판정을 잡는다. 새 모양의 검증은 이 다섯이 출발점이다.
+
+들어간 것이 무엇을 덮는지는 이렇다. 사다리 넷(이름으로 바뀐다 / 이름을 못 얻으면 id가 남는다 /
+전문화 타입은 `true`로 남는다 / 두 번 돌려도 안전하다), 와이어 둘(표본이 이름을 싣는다 /
+이름·id·`true` 셋 다 통과한다), 굽는 자리 둘(조건이 든 값으로 굽는다 / 세 갈래를 이름으로 물어도
+같은 답), walk 셋(이름이 레벨을 단다 / 높은 레벨이 남는다 / 이미 물어본 id도 병합에 든다), 솔버
+둘(묻는 주문이 다르면 독립 / 같으면 중복), 이슈 셋(쉼표 / 대괄호 / 성한 값 셋은 이슈가 아니다),
+정규화·변환·전문화 필터 각 하나.
+
+**메뉴와 툴팁은 이 층 밖이다.** 라디오 목록이 무엇을 세우는지, 저장된 값이 목록에 없을 때 그 줄이
+서는지, 툴팁 값 줄의 서식이 맞는지는 화면에서만 보인다.
 
 **원리상 못 보는 것은 클라이언트가 `[known:<이름>]`에 무엇을 답하는가다.** 헤드리스는 주입한
 가짜 API가 답하는 것이라 우리 순회 논리만 검증된다. 이름이 대체를 따라가는지, 괄호가 든 이름이

@@ -985,6 +985,35 @@ return function(DebindPrivate)
         check(#issues == 0, "a clean action reported: " .. tostring(issues[1] and issues[1].code));
     end);
 
+    ---------------------------------------------------------------------------
+    -- 묻는 주문 이름이 조건문을 깨뜨리는 경우
+    ---------------------------------------------------------------------------
+
+    --- 이름은 `[known:<이름>]`에 그대로 들어간다. 쉼표는 조건 하나를 둘로 쪼개고 `]`는 그룹을
+    --- 끝내는데, 둘 다 아무 오류도 안 내고 **다른 물음**이 되어 버린다
+    --- (`devdocs/making-known-a-spell-name.md`). 이슈로 세워서 그 키를 안 걸게 한다.
+    local function knownIssue(value)
+        return GetBindingIssue(nest({
+            type = Constants.SPELL, value = 100, key = "T", conditions = { known = value },
+        }), "known");
+    end
+
+    test("쉼표가 든 주문 이름은 이슈", function()
+        check(knownIssue("Foo, Bar") == Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE,
+            "이슈가 " .. tostring(knownIssue("Foo, Bar")));
+    end);
+
+    test("대괄호가 든 주문 이름은 이슈", function()
+        check(knownIssue("Foo]") == Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE,
+            "이슈가 " .. tostring(knownIssue("Foo]")));
+    end);
+
+    test("성한 이름과 id와 true는 이슈가 아니다", function()
+        check(knownIssue("Regrowth") == nil, "이름에 이슈: " .. tostring(knownIssue("Regrowth")));
+        check(knownIssue(8936) == nil, "id에 이슈: " .. tostring(knownIssue(8936)));
+        check(knownIssue(true) == nil, "true에 이슈: " .. tostring(knownIssue(true)));
+    end);
+
     --- One code told under two names. Folding them to one line loses the other menu.
     test("one code under two groups stands twice", function()
         local action = { type = Constants.SPELL, value = 585, key = "T", conditions = {

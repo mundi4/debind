@@ -295,6 +295,33 @@ return function(DebindPrivate)
     -- A spell the book does not carry at all is the third case, and the test above at "a known
     -- condition bakes the conditional it will be parsed as" is it: 8936 is in no world here.
 
+    -- The same three branches asked in a **name**, which is what the condition will store
+    -- (`devdocs/making-known-a-spell-name.md` §3-2). The level that settles it comes off the
+    -- walk's name index, and the answer is measured with the string that would be baked.
+    -- **The condition's own value is the question.** A name is what it stores, and the action it
+    -- sits on is not what it asks about any more: an action on the base spell can ask about the
+    -- talent that replaces it (`devdocs/making-known-a-spell-name.md`).
+    test("a known bakes the value it carries and not the action's spell", function()
+        local record = recordFor({
+            type = Constants.SPELL, value = 8936,
+            clickframe = true, clickbutton = "deb1",
+            conditions = { known = "Spell 1002" },
+        }, false, true, false, true);
+        check(fieldOf(record, "known") == "[known:Spell 1002]",
+            "known: " .. tostring(fieldOf(record, "known")));
+    end);
+
+    test("the three branches answer the same when the known is asked by name", function()
+        local Spells = DebindPrivate.Spells;
+        check(Spells.SettleKnown("Spell 1000") == true,
+            "holds: " .. tostring(Spells.SettleKnown("Spell 1000")));
+        check(Spells.SettleKnown("Spell 1001") == false,
+            "does not hold: " .. tostring(Spells.SettleKnown("Spell 1001")));
+        check(Spells.SettleKnown("Spell 1002") == nil,
+            "above the character's level, settled anyway: "
+            .. tostring(Spells.SettleKnown("Spell 1002")));
+    end);
+
     -- An axis set to "no restriction" is not carried. It would be a comparison that is always true
     -- on a path that runs at every press.
     test("an axis set to everything is not carried", function()

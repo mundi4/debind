@@ -142,11 +142,15 @@ local ACTION_FIELDS      = {
 --- What may sit inside `conditions`, by name and type. **The wire is untrusted**, so the
 --- receiving side filters one level deeper than it used to (`Import.lua`'s `FieldAllowed`).
 ---
---- `known` is asked-or-not-asked, which is `true` or absent -- not the third value the booleans
---- around it have, because the condition is about the action's own spell and a `false` would say
---- "cast it only while it is unlearned". The type stays `boolean` because this list filters by
---- name and type and has no way to say which of the two, and a sender on some other build can put
---- a `false` on the wire; `GetBindingInfoForAction` is where it dies.
+--- `known` says **what** is asked about rather than whether to ask
+--- (`devdocs/making-known-a-spell-name.md`): the name of a spell, the id where the client could
+--- not name it, or `true` on the three types whose spell the specialization picks, which is the
+--- only shape left meaning "this action's own spell". All three types are listed because a shape
+--- left out is a condition that vanishes out of a shared action with nothing said.
+---
+--- `false` rides in under `boolean` and dies at `GetBindingInfoForAction`, the way it always has:
+--- the question is about a spell the action casts, so "only while it is unlearned" has no state
+--- that satisfies it.
 ---
 --- **A `$`-prefixed name passes unlisted, as a boolean.** Custom state conditions are stored
 --- under their own name and the redesign turns the five slots into arbitrary ones
@@ -164,7 +168,7 @@ local CONDITION_TYPES    = {
     -- keybinding addon must not fail in is the other one. The tooltip walks the client's own
     -- classes rather than the set, so a junk key has nothing to print itself into.
     specs = "table",
-    known = "boolean",
+    known = "boolean|number|string",
     combat = "boolean",
     stealth = "boolean",
     specialbar = "boolean",

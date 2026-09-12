@@ -277,17 +277,15 @@ local function makeUnitGroupFlags(binding, unit)
     return mask;
 end
 
---- The spell a `known` condition asks about: the value of a `SPELL`, and the resolved spell of the
---- three spec-resolved types (`binding.spell`, `SpecSpells.lua`). nil for everything else, and for
---- a spec-resolved type with no spell in this specialization.
+--- The spell a `known` condition asks about, which is **the condition's own value** and not the
+--- action's (`Misc.lua`'s `KnownSpellAsked`). Two actions on one spell asking about two different
+--- talents are two axes; folding them into one column keyed by the action would call the second a
+--- repeat of the first.
+---
+--- nil only where `true` has nothing to fall back on: a spec-resolved type with no spell in this
+--- specialization.
 local function KnownSpellOf(binding)
-    if (binding.type == Constants.SPELL) then
-        return binding.value;
-    end
-    if (Constants.SPEC_RESOLVED_TYPES[binding.type]) then
-        return binding.spell;
-    end
-    return nil;
+    return DebindPrivate.KnownSpellAsked(binding);
 end
 
 local function makeKnownFlags(binding, spellValue)

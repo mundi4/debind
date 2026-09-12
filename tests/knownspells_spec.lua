@@ -323,6 +323,54 @@ return function(DebindPrivate)
     end)
 
     ---------------------------------------------------------------------------
+    -- Learn levels by name
+    ---------------------------------------------------------------------------
+
+    --- The same question the id table answers, asked in the name a `known` condition stores
+    --- (`devdocs/making-known-a-spell-name.md` §3-2).
+
+    local function nameLevels(world)
+        return (select(3, Spells.Build(API(world))));
+    end
+
+    test("이름 레벨: 이름이 배우는 레벨을 단다", function()
+        local levels = nameLevels({
+            book = { { items = { { spellID = 100, level = 12 } } } },
+            spellNames = { [100] = "광포" },
+        });
+        check(levels["광포"] == 12, "got " .. tostring(levels["광포"]));
+    end)
+
+    --- A name a talent version and the book version share holds the **higher** level, for the
+    --- reason the id table merges that way: the lower one would call the answer fixed while a
+    --- level-up can still flip it.
+    test("이름 레벨: 한 이름을 나눠 쓰면 높은 레벨이 남는다", function()
+        local levels = nameLevels({
+            book = { { items = {
+                { spellID = 100, level = 12 },
+                { spellID = 200, level = 70 },
+            } } },
+            spellNames = { [100] = "광포", [200] = "광포" },
+        });
+        check(levels["광포"] == 70, "got " .. tostring(levels["광포"]));
+    end)
+
+    --- **The merge has to sit where the level is, not where the name is asked.** One id is filed
+    --- again and again -- two book rows can share a base -- and the walk asks its name only the
+    --- first time. A name level written beside that question keeps whatever level came first.
+    test("이름 레벨: 이름을 이미 물어본 id도 레벨 병합에 든다", function()
+        local levels = nameLevels({
+            book = { { items = {
+                { spellID = 100, level = 12 },
+                { spellID = 200, level = 70 },
+            } } },
+            baseSpells = { [100] = 99, [200] = 99 },
+            spellNames = { [99] = "뿌리" },
+        });
+        check(levels["뿌리"] == 70, "got " .. tostring(levels["뿌리"]));
+    end)
+
+    ---------------------------------------------------------------------------
     -- The branch index
     ---------------------------------------------------------------------------
 

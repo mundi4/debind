@@ -808,6 +808,37 @@ local function MigrateLayer(layerTbl, dbver)
             end
         end
 
+        -- `known` stops being "ask about it" and starts saying **what** is asked about
+        -- (`devdocs/making-known-a-spell-name.md`). `true` used to mean the action's own spell,
+        -- which left a reader no way to ask about the talent that replaces it.
+        --
+        -- The action's own value is what it meant, so that is what goes in, as the **name** the
+        -- client draws on it. A name survives a specialization change where an id does not: the
+        -- same spell has an id per specialization and the two do not point at each other
+        -- (`devdocs/resolving-a-stored-spell-id.md`).
+        --
+        -- **A value the client cannot name keeps its id.** That is a spell whose data is not
+        -- loaded, or one that no longer exists, and `[known:<id>]` answers false for it either
+        -- way, which is what it answered before this step.
+        --
+        -- **The three spec-resolved types keep `true`.** They carry no value and the spell is
+        -- picked at the rebuild, so a name here would nail the condition to one specialization.
+        --
+        -- Running twice is safe: the second pass finds a string or a number, and only `true` is
+        -- taken.
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local conditions = action.conditions;
+            if (conditions and conditions.known == true
+                    and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
+                if (action.value == nil) then
+                    conditions.known = nil;
+                else
+                    conditions.known = C_Spell.GetSpellName(action.value) or action.value;
+                end
+            end
+        end
+
         -- Each of a unit condition's three modes takes a value of its own.
         --
         --   when there is one    `{}`                 -> `{ exists = true }`
@@ -2797,10 +2828,11 @@ function MakeRow(action, layer, layerRank, index, simulated, specRank, worldSpec
     -- (`devdocs/baking-the-known-condition.md` §6-1), which is what takes the binding out of the
     -- key. A reader sees one thing either way -- that spell is not there -- so both take the same
     -- word.
+    local knownAsked = DebindPrivate.KnownSpellAsked(binding);
     row.noSpell = (not offWorld)
         and (not DebindPrivate.KnownConditionCanHold(binding)
-            or (binding.conditions.known ~= nil
-                and DebindPrivate.Spells.SettleKnown(binding.spell or binding.value) == false))
+            or (knownAsked ~= nil
+                and DebindPrivate.Spells.SettleKnown(knownAsked) == false))
         or nil;
 
     return row;

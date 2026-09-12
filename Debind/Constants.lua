@@ -258,6 +258,8 @@ Constants.BINDING_ISSUE_CATEGORIES = {
     -- 액션이 스위치를 잘못 가리킨다. 정의가 없는 이름을 부르거나(매크로 본문·조건·켜기 대상),
     -- 켜기/끄기/전환인데 아직 어느 스위치인지 안 골랐거나. 위와 같은 자리다.
     states = true,
+    -- 묻는 주문 이름이 조건문 파서를 못 탄다(`devdocs/making-known-a-spell-name.md`).
+    known = true,
 };
 
 --- Is this a switch's name? **The `$` is the whole test.** A switch condition is stored under the
@@ -539,6 +541,10 @@ Constants.BINDING_ISSUE_BONUSBARS_NONE_SELECTED           = "BONUSBARS_NONE_SELE
 Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED              = "GROUPS_NONE_SELECTED";
 Constants.BINDING_ISSUE_SPECS_NONE_SELECTED               = "SPECS_NONE_SELECTED";
 Constants.BINDING_ISSUE_HOVER_NONE_SELECTED               = "HOVER_NONE_SELECTED";
+-- **The name goes into a macro conditional as it stands**, so a comma ends the condition and a
+-- `]` ends the group. Neither raises anything: the conditional parses into something else and the
+-- key answers a question nobody asked (`devdocs/making-known-a-spell-name.md`).
+Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE             = "KNOWN_NAME_UNPARSABLE";
 -- No box ticked in a unit's group block. **Its own code, on the same categories the unit's other
 -- axes use.** The category picks which control goes red and the block lives in those menus, so it
 -- is the right one; what a shared code would get wrong is the sentence, because a zero here is one
@@ -605,6 +611,7 @@ Constants.BINDING_ISSUE_GRADES = {
     [Constants.BINDING_ISSUE_GROUPS_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SPECS_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_HOVER_NONE_SELECTED]               = Constants.ISSUE_GRADE_ERROR,
+    [Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE]             = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED]          = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_UNDEFINED_STATE]                   = Constants.ISSUE_GRADE_ERROR,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_GRADE_ERROR,

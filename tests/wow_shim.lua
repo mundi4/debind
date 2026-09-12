@@ -420,9 +420,22 @@ function M.install()
     --- restricted environment has its own reader with the whole grammar (`tests/restricted.lua`).
     --- Everything else keeps answering the empty string, which is a match.
     _G.SecureCmdOptionParse = function(expr)
-        local spellID = expr and expr:match("^%[known:(%d+)%]$");
-        if (spellID) then
-            return M.world.knownSpells[tonumber(spellID)] and "" or nil;
+        local argument = expr and expr:match("^%[known:(.+)%]$");
+        if (argument) then
+            local spellID = tonumber(argument);
+            if (not spellID) then
+                -- **A name answers for whichever id carries it.** The client reads the argument as
+                -- a name when it is not a number, and a condition stores one
+                -- (`devdocs/making-known-a-spell-name.md`). Two ids sharing a name is the case
+                -- this has to get right, and one of them being known is enough.
+                for id, spell in pairs(M.world.spells) do
+                    if (spell.name == argument and M.world.knownSpells[id]) then
+                        return "";
+                    end
+                end
+                return nil;
+            end
+            return M.world.knownSpells[spellID] and "" or nil;
         end
         return "";
     end

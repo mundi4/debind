@@ -665,12 +665,19 @@ do
 		addBooleanCondition("indoors");
 
 		-- **Not `addBooleanCondition`**, because only one of the two answers is ever drawn: the
-		-- menu toggles `known` between true and nil rather than inverting it, so there is no
+		-- menu picks which spell is asked about rather than inverting the question, so there is no
 		-- "does not know it" row to write and `CONDITION_KNOWN_NO` does not exist.
+		--
+		-- The value names the spell (`devdocs/making-known-a-spell-name.md`); `true` is the three
+		-- types whose spell the specialization picks, and there the action itself is the answer.
 		if (conditions.known) then
 			local error = hasIssues and GetIssue("known");
 			addLabelLine(tooltip, LLL["CONDITION_KNOWN"]);
-			addValueLine(tooltip, LLL["CONDITION_KNOWN_YES"], error);
+			if (conditions.known == true) then
+				addValueLine(tooltip, LLL["CONDITION_KNOWN_YES"], error);
+			else
+				addValueLine(tooltip, format(LLL["CONDITION_KNOWN_VALUE"], conditions.known), error);
+			end
 		end
 
 		if (conditions.forms ~= nil and conditions.forms ~= Constants.FORM_ALL) then

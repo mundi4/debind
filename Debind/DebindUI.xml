@@ -16,7 +16,7 @@
 	<Script file="ActionTooltip.lua" />
 	<Script file="DebindUI.lua" />
 	<!--
-		**These six are one order and it is load-bearing.** Each takes its names off
+		**These five are one order and it is load-bearing.** Each takes its names off
 		`DebindPrivate.ActionMenu` as it is read, so a file read before the one that puts a name
 		there binds nil and fails much later, somewhere else.
 
@@ -28,7 +28,6 @@
 	<Script file="MenuKit.lua" />
 	<Script file="ActionMenuModel.lua" />
 	<Script file="ActionMenuNodes.lua" />
-	<Script file="ActionMenuProbe.lua" />
 	<Script file="ActionMenuItems.lua" />
 	<Script file="DropDownMenus.lua" />
 

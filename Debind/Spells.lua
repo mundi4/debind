@@ -29,34 +29,51 @@ end
 --- specialization can obtain -- so the walk runs once and answers both questions.
 ---
 ---   learnLevelBySpellID   `spellID -> level`, for `[known:]` (below)
+---   learnLevelByName      the same thing keyed by name, for a `known` that stores one
+---                         (`devdocs/making-known-a-spell-name.md`)
 ---   obtainableIDsByName   `name -> { spellID, ... }`, for `ResolveBase` (below)
 ---   nameAsked             ids already put to `GetSpellName`. `AddSpellBook` files one id under
 ---                         three keys and the merge meets it again, so without this the same id
 ---                         stands in a list twice and costs a client call each time.
+---   nameBySpellID         what that question answered, so the id filed a second time still has
+---                         its name to merge a level under.
 local function NewWalk()
-    return { learnLevelBySpellID = {}, obtainableIDsByName = {}, nameAsked = {} };
+    return {
+        learnLevelBySpellID = {},
+        learnLevelByName = {},
+        obtainableIDsByName = {},
+        nameAsked = {},
+        nameBySpellID = {},
+    };
 end
 
+--- Files `spellID` under its name and answers what that name is, asking the client once per id.
 local function RecordName(out, api, spellID)
     if (out.nameAsked[spellID]) then
-        return;
+        return out.nameBySpellID[spellID];
     end
     out.nameAsked[spellID] = true;
     local name = api.GetSpellName(spellID);
     if (not name) then
-        return;
+        return nil;
     end
+    out.nameBySpellID[spellID] = name;
     local ids = out.obtainableIDsByName[name];
     if (not ids) then
         ids = {};
         out.obtainableIDsByName[name] = ids;
     end
     ids[#ids + 1] = spellID;
+    return name;
 end
 
 --- The higher level wins when two walks name the same spell, because a level the character has
 --- not reached yet is the one thing that can still flip the answer inside a fight. Merging the
 --- other way would bake a `false` that a level-up undoes with no rebuild behind it.
+---
+--- **The name's level is merged here and not where the name is asked.** One id is filed again and
+--- again (two book rows can share a base) and `RecordName` asks the client only the first time, so
+--- a merge written beside that question keeps whichever level arrived first.
 local function Record(out, api, spellID, level)
     if (not spellID) then
         return;
@@ -65,7 +82,13 @@ local function Record(out, api, spellID, level)
     if (existing == nil or level > existing) then
         out.learnLevelBySpellID[spellID] = level;
     end
-    RecordName(out, api, spellID);
+    local name = RecordName(out, api, spellID);
+    if (name) then
+        local byName = out.learnLevelByName[name];
+        if (byName == nil or level > byName) then
+            out.learnLevelByName[name] = level;
+        end
+    end
 end
 
 --- Spells learned by levelling. Level does not go down, so one of these is unforgettable once it
@@ -155,7 +178,7 @@ local function AddPvpTalents(out, api)
 end
 
 --- One walk over every spell this specialization can obtain -- **learned or not**, since a talent
---- nobody picked is exactly what moves once somebody picks it -- returning the two indexes over
+--- nobody picked is exactly what moves once somebody picks it -- returning the three indexes over
 --- it.
 ---
 --- First: which spells' `[known:]` answer cannot move before the next rebuild
@@ -169,6 +192,10 @@ end
 --- Second: `name -> { spellID, ... }`, what `ResolveBase` walks back through when the client can
 --- no longer place a stored id.
 ---
+--- Third: the first table keyed by name, for a `known` condition that stores one
+--- (`devdocs/making-known-a-spell-name.md`). A name several ids share holds the highest of their
+--- levels, because any one of them still below it flips the answer with no rebuild behind it.
+---
 --- `api` holds every client call this walk makes, in one table so a spec can hand it a world of
 --- its own.
 function Spells.Build(api)
@@ -176,7 +203,7 @@ function Spells.Build(api)
     AddSpellBook(out, api);
     AddTraits(out, api);
     AddPvpTalents(out, api);
-    return out.learnLevelBySpellID, out.obtainableIDsByName;
+    return out.learnLevelBySpellID, out.obtainableIDsByName, out.learnLevelByName;
 end
 
 --- The same walk, turned the other way up: `뿌리 spellID -> { spellID, ... }`, every spell this
@@ -247,7 +274,7 @@ end
 --- What `Spells.Build` last answered, and the specialization it was standing in when it did.
 --- **`walkedSpecIndex` is `GetSpecialization`'s index and not a specialization id**, which is what
 --- `SpecSpells.lua` keys its tables by; the two are different numbers for the same thing.
-local learnLevelBySpellID, obtainableIDsByName, walkedSpecIndex;
+local learnLevelBySpellID, obtainableIDsByName, learnLevelByName, walkedSpecIndex;
 
 --- **Kept per specialization and not per level.** What the level table holds is the level a spell
 --- is learned at rather than whether it has been, so levelling cannot make it stale. Talent picks
@@ -261,15 +288,16 @@ local learnLevelBySpellID, obtainableIDsByName, walkedSpecIndex;
 local function EnsureWalked()
     local specIndex = C_SpecializationInfo.GetSpecialization() or 0;
     if (learnLevelBySpellID == nil or walkedSpecIndex ~= specIndex) then
-        local levels, byName = Spells.Build(LiveAPI());
+        local levels, byName, levelsByName = Spells.Build(LiveAPI());
         if (next(levels) == nil) then
-            return levels, byName;
+            return levels, byName, levelsByName;
         end
         learnLevelBySpellID = levels;
         obtainableIDsByName = byName;
+        learnLevelByName = levelsByName;
         walkedSpecIndex = specIndex;
     end
-    return learnLevelBySpellID, obtainableIDsByName;
+    return learnLevelBySpellID, obtainableIDsByName, learnLevelByName;
 end
 
 --- `spellID -> the level it is learned at`, for every spell this specialization can obtain.
@@ -294,8 +322,18 @@ end
 
 --- Whether this spell's `[known:]` answer can still move before the next rebuild. A spell in the
 --- table but below its level is **not** fixed: a level-up flips it with no rebuild behind it.
-local function IsFixed(spellID)
-    local level = spellID and Spells.GetLearnLevels()[spellID];
+---
+--- **A name asks the same question of the name index.** That is what a `known` condition stores
+--- (`devdocs/making-known-a-spell-name.md`), and the value handed here is the one that goes into
+--- the conditional either way.
+local function IsFixed(value)
+    local level;
+    if (type(value) == "string") then
+        local _, _, levelsByName = EnsureWalked();
+        level = levelsByName[value];
+    elseif (value ~= nil) then
+        level = Spells.GetLearnLevels()[value];
+    end
     return level ~= nil and level <= (UnitLevel("player") or 0);
 end
 
@@ -303,11 +341,11 @@ end
 --- cannot, and **nil where the answer can still move**, which is the axis staying as it was.
 ---
 --- **Measured with the string the snippet itself would have used**, so the two cannot part.
-function Spells.SettleKnown(spellID)
-    if (not IsFixed(spellID)) then
+function Spells.SettleKnown(value)
+    if (not IsFixed(value)) then
         return nil;
     end
-    return SecureCmdOptionParse("[known:" .. spellID .. "]") and true or false;
+    return SecureCmdOptionParse("[known:" .. value .. "]") and true or false;
 end
 
 --- The value a spell goes on a secure button under. **A name and not an id**, because spells share

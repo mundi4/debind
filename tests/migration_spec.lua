@@ -510,6 +510,7 @@ return function(DebindPrivate)
 
     local Constants = DebindPrivate.Constants;
     local MigrateLayer = DebindPrivate.MigrateLayer;
+    local shim = require("wow_shim");
 
     test("dbver 5 raises unit conditions to per-axis masks", function()
         local layer = { {
@@ -585,6 +586,52 @@ return function(DebindPrivate)
         MigrateLayer(layer, 6);
         MigrateLayer(layer, 6);
         check(layer[1].type == Constants.USESLOT, "두 번째에 뭉개짐: " .. tostring(layer[1].type));
+    end);
+
+    ---------------------------------------------------------------------------
+    -- dbver 7: `known`이 "물어본다"에서 **무엇을 묻는가**로 바뀐다
+    -- (`devdocs/making-known-a-spell-name.md`).
+    ---------------------------------------------------------------------------
+
+    local function knownLayer(action)
+        action.key = "A";
+        action.conditions = { known = true };
+        return { action };
+    end
+
+    test("dbver 7 turns a spell's known into the name it asks about", function()
+        shim.world.spells[8936] = { name = "Regrowth" };
+        local layer = knownLayer({ type = Constants.SPELL, value = 8936 });
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.known == "Regrowth",
+            "known: " .. tostring(layer[1].conditions.known));
+    end);
+
+    -- A name the client cannot hand back leaves the id standing. A spell nobody can place is one
+    -- whose `[known:]` answer is false anyway, so the conditional it bakes says the same thing.
+    test("dbver 7 keeps the id where the client has no name for it", function()
+        local layer = knownLayer({ type = Constants.SPELL, value = 424242 });
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.known == 424242,
+            "known: " .. tostring(layer[1].conditions.known));
+    end);
+
+    -- The three types whose spell the specialization picks keep `true`, which goes on meaning
+    -- "the spell this action resolves to". A name would nail it to one specialization.
+    test("dbver 7 leaves a spec-resolved known as true", function()
+        local layer = knownLayer({ type = Constants.DISPEL });
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.known == true,
+            "known: " .. tostring(layer[1].conditions.known));
+    end);
+
+    test("dbver 7 is safe to run twice over a known", function()
+        shim.world.spells[8936] = { name = "Regrowth" };
+        local layer = knownLayer({ type = Constants.SPELL, value = 8936 });
+        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.known == "Regrowth",
+            "known: " .. tostring(layer[1].conditions.known));
     end);
 
     ---------------------------------------------------------------------------

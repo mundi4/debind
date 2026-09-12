@@ -263,6 +263,23 @@ return function(DebindPrivate)
         }, "second");
     end);
 
+    -- **컬럼을 가르는 것은 액션의 주문이 아니라 물어보는 주문이다**
+    -- (`devdocs/making-known-a-spell-name.md`). 같은 주문에 걸린 두 액션이 서로 다른 특성을
+    -- 물으면 두 축이고, 한 축으로 묶으면 뒤엣것이 앞엣것에 덮인 것으로 잘못 판정된다.
+    test("같은 주문이어도 묻는 주문이 다르면 독립", function()
+        expectSurvives({
+            { name = "first",  type = Constants.SPELL, value = 100, known = "천체의 정렬" },
+            { name = "second", type = Constants.SPELL, value = 100, known = "화신" },
+        }, "second");
+    end);
+
+    test("묻는 주문이 같으면 중복", function()
+        expectRemoved({
+            { name = "first",  type = Constants.SPELL, value = 100, known = "천체의 정렬" },
+            { name = "second", type = Constants.SPELL, value = 200, known = "천체의 정렬" },
+        }, "second");
+    end);
+
     test("known 조건은 무조건 바인딩을 못 덮음", function()
         expectSurvives({
             { name = "known",  type = Constants.SPELL, value = 100, known = true },

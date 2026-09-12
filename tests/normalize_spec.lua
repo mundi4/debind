@@ -268,6 +268,16 @@ return function(DebindPrivate)
         check(spell({ known = true }).conditions.known == true, "known이 사라짐");
     end);
 
+    --- 위 둘은 `true` 갈래다. **이름을 든 `known`은 액션과 무관한 물음**이라 어느 타입에서도
+    --- 선다 (`devdocs/making-known-a-spell-name.md`). 매크로 본문이 그 주문을 시전하든 말든,
+    --- "그 주문을 배웠을 때만"은 답이 있는 물음이다.
+    test("주문이 아니어도 이름을 든 known은 남는다", function()
+        local b = normalize(nest({ type = Constants.MACROTEXT, value = "/cast Foo",
+            known = "천체의 정렬" }), true);
+        check(b.conditions and b.conditions.known == "천체의 정렬",
+            "known이 " .. tostring(b.conditions and b.conditions.known));
+    end);
+
     ---------------------------------------------------------------------------
     -- `known`은 참 아니면 없음이다. 이 블록의 다른 조건들과 달리 세 번째 값이 없다
     --

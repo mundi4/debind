@@ -2041,10 +2041,15 @@ local function BuildKeyRecord(binding, isClickCast, holdsKey, alwaysOurs, clickT
                 -- **대괄호까지 포함해 한 문자열로 굽는다.** 클릭 경로가 이 값을
                 -- `SecureCmdOptionParse`에 그대로 넘기고, 상태 루프는 같은 값을 `States`의
                 -- 키로 쓴다. 나눠 두면 클릭마다 결합이 나거나 같은 사실이 두 군데 적힌다.
-                -- A spec-resolved type asks about the spell it resolved to, and one that resolved
+                -- **The condition's own value is the question** -- a spell name, or the id where
+                -- the client could not name one (`devdocs/making-known-a-spell-name.md`).
+                --
+                -- `true` is the one shape still derived from the action, and it is left to the
+                -- three types whose spell the specialization picks: they carry no value of their
+                -- own, so a name would nail the condition to one specialization. One that resolved
                 -- to nothing asks a conditional that is always false (`known:0` is the fixed
                 -- false elsewhere in this file too).
-                local spell = binding.spell or binding.value;
+                local spell = DebindPrivate.KnownSpellAsked(binding);
                 -- A spell whose answer cannot move before the next rebuild is settled here
                 -- instead of going out as an axis (`devdocs/baking-the-known-condition.md`): the
                 -- state loop stops parsing it every tick, and so does the press.

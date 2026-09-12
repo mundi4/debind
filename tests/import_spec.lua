@@ -375,8 +375,11 @@ return function(DebindPrivate, DebindStorage)
     -- 명단에 있는데 여기 없으면 그것도 실패다. 필드가 늘면 이 표도 같이 늘어야 한다.
     --- 조건 표 **안쪽**의 실제 값. 바깥 명단과 안쪽 명단이 따로 있으므로 표본도 둘이다.
     local REAL_CONDITIONS = {
+        -- `known`은 **무엇을 묻는가**라서 혼자 다르다. 주문 이름이 보통이고, 전문화가 주문을
+        -- 정하는 타입 셋에서만 `true`가 "이 액션의 주문"을 뜻한다
+        -- (`devdocs/making-known-a-spell-name.md`). 그 갈래는 아래 테스트가 따로 본다.
+        known = "Regrowth",
         -- `DropDownMenus.lua`의 `setActionValue`가 조건에 쓰는 것: 예/아니오/안 물음 = true/false/nil.
-        known = true,
         combat = true,
         stealth = true,
         specialbar = true,
@@ -461,6 +464,21 @@ return function(DebindPrivate, DebindStorage)
             else
                 check(got == want, field .. "이 " .. tostring(want) .. " 대신 " .. tostring(got));
             end
+        end
+    end);
+
+    -- `known`이 실어 오는 세 모양 전부. 이름이 보통이고, 클라이언트가 이름을 못 준 줄은 id를
+    -- 그대로 들고 오며, 전문화가 주문을 정하는 타입에서는 `true`가 "이 액션의 주문"이다.
+    -- **하나라도 명단에서 빠지면 공유된 액션에서 그 조건만 조용히 사라진다.**
+    test("known은 이름과 id와 true 셋 다 실려 온다", function()
+        for _, want in ipairs({ "Regrowth", 8936, true }) do
+            ResetProfile();
+            local action = PlanOne(General({ {
+                type = Constants.SPELL, value = 8936, key = "F", seq = 1,
+                conditions = { known = want },
+            } }));
+            local got = action.conditions and action.conditions.known;
+            check(got == want, tostring(want) .. " 대신 " .. tostring(got));
         end
     end);
 

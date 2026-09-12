@@ -890,18 +890,19 @@ do
             binding.ignoreHoverUnit = nil;
         end
 
-        -- **`true` or nothing. There is no third answer here**, unlike every other condition
-        -- in this block. The question is always about this action's own spell -- both the
-        -- conditional (`UpdateBindings` bakes `binding.value` into it) and the solver's column
-        -- (keyed by that same value) -- so `false` would say "cast it only while it is
-        -- unlearned", and no state satisfies that.
+        -- **The value is the spell being asked about** (`devdocs/making-known-a-spell-name.md`),
+        -- so it stands on any type: a macro body can be conditioned on a spell it never casts.
         --
-        -- A nil check rather than a truthy one, for the same reason as the `"@"` cleanup
-        -- below: nothing here writes `false`, but a shared profile can carry one, and left in
-        -- place it reaches `UpdateBindings`, which bakes the same `[known:<value>]` a `true`
-        -- would. It then fires on exactly the state it was asked to stay off.
-        if (conditions.known == false or (conditions.known ~= nil and binding.type ~= Constants.SPELL
-                and not Constants.SPEC_RESOLVED_TYPES[binding.type])) then
+        -- `true` is the one shape that still asks about the action itself, and it is left to the
+        -- types that have a spell of their own. On anything else there is nothing for it to name.
+        --
+        -- **`false` has no state that satisfies it.** It would say "cast it only while it is
+        -- unlearned" of the action's own spell, and it is checked against `false` rather than
+        -- truthiness because nothing here writes one but a shared profile can carry one, and left
+        -- in place it bakes the same conditional a `true` would.
+        if (conditions.known == false
+                or (conditions.known == true and binding.type ~= Constants.SPELL
+                    and not Constants.SPEC_RESOLVED_TYPES[binding.type])) then
             conditions.known = nil;
         end
 
@@ -1485,11 +1486,37 @@ end
 --- has none leaves the condition false for every press in this build, and a specialization change
 --- rebuilds everything.
 ---
+--- What this binding's `known` condition asks about: the spell it names, or the action's own spell
+--- where it says `true` (`devdocs/making-known-a-spell-name.md`). nil where there is no condition,
+--- and where `true` has no spell to fall back on.
+---
+--- **One answer for the three places that ask.** The conditional baked into the record, the
+--- solver's column key and the overview's "no spell" mark all have to name the same thing, and
+--- they used to spell the derivation out one at a time.
+--- A boolean is the shape that asks about the action, and `false` is one of those: it never
+--- reaches storage (`GetBindingInfoForAction` strips it) but the solver models both answers on one
+--- axis, and both are about the same spell.
+function DebindPrivate.KnownSpellAsked(binding)
+    local asked = binding.conditions and binding.conditions.known;
+    if (asked == nil) then
+        return nil;
+    end
+    if (type(asked) == "boolean") then
+        return binding.spell or binding.value;
+    end
+    return asked;
+end
+
+--- **Only `true` can answer no**, because only `true` asks about the action
+--- (`devdocs/making-known-a-spell-name.md`). A condition carrying a spell of its own asks the same
+--- question whatever this specialization resolves to, and a specialization that cannot answer it
+--- is answering false rather than having nothing to answer.
+---
 --- Only those three types can answer no. Every other type asks about a value the action stores,
 --- which is there or the action would not have been built.
 function DebindPrivate.KnownConditionCanHold(binding)
     local conditions = binding.conditions;
-    if (conditions == nil or conditions.known == nil) then
+    if (conditions == nil or conditions.known ~= true) then
         return true;
     end
     if (not Constants.SPEC_RESOLVED_TYPES[binding.type]) then
@@ -1957,6 +1984,16 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
         end
     end
 
+    -- **The name is handed to the conditional parser as it stands.** A comma there ends the
+    -- condition and a `]` ends the group, and neither raises: the key goes on working and answers
+    -- a question nobody asked. Nothing can quote it, so the binding is refused instead
+    -- (`devdocs/making-known-a-spell-name.md`).
+    if (Looking() and (not category or category == "known") and notCategory ~= "known") then
+        if (type(conditions.known) == "string" and conditions.known:find("[,%]]")) then
+            Report(Constants.BINDING_ISSUE_KNOWN_NAME_UNPARSABLE, "CONDITION_KNOWN");
+        end
+    end
+
     if (Looking() and (not category or category == "forms") and notCategory ~= "forms") then
         if (conditions.forms == 0) then
             Report(Constants.BINDING_ISSUE_FORMS_NONE_SELECTED, "CONDITION_SHAPESHIFT");
@@ -2413,8 +2450,9 @@ end
 --- they are about**, and dropped there is invisible: the row keeps drawing the condition out of
 --- storage while the key fires without it.
 ---
---- `known` asks about this action's own spell, and the id it asks about is `value` itself
---- (`UpdateBindings` bakes `[known:<value>]`). A body sitting in `value` leaves nothing to ask.
+--- A `known` set to `true` asks about this action's own spell, so a body sitting in `value` leaves
+--- it nothing to ask. One carrying a spell of its own comes along
+--- (`devdocs/making-known-a-spell-name.md`).
 ---
 --- `"@"` points at the unit the action aims at, and `MACROTEXT` carries no unit
 --- (`TYPES_WITH_UNIT`), so the key has to become the unit's own name. That name is also the only
@@ -2427,10 +2465,14 @@ end
 local function ConditionsSurviveMacroText(action)
     local binding = GetBindingInfoForAction(action);
 
-    -- **The binding's copy, because it is the normalized one.** A `known` that reaches nothing is
-    -- already nil here (`false`, or any type but `SPELL`), and refusing over one of those would
-    -- turn away a conversion that changes nothing.
-    if (binding.conditions.known) then
+    -- **Only the shape that asks about the action itself.** A `known` carrying a spell asks the
+    -- same question of the body that it asked of the spell, so it comes along; `true` is the one
+    -- that has nothing left to name once the value is a macro body.
+    --
+    -- The binding's copy, because it is the normalized one: a `known` that reaches nothing is
+    -- already nil here, and refusing over one of those would turn away a conversion that changes
+    -- nothing.
+    if (binding.conditions.known == true) then
         return false;
     end
 

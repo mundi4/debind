@@ -174,6 +174,22 @@ return function(DebindPrivate, _, ctx)
         shim.world.specIndex = nil;
     end);
 
+    -- **A `known` naming a spell of its own is a different question and stays in the build.** What
+    -- the filter above answers is "there is nothing to ask about", which only `true` can be
+    -- (`devdocs/making-known-a-spell-name.md`); a name asks the same thing whatever this
+    -- specialization resolves to.
+    test("a known that names a spell survives a specialization with none", function()
+        shim.world.specIndex = 1;
+        shim.world.spells[8936] = { name = "Regrowth" };
+        Bind({
+            action({ type = Constants.EXTERNAL, key = "F2",
+                conditions = { known = "Regrowth" } }),
+        });
+        check(recordField("F2", 1, "known") == "[known:Regrowth]",
+            "known: " .. tostring(recordField("F2", 1, "known")));
+        shim.world.specIndex = nil;
+    end);
+
     -- And the key goes to whatever stands behind it, which is the whole point of leaving it out.
     test("the action behind it takes the key", function()
         shim.world.specIndex = 1;

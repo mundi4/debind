@@ -610,6 +610,37 @@ ActionMenus:Define("SPEC", {
     end,
 });
 
+--- The spells this action's `known` can ask about: the one it holds and everything that shares a
+--- root with it, root first (`Spells.BuildBranches`). A talent that replaces a spell is what the
+--- reader is picking between, so the chain is the list.
+---
+--- **Rows are names.** That is what the condition stores, because a spell has an id per
+--- specialization and a talent combination can stand up one no walk ever sees
+--- (`devdocs/making-known-a-spell-name.md`).
+---
+--- The stored value leads, and it is there even when the walk does not know it: a name from
+--- another specialization, or an id the client could not name. Without that row the reader sees a
+--- condition the tooltip reports and no way to tell which one is on.
+local function KnownRows(action)
+    local rows, seen = {}, {};
+
+    local function Add(value)
+        if (value ~= nil and not seen[value]) then
+            seen[value] = true;
+            rows[#rows + 1] = value;
+        end
+    end
+
+    Add(action.conditions and action.conditions.known);
+
+    local root = DebindPrivate.ResolveBaseSpell(action.value);
+    local family = root and DebindPrivate.Spells.GetBranches()[root];
+    for i = 1, (family and #family or 0) do
+        Add((GetSpellNameAndIconID(family[i])));
+    end
+    return rows;
+end
+
 --- **Spells only.** An item or a macro is not something you can fail to know. The three
 --- spec-resolved types are spells too, and what the condition asks about is the spell this
 --- specialization resolves to (`SpecSpells.lua`).
@@ -621,7 +652,24 @@ ActionMenus:Define("KNOWN", {
             or Constants.SPEC_RESOLVED_TYPES[ctx.action.type] == true;
     end,
     build = function(kit)
-        kit:ClearingCheckbox(LLL["CONDITION_KNOWN_YES"], "known", true);
+        -- **A box and not a list**, because these three carry no spell to list. Which spell the
+        -- key casts is decided at the rebuild, so `true` -- "whatever this action casts" -- is the
+        -- only question that survives a specialization change here.
+        if (Constants.SPEC_RESOLVED_TYPES[kit.ctx.action.type]) then
+            kit:ClearingCheckbox(LLL["CONDITION_KNOWN_YES"], "known", true);
+            return;
+        end
+
+        kit:Disable("CONDITION_KNOWN", "known");
+
+        -- **Walked once per open.** `GetBranches` walks the spellbook and every talent tree on
+        -- each call, so the rows are taken here rather than asked for one at a time.
+        local rows = KnownRows(kit.ctx.action);
+        for i = 1, #rows do
+            kit.description:CreateRadio(format(LLL["CONDITION_KNOWN_VALUE"], rows[i]),
+                kit.handlers.equals, kit.handlers.set,
+                { ctx = kit.ctx, key = "known", value = rows[i] });
+        end
     end,
 });
 
