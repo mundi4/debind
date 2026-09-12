@@ -638,6 +638,13 @@ local function KnownRows(action)
     for i = 1, (family and #family or 0) do
         Add((GetSpellNameAndIconID(family[i])));
     end
+
+    -- **The action's own spell, last and usually already there.** The walk only covers what this
+    -- specialization can obtain, so an action holding another one's spell reaches no family at all
+    -- and would open a menu with nothing to pick. The one thing always askable about an action is
+    -- the spell it casts.
+    Add((GetSpellNameAndIconID(action.value)));
+
     return rows;
 end
 
@@ -664,10 +671,13 @@ ActionMenus:Define("KNOWN", {
 
         -- **Walked once per open.** `GetBranches` walks the spellbook and every talent tree on
         -- each call, so the rows are taken here rather than asked for one at a time.
+        -- **The rows are names and nothing else.** The title above them says what picking one
+        -- does, the way the specialization list's rows are bare names too; a sentence on every
+        -- row would repeat it four times and sit oddly beside `Disable`. The sentence is in the
+        -- tooltip, where the condition is read rather than picked (`ActionTooltip.lua`).
         local rows = KnownRows(kit.ctx.action);
         for i = 1, #rows do
-            kit.description:CreateRadio(format(LLL["CONDITION_KNOWN_VALUE"], rows[i]),
-                kit.handlers.equals, kit.handlers.set,
+            kit.description:CreateRadio(rows[i], kit.handlers.equals, kit.handlers.set,
                 { ctx = kit.ctx, key = "known", value = rows[i] });
         end
     end,

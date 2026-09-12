@@ -824,16 +824,21 @@ local function MigrateLayer(layerTbl, dbver)
         -- **The three spec-resolved types keep `true`.** They carry no value and the spell is
         -- picked at the rebuild, so a name here would nail the condition to one specialization.
         --
+        -- **Everything else loses it.** A `known` on a type with no spell was already doing
+        -- nothing -- the normalization dropped it before a binding was built -- and raising it
+        -- would turn an inert flag into a name that is false for good, which is a key that
+        -- stops working with nothing said. A macro action's name would be its body.
+        --
         -- Running twice is safe: the second pass finds a string or a number, and only `true` is
         -- taken.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             local conditions = action.conditions;
-            if (conditions and conditions.known == true
+            if (conditions and conditions.known ~= nil
                     and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
-                if (action.value == nil) then
+                if (action.type ~= Constants.SPELL) then
                     conditions.known = nil;
-                else
+                elseif (conditions.known == true) then
                     conditions.known = C_Spell.GetSpellName(action.value) or action.value;
                 end
             end
@@ -2472,6 +2477,15 @@ function DebindPrivate.CleanUpDB()
                     if (not Constants.IsConditionField(k)) then
                         conditions[k] = nil;
                     end
+                end
+                -- **만들 수 없는 값은 저장에도 안 둔다.** `known`을 세우는 메뉴는 주문과
+                -- 전문화가 주문을 정하는 셋에서만 뜨므로, 다른 타입에 붙은 `known`은 사용자가
+                -- 만들 수 없고 화면에서 끌 수도 없다(`devdocs/making-known-a-spell-name.md`).
+                -- 바인딩을 세울 때 무시되기만 하던 동안에는 조용히 누워 있었는데, 값이 이름이
+                -- 되면서 굽는 쪽이 쓸 수 있는 값이 됐다.
+                if (conditions.known ~= nil and action.type ~= Constants.SPELL
+                        and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
+                    conditions.known = nil;
                 end
                 -- **빈 표는 안 남긴다.** 있느냐를 게이트로 쓰는 자리가 여럿이라
                 -- (`IsConditionalBinding`이 `next` 하나로 답한다), 빈 표는 조건이 하나도

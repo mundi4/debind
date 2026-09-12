@@ -625,6 +625,51 @@ return function(DebindPrivate)
             "known: " .. tostring(layer[1].conditions.known));
     end);
 
+    -- **주문이 아닌 타입의 `known`은 올라가는 것이 아니라 지워진다.** 옛 정규화가 그런 줄을
+    -- 통째로 버렸으므로(`Misc.lua`) 저장에 남아 있어도 아무 일도 안 하던 값이다. 이름으로
+    -- 올려 두면 그 이름이 조건문으로 구워지고, 매크로 이름이나 아이템 id의 이름은 영원히
+    -- 거짓이라 그 키가 조용히 죽는다.
+    test("dbver 7 drops a known on a type that has no spell", function()
+        local layer = knownLayer({ type = Constants.MACROTEXT, value = "/cast Foo" });
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.known == nil,
+            "known: " .. tostring(layer[1].conditions.known));
+    end);
+
+    -- 이름을 든 것도 같다. **UI가 만들 수 없는 값**이고, 주문이 아닌 액션에서는 그 조건을 여는
+    -- 메뉴 자체가 안 서므로 저장에 남으면 되돌릴 길이 없다.
+    test("dbver 7 drops a named known on a type that has no spell", function()
+        local layer = { { key = "A", type = Constants.MACROTEXT, value = "/cast Foo",
+            conditions = { known = "Regrowth" } } };
+        MigrateLayer(layer, 6);
+        check(layer[1].conditions.known == nil,
+            "known: " .. tostring(layer[1].conditions.known));
+    end);
+
+    -- **저장까지 지운다.** 사다리를 이미 지난 프로필과 지금 `dbver`로 들어온 공유 문자열은
+    -- 그 단계를 안 타므로, 로그인과 로그아웃마다 도는 청소가 같은 규칙을 한 번 더 건다.
+    test("cleanup drops a known that its action's type cannot carry", function()
+        _G.DebindVars = {
+            dbver = Constants.DB_VERSION,
+            shared = { GENERAL = {
+                { key = "F1", seq = 1, type = Constants.MACROTEXT, value = "/cast Foo",
+                    conditions = { known = "Regrowth" } },
+                { key = "F2", seq = 1, type = Constants.SPELL, value = 8936,
+                    conditions = { known = "Regrowth" } },
+            }, classes = {} },
+            characters = {},
+            migrated = {},
+        };
+        DebindPrivate.InitDB();
+        DebindPrivate.CleanUpDB();
+
+        local general = _G.DebindVars.shared.GENERAL;
+        check(general[1].conditions == nil or general[1].conditions.known == nil,
+            "매크로 액션에 남음: " .. tostring(general[1].conditions and general[1].conditions.known));
+        check(general[2].conditions.known == "Regrowth",
+            "주문 액션에서 사라짐: " .. tostring(general[2].conditions and general[2].conditions.known));
+    end);
+
     test("dbver 7 is safe to run twice over a known", function()
         shim.world.spells[8936] = { name = "Regrowth" };
         local layer = knownLayer({ type = Constants.SPELL, value = 8936 });

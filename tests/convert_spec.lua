@@ -178,12 +178,14 @@ return function(DebindPrivate)
             "조건이 없는데 변환이 안 선다");
     end);
 
-    --- **이름을 든 `known`은 따라온다.** 그 물음은 액션이 무엇을 시전하는가와 무관하고
-    --- (`devdocs/making-known-a-spell-name.md`), 본문이 된 뒤에도 같은 주문을 묻는다.
-    test("이름을 든 배웠을 때만 조건은 변환을 안 막는다", function()
+    --- **이름을 들었어도 못 바꾼다** (2026-09-12, 소유자). 물음 자체는 본문이 되어도 서지만,
+    --- 주문이 아닌 액션에 `known`을 세울 자리가 UI에 없어서 저장 쪽이 그 값을 안 들고 간다
+    --- (`Profile.lua`의 청소, `devdocs/making-known-a-spell-name.md`). 변환을 세워 주면 조건이
+    --- 조용히 사라지는 것이 된다.
+    test("이름을 든 배웠을 때만 조건도 변환을 막는다", function()
         installWorld();
-        check(Can({ type = Constants.SPELL, value = 774, conditions = { known = "Regrowth" } }),
-            "따라올 수 있는 조건인데 변환이 안 선다");
+        check(not Can({ type = Constants.SPELL, value = 774, conditions = { known = "Regrowth" } }),
+            "살릴 수 없는 조건을 들고도 변환이 선다");
     end);
 
     --- `preferHoverUnit`은 매크로 본문으로 안 옮겨간다. 조용히 떨어뜨리면 변환된 매크로가 개체창

@@ -890,19 +890,19 @@ do
             binding.ignoreHoverUnit = nil;
         end
 
-        -- **The value is the spell being asked about** (`devdocs/making-known-a-spell-name.md`),
-        -- so it stands on any type: a macro body can be conditioned on a spell it never casts.
-        --
-        -- `true` is the one shape that still asks about the action itself, and it is left to the
-        -- types that have a spell of their own. On anything else there is nothing for it to name.
+        -- **A type with no spell carries no `known` at all**, whatever the value is. The question
+        -- does stand on its own now that the value names a spell
+        -- (`devdocs/making-known-a-spell-name.md`), but no menu offers it on those types, so a
+        -- value there is one the reader could not have made and cannot take off. `CleanUpDB` takes
+        -- it out of storage for the same reason; this is the same rule on the binding.
         --
         -- **`false` has no state that satisfies it.** It would say "cast it only while it is
         -- unlearned" of the action's own spell, and it is checked against `false` rather than
         -- truthiness because nothing here writes one but a shared profile can carry one, and left
         -- in place it bakes the same conditional a `true` would.
-        if (conditions.known == false
-                or (conditions.known == true and binding.type ~= Constants.SPELL
-                    and not Constants.SPEC_RESOLVED_TYPES[binding.type])) then
+        if (conditions.known == false or (conditions.known ~= nil
+                and binding.type ~= Constants.SPELL
+                and not Constants.SPEC_RESOLVED_TYPES[binding.type])) then
             conditions.known = nil;
         end
 
@@ -2450,9 +2450,9 @@ end
 --- they are about**, and dropped there is invisible: the row keeps drawing the condition out of
 --- storage while the key fires without it.
 ---
---- A `known` set to `true` asks about this action's own spell, so a body sitting in `value` leaves
---- it nothing to ask. One carrying a spell of its own comes along
---- (`devdocs/making-known-a-spell-name.md`).
+--- `known` is only offered on a type that casts a spell, and nothing takes it off a type that does
+--- not (`devdocs/making-known-a-spell-name.md`). A body sitting in `value` is such a type, so the
+--- condition would be dropped on the way out and the row would go on drawing it.
 ---
 --- `"@"` points at the unit the action aims at, and `MACROTEXT` carries no unit
 --- (`TYPES_WITH_UNIT`), so the key has to become the unit's own name. That name is also the only
@@ -2465,14 +2465,10 @@ end
 local function ConditionsSurviveMacroText(action)
     local binding = GetBindingInfoForAction(action);
 
-    -- **Only the shape that asks about the action itself.** A `known` carrying a spell asks the
-    -- same question of the body that it asked of the spell, so it comes along; `true` is the one
-    -- that has nothing left to name once the value is a macro body.
-    --
-    -- The binding's copy, because it is the normalized one: a `known` that reaches nothing is
-    -- already nil here, and refusing over one of those would turn away a conversion that changes
-    -- nothing.
-    if (binding.conditions.known == true) then
+    -- **The binding's copy, because it is the normalized one.** A `known` that reaches nothing is
+    -- already nil here (`false`, or any type but `SPELL`), and refusing over one of those would
+    -- turn away a conversion that changes nothing.
+    if (binding.conditions.known) then
         return false;
     end
 

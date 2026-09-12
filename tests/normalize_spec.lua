@@ -268,13 +268,13 @@ return function(DebindPrivate)
         check(spell({ known = true }).conditions.known == true, "known이 사라짐");
     end);
 
-    --- 위 둘은 `true` 갈래다. **이름을 든 `known`은 액션과 무관한 물음**이라 어느 타입에서도
-    --- 선다 (`devdocs/making-known-a-spell-name.md`). 매크로 본문이 그 주문을 시전하든 말든,
-    --- "그 주문을 배웠을 때만"은 답이 있는 물음이다.
-    test("주문이 아니어도 이름을 든 known은 남는다", function()
+    --- **이름을 들었어도 마찬가지다** (2026-09-12, 소유자). 값이 주문 이름이 되면서 물음 자체는
+    --- 액션과 무관해졌지만, 주문이 아닌 액션에 그 조건을 세울 자리가 UI에 없다. 공유 프로필과
+    --- 손으로 고친 것이 들고 올 수 있는 값이고, 살려 두면 화면에 끌 자리가 없는 조건이 된다.
+    test("주문이 아니면 이름을 든 known도 사라진다", function()
         local b = normalize(nest({ type = Constants.MACROTEXT, value = "/cast Foo",
             known = "천체의 정렬" }), true);
-        check(b.conditions and b.conditions.known == "천체의 정렬",
+        check(b.conditions == nil or b.conditions.known == nil,
             "known이 " .. tostring(b.conditions and b.conditions.known));
     end);
 

@@ -192,7 +192,10 @@ L["CONDITION_HOVER"] = "Unit Frame"
 L["CONDITION_INDOORS_NO"] = "While not indoors"
 L["CONDITION_INDOORS_YES"] = "While indoors"
 L["CONDITION_INDOORS"] = "Indoors"
-L["CONDITION_KNOWN"] = "Spell Known"
+-- **The rows under it are spell names**, so the row names what is picked rather than describing a
+-- state. The client has no noun for this (`Already Known`, `This spell is already known` are all
+-- sentences), so the two words are ours.
+L["CONDITION_KNOWN"] = "Known Spell"
 L["CONDITION_KNOWN_YES"] = "While you know the spell"
 -- The row names the spell it asks about, and the rows are a list to pick one from. A talent that
 -- replaces a spell is its own row, which is the whole point of naming them.
