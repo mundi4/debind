@@ -867,12 +867,14 @@ do
         -- twin's box to [the unit is there] on that unit's own axis (`BuildUnitStates`), which is
         -- what lets the original take the rest.
         --
-        -- **This replaces rather than narrows, and may only do so because the derivation refuses
-        -- an action that already carries a condition on that unit** (`TwinUnitFor`). Narrowing
-        -- here instead would be the wrong answer anyway: a reader who wrote a condition about the
-        -- unit they are pointing at has already said what that unit is for.
+        -- **The merge already happened.** `TwinUnitFor` hands over the reader's own condition where
+        -- that unit carries one and `UNIT_IS_THERE` where it does not, so what is written here is
+        -- the meeting point either way. `twinInvented` is only for the frame-type mask below: it
+        -- says whether this condition is ours or the reader's.
+        local twinInvented = false;
         if (twinCondition ~= nil) then
             conditions.units = conditions.units or {};
+            twinInvented = conditions.units[aimedUnit] == nil;
             conditions.units[aimedUnit] = twinCondition;
         end
 
@@ -885,12 +887,16 @@ do
         -- 이 자리가 안 바뀐다.
 
         -- 의미 없는 조건들을 nil로 만듬.
-        if (twinCondition ~= nil) then
-            -- 쌍둥이는 개체창을 안 가린다(`UNIT_IS_THERE`). **액션에 남아 있는 마스크를
-            -- 물려받으면 안 된다**: hover 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는 것과
-            -- 지우는 것은 다르다 - `Profile.lua`), 조건을 꺼야 비로소 쌍둥이가 생기므로
-            -- 물려받는 값은 언제나 죽은 조건의 것이다. 원본은 아래 `else`에서 지워지고
-            -- 쌍둥이만 옛 마스크로 좁혀졌다.
+        -- 마스크는 `units.hover`에 딸린 값이라, 갈래를 가르는 것은 **hover 조건을 누가 세웠느냐**다.
+        -- `mouseover` 쌍둥이는 hover 쪽을 건드리지 않으므로 아래 둘 중 하나로 간다.
+        if (twinInvented and aimedUnit == "hover") then
+            -- 쌍둥이가 hover 조건을 **스스로 세운** 경우다(`UNIT_IS_THERE`). **액션에 남아 있는
+            -- 마스크를 물려받으면 안 된다**: hover 조건을 꺼도 `frameTypes`는 지워지지 않는데(끄는
+            -- 것과 지우는 것은 다르다 - `Profile.lua`), 세운 쪽이 우리이므로 물려받는 값은 언제나
+            -- 죽은 조건의 것이다. 원본은 아래 `else`에서 지워지고 쌍둥이만 옛 마스크로 좁혀졌다.
+            --
+            -- **사용자가 건 hover 조건을 물려받은 쌍둥이는 여기로 안 온다.** 그 마스크는 살아
+            -- 있는 조건의 것이라 아래 `elseif`가 원본과 같은 규칙으로 다룬다.
             conditions.frameTypes = nil;
         elseif (binding.hover) then
             if (conditions.frameTypes and band(conditions.frameTypes, Constants.FRAMETYPE_ALL) == Constants.FRAMETYPE_ALL) then
@@ -1123,19 +1129,33 @@ do
     --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
     --- is what tells the two apart (2026-09-12, owner).
     ---
-    --- **A condition already on that unit refuses the twin, and it has to be asked of the unit the
-    --- twin aims at.** The twin's own condition is written under that name (`FillBinding`), so it
-    --- would **replace** the reader's rather than narrow into it: an action aimed at `target` that
+    --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
+    --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
+    --- two meet at [it is hostile], which is the reader's own table, since `UNIT_IS_THERE`
+    --- constrains nothing. So the answer is the reader's condition where there is one and
+    --- `UNIT_IS_THERE` where there is not, and `FillBinding` leaves a filled slot alone.
+    ---
+    --- **[when there is none] is the one that has no meeting point.** The twin only stands while
+    --- that unit is there, so the two sets do not touch and no twin is made. The solver would drop
+    --- an empty box anyway; not building it is cheaper (§1 of the design).
+    ---
+    --- Replacing instead of narrowing was measured on 2026-09-12: an action aimed at `target` that
     --- runs [when the mouseover unit is hostile] came out with a twin saying [whenever there is a
-    --- mouseover unit], which is wider than the original on that axis, so the solver deleted the
-    --- original and the key fired at whatever the cursor was over, friendly or not (measured
-    --- 2026-09-12). `original.hover ~= nil` was the same rule when `hover` was the only unit a twin
-    --- could aim at.
+    --- mouseover unit], wider than the original on that axis, so the solver deleted the original
+    --- and the key fired at whatever the cursor was over, friendly or not.
     ---
     --- `hover` and `mouseover` are already the pointed unit. `none` is not "no target" but a cast
     --- that asks for one (`ActionDisplay.lua`'s `UNIT_INFO`, measured in game 2026-08-05), and the
     --- owner's call is that a target the player is about to point at is not one for a twin to take
     --- (2026-09-06).
+    ---
+    --- **`ignoreHoverUnit` on an action with no hover condition takes it out of the feature.** The
+    --- same field means [don't aim at the frame's unit] where there is one, and the action's `hover`
+    --- is what tells the two apart (2026-09-12, owner).
+    ---
+    --- **Mouseover wins where both switches are on.** Over a unit frame the two name one unit, and
+    --- `mouseover` answers away from frames as well, so a second twin could only repeat the first
+    --- (2026-09-12, owner).
     local function TwinUnitFor(action, original)
         local unit;
         if (DebindPrivate.MouseoverCastEnabled()) then
@@ -1146,15 +1166,21 @@ do
             return nil;
         end
 
-        local units = original.conditions and original.conditions.units;
-        if (action.ignoreHoverUnit or (units and units[unit] ~= nil)
+        if (action.ignoreHoverUnit
                 or original.unit == "hover" or original.unit == "mouseover"
                 or original.unit == "none"
                 or not Constants.TYPES_WITH_HOVER_UNIT_OPTION[action.type]) then
             return nil;
         end
 
-        return unit;
+        local units = original.conditions and original.conditions.units;
+
+        local existing = units and units[unit];
+        if (existing == false) then
+            return nil;
+        end
+
+        return unit, existing or UNIT_IS_THERE;
     end
 
     --- Every binding one action puts on its key, in place: `[1]` is the original
@@ -1200,15 +1226,15 @@ do
             list[n] = binding;
         end
 
-        local twinUnit = TwinUnitFor(action, original);
+        local twinUnit, twinCondition = TwinUnitFor(action, original);
 
         if (probe) then
             fill(_ActionToProbeCache, action.unit, nil, probe);
         end
         if (twinUnit) then
-            fill(_ActionToTwinCache, twinUnit, UNIT_IS_THERE, nil);
+            fill(_ActionToTwinCache, twinUnit, twinCondition, nil);
             if (probe) then
-                fill(_ActionToProbeTwinCache, twinUnit, UNIT_IS_THERE, probe);
+                fill(_ActionToProbeTwinCache, twinUnit, twinCondition, probe);
             end
         end
 
