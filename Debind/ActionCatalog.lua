@@ -999,7 +999,6 @@ local function AddOwnCommands(Bucket)
 	for _, actionType in ipairs(UNIT_ACTION_TYPES) do
 		local typeName = typeNames[actionType];
 		local bucket = Bucket(typeName);
-		local desc = LLL["TYPE_" .. strupper(actionType) .. "_DESC"];
 		for _, unit in ipairs(DebindUI.SORTED_UNIT_LIST) do
 			local unitInfo = DebindUI.UNIT_INFO[unit];
 			if (unitInfo and unitInfo[actionType] ~= false) then
@@ -1010,7 +1009,9 @@ local function AddOwnCommands(Bucket)
 					-- (머리글이 타입을 말한다) 툴팁은 머리글에서 떨어져 뜨므로,
 					-- 제목이 "주시 대상"이면 무엇을 하는 줄인지가 사라진다.
 					tooltipTitle = format(LLL["BINDING_TITLE"], typeName, unitInfo.name),
-					tooltipText = desc,
+					-- The body is the unit's own line, where it has one. A row is one unit, and what the
+					-- three types had to say was about the list rather than about the row.
+					tooltipText = unitInfo.tooltipTitle,
 					props = { unit = unit },
 				};
 			end
@@ -1024,7 +1025,6 @@ local function AddOwnCommands(Bucket)
 		markerBucket[#markerBucket + 1] = {
 			type = Constants.WORLDMARKER,
 			value = WORLD_RAID_MARKER_ORDER[i],
-			tooltipText = LLL["TYPE_WORLDMARKER_DESC"],
 		};
 	end
 end
@@ -1194,7 +1194,7 @@ local function BuildSpecialActions(entries)
 		AddEntry(entries, seen, {
 			type = actionType,
 			group = specGroup,
-			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"],
+			tooltipText = LLL["TYPE_" .. strupper(actionType) .. "_DESC"] .. "|n|n" .. LLL["TYPE_SPEC_RESOLVED_NONE_DESC"],
 		});
 	end
 

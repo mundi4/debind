@@ -776,9 +776,10 @@ L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d Characters Used"
 -- second sentence is the one that has to be there, since nothing on screen shows that cost.
 L["MACROFRAME_REVERT_DESC"] = "Puts this action back to what it was before it became a Custom Macro. Anything typed here is lost."
 L["MOVE_TO"] = "Move to..."
--- 회색으로 선 현재 탭 줄의 툴팁. 하나를 옮기든 여럿을 옮기든 같은 문장이라 주어를 안 세운다.
-L["MOVE_TO_CURRENT_TAB_BLOCKED"] = "Already on this tab."
-L["NO_ACTIONS_IN_THIS_TAB"] = "There are no actions in this tab. You can add a new action by dragging a spell, a macro, an item, or a mount here."
+-- Tooltip on the greyed-out row for the layer the action is already in. One action and several get
+-- the same sentence, so it names no subject.
+L["MOVE_TO_CURRENT_LAYER_BLOCKED"] = "Already on this layer."
+L["NO_ACTIONS_IN_THIS_LAYER"] = "There are no actions in this layer. You can add a new action by dragging a spell, a macro, an item, or a mount here."
 -- 검색 결과가 없을 때. 위와 갈라 쓴다 - 저쪽은 "끌어다 놓으세요"라고 시키는데, 검색에 안
 -- 맞아서 빈 것뿐이면 할 일이 그게 아니다.
 L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
@@ -978,7 +979,7 @@ L["ORDER_BLOCKED_SPEC"] = "This action and the one next to it are never active a
 -- 읽고 나서 갈 데가 없다. 그 줄이 우클릭 메뉴를 짚으므로, 거기 항목 이름이 바뀌면 이 문장도 같이
 -- 바뀌어야 한다.
 L["HELP_ORDERING_TITLE"] = "Which action a key runs"
-L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met -- one of them runs, never two.|n|nSo the order of that list matters, and it is not the order you added them in. Debind decides it by taking the actions two at a time and asking four questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.|n2. |cnHIGHLIGHT_FONT_COLOR:Unit Frame.|r An action with a Unit Frame condition, over or not over, is tried before one that has none.|n3. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.|n4. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.|n|nThe left column of the Overview tab groups actions by key, and each group is in that order. When all four are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the four has already settled it, and the tooltip names which one.|n|nAll four are set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, the conditions, and |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer.|n|nStart with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. Importance is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.|n|nIf the action reaches other characters, whatever you change changes for them too."
+L["HELP_ORDERING_BODY"] = "A key can hold more than one action. Press it and Debind goes down the list, running the first one whose conditions are met at that moment -- one of them runs, never two.|n|nSo the order of that list matters, and it is not the order you added them in. Debind decides it by taking the actions two at a time and asking four questions, from the top. The first question where the two actions answer differently settles which comes first. The rest are not asked.|n|n1. |cnHIGHLIGHT_FONT_COLOR:Importance.|r The higher one is tried first.|n2. |cnHIGHLIGHT_FONT_COLOR:Unit Frame.|r An action with a Unit Frame condition, over or not over, is tried before one that has none.|n3. |cnHIGHLIGHT_FONT_COLOR:Conditions.|r An action with conditions is tried before one without.|n4. |cnHIGHLIGHT_FONT_COLOR:Layer.|r The narrower layer is tried first, from this character and specialization down to Account.|n|nThe left column of the Overview tab groups actions by key, and each group is in that order. When all four are ties, what is left is the place the two hold in their group. That place starts as the order you bound them in. The arrows on the row move it one step, and so do |cnHIGHLIGHT_FONT_COLOR:Run Sooner|r and |cnHIGHLIGHT_FONT_COLOR:Run Later|r in the action's right-click menu. They go grey when one of the four has already settled it, and the tooltip names which one.|n|nAll four are set in the action's right-click menu: |cnHIGHLIGHT_FONT_COLOR:Importance|r, |cnHIGHLIGHT_FONT_COLOR:Unit Frame|r, the conditions, and |cnHIGHLIGHT_FONT_COLOR:Move to...|r for the layer.|n|nStart with the layer. What every character should get goes in Account, and a class, specialization or character that should do something else on the same key gets its own action in that layer. An action in a broader layer that has a condition is still tried first, and that is usually right: it runs only in the moments you named, and the narrower one takes the rest. If the narrower one should come first even then, give it a condition too. When none fits, a |cnHIGHLIGHT_FONT_COLOR:Class/Specialization|r condition will do. Debind looks at that one only when it can change, so it costs nothing in play. |cnHIGHLIGHT_FONT_COLOR:Importance|r is the last resort: it is asked before everything else, so a higher Importance puts the action ahead of every other action on that key, and putting another ahead of it then takes a higher one again.|n|nIf the action reaches other characters, whatever you change changes for them too."
 -- **Why this page exists at all.** Whether the game's own redirection applies to a Debind key
 -- turns on one thing -- did the reader choose a target -- and nothing on screen says so. The
 -- people who built it spent a day getting it wrong from the code, so a reader has no chance.
@@ -1067,7 +1068,7 @@ L["SPELL_PICKER_NO_MATCH"] = "Nothing matches your search."
 L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"
 -- SPELL_PICKER_LEFT_CLICK_TO_ADD의 짝. 오른쪽 클릭이 있다는 것을 말하는 자리가 화면에
 -- 여기뿐이다 - 행은 있으나 없으나 같은 모양이다.
-L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another tab."
+L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another layer."
 -- Same thing the overview's `ORDER_FLAG_OFFSPEC` names, so it has to be the same word: two names
 -- for one thing in one window is how a reader ends up thinking there are two things.
 L["SPELL_PICKER_SHOW_OFFSPEC"] = "Inactive specializations"
@@ -1250,7 +1251,6 @@ L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here and nowhere
 L["TARGET_UNIT"] = "Target"
 L["TYPE_COMMAND"] = "Binding Command"
 L["TYPE_FLYOUT"] = "Flyout"
-L["TYPE_FOCUS_DESC"] = "Sets your focus to this unit. With a role-based unit, one key focuses whoever is tanking right now, without you finding them on the frames first."
 L["TYPE_FOCUS"] = "Set Focus Target"
 -- **Numbers the two slots the client calls by one name.** `TRINKET0SLOT` and `TRINKET1SLOT` are
 -- both "Trinket" and the two finger slots are both "Finger"; the character sheet tells them apart
@@ -1277,17 +1277,28 @@ L["TYPE_SETSTATE_ON"] = "Turn On %s"
 L["TYPE_SETSTATE_TOGGLE"] = "Toggle %s"
 L["TYPE_SETSTATE"] = "Switch"
 L["TYPE_SPELL"] = "Spell"
-L["TYPE_TARGET_DESC"] = "Makes this unit your target. The list reaches further than WoW's own targeting bindings -- role-based units such as |cnHIGHLIGHT_FONT_COLOR:Tank|r and |cnHIGHLIGHT_FONT_COLOR:Healer|r, and your custom targets."
 L["TYPE_TARGET"] = "Set Target"
-L["TYPE_TOGGLEMENU_DESC"] = "Opens this unit's popup menu -- the one right-clicking a unit frame gives you, carrying invite, trade, raid marker and the rest. The key reaches units whose frame is not in front of you."
 L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
 L["TYPE_SPEC_RESOLVED_HEADER"] = "Class and Specialization"
+-- The second half of all three descriptions below. They say one thing between them: the action
+-- carries no condition, so it matches everywhere and the key is spent even where there is nothing
+-- to cast.
+--
+-- **It asks what you have, not which specialization you are in.** The spell comes out of the
+-- specialization table without anyone checking whether it has been learned
+-- (`SpecSpells.SpellForType`), so a specialization that has one on paper is the same case while
+-- the spell is still unlearned, and a sentence naming the specialization would miss it.
+--
+-- **It names `CONDITION_KNOWN` in words.** Renaming that row leaves this sentence pointing at
+-- something that is not on screen, which is the cost; without the name the reader is told a
+-- condition exists and not which one, and the sentence stops being actionable.
+L["TYPE_SPEC_RESOLVED_NONE_DESC"] = "The key is still taken when you have none, and the press does nothing. To have the key only when you have one, turn on the Known Spell condition."
 L["TYPE_DISPEL"] = "Dispel"
-L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now. On a character that has none, the key does nothing."
+L["TYPE_DISPEL_DESC"] = "Casts your specialization's friendly dispel, whichever it is right now."
 L["TYPE_EXTERNAL"] = "External"
-L["TYPE_EXTERNAL_DESC"] = "Casts your specialization's damage reduction or absorb for another player, such as Pain Suppression, Ironbark or Blessing of Sacrifice. On a specialization that has none, the key does nothing."
+L["TYPE_EXTERNAL_DESC"] = "Casts your specialization's damage reduction or absorb for another player, such as Pain Suppression, Ironbark or Blessing of Sacrifice."
 L["TYPE_RAIDBUFF"] = "Raid Buff"
-L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect. On a class that has none, the key does nothing."
+L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word: Fortitude or Arcane Intellect."
 L["SMART_CAST"] = "Smart Cast"
 -- **Both menus say this, on purpose.** The account-wide list is not where most readers meet Smart
 -- Cast: they find the option on an action without ever opening the options button, so the
@@ -1379,7 +1390,6 @@ L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
 L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
 L["TYPE_UNUSED_DESC"] = "Hands the key back to WoW for the situations you pick. The key then does whatever your WoW key bindings say, and nothing at all if WoW has no binding on it."
 L["TYPE_UNUSED"] = "Use WoW's Own Binding"
-L["TYPE_WORLDMARKER_DESC"] = "Drops this world marker on the ground your cursor points at, and takes it back if the marker is already out. These are WoW's own markers, so the key places whatever your group lets you place by hand."
 L["TYPE_WORLDMARKER"] = "World Marker"
 L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."
 L["UNBIND"] = "Unbind Key"

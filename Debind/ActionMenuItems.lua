@@ -520,7 +520,7 @@ local function CreateMoveCopyMenu(rootDescription, isCopy, fromLayerID, applyFun
         -- 나머지가 한 칸씩 올라와, 같은 탭이 이동과 복사에서 다른 높이에 선다.
         if (isSameLayer and not isCopy) then
             description:SetEnabled(false);
-            SetErrorTooltip(description, LLL["MOVE_TO_CURRENT_TAB_BLOCKED"]);
+            SetErrorTooltip(description, LLL["MOVE_TO_CURRENT_LAYER_BLOCKED"]);
         end
     end
 end

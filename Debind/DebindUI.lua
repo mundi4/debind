@@ -2152,7 +2152,7 @@ function DebindFrameMixin:UpdateEmptyText()
 		-- 필터가 검색보다 앞선다. 둘 다 걸려 있으면 원인이 둘인데, 필터 쪽은 **꺼진 값이 무엇인지
 		-- 드롭다운을 열면 바로 보이는** 쪽이라 다음 걸음이 있다. 검색은 친 글자를 이미 알고 있으니
 		-- 그 문장이 새로 말해주는 것이 없다.
-		local emptyKey = "NO_ACTIONS_IN_THIS_TAB";
+		local emptyKey = "NO_ACTIONS_IN_THIS_LAYER";
 		if (not self:AreFiltersDefault()) then
 			emptyKey = "NO_ACTIONS_MATCH_FILTERS";
 		elseif (_searchText) then

@@ -152,7 +152,7 @@ local UNIT_INFO            = {
 		name = LLL["UNIT_TARGET"],
 		--spell = false,
 		--item = false,
-		--target = false,
+		target = false,
 	},
 	focus = {
 		name = LLL["UNIT_FOCUS"],
@@ -160,7 +160,10 @@ local UNIT_INFO            = {
 	},
 	mouseover = {
 		name = LLL["UNIT_MOUSEOVER"],
-		togglemenu = false, -- doesn't work!
+		-- No `togglemenu`: Blizzard's handler puts the token itself into `contextData.unit`
+		-- (`SecureTemplates.lua`, `SECURE_ACTIONS.togglemenu`), so the menu opens and every item in it
+		-- then acts on whatever the cursor is over, which by then is the menu.
+		togglemenu = false,
 	},
 	tank = {
 		name = LLL["UNIT_TANK"],
