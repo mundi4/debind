@@ -897,7 +897,23 @@ function RetopPending()
 		local frame, scripts = pending[i][1], pending[i][2];
 		for script in pairs(scripts) do
 			if (DebindPrivate.ccframes[frame] and WrappedByUs(frame, script)) then
-				Reassemble(frame, script);
+				--- **One frame may not take the rest of the batch with it.** `Reassemble` re-raises
+				--- so a foreign wrap or unwrap hears what happened inside its own call; here there
+				--- is no such caller, and the rows are already out of `_retop` (above), so a raise
+				--- escaping this loop drops every frame after it for good while `_hoverWrapped`
+				--- goes on saying we are on them.
+				---
+				--- It also escaped `Events.PLAYER_REGEN_ENABLED`, which calls this second and does
+				--- the frame queue, the click queue, the click edge and the suspended rebuild after
+				--- it. A frame problem left a fight's worth of bindings unbuilt.
+				---
+				--- DEBUG-only surfacing, the reason `_walkRefused` gives: a release reader can do
+				--- nothing with it, and what it costs is this one frame's hover and click.
+				local ok, err = pcall(Reassemble, frame, script);
+				if (Constants.DEBUG and not ok) then
+					print(format("[Debind] RetopPending: %s on %s raised: %s",
+						script, tostring(frame.GetName and frame:GetName() or frame), tostring(err)));
+				end
 			end
 		end
 	end
