@@ -288,7 +288,7 @@ return function(DebindPrivate)
     test("a known the book dates above the character stays an axis", function()
         local record = knownRecord(1002);
         check(record ~= nil, "the record was dropped");
-        check(fieldOf(record, "known") == "[known:1002]",
+        check(fieldOf(record, "known") == "[known:Spell 1002]",
             "known: " .. tostring(fieldOf(record, "known")));
     end);
 

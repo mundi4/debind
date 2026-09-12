@@ -1496,13 +1496,19 @@ end
 --- A boolean is the shape that asks about the action, and `false` is one of those: it never
 --- reaches storage (`GetBindingInfoForAction` strips it) but the solver models both answers on one
 --- axis, and both are about the same spell.
+---
+--- **The action's spell is named too** (2026-09-12, owner). What goes out is then one shape
+--- whatever the condition stored, and two actions asking about the same spell share a state key
+--- even when one of them is a `Dispel` and the other holds the spell itself. The id is what is
+--- left when the client cannot name it, which is where `[known:]` answers false anyway.
 function DebindPrivate.KnownSpellAsked(binding)
     local asked = binding.conditions and binding.conditions.known;
     if (asked == nil) then
         return nil;
     end
     if (type(asked) == "boolean") then
-        return binding.spell or binding.value;
+        local spell = binding.spell or binding.value;
+        return spell and (GetSpellNameAndIconID(spell) or spell);
     end
     return asked;
 end

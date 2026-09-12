@@ -352,8 +352,10 @@ return function(DebindPrivate, _, ctx)
         interp:resetState();
     end);
 
-    -- A `known` condition is answered by parsing the conditional the record carries, which is the
-    -- action's own spell. The state loop reads the same string as a key in `States`.
+    -- A `known` condition is answered by parsing the conditional the record carries. The value it
+    -- names is the spell, and `true` is the action's own, named at the bake
+    -- (`devdocs/making-known-a-spell-name.md`). The state loop reads the same string as a key in
+    -- `States`.
     test("a known condition follows the spell book", function()
         Bind({
             action({ value = 8936, key = "F1", conditions = { known = true } }),
@@ -361,7 +363,7 @@ return function(DebindPrivate, _, ctx)
         });
 
         check(winner("F1") == 2, "the known action won without the spell");
-        interp.state.known[8936] = true;
+        interp.state.known["Regrowth"] = true;
         check(winner("F1") == 1, "the known action did not win with the spell");
         interp:resetState();
     end);

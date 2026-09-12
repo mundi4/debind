@@ -573,9 +573,9 @@ Execute <Frame#3>
   | bindings.key="CTRL-F6"
   | t=newtable();tinsert(bindings,t)
   | t["clickbutton"]="deb101"
-  | t["known"]="[known:8936]"
+  | t["known"]="[known:Regrowth]"
   | t.holdsKey=true
-  | DirtyKeys["[known:8936]"]=DirtyKeys["[known:8936]"] or newtable();tinsert(DirtyKeys["[known:8936]"],bindings)
+  | DirtyKeys["[known:Regrowth]"]=DirtyKeys["[known:Regrowth]"] or newtable();tinsert(DirtyKeys["[known:Regrowth]"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F6"]=bindings
   | bindings.clickTimeButton="@CTRL-F6"
@@ -839,8 +839,8 @@ SetAttribute <Frame#3> _onattributechanged =
   |     end
   | end
   | 
-  | stateValue=SecureCmdOptionParse("[known:8936]") and true or false
-  | if (States["[known:8936]"] ~= stateValue) then States["[known:8936]"]=stateValue;DirtyFlags["[known:8936]"]=true; end
+  | stateValue=SecureCmdOptionParse("[known:Regrowth]") and true or false
+  | if (States["[known:Regrowth]"] ~= stateValue) then States["[known:Regrowth]"]=stateValue;DirtyFlags["[known:Regrowth]"]=true; end
   | stateValue=GetBonusBarOffset()
   | if (States["bonusbar"] ~= stateValue) then States["bonusbar"]=stateValue;DirtyFlags["bonusbar"]=true; end
   | stateValue=PlayerInCombat()

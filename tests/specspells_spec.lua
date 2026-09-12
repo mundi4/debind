@@ -144,19 +144,22 @@ return function(DebindPrivate, _, ctx)
     -- Through a rebuild
     ---------------------------------------------------------------------------
 
-    -- `known` bakes the resolved spell.
+    -- `known` bakes the resolved spell, **by name like every other one**. `true` is what these
+    -- three store because the spell is the specialization's answer rather than a stored value
+    -- (`devdocs/making-known-a-spell-name.md`), and naming it at the bake is what puts them on the
+    -- same state key as a spell action asking about the same spell.
     test("known is baked from the resolved spell", function()
         shim.world.specIndex = 1;
         shim.world.spells[2782] = { name = "Remove Corruption" };
         Bind({
             action({ type = Constants.DISPEL, key = "F1", conditions = { known = true } }),
         });
-        check(recordField("F1", 1, "known") == "[known:2782]",
+        check(recordField("F1", 1, "known") == "[known:Remove Corruption]",
             "dispel known: " .. tostring(recordField("F1", 1, "known")));
         check(recordField("F1", 1, "clickbutton") ~= nil, "dispel has no button");
 
         if (not shipped) then
-            interp.state.known[2782] = true;
+            interp.state.known["Remove Corruption"] = true;
             check(interp:evalKey("F1") == 1, "the dispel did not fire with its spell known");
         end
         shim.world.specIndex = nil;

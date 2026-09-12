@@ -150,8 +150,8 @@ return function(DebindPrivate, shim)
                 conditions = { extrabar = true } }),
             action({ type = Constants.SPELL, value = 585, key = "CTRL-F5",
                 conditions = { units = { pet = { exists = true } } } }),
-            --- `known` bakes the whole macro conditional, brackets and all, and the value it names
-            --- is the action's own.
+            --- `known` bakes the whole macro conditional, brackets and all. `true` asks about the
+            --- action's own spell and is named at the bake like every other one.
             action({ type = Constants.SPELL, value = 8936, key = "CTRL-F6",
                 conditions = { known = true } }),
             --- A switch as a condition rather than as a target.
