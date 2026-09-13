@@ -1061,6 +1061,8 @@ Execute <Frame#3>
   | t.holdsKey=true
   | bindings.focusFrom=2
   | bindings.noneFrom=3
+  | DirtyKeys["focus-exists"]=DirtyKeys["focus-exists"] or newtable();tinsert(DirtyKeys["focus-exists"],bindings)
+  | DirtyKeys["player-exists"]=DirtyKeys["player-exists"] or newtable();tinsert(DirtyKeys["player-exists"],bindings)
   | DirtyKeys["target-exists"]=DirtyKeys["target-exists"] or newtable();tinsert(DirtyKeys["target-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F8"]=bindings
@@ -1112,6 +1114,8 @@ Execute <Frame#3>
   | t.holdsKey=true
   | bindings.focusFrom=2
   | bindings.noneFrom=3
+  | DirtyKeys["focus-exists"]=DirtyKeys["focus-exists"] or newtable();tinsert(DirtyKeys["focus-exists"],bindings)
+  | DirtyKeys["player-exists"]=DirtyKeys["player-exists"] or newtable();tinsert(DirtyKeys["player-exists"],bindings)
   | DirtyKeys["target-exists"]=DirtyKeys["target-exists"] or newtable();tinsert(DirtyKeys["target-exists"],bindings)
   | bindings.hasKeyRecord=true
   | ClickTimeKeys["@CTRL-F9"]=bindings
@@ -1497,6 +1501,7 @@ Execute <Frame#3>
   | UnitStates["focus"]=newtable()
   | UnitStates["hover"]=newtable()
   | UnitStates["pet"]=newtable()
+  | UnitStates["player"]=newtable()
   | UnitStates["target"]=newtable()
 SetAttribute <Frame#3> _onattributechanged =
   | if (name == "state-unitexists") then
@@ -1571,6 +1576,13 @@ SetAttribute <Frame#3> _onattributechanged =
   | u=UnitStates["pet"]
   | stateValue=UnitExists("pet") and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["pet-exists"]=true end
+  | u=UnitStates["player"]
+  | stateValue=UnitExists("player") and true or false
+  | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["player-exists"]=true end
+  | if (u.exists) then
+  | stateValue=(PlayerCanAssist("player") and "help") or (PlayerCanAttack("player") and "harm") or "other"
+  | if (u.reaction ~= stateValue) then u.reaction=stateValue;DirtyFlags["player-exists"]=true end
+  | end
   | u=UnitStates["target"]
   | stateValue=UnitExists("target") and true or false
   | if (u.exists ~= stateValue) then u.exists=stateValue;DirtyFlags["target-exists"]=true end

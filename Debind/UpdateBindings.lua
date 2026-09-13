@@ -2139,17 +2139,6 @@ end
 --- go without the other -- an emitted axis with no flag is a key that never wakes up, and a flag
 --- with no axis is a measurement nobody reads.
 local function CollectRecordAxes(record, stateDriven)
-    -- The state loop passes over the self and focus twins (`SecureBindings.lua`), so their units ask
-    -- it to measure nothing. The field flags stay: a twin copies the original's fields, so it
-    -- raises no flag the original does not.
-    local loopSkips = false;
-    for i = 1, record.fieldCount do
-        if (record.fieldNames[i] == "castModifier") then
-            loopSkips = record.fieldValues[i] ~= Constants.CASTMOD_NONE;
-            break;
-        end
-    end
-
     for i = 1, record.fieldCount do
         local name = record.fieldNames[i];
         if (name == "frameTypes") then
@@ -2213,7 +2202,7 @@ local function CollectRecordAxes(record, stateDriven)
         -- **This is an accumulator, so the unit of the decision matters.** `_measuredUnitAxes` is
         -- one table per rebuild and grows by `bor`, so a unit any state-driven key asks about is
         -- measured anyway. What is withheld here is **this record's share**, not the unit.
-        if (stateDriven and not loopSkips) then
+        if (stateDriven) then
             _measuredUnitAxes[unit] = bor(_measuredUnitAxes[unit] or 0, axes);
             _updateFlags[unit .. "-exists"] = true;
             if (band(axes, UNITAXIS_REACTION) ~= 0) then

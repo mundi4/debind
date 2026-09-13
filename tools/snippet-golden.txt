@@ -602,9 +602,7 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
-
-
-			local match = t.castModifier == nil or t.castModifier == CONSTANTS.CASTMOD_NONE
+			local match = true
 
 
 

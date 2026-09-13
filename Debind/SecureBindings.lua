@@ -738,12 +738,10 @@ BindingDriver:SetAttribute("UpdateBindings", (DebindPrivate.DEBUG and [[
 
 		for i = 1, #bindings do
 			local t = bindings[i]
-			-- **The self and focus twins are passed over.** This loop only decides whether the key is
-			-- held, and that is the original's to answer: a modifier press arrives on this key only
-			-- when nothing holds the combination (`devdocs/implementing-focus-and-self-cast.md`
-			-- §3-9). Counting a twin would hold the key where its original lets go, and a press
-			-- with nothing held on top would then find no winner and do nothing.
-			local match = t.castModifier == nil or t.castModifier == CONSTANTS.CASTMOD_NONE
+			-- **The self and focus twins count like any record, their modifier column aside.** A held
+			-- modifier arrives only on a key we hold, so a key let go on its originals' answer takes
+			-- the twins' presses with it (`devdocs/implementing-focus-and-self-cast.md` §3-9).
+			local match = true
 
 			-- 호버 중이냐, 그 유닛이 어떠냐는 아래 t.units["hover"]가 답한다. 여기 남은
 			-- 것은 프레임의 종류뿐이라 제 존재 검사를 직접 들고 있다.

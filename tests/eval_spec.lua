@@ -856,34 +856,33 @@ return function(DebindPrivate, _, ctx)
         shim.world.units = {};
     end);
 
-    -- **The state loop holds the key on the original's answer alone** (§3-9). The self twin asks
-    -- whether the player is friendly, which is nearly always so; counted, it would hold a key whose
-    -- original lets go, and a press with nothing held would find no winner and do nothing where the
-    -- game's own binding should have run.
-    test("the state loop does not hold a key on a self or focus twin", function()
+    -- **The state loop holds the key while any of its bindings matches, the twins included** (§3-9,
+    -- 2026-09-13, owner). The loop cannot see a modifier, and a held modifier only arrives on a key
+    -- we hold, so an original that lets go took the twins' press with it: an attack for a hostile
+    -- resolved target, no target picked, could not be focus cast at a hostile focus unless the
+    -- target was hostile too. The price is a press with nothing held doing nothing while only a twin
+    -- holds the key.
+    test("the state loop holds a key while a self or focus twin matches", function()
         Bind({
-            action({ value = 585, key = "F1", unit = "target",
-                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ value = 585, key = "F1",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
         });
-        local records = interp:recordsFor("F1");
-        local selfTwin;
-        for i = 1, #records do
-            if (records[i].castModifier == Constants.CASTMOD_SELF) then
-                selfTwin = records[i];
-            end
-        end
-        check(selfTwin and selfTwin.units and selfTwin.units.player,
-            "no self twin asking about the player, so this measures nothing");
         check(interp.env.StateDrivenBindings["F1"] ~= nil, "the key is not state-driven");
 
-        shim.world.units = { target = { id = "enemy", reaction = "harm" },
-            player = { id = "me", reaction = "help" } };
+        shim.world.units = { target = { id = "friend", reaction = "help" },
+            focus = { id = "enemy", reaction = "harm" }, player = { id = "me", reaction = "help" } };
         interp:pollStates();
-        check(interp.bindings["F1"] == nil, "the key was held on a hostile target");
+        check(interp.bindings["F1"] ~= nil, "a hostile focus with a friendly target: the key was let go");
 
-        shim.world.units.target = { id = "friend", reaction = "help" };
+        interp.state.modifiedClick.FOCUSCAST = true;
+        local _, _, record = interp:evalKey("F1");
+        check(record and record.castModifier == Constants.CASTMOD_FOCUS and record.unit == "focus",
+            "the held focus cast key did not go at the focus");
+        interp.state.modifiedClick.FOCUSCAST = nil;
+
+        shim.world.units.focus = { id = "friend2", reaction = "help" };
         interp:pollStates();
-        check(interp.bindings["F1"] ~= nil, "the key was not held on a friendly target");
+        check(interp.bindings["F1"] == nil, "nothing hostile anywhere: the key was held");
 
         shim.world.units = {};
         interp:pollStates();
