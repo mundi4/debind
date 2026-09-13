@@ -1,0 +1,123 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/FrameXML/UI.xsd">
+
+	<Frame name="DebindSettingsHeaderTemplate" virtual="true">
+		<Size y="45"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Title" inherits="GameFontHighlightLarge" justifyH="LEFT" justifyV="TOP">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="7" y="-16"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="Tooltip" mixin="DefaultTooltipMixin" hidden="true">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.Title"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.Title"/>
+				</Anchors>
+				<Scripts>
+					<OnLoad method="OnLoad"/>
+				</Scripts>
+			</Frame>
+		</Frames>
+	</Frame>
+
+	<Frame name="DebindSettingsGroupTemplate" virtual="true">
+		<Size y="26"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontHighlight" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" x="37"/>
+						<Anchor point="RIGHT" x="-40"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+	</Frame>
+
+	<Frame name="DebindSettingsRowTemplate" virtual="true">
+		<Size y="26"/>
+		<Layers>
+			<Layer level="OVERLAY">
+				<FontString parentKey="Text" inherits="GameFontNormal" justifyH="LEFT" wordwrap="false">
+					<Anchors>
+						<Anchor point="LEFT" x="37"/>
+						<Anchor point="RIGHT" relativePoint="CENTER" x="-85"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="Tooltip" mixin="DefaultTooltipMixin">
+				<Anchors>
+					<Anchor point="TOPLEFT"/>
+					<Anchor point="BOTTOMRIGHT" relativePoint="BOTTOM" x="-80"/>
+				</Anchors>
+				<Layers>
+					<Layer level="BACKGROUND">
+						<Texture parentKey="HoverBackground" inherits="HoverBackgroundTemplate"/>
+					</Layer>
+				</Layers>
+				<Scripts>
+					<OnLoad method="OnLoad"/>
+				</Scripts>
+			</Frame>
+		</Frames>
+	</Frame>
+
+	<Frame name="DebindSettingsCheckboxRowTemplate" inherits="DebindSettingsRowTemplate" virtual="true">
+		<Frames>
+			<CheckButton parentKey="Checkbox" inherits="SettingsCheckboxTemplate">
+				<Anchors>
+					<Anchor point="LEFT" relativePoint="CENTER" x="-80"/>
+				</Anchors>
+			</CheckButton>
+		</Frames>
+	</Frame>
+
+	<Frame name="DebindSettingsDropdownRowTemplate" inherits="DebindSettingsRowTemplate" virtual="true">
+		<Frames>
+			<Frame parentKey="Control" inherits="SettingsDropdownWithButtonsTemplate">
+				<Anchors>
+					<Anchor point="LEFT" relativePoint="CENTER" x="-48" y="3"/>
+				</Anchors>
+			</Frame>
+		</Frames>
+	</Frame>
+
+	<Frame name="DebindSettingsCheckboxDropdownRowTemplate" inherits="DebindSettingsCheckboxRowTemplate" virtual="true">
+		<Frames>
+			<Frame parentKey="Control" inherits="SettingsDropdownWithButtonsTemplate">
+				<Anchors>
+					<Anchor point="LEFT" relativeKey="$parent.Checkbox" relativePoint="RIGHT" x="32"/>
+				</Anchors>
+			</Frame>
+		</Frames>
+	</Frame>
+
+	<Frame name="DebindSettingsSliderRowTemplate" inherits="DebindSettingsRowTemplate" virtual="true">
+		<Frames>
+			<Frame parentKey="Slider" inherits="MinimalSliderWithSteppersTemplate">
+				<Anchors>
+					<Anchor point="LEFT" relativePoint="CENTER" x="-80" y="3"/>
+				</Anchors>
+			</Frame>
+		</Frames>
+	</Frame>
+
+	<Frame name="DebindSettingsButtonRowTemplate" virtual="true">
+		<Size y="26"/>
+		<Frames>
+			<Button parentKey="Button" inherits="UIPanelButtonTemplate">
+				<Size x="200" y="22"/>
+				<Anchors>
+					<Anchor point="LEFT" x="37"/>
+				</Anchors>
+			</Button>
+		</Frames>
+	</Frame>
+
+</Ui>

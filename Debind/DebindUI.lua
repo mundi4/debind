@@ -1737,6 +1737,7 @@ local PANELS = {
 	-- in two directions, and what they had in common is the list (12절 of
 	-- `devdocs/building-export-import.md`).
 	{ title = "STORAGE_TITLE", desc = "STORAGE_MENU_DESC", panelKey = "StoragePanel", needsStore = true },
+	{ title = "OVERVIEW", desc = "OVERVIEW_DESC", panelKey = "SettingsPanel" },
 };
 
 --- Brings in the addon that builds the strings and keeps the drawer. Does nothing if it is here.
@@ -2941,6 +2942,7 @@ function DebindFrameMixin:OnShow()
 	self:RegisterEvent("CURSOR_CHANGED");
 
 	DebindPrivate.RegisterCallback(self, "OnBindingsUpdated");
+	DebindPrivate.RegisterCallback(self, "OnBindingsSuspended");
 
 	if (GetActionTypeAndValueFromCursorInfo()) then
 		self:OnPickup();
@@ -3025,6 +3027,7 @@ function DebindFrameMixin:OnHide()
 	self:UnregisterEvent("GLOBAL_MOUSE_DOWN");
 
 	DebindPrivate.UnregisterCallback(self, "OnBindingsUpdated");
+	DebindPrivate.UnregisterCallback(self, "OnBindingsSuspended");
 
 	DebindUI.ClearMacrotextIconCache();
 end
@@ -3751,8 +3754,12 @@ function DebindFrameMixin:UpdateTitle()
 end
 
 --- 리빌드가 전투 끝을 기다리고 있다는 알림.
+function DebindFrameMixin:OnBindingsSuspended()
+	self:UpdateCombatNotice();
+end
+
 function DebindFrameMixin:UpdateCombatNotice()
-	local notice = self.OverviewPanel.CombatNotice;
+	local notice = self.CombatNotice;
 	notice:SetText(LLL["CHANGES_APPLY_AFTER_COMBAT"]);
 	notice:SetShown(DebindPrivate.updateBindingsSuspended and true or false);
 end

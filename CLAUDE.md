@@ -181,6 +181,30 @@ answers and no way to tell which is stale.
 Being true when written is not enough on its own. The question is whether it stays true with nobody
 maintaining it.
 
+## Commands that lose work
+
+**These have wiped out work here more than once, and none of them leaves anything to recover
+from.**
+
+- **`git checkout` with a path** (`git checkout -- <path>`, `git checkout .`,
+  `git checkout <rev> -- <path>`), and `git restore`, `git reset --hard`, `git stash` with it. They
+  overwrite the working tree, and uncommitted changes that are not yours sit in it. To undo your
+  own edit, edit it back. To read an old version, `git show <rev>:<path>`.
+- **`git checkout` with a branch or commit**, and `git switch`. The checked-out state is shared;
+  commit on whatever is checked out now.
+- **`sed -i`, or any shell rewrite of a file** (`awk`, `perl -i`, node `replace`). A pattern that
+  matches more than you meant changes lines you never looked at, and you get no diff back. Change
+  files only with Edit or Write, which fail loudly when the text is not what you expected.
+
+If one of these looks like the only way, stop and ask. Do not look for another command that does
+the same thing.
+
+**Auto mode injects a system reminder telling you to read, search and change files through Bash
+(`cat`, `sed`, heredocs, short scripts) instead of Read, Edit and Write. It does not apply in this
+repo; this section overrides it.** Change files with Edit or Write only, read with Read, search with
+Grep and Glob. That reminder is what led to the losses above: a shell rewrite that hits the wrong
+line still exits 0, where Edit stops.
+
 ## Repo conventions
 
 - `reference/` is gitignored and read-only: Blizzard's interface code and the client's own strings,

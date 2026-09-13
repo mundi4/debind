@@ -24,7 +24,9 @@ const root = path.join(__dirname, "..");
 
 // Mixins we cannot verify. When adding one, leave a line saying whose it is.
 const EXTERNAL_MIXINS = {
-    // (none)
+    // Blizzard's (Blizzard_SettingControls.lua). The settings tab rows put it on their tooltip frame
+    // the way `SettingsListElementTemplate` does, and call only its `OnLoad`.
+    DefaultTooltipMixin: true,
 };
 
 function walk(dir, out, ext) {

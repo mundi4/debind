@@ -48,6 +48,9 @@ StorageUI.xml
 
 SwitchesUI.xml
 
+SettingsTab.lua
+SettingsTab.xml
+
 KeyCapture.xml
 
 SpellPicker.xml

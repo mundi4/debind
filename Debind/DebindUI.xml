@@ -839,6 +839,15 @@
 		<Anchors>
 			<Anchor point="CENTER"/>
 		</Anchors>
+		<Layers>
+			<Layer level="ARTWORK">
+				<FontString parentKey="CombatNotice" inherits="GameFontRed" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" relativePoint="TOPLEFT" x="60" y="-43"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<Frames>
 			<!--
 				**The gear is in the title bar, and it is Blizzard's own gear.**
@@ -918,15 +927,6 @@
 				container that took a level of its own would silently reorder what draws over what.
 			-->
 			<Frame parentKey="OverviewPanel" useParentLevel="true" setAllPoints="true">
-				<Layers>
-					<Layer level="ARTWORK">
-						<FontString parentKey="CombatNotice" inherits="GameFontRed" justifyH="LEFT">
-							<Anchors>
-								<Anchor point="LEFT" relativePoint="TOPLEFT" x="60" y="-43"/>
-							</Anchors>
-						</FontString>
-					</Layer>
-				</Layers>
 				<Frames>
 					<!--
 						**The bin, plus the two axes that pick which bin.** The list, its search box, the
@@ -1605,7 +1605,7 @@
 							this label is fitted to its text and the row has the (i) at its right end.
 						-->
 						<Anchors>
-							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ResultPanel" relativePoint="TOPLEFT" x="2" y="4"/>
+							<Anchor point="BOTTOMLEFT" relativeKey="$parent.ResultPanel" relativePoint="TOPLEFT" x="2" y="0"/>
 						</Anchors>
 						<Scripts>
 							<OnClick>
@@ -1701,6 +1701,11 @@
 			<Button parentKey="StorageTab" inherits="DebindPanelTabTemplate" id="3">
 				<Anchors>
 					<Anchor point="TOPLEFT" relativeKey="$parent.SwitchesTab" relativePoint="TOPRIGHT" x="3" y="0"/>
+				</Anchors>
+			</Button>
+			<Button parentKey="TestTab" inherits="DebindPanelTabTemplate" id="4">
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeKey="$parent.StorageTab" relativePoint="TOPRIGHT" x="3" y="0"/>
 				</Anchors>
 			</Button>
 

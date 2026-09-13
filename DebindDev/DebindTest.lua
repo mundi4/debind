@@ -8540,29 +8540,8 @@ local function OpenOurSettings()
     return { category = category, names = names, rows = rows }
 end
 
---- The unit frame subcategory opened, and the rows it drew. Returns `nil, reason`.
----
---- **Found through the parent rather than remembered by the addon.** `CreateSubcategory` files it
---- on the category (`Blizzard_Category.lua`), which is the same place the panel's own left-hand
---- list reads it from -- so this asks the question the reader's click asks.
-local function OpenUnitFrameSettings(parentCategory)
-    for _, subcategory in ipairs(parentCategory:GetSubcategories()) do
-        if subcategory:GetName() == LLL["UNIT_FRAME_SUPPORT"] then
-            Settings.OpenToCategory(subcategory:GetID())
-            local current = SettingsPanel:GetCurrentCategory()
-            if current ~= subcategory then
-                return nil, format("the panel opened on %q instead",
-                    tostring(current and current:GetName()))
-            end
-            return DrawnRowNames()
-        end
-    end
-    return nil, format("%q has no unit frame subcategory under it",
-        tostring(parentCategory:GetName()))
-end
-
-RegisterTest("Settings: our category draws the rows we registered", {
-    description = "설정창 애드온 탭에서 우리 카테고리가 열리고 등록한 줄이 다 그려진다",
+RegisterTest("Settings: our own templates draw", {
+    description = "설정창 애드온 탭에서 우리 카테고리가 열리고, 우리 템플릿으로 그리는 줄이 다 선다",
     run = function()
         local NAME = "settings rows"
 
@@ -8578,16 +8557,15 @@ RegisterTest("Settings: our category draws the rows we registered", {
             return Fail(NAME, why)
         end
 
-        --- One of each control type, plus a row from every section. A template the panel refuses
-        --- leaves its row out and nothing is raised, so what is asked is that the row is there.
+        --- **The three rows drawn from a template of ours, and nothing else.** A template the
+        --- panel cannot make leaves its row out **with nothing raised**: the combat notice simply
+        --- is not there, and the boxes under a missing label read as belonging to whatever header
+        --- is above. Every other row here is drawn from the client's own templates, and that the
+        --- initializer was registered is what the headless spec already sees.
         local wanted = {
-            RELOADUI,
-            LLL["SMART_CAST_DEFAULTS"],
-            LLL["SMART_CAST_ENABLED"],
-            LLL["SMART_CAST_REZ_WITH_BATTLE_REZ"],
-            LLL["SPECIAL_UNITS"],
-            MISCELLANEOUS,
-            LLL["STATE_DRIVER_UPDATE_THROTTLE"],
+            LLL["SETTINGS_APPLIED_AFTER_COMBAT"],
+            LLL["FRAME_BLACKLIST_BLIZZARD"],
+            LLL["FRAME_BLACKLIST_ADDONS"],
         }
         for i = 1, #wanted do
             if not opened.names[wanted[i]] then
@@ -8595,74 +8573,7 @@ RegisterTest("Settings: our category draws the rows we registered", {
             end
         end
 
-        --- **The unit frame rows are on a list of their own and must not be on this one.** Moving
-        --- the group and leaving one row behind draws a stray box under the slider, which is a
-        --- thing to see rather than a thing that raises.
-        local strays = {
-            UNITFRAME_LABEL,
-            LLL["UNITFRAME_CLICK_EDGE"],
-            LLL["FRAME_BLACKLIST"],
-            LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
-            LLL["LEAVE_OTHER_ADDON_FRAMES"],
-        }
-        for i = 1, #strays do
-            if opened.names[strays[i]] then
-                return Fail(NAME, format("%q is still on the top list", strays[i]))
-            end
-        end
-
         return Pass(NAME, format("%d rows", opened.rows))
-    end,
-})
-
---- **The second list, and the label rows are why it is asked for separately.** `Blizzard Frames`
---- and `Addon Frames` are drawn from a template of ours (`DebindSettingsLabelTemplate`), and a
---- template the panel cannot make leaves its row out **with nothing raised** -- the boxes below it
---- then read as belonging to whatever header is above. The headless spec can only see that the
---- initializer was registered.
-RegisterTest("Settings: the unit frame list draws its header, both labels and every box", {
-    description = "개체창 하위 항목이 머리글과 라벨 둘, 상자를 다 그린다",
-    run = function()
-        local NAME = "unit frame settings rows"
-
-        local wasShown = SettingsPanel:IsShown()
-        AddTeardown(function()
-            if not wasShown and SettingsPanel:IsShown() and not InCombatLockdown() then
-                HideUIPanel(SettingsPanel)
-            end
-        end)
-
-        local opened, why = OpenOurSettings()
-        if not opened then
-            return Fail(NAME, why)
-        end
-
-        local names, rows = OpenUnitFrameSettings(opened.category)
-        if not names then
-            return Fail(NAME, rows)
-        end
-
-        --- **The header is on this list too**, and it has to be: every option that owes a reload is
-        --- here, so a Reload button only on the top list is on the page that does not need it.
-        local wanted = {
-            LLL["SETTINGS_APPLIED_AFTER_COMBAT"],
-            LLL["OPEN_ADDON_WINDOW"],
-            RELOADUI,
-            LLL["UNITFRAME_CLICK_EDGE"],
-            LLL["FRAME_BLACKLIST"],
-            LLL["FRAME_BLACKLIST_BLIZZARD"],
-            LLL["BLIZZARD_UNIT_FRAMES_PLAYER"],
-            LLL["BLIZZARD_UNIT_FRAMES_ARENA"],
-            LLL["FRAME_BLACKLIST_ADDONS"],
-            LLL["LEAVE_OTHER_ADDON_FRAMES"],
-        }
-        for i = 1, #wanted do
-            if not names[wanted[i]] then
-                return Fail(NAME, format("the list has no row called %q", wanted[i]))
-            end
-        end
-
-        return Pass(NAME, format("%d rows", rows))
     end,
 })
 

@@ -969,6 +969,7 @@ function DebindPrivate.UpdateBindings()
         -- `Events.lua`, so there is nothing here to remember about it.
         if (why == "combat") then
             DebindPrivate.updateBindingsSuspended = true;
+            DebindPrivate.callbacks:Fire("OnBindingsSuspended");
         end
         return;
     end

@@ -265,6 +265,13 @@ globals = {
 	"SettingsPanel",
 	"SettingsListSectionHeaderMixin",
 	"CreateSettingsButtonInitializer",
+	"CreateSettingsCheckboxDropdownInitializer",
+	"CreateMinimalSliderFormatter",
+	"SettingsCheckboxMixin",
+	"SettingsTooltip",
+	"DefaultTooltipMixin",
+	"ButtonStateBehaviorMixin",
+	"Mixin",
 	"CreateSettingsListSectionHeaderInitializer",
 	"MinimalSliderWithSteppersMixin",
 

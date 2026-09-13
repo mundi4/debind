@@ -30,19 +30,6 @@ local VAR = "DEBIND_";
 
 local _category;
 
---- The hidden setting the Reload button hangs off. Its value is `IsReloadRequired()` and its setter
---- does nothing: what moves it is the option somebody just wrote, not this.
-local _reloadRequired;
-
---- Says a reload-needing option has been written. **Called by those setters and nowhere else** --
---- the value is worked out on the spot, so what this carries is the fact that the answer may have
---- moved, not the answer.
-function DebindPrivate.NotifyReloadRequired()
-    if (_reloadRequired) then
-        _reloadRequired:SetValue(DebindPrivate.IsReloadRequired());
-    end
-end
-
 --- What the gear on the title bar does (`DebindUI.lua`). Our own window is left where it is.
 function DebindPrivate.OpenOptionsCategory()
     if (not _category) then
@@ -62,18 +49,14 @@ function DebindPrivate.RegisterOptionsCategory()
     local category = Settings.RegisterVerticalLayoutCategory(L["ADDON_NAME"]);
     _category = category;
 
-    --- **The owner is passed rather than closed over, because there are two of them now.** The unit
-    --- frame rows live in a subcategory of their own and everything else stays on this one; a
-    --- helper that remembered which was current would put a row in the wrong list the day somebody
-    --- moves one, and say nothing about it.
-    local function Proxy(owner, variable, varType, name, default, get, set)
-        return Settings.RegisterProxySetting(owner, VAR .. variable, varType, name, default,
+    local function Proxy(variable, varType, name, default, get, set)
+        return Settings.RegisterProxySetting(category, VAR .. variable, varType, name, default,
             get, set);
     end
 
-    local function Header(owner, name, tooltip)
+    local function Header(name, tooltip)
         local initializer = CreateSettingsListSectionHeaderInitializer(name, tooltip);
-        Settings.RegisterInitializer(owner, initializer);
+        Settings.RegisterInitializer(category, initializer);
         return initializer;
     end
 
@@ -87,8 +70,8 @@ function DebindPrivate.RegisterOptionsCategory()
     ---
     --- So it is the shape the notice row already proved: our own template, one font string, a fixed
     --- height, and nothing hung on the initializer that the panel reads bare.
-    local function Label(owner, name)
-        Settings.RegisterInitializer(owner, Settings.CreateElementInitializer(
+    local function Label(name)
+        Settings.RegisterInitializer(category, Settings.CreateElementInitializer(
             "DebindSettingsLabelTemplate", { name = name }));
     end
 
@@ -96,77 +79,47 @@ function DebindPrivate.RegisterOptionsCategory()
     -- The window
     --------------------------------------------------------------------------
 
-    --- **The predicate is read here, so the setting has to stand before either header does.** Its
-    --- getter is `IsReloadRequired()` and its setter does nothing: what moves the value is the
-    --- option somebody just wrote (`NotifyReloadRequired`).
-    ---
-    --- **A modify predicate on its own would never be read again.** `EvaluateState` is what reads
-    --- it, and it runs on four axes: the row's `Init`, a parent setting's value moving, a frame
-    --- event the row asked for, and a CVar (`Blizzard_SettingControls.lua`). Ticking one of our
-    --- boxes is none of them, so the button would sit grey until the row happened to be built
-    --- again by a scroll. `SettingMixin:ApplyValue` fires the value-changed event whether or not
-    --- the value moved (`Blizzard_Setting.lua`), which is what the row is listening on.
-    _reloadRequired = Proxy(category, "RELOAD_REQUIRED", Settings.VarType.Boolean, RELOADUI, false,
-        DebindPrivate.IsReloadRequired, function() end);
-
     --- Out of the search index, the way the client keeps its own open-something-else buttons out
     --- of it (`AdvancedOptions.lua`).
     local addSearchTags = false;
 
-    --- The three rows that head every one of our lists.
-    ---
-    --- **On each list rather than on the first**, because a list in the left column is a page of
-    --- its own and the reader may never see another: every option that needs a reload is on the
-    --- unit frame list, so a Reload button only on the top one is on the page that does not need
-    --- it. The same goes for the combat notice, which is about the row the reader is looking at.
-    local function WindowHeader(owner)
-        --- **It stands whether there is a fight on or not, and that is what lets it stand at all.**
-        --- A row that comes and goes with combat is the panel adding and dropping a row, which is
-        --- the one thing this file may not ask for (see the top). Unconditional, it is also the
-        --- only wording that is true at every moment: out of a fight nothing waits, so the sentence
-        --- has to say which changes wait rather than that changes wait.
-        Settings.RegisterInitializer(owner, Settings.CreateElementInitializer(
-            "DebindSettingsNoticeTemplate", { name = L["SETTINGS_APPLIED_AFTER_COMBAT"] }));
+    --- **It stands whether there is a fight on or not, and that is what lets it stand at all.**
+    --- A row that comes and goes with combat is the panel adding and dropping a row, which is the
+    --- one thing this file may not ask for (see the top). Unconditional, it is also the only
+    --- wording that is true at every moment: out of a fight nothing waits, so the sentence has to
+    --- say which changes wait rather than that changes wait.
+    Settings.RegisterInitializer(category, Settings.CreateElementInitializer(
+        "DebindSettingsNoticeTemplate", { name = L["SETTINGS_APPLIED_AFTER_COMBAT"] }));
 
-        --- **The window's own toggle, and only in the direction the label promises.** That toggle
-        --- already turns down a fight, the game menu and a profile from a newer build and says
-        --- which it was (`Public.lua`), so there is no second answer to give here -- but it also
-        --- closes a window that is up, and a button that says "open" may not do that. What is left
-        --- for the press to do when the window is already open is bring it in front of this one.
-        Settings.RegisterInitializer(owner, CreateSettingsButtonInitializer("",
-            L["OPEN_ADDON_WINDOW"], function()
-                if (DebindFrame:IsShown()) then
-                    DebindFrame:Raise();
-                    return;
-                end
-                DebindPublic:ToggleUI();
-            end, nil, addSearchTags));
+    --- **The window's own toggle, and only in the direction the label promises.** That toggle
+    --- already turns down the game menu, a pending migration and a profile from a newer build and
+    --- says which it was (`Public.lua`), so there is no second answer to give here -- but it also closes a window
+    --- that is up, and a button that says "open" may not do that. What is left for the press to do
+    --- when the window is already open is bring it in front of this one.
+    -- Settings.RegisterInitializer(category, CreateSettingsButtonInitializer("",
+    --     L["OPEN_ADDON_WINDOW"], function()
+    --         if (DebindFrame:IsShown()) then
+    --             DebindFrame:Raise();
+    --             return;
+    --         end
+    --         DebindPublic:ToggleUI();
+    --     end, nil, addSearchTags));
 
-        --- **The row always stands and only the button greys.** Showing it when a reload is owed
-        --- and hiding it otherwise is `ShouldShow`, which is the panel adding and dropping a row.
-        ---
-        --- **A parent initializer of its own per list.** It is never registered, which is what
-        --- `CreateCheckboxInitializer` is for (`Blizzard_Settings.lua` makes one without laying it
-        --- out), so `IsParentInitializerInLayout` answers false and the button is neither indented
-        --- nor put in the smaller font. Both wrap the one setting, so both buttons move together.
-        ---
-        --- **The predicate does not ask about combat.** `SetButtonState` is `Button:SetEnabled` on
-        --- a `UIPanelButtonTemplate` (`Blizzard_SettingControls.lua`), which no lockdown blocks,
-        --- and `ReloadUI` is the reader's to press whenever they like.
-        local reloadButton = CreateSettingsButtonInitializer("", RELOADUI, ReloadUI, nil,
-            addSearchTags);
-        reloadButton:SetParentInitializer(Settings.CreateCheckboxInitializer(_reloadRequired),
-            DebindPrivate.IsReloadRequired);
-        Settings.RegisterInitializer(owner, reloadButton);
-    end
-
-    WindowHeader(category);
+    --- **Always pressable: no parent initializer and no modify predicate.** A parent makes the
+    --- row's `Init` put a value-changed handle into the frame's `cbrHandles`, and that frame is
+    --- pooled with every other `SettingButtonControlTemplate` row in the panel. The handle is
+    --- written after reading our setting, so its slot is tainted; `Unregister` on release reads it
+    --- and writes `handles` back tainted, and the next row the frame is handed to reads that first
+    --- thing in `Init`. Social's Discord button was `IsUserOAuthed()` blocked on a wheel scroll
+    --- that way (taint log, 2026-09-13).
+    -- Settings.RegisterInitializer(category, CreateSettingsButtonInitializer("", RELOADUI, ReloadUI,
+    --     nil, addSearchTags));
 
     --------------------------------------------------------------------------
     -- Hover Cast
     --------------------------------------------------------------------------
 
-    Header(category, L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"]);
+    Header(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"]);
 
     --- **One row of three, not two boxes.** The wider reach contains the narrower one whole
     --- (`Misc.lua`'s `TwinUnitFor`), so a pair of boxes offered a combination that was
@@ -209,7 +162,7 @@ function DebindPrivate.RegisterOptionsCategory()
         return container:GetData();
     end
 
-    local pointedUnitCast = Proxy(category, "POINTED_UNIT_CAST", Settings.VarType.String,
+    local pointedUnitCast = Proxy("POINTED_UNIT_CAST", Settings.VarType.String,
         L["POINTED_UNIT_CAST_MODE"], "off", GetPointedUnitCast, SetPointedUnitCast);
     Settings.CreateDropdown(category, pointedUnitCast, PointedUnitCastOptions);
 
@@ -217,7 +170,7 @@ function DebindPrivate.RegisterOptionsCategory()
     -- Smart Cast
     --------------------------------------------------------------------------
 
-    Header(category, L["SMART_CAST_DEFAULTS"],
+    Header(L["SMART_CAST_DEFAULTS"],
         L["SMART_CAST_DESC"] .. "|n|n" .. L["SMART_CAST_DEFAULTS_DESC"]);
 
     --- **The table is made only when something has to be written into it.** Coming back to the
@@ -239,35 +192,24 @@ function DebindPrivate.RegisterOptionsCategory()
         DebindPrivate.QueueUpdateBindings();
     end
 
-    -- **The master switch first, then the account setting the four boxes hold.** Off ignores every
-    -- action's option rather than clearing anything, so it is not one of the four.
-    --
-    -- **The box is the negative of the stored value.** An "Enable" box here promised the thing it
-    -- could not do: an action is what puts a key on Smart Cast, so ticking this turned nothing on
-    -- and the tooltip had to open by saying so (2026-09-12, owner). What the reader can actually
-    -- do from here is stop it, and a box that says `Disable` needs no paragraph to explain itself.
-    --- **The battle resurrection row is re-evaluated by hand from here.** A row listens to one
-    --- setting, its parent's (`SettingsListElementMixin:Init`), and that row's parent is the
-    --- resurrection box rather than this one -- so flipping this left it live over a dead feature
-    --- until something else rebuilt the list, even though its predicate had asked about this
-    --- switch all along (2026-09-12, owner). Re-applying the resurrection setting fires its
-    --- value-changed whether or not the value moved (`SettingMixin:ApplyValue`), which is the
-    --- event that row is waiting on.
-    local rezSetting;
+    local BRANCHES = DebindPrivate.SMART_CAST_BRANCHES;
+    local DEFAULTS = DebindPrivate.SMART_CAST_DEFAULTS;
 
-    local enabled = Settings.CreateCheckbox(category,
-        Proxy(category, "SMART_CAST_ENABLED", Settings.VarType.Boolean, L["SMART_CAST_ENABLED"],
-            false,
-            function()
-                return not DebindPrivate.SmartCastEnabled();
-            end,
-            function(value)
-                SetSmartCast("enabled", not value, true);
-                if (rezSetting) then
-                    rezSetting:SetValue(rezSetting:GetValue(), true);
-                end
-            end),
-        L["SMART_CAST_ENABLED_DESC"]);
+    --- A checkbox option's bit is `value - 1` (`Settings.CreateDropdownOptionInserter`), so a
+    --- branch's value is its place in `SMART_CAST_BRANCHES`.
+    local function BranchBit(i)
+        return 2 ^ (i - 1);
+    end
+
+    local function BranchMask(read)
+        local mask = 0;
+        for i = 1, #BRANCHES do
+            if (read(BRANCHES[i])) then
+                mask = mask + BranchBit(i);
+            end
+        end
+        return mask;
+    end
 
     local branchLabels = {
         rez = L["SMART_CAST_REZ"],
@@ -284,55 +226,81 @@ function DebindPrivate.RegisterOptionsCategory()
         buff = L["SMART_CAST_BUFF_DESC"] .. "|n|n" .. L["SMART_CAST_OUT_OF_COMBAT_DESC"],
     };
 
-    local function SmartCastCheckbox(key, label, tooltip)
-        return Settings.CreateCheckbox(category,
-            Proxy(category, "SMART_CAST_" .. strupper(key), Settings.VarType.Boolean, label,
-                DebindPrivate.SMART_CAST_DEFAULTS[key] and true or false,
-                function()
-                    return DebindPrivate.SmartCastDefault(key) and true or false;
-                end,
-                function(value)
-                    SetSmartCast(key, value, DebindPrivate.SMART_CAST_DEFAULTS[key] and true or false);
-                end),
-            tooltip);
+    local function BranchOptions()
+        local container = Settings.CreateControlTextContainer();
+        for i = 1, #BRANCHES do
+            local branch = BRANCHES[i];
+            container:AddCheckbox(i, branchLabels[branch], branchTooltips[branch]);
+        end
+        return container:GetData();
     end
 
-    --- Locked while the switch above is off. They would still write, and the account setting they
-    --- write is still what an action following it gets back the moment Smart Cast returns -- but a
-    --- live box over a dead feature is read as the feature being alive.
+    local branches = Proxy("SMART_CAST_BRANCHES", Settings.VarType.Number, L["SMART_CAST"],
+        BranchMask(function(branch)
+            return DEFAULTS[branch];
+        end),
+        function()
+            return BranchMask(DebindPrivate.SmartCastDefault);
+        end,
+        function(mask)
+            for i = 1, #BRANCHES do
+                local branch = BRANCHES[i];
+                SetSmartCast(branch, floor(mask / BranchBit(i)) % 2 == 1, DEFAULTS[branch]);
+            end
+        end);
+
+    --- **Ticked is on, which the control forces**: it locks the list while the box is clear
+    --- (`SettingsCheckboxDropdownControlMixin:EvaluateState`). Off ignores every action's option
+    --- rather than clearing anything, so it is not one of the branches.
     ---
-    --- **The predicate is what greys them, not the parent on its own.** A parent initializer buys
-    --- the indent and a redraw when its value moves; `SettingsControlMixin:IsEnabled` reads the
-    --- modify predicates and nothing else (`Blizzard_SettingControls.lua`).
-    for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
-        local initializer = SmartCastCheckbox(branch, branchLabels[branch], branchTooltips[branch]);
-        initializer:SetParentInitializer(enabled, DebindPrivate.SmartCastEnabled);
+    --- **The battle resurrection row is woken by hand from here.** Its parent carries
+    --- `SMART_CAST_BRANCHES` and a row listens to its parent's setting alone
+    --- (`SettingsListElementMixin:Init`), yet its predicate asks about this switch too.
+    --- Re-applying the branches fires their value-changed whether or not the value moved
+    --- (`SettingMixin:ApplyValue`).
+    local enabled = Proxy("SMART_CAST_ENABLED", Settings.VarType.Boolean, L["SMART_CAST"], true,
+        DebindPrivate.SmartCastEnabled,
+        function(value)
+            SetSmartCast("enabled", value, true);
+            branches:SetValue(branches:GetValue(), true);
+        end);
 
-        --- **The parent is here for the greying, not to make these sub-rows.** Being somebody's
-        --- child is what indents a row and shrinks its font, both off this one answer
-        --- (`Blizzard_SettingControls.lua`, `GetIndent` and `SettingsListElementMixin:Init`), so
-        --- saying no here is what leaves them level with the box above and in the same type.
-        --- Dropping the `Indent()` call moved neither, since `Indent()` was never what put them in.
-        initializer.IsParentInitializerInLayout = function()
-            return false;
+    local smartCast = CreateSettingsCheckboxDropdownInitializer(enabled, L["SMART_CAST"],
+        L["SMART_CAST_ENABLED_DESC"], branches, BranchOptions, L["SMART_CAST"],
+        L["SMART_CAST_DEFAULTS_DESC"]);
+    smartCast.getSelectionTextFunc = function(selections)
+        if (#selections == #BRANCHES) then
+            return ALL;
+        elseif (#selections == 0) then
+            return NONE;
         end
+    end;
+    Settings.RegisterInitializer(category, smartCast);
 
-        --- **Directly under resurrection and a step further in.** It is not a fifth branch: it
-        --- says what the resurrection branch may reach for where the class has no resurrection out
-        --- of combat, so it belongs to that row. It needs both that row and the switch above to be
-        --- on, which is why the predicate asks for two things and not one.
-        if (branch == "rez") then
-            rezSetting = initializer:GetSetting();
-
-            local withBattleRez = SmartCastCheckbox("rezWithBattleRez",
-                L["SMART_CAST_REZ_WITH_BATTLE_REZ"], L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
-            withBattleRez:SetParentInitializer(initializer, function()
-                return DebindPrivate.SmartCastEnabled() and DebindPrivate.SmartCastDefault("rez")
-                    and true or false;
-            end);
-            withBattleRez:Indent();
-        end
-    end
+    --- **Under the list and a step in.** It is not a fifth branch: it says what the resurrection
+    --- branch may reach for where the class has no resurrection out of combat, so it needs both
+    --- the switch and that branch on.
+    ---
+    --- **Its parent is an initializer that is never laid out.** A row is re-evaluated when its
+    --- parent's setting moves, and the checkbox-dropdown row has no `setting` of its own to be
+    --- that parent. Being out of the layout also keeps this row out of the child font
+    --- (`IsParentInitializerInLayout`); `Indent()` is what steps it in.
+    local withBattleRez = Settings.CreateCheckbox(category,
+        Proxy("SMART_CAST_REZWITHBATTLEREZ", Settings.VarType.Boolean,
+            L["SMART_CAST_REZ_WITH_BATTLE_REZ"], DEFAULTS.rezWithBattleRez,
+            function()
+                return DebindPrivate.SmartCastDefault("rezWithBattleRez") and true or false;
+            end,
+            function(value)
+                SetSmartCast("rezWithBattleRez", value, DEFAULTS.rezWithBattleRez);
+            end),
+        L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"]);
+    withBattleRez:SetParentInitializer(Settings.CreateDropdownInitializer(branches, BranchOptions),
+        function()
+            return DebindPrivate.SmartCastEnabled() and DebindPrivate.SmartCastDefault("rez")
+                and true or false;
+        end);
+    withBattleRez:Indent();
 
     --------------------------------------------------------------------------
     -- Exclude self from role targets
@@ -340,12 +308,12 @@ function DebindPrivate.RegisterOptionsCategory()
 
     --- **The direction is on the header, not on each box.** Every box says the same thing about a
     --- different target, so putting it on each is four copies of one line.
-    Header(category, L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
+    Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
 
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;
     for _, unit in ipairs(DebindPrivate.EXCLUDE_PLAYER_UNITS) do
         Settings.CreateCheckbox(category,
-            Proxy(category, "EXCLUDE_PLAYER_" .. strupper(unit), Settings.VarType.Boolean,
+            Proxy("EXCLUDE_PLAYER_" .. strupper(unit), Settings.VarType.Boolean,
                 UNIT_INFO[unit].name, false,
                 function()
                     local excluded = DebindPrivate.Options.excludePlayer;
@@ -372,10 +340,10 @@ function DebindPrivate.RegisterOptionsCategory()
 
     --- **The client's own word.** One row is not a subject, and whatever else ends up here will be
     --- the same kind of leftover, so the game's own heading for that is the one to use.
-    Header(category, MISCELLANEOUS);
+    Header(MISCELLANEOUS);
 
     local defaultThrottle = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
-    local throttle = Proxy(category, "STATE_DRIVER_UPDATE_THROTTLE", Settings.VarType.Number,
+    local throttle = Proxy("STATE_DRIVER_UPDATE_THROTTLE", Settings.VarType.Number,
         L["STATE_DRIVER_UPDATE_THROTTLE"], defaultThrottle,
         function()
             return DebindPrivate.Options.stateDriverUpdateThrottle or defaultThrottle;
@@ -407,24 +375,11 @@ function DebindPrivate.RegisterOptionsCategory()
     -- Unit Frame Support
     --------------------------------------------------------------------------
 
-    --- **A list of its own in the panel's left column.** What belongs here is every decision about
-    --- somebody else's unit frames, and that had grown past one section header on a page of
-    --- unrelated things.
-    ---
     --- **Named for the subject and not for the blacklist**, even though the blacklist is most of the
-    --- rows. The click edge takes nothing away, and a list called `Frame Blacklist` has no room for
-    --- a row that is not a removal.
-    ---
-    --- **The subcategory needs no `RegisterAddOnCategory` of its own**: it is created on the parent
-    --- (`PrivateSettingsCategoryMixin.CreateSubcategory`) and goes into the panel with it.
-    local unitFrames = Settings.RegisterVerticalLayoutSubcategory(category, L["UNIT_FRAME_SUPPORT"]);
+    --- rows. The click edge takes nothing away, and a group called `Frame Blacklist` has no room
+    --- for a row that is not a removal.
+    Header(L["UNIT_FRAME_SUPPORT"]);
 
-    WindowHeader(unitFrames);
-
-    --- **No header over this row.** It is the only one that is not part of the blacklist, and the
-    --- category's own name in the left column already says what the page is about; a header over a
-    --- single dropdown names a group of one.
-    ---
     --- **A dropdown value cannot be `nil`, and one of the three answers is.** So the three are
     --- folded onto three strings here and unfolded on the way back in. `nil` is not the absence of
     --- an answer: it is "whatever the game does", which `ApplyOptions` resolves off the CVar.
@@ -458,23 +413,23 @@ function DebindPrivate.RegisterOptionsCategory()
         return container:GetData();
     end
 
-    local clickEdge = Proxy(unitFrames, "UNITFRAME_CLICK_EDGE", Settings.VarType.String,
+    local clickEdge = Proxy("UNITFRAME_CLICK_EDGE", Settings.VarType.String,
         L["UNITFRAME_CLICK_EDGE"], "game", GetClickEdge, SetClickEdge);
-    Settings.CreateDropdown(unitFrames, clickEdge, ClickEdgeOptions,
-        format(L["UNITFRAME_CLICK_EDGE_DESC"], ACTION_BUTTON_USE_KEY_DOWN));
+    Settings.CreateDropdown(category, clickEdge, ClickEdgeOptions,
+        L["UNITFRAME_CLICK_EDGE_DESC"]);
 
-    --- **One list, and every box in it takes something away.** Every unit frame in the game is
+    --- **Every box in the group takes something away.** Every unit frame in the game is
     --- ours and the reader's only lever is naming one to leave alone
     --- (`devdocs/legacy/taking-every-unit-frame-with-one-blacklist.md`), so a reader who has
     --- touched nothing sees every box empty and that is what "all of them" looks like.
     ---
     --- **The word carries the polarity, so no sentence has to.** Somebody who has installed a
     --- click-casting addon knows what a blacklist is, and knows a ticked row is one that is out.
-    Header(unitFrames, L["FRAME_BLACKLIST"]);
+    Header(L["FRAME_BLACKLIST"]);
 
     --- **The two groups are label rows and not headers**, because a header under a header stands in
     --- the same weight beside it and shows no level. See `Label` above.
-    Label(unitFrames, L["FRAME_BLACKLIST_BLIZZARD"]);
+    Label(L["FRAME_BLACKLIST_BLIZZARD"]);
 
     --- **Ticking one takes effect at the next login, and the box has to say so.** A frame already
     --- wired stays wired; ticking stops us registering that set from the next login rather than
@@ -485,12 +440,11 @@ function DebindPrivate.RegisterOptionsCategory()
     --- "ours", which is what these two tables have always held; only the box reads the other way
     --- round.
     ---
-    --- **No rebuild is asked for.** Nothing a rebuild does reads the blacklist any more, so what
-    --- the write owes is the Reload button and nothing else.
+    --- **No rebuild is asked for.** Nothing a rebuild does reads the blacklist any more.
     for _, frameType in ipairs({ "player", "pet", "target", "party", "raid", "boss", "arena" }) do
         local key = "BLIZZARD_UNIT_FRAMES_" .. strupper(frameType);
-        Settings.CreateCheckbox(unitFrames,
-            Proxy(unitFrames, key, Settings.VarType.Boolean, L[key], false,
+        Settings.CreateCheckbox(category,
+            Proxy(key, Settings.VarType.Boolean, L[key], false,
                 function()
                     return DebindPrivate.Options.frameBlacklist.blizzard[frameType] == false;
                 end,
@@ -500,12 +454,11 @@ function DebindPrivate.RegisterOptionsCategory()
                     else
                         DebindPrivate.Options.frameBlacklist.blizzard[frameType] = nil;
                     end
-                    DebindPrivate.NotifyReloadRequired();
                 end),
             L["LEAVE_UNIT_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
     end
 
-    Label(unitFrames, L["FRAME_BLACKLIST_ADDONS"]);
+    Label(L["FRAME_BLACKLIST_ADDONS"]);
 
     --- **Only the packs that are installed.** A row for an addon the reader does not have says
     --- nothing they can act on. Left alone is `false` and ours is the key gone, so a pack nobody
@@ -518,8 +471,8 @@ function DebindPrivate.RegisterOptionsCategory()
     local packs = DebindPrivate.InstalledKnownPacks();
     for i = 1, #packs do
         local addon = packs[i][1];
-        Settings.CreateCheckbox(unitFrames,
-            Proxy(unitFrames, "PACK_FRAMES_" .. strupper(addon),
+        Settings.CreateCheckbox(category,
+            Proxy("PACK_FRAMES_" .. strupper(addon),
                 Settings.VarType.Boolean, packs[i][2], false,
                 function()
                     return DebindPrivate.Options.frameBlacklist.addons[addon] == false;
@@ -530,7 +483,6 @@ function DebindPrivate.RegisterOptionsCategory()
                     else
                         DebindPrivate.Options.frameBlacklist.addons[addon] = nil;
                     end
-                    DebindPrivate.NotifyReloadRequired();
                 end),
             L["LEAVE_PACK_FRAMES_ALONE_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
     end
@@ -548,8 +500,8 @@ function DebindPrivate.RegisterOptionsCategory()
     ---
     --- **The row always stands**, so `Addon Frames` above never has an empty group under it and
     --- there is no board with no packs to draw differently.
-    Settings.CreateCheckbox(unitFrames,
-        Proxy(unitFrames, "LEAVE_OTHER_ADDON_FRAMES", Settings.VarType.Boolean,
+    Settings.CreateCheckbox(category,
+        Proxy("LEAVE_OTHER_ADDON_FRAMES", Settings.VarType.Boolean,
             L["LEAVE_OTHER_ADDON_FRAMES"], false,
             function()
                 return DebindPrivate.Options.frameBlacklist.other == false;
@@ -560,7 +512,6 @@ function DebindPrivate.RegisterOptionsCategory()
                 else
                     DebindPrivate.Options.frameBlacklist.other = nil;
                 end
-                DebindPrivate.NotifyReloadRequired();
             end),
         L["LEAVE_OTHER_ADDON_FRAMES_DESC"] .. "|n|n" .. REQUIRES_RELOAD):Indent();
 
@@ -568,28 +519,25 @@ function DebindPrivate.RegisterOptionsCategory()
     -- Help
     --------------------------------------------------------------------------
 
-    --- **A list of its own, because nothing here is a setting.** These rows change nothing; each
+    --- **A group of its own, because nothing here is a setting.** These rows change nothing; each
     --- opens a piece of writing. Put among the checkboxes they would read as options somebody
     --- forgot to give a value.
     ---
     --- **This is the door the reader can find.** What the ordering rules are cannot be taught by
     --- the tooltip that reports one of them: that tooltip is read once and skimmed after, and it
-    --- knows only the pair under the cursor. A page in the panel's left column is somewhere a
-    --- reader arrives on purpose.
-    --- **No `WindowHeader` on this one.** Those three rows are about settings -- which changes wait
-    --- for a fight to end, and a reload owed by one of them -- and this page holds none. The combat
-    --- notice would be false here, and a Reload button on a page that can owe nothing is a button
-    --- that is grey for good.
-    local help = Settings.RegisterVerticalLayoutSubcategory(category, L["HELP_TOPICS"]);
+    --- knows only the pair under the cursor.
+    ---
+    --- **Last on the list**, since the rows above are what a reader came here to change.
+    Header(L["HELP_TOPICS"]);
 
     --- **Out of the search index, like the other buttons that open something.** A search hit that
     --- lands on a button whose only job is to open a window teaches nothing about the search term.
-    Settings.RegisterInitializer(help, CreateSettingsButtonInitializer("",
+    Settings.RegisterInitializer(category, CreateSettingsButtonInitializer("",
         L["HELP_ORDERING"], function()
             DebindPrivate.DebindUI.ShowHelp("ordering");
         end, nil, addSearchTags));
 
-    Settings.RegisterInitializer(help, CreateSettingsButtonInitializer("",
+    Settings.RegisterInitializer(category, CreateSettingsButtonInitializer("",
         L["HELP_TARGETING"], function()
             DebindPrivate.DebindUI.ShowHelp("targeting");
         end, nil, addSearchTags));

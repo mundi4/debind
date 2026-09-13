@@ -61,6 +61,19 @@ return function(DebindPrivate)
         return s;
     end
 
+    --- A branch's bit in `SMART_CAST_BRANCHES`, and whether a mask carries it.
+    local function branchBit(branch)
+        for i, b in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
+            if (b == branch) then
+                return 2 ^ (i - 1);
+            end
+        end
+    end
+
+    local function hasBit(mask, b)
+        return math.floor(mask / b) % 2 == 1;
+    end
+
     --- The row an initializer was made for, found by the setting it carries. The shim keeps them
     --- in the order they were registered, which is the order the reader sees.
     local function rowFor(variable)
@@ -89,8 +102,6 @@ return function(DebindPrivate)
             "BLIZZARD_UNIT_FRAMES_TARGET", "BLIZZARD_UNIT_FRAMES_PARTY",
             "BLIZZARD_UNIT_FRAMES_RAID", "BLIZZARD_UNIT_FRAMES_BOSS",
             "BLIZZARD_UNIT_FRAMES_ARENA",
-            "SMART_CAST_ENABLED",
-            "SMART_CAST_BATTLEREZ", "SMART_CAST_REZ", "SMART_CAST_DISPEL", "SMART_CAST_BUFF",
             "SMART_CAST_REZWITHBATTLEREZ",
             "EXCLUDE_PLAYER_TANK", "EXCLUDE_PLAYER_HEALER",
             "EXCLUDE_PLAYER_MAINTANK", "EXCLUDE_PLAYER_MAINASSIST",
@@ -102,124 +113,23 @@ return function(DebindPrivate)
         end
     end);
 
-    --- The rows of one category, in the order they were registered, as `{ kind, name }`. A header
-    --- and a label carry their words in `data.name` the same way a box does.
-    --- A button's own words are its `buttonText`; `name` is the label to its left and ours are all
-    --- empty, which is what anchors the button at the row's own edge.
-    local function rowsOf(owner)
-        local out = {};
-        for _, row in ipairs(shim.world.settingsRows) do
-            if (row.owner == owner) then
-                local name = row.data.name;
-                if (name == "" and row.data.buttonText) then
-                    name = row.data.buttonText;
-                end
-                out[#out + 1] = { row.kind, name };
-            end
-        end
-        return out;
-    end
-
-    local function unitFrameCategory()
-        return shim.world.settingsSubcategories[1];
-    end
-
-    --- **The unit frame rows are a list of their own in the left column**, and the whole of what is
-    --- on that list is asserted here: one row that is not a removal, then the blacklist under one
-    --- header, in two named groups.
-    ---
-    --- **The client's seven always stand, so `Blizzard Frames` never names an empty group**, and
-    --- `Any Other Addon` is unconditional, so `Addon Frames` does not either - the Grid2 row is the
-    --- only one on this board that depends on what is installed.
-    test("the unit frame rows are their own category, headed and grouped", function()
-        local L = DebindPrivate.L;
-        local subcategory = unitFrameCategory();
-        check(subcategory ~= nil, "no subcategory was made");
-        check(subcategory.name == L["UNIT_FRAME_SUPPORT"], "named " .. tostring(subcategory.name));
-        check(subcategory.parentCategory == shim.world.settingsCategory,
-            "the subcategory did not go under ours");
-
-        local expected = {
-            { "element", L["SETTINGS_APPLIED_AFTER_COMBAT"] },
-            { "button", L["OPEN_ADDON_WINDOW"] },
-            { "button", RELOADUI },
-            { "dropdown", L["UNITFRAME_CLICK_EDGE"] },
-            { "header", L["FRAME_BLACKLIST"] },
-            { "element", L["FRAME_BLACKLIST_BLIZZARD"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_PLAYER"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_PET"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_TARGET"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_PARTY"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_RAID"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_BOSS"] },
-            { "checkbox", L["BLIZZARD_UNIT_FRAMES_ARENA"] },
-            { "element", L["FRAME_BLACKLIST_ADDONS"] },
-            { "checkbox", "Grid2 |cff00ff00Raid Frames|r" },
-            { "checkbox", L["LEAVE_OTHER_ADDON_FRAMES"] },
-        };
-        local rows = rowsOf(subcategory);
-        check(#rows == #expected, "the category holds " .. #rows .. " rows, not " .. #expected);
-        for i = 1, #expected do
-            check(rows[i][1] == expected[i][1] and rows[i][2] == expected[i][2],
-                i .. ": " .. tostring(rows[i][1]) .. " " .. tostring(rows[i][2]));
-        end
-    end);
-
-    --- **The help page holds nothing but doors.** Every row on it opens a piece of writing and none
-    --- of them is a setting, which is why the three rows every other list is headed with are not
-    --- here: the combat notice would be false on a page that changes nothing, and a Reload button
-    --- that can never be owed anything is grey for good.
-    ---
     --- **The press is asserted, not just the label.** A button whose click reaches nothing looks
     --- exactly like one that works, and this is the only layer that can tell them apart -- the
     --- window it opens is a frame and lives past this file.
-    test("the help page is doors and nothing else", function()
+    test("the two help buttons open the writing they name", function()
         local L = DebindPrivate.L;
-        local subcategory = shim.world.settingsSubcategories[2];
-        check(subcategory ~= nil, "no help subcategory was made");
-        check(subcategory.name == L["HELP_TOPICS"], "named " .. tostring(subcategory.name));
-        check(subcategory.parentCategory == shim.world.settingsCategory,
-            "the help page did not go under ours");
-
-        local rows = rowsOf(subcategory);
-        check(#rows == 2, "the help page holds " .. #rows .. " rows, not 2");
-        check(rows[1][1] == "button" and rows[1][2] == L["HELP_ORDERING"],
-            "1: " .. tostring(rows[1][1]) .. " " .. tostring(rows[1][2]));
-        check(rows[2][1] == "button" and rows[2][2] == L["HELP_TARGETING"],
-            "2: " .. tostring(rows[2][1]) .. " " .. tostring(rows[2][2]));
-
         local opened = {};
         local realShowHelp = DebindPrivate.DebindUI.ShowHelp;
         DebindPrivate.DebindUI.ShowHelp = function(topic) opened[#opened + 1] = topic; end;
         for _, row in ipairs(shim.world.settingsRows) do
-            if (row.owner == subcategory and row.data.buttonClick) then
+            if (row.data.buttonClick and (row.data.buttonText == L["HELP_ORDERING"]
+                    or row.data.buttonText == L["HELP_TARGETING"])) then
                 row.data.buttonClick();
             end
         end
         DebindPrivate.DebindUI.ShowHelp = realShowHelp;
         check(table.concat(opened, ",") == "ordering,targeting",
             "the presses asked for " .. table.concat(opened, ","));
-    end);
-
-    --- **No unit frame row is on the top category any more.** Moving the group and leaving one row
-    --- behind is the mistake this asks about, and on screen it reads as a stray box under the
-    --- slider rather than as anything missing.
-    test("no unit frame row was left on the top category", function()
-        for _, row in ipairs(rowsOf(shim.world.settingsCategory)) do
-            local name = row[2];
-            check(name ~= UNITFRAME_LABEL, "the old unit frame header is still on the top list");
-            check(name ~= DebindPrivate.L["FRAME_BLACKLIST"], "the blacklist header is on the top list");
-        end
-        for variable in pairs(shim.world.settings) do
-            local row;
-            for _, r in ipairs(shim.world.settingsRows) do
-                if (r.data.setting and r.data.setting.variable == variable) then row = r; end
-            end
-            if (row and (strfind(variable, "UNIT_FRAMES", 1, true)
-                    or strfind(variable, "PACK_FRAMES", 1, true))) then
-                check(row.owner == unitFrameCategory(), variable .. " is not in the subcategory");
-            end
-        end
     end);
 
     --- **No blacklist box is the parent of another.** Every one of them only takes something away,
@@ -293,36 +203,37 @@ return function(DebindPrivate)
     --- Battle resurrection is the branch that is off by default, so it is the one where "the
     --- default clears the cell" and "false clears the cell" are different rules.
     test("a Smart Cast branch clears the cell at its own default, not at false", function()
-        local s = setting("SMART_CAST_BATTLEREZ");
-        check(s:GetValue() == false, "battle rez is on by default");
+        local s = setting("SMART_CAST_BRANCHES");
+        local base = s:GetValue();
+        local battleRez, rez = branchBit("battleRez"), branchBit("rez");
+        check(not hasBit(base, battleRez), "battle rez is on by default");
+        check(hasBit(base, rez), "resurrection is off by default");
 
-        s:SetValue(true);
+        s:SetValue(base + battleRez);
         check(DebindPrivate.Options.smartCast.battleRez == true, "on did not store true");
 
-        s:SetValue(false);
+        s:SetValue(base);
         check(DebindPrivate.Options.smartCast.battleRez == nil,
             "back off left the default in the profile");
 
-        local rez = setting("SMART_CAST_REZ");
-        check(rez:GetValue() == true, "resurrection is off by default");
-        rez:SetValue(false);
+        s:SetValue(base - rez);
         check(DebindPrivate.Options.smartCast.rez == false,
             "false is the stored value for a branch whose default is true");
-        rez:SetValue(true);
+        s:SetValue(base);
         check(DebindPrivate.Options.smartCast.rez == nil, "back on left the default in the profile");
     end);
 
-    --- **The box is the negative of the stored value.** It says `Disable`, so ticking it is what
-    --- writes `enabled = false`; unticking clears the cell back to absent.
+    --- **Ticked is on, and absent is on.** Clearing the box is what writes `enabled = false`;
+    --- ticking it again clears the cell back to absent.
     test("the master switch stores false and clears back to absent", function()
         local s = setting("SMART_CAST_ENABLED");
-        check(s:GetValue() == false, "unset reads as disabled");
-        s:SetValue(true);
-        check(DebindPrivate.Options.smartCast.enabled == false, "ticking did not store false");
-        check(DebindPrivate.SmartCastEnabled() == false, "the addon still reads it as on");
+        check(s:GetValue() == true, "unset reads as off");
         s:SetValue(false);
+        check(DebindPrivate.Options.smartCast.enabled == false, "clearing did not store false");
+        check(DebindPrivate.SmartCastEnabled() == false, "the addon still reads it as on");
+        s:SetValue(true);
         check(DebindPrivate.Options.smartCast.enabled == nil,
-            "unticking left the default in the profile");
+            "ticking left the default in the profile");
     end);
 
     test("the throttle stores a number and clears at the game's own", function()
@@ -353,29 +264,23 @@ return function(DebindPrivate)
     -- Which rows are greyed, and which are shown
     ---------------------------------------------------------------------------
 
-    test("the four branches and the battle rez box go dead with the master switch", function()
+    test("the battle rez box goes dead with the master switch", function()
         local enabled = setting("SMART_CAST_ENABLED");
-        for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
-            check(rowFor("SMART_CAST_" .. strupper(branch)):IsModifiable(),
-                branch .. " is dead with Smart Cast on");
-        end
-
-        enabled:SetValue(true);
-        for _, branch in ipairs(DebindPrivate.SMART_CAST_BRANCHES) do
-            check(not rowFor("SMART_CAST_" .. strupper(branch)):IsModifiable(),
-                branch .. " is still live with Smart Cast off");
-        end
-        check(not rowFor("SMART_CAST_REZWITHBATTLEREZ"):IsModifiable(),
-            "the battle rez box is still live with Smart Cast off");
+        local row = rowFor("SMART_CAST_REZWITHBATTLEREZ");
+        check(row:IsModifiable(), "dead with Smart Cast on");
         enabled:SetValue(false);
+        check(not row:IsModifiable(), "the battle rez box is still live with Smart Cast off");
+        enabled:SetValue(true);
     end);
 
-    test("the battle rez box follows the resurrection box as well", function()
+    test("the battle rez box follows the resurrection branch as well", function()
         local row = rowFor("SMART_CAST_REZWITHBATTLEREZ");
+        local branches = setting("SMART_CAST_BRANCHES");
+        local base = branches:GetValue();
         check(row:IsModifiable(), "dead while both are on");
-        setting("SMART_CAST_REZ"):SetValue(false);
+        branches:SetValue(base - branchBit("rez"));
         check(not row:IsModifiable(), "still live with resurrection off");
-        setting("SMART_CAST_REZ"):SetValue(true);
+        branches:SetValue(base);
     end);
 
     --- **Nothing in this section is ever greyed, Clique installed or not.** There is no state to
@@ -441,25 +346,18 @@ return function(DebindPrivate)
         end
     end);
 
-    --- **The notice stands first on every list and says the same thing at every moment.** A list in
-    --- the left column is a page of its own and the reader may never open another, so a line about
-    --- what the row in front of them does has to be on that page. A row that came and went with
-    --- combat would be the panel adding and dropping a row, which is the shape the predicate check
-    --- above exists for -- so this asks that it is unconditional as well as that it is there.
-    test("the notice is the first row and reads the same in a fight as out of one", function()
+    --- **The notice says the same thing at every moment.** A row that came and went with combat
+    --- would be the panel adding and dropping a row, which is the shape the predicate check above
+    --- exists for -- so this asks that it is unconditional as well as that it is there.
+    test("the notice reads the same in a fight as out of one", function()
         local notice;
-        local lists = { shim.world.settingsCategory, unitFrameCategory() };
-        for _, owner in ipairs(lists) do
-            local first;
-            for _, row in ipairs(shim.world.settingsRows) do
-                if (row.owner == owner and first == nil) then
-                    first = row;
-                end
+        for _, row in ipairs(shim.world.settingsRows) do
+            if (row.template == "DebindSettingsNoticeTemplate") then
+                check(notice == nil, "the notice row was registered twice");
+                notice = row;
             end
-            check(first ~= nil and first.template == "DebindSettingsNoticeTemplate",
-                tostring(owner and owner.name) .. " does not open with the notice");
-            notice = first;
         end
+        check(notice ~= nil, "no notice row was registered");
         check(notice.shownPredicates == nil, "the notice carries a shown predicate");
 
         local frame = shim.newSettingsNoticeFrame();
@@ -578,140 +476,6 @@ return function(DebindPrivate)
 
         DebindPrivate.UpdateBlizzardFrames = real;
         check(not reached, "a rebuild still registers the Blizzard frames");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- 리로드가 필요해졌는가
-    ---------------------------------------------------------------------------
-
-    --- **비교지 깃발이 아니다.** 켰다 다시 끄면 로그인 때와 같은 값이고, 그 사람에게 리로드를
-    --- 시키는 것은 아무것도 아닌 일로 화면을 날리는 것이다.
-    test("IsReloadRequired follows the value and comes back down", function()
-        check(DebindPrivate.IsReloadRequired() == false, "아무것도 안 건드렸는데 참이다");
-
-        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(true);
-        check(DebindPrivate.IsReloadRequired() == true, "블랙리스트가 움직였는데 거짓이다");
-
-        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(false);
-        check(DebindPrivate.IsReloadRequired() == false,
-            "값을 되돌렸는데도 리로드가 필요하다고 한다");
-    end);
-
-    --- 팩 칸도 같은 목록 하나로 들어온다. 없이는 위 케이스가 블리자드 칸만 재고 있어도 초록이다.
-    test("IsReloadRequired sees the addon side of the blacklist too", function()
-        setting("PACK_FRAMES_GRID2"):SetValue(true);
-        check(DebindPrivate.IsReloadRequired() == true, "팩 칸은 안 세고 있다");
-        setting("PACK_FRAMES_GRID2"):SetValue(false);
-        check(DebindPrivate.IsReloadRequired() == false, "되돌렸는데 참으로 남았다");
-    end);
-
-    --- 리로드 목록에 없는 옵션은 그 자리에서 반영되니 이 물음의 답이 아니다. 옵션 이름이 아니라
-    --- `options` 전체를 재기 시작하면 스마트 캐스트 상자 하나에 리로드 버튼이 켜진다.
-    test("an option that applies at once does not ask for a reload", function()
-        setting("SMART_CAST_ENABLED"):SetValue(false);
-        check(DebindPrivate.IsReloadRequired() == false,
-            "그 자리에서 반영되는 옵션이 리로드를 요구했다");
-        setting("SMART_CAST_ENABLED"):SetValue(true);
-    end);
-
-    ---------------------------------------------------------------------------
-    -- 리로드 버튼
-    ---------------------------------------------------------------------------
-
-    --- **Every list has one**, because every list is a page the reader may be standing on alone,
-    --- and the options that owe a reload are not on the same page as the top one.
-    local function reloadButtons()
-        local out = {};
-        for _, row in ipairs(shim.world.settingsRows) do
-            if (row.kind == "button" and row.data.buttonText == RELOADUI) then
-                out[#out + 1] = row;
-            end
-        end
-        return out;
-    end
-
-    local function reloadButton()
-        return reloadButtons()[1];
-    end
-
-    --- **행은 언제나 서고 버튼만 회색이 된다.** 필요할 때만 세우는 것은 `ShouldShow`고, 그것이
-    --- 패널이 행을 넣었다 뺐다 하는 것이라 이 파일이 못 하는 하나다(`Options.lua` 머리 주석).
-    --- 여기서 재는 것은 그 행이 언제나 있다는 것과, 눌리는지를 술어가 가른다는 것 둘이다.
-    test("the Reload button always stands and is greyed until a reload is owed", function()
-        local rows = reloadButtons();
-        check(#rows == 2, "리로드 버튼이 " .. #rows .. "개다 - 목록마다 하나여야 한다");
-
-        local owners = {};
-        for _, row in ipairs(rows) do
-            check(row.shownPredicates == nil, "리로드 버튼이 shown predicate를 달고 있다");
-            check(row.data.buttonClick == ReloadUI, "누르면 리로드하는 것이 아니다");
-            check(row:IsModifiable() == false, "리로드가 필요 없는데 버튼이 눌린다");
-            check(owners[row.owner] == nil, "한 목록에 리로드 버튼이 둘이다");
-            owners[row.owner] = true;
-        end
-        check(owners[shim.world.settingsCategory], "상위 목록에 리로드 버튼이 없다");
-        check(owners[unitFrameCategory()],
-            "리로드가 필요한 옵션이 있는 목록에 정작 리로드 버튼이 없다");
-
-        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(true);
-        for _, row in ipairs(rows) do
-            check(row:IsModifiable() == true, "리로드가 필요해졌는데 버튼이 회색이다");
-        end
-
-        setting("BLIZZARD_UNIT_FRAMES_PARTY"):SetValue(false);
-        for _, row in ipairs(rows) do
-            check(row:IsModifiable() == false, "값을 되돌렸는데 버튼이 켜진 채로 남았다");
-        end
-    end);
-
-    --- **술어만으로는 다시 안 읽힌다.** `EvaluateState`가 도는 축은 넷뿐이고 상자를 체크하는 것은
-    --- 그중 아무것도 아니라(`Blizzard_SettingControls.lua`), 부모 setting의 값 변경이 우리가 쓸 수
-    --- 있는 유일한 방아쇠다. 그 연결이 끊기면 버튼은 회색인 채로 있다가 스크롤에나 켜지고, 아무
-    --- 에러도 안 난다.
-    test("the Reload button's parent setting is the answer itself", function()
-        local row = reloadButton();
-        local parent = row.parentInitializer;
-        check(parent ~= nil, "부모 이니셜라이저가 없다 - 재평가 방아쇠가 없다는 뜻이다");
-
-        local parentSetting = parent:GetSetting();
-        check(parentSetting ~= nil, "부모에 setting이 없다 - 행이 걸 이벤트가 없다");
-        check(parentSetting:GetValue() == DebindPrivate.IsReloadRequired(),
-            "부모 setting의 값이 술어와 다른 것을 답한다");
-
-        --- **부모는 레이아웃에 안 들어간다.** 들어가면 `IsParentInitializerInLayout`이 참이 되어
-        --- 버튼이 들여쓰기되고 작은 글씨가 된다. 안 그린 행이 목록에 서는 것은 덤이다.
-        for _, other in ipairs(shim.world.settingsRows) do
-            check(other ~= parent, "부모 체크박스가 행으로 등록됐다");
-        end
-    end);
-
-    --- **쓰는 쪽.** 술어는 그 자리에서 계산되니 값을 읽어보는 것으로는 이걸 못 잰다 - 상자 setter가
-    --- 부모를 안 밀어도 `GetValue()`는 맞는 답을 낸다. 재야 하는 것은 **밀었느냐**다. 안 밀면 행이
-    --- 듣는 이벤트가 안 나가고 버튼은 회색인 채로 남으며, 아무 에러도 안 난다.
-    test("every box that needs a reload pushes the parent setting", function()
-        local variable = reloadButton().parentInitializer:GetSetting():GetVariable();
-
-        local function pushedBy(key, value)
-            local pushes = shim.world.settingPushes;
-            for i = #pushes, 1, -1 do pushes[i] = nil; end
-            setting(key):SetValue(value);
-            for i = 1, #pushes do
-                if (pushes[i] == variable) then return true; end
-            end
-            return false;
-        end
-
-        check(pushedBy("BLIZZARD_UNIT_FRAMES_PARTY", true), "블리자드 상자가 부모를 안 밀었다");
-        check(pushedBy("BLIZZARD_UNIT_FRAMES_PARTY", false), "되돌릴 때도 밀어야 한다");
-        check(pushedBy("PACK_FRAMES_GRID2", true), "팩 상자가 부모를 안 밀었다");
-        check(pushedBy("PACK_FRAMES_GRID2", false), "되돌릴 때도 밀어야 한다");
-        check(pushedBy("LEAVE_OTHER_ADDON_FRAMES", true), "그 밖의 애드온 상자가 부모를 안 밀었다");
-        check(pushedBy("LEAVE_OTHER_ADDON_FRAMES", false), "되돌릴 때도 밀어야 한다");
-
-        --- 반대쪽. 없이는 "언제나 민다"로 고쳐놔도 초록이 나온다.
-        check(not pushedBy("SMART_CAST_ENABLED", false),
-            "리로드가 필요 없는 옵션까지 부모를 밀고 있다");
-        setting("SMART_CAST_ENABLED"):SetValue(true);
     end);
 
     return T;

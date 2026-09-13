@@ -2120,7 +2120,6 @@ function DebindPrivate.IsReloadRequired()
     end
     return false;
 end
-
 --- Fills in defaults for `options` / `switches` and **hands those tables to `DebindPrivate`**.
 ---
 --- It is a separate function because what gets handed over is a **reference**. The pre-rename

@@ -1319,15 +1319,10 @@ L["SMART_CAST_GLOBAL"] = "Use the account setting"
 L["SMART_CAST_CUSTOM"] = "Choose here"
 L["SMART_CAST_REZ"] = "Resurrect"
 L["SMART_CAST_REZ_DESC"] = "Out of combat, a dead friend gets your resurrection. Where your specialization has a mass resurrection and the dead friend is in your group, that one goes out instead."
--- **The label stands on its own.** The box sits below a divider rather than under Resurrect (a
--- dropdown has no indentation), so nothing beside it says which branch it belongs to and "Use
--- Battle Resurrection too" read as a sentence with its subject missing. Naming the spell and the
--- moment is what a reader can act on; the condition that makes it do anything is the tooltip's.
---
--- **"Allow", because the box widens a permission rather than adding a branch.** Every other box in
--- the menu turns one of the four on; this one lets the resurrection branch reach for a spell it
--- otherwise would not, and the verb is what carries that difference.
-L["SMART_CAST_REZ_WITH_BATTLE_REZ"] = "Allow Battle Resurrection out of combat"
+-- **"Fallback" is what keeps it from reading as a fifth branch** (2026-09-13, owner). The box sits
+-- below a divider rather than under Resurrect (a dropdown has no indentation), and it only reaches
+-- for the spell where the resurrection branch has nothing else to cast.
+L["SMART_CAST_REZ_WITH_BATTLE_REZ"] = "Battle Resurrection Fallback"
 L["SMART_CAST_REZ_WITH_BATTLE_REZ_DESC"] = "Where your class has no resurrection other than the battle one, a dead friend out of combat gets that instead of nothing. A class with a resurrection of its own is unaffected."
 L["SMART_CAST_BATTLE_REZ"] = "Battle Resurrection"
 L["SMART_CAST_BATTLE_REZ_DESC"] = "In combat, a dead friend gets your battle resurrection. It goes out whether or not a charge is left; the game refuses the cast when it is not."
@@ -1339,23 +1334,22 @@ L["SMART_CAST_BUFF_DESC"] = "Out of combat, a friend missing your class's raid b
 -- game what auras a unit carries, and both go quiet in the same places for the same reason, so the
 -- sentence is written once instead of twice.
 L["SMART_CAST_OUT_OF_COMBAT_DESC"] = "Out of combat only, and not in a keystone dungeon, a raid encounter or a rated match: the game keeps aura data from addons there, so the action itself goes out instead."
--- **Appended to `SMART_CAST_DESC`, never shown alone** (`Options.lua`). Nothing in the label says
--- these boxes are a fallback rather than a setting every action obeys, so this paragraph is the
--- only place that does.
+-- The same limit said once under the whole list (`SettingsTab.lua`), where each entry already says
+-- "out of combat" and the two `%s` name the entries it applies to.
+L["SMART_CAST_AURA_LIMITS_DESC"] = "%1$s and %2$s also stay quiet in a keystone dungeon, a raid encounter or a rated match: the game keeps aura data from addons there, so the action itself goes out instead."
+-- **Appended to `SMART_CAST_DESC`, never shown alone** (`Options.lua`, `SettingsTab.lua`). Nothing
+-- in the labels says these choices are a fallback rather than a setting every action obeys, so this
+-- paragraph is the only place that does.
 --
--- It sits on the section heading and the boxes are the rows under it, so the sentence may point at
--- them and say where they are.
+-- It is shown on a section heading in one place and on the row holding the choices in the other,
+-- so it does not say where they are.
 L["SMART_CAST_DEFAULTS"] = "Smart Cast"
--- **Negative, because stopping it is the only thing this box does.** "Enable Smart Cast" promised
--- the opposite: an action is what puts a key on Smart Cast, so ticking it turned nothing on, and
--- the tooltip had to open with a paragraph undoing the label (2026-09-12, owner).
-L["SMART_CAST_ENABLED"] = "Disable Smart Cast"
--- **The one thing it has to say that clearing the four boxes would not.** Those four reach only an
--- action that follows the account setting; an action that chose its own is untouched by them and is
--- exactly what this box is for. Without that clause the two gestures look interchangeable and the
--- reader picks the one that leaves half their keys casting.
-L["SMART_CAST_ENABLED_DESC"] = "No key uses Smart Cast while this is ticked, including every action that chose its own branches."
-L["SMART_CAST_DEFAULTS_DESC"] = "The boxes below hold the account setting. An action that follows it does this; an action can choose its own instead."
+-- **The one thing it has to say that clearing the four branches would not.** Those four reach only
+-- an action that follows the account setting; an action that chose its own is untouched by them and
+-- is exactly what this box is for. Without that clause the two gestures look interchangeable and
+-- the reader picks the one that leaves half their keys casting.
+L["SMART_CAST_ENABLED_DESC"] = "Unticked, no key uses Smart Cast, including every action that chose its own branches."
+L["SMART_CAST_DEFAULTS_DESC"] = "These choices hold the account setting. An action that follows it does this; an action can choose its own instead."
 -- The addon's own name, since the client has none for it: the game has no notion of a unit frame an
 -- addon happens to know about. A header that spelled the feature out instead of naming it was the
 -- worse of the two (2026-09-12, owner), so the row below repeats the name rather than dropping it.
@@ -1433,20 +1427,16 @@ L["UNIT_TANK"] = "Tank"
 L["UNIT_TARGET"] = "Target"
 -- **`nil` is one of the three and not a missing answer.** The game only asks this question of
 -- keybinds (`ACTION_BUTTON_USE_KEY_DOWN`), so the entry names the game rather than the key
--- setting: a reader who has never opened that setting still knows what "the game" means, and one
--- who has will find the wording again in the tooltip.
--- **The label and the value are one sentence, so the value has to be able to finish it.** The label
--- was a sentence opening and the three values were nouns, so nothing joined up: "Clicking a Unit
--- Frame Casts On / Mouse down". Read as a dropdown reads - label, then the chosen value - this one
--- closes.
-L["UNITFRAME_CLICK_EDGE"] = "Cast When the Mouse Button Is"
--- `%s` is the game's own wording for its keybind setting, put in where it is shown.
-L["UNITFRAME_CLICK_EDGE_DESC"] = "Blizzard's own unit frames cast when the mouse button comes back up.|n|nThe game's own setting is |cnHIGHLIGHT_FONT_COLOR:%s|r, which is the setting your keys already follow."
+-- setting, and the settings tab shows in brackets which of the other two that setting comes to.
+-- **A noun, like every other row label in the settings list** (2026-09-13, owner). The row sits under
+-- the unit frame section, so "click" needs no subject.
+L["UNITFRAME_CLICK_EDGE"] = "Click Timing"
+L["UNITFRAME_CLICK_EDGE_DESC"] = "When a click on a unit frame casts: as the mouse button goes down, or as it comes back up."
 L["UNITFRAME_CLICK_EDGE_DOWN"] = "Pressed"
 -- Title Case like every other entry in a dropdown the client draws
 -- (`SELF_CAST_AUTO_AND_KEY_PRESS`, `INTERACT_ICONS_DEFAULT`), which the one-word entries around it
 -- could not show on their own.
-L["UNITFRAME_CLICK_EDGE_GAME"] = "Same as the Game's Setting"
+L["UNITFRAME_CLICK_EDGE_GAME"] = "Game Setting"
 L["UNITFRAME_CLICK_EDGE_UP"] = "Released"
 L["UNNAMED_ACTION"] = "(Unnamed)"
 -- Printed once a session, when another addon keeps taking a unit frame back the moment Debind

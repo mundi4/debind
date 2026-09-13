@@ -40,10 +40,8 @@ M.world = {
     settings = {},
     settingsRows = {},
     --- The lists in the panel's left column under ours, in the order they were made.
-    settingsSubcategories = {},
     --- Every `SetValue` that reached a setting, by variable name and in order, whether or not the
     --- value moved. What the client fires from there is what wakes a row watching a parent setting.
-    settingPushes = {},
 };
 
 --- Puts the world back to empty and reinstalls every stand-in over it.
@@ -1012,6 +1010,17 @@ function M.install()
         return newInitializer("button",
             { name = name, buttonText = buttonText, buttonClick = buttonClick, tooltip = tooltip });
     end
+    --- **No `setting` in its data**, the same as the client's: the two settings sit under their own
+    --- names, so a row found by `data.setting` never finds this one.
+    _G.CreateSettingsCheckboxDropdownInitializer = function(cbSetting, cbLabel, cbTooltip,
+            dropdownSetting, dropdownOptions, dropDownLabel, dropDownTooltip)
+        return newInitializer("checkboxdropdown", {
+            name = cbLabel, tooltip = cbTooltip, cbSetting = cbSetting, cbLabel = cbLabel,
+            cbTooltip = cbTooltip, dropdownSetting = dropdownSetting,
+            dropdownOptions = dropdownOptions, dropDownLabel = dropDownLabel,
+            dropDownTooltip = dropDownTooltip,
+        });
+    end
 
     --- 메뉴 설명자를 만드는 것 중 **커널이 스스로 부르는 하나**(`MenuKit.QueueTitle`). 다른
     --- 행은 모두 부모 설명자가 만들어 주므로 스펙이 자기 대역을 넘긴다.
@@ -1046,35 +1055,10 @@ function M.install()
         return category;
     end
 
-    --- **The second list in the panel's left column**, and the client returns the layout beside it
-    --- (`Blizzard_SettingsInbound.lua`). A subcategory takes no `RegisterAddOnCategory` of its own.
-    function Settings.RegisterVerticalLayoutSubcategory(parentCategory, name)
-        assert(parentCategory ~= nil and type(name) == "string");
-        local subcategory = { name = name, id = name, parentCategory = parentCategory };
-        function subcategory:GetID() return self.id; end
-        M.world.settingsSubcategories[#M.world.settingsSubcategories + 1] = subcategory;
-        return subcategory, {};
-    end
-
-    --- **An initializer without a row**, which is the whole point of it: the Reload button hangs off
-    --- one as a parent, and it is never registered into a layout.
-    function Settings.CreateCheckboxInitializer(setting, options, tooltip)
-        assert(setting:GetVariableType() == "boolean");
-        local initializer = newInitializer("checkbox",
-            { setting = setting, options = options, tooltip = tooltip });
-        --- The row it would have made was counted the moment it was built, and it is not a row.
-        --- Left in, every spec that walks the list finds one nothing draws.
-        M.world.settingsRows[#M.world.settingsRows] = nil;
-        initializer.inLayout = false;
-        return initializer;
-    end
-
     function Settings.RegisterAddOnCategory(category)
         category.registered = true;
     end
 
-    --- **Which list the row went into is kept**, because there are two of them now and a row landing
-    --- on the wrong one is exactly what a spec has to be able to see.
     function Settings.RegisterInitializer(owner, initializer)
         initializer.owner = owner;
         return initializer;
@@ -1095,13 +1079,7 @@ function M.install()
         function setting:GetName() return self.name; end
         function setting:GetDefaultValue() return self.defaultValue; end
         function setting:GetValue() return getValue(); end
-        --- **The write and the event are two things, and only the write is conditional.**
-        --- `SettingMixin:ApplyValue` calls `SetValueDerived` only where the value moved but fires
-        --- `TriggerValueChanged` either way (`Blizzard_Setting.lua`), and that unconditional event
-        --- is what a row listening on a parent setting is woken by. A stand-in that skipped it
-        --- would have the Reload button's whole trigger path passing on nothing.
         function setting:SetValue(value)
-            M.world.settingPushes[#M.world.settingPushes + 1] = self.variable;
             if (getValue() == value) then
                 return;
             end
@@ -1123,8 +1101,21 @@ function M.install()
         function container:Add(value, label, tooltip)
             self.data[#self.data + 1] = { value = value, label = label, text = label, tooltip = tooltip };
         end
+        function container:AddCheckbox(value, label, tooltip)
+            self.data[#self.data + 1] = { value = value, label = label, text = label, tooltip = tooltip };
+        end
         function container:GetData() return self.data; end
         return container;
+    end
+
+    --- **Not a row.** The client's is laid out only when a category is handed it, and a parent that
+    --- is never handed one is what it is used for here.
+    function Settings.CreateDropdownInitializer(setting, options, tooltip)
+        assert(options ~= nil);
+        local initializer = newInitializer("dropdown",
+            { setting = setting, name = setting:GetName(), options = options, tooltip = tooltip });
+        M.world.settingsRows[#M.world.settingsRows] = nil;
+        return initializer;
     end
 
     function Settings.CreateSliderOptions(minValue, maxValue, rate)
@@ -1171,14 +1162,9 @@ function M.install()
     _G.ACTION_BUTTON_USE_KEY_DOWN = "Use Key Down";
     -- The client's own words for "this takes effect at the next login", on the unit frame boxes.
     _G.REQUIRES_RELOAD = "Requires UI reload";
-    -- The client's own name for the thing, taken straight as the first unit frame section header
-    -- rather than given a key of ours (`Options.lua`).
-    _G.UNITFRAME_LABEL = "Unit Frames";
     -- The client's own words for the Reload button and for the leftovers header.
     _G.RELOADUI = "Reload UI";
     _G.MISCELLANEOUS = "Miscellaneous";
-    --- **A stand-in and not an absence**, because the Reload button is handed this at registration.
-    --- Left nil, the row would carry nothing and a spec asserting it reloads would pass on air.
     _G.ReloadUI = function() M.world.reloadedUI = true; end;
 end
 
